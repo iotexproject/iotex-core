@@ -1,0 +1,104 @@
+// Copyright (c) 2018 IoTeX
+// This is an alpha (internal) release and is not suitable for production. This source code is provided ‘as is’ and no
+// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
+// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
+// License 2.0 that can be found in the LICENSE file.
+
+// To compile the proto, run:
+//      protoc --go_out=plugins=grpc:. *.proto
+syntax = "proto3";
+package iproto;
+
+message TxInputPb {
+    bytes txHash = 1;   // ref a prev output transaction
+	int32 outIndex = 2;   // index of an output in the transaction
+	uint32 unlockScriptSize = 3;
+    bytes unlockScript = 4;
+    uint32 sequence = 5;
+}
+
+// TxOutput stores “coins”. It is indivisible, which means that you cannot reference a part of its value.
+// When an output is referenced in a new transaction, it’s spent as a whole. And if its value is greater than required,
+// a change is generated and sent back to the sender.
+message TxOutputPb {
+    uint64 value = 1;
+    uint32 lockScriptSize = 2;
+    bytes lockScript = 3;
+}
+
+message TxPb {
+    uint32 version = 1;
+    uint32 numTxIn = 2;
+    repeated TxInputPb txIn = 3;
+    uint32 numTxOut = 4;
+    repeated TxOutputPb txOut = 5;
+    uint32 lockTime = 6;
+}
+
+// header of a block
+message BlockHeaderPb {
+    uint32 version = 1;
+    uint32 chainID = 2;
+    uint32 height = 3;
+    uint64 timestamp = 4;
+    bytes prevBlockHash = 5;
+    bytes merkleRoot = 6;
+    uint32 trnxNumber = 7;
+    uint32 trnxDataSize = 8;
+}
+
+// block consists of header followed by transactions
+// hash of current block can be computed from header hence not stored
+message BlockPb {
+    BlockHeaderPb Header = 1;
+    repeated TxPb Transactions = 2;
+}
+
+// index of block raw data file
+message BlockIndex {
+    uint32 start = 1;
+    uint32 end = 2;
+    repeated uint32 offset = 3;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// BELOW ARE DEFINITIONS FOR ON-WIRE MESSAGES!
+////////////////////////////////////////////////////////////////////////////////////////////////////
+message PingMsg {
+    uint64 nonce = 1;
+}
+
+message PongMsg {
+    uint64 ack_nonce = 1;
+}
+
+message BlockSync {
+    uint32 start = 2;
+    uint32 end = 3;
+}
+
+// block container
+// used to send old/existing blocks in block sync
+message BlockContainer {
+    BlockPb block = 1;
+}
+
+message ViewChangeMsg {
+    enum ViewChangeType {
+        INVALID_VIEW_CHANGE_TYPE = 0;
+        PROPOSE = 1;
+        PREVOTE = 2;
+        VOTE = 3;
+    }
+    ViewChangeType vctype = 1;
+    BlockPb block  = 2;
+    bytes blockHash = 3;
+    string senderAddr = 4;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// BELOW ARE DEFINITIONS FOR TEST-ONLY MESSAGES!
+////////////////////////////////////////////////////////////////////////////////////////////////////
+message TestPayload {
+    bytes msg_body = 1;
+}

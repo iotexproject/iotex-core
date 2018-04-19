@@ -1,0 +1,54 @@
+# go-yaml expects the YAML field corresponding to a struct field to be lowercase. So if your struct field is
+# UpdateInterval, the corresponding field in YAML is updateinterval.
+
+
+nodetype: "full_node"            # should be one of "delegate", "full_node", and "lightweight"
+
+network:
+    addr: "127.0.0.1:10000"
+    msglogscleaninginterval: 2s
+    msglogretention: 10s
+    healthcheckinterval: 1s
+    silentinterval: 5s
+    peermaintainerinterval: 1s
+    allowmulticonnsperip: false
+    numpeerslowerbound: 5
+    numpeersupperbound: 5
+    pinginterval: 1s
+    ratelimitenabled: false
+    ratelimitpersec: 5
+    ratelimitwindowsize: 60s
+    bootstrapnodes: []
+    tlsenabled: false
+    cacrtpath: ""
+    peercrtpath: ""
+    peerkeypath: ""
+    maxmsgsize: 10485760
+    peerdiscovery: true
+
+chain:
+    chaindbpath: "./chain.db"
+    totalsupply: 10000000000
+    blockreward: 5
+    mineraddr: "io1qyqsyqcy6nm58gjd2wr035wz5eyd5uq47zyqpng3gxe7nh"
+
+consensus:
+    scheme: "NOOP"
+    rdpos:
+        proposerrotation:
+            enabled: true
+            interval: 3s
+        unmatchedeventttl: 3s
+        acceptpropose:
+            ttl: 1s
+        acceptprevote:
+            ttl: 1s
+        acceptvote:
+            ttl: 1s
+    blockcreationinterval: 1s
+
+delegate:
+    addrs: []
+
+rpc:
+    port: ":42124"
