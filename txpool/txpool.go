@@ -66,47 +66,6 @@ func NewTxSourcePointer(in *blockchain.TxInput) TxSourcePointer {
 	}
 }
 
-type txDescPriorityQueue []*TxDesc
-
-func (pq txDescPriorityQueue) Len() int {
-	return len(pq)
-}
-
-func (pq txDescPriorityQueue) Less(i, j int) bool {
-	return pq[i].Priority > pq[j].Priority
-}
-
-func (pq txDescPriorityQueue) Swap(i, j int) {
-	pq[i], pq[j] = pq[j], pq[i]
-	pq[i].idx = i
-	pq[j].idx = j
-}
-
-func (pq *txDescPriorityQueue) Push(x interface{}) {
-	n := len(*pq)
-	txDesc := x.(*TxDesc)
-	txDesc.idx = n
-	*pq = append(*pq, txDesc)
-}
-
-func (pq *txDescPriorityQueue) Pop() interface{} {
-	n := len(*pq)
-	old := *pq
-	txDesc := old[n-1]
-	txDesc.idx = -1
-	*pq = old[0 : n-1]
-	return txDesc
-}
-
-func (pq *txDescPriorityQueue) Delete(i int) interface{} {
-	n := len(*pq)
-	pq.Swap(i, n-1)
-	txDesc := pq.Pop()
-	heap.Fix(pq, i)
-
-	return txDesc
-}
-
 // TxPool is a pool of received txs
 type TxPool interface {
 	// RemoveOrphanTx remove an orphan transaction, but not its descendants
@@ -388,8 +347,8 @@ func (tp *txPool) removeTx(tx *blockchain.Tx, removeDescendants bool) {
 		delete(tp.txSourcePointers, NewTxSourcePointer(txIn))
 	}
 
-	// TODO: soft delete desc from txDescPriorityQueue
-	//tp.txDescPriorityQueue.Delete(desc.idx)
+	// Use the heap built-in Remove() to remove TxDesc pointer from txDescPriorityQueue
+	heap.Remove(&tp.txDescPriorityQueue, desc.idx)
 	delete(tp.txDescs, hash)
 	tp.setLastUpdateUnixTime()
 }
