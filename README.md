@@ -1,5 +1,5 @@
 [![Go version](https://img.shields.io/badge/go-1.9.2-blue.svg)](https://github.com/moovweb/gvm)
-[![CircleCI](https://circleci.com/gh/iotexproject/iotex-core/tree/master.svg?style=svg&circle-token=905df94e89f57084aee6a0a2a57d14c44e37bccb)](https://circleci.com/gh/iotexproject/iotex-core/tree/master)
+[![CircleCI](https://circleci.com/gh/iotexproject/iotex-core.svg?style=svg&circle-token=fe0817d127f251a34b8bdd3336a808c7537e5ec0)](https://circleci.com/gh/iotexproject/iotex-core)
 
 # iotex-core
 Welcome to the official Go implementation of IoTeX protocol! IoTeX is building the next generation of the decentralized 
