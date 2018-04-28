@@ -22,13 +22,16 @@ import (
 	cm "github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/fsm"
-	cp "github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_delegate"
 	. "github.com/iotexproject/iotex-core/test/mock/mock_rdpos"
-	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/txpool"
+)
+
+const (
+	// GenesisPath is the genesis path
+	GenesisPath = "../../../genesis.yaml"
 )
 
 type mocks struct {
@@ -119,8 +122,9 @@ func testByzantineFault(t *testing.T, proposerNode int) {
 	defer ctrl.Finish()
 
 	// arrange proposal request
-	cbtx := NewCoinbaseTx(ta.Addrinfo["miner"].Address, 888, GenesisCoinbaseData)
-	genesis := NewBlock(0, 0, cp.ZeroHash32B, []*Tx{cbtx})
+	gen, err := LoadGenesisWithPath(GenesisPath)
+	assert.Nil(t, err)
+	genesis := NewGenesisBlock(gen)
 	blkHash := genesis.HashBlock()
 
 	// arrange 4 consensus nodes
@@ -242,8 +246,9 @@ func TestRDPoSFourTrustyNodes(t *testing.T) {
 	defer ctrl.Finish()
 
 	// arrange proposal request
-	cbtx := NewCoinbaseTx(ta.Addrinfo["miner"].Address, 888, GenesisCoinbaseData)
-	genesis := NewBlock(0, 0, cp.ZeroHash32B, []*Tx{cbtx})
+	gen, err := LoadGenesisWithPath(GenesisPath)
+	assert.Nil(t, err)
+	genesis := NewGenesisBlock(gen)
 
 	// arrange 4 consensus nodes
 	tcss := make(map[net.Addr]testCs)
@@ -327,8 +332,9 @@ func TestRDPoSConsumePROPOSE(t *testing.T) {
 	defer cs.Stop()
 
 	// arrange proposal request
-	cbtx := NewCoinbaseTx(ta.Addrinfo["miner"].Address, 888, GenesisCoinbaseData)
-	genesis := NewBlock(0, 0, cp.ZeroHash32B, []*Tx{cbtx})
+	gen, err := LoadGenesisWithPath(GenesisPath)
+	assert.Nil(t, err)
+	genesis := NewGenesisBlock(gen)
 	proposal := &iproto.ViewChangeMsg{
 		Vctype:     iproto.ViewChangeMsg_PROPOSE,
 		Block:      genesis.ConvertToBlockPb(),
