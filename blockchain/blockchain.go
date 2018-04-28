@@ -9,6 +9,7 @@ package blockchain
 import (
 	"math"
 	"os"
+	"sort"
 
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
@@ -29,7 +30,7 @@ const (
 )
 
 var (
-	// ErrInvalidBlock is the error returned when the block is not vliad
+	// ErrInvalidBlock is the error returned when the block is not valid
 	ErrInvalidBlock = errors.New("failed to validate the block")
 )
 
@@ -186,7 +187,12 @@ func (bc *Blockchain) ValidateBlock(blk *Block) error {
 // Note: the coinbase transaction will be added to the given transactions
 // when minting a new block.
 func (bc *Blockchain) MintNewBlock(txs []*Tx, toaddr, data string) *Block {
-	txs = append(txs, NewCoinbaseTx(toaddr, bc.config.Chain.BlockReward, data))
+	cbTx := NewCoinbaseTx(toaddr, bc.config.Chain.BlockReward, data)
+	if cbTx == nil {
+		glog.Error("Cannot create coinbase transaction")
+		return nil
+	}
+	txs = append(txs, cbTx)
 	return NewBlock(bc.chainID, bc.height+1, bc.tip, txs)
 }
 
@@ -260,22 +266,26 @@ func CreateBlockchain(address string, cfg *config.Config) *Blockchain {
 		glog.Error("cannot find db")
 		return nil
 	}
-	chain := NewBlockchain(db, cfg)
 
+	chain := NewBlockchain(db, cfg)
 	if dbFileExist {
 		glog.Info("Blockchain already exists.")
 
 		if err := chain.Init(); err != nil {
-			glog.Fatalf("Failed to create Blockchain, error = %v", err)
+			glog.Errorf("Failed to create Blockchain, error = %v", err)
 			return nil
 		}
 		return chain
 	}
 
 	// create genesis block
-	cbtx := NewCoinbaseTx(address, cfg.Chain.TotalSupply, GenesisCoinbaseData)
-	genesis := NewBlock(chain.chainID, 0, cp.ZeroHash32B, []*Tx{cbtx})
-	genesis.Header.timestamp = 0
+	gen, err := LoadGenesisWithPath(DefaultGenesisPath)
+	if err != nil {
+		return nil
+	}
+	// Temporarily let genesis TotalSupply point to cfg.Chain.TotalSupply
+	gen.TotalSupply = cfg.Chain.TotalSupply
+	genesis := NewGenesisBlock(gen)
 
 	// Genesis block has height 0
 	if genesis.Header.height != 0 {
@@ -332,6 +342,13 @@ func (bc *Blockchain) createTx(from iotxaddress.Address, amount uint64, to []*Pa
 		out = append(out, bc.Utk.CreateTxOutputUtxo(from.Address, change))
 	}
 
+	// Sort TxInput in lexicographical order based on TxHash + OutIndex
+	sort.Sort(txInSorter(in))
+
+	// Sort TxOutput in lexicographical order based on Value + LockScript and reset OutIndex
+	sort.Sort(txOutSorter(out))
+	resetOutIndex(out)
+
 	return NewTx(1, in, out, 0)
 }
 
@@ -343,4 +360,10 @@ func (bc *Blockchain) CreateTransaction(from iotxaddress.Address, amount uint64,
 // CreateRawTransaction creates a unsigned transaction paying 'amount' from 'from' to 'to'
 func (bc *Blockchain) CreateRawTransaction(from iotxaddress.Address, amount uint64, to []*Payee) *Tx {
 	return bc.createTx(from, amount, to, true)
+}
+
+func resetOutIndex(out []*TxOutput) {
+	for i := 0; i < len(out); i++ {
+		out[i].outIndex = int32(i)
+	}
 }

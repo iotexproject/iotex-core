@@ -33,11 +33,11 @@ const (
 
 	// VersionSizeInBytes defines the size of version in byte units
 	VersionSizeInBytes = 4
-	//NumTxInSizeInBytes defines the size of number of transaction inputs in byte units
+	// NumTxInSizeInBytes defines the size of number of transaction inputs in byte units
 	NumTxInSizeInBytes = 4
-	//NumTxOutSizeInBytes defines the size of number of transaction outputs in byte units
+	// NumTxOutSizeInBytes defines the size of number of transaction outputs in byte units
 	NumTxOutSizeInBytes = 4
-	//LockTimeSizeInBytes defines the size of lock time in byte units
+	// LockTimeSizeInBytes defines the size of lock time in byte units
 	LockTimeSizeInBytes = 4
 )
 

@@ -1,0 +1,26 @@
+# This file contains all the data that will be needed to generate the genesis block
+
+alloc:
+    - addr: "Whatever Address 1"
+      balance: 1000000
+    - addr: "Whatever Address 2"
+      balance: 1000000
+    - addr: "Whatever Address 3"
+      balance: 1000000
+    - addr: "Whatever Address 4"
+      balance: 1000000
+
+genconfig:
+    chainid: 1
+
+totalsupply: 10000000000
+
+coinbase: 0
+
+timestamp: 1524676419
+
+parenthash: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+
+genesiscoinbasedata: "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks"
+
+

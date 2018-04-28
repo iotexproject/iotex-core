@@ -8,7 +8,6 @@ package blockdb
 
 import (
 	"io/ioutil"
-	"os"
 
 	"github.com/boltdb/bolt"
 	"github.com/golang/glog"
@@ -16,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 
 	cm "github.com/iotexproject/iotex-core/common"
+	"github.com/iotexproject/iotex-core/common/utils"
 	"github.com/iotexproject/iotex-core/config"
 	cp "github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/proto"
@@ -52,7 +52,7 @@ type BlockDB struct {
 
 // NewBlockDB returns a new BlockDB instance
 func NewBlockDB(cfg *config.Config) (*BlockDB, bool) {
-	exist := fileExists(cfg.Chain.ChainDBPath)
+	exist := utils.FileExists(cfg.Chain.ChainDBPath)
 
 	// create/open database file
 	db, err := bolt.Open(cfg.Chain.ChainDBPath, 0600, nil)
@@ -237,12 +237,4 @@ func (db *BlockDB) StoreBlockToFile(start, end uint32) error {
 	file := append(size, index...)
 	file = append(file, data...)
 	return ioutil.WriteFile(BlockData, file, 0600)
-}
-
-// fileExists checks if a file already exists
-func fileExists(path string) bool {
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return false
-	}
-	return true
 }

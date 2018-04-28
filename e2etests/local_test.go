@@ -14,25 +14,24 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/blocksync"
 	cm "github.com/iotexproject/iotex-core/common"
 	cfg "github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/delegate"
-	"github.com/iotexproject/iotex-core/dispatcher"
 	"github.com/iotexproject/iotex-core/network"
 	"github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/server/itx"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
-	"github.com/iotexproject/iotex-core/txpool"
 )
 
 const (
 	localTestConfigPath = "../config.yaml"
 	testDBPath          = "db.test"
+	testDB2Path         = "db2.test"
 )
 
 func TestLocalCommit(t *testing.T) {
-	defer os.Remove(testDBPath)
 	assert := assert.New(t)
+	os.Remove(testDBPath)
+	defer os.Remove(testDBPath)
 
 	config, err := cfg.LoadConfigWithPathWithoutValidation(localTestConfigPath)
 	assert.Nil(err)
@@ -43,47 +42,29 @@ func TestLocalCommit(t *testing.T) {
 	config.Chain.BlockReward = 0
 	config.Delegate.Addrs = []string{"127.0.0.1:10000"}
 
-	// create Blockchain
-	bc := blockchain.CreateBlockchain(ta.Addrinfo["miner"].Address, config)
+	// create node
+	svr := itx.NewServer(*config)
+	svr.Init()
+	svr.Start()
+	defer svr.Stop()
+
+	bc := svr.Bc()
 	assert.NotNil(bc)
-	t.Log("Create blockchain pass")
-	defer bc.Close()
-
 	assert.Nil(addTestingBlocks(bc))
+	t.Log("Create blockchain pass")
 
-	// create TxPool
-	tp := txpool.New(bc)
+	tp := svr.Tp()
 	assert.NotNil(tp)
+
+	p2 := svr.P2p()
+	assert.NotNil(p2)
 
 	p1 := network.NewOverlay(&config.Network)
 	assert.NotNil(p1)
-	p1.Init()
 	p1.PRC.Addr = "127.0.0.1:10001"
+	p1.Init()
 	p1.Start()
 	defer p1.Stop()
-
-	p2 := network.NewOverlay(&config.Network)
-	assert.NotNil(p2)
-	p2.Init()
-	p2.Start()
-	defer p2.Stop()
-
-	pool := delegate.NewConfigBasedPool(&config.Delegate)
-	pool.Init()
-	pool.Start()
-	defer pool.Stop()
-
-	// create block sync
-	bs := blocksync.NewBlockSyncer(config, bc, tp, p2, pool)
-	assert.NotNil(bs)
-
-	// create dispatcher
-	dp := dispatcher.NewDispatcher(config, bc, tp, bs, pool)
-	assert.NotNil(dp)
-	p1.AttachDispatcher(dp)
-	p2.AttachDispatcher(dp)
-	dp.Start()
-	defer dp.Stop()
 
 	time.Sleep(time.Second)
 
@@ -207,61 +188,77 @@ func TestLocalCommit(t *testing.T) {
 }
 
 func TestLocalSync(t *testing.T) {
-	defer os.Remove(testDBPath)
 	assert := assert.New(t)
+	os.Remove(testDBPath)
+	defer os.Remove(testDBPath)
+	os.Remove(testDB2Path)
+	defer os.Remove(testDB2Path)
 
 	config, err := cfg.LoadConfigWithPathWithoutValidation(localTestConfigPath)
-	config.Delegate.Addrs = []string{"127.0.0.1:10000"}
 	assert.Nil(err)
+	config.NodeType = cfg.DelegateType
+	config.Delegate.Addrs = []string{"127.0.0.1:10000"}
 	config.Chain.ChainDBPath = testDBPath
 	config.Consensus.Scheme = "NOOP"
 
-	// create Blockchain
-	bc := blockchain.CreateBlockchain(ta.Addrinfo["miner"].Address, config)
+	// create node 1
+	svr := itx.NewServer(*config)
+	svr.Init()
+	svr.Start()
+	defer svr.Stop()
+
+	bc := svr.Bc()
 	assert.NotNil(bc)
-	t.Log("Create blockchain pass")
-	defer bc.Close()
 	assert.Nil(addTestingBlocks(bc))
+	t.Log("Create blockchain pass")
 
-	// create TxPool
-	tp := txpool.New(bc)
-	assert.NotNil(tp)
+	blk, err := bc.GetBlockByHeight(1)
+	assert.Nil(err)
+	hash1 := blk.HashBlock()
+	blk, err = bc.GetBlockByHeight(2)
+	assert.Nil(err)
+	hash2 := blk.HashBlock()
+	blk, err = bc.GetBlockByHeight(3)
+	assert.Nil(err)
+	hash3 := blk.HashBlock()
+	blk, err = bc.GetBlockByHeight(4)
+	assert.Nil(err)
+	hash4 := blk.HashBlock()
 
-	// create 2 peers
-	p1 := network.NewOverlay(&config.Network)
-	assert.NotNil(p1)
-	p1.Init()
-	p1.PRC.Addr = "127.0.0.1:10001"
-	p1.Start()
-	defer p1.Stop()
-
-	config.NodeType = cfg.DelegateType
-	p2 := network.NewOverlay(&config.Network)
+	p2 := svr.P2p()
 	assert.NotNil(p2)
-	p2.Init()
-	p2.Start()
-	defer p2.Stop()
 
-	pool := delegate.NewConfigBasedPool(&config.Delegate)
-	pool.Init()
-	pool.Start()
-	defer pool.Stop()
+	// create node 2
+	config.NodeType = cfg.FullNodeType
+	config.Network.Addr = "127.0.0.1:10001"
+	config.Chain.ChainDBPath = testDB2Path
+	cli := itx.NewServer(*config)
+	cli.Init()
+	cli.Start()
+	defer cli.Stop()
 
-	// create block sync
-	bs := blocksync.NewBlockSyncer(config, bc, tp, p2, pool)
-	assert.NotNil(bs)
+	bc1 := cli.Bc()
+	assert.NotNil(bc1)
 
-	// create dispatcher
-	dp := dispatcher.NewDispatcher(config, bc, nil, bs, pool)
-	assert.NotNil(dp)
-	p2.AttachDispatcher(dp)
-	p1.AttachDispatcher(dp)
-	dp.Start()
-	defer dp.Stop()
+	p1 := cli.P2p()
+	assert.NotNil(p1)
 
+	// P1 download 4 blocks from P2
+	p1.Tell(cm.NewTCPNode(p2.PRC.Addr), &iproto.BlockSync{1, 4})
 	time.Sleep(time.Second)
 
-	// P1 tell a block sync message
-	p1.Tell(cm.NewTCPNode(p2.PRC.Addr), &iproto.BlockSync{1, 10})
-	time.Sleep(time.Second)
+	// verify 4 received blocks
+	blk, err = bc1.GetBlockByHeight(1)
+	assert.Nil(err)
+	assert.Equal(hash1, blk.HashBlock())
+	blk, err = bc1.GetBlockByHeight(2)
+	assert.Nil(err)
+	assert.Equal(hash2, blk.HashBlock())
+	blk, err = bc1.GetBlockByHeight(3)
+	assert.Nil(err)
+	assert.Equal(hash3, blk.HashBlock())
+	blk, err = bc1.GetBlockByHeight(4)
+	assert.Nil(err)
+	assert.Equal(hash4, blk.HashBlock())
+	t.Log("4 blocks received correctly")
 }
