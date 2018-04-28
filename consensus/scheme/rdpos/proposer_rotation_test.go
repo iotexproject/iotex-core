@@ -16,8 +16,6 @@ import (
 
 	bc "github.com/iotexproject/iotex-core/blockchain"
 	cm "github.com/iotexproject/iotex-core/common"
-	cp "github.com/iotexproject/iotex-core/crypto"
-	ta "github.com/iotexproject/iotex-core/test/testaddress"
 )
 
 func TestProposerRotation(t *testing.T) {
@@ -35,8 +33,9 @@ func TestProposerRotation(t *testing.T) {
 		mcks.dp.EXPECT().AllDelegates().Return(delegates, nil).AnyTimes()
 		mcks.dNet.EXPECT().Broadcast(gomock.Any()).AnyTimes()
 		mcks.bc.EXPECT().TipHeight().AnyTimes()
-		cbtx := bc.NewCoinbaseTx(ta.Addrinfo["miner"].Address, 888, bc.GenesisCoinbaseData)
-		genesis := bc.NewBlock(0, 0, cp.ZeroHash32B, []*bc.Tx{cbtx})
+		gen, err := bc.LoadGenesisWithPath(GenesisPath)
+		assert.Nil(t, err)
+		genesis := bc.NewGenesisBlock(gen)
 		mcks.bc.EXPECT().MintNewBlock(gomock.Any(), gomock.Any(), gomock.Any()).Return(genesis).AnyTimes()
 	}
 	cs := createTestRDPoS(ctrl, delegates[0], delegates, m, true)

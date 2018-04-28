@@ -19,7 +19,6 @@ import (
 	cm "github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/consensus/fsm"
 	cp "github.com/iotexproject/iotex-core/crypto"
-	ta "github.com/iotexproject/iotex-core/test/testaddress"
 )
 
 func TestAcceptPrevoteAndProceedToEnd(t *testing.T) {
@@ -41,8 +40,9 @@ func TestAcceptPrevoteAndProceedToEnd(t *testing.T) {
 	defer cs.Stop()
 
 	// arrange proposal request
-	cbtx := NewCoinbaseTx(ta.Addrinfo["miner"].Address, 888, GenesisCoinbaseData)
-	genesis := NewBlock(0, 0, cp.ZeroHash32B, []*Tx{cbtx})
+	gen, err := LoadGenesisWithPath(GenesisPath)
+	assert.Nil(t, err)
+	genesis := NewGenesisBlock(gen)
 	blkHash := genesis.HashBlock()
 
 	// Accept PROPOSE and then prevote
@@ -51,7 +51,7 @@ func TestAcceptPrevoteAndProceedToEnd(t *testing.T) {
 		SenderAddr: delegates[1],
 		Block:      genesis,
 	}
-	err := cs.fsm.HandleTransition(event)
+	err = cs.fsm.HandleTransition(event)
 	assert.NoError(t, err, "accept PROPOSE no error")
 	assert.Equal(t, fsm.State("PREVOTE"), cs.fsm.CurrentState(), "current state PREVOTE")
 	assert.Equal(t, genesis, cs.roundCtx.block, "roundCtx.block set")
@@ -118,8 +118,9 @@ func TestAcceptPrevoteAndTimeoutToEnd(t *testing.T) {
 	defer cs.Stop()
 
 	// arrange proposal request
-	cbtx := NewCoinbaseTx(ta.Addrinfo["miner"].Address, 888, GenesisCoinbaseData)
-	genesis := NewBlock(0, 0, cp.ZeroHash32B, []*Tx{cbtx})
+	gen, err := LoadGenesisWithPath(GenesisPath)
+	assert.Nil(t, err)
+	genesis := NewGenesisBlock(gen)
 
 	// Accept PROPOSE and then prevote
 	event := &fsm.Event{
@@ -127,7 +128,7 @@ func TestAcceptPrevoteAndTimeoutToEnd(t *testing.T) {
 		SenderAddr: delegates[1],
 		Block:      genesis,
 	}
-	err := cs.fsm.HandleTransition(event)
+	err = cs.fsm.HandleTransition(event)
 	assert.NoError(t, err, "accept PROPOSE no error")
 	assert.Equal(t, fsm.State("PREVOTE"), cs.fsm.CurrentState(), "current state PREVOTE")
 	assert.Nil(t, cs.roundCtx.block, "roundCtx.block nil")

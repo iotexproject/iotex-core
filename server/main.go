@@ -16,8 +16,11 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/golang/protobuf/proto"
+
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/server/run"
+	"github.com/iotexproject/iotex-core/rpcservice"
+	"github.com/iotexproject/iotex-core/server/itx"
 )
 
 var configFile = flag.String("config", "./config.yaml", "specify configuration file path")
@@ -39,5 +42,21 @@ func main() {
 		os.Exit(1)
 	}
 
-	run.Run(cfg, nil)
+	// create and start the node
+	svr := itx.NewServer(*cfg)
+	svr.Init()
+	svr.Start()
+	defer svr.Stop()
+
+	// start the chain server for Tx injection
+	if cfg.RPC != (config.RPC{}) {
+		bcb := func(msg proto.Message) error {
+			return svr.P2p().Broadcast(msg)
+		}
+		cs := rpcservice.NewChainServer(cfg.RPC, svr.Bc(), svr.Dp(), bcb)
+		cs.Start()
+		defer cs.Stop()
+	}
+
+	select {}
 }

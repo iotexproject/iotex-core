@@ -27,6 +27,7 @@ import (
 type Server struct {
 	service.Service
 	bc  blockchain.IBlockchain
+	tp  txpool.TxPool
 	o   *network.Overlay
 	dp  cm.Dispatcher
 	cfg config.Config
@@ -34,10 +35,11 @@ type Server struct {
 
 // NewServer creates a new server
 func NewServer(cfg config.Config) Server {
+	// create Blockchain and TxPool
 	bc := blockchain.CreateBlockchain(ta.Addrinfo["miner"].Address, &cfg)
 	tp := txpool.New(bc)
 
-	// server use first BootstrapNodes addr
+	// create P2P network and BlockSync
 	o := network.NewOverlay(&cfg.Network)
 	pool := delegate.NewConfigBasedPool(&cfg.Delegate)
 	bs := blocksync.NewBlockSyncer(&cfg, bc, tp, o, pool)
@@ -48,6 +50,7 @@ func NewServer(cfg config.Config) Server {
 
 	return Server{
 		bc:  bc,
+		tp:  tp,
 		o:   o,
 		dp:  dp,
 		cfg: cfg,
@@ -75,4 +78,24 @@ func (s *Server) Stop() {
 	s.dp.Stop()
 	s.bc.Close()
 	os.Remove(s.cfg.Chain.ChainDBPath)
+}
+
+// Bc returns the Blockchain
+func (s *Server) Bc() blockchain.IBlockchain {
+	return s.bc
+}
+
+// Tp returns the TxPool
+func (s *Server) Tp() txpool.TxPool {
+	return s.tp
+}
+
+// P2p returns the P2P network
+func (s *Server) P2p() *network.Overlay {
+	return s.o
+}
+
+// Dp returns the Dispatcher
+func (s *Server) Dp() cm.Dispatcher {
+	return s.dp
 }
