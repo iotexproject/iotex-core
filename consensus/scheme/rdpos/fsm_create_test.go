@@ -40,9 +40,7 @@ func TestAcceptPrevoteAndProceedToEnd(t *testing.T) {
 	defer cs.Stop()
 
 	// arrange proposal request
-	gen, err := LoadGenesisWithPath(GenesisPath)
-	assert.Nil(t, err)
-	genesis := NewGenesisBlock(gen)
+	genesis := NewGenesisBlock(Gen)
 	blkHash := genesis.HashBlock()
 
 	// Accept PROPOSE and then prevote
@@ -51,7 +49,7 @@ func TestAcceptPrevoteAndProceedToEnd(t *testing.T) {
 		SenderAddr: delegates[1],
 		Block:      genesis,
 	}
-	err = cs.fsm.HandleTransition(event)
+	err := cs.fsm.HandleTransition(event)
 	assert.NoError(t, err, "accept PROPOSE no error")
 	assert.Equal(t, fsm.State("PREVOTE"), cs.fsm.CurrentState(), "current state PREVOTE")
 	assert.Equal(t, genesis, cs.roundCtx.block, "roundCtx.block set")
@@ -118,9 +116,7 @@ func TestAcceptPrevoteAndTimeoutToEnd(t *testing.T) {
 	defer cs.Stop()
 
 	// arrange proposal request
-	gen, err := LoadGenesisWithPath(GenesisPath)
-	assert.Nil(t, err)
-	genesis := NewGenesisBlock(gen)
+	genesis := NewGenesisBlock(Gen)
 
 	// Accept PROPOSE and then prevote
 	event := &fsm.Event{
@@ -128,7 +124,7 @@ func TestAcceptPrevoteAndTimeoutToEnd(t *testing.T) {
 		SenderAddr: delegates[1],
 		Block:      genesis,
 	}
-	err = cs.fsm.HandleTransition(event)
+	err := cs.fsm.HandleTransition(event)
 	assert.NoError(t, err, "accept PROPOSE no error")
 	assert.Equal(t, fsm.State("PREVOTE"), cs.fsm.CurrentState(), "current state PREVOTE")
 	assert.Nil(t, cs.roundCtx.block, "roundCtx.block nil")

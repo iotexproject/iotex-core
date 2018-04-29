@@ -279,13 +279,9 @@ func CreateBlockchain(address string, cfg *config.Config) *Blockchain {
 	}
 
 	// create genesis block
-	gen, err := LoadGenesisWithPath(DefaultGenesisPath)
-	if err != nil {
-		return nil
-	}
 	// Temporarily let genesis TotalSupply point to cfg.Chain.TotalSupply
-	gen.TotalSupply = cfg.Chain.TotalSupply
-	genesis := NewGenesisBlock(gen)
+	Gen.TotalSupply = cfg.Chain.TotalSupply
+	genesis := NewGenesisBlock(Gen)
 
 	// Genesis block has height 0
 	if genesis.Header.height != 0 {
