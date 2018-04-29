@@ -7,24 +7,14 @@
 package blockchain
 
 import (
-	"io/ioutil"
-	"path/filepath"
-	"runtime"
-
 	"github.com/golang/glog"
-	"gopkg.in/yaml.v2"
 
 	cp "github.com/iotexproject/iotex-core/crypto"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 )
 
-var (
-	// DefaultGenesisPath is the default genesis path
-	DefaultGenesisPath = basePath() + "/../genesis.yaml"
-)
-
-// Alloc defines the allocation of orginal tokens to the given address
-type Alloc struct {
+// Quota defines the allocation of orginal tokens to the given address
+type Quota struct {
 	Address string
 	Balance uint64
 }
@@ -36,7 +26,7 @@ type GenConfig struct {
 
 // Genesis defines the Genesis default settings
 type Genesis struct {
-	Allocs              []Alloc
+	Alloc               []Quota
 	GenConfig           GenConfig
 	TotalSupply         uint64
 	Coinbase            uint64
@@ -45,9 +35,20 @@ type Genesis struct {
 	GenesisCoinbaseData string
 }
 
-func basePath() string {
-	_, b, _, _ := runtime.Caller(0)
-	return filepath.Dir(b)
+// Hardcode Genesis default settings
+var Gen = &Genesis{
+	Alloc: []Quota{
+		Quota{"Whatever Address 1", uint64(1000000)},
+		Quota{"Whatever Address 2", uint64(1000000)},
+		Quota{"Whatever Address 3", uint64(1000000)},
+		Quota{"Whatever Address 4", uint64(1000000)},
+	},
+	GenConfig:           GenConfig{uint32(1)},
+	TotalSupply:         uint64(10000000000),
+	Coinbase:            uint64(0),
+	Timestamp:           uint64(1524676419),
+	ParentHash:          cp.Hash32B{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	GenesisCoinbaseData: "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks",
 }
 
 // NewGenesisBlock creates a new genesis block
@@ -70,21 +71,4 @@ func NewGenesisBlock(gen *Genesis) *Block {
 	}
 
 	return block
-}
-
-// LoadGenesisWithPath loads genesis default settings from given yaml file path
-func LoadGenesisWithPath(path string) (*Genesis, error) {
-	genesisBytes, err := ioutil.ReadFile(path)
-	if err != nil {
-		glog.Errorf("Error when reading the genesis file: %v\n", err)
-		return nil, err
-	}
-
-	genesis := Genesis{}
-	err = yaml.Unmarshal(genesisBytes, &genesis)
-	if err != nil {
-		glog.Errorf("Error when decoding the genesis file: %v\n", err)
-		return nil, err
-	}
-	return &genesis, nil
 }

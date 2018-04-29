@@ -29,11 +29,6 @@ import (
 	"github.com/iotexproject/iotex-core/txpool"
 )
 
-const (
-	// GenesisPath is the genesis path
-	GenesisPath = "../../../genesis.yaml"
-)
-
 type mocks struct {
 	dNet *MockDNet
 	bc   *mock_blockchain.MockIBlockchain
@@ -122,9 +117,7 @@ func testByzantineFault(t *testing.T, proposerNode int) {
 	defer ctrl.Finish()
 
 	// arrange proposal request
-	gen, err := LoadGenesisWithPath(GenesisPath)
-	assert.Nil(t, err)
-	genesis := NewGenesisBlock(gen)
+	genesis := NewGenesisBlock(Gen)
 	blkHash := genesis.HashBlock()
 
 	// arrange 4 consensus nodes
@@ -246,9 +239,7 @@ func TestRDPoSFourTrustyNodes(t *testing.T) {
 	defer ctrl.Finish()
 
 	// arrange proposal request
-	gen, err := LoadGenesisWithPath(GenesisPath)
-	assert.Nil(t, err)
-	genesis := NewGenesisBlock(gen)
+	genesis := NewGenesisBlock(Gen)
 
 	// arrange 4 consensus nodes
 	tcss := make(map[net.Addr]testCs)
@@ -332,9 +323,7 @@ func TestRDPoSConsumePROPOSE(t *testing.T) {
 	defer cs.Stop()
 
 	// arrange proposal request
-	gen, err := LoadGenesisWithPath(GenesisPath)
-	assert.Nil(t, err)
-	genesis := NewGenesisBlock(gen)
+	genesis := NewGenesisBlock(Gen)
 	proposal := &iproto.ViewChangeMsg{
 		Vctype:     iproto.ViewChangeMsg_PROPOSE,
 		Block:      genesis.ConvertToBlockPb(),

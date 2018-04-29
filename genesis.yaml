@@ -19,7 +19,7 @@ coinbase: 0
 
 timestamp: 1524676419
 
-parenthash: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+parenthash: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
 
 genesiscoinbasedata: "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks"
 
