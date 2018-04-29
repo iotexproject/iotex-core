@@ -8,8 +8,11 @@ package blockchain
 
 import (
 	"hash/fnv"
+	"math/rand"
+	"os"
 	"testing"
 
+	"github.com/iotexproject/iotex-core/common/utils"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/test/testaddress"
@@ -39,74 +42,95 @@ func TestBlockDAO(t *testing.T) {
 	blks := getBlocks()
 	assert.Equal(t, 3, len(blks))
 
-	dao := newBlockDAO(db.NewMemKVStore())
-	err := dao.Init()
-	assert.Nil(t, err)
-	err = dao.Start()
-	assert.Nil(t, err)
-	defer func() {
-		err = dao.Stop()
+	testBlockDao := func(kvstore db.KVStore, t *testing.T) {
+		dao := newBlockDAO(kvstore)
+		err := dao.Init()
 		assert.Nil(t, err)
-	}()
+		err = dao.Start()
+		assert.Nil(t, err)
+		defer func() {
+			err = dao.Stop()
+			assert.Nil(t, err)
+		}()
 
-	height, err := dao.getBlockchainHeight()
-	assert.Nil(t, err)
-	assert.Equal(t, uint32(0), height)
+		height, err := dao.getBlockchainHeight()
+		assert.Nil(t, err)
+		assert.Equal(t, uint32(0), height)
 
-	// block put order is 0 2 1
-	err = dao.putBlock(blks[0])
-	assert.Nil(t, err)
-	blk, err := dao.getBlock(blks[0].HashBlock())
-	assert.Nil(t, err)
-	assert.NotNil(t, blk)
-	assert.Equal(t, blks[0].Tranxs[0].Hash(), blk.Tranxs[0].Hash())
-	height, err = dao.getBlockchainHeight()
-	assert.Nil(t, err)
-	assert.Equal(t, uint32(1), height)
+		// block put order is 0 2 1
+		err = dao.putBlock(blks[0])
+		assert.Nil(t, err)
+		blk, err := dao.getBlock(blks[0].HashBlock())
+		assert.Nil(t, err)
+		assert.NotNil(t, blk)
+		assert.Equal(t, blks[0].Tranxs[0].Hash(), blk.Tranxs[0].Hash())
+		height, err = dao.getBlockchainHeight()
+		assert.Nil(t, err)
+		assert.Equal(t, uint32(1), height)
 
-	err = dao.putBlock(blks[2])
-	assert.Nil(t, err)
-	blk, err = dao.getBlock(blks[2].HashBlock())
-	assert.Nil(t, err)
-	assert.NotNil(t, blk)
-	assert.Equal(t, blks[2].Tranxs[0].Hash(), blk.Tranxs[0].Hash())
-	height, err = dao.getBlockchainHeight()
-	assert.Nil(t, err)
-	assert.Equal(t, uint32(3), height)
+		err = dao.putBlock(blks[2])
+		assert.Nil(t, err)
+		blk, err = dao.getBlock(blks[2].HashBlock())
+		assert.Nil(t, err)
+		assert.NotNil(t, blk)
+		assert.Equal(t, blks[2].Tranxs[0].Hash(), blk.Tranxs[0].Hash())
+		height, err = dao.getBlockchainHeight()
+		assert.Nil(t, err)
+		assert.Equal(t, uint32(3), height)
 
-	err = dao.putBlock(blks[1])
-	assert.Nil(t, err)
-	blk, err = dao.getBlock(blks[1].HashBlock())
-	assert.Nil(t, err)
-	assert.NotNil(t, blk)
-	assert.Equal(t, blks[1].Tranxs[0].Hash(), blk.Tranxs[0].Hash())
-	height, err = dao.getBlockchainHeight()
-	assert.Nil(t, err)
-	assert.Equal(t, uint32(3), height)
+		err = dao.putBlock(blks[1])
+		assert.Nil(t, err)
+		blk, err = dao.getBlock(blks[1].HashBlock())
+		assert.Nil(t, err)
+		assert.NotNil(t, blk)
+		assert.Equal(t, blks[1].Tranxs[0].Hash(), blk.Tranxs[0].Hash())
+		height, err = dao.getBlockchainHeight()
+		assert.Nil(t, err)
+		assert.Equal(t, uint32(3), height)
 
-	// test getting hash by height
-	hash, err := dao.getBlockHash(1)
-	assert.Nil(t, err)
-	assert.Equal(t, blks[0].HashBlock(), hash)
+		// test getting hash by height
+		hash, err := dao.getBlockHash(1)
+		assert.Nil(t, err)
+		assert.Equal(t, blks[0].HashBlock(), hash)
 
-	hash, err = dao.getBlockHash(2)
-	assert.Nil(t, err)
-	assert.Equal(t, blks[1].HashBlock(), hash)
+		hash, err = dao.getBlockHash(2)
+		assert.Nil(t, err)
+		assert.Equal(t, blks[1].HashBlock(), hash)
 
-	hash, err = dao.getBlockHash(3)
-	assert.Nil(t, err)
-	assert.Equal(t, blks[2].HashBlock(), hash)
+		hash, err = dao.getBlockHash(3)
+		assert.Nil(t, err)
+		assert.Equal(t, blks[2].HashBlock(), hash)
 
-	// test getting height by hash
-	height, err = dao.getBlockHeight(blks[0].HashBlock())
-	assert.Nil(t, err)
-	assert.Equal(t, blks[0].Height(), height)
+		// test getting height by hash
+		height, err = dao.getBlockHeight(blks[0].HashBlock())
+		assert.Nil(t, err)
+		assert.Equal(t, blks[0].Height(), height)
 
-	height, err = dao.getBlockHeight(blks[1].HashBlock())
-	assert.Nil(t, err)
-	assert.Equal(t, blks[1].Height(), height)
+		height, err = dao.getBlockHeight(blks[1].HashBlock())
+		assert.Nil(t, err)
+		assert.Equal(t, blks[1].Height(), height)
 
-	height, err = dao.getBlockHeight(blks[2].HashBlock())
-	assert.Nil(t, err)
-	assert.Equal(t, blks[2].Height(), height)
+		height, err = dao.getBlockHeight(blks[2].HashBlock())
+		assert.Nil(t, err)
+		assert.Equal(t, blks[2].Height(), height)
+	}
+
+	t.Run("In-memory KV Store", func(t *testing.T) {
+		testBlockDao(db.NewMemKVStore(), t)
+	})
+
+	path := "/tmp/test-kv-store-" + string(rand.Int())
+	t.Run("Bolt DB", func(t *testing.T) {
+		cleanup := func() {
+			if utils.FileExists(path) {
+				err := os.Remove(path)
+				assert.Nil(t, err)
+			}
+		}
+
+		cleanup()
+		defer cleanup()
+		testBlockDao(db.NewBoltDB(path, nil), t)
+	})
+
 }

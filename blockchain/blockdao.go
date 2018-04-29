@@ -22,7 +22,7 @@ const (
 var (
 	hashPrefix   = []byte("hash.")
 	heightPrefix = []byte("height.")
-	topHeightKey = []byte("height")
+	topHeightKey = []byte("top-height")
 )
 
 type blockDAO struct {
@@ -81,8 +81,7 @@ func (dao *blockDAO) getBlock(hash crypto.Hash32B) (*Block, error) {
 		return nil, errors.Wrap(err, "failed to get block")
 	}
 	blk := Block{}
-	err = blk.Deserialize(value)
-	if err != nil {
+	if err = blk.Deserialize(value); err != nil {
 		return nil, errors.Wrap(err, "failed to deserialize block")
 	}
 	return &blk, nil
@@ -105,18 +104,15 @@ func (dao *blockDAO) putBlock(blk *Block) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to serialize block")
 	}
-	err = dao.kvstore.Put(blockNS, hash[:], serialized)
-	if err != nil {
+	if err = dao.kvstore.Put(blockNS, hash[:], serialized); err != nil {
 		return errors.Wrap(err, "failed to put block")
 	}
 	hashKey := append(hashPrefix, hash[:]...)
-	err = dao.kvstore.Put(blockHashHeightMappingNS, hashKey, height)
-	if err != nil {
+	if err = dao.kvstore.Put(blockHashHeightMappingNS, hashKey, height); err != nil {
 		return errors.Wrap(err, "failed to put hash -> height mapping")
 	}
 	heightKey := append(heightPrefix, height...)
-	err = dao.kvstore.Put(blockHashHeightMappingNS, heightKey, hash[:])
-	if err != nil {
+	if err = dao.kvstore.Put(blockHashHeightMappingNS, heightKey, hash[:]); err != nil {
 		return errors.Wrap(err, "failed to put height -> hash mapping")
 	}
 	value, err := dao.kvstore.Get(blockNS, topHeightKey)
