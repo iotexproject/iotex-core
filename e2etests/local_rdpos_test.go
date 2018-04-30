@@ -10,10 +10,13 @@ import (
 	"flag"
 	"strconv"
 	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
 
 	"github.com/iotexproject/iotex-core/config"
+	cp "github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/server/itx"
-	"github.com/stretchr/testify/assert"
 )
 
 const (
@@ -23,14 +26,11 @@ const (
 
 // 4 delegates and 3 full nodes
 func TestLocalRDPoS(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping TestLocalRDPoS in short mode.")
-	}
-
+	assert := assert.New(t)
 	flag.Parse()
 
 	cfg, err := config.LoadConfigWithPathWithoutValidation(localRDPoSConfig)
-	assert.Nil(t, err)
+	assert.Nil(err)
 
 	var svrs []itx.Server
 
@@ -39,9 +39,12 @@ func TestLocalRDPoS(t *testing.T) {
 		cfg.NodeType = config.FullNodeType
 		cfg.Network.Addr = "127.0.0.1:5000" + strconv.Itoa(i)
 		svr := itx.NewServer(*cfg)
-		svr.Init()
-		svr.Start()
+		err = svr.Init()
+		assert.Nil(err)
+		err = svr.Start()
+		assert.Nil(err)
 		svrs = append(svrs, svr)
+		defer svr.Stop()
 	}
 
 	for i := 0; i < 4; i++ {
@@ -50,14 +53,50 @@ func TestLocalRDPoS(t *testing.T) {
 		cfg.Network.Addr = "127.0.0.1:4000" + strconv.Itoa(i)
 		cfg.Consensus.Scheme = "RDPOS"
 		svr := itx.NewServer(*cfg)
-		svr.Init()
-		svr.Start()
+		err = svr.Init()
+		assert.Nil(err)
+		err = svr.Start()
+		assert.Nil(err)
 		svrs = append(svrs, svr)
-	}
-
-	for _, svr := range svrs {
 		defer svr.Stop()
 	}
 
-	select {}
+	time.Sleep(time.Second * 5)
+
+	var hash1, hash2, hash3, hash4 cp.Hash32B
+
+	for i, svr := range svrs {
+		bc := svr.Bc()
+		assert.NotNil(bc)
+
+		if i == 0 {
+			blk, err := bc.GetBlockByHeight(1)
+			assert.Nil(err)
+			hash1 = blk.HashBlock()
+			blk, err = bc.GetBlockByHeight(2)
+			assert.Nil(err)
+			hash2 = blk.HashBlock()
+			blk, err = bc.GetBlockByHeight(3)
+			assert.Nil(err)
+			hash3 = blk.HashBlock()
+			blk, err = bc.GetBlockByHeight(4)
+			assert.Nil(err)
+			hash4 = blk.HashBlock()
+			continue
+		}
+
+		// verify 4 received blocks
+		blk, err := bc.GetBlockByHeight(1)
+		assert.Nil(err)
+		assert.Equal(hash1, blk.HashBlock())
+		blk, err = bc.GetBlockByHeight(2)
+		assert.Nil(err)
+		assert.Equal(hash2, blk.HashBlock())
+		blk, err = bc.GetBlockByHeight(3)
+		assert.Nil(err)
+		assert.Equal(hash3, blk.HashBlock())
+		blk, err = bc.GetBlockByHeight(4)
+		assert.Nil(err)
+		assert.Equal(hash4, blk.HashBlock())
+	}
 }

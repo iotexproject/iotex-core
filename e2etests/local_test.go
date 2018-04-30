@@ -66,8 +66,6 @@ func TestLocalCommit(t *testing.T) {
 	p1.Start()
 	defer p1.Stop()
 
-	time.Sleep(time.Second)
-
 	// check UTXO
 	change := bc.BalanceOf(ta.Addrinfo["alfa"].Address)
 	t.Logf("Alfa balance = %d", change)
@@ -112,7 +110,7 @@ func TestLocalCommit(t *testing.T) {
 	tx := bc.CreateTransaction(ta.Addrinfo["charlie"], 1, payee)
 	bc.Reset()
 	p1.Broadcast(tx.ConvertToTxPb())
-	time.Sleep(time.Second << 1)
+	time.Sleep(time.Second)
 
 	blk1 := bc.MintNewBlock(tp.Txs(), ta.Addrinfo["miner"].Address, "")
 	hash1 := blk1.HashBlock()
@@ -151,7 +149,7 @@ func TestLocalCommit(t *testing.T) {
 	p1.Broadcast(blk4.ConvertToBlockPb())
 	p1.Broadcast(blk1.ConvertToBlockPb())
 	p2.Broadcast(blk3.ConvertToBlockPb())
-	time.Sleep(time.Second << 1)
+	time.Sleep(time.Second)
 
 	t.Log("----- Block height = ", bc.TipHeight())
 

@@ -36,7 +36,7 @@ consensus:
     rdpos:
         proposerrotation:
             enabled: true
-            interval: 1.5s
+            interval: 700ms
         unmatchedeventttl: 90ms
         acceptpropose:
             ttl: 90ms
