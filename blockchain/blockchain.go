@@ -281,7 +281,7 @@ func CreateBlockchain(address string, cfg *config.Config, gen *Genesis) *Blockch
 	}
 
 	if gen == nil {
-		glog.Error("Genesis should not be nil")
+		glog.Error("Genesis should not be nil.")
 		return nil
 	}
 	genesis := NewGenesisBlock(gen)
