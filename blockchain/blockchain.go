@@ -38,6 +38,7 @@ var (
 type Blockchain struct {
 	blockDb *blockdb.BlockDB
 	config  *config.Config
+	genesis *Genesis
 	chainID uint32
 	height  uint32
 	tip     cp.Hash32B
@@ -45,10 +46,11 @@ type Blockchain struct {
 }
 
 // NewBlockchain creates a new blockchain instance
-func NewBlockchain(db *blockdb.BlockDB, cfg *config.Config) *Blockchain {
+func NewBlockchain(db *blockdb.BlockDB, cfg *config.Config, gen *Genesis) *Blockchain {
 	chain := &Blockchain{
 		blockDb: db,
 		config:  cfg,
+		genesis: gen,
 		Utk:     NewUtxoTracker()}
 	return chain
 }
@@ -187,7 +189,7 @@ func (bc *Blockchain) ValidateBlock(blk *Block) error {
 // Note: the coinbase transaction will be added to the given transactions
 // when minting a new block.
 func (bc *Blockchain) MintNewBlock(txs []*Tx, toaddr, data string) *Block {
-	cbTx := NewCoinbaseTx(toaddr, bc.config.Chain.BlockReward, data)
+	cbTx := NewCoinbaseTx(toaddr, bc.genesis.Coinbase, data)
 	if cbTx == nil {
 		glog.Error("Cannot create coinbase transaction")
 		return nil
@@ -260,14 +262,14 @@ func (bc *Blockchain) ReadBlock(height uint32) *Block {
 }
 
 // CreateBlockchain creates a new blockchain and DB instance
-func CreateBlockchain(address string, cfg *config.Config) *Blockchain {
+func CreateBlockchain(address string, cfg *config.Config, gen *Genesis) *Blockchain {
 	db, dbFileExist := blockdb.NewBlockDB(cfg)
 	if db == nil {
 		glog.Error("cannot find db")
 		return nil
 	}
 
-	chain := NewBlockchain(db, cfg)
+	chain := NewBlockchain(db, cfg, gen)
 	if dbFileExist {
 		glog.Info("Blockchain already exists.")
 
@@ -278,10 +280,11 @@ func CreateBlockchain(address string, cfg *config.Config) *Blockchain {
 		return chain
 	}
 
-	// create genesis block
-	// Temporarily let genesis TotalSupply point to cfg.Chain.TotalSupply
-	Gen.TotalSupply = cfg.Chain.TotalSupply
-	genesis := NewGenesisBlock(Gen)
+	genesis := NewGenesisBlock(gen)
+	if genesis == nil {
+		glog.Error("Cannot create genesis block.")
+		return nil
+	}
 
 	// Genesis block has height 0
 	if genesis.Header.height != 0 {

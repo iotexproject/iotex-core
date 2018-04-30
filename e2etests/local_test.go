@@ -38,9 +38,10 @@ func TestLocalCommit(t *testing.T) {
 	config.Network.BootstrapNodes = []string{"127.0.0.1:10000"}
 	config.Chain.ChainDBPath = testDBPath
 	config.Consensus.Scheme = "NOOP"
-	config.Chain.TotalSupply = 50 << 22
-	config.Chain.BlockReward = 0
 	config.Delegate.Addrs = []string{"127.0.0.1:10000"}
+
+	blockchain.Gen.TotalSupply = uint64(50 << 22)
+	blockchain.Gen.Coinbase = uint64(0)
 
 	// create node
 	svr := itx.NewServer(*config)

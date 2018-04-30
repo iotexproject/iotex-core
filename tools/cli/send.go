@@ -24,7 +24,7 @@ func (cli *CLI) send(from, to string, amount uint64, config *config.Config) {
 		glog.Fatal("ERROR: Recipient address is not valid")
 	}
 
-	bc := blockchain.CreateBlockchain(from, config)
+	bc := blockchain.CreateBlockchain(from, config, blockchain.Gen)
 	defer bc.Close()
 
 	//tx := blockchain.NewUTXOTransaction(from, to, amount, bc)

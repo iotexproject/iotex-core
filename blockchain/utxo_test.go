@@ -22,8 +22,10 @@ func TestUTXO(t *testing.T) {
 
 	// create chain
 	totalSupply := uint64(100000000)
+	Gen.TotalSupply = totalSupply
+	Gen.Coinbase = uint64(0)
 	bc := CreateBlockchain(ta.Addrinfo["miner"].Address,
-		&config.Config{Chain: config.Chain{ChainDBPath: testDBPath, TotalSupply: totalSupply}})
+		&config.Config{Chain: config.Chain{ChainDBPath: testDBPath}}, Gen)
 	assert.NotNil(t, bc)
 	fmt.Println("Create blockchain pass")
 

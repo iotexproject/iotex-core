@@ -98,10 +98,10 @@ func TestCreateBlockchain(t *testing.T) {
 	assert.Nil(err)
 	config.Chain.ChainDBPath = testDBPath
 	// Disable block reward to make bookkeeping easier
-	config.Chain.BlockReward = 0
+	Gen.Coinbase = uint64(0)
 
 	// create chain
-	bc := CreateBlockchain(ta.Addrinfo["miner"].Address, config)
+	bc := CreateBlockchain(ta.Addrinfo["miner"].Address, config, Gen)
 	assert.NotNil(bc)
 	assert.Equal(0, int(bc.height))
 	fmt.Printf("Create blockchain pass, height = %d\n", bc.height)
@@ -146,17 +146,16 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	assert.Nil(err)
 	config.Chain.ChainDBPath = testDBPath
 	// Disable block reward to make bookkeeping easier
-	config.Chain.BlockReward = 0
-
+	Gen.Coinbase = uint64(0)
 	// Create a blockchain from scratch
-	bc := CreateBlockchain(ta.Addrinfo["miner"].Address, config)
+	bc := CreateBlockchain(ta.Addrinfo["miner"].Address, config, Gen)
 	assert.NotNil(bc)
 	fmt.Printf("Open blockchain pass, height = %d\n", bc.height)
 	assert.Nil(addTestingBlocks(bc))
 	bc.Close()
 
 	// Load a blockchain from DB
-	bc = CreateBlockchain(ta.Addrinfo["miner"].Address, config)
+	bc = CreateBlockchain(ta.Addrinfo["miner"].Address, config, Gen)
 	defer bc.Close()
 	assert.NotNil(bc)
 
@@ -267,9 +266,9 @@ func TestEmptyBlockOnlyHasCoinbaseTx(t *testing.T) {
 	config, err := config.LoadConfigWithPathWithoutValidation(testingConfigPath)
 	assert.Nil(t, err)
 	config.Chain.ChainDBPath = testDBPath
-	config.Chain.BlockReward = 7777
+	Gen.Coinbase = uint64(7777)
 
-	bc := CreateBlockchain(ta.Addrinfo["miner"].Address, config)
+	bc := CreateBlockchain(ta.Addrinfo["miner"].Address, config, Gen)
 	defer bc.Close()
 	assert.NotNil(t, bc)
 
