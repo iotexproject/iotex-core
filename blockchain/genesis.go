@@ -47,7 +47,7 @@ var Gen = &Genesis{
 	TotalSupply:         uint64(10000000000),
 	Coinbase:            uint64(0),
 	Timestamp:           uint64(1524676419),
-	ParentHash:          cp.Hash32B{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	ParentHash:          cp.Hash32B{},
 	GenesisCoinbaseData: "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks",
 }
 
