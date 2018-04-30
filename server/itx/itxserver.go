@@ -36,7 +36,7 @@ type Server struct {
 // NewServer creates a new server
 func NewServer(cfg config.Config) Server {
 	// create Blockchain and TxPool
-	bc := blockchain.CreateBlockchain(ta.Addrinfo["miner"].Address, &cfg)
+	bc := blockchain.CreateBlockchain(ta.Addrinfo["miner"].Address, &cfg, blockchain.Gen)
 	tp := txpool.New(bc)
 
 	// create P2P network and BlockSync

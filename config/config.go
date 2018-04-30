@@ -63,8 +63,6 @@ type Network struct {
 // Chain is the config struct for blockchain package
 type Chain struct {
 	ChainDBPath string
-	TotalSupply uint64
-	BlockReward uint64
 
 	// MinerAddr is an address where the block rewards will be sent to.
 	MinerAddr string

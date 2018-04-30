@@ -28,8 +28,6 @@ network:
 
 chain:
     chaindbpath: "./chain.db"
-    totalsupply: 10000000000
-    blockreward: 5
     mineraddr: "io1qyqsyqcy6nm58gjd2wr035wz5eyd5uq47zyqpng3gxe7nh"
 
 consensus:
