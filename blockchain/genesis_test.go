@@ -30,7 +30,7 @@ func TestGenesis(t *testing.T) {
 
 	assert := assert.New(t)
 
-	expectedParentHash := cp.Hash32B{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+	expectedParentHash := cp.Hash32B{}
 
 	assert.Equal(uint32(1), genesisBlk.Header.version)
 	assert.Equal(uint32(1), genesisBlk.Header.chainID)
