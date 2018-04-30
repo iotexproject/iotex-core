@@ -22,6 +22,10 @@ const (
 )
 
 func TestNetSync(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping TestNetSync in short mode.")
+	}
+
 	assert := assert.New(t)
 	os.Remove(testDBPath)
 	defer os.Remove(testDBPath)
