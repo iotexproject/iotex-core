@@ -37,7 +37,7 @@ func TestTxPool(t *testing.T) {
 	assert.Nil(err)
 	config.Chain.ChainDBPath = testDBPath
 	// Disable block reward to make bookkeeping easier
-	Gen.Coinbase = uint64(0)
+	Gen.BlockReward = uint64(0)
 
 	// Create a blockchain from scratch
 	// bc := CreateBlockchain(Addrinfo["miner"].Address, &config.Config{Chain: config.Chain{ChainDBPath: testDBPath}})

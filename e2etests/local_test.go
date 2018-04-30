@@ -41,7 +41,7 @@ func TestLocalCommit(t *testing.T) {
 	config.Delegate.Addrs = []string{"127.0.0.1:10000"}
 
 	blockchain.Gen.TotalSupply = uint64(50 << 22)
-	blockchain.Gen.Coinbase = uint64(0)
+	blockchain.Gen.BlockReward = uint64(0)
 
 	// create node
 	svr := itx.NewServer(*config)

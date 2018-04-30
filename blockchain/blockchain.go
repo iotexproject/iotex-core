@@ -189,7 +189,7 @@ func (bc *Blockchain) ValidateBlock(blk *Block) error {
 // Note: the coinbase transaction will be added to the given transactions
 // when minting a new block.
 func (bc *Blockchain) MintNewBlock(txs []*Tx, toaddr, data string) *Block {
-	cbTx := NewCoinbaseTx(toaddr, bc.genesis.Coinbase, data)
+	cbTx := NewCoinbaseTx(toaddr, bc.genesis.BlockReward, data)
 	if cbTx == nil {
 		glog.Error("Cannot create coinbase transaction")
 		return nil
@@ -280,6 +280,10 @@ func CreateBlockchain(address string, cfg *config.Config, gen *Genesis) *Blockch
 		return chain
 	}
 
+	if gen == nil {
+		glog.Error("Genesis should not be nil")
+		return nil
+	}
 	genesis := NewGenesisBlock(gen)
 	if genesis == nil {
 		glog.Error("Cannot create genesis block.")
