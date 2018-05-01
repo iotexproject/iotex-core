@@ -59,6 +59,7 @@ message BlockHeaderPb {
     bytes merkleRoot = 6;
     uint32 trnxNumber = 7;
     uint32 trnxDataSize = 8;
+    bytes signature = 9;
 }
 
 // block consists of header followed by transactions
