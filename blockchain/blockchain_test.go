@@ -225,13 +225,17 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	fmt.Printf("Current tip = %d hash = %x\n", h, hash)
 
 	// add block with wrong height
-	blk = NewBlock(0, h+2, hash, []*Tx{NewCoinbaseTx(ta.Addrinfo["bravo"].Address, 50, GenesisCoinbaseData)})
+	cbTx := NewCoinbaseTx(ta.Addrinfo["bravo"].Address, 50, GenesisCoinbaseData)
+	assert.NotNil(cbTx)
+	blk = NewBlock(0, h+2, hash, []*Tx{cbTx})
 	err = bc.ValidateBlock(blk)
 	assert.NotNil(err)
 	fmt.Printf("Cannot validate block %d: %v\n", blk.Height(), err)
 
 	// add block with zero prev hash
-	blk = NewBlock(0, h+1, cp.ZeroHash32B, []*Tx{NewCoinbaseTx(ta.Addrinfo["bravo"].Address, 50, GenesisCoinbaseData)})
+	cbTx = NewCoinbaseTx(ta.Addrinfo["bravo"].Address, 50, GenesisCoinbaseData)
+	assert.NotNil(cbTx)
+	blk = NewBlock(0, h+1, cp.ZeroHash32B, []*Tx{cbTx})
 	err = bc.ValidateBlock(blk)
 	assert.NotNil(err)
 	fmt.Printf("Cannot validate block %d: %v\n", blk.Height(), err)

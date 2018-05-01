@@ -45,8 +45,10 @@ func TestLocalCommit(t *testing.T) {
 
 	// create node
 	svr := itx.NewServer(*config)
-	svr.Init()
-	svr.Start()
+	err = svr.Init()
+	assert.Nil(err)
+	err = svr.Start()
+	assert.Nil(err)
 	defer svr.Stop()
 
 	bc := svr.Bc()
@@ -202,8 +204,10 @@ func TestLocalSync(t *testing.T) {
 
 	// create node 1
 	svr := itx.NewServer(*config)
-	svr.Init()
-	svr.Start()
+	err = svr.Init()
+	assert.Nil(err)
+	err = svr.Start()
+	assert.Nil(err)
 	defer svr.Stop()
 
 	bc := svr.Bc()

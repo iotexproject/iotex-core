@@ -24,8 +24,11 @@ func TestBlockDAO(t *testing.T) {
 		amount := uint64(50 << 22)
 		// create testing transactions
 		cbtx1 := NewCoinbaseTx(testaddress.Addrinfo["alfa"].Address, amount, GenesisCoinbaseData)
+		assert.NotNil(t, cbtx1)
 		cbtx2 := NewCoinbaseTx(testaddress.Addrinfo["bravo"].Address, amount, GenesisCoinbaseData)
+		assert.NotNil(t, cbtx2)
 		cbtx3 := NewCoinbaseTx(testaddress.Addrinfo["charlie"].Address, amount, GenesisCoinbaseData)
+		assert.NotNil(t, cbtx3)
 
 		hash1 := crypto.Hash32B{}
 		fnv.New32().Sum(hash1[:])

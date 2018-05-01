@@ -6,7 +6,11 @@
 
 package rdpos
 
-import "github.com/iotexproject/iotex-core/consensus/fsm"
+import (
+	"github.com/golang/glog"
+
+	"github.com/iotexproject/iotex-core/consensus/fsm"
+)
 
 const (
 	stateStart         fsm.State = "START"
@@ -19,7 +23,10 @@ const (
 func fsmCreate(r *RDPoS) fsm.Machine {
 	sm := fsm.NewMachine()
 
-	sm.SetInitialState(stateStart, &start{RDPoS: r})
+	if err := sm.SetInitialState(stateStart, &start{RDPoS: r}); err != nil {
+		glog.Errorf("Error when creating fsm: %v\n", err)
+		return sm
+	}
 	sm.AddState(stateInitPropose, &initPropose{RDPoS: r})
 	sm.AddState(stateAcceptPropose, &acceptPropose{RDPoS: r})
 	sm.AddState(stateAcceptPrevote, &acceptPrevote{RDPoS: r})

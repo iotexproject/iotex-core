@@ -70,7 +70,7 @@ type RDPoS struct {
 func NewRDPoS(cfg config.RDPoS, prop scheme.CreateBlockCB, vote scheme.TellPeerCB, cons scheme.ConsensusDoneCB, pub scheme.BroadcastCB, bc blockchain.IBlockchain, myaddr net.Addr, dlg delegate.Pool) *RDPoS {
 	delegates, err := dlg.AllDelegates()
 	if err != nil {
-		glog.Fatal(err.Error())
+		glog.Error(err.Error())
 		syscall.Exit(syscall.SYS_EXIT)
 	}
 	sc := &RDPoS{

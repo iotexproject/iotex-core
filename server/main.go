@@ -44,8 +44,12 @@ func main() {
 
 	// create and start the node
 	svr := itx.NewServer(*cfg)
-	svr.Init()
-	svr.Start()
+	if err := svr.Init(); err != nil {
+		os.Exit(1)
+	}
+	if err := svr.Start(); err != nil {
+		os.Exit(1)
+	}
 	defer svr.Stop()
 
 	// start the chain server for Tx injection
@@ -54,6 +58,9 @@ func main() {
 			return svr.P2p().Broadcast(msg)
 		}
 		cs := rpcservice.NewChainServer(cfg.RPC, svr.Bc(), svr.Dp(), bcb)
+		if cs == nil {
+			os.Exit(1)
+		}
 		cs.Start()
 		defer cs.Stop()
 	}

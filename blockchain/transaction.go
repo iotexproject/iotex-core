@@ -107,7 +107,8 @@ func NewCoinbaseTx(toaddr string, amount uint64, data string) *Tx {
 		randData := make([]byte, 20)
 		_, err := rand.Read(randData)
 		if err != nil {
-			glog.Fatal(err)
+			glog.Error(err)
+			return nil
 		}
 
 		data = fmt.Sprintf("%x", randData)

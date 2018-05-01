@@ -57,7 +57,7 @@ func NewBlockDB(cfg *config.Config) (*BlockDB, bool) {
 	// create/open database file
 	db, err := bolt.Open(cfg.Chain.ChainDBPath, 0600, nil)
 	if err != nil {
-		glog.Fatalf("Failed to open Blockchain Db, error = %v", err)
+		glog.Errorf("Failed to open Blockchain Db, error = %v", err)
 		return nil, exist
 	}
 
@@ -84,7 +84,7 @@ func NewBlockDB(cfg *config.Config) (*BlockDB, bool) {
 			}
 			return nil
 		}); err != nil {
-			glog.Fatal(err)
+			glog.Error(err)
 			return nil, exist
 		}
 	}

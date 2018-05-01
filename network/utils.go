@@ -42,7 +42,7 @@ func loadCertAndCertPool(config *config.Network) (*tls.Certificate, *x509.CertPo
 	// Load the certificates from disk
 	cert, err := tls.LoadX509KeyPair(config.PeerCrtPath, config.PeerKeyPath)
 	if err != nil {
-		glog.Fatalf("could not load peer key pair: %v", err)
+		glog.Errorf("could not load peer key pair: %v", err)
 		return nil, nil, err
 	}
 
@@ -50,7 +50,7 @@ func loadCertAndCertPool(config *config.Network) (*tls.Certificate, *x509.CertPo
 	certPool := x509.NewCertPool()
 	caCert, err := ioutil.ReadFile(config.CACrtPath)
 	if err != nil {
-		glog.Fatalf("could not read ca certificate: %v", err)
+		glog.Errorf("could not read ca certificate: %v", err)
 		return nil, nil, err
 	}
 

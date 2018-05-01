@@ -53,6 +53,7 @@ func TestTxPool(t *testing.T) {
 
 	tp := New(bc)
 	cbTx := NewCoinbaseTx(ta.Addrinfo["miner"].Address, 50, GenesisCoinbaseData)
+	assert.NotNil(cbTx)
 	if _, err := tp.ProcessTx(cbTx, true, false, 13245); assert.NotNil(err) {
 		t.Logf("Coinbase Tx cannot be processed")
 	}

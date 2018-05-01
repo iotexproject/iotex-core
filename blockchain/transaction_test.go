@@ -22,6 +22,7 @@ func TestTransaction(t *testing.T) {
 
 	// create some transactions
 	cbtx := NewCoinbaseTx(ta.Addrinfo["miner"].Address, 50<<22, GenesisCoinbaseData)
+	assert.NotNil(cbtx)
 	hash := cbtx.Hash()
 
 	if assert.True(cbtx.IsCoinbase()) {
@@ -99,6 +100,7 @@ func TestTransaction(t *testing.T) {
 func TestIsLockedWithKey(t *testing.T) {
 	addr := ta.Addrinfo["miner"].Address
 	cbtx := NewCoinbaseTx(addr, 100, GenesisCoinbaseData)
+	assert.NotNil(t, cbtx)
 	assert.False(t, cbtx.TxOut[0].IsLockedWithKey([]byte("tooshort")))
 	assert.True(t, cbtx.TxOut[0].IsLockedWithKey(iotxaddress.GetPubkeyHash(addr)))
 }

@@ -35,7 +35,8 @@ type Chainserver struct {
 // NewChainServer creates an instance of chainserver
 func NewChainServer(c config.RPC, b blockchain.IBlockchain, dp cm.Dispatcher, cb func(proto.Message) error) *Chainserver {
 	if cb == nil {
-		glog.Fatal("cannot new chain server with nil callback")
+		glog.Error("cannot new chain server with nil callback")
+		return nil
 	}
 	return &Chainserver{blockchain: b, config: c, dispatcher: dp, broadcastcb: cb}
 }
@@ -88,7 +89,7 @@ func (s *Chainserver) Start() error {
 
 	lis, err := net.Listen("tcp", s.config.Port)
 	if err != nil {
-		glog.Fatalf("Chain server failed to listen: %v", err)
+		glog.Errorf("Chain server failed to listen: %v", err)
 		return err
 	}
 	glog.Infof("Chain server is listening on %v", lis.Addr().String())
