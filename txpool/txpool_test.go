@@ -86,7 +86,7 @@ func TestTxPool(t *testing.T) {
 			for idx, txOut := range tx1.TxOut {
 				fmt.Printf("tx1.TxOut.%d %d %x %d\n", idx, txOut.LockScriptSize, txOut.LockScript, txOut.Value)
 			}
-			blk := bc.MintNewBlock([]*Tx{tx1}, Addrinfo["miner"].Address, "")
+			blk := bc.MintNewBlock([]*Tx{tx1}, Addrinfo["miner"].Address, "", []byte{})
 			fmt.Println(blk)
 			err := bc.AddBlockCommit(blk)
 			assert.Nil(err)

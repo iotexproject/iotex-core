@@ -35,6 +35,7 @@ type BlockHeader struct {
 	merkleRoot    cp.Hash32B // merkle root of all trn
 	trnxNumber    uint32     // number of transaction in this block
 	trnxDataSize  uint32     // size (in bytes) of transaction data in this block
+	blockSig      []byte     // block signature
 }
 
 // Block defines the struct of block
@@ -45,9 +46,9 @@ type Block struct {
 }
 
 // NewBlock returns a new block
-func NewBlock(chainID uint32, height uint32, prevBlockHash cp.Hash32B, transactions []*Tx) *Block {
+func NewBlock(chainID uint32, height uint32, prevBlockHash cp.Hash32B, transactions []*Tx, blockSig []byte) *Block {
 	block := &Block{
-		Header: &BlockHeader{Version, chainID, height, uint64(time.Now().Unix()), prevBlockHash, cp.ZeroHash32B, uint32(len(transactions)), 0},
+		Header: &BlockHeader{Version, chainID, height, uint64(time.Now().Unix()), prevBlockHash, cp.ZeroHash32B, uint32(len(transactions)), 0, blockSig},
 		Tranxs: transactions,
 	}
 
@@ -92,6 +93,7 @@ func (b *Block) ByteStreamHeader() []byte {
 	stream = append(stream, tmp4B...)
 	cm.MachineEndian.PutUint32(tmp4B, b.Header.trnxDataSize)
 	stream = append(stream, tmp4B...)
+	stream = append(stream, b.Header.blockSig[:]...)
 	return stream
 }
 
@@ -119,6 +121,7 @@ func (b *Block) ConvertToBlockHeaderPb() *iproto.BlockHeaderPb {
 	pbHeader.MerkleRoot = b.Header.merkleRoot[:]
 	pbHeader.TrnxNumber = b.Header.trnxNumber
 	pbHeader.TrnxDataSize = b.Header.trnxDataSize
+	pbHeader.Signature = b.Header.blockSig[:]
 	return &pbHeader
 }
 
@@ -157,6 +160,7 @@ func (b *Block) ConvertFromBlockHeaderPb(pbBlock *iproto.BlockPb) {
 	copy(b.Header.merkleRoot[:], pbBlock.GetHeader().GetMerkleRoot())
 	b.Header.trnxNumber = pbBlock.GetHeader().GetTrnxNumber()
 	b.Header.trnxDataSize = pbBlock.GetHeader().GetTrnxDataSize()
+	b.Header.blockSig = pbBlock.GetHeader().GetSignature()
 }
 
 // ConvertFromBlockPb converts BlockPb to Block
