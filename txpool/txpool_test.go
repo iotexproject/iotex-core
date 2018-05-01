@@ -41,7 +41,7 @@ func TestTxPool(t *testing.T) {
 
 	// Create a blockchain from scratch
 	// bc := CreateBlockchain(Addrinfo["miner"].Address, &config.Config{Chain: config.Chain{ChainDBPath: testDBPath}})
-	bc := CreateBlockchain(ta.Addrinfo["miner"].Address, config, Gen)
+	bc := CreateBlockchain(ta.Addrinfo["miner"].RawAddress, config, Gen)
 	//ctrl := gomock.NewController(t)
 	//defer ctrl.Finish()
 
@@ -52,7 +52,7 @@ func TestTxPool(t *testing.T) {
 	defer bc.Close()
 
 	tp := New(bc)
-	cbTx := NewCoinbaseTx(ta.Addrinfo["miner"].Address, 50, GenesisCoinbaseData)
+	cbTx := NewCoinbaseTx(ta.Addrinfo["miner"].RawAddress, 50, GenesisCoinbaseData)
 	assert.NotNil(cbTx)
 	if _, err := tp.ProcessTx(cbTx, true, false, 13245); assert.NotNil(err) {
 		t.Logf("Coinbase Tx cannot be processed")

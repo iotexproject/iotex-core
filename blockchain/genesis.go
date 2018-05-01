@@ -53,7 +53,7 @@ var Gen = &Genesis{
 
 // NewGenesisBlock creates a new genesis block
 func NewGenesisBlock(gen *Genesis) *Block {
-	cbtx := NewCoinbaseTx(ta.Addrinfo["miner"].Address, gen.TotalSupply, gen.GenesisCoinbaseData)
+	cbtx := NewCoinbaseTx(ta.Addrinfo["miner"].RawAddress, gen.TotalSupply, gen.GenesisCoinbaseData)
 	if cbtx == nil {
 		glog.Error("Cannot create coinbase transaction")
 		return nil

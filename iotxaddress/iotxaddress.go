@@ -41,7 +41,7 @@ const (
 type Address struct {
 	PrivateKey []byte
 	PublicKey  []byte
-	Address    string
+	RawAddress string
 }
 
 // NewAddress returns a newly created public/private key pair together with the address derived.
@@ -55,7 +55,7 @@ func NewAddress(isTestnet bool, version byte, chainid []byte) (*Address, error) 
 	if err != nil {
 		return nil, err
 	}
-	return &Address{PublicKey: pub, PrivateKey: pri, Address: addr}, nil
+	return &Address{PublicKey: pub, PrivateKey: pri, RawAddress: addr}, nil
 }
 
 // GetAddress returns the address given a public key and necessary params.

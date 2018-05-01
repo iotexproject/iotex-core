@@ -22,14 +22,14 @@ func TestNewAddress(t *testing.T) {
 	assert.Nil(err)
 	assert.NotNil(addr.PrivateKey)
 	assert.NotNil(addr.PublicKey)
-	assert.NotEqual("", addr.Address)
+	assert.NotEqual("", addr.RawAddress)
 
-	t.Log("Generated address is ", addr.Address)
+	t.Log("Generated address is ", addr.RawAddress)
 	t.Logf("Generated public key = %x", addr.PublicKey)
 	t.Logf("Generated private key = %x", addr.PrivateKey)
 
 	p2pkh := HashPubKey(addr.PublicKey)
-	if assert.Equal(p2pkh, GetPubkeyHash(addr.Address)) {
+	if assert.Equal(p2pkh, GetPubkeyHash(addr.RawAddress)) {
 		t.Logf("P2PKH = %x", p2pkh)
 	}
 

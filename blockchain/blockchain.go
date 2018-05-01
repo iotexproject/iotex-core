@@ -189,17 +189,23 @@ func (bc *Blockchain) ValidateBlock(blk *Block) error {
 // Note: the coinbase transaction will be added to the given transactions
 // when minting a new block.
 func (bc *Blockchain) MintNewBlock(txs []*Tx, toaddr iotxaddress.Address, data string) *Block {
-	cbTx := NewCoinbaseTx(toaddr.Address, bc.genesis.BlockReward, data)
+	cbTx := NewCoinbaseTx(toaddr.RawAddress, bc.genesis.BlockReward, data)
 	if cbTx == nil {
 		glog.Error("Cannot create coinbase transaction")
 		return nil
 	}
 	txs = append(txs, cbTx)
+
 	blk := NewBlock(bc.chainID, bc.height+1, bc.tip, txs)
+
 	blkHash := blk.HashBlock()
-	hash := make([]byte, 32)
-	hash = blkHash[:]
-	blk.Header.blockSig = cp.Sign(toaddr.PrivateKey, hash)
+
+	if toaddr.PrivateKey == nil {
+		glog.Warning("Unsigned block...")
+		return blk
+	}
+
+	blk.Header.blockSig = cp.Sign(toaddr.PrivateKey, blkHash[:])
 	return blk
 }
 
@@ -322,9 +328,9 @@ func (bc *Blockchain) UtxoPool() map[cp.Hash32B][]*TxOutput {
 
 // createTx creates a transaction paying 'amount' from 'from' to 'to'
 func (bc *Blockchain) createTx(from iotxaddress.Address, amount uint64, to []*Payee, isRaw bool) *Tx {
-	utxo, change := bc.Utk.UtxoEntries(from.Address, amount)
+	utxo, change := bc.Utk.UtxoEntries(from.RawAddress, amount)
 	if utxo == nil {
-		glog.Errorf("Fail to get UTXO for %v", from.Address)
+		glog.Errorf("Fail to get UTXO for %v", from.RawAddress)
 		return nil
 	}
 
@@ -347,7 +353,7 @@ func (bc *Blockchain) createTx(from iotxaddress.Address, amount uint64, to []*Pa
 		out = append(out, bc.Utk.CreateTxOutputUtxo(payee.Address, payee.Amount))
 	}
 	if change > 0 {
-		out = append(out, bc.Utk.CreateTxOutputUtxo(from.Address, change))
+		out = append(out, bc.Utk.CreateTxOutputUtxo(from.RawAddress, change))
 	}
 
 	// Sort TxInput in lexicographical order based on TxHash + OutIndex

@@ -47,7 +47,7 @@ func constructAddress(pubkey, prikey string) iotxaddress.Address {
 	if err != nil {
 		panic(err)
 	}
-	return iotxaddress.Address{PublicKey: pubk, PrivateKey: prik, Address: addr}
+	return iotxaddress.Address{PublicKey: pubk, PrivateKey: prik, RawAddress: addr}
 }
 
 func init() {

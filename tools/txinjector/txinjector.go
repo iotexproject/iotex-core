@@ -47,7 +47,7 @@ func main() {
 	fmt.Printf("Sending %v coins from 'miner' to 'alfa'", amount)
 
 	r, err := c.CreateRawTx(ctx, &pb.CreateRawTxRequest{
-		From: ta.Addrinfo["miner"].Address, To: ta.Addrinfo["alfa"].Address, Value: amount})
+		From: ta.Addrinfo["miner"].RawAddress, To: ta.Addrinfo["alfa"].RawAddress, Value: amount})
 	if err != nil {
 		panic(err)
 	} else {
