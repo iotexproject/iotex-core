@@ -188,14 +188,19 @@ func (bc *Blockchain) ValidateBlock(blk *Block) error {
 // MintNewBlock creates a new block with given transactions.
 // Note: the coinbase transaction will be added to the given transactions
 // when minting a new block.
-func (bc *Blockchain) MintNewBlock(txs []*Tx, toaddr string, data string, blockSig []byte) *Block {
-	cbTx := NewCoinbaseTx(toaddr, bc.genesis.BlockReward, data)
+func (bc *Blockchain) MintNewBlock(txs []*Tx, toaddr iotxaddress.Address, data string) *Block {
+	cbTx := NewCoinbaseTx(toaddr.Address, bc.genesis.BlockReward, data)
 	if cbTx == nil {
 		glog.Error("Cannot create coinbase transaction")
 		return nil
 	}
 	txs = append(txs, cbTx)
-	return NewBlock(bc.chainID, bc.height+1, bc.tip, txs, blockSig)
+	blk := NewBlock(bc.chainID, bc.height+1, bc.tip, txs)
+	blkHash := blk.HashBlock()
+	hash := make([]byte, 32)
+	hash = blkHash[:]
+	blk.Header.blockSig = cp.Sign(toaddr.PrivateKey, hash)
+	return blk
 }
 
 // AddBlockCommit adds a new block into blockchain

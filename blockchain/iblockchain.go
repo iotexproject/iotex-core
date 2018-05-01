@@ -36,7 +36,7 @@ type IBlockchain interface {
 	// MintNewBlock creates a new block with given transactions.
 	// Note: the coinbase transaction will be added to the given transactions
 	// when minting a new block.
-	MintNewBlock([]*Tx, string, string, []byte) *Block
+	MintNewBlock([]*Tx, iotxaddress.Address, string) *Block
 	// AddBlockCommit adds a new block into blockchain
 	AddBlockCommit(blk *Block) error
 	// AddBlockSync adds a past block into blockchain
