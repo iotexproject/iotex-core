@@ -58,18 +58,22 @@ func NewServer(cfg config.Config) Server {
 }
 
 // Init initialize the server
-func (s *Server) Init() {
+func (s *Server) Init() error {
 	s.dp.Start()
 	if err := s.o.Init(); err != nil {
-		glog.Fatal(err)
+		glog.Error(err)
+		return err
 	}
+	return nil
 }
 
 // Start starts the server
-func (s *Server) Start() {
+func (s *Server) Start() error {
 	if err := s.o.Start(); err != nil {
-		glog.Fatal(err)
+		glog.Error(err)
+		return err
 	}
+	return nil
 }
 
 // Stop stops the server

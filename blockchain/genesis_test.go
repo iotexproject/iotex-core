@@ -11,7 +11,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	cp "github.com/iotexproject/iotex-core-internal/crypto"
+	cp "github.com/iotexproject/iotex-core/crypto"
 )
 
 func TestGenesis(t *testing.T) {

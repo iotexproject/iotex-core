@@ -7,11 +7,11 @@
 package fsm
 
 import (
-	"log"
 	"net"
 	"sync"
 	"time"
 
+	"github.com/golang/glog"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/blockchain"
@@ -114,16 +114,18 @@ func NewMachine() Machine {
 
 // SetInitialState sets the initial state which not only handles request for itself
 // but also accepts state types for all direct neighbor states
-func (m *Machine) SetInitialState(state State, handler Handler) {
+func (m *Machine) SetInitialState(state State, handler Handler) error {
 	m.AddState(state, handler)
 	err := m.transitionAndSetupTimeout(state, &Event{State: "EMPTY"})
 	if err != nil {
-		log.Fatal("failed to SetInitialState: cannot transit to initial state")
+		glog.Error("failed to SetInitialState: cannot transit to initial state")
+		return err
 	}
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.initialState = state
+	return nil
 }
 
 // CurrentState returns the machine's current state. It returns "" when not initialized.

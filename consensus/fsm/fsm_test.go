@@ -82,13 +82,14 @@ func TestStateTransition123(t *testing.T) {
 // 1 -> 2 -> 3 so 1 cannot move to 3 directly
 func TestCannotSkipTransition(t *testing.T) {
 	sm := NewMachine()
-	sm.SetInitialState("1", &EmptyHandler{})
+	err := sm.SetInitialState("1", &EmptyHandler{})
+	assert.Nil(t, err)
 	sm.AddState("2", &EmptyHandler{})
 	sm.AddState("3", &EmptyHandler{})
 	sm.AddTransition("1", "2", RuleNoError{})
 	sm.AddTransition("2", "3", RuleNoError{})
 
-	err := sm.HandleTransition(&Event{State: "3"})
+	err = sm.HandleTransition(&Event{State: "3"})
 	assert.Equal(t, ErrStateHandlerNotMatched, errors.Cause(err))
 }
 
@@ -99,7 +100,8 @@ func TestCannotSkipTransition(t *testing.T) {
 func TestInitialStateAcceptsStatesForNeighbors(t *testing.T) {
 	sm := NewMachine()
 	start := &EmptyHandler{}
-	sm.SetInitialState("initial", start)
+	err := sm.SetInitialState("initial", start)
+	assert.Nil(t, err)
 	sm.AddState("1", &EmptyHandler{})
 	sm.AddState("2", &EmptyHandler{})
 	sm.AddState("3", &EmptyHandler{})
@@ -109,7 +111,7 @@ func TestInitialStateAcceptsStatesForNeighbors(t *testing.T) {
 
 	// cannot handle 3 directly from initial
 	assert.Equal(t, State("initial"), sm.CurrentState())
-	err := sm.HandleTransition(&Event{State: "3"})
+	err = sm.HandleTransition(&Event{State: "3"})
 	assert.Error(t, err)
 
 	// can handle 1 directly from initial
@@ -124,7 +126,8 @@ func TestInitialStateAcceptsStatesForNeighbors(t *testing.T) {
 // when in initial state, the state machine accepts 1. if 1 set error, stays in 1.
 func TestInitialStateAcceptsNeighborAndStaysIfError(t *testing.T) {
 	sm := NewMachine()
-	sm.SetInitialState("initial", &EmptyHandler{})
+	err := sm.SetInitialState("initial", &EmptyHandler{})
+	assert.Nil(t, err)
 	sm.AddState("1", &EmptyHandler{hasError: true})
 	sm.AddState("2", &EmptyHandler{})
 	sm.AddTransition("initial", "1", RuleNoError{})
@@ -132,7 +135,7 @@ func TestInitialStateAcceptsNeighborAndStaysIfError(t *testing.T) {
 
 	// can handle 1 directly from initial, but stays in 1 because there is error
 	assert.Equal(t, State("initial"), sm.CurrentState())
-	err := sm.HandleTransition(&Event{State: "1"})
+	err = sm.HandleTransition(&Event{State: "1"})
 	assert.Equal(t, State("1"), sm.CurrentState())
 	assert.Equal(t, ErrNoTransitionApplied, errors.Cause(err))
 }
@@ -144,7 +147,8 @@ func TestInitialStateAcceptsNeighborAndStaysIfError(t *testing.T) {
 // when in initial state, the state machine accepts 1. if 1 set error, stays in 1.
 func TestInitialStateAcceptsNeighborCircle(t *testing.T) {
 	sm := NewMachine()
-	sm.SetInitialState("initial", &EmptyHandler{})
+	err := sm.SetInitialState("initial", &EmptyHandler{})
+	assert.Nil(t, err)
 	sm.AddState("1", &EmptyHandler{hasError: true})
 	sm.AddState("2", &EmptyHandler{})
 	sm.AddTransition("initial", "1", RuleNoError{})
@@ -153,7 +157,7 @@ func TestInitialStateAcceptsNeighborCircle(t *testing.T) {
 
 	// can handle 1 directly from initial, but stays in 1 because there is error
 	assert.Equal(t, State("initial"), sm.CurrentState())
-	err := sm.HandleTransition(&Event{State: "1"})
+	err = sm.HandleTransition(&Event{State: "1"})
 	assert.Equal(t, State("1"), sm.CurrentState())
 	assert.NoError(t, err)
 }
@@ -188,13 +192,14 @@ func (r *RuleTimeout) Condition(ctx *Event) bool {
 // when state 1 timeout, the state will move to 2 automatically
 func TestTimeoutTriggersTransition(t *testing.T) {
 	sm := NewMachine()
-	sm.SetInitialState("initial", &EmptyHandler{})
+	err := sm.SetInitialState("initial", &EmptyHandler{})
+	assert.Nil(t, err)
 	sm.AddState("1", &TimeoutHandler{})
 	sm.AddState("2", &EmptyHandler{hasError: true})
 	sm.AddTransition("initial", "1", RuleNoError{})
 	sm.AddTransition("1", "2", &RuleTimeout{})
 
-	err := sm.HandleTransition(&Event{State: "1"})
+	err = sm.HandleTransition(&Event{State: "1"})
 	assert.Equal(t, ErrNoTransitionApplied, errors.Cause(err))
 	assert.Equal(t, State("1"), sm.CurrentState())
 
@@ -206,13 +211,14 @@ func TestTimeoutTriggersTransition(t *testing.T) {
 // when state 1 -> 2 happens, the state 1's timeout is stopped.
 func TestTransitionStopsTimeout(t *testing.T) {
 	sm := NewMachine()
-	sm.SetInitialState("initial", &EmptyHandler{})
+	err := sm.SetInitialState("initial", &EmptyHandler{})
+	assert.Nil(t, err)
 	sm.AddState("1", &TimeoutHandler{})
 	sm.AddState("2", &EmptyHandler{})
 	sm.AddTransition("initial", "1", RuleNoError{})
 	sm.AddTransition("1", "2", &RuleHasError{})
 
-	err := sm.HandleTransition(&Event{State: "1"})
+	err = sm.HandleTransition(&Event{State: "1"})
 	assert.NoError(t, err)
 	assert.Equal(t, State("2"), sm.CurrentState())
 }
@@ -221,13 +227,14 @@ func TestTransitionStopsTimeout(t *testing.T) {
 // when state 1 timeout, the state will move to 2 automatically
 func TestTimeoutStopsIfTransitionApplies(t *testing.T) {
 	sm := NewMachine()
-	sm.SetInitialState("initial", &EmptyHandler{})
+	err := sm.SetInitialState("initial", &EmptyHandler{})
+	assert.Nil(t, err)
 	sm.AddState("1", &TimeoutHandler{})
 	sm.AddState("2", &EmptyHandler{hasError: true})
 	sm.AddTransition("initial", "1", RuleNoError{})
 	sm.AddTransition("1", "2", &RuleTimeout{})
 
-	err := sm.HandleTransition(&Event{State: "1"})
+	err = sm.HandleTransition(&Event{State: "1"})
 	assert.Equal(t, ErrNoTransitionApplied, errors.Cause(err))
 	assert.Equal(t, State("1"), sm.CurrentState())
 

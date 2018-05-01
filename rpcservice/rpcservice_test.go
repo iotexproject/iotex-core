@@ -86,6 +86,7 @@ func TestCreateRawTx(t *testing.T) {
 	}
 
 	s := NewChainServer(cfg.RPC, mbc, mdp, bcb)
+	assert.NotNil(t, s)
 	s.Start()
 	defer s.Stop()
 
@@ -127,6 +128,7 @@ func TestSendTx(t *testing.T) {
 	}
 
 	s := NewChainServer(cfg.RPC, mbc, mdp, bcb)
+	assert.NotNil(t, s)
 	s.Start()
 	defer s.Stop()
 

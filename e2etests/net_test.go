@@ -39,8 +39,10 @@ func TestNetSync(t *testing.T) {
 	// create node
 	svr := itx.NewServer(*config)
 	assert.NotNil(svr)
-	svr.Init()
-	svr.Start()
+	err = svr.Init()
+	assert.Nil(err)
+	err = svr.Start()
+	assert.Nil(err)
 	defer svr.Stop()
 
 	select {}

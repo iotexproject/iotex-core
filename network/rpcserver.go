@@ -119,7 +119,7 @@ func (s *RPCServer) Tell(ctx context.Context, req *pb.TellReq) (*pb.TellRes, err
 func (s *RPCServer) Start() error {
 	lis, err := net.Listen(s.Network(), s.String())
 	if err != nil {
-		glog.Fatalf("Node failed to listen: %v", err)
+		glog.Errorf("Node failed to listen: %v", err)
 		return err
 	}
 	s.Addr = lis.Addr().String()

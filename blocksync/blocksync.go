@@ -109,9 +109,9 @@ func NewBlockSyncer(cfg *config.Config, chain *bc.Blockchain, tp txpool.TxPool, 
 	delegates, err := dp.AllDelegates()
 	if err != nil || len(delegates) == 0 {
 		if err != nil {
-			glog.Fatal(err)
+			glog.Error(err)
 		} else {
-			glog.Fatal("No delegates found")
+			glog.Error("No delegates found")
 		}
 		syscall.Exit(syscall.SYS_EXIT)
 	}
@@ -128,7 +128,7 @@ func NewBlockSyncer(cfg *config.Config, chain *bc.Blockchain, tp txpool.TxPool, 
 			sync.fnd = dlg.String()
 		}
 	default:
-		glog.Fatal("Unexpected node type ", cfg.NodeType)
+		glog.Error("Unexpected node type ", cfg.NodeType)
 		return nil
 	}
 	return sync

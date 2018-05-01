@@ -88,7 +88,7 @@ func (o *Overlay) addPeerMaintainer() {
 func (o *Overlay) addConfigBasedPeerMaintainer() {
 	topology, err := config.LoadTopology(o.Config.TopologyPath)
 	if err != nil {
-		glog.Fatal(err.Error())
+		glog.Error(err.Error())
 		syscall.Exit(syscall.SYS_EXIT)
 	}
 	cbpm := NewConfigBasedPeerMaintainer(o, topology)
