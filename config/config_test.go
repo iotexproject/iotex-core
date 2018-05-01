@@ -17,6 +17,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/keepalive"
 	"gopkg.in/yaml.v2"
+
+	"github.com/iotexproject/iotex-core-internal/iotxaddress"
 )
 
 func TestLoadTestConfig(t *testing.T) {
@@ -48,13 +50,13 @@ func TestLoadProdConfig(t *testing.T) {
 
 func TestValidateConfig(t *testing.T) {
 	cfg := LoadTestConfig()
-	cfg.Chain.MinerAddr = "invalid_address"
+	cfg.Chain.MinerAddr.Address = "invalid_address"
 	err := validateConfig(cfg)
 	assert.NotNil(t, err)
 	assert.Equal(t, "invalid miner's address", err.Error())
 
 	cfg = LoadTestConfig()
-	cfg.Chain.MinerAddr = ""
+	cfg.Chain.MinerAddr.Address = ""
 	cfg.NodeType = "invalid_type"
 	err = validateConfig(cfg)
 	assert.NotNil(t, err)
@@ -109,6 +111,10 @@ func LoadTestConfig() *Config {
 		},
 		Chain: Chain{
 			ChainDBPath: "./a/fake/path",
+			MinerAddr: iotxaddress.Address{
+				PrivateKey: []byte{},
+				PublicKey:  []byte{},
+			},
 		},
 		Consensus: Consensus{
 			Scheme: "NOOP",

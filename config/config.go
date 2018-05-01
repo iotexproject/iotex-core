@@ -64,8 +64,8 @@ type Network struct {
 type Chain struct {
 	ChainDBPath string
 
-	// MinerAddr is an address where the block rewards will be sent to.
-	MinerAddr string
+	// MinerAddr is an iotxaddress struct where the block rewards will be sent to.
+	MinerAddr iotxaddress.Address
 }
 
 // Consensus is the config struct for consensus package
@@ -195,7 +195,7 @@ func loadConfigWithPathInternal(path string, validate bool) (*Config, error) {
 // validateConfig validates the given config
 func validateConfig(cfg *Config) error {
 	// Validate miner's address
-	if len(cfg.Chain.MinerAddr) > 0 && !iotxaddress.ValidateAddress(cfg.Chain.MinerAddr) {
+	if len(cfg.Chain.MinerAddr.Address) > 0 && !iotxaddress.ValidateAddress(cfg.Chain.MinerAddr.Address) {
 		return fmt.Errorf("invalid miner's address")
 	}
 
