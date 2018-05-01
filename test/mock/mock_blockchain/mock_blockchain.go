@@ -158,15 +158,15 @@ func (mr *MockIBlockchainMockRecorder) ValidateBlock(blk interface{}) *gomock.Ca
 }
 
 // MintNewBlock mocks base method
-func (m *MockIBlockchain) MintNewBlock(arg0 []*blockchain.Tx, arg1, arg2 string) *blockchain.Block {
-	ret := m.ctrl.Call(m, "MintNewBlock", arg0, arg1, arg2)
+func (m *MockIBlockchain) MintNewBlock(arg0 []*blockchain.Tx, arg1, arg2 string, arg3 []byte) *blockchain.Block {
+	ret := m.ctrl.Call(m, "MintNewBlock", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(*blockchain.Block)
 	return ret0
 }
 
 // MintNewBlock indicates an expected call of MintNewBlock
-func (mr *MockIBlockchainMockRecorder) MintNewBlock(arg0, arg1, arg2 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MintNewBlock", reflect.TypeOf((*MockIBlockchain)(nil).MintNewBlock), arg0, arg1, arg2)
+func (mr *MockIBlockchainMockRecorder) MintNewBlock(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MintNewBlock", reflect.TypeOf((*MockIBlockchain)(nil).MintNewBlock), arg0, arg1, arg2, arg3)
 }
 
 // AddBlockCommit mocks base method

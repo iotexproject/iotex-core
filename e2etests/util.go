@@ -16,7 +16,7 @@ func addTestingBlocks(bc blockchain.IBlockchain) error {
 	payee = append(payee, &blockchain.Payee{ta.Addrinfo["echo"].Address, 110})
 	payee = append(payee, &blockchain.Payee{ta.Addrinfo["foxtrot"].Address, 50 << 20})
 	tx := bc.CreateTransaction(ta.Addrinfo["miner"], 280+50<<20, payee)
-	blk := bc.MintNewBlock([]*blockchain.Tx{tx}, ta.Addrinfo["miner"].Address, "")
+	blk := bc.MintNewBlock([]*blockchain.Tx{tx}, ta.Addrinfo["miner"].Address, "", []byte{})
 	if err := bc.AddBlockCommit(blk); err != nil {
 		return err
 	}
@@ -31,7 +31,7 @@ func addTestingBlocks(bc blockchain.IBlockchain) error {
 	payee = append(payee, &blockchain.Payee{ta.Addrinfo["echo"].Address, 1})
 	payee = append(payee, &blockchain.Payee{ta.Addrinfo["miner"].Address, 1})
 	tx = bc.CreateTransaction(ta.Addrinfo["charlie"], 5, payee)
-	blk = bc.MintNewBlock([]*blockchain.Tx{tx}, ta.Addrinfo["miner"].Address, "")
+	blk = bc.MintNewBlock([]*blockchain.Tx{tx}, ta.Addrinfo["miner"].Address, "", []byte{})
 	if err := bc.AddBlockCommit(blk); err != nil {
 		return err
 	}
@@ -43,7 +43,7 @@ func addTestingBlocks(bc blockchain.IBlockchain) error {
 	payee[1] = &blockchain.Payee{ta.Addrinfo["echo"].Address, 1}
 	payee[2] = &blockchain.Payee{ta.Addrinfo["foxtrot"].Address, 1}
 	tx = bc.CreateTransaction(ta.Addrinfo["delta"], 4, payee)
-	blk = bc.MintNewBlock([]*blockchain.Tx{tx}, ta.Addrinfo["miner"].Address, "")
+	blk = bc.MintNewBlock([]*blockchain.Tx{tx}, ta.Addrinfo["miner"].Address, "", []byte{})
 	if err := bc.AddBlockCommit(blk); err != nil {
 		return err
 	}
@@ -59,7 +59,7 @@ func addTestingBlocks(bc blockchain.IBlockchain) error {
 	payee = append(payee, &blockchain.Payee{ta.Addrinfo["foxtrot"].Address, 2})
 	payee = append(payee, &blockchain.Payee{ta.Addrinfo["miner"].Address, 2})
 	tx = bc.CreateTransaction(ta.Addrinfo["echo"], 12, payee)
-	blk = bc.MintNewBlock([]*blockchain.Tx{tx}, ta.Addrinfo["miner"].Address, "")
+	blk = bc.MintNewBlock([]*blockchain.Tx{tx}, ta.Addrinfo["miner"].Address, "", []byte{})
 	if err := bc.AddBlockCommit(blk); err != nil {
 		return err
 	}

@@ -38,7 +38,7 @@ func addTestingBlocks(bc *Blockchain) error {
 	if tx == nil {
 		return errors.New("empty tx for block 1")
 	}
-	blk := bc.MintNewBlock([]*Tx{tx}, ta.Addrinfo["miner"].Address, "")
+	blk := bc.MintNewBlock([]*Tx{tx}, ta.Addrinfo["miner"].Address, "", []byte{})
 	if err := bc.AddBlockCommit(blk); err != nil {
 		return err
 	}
@@ -53,7 +53,7 @@ func addTestingBlocks(bc *Blockchain) error {
 	payee = append(payee, &Payee{ta.Addrinfo["delta"].Address, 1})
 	payee = append(payee, &Payee{ta.Addrinfo["miner"].Address, 1})
 	tx = bc.CreateTransaction(ta.Addrinfo["charlie"], 5, payee)
-	blk = bc.MintNewBlock([]*Tx{tx}, ta.Addrinfo["miner"].Address, "")
+	blk = bc.MintNewBlock([]*Tx{tx}, ta.Addrinfo["miner"].Address, "", []byte{})
 	if err := bc.AddBlockCommit(blk); err != nil {
 		return err
 	}
@@ -65,7 +65,7 @@ func addTestingBlocks(bc *Blockchain) error {
 	payee[1] = &Payee{ta.Addrinfo["echo"].Address, 1}
 	payee[2] = &Payee{ta.Addrinfo["foxtrot"].Address, 1}
 	tx = bc.CreateTransaction(ta.Addrinfo["delta"], 4, payee)
-	blk = bc.MintNewBlock([]*Tx{tx}, ta.Addrinfo["miner"].Address, "")
+	blk = bc.MintNewBlock([]*Tx{tx}, ta.Addrinfo["miner"].Address, "", []byte{})
 	if err := bc.AddBlockCommit(blk); err != nil {
 		return err
 	}
@@ -81,7 +81,7 @@ func addTestingBlocks(bc *Blockchain) error {
 	payee = append(payee, &Payee{ta.Addrinfo["foxtrot"].Address, 2})
 	payee = append(payee, &Payee{ta.Addrinfo["miner"].Address, 2})
 	tx = bc.CreateTransaction(ta.Addrinfo["echo"], 12, payee)
-	blk = bc.MintNewBlock([]*Tx{tx}, ta.Addrinfo["miner"].Address, "")
+	blk = bc.MintNewBlock([]*Tx{tx}, ta.Addrinfo["miner"].Address, "", []byte{})
 	if err := bc.AddBlockCommit(blk); err != nil {
 		return err
 	}
@@ -227,7 +227,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	// add block with wrong height
 	cbTx := NewCoinbaseTx(ta.Addrinfo["bravo"].Address, 50, GenesisCoinbaseData)
 	assert.NotNil(cbTx)
-	blk = NewBlock(0, h+2, hash, []*Tx{cbTx})
+	blk = NewBlock(0, h+2, hash, []*Tx{cbTx}, []byte{})
 	err = bc.ValidateBlock(blk)
 	assert.NotNil(err)
 	fmt.Printf("Cannot validate block %d: %v\n", blk.Height(), err)
@@ -235,7 +235,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	// add block with zero prev hash
 	cbTx = NewCoinbaseTx(ta.Addrinfo["bravo"].Address, 50, GenesisCoinbaseData)
 	assert.NotNil(cbTx)
-	blk = NewBlock(0, h+1, cp.ZeroHash32B, []*Tx{cbTx})
+	blk = NewBlock(0, h+1, cp.ZeroHash32B, []*Tx{cbTx}, []byte{})
 	err = bc.ValidateBlock(blk)
 	assert.NotNil(err)
 	fmt.Printf("Cannot validate block %d: %v\n", blk.Height(), err)
@@ -276,7 +276,7 @@ func TestEmptyBlockOnlyHasCoinbaseTx(t *testing.T) {
 	defer bc.Close()
 	assert.NotNil(t, bc)
 
-	blk := bc.MintNewBlock([]*Tx{}, ta.Addrinfo["miner"].Address, "")
+	blk := bc.MintNewBlock([]*Tx{}, ta.Addrinfo["miner"].Address, "", []byte{})
 	assert.Equal(t, uint32(1), blk.Height())
 	assert.Equal(t, 1, len(blk.Tranxs))
 	assert.True(t, blk.Tranxs[0].IsCoinbase())
