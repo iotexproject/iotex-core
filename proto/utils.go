@@ -29,6 +29,8 @@ const (
 	MsgBlockSyncReqType uint32 = 4
 	// MsgBlockSyncDataType is the response to messages of type MsgBlockSyncReqType
 	MsgBlockSyncDataType uint32 = 5
+	// MsgVoteType is the vote message
+	MsgVoteType uint32 = 6
 	// TestPayloadType is a test payload message type
 	TestPayloadType uint32 = 10001
 )
@@ -46,6 +48,8 @@ func GetTypeFromProtoMsg(msg proto.Message) (uint32, error) {
 		return MsgBlockSyncReqType, nil
 	case *BlockContainer:
 		return MsgBlockSyncDataType, nil
+	case *VotePb:
+		return MsgVoteType, nil
 	case *TestPayload:
 		return TestPayloadType, nil
 	default:
@@ -67,6 +71,8 @@ func TypifyProtoMsg(tp uint32, msg []byte) (proto.Message, error) {
 		m = &BlockSync{}
 	case MsgBlockSyncDataType:
 		m = &BlockContainer{}
+	case MsgVoteType:
+		m = &VotePb{}
 	case TestPayloadType:
 		m = &TestPayload{}
 	default:

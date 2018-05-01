@@ -45,6 +45,12 @@ type blockSyncMsg struct {
 	done   chan bool
 }
 
+// voteMsg packages a proto vote message.
+type voteMsg struct {
+	vote *pb.VotePb
+	done chan bool
+}
+
 // dispatcher implements Dispatcher interface.
 type dispatcher struct {
 	started  int32
@@ -133,6 +139,9 @@ loop:
 			case *blockSyncMsg:
 				d.handleBlockSyncMsg(msg)
 
+			case *voteMsg:
+				d.handleVoteMsg(msg)
+
 			default:
 				glog.Warning("Invalid message type in block handler: %T", msg)
 			}
@@ -161,7 +170,6 @@ func (d *dispatcher) handleTxMsg(m *txMsg) {
 	if m.done != nil {
 		m.done <- true
 	}
-
 	return
 }
 
@@ -185,7 +193,6 @@ func (d *dispatcher) handleBlockMsg(m *blockMsg) {
 	if m.done != nil {
 		m.done <- true
 	}
-
 	return
 }
 
@@ -202,7 +209,19 @@ func (d *dispatcher) handleBlockSyncMsg(m *blockSyncMsg) {
 	if m.done != nil {
 		m.done <- true
 	}
+	return
+}
 
+// handleVoteMsg handles voteMsg from all peers.
+func (d *dispatcher) handleVoteMsg(m *voteMsg) {
+	vote := &pb.VotePb{}
+	glog.Infof("receive voteMsg, sig = %x", vote.Signature)
+
+	//todo: call account module to process the vote msg
+	// signal to let caller know we are done
+	if m.done != nil {
+		m.done <- true
+	}
 	return
 }
 
@@ -214,7 +233,6 @@ func (d *dispatcher) dispatchTx(msg proto.Message, done chan bool) {
 		}
 		return
 	}
-
 	d.newsChan <- &txMsg{(msg).(*pb.TxPb), done}
 }
 
@@ -226,7 +244,6 @@ func (d *dispatcher) dispatchBlockCommit(msg proto.Message, done chan bool) {
 		}
 		return
 	}
-
 	d.newsChan <- &blockMsg{(msg).(*pb.BlockPb), pb.MsgBlockProtoMsgType, done}
 }
 
@@ -238,7 +255,6 @@ func (d *dispatcher) dispatchBlockSyncReq(sender string, msg proto.Message, done
 		}
 		return
 	}
-
 	d.newsChan <- &blockSyncMsg{sender, (msg).(*pb.BlockSync), done}
 }
 
@@ -250,13 +266,22 @@ func (d *dispatcher) dispatchBlockSyncData(msg proto.Message, done chan bool) {
 		}
 		return
 	}
-
 	data := (msg).(*pb.BlockContainer)
 	d.newsChan <- &blockMsg{data.Block, pb.MsgBlockSyncDataType, done}
 }
 
-// HandleBroadcast handles incoming broadcast message
+// dispatchVote adds the passed vote message to the news handling queue.
+func (d *dispatcher) dispatchVote(msg proto.Message, done chan bool) {
+	if atomic.LoadInt32(&d.shutdown) != 0 {
+		if done != nil {
+			close(done)
+		}
+		return
+	}
+	d.newsChan <- &voteMsg{(msg).(*pb.VotePb), done}
+}
 
+// HandleBroadcast handles incoming broadcast message
 func (d *dispatcher) HandleBroadcast(message proto.Message, done chan bool) {
 	msgType, err := pb.GetTypeFromProtoMsg(message)
 	if err != nil {
@@ -273,6 +298,8 @@ func (d *dispatcher) HandleBroadcast(message proto.Message, done chan bool) {
 	case pb.MsgBlockProtoMsgType:
 		d.dispatchBlockCommit(message, done)
 		break
+	case pb.MsgVoteType:
+		d.dispatchVote(message, done)
 	default:
 		glog.Warning("unexpected msgType %v handled by HandleBroadcast", msgType)
 	}
