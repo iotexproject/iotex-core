@@ -115,7 +115,7 @@ func TestLocalCommit(t *testing.T) {
 	p1.Broadcast(tx.ConvertToTxPb())
 	time.Sleep(time.Second)
 
-	blk1 := bc.MintNewBlock(tp.Txs(), ta.Addrinfo["miner"].Address, "", []byte{})
+	blk1 := bc.MintNewBlock(tp.Txs(), ta.Addrinfo["miner"], "")
 	hash1 := blk1.HashBlock()
 
 	// transaction 2
@@ -123,7 +123,7 @@ func TestLocalCommit(t *testing.T) {
 	payee = nil
 	payee = append(payee, &blockchain.Payee{ta.Addrinfo["delta"].Address, 1})
 	tx2 := bc.CreateTransaction(ta.Addrinfo["foxtrot"], 1, payee)
-	blk2 := blockchain.NewBlock(0, height+2, hash1, []*blockchain.Tx{tx2}, []byte{})
+	blk2 := blockchain.NewBlock(0, height+2, hash1, []*blockchain.Tx{tx2})
 	hash2 := blk2.HashBlock()
 	bc.Reset()
 	p2.Broadcast(tx2.ConvertToTxPb())
@@ -133,7 +133,7 @@ func TestLocalCommit(t *testing.T) {
 	payee = nil
 	payee = append(payee, &blockchain.Payee{ta.Addrinfo["bravo"].Address, 1})
 	tx3 := bc.CreateTransaction(ta.Addrinfo["bravo"], 1, payee)
-	blk3 := blockchain.NewBlock(0, height+3, hash2, []*blockchain.Tx{tx3}, []byte{})
+	blk3 := blockchain.NewBlock(0, height+3, hash2, []*blockchain.Tx{tx3})
 	hash3 := blk3.HashBlock()
 	bc.Reset()
 	p1.Broadcast(tx3.ConvertToTxPb())
@@ -143,7 +143,7 @@ func TestLocalCommit(t *testing.T) {
 	payee = nil
 	payee = append(payee, &blockchain.Payee{ta.Addrinfo["echo"].Address, 1})
 	tx4 := bc.CreateTransaction(ta.Addrinfo["miner"], 1, payee)
-	blk4 := blockchain.NewBlock(0, height+4, hash3, []*blockchain.Tx{tx4}, []byte{})
+	blk4 := blockchain.NewBlock(0, height+4, hash3, []*blockchain.Tx{tx4})
 	bc.Reset()
 	p2.Broadcast(tx4.ConvertToTxPb())
 

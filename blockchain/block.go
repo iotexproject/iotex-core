@@ -46,9 +46,9 @@ type Block struct {
 }
 
 // NewBlock returns a new block
-func NewBlock(chainID uint32, height uint32, prevBlockHash cp.Hash32B, transactions []*Tx, blockSig []byte) *Block {
+func NewBlock(chainID uint32, height uint32, prevBlockHash cp.Hash32B, transactions []*Tx) *Block {
 	block := &Block{
-		Header: &BlockHeader{Version, chainID, height, uint64(time.Now().Unix()), prevBlockHash, cp.ZeroHash32B, uint32(len(transactions)), 0, blockSig},
+		Header: &BlockHeader{Version, chainID, height, uint64(time.Now().Unix()), prevBlockHash, cp.ZeroHash32B, uint32(len(transactions)), 0, []byte{}},
 		Tranxs: transactions,
 	}
 
