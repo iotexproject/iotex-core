@@ -93,7 +93,6 @@ func (b *Block) ByteStreamHeader() []byte {
 	stream = append(stream, tmp4B...)
 	cm.MachineEndian.PutUint32(tmp4B, b.Header.trnxDataSize)
 	stream = append(stream, tmp4B...)
-	stream = append(stream, b.Header.blockSig[:]...)
 	return stream
 }
 
@@ -101,6 +100,9 @@ func (b *Block) ByteStreamHeader() []byte {
 // used to calculate the block hash
 func (b *Block) ByteStream() []byte {
 	stream := b.ByteStreamHeader()
+
+	// Add the stream of blockSig
+	stream = append(stream, b.Header.blockSig[:]...)
 
 	// write all trnx
 	for _, tx := range b.Tranxs {

@@ -41,15 +41,15 @@ func TestMerkle(t *testing.T) {
 
 	amount := uint64(50 << 22)
 	// create testing transactions
-	cbtx0 := NewCoinbaseTx(ta.Addrinfo["miner"].Address, amount, GenesisCoinbaseData)
+	cbtx0 := NewCoinbaseTx(ta.Addrinfo["miner"].RawAddress, amount, GenesisCoinbaseData)
 	assert.NotNil(cbtx0)
-	cbtx1 := NewCoinbaseTx(ta.Addrinfo["alfa"].Address, amount, GenesisCoinbaseData)
+	cbtx1 := NewCoinbaseTx(ta.Addrinfo["alfa"].RawAddress, amount, GenesisCoinbaseData)
 	assert.NotNil(cbtx1)
-	cbtx2 := NewCoinbaseTx(ta.Addrinfo["bravo"].Address, amount, GenesisCoinbaseData)
+	cbtx2 := NewCoinbaseTx(ta.Addrinfo["bravo"].RawAddress, amount, GenesisCoinbaseData)
 	assert.NotNil(cbtx2)
-	cbtx3 := NewCoinbaseTx(ta.Addrinfo["charlie"].Address, amount, GenesisCoinbaseData)
+	cbtx3 := NewCoinbaseTx(ta.Addrinfo["charlie"].RawAddress, amount, GenesisCoinbaseData)
 	assert.NotNil(cbtx3)
-	cbtx4 := NewCoinbaseTx(ta.Addrinfo["echo"].Address, amount, GenesisCoinbaseData)
+	cbtx4 := NewCoinbaseTx(ta.Addrinfo["echo"].RawAddress, amount, GenesisCoinbaseData)
 	assert.NotNil(cbtx4)
 
 	// verify tx hash

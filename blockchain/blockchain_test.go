@@ -28,12 +28,12 @@ func addTestingBlocks(bc *Blockchain) error {
 	// Add block 1
 	// test --> A, B, C, D, E, F
 	payee := []*Payee{}
-	payee = append(payee, &Payee{ta.Addrinfo["alfa"].Address, 20})
-	payee = append(payee, &Payee{ta.Addrinfo["bravo"].Address, 30})
-	payee = append(payee, &Payee{ta.Addrinfo["charlie"].Address, 50})
-	payee = append(payee, &Payee{ta.Addrinfo["delta"].Address, 70})
-	payee = append(payee, &Payee{ta.Addrinfo["echo"].Address, 110})
-	payee = append(payee, &Payee{ta.Addrinfo["foxtrot"].Address, 50 << 20})
+	payee = append(payee, &Payee{ta.Addrinfo["alfa"].RawAddress, 20})
+	payee = append(payee, &Payee{ta.Addrinfo["bravo"].RawAddress, 30})
+	payee = append(payee, &Payee{ta.Addrinfo["charlie"].RawAddress, 50})
+	payee = append(payee, &Payee{ta.Addrinfo["delta"].RawAddress, 70})
+	payee = append(payee, &Payee{ta.Addrinfo["echo"].RawAddress, 110})
+	payee = append(payee, &Payee{ta.Addrinfo["foxtrot"].RawAddress, 50 << 20})
 	tx := bc.CreateTransaction(ta.Addrinfo["miner"], 280+(50<<20), payee)
 	if tx == nil {
 		return errors.New("empty tx for block 1")
@@ -47,11 +47,11 @@ func addTestingBlocks(bc *Blockchain) error {
 	// Add block 2
 	// Charlie --> A, B, D, E, test
 	payee = nil
-	payee = append(payee, &Payee{ta.Addrinfo["alfa"].Address, 1})
-	payee = append(payee, &Payee{ta.Addrinfo["bravo"].Address, 1})
-	payee = append(payee, &Payee{ta.Addrinfo["charlie"].Address, 1})
-	payee = append(payee, &Payee{ta.Addrinfo["delta"].Address, 1})
-	payee = append(payee, &Payee{ta.Addrinfo["miner"].Address, 1})
+	payee = append(payee, &Payee{ta.Addrinfo["alfa"].RawAddress, 1})
+	payee = append(payee, &Payee{ta.Addrinfo["bravo"].RawAddress, 1})
+	payee = append(payee, &Payee{ta.Addrinfo["charlie"].RawAddress, 1})
+	payee = append(payee, &Payee{ta.Addrinfo["delta"].RawAddress, 1})
+	payee = append(payee, &Payee{ta.Addrinfo["miner"].RawAddress, 1})
 	tx = bc.CreateTransaction(ta.Addrinfo["charlie"], 5, payee)
 	blk = bc.MintNewBlock([]*Tx{tx}, ta.Addrinfo["miner"], "")
 	if err := bc.AddBlockCommit(blk); err != nil {
@@ -62,8 +62,8 @@ func addTestingBlocks(bc *Blockchain) error {
 	// Add block 3
 	// Delta --> B, E, F, test
 	payee = payee[1:]
-	payee[1] = &Payee{ta.Addrinfo["echo"].Address, 1}
-	payee[2] = &Payee{ta.Addrinfo["foxtrot"].Address, 1}
+	payee[1] = &Payee{ta.Addrinfo["echo"].RawAddress, 1}
+	payee[2] = &Payee{ta.Addrinfo["foxtrot"].RawAddress, 1}
 	tx = bc.CreateTransaction(ta.Addrinfo["delta"], 4, payee)
 	blk = bc.MintNewBlock([]*Tx{tx}, ta.Addrinfo["miner"], "")
 	if err := bc.AddBlockCommit(blk); err != nil {
@@ -74,12 +74,12 @@ func addTestingBlocks(bc *Blockchain) error {
 	// Add block 4
 	// Delta --> A, B, C, D, F, test
 	payee = nil
-	payee = append(payee, &Payee{ta.Addrinfo["alfa"].Address, 2})
-	payee = append(payee, &Payee{ta.Addrinfo["bravo"].Address, 2})
-	payee = append(payee, &Payee{ta.Addrinfo["charlie"].Address, 2})
-	payee = append(payee, &Payee{ta.Addrinfo["delta"].Address, 2})
-	payee = append(payee, &Payee{ta.Addrinfo["foxtrot"].Address, 2})
-	payee = append(payee, &Payee{ta.Addrinfo["miner"].Address, 2})
+	payee = append(payee, &Payee{ta.Addrinfo["alfa"].RawAddress, 2})
+	payee = append(payee, &Payee{ta.Addrinfo["bravo"].RawAddress, 2})
+	payee = append(payee, &Payee{ta.Addrinfo["charlie"].RawAddress, 2})
+	payee = append(payee, &Payee{ta.Addrinfo["delta"].RawAddress, 2})
+	payee = append(payee, &Payee{ta.Addrinfo["foxtrot"].RawAddress, 2})
+	payee = append(payee, &Payee{ta.Addrinfo["miner"].RawAddress, 2})
 	tx = bc.CreateTransaction(ta.Addrinfo["echo"], 12, payee)
 	blk = bc.MintNewBlock([]*Tx{tx}, ta.Addrinfo["miner"], "")
 	if err := bc.AddBlockCommit(blk); err != nil {
@@ -101,7 +101,7 @@ func TestCreateBlockchain(t *testing.T) {
 	Gen.BlockReward = uint64(0)
 
 	// create chain
-	bc := CreateBlockchain(ta.Addrinfo["miner"].Address, config, Gen)
+	bc := CreateBlockchain(ta.Addrinfo["miner"].RawAddress, config, Gen)
 	assert.NotNil(bc)
 	assert.Equal(0, int(bc.height))
 	fmt.Printf("Create blockchain pass, height = %d\n", bc.height)
@@ -148,14 +148,14 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	// Disable block reward to make bookkeeping easier
 	Gen.BlockReward = uint64(0)
 	// Create a blockchain from scratch
-	bc := CreateBlockchain(ta.Addrinfo["miner"].Address, config, Gen)
+	bc := CreateBlockchain(ta.Addrinfo["miner"].RawAddress, config, Gen)
 	assert.NotNil(bc)
 	fmt.Printf("Open blockchain pass, height = %d\n", bc.height)
 	assert.Nil(addTestingBlocks(bc))
 	bc.Close()
 
 	// Load a blockchain from DB
-	bc = CreateBlockchain(ta.Addrinfo["miner"].Address, config, Gen)
+	bc = CreateBlockchain(ta.Addrinfo["miner"].RawAddress, config, Gen)
 	defer bc.Close()
 	assert.NotNil(bc)
 
@@ -225,7 +225,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	fmt.Printf("Current tip = %d hash = %x\n", h, hash)
 
 	// add block with wrong height
-	cbTx := NewCoinbaseTx(ta.Addrinfo["bravo"].Address, 50, GenesisCoinbaseData)
+	cbTx := NewCoinbaseTx(ta.Addrinfo["bravo"].RawAddress, 50, GenesisCoinbaseData)
 	assert.NotNil(cbTx)
 	blk = NewBlock(0, h+2, hash, []*Tx{cbTx})
 	err = bc.ValidateBlock(blk)
@@ -233,7 +233,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	fmt.Printf("Cannot validate block %d: %v\n", blk.Height(), err)
 
 	// add block with zero prev hash
-	cbTx = NewCoinbaseTx(ta.Addrinfo["bravo"].Address, 50, GenesisCoinbaseData)
+	cbTx = NewCoinbaseTx(ta.Addrinfo["bravo"].RawAddress, 50, GenesisCoinbaseData)
 	assert.NotNil(cbTx)
 	blk = NewBlock(0, h+1, cp.ZeroHash32B, []*Tx{cbTx})
 	err = bc.ValidateBlock(blk)
@@ -272,7 +272,7 @@ func TestEmptyBlockOnlyHasCoinbaseTx(t *testing.T) {
 	config.Chain.ChainDBPath = testDBPath
 	Gen.BlockReward = uint64(7777)
 
-	bc := CreateBlockchain(ta.Addrinfo["miner"].Address, config, Gen)
+	bc := CreateBlockchain(ta.Addrinfo["miner"].RawAddress, config, Gen)
 	defer bc.Close()
 	assert.NotNil(t, bc)
 

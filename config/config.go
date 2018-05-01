@@ -7,6 +7,7 @@
 package config
 
 import (
+	"encoding/hex"
 	"fmt"
 	"io/ioutil"
 	"time"
@@ -64,8 +65,18 @@ type Network struct {
 type Chain struct {
 	ChainDBPath string
 
+	//RawMinerAddr is the struct that stores private/public keys in string
+	RawMinerAddr RawMinerAddr
+
 	// MinerAddr is an iotxaddress struct where the block rewards will be sent to.
 	MinerAddr iotxaddress.Address
+}
+
+// RawMinerAddr is the RawChain struct when loading from yaml file
+type RawMinerAddr struct {
+	PrivateKey string
+	PublicKey  string
+	RawAddress string
 }
 
 // Consensus is the config struct for consensus package
@@ -182,7 +193,10 @@ func loadConfigWithPathInternal(path string, validate bool) (*Config, error) {
 		glog.Errorf("Error when decoding the config file: %v\n", err)
 		return nil, err
 	}
-
+	if err := SetMinerAddr(&config); err != nil {
+		glog.Errorf("Error when decoding key string: %v\n", err)
+		return nil, err
+	}
 	if validate {
 		if err = validateConfig(&config); err != nil {
 			glog.Errorf("Error when validating config: %v\n", err)
@@ -195,7 +209,7 @@ func loadConfigWithPathInternal(path string, validate bool) (*Config, error) {
 // validateConfig validates the given config
 func validateConfig(cfg *Config) error {
 	// Validate miner's address
-	if len(cfg.Chain.MinerAddr.Address) > 0 && !iotxaddress.ValidateAddress(cfg.Chain.MinerAddr.Address) {
+	if len(cfg.Chain.MinerAddr.RawAddress) > 0 && !iotxaddress.ValidateAddress(cfg.Chain.MinerAddr.RawAddress) {
 		return fmt.Errorf("invalid miner's address")
 	}
 
@@ -243,4 +257,23 @@ func LoadTopology(path string) (*Topology, error) {
 	}
 
 	return &topology, nil
+}
+
+// SetMinerAddr sets MinerAddr based on the data from RawMinerAddr
+func SetMinerAddr(config *Config) error {
+	priKey, err := hex.DecodeString(config.Chain.RawMinerAddr.PrivateKey)
+	if err != nil {
+		return err
+	}
+	pubKey, err := hex.DecodeString(config.Chain.RawMinerAddr.PublicKey)
+	if err != nil {
+		return err
+	}
+	minerAddr := iotxaddress.Address{}
+	minerAddr.RawAddress = config.Chain.RawMinerAddr.RawAddress
+	minerAddr.PrivateKey = priKey
+	minerAddr.PublicKey = pubKey
+
+	config.Chain.MinerAddr = minerAddr
+	return nil
 }

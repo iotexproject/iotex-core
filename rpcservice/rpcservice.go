@@ -53,7 +53,7 @@ func (s *Chainserver) CreateRawTx(ctx context.Context, in *pb.CreateRawTxRequest
 	}
 
 	p := []*blockchain.Payee{{in.To, in.Value}}
-	tx := s.blockchain.CreateRawTransaction(iotxaddress.Address{Address: in.From}, in.Value, p)
+	tx := s.blockchain.CreateRawTransaction(iotxaddress.Address{RawAddress: in.From}, in.Value, p)
 	stx, err := proto.Marshal(tx.ConvertToTxPb())
 	if err != nil {
 		return nil, err

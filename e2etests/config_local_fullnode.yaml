@@ -25,10 +25,10 @@ network:
 
 chain:
     chaindbpath: "./db.test"
-    mineraddr:
-        privatekey: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
-        publickey: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
-        address: "io1qyqsyqcy6nm58gjd2wr035wz5eyd5uq47zyqpng3gxe7nh"
+    rawmineraddr:
+        privatekey: "7fbb20b87d34eade61351165aa4c6fa5d87dd349368dd6b9034ea3d3e918c706b9b8d7316705dc4ff62bb323e610f3f5072abedc9834e999d6537f6681284ea2"
+        publickey: "b9b8d7316705dc4ff62bb323e610f3f5072abedc9834e999d6537f6681284ea2"
+        rawaddress: "io1qyqsyqcy6nm58gjd2wr035wz5eyd5uq47zyqpng3gxe7nh"
 
 consensus:
     scheme: "NOOP"

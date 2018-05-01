@@ -24,7 +24,7 @@ func TestUTXO(t *testing.T) {
 	totalSupply := uint64(100000000)
 	Gen.TotalSupply = totalSupply
 	Gen.BlockReward = uint64(0)
-	bc := CreateBlockchain(ta.Addrinfo["miner"].Address,
+	bc := CreateBlockchain(ta.Addrinfo["miner"].RawAddress,
 		&config.Config{Chain: config.Chain{ChainDBPath: testDBPath}}, Gen)
 	assert.NotNil(t, bc)
 	fmt.Println("Create blockchain pass")
@@ -35,32 +35,32 @@ func TestUTXO(t *testing.T) {
 	assert.Nil(t, addTestingBlocks(bc))
 
 	// check all UTXO
-	total := bc.BalanceOf(ta.Addrinfo["alfa"].Address)
+	total := bc.BalanceOf(ta.Addrinfo["alfa"].RawAddress)
 	fmt.Printf("Alfa balance = %d\n", total)
 
-	beta := bc.BalanceOf(ta.Addrinfo["bravo"].Address)
+	beta := bc.BalanceOf(ta.Addrinfo["bravo"].RawAddress)
 	fmt.Printf("Bravo balance = %d\n", beta)
 	total += beta
 
-	beta = bc.BalanceOf(ta.Addrinfo["charlie"].Address)
+	beta = bc.BalanceOf(ta.Addrinfo["charlie"].RawAddress)
 	fmt.Printf("Charlie balance = %d\n", beta)
 	total += beta
 
-	beta = bc.BalanceOf(ta.Addrinfo["delta"].Address)
+	beta = bc.BalanceOf(ta.Addrinfo["delta"].RawAddress)
 	fmt.Printf("Delta balance = %d\n", beta)
 	total += beta
 
-	beta = bc.BalanceOf(ta.Addrinfo["echo"].Address)
+	beta = bc.BalanceOf(ta.Addrinfo["echo"].RawAddress)
 	fmt.Printf("Echo balance = %d\n", beta)
 	total += beta
 
-	beta = bc.BalanceOf(ta.Addrinfo["foxtrot"].Address)
+	beta = bc.BalanceOf(ta.Addrinfo["foxtrot"].RawAddress)
 	fmt.Printf("Foxtrot balance = %d\n", beta)
 	total += beta
 
-	beta = bc.BalanceOf(ta.Addrinfo["miner"].Address)
+	beta = bc.BalanceOf(ta.Addrinfo["miner"].RawAddress)
 	fmt.Printf("test balance = %d\n", beta)
-	utxo, _ := bc.Utk.UtxoEntries(ta.Addrinfo["miner"].Address, beta)
+	utxo, _ := bc.Utk.UtxoEntries(ta.Addrinfo["miner"].RawAddress, beta)
 	assert.NotNil(t, utxo)
 	total += beta
 

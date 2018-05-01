@@ -70,30 +70,30 @@ func TestLocalCommit(t *testing.T) {
 	defer p1.Stop()
 
 	// check UTXO
-	change := bc.BalanceOf(ta.Addrinfo["alfa"].Address)
+	change := bc.BalanceOf(ta.Addrinfo["alfa"].RawAddress)
 	t.Logf("Alfa balance = %d", change)
 
-	beta := bc.BalanceOf(ta.Addrinfo["bravo"].Address)
+	beta := bc.BalanceOf(ta.Addrinfo["bravo"].RawAddress)
 	t.Logf("Bravo balance = %d", beta)
 	change += beta
 
-	beta = bc.BalanceOf(ta.Addrinfo["charlie"].Address)
+	beta = bc.BalanceOf(ta.Addrinfo["charlie"].RawAddress)
 	t.Logf("Charlie balance = %d", beta)
 	change += beta
 
-	beta = bc.BalanceOf(ta.Addrinfo["delta"].Address)
+	beta = bc.BalanceOf(ta.Addrinfo["delta"].RawAddress)
 	t.Logf("Delta balance = %d", beta)
 	change += beta
 
-	beta = bc.BalanceOf(ta.Addrinfo["echo"].Address)
+	beta = bc.BalanceOf(ta.Addrinfo["echo"].RawAddress)
 	t.Logf("Echo balance = %d", beta)
 	change += beta
 
-	fox := bc.BalanceOf(ta.Addrinfo["foxtrot"].Address)
+	fox := bc.BalanceOf(ta.Addrinfo["foxtrot"].RawAddress)
 	t.Logf("Foxtrot balance = %d", fox)
 	change += fox
 
-	test := bc.BalanceOf(ta.Addrinfo["miner"].Address)
+	test := bc.BalanceOf(ta.Addrinfo["miner"].RawAddress)
 	t.Logf("test balance = %d", test)
 	change += test
 
@@ -109,7 +109,7 @@ func TestLocalCommit(t *testing.T) {
 	// transaction 1
 	// C --> A
 	payee := []*blockchain.Payee{}
-	payee = append(payee, &blockchain.Payee{ta.Addrinfo["alfa"].Address, 1})
+	payee = append(payee, &blockchain.Payee{ta.Addrinfo["alfa"].RawAddress, 1})
 	tx := bc.CreateTransaction(ta.Addrinfo["charlie"], 1, payee)
 	bc.Reset()
 	p1.Broadcast(tx.ConvertToTxPb())
@@ -121,7 +121,7 @@ func TestLocalCommit(t *testing.T) {
 	// transaction 2
 	// F --> D
 	payee = nil
-	payee = append(payee, &blockchain.Payee{ta.Addrinfo["delta"].Address, 1})
+	payee = append(payee, &blockchain.Payee{ta.Addrinfo["delta"].RawAddress, 1})
 	tx2 := bc.CreateTransaction(ta.Addrinfo["foxtrot"], 1, payee)
 	blk2 := blockchain.NewBlock(0, height+2, hash1, []*blockchain.Tx{tx2})
 	hash2 := blk2.HashBlock()
@@ -131,7 +131,7 @@ func TestLocalCommit(t *testing.T) {
 	// transaction 3
 	// B --> B
 	payee = nil
-	payee = append(payee, &blockchain.Payee{ta.Addrinfo["bravo"].Address, 1})
+	payee = append(payee, &blockchain.Payee{ta.Addrinfo["bravo"].RawAddress, 1})
 	tx3 := bc.CreateTransaction(ta.Addrinfo["bravo"], 1, payee)
 	blk3 := blockchain.NewBlock(0, height+3, hash2, []*blockchain.Tx{tx3})
 	hash3 := blk3.HashBlock()
@@ -141,7 +141,7 @@ func TestLocalCommit(t *testing.T) {
 	// transaction 4
 	// test --> E
 	payee = nil
-	payee = append(payee, &blockchain.Payee{ta.Addrinfo["echo"].Address, 1})
+	payee = append(payee, &blockchain.Payee{ta.Addrinfo["echo"].RawAddress, 1})
 	tx4 := bc.CreateTransaction(ta.Addrinfo["miner"], 1, payee)
 	blk4 := blockchain.NewBlock(0, height+4, hash3, []*blockchain.Tx{tx4})
 	bc.Reset()
@@ -157,30 +157,30 @@ func TestLocalCommit(t *testing.T) {
 	t.Log("----- Block height = ", bc.TipHeight())
 
 	// check UTXO
-	change = bc.BalanceOf(ta.Addrinfo["alfa"].Address)
+	change = bc.BalanceOf(ta.Addrinfo["alfa"].RawAddress)
 	t.Logf("Alfa balance = %d", change)
 
-	beta = bc.BalanceOf(ta.Addrinfo["bravo"].Address)
+	beta = bc.BalanceOf(ta.Addrinfo["bravo"].RawAddress)
 	t.Logf("Bravo balance = %d", beta)
 	change += beta
 
-	beta = bc.BalanceOf(ta.Addrinfo["charlie"].Address)
+	beta = bc.BalanceOf(ta.Addrinfo["charlie"].RawAddress)
 	t.Logf("Charlie balance = %d", beta)
 	change += beta
 
-	beta = bc.BalanceOf(ta.Addrinfo["delta"].Address)
+	beta = bc.BalanceOf(ta.Addrinfo["delta"].RawAddress)
 	t.Logf("Delta balance = %d", beta)
 	change += beta
 
-	beta = bc.BalanceOf(ta.Addrinfo["echo"].Address)
+	beta = bc.BalanceOf(ta.Addrinfo["echo"].RawAddress)
 	t.Logf("Echo balance = %d", beta)
 	change += beta
 
-	beta = bc.BalanceOf(ta.Addrinfo["foxtrot"].Address)
+	beta = bc.BalanceOf(ta.Addrinfo["foxtrot"].RawAddress)
 	t.Logf("Foxtrot balance = %d", beta)
 	change += beta
 
-	beta = bc.BalanceOf(ta.Addrinfo["miner"].Address)
+	beta = bc.BalanceOf(ta.Addrinfo["miner"].RawAddress)
 	t.Logf("test balance = %d", beta)
 	change += beta
 

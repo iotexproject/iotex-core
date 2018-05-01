@@ -18,7 +18,7 @@ import (
 	"google.golang.org/grpc/keepalive"
 	"gopkg.in/yaml.v2"
 
-	"github.com/iotexproject/iotex-core-internal/iotxaddress"
+	"github.com/iotexproject/iotex-core/iotxaddress"
 )
 
 func TestLoadTestConfig(t *testing.T) {
@@ -50,13 +50,13 @@ func TestLoadProdConfig(t *testing.T) {
 
 func TestValidateConfig(t *testing.T) {
 	cfg := LoadTestConfig()
-	cfg.Chain.MinerAddr.Address = "invalid_address"
+	cfg.Chain.MinerAddr.RawAddress = "invalid_address"
 	err := validateConfig(cfg)
 	assert.NotNil(t, err)
 	assert.Equal(t, "invalid miner's address", err.Error())
 
 	cfg = LoadTestConfig()
-	cfg.Chain.MinerAddr.Address = ""
+	cfg.Chain.MinerAddr.RawAddress = ""
 	cfg.NodeType = "invalid_type"
 	err = validateConfig(cfg)
 	assert.NotNil(t, err)
