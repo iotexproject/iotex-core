@@ -25,7 +25,7 @@ import (
 
 // Chainserver is used to implement Chain Service
 type Chainserver struct {
-	blockchain  blockchain.IBlockchain
+	blockchain  blockchain.Blockchain
 	config      config.RPC
 	dispatcher  cm.Dispatcher
 	grpcserver  *grpc.Server
@@ -33,7 +33,7 @@ type Chainserver struct {
 }
 
 // NewChainServer creates an instance of chainserver
-func NewChainServer(c config.RPC, b blockchain.IBlockchain, dp cm.Dispatcher, cb func(proto.Message) error) *Chainserver {
+func NewChainServer(c config.RPC, b blockchain.Blockchain, dp cm.Dispatcher, cb func(proto.Message) error) *Chainserver {
 	if cb == nil {
 		glog.Error("cannot new chain server with nil callback")
 		return nil

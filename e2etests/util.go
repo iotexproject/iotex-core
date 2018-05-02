@@ -5,7 +5,7 @@ import (
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 )
 
-func addTestingBlocks(bc blockchain.IBlockchain) error {
+func addTestingBlocks(bc blockchain.Blockchain) error {
 	// Add block 1
 	// test --> A, B, C, D, E, F
 	payee := []*blockchain.Payee{}

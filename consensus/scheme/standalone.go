@@ -22,7 +22,7 @@ type Standalone struct {
 }
 
 type standaloneHandler struct {
-	bc       blockchain.IBlockchain
+	bc       blockchain.Blockchain
 	createCb CreateBlockCB
 	commitCb ConsensusDoneCB
 	pubCb    BroadcastCB
@@ -45,7 +45,7 @@ func (s *standaloneHandler) Do() {
 }
 
 // NewStandalone creates a Standalone struct.
-func NewStandalone(create CreateBlockCB, commit ConsensusDoneCB, pub BroadcastCB, bc blockchain.IBlockchain, interval time.Duration) Scheme {
+func NewStandalone(create CreateBlockCB, commit ConsensusDoneCB, pub BroadcastCB, bc blockchain.Blockchain, interval time.Duration) Scheme {
 	return &Standalone{
 		task: routine.NewRecurringTask(
 			&standaloneHandler{bc: bc, createCb: create, commitCb: commit, pubCb: pub}, interval),

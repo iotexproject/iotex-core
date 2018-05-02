@@ -101,7 +101,7 @@ type TxPool interface {
 // txPool implements TxPool interface
 // Note that all locks should be placed in public functions (no lock inside of any private function)
 type txPool struct {
-	bc blockchain.IBlockchain
+	bc blockchain.Blockchain
 
 	lastUpdatedUnixTime    int64
 	mutex                  sync.RWMutex
@@ -115,7 +115,7 @@ type txPool struct {
 }
 
 // New creates a TxPool instance
-func New(bc blockchain.IBlockchain) TxPool {
+func New(bc blockchain.Blockchain) TxPool {
 	return &txPool{
 		bc:                     bc,
 		tags:                   make(map[Tag]map[cp.Hash32B]*blockchain.Tx),

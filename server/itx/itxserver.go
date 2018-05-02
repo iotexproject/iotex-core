@@ -26,7 +26,7 @@ import (
 // Server is the iotex server instance containing all components.
 type Server struct {
 	service.Service
-	bc  blockchain.IBlockchain
+	bc  blockchain.Blockchain
 	tp  txpool.TxPool
 	o   *network.Overlay
 	dp  cm.Dispatcher
@@ -85,7 +85,7 @@ func (s *Server) Stop() {
 }
 
 // Bc returns the Blockchain
-func (s *Server) Bc() blockchain.IBlockchain {
+func (s *Server) Bc() blockchain.Blockchain {
 	return s.bc
 }
 

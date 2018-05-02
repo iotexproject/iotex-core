@@ -26,7 +26,7 @@ func TestNewDispatcher(t *testing.T) {
 	defer ctrl.Finish()
 
 	cfg := &config.Config{Consensus: config.Consensus{Scheme: "NOOP"}}
-	bc := mock_blockchain.NewMockIBlockchain(ctrl)
+	bc := mock_blockchain.NewMockBlockchain(ctrl)
 	tp := mock_txpool.NewMockTxPool(ctrl)
 	bs := mock_blocksync.NewMockBlockSync(ctrl)
 	dp := mock_delegate.NewMockPool(ctrl)
@@ -45,7 +45,7 @@ func TestDispatchTxMsg(t *testing.T) {
 	defer ctrl.Finish()
 
 	cfg := &config.Config{Consensus: config.Consensus{Scheme: "NOOP"}}
-	bc := mock_blockchain.NewMockIBlockchain(ctrl)
+	bc := mock_blockchain.NewMockBlockchain(ctrl)
 	tp := mock_txpool.NewMockTxPool(ctrl)
 	bs := mock_blocksync.NewMockBlockSync(ctrl)
 	dp := mock_delegate.NewMockPool(ctrl)
@@ -73,7 +73,7 @@ func TestDispatchBlockMsg(t *testing.T) {
 	defer ctrl.Finish()
 
 	cfg := &config.Config{Consensus: config.Consensus{Scheme: "NOOP"}}
-	bc := mock_blockchain.NewMockIBlockchain(ctrl)
+	bc := mock_blockchain.NewMockBlockchain(ctrl)
 	tp := mock_txpool.NewMockTxPool(ctrl)
 	bs := mock_blocksync.NewMockBlockSync(ctrl)
 	dp := mock_delegate.NewMockPool(ctrl)
@@ -101,7 +101,7 @@ func TestDispatchBlockSyncReq(t *testing.T) {
 	defer ctrl.Finish()
 
 	cfg := &config.Config{Consensus: config.Consensus{Scheme: "NOOP"}}
-	bc := mock_blockchain.NewMockIBlockchain(ctrl)
+	bc := mock_blockchain.NewMockBlockchain(ctrl)
 	tp := mock_txpool.NewMockTxPool(ctrl)
 	bs := mock_blocksync.NewMockBlockSync(ctrl)
 	dp := mock_delegate.NewMockPool(ctrl)
@@ -129,7 +129,7 @@ func TestDispatchBlockSyncData(t *testing.T) {
 	defer ctrl.Finish()
 
 	cfg := &config.Config{Consensus: config.Consensus{Scheme: "NOOP"}}
-	bc := mock_blockchain.NewMockIBlockchain(ctrl)
+	bc := mock_blockchain.NewMockBlockchain(ctrl)
 	tp := mock_txpool.NewMockTxPool(ctrl)
 	bs := mock_blocksync.NewMockBlockSync(ctrl)
 	dp := mock_delegate.NewMockPool(ctrl)

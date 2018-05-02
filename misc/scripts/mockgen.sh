@@ -17,10 +17,10 @@ mockgen -destination=./test/mock/mock_rdpos/mock_rdpos.go  \
 
 mkdir -p ./test/mock/mock_blockchain
 mockgen -destination=./test/mock/mock_blockchain/mock_blockchain.go  \
-        -source=./blockchain/iblockchain.go \
-        -imports =github.com/iotexproject/iotex-core/blockchain \
+        -source=./blockchain/blockchain.go \
+        -imports =github.com/iotexproject/iotex-core-internal/blockchain \
         -package=mock_blockchain \
-        IBlockchain
+        Blockchain
 
 mkdir -p ./test/mock/mock_delegate
 mockgen -destination=./test/mock/mock_delegate/mock_delegate.go  \

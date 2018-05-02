@@ -65,7 +65,7 @@ type dispatcher struct {
 }
 
 // NewDispatcher creates a new dispatcher
-func NewDispatcher(cfg *config.Config, bc blockchain.IBlockchain, tp txpool.TxPool, bs blocksync.BlockSync, dp delegate.Pool) cm.Dispatcher {
+func NewDispatcher(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxPool, bs blocksync.BlockSync, dp delegate.Pool) cm.Dispatcher {
 	if bc == nil || bs == nil {
 		glog.Error("Try to attach to a nil blockchain or a nil P2P")
 		return nil

@@ -34,8 +34,48 @@ var (
 	ErrInvalidBlock = errors.New("failed to validate the block")
 )
 
-// Blockchain implements the IBlockchain interface
-type Blockchain struct {
+type Blockchain interface {
+	// Init initializes the blockchain
+	Init() error
+	// Close closes the Db connection
+	Close() error
+	// GetHeightByHash returns block's height by hash
+	GetHeightByHash(hash cp.Hash32B) (uint32, error)
+	// GetHashByHeight returns block's hash by height
+	GetHashByHeight(height uint32) (cp.Hash32B, error)
+	// GetBlockByHeight returns block from the blockchain hash by height
+	GetBlockByHeight(height uint32) (*Block, error)
+	// GetBlockByHash returns block from the blockchain hash by hash
+	GetBlockByHash(hash cp.Hash32B) (*Block, error)
+	// TipHash returns tip block's hash
+	TipHash() cp.Hash32B
+	// TipHeight returns tip block's height
+	TipHeight() uint32
+	// Reset reset for next block
+	Reset()
+	// ValidateBlock validates a new block before adding it to the blockchain
+	ValidateBlock(blk *Block) error
+	// MintNewBlock creates a new block with given transactions.
+	// Note: the coinbase transaction will be added to the given transactions
+	// when minting a new block.
+	MintNewBlock([]*Tx, iotxaddress.Address, string) *Block
+	// AddBlockCommit adds a new block into blockchain
+	AddBlockCommit(blk *Block) error
+	// AddBlockSync adds a past block into blockchain
+	// used by block syncer when the chain in out-of-sync
+	AddBlockSync(blk *Block) error
+	// BalanceOf returns the balance of a given address
+	BalanceOf(string) uint64
+	// UtxoPool returns the UTXO pool of current blockchain
+	UtxoPool() map[cp.Hash32B][]*TxOutput
+	// CreateTransaction creates a signed transaction paying 'amount' from 'from' to 'to'
+	CreateTransaction(from iotxaddress.Address, amount uint64, to []*Payee) *Tx
+	// CreateRawTransaction creates a signed transaction paying 'amount' from 'from' to 'to'
+	CreateRawTransaction(from iotxaddress.Address, amount uint64, to []*Payee) *Tx
+}
+
+// blockchain implements the Blockchain interface
+type blockchain struct {
 	blockDb *blockdb.BlockDB
 	config  *config.Config
 	genesis *Genesis
@@ -46,8 +86,8 @@ type Blockchain struct {
 }
 
 // NewBlockchain creates a new blockchain instance
-func NewBlockchain(db *blockdb.BlockDB, cfg *config.Config, gen *Genesis) *Blockchain {
-	chain := &Blockchain{
+func NewBlockchain(db *blockdb.BlockDB, cfg *config.Config, gen *Genesis) *blockchain {
+	chain := &blockchain{
 		blockDb: db,
 		config:  cfg,
 		genesis: gen,
@@ -56,7 +96,7 @@ func NewBlockchain(db *blockdb.BlockDB, cfg *config.Config, gen *Genesis) *Block
 }
 
 // Init initializes the blockchain
-func (bc *Blockchain) Init() error {
+func (bc *blockchain) Init() error {
 	tip, height, err := bc.blockDb.Init()
 	if err != nil {
 		return err
@@ -78,12 +118,12 @@ func (bc *Blockchain) Init() error {
 }
 
 // Close closes the Db connection
-func (bc *Blockchain) Close() error {
+func (bc *blockchain) Close() error {
 	return bc.blockDb.Close()
 }
 
 // commitBlock commits Block to Db
-func (bc *Blockchain) commitBlock(blk *Block) (err error) {
+func (bc *blockchain) commitBlock(blk *Block) (err error) {
 	// post-commit actions
 	defer func() {
 		// update tip hash and height
@@ -113,12 +153,12 @@ func (bc *Blockchain) commitBlock(blk *Block) (err error) {
 }
 
 // GetHeightByHash returns block's height by hash
-func (bc *Blockchain) GetHeightByHash(hash cp.Hash32B) (uint32, error) {
+func (bc *blockchain) GetHeightByHash(hash cp.Hash32B) (uint32, error) {
 	return bc.blockDb.GetBlockHeight(hash[:])
 }
 
 // GetHashByHeight returns block's hash by height
-func (bc *Blockchain) GetHashByHeight(height uint32) (cp.Hash32B, error) {
+func (bc *blockchain) GetHashByHeight(height uint32) (cp.Hash32B, error) {
 	hash := cp.ZeroHash32B
 	dbHash, err := bc.blockDb.GetBlockHash(height)
 	copy(hash[:], dbHash)
@@ -126,7 +166,7 @@ func (bc *Blockchain) GetHashByHeight(height uint32) (cp.Hash32B, error) {
 }
 
 // GetBlockByHeight returns block from the blockchain hash by height
-func (bc *Blockchain) GetBlockByHeight(height uint32) (*Block, error) {
+func (bc *blockchain) GetBlockByHeight(height uint32) (*Block, error) {
 	hash, err := bc.GetHashByHeight(height)
 	if err != nil {
 		return nil, err
@@ -135,7 +175,7 @@ func (bc *Blockchain) GetBlockByHeight(height uint32) (*Block, error) {
 }
 
 // GetBlockByHash returns block from the blockchain hash by hash
-func (bc *Blockchain) GetBlockByHash(hash cp.Hash32B) (*Block, error) {
+func (bc *blockchain) GetBlockByHash(hash cp.Hash32B) (*Block, error) {
 	serialized, err := bc.blockDb.CheckOutBlock(hash[:])
 	if err != nil {
 		return nil, err
@@ -150,22 +190,22 @@ func (bc *Blockchain) GetBlockByHash(hash cp.Hash32B) (*Block, error) {
 }
 
 // TipHash returns tip block's hash
-func (bc *Blockchain) TipHash() cp.Hash32B {
+func (bc *blockchain) TipHash() cp.Hash32B {
 	return bc.tip
 }
 
 // TipHeight returns tip block's height
-func (bc *Blockchain) TipHeight() uint32 {
+func (bc *blockchain) TipHeight() uint32 {
 	return bc.height
 }
 
 // Reset reset for next block
-func (bc *Blockchain) Reset() {
+func (bc *blockchain) Reset() {
 	bc.Utk.Reset()
 }
 
 // ValidateBlock validates a new block before adding it to the blockchain
-func (bc *Blockchain) ValidateBlock(blk *Block) error {
+func (bc *blockchain) ValidateBlock(blk *Block) error {
 	if blk == nil {
 		return errors.Wrap(ErrInvalidBlock, "Block is nil")
 	}
@@ -188,8 +228,8 @@ func (bc *Blockchain) ValidateBlock(blk *Block) error {
 // MintNewBlock creates a new block with given transactions.
 // Note: the coinbase transaction will be added to the given transactions
 // when minting a new block.
-func (bc *Blockchain) MintNewBlock(txs []*Tx, producer iotxaddress.Address, data string) *Block {
-	cbTx := NewCoinbaseTx(producer.RawAddress, bc.genesis.BlockReward, data)
+func (bc *blockchain) MintNewBlock(txs []*Tx, toaddr iotxaddress.Address, data string) *Block {
+	cbTx := NewCoinbaseTx(toaddr.RawAddress, bc.genesis.BlockReward, data)
 	if cbTx == nil {
 		glog.Error("Cannot create coinbase transaction")
 		return nil
@@ -208,7 +248,7 @@ func (bc *Blockchain) MintNewBlock(txs []*Tx, producer iotxaddress.Address, data
 }
 
 // AddBlockCommit adds a new block into blockchain
-func (bc *Blockchain) AddBlockCommit(blk *Block) error {
+func (bc *blockchain) AddBlockCommit(blk *Block) error {
 	if err := bc.ValidateBlock(blk); err != nil {
 		return err
 	}
@@ -219,18 +259,18 @@ func (bc *Blockchain) AddBlockCommit(blk *Block) error {
 
 // AddBlockSync adds a past block into blockchain
 // used by block syncer when the chain in out-of-sync
-func (bc *Blockchain) AddBlockSync(blk *Block) error {
+func (bc *blockchain) AddBlockSync(blk *Block) error {
 	// directly commit block into blockchain DB
 	return bc.commitBlock(blk)
 }
 
 // StoreBlock persists the blocks in the range to file on disk
-func (bc *Blockchain) StoreBlock(start, end uint32) error {
+func (bc *blockchain) StoreBlock(start, end uint32) error {
 	return bc.blockDb.StoreBlockToFile(start, end)
 }
 
 // ReadBlock read the block from file on disk
-func (bc *Blockchain) ReadBlock(height uint32) *Block {
+func (bc *blockchain) ReadBlock(height uint32) *Block {
 	file, err := os.Open(blockdb.BlockData)
 	defer file.Close()
 	if err != nil {
@@ -271,7 +311,7 @@ func (bc *Blockchain) ReadBlock(height uint32) *Block {
 }
 
 // CreateBlockchain creates a new blockchain and DB instance
-func CreateBlockchain(address string, cfg *config.Config, gen *Genesis) *Blockchain {
+func CreateBlockchain(address string, cfg *config.Config, gen *Genesis) *blockchain {
 	db, dbFileExist := blockdb.NewBlockDB(cfg)
 	if db == nil {
 		glog.Error("cannot find db")
@@ -314,18 +354,18 @@ func CreateBlockchain(address string, cfg *config.Config, gen *Genesis) *Blockch
 }
 
 // BalanceOf returns the balance of an address
-func (bc *Blockchain) BalanceOf(address string) uint64 {
+func (bc *blockchain) BalanceOf(address string) uint64 {
 	_, balance := bc.Utk.UtxoEntries(address, math.MaxUint64)
 	return balance
 }
 
 // UtxoPool returns the UTXO pool of current blockchain
-func (bc *Blockchain) UtxoPool() map[cp.Hash32B][]*TxOutput {
+func (bc *blockchain) UtxoPool() map[cp.Hash32B][]*TxOutput {
 	return bc.Utk.utxoPool
 }
 
 // createTx creates a transaction paying 'amount' from 'from' to 'to'
-func (bc *Blockchain) createTx(from iotxaddress.Address, amount uint64, to []*Payee, isRaw bool) *Tx {
+func (bc *blockchain) createTx(from iotxaddress.Address, amount uint64, to []*Payee, isRaw bool) *Tx {
 	utxo, change := bc.Utk.UtxoEntries(from.RawAddress, amount)
 	if utxo == nil {
 		glog.Errorf("Fail to get UTXO for %v", from.RawAddress)
@@ -365,12 +405,12 @@ func (bc *Blockchain) createTx(from iotxaddress.Address, amount uint64, to []*Pa
 }
 
 // CreateTransaction creates a signed transaction paying 'amount' from 'from' to 'to'
-func (bc *Blockchain) CreateTransaction(from iotxaddress.Address, amount uint64, to []*Payee) *Tx {
+func (bc *blockchain) CreateTransaction(from iotxaddress.Address, amount uint64, to []*Payee) *Tx {
 	return bc.createTx(from, amount, to, false)
 }
 
 // CreateRawTransaction creates a unsigned transaction paying 'amount' from 'from' to 'to'
-func (bc *Blockchain) CreateRawTransaction(from iotxaddress.Address, amount uint64, to []*Payee) *Tx {
+func (bc *blockchain) CreateRawTransaction(from iotxaddress.Address, amount uint64, to []*Payee) *Tx {
 	return bc.createTx(from, amount, to, true)
 }
 
