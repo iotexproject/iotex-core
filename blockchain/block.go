@@ -38,10 +38,10 @@ type BlockHeader struct {
 }
 
 // Block defines the struct of block
-// make sure the variable type and order of this struct is same as "type Block" in blockchain.pb.go
 type Block struct {
 	Header *BlockHeader
 	Tranxs []*Tx
+	Votes  []*iproto.VotePb
 }
 
 // NewBlock returns a new block
@@ -74,35 +74,36 @@ func (b *Block) PrevHash() cp.Hash32B {
 	return b.Header.prevBlockHash
 }
 
+// ByteStream returns a byte stream of the block header
+func (b *Block) ByteStreamHeader() []byte {
+	stream := make([]byte, 4)
+	cm.MachineEndian.PutUint32(stream, b.Header.version)
+	tmp4B := make([]byte, 4)
+	cm.MachineEndian.PutUint32(tmp4B, b.Header.chainID)
+	stream = append(stream, tmp4B...)
+	cm.MachineEndian.PutUint32(tmp4B, b.Header.height)
+	stream = append(stream, tmp4B...)
+	tmp8B := make([]byte, 8)
+	cm.MachineEndian.PutUint64(tmp8B, b.Header.timestamp)
+	stream = append(stream, tmp8B...)
+	stream = append(stream, b.Header.prevBlockHash[:]...)
+	stream = append(stream, b.Header.merkleRoot[:]...)
+	cm.MachineEndian.PutUint32(tmp4B, b.Header.trnxNumber)
+	stream = append(stream, tmp4B...)
+	cm.MachineEndian.PutUint32(tmp4B, b.Header.trnxDataSize)
+	stream = append(stream, tmp4B...)
+	return stream
+}
+
 // ByteStream returns a byte stream of the block
 // used to calculate the block hash
 func (b *Block) ByteStream() []byte {
-	stream := make([]byte, 4)
-	cm.MachineEndian.PutUint32(stream, b.Header.version)
-
-	temp := make([]byte, 4)
-	cm.MachineEndian.PutUint32(temp, b.Header.chainID)
-	stream = append(stream, temp...)
-	cm.MachineEndian.PutUint32(temp, b.Header.height)
-	stream = append(stream, temp...)
-
-	time := make([]byte, 8)
-	cm.MachineEndian.PutUint64(time, b.Header.timestamp)
-	stream = append(stream, time...)
-
-	stream = append(stream, b.Header.prevBlockHash[:]...)
-	stream = append(stream, b.Header.merkleRoot[:]...)
-
-	cm.MachineEndian.PutUint32(temp, b.Header.trnxNumber)
-	stream = append(stream, temp...)
-	cm.MachineEndian.PutUint32(temp, b.Header.trnxDataSize)
-	stream = append(stream, temp...)
+	stream := b.ByteStreamHeader()
 
 	// write all trnx
 	for _, tx := range b.Tranxs {
 		stream = append(stream, tx.ByteStream()...)
 	}
-
 	return stream
 }
 
@@ -118,18 +119,24 @@ func (b *Block) ConvertToBlockHeaderPb() *iproto.BlockHeaderPb {
 	pbHeader.MerkleRoot = b.Header.merkleRoot[:]
 	pbHeader.TrnxNumber = b.Header.trnxNumber
 	pbHeader.TrnxDataSize = b.Header.trnxDataSize
-
 	return &pbHeader
 }
 
 // ConvertToBlockPb converts Block to BlockPb
 func (b *Block) ConvertToBlockPb() *iproto.BlockPb {
-	tx := make([]*iproto.TxPb, len(b.Tranxs))
-	for i, in := range b.Tranxs {
-		tx[i] = in.ConvertToTxPb()
+	if len(b.Tranxs)+len(b.Votes) == 0 {
+		return nil
 	}
 
-	return &iproto.BlockPb{b.ConvertToBlockHeaderPb(), tx}
+	actions := []*iproto.ActionPb{}
+	for _, tx := range b.Tranxs {
+		actions = append(actions, &iproto.ActionPb{&iproto.ActionPb_Tx{tx.ConvertToTxPb()}})
+	}
+
+	for _, vote := range b.Votes {
+		actions = append(actions, &iproto.ActionPb{&iproto.ActionPb_Vote{vote}})
+	}
+	return &iproto.BlockPb{b.ConvertToBlockHeaderPb(), actions}
 }
 
 // Serialize returns the serialized byte stream of the block
@@ -157,10 +164,30 @@ func (b *Block) ConvertFromBlockPb(pbBlock *iproto.BlockPb) {
 	b.ConvertFromBlockHeaderPb(pbBlock)
 
 	b.Tranxs = nil
-	b.Tranxs = make([]*Tx, len(pbBlock.Transactions))
-	for i, tx := range pbBlock.Transactions {
-		b.Tranxs[i] = &Tx{}
-		b.Tranxs[i].ConvertFromTxPb(tx)
+	b.Votes = nil
+	hasTrnx := false
+	hasVote := false
+
+	for _, action := range pbBlock.Actions {
+		if txPb := action.GetTx(); txPb != nil {
+			if !hasTrnx {
+				b.Tranxs = []*Tx{}
+				hasTrnx = true
+			}
+			tx := Tx{}
+			tx.ConvertFromTxPb(txPb)
+			b.Tranxs = append(b.Tranxs, &tx)
+			continue
+		}
+
+		if votePb := action.GetVote(); votePb != nil {
+			if !hasVote {
+				b.Votes = []*iproto.VotePb{}
+				hasVote = true
+			}
+			b.Votes = append(b.Votes, votePb)
+			continue
+		}
 	}
 }
 
@@ -178,7 +205,6 @@ func (b *Block) Deserialize(buf []byte) error {
 	if bytes.Compare(b.Header.merkleRoot[:], merkle[:]) != 0 {
 		return errors.New("Failed to match merkle root after deserialize")
 	}
-
 	return nil
 }
 
@@ -189,30 +215,12 @@ func (b *Block) MerkleRoot() cp.Hash32B {
 	for _, tx := range b.Tranxs {
 		txHash = append(txHash, tx.Hash())
 	}
-
 	return cp.NewMerkleTree(txHash).HashTree()
 }
 
 // HashBlock return the hash of this block (actually hash of block header)
 func (b *Block) HashBlock() cp.Hash32B {
-	stream := make([]byte, 4)
-	cm.MachineEndian.PutUint32(stream, b.Header.version)
-	tmp4B := make([]byte, 4)
-	cm.MachineEndian.PutUint32(tmp4B, b.Header.chainID)
-	stream = append(stream, tmp4B...)
-	cm.MachineEndian.PutUint32(tmp4B, b.Header.height)
-	stream = append(stream, tmp4B...)
-	tmp8B := make([]byte, 8)
-	cm.MachineEndian.PutUint64(tmp8B, b.Header.timestamp)
-	stream = append(stream, tmp8B...)
-	stream = append(stream, b.Header.prevBlockHash[:]...)
-	stream = append(stream, b.Header.merkleRoot[:]...)
-	cm.MachineEndian.PutUint32(tmp4B, b.Header.trnxNumber)
-	stream = append(stream, tmp4B...)
-	cm.MachineEndian.PutUint32(tmp4B, b.Header.trnxDataSize)
-	stream = append(stream, tmp4B...)
-
-	hash := blake2b.Sum256(stream)
+	hash := blake2b.Sum256(b.ByteStreamHeader())
 	hash = blake2b.Sum256(hash[:])
 	return hash
 }

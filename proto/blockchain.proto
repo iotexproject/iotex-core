@@ -35,6 +35,20 @@ message TxPb {
     uint32 lockTime = 6;
 }
 
+message VotePb {
+    uint32 timestamp = 1;
+    string selfPubkey = 2;
+    string votePubkey = 3;  // the pubkey this node is voting for
+    bytes signature = 4;
+}
+
+message ActionPb {
+    oneof action {
+        TxPb tx = 1;
+        VotePb vote = 2;
+    }
+}
+
 // header of a block
 message BlockHeaderPb {
     uint32 version = 1;
@@ -50,8 +64,8 @@ message BlockHeaderPb {
 // block consists of header followed by transactions
 // hash of current block can be computed from header hence not stored
 message BlockPb {
-    BlockHeaderPb Header = 1;
-    repeated TxPb Transactions = 2;
+    BlockHeaderPb header = 1;
+    repeated ActionPb actions = 2;
 }
 
 // index of block raw data file
