@@ -24,7 +24,7 @@ const (
 	testDBPath        = "db.test"
 )
 
-func addTestingBlocks(bc *Blockchain) error {
+func addTestingBlocks(bc Blockchain) error {
 	// Add block 1
 	// test --> A, B, C, D, E, F
 	payee := []*Payee{}

@@ -33,7 +33,7 @@ type consensus struct {
 }
 
 // NewConsensus creates a consensus struct.
-func NewConsensus(cfg *config.Config, bc blockchain.IBlockchain, tp txpool.TxPool, bs blocksync.BlockSync, dlg delegate.Pool) Consensus {
+func NewConsensus(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxPool, bs blocksync.BlockSync, dlg delegate.Pool) Consensus {
 	if bc == nil || bs == nil {
 		glog.Error("Try to attach to chain or bs == nil")
 		return nil

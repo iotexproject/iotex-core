@@ -17,7 +17,7 @@ import (
 
 // CLI defines the struct of command line interface
 type CLI struct {
-	bc *blockchain.Blockchain
+	bc blockchain.Blockchain
 }
 
 func (cli *CLI) printUsage() {

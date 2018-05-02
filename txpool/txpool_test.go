@@ -45,7 +45,7 @@ func TestTxPool(t *testing.T) {
 	//ctrl := gomock.NewController(t)
 	//defer ctrl.Finish()
 
-	//bc := mock_blockchain.NewMockIBlockchain(ctrl)
+	//bc := mock_blockchain.NewMockBlockchain(ctrl)
 	if assert.NotNil(bc) {
 		t.Log("blockchain created")
 	}

@@ -57,7 +57,7 @@ type blockSyncer struct {
 	rcvdBlocks     map[uint32]*bc.Block // buffer of received blocks
 	actionTime     time.Time
 	sw             *SlidingWindow
-	bc             *bc.Blockchain
+	bc             bc.Blockchain
 	tp             txpool.TxPool
 	p2p            *network.Overlay
 	task           *routine.RecurringTask
@@ -88,7 +88,7 @@ func SyncTaskInterval(cfg *config.Config) time.Duration {
 }
 
 // NewBlockSyncer returns a new block syncer instance
-func NewBlockSyncer(cfg *config.Config, chain *bc.Blockchain, tp txpool.TxPool, p2p *network.Overlay, dp delegate.Pool) BlockSync {
+func NewBlockSyncer(cfg *config.Config, chain bc.Blockchain, tp txpool.TxPool, p2p *network.Overlay, dp delegate.Pool) BlockSync {
 	sync := &blockSyncer{
 		state:      Idle,
 		rcvdBlocks: map[uint32]*bc.Block{},

@@ -32,14 +32,14 @@ import (
 
 type mocks struct {
 	dNet *MockDNet
-	bc   *mock_blockchain.MockIBlockchain
+	bc   *mock_blockchain.MockBlockchain
 	dp   *mock_delegate.MockPool
 }
 
 type mockFn func(mcks mocks)
 
 func createTestRDPoS(ctrl *gomock.Controller, self net.Addr, delegates []net.Addr, mockFn mockFn, enableProposerRotation bool) *RDPoS {
-	bc := mock_blockchain.NewMockIBlockchain(ctrl)
+	bc := mock_blockchain.NewMockBlockchain(ctrl)
 
 	tp := txpool.New(bc)
 	createblockCB := func() (*blockchain.Block, error) {

@@ -76,7 +76,7 @@ func TestCreateRawTx(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mbc := mock_blockchain.NewMockIBlockchain(ctrl)
+	mbc := mock_blockchain.NewMockBlockchain(ctrl)
 	mdp := mock_dispatcher.NewMockDispatcher(ctrl)
 
 	cbinvoked := false
@@ -118,7 +118,7 @@ func TestSendTx(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mbc := mock_blockchain.NewMockIBlockchain(ctrl)
+	mbc := mock_blockchain.NewMockBlockchain(ctrl)
 	mdp := mock_dispatcher.NewMockDispatcher(ctrl)
 
 	cbinvoked := false
