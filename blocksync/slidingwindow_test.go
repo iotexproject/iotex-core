@@ -16,8 +16,8 @@ func TestSlidingWindow(t *testing.T) {
 	assert.NotNil(err)
 	err = sw.SetRange(12, 12)
 	assert.NotNil(err)
-	close := uint32(1)
-	open := uint32(12)
+	close := uint64(1)
+	open := uint64(12)
 	err = sw.SetRange(close, open)
 	assert.Nil(err)
 

@@ -7,11 +7,13 @@
 package blockchain
 
 import (
+	"github.com/pkg/errors"
+
+	cm "github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/common/service"
 	"github.com/iotexproject/iotex-core/common/utils"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/db"
-	"github.com/pkg/errors"
 )
 
 const (
@@ -45,7 +47,7 @@ func (dao *blockDAO) Start() error {
 	}
 
 	// set init height value
-	err = dao.kvstore.PutIfNotExists(blockNS, topHeightKey, make([]byte, 4))
+	err = dao.kvstore.PutIfNotExists(blockNS, topHeightKey, make([]byte, 8))
 	if err != nil {
 		return errors.Wrap(err, "failed to write initial value for top height")
 	}
@@ -53,8 +55,8 @@ func (dao *blockDAO) Start() error {
 }
 
 // getBlockHash returns the block hash by height
-func (dao *blockDAO) getBlockHash(height uint32) (crypto.Hash32B, error) {
-	key := append(heightPrefix, utils.Uint32ToBytes(height)...)
+func (dao *blockDAO) getBlockHash(height uint64) (crypto.Hash32B, error) {
+	key := append(heightPrefix, utils.Uint64ToBytes(height)...)
 	value, err := dao.kvstore.Get(blockHashHeightMappingNS, key)
 	var hash crypto.Hash32B
 	if err != nil {
@@ -65,13 +67,13 @@ func (dao *blockDAO) getBlockHash(height uint32) (crypto.Hash32B, error) {
 }
 
 // getBlockHeight returns the block height by hash
-func (dao *blockDAO) getBlockHeight(hash crypto.Hash32B) (uint32, error) {
+func (dao *blockDAO) getBlockHeight(hash crypto.Hash32B) (uint64, error) {
 	key := append(hashPrefix, hash[:]...)
 	value, err := dao.kvstore.Get(blockHashHeightMappingNS, key)
 	if err != nil {
 		return 0, errors.Wrap(err, "failed to get block height")
 	}
-	return utils.BytesToUint32(value), nil
+	return cm.MachineEndian.Uint64(value), nil
 }
 
 // getBlock returns a block
@@ -88,18 +90,18 @@ func (dao *blockDAO) getBlock(hash crypto.Hash32B) (*Block, error) {
 }
 
 // getBlockchainHeight returns the blockchain height
-func (dao *blockDAO) getBlockchainHeight() (uint32, error) {
+func (dao *blockDAO) getBlockchainHeight() (uint64, error) {
 	value, err := dao.kvstore.Get(blockNS, topHeightKey)
 	if err != nil {
 		return 0, errors.Wrap(err, "failed to get top height")
 	}
-	return utils.BytesToUint32(value), nil
+	return cm.MachineEndian.Uint64(value), nil
 }
 
 // putBlock puts a block
 func (dao *blockDAO) putBlock(blk *Block) error {
 	hash := blk.HashBlock()
-	height := utils.Uint32ToBytes(blk.Height())
+	height := utils.Uint64ToBytes(blk.Height())
 	serialized, err := blk.Serialize()
 	if err != nil {
 		return errors.Wrap(err, "failed to serialize block")
@@ -116,7 +118,7 @@ func (dao *blockDAO) putBlock(blk *Block) error {
 		return errors.Wrap(err, "failed to put height -> hash mapping")
 	}
 	value, err := dao.kvstore.Get(blockNS, topHeightKey)
-	topHeight := utils.BytesToUint32(value)
+	topHeight := cm.MachineEndian.Uint64(value)
 	if blk.Height() > topHeight {
 		dao.kvstore.Put(blockNS, topHeightKey, height)
 		if err != nil {

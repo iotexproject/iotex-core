@@ -92,7 +92,7 @@ func NewBlockDB(cfg *config.Config) (*BlockDB, bool) {
 }
 
 // Init initializes the BlockDB instance
-func (db *BlockDB) Init() (hash []byte, height uint32, err error) {
+func (db *BlockDB) Init() (hash []byte, height uint64, err error) {
 	// verify all buckets are properly created
 	// so from this point on later calls don't need to sanity check again
 	err = db.View(func(tx *bolt.Tx) error {
@@ -115,19 +115,19 @@ func (db *BlockDB) Init() (hash []byte, height uint32, err error) {
 		if h == nil {
 			return errors.Wrap(ErrNotExist, "Blockchain height")
 		}
-		height = cm.MachineEndian.Uint32(h)
+		height = cm.MachineEndian.Uint64(h)
 		return nil
 	})
 	return
 }
 
 // GetBlockHash returns the block hash by height
-func (db *BlockDB) GetBlockHash(height uint32) (hash []byte, err error) {
+func (db *BlockDB) GetBlockHash(height uint64) (hash []byte, err error) {
 	err = db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket(hashHeightBucket)
 		// get block hash at passed-in height
-		dbHeight := []byte{0, 0, 0, 0}
-		cm.MachineEndian.PutUint32(dbHeight, height)
+		dbHeight := []byte{0, 0, 0, 0, 0, 0, 0, 0}
+		cm.MachineEndian.PutUint64(dbHeight, height)
 		if hash = b.Get(dbHeight); hash == nil {
 			return errors.Wrapf(ErrNotExist, "Block with height = %d", height)
 		}
@@ -137,7 +137,7 @@ func (db *BlockDB) GetBlockHash(height uint32) (hash []byte, err error) {
 }
 
 // GetBlockHeight returns the block height by hash
-func (db *BlockDB) GetBlockHeight(hash []byte) (height uint32, err error) {
+func (db *BlockDB) GetBlockHeight(hash []byte) (height uint64, err error) {
 	err = db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket(hashHeightBucket)
 		// get the height corresponding to passed in hash
@@ -145,7 +145,7 @@ func (db *BlockDB) GetBlockHeight(hash []byte) (height uint32, err error) {
 		if dbHeight = b.Get(hash); dbHeight == nil {
 			return errors.Wrapf(ErrNotExist, "Block with hash = %x", hash)
 		}
-		height = cm.MachineEndian.Uint32(dbHeight)
+		height = cm.MachineEndian.Uint64(dbHeight)
 		return nil
 	})
 	return
@@ -166,7 +166,7 @@ func (db *BlockDB) CheckOutBlock(hash []byte) (blk []byte, err error) {
 }
 
 // CheckInBlock checks a block into DB
-func (db *BlockDB) CheckInBlock(blk []byte, hash []byte, h uint32) error {
+func (db *BlockDB) CheckInBlock(blk []byte, hash []byte, h uint64) error {
 	return db.Update(func(tx *bolt.Tx) error {
 		// new block hash should not collide with any existing blocks
 		b := tx.Bucket(blocksBucket)
@@ -175,8 +175,8 @@ func (db *BlockDB) CheckInBlock(blk []byte, hash []byte, h uint32) error {
 		}
 
 		// prepare tip height
-		height := []byte{0, 0, 0, 0}
-		cm.MachineEndian.PutUint32(height, h)
+		height := []byte{0, 0, 0, 0, 0, 0, 0, 0}
+		cm.MachineEndian.PutUint64(height, h)
 
 		// update tip hash/height
 		if err := b.Put(tipHash, hash); err != nil {
@@ -206,7 +206,7 @@ func (db *BlockDB) CheckInBlock(blk []byte, hash []byte, h uint32) error {
 }
 
 // StoreBlockToFile writes block raw data into file
-func (db *BlockDB) StoreBlockToFile(start, end uint32) error {
+func (db *BlockDB) StoreBlockToFile(start, end uint64) error {
 	data := []byte{}
 	offset := []uint32{}
 	seek := uint32(0)

@@ -59,7 +59,7 @@ func NewGenesisBlock(gen *Genesis) *Block {
 		return nil
 	}
 	block := &Block{
-		Header: &BlockHeader{Version, gen.GenConfig.ChainID, uint32(0), gen.Timestamp, gen.ParentHash, cp.ZeroHash32B, uint32(1), 0, []byte{}},
+		Header: &BlockHeader{Version, gen.GenConfig.ChainID, uint64(0), gen.Timestamp, gen.ParentHash, cp.ZeroHash32B, uint32(1), 0, []byte{}},
 		Tranxs: []*Tx{cbtx},
 	}
 

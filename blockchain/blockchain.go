@@ -20,7 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	cp "github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/iotxaddress"
-	"github.com/iotexproject/iotex-core/proto"
+	iproto "github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/txvm"
 )
 
@@ -40,17 +40,17 @@ type Blockchain interface {
 	// Close closes the Db connection
 	Close() error
 	// GetHeightByHash returns block's height by hash
-	GetHeightByHash(hash cp.Hash32B) (uint32, error)
+	GetHeightByHash(hash cp.Hash32B) (uint64, error)
 	// GetHashByHeight returns block's hash by height
-	GetHashByHeight(height uint32) (cp.Hash32B, error)
+	GetHashByHeight(height uint64) (cp.Hash32B, error)
 	// GetBlockByHeight returns block from the blockchain hash by height
-	GetBlockByHeight(height uint32) (*Block, error)
+	GetBlockByHeight(height uint64) (*Block, error)
 	// GetBlockByHash returns block from the blockchain hash by hash
 	GetBlockByHash(hash cp.Hash32B) (*Block, error)
 	// TipHash returns tip block's hash
 	TipHash() cp.Hash32B
 	// TipHeight returns tip block's height
-	TipHeight() uint32
+	TipHeight() uint64
 	// Reset reset for next block
 	Reset()
 	// ValidateBlock validates a new block before adding it to the blockchain
@@ -80,7 +80,7 @@ type blockchain struct {
 	config  *config.Config
 	genesis *Genesis
 	chainID uint32
-	height  uint32
+	height  uint64
 	tip     cp.Hash32B
 	Utk     *UtxoTracker // tracks the current UTXO pool
 }
@@ -107,7 +107,7 @@ func (bc *blockchain) Init() error {
 
 	// build UTXO pool
 	// Genesis block has height 0
-	for i := uint32(0); i <= bc.height; i++ {
+	for i := uint64(0); i <= bc.height; i++ {
 		blk, err := bc.GetBlockByHeight(i)
 		if err != nil {
 			return err
@@ -153,12 +153,12 @@ func (bc *blockchain) commitBlock(blk *Block) (err error) {
 }
 
 // GetHeightByHash returns block's height by hash
-func (bc *blockchain) GetHeightByHash(hash cp.Hash32B) (uint32, error) {
+func (bc *blockchain) GetHeightByHash(hash cp.Hash32B) (uint64, error) {
 	return bc.blockDb.GetBlockHeight(hash[:])
 }
 
 // GetHashByHeight returns block's hash by height
-func (bc *blockchain) GetHashByHeight(height uint32) (cp.Hash32B, error) {
+func (bc *blockchain) GetHashByHeight(height uint64) (cp.Hash32B, error) {
 	hash := cp.ZeroHash32B
 	dbHash, err := bc.blockDb.GetBlockHash(height)
 	copy(hash[:], dbHash)
@@ -166,7 +166,7 @@ func (bc *blockchain) GetHashByHeight(height uint32) (cp.Hash32B, error) {
 }
 
 // GetBlockByHeight returns block from the blockchain hash by height
-func (bc *blockchain) GetBlockByHeight(height uint32) (*Block, error) {
+func (bc *blockchain) GetBlockByHeight(height uint64) (*Block, error) {
 	hash, err := bc.GetHashByHeight(height)
 	if err != nil {
 		return nil, err
@@ -195,7 +195,7 @@ func (bc *blockchain) TipHash() cp.Hash32B {
 }
 
 // TipHeight returns tip block's height
-func (bc *blockchain) TipHeight() uint32 {
+func (bc *blockchain) TipHeight() uint64 {
 	return bc.height
 }
 
@@ -228,8 +228,8 @@ func (bc *blockchain) ValidateBlock(blk *Block) error {
 // MintNewBlock creates a new block with given transactions.
 // Note: the coinbase transaction will be added to the given transactions
 // when minting a new block.
-func (bc *blockchain) MintNewBlock(txs []*Tx, toaddr iotxaddress.Address, data string) *Block {
-	cbTx := NewCoinbaseTx(toaddr.RawAddress, bc.genesis.BlockReward, data)
+func (bc *blockchain) MintNewBlock(txs []*Tx, producer iotxaddress.Address, data string) *Block {
+	cbTx := NewCoinbaseTx(producer.RawAddress, bc.genesis.BlockReward, data)
 	if cbTx == nil {
 		glog.Error("Cannot create coinbase transaction")
 		return nil
@@ -265,12 +265,12 @@ func (bc *blockchain) AddBlockSync(blk *Block) error {
 }
 
 // StoreBlock persists the blocks in the range to file on disk
-func (bc *blockchain) StoreBlock(start, end uint32) error {
+func (bc *blockchain) StoreBlock(start, end uint64) error {
 	return bc.blockDb.StoreBlockToFile(start, end)
 }
 
 // ReadBlock read the block from file on disk
-func (bc *blockchain) ReadBlock(height uint32) *Block {
+func (bc *blockchain) ReadBlock(height uint64) *Block {
 	file, err := os.Open(blockdb.BlockData)
 	defer file.Close()
 	if err != nil {

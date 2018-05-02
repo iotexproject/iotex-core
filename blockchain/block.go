@@ -29,7 +29,7 @@ const (
 type BlockHeader struct {
 	version       uint32     // version
 	chainID       uint32     // this chain's ID
-	height        uint32     // block height
+	height        uint64     // block height
 	timestamp     uint64     // timestamp
 	prevBlockHash cp.Hash32B // hash of previous block
 	merkleRoot    cp.Hash32B // merkle root of all trn
@@ -46,7 +46,7 @@ type Block struct {
 }
 
 // NewBlock returns a new block
-func NewBlock(chainID uint32, height uint32, prevBlockHash cp.Hash32B, transactions []*Tx) *Block {
+func NewBlock(chainID uint32, height uint64, prevBlockHash cp.Hash32B, transactions []*Tx) *Block {
 	block := &Block{
 		Header: &BlockHeader{Version, chainID, height, uint64(time.Now().Unix()), prevBlockHash, cp.ZeroHash32B, uint32(len(transactions)), 0, []byte{}},
 		Tranxs: transactions,
@@ -61,7 +61,7 @@ func NewBlock(chainID uint32, height uint32, prevBlockHash cp.Hash32B, transacti
 }
 
 // Height returns the height of this block
-func (b *Block) Height() uint32 {
+func (b *Block) Height() uint64 {
 	return b.Header.height
 }
 
@@ -82,9 +82,9 @@ func (b *Block) ByteStreamHeader() []byte {
 	tmp4B := make([]byte, 4)
 	cm.MachineEndian.PutUint32(tmp4B, b.Header.chainID)
 	stream = append(stream, tmp4B...)
-	cm.MachineEndian.PutUint32(tmp4B, b.Header.height)
-	stream = append(stream, tmp4B...)
 	tmp8B := make([]byte, 8)
+	cm.MachineEndian.PutUint64(tmp8B, uint64(b.Header.height))
+	stream = append(stream, tmp8B...)
 	cm.MachineEndian.PutUint64(tmp8B, b.Header.timestamp)
 	stream = append(stream, tmp8B...)
 	stream = append(stream, b.Header.prevBlockHash[:]...)

@@ -26,7 +26,7 @@ const (
 )
 
 // WindowSize defines the size of window
-var WindowSize uint32 = 8
+var WindowSize uint64 = 8
 
 var (
 	// ErrInvalidRange indicates invalid range.
@@ -49,8 +49,8 @@ type SlidingWindow struct {
 	end       time.Time
 	State     int
 	prevState int
-	close     uint32
-	open      uint32
+	close     uint64
+	open      uint64
 	orphan    []int           // orphaned item that has not been received yet
 	elapse    []time.Duration // time (in millisecond) it takes to complete each sync task
 	bc        *blockchain.Blockchain
@@ -62,7 +62,7 @@ func NewSlidingWindow() *SlidingWindow {
 }
 
 // SetRange set the initial range for sliding window
-func (sw *SlidingWindow) SetRange(left uint32, right uint32) error {
+func (sw *SlidingWindow) SetRange(left uint64, right uint64) error {
 	sw.mu.Lock()
 	defer sw.mu.Unlock()
 
@@ -78,7 +78,7 @@ func (sw *SlidingWindow) SetRange(left uint32, right uint32) error {
 }
 
 // Next returns the next close value of the sliding window
-func (sw *SlidingWindow) Next() uint32 {
+func (sw *SlidingWindow) Next() uint64 {
 	sw.mu.Lock()
 	defer sw.mu.Unlock()
 	return sw.close + 1
@@ -100,7 +100,7 @@ func (sw *SlidingWindow) updateState() {
 }
 
 // Update updates the window [close, open]
-func (sw *SlidingWindow) Update(value uint32) {
+func (sw *SlidingWindow) Update(value uint64) {
 	sw.mu.Lock()
 	switch {
 	case value > sw.open:

@@ -21,7 +21,7 @@ func TestTxPq(t *testing.T) {
 	desc1 := TxDesc{
 		Tx:          &blockchain.Tx{},
 		AddedTime:   time.Now(),
-		BlockHeight: uint32(1),
+		BlockHeight: uint64(1),
 		Fee:         int64(0),
 		FeePerKB:    int64(0),
 		Priority:    float64(100),
@@ -31,7 +31,7 @@ func TestTxPq(t *testing.T) {
 	desc2 := TxDesc{
 		Tx:          &blockchain.Tx{},
 		AddedTime:   time.Now(),
-		BlockHeight: uint32(1),
+		BlockHeight: uint64(1),
 		Fee:         int64(0),
 		FeePerKB:    int64(0),
 		Priority:    float64(50),
@@ -41,7 +41,7 @@ func TestTxPq(t *testing.T) {
 	desc3 := TxDesc{
 		Tx:          &blockchain.Tx{},
 		AddedTime:   time.Now(),
-		BlockHeight: uint32(1),
+		BlockHeight: uint64(1),
 		Fee:         int64(0),
 		FeePerKB:    int64(0),
 		Priority:    float64(1000),
@@ -51,7 +51,7 @@ func TestTxPq(t *testing.T) {
 	desc4 := TxDesc{
 		Tx:          &blockchain.Tx{},
 		AddedTime:   time.Now(),
-		BlockHeight: uint32(1),
+		BlockHeight: uint64(1),
 		Fee:         int64(0),
 		FeePerKB:    int64(0),
 		Priority:    float64(5),

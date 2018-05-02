@@ -15,7 +15,9 @@ func Uint32ToBytes(value uint32) []byte {
 	return bytes
 }
 
-// BytesToUint32 converts 4 bytes with the machine endian to a uint32
-func BytesToUint32(bytes []byte) uint32 {
-	return common.MachineEndian.Uint32(bytes)
+// Uint64ToBytes converts a uint64 to 8 bytes with the machine endian
+func Uint64ToBytes(value uint64) []byte {
+	bytes := make([]byte, 8)
+	common.MachineEndian.PutUint64(bytes, value)
+	return bytes
 }
