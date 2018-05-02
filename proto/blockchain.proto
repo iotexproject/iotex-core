@@ -53,7 +53,7 @@ message ActionPb {
 message BlockHeaderPb {
     uint32 version = 1;
     uint32 chainID = 2;
-    uint32 height = 3;
+    uint64 height = 3;
     uint64 timestamp = 4;
     bytes prevBlockHash = 5;
     bytes merkleRoot = 6;
@@ -71,8 +71,8 @@ message BlockPb {
 
 // index of block raw data file
 message BlockIndex {
-    uint32 start = 1;
-    uint32 end = 2;
+    uint64 start = 1;
+    uint64 end = 2;
     repeated uint32 offset = 3;
 }
 
@@ -88,8 +88,8 @@ message PongMsg {
 }
 
 message BlockSync {
-    uint32 start = 2;
-    uint32 end = 3;
+    uint64 start = 2;
+    uint64 end = 3;
 }
 
 // block container

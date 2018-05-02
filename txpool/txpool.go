@@ -37,7 +37,7 @@ type Tag uint64
 type TxDesc struct {
 	Tx          *blockchain.Tx
 	AddedTime   time.Time
-	BlockHeight uint32
+	BlockHeight uint64
 	Fee         int64
 	FeePerKB    int64
 	Priority    float64
@@ -375,7 +375,7 @@ func (tp *txPool) RemoveDoubleSpends(tx *blockchain.Tx) {
 	tp.mutex.Unlock()
 }
 
-func (tp *txPool) addTx(utxoTracker *blockchain.UtxoTracker, tx *blockchain.Tx, height uint32, fee int64) *TxDesc {
+func (tp *txPool) addTx(utxoTracker *blockchain.UtxoTracker, tx *blockchain.Tx, height uint64, fee int64) *TxDesc {
 	serialize, err := tx.Serialize()
 	if err != nil {
 		return nil

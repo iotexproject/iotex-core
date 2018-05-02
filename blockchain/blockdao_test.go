@@ -59,7 +59,7 @@ func TestBlockDAO(t *testing.T) {
 
 		height, err := dao.getBlockchainHeight()
 		assert.Nil(t, err)
-		assert.Equal(t, uint32(0), height)
+		assert.Equal(t, uint64(0), height)
 
 		// block put order is 0 2 1
 		err = dao.putBlock(blks[0])
@@ -70,7 +70,7 @@ func TestBlockDAO(t *testing.T) {
 		assert.Equal(t, blks[0].Tranxs[0].Hash(), blk.Tranxs[0].Hash())
 		height, err = dao.getBlockchainHeight()
 		assert.Nil(t, err)
-		assert.Equal(t, uint32(1), height)
+		assert.Equal(t, uint64(1), height)
 
 		err = dao.putBlock(blks[2])
 		assert.Nil(t, err)
@@ -80,7 +80,7 @@ func TestBlockDAO(t *testing.T) {
 		assert.Equal(t, blks[2].Tranxs[0].Hash(), blk.Tranxs[0].Hash())
 		height, err = dao.getBlockchainHeight()
 		assert.Nil(t, err)
-		assert.Equal(t, uint32(3), height)
+		assert.Equal(t, uint64(3), height)
 
 		err = dao.putBlock(blks[1])
 		assert.Nil(t, err)
@@ -90,7 +90,7 @@ func TestBlockDAO(t *testing.T) {
 		assert.Equal(t, blks[1].Tranxs[0].Hash(), blk.Tranxs[0].Hash())
 		height, err = dao.getBlockchainHeight()
 		assert.Nil(t, err)
-		assert.Equal(t, uint32(3), height)
+		assert.Equal(t, uint64(3), height)
 
 		// test getting hash by height
 		hash, err := dao.getBlockHash(1)

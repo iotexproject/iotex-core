@@ -60,9 +60,9 @@ func (mr *MockBlockchainMockRecorder) Close() *gomock.Call {
 }
 
 // GetHeightByHash mocks base method
-func (m *MockBlockchain) GetHeightByHash(hash crypto.Hash32B) (uint32, error) {
+func (m *MockBlockchain) GetHeightByHash(hash crypto.Hash32B) (uint64, error) {
 	ret := m.ctrl.Call(m, "GetHeightByHash", hash)
-	ret0, _ := ret[0].(uint32)
+	ret0, _ := ret[0].(uint64)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -73,7 +73,7 @@ func (mr *MockBlockchainMockRecorder) GetHeightByHash(hash interface{}) *gomock.
 }
 
 // GetHashByHeight mocks base method
-func (m *MockBlockchain) GetHashByHeight(height uint32) (crypto.Hash32B, error) {
+func (m *MockBlockchain) GetHashByHeight(height uint64) (crypto.Hash32B, error) {
 	ret := m.ctrl.Call(m, "GetHashByHeight", height)
 	ret0, _ := ret[0].(crypto.Hash32B)
 	ret1, _ := ret[1].(error)
@@ -86,7 +86,7 @@ func (mr *MockBlockchainMockRecorder) GetHashByHeight(height interface{}) *gomoc
 }
 
 // GetBlockByHeight mocks base method
-func (m *MockBlockchain) GetBlockByHeight(height uint32) (*blockchain.Block, error) {
+func (m *MockBlockchain) GetBlockByHeight(height uint64) (*blockchain.Block, error) {
 	ret := m.ctrl.Call(m, "GetBlockByHeight", height)
 	ret0, _ := ret[0].(*blockchain.Block)
 	ret1, _ := ret[1].(error)
@@ -124,9 +124,9 @@ func (mr *MockBlockchainMockRecorder) TipHash() *gomock.Call {
 }
 
 // TipHeight mocks base method
-func (m *MockBlockchain) TipHeight() uint32 {
+func (m *MockBlockchain) TipHeight() uint64 {
 	ret := m.ctrl.Call(m, "TipHeight")
-	ret0, _ := ret[0].(uint32)
+	ret0, _ := ret[0].(uint64)
 	return ret0
 }
 

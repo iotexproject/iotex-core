@@ -50,11 +50,11 @@ type blockSyncer struct {
 	ackBlockSync   bool // acknowledges old block from sync request
 	ackSyncReq     bool // acknowledges incoming Sync request
 	state          int
-	syncHeight     uint32               // height of block at last sync request
-	dropHeight     uint32               // height of most recent block being dropped
-	currRcvdHeight uint32               // height of most recent incoming block
-	lastRcvdHeight uint32               // height of last incoming block
-	rcvdBlocks     map[uint32]*bc.Block // buffer of received blocks
+	syncHeight     uint64               // height of block at last sync request
+	dropHeight     uint64               // height of most recent block being dropped
+	currRcvdHeight uint64               // height of most recent incoming block
+	lastRcvdHeight uint64               // height of last incoming block
+	rcvdBlocks     map[uint64]*bc.Block // buffer of received blocks
 	actionTime     time.Time
 	sw             *SlidingWindow
 	bc             bc.Blockchain
@@ -91,7 +91,7 @@ func SyncTaskInterval(cfg *config.Config) time.Duration {
 func NewBlockSyncer(cfg *config.Config, chain bc.Blockchain, tp txpool.TxPool, p2p *network.Overlay, dp delegate.Pool) BlockSync {
 	sync := &blockSyncer{
 		state:      Idle,
-		rcvdBlocks: map[uint32]*bc.Block{},
+		rcvdBlocks: map[uint64]*bc.Block{},
 		sw:         NewSlidingWindow(),
 		bc:         chain,
 		tp:         tp,
