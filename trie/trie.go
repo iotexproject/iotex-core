@@ -12,33 +12,25 @@ import (
 )
 
 type (
-	leaf struct {
-		blob []byte // content of the node
-	}
-)
-
-type (
 	// Trie is the interface of Merkle Patricia Trie
 	Trie interface {
 		Insert(key, value []byte) error // insert a new entry
 		Get(key []byte) ([]byte, error) // retrieve an existing entry
 		Update(key, value []byte) error // update an existing entry
 		Delete(key []byte) error        // delete an entry
-
-		// Hash returns the root hash of the trie. It does not write to the
-		// database and can be used even if the trie doesn't have one
-		RootHash() common.Hash32B
+		RootHash() common.Hash32B       // returns trie's root hash
 	}
 
 	// trie implements the Trie interface
 	trie struct {
 		storeDb db.KVStore
+		root    patricia
 	}
 )
 
 // NewTrie creates a trie with
 func NewTrie() (*trie, error) {
-	t := trie{db.NewBoltDB("trie.db", nil)}
+	t := trie{db.NewBoltDB("trie.db", nil), nil}
 	return &t, nil
 }
 
@@ -49,7 +41,18 @@ func (t *trie) Insert(key, value []byte) error {
 
 // Get an existing entry
 func (t *trie) Get(key []byte) ([]byte, error) {
-	return []byte{}, nil
+	ptr := t.root
+	keyLen := len(key)
+	err := error(nil)
+	// traverse the patricia trie
+	for keyLen > 0 {
+		ptr, keyLen, err = ptr.descend(key, keyLen)
+		if ptr == nil || err != nil {
+			return nil, err
+		}
+	}
+	// retrieve the value from terminal patricia node
+	return t.getValue(ptr)
 }
 
 // Update an existing entry
@@ -62,4 +65,7 @@ func (t *trie) Delete(key []byte) error {
 	return nil
 }
 
-// private functions
+// getValue returns the value stored in patricia node
+func (t *trie) getValue(p patricia) ([]byte, error) {
+	return p.blob()
+}
