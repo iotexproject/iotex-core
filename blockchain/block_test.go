@@ -100,7 +100,7 @@ func TestMerkle(t *testing.T) {
 
 	// create block using above 5 tx and verify merkle
 	block := NewBlock(0, 0, cp.ZeroHash32B, []*Tx{cbtx0, cbtx1, cbtx2, cbtx3, cbtx4})
-	hash := block.MerkleRoot()
+	hash := block.TxRoot()
 	assert.Equal(hash07[:], hash[:])
 	t.Log("Merkle root match pass\n")
 
