@@ -9,6 +9,7 @@ import (
 	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/iotxaddress"
+	tr "github.com/iotexproject/iotex-core/trie"
 )
 
 var (
@@ -16,17 +17,6 @@ var (
 	// ErrNotEnoughBalance is the error that the balance is not enough
 	ErrNotEnoughBalance = errors.New("not enough balance")
 )
-
-// Trie is the interface for a trie.
-type Trie interface {
-	Get(key []byte) ([]byte, error)
-	Update(key, value []byte) error
-	Delete(key []byte) error
-
-	// Hash returns the root hash of the trie. It does not write to the
-	// database and can be used even if the trie doesn't have one.
-	RootHash() common.Hash32B
-}
 
 // State is the canonical representation of an account.
 type State struct {
@@ -42,7 +32,7 @@ type State struct {
 // StateFactory manages states.
 type StateFactory struct {
 	db   db.KVStore
-	trie Trie
+	trie tr.Trie
 }
 
 func stateToBytes(s *State) []byte {
@@ -64,7 +54,7 @@ func bytesToState(ss []byte) *State {
 }
 
 // New creates a new StateFactory
-func New(db db.KVStore, trie Trie) StateFactory {
+func New(db db.KVStore, trie tr.Trie) StateFactory {
 	return StateFactory{db: db, trie: trie}
 }
 
