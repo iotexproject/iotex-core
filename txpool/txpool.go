@@ -82,7 +82,7 @@ type TxPool interface {
 	RemoveDoubleSpends(tx *blockchain.Tx)
 	// FetchTx fetch accepted transaction from the pool
 	FetchTx(hash *common.Hash32B) (*blockchain.Tx, error)
-	// MaybeAcceptTx add Tx into pool if it could be accommon.ted
+	// MaybeAcceptTx add Tx into pool if it could be accepted
 	MaybeAcceptTx(tx *blockchain.Tx, isNew bool, rateLimit bool) ([]common.Hash32B, *TxDesc, error)
 	// ProcessOrphanTxs process the orphan txs depending on the accepted tx
 	ProcessOrphanTxs(acceptedTx *blockchain.Tx) []*TxDesc
