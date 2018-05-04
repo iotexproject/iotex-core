@@ -16,7 +16,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/blockdb"
-	cm "github.com/iotexproject/iotex-core/common"
+	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/config"
 	cp "github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/iotxaddress"
@@ -40,15 +40,15 @@ type Blockchain interface {
 	// Close closes the Db connection
 	Close() error
 	// GetHeightByHash returns block's height by hash
-	GetHeightByHash(hash cp.Hash32B) (uint64, error)
+	GetHeightByHash(hash common.Hash32B) (uint64, error)
 	// GetHashByHeight returns block's hash by height
-	GetHashByHeight(height uint64) (cp.Hash32B, error)
+	GetHashByHeight(height uint64) (common.Hash32B, error)
 	// GetBlockByHeight returns block from the blockchain hash by height
 	GetBlockByHeight(height uint64) (*Block, error)
 	// GetBlockByHash returns block from the blockchain hash by hash
-	GetBlockByHash(hash cp.Hash32B) (*Block, error)
+	GetBlockByHash(hash common.Hash32B) (*Block, error)
 	// TipHash returns tip block's hash
-	TipHash() cp.Hash32B
+	TipHash() common.Hash32B
 	// TipHeight returns tip block's height
 	TipHeight() uint64
 	// Reset reset for next block
@@ -67,7 +67,7 @@ type Blockchain interface {
 	// BalanceOf returns the balance of a given address
 	BalanceOf(string) uint64
 	// UtxoPool returns the UTXO pool of current blockchain
-	UtxoPool() map[cp.Hash32B][]*TxOutput
+	UtxoPool() map[common.Hash32B][]*TxOutput
 	// CreateTransaction creates a signed transaction paying 'amount' from 'from' to 'to'
 	CreateTransaction(from iotxaddress.Address, amount uint64, to []*Payee) *Tx
 	// CreateRawTransaction creates a signed transaction paying 'amount' from 'from' to 'to'
@@ -81,7 +81,7 @@ type blockchain struct {
 	genesis *Genesis
 	chainID uint32
 	height  uint64
-	tip     cp.Hash32B
+	tip     common.Hash32B
 	Utk     *UtxoTracker // tracks the current UTXO pool
 }
 
@@ -153,13 +153,13 @@ func (bc *blockchain) commitBlock(blk *Block) (err error) {
 }
 
 // GetHeightByHash returns block's height by hash
-func (bc *blockchain) GetHeightByHash(hash cp.Hash32B) (uint64, error) {
+func (bc *blockchain) GetHeightByHash(hash common.Hash32B) (uint64, error) {
 	return bc.blockDb.GetBlockHeight(hash[:])
 }
 
 // GetHashByHeight returns block's hash by height
-func (bc *blockchain) GetHashByHeight(height uint64) (cp.Hash32B, error) {
-	hash := cp.ZeroHash32B
+func (bc *blockchain) GetHashByHeight(height uint64) (common.Hash32B, error) {
+	hash := common.ZeroHash32B
 	dbHash, err := bc.blockDb.GetBlockHash(height)
 	copy(hash[:], dbHash)
 	return hash, err
@@ -175,7 +175,7 @@ func (bc *blockchain) GetBlockByHeight(height uint64) (*Block, error) {
 }
 
 // GetBlockByHash returns block from the blockchain hash by hash
-func (bc *blockchain) GetBlockByHash(hash cp.Hash32B) (*Block, error) {
+func (bc *blockchain) GetBlockByHash(hash common.Hash32B) (*Block, error) {
 	serialized, err := bc.blockDb.CheckOutBlock(hash[:])
 	if err != nil {
 		return nil, err
@@ -190,7 +190,7 @@ func (bc *blockchain) GetBlockByHash(hash cp.Hash32B) (*Block, error) {
 }
 
 // TipHash returns tip block's hash
-func (bc *blockchain) TipHash() cp.Hash32B {
+func (bc *blockchain) TipHash() common.Hash32B {
 	return bc.tip
 }
 
@@ -281,7 +281,7 @@ func (bc *blockchain) ReadBlock(height uint64) *Block {
 	// read block index
 	indexSize := make([]byte, 4)
 	file.Read(indexSize)
-	size := cm.MachineEndian.Uint32(indexSize)
+	size := common.MachineEndian.Uint32(indexSize)
 	indexBytes := make([]byte, size)
 	if n, err := file.Read(indexBytes); err != nil || n != int(size) {
 		glog.Error(err)
@@ -360,7 +360,7 @@ func (bc *blockchain) BalanceOf(address string) uint64 {
 }
 
 // UtxoPool returns the UTXO pool of current blockchain
-func (bc *blockchain) UtxoPool() map[cp.Hash32B][]*TxOutput {
+func (bc *blockchain) UtxoPool() map[common.Hash32B][]*TxOutput {
 	return bc.Utk.utxoPool
 }
 

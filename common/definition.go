@@ -10,3 +10,16 @@ import "encoding/binary"
 
 // MachineEndian is the endianess of the machine
 var MachineEndian = binary.LittleEndian
+
+// HashSize defines the size of hash
+const (
+	HashSize = 32
+)
+
+var (
+	// ZeroHash32B is 32-bytes of all zero
+	ZeroHash32B = Hash32B{}
+)
+
+// Hash32B is 32-byte hash value
+type Hash32B [HashSize]byte

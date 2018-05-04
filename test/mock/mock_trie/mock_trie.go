@@ -6,7 +6,7 @@ package mock_trie
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	crypto "github.com/iotexproject/iotex-core-internal/crypto"
+	common "github.com/iotexproject/iotex-core/common"
 	reflect "reflect"
 )
 
@@ -71,9 +71,9 @@ func (mr *MockTrieMockRecorder) Delete(key interface{}) *gomock.Call {
 }
 
 // RootHash mocks base method
-func (m *MockTrie) RootHash() crypto.Hash32B {
+func (m *MockTrie) RootHash() common.Hash32B {
 	ret := m.ctrl.Call(m, "RootHash")
-	ret0, _ := ret[0].(crypto.Hash32B)
+	ret0, _ := ret[0].(common.Hash32B)
 	return ret0
 }
 

@@ -14,8 +14,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/config"
-	cp "github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/server/itx"
 )
 
@@ -63,7 +63,7 @@ func TestLocalRDPoS(t *testing.T) {
 
 	time.Sleep(time.Second * 5)
 
-	var hash1, hash2, hash3, hash4 cp.Hash32B
+	var hash1, hash2, hash3, hash4 common.Hash32B
 
 	for i, svr := range svrs {
 		bc := svr.Bc()

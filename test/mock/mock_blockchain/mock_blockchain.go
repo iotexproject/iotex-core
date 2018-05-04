@@ -7,7 +7,7 @@ package mock_blockchain
 import (
 	gomock "github.com/golang/mock/gomock"
 	blockchain "github.com/iotexproject/iotex-core/blockchain"
-	crypto "github.com/iotexproject/iotex-core/crypto"
+	common "github.com/iotexproject/iotex-core/common"
 	iotxaddress "github.com/iotexproject/iotex-core/iotxaddress"
 	reflect "reflect"
 )
@@ -60,7 +60,7 @@ func (mr *MockBlockchainMockRecorder) Close() *gomock.Call {
 }
 
 // GetHeightByHash mocks base method
-func (m *MockBlockchain) GetHeightByHash(hash crypto.Hash32B) (uint64, error) {
+func (m *MockBlockchain) GetHeightByHash(hash common.Hash32B) (uint64, error) {
 	ret := m.ctrl.Call(m, "GetHeightByHash", hash)
 	ret0, _ := ret[0].(uint64)
 	ret1, _ := ret[1].(error)
@@ -73,9 +73,9 @@ func (mr *MockBlockchainMockRecorder) GetHeightByHash(hash interface{}) *gomock.
 }
 
 // GetHashByHeight mocks base method
-func (m *MockBlockchain) GetHashByHeight(height uint64) (crypto.Hash32B, error) {
+func (m *MockBlockchain) GetHashByHeight(height uint64) (common.Hash32B, error) {
 	ret := m.ctrl.Call(m, "GetHashByHeight", height)
-	ret0, _ := ret[0].(crypto.Hash32B)
+	ret0, _ := ret[0].(common.Hash32B)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -99,7 +99,7 @@ func (mr *MockBlockchainMockRecorder) GetBlockByHeight(height interface{}) *gomo
 }
 
 // GetBlockByHash mocks base method
-func (m *MockBlockchain) GetBlockByHash(hash crypto.Hash32B) (*blockchain.Block, error) {
+func (m *MockBlockchain) GetBlockByHash(hash common.Hash32B) (*blockchain.Block, error) {
 	ret := m.ctrl.Call(m, "GetBlockByHash", hash)
 	ret0, _ := ret[0].(*blockchain.Block)
 	ret1, _ := ret[1].(error)
@@ -112,9 +112,9 @@ func (mr *MockBlockchainMockRecorder) GetBlockByHash(hash interface{}) *gomock.C
 }
 
 // TipHash mocks base method
-func (m *MockBlockchain) TipHash() crypto.Hash32B {
+func (m *MockBlockchain) TipHash() common.Hash32B {
 	ret := m.ctrl.Call(m, "TipHash")
-	ret0, _ := ret[0].(crypto.Hash32B)
+	ret0, _ := ret[0].(common.Hash32B)
 	return ret0
 }
 
@@ -206,9 +206,9 @@ func (mr *MockBlockchainMockRecorder) BalanceOf(arg0 interface{}) *gomock.Call {
 }
 
 // UtxoPool mocks base method
-func (m *MockBlockchain) UtxoPool() map[crypto.Hash32B][]*blockchain.TxOutput {
+func (m *MockBlockchain) UtxoPool() map[common.Hash32B][]*blockchain.TxOutput {
 	ret := m.ctrl.Call(m, "UtxoPool")
-	ret0, _ := ret[0].(map[crypto.Hash32B][]*blockchain.TxOutput)
+	ret0, _ := ret[0].(map[common.Hash32B][]*blockchain.TxOutput)
 	return ret0
 }
 

@@ -14,8 +14,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/config"
-	cp "github.com/iotexproject/iotex-core/crypto"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 )
 
@@ -210,7 +210,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	assert.Equal(hash4, blk.HashBlock())
 	fmt.Printf("block 4 hash = %x\n", hash4)
 
-	empblk, err := bc.GetBlockByHash(cp.ZeroHash32B)
+	empblk, err := bc.GetBlockByHash(common.ZeroHash32B)
 	assert.Nil(empblk)
 
 	blk, err = bc.GetBlockByHeight(60000)
@@ -235,7 +235,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	// add block with zero prev hash
 	cbTx = NewCoinbaseTx(ta.Addrinfo["bravo"].RawAddress, 50, GenesisCoinbaseData)
 	assert.NotNil(cbTx)
-	blk = NewBlock(0, h+1, cp.ZeroHash32B, []*Tx{cbTx})
+	blk = NewBlock(0, h+1, common.ZeroHash32B, []*Tx{cbTx})
 	err = bc.ValidateBlock(blk)
 	assert.NotNil(err)
 	fmt.Printf("Cannot validate block %d: %v\n", blk.Height(), err)

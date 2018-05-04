@@ -14,10 +14,9 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
-	cm "github.com/iotexproject/iotex-core/common"
+	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/common/utils"
 	"github.com/iotexproject/iotex-core/config"
-	cp "github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/proto"
 )
 
@@ -70,7 +69,7 @@ func NewBlockDB(cfg *config.Config) (*BlockDB, bool) {
 			}
 
 			// set init value for tip hash and height
-			if err := b.Put(tipHash, cp.ZeroHash32B[:]); err != nil {
+			if err := b.Put(tipHash, common.ZeroHash32B[:]); err != nil {
 				return errors.Wrap(err, "Writing init value for tipHash")
 			}
 
@@ -115,7 +114,7 @@ func (db *BlockDB) Init() (hash []byte, height uint64, err error) {
 		if h == nil {
 			return errors.Wrap(ErrNotExist, "Blockchain height")
 		}
-		height = cm.MachineEndian.Uint64(h)
+		height = common.MachineEndian.Uint64(h)
 		return nil
 	})
 	return
@@ -127,7 +126,7 @@ func (db *BlockDB) GetBlockHash(height uint64) (hash []byte, err error) {
 		b := tx.Bucket(hashHeightBucket)
 		// get block hash at passed-in height
 		dbHeight := []byte{0, 0, 0, 0, 0, 0, 0, 0}
-		cm.MachineEndian.PutUint64(dbHeight, height)
+		common.MachineEndian.PutUint64(dbHeight, height)
 		if hash = b.Get(dbHeight); hash == nil {
 			return errors.Wrapf(ErrNotExist, "Block with height = %d", height)
 		}
@@ -145,7 +144,7 @@ func (db *BlockDB) GetBlockHeight(hash []byte) (height uint64, err error) {
 		if dbHeight = b.Get(hash); dbHeight == nil {
 			return errors.Wrapf(ErrNotExist, "Block with hash = %x", hash)
 		}
-		height = cm.MachineEndian.Uint64(dbHeight)
+		height = common.MachineEndian.Uint64(dbHeight)
 		return nil
 	})
 	return
@@ -176,7 +175,7 @@ func (db *BlockDB) CheckInBlock(blk []byte, hash []byte, h uint64) error {
 
 		// prepare tip height
 		height := []byte{0, 0, 0, 0, 0, 0, 0, 0}
-		cm.MachineEndian.PutUint64(height, h)
+		common.MachineEndian.PutUint64(height, h)
 
 		// update tip hash/height
 		if err := b.Put(tipHash, hash); err != nil {
@@ -233,7 +232,7 @@ func (db *BlockDB) StoreBlockToFile(start, end uint64) error {
 
 	// first 4-byte of file is the size of block index
 	size := []byte{0, 0, 0, 0}
-	cm.MachineEndian.PutUint32(size, uint32(len(index)))
+	common.MachineEndian.PutUint32(size, uint32(len(index)))
 	file := append(size, index...)
 	file = append(file, data...)
 	return ioutil.WriteFile(BlockData, file, 0600)

@@ -7,8 +7,8 @@
 package trie
 
 import (
-	cp "github.com/iotexproject/iotex-core-internal/crypto"
-	"github.com/iotexproject/iotex-core-internal/db"
+	"github.com/iotexproject/iotex-core/common"
+	"github.com/iotexproject/iotex-core/db"
 )
 
 type (
@@ -27,7 +27,7 @@ type (
 
 		// Hash returns the root hash of the trie. It does not write to the
 		// database and can be used even if the trie doesn't have one
-		RootHash() cp.Hash32B
+		RootHash() common.Hash32B
 	}
 
 	// trie implements the Trie interface

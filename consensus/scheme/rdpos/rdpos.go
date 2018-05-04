@@ -17,11 +17,11 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/common/routine"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/fsm"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
-	cp "github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/delegate"
 	pb "github.com/iotexproject/iotex-core/proto"
 )
@@ -34,9 +34,9 @@ var (
 // roundCtx keeps the context data for the current round and block.
 type roundCtx struct {
 	block     *blockchain.Block
-	blockHash *cp.Hash32B
-	prevotes  map[net.Addr]*cp.Hash32B
-	votes     map[net.Addr]*cp.Hash32B
+	blockHash *common.Hash32B
+	prevotes  map[net.Addr]*common.Hash32B
+	votes     map[net.Addr]*common.Hash32B
 }
 
 // DNet is the delegate networks interface.

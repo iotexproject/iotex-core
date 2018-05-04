@@ -17,7 +17,7 @@ import (
 	"github.com/golang/glog"
 
 	"github.com/iotexproject/iotex-core/blockchain"
-	cp "github.com/iotexproject/iotex-core/crypto"
+	"github.com/iotexproject/iotex-core/common"
 )
 
 // Basic constant settings for TxPool
@@ -52,13 +52,13 @@ type orphanTx struct {
 
 // TxSourcePointer is to refer to the output tx, hash + index in the output tx
 type TxSourcePointer struct {
-	Hash  cp.Hash32B
+	Hash  common.Hash32B
 	Index int32
 }
 
 // NewTxSourcePointer creates a new TxSourcePointer given TxInput
 func NewTxSourcePointer(in *blockchain.TxInput) TxSourcePointer {
-	hash := cp.ZeroHash32B
+	hash := common.ZeroHash32B
 	copy(hash[:], in.TxHash)
 	return TxSourcePointer{
 		hash,
@@ -73,17 +73,17 @@ type TxPool interface {
 	// RemoveOrphanTxsByTag remove all the orphan transactions with tag
 	RemoveOrphanTxsByTag(tag Tag) uint64
 	// HasOrphanTx check whether hash is an orphan transaction in the pool
-	HasOrphanTx(hash cp.Hash32B) bool
+	HasOrphanTx(hash common.Hash32B) bool
 	// HasTxOrOrphanTx check whether hash is an accepted or orphan transaction in the pool
-	HasTxOrOrphanTx(hash cp.Hash32B) bool
+	HasTxOrOrphanTx(hash common.Hash32B) bool
 	// RemoveTx remove an accepted transaction
 	RemoveTx(tx *blockchain.Tx, removeDescendants bool)
 	// RemoveDoubleSpends remove the double spending transaction
 	RemoveDoubleSpends(tx *blockchain.Tx)
 	// FetchTx fetch accepted transaction from the pool
-	FetchTx(hash *cp.Hash32B) (*blockchain.Tx, error)
-	// MaybeAcceptTx add Tx into pool if it could be accpted
-	MaybeAcceptTx(tx *blockchain.Tx, isNew bool, rateLimit bool) ([]cp.Hash32B, *TxDesc, error)
+	FetchTx(hash *common.Hash32B) (*blockchain.Tx, error)
+	// MaybeAcceptTx add Tx into pool if it could be accommon.ted
+	MaybeAcceptTx(tx *blockchain.Tx, isNew bool, rateLimit bool) ([]common.Hash32B, *TxDesc, error)
 	// ProcessOrphanTxs process the orphan txs depending on the accepted tx
 	ProcessOrphanTxs(acceptedTx *blockchain.Tx) []*TxDesc
 	// ProcessTx process the tx
@@ -105,12 +105,12 @@ type txPool struct {
 
 	lastUpdatedUnixTime    int64
 	mutex                  sync.RWMutex
-	txDescs                map[cp.Hash32B]*TxDesc
+	txDescs                map[common.Hash32B]*TxDesc
 	txDescPriorityQueue    txDescPriorityQueue
-	orphanTxs              map[cp.Hash32B]*orphanTx
-	orphanTxSourcePointers map[TxSourcePointer]map[cp.Hash32B]*blockchain.Tx
+	orphanTxs              map[common.Hash32B]*orphanTx
+	orphanTxSourcePointers map[TxSourcePointer]map[common.Hash32B]*blockchain.Tx
 	txSourcePointers       map[TxSourcePointer]*blockchain.Tx
-	tags                   map[Tag]map[cp.Hash32B]*blockchain.Tx
+	tags                   map[Tag]map[common.Hash32B]*blockchain.Tx
 	nextExpirationScanTime time.Time
 }
 
@@ -118,11 +118,11 @@ type txPool struct {
 func New(bc blockchain.Blockchain) TxPool {
 	return &txPool{
 		bc:                     bc,
-		tags:                   make(map[Tag]map[cp.Hash32B]*blockchain.Tx),
-		txDescs:                make(map[cp.Hash32B]*TxDesc),
+		tags:                   make(map[Tag]map[common.Hash32B]*blockchain.Tx),
+		txDescs:                make(map[common.Hash32B]*TxDesc),
 		txSourcePointers:       make(map[TxSourcePointer]*blockchain.Tx),
-		orphanTxs:              make(map[cp.Hash32B]*orphanTx),
-		orphanTxSourcePointers: make(map[TxSourcePointer]map[cp.Hash32B]*blockchain.Tx),
+		orphanTxs:              make(map[common.Hash32B]*orphanTx),
+		orphanTxSourcePointers: make(map[TxSourcePointer]map[common.Hash32B]*blockchain.Tx),
 	}
 }
 
@@ -245,14 +245,14 @@ func (tp *txPool) addOrphanTx(tx *blockchain.Tx, tag Tag) {
 	}
 	if enableTagIndex {
 		if _, ok := tp.tags[tag]; !ok {
-			tp.tags[tag] = make(map[cp.Hash32B]*blockchain.Tx)
+			tp.tags[tag] = make(map[common.Hash32B]*blockchain.Tx)
 		}
 		tp.tags[tag][hash] = tx
 	}
 	for _, txIn := range tx.TxIn {
 		txSourcePointer := NewTxSourcePointer(txIn)
 		if _, ok := tp.orphanTxSourcePointers[txSourcePointer]; !ok {
-			tp.orphanTxSourcePointers[txSourcePointer] = make(map[cp.Hash32B]*blockchain.Tx)
+			tp.orphanTxSourcePointers[txSourcePointer] = make(map[common.Hash32B]*blockchain.Tx)
 		}
 		tp.orphanTxSourcePointers[txSourcePointer][hash] = tx
 	}
@@ -280,14 +280,14 @@ func (tp *txPool) removeOrphanTxDoubleSpends(tx *blockchain.Tx) {
 	}
 }
 
-func (tp *txPool) hasTx(hash cp.Hash32B) bool {
+func (tp *txPool) hasTx(hash common.Hash32B) bool {
 	_, ok := tp.txDescs[hash]
 
 	return ok
 }
 
 // HasTx Check whether the pool contains tx with the given hash
-func (tp *txPool) HasTx(hash cp.Hash32B) bool {
+func (tp *txPool) HasTx(hash common.Hash32B) bool {
 	tp.mutex.RLock()
 	retval := tp.hasTx(hash)
 	tp.mutex.RUnlock()
@@ -295,14 +295,14 @@ func (tp *txPool) HasTx(hash cp.Hash32B) bool {
 	return retval
 }
 
-func (tp *txPool) hasOrphanTx(hash cp.Hash32B) bool {
+func (tp *txPool) hasOrphanTx(hash common.Hash32B) bool {
 	_, ok := tp.orphanTxs[hash]
 
 	return ok
 }
 
 // HasOrphanTx Check whether the pool contains orphan tx with the given hash
-func (tp *txPool) HasOrphanTx(hash cp.Hash32B) bool {
+func (tp *txPool) HasOrphanTx(hash common.Hash32B) bool {
 	tp.mutex.RLock()
 	retval := tp.hasOrphanTx(hash)
 	tp.mutex.RUnlock()
@@ -310,12 +310,12 @@ func (tp *txPool) HasOrphanTx(hash cp.Hash32B) bool {
 	return retval
 }
 
-func (tp *txPool) hasTxOrOrphanTx(hash cp.Hash32B) bool {
+func (tp *txPool) hasTxOrOrphanTx(hash common.Hash32B) bool {
 	return tp.hasTx(hash) || tp.hasOrphanTx(hash)
 }
 
 // HasTxOrOrphanTx Check whether the pool contains tx or orphan tx with the given hash
-func (tp *txPool) HasTxOrOrphanTx(hash cp.Hash32B) bool {
+func (tp *txPool) HasTxOrOrphanTx(hash common.Hash32B) bool {
 	tp.mutex.RLock()
 	retval := tp.hasTxOrOrphanTx(hash)
 	tp.mutex.RUnlock()
@@ -419,7 +419,7 @@ func (tp *txPool) fetchInputUtxos(tx *blockchain.Tx) (*blockchain.UtxoTracker, e
 	utxoTracker := blockchain.NewUtxoTracker()
 	utxoPool := tp.bc.UtxoPool()
 	for _, txIn := range tx.TxIn {
-		hash := cp.ZeroHash32B
+		hash := common.ZeroHash32B
 		copy(hash[:], txIn.TxHash)
 		outputs := utxoPool[hash]
 		utxoTracker.GetPool()[hash] = outputs
@@ -439,7 +439,7 @@ func (tp *txPool) fetchInputUtxos(tx *blockchain.Tx) (*blockchain.UtxoTracker, e
 }
 
 // FetchTx gets the tx with the given hash
-func (tp *txPool) FetchTx(hash *cp.Hash32B) (*blockchain.Tx, error) {
+func (tp *txPool) FetchTx(hash *common.Hash32B) (*blockchain.Tx, error) {
 	tp.mutex.RLock()
 	desc, ok := tp.txDescs[*hash]
 	tp.mutex.RUnlock()
@@ -454,7 +454,7 @@ func calculateMinFee(size uint32) int64 {
 	return 0
 }
 
-func (tp *txPool) maybeAcceptTx(tx *blockchain.Tx, isNew bool, rateLimit bool, rejectDuplicateOrphanTxs bool) ([]cp.Hash32B, *TxDesc, error) {
+func (tp *txPool) maybeAcceptTx(tx *blockchain.Tx, isNew bool, rateLimit bool, rejectDuplicateOrphanTxs bool) ([]common.Hash32B, *TxDesc, error) {
 	hash := tx.Hash()
 	if tp.hasTx(hash) || (rejectDuplicateOrphanTxs && tp.hasOrphanTx(hash)) {
 		return nil, nil, fmt.Errorf("duplicate transaction")
@@ -481,7 +481,7 @@ func (tp *txPool) maybeAcceptTx(tx *blockchain.Tx, isNew bool, rateLimit bool, r
 	}
 	delete(utxoTracker.GetPool(), hash)
 
-	var missingParents []cp.Hash32B
+	var missingParents []common.Hash32B
 	for originHash, outputs := range utxoTracker.GetPool() {
 		if outputs == nil || IsFullySpent(outputs) {
 			missingParents = append(missingParents, originHash)
@@ -508,7 +508,7 @@ func (tp *txPool) maybeAcceptTx(tx *blockchain.Tx, isNew bool, rateLimit bool, r
 }
 
 // MaybeAcceptTx Add Tx into pool if it will be accepted
-func (tp *txPool) MaybeAcceptTx(tx *blockchain.Tx, isNew bool, rateLimit bool) ([]cp.Hash32B, *TxDesc, error) {
+func (tp *txPool) MaybeAcceptTx(tx *blockchain.Tx, isNew bool, rateLimit bool) ([]common.Hash32B, *TxDesc, error) {
 	tp.mutex.Lock()
 	hashes, desc, error := tp.maybeAcceptTx(tx, isNew, rateLimit, true)
 	tp.mutex.Unlock()
