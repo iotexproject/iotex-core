@@ -115,7 +115,7 @@ func TestCreateBlockchain(t *testing.T) {
 	assert.Nil(err)
 
 	stream := genesis.ByteStream()
-	assert.Equal(uint32(len(stream)), genesis.TranxsSize()+96)
+	assert.Equal(uint32(len(stream)), genesis.TranxsSize()+128)
 	fmt.Printf("Block size match pass\n")
 	fmt.Printf("Marshaling Block pass\n")
 
@@ -129,8 +129,8 @@ func TestCreateBlockchain(t *testing.T) {
 	assert.Equal(hash, deserialize.HashBlock())
 	fmt.Printf("Serialize/Deserialize Block hash = %x match\n", hash)
 
-	hash = genesis.MerkleRoot()
-	assert.Equal(hash, deserialize.MerkleRoot())
+	hash = genesis.TxRoot()
+	assert.Equal(hash, deserialize.TxRoot())
 	fmt.Printf("Serialize/Deserialize Block merkle = %x match\n", hash)
 
 	// add 4 sample blocks

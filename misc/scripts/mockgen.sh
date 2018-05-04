@@ -40,3 +40,9 @@ mockgen -destination=./test/mock/mock_blocksync/mock_blocksync.go  \
         -source=./blocksync/blocksync.go \
         -package=mock_blocksync \
         BlockSync
+
+mkdir -p ./test/mock/mock_trie
+mockgen -destination=./test/mock/mock_trie/mock_trie.go  \
+        -source=./statefactory/statefactory.go \
+        -package=mock_trie \
+        Trie

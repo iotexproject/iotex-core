@@ -32,7 +32,8 @@ type BlockHeader struct {
 	height        uint64     // block height
 	timestamp     uint64     // timestamp
 	prevBlockHash cp.Hash32B // hash of previous block
-	merkleRoot    cp.Hash32B // merkle root of all trn
+	txRoot        cp.Hash32B // merkle root of all transactions
+	stateRoot     cp.Hash32B // merkle root of all states
 	trnxNumber    uint32     // number of transaction in this block
 	trnxDataSize  uint32     // size (in bytes) of transaction data in this block
 	blockSig      []byte     // block signature
@@ -48,11 +49,13 @@ type Block struct {
 // NewBlock returns a new block
 func NewBlock(chainID uint32, height uint64, prevBlockHash cp.Hash32B, transactions []*Tx) *Block {
 	block := &Block{
-		Header: &BlockHeader{Version, chainID, height, uint64(time.Now().Unix()), prevBlockHash, cp.ZeroHash32B, uint32(len(transactions)), 0, []byte{}},
+		Header: &BlockHeader{Version, chainID, height, uint64(time.Now().Unix()),
+			prevBlockHash, cp.ZeroHash32B, cp.ZeroHash32B,
+			uint32(len(transactions)), 0, []byte{}},
 		Tranxs: transactions,
 	}
 
-	block.Header.merkleRoot = block.MerkleRoot()
+	block.Header.txRoot = block.TxRoot()
 	for _, tx := range transactions {
 		// add up trnx size
 		block.Header.trnxDataSize += tx.TotalSize()
@@ -88,7 +91,8 @@ func (b *Block) ByteStreamHeader() []byte {
 	cm.MachineEndian.PutUint64(tmp8B, b.Header.timestamp)
 	stream = append(stream, tmp8B...)
 	stream = append(stream, b.Header.prevBlockHash[:]...)
-	stream = append(stream, b.Header.merkleRoot[:]...)
+	stream = append(stream, b.Header.txRoot[:]...)
+	stream = append(stream, b.Header.stateRoot[:]...)
 	cm.MachineEndian.PutUint32(tmp4B, b.Header.trnxNumber)
 	stream = append(stream, tmp4B...)
 	cm.MachineEndian.PutUint32(tmp4B, b.Header.trnxDataSize)
@@ -120,7 +124,8 @@ func (b *Block) ConvertToBlockHeaderPb() *iproto.BlockHeaderPb {
 	pbHeader.Height = b.Header.height
 	pbHeader.Timestamp = b.Header.timestamp
 	pbHeader.PrevBlockHash = b.Header.prevBlockHash[:]
-	pbHeader.MerkleRoot = b.Header.merkleRoot[:]
+	pbHeader.TxRoot = b.Header.txRoot[:]
+	pbHeader.StateRoot = b.Header.stateRoot[:]
 	pbHeader.TrnxNumber = b.Header.trnxNumber
 	pbHeader.TrnxDataSize = b.Header.trnxDataSize
 	pbHeader.Signature = b.Header.blockSig[:]
@@ -159,7 +164,8 @@ func (b *Block) ConvertFromBlockHeaderPb(pbBlock *iproto.BlockPb) {
 	b.Header.height = pbBlock.GetHeader().GetHeight()
 	b.Header.timestamp = pbBlock.GetHeader().GetTimestamp()
 	copy(b.Header.prevBlockHash[:], pbBlock.GetHeader().GetPrevBlockHash())
-	copy(b.Header.merkleRoot[:], pbBlock.GetHeader().GetMerkleRoot())
+	copy(b.Header.txRoot[:], pbBlock.GetHeader().GetTxRoot())
+	copy(b.Header.stateRoot[:], pbBlock.GetHeader().GetStateRoot())
 	b.Header.trnxNumber = pbBlock.GetHeader().GetTrnxNumber()
 	b.Header.trnxDataSize = pbBlock.GetHeader().GetTrnxDataSize()
 	b.Header.blockSig = pbBlock.GetHeader().GetSignature()
@@ -207,15 +213,15 @@ func (b *Block) Deserialize(buf []byte) error {
 	b.ConvertFromBlockPb(&pbBlock)
 
 	// verify merkle root can match after deserialize
-	merkle := b.MerkleRoot()
-	if bytes.Compare(b.Header.merkleRoot[:], merkle[:]) != 0 {
+	txroot := b.TxRoot()
+	if bytes.Compare(b.Header.txRoot[:], txroot[:]) != 0 {
 		return errors.New("Failed to match merkle root after deserialize")
 	}
 	return nil
 }
 
-// MerkleRoot returns the Merkle root of this block.
-func (b *Block) MerkleRoot() cp.Hash32B {
+// TxRoot returns the Merkle root of all transactions in this block.
+func (b *Block) TxRoot() cp.Hash32B {
 	// create hash list of all trnx
 	var txHash []cp.Hash32B
 	for _, tx := range b.Tranxs {

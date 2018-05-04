@@ -59,11 +59,13 @@ func NewGenesisBlock(gen *Genesis) *Block {
 		return nil
 	}
 	block := &Block{
-		Header: &BlockHeader{Version, gen.GenConfig.ChainID, uint64(0), gen.Timestamp, gen.ParentHash, cp.ZeroHash32B, uint32(1), 0, []byte{}},
+		Header: &BlockHeader{Version, gen.GenConfig.ChainID, uint64(0), gen.Timestamp,
+			gen.ParentHash, cp.ZeroHash32B, cp.ZeroHash32B, uint32(1),
+			0, []byte{}},
 		Tranxs: []*Tx{cbtx},
 	}
 
-	block.Header.merkleRoot = block.MerkleRoot()
+	block.Header.txRoot = block.TxRoot()
 
 	for _, tx := range block.Tranxs {
 		// add up trnx size

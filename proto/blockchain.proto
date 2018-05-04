@@ -56,10 +56,11 @@ message BlockHeaderPb {
     uint64 height = 3;
     uint64 timestamp = 4;
     bytes prevBlockHash = 5;
-    bytes merkleRoot = 6;
-    uint32 trnxNumber = 7;
-    uint32 trnxDataSize = 8;
-    bytes signature = 9;
+    bytes txRoot = 6;
+    bytes stateRoot = 7;
+    uint32 trnxNumber = 8;
+    uint32 trnxDataSize = 9;
+    bytes signature = 10;
 }
 
 // block consists of header followed by transactions
