@@ -20,8 +20,8 @@ var (
 	cryptoSeed = []byte{0x12, 0x34, 0x56, 0x78, 0x90, 0xab, 0xcd, 0xef}
 )
 
-// CryptoSort sorts a given slices of hashes cryptographically using blake2b hash function
-func CryptoSort(hashes [][]byte, nonce uint64) error {
+// Sort sorts a given slices of hashes cryptographically using blake2b hash function
+func Sort(hashes [][]byte, nonce uint64) error {
 	nb := make([]byte, 8)
 	common.MachineEndian.PutUint64(nb, nonce)
 

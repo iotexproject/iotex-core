@@ -80,7 +80,7 @@ func (s *Server) Start() error {
 func (s *Server) Stop() {
 	s.o.Stop()
 	s.dp.Stop()
-	s.bc.Close()
+	s.bc.Stop()
 	os.Remove(s.cfg.Chain.ChainDBPath)
 }
 

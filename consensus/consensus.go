@@ -41,7 +41,11 @@ func NewConsensus(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxPool
 
 	cs := &consensus{cfg: &cfg.Consensus}
 	mintBlockCB := func() (*blockchain.Block, error) {
-		blk := bc.MintNewBlock(tp.Txs(), cfg.Chain.MinerAddr, "")
+		blk, err := bc.MintNewBlock(tp.Txs(), cfg.Chain.MinerAddr, "")
+		if err != nil {
+			glog.Error("Failed to mint a block")
+			return nil, err
+		}
 		glog.Infof("created a new block at height %v with %v txs", blk.Height(), len(blk.Tranxs))
 		return blk, nil
 	}

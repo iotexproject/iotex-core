@@ -501,7 +501,10 @@ func (tp *txPool) maybeAcceptTx(tx *blockchain.Tx, isNew bool, rateLimit bool, r
 		return nil, nil, fmt.Errorf("fee is lower than min requirement fee")
 	}
 
-	height := tp.bc.TipHeight()
+	height, err := tp.bc.TipHeight()
+	if err != nil {
+		return nil, nil, err
+	}
 	txDesc := tp.addTx(utxoTracker, tx, height, fee)
 
 	return nil, txDesc, nil

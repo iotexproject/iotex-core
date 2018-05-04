@@ -8,21 +8,19 @@ package blockchain
 
 import (
 	"math"
-	"math/big"
-	"os"
 	"sort"
 
 	"github.com/golang/glog"
-	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core/blockdb"
 	"github.com/iotexproject/iotex-core/common"
+	"github.com/iotexproject/iotex-core/common/service"
 	"github.com/iotexproject/iotex-core/config"
 	cp "github.com/iotexproject/iotex-core/crypto"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/iotxaddress"
-	iproto "github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/txvm"
+	"math/big"
 )
 
 const (
@@ -35,11 +33,9 @@ var (
 	ErrInvalidBlock = errors.New("failed to validate the block")
 )
 
+// Blockchain represents the blockchain data structure and hosts the APIs to access it
 type Blockchain interface {
-	// Init initializes the blockchain
-	Init() error
-	// Close closes the Db connection
-	Close() error
+	service.Service
 	// GetHeightByHash returns block's height by hash
 	GetHeightByHash(hash common.Hash32B) (uint64, error)
 	// GetHashByHeight returns block's hash by height
@@ -49,9 +45,9 @@ type Blockchain interface {
 	// GetBlockByHash returns block from the blockchain hash by hash
 	GetBlockByHash(hash common.Hash32B) (*Block, error)
 	// TipHash returns tip block's hash
-	TipHash() common.Hash32B
+	TipHash() (common.Hash32B, error)
 	// TipHeight returns tip block's height
-	TipHeight() uint64
+	TipHeight() (uint64, error)
 	// Reset reset for next block
 	Reset()
 	// ValidateBlock validates a new block before adding it to the blockchain
@@ -59,7 +55,7 @@ type Blockchain interface {
 	// MintNewBlock creates a new block with given transactions.
 	// Note: the coinbase transaction will be added to the given transactions
 	// when minting a new block.
-	MintNewBlock([]*Tx, iotxaddress.Address, string) *Block
+	MintNewBlock([]*Tx, iotxaddress.Address, string) (*Block, error)
 	// AddBlockCommit adds a new block into blockchain
 	AddBlockCommit(blk *Block) error
 	// AddBlockSync adds a past block into blockchain
@@ -77,50 +73,47 @@ type Blockchain interface {
 
 // blockchain implements the Blockchain interface
 type blockchain struct {
-	blockDb *blockdb.BlockDB
+	service.CompositeService
+	dao     *blockDAO
 	config  *config.Config
 	genesis *Genesis
 	chainID uint32
-	height  uint64
-	tip     common.Hash32B
 	Utk     *UtxoTracker // tracks the current UTXO pool
 }
 
 // NewBlockchain creates a new blockchain instance
-func NewBlockchain(db *blockdb.BlockDB, cfg *config.Config, gen *Genesis) *blockchain {
+func NewBlockchain(dao *blockDAO, cfg *config.Config, gen *Genesis) Blockchain {
 	chain := &blockchain{
-		blockDb: db,
+		dao:     dao,
 		config:  cfg,
 		genesis: gen,
 		Utk:     NewUtxoTracker()}
+	chain.AddService(dao)
 	return chain
 }
 
-// Init initializes the blockchain
-func (bc *blockchain) Init() error {
-	tip, height, err := bc.blockDb.Init()
-	if err != nil {
+// Start starts the blockchain
+func (bc *blockchain) Start() error {
+	if err := bc.CompositeService.Start(); err != nil {
 		return err
 	}
 
-	copy(bc.tip[:], tip)
-	bc.height = height
-
 	// build UTXO pool
 	// Genesis block has height 0
-	for i := uint64(0); i <= bc.height; i++ {
+	height, err := bc.TipHeight()
+	if err != nil {
+		return err
+	}
+	for i := uint64(0); i <= height; i++ {
 		blk, err := bc.GetBlockByHeight(i)
 		if err != nil {
 			return err
 		}
-		bc.Utk.UpdateUtxoPool(blk)
+		if blk != nil {
+			bc.Utk.UpdateUtxoPool(blk)
+		}
 	}
 	return nil
-}
-
-// Close closes the Db connection
-func (bc *blockchain) Close() error {
-	return bc.blockDb.Close()
 }
 
 // commitBlock commits Block to Db
@@ -132,22 +125,11 @@ func (bc *blockchain) commitBlock(blk *Block) (err error) {
 			return
 		}
 
-		// update tip hash/height
-		bc.tip = blk.HashBlock()
-		bc.height = blk.Header.height
-
 		// update UTXO pool
 		bc.Utk.UpdateUtxoPool(blk)
 	}()
 
-	// serialize the block
-	serialized, err := blk.Serialize()
-	if err != nil {
-		panic(err)
-	}
-
-	hash := blk.HashBlock()
-	if err = bc.blockDb.CheckInBlock(serialized, hash[:], blk.Header.height); err != nil {
+	if err = bc.dao.putBlock(blk); err != nil {
 		panic(err)
 	}
 	return
@@ -155,15 +137,12 @@ func (bc *blockchain) commitBlock(blk *Block) (err error) {
 
 // GetHeightByHash returns block's height by hash
 func (bc *blockchain) GetHeightByHash(hash common.Hash32B) (uint64, error) {
-	return bc.blockDb.GetBlockHeight(hash[:])
+	return bc.dao.getBlockHeight(hash)
 }
 
 // GetHashByHeight returns block's hash by height
 func (bc *blockchain) GetHashByHeight(height uint64) (common.Hash32B, error) {
-	hash := common.ZeroHash32B
-	dbHash, err := bc.blockDb.GetBlockHash(height)
-	copy(hash[:], dbHash)
-	return hash, err
+	return bc.dao.getBlockHash(height)
 }
 
 // GetBlockByHeight returns block from the blockchain hash by height
@@ -177,27 +156,21 @@ func (bc *blockchain) GetBlockByHeight(height uint64) (*Block, error) {
 
 // GetBlockByHash returns block from the blockchain hash by hash
 func (bc *blockchain) GetBlockByHash(hash common.Hash32B) (*Block, error) {
-	serialized, err := bc.blockDb.CheckOutBlock(hash[:])
-	if err != nil {
-		return nil, err
-	}
-
-	// deserialize the block
-	blk := Block{}
-	if err := blk.Deserialize(serialized); err != nil {
-		return nil, err
-	}
-	return &blk, nil
+	return bc.dao.getBlock(hash)
 }
 
 // TipHash returns tip block's hash
-func (bc *blockchain) TipHash() common.Hash32B {
-	return bc.tip
+func (bc *blockchain) TipHash() (common.Hash32B, error) {
+	height, err := bc.TipHeight()
+	if err != nil {
+		return common.ZeroHash32B, err
+	}
+	return bc.dao.getBlockHash(height)
 }
 
 // TipHeight returns tip block's height
-func (bc *blockchain) TipHeight() uint64 {
-	return bc.height
+func (bc *blockchain) TipHeight() (uint64, error) {
+	return bc.dao.getBlockchainHeight()
 }
 
 // Reset reset for next block
@@ -210,14 +183,31 @@ func (bc *blockchain) ValidateBlock(blk *Block) error {
 	if blk == nil {
 		return errors.Wrap(ErrInvalidBlock, "Block is nil")
 	}
-	// verify new block has correctly linked to current tip
-	if blk.Header.prevBlockHash != bc.tip {
-		return errors.Wrapf(ErrInvalidBlock, "Wrong prev hash %x, expecting %x", blk.Header.prevBlockHash, bc.tip)
-	}
 
 	// verify new block has height incremented by 1
-	if blk.Header.height != 0 && blk.Header.height != bc.height+1 {
-		return errors.Wrapf(ErrInvalidBlock, "Wrong block height %d, expecting %d", blk.Header.height, bc.height+1)
+	height, err := bc.TipHeight()
+	if err != nil {
+		return err
+	}
+	if blk.Header.height != 0 && blk.Header.height != height+1 {
+		return errors.Wrapf(
+			ErrInvalidBlock,
+			"Wrong block height %d, expecting %d",
+			blk.Header.height,
+			height+1)
+	}
+
+	// verify new block has correctly linked to current tip
+	hash, err := bc.TipHash()
+	if err != nil {
+		return err
+	}
+	if blk.Header.prevBlockHash != hash {
+		return errors.Wrapf(
+			ErrInvalidBlock,
+			"Wrong prev hash %x, expecting %x",
+			blk.Header.prevBlockHash,
+			hash)
 	}
 
 	// validate all Tx conforms to blockchain protocol
@@ -229,23 +219,33 @@ func (bc *blockchain) ValidateBlock(blk *Block) error {
 // MintNewBlock creates a new block with given transactions.
 // Note: the coinbase transaction will be added to the given transactions
 // when minting a new block.
-func (bc *blockchain) MintNewBlock(txs []*Tx, producer iotxaddress.Address, data string) *Block {
+func (bc *blockchain) MintNewBlock(txs []*Tx, producer iotxaddress.Address, data string) (*Block, error) {
 	cbTx := NewCoinbaseTx(producer.RawAddress, bc.genesis.BlockReward, data)
 	if cbTx == nil {
-		glog.Error("Cannot create coinbase transaction")
-		return nil
+		errMsg := "Cannot create coinbase transaction"
+		glog.Error(errMsg)
+		return nil, errors.Errorf(errMsg)
 	}
 
 	txs = append(txs, cbTx)
-	blk := NewBlock(bc.chainID, bc.height+1, bc.tip, txs)
+
+	height, err := bc.TipHeight()
+	if err != nil {
+		return nil, err
+	}
+	hash, err := bc.TipHash()
+	if err != nil {
+		return nil, err
+	}
+	blk := NewBlock(bc.chainID, height+1, hash, txs)
 	if producer.PrivateKey == nil {
 		glog.Warning("Unsigned block...")
-		return blk
+		return blk, nil
 	}
 
 	blkHash := blk.HashBlock()
 	blk.Header.blockSig = cp.Sign(producer.PrivateKey, blkHash[:])
-	return blk
+	return blk, nil
 }
 
 // AddBlockCommit adds a new block into blockchain
@@ -265,91 +265,46 @@ func (bc *blockchain) AddBlockSync(blk *Block) error {
 	return bc.commitBlock(blk)
 }
 
-// StoreBlock persists the blocks in the range to file on disk
-func (bc *blockchain) StoreBlock(start, end uint64) error {
-	return bc.blockDb.StoreBlockToFile(start, end)
-}
-
-// ReadBlock read the block from file on disk
-func (bc *blockchain) ReadBlock(height uint64) *Block {
-	file, err := os.Open(blockdb.BlockData)
-	defer file.Close()
-	if err != nil {
-		glog.Error(err)
-		return nil
-	}
-
-	// read block index
-	indexSize := make([]byte, 4)
-	file.Read(indexSize)
-	size := common.MachineEndian.Uint32(indexSize)
-	indexBytes := make([]byte, size)
-	if n, err := file.Read(indexBytes); err != nil || n != int(size) {
-		glog.Error(err)
-		return nil
-	}
-	blkIndex := iproto.BlockIndex{}
-	if proto.Unmarshal(indexBytes, &blkIndex) != nil {
-		glog.Error(err)
-		return nil
-	}
-
-	// read the specific block
-	index := height - blkIndex.Start
-	file.Seek(int64(4+size+blkIndex.Offset[index]), 0)
-	size = blkIndex.Offset[index+1] - blkIndex.Offset[index]
-	blkBytes := make([]byte, size)
-	if n, err := file.Read(blkBytes); err != nil || n != int(size) {
-		glog.Error(err)
-		return nil
-	}
-	blk := Block{}
-	if blk.Deserialize(blkBytes) != nil {
-		glog.Error(err)
-		return nil
-	}
-	return &blk
-}
-
 // CreateBlockchain creates a new blockchain and DB instance
-func CreateBlockchain(address string, cfg *config.Config, gen *Genesis) *blockchain {
-	db, dbFileExist := blockdb.NewBlockDB(cfg)
-	if db == nil {
-		glog.Error("cannot find db")
+func CreateBlockchain(address string, cfg *config.Config, gen *Genesis) Blockchain {
+	dao := newBlockDAO(db.NewBoltDB(cfg.Chain.ChainDBPath, nil))
+
+	chain := NewBlockchain(dao, cfg, gen)
+	if err := chain.Init(); err != nil {
+		glog.Errorf("Failed to initialize blockchain, error = %v", err)
+		return nil
+	}
+	if err := chain.Start(); err != nil {
+		glog.Errorf("Failed to start blockchain, error = %v", err)
 		return nil
 	}
 
-	chain := NewBlockchain(db, cfg, gen)
-	if dbFileExist {
-		glog.Info("Blockchain already exists.")
-
-		if err := chain.Init(); err != nil {
-			glog.Errorf("Failed to create Blockchain, error = %v", err)
+	height, err := chain.TipHeight()
+	if err != nil {
+		glog.Errorf("Failed to get blockchain height, error = %v", err)
+	}
+	if height == 0 {
+		if gen == nil {
+			glog.Error("Genesis should not be nil.")
 			return nil
 		}
-		return chain
-	}
+		genesis := NewGenesisBlock(gen)
+		if genesis == nil {
+			glog.Error("Cannot create genesis block.")
+			return nil
+		}
 
-	if gen == nil {
-		glog.Error("Genesis should not be nil.")
-		return nil
-	}
-	genesis := NewGenesisBlock(gen)
-	if genesis == nil {
-		glog.Error("Cannot create genesis block.")
-		return nil
-	}
+		// Genesis block has height 0
+		if genesis.Header.height != 0 {
+			glog.Errorf("Genesis block has height = %d, expecting 0", genesis.Height())
+			return nil
+		}
 
-	// Genesis block has height 0
-	if genesis.Header.height != 0 {
-		glog.Errorf("Genesis block has height = %d, expecting 0", genesis.Height())
-		return nil
-	}
-
-	// add Genesis block as very first block
-	if err := chain.AddBlockCommit(genesis); err != nil {
-		glog.Error(err)
-		return nil
+		// add Genesis block as very first block
+		if err := chain.AddBlockCommit(genesis); err != nil {
+			glog.Error(err)
+			return nil
+		}
 	}
 	return chain
 }

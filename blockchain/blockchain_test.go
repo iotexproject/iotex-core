@@ -38,7 +38,10 @@ func addTestingBlocks(bc Blockchain) error {
 	if tx == nil {
 		return errors.New("empty tx for block 1")
 	}
-	blk := bc.MintNewBlock([]*Tx{tx}, ta.Addrinfo["miner"], "")
+	blk, err := bc.MintNewBlock([]*Tx{tx}, ta.Addrinfo["miner"], "")
+	if err != nil {
+		return err
+	}
 	if err := bc.AddBlockCommit(blk); err != nil {
 		return err
 	}
@@ -53,7 +56,10 @@ func addTestingBlocks(bc Blockchain) error {
 	payee = append(payee, &Payee{ta.Addrinfo["delta"].RawAddress, 1})
 	payee = append(payee, &Payee{ta.Addrinfo["miner"].RawAddress, 1})
 	tx = bc.CreateTransaction(ta.Addrinfo["charlie"], 5, payee)
-	blk = bc.MintNewBlock([]*Tx{tx}, ta.Addrinfo["miner"], "")
+	blk, err = bc.MintNewBlock([]*Tx{tx}, ta.Addrinfo["miner"], "")
+	if err != nil {
+		return err
+	}
 	if err := bc.AddBlockCommit(blk); err != nil {
 		return err
 	}
@@ -65,7 +71,10 @@ func addTestingBlocks(bc Blockchain) error {
 	payee[1] = &Payee{ta.Addrinfo["echo"].RawAddress, 1}
 	payee[2] = &Payee{ta.Addrinfo["foxtrot"].RawAddress, 1}
 	tx = bc.CreateTransaction(ta.Addrinfo["delta"], 4, payee)
-	blk = bc.MintNewBlock([]*Tx{tx}, ta.Addrinfo["miner"], "")
+	blk, err = bc.MintNewBlock([]*Tx{tx}, ta.Addrinfo["miner"], "")
+	if err != nil {
+		return err
+	}
 	if err := bc.AddBlockCommit(blk); err != nil {
 		return err
 	}
@@ -81,7 +90,10 @@ func addTestingBlocks(bc Blockchain) error {
 	payee = append(payee, &Payee{ta.Addrinfo["foxtrot"].RawAddress, 2})
 	payee = append(payee, &Payee{ta.Addrinfo["miner"].RawAddress, 2})
 	tx = bc.CreateTransaction(ta.Addrinfo["echo"], 12, payee)
-	blk = bc.MintNewBlock([]*Tx{tx}, ta.Addrinfo["miner"], "")
+	blk, err = bc.MintNewBlock([]*Tx{tx}, ta.Addrinfo["miner"], "")
+	if err != nil {
+		return err
+	}
 	if err := bc.AddBlockCommit(blk); err != nil {
 		return err
 	}
@@ -103,9 +115,11 @@ func TestCreateBlockchain(t *testing.T) {
 	// create chain
 	bc := CreateBlockchain(ta.Addrinfo["miner"].RawAddress, config, Gen)
 	assert.NotNil(bc)
-	assert.Equal(0, int(bc.height))
-	fmt.Printf("Create blockchain pass, height = %d\n", bc.height)
-	defer bc.Close()
+	height, err := bc.TipHeight()
+	assert.Nil(err)
+	assert.Equal(0, int(height))
+	fmt.Printf("Create blockchain pass, height = %d\n", height)
+	defer bc.Stop()
 
 	// verify Genesis block
 	genesis, _ := bc.GetBlockByHeight(0)
@@ -135,7 +149,9 @@ func TestCreateBlockchain(t *testing.T) {
 
 	// add 4 sample blocks
 	assert.Nil(addTestingBlocks(bc))
-	assert.Equal(4, int(bc.height))
+	height, err = bc.TipHeight()
+	assert.Nil(err)
+	assert.Equal(4, int(height))
 }
 
 func TestLoadBlockchainfromDB(t *testing.T) {
@@ -150,19 +166,21 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	// Create a blockchain from scratch
 	bc := CreateBlockchain(ta.Addrinfo["miner"].RawAddress, config, Gen)
 	assert.NotNil(bc)
-	fmt.Printf("Open blockchain pass, height = %d\n", bc.height)
+	height, err := bc.TipHeight()
+	assert.Nil(err)
+	fmt.Printf("Open blockchain pass, height = %d\n", height)
 	assert.Nil(addTestingBlocks(bc))
-	bc.Close()
+	bc.Stop()
 
 	// Load a blockchain from DB
 	bc = CreateBlockchain(ta.Addrinfo["miner"].RawAddress, config, Gen)
-	defer bc.Close()
+	defer bc.Stop()
 	assert.NotNil(bc)
 
 	// check hash<-->height mapping
 	hash, err := bc.GetHashByHeight(0)
 	assert.Nil(err)
-	height, err := bc.GetHeightByHash(hash)
+	height, err = bc.GetHeightByHash(hash)
 	assert.Nil(err)
 	assert.Equal(uint64(0), height)
 	blk, err := bc.GetBlockByHash(hash)
@@ -217,8 +235,10 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	assert.Nil(blk)
 
 	// add wrong blocks
-	h := bc.TipHeight()
-	hash = bc.TipHash()
+	h, err := bc.TipHeight()
+	assert.Nil(err)
+	hash, err = bc.TipHash()
+	assert.Nil(err)
 	blk, err = bc.GetBlockByHeight(h)
 	assert.Nil(err)
 	assert.Equal(hash, blk.HashBlock())
@@ -243,25 +263,9 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	// cannot add existing block again
 	blk, err = bc.GetBlockByHeight(3)
 	assert.NotNil(blk)
-	err = bc.commitBlock(blk)
+	err = bc.(*blockchain).commitBlock(blk)
 	assert.NotNil(err)
 	fmt.Printf("Cannot add block 3 again: %v\n", err)
-
-	// read/write blocks from/to storage
-	err = bc.StoreBlock(1, 4)
-	assert.Nil(err)
-	blk = bc.ReadBlock(1)
-	assert.Equal(hash1, blk.HashBlock())
-	fmt.Printf("Read block 1 hash match\n")
-	blk = bc.ReadBlock(2)
-	assert.Equal(hash2, blk.HashBlock())
-	fmt.Printf("Read block 2 hash match\n")
-	blk = bc.ReadBlock(3)
-	assert.Equal(hash3, blk.HashBlock())
-	fmt.Printf("Read block 3 hash match\n")
-	blk = bc.ReadBlock(4)
-	assert.Equal(hash4, blk.HashBlock())
-	fmt.Printf("Read block 4 hash match\n")
 }
 
 func TestEmptyBlockOnlyHasCoinbaseTx(t *testing.T) {
@@ -273,10 +277,11 @@ func TestEmptyBlockOnlyHasCoinbaseTx(t *testing.T) {
 	Gen.BlockReward = uint64(7777)
 
 	bc := CreateBlockchain(ta.Addrinfo["miner"].RawAddress, config, Gen)
-	defer bc.Close()
+	defer bc.Stop()
 	assert.NotNil(t, bc)
 
-	blk := bc.MintNewBlock([]*Tx{}, ta.Addrinfo["miner"], "")
+	blk, err := bc.MintNewBlock([]*Tx{}, ta.Addrinfo["miner"], "")
+	assert.Nil(t, err)
 	assert.Equal(t, uint64(1), blk.Height())
 	assert.Equal(t, 1, len(blk.Tranxs))
 	assert.True(t, blk.Tranxs[0].IsCoinbase())

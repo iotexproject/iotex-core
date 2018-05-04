@@ -25,7 +25,7 @@ func (cli *CLI) send(from, to string, amount uint64, config *config.Config) {
 	}
 
 	bc := blockchain.CreateBlockchain(from, config, blockchain.Gen)
-	defer bc.Close()
+	defer bc.Stop()
 
 	//tx := blockchain.NewUTXOTransaction(from, to, amount, bc)
 	//bc.MineBlock([]*blockchain.Tx{tx})

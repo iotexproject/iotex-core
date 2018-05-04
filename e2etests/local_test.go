@@ -104,7 +104,8 @@ func TestLocalCommit(t *testing.T) {
 		return
 	}
 
-	height := bc.TipHeight()
+	height, err := bc.TipHeight()
+	assert.Nil(err)
 
 	// transaction 1
 	// C --> A
@@ -115,7 +116,8 @@ func TestLocalCommit(t *testing.T) {
 	p1.Broadcast(tx.ConvertToTxPb())
 	time.Sleep(time.Second)
 
-	blk1 := bc.MintNewBlock(tp.Txs(), ta.Addrinfo["miner"], "")
+	blk1, err := bc.MintNewBlock(tp.Txs(), ta.Addrinfo["miner"], "")
+	assert.Nil(err)
 	hash1 := blk1.HashBlock()
 
 	// transaction 2
@@ -154,7 +156,9 @@ func TestLocalCommit(t *testing.T) {
 	p2.Broadcast(blk3.ConvertToBlockPb())
 	time.Sleep(time.Second)
 
-	t.Log("----- Block height = ", bc.TipHeight())
+	height, err = bc.TipHeight()
+	assert.Nil(err)
+	t.Log("----- Block height = ", height)
 
 	// check UTXO
 	change = bc.BalanceOf(ta.Addrinfo["alfa"].RawAddress)
