@@ -21,7 +21,7 @@ func (cli *CLI) getBalance(address string, config *config.Config) {
 		glog.Fatal("ERROR: Address is not valid")
 	}
 	bc := blockchain.CreateBlockchain(address, config, blockchain.Gen)
-	defer bc.Close()
+	defer bc.Stop()
 
 	balance := bc.BalanceOf(address)
 	fmt.Printf("Balance of '%s': %d\n", address, balance)

@@ -27,7 +27,12 @@ func (s *proposerRotation) Do() {
 		return
 	}
 
-	glog.Warningf("[%s] propose a new block height %v", s.self, s.bc.TipHeight()+1)
+	height, err := s.bc.TipHeight()
+	if err == nil {
+		glog.Warningf("[%s] propose a new block height %v", s.self, height+1)
+	} else {
+		glog.Errorf("Failed to get blockchain height")
+	}
 	s.fsm.HandleTransition(&fsm.Event{
 		State: stateInitPropose,
 	})

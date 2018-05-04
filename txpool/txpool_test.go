@@ -49,7 +49,7 @@ func TestTxPool(t *testing.T) {
 	if assert.NotNil(bc) {
 		t.Log("blockchain created")
 	}
-	defer bc.Close()
+	defer bc.Stop()
 
 	tp := New(bc)
 	cbTx := NewCoinbaseTx(ta.Addrinfo["miner"].RawAddress, 50, GenesisCoinbaseData)

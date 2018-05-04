@@ -35,7 +35,7 @@ type Genesis struct {
 	GenesisCoinbaseData string
 }
 
-// Hardcode Genesis default settings
+// Gen hardcodes genesis default settings
 var Gen = &Genesis{
 	Alloc: []Quota{
 		Quota{"Whatever Address 1", uint64(1000000)},

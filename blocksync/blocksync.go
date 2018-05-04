@@ -216,8 +216,17 @@ func (bs *blockSyncer) ProcessSyncRequest(sender string, sync *pb.BlockSync) err
 
 // processFirstBlock processes an incoming latest committed block
 func (bs *blockSyncer) processFirstBlock() error {
-	if bs.syncHeight = bs.bc.TipHeight(); bs.currRcvdHeight > bs.syncHeight+1 {
-		glog.Warningf("++++++ [%s] Send first start = %d end = %d to %s", bs.p2p.PRC.Addr, bs.syncHeight+1, bs.currRcvdHeight, bs.fnd)
+	height, err := bs.bc.TipHeight()
+	if err != nil {
+		return err
+	}
+	if bs.syncHeight = height; bs.currRcvdHeight > bs.syncHeight+1 {
+		glog.Warningf(
+			"++++++ [%s] Send first start = %d end = %d to %s",
+			bs.p2p.PRC.Addr,
+			bs.syncHeight+1,
+			bs.currRcvdHeight,
+			bs.fnd)
 		bs.p2p.Tell(cm.NewTCPNode(bs.fnd), &pb.BlockSync{bs.syncHeight + 1, bs.currRcvdHeight})
 	}
 	if err := bs.sw.SetRange(bs.syncHeight, bs.currRcvdHeight); err != nil {
@@ -236,13 +245,21 @@ func (bs *blockSyncer) ProcessBlock(blk *bc.Block) error {
 	}
 
 	bs.mu.Lock()
-	if bs.currRcvdHeight = blk.Height(); bs.currRcvdHeight <= bs.bc.TipHeight() {
-		err := fmt.Errorf("****** [%s] Received block height %d <= Blockchain tip height %d", bs.p2p.PRC.Addr, bs.currRcvdHeight, bs.bc.TipHeight())
+	height, err := bs.bc.TipHeight()
+	if err != nil {
+		return err
+	}
+	if bs.currRcvdHeight = blk.Height(); bs.currRcvdHeight <= height {
+		err := fmt.Errorf(
+			"****** [%s] Received block height %d <= Blockchain tip height %d",
+			bs.p2p.PRC.Addr,
+			bs.currRcvdHeight,
+			height)
 		bs.mu.Unlock()
 		return err
 	}
 
-	if bs.state == Idle && bs.currRcvdHeight == bs.bc.TipHeight()+1 {
+	if bs.state == Idle && bs.currRcvdHeight == height+1 {
 		// This is the special case where the first incoming block happens to be the next block following current
 		// Blockchain tip, so we call ProcessFirstBlock() and let it proceed to commit right away
 		// Otherwise waiting DO() to add it will cause thread context switch and incur extra latency, which usually
@@ -288,8 +305,16 @@ func (bs *blockSyncer) ProcessBlockSync(blk *bc.Block) error {
 		return nil
 	}
 
-	if blk.Height() <= bs.bc.TipHeight() {
-		glog.Warningf("****** [%s] Received block height %d <= Blockchain tip height %d", bs.p2p.PRC.Addr, blk.Height(), bs.bc.TipHeight())
+	height, err := bs.bc.TipHeight()
+	if err != nil {
+		return err
+	}
+	if blk.Height() <= height {
+		glog.Warningf(
+			"****** [%s] Received block height %d <= Blockchain tip height %d",
+			bs.p2p.PRC.Addr,
+			blk.Height(),
+			height)
 		return nil
 	}
 
@@ -315,7 +340,11 @@ func (bs *blockSyncer) checkBlockIntoBuffer(blk *bc.Block) error {
 
 // commitBlocksInBuffer commits all blocks in the buffer that can be added to Blockchain
 func (bs *blockSyncer) commitBlocksInBuffer() error {
-	next := bs.bc.TipHeight() + 1
+	height, err := bs.bc.TipHeight()
+	if err != nil {
+		return err
+	}
+	next := height + 1
 	for blk := bs.rcvdBlocks[next]; blk != nil; {
 		if err := bs.bc.AddBlockCommit(blk); err != nil {
 			return err
@@ -330,7 +359,11 @@ func (bs *blockSyncer) commitBlocksInBuffer() error {
 
 		// update sliding window
 		bs.sw.Update(next)
-		next = bs.bc.TipHeight() + 1
+		height, err = bs.bc.TipHeight()
+		if err != nil {
+			return err
+		}
+		next = height + 1
 		blk = bs.rcvdBlocks[next]
 	}
 	return nil

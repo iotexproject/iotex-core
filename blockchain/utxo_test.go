@@ -29,9 +29,11 @@ func TestUTXO(t *testing.T) {
 	assert.NotNil(t, bc)
 	fmt.Println("Create blockchain pass")
 
-	defer bc.Close()
+	defer bc.Stop()
 
-	assert.Equal(t, 0, int(bc.height))
+	height, err := bc.TipHeight()
+	assert.Nil(t, err)
+	assert.Equal(t, uint64(0), height)
 	assert.Nil(t, addTestingBlocks(bc))
 
 	// check all UTXO
@@ -60,7 +62,7 @@ func TestUTXO(t *testing.T) {
 
 	beta = bc.BalanceOf(ta.Addrinfo["miner"].RawAddress)
 	fmt.Printf("test balance = %d\n", beta)
-	utxo, _ := bc.Utk.UtxoEntries(ta.Addrinfo["miner"].RawAddress, beta.Uint64())
+	utxo, _ := bc.(*blockchain).Utk.UtxoEntries(ta.Addrinfo["miner"].RawAddress, beta.Uint64())
 	assert.NotNil(t, utxo)
 	total.Add(total, beta)
 

@@ -43,7 +43,11 @@ func createTestRDPoS(ctrl *gomock.Controller, self net.Addr, delegates []net.Add
 
 	tp := txpool.New(bc)
 	createblockCB := func() (*blockchain.Block, error) {
-		blk := bc.MintNewBlock(tp.Txs(), iotxaddress.Address{}, "")
+		blk, err := bc.MintNewBlock(tp.Txs(), iotxaddress.Address{}, "")
+		if err != nil {
+			glog.Errorf("Failed to mint a new block")
+			return nil, err
+		}
 		glog.Infof("created a new block at height %v with %v txs", blk.Height(), len(blk.Tranxs))
 		return blk, nil
 	}
@@ -136,7 +140,7 @@ func testByzantineFault(t *testing.T, proposerNode int) {
 		m := func(mcks mocks) {
 			mcks.dp.EXPECT().AllDelegates().Return(delegates, nil).AnyTimes()
 			mcks.dNet.EXPECT().Self().Return(cur).AnyTimes()
-			mcks.bc.EXPECT().MintNewBlock(gomock.Any(), gomock.Any(), gomock.Any()).Return(genesis).AnyTimes()
+			mcks.bc.EXPECT().MintNewBlock(gomock.Any(), gomock.Any(), gomock.Any()).Return(genesis, nil).AnyTimes()
 			mcks.bc.EXPECT().ValidateBlock(gomock.Any()).Do(func(blk *Block) error {
 				if blk == nil {
 					return errors.New("invalid block")
@@ -257,7 +261,7 @@ func TestRDPoSFourTrustyNodes(t *testing.T) {
 		m := func(mcks mocks) {
 			mcks.dp.EXPECT().AllDelegates().Return(delegates, nil).AnyTimes()
 			mcks.dNet.EXPECT().Self().Return(cur).AnyTimes()
-			mcks.bc.EXPECT().MintNewBlock(gomock.Any(), gomock.Any(), gomock.Any()).Return(genesis).AnyTimes()
+			mcks.bc.EXPECT().MintNewBlock(gomock.Any(), gomock.Any(), gomock.Any()).Return(genesis, nil).AnyTimes()
 			mcks.bc.EXPECT().ValidateBlock(gomock.Any()).AnyTimes()
 
 			// =====================

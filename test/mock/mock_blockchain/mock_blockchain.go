@@ -48,16 +48,28 @@ func (mr *MockBlockchainMockRecorder) Init() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Init", reflect.TypeOf((*MockBlockchain)(nil).Init))
 }
 
-// Close mocks base method
-func (m *MockBlockchain) Close() error {
-	ret := m.ctrl.Call(m, "Close")
+// Start mocks base method
+func (m *MockBlockchain) Start() error {
+	ret := m.ctrl.Call(m, "Start")
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// Close indicates an expected call of Close
-func (mr *MockBlockchainMockRecorder) Close() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockBlockchain)(nil).Close))
+// Start indicates an expected call of Start
+func (mr *MockBlockchainMockRecorder) Start() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockBlockchain)(nil).Start))
+}
+
+// Stop mocks base method
+func (m *MockBlockchain) Stop() error {
+	ret := m.ctrl.Call(m, "Stop")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Stop indicates an expected call of Stop
+func (mr *MockBlockchainMockRecorder) Stop() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockBlockchain)(nil).Stop))
 }
 
 // GetHeightByHash mocks base method
@@ -113,10 +125,11 @@ func (mr *MockBlockchainMockRecorder) GetBlockByHash(hash interface{}) *gomock.C
 }
 
 // TipHash mocks base method
-func (m *MockBlockchain) TipHash() common.Hash32B {
+func (m *MockBlockchain) TipHash() (common.Hash32B, error) {
 	ret := m.ctrl.Call(m, "TipHash")
 	ret0, _ := ret[0].(common.Hash32B)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // TipHash indicates an expected call of TipHash
@@ -125,10 +138,11 @@ func (mr *MockBlockchainMockRecorder) TipHash() *gomock.Call {
 }
 
 // TipHeight mocks base method
-func (m *MockBlockchain) TipHeight() uint64 {
+func (m *MockBlockchain) TipHeight() (uint64, error) {
 	ret := m.ctrl.Call(m, "TipHeight")
 	ret0, _ := ret[0].(uint64)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // TipHeight indicates an expected call of TipHeight
@@ -159,10 +173,11 @@ func (mr *MockBlockchainMockRecorder) ValidateBlock(blk interface{}) *gomock.Cal
 }
 
 // MintNewBlock mocks base method
-func (m *MockBlockchain) MintNewBlock(arg0 []*blockchain.Tx, arg1 iotxaddress.Address, arg2 string) *blockchain.Block {
+func (m *MockBlockchain) MintNewBlock(arg0 []*blockchain.Tx, arg1 iotxaddress.Address, arg2 string) (*blockchain.Block, error) {
 	ret := m.ctrl.Call(m, "MintNewBlock", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*blockchain.Block)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // MintNewBlock indicates an expected call of MintNewBlock
