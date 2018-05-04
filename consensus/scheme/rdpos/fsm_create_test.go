@@ -16,9 +16,8 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	. "github.com/iotexproject/iotex-core/blockchain"
-	cm "github.com/iotexproject/iotex-core/common"
+	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/consensus/fsm"
-	cp "github.com/iotexproject/iotex-core/crypto"
 )
 
 func TestAcceptPrevoteAndProceedToEnd(t *testing.T) {
@@ -28,7 +27,7 @@ func TestAcceptPrevoteAndProceedToEnd(t *testing.T) {
 	defer ctrl.Finish()
 
 	// arrange 2 consensus nodes
-	delegates := []net.Addr{cm.NewTCPNode("192.168.0.1:10001"), cm.NewTCPNode("192.168.0.2:10002")}
+	delegates := []net.Addr{common.NewTCPNode("192.168.0.1:10001"), common.NewTCPNode("192.168.0.2:10002")}
 	m := func(mcks mocks) {
 		mcks.dp.EXPECT().AllDelegates().Return(delegates, nil).AnyTimes()
 		mcks.dNet.EXPECT().Broadcast(gomock.Any()).AnyTimes()
@@ -66,7 +65,7 @@ func TestAcceptPrevoteAndProceedToEnd(t *testing.T) {
 	assert.Equal(t, fsm.State("VOTE"), cs.fsm.CurrentState(), "current state VOTE")
 	assert.Equal(
 		t,
-		map[net.Addr]*cp.Hash32B{
+		map[net.Addr]*common.Hash32B{
 			delegates[0]: &blkHash,
 			delegates[1]: &blkHash,
 		},
@@ -85,7 +84,7 @@ func TestAcceptPrevoteAndProceedToEnd(t *testing.T) {
 	assert.Equal(t, fsm.State("START"), cs.fsm.CurrentState(), "current state START")
 	assert.Equal(
 		t,
-		map[net.Addr]*cp.Hash32B{
+		map[net.Addr]*common.Hash32B{
 			delegates[0]: &blkHash,
 			delegates[1]: &blkHash,
 		},
@@ -102,8 +101,8 @@ func TestAcceptPrevoteAndTimeoutToEnd(t *testing.T) {
 
 	// arrange 2 consensus nodes
 	delegates := []net.Addr{
-		cm.NewTCPNode("192.168.0.1:10001"),
-		cm.NewTCPNode("192.168.0.2:10002"),
+		common.NewTCPNode("192.168.0.1:10001"),
+		common.NewTCPNode("192.168.0.2:10002"),
 	}
 	m := func(mcks mocks) {
 		mcks.dp.EXPECT().AllDelegates().Return(delegates, nil).AnyTimes()

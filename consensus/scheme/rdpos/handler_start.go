@@ -9,8 +9,8 @@ package rdpos
 import (
 	"net"
 
+	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/consensus/fsm"
-	cp "github.com/iotexproject/iotex-core/crypto"
 )
 
 // start is the initial and idle state of all consensus states. It initiates
@@ -22,7 +22,7 @@ type start struct {
 
 func (h *start) Handle(event *fsm.Event) {
 	h.roundCtx = &roundCtx{
-		prevotes: make(map[net.Addr]*cp.Hash32B),
-		votes:    make(map[net.Addr]*cp.Hash32B),
+		prevotes: make(map[net.Addr]*common.Hash32B),
+		votes:    make(map[net.Addr]*common.Hash32B),
 	}
 }

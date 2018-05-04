@@ -7,10 +7,10 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotexproject/iotex-core-internal/crypto"
-	"github.com/iotexproject/iotex-core-internal/db"
-	"github.com/iotexproject/iotex-core-internal/iotxaddress"
-	"github.com/iotexproject/iotex-core-internal/test/mock/mock_trie"
+	"github.com/iotexproject/iotex-core/common"
+	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/test/mock/mock_trie"
 )
 
 func TestEncodeDecode(t *testing.T) {
@@ -31,8 +31,8 @@ func TestRootHash(t *testing.T) {
 
 	trie := mock_trie.NewMockTrie(ctrl)
 	sf := New(db.NewMemKVStore(), trie)
-	trie.EXPECT().RootHash().Times(1).Return(crypto.ZeroHash32B)
-	assert.Equal(t, crypto.ZeroHash32B, sf.RootHash())
+	trie.EXPECT().RootHash().Times(1).Return(common.ZeroHash32B)
+	assert.Equal(t, common.ZeroHash32B, sf.RootHash())
 }
 
 func TestAddState(t *testing.T) {

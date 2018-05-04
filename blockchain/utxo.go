@@ -9,7 +9,7 @@ package blockchain
 import (
 	"fmt"
 
-	cp "github.com/iotexproject/iotex-core/crypto"
+	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/txvm"
@@ -20,19 +20,19 @@ type UtxoEntry struct {
 	*iproto.TxOutputPb // embedded
 
 	// below fields only used internally, not part of serialize/deserialize
-	txHash   cp.Hash32B
+	txHash   common.Hash32B
 	outIndex int32 // outIndex is needed when spending UTXO
 }
 
 // UtxoTracker tracks the active UTXO pool
 type UtxoTracker struct {
 	currOutIndex int32 // newly created output index
-	utxoPool     map[cp.Hash32B][]*TxOutput
+	utxoPool     map[common.Hash32B][]*TxOutput
 }
 
 // NewUtxoTracker returns a UTXO tracker instance
 func NewUtxoTracker() *UtxoTracker {
-	return &UtxoTracker{0, map[cp.Hash32B][]*TxOutput{}}
+	return &UtxoTracker{0, map[common.Hash32B][]*TxOutput{}}
 }
 
 // UtxoEntries returns list of UTXO entries containing >= requested amount, and
@@ -67,7 +67,7 @@ found:
 }
 
 // CreateTxInputUtxo returns a UTXO transaction input
-func (tk *UtxoTracker) CreateTxInputUtxo(hash cp.Hash32B, index int32, unlockScript []byte) *TxInput {
+func (tk *UtxoTracker) CreateTxInputUtxo(hash common.Hash32B, index int32, unlockScript []byte) *TxInput {
 	return NewTxInput(hash, index, unlockScript, 0)
 }
 
@@ -90,7 +90,7 @@ func (tk *UtxoTracker) CreateTxOutputUtxo(address string, amount uint64) *TxOutp
 // ValidateTxInputUtxo validates the UTXO in transaction input
 // return amount of UTXO if pass, 0 otherwise
 func (tk *UtxoTracker) ValidateTxInputUtxo(txIn *TxInput) uint64 {
-	hash := cp.ZeroHash32B
+	hash := common.ZeroHash32B
 	copy(hash[:], txIn.TxHash)
 	unspent, exist := tk.utxoPool[hash]
 
@@ -175,7 +175,7 @@ func (tk *UtxoTracker) UpdateUtxoPool(blk *Block) error {
 
 		// remove TxInput from pool
 		for _, txIn := range tx.TxIn {
-			hash := cp.ZeroHash32B
+			hash := common.ZeroHash32B
 			copy(hash[:], txIn.TxHash)
 			unspent, _ := tk.utxoPool[hash]
 
@@ -214,7 +214,7 @@ func (tk *UtxoTracker) Deserialize(buf []byte) error {
 }
 
 // GetPool returns the UTXO pool
-func (tk *UtxoTracker) GetPool() map[cp.Hash32B][]*TxOutput {
+func (tk *UtxoTracker) GetPool() map[common.Hash32B][]*TxOutput {
 	return tk.utxoPool
 }
 

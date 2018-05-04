@@ -6,9 +6,9 @@ import (
 	"errors"
 	"math/big"
 
-	cp "github.com/iotexproject/iotex-core-internal/crypto"
-	"github.com/iotexproject/iotex-core-internal/db"
-	"github.com/iotexproject/iotex-core-internal/iotxaddress"
+	"github.com/iotexproject/iotex-core/common"
+	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/iotxaddress"
 )
 
 var (
@@ -25,7 +25,7 @@ type Trie interface {
 
 	// Hash returns the root hash of the trie. It does not write to the
 	// database and can be used even if the trie doesn't have one.
-	RootHash() cp.Hash32B
+	RootHash() common.Hash32B
 }
 
 // State is the canonical representation of an account.
@@ -36,7 +36,7 @@ type State struct {
 
 	IsCandidate  bool
 	VotingWeight *big.Int
-	Voters       map[cp.Hash32B]*big.Int
+	Voters       map[common.Hash32B]*big.Int
 }
 
 // StateFactory manages states.
@@ -69,7 +69,7 @@ func New(db db.KVStore, trie Trie) StateFactory {
 }
 
 // RootHash returns the hash of the root node of the trie
-func (sf *StateFactory) RootHash() cp.Hash32B {
+func (sf *StateFactory) RootHash() common.Hash32B {
 	return sf.trie.RootHash()
 }
 

@@ -9,7 +9,7 @@ package blockchain
 import (
 	"github.com/golang/glog"
 
-	cp "github.com/iotexproject/iotex-core/crypto"
+	"github.com/iotexproject/iotex-core/common"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 )
 
@@ -31,7 +31,7 @@ type Genesis struct {
 	TotalSupply         uint64
 	BlockReward         uint64
 	Timestamp           uint64
-	ParentHash          cp.Hash32B
+	ParentHash          common.Hash32B
 	GenesisCoinbaseData string
 }
 
@@ -47,7 +47,7 @@ var Gen = &Genesis{
 	TotalSupply:         uint64(10000000000),
 	BlockReward:         uint64(5),
 	Timestamp:           uint64(1524676419),
-	ParentHash:          cp.Hash32B{},
+	ParentHash:          common.Hash32B{},
 	GenesisCoinbaseData: "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks",
 }
 
@@ -60,7 +60,7 @@ func NewGenesisBlock(gen *Genesis) *Block {
 	}
 	block := &Block{
 		Header: &BlockHeader{Version, gen.GenConfig.ChainID, uint64(0), gen.Timestamp,
-			gen.ParentHash, cp.ZeroHash32B, cp.ZeroHash32B, uint32(1),
+			gen.ParentHash, common.ZeroHash32B, common.ZeroHash32B, uint32(1),
 			0, []byte{}},
 		Tranxs: []*Tx{cbtx},
 	}

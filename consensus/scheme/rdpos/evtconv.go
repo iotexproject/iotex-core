@@ -11,9 +11,9 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/common"
 	cm "github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/consensus/fsm"
-	cp "github.com/iotexproject/iotex-core/crypto"
 	pb "github.com/iotexproject/iotex-core/proto"
 )
 
@@ -36,7 +36,7 @@ func eventFromProto(m proto.Message) (*fsm.Event, error) {
 	}
 
 	if blkHashPb := vc.GetBlockHash(); blkHashPb != nil {
-		event.BlockHash = &cp.Hash32B{}
+		event.BlockHash = &common.Hash32B{}
 		copy(event.BlockHash[:], blkHashPb)
 	}
 	return event, nil

@@ -15,8 +15,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"golang.org/x/crypto/blake2b"
 
-	cm "github.com/iotexproject/iotex-core/common"
-	cp "github.com/iotexproject/iotex-core/crypto"
+	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/txvm"
 )
@@ -64,7 +63,7 @@ type Tx struct {
 }
 
 // NewTxInput returns a TxInput instance
-func NewTxInput(hash cp.Hash32B, index int32, unlock []byte, seq uint32) *TxInput {
+func NewTxInput(hash common.Hash32B, index int32, unlock []byte, seq uint32) *TxInput {
 	return &TxInput{
 		hash[:],
 		index,
@@ -114,7 +113,7 @@ func NewCoinbaseTx(toaddr string, amount uint64, data string) *Tx {
 		data = fmt.Sprintf("%x", randData)
 	}
 
-	txin := NewTxInput(cp.ZeroHash32B, -1, []byte(data), 0xffffffff)
+	txin := NewTxInput(common.ZeroHash32B, -1, []byte(data), 0xffffffff)
 	txout := CreateTxOutput(toaddr, amount)
 	return NewTx(1, []*TxInput{txin}, []*TxOutput{txout}, 0)
 }
@@ -122,7 +121,7 @@ func NewCoinbaseTx(toaddr string, amount uint64, data string) *Tx {
 // IsCoinbase checks if it is a coinbase transaction by checking if Vin is empty
 func (tx *Tx) IsCoinbase() bool {
 	return len(tx.TxIn) == 1 && len(tx.TxOut) == 1 && tx.TxIn[0].OutIndex == -1 && tx.TxIn[0].Sequence == 0xffffffff &&
-		bytes.Compare(tx.TxIn[0].TxHash[:], cp.ZeroHash32B[:]) == 0
+		bytes.Compare(tx.TxIn[0].TxHash[:], common.ZeroHash32B[:]) == 0
 }
 
 // TotalSize returns the total size of this transaction
@@ -144,10 +143,10 @@ func (tx *Tx) TotalSize() uint32 {
 // ByteStream returns a raw byte stream of trnx data
 func (tx *Tx) ByteStream() []byte {
 	stream := make([]byte, 4)
-	cm.MachineEndian.PutUint32(stream, tx.Version)
+	common.MachineEndian.PutUint32(stream, tx.Version)
 
 	temp := make([]byte, 4)
-	cm.MachineEndian.PutUint32(temp, tx.NumTxIn)
+	common.MachineEndian.PutUint32(temp, tx.NumTxIn)
 	stream = append(stream, temp...)
 
 	// write all trnx input
@@ -155,14 +154,14 @@ func (tx *Tx) ByteStream() []byte {
 		stream = append(stream, txIn.ByteStream()...)
 	}
 
-	cm.MachineEndian.PutUint32(temp, tx.NumTxOut)
+	common.MachineEndian.PutUint32(temp, tx.NumTxOut)
 	stream = append(stream, temp...)
 
 	// write all trnx output
 	for _, txOut := range tx.TxOut {
 		stream = append(stream, txOut.ByteStream()...)
 	}
-	cm.MachineEndian.PutUint32(temp, tx.LockTime)
+	common.MachineEndian.PutUint32(temp, tx.LockTime)
 	stream = append(stream, temp...)
 
 	return stream
@@ -219,7 +218,7 @@ func (tx *Tx) Deserialize(buf []byte) error {
 }
 
 // Hash returns the hash of the Tx
-func (tx *Tx) Hash() cp.Hash32B {
+func (tx *Tx) Hash() common.Hash32B {
 	hash := blake2b.Sum256(tx.ByteStream())
 	return blake2b.Sum256(hash[:])
 }
@@ -261,10 +260,10 @@ func (out *TxOutput) TotalSize() uint32 {
 // ByteStream returns a raw byte stream of transaction output
 func (out *TxOutput) ByteStream() []byte {
 	stream := make([]byte, 8)
-	cm.MachineEndian.PutUint64(stream, out.Value)
+	common.MachineEndian.PutUint64(stream, out.Value)
 
 	temp := make([]byte, 4)
-	cm.MachineEndian.PutUint32(temp, out.LockScriptSize)
+	common.MachineEndian.PutUint32(temp, out.LockScriptSize)
 	stream = append(stream, temp...)
 	stream = append(stream, out.LockScript...)
 

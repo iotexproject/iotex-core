@@ -7,7 +7,7 @@ package mock_txpool
 import (
 	gomock "github.com/golang/mock/gomock"
 	blockchain "github.com/iotexproject/iotex-core/blockchain"
-	crypto "github.com/iotexproject/iotex-core/crypto"
+	common "github.com/iotexproject/iotex-core/common"
 	txpool "github.com/iotexproject/iotex-core/txpool"
 	reflect "reflect"
 	time "time"
@@ -59,7 +59,7 @@ func (mr *MockTxPoolMockRecorder) RemoveOrphanTxsByTag(tag interface{}) *gomock.
 }
 
 // HasOrphanTx mocks base method
-func (m *MockTxPool) HasOrphanTx(hash crypto.Hash32B) bool {
+func (m *MockTxPool) HasOrphanTx(hash common.Hash32B) bool {
 	ret := m.ctrl.Call(m, "HasOrphanTx", hash)
 	ret0, _ := ret[0].(bool)
 	return ret0
@@ -71,7 +71,7 @@ func (mr *MockTxPoolMockRecorder) HasOrphanTx(hash interface{}) *gomock.Call {
 }
 
 // HasTxOrOrphanTx mocks base method
-func (m *MockTxPool) HasTxOrOrphanTx(hash crypto.Hash32B) bool {
+func (m *MockTxPool) HasTxOrOrphanTx(hash common.Hash32B) bool {
 	ret := m.ctrl.Call(m, "HasTxOrOrphanTx", hash)
 	ret0, _ := ret[0].(bool)
 	return ret0
@@ -103,7 +103,7 @@ func (mr *MockTxPoolMockRecorder) RemoveDoubleSpends(tx interface{}) *gomock.Cal
 }
 
 // FetchTx mocks base method
-func (m *MockTxPool) FetchTx(hash *crypto.Hash32B) (*blockchain.Tx, error) {
+func (m *MockTxPool) FetchTx(hash *common.Hash32B) (*blockchain.Tx, error) {
 	ret := m.ctrl.Call(m, "FetchTx", hash)
 	ret0, _ := ret[0].(*blockchain.Tx)
 	ret1, _ := ret[1].(error)
@@ -116,9 +116,9 @@ func (mr *MockTxPoolMockRecorder) FetchTx(hash interface{}) *gomock.Call {
 }
 
 // MaybeAcceptTx mocks base method
-func (m *MockTxPool) MaybeAcceptTx(tx *blockchain.Tx, isNew, rateLimit bool) ([]crypto.Hash32B, *txpool.TxDesc, error) {
+func (m *MockTxPool) MaybeAcceptTx(tx *blockchain.Tx, isNew, rateLimit bool) ([]common.Hash32B, *txpool.TxDesc, error) {
 	ret := m.ctrl.Call(m, "MaybeAcceptTx", tx, isNew, rateLimit)
-	ret0, _ := ret[0].([]crypto.Hash32B)
+	ret0, _ := ret[0].([]common.Hash32B)
 	ret1, _ := ret[1].(*txpool.TxDesc)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
