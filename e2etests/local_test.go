@@ -75,32 +75,32 @@ func TestLocalCommit(t *testing.T) {
 
 	beta := bc.BalanceOf(ta.Addrinfo["bravo"].RawAddress)
 	t.Logf("Bravo balance = %d", beta)
-	change += beta
+	change.Add(change, beta)
 
 	beta = bc.BalanceOf(ta.Addrinfo["charlie"].RawAddress)
 	t.Logf("Charlie balance = %d", beta)
-	change += beta
+	change.Add(change, beta)
 
 	beta = bc.BalanceOf(ta.Addrinfo["delta"].RawAddress)
 	t.Logf("Delta balance = %d", beta)
-	change += beta
+	change.Add(change, beta)
 
 	beta = bc.BalanceOf(ta.Addrinfo["echo"].RawAddress)
 	t.Logf("Echo balance = %d", beta)
-	change += beta
+	change.Add(change, beta)
 
 	fox := bc.BalanceOf(ta.Addrinfo["foxtrot"].RawAddress)
 	t.Logf("Foxtrot balance = %d", fox)
-	change += fox
+	change.Add(change, fox)
 
 	test := bc.BalanceOf(ta.Addrinfo["miner"].RawAddress)
 	t.Logf("test balance = %d", test)
-	change += test
+	change.Add(change, test)
 
-	assert.Equal(uint64(50<<22), change)
+	assert.Equal(uint64(50<<22), change.Uint64())
 	t.Log("Total balance match")
 
-	if beta == 0 || fox == 0 || test == 0 {
+	if beta.Sign() == 0 || fox.Sign() == 0 || test.Sign() == 0 {
 		return
 	}
 
@@ -162,29 +162,29 @@ func TestLocalCommit(t *testing.T) {
 
 	beta = bc.BalanceOf(ta.Addrinfo["bravo"].RawAddress)
 	t.Logf("Bravo balance = %d", beta)
-	change += beta
+	change.Add(change, beta)
 
 	beta = bc.BalanceOf(ta.Addrinfo["charlie"].RawAddress)
 	t.Logf("Charlie balance = %d", beta)
-	change += beta
+	change.Add(change, beta)
 
 	beta = bc.BalanceOf(ta.Addrinfo["delta"].RawAddress)
 	t.Logf("Delta balance = %d", beta)
-	change += beta
+	change.Add(change, beta)
 
 	beta = bc.BalanceOf(ta.Addrinfo["echo"].RawAddress)
 	t.Logf("Echo balance = %d", beta)
-	change += beta
+	change.Add(change, beta)
 
 	beta = bc.BalanceOf(ta.Addrinfo["foxtrot"].RawAddress)
 	t.Logf("Foxtrot balance = %d", beta)
-	change += beta
+	change.Add(change, beta)
 
 	beta = bc.BalanceOf(ta.Addrinfo["miner"].RawAddress)
 	t.Logf("test balance = %d", beta)
-	change += beta
+	change.Add(change, beta)
 
-	assert.Equal(uint64(50<<22), change)
+	assert.Equal(uint64(50<<22), change.Uint64())
 	t.Log("Total balance match")
 }
 

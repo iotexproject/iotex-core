@@ -8,6 +8,7 @@ package blockchain
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/iotxaddress"
@@ -37,9 +38,10 @@ func NewUtxoTracker() *UtxoTracker {
 
 // UtxoEntries returns list of UTXO entries containing >= requested amount, and
 // return (nil, addr's total balance) if cannot reach reqamount
-func (tk *UtxoTracker) UtxoEntries(address string, reqamount uint64) ([]*UtxoEntry, uint64) {
+func (tk *UtxoTracker) UtxoEntries(address string, reqamount uint64) ([]*UtxoEntry, *big.Int) {
 	list := []*UtxoEntry{}
-	balance := uint64(0)
+	balance := big.NewInt(0)
+	tmp := big.NewInt(0)
 	key := iotxaddress.GetPubkeyHash(address)
 	hasEnoughFund := false
 
@@ -49,10 +51,10 @@ found:
 			if out.IsLockedWithKey(key) {
 				utxo := UtxoEntry{out.TxOutputPb, hash, out.outIndex}
 				list = append(list, &utxo)
-				balance += out.Value
+				balance.Add(balance, tmp.SetUint64(out.Value))
 
-				if reqamount <= balance {
-					balance -= reqamount
+				if tmp.SetUint64(reqamount).Cmp(balance) == 0 || tmp.SetUint64(reqamount).Cmp(balance) == -1 {
+					balance.Sub(balance, tmp.SetUint64(reqamount))
 					hasEnoughFund = true
 					break found
 				}

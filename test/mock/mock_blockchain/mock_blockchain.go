@@ -9,6 +9,7 @@ import (
 	blockchain "github.com/iotexproject/iotex-core/blockchain"
 	common "github.com/iotexproject/iotex-core/common"
 	iotxaddress "github.com/iotexproject/iotex-core/iotxaddress"
+	big "math/big"
 	reflect "reflect"
 )
 
@@ -194,9 +195,9 @@ func (mr *MockBlockchainMockRecorder) AddBlockSync(blk interface{}) *gomock.Call
 }
 
 // BalanceOf mocks base method
-func (m *MockBlockchain) BalanceOf(arg0 string) uint64 {
+func (m *MockBlockchain) BalanceOf(arg0 string) *big.Int {
 	ret := m.ctrl.Call(m, "BalanceOf", arg0)
-	ret0, _ := ret[0].(uint64)
+	ret0, _ := ret[0].(*big.Int)
 	return ret0
 }
 

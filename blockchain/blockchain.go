@@ -8,6 +8,7 @@ package blockchain
 
 import (
 	"math"
+	"math/big"
 	"os"
 	"sort"
 
@@ -65,7 +66,7 @@ type Blockchain interface {
 	// used by block syncer when the chain in out-of-sync
 	AddBlockSync(blk *Block) error
 	// BalanceOf returns the balance of a given address
-	BalanceOf(string) uint64
+	BalanceOf(string) *big.Int
 	// UtxoPool returns the UTXO pool of current blockchain
 	UtxoPool() map[common.Hash32B][]*TxOutput
 	// CreateTransaction creates a signed transaction paying 'amount' from 'from' to 'to'
@@ -354,7 +355,7 @@ func CreateBlockchain(address string, cfg *config.Config, gen *Genesis) *blockch
 }
 
 // BalanceOf returns the balance of an address
-func (bc *blockchain) BalanceOf(address string) uint64 {
+func (bc *blockchain) BalanceOf(address string) *big.Int {
 	_, balance := bc.Utk.UtxoEntries(address, math.MaxUint64)
 	return balance
 }
@@ -390,8 +391,8 @@ func (bc *blockchain) createTx(from iotxaddress.Address, amount uint64, to []*Pa
 	for _, payee := range to {
 		out = append(out, bc.Utk.CreateTxOutputUtxo(payee.Address, payee.Amount))
 	}
-	if change > 0 {
-		out = append(out, bc.Utk.CreateTxOutputUtxo(from.RawAddress, change))
+	if change.Sign() == 1 {
+		out = append(out, bc.Utk.CreateTxOutputUtxo(from.RawAddress, change.Uint64()))
 	}
 
 	// Sort TxInput in lexicographical order based on TxHash + OutIndex

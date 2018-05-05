@@ -40,31 +40,31 @@ func TestUTXO(t *testing.T) {
 
 	beta := bc.BalanceOf(ta.Addrinfo["bravo"].RawAddress)
 	fmt.Printf("Bravo balance = %d\n", beta)
-	total += beta
+	total.Add(total, beta)
 
 	beta = bc.BalanceOf(ta.Addrinfo["charlie"].RawAddress)
 	fmt.Printf("Charlie balance = %d\n", beta)
-	total += beta
+	total.Add(total, beta)
 
 	beta = bc.BalanceOf(ta.Addrinfo["delta"].RawAddress)
 	fmt.Printf("Delta balance = %d\n", beta)
-	total += beta
+	total.Add(total, beta)
 
 	beta = bc.BalanceOf(ta.Addrinfo["echo"].RawAddress)
 	fmt.Printf("Echo balance = %d\n", beta)
-	total += beta
+	total.Add(total, beta)
 
 	beta = bc.BalanceOf(ta.Addrinfo["foxtrot"].RawAddress)
 	fmt.Printf("Foxtrot balance = %d\n", beta)
-	total += beta
+	total.Add(total, beta)
 
 	beta = bc.BalanceOf(ta.Addrinfo["miner"].RawAddress)
 	fmt.Printf("test balance = %d\n", beta)
-	utxo, _ := bc.Utk.UtxoEntries(ta.Addrinfo["miner"].RawAddress, beta)
+	utxo, _ := bc.Utk.UtxoEntries(ta.Addrinfo["miner"].RawAddress, beta.Uint64())
 	assert.NotNil(t, utxo)
-	total += beta
+	total.Add(total, beta)
 
-	assert.Equal(t, totalSupply, total)
+	assert.Equal(t, totalSupply, total.Uint64())
 	fmt.Println("Total balance match")
 
 	/*
