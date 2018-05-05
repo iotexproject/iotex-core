@@ -8,6 +8,7 @@ package rpcservice
 
 import (
 	"encoding/hex"
+	"math/big"
 	"testing"
 	"time"
 
@@ -100,7 +101,7 @@ func TestCreateRawTx(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	mbc.EXPECT().BalanceOf(gomock.Any()).Return(uint64(101)).Times(1)
+	mbc.EXPECT().BalanceOf(gomock.Any()).Return(big.NewInt(101)).Times(1)
 	mbc.EXPECT().CreateRawTransaction(gomock.Any(), gomock.Any(), gomock.Any()).Return(testingTx()).Times(1)
 	mdp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any()).Times(0)
 	r, err := c.CreateRawTx(ctx, &pb.CreateRawTxRequest{From: "Alice", To: "Bob", Value: 100})

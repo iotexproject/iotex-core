@@ -7,6 +7,7 @@
 package rpcservice
 
 import (
+	"math/big"
 	"net"
 
 	"github.com/golang/glog"
@@ -48,7 +49,8 @@ func (s *Chainserver) CreateRawTx(ctx context.Context, in *pb.CreateRawTxRequest
 	}
 
 	bal := s.blockchain.BalanceOf(in.From)
-	if bal < in.Value {
+	tmp := big.NewInt(0)
+	if bal.Cmp(tmp.SetUint64(in.Value)) == -1 {
 		return nil, errors.New("not enough balance from address: " + in.From)
 	}
 
