@@ -61,7 +61,7 @@ func TestLocalRDPoS(t *testing.T) {
 		defer svr.Stop()
 	}
 
-	time.Sleep(time.Second * 5)
+	time.Sleep(time.Second * 6)
 
 	var hash1, hash2, hash3, hash4 common.Hash32B
 

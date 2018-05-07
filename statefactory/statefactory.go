@@ -9,7 +9,7 @@ import (
 	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/iotxaddress"
-	tr "github.com/iotexproject/iotex-core/trie"
+	"github.com/iotexproject/iotex-core/trie"
 )
 
 var (
@@ -32,7 +32,7 @@ type State struct {
 // StateFactory manages states.
 type StateFactory struct {
 	db   db.KVStore
-	trie tr.Trie
+	trie trie.Trie
 }
 
 func stateToBytes(s *State) []byte {
@@ -54,7 +54,7 @@ func bytesToState(ss []byte) *State {
 }
 
 // New creates a new StateFactory
-func New(db db.KVStore, trie tr.Trie) StateFactory {
+func New(db db.KVStore, trie trie.Trie) StateFactory {
 	return StateFactory{db: db, trie: trie}
 }
 

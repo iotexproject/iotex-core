@@ -23,3 +23,13 @@ var (
 
 // Hash32B is 32-byte hash value
 type Hash32B [HashSize]byte
+
+// ByteToNibbleLow return the low 4-bit nibble
+func ByteToNibbleLow(b byte) uint8 {
+	return b & 0xf
+}
+
+// ByteToNibbleHigh return the high 4-bit nibble
+func ByteToNibbleHigh(b byte) uint8 {
+	return (b >> 4) & 0xf
+}
