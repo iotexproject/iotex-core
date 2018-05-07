@@ -7,8 +7,21 @@
 package trie
 
 import (
+	"github.com/pkg/errors"
+
 	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/db"
+)
+
+var (
+	// ErrKeyNotExist: key does not exist in trie
+	ErrNotExist = errors.New("not exist in trie")
+)
+
+var (
+	// emptyRoot is the root hash of an empty trie
+	emptyRoot = common.Hash32B{0xe, 0x57, 0x51, 0xc0, 0x26, 0xe5, 0x43, 0xb2, 0xe8, 0xab, 0x2e, 0xb0, 0x60, 0x99,
+		0xda, 0xa1, 0xd1, 0xe5, 0xdf, 0x47, 0x77, 0x8f, 0x77, 0x87, 0xfa, 0xab, 0x45, 0xcd, 0xf1, 0x2f, 0xe3, 0xa8}
 )
 
 type (
@@ -23,14 +36,14 @@ type (
 
 	// trie implements the Trie interface
 	trie struct {
-		storeDb db.KVStore
-		root    patricia
+		dao  db.KVStore
+		root patricia
 	}
 )
 
 // NewTrie creates a trie with
-func NewTrie() (*trie, error) {
-	t := trie{db.NewBoltDB("trie.db", nil), nil}
+func NewTrie() (Trie, error) {
+	t := trie{db.NewBoltDB("trie.db", nil), &branch{}}
 	return &t, nil
 }
 
@@ -41,15 +54,12 @@ func (t *trie) Insert(key, value []byte) error {
 
 // Get an existing entry
 func (t *trie) Get(key []byte) ([]byte, error) {
-	ptr := t.root
-	keyLen := len(key)
-	err := error(nil)
-	// traverse the patricia trie
-	for keyLen > 0 {
-		ptr, keyLen, err = ptr.descend(key, keyLen)
-		if ptr == nil || err != nil {
-			return nil, err
-		}
+	ptr, size, err := t.query(key)
+	if size != len(key)<<1 {
+		return nil, errors.Wrapf(ErrNotExist, "key = %x", key)
+	}
+	if err != nil {
+		return nil, err
 	}
 	// retrieve the value from terminal patricia node
 	return t.getValue(ptr)
@@ -63,6 +73,44 @@ func (t *trie) Update(key, value []byte) error {
 // Delete an entry
 func (t *trie) Delete(key []byte) error {
 	return nil
+}
+
+// RootHash returns the root hash of merkle patricia trie
+func (t *trie) RootHash() common.Hash32B {
+	return t.root.hash()
+}
+
+// ======================================
+// private functions
+// ======================================
+
+// query keeps walking down the trie until path diverges
+// it returns the diverging patricia node, and length of matching path in nibbles (nibble = 4-bit)
+func (t *trie) query(key []byte) (patricia, int, error) {
+	ptr := t.root
+	size := 0
+	for len(key) > 0 {
+		stream, match, err := ptr.descend(key, size&1 != 0)
+		if err != nil {
+			break
+		}
+		node, err := t.dao.Get("", stream[1:])
+		// first byte of serialized data is type
+		switch stream[0] {
+		case 0:
+			ptr = &branch{}
+		case 1:
+			ptr = &ext{}
+		case 2:
+			ptr = &leaf{}
+		}
+		if err := ptr.deserialize(node); err != nil {
+			return nil, 0, err
+		}
+		size += match
+		key = key[size>>1:]
+	}
+	return ptr, size, nil
 }
 
 // getValue returns the value stored in patricia node
