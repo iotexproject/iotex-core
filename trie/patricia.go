@@ -25,7 +25,7 @@ type (
 		serialize() ([]byte, error)
 		deserialize([]byte) error
 	}
-	// first byte denotes the type of next patricia: 0-branch, 1-extension, 2-leaf
+	// key of next patricia node
 	ptrcKey []byte
 	// branch is the full node having 16 hashes for next level plus node value
 	branch struct {
@@ -80,14 +80,16 @@ func (b *branch) serialize() ([]byte, error) {
 	if err := enc.Encode(b); err != nil {
 		return nil, err
 	}
-	return stream.Bytes(), nil
+	// first byte denotes the type of next patricia: 0-branch, 1-extension, 2-leaf
+	bytes := []byte{0}
+	return append(bytes, stream.Bytes()...), nil
 }
 
 // deserialize to branch
 func (b *branch) deserialize(stream []byte) error {
 	// reset variable
 	*b = branch{}
-	dec := gob.NewDecoder(bytes.NewBuffer(stream))
+	dec := gob.NewDecoder(bytes.NewBuffer(stream[1:]))
 	if err := dec.Decode(b); err != nil {
 		return err
 	}
@@ -118,14 +120,16 @@ func (e *ext) serialize() ([]byte, error) {
 	if err := enc.Encode(e); err != nil {
 		return nil, err
 	}
-	return stream.Bytes(), nil
+	// first byte denotes the type of next patricia: 0-branch, 1-extension, 2-leaf
+	bytes := []byte{1}
+	return append(bytes, stream.Bytes()...), nil
 }
 
 // deserialize to extension
 func (e *ext) deserialize(stream []byte) error {
 	// reset variable
 	*e = ext{}
-	dec := gob.NewDecoder(bytes.NewBuffer(stream))
+	dec := gob.NewDecoder(bytes.NewBuffer(stream[1:]))
 	if err := dec.Decode(e); err != nil {
 		return err
 	}
@@ -156,14 +160,16 @@ func (l *leaf) serialize() ([]byte, error) {
 	if err := enc.Encode(l); err != nil {
 		return nil, err
 	}
-	return stream.Bytes(), nil
+	// first byte denotes the type of next patricia: 0-branch, 1-extension, 2-leaf
+	bytes := []byte{2}
+	return append(bytes, stream.Bytes()...), nil
 }
 
 // deserialize to extension
 func (l *leaf) deserialize(stream []byte) error {
 	// reset variable
 	*l = leaf{}
-	dec := gob.NewDecoder(bytes.NewBuffer(stream))
+	dec := gob.NewDecoder(bytes.NewBuffer(stream[1:]))
 	if err := dec.Decode(l); err != nil {
 		return err
 	}

@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"testing"
 
+	"github.com/iotexproject/iotex-core-internal/common"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -23,6 +24,7 @@ func TestPatricia(t *testing.T) {
 	stream, err := b.serialize()
 	assert.Nil(err)
 	assert.NotNil(stream)
+	assert.Equal(byte(0), stream[0])
 	b1 := branch{}
 	err = b1.deserialize(stream)
 	assert.Nil(err)
@@ -38,6 +40,7 @@ func TestPatricia(t *testing.T) {
 	stream, err = e.serialize()
 	assert.Nil(err)
 	assert.NotNil(stream)
+	assert.Equal(byte(1), stream[0])
 	e1 := ext{}
 	err = e1.deserialize(stream)
 	assert.Nil(err)
@@ -46,4 +49,20 @@ func TestPatricia(t *testing.T) {
 	assert.Equal(byte(3), e1.Path[1])
 	assert.Equal(byte(5), e1.Path[2])
 	assert.Equal(byte(7), e1.Path[3])
+
+	l := leaf{Value: make([]byte, common.HashSize)}
+	l.Path = []byte{4, 6, 8, 9}
+	copy(l.Value[:], hash2)
+	stream, err = l.serialize()
+	assert.Nil(err)
+	assert.NotNil(stream)
+	assert.Equal(byte(2), stream[0])
+	l1 := leaf{}
+	err = l1.deserialize(stream)
+	assert.Nil(err)
+	assert.Equal(hash2, l1.Value[:])
+	assert.Equal(byte(4), l1.Path[0])
+	assert.Equal(byte(6), l1.Path[1])
+	assert.Equal(byte(8), l1.Path[2])
+	assert.Equal(byte(9), l1.Path[3])
 }
