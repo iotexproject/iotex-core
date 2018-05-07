@@ -94,9 +94,9 @@ func (t *trie) query(key []byte) (patricia, int, error) {
 		if err != nil {
 			break
 		}
-		node, err := t.dao.Get("", stream[1:])
+		node, err := t.dao.Get("", stream)
 		// first byte of serialized data is type
-		switch stream[0] {
+		switch node[0] {
 		case 0:
 			ptr = &branch{}
 		case 1:
