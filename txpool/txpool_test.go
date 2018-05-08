@@ -202,13 +202,13 @@ func TestUpdateTxDescPriority(t *testing.T) {
 	// Create four dummy Txs
 	// TxSize = uint32(VersionSizeInBytes + NumTxInSizeInBytes + NumTxOutSizeInBytes + LockTimeSizeInBytes) + TxInputs Size + TxOutputs size
 	// tx1 size = 29
-	tx1 := Tx{NumTxOut: 1, TxOut: []*TxOutput{&txOutput1}}
+	tx1 := Tx{TxOut: []*TxOutput{&txOutput1}}
 	// tx2 size = 30
-	tx2 := Tx{NumTxOut: 1, TxOut: []*TxOutput{&txOutput2}}
+	tx2 := Tx{TxOut: []*TxOutput{&txOutput2}}
 	// tx3 size = 31
-	tx3 := Tx{NumTxOut: 1, TxOut: []*TxOutput{&txOutput3}}
+	tx3 := Tx{TxOut: []*TxOutput{&txOutput3}}
 	// tx4 size = 32
-	tx4 := Tx{NumTxOut: 1, TxOut: []*TxOutput{&txOutput4}}
+	tx4 := Tx{TxOut: []*TxOutput{&txOutput4}}
 
 	// Create four dummy TxDescs
 	// TxDesc1

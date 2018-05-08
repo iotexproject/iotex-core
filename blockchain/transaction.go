@@ -162,23 +162,17 @@ func (tx *Tx) ByteStream() []byte {
 	stream := make([]byte, 4)
 	common.MachineEndian.PutUint32(stream, tx.Version)
 
-	// 1. used by utxo-based model
 	temp := make([]byte, 4)
-	common.MachineEndian.PutUint32(temp, uint32(len(tx.TxIn)))
+	common.MachineEndian.PutUint32(temp, tx.LockTime)
 	stream = append(stream, temp...)
-	// write all transaction inputs
+
+	// 1. used by utxo-based model
 	for _, txIn := range tx.TxIn {
 		stream = append(stream, txIn.ByteStream()...)
 	}
-
-	common.MachineEndian.PutUint32(temp, uint32(len(tx.TxOut)))
-	stream = append(stream, temp...)
-	// write all transaction outputs
 	for _, txOut := range tx.TxOut {
 		stream = append(stream, txOut.ByteStream()...)
 	}
-	common.MachineEndian.PutUint32(temp, tx.LockTime)
-	stream = append(stream, temp...)
 
 	// 2. used by state-based model
 	temp = make([]byte, 8)
@@ -203,12 +197,12 @@ func (tx *Tx) ConvertToTxPb() *iproto.TxPb {
 	}
 
 	t := &iproto.TxPb{
-		Version: tx.Version,
+		Version:  tx.Version,
+		LockTime: tx.LockTime,
 
 		// used by utxo-based model
-		TxIn:     tx.TxIn,
-		TxOut:    pbOut,
-		LockTime: tx.LockTime,
+		TxIn:  tx.TxIn,
+		TxOut: pbOut,
 
 		// used by state-based model
 		Nonce:   tx.Nonce,
@@ -233,9 +227,9 @@ func (tx *Tx) Serialize() ([]byte, error) {
 func (tx *Tx) ConvertFromTxPb(pbTx *iproto.TxPb) {
 	// set trnx fields
 	tx.Version = pbTx.GetVersion()
+	tx.LockTime = pbTx.GetLockTime()
 
 	// used by utxo-based model
-	tx.LockTime = pbTx.GetLockTime()
 	tx.TxIn = nil
 	tx.TxIn = pbTx.TxIn
 	tx.TxOut = nil
