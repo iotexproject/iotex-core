@@ -10,12 +10,14 @@ import (
 	"bytes"
 	"crypto/rand"
 	"fmt"
+	"math/big"
 
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotexproject/iotex-core/common"
+	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/txvm"
 )
@@ -32,12 +34,10 @@ const (
 
 	// VersionSizeInBytes defines the size of version in byte units
 	VersionSizeInBytes = 4
-	// NumTxInSizeInBytes defines the size of number of transaction inputs in byte units
-	NumTxInSizeInBytes = 4
-	// NumTxOutSizeInBytes defines the size of number of transaction outputs in byte units
-	NumTxOutSizeInBytes = 4
 	// LockTimeSizeInBytes defines the size of lock time in byte units
 	LockTimeSizeInBytes = 4
+	// NonceSizeInBytes defines the size of nonce in byte units
+	NonceSizeInBytes = 8
 )
 
 // TxInput defines the transaction input protocol buffer
@@ -55,11 +55,17 @@ type TxOutput struct {
 // make sure the variable type and order of this struct is same as "type Tx" in blockchain.pb.go
 type Tx struct {
 	Version  uint32
-	NumTxIn  uint32 // number of transaction input
-	TxIn     []*TxInput
-	NumTxOut uint32 // number of transaction output
-	TxOut    []*TxOutput
-	LockTime uint32 // UTXO to be locked until this time
+	LockTime uint32 // transaction to be locked until this time
+
+	// used by utxo-based model
+	TxIn  []*TxInput
+	TxOut []*TxOutput
+
+	// used by state-based model
+	Nonce     uint64
+	Recipient *iotxaddress.Address
+	Amount    *big.Int
+	Payload   []byte
 }
 
 // NewTxInput returns a TxInput instance
@@ -82,22 +88,24 @@ func NewTxOutput(amount uint64, index int32) *TxOutput {
 // NewTx returns a Tx instance
 func NewTx(version uint32, in []*TxInput, out []*TxOutput, lockTime uint32) *Tx {
 	return &Tx{
-		version,
-		uint32(len(in)),
-		in, uint32(len(out)),
-		out,
-		lockTime}
+		Version:  version,
+		LockTime: lockTime,
+
+		// used by utxo-based model
+		TxIn:  in,
+		TxOut: out,
+
+		// used by state-based model
+		Nonce:     0,
+		Recipient: &iotxaddress.Address{},
+		Payload:   []byte{},
+	}
 }
 
 // Payee defines the struct of payee
 type Payee struct {
 	Address string
 	Amount  uint64
-}
-
-// NewPayee returns a Payee instance
-func NewPayee(address string, amount uint64) *Payee {
-	return &Payee{address, amount}
 }
 
 // NewCoinbaseTx creates the coinbase transaction - a special type of transaction that does not require previously outputs.
@@ -126,17 +134,26 @@ func (tx *Tx) IsCoinbase() bool {
 
 // TotalSize returns the total size of this transaction
 func (tx *Tx) TotalSize() uint32 {
-	size := uint32(VersionSizeInBytes + NumTxInSizeInBytes + NumTxOutSizeInBytes + LockTimeSizeInBytes)
+	size := uint32(VersionSizeInBytes + LockTimeSizeInBytes + NonceSizeInBytes)
 
-	// add trnx input size
+	// add transaction input size
 	for _, in := range tx.TxIn {
 		size += in.TotalSize()
 	}
 
-	// add trnx output size
+	// add transaction output size
 	for _, out := range tx.TxOut {
 		size += out.TotalSize()
 	}
+
+	// add receipt, amount and payload sizes
+	if tx.Recipient != nil && len(tx.Recipient.RawAddress) > 0 {
+		size += uint32(len(tx.Recipient.RawAddress))
+	}
+	if tx.Amount != nil && len(tx.Amount.Bytes()) > 0 {
+		size += uint32(len(tx.Amount.Bytes()))
+	}
+	size += uint32(len(tx.Payload))
 	return size
 }
 
@@ -145,24 +162,35 @@ func (tx *Tx) ByteStream() []byte {
 	stream := make([]byte, 4)
 	common.MachineEndian.PutUint32(stream, tx.Version)
 
+	// 1. used by utxo-based model
 	temp := make([]byte, 4)
-	common.MachineEndian.PutUint32(temp, tx.NumTxIn)
+	common.MachineEndian.PutUint32(temp, uint32(len(tx.TxIn)))
 	stream = append(stream, temp...)
-
-	// write all trnx input
+	// write all transaction inputs
 	for _, txIn := range tx.TxIn {
 		stream = append(stream, txIn.ByteStream()...)
 	}
 
-	common.MachineEndian.PutUint32(temp, tx.NumTxOut)
+	common.MachineEndian.PutUint32(temp, uint32(len(tx.TxOut)))
 	stream = append(stream, temp...)
-
-	// write all trnx output
+	// write all transaction outputs
 	for _, txOut := range tx.TxOut {
 		stream = append(stream, txOut.ByteStream()...)
 	}
 	common.MachineEndian.PutUint32(temp, tx.LockTime)
 	stream = append(stream, temp...)
+
+	// 2. used by state-based model
+	temp = make([]byte, 8)
+	common.MachineEndian.PutUint64(temp, tx.Nonce)
+	stream = append(stream, temp...)
+	if tx.Recipient != nil && len(tx.Recipient.RawAddress) > 0 {
+		stream = append(stream, tx.Recipient.RawAddress...)
+	}
+	if tx.Amount != nil && len(tx.Amount.Bytes()) > 0 {
+		stream = append(stream, tx.Amount.Bytes()...)
+	}
+	stream = append(stream, tx.Payload...)
 
 	return stream
 }
@@ -174,13 +202,26 @@ func (tx *Tx) ConvertToTxPb() *iproto.TxPb {
 		pbOut[i] = out.TxOutputPb
 	}
 
-	return &iproto.TxPb{
-		tx.Version,
-		tx.NumTxIn,
-		tx.TxIn,
-		tx.NumTxOut,
-		pbOut,
-		tx.LockTime}
+	t := &iproto.TxPb{
+		Version: tx.Version,
+
+		// used by utxo-based model
+		TxIn:     tx.TxIn,
+		TxOut:    pbOut,
+		LockTime: tx.LockTime,
+
+		// used by state-based model
+		Nonce:   tx.Nonce,
+		Payload: tx.Payload,
+	}
+
+	if tx.Amount != nil && len(tx.Amount.Bytes()) > 0 {
+		t.Amount = tx.Amount.Bytes()
+	}
+	if tx.Recipient != nil && len(tx.Recipient.RawAddress) > 0 {
+		t.Recipient = []byte(tx.Recipient.RawAddress)
+	}
+	return t
 }
 
 // Serialize returns a serialized byte stream for the Tx
@@ -192,18 +233,24 @@ func (tx *Tx) Serialize() ([]byte, error) {
 func (tx *Tx) ConvertFromTxPb(pbTx *iproto.TxPb) {
 	// set trnx fields
 	tx.Version = pbTx.GetVersion()
-	tx.NumTxIn = pbTx.GetNumTxIn()
-	tx.NumTxOut = pbTx.GetNumTxOut()
-	tx.LockTime = pbTx.GetLockTime()
 
+	// used by utxo-based model
+	tx.LockTime = pbTx.GetLockTime()
 	tx.TxIn = nil
 	tx.TxIn = pbTx.TxIn
-
 	tx.TxOut = nil
 	tx.TxOut = make([]*TxOutput, len(pbTx.TxOut))
 	for i, out := range pbTx.TxOut {
 		tx.TxOut[i] = &TxOutput{out, int32(i)}
 	}
+
+	// used by state-based model
+	tx.Nonce = pbTx.Nonce
+	tx.Recipient = &iotxaddress.Address{RawAddress: string(pbTx.Recipient[:])}
+	if len(pbTx.Amount) > 0 {
+		tx.Amount.SetBytes(pbTx.Amount)
+	}
+	tx.Payload = pbTx.Payload
 }
 
 // Deserialize parse the byte stream into the Tx

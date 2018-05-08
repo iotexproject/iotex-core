@@ -60,9 +60,7 @@ func testingTx() *blockchain.Tx {
 	txOut1_6.LockScript = decodeHash("65b014d4f743a24d5386f8d1c2a648da7015f08800cd11a1b1")
 	return &blockchain.Tx{
 		Version:  1,
-		NumTxIn:  1,
 		TxIn:     []*blockchain.TxInput{txIn1_0},
-		NumTxOut: 7,
 		TxOut:    []*blockchain.TxOutput{txOut1_0, txOut1_1, txOut1_2, txOut1_3, txOut1_4, txOut1_5, txOut1_6},
 		LockTime: 0,
 	}
@@ -106,7 +104,7 @@ func TestCreateRawTx(t *testing.T) {
 	mdp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any()).Times(0)
 	r, err := c.CreateRawTx(ctx, &pb.CreateRawTxRequest{From: "Alice", To: "Bob", Value: 100})
 	assert.Nil(t, err)
-	assert.Equal(t, 380, len(r.SerializedTx))
+	assert.Equal(t, 384, len(r.SerializedTx))
 	assert.False(t, cbinvoked)
 }
 

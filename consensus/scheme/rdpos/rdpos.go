@@ -67,7 +67,8 @@ type RDPoS struct {
 }
 
 // NewRDPoS creates a RDPoS struct
-func NewRDPoS(cfg config.RDPoS, prop scheme.CreateBlockCB, vote scheme.TellPeerCB, cons scheme.ConsensusDoneCB, pub scheme.BroadcastCB, bc blockchain.Blockchain, myaddr net.Addr, dlg delegate.Pool) *RDPoS {
+func NewRDPoS(cfg config.RDPoS, prop scheme.CreateBlockCB, vote scheme.TellPeerCB, cons scheme.ConsensusDoneCB,
+	pub scheme.BroadcastCB, bc blockchain.Blockchain, myaddr net.Addr, dlg delegate.Pool) *RDPoS {
 	delegates, err := dlg.AllDelegates()
 	if err != nil {
 		glog.Error(err.Error())
