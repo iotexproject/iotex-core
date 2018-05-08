@@ -27,9 +27,9 @@ const (
 	maxOrphanTxNum             = 10000
 	maxOrphanTxSize            = 8192
 	enableTagIndex             = false
-	DefaultBlockPrioritySize   = 12345
-	DefaultBlockMaxSize        = 23456
-	DefaultTxMaxNumInBlock     = 350
+	defaultBlockPrioritySize   = 12345
+	defaultBlockMaxSize        = 23456
+	defaultTxMaxNumInBlock     = 350
 )
 
 var PqDeletionWL map[common.Hash32B]*TxDesc
@@ -503,7 +503,7 @@ func (tp *txPool) maybeAcceptTx(tx *blockchain.Tx, isNew bool, rateLimit bool, r
 	fee := int64(0)
 	size := tx.TotalSize()
 	minFee := calculateMinFee(size)
-	if (size >= DefaultBlockPrioritySize-1000) && fee < minFee {
+	if (size >= defaultBlockPrioritySize-1000) && fee < minFee {
 		return nil, nil, fmt.Errorf("fee is lower than min requirement fee")
 	}
 
@@ -645,14 +645,13 @@ func (tp *txPool) PickTxs() []*blockchain.Tx {
 	tp.updateTxDescPriority()
 	PqDeletionWL = map[common.Hash32B]*TxDesc{}
 	txs := []*blockchain.Tx{}
-	curSize, curTxNum := uint32(0), uint32(0)
+	curSize := uint32(0)
 	for len(tp.txDescPriorityQueue) > 0 {
 		tx := tp.txDescPriorityQueue[0].Tx
-		if curSize+tx.TotalSize() > DefaultBlockMaxSize || curTxNum+1 > DefaultTxMaxNumInBlock {
+		if curSize+tx.TotalSize() > defaultBlockMaxSize || len(txs) >= defaultTxMaxNumInBlock {
 			break
 		}
 		curSize += tx.TotalSize()
-		curTxNum += 1
 		txs = append(txs, tx)
 
 		PqDeletionWL[tx.Hash()] = heap.Pop(&tp.txDescPriorityQueue).(*TxDesc)
