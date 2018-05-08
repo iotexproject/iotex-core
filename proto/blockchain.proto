@@ -28,11 +28,17 @@ message TxOutputPb {
 
 message TxPb {
     uint32 version = 1;
-    uint32 numTxIn = 2;
-    repeated TxInputPb txIn = 3;
-    uint32 numTxOut = 4;
-    repeated TxOutputPb txOut = 5;
-    uint32 lockTime = 6;
+
+    // used by utxo-based model
+    repeated TxInputPb txIn = 21;
+    repeated TxOutputPb txOut = 22;
+    uint32 lockTime = 23;
+
+    // used by state-based model
+    uint64 nonce = 31;
+    bytes recipient = 32;
+    bytes amount  = 33;
+    bytes payload  = 34;
 }
 
 message VotePb {

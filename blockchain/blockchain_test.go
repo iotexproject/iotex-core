@@ -129,7 +129,7 @@ func TestCreateBlockchain(t *testing.T) {
 	assert.Nil(err)
 
 	stream := genesis.ByteStream()
-	assert.Equal(uint32(len(stream)), genesis.TranxsSize()+128)
+	assert.Equal(uint32(len(stream)), genesis.TranxsSize()+136)
 	fmt.Printf("Block size match pass\n")
 	fmt.Printf("Marshaling Block pass\n")
 
@@ -285,7 +285,7 @@ func TestEmptyBlockOnlyHasCoinbaseTx(t *testing.T) {
 	assert.Equal(t, uint64(1), blk.Height())
 	assert.Equal(t, 1, len(blk.Tranxs))
 	assert.True(t, blk.Tranxs[0].IsCoinbase())
-	assert.Equal(t, uint32(1), blk.Tranxs[0].NumTxIn)
-	assert.Equal(t, uint32(1), blk.Tranxs[0].NumTxOut)
+	assert.Equal(t, 1, len(blk.Tranxs[0].TxIn))
+	assert.Equal(t, 1, len(blk.Tranxs[0].TxOut))
 	assert.Equal(t, uint64(7777), blk.Tranxs[0].TxOut[0].Value)
 }

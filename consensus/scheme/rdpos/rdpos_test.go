@@ -125,6 +125,8 @@ func testByzantineFault(t *testing.T, proposerNode int) {
 	genesis := NewGenesisBlock(Gen)
 	blkHash := genesis.HashBlock()
 
+	t.Log(genesis)
+
 	// arrange 4 consensus nodes
 	tcss := make(map[net.Addr]testCs)
 	delegates := []net.Addr{
