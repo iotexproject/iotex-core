@@ -7,6 +7,8 @@
 package trie
 
 import (
+	"container/list"
+
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/common"
@@ -16,6 +18,9 @@ import (
 var (
 	// ErrKeyNotExist: key does not exist in trie
 	ErrNotExist = errors.New("not exist in trie")
+
+	// ErrAlreadyExist: key already exists in trie
+	ErrAlreadyExist = errors.New("already exist in trie")
 )
 
 var (
@@ -36,33 +41,60 @@ type (
 
 	// trie implements the Trie interface
 	trie struct {
-		dao  db.KVStore
-		root patricia
+		dao    db.KVStore
+		root   patricia
+		toRoot *list.List
 	}
 )
 
 // NewTrie creates a trie with
-func NewTrie() (Trie, error) {
-	t := trie{db.NewBoltDB("trie.db", nil), &branch{}}
+func NewTrie(dao db.KVStore) (Trie, error) {
+	t := trie{dao, &branch{}, list.New()}
 	return &t, nil
 }
 
 // Insert a new entry
 func (t *trie) Insert(key, value []byte) error {
+	ptr, size, err := t.query(key)
+	if err == nil {
+		return errors.Wrapf(ErrAlreadyExist, "key = %x", key)
+	}
+	// insert at the diverging patricia node
+	stack := list.New()
+	if err := ptr.insert(key[size:], value, stack); err != nil {
+		return err
+	}
+	// update newly added patricia node
+	for stack.Len() > 0 {
+		n := stack.Back()
+		ptr, _ := n.Value.(patricia)
+		value, err := ptr.serialize()
+		if err != nil {
+			return err
+		}
+		hashn := ptr.hash()
+		t.dao.Put("", hashn[:], value)
+		stack.Remove(n)
+	}
+	// update nodes on path to root
+	for t.toRoot.Len() > 0 {
+		n := t.toRoot.Back()
+		t.toRoot.Remove(n)
+	}
 	return nil
 }
 
 // Get an existing entry
 func (t *trie) Get(key []byte) ([]byte, error) {
 	ptr, size, err := t.query(key)
-	if size != len(key)<<1 {
+	if size != len(key) {
 		return nil, errors.Wrapf(ErrNotExist, "key = %x", key)
 	}
 	if err != nil {
 		return nil, err
 	}
 	// retrieve the value from terminal patricia node
-	return t.getValue(ptr)
+	return ptr.blob()
 }
 
 // Update an existing entry
@@ -80,21 +112,24 @@ func (t *trie) RootHash() common.Hash32B {
 	return t.root.hash()
 }
 
-// ======================================
+//======================================
 // private functions
-// ======================================
-
+//======================================
 // query keeps walking down the trie until path diverges
-// it returns the diverging patricia node, and length of matching path in nibbles (nibble = 4-bit)
+// it returns the diverging patricia node, and length of matching path in bytes
 func (t *trie) query(key []byte) (patricia, int, error) {
 	ptr := t.root
 	size := 0
 	for len(key) > 0 {
-		stream, match, err := ptr.descend(key, size&1 != 0)
+		t.toRoot.PushBack(ptr)
+		hashn, match, err := ptr.descend(key)
 		if err != nil {
-			break
+			return ptr, size, err
 		}
-		node, err := t.dao.Get("", stream)
+		if match == len(key) {
+			return ptr, size + match, err
+		}
+		node, err := t.dao.Get("", hashn)
 		// first byte of serialized data is type
 		switch node[0] {
 		case 0:
@@ -108,12 +143,7 @@ func (t *trie) query(key []byte) (patricia, int, error) {
 			return nil, 0, err
 		}
 		size += match
-		key = key[size>>1:]
+		key = key[size:]
 	}
-	return ptr, size, nil
-}
-
-// getValue returns the value stored in patricia node
-func (t *trie) getValue(p patricia) ([]byte, error) {
-	return p.blob()
+	return nil, size, nil
 }
