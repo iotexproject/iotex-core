@@ -129,7 +129,7 @@ func TestCreateBlockchain(t *testing.T) {
 	assert.Nil(err)
 
 	stream := genesis.ByteStream()
-	assert.Equal(uint32(len(stream)), genesis.TranxsSize()+136)
+	assert.Equal(uint32(len(stream)), genesis.TranxsSize()+128)
 	fmt.Printf("Block size match pass\n")
 	fmt.Printf("Marshaling Block pass\n")
 

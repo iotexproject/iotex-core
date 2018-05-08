@@ -28,11 +28,11 @@ message TxOutputPb {
 
 message TxPb {
     uint32 version = 1;
+    uint32 lockTime = 2;
 
     // used by utxo-based model
     repeated TxInputPb txIn = 21;
     repeated TxOutputPb txOut = 22;
-    uint32 lockTime = 23;
 
     // used by state-based model
     uint64 nonce = 31;
