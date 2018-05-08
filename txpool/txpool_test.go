@@ -7,9 +7,11 @@
 package txpool
 
 import (
+	"container/heap"
 	"encoding/hex"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
@@ -183,4 +185,89 @@ func TestTxPool(t *testing.T) {
 	assert.Nil(err)
 	// TODO: refactor this test
 	//assert.Equal(2, len(tp.TxDescs()))
+}
+
+func TestUpdateTxDescPriority(t *testing.T) {
+	// Create four dummy TxOutputs
+	// TxOutputSize = ValueSizeInBytes + LockScriptSizeInBytes + uint32(out.LockScriptSize)
+	// txOutput1 size = 13
+	txOutput1 := TxOutput{TxOutputPb: &iproto.TxOutputPb{1, 1, nil}}
+	// txOutput2 size = 14
+	txOutput2 := TxOutput{TxOutputPb: &iproto.TxOutputPb{2, 2, nil}}
+	// txOutput3 size = 15
+	txOutput3 := TxOutput{TxOutputPb: &iproto.TxOutputPb{3, 3, nil}}
+	// txOutput4 size = 16
+	txOutput4 := TxOutput{TxOutputPb: &iproto.TxOutputPb{4, 4, nil}}
+
+	// Create four dummy Txs
+	// TxSize = uint32(VersionSizeInBytes + NumTxInSizeInBytes + NumTxOutSizeInBytes + LockTimeSizeInBytes) + TxInputs Size + TxOutputs size
+	// tx1 size = 29
+	tx1 := Tx{NumTxOut: 1, TxOut: []*TxOutput{&txOutput1}}
+	// tx2 size = 30
+	tx2 := Tx{NumTxOut: 1, TxOut: []*TxOutput{&txOutput2}}
+	// tx3 size = 31
+	tx3 := Tx{NumTxOut: 1, TxOut: []*TxOutput{&txOutput3}}
+	// tx4 size = 32
+	tx4 := Tx{NumTxOut: 1, TxOut: []*TxOutput{&txOutput4}}
+
+	// Create four dummy TxDescs
+	// TxDesc1
+	desc1 := TxDesc{
+		Tx:          &tx1,
+		AddedTime:   time.Now(),
+		BlockHeight: uint64(1),
+		Fee:         int64(0),
+		FeePerKB:    int64(0),
+		Priority:    float64(0),
+	}
+
+	// TxDesc2
+	desc2 := TxDesc{
+		Tx:          &tx2,
+		AddedTime:   time.Now(),
+		BlockHeight: uint64(1),
+		Fee:         int64(0),
+		FeePerKB:    int64(0),
+		Priority:    float64(0),
+	}
+
+	// TxDesc3
+	desc3 := TxDesc{
+		Tx:          &tx3,
+		AddedTime:   time.Now(),
+		BlockHeight: uint64(1),
+		Fee:         int64(0),
+		FeePerKB:    int64(0),
+		Priority:    float64(0),
+	}
+
+	// TxDesc4
+	desc4 := TxDesc{
+		Tx:          &tx4,
+		AddedTime:   time.Now(),
+		BlockHeight: uint64(1),
+		Fee:         int64(0),
+		FeePerKB:    int64(0),
+		Priority:    float64(5),
+	}
+
+	tp := txPool{}
+
+	heap.Push(&tp.txDescPriorityQueue, &desc1)
+	heap.Push(&tp.txDescPriorityQueue, &desc2)
+	heap.Push(&tp.txDescPriorityQueue, &desc3)
+	heap.Push(&tp.txDescPriorityQueue, &desc4)
+
+	time.Sleep(time.Second * 6)
+	tp.updateTxDescPriority()
+
+	// Expected TxDesc Ordering after sleeping 6 seconds
+	expectedOrdering := []*TxDesc{&desc4, &desc3, &desc2, &desc1}
+	t.Log("After updating priority for each TxDesc, the priority of each TxDesc in the order of popped is as follows:")
+	for i := 0; i < 4; i++ {
+		txDesc := heap.Pop(&tp.txDescPriorityQueue).(*TxDesc)
+		t.Log(txDesc.Priority)
+		assert.Equal(t, expectedOrdering[i], txDesc)
+		t.Log()
+	}
 }
