@@ -2,6 +2,7 @@ package trie
 
 import (
 	"bytes"
+	"container/list"
 	"encoding/gob"
 
 	"github.com/pkg/errors"
@@ -10,16 +11,20 @@ import (
 	"github.com/iotexproject/iotex-core/common"
 )
 
-const RADIX uint8 = 16
+const RADIX = 256
 
 var (
-	// ErrInvalidPatricia is the error for invalid operation
+	// ErrInvalidPatricia: invalid operation
 	ErrInvalidPatricia = errors.New("invalid patricia operation")
+
+	// ErrPathDiverge: the path diverges
+	ErrPathDiverge = errors.New("path diverges")
 )
 
 type (
 	patricia interface {
-		descend([]byte, bool) ([]byte, int, error)
+		descend([]byte) ([]byte, int, error)
+		insert([]byte, []byte, *list.List) error
 		blob() ([]byte, error)
 		hash() common.Hash32B // hash of this node
 		serialize() ([]byte, error)
@@ -27,15 +32,15 @@ type (
 	}
 	// key of next patricia node
 	ptrcKey []byte
-	// branch is the full node having 16 hashes for next level plus node value
+	// branch is the full node having 256 hashes for next level patricia node plus value
 	branch struct {
 		Path  [RADIX]ptrcKey
 		Value []byte
 	}
-	// extension is squashed path + hash of next patricia
+	// extension is squashed path + hash of next patricia node
 	ext struct {
 		Path  ptrcKey
-		Value common.Hash32B
+		Hashn []byte
 	}
 	// leaf is squashed path + value
 	leaf struct {
@@ -44,18 +49,31 @@ type (
 	}
 )
 
-// descend returns the key to retrieve next patricia, and length of matching path in nibbles (nibble = 4-bit)
-func (b *branch) descend(key []byte, low bool) ([]byte, int, error) {
-	var n uint8
-	if low {
-		n = common.ByteToNibbleLow(key[0])
-	} else {
-		n = common.ByteToNibbleHigh(key[0])
+//======================================
+// functions for branch
+//======================================
+// descend returns the key to retrieve next patricia, and length of matching path in bytes
+func (b *branch) descend(key []byte) ([]byte, int, error) {
+	node := b.Path[key[0]]
+	if len(node) > 0 {
+		return node, 1, nil
 	}
-	if len(b.Path[n]) > 0 {
-		return b.Path[n], 1, nil
+	return nil, 0, errors.Wrapf(ErrInvalidPatricia, "branch does not have path = %d", key[0])
+}
+
+// insert <key, value> at current patricia node
+func (b *branch) insert(key, value []byte, stack *list.List) error {
+	node := b.Path[key[0]]
+	if len(node) > 0 {
+		errors.Wrapf(ErrInvalidPatricia, "branch already covers path = %d", key[0])
 	}
-	return nil, 0, errors.Wrapf(ErrInvalidPatricia, "branch does not have path = %d", n)
+	// create a new leaf node
+	l := leaf{key[1:], value}
+	stack.PushBack(&l)
+	// add to existing branch
+	hashn := l.hash()
+	b.Path[key[0]] = hashn[:]
+	return nil
 }
 
 // blob return the value stored in the node
@@ -66,7 +84,7 @@ func (b *branch) blob() ([]byte, error) {
 // hash return the hash of this node
 func (b *branch) hash() common.Hash32B {
 	stream := []byte{}
-	for i := uint8(0); i < RADIX; i++ {
+	for i := 0; i < RADIX; i++ {
 		stream = append(stream, b.Path[i]...)
 	}
 	stream = append(stream, b.Value...)
@@ -81,8 +99,7 @@ func (b *branch) serialize() ([]byte, error) {
 		return nil, err
 	}
 	// first byte denotes the type of next patricia: 0-branch, 1-extension, 2-leaf
-	bytes := []byte{0}
-	return append(bytes, stream.Bytes()...), nil
+	return append([]byte{0}, stream.Bytes()...), nil
 }
 
 // deserialize to branch
@@ -96,9 +113,24 @@ func (b *branch) deserialize(stream []byte) error {
 	return nil
 }
 
-// descend returns the key to retrieve next patricia, and length of matching path in nibbles (nibble = 4-bit)
-func (e *ext) descend(key []byte, low bool) ([]byte, int, error) {
-	return nil, 0, nil
+//======================================
+// functions for extension
+//======================================
+// descend returns the key to retrieve next patricia, and length of matching path in bytes
+func (e *ext) descend(key []byte) ([]byte, int, error) {
+	match := 0
+	for e.Path[match] == key[match] {
+		match++
+		if match == len(e.Path) {
+			return e.Hashn[:], match, nil
+		}
+	}
+	return nil, match, ErrPathDiverge
+}
+
+// insert <key, value> at current patricia node
+func (e *ext) insert(key, value []byte, stack *list.List) error {
+	return nil
 }
 
 // blob return the value stored in the node
@@ -109,7 +141,7 @@ func (e *ext) blob() ([]byte, error) {
 
 // hash return the hash of this node
 func (e *ext) hash() common.Hash32B {
-	stream := append(e.Path, e.Value[:]...)
+	stream := append(e.Path, e.Hashn[:]...)
 	return blake2b.Sum256(stream)
 }
 
@@ -121,8 +153,7 @@ func (e *ext) serialize() ([]byte, error) {
 		return nil, err
 	}
 	// first byte denotes the type of next patricia: 0-branch, 1-extension, 2-leaf
-	bytes := []byte{1}
-	return append(bytes, stream.Bytes()...), nil
+	return append([]byte{1}, stream.Bytes()...), nil
 }
 
 // deserialize to extension
@@ -136,10 +167,24 @@ func (e *ext) deserialize(stream []byte) error {
 	return nil
 }
 
-// descend returns the key to retrieve next patricia, and length of matching path in nibbles (nibble = 4-bit)
-func (l *leaf) descend(key []byte, low bool) ([]byte, int, error) {
-	// descend should not be called on leaf node
-	return nil, 0, errors.Wrap(ErrInvalidPatricia, "cannot descend further from leaf")
+//======================================
+// functions for leaf
+//======================================
+// descend returns the key to retrieve next patricia, and length of matching path in bytes
+func (l *leaf) descend(key []byte) ([]byte, int, error) {
+	match := 0
+	for l.Path[match] == key[match] {
+		match++
+		if match == len(l.Path) {
+			return l.Value, match, nil
+		}
+	}
+	return nil, match, ErrPathDiverge
+}
+
+// insert <key, value> at current patricia node
+func (l *leaf) insert(key, value []byte, stack *list.List) error {
+	return nil
 }
 
 // blob return the value stored in the node
@@ -161,8 +206,7 @@ func (l *leaf) serialize() ([]byte, error) {
 		return nil, err
 	}
 	// first byte denotes the type of next patricia: 0-branch, 1-extension, 2-leaf
-	bytes := []byte{2}
-	return append(bytes, stream.Bytes()...), nil
+	return append([]byte{2}, stream.Bytes()...), nil
 }
 
 // deserialize to extension
