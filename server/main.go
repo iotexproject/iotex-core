@@ -24,6 +24,7 @@ import (
 )
 
 var configFile = flag.String("config", "./config.yaml", "specify configuration file path")
+var debug = flag.Bool("debug", true, "debug mode flag")
 
 func init() {
 	flag.Usage = func() {
