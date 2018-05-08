@@ -1,6 +1,6 @@
 # logger package
-Here we use zerolog for logging (https://github.com/rs/zerolog). zerolog is a json based logger that is lightning fast and efficient in production code. See its benchmark for reference.
-Json based logger is good for us to collect all logs and analysis the errors and preformace easily with json parsers. 
+Here we use Zerolog for logging (https://github.com/rs/zerolog). zerolog is a json based logger that is lightning fast and efficient in production code. See its benchmark for reference.
+With json based logger, all logs and errors can be easily parsed and analyzed from all servers. 
 
 Usage:
 ```
