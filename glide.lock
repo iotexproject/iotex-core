@@ -1,5 +1,5 @@
-hash: 1f3a7dc40014311721e56973a9fe42b4d7adc1dffeef87f36074ed0bf4fb238d
-updated: 2018-04-10T22:35:21.902391-07:00
+hash: 48354436022eae8ef62698f54334510daaf0a3eb76f5189c4b74834536e7baf8
+updated: 2018-05-07T20:14:46.017632-07:00
 imports:
 - name: github.com/boltdb/bolt
   version: 2f1ce7a837dcb8da3ec595b1dac9d0632f0f99e8
@@ -24,6 +24,12 @@ imports:
   - ptypes/timestamp
 - name: github.com/pkg/errors
   version: 645ef00459ed84a119197bfb8d8205042c6df63d
+- name: github.com/rs/zerolog
+  version: 05eafee0eb17d0150591a8f30f0fa592cc9b7471
+  subpackages:
+  - internal/cbor
+  - internal/json
+  - log
 - name: github.com/stretchr/testify
   version: 12b6f73e6084dad08a7c6e575284b177ecafbc71
   subpackages:

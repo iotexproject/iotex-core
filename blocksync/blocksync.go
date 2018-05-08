@@ -12,13 +12,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/golang/glog"
-
 	bc "github.com/iotexproject/iotex-core/blockchain"
 	cm "github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/common/routine"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/delegate"
+	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network"
 	pb "github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/txpool"
@@ -109,9 +108,9 @@ func NewBlockSyncer(cfg *config.Config, chain bc.Blockchain, tp txpool.TxPool, p
 	delegates, err := dp.AllDelegates()
 	if err != nil || len(delegates) == 0 {
 		if err != nil {
-			glog.Error(err)
+			logger.Error().Err(err)
 		} else {
-			glog.Error("No delegates found")
+			logger.Error().Msg("No delegates found")
 		}
 		syscall.Exit(syscall.SYS_EXIT)
 	}
@@ -128,7 +127,7 @@ func NewBlockSyncer(cfg *config.Config, chain bc.Blockchain, tp txpool.TxPool, p
 			sync.fnd = dlg.String()
 		}
 	default:
-		glog.Error("Unexpected node type ", cfg.NodeType)
+		logger.Error().Str("node_type", cfg.NodeType).Msg("Unexpected node type.")
 		return nil
 	}
 	return sync
@@ -141,7 +140,7 @@ func (bs *blockSyncer) P2P() *network.Overlay {
 
 // Start starts a block syncer
 func (bs *blockSyncer) Start() error {
-	glog.Info("Starting block syncer")
+	logger.Print("Starting block syncer")
 	if bs.task != nil {
 		bs.task.Init()
 		bs.task.Start()
@@ -151,7 +150,7 @@ func (bs *blockSyncer) Start() error {
 
 // Stop stops a block syncer
 func (bs *blockSyncer) Stop() error {
-	glog.Infof("Stopping block syncer")
+	logger.Print("Stopping block syncer")
 	if bs.task != nil {
 		bs.task.Stop()
 	}
@@ -177,11 +176,19 @@ func (bs *blockSyncer) Do() {
 	// blocks are being dropped, so we check the window range and issue a new sync request
 	if bs.state == Active && bs.sw.State != Open && bs.syncHeight < bs.dropHeight {
 		bs.p2p.Tell(cm.NewTCPNode(bs.fnd), &pb.BlockSync{bs.syncHeight + 1, bs.dropHeight})
-		glog.Warningf("++++++ [%s] Send start = %d end = %d to %s", bs.p2p.PRC.Addr, bs.syncHeight+1, bs.dropHeight, bs.fnd)
+		logger.Warn().
+			Str("addr", bs.p2p.PRC.Addr).
+			Uint64("start", bs.syncHeight+1).
+			Uint64("end", bs.dropHeight).
+			Str("to", bs.fnd).
+			Msg("+++++++++")
 		if bs.dropHeight-bs.syncHeight > WindowSize {
 			// trigger ProcessBlock() to drop incoming blocks, preventing too many blocks piling up in the buffer
 			bs.sw.Update(bs.dropHeight)
-			glog.Warningf("++++++ reopen window to [%d  %d]", bs.syncHeight+1, bs.dropHeight)
+			logger.Warn().
+				Uint64("sync_height", bs.syncHeight+1).
+				Uint64("drop_height", bs.dropHeight).
+				Msg("++++reopen window")
 		}
 		bs.syncHeight = bs.dropHeight
 		return
@@ -190,7 +197,9 @@ func (bs *blockSyncer) Do() {
 	// health check if blocks keep coming in
 	if bs.lastRcvdHeight == bs.currRcvdHeight {
 		bs.state = Idle
-		glog.Warning(">>>>>> No longer receiving blocks. Last received block ", bs.lastRcvdHeight)
+		logger.Warn().
+			Uint64("last_received_block", bs.lastRcvdHeight).
+			Msg("No longer receiving blocks.")
 	}
 	bs.lastRcvdHeight = bs.currRcvdHeight
 }
@@ -221,7 +230,8 @@ func (bs *blockSyncer) processFirstBlock() error {
 		return err
 	}
 	if bs.syncHeight = height; bs.currRcvdHeight > bs.syncHeight+1 {
-		glog.Warningf(
+		//TODO make it structured logging
+		logger.Warn().Msgf(
 			"++++++ [%s] Send first start = %d end = %d to %s",
 			bs.p2p.PRC.Addr,
 			bs.syncHeight+1,
@@ -269,7 +279,8 @@ func (bs *blockSyncer) ProcessBlock(blk *bc.Block) error {
 			return err
 		}
 		bs.state = Active
-		glog.Warningf("====== receive tip block %d", bs.currRcvdHeight)
+		//TODO make it structured logging
+		logger.Warn().Msgf("====== receive tip block %d", bs.currRcvdHeight)
 	}
 
 	if bs.state == Idle || bs.state == Init {
@@ -282,7 +293,8 @@ func (bs *blockSyncer) ProcessBlock(blk *bc.Block) error {
 	if bs.state == Active && bs.sw.State == Open {
 		// when window is open we are still WIP to sync old blocks, so simply drop incoming blocks
 		bs.dropHeight = bs.currRcvdHeight
-		glog.Warningf("****** [%s] drop block %d", bs.p2p.PRC.Addr, bs.currRcvdHeight)
+		//TODO make it structured logging
+		logger.Warn().Msgf("****** [%s] drop block %d", bs.p2p.PRC.Addr, bs.currRcvdHeight)
 		bs.mu.Unlock()
 		return nil
 	}
@@ -290,7 +302,7 @@ func (bs *blockSyncer) ProcessBlock(blk *bc.Block) error {
 
 	// check-in incoming block to the buffer
 	if err := bs.checkBlockIntoBuffer(blk); err != nil {
-		glog.Warning(err)
+		logger.Error().Err(err).Msg("")
 		return nil
 	}
 
@@ -310,7 +322,8 @@ func (bs *blockSyncer) ProcessBlockSync(blk *bc.Block) error {
 		return err
 	}
 	if blk.Height() <= height {
-		glog.Warningf(
+		//TODO make it structured logging
+		logger.Warn().Msgf(
 			"****** [%s] Received block height %d <= Blockchain tip height %d",
 			bs.p2p.PRC.Addr,
 			blk.Height(),
@@ -333,7 +346,11 @@ func (bs *blockSyncer) checkBlockIntoBuffer(blk *bc.Block) error {
 	}
 	bs.rcvdBlocks[height] = blk
 
-	glog.Warningf("------ [%s] receive block %d in %v", bs.p2p.PRC.Addr, height, time.Since(bs.actionTime))
+	logger.Warn().
+		Str("addr", bs.p2p.PRC.Addr).
+		Uint64("block", height).
+		Dur("interval", time.Since(bs.actionTime)).
+		Msg("received block")
 	bs.actionTime = time.Now()
 	return nil
 }
@@ -354,7 +371,8 @@ func (bs *blockSyncer) commitBlocksInBuffer() error {
 		// remove transactions in this block from TxPool
 		bs.tp.RemoveTxInBlock(blk)
 
-		glog.Warningf("------ commit block %d time = %v\n\n", next, time.Since(bs.actionTime))
+		//TODO make it structured logging
+		logger.Warn().Msgf("------ commit block %d time = %v\n\n", next, time.Since(bs.actionTime))
 		bs.actionTime = time.Now()
 
 		// update sliding window
