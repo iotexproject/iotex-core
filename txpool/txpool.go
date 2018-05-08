@@ -28,6 +28,8 @@ const (
 	maxOrphanTxSize            = 8192
 	enableTagIndex             = false
 	DefaultBlockPrioritySize   = 12345
+	DefaultBlockMaxSize        = 23456
+	DefaultTxMaxNumInBlock     = 350
 )
 
 // Tag for OrphanTx
@@ -90,10 +92,8 @@ type TxPool interface {
 	ProcessTx(tx *blockchain.Tx, allowOrphan bool, rateLimit bool, tag Tag) ([]*TxDesc, error)
 	// TxDescs return all the transaction descs
 	TxDescs() []*TxDesc
-	// Txs return all Transactions
-	Txs() []*blockchain.Tx
-	// RemoveTxInBlock remove all transactions in a block
-	RemoveTxInBlock(block *blockchain.Block) error
+	// SelectedTxs return all Transactions
+	RemoveTxs() []*blockchain.Tx
 	// LastTimePoolUpdated get the last time the pool got updated
 	LastTimePoolUpdated() time.Time
 }
@@ -386,7 +386,7 @@ func (tp *txPool) addTx(utxoTracker *blockchain.UtxoTracker, tx *blockchain.Tx, 
 		BlockHeight: height,
 		Fee:         fee,
 		FeePerKB:    fee * 1000 / int64(len(serialize)),
-		Priority:    float64(fee),
+		Priority:    float64(0),
 	}
 	tp.txDescs[tx.Hash()] = &desc
 	heap.Push(&tp.txDescPriorityQueue, &desc)
@@ -633,31 +633,41 @@ func (tp *txPool) TxDescs() []*TxDesc {
 	return txDescs
 }
 
-// Txs returns the list of accepted txs
-func (tp *txPool) Txs() []*blockchain.Tx {
+// Txs returns the list of txs to be committed to a block
+func (tp *txPool) RemoveTxs() []*blockchain.Tx {
 	tp.mutex.RLock()
-	tx := make([]*blockchain.Tx, len(tp.txDescs))
-	i := 0
-	for _, desc := range tp.txDescs {
-		tx[i] = desc.Tx
-		i++
+	tp.updateTxDescPriority()
+	txs := []*blockchain.Tx{}
+	curSize, curTxNum := uint32(0), uint32(0)
+	for len(tp.txDescs) > 0 {
+		tx := tp.txDescPriorityQueue[0].Tx
+		if curSize+tx.TotalSize() > DefaultBlockMaxSize || curTxNum+1 > DefaultTxMaxNumInBlock {
+			break
+		}
+		curSize += tx.TotalSize()
+		curTxNum += 1
+		txs = append(txs, tx)
+		tp.removeTx(tx, true)
 	}
 	tp.mutex.RUnlock()
 
-	return tx
-}
-
-// RemoveTxInBlock removes the transaction in the block from pool
-func (tp *txPool) RemoveTxInBlock(block *blockchain.Block) error {
-	tp.mutex.Lock()
-	for _, tx := range block.Tranxs {
-		tp.removeTx(tx, true)
-	}
-	tp.mutex.Unlock()
-	return nil
+	return txs
 }
 
 // LastTimePoolUpdated The last unix time the pool get updated
 func (tp *txPool) LastTimePoolUpdated() time.Time {
 	return time.Unix(atomic.LoadInt64(&tp.lastUpdatedUnixTime), 0)
+}
+
+func (tp *txPool) updateTxDescPriority() {
+	tp.setLastUpdateUnixTime()
+	for idx, txDesc := range tp.txDescPriorityQueue {
+		txSize := txDesc.Tx.TotalSize()
+		amount := float64(0)
+		for _, txOut := range txDesc.Tx.TxOut {
+			amount += float64(txOut.Value)
+		}
+		txDesc.Priority = (float64(tp.lastUpdatedUnixTime-int64(txDesc.AddedTime.Nanosecond())) * amount) / float64(txSize)
+		heap.Fix(&tp.txDescPriorityQueue, idx)
+	}
 }
