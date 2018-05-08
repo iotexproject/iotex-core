@@ -351,6 +351,9 @@ func (bs *blockSyncer) commitBlocksInBuffer() error {
 		}
 		delete(bs.rcvdBlocks, next)
 
+		// remove transactions in this block from TxPool
+		bs.tp.RemoveTxInBlock(blk)
+
 		glog.Warningf("------ commit block %d time = %v\n\n", next, time.Since(bs.actionTime))
 		bs.actionTime = time.Now()
 

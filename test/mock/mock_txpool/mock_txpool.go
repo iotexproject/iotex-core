@@ -83,13 +83,13 @@ func (mr *MockTxPoolMockRecorder) HasTxOrOrphanTx(hash interface{}) *gomock.Call
 }
 
 // RemoveTx mocks base method
-func (m *MockTxPool) RemoveTx(tx *blockchain.Tx, removeDescendants bool) {
-	m.ctrl.Call(m, "RemoveTx", tx, removeDescendants)
+func (m *MockTxPool) RemoveTx(tx *blockchain.Tx, removeDescendants, updateTxDescPriorityQueue bool) {
+	m.ctrl.Call(m, "RemoveTx", tx, removeDescendants, updateTxDescPriorityQueue)
 }
 
 // RemoveTx indicates an expected call of RemoveTx
-func (mr *MockTxPoolMockRecorder) RemoveTx(tx, removeDescendants interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveTx", reflect.TypeOf((*MockTxPool)(nil).RemoveTx), tx, removeDescendants)
+func (mr *MockTxPoolMockRecorder) RemoveTx(tx, removeDescendants, updateTxDescPriorityQueue interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveTx", reflect.TypeOf((*MockTxPool)(nil).RemoveTx), tx, removeDescendants, updateTxDescPriorityQueue)
 }
 
 // RemoveDoubleSpends mocks base method
@@ -166,16 +166,28 @@ func (mr *MockTxPoolMockRecorder) TxDescs() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TxDescs", reflect.TypeOf((*MockTxPool)(nil).TxDescs))
 }
 
-// RemoveTxs mocks base method
-func (m *MockTxPool) RemoveTxs() []*blockchain.Tx {
-	ret := m.ctrl.Call(m, "RemoveTxs")
+// PickTxs mocks base method
+func (m *MockTxPool) PickTxs() []*blockchain.Tx {
+	ret := m.ctrl.Call(m, "PickTxs")
 	ret0, _ := ret[0].([]*blockchain.Tx)
 	return ret0
 }
 
-// RemoveTxs indicates an expected call of RemoveTxs
-func (mr *MockTxPoolMockRecorder) RemoveTxs() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveTxs", reflect.TypeOf((*MockTxPool)(nil).RemoveTxs))
+// PickTxs indicates an expected call of PickTxs
+func (mr *MockTxPoolMockRecorder) PickTxs() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PickTxs", reflect.TypeOf((*MockTxPool)(nil).PickTxs))
+}
+
+// RemoveTxInBlock mocks base method
+func (m *MockTxPool) RemoveTxInBlock(block *blockchain.Block) error {
+	ret := m.ctrl.Call(m, "RemoveTxInBlock", block)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RemoveTxInBlock indicates an expected call of RemoveTxInBlock
+func (mr *MockTxPoolMockRecorder) RemoveTxInBlock(block interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveTxInBlock", reflect.TypeOf((*MockTxPool)(nil).RemoveTxInBlock), block)
 }
 
 // LastTimePoolUpdated mocks base method

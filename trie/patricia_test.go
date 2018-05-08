@@ -5,7 +5,7 @@ import (
 	"encoding/hex"
 	"testing"
 
-	"github.com/iotexproject/iotex-core-internal/common"
+	"github.com/iotexproject/iotex-core/common"
 	"github.com/stretchr/testify/assert"
 )
 
