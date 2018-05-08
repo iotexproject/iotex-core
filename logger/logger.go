@@ -15,7 +15,7 @@ import (
 )
 
 // Logger is the global logger.
-// TODO: if prod, remove consolewriter to make it plain json only which is more efficient
+// TODO: if prod, remove consolewriter to make the logger only logs plain json, which is more efficient.
 var Logger = zerolog.New(os.Stderr).With().Timestamp().Logger().Output(zerolog.ConsoleWriter{Out: os.Stderr})
 
 // Output duplicates the global logger and sets w as its output.
