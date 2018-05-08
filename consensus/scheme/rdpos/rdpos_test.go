@@ -43,7 +43,7 @@ func createTestRDPoS(ctrl *gomock.Controller, self net.Addr, delegates []net.Add
 
 	tp := txpool.New(bc)
 	createblockCB := func() (*blockchain.Block, error) {
-		blk, err := bc.MintNewBlock(tp.RemoveTxs(), iotxaddress.Address{}, "")
+		blk, err := bc.MintNewBlock(tp.PickTxs(), iotxaddress.Address{}, "")
 		if err != nil {
 			glog.Errorf("Failed to mint a new block")
 			return nil, err

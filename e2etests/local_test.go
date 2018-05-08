@@ -116,7 +116,7 @@ func TestLocalCommit(t *testing.T) {
 	p1.Broadcast(tx.ConvertToTxPb())
 	time.Sleep(time.Second)
 
-	blk1, err := bc.MintNewBlock(tp.RemoveTxs(), ta.Addrinfo["miner"], "")
+	blk1, err := bc.MintNewBlock(tp.PickTxs(), ta.Addrinfo["miner"], "")
 	assert.Nil(err)
 	hash1 := blk1.HashBlock()
 

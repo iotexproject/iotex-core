@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotexproject/iotex-core-internal/db"
+	"github.com/iotexproject/iotex-core/db"
 )
 
 func TestEmptyTrie(t *testing.T) {

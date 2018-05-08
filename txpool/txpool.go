@@ -32,6 +32,8 @@ const (
 	DefaultTxMaxNumInBlock     = 350
 )
 
+var PqDeletionWL map[common.Hash32B]*TxDesc
+
 // Tag for OrphanTx
 type Tag uint64
 
@@ -79,7 +81,7 @@ type TxPool interface {
 	// HasTxOrOrphanTx check whether hash is an accepted or orphan transaction in the pool
 	HasTxOrOrphanTx(hash common.Hash32B) bool
 	// RemoveTx remove an accepted transaction
-	RemoveTx(tx *blockchain.Tx, removeDescendants bool)
+	RemoveTx(tx *blockchain.Tx, removeDescendants bool, updateTxDescPriorityQueue bool)
 	// RemoveDoubleSpends remove the double spending transaction
 	RemoveDoubleSpends(tx *blockchain.Tx)
 	// FetchTx fetch accepted transaction from the pool
@@ -92,8 +94,10 @@ type TxPool interface {
 	ProcessTx(tx *blockchain.Tx, allowOrphan bool, rateLimit bool, tag Tag) ([]*TxDesc, error)
 	// TxDescs return all the transaction descs
 	TxDescs() []*TxDesc
-	// SelectedTxs return all Transactions
-	RemoveTxs() []*blockchain.Tx
+	// PickTxs return transactions to be committed to a block
+	PickTxs() []*blockchain.Tx
+	// RemoveTxInBlock remove all transactions in a block
+	RemoveTxInBlock(block *blockchain.Block) error
 	// LastTimePoolUpdated get the last time the pool got updated
 	LastTimePoolUpdated() time.Time
 }
@@ -327,14 +331,14 @@ func (tp *txPool) setLastUpdateUnixTime() {
 	atomic.StoreInt64(&tp.lastUpdatedUnixTime, time.Now().Unix())
 }
 
-func (tp *txPool) removeTx(tx *blockchain.Tx, removeDescendants bool) {
+func (tp *txPool) removeTx(tx *blockchain.Tx, removeDescendants bool, updateTxDescPriorityQueue bool) {
 	hash := tx.Hash()
 	if removeDescendants {
 		txSourcePointer := TxSourcePointer{Hash: hash}
 		for index := int32(0); index < int32(len(tx.TxOut)); index++ {
 			txSourcePointer.Index = index
 			if tx, ok := tp.txSourcePointers[txSourcePointer]; ok {
-				tp.removeTx(tx, true)
+				tp.removeTx(tx, true, updateTxDescPriorityQueue)
 			}
 		}
 	}
@@ -347,16 +351,18 @@ func (tp *txPool) removeTx(tx *blockchain.Tx, removeDescendants bool) {
 		delete(tp.txSourcePointers, NewTxSourcePointer(txIn))
 	}
 
-	// Use the heap built-in Remove() to remove TxDesc pointer from txDescPriorityQueue
-	heap.Remove(&tp.txDescPriorityQueue, desc.idx)
 	delete(tp.txDescs, hash)
 	tp.setLastUpdateUnixTime()
+	if updateTxDescPriorityQueue {
+		// Use the heap built-in Remove() to remove TxDesc pointer from txDescPriorityQueue
+		heap.Remove(&tp.txDescPriorityQueue, desc.idx)
+	}
 }
 
 // RemoveTx removes tx from the pool
-func (tp *txPool) RemoveTx(tx *blockchain.Tx, removeDescendants bool) {
+func (tp *txPool) RemoveTx(tx *blockchain.Tx, removeDescendants bool, updateTxDescPriorityQueue bool) {
 	tp.mutex.Lock()
-	tp.removeTx(tx, removeDescendants)
+	tp.removeTx(tx, removeDescendants, updateTxDescPriorityQueue)
 	tp.mutex.Unlock()
 }
 
@@ -368,7 +374,7 @@ func (tp *txPool) RemoveDoubleSpends(tx *blockchain.Tx) {
 		txSourcePointer := NewTxSourcePointer(txIn)
 		if txDescendant, ok := tp.txSourcePointers[txSourcePointer]; ok {
 			if txDescendant.Hash() != hash {
-				tp.removeTx(txDescendant, true)
+				tp.removeTx(txDescendant, true, true)
 			}
 		}
 	}
@@ -633,13 +639,14 @@ func (tp *txPool) TxDescs() []*TxDesc {
 	return txDescs
 }
 
-// Txs returns the list of txs to be committed to a block
-func (tp *txPool) RemoveTxs() []*blockchain.Tx {
+// PickTxs returns the list of txs to be committed to a block
+func (tp *txPool) PickTxs() []*blockchain.Tx {
 	tp.mutex.RLock()
 	tp.updateTxDescPriority()
+	PqDeletionWL = map[common.Hash32B]*TxDesc{}
 	txs := []*blockchain.Tx{}
 	curSize, curTxNum := uint32(0), uint32(0)
-	for len(tp.txDescs) > 0 {
+	for len(tp.txDescPriorityQueue) > 0 {
 		tx := tp.txDescPriorityQueue[0].Tx
 		if curSize+tx.TotalSize() > DefaultBlockMaxSize || curTxNum+1 > DefaultTxMaxNumInBlock {
 			break
@@ -647,11 +654,26 @@ func (tp *txPool) RemoveTxs() []*blockchain.Tx {
 		curSize += tx.TotalSize()
 		curTxNum += 1
 		txs = append(txs, tx)
-		tp.removeTx(tx, true)
+
+		PqDeletionWL[tx.Hash()] = heap.Pop(&tp.txDescPriorityQueue).(*TxDesc)
 	}
 	tp.mutex.RUnlock()
 
 	return txs
+}
+
+// RemoveTxInBlock removes the transaction in the block from pool
+func (tp *txPool) RemoveTxInBlock(block *blockchain.Block) error {
+	tp.mutex.Lock()
+	for _, tx := range block.Tranxs {
+		tp.removeTx(tx, true, false)
+		delete(PqDeletionWL, tx.Hash())
+	}
+	for _, txDesc := range PqDeletionWL {
+		heap.Push(&tp.txDescPriorityQueue, txDesc)
+	}
+	tp.mutex.Unlock()
+	return nil
 }
 
 // LastTimePoolUpdated The last unix time the pool get updated
@@ -659,6 +681,7 @@ func (tp *txPool) LastTimePoolUpdated() time.Time {
 	return time.Unix(atomic.LoadInt64(&tp.lastUpdatedUnixTime), 0)
 }
 
+// Dynamically update the priority of each TxDesc in TxDescPriorityQueue
 func (tp *txPool) updateTxDescPriority() {
 	tp.setLastUpdateUnixTime()
 	for idx, txDesc := range tp.txDescPriorityQueue {
