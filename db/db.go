@@ -22,6 +22,8 @@ type KVStore interface {
 	PutIfNotExists(string, []byte, []byte) error
 	// Get gets a record by (namespace, key)
 	Get(string, []byte) ([]byte, error)
+	// Delete deletes a record by (namespace, key)
+	Delete(string, []byte) error
 }
 
 const (
@@ -58,6 +60,10 @@ func (m *memKVStore) Get(namespace string, key []byte) ([]byte, error) {
 		return value.([]byte), nil
 	}
 	return nil, nil
+}
+
+func (m *memKVStore) Delete(namespace string, key []byte) error {
+	return nil
 }
 
 const (
@@ -127,4 +133,8 @@ func (b *boltDB) Get(namespace string, key []byte) ([]byte, error) {
 		return nil, err
 	}
 	return value, nil
+}
+
+func (b *boltDB) Delete(namespace string, key []byte) error {
+	return nil
 }
