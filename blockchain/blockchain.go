@@ -256,7 +256,7 @@ func (bc *blockchain) AddBlockSync(blk *Block) error {
 }
 
 // CreateBlockchain creates a new blockchain and DB instance
-func CreateBlockchain(address string, cfg *config.Config, gen *Genesis) Blockchain {
+func CreateBlockchain(cfg *config.Config, gen *Genesis) Blockchain {
 	dao := newBlockDAO(db.NewBoltDB(cfg.Chain.ChainDBPath, nil))
 
 	chain := NewBlockchain(dao, cfg, gen)

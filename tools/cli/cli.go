@@ -78,7 +78,7 @@ func (cli *CLI) Run() {
 		if *createChainAddress == "" {
 			os.Exit(1)
 		}
-		cli.bc = blockchain.CreateBlockchain(*createChainAddress, config, blockchain.Gen)
+		cli.bc = blockchain.CreateBlockchain(config, blockchain.Gen)
 		defer cli.bc.Stop()
 	}
 	if getBalanceCmd.Parsed() {

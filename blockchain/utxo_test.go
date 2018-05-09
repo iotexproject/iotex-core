@@ -24,8 +24,7 @@ func TestUTXO(t *testing.T) {
 	totalSupply := uint64(100000000)
 	Gen.TotalSupply = totalSupply
 	Gen.BlockReward = uint64(0)
-	bc := CreateBlockchain(ta.Addrinfo["miner"].RawAddress,
-		&config.Config{Chain: config.Chain{ChainDBPath: testDBPath}}, Gen)
+	bc := CreateBlockchain(&config.Config{Chain: config.Chain{ChainDBPath: testDBPath}}, Gen)
 	assert.NotNil(t, bc)
 	fmt.Println("Create blockchain pass")
 

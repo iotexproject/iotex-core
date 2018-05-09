@@ -113,7 +113,7 @@ func TestCreateBlockchain(t *testing.T) {
 	Gen.BlockReward = uint64(0)
 
 	// create chain
-	bc := CreateBlockchain(ta.Addrinfo["miner"].RawAddress, config, Gen)
+	bc := CreateBlockchain(config, Gen)
 	assert.NotNil(bc)
 	height, err := bc.TipHeight()
 	assert.Nil(err)
@@ -164,7 +164,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	// Disable block reward to make bookkeeping easier
 	Gen.BlockReward = uint64(0)
 	// Create a blockchain from scratch
-	bc := CreateBlockchain(ta.Addrinfo["miner"].RawAddress, config, Gen)
+	bc := CreateBlockchain(config, Gen)
 	assert.NotNil(bc)
 	height, err := bc.TipHeight()
 	assert.Nil(err)
@@ -173,7 +173,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	bc.Stop()
 
 	// Load a blockchain from DB
-	bc = CreateBlockchain(ta.Addrinfo["miner"].RawAddress, config, Gen)
+	bc = CreateBlockchain(config, Gen)
 	defer bc.Stop()
 	assert.NotNil(bc)
 
@@ -276,7 +276,7 @@ func TestEmptyBlockOnlyHasCoinbaseTx(t *testing.T) {
 	config.Chain.ChainDBPath = testDBPath
 	Gen.BlockReward = uint64(7777)
 
-	bc := CreateBlockchain(ta.Addrinfo["miner"].RawAddress, config, Gen)
+	bc := CreateBlockchain(config, Gen)
 	defer bc.Stop()
 	assert.NotNil(t, bc)
 
