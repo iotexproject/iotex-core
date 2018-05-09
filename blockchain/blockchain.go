@@ -8,7 +8,9 @@ package blockchain
 
 import (
 	"math"
+	"math/big"
 	"sort"
+	"sync"
 
 	"github.com/golang/glog"
 	"github.com/pkg/errors"
@@ -20,7 +22,6 @@ import (
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/txvm"
-	"math/big"
 )
 
 const (
@@ -74,11 +75,14 @@ type Blockchain interface {
 // blockchain implements the Blockchain interface
 type blockchain struct {
 	service.CompositeService
-	dao     *blockDAO
-	config  *config.Config
-	genesis *Genesis
-	chainID uint32
-	Utk     *UtxoTracker // tracks the current UTXO pool
+	mu        sync.RWMutex
+	dao       *blockDAO
+	config    *config.Config
+	genesis   *Genesis
+	Utk       *UtxoTracker // tracks the current UTXO pool
+	chainID   uint32
+	tipHeight uint64
+	tipHash   common.Hash32B
 }
 
 // NewBlockchain creates a new blockchain instance
@@ -94,17 +98,25 @@ func NewBlockchain(dao *blockDAO, cfg *config.Config, gen *Genesis) Blockchain {
 
 // Start starts the blockchain
 func (bc *blockchain) Start() error {
-	if err := bc.CompositeService.Start(); err != nil {
-		return err
-	}
-
-	// build UTXO pool
-	// Genesis block has height 0
-	height, err := bc.TipHeight()
+	err := bc.CompositeService.Start()
 	if err != nil {
 		return err
 	}
-	for i := uint64(0); i <= height; i++ {
+	// get blockchain tip height
+	bc.mu.Lock()
+	if bc.tipHeight, err = bc.dao.getBlockchainHeight(); err != nil {
+		bc.mu.Unlock()
+		return err
+	}
+	// get blockchain tip hash
+	if bc.tipHash, err = bc.dao.getBlockHash(bc.tipHeight); err != nil {
+		bc.mu.Unlock()
+		return err
+	}
+	bc.mu.Unlock()
+	// build UTXO pool
+	// Genesis block has height 0
+	for i := uint64(0); i <= bc.tipHeight; i++ {
 		blk, err := bc.GetBlockByHeight(i)
 		if err != nil {
 			return err
@@ -117,22 +129,18 @@ func (bc *blockchain) Start() error {
 }
 
 // commitBlock commits Block to Db
-func (bc *blockchain) commitBlock(blk *Block) (err error) {
-	// post-commit actions
-	defer func() {
-		// update tip hash and height
-		if r := recover(); r != nil {
-			return
-		}
-
-		// update UTXO pool
-		bc.Utk.UpdateUtxoPool(blk)
-	}()
-
-	if err = bc.dao.putBlock(blk); err != nil {
-		panic(err)
+func (bc *blockchain) commitBlock(blk *Block) error {
+	if err := bc.dao.putBlock(blk); err != nil {
+		return err
 	}
-	return
+	// update tip hash and height
+	bc.mu.Lock()
+	bc.tipHeight = blk.Header.height
+	bc.tipHash = blk.HashBlock()
+	bc.mu.Unlock()
+	// update UTXO pool
+	bc.Utk.UpdateUtxoPool(blk)
+	return nil
 }
 
 // GetHeightByHash returns block's height by hash
@@ -161,16 +169,16 @@ func (bc *blockchain) GetBlockByHash(hash common.Hash32B) (*Block, error) {
 
 // TipHash returns tip block's hash
 func (bc *blockchain) TipHash() (common.Hash32B, error) {
-	height, err := bc.TipHeight()
-	if err != nil {
-		return common.ZeroHash32B, err
-	}
-	return bc.dao.getBlockHash(height)
+	bc.mu.RLock()
+	defer bc.mu.RUnlock()
+	return bc.tipHash, nil
 }
 
 // TipHeight returns tip block's height
 func (bc *blockchain) TipHeight() (uint64, error) {
-	return bc.dao.getBlockchainHeight()
+	bc.mu.RLock()
+	defer bc.mu.RUnlock()
+	return bc.tipHeight, nil
 }
 
 // Reset reset for next block
@@ -184,32 +192,27 @@ func (bc *blockchain) ValidateBlock(blk *Block) error {
 		return errors.Wrap(ErrInvalidBlock, "Block is nil")
 	}
 
+	bc.mu.RLock()
 	// verify new block has height incremented by 1
-	height, err := bc.TipHeight()
-	if err != nil {
-		return err
-	}
-	if blk.Header.height != 0 && blk.Header.height != height+1 {
+	if blk.Header.height != 0 && blk.Header.height != bc.tipHeight+1 {
+		bc.mu.RUnlock()
 		return errors.Wrapf(
 			ErrInvalidBlock,
 			"Wrong block height %d, expecting %d",
 			blk.Header.height,
-			height+1)
+			bc.tipHeight+1)
 	}
 
 	// verify new block has correctly linked to current tip
-	hash, err := bc.TipHash()
-	if err != nil {
-		return err
-	}
-	if blk.Header.prevBlockHash != hash {
+	if blk.Header.prevBlockHash != bc.tipHash {
+		bc.mu.RUnlock()
 		return errors.Wrapf(
 			ErrInvalidBlock,
 			"Wrong prev hash %x, expecting %x",
 			blk.Header.prevBlockHash,
-			hash)
+			bc.tipHash)
 	}
-
+	bc.mu.RUnlock()
 	// validate all Tx conforms to blockchain protocol
 
 	// validate UXTO contained in this Tx
@@ -228,16 +231,9 @@ func (bc *blockchain) MintNewBlock(txs []*Tx, producer iotxaddress.Address, data
 	}
 
 	txs = append(txs, cbTx)
-
-	height, err := bc.TipHeight()
-	if err != nil {
-		return nil, err
-	}
-	hash, err := bc.TipHash()
-	if err != nil {
-		return nil, err
-	}
-	blk := NewBlock(bc.chainID, height+1, hash, txs)
+	bc.mu.RLock()
+	blk := NewBlock(bc.chainID, bc.tipHeight+1, bc.tipHash, txs)
+	bc.mu.RUnlock()
 	if producer.PrivateKey == nil {
 		glog.Warning("Unsigned block...")
 		return blk, nil
