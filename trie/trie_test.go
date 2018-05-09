@@ -2,6 +2,7 @@ package trie
 
 import (
 	"container/list"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -20,28 +21,46 @@ func TestEmptyTrie(t *testing.T) {
 func TestInsert(t *testing.T) {
 	assert := assert.New(t)
 
-	tr := trie{db.NewMemKVStore(), &branch{}, list.New()}
+	tr := trie{db.NewMemKVStore(), &branch{}, list.New(), list.New(), 0}
+	root := emptyRoot
 	// query non-existing entry
 	ptr, match, err := tr.query(cat)
 	assert.NotNil(ptr)
 	assert.Equal(0, match)
 	assert.NotNil(err)
-	assert.Equal(1, tr.toRoot.Len())
-	n := tr.toRoot.Back()
-	assert.Equal(ptr, n.Value)
-	b, err := tr.Get(dog)
-	assert.NotNil(err)
+	tr.clear()
 	// insert
 	err = tr.Insert(cat, []byte("cat"))
 	assert.Nil(err)
-	assert.NotEqual(tr.RootHash(), emptyRoot)
+	newRoot := tr.RootHash()
+	assert.NotEqual(newRoot, root)
+	root = newRoot
 	// query can find it now
 	ptr, match, err = tr.query(cat)
 	assert.NotNil(ptr)
 	assert.Equal(len(cat), match)
 	assert.Nil(err)
+	tr.clear()
 	// Get returns "cat" now
-	b, err = tr.Get(cat)
+	b, err := tr.Get(cat)
 	assert.Nil(err)
 	assert.Equal([]byte("cat"), b)
+	fmt.Println("[cat] = 'cat'")
+	// this insert will split leaf node
+	err = tr.Insert(rat, []byte("rat"))
+	assert.Nil(err)
+	newRoot = tr.RootHash()
+	assert.NotEqual(newRoot, root)
+	root = newRoot
+	// query can find it now
+	ptr, match, err = tr.query(rat)
+	assert.NotNil(ptr)
+	assert.Equal(len(rat), match)
+	assert.Nil(err)
+	tr.clear()
+	// Get returns "rat" now
+	b, err = tr.Get(rat)
+	assert.Nil(err)
+	assert.Equal([]byte("rat"), b)
+	fmt.Println("[rat] = 'rat'")
 }

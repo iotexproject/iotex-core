@@ -24,6 +24,7 @@ var (
 type (
 	patricia interface {
 		descend([]byte) ([]byte, int, error)
+		ascend([]byte, byte) error
 		insert([]byte, []byte, *list.List) error
 		blob() ([]byte, error)
 		hash() common.Hash32B // hash of this node
@@ -32,7 +33,7 @@ type (
 	}
 	// key of next patricia node
 	ptrcKey []byte
-	// branch is the full node having 256 hashes for next level patricia node plus value
+	// branch is the full node having 256 hashes for next level patricia node + hash of leaf node
 	branch struct {
 		Path  [RADIX]ptrcKey
 		Value []byte
@@ -42,7 +43,7 @@ type (
 		Path  ptrcKey
 		Hashn []byte
 	}
-	// leaf is squashed path + value
+	// leaf is squashed path + actual value
 	leaf struct {
 		Path  ptrcKey
 		Value []byte
@@ -61,24 +62,31 @@ func (b *branch) descend(key []byte) ([]byte, int, error) {
 	return nil, 0, errors.Wrapf(ErrInvalidPatricia, "branch does not have path = %d", key[0])
 }
 
+// ascend updates the patricia node along the path to root
+func (b *branch) ascend(key []byte, index byte) error {
+	if b.Path[index] == nil {
+		b.Path[index] = make([]byte, common.HashSize)
+	}
+	copy(b.Path[index], key)
+	return nil
+}
+
 // insert <key, value> at current patricia node
 func (b *branch) insert(key, value []byte, stack *list.List) error {
 	node := b.Path[key[0]]
 	if len(node) > 0 {
 		errors.Wrapf(ErrInvalidPatricia, "branch already covers path = %d", key[0])
 	}
-	// create a new leaf node
+	// create a new leaf
 	l := leaf{key[1:], value}
 	stack.PushBack(&l)
-	// add to existing branch
-	hashn := l.hash()
-	b.Path[key[0]] = hashn[:]
 	return nil
 }
 
 // blob return the value stored in the node
 func (b *branch) blob() ([]byte, error) {
-	return b.Value, nil
+	// extension node stores the hash to next patricia node
+	return nil, errors.Wrap(ErrInvalidPatricia, "branch does not store value")
 }
 
 // hash return the hash of this node
@@ -98,7 +106,7 @@ func (b *branch) serialize() ([]byte, error) {
 	if err := enc.Encode(b); err != nil {
 		return nil, err
 	}
-	// first byte denotes the type of next patricia: 0-branch, 1-extension, 2-leaf
+	// first byte denotes the type of patricia: 0-branch, 1-extension, 2-leaf
 	return append([]byte{0}, stream.Bytes()...), nil
 }
 
@@ -122,10 +130,19 @@ func (e *ext) descend(key []byte) ([]byte, int, error) {
 	for e.Path[match] == key[match] {
 		match++
 		if match == len(e.Path) {
-			return e.Hashn[:], match, nil
+			return e.Hashn, match, nil
 		}
 	}
 	return nil, match, ErrPathDiverge
+}
+
+// ascend updates the patricia node along the path to root
+func (e *ext) ascend(key []byte, index byte) error {
+	if e.Hashn == nil {
+		e.Hashn = make([]byte, common.HashSize)
+	}
+	copy(e.Hashn, key)
+	return nil
 }
 
 // insert <key, value> at current patricia node
@@ -135,7 +152,7 @@ func (e *ext) insert(key, value []byte, stack *list.List) error {
 
 // blob return the value stored in the node
 func (e *ext) blob() ([]byte, error) {
-	// extension node stores the final hash to actual leaf
+	// extension node stores the hash to next patricia node
 	return nil, errors.Wrap(ErrInvalidPatricia, "extension does not store value")
 }
 
@@ -152,7 +169,7 @@ func (e *ext) serialize() ([]byte, error) {
 	if err := enc.Encode(e); err != nil {
 		return nil, err
 	}
-	// first byte denotes the type of next patricia: 0-branch, 1-extension, 2-leaf
+	// first byte denotes the type of patricia: 0-branch, 1-extension, 2-leaf
 	return append([]byte{1}, stream.Bytes()...), nil
 }
 
@@ -182,8 +199,40 @@ func (l *leaf) descend(key []byte) ([]byte, int, error) {
 	return nil, match, ErrPathDiverge
 }
 
+// ascend updates the patricia node along the path to root
+func (l *leaf) ascend(key []byte, index byte) error {
+	return errors.Wrapf(ErrInvalidPatricia, "leaf cannot be on path to root")
+}
+
 // insert <key, value> at current patricia node
 func (l *leaf) insert(key, value []byte, stack *list.List) error {
+	// get the matching length
+	match := 0
+	for l.Path[match] == key[match] {
+		match++
+	}
+	// insert() gets called b/c path does not totally match so the below should not happen, but check anyway
+	if match == len(l.Path) {
+		return errors.Wrapf(ErrInvalidPatricia, "try to split a node with matching path = %x", l.Path)
+	}
+	// add 2 leaf, l1 is current node, l2 for new <key, value>
+	l1 := leaf{l.Path[match+1:], l.Value}
+	hashl1 := l1.hash()
+	l2 := leaf{key[match+1:], value}
+	hashl2 := l2.hash()
+	// add 1 branch to link 2 new leaf
+	b := branch{}
+	b.Path[l.Path[match]] = hashl1[:]
+	b.Path[key[match]] = hashl2[:]
+	// if there's matching part, add 1 ext leading to new branch
+	if match > 0 {
+		hashb := b.hash()
+		e := ext{key[:match], hashb[:]}
+		stack.PushBack(&e)
+	}
+	stack.PushBack(&b)
+	stack.PushBack(&l1)
+	stack.PushBack(&l2)
 	return nil
 }
 
@@ -205,7 +254,7 @@ func (l *leaf) serialize() ([]byte, error) {
 	if err := enc.Encode(l); err != nil {
 		return nil, err
 	}
-	// first byte denotes the type of next patricia: 0-branch, 1-extension, 2-leaf
+	// first byte denotes the type of patricia: 0-branch, 1-extension, 2-leaf
 	return append([]byte{2}, stream.Bytes()...), nil
 }
 
