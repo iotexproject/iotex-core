@@ -19,7 +19,6 @@ import (
 	"github.com/iotexproject/iotex-core/delegate"
 	"github.com/iotexproject/iotex-core/dispatcher"
 	"github.com/iotexproject/iotex-core/network"
-	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/txpool"
 )
 
@@ -36,7 +35,7 @@ type Server struct {
 // NewServer creates a new server
 func NewServer(cfg config.Config) Server {
 	// create Blockchain and TxPool
-	bc := blockchain.CreateBlockchain(ta.Addrinfo["miner"].RawAddress, &cfg, blockchain.Gen)
+	bc := blockchain.CreateBlockchain(&cfg, blockchain.Gen)
 	tp := txpool.New(bc)
 
 	// create P2P network and BlockSync
