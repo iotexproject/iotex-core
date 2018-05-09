@@ -42,7 +42,7 @@ func TestTxPool(t *testing.T) {
 	Gen.BlockReward = uint64(0)
 
 	// Create a blockchain from scratch
-	// bc := CreateBlockchain(Addrinfo["miner"].Address, &config.Config{Chain: config.Chain{ChainDBPath: testDBPath}})
+	// bc := CreateBlockchain(&config.Config{Chain: config.Chain{ChainDBPath: testDBPath}})
 	bc := CreateBlockchain(config, Gen)
 	//ctrl := gomock.NewController(t)
 	//defer ctrl.Finish()
