@@ -75,11 +75,11 @@ type Blockchain interface {
 // blockchain implements the Blockchain interface
 type blockchain struct {
 	service.CompositeService
-	mu        sync.RWMutex
+	mu        sync.RWMutex // mutex to protect utk, tipHeight and tipHash
 	dao       *blockDAO
 	config    *config.Config
 	genesis   *Genesis
-	Utk       *UtxoTracker // tracks the current UTXO pool
+	utk       *UtxoTracker // tracks the current UTXO pool
 	chainID   uint32
 	tipHeight uint64
 	tipHash   common.Hash32B
@@ -91,29 +91,26 @@ func NewBlockchain(dao *blockDAO, cfg *config.Config, gen *Genesis) Blockchain {
 		dao:     dao,
 		config:  cfg,
 		genesis: gen,
-		Utk:     NewUtxoTracker()}
+		utk:     NewUtxoTracker()}
 	chain.AddService(dao)
 	return chain
 }
 
 // Start starts the blockchain
-func (bc *blockchain) Start() error {
-	err := bc.CompositeService.Start()
-	if err != nil {
+func (bc *blockchain) Start() (err error) {
+	if err = bc.CompositeService.Start(); err != nil {
 		return err
 	}
 	// get blockchain tip height
 	bc.mu.Lock()
+	defer bc.mu.Unlock()
 	if bc.tipHeight, err = bc.dao.getBlockchainHeight(); err != nil {
-		bc.mu.Unlock()
 		return err
 	}
 	// get blockchain tip hash
 	if bc.tipHash, err = bc.dao.getBlockHash(bc.tipHeight); err != nil {
-		bc.mu.Unlock()
 		return err
 	}
-	bc.mu.Unlock()
 	// build UTXO pool
 	// Genesis block has height 0
 	for i := uint64(0); i <= bc.tipHeight; i++ {
@@ -122,24 +119,24 @@ func (bc *blockchain) Start() error {
 			return err
 		}
 		if blk != nil {
-			bc.Utk.UpdateUtxoPool(blk)
+			bc.utk.UpdateUtxoPool(blk)
 		}
 	}
 	return nil
 }
 
-// commitBlock commits Block to Db
+// commitBlock commits Block to D
 func (bc *blockchain) commitBlock(blk *Block) error {
 	if err := bc.dao.putBlock(blk); err != nil {
 		return err
 	}
 	// update tip hash and height
 	bc.mu.Lock()
+	defer bc.mu.Unlock()
 	bc.tipHeight = blk.Header.height
 	bc.tipHash = blk.HashBlock()
-	bc.mu.Unlock()
 	// update UTXO pool
-	bc.Utk.UpdateUtxoPool(blk)
+	bc.utk.UpdateUtxoPool(blk)
 	return nil
 }
 
@@ -183,7 +180,7 @@ func (bc *blockchain) TipHeight() (uint64, error) {
 
 // Reset reset for next block
 func (bc *blockchain) Reset() {
-	bc.Utk.Reset()
+	bc.utk.Reset()
 }
 
 // ValidateBlock validates a new block before adding it to the blockchain
@@ -193,30 +190,27 @@ func (bc *blockchain) ValidateBlock(blk *Block) error {
 	}
 
 	bc.mu.RLock()
+	defer bc.mu.RUnlock()
 	// verify new block has height incremented by 1
 	if blk.Header.height != 0 && blk.Header.height != bc.tipHeight+1 {
-		bc.mu.RUnlock()
 		return errors.Wrapf(
 			ErrInvalidBlock,
 			"Wrong block height %d, expecting %d",
 			blk.Header.height,
 			bc.tipHeight+1)
 	}
-
 	// verify new block has correctly linked to current tip
 	if blk.Header.prevBlockHash != bc.tipHash {
-		bc.mu.RUnlock()
 		return errors.Wrapf(
 			ErrInvalidBlock,
 			"Wrong prev hash %x, expecting %x",
 			blk.Header.prevBlockHash,
 			bc.tipHash)
 	}
-	bc.mu.RUnlock()
 	// validate all Tx conforms to blockchain protocol
 
 	// validate UXTO contained in this Tx
-	return bc.Utk.ValidateUtxo(blk)
+	return bc.utk.ValidateUtxo(blk)
 }
 
 // MintNewBlock creates a new block with given transactions.
@@ -307,18 +301,18 @@ func CreateBlockchain(address string, cfg *config.Config, gen *Genesis) Blockcha
 
 // BalanceOf returns the balance of an address
 func (bc *blockchain) BalanceOf(address string) *big.Int {
-	_, balance := bc.Utk.UtxoEntries(address, math.MaxUint64)
+	_, balance := bc.utk.UtxoEntries(address, math.MaxUint64)
 	return balance
 }
 
 // UtxoPool returns the UTXO pool of current blockchain
 func (bc *blockchain) UtxoPool() map[common.Hash32B][]*TxOutput {
-	return bc.Utk.utxoPool
+	return bc.utk.utxoPool
 }
 
 // createTx creates a transaction paying 'amount' from 'from' to 'to'
 func (bc *blockchain) createTx(from iotxaddress.Address, amount uint64, to []*Payee, isRaw bool) *Tx {
-	utxo, change := bc.Utk.UtxoEntries(from.RawAddress, amount)
+	utxo, change := bc.utk.UtxoEntries(from.RawAddress, amount)
 	if utxo == nil {
 		glog.Errorf("Fail to get UTXO for %v", from.RawAddress)
 		return nil
@@ -335,15 +329,15 @@ func (bc *blockchain) createTx(from iotxaddress.Address, amount uint64, to []*Pa
 			}
 		}
 
-		in = append(in, bc.Utk.CreateTxInputUtxo(out.txHash, out.outIndex, unlock))
+		in = append(in, bc.utk.CreateTxInputUtxo(out.txHash, out.outIndex, unlock))
 	}
 
 	out := []*TxOutput{}
 	for _, payee := range to {
-		out = append(out, bc.Utk.CreateTxOutputUtxo(payee.Address, payee.Amount))
+		out = append(out, bc.utk.CreateTxOutputUtxo(payee.Address, payee.Amount))
 	}
 	if change.Sign() == 1 {
-		out = append(out, bc.Utk.CreateTxOutputUtxo(from.RawAddress, change.Uint64()))
+		out = append(out, bc.utk.CreateTxOutputUtxo(from.RawAddress, change.Uint64()))
 	}
 
 	// Sort TxInput in lexicographical order based on TxHash + OutIndex

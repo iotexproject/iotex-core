@@ -62,7 +62,7 @@ func TestUTXO(t *testing.T) {
 
 	beta = bc.BalanceOf(ta.Addrinfo["miner"].RawAddress)
 	fmt.Printf("test balance = %d\n", beta)
-	utxo, _ := bc.(*blockchain).Utk.UtxoEntries(ta.Addrinfo["miner"].RawAddress, beta.Uint64())
+	utxo, _ := bc.(*blockchain).utk.UtxoEntries(ta.Addrinfo["miner"].RawAddress, beta.Uint64())
 	assert.NotNil(t, utxo)
 	total.Add(total, beta)
 
