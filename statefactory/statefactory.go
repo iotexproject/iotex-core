@@ -77,15 +77,18 @@ func (sf *StateFactory) AddState(addr *iotxaddress.Address) *State {
 }
 
 // Balance returns balance.
-func (sf *StateFactory) Balance(addr *iotxaddress.Address) *big.Int {
+func (sf *StateFactory) Balance(addr *iotxaddress.Address) (*big.Int, error) {
 	key := iotxaddress.HashPubKey(addr.PublicKey)
 	state, err := sf.trie.Get(key)
 	if err != nil {
 		panic(err)
 	}
+	if state == nil {
+		return nil, ErrAccountNotExist
+	}
 
 	s := bytesToState(state)
-	return &s.Balance
+	return &s.Balance, nil
 }
 
 // SubBalance minuses balance to the given address
@@ -94,6 +97,9 @@ func (sf *StateFactory) SubBalance(addr *iotxaddress.Address, amount *big.Int) e
 	state, err := sf.trie.Get(key)
 	if err != nil {
 		panic(err)
+	}
+	if state == nil {
+		return ErrAccountNotExist
 	}
 
 	s := bytesToState(state)
@@ -112,14 +118,11 @@ func (sf *StateFactory) AddBalance(addr *iotxaddress.Address, amount *big.Int) e
 	if err != nil {
 		panic(err)
 	}
-
-	var state *State
 	if len(ss) == 0 {
-		state = sf.AddState(addr)
-	} else {
-		state = bytesToState(ss)
+		return ErrAccountNotExist
 	}
 
+	state := bytesToState(ss)
 	state.Balance.Add(&state.Balance, amount)
 	sf.trie.Update(key, stateToBytes(state))
 	return nil
@@ -132,7 +135,6 @@ func (sf *StateFactory) Nonce(addr *iotxaddress.Address) (uint64, error) {
 	if err != nil {
 		panic(err)
 	}
-
 	if state == nil {
 		return 0, ErrAccountNotExist
 	}
@@ -147,6 +149,9 @@ func (sf *StateFactory) SetNonce(addr iotxaddress.Address, value uint64) error {
 	state, err := sf.trie.Get(key)
 	if err != nil {
 		panic(err)
+	}
+	if state == nil {
+		return ErrAccountNotExist
 	}
 
 	s := bytesToState(state)
@@ -167,7 +172,7 @@ type VritualStateFactory struct {
 	mu      sync.Mutex
 }
 
-// SetStateFactory sets the backing layer
+// SetStateFactory sets the backing map
 func (vs *VritualStateFactory) SetStateFactory(sf *StateFactory) {
 	vs.mu.Lock()
 	defer vs.mu.Unlock()
