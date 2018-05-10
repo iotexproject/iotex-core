@@ -24,8 +24,10 @@ var (
 type (
 	patricia interface {
 		descend([]byte) ([]byte, int, error)
-		ascend([]byte, byte) error
+		ascend([]byte, byte) bool
 		insert([]byte, []byte, *list.List) error
+		increase([]byte) (int, int, int)
+		collapse(byte, bool) ([]byte, []byte, bool)
 		blob() ([]byte, error)
 		hash() common.Hash32B // hash of this node
 		serialize() ([]byte, error)
@@ -62,25 +64,56 @@ func (b *branch) descend(key []byte) ([]byte, int, error) {
 	return nil, 0, errors.Wrapf(ErrInvalidPatricia, "branch does not have path = %d", key[0])
 }
 
-// ascend updates the patricia node along the path to root
-func (b *branch) ascend(key []byte, index byte) error {
+// ascend updates the key and returns whether the current node hash to be updated or not
+func (b *branch) ascend(key []byte, index byte) bool {
 	if b.Path[index] == nil {
 		b.Path[index] = make([]byte, common.HashSize)
 	}
 	copy(b.Path[index], key)
-	return nil
+	return true
 }
 
 // insert <key, value> at current patricia node
 func (b *branch) insert(key, value []byte, stack *list.List) error {
 	node := b.Path[key[0]]
 	if len(node) > 0 {
-		errors.Wrapf(ErrInvalidPatricia, "branch already covers path = %d", key[0])
+		return errors.Wrapf(ErrInvalidPatricia, "branch already covers path = %d", key[0])
 	}
 	// create a new leaf
 	l := leaf{key[1:], value}
+	hashl := l.hash()
+	b.Path[key[0]] = hashl[:]
 	stack.PushBack(&l)
 	return nil
+}
+
+// increase returns the number of nodes (B, E, L) being added as a result of insert()
+func (b *branch) increase(key []byte) (int, int, int) {
+	return 0, 0, 1
+}
+
+// collapse updates the node, returns the <key, value> if the node can be collapsed
+func (b *branch) collapse(index byte, childCollapse bool) ([]byte, []byte, bool) {
+	// if child cannot collapse, no need to check and return false
+	if !childCollapse {
+		return nil, nil, false
+	}
+
+	nb := 0
+	var key, value []byte
+	for i := 0; i < RADIX && i != int(index); i++ {
+		if len(b.Path[i]) > 0 {
+			nb++
+			key = append(key, byte(i))
+			value = b.Path[i]
+		}
+	}
+	// branch can be collapsed if only 1 path remaining
+	if nb == 1 {
+		b.Path[index] = nil
+		return key, value, true
+	}
+	return nil, nil, false
 }
 
 // blob return the value stored in the node
@@ -136,18 +169,32 @@ func (e *ext) descend(key []byte) ([]byte, int, error) {
 	return nil, match, ErrPathDiverge
 }
 
-// ascend updates the patricia node along the path to root
-func (e *ext) ascend(key []byte, index byte) error {
+// ascend updates the key and returns whether the current node hash to be updated or not
+func (e *ext) ascend(key []byte, index byte) bool {
 	if e.Hashn == nil {
 		e.Hashn = make([]byte, common.HashSize)
 	}
 	copy(e.Hashn, key)
-	return nil
+	return true
 }
 
 // insert <key, value> at current patricia node
 func (e *ext) insert(key, value []byte, stack *list.List) error {
 	return nil
+}
+
+// increase returns the number of nodes (B, E, L) being added as a result of insert()
+func (e *ext) increase(key []byte) (int, int, int) {
+	return 1, 1, 1
+}
+
+// collapse updates the node, returns the <key, value> if the node can be collapsed
+func (e *ext) collapse(index byte, childCollapse bool) ([]byte, []byte, bool) {
+	// if child cannot collapse, no need to check and return false
+	if !childCollapse {
+		return nil, nil, false
+	}
+	return e.Path, e.Hashn, true
 }
 
 // blob return the value stored in the node
@@ -199,9 +246,10 @@ func (l *leaf) descend(key []byte) ([]byte, int, error) {
 	return nil, match, ErrPathDiverge
 }
 
-// ascend updates the patricia node along the path to root
-func (l *leaf) ascend(key []byte, index byte) error {
-	return errors.Wrapf(ErrInvalidPatricia, "leaf cannot be on path to root")
+// ascend updates the key and returns whether the current node hash to be updated or not
+func (l *leaf) ascend(key []byte, index byte) bool {
+	// leaf node will be replaced by newly created node, no need to update hash
+	return false
 }
 
 // insert <key, value> at current patricia node
@@ -234,6 +282,28 @@ func (l *leaf) insert(key, value []byte, stack *list.List) error {
 	stack.PushBack(&l1)
 	stack.PushBack(&l2)
 	return nil
+}
+
+// increase returns the number of nodes (B, E, L) being added as a result of insert()
+func (l *leaf) increase(key []byte) (int, int, int) {
+	// get the matching length
+	match := 0
+	for l.Path[match] == key[match] {
+		match++
+	}
+	if match > 0 {
+		return 1, 1, 2
+	}
+	return 1, 0, 2
+}
+
+// collapse updates the node, returns the <key, value> if the node can be collapsed
+func (l *leaf) collapse(index byte, childCollapse bool) ([]byte, []byte, bool) {
+	// if child cannot collapse, no need to check and return false
+	if !childCollapse {
+		return nil, nil, false
+	}
+	return l.Path, l.Value, true
 }
 
 // blob return the value stored in the node

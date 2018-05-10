@@ -9,11 +9,11 @@ package trie
 import (
 	"container/list"
 
-	"github.com/golang/glog"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/logger"
 )
 
 var (
@@ -42,17 +42,19 @@ type (
 
 	// trie implements the Trie interface
 	trie struct {
-		dao      db.KVStore
-		root     patricia
-		toRoot   *list.List // stores the path from root to diverging node
-		addNode  *list.List // stored newly added nodes on insert() operation
-		divIndex byte       // value of new path when diverging at branch node
+		dao       db.KVStore
+		root      patricia
+		toRoot    *list.List // stores the path from root to diverging node
+		addNode   *list.List // stored newly added nodes on insert() operation
+		numBranch uint64
+		numExt    uint64
+		numLeaf   uint64
 	}
 )
 
 // NewTrie creates a trie with
 func NewTrie(dao db.KVStore) (Trie, error) {
-	t := trie{dao, &branch{}, list.New(), list.New(), 0}
+	t := trie{dao, &branch{}, list.New(), list.New(), 1, 0, 0}
 	return &t, nil
 }
 
@@ -62,36 +64,13 @@ func (t *trie) Insert(key, value []byte) error {
 	if err == nil {
 		return errors.Wrapf(ErrAlreadyExist, "key = %x", key)
 	}
-	// save the index if diverge at branch
-	_, isBranch := div.(*branch)
-	if isBranch {
-		t.divIndex = key[0]
-	}
 	// insert at the diverging patricia node
+	nb, ne, nl := div.increase(key[size:])
 	if err := div.insert(key[size:], value, t.addNode); err != nil {
 		return err
 	}
-	// delete the original diverging node
-	hashCurr := div.hash()
-	if err := t.dao.Delete("", hashCurr[:]); err != nil {
-		return err
-	}
-	glog.Warningf("delete key = %x", hashCurr[:8])
-	hashChild := t.addNode.Front().Value.(patricia).hash()
-	if isBranch {
-		// update the new path into branch node
-		div.ascend(hashChild[:], t.divIndex)
-		hashChild = div.hash()
-		value, err := div.serialize()
-		if err != nil {
-			return err
-		}
-		if err := t.dao.PutIfNotExists("", hashChild[:], value); err != nil {
-			return err
-		}
-		glog.Warningf("put branch = %x", hashChild[:8])
-	}
 	// update newly added patricia node into db
+	var hashChild common.Hash32B
 	for t.addNode.Len() > 0 {
 		n := t.addNode.Back()
 		ptr, _ := n.Value.(patricia)
@@ -99,13 +78,16 @@ func (t *trie) Insert(key, value []byte) error {
 		if err != nil {
 			return err
 		}
-		hashn := ptr.hash()
-		if err := t.dao.PutIfNotExists("", hashn[:], value); err != nil {
+		hashChild = ptr.hash()
+		if err := t.dao.PutIfNotExists("", hashChild[:], value); err != nil {
 			return err
 		}
-		glog.Warningf("put key = %x", hashn[:8])
+		logger.Info().Hex("key", hashChild[:8]).Msg("put")
 		t.addNode.Remove(n)
 	}
+	t.numBranch += uint64(nb)
+	t.numExt += uint64(ne)
+	t.numLeaf += uint64(nl)
 	// update nodes on path ascending to root
 	return t.update(hashChild[:])
 }
@@ -131,6 +113,73 @@ func (t *trie) Update(key, value []byte) error {
 
 // Delete an entry
 func (t *trie) Delete(key []byte) error {
+	child, size, err := t.query(key)
+	if size != len(key) {
+		return errors.Wrapf(ErrNotExist, "key = %x", key)
+	}
+	if err != nil {
+		return err
+	}
+	// this node already on stack, pop it and discard
+	_, _ = t.popToRoot()
+	// for branch node, entry is stored in one of its leaf nodes
+	index := key[len(key)-1]
+	br, isBranch := child.(*branch)
+	if isBranch {
+		// delete the leaf corresponding to matching path
+		l, err := t.getPatricia(br.Path[index])
+		if err != nil {
+			return err
+		}
+		hashCurr := l.hash()
+		if err := t.dao.Delete("", hashCurr[:]); err != nil {
+			return err
+		}
+		logger.Info().Hex("leaf", hashCurr[:8]).Msg("del")
+	}
+	// update nodes on path ascending to root
+	path, _, childClps := child.collapse(index, true)
+	for t.toRoot.Len() > 0 {
+		curr, index := t.popToRoot()
+		hash := curr.hash()
+		if err := t.dao.Delete("", hash[:]); err != nil {
+			return err
+		}
+		logger.Info().Hex("key", hash[:8]).Msg("del")
+		k, _, currClps := curr.collapse(index, childClps)
+		if currClps {
+			// current node can also collapse, concatenate the path and keep going
+			path = append(k, path...)
+		} else {
+			if childClps {
+				// child is the last node that can collapse
+				// TODO: update child's <k, v>
+				hash := child.hash()
+				// store new child to db
+				value, err := child.serialize()
+				if err != nil {
+					return err
+				}
+				if err := t.dao.PutIfNotExists("", hash[:], value); err != nil {
+					return err
+				}
+				logger.Info().Hex("key", hash[:8]).Msg("clp")
+			}
+			// update current with new child
+			curr.ascend(hash[:], index)
+			hash := child.hash()
+			value, err := child.serialize()
+			if err != nil {
+				return err
+			}
+			if err := t.dao.PutIfNotExists("", hash[:], value); err != nil {
+				return err
+			}
+			logger.Info().Hex("key", hash[:8]).Msg("put")
+		}
+		childClps = currClps
+		child = curr
+	}
 	return nil
 }
 
@@ -149,6 +198,11 @@ func (t *trie) query(key []byte) (patricia, int, error) {
 	for len(key) > 0 {
 		// keep descending the trie
 		hashn, match, err := ptr.descend(key)
+		if _, b := ptr.(*branch); b {
+			// for branch node, need to save first byte of path so branch[key[0]] can be updated later
+			t.toRoot.PushBack(key[0])
+		}
+		t.toRoot.PushBack(ptr)
 		// path diverges, return the diverging node
 		if err != nil {
 			// patricia.insert() will be called later to insert <key, value> pair into trie
@@ -160,12 +214,7 @@ func (t *trie) query(key []byte) (patricia, int, error) {
 			t.clear()
 			return ptr, size + match, nil
 		}
-		if _, b := ptr.(*branch); b {
-			// for branch node, need to save first byte of path so branch[key[0]] can be updated later
-			t.toRoot.PushBack(key[0])
-		}
-		t.toRoot.PushBack(ptr)
-		glog.Warningf("access key = %x", hashn[:8])
+		logger.Info().Hex("key", hashn[:8]).Msg("access")
 		if ptr, err = t.getPatricia(hashn); err != nil {
 			return nil, 0, err
 		}
@@ -175,42 +224,35 @@ func (t *trie) query(key []byte) (patricia, int, error) {
 	return nil, size, nil
 }
 
+// update rewinds the path back to root and updates nodes along the way
 func (t *trie) update(hashChild []byte) error {
 	for t.toRoot.Len() > 0 {
-		n := t.toRoot.Back()
-		ptr, _ := n.Value.(patricia)
-		t.toRoot.Remove(n)
-		var index byte
-		_, isBranch := ptr.(*branch)
-		if isBranch {
-			// for branch node, the index is pushed onto stack in query()
-			n := t.toRoot.Back()
-			index, _ = n.Value.(byte)
-			t.toRoot.Remove(n)
-			glog.Warningf("curr is branch")
-		}
-		hashCurr := ptr.hash()
-		glog.Warningf("curr key = %x", hashCurr[:8])
-		glog.Warningf("child key = %x", hashChild[:8])
-		if err := ptr.ascend(hashChild[:], index); err != nil {
-			return err
+		ptr, index := t.popToRoot()
+		if ptr == nil {
+			return errors.Wrap(ErrInvalidPatricia, "patricia pushed on stack is not valid")
 		}
 		// delete the current patricia node
+		hashCurr := ptr.hash()
+		logger.Info().Hex("curr key", hashCurr[:8]).Msg("10-4")
+		logger.Info().Hex("child key", hashChild[:8]).Msg("10-4")
 		if err := t.dao.Delete("", hashCurr[:]); err != nil {
 			return err
 		}
-		glog.Warningf("delete key = %x", hashCurr[:8])
-		// store the new patricia node (with updated child hash)
-		hashCurr = ptr.hash()
+		logger.Info().Hex("key", hashCurr[:8]).Msg("del")
+		// update the patricia node
+		if ptr.ascend(hashChild[:], index) {
+			hashCurr = ptr.hash()
+			hashChild = hashCurr[:]
+		}
+		// store back to db (with updated hash)
 		value, err := ptr.serialize()
 		if err != nil {
 			return err
 		}
-		if err := t.dao.PutIfNotExists("", hashCurr[:], value); err != nil {
+		if err := t.dao.PutIfNotExists("", hashChild, value); err != nil {
 			return err
 		}
-		glog.Warningf("put key = %x", hashCurr[:8])
-		hashChild = hashCurr[:]
+		logger.Info().Hex("key", hashChild[:8]).Msg("put")
 	}
 	return nil
 }
@@ -257,4 +299,23 @@ func (t *trie) clear() {
 		n := t.toRoot.Back()
 		t.toRoot.Remove(n)
 	}
+}
+
+// pop the stack
+func (t *trie) popToRoot() (patricia, byte) {
+	if t.toRoot.Len() > 0 {
+		n := t.toRoot.Back()
+		ptr, _ := n.Value.(patricia)
+		t.toRoot.Remove(n)
+		var index byte
+		_, isBranch := ptr.(*branch)
+		if isBranch {
+			// for branch node, the index is pushed onto stack in query()
+			n := t.toRoot.Back()
+			index, _ = n.Value.(byte)
+			t.toRoot.Remove(n)
+		}
+		return ptr, index
+	}
+	return nil, 0
 }
