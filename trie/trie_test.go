@@ -21,8 +21,9 @@ func TestEmptyTrie(t *testing.T) {
 func TestInsert(t *testing.T) {
 	assert := assert.New(t)
 
-	tr := trie{db.NewMemKVStore(), &branch{}, list.New(), list.New(), 0}
+	tr := trie{db.NewMemKVStore(), &branch{}, list.New(), list.New(), 1, 0, 0}
 	root := emptyRoot
+	assert.Equal(uint64(1), tr.numBranch)
 	// query non-existing entry
 	ptr, match, err := tr.query(cat)
 	assert.NotNil(ptr)
@@ -35,6 +36,7 @@ func TestInsert(t *testing.T) {
 	newRoot := tr.RootHash()
 	assert.NotEqual(newRoot, root)
 	root = newRoot
+	assert.Equal(uint64(1), tr.numLeaf)
 	// query can find it now
 	ptr, match, err = tr.query(cat)
 	assert.NotNil(ptr)
@@ -52,6 +54,9 @@ func TestInsert(t *testing.T) {
 	newRoot = tr.RootHash()
 	assert.NotEqual(newRoot, root)
 	root = newRoot
+	assert.Equal(uint64(2), tr.numBranch)
+	assert.Equal(uint64(1), tr.numExt)
+	assert.Equal(uint64(3), tr.numLeaf)
 	// query can find it now
 	ptr, match, err = tr.query(rat)
 	assert.NotNil(ptr)
