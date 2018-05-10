@@ -5,6 +5,7 @@ import (
 	"encoding/gob"
 	"errors"
 	"math/big"
+	"sync"
 
 	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/db"
@@ -14,8 +15,12 @@ import (
 
 var (
 	stateFactoryKVNameSpace = "StateFactory"
+
 	// ErrNotEnoughBalance is the error that the balance is not enough
 	ErrNotEnoughBalance = errors.New("not enough balance")
+
+	// ErrAccountNotExist is the error that the account does not exist
+	ErrAccountNotExist = errors.New("the account does not exist")
 )
 
 // State is the canonical representation of an account.
@@ -72,7 +77,7 @@ func (sf *StateFactory) AddState(addr *iotxaddress.Address) *State {
 }
 
 // Balance returns balance.
-func (sf *StateFactory) Balance(addr iotxaddress.Address) *big.Int {
+func (sf *StateFactory) Balance(addr *iotxaddress.Address) *big.Int {
 	key := iotxaddress.HashPubKey(addr.PublicKey)
 	state, err := sf.trie.Get(key)
 	if err != nil {
@@ -84,7 +89,7 @@ func (sf *StateFactory) Balance(addr iotxaddress.Address) *big.Int {
 }
 
 // SubBalance minuses balance to the given address
-func (sf *StateFactory) SubBalance(addr iotxaddress.Address, amount *big.Int) error {
+func (sf *StateFactory) SubBalance(addr *iotxaddress.Address, amount *big.Int) error {
 	key := iotxaddress.HashPubKey(addr.PublicKey)
 	state, err := sf.trie.Get(key)
 	if err != nil {
@@ -121,19 +126,23 @@ func (sf *StateFactory) AddBalance(addr *iotxaddress.Address, amount *big.Int) e
 }
 
 // Nonce returns the nonce for the given address
-func (sf *StateFactory) Nonce(addr iotxaddress.Address) uint64 {
+func (sf *StateFactory) Nonce(addr *iotxaddress.Address) (uint64, error) {
 	key := iotxaddress.HashPubKey(addr.PublicKey)
 	state, err := sf.trie.Get(key)
 	if err != nil {
 		panic(err)
 	}
 
+	if state == nil {
+		return 0, ErrAccountNotExist
+	}
+
 	s := bytesToState(state)
-	return s.Nonce
+	return s.Nonce, nil
 }
 
-// IncreaseNonce increase nonce by 1
-func (sf *StateFactory) IncreaseNonce(addr iotxaddress.Address) error {
+// SetNonce sets nonce to a given value
+func (sf *StateFactory) SetNonce(addr iotxaddress.Address, value uint64) error {
 	key := iotxaddress.HashPubKey(addr.PublicKey)
 	state, err := sf.trie.Get(key)
 	if err != nil {
@@ -141,7 +150,78 @@ func (sf *StateFactory) IncreaseNonce(addr iotxaddress.Address) error {
 	}
 
 	s := bytesToState(state)
-	s.Nonce = s.Nonce + 1
+	s.Nonce = value
 	sf.trie.Update(key, stateToBytes(s))
+	return nil
+}
+
+const hashedAddressLen = 20
+
+type hashedAddress [hashedAddressLen]byte
+
+// VritualStateFactory tracks changes to StateFactory in a map but never commits to trie/db
+type VritualStateFactory struct {
+	sf *StateFactory
+
+	changes map[hashedAddress]*State
+	mu      sync.Mutex
+}
+
+// SetStateFactory sets the backing layer
+func (vs *VritualStateFactory) SetStateFactory(sf *StateFactory) {
+	vs.mu.Lock()
+	defer vs.mu.Unlock()
+	vs.sf = sf
+
+	vs.changes = make(map[hashedAddress]*State)
+}
+
+// Nonce returns the nonce if the account exists
+func (vs *VritualStateFactory) Nonce(addr *iotxaddress.Address) (uint64, error) {
+	vs.mu.Lock()
+	defer vs.mu.Unlock()
+
+	var key hashedAddress
+	k := iotxaddress.HashPubKey(addr.PublicKey)
+	copy(key[:], k[:hashedAddressLen])
+	if val, ok := vs.changes[key]; ok {
+		return val.Nonce, nil
+	}
+
+	state, err := vs.sf.trie.Get(key[:])
+	if err != nil {
+		panic(err)
+	}
+	if state == nil {
+		return 0, ErrAccountNotExist
+	}
+
+	vs.changes[key] = bytesToState(state)
+	return vs.changes[key].Nonce, nil
+}
+
+// SetNonce returns the nonce if the account exists
+func (vs *VritualStateFactory) SetNonce(addr *iotxaddress.Address, value uint64) error {
+	vs.mu.Lock()
+	defer vs.mu.Unlock()
+
+	var key hashedAddress
+	k := iotxaddress.HashPubKey(addr.PublicKey)
+	copy(key[:], k[:hashedAddressLen])
+	if _, ok := vs.changes[key]; ok {
+		vs.changes[key].Nonce = value
+		return nil
+	}
+
+	state, err := vs.sf.trie.Get(key[:])
+	if err != nil {
+		panic(err)
+	}
+	if state == nil {
+		return ErrAccountNotExist
+	}
+
+	vs.changes[key] = bytesToState(state)
+	vs.changes[key].Nonce = value
 	return nil
 }
