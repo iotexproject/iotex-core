@@ -114,7 +114,7 @@ func TestVirtualNonce(t *testing.T) {
 	vsf := VritualStateFactory{}
 	vsf.SetStateFactory(&sf)
 
-	// account does not exist
+	// account does not exist, get nonce
 	addr, err := iotxaddress.NewAddress(true, 0x01, []byte{0xa4, 0x00, 0x00, 0x00})
 	assert.Nil(t, err)
 	trie.EXPECT().Get(gomock.Any()).Times(1).Return(nil, nil).Times(1)
@@ -122,14 +122,14 @@ func TestVirtualNonce(t *testing.T) {
 	assert.Equal(t, ErrAccountNotExist, err)
 	assert.Equal(t, 0, len(vsf.changes))
 
-	// account exists
+	// account exists, get nonce
 	trie.EXPECT().Get(gomock.Any()).Times(1).Return(stateToBytes(&State{Address: addr, Nonce: 0x10}), nil).Times(1)
 	n, err := vsf.Nonce(addr)
 	assert.Nil(t, err)
 	assert.Equal(t, uint64(0x10), n)
 	assert.Equal(t, 1, len(vsf.changes))
 
-	// account exists, update nonce
+	// account exists, set nonce
 	trie.EXPECT().Get(gomock.Any()).Times(1).Times(0) // should not query trie since already cached in map
 	err = vsf.SetNonce(addr, 0x11)
 	assert.Nil(t, err)
@@ -139,4 +139,11 @@ func TestVirtualNonce(t *testing.T) {
 	k := iotxaddress.HashPubKey(addr.PublicKey)
 	copy(key[:], k[:hashedAddressLen])
 	assert.Equal(t, uint64(0x11), vsf.changes[key].Nonce)
+
+	// account does not exist, set nonce
+	vsf.SetStateFactory(&sf)
+	trie.EXPECT().Get(gomock.Any()).Times(1).Return(nil, nil).Times(1)
+	err = vsf.SetNonce(addr, 0x12)
+	assert.Equal(t, ErrAccountNotExist, err)
+	assert.Equal(t, 0, len(vsf.changes))
 }
