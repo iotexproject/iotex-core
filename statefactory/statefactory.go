@@ -166,10 +166,9 @@ type hashedAddress [hashedAddressLen]byte
 
 // VritualStateFactory tracks changes to StateFactory in a map but never commits to trie/db
 type VritualStateFactory struct {
-	sf *StateFactory
-
 	changes map[hashedAddress]*State
 	mu      sync.Mutex
+	sf      *StateFactory
 }
 
 // SetStateFactory sets the backing map
