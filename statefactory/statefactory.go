@@ -164,15 +164,15 @@ const hashedAddressLen = 20
 
 type hashedAddress [hashedAddressLen]byte
 
-// VritualStateFactory tracks changes to StateFactory in a map but never commits to trie/db
-type VritualStateFactory struct {
+// VirtualStateFactory tracks changes to StateFactory in a map but never commits to trie/db
+type VirtualStateFactory struct {
 	changes map[hashedAddress]*State
 	mu      sync.Mutex
 	sf      *StateFactory
 }
 
 // SetStateFactory sets the backing map
-func (vs *VritualStateFactory) SetStateFactory(sf *StateFactory) {
+func (vs *VirtualStateFactory) SetStateFactory(sf *StateFactory) {
 	vs.mu.Lock()
 	defer vs.mu.Unlock()
 	vs.sf = sf
@@ -181,7 +181,7 @@ func (vs *VritualStateFactory) SetStateFactory(sf *StateFactory) {
 }
 
 // Nonce returns the nonce if the account exists
-func (vs *VritualStateFactory) Nonce(addr *iotxaddress.Address) (uint64, error) {
+func (vs *VirtualStateFactory) Nonce(addr *iotxaddress.Address) (uint64, error) {
 	vs.mu.Lock()
 	defer vs.mu.Unlock()
 
@@ -205,7 +205,7 @@ func (vs *VritualStateFactory) Nonce(addr *iotxaddress.Address) (uint64, error) 
 }
 
 // SetNonce returns the nonce if the account exists
-func (vs *VritualStateFactory) SetNonce(addr *iotxaddress.Address, value uint64) error {
+func (vs *VirtualStateFactory) SetNonce(addr *iotxaddress.Address, value uint64) error {
 	vs.mu.Lock()
 	defer vs.mu.Unlock()
 

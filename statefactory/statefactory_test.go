@@ -111,7 +111,7 @@ func TestVirtualNonce(t *testing.T) {
 	kvdb := db.NewMemKVStore()
 	kvdb.Start()
 	sf := New(kvdb, trie)
-	vsf := VritualStateFactory{}
+	vsf := VirtualStateFactory{}
 	vsf.SetStateFactory(&sf)
 
 	// account does not exist, get nonce
