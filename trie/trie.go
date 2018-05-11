@@ -266,11 +266,11 @@ func (t *trie) getPatricia(key []byte) (patricia, error) {
 	var ptr patricia
 	// first byte of serialized data is type
 	switch node[0] {
-	case 0:
+	case 2:
 		ptr = &branch{}
 	case 1:
-		ptr = &ext{}
-	case 2:
+		ptr = &leaf{}
+	case 0:
 		ptr = &leaf{}
 	default:
 		return nil, errors.Wrapf(ErrInvalidPatricia, "invalid type = %v", node[0])

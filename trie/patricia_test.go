@@ -36,7 +36,7 @@ func TestPatricia(t *testing.T) {
 	stream, err := b.serialize()
 	assert.Nil(err)
 	assert.NotNil(stream)
-	assert.Equal(byte(0), stream[0])
+	assert.Equal(byte(2), stream[0])
 	b1 := branch{}
 	err = b1.deserialize(stream)
 	assert.Nil(err)
@@ -47,22 +47,22 @@ func TestPatricia(t *testing.T) {
 	assert.Equal(byte(6), b1.Value[1])
 	assert.Equal(444, len(stream))
 
-	e := ext{Hashn: make([]byte, common.HashSize)}
+	e := leaf{1, nil, make([]byte, common.HashSize)}
 	e.Path = []byte{2, 3, 5, 7}
-	copy(e.Hashn, hash1)
+	copy(e.Value, hash1)
 	stream, err = e.serialize()
 	assert.Nil(err)
 	assert.NotNil(stream)
 	assert.Equal(byte(1), stream[0])
-	e1 := ext{}
+	e1 := leaf{}
 	err = e1.deserialize(stream)
 	assert.Nil(err)
-	assert.Equal(hash1, e1.Hashn)
+	assert.Equal(hash1, e1.Value)
 	assert.Equal(byte(2), e1.Path[0])
 	assert.Equal(byte(3), e1.Path[1])
 	assert.Equal(byte(5), e1.Path[2])
 	assert.Equal(byte(7), e1.Path[3])
-	assert.Equal(82, len(stream))
+	assert.Equal(93, len(stream))
 
 	l := leaf{Value: make([]byte, common.HashSize)}
 	l.Path = []byte{4, 6, 8, 9}
@@ -70,7 +70,7 @@ func TestPatricia(t *testing.T) {
 	stream, err = l.serialize()
 	assert.Nil(err)
 	assert.NotNil(stream)
-	assert.Equal(byte(2), stream[0])
+	assert.Equal(byte(0), stream[0])
 	l1 := leaf{}
 	err = l1.deserialize(stream)
 	assert.Nil(err)
@@ -79,7 +79,7 @@ func TestPatricia(t *testing.T) {
 	assert.Equal(byte(6), l1.Path[1])
 	assert.Equal(byte(8), l1.Path[2])
 	assert.Equal(byte(9), l1.Path[3])
-	assert.Equal(83, len(stream))
+	assert.Equal(91, len(stream))
 }
 
 func TestDescend(t *testing.T) {
@@ -101,9 +101,9 @@ func TestDescend(t *testing.T) {
 	assert.Nil(err)
 
 	// testing ext
-	e := ext{Hashn: make([]byte, common.HashSize)}
+	e := leaf{1, nil, make([]byte, common.HashSize)}
 	e.Path = []byte{1, 2, 3, 5, 6}
-	copy(e.Hashn, hash1)
+	copy(e.Value, hash1)
 	b, match, err = e.descend(ant)
 	assert.Nil(b)
 	assert.Equal(0, match)
