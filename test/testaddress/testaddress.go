@@ -43,7 +43,7 @@ func constructAddress(pubkey, prikey string) iotxaddress.Address {
 	if err != nil {
 		panic(err)
 	}
-	addr, err := iotxaddress.GetAddress(pubk, false, 0x01, []byte{0x01, 0x02, 0x03, 0x04})
+	addr, err := iotxaddress.GetAddress(pubk, false, []byte{0x01, 0x02, 0x03, 0x04})
 	if err != nil {
 		panic(err)
 	}

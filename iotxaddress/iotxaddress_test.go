@@ -18,7 +18,7 @@ import (
 // TestNewAddress tests create new asset address.
 func TestNewAddress(t *testing.T) {
 	assert := assert.New(t)
-	addr, err := NewAddress(true, byte(0x01), []byte{0x00, 0x00, 0x00, 0x01})
+	addr, err := NewAddress(true, []byte{0x00, 0x00, 0x00, 0x01})
 	assert.Nil(err)
 	assert.NotNil(addr.PrivateKey)
 	assert.NotNil(addr.PublicKey)
@@ -46,7 +46,7 @@ func TestGetandValidateAddress(t *testing.T) {
 	pub, _, err := ed25519.GenerateKey(rand.Reader)
 	assert.Nil(err)
 
-	addr, err := GetAddress(pub, false, byte(0x01), []byte{0x00, 0x00, 0x00, 0x01})
+	addr, err := GetAddress(pub, false, []byte{0x00, 0x00, 0x00, 0x01})
 	assert.Nil(err)
 	assert.True(strings.HasPrefix(addr, mainnetPrefix))
 	assert.True(ValidateAddress(addr))

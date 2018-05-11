@@ -14,7 +14,7 @@ import (
 )
 
 func TestEncodeDecode(t *testing.T) {
-	addr, err := iotxaddress.NewAddress(true, 0x01, []byte{0xa4, 0x00, 0x00, 0x00})
+	addr, err := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
 	assert.Nil(t, err)
 
 	ss := stateToBytes(&State{Address: addr})
@@ -44,7 +44,7 @@ func TestAddState(t *testing.T) {
 	kvdb.Start()
 	sf := New(kvdb, trie)
 	trie.EXPECT().Update(gomock.Any(), gomock.Any()).Times(1)
-	addr, err := iotxaddress.NewAddress(true, 0x01, []byte{0xa4, 0x00, 0x00, 0x00})
+	addr, err := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
 	assert.Nil(t, err)
 	state := sf.AddState(addr)
 	assert.Equal(t, uint64(0x0), state.Nonce)
@@ -62,11 +62,11 @@ func TestBalance(t *testing.T) {
 	sf := New(kvdb, trie)
 
 	// Add 10 so the balance should be 10
-	addr, err := iotxaddress.NewAddress(true, 0x01, []byte{0xa4, 0x00, 0x00, 0x00})
+	addr, err := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
 	assert.Nil(t, err)
 	trie.EXPECT().Update(gomock.Any(), gomock.Any()).Times(1)
 	trie.EXPECT().Get(gomock.Any()).Times(1).Return(stateToBytes(&State{Address: addr}), nil)
-	addr, err = iotxaddress.NewAddress(true, 0x01, []byte{0xa4, 0x00, 0x00, 0x00})
+	addr, err = iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
 	assert.Nil(t, err)
 	err = sf.AddBalance(addr, big.NewInt(10))
 	assert.Nil(t, err)
@@ -82,10 +82,10 @@ func TestNonce(t *testing.T) {
 	sf := New(kvdb, trie)
 
 	// Add 10 so the balance should be 10
-	addr, err := iotxaddress.NewAddress(true, 0x01, []byte{0xa4, 0x00, 0x00, 0x00})
+	addr, err := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
 	assert.Nil(t, err)
 	trie.EXPECT().Get(gomock.Any()).Times(1).Return(stateToBytes(&State{Address: addr, Nonce: 0x10}), nil)
-	addr, err = iotxaddress.NewAddress(true, 0x01, []byte{0xa4, 0x00, 0x00, 0x00})
+	addr, err = iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
 	assert.Nil(t, err)
 	n, err := sf.Nonce(addr)
 	assert.Equal(t, uint64(0x10), n)
@@ -115,7 +115,7 @@ func TestVirtualNonce(t *testing.T) {
 	vsf.SetStateFactory(&sf)
 
 	// account does not exist, get nonce
-	addr, err := iotxaddress.NewAddress(true, 0x01, []byte{0xa4, 0x00, 0x00, 0x00})
+	addr, err := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
 	assert.Nil(t, err)
 	trie.EXPECT().Get(gomock.Any()).Times(1).Return(nil, nil).Times(1)
 	_, err = vsf.Nonce(addr)

@@ -21,6 +21,7 @@ import (
 
 	"golang.org/x/crypto/blake2b"
 
+	"github.com/iotexproject/iotex-core/common"
 	cp "github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/iotxaddress/bech32"
 )
@@ -45,13 +46,13 @@ type Address struct {
 }
 
 // NewAddress returns a newly created public/private key pair together with the address derived.
-func NewAddress(isTestnet bool, version byte, chainid []byte) (*Address, error) {
+func NewAddress(isTestnet bool, chainid []byte) (*Address, error) {
 	pub, pri, err := cp.NewKeyPair()
 	if err != nil {
 		return nil, err
 	}
 
-	addr, err := GetAddress(pub, isTestnet, version, chainid)
+	addr, err := GetAddress(pub, isTestnet, chainid)
 	if err != nil {
 		return nil, err
 	}
@@ -59,11 +60,7 @@ func NewAddress(isTestnet bool, version byte, chainid []byte) (*Address, error) 
 }
 
 // GetAddress returns the address given a public key and necessary params.
-func GetAddress(pub []byte, isTestnet bool, version byte, chainid []byte) (string, error) {
-	if !isValidVersion(version) {
-		return "", ErrInvalidVersion
-	}
-
+func GetAddress(pub []byte, isTestnet bool, chainid []byte) (string, error) {
 	if !isValidChainID(chainid) {
 		return "", ErrInvalidChainID
 	}
@@ -73,7 +70,7 @@ func GetAddress(pub []byte, isTestnet bool, version byte, chainid []byte) (strin
 		hrp = testnetPrefix
 	}
 
-	payload := append([]byte{version}, append(chainid, HashPubKey(pub)...)...)
+	payload := append([]byte{common.ProtocolVersion}, append(chainid, HashPubKey(pub)...)...)
 	// Group the payload into 5 bit groups.
 	grouped, err := bech32.ConvertBits(payload, 8, 5, true)
 	if err != nil {
