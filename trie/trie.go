@@ -249,7 +249,7 @@ func (t *trie) update(hashChild []byte) error {
 		if err != nil {
 			return err
 		}
-		if err := t.dao.PutIfNotExists("", hashChild, value); err != nil {
+		if err := t.dao.PutIfNotExists("", hashChild, value); err != nil && err != db.ErrAlreadyExist {
 			return err
 		}
 		logger.Info().Hex("key", hashChild[:8]).Msg("put")

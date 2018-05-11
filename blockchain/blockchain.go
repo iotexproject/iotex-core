@@ -107,6 +107,9 @@ func (bc *blockchain) Start() (err error) {
 	if bc.tipHeight, err = bc.dao.getBlockchainHeight(); err != nil {
 		return err
 	}
+	if bc.tipHeight == 0 {
+		return nil
+	}
 	// get blockchain tip hash
 	if bc.tipHash, err = bc.dao.getBlockHash(bc.tipHeight); err != nil {
 		return err
