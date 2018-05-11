@@ -18,38 +18,40 @@ import (
 
 func TestKVStorePutGet(t *testing.T) {
 	testKVStorePutGet := func(kvStore KVStore, t *testing.T) {
+		assert := assert.New(t)
+
 		err := kvStore.Init()
-		assert.Nil(t, err)
+		assert.Nil(err)
 		err = kvStore.Start()
-		assert.Nil(t, err)
+		assert.Nil(err)
 		defer func() {
 			err = kvStore.Stop()
-			assert.Nil(t, err)
+			assert.Nil(err)
 		}()
 
 		err = kvStore.Put("test_ns", []byte("key"), []byte("value"))
-		assert.Nil(t, err)
+		assert.Nil(err)
 		value, err := kvStore.Get("test_ns", []byte("key"))
-		assert.Nil(t, err)
-		assert.Equal(t, "value", string(value))
+		assert.Nil(err)
+		assert.Equal("value", string(value))
 		value, err = kvStore.Get("test_ns_1", []byte("key"))
-		assert.Nil(t, err)
-		assert.Nil(t, value)
+		assert.NotNil(err)
+		assert.Nil(value)
 		value, err = kvStore.Get("test_ns", []byte("key_1"))
-		assert.Nil(t, err)
-		assert.Nil(t, value)
+		assert.NotNil(err)
+		assert.Nil(value)
 
 		err = kvStore.PutIfNotExists("test_ns", []byte("key_1"), []byte("value_1"))
-		assert.Nil(t, err)
+		assert.Nil(err)
 		value, err = kvStore.Get("test_ns", []byte("key_1"))
-		assert.Nil(t, err)
-		assert.Equal(t, "value_1", string(value))
+		assert.Nil(err)
+		assert.Equal("value_1", string(value))
 
 		err = kvStore.PutIfNotExists("test_ns", []byte("key_1"), []byte("value_2"))
-		assert.Nil(t, err)
+		assert.NotNil(err)
 		value, err = kvStore.Get("test_ns", []byte("key_1"))
-		assert.Nil(t, err)
-		assert.Equal(t, "value_1", string(value))
+		assert.Nil(err)
+		assert.Equal("value_1", string(value))
 	}
 
 	t.Run("In-memory KV Store", func(t *testing.T) {

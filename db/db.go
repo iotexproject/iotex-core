@@ -9,8 +9,17 @@ package db
 import (
 	"sync"
 
+	"github.com/pkg/errors"
+
 	"github.com/boltdb/bolt"
 	"github.com/iotexproject/iotex-core/common/service"
+)
+
+var (
+	// ErrNotExist indicates certain item does not exist in Blockchain database
+	ErrNotExist = errors.New("not exist in DB")
+	// ErrAlreadyExist indicates certain item already exists in Blockchain database
+	ErrAlreadyExist = errors.New("already exist in DB")
 )
 
 // KVStore is the interface of KV store.
@@ -50,8 +59,9 @@ func (m *memKVStore) PutIfNotExists(namespace string, key []byte, value []byte) 
 	_, ok := m.data.Load(namespace + keyDelimiter + string(key))
 	if !ok {
 		m.data.Store(namespace+keyDelimiter+string(key), value)
+		return nil
 	}
-	return nil
+	return ErrAlreadyExist
 }
 
 func (m *memKVStore) Get(namespace string, key []byte) ([]byte, error) {
@@ -59,10 +69,11 @@ func (m *memKVStore) Get(namespace string, key []byte) ([]byte, error) {
 	if value != nil {
 		return value.([]byte), nil
 	}
-	return nil, nil
+	return nil, errors.Wrapf(ErrNotExist, "key = %x", key)
 }
 
 func (m *memKVStore) Delete(namespace string, key []byte) error {
+	m.data.Delete(namespace + keyDelimiter + string(key))
 	return nil
 }
 
@@ -115,7 +126,7 @@ func (b *boltDB) PutIfNotExists(namespace string, key []byte, value []byte) erro
 		if bucket.Get(key) == nil {
 			return bucket.Put(key, value)
 		}
-		return nil
+		return ErrAlreadyExist
 	})
 }
 
@@ -124,7 +135,7 @@ func (b *boltDB) Get(namespace string, key []byte) ([]byte, error) {
 	err := b.db.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte(namespace))
 		if bucket == nil {
-			return nil
+			return errors.Wrapf(bolt.ErrBucketNotFound, "bucket = %s", namespace)
 		}
 		value = bucket.Get(key)
 		return nil
@@ -132,7 +143,10 @@ func (b *boltDB) Get(namespace string, key []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return value, nil
+	if value == nil {
+		err = errors.Wrapf(ErrNotExist, "key = %x", key)
+	}
+	return value, err
 }
 
 func (b *boltDB) Delete(namespace string, key []byte) error {

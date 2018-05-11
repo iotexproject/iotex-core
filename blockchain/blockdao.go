@@ -26,13 +26,6 @@ var (
 	topHeightKey = []byte("top-height")
 )
 
-var (
-	// ErrNotExist indicates certain item does not exist in Blockchain database
-	ErrNotExist = errors.New("not exist in DB")
-	// ErrAlreadyExist indicates certain item already exists in Blockchain database
-	ErrAlreadyExist = errors.New("already exist in DB")
-)
-
 type blockDAO struct {
 	service.CompositeService
 	kvstore db.KVStore
@@ -80,7 +73,7 @@ func (dao *blockDAO) getBlockHeight(hash common.Hash32B) (uint64, error) {
 		return 0, errors.Wrap(err, "failed to get block height")
 	}
 	if value == nil || len(value) == 0 {
-		return 0, errors.Wrapf(ErrNotExist, "height not found for the block with hash = %x", hash)
+		return 0, errors.Wrapf(db.ErrNotExist, "height missing for block with hash = %x", hash)
 	}
 	return common.MachineEndian.Uint64(value), nil
 }
@@ -108,28 +101,20 @@ func (dao *blockDAO) getBlockchainHeight() (uint64, error) {
 		return 0, errors.Wrap(err, "failed to get top height")
 	}
 	if value == nil || len(value) == 0 {
-		return 0, errors.Wrap(ErrNotExist, "blockchain height is missing")
+		return 0, errors.Wrap(db.ErrNotExist, "blockchain height missing")
 	}
 	return common.MachineEndian.Uint64(value), nil
 }
 
 // putBlock puts a block
 func (dao *blockDAO) putBlock(blk *Block) error {
-	hash := blk.HashBlock()
-	existingbBlk, err := dao.getBlock(hash)
-	if err != nil {
-		return err
-	}
-	if existingbBlk != nil {
-		return errors.Wrapf(ErrAlreadyExist, "Block with hash = %x", hash)
-	}
-
 	height := utils.Uint64ToBytes(blk.Height())
 	serialized, err := blk.Serialize()
 	if err != nil {
 		return errors.Wrap(err, "failed to serialize block")
 	}
-	if err = dao.kvstore.Put(blockNS, hash[:], serialized); err != nil {
+	hash := blk.HashBlock()
+	if err = dao.kvstore.PutIfNotExists(blockNS, hash[:], serialized); err != nil {
 		return errors.Wrap(err, "failed to put block")
 	}
 	hashKey := append(hashPrefix, hash[:]...)
