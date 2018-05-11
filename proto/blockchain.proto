@@ -39,6 +39,8 @@ message TxPb {
     bytes recipient = 32;
     bytes amount  = 33;
     bytes payload  = 34;
+    bytes senderPubKey = 35;
+    bytes signature = 36;
 }
 
 message VotePb {

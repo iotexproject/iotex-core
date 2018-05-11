@@ -350,7 +350,7 @@ func (bc *blockchain) createTx(from iotxaddress.Address, amount uint64, to []*Pa
 	sort.Sort(txOutSorter(out))
 	resetOutIndex(out)
 
-	return NewTx(1, in, out, 0)
+	return NewTx(in, out, 0)
 }
 
 // CreateTransaction creates a signed transaction paying 'amount' from 'from' to 'to'

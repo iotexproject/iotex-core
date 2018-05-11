@@ -11,8 +11,11 @@ import "encoding/binary"
 // MachineEndian is the endianess of the machine
 var MachineEndian = binary.LittleEndian
 
-// HashSize defines the size of hash
 const (
+	// Protocol version, starting from 1
+	ProtocolVersion = 0x01
+
+	// HashSize defines the size of hash
 	HashSize = 32
 )
 

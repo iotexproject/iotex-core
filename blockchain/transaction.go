@@ -62,10 +62,12 @@ type Tx struct {
 	TxOut []*TxOutput
 
 	// used by state-based model
-	Nonce     uint64
-	Recipient *iotxaddress.Address
-	Amount    *big.Int
-	Payload   []byte
+	Nonce           uint64
+	Recipient       *iotxaddress.Address
+	Amount          *big.Int
+	Payload         []byte
+	SenderPublicKey []byte
+	Signature       []byte
 }
 
 // NewTxInput returns a TxInput instance
@@ -86,9 +88,9 @@ func NewTxOutput(amount uint64, index int32) *TxOutput {
 }
 
 // NewTx returns a Tx instance
-func NewTx(version uint32, in []*TxInput, out []*TxOutput, lockTime uint32) *Tx {
+func NewTx(in []*TxInput, out []*TxOutput, lockTime uint32) *Tx {
 	return &Tx{
-		Version:  version,
+		Version:  common.ProtocolVersion,
 		LockTime: lockTime,
 
 		// used by utxo-based model
@@ -123,7 +125,7 @@ func NewCoinbaseTx(toaddr string, amount uint64, data string) *Tx {
 
 	txin := NewTxInput(common.ZeroHash32B, -1, []byte(data), 0xffffffff)
 	txout := CreateTxOutput(toaddr, amount)
-	return NewTx(1, []*TxInput{txin}, []*TxOutput{txout}, 0)
+	return NewTx([]*TxInput{txin}, []*TxOutput{txout}, 0)
 }
 
 // IsCoinbase checks if it is a coinbase transaction by checking if Vin is empty
@@ -154,6 +156,8 @@ func (tx *Tx) TotalSize() uint32 {
 		size += uint32(len(tx.Amount.Bytes()))
 	}
 	size += uint32(len(tx.Payload))
+	size += uint32(len(tx.SenderPublicKey))
+	size += uint32(len(tx.Signature))
 	return size
 }
 
@@ -185,7 +189,12 @@ func (tx *Tx) ByteStream() []byte {
 		stream = append(stream, tx.Amount.Bytes()...)
 	}
 	stream = append(stream, tx.Payload...)
-
+	if tx.SenderPublicKey != nil && len(tx.SenderPublicKey) > 0 {
+		stream = append(stream, tx.SenderPublicKey...)
+	}
+	if tx.Signature != nil && len(tx.Signature) > 0 {
+		stream = append(stream, tx.Signature...)
+	}
 	return stream
 }
 
@@ -214,6 +223,12 @@ func (tx *Tx) ConvertToTxPb() *iproto.TxPb {
 	}
 	if tx.Recipient != nil && len(tx.Recipient.RawAddress) > 0 {
 		t.Recipient = []byte(tx.Recipient.RawAddress)
+	}
+	if tx.SenderPublicKey != nil && len(tx.SenderPublicKey) > 0 {
+		t.SenderPubKey = tx.SenderPublicKey
+	}
+	if tx.Signature != nil && len(tx.Signature) > 0 {
+		t.Signature = tx.Signature
 	}
 	return t
 }
@@ -245,6 +260,8 @@ func (tx *Tx) ConvertFromTxPb(pbTx *iproto.TxPb) {
 		tx.Amount.SetBytes(pbTx.Amount)
 	}
 	tx.Payload = pbTx.Payload
+	tx.SenderPublicKey = pbTx.SenderPubKey
+	tx.Signature = pbTx.Signature
 }
 
 // Deserialize parse the byte stream into the Tx
@@ -264,9 +281,9 @@ func (tx *Tx) Hash() common.Hash32B {
 	return blake2b.Sum256(hash[:])
 }
 
-//
-// below are transaction output functions
-//
+// ***************************************
+// Below are transaction output functions
+// ***************************************
 
 // CreateTxOutput creates a new transaction output
 func CreateTxOutput(toaddr string, value uint64) *TxOutput {

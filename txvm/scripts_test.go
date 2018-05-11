@@ -16,7 +16,7 @@ import (
 )
 
 func TestPayToAddrScriptTrue(t *testing.T) {
-	addr, err := iotxaddress.NewAddress(true, 0x01, []byte{0xa4, 0x00, 0x00, 0x00})
+	addr, err := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
 	assert.Nil(t, err)
 
 	locks, err := PayToAddrScript(addr.RawAddress)
@@ -44,10 +44,10 @@ func TestPayToAddrScriptTrue(t *testing.T) {
 }
 
 func TestPayToAddrScriptFalse(t *testing.T) {
-	addr, _ := iotxaddress.NewAddress(true, 0x01, []byte{0xa4, 0x00, 0x00, 0x00})
+	addr, _ := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
 	locks, _ := PayToAddrScript(addr.RawAddress)
 
-	newAddr, _ := iotxaddress.NewAddress(true, 0x01, []byte{0xa4, 0x00, 0x00, 0x00})
+	newAddr, _ := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
 	txin := []byte{0x11, 0x22, 0x33, 0x44}
 	unlocks, _ := SignatureScript(txin, newAddr.PublicKey, newAddr.PrivateKey)
 
