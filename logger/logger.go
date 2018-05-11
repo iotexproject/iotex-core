@@ -16,7 +16,12 @@ import (
 
 // Logger is the global logger.
 // TODO: if prod, remove consolewriter to make the logger only logs plain json, which is more efficient.
-var Logger = zerolog.New(os.Stderr).With().Timestamp().Logger().Output(zerolog.ConsoleWriter{Out: os.Stderr})
+var Logger = zerolog.New(os.Stderr).With().Timestamp().Logger()
+
+// UseDebugLogger is to set logger information to be more friendly in local debug
+func UseDebugLogger() {
+	Logger = Logger.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+}
 
 // Output duplicates the global logger and sets w as its output.
 func Output(w io.Writer) zerolog.Logger {
