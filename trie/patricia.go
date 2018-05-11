@@ -40,13 +40,9 @@ type (
 		Path  [RADIX]ptrcKey
 		Value []byte
 	}
-	// extension is squashed path + hash of next patricia node
-	ext struct {
-		Path  ptrcKey
-		Hashn []byte
-	}
-	// leaf is squashed path + actual value
+	// leaf is squashed path + actual value (or hash of next patricia node for extension)
 	leaf struct {
+		Ext   byte // this is an extension node
 		Path  ptrcKey
 		Value []byte
 	}
@@ -80,7 +76,7 @@ func (b *branch) insert(key, value []byte, stack *list.List) error {
 		return errors.Wrapf(ErrInvalidPatricia, "branch already covers path = %d", key[0])
 	}
 	// create a new leaf
-	l := leaf{key[1:], value}
+	l := leaf{0, key[1:], value}
 	hashl := l.hash()
 	b.Path[key[0]] = hashl[:]
 	stack.PushBack(&l)
@@ -139,8 +135,8 @@ func (b *branch) serialize() ([]byte, error) {
 	if err := enc.Encode(b); err != nil {
 		return nil, err
 	}
-	// first byte denotes the type of patricia: 0-branch, 1-extension, 2-leaf
-	return append([]byte{0}, stream.Bytes()...), nil
+	// first byte denotes the type of patricia: 2-branch, 1-extension, 0-leaf
+	return append([]byte{2}, stream.Bytes()...), nil
 }
 
 // deserialize to branch
@@ -149,83 +145,6 @@ func (b *branch) deserialize(stream []byte) error {
 	*b = branch{}
 	dec := gob.NewDecoder(bytes.NewBuffer(stream[1:]))
 	if err := dec.Decode(b); err != nil {
-		return err
-	}
-	return nil
-}
-
-//======================================
-// functions for extension
-//======================================
-// descend returns the key to retrieve next patricia, and length of matching path in bytes
-func (e *ext) descend(key []byte) ([]byte, int, error) {
-	match := 0
-	for e.Path[match] == key[match] {
-		match++
-		if match == len(e.Path) {
-			return e.Hashn, match, nil
-		}
-	}
-	return nil, match, ErrPathDiverge
-}
-
-// ascend updates the key and returns whether the current node hash to be updated or not
-func (e *ext) ascend(key []byte, index byte) bool {
-	if e.Hashn == nil {
-		e.Hashn = make([]byte, common.HashSize)
-	}
-	copy(e.Hashn, key)
-	return true
-}
-
-// insert <key, value> at current patricia node
-func (e *ext) insert(key, value []byte, stack *list.List) error {
-	return nil
-}
-
-// increase returns the number of nodes (B, E, L) being added as a result of insert()
-func (e *ext) increase(key []byte) (int, int, int) {
-	return 1, 1, 1
-}
-
-// collapse updates the node, returns the <key, value> if the node can be collapsed
-func (e *ext) collapse(index byte, childCollapse bool) ([]byte, []byte, bool) {
-	// if child cannot collapse, no need to check and return false
-	if !childCollapse {
-		return nil, nil, false
-	}
-	return e.Path, e.Hashn, true
-}
-
-// blob return the value stored in the node
-func (e *ext) blob() ([]byte, error) {
-	// extension node stores the hash to next patricia node
-	return nil, errors.Wrap(ErrInvalidPatricia, "extension does not store value")
-}
-
-// hash return the hash of this node
-func (e *ext) hash() common.Hash32B {
-	stream := append(e.Path, e.Hashn[:]...)
-	return blake2b.Sum256(stream)
-}
-
-// serialize to bytes
-func (e *ext) serialize() ([]byte, error) {
-	stream := bytes.Buffer{}
-	enc := gob.NewEncoder(&stream)
-	if err := enc.Encode(e); err != nil {
-		return nil, err
-	}
-	// first byte denotes the type of patricia: 0-branch, 1-extension, 2-leaf
-	return append([]byte{1}, stream.Bytes()...), nil
-}
-
-// deserialize to extension
-func (e *ext) deserialize(stream []byte) error {
-	// reset variable
-	*e = ext{}
-	dec := gob.NewDecoder(bytes.NewBuffer(stream[1:]))
-	if err := dec.Decode(e); err != nil {
 		return err
 	}
 	return nil
@@ -249,11 +168,22 @@ func (l *leaf) descend(key []byte) ([]byte, int, error) {
 // ascend updates the key and returns whether the current node hash to be updated or not
 func (l *leaf) ascend(key []byte, index byte) bool {
 	// leaf node will be replaced by newly created node, no need to update hash
-	return false
+	if l.Ext == 0 {
+		return false
+	}
+	if l.Value == nil {
+		l.Value = make([]byte, common.HashSize)
+	}
+	copy(l.Value, key)
+	return true
 }
 
 // insert <key, value> at current patricia node
 func (l *leaf) insert(key, value []byte, stack *list.List) error {
+	if l.Ext == 1 {
+		// TODO: insert for extension
+		return nil
+	}
 	// get the matching length
 	match := 0
 	for l.Path[match] == key[match] {
@@ -264,9 +194,9 @@ func (l *leaf) insert(key, value []byte, stack *list.List) error {
 		return errors.Wrapf(ErrInvalidPatricia, "try to split a node with matching path = %x", l.Path)
 	}
 	// add 2 leaf, l1 is current node, l2 for new <key, value>
-	l1 := leaf{l.Path[match+1:], l.Value}
+	l1 := leaf{0, l.Path[match+1:], l.Value}
 	hashl1 := l1.hash()
-	l2 := leaf{key[match+1:], value}
+	l2 := leaf{0, key[match+1:], value}
 	hashl2 := l2.hash()
 	// add 1 branch to link 2 new leaf
 	b := branch{}
@@ -275,7 +205,7 @@ func (l *leaf) insert(key, value []byte, stack *list.List) error {
 	// if there's matching part, add 1 ext leading to new branch
 	if match > 0 {
 		hashb := b.hash()
-		e := ext{key[:match], hashb[:]}
+		e := leaf{1, key[:match], hashb[:]}
 		stack.PushBack(&e)
 	}
 	stack.PushBack(&b)
@@ -308,12 +238,17 @@ func (l *leaf) collapse(index byte, childCollapse bool) ([]byte, []byte, bool) {
 
 // blob return the value stored in the node
 func (l *leaf) blob() ([]byte, error) {
+	if l.Ext == 1 {
+		// extension node stores the hash to next patricia node
+		return nil, errors.Wrap(ErrInvalidPatricia, "extension does not store value")
+	}
 	return l.Value, nil
 }
 
 // hash return the hash of this node
 func (l *leaf) hash() common.Hash32B {
-	stream := append(l.Path, l.Value...)
+	stream := append([]byte{l.Ext}, l.Path...)
+	stream = append(stream, l.Value...)
 	return blake2b.Sum256(stream)
 }
 
@@ -324,11 +259,11 @@ func (l *leaf) serialize() ([]byte, error) {
 	if err := enc.Encode(l); err != nil {
 		return nil, err
 	}
-	// first byte denotes the type of patricia: 0-branch, 1-extension, 2-leaf
-	return append([]byte{2}, stream.Bytes()...), nil
+	// first byte denotes the type of patricia: 2-branch, 1-extension, 0-leaf
+	return append([]byte{l.Ext}, stream.Bytes()...), nil
 }
 
-// deserialize to extension
+// deserialize to leaf
 func (l *leaf) deserialize(stream []byte) error {
 	// reset variable
 	*l = leaf{}
