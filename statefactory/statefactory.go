@@ -8,7 +8,6 @@ import (
 	"sync"
 
 	"github.com/iotexproject/iotex-core/common"
-	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/trie"
 )
@@ -34,9 +33,22 @@ type State struct {
 	Voters       map[common.Hash32B]*big.Int
 }
 
-// StateFactory manages states.
-type StateFactory struct {
-	db   db.KVStore
+// StateFactory defines an interface for managing states
+type StateFactory interface {
+	RootHash() common.Hash32B
+
+	AddState(addr *iotxaddress.Address) *State
+
+	SetNonce(addr *iotxaddress.Address, value uint64) error
+	Nonce(addr *iotxaddress.Address) (uint64, error)
+
+	AddBalance(addr *iotxaddress.Address, amount *big.Int) error
+	SubBalance(addr *iotxaddress.Address, amount *big.Int) error
+	Balance(addr *iotxaddress.Address) (*big.Int, error)
+}
+
+// stateFactory implements StateFactory interface
+type stateFactory struct {
 	trie trie.Trie
 }
 
@@ -58,18 +70,18 @@ func bytesToState(ss []byte) *State {
 	return &state
 }
 
-// New creates a new StateFactory
-func New(db db.KVStore, trie trie.Trie) StateFactory {
-	return StateFactory{db: db, trie: trie}
+// NewStateFactory creates a new stateFactory
+func NewStateFactory(trie trie.Trie) StateFactory {
+	return &stateFactory{trie: trie}
 }
 
 // RootHash returns the hash of the root node of the trie
-func (sf *StateFactory) RootHash() common.Hash32B {
+func (sf *stateFactory) RootHash() common.Hash32B {
 	return sf.trie.RootHash()
 }
 
 // AddState adds a new State with zero balance to the factory
-func (sf *StateFactory) AddState(addr *iotxaddress.Address) *State {
+func (sf *stateFactory) AddState(addr *iotxaddress.Address) *State {
 	s := State{Address: addr, Balance: *big.NewInt(0)}
 	key := iotxaddress.HashPubKey(addr.PublicKey)
 	sf.trie.Update(key, stateToBytes(&s))
@@ -77,7 +89,7 @@ func (sf *StateFactory) AddState(addr *iotxaddress.Address) *State {
 }
 
 // Balance returns balance.
-func (sf *StateFactory) Balance(addr *iotxaddress.Address) (*big.Int, error) {
+func (sf *stateFactory) Balance(addr *iotxaddress.Address) (*big.Int, error) {
 	key := iotxaddress.HashPubKey(addr.PublicKey)
 	state, err := sf.trie.Get(key)
 	if err != nil {
@@ -92,7 +104,7 @@ func (sf *StateFactory) Balance(addr *iotxaddress.Address) (*big.Int, error) {
 }
 
 // SubBalance minuses balance to the given address
-func (sf *StateFactory) SubBalance(addr *iotxaddress.Address, amount *big.Int) error {
+func (sf *stateFactory) SubBalance(addr *iotxaddress.Address, amount *big.Int) error {
 	key := iotxaddress.HashPubKey(addr.PublicKey)
 	state, err := sf.trie.Get(key)
 	if err != nil {
@@ -112,7 +124,7 @@ func (sf *StateFactory) SubBalance(addr *iotxaddress.Address, amount *big.Int) e
 }
 
 // AddBalance adds balance to the given address
-func (sf *StateFactory) AddBalance(addr *iotxaddress.Address, amount *big.Int) error {
+func (sf *stateFactory) AddBalance(addr *iotxaddress.Address, amount *big.Int) error {
 	key := iotxaddress.HashPubKey(addr.PublicKey)
 	ss, err := sf.trie.Get(key)
 	if err != nil {
@@ -129,7 +141,7 @@ func (sf *StateFactory) AddBalance(addr *iotxaddress.Address, amount *big.Int) e
 }
 
 // Nonce returns the nonce for the given address
-func (sf *StateFactory) Nonce(addr *iotxaddress.Address) (uint64, error) {
+func (sf *stateFactory) Nonce(addr *iotxaddress.Address) (uint64, error) {
 	key := iotxaddress.HashPubKey(addr.PublicKey)
 	state, err := sf.trie.Get(key)
 	if err != nil {
@@ -144,7 +156,7 @@ func (sf *StateFactory) Nonce(addr *iotxaddress.Address) (uint64, error) {
 }
 
 // SetNonce sets nonce to a given value
-func (sf *StateFactory) SetNonce(addr iotxaddress.Address, value uint64) error {
+func (sf *stateFactory) SetNonce(addr *iotxaddress.Address, value uint64) error {
 	key := iotxaddress.HashPubKey(addr.PublicKey)
 	state, err := sf.trie.Get(key)
 	if err != nil {
@@ -164,20 +176,16 @@ const hashedAddressLen = 20
 
 type hashedAddress [hashedAddressLen]byte
 
-// VirtualStateFactory tracks changes to StateFactory in a map but never commits to trie/db
+// VirtualStateFactory implements StateFactory interface, tracks changes in a map but never commits to trie/db
 type VirtualStateFactory struct {
 	changes map[hashedAddress]*State
 	mu      sync.Mutex
-	sf      *StateFactory
+	trie    trie.Trie
 }
 
-// SetStateFactory sets the backing map
-func (vs *VirtualStateFactory) SetStateFactory(sf *StateFactory) {
-	vs.mu.Lock()
-	defer vs.mu.Unlock()
-	vs.sf = sf
-
-	vs.changes = make(map[hashedAddress]*State)
+// NewVirtualStateFactory creates a new virtual state factory
+func NewVirtualStateFactory(trie trie.Trie) StateFactory {
+	return &VirtualStateFactory{trie: trie, changes: make(map[hashedAddress]*State)}
 }
 
 // Nonce returns the nonce if the account exists
@@ -192,7 +200,7 @@ func (vs *VirtualStateFactory) Nonce(addr *iotxaddress.Address) (uint64, error) 
 		return val.Nonce, nil
 	}
 
-	state, err := vs.sf.trie.Get(key[:])
+	state, err := vs.trie.Get(key[:])
 	if err != nil {
 		panic(err)
 	}
@@ -217,7 +225,7 @@ func (vs *VirtualStateFactory) SetNonce(addr *iotxaddress.Address, value uint64)
 		return nil
 	}
 
-	state, err := vs.sf.trie.Get(key[:])
+	state, err := vs.trie.Get(key[:])
 	if err != nil {
 		panic(err)
 	}
@@ -228,4 +236,27 @@ func (vs *VirtualStateFactory) SetNonce(addr *iotxaddress.Address, value uint64)
 	vs.changes[key] = bytesToState(state)
 	vs.changes[key].Nonce = value
 	return nil
+}
+
+func (vs *VirtualStateFactory) AddBalance(addr *iotxaddress.Address, amount *big.Int) error {
+	// TODO
+	return nil
+}
+func (vs *VirtualStateFactory) SubBalance(addr *iotxaddress.Address, amount *big.Int) error {
+	// TODO
+	return nil
+}
+
+func (vs *VirtualStateFactory) Balance(addr *iotxaddress.Address) (*big.Int, error) {
+	// TODO
+	return nil, nil
+}
+func (vs *VirtualStateFactory) AddState(addr *iotxaddress.Address) *State {
+	// TODO
+	return nil
+}
+
+func (vs *VirtualStateFactory) RootHash() common.Hash32B {
+	// TODO
+	return [32]byte{}
 }

@@ -46,3 +46,10 @@ mockgen -destination=./test/mock/mock_trie/mock_trie.go  \
         -source=./trie/trie.go \
         -package=mock_trie \
         Trie
+
+mkdir -p ./test/mock/mock_statefactory
+mockgen -destination=./test/mock/mock_statefactory/mock_statefactory.go  \
+        -source=./statefactory/statefactory.go \
+        -imports =github.com/iotexproject/iotex-core/statefactory \
+        -package=mock_statefactory \
+        StateFactory

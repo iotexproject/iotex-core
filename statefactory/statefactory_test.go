@@ -8,7 +8,6 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotexproject/iotex-core/common"
-	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/test/mock/mock_trie"
 )
@@ -30,7 +29,7 @@ func TestRootHash(t *testing.T) {
 	defer ctrl.Finish()
 
 	trie := mock_trie.NewMockTrie(ctrl)
-	sf := New(db.NewMemKVStore(), trie)
+	sf := NewStateFactory(trie)
 	trie.EXPECT().RootHash().Times(1).Return(common.ZeroHash32B)
 	assert.Equal(t, common.ZeroHash32B, sf.RootHash())
 }
@@ -40,9 +39,7 @@ func TestAddState(t *testing.T) {
 	defer ctrl.Finish()
 
 	trie := mock_trie.NewMockTrie(ctrl)
-	kvdb := db.NewMemKVStore()
-	kvdb.Start()
-	sf := New(kvdb, trie)
+	sf := NewStateFactory(trie)
 	trie.EXPECT().Update(gomock.Any(), gomock.Any()).Times(1)
 	addr, err := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
 	assert.Nil(t, err)
@@ -57,9 +54,7 @@ func TestBalance(t *testing.T) {
 	defer ctrl.Finish()
 
 	trie := mock_trie.NewMockTrie(ctrl)
-	kvdb := db.NewMemKVStore()
-	kvdb.Start()
-	sf := New(kvdb, trie)
+	sf := NewStateFactory(trie)
 
 	// Add 10 so the balance should be 10
 	addr, err := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
@@ -77,9 +72,7 @@ func TestNonce(t *testing.T) {
 	defer ctrl.Finish()
 
 	trie := mock_trie.NewMockTrie(ctrl)
-	kvdb := db.NewMemKVStore()
-	kvdb.Start()
-	sf := New(kvdb, trie)
+	sf := NewStateFactory(trie)
 
 	// Add 10 so the balance should be 10
 	addr, err := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
@@ -100,7 +93,7 @@ func TestNonce(t *testing.T) {
 		return nil
 	})
 	trie.EXPECT().Get(gomock.Any()).Times(1).Return(stateToBytes(&State{Address: addr, Nonce: 0x10}), nil)
-	err = sf.SetNonce(*addr, uint64(0x11))
+	err = sf.SetNonce(addr, uint64(0x11))
 }
 
 func TestVirtualNonce(t *testing.T) {
@@ -108,11 +101,8 @@ func TestVirtualNonce(t *testing.T) {
 	defer ctrl.Finish()
 
 	trie := mock_trie.NewMockTrie(ctrl)
-	kvdb := db.NewMemKVStore()
-	kvdb.Start()
-	sf := New(kvdb, trie)
-	vsf := VirtualStateFactory{}
-	vsf.SetStateFactory(&sf)
+	sf := NewVirtualStateFactory(trie)
+	vsf := sf.(*VirtualStateFactory)
 
 	// account does not exist, get nonce
 	addr, err := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
@@ -141,7 +131,8 @@ func TestVirtualNonce(t *testing.T) {
 	assert.Equal(t, uint64(0x11), vsf.changes[key].Nonce)
 
 	// account does not exist, set nonce
-	vsf.SetStateFactory(&sf)
+	sf = NewVirtualStateFactory(trie)
+	vsf = sf.(*VirtualStateFactory)
 	trie.EXPECT().Get(gomock.Any()).Times(1).Return(nil, nil).Times(1)
 	err = vsf.SetNonce(addr, 0x12)
 	assert.Equal(t, ErrAccountNotExist, err)
