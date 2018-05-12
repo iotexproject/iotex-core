@@ -48,9 +48,9 @@ func TestGetandValidateAddress(t *testing.T) {
 
 	addr, err := GetAddress(pub, false, []byte{0x00, 0x00, 0x00, 0x01})
 	assert.Nil(err)
-	assert.True(strings.HasPrefix(addr, mainnetPrefix))
-	assert.True(ValidateAddress(addr))
+	assert.True(strings.HasPrefix(addr.RawAddress, mainnetPrefix))
+	assert.True(ValidateAddress(addr.RawAddress))
 
-	addr = strings.Replace(addr, "1", "?", -1)
-	assert.False(ValidateAddress(addr))
+	addrstr := strings.Replace(addr.RawAddress, "1", "?", -1)
+	assert.False(ValidateAddress(addrstr))
 }

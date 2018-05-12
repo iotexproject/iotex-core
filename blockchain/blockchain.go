@@ -56,7 +56,7 @@ type Blockchain interface {
 	// MintNewBlock creates a new block with given transactions.
 	// Note: the coinbase transaction will be added to the given transactions
 	// when minting a new block.
-	MintNewBlock([]*Tx, iotxaddress.Address, string) (*Block, error)
+	MintNewBlock([]*Tx, *iotxaddress.Address, string) (*Block, error)
 	// AddBlockCommit adds a new block into blockchain
 	AddBlockCommit(blk *Block) error
 	// AddBlockSync adds a past block into blockchain
@@ -67,9 +67,9 @@ type Blockchain interface {
 	// UtxoPool returns the UTXO pool of current blockchain
 	UtxoPool() map[common.Hash32B][]*TxOutput
 	// CreateTransaction creates a signed transaction paying 'amount' from 'from' to 'to'
-	CreateTransaction(from iotxaddress.Address, amount uint64, to []*Payee) *Tx
+	CreateTransaction(from *iotxaddress.Address, amount uint64, to []*Payee) *Tx
 	// CreateRawTransaction creates a signed transaction paying 'amount' from 'from' to 'to'
-	CreateRawTransaction(from iotxaddress.Address, amount uint64, to []*Payee) *Tx
+	CreateRawTransaction(from *iotxaddress.Address, amount uint64, to []*Payee) *Tx
 }
 
 // blockchain implements the Blockchain interface
@@ -219,7 +219,7 @@ func (bc *blockchain) ValidateBlock(blk *Block) error {
 // MintNewBlock creates a new block with given transactions.
 // Note: the coinbase transaction will be added to the given transactions
 // when minting a new block.
-func (bc *blockchain) MintNewBlock(txs []*Tx, producer iotxaddress.Address, data string) (*Block, error) {
+func (bc *blockchain) MintNewBlock(txs []*Tx, producer *iotxaddress.Address, data string) (*Block, error) {
 	cbTx := NewCoinbaseTx(producer.RawAddress, bc.genesis.BlockReward, data)
 	if cbTx == nil {
 		errMsg := "Cannot create coinbase transaction"
@@ -314,7 +314,7 @@ func (bc *blockchain) UtxoPool() map[common.Hash32B][]*TxOutput {
 }
 
 // createTx creates a transaction paying 'amount' from 'from' to 'to'
-func (bc *blockchain) createTx(from iotxaddress.Address, amount uint64, to []*Payee, isRaw bool) *Tx {
+func (bc *blockchain) createTx(from *iotxaddress.Address, amount uint64, to []*Payee, isRaw bool) *Tx {
 	utxo, change := bc.utk.UtxoEntries(from.RawAddress, amount)
 	if utxo == nil {
 		glog.Errorf("Fail to get UTXO for %v", from.RawAddress)
@@ -354,12 +354,12 @@ func (bc *blockchain) createTx(from iotxaddress.Address, amount uint64, to []*Pa
 }
 
 // CreateTransaction creates a signed transaction paying 'amount' from 'from' to 'to'
-func (bc *blockchain) CreateTransaction(from iotxaddress.Address, amount uint64, to []*Payee) *Tx {
+func (bc *blockchain) CreateTransaction(from *iotxaddress.Address, amount uint64, to []*Payee) *Tx {
 	return bc.createTx(from, amount, to, false)
 }
 
 // CreateRawTransaction creates a unsigned transaction paying 'amount' from 'from' to 'to'
-func (bc *blockchain) CreateRawTransaction(from iotxaddress.Address, amount uint64, to []*Payee) *Tx {
+func (bc *blockchain) CreateRawTransaction(from *iotxaddress.Address, amount uint64, to []*Payee) *Tx {
 	return bc.createTx(from, amount, to, true)
 }
 

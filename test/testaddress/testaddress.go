@@ -32,9 +32,9 @@ const (
 )
 
 // Addrinfo contains the address information
-var Addrinfo map[string]iotxaddress.Address
+var Addrinfo map[string]*iotxaddress.Address
 
-func constructAddress(pubkey, prikey string) iotxaddress.Address {
+func constructAddress(pubkey, prikey string) *iotxaddress.Address {
 	pubk, err := hex.DecodeString(pubkey)
 	if err != nil {
 		panic(err)
@@ -47,11 +47,12 @@ func constructAddress(pubkey, prikey string) iotxaddress.Address {
 	if err != nil {
 		panic(err)
 	}
-	return iotxaddress.Address{PublicKey: pubk, PrivateKey: prik, RawAddress: addr}
+	addr.PrivateKey = prik
+	return addr
 }
 
 func init() {
-	Addrinfo = make(map[string]iotxaddress.Address)
+	Addrinfo = make(map[string]*iotxaddress.Address)
 
 	Addrinfo["miner"] = constructAddress(pubkeyMiner, prikeyMiner)
 	Addrinfo["alfa"] = constructAddress(pubkeyA, prikeyA)

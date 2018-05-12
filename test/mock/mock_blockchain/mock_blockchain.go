@@ -173,7 +173,7 @@ func (mr *MockBlockchainMockRecorder) ValidateBlock(blk interface{}) *gomock.Cal
 }
 
 // MintNewBlock mocks base method
-func (m *MockBlockchain) MintNewBlock(arg0 []*blockchain.Tx, arg1 iotxaddress.Address, arg2 string) (*blockchain.Block, error) {
+func (m *MockBlockchain) MintNewBlock(arg0 []*blockchain.Tx, arg1 *iotxaddress.Address, arg2 string) (*blockchain.Block, error) {
 	ret := m.ctrl.Call(m, "MintNewBlock", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*blockchain.Block)
 	ret1, _ := ret[1].(error)
@@ -234,7 +234,7 @@ func (mr *MockBlockchainMockRecorder) UtxoPool() *gomock.Call {
 }
 
 // CreateTransaction mocks base method
-func (m *MockBlockchain) CreateTransaction(from iotxaddress.Address, amount uint64, to []*blockchain.Payee) *blockchain.Tx {
+func (m *MockBlockchain) CreateTransaction(from *iotxaddress.Address, amount uint64, to []*blockchain.Payee) *blockchain.Tx {
 	ret := m.ctrl.Call(m, "CreateTransaction", from, amount, to)
 	ret0, _ := ret[0].(*blockchain.Tx)
 	return ret0
@@ -246,7 +246,7 @@ func (mr *MockBlockchainMockRecorder) CreateTransaction(from, amount, to interfa
 }
 
 // CreateRawTransaction mocks base method
-func (m *MockBlockchain) CreateRawTransaction(from iotxaddress.Address, amount uint64, to []*blockchain.Payee) *blockchain.Tx {
+func (m *MockBlockchain) CreateRawTransaction(from *iotxaddress.Address, amount uint64, to []*blockchain.Payee) *blockchain.Tx {
 	ret := m.ctrl.Call(m, "CreateRawTransaction", from, amount, to)
 	ret0, _ := ret[0].(*blockchain.Tx)
 	return ret0
