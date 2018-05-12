@@ -56,13 +56,15 @@ func NewAddress(isTestnet bool, chainid []byte) (*Address, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Address{PublicKey: pub, PrivateKey: pri, RawAddress: addr}, nil
+
+	addr.PrivateKey = pri
+	return addr, nil
 }
 
 // GetAddress returns the address given a public key and necessary params.
-func GetAddress(pub []byte, isTestnet bool, chainid []byte) (string, error) {
+func GetAddress(pub []byte, isTestnet bool, chainid []byte) (*Address, error) {
 	if !isValidChainID(chainid) {
-		return "", ErrInvalidChainID
+		return nil, ErrInvalidChainID
 	}
 
 	hrp := mainnetPrefix
@@ -74,13 +76,13 @@ func GetAddress(pub []byte, isTestnet bool, chainid []byte) (string, error) {
 	// Group the payload into 5 bit groups.
 	grouped, err := bech32.ConvertBits(payload, 8, 5, true)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	addr, err := bech32.Encode(hrp, grouped)
+	raddr, err := bech32.Encode(hrp, grouped)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return addr, nil
+	return &Address{PublicKey: pub, RawAddress: raddr}, nil
 }
 
 // GetPubkeyHash extracts public key hash from address
