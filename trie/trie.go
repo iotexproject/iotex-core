@@ -69,20 +69,16 @@ func (t *trie) Insert(key, value []byte) error {
 	if err := div.insert(key[size:], value, t.addNode); err != nil {
 		return err
 	}
-	// update newly added patricia node into db
+	// update newly added patricia node into DB
 	var hashChild common.Hash32B
 	for t.addNode.Len() > 0 {
 		n := t.addNode.Back()
 		ptr, _ := n.Value.(patricia)
-		value, err := ptr.serialize()
-		if err != nil {
-			return err
-		}
 		hashChild = ptr.hash()
-		if err := t.dao.PutIfNotExists("", hashChild[:], value); err != nil {
+		// hash of new node should NOT exist in DB
+		if err := t.putPatriciaNew(ptr); err != nil {
 			return err
 		}
-		logger.Info().Hex("key", hashChild[:8]).Msg("put")
 		t.addNode.Remove(n)
 	}
 	t.numBranch += uint64(nb)
@@ -95,6 +91,7 @@ func (t *trie) Insert(key, value []byte) error {
 // Get an existing entry
 func (t *trie) Get(key []byte) ([]byte, error) {
 	ptr, size, err := t.query(key)
+	t.clear()
 	if size != len(key) {
 		return nil, errors.Wrapf(ErrNotExist, "key = %x", key)
 	}
@@ -113,69 +110,90 @@ func (t *trie) Update(key, value []byte) error {
 
 // Delete an entry
 func (t *trie) Delete(key []byte) error {
-	child, size, err := t.query(key)
+	_, size, err := t.query(key)
 	if size != len(key) {
 		return errors.Wrapf(ErrNotExist, "key = %x", key)
 	}
 	if err != nil {
 		return err
 	}
-	// this node already on stack, pop it and discard
-	_, _ = t.popToRoot()
-	// for branch node, entry is stored in one of its leaf nodes
-	index := key[len(key)-1]
-	br, isBranch := child.(*branch)
-	if isBranch {
+	child, index := t.popToRoot()
+	var path, value []byte
+	var childClps bool
+	// parent of leaf is either branch or extension
+	switch child.(type) {
+	case *branch:
 		// delete the leaf corresponding to matching path
-		l, err := t.getPatricia(br.Path[index])
+		l, err := t.getPatricia(child.(*branch).Path[index])
 		if err != nil {
 			return err
 		}
-		hashCurr := l.hash()
-		if err := t.dao.Delete("", hashCurr[:]); err != nil {
+		if err := t.delPatricia(l); err != nil {
 			return err
 		}
-		logger.Info().Hex("leaf", hashCurr[:8]).Msg("del")
-	}
-	// update nodes on path ascending to root
-	path, _, childClps := child.collapse(index, true)
-	for t.toRoot.Len() > 0 {
-		curr, index := t.popToRoot()
-		hash := curr.hash()
-		if err := t.dao.Delete("", hash[:]); err != nil {
-			return err
-		}
-		logger.Info().Hex("key", hash[:8]).Msg("del")
-		k, _, currClps := curr.collapse(index, childClps)
-		if currClps {
-			// current node can also collapse, concatenate the path and keep going
-			path = append(k, path...)
-		} else {
-			if childClps {
-				// child is the last node that can collapse
-				// TODO: update child's <k, v>
-				hash := child.hash()
-				// store new child to db
-				value, err := child.serialize()
-				if err != nil {
-					return err
-				}
-				if err := t.dao.PutIfNotExists("", hash[:], value); err != nil {
-					return err
-				}
-				logger.Info().Hex("key", hash[:8]).Msg("clp")
-			}
-			// update current with new child
-			curr.ascend(hash[:], index)
-			hash := child.hash()
-			value, err := child.serialize()
+		// check if the branch can collapse, and get the leaf node value
+		path, value, childClps = child.collapse(index, true)
+		if childClps {
+			l, err := t.getPatricia(value)
 			if err != nil {
 				return err
 			}
-			if err := t.dao.PutIfNotExists("", hash[:], value); err != nil {
+			if value, err = l.blob(); err != nil {
 				return err
 			}
-			logger.Info().Hex("key", hash[:8]).Msg("put")
+		}
+	case *leaf:
+		if child.(*leaf).Ext == 1 {
+			return errors.Wrap(ErrInvalidPatricia, "extension cannot be terminal node")
+		}
+		path, value, childClps = child.collapse(index, true)
+	}
+	// update nodes on path ascending to root
+	contClps := false
+	for t.toRoot.Len() > 0 {
+		logger.Info().Int("stack size", t.toRoot.Len()).Msg("clps")
+		curr, index := t.popToRoot()
+		if curr == nil {
+			return errors.Wrap(ErrInvalidPatricia, "patricia pushed on stack is not valid")
+		}
+		if err := t.delPatricia(curr); err != nil {
+			return err
+		}
+		// check if curr node can continue to collapse
+		k, _, currClps := curr.collapse(index, childClps)
+		logger.Info().Bool("child", childClps).Msg("clps")
+		logger.Info().Bool("curr", currClps).Msg("clps")
+		isRoot := t.toRoot.Len() == 0
+		if currClps {
+			// current node can also collapse, concatenate the path and keep going
+			contClps = true
+			path = append(k, path...)
+			logger.Info().Bytes("path", path).Msg("clps")
+			if !isRoot {
+				childClps = currClps
+				child = curr
+				continue
+			}
+		}
+		logger.Info().Bool("cont", contClps).Msg("clps")
+		if contClps {
+			// child is the last node that can collapse
+			child = &leaf{0, path, value}
+			// after collapsing, the trie might rollback to an earlier state in the history (before adding the deleted entry)
+			// so 'child' may already exist in DB
+			if err := t.putPatricia(child); err != nil {
+				return err
+			}
+			logger.Info().Bytes("k", path).Bytes("v", value).Msg("clps")
+		}
+		contClps = false
+		// update current with new child
+		hash := child.hash()
+		curr.ascend(hash[:], index)
+		// for the same reason above, the trie might rollback to an earlier state in the history
+		// so 'curr' may already exist in DB
+		if err := t.putPatricia(curr); err != nil {
+			return err
 		}
 		childClps = currClps
 		child = curr
@@ -210,8 +228,6 @@ func (t *trie) query(key []byte) (patricia, int, error) {
 		}
 		// path matching entire key, return ptr that holds the value
 		if match == len(key) {
-			// clear the stack before return
-			t.clear()
 			return ptr, size + match, nil
 		}
 		logger.Info().Hex("key", hashn[:8]).Msg("access")
@@ -231,33 +247,27 @@ func (t *trie) update(hashChild []byte) error {
 		if ptr == nil {
 			return errors.Wrap(ErrInvalidPatricia, "patricia pushed on stack is not valid")
 		}
-		// delete the current patricia node
+		// delete the current node
 		hashCurr := ptr.hash()
 		logger.Info().Hex("curr key", hashCurr[:8]).Msg("10-4")
 		logger.Info().Hex("child key", hashChild[:8]).Msg("10-4")
-		if err := t.dao.Delete("", hashCurr[:]); err != nil {
+		if err := t.delPatricia(ptr); err != nil {
 			return err
 		}
-		logger.Info().Hex("key", hashCurr[:8]).Msg("del")
 		// update the patricia node
 		if ptr.ascend(hashChild[:], index) {
 			hashCurr = ptr.hash()
 			hashChild = hashCurr[:]
+			// when adding an entry, hash of nodes along the path changes and is expected NOT to exist in DB
+			if err := t.putPatriciaNew(ptr); err != nil {
+				return err
+			}
 		}
-		// store back to db (with updated hash)
-		value, err := ptr.serialize()
-		if err != nil {
-			return err
-		}
-		if err := t.dao.PutIfNotExists("", hashChild, value); err != nil && err != db.ErrAlreadyExist {
-			return err
-		}
-		logger.Info().Hex("key", hashChild[:8]).Msg("put")
 	}
 	return nil
 }
 
-// getPatricia retrieves the patricia node from db according to key
+// getPatricia retrieves the patricia node from DB according to key
 func (t *trie) getPatricia(key []byte) (patricia, error) {
 	node, err := t.dao.Get("", key)
 	if err != nil {
@@ -279,6 +289,46 @@ func (t *trie) getPatricia(key []byte) (patricia, error) {
 		return nil, err
 	}
 	return ptr, nil
+}
+
+// putPatricia stores the patricia node into DB
+// the node may already exist in DB
+func (t *trie) putPatricia(ptr patricia) error {
+	value, err := ptr.serialize()
+	if err != nil {
+		return err
+	}
+	key := ptr.hash()
+	if err := t.dao.Put("", key[:], value); err != nil {
+		return errors.Wrapf(err, "key = %x", key[:8])
+	}
+	logger.Info().Hex("key", key[:8]).Msg("put")
+	return nil
+}
+
+// putPatriciaNew stores a new patricia node into DB
+// it is expected the node does not exist yet, will return error if already exist
+func (t *trie) putPatriciaNew(ptr patricia) error {
+	value, err := ptr.serialize()
+	if err != nil {
+		return err
+	}
+	key := ptr.hash()
+	if err := t.dao.PutIfNotExists("", key[:], value); err != nil {
+		return errors.Wrapf(err, "key = %x", key[:8])
+	}
+	logger.Info().Hex("key", key[:8]).Msg("put")
+	return nil
+}
+
+// delPatricia deletes the patricia node from DB
+func (t *trie) delPatricia(ptr patricia) error {
+	key := ptr.hash()
+	if err := t.dao.Delete("", key[:]); err != nil {
+		return err
+	}
+	logger.Info().Hex("key", key[:8]).Msg("del")
+	return nil
 }
 
 // getValue returns the actual value stored in patricia node

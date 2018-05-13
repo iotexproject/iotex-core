@@ -89,6 +89,7 @@ func (b *branch) increase(key []byte) (int, int, int) {
 }
 
 // collapse updates the node, returns the <key, value> if the node can be collapsed
+// value is the hash of only remaining leaf node, another DB access is needed to get the actual value
 func (b *branch) collapse(index byte, childCollapse bool) ([]byte, []byte, bool) {
 	// if child cannot collapse, no need to check and return false
 	if !childCollapse {
@@ -100,12 +101,13 @@ func (b *branch) collapse(index byte, childCollapse bool) ([]byte, []byte, bool)
 	for i := 0; i < RADIX && i != int(index); i++ {
 		if len(b.Path[i]) > 0 {
 			nb++
-			key = append(key, byte(i))
+			key = nil
+			key = []byte{byte(i)}
 			value = b.Path[i]
 		}
 	}
 	// branch can be collapsed if only 1 path remaining
-	if nb == 1 {
+	if nb <= 1 {
 		b.Path[index] = nil
 		return key, value, true
 	}
