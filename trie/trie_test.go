@@ -2,12 +2,12 @@ package trie
 
 import (
 	"container/list"
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/logger"
 )
 
 func TestEmptyTrie(t *testing.T) {
@@ -33,9 +33,9 @@ func TestInsert(t *testing.T) {
 	// insert
 	err = tr.Insert(cat, []byte("cat"))
 	assert.Nil(err)
-	newRoot := tr.RootHash()
-	assert.NotEqual(newRoot, root)
-	root = newRoot
+	catRoot := tr.RootHash()
+	assert.NotEqual(catRoot, root)
+	root = catRoot
 	assert.Equal(uint64(1), tr.numLeaf)
 	// query can find it now
 	ptr, match, err = tr.query(cat)
@@ -47,11 +47,11 @@ func TestInsert(t *testing.T) {
 	b, err := tr.Get(cat)
 	assert.Nil(err)
 	assert.Equal([]byte("cat"), b)
-	fmt.Println("[cat] = 'cat'")
+	logger.Info().Msg("[cat] = 'cat'")
 	// this insert will split leaf node
 	err = tr.Insert(rat, []byte("rat"))
 	assert.Nil(err)
-	newRoot = tr.RootHash()
+	newRoot := tr.RootHash()
 	assert.NotEqual(newRoot, root)
 	root = newRoot
 	assert.Equal(uint64(2), tr.numBranch)
@@ -67,5 +67,12 @@ func TestInsert(t *testing.T) {
 	b, err = tr.Get(rat)
 	assert.Nil(err)
 	assert.Equal([]byte("rat"), b)
-	fmt.Println("[rat] = 'rat'")
+	logger.Info().Msg("[rat] = 'rat'")
+	// delete "rat"
+	err = tr.Delete(rat)
+	assert.Nil(err)
+	newRoot = tr.RootHash()
+	assert.NotEqual(newRoot, root)
+	assert.Equal(newRoot, catRoot)
+	logger.Info().Msg("Delete 'rat'")
 }
