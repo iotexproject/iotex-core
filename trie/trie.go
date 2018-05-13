@@ -146,7 +146,11 @@ func (t *trie) Delete(key []byte) error {
 		if child.(*leaf).Ext == 1 {
 			return errors.Wrap(ErrInvalidPatricia, "extension cannot be terminal node")
 		}
-		path, value, childClps = child.collapse(index, true)
+		// delete the leaf node
+		if err := t.delPatricia(child); err != nil {
+			return err
+		}
+		path, value, childClps = nil, nil, true
 	}
 	// update nodes on path ascending to root
 	contClps := false
@@ -168,7 +172,7 @@ func (t *trie) Delete(key []byte) error {
 			// current node can also collapse, concatenate the path and keep going
 			contClps = true
 			path = append(k, path...)
-			logger.Info().Bytes("path", path).Msg("clps")
+			logger.Info().Hex("path", path).Msg("clps")
 			if !isRoot {
 				childClps = currClps
 				child = curr
@@ -177,14 +181,21 @@ func (t *trie) Delete(key []byte) error {
 		}
 		logger.Info().Bool("cont", contClps).Msg("clps")
 		if contClps {
-			// child is the last node that can collapse
+			// if deleting a node collapse all the way back including root, and <k, v> is nil
+			// this means no more entry exist and the trie rollback to an empty trie
+			if isRoot && path == nil && value == nil {
+				t.root = nil
+				t.root = &branch{}
+				return nil
+			}
+			// otherwise collapse into a leaf node
 			child = &leaf{0, path, value}
+			logger.Info().Hex("k", path).Bytes("v", value).Msg("clps")
 			// after collapsing, the trie might rollback to an earlier state in the history (before adding the deleted entry)
 			// so 'child' may already exist in DB
 			if err := t.putPatricia(child); err != nil {
 				return err
 			}
-			logger.Info().Bytes("k", path).Bytes("v", value).Msg("clps")
 		}
 		contClps = false
 		// update current with new child
@@ -216,6 +227,7 @@ func (t *trie) query(key []byte) (patricia, int, error) {
 	for len(key) > 0 {
 		// keep descending the trie
 		hashn, match, err := ptr.descend(key)
+		logger.Info().Hex("key", hashn).Msg("access")
 		if _, b := ptr.(*branch); b {
 			// for branch node, need to save first byte of path so branch[key[0]] can be updated later
 			t.toRoot.PushBack(key[0])
@@ -230,7 +242,6 @@ func (t *trie) query(key []byte) (patricia, int, error) {
 		if match == len(key) {
 			return ptr, size + match, nil
 		}
-		logger.Info().Hex("key", hashn[:8]).Msg("access")
 		if ptr, err = t.getPatricia(hashn); err != nil {
 			return nil, 0, err
 		}
@@ -302,7 +313,7 @@ func (t *trie) putPatricia(ptr patricia) error {
 	if err := t.dao.Put("", key[:], value); err != nil {
 		return errors.Wrapf(err, "key = %x", key[:8])
 	}
-	logger.Info().Hex("key", key[:8]).Msg("put")
+	logger.Debug().Hex("key", key[:8]).Msg("put")
 	return nil
 }
 
@@ -317,7 +328,7 @@ func (t *trie) putPatriciaNew(ptr patricia) error {
 	if err := t.dao.PutIfNotExists("", key[:], value); err != nil {
 		return errors.Wrapf(err, "key = %x", key[:8])
 	}
-	logger.Info().Hex("key", key[:8]).Msg("put")
+	logger.Debug().Hex("key", key[:8]).Msg("putnew")
 	return nil
 }
 
@@ -327,7 +338,7 @@ func (t *trie) delPatricia(ptr patricia) error {
 	if err := t.dao.Delete("", key[:]); err != nil {
 		return err
 	}
-	logger.Info().Hex("key", key[:8]).Msg("del")
+	logger.Debug().Hex("key", key[:8]).Msg("del")
 	return nil
 }
 

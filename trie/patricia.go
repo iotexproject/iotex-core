@@ -9,6 +9,7 @@ import (
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotexproject/iotex-core/common"
+	"github.com/iotexproject/iotex-core/logger"
 )
 
 const RADIX = 256
@@ -62,9 +63,8 @@ func (b *branch) descend(key []byte) ([]byte, int, error) {
 
 // ascend updates the key and returns whether the current node hash to be updated or not
 func (b *branch) ascend(key []byte, index byte) bool {
-	if b.Path[index] == nil {
-		b.Path[index] = make([]byte, common.HashSize)
-	}
+	b.Path[index] = nil
+	b.Path[index] = make([]byte, common.HashSize)
 	copy(b.Path[index], key)
 	return true
 }
@@ -109,6 +109,7 @@ func (b *branch) collapse(index byte, childCollapse bool) ([]byte, []byte, bool)
 	// branch can be collapsed if only 1 path remaining
 	if nb <= 1 {
 		b.Path[index] = nil
+		logger.Info().Hex("bkey", key).Hex("bvalue", value).Int("remain", nb).Msg("clps branch")
 		return key, value, true
 	}
 	return nil, nil, false
@@ -173,9 +174,8 @@ func (l *leaf) ascend(key []byte, index byte) bool {
 	if l.Ext == 0 {
 		return false
 	}
-	if l.Value == nil {
-		l.Value = make([]byte, common.HashSize)
-	}
+	l.Value = nil
+	l.Value = make([]byte, common.HashSize)
 	copy(l.Value, key)
 	return true
 }
