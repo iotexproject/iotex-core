@@ -44,6 +44,7 @@ type (
 	trie struct {
 		dao       db.KVStore
 		root      patricia
+		curr      patricia   // current patricia node when updating nodes on path ascending to root
 		toRoot    *list.List // stores the path from root to diverging node
 		addNode   *list.List // stored newly added nodes on insert() operation
 		numBranch uint64
@@ -54,7 +55,7 @@ type (
 
 // NewTrie creates a trie with
 func NewTrie(dao db.KVStore) (Trie, error) {
-	t := trie{dao, &branch{}, list.New(), list.New(), 1, 0, 0}
+	t := trie{dao: dao, root: &branch{}, toRoot: list.New(), addNode: list.New(), numBranch: 1}
 	return &t, nil
 }
 
@@ -85,7 +86,7 @@ func (t *trie) Insert(key, value []byte) error {
 	t.numExt += uint64(ne)
 	t.numLeaf += uint64(nl)
 	// update nodes on path ascending to root
-	return t.update(hashChild[:])
+	return t.updateInsert(hashChild[:])
 }
 
 // Get an existing entry
@@ -117,25 +118,26 @@ func (t *trie) Delete(key []byte) error {
 	if err != nil {
 		return err
 	}
-	child, index := t.popToRoot()
+	var index byte
 	var path, value []byte
 	var childClps bool
-	// parent of leaf is either branch or extension
-	switch child.(type) {
+	t.curr, index = t.popToRoot()
+	// parent of leaf must be either branch or extension
+	switch t.curr.(type) {
 	case *branch:
 		// delete the leaf corresponding to matching path
-		l, err := t.getPatricia(child.(*branch).Path[index])
+		l, err := t.getPatricia(t.curr.(*branch).Path[index])
 		if err != nil {
 			return err
 		}
 		if err := t.delPatricia(l); err != nil {
 			return err
 		}
-		hash := child.hash()
-		child.(*branch).trim(index)
-		child.(*branch).print()
+		hash := t.curr.hash()
+		t.curr.(*branch).trim(index)
+		t.curr.(*branch).print()
 		// check if the branch can collapse, and if yes get the leaf node value
-		path, value, childClps = child.collapse(index, true)
+		path, value, childClps = t.curr.collapse(index, true)
 		if childClps {
 			l, err := t.getPatricia(value)
 			if err != nil {
@@ -149,78 +151,22 @@ func (t *trie) Delete(key []byte) error {
 			if err := t.dao.Delete("", hash[:]); err != nil {
 				return err
 			}
-			if err := t.putPatricia(child); err != nil {
+			if err := t.putPatricia(t.curr); err != nil {
 				return err
 			}
 		}
 	case *leaf:
-		if child.(*leaf).Ext == 1 {
+		if t.curr.(*leaf).Ext == 1 {
 			return errors.Wrap(ErrInvalidPatricia, "extension cannot be terminal node")
 		}
 		// delete the leaf node
-		if err := t.delPatricia(child); err != nil {
+		if err := t.delPatricia(t.curr); err != nil {
 			return err
 		}
 		path, value, childClps = nil, nil, true
 	}
 	// update nodes on path ascending to root
-	contClps := false
-	for t.toRoot.Len() > 0 {
-		logger.Info().Int("stack size", t.toRoot.Len()).Msg("clps")
-		curr, index := t.popToRoot()
-		if curr == nil {
-			return errors.Wrap(ErrInvalidPatricia, "patricia pushed on stack is not valid")
-		}
-		if err := t.delPatricia(curr); err != nil {
-			return err
-		}
-		// check if curr node can continue to collapse
-		k, _, currClps := curr.collapse(index, childClps)
-		logger.Info().Bool("child", childClps).Msg("clps")
-		logger.Info().Bool("curr", currClps).Msg("clps")
-		isRoot := t.toRoot.Len() == 0
-		if currClps {
-			// current node can also collapse, concatenate the path and keep going
-			contClps = true
-			if !isRoot {
-				path = append(k, path...)
-				logger.Info().Hex("path", path).Msg("clps")
-				childClps = currClps
-				child = curr
-				continue
-			}
-		}
-		logger.Info().Bool("cont", contClps).Msg("clps")
-		if contClps {
-			// if deleting a node collapse all the way back including root, and <k, v> is nil
-			// this means no more entry exist and the trie fallback to an empty trie
-			if isRoot && path == nil && value == nil {
-				t.root = nil
-				t.root = &branch{}
-				return nil
-			}
-			// otherwise collapse into a leaf node
-			child = &leaf{0, path, value}
-			logger.Info().Hex("k", path).Bytes("v", value).Msg("clps")
-			// after collapsing, the trie might rollback to an earlier state in the history (before adding the deleted entry)
-			// so 'child' may already exist in DB
-			if err := t.putPatricia(child); err != nil {
-				return err
-			}
-		}
-		contClps = false
-		// update current with new child
-		hash := child.hash()
-		curr.ascend(hash[:], index)
-		// for the same reason above, the trie might rollback to an earlier state in the history
-		// so 'curr' may already exist in DB
-		if err := t.putPatricia(curr); err != nil {
-			return err
-		}
-		childClps = currClps
-		child = curr
-	}
-	return nil
+	return t.updateDelete(path, value, childClps)
 }
 
 // RootHash returns the root hash of merkle patricia trie
@@ -262,29 +208,90 @@ func (t *trie) query(key []byte) (patricia, int, error) {
 	return nil, size, nil
 }
 
-// update rewinds the path back to root and updates nodes along the way
-func (t *trie) update(hashChild []byte) error {
+// updateInsert rewinds the path back to root and updates nodes along the way
+func (t *trie) updateInsert(hashChild []byte) error {
 	for t.toRoot.Len() > 0 {
-		ptr, index := t.popToRoot()
-		if ptr == nil {
+		var index byte
+		t.curr, index = t.popToRoot()
+		if t.curr == nil {
 			return errors.Wrap(ErrInvalidPatricia, "patricia pushed on stack is not valid")
 		}
 		// delete the current node
-		hashCurr := ptr.hash()
+		hashCurr := t.curr.hash()
 		logger.Info().Hex("curr key", hashCurr[:8]).Msg("10-4")
 		logger.Info().Hex("child key", hashChild[:8]).Msg("10-4")
-		if err := t.delPatricia(ptr); err != nil {
+		if err := t.delPatricia(t.curr); err != nil {
 			return err
 		}
 		// update the patricia node
-		if ptr.ascend(hashChild[:], index) {
-			hashCurr = ptr.hash()
+		if t.curr.ascend(hashChild[:], index) {
+			hashCurr = t.curr.hash()
 			hashChild = hashCurr[:]
 			// when adding an entry, hash of nodes along the path changes and is expected NOT to exist in DB
-			if err := t.putPatriciaNew(ptr); err != nil {
+			if err := t.putPatriciaNew(t.curr); err != nil {
 				return err
 			}
 		}
+	}
+	return nil
+}
+
+func (t *trie) updateDelete(path []byte, value []byte, currClps bool) error {
+	contClps := false
+	for t.toRoot.Len() > 0 {
+		logger.Info().Int("stack size", t.toRoot.Len()).Msg("clps")
+		next, index := t.popToRoot()
+		if next == nil {
+			return errors.Wrap(ErrInvalidPatricia, "patricia pushed on stack is not valid")
+		}
+		if err := t.delPatricia(next); err != nil {
+			return err
+		}
+		// check if next node can continue to collapse
+		k, _, nextClps := next.collapse(index, currClps)
+		logger.Info().Bool("curr", currClps).Msg("clps")
+		logger.Info().Bool("next", nextClps).Msg("clps")
+		isRoot := t.toRoot.Len() == 0
+		if nextClps {
+			// current node can also collapse, concatenate the path and keep going
+			contClps = true
+			if !isRoot {
+				path = append(k, path...)
+				logger.Info().Hex("path", path).Msg("clps")
+				currClps = nextClps
+				t.curr = next
+				continue
+			}
+		}
+		logger.Info().Bool("cont", contClps).Msg("clps")
+		if contClps {
+			// if deleting a node collapse all the way back including root, and <k, v> is nil
+			// this means no more entry exist and the trie fallback to an empty trie
+			if isRoot && path == nil && value == nil {
+				t.root = nil
+				t.root = &branch{}
+				return nil
+			}
+			// otherwise collapse into a leaf node
+			t.curr = &leaf{0, path, value}
+			logger.Info().Hex("k", path).Bytes("v", value).Msg("clps")
+			// after collapsing, the trie might rollback to an earlier state in the history (before adding the deleted entry)
+			// so 'child' may already exist in DB
+			if err := t.putPatricia(t.curr); err != nil {
+				return err
+			}
+		}
+		contClps = false
+		// update current with new child
+		hash := t.curr.hash()
+		next.ascend(hash[:], index)
+		// for the same reason above, the trie might rollback to an earlier state in the history
+		// so 'curr' may already exist in DB
+		if err := t.putPatricia(next); err != nil {
+			return err
+		}
+		currClps = nextClps
+		t.curr = next
 	}
 	return nil
 }
