@@ -15,6 +15,7 @@ var (
 	hash2, _ = hex.DecodeString("901c60ffffd77f743729f8fea0233c0b00223428b5192c2015f853562b45ce59")
 
 	ham = []byte{1, 2, 3, 4, 2, 3, 4, 5}
+	car = []byte{1, 2, 3, 4, 5, 6, 7, 7}
 	cat = []byte{1, 2, 3, 4, 5, 6, 7, 8}
 	rat = []byte{1, 2, 3, 4, 5, 6, 7, 9}
 	egg = []byte{1, 2, 3, 4, 5, 8, 1, 0}

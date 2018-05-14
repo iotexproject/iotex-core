@@ -59,6 +59,21 @@ func TestInsert(t *testing.T) {
 	assert.Nil(err)
 	assert.Equal([]byte("rat"), b)
 	logger.Info().Msg("[rat] = 'rat'")
+	// insert car
+	logger.Info().Msg("Put[car]")
+	err = tr.Insert(car, []byte("car"))
+	assert.Nil(err)
+	newRoot = tr.RootHash()
+	assert.NotEqual(newRoot, root)
+	root = newRoot
+	// Get returns "car" now
+	b, err = tr.Get(car)
+	assert.Nil(err)
+	assert.Equal([]byte("car"), b)
+	logger.Info().Msg("[car] = 'car'")
+	logger.Info().Msg("Del[car]")
+	err = tr.Delete(car)
+	assert.Nil(err)
 	// delete "rat"
 	logger.Info().Msg("Del[rat]")
 	err = tr.Delete(rat)

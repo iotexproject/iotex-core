@@ -131,7 +131,10 @@ func (t *trie) Delete(key []byte) error {
 		if err := t.delPatricia(l); err != nil {
 			return err
 		}
-		// check if the branch can collapse, and get the leaf node value
+		hash := child.hash()
+		child.(*branch).trim(index)
+		child.(*branch).print()
+		// check if the branch can collapse, and if yes get the leaf node value
 		path, value, childClps = child.collapse(index, true)
 		if childClps {
 			l, err := t.getPatricia(value)
@@ -139,6 +142,14 @@ func (t *trie) Delete(key []byte) error {
 				return err
 			}
 			if value, err = l.blob(); err != nil {
+				return err
+			}
+		} else {
+			// update the branch itself (after deleting the leaf)
+			if err := t.dao.Delete("", hash[:]); err != nil {
+				return err
+			}
+			if err := t.putPatricia(child); err != nil {
 				return err
 			}
 		}
@@ -171,9 +182,9 @@ func (t *trie) Delete(key []byte) error {
 		if currClps {
 			// current node can also collapse, concatenate the path and keep going
 			contClps = true
-			path = append(k, path...)
-			logger.Info().Hex("path", path).Msg("clps")
 			if !isRoot {
+				path = append(k, path...)
+				logger.Info().Hex("path", path).Msg("clps")
 				childClps = currClps
 				child = curr
 				continue
@@ -182,7 +193,7 @@ func (t *trie) Delete(key []byte) error {
 		logger.Info().Bool("cont", contClps).Msg("clps")
 		if contClps {
 			// if deleting a node collapse all the way back including root, and <k, v> is nil
-			// this means no more entry exist and the trie rollback to an empty trie
+			// this means no more entry exist and the trie fallback to an empty trie
 			if isRoot && path == nil && value == nil {
 				t.root = nil
 				t.root = &branch{}
