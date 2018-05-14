@@ -53,5 +53,5 @@ func (r ruleVote) reachedMaj() bool {
 			agreed++
 		}
 	}
-	return agreed >= r.majNum
+	return agreed >= len(r.delegates)*2/3+1
 }
