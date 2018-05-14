@@ -22,7 +22,7 @@ func TestInsert(t *testing.T) {
 	assert := assert.New(t)
 	logger.UseDebugLogger()
 
-	tr := trie{db.NewMemKVStore(), &branch{}, list.New(), list.New(), 1, 0, 0}
+	tr := trie{dao: db.NewMemKVStore(), root: &branch{}, toRoot: list.New(), addNode: list.New(), numBranch: 1}
 	root := emptyRoot
 	assert.Equal(uint64(1), tr.numBranch)
 	// query non-existing entry
