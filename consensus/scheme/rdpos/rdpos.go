@@ -58,7 +58,6 @@ type RDPoS struct {
 	self      net.Addr
 	proposer  bool // am i the proposer for this round or not
 	delegates []net.Addr
-	majNum    int
 	wg        sync.WaitGroup
 	quit      chan struct{}
 	eventChan chan *fsm.Event
@@ -82,7 +81,6 @@ func NewRDPoS(cfg config.RDPoS, prop scheme.CreateBlockCB, vote scheme.TellPeerC
 		bc:        bc,
 		self:      myaddr,
 		delegates: delegates,
-		majNum:    len(delegates)*2/3 + 1,
 		quit:      make(chan struct{}),
 		eventChan: make(chan *fsm.Event, 100),
 		cfg:       cfg,
