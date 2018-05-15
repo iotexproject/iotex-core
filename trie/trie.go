@@ -74,7 +74,10 @@ func (t *trie) Insert(key, value []byte) error {
 	var hashChild common.Hash32B
 	for t.addNode.Len() > 0 {
 		n := t.addNode.Back()
-		ptr, _ := n.Value.(patricia)
+		ptr, ok := n.Value.(patricia)
+		if !ok {
+			return errors.Wrapf(ErrInvalidPatricia, "node = %v", n.Value)
+		}
 		hashChild = ptr.hash()
 		// hash of new node should NOT exist in DB
 		if err := t.putPatriciaNew(ptr); err != nil {
@@ -134,10 +137,9 @@ func (t *trie) Delete(key []byte) error {
 			return err
 		}
 		hash := t.curr.hash()
-		t.curr.(*branch).trim(index)
 		t.curr.(*branch).print()
 		// check if the branch can collapse, and if yes get the leaf node value
-		path, value, childClps = t.curr.collapse(index, true)
+		path, value, childClps = t.curr.collapse(path, value, index, true)
 		if childClps {
 			l, err := t.getPatricia(value)
 			if err != nil {
@@ -210,6 +212,12 @@ func (t *trie) query(key []byte) (patricia, int, error) {
 
 // updateInsert rewinds the path back to root and updates nodes along the way
 func (t *trie) updateInsert(hashChild []byte) error {
+	// if the diverging node is leaf, it will be replaced and no need to update
+	n := t.toRoot.Back()
+	if _, ok := n.Value.(patricia).(*leaf); ok {
+		logger.Warn().Msg("discard leaf")
+		t.toRoot.Remove(n)
+	}
 	for t.toRoot.Len() > 0 {
 		var index byte
 		t.curr, index = t.popToRoot()
@@ -224,7 +232,7 @@ func (t *trie) updateInsert(hashChild []byte) error {
 			return err
 		}
 		// update the patricia node
-		if t.curr.ascend(hashChild[:], index) {
+		if t.curr.ascend(hashChild[:], index) == nil {
 			hashCurr = t.curr.hash()
 			hashChild = hashCurr[:]
 			// when adding an entry, hash of nodes along the path changes and is expected NOT to exist in DB
@@ -236,6 +244,7 @@ func (t *trie) updateInsert(hashChild []byte) error {
 	return nil
 }
 
+// updateDelete rewinds the path back to root and updates nodes along the way
 func (t *trie) updateDelete(path []byte, value []byte, currClps bool) error {
 	contClps := false
 	for t.toRoot.Len() > 0 {
@@ -247,16 +256,17 @@ func (t *trie) updateDelete(path []byte, value []byte, currClps bool) error {
 		if err := t.delPatricia(next); err != nil {
 			return err
 		}
+		isRoot := t.toRoot.Len() == 0
 		// check if next node can continue to collapse
-		k, _, nextClps := next.collapse(index, currClps)
+		// we don't want to collapse the root (even though technically it can be)
+		var nextClps bool
+		path, value, nextClps = next.collapse(path, value, index, currClps && !isRoot)
 		logger.Info().Bool("curr", currClps).Msg("clps")
 		logger.Info().Bool("next", nextClps).Msg("clps")
-		isRoot := t.toRoot.Len() == 0
 		if nextClps {
 			// current node can also collapse, concatenate the path and keep going
 			contClps = true
 			if !isRoot {
-				path = append(k, path...)
 				logger.Info().Hex("path", path).Msg("clps")
 				currClps = nextClps
 				t.curr = next
@@ -274,7 +284,7 @@ func (t *trie) updateDelete(path []byte, value []byte, currClps bool) error {
 			}
 			// otherwise collapse into a leaf node
 			t.curr = &leaf{0, path, value}
-			logger.Info().Hex("k", path).Bytes("v", value).Msg("clps")
+			logger.Info().Hex("k", path).Hex("v", value).Msg("clps")
 			// after collapsing, the trie might rollback to an earlier state in the history (before adding the deleted entry)
 			// so 'child' may already exist in DB
 			if err := t.putPatricia(t.curr); err != nil {
