@@ -7,9 +7,10 @@
 package beacon
 
 import (
+	"hash"
+
 	"github.com/golang/glog"
 	"golang.org/x/crypto/blake2b"
-	"hash"
 )
 
 const (

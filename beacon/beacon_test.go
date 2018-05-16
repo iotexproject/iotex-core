@@ -7,9 +7,9 @@
 package beacon
 
 import (
+	"encoding/hex"
 	"testing"
 
-	"encoding/hex"
 	"github.com/stretchr/testify/assert"
 )
 
