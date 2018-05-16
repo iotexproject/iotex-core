@@ -48,6 +48,7 @@ type (
 		toRoot    *list.List // stores the path from root to diverging node
 		addNode   *list.List // stored newly added nodes on insert() operation
 		clpsType  byte       // collapse into which node: 1-extension, 0-leaf
+		numEntry  uint64     // number of entries added to the trie
 		numBranch uint64
 		numExt    uint64
 		numLeaf   uint64
@@ -89,6 +90,7 @@ func (t *trie) Insert(key, value []byte) error {
 	t.numBranch += uint64(nb)
 	t.numExt += uint64(ne)
 	t.numLeaf += uint64(nl)
+	t.numEntry++
 	// update nodes on path ascending to root
 	return t.updateInsert(hashChild[:])
 }
@@ -176,6 +178,10 @@ func (t *trie) Delete(key []byte) error {
 		// deleting a leaf, node on the path must be extension
 		path, value, childClps, t.clpsType = nil, nil, true, 1
 	}
+	if t.numEntry == 0 {
+		return errors.New("Error: trie has more entries than ever added")
+	}
+	t.numEntry--
 	// update nodes on path ascending to root
 	return t.updateDelete(path, value, childClps)
 }
@@ -268,7 +274,7 @@ func (t *trie) updateDelete(path []byte, value []byte, currClps bool) error {
 		}
 		// we attempt to collapse in 2 cases:
 		// 1. the current node is not root
-		// 2. the current node is root, but <k, v> is nil meaning all entries in the trie are deleted
+		// 2. the current node is root, but <k, v> is nil meaning no more entries exist on the incoming path
 		isRoot := t.toRoot.Len() == 0
 		noEntry := path == nil && value == nil
 		var nextClps bool
@@ -286,9 +292,8 @@ func (t *trie) updateDelete(path []byte, value []byte, currClps bool) error {
 		}
 		logger.Info().Bool("cont", contClps).Msg("clps")
 		if contClps {
-			// if deleting a node collapse all the way back including root, and <k, v> is nil
-			// this means no more entry exist and the trie fallback to an empty trie
-			if isRoot && noEntry {
+			// if no entry exists anymore, the trie fallback to an empty trie
+			if isRoot && t.numEntry == 0 {
 				t.root = nil
 				t.root = &branch{}
 				logger.Warn().Msg("all entries deleted, trie fallback to empty")
