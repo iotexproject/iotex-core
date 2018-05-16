@@ -113,6 +113,7 @@ func TestInsert(t *testing.T) {
 	root = eggRoot
 
 	// this splits E (with match = 4, div = 1)
+	logger.Info().Msg("Put[egg]")
 	err = tr.Insert(egg, []byte("egg"))
 	assert.Nil(err)
 	newRoot = tr.RootHash()
@@ -182,6 +183,23 @@ func TestInsert(t *testing.T) {
 	// delete cow
 	logger.Info().Msg("Del[cow]")
 	err = tr.Delete(cow)
+	assert.Nil(err)
+	newRoot = tr.RootHash()
+	assert.NotEqual(newRoot, root)
+	root = newRoot
+
+	// this adds another path to root B
+	logger.Info().Msg("Put[ant]")
+	err = tr.Insert(ant, []byte("ant"))
+	assert.Nil(err)
+	newRoot = tr.RootHash()
+	assert.NotEqual(newRoot, root)
+	root = newRoot
+	b, err = tr.Get(ant)
+	assert.Nil(err)
+	assert.Equal([]byte("ant"), b)
+	logger.Info().Msg("Del[ant]")
+	err = tr.Delete(ant)
 	assert.Nil(err)
 	newRoot = tr.RootHash()
 	assert.NotEqual(newRoot, root)
