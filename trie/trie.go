@@ -47,6 +47,7 @@ type (
 		curr      patricia   // current patricia node when updating nodes on path ascending to root
 		toRoot    *list.List // stores the path from root to diverging node
 		addNode   *list.List // stored newly added nodes on insert() operation
+		clpsType  byte       // collapse into which node: 1-extension, 0-leaf
 		numBranch uint64
 		numExt    uint64
 		numLeaf   uint64
@@ -125,6 +126,7 @@ func (t *trie) Delete(key []byte) error {
 	var path, value []byte
 	var childClps bool
 	t.curr, index = t.popToRoot()
+	t.clpsType = 0
 	// parent of leaf must be either branch or extension
 	switch t.curr.(type) {
 	case *branch:
@@ -138,8 +140,7 @@ func (t *trie) Delete(key []byte) error {
 		}
 		hash := t.curr.hash()
 		// check if the branch can collapse, and if yes get the leaf node value
-		path, value, childClps = t.curr.collapse(path, value, index, true)
-		if childClps {
+		if path, value, childClps = t.curr.collapse(path, value, index, true); childClps {
 			l, err := t.getPatricia(value)
 			if err != nil {
 				return err
@@ -148,6 +149,10 @@ func (t *trie) Delete(key []byte) error {
 			var k []byte
 			if k, value, err = l.blob(); err != nil {
 				return err
+			}
+			// remaining leaf path != nil means it is extension node
+			if k != nil {
+				t.clpsType = 1
 			}
 			path = append(path, k...)
 			t.curr.(*branch).print()
@@ -168,7 +173,8 @@ func (t *trie) Delete(key []byte) error {
 		if err := t.delPatricia(t.curr); err != nil {
 			return err
 		}
-		path, value, childClps = nil, nil, true
+		// deleting a leaf, node on the path must be extension
+		path, value, childClps, t.clpsType = nil, nil, true, 1
 	}
 	// update nodes on path ascending to root
 	return t.updateDelete(path, value, childClps)
@@ -235,13 +241,14 @@ func (t *trie) updateInsert(hashChild []byte) error {
 			return err
 		}
 		// update the patricia node
-		if t.curr.ascend(hashChild[:], index) == nil {
-			hashCurr = t.curr.hash()
-			hashChild = hashCurr[:]
-			// when adding an entry, hash of nodes along the path changes and is expected NOT to exist in DB
-			if err := t.putPatriciaNew(t.curr); err != nil {
-				return err
-			}
+		if err := t.curr.ascend(hashChild[:], index); err != nil {
+			return err
+		}
+		hashCurr = t.curr.hash()
+		hashChild = hashCurr[:]
+		// when adding an entry, hash of nodes along the path changes and is expected NOT to exist in DB
+		if err := t.putPatriciaNew(t.curr); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -288,7 +295,7 @@ func (t *trie) updateDelete(path []byte, value []byte, currClps bool) error {
 				return nil
 			}
 			// otherwise collapse into a leaf node
-			t.curr = &leaf{0, path, value}
+			t.curr = &leaf{t.clpsType, path, value}
 			logger.Info().Hex("k", path).Hex("v", value).Msg("clps")
 			// after collapsing, the trie might rollback to an earlier state in the history (before adding the deleted entry)
 			// so 'child' may already exist in DB
