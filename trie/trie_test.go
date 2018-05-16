@@ -114,6 +114,6 @@ func TestInsert(t *testing.T) {
 	logger.Info().Msg("Del[cat]")
 	err = tr.Delete(cat)
 	assert.Nil(err)
-	//assert.Equal(emptyRoot, tr.RootHash())
+	assert.Equal(emptyRoot, tr.RootHash())
 	logger.Info().Msg("[cat] = nil")
 }

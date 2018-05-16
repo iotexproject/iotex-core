@@ -137,7 +137,6 @@ func (t *trie) Delete(key []byte) error {
 			return err
 		}
 		hash := t.curr.hash()
-		t.curr.(*branch).print()
 		// check if the branch can collapse, and if yes get the leaf node value
 		path, value, childClps = t.curr.collapse(path, value, index, true)
 		if childClps {
@@ -145,9 +144,13 @@ func (t *trie) Delete(key []byte) error {
 			if err != nil {
 				return err
 			}
-			if value, err = l.blob(); err != nil {
+			// the original branch collapse to its single remaining leaf
+			var k []byte
+			if k, value, err = l.blob(); err != nil {
 				return err
 			}
+			path = append(path, k...)
+			t.curr.(*branch).print()
 		} else {
 			// update the branch itself (after deleting the leaf)
 			if err := t.dao.Delete("", hash[:]); err != nil {
@@ -186,7 +189,7 @@ func (t *trie) query(key []byte) (patricia, int, error) {
 	for len(key) > 0 {
 		// keep descending the trie
 		hashn, match, err := ptr.descend(key)
-		logger.Info().Hex("key", hashn).Msg("access")
+		logger.Debug().Hex("key", hashn).Msg("access")
 		if _, b := ptr.(*branch); b {
 			// for branch node, need to save first byte of path so branch[key[0]] can be updated later
 			t.toRoot.PushBack(key[0])
@@ -256,18 +259,19 @@ func (t *trie) updateDelete(path []byte, value []byte, currClps bool) error {
 		if err := t.delPatricia(next); err != nil {
 			return err
 		}
+		// we attempt to collapse in 2 cases:
+		// 1. the current node is not root
+		// 2. the current node is root, but <k, v> is nil meaning all entries in the trie are deleted
 		isRoot := t.toRoot.Len() == 0
-		// check if next node can continue to collapse
-		// we don't want to collapse the root (even though technically it can be)
+		noEntry := path == nil && value == nil
 		var nextClps bool
-		path, value, nextClps = next.collapse(path, value, index, currClps && !isRoot)
+		path, value, nextClps = next.collapse(path, value, index, currClps && (!isRoot || noEntry))
 		logger.Info().Bool("curr", currClps).Msg("clps")
 		logger.Info().Bool("next", nextClps).Msg("clps")
 		if nextClps {
 			// current node can also collapse, concatenate the path and keep going
 			contClps = true
 			if !isRoot {
-				logger.Info().Hex("path", path).Msg("clps")
 				currClps = nextClps
 				t.curr = next
 				continue
@@ -277,9 +281,10 @@ func (t *trie) updateDelete(path []byte, value []byte, currClps bool) error {
 		if contClps {
 			// if deleting a node collapse all the way back including root, and <k, v> is nil
 			// this means no more entry exist and the trie fallback to an empty trie
-			if isRoot && path == nil && value == nil {
+			if isRoot && noEntry {
 				t.root = nil
 				t.root = &branch{}
+				logger.Warn().Msg("all entries deleted, trie fallback to empty")
 				return nil
 			}
 			// otherwise collapse into a leaf node
@@ -379,7 +384,8 @@ func (t *trie) getValue(ptr patricia, index byte) ([]byte, error) {
 			return nil, err
 		}
 	}
-	return ptr.blob()
+	_, v, e := ptr.blob()
+	return v, e
 }
 
 // clear the stack

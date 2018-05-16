@@ -29,7 +29,7 @@ type (
 		insert([]byte, []byte, *list.List) error
 		increase([]byte) (int, int, int)
 		collapse([]byte, []byte, byte, bool) ([]byte, []byte, bool)
-		blob() ([]byte, error)
+		blob() ([]byte, []byte, error)
 		hash() common.Hash32B // hash of this node
 		serialize() ([]byte, error)
 		deserialize([]byte) error
@@ -96,7 +96,6 @@ func (b *branch) collapse(k, v []byte, index byte, childClps bool) ([]byte, []by
 	// value == nil means no entry exist on the incoming path, trim it
 	if v == nil {
 		b.trim(index)
-		k = nil
 	}
 	// count number of remaining path
 	nb := 0
@@ -110,17 +109,20 @@ func (b *branch) collapse(k, v []byte, index byte, childClps bool) ([]byte, []by
 		}
 	}
 	// branch can be collapsed if only 1 path remaining
-	if nb == 1 {
-		logger.Info().Hex("bkey", key).Hex("bvalue", value).Int("remain", nb).Msg("clps branch")
-		return append(key, k...), value, true
+	if nb <= 1 {
+		if v == nil {
+			k = nil
+			v = value
+		}
+		return append(key, k...), v, true
 	}
 	return k, v, false
 }
 
-// blob return the value stored in the node
-func (b *branch) blob() ([]byte, error) {
+// blob return the <k, v> stored in the node
+func (b *branch) blob() ([]byte, []byte, error) {
 	// extension node stores the hash to next patricia node
-	return nil, errors.Wrap(ErrInvalidPatricia, "branch does not store value")
+	return nil, nil, errors.Wrap(ErrInvalidPatricia, "branch does not store value")
 }
 
 // hash return the hash of this node
@@ -158,7 +160,7 @@ func (b *branch) deserialize(stream []byte) error {
 func (b *branch) print() {
 	for i := 0; i < RADIX; i++ {
 		if len(b.Path[i]) > 0 {
-			logger.Info().Int("bk", i).Hex("bv", b.Path[i]).Msg("print")
+			logger.Info().Int("k", i).Hex("v", b.Path[i]).Msg("branch")
 		}
 	}
 }
@@ -284,13 +286,13 @@ func (l *leaf) collapse(k, v []byte, index byte, childCollapse bool) ([]byte, []
 	return append(l.Path, k...), v, true
 }
 
-// blob return the value stored in the node
-func (l *leaf) blob() ([]byte, error) {
+// blob return the <k, v> stored in the node
+func (l *leaf) blob() ([]byte, []byte, error) {
 	if l.Ext == 1 {
 		// extension node stores the hash to next patricia node
-		return nil, errors.Wrap(ErrInvalidPatricia, "extension does not store value")
+		return nil, nil, errors.Wrap(ErrInvalidPatricia, "extension does not store value")
 	}
-	return l.Value, nil
+	return l.Path, l.Value, nil
 }
 
 // hash return the hash of this node
