@@ -31,7 +31,7 @@ func TestInsert(t *testing.T) {
 	assert.Equal(0, match)
 	assert.NotNil(err)
 	tr.clear()
-	// insert cat
+	// this splits the root B
 	logger.Info().Msg("Put[cat]")
 	err = tr.Insert(cat, []byte("cat"))
 	assert.Nil(err)
@@ -39,13 +39,11 @@ func TestInsert(t *testing.T) {
 	assert.NotEqual(catRoot, root)
 	root = catRoot
 	assert.Equal(uint64(1), tr.numLeaf)
-	// Get returns "cat" now
 	b, err := tr.Get(cat)
 	assert.Nil(err)
 	assert.Equal([]byte("cat"), b)
-	logger.Info().Msg("[cat] = 'cat'")
 
-	// insert rat
+	// this splits L --> E + B + 2L
 	logger.Info().Msg("Put[rat]")
 	err = tr.Insert(rat, []byte("rat"))
 	assert.Nil(err)
@@ -55,24 +53,21 @@ func TestInsert(t *testing.T) {
 	assert.Equal(uint64(2), tr.numBranch)
 	assert.Equal(uint64(1), tr.numExt)
 	assert.Equal(uint64(3), tr.numLeaf)
-	// Get returns "rat" now
 	b, err = tr.Get(rat)
 	assert.Nil(err)
 	assert.Equal([]byte("rat"), b)
-	logger.Info().Msg("[rat] = 'rat'")
 
-	// insert car
+	// this adds another L to B
 	logger.Info().Msg("Put[car]")
 	err = tr.Insert(car, []byte("car"))
 	assert.Nil(err)
 	newRoot := tr.RootHash()
 	assert.NotEqual(newRoot, root)
 	root = newRoot
-	// Get returns "car" now
 	b, err = tr.Get(car)
 	assert.Nil(err)
 	assert.Equal([]byte("car"), b)
-	logger.Info().Msg("[car] = 'car'")
+	// delete car
 	logger.Info().Msg("Del[car]")
 	err = tr.Delete(car)
 	assert.Nil(err)
@@ -81,20 +76,112 @@ func TestInsert(t *testing.T) {
 	assert.Equal(newRoot, ratRoot)
 	root = newRoot
 
-	// insert egg
+	// this splits E (with match = 3, div = 3)
+	logger.Info().Msg("Put[dog]")
+	err = tr.Insert(dog, []byte("dog"))
+	assert.Nil(err)
+	newRoot = tr.RootHash()
+	assert.NotEqual(newRoot, root)
+	root = newRoot
+	// Get returns "dog" now
+	b, err = tr.Get(dog)
+	assert.Nil(err)
+	assert.Equal([]byte("dog"), b)
+	logger.Info().Msg("Del[dog]")
+	err = tr.Delete(dog)
+	assert.Nil(err)
+	newRoot = tr.RootHash()
+	assert.NotEqual(newRoot, root)
+	root = newRoot
+
+	// this splits E (with match = 0, div = 2)
 	logger.Info().Msg("Put[egg]")
 	err = tr.Insert(egg, []byte("egg"))
 	assert.Nil(err)
 	newRoot = tr.RootHash()
 	assert.NotEqual(newRoot, root)
 	root = newRoot
-	// Get returns "egg" now
 	b, err = tr.Get(egg)
 	assert.Nil(err)
 	assert.Equal([]byte("egg"), b)
-	logger.Info().Msg("[egg] = 'egg'")
+	// delete egg
 	logger.Info().Msg("Del[egg]")
 	err = tr.Delete(egg)
+	assert.Nil(err)
+	eggRoot := tr.RootHash()
+	assert.NotEqual(eggRoot, root)
+	root = eggRoot
+
+	// this splits E (with match = 4, div = 1)
+	err = tr.Insert(egg, []byte("egg"))
+	assert.Nil(err)
+	newRoot = tr.RootHash()
+	assert.NotEqual(newRoot, root)
+	root = newRoot
+	b, err = tr.Get(egg)
+	assert.Nil(err)
+	assert.Equal([]byte("egg"), b)
+	// delete egg
+	logger.Info().Msg("Del[egg]")
+	err = tr.Delete(egg)
+	assert.Nil(err)
+	newRoot = tr.RootHash()
+	assert.NotEqual(newRoot, root)
+	assert.Equal(newRoot, eggRoot)
+	root = newRoot
+
+	// insert 'ham'
+	logger.Info().Msg("Put[ham]")
+	err = tr.Insert(ham, []byte("ham"))
+	assert.Nil(err)
+	newRoot = tr.RootHash()
+	assert.NotEqual(newRoot, root)
+	root = newRoot
+	b, err = tr.Get(ham)
+	assert.Nil(err)
+	assert.Equal([]byte("ham"), b)
+
+	// insert 'fox'
+	logger.Info().Msg("Put[fox]")
+	err = tr.Insert(fox, []byte("fox"))
+	assert.Nil(err)
+	newRoot = tr.RootHash()
+	assert.NotEqual(newRoot, root)
+	root = newRoot
+	b, err = tr.Get(fox)
+	assert.Nil(err)
+	assert.Equal([]byte("fox"), b)
+
+	// insert 'cow'
+	logger.Info().Msg("Put[cow]")
+	err = tr.Insert(cow, []byte("cow"))
+	assert.Nil(err)
+	newRoot = tr.RootHash()
+	assert.NotEqual(newRoot, root)
+	root = newRoot
+	b, err = tr.Get(cow)
+	assert.Nil(err)
+	assert.Equal([]byte("cow"), b)
+
+	// delete fox
+	logger.Info().Msg("Del[fox]")
+	err = tr.Delete(fox)
+	assert.Nil(err)
+	newRoot = tr.RootHash()
+	assert.NotEqual(newRoot, root)
+	root = newRoot
+
+	// delete ham
+	logger.Info().Msg("Del[ham]")
+	err = tr.Delete(ham)
+	assert.Nil(err)
+	newRoot = tr.RootHash()
+	assert.NotEqual(newRoot, root)
+	root = newRoot
+
+	// delete cow
+	logger.Info().Msg("Del[cow]")
+	err = tr.Delete(cow)
 	assert.Nil(err)
 	newRoot = tr.RootHash()
 	assert.NotEqual(newRoot, root)
@@ -109,11 +196,9 @@ func TestInsert(t *testing.T) {
 	b, err = tr.Get(rat)
 	assert.NotNil(err)
 	assert.Equal([]byte(nil), b)
-	logger.Info().Msg("[rat] = nil")
 	// delete "cat"
 	logger.Info().Msg("Del[cat]")
 	err = tr.Delete(cat)
 	assert.Nil(err)
 	assert.Equal(emptyRoot, tr.RootHash())
-	logger.Info().Msg("[cat] = nil")
 }
