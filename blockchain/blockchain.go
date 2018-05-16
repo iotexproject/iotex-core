@@ -99,16 +99,6 @@ func NewBlockchain(dao *blockDAO, cfg *config.Config, gen *Genesis, sf statefact
 	return chain
 }
 
-// updateStates updates the state factory with the given block
-func (bc *blockchain) updateStates(blk *Block) (err error) {
-	for _, tx := range blk.Tranxs {
-		if err := bc.sf.UpdateStateWithTransfer(tx.SenderPublicKey, tx.Amount, tx.Recipient); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // Start starts the blockchain
 func (bc *blockchain) Start() (err error) {
 	if err = bc.CompositeService.Start(); err != nil {
@@ -137,8 +127,10 @@ func (bc *blockchain) Start() (err error) {
 		if blk != nil {
 			bc.utk.UpdateUtxoPool(blk)
 			if bc.sf != nil {
-				if err = bc.updateStates(blk); err != nil {
-					return err
+				for _, tx := range blk.Tranxs {
+					if err := bc.sf.UpdateStateWithTransfer(tx.SenderPublicKey, tx.Amount, tx.Recipient); err != nil {
+						return err
+					}
 				}
 			}
 		}
@@ -160,8 +152,10 @@ func (bc *blockchain) commitBlock(blk *Block) error {
 	// update UTXO or state factory
 	bc.utk.UpdateUtxoPool(blk)
 	if bc.sf != nil {
-		if err := bc.updateStates(blk); err != nil {
-			return err
+		for _, tx := range blk.Tranxs {
+			if err := bc.sf.UpdateStateWithTransfer(tx.SenderPublicKey, tx.Amount, tx.Recipient); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

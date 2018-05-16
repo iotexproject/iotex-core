@@ -49,10 +49,11 @@ func (mr *MockStateFactoryMockRecorder) RootHash() *gomock.Call {
 }
 
 // CreateState mocks base method
-func (m *MockStateFactory) CreateState(addr *iotxaddress.Address) *statefactory.State {
+func (m *MockStateFactory) CreateState(addr *iotxaddress.Address) (*statefactory.State, error) {
 	ret := m.ctrl.Call(m, "CreateState", addr)
 	ret0, _ := ret[0].(*statefactory.State)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // CreateState indicates an expected call of CreateState
