@@ -46,7 +46,7 @@ type State struct {
 type StateFactory interface {
 	RootHash() common.Hash32B
 
-	CreateState(addr *iotxaddress.Address) *State
+	CreateState(addr *iotxaddress.Address) (*State, error)
 	UpdateStateWithTransfer(senderPubKey []byte, amount *big.Int, recipient *iotxaddress.Address) error
 
 	SetNonce(addr *iotxaddress.Address, value uint64) error
@@ -109,7 +109,9 @@ func (sf *stateFactory) UpdateStateWithTransfer(senderPubKey []byte, amount *big
 	// check recipient
 	_, err = sf.Balance(recipient)
 	if err == ErrAccountNotExist {
-		sf.CreateState(recipient)
+		if _, e := sf.CreateState(recipient); e != nil {
+			return e
+		}
 	}
 
 	if err := sf.SubBalance(&iotxaddress.Address{PublicKey: senderPubKey}, amount); err != nil {
@@ -122,11 +124,13 @@ func (sf *stateFactory) UpdateStateWithTransfer(senderPubKey []byte, amount *big
 }
 
 // CreateState adds a new State with zero balance to the factory
-func (sf *stateFactory) CreateState(addr *iotxaddress.Address) *State {
+func (sf *stateFactory) CreateState(addr *iotxaddress.Address) (*State, error) {
 	s := State{Address: addr, Balance: big.NewInt(0)}
 	key := iotxaddress.HashPubKey(addr.PublicKey)
-	sf.trie.Update(key, stateToBytes(&s))
-	return &s
+	if err := sf.trie.Update(key, stateToBytes(&s)); err != nil {
+		return nil, err
+	}
+	return &s, nil
 }
 
 // Balance returns balance.
@@ -292,9 +296,9 @@ func (vs *VirtualStateFactory) Balance(addr *iotxaddress.Address) (*big.Int, err
 	// TODO
 	return nil, nil
 }
-func (vs *VirtualStateFactory) CreateState(addr *iotxaddress.Address) *State {
+func (vs *VirtualStateFactory) CreateState(addr *iotxaddress.Address) (*State, error) {
 	// TODO
-	return nil
+	return nil, nil
 }
 
 func (vs *VirtualStateFactory) UpdateStateWithTransfer(senderPubKey []byte, amount *big.Int, recipient *iotxaddress.Address) error {
