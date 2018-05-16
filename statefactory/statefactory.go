@@ -296,6 +296,7 @@ func (vs *VirtualStateFactory) Balance(addr *iotxaddress.Address) (*big.Int, err
 	// TODO
 	return nil, nil
 }
+
 func (vs *VirtualStateFactory) CreateState(addr *iotxaddress.Address) (*State, error) {
 	// TODO
 	return nil, nil
