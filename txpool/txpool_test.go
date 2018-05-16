@@ -22,9 +22,9 @@ import (
 )
 
 const (
-	testingConfigPath   = "../config.yaml"
-	testDBPath          = "db.test"
-	genesisCoinbaseData = "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks"
+	testingConfigPath = "../config.yaml"
+	testDBPath        = "db.test"
+	testCoinbaseData  = "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks"
 )
 
 func decodeHash(in string) []byte {
@@ -55,7 +55,7 @@ func TestTxPool(t *testing.T) {
 	defer bc.Stop()
 
 	tp := New(bc)
-	cbTx := NewCoinbaseTx(ta.Addrinfo["miner"].RawAddress, 50, genesisCoinbaseData)
+	cbTx := NewCoinbaseTx(ta.Addrinfo["miner"].RawAddress, 50, testCoinbaseData)
 	assert.NotNil(cbTx)
 	if _, err := tp.ProcessTx(cbTx, true, false, 13245); assert.NotNil(err) {
 		t.Logf("Coinbase Tx cannot be processed")

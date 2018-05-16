@@ -24,11 +24,11 @@ func TestBlockDAO(t *testing.T) {
 	getBlocks := func() []*Block {
 		amount := uint64(50 << 22)
 		// create testing transactions
-		cbtx1 := NewCoinbaseTx(testaddress.Addrinfo["alfa"].RawAddress, amount, genesisCoinbaseData)
+		cbtx1 := NewCoinbaseTx(testaddress.Addrinfo["alfa"].RawAddress, amount, testCoinbaseData)
 		assert.NotNil(t, cbtx1)
-		cbtx2 := NewCoinbaseTx(testaddress.Addrinfo["bravo"].RawAddress, amount, genesisCoinbaseData)
+		cbtx2 := NewCoinbaseTx(testaddress.Addrinfo["bravo"].RawAddress, amount, testCoinbaseData)
 		assert.NotNil(t, cbtx2)
-		cbtx3 := NewCoinbaseTx(testaddress.Addrinfo["charlie"].RawAddress, amount, genesisCoinbaseData)
+		cbtx3 := NewCoinbaseTx(testaddress.Addrinfo["charlie"].RawAddress, amount, testCoinbaseData)
 		assert.NotNil(t, cbtx3)
 
 		hash1 := common.Hash32B{}
