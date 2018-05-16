@@ -7,33 +7,41 @@
 package beacon
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
+	"github.com/golang/glog"
+	"golang.org/x/crypto/blake2b"
 	"hash"
+)
+
+const (
+	startSeed = "9de6306b08158c423330f7a27243a1a5cbe39bfd764f07818437882d21241567"
 )
 
 // Beacon contains a seed which can be updated every epoch
 type Beacon struct {
-	Seed string
-	Hash hash.Hash
+	seed []byte
+	hash hash.Hash
 }
 
 // NewBeacon creates new beacon with initial string
-func NewBeacon(seed string) Beacon {
-	hash := sha256.New()
-	b := Beacon{Seed: seed, Hash: hash}
+func NewBeacon() (Beacon, error) {
+	hash, err := blake2b.New(64, nil)
+	b := Beacon{seed: []byte(startSeed), hash: hash}
 
-	return b
+	if err != nil {
+		glog.Error("Beacon hash function failed to initialize")
+	}
+
+	return b, err
 }
 
 // GetSeed returns the current seed of the beacon
-func (b *Beacon) GetSeed() string {
-	return b.Seed
+func (b *Beacon) GetSeed() []byte {
+	return b.seed
 }
 
 // NextEpoch advances the beacon to the next epoch
 func (b *Beacon) NextEpoch() {
-	b.Hash.Reset()
-	b.Hash.Write([]byte(b.Seed))
-	b.Seed = hex.EncodeToString(b.Hash.Sum(nil))
+	b.hash.Reset()
+	b.hash.Write(b.seed)
+	b.seed = b.hash.Sum(nil)
 }
