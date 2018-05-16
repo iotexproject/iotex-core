@@ -22,6 +22,7 @@ import (
 const (
 	testingConfigPath = "../config.yaml"
 	testDBPath        = "db.test"
+	testCoinbaseData  = "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks"
 )
 
 func addTestingBlocks(bc Blockchain) error {
@@ -245,7 +246,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	fmt.Printf("Current tip = %d hash = %x\n", h, hash)
 
 	// add block with wrong height
-	cbTx := NewCoinbaseTx(ta.Addrinfo["bravo"].RawAddress, 50, genesisCoinbaseData)
+	cbTx := NewCoinbaseTx(ta.Addrinfo["bravo"].RawAddress, 50, testCoinbaseData)
 	assert.NotNil(cbTx)
 	blk = NewBlock(0, h+2, hash, []*Tx{cbTx})
 	err = bc.ValidateBlock(blk)
@@ -253,7 +254,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	fmt.Printf("Cannot validate block %d: %v\n", blk.Height(), err)
 
 	// add block with zero prev hash
-	cbTx = NewCoinbaseTx(ta.Addrinfo["bravo"].RawAddress, 50, genesisCoinbaseData)
+	cbTx = NewCoinbaseTx(ta.Addrinfo["bravo"].RawAddress, 50, testCoinbaseData)
 	assert.NotNil(cbTx)
 	blk = NewBlock(0, h+1, common.ZeroHash32B, []*Tx{cbTx})
 	err = bc.ValidateBlock(blk)

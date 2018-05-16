@@ -7,33 +7,60 @@
 package blockchain
 
 import (
-	"errors"
+	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/statefactory"
 )
 
 type Validator interface {
-	// ValidateBody validates the given block's content.
-	Validate(block *Block, tipHeight uint64, tipHash common.Hash32B, sf statefactory.StateFactory) error
+	// Validate validates the given block's content
+	Validate(block *Block, tipHeight uint64, tipHash common.Hash32B) error
 }
 
 type validator struct {
-	sf statefactory.StateFactory
+	sf  statefactory.StateFactory
+	utk *UtxoTracker
 }
 
 var (
+	// ErrInvalidTipHeight is the error returned when the block height is not valid
 	ErrInvalidTipHeight = errors.New("invalid tip height")
+	// ErrInvalidBlock is the error returned when the block is not valid
+	ErrInvalidBlock = errors.New("failed to validate the block")
 )
 
-// NewValidator returns a new block validator which is safe for re-use
-func NewValidator() Validator {
-	return &validator{}
-}
-
-func (v *validator) Validate(blk *Block, tipHeight uint64, tipHash common.Hash32B, sf statefactory.StateFactory) error {
-	if blk.Header.height == 0 || blk.Header.height != tipHeight+1 {
-		return ErrInvalidTipHeight
+// Validate validates the given block's content
+func (v *validator) Validate(blk *Block, tipHeight uint64, tipHash common.Hash32B) error {
+	if blk == nil {
+		return ErrInvalidBlock
 	}
+
+	if blk.Header.height != 0 && blk.Header.height != tipHeight+1 {
+		return errors.Wrapf(
+			ErrInvalidBlock,
+			"Wrong block height %d, expecting %d",
+			blk.Header.height,
+			tipHeight+1)
+	}
+
+	if blk.Header.prevBlockHash != tipHash {
+		return errors.Wrapf(
+			ErrInvalidBlock,
+			"Wrong prev hash %x, expecting %x",
+			blk.Header.prevBlockHash,
+			tipHash)
+	}
+
+	if v.utk != nil {
+		if err := v.utk.ValidateUtxo(blk); err != nil {
+			return err
+		}
+	}
+
+	if v.sf != nil {
+		// TODO: exam txs based on states
+	}
+
 	return nil
 }

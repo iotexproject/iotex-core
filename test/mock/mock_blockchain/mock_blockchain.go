@@ -223,16 +223,6 @@ func (mr *MockBlockchainMockRecorder) CreateRawTransaction(from, amount, to inte
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateRawTransaction", reflect.TypeOf((*MockBlockchain)(nil).CreateRawTransaction), from, amount, to)
 }
 
-// ResetUTXO mocks base method
-func (m *MockBlockchain) ResetUTXO() {
-	m.ctrl.Call(m, "ResetUTXO")
-}
-
-// ResetUTXO indicates an expected call of ResetUTXO
-func (mr *MockBlockchainMockRecorder) ResetUTXO() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResetUTXO", reflect.TypeOf((*MockBlockchain)(nil).ResetUTXO))
-}
-
 // ValidateBlock mocks base method
 func (m *MockBlockchain) ValidateBlock(blk *blockchain.Block) error {
 	ret := m.ctrl.Call(m, "ValidateBlock", blk)
@@ -243,6 +233,16 @@ func (m *MockBlockchain) ValidateBlock(blk *blockchain.Block) error {
 // ValidateBlock indicates an expected call of ValidateBlock
 func (mr *MockBlockchainMockRecorder) ValidateBlock(blk interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateBlock", reflect.TypeOf((*MockBlockchain)(nil).ValidateBlock), blk)
+}
+
+// ResetUTXO mocks base method
+func (m *MockBlockchain) ResetUTXO() {
+	m.ctrl.Call(m, "ResetUTXO")
+}
+
+// ResetUTXO indicates an expected call of ResetUTXO
+func (mr *MockBlockchainMockRecorder) ResetUTXO() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResetUTXO", reflect.TypeOf((*MockBlockchain)(nil).ResetUTXO))
 }
 
 // UtxoPool mocks base method

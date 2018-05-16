@@ -112,8 +112,12 @@ func (sf *stateFactory) UpdateStateWithTransfer(senderPubKey []byte, amount *big
 		sf.CreateState(recipient)
 	}
 
-	sf.SubBalance(&iotxaddress.Address{PublicKey: senderPubKey}, amount)
-	sf.AddBalance(recipient, amount)
+	if err := sf.SubBalance(&iotxaddress.Address{PublicKey: senderPubKey}, amount); err != nil {
+		return err
+	}
+	if err := sf.AddBalance(recipient, amount); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -172,9 +176,6 @@ func (sf *stateFactory) AddBalance(addr *iotxaddress.Address, amount *big.Int) e
 	}
 
 	state := bytesToState(ss)
-	if state.Balance == nil {
-		panic("123")
-	}
 	state.Balance.Add(state.Balance, amount)
 	sf.trie.Update(key, stateToBytes(state))
 	return nil

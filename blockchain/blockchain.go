@@ -25,11 +25,6 @@ import (
 	"github.com/iotexproject/iotex-core/txvm"
 )
 
-var (
-	// ErrInvalidBlock is the error returned when the block is not valid
-	ErrInvalidBlock = errors.New("failed to validate the block")
-)
-
 // Blockchain represents the blockchain data structure and hosts the APIs to access it
 type Blockchain interface {
 	service.Service
@@ -60,13 +55,12 @@ type Blockchain interface {
 	CreateTransaction(from *iotxaddress.Address, amount uint64, to []*Payee) *Tx
 	// CreateRawTransaction creates a signed transaction paying 'amount' from 'from' to 'to'
 	CreateRawTransaction(from *iotxaddress.Address, amount uint64, to []*Payee) *Tx
+	// ValidateBlock validates a new block before adding it to the blockchain
+	ValidateBlock(blk *Block) error
 
 	// The following methods are used only for utxo-based model
 	// Reset resets UTXO
 	ResetUTXO()
-	// ValidateBlock validates a new block before adding it to the blockchain
-	// For state-based model, use the injected Validator interface.
-	ValidateBlock(blk *Block) error
 	// UtxoPool returns the UTXO pool of current blockchain
 	UtxoPool() map[common.Hash32B][]*TxOutput
 }
@@ -81,24 +75,25 @@ type blockchain struct {
 	chainID   uint32
 	tipHeight uint64
 	tipHash   common.Hash32B
+	validator Validator
 
 	// used by utxo-based model
 	utk *UtxoTracker // tracks the current UTXO pool
 
 	// used by state-based model
-	sf        statefactory.StateFactory
-	validator Validator
+	sf statefactory.StateFactory
 }
 
 // NewBlockchain creates a new blockchain instance
-func NewBlockchain(dao *blockDAO, cfg *config.Config, gen *Genesis, sf statefactory.StateFactory, v Validator) Blockchain {
+func NewBlockchain(dao *blockDAO, cfg *config.Config, gen *Genesis, sf statefactory.StateFactory) Blockchain {
+	utk := NewUtxoTracker()
 	chain := &blockchain{
 		dao:       dao,
 		config:    cfg,
 		genesis:   gen,
-		utk:       NewUtxoTracker(),
+		utk:       utk,
 		sf:        sf,
-		validator: v,
+		validator: &validator{sf: sf, utk: utk},
 	}
 	chain.AddService(dao)
 	return chain
@@ -210,40 +205,23 @@ func (bc *blockchain) TipHeight() (uint64, error) {
 	return bc.tipHeight, nil
 }
 
-// ResetUTXO resets UTXO.
+// ResetUTXO resets UTXO
 func (bc *blockchain) ResetUTXO() {
 	bc.utk.Reset()
 }
 
 // ValidateBlock validates a new block before adding it to the blockchain
 func (bc *blockchain) ValidateBlock(blk *Block) error {
-	if blk == nil {
-		return errors.Wrap(ErrInvalidBlock, "Block is nil")
+	if bc.validator == nil {
+		panic("no block validator")
 	}
 
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
-	// verify new block has height incremented by 1
-	if blk.Header.height != 0 && blk.Header.height != bc.tipHeight+1 {
-		return errors.Wrapf(
-			ErrInvalidBlock,
-			"Wrong block height %d, expecting %d",
-			blk.Header.height,
-			bc.tipHeight+1)
+	if err := bc.validator.Validate(blk, bc.tipHeight, bc.tipHash); err != nil {
+		return err
 	}
-	// verify new block has correctly linked to current tip
-	if blk.Header.prevBlockHash != bc.tipHash {
-		return errors.Wrapf(
-			ErrInvalidBlock,
-			"Wrong prev hash %x, expecting %x",
-			blk.Header.prevBlockHash,
-			bc.tipHash)
-	}
-
-	// TODO: validate all Tx conforms to blockchain protocol
-
-	// validate UXTO contained in this Tx
-	return bc.utk.ValidateUtxo(blk)
+	return nil
 }
 
 // MintNewBlock creates a new block with given transactions.
@@ -271,21 +249,12 @@ func (bc *blockchain) MintNewBlock(txs []*Tx, producer *iotxaddress.Address, dat
 	return blk, nil
 }
 
-// AddBlockCommit adds a new block into blockchain
+// AddBlockCommit appends a new block into blockchain
 func (bc *blockchain) AddBlockCommit(blk *Block) error {
-	if bc.validator != nil {
-		// state-based validation
-		if err := bc.validator.Validate(blk, bc.tipHeight, bc.tipHash, bc.sf); err != nil {
-			return err
-		}
-	} else {
-		// utxo-based validation
-		if err := bc.ValidateBlock(blk); err != nil {
-			return err
-		}
+	if err := bc.ValidateBlock(blk); err != nil {
+		return err
 	}
 
-	// commit block into blockchain DB
 	return bc.commitBlock(blk)
 }
 
@@ -300,7 +269,7 @@ func (bc *blockchain) AddBlockSync(blk *Block) error {
 func CreateBlockchain(cfg *config.Config, gen *Genesis) Blockchain {
 	dao := newBlockDAO(db.NewBoltDB(cfg.Chain.ChainDBPath, nil))
 
-	chain := NewBlockchain(dao, cfg, gen, nil, nil)
+	chain := NewBlockchain(dao, cfg, gen, nil)
 	if err := chain.Init(); err != nil {
 		glog.Errorf("Failed to initialize blockchain, error = %v", err)
 		return nil
