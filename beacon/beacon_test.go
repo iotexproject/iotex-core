@@ -9,24 +9,24 @@ package beacon
 import (
 	"testing"
 
+	"encoding/hex"
 	"github.com/stretchr/testify/assert"
 )
 
+func decodeHash(in string) []byte {
+	hash, _ := hex.DecodeString(in)
+	return hash
+}
+
 func TestBeacon(t *testing.T) {
-	b := NewBeacon("asdf")
+	b, err := NewBeacon()
+	assert.Nil(t, err)
 
-	expected := "asdf"
-	assert.Equal(t, expected, b.GetSeed())
-
-	b.NextEpoch()
-	expected = "f0e4c2f76c58916ec258f246851bea091d14d4247a2fc3e18694461b1816e13b"
-	assert.Equal(t, expected, b.GetSeed())
+	assert.Equal(t, decodeHash("39646536333036623038313538633432333333306637613237323433613161356362653339626664373634663037383138343337383832643231323431353637"), b.GetSeed())
 
 	b.NextEpoch()
-	expected = "7624e1f89ce009f8ec7e6e39781a42c0a27fa38f94db4f05f78b0f301007e06a"
-	assert.Equal(t, expected, b.GetSeed())
+	assert.Equal(t, decodeHash("19ef9c860e73e6dc17169dab7f331938b162834a94a034253c7958dca71dfcba9789148576b7b734398e82f43666bbc5eb41bebf7fdab305016d18aa98c25681"), b.GetSeed())
 
 	b.NextEpoch()
-	expected = "a2053032e8177afe4e024021b5b002dfdffcc0d73754a0feebe8196778784b61"
-	assert.Equal(t, expected, b.GetSeed())
+	assert.Equal(t, decodeHash("1a2c5d909c40cd705e0464c0e804a2d1ae60477c17a3651b385a6ec2fe659296e1efdec3e4531b3b27433a2a137abd2eeb60a260aff1028cb7a71402a35af2b5"), b.GetSeed())
 }
