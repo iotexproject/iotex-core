@@ -112,7 +112,7 @@ func TestLocalCommit(t *testing.T) {
 	payee := []*blockchain.Payee{}
 	payee = append(payee, &blockchain.Payee{ta.Addrinfo["alfa"].RawAddress, 1})
 	tx := bc.CreateTransaction(ta.Addrinfo["charlie"], 1, payee)
-	bc.Reset()
+	bc.ResetUTXO()
 	p1.Broadcast(tx.ConvertToTxPb())
 	time.Sleep(time.Second)
 
@@ -127,7 +127,7 @@ func TestLocalCommit(t *testing.T) {
 	tx2 := bc.CreateTransaction(ta.Addrinfo["foxtrot"], 1, payee)
 	blk2 := blockchain.NewBlock(0, height+2, hash1, []*blockchain.Tx{tx2})
 	hash2 := blk2.HashBlock()
-	bc.Reset()
+	bc.ResetUTXO()
 	p2.Broadcast(tx2.ConvertToTxPb())
 
 	// transaction 3
@@ -137,7 +137,7 @@ func TestLocalCommit(t *testing.T) {
 	tx3 := bc.CreateTransaction(ta.Addrinfo["bravo"], 1, payee)
 	blk3 := blockchain.NewBlock(0, height+3, hash2, []*blockchain.Tx{tx3})
 	hash3 := blk3.HashBlock()
-	bc.Reset()
+	bc.ResetUTXO()
 	p1.Broadcast(tx3.ConvertToTxPb())
 
 	// transaction 4
@@ -146,7 +146,7 @@ func TestLocalCommit(t *testing.T) {
 	payee = append(payee, &blockchain.Payee{ta.Addrinfo["echo"].RawAddress, 1})
 	tx4 := bc.CreateTransaction(ta.Addrinfo["miner"], 1, payee)
 	blk4 := blockchain.NewBlock(0, height+4, hash3, []*blockchain.Tx{tx4})
-	bc.Reset()
+	bc.ResetUTXO()
 	p2.Broadcast(tx4.ConvertToTxPb())
 
 	// send block 2-4-1-3 out of order

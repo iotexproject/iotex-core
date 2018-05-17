@@ -22,8 +22,9 @@ import (
 )
 
 const (
-	testingConfigPath = "../config.yaml"
-	testDBPath        = "db.test"
+	testingConfigPath   = "../config.yaml"
+	testDBPath          = "db.test"
+	genesisCoinbaseData = "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks"
 )
 
 func decodeHash(in string) []byte {
@@ -54,7 +55,7 @@ func TestTxPool(t *testing.T) {
 	defer bc.Stop()
 
 	tp := New(bc)
-	cbTx := NewCoinbaseTx(ta.Addrinfo["miner"].RawAddress, 50, GenesisCoinbaseData)
+	cbTx := NewCoinbaseTx(ta.Addrinfo["miner"].RawAddress, 50, genesisCoinbaseData)
 	assert.NotNil(cbTx)
 	if _, err := tp.ProcessTx(cbTx, true, false, 13245); assert.NotNil(err) {
 		t.Logf("Coinbase Tx cannot be processed")
@@ -93,7 +94,7 @@ func TestTxPool(t *testing.T) {
 			err := bc.AddBlockCommit(blk)
 			assert.Nil(err)
 			fmt.Println("Add 1st block")
-			bc.Reset()
+			bc.ResetUTXO()
 			payees = nil
 			payees = append(payees, &Payee{Addrinfo["bravo"].Address, 3})
 			payees = append(payees, &Payee{Addrinfo["delta"].Address, 2})

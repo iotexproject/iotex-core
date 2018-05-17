@@ -21,12 +21,8 @@ import (
 	cp "github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/statefactory"
 	"github.com/iotexproject/iotex-core/txvm"
-)
-
-const (
-	// GenesisCoinbaseData is the text in genesis block
-	GenesisCoinbaseData = "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks"
 )
 
 var (
@@ -49,11 +45,7 @@ type Blockchain interface {
 	TipHash() (common.Hash32B, error)
 	// TipHeight returns tip block's height
 	TipHeight() (uint64, error)
-	// Reset reset for next block
-	Reset()
-	// ValidateBlock validates a new block before adding it to the blockchain
-	ValidateBlock(blk *Block) error
-	// MintNewBlock creates a new block with given transactions.
+	// MintNewBlock creates a new block with given transactions
 	// Note: the coinbase transaction will be added to the given transactions
 	// when minting a new block.
 	MintNewBlock([]*Tx, *iotxaddress.Address, string) (*Block, error)
@@ -64,12 +56,19 @@ type Blockchain interface {
 	AddBlockSync(blk *Block) error
 	// BalanceOf returns the balance of a given address
 	BalanceOf(string) *big.Int
-	// UtxoPool returns the UTXO pool of current blockchain
-	UtxoPool() map[common.Hash32B][]*TxOutput
 	// CreateTransaction creates a signed transaction paying 'amount' from 'from' to 'to'
 	CreateTransaction(from *iotxaddress.Address, amount uint64, to []*Payee) *Tx
 	// CreateRawTransaction creates a signed transaction paying 'amount' from 'from' to 'to'
 	CreateRawTransaction(from *iotxaddress.Address, amount uint64, to []*Payee) *Tx
+
+	// The following methods are used only for utxo-based model
+	// Reset resets UTXO
+	ResetUTXO()
+	// ValidateBlock validates a new block before adding it to the blockchain
+	// For state-based model, use the injected Validator interface.
+	ValidateBlock(blk *Block) error
+	// UtxoPool returns the UTXO pool of current blockchain
+	UtxoPool() map[common.Hash32B][]*TxOutput
 }
 
 // blockchain implements the Blockchain interface
@@ -79,21 +78,40 @@ type blockchain struct {
 	dao       *blockDAO
 	config    *config.Config
 	genesis   *Genesis
-	utk       *UtxoTracker // tracks the current UTXO pool
 	chainID   uint32
 	tipHeight uint64
 	tipHash   common.Hash32B
+
+	// used by utxo-based model
+	utk *UtxoTracker // tracks the current UTXO pool
+
+	// used by state-based model
+	sf        statefactory.StateFactory
+	validator Validator
 }
 
 // NewBlockchain creates a new blockchain instance
-func NewBlockchain(dao *blockDAO, cfg *config.Config, gen *Genesis) Blockchain {
+func NewBlockchain(dao *blockDAO, cfg *config.Config, gen *Genesis, sf statefactory.StateFactory, v Validator) Blockchain {
 	chain := &blockchain{
-		dao:     dao,
-		config:  cfg,
-		genesis: gen,
-		utk:     NewUtxoTracker()}
+		dao:       dao,
+		config:    cfg,
+		genesis:   gen,
+		utk:       NewUtxoTracker(),
+		sf:        sf,
+		validator: v,
+	}
 	chain.AddService(dao)
 	return chain
+}
+
+// updateStates updates the state factory with the given block
+func (bc *blockchain) updateStates(blk *Block) (err error) {
+	for _, tx := range blk.Tranxs {
+		if err := bc.sf.UpdateStateWithTransfer(tx.SenderPublicKey, tx.Amount, tx.Recipient); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Start starts the blockchain
@@ -114,8 +132,8 @@ func (bc *blockchain) Start() (err error) {
 	if bc.tipHash, err = bc.dao.getBlockHash(bc.tipHeight); err != nil {
 		return err
 	}
-	// build UTXO pool
-	// Genesis block has height 0
+
+	// populate UTXO or state factory
 	for i := uint64(0); i <= bc.tipHeight; i++ {
 		blk, err := bc.GetBlockByHeight(i)
 		if err != nil {
@@ -123,6 +141,11 @@ func (bc *blockchain) Start() (err error) {
 		}
 		if blk != nil {
 			bc.utk.UpdateUtxoPool(blk)
+			if bc.sf != nil {
+				if err = bc.updateStates(blk); err != nil {
+					return err
+				}
+			}
 		}
 	}
 	return nil
@@ -138,8 +161,14 @@ func (bc *blockchain) commitBlock(blk *Block) error {
 	defer bc.mu.Unlock()
 	bc.tipHeight = blk.Header.height
 	bc.tipHash = blk.HashBlock()
-	// update UTXO pool
+
+	// update UTXO or state factory
 	bc.utk.UpdateUtxoPool(blk)
+	if bc.sf != nil {
+		if err := bc.updateStates(blk); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -181,8 +210,8 @@ func (bc *blockchain) TipHeight() (uint64, error) {
 	return bc.tipHeight, nil
 }
 
-// Reset reset for next block
-func (bc *blockchain) Reset() {
+// ResetUTXO resets UTXO.
+func (bc *blockchain) ResetUTXO() {
 	bc.utk.Reset()
 }
 
@@ -210,7 +239,8 @@ func (bc *blockchain) ValidateBlock(blk *Block) error {
 			blk.Header.prevBlockHash,
 			bc.tipHash)
 	}
-	// validate all Tx conforms to blockchain protocol
+
+	// TODO: validate all Tx conforms to blockchain protocol
 
 	// validate UXTO contained in this Tx
 	return bc.utk.ValidateUtxo(blk)
@@ -243,8 +273,16 @@ func (bc *blockchain) MintNewBlock(txs []*Tx, producer *iotxaddress.Address, dat
 
 // AddBlockCommit adds a new block into blockchain
 func (bc *blockchain) AddBlockCommit(blk *Block) error {
-	if err := bc.ValidateBlock(blk); err != nil {
-		return err
+	if bc.validator != nil {
+		// state-based validation
+		if err := bc.validator.Validate(blk, bc.tipHeight, bc.tipHash, bc.sf); err != nil {
+			return err
+		}
+	} else {
+		// utxo-based validation
+		if err := bc.ValidateBlock(blk); err != nil {
+			return err
+		}
 	}
 
 	// commit block into blockchain DB
@@ -262,7 +300,7 @@ func (bc *blockchain) AddBlockSync(blk *Block) error {
 func CreateBlockchain(cfg *config.Config, gen *Genesis) Blockchain {
 	dao := newBlockDAO(db.NewBoltDB(cfg.Chain.ChainDBPath, nil))
 
-	chain := NewBlockchain(dao, cfg, gen)
+	chain := NewBlockchain(dao, cfg, gen, nil, nil)
 	if err := chain.Init(); err != nil {
 		glog.Errorf("Failed to initialize blockchain, error = %v", err)
 		return nil
@@ -304,6 +342,15 @@ func CreateBlockchain(cfg *config.Config, gen *Genesis) Blockchain {
 
 // BalanceOf returns the balance of an address
 func (bc *blockchain) BalanceOf(address string) *big.Int {
+	if bc.sf != nil {
+		b, err := bc.sf.Balance(&iotxaddress.Address{RawAddress: address})
+		if err != nil {
+			glog.Error(err)
+			return big.NewInt(0)
+		}
+		return b
+	}
+
 	_, balance := bc.utk.UtxoEntries(address, math.MaxUint64)
 	return balance
 }

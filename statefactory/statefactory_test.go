@@ -1,3 +1,9 @@
+// Copyright (c) 2018 IoTeX
+// This is an alpha (internal) release and is not suitable for production. This source code is provided ‘as is’ and no
+// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
+// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
+// License 2.0 that can be found in the LICENSE file.
+
 package statefactory
 
 import (
@@ -34,7 +40,7 @@ func TestRootHash(t *testing.T) {
 	assert.Equal(t, common.ZeroHash32B, sf.RootHash())
 }
 
-func TestAddState(t *testing.T) {
+func TestCreateState(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -43,9 +49,9 @@ func TestAddState(t *testing.T) {
 	trie.EXPECT().Update(gomock.Any(), gomock.Any()).Times(1)
 	addr, err := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
 	assert.Nil(t, err)
-	state := sf.AddState(addr)
+	state := sf.CreateState(addr)
 	assert.Equal(t, uint64(0x0), state.Nonce)
-	assert.Equal(t, *big.NewInt(0), state.Balance)
+	assert.Equal(t, big.NewInt(0), state.Balance)
 	assert.Equal(t, addr.RawAddress, state.Address.RawAddress)
 }
 
@@ -56,13 +62,11 @@ func TestBalance(t *testing.T) {
 	trie := mock_trie.NewMockTrie(ctrl)
 	sf := NewStateFactory(trie)
 
-	// Add 10 so the balance should be 10
+	// Add 10 to the balance
 	addr, err := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
 	assert.Nil(t, err)
 	trie.EXPECT().Update(gomock.Any(), gomock.Any()).Times(1)
-	trie.EXPECT().Get(gomock.Any()).Times(1).Return(stateToBytes(&State{Address: addr}), nil)
-	addr, err = iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
-	assert.Nil(t, err)
+	trie.EXPECT().Get(gomock.Any()).Times(1).Return(stateToBytes(&State{Address: addr, Balance: big.NewInt(20)}), nil)
 	err = sf.AddBalance(addr, big.NewInt(10))
 	assert.Nil(t, err)
 }
