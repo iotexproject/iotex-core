@@ -2,20 +2,27 @@ package trie
 
 import (
 	"container/list"
+	"os"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/logger"
 )
 
+const testTriePath = "trie.test"
+
 func TestEmptyTrie(t *testing.T) {
 	assert := assert.New(t)
 
-	tr, err := NewTrie(db.NewMemKVStore())
+	defer os.Remove(testTriePath)
+	tr, err := NewTrie(testTriePath)
 	assert.Nil(err)
 	assert.Equal(tr.RootHash(), emptyRoot)
+	assert.Nil(tr.Close())
 }
 
 func TestInsert(t *testing.T) {
@@ -131,7 +138,7 @@ func TestInsert(t *testing.T) {
 	assert.Equal(newRoot, eggRoot)
 	root = newRoot
 
-	// insert 'ham'
+	// insert 'ham' 'fox' 'cow'
 	logger.Info().Msg("Put[ham]")
 	err = tr.Insert(ham, []byte("ham"))
 	assert.Nil(err)
@@ -141,8 +148,6 @@ func TestInsert(t *testing.T) {
 	b, err = tr.Get(ham)
 	assert.Nil(err)
 	assert.Equal([]byte("ham"), b)
-
-	// insert 'fox'
 	logger.Info().Msg("Put[fox]")
 	err = tr.Insert(fox, []byte("fox"))
 	assert.Nil(err)
@@ -152,8 +157,6 @@ func TestInsert(t *testing.T) {
 	b, err = tr.Get(fox)
 	assert.Nil(err)
 	assert.Equal([]byte("fox"), b)
-
-	// insert 'cow'
 	logger.Info().Msg("Put[cow]")
 	err = tr.Insert(cow, []byte("cow"))
 	assert.Nil(err)
@@ -164,23 +167,19 @@ func TestInsert(t *testing.T) {
 	assert.Nil(err)
 	assert.Equal([]byte("cow"), b)
 
-	// delete fox
+	// delete fox ham cow
 	logger.Info().Msg("Del[fox]")
 	err = tr.Delete(fox)
 	assert.Nil(err)
 	newRoot = tr.RootHash()
 	assert.NotEqual(newRoot, root)
 	root = newRoot
-
-	// delete ham
 	logger.Info().Msg("Del[ham]")
 	err = tr.Delete(ham)
 	assert.Nil(err)
 	newRoot = tr.RootHash()
 	assert.NotEqual(newRoot, root)
 	root = newRoot
-
-	// delete cow
 	logger.Info().Msg("Del[cow]")
 	err = tr.Delete(cow)
 	assert.Nil(err)
@@ -218,5 +217,60 @@ func TestInsert(t *testing.T) {
 	logger.Info().Msg("Del[cat]")
 	err = tr.Delete(cat)
 	assert.Nil(err)
+	assert.Equal(emptyRoot, tr.RootHash())
+}
+
+func TestPressure(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping TestPressure in short mode.")
+	}
+
+	assert := assert.New(t)
+	logger.UseDebugLogger()
+
+	testV := [8][]byte{[]byte("ham"), []byte("car"), []byte("cat"), []byte("dog"), []byte("egg"), []byte("fox"), []byte("cow"), []byte("ant")}
+
+	defer os.Remove(testTriePath)
+	tr, err := NewTrie(testTriePath)
+	assert.Nil(err)
+	root := emptyRoot
+	seed := time.Now().Nanosecond()
+	// insert 64k entries
+	var k [32]byte
+	k[0] = byte(seed)
+	for i := 0; i < 1<<16; i++ {
+		k = blake2b.Sum256(k[:])
+		v := testV[k[0]&7]
+		if _, err := tr.Get(k[:8]); err == nil {
+			continue
+		}
+		logger.Info().Hex("key", k[:8]).Msg("Put --")
+		err := tr.Insert(k[:8], v)
+		assert.Nil(err)
+		newRoot := tr.RootHash()
+		assert.NotEqual(newRoot, emptyRoot)
+		assert.NotEqual(newRoot, root)
+		root = newRoot
+		b, err := tr.Get(k[:8])
+		assert.Nil(err)
+		assert.Equal(v, b)
+	}
+	// delete 64k entries
+	var d [32]byte
+	d[0] = byte(seed)
+	// save the first 3, delete them last
+	d1 := blake2b.Sum256(d[:])
+	d2 := blake2b.Sum256(d1[:])
+	d3 := blake2b.Sum256(d2[:])
+	d = d3
+	for i := 0; i < 1<<16-3; i++ {
+		d = blake2b.Sum256(d[:])
+		logger.Info().Hex("key", d[:8]).Msg("Del --")
+		assert.Nil(tr.Delete(d[:8]))
+	}
+	assert.Nil(tr.Delete(d1[:8]))
+	assert.Nil(tr.Delete(d2[:8]))
+	assert.Nil(tr.Delete(d3[:8]))
+	// trie should fallback to empty
 	assert.Equal(emptyRoot, tr.RootHash())
 }

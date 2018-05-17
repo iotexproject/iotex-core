@@ -37,6 +37,7 @@ type (
 		Get(key []byte) ([]byte, error) // retrieve an existing entry
 		Update(key, value []byte) error // update an existing entry
 		Delete(key []byte) error        // delete an entry
+		Close() error                   // close the trie DB
 		RootHash() common.Hash32B       // returns trie's root hash
 	}
 
@@ -47,6 +48,7 @@ type (
 		curr      patricia   // current patricia node when updating nodes on path ascending to root
 		toRoot    *list.List // stores the path from root to diverging node
 		addNode   *list.List // stored newly added nodes on insert() operation
+		bucket    string     // bucket name to store the nodes
 		clpsType  byte       // collapse into which node: 1-extension, 0-leaf
 		numEntry  uint64     // number of entries added to the trie
 		numBranch uint64
@@ -55,10 +57,22 @@ type (
 	}
 )
 
-// NewTrie creates a trie with
-func NewTrie(dao db.KVStore) (Trie, error) {
-	t := trie{dao: dao, root: &branch{}, toRoot: list.New(), addNode: list.New(), numBranch: 1}
+// NewTrie creates a trie with DB filename
+func NewTrie(path string) (Trie, error) {
+	dao := db.NewBoltDB(path, nil)
+	if dao == nil {
+		return nil, errors.New("Cannot create boltDB file")
+	}
+	t := trie{dao: dao, root: &branch{}, toRoot: list.New(), addNode: list.New(), bucket: "trie", numBranch: 1}
+	if err := dao.Start(); err != nil {
+		return nil, err
+	}
 	return &t, nil
+}
+
+// Close close the DB
+func (t *trie) Close() error {
+	return t.dao.Stop()
 }
 
 // Insert a new entry
@@ -323,9 +337,12 @@ func (t *trie) updateDelete(path []byte, value []byte, currClps bool) error {
 	return nil
 }
 
+//======================================
+// helper functions to operate patricia
+//======================================
 // getPatricia retrieves the patricia node from DB according to key
 func (t *trie) getPatricia(key []byte) (patricia, error) {
-	node, err := t.dao.Get("", key)
+	node, err := t.dao.Get(t.bucket, key)
 	if err != nil {
 		return nil, errors.Wrapf(ErrNotExist, "key %x", key)
 	}
@@ -355,7 +372,7 @@ func (t *trie) putPatricia(ptr patricia) error {
 		return err
 	}
 	key := ptr.hash()
-	if err := t.dao.Put("", key[:], value); err != nil {
+	if err := t.dao.Put(t.bucket, key[:], value); err != nil {
 		return errors.Wrapf(err, "key = %x", key[:8])
 	}
 	logger.Debug().Hex("key", key[:8]).Msg("put")
@@ -370,7 +387,7 @@ func (t *trie) putPatriciaNew(ptr patricia) error {
 		return err
 	}
 	key := ptr.hash()
-	if err := t.dao.PutIfNotExists("", key[:], value); err != nil {
+	if err := t.dao.PutIfNotExists(t.bucket, key[:], value); err != nil {
 		return errors.Wrapf(err, "key = %x", key[:8])
 	}
 	logger.Debug().Hex("key", key[:8]).Msg("putnew")
@@ -380,7 +397,7 @@ func (t *trie) putPatriciaNew(ptr patricia) error {
 // delPatricia deletes the patricia node from DB
 func (t *trie) delPatricia(ptr patricia) error {
 	key := ptr.hash()
-	if err := t.dao.Delete("", key[:]); err != nil {
+	if err := t.dao.Delete(t.bucket, key[:]); err != nil {
 		return err
 	}
 	logger.Debug().Hex("key", key[:8]).Msg("del")
@@ -425,4 +442,8 @@ func (t *trie) popToRoot() (patricia, byte) {
 		return ptr, index
 	}
 	return nil, 0
+}
+
+func (t *trie) stat() {
+	logger.Info().Uint64("B", t.numBranch).Uint64("E", t.numExt).Uint64("L", t.numLeaf).Uint64("Item", t.numEntry).Msg("Counting")
 }

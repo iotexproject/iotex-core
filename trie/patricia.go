@@ -55,29 +55,34 @@ type (
 // descend returns the key to retrieve next patricia, and length of matching path in bytes
 func (b *branch) descend(key []byte) ([]byte, int, error) {
 	node := b.Path[key[0]]
-	if len(node) > 0 {
+	if node != nil {
 		return node, 1, nil
 	}
 	return nil, 0, errors.Wrapf(ErrInvalidPatricia, "branch does not have path = %d", key[0])
 }
 
-// ascend updates the key and returns whether the current node hash to be updated or not
+// ascend updates the key as a result of child node update
 func (b *branch) ascend(key []byte, index byte) error {
-	b.Path[index] = nil
-	b.Path[index] = make([]byte, common.HashSize)
-	copy(b.Path[index], key)
+	if b.Path[index] != nil {
+		b.Path[index] = nil
+		b.Path[index] = make([]byte, common.HashSize)
+		copy(b.Path[index], key)
+	}
 	return nil
 }
 
 // insert <k, v> at current patricia node
 func (b *branch) insert(k, v []byte, stack *list.List) error {
 	node := b.Path[k[0]]
-	if len(node) > 0 {
+	if node != nil {
 		return errors.Wrapf(ErrInvalidPatricia, "branch already covers path = %d", k[0])
 	}
 	// create a new leaf
 	l := leaf{0, k[1:], v}
 	stack.PushBack(&l)
+	hashl := l.hash()
+	logger.Debug().Hex("leaf", hashl[:8]).Hex("path", k[1:]).Msg("splitB")
+	b.Path[k[0]] = hashl[:]
 	return nil
 }
 
@@ -108,7 +113,7 @@ func (b *branch) collapse(k, v []byte, index byte, childClps bool) ([]byte, []by
 			value = b.Path[i]
 		}
 	}
-	// branch can be collapsed if only 1 path remaining
+	// branch can be collapsed if less than 1 path remaining
 	if nb <= 1 {
 		if v == nil {
 			k = nil
@@ -184,7 +189,7 @@ func (l *leaf) descend(key []byte) ([]byte, int, error) {
 	return nil, match, ErrPathDiverge
 }
 
-// ascend updates the key and returns whether the current node hash to be updated or not
+// ascend updates the key as a result of child node update
 func (l *leaf) ascend(key []byte, index byte) error {
 	// leaf node will be replaced by newly created node, no need to update hash
 	if l.Ext == 0 {
@@ -208,10 +213,6 @@ func (l *leaf) insert(k, v []byte, stack *list.List) error {
 		return errors.Wrapf(ErrInvalidPatricia, "leaf already has total matching path = %x", l.Path)
 	}
 	if l.Ext == 1 {
-		// by definition extension should not have path length = 1 -- that should've been created as branch
-		if len(l.Path) == 1 {
-			return errors.Wrap(ErrInvalidPatricia, "ext should not have path length = 1")
-		}
 		// split the current extension
 		logger.Debug().Hex("new key", k[match:]).Msg("diverge")
 		if err := l.split(match, k[match:], v, stack); err != nil {
@@ -221,24 +222,15 @@ func (l *leaf) insert(k, v []byte, stack *list.List) error {
 		ptr, _ := n.Value.(patricia)
 		hash := ptr.hash()
 		//======================================
-		// the matching part becomes a new node leading to top of split
-		// match == 1
-		// current E -> B[P[0]] -> top of split
-		// match > 1
-		// current E -> E <P[:match]> -> top of split
+		// the matching part becomes a new extension leading to top of split
+		// new E <P[:match]> -> top of split
 		//======================================
-		if match == 1 {
-			b := branch{}
-			b.Path[l.Path[0]] = hash[:]
-			hashb := b.hash()
-			logger.Debug().Hex("topB", hashb[:8]).Hex("path", l.Path[0:1]).Msg("split")
-			stack.PushFront(&b)
-		} else if match > 1 {
+		if match > 0 {
 			e := leaf{Ext: 1}
 			e.Path = l.Path[:match]
 			e.Value = hash[:]
 			hashe := e.hash()
-			logger.Debug().Hex("topE", hashe[:8]).Hex("path", l.Path[:match]).Msg("split")
+			logger.Debug().Hex("topE", hashe[:8]).Hex("path", l.Path[:match]).Msg("splitL")
 			stack.PushFront(&e)
 		}
 		return nil
@@ -271,10 +263,24 @@ func (l *leaf) increase(key []byte) (int, int, int) {
 	for l.Path[match] == key[match] {
 		match++
 	}
-	if match > 0 {
-		return 1, 1, 2
+	B, E, L := 1, 0, 0
+	if l.Ext == 1 {
+		L = 1
+		switch len(l.Path[match:]) {
+		case 1:
+		default:
+			E++
+		}
+		if match > 0 {
+			E++
+		}
+	} else {
+		L = 2
+		if match > 0 {
+			E++
+		}
 	}
-	return 1, 0, 2
+	return B, E, L
 }
 
 // collapse updates the node, returns the <key, value> if the node can be collapsed
@@ -329,10 +335,7 @@ func (l *leaf) deserialize(stream []byte) error {
 // len(k) == 1
 // E -> B[P[0]] -> E.value>
 //      B[k[0]] -> Leaf <k[1:], v> this is the <k, v> to be inserted
-// len(k) == 2
-// E -> B[P[0]] -> B1[P[1]] -> E.value>
-//      B[k[0]] -> Leaf <k[1:], v> this is the <k, v> to be inserted
-// len(k) > 2
+// len(k) > 1
 // E -> B[P[0]] -> E <P[1:]], E.value>
 //      B[k[0]] -> Leaf <k[1:], v> this is the <k, v> to be inserted
 //======================================
@@ -343,35 +346,26 @@ func (l *leaf) split(match int, k, v []byte, stack *list.List) error {
 	// add leaf for new <k, v>
 	l1 := leaf{0, k[1:], v}
 	hashl := l1.hash()
-	logger.Debug().Hex("L", hashl[:8]).Hex("path", k[1:]).Msg("split")
+	logger.Debug().Hex("L", hashl[:8]).Hex("path", k[1:]).Msg("splitL")
 	// add 1 branch to link new leaf and current ext (which may split as below)
 	b := branch{}
 	b.Path[k[0]] = hashl[:]
 	switch len(divPath) {
 	case 1:
 		b.Path[divPath[0]] = l.Value
-		logger.Warn().Hex("L", hashl[:8]).Hex("path", divPath[0:1]).Msg("split")
-	case 2:
-		// add another branch to split current ext
-		b1 := branch{}
-		b1.Path[divPath[1]] = l.Value
-		hashb := b1.hash()
-		logger.Debug().Hex("B1", hashb[:8]).Hex("k", divPath[1:2]).Hex("v", l.Value).Msg("split")
-		node = &b1
-		// link new leaf and current ext (which becomes b1)
-		b.Path[divPath[0]] = hashb[:]
+		logger.Warn().Hex("L", hashl[:8]).Hex("path", divPath[0:1]).Msg("splitL")
 	default:
 		// add 1 ext to split current ext
 		e := leaf{1, divPath[1:], l.Value}
 		hashe := e.hash()
-		logger.Debug().Hex("E", hashe[:8]).Hex("k", divPath[1:]).Hex("v", l.Value).Msg("split")
-		node = &e
+		logger.Debug().Hex("E", hashe[:8]).Hex("k", divPath[1:]).Hex("v", l.Value).Msg("splitL")
 		// link new leaf and current ext (which becomes e)
 		b.Path[divPath[0]] = hashe[:]
+		node = &e
 	}
 	hashb := b.hash()
 	stack.PushBack(&b)
-	logger.Debug().Hex("B", hashb[:8]).Hex("path", k[0:1]).Msg("split")
+	logger.Debug().Hex("B", hashb[:8]).Hex("path", k[0:1]).Msg("splitL")
 	if node != nil {
 		stack.PushBack(node)
 	}
