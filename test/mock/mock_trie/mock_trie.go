@@ -82,6 +82,18 @@ func (mr *MockTrieMockRecorder) Delete(key interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockTrie)(nil).Delete), key)
 }
 
+// Close mocks base method
+func (m *MockTrie) Close() error {
+	ret := m.ctrl.Call(m, "Close")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Close indicates an expected call of Close
+func (mr *MockTrieMockRecorder) Close() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockTrie)(nil).Close))
+}
+
 // RootHash mocks base method
 func (m *MockTrie) RootHash() common.Hash32B {
 	ret := m.ctrl.Call(m, "RootHash")
