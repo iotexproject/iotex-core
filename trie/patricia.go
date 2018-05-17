@@ -116,6 +116,8 @@ func (b *branch) collapse(k, v []byte, index byte, childClps bool) ([]byte, []by
 	// branch can be collapsed if less than 1 path remaining
 	if nb <= 1 {
 		if v == nil {
+			// incoming path is trimmed, set k to nil and v to value
+			// so it returns the remaining path <key, value> 4 lines below
 			k = nil
 			v = value
 		}
