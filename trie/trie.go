@@ -49,6 +49,8 @@ type (
 		toRoot    *list.List // stores the path from root to diverging node
 		addNode   *list.List // stored newly added nodes on insert() operation
 		bucket    string     // bucket name to store the nodes
+		clpsK     []byte     // path if the node can collapse after deleting an entry
+		clpsV     []byte     // value if the node can collapse after deleting an entry
 		clpsType  byte       // collapse into which node: 1-extension, 0-leaf
 		numEntry  uint64     // number of entries added to the trie
 		numBranch uint64
@@ -105,7 +107,7 @@ func (t *trie) Insert(key, value []byte) error {
 	t.numExt += uint64(ne)
 	t.numLeaf += uint64(nl)
 	t.numEntry++
-	// update nodes on path ascending to root
+	// update upstream nodes on path ascending to root
 	return t.updateInsert(hashChild[:])
 }
 
@@ -138,66 +140,20 @@ func (t *trie) Delete(key []byte) error {
 	if err != nil {
 		return err
 	}
+	// delete the entry and update if it can collapse
 	var index byte
-	var path, value []byte
 	var childClps bool
+	t.clpsK, t.clpsV, t.clpsType = nil, nil, 0
 	t.curr, index = t.popToRoot()
-	t.clpsType = 0
-	// parent of leaf must be either branch or extension
-	switch t.curr.(type) {
-	case *branch:
-		// delete the leaf corresponding to matching path
-		l, err := t.getPatricia(t.curr.(*branch).Path[index])
-		if err != nil {
-			return err
-		}
-		if err := t.delPatricia(l); err != nil {
-			return err
-		}
-		hash := t.curr.hash()
-		// check if the branch can collapse, and if yes get the leaf node value
-		if path, value, childClps = t.curr.collapse(path, value, index, true); childClps {
-			l, err := t.getPatricia(value)
-			if err != nil {
-				return err
-			}
-			// the original branch collapse to its single remaining leaf
-			var k []byte
-			if k, value, err = l.blob(); err != nil {
-				return err
-			}
-			// remaining leaf path != nil means it is extension node
-			if k != nil {
-				t.clpsType = 1
-			}
-			path = append(path, k...)
-			t.curr.(*branch).print()
-		} else {
-			// update the branch itself (after deleting the leaf)
-			if err := t.dao.Delete("", hash[:]); err != nil {
-				return err
-			}
-			if err := t.putPatricia(t.curr); err != nil {
-				return err
-			}
-		}
-	case *leaf:
-		if t.curr.(*leaf).Ext == 1 {
-			return errors.Wrap(ErrInvalidPatricia, "extension cannot be terminal node")
-		}
-		// delete the leaf node
-		if err := t.delPatricia(t.curr); err != nil {
-			return err
-		}
-		// deleting a leaf, node on the path must be extension
-		path, value, childClps, t.clpsType = nil, nil, true, 1
+	if childClps, err = t.delete(t.curr, index); err != nil {
+		return err
 	}
 	if t.numEntry == 0 {
 		return errors.New("Error: trie has more entries than ever added")
 	}
 	t.numEntry--
-	// update nodes on path ascending to root
-	return t.updateDelete(path, value, childClps)
+	// update upstream nodes on path ascending to root
+	return t.updateDelete(childClps)
 }
 
 // RootHash returns the root hash of merkle patricia trie
@@ -239,6 +195,61 @@ func (t *trie) query(key []byte) (patricia, int, error) {
 	return nil, size, nil
 }
 
+// delete removes the entry stored in patricia node, and returns if the node can collapse
+func (t *trie) delete(ptr patricia, index byte) (bool, error) {
+	var childClps bool
+	// parent of leaf must be either branch or extension
+	switch ptr.(type) {
+	case *branch:
+		// delete the leaf corresponding to matching path
+		l, err := t.getPatricia(ptr.(*branch).Path[index])
+		if err != nil {
+			return childClps, err
+		}
+		if err := t.delPatricia(l); err != nil {
+			return childClps, err
+		}
+		hash := ptr.hash()
+		// check if the branch can collapse, and if yes get the leaf node value
+		if t.clpsK, t.clpsV, childClps = ptr.collapse(t.clpsK, t.clpsV, index, true); childClps {
+			l, err := t.getPatricia(t.clpsV)
+			if err != nil {
+				return childClps, err
+			}
+			// the original branch collapse to its single remaining leaf
+			var k []byte
+			if k, t.clpsV, err = l.blob(); err != nil {
+				return childClps, err
+			}
+			// remaining leaf path != nil means it is extension node
+			if k != nil {
+				t.clpsType = 1
+			}
+			t.clpsK = append(t.clpsK, k...)
+			ptr.(*branch).print()
+		} else {
+			// update the branch itself (after deleting the leaf)
+			if err := t.dao.Delete("", hash[:]); err != nil {
+				return childClps, err
+			}
+			if err := t.putPatricia(ptr); err != nil {
+				return childClps, err
+			}
+		}
+	case *leaf:
+		if ptr.(*leaf).Ext == 1 {
+			return childClps, errors.Wrap(ErrInvalidPatricia, "extension cannot be terminal node")
+		}
+		// delete the leaf node
+		if err := t.delPatricia(ptr); err != nil {
+			return childClps, err
+		}
+		// deleting a leaf, upstream node must be extension so collapse into extension
+		t.clpsK, t.clpsV, childClps, t.clpsType = nil, nil, true, 1
+	}
+	return childClps, nil
+}
+
 // updateInsert rewinds the path back to root and updates nodes along the way
 func (t *trie) updateInsert(hashChild []byte) error {
 	// if the diverging node is leaf, it will be replaced and no need to update
@@ -275,7 +286,7 @@ func (t *trie) updateInsert(hashChild []byte) error {
 }
 
 // updateDelete rewinds the path back to root and updates nodes along the way
-func (t *trie) updateDelete(path []byte, value []byte, currClps bool) error {
+func (t *trie) updateDelete(currClps bool) error {
 	contClps := false
 	for t.toRoot.Len() > 0 {
 		logger.Info().Int("stack size", t.toRoot.Len()).Msg("clps")
@@ -290,9 +301,9 @@ func (t *trie) updateDelete(path []byte, value []byte, currClps bool) error {
 		// 1. the current node is not root
 		// 2. the current node is root, but <k, v> is nil meaning no more entries exist on the incoming path
 		isRoot := t.toRoot.Len() == 0
-		noEntry := path == nil && value == nil
+		noEntry := t.clpsK == nil && t.clpsV == nil
 		var nextClps bool
-		path, value, nextClps = next.collapse(path, value, index, currClps && (!isRoot || noEntry))
+		t.clpsK, t.clpsV, nextClps = next.collapse(t.clpsK, t.clpsV, index, currClps && (!isRoot || noEntry))
 		logger.Info().Bool("curr", currClps).Msg("clps")
 		logger.Info().Bool("next", nextClps).Msg("clps")
 		if nextClps {
@@ -314,8 +325,8 @@ func (t *trie) updateDelete(path []byte, value []byte, currClps bool) error {
 				return nil
 			}
 			// otherwise collapse into a leaf node
-			t.curr = &leaf{t.clpsType, path, value}
-			logger.Info().Hex("k", path).Hex("v", value).Msg("clps")
+			t.curr = &leaf{t.clpsType, t.clpsK, t.clpsV}
+			logger.Info().Hex("k", t.clpsK).Hex("v", t.clpsV).Msg("clps")
 			// after collapsing, the trie might rollback to an earlier state in the history (before adding the deleted entry)
 			// so 'child' may already exist in DB
 			if err := t.putPatricia(t.curr); err != nil {
