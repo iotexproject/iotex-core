@@ -1,3 +1,9 @@
+// Copyright (c) 2018 IoTeX
+// This is an alpha (internal) release and is not suitable for production. This source code is provided ‘as is’ and no
+// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
+// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
+// License 2.0 that can be found in the LICENSE file.
+
 package statefactory
 
 import (
@@ -20,12 +26,15 @@ var (
 
 	// ErrAccountNotExist is the error that the account does not exist
 	ErrAccountNotExist = errors.New("the account does not exist")
+
+	// ErrImpossibleTransition is the error that the state transition is not possible
+	ErrImpossibleTransition = errors.New("impossible state transition")
 )
 
 // State is the canonical representation of an account.
 type State struct {
 	Nonce   uint64
-	Balance big.Int
+	Balance *big.Int
 	Address *iotxaddress.Address
 
 	IsCandidate  bool
@@ -37,7 +46,8 @@ type State struct {
 type StateFactory interface {
 	RootHash() common.Hash32B
 
-	AddState(addr *iotxaddress.Address) *State
+	CreateState(addr *iotxaddress.Address) *State
+	UpdateStateWithTransfer(senderPubKey []byte, amount *big.Int, recipient *iotxaddress.Address) error
 
 	SetNonce(addr *iotxaddress.Address, value uint64) error
 	Nonce(addr *iotxaddress.Address) (uint64, error)
@@ -80,9 +90,36 @@ func (sf *stateFactory) RootHash() common.Hash32B {
 	return sf.trie.RootHash()
 }
 
-// AddState adds a new State with zero balance to the factory
-func (sf *stateFactory) AddState(addr *iotxaddress.Address) *State {
-	s := State{Address: addr, Balance: *big.NewInt(0)}
+// UpdateStateWithTransfer updates a State from the given value transfer
+func (sf *stateFactory) UpdateStateWithTransfer(senderPubKey []byte, amount *big.Int, recipient *iotxaddress.Address) error {
+	sender := iotxaddress.HashPubKey(senderPubKey)
+	state, err := sf.trie.Get(sender)
+	if err != nil {
+		panic(err)
+	}
+	if state == nil {
+		return ErrAccountNotExist
+	}
+
+	// check sender
+	if amount.Cmp(bytesToState(state).Balance) == 1 {
+		return ErrImpossibleTransition
+	}
+
+	// check recipient
+	_, err = sf.Balance(recipient)
+	if err == ErrAccountNotExist {
+		sf.CreateState(recipient)
+	}
+
+	sf.SubBalance(&iotxaddress.Address{PublicKey: senderPubKey}, amount)
+	sf.AddBalance(recipient, amount)
+	return nil
+}
+
+// CreateState adds a new State with zero balance to the factory
+func (sf *stateFactory) CreateState(addr *iotxaddress.Address) *State {
+	s := State{Address: addr, Balance: big.NewInt(0)}
 	key := iotxaddress.HashPubKey(addr.PublicKey)
 	sf.trie.Update(key, stateToBytes(&s))
 	return &s
@@ -100,7 +137,7 @@ func (sf *stateFactory) Balance(addr *iotxaddress.Address) (*big.Int, error) {
 	}
 
 	s := bytesToState(state)
-	return &s.Balance, nil
+	return s.Balance, nil
 }
 
 // SubBalance minuses balance to the given address
@@ -115,10 +152,10 @@ func (sf *stateFactory) SubBalance(addr *iotxaddress.Address, amount *big.Int) e
 	}
 
 	s := bytesToState(state)
-	if amount.Cmp(&s.Balance) == 1 {
+	if amount.Cmp(s.Balance) == 1 {
 		return ErrNotEnoughBalance
 	}
-	s.Balance.Sub(&s.Balance, amount)
+	s.Balance.Sub(s.Balance, amount)
 	sf.trie.Update(key, stateToBytes(s))
 	return nil
 }
@@ -135,7 +172,10 @@ func (sf *stateFactory) AddBalance(addr *iotxaddress.Address, amount *big.Int) e
 	}
 
 	state := bytesToState(ss)
-	state.Balance.Add(&state.Balance, amount)
+	if state.Balance == nil {
+		panic("123")
+	}
+	state.Balance.Add(state.Balance, amount)
 	sf.trie.Update(key, stateToBytes(state))
 	return nil
 }
@@ -251,7 +291,12 @@ func (vs *VirtualStateFactory) Balance(addr *iotxaddress.Address) (*big.Int, err
 	// TODO
 	return nil, nil
 }
-func (vs *VirtualStateFactory) AddState(addr *iotxaddress.Address) *State {
+func (vs *VirtualStateFactory) CreateState(addr *iotxaddress.Address) *State {
+	// TODO
+	return nil
+}
+
+func (vs *VirtualStateFactory) UpdateStateWithTransfer(senderPubKey []byte, amount *big.Int, recipient *iotxaddress.Address) error {
 	// TODO
 	return nil
 }

@@ -17,11 +17,16 @@ import (
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 )
 
+const (
+	// genesisCoinbaseData is the text in genesis block
+	genesisCoinbaseData = "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks"
+)
+
 func TestTransaction(t *testing.T) {
 	assert := assert.New(t)
 
 	// create some transactions
-	cbtx := NewCoinbaseTx(ta.Addrinfo["miner"].RawAddress, 50<<22, GenesisCoinbaseData)
+	cbtx := NewCoinbaseTx(ta.Addrinfo["miner"].RawAddress, 50<<22, genesisCoinbaseData)
 	assert.NotNil(cbtx)
 	hash := cbtx.Hash()
 
@@ -99,7 +104,7 @@ func TestTransaction(t *testing.T) {
 
 func TestIsLockedWithKey(t *testing.T) {
 	addr := ta.Addrinfo["miner"].RawAddress
-	cbtx := NewCoinbaseTx(addr, 100, GenesisCoinbaseData)
+	cbtx := NewCoinbaseTx(addr, 100, genesisCoinbaseData)
 	assert.NotNil(t, cbtx)
 	assert.False(t, cbtx.TxOut[0].IsLockedWithKey([]byte("tooshort")))
 	assert.True(t, cbtx.TxOut[0].IsLockedWithKey(iotxaddress.GetPubkeyHash(addr)))

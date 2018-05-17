@@ -48,16 +48,28 @@ func (mr *MockStateFactoryMockRecorder) RootHash() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RootHash", reflect.TypeOf((*MockStateFactory)(nil).RootHash))
 }
 
-// AddState mocks base method
-func (m *MockStateFactory) AddState(addr *iotxaddress.Address) *statefactory.State {
-	ret := m.ctrl.Call(m, "AddState", addr)
+// CreateState mocks base method
+func (m *MockStateFactory) CreateState(addr *iotxaddress.Address) *statefactory.State {
+	ret := m.ctrl.Call(m, "CreateState", addr)
 	ret0, _ := ret[0].(*statefactory.State)
 	return ret0
 }
 
-// AddState indicates an expected call of AddState
-func (mr *MockStateFactoryMockRecorder) AddState(addr interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddState", reflect.TypeOf((*MockStateFactory)(nil).AddState), addr)
+// CreateState indicates an expected call of CreateState
+func (mr *MockStateFactoryMockRecorder) CreateState(addr interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateState", reflect.TypeOf((*MockStateFactory)(nil).CreateState), addr)
+}
+
+// UpdateStateWithTransfer mocks base method
+func (m *MockStateFactory) UpdateStateWithTransfer(senderPubKey []byte, amount *big.Int, recipient *iotxaddress.Address) error {
+	ret := m.ctrl.Call(m, "UpdateStateWithTransfer", senderPubKey, amount, recipient)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateStateWithTransfer indicates an expected call of UpdateStateWithTransfer
+func (mr *MockStateFactoryMockRecorder) UpdateStateWithTransfer(senderPubKey, amount, recipient interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateStateWithTransfer", reflect.TypeOf((*MockStateFactory)(nil).UpdateStateWithTransfer), senderPubKey, amount, recipient)
 }
 
 // SetNonce mocks base method

@@ -45,7 +45,7 @@ func addTestingBlocks(bc Blockchain) error {
 	if err := bc.AddBlockCommit(blk); err != nil {
 		return err
 	}
-	bc.Reset()
+	bc.ResetUTXO()
 
 	// Add block 2
 	// Charlie --> A, B, D, E, test
@@ -63,7 +63,7 @@ func addTestingBlocks(bc Blockchain) error {
 	if err := bc.AddBlockCommit(blk); err != nil {
 		return err
 	}
-	bc.Reset()
+	bc.ResetUTXO()
 
 	// Add block 3
 	// Delta --> B, E, F, test
@@ -78,7 +78,7 @@ func addTestingBlocks(bc Blockchain) error {
 	if err := bc.AddBlockCommit(blk); err != nil {
 		return err
 	}
-	bc.Reset()
+	bc.ResetUTXO()
 
 	// Add block 4
 	// Delta --> A, B, C, D, F, test
@@ -97,7 +97,7 @@ func addTestingBlocks(bc Blockchain) error {
 	if err := bc.AddBlockCommit(blk); err != nil {
 		return err
 	}
-	bc.Reset()
+	bc.ResetUTXO()
 
 	return nil
 }
@@ -245,7 +245,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	fmt.Printf("Current tip = %d hash = %x\n", h, hash)
 
 	// add block with wrong height
-	cbTx := NewCoinbaseTx(ta.Addrinfo["bravo"].RawAddress, 50, GenesisCoinbaseData)
+	cbTx := NewCoinbaseTx(ta.Addrinfo["bravo"].RawAddress, 50, genesisCoinbaseData)
 	assert.NotNil(cbTx)
 	blk = NewBlock(0, h+2, hash, []*Tx{cbTx})
 	err = bc.ValidateBlock(blk)
@@ -253,7 +253,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	fmt.Printf("Cannot validate block %d: %v\n", blk.Height(), err)
 
 	// add block with zero prev hash
-	cbTx = NewCoinbaseTx(ta.Addrinfo["bravo"].RawAddress, 50, GenesisCoinbaseData)
+	cbTx = NewCoinbaseTx(ta.Addrinfo["bravo"].RawAddress, 50, genesisCoinbaseData)
 	assert.NotNil(cbTx)
 	blk = NewBlock(0, h+1, common.ZeroHash32B, []*Tx{cbTx})
 	err = bc.ValidateBlock(blk)
