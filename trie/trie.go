@@ -41,9 +41,7 @@ type (
 	trie struct {
 		dao       db.KVStore
 		root      patricia
-		curr      patricia   // current patricia node when updating nodes on path ascending to root
 		toRoot    *list.List // stores the path from root to diverging node
-		addNode   *list.List // stored newly added nodes on insert() operation
 		bucket    string     // bucket name to store the nodes
 		clpsK     []byte     // path if the node can collapse after deleting an entry
 		clpsV     []byte     // value if the node can collapse after deleting an entry
@@ -61,7 +59,7 @@ func NewTrie(path string) (Trie, error) {
 	if dao == nil {
 		return nil, errors.New("Cannot create boltDB file")
 	}
-	t := trie{dao: dao, root: &branch{}, toRoot: list.New(), addNode: list.New(), bucket: "trie", numEntry: 1, numBranch: 1}
+	t := trie{dao: dao, root: &branch{}, toRoot: list.New(), bucket: "trie", numEntry: 1, numBranch: 1}
 	if err := dao.Start(); err != nil {
 		return nil, err
 	}
@@ -83,12 +81,13 @@ func (t *trie) Upsert(key, value []byte) error {
 	if err != nil {
 		// key does not exist, insert at the diverging patricia node
 		nb, ne, nl := ptr.increase(key[size:])
-		if err := ptr.insert(key[size:], value, t.addNode); err != nil {
+		addNode := list.New()
+		if err := ptr.insert(key[size:], value, addNode); err != nil {
 			return errors.Wrapf(err, "failed to insert key = %x", key)
 		}
 		// update newly added patricia node into DB
-		for t.addNode.Len() > 0 {
-			n := t.addNode.Back()
+		for addNode.Len() > 0 {
+			n := addNode.Back()
 			ptr, ok := n.Value.(patricia)
 			if !ok {
 				return errors.Wrapf(ErrInvalidPatricia, "cannot decode node = %v", n.Value)
@@ -98,7 +97,7 @@ func (t *trie) Upsert(key, value []byte) error {
 			if err := t.putPatriciaNew(ptr); err != nil {
 				return err
 			}
-			t.addNode.Remove(n)
+			addNode.Remove(n)
 		}
 		t.numBranch += uint64(nb)
 		t.numExt += uint64(ne)
@@ -124,22 +123,22 @@ func (t *trie) Upsert(key, value []byte) error {
 			// for branch, the entry to delete is the leaf matching last byte of path
 			size = len(key)
 			index = key[size-1]
-			if t.curr, err = t.getPatricia(ptr.(*branch).Path[index]); err != nil {
+			if ptr, err = t.getPatricia(ptr.(*branch).Path[index]); err != nil {
 				return err
 			}
 		} else {
-			t.curr, index = t.popToRoot()
+			ptr, index = t.popToRoot()
 		}
 		// delete the entry and update if it can collapse
-		if _, err = t.delete(t.curr, index); err != nil {
+		if _, err = t.delete(ptr, index); err != nil {
 			return err
 		}
 		// update with new value
-		t.curr.set(value, index)
-		if err := t.putPatricia(t.curr); err != nil {
+		ptr.set(value, index)
+		if err := t.putPatricia(ptr); err != nil {
 			return err
 		}
-		hashChild = t.curr.hash()
+		hashChild = ptr.hash()
 	}
 	// update upstream nodes on path ascending to root
 	return t.updateInsert(hashChild[:])
@@ -179,14 +178,14 @@ func (t *trie) Delete(key []byte) error {
 		// for branch, the entry to delete is the leaf matching last byte of path
 		size = len(key)
 		index = key[size-1]
-		if t.curr, err = t.getPatricia(ptr.(*branch).Path[index]); err != nil {
+		if ptr, err = t.getPatricia(ptr.(*branch).Path[index]); err != nil {
 			return err
 		}
 	} else {
-		t.curr, index = t.popToRoot()
+		ptr, index = t.popToRoot()
 	}
 	// delete the entry and update if it can collapse
-	if childClps, err = t.delete(t.curr, index); err != nil {
+	if childClps, err = t.delete(ptr, index); err != nil {
 		return err
 	}
 	if t.numEntry == 1 {
@@ -198,7 +197,7 @@ func (t *trie) Delete(key []byte) error {
 		t.clpsType = 0
 	}
 	// update upstream nodes on path ascending to root
-	return t.updateDelete(childClps)
+	return t.updateDelete(ptr, childClps)
 }
 
 // RootHash returns the root hash of merkle patricia trie
@@ -282,26 +281,25 @@ func (t *trie) delete(ptr patricia, index byte) (bool, error) {
 // updateInsert rewinds the path back to root and updates nodes along the way
 func (t *trie) updateInsert(hashChild []byte) error {
 	for t.toRoot.Len() > 0 {
-		var index byte
-		t.curr, index = t.popToRoot()
-		if t.curr == nil {
+		curr, index := t.popToRoot()
+		if curr == nil {
 			return errors.Wrap(ErrInvalidPatricia, "patricia pushed on stack is not valid")
 		}
 		// delete the current node
-		hashCurr := t.curr.hash()
+		hashCurr := curr.hash()
 		logger.Info().Hex("curr key", hashCurr[:8]).Msg("10-4")
 		logger.Info().Hex("child key", hashChild[:8]).Msg("10-4")
-		if err := t.delPatricia(t.curr); err != nil {
+		if err := t.delPatricia(curr); err != nil {
 			return err
 		}
 		// update the patricia node
-		if err := t.curr.ascend(hashChild[:], index); err != nil {
+		if err := curr.ascend(hashChild[:], index); err != nil {
 			return err
 		}
-		hashCurr = t.curr.hash()
+		hashCurr = curr.hash()
 		hashChild = hashCurr[:]
 		// when adding an entry, hash of nodes along the path changes and is expected NOT to exist in DB
-		if err := t.putPatriciaNew(t.curr); err != nil {
+		if err := t.putPatriciaNew(curr); err != nil {
 			return err
 		}
 	}
@@ -309,7 +307,7 @@ func (t *trie) updateInsert(hashChild []byte) error {
 }
 
 // updateDelete rewinds the path back to root and updates nodes along the way
-func (t *trie) updateDelete(currClps bool) error {
+func (t *trie) updateDelete(curr patricia, currClps bool) error {
 	contClps := false
 	for t.toRoot.Len() > 0 {
 		logger.Info().Int("stack size", t.toRoot.Len()).Msg("clps")
@@ -334,7 +332,7 @@ func (t *trie) updateDelete(currClps bool) error {
 			contClps = true
 			if !isRoot {
 				currClps = nextClps
-				t.curr = next
+				curr = next
 				continue
 			}
 		}
@@ -349,18 +347,18 @@ func (t *trie) updateDelete(currClps bool) error {
 			}
 			// otherwise collapse into a leaf node
 			if t.clpsV != nil {
-				t.curr = &leaf{t.clpsType, t.clpsK, t.clpsV}
+				curr = &leaf{t.clpsType, t.clpsK, t.clpsV}
 				logger.Info().Hex("k", t.clpsK).Hex("v", t.clpsV).Msg("clps")
 				// after collapsing, the trie might rollback to an earlier state in the history (before adding the deleted entry)
 				// so the node we try to put may already exist in DB
-				if err := t.putPatricia(t.curr); err != nil {
+				if err := t.putPatricia(curr); err != nil {
 					return err
 				}
 			}
 		}
 		contClps = false
 		// update current with new child
-		hash := t.curr.hash()
+		hash := curr.hash()
 		next.ascend(hash[:], index)
 		// for the same reason above, the trie might rollback to an earlier state in the history
 		// so the node we try to put may already exist in DB
@@ -368,7 +366,7 @@ func (t *trie) updateDelete(currClps bool) error {
 			return err
 		}
 		currClps = nextClps
-		t.curr = next
+		curr = next
 	}
 	return nil
 }
