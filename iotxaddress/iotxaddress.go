@@ -7,11 +7,12 @@
 /*
 Address format to be used on IoTeX blockchains is composed of:
 -- A prefix indicating the network on which this address is valid, i.e., "io" for mainnet, "it" for testnet and regtest
--- A separator, always `*`
+-- A separator, always `1`
 -- A base32 encoded payload indicating the destination of the address and containing a checksum:
 ---- 1 byte:  version byte, starting with 0x01; The most significant bit is reserved and must be 0
 ---- 4 bytes: chain identifier: 0x00000001 for the root chain and the remaining for subchains
 ---- 160-bit hash, derived from the the public key
+---- checksum
 */
 
 package iotxaddress
