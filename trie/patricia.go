@@ -29,6 +29,7 @@ type (
 		insert([]byte, []byte, *list.List) error
 		increase([]byte) (int, int, int)
 		collapse([]byte, []byte, byte, bool) ([]byte, []byte, bool)
+		set([]byte, byte) error
 		blob() ([]byte, []byte, error)
 		hash() common.Hash32B // hash of this node
 		serialize() ([]byte, error)
@@ -75,7 +76,7 @@ func (b *branch) ascend(key []byte, index byte) error {
 func (b *branch) insert(k, v []byte, stack *list.List) error {
 	node := b.Path[k[0]]
 	if node != nil {
-		return errors.Wrapf(ErrInvalidPatricia, "branch already covers path = %d", k[0])
+		return errors.Wrapf(ErrInvalidPatricia, "branch already has path = %d", k[0])
 	}
 	// create a new leaf
 	l := leaf{0, k[1:], v}
@@ -126,9 +127,19 @@ func (b *branch) collapse(k, v []byte, index byte, childClps bool) ([]byte, []by
 	return k, v, false
 }
 
+// set assigns v to the node
+func (b *branch) set(v []byte, index byte) error {
+	if b.Path[index] != nil {
+		return errors.Wrapf(ErrInvalidPatricia, "branch already has path = %d", index)
+	}
+	b.Path[index] = make([]byte, common.HashSize)
+	copy(b.Path[index], v)
+	return nil
+}
+
 // blob return the <k, v> stored in the node
 func (b *branch) blob() ([]byte, []byte, error) {
-	// extension node stores the hash to next patricia node
+	// branch node stores the hash to next patricia node
 	return nil, nil, errors.Wrap(ErrInvalidPatricia, "branch does not store value")
 }
 
@@ -215,7 +226,7 @@ func (l *leaf) insert(k, v []byte, stack *list.List) error {
 		return errors.Wrapf(ErrInvalidPatricia, "leaf already has total matching path = %x", l.Path)
 	}
 	if l.Ext == 1 {
-		// split the current extension
+		// split the current ext
 		logger.Debug().Hex("new key", k[match:]).Msg("diverge")
 		if err := l.split(match, k[match:], v, stack); err != nil {
 			return err
@@ -224,7 +235,7 @@ func (l *leaf) insert(k, v []byte, stack *list.List) error {
 		ptr, _ := n.Value.(patricia)
 		hash := ptr.hash()
 		//======================================
-		// the matching part becomes a new extension leading to top of split
+		// the matching part becomes a new ext leading to top of split
 		// new E <P[:match]> -> top of split
 		//======================================
 		if match > 0 {
@@ -294,11 +305,22 @@ func (l *leaf) collapse(k, v []byte, index byte, childCollapse bool) ([]byte, []
 	return append(l.Path, k...), v, true
 }
 
+// set assigns v to the node
+func (l *leaf) set(v []byte, index byte) error {
+	if l.Ext == 1 {
+		return errors.Wrap(ErrInvalidPatricia, "ext should not be updated")
+	}
+	l.Value = nil
+	l.Value = make([]byte, len(v))
+	copy(l.Value, v)
+	return nil
+}
+
 // blob return the <k, v> stored in the node
 func (l *leaf) blob() ([]byte, []byte, error) {
 	if l.Ext == 1 {
-		// extension node stores the hash to next patricia node
-		return nil, nil, errors.Wrap(ErrInvalidPatricia, "extension does not store value")
+		// ext node stores the hash to next patricia node
+		return nil, nil, errors.Wrap(ErrInvalidPatricia, "ext does not store value")
 	}
 	return l.Path, l.Value, nil
 }

@@ -29,7 +29,7 @@ func TestInsert(t *testing.T) {
 	assert := assert.New(t)
 	logger.UseDebugLogger()
 
-	tr := trie{dao: db.NewMemKVStore(), root: &branch{}, toRoot: list.New(), addNode: list.New(), numBranch: 1}
+	tr := trie{dao: db.NewMemKVStore(), root: &branch{}, toRoot: list.New(), addNode: list.New(), numEntry: 1, numBranch: 1}
 	root := emptyRoot
 	assert.Equal(uint64(1), tr.numBranch)
 	// query non-existing entry
@@ -218,6 +218,7 @@ func TestInsert(t *testing.T) {
 	err = tr.Delete(cat)
 	assert.Nil(err)
 	assert.Equal(emptyRoot, tr.RootHash())
+	assert.Equal(uint64(1), tr.numEntry)
 }
 
 func Test1kEntries(t *testing.T) {
@@ -246,6 +247,13 @@ func Test1kEntries(t *testing.T) {
 		assert.NotEqual(newRoot, root)
 		root = newRoot
 		b, err := tr.Get(k[:8])
+		assert.Nil(err)
+		assert.Equal(v, b)
+		// update <k, v>
+		v = testV[7-k[0]&7]
+		err = tr.Update(k[:8], v)
+		assert.Nil(err)
+		b, err = tr.Get(k[:8])
 		assert.Nil(err)
 		assert.Equal(v, b)
 	}
