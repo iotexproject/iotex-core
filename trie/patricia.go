@@ -101,7 +101,7 @@ func (b *branch) collapse(k, v []byte, index byte, childClps bool) ([]byte, []by
 	}
 	// value == nil means no entry exist on the incoming path, trim it
 	if v == nil {
-		b.trim(index)
+		b.Path[index] = nil
 	}
 	// count number of remaining path
 	nb := 0
@@ -181,10 +181,6 @@ func (b *branch) print() {
 			logger.Info().Int("k", i).Hex("v", b.Path[i]).Msg("branch")
 		}
 	}
-}
-
-func (b *branch) trim(index byte) {
-	b.Path[index] = nil
 }
 
 //======================================
