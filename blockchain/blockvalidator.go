@@ -35,7 +35,7 @@ func (v *validator) Validate(blk *Block, tipHeight uint64, tipHash common.Hash32
 	if blk == nil {
 		return ErrInvalidBlock
 	}
-
+	// verify new block has height incremented by 1
 	if blk.Header.height != 0 && blk.Header.height != tipHeight+1 {
 		return errors.Wrapf(
 			ErrInvalidBlock,
@@ -43,7 +43,7 @@ func (v *validator) Validate(blk *Block, tipHeight uint64, tipHash common.Hash32
 			blk.Header.height,
 			tipHeight+1)
 	}
-
+	// verify new block has correctly linked to current tip
 	if blk.Header.prevBlockHash != tipHash {
 		return errors.Wrapf(
 			ErrInvalidBlock,

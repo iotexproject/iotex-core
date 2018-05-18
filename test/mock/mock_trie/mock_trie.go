@@ -33,16 +33,16 @@ func (m *MockTrie) EXPECT() *MockTrieMockRecorder {
 	return m.recorder
 }
 
-// Insert mocks base method
-func (m *MockTrie) Insert(key, value []byte) error {
-	ret := m.ctrl.Call(m, "Insert", key, value)
+// Upsert mocks base method
+func (m *MockTrie) Upsert(key, value []byte) error {
+	ret := m.ctrl.Call(m, "Upsert", key, value)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// Insert indicates an expected call of Insert
-func (mr *MockTrieMockRecorder) Insert(key, value interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Insert", reflect.TypeOf((*MockTrie)(nil).Insert), key, value)
+// Upsert indicates an expected call of Upsert
+func (mr *MockTrieMockRecorder) Upsert(key, value interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Upsert", reflect.TypeOf((*MockTrie)(nil).Upsert), key, value)
 }
 
 // Get mocks base method
@@ -56,18 +56,6 @@ func (m *MockTrie) Get(key []byte) ([]byte, error) {
 // Get indicates an expected call of Get
 func (mr *MockTrieMockRecorder) Get(key interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockTrie)(nil).Get), key)
-}
-
-// Update mocks base method
-func (m *MockTrie) Update(key, value []byte) error {
-	ret := m.ctrl.Call(m, "Update", key, value)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Update indicates an expected call of Update
-func (mr *MockTrieMockRecorder) Update(key, value interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockTrie)(nil).Update), key, value)
 }
 
 // Delete mocks base method

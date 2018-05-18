@@ -127,7 +127,7 @@ func (sf *stateFactory) UpdateStateWithTransfer(senderPubKey []byte, amount *big
 func (sf *stateFactory) CreateState(addr *iotxaddress.Address) (*State, error) {
 	s := State{Address: addr, Balance: big.NewInt(0)}
 	key := iotxaddress.HashPubKey(addr.PublicKey)
-	if err := sf.trie.Update(key, stateToBytes(&s)); err != nil {
+	if err := sf.trie.Upsert(key, stateToBytes(&s)); err != nil {
 		return nil, err
 	}
 	return &s, nil
@@ -164,7 +164,7 @@ func (sf *stateFactory) SubBalance(addr *iotxaddress.Address, amount *big.Int) e
 		return ErrNotEnoughBalance
 	}
 	s.Balance.Sub(s.Balance, amount)
-	sf.trie.Update(key, stateToBytes(s))
+	sf.trie.Upsert(key, stateToBytes(s))
 	return nil
 }
 
@@ -181,7 +181,7 @@ func (sf *stateFactory) AddBalance(addr *iotxaddress.Address, amount *big.Int) e
 
 	state := bytesToState(ss)
 	state.Balance.Add(state.Balance, amount)
-	sf.trie.Update(key, stateToBytes(state))
+	sf.trie.Upsert(key, stateToBytes(state))
 	return nil
 }
 
@@ -213,7 +213,7 @@ func (sf *stateFactory) SetNonce(addr *iotxaddress.Address, value uint64) error 
 
 	s := bytesToState(state)
 	s.Nonce = value
-	sf.trie.Update(key, stateToBytes(s))
+	sf.trie.Upsert(key, stateToBytes(s))
 	return nil
 }
 

@@ -40,7 +40,7 @@ func TestInsert(t *testing.T) {
 	tr.clear()
 	// this splits the root B
 	logger.Info().Msg("Put[cat]")
-	err = tr.Insert(cat, testV[2])
+	err = tr.Upsert(cat, testV[2])
 	assert.Nil(err)
 	catRoot := tr.RootHash()
 	assert.NotEqual(catRoot, root)
@@ -52,7 +52,7 @@ func TestInsert(t *testing.T) {
 
 	// this splits L --> E + B + 2L
 	logger.Info().Msg("Put[rat]")
-	err = tr.Insert(rat, []byte("rat"))
+	err = tr.Upsert(rat, []byte("rat"))
 	assert.Nil(err)
 	ratRoot := tr.RootHash()
 	assert.NotEqual(ratRoot, root)
@@ -66,7 +66,7 @@ func TestInsert(t *testing.T) {
 
 	// this adds another L to B
 	logger.Info().Msg("Put[car]")
-	err = tr.Insert(car, testV[1])
+	err = tr.Upsert(car, testV[1])
 	assert.Nil(err)
 	newRoot := tr.RootHash()
 	assert.NotEqual(newRoot, root)
@@ -85,7 +85,7 @@ func TestInsert(t *testing.T) {
 
 	// this splits E (with match = 3, div = 3)
 	logger.Info().Msg("Put[dog]")
-	err = tr.Insert(dog, testV[3])
+	err = tr.Upsert(dog, testV[3])
 	assert.Nil(err)
 	newRoot = tr.RootHash()
 	assert.NotEqual(newRoot, root)
@@ -103,7 +103,7 @@ func TestInsert(t *testing.T) {
 
 	// this splits E (with match = 0, div = 2)
 	logger.Info().Msg("Put[egg]")
-	err = tr.Insert(egg, testV[4])
+	err = tr.Upsert(egg, testV[4])
 	assert.Nil(err)
 	newRoot = tr.RootHash()
 	assert.NotEqual(newRoot, root)
@@ -121,7 +121,7 @@ func TestInsert(t *testing.T) {
 
 	// this splits E (with match = 4, div = 1)
 	logger.Info().Msg("Put[egg]")
-	err = tr.Insert(egg, testV[4])
+	err = tr.Upsert(egg, testV[4])
 	assert.Nil(err)
 	newRoot = tr.RootHash()
 	assert.NotEqual(newRoot, root)
@@ -140,7 +140,7 @@ func TestInsert(t *testing.T) {
 
 	// insert 'ham' 'fox' 'cow'
 	logger.Info().Msg("Put[ham]")
-	err = tr.Insert(ham, testV[0])
+	err = tr.Upsert(ham, testV[0])
 	assert.Nil(err)
 	newRoot = tr.RootHash()
 	assert.NotEqual(newRoot, root)
@@ -149,7 +149,7 @@ func TestInsert(t *testing.T) {
 	assert.Nil(err)
 	assert.Equal(testV[0], b)
 	logger.Info().Msg("Put[fox]")
-	err = tr.Insert(fox, testV[5])
+	err = tr.Upsert(fox, testV[5])
 	assert.Nil(err)
 	newRoot = tr.RootHash()
 	assert.NotEqual(newRoot, root)
@@ -158,7 +158,7 @@ func TestInsert(t *testing.T) {
 	assert.Nil(err)
 	assert.Equal(testV[5], b)
 	logger.Info().Msg("Put[cow]")
-	err = tr.Insert(cow, testV[6])
+	err = tr.Upsert(cow, testV[6])
 	assert.Nil(err)
 	newRoot = tr.RootHash()
 	assert.NotEqual(newRoot, root)
@@ -189,7 +189,7 @@ func TestInsert(t *testing.T) {
 
 	// this adds another path to root B
 	logger.Info().Msg("Put[ant]")
-	err = tr.Insert(ant, testV[7])
+	err = tr.Upsert(ant, testV[7])
 	assert.Nil(err)
 	newRoot = tr.RootHash()
 	assert.NotEqual(newRoot, root)
@@ -240,7 +240,7 @@ func Test1kEntries(t *testing.T) {
 			continue
 		}
 		logger.Info().Hex("key", k[:8]).Msg("Put --")
-		err := tr.Insert(k[:8], v)
+		err := tr.Upsert(k[:8], v)
 		assert.Nil(err)
 		newRoot := tr.RootHash()
 		assert.NotEqual(newRoot, emptyRoot)
@@ -251,7 +251,7 @@ func Test1kEntries(t *testing.T) {
 		assert.Equal(v, b)
 		// update <k, v>
 		v = testV[7-k[0]&7]
-		err = tr.Update(k[:8], v)
+		err = tr.Upsert(k[:8], v)
 		assert.Nil(err)
 		b, err = tr.Get(k[:8])
 		assert.Nil(err)
@@ -300,7 +300,7 @@ func TestPressure(t *testing.T) {
 			continue
 		}
 		logger.Info().Hex("key", k[:8]).Msg("Put --")
-		err := tr.Insert(k[:8], v)
+		err := tr.Upsert(k[:8], v)
 		assert.Nil(err)
 		newRoot := tr.RootHash()
 		assert.NotEqual(newRoot, emptyRoot)
