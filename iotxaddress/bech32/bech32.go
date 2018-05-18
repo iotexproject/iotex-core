@@ -4,17 +4,17 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-// Package bech32 includes a Bech32 string which is at most 90 characters long and consists of:
+// This package includes a Bech32 string which is at most 90 characters long and consists of:
 // The human-readable part, which is intended to convey the type of data, or
 // anything else that is relevant to the reader. This part MUST contain 1 to
 // 83 US-ASCII characters, with each character having a value in the range
 // [33-126]. HRP validity may be further restricted by specific applications.
 //
 // The separator, which is always "1". In case "1" is allowed inside the
-// human-readable part, the last one in the string is the separator[3].
+// human-readable part, the last one in the string is the separator.
 //
 // The data part, which is at least 6 characters long and only consists of
-// alphanumeric characters excluding "1", "b", "i", and "o"[4].
+// alphanumeric characters excluding "1", "b", "i", and "o".
 //
 package bech32
 

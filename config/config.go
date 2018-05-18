@@ -196,7 +196,7 @@ func loadConfigWithPathInternal(path string, validate bool) (*Config, error) {
 		glog.Errorf("Error when decoding the config file: %v\n", err)
 		return nil, err
 	}
-	if err := SetMinerAddr(&config); err != nil {
+	if err := setMinerAddr(&config); err != nil {
 		glog.Errorf("Error when decoding key string: %v\n", err)
 		return nil, err
 	}
@@ -262,8 +262,8 @@ func LoadTopology(path string) (*Topology, error) {
 	return &topology, nil
 }
 
-// SetMinerAddr sets MinerAddr based on the data from RawMinerAddr
-func SetMinerAddr(config *Config) error {
+// setMinerAddr sets MinerAddr based on the data from RawMinerAddr
+func setMinerAddr(config *Config) error {
 	priKey, err := hex.DecodeString(config.Chain.RawMinerAddr.PrivateKey)
 	if err != nil {
 		return err

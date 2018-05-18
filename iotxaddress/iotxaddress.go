@@ -5,13 +5,13 @@
 // License 2.0 that can be found in the LICENSE file.
 
 /*
-IoTeX blockchain address is a Bech32 encoding of:
--- The human-readable part "io" for mainnet, and "it" for testnet.
--- The separator, as defined by Bech32 spec.
--- The data part is further consisted of:
----- 1 byte:  version, starting with 0x01
+Address format to be used on IoTeX blockchains is composed of:
+-- A prefix indicating the network on which this address is valid, i.e., "io" for mainnet, "it" for testnet and regtest
+-- A separator, always `*`
+-- A base32 encoded payload indicating the destination of the address and containing a checksum:
+---- 1 byte:  version byte, starting with 0x01; The most significant bit is reserved and must be 0
 ---- 4 bytes: chain identifier: 0x00000001 for the root chain and the remaining for subchains
----- Address on the specified blockchain
+---- 160-bit hash, derived from the the public key
 */
 
 package iotxaddress
