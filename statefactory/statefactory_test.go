@@ -16,18 +16,20 @@ import (
 	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/test/mock/mock_trie"
+	tr "github.com/iotexproject/iotex-core/trie"
 )
 
 func TestEncodeDecode(t *testing.T) {
 	addr, err := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
 	assert.Nil(t, err)
 
-	ss := stateToBytes(&State{Address: addr})
+	ss, _ := stateToBytes(&State{Address: addr, Nonce: 0x10})
 	assert.NotEmpty(t, ss)
 
-	state := bytesToState(ss)
+	state, _ := bytesToState(ss)
 	assert.Equal(t, addr.RawAddress, state.Address.RawAddress)
 	assert.Equal(t, addr.PublicKey, state.Address.PublicKey)
+	assert.Equal(t, uint64(0x10), state.Nonce)
 }
 
 func TestRootHash(t *testing.T) {
@@ -66,7 +68,8 @@ func TestBalance(t *testing.T) {
 	addr, err := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
 	assert.Nil(t, err)
 	trie.EXPECT().Upsert(gomock.Any(), gomock.Any()).Times(1)
-	trie.EXPECT().Get(gomock.Any()).Times(1).Return(stateToBytes(&State{Address: addr, Balance: big.NewInt(20)}), nil)
+	mstate, _ := stateToBytes(&State{Address: addr, Balance: big.NewInt(20)})
+	trie.EXPECT().Get(gomock.Any()).Times(1).Return(mstate, nil)
 	err = sf.AddBalance(addr, big.NewInt(10))
 	assert.Nil(t, err)
 }
@@ -81,7 +84,8 @@ func TestNonce(t *testing.T) {
 	// Add 10 so the balance should be 10
 	addr, err := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
 	assert.Nil(t, err)
-	trie.EXPECT().Get(gomock.Any()).Times(1).Return(stateToBytes(&State{Address: addr, Nonce: 0x10}), nil)
+	mstate, _ := stateToBytes(&State{Address: addr, Nonce: 0x10})
+	trie.EXPECT().Get(gomock.Any()).Times(1).Return(mstate, nil)
 	addr, err = iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
 	assert.Nil(t, err)
 	n, err := sf.Nonce(addr)
@@ -90,13 +94,15 @@ func TestNonce(t *testing.T) {
 
 	trie.EXPECT().Get(gomock.Any()).Times(1).Return(nil, nil)
 	_, err = sf.Nonce(addr)
-	assert.Equal(t, ErrAccountNotExist, err)
+	assert.Equal(t, ErrFailedToUnmarshState, err)
 
 	trie.EXPECT().Upsert(gomock.Any(), gomock.Any()).Times(1).Do(func(key, value []byte) error {
-		assert.Equal(t, uint64(0x11), bytesToState(value).Nonce)
+		state, _ := bytesToState(value)
+		assert.Equal(t, uint64(0x11), state.Nonce)
 		return nil
 	})
-	trie.EXPECT().Get(gomock.Any()).Times(1).Return(stateToBytes(&State{Address: addr, Nonce: 0x10}), nil)
+	mstate, _ = stateToBytes(&State{Address: addr, Nonce: 0x10})
+	trie.EXPECT().Get(gomock.Any()).Times(1).Return(mstate, nil)
 	err = sf.SetNonce(addr, uint64(0x11))
 }
 
@@ -111,13 +117,14 @@ func TestVirtualNonce(t *testing.T) {
 	// account does not exist, get nonce
 	addr, err := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
 	assert.Nil(t, err)
-	trie.EXPECT().Get(gomock.Any()).Times(1).Return(nil, nil).Times(1)
+	trie.EXPECT().Get(gomock.Any()).Times(1).Return(nil, tr.ErrNotExist).Times(1)
 	_, err = vsf.Nonce(addr)
 	assert.Equal(t, ErrAccountNotExist, err)
 	assert.Equal(t, 0, len(vsf.changes))
 
 	// account exists, get nonce
-	trie.EXPECT().Get(gomock.Any()).Times(1).Return(stateToBytes(&State{Address: addr, Nonce: 0x10}), nil).Times(1)
+	mstate, err := stateToBytes(&State{Address: addr, Nonce: 0x10})
+	trie.EXPECT().Get(gomock.Any()).Times(1).Return(mstate, nil).Times(1)
 	n, err := vsf.Nonce(addr)
 	assert.Nil(t, err)
 	assert.Equal(t, uint64(0x10), n)
@@ -136,8 +143,8 @@ func TestVirtualNonce(t *testing.T) {
 
 	// account does not exist, set nonce
 	sf = NewVirtualStateFactory(trie)
-	vsf = sf.(*VirtualStateFactory)
-	trie.EXPECT().Get(gomock.Any()).Times(1).Return(nil, nil).Times(1)
+	vsf = sf.(*virtualStateFactory)
+	trie.EXPECT().Get(gomock.Any()).Times(1).Return(nil, tr.ErrNotExist).Times(1)
 	err = vsf.SetNonce(addr, 0x12)
 	assert.Equal(t, ErrAccountNotExist, err)
 	assert.Equal(t, 0, len(vsf.changes))

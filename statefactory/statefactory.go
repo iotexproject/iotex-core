@@ -9,9 +9,10 @@ package statefactory
 import (
 	"bytes"
 	"encoding/gob"
-	"errors"
 	"math/big"
 	"sync"
+
+	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/iotxaddress"
@@ -29,6 +30,12 @@ var (
 
 	// ErrImpossibleTransition is the error that the state transition is not possible
 	ErrImpossibleTransition = errors.New("impossible state transition")
+
+	// ErrFailedToMarshState is the error that the state marshaling is failed
+	ErrFailedToMarshState = errors.New("failed to marshal state")
+
+	// ErrFailedToUnmarshState is the error that the state unmarshaling is failed
+	ErrFailedToUnmarshState = errors.New("failed to unmarshal state")
 )
 
 // State is the canonical representation of an account.
@@ -62,22 +69,22 @@ type stateFactory struct {
 	trie trie.Trie
 }
 
-func stateToBytes(s *State) []byte {
+func stateToBytes(s *State) ([]byte, error) {
 	var ss bytes.Buffer
 	e := gob.NewEncoder(&ss)
 	if err := e.Encode(s); err != nil {
-		panic(err)
+		return nil, ErrFailedToMarshState
 	}
-	return ss.Bytes()
+	return ss.Bytes(), nil
 }
 
-func bytesToState(ss []byte) *State {
+func bytesToState(ss []byte) (*State, error) {
 	var state State
 	e := gob.NewDecoder(bytes.NewBuffer(ss))
 	if err := e.Decode(&state); err != nil {
-		panic(err)
+		return nil, ErrFailedToUnmarshState
 	}
-	return &state
+	return &state, nil
 }
 
 // NewStateFactory creates a new stateFactory
@@ -93,16 +100,20 @@ func (sf *stateFactory) RootHash() common.Hash32B {
 // UpdateStateWithTransfer updates a State from the given value transfer
 func (sf *stateFactory) UpdateStateWithTransfer(senderPubKey []byte, amount *big.Int, recipient *iotxaddress.Address) error {
 	sender := iotxaddress.HashPubKey(senderPubKey)
-	state, err := sf.trie.Get(sender)
-	if err != nil {
-		panic(err)
-	}
-	if state == nil {
+	mstate, err := sf.trie.Get(sender)
+	if errors.Cause(err) == trie.ErrNotExist {
 		return ErrAccountNotExist
+	}
+	if err != nil {
+		return err
 	}
 
 	// check sender
-	if amount.Cmp(bytesToState(state).Balance) == 1 {
+	state, err := bytesToState(mstate)
+	if err != nil {
+		return err
+	}
+	if amount.Cmp(state.Balance) == 1 {
 		return ErrImpossibleTransition
 	}
 
@@ -126,8 +137,11 @@ func (sf *stateFactory) UpdateStateWithTransfer(senderPubKey []byte, amount *big
 // CreateState adds a new State with zero balance to the factory
 func (sf *stateFactory) CreateState(addr *iotxaddress.Address) (*State, error) {
 	s := State{Address: addr, Balance: big.NewInt(0)}
-	key := iotxaddress.HashPubKey(addr.PublicKey)
-	if err := sf.trie.Upsert(key, stateToBytes(&s)); err != nil {
+	mstate, err := stateToBytes(&s)
+	if err != nil {
+		return nil, err
+	}
+	if err := sf.trie.Upsert(iotxaddress.HashPubKey(addr.PublicKey), mstate); err != nil {
 		return nil, err
 	}
 	return &s, nil
@@ -135,36 +149,48 @@ func (sf *stateFactory) CreateState(addr *iotxaddress.Address) (*State, error) {
 
 // Balance returns balance.
 func (sf *stateFactory) Balance(addr *iotxaddress.Address) (*big.Int, error) {
-	key := iotxaddress.HashPubKey(addr.PublicKey)
-	state, err := sf.trie.Get(key)
-	if err != nil {
-		panic(err)
-	}
-	if state == nil {
+	mstate, err := sf.trie.Get(iotxaddress.HashPubKey(addr.PublicKey))
+	if errors.Cause(err) == trie.ErrNotExist {
 		return nil, ErrAccountNotExist
 	}
+	if err != nil {
+		return nil, err
+	}
 
-	s := bytesToState(state)
-	return s.Balance, nil
+	state, err := bytesToState(mstate)
+	if err != nil {
+		return nil, err
+	}
+	return state.Balance, nil
 }
 
 // SubBalance minuses balance to the given address
 func (sf *stateFactory) SubBalance(addr *iotxaddress.Address, amount *big.Int) error {
 	key := iotxaddress.HashPubKey(addr.PublicKey)
-	state, err := sf.trie.Get(key)
-	if err != nil {
-		panic(err)
-	}
-	if state == nil {
+	mstate, err := sf.trie.Get(key)
+	if errors.Cause(err) == trie.ErrNotExist {
 		return ErrAccountNotExist
 	}
+	if err != nil {
+		return err
+	}
 
-	s := bytesToState(state)
-	if amount.Cmp(s.Balance) == 1 {
+	state, err := bytesToState(mstate)
+	if err != nil {
+		return err
+	}
+	if amount.Cmp(state.Balance) == 1 {
 		return ErrNotEnoughBalance
 	}
-	s.Balance.Sub(s.Balance, amount)
-	sf.trie.Upsert(key, stateToBytes(s))
+	state.Balance.Sub(state.Balance, amount)
+
+	mstate, err = stateToBytes(state)
+	if err != nil {
+		return err
+	}
+	if err := sf.trie.Upsert(key, mstate); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -172,48 +198,73 @@ func (sf *stateFactory) SubBalance(addr *iotxaddress.Address, amount *big.Int) e
 func (sf *stateFactory) AddBalance(addr *iotxaddress.Address, amount *big.Int) error {
 	key := iotxaddress.HashPubKey(addr.PublicKey)
 	ss, err := sf.trie.Get(key)
-	if err != nil {
-		panic(err)
-	}
-	if len(ss) == 0 {
+	if errors.Cause(err) == trie.ErrNotExist {
 		return ErrAccountNotExist
 	}
+	if err != nil {
+		return err
+	}
 
-	state := bytesToState(ss)
+	state, err := bytesToState(ss)
+	if err != nil {
+		return err
+	}
+
 	state.Balance.Add(state.Balance, amount)
-	sf.trie.Upsert(key, stateToBytes(state))
+
+	mstate, err := stateToBytes(state)
+	if err != nil {
+		return err
+	}
+	if err := sf.trie.Upsert(key, mstate); err != nil {
+		return err
+	}
 	return nil
 }
 
 // Nonce returns the nonce for the given address
 func (sf *stateFactory) Nonce(addr *iotxaddress.Address) (uint64, error) {
 	key := iotxaddress.HashPubKey(addr.PublicKey)
-	state, err := sf.trie.Get(key)
-	if err != nil {
-		panic(err)
-	}
-	if state == nil {
+	mstate, err := sf.trie.Get(key)
+	if errors.Cause(err) == trie.ErrNotExist {
 		return 0, ErrAccountNotExist
 	}
+	if err != nil {
+		return 0, err
+	}
 
-	s := bytesToState(state)
-	return s.Nonce, nil
+	state, err := bytesToState(mstate)
+	if err != nil {
+		return 0, err
+	}
+	return state.Nonce, nil
 }
 
 // SetNonce sets nonce to a given value
 func (sf *stateFactory) SetNonce(addr *iotxaddress.Address, value uint64) error {
 	key := iotxaddress.HashPubKey(addr.PublicKey)
-	state, err := sf.trie.Get(key)
-	if err != nil {
-		panic(err)
-	}
-	if state == nil {
+	mstate, err := sf.trie.Get(key)
+	if errors.Cause(err) == trie.ErrNotExist {
 		return ErrAccountNotExist
 	}
+	if err != nil {
+		return err
+	}
 
-	s := bytesToState(state)
-	s.Nonce = value
-	sf.trie.Upsert(key, stateToBytes(s))
+	state, err := bytesToState(mstate)
+	if err != nil {
+		return err
+	}
+
+	state.Nonce = value
+
+	mstate, err = stateToBytes(state)
+	if err != nil {
+		return err
+	}
+	if err := sf.trie.Upsert(key, mstate); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -245,15 +296,20 @@ func (vs *VirtualStateFactory) Nonce(addr *iotxaddress.Address) (uint64, error) 
 		return val.Nonce, nil
 	}
 
-	state, err := vs.trie.Get(key[:])
-	if err != nil {
-		panic(err)
-	}
-	if state == nil {
+	mstate, err := vs.trie.Get(key[:])
+	if errors.Cause(err) == trie.ErrNotExist {
 		return 0, ErrAccountNotExist
 	}
+	if err != nil {
+		return 0, err
+	}
 
-	vs.changes[key] = bytesToState(state)
+	state, err := bytesToState(mstate)
+	if err != nil {
+		return 0, err
+	}
+
+	vs.changes[key] = state
 	return vs.changes[key].Nonce, nil
 }
 
@@ -270,15 +326,20 @@ func (vs *VirtualStateFactory) SetNonce(addr *iotxaddress.Address, value uint64)
 		return nil
 	}
 
-	state, err := vs.trie.Get(key[:])
-	if err != nil {
-		panic(err)
-	}
-	if state == nil {
+	mstate, err := vs.trie.Get(key[:])
+	if errors.Cause(err) == trie.ErrNotExist {
 		return ErrAccountNotExist
 	}
+	if err != nil {
+		return err
+	}
 
-	vs.changes[key] = bytesToState(state)
+	state, err := bytesToState(mstate)
+	if err != nil {
+		return err
+	}
+
+	vs.changes[key] = state
 	vs.changes[key].Nonce = value
 	return nil
 }
