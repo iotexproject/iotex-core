@@ -30,9 +30,8 @@ var (
 type (
 	// Trie is the interface of Merkle Patricia Trie
 	Trie interface {
-		Insert(key, value []byte) error // insert a new entry
+		Upsert(key, value []byte) error // insert a new entry
 		Get(key []byte) ([]byte, error) // retrieve an existing entry
-		Update(key, value []byte) error // update an existing entry
 		Delete(key []byte) error        // delete an entry
 		Close() error                   // close the trie DB
 		RootHash() common.Hash32B       // returns trie's root hash
@@ -74,41 +73,73 @@ func (t *trie) Close() error {
 	return t.dao.Stop()
 }
 
-// Insert a new entry
-func (t *trie) Insert(key, value []byte) error {
-	div, size, err := t.query(key)
-	if err == nil {
-		return errors.Wrapf(ErrInvalidTrie, "key = %x already exist", key)
-	}
-	// insert at the diverging patricia node
-	nb, ne, nl := div.increase(key[size:])
-	if err := div.insert(key[size:], value, t.addNode); err != nil {
-		return errors.Wrapf(err, "failed to insert key = %x", key)
-	}
-	// update newly added patricia node into DB
+// Upsert a new entry
+func (t *trie) Upsert(key, value []byte) error {
+	var ptr patricia
+	var size int
+	var err error
 	var hashChild common.Hash32B
-	for t.addNode.Len() > 0 {
-		n := t.addNode.Back()
-		ptr, ok := n.Value.(patricia)
-		if !ok {
-			return errors.Wrapf(ErrInvalidPatricia, "cannot decode node = %v", n.Value)
+	ptr, size, err = t.query(key)
+	if err != nil {
+		// key does not exist, insert at the diverging patricia node
+		nb, ne, nl := ptr.increase(key[size:])
+		if err := ptr.insert(key[size:], value, t.addNode); err != nil {
+			return errors.Wrapf(err, "failed to insert key = %x", key)
 		}
-		hashChild = ptr.hash()
-		// hash of new node should NOT exist in DB
-		if err := t.putPatriciaNew(ptr); err != nil {
+		// update newly added patricia node into DB
+		for t.addNode.Len() > 0 {
+			n := t.addNode.Back()
+			ptr, ok := n.Value.(patricia)
+			if !ok {
+				return errors.Wrapf(ErrInvalidPatricia, "cannot decode node = %v", n.Value)
+			}
+			hashChild = ptr.hash()
+			// hash of new node should NOT exist in DB
+			if err := t.putPatriciaNew(ptr); err != nil {
+				return err
+			}
+			t.addNode.Remove(n)
+		}
+		t.numBranch += uint64(nb)
+		t.numExt += uint64(ne)
+		t.numLeaf += uint64(nl)
+		t.numEntry++
+		// if the diverging node is leaf, it will be replaced and no need to update
+		n := t.toRoot.Back()
+		if _, ok := n.Value.(patricia).(*leaf); ok {
+			logger.Warn().Msg("discard leaf")
+			t.toRoot.Remove(n)
+		}
+	} else {
+		// key already exists, update with new value
+		if size != len(key) {
+			return errors.Wrapf(ErrInvalidTrie, "key = %x not exist", key)
+		}
+		if err != nil {
 			return err
 		}
-		t.addNode.Remove(n)
-	}
-	t.numBranch += uint64(nb)
-	t.numExt += uint64(ne)
-	t.numLeaf += uint64(nl)
-	t.numEntry++
-	// if the diverging node is leaf, it will be replaced and no need to update
-	n := t.toRoot.Back()
-	if _, ok := n.Value.(patricia).(*leaf); ok {
-		logger.Warn().Msg("discard leaf")
-		t.toRoot.Remove(n)
+		var index byte
+		t.clpsK, t.clpsV = nil, nil
+		if _, ok := ptr.(*branch); ok {
+			// for branch, the entry to delete is the leaf matching last byte of path
+			size = len(key)
+			index = key[size-1]
+			if t.curr, err = t.getPatricia(ptr.(*branch).Path[index]); err != nil {
+				return err
+			}
+		} else {
+			t.curr, index = t.popToRoot()
+		}
+		// delete the entry and update if it can collapse
+		if _, err = t.delete(t.curr, index); err != nil {
+			return err
+		}
+		// update with new value
+		t.curr.set(value, index)
+		if err := t.putPatricia(t.curr); err != nil {
+			return err
+		}
+		hashChild = t.curr.hash()
 	}
 	// update upstream nodes on path ascending to root
 	return t.updateInsert(hashChild[:])
@@ -127,44 +158,6 @@ func (t *trie) Get(key []byte) ([]byte, error) {
 	// retrieve the value from terminal patricia node
 	size = len(key)
 	return t.getValue(ptr, key[size-1])
-}
-
-// Update an existing entry
-func (t *trie) Update(key, value []byte) error {
-	var ptr patricia
-	var size int
-	var err error
-	ptr, size, err = t.query(key)
-	if size != len(key) {
-		return errors.Wrapf(ErrInvalidTrie, "key = %x not exist", key)
-	}
-	if err != nil {
-		return err
-	}
-	var index byte
-	t.clpsK, t.clpsV = nil, nil
-	if _, ok := ptr.(*branch); ok {
-		// for branch, the entry to delete is the leaf matching last byte of path
-		size = len(key)
-		index = key[size-1]
-		if t.curr, err = t.getPatricia(ptr.(*branch).Path[index]); err != nil {
-			return err
-		}
-	} else {
-		t.curr, index = t.popToRoot()
-	}
-	// delete the entry and update if it can collapse
-	if _, err = t.delete(t.curr, index); err != nil {
-		return err
-	}
-	// update with new value
-	t.curr.set(value, index)
-	if err := t.putPatricia(t.curr); err != nil {
-		return err
-	}
-	// update upstream nodes on path ascending to root
-	hashChild := t.curr.hash()
-	return t.updateInsert(hashChild[:])
 }
 
 // Delete an entry
@@ -355,7 +348,7 @@ func (t *trie) updateDelete(currClps bool) error {
 				return nil
 			}
 			// otherwise collapse into a leaf node
-			if t.clpsV != nil{
+			if t.clpsV != nil {
 				t.curr = &leaf{t.clpsType, t.clpsK, t.clpsV}
 				logger.Info().Hex("k", t.clpsK).Hex("v", t.clpsV).Msg("clps")
 				// after collapsing, the trie might rollback to an earlier state in the history (before adding the deleted entry)

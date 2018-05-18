@@ -46,7 +46,7 @@ func TestCreateState(t *testing.T) {
 
 	trie := mock_trie.NewMockTrie(ctrl)
 	sf := NewStateFactory(trie)
-	trie.EXPECT().Update(gomock.Any(), gomock.Any()).Times(1)
+	trie.EXPECT().Upsert(gomock.Any(), gomock.Any()).Times(1)
 	addr, err := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
 	assert.Nil(t, err)
 	state, _ := sf.CreateState(addr)
@@ -65,7 +65,7 @@ func TestBalance(t *testing.T) {
 	// Add 10 to the balance
 	addr, err := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
 	assert.Nil(t, err)
-	trie.EXPECT().Update(gomock.Any(), gomock.Any()).Times(1)
+	trie.EXPECT().Upsert(gomock.Any(), gomock.Any()).Times(1)
 	trie.EXPECT().Get(gomock.Any()).Times(1).Return(stateToBytes(&State{Address: addr, Balance: big.NewInt(20)}), nil)
 	err = sf.AddBalance(addr, big.NewInt(10))
 	assert.Nil(t, err)
@@ -92,7 +92,7 @@ func TestNonce(t *testing.T) {
 	_, err = sf.Nonce(addr)
 	assert.Equal(t, ErrAccountNotExist, err)
 
-	trie.EXPECT().Update(gomock.Any(), gomock.Any()).Times(1).Do(func(key, value []byte) error {
+	trie.EXPECT().Upsert(gomock.Any(), gomock.Any()).Times(1).Do(func(key, value []byte) error {
 		assert.Equal(t, uint64(0x11), bytesToState(value).Nonce)
 		return nil
 	})
