@@ -4,7 +4,7 @@ import (
 	"log"
 	"net"
 
-	pb "github.com/iotexproject/iotex-core-internal/simulator/grpc_test/simulator"
+	pb "github.com/iotexproject/iotex-core-internal/simulator/grpc/simulator"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
