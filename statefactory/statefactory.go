@@ -209,7 +209,6 @@ func (sf *stateFactory) AddBalance(addr *iotxaddress.Address, amount *big.Int) e
 	if err != nil {
 		return err
 	}
-
 	state.Balance.Add(state.Balance, amount)
 
 	mstate, err := stateToBytes(state)
@@ -224,8 +223,7 @@ func (sf *stateFactory) AddBalance(addr *iotxaddress.Address, amount *big.Int) e
 
 // Nonce returns the nonce for the given address
 func (sf *stateFactory) Nonce(addr *iotxaddress.Address) (uint64, error) {
-	key := iotxaddress.HashPubKey(addr.PublicKey)
-	mstate, err := sf.trie.Get(key)
+	mstate, err := sf.trie.Get(iotxaddress.HashPubKey(addr.PublicKey))
 	if errors.Cause(err) == trie.ErrNotExist {
 		return 0, ErrAccountNotExist
 	}
@@ -255,7 +253,6 @@ func (sf *stateFactory) SetNonce(addr *iotxaddress.Address, value uint64) error 
 	if err != nil {
 		return err
 	}
-
 	state.Nonce = value
 
 	mstate, err = stateToBytes(state)
