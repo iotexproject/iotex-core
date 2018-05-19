@@ -4,7 +4,8 @@ import (
 	"log"
 	"net"
 
-	pb "github.com/iotexproject/iotex-core-internal/simulator/grpc/simulator"
+	pb "github.com/iotexproject/iotex-core/simulator/grpc/simulator"
+	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )
@@ -17,11 +18,8 @@ const (
 type server struct{}
 
 // Ping implements simulator.SimulatorServer
-func (s *server) Ping(in *pb.Request, stream pb.Simulator_PingServer) error {
-	stream.Send(&pb.Reply{PlayerID: 4, SenderID: 5, MessageType: 3, Value: "block 66"})
-	stream.Send(&pb.Reply{PlayerID: 5, SenderID: 8, MessageType: 1, Value: "block 94"})
-	stream.Send(&pb.Reply{PlayerID: 2, SenderID: 3, MessageType: 2, Value: "block 4"})
-	return nil
+func (s *server) Ping(ctx context.Context, in *pb.Request) (*pb.Reply, error) {
+	return &pb.Reply{Message: "Hello " + in.Name}, nil
 }
 
 func main() {
