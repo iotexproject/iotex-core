@@ -25,7 +25,9 @@ def run():
     channel = grpc.insecure_channel('localhost:50051')
     stub = simulator_pb2_grpc.SimulatorStub(channel)
     response = stub.Ping(simulator_pb2.Request(name='you'))
-    print("Simulator client received: " + response.message)
+
+    for i in response:
+        print(i.message)
 
 if __name__ == '__main__':
     run()
