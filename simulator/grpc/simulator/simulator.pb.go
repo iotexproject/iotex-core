@@ -35,7 +35,7 @@ func (m *Request) Reset()         { *m = Request{} }
 func (m *Request) String() string { return proto.CompactTextString(m) }
 func (*Request) ProtoMessage()    {}
 func (*Request) Descriptor() ([]byte, []int) {
-	return fileDescriptor_simulator_3e8d65dabf7a36a1, []int{0}
+	return fileDescriptor_simulator_fbb14697af47b758, []int{0}
 }
 func (m *Request) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Request.Unmarshal(m, b)
@@ -74,7 +74,7 @@ func (m *Reply) Reset()         { *m = Reply{} }
 func (m *Reply) String() string { return proto.CompactTextString(m) }
 func (*Reply) ProtoMessage()    {}
 func (*Reply) Descriptor() ([]byte, []int) {
-	return fileDescriptor_simulator_3e8d65dabf7a36a1, []int{1}
+	return fileDescriptor_simulator_fbb14697af47b758, []int{1}
 }
 func (m *Reply) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Reply.Unmarshal(m, b)
@@ -118,7 +118,7 @@ const _ = grpc.SupportPackageIsVersion4
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type SimulatorClient interface {
-	Ping(ctx context.Context, in *Request, opts ...grpc.CallOption) (*Reply, error)
+	Ping(ctx context.Context, in *Request, opts ...grpc.CallOption) (Simulator_PingClient, error)
 }
 
 type simulatorClient struct {
@@ -129,66 +129,93 @@ func NewSimulatorClient(cc *grpc.ClientConn) SimulatorClient {
 	return &simulatorClient{cc}
 }
 
-func (c *simulatorClient) Ping(ctx context.Context, in *Request, opts ...grpc.CallOption) (*Reply, error) {
-	out := new(Reply)
-	err := c.cc.Invoke(ctx, "/simulator.Simulator/Ping", in, out, opts...)
+func (c *simulatorClient) Ping(ctx context.Context, in *Request, opts ...grpc.CallOption) (Simulator_PingClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_Simulator_serviceDesc.Streams[0], "/simulator.Simulator/Ping", opts...)
 	if err != nil {
 		return nil, err
 	}
-	return out, nil
+	x := &simulatorPingClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type Simulator_PingClient interface {
+	Recv() (*Reply, error)
+	grpc.ClientStream
+}
+
+type simulatorPingClient struct {
+	grpc.ClientStream
+}
+
+func (x *simulatorPingClient) Recv() (*Reply, error) {
+	m := new(Reply)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 // SimulatorServer is the server API for Simulator service.
 type SimulatorServer interface {
-	Ping(context.Context, *Request) (*Reply, error)
+	Ping(*Request, Simulator_PingServer) error
 }
 
 func RegisterSimulatorServer(s *grpc.Server, srv SimulatorServer) {
 	s.RegisterService(&_Simulator_serviceDesc, srv)
 }
 
-func _Simulator_Ping_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Request)
-	if err := dec(in); err != nil {
-		return nil, err
+func _Simulator_Ping_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(Request)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
 	}
-	if interceptor == nil {
-		return srv.(SimulatorServer).Ping(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/simulator.Simulator/Ping",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SimulatorServer).Ping(ctx, req.(*Request))
-	}
-	return interceptor(ctx, in, info, handler)
+	return srv.(SimulatorServer).Ping(m, &simulatorPingServer{stream})
+}
+
+type Simulator_PingServer interface {
+	Send(*Reply) error
+	grpc.ServerStream
+}
+
+type simulatorPingServer struct {
+	grpc.ServerStream
+}
+
+func (x *simulatorPingServer) Send(m *Reply) error {
+	return x.ServerStream.SendMsg(m)
 }
 
 var _Simulator_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "simulator.Simulator",
 	HandlerType: (*SimulatorServer)(nil),
-	Methods: []grpc.MethodDesc{
+	Methods:     []grpc.MethodDesc{},
+	Streams: []grpc.StreamDesc{
 		{
-			MethodName: "Ping",
-			Handler:    _Simulator_Ping_Handler,
+			StreamName:    "Ping",
+			Handler:       _Simulator_Ping_Handler,
+			ServerStreams: true,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
 	Metadata: "simulator.proto",
 }
 
-func init() { proto.RegisterFile("simulator.proto", fileDescriptor_simulator_3e8d65dabf7a36a1) }
+func init() { proto.RegisterFile("simulator.proto", fileDescriptor_simulator_fbb14697af47b758) }
 
-var fileDescriptor_simulator_3e8d65dabf7a36a1 = []byte{
-	// 132 bytes of a gzipped FileDescriptorProto
+var fileDescriptor_simulator_fbb14697af47b758 = []byte{
+	// 134 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xe2, 0x2f, 0xce, 0xcc, 0x2d,
 	0xcd, 0x49, 0x2c, 0xc9, 0x2f, 0xd2, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0xe2, 0x84, 0x0b, 0x28,
 	0xc9, 0x72, 0xb1, 0x07, 0xa5, 0x16, 0x96, 0xa6, 0x16, 0x97, 0x08, 0x09, 0x71, 0xb1, 0xe4, 0x25,
 	0xe6, 0xa6, 0x4a, 0x30, 0x2a, 0x30, 0x6a, 0x70, 0x06, 0x81, 0xd9, 0x4a, 0x8a, 0x5c, 0xac, 0x41,
 	0xa9, 0x05, 0x39, 0x95, 0x42, 0x12, 0x5c, 0xec, 0xb9, 0xa9, 0xc5, 0xc5, 0x89, 0xe9, 0x30, 0x79,
-	0x18, 0xd7, 0xc8, 0x9a, 0x8b, 0x33, 0x18, 0x66, 0x9c, 0x90, 0x1e, 0x17, 0x4b, 0x40, 0x66, 0x5e,
+	0x18, 0xd7, 0xc8, 0x96, 0x8b, 0x33, 0x18, 0x66, 0x9c, 0x90, 0x01, 0x17, 0x4b, 0x40, 0x66, 0x5e,
 	0xba, 0x90, 0x90, 0x1e, 0xc2, 0x4e, 0xa8, 0xf9, 0x52, 0x02, 0x28, 0x62, 0x05, 0x39, 0x95, 0x4a,
-	0x0c, 0x49, 0x6c, 0x60, 0x07, 0x19, 0x03, 0x02, 0x00, 0x00, 0xff, 0xff, 0x18, 0x6e, 0xbf, 0x1d,
-	0xa3, 0x00, 0x00, 0x00,
+	0x0c, 0x06, 0x8c, 0x49, 0x6c, 0x60, 0x27, 0x19, 0x03, 0x02, 0x00, 0x00, 0xff, 0xff, 0x03, 0x23,
+	0x00, 0x08, 0xa5, 0x00, 0x00, 0x00,
 }

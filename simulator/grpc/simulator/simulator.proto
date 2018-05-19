@@ -18,7 +18,7 @@ package simulator;
 
 // The simulator service definition.
 service Simulator {
-  rpc Ping (Request) returns (Reply) {}
+  rpc Ping (Request) returns (stream Reply) {}
 }
 
 // The request message containing the user's name.
