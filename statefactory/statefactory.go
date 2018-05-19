@@ -31,11 +31,11 @@ var (
 	// ErrImpossibleTransition is the error that the state transition is not possible
 	ErrImpossibleTransition = errors.New("impossible state transition")
 
-	// ErrFailedToMarshState is the error that the state marshaling is failed
-	ErrFailedToMarshState = errors.New("failed to marshal state")
+	// ErrFailedToMarshalState is the error that the state marshaling is failed
+	ErrFailedToMarshalState = errors.New("failed to marshal state")
 
-	// ErrFailedToUnmarshState is the error that the state unmarshaling is failed
-	ErrFailedToUnmarshState = errors.New("failed to unmarshal state")
+	// ErrFailedToUnmarshalState is the error that the state un-marshaling is failed
+	ErrFailedToUnmarshalState = errors.New("failed to unmarshal state")
 )
 
 // State is the canonical representation of an account.
@@ -73,7 +73,7 @@ func stateToBytes(s *State) ([]byte, error) {
 	var ss bytes.Buffer
 	e := gob.NewEncoder(&ss)
 	if err := e.Encode(s); err != nil {
-		return nil, ErrFailedToMarshState
+		return nil, ErrFailedToMarshalState
 	}
 	return ss.Bytes(), nil
 }
@@ -82,7 +82,7 @@ func bytesToState(ss []byte) (*State, error) {
 	var state State
 	e := gob.NewDecoder(bytes.NewBuffer(ss))
 	if err := e.Decode(&state); err != nil {
-		return nil, ErrFailedToUnmarshState
+		return nil, ErrFailedToUnmarshalState
 	}
 	return &state, nil
 }

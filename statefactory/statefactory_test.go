@@ -94,7 +94,7 @@ func TestNonce(t *testing.T) {
 
 	trie.EXPECT().Get(gomock.Any()).Times(1).Return(nil, nil)
 	_, err = sf.Nonce(addr)
-	assert.Equal(t, ErrFailedToUnmarshState, err)
+	assert.Equal(t, ErrFailedToUnmarshalState, err)
 
 	trie.EXPECT().Upsert(gomock.Any(), gomock.Any()).Times(1).Do(func(key, value []byte) error {
 		state, _ := bytesToState(value)
