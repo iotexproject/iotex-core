@@ -18,21 +18,15 @@ package simulator;
 
 // The simulator service definition.
 service Simulator {
-  rpc Ping (Request) returns (stream Reply) {}
+  rpc Ping (Request) returns (Reply) {}
 }
 
 // The request message containing the user's name.
 message Request {
-  int32 playerID = 1;
-  int32 senderID = 2;
-  int32 messageType = 3;
-  string value = 4;
+  string name = 1;
 }
 
 // The response message containing the greetings
 message Reply {
-  int32 playerID = 1;
-  int32 senderID = 2;
-  int32 messageType = 3;
-  string value = 4;
+  string message = 1;
 }

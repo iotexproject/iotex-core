@@ -19,7 +19,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='simulator.proto',
   package='simulator',
   syntax='proto3',
-  serialized_pb=_b('\n\x0fsimulator.proto\x12\tsimulator\"Q\n\x07Request\x12\x10\n\x08playerID\x18\x01 \x01(\x05\x12\x10\n\x08senderID\x18\x02 \x01(\x05\x12\x13\n\x0bmessageType\x18\x03 \x01(\x05\x12\r\n\x05value\x18\x04 \x01(\t\"O\n\x05Reply\x12\x10\n\x08playerID\x18\x01 \x01(\x05\x12\x10\n\x08senderID\x18\x02 \x01(\x05\x12\x13\n\x0bmessageType\x18\x03 \x01(\x05\x12\r\n\x05value\x18\x04 \x01(\t2=\n\tSimulator\x12\x30\n\x04Ping\x12\x12.simulator.Request\x1a\x10.simulator.Reply\"\x00\x30\x01\x62\x06proto3')
+  serialized_pb=_b('\n\x0fsimulator.proto\x12\tsimulator\"\x17\n\x07Request\x12\x0c\n\x04name\x18\x01 \x01(\t\"\x18\n\x05Reply\x12\x0f\n\x07message\x18\x01 \x01(\t2;\n\tSimulator\x12.\n\x04Ping\x12\x12.simulator.Request\x1a\x10.simulator.Reply\"\x00\x62\x06proto3')
 )
 
 
@@ -33,29 +33,8 @@ _REQUEST = _descriptor.Descriptor(
   containing_type=None,
   fields=[
     _descriptor.FieldDescriptor(
-      name='playerID', full_name='simulator.Request.playerID', index=0,
-      number=1, type=5, cpp_type=1, label=1,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
-    _descriptor.FieldDescriptor(
-      name='senderID', full_name='simulator.Request.senderID', index=1,
-      number=2, type=5, cpp_type=1, label=1,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
-    _descriptor.FieldDescriptor(
-      name='messageType', full_name='simulator.Request.messageType', index=2,
-      number=3, type=5, cpp_type=1, label=1,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
-    _descriptor.FieldDescriptor(
-      name='value', full_name='simulator.Request.value', index=3,
-      number=4, type=9, cpp_type=9, label=1,
+      name='name', full_name='simulator.Request.name', index=0,
+      number=1, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=_b("").decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
@@ -73,7 +52,7 @@ _REQUEST = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=30,
-  serialized_end=111,
+  serialized_end=53,
 )
 
 
@@ -85,29 +64,8 @@ _REPLY = _descriptor.Descriptor(
   containing_type=None,
   fields=[
     _descriptor.FieldDescriptor(
-      name='playerID', full_name='simulator.Reply.playerID', index=0,
-      number=1, type=5, cpp_type=1, label=1,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
-    _descriptor.FieldDescriptor(
-      name='senderID', full_name='simulator.Reply.senderID', index=1,
-      number=2, type=5, cpp_type=1, label=1,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
-    _descriptor.FieldDescriptor(
-      name='messageType', full_name='simulator.Reply.messageType', index=2,
-      number=3, type=5, cpp_type=1, label=1,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
-    _descriptor.FieldDescriptor(
-      name='value', full_name='simulator.Reply.value', index=3,
-      number=4, type=9, cpp_type=9, label=1,
+      name='message', full_name='simulator.Reply.message', index=0,
+      number=1, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=_b("").decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
@@ -124,8 +82,8 @@ _REPLY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=113,
-  serialized_end=192,
+  serialized_start=55,
+  serialized_end=79,
 )
 
 DESCRIPTOR.message_types_by_name['Request'] = _REQUEST
@@ -154,8 +112,8 @@ _SIMULATOR = _descriptor.ServiceDescriptor(
   file=DESCRIPTOR,
   index=0,
   options=None,
-  serialized_start=194,
-  serialized_end=255,
+  serialized_start=81,
+  serialized_end=140,
   methods=[
   _descriptor.MethodDescriptor(
     name='Ping',
