@@ -14,7 +14,7 @@ class SimulatorStub(object):
     Args:
       channel: A grpc.Channel.
     """
-    self.Ping = channel.unary_unary(
+    self.Ping = channel.unary_stream(
         '/simulator.Simulator/Ping',
         request_serializer=simulator__pb2.Request.SerializeToString,
         response_deserializer=simulator__pb2.Reply.FromString,
@@ -35,7 +35,7 @@ class SimulatorServicer(object):
 
 def add_SimulatorServicer_to_server(servicer, server):
   rpc_method_handlers = {
-      'Ping': grpc.unary_unary_rpc_method_handler(
+      'Ping': grpc.unary_stream_rpc_method_handler(
           servicer.Ping,
           request_deserializer=simulator__pb2.Request.FromString,
           response_serializer=simulator__pb2.Reply.SerializeToString,

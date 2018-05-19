@@ -19,7 +19,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='simulator.proto',
   package='simulator',
   syntax='proto3',
-  serialized_pb=_b('\n\x0fsimulator.proto\x12\tsimulator\"\x17\n\x07Request\x12\x0c\n\x04name\x18\x01 \x01(\t\"\x18\n\x05Reply\x12\x0f\n\x07message\x18\x01 \x01(\t2;\n\tSimulator\x12.\n\x04Ping\x12\x12.simulator.Request\x1a\x10.simulator.Reply\"\x00\x62\x06proto3')
+  serialized_pb=_b('\n\x0fsimulator.proto\x12\tsimulator\"\x17\n\x07Request\x12\x0c\n\x04name\x18\x01 \x01(\t\"\x18\n\x05Reply\x12\x0f\n\x07message\x18\x01 \x01(\t2=\n\tSimulator\x12\x30\n\x04Ping\x12\x12.simulator.Request\x1a\x10.simulator.Reply\"\x00\x30\x01\x62\x06proto3')
 )
 
 
@@ -113,7 +113,7 @@ _SIMULATOR = _descriptor.ServiceDescriptor(
   index=0,
   options=None,
   serialized_start=81,
-  serialized_end=140,
+  serialized_end=142,
   methods=[
   _descriptor.MethodDescriptor(
     name='Ping',
