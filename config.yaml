@@ -50,7 +50,8 @@ consensus:
     blockcreationinterval: 1s
 
 delegate:
-    addrs: []
+    addrs:
+        - "127.0.0.1:10000"
 
 rpc:
     port: ":42124"

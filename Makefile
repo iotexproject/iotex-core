@@ -16,6 +16,9 @@ GOGET=$(GOCMD) get
 BUILD_TARGET_SERVER=server
 BUILD_TARGET_TXINJ=txinjector
 
+# Docker parameters
+DOCKERCMD=docker
+
 all: build test
 .PHONY: build
 build:
@@ -55,3 +58,7 @@ clean:
 run:
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
 	./bin/$(BUILD_TARGET_SERVER) -stderrthreshold=WARNING -log_dir=./log -config=e2etests/config_local_delegate.yaml -debug=true
+
+.PHONY: docker
+docker:
+	$(DOCKERCMD) build -t iotex-go:1.0 .
