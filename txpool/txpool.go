@@ -32,6 +32,7 @@ const (
 	defaultTxMaxNumInBlock     = 350
 )
 
+// PqDeletionWL indicates txDescPriorityQueue deletion waitlist
 var PqDeletionWL map[common.Hash32B]*TxDesc
 
 // Tag for OrphanTx
