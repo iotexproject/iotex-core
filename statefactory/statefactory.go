@@ -270,7 +270,7 @@ const hashedAddressLen = 20
 type hashedAddress [hashedAddressLen]byte
 
 // VirtualStateFactory implements StateFactory interface, tracks changes in a map but never commits to trie/db
-type VirtualStateFactory struct {
+type virtualStateFactory struct {
 	changes map[hashedAddress]*State
 	mu      sync.Mutex
 	trie    trie.Trie
@@ -278,11 +278,11 @@ type VirtualStateFactory struct {
 
 // NewVirtualStateFactory creates a new virtual state factory
 func NewVirtualStateFactory(trie trie.Trie) StateFactory {
-	return &VirtualStateFactory{trie: trie, changes: make(map[hashedAddress]*State)}
+	return &virtualStateFactory{trie: trie, changes: make(map[hashedAddress]*State)}
 }
 
 // Nonce returns the nonce if the account exists
-func (vs *VirtualStateFactory) Nonce(addr *iotxaddress.Address) (uint64, error) {
+func (vs *virtualStateFactory) Nonce(addr *iotxaddress.Address) (uint64, error) {
 	vs.mu.Lock()
 	defer vs.mu.Unlock()
 
@@ -311,7 +311,7 @@ func (vs *VirtualStateFactory) Nonce(addr *iotxaddress.Address) (uint64, error) 
 }
 
 // SetNonce returns the nonce if the account exists
-func (vs *VirtualStateFactory) SetNonce(addr *iotxaddress.Address, value uint64) error {
+func (vs *virtualStateFactory) SetNonce(addr *iotxaddress.Address, value uint64) error {
 	vs.mu.Lock()
 	defer vs.mu.Unlock()
 
@@ -341,31 +341,31 @@ func (vs *VirtualStateFactory) SetNonce(addr *iotxaddress.Address, value uint64)
 	return nil
 }
 
-func (vs *VirtualStateFactory) AddBalance(addr *iotxaddress.Address, amount *big.Int) error {
+func (vs *virtualStateFactory) AddBalance(addr *iotxaddress.Address, amount *big.Int) error {
 	// TODO
 	return nil
 }
-func (vs *VirtualStateFactory) SubBalance(addr *iotxaddress.Address, amount *big.Int) error {
+func (vs *virtualStateFactory) SubBalance(addr *iotxaddress.Address, amount *big.Int) error {
 	// TODO
 	return nil
 }
 
-func (vs *VirtualStateFactory) Balance(addr *iotxaddress.Address) (*big.Int, error) {
+func (vs *virtualStateFactory) Balance(addr *iotxaddress.Address) (*big.Int, error) {
 	// TODO
 	return nil, nil
 }
 
-func (vs *VirtualStateFactory) CreateState(addr *iotxaddress.Address) (*State, error) {
+func (vs *virtualStateFactory) CreateState(addr *iotxaddress.Address) (*State, error) {
 	// TODO
 	return nil, nil
 }
 
-func (vs *VirtualStateFactory) UpdateStateWithTransfer(senderPubKey []byte, amount *big.Int, recipient *iotxaddress.Address) error {
+func (vs *virtualStateFactory) UpdateStateWithTransfer(senderPubKey []byte, amount *big.Int, recipient *iotxaddress.Address) error {
 	// TODO
 	return nil
 }
 
-func (vs *VirtualStateFactory) RootHash() common.Hash32B {
+func (vs *virtualStateFactory) RootHash() common.Hash32B {
 	// TODO
 	return [32]byte{}
 }
