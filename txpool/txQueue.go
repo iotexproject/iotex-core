@@ -7,15 +7,9 @@ package txpool
 
 import (
 	"container/heap"
-	"errors"
 	"math/big"
 
 	"github.com/iotexproject/iotex-core/blockchain"
-)
-
-var (
-	//ErrReplaceTx is returned if the nonce of transaction is already in txList.
-	ErrReplaceTx = errors.New("replacement transaction")
 )
 
 type noncePriorityQueue []uint64
