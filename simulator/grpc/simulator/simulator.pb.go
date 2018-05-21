@@ -38,7 +38,7 @@ func (m *Request) Reset()         { *m = Request{} }
 func (m *Request) String() string { return proto.CompactTextString(m) }
 func (*Request) ProtoMessage()    {}
 func (*Request) Descriptor() ([]byte, []int) {
-	return fileDescriptor_simulator_7880ce28e902dc6f, []int{0}
+	return fileDescriptor_simulator_09517aaf1e4843fb, []int{0}
 }
 func (m *Request) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Request.Unmarshal(m, b)
@@ -101,7 +101,7 @@ func (m *Reply) Reset()         { *m = Reply{} }
 func (m *Reply) String() string { return proto.CompactTextString(m) }
 func (*Reply) ProtoMessage()    {}
 func (*Reply) Descriptor() ([]byte, []int) {
-	return fileDescriptor_simulator_7880ce28e902dc6f, []int{1}
+	return fileDescriptor_simulator_09517aaf1e4843fb, []int{1}
 }
 func (m *Reply) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Reply.Unmarshal(m, b)
@@ -253,9 +253,9 @@ var _Simulator_serviceDesc = grpc.ServiceDesc{
 	Metadata: "simulator.proto",
 }
 
-func init() { proto.RegisterFile("simulator.proto", fileDescriptor_simulator_7880ce28e902dc6f) }
+func init() { proto.RegisterFile("simulator.proto", fileDescriptor_simulator_09517aaf1e4843fb) }
 
-var fileDescriptor_simulator_7880ce28e902dc6f = []byte{
+var fileDescriptor_simulator_09517aaf1e4843fb = []byte{
 	// 179 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xe2, 0x2f, 0xce, 0xcc, 0x2d,
 	0xcd, 0x49, 0x2c, 0xc9, 0x2f, 0xd2, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0xe2, 0x84, 0x0b, 0x28,
