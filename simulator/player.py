@@ -1,17 +1,21 @@
 """This module defines the Player class, which represents a player in the network and contains functionality to make transactions, propose blocks, and validate blocks.
 """
 
+import random
+
+import grpc
+import numpy as np
+
+from proto import simulator_pb2_grpc
+from proto import simulator_pb2
 import block
 import solver
 import transaction
 import states
 import message
-import pbftconsensus
+import consensus_client
 
-import random
-import numpy as np
-
-VERBOSE = pbftconsensus.VERBOSE
+VERBOSE = True
 
 class Player:
     id = 0 # player id
@@ -33,13 +37,10 @@ class Player:
         self.outbound    = []   # outbound messages to other players in the network at heartbeat r
 
         self.consensus = pbftconsensus.PBFTConsensus()
-        self.consensus.player = self
 
     def action(self, heartbeat):
         """Executes the player's actions for heartbeat r"""
 
-        self.outbound += self.consensus.roundInit() # remove in real version
-        
         for msg, timestamp in self.inbound:
             if timestamp > heartbeat:
                 if VERBOSE: print("received %s but timestamp > heartbeat" % msg)
@@ -48,12 +49,15 @@ class Player:
 
             received = self.consensus.processMessage(msg)
             received = zip(received, [timestamp]*len(received))
+
+            response = self.stub.Ping(simulator_pb2.Request(playerID=1, senderID=9, messageType=4, value="asdf"))
+            for i in response: print(i)
             
             self.outbound += received
             
         self.inbound = list(filter(lambda x: x[1] > heartbeat, self.inbound)) # get rid of processed messages
         
-        self.blockchain = self.consensus.getBlockchain() # update blockchain from consensus scheme results
+        # self.blockchain = self.consensus.getBlockchain() # update blockchain from consensus scheme results
 
         self.sendOutbound() # send messages to connected players
 
