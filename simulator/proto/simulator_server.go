@@ -13,7 +13,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
-	pb "github.com/iotexproject/iotex-core/simulator/grpc/simulator"
+	pb "github.com/iotexproject/iotex-core/simulator/proto/simulator"
 )
 
 const (
