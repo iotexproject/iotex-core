@@ -18,8 +18,9 @@ type server struct{}
 
 // Ping implements simulator.SimulatorServer
 func (s *server) Ping(in *pb.Request, stream pb.Simulator_PingServer) error {
-	stream.Send(&pb.Reply{Message: "Hello a"})
-	stream.Send(&pb.Reply{Message: "Hello b"})
+	stream.Send(&pb.Reply{PlayerID: 4, SenderID: 5, MessageType: 3, Value: "block 66"})
+	stream.Send(&pb.Reply{PlayerID: 5, SenderID: 8, MessageType: 1, Value: "block 94"})
+	stream.Send(&pb.Reply{PlayerID: 2, SenderID: 3, MessageType: 2, Value: "block 4"})
 	return nil
 }
 
