@@ -213,14 +213,22 @@ func (ap *actPool) AddTx(tx *bc.Tx) error {
 	// If the pending nonce equals this nonce, update beat map and update pending nonce.
 	nonce, err := ap.pendingSF.Nonce(from)
 	if err != nil {
+<<<<<<< HEAD
 		glog.Errorf("Error when removing committed Txs: %v\n", err)
+=======
+		glog.Errorf("Error when adding Tx: %v\n", err)
+>>>>>>> Add simple actpool implementation
 		return err
 	}
 	if tx.Nonce == nonce {
 		ap.beats[addrHash] = time.Now()
 		newPendingNonce := queue.UpdatedPendingNonce(tx.Nonce)
 		if err := ap.pendingSF.SetNonce(from, newPendingNonce); err != nil {
+<<<<<<< HEAD
 			glog.Errorf("Error when promoting Tx: %v\n", err)
+=======
+			glog.Errorf("Error when adding Tx: %v\n", err)
+>>>>>>> Add simple actpool implementation
 			return err
 		}
 	}
@@ -245,7 +253,11 @@ func (ap *actPool) removeCommittedTxs() {
 
 		balance, err := ap.pendingSF.Balance(hashToAddr[addrHash])
 		if err != nil {
+<<<<<<< HEAD
 			glog.Errorf("Error when demoting unexecutable Tx: %v\n", err)
+=======
+			glog.Errorf("Error when removing committed Txs: %v\n", err)
+>>>>>>> Add simple actpool implementation
 			return
 		}
 		// Drop all transactions that are too costly (low balance or out of gas)
