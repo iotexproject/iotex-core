@@ -23,10 +23,16 @@ service Simulator {
 
 // The request message containing the user's name.
 message Request {
-  string name = 1;
+  int32 playerID = 1;
+  int32 senderID = 2;
+  int32 messageType = 3;
+  string value = 4;
 }
 
 // The response message containing the greetings
 message Reply {
-  string message = 1;
+  int32 playerID = 1;
+  int32 senderID = 2;
+  int32 messageType = 3;
+  string value = 4;
 }
