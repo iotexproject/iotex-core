@@ -24,22 +24,23 @@ import (
 	"github.com/iotexproject/iotex-core-internal/txpool"
 )
 
-// Consensus is the interface for handling consensus view change.
+// ConsensusSim is the interface for handling consensus view change used in the simulator
 type ConsensusSim interface {
 	Start() error
 	Stop() error
 	HandleViewChange(proto.Message, chan bool) error
 	HandleBlockPropose(proto.Message, chan bool) error
+	SetStream(pb.Simulator_PingServer)
 }
 
-// consensus struct with a stream parameter for writing to simulator stream
+// consensus_sim struct with a stream parameter for writing to simulator stream
 type consensus_sim struct {
 	cfg    *config.Consensus
 	scheme scheme.Scheme
 	stream pb.Simulator_PingServer
 }
 
-// NewConsensus creates a consensus struct.
+// NewConsensusSim creates a consensus_sim struct
 func NewConsensusSim(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxPool, bs blocksync.BlockSync, dlg delegate.Pool) ConsensusSim {
 	if bc == nil || bs == nil {
 		glog.Error("Try to attach to chain or bs == nil")
@@ -71,7 +72,7 @@ func NewConsensusSim(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxP
 		s := hex.EncodeToString(hash[:])
 		cs.sendMessage(1, s)
 
-		return nil
+		return bc.AddBlockCommit(blk)
 	}
 
 	// broadcast a block across the P2P network
@@ -114,7 +115,10 @@ func (c *consensus_sim) Stop() error {
 
 // HandleViewChange dispatches the call to different schemes
 func (c *consensus_sim) HandleViewChange(m proto.Message, done chan bool) error {
-	return c.scheme.Handle(m)
+	err := c.scheme.Handle(m)
+	c.scheme.SetDoneStream(done)
+
+	return err
 }
 
 // HandleBlockPropose handles a proposed block -- not used currently
