@@ -14,7 +14,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotexproject/iotex-core-internal/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain"
 )
 
 func TestNoncePriorityQueue(t *testing.T) {

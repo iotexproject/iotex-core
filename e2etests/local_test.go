@@ -16,6 +16,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	cm "github.com/iotexproject/iotex-core/common"
 	cfg "github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network"
 	"github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/server/itx"
@@ -193,6 +194,7 @@ func TestLocalCommit(t *testing.T) {
 }
 
 func TestLocalSync(t *testing.T) {
+	logger.UseDebugLogger()
 	assert := assert.New(t)
 	os.Remove(testDBPath)
 	defer os.Remove(testDBPath)
@@ -252,7 +254,7 @@ func TestLocalSync(t *testing.T) {
 
 	// P1 download 4 blocks from P2
 	p1.Tell(cm.NewTCPNode(p2.PRC.Addr), &iproto.BlockSync{1, 4})
-	time.Sleep(time.Second)
+	time.Sleep(time.Millisecond * 1500)
 
 	// verify 4 received blocks
 	blk, err = bc1.GetBlockByHeight(1)

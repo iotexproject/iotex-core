@@ -10,7 +10,7 @@ import (
 	"errors"
 	"math/big"
 
-	"github.com/iotexproject/iotex-core-internal/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain"
 )
 
 var (
