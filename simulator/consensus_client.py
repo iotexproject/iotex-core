@@ -16,9 +16,7 @@ class Consensus:
         self.channel = grpc.insecure_channel('localhost:50051')
         self.stub = simulator_pb2_grpc.SimulatorStub(self.channel)
 
-    def processMessage(self, playerID, senderID, messageType, value):
+    def processMessage(self, playerID, value):
         response = stub.Ping(simulator_pb2.Request(playerID=playerID,
-                                                   senderID=senderID,
-                                                   messageType=messageType,
                                                    value=value))
         return response
