@@ -23,8 +23,6 @@ message Request {
 
 // The response message containing the greetings
 message Reply {
-  int32 playerID = 1;
-  int32 senderID = 2;
-  int32 messageType = 3;
-  string value = 4;
+  int32 messageType = 1;
+  string value = 2;
 }
