@@ -29,8 +29,8 @@ type KVStore interface {
 	service.Service
 	// Put insert or update a record identified by (namespace, key)
 	Put(string, []byte, []byte) error
-	// PutBatch insert or update a slice of records identified by (namespace, key)
-	PutBatch(string, [][]byte, [][]byte) error
+	// BatchPut insert or update a slice of records identified by (namespace, key)
+	BatchPut(string, [][]byte, [][]byte) error
 	// Put puts a record only if (namespace, key) doesn't exist, otherwise return ErrAlreadyExist
 	PutIfNotExists(string, []byte, []byte) error
 	// Get gets a record by (namespace, key)
@@ -54,12 +54,14 @@ func NewMemKVStore() KVStore {
 	return &memKVStore{}
 }
 
+// Put inserts a <key, value> record
 func (m *memKVStore) Put(namespace string, key []byte, value []byte) error {
 	m.data.Store(namespace+keyDelimiter+string(key), value)
 	return nil
 }
 
-func (m *memKVStore) PutBatch(namespace string, key [][]byte, value [][]byte) error {
+// BatchPut inserts a slice of records <key[], value[]>
+func (m *memKVStore) BatchPut(namespace string, key [][]byte, value [][]byte) error {
 	if len(key) != len(value) {
 		return errors.Wrap(ErrInvalidDB, "batch put <k, v> size not match")
 	}
@@ -69,6 +71,7 @@ func (m *memKVStore) PutBatch(namespace string, key [][]byte, value [][]byte) er
 	return nil
 }
 
+// PutIfNotExists inserts a <key, value> record only if it does not exist yet, otherwise return ErrAlreadyExist
 func (m *memKVStore) PutIfNotExists(namespace string, key []byte, value []byte) error {
 	_, ok := m.data.Load(namespace + keyDelimiter + string(key))
 	if !ok {
@@ -78,6 +81,7 @@ func (m *memKVStore) PutIfNotExists(namespace string, key []byte, value []byte) 
 	return ErrAlreadyExist
 }
 
+// Get retrieves a record
 func (m *memKVStore) Get(namespace string, key []byte) ([]byte, error) {
 	value, _ := m.data.Load(namespace + keyDelimiter + string(key))
 	if value != nil {
@@ -86,6 +90,7 @@ func (m *memKVStore) Get(namespace string, key []byte) ([]byte, error) {
 	return nil, errors.Wrapf(ErrNotExist, "key = %x", key)
 }
 
+// Delete deletes a record
 func (m *memKVStore) Delete(namespace string, key []byte) error {
 	m.data.Delete(namespace + keyDelimiter + string(key))
 	return nil
@@ -108,6 +113,7 @@ func NewBoltDB(path string, options *bolt.Options) KVStore {
 	return &boltDB{path: path, options: options}
 }
 
+// Start opens the BoltDB (creates new file if not existing yet)
 func (b *boltDB) Start() error {
 	db, err := bolt.Open(b.path, fileMode, b.options)
 	if err != nil {
@@ -117,10 +123,12 @@ func (b *boltDB) Start() error {
 	return nil
 }
 
+// Stop closes the BoltDB
 func (b *boltDB) Stop() error {
 	return b.db.Close()
 }
 
+// Put inserts a <key, value> record
 func (b *boltDB) Put(namespace string, key []byte, value []byte) error {
 	return b.db.Update(func(tx *bolt.Tx) error {
 		bucket, err := tx.CreateBucketIfNotExists([]byte(namespace))
@@ -131,7 +139,8 @@ func (b *boltDB) Put(namespace string, key []byte, value []byte) error {
 	})
 }
 
-func (b *boltDB) PutBatch(namespace string, key [][]byte, value [][]byte) error {
+// BatchPut inserts a slice of records <key[], value[]>
+func (b *boltDB) BatchPut(namespace string, key [][]byte, value [][]byte) error {
 	return b.db.Update(func(tx *bolt.Tx) error {
 		bucket, err := tx.CreateBucketIfNotExists([]byte(namespace))
 		if err != nil {
@@ -148,6 +157,8 @@ func (b *boltDB) PutBatch(namespace string, key [][]byte, value [][]byte) error 
 		return nil
 	})
 }
+
+// PutIfNotExists inserts a <key, value> record only if it does not exist yet, otherwise return ErrAlreadyExist
 func (b *boltDB) PutIfNotExists(namespace string, key []byte, value []byte) error {
 	return b.db.Update(func(tx *bolt.Tx) error {
 		bucket, err := tx.CreateBucketIfNotExists([]byte(namespace))
@@ -161,6 +172,7 @@ func (b *boltDB) PutIfNotExists(namespace string, key []byte, value []byte) erro
 	})
 }
 
+// Get retrieves a record
 func (b *boltDB) Get(namespace string, key []byte) ([]byte, error) {
 	var value []byte
 	err := b.db.View(func(tx *bolt.Tx) error {
@@ -180,6 +192,34 @@ func (b *boltDB) Get(namespace string, key []byte) ([]byte, error) {
 	return value, err
 }
 
+// Delete deletes a record
 func (b *boltDB) Delete(namespace string, key []byte) error {
 	return nil
+}
+
+//======================================
+// private functions
+//======================================
+
+// intentionally fail to test DB can successfully rollback
+func (b *boltDB) batchPutForceFail(namespace string, key [][]byte, value [][]byte) error {
+	return b.db.Update(func(tx *bolt.Tx) error {
+		bucket, err := tx.CreateBucketIfNotExists([]byte(namespace))
+		if err != nil {
+			return err
+		}
+		if len(key) != len(value) {
+			return errors.Wrap(ErrInvalidDB, "batch put <k, v> size not match")
+		}
+		for i := 0; i < len(key); i++ {
+			if err := bucket.Put(key[i], value[i]); err != nil {
+				return err
+			}
+			// intentionally fail to test DB can successfully rollback
+			if i == len(key)-1 {
+				return errors.Wrapf(ErrInvalidDB, "force fail to test DB rollback")
+			}
+		}
+		return nil
+	})
 }
