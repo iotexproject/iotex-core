@@ -7,9 +7,11 @@
 package consensus
 
 import (
+	"fmt"
 	"log"
 	"net"
 
+	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
@@ -21,7 +23,15 @@ const (
 )
 
 // server is used to implement message.SimulatorServer.
-type server struct{}
+type server struct {
+	nodes []ConsensusSim
+}
+
+// Ping implements simulator.SimulatorServer
+func (s *server) Init(ctx context.Context, in *pb.InitRequest) (*pb.Empty, error) {
+	fmt.Printf("Simulator initialized with %d players\n", in.NPlayers)
+	return &pb.Empty{}, nil
+}
 
 // Ping implements simulator.SimulatorServer
 func (s *server) Ping(in *pb.Request, stream pb.Simulator_PingServer) error {

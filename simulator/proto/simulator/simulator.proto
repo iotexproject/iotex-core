@@ -10,19 +10,26 @@ package simulator;
 
 // The simulator service definition.
 service Simulator {
-  rpc Ping (Request) returns (stream Reply) {}
+  rpc Ping (Request)		returns (stream Reply) {}
+  rpc Init (InitRequest)	returns (Empty) {}
 }
 
-// The request message containing the user's name.
+// The request message containing the playerID and the value of the message being fed into the consensus engine
 message Request {
   int32 playerID = 1;
-  int32 senderID = 2;
-  int32 messageType = 3;
-  string value = 4;
+  string value = 3;
 }
 
-// The response message containing the greetings
+// The request message telling the server to initialize the necessary parameters
+message InitRequest {
+  int32 nPlayers = 1;
+}
+
+// The response message returning the output of the consensus engine
 message Reply {
   int32 messageType = 1;
   string value = 2;
 }
+
+// an empty message
+message Empty {}

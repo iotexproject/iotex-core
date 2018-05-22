@@ -19,7 +19,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='simulator.proto',
   package='simulator',
   syntax='proto3',
-  serialized_pb=_b('\n\x0fsimulator.proto\x12\tsimulator\"Q\n\x07Request\x12\x10\n\x08playerID\x18\x01 \x01(\x05\x12\x10\n\x08senderID\x18\x02 \x01(\x05\x12\x13\n\x0bmessageType\x18\x03 \x01(\x05\x12\r\n\x05value\x18\x04 \x01(\t\"+\n\x05Reply\x12\x13\n\x0bmessageType\x18\x01 \x01(\x05\x12\r\n\x05value\x18\x02 \x01(\t2=\n\tSimulator\x12\x30\n\x04Ping\x12\x12.simulator.Request\x1a\x10.simulator.Reply\"\x00\x30\x01\x62\x06proto3')
+  serialized_pb=_b('\n\x0fsimulator.proto\x12\tsimulator\"*\n\x07Request\x12\x10\n\x08playerID\x18\x01 \x01(\x05\x12\r\n\x05value\x18\x03 \x01(\t\"\x1f\n\x0bInitRequest\x12\x10\n\x08nPlayers\x18\x01 \x01(\x05\"+\n\x05Reply\x12\x13\n\x0bmessageType\x18\x01 \x01(\x05\x12\r\n\x05value\x18\x02 \x01(\t\"\x07\n\x05\x45mpty2q\n\tSimulator\x12\x30\n\x04Ping\x12\x12.simulator.Request\x1a\x10.simulator.Reply\"\x00\x30\x01\x12\x32\n\x04Init\x12\x16.simulator.InitRequest\x1a\x10.simulator.Empty\"\x00\x62\x06proto3')
 )
 
 
@@ -40,22 +40,8 @@ _REQUEST = _descriptor.Descriptor(
       is_extension=False, extension_scope=None,
       options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='senderID', full_name='simulator.Request.senderID', index=1,
-      number=2, type=5, cpp_type=1, label=1,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
-    _descriptor.FieldDescriptor(
-      name='messageType', full_name='simulator.Request.messageType', index=2,
-      number=3, type=5, cpp_type=1, label=1,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
-    _descriptor.FieldDescriptor(
-      name='value', full_name='simulator.Request.value', index=3,
-      number=4, type=9, cpp_type=9, label=1,
+      name='value', full_name='simulator.Request.value', index=1,
+      number=3, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=_b("").decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
@@ -73,7 +59,38 @@ _REQUEST = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=30,
-  serialized_end=111,
+  serialized_end=72,
+)
+
+
+_INITREQUEST = _descriptor.Descriptor(
+  name='InitRequest',
+  full_name='simulator.InitRequest',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='nPlayers', full_name='simulator.InitRequest.nPlayers', index=0,
+      number=1, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None, file=DESCRIPTOR),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=74,
+  serialized_end=105,
 )
 
 
@@ -110,12 +127,38 @@ _REPLY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=113,
-  serialized_end=156,
+  serialized_start=107,
+  serialized_end=150,
+)
+
+
+_EMPTY = _descriptor.Descriptor(
+  name='Empty',
+  full_name='simulator.Empty',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=152,
+  serialized_end=159,
 )
 
 DESCRIPTOR.message_types_by_name['Request'] = _REQUEST
+DESCRIPTOR.message_types_by_name['InitRequest'] = _INITREQUEST
 DESCRIPTOR.message_types_by_name['Reply'] = _REPLY
+DESCRIPTOR.message_types_by_name['Empty'] = _EMPTY
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
 Request = _reflection.GeneratedProtocolMessageType('Request', (_message.Message,), dict(
@@ -125,12 +168,26 @@ Request = _reflection.GeneratedProtocolMessageType('Request', (_message.Message,
   ))
 _sym_db.RegisterMessage(Request)
 
+InitRequest = _reflection.GeneratedProtocolMessageType('InitRequest', (_message.Message,), dict(
+  DESCRIPTOR = _INITREQUEST,
+  __module__ = 'simulator_pb2'
+  # @@protoc_insertion_point(class_scope:simulator.InitRequest)
+  ))
+_sym_db.RegisterMessage(InitRequest)
+
 Reply = _reflection.GeneratedProtocolMessageType('Reply', (_message.Message,), dict(
   DESCRIPTOR = _REPLY,
   __module__ = 'simulator_pb2'
   # @@protoc_insertion_point(class_scope:simulator.Reply)
   ))
 _sym_db.RegisterMessage(Reply)
+
+Empty = _reflection.GeneratedProtocolMessageType('Empty', (_message.Message,), dict(
+  DESCRIPTOR = _EMPTY,
+  __module__ = 'simulator_pb2'
+  # @@protoc_insertion_point(class_scope:simulator.Empty)
+  ))
+_sym_db.RegisterMessage(Empty)
 
 
 
@@ -140,8 +197,8 @@ _SIMULATOR = _descriptor.ServiceDescriptor(
   file=DESCRIPTOR,
   index=0,
   options=None,
-  serialized_start=158,
-  serialized_end=219,
+  serialized_start=161,
+  serialized_end=274,
   methods=[
   _descriptor.MethodDescriptor(
     name='Ping',
@@ -150,6 +207,15 @@ _SIMULATOR = _descriptor.ServiceDescriptor(
     containing_service=None,
     input_type=_REQUEST,
     output_type=_REPLY,
+    options=None,
+  ),
+  _descriptor.MethodDescriptor(
+    name='Init',
+    full_name='simulator.Simulator.Init',
+    index=1,
+    containing_service=None,
+    input_type=_INITREQUEST,
+    output_type=_EMPTY,
     options=None,
   ),
 ])
