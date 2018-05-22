@@ -63,6 +63,7 @@ type RDPoS struct {
 	eventChan chan *fsm.Event
 	cfg       config.RDPoS
 	pr        *routine.RecurringTask
+	done      chan bool
 }
 
 // NewRDPoS creates a RDPoS struct
@@ -109,6 +110,10 @@ func (n *RDPoS) Stop() error {
 	return nil
 }
 
+func (n *RDPoS) SetDoneStream(done chan bool) {
+	n.done = done
+}
+
 // Handle handles incoming messages and publish to the channel.
 func (n *RDPoS) Handle(m proto.Message) error {
 	logger.Info().Msg("RDPoS scheme handles incoming requests")
@@ -151,6 +156,13 @@ loop:
 			}
 		case <-n.quit:
 			break loop
+		default:
+			// if there are no events, try to write to done channel
+			if n.done != nil {
+				select {
+				case n.done <- true: // try to write to done if possible
+				}
+			}
 		}
 	}
 

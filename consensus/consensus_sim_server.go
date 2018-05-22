@@ -10,16 +10,25 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"strconv"
 
+	"github.com/golang/glog"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
+	"github.com/iotexproject/iotex-core-internal/blockchain"
+	"github.com/iotexproject/iotex-core-internal/blocksync"
+	"github.com/iotexproject/iotex-core-internal/config"
+	"github.com/iotexproject/iotex-core-internal/delegate"
+	"github.com/iotexproject/iotex-core-internal/network"
 	pb "github.com/iotexproject/iotex-core-internal/simulator/proto/simulator"
+	"github.com/iotexproject/iotex-core-internal/txpool"
 )
 
 const (
-	port = ":50051"
+	port        = ":50051"
+	rdposConfig = "./config_local_rdpos_sim.yaml"
 )
 
 // server is used to implement message.SimulatorServer.
@@ -29,14 +38,44 @@ type server struct {
 
 // Ping implements simulator.SimulatorServer
 func (s *server) Init(ctx context.Context, in *pb.InitRequest) (*pb.Empty, error) {
+	for i := 0; i < int(in.NPlayers); i++ {
+		cfg, err := config.LoadConfigWithPathWithoutValidation(rdposConfig)
+		if err != nil {
+			glog.Error("Error loading config file")
+		}
+
+		cfg.Chain.ChainDBPath = "./chain" + strconv.Itoa(i) + ".db"
+
+		// set block reward to 0 for simplicity
+		blockchain.Gen.BlockReward = uint64(0)
+
+		bc := blockchain.CreateBlockchain(cfg, blockchain.Gen)
+		tp := txpool.New(bc)
+
+		overlay := network.NewOverlay(&cfg.Network)
+		dlg := delegate.NewConfigBasedPool(&cfg.Delegate)
+		bs := blocksync.NewBlockSyncer(cfg, bc, tp, overlay, dlg)
+
+		node := NewConsensusSim(cfg, bc, tp, bs, dlg)
+
+		s.nodes = append(s.nodes, node)
+	}
+
 	fmt.Printf("Simulator initialized with %d players\n", in.NPlayers)
 	return &pb.Empty{}, nil
 }
 
 // Ping implements simulator.SimulatorServer
 func (s *server) Ping(in *pb.Request, stream pb.Simulator_PingServer) error {
-	stream.Send(&pb.Reply{MessageType: 3, Value: "block 66"})
-	stream.Send(&pb.Reply{MessageType: 2, Value: "block 4"})
+	msg := unserializeMsg(in.Value)
+	node := s.nodes[in.PlayerID]
+
+	done := make(chan bool)
+	node.SetStream(stream)
+
+	node.HandleViewChange(msg, done)
+
+	<-done
 	return nil
 }
 

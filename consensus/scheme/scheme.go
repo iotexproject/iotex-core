@@ -29,4 +29,5 @@ type Scheme interface {
 	Start() error
 	Stop() error
 	Handle(msg proto.Message) error
+	SetDoneStream(chan bool)
 }

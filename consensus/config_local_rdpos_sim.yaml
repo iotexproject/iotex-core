@@ -1,0 +1,56 @@
+# go-yaml expects the YAML field corresponding to a struct field to be lowercase. So if your struct field is
+# UpdateInterval, the corresponding field in YAML is updateinterval.
+
+nodetype: "delegate"       # should be one of "delegate", "full_node", and "lightweight"
+
+# this doesn't matter since p2p layer is overrun by simulator
+network:
+    addr: "127.0.0.1:40000"
+    msglogscleaninginterval: 2s
+    msglogretention: 10s
+    healthcheckinterval: 1s
+    silentinterval: 5s
+    peermaintainerinterval: 1s
+    allowmulticonnsperip: true
+    numpeerslowerbound: 6
+    numpeersupperbound: 12
+    pinginterval: 1s
+    ratelimitenabled: false
+    ratelimitpersec: 5
+    ratelimitwindowsize: 60s
+    bootstrapnodes:
+        - "127.0.0.1:40000"
+        - "127.0.0.1:40001"
+        - "127.0.0.1:40002"
+        - "127.0.0.1:40003"
+    maxmsgsize: 10485760
+    peerdiscovery: true
+
+chain:
+    chaindbpath: "../chain.db"
+    rawmineraddr:
+        privatekey: "7fbb20b87d34eade61351165aa4c6fa5d87dd349368dd6b9034ea3d3e918c706b9b8d7316705dc4ff62bb323e610f3f5072abedc9834e999d6537f6681284ea2"
+        publickey: "b9b8d7316705dc4ff62bb323e610f3f5072abedc9834e999d6537f6681284ea2"
+        rawaddress: "io1qyqsyqcy6nm58gjd2wr035wz5eyd5uq47zyqpng3gxe7nh"
+
+consensus:
+    scheme: "RDPOS"
+    rdpos:
+        proposerrotation:
+            enabled: true
+            interval: 700ms
+        unmatchedeventttl: 90ms
+        acceptpropose:
+            ttl: 90ms
+        acceptprevote:
+            ttl: 90ms
+        acceptvote:
+            ttl: 90ms
+    blockcreationinterval: 1s
+
+delegate:
+    addrs:
+        - "127.0.0.1:40000"
+
+rpc:
+    port: ":50051"
