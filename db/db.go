@@ -16,6 +16,8 @@ import (
 )
 
 var (
+	// ErrInvalidDB indicates invalid operation attempted to Blockchain database
+	ErrInvalidDB = errors.New("invalid DB operation")
 	// ErrNotExist indicates certain item does not exist in Blockchain database
 	ErrNotExist = errors.New("not exist in DB")
 	// ErrAlreadyExist indicates certain item already exists in Blockchain database
@@ -27,7 +29,9 @@ type KVStore interface {
 	service.Service
 	// Put insert or update a record identified by (namespace, key)
 	Put(string, []byte, []byte) error
-	// Put puts a record only if (namespace, key) doesn't exist
+	// PutBatch insert or update a slice of records identified by (namespace, key)
+	PutBatch(string, [][]byte, [][]byte) error
+	// Put puts a record only if (namespace, key) doesn't exist, otherwise return ErrAlreadyExist
 	PutIfNotExists(string, []byte, []byte) error
 	// Get gets a record by (namespace, key)
 	Get(string, []byte) ([]byte, error)
@@ -52,6 +56,16 @@ func NewMemKVStore() KVStore {
 
 func (m *memKVStore) Put(namespace string, key []byte, value []byte) error {
 	m.data.Store(namespace+keyDelimiter+string(key), value)
+	return nil
+}
+
+func (m *memKVStore) PutBatch(namespace string, key [][]byte, value [][]byte) error {
+	if len(key) != len(value) {
+		return errors.Wrap(ErrInvalidDB, "batch put <k, v> size not match")
+	}
+	for i := 0; i < len(key); i++ {
+		m.data.Store(namespace+keyDelimiter+string(key[i]), value[i])
+	}
 	return nil
 }
 
@@ -117,6 +131,23 @@ func (b *boltDB) Put(namespace string, key []byte, value []byte) error {
 	})
 }
 
+func (b *boltDB) PutBatch(namespace string, key [][]byte, value [][]byte) error {
+	return b.db.Update(func(tx *bolt.Tx) error {
+		bucket, err := tx.CreateBucketIfNotExists([]byte(namespace))
+		if err != nil {
+			return err
+		}
+		if len(key) != len(value) {
+			return errors.Wrap(ErrInvalidDB, "batch put <k, v> size not match")
+		}
+		for i := 0; i < len(key); i++ {
+			if err := bucket.Put(key[i], value[i]); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
 func (b *boltDB) PutIfNotExists(namespace string, key []byte, value []byte) error {
 	return b.db.Update(func(tx *bolt.Tx) error {
 		bucket, err := tx.CreateBucketIfNotExists([]byte(namespace))
