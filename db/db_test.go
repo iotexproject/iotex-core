@@ -16,6 +16,12 @@ import (
 	"github.com/iotexproject/iotex-core/common/utils"
 )
 
+var (
+	bucket = "test_ns"
+	testK = [3][]byte{[]byte("key_1"), []byte("key_2"), []byte("key_3")}
+	testV = [3][]byte{[]byte("value_1"), []byte("value_2"), []byte("value_3")}
+)
+
 func TestKVStorePutGet(t *testing.T) {
 	testKVStorePutGet := func(kvStore KVStore, t *testing.T) {
 		assert := assert.New(t)
@@ -29,29 +35,29 @@ func TestKVStorePutGet(t *testing.T) {
 			assert.Nil(err)
 		}()
 
-		err = kvStore.Put("test_ns", []byte("key"), []byte("value"))
+		err = kvStore.Put(bucket, []byte("key"), []byte("value"))
 		assert.Nil(err)
-		value, err := kvStore.Get("test_ns", []byte("key"))
+		value, err := kvStore.Get(bucket, []byte("key"))
 		assert.Nil(err)
-		assert.Equal("value", string(value))
+		assert.Equal([]byte("value"), value)
 		value, err = kvStore.Get("test_ns_1", []byte("key"))
 		assert.NotNil(err)
 		assert.Nil(value)
-		value, err = kvStore.Get("test_ns", []byte("key_1"))
+		value, err = kvStore.Get(bucket, testK[0])
 		assert.NotNil(err)
 		assert.Nil(value)
 
-		err = kvStore.PutIfNotExists("test_ns", []byte("key_1"), []byte("value_1"))
+		err = kvStore.PutIfNotExists(bucket, testK[0], testV[0])
 		assert.Nil(err)
-		value, err = kvStore.Get("test_ns", []byte("key_1"))
+		value, err = kvStore.Get(bucket, testK[0])
 		assert.Nil(err)
-		assert.Equal("value_1", string(value))
+		assert.Equal(testV[0], value)
 
-		err = kvStore.PutIfNotExists("test_ns", []byte("key_1"), []byte("value_2"))
+		err = kvStore.PutIfNotExists(bucket, testK[0], testV[1])
 		assert.NotNil(err)
-		value, err = kvStore.Get("test_ns", []byte("key_1"))
+		value, err = kvStore.Get(bucket, testK[0])
 		assert.Nil(err)
-		assert.Equal("value_1", string(value))
+		assert.Equal(testV[0], value)
 	}
 
 	t.Run("In-memory KV Store", func(t *testing.T) {
@@ -70,5 +76,66 @@ func TestKVStorePutGet(t *testing.T) {
 		cleanup()
 		defer cleanup()
 		testKVStorePutGet(NewBoltDB(path, nil), t)
+	})
+}
+
+func TestBatchRollback(t *testing.T) {
+	testBatchRollback := func(kvStore KVStore, t *testing.T) {
+		assert := assert.New(t)
+
+		kvboltDB := kvStore.(*boltDB)
+
+		err := kvboltDB.Init()
+		assert.Nil(err)
+		err = kvboltDB.Start()
+		assert.Nil(err)
+		defer func() {
+			err = kvboltDB.Stop()
+			assert.Nil(err)
+		}()
+
+		err = kvboltDB.Put(bucket, testK[0], testV[0])
+		assert.Nil(err)
+		value, err := kvboltDB.Get(bucket, testK[0])
+		assert.Nil(err)
+		assert.Equal(testV[0], value)
+		err = kvboltDB.Put(bucket, testK[1], testV[1])
+		assert.Nil(err)
+		value, err = kvboltDB.Get(bucket, testK[1])
+		assert.Nil(err)
+		assert.Equal(testV[1], value)
+		err = kvboltDB.Put(bucket, testK[2], testV[2])
+		assert.Nil(err)
+		value, err = kvboltDB.Get(bucket, testK[2])
+		assert.Nil(err)
+		assert.Equal(testV[2], value)
+
+		testV1 := [3][]byte{[]byte("value1.1"), []byte("value2.1"), []byte("value3.1")}
+
+		err = kvboltDB.batchPutForceFail(bucket, testK[:], testV1[:])
+
+		value, err = kvboltDB.Get(bucket, testK[0])
+		assert.Nil(err)
+		assert.Equal(testV[0], value)
+		value, err = kvboltDB.Get(bucket, testK[1])
+		assert.Nil(err)
+		assert.Equal(testV[1], value)
+		value, err = kvboltDB.Get(bucket, testK[2])
+		assert.Nil(err)
+		assert.Equal(testV[2], value)
+	}
+
+	path := "/tmp/test-batch-rollback-" + string(rand.Int())
+	t.Run("Bolt DB", func(t *testing.T) {
+		cleanup := func() {
+			if utils.FileExists(path) {
+				err := os.Remove(path)
+				assert.Nil(t, err)
+			}
+		}
+
+		cleanup()
+		defer cleanup()
+		testBatchRollback(NewBoltDB(path, nil), t)
 	})
 }
