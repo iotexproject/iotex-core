@@ -34,7 +34,7 @@ type ConsensusSim interface {
 }
 
 // consensus_sim struct with a stream parameter for writing to simulator stream
-type consensus_sim struct {
+type consensusSim struct {
 	cfg    *config.Consensus
 	scheme scheme.Scheme
 	stream pb.Simulator_PingServer
@@ -47,7 +47,7 @@ func NewConsensusSim(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxP
 		return nil
 	}
 
-	cs := &consensus_sim{cfg: &cfg.Consensus}
+	cs := &consensusSim{cfg: &cfg.Consensus}
 	mintBlockCB := func() (*blockchain.Block, error) {
 		blk, err := bc.MintNewBlock(tp.PickTxs(), &cfg.Chain.MinerAddr, "")
 		if err != nil {
@@ -89,24 +89,24 @@ func NewConsensusSim(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxP
 	return cs
 }
 
-func (c *consensus_sim) sendMessage(messageType int, value string) {
+func (c *consensusSim) sendMessage(messageType int, value string) {
 	if err := c.stream.Send(&pb.Reply{MessageType: int32(messageType), Value: value}); err != nil {
 		glog.Error("Message cannot be sent through stream")
 	}
 }
 
-func (c *consensus_sim) SetStream(stream pb.Simulator_PingServer) {
+func (c *consensusSim) SetStream(stream pb.Simulator_PingServer) {
 	c.stream = stream
 }
 
-func (c *consensus_sim) Start() error {
+func (c *consensusSim) Start() error {
 	glog.Infof("Starting consensus scheme %v", c.cfg.Scheme)
 
 	c.scheme.Start()
 	return nil
 }
 
-func (c *consensus_sim) Stop() error {
+func (c *consensusSim) Stop() error {
 	glog.Infof("Stopping consensus scheme %v", c.cfg.Scheme)
 
 	c.scheme.Stop()
@@ -114,7 +114,7 @@ func (c *consensus_sim) Stop() error {
 }
 
 // HandleViewChange dispatches the call to different schemes
-func (c *consensus_sim) HandleViewChange(m proto.Message, done chan bool) error {
+func (c *consensusSim) HandleViewChange(m proto.Message, done chan bool) error {
 	err := c.scheme.Handle(m)
 	c.scheme.SetDoneStream(done)
 
@@ -122,7 +122,7 @@ func (c *consensus_sim) HandleViewChange(m proto.Message, done chan bool) error 
 }
 
 // HandleBlockPropose handles a proposed block -- not used currently
-func (c *consensus_sim) HandleBlockPropose(m proto.Message, done chan bool) error {
+func (c *consensusSim) HandleBlockPropose(m proto.Message, done chan bool) error {
 	return nil
 }
 

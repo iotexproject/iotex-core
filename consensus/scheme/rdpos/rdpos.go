@@ -110,6 +110,7 @@ func (n *RDPoS) Stop() error {
 	return nil
 }
 
+// SetDoneStream sets a boolean channel which indicates to the simulator that the consensus is done
 func (n *RDPoS) SetDoneStream(done chan bool) {
 	n.done = done
 }
