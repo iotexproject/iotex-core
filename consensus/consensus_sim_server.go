@@ -4,15 +4,16 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package main
+package consensus
 
 import (
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
 	"log"
 	"net"
 
-	pb "github.com/iotexproject/iotex-core/simulator/proto/simulator"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
+
+	pb "github.com/iotexproject/iotex-core-internal/simulator/proto/simulator"
 )
 
 const (
@@ -24,13 +25,6 @@ type server struct{}
 
 // Ping implements simulator.SimulatorServer
 func (s *server) Ping(in *pb.Request, stream pb.Simulator_PingServer) error {
-	//stream.Send(&pb.Reply{MessageType: 3, Value: "block 66"})
-	//stream.Send(&pb.Reply{MessageType: 2, Value: "block 4"})
-	processMessage(stream)
-	return nil
-}
-
-func processMessage(stream pb.Simulator_PingServer) error {
 	stream.Send(&pb.Reply{MessageType: 3, Value: "block 66"})
 	stream.Send(&pb.Reply{MessageType: 2, Value: "block 4"})
 	return nil
