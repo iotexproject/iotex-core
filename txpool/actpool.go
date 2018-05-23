@@ -71,11 +71,11 @@ func (ap *actPool) Reset() {
 	ap.removeCommittedTxs()
 	// Reset pending nonce for each account
 	for addrHash, queue := range ap.accountTxs {
-		txs := queue.AcceptedTxs(false)
+		txs, nonce := queue.ConfirmedTxs(false)
 		if len(txs) == 0 {
 			continue
 		}
-		if err := ap.pendingSF.SetNonce(hashToAddr[addrHash], txs[len(txs)-1].Nonce+1); err != nil {
+		if err := ap.pendingSF.SetNonce(hashToAddr[addrHash], nonce); err != nil {
 			glog.Errorf("Error when resetting actPool state: %v\n", err)
 			return
 		}
@@ -88,7 +88,7 @@ func (ap *actPool) Reset() {
 			return
 		}
 		queue.SetPendingBalance(balance)
-		queue.ResetConfirmedNonce()
+		queue.UpdateConfirmedNonce()
 	}
 }
 
@@ -99,7 +99,8 @@ func (ap *actPool) PickTxs() (map[common.Hash32B][]*trx.Tx, error) {
 
 	pending := make(map[common.Hash32B][]*trx.Tx)
 	for addrHash, queue := range ap.accountTxs {
-		pending[addrHash] = queue.AcceptedTxs(true)
+		txs, _ := queue.ConfirmedTxs(true)
+		pending[addrHash] = txs
 	}
 	return pending, nil
 }

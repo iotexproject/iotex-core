@@ -108,7 +108,7 @@ func TestTxList_UpdatedPendingNonce(t *testing.T) {
 	assert.Equal(uint64(4), q.confirmedNonce)
 }
 
-func TestTxList_AcceptedTxs(t *testing.T) {
+func TestTxList_ConfirmedTxs(t *testing.T) {
 	assert := assert.New(t)
 	q := NewTxQueue()
 	tx1 := trx.Tx{Nonce: uint64(2), Amount: big.NewInt(1)}
@@ -122,17 +122,20 @@ func TestTxList_AcceptedTxs(t *testing.T) {
 	q.Put(&tx4)
 	q.Put(&tx5)
 	q.pendingNonce = 5
-	txs := q.AcceptedTxs(false)
+	txs, nonce := q.ConfirmedTxs(false)
 	assert.Equal([]*trx.Tx{&tx1, &tx2, &tx3}, txs)
+	assert.Equal(uint64(5), nonce)
 	q.pendingNonce = 1
-	txs = q.AcceptedTxs(false)
+	txs, nonce = q.ConfirmedTxs(false)
 	assert.Equal(0, len(txs))
+	assert.Equal(uint64(2), nonce)
 	q.confirmedNonce = 4
-	txs = q.AcceptedTxs(true)
+	txs, nonce = q.ConfirmedTxs(true)
 	assert.Equal([]*trx.Tx{&tx1, &tx2}, txs)
+	assert.Equal(uint64(4), nonce)
 }
 
-func TestTxList_ResetConfirmedNonce(t *testing.T) {
+func TestTxList_UpdateConfirmedNonce(t *testing.T) {
 	assert := assert.New(t)
 	q := NewTxQueue()
 	tx1 := trx.Tx{Nonce: uint64(2), Amount: big.NewInt(1)}
@@ -147,6 +150,6 @@ func TestTxList_ResetConfirmedNonce(t *testing.T) {
 	q.Put(&tx5)
 	q.confirmedNonce = uint64(2)
 	q.pendingBalance = big.NewInt(1101)
-	q.ResetConfirmedNonce()
+	q.UpdateConfirmedNonce()
 	assert.Equal(uint64(5), q.confirmedNonce)
 }

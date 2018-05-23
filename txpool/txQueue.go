@@ -42,8 +42,8 @@ type TxQueue interface {
 	SetPendingBalance(balance *big.Int)
 	Len() int
 	Empty() bool
-	AcceptedTxs(committedToBlock bool) []*trx.Tx
-	ResetConfirmedNonce()
+	ConfirmedTxs(committedToBlock bool) ([]*trx.Tx, uint64)
+	UpdateConfirmedNonce()
 }
 
 // txQueue is a queue of transactions from an account
@@ -128,8 +128,8 @@ func (q *txQueue) Empty() bool {
 	return q.Len() == 0
 }
 
-// AcceptedTxs creates a consecutive nonce-sorted slice of transactions
-func (q *txQueue) AcceptedTxs(committedToBlock bool) []*trx.Tx {
+// ConfirmedTxs creates a consecutive nonce-sorted slice of transactions
+func (q *txQueue) ConfirmedTxs(committedToBlock bool) ([]*trx.Tx, uint64) {
 	txs := make([]*trx.Tx, 0, len(q.items))
 	var threshold uint64
 	if committedToBlock {
@@ -142,10 +142,11 @@ func (q *txQueue) AcceptedTxs(committedToBlock bool) []*trx.Tx {
 		txs = append(txs, q.items[nonce])
 		nonce++
 	}
-	return txs
+	return txs, nonce
 }
 
-func (q *txQueue) ResetConfirmedNonce() {
+// UpdateConfirmedNonce updates confirmed nonce for the queue
+func (q *txQueue) UpdateConfirmedNonce() {
 	for q.items[q.confirmedNonce] != nil {
 		if q.pendingBalance.Cmp(q.items[q.confirmedNonce].Amount) < 0 {
 			break
