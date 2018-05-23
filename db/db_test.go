@@ -18,8 +18,8 @@ import (
 
 var (
 	bucket = "test_ns"
-	testK = [3][]byte{[]byte("key_1"), []byte("key_2"), []byte("key_3")}
-	testV = [3][]byte{[]byte("value_1"), []byte("value_2"), []byte("value_3")}
+	testK  = [3][]byte{[]byte("key_1"), []byte("key_2"), []byte("key_3")}
+	testV  = [3][]byte{[]byte("value_1"), []byte("value_2"), []byte("value_3")}
 )
 
 func TestKVStorePutGet(t *testing.T) {
@@ -113,6 +113,7 @@ func TestBatchRollback(t *testing.T) {
 		testV1 := [3][]byte{[]byte("value1.1"), []byte("value2.1"), []byte("value3.1")}
 
 		err = kvboltDB.batchPutForceFail(bucket, testK[:], testV1[:])
+		assert.NotNil(err)
 
 		value, err = kvboltDB.Get(bucket, testK[0])
 		assert.Nil(err)

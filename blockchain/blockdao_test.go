@@ -14,6 +14,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	trx "github.com/iotexproject/iotex-core/blockchain/trx"
 	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/common/utils"
 	"github.com/iotexproject/iotex-core/db"
@@ -24,22 +25,22 @@ func TestBlockDAO(t *testing.T) {
 	getBlocks := func() []*Block {
 		amount := uint64(50 << 22)
 		// create testing transactions
-		cbtx1 := NewCoinbaseTx(testaddress.Addrinfo["alfa"].RawAddress, amount, testCoinbaseData)
+		cbtx1 := trx.NewCoinbaseTx(testaddress.Addrinfo["alfa"].RawAddress, amount, testCoinbaseData)
 		assert.NotNil(t, cbtx1)
-		cbtx2 := NewCoinbaseTx(testaddress.Addrinfo["bravo"].RawAddress, amount, testCoinbaseData)
+		cbtx2 := trx.NewCoinbaseTx(testaddress.Addrinfo["bravo"].RawAddress, amount, testCoinbaseData)
 		assert.NotNil(t, cbtx2)
-		cbtx3 := NewCoinbaseTx(testaddress.Addrinfo["charlie"].RawAddress, amount, testCoinbaseData)
+		cbtx3 := trx.NewCoinbaseTx(testaddress.Addrinfo["charlie"].RawAddress, amount, testCoinbaseData)
 		assert.NotNil(t, cbtx3)
 
 		hash1 := common.Hash32B{}
 		fnv.New32().Sum(hash1[:])
-		blk1 := NewBlock(0, 1, hash1, []*Tx{cbtx1})
+		blk1 := NewBlock(0, 1, hash1, []*trx.Tx{cbtx1})
 		hash2 := common.Hash32B{}
 		fnv.New32().Sum(hash2[:])
-		blk2 := NewBlock(0, 2, hash2, []*Tx{cbtx2})
+		blk2 := NewBlock(0, 2, hash2, []*trx.Tx{cbtx2})
 		hash3 := common.Hash32B{}
 		fnv.New32().Sum(hash3[:])
-		blk3 := NewBlock(0, 3, hash3, []*Tx{cbtx3})
+		blk3 := NewBlock(0, 3, hash3, []*trx.Tx{cbtx3})
 		return []*Block{blk1, blk2, blk3}
 	}
 

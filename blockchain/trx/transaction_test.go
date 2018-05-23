@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package blockchain
+package transaction
 
 import (
 	"encoding/hex"
@@ -15,6 +15,10 @@ import (
 
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
+)
+
+const (
+	testCoinbaseData = "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks"
 )
 
 func TestTransaction(t *testing.T) {

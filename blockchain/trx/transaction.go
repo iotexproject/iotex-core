@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package blockchain
+package transaction
 
 import (
 	"bytes"
@@ -48,7 +48,7 @@ type TxOutput struct {
 	*iproto.TxOutputPb // embedded
 
 	// below fields only used internally, not part of serialize/deserialize
-	outIndex int32 // outIndex is needed when spending UTXO
+	OutIndex int32 // outIndex is needed when spending UTXO
 }
 
 // Tx defines the struct of transaction
@@ -102,12 +102,6 @@ func NewTx(in []*TxInput, out []*TxOutput, lockTime uint32) *Tx {
 		Recipient: &iotxaddress.Address{},
 		Payload:   []byte{},
 	}
-}
-
-// Payee defines the struct of payee
-type Payee struct {
-	Address string
-	Amount  uint64
 }
 
 // NewCoinbaseTx creates the coinbase transaction - a special type of transaction that does not require previously outputs.
@@ -281,9 +275,14 @@ func (tx *Tx) Hash() common.Hash32B {
 	return blake2b.Sum256(hash[:])
 }
 
-// ***************************************
+// ConvertToUtxoPb creates a protobuf's UTXO
+func (tx *Tx) ConvertToUtxoPb() *iproto.UtxoMapPb {
+	return nil
+}
+
+//======================================
 // Below are transaction output functions
-// ***************************************
+//======================================
 
 // CreateTxOutput creates a new transaction output
 func CreateTxOutput(toaddr string, value uint64) *TxOutput {

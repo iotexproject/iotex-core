@@ -11,7 +11,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core/blockchain"
+	trx "github.com/iotexproject/iotex-core/blockchain/trx"
 )
 
 type noncePriorityQueue []uint64
@@ -34,29 +34,29 @@ func (h *noncePriorityQueue) Pop() interface{} {
 
 // TxQueue is the interface of txList
 type TxQueue interface {
-	Overlaps(tx *blockchain.Tx) bool
-	Put(tx *blockchain.Tx) error
-	FilterNonce(threshold uint64) []*blockchain.Tx
+	Overlaps(tx *trx.Tx) bool
+	Put(tx *trx.Tx) error
+	FilterNonce(threshold uint64) []*trx.Tx
 	UpdatedPendingNonce(nonce uint64) uint64
 	SetPendingBalance(balance *big.Int)
 	PendingBalance() *big.Int
 	Len() int
 	Empty() bool
-	AcceptedTxs() []*blockchain.Tx
+	AcceptedTxs() []*trx.Tx
 }
 
 // txQueue is a queue of transactions from an account
 type txQueue struct {
-	items          map[uint64]*blockchain.Tx // Map that stores all the transactions belonging to an account associated with nonces
-	index          noncePriorityQueue        // Priority Queue that stores all the nonces belonging to an account. Nonces are used as indices for transaction map
-	pendingNonce   uint64                    // Current pending nonce for the account
-	pendingBalance *big.Int                  // Current pending balance for the account
+	items          map[uint64]*trx.Tx // Map that stores all the transactions belonging to an account associated with nonces
+	index          noncePriorityQueue // Priority Queue that stores all the nonces belonging to an account. Nonces are used as indices for transaction map
+	pendingNonce   uint64             // Current pending nonce for the account
+	pendingBalance *big.Int           // Current pending balance for the account
 }
 
 // NewTxQueue create a new transaction queue
 func NewTxQueue() *txQueue {
 	return &txQueue{
-		items:          make(map[uint64]*blockchain.Tx),
+		items:          make(map[uint64]*trx.Tx),
 		index:          noncePriorityQueue{},
 		pendingNonce:   uint64(0),
 		pendingBalance: big.NewInt(0),
@@ -64,12 +64,12 @@ func NewTxQueue() *txQueue {
 }
 
 // Overlap returns whether the current queue contains the given nonce
-func (q *txQueue) Overlaps(tx *blockchain.Tx) bool {
+func (q *txQueue) Overlaps(tx *trx.Tx) bool {
 	return q.items[tx.Nonce] != nil
 }
 
 // Put inserts a new transaction into the map, also updating the queue's nonce index
-func (q *txQueue) Put(tx *blockchain.Tx) error {
+func (q *txQueue) Put(tx *trx.Tx) error {
 	nonce := tx.Nonce
 	if q.items[nonce] != nil {
 		return errors.Wrapf(ErrNonce, "duplicate nonce")
@@ -80,8 +80,8 @@ func (q *txQueue) Put(tx *blockchain.Tx) error {
 }
 
 // FilterNonce removes all transactions from the map with a nonce lower than the given threshold
-func (q *txQueue) FilterNonce(threshold uint64) []*blockchain.Tx {
-	var removed []*blockchain.Tx
+func (q *txQueue) FilterNonce(threshold uint64) []*trx.Tx {
+	var removed []*trx.Tx
 
 	// Pop off priority queue and delete corresponding entries from map until the threshold is reached
 	for q.index.Len() > 0 && (q.index)[0] < threshold {
@@ -122,8 +122,8 @@ func (q *txQueue) Empty() bool {
 }
 
 // AcceptedTxs creates a consecutive nonce-sorted slice of transactions
-func (q *txQueue) AcceptedTxs() []*blockchain.Tx {
-	txs := make([]*blockchain.Tx, 0, len(q.items))
+func (q *txQueue) AcceptedTxs() []*trx.Tx {
+	txs := make([]*trx.Tx, 0, len(q.items))
 	if nonce := q.index[0]; nonce <= q.pendingNonce {
 		for q.items[nonce] != nil {
 			txs = append(txs, q.items[nonce])

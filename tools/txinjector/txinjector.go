@@ -18,7 +18,7 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
-	"github.com/iotexproject/iotex-core/blockchain"
+	trx "github.com/iotexproject/iotex-core/blockchain/trx"
 	pb "github.com/iotexproject/iotex-core/proto"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/txvm"
@@ -59,13 +59,13 @@ func main() {
 		panic(err)
 	}
 
-	in := []*blockchain.TxInput{}
+	in := []*trx.TxInput{}
 	for _, rin := range tx.TxIn {
 		unlock, err := txvm.SignatureScript(rin.UnlockScript, ta.Addrinfo["miner"].PublicKey, ta.Addrinfo["miner"].PrivateKey)
 		if err != nil {
 			panic(err)
 		}
-		in = append(in, &blockchain.TxInput{
+		in = append(in, &trx.TxInput{
 			rin.TxHash,
 			rin.OutIndex,
 			uint32(len(unlock)),

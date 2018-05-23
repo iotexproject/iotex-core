@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package blockchain
+package transaction
 
 import (
 	"fmt"
@@ -59,7 +59,7 @@ func TestTxInputSorter(t *testing.T) {
 	}
 
 	// Sort TxOutput in lexicographical order based on TxHash + OutIndex
-	sort.Sort(txInSorter(in))
+	sort.Sort(TxInSorter(in))
 
 	// Display the TxInput ordering after lexicographical sorting
 	t.Log("The TxHash and OutIndex of each TxInput after lexicographical sorting are as follows:")
@@ -99,7 +99,7 @@ func TestTxOutputSorter(t *testing.T) {
 	}
 
 	// Sort TxOutput in lexicographical order based on Value + LockScript
-	sort.Sort(txOutSorter(out))
+	sort.Sort(TxOutSorter(out))
 
 	// Display the TxOutput ordering after lexicographical sorting
 	t.Log("The Value and LockScript of each TxOutput after lexicographical sorting are as follows:")

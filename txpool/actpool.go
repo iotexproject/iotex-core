@@ -12,7 +12,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/pkg/errors"
 
-	bc "github.com/iotexproject/iotex-core/blockchain"
+	trx "github.com/iotexproject/iotex-core/blockchain/trx"
 	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/statefactory"
@@ -41,9 +41,9 @@ type ActPool interface {
 	// Reset resets actpool state
 	Reset()
 	// PickTxs returns all currently accepted transactions in actpool
-	PickTxs() (map[common.Hash32B][]*bc.Tx, error)
+	PickTxs() (map[common.Hash32B][]*trx.Tx, error)
 	// AddTx adds a transaction into the pool after validation
-	AddTx(tx *bc.Tx) error
+	AddTx(tx *trx.Tx) error
 }
 
 // actPool implements ActPool interface
@@ -51,7 +51,7 @@ type actPool struct {
 	mutex      sync.RWMutex
 	pendingSF  statefactory.StateFactory // Pending state tracking virtual nonces
 	accountTxs map[common.Hash32B]TxQueue
-	allTxs     map[common.Hash32B]*bc.Tx
+	allTxs     map[common.Hash32B]*trx.Tx
 }
 
 // NewActPool constructs a new actpool
@@ -59,7 +59,7 @@ func NewActPool(trie trie.Trie) ActPool {
 	ap := &actPool{
 		pendingSF:  statefactory.NewVirtualStateFactory(trie),
 		accountTxs: make(map[common.Hash32B]TxQueue),
-		allTxs:     make(map[common.Hash32B]*bc.Tx),
+		allTxs:     make(map[common.Hash32B]*trx.Tx),
 	}
 	return ap
 }
@@ -80,11 +80,11 @@ func (ap *actPool) Reset() {
 }
 
 // PickTxs returns all currently accepted transactions for all accounts
-func (ap *actPool) PickTxs() (map[common.Hash32B][]*bc.Tx, error) {
+func (ap *actPool) PickTxs() (map[common.Hash32B][]*trx.Tx, error) {
 	ap.mutex.Lock()
 	defer ap.mutex.Unlock()
 
-	pending := make(map[common.Hash32B][]*bc.Tx)
+	pending := make(map[common.Hash32B][]*trx.Tx)
 	for addrHash, queue := range ap.accountTxs {
 		pending[addrHash] = queue.AcceptedTxs()
 	}
@@ -92,7 +92,7 @@ func (ap *actPool) PickTxs() (map[common.Hash32B][]*bc.Tx, error) {
 }
 
 // validateTx checks whether a transaction is valid
-func (ap *actPool) validateTx(tx *bc.Tx) error {
+func (ap *actPool) validateTx(tx *trx.Tx) error {
 	// Reject oversized transaction
 	if tx.TotalSize() > 32*1024 {
 		return errors.Wrapf(ErrActPool, "oversized data")
@@ -140,7 +140,7 @@ func (ap *actPool) validateTx(tx *bc.Tx) error {
 }
 
 // AddTx inserts a new transaction into account queue if it passes validation
-func (ap *actPool) AddTx(tx *bc.Tx) error {
+func (ap *actPool) AddTx(tx *trx.Tx) error {
 	ap.mutex.Lock()
 	defer ap.mutex.Unlock()
 	hash := tx.Hash()

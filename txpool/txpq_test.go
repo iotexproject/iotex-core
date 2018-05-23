@@ -12,14 +12,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotexproject/iotex-core/blockchain"
+	trx "github.com/iotexproject/iotex-core/blockchain/trx"
 )
 
 func TestTxPq(t *testing.T) {
 	// Create four dummy TxDescs
 	// TxDesc1
 	desc1 := TxDesc{
-		Tx:          &blockchain.Tx{},
+		Tx:          &trx.Tx{},
 		AddedTime:   time.Now(),
 		BlockHeight: uint64(1),
 		Fee:         int64(0),
@@ -29,7 +29,7 @@ func TestTxPq(t *testing.T) {
 
 	// TxDesc2
 	desc2 := TxDesc{
-		Tx:          &blockchain.Tx{},
+		Tx:          &trx.Tx{},
 		AddedTime:   time.Now(),
 		BlockHeight: uint64(1),
 		Fee:         int64(0),
@@ -39,7 +39,7 @@ func TestTxPq(t *testing.T) {
 
 	// TxDesc3
 	desc3 := TxDesc{
-		Tx:          &blockchain.Tx{},
+		Tx:          &trx.Tx{},
 		AddedTime:   time.Now(),
 		BlockHeight: uint64(1),
 		Fee:         int64(0),
@@ -49,7 +49,7 @@ func TestTxPq(t *testing.T) {
 
 	// TxDesc4
 	desc4 := TxDesc{
-		Tx:          &blockchain.Tx{},
+		Tx:          &trx.Tx{},
 		AddedTime:   time.Now(),
 		BlockHeight: uint64(1),
 		Fee:         int64(0),

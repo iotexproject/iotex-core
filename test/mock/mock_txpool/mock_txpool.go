@@ -7,6 +7,7 @@ package mock_txpool
 import (
 	gomock "github.com/golang/mock/gomock"
 	blockchain "github.com/iotexproject/iotex-core/blockchain"
+	trx "github.com/iotexproject/iotex-core/blockchain/trx"
 	common "github.com/iotexproject/iotex-core/common"
 	txpool "github.com/iotexproject/iotex-core/txpool"
 	reflect "reflect"
@@ -37,7 +38,7 @@ func (m *MockTxPool) EXPECT() *MockTxPoolMockRecorder {
 }
 
 // RemoveOrphanTx mocks base method
-func (m *MockTxPool) RemoveOrphanTx(tx *blockchain.Tx) {
+func (m *MockTxPool) RemoveOrphanTx(tx *trx.Tx) {
 	m.ctrl.Call(m, "RemoveOrphanTx", tx)
 }
 
@@ -83,7 +84,7 @@ func (mr *MockTxPoolMockRecorder) HasTxOrOrphanTx(hash interface{}) *gomock.Call
 }
 
 // RemoveTx mocks base method
-func (m *MockTxPool) RemoveTx(tx *blockchain.Tx, removeDescendants, updateTxDescPriorityQueue bool) {
+func (m *MockTxPool) RemoveTx(tx *trx.Tx, removeDescendants, updateTxDescPriorityQueue bool) {
 	m.ctrl.Call(m, "RemoveTx", tx, removeDescendants, updateTxDescPriorityQueue)
 }
 
@@ -93,7 +94,7 @@ func (mr *MockTxPoolMockRecorder) RemoveTx(tx, removeDescendants, updateTxDescPr
 }
 
 // RemoveDoubleSpends mocks base method
-func (m *MockTxPool) RemoveDoubleSpends(tx *blockchain.Tx) {
+func (m *MockTxPool) RemoveDoubleSpends(tx *trx.Tx) {
 	m.ctrl.Call(m, "RemoveDoubleSpends", tx)
 }
 
@@ -103,9 +104,9 @@ func (mr *MockTxPoolMockRecorder) RemoveDoubleSpends(tx interface{}) *gomock.Cal
 }
 
 // FetchTx mocks base method
-func (m *MockTxPool) FetchTx(hash *common.Hash32B) (*blockchain.Tx, error) {
+func (m *MockTxPool) FetchTx(hash *common.Hash32B) (*trx.Tx, error) {
 	ret := m.ctrl.Call(m, "FetchTx", hash)
-	ret0, _ := ret[0].(*blockchain.Tx)
+	ret0, _ := ret[0].(*trx.Tx)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -116,7 +117,7 @@ func (mr *MockTxPoolMockRecorder) FetchTx(hash interface{}) *gomock.Call {
 }
 
 // MaybeAcceptTx mocks base method
-func (m *MockTxPool) MaybeAcceptTx(tx *blockchain.Tx, isNew, rateLimit bool) ([]common.Hash32B, *txpool.TxDesc, error) {
+func (m *MockTxPool) MaybeAcceptTx(tx *trx.Tx, isNew, rateLimit bool) ([]common.Hash32B, *txpool.TxDesc, error) {
 	ret := m.ctrl.Call(m, "MaybeAcceptTx", tx, isNew, rateLimit)
 	ret0, _ := ret[0].([]common.Hash32B)
 	ret1, _ := ret[1].(*txpool.TxDesc)
@@ -130,7 +131,7 @@ func (mr *MockTxPoolMockRecorder) MaybeAcceptTx(tx, isNew, rateLimit interface{}
 }
 
 // ProcessOrphanTxs mocks base method
-func (m *MockTxPool) ProcessOrphanTxs(acceptedTx *blockchain.Tx) []*txpool.TxDesc {
+func (m *MockTxPool) ProcessOrphanTxs(acceptedTx *trx.Tx) []*txpool.TxDesc {
 	ret := m.ctrl.Call(m, "ProcessOrphanTxs", acceptedTx)
 	ret0, _ := ret[0].([]*txpool.TxDesc)
 	return ret0
@@ -142,7 +143,7 @@ func (mr *MockTxPoolMockRecorder) ProcessOrphanTxs(acceptedTx interface{}) *gomo
 }
 
 // ProcessTx mocks base method
-func (m *MockTxPool) ProcessTx(tx *blockchain.Tx, allowOrphan, rateLimit bool, tag txpool.Tag) ([]*txpool.TxDesc, error) {
+func (m *MockTxPool) ProcessTx(tx *trx.Tx, allowOrphan, rateLimit bool, tag txpool.Tag) ([]*txpool.TxDesc, error) {
 	ret := m.ctrl.Call(m, "ProcessTx", tx, allowOrphan, rateLimit, tag)
 	ret0, _ := ret[0].([]*txpool.TxDesc)
 	ret1, _ := ret[1].(error)
@@ -167,9 +168,9 @@ func (mr *MockTxPoolMockRecorder) TxDescs() *gomock.Call {
 }
 
 // PickTxs mocks base method
-func (m *MockTxPool) PickTxs() []*blockchain.Tx {
+func (m *MockTxPool) PickTxs() []*trx.Tx {
 	ret := m.ctrl.Call(m, "PickTxs")
-	ret0, _ := ret[0].([]*blockchain.Tx)
+	ret0, _ := ret[0].([]*trx.Tx)
 	return ret0
 }
 
