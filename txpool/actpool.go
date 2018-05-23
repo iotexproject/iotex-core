@@ -67,8 +67,20 @@ func NewActPool(trie trie.Trie) ActPool {
 func (ap *actPool) Reset() {
 	ap.mutex.Lock()
 	defer ap.mutex.Unlock()
+	// Remove committed transactions in actpool
 	ap.removeCommittedTxs()
-	// Reset pending balance for each account
+	// Reset pending nonce for each account
+	for addrHash, queue := range ap.accountTxs {
+		txs := queue.AcceptedTxs(false)
+		if len(txs) == 0 {
+			continue
+		}
+		if err := ap.pendingSF.SetNonce(hashToAddr[addrHash], txs[len(txs)-1].Nonce+1); err != nil {
+			glog.Errorf("Error when resetting actPool state: %v\n", err)
+			return
+		}
+	}
+	// Reset pending balance and confirmed nonce for each account
 	for addrHash, queue := range ap.accountTxs {
 		balance, err := ap.pendingSF.Balance(hashToAddr[addrHash])
 		if err != nil {
@@ -76,6 +88,7 @@ func (ap *actPool) Reset() {
 			return
 		}
 		queue.SetPendingBalance(balance)
+		queue.ResetConfirmedNonce()
 	}
 }
 
@@ -86,7 +99,7 @@ func (ap *actPool) PickTxs() (map[common.Hash32B][]*trx.Tx, error) {
 
 	pending := make(map[common.Hash32B][]*trx.Tx)
 	for addrHash, queue := range ap.accountTxs {
-		pending[addrHash] = queue.AcceptedTxs()
+		pending[addrHash] = queue.AcceptedTxs(true)
 	}
 	return pending, nil
 }
@@ -119,23 +132,6 @@ func (ap *actPool) validateTx(tx *trx.Tx) error {
 		return errors.Wrapf(ErrNonce, "nonce too low")
 	}
 
-	// Reject transaction if balance is insufficient
-	addrHash := from.HashAddress()
-	queue := ap.accountTxs[addrHash]
-	if queue == nil {
-		ap.accountTxs[addrHash] = NewTxQueue()
-		hashToAddr[addrHash] = from
-		balance, err := ap.pendingSF.Balance(from)
-		if err != nil {
-			glog.Errorf("Error when validating Tx: %v\n", err)
-			return err
-		}
-		queue.SetPendingBalance(balance)
-	}
-	curBalance := queue.PendingBalance()
-	if curBalance.Cmp(tx.Amount) < 0 {
-		return errors.Wrapf(ErrBalance, "insufficient funds")
-	}
 	return nil
 }
 
@@ -166,6 +162,12 @@ func (ap *actPool) AddTx(tx *trx.Tx) error {
 	}
 	addrHash := from.HashAddress()
 	queue := ap.accountTxs[addrHash]
+
+	if queue == nil {
+		ap.accountTxs[addrHash] = NewTxQueue()
+		hashToAddr[addrHash] = from
+	}
+
 	if queue.Overlaps(tx) {
 		// Nonce already exists
 		glog.Info("Rejecting transaction because replacement Tx is not supported", "hash", hash)
@@ -179,10 +181,6 @@ func (ap *actPool) AddTx(tx *trx.Tx) error {
 	queue.Put(tx)
 	ap.allTxs[hash] = tx
 
-	// Once a new transaction is inserted, the pending balance in the queue is updated
-	curBalance := queue.PendingBalance()
-	queue.SetPendingBalance(curBalance.Sub(curBalance, tx.Amount))
-
 	// If the pending nonce equals this nonce, update pending nonce
 	nonce, err := ap.pendingSF.Nonce(from)
 	if err != nil {
@@ -190,7 +188,9 @@ func (ap *actPool) AddTx(tx *trx.Tx) error {
 		return err
 	}
 	if tx.Nonce == nonce {
-		newPendingNonce := queue.UpdatedPendingNonce(tx.Nonce)
+		// Flag indicating whether we need to update confirmed nonce as well
+		updateConfirmedNonce := nonce == queue.ConfirmedNonce()
+		newPendingNonce := queue.UpdatedPendingNonce(tx.Nonce, updateConfirmedNonce)
 		if err := ap.pendingSF.SetNonce(from, newPendingNonce); err != nil {
 			glog.Errorf("Error when adding Tx: %v\n", err)
 			return err
@@ -199,7 +199,7 @@ func (ap *actPool) AddTx(tx *trx.Tx) error {
 	return nil
 }
 
-// removeCommittedTxs removes processed (committed to block) transactions from the pools
+// removeCommittedTxs removes processed (committed to block) transactions from pool
 func (ap *actPool) removeCommittedTxs() {
 	ap.mutex.Lock()
 	defer ap.mutex.Unlock()

@@ -37,12 +37,13 @@ type TxQueue interface {
 	Overlaps(tx *trx.Tx) bool
 	Put(tx *trx.Tx) error
 	FilterNonce(threshold uint64) []*trx.Tx
-	UpdatedPendingNonce(nonce uint64) uint64
+	UpdatedPendingNonce(nonce uint64, updateConfirmedNonce bool) uint64
+	ConfirmedNonce() uint64
 	SetPendingBalance(balance *big.Int)
-	PendingBalance() *big.Int
 	Len() int
 	Empty() bool
-	AcceptedTxs() []*trx.Tx
+	AcceptedTxs(committedToBlock bool) []*trx.Tx
+	ResetConfirmedNonce()
 }
 
 // txQueue is a queue of transactions from an account
@@ -50,6 +51,7 @@ type txQueue struct {
 	items          map[uint64]*trx.Tx // Map that stores all the transactions belonging to an account associated with nonces
 	index          noncePriorityQueue // Priority Queue that stores all the nonces belonging to an account. Nonces are used as indices for transaction map
 	pendingNonce   uint64             // Current pending nonce for the account
+	confirmedNonce uint64             // Current nonce tracking previous transactions that can be committed to the next block
 	pendingBalance *big.Int           // Current pending balance for the account
 }
 
@@ -59,6 +61,7 @@ func NewTxQueue() *txQueue {
 		items:          make(map[uint64]*trx.Tx),
 		index:          noncePriorityQueue{},
 		pendingNonce:   uint64(0),
+		confirmedNonce: uint64(0),
 		pendingBalance: big.NewInt(0),
 	}
 }
@@ -93,22 +96,26 @@ func (q *txQueue) FilterNonce(threshold uint64) []*trx.Tx {
 }
 
 // UpdatedPendingNonce returns the next pending nonce given the current pending nonce
-func (q *txQueue) UpdatedPendingNonce(nonce uint64) uint64 {
+func (q *txQueue) UpdatedPendingNonce(nonce uint64, updateConfirmedNonce bool) uint64 {
 	for q.items[nonce] != nil {
+		if updateConfirmedNonce && q.pendingBalance.Cmp(q.items[nonce].Amount) >= 0 {
+			q.confirmedNonce++
+			q.pendingBalance.Sub(q.pendingBalance, q.items[nonce].Amount)
+		}
 		nonce++
 	}
 	q.pendingNonce = nonce
 	return nonce
 }
 
+// ConfirmedNonce returns the current confirmed nonce for the queue
+func (q *txQueue) ConfirmedNonce() uint64 {
+	return q.confirmedNonce
+}
+
 // SetPendingBalance sets pending balance for the queue
 func (q *txQueue) SetPendingBalance(balance *big.Int) {
 	q.pendingBalance = balance
-}
-
-// PendingBalance returns pending balance for the queue
-func (q *txQueue) PendingBalance() *big.Int {
-	return q.pendingBalance
 }
 
 // Len returns the length of the transaction map
@@ -122,13 +129,28 @@ func (q *txQueue) Empty() bool {
 }
 
 // AcceptedTxs creates a consecutive nonce-sorted slice of transactions
-func (q *txQueue) AcceptedTxs() []*trx.Tx {
+func (q *txQueue) AcceptedTxs(committedToBlock bool) []*trx.Tx {
 	txs := make([]*trx.Tx, 0, len(q.items))
-	if nonce := q.index[0]; nonce <= q.pendingNonce {
-		for q.items[nonce] != nil {
-			txs = append(txs, q.items[nonce])
-			nonce++
-		}
+	var threshold uint64
+	if committedToBlock {
+		threshold = q.confirmedNonce
+	} else {
+		threshold = q.pendingNonce
+	}
+	nonce := q.index[0]
+	for q.items[nonce] != nil && nonce < threshold {
+		txs = append(txs, q.items[nonce])
+		nonce++
 	}
 	return txs
+}
+
+func (q *txQueue) ResetConfirmedNonce() {
+	for q.items[q.confirmedNonce] != nil {
+		if q.pendingBalance.Cmp(q.items[q.confirmedNonce].Amount) < 0 {
+			break
+		}
+		q.pendingBalance.Sub(q.pendingBalance, q.items[q.confirmedNonce].Amount)
+		q.confirmedNonce++
+	}
 }
