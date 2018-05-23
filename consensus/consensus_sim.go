@@ -14,14 +14,14 @@ import (
 	"github.com/golang/protobuf/proto"
 
 	"encoding/hex"
-	"github.com/iotexproject/iotex-core-internal/blockchain"
-	"github.com/iotexproject/iotex-core-internal/blocksync"
-	"github.com/iotexproject/iotex-core-internal/config"
-	"github.com/iotexproject/iotex-core-internal/consensus/scheme"
-	"github.com/iotexproject/iotex-core-internal/consensus/scheme/rdpos"
-	"github.com/iotexproject/iotex-core-internal/delegate"
-	pb "github.com/iotexproject/iotex-core-internal/simulator/proto/simulator"
-	"github.com/iotexproject/iotex-core-internal/txpool"
+	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blocksync"
+	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/consensus/scheme"
+	"github.com/iotexproject/iotex-core/consensus/scheme/rdpos"
+	"github.com/iotexproject/iotex-core/delegate"
+	pb "github.com/iotexproject/iotex-core/simulator/proto/simulator"
+	"github.com/iotexproject/iotex-core/txpool"
 )
 
 // ConsensusSim is the interface for handling consensus view change used in the simulator
@@ -60,7 +60,7 @@ func NewConsensusSim(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxP
 
 	// broadcast a message across the P2P network
 	tellBlockCB := func(msg proto.Message) error {
-		s := serializeMsg(msg)
+		s := SerializeMsg(msg)
 		cs.sendMessage(0, s)
 
 		return nil
@@ -78,7 +78,7 @@ func NewConsensusSim(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxP
 	// broadcast a block across the P2P network
 	broadcastBlockCB := func(blk *blockchain.Block) error {
 		if blkPb := blk.ConvertToBlockPb(); blkPb != nil {
-			s := serializeMsg(blkPb)
+			s := SerializeMsg(blkPb)
 			cs.sendMessage(0, s)
 		}
 		return nil
@@ -126,7 +126,8 @@ func (c *consensusSim) HandleBlockPropose(m proto.Message, done chan bool) error
 	return nil
 }
 
-func serializeMsg(m proto.Message) string {
+// SerializeMsg serializes a proto.Message to a string
+func SerializeMsg(m proto.Message) string {
 	var b bytes.Buffer
 	e := gob.NewEncoder(&b)
 	if err := e.Encode(m); err != nil {
@@ -135,7 +136,8 @@ func serializeMsg(m proto.Message) string {
 	return b.String()
 }
 
-func unserializeMsg(s string) proto.Message {
+// UnserializeMsg converts a serialized string to a proto.Message
+func UnserializeMsg(s string) proto.Message {
 	var m proto.Message
 
 	var b bytes.Buffer
