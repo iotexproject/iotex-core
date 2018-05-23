@@ -42,7 +42,15 @@ class Solver:
         for i in self.players:
             print("%s: %s" % (i, i.connections))
 
-        consensus_client.Consensus.initConsensus(self.N_PLAYERS)
+        # initializes consensus engines and gets the initial block proposals
+        response = consensus_client.Consensus.initConsensus(self.N_PLAYERS)
+        timestamp = 0 # at the start, timestamp is 0
+
+        # adds initial block proposals to players' outbound queue
+        for id, v in response:
+            assert players[i].id == id, "player id does not match array position"
+
+            players[i].outbound.append([v, timestamp])
 
     def connectNetwork(self):
         """Form the network of players through random assignment of connections"""
