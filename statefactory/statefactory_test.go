@@ -62,16 +62,16 @@ func TestBalance(t *testing.T) {
 	defer ctrl.Finish()
 
 	trie := mock_trie.NewMockTrie(ctrl)
-	sf := NewStateFactory(trie)
-
-	// Add 10 to the balance
 	addr, err := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
 	assert.Nil(t, err)
-	trie.EXPECT().Upsert(gomock.Any(), gomock.Any()).Times(1)
-	mstate, _ := stateToBytes(&State{Address: addr, Balance: big.NewInt(20)})
-	trie.EXPECT().Get(gomock.Any()).Times(1).Return(mstate, nil)
-	err = sf.AddBalance(addr, big.NewInt(10))
+	state := &State{Address: addr, Balance: big.NewInt(20)}
+	mstate, _ := stateToBytes(state)
+	trie.EXPECT().Get(gomock.Any()).Times(0).Return(mstate, nil)
+	// Add 10 to the balance
+	err = state.AddBalance(big.NewInt(10))
 	assert.Nil(t, err)
+	// balance should == 30 now
+	assert.Equal(t, 0, state.Balance.Cmp(big.NewInt(30)))
 }
 
 func TestNonce(t *testing.T) {

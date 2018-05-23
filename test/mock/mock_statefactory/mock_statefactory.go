@@ -6,6 +6,7 @@ package mock_statefactory
 
 import (
 	gomock "github.com/golang/mock/gomock"
+	trx "github.com/iotexproject/iotex-core/blockchain/trx"
 	common "github.com/iotexproject/iotex-core/common"
 	iotxaddress "github.com/iotexproject/iotex-core/iotxaddress"
 	statefactory "github.com/iotexproject/iotex-core/statefactory"
@@ -36,6 +37,69 @@ func (m *MockStateFactory) EXPECT() *MockStateFactoryMockRecorder {
 	return m.recorder
 }
 
+// CreateState mocks base method
+func (m *MockStateFactory) CreateState(arg0 *iotxaddress.Address) (*statefactory.State, error) {
+	ret := m.ctrl.Call(m, "CreateState", arg0)
+	ret0, _ := ret[0].(*statefactory.State)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateState indicates an expected call of CreateState
+func (mr *MockStateFactoryMockRecorder) CreateState(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateState", reflect.TypeOf((*MockStateFactory)(nil).CreateState), arg0)
+}
+
+// Balance mocks base method
+func (m *MockStateFactory) Balance(arg0 *iotxaddress.Address) (*big.Int, error) {
+	ret := m.ctrl.Call(m, "Balance", arg0)
+	ret0, _ := ret[0].(*big.Int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Balance indicates an expected call of Balance
+func (mr *MockStateFactoryMockRecorder) Balance(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Balance", reflect.TypeOf((*MockStateFactory)(nil).Balance), arg0)
+}
+
+// UpdateStatesWithTransfer mocks base method
+func (m *MockStateFactory) UpdateStatesWithTransfer(arg0 []*trx.Tx) error {
+	ret := m.ctrl.Call(m, "UpdateStatesWithTransfer", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateStatesWithTransfer indicates an expected call of UpdateStatesWithTransfer
+func (mr *MockStateFactoryMockRecorder) UpdateStatesWithTransfer(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateStatesWithTransfer", reflect.TypeOf((*MockStateFactory)(nil).UpdateStatesWithTransfer), arg0)
+}
+
+// SetNonce mocks base method
+func (m *MockStateFactory) SetNonce(arg0 *iotxaddress.Address, arg1 uint64) error {
+	ret := m.ctrl.Call(m, "SetNonce", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetNonce indicates an expected call of SetNonce
+func (mr *MockStateFactoryMockRecorder) SetNonce(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetNonce", reflect.TypeOf((*MockStateFactory)(nil).SetNonce), arg0, arg1)
+}
+
+// Nonce mocks base method
+func (m *MockStateFactory) Nonce(arg0 *iotxaddress.Address) (uint64, error) {
+	ret := m.ctrl.Call(m, "Nonce", arg0)
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Nonce indicates an expected call of Nonce
+func (mr *MockStateFactoryMockRecorder) Nonce(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Nonce", reflect.TypeOf((*MockStateFactory)(nil).Nonce), arg0)
+}
+
 // RootHash mocks base method
 func (m *MockStateFactory) RootHash() common.Hash32B {
 	ret := m.ctrl.Call(m, "RootHash")
@@ -46,91 +110,4 @@ func (m *MockStateFactory) RootHash() common.Hash32B {
 // RootHash indicates an expected call of RootHash
 func (mr *MockStateFactoryMockRecorder) RootHash() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RootHash", reflect.TypeOf((*MockStateFactory)(nil).RootHash))
-}
-
-// CreateState mocks base method
-func (m *MockStateFactory) CreateState(addr *iotxaddress.Address) (*statefactory.State, error) {
-	ret := m.ctrl.Call(m, "CreateState", addr)
-	ret0, _ := ret[0].(*statefactory.State)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CreateState indicates an expected call of CreateState
-func (mr *MockStateFactoryMockRecorder) CreateState(addr interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateState", reflect.TypeOf((*MockStateFactory)(nil).CreateState), addr)
-}
-
-// UpdateStateWithTransfer mocks base method
-func (m *MockStateFactory) UpdateStateWithTransfer(senderPubKey []byte, amount *big.Int, recipient *iotxaddress.Address) error {
-	ret := m.ctrl.Call(m, "UpdateStateWithTransfer", senderPubKey, amount, recipient)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// UpdateStateWithTransfer indicates an expected call of UpdateStateWithTransfer
-func (mr *MockStateFactoryMockRecorder) UpdateStateWithTransfer(senderPubKey, amount, recipient interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateStateWithTransfer", reflect.TypeOf((*MockStateFactory)(nil).UpdateStateWithTransfer), senderPubKey, amount, recipient)
-}
-
-// SetNonce mocks base method
-func (m *MockStateFactory) SetNonce(addr *iotxaddress.Address, value uint64) error {
-	ret := m.ctrl.Call(m, "SetNonce", addr, value)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetNonce indicates an expected call of SetNonce
-func (mr *MockStateFactoryMockRecorder) SetNonce(addr, value interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetNonce", reflect.TypeOf((*MockStateFactory)(nil).SetNonce), addr, value)
-}
-
-// Nonce mocks base method
-func (m *MockStateFactory) Nonce(addr *iotxaddress.Address) (uint64, error) {
-	ret := m.ctrl.Call(m, "Nonce", addr)
-	ret0, _ := ret[0].(uint64)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Nonce indicates an expected call of Nonce
-func (mr *MockStateFactoryMockRecorder) Nonce(addr interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Nonce", reflect.TypeOf((*MockStateFactory)(nil).Nonce), addr)
-}
-
-// AddBalance mocks base method
-func (m *MockStateFactory) AddBalance(addr *iotxaddress.Address, amount *big.Int) error {
-	ret := m.ctrl.Call(m, "AddBalance", addr, amount)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// AddBalance indicates an expected call of AddBalance
-func (mr *MockStateFactoryMockRecorder) AddBalance(addr, amount interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddBalance", reflect.TypeOf((*MockStateFactory)(nil).AddBalance), addr, amount)
-}
-
-// SubBalance mocks base method
-func (m *MockStateFactory) SubBalance(addr *iotxaddress.Address, amount *big.Int) error {
-	ret := m.ctrl.Call(m, "SubBalance", addr, amount)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SubBalance indicates an expected call of SubBalance
-func (mr *MockStateFactoryMockRecorder) SubBalance(addr, amount interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubBalance", reflect.TypeOf((*MockStateFactory)(nil).SubBalance), addr, amount)
-}
-
-// Balance mocks base method
-func (m *MockStateFactory) Balance(addr *iotxaddress.Address) (*big.Int, error) {
-	ret := m.ctrl.Call(m, "Balance", addr)
-	ret0, _ := ret[0].(*big.Int)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Balance indicates an expected call of Balance
-func (mr *MockStateFactoryMockRecorder) Balance(addr interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Balance", reflect.TypeOf((*MockStateFactory)(nil).Balance), addr)
 }
