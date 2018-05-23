@@ -75,7 +75,7 @@ class Solver:
         
         return proposers"""
 
-    def payout(self, vset, proposer):
+    """def payout(self, vset, proposer):
         # validator/proposer rewards
         for i in vset:
             i.stake += 1
@@ -88,14 +88,14 @@ class Solver:
         for i in vset:
             i.stake += totFee/n
 
-        proposer.stake += totFee/n
+        proposer.stake += totFee/n"""
 
     def nextRound(self, heartbeat):
         """Simulates the next round"""
 
         self.heartbeat = heartbeat
 
-        # if start of round, reset validator, proposer set & update common blockchain
+        """# if start of round, reset validator, proposer set & update common blockchain
         if heartbeat % Solver.N_HEARTBEATS_IN_ROUND == 0:
             self.propSet = self.chooseProposers()  # choose proposer set
 
@@ -110,7 +110,7 @@ class Solver:
             if same and currBlock != None:
                 currBlock = block.Block(currBlock.txs, id=currBlock.id, proposer=currBlock.proposer)
                 currBlock.next = self.blockchain
-                self.blockchain = currBlock
+                self.blockchain = currBlock"""
 
         for i in self.players:
             i.action(heartbeat)
@@ -121,7 +121,7 @@ class Solver:
         for i in range(self.nHeartbeats):
             self.nextRound(i)
 
-        # update common blockchain among players
+        """# update common blockchain among players
         currBlock = self.players[0].blockchain
         same = True
         for i in self.players:
@@ -132,7 +132,7 @@ class Solver:
         if same and currBlock != None:
             currBlock = block.Block(currBlock.txs, id=currBlock.id, proposer=currBlock.proposer)
             currBlock.next = self.blockchain
-            self.blockchain = currBlock
+            self.blockchain = currBlock"""
 
     def calcPercentStake(self):
         """Calculates the percent stake for each player"""

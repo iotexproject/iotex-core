@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package consensus
+package main
 
 import (
 	"fmt"
@@ -17,13 +17,14 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
-	"github.com/iotexproject/iotex-core-internal/blockchain"
-	"github.com/iotexproject/iotex-core-internal/blocksync"
-	"github.com/iotexproject/iotex-core-internal/config"
-	"github.com/iotexproject/iotex-core-internal/delegate"
-	"github.com/iotexproject/iotex-core-internal/network"
-	pb "github.com/iotexproject/iotex-core-internal/simulator/proto/simulator"
-	"github.com/iotexproject/iotex-core-internal/txpool"
+	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blocksync"
+	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/consensus"
+	"github.com/iotexproject/iotex-core/delegate"
+	"github.com/iotexproject/iotex-core/network"
+	pb "github.com/iotexproject/iotex-core/simulator/proto/simulator"
+	"github.com/iotexproject/iotex-core/txpool"
 )
 
 const (
@@ -33,7 +34,7 @@ const (
 
 // server is used to implement message.SimulatorServer.
 type server struct {
-	nodes []ConsensusSim
+	nodes []consensus.ConsensusSim
 }
 
 // Ping implements simulator.SimulatorServer
@@ -56,7 +57,7 @@ func (s *server) Init(ctx context.Context, in *pb.InitRequest) (*pb.Empty, error
 		dlg := delegate.NewConfigBasedPool(&cfg.Delegate)
 		bs := blocksync.NewBlockSyncer(cfg, bc, tp, overlay, dlg)
 
-		node := NewConsensusSim(cfg, bc, tp, bs, dlg)
+		node := consensus.NewConsensusSim(cfg, bc, tp, bs, dlg)
 
 		s.nodes = append(s.nodes, node)
 	}
@@ -67,7 +68,7 @@ func (s *server) Init(ctx context.Context, in *pb.InitRequest) (*pb.Empty, error
 
 // Ping implements simulator.SimulatorServer
 func (s *server) Ping(in *pb.Request, stream pb.Simulator_PingServer) error {
-	msg := unserializeMsg(in.Value)
+	msg := consensus.UnserializeMsg(in.Value)
 	node := s.nodes[in.PlayerID]
 
 	done := make(chan bool)

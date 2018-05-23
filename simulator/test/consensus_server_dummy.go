@@ -11,15 +11,11 @@ import (
 	"log"
 	"net"
 
-<<<<<<< HEAD
-	pb "github.com/iotexproject/iotex-core/simulator/proto/simulator"
-=======
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
-	pb "github.com/iotexproject/iotex-core-internal/simulator/proto/simulator"
->>>>>>> Modify init message and modify ping message definition
+	pb "github.com/iotexproject/iotex-core/simulator/proto/simulator"
 )
 
 const (
