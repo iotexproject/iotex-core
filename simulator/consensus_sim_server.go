@@ -15,7 +15,6 @@ import (
 	"strconv"
 
 	"github.com/golang/glog"
-	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
@@ -41,7 +40,9 @@ type server struct {
 }
 
 // Ping implements simulator.SimulatorServer
-func (s *server) Init(ctx context.Context, in *pb.InitRequest) (*pb.Empty, error) {
+func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error {
+	consensus.Init = true // mark that we are in initialization phase
+
 	for i := 0; i < int(in.NPlayers); i++ {
 		cfg, err := config.LoadConfigWithPathWithoutValidation(rdposConfig)
 		if err != nil {
@@ -70,19 +71,36 @@ func (s *server) Init(ctx context.Context, in *pb.InitRequest) (*pb.Empty, error
 
 		node := consensus.NewConsensusSim(cfg, bc, tp, bs, dlg)
 
+		done := make(chan bool)
+		node.SetDoneStream(done)
+		node.SetInitStream(stream)
+		node.SetID(i)
+
 		node.Start()
+		// need to find a way to use SetStream to send proposed message back to sim
+		// set var Init = true/false
+		// ProposalMessage: playerID, msgType, msgBody
+		// when you get anything else, set Init = false
 
 		fmt.Printf("Node %d initialized and consensus engine started\n", i)
+
+		<-done
+
+		fmt.Printf("Node %d initialization ended\n", i)
 
 		s.nodes = append(s.nodes, node)
 	}
 
 	fmt.Printf("Simulator initialized with %d players\n", in.NPlayers)
-	return &pb.Empty{}, nil
+
+	return nil
 }
 
 // Ping implements simulator.SimulatorServer
 func (s *server) Ping(in *pb.Request, stream pb.Simulator_PingServer) error {
+	consensus.Init = false // mark that we are not in initialization phase any more
+
+	fmt.Println("opened message stream")
 	msgValue, err := hex.DecodeString(in.Value)
 	if err != nil {
 		glog.Error("Could not decode message value into byte array")
@@ -97,6 +115,7 @@ func (s *server) Ping(in *pb.Request, stream pb.Simulator_PingServer) error {
 	node.HandleViewChange(msg, done)
 
 	<-done
+	fmt.Println("closed message stream")
 	return nil
 }
 

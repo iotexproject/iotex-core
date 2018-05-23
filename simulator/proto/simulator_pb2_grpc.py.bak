@@ -19,10 +19,10 @@ class SimulatorStub(object):
         request_serializer=simulator__pb2.Request.SerializeToString,
         response_deserializer=simulator__pb2.Reply.FromString,
         )
-    self.Init = channel.unary_unary(
+    self.Init = channel.unary_stream(
         '/simulator.Simulator/Init',
         request_serializer=simulator__pb2.InitRequest.SerializeToString,
-        response_deserializer=simulator__pb2.Empty.FromString,
+        response_deserializer=simulator__pb2.Proposal.FromString,
         )
 
 
@@ -52,10 +52,10 @@ def add_SimulatorServicer_to_server(servicer, server):
           request_deserializer=simulator__pb2.Request.FromString,
           response_serializer=simulator__pb2.Reply.SerializeToString,
       ),
-      'Init': grpc.unary_unary_rpc_method_handler(
+      'Init': grpc.unary_stream_rpc_method_handler(
           servicer.Init,
           request_deserializer=simulator__pb2.InitRequest.FromString,
-          response_serializer=simulator__pb2.Empty.SerializeToString,
+          response_serializer=simulator__pb2.Proposal.SerializeToString,
       ),
   }
   generic_handler = grpc.method_handlers_generic_handler(

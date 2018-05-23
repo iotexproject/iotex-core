@@ -11,7 +11,7 @@ package simulator;
 // The simulator service definition.
 service Simulator {
   rpc Ping (Request)		returns (stream Reply) {}
-  rpc Init (InitRequest)	returns (Empty) {}
+  rpc Init (InitRequest)	returns (stream Proposal) {}
 }
 
 // The request message containing the playerID and the value of the message being fed into the consensus engine
@@ -29,6 +29,12 @@ message InitRequest {
 // The response message returning the output of the consensus engine
 message Reply {
   int32 messageType = 1;
+  uint32 internalMsgType = 2;
+  string value = 3;
+}
+
+message Proposal {
+  int32 playerID = 1;
   uint32 internalMsgType = 2;
   string value = 3;
 }

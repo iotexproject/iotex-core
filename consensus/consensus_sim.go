@@ -8,6 +8,7 @@ package consensus
 
 import (
 	"encoding/hex"
+	"fmt"
 
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
@@ -24,6 +25,9 @@ import (
 	"github.com/iotexproject/iotex-core/txpool"
 )
 
+var Init bool // Init is set to true if the simulator is in the process of initialization; the message type sent
+// back during Init phase is different because proposals happen spontaneously without prompting
+
 // ConsensusSim is the interface for handling consensus view change used in the simulator
 type ConsensusSim interface {
 	Start() error
@@ -31,13 +35,18 @@ type ConsensusSim interface {
 	HandleViewChange(proto.Message, chan bool) error
 	HandleBlockPropose(proto.Message, chan bool) error
 	SetStream(pb.Simulator_PingServer)
+	SetInitStream(pb.Simulator_InitServer)
+	SetDoneStream(chan bool)
+	SetID(int)
 }
 
 // consensus_sim struct with a stream parameter for writing to simulator stream
 type consensusSim struct {
-	cfg    *config.Consensus
-	scheme scheme.Scheme
-	stream pb.Simulator_PingServer
+	cfg        *config.Consensus
+	scheme     scheme.Scheme
+	stream     pb.Simulator_PingServer
+	initStream pb.Simulator_InitServer
+	ID         int
 }
 
 // NewConsensusSim creates a consensus_sim struct
@@ -98,12 +107,33 @@ func NewConsensusSim(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxP
 	return cs
 }
 
-func (c *consensusSim) sendMessage(messageType int, internalMsgType uint32, value string) {
-	if err := c.stream.Send(&pb.Reply{MessageType: int32(messageType), InternalMsgType: internalMsgType, Value: value}); err != nil {
-		glog.Error("Message cannot be sent through stream")
-	}
+func (c *consensusSim) SetID(ID int) {
+	c.ID = ID
 }
 
+func (c *consensusSim) sendMessage(messageType int, internalMsgType uint32, value string) {
+	if c.stream == nil {
+		fmt.Println("Stream is nil")
+	}
+
+	if Init {
+		fmt.Println("Sending init/proposal message")
+		if err := c.initStream.Send(&pb.Proposal{PlayerID: int32(c.ID), InternalMsgType: internalMsgType, Value: value}); err != nil {
+			glog.Error("Message cannot be sent through stream")
+		}
+	} else {
+		fmt.Println("Sending view state change message")
+		if err := c.stream.Send(&pb.Reply{MessageType: int32(messageType), InternalMsgType: internalMsgType, Value: value}); err != nil {
+			glog.Error("Message cannot be sent through stream")
+		}
+	}
+
+	fmt.Println("Successfully sent message")
+}
+
+func (c *consensusSim) SetInitStream(stream pb.Simulator_InitServer) {
+	c.initStream = stream
+}
 func (c *consensusSim) SetStream(stream pb.Simulator_PingServer) {
 	c.stream = stream
 }
@@ -128,6 +158,11 @@ func (c *consensusSim) HandleViewChange(m proto.Message, done chan bool) error {
 	c.scheme.SetDoneStream(done)
 
 	return err
+}
+
+// SetDoneStream takes in a boolean channel which will be filled when the consensus is done processing
+func (c *consensusSim) SetDoneStream(done chan bool) {
+	c.scheme.SetDoneStream(done)
 }
 
 // HandleBlockPropose handles a proposed block -- not used currently
