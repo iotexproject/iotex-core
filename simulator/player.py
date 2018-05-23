@@ -57,11 +57,9 @@ class Player:
             received = self.consensus.processMessage(msg)
             for mt, v in received:
                 if mt == 0: # view state change message
-                    outbound.append([v, timestamp])
+                    self.outbound.append([v, timestamp])
                 else: # block to be committed
-                    blockchain.append(v)
-
-            self.outbound += received
+                    self.blockchain.append(v)
             
         self.inbound = list(filter(lambda x: x[1] > heartbeat, self.inbound)) # get rid of processed messages
         

@@ -17,6 +17,7 @@ service Simulator {
 // The request message containing the playerID and the value of the message being fed into the consensus engine
 message Request {
   int32 playerID = 1;
+  uint32 internalMsgType = 2;
   string value = 3;
 }
 
@@ -28,7 +29,8 @@ message InitRequest {
 // The response message returning the output of the consensus engine
 message Reply {
   int32 messageType = 1;
-  string value = 2;
+  uint32 internalMsgType = 2;
+  string value = 3;
 }
 
 // an empty message

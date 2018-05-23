@@ -7,6 +7,8 @@
 package main
 
 import (
+	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"net"
@@ -22,6 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/delegate"
+	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/network"
 	pb "github.com/iotexproject/iotex-core/simulator/proto/simulator"
 	"github.com/iotexproject/iotex-core/txpool"
@@ -45,10 +48,18 @@ func (s *server) Init(ctx context.Context, in *pb.InitRequest) (*pb.Empty, error
 			glog.Error("Error loading config file")
 		}
 
-		cfg.Chain.ChainDBPath = "./chain" + strconv.Itoa(i) + ".db"
+		// create public/private key pair and address
+		chainID := make([]byte, 4)
+		binary.LittleEndian.PutUint32(chainID, uint32(i))
 
-		// set block reward to 0 for simplicity
-		blockchain.Gen.BlockReward = uint64(0)
+		addr, err := iotxaddress.NewAddress(true, chainID)
+
+		cfg.Chain.RawMinerAddr.PublicKey = hex.EncodeToString(addr.PublicKey)
+		cfg.Chain.RawMinerAddr.PrivateKey = hex.EncodeToString(addr.PrivateKey)
+		cfg.Chain.RawMinerAddr.RawAddress = addr.RawAddress
+
+		// set chain database path
+		cfg.Chain.ChainDBPath = "./chain" + strconv.Itoa(i) + ".db"
 
 		bc := blockchain.CreateBlockchain(cfg, blockchain.Gen)
 		tp := txpool.New(bc)
@@ -59,6 +70,10 @@ func (s *server) Init(ctx context.Context, in *pb.InitRequest) (*pb.Empty, error
 
 		node := consensus.NewConsensusSim(cfg, bc, tp, bs, dlg)
 
+		node.Start()
+
+		fmt.Printf("Node %d initialized and consensus engine started\n", i)
+
 		s.nodes = append(s.nodes, node)
 	}
 
@@ -68,7 +83,12 @@ func (s *server) Init(ctx context.Context, in *pb.InitRequest) (*pb.Empty, error
 
 // Ping implements simulator.SimulatorServer
 func (s *server) Ping(in *pb.Request, stream pb.Simulator_PingServer) error {
-	msg := consensus.UnserializeMsg(in.Value)
+	msgValue, err := hex.DecodeString(in.Value)
+	if err != nil {
+		glog.Error("Could not decode message value into byte array")
+	}
+
+	msg := consensus.CombineMsg(in.InternalMsgType, msgValue)
 	node := s.nodes[in.PlayerID]
 
 	done := make(chan bool)

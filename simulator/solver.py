@@ -11,6 +11,7 @@ import block
 import player
 import transaction
 import pbftconsensus
+import consensus_client
 
 import math
 import random
@@ -40,6 +41,8 @@ class Solver:
         print("==NETWORK CONNECTIONS==")
         for i in self.players:
             print("%s: %s" % (i, i.connections))
+
+        consensus_client.Consensus.initConsensus(self.N_PLAYERS)
 
     def connectNetwork(self):
         """Form the network of players through random assignment of connections"""
