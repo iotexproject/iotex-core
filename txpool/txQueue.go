@@ -32,7 +32,7 @@ func (h *noncePriorityQueue) Pop() interface{} {
 	return x
 }
 
-// TxQueue is the interface of txList
+// TxQueue is the interface of txQueue
 type TxQueue interface {
 	Overlaps(tx *trx.Tx) bool
 	Put(tx *trx.Tx) error
