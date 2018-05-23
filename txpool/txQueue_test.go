@@ -24,7 +24,6 @@ func TestNoncePriorityQueue(t *testing.T) {
 	heap.Push(&pq, uint64(1))
 	heap.Push(&pq, uint64(3))
 	heap.Push(&pq, uint64(2))
-
 	// Test Pop implementation
 	i := uint64(1)
 	for pq.Len() > 0 {
@@ -32,19 +31,15 @@ func TestNoncePriorityQueue(t *testing.T) {
 		assert.Equal(i, nonce)
 		i++
 	}
-
 	// Repush the four dummy nonce back to the queue
 	heap.Push(&pq, uint64(3))
 	heap.Push(&pq, uint64(2))
 	heap.Push(&pq, uint64(1))
-
 	// Test built-in Remove implementation
 	// Remove a random nonce from noncePriorityQueue
 	rand.Seed(time.Now().UnixNano())
 	heap.Remove(&pq, rand.Intn(pq.Len()))
-
 	t.Log("After randomly removing a dummy nonce, the remaining dummy nonces in the order of popped are as follows:")
-
 	for pq.Len() > 0 {
 		nonce := heap.Pop(&pq).(uint64)
 		t.Log(nonce)
@@ -121,18 +116,9 @@ func TestTxQueue_ConfirmedTxs(t *testing.T) {
 	q.Put(&tx3)
 	q.Put(&tx4)
 	q.Put(&tx5)
-	q.pendingNonce = 5
-	txs, nonce := q.ConfirmedTxs(false)
-	assert.Equal([]*trx.Tx{&tx1, &tx2, &tx3}, txs)
-	assert.Equal(uint64(5), nonce)
-	q.pendingNonce = 1
-	txs, nonce = q.ConfirmedTxs(false)
-	assert.Equal(0, len(txs))
-	assert.Equal(uint64(2), nonce)
 	q.confirmedNonce = 4
-	txs, nonce = q.ConfirmedTxs(true)
+	txs := q.ConfirmedTxs()
 	assert.Equal([]*trx.Tx{&tx1, &tx2}, txs)
-	assert.Equal(uint64(4), nonce)
 }
 
 func TestTxQueue_UpdateConfirmedNonce(t *testing.T) {
