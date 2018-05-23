@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"math/big"
 
+	trx "github.com/iotexproject/iotex-core/blockchain/trx"
 	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/proto"
@@ -28,12 +29,12 @@ type UtxoEntry struct {
 // UtxoTracker tracks the active UTXO pool
 type UtxoTracker struct {
 	currOutIndex int32 // newly created output index
-	utxoPool     map[common.Hash32B][]*TxOutput
+	utxoPool     map[common.Hash32B][]*trx.TxOutput
 }
 
 // NewUtxoTracker returns a UTXO tracker instance
 func NewUtxoTracker() *UtxoTracker {
-	return &UtxoTracker{0, map[common.Hash32B][]*TxOutput{}}
+	return &UtxoTracker{0, map[common.Hash32B][]*trx.TxOutput{}}
 }
 
 // UtxoEntries returns list of UTXO entries containing >= requested amount, and
@@ -49,7 +50,7 @@ found:
 	for hash, txOut := range tk.utxoPool {
 		for _, out := range txOut {
 			if out.IsLockedWithKey(key) {
-				utxo := UtxoEntry{out.TxOutputPb, hash, out.outIndex}
+				utxo := UtxoEntry{out.TxOutputPb, hash, out.OutIndex}
 				list = append(list, &utxo)
 				balance.Add(balance, tmp.SetUint64(out.Value))
 
@@ -69,13 +70,13 @@ found:
 }
 
 // CreateTxInputUtxo returns a UTXO transaction input
-func (tk *UtxoTracker) CreateTxInputUtxo(hash common.Hash32B, index int32, unlockScript []byte) *TxInput {
-	return NewTxInput(hash, index, unlockScript, 0)
+func (tk *UtxoTracker) CreateTxInputUtxo(hash common.Hash32B, index int32, unlockScript []byte) *trx.TxInput {
+	return trx.NewTxInput(hash, index, unlockScript, 0)
 }
 
 // CreateTxOutputUtxo creates transaction to spend UTXO
-func (tk *UtxoTracker) CreateTxOutputUtxo(address string, amount uint64) *TxOutput {
-	out := NewTxOutput(amount, tk.currOutIndex)
+func (tk *UtxoTracker) CreateTxOutputUtxo(address string, amount uint64) *trx.TxOutput {
+	out := trx.NewTxOutput(amount, tk.currOutIndex)
 	locks, err := txvm.PayToAddrScript(address)
 	if err != nil {
 		return nil
@@ -91,7 +92,7 @@ func (tk *UtxoTracker) CreateTxOutputUtxo(address string, amount uint64) *TxOutp
 
 // ValidateTxInputUtxo validates the UTXO in transaction input
 // return amount of UTXO if pass, 0 otherwise
-func (tk *UtxoTracker) ValidateTxInputUtxo(txIn *TxInput) uint64 {
+func (tk *UtxoTracker) ValidateTxInputUtxo(txIn *trx.TxInput) uint64 {
 	hash := common.ZeroHash32B
 	copy(hash[:], txIn.TxHash)
 	unspent, exist := tk.utxoPool[hash]
@@ -105,7 +106,7 @@ func (tk *UtxoTracker) ValidateTxInputUtxo(txIn *TxInput) uint64 {
 	// check transaction input, including unlock script can pass authentication
 
 	for _, utxo := range unspent {
-		if utxo.outIndex == txIn.OutIndex && txIn.UnlockSuccess(utxo.LockScript) {
+		if utxo.OutIndex == txIn.OutIndex && txIn.UnlockSuccess(utxo.LockScript) {
 			return utxo.Value
 		}
 	}
@@ -164,12 +165,12 @@ func (tk *UtxoTracker) UpdateUtxoPool(blk *Block) error {
 
 		// coinbase has 1 output which becomes UTXO
 		if tx.IsCoinbase() {
-			tk.utxoPool[txHash] = []*TxOutput{tx.TxOut[0]}
+			tk.utxoPool[txHash] = []*trx.TxOutput{tx.TxOut[0]}
 			continue
 		}
 
 		// add new TxOutput into pool
-		utxo := []*TxOutput{}
+		utxo := []*trx.TxOutput{}
 		for _, txOut := range tx.TxOut {
 			utxo = append(utxo, txOut)
 		}
@@ -186,9 +187,9 @@ func (tk *UtxoTracker) UpdateUtxoPool(blk *Block) error {
 				delete(tk.utxoPool, hash)
 			} else {
 				// remove this UTXO from the entry
-				newUnspent := []*TxOutput{}
+				newUnspent := []*trx.TxOutput{}
 				for _, entry := range unspent {
-					if entry.outIndex != txIn.OutIndex {
+					if entry.OutIndex != txIn.OutIndex {
 						newUnspent = append(newUnspent, entry)
 					}
 				}
@@ -197,11 +198,6 @@ func (tk *UtxoTracker) UpdateUtxoPool(blk *Block) error {
 		}
 	}
 
-	return nil
-}
-
-// ConvertToUtxoPb creates a protobuf's UTXO
-func (tx *Tx) ConvertToUtxoPb() *iproto.UtxoMapPb {
 	return nil
 }
 
@@ -216,16 +212,16 @@ func (tk *UtxoTracker) Deserialize(buf []byte) error {
 }
 
 // GetPool returns the UTXO pool
-func (tk *UtxoTracker) GetPool() map[common.Hash32B][]*TxOutput {
+func (tk *UtxoTracker) GetPool() map[common.Hash32B][]*trx.TxOutput {
 	return tk.utxoPool
 }
 
 // AddTx is called by TxPool to add a transaction
-func (tk *UtxoTracker) AddTx(tx *Tx, height uint32) {
+func (tk *UtxoTracker) AddTx(tx *trx.Tx, height uint32) {
 	hash := tx.Hash()
 	outputs, exists := tk.utxoPool[hash]
 	if !exists {
-		outputs = []*TxOutput{}
+		outputs = []*trx.TxOutput{}
 	}
 	for _, out := range tx.TxOut {
 		// check script lock

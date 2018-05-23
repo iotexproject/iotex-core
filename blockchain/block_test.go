@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/crypto/blake2b"
 
+	trx "github.com/iotexproject/iotex-core/blockchain/trx"
 	"github.com/iotexproject/iotex-core/common"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 )
@@ -41,15 +42,15 @@ func TestMerkle(t *testing.T) {
 
 	amount := uint64(50 << 22)
 	// create testing transactions
-	cbtx0 := NewCoinbaseTx(ta.Addrinfo["miner"].RawAddress, amount, testCoinbaseData)
+	cbtx0 := trx.NewCoinbaseTx(ta.Addrinfo["miner"].RawAddress, amount, testCoinbaseData)
 	assert.NotNil(cbtx0)
-	cbtx1 := NewCoinbaseTx(ta.Addrinfo["alfa"].RawAddress, amount, testCoinbaseData)
+	cbtx1 := trx.NewCoinbaseTx(ta.Addrinfo["alfa"].RawAddress, amount, testCoinbaseData)
 	assert.NotNil(cbtx1)
-	cbtx2 := NewCoinbaseTx(ta.Addrinfo["bravo"].RawAddress, amount, testCoinbaseData)
+	cbtx2 := trx.NewCoinbaseTx(ta.Addrinfo["bravo"].RawAddress, amount, testCoinbaseData)
 	assert.NotNil(cbtx2)
-	cbtx3 := NewCoinbaseTx(ta.Addrinfo["charlie"].RawAddress, amount, testCoinbaseData)
+	cbtx3 := trx.NewCoinbaseTx(ta.Addrinfo["charlie"].RawAddress, amount, testCoinbaseData)
 	assert.NotNil(cbtx3)
-	cbtx4 := NewCoinbaseTx(ta.Addrinfo["echo"].RawAddress, amount, testCoinbaseData)
+	cbtx4 := trx.NewCoinbaseTx(ta.Addrinfo["echo"].RawAddress, amount, testCoinbaseData)
 	assert.NotNil(cbtx4)
 
 	// verify tx hash
@@ -104,7 +105,7 @@ func TestMerkle(t *testing.T) {
 	t.Logf("hash07 = %x", hash07)
 
 	// create block using above 5 tx and verify merkle
-	block := NewBlock(0, 0, common.ZeroHash32B, []*Tx{cbtx0, cbtx1, cbtx2, cbtx3, cbtx4})
+	block := NewBlock(0, 0, common.ZeroHash32B, []*trx.Tx{cbtx0, cbtx1, cbtx2, cbtx3, cbtx4})
 	hash := block.TxRoot()
 	assert.Equal(hash07[:], hash[:])
 	t.Log("Merkle root match pass\n")

@@ -14,6 +14,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"golang.org/x/crypto/blake2b"
 
+	. "github.com/iotexproject/iotex-core/blockchain/trx"
 	"github.com/iotexproject/iotex-core/common"
 	cp "github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/proto"
@@ -23,6 +24,12 @@ const (
 	// Version of blockchain protocol
 	Version = 1
 )
+
+// Payee defines the struct of payee
+type Payee struct {
+	Address string
+	Amount  uint64
+}
 
 // BlockHeader defines the struct of block header
 // make sure the variable type and order of this struct is same as "BlockHeaderPb" in blockchain.pb.go

@@ -17,6 +17,7 @@ import (
 	"github.com/golang/glog"
 
 	"github.com/iotexproject/iotex-core/blockchain"
+	trx "github.com/iotexproject/iotex-core/blockchain/trx"
 	"github.com/iotexproject/iotex-core/common"
 )
 
@@ -40,7 +41,7 @@ type Tag uint64
 
 // TxDesc contains Transaction with misc
 type TxDesc struct {
-	Tx          *blockchain.Tx
+	Tx          *trx.Tx
 	AddedTime   time.Time
 	BlockHeight uint64
 	Fee         int64
@@ -51,7 +52,7 @@ type TxDesc struct {
 
 type orphanTx struct {
 	Tag            Tag
-	Tx             *blockchain.Tx
+	Tx             *trx.Tx
 	ExpirationTime time.Time
 }
 
@@ -62,7 +63,7 @@ type TxSourcePointer struct {
 }
 
 // NewTxSourcePointer creates a new TxSourcePointer given TxInput
-func NewTxSourcePointer(in *blockchain.TxInput) TxSourcePointer {
+func NewTxSourcePointer(in *trx.TxInput) TxSourcePointer {
 	hash := common.ZeroHash32B
 	copy(hash[:], in.TxHash)
 	return TxSourcePointer{
@@ -74,7 +75,7 @@ func NewTxSourcePointer(in *blockchain.TxInput) TxSourcePointer {
 // TxPool is a pool of received txs
 type TxPool interface {
 	// RemoveOrphanTx remove an orphan transaction, but not its descendants
-	RemoveOrphanTx(tx *blockchain.Tx)
+	RemoveOrphanTx(tx *trx.Tx)
 	// RemoveOrphanTxsByTag remove all the orphan transactions with tag
 	RemoveOrphanTxsByTag(tag Tag) uint64
 	// HasOrphanTx check whether hash is an orphan transaction in the pool
@@ -82,21 +83,21 @@ type TxPool interface {
 	// HasTxOrOrphanTx check whether hash is an accepted or orphan transaction in the pool
 	HasTxOrOrphanTx(hash common.Hash32B) bool
 	// RemoveTx remove an accepted transaction
-	RemoveTx(tx *blockchain.Tx, removeDescendants bool, updateTxDescPriorityQueue bool)
+	RemoveTx(tx *trx.Tx, removeDescendants bool, updateTxDescPriorityQueue bool)
 	// RemoveDoubleSpends remove the double spending transaction
-	RemoveDoubleSpends(tx *blockchain.Tx)
+	RemoveDoubleSpends(tx *trx.Tx)
 	// FetchTx fetch accepted transaction from the pool
-	FetchTx(hash *common.Hash32B) (*blockchain.Tx, error)
+	FetchTx(hash *common.Hash32B) (*trx.Tx, error)
 	// MaybeAcceptTx add Tx into pool if it could be accepted
-	MaybeAcceptTx(tx *blockchain.Tx, isNew bool, rateLimit bool) ([]common.Hash32B, *TxDesc, error)
+	MaybeAcceptTx(tx *trx.Tx, isNew bool, rateLimit bool) ([]common.Hash32B, *TxDesc, error)
 	// ProcessOrphanTxs process the orphan txs depending on the accepted tx
-	ProcessOrphanTxs(acceptedTx *blockchain.Tx) []*TxDesc
+	ProcessOrphanTxs(acceptedTx *trx.Tx) []*TxDesc
 	// ProcessTx process the tx
-	ProcessTx(tx *blockchain.Tx, allowOrphan bool, rateLimit bool, tag Tag) ([]*TxDesc, error)
+	ProcessTx(tx *trx.Tx, allowOrphan bool, rateLimit bool, tag Tag) ([]*TxDesc, error)
 	// TxDescs return all the transaction descs
 	TxDescs() []*TxDesc
 	// PickTxs return transactions to be committed to a block
-	PickTxs() []*blockchain.Tx
+	PickTxs() []*trx.Tx
 	// RemoveTxInBlock remove all transactions in a block
 	RemoveTxInBlock(block *blockchain.Block) error
 	// LastTimePoolUpdated get the last time the pool got updated
@@ -113,9 +114,9 @@ type txPool struct {
 	txDescs                map[common.Hash32B]*TxDesc
 	txDescPriorityQueue    txDescPriorityQueue
 	orphanTxs              map[common.Hash32B]*orphanTx
-	orphanTxSourcePointers map[TxSourcePointer]map[common.Hash32B]*blockchain.Tx
-	txSourcePointers       map[TxSourcePointer]*blockchain.Tx
-	tags                   map[Tag]map[common.Hash32B]*blockchain.Tx
+	orphanTxSourcePointers map[TxSourcePointer]map[common.Hash32B]*trx.Tx
+	txSourcePointers       map[TxSourcePointer]*trx.Tx
+	tags                   map[Tag]map[common.Hash32B]*trx.Tx
 	nextExpirationScanTime time.Time
 }
 
@@ -123,16 +124,16 @@ type txPool struct {
 func New(bc blockchain.Blockchain) TxPool {
 	return &txPool{
 		bc:                     bc,
-		tags:                   make(map[Tag]map[common.Hash32B]*blockchain.Tx),
+		tags:                   make(map[Tag]map[common.Hash32B]*trx.Tx),
 		txDescs:                make(map[common.Hash32B]*TxDesc),
-		txSourcePointers:       make(map[TxSourcePointer]*blockchain.Tx),
+		txSourcePointers:       make(map[TxSourcePointer]*trx.Tx),
 		orphanTxs:              make(map[common.Hash32B]*orphanTx),
-		orphanTxSourcePointers: make(map[TxSourcePointer]map[common.Hash32B]*blockchain.Tx),
+		orphanTxSourcePointers: make(map[TxSourcePointer]map[common.Hash32B]*trx.Tx),
 	}
 }
 
 // remove an orphan transaction, and all the descendant orphan transactions if removeDescendants is true
-func (tp *txPool) removeOrphanTx(tx *blockchain.Tx, removeDescendants bool) {
+func (tp *txPool) removeOrphanTx(tx *trx.Tx, removeDescendants bool) {
 	hash := tx.Hash()
 	orphanTx, ok := tp.orphanTxs[hash]
 	if !ok {
@@ -177,7 +178,7 @@ func (tp *txPool) removeOrphanTx(tx *blockchain.Tx, removeDescendants bool) {
 }
 
 // RemoveOrphanTx Remove an orphan transaction, but not its descendants
-func (tp *txPool) RemoveOrphanTx(tx *blockchain.Tx) {
+func (tp *txPool) RemoveOrphanTx(tx *trx.Tx) {
 	tp.mutex.Lock()
 	tp.removeOrphanTx(tx, false)
 	tp.mutex.Unlock()
@@ -235,36 +236,36 @@ func (tp *txPool) emptyASpaceForNewOrphanTx() error {
 	return nil
 }
 
-func (tp *txPool) addOrphanTx(tx *blockchain.Tx, tag Tag) {
+func (tp *txPool) addOrphanTx(tnx *trx.Tx, tag Tag) {
 	if maxOrphanTxNum <= 0 {
 		return
 	}
 
 	tp.deleteExpiredOrphanTxs()
 	tp.emptyASpaceForNewOrphanTx()
-	hash := tx.Hash()
+	hash := tnx.Hash()
 	tp.orphanTxs[hash] = &orphanTx{
 		tag,
-		tx,
+		tnx,
 		time.Now().Add(orphanTxTTL),
 	}
 	if enableTagIndex {
 		if _, ok := tp.tags[tag]; !ok {
-			tp.tags[tag] = make(map[common.Hash32B]*blockchain.Tx)
+			tp.tags[tag] = make(map[common.Hash32B]*trx.Tx)
 		}
-		tp.tags[tag][hash] = tx
+		tp.tags[tag][hash] = tnx
 	}
-	for _, txIn := range tx.TxIn {
+	for _, txIn := range tnx.TxIn {
 		txSourcePointer := NewTxSourcePointer(txIn)
 		if _, ok := tp.orphanTxSourcePointers[txSourcePointer]; !ok {
-			tp.orphanTxSourcePointers[txSourcePointer] = make(map[common.Hash32B]*blockchain.Tx)
+			tp.orphanTxSourcePointers[txSourcePointer] = make(map[common.Hash32B]*trx.Tx)
 		}
-		tp.orphanTxSourcePointers[txSourcePointer][hash] = tx
+		tp.orphanTxSourcePointers[txSourcePointer][hash] = tnx
 	}
 	glog.Info("Add orphan tx %x to pool", hash)
 }
 
-func (tp *txPool) maybeAddOrphanTx(tx *blockchain.Tx, tag Tag) error {
+func (tp *txPool) maybeAddOrphanTx(tx *trx.Tx, tag Tag) error {
 	serialize, error := tx.Serialize()
 	if error != nil {
 		return error
@@ -277,7 +278,7 @@ func (tp *txPool) maybeAddOrphanTx(tx *blockchain.Tx, tag Tag) error {
 	return nil
 }
 
-func (tp *txPool) removeOrphanTxDoubleSpends(tx *blockchain.Tx) {
+func (tp *txPool) removeOrphanTxDoubleSpends(tx *trx.Tx) {
 	for _, txIn := range tx.TxIn {
 		for _, orphanTx := range tp.orphanTxSourcePointers[NewTxSourcePointer(txIn)] {
 			tp.removeOrphanTx(orphanTx, true)
@@ -332,7 +333,7 @@ func (tp *txPool) setLastUpdateUnixTime() {
 	atomic.StoreInt64(&tp.lastUpdatedUnixTime, time.Now().Unix())
 }
 
-func (tp *txPool) removeTx(tx *blockchain.Tx, removeDescendants bool, updateTxDescPriorityQueue bool) {
+func (tp *txPool) removeTx(tx *trx.Tx, removeDescendants bool, updateTxDescPriorityQueue bool) {
 	hash := tx.Hash()
 	if removeDescendants {
 		txSourcePointer := TxSourcePointer{Hash: hash}
@@ -361,14 +362,14 @@ func (tp *txPool) removeTx(tx *blockchain.Tx, removeDescendants bool, updateTxDe
 }
 
 // RemoveTx removes tx from the pool
-func (tp *txPool) RemoveTx(tx *blockchain.Tx, removeDescendants bool, updateTxDescPriorityQueue bool) {
+func (tp *txPool) RemoveTx(tx *trx.Tx, removeDescendants bool, updateTxDescPriorityQueue bool) {
 	tp.mutex.Lock()
 	tp.removeTx(tx, removeDescendants, updateTxDescPriorityQueue)
 	tp.mutex.Unlock()
 }
 
 // RemoveDoubleSpends removes all transactions which share source pointers with input tx
-func (tp *txPool) RemoveDoubleSpends(tx *blockchain.Tx) {
+func (tp *txPool) RemoveDoubleSpends(tx *trx.Tx) {
 	tp.mutex.Lock()
 	hash := tx.Hash()
 	for _, txIn := range tx.TxIn {
@@ -382,7 +383,7 @@ func (tp *txPool) RemoveDoubleSpends(tx *blockchain.Tx) {
 	tp.mutex.Unlock()
 }
 
-func (tp *txPool) addTx(utxoTracker *blockchain.UtxoTracker, tx *blockchain.Tx, height uint64, fee int64) *TxDesc {
+func (tp *txPool) addTx(utxoTracker *blockchain.UtxoTracker, tx *trx.Tx, height uint64, fee int64) *TxDesc {
 	serialize, err := tx.Serialize()
 	if err != nil {
 		return nil
@@ -406,7 +407,7 @@ func (tp *txPool) addTx(utxoTracker *blockchain.UtxoTracker, tx *blockchain.Tx, 
 }
 
 // Check whether any of tx's inputs have been spent by other transactions
-func (tp *txPool) checkPoolDoubleSpend(tx *blockchain.Tx) error {
+func (tp *txPool) checkPoolDoubleSpend(tx *trx.Tx) error {
 	for _, txIn := range tx.TxIn {
 		txSourcePointer := NewTxSourcePointer(txIn)
 		if txSpend, ok := tp.txSourcePointers[txSourcePointer]; ok {
@@ -418,11 +419,11 @@ func (tp *txPool) checkPoolDoubleSpend(tx *blockchain.Tx) error {
 }
 
 // IsFullySpent Check whether the output txs have been fully spent
-func IsFullySpent(outputs []*blockchain.TxOutput) bool {
+func IsFullySpent(outputs []*trx.TxOutput) bool {
 	return false
 }
 
-func (tp *txPool) fetchInputUtxos(tx *blockchain.Tx) (*blockchain.UtxoTracker, error) {
+func (tp *txPool) fetchInputUtxos(tx *trx.Tx) (*blockchain.UtxoTracker, error) {
 	utxoTracker := blockchain.NewUtxoTracker()
 	utxoPool := tp.bc.UtxoPool()
 	for _, txIn := range tx.TxIn {
@@ -446,7 +447,7 @@ func (tp *txPool) fetchInputUtxos(tx *blockchain.Tx) (*blockchain.UtxoTracker, e
 }
 
 // FetchTx gets the tx with the given hash
-func (tp *txPool) FetchTx(hash *common.Hash32B) (*blockchain.Tx, error) {
+func (tp *txPool) FetchTx(hash *common.Hash32B) (*trx.Tx, error) {
 	tp.mutex.RLock()
 	desc, ok := tp.txDescs[*hash]
 	tp.mutex.RUnlock()
@@ -461,7 +462,7 @@ func calculateMinFee(size uint32) int64 {
 	return 0
 }
 
-func (tp *txPool) maybeAcceptTx(tx *blockchain.Tx, isNew bool, rateLimit bool, rejectDuplicateOrphanTxs bool) ([]common.Hash32B, *TxDesc, error) {
+func (tp *txPool) maybeAcceptTx(tx *trx.Tx, isNew bool, rateLimit bool, rejectDuplicateOrphanTxs bool) ([]common.Hash32B, *TxDesc, error) {
 	hash := tx.Hash()
 	if tp.hasTx(hash) || (rejectDuplicateOrphanTxs && tp.hasOrphanTx(hash)) {
 		return nil, nil, fmt.Errorf("duplicate transaction")
@@ -518,7 +519,7 @@ func (tp *txPool) maybeAcceptTx(tx *blockchain.Tx, isNew bool, rateLimit bool, r
 }
 
 // MaybeAcceptTx Add Tx into pool if it will be accepted
-func (tp *txPool) MaybeAcceptTx(tx *blockchain.Tx, isNew bool, rateLimit bool) ([]common.Hash32B, *TxDesc, error) {
+func (tp *txPool) MaybeAcceptTx(tx *trx.Tx, isNew bool, rateLimit bool) ([]common.Hash32B, *TxDesc, error) {
 	tp.mutex.Lock()
 	hashes, desc, error := tp.maybeAcceptTx(tx, isNew, rateLimit, true)
 	tp.mutex.Unlock()
@@ -526,14 +527,14 @@ func (tp *txPool) MaybeAcceptTx(tx *blockchain.Tx, isNew bool, rateLimit bool) (
 	return hashes, desc, error
 }
 
-func (tp *txPool) processOrphanTxs(acceptedTx *blockchain.Tx) []*TxDesc {
+func (tp *txPool) processOrphanTxs(acceptedTx *trx.Tx) []*TxDesc {
 	var acceptedTxDescs []*TxDesc
 	processList := list.New()
 	processList.PushBack(acceptedTx)
 	// remove all descendants
 	for processList.Len() > 0 {
 		firstElement := processList.Remove(processList.Front())
-		item := firstElement.(*blockchain.Tx)
+		item := firstElement.(*trx.Tx)
 		txSourcePointer := TxSourcePointer{Hash: item.Hash()}
 		for idx := range item.TxOut {
 			txSourcePointer.Index = int32(idx)
@@ -572,7 +573,7 @@ func (tp *txPool) processOrphanTxs(acceptedTx *blockchain.Tx) []*TxDesc {
 }
 
 // ProcessOrphanTxs Go through all the orphan txs, and process the ones depending on the accepted tx
-func (tp *txPool) ProcessOrphanTxs(acceptedTx *blockchain.Tx) []*TxDesc {
+func (tp *txPool) ProcessOrphanTxs(acceptedTx *trx.Tx) []*TxDesc {
 	tp.mutex.Lock()
 	acceptedTxDescs := tp.processOrphanTxs(acceptedTx)
 	tp.mutex.Unlock()
@@ -581,7 +582,7 @@ func (tp *txPool) ProcessOrphanTxs(acceptedTx *blockchain.Tx) []*TxDesc {
 }
 
 // ProcessTx Process the tx as accepted or orphan
-func (tp *txPool) ProcessTx(tx *blockchain.Tx, allowOrphan bool, rateLimit bool, tag Tag) ([]*TxDesc, error) {
+func (tp *txPool) ProcessTx(tx *trx.Tx, allowOrphan bool, rateLimit bool, tag Tag) ([]*TxDesc, error) {
 	// Protect concurrent access.
 	tp.mutex.Lock()
 	defer tp.mutex.Unlock()
@@ -641,11 +642,11 @@ func (tp *txPool) TxDescs() []*TxDesc {
 }
 
 // PickTxs returns the list of txs to be committed to a block
-func (tp *txPool) PickTxs() []*blockchain.Tx {
+func (tp *txPool) PickTxs() []*trx.Tx {
 	tp.mutex.RLock()
 	tp.updateTxDescPriority()
 	PqDeletionWL = map[common.Hash32B]*TxDesc{}
-	txs := []*blockchain.Tx{}
+	txs := []*trx.Tx{}
 	curSize := uint32(0)
 	for len(tp.txDescPriorityQueue) > 0 {
 		tx := tp.txDescPriorityQueue[0].Tx

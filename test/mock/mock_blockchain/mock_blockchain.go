@@ -7,6 +7,7 @@ package mock_blockchain
 import (
 	gomock "github.com/golang/mock/gomock"
 	blockchain "github.com/iotexproject/iotex-core/blockchain"
+	trx "github.com/iotexproject/iotex-core/blockchain/trx"
 	common "github.com/iotexproject/iotex-core/common"
 	iotxaddress "github.com/iotexproject/iotex-core/iotxaddress"
 	big "math/big"
@@ -151,7 +152,7 @@ func (mr *MockBlockchainMockRecorder) TipHeight() *gomock.Call {
 }
 
 // MintNewBlock mocks base method
-func (m *MockBlockchain) MintNewBlock(arg0 []*blockchain.Tx, arg1 *iotxaddress.Address, arg2 string) (*blockchain.Block, error) {
+func (m *MockBlockchain) MintNewBlock(arg0 []*trx.Tx, arg1 *iotxaddress.Address, arg2 string) (*blockchain.Block, error) {
 	ret := m.ctrl.Call(m, "MintNewBlock", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*blockchain.Block)
 	ret1, _ := ret[1].(error)
@@ -200,9 +201,9 @@ func (mr *MockBlockchainMockRecorder) BalanceOf(arg0 interface{}) *gomock.Call {
 }
 
 // CreateTransaction mocks base method
-func (m *MockBlockchain) CreateTransaction(from *iotxaddress.Address, amount uint64, to []*blockchain.Payee) *blockchain.Tx {
+func (m *MockBlockchain) CreateTransaction(from *iotxaddress.Address, amount uint64, to []*blockchain.Payee) *trx.Tx {
 	ret := m.ctrl.Call(m, "CreateTransaction", from, amount, to)
-	ret0, _ := ret[0].(*blockchain.Tx)
+	ret0, _ := ret[0].(*trx.Tx)
 	return ret0
 }
 
@@ -212,9 +213,9 @@ func (mr *MockBlockchainMockRecorder) CreateTransaction(from, amount, to interfa
 }
 
 // CreateRawTransaction mocks base method
-func (m *MockBlockchain) CreateRawTransaction(from *iotxaddress.Address, amount uint64, to []*blockchain.Payee) *blockchain.Tx {
+func (m *MockBlockchain) CreateRawTransaction(from *iotxaddress.Address, amount uint64, to []*blockchain.Payee) *trx.Tx {
 	ret := m.ctrl.Call(m, "CreateRawTransaction", from, amount, to)
-	ret0, _ := ret[0].(*blockchain.Tx)
+	ret0, _ := ret[0].(*trx.Tx)
 	return ret0
 }
 
@@ -246,9 +247,9 @@ func (mr *MockBlockchainMockRecorder) ResetUTXO() *gomock.Call {
 }
 
 // UtxoPool mocks base method
-func (m *MockBlockchain) UtxoPool() map[common.Hash32B][]*blockchain.TxOutput {
+func (m *MockBlockchain) UtxoPool() map[common.Hash32B][]*trx.TxOutput {
 	ret := m.ctrl.Call(m, "UtxoPool")
-	ret0, _ := ret[0].(map[common.Hash32B][]*blockchain.TxOutput)
+	ret0, _ := ret[0].(map[common.Hash32B][]*trx.TxOutput)
 	return ret0
 }
 

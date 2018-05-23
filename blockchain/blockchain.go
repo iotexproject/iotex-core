@@ -15,6 +15,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/pkg/errors"
 
+	trx "github.com/iotexproject/iotex-core/blockchain/trx"
 	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/common/service"
 	"github.com/iotexproject/iotex-core/config"
@@ -43,7 +44,7 @@ type Blockchain interface {
 	// MintNewBlock creates a new block with given transactions
 	// Note: the coinbase transaction will be added to the given transactions
 	// when minting a new block.
-	MintNewBlock([]*Tx, *iotxaddress.Address, string) (*Block, error)
+	MintNewBlock([]*trx.Tx, *iotxaddress.Address, string) (*Block, error)
 	// AddBlockCommit adds a new block into blockchain
 	AddBlockCommit(blk *Block) error
 	// AddBlockSync adds a past block into blockchain
@@ -52,9 +53,9 @@ type Blockchain interface {
 	// BalanceOf returns the balance of a given address
 	BalanceOf(string) *big.Int
 	// CreateTransaction creates a signed transaction paying 'amount' from 'from' to 'to'
-	CreateTransaction(from *iotxaddress.Address, amount uint64, to []*Payee) *Tx
+	CreateTransaction(from *iotxaddress.Address, amount uint64, to []*Payee) *trx.Tx
 	// CreateRawTransaction creates a signed transaction paying 'amount' from 'from' to 'to'
-	CreateRawTransaction(from *iotxaddress.Address, amount uint64, to []*Payee) *Tx
+	CreateRawTransaction(from *iotxaddress.Address, amount uint64, to []*Payee) *trx.Tx
 	// ValidateBlock validates a new block before adding it to the blockchain
 	ValidateBlock(blk *Block) error
 
@@ -62,7 +63,7 @@ type Blockchain interface {
 	// Reset resets UTXO
 	ResetUTXO()
 	// UtxoPool returns the UTXO pool of current blockchain
-	UtxoPool() map[common.Hash32B][]*TxOutput
+	UtxoPool() map[common.Hash32B][]*trx.TxOutput
 }
 
 // blockchain implements the Blockchain interface
@@ -221,8 +222,8 @@ func (bc *blockchain) ValidateBlock(blk *Block) error {
 // MintNewBlock creates a new block with given transactions.
 // Note: the coinbase transaction will be added to the given transactions
 // when minting a new block.
-func (bc *blockchain) MintNewBlock(txs []*Tx, producer *iotxaddress.Address, data string) (*Block, error) {
-	cbTx := NewCoinbaseTx(producer.RawAddress, bc.genesis.BlockReward, data)
+func (bc *blockchain) MintNewBlock(txs []*trx.Tx, producer *iotxaddress.Address, data string) (*Block, error) {
+	cbTx := trx.NewCoinbaseTx(producer.RawAddress, bc.genesis.BlockReward, data)
 	if cbTx == nil {
 		errMsg := "Cannot create coinbase transaction"
 		glog.Error(errMsg)
@@ -319,19 +320,19 @@ func (bc *blockchain) BalanceOf(address string) *big.Int {
 }
 
 // UtxoPool returns the UTXO pool of current blockchain
-func (bc *blockchain) UtxoPool() map[common.Hash32B][]*TxOutput {
+func (bc *blockchain) UtxoPool() map[common.Hash32B][]*trx.TxOutput {
 	return bc.utk.utxoPool
 }
 
 // createTx creates a transaction paying 'amount' from 'from' to 'to'
-func (bc *blockchain) createTx(from *iotxaddress.Address, amount uint64, to []*Payee, isRaw bool) *Tx {
+func (bc *blockchain) createTx(from *iotxaddress.Address, amount uint64, to []*Payee, isRaw bool) *trx.Tx {
 	utxo, change := bc.utk.UtxoEntries(from.RawAddress, amount)
 	if utxo == nil {
 		glog.Errorf("Fail to get UTXO for %v", from.RawAddress)
 		return nil
 	}
 
-	in := []*TxInput{}
+	in := []*trx.TxInput{}
 	for _, out := range utxo {
 		unlock := []byte(out.TxOutputPb.String())
 		if !isRaw {
@@ -345,7 +346,7 @@ func (bc *blockchain) createTx(from *iotxaddress.Address, amount uint64, to []*P
 		in = append(in, bc.utk.CreateTxInputUtxo(out.txHash, out.outIndex, unlock))
 	}
 
-	out := []*TxOutput{}
+	out := []*trx.TxOutput{}
 	for _, payee := range to {
 		out = append(out, bc.utk.CreateTxOutputUtxo(payee.Address, payee.Amount))
 	}
@@ -354,27 +355,27 @@ func (bc *blockchain) createTx(from *iotxaddress.Address, amount uint64, to []*P
 	}
 
 	// Sort TxInput in lexicographical order based on TxHash + OutIndex
-	sort.Sort(txInSorter(in))
+	sort.Sort(trx.TxInSorter(in))
 
 	// Sort TxOutput in lexicographical order based on Value + LockScript and reset OutIndex
-	sort.Sort(txOutSorter(out))
+	sort.Sort(trx.TxOutSorter(out))
 	resetOutIndex(out)
 
-	return NewTx(in, out, 0)
+	return trx.NewTx(in, out, 0)
 }
 
 // CreateTransaction creates a signed transaction paying 'amount' from 'from' to 'to'
-func (bc *blockchain) CreateTransaction(from *iotxaddress.Address, amount uint64, to []*Payee) *Tx {
+func (bc *blockchain) CreateTransaction(from *iotxaddress.Address, amount uint64, to []*Payee) *trx.Tx {
 	return bc.createTx(from, amount, to, false)
 }
 
 // CreateRawTransaction creates a unsigned transaction paying 'amount' from 'from' to 'to'
-func (bc *blockchain) CreateRawTransaction(from *iotxaddress.Address, amount uint64, to []*Payee) *Tx {
+func (bc *blockchain) CreateRawTransaction(from *iotxaddress.Address, amount uint64, to []*Payee) *trx.Tx {
 	return bc.createTx(from, amount, to, true)
 }
 
-func resetOutIndex(out []*TxOutput) {
+func resetOutIndex(out []*trx.TxOutput) {
 	for i := 0; i < len(out); i++ {
-		out[i].outIndex = int32(i)
+		out[i].OutIndex = int32(i)
 	}
 }

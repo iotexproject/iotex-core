@@ -14,7 +14,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotexproject/iotex-core/blockchain"
+	trx "github.com/iotexproject/iotex-core/blockchain/trx"
 )
 
 func TestNoncePriorityQueue(t *testing.T) {
@@ -55,18 +55,18 @@ func TestNoncePriorityQueue(t *testing.T) {
 func TestTxList_Put(t *testing.T) {
 	assert := assert.New(t)
 	q := NewTxQueue()
-	tx1 := blockchain.Tx{Nonce: uint64(2), Amount: big.NewInt(10)}
+	tx1 := trx.Tx{Nonce: uint64(2), Amount: big.NewInt(10)}
 	q.Put(&tx1)
 	assert.Equal(uint64(2), q.index[0])
 	assert.NotNil(q.items[tx1.Nonce])
-	tx2 := blockchain.Tx{Nonce: uint64(1), Amount: big.NewInt(100)}
+	tx2 := trx.Tx{Nonce: uint64(1), Amount: big.NewInt(100)}
 	q.Put(&tx2)
 	assert.Equal(uint64(1), heap.Pop(&q.index))
 	assert.Equal(&tx2, q.items[uint64(1)])
 	assert.Equal(uint64(2), heap.Pop(&q.index))
 	assert.Equal(&tx1, q.items[uint64(2)])
 	// tx3 is a replacement transaction
-	tx3 := blockchain.Tx{Nonce: uint64(1), Amount: big.NewInt(1000)}
+	tx3 := trx.Tx{Nonce: uint64(1), Amount: big.NewInt(1000)}
 	err := q.Put(&tx3)
 	assert.NotNil(err)
 }
@@ -74,9 +74,9 @@ func TestTxList_Put(t *testing.T) {
 func TestTxList_FilterNonce(t *testing.T) {
 	assert := assert.New(t)
 	q := NewTxQueue()
-	tx1 := blockchain.Tx{Nonce: uint64(1), Amount: big.NewInt(1)}
-	tx2 := blockchain.Tx{Nonce: uint64(2), Amount: big.NewInt(100)}
-	tx3 := blockchain.Tx{Nonce: uint64(3), Amount: big.NewInt(1000)}
+	tx1 := trx.Tx{Nonce: uint64(1), Amount: big.NewInt(1)}
+	tx2 := trx.Tx{Nonce: uint64(2), Amount: big.NewInt(100)}
+	tx3 := trx.Tx{Nonce: uint64(3), Amount: big.NewInt(1000)}
 	q.Put(&tx1)
 	q.Put(&tx2)
 	q.Put(&tx3)
@@ -89,11 +89,11 @@ func TestTxList_FilterNonce(t *testing.T) {
 func TestTxList_UpdatedPendingNonce(t *testing.T) {
 	assert := assert.New(t)
 	q := NewTxQueue()
-	tx1 := blockchain.Tx{Nonce: uint64(1), Amount: big.NewInt(1)}
-	tx2 := blockchain.Tx{Nonce: uint64(3), Amount: big.NewInt(1000)}
-	tx3 := blockchain.Tx{Nonce: uint64(4), Amount: big.NewInt(10000)}
-	tx4 := blockchain.Tx{Nonce: uint64(6), Amount: big.NewInt(100000)}
-	tx5 := blockchain.Tx{Nonce: uint64(2), Amount: big.NewInt(100)}
+	tx1 := trx.Tx{Nonce: uint64(1), Amount: big.NewInt(1)}
+	tx2 := trx.Tx{Nonce: uint64(3), Amount: big.NewInt(1000)}
+	tx3 := trx.Tx{Nonce: uint64(4), Amount: big.NewInt(10000)}
+	tx4 := trx.Tx{Nonce: uint64(6), Amount: big.NewInt(100000)}
+	tx5 := trx.Tx{Nonce: uint64(2), Amount: big.NewInt(100)}
 	q.Put(&tx1)
 	q.Put(&tx2)
 	q.Put(&tx3)
@@ -107,11 +107,11 @@ func TestTxList_UpdatedPendingNonce(t *testing.T) {
 func TestTxList_AcceptedTxs(t *testing.T) {
 	assert := assert.New(t)
 	q := NewTxQueue()
-	tx1 := blockchain.Tx{Nonce: uint64(2), Amount: big.NewInt(1)}
-	tx2 := blockchain.Tx{Nonce: uint64(3), Amount: big.NewInt(100)}
-	tx3 := blockchain.Tx{Nonce: uint64(4), Amount: big.NewInt(1000)}
-	tx4 := blockchain.Tx{Nonce: uint64(6), Amount: big.NewInt(10000)}
-	tx5 := blockchain.Tx{Nonce: uint64(7), Amount: big.NewInt(100000)}
+	tx1 := trx.Tx{Nonce: uint64(2), Amount: big.NewInt(1)}
+	tx2 := trx.Tx{Nonce: uint64(3), Amount: big.NewInt(100)}
+	tx3 := trx.Tx{Nonce: uint64(4), Amount: big.NewInt(1000)}
+	tx4 := trx.Tx{Nonce: uint64(6), Amount: big.NewInt(10000)}
+	tx5 := trx.Tx{Nonce: uint64(7), Amount: big.NewInt(100000)}
 	q.Put(&tx1)
 	q.Put(&tx2)
 	q.Put(&tx3)
@@ -119,7 +119,7 @@ func TestTxList_AcceptedTxs(t *testing.T) {
 	q.Put(&tx5)
 	q.pendingNonce = 5
 	txs := q.AcceptedTxs()
-	assert.Equal([]*blockchain.Tx{&tx1, &tx2, &tx3}, txs)
+	assert.Equal([]*trx.Tx{&tx1, &tx2, &tx3}, txs)
 	q.pendingNonce = 1
 	txs = q.AcceptedTxs()
 	assert.Equal(0, len(txs))

@@ -16,6 +16,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/blockchain"
+	trx "github.com/iotexproject/iotex-core/blockchain/trx"
 	"github.com/iotexproject/iotex-core/blocksync"
 	cm "github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/config"
@@ -157,7 +158,7 @@ loop:
 
 // handleTxMsg handles txMsg from all peers.
 func (d *dispatcher) handleTxMsg(m *txMsg) {
-	tx := &blockchain.Tx{}
+	tx := &trx.Tx{}
 	tx.ConvertFromTxPb(m.tx)
 	glog.Infof("receive txMsg, hash = %x", tx.Hash())
 

@@ -14,6 +14,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	trx "github.com/iotexproject/iotex-core/blockchain/trx"
 	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/config"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
@@ -39,7 +40,7 @@ func addTestingBlocks(bc Blockchain) error {
 	if tx == nil {
 		return errors.New("empty tx for block 1")
 	}
-	blk, err := bc.MintNewBlock([]*Tx{tx}, ta.Addrinfo["miner"], "")
+	blk, err := bc.MintNewBlock([]*trx.Tx{tx}, ta.Addrinfo["miner"], "")
 	if err != nil {
 		return err
 	}
@@ -57,7 +58,7 @@ func addTestingBlocks(bc Blockchain) error {
 	payee = append(payee, &Payee{ta.Addrinfo["delta"].RawAddress, 1})
 	payee = append(payee, &Payee{ta.Addrinfo["miner"].RawAddress, 1})
 	tx = bc.CreateTransaction(ta.Addrinfo["charlie"], 5, payee)
-	blk, err = bc.MintNewBlock([]*Tx{tx}, ta.Addrinfo["miner"], "")
+	blk, err = bc.MintNewBlock([]*trx.Tx{tx}, ta.Addrinfo["miner"], "")
 	if err != nil {
 		return err
 	}
@@ -72,7 +73,7 @@ func addTestingBlocks(bc Blockchain) error {
 	payee[1] = &Payee{ta.Addrinfo["echo"].RawAddress, 1}
 	payee[2] = &Payee{ta.Addrinfo["foxtrot"].RawAddress, 1}
 	tx = bc.CreateTransaction(ta.Addrinfo["delta"], 4, payee)
-	blk, err = bc.MintNewBlock([]*Tx{tx}, ta.Addrinfo["miner"], "")
+	blk, err = bc.MintNewBlock([]*trx.Tx{tx}, ta.Addrinfo["miner"], "")
 	if err != nil {
 		return err
 	}
@@ -91,7 +92,7 @@ func addTestingBlocks(bc Blockchain) error {
 	payee = append(payee, &Payee{ta.Addrinfo["foxtrot"].RawAddress, 2})
 	payee = append(payee, &Payee{ta.Addrinfo["miner"].RawAddress, 2})
 	tx = bc.CreateTransaction(ta.Addrinfo["echo"], 12, payee)
-	blk, err = bc.MintNewBlock([]*Tx{tx}, ta.Addrinfo["miner"], "")
+	blk, err = bc.MintNewBlock([]*trx.Tx{tx}, ta.Addrinfo["miner"], "")
 	if err != nil {
 		return err
 	}
@@ -246,17 +247,17 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	fmt.Printf("Current tip = %d hash = %x\n", h, hash)
 
 	// add block with wrong height
-	cbTx := NewCoinbaseTx(ta.Addrinfo["bravo"].RawAddress, 50, testCoinbaseData)
+	cbTx := trx.NewCoinbaseTx(ta.Addrinfo["bravo"].RawAddress, 50, testCoinbaseData)
 	assert.NotNil(cbTx)
-	blk = NewBlock(0, h+2, hash, []*Tx{cbTx})
+	blk = NewBlock(0, h+2, hash, []*trx.Tx{cbTx})
 	err = bc.ValidateBlock(blk)
 	assert.NotNil(err)
 	fmt.Printf("Cannot validate block %d: %v\n", blk.Height(), err)
 
 	// add block with zero prev hash
-	cbTx = NewCoinbaseTx(ta.Addrinfo["bravo"].RawAddress, 50, testCoinbaseData)
+	cbTx = trx.NewCoinbaseTx(ta.Addrinfo["bravo"].RawAddress, 50, testCoinbaseData)
 	assert.NotNil(cbTx)
-	blk = NewBlock(0, h+1, common.ZeroHash32B, []*Tx{cbTx})
+	blk = NewBlock(0, h+1, common.ZeroHash32B, []*trx.Tx{cbTx})
 	err = bc.ValidateBlock(blk)
 	assert.NotNil(err)
 	fmt.Printf("Cannot validate block %d: %v\n", blk.Height(), err)
@@ -281,7 +282,7 @@ func TestEmptyBlockOnlyHasCoinbaseTx(t *testing.T) {
 	defer bc.Stop()
 	assert.NotNil(t, bc)
 
-	blk, err := bc.MintNewBlock([]*Tx{}, ta.Addrinfo["miner"], "")
+	blk, err := bc.MintNewBlock([]*trx.Tx{}, ta.Addrinfo["miner"], "")
 	assert.Nil(t, err)
 	assert.Equal(t, uint64(1), blk.Height())
 	assert.Equal(t, 1, len(blk.Tranxs))

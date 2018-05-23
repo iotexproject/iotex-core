@@ -4,25 +4,25 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package blockchain
+package transaction
 
 import (
 	"bytes"
 )
 
-type txInSorter []*TxInput
-type txOutSorter []*TxOutput
+type TxInSorter []*TxInput
+type TxOutSorter []*TxOutput
 
 // Sort Interface implementation for *TxInput slice
-func (sorter txInSorter) Len() int {
+func (sorter TxInSorter) Len() int {
 	return len(sorter)
 }
 
-func (sorter txInSorter) Swap(i, j int) {
+func (sorter TxInSorter) Swap(i, j int) {
 	sorter[i], sorter[j] = sorter[j], sorter[i]
 }
 
-func (sorter txInSorter) Less(i, j int) bool {
+func (sorter TxInSorter) Less(i, j int) bool {
 	if cmp := bytes.Compare(sorter[i].TxHash, sorter[j].TxHash); cmp != 0 {
 		return cmp == -1
 	}
@@ -30,15 +30,15 @@ func (sorter txInSorter) Less(i, j int) bool {
 }
 
 // Sort Interface implementation for *TxOuput slice
-func (sorter txOutSorter) Len() int {
+func (sorter TxOutSorter) Len() int {
 	return len(sorter)
 }
 
-func (sorter txOutSorter) Swap(i, j int) {
+func (sorter TxOutSorter) Swap(i, j int) {
 	sorter[i], sorter[j] = sorter[j], sorter[i]
 }
 
-func (sorter txOutSorter) Less(i, j int) bool {
+func (sorter TxOutSorter) Less(i, j int) bool {
 	if sorter[i].Value != sorter[j].Value {
 		return sorter[i].Value < sorter[j].Value
 	}
