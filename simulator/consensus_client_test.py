@@ -31,7 +31,5 @@ def run():
     for i in response:
         print(i)
 
-
-
 if __name__ == '__main__':
     run()
