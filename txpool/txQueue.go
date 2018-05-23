@@ -34,15 +34,16 @@ func (h *noncePriorityQueue) Pop() interface{} {
 
 // TxQueue is the interface of txQueue
 type TxQueue interface {
-	Overlaps(tx *trx.Tx) bool
-	Put(tx *trx.Tx) error
-	FilterNonce(threshold uint64) []*trx.Tx
-	UpdatedPendingNonce(nonce uint64, updateConfirmedNonce bool) uint64
+	Overlaps(*trx.Tx) bool
+	Put(*trx.Tx) error
+	FilterNonce(uint64) []*trx.Tx
+	UpdatedPendingNonce(uint64, bool) uint64
+	SetConfirmedNonce(uint64)
 	ConfirmedNonce() uint64
-	SetPendingBalance(balance *big.Int)
+	SetPendingBalance(*big.Int)
 	Len() int
 	Empty() bool
-	ConfirmedTxs(committedToBlock bool) ([]*trx.Tx, uint64)
+	ConfirmedTxs() []*trx.Tx
 	UpdateConfirmedNonce()
 }
 
@@ -85,7 +86,6 @@ func (q *txQueue) Put(tx *trx.Tx) error {
 // FilterNonce removes all transactions from the map with a nonce lower than the given threshold
 func (q *txQueue) FilterNonce(threshold uint64) []*trx.Tx {
 	var removed []*trx.Tx
-
 	// Pop off priority queue and delete corresponding entries from map until the threshold is reached
 	for q.index.Len() > 0 && (q.index)[0] < threshold {
 		nonce := heap.Pop(&q.index).(uint64)
@@ -106,6 +106,11 @@ func (q *txQueue) UpdatedPendingNonce(nonce uint64, updateConfirmedNonce bool) u
 	}
 	q.pendingNonce = nonce
 	return nonce
+}
+
+// SetConfirmedNonce sets the new confirmed nonce for the queue
+func (q *txQueue) SetConfirmedNonce(nonce uint64) {
+	q.confirmedNonce = nonce
 }
 
 // ConfirmedNonce returns the current confirmed nonce for the queue
@@ -129,24 +134,21 @@ func (q *txQueue) Empty() bool {
 }
 
 // ConfirmedTxs creates a consecutive nonce-sorted slice of transactions
-func (q *txQueue) ConfirmedTxs(committedToBlock bool) ([]*trx.Tx, uint64) {
+func (q *txQueue) ConfirmedTxs() []*trx.Tx {
 	txs := make([]*trx.Tx, 0, len(q.items))
-	var threshold uint64
-	if committedToBlock {
-		threshold = q.confirmedNonce
-	} else {
-		threshold = q.pendingNonce
-	}
 	nonce := q.index[0]
-	for q.items[nonce] != nil && nonce < threshold {
+	for q.items[nonce] != nil && nonce < q.confirmedNonce {
 		txs = append(txs, q.items[nonce])
 		nonce++
 	}
-	return txs, nonce
+	return txs
 }
 
 // UpdateConfirmedNonce updates confirmed nonce for the queue
 func (q *txQueue) UpdateConfirmedNonce() {
+	if q.index[0] < q.confirmedNonce {
+		q.confirmedNonce = q.index[0]
+	}
 	for q.items[q.confirmedNonce] != nil {
 		if q.pendingBalance.Cmp(q.items[q.confirmedNonce].Amount) < 0 {
 			break

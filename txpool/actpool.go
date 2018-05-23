@@ -64,23 +64,20 @@ func NewActPool(trie trie.Trie) ActPool {
 	return ap
 }
 
+// Reset resets actpool state
+// Step I: remove all the transactions in actpool that have already been committed to block
+// Step II: update pending balance of each account if it still exists in pool
+// Step III: update pending nonce and confirmed nonce in each account if it still exists in pool
+// Specifically, first synchronize old confirmed nonce with committed nonce in order to prevent omitting reevaluation of
+// uncommitted but confirmed Txs in pool after update of pending balance
+// Then starting from the current committed nonce, iteratively update pending nonce if nonces are consecutive as well as
+// confirmed nonce if pending balance is sufficient
 func (ap *actPool) Reset() {
 	ap.mutex.Lock()
 	defer ap.mutex.Unlock()
 	// Remove committed transactions in actpool
 	ap.removeCommittedTxs()
-	// Reset pending nonce for each account
-	for addrHash, queue := range ap.accountTxs {
-		txs, nonce := queue.ConfirmedTxs(false)
-		if len(txs) == 0 {
-			continue
-		}
-		if err := ap.pendingSF.SetNonce(hashToAddr[addrHash], nonce); err != nil {
-			glog.Errorf("Error when resetting actPool state: %v\n", err)
-			return
-		}
-	}
-	// Reset pending balance and confirmed nonce for each account
+	// Reset pending balance for each account
 	for addrHash, queue := range ap.accountTxs {
 		balance, err := ap.pendingSF.Balance(hashToAddr[addrHash])
 		if err != nil {
@@ -88,7 +85,21 @@ func (ap *actPool) Reset() {
 			return
 		}
 		queue.SetPendingBalance(balance)
-		queue.UpdateConfirmedNonce()
+	}
+	// Reset confirmed nonce and pending nonce for each account
+	for addrHash, queue := range ap.accountTxs {
+		from := hashToAddr[addrHash]
+		committedNonce, err := ap.pendingSF.Nonce(from)
+		if err != nil {
+			glog.Errorf("Error when resetting Tx: %v\n", err)
+			return
+		}
+		queue.SetConfirmedNonce(committedNonce)
+		newPendingNonce := queue.UpdatedPendingNonce(committedNonce, true)
+		if err := ap.pendingSF.SetNonce(from, newPendingNonce); err != nil {
+			glog.Errorf("Error when resetting actPool state: %v\n", err)
+			return
+		}
 	}
 }
 
@@ -99,8 +110,7 @@ func (ap *actPool) PickTxs() (map[common.Hash32B][]*trx.Tx, error) {
 
 	pending := make(map[common.Hash32B][]*trx.Tx)
 	for addrHash, queue := range ap.accountTxs {
-		txs, _ := queue.ConfirmedTxs(true)
-		pending[addrHash] = txs
+		pending[addrHash] = queue.ConfirmedTxs()
 	}
 	return pending, nil
 }
@@ -111,7 +121,6 @@ func (ap *actPool) validateTx(tx *trx.Tx) error {
 	if tx.TotalSize() > 32*1024 {
 		return errors.Wrapf(ErrActPool, "oversized data")
 	}
-
 	// Reject transaction of negative amount
 	if tx.Amount.Sign() < 0 {
 		return errors.Wrapf(ErrBalance, "negative value")
@@ -122,7 +131,6 @@ func (ap *actPool) validateTx(tx *trx.Tx) error {
 		glog.Errorf("Error when validating Tx: %v\n", err)
 		return err
 	}
-
 	// Reject transaction if nonce is too low
 	nonce, err := ap.pendingSF.Nonce(from)
 	if err != nil {
@@ -132,7 +140,6 @@ func (ap *actPool) validateTx(tx *trx.Tx) error {
 	if nonce > tx.Nonce {
 		return errors.Wrapf(ErrNonce, "nonce too low")
 	}
-
 	return nil
 }
 
@@ -165,7 +172,8 @@ func (ap *actPool) AddTx(tx *trx.Tx) error {
 	queue := ap.accountTxs[addrHash]
 
 	if queue == nil {
-		ap.accountTxs[addrHash] = NewTxQueue()
+		queue = NewTxQueue()
+		ap.accountTxs[addrHash] = queue
 		hashToAddr[addrHash] = from
 	}
 
@@ -181,7 +189,6 @@ func (ap *actPool) AddTx(tx *trx.Tx) error {
 	}
 	queue.Put(tx)
 	ap.allTxs[hash] = tx
-
 	// If the pending nonce equals this nonce, update pending nonce
 	nonce, err := ap.pendingSF.Nonce(from)
 	if err != nil {
@@ -205,19 +212,17 @@ func (ap *actPool) removeCommittedTxs() {
 	ap.mutex.Lock()
 	defer ap.mutex.Unlock()
 	for addrHash, queue := range ap.accountTxs {
-		nonce, err := ap.pendingSF.Nonce(hashToAddr[addrHash])
+		committedNonce, err := ap.pendingSF.Nonce(hashToAddr[addrHash])
 		if err != nil {
 			glog.Errorf("Error when removing committed Txs: %v\n", err)
 			return
 		}
-
 		// Remove all transactions that are committed to new block
-		for _, tx := range queue.FilterNonce(nonce) {
+		for _, tx := range queue.FilterNonce(committedNonce) {
 			hash := tx.Hash()
 			glog.Info("Removed committed transaction", "hash", hash)
 			delete(ap.allTxs, hash)
 		}
-
 		// Delete the queue entry if it becomes empty
 		if queue.Empty() {
 			delete(ap.accountTxs, addrHash)
