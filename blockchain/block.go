@@ -14,7 +14,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"golang.org/x/crypto/blake2b"
 
-	. "github.com/iotexproject/iotex-core/blockchain/trx"
+	trx "github.com/iotexproject/iotex-core/blockchain/trx"
 	"github.com/iotexproject/iotex-core/common"
 	cp "github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/proto"
@@ -49,12 +49,12 @@ type BlockHeader struct {
 // Block defines the struct of block
 type Block struct {
 	Header *BlockHeader
-	Tranxs []*Tx
+	Tranxs []*trx.Tx
 	Votes  []*iproto.VotePb
 }
 
 // NewBlock returns a new block
-func NewBlock(chainID uint32, height uint64, prevBlockHash common.Hash32B, transactions []*Tx) *Block {
+func NewBlock(chainID uint32, height uint64, prevBlockHash common.Hash32B, transactions []*trx.Tx) *Block {
 	block := &Block{
 		Header: &BlockHeader{Version, chainID, height, uint64(time.Now().Unix()),
 			prevBlockHash, common.ZeroHash32B, common.ZeroHash32B,
@@ -190,10 +190,10 @@ func (b *Block) ConvertFromBlockPb(pbBlock *iproto.BlockPb) {
 	for _, action := range pbBlock.Actions {
 		if txPb := action.GetTx(); txPb != nil {
 			if !hasTrnx {
-				b.Tranxs = []*Tx{}
+				b.Tranxs = []*trx.Tx{}
 				hasTrnx = true
 			}
-			tx := Tx{}
+			tx := trx.Tx{}
 			tx.ConvertFromTxPb(txPb)
 			b.Tranxs = append(b.Tranxs, &tx)
 			continue

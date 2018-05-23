@@ -34,40 +34,52 @@ func (m *MockTrie) EXPECT() *MockTrieMockRecorder {
 }
 
 // Upsert mocks base method
-func (m *MockTrie) Upsert(key, value []byte) error {
-	ret := m.ctrl.Call(m, "Upsert", key, value)
+func (m *MockTrie) Upsert(arg0, arg1 []byte) error {
+	ret := m.ctrl.Call(m, "Upsert", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Upsert indicates an expected call of Upsert
-func (mr *MockTrieMockRecorder) Upsert(key, value interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Upsert", reflect.TypeOf((*MockTrie)(nil).Upsert), key, value)
+func (mr *MockTrieMockRecorder) Upsert(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Upsert", reflect.TypeOf((*MockTrie)(nil).Upsert), arg0, arg1)
 }
 
 // Get mocks base method
-func (m *MockTrie) Get(key []byte) ([]byte, error) {
-	ret := m.ctrl.Call(m, "Get", key)
+func (m *MockTrie) Get(arg0 []byte) ([]byte, error) {
+	ret := m.ctrl.Call(m, "Get", arg0)
 	ret0, _ := ret[0].([]byte)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Get indicates an expected call of Get
-func (mr *MockTrieMockRecorder) Get(key interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockTrie)(nil).Get), key)
+func (mr *MockTrieMockRecorder) Get(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockTrie)(nil).Get), arg0)
 }
 
 // Delete mocks base method
-func (m *MockTrie) Delete(key []byte) error {
-	ret := m.ctrl.Call(m, "Delete", key)
+func (m *MockTrie) Delete(arg0 []byte) error {
+	ret := m.ctrl.Call(m, "Delete", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Delete indicates an expected call of Delete
-func (mr *MockTrieMockRecorder) Delete(key interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockTrie)(nil).Delete), key)
+func (mr *MockTrieMockRecorder) Delete(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockTrie)(nil).Delete), arg0)
+}
+
+// Commit mocks base method
+func (m *MockTrie) Commit(arg0, arg1 [][]byte) error {
+	ret := m.ctrl.Call(m, "Commit", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Commit indicates an expected call of Commit
+func (mr *MockTrieMockRecorder) Commit(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockTrie)(nil).Commit), arg0, arg1)
 }
 
 // Close mocks base method

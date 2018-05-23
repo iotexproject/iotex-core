@@ -127,11 +127,9 @@ func (bc *blockchain) Start() (err error) {
 		}
 		if blk != nil {
 			bc.utk.UpdateUtxoPool(blk)
-			if bc.sf != nil {
-				for _, tx := range blk.Tranxs {
-					if err := bc.sf.UpdateStateWithTransfer(tx.SenderPublicKey, tx.Amount, tx.Recipient); err != nil {
-						return err
-					}
+			if bc.sf != nil && blk.Tranxs != nil {
+				if err := bc.sf.UpdateStatesWithTransfer(blk.Tranxs); err != nil {
+					return err
 				}
 			}
 		}
@@ -152,11 +150,9 @@ func (bc *blockchain) commitBlock(blk *Block) error {
 
 	// update UTXO or state factory
 	bc.utk.UpdateUtxoPool(blk)
-	if bc.sf != nil {
-		for _, tx := range blk.Tranxs {
-			if err := bc.sf.UpdateStateWithTransfer(tx.SenderPublicKey, tx.Amount, tx.Recipient); err != nil {
-				return err
-			}
+	if bc.sf != nil && blk.Tranxs != nil {
+		if err := bc.sf.UpdateStatesWithTransfer(blk.Tranxs); err != nil {
+			return err
 		}
 	}
 	return nil

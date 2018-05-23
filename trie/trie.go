@@ -35,11 +35,12 @@ var (
 type (
 	// Trie is the interface of Merkle Patricia Trie
 	Trie interface {
-		Upsert(key, value []byte) error // insert a new entry
-		Get(key []byte) ([]byte, error) // retrieve an existing entry
-		Delete(key []byte) error        // delete an entry
-		Close() error                   // close the trie DB
-		RootHash() common.Hash32B       // returns trie's root hash
+		Upsert([]byte, []byte) error     // insert a new entry
+		Get([]byte) ([]byte, error)      // retrieve an existing entry
+		Delete([]byte) error             // delete an entry
+		Commit([][]byte, [][]byte) error // commit the state changes in a batch
+		Close() error                    // close the trie DB
+		RootHash() common.Hash32B        // returns trie's root hash
 	}
 
 	// trie implements the Trie interface
@@ -203,6 +204,11 @@ func (t *trie) Delete(key []byte) error {
 	}
 	// update upstream nodes on path ascending to root
 	return t.updateDelete(ptr, childClps, clpsType)
+}
+
+// Commit writes an array <k[], v[]> as a batch
+func (t *trie) Commit(k, v [][]byte) error {
+	return t.dao.BatchPut(t.bucket, k, v)
 }
 
 // RootHash returns the root hash of merkle patricia trie
