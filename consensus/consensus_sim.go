@@ -7,19 +7,19 @@
 package consensus
 
 import (
-	"bytes"
-	"encoding/gob"
+	"encoding/hex"
 
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 
-	"encoding/hex"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/consensus/scheme/rdpos"
 	"github.com/iotexproject/iotex-core/delegate"
+	"github.com/iotexproject/iotex-core/proto"
+	pb1 "github.com/iotexproject/iotex-core/proto"
 	pb "github.com/iotexproject/iotex-core/simulator/proto/simulator"
 	"github.com/iotexproject/iotex-core/txpool"
 )
@@ -42,8 +42,13 @@ type consensusSim struct {
 
 // NewConsensusSim creates a consensus_sim struct
 func NewConsensusSim(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxPool, bs blocksync.BlockSync, dlg delegate.Pool) ConsensusSim {
-	if bc == nil || bs == nil {
-		glog.Error("Try to attach to chain or bs == nil")
+	if bc == nil {
+		glog.Error("Blockchain is nil")
+		return nil
+	}
+
+	if bs == nil {
+		glog.Error("Blocksync is nil")
 		return nil
 	}
 
@@ -60,8 +65,10 @@ func NewConsensusSim(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxP
 
 	// broadcast a message across the P2P network
 	tellBlockCB := func(msg proto.Message) error {
-		s := SerializeMsg(msg)
-		cs.sendMessage(0, s)
+		msgType, msgBody := SeparateMsg(msg)
+		msgBodyS := hex.EncodeToString(msgBody)
+
+		cs.sendMessage(0, msgType, msgBodyS)
 
 		return nil
 	}
@@ -70,7 +77,7 @@ func NewConsensusSim(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxP
 	commitBlockCB := func(blk *blockchain.Block) error {
 		hash := [32]byte(blk.HashBlock())
 		s := hex.EncodeToString(hash[:])
-		cs.sendMessage(1, s)
+		cs.sendMessage(1, 0, s)
 
 		return bc.AddBlockCommit(blk)
 	}
@@ -78,8 +85,10 @@ func NewConsensusSim(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxP
 	// broadcast a block across the P2P network
 	broadcastBlockCB := func(blk *blockchain.Block) error {
 		if blkPb := blk.ConvertToBlockPb(); blkPb != nil {
-			s := SerializeMsg(blkPb)
-			cs.sendMessage(0, s)
+			msgType, msgBody := SeparateMsg(blkPb)
+			msgBodyS := hex.EncodeToString(msgBody)
+
+			cs.sendMessage(0, msgType, msgBodyS)
 		}
 		return nil
 	}
@@ -89,8 +98,8 @@ func NewConsensusSim(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxP
 	return cs
 }
 
-func (c *consensusSim) sendMessage(messageType int, value string) {
-	if err := c.stream.Send(&pb.Reply{MessageType: int32(messageType), Value: value}); err != nil {
+func (c *consensusSim) sendMessage(messageType int, internalMsgType uint32, value string) {
+	if err := c.stream.Send(&pb.Reply{MessageType: int32(messageType), InternalMsgType: internalMsgType, Value: value}); err != nil {
 		glog.Error("Message cannot be sent through stream")
 	}
 }
@@ -126,28 +135,30 @@ func (c *consensusSim) HandleBlockPropose(m proto.Message, done chan bool) error
 	return nil
 }
 
-// SerializeMsg serializes a proto.Message to a string
-func SerializeMsg(m proto.Message) string {
-	var b bytes.Buffer
-	e := gob.NewEncoder(&b)
-	if err := e.Encode(m); err != nil {
-		glog.Error("Message cannot be serialized")
+// SeparateMsg separates a proto.Message into its msgType and msgBody
+func SeparateMsg(m proto.Message) (uint32, []byte) {
+	msgType, err := iproto.GetTypeFromProtoMsg(m)
+
+	if err != nil {
+		glog.Error("Cannot retrieve message type from message")
 	}
-	return b.String()
+
+	msgBody, err := proto.Marshal(m)
+
+	if err != nil {
+		glog.Error("Cannot retrieve message body from message")
+	}
+
+	return msgType, msgBody
 }
 
-// UnserializeMsg converts a serialized string to a proto.Message
-func UnserializeMsg(s string) proto.Message {
-	var m proto.Message
+// CombineMsg combines a msgType and msgBody into a single proto.Message
+func CombineMsg(msgType uint32, msgBody []byte) proto.Message {
+	protoMsg, err := pb1.TypifyProtoMsg(msgType, msgBody)
 
-	var b bytes.Buffer
-	b.WriteString(s)
-
-	d := gob.NewDecoder(&b)
-
-	if err := d.Decode(&m); err != nil {
-		glog.Error("Received message cannot be unserialized")
+	if err != nil {
+		glog.Error("Could not combine msgType and msgBody into a proto.Message object")
 	}
 
-	return m
+	return protoMsg
 }
