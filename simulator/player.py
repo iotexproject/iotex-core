@@ -37,12 +37,13 @@ class Player:
 
         self.stake = stake  # the number of tokens the player has staked in the system
 
-        self.blockchain  = None # blockchain
+        self.blockchain  = []   # blockchain (technically a blocklist)
         self.connections = []   # list of connected players
         self.inbound     = []   # inbound messages from other players in the network at heartbeat r
         self.outbound    = []   # outbound messages to other players in the network at heartbeat r
 
-        self.consensus = pbftconsensus.PBFTConsensus()
+        self.consensus = consensus_client.Consensus()
+        self.consensus.playerID = self.id
 
     def action(self, heartbeat):
         """Executes the player's actions for heartbeat r"""
@@ -54,11 +55,12 @@ class Player:
             if VERBOSE: print("received %s" % msg)
 
             received = self.consensus.processMessage(msg)
-            received = zip(received, [timestamp]*len(received))
+            for mt, v in received:
+                if mt == 0: # view state change message
+                    outbound.append([v, timestamp])
+                else: # block to be committed
+                    blockchain.append(v)
 
-            response = self.stub.Ping(simulator_pb2.Request(playerID=1, senderID=9, messageType=4, value="asdf"))
-            for i in response: print(i)
-            
             self.outbound += received
             
         self.inbound = list(filter(lambda x: x[1] > heartbeat, self.inbound)) # get rid of processed messages

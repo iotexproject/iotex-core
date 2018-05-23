@@ -16,7 +16,17 @@ class Consensus:
         self.channel = grpc.insecure_channel('localhost:50051')
         self.stub = simulator_pb2_grpc.SimulatorStub(self.channel)
 
-    def processMessage(self, playerID, value):
-        response = stub.Ping(simulator_pb2.Request(playerID=playerID,
+    @staticmethod
+    def initConsensus(self, nPlayers):
+        """Sends a request to initialize n consensus schemes on the consensus server"""
+        stub.Init(simulator_pb2.InitRequest(nPlayers=nPlayers))
+
+    def processMessage(self, value):
+        print("sent %s to consensus engine", value) 
+        response = stub.Ping(simulator_pb2.Request(playerID=self.playerID,
                                                    value=value))
+        print("received %s from consensus engine", response)
+
+        response = [[r.messageType, r.value] for r in response]
+
         return response
