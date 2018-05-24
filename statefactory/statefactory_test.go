@@ -51,7 +51,7 @@ func TestCreateState(t *testing.T) {
 	trie.EXPECT().Upsert(gomock.Any(), gomock.Any()).Times(1)
 	addr, err := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
 	assert.Nil(t, err)
-	state, _ := sf.CreateState(addr)
+	state, _ := sf.CreateState(addr, 0)
 	assert.Equal(t, uint64(0x0), state.Nonce)
 	assert.Equal(t, big.NewInt(0), state.Balance)
 	assert.Equal(t, addr.RawAddress, state.Address.RawAddress)

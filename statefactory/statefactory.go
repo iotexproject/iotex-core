@@ -49,7 +49,7 @@ type (
 
 	// StateFactory defines an interface for managing states
 	StateFactory interface {
-		CreateState(*iotxaddress.Address) (*State, error)
+		CreateState(*iotxaddress.Address, uint64) (*State, error)
 		Balance(*iotxaddress.Address) (*big.Int, error)
 		UpdateStatesWithTransfer([]*trx.Tx) error
 		SetNonce(*iotxaddress.Address, uint64) error
@@ -91,9 +91,11 @@ func (sf *stateFactory) RootHash() common.Hash32B {
 	return sf.trie.RootHash()
 }
 
-// CreateState adds a new State with zero balance to the factory
-func (sf *stateFactory) CreateState(addr *iotxaddress.Address) (*State, error) {
-	s := State{Address: addr, Balance: big.NewInt(0)}
+// CreateState adds a new State with initial balance to the factory
+func (sf *stateFactory) CreateState(addr *iotxaddress.Address, init uint64) (*State, error) {
+	balance := big.NewInt(0)
+	balance.SetUint64(init)
+	s := State{Address: addr, Balance: balance}
 	mstate, err := stateToBytes(&s)
 	if err != nil {
 		return nil, err
@@ -131,7 +133,7 @@ func (sf *stateFactory) UpdateStatesWithTransfer(txs []*trx.Tx) error {
 		receiver, err := sf.getState(tx.Recipient)
 		switch {
 		case err == ErrAccountNotExist:
-			if _, e := sf.CreateState(tx.Recipient); e != nil {
+			if _, e := sf.CreateState(tx.Recipient, 0); e != nil {
 				return e
 			}
 		case err != nil:
@@ -240,6 +242,28 @@ func NewVirtualStateFactory(trie trie.Trie) StateFactory {
 	return &virtualStateFactory{trie: trie, changes: make(map[hashedAddress]*State)}
 }
 
+func (vs *virtualStateFactory) CreateState(addr *iotxaddress.Address, init uint64) (*State, error) {
+	balance := big.NewInt(0)
+	balance.SetUint64(init)
+	s := State{Address: addr, Balance: balance}
+	mstate, err := stateToBytes(&s)
+	if err != nil {
+		return nil, err
+	}
+	if err := vs.trie.Upsert(iotxaddress.HashPubKey(addr.PublicKey), mstate); err != nil {
+		return nil, err
+	}
+	return &s, nil
+}
+
+func (vs *virtualStateFactory) Balance(addr *iotxaddress.Address) (*big.Int, error) {
+	state, err := vs.getState(addr)
+	if err != nil {
+		return nil, err
+	}
+	return state.Balance, nil
+}
+
 // Nonce returns the nonce if the account exists
 func (vs *virtualStateFactory) Nonce(addr *iotxaddress.Address) (uint64, error) {
 	vs.mu.Lock()
@@ -280,16 +304,6 @@ func (vs *virtualStateFactory) SetNonce(addr *iotxaddress.Address, value uint64)
 	vs.changes[key] = state
 	vs.changes[key].Nonce = value
 	return nil
-}
-
-func (vs *virtualStateFactory) Balance(addr *iotxaddress.Address) (*big.Int, error) {
-	// TODO
-	return nil, nil
-}
-
-func (vs *virtualStateFactory) CreateState(addr *iotxaddress.Address) (*State, error) {
-	// TODO
-	return nil, nil
 }
 
 func (vs *virtualStateFactory) UpdateStatesWithTransfer([]*trx.Tx) error {
