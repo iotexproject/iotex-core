@@ -48,9 +48,11 @@ class Solver:
 
         # adds initial block proposals to players' outbound queue
         for id, v in response:
-            assert players[i].id == id, "player id does not match array position"
+            assert self.players[id].id == id, "player id does not match array position" # make sure player at index id has id id
 
-            players[i].outbound.append([v, timestamp])
+            self.players[id].outbound.append([v, timestamp])
+
+            print("added %s to player %d" % (v, id))
 
     def connectNetwork(self):
         """Form the network of players through random assignment of connections"""

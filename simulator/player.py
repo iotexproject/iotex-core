@@ -48,11 +48,14 @@ class Player:
     def action(self, heartbeat):
         """Executes the player's actions for heartbeat r"""
 
+        print("players %d action started" % self.id)
+
         for msg, timestamp in self.inbound:
+            # note: msg is a tuple: (msgType, msgBody)
             if timestamp > heartbeat:
-                if VERBOSE: print("received %s but timestamp > heartbeat" % msg)
+                if VERBOSE: print("received %s but timestamp > heartbeat" % str(msg))
                 continue
-            if VERBOSE: print("received %s" % msg)
+            if VERBOSE: print("received %s" % str(msg))
 
             received = self.consensus.processMessage(msg)
             for mt, v in received:

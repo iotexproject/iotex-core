@@ -21,8 +21,6 @@ network:
     bootstrapnodes:
         - "127.0.0.1:40000"
         - "127.0.0.1:40001"
-        - "127.0.0.1:40002"
-        - "127.0.0.1:40003"
     maxmsgsize: 10485760
     peerdiscovery: true
 
