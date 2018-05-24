@@ -6,7 +6,11 @@
 
 package rdpos
 
-import "github.com/iotexproject/iotex-core/consensus/fsm"
+import (
+	"fmt"
+
+	"github.com/iotexproject/iotex-core/consensus/fsm"
+)
 
 // ruleIsProposer checks if the event is init propose.
 type ruleIsProposer struct {
@@ -14,5 +18,6 @@ type ruleIsProposer struct {
 }
 
 func (r ruleIsProposer) Condition(event *fsm.Event) bool {
+	fmt.Printf("ruleIsProposer output: %t\n", event.State == stateInitPropose)
 	return event.State == stateInitPropose
 }

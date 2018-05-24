@@ -25,8 +25,8 @@ import (
 	"github.com/iotexproject/iotex-core/txpool"
 )
 
-var Init bool // Init is set to true if the simulator is in the process of initialization; the message type sent
-// back during Init phase is different because proposals happen spontaneously without prompting
+// Init is set to true if the simulator is in the process of initialization; the message type sent back during Init phase is different because proposals happen spontaneously without prompting
+var Init bool
 
 // ConsensusSim is the interface for handling consensus view change used in the simulator
 type ConsensusSim interface {
@@ -38,7 +38,6 @@ type ConsensusSim interface {
 	SetInitStream(*pb.Simulator_InitServer)
 	SetDoneStream(chan bool)
 	SetID(int)
-	CheckIfStreamNil()
 }
 
 // consensus_sim struct with a stream parameter for writing to simulator stream
@@ -65,6 +64,8 @@ func NewConsensusSim(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxP
 	cs := &consensusSim{cfg: &cfg.Consensus}
 
 	mintBlockCB := func() (*blockchain.Block, error) {
+		fmt.Println("mintBlockCB called")
+
 		blk, err := bc.MintNewBlock(tp.PickTxs(), &cfg.Chain.MinerAddr, "")
 		if err != nil {
 			glog.Error("Failed to mint a block")
@@ -76,7 +77,10 @@ func NewConsensusSim(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxP
 
 	// broadcast a message across the P2P network
 	tellBlockCB := func(msg proto.Message) error {
-		fmt.Println("id: ", cs.ID)
+		fmt.Println("tellBlockCB called")
+
+		fmt.Printf("id: %d, pointer: %p\n", cs.ID, cs)
+
 		msgType, msgBody := SeparateMsg(msg)
 		msgBodyS := hex.EncodeToString(msgBody)
 
@@ -87,7 +91,9 @@ func NewConsensusSim(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxP
 
 	// commit a block to the blockchain
 	commitBlockCB := func(blk *blockchain.Block) error {
-		fmt.Println("id: ", cs.ID)
+		fmt.Println("commitBlockCB called")
+
+		fmt.Printf("id: %d, pointer: %p\n", cs.ID, cs)
 
 		hash := [32]byte(blk.HashBlock())
 		s := hex.EncodeToString(hash[:])
@@ -98,7 +104,8 @@ func NewConsensusSim(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxP
 
 	// broadcast a block across the P2P network
 	broadcastBlockCB := func(blk *blockchain.Block) error {
-		fmt.Println("id: ", cs.ID)
+		fmt.Println("broadcastBlockCB called")
+		fmt.Printf("id: %d, pointer: %p\n", cs.ID, cs)
 
 		if blkPb := blk.ConvertToBlockPb(); blkPb != nil {
 			msgType, msgBody := SeparateMsg(blkPb)
@@ -111,7 +118,7 @@ func NewConsensusSim(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxP
 
 	cs.scheme = rdpos.NewRDPoS(cfg.Consensus.RDPoS, mintBlockCB, tellBlockCB, commitBlockCB, broadcastBlockCB, bc, bs.P2P().Self(), dlg)
 
-	fmt.Printf("%p\n", cs)
+	fmt.Printf("cs pointer: %p\n", cs)
 	return cs
 }
 
@@ -174,11 +181,8 @@ func (c *consensusSim) Stop() error {
 
 // HandleViewChange dispatches the call to different schemes
 func (c *consensusSim) HandleViewChange(m proto.Message, done chan bool) error {
-	c.CheckIfStreamNil()
 	err := c.scheme.Handle(m)
-	c.CheckIfStreamNil()
 	c.scheme.SetDoneStream(done)
-	c.CheckIfStreamNil()
 
 	return err
 }
@@ -186,14 +190,6 @@ func (c *consensusSim) HandleViewChange(m proto.Message, done chan bool) error {
 // SetDoneStream takes in a boolean channel which will be filled when the consensus is done processing
 func (c *consensusSim) SetDoneStream(done chan bool) {
 	c.scheme.SetDoneStream(done)
-}
-
-func (c *consensusSim) CheckIfStreamNil() {
-	if c.stream == nil {
-		fmt.Println(">>>>>>>>>>>>>>>>>>>STREAM IS NIL")
-	} else {
-		fmt.Println(">>>>>>>>>>>>>>>>>>>STREAM IS NOT NIL")
-	}
 }
 
 // HandleBlockPropose handles a proposed block -- not used currently
