@@ -38,7 +38,7 @@ class Consensus:
         # note: msg is a tuple: (msgType, msgBody)
         internalMsgType, value = msg
         
-        print("sent %s to consensus engine" % value) 
+        print("sent %s to consensus engine" % str(msg))
         response = self.stub.Ping(simulator_pb2.Request(playerID=self.playerID,
                                                         internalMsgType=internalMsgType,
                                                         value=value))

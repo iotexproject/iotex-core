@@ -7,6 +7,7 @@
 package rdpos
 
 import (
+	"fmt"
 	"net"
 	"sync"
 	"syscall"
@@ -93,7 +94,9 @@ func NewRDPoS(cfg config.RDPoS, prop scheme.CreateBlockCB, vote scheme.TellPeerC
 
 // Start initialize the RDPoS and start to consume requests from request channel.
 func (n *RDPoS) Start() error {
+	fmt.Println("consensus engine started")
 	logger.Info().Msg("Starting RDPoS")
+
 	n.wg.Add(1)
 	go n.consume()
 	if n.cfg.ProposerRotation.Enabled {
@@ -117,6 +120,7 @@ func (n *RDPoS) SetDoneStream(done chan bool) {
 
 // Handle handles incoming messages and publish to the channel.
 func (n *RDPoS) Handle(m proto.Message) error {
+	fmt.Println("consensus engine received message")
 	logger.Info().Msg("RDPoS scheme handles incoming requests")
 
 	event, err := eventFromProto(m)
@@ -124,6 +128,7 @@ func (n *RDPoS) Handle(m proto.Message) error {
 		return err
 	}
 
+	fmt.Println("message passed into event channel")
 	n.eventChan <- event
 	return nil
 }
@@ -131,8 +136,10 @@ func (n *RDPoS) Handle(m proto.Message) error {
 func (n *RDPoS) consume() {
 loop:
 	for {
+		fmt.Println("entered consume func")
 		select {
 		case r := <-n.eventChan:
+			fmt.Println("consumed an event from event channel")
 			err := n.fsm.HandleTransition(r)
 			if err == nil {
 				break
@@ -162,6 +169,7 @@ loop:
 			if n.done != nil {
 				select {
 				case n.done <- true: // try to write to done if possible
+					fmt.Println("set done to true")
 				}
 			}
 		}

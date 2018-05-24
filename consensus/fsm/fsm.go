@@ -184,6 +184,7 @@ func (m *Machine) AddState(state State, handler Handler) {
 	}
 }
 
+// returns whether the event state matches the current state, or, if at starting state, event matches neighboring state
 func (m *Machine) isExpectedState(event *Event) bool {
 	if event.State == m.state {
 		return true
@@ -192,6 +193,7 @@ func (m *Machine) isExpectedState(event *Event) bool {
 	return m.tryMoveToStartingState(event)
 }
 
+// returns true if the fsm is in the initial state and event is meant for a neighboring state; if so, transitions
 func (m *Machine) tryMoveToStartingState(event *Event) bool {
 	if m.state == m.initialState {
 		trm, err := m.transitionRules(m.initialState)
@@ -220,6 +222,7 @@ func (m *Machine) tryMoveToStartingState(event *Event) bool {
 	return false
 }
 
+// automatically transitions given an event; assumes event state is correct
 func (m *Machine) autoTransition(ctx *Event) error {
 	trm, err := m.transitionRules(ctx.State)
 	if err != nil {
@@ -238,14 +241,14 @@ func (m *Machine) autoTransition(ctx *Event) error {
 	return errors.Wrap(ErrNoTransitionApplied, "cannot make auto transition")
 }
 
-// HandleTransition tries to move to the next state by the request ctx.
+// HandleTransition handles the event and transitions to the next state if it can
 func (m *Machine) HandleTransition(ctx *Event) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	// not current state or (current state is initial but incoming state is not for neighbors)
 	if !m.isExpectedState(ctx) {
-		return errors.Wrap(ErrStateHandlerNotMatched, "the event dose not match the current state")
+		return errors.Wrap(ErrStateHandlerNotMatched, "the event does not match the current state")
 	}
 
 	handler, ok := m.handlers[ctx.State]
@@ -266,7 +269,7 @@ func (m *Machine) HandleTransition(ctx *Event) error {
 	return nil
 }
 
-// transitionTo makes a transition to the destination state.
+// transitionTo makes a transition to the destination state if it exists
 func (m *Machine) transitionTo(dest State) error {
 	if m.transitions == nil {
 		return errors.Wrap(ErrMachineNotInitialized, "the machine has no states added")

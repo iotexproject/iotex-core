@@ -5,7 +5,7 @@ nodetype: "delegate"       # should be one of "delegate", "full_node", and "ligh
 
 # this doesn't matter since p2p layer is overrun by simulator
 network:
-    addr: "127.0.0.1:40000"
+    addr: "INIT BY CODE"
     msglogscleaninginterval: 2s
     msglogretention: 10s
     healthcheckinterval: 1s
@@ -19,8 +19,6 @@ network:
     ratelimitpersec: 5
     ratelimitwindowsize: 60s
     bootstrapnodes:
-        - "127.0.0.1:40000"
-        - "127.0.0.1:40001"
     maxmsgsize: 10485760
     peerdiscovery: true
 
@@ -37,18 +35,18 @@ consensus:
         proposerrotation:
             enabled: true
             interval: 700ms
-        unmatchedeventttl: 90ms
+        unmatchedeventttl: 100s
         acceptpropose:
-            ttl: 90ms
+            ttl: 100s
         acceptprevote:
-            ttl: 90ms
+            ttl: 100s
         acceptvote:
-            ttl: 90ms
+            ttl: 100s
     blockcreationinterval: 1s
 
 delegate:
     addrs:
-        - "127.0.0.1:40000"
+        - "INIT BY CODE"
 
 rpc:
     port: ":50051"

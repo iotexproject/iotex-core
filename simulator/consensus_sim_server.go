@@ -48,11 +48,22 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 
 	consensus.Init = true // mark that we are in initialization phase
 
+	var addrs []string // all delegate addresses
+	for i := 0; i < int(in.NPlayers); i++ {
+		addrs = append(addrs, "127.0.0.1:32"+strconv.Itoa(i))
+	}
+
 	for i := 0; i < int(in.NPlayers); i++ {
 		cfg, err := config.LoadConfigWithPathWithoutValidation(rdposConfig)
 		if err != nil {
 			glog.Error("Error loading config file")
 		}
+
+		//s.nodes = make([]consensus.ConsensusSim, in.NPlayers) // allocate all the necessary space now because otherwise nodes will get copied and create pointer issues
+
+		// handle node address, delegate addresses, etc.
+		cfg.Delegate.Addrs = addrs
+		cfg.Network.Addr = addrs[i]
 
 		// create public/private key pair and address
 		chainID := make([]byte, 4)
@@ -75,22 +86,23 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 		bs := blocksync.NewBlockSyncer(cfg, bc, tp, overlay, dlg)
 
 		node := consensus.NewConsensusSim(cfg, bc, tp, bs, dlg)
-		fmt.Printf("%p\n", node)
+
+		s.nodes = append(s.nodes, node)
 
 		done := make(chan bool)
-		node.SetDoneStream(done)
-		node.SetInitStream(&stream)
-		node.SetID(i)
+		s.nodes[i].SetDoneStream(done)
+		s.nodes[i].SetInitStream(&stream)
+		s.nodes[i].SetID(i)
 
-		node.Start()
+		s.nodes[i].Start()
 
 		fmt.Printf("Node %d initialized and consensus engine started\n", i)
-		time.Sleep(time.Second)
+		time.Sleep(5 * time.Second)
 		<-done
 
 		fmt.Printf("Node %d initialization ended\n", i)
 
-		s.nodes = append(s.nodes, node)
+		//s.nodes = append(s.nodes, node)
 	}
 
 	fmt.Printf("Simulator initialized with %d players\n", in.NPlayers)
@@ -114,8 +126,8 @@ func (s *server) Ping(in *pb.Request, stream pb.Simulator_PingServer) error {
 
 	done := make(chan bool)
 
+	fmt.Printf("s.nodes pointer: %p\n", s.nodes[in.PlayerID])
 	s.nodes[in.PlayerID].SetStream(&stream)
-	s.nodes[in.PlayerID].CheckIfStreamNil()
 
 	fmt.Println("Sent message for handling")
 	s.nodes[in.PlayerID].HandleViewChange(msg, done)
