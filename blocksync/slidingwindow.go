@@ -10,10 +10,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/glog"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/logger"
 )
 
 const (
@@ -96,7 +96,14 @@ func (sw *SlidingWindow) updateState() {
 	default:
 		sw.State = Open
 	}
-	glog.Infof("window = [%d  %d], state = %d | %d", sw.close, sw.open, sw.prevState, sw.State)
+	logger.Info().
+		Uint64("close", sw.close).
+		Uint64("open", sw.open).
+		Msg("window")
+	logger.Info().
+		Int("prevState", sw.prevState).
+		Int("State", sw.State).
+		Msg("state")
 }
 
 // Update updates the window [close, open]

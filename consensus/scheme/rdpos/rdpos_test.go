@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/glog"
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
@@ -23,6 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/fsm"
 	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_delegate"
@@ -45,10 +45,13 @@ func createTestRDPoS(ctrl *gomock.Controller, self net.Addr, delegates []net.Add
 	createblockCB := func() (*blockchain.Block, error) {
 		blk, err := bc.MintNewBlock(tp.PickTxs(), &iotxaddress.Address{}, "")
 		if err != nil {
-			glog.Errorf("Failed to mint a new block")
+			logger.Error().Msg("Failed to mint a new block")
 			return nil, err
 		}
-		glog.Infof("created a new block at height %v with %v txs", blk.Height(), len(blk.Tranxs))
+		logger.Info().
+			Uint64("height", blk.Height()).
+			Int("txs", len(blk.Tranxs)).
+			Msg("Created a new block")
 		return blk, nil
 	}
 	commitBlockCB := func(blk *blockchain.Block) error {

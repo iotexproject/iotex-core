@@ -9,11 +9,11 @@ package scheme
 import (
 	"time"
 
-	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/common/routine"
+	"github.com/iotexproject/iotex-core/logger"
 )
 
 // Standalone is the consensus scheme that periodically create blocks
@@ -29,15 +29,17 @@ type standaloneHandler struct {
 }
 
 func (s *standaloneHandler) Do() {
-	glog.Info("create a new block at ", time.Now())
+	logger.Info().
+		Str("at", time.Now().String()).
+		Msg("created a new block")
 	blk, err := s.createCb()
 	if err != nil {
-		glog.Error(err)
+		logger.Error().Err(err)
 		return
 	}
 
 	if err := s.commitCb(blk); err != nil {
-		glog.Error(err)
+		logger.Error().Err(err)
 		return
 	}
 
@@ -68,6 +70,6 @@ func (n *Standalone) Stop() error {
 
 // Handle handles incoming requests
 func (n *Standalone) Handle(message proto.Message) error {
-	glog.Warning("Standalone scheme does not handle incoming requests")
+	logger.Warn().Msg("Standalone scheme does not handle incoming requests")
 	return nil
 }

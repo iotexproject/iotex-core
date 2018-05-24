@@ -9,8 +9,6 @@ package itx
 import (
 	"os"
 
-	"github.com/golang/glog"
-
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blocksync"
 	cm "github.com/iotexproject/iotex-core/common"
@@ -18,6 +16,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/delegate"
 	"github.com/iotexproject/iotex-core/dispatcher"
+	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network"
 	"github.com/iotexproject/iotex-core/txpool"
 )
@@ -60,7 +59,7 @@ func NewServer(cfg config.Config) Server {
 func (s *Server) Init() error {
 	s.dp.Start()
 	if err := s.o.Init(); err != nil {
-		glog.Error(err)
+		logger.Error().Err(err)
 		return err
 	}
 	return nil
@@ -69,7 +68,7 @@ func (s *Server) Init() error {
 // Start starts the server
 func (s *Server) Start() error {
 	if err := s.o.Start(); err != nil {
-		glog.Error(err)
+		logger.Error().Err(err)
 		return err
 	}
 	return nil

@@ -10,7 +10,6 @@ import (
 	"math/big"
 	"net"
 
-	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"golang.org/x/net/context"
@@ -21,6 +20,7 @@ import (
 	cm "github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/logger"
 	pb "github.com/iotexproject/iotex-core/proto"
 )
 
@@ -36,7 +36,7 @@ type Chainserver struct {
 // NewChainServer creates an instance of chainserver
 func NewChainServer(c config.RPC, b blockchain.Blockchain, dp cm.Dispatcher, cb func(proto.Message) error) *Chainserver {
 	if cb == nil {
-		glog.Error("cannot new chain server with nil callback")
+		logger.Error().Msg("cannot new chain server with nil callback")
 		return nil
 	}
 	return &Chainserver{blockchain: b, config: c, dispatcher: dp, broadcastcb: cb}
@@ -85,16 +85,18 @@ func (s *Chainserver) SendTx(ctx context.Context, in *pb.SendTxRequest) (*pb.Sen
 // Start starts the chain server
 func (s *Chainserver) Start() error {
 	if s.config == (config.RPC{}) {
-		glog.Warning("Chain service is not configured")
+		logger.Warn().Msg("Chain service is not configured")
 		return nil
 	}
 
 	lis, err := net.Listen("tcp", s.config.Port)
 	if err != nil {
-		glog.Errorf("Chain server failed to listen: %v", err)
+		logger.Error().Err(err).Msg("Chain server failed to listen")
 		return err
 	}
-	glog.Infof("Chain server is listening on %v", lis.Addr().String())
+	logger.Info().
+		Str("addr", lis.Addr().String()).
+		Msg("Chain server is listening")
 
 	s.grpcserver = grpc.NewServer()
 	pb.RegisterChainServiceServer(s.grpcserver, s)
@@ -102,7 +104,7 @@ func (s *Chainserver) Start() error {
 
 	go func() {
 		if err := s.grpcserver.Serve(lis); err != nil {
-			glog.Fatalf("Node failed to serve: %v", err)
+			logger.Fatal().Err(err).Msg("Node failed to serve")
 		}
 	}()
 	return nil

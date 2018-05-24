@@ -10,7 +10,6 @@ import (
 	"net"
 	"syscall"
 
-	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
@@ -18,6 +17,7 @@ import (
 	"github.com/iotexproject/iotex-core/common/routine"
 	"github.com/iotexproject/iotex-core/common/service"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/logger"
 	pb "github.com/iotexproject/iotex-core/network/proto"
 	"github.com/iotexproject/iotex-core/proto"
 )
@@ -88,7 +88,7 @@ func (o *Overlay) addPeerMaintainer() {
 func (o *Overlay) addConfigBasedPeerMaintainer() {
 	topology, err := config.LoadTopology(o.Config.TopologyPath)
 	if err != nil {
-		glog.Error(err.Error())
+		logger.Error().Err(err)
 		syscall.Exit(syscall.SYS_EXIT)
 	}
 	cbpm := NewConfigBasedPeerMaintainer(o, topology)
@@ -128,7 +128,10 @@ func (o *Overlay) Tell(node net.Addr, msg proto.Message) error {
 	if peer == nil {
 		return ErrPeerNotFound
 	}
-	glog.Info("node addr = ", peer.Addr)
+	logger.Info().
+		Str("addr", peer.Addr).
+		Msg("node")
+
 	msgType, err := iproto.GetTypeFromProtoMsg(msg)
 	if err != nil {
 		return err
@@ -137,7 +140,9 @@ func (o *Overlay) Tell(node net.Addr, msg proto.Message) error {
 	if err != nil {
 		return err
 	}
-	glog.Info("request addr = ", o.PRC.String())
+	logger.Info().
+		Str("addr", o.PRC.String()).
+		Msg("request")
 	go peer.Tell(&pb.TellReq{Addr: o.PRC.String(), MsgType: msgType, MsgBody: msgBody})
 	return nil
 }

@@ -12,7 +12,6 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/golang/glog"
 	"github.com/pkg/errors"
 
 	trx "github.com/iotexproject/iotex-core/blockchain/trx"
@@ -22,6 +21,7 @@ import (
 	cp "github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/statefactory"
 	"github.com/iotexproject/iotex-core/txvm"
 )
@@ -222,7 +222,7 @@ func (bc *blockchain) MintNewBlock(txs []*trx.Tx, producer *iotxaddress.Address,
 	cbTx := trx.NewCoinbaseTx(producer.RawAddress, bc.genesis.BlockReward, data)
 	if cbTx == nil {
 		errMsg := "Cannot create coinbase transaction"
-		glog.Error(errMsg)
+		logger.Error().Msg(errMsg)
 		return nil, errors.Errorf(errMsg)
 	}
 
@@ -231,7 +231,7 @@ func (bc *blockchain) MintNewBlock(txs []*trx.Tx, producer *iotxaddress.Address,
 	blk := NewBlock(bc.chainID, bc.tipHeight+1, bc.tipHash, txs)
 	bc.mu.RUnlock()
 	if producer.PrivateKey == nil {
-		glog.Warning("Unsigned block...")
+		logger.Warn().Msg("Unsigned block...")
 		return blk, nil
 	}
 
@@ -262,38 +262,40 @@ func CreateBlockchain(cfg *config.Config, gen *Genesis) Blockchain {
 
 	chain := NewBlockchain(dao, cfg, gen, nil)
 	if err := chain.Init(); err != nil {
-		glog.Errorf("Failed to initialize blockchain, error = %v", err)
+		logger.Error().Err(err).Msg("Failed to initialize blockchain")
 		return nil
 	}
 	if err := chain.Start(); err != nil {
-		glog.Errorf("Failed to start blockchain, error = %v", err)
+		logger.Error().Err(err).Msg("Failed to start blockchain")
 		return nil
 	}
 
 	height, err := chain.TipHeight()
 	if err != nil {
-		glog.Errorf("Failed to get blockchain height, error = %v", err)
+		logger.Error().Err(err).Msg("Failed to get blockchain height")
 	}
 	if height == 0 {
 		if gen == nil {
-			glog.Error("Genesis should not be nil.")
+			logger.Error().Msg("Genesis should not be nil.")
 			return nil
 		}
 		genesis := NewGenesisBlock(gen)
 		if genesis == nil {
-			glog.Error("Cannot create genesis block.")
+			logger.Error().Msg("Cannot create genesis block.")
 			return nil
 		}
 
 		// Genesis block has height 0
 		if genesis.Header.height != 0 {
-			glog.Errorf("Genesis block has height = %d, expecting 0", genesis.Height())
+			logger.Error().
+				Uint64("Genesis block has height", genesis.Height()).
+				Msg("Expecting 0")
 			return nil
 		}
 
 		// add Genesis block as very first block
 		if err := chain.AddBlockCommit(genesis); err != nil {
-			glog.Error(err)
+			logger.Error().Err(err)
 			return nil
 		}
 	}
@@ -305,7 +307,7 @@ func (bc *blockchain) BalanceOf(address string) *big.Int {
 	if bc.sf != nil {
 		b, err := bc.sf.Balance(&iotxaddress.Address{RawAddress: address})
 		if err != nil {
-			glog.Error(err)
+			logger.Error().Err(err)
 			return big.NewInt(0)
 		}
 		return b
@@ -324,7 +326,7 @@ func (bc *blockchain) UtxoPool() map[common.Hash32B][]*trx.TxOutput {
 func (bc *blockchain) createTx(from *iotxaddress.Address, amount uint64, to []*Payee, isRaw bool) *trx.Tx {
 	utxo, change := bc.utk.UtxoEntries(from.RawAddress, amount)
 	if utxo == nil {
-		glog.Errorf("Fail to get UTXO for %v", from.RawAddress)
+		logger.Error().Str("addr", from.RawAddress).Msg("Failed to get UTXO")
 		return nil
 	}
 

@@ -7,7 +7,6 @@
 package consensus
 
 import (
-	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/blockchain"
@@ -16,6 +15,7 @@ import (
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/consensus/scheme/rdpos"
 	"github.com/iotexproject/iotex-core/delegate"
+	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/txpool"
 )
 
@@ -35,7 +35,7 @@ type consensus struct {
 // NewConsensus creates a consensus struct.
 func NewConsensus(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxPool, bs blocksync.BlockSync, dlg delegate.Pool) Consensus {
 	if bc == nil || bs == nil {
-		glog.Error("Try to attach to chain or bs == nil")
+		logger.Error().Msg("Try to attach to chain or bs == nil")
 		return nil
 	}
 
@@ -43,10 +43,13 @@ func NewConsensus(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxPool
 	mintBlockCB := func() (*blockchain.Block, error) {
 		blk, err := bc.MintNewBlock(tp.PickTxs(), &cfg.Chain.MinerAddr, "")
 		if err != nil {
-			glog.Error("Failed to mint a block")
+			logger.Error().Msg("Failed to mint a block")
 			return nil, err
 		}
-		glog.Infof("created a new block at height %v with %v txs", blk.Height(), len(blk.Tranxs))
+		logger.Info().
+			Uint64("height", blk.Height()).
+			Int("length", len(blk.Tranxs)).
+			Msg("created a new block")
 		return blk, nil
 	}
 
@@ -73,7 +76,9 @@ func NewConsensus(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxPool
 	case "STANDALONE":
 		cs.scheme = scheme.NewStandalone(mintBlockCB, commitBlockCB, broadcastBlockCB, bc, cfg.Consensus.BlockCreationInterval)
 	default:
-		glog.Errorf("unexpected consensus scheme", cfg.Consensus.Scheme)
+		logger.Error().
+			Str("scheme", cfg.Consensus.Scheme).
+			Msg("Unexpected consensus scheme")
 		return nil
 	}
 
@@ -81,14 +86,18 @@ func NewConsensus(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxPool
 }
 
 func (c *consensus) Start() error {
-	glog.Infof("Starting consensus scheme %v", c.cfg.Scheme)
+	logger.Info().
+		Str("scheme", c.cfg.Scheme).
+		Msg("Starting consensus scheme")
 
 	c.scheme.Start()
 	return nil
 }
 
 func (c *consensus) Stop() error {
-	glog.Infof("Stopping consensus scheme %v", c.cfg.Scheme)
+	logger.Info().
+		Str("scheme", c.cfg.Scheme).
+		Msg("Stopping consensus scheme")
 
 	c.scheme.Stop()
 	return nil

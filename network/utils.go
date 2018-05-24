@@ -14,10 +14,10 @@ import (
 	"math/rand"
 	"sync"
 
-	"github.com/golang/glog"
 	"google.golang.org/grpc/credentials"
 
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/logger"
 )
 
 // stringsAreShuffled shuffles a string slice
@@ -42,7 +42,7 @@ func loadCertAndCertPool(config *config.Network) (*tls.Certificate, *x509.CertPo
 	// Load the certificates from disk
 	cert, err := tls.LoadX509KeyPair(config.PeerCrtPath, config.PeerKeyPath)
 	if err != nil {
-		glog.Errorf("could not load peer key pair: %v", err)
+		logger.Error().Err(err).Msg("could not load peer key pair")
 		return nil, nil, err
 	}
 
@@ -50,7 +50,7 @@ func loadCertAndCertPool(config *config.Network) (*tls.Certificate, *x509.CertPo
 	certPool := x509.NewCertPool()
 	caCert, err := ioutil.ReadFile(config.CACrtPath)
 	if err != nil {
-		glog.Errorf("could not read ca certificate: %v", err)
+		logger.Error().Err(err).Msg("could not read cs certificate")
 		return nil, nil, err
 	}
 

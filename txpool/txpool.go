@@ -14,11 +14,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/golang/glog"
-
 	"github.com/iotexproject/iotex-core/blockchain"
 	trx "github.com/iotexproject/iotex-core/blockchain/trx"
 	"github.com/iotexproject/iotex-core/common"
+	"github.com/iotexproject/iotex-core/logger"
 )
 
 // Basic constant settings for TxPool
@@ -137,7 +136,9 @@ func (tp *txPool) removeOrphanTx(tx *trx.Tx, removeDescendants bool) {
 	hash := tx.Hash()
 	orphanTx, ok := tp.orphanTxs[hash]
 	if !ok {
-		glog.Info("cannot find orphan tx: ", hash)
+		logger.Info().
+			Bytes("hash", hash[:]).
+			Msg("cannot find orphan tx")
 		return
 	}
 
@@ -220,7 +221,7 @@ func (tp *txPool) deleteExpiredOrphanTxs() {
 		}
 	}
 	tp.nextExpirationScanTime = now.Add(orphanTxExpireScanInterval)
-	glog.Info("scan and delete expired orphan transactions")
+	logger.Info().Msg("scan and delete expired orphan transactions")
 }
 
 func (tp *txPool) emptyASpaceForNewOrphanTx() error {
@@ -262,7 +263,9 @@ func (tp *txPool) addOrphanTx(tnx *trx.Tx, tag Tag) {
 		}
 		tp.orphanTxSourcePointers[txSourcePointer][hash] = tnx
 	}
-	glog.Info("Add orphan tx %x to pool", hash)
+	logger.Info().
+		Bytes("hash", hash[:]).
+		Msg("Add orphan tx to pool")
 }
 
 func (tp *txPool) maybeAddOrphanTx(tx *trx.Tx, tag Tag) error {

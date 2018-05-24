@@ -7,10 +7,9 @@
 package blockchain
 
 import (
-	"github.com/golang/glog"
-
 	trx "github.com/iotexproject/iotex-core/blockchain/trx"
 	"github.com/iotexproject/iotex-core/common"
+	"github.com/iotexproject/iotex-core/logger"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 )
 
@@ -56,7 +55,7 @@ var Gen = &Genesis{
 func NewGenesisBlock(gen *Genesis) *Block {
 	cbtx := trx.NewCoinbaseTx(ta.Addrinfo["miner"].RawAddress, gen.TotalSupply, gen.GenesisCoinbaseData)
 	if cbtx == nil {
-		glog.Error("Cannot create coinbase transaction")
+		logger.Error().Msg("Cannot create coinbase transaction")
 		return nil
 	}
 	block := &Block{

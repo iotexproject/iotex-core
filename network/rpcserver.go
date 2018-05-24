@@ -12,7 +12,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/glog"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/peer"
@@ -21,6 +20,7 @@ import (
 	cm "github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/common/service"
 	"github.com/iotexproject/iotex-core/common/utils"
+	"github.com/iotexproject/iotex-core/logger"
 	pb "github.com/iotexproject/iotex-core/network/proto"
 	"github.com/iotexproject/iotex-core/proto"
 )
@@ -119,7 +119,7 @@ func (s *RPCServer) Tell(ctx context.Context, req *pb.TellReq) (*pb.TellRes, err
 func (s *RPCServer) Start() error {
 	lis, err := net.Listen(s.Network(), s.String())
 	if err != nil {
-		glog.Errorf("Node failed to listen: %v", err)
+		logger.Error().Err(err).Msg("Node failed to listen")
 		return err
 	}
 	s.Addr = lis.Addr().String()
@@ -146,7 +146,7 @@ func (s *RPCServer) Start() error {
 	reflection.Register(s.Server)
 	go func() {
 		if err := s.Server.Serve(lis); err != nil {
-			glog.Fatalf("Node failed to serve: %v", err)
+			logger.Fatal().Err(err).Msg("Node failed to serve")
 		}
 	}()
 	return nil

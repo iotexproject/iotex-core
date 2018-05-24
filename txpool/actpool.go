@@ -9,12 +9,12 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/golang/glog"
 	"github.com/pkg/errors"
 
 	trx "github.com/iotexproject/iotex-core/blockchain/trx"
 	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/statefactory"
 	"github.com/iotexproject/iotex-core/trie"
 )
@@ -81,7 +81,7 @@ func (ap *actPool) Reset() {
 	for addrHash, queue := range ap.accountTxs {
 		balance, err := ap.pendingSF.Balance(hashToAddr[addrHash])
 		if err != nil {
-			glog.Errorf("Error when resetting actpool state: %v\n", err)
+			logger.Error().Err(err).Msg("Error when resetting actpool state")
 			return
 		}
 		queue.SetPendingBalance(balance)
@@ -91,13 +91,13 @@ func (ap *actPool) Reset() {
 		from := hashToAddr[addrHash]
 		committedNonce, err := ap.pendingSF.Nonce(from)
 		if err != nil {
-			glog.Errorf("Error when resetting Tx: %v\n", err)
+			logger.Error().Err(err).Msg("Error when resetting Tx")
 			return
 		}
 		queue.SetConfirmedNonce(committedNonce)
 		newPendingNonce := queue.UpdatedPendingNonce(committedNonce, true)
 		if err := ap.pendingSF.SetNonce(from, newPendingNonce); err != nil {
-			glog.Errorf("Error when resetting actPool state: %v\n", err)
+			logger.Error().Err(err).Msg("Error when resetting actPool state")
 			return
 		}
 	}
@@ -128,13 +128,13 @@ func (ap *actPool) validateTx(tx *trx.Tx) error {
 
 	from, err := iotxaddress.GetAddress(tx.SenderPublicKey, isTestnet, chainid)
 	if err != nil {
-		glog.Errorf("Error when validating Tx: %v\n", err)
+		logger.Error().Err(err).Msg("Error when validating Tx")
 		return err
 	}
 	// Reject transaction if nonce is too low
 	nonce, err := ap.pendingSF.Nonce(from)
 	if err != nil {
-		glog.Errorf("Error when validating Tx: %v\n", err)
+		logger.Error().Err(err).Msg("Error when validating Tx")
 		return err
 	}
 	if nonce > tx.Nonce {
@@ -150,22 +150,29 @@ func (ap *actPool) AddTx(tx *trx.Tx) error {
 	hash := tx.Hash()
 	// Reject transaction if it already exists in pool
 	if ap.allTxs[hash] != nil {
-		glog.Info("Rejecting existed transaction", "hash", hash)
+		logger.Info().
+			Bytes("hash", hash[:]).
+			Msg("Rejecting existed transaction")
 		return fmt.Errorf("existed transaction: %x", hash)
 	}
 	// Reject transaction if it fails validation
 	if err := ap.validateTx(tx); err != nil {
-		glog.Info("Rejecting invalid transaction", "hash", hash, "err", err)
+		logger.Info().
+			Bytes("hash", hash[:]).
+			Err(err).
+			Msg("Rejecting invalid transaction")
 		return err
 	}
 	// Reject transaction if pool space is full
 	if uint64(len(ap.allTxs)) >= GlobalSlots {
-		glog.Info("Rejecting transaction due to insufficient space", "hash", hash)
+		logger.Info().
+			Bytes("hash", hash[:]).
+			Msg("Rejecting transaction due to insufficient space")
 		return errors.Wrapf(ErrActPool, "insufficient space for transaction")
 	}
 	from, err := iotxaddress.GetAddress(tx.SenderPublicKey, isTestnet, chainid)
 	if err != nil {
-		glog.Errorf("Error when adding Tx: %v\n", err)
+		logger.Error().Err(err).Msg("Error when adding Tx")
 		return err
 	}
 	addrHash := from.HashAddress()
@@ -187,12 +194,16 @@ func (ap *actPool) AddTx(tx *trx.Tx) error {
 
 	if queue.Overlaps(tx) {
 		// Nonce already exists
-		glog.Info("Rejecting transaction because replacement Tx is not supported", "hash", hash)
+		logger.Info().
+			Bytes("hash", hash[:]).
+			Msg("Rejecting transaction because replacement Tx is not supported")
 		return errors.Wrapf(ErrNonce, "duplicate nonce")
 	}
 
 	if queue.Len() >= AccountSlots {
-		glog.Info("Rejecting transaction due to insufficient space", "hash", hash)
+		logger.Info().
+			Bytes("hash", hash[:]).
+			Msg("Rejecting transaction due to insufficient space")
 		return errors.Wrapf(ErrActPool, "insufficient space for transaction")
 	}
 	queue.Put(tx)
@@ -200,7 +211,7 @@ func (ap *actPool) AddTx(tx *trx.Tx) error {
 	// If the pending nonce equals this nonce, update pending nonce
 	nonce, err := ap.pendingSF.Nonce(from)
 	if err != nil {
-		glog.Errorf("Error when adding Tx: %v\n", err)
+		logger.Error().Err(err).Msg("Error when adding Tx")
 		return err
 	}
 	if tx.Nonce == nonce {
@@ -208,7 +219,7 @@ func (ap *actPool) AddTx(tx *trx.Tx) error {
 		updateConfirmedNonce := nonce == queue.ConfirmedNonce()
 		newPendingNonce := queue.UpdatedPendingNonce(tx.Nonce, updateConfirmedNonce)
 		if err := ap.pendingSF.SetNonce(from, newPendingNonce); err != nil {
-			glog.Errorf("Error when adding Tx: %v\n", err)
+			logger.Error().Err(err).Msg("Error when adding Tx")
 			return err
 		}
 	}
@@ -222,13 +233,15 @@ func (ap *actPool) removeCommittedTxs() {
 	for addrHash, queue := range ap.accountTxs {
 		committedNonce, err := ap.pendingSF.Nonce(hashToAddr[addrHash])
 		if err != nil {
-			glog.Errorf("Error when removing committed Txs: %v\n", err)
+			logger.Error().Err(err).Msg("Error when removing commited Txs")
 			return
 		}
 		// Remove all transactions that are committed to new block
 		for _, tx := range queue.FilterNonce(committedNonce) {
 			hash := tx.Hash()
-			glog.Info("Removed committed transaction", "hash", hash)
+			logger.Info().
+				Bytes("hash", hash[:]).
+				Msg("Removed committed transaction")
 			delete(ap.allTxs, hash)
 		}
 		// Delete the queue entry if it becomes empty

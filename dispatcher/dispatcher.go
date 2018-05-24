@@ -11,7 +11,6 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
@@ -22,6 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/delegate"
+	"github.com/iotexproject/iotex-core/logger"
 	pb "github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/txpool"
 )
@@ -68,7 +68,7 @@ type dispatcher struct {
 // NewDispatcher creates a new dispatcher
 func NewDispatcher(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxPool, bs blocksync.BlockSync, dp delegate.Pool) cm.Dispatcher {
 	if bc == nil || bs == nil {
-		glog.Error("Try to attach to a nil blockchain or a nil P2P")
+		logger.Error().Msg("Try to attach to a nil blockchain or a nil P2P")
 		return nil
 	}
 
@@ -89,7 +89,7 @@ func (d *dispatcher) Start() error {
 		return errors.New("Dispatcher already started")
 	}
 
-	glog.Info("Starting dispatcher")
+	logger.Info().Msg("Starting dispatcher")
 	if err := d.cs.Start(); err != nil {
 		return err
 	}
@@ -106,11 +106,11 @@ func (d *dispatcher) Start() error {
 // Stop gracefully shuts down the dispatcher by stopping all handlers and waiting for them to finish.
 func (d *dispatcher) Stop() error {
 	if atomic.AddInt32(&d.shutdown, 1) != 1 {
-		glog.Warning("Dispatcher already in the process of shutting down")
+		logger.Warn().Msg("Dispatcher already in the process of shutting down")
 		return nil
 	}
 
-	glog.Infof("Dispatcher is shutting down")
+	logger.Info().Msg("Dispatcher is shutting down")
 	if err := d.cs.Stop(); err != nil {
 		return err
 	}
@@ -144,7 +144,9 @@ loop:
 				d.handleVoteMsg(msg)
 
 			default:
-				glog.Warning("Invalid message type in block handler: %T", msg)
+				logger.Warn().
+					Str("msg", msg.(string)).
+					Msg("Invalid message type in block handler")
 			}
 
 		case <-d.quit:
@@ -153,18 +155,22 @@ loop:
 	}
 
 	d.wg.Done()
-	glog.Info("News handler done")
+	logger.Info().Msg("News handler done")
 }
 
 // handleTxMsg handles txMsg from all peers.
 func (d *dispatcher) handleTxMsg(m *txMsg) {
 	tx := &trx.Tx{}
 	tx.ConvertFromTxPb(m.tx)
-	glog.Infof("receive txMsg, hash = %x", tx.Hash())
+	x := tx.Hash()
+
+	logger.Info().
+		Bytes("hash", x[:]).
+		Msg("receive txMsg")
 
 	// dispatch to TxPool
 	if _, err := d.tp.ProcessTx(tx, true, true, 0); err != nil {
-		glog.Error(err)
+		logger.Error().Err(err)
 	}
 
 	// signal to let caller know we are done
@@ -178,15 +184,20 @@ func (d *dispatcher) handleTxMsg(m *txMsg) {
 func (d *dispatcher) handleBlockMsg(m *blockMsg) {
 	blk := &blockchain.Block{}
 	blk.ConvertFromBlockPb(m.block)
-	glog.Infof("receive blockMsg, block %d, hash = %x", blk.Height(), blk.HashBlock())
+	hash := blk.HashBlock()
+
+	logger.Info().
+		Uint64("block", blk.Height()).
+		Bytes("hash", hash[:]).
+		Msg("receive blockMsg")
 
 	if m.blkType == pb.MsgBlockProtoMsgType {
 		if err := d.bs.ProcessBlock(blk); err != nil {
-			glog.Error(err)
+			logger.Error().Err(err)
 		}
 	} else if m.blkType == pb.MsgBlockSyncDataType {
 		if err := d.bs.ProcessBlockSync(blk); err != nil {
-			glog.Error(err)
+			logger.Error().Err(err)
 		}
 	}
 
@@ -199,11 +210,15 @@ func (d *dispatcher) handleBlockMsg(m *blockMsg) {
 
 // handleBlockSyncMsg handles block messages from peers.
 func (d *dispatcher) handleBlockSyncMsg(m *blockSyncMsg) {
-	glog.Infof("receive blockSyncMsg, addr = %s, start = %d, end = %d", m.sender, m.sync.Start, m.sync.End)
+	logger.Info().
+		Str("addr", m.sender).
+		Uint64("start", m.sync.Start).
+		Uint64("end", m.sync.End).
+		Msg("receive blockSyncMsg")
 
 	// dispatch to block sync
 	if err := d.bs.ProcessSyncRequest(m.sender, m.sync); err != nil {
-		glog.Error(err)
+		logger.Error().Err(err)
 	}
 
 	// signal to let caller know we are done
@@ -216,7 +231,9 @@ func (d *dispatcher) handleBlockSyncMsg(m *blockSyncMsg) {
 // handleVoteMsg handles voteMsg from all peers.
 func (d *dispatcher) handleVoteMsg(m *voteMsg) {
 	vote := &pb.VotePb{}
-	glog.Infof("receive voteMsg, sig = %x", vote.Signature)
+	logger.Info().
+		Str("sig", string(vote.Signature)).
+		Msg("receive voteMsg")
 
 	//todo: call account module to process the vote msg
 	// signal to let caller know we are done
@@ -286,7 +303,9 @@ func (d *dispatcher) dispatchVote(msg proto.Message, done chan bool) {
 func (d *dispatcher) HandleBroadcast(message proto.Message, done chan bool) {
 	msgType, err := pb.GetTypeFromProtoMsg(message)
 	if err != nil {
-		glog.Warning("unexpected message handled by HandleBroadcast: ", err.Error())
+		logger.Warn().
+			Str("error", err.Error()).
+			Msg("unexpected message handled by HandleBroadcast")
 	}
 
 	switch msgType {
@@ -302,7 +321,9 @@ func (d *dispatcher) HandleBroadcast(message proto.Message, done chan bool) {
 	case pb.MsgVoteType:
 		d.dispatchVote(message, done)
 	default:
-		glog.Warning("unexpected msgType %v handled by HandleBroadcast", msgType)
+		logger.Warn().
+			Uint32("msgType", msgType).
+			Msg("unexpected msgType handled by HandleBroadcast")
 	}
 }
 
@@ -310,10 +331,15 @@ func (d *dispatcher) HandleBroadcast(message proto.Message, done chan bool) {
 func (d *dispatcher) HandleTell(sender net.Addr, message proto.Message, done chan bool) {
 	msgType, err := pb.GetTypeFromProtoMsg(message)
 	if err != nil {
-		glog.Warning("unexpected message handled by HandleTell: ", err.Error())
+		logger.Warn().
+			Str("error", err.Error()).
+			Msg("unexpected message handled by HandleTell")
 	}
 
-	glog.Info("dispatcher.HandleTell from", sender, message)
+	logger.Info().
+		Str("sender", sender.String()).
+		Str("message", message.String()).
+		Msg("dispatcher.HandleTell from")
 	switch msgType {
 	case pb.MsgBlockSyncReqType:
 		d.dispatchBlockSyncReq(sender.String(), message, done)
@@ -322,6 +348,8 @@ func (d *dispatcher) HandleTell(sender net.Addr, message proto.Message, done cha
 	case pb.MsgBlockProtoMsgType:
 		d.cs.HandleBlockPropose(message, done)
 	default:
-		glog.Warning("unexpected msgType %v handled by HandleTell", msgType)
+		logger.Warn().
+			Uint32("msgType", msgType).
+			Msg("unexpected msgType handled by HandleTell")
 	}
 }
