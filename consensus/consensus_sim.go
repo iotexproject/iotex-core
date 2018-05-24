@@ -34,10 +34,11 @@ type ConsensusSim interface {
 	Stop() error
 	HandleViewChange(proto.Message, chan bool) error
 	HandleBlockPropose(proto.Message, chan bool) error
-	SetStream(pb.Simulator_PingServer)
-	SetInitStream(pb.Simulator_InitServer)
+	SetStream(*pb.Simulator_PingServer)
+	SetInitStream(*pb.Simulator_InitServer)
 	SetDoneStream(chan bool)
 	SetID(int)
+	CheckIfStreamNil()
 }
 
 // consensus_sim struct with a stream parameter for writing to simulator stream
@@ -62,6 +63,7 @@ func NewConsensusSim(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxP
 	}
 
 	cs := &consensusSim{cfg: &cfg.Consensus}
+
 	mintBlockCB := func() (*blockchain.Block, error) {
 		blk, err := bc.MintNewBlock(tp.PickTxs(), &cfg.Chain.MinerAddr, "")
 		if err != nil {
@@ -74,6 +76,7 @@ func NewConsensusSim(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxP
 
 	// broadcast a message across the P2P network
 	tellBlockCB := func(msg proto.Message) error {
+		fmt.Println("id: ", cs.ID)
 		msgType, msgBody := SeparateMsg(msg)
 		msgBodyS := hex.EncodeToString(msgBody)
 
@@ -84,6 +87,8 @@ func NewConsensusSim(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxP
 
 	// commit a block to the blockchain
 	commitBlockCB := func(blk *blockchain.Block) error {
+		fmt.Println("id: ", cs.ID)
+
 		hash := [32]byte(blk.HashBlock())
 		s := hex.EncodeToString(hash[:])
 		cs.sendMessage(1, 0, s)
@@ -93,6 +98,8 @@ func NewConsensusSim(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxP
 
 	// broadcast a block across the P2P network
 	broadcastBlockCB := func(blk *blockchain.Block) error {
+		fmt.Println("id: ", cs.ID)
+
 		if blkPb := blk.ConvertToBlockPb(); blkPb != nil {
 			msgType, msgBody := SeparateMsg(blkPb)
 			msgBodyS := hex.EncodeToString(msgBody)
@@ -104,6 +111,7 @@ func NewConsensusSim(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxP
 
 	cs.scheme = rdpos.NewRDPoS(cfg.Consensus.RDPoS, mintBlockCB, tellBlockCB, commitBlockCB, broadcastBlockCB, bc, bs.P2P().Self(), dlg)
 
+	fmt.Printf("%p\n", cs)
 	return cs
 }
 
@@ -112,30 +120,42 @@ func (c *consensusSim) SetID(ID int) {
 }
 
 func (c *consensusSim) sendMessage(messageType int, internalMsgType uint32, value string) {
-	if c.stream == nil {
-		fmt.Println("Stream is nil")
-	}
-
 	if Init {
 		fmt.Println("Sending init/proposal message")
+		if c.initStream == nil {
+			glog.Error("Init stream is nil")
+		}
+
 		if err := c.initStream.Send(&pb.Proposal{PlayerID: int32(c.ID), InternalMsgType: internalMsgType, Value: value}); err != nil {
 			glog.Error("Message cannot be sent through stream")
+			return
 		}
 	} else {
 		fmt.Println("Sending view state change message")
+
+		if c.stream == nil {
+			fmt.Println(c.stream)
+			fmt.Println(&c.stream)
+			glog.Error("Stream is nil")
+		}
+
 		if err := c.stream.Send(&pb.Reply{MessageType: int32(messageType), InternalMsgType: internalMsgType, Value: value}); err != nil {
 			glog.Error("Message cannot be sent through stream")
+			return
 		}
 	}
 
 	fmt.Println("Successfully sent message")
 }
 
-func (c *consensusSim) SetInitStream(stream pb.Simulator_InitServer) {
-	c.initStream = stream
+func (c *consensusSim) SetInitStream(stream *pb.Simulator_InitServer) {
+	c.initStream = *stream
 }
-func (c *consensusSim) SetStream(stream pb.Simulator_PingServer) {
-	c.stream = stream
+func (c *consensusSim) SetStream(stream *pb.Simulator_PingServer) {
+
+	fmt.Println("Set stream")
+
+	c.stream = *stream
 }
 
 func (c *consensusSim) Start() error {
@@ -154,8 +174,11 @@ func (c *consensusSim) Stop() error {
 
 // HandleViewChange dispatches the call to different schemes
 func (c *consensusSim) HandleViewChange(m proto.Message, done chan bool) error {
+	c.CheckIfStreamNil()
 	err := c.scheme.Handle(m)
+	c.CheckIfStreamNil()
 	c.scheme.SetDoneStream(done)
+	c.CheckIfStreamNil()
 
 	return err
 }
@@ -163,6 +186,14 @@ func (c *consensusSim) HandleViewChange(m proto.Message, done chan bool) error {
 // SetDoneStream takes in a boolean channel which will be filled when the consensus is done processing
 func (c *consensusSim) SetDoneStream(done chan bool) {
 	c.scheme.SetDoneStream(done)
+}
+
+func (c *consensusSim) CheckIfStreamNil() {
+	if c.stream == nil {
+		fmt.Println(">>>>>>>>>>>>>>>>>>>STREAM IS NIL")
+	} else {
+		fmt.Println(">>>>>>>>>>>>>>>>>>>STREAM IS NOT NIL")
+	}
 }
 
 // HandleBlockPropose handles a proposed block -- not used currently

@@ -9,6 +9,7 @@ package main
 import (
 	"encoding/binary"
 	"encoding/hex"
+	"flag"
 	"fmt"
 	"log"
 	"net"
@@ -41,6 +42,10 @@ type server struct {
 
 // Ping implements simulator.SimulatorServer
 func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error {
+	fmt.Println()
+
+	flag.Parse()
+
 	consensus.Init = true // mark that we are in initialization phase
 
 	for i := 0; i < int(in.NPlayers); i++ {
@@ -70,20 +75,17 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 		bs := blocksync.NewBlockSyncer(cfg, bc, tp, overlay, dlg)
 
 		node := consensus.NewConsensusSim(cfg, bc, tp, bs, dlg)
+		fmt.Printf("%p\n", node)
 
 		done := make(chan bool)
 		node.SetDoneStream(done)
-		node.SetInitStream(stream)
+		node.SetInitStream(&stream)
 		node.SetID(i)
 
 		node.Start()
-		// need to find a way to use SetStream to send proposed message back to sim
-		// set var Init = true/false
-		// ProposalMessage: playerID, msgType, msgBody
-		// when you get anything else, set Init = false
 
 		fmt.Printf("Node %d initialized and consensus engine started\n", i)
-
+		time.Sleep(time.Second)
 		<-done
 
 		fmt.Printf("Node %d initialization ended\n", i)
@@ -98,6 +100,8 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 
 // Ping implements simulator.SimulatorServer
 func (s *server) Ping(in *pb.Request, stream pb.Simulator_PingServer) error {
+	fmt.Println()
+
 	consensus.Init = false // mark that we are not in initialization phase any more
 
 	fmt.Println("opened message stream")
@@ -107,12 +111,14 @@ func (s *server) Ping(in *pb.Request, stream pb.Simulator_PingServer) error {
 	}
 
 	msg := consensus.CombineMsg(in.InternalMsgType, msgValue)
-	node := s.nodes[in.PlayerID]
 
 	done := make(chan bool)
-	node.SetStream(stream)
 
-	node.HandleViewChange(msg, done)
+	s.nodes[in.PlayerID].SetStream(&stream)
+	s.nodes[in.PlayerID].CheckIfStreamNil()
+
+	fmt.Println("Sent message for handling")
+	s.nodes[in.PlayerID].HandleViewChange(msg, done)
 
 	<-done
 	fmt.Println("closed message stream")
