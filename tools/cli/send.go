@@ -9,19 +9,18 @@ package cli
 import (
 	"fmt"
 
-	"github.com/golang/glog"
-
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/logger"
 )
 
 func (cli *CLI) send(from, to string, amount uint64, config *config.Config) {
 	if !iotxaddress.ValidateAddress(from) {
-		glog.Fatal("ERROR: Sender address is not valid")
+		logger.Fatal().Msg("ERROR: Sender address is not valid")
 	}
 	if !iotxaddress.ValidateAddress(to) {
-		glog.Fatal("ERROR: Recipient address is not valid")
+		logger.Fatal().Msg("ERROR: Recipient address is not valid")
 	}
 
 	bc := blockchain.CreateBlockchain(config, blockchain.Gen)

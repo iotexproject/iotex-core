@@ -12,7 +12,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
@@ -23,6 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/consensus/fsm"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/delegate"
+	"github.com/iotexproject/iotex-core/logger"
 	pb "github.com/iotexproject/iotex-core/proto"
 )
 
@@ -70,7 +70,7 @@ func NewRDPoS(cfg config.RDPoS, prop scheme.CreateBlockCB, vote scheme.TellPeerC
 	pub scheme.BroadcastCB, bc blockchain.Blockchain, myaddr net.Addr, dlg delegate.Pool) *RDPoS {
 	delegates, err := dlg.AllDelegates()
 	if err != nil {
-		glog.Error(err.Error())
+		logger.Error().Err(err)
 		syscall.Exit(syscall.SYS_EXIT)
 	}
 	sc := &RDPoS{
@@ -92,7 +92,7 @@ func NewRDPoS(cfg config.RDPoS, prop scheme.CreateBlockCB, vote scheme.TellPeerC
 
 // Start initialize the RDPoS and start to consume requests from request channel.
 func (n *RDPoS) Start() error {
-	glog.Info("Starting RDPoS")
+	logger.Info().Msg("Starting RDPoS")
 	n.wg.Add(1)
 	go n.consume()
 	if n.cfg.ProposerRotation.Enabled {
@@ -103,7 +103,7 @@ func (n *RDPoS) Start() error {
 
 // Stop stops the RDPoS and stop consuming requests from request channel.
 func (n *RDPoS) Stop() error {
-	glog.Infof("RDPoS is shutting down")
+	logger.Info().Msg("RDPoS is shutting down")
 	close(n.quit)
 	n.wg.Wait()
 	return nil
@@ -111,7 +111,7 @@ func (n *RDPoS) Stop() error {
 
 // Handle handles incoming messages and publish to the channel.
 func (n *RDPoS) Handle(m proto.Message) error {
-	glog.Info("RDPoS scheme handles incoming requests")
+	logger.Info().Msg("RDPoS scheme handles incoming requests")
 
 	event, err := eventFromProto(m)
 	if err != nil {
@@ -144,7 +144,10 @@ loop:
 				}
 			case fsm.ErrNoTransitionApplied:
 			default:
-				glog.Errorf("%s failed to fsm.HandleTransition: %s", n.self, err)
+				logger.Error().
+					Str("RDPoS", n.self.String()).
+					Err(err).
+					Msg("Failed to fsm.HandleTransition")
 			}
 		case <-n.quit:
 			break loop
@@ -152,7 +155,7 @@ loop:
 	}
 
 	n.wg.Done()
-	glog.Info("consume done")
+	logger.Info().Msg("consume done")
 }
 
 func (n *RDPoS) tellDelegates(msg *pb.ViewChangeMsg) {

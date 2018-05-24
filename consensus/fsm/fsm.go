@@ -11,12 +11,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/glog"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/common/routine"
+	"github.com/iotexproject/iotex-core/logger"
 )
 
 var (
@@ -118,7 +118,7 @@ func (m *Machine) SetInitialState(state State, handler Handler) error {
 	m.AddState(state, handler)
 	err := m.transitionAndSetupTimeout(state, &Event{State: "EMPTY"})
 	if err != nil {
-		glog.Error("failed to SetInitialState: cannot transit to initial state")
+		logger.Error().Msg("failed to SetInitialState: cannot transit to initial state")
 		return err
 	}
 

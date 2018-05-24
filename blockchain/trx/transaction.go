@@ -12,12 +12,12 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/txvm"
 )
@@ -110,7 +110,7 @@ func NewCoinbaseTx(toaddr string, amount uint64, data string) *Tx {
 		randData := make([]byte, 20)
 		_, err := rand.Read(randData)
 		if err != nil {
-			glog.Error(err)
+			logger.Error().Err(err)
 			return nil
 		}
 
@@ -290,7 +290,7 @@ func CreateTxOutput(toaddr string, value uint64) *TxOutput {
 
 	locks, err := txvm.PayToAddrScript(toaddr)
 	if err != nil {
-		glog.Error(err)
+		logger.Error().Err(err)
 		return nil
 	}
 	out.LockScript = locks
@@ -302,7 +302,7 @@ func CreateTxOutput(toaddr string, value uint64) *TxOutput {
 // IsLockedWithKey checks if the UTXO in output is locked with script
 func (out *TxOutput) IsLockedWithKey(lockScript []byte) bool {
 	if len(out.LockScript) < 23 {
-		glog.Error("LockScript too short")
+		logger.Error().Msg("LockScript too short")
 		return false
 	}
 	// TODO: avoid hard-coded extraction of public key hash

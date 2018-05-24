@@ -7,8 +7,8 @@
 package rdpos
 
 import (
-	"github.com/golang/glog"
 	"github.com/iotexproject/iotex-core/consensus/fsm"
+	"github.com/iotexproject/iotex-core/logger"
 )
 
 // ruleCommit commits the block based on 2k + 1 vote messages (K + 1 yes or no),,
@@ -24,7 +24,12 @@ func (r ruleCommit) Condition(event *fsm.Event) bool {
 
 	// no consensus reached
 	if event.StateTimedOut || event.Err != nil || !r.reachedMaj() {
-		glog.Warningf("|||||| node %s no consensus agreed: state time out %+v, event error %+v, r.reachedMaj() %+v", r.self.String(), event.StateTimedOut, event.Err, r.reachedMaj())
+		logger.Warn().
+			Str("node", r.self.String()).
+			Bool("state time out", event.StateTimedOut).
+			Err(event.Err).
+			Bool("r.reachedMaj()", r.reachedMaj()).
+			Msg("|||||| no consensus agreed")
 		return true
 	}
 
@@ -35,7 +40,9 @@ func (r ruleCommit) Condition(event *fsm.Event) bool {
 
 		// only proposer needs to broadcast the consensus block
 		if r.proposer {
-			glog.Warningf("|||||| node %s, broadcast block", r.self.String())
+			logger.Warn().
+				Str("node", r.self.String()).
+				Msg("|||||| broadcast block")
 			r.pubCb(r.roundCtx.block)
 		}
 	}

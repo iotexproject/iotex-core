@@ -7,9 +7,8 @@
 package rdpos
 
 import (
-	"github.com/golang/glog"
-
 	"github.com/iotexproject/iotex-core/consensus/fsm"
+	"github.com/iotexproject/iotex-core/logger"
 )
 
 const (
@@ -24,7 +23,7 @@ func fsmCreate(r *RDPoS) fsm.Machine {
 	sm := fsm.NewMachine()
 
 	if err := sm.SetInitialState(stateStart, &start{RDPoS: r}); err != nil {
-		glog.Errorf("Error when creating fsm: %v\n", err)
+		logger.Error().Err(err).Msg("Error when creating fsm")
 		return sm
 	}
 	sm.AddState(stateInitPropose, &initPropose{RDPoS: r})

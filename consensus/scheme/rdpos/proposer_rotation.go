@@ -7,10 +7,9 @@
 package rdpos
 
 import (
-	"github.com/golang/glog"
-
 	"github.com/iotexproject/iotex-core/common/routine"
 	"github.com/iotexproject/iotex-core/consensus/fsm"
+	"github.com/iotexproject/iotex-core/logger"
 )
 
 // proposerRotation is supposed to rotate the proposer per round of PBFT.
@@ -29,9 +28,12 @@ func (s *proposerRotation) Do() {
 
 	height, err := s.bc.TipHeight()
 	if err == nil {
-		glog.Warningf("[%s] propose a new block height %v", s.self, height+1)
+		logger.Warn().
+			Str("proposer", s.self.String()).
+			Uint64("height", height+1).
+			Msg("Propose new block height")
 	} else {
-		glog.Errorf("Failed to get blockchain height")
+		logger.Error().Msg("Failed to get blockchain height")
 	}
 	s.fsm.HandleTransition(&fsm.Event{
 		State: stateInitPropose,

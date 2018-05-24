@@ -7,10 +7,10 @@
 package crypto
 
 import (
-	"github.com/golang/glog"
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotexproject/iotex-core/common"
+	"github.com/iotexproject/iotex-core/logger"
 )
 
 // Merkle tree struct
@@ -24,7 +24,7 @@ type Merkle struct {
 func NewMerkleTree(leaves []common.Hash32B) *Merkle {
 	size := len(leaves)
 	if size == 0 {
-		glog.Warning("Try to create merkle tree with empty leaf list!")
+		logger.Warn().Msg("Try to create merkle tree with empty leaf list!")
 		return nil
 	}
 

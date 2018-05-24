@@ -12,11 +12,11 @@ import (
 	"io/ioutil"
 	"time"
 
-	"github.com/golang/glog"
 	"google.golang.org/grpc/keepalive"
 	"gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/logger"
 )
 
 // Debug is a flag indicating if program is running debug mode.
@@ -186,23 +186,23 @@ func LoadConfigWithPathWithoutValidation(path string) (*Config, error) {
 func loadConfigWithPathInternal(path string, validate bool) (*Config, error) {
 	configBytes, err := ioutil.ReadFile(path)
 	if err != nil {
-		glog.Errorf("Error when reading the config file: %v\n", err)
+		logger.Error().Err(err).Msg("Error when reading the config file")
 		return nil, err
 	}
 
 	config := Config{}
 	err = yaml.Unmarshal(configBytes, &config)
 	if err != nil {
-		glog.Errorf("Error when decoding the config file: %v\n", err)
+		logger.Error().Err(err).Msg("Error when decoding the config file")
 		return nil, err
 	}
 	if err := setMinerAddr(&config); err != nil {
-		glog.Errorf("Error when decoding key string: %v\n", err)
+		logger.Error().Err(err).Msg("Error when decoding key string")
 		return nil, err
 	}
 	if validate {
 		if err = validateConfig(&config); err != nil {
-			glog.Errorf("Error when validating config: %v\n", err)
+			logger.Error().Err(err).Msg("Error when validating config")
 			return nil, err
 		}
 	}
@@ -248,14 +248,14 @@ type Topology struct {
 func LoadTopology(path string) (*Topology, error) {
 	topologyBytes, err := ioutil.ReadFile(path)
 	if err != nil {
-		glog.Errorf("Error when reading the topology file: %v\n", err)
+		logger.Error().Err(err).Msg("Error when reading the topology file")
 		return nil, err
 	}
 
 	topology := Topology{}
 	err = yaml.Unmarshal(topologyBytes, &topology)
 	if err != nil {
-		glog.Errorf("Error when decoding the topology file: %v\n", err)
+		logger.Error().Err(err).Msg("Error when decoding the topology file")
 		return nil, err
 	}
 

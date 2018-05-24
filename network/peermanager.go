@@ -10,9 +10,8 @@ import (
 	"net"
 	"sync"
 
-	"github.com/golang/glog"
-
 	"github.com/iotexproject/iotex-core/common/service"
+	"github.com/iotexproject/iotex-core/logger"
 )
 
 // PeerManager represents the outgoing neighbor list
@@ -34,22 +33,30 @@ func NewPeerManager(o *Overlay, lb uint, ub uint) *PeerManager {
 // AddPeer adds a new peer
 func (pm *PeerManager) AddPeer(addr string) {
 	if lenSyncMap(pm.Peers) >= pm.NumPeersUpperBound {
-		glog.Infof("Node already reaches the max number of peers: %d", pm.NumPeersUpperBound)
+		logger.Info().
+			Uint("peers", pm.NumPeersUpperBound).
+			Msg("Node already reached the max number of peers")
 		return
 	}
 	if pm.Overlay.PRC.String() == addr {
-		glog.Infof("Node at address %s is the current node", addr)
+		logger.Info().
+			Str("addr", addr).
+			Msg("Node at address is the current node")
 		return
 	}
 	_, ok := pm.Peers.Load(addr)
 	if ok {
-		glog.Infof("Node at address %s is already the peer", addr)
+		logger.Info().
+			Str("addr", addr).
+			Msg("Node at address is already the peer")
 		return
 	}
 	if !pm.Overlay.Config.AllowMultiConnsPerIP {
 		nHost, _, err := net.SplitHostPort(addr)
 		if err != nil {
-			glog.Errorf("Node address %s is invalid", addr)
+			logger.Error().
+				Str("addr", addr).
+				Msg("Node address is invalid")
 			return
 		}
 		found := false
@@ -57,7 +64,9 @@ func (pm *PeerManager) AddPeer(addr string) {
 			host, _, err := net.SplitHostPort(value.(*Peer).String())
 			// This should be impossible, otherwise the connection couldn't be established
 			if err != nil {
-				glog.Errorf("Node address %s is invalid", addr)
+				logger.Error().
+					Str("addr", addr).
+					Msg("Node address is invalid")
 				return true
 			}
 			if host == nHost {
@@ -67,7 +76,9 @@ func (pm *PeerManager) AddPeer(addr string) {
 			return true
 		})
 		if found {
-			glog.Infof("Another node on the same IP %s is already the peer", nHost)
+			logger.Info().
+				Str("nHost", nHost).
+				Msg("Another node on the same IP is already the peer")
 			return
 		}
 	}
@@ -80,7 +91,9 @@ func (pm *PeerManager) AddPeer(addr string) {
 func (pm *PeerManager) RemovePeer(addr string) {
 	p, found := pm.Peers.Load(addr)
 	if !found {
-		glog.Infof("Node at address %s is not a peer", addr)
+		logger.Info().
+			Str("addr", addr).
+			Msg("Node at address is not a peer")
 		return
 	}
 	pm.Peers.Delete(p.(*Peer).String())

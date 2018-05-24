@@ -9,7 +9,7 @@ package beacon
 import (
 	"hash"
 
-	"github.com/golang/glog"
+	"github.com/iotexproject/iotex-core/logger"
 	"golang.org/x/crypto/blake2b"
 )
 
@@ -29,7 +29,7 @@ func NewBeacon() (Beacon, error) {
 	b := Beacon{seed: []byte(startSeed), hash: hash}
 
 	if err != nil {
-		glog.Error("Beacon hash function failed to initialize")
+		logger.Error().Msg("Beacon hash function failed to initialize")
 	}
 
 	return b, err

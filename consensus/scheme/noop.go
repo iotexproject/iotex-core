@@ -7,8 +7,8 @@
 package scheme
 
 import (
-	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
+	"github.com/iotexproject/iotex-core/logger"
 )
 
 // Noop is the consensus scheme that does NOT create blocks
@@ -32,6 +32,6 @@ func (n *Noop) Stop() error {
 
 // Handle handles incoming requests
 func (n *Noop) Handle(message proto.Message) error {
-	glog.Warning("Noop scheme does not handle incoming requests")
+	logger.Warn().Msg("Noop scheme does not handle incoming requests")
 	return nil
 }

@@ -9,12 +9,12 @@ package network
 import (
 	"time"
 
-	"github.com/golang/glog"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
 	cm "github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/logger"
 	pb "github.com/iotexproject/iotex-core/network/proto"
 	"github.com/iotexproject/iotex-core/proto"
 )
@@ -64,7 +64,7 @@ func (p *Peer) Connect(config *config.Network) error {
 	}
 
 	if err != nil {
-		glog.Errorf("Peer did not connect: %v", err)
+		logger.Error().Err(err).Msg("Peer did not connect")
 		return err
 	}
 	p.Conn = conn

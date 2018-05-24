@@ -6,7 +6,7 @@
 
 // Usage:
 //   make build
-//   ./bin/server -stderrthreshold=WARNING -log_dir=./log -config=./config.yaml
+//   ./bin/server -config=./config.yaml
 //
 
 package main

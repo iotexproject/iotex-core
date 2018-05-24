@@ -9,16 +9,15 @@ package cli
 import (
 	"fmt"
 
-	"github.com/golang/glog"
-
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/logger"
 )
 
 func (cli *CLI) getBalance(address string, config *config.Config) {
 	if !iotxaddress.ValidateAddress(address) {
-		glog.Fatal("ERROR: Address is not valid")
+		logger.Fatal().Msg("ERROR: Address is not valid")
 	}
 	bc := blockchain.CreateBlockchain(config, blockchain.Gen)
 	defer bc.Stop()
