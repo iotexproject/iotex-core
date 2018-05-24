@@ -38,16 +38,16 @@ func (m *MockStateFactory) EXPECT() *MockStateFactoryMockRecorder {
 }
 
 // CreateState mocks base method
-func (m *MockStateFactory) CreateState(arg0 *iotxaddress.Address) (*statefactory.State, error) {
-	ret := m.ctrl.Call(m, "CreateState", arg0)
+func (m *MockStateFactory) CreateState(arg0 *iotxaddress.Address, arg1 uint64) (*statefactory.State, error) {
+	ret := m.ctrl.Call(m, "CreateState", arg0, arg1)
 	ret0, _ := ret[0].(*statefactory.State)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CreateState indicates an expected call of CreateState
-func (mr *MockStateFactoryMockRecorder) CreateState(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateState", reflect.TypeOf((*MockStateFactory)(nil).CreateState), arg0)
+func (mr *MockStateFactoryMockRecorder) CreateState(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateState", reflect.TypeOf((*MockStateFactory)(nil).CreateState), arg0, arg1)
 }
 
 // Balance mocks base method

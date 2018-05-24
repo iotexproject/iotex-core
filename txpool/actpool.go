@@ -57,7 +57,7 @@ type actPool struct {
 // NewActPool constructs a new actpool
 func NewActPool(trie trie.Trie) ActPool {
 	ap := &actPool{
-		pendingSF:  statefactory.NewVirtualStateFactory(trie),
+		pendingSF:  statefactory.NewStateFactory(trie),
 		accountTxs: make(map[common.Hash32B]TxQueue),
 		allTxs:     make(map[common.Hash32B]*trx.Tx),
 	}
@@ -175,6 +175,14 @@ func (ap *actPool) AddTx(tx *trx.Tx) error {
 		queue = NewTxQueue()
 		ap.accountTxs[addrHash] = queue
 		hashToAddr[addrHash] = from
+
+		// Initialize balance for new account
+		balance, err := ap.pendingSF.Balance(from)
+		if err != nil {
+			glog.Errorf("Error when adding Tx: %v\n", err)
+			return err
+		}
+		queue.SetPendingBalance(balance)
 	}
 
 	if queue.Overlaps(tx) {
