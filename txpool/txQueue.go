@@ -41,17 +41,16 @@ type TxQueue interface {
 	SetConfirmedNonce(uint64)
 	ConfirmedNonce() uint64
 	SetPendingBalance(*big.Int)
+	PendingBalance() *big.Int
 	Len() int
 	Empty() bool
 	ConfirmedTxs() []*trx.Tx
-	UpdateConfirmedNonce()
 }
 
 // txQueue is a queue of transactions from an account
 type txQueue struct {
 	items          map[uint64]*trx.Tx // Map that stores all the transactions belonging to an account associated with nonces
 	index          noncePriorityQueue // Priority Queue that stores all the nonces belonging to an account. Nonces are used as indices for transaction map
-	pendingNonce   uint64             // Current pending nonce for the account
 	confirmedNonce uint64             // Current nonce tracking previous transactions that can be committed to the next block
 	pendingBalance *big.Int           // Current pending balance for the account
 }
@@ -61,7 +60,6 @@ func NewTxQueue() *txQueue {
 	return &txQueue{
 		items:          make(map[uint64]*trx.Tx),
 		index:          noncePriorityQueue{},
-		pendingNonce:   uint64(0),
 		confirmedNonce: uint64(0),
 		pendingBalance: big.NewInt(0),
 	}
@@ -104,7 +102,6 @@ func (q *txQueue) UpdatedPendingNonce(nonce uint64, updateConfirmedNonce bool) u
 		}
 		nonce++
 	}
-	q.pendingNonce = nonce
 	return nonce
 }
 
@@ -121,6 +118,11 @@ func (q *txQueue) ConfirmedNonce() uint64 {
 // SetPendingBalance sets pending balance for the queue
 func (q *txQueue) SetPendingBalance(balance *big.Int) {
 	q.pendingBalance = balance
+}
+
+// PendingBalance returns the current pending balance for the queue
+func (q *txQueue) PendingBalance() *big.Int {
+	return q.pendingBalance
 }
 
 // Len returns the length of the transaction map
@@ -142,18 +144,4 @@ func (q *txQueue) ConfirmedTxs() []*trx.Tx {
 		nonce++
 	}
 	return txs
-}
-
-// UpdateConfirmedNonce updates confirmed nonce for the queue
-func (q *txQueue) UpdateConfirmedNonce() {
-	if q.index[0] < q.confirmedNonce {
-		q.confirmedNonce = q.index[0]
-	}
-	for q.items[q.confirmedNonce] != nil {
-		if q.pendingBalance.Cmp(q.items[q.confirmedNonce].Amount) < 0 {
-			break
-		}
-		q.pendingBalance.Sub(q.pendingBalance, q.items[q.confirmedNonce].Amount)
-		q.confirmedNonce++
-	}
 }
