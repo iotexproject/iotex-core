@@ -73,34 +73,34 @@ func TestBalance(t *testing.T) {
 	assert.Equal(t, 0, state.Balance.Cmp(big.NewInt(30)))
 }
 
-//func TestNonce(t *testing.T) {
-//	ctrl := gomock.NewController(t)
-//	defer ctrl.Finish()
-//
-//	trie := mock_trie.NewMockTrie(ctrl)
-//	sf := NewStateFactory(trie)
-//
-//	// Add 10 so the balance should be 10
-//	addr, err := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
-//	assert.Nil(t, err)
-//	mstate, _ := stateToBytes(&State{Address: addr, Nonce: 0x10})
-//	trie.EXPECT().Get(gomock.Any()).Times(1).Return(mstate, nil)
-//	addr, err = iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
-//	assert.Nil(t, err)
-//	n, err := sf.Nonce(addr)
-//	assert.Equal(t, uint64(0x10), n)
-//	assert.Nil(t, err)
-//
-//	trie.EXPECT().Get(gomock.Any()).Times(1).Return(nil, nil)
-//	_, err = sf.Nonce(addr)
-//	assert.Equal(t, ErrFailedToUnmarshalState, err)
-//
-//	trie.EXPECT().Upsert(gomock.Any(), gomock.Any()).Times(1).Do(func(key, value []byte) error {
-//		state, _ := bytesToState(value)
-//		assert.Equal(t, uint64(0x11), state.Nonce)
-//		return nil
-//	})
-//	mstate, _ = stateToBytes(&State{Address: addr, Nonce: 0x10})
-//	trie.EXPECT().Get(gomock.Any()).Times(1).Return(mstate, nil)
-//	err = sf.SetNonce(addr, uint64(0x11))
-//}
+func TestNonce(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	trie := mock_trie.NewMockTrie(ctrl)
+	sf := NewStateFactory(trie)
+
+	// Add 10 so the balance should be 10
+	addr, err := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
+	assert.Nil(t, err)
+	mstate, _ := stateToBytes(&State{Address: addr, Nonce: 0x10})
+	trie.EXPECT().Get(gomock.Any()).Times(1).Return(mstate, nil)
+	addr, err = iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
+	assert.Nil(t, err)
+	n, err := sf.Nonce(addr)
+	assert.Equal(t, uint64(0x10), n)
+	assert.Nil(t, err)
+
+	trie.EXPECT().Get(gomock.Any()).Times(1).Return(nil, nil)
+	_, err = sf.Nonce(addr)
+	assert.Equal(t, ErrFailedToUnmarshalState, err)
+
+	trie.EXPECT().Upsert(gomock.Any(), gomock.Any()).Times(1).Do(func(key, value []byte) error {
+		state, _ := bytesToState(value)
+		assert.Equal(t, uint64(0x11), state.Nonce)
+		return nil
+	})
+	mstate, _ = stateToBytes(&State{Address: addr, Nonce: 0x10})
+	trie.EXPECT().Get(gomock.Any()).Times(1).Return(mstate, nil)
+	err = sf.SetNonce(addr, uint64(0x11))
+}
