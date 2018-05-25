@@ -97,7 +97,7 @@ func TestTxQueue_UpdatePendingNonce(t *testing.T) {
 	q.pendingNonce = uint64(2)
 	q.pendingBalance = big.NewInt(1100)
 	q.Put(&tx5)
-	q.UpdatePendingNonce(uint64(2), true)
+	q.UpdatePendingNonce(uint64(2))
 	assert.Equal(uint64(5), q.pendingNonce)
 	assert.Equal(uint64(4), q.confirmedNonce)
 }
