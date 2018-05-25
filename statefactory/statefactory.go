@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"encoding/gob"
 	"math/big"
-	"sync"
 
 	"github.com/pkg/errors"
 
@@ -59,9 +58,7 @@ type (
 
 	// stateFactory implements StateFactory interface, tracks changes in a map but never commits to trie/db
 	stateFactory struct {
-		changes map[hashedAddress]*State
-		mu      sync.Mutex
-		trie    trie.Trie
+		trie trie.Trie
 	}
 )
 
@@ -103,17 +100,14 @@ func (st *State) SubBalance(amount *big.Int) error {
 //======================================
 // functions for StateFactory
 //======================================
-const hashedAddressLen = 20
-
-type hashedAddress [hashedAddressLen]byte
 
 // NewStateFactory creates a new state factory
 func NewStateFactory(trie trie.Trie) StateFactory {
-	return &stateFactory{trie: trie, changes: make(map[hashedAddress]*State)}
+	return &stateFactory{trie: trie}
 }
 
 // CreateState adds a new State with initial balance to the factory
-func (vs *stateFactory) CreateState(addr *iotxaddress.Address, init uint64) (*State, error) {
+func (sf *stateFactory) CreateState(addr *iotxaddress.Address, init uint64) (*State, error) {
 	balance := big.NewInt(0)
 	balance.SetUint64(init)
 	s := State{Address: addr, Balance: balance}
@@ -121,15 +115,15 @@ func (vs *stateFactory) CreateState(addr *iotxaddress.Address, init uint64) (*St
 	if err != nil {
 		return nil, err
 	}
-	if err := vs.trie.Upsert(iotxaddress.HashPubKey(addr.PublicKey), mstate); err != nil {
+	if err := sf.trie.Upsert(iotxaddress.HashPubKey(addr.PublicKey), mstate); err != nil {
 		return nil, err
 	}
 	return &s, nil
 }
 
 // Balance returns balance
-func (vs *stateFactory) Balance(addr *iotxaddress.Address) (*big.Int, error) {
-	state, err := vs.getState(addr)
+func (sf *stateFactory) Balance(addr *iotxaddress.Address) (*big.Int, error) {
+	state, err := sf.getState(addr)
 	if err != nil {
 		return nil, err
 	}
@@ -137,60 +131,46 @@ func (vs *stateFactory) Balance(addr *iotxaddress.Address) (*big.Int, error) {
 }
 
 // Nonce returns the nonce if the account exists
-func (vs *stateFactory) Nonce(addr *iotxaddress.Address) (uint64, error) {
-	vs.mu.Lock()
-	defer vs.mu.Unlock()
-
-	var key hashedAddress
-	k := iotxaddress.HashPubKey(addr.PublicKey)
-	copy(key[:], k[:hashedAddressLen])
-	if val, ok := vs.changes[key]; ok {
-		return val.Nonce, nil
-	}
-
-	state, err := vs.getState(addr)
+func (sf *stateFactory) Nonce(addr *iotxaddress.Address) (uint64, error) {
+	state, err := sf.getState(addr)
 	if err != nil {
 		return 0, err
 	}
-	vs.changes[key] = state
-	return vs.changes[key].Nonce, nil
+	return state.Nonce, nil
 }
 
 // SetNonce returns the nonce if the account exists
-func (vs *stateFactory) SetNonce(addr *iotxaddress.Address, value uint64) error {
-	vs.mu.Lock()
-	defer vs.mu.Unlock()
-
-	var key hashedAddress
-	k := iotxaddress.HashPubKey(addr.PublicKey)
-	copy(key[:], k[:hashedAddressLen])
-	if _, ok := vs.changes[key]; ok {
-		vs.changes[key].Nonce = value
-		return nil
-	}
-
-	state, err := vs.getState(addr)
+func (sf *stateFactory) SetNonce(addr *iotxaddress.Address, value uint64) error {
+	state, err := sf.getState(addr)
 	if err != nil {
 		return err
 	}
-	vs.changes[key] = state
-	vs.changes[key].Nonce = value
+	state.Nonce = value
+
+	mstate, err := stateToBytes(state)
+	if err != nil {
+		return err
+	}
+	key := iotxaddress.HashPubKey(addr.PublicKey)
+	if err := sf.trie.Upsert(key, mstate); err != nil {
+		return err
+	}
 	return nil
 }
 
 // RootHash returns the hash of the root node of the trie
-func (vs *stateFactory) RootHash() common.Hash32B {
-	return vs.trie.RootHash()
+func (sf *stateFactory) RootHash() common.Hash32B {
+	return sf.trie.RootHash()
 }
 
 // UpdateStatesWithTransfer updates a State from the given value transfer
-func (vs *stateFactory) UpdateStatesWithTransfer(txs []*trx.Tx) error {
+func (sf *stateFactory) UpdateStatesWithTransfer(txs []*trx.Tx) error {
 	var ss []byte
 	transferK := [][]byte{}
 	transferV := [][]byte{}
 	for _, tx := range txs {
 		// check sender
-		sender, err := vs.getState(&iotxaddress.Address{PublicKey: tx.SenderPublicKey})
+		sender, err := sf.getState(&iotxaddress.Address{PublicKey: tx.SenderPublicKey})
 		if err != nil {
 			return err
 		}
@@ -198,10 +178,10 @@ func (vs *stateFactory) UpdateStatesWithTransfer(txs []*trx.Tx) error {
 			return ErrNotEnoughBalance
 		}
 		// check recipient
-		receiver, err := vs.getState(tx.Recipient)
+		receiver, err := sf.getState(tx.Recipient)
 		switch {
 		case err == ErrAccountNotExist:
-			if _, e := vs.CreateState(tx.Recipient, 0); e != nil {
+			if _, e := sf.CreateState(tx.Recipient, 0); e != nil {
 				return e
 			}
 		case err != nil:
@@ -227,15 +207,15 @@ func (vs *stateFactory) UpdateStatesWithTransfer(txs []*trx.Tx) error {
 		transferV = append(transferV, ss)
 	}
 	// commit the state changes to Trie in a batch
-	return vs.trie.Commit(transferK, transferV)
+	return sf.trie.Commit(transferK, transferV)
 }
 
 //======================================
 // private functions
 //=====================================
 // getState pulls an existing State
-func (vs *stateFactory) getState(addr *iotxaddress.Address) (*State, error) {
-	mstate, err := vs.trie.Get(iotxaddress.HashPubKey(addr.PublicKey))
+func (sf *stateFactory) getState(addr *iotxaddress.Address) (*State, error) {
+	mstate, err := sf.trie.Get(iotxaddress.HashPubKey(addr.PublicKey))
 	if errors.Cause(err) == trie.ErrNotExist {
 		return nil, ErrAccountNotExist
 	}

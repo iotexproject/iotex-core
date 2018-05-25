@@ -49,7 +49,8 @@ type ActPool interface {
 // actPool implements ActPool interface
 type actPool struct {
 	mutex      sync.RWMutex
-	pendingSF  statefactory.StateFactory // Pending state tracking virtual nonces
+	currentSF  statefactory.StateFactory
+	changeMap  map[common.Hash32B]*statefactory.State
 	accountTxs map[common.Hash32B]TxQueue
 	allTxs     map[common.Hash32B]*trx.Tx
 }
@@ -57,7 +58,8 @@ type actPool struct {
 // NewActPool constructs a new actpool
 func NewActPool(trie trie.Trie) ActPool {
 	ap := &actPool{
-		pendingSF:  statefactory.NewStateFactory(trie),
+		currentSF:  statefactory.NewStateFactory(trie),
+		changeMap:  make(map[common.Hash32B]*statefactory.State),
 		accountTxs: make(map[common.Hash32B]TxQueue),
 		allTxs:     make(map[common.Hash32B]*trx.Tx),
 	}
@@ -75,11 +77,13 @@ func NewActPool(trie trie.Trie) ActPool {
 func (ap *actPool) Reset() {
 	ap.mutex.Lock()
 	defer ap.mutex.Unlock()
+	// Clear changeMap
+	ap.changeMap = make(map[common.Hash32B]*statefactory.State)
 	// Remove committed transactions in actpool
 	ap.removeCommittedTxs()
 	// Reset pending balance for each account
 	for addrHash, queue := range ap.accountTxs {
-		balance, err := ap.pendingSF.Balance(hashToAddr[addrHash])
+		balance, err := ap.currentSF.Balance(hashToAddr[addrHash])
 		if err != nil {
 			logger.Error().Err(err).Msg("Error when resetting actpool state")
 			return
@@ -89,17 +93,15 @@ func (ap *actPool) Reset() {
 	// Reset confirmed nonce and pending nonce for each account
 	for addrHash, queue := range ap.accountTxs {
 		from := hashToAddr[addrHash]
-		committedNonce, err := ap.pendingSF.Nonce(from)
+		committedNonce, err := ap.currentSF.Nonce(from)
 		if err != nil {
 			logger.Error().Err(err).Msg("Error when resetting Tx")
 			return
 		}
 		queue.SetConfirmedNonce(committedNonce)
 		newPendingNonce := queue.UpdatedPendingNonce(committedNonce, true)
-		if err := ap.pendingSF.SetNonce(from, newPendingNonce); err != nil {
-			logger.Error().Err(err).Msg("Error when resetting actPool state")
-			return
-		}
+		ap.changeMap[addrHash] = &statefactory.State{}
+		ap.changeMap[addrHash].Nonce = newPendingNonce
 	}
 }
 
@@ -132,7 +134,7 @@ func (ap *actPool) validateTx(tx *trx.Tx) error {
 		return err
 	}
 	// Reject transaction if nonce is too low
-	nonce, err := ap.pendingSF.Nonce(from)
+	nonce, err := ap.getNonce(from)
 	if err != nil {
 		logger.Error().Err(err).Msg("Error when validating Tx")
 		return err
@@ -184,7 +186,7 @@ func (ap *actPool) AddTx(tx *trx.Tx) error {
 		hashToAddr[addrHash] = from
 
 		// Initialize balance for new account
-		balance, err := ap.pendingSF.Balance(from)
+		balance, err := ap.currentSF.Balance(from)
 		if err != nil {
 			glog.Errorf("Error when adding Tx: %v\n", err)
 			return err
@@ -209,7 +211,7 @@ func (ap *actPool) AddTx(tx *trx.Tx) error {
 	queue.Put(tx)
 	ap.allTxs[hash] = tx
 	// If the pending nonce equals this nonce, update pending nonce
-	nonce, err := ap.pendingSF.Nonce(from)
+	nonce, err := ap.getNonce(from)
 	if err != nil {
 		logger.Error().Err(err).Msg("Error when adding Tx")
 		return err
@@ -218,10 +220,7 @@ func (ap *actPool) AddTx(tx *trx.Tx) error {
 		// Flag indicating whether we need to update confirmed nonce as well
 		updateConfirmedNonce := nonce == queue.ConfirmedNonce()
 		newPendingNonce := queue.UpdatedPendingNonce(tx.Nonce, updateConfirmedNonce)
-		if err := ap.pendingSF.SetNonce(from, newPendingNonce); err != nil {
-			logger.Error().Err(err).Msg("Error when adding Tx")
-			return err
-		}
+		ap.changeMap[addrHash].Nonce = newPendingNonce
 	}
 	return nil
 }
@@ -231,7 +230,7 @@ func (ap *actPool) removeCommittedTxs() {
 	ap.mutex.Lock()
 	defer ap.mutex.Unlock()
 	for addrHash, queue := range ap.accountTxs {
-		committedNonce, err := ap.pendingSF.Nonce(hashToAddr[addrHash])
+		committedNonce, err := ap.currentSF.Nonce(hashToAddr[addrHash])
 		if err != nil {
 			logger.Error().Err(err).Msg("Error when removing commited Txs")
 			return
@@ -249,4 +248,17 @@ func (ap *actPool) removeCommittedTxs() {
 			delete(ap.accountTxs, addrHash)
 		}
 	}
+}
+
+func (ap *actPool) getNonce(addr *iotxaddress.Address) (uint64, error) {
+	addrHash := addr.HashAddress()
+	if state, ok := ap.changeMap[addrHash]; ok {
+		return state.Nonce, nil
+	}
+	nonce, err := ap.currentSF.Nonce(addr)
+	if err == nil {
+		ap.changeMap[addrHash] = &statefactory.State{}
+		ap.changeMap[addrHash].Nonce = nonce
+	}
+	return nonce, err
 }
