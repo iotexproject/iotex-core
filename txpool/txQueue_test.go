@@ -81,7 +81,7 @@ func TestTxQueue_FilterNonce(t *testing.T) {
 	assert.Equal(&tx3, q.items[q.index[0]])
 }
 
-func TestTxQueue_UpdatedPendingNonce(t *testing.T) {
+func TestTxQueue_UpdatePendingNonce(t *testing.T) {
 	assert := assert.New(t)
 	q := NewTxQueue()
 	tx1 := trx.Tx{Nonce: uint64(1), Amount: big.NewInt(1)}
@@ -93,11 +93,12 @@ func TestTxQueue_UpdatedPendingNonce(t *testing.T) {
 	q.Put(&tx2)
 	q.Put(&tx3)
 	q.Put(&tx4)
-	q.Put(&tx5)
 	q.confirmedNonce = uint64(2)
+	q.pendingNonce = uint64(2)
 	q.pendingBalance = big.NewInt(1100)
-	newPendingNonce := q.UpdatedPendingNonce(uint64(2), true)
-	assert.Equal(uint64(5), newPendingNonce)
+	q.Put(&tx5)
+	q.UpdatePendingNonce(uint64(2), true)
+	assert.Equal(uint64(5), q.pendingNonce)
 	assert.Equal(uint64(4), q.confirmedNonce)
 }
 
