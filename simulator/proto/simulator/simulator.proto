@@ -12,6 +12,7 @@ package simulator;
 service Simulator {
   rpc Ping (Request)		returns (stream Reply) {}
   rpc Init (InitRequest)	returns (stream Proposal) {}
+  rpc Exit (Empty)              returns (Empty) {}
 }
 
 // The request message containing the playerID and the value of the message being fed into the consensus engine
@@ -41,3 +42,4 @@ message Proposal {
 
 // an empty message
 message Empty {}
+

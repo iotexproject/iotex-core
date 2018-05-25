@@ -10,6 +10,7 @@ import block
 import player
 import solver
 import transaction
+import consensus_client
 
 import math
 import random
@@ -51,3 +52,5 @@ def drive(opts):
 
 
     print(sol.blockchain)
+
+    consensus_client.Consensus.close()

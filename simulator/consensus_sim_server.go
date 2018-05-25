@@ -7,12 +7,14 @@
 package main
 
 import (
+	"context"
 	"encoding/binary"
 	"encoding/hex"
 	"flag"
 	"fmt"
 	"log"
 	"net"
+	"os"
 	"strconv"
 	"time"
 
@@ -95,7 +97,7 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 		node.Start()
 
 		fmt.Printf("Node %d initialized and consensus engine started\n", i)
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(5 * time.Millisecond)
 		<-done
 
 		fmt.Printf("Node %d initialization ended\n", i)
@@ -128,12 +130,17 @@ func (s *server) Ping(in *pb.Request, stream pb.Simulator_PingServer) error {
 	if in.InternalMsgType != 1999 {
 		msg := consensus.CombineMsg(in.InternalMsgType, msgValue)
 		s.nodes[in.PlayerID].HandleViewChange(msg, done)
-		time.Sleep(time.Second)
+		time.Sleep(5 * time.Millisecond)
 		<-done // wait until done
 	}
 
 	fmt.Println("closed message stream")
 	return nil
+}
+
+func (s *server) Exit(context context.Context, in *pb.Empty) *pb.Empty {
+	os.Exit(0)
+	return &pb.Empty{}
 }
 
 func main() {

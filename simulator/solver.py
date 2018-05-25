@@ -41,6 +41,7 @@ class Solver:
         print("==NETWORK CONNECTIONS==")
         for i in self.players:
             print("%s: %s" % (i, i.connections))
+        print()
 
         # initializes consensus engines and gets the initial block proposals
         response = consensus_client.Consensus.initConsensus(self.N_PLAYERS)

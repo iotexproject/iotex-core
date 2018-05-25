@@ -43,3 +43,13 @@ class Consensus:
 
         # response is a list; each element: [messageType, (internalMsgType, value)]
         return response
+
+    @staticmethod
+    def close():
+        print("closing consensus server")
+        
+        channel = grpc.insecure_channel('localhost:50051')
+        stub = simulator_pb2_grpc.SimulatorStub(channel)
+        
+        stub.Exit(simulator_pb2.Empty())
+        
