@@ -35,14 +35,14 @@ consensus:
         proposerrotation:
             enabled: true
             interval: 700ms
-        unmatchedeventttl: 100s
+        unmatchedeventttl: 1000s
         acceptpropose:
-            ttl: 100s
+            ttl: 1000s
         acceptprevote:
-            ttl: 100s
+            ttl: 1000s
         acceptvote:
-            ttl: 100s
-    blockcreationinterval: 1s
+            ttl: 1000s
+    blockcreationinterval: 1000s
 
 delegate:
     addrs:

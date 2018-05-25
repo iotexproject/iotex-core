@@ -25,9 +25,6 @@ import (
 	"github.com/iotexproject/iotex-core/txpool"
 )
 
-// Init is set to true if the simulator is in the process of initialization; the message type sent back during Init phase is different because proposals happen spontaneously without prompting
-var Init bool
-
 // ConsensusSim is the interface for handling consensus view change used in the simulator
 type ConsensusSim interface {
 	Start() error
@@ -35,18 +32,17 @@ type ConsensusSim interface {
 	HandleViewChange(proto.Message, chan bool) error
 	HandleBlockPropose(proto.Message, chan bool) error
 	SetStream(*pb.Simulator_PingServer)
-	SetInitStream(*pb.Simulator_InitServer)
 	SetDoneStream(chan bool)
-	SetID(int)
+	SendUnsent()
 }
 
 // consensus_sim struct with a stream parameter for writing to simulator stream
 type consensusSim struct {
-	cfg        *config.Consensus
-	scheme     scheme.Scheme
-	stream     pb.Simulator_PingServer
-	initStream pb.Simulator_InitServer
-	ID         int
+	cfg    *config.Consensus
+	scheme scheme.Scheme
+	stream pb.Simulator_PingServer
+	ID     int
+	unsent []*pb.Reply
 }
 
 // NewConsensusSim creates a consensus_sim struct
@@ -79,8 +75,6 @@ func NewConsensusSim(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxP
 	tellBlockCB := func(msg proto.Message) error {
 		fmt.Println("tellBlockCB called")
 
-		fmt.Printf("id: %d, pointer: %p\n", cs.ID, cs)
-
 		msgType, msgBody := SeparateMsg(msg)
 		msgBodyS := hex.EncodeToString(msgBody)
 
@@ -93,8 +87,6 @@ func NewConsensusSim(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxP
 	commitBlockCB := func(blk *blockchain.Block) error {
 		fmt.Println("commitBlockCB called")
 
-		fmt.Printf("id: %d, pointer: %p\n", cs.ID, cs)
-
 		hash := [32]byte(blk.HashBlock())
 		s := hex.EncodeToString(hash[:])
 		cs.sendMessage(1, 0, s)
@@ -105,7 +97,6 @@ func NewConsensusSim(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxP
 	// broadcast a block across the P2P network
 	broadcastBlockCB := func(blk *blockchain.Block) error {
 		fmt.Println("broadcastBlockCB called")
-		fmt.Printf("id: %d, pointer: %p\n", cs.ID, cs)
 
 		if blkPb := blk.ConvertToBlockPb(); blkPb != nil {
 			msgType, msgBody := SeparateMsg(blkPb)
@@ -117,6 +108,7 @@ func NewConsensusSim(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxP
 	}
 
 	cs.scheme = rdpos.NewRDPoS(cfg.Consensus.RDPoS, mintBlockCB, tellBlockCB, commitBlockCB, broadcastBlockCB, bc, bs.P2P().Self(), dlg)
+	cs.unsent = make([]*pb.Reply, 0)
 
 	fmt.Printf("cs pointer: %p\n", cs)
 	return cs
@@ -127,39 +119,23 @@ func (c *consensusSim) SetID(ID int) {
 }
 
 func (c *consensusSim) sendMessage(messageType int, internalMsgType uint32, value string) {
-	if Init {
-		fmt.Println("Sending init/proposal message")
-		if c.initStream == nil {
-			glog.Error("Init stream is nil")
-		}
+	fmt.Println("Sending view state change message")
+	if internalMsgType == 1999 {
+		fmt.Println("what is going on")
+	}
 
-		if err := c.initStream.Send(&pb.Proposal{PlayerID: int32(c.ID), InternalMsgType: internalMsgType, Value: value}); err != nil {
-			glog.Error("Message cannot be sent through stream")
-			return
-		}
-	} else {
-		fmt.Println("Sending view state change message")
+	msg := &pb.Reply{MessageType: int32(messageType), InternalMsgType: internalMsgType, Value: value}
 
-		if c.stream == nil {
-			fmt.Println(c.stream)
-			fmt.Println(&c.stream)
-			glog.Error("Stream is nil")
-		}
-
-		if err := c.stream.Send(&pb.Reply{MessageType: int32(messageType), InternalMsgType: internalMsgType, Value: value}); err != nil {
-			glog.Error("Message cannot be sent through stream")
-			return
-		}
+	if c.stream == nil || c.stream.Send(msg) != nil {
+		fmt.Println("Could not send message; stored in unsent message array")
+		c.unsent = append(c.unsent, msg)
+		return
 	}
 
 	fmt.Println("Successfully sent message")
 }
 
-func (c *consensusSim) SetInitStream(stream *pb.Simulator_InitServer) {
-	c.initStream = *stream
-}
 func (c *consensusSim) SetStream(stream *pb.Simulator_PingServer) {
-
 	fmt.Println("Set stream")
 
 	c.stream = *stream
@@ -181,10 +157,20 @@ func (c *consensusSim) Stop() error {
 
 // HandleViewChange dispatches the call to different schemes
 func (c *consensusSim) HandleViewChange(m proto.Message, done chan bool) error {
+
 	err := c.scheme.Handle(m)
 	c.scheme.SetDoneStream(done)
 
 	return err
+}
+
+// SendUnsent sends all the unsent messages that were not able to send previously
+func (c *consensusSim) SendUnsent() {
+	for i := 0; i < len(c.unsent); i++ {
+		fmt.Println("Sent previously unsent message")
+		c.stream.Send(c.unsent[i])
+	}
+	c.unsent = make([]*pb.Reply, 0)
 }
 
 // SetDoneStream takes in a boolean channel which will be filled when the consensus is done processing

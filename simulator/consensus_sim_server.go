@@ -29,7 +29,6 @@ import (
 	"github.com/iotexproject/iotex-core/network"
 	pb "github.com/iotexproject/iotex-core/simulator/proto/simulator"
 	"github.com/iotexproject/iotex-core/txpool"
-
 )
 
 const (
@@ -39,7 +38,7 @@ const (
 
 // server is used to implement message.SimulatorServer.
 type server struct {
-	nodes []consensus.ConsensusSim
+	nodes []consensus.ConsensusSim // slice of Consensus objects
 }
 
 // Ping implements simulator.SimulatorServer
@@ -47,8 +46,6 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 	fmt.Println()
 
 	flag.Parse()
-
-	consensus.Init = true // mark that we are in initialization phase
 
 	var addrs []string // all delegate addresses
 	for i := 0; i < int(in.NPlayers); i++ {
@@ -94,13 +91,11 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 
 		done := make(chan bool)
 		node.SetDoneStream(done)
-		node.SetInitStream(&stream)
-		node.SetID(i)
 
 		node.Start()
 
 		fmt.Printf("Node %d initialized and consensus engine started\n", i)
-		time.Sleep(5 * time.Second)
+		time.Sleep(500 * time.Millisecond)
 		<-done
 
 		fmt.Printf("Node %d initialization ended\n", i)
@@ -117,25 +112,29 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 func (s *server) Ping(in *pb.Request, stream pb.Simulator_PingServer) error {
 	fmt.Println()
 
-	consensus.Init = false // mark that we are not in initialization phase any more
-
-	fmt.Println("opened message stream")
+	fmt.Printf("Node %d pinged; opened message stream\n", in.PlayerID)
 	msgValue, err := hex.DecodeString(in.Value)
 	if err != nil {
 		glog.Error("Could not decode message value into byte array")
 	}
 
-	msg := consensus.CombineMsg(in.InternalMsgType, msgValue)
-
 	done := make(chan bool)
 
-	fmt.Printf("s.nodes pointer: %p\n", s.nodes[in.PlayerID])
 	s.nodes[in.PlayerID].SetStream(&stream)
 
-	fmt.Println("Sent message for handling")
-	s.nodes[in.PlayerID].HandleViewChange(msg, done)
+	s.nodes[in.PlayerID].SendUnsent()
 
-	<-done
+	// message type of 1999 means that it's a dummy message to allow the engine to pass back proposed blocks
+	if in.InternalMsgType != 1999 {
+		fmt.Println("a")
+		msg := consensus.CombineMsg(in.InternalMsgType, msgValue)
+		fmt.Println("b")
+		s.nodes[in.PlayerID].HandleViewChange(msg, done)
+		fmt.Println("c")
+		time.Sleep(time.Second)
+		<-done // wait until done
+	}
+
 	fmt.Println("closed message stream")
 	return nil
 }

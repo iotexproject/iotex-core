@@ -7,7 +7,6 @@
 """This module defines a consensus client which interfaces with the RDPoS consensus engine in Go"""
 
 import grpc
-import pprint
 
 from proto import simulator_pb2_grpc
 from proto import simulator_pb2
@@ -28,8 +27,6 @@ class Consensus:
         response = stub.Init(simulator_pb2.InitRequest(nPlayers=nPlayers))
         response = [[r.playerID, (r.internalMsgType, r.value)] for r in response]
 
-        print("received %s" % pprint.pformat(response))
-
         return response
 
     def processMessage(self, msg):
@@ -38,14 +35,11 @@ class Consensus:
         # note: msg is a tuple: (msgType, msgBody)
         internalMsgType, value = msg
         
-        print("sent %s to consensus engine" % str(msg))
         response = self.stub.Ping(simulator_pb2.Request(playerID=self.playerID,
                                                         internalMsgType=internalMsgType,
                                                         value=value))
 
         response = [[r.messageType, (r.internalMsgType, r.value)] for r in response]
-
-        print("received %s" % pprint.pformat(response))
 
         # response is a list; each element: [messageType, (internalMsgType, value)]
         return response

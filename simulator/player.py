@@ -21,13 +21,12 @@ import states
 import message
 import consensus_client
 
-VERBOSE = True
-
 class Player:
     id = 0 # player id
     
-    MEAN_TX_FEE = 0.2  # mean transaction fee
-    STD_TX_FEE  = 0.05 # std of transaction fee
+    MEAN_TX_FEE = 0.2                       # mean transaction fee
+    STD_TX_FEE  = 0.05                      # std of transaction fee
+    msgMap      = {(1999, ""): "dummy msg"} # maps message to message name for printing
 
     def __init__(self, stake):
         """Creates a new Player object"""
@@ -42,33 +41,46 @@ class Player:
         self.inbound     = []   # inbound messages from other players in the network at heartbeat r
         self.outbound    = []   # outbound messages to other players in the network at heartbeat r
 
-        self.consensus = consensus_client.Consensus()
+        self.consensus          = consensus_client.Consensus()
         self.consensus.playerID = self.id
+        self.consensus.player   = self
 
     def action(self, heartbeat):
         """Executes the player's actions for heartbeat r"""
 
-        print("players %d action started" % self.id)
+        print("player %d action started at heartbeat %d" % (self.id, heartbeat))
 
+        # print messages
+        for msg, timestamp in self.inbound:
+            print("received %s with timestamp %f" % (Player.msgMap[msg], timestamp))
+
+        if len(list(filter(lambda x: x[1] <= heartbeat, self.inbound))) == 0: # if there are no messages to process, add a "dummy" message so consensus engine is pinged anyways
+            self.inbound += [[(1999, ""), heartbeat]]
+
+        # process each message
         for msg, timestamp in self.inbound:
             # note: msg is a tuple: (msgType, msgBody)
-            if timestamp > heartbeat:
-                if VERBOSE: print("received %s but timestamp > heartbeat" % str(msg))
-                continue
-            if VERBOSE: print("received %s" % str(msg))
+            if timestamp > heartbeat: continue
 
+            print("sent %s to consensus engine" % Player.msgMap[msg])
             received = self.consensus.processMessage(msg)
+            
             for mt, v in received:
+                if v not in Player.msgMap:
+                    Player.msgMap[v] = "msg "+str(len(Player.msgMap))
+                print("received %s from consensus engine" % Player.msgMap[v])
+                
                 if mt == 0: # view state change message
                     self.outbound.append([v, timestamp])
                 else: # block to be committed
                     self.blockchain.append(v)
+                    print("committed %s to blockchain" % Player.msgMap[v])
             
         self.inbound = list(filter(lambda x: x[1] > heartbeat, self.inbound)) # get rid of processed messages
         
-        # self.blockchain = self.consensus.getBlockchain() # update blockchain from consensus scheme results
-
         self.sendOutbound() # send messages to connected players
+
+        print()
 
     def sendOutbound(self):
         """Send all outbound connections to connected nodes"""
@@ -76,7 +88,7 @@ class Player:
         for i in self.connections:
             for message, timestamp in self.outbound:
                 dt = np.random.exponential(self.MEAN_PROP_TIME) # add propagation time to timestamp
-                print("sent %s to %s" % (message, i))
+                print("sent %s to %s" % (Player.msgMap[message], i))
                 i.inbound.append([message, timestamp+dt])
 
         self.outbound.clear()
