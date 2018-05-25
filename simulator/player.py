@@ -73,7 +73,7 @@ class Player:
                 if mt == 0: # view state change message
                     self.outbound.append([v, timestamp])
                 else: # block to be committed
-                    self.blockchain.append(v)
+                    self.blockchain.append(v[1])
                     print("committed %s to blockchain" % Player.msgMap[v])
             
         self.inbound = list(filter(lambda x: x[1] > heartbeat, self.inbound)) # get rid of processed messages
