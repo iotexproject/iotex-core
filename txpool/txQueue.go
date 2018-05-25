@@ -37,9 +37,11 @@ type TxQueue interface {
 	Overlaps(*trx.Tx) bool
 	Put(*trx.Tx) error
 	FilterNonce(uint64) []*trx.Tx
-	UpdatedPendingNonce(uint64, bool) uint64
+	UpdatePendingNonce(uint64, bool) uint64
 	SetConfirmedNonce(uint64)
 	ConfirmedNonce() uint64
+	SetPendingNonce(uint64)
+	PendingNonce() uint64
 	SetPendingBalance(*big.Int)
 	PendingBalance() *big.Int
 	Len() int
@@ -52,6 +54,7 @@ type txQueue struct {
 	items          map[uint64]*trx.Tx // Map that stores all the transactions belonging to an account associated with nonces
 	index          noncePriorityQueue // Priority Queue that stores all the nonces belonging to an account. Nonces are used as indices for transaction map
 	confirmedNonce uint64             // Current nonce tracking previous transactions that can be committed to the next block
+	pendingNonce   uint64             // Current pending nonce for the account
 	pendingBalance *big.Int           // Current pending balance for the account
 }
 
@@ -61,6 +64,7 @@ func NewTxQueue() *txQueue {
 		items:          make(map[uint64]*trx.Tx),
 		index:          noncePriorityQueue{},
 		confirmedNonce: uint64(0),
+		pendingNonce:   uint64(0),
 		pendingBalance: big.NewInt(0),
 	}
 }
@@ -93,14 +97,15 @@ func (q *txQueue) FilterNonce(threshold uint64) []*trx.Tx {
 	return removed
 }
 
-// UpdatedPendingNonce returns the next pending nonce given the current pending nonce
-func (q *txQueue) UpdatedPendingNonce(nonce uint64, updateConfirmedNonce bool) uint64 {
+// UpdatePendingNonce returns the next pending nonce given the current pending nonce
+func (q *txQueue) UpdatePendingNonce(nonce uint64, updateConfirmedNonce bool) uint64 {
 	for q.items[nonce] != nil {
 		if updateConfirmedNonce && q.pendingBalance.Cmp(q.items[nonce].Amount) >= 0 {
 			q.confirmedNonce++
 			q.pendingBalance.Sub(q.pendingBalance, q.items[nonce].Amount)
 		}
 		nonce++
+		q.pendingNonce++
 	}
 	return nonce
 }
@@ -113,6 +118,16 @@ func (q *txQueue) SetConfirmedNonce(nonce uint64) {
 // ConfirmedNonce returns the current confirmed nonce for the queue
 func (q *txQueue) ConfirmedNonce() uint64 {
 	return q.confirmedNonce
+}
+
+// SetPendingNonce sets pending nonce for the queue
+func (q *txQueue) SetPendingNonce(nonce uint64) {
+	q.pendingNonce = nonce
+}
+
+// PendingNonce returns the current pending nonce of the queue
+func (q *txQueue) PendingNonce() uint64 {
+	return q.pendingNonce
 }
 
 // SetPendingBalance sets pending balance for the queue
