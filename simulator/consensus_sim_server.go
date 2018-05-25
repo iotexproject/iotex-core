@@ -14,6 +14,7 @@ import (
 	"log"
 	"net"
 	"strconv"
+	"time"
 
 	"github.com/golang/glog"
 	"google.golang.org/grpc"
@@ -28,6 +29,7 @@ import (
 	"github.com/iotexproject/iotex-core/network"
 	pb "github.com/iotexproject/iotex-core/simulator/proto/simulator"
 	"github.com/iotexproject/iotex-core/txpool"
+
 )
 
 const (
@@ -84,17 +86,18 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 		overlay := network.NewOverlay(&cfg.Network)
 		dlg := delegate.NewConfigBasedPool(&cfg.Delegate)
 		bs := blocksync.NewBlockSyncer(cfg, bc, tp, overlay, dlg)
+		bs.Start()
 
 		node := consensus.NewConsensusSim(cfg, bc, tp, bs, dlg)
 
 		s.nodes = append(s.nodes, node)
 
 		done := make(chan bool)
-		s.nodes[i].SetDoneStream(done)
-		s.nodes[i].SetInitStream(&stream)
-		s.nodes[i].SetID(i)
+		node.SetDoneStream(done)
+		node.SetInitStream(&stream)
+		node.SetID(i)
 
-		s.nodes[i].Start()
+		node.Start()
 
 		fmt.Printf("Node %d initialized and consensus engine started\n", i)
 		time.Sleep(5 * time.Second)
