@@ -94,7 +94,7 @@ func (ap *actPool) Reset() {
 			return
 		}
 		queue.SetConfirmedNonce(committedNonce)
-		queue.UpdatePendingNonce(committedNonce, true)
+		queue.UpdatePendingNonce(committedNonce)
 	}
 }
 
@@ -212,9 +212,7 @@ func (ap *actPool) AddTx(tx *trx.Tx) error {
 	// If the pending nonce equals this nonce, update pending nonce
 	nonce := queue.PendingNonce()
 	if tx.Nonce == nonce {
-		// Flag indicating whether we need to update confirmed nonce as well
-		updateConfirmedNonce := nonce == queue.ConfirmedNonce()
-		queue.UpdatePendingNonce(tx.Nonce, updateConfirmedNonce)
+		queue.UpdatePendingNonce(tx.Nonce)
 	}
 	return nil
 }

@@ -37,7 +37,7 @@ type TxQueue interface {
 	Overlaps(*trx.Tx) bool
 	Put(*trx.Tx) error
 	FilterNonce(uint64) []*trx.Tx
-	UpdatePendingNonce(uint64, bool) uint64
+	UpdatePendingNonce(uint64)
 	SetConfirmedNonce(uint64)
 	ConfirmedNonce() uint64
 	SetPendingNonce(uint64)
@@ -97,17 +97,18 @@ func (q *txQueue) FilterNonce(threshold uint64) []*trx.Tx {
 	return removed
 }
 
-// UpdatePendingNonce returns the next pending nonce given the current pending nonce
-func (q *txQueue) UpdatePendingNonce(nonce uint64, updateConfirmedNonce bool) uint64 {
+// UpdatePendingNonce returns the next pending nonce starting from the given nonce
+func (q *txQueue) UpdatePendingNonce(nonce uint64) {
+	// Flag indicating whether we need to update confirmed nonce as well
+	updateConfirmedNonce := nonce == q.confirmedNonce
 	for q.items[nonce] != nil {
 		if updateConfirmedNonce && q.pendingBalance.Cmp(q.items[nonce].Amount) >= 0 {
 			q.confirmedNonce++
 			q.pendingBalance.Sub(q.pendingBalance, q.items[nonce].Amount)
 		}
 		nonce++
-		q.pendingNonce++
 	}
-	return nonce
+	q.pendingNonce = nonce
 }
 
 // SetConfirmedNonce sets the new confirmed nonce for the queue
