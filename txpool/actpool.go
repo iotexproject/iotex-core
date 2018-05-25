@@ -3,6 +3,7 @@
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
+
 package txpool
 
 import (
@@ -20,8 +21,10 @@ import (
 )
 
 const (
-	GlobalSlots  = 5120 // Maximum transactions the whole actpool can hold
-	AccountSlots = 80   // Maximum transactions an account can hold
+	// GlobalSlots indicate maximum transactions the whole actpool can hold
+	GlobalSlots = 5120
+	// AccountSlots indicate maximum transactions an account can hold
+	AccountSlots = 80
 )
 
 var (
@@ -31,8 +34,11 @@ var (
 
 	hashToAddr = make(map[common.Hash32B]*iotxaddress.Address)
 
+	// ErrActPool indicates the error of actpool
 	ErrActPool = errors.New("invalid actpool")
-	ErrNonce   = errors.New("invalid nonce")
+	// ErrNonce indicates the error of nonce
+	ErrNonce = errors.New("invalid nonce")
+	// ErrBalance indicates the error of balance
 	ErrBalance = errors.New("invalid balance")
 )
 
@@ -187,7 +193,7 @@ func (ap *actPool) AddTx(tx *trx.Tx) error {
 		// Initialize balance for new account
 		balance, err := ap.sf.Balance(from)
 		if err != nil {
-			glog.Errorf("Error when adding Tx: %v\n", err)
+			logger.Error().Err(err).Msg("Error when adding Tx")
 			return err
 		}
 		queue.SetPendingBalance(balance)

@@ -16,7 +16,6 @@ import (
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotexproject/iotex-core/common"
-	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/txvm"
@@ -63,8 +62,9 @@ type Tx struct {
 
 	// used by state-based model
 	Nonce           uint64
-	Recipient       *iotxaddress.Address
 	Amount          *big.Int
+	Sender          string
+	Recipient       string
 	Payload         []byte
 	SenderPublicKey []byte
 	Signature       []byte
@@ -98,8 +98,11 @@ func NewTx(in []*TxInput, out []*TxOutput, lockTime uint32) *Tx {
 		TxOut: out,
 
 		// used by state-based model
-		Nonce:     0,
-		Recipient: &iotxaddress.Address{},
+		Nonce:  0,
+		Amount: big.NewInt(0),
+		// TODO: transition SF pass in actual sender/recipient
+		Sender:    "",
+		Recipient: "",
 		Payload:   []byte{},
 	}
 }
@@ -130,7 +133,7 @@ func (tx *Tx) IsCoinbase() bool {
 
 // TotalSize returns the total size of this transaction
 func (tx *Tx) TotalSize() uint32 {
-	size := uint32(VersionSizeInBytes + LockTimeSizeInBytes + NonceSizeInBytes)
+	size := uint32(VersionSizeInBytes + LockTimeSizeInBytes)
 
 	// add transaction input size
 	for _, in := range tx.TxIn {
@@ -142,13 +145,13 @@ func (tx *Tx) TotalSize() uint32 {
 		size += out.TotalSize()
 	}
 
-	// add receipt, amount and payload sizes
-	if tx.Recipient != nil && len(tx.Recipient.RawAddress) > 0 {
-		size += uint32(len(tx.Recipient.RawAddress))
-	}
+	// add nonce, amount, sender, receipt, and payload sizes
+	size += uint32(NonceSizeInBytes)
 	if tx.Amount != nil && len(tx.Amount.Bytes()) > 0 {
 		size += uint32(len(tx.Amount.Bytes()))
 	}
+	size += uint32(len(tx.Sender))
+	size += uint32(len(tx.Recipient))
 	size += uint32(len(tx.Payload))
 	size += uint32(len(tx.SenderPublicKey))
 	size += uint32(len(tx.Signature))
@@ -176,19 +179,14 @@ func (tx *Tx) ByteStream() []byte {
 	temp = make([]byte, 8)
 	common.MachineEndian.PutUint64(temp, tx.Nonce)
 	stream = append(stream, temp...)
-	if tx.Recipient != nil && len(tx.Recipient.RawAddress) > 0 {
-		stream = append(stream, tx.Recipient.RawAddress...)
-	}
 	if tx.Amount != nil && len(tx.Amount.Bytes()) > 0 {
 		stream = append(stream, tx.Amount.Bytes()...)
 	}
+	stream = append(stream, tx.Sender...)
+	stream = append(stream, tx.Recipient...)
 	stream = append(stream, tx.Payload...)
-	if tx.SenderPublicKey != nil && len(tx.SenderPublicKey) > 0 {
-		stream = append(stream, tx.SenderPublicKey...)
-	}
-	if tx.Signature != nil && len(tx.Signature) > 0 {
-		stream = append(stream, tx.Signature...)
-	}
+	stream = append(stream, tx.SenderPublicKey...)
+	stream = append(stream, tx.Signature...)
 	return stream
 }
 
@@ -208,21 +206,16 @@ func (tx *Tx) ConvertToTxPb() *iproto.TxPb {
 		TxOut: pbOut,
 
 		// used by state-based model
-		Nonce:   tx.Nonce,
-		Payload: tx.Payload,
+		Nonce:        tx.Nonce,
+		Sender:       tx.Sender,
+		Recipient:    tx.Recipient,
+		Payload:      tx.Payload,
+		SenderPubKey: tx.SenderPublicKey,
+		Signature:    tx.Signature,
 	}
 
 	if tx.Amount != nil && len(tx.Amount.Bytes()) > 0 {
 		t.Amount = tx.Amount.Bytes()
-	}
-	if tx.Recipient != nil && len(tx.Recipient.RawAddress) > 0 {
-		t.Recipient = []byte(tx.Recipient.RawAddress)
-	}
-	if tx.SenderPublicKey != nil && len(tx.SenderPublicKey) > 0 {
-		t.SenderPubKey = tx.SenderPublicKey
-	}
-	if tx.Signature != nil && len(tx.Signature) > 0 {
-		t.Signature = tx.Signature
 	}
 	return t
 }
@@ -249,12 +242,25 @@ func (tx *Tx) ConvertFromTxPb(pbTx *iproto.TxPb) {
 
 	// used by state-based model
 	tx.Nonce = pbTx.Nonce
-	tx.Recipient = &iotxaddress.Address{RawAddress: string(pbTx.Recipient[:])}
+	if tx.Amount == nil {
+		tx.Amount = big.NewInt(0)
+	}
 	if len(pbTx.Amount) > 0 {
 		tx.Amount.SetBytes(pbTx.Amount)
 	}
+	tx.Sender = ""
+	if len(pbTx.Sender) > 0 {
+		tx.Recipient = string(pbTx.Recipient)
+	}
+	tx.Recipient = ""
+	if len(pbTx.Recipient) > 0 {
+		tx.Recipient = string(pbTx.Recipient)
+	}
+	tx.Payload = nil
 	tx.Payload = pbTx.Payload
+	tx.SenderPublicKey = nil
 	tx.SenderPublicKey = pbTx.SenderPubKey
+	tx.Signature = nil
 	tx.Signature = pbTx.Signature
 }
 

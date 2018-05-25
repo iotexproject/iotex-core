@@ -36,11 +36,12 @@ message TxPb {
 
     // used by state-based model
     uint64 nonce = 31;
-    bytes recipient = 32;
-    bytes amount  = 33;
-    bytes payload  = 34;
-    bytes senderPubKey = 35;
-    bytes signature = 36;
+    bytes amount  = 32;
+    string sender = 33;
+    string recipient = 34;
+    bytes payload  = 35;
+    bytes senderPubKey = 36;
+    bytes signature = 37;
 }
 
 message VotePb {
