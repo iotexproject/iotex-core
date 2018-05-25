@@ -25,8 +25,8 @@ class Solver:
         for nPlayers, stake in opts["PLAYERS"]:
             self.players.extend([player.Player(stake) for i in range(nPlayers)])
             
-        self.nHeartbeats = opts["N_ROUNDS"]*Solver.N_HEARTBEATS_IN_ROUND # number of total heartbeats
-        self.heartbeat   = 0                                             # the heartbeat, or clock, of the system
+        self.nHeartbeats = opts["N_ROUNDS"] # number of total heartbeats
+        self.heartbeat   = 0                # the heartbeat, or clock, of the system
 
         self.blockchain = None # common blockchain among all players
 

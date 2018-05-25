@@ -126,11 +126,8 @@ func (s *server) Ping(in *pb.Request, stream pb.Simulator_PingServer) error {
 
 	// message type of 1999 means that it's a dummy message to allow the engine to pass back proposed blocks
 	if in.InternalMsgType != 1999 {
-		fmt.Println("a")
 		msg := consensus.CombineMsg(in.InternalMsgType, msgValue)
-		fmt.Println("b")
 		s.nodes[in.PlayerID].HandleViewChange(msg, done)
-		fmt.Println("c")
 		time.Sleep(time.Second)
 		<-done // wait until done
 	}

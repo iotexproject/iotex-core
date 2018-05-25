@@ -21,7 +21,6 @@ def drive(opts):
             "N_VALIDATORS": 5,            # number of validators in the system
             "N_PROPOSERS": 1,             # number of proposers in the system
             "N_CONNECTIONS": 8,           # number of connections per player
-            "N_HEARTBEATS_IN_ROUND": 5,   # number of heartbeats (dt) in a round
             "N_ROUNDS": 5,                # number of rounds of proposal/validation/commit
             "N_TRANSACTIONS": 3,          # number of transactions per block
             "P_TRANSACTIONS": 0.1,        # probability of transaction per player per heartbeat
@@ -31,7 +30,6 @@ def drive(opts):
     solver.Solver.N_VALIDATORS          = opts["N_VALIDATORS"]
     solver.Solver.N_PROPOSERS           = opts["N_PROPOSERS"]
     solver.Solver.N_CONNECTIONS         = opts["N_CONNECTIONS"]
-    solver.Solver.N_HEARTBEATS_IN_ROUND = opts["N_HEARTBEATS_IN_ROUND"]
     solver.Solver.N_ROUNDS              = opts["N_ROUNDS"]
 
     player.Player.N_TRANSACTIONS = opts["N_TRANSACTIONS"]
@@ -40,7 +38,7 @@ def drive(opts):
 
     random.seed(opts["SEED"])
 
-    print("====simulating for %s rounds, %s heartbeats per round====\n"%(opts["N_ROUNDS"], opts["N_HEARTBEATS_IN_ROUND"]))
+    print("====simulating for %s rounds====\n"%(opts["N_ROUNDS"]))
 
     sol = solver.Solver(opts)
     
