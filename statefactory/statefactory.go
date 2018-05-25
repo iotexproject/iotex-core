@@ -170,7 +170,8 @@ func (sf *stateFactory) UpdateStatesWithTransfer(txs []*trx.Tx) error {
 	transferV := [][]byte{}
 	for _, tx := range txs {
 		// check sender
-		sender, err := sf.getState(&iotxaddress.Address{PublicKey: tx.SenderPublicKey})
+		senderAddr := &iotxaddress.Address{PublicKey: tx.SenderPublicKey, RawAddress: tx.Sender}
+		sender, err := sf.getState(senderAddr)
 		if err != nil {
 			return err
 		}
@@ -178,10 +179,11 @@ func (sf *stateFactory) UpdateStatesWithTransfer(txs []*trx.Tx) error {
 			return ErrNotEnoughBalance
 		}
 		// check recipient
-		receiver, err := sf.getState(tx.Recipient)
+		recipientAddr := &iotxaddress.Address{RawAddress: tx.Recipient}
+		recipient, err := sf.getState(recipientAddr)
 		switch {
 		case err == ErrAccountNotExist:
-			if _, e := sf.CreateState(tx.Recipient, 0); e != nil {
+			if _, e := sf.CreateState(recipientAddr, 0); e != nil {
 				return e
 			}
 		case err != nil:
@@ -194,16 +196,16 @@ func (sf *stateFactory) UpdateStatesWithTransfer(txs []*trx.Tx) error {
 		if ss, err = stateToBytes(sender); err != nil {
 			return err
 		}
-		transferK = append(transferK, iotxaddress.HashPubKey(tx.SenderPublicKey))
+		transferK = append(transferK, iotxaddress.GetPubkeyHash(tx.Sender))
 		transferV = append(transferV, ss)
 		// update recipient balance
-		if err := receiver.AddBalance(tx.Amount); err != nil {
+		if err := recipient.AddBalance(tx.Amount); err != nil {
 			return err
 		}
-		if ss, err = stateToBytes(receiver); err != nil {
+		if ss, err = stateToBytes(recipient); err != nil {
 			return err
 		}
-		transferK = append(transferK, iotxaddress.HashPubKey(tx.Recipient.PublicKey))
+		transferK = append(transferK, iotxaddress.GetPubkeyHash(tx.Recipient))
 		transferV = append(transferV, ss)
 	}
 	// commit the state changes to Trie in a batch
@@ -215,7 +217,11 @@ func (sf *stateFactory) UpdateStatesWithTransfer(txs []*trx.Tx) error {
 //=====================================
 // getState pulls an existing State
 func (sf *stateFactory) getState(addr *iotxaddress.Address) (*State, error) {
-	mstate, err := sf.trie.Get(iotxaddress.HashPubKey(addr.PublicKey))
+	pubKeyHash := iotxaddress.GetPubkeyHash(addr.RawAddress)
+	if pubKeyHash == nil {
+		return nil, ErrAccountNotExist
+	}
+	mstate, err := sf.trie.Get(pubKeyHash)
 	if errors.Cause(err) == trie.ErrNotExist {
 		return nil, ErrAccountNotExist
 	}
