@@ -14,9 +14,10 @@ var MachineEndian = binary.LittleEndian
 const (
 	// Protocol version, starting from 1
 	ProtocolVersion = 0x01
-
 	// HashSize defines the size of hash
 	HashSize = 32
+	// PKHashSize defines the size of public-key hash
+	PKHashSize = 20
 )
 
 var (
@@ -24,5 +25,9 @@ var (
 	ZeroHash32B = Hash32B{}
 )
 
-// Hash32B is 32-byte hash value
-type Hash32B [HashSize]byte
+type (
+	// Hash32B is 32-byte hash
+	Hash32B [HashSize]byte
+	// PKHash is 20-byte hash
+	PKHash [PKHashSize]byte
+)
