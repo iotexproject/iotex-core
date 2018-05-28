@@ -8,7 +8,6 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	trx "github.com/iotexproject/iotex-core/blockchain/trx"
 	common "github.com/iotexproject/iotex-core/common"
-	iotxaddress "github.com/iotexproject/iotex-core/iotxaddress"
 	statefactory "github.com/iotexproject/iotex-core/statefactory"
 	big "math/big"
 	reflect "reflect"
@@ -38,7 +37,7 @@ func (m *MockStateFactory) EXPECT() *MockStateFactoryMockRecorder {
 }
 
 // CreateState mocks base method
-func (m *MockStateFactory) CreateState(arg0 *iotxaddress.Address, arg1 uint64) (*statefactory.State, error) {
+func (m *MockStateFactory) CreateState(arg0 string, arg1 uint64) (*statefactory.State, error) {
 	ret := m.ctrl.Call(m, "CreateState", arg0, arg1)
 	ret0, _ := ret[0].(*statefactory.State)
 	ret1, _ := ret[1].(error)
@@ -51,7 +50,7 @@ func (mr *MockStateFactoryMockRecorder) CreateState(arg0, arg1 interface{}) *gom
 }
 
 // Balance mocks base method
-func (m *MockStateFactory) Balance(arg0 *iotxaddress.Address) (*big.Int, error) {
+func (m *MockStateFactory) Balance(arg0 string) (*big.Int, error) {
 	ret := m.ctrl.Call(m, "Balance", arg0)
 	ret0, _ := ret[0].(*big.Int)
 	ret1, _ := ret[1].(error)
@@ -76,7 +75,7 @@ func (mr *MockStateFactoryMockRecorder) UpdateStatesWithTransfer(arg0 interface{
 }
 
 // SetNonce mocks base method
-func (m *MockStateFactory) SetNonce(arg0 *iotxaddress.Address, arg1 uint64) error {
+func (m *MockStateFactory) SetNonce(arg0 string, arg1 uint64) error {
 	ret := m.ctrl.Call(m, "SetNonce", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -88,7 +87,7 @@ func (mr *MockStateFactoryMockRecorder) SetNonce(arg0, arg1 interface{}) *gomock
 }
 
 // Nonce mocks base method
-func (m *MockStateFactory) Nonce(arg0 *iotxaddress.Address) (uint64, error) {
+func (m *MockStateFactory) Nonce(arg0 string) (uint64, error) {
 	ret := m.ctrl.Call(m, "Nonce", arg0)
 	ret0, _ := ret[0].(uint64)
 	ret1, _ := ret[1].(error)

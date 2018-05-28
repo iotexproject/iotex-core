@@ -86,7 +86,7 @@ func (ap *actPool) Reset() {
 	for addrHash, queue := range ap.accountTxs {
 		from := hashToAddr[addrHash]
 		// Reset pending balance for each account
-		balance, err := ap.sf.Balance(from)
+		balance, err := ap.sf.Balance(from.RawAddress)
 		if err != nil {
 			logger.Error().Err(err).Msg("Error when resetting actpool state")
 			return
@@ -94,7 +94,7 @@ func (ap *actPool) Reset() {
 		queue.SetPendingBalance(balance)
 
 		// Reset confirmed nonce and pending nonce for each account
-		committedNonce, err := ap.sf.Nonce(from)
+		committedNonce, err := ap.sf.Nonce(from.RawAddress)
 		if err != nil {
 			logger.Error().Err(err).Msg("Error when resetting Tx")
 			return
@@ -184,14 +184,14 @@ func (ap *actPool) AddTx(tx *trx.Tx) error {
 		ap.accountTxs[addrHash] = queue
 		hashToAddr[addrHash] = from
 		// Initialize pending nonce for new account
-		nonce, err := ap.sf.Nonce(from)
+		nonce, err := ap.sf.Nonce(from.RawAddress)
 		if err != nil {
 			logger.Error().Err(err).Msg("Error when adding Tx")
 			return err
 		}
 		queue.SetPendingNonce(nonce)
 		// Initialize balance for new account
-		balance, err := ap.sf.Balance(from)
+		balance, err := ap.sf.Balance(from.RawAddress)
 		if err != nil {
 			logger.Error().Err(err).Msg("Error when adding Tx")
 			return err
@@ -228,7 +228,7 @@ func (ap *actPool) removeCommittedTxs() {
 	ap.mutex.Lock()
 	defer ap.mutex.Unlock()
 	for addrHash, queue := range ap.accountTxs {
-		committedNonce, err := ap.sf.Nonce(hashToAddr[addrHash])
+		committedNonce, err := ap.sf.Nonce(hashToAddr[addrHash].RawAddress)
 		if err != nil {
 			logger.Error().Err(err).Msg("Error when removing commited Txs")
 			return
@@ -253,5 +253,5 @@ func (ap *actPool) getNonce(addr *iotxaddress.Address) (uint64, error) {
 	if queue, ok := ap.accountTxs[addrHash]; ok {
 		return queue.PendingNonce(), nil
 	}
-	return ap.sf.Nonce(addr)
+	return ap.sf.Nonce(addr.RawAddress)
 }
