@@ -117,9 +117,8 @@ W0416 12:52:21.654650    1576 blocksync.go:293] ------ commit block 122 time = 1
 ```
 
 # Deploy w/ Docker Image
-```docker build . -t stonevan```
 
-```docker run stonevan```
+```make docker```
 
 ## Contribution
 We are glad to have contributors out of the core team; contributions, including (but not limited to) style/bug fixes, implementation of features, proposals of schemes/algorithms, and thorough documentation, are 
