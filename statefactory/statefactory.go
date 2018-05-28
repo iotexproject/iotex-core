@@ -22,6 +22,9 @@ import (
 var (
 	stateFactoryKVNameSpace = "StateFactory"
 
+	// ErrInvalidAddr is the error that the address format is invalid, cannot be decoded
+	ErrInvalidAddr = errors.New("address format is invalid")
+
 	// ErrNotEnoughBalance is the error that the balance is not enough
 	ErrNotEnoughBalance = errors.New("not enough balance")
 
@@ -56,9 +59,10 @@ type (
 		RootHash() common.Hash32B
 	}
 
-	// stateFactory implements StateFactory interface, tracks changes in a map but never commits to trie/db
+	// stateFactory implements StateFactory interface, tracks changes in a map and batch-commits to trie/db
 	stateFactory struct {
-		trie trie.Trie
+		trie    trie.Trie
+		pending map[common.PKHash]*State
 	}
 )
 
@@ -103,7 +107,7 @@ func (st *State) SubBalance(amount *big.Int) error {
 
 // NewStateFactory creates a new state factory
 func NewStateFactory(trie trie.Trie) StateFactory {
-	return &stateFactory{trie: trie}
+	return &stateFactory{trie: trie, pending: make(map[common.PKHash]*State)}
 }
 
 // CreateState adds a new State with initial balance to the factory
@@ -168,40 +172,59 @@ func (sf *stateFactory) UpdateStatesWithTransfer(txs []*trx.Tx) error {
 	var ss []byte
 	transferK := [][]byte{}
 	transferV := [][]byte{}
+	sf.pending = nil
 	for _, tx := range txs {
+		var pubKeyHash common.PKHash
+		var err error
 		// check sender
 		senderAddr := &iotxaddress.Address{PublicKey: tx.SenderPublicKey, RawAddress: tx.Sender}
-		sender, err := sf.getState(senderAddr)
-		if err != nil {
-			return err
+		pkhash := iotxaddress.GetPubkeyHash(tx.Sender)
+		if pkhash == nil {
+			return ErrInvalidAddr
+		}
+		copy(pubKeyHash[:], pkhash)
+		sender, exist := sf.pending[pubKeyHash]
+		if !exist {
+			if sender, err = sf.getState(senderAddr); err != nil {
+				return err
+			}
 		}
 		if tx.Amount.Cmp(sender.Balance) == 1 {
 			return ErrNotEnoughBalance
-		}
-		// check recipient
-		recipientAddr := &iotxaddress.Address{RawAddress: tx.Recipient}
-		recipient, err := sf.getState(recipientAddr)
-		switch {
-		case err == ErrAccountNotExist:
-			if _, e := sf.CreateState(recipientAddr, 0); e != nil {
-				return e
-			}
-		case err != nil:
-			return err
 		}
 		// update sender balance
 		if err := sender.SubBalance(tx.Amount); err != nil {
 			return err
 		}
+		sf.pending[pubKeyHash] = sender
 		if ss, err = stateToBytes(sender); err != nil {
 			return err
 		}
 		transferK = append(transferK, iotxaddress.GetPubkeyHash(tx.Sender))
 		transferV = append(transferV, ss)
+		// check recipient
+		recipientAddr := &iotxaddress.Address{RawAddress: tx.Recipient}
+		if pkhash = iotxaddress.GetPubkeyHash(tx.Recipient); pkhash == nil {
+			return ErrInvalidAddr
+		}
+		copy(pubKeyHash[:], pkhash)
+		recipient, exist := sf.pending[pubKeyHash]
+		if !exist {
+			recipient, err = sf.getState(recipientAddr)
+			switch {
+			case err == ErrAccountNotExist:
+				if _, e := sf.CreateState(recipientAddr, 0); e != nil {
+					return e
+				}
+			case err != nil:
+				return err
+			}
+		}
 		// update recipient balance
 		if err := recipient.AddBalance(tx.Amount); err != nil {
 			return err
 		}
+		sf.pending[pubKeyHash] = recipient
 		if ss, err = stateToBytes(recipient); err != nil {
 			return err
 		}
@@ -219,7 +242,7 @@ func (sf *stateFactory) UpdateStatesWithTransfer(txs []*trx.Tx) error {
 func (sf *stateFactory) getState(addr *iotxaddress.Address) (*State, error) {
 	pubKeyHash := iotxaddress.GetPubkeyHash(addr.RawAddress)
 	if pubKeyHash == nil {
-		return nil, ErrAccountNotExist
+		return nil, ErrInvalidAddr
 	}
 	mstate, err := sf.trie.Get(pubKeyHash)
 	if errors.Cause(err) == trie.ErrNotExist {
