@@ -100,7 +100,7 @@ func (ap *actPool) Reset() {
 			return
 		}
 		queue.SetConfirmedNonce(committedNonce)
-		queue.UpdatePendingNonce(committedNonce)
+		queue.UpdateNonce(committedNonce)
 	}
 }
 
@@ -133,7 +133,7 @@ func (ap *actPool) validateTx(tx *trx.Tx) error {
 		return err
 	}
 	// Reject transaction if nonce is too low
-	nonce, err := ap.getNonce(from)
+	nonce, err := ap.sf.Nonce(from.RawAddress)
 	if err != nil {
 		logger.Error().Err(err).Msg("Error when validating Tx")
 		return err
@@ -183,13 +183,14 @@ func (ap *actPool) AddTx(tx *trx.Tx) error {
 		queue = NewTxQueue()
 		ap.accountTxs[addrHash] = queue
 		hashToAddr[addrHash] = from
-		// Initialize pending nonce for new account
+		// Initialize pending nonce and confirmed nonce for new account
 		nonce, err := ap.sf.Nonce(from.RawAddress)
 		if err != nil {
 			logger.Error().Err(err).Msg("Error when adding Tx")
 			return err
 		}
 		queue.SetPendingNonce(nonce)
+		queue.SetConfirmedNonce(nonce)
 		// Initialize balance for new account
 		balance, err := ap.sf.Balance(from.RawAddress)
 		if err != nil {
@@ -218,15 +219,13 @@ func (ap *actPool) AddTx(tx *trx.Tx) error {
 	// If the pending nonce equals this nonce, update pending nonce
 	nonce := queue.PendingNonce()
 	if tx.Nonce == nonce {
-		queue.UpdatePendingNonce(tx.Nonce)
+		queue.UpdateNonce(tx.Nonce)
 	}
 	return nil
 }
 
 // removeCommittedTxs removes processed (committed to block) transactions from pool
 func (ap *actPool) removeCommittedTxs() {
-	ap.mutex.Lock()
-	defer ap.mutex.Unlock()
 	for addrHash, queue := range ap.accountTxs {
 		committedNonce, err := ap.sf.Nonce(hashToAddr[addrHash].RawAddress)
 		if err != nil {
@@ -246,12 +245,4 @@ func (ap *actPool) removeCommittedTxs() {
 			delete(ap.accountTxs, addrHash)
 		}
 	}
-}
-
-func (ap *actPool) getNonce(addr *iotxaddress.Address) (uint64, error) {
-	addrHash := addr.HashAddress()
-	if queue, ok := ap.accountTxs[addrHash]; ok {
-		return queue.PendingNonce(), nil
-	}
-	return ap.sf.Nonce(addr.RawAddress)
 }
