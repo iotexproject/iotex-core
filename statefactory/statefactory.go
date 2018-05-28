@@ -43,7 +43,7 @@ type (
 	State struct {
 		Nonce        uint64
 		Balance      *big.Int
-		Address      *iotxaddress.Address
+		Address      string
 		IsCandidate  bool
 		VotingWeight *big.Int
 		Voters       map[common.Hash32B]*big.Int
@@ -51,11 +51,11 @@ type (
 
 	// StateFactory defines an interface for managing states
 	StateFactory interface {
-		CreateState(*iotxaddress.Address, uint64) (*State, error)
-		Balance(*iotxaddress.Address) (*big.Int, error)
+		CreateState(string, uint64) (*State, error)
+		Balance(string) (*big.Int, error)
 		UpdateStatesWithTransfer([]*trx.Tx) error
-		SetNonce(*iotxaddress.Address, uint64) error
-		Nonce(*iotxaddress.Address) (uint64, error)
+		SetNonce(string, uint64) error
+		Nonce(string) (uint64, error)
 		RootHash() common.Hash32B
 	}
 
@@ -111,7 +111,11 @@ func NewStateFactory(trie trie.Trie) StateFactory {
 }
 
 // CreateState adds a new State with initial balance to the factory
-func (sf *stateFactory) CreateState(addr *iotxaddress.Address, init uint64) (*State, error) {
+func (sf *stateFactory) CreateState(addr string, init uint64) (*State, error) {
+	pubKeyHash := iotxaddress.GetPubkeyHash(addr)
+	if pubKeyHash == nil {
+		return nil, ErrInvalidAddr
+	}
 	balance := big.NewInt(0)
 	balance.SetUint64(init)
 	s := State{Address: addr, Balance: balance}
@@ -119,14 +123,14 @@ func (sf *stateFactory) CreateState(addr *iotxaddress.Address, init uint64) (*St
 	if err != nil {
 		return nil, err
 	}
-	if err := sf.trie.Upsert(iotxaddress.HashPubKey(addr.PublicKey), mstate); err != nil {
+	if err := sf.trie.Upsert(pubKeyHash, mstate); err != nil {
 		return nil, err
 	}
 	return &s, nil
 }
 
 // Balance returns balance
-func (sf *stateFactory) Balance(addr *iotxaddress.Address) (*big.Int, error) {
+func (sf *stateFactory) Balance(addr string) (*big.Int, error) {
 	state, err := sf.getState(addr)
 	if err != nil {
 		return nil, err
@@ -135,7 +139,7 @@ func (sf *stateFactory) Balance(addr *iotxaddress.Address) (*big.Int, error) {
 }
 
 // Nonce returns the nonce if the account exists
-func (sf *stateFactory) Nonce(addr *iotxaddress.Address) (uint64, error) {
+func (sf *stateFactory) Nonce(addr string) (uint64, error) {
 	state, err := sf.getState(addr)
 	if err != nil {
 		return 0, err
@@ -144,7 +148,7 @@ func (sf *stateFactory) Nonce(addr *iotxaddress.Address) (uint64, error) {
 }
 
 // SetNonce returns the nonce if the account exists
-func (sf *stateFactory) SetNonce(addr *iotxaddress.Address, value uint64) error {
+func (sf *stateFactory) SetNonce(addr string, value uint64) error {
 	state, err := sf.getState(addr)
 	if err != nil {
 		return err
@@ -155,8 +159,7 @@ func (sf *stateFactory) SetNonce(addr *iotxaddress.Address, value uint64) error 
 	if err != nil {
 		return err
 	}
-	key := iotxaddress.HashPubKey(addr.PublicKey)
-	if err := sf.trie.Upsert(key, mstate); err != nil {
+	if err := sf.trie.Upsert(iotxaddress.GetPubkeyHash(addr), mstate); err != nil {
 		return err
 	}
 	return nil
@@ -177,7 +180,6 @@ func (sf *stateFactory) UpdateStatesWithTransfer(txs []*trx.Tx) error {
 		var pubKeyHash common.PKHash
 		var err error
 		// check sender
-		senderAddr := &iotxaddress.Address{PublicKey: tx.SenderPublicKey, RawAddress: tx.Sender}
 		pkhash := iotxaddress.GetPubkeyHash(tx.Sender)
 		if pkhash == nil {
 			return ErrInvalidAddr
@@ -185,7 +187,7 @@ func (sf *stateFactory) UpdateStatesWithTransfer(txs []*trx.Tx) error {
 		copy(pubKeyHash[:], pkhash)
 		sender, exist := sf.pending[pubKeyHash]
 		if !exist {
-			if sender, err = sf.getState(senderAddr); err != nil {
+			if sender, err = sf.getState(tx.Sender); err != nil {
 				return err
 			}
 		}
@@ -203,17 +205,16 @@ func (sf *stateFactory) UpdateStatesWithTransfer(txs []*trx.Tx) error {
 		transferK = append(transferK, iotxaddress.GetPubkeyHash(tx.Sender))
 		transferV = append(transferV, ss)
 		// check recipient
-		recipientAddr := &iotxaddress.Address{RawAddress: tx.Recipient}
 		if pkhash = iotxaddress.GetPubkeyHash(tx.Recipient); pkhash == nil {
 			return ErrInvalidAddr
 		}
 		copy(pubKeyHash[:], pkhash)
 		recipient, exist := sf.pending[pubKeyHash]
 		if !exist {
-			recipient, err = sf.getState(recipientAddr)
+			recipient, err = sf.getState(tx.Recipient)
 			switch {
 			case err == ErrAccountNotExist:
-				if _, e := sf.CreateState(recipientAddr, 0); e != nil {
+				if _, e := sf.CreateState(tx.Recipient, 0); e != nil {
 					return e
 				}
 			case err != nil:
@@ -239,8 +240,8 @@ func (sf *stateFactory) UpdateStatesWithTransfer(txs []*trx.Tx) error {
 // private functions
 //=====================================
 // getState pulls an existing State
-func (sf *stateFactory) getState(addr *iotxaddress.Address) (*State, error) {
-	pubKeyHash := iotxaddress.GetPubkeyHash(addr.RawAddress)
+func (sf *stateFactory) getState(addr string) (*State, error) {
+	pubKeyHash := iotxaddress.GetPubkeyHash(addr)
 	if pubKeyHash == nil {
 		return nil, ErrInvalidAddr
 	}

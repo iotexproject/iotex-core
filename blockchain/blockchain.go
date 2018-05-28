@@ -305,7 +305,7 @@ func CreateBlockchain(cfg *config.Config, gen *Genesis) Blockchain {
 // BalanceOf returns the balance of an address
 func (bc *blockchain) BalanceOf(address string) *big.Int {
 	if bc.sf != nil {
-		b, err := bc.sf.Balance(&iotxaddress.Address{RawAddress: address})
+		b, err := bc.sf.Balance(address)
 		if err != nil {
 			logger.Error().Err(err)
 			return big.NewInt(0)
