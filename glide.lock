@@ -1,5 +1,5 @@
-hash: 0c2f84663d33d160535d30bad0a0a4fd23ff02ff6197deec8a3d94d2d9148df9
-updated: 2018-05-28T11:08:27.024262-07:00
+hash: 74643fa67d3888f0ea309f1b5eeaf2ce3eb67383ea77fc50eac7abcb1eee2321
+updated: 2018-05-29T09:56:18.201014-07:00
 imports:
 - name: github.com/boltdb/bolt
   version: 2f1ce7a837dcb8da3ec595b1dac9d0632f0f99e8
