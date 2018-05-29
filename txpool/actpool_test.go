@@ -14,6 +14,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 
 	trx "github.com/iotexproject/iotex-core-internal/blockchain/trx"
@@ -33,10 +34,9 @@ var (
 )
 
 func TestActPool_validateTx(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	assert := assert.New(t)
-	logger.UseDebugLogger()
+	l := logger.Logger().Level(zerolog.DebugLevel)
+	logger.SetLogger(&l)
 	// Create one dummy iotex address
 	pubK := "09d8c6fc6f5cb0a03df112da90486fad7cdece1501aaab658551f8afbe7f59ee"
 	addr, _ := iotxaddress.GetAddress(decodeHash(pubK), isTestnet, chainid)
@@ -71,7 +71,8 @@ func TestActPool_AddTx(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	assert := assert.New(t)
-	logger.UseDebugLogger()
+	l := logger.Logger().Level(zerolog.DebugLevel)
+	logger.SetLogger(&l)
 	// Create two dummy iotex addresses
 	pubK1 := "09d8c6fc6f5cb0a03df112da90486fad7cdece1501aaab658551f8afbe7f59ee"
 	addr1, _ := iotxaddress.GetAddress(decodeHash(pubK1), isTestnet, chainid)
@@ -160,7 +161,8 @@ func TestActPool_AddTx(t *testing.T) {
 
 func TestActPool_PickTxs(t *testing.T) {
 	assert := assert.New(t)
-	logger.UseDebugLogger()
+	l := logger.Logger().Level(zerolog.DebugLevel)
+	logger.SetLogger(&l)
 	// Create two dummy iotex addresses
 	pubK1 := "09d8c6fc6f5cb0a03df112da90486fad7cdece1501aaab658551f8afbe7f59ee"
 	addr1, _ := iotxaddress.GetAddress(decodeHash(pubK1), isTestnet, chainid)
@@ -204,7 +206,8 @@ func TestActPool_PickTxs(t *testing.T) {
 
 func TestActPool_removeCommittedTxs(t *testing.T) {
 	assert := assert.New(t)
-	logger.UseDebugLogger()
+	l := logger.Logger().Level(zerolog.DebugLevel)
+	logger.SetLogger(&l)
 	// Create one dummy iotex address
 	pubK := "09d8c6fc6f5cb0a03df112da90486fad7cdece1501aaab658551f8afbe7f59ee"
 	addr, _ := iotxaddress.GetAddress(decodeHash(pubK), isTestnet, chainid)
@@ -240,7 +243,8 @@ func TestActPool_removeCommittedTxs(t *testing.T) {
 
 func TestActPool_Reset(t *testing.T) {
 	assert := assert.New(t)
-	logger.UseDebugLogger()
+	l := logger.Logger().Level(zerolog.DebugLevel)
+	logger.SetLogger(&l)
 	// Create three dummy iotex addresses
 	pubK1 := "09d8c6fc6f5cb0a03df112da90486fad7cdece1501aaab658551f8afbe7f59ee"
 	addr1, _ := iotxaddress.GetAddress(decodeHash(pubK1), isTestnet, chainid)
