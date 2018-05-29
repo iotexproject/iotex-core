@@ -20,16 +20,16 @@ import (
 )
 
 const (
-	// localRDPoSConfig is for local RDPoS testing
-	localRDPoSConfig = "./config_local_rdpos.yaml"
+	// localRollDPoSConfig is for local RollDPoS testing
+	localRollDPoSConfig = "./config_local_rolldpos.yaml"
 )
 
 // 4 delegates and 3 full nodes
-func TestLocalRDPoS(t *testing.T) {
+func TestLocalRollDPoS(t *testing.T) {
 	assert := assert.New(t)
 	flag.Parse()
 
-	cfg, err := config.LoadConfigWithPathWithoutValidation(localRDPoSConfig)
+	cfg, err := config.LoadConfigWithPathWithoutValidation(localRollDPoSConfig)
 	assert.Nil(err)
 
 	var svrs []itx.Server
@@ -51,7 +51,7 @@ func TestLocalRDPoS(t *testing.T) {
 		cfg.Chain.ChainDBPath = "./test_delegate_chain" + strconv.Itoa(i) + ".db"
 		cfg.NodeType = config.DelegateType
 		cfg.Network.Addr = "127.0.0.1:4000" + strconv.Itoa(i)
-		cfg.Consensus.Scheme = "RDPOS"
+		cfg.Consensus.Scheme = config.RollDPoSScheme
 		svr := itx.NewServer(*cfg)
 		err = svr.Init()
 		assert.Nil(err)

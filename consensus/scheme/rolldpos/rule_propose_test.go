@@ -4,30 +4,32 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package rdpos
+package rolldpos
 
 import (
-	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/golang/protobuf/proto"
+	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/consensus/fsm"
+	"github.com/iotexproject/iotex-core/proto"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
-func TestInitProposeInjectError(t *testing.T) {
+func TestRuleProposeErrorVoteNil(t *testing.T) {
 	t.Parallel()
 
-	err := errors.New("error")
-	h := initPropose{
-		RDPoS: &RDPoS{
-			propCb: func() (*blockchain.Block, error) {
-				return nil, err
+	h := rulePropose{
+		RollDPoS: &RollDPoS{
+			self: common.NewTCPNode(""),
+			voteCb: func(msg proto.Message) error {
+				vc, ok := (msg).(*iproto.ViewChangeMsg)
+				assert.True(t, ok)
+				assert.Nil(t, vc.Block)
+				assert.Equal(t, vc.Vctype, iproto.ViewChangeMsg_PROPOSE)
+				return nil
 			},
 		},
 	}
-
-	evt := &fsm.Event{}
-	h.Handle(evt)
-
-	assert.Equal(t, evt.Err, err)
+	assert.True(t, h.Condition(&fsm.Event{Err: errors.New("err")}))
 }

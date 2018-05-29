@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package rdpos
+package rolldpos
 
 import (
 	"github.com/iotexproject/iotex-core/consensus/fsm"
@@ -14,7 +14,7 @@ import (
 // ruleCommit commits the block based on 2k + 1 vote messages (K + 1 yes or no),,
 // or commits an empty block if timeout or error occurred.
 type ruleCommit struct {
-	*RDPoS
+	*RollDPoS
 }
 
 func (r ruleCommit) Condition(event *fsm.Event) bool {

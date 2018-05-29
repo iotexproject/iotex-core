@@ -73,8 +73,8 @@ func SyncTaskInterval(cfg *config.Config) time.Duration {
 	}
 
 	switch cfg.Consensus.Scheme {
-	case "RDPOS":
-		interval = cfg.Consensus.RDPoS.ProposerRotation.Interval
+	case config.RollDPoSScheme:
+		interval = cfg.Consensus.RollDPoS.ProposerRotation.Interval
 	default:
 		interval = cfg.Consensus.BlockCreationInterval
 	}

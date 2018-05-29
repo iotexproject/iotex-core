@@ -70,7 +70,7 @@ func TestValidateConfig(t *testing.T) {
 
 	cfg = LoadTestConfig()
 	cfg.NodeType = FullNodeType
-	cfg.Consensus.Scheme = "RDPOS"
+	cfg.Consensus.Scheme = RollDPoSScheme
 	err = validateConfig(cfg)
 	assert.NotNil(t, err)
 	assert.Equal(t, "consensus scheme of fullnode should be NOOP", err.Error())
@@ -117,7 +117,7 @@ func LoadTestConfig() *Config {
 			},
 		},
 		Consensus: Consensus{
-			Scheme: "NOOP",
+			Scheme: NOOPScheme,
 		},
 		Delegate: Delegate{
 			Addrs: []string{"127.0.0.1:10001"},

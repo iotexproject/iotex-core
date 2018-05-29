@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package rdpos
+package rolldpos
 
 import (
 	"net"
@@ -36,7 +36,7 @@ func TestProposerRotation(t *testing.T) {
 		genesis := bc.NewGenesisBlock(bc.Gen)
 		mcks.bc.EXPECT().MintNewBlock(gomock.Any(), gomock.Any(), gomock.Any()).Return(genesis, nil).AnyTimes()
 	}
-	cs := createTestRDPoS(ctrl, delegates[0], delegates, m, true)
+	cs := createTestRollDPoS(ctrl, delegates[0], delegates, m, true)
 	cs.Start()
 	defer cs.Stop()
 

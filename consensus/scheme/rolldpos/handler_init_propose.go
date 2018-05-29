@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package rdpos
+package rolldpos
 
 import (
 	"time"
@@ -12,15 +12,23 @@ import (
 	"github.com/iotexproject/iotex-core/consensus/fsm"
 )
 
-// acceptVote waits for 2k vote messages from others or timeout.
-type acceptVote struct {
-	*RDPoS
+// initPropose proposes a new block and send it out.
+type initPropose struct {
+	fsm.NilTimeout
+	*RollDPoS
 }
 
-func (h *acceptVote) TimeoutDuration() *time.Duration {
-	return &h.cfg.AcceptVote.TTL
+// TimeoutDuration returns the duration for timeout
+func (h *initPropose) TimeoutDuration() *time.Duration {
+	return &h.cfg.AcceptPropose.TTL
 }
 
-func (h *acceptVote) Handle(event *fsm.Event) {
-	h.roundCtx.votes[event.SenderAddr] = event.BlockHash
+func (h *initPropose) Handle(event *fsm.Event) {
+	blk, err := h.propCb()
+	if err != nil {
+		event.Err = err
+		return
+	}
+
+	h.roundCtx.block = blk
 }

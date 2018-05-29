@@ -36,7 +36,7 @@ chain:
 
 consensus:
     scheme: "NOOP"
-    rdpos:
+    rolldpos:
         proposerrotation:
             enabled: true
             interval: 3s

@@ -4,23 +4,17 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package rdpos
+package rolldpos
 
 import (
-	"time"
-
 	"github.com/iotexproject/iotex-core/consensus/fsm"
 )
 
-// acceptPrevote waits for 2k prevote messages for the same block from others or timeout.
-type acceptPrevote struct {
-	*RDPoS
+// ruleIsProposer checks if the event is init propose.
+type ruleIsProposer struct {
+	*RollDPoS
 }
 
-func (h *acceptPrevote) TimeoutDuration() *time.Duration {
-	return &h.cfg.AcceptPrevote.TTL
-}
-
-func (h *acceptPrevote) Handle(event *fsm.Event) {
-	h.roundCtx.prevotes[event.SenderAddr] = event.BlockHash
+func (r ruleIsProposer) Condition(event *fsm.Event) bool {
+	return event.State == stateInitPropose
 }

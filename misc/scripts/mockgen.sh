@@ -9,10 +9,10 @@ mockgen -destination=./test/mock/mock_dispatcher/mock_dispatcher.go  \
         -package=mock_dispatcher \
         Dispatcher
 
-mkdir -p ./test/mock/mock_rdpos
-mockgen -destination=./test/mock/mock_rdpos/mock_rdpos.go  \
-        -source=./consensus/scheme/rdpos/rdpos.go \
-        -package=mock_rdpos \
+mkdir -p ./test/mock/mock_rolldpos
+mockgen -destination=./test/mock/mock_rolldpos/mock_rolldpos.go  \
+        -source=./consensus/scheme/rolldpos/rolldpos.go \
+        -package=mock_rolldpos \
         DNet
 
 mkdir -p ./test/mock/mock_blockchain

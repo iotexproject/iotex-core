@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package rdpos
+package rolldpos
 
 import (
 	"github.com/iotexproject/iotex-core/common"
@@ -14,7 +14,7 @@ import (
 
 // rulePrevote sends out prevote messages.
 type rulePrevote struct {
-	*RDPoS
+	*RollDPoS
 }
 
 func (r rulePrevote) Condition(event *fsm.Event) bool {

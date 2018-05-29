@@ -40,7 +40,7 @@ func TestLocalCommit(t *testing.T) {
 	assert.Nil(err)
 	config.Network.BootstrapNodes = []string{"127.0.0.1:10000"}
 	config.Chain.ChainDBPath = testDBPath
-	config.Consensus.Scheme = "NOOP"
+	config.Consensus.Scheme = cfg.NOOPScheme
 	config.Delegate.Addrs = []string{"127.0.0.1:10000"}
 
 	blockchain.Gen.TotalSupply = uint64(50 << 22)
@@ -209,7 +209,7 @@ func TestLocalSync(t *testing.T) {
 	config.NodeType = cfg.DelegateType
 	config.Delegate.Addrs = []string{"127.0.0.1:10000"}
 	config.Chain.ChainDBPath = testDBPath
-	config.Consensus.Scheme = "NOOP"
+	config.Consensus.Scheme = cfg.NOOPScheme
 
 	// create node 1
 	svr := itx.NewServer(*config)
