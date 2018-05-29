@@ -57,7 +57,7 @@ clean:
 .PHONY: run
 run:
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
-	./bin/$(BUILD_TARGET_SERVER) -config=e2etests/config_local_delegate.yaml -debug=true
+	./bin/$(BUILD_TARGET_SERVER) -config=e2etests/config_local_delegate.yaml -log-level=debug
 
 .PHONY: docker
 docker:
