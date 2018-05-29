@@ -18,7 +18,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/golang/glog"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
@@ -28,6 +27,7 @@ import (
 	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/delegate"
 	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network"
 	pb "github.com/iotexproject/iotex-core/simulator/proto/simulator"
 	"github.com/iotexproject/iotex-core/txpool"
@@ -57,7 +57,7 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 	for i := 0; i < int(in.NPlayers); i++ {
 		cfg, err := config.LoadConfigWithPathWithoutValidation(rdposConfig)
 		if err != nil {
-			glog.Error("Error loading config file")
+			logger.Error().Msg("Error loading config file")
 		}
 
 		//s.nodes = make([]consensus.ConsensusSim, in.NPlayers) // allocate all the necessary space now because otherwise nodes will get copied and create pointer issues
@@ -117,7 +117,7 @@ func (s *server) Ping(in *pb.Request, stream pb.Simulator_PingServer) error {
 	fmt.Printf("Node %d pinged; opened message stream\n", in.PlayerID)
 	msgValue, err := hex.DecodeString(in.Value)
 	if err != nil {
-		glog.Error("Could not decode message value into byte array")
+		logger.Error().Msg("Could not decode message value into byte array")
 	}
 
 	done := make(chan bool)
