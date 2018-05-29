@@ -34,8 +34,8 @@ import (
 )
 
 const (
-	port        = ":50051"
-	rdposConfig = "./config_local_rdpos_sim.yaml"
+	port           = ":50051"
+	rolldposConfig = "./config_local_rolldpos_sim.yaml"
 )
 
 // server is used to implement message.SimulatorServer.
@@ -55,7 +55,7 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 	}
 
 	for i := 0; i < int(in.NPlayers); i++ {
-		cfg, err := config.LoadConfigWithPathWithoutValidation(rdposConfig)
+		cfg, err := config.LoadConfigWithPathWithoutValidation(rolldposConfig)
 		if err != nil {
 			logger.Error().Msg("Error loading config file")
 		}

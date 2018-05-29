@@ -32,7 +32,7 @@ chain:
 
 consensus:
     scheme: "NOOP"
-    rdpos:
+    rolldpos:
         unmatchedeventttl: 2s
         acceptpropose:
             ttl: 2s

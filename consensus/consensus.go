@@ -13,7 +13,7 @@ import (
 	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
-	"github.com/iotexproject/iotex-core/consensus/scheme/rdpos"
+	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
 	"github.com/iotexproject/iotex-core/delegate"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/txpool"
@@ -69,11 +69,19 @@ func NewConsensus(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxPool
 	}
 
 	switch cfg.Consensus.Scheme {
-	case "RDPOS":
-		cs.scheme = rdpos.NewRDPoS(cfg.Consensus.RDPoS, mintBlockCB, tellBlockCB, commitBlockCB, broadcastBlockCB, bc, bs.P2P().Self(), dlg)
-	case "NOOP":
+	case config.RollDPoSScheme:
+		cs.scheme = rolldpos.NewRollDPoS(
+			cfg.Consensus.RollDPoS,
+			mintBlockCB,
+			tellBlockCB,
+			commitBlockCB,
+			broadcastBlockCB,
+			bc,
+			bs.P2P().Self(),
+			dlg)
+	case config.NOOPScheme:
 		cs.scheme = scheme.NewNoop()
-	case "STANDALONE":
+	case config.StandaloneScheme:
 		cs.scheme = scheme.NewStandalone(mintBlockCB, commitBlockCB, broadcastBlockCB, bc, cfg.Consensus.BlockCreationInterval)
 	default:
 		logger.Error().

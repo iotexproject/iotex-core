@@ -4,17 +4,30 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package rdpos
+package rolldpos
 
 import (
+	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/consensus/fsm"
+	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
+	"testing"
 )
 
-// ruleIsProposer checks if the event is init propose.
-type ruleIsProposer struct {
-	*RDPoS
-}
+func TestInitProposeInjectError(t *testing.T) {
+	t.Parallel()
 
-func (r ruleIsProposer) Condition(event *fsm.Event) bool {
-	return event.State == stateInitPropose
+	err := errors.New("error")
+	h := initPropose{
+		RollDPoS: &RollDPoS{
+			propCb: func() (*blockchain.Block, error) {
+				return nil, err
+			},
+		},
+	}
+
+	evt := &fsm.Event{}
+	h.Handle(evt)
+
+	assert.Equal(t, evt.Err, err)
 }

@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package rdpos
+package rolldpos
 
 import (
 	"net"
@@ -26,7 +26,7 @@ import (
 	"github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_delegate"
-	. "github.com/iotexproject/iotex-core/test/mock/mock_rdpos"
+	. "github.com/iotexproject/iotex-core/test/mock/mock_rolldpos"
 	"github.com/iotexproject/iotex-core/txpool"
 )
 
@@ -38,7 +38,12 @@ type mocks struct {
 
 type mockFn func(mcks mocks)
 
-func createTestRDPoS(ctrl *gomock.Controller, self net.Addr, delegates []net.Addr, mockFn mockFn, enableProposerRotation bool) *RDPoS {
+func createTestRollDPoS(
+	ctrl *gomock.Controller,
+	self net.Addr,
+	delegates []net.Addr,
+	mockFn mockFn,
+	enableProposerRotation bool) *RollDPoS {
 	bc := mock_blockchain.NewMockBlockchain(ctrl)
 
 	tp := txpool.New(bc)
@@ -67,7 +72,7 @@ func createTestRDPoS(ctrl *gomock.Controller, self net.Addr, delegates []net.Add
 	tellblockCB := func(msg proto.Message) error {
 		return dNet.Broadcast(msg)
 	}
-	csCfg := config.RDPoS{
+	csCfg := config.RollDPoS{
 		UnmatchedEventTTL: 300 * time.Millisecond,
 		AcceptPropose: config.AcceptPropose{
 			TTL: 300 * time.Millisecond,
@@ -88,11 +93,11 @@ func createTestRDPoS(ctrl *gomock.Controller, self net.Addr, delegates []net.Add
 		bc:   bc,
 		dp:   dp,
 	})
-	return NewRDPoS(csCfg, createblockCB, tellblockCB, commitBlockCB, broadcastBlockCB, bc, dNet.Self(), dp)
+	return NewRollDPoS(csCfg, createblockCB, tellblockCB, commitBlockCB, broadcastBlockCB, bc, dNet.Self(), dp)
 }
 
 type testCs struct {
-	cs    *RDPoS
+	cs    *RollDPoS
 	mocks mocks
 }
 
@@ -169,7 +174,7 @@ func testByzantineFault(t *testing.T, proposerNode int) {
 			})
 			tcs.mocks = mcks
 		}
-		tcs.cs = createTestRDPoS(ctrl, cur, delegates, m, false)
+		tcs.cs = createTestRollDPoS(ctrl, cur, delegates, m, false)
 		tcs.cs.Start()
 		defer tcs.cs.Stop()
 		tcss[cur] = tcs
@@ -242,7 +247,7 @@ func voteStats(t *testing.T, tcss map[net.Addr]testCs) {
 	}
 }
 
-func TestRDPoSFourTrustyNodes(t *testing.T) {
+func TestRollDPoSFourTrustyNodes(t *testing.T) {
 	t.Parallel()
 
 	ctrl := gomock.NewController(t)
@@ -279,7 +284,7 @@ func TestRDPoSFourTrustyNodes(t *testing.T) {
 			})
 			tcs.mocks = mcks
 		}
-		tcs.cs = createTestRDPoS(ctrl, cur, delegates, m, false)
+		tcs.cs = createTestRollDPoS(ctrl, cur, delegates, m, false)
 		tcs.cs.Start()
 		defer tcs.cs.Stop()
 		tcss[cur] = tcs
@@ -311,7 +316,7 @@ func TestRDPoSFourTrustyNodes(t *testing.T) {
 }
 
 // Delegate0 receives PROPOSE from Delegate1 and hence move to PREVOTE state and timeout to other states and finally to start
-func TestRDPoSConsumePROPOSE(t *testing.T) {
+func TestRollDPoSConsumePROPOSE(t *testing.T) {
 	t.Parallel()
 
 	ctrl := gomock.NewController(t)
@@ -328,7 +333,7 @@ func TestRDPoSConsumePROPOSE(t *testing.T) {
 		mcks.bc.EXPECT().ValidateBlock(gomock.Any()).AnyTimes()
 		mcks.bc.EXPECT().AddBlockCommit(gomock.Any()).Times(0)
 	}
-	cs := createTestRDPoS(ctrl, delegates[0], delegates, m, false)
+	cs := createTestRollDPoS(ctrl, delegates[0], delegates, m, false)
 	cs.Start()
 	defer cs.Stop()
 
@@ -350,7 +355,7 @@ func TestRDPoSConsumePROPOSE(t *testing.T) {
 }
 
 // Delegate0 receives unmatched VOTE from Delegate1 and stays in START
-func TestRDPoSConsumeErrorStateHandlerNotMatched(t *testing.T) {
+func TestRollDPoSConsumeErrorStateHandlerNotMatched(t *testing.T) {
 	t.Parallel()
 
 	ctrl := gomock.NewController(t)
@@ -362,7 +367,7 @@ func TestRDPoSConsumeErrorStateHandlerNotMatched(t *testing.T) {
 		cm.NewTCPNode("192.168.0.2:10002"),
 	}
 	m := func(mcks mocks) {}
-	cs := createTestRDPoS(ctrl, delegates[0], delegates, m, false)
+	cs := createTestRollDPoS(ctrl, delegates[0], delegates, m, false)
 
 	cs.Start()
 	defer cs.Stop()

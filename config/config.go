@@ -79,19 +79,25 @@ type RawMinerAddr struct {
 	RawAddress string
 }
 
+const (
+	// RollDPoSScheme means randomized delegated proof of stake
+	RollDPoSScheme = "ROLLDPOS"
+	// StandaloneScheme means that the node creates a block periodically regardless of others (if there is any)
+	StandaloneScheme = "STANDALONE"
+	// NOOPScheme means that the node does not create only block
+	NOOPScheme = "NOOP"
+)
+
 // Consensus is the config struct for consensus package
 type Consensus struct {
-	// There are three schemes that are supported:
-	// RDPOS -- Randomized Delegated Proof of Stake
-	// STANDALONE -- The node creates a block periodically regardless of others (if there is any)
-	// NOOP -- The node does not create only block
+	// There are three schemes that are supported
 	Scheme                string
-	RDPoS                 RDPoS
+	RollDPoS              RollDPoS
 	BlockCreationInterval time.Duration
 }
 
-// RDPoS is the config struct for RDPoS consensus package
-type RDPoS struct {
+// RollDPoS is the config struct for RollDPoS consensus package
+type RollDPoS struct {
 	ProposerRotation  ProposerRotation
 	UnmatchedEventTTL time.Duration
 	AcceptPropose     AcceptPropose
@@ -99,29 +105,29 @@ type RDPoS struct {
 	AcceptVote        AcceptVote
 }
 
-// ProposerRotation is the RDPoS ProposerRotation config
+// ProposerRotation is the RollDPoS ProposerRotation config
 type ProposerRotation struct {
-	// Interval determines how long to propose another round of RDPoS.
+	// Interval determines how long to propose another round of RollDPoS.
 	Interval time.Duration
-	// Enabled flags whether we periodically rotate the proposer and trigger a new round of RDPoS
+	// Enabled flags whether we periodically rotate the proposer and trigger a new round of RollDPoS
 	Enabled bool
 }
 
-// AcceptPropose is the RDPoS AcceptPropose config
+// AcceptPropose is the RollDPoS AcceptPropose config
 type AcceptPropose struct {
 	// TTL is the time the state machine will wait for the AcceptPropose state.
 	// Once timeout, it will move to the next state.
 	TTL time.Duration
 }
 
-// AcceptPrevote is the RDPoS AcceptPrevote config
+// AcceptPrevote is the RollDPoS AcceptPrevote config
 type AcceptPrevote struct {
 	// TTL is the time the state machine will wait for the AcceptPrevote state.
 	// Once timeout, it will move to the next state.
 	TTL time.Duration
 }
 
-// AcceptVote is the RDPoS AcceptVote config
+// AcceptVote is the RollDPoS AcceptVote config
 type AcceptVote struct {
 	// TTL is the time the state machine will wait for the AcceptVote state.
 	// Once timeout, it will move to the next state.
@@ -218,11 +224,11 @@ func validateConfig(cfg *Config) error {
 	case DelegateType:
 		break
 	case FullNodeType:
-		if cfg.Consensus.Scheme != "NOOP" {
+		if cfg.Consensus.Scheme != NOOPScheme {
 			return fmt.Errorf("consensus scheme of fullnode should be NOOP")
 		}
 	case LightweightType:
-		if cfg.Consensus.Scheme != "NOOP" {
+		if cfg.Consensus.Scheme != NOOPScheme {
 			return fmt.Errorf("consensus scheme of lightweight node should be NOOP")
 		}
 	default:

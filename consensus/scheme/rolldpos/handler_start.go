@@ -4,24 +4,25 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package rdpos
+package rolldpos
 
 import (
-	"time"
+	"net"
 
+	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/consensus/fsm"
 )
 
-// acceptPropose waits for the proposed block and validate or timeout.
-type acceptPropose struct {
-	*RDPoS
+// start is the initial and idle state of all consensus states. It initiates
+// the round context.
+type start struct {
+	fsm.NilTimeout
+	*RollDPoS
 }
 
-func (h *acceptPropose) TimeoutDuration() *time.Duration {
-	return &h.cfg.AcceptPropose.TTL
-}
-
-func (h *acceptPropose) Handle(event *fsm.Event) {
-	h.roundCtx.prevotes[event.SenderAddr] = event.BlockHash
-	event.Err = h.bc.ValidateBlock(event.Block)
+func (h *start) Handle(event *fsm.Event) {
+	h.roundCtx = &roundCtx{
+		prevotes: make(map[net.Addr]*common.Hash32B),
+		votes:    make(map[net.Addr]*common.Hash32B),
+	}
 }

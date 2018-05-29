@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package rdpos
+package rolldpos
 
 import (
 	"github.com/iotexproject/iotex-core/common/routine"
@@ -16,7 +16,7 @@ import (
 // However, use the first delegate as the proposer for now.
 // We can propose based on the block height in the future.
 type proposerRotation struct {
-	*RDPoS
+	*RollDPoS
 }
 
 func (s *proposerRotation) Do() {
@@ -41,6 +41,6 @@ func (s *proposerRotation) Do() {
 }
 
 // NewProposerRotation creates a recurring task of proposer rotation.
-func NewProposerRotation(r *RDPoS) *routine.RecurringTask {
+func NewProposerRotation(r *RollDPoS) *routine.RecurringTask {
 	return routine.NewRecurringTask(&proposerRotation{r}, r.cfg.ProposerRotation.Interval)
 }

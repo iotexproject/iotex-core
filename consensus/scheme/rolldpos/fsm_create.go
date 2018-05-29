@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package rdpos
+package rolldpos
 
 import (
 	"github.com/iotexproject/iotex-core/consensus/fsm"
@@ -19,24 +19,24 @@ const (
 	stateAcceptVote    fsm.State = "VOTE"
 )
 
-func fsmCreate(r *RDPoS) fsm.Machine {
+func fsmCreate(r *RollDPoS) fsm.Machine {
 	sm := fsm.NewMachine()
 
-	if err := sm.SetInitialState(stateStart, &start{RDPoS: r}); err != nil {
+	if err := sm.SetInitialState(stateStart, &start{RollDPoS: r}); err != nil {
 		logger.Error().Err(err).Msg("Error when creating fsm")
 		return sm
 	}
-	sm.AddState(stateInitPropose, &initPropose{RDPoS: r})
-	sm.AddState(stateAcceptPropose, &acceptPropose{RDPoS: r})
-	sm.AddState(stateAcceptPrevote, &acceptPrevote{RDPoS: r})
-	sm.AddState(stateAcceptVote, &acceptVote{RDPoS: r})
+	sm.AddState(stateInitPropose, &initPropose{RollDPoS: r})
+	sm.AddState(stateAcceptPropose, &acceptPropose{RollDPoS: r})
+	sm.AddState(stateAcceptPrevote, &acceptPrevote{RollDPoS: r})
+	sm.AddState(stateAcceptVote, &acceptVote{RollDPoS: r})
 
-	sm.AddTransition(stateStart, stateInitPropose, &ruleIsProposer{RDPoS: r})
-	sm.AddTransition(stateStart, stateAcceptPropose, &ruleNotProposer{RDPoS: r})
-	sm.AddTransition(stateInitPropose, stateAcceptPrevote, &rulePropose{RDPoS: r})
-	sm.AddTransition(stateAcceptPropose, stateAcceptPrevote, &rulePrevote{RDPoS: r})
-	sm.AddTransition(stateAcceptPrevote, stateAcceptVote, &ruleVote{RDPoS: r})
-	sm.AddTransition(stateAcceptVote, stateStart, &ruleCommit{RDPoS: r})
+	sm.AddTransition(stateStart, stateInitPropose, &ruleIsProposer{RollDPoS: r})
+	sm.AddTransition(stateStart, stateAcceptPropose, &ruleNotProposer{RollDPoS: r})
+	sm.AddTransition(stateInitPropose, stateAcceptPrevote, &rulePropose{RollDPoS: r})
+	sm.AddTransition(stateAcceptPropose, stateAcceptPrevote, &rulePrevote{RollDPoS: r})
+	sm.AddTransition(stateAcceptPrevote, stateAcceptVote, &ruleVote{RollDPoS: r})
+	sm.AddTransition(stateAcceptVote, stateStart, &ruleCommit{RollDPoS: r})
 
 	return sm
 }

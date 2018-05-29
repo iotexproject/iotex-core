@@ -30,8 +30,8 @@ chain:
         rawaddress: "io1qyqsyqcy6nm58gjd2wr035wz5eyd5uq47zyqpng3gxe7nh"
 
 consensus:
-    scheme: "RDPOS"
-    rdpos:
+    scheme: "ROLLDPOS"
+    rolldpos:
         proposerrotation:
             enabled: true
             interval: 1ms

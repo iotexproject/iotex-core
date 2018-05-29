@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package rdpos
+package rolldpos
 
 import (
 	"net"
@@ -46,8 +46,8 @@ type DNet interface {
 	Broadcast(msg proto.Message) error
 }
 
-// RDPoS is the RDPoS consensus scheme
-type RDPoS struct {
+// RollDPoS is the RollDPoS consensus scheme
+type RollDPoS struct {
 	bc        blockchain.Blockchain
 	propCb    scheme.CreateBlockCB
 	voteCb    scheme.TellPeerCB
@@ -61,20 +61,20 @@ type RDPoS struct {
 	wg        sync.WaitGroup
 	quit      chan struct{}
 	eventChan chan *fsm.Event
-	cfg       config.RDPoS
+	cfg       config.RollDPoS
 	pr        *routine.RecurringTask
 	done      chan bool
 }
 
-// NewRDPoS creates a RDPoS struct
-func NewRDPoS(cfg config.RDPoS, prop scheme.CreateBlockCB, vote scheme.TellPeerCB, cons scheme.ConsensusDoneCB,
-	pub scheme.BroadcastCB, bc blockchain.Blockchain, myaddr net.Addr, dlg delegate.Pool) *RDPoS {
+// NewRollDPoS creates a RollDPoS struct
+func NewRollDPoS(cfg config.RollDPoS, prop scheme.CreateBlockCB, vote scheme.TellPeerCB, cons scheme.ConsensusDoneCB,
+	pub scheme.BroadcastCB, bc blockchain.Blockchain, myaddr net.Addr, dlg delegate.Pool) *RollDPoS {
 	delegates, err := dlg.AllDelegates()
 	if err != nil {
 		logger.Error().Err(err)
 		syscall.Exit(syscall.SYS_EXIT)
 	}
-	sc := &RDPoS{
+	sc := &RollDPoS{
 		propCb:    prop,
 		voteCb:    vote,
 		consCb:    cons,
@@ -91,9 +91,9 @@ func NewRDPoS(cfg config.RDPoS, prop scheme.CreateBlockCB, vote scheme.TellPeerC
 	return sc
 }
 
-// Start initialize the RDPoS and start to consume requests from request channel.
-func (n *RDPoS) Start() error {
-	logger.Info().Msg("Starting RDPoS")
+// Start initialize the RollDPoS and start to consume requests from request channel.
+func (n *RollDPoS) Start() error {
+	logger.Info().Msg("Starting RollDPoS")
 
 	n.wg.Add(1)
 	go n.consume()
@@ -103,22 +103,22 @@ func (n *RDPoS) Start() error {
 	return nil
 }
 
-// Stop stops the RDPoS and stop consuming requests from request channel.
-func (n *RDPoS) Stop() error {
-	logger.Info().Msg("RDPoS is shutting down")
+// Stop stops the RollDPoS and stop consuming requests from request channel.
+func (n *RollDPoS) Stop() error {
+	logger.Info().Msg("RollDPoS is shutting down")
 	close(n.quit)
 	n.wg.Wait()
 	return nil
 }
 
 // SetDoneStream sets a boolean channel which indicates to the simulator that the consensus is done
-func (n *RDPoS) SetDoneStream(done chan bool) {
+func (n *RollDPoS) SetDoneStream(done chan bool) {
 	n.done = done
 }
 
 // Handle handles incoming messages and publish to the channel.
-func (n *RDPoS) Handle(m proto.Message) error {
-	logger.Debug().Msg("RDPoS scheme handles incoming requests")
+func (n *RollDPoS) Handle(m proto.Message) error {
+	logger.Debug().Msg("RollDPoS scheme handles incoming requests")
 
 	event, err := eventFromProto(m)
 	if err != nil {
@@ -129,7 +129,7 @@ func (n *RDPoS) Handle(m proto.Message) error {
 	return nil
 }
 
-func (n *RDPoS) consume() {
+func (n *RollDPoS) consume() {
 loop:
 	for {
 		select {
@@ -152,7 +152,7 @@ loop:
 			case fsm.ErrNoTransitionApplied:
 			default:
 				logger.Error().
-					Str("RDPoS", n.self.String()).
+					Str("RollDPoS", n.self.String()).
 					Err(err).
 					Msg("Failed to fsm.HandleTransition")
 			}
@@ -173,7 +173,7 @@ loop:
 	logger.Info().Msg("consume done")
 }
 
-func (n *RDPoS) tellDelegates(msg *pb.ViewChangeMsg) {
+func (n *RollDPoS) tellDelegates(msg *pb.ViewChangeMsg) {
 	msg.SenderAddr = n.self.String()
 	n.voteCb(msg)
 }

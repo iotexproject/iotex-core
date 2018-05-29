@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package rdpos
+package rolldpos
 
 import (
 	"github.com/iotexproject/iotex-core/consensus/fsm"
@@ -13,7 +13,7 @@ import (
 
 // rulePropose sends out propose messages.
 type rulePropose struct {
-	*RDPoS
+	*RollDPoS
 }
 
 func (r rulePropose) Condition(event *fsm.Event) bool {

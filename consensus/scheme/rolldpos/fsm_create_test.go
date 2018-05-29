@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package rdpos
+package rolldpos
 
 import (
 	"net"
@@ -34,7 +34,7 @@ func TestAcceptPrevoteAndProceedToEnd(t *testing.T) {
 		mcks.bc.EXPECT().ValidateBlock(gomock.Any()).AnyTimes()
 		mcks.bc.EXPECT().AddBlockCommit(gomock.Any()).Times(1)
 	}
-	cs := createTestRDPoS(ctrl, delegates[0], delegates, m, false)
+	cs := createTestRollDPoS(ctrl, delegates[0], delegates, m, false)
 	cs.Start()
 	defer cs.Stop()
 
@@ -110,7 +110,7 @@ func TestAcceptPrevoteAndTimeoutToEnd(t *testing.T) {
 		mcks.bc.EXPECT().ValidateBlock(gomock.Any()).Return(errors.New("error"))
 		mcks.bc.EXPECT().AddBlockCommit(gomock.Any()).Times(0)
 	}
-	cs := createTestRDPoS(ctrl, delegates[0], delegates, m, false)
+	cs := createTestRollDPoS(ctrl, delegates[0], delegates, m, false)
 	cs.Start()
 	defer cs.Stop()
 

@@ -4,7 +4,7 @@
 # permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 # License 2.0 that can be found in the LICENSE file.
 
-"""This module defines a consensus client which interfaces with the RDPoS consensus engine in Go"""
+"""This module defines a consensus client which interfaces with the RollDPoS consensus engine in Go"""
 
 import grpc
 

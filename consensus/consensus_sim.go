@@ -16,7 +16,7 @@ import (
 	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
-	"github.com/iotexproject/iotex-core/consensus/scheme/rdpos"
+	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
 	"github.com/iotexproject/iotex-core/delegate"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/proto"
@@ -108,7 +108,15 @@ func NewSim(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxPool, bs b
 		return nil
 	}
 
-	cs.scheme = rdpos.NewRDPoS(cfg.Consensus.RDPoS, mintBlockCB, tellBlockCB, commitBlockCB, broadcastBlockCB, bc, bs.P2P().Self(), dlg)
+	cs.scheme = rolldpos.NewRollDPoS(
+		cfg.Consensus.RollDPoS,
+		mintBlockCB,
+		tellBlockCB,
+		commitBlockCB,
+		broadcastBlockCB,
+		bc,
+		bs.P2P().Self(),
+		dlg)
 	cs.unsent = make([]*pb.Reply, 0)
 
 	fmt.Printf("cs pointer: %p\n", cs)
