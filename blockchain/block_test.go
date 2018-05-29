@@ -54,27 +54,27 @@ func TestMerkle(t *testing.T) {
 	assert.NotNil(cbtx4)
 
 	// verify tx hash
-	hash0, _ := hex.DecodeString("fe8a51f0b3db3b5edc3d19dd54400bb81c1a7882a69df2688080d71199ca1bb8")
+	hash0, _ := hex.DecodeString("1a0130efd104f6236dac0f1c8c6817465f082e5555c29ef8878abb5ddc8c6002")
 	actual := cbtx0.Hash()
 	assert.Equal(hash0, actual[:])
 	t.Logf("actual hash = %x", actual[:])
 
-	hash1, _ := hex.DecodeString("a7978a116f40140f4520c90fd4aef48d19f6734b3d64352cec74337c3fcfb34a")
+	hash1, _ := hex.DecodeString("bc469f01661dfeb6c1309b5545cddf12836fee8eaa101f0233879089399d73af")
 	actual = cbtx1.Hash()
 	assert.Equal(hash1, actual[:])
 	t.Logf("actual hash = %x", actual[:])
 
-	hash2, _ := hex.DecodeString("0c91fa200cb0da19fc2580f5a2a3da7b75aa0f851957e21bd34e791bff22cb4d")
+	hash2, _ := hex.DecodeString("4edc136bb713dae6d077a37c8110103334391a24bfcce6dffc8934d1dd24b51d")
 	actual = cbtx2.Hash()
 	assert.Equal(hash2, actual[:])
 	t.Logf("actual hash = %x", actual[:])
 
-	hash3, _ := hex.DecodeString("3fff965b52822e74b70feebe0b62ccce60f78b4081a97b67b0de8aa94acaf6db")
+	hash3, _ := hex.DecodeString("762404453347e2cdb87239a689eb30645dbef9935a775b58652b44c6e2ce8282")
 	actual = cbtx3.Hash()
 	assert.Equal(hash3, actual[:])
 	t.Logf("actual hash = %x", actual[:])
 
-	hash4, _ := hex.DecodeString("0694c4789032cfe9de49dd79cc05968ae85a1f3533e9cc50b278d3e5b531f44d")
+	hash4, _ := hex.DecodeString("1019ce698e2ac013a5a8d24c67a33e333cf21f1f27ea2986636f2e44c3bbf5e1")
 	actual = cbtx4.Hash()
 	assert.Equal(hash4, actual[:])
 	t.Logf("actual hash = %x", actual[:])

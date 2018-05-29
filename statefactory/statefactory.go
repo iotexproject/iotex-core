@@ -53,7 +53,7 @@ type (
 	StateFactory interface {
 		CreateState(string, uint64) (*State, error)
 		Balance(string) (*big.Int, error)
-		UpdateStatesWithTransfer([]*trx.Tx) error
+		UpdateStatesWithTransfer([]*trx.TxAct) error
 		SetNonce(string, uint64) error
 		Nonce(string) (uint64, error)
 		RootHash() common.Hash32B
@@ -174,7 +174,7 @@ func (sf *stateFactory) RootHash() common.Hash32B {
 }
 
 // UpdateStatesWithTransfer updates a State from the given value transfer
-func (sf *stateFactory) UpdateStatesWithTransfer(txs []*trx.Tx) error {
+func (sf *stateFactory) UpdateStatesWithTransfer(txs []*trx.TxAct) error {
 	var ss []byte
 	transferK := [][]byte{}
 	transferV := [][]byte{}

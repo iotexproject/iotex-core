@@ -50,7 +50,7 @@ type TxOutput struct {
 	OutIndex int32 // outIndex is needed when spending UTXO
 }
 
-// Tx defines the struct of transaction
+// Tx defines the struct of utxo-based transaction
 // make sure the variable type and order of this struct is same as "type Tx" in blockchain.pb.go
 type Tx struct {
 	Version  uint32
@@ -59,8 +59,14 @@ type Tx struct {
 	// used by utxo-based model
 	TxIn  []*TxInput
 	TxOut []*TxOutput
+}
 
-	// used by state-based model
+// TxAct defines the struct of account-based transaction
+type TxAct struct {
+	Version  uint32
+	LockTime uint32 // transaction to be locked until this time
+
+	// used by account-based model
 	Nonce           uint64
 	Amount          *big.Int
 	Sender          string
@@ -96,14 +102,6 @@ func NewTx(in []*TxInput, out []*TxOutput, lockTime uint32) *Tx {
 		// used by utxo-based model
 		TxIn:  in,
 		TxOut: out,
-
-		// used by state-based model
-		Nonce:  0,
-		Amount: big.NewInt(0),
-		// TODO: transition SF pass in actual sender/recipient
-		Sender:    "",
-		Recipient: "",
-		Payload:   []byte{},
 	}
 }
 
@@ -144,21 +142,10 @@ func (tx *Tx) TotalSize() uint32 {
 	for _, out := range tx.TxOut {
 		size += out.TotalSize()
 	}
-
-	// add nonce, amount, sender, receipt, and payload sizes
-	size += uint32(NonceSizeInBytes)
-	if tx.Amount != nil && len(tx.Amount.Bytes()) > 0 {
-		size += uint32(len(tx.Amount.Bytes()))
-	}
-	size += uint32(len(tx.Sender))
-	size += uint32(len(tx.Recipient))
-	size += uint32(len(tx.Payload))
-	size += uint32(len(tx.SenderPublicKey))
-	size += uint32(len(tx.Signature))
 	return size
 }
 
-// ByteStream returns a raw byte stream of trnx data
+// ByteStream returns a raw byte stream of this transaction
 func (tx *Tx) ByteStream() []byte {
 	stream := make([]byte, 4)
 	common.MachineEndian.PutUint32(stream, tx.Version)
@@ -174,50 +161,24 @@ func (tx *Tx) ByteStream() []byte {
 	for _, txOut := range tx.TxOut {
 		stream = append(stream, txOut.ByteStream()...)
 	}
-
-	// 2. used by state-based model
-	temp = make([]byte, 8)
-	common.MachineEndian.PutUint64(temp, tx.Nonce)
-	stream = append(stream, temp...)
-	if tx.Amount != nil && len(tx.Amount.Bytes()) > 0 {
-		stream = append(stream, tx.Amount.Bytes()...)
-	}
-	stream = append(stream, tx.Sender...)
-	stream = append(stream, tx.Recipient...)
-	stream = append(stream, tx.Payload...)
-	stream = append(stream, tx.SenderPublicKey...)
-	stream = append(stream, tx.Signature...)
 	return stream
 }
 
-// ConvertToTxPb creates a protobuf's Tx using type Tx
+// ConvertToTxPb converts Tx to protobuf's TxPb
 func (tx *Tx) ConvertToTxPb() *iproto.TxPb {
 	pbOut := make([]*iproto.TxOutputPb, len(tx.TxOut))
 	for i, out := range tx.TxOut {
 		pbOut[i] = out.TxOutputPb
 	}
 
-	t := &iproto.TxPb{
+	return &iproto.TxPb{
 		Version:  tx.Version,
 		LockTime: tx.LockTime,
 
 		// used by utxo-based model
 		TxIn:  tx.TxIn,
 		TxOut: pbOut,
-
-		// used by state-based model
-		Nonce:        tx.Nonce,
-		Sender:       tx.Sender,
-		Recipient:    tx.Recipient,
-		Payload:      tx.Payload,
-		SenderPubKey: tx.SenderPublicKey,
-		Signature:    tx.Signature,
 	}
-
-	if tx.Amount != nil && len(tx.Amount.Bytes()) > 0 {
-		t.Amount = tx.Amount.Bytes()
-	}
-	return t
 }
 
 // Serialize returns a serialized byte stream for the Tx
@@ -225,7 +186,7 @@ func (tx *Tx) Serialize() ([]byte, error) {
 	return proto.Marshal(tx.ConvertToTxPb())
 }
 
-// ConvertFromTxPb converts a protobuf's Tx back to type Tx
+// ConvertFromTxPb converts protobuf's TxPb to Tx
 func (tx *Tx) ConvertFromTxPb(pbTx *iproto.TxPb) {
 	// set trnx fields
 	tx.Version = pbTx.GetVersion()
@@ -239,32 +200,9 @@ func (tx *Tx) ConvertFromTxPb(pbTx *iproto.TxPb) {
 	for i, out := range pbTx.TxOut {
 		tx.TxOut[i] = &TxOutput{out, int32(i)}
 	}
-
-	// used by state-based model
-	tx.Nonce = pbTx.Nonce
-	if tx.Amount == nil {
-		tx.Amount = big.NewInt(0)
-	}
-	if len(pbTx.Amount) > 0 {
-		tx.Amount.SetBytes(pbTx.Amount)
-	}
-	tx.Sender = ""
-	if len(pbTx.Sender) > 0 {
-		tx.Recipient = string(pbTx.Recipient)
-	}
-	tx.Recipient = ""
-	if len(pbTx.Recipient) > 0 {
-		tx.Recipient = string(pbTx.Recipient)
-	}
-	tx.Payload = nil
-	tx.Payload = pbTx.Payload
-	tx.SenderPublicKey = nil
-	tx.SenderPublicKey = pbTx.SenderPubKey
-	tx.Signature = nil
-	tx.Signature = pbTx.Signature
 }
 
-// Deserialize parse the byte stream into the Tx
+// Deserialize parse the byte stream into Tx
 func (tx *Tx) Deserialize(buf []byte) error {
 	pbTx := iproto.TxPb{}
 	if err := proto.Unmarshal(buf, &pbTx); err != nil {
@@ -331,4 +269,137 @@ func (out *TxOutput) ByteStream() []byte {
 	stream = append(stream, out.LockScript...)
 
 	return stream
+}
+
+//======================================
+// Below are account-based transaction functions
+//======================================
+
+// NewTxAct returns a TxAct instance
+func NewTxAct(in []*TxInput, out []*TxOutput, lockTime uint32) *TxAct {
+	return &TxAct{
+		Version:  common.ProtocolVersion,
+		LockTime: lockTime,
+
+		// used by account-based model
+		Nonce:  0,
+		Amount: big.NewInt(0),
+		// TODO: transition SF pass in actual sender/recipient
+		Sender:    "",
+		Recipient: "",
+		Payload:   []byte{},
+	}
+}
+
+// TotalSize returns the total size of this transaction
+func (tx *TxAct) TotalSize() uint32 {
+	size := uint32(VersionSizeInBytes + LockTimeSizeInBytes)
+	// add nonce, amount, sender, receipt, and payload sizes
+	size += uint32(NonceSizeInBytes)
+	if tx.Amount != nil && len(tx.Amount.Bytes()) > 0 {
+		size += uint32(len(tx.Amount.Bytes()))
+	}
+	size += uint32(len(tx.Sender))
+	size += uint32(len(tx.Recipient))
+	size += uint32(len(tx.Payload))
+	size += uint32(len(tx.SenderPublicKey))
+	size += uint32(len(tx.Signature))
+	return size
+}
+
+// ByteStream returns a raw byte stream of this transaction
+func (tx *TxAct) ByteStream() []byte {
+	stream := make([]byte, 4)
+	common.MachineEndian.PutUint32(stream, tx.Version)
+
+	temp := make([]byte, 4)
+	common.MachineEndian.PutUint32(temp, tx.LockTime)
+	stream = append(stream, temp...)
+
+	// 2. used by account-based model
+	temp = nil
+	temp = make([]byte, 8)
+	common.MachineEndian.PutUint64(temp, tx.Nonce)
+	stream = append(stream, temp...)
+	if tx.Amount != nil && len(tx.Amount.Bytes()) > 0 {
+		stream = append(stream, tx.Amount.Bytes()...)
+	}
+	stream = append(stream, tx.Sender...)
+	stream = append(stream, tx.Recipient...)
+	stream = append(stream, tx.Payload...)
+	stream = append(stream, tx.SenderPublicKey...)
+	stream = append(stream, tx.Signature...)
+	return stream
+}
+
+// ConvertToPb converts TxAct to protobuf's TxActPb
+func (tx *TxAct) ConvertToPb() *iproto.TxActPb {
+	// used by account-based model
+	t := &iproto.TxActPb{
+		Version:      tx.Version,
+		LockTime:     tx.LockTime,
+		Nonce:        tx.Nonce,
+		Sender:       tx.Sender,
+		Recipient:    tx.Recipient,
+		Payload:      tx.Payload,
+		SenderPubKey: tx.SenderPublicKey,
+		Signature:    tx.Signature,
+	}
+
+	if tx.Amount != nil && len(tx.Amount.Bytes()) > 0 {
+		t.Amount = tx.Amount.Bytes()
+	}
+	return t
+}
+
+// Serialize returns a serialized byte stream for the TxAct
+func (tx *TxAct) Serialize() ([]byte, error) {
+	return proto.Marshal(tx.ConvertToPb())
+}
+
+// ConvertFromPb converts a protobuf's TxActPb to TxAct
+func (tx *TxAct) ConvertFromPb(pbTx *iproto.TxActPb) {
+	// set trnx fields
+	tx.Version = pbTx.GetVersion()
+	tx.LockTime = pbTx.GetLockTime()
+
+	// used by account-based model
+	tx.Nonce = pbTx.Nonce
+	if tx.Amount == nil {
+		tx.Amount = big.NewInt(0)
+	}
+	if len(pbTx.Amount) > 0 {
+		tx.Amount.SetBytes(pbTx.Amount)
+	}
+	tx.Sender = ""
+	if len(pbTx.Sender) > 0 {
+		tx.Recipient = string(pbTx.Recipient)
+	}
+	tx.Recipient = ""
+	if len(pbTx.Recipient) > 0 {
+		tx.Recipient = string(pbTx.Recipient)
+	}
+	tx.Payload = nil
+	tx.Payload = pbTx.Payload
+	tx.SenderPublicKey = nil
+	tx.SenderPublicKey = pbTx.SenderPubKey
+	tx.Signature = nil
+	tx.Signature = pbTx.Signature
+}
+
+// Deserialize parse the byte stream into TxAct
+func (tx *TxAct) Deserialize(buf []byte) error {
+	pbTxAct := iproto.TxActPb{}
+	if err := proto.Unmarshal(buf, &pbTxAct); err != nil {
+		panic(err)
+	}
+
+	tx.ConvertFromPb(&pbTxAct)
+	return nil
+}
+
+// Hash returns the hash of the TxAct
+func (tx *TxAct) Hash() common.Hash32B {
+	hash := blake2b.Sum256(tx.ByteStream())
+	return blake2b.Sum256(hash[:])
 }

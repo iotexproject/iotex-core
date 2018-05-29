@@ -163,16 +163,11 @@ func (d *dispatcher) handleTxMsg(m *txMsg) {
 	tx := &trx.Tx{}
 	tx.ConvertFromTxPb(m.tx)
 	x := tx.Hash()
-
-	logger.Info().
-		Bytes("hash", x[:]).
-		Msg("receive txMsg")
-
+	logger.Info().Hex("hash", x[:]).Msg("receive txMsg")
 	// dispatch to TxPool
 	if _, err := d.tp.ProcessTx(tx, true, true, 0); err != nil {
 		logger.Error().Err(err)
 	}
-
 	// signal to let caller know we are done
 	if m.done != nil {
 		m.done <- true
@@ -185,11 +180,8 @@ func (d *dispatcher) handleBlockMsg(m *blockMsg) {
 	blk := &blockchain.Block{}
 	blk.ConvertFromBlockPb(m.block)
 	hash := blk.HashBlock()
-
 	logger.Info().
-		Uint64("block", blk.Height()).
-		Bytes("hash", hash[:]).
-		Msg("receive blockMsg")
+		Uint64("block", blk.Height()).Hex("hash", hash[:]).Msg("receive blockMsg")
 
 	if m.blkType == pb.MsgBlockProtoMsgType {
 		if err := d.bs.ProcessBlock(blk); err != nil {
@@ -200,7 +192,6 @@ func (d *dispatcher) handleBlockMsg(m *blockMsg) {
 			logger.Error().Err(err)
 		}
 	}
-
 	// signal to let caller know we are done
 	if m.done != nil {
 		m.done <- true
@@ -211,16 +202,12 @@ func (d *dispatcher) handleBlockMsg(m *blockMsg) {
 // handleBlockSyncMsg handles block messages from peers.
 func (d *dispatcher) handleBlockSyncMsg(m *blockSyncMsg) {
 	logger.Info().
-		Str("addr", m.sender).
-		Uint64("start", m.sync.Start).
-		Uint64("end", m.sync.End).
+		Str("addr", m.sender).Uint64("start", m.sync.Start).Uint64("end", m.sync.End).
 		Msg("receive blockSyncMsg")
-
 	// dispatch to block sync
 	if err := d.bs.ProcessSyncRequest(m.sender, m.sync); err != nil {
 		logger.Error().Err(err)
 	}
-
 	// signal to let caller know we are done
 	if m.done != nil {
 		m.done <- true
@@ -231,9 +218,7 @@ func (d *dispatcher) handleBlockSyncMsg(m *blockSyncMsg) {
 // handleVoteMsg handles voteMsg from all peers.
 func (d *dispatcher) handleVoteMsg(m *voteMsg) {
 	vote := &pb.VotePb{}
-	logger.Info().
-		Str("sig", string(vote.Signature)).
-		Msg("receive voteMsg")
+	logger.Info().Str("sig", string(vote.Signature)).Msg("receive voteMsg")
 
 	//todo: call account module to process the vote msg
 	// signal to let caller know we are done

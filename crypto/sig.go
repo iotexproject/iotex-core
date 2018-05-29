@@ -21,9 +21,10 @@ import (
 	"bytes"
 	"encoding/binary"
 
-	"github.com/iotexproject/iotex-core-internal/common"
+	"github.com/iotexproject/iotex-core/common"
 )
 
+// NewKeyPair generates a new public/private key pair
 func NewKeyPair() ([]byte, []byte, error) {
 	var keypair C.ec283_key_pair
 	C.key_generation(&keypair)
@@ -41,6 +42,7 @@ func NewKeyPair() ([]byte, []byte, error) {
 	return pub, priv, nil
 }
 
+// Sign signs the msg
 func Sign(priv []byte, msg []byte) []byte {
 	msgString := string(msg[:])
 	privKey, err := privateKeyDeserialization(priv)
@@ -56,6 +58,7 @@ func Sign(priv []byte, msg []byte) []byte {
 	return sign
 }
 
+// Verify verifies the signature
 func Verify(pub []byte, msg []byte, sig []byte) bool {
 	msgString := string(msg[:])
 	pubKey, err := publicKeyDeserialization(pub)
@@ -66,12 +69,7 @@ func Verify(pub []byte, msg []byte, sig []byte) bool {
 	if err != nil {
 		return false
 	}
-	result := C.ECDSA_verify(&pubKey, (*C.uint8_t)(&msg[0]), (C.uint64_t)(len(msgString)), &signature)
-	if result == 1 {
-		return true
-	} else {
-		return false
-	}
+	return C.ECDSA_verify(&pubKey, (*C.uint8_t)(&msg[0]), (C.uint64_t)(len(msgString)), &signature) == 1
 }
 
 func publicKeySerialization(pubKey C.ec283_point_lambda_aff) ([]byte, error) {

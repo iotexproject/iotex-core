@@ -43,9 +43,9 @@ type ActPool interface {
 	// Reset resets actpool state
 	Reset()
 	// PickTxs returns all currently accepted transactions in actpool
-	PickTxs() (map[string][]*trx.Tx, error)
+	PickTxs() (map[string][]*trx.TxAct, error)
 	// AddTx adds a transaction into the pool after validation
-	AddTx(tx *trx.Tx) error
+	AddTx(tx *trx.TxAct) error
 }
 
 // actPool implements ActPool interface
@@ -53,7 +53,7 @@ type actPool struct {
 	mutex      sync.RWMutex
 	sf         statefactory.StateFactory
 	accountTxs map[string]TxQueue
-	allTxs     map[common.Hash32B]*trx.Tx
+	allTxs     map[common.Hash32B]*trx.TxAct
 }
 
 // NewActPool constructs a new actpool
@@ -61,7 +61,7 @@ func NewActPool(trie trie.Trie) ActPool {
 	ap := &actPool{
 		sf:         statefactory.NewStateFactory(trie),
 		accountTxs: make(map[string]TxQueue),
-		allTxs:     make(map[common.Hash32B]*trx.Tx),
+		allTxs:     make(map[common.Hash32B]*trx.TxAct),
 	}
 	return ap
 }
@@ -100,11 +100,11 @@ func (ap *actPool) Reset() {
 }
 
 // PickTxs returns all currently accepted transactions for all accounts
-func (ap *actPool) PickTxs() (map[string][]*trx.Tx, error) {
+func (ap *actPool) PickTxs() (map[string][]*trx.TxAct, error) {
 	ap.mutex.Lock()
 	defer ap.mutex.Unlock()
 
-	pending := make(map[string][]*trx.Tx)
+	pending := make(map[string][]*trx.TxAct)
 	for from, queue := range ap.accountTxs {
 		pending[from] = queue.ConfirmedTxs()
 	}
@@ -112,7 +112,7 @@ func (ap *actPool) PickTxs() (map[string][]*trx.Tx, error) {
 }
 
 // validateTx checks whether a transaction is valid
-func (ap *actPool) validateTx(tx *trx.Tx) error {
+func (ap *actPool) validateTx(tx *trx.TxAct) error {
 	// Reject oversized transaction
 	if tx.TotalSize() > 32*1024 {
 		return errors.Wrapf(ErrActPool, "oversized data")
@@ -139,7 +139,7 @@ func (ap *actPool) validateTx(tx *trx.Tx) error {
 }
 
 // AddTx inserts a new transaction into account queue if it passes validation
-func (ap *actPool) AddTx(tx *trx.Tx) error {
+func (ap *actPool) AddTx(tx *trx.TxAct) error {
 	ap.mutex.Lock()
 	defer ap.mutex.Unlock()
 	hash := tx.Hash()

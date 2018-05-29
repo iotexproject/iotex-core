@@ -34,9 +34,9 @@ func (h *noncePriorityQueue) Pop() interface{} {
 
 // TxQueue is the interface of txQueue
 type TxQueue interface {
-	Overlaps(*trx.Tx) bool
-	Put(*trx.Tx) error
-	FilterNonce(uint64) []*trx.Tx
+	Overlaps(*trx.TxAct) bool
+	Put(*trx.TxAct) error
+	FilterNonce(uint64) []*trx.TxAct
 	UpdateNonce(uint64)
 	SetConfirmedNonce(uint64)
 	ConfirmedNonce() uint64
@@ -46,22 +46,22 @@ type TxQueue interface {
 	PendingBalance() *big.Int
 	Len() int
 	Empty() bool
-	ConfirmedTxs() []*trx.Tx
+	ConfirmedTxs() []*trx.TxAct
 }
 
 // txQueue is a queue of transactions from an account
 type txQueue struct {
-	items          map[uint64]*trx.Tx // Map that stores all the transactions belonging to an account associated with nonces
-	index          noncePriorityQueue // Priority Queue that stores all the nonces belonging to an account. Nonces are used as indices for transaction map
-	confirmedNonce uint64             // Current nonce tracking previous transactions that can be committed to the next block
-	pendingNonce   uint64             // Current pending nonce for the account
-	pendingBalance *big.Int           // Current pending balance for the account
+	items          map[uint64]*trx.TxAct // Map that stores all the transactions belonging to an account associated with nonces
+	index          noncePriorityQueue    // Priority Queue that stores all the nonces belonging to an account. Nonces are used as indices for transaction map
+	confirmedNonce uint64                // Current nonce tracking previous transactions that can be committed to the next block
+	pendingNonce   uint64                // Current pending nonce for the account
+	pendingBalance *big.Int              // Current pending balance for the account
 }
 
 // NewTxQueue create a new transaction queue
 func NewTxQueue() TxQueue {
 	return &txQueue{
-		items:          make(map[uint64]*trx.Tx),
+		items:          make(map[uint64]*trx.TxAct),
 		index:          noncePriorityQueue{},
 		confirmedNonce: uint64(0),
 		pendingNonce:   uint64(0),
@@ -70,12 +70,12 @@ func NewTxQueue() TxQueue {
 }
 
 // Overlap returns whether the current queue contains the given nonce
-func (q *txQueue) Overlaps(tx *trx.Tx) bool {
+func (q *txQueue) Overlaps(tx *trx.TxAct) bool {
 	return q.items[tx.Nonce] != nil
 }
 
 // Put inserts a new transaction into the map, also updating the queue's nonce index
-func (q *txQueue) Put(tx *trx.Tx) error {
+func (q *txQueue) Put(tx *trx.TxAct) error {
 	nonce := tx.Nonce
 	if q.items[nonce] != nil {
 		return errors.Wrapf(ErrNonce, "duplicate nonce")
@@ -86,8 +86,8 @@ func (q *txQueue) Put(tx *trx.Tx) error {
 }
 
 // FilterNonce removes all transactions from the map with a nonce lower than the given threshold
-func (q *txQueue) FilterNonce(threshold uint64) []*trx.Tx {
-	var removed []*trx.Tx
+func (q *txQueue) FilterNonce(threshold uint64) []*trx.TxAct {
+	var removed []*trx.TxAct
 	// Pop off priority queue and delete corresponding entries from map until the threshold is reached
 	for q.index.Len() > 0 && (q.index)[0] < threshold {
 		nonce := heap.Pop(&q.index).(uint64)
@@ -150,8 +150,8 @@ func (q *txQueue) Empty() bool {
 }
 
 // ConfirmedTxs creates a consecutive nonce-sorted slice of transactions
-func (q *txQueue) ConfirmedTxs() []*trx.Tx {
-	txs := make([]*trx.Tx, 0, len(q.items))
+func (q *txQueue) ConfirmedTxs() []*trx.TxAct {
+	txs := make([]*trx.TxAct, 0, len(q.items))
 	nonce := q.index[0]
 	for q.items[nonce] != nil && nonce < q.confirmedNonce {
 		txs = append(txs, q.items[nonce])
