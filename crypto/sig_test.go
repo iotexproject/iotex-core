@@ -7,7 +7,6 @@
 package crypto
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -19,7 +18,6 @@ func TestSignVerify(t *testing.T) {
 
 	message := []byte("hello iotex message")
 	sig := Sign(pri, message)
-	fmt.Println("signature created: ", sig)
 	assert.True(t, Verify(pub, message, sig))
 
 	wrongMessage := []byte("wrong message")
