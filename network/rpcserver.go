@@ -133,12 +133,12 @@ func (s *RPCServer) Start() error {
 			grpc.Creds(creds),
 			grpc.KeepaliveEnforcementPolicy(s.Overlay.Config.KLPolicy),
 			grpc.KeepaliveParams(s.Overlay.Config.KLServerParams),
-			grpc.MaxMsgSize(s.Overlay.Config.MaxMsgSize))
+			grpc.MaxRecvMsgSize(s.Overlay.Config.MaxMsgSize))
 	} else {
 		s.Server = grpc.NewServer(
 			grpc.KeepaliveEnforcementPolicy(s.Overlay.Config.KLPolicy),
 			grpc.KeepaliveParams(s.Overlay.Config.KLServerParams),
-			grpc.MaxMsgSize(1024*1024*10))
+			grpc.MaxRecvMsgSize(1024*1024*10))
 	}
 
 	pb.RegisterPeerServer(s.Server, s)
