@@ -25,8 +25,8 @@ import (
 	"github.com/iotexproject/iotex-core/txpool"
 )
 
-// ConsensusSim is the interface for handling consensus view change used in the simulator
-type ConsensusSim interface {
+// Sim is the interface for handling consensus view change used in the simulator
+type Sim interface {
 	Start() error
 	Stop() error
 	HandleViewChange(proto.Message, chan bool) error
@@ -37,7 +37,7 @@ type ConsensusSim interface {
 }
 
 // consensus_sim struct with a stream parameter for writing to simulator stream
-type consensusSim struct {
+type sim struct {
 	cfg    *config.Consensus
 	scheme scheme.Scheme
 	stream pb.Simulator_PingServer
@@ -45,8 +45,8 @@ type consensusSim struct {
 	unsent []*pb.Reply
 }
 
-// NewConsensusSim creates a consensus_sim struct
-func NewConsensusSim(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxPool, bs blocksync.BlockSync, dlg delegate.Pool) ConsensusSim {
+// NewSim creates a consensus_sim struct
+func NewSim(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxPool, bs blocksync.BlockSync, dlg delegate.Pool) Sim {
 	if bc == nil {
 		logger.Error().Msg("Blockchain is nil")
 		return nil
@@ -57,7 +57,7 @@ func NewConsensusSim(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxP
 		return nil
 	}
 
-	cs := &consensusSim{cfg: &cfg.Consensus}
+	cs := &sim{cfg: &cfg.Consensus}
 
 	mintBlockCB := func() (*blockchain.Block, error) {
 		fmt.Println("mintBlockCB called")
@@ -115,11 +115,11 @@ func NewConsensusSim(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxP
 	return cs
 }
 
-func (c *consensusSim) SetID(ID int) {
+func (c *sim) SetID(ID int) {
 	c.ID = ID
 }
 
-func (c *consensusSim) sendMessage(messageType int, internalMsgType uint32, value string) {
+func (c *sim) sendMessage(messageType int, internalMsgType uint32, value string) {
 	fmt.Println("Sending view state change message")
 	if internalMsgType == 1999 {
 		fmt.Println("what is going on")
@@ -136,13 +136,13 @@ func (c *consensusSim) sendMessage(messageType int, internalMsgType uint32, valu
 	fmt.Println("Successfully sent message")
 }
 
-func (c *consensusSim) SetStream(stream *pb.Simulator_PingServer) {
+func (c *sim) SetStream(stream *pb.Simulator_PingServer) {
 	fmt.Println("Set stream")
 
 	c.stream = *stream
 }
 
-func (c *consensusSim) Start() error {
+func (c *sim) Start() error {
 	logger.Info().
 		Str("scheme", c.cfg.Scheme).
 		Msg("Starting consensus scheme")
@@ -151,7 +151,7 @@ func (c *consensusSim) Start() error {
 	return nil
 }
 
-func (c *consensusSim) Stop() error {
+func (c *sim) Stop() error {
 	logger.Info().
 		Str("scheme", c.cfg.Scheme).
 		Msg("Stopping consensus scheme")
@@ -161,7 +161,7 @@ func (c *consensusSim) Stop() error {
 }
 
 // HandleViewChange dispatches the call to different schemes
-func (c *consensusSim) HandleViewChange(m proto.Message, done chan bool) error {
+func (c *sim) HandleViewChange(m proto.Message, done chan bool) error {
 
 	err := c.scheme.Handle(m)
 	c.scheme.SetDoneStream(done)
@@ -169,7 +169,7 @@ func (c *consensusSim) HandleViewChange(m proto.Message, done chan bool) error {
 }
 
 // SendUnsent sends all the unsent messages that were not able to send previously
-func (c *consensusSim) SendUnsent() {
+func (c *sim) SendUnsent() {
 	for i := 0; i < len(c.unsent); i++ {
 		fmt.Println("Sent previously unsent message")
 		c.stream.Send(c.unsent[i])
@@ -178,12 +178,12 @@ func (c *consensusSim) SendUnsent() {
 }
 
 // SetDoneStream takes in a boolean channel which will be filled when the consensus is done processing
-func (c *consensusSim) SetDoneStream(done chan bool) {
+func (c *sim) SetDoneStream(done chan bool) {
 	c.scheme.SetDoneStream(done)
 }
 
 // HandleBlockPropose handles a proposed block -- not used currently
-func (c *consensusSim) HandleBlockPropose(m proto.Message, done chan bool) error {
+func (c *sim) HandleBlockPropose(m proto.Message, done chan bool) error {
 	return nil
 }
 

@@ -40,7 +40,7 @@ const (
 
 // server is used to implement message.SimulatorServer.
 type server struct {
-	nodes []consensus.ConsensusSim // slice of Consensus objects
+	nodes []consensus.Sim // slice of Consensus objects
 }
 
 // Ping implements simulator.SimulatorServer
@@ -60,7 +60,7 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 			logger.Error().Msg("Error loading config file")
 		}
 
-		//s.nodes = make([]consensus.ConsensusSim, in.NPlayers) // allocate all the necessary space now because otherwise nodes will get copied and create pointer issues
+		//s.nodes = make([]consensus.Sim, in.NPlayers) // allocate all the necessary space now because otherwise nodes will get copied and create pointer issues
 
 		// handle node address, delegate addresses, etc.
 		cfg.Delegate.Addrs = addrs
@@ -87,7 +87,7 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 		bs := blocksync.NewBlockSyncer(cfg, bc, tp, overlay, dlg)
 		bs.Start()
 
-		node := consensus.NewConsensusSim(cfg, bc, tp, bs, dlg)
+		node := consensus.NewSim(cfg, bc, tp, bs, dlg)
 
 		s.nodes = append(s.nodes, node)
 

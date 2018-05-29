@@ -59,7 +59,7 @@ type txQueue struct {
 }
 
 // NewTxQueue create a new transaction queue
-func NewTxQueue() *txQueue {
+func NewTxQueue() TxQueue {
 	return &txQueue{
 		items:          make(map[uint64]*trx.Tx),
 		index:          noncePriorityQueue{},
