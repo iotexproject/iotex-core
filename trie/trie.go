@@ -19,10 +19,10 @@ import (
 var (
 	trieKVNameSpace = "Trie"
 
-	// ErrInvalidTrie: something wrong causing invalid operation
+	// ErrInvalidTrie indicates something wrong causing invalid operation
 	ErrInvalidTrie = errors.New("invalid trie operation")
 
-	// ErrNotExist: entry does not exist
+	// ErrNotExist indicates entry does not exist
 	ErrNotExist = errors.New("not exist in trie")
 )
 
@@ -262,7 +262,7 @@ func (t *trie) query(key []byte) (patricia, int, error) {
 // delete removes the entry stored in patricia node, and returns if the node can collapse
 func (t *trie) delete(ptr patricia, index byte) (bool, byte, error) {
 	var childClps bool
-	var clpsType byte = 0
+	var clpsType byte
 	// delete the node from DB
 	if err := t.delPatricia(ptr); err != nil {
 		return childClps, clpsType, err

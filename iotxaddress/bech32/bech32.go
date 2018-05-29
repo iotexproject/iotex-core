@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-// This package includes a Bech32 string which is at most 90 characters long and consists of:
+// Package bech32 includes a Bech32 string which is at most 90 characters long and consists of:
 // The human-readable part, which is intended to convey the type of data, or
 // anything else that is relevant to the reader. This part MUST contain 1 to
 // 83 US-ASCII characters, with each character having a value in the range
