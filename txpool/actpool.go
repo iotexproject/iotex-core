@@ -28,12 +28,8 @@ const (
 )
 
 var (
-	isTestnet = true
-
-	chainid = []byte{0x00, 0x00, 0x00, 0x01}
-
-	hashToAddr = make(map[common.Hash32B]*iotxaddress.Address)
-
+	// ErrInvalidAddr is the error that the address format is invalid, cannot be decoded
+	ErrInvalidAddr = errors.New("address format is invalid")
 	// ErrActPool indicates the error of actpool
 	ErrActPool = errors.New("invalid actpool")
 	// ErrNonce indicates the error of nonce
@@ -47,7 +43,7 @@ type ActPool interface {
 	// Reset resets actpool state
 	Reset()
 	// PickTxs returns all currently accepted transactions in actpool
-	PickTxs() (map[common.Hash32B][]*trx.Tx, error)
+	PickTxs() (map[string][]*trx.Tx, error)
 	// AddTx adds a transaction into the pool after validation
 	AddTx(tx *trx.Tx) error
 }
@@ -56,7 +52,7 @@ type ActPool interface {
 type actPool struct {
 	mutex      sync.RWMutex
 	sf         statefactory.StateFactory
-	accountTxs map[common.Hash32B]TxQueue
+	accountTxs map[string]TxQueue
 	allTxs     map[common.Hash32B]*trx.Tx
 }
 
@@ -64,7 +60,7 @@ type actPool struct {
 func NewActPool(trie trie.Trie) ActPool {
 	ap := &actPool{
 		sf:         statefactory.NewStateFactory(trie),
-		accountTxs: make(map[common.Hash32B]TxQueue),
+		accountTxs: make(map[string]TxQueue),
 		allTxs:     make(map[common.Hash32B]*trx.Tx),
 	}
 	return ap
@@ -83,10 +79,9 @@ func (ap *actPool) Reset() {
 	defer ap.mutex.Unlock()
 	// Remove committed transactions in actpool
 	ap.removeCommittedTxs()
-	for addrHash, queue := range ap.accountTxs {
-		from := hashToAddr[addrHash]
+	for from, queue := range ap.accountTxs {
 		// Reset pending balance for each account
-		balance, err := ap.sf.Balance(from.RawAddress)
+		balance, err := ap.sf.Balance(from)
 		if err != nil {
 			logger.Error().Err(err).Msg("Error when resetting actpool state")
 			return
@@ -94,7 +89,7 @@ func (ap *actPool) Reset() {
 		queue.SetPendingBalance(balance)
 
 		// Reset confirmed nonce and pending nonce for each account
-		committedNonce, err := ap.sf.Nonce(from.RawAddress)
+		committedNonce, err := ap.sf.Nonce(from)
 		if err != nil {
 			logger.Error().Err(err).Msg("Error when resetting Tx")
 			return
@@ -105,13 +100,13 @@ func (ap *actPool) Reset() {
 }
 
 // PickTxs returns all currently accepted transactions for all accounts
-func (ap *actPool) PickTxs() (map[common.Hash32B][]*trx.Tx, error) {
+func (ap *actPool) PickTxs() (map[string][]*trx.Tx, error) {
 	ap.mutex.Lock()
 	defer ap.mutex.Unlock()
 
-	pending := make(map[common.Hash32B][]*trx.Tx)
-	for addrHash, queue := range ap.accountTxs {
-		pending[addrHash] = queue.ConfirmedTxs()
+	pending := make(map[string][]*trx.Tx)
+	for from, queue := range ap.accountTxs {
+		pending[from] = queue.ConfirmedTxs()
 	}
 	return pending, nil
 }
@@ -126,14 +121,13 @@ func (ap *actPool) validateTx(tx *trx.Tx) error {
 	if tx.Amount.Sign() < 0 {
 		return errors.Wrapf(ErrBalance, "negative value")
 	}
-
-	from, err := iotxaddress.GetAddress(tx.SenderPublicKey, isTestnet, chainid)
-	if err != nil {
-		logger.Error().Err(err).Msg("Error when validating Tx")
-		return err
+	// check sender
+	pkhash := iotxaddress.GetPubkeyHash(tx.Sender)
+	if pkhash == nil {
+		return ErrInvalidAddr
 	}
 	// Reject transaction if nonce is too low
-	nonce, err := ap.sf.Nonce(from.RawAddress)
+	nonce, err := ap.sf.Nonce(tx.Sender)
 	if err != nil {
 		logger.Error().Err(err).Msg("Error when validating Tx")
 		return err
@@ -171,20 +165,17 @@ func (ap *actPool) AddTx(tx *trx.Tx) error {
 			Msg("Rejecting transaction due to insufficient space")
 		return errors.Wrapf(ErrActPool, "insufficient space for transaction")
 	}
-	from, err := iotxaddress.GetAddress(tx.SenderPublicKey, isTestnet, chainid)
-	if err != nil {
-		logger.Error().Err(err).Msg("Error when adding Tx")
-		return err
+	// check sender
+	pkhash := iotxaddress.GetPubkeyHash(tx.Sender)
+	if pkhash == nil {
+		return ErrInvalidAddr
 	}
-	addrHash := from.HashAddress()
-	queue := ap.accountTxs[addrHash]
-
+	queue := ap.accountTxs[tx.Sender]
 	if queue == nil {
 		queue = NewTxQueue()
-		ap.accountTxs[addrHash] = queue
-		hashToAddr[addrHash] = from
+		ap.accountTxs[tx.Sender] = queue
 		// Initialize pending nonce and confirmed nonce for new account
-		nonce, err := ap.sf.Nonce(from.RawAddress)
+		nonce, err := ap.sf.Nonce(tx.Sender)
 		if err != nil {
 			logger.Error().Err(err).Msg("Error when adding Tx")
 			return err
@@ -192,7 +183,7 @@ func (ap *actPool) AddTx(tx *trx.Tx) error {
 		queue.SetPendingNonce(nonce)
 		queue.SetConfirmedNonce(nonce)
 		// Initialize balance for new account
-		balance, err := ap.sf.Balance(from.RawAddress)
+		balance, err := ap.sf.Balance(tx.Sender)
 		if err != nil {
 			logger.Error().Err(err).Msg("Error when adding Tx")
 			return err
@@ -226,8 +217,8 @@ func (ap *actPool) AddTx(tx *trx.Tx) error {
 
 // removeCommittedTxs removes processed (committed to block) transactions from pool
 func (ap *actPool) removeCommittedTxs() {
-	for addrHash, queue := range ap.accountTxs {
-		committedNonce, err := ap.sf.Nonce(hashToAddr[addrHash].RawAddress)
+	for from, queue := range ap.accountTxs {
+		committedNonce, err := ap.sf.Nonce(from)
 		if err != nil {
 			logger.Error().Err(err).Msg("Error when removing commited Txs")
 			return
@@ -242,7 +233,7 @@ func (ap *actPool) removeCommittedTxs() {
 		}
 		// Delete the queue entry if it becomes empty
 		if queue.Empty() {
-			delete(ap.accountTxs, addrHash)
+			delete(ap.accountTxs, from)
 		}
 	}
 }
