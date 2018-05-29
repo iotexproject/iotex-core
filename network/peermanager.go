@@ -33,20 +33,20 @@ func NewPeerManager(o *Overlay, lb uint, ub uint) *PeerManager {
 // AddPeer adds a new peer
 func (pm *PeerManager) AddPeer(addr string) {
 	if lenSyncMap(pm.Peers) >= pm.NumPeersUpperBound {
-		logger.Info().
+		logger.Debug().
 			Uint("peers", pm.NumPeersUpperBound).
 			Msg("Node already reached the max number of peers")
 		return
 	}
 	if pm.Overlay.PRC.String() == addr {
-		logger.Info().
+		logger.Debug().
 			Str("addr", addr).
 			Msg("Node at address is the current node")
 		return
 	}
 	_, ok := pm.Peers.Load(addr)
 	if ok {
-		logger.Info().
+		logger.Debug().
 			Str("addr", addr).
 			Msg("Node at address is already the peer")
 		return
@@ -76,7 +76,7 @@ func (pm *PeerManager) AddPeer(addr string) {
 			return true
 		})
 		if found {
-			logger.Info().
+			logger.Debug().
 				Str("nHost", nHost).
 				Msg("Another node on the same IP is already the peer")
 			return
@@ -91,7 +91,7 @@ func (pm *PeerManager) AddPeer(addr string) {
 func (pm *PeerManager) RemovePeer(addr string) {
 	p, found := pm.Peers.Load(addr)
 	if !found {
-		logger.Info().
+		logger.Debug().
 			Str("addr", addr).
 			Msg("Node at address is not a peer")
 		return

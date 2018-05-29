@@ -120,7 +120,7 @@ func (n *RDPoS) SetDoneStream(done chan bool) {
 // Handle handles incoming messages and publish to the channel.
 func (n *RDPoS) Handle(m proto.Message) error {
 	//fmt.Println("consensus engine received message")
-	logger.Info().Msg("RDPoS scheme handles incoming requests")
+	logger.Debug().Msg("RDPoS scheme handles incoming requests")
 
 	event, err := eventFromProto(m)
 	if err != nil {
