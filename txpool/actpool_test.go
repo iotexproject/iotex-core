@@ -17,13 +17,13 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 
-	trx "github.com/iotexproject/iotex-core-internal/blockchain/trx"
-	"github.com/iotexproject/iotex-core-internal/common"
-	"github.com/iotexproject/iotex-core-internal/iotxaddress"
-	"github.com/iotexproject/iotex-core-internal/logger"
-	"github.com/iotexproject/iotex-core-internal/statefactory"
-	"github.com/iotexproject/iotex-core-internal/test/mock/mock_statefactory"
-	"github.com/iotexproject/iotex-core-internal/trie"
+	trx "github.com/iotexproject/iotex-core/blockchain/trx"
+	"github.com/iotexproject/iotex-core/common"
+	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/statefactory"
+	"github.com/iotexproject/iotex-core/test/mock/mock_statefactory"
+	"github.com/iotexproject/iotex-core/trie"
 )
 
 const testTriePath = "trie.test"

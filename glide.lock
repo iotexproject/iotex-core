@@ -1,5 +1,5 @@
 hash: 74643fa67d3888f0ea309f1b5eeaf2ce3eb67383ea77fc50eac7abcb1eee2321
-updated: 2018-05-29T10:06:06.134774-07:00
+updated: 2018-05-29T10:24:24.628232-07:00
 imports:
 - name: github.com/boltdb/bolt
   version: 2f1ce7a837dcb8da3ec595b1dac9d0632f0f99e8
@@ -7,8 +7,6 @@ imports:
   version: 346938d642f2ec3594ed81d874461961cd0faa76
   subpackages:
   - spew
-- name: github.com/golang/glog
-  version: 23def4e6c14b4da8ac2ed8007337bc5eb5007998
 - name: github.com/golang/mock
   version: c34cdb4725f4c3844d095133c6e40e448b86589b
   subpackages:

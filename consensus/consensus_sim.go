@@ -10,7 +10,6 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/blockchain"
@@ -19,6 +18,7 @@ import (
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/consensus/scheme/rdpos"
 	"github.com/iotexproject/iotex-core/delegate"
+	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/proto"
 	pb1 "github.com/iotexproject/iotex-core/proto"
 	pb "github.com/iotexproject/iotex-core/simulator/proto/simulator"
@@ -48,12 +48,12 @@ type consensusSim struct {
 // NewConsensusSim creates a consensus_sim struct
 func NewConsensusSim(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxPool, bs blocksync.BlockSync, dlg delegate.Pool) ConsensusSim {
 	if bc == nil {
-		glog.Error("Blockchain is nil")
+		logger.Error().Msg("Blockchain is nil")
 		return nil
 	}
 
 	if bs == nil {
-		glog.Error("Blocksync is nil")
+		logger.Error().Msg("Blocksync is nil")
 		return nil
 	}
 
@@ -64,10 +64,13 @@ func NewConsensusSim(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxP
 
 		blk, err := bc.MintNewBlock(tp.PickTxs(), &cfg.Chain.MinerAddr, "")
 		if err != nil {
-			glog.Error("Failed to mint a block")
+			logger.Error().Msg("Failed to mint a block")
 			return nil, err
 		}
-		glog.Infof("created a new block at height %v with %v txs", blk.Height(), len(blk.Tranxs))
+		logger.Info().
+			Uint64("height", blk.Height()).
+			Int("txs", len(blk.Tranxs)).
+			Msg("created a new block")
 		return blk, nil
 	}
 
@@ -142,14 +145,18 @@ func (c *consensusSim) SetStream(stream *pb.Simulator_PingServer) {
 }
 
 func (c *consensusSim) Start() error {
-	glog.Infof("Starting consensus scheme %v", c.cfg.Scheme)
+	logger.Info().
+		Str("scheme", c.cfg.Scheme).
+		Msg("Starting consensus scheme")
 
 	c.scheme.Start()
 	return nil
 }
 
 func (c *consensusSim) Stop() error {
-	glog.Infof("Stopping consensus scheme %v", c.cfg.Scheme)
+	logger.Info().
+		Str("scheme", c.cfg.Scheme).
+		Msg("Stopping consensus scheme")
 
 	c.scheme.Stop()
 	return nil
@@ -188,13 +195,13 @@ func SeparateMsg(m proto.Message) (uint32, []byte) {
 	msgType, err := iproto.GetTypeFromProtoMsg(m)
 
 	if err != nil {
-		glog.Error("Cannot retrieve message type from message")
+		logger.Error().Msg("Cannot retrieve message type from message")
 	}
 
 	msgBody, err := proto.Marshal(m)
 
 	if err != nil {
-		glog.Error("Cannot retrieve message body from message")
+		logger.Error().Msg("Cannot retrieve message body from message")
 	}
 
 	return msgType, msgBody
@@ -205,7 +212,7 @@ func CombineMsg(msgType uint32, msgBody []byte) proto.Message {
 	protoMsg, err := pb1.TypifyProtoMsg(msgType, msgBody)
 
 	if err != nil {
-		glog.Error("Could not combine msgType and msgBody into a proto.Message object")
+		logger.Error().Msg("Could not combine msgType and msgBody into a proto.Message object")
 	}
 
 	return protoMsg
