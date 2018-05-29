@@ -19,9 +19,6 @@ import (
 	"github.com/iotexproject/iotex-core/logger"
 )
 
-// Debug is a flag indicating if program is running debug mode.
-var Debug = true
-
 const (
 	// DefaultConfigPath is the default config path
 	DefaultConfigPath = "./config.yaml"

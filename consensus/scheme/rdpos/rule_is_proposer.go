@@ -7,8 +7,6 @@
 package rdpos
 
 import (
-	"fmt"
-
 	"github.com/iotexproject/iotex-core/consensus/fsm"
 )
 
@@ -18,6 +16,5 @@ type ruleIsProposer struct {
 }
 
 func (r ruleIsProposer) Condition(event *fsm.Event) bool {
-	fmt.Printf("ruleIsProposer output: %t\n", event.State == stateInitPropose)
 	return event.State == stateInitPropose
 }

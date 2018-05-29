@@ -1,8 +1,10 @@
 # logger package
-Here we use Zerolog for logging (https://github.com/rs/zerolog). zerolog is a json based logger that is lightning fast and efficient in production code. See its benchmark for reference.
-With json based logger, all logs and errors can be easily parsed and analyzed from all servers. 
+Here we use Zerolog for logging (https://github.com/rs/zerolog). zerolog is a json based logger that is lightning fast
+and efficient in production code. See its benchmark for reference. With json based logger, all logs and errors can be
+easily parsed and analyzed from all servers. 
 
-Usage:
+## Usage
+
 ```
 import "logger"
 logger.Print("your message")
@@ -25,3 +27,7 @@ logger.Error().Err(err).Msg("something is wrong!")
 A ```Msg()``` func call is required to send out the the msg.
 
 For more advanced features, please refer to https://github.com/rs/zerolog
+
+`Info` is the default threshold of logs to output. Use `-log-level=[info]` on command line to override the level.
+
+Logs are output to `stderr` by default. Us `-log-path=[path]` on command line to override the path.

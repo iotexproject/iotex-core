@@ -19,26 +19,20 @@ import (
 	"github.com/golang/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/rpcservice"
 	"github.com/iotexproject/iotex-core/server/itx"
 )
 
 var configFile = flag.String("config", "./config.yaml", "specify configuration file path")
-var debug = flag.Bool("debug", true, "debug mode flag")
 
 func init() {
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr,
-			"usage: server -stderrthreshold=[INFO|WARN|FATAL] -log_dir=[string] -config=[string]\n")
+			"usage: server -config=[string]\n")
 		flag.PrintDefaults()
 		os.Exit(2)
 	}
 	flag.Parse()
-	config.Debug = *debug
-	if config.Debug {
-		logger.UseDebugLogger()
-	}
 }
 
 func main() {
