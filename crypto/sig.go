@@ -6,29 +6,155 @@
 
 package crypto
 
+//#include "lib/ecckey.h"
+//#include "lib/ecdsa.h"
+//#include "lib/sect283k1.h"
+//#include "lib/gfp.h"
+//#include "lib/blake256.h"
+//#include "lib/schnorr.h"
+//#include "lib/random.h"
+//#include "lib/gf2283.h"
+//#cgo darwin LDFLAGS: -L${SRCDIR}/lib -lsect283k1_macos
+//#cgo linux LDFLAGS: -L${SRCDIR}/lib -lsect283k1_ubuntu
+import "C"
 import (
-	"crypto/rand"
+	"bytes"
+	"encoding/binary"
 
-	"golang.org/x/crypto/ed25519"
+	"github.com/iotexproject/iotex-core-internal/common"
 )
 
-// NewKeyPair wraps ed25519.GenerateKey() for now.
 func NewKeyPair() ([]byte, []byte, error) {
-	pub, priv, err := ed25519.GenerateKey(rand.Reader)
+	var keypair C.ec283_key_pair
+	C.key_generation(&keypair)
+	pubKey := keypair.Q
+	privKey := keypair.d
+	pub, err := publicKeySerialization(pubKey)
 	if err != nil {
 		return nil, nil, err
 	}
+	priv, err := privateKeySerialization(privKey)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	return pub, priv, nil
 }
 
-// Sign wraps ed25519.Sign() for now.
 func Sign(priv []byte, msg []byte) []byte {
-	p := ed25519.PrivateKey(priv)
-	return ed25519.Sign(p, msg)
+	msgString := string(msg[:])
+	privKey, err := privateKeyDeserialization(priv)
+	if err != nil {
+		return nil
+	}
+	var signature C.ecdsa_signature
+	C.ECDSA_sign(&privKey[0], (*C.uint8_t)(&msg[0]), (C.uint64_t)(len(msgString)), &signature)
+	sign, err := signatureSerialization(signature)
+	if err != nil {
+		return nil
+	}
+	return sign
 }
 
-// Verify wraps ed25519.Verify(0 for now.
-func Verify(pub []byte, msg, sig []byte) bool {
-	p := ed25519.PublicKey(pub)
-	return ed25519.Verify(p, msg, sig)
+func Verify(pub []byte, msg []byte, sig []byte) bool {
+	msgString := string(msg[:])
+	pubKey, err := publicKeyDeserialization(pub)
+	if err != nil {
+		return false
+	}
+	signature, err := signatureDeserialization(sig)
+	if err != nil {
+		return false
+	}
+	result := C.ECDSA_verify(&pubKey, (*C.uint8_t)(&msg[0]), (C.uint64_t)(len(msgString)), &signature)
+	if result == 1 {
+		return true
+	} else {
+		return false
+	}
+}
+
+func publicKeySerialization(pubKey C.ec283_point_lambda_aff) ([]byte, error) {
+	var xl [18]uint32
+	for i := 0; i < 9; i++ {
+		xl[i] = (uint32)(pubKey.x[i])
+		xl[i+9] = (uint32)(pubKey.l[i])
+	}
+	buf := new(bytes.Buffer)
+	err := binary.Write(buf, common.MachineEndian, xl)
+	if err != nil {
+		return buf.Bytes(), err
+	}
+	return buf.Bytes(), nil
+}
+
+func publicKeyDeserialization(pubKey []byte) (C.ec283_point_lambda_aff, error) {
+	var xl [18]uint32
+	var pub C.ec283_point_lambda_aff
+	rbuf := bytes.NewReader(pubKey)
+	err := binary.Read(rbuf, common.MachineEndian, &xl)
+	if err != nil {
+		return pub, err
+	}
+	for i := 0; i < 9; i++ {
+		pub.x[i] = (C.uint32_t)(xl[i])
+		pub.l[i] = (C.uint32_t)(xl[i+9])
+	}
+	return pub, nil
+}
+
+func privateKeySerialization(privKey [9]C.uint32_t) ([]byte, error) {
+	var d [9]uint32
+	for i := 0; i < 9; i++ {
+		d[i] = (uint32)(privKey[i])
+	}
+	buf := new(bytes.Buffer)
+	err := binary.Write(buf, common.MachineEndian, d)
+	if err != nil {
+		return buf.Bytes(), err
+	}
+	return buf.Bytes(), nil
+}
+
+func privateKeyDeserialization(privKey []byte) ([9]C.uint32_t, error) {
+	var d [9]uint32
+	var priv [9]C.uint32_t
+	rbuf := bytes.NewReader(privKey)
+	err := binary.Read(rbuf, common.MachineEndian, &d)
+	if err != nil {
+		return priv, err
+	}
+	for i := 0; i < 9; i++ {
+		priv[i] = (C.uint32_t)(d[i])
+	}
+	return priv, nil
+}
+
+func signatureSerialization(signature C.ecdsa_signature) ([]byte, error) {
+	var rs [18]uint32
+	for i := 0; i < 9; i++ {
+		rs[i] = (uint32)(signature.r[i])
+		rs[i+9] = (uint32)(signature.s[i])
+	}
+	buf := new(bytes.Buffer)
+	err := binary.Write(buf, common.MachineEndian, rs)
+	if err != nil {
+		return buf.Bytes(), err
+	}
+	return buf.Bytes(), nil
+}
+
+func signatureDeserialization(signatureBytes []byte) (C.ecdsa_signature, error) {
+	var rs [18]uint32
+	var signature C.ecdsa_signature
+	buff := bytes.NewReader(signatureBytes)
+	err := binary.Read(buff, common.MachineEndian, &rs)
+	if err != nil {
+		return signature, err
+	}
+	for i := 0; i < 9; i++ {
+		signature.r[i] = (C.uint32_t)(rs[i])
+		signature.s[i] = (C.uint32_t)(rs[i+9])
+	}
+	return signature, nil
 }

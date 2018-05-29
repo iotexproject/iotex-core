@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
+	cp "github.com/iotexproject/iotex-core-internal/crypto"
 	"github.com/stretchr/testify/assert"
-	"golang.org/x/crypto/ed25519"
 )
 
 // TestNewAddress tests create new asset address.
@@ -36,14 +36,14 @@ func TestNewAddress(t *testing.T) {
 	rmsg := make([]byte, 2048)
 	rand.Read(rmsg)
 
-	sig := ed25519.Sign(addr.PrivateKey, rmsg)
-	assert.True(ed25519.Verify(addr.PublicKey, rmsg, sig))
+	sig := cp.Sign(addr.PrivateKey, rmsg)
+	assert.True(cp.Verify(addr.PublicKey, rmsg, sig))
 }
 
 // TestGetAddress tests get address for a given public key and params.
 func TestGetandValidateAddress(t *testing.T) {
 	assert := assert.New(t)
-	pub, _, err := ed25519.GenerateKey(rand.Reader)
+	pub, _, err := cp.NewKeyPair()
 	assert.Nil(err)
 
 	addr, err := GetAddress(pub, false, []byte{0x00, 0x00, 0x00, 0x01})

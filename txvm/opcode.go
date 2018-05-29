@@ -59,6 +59,7 @@ const (
 	OpData20 = 0x14
 	OpData32 = 0x20
 	OpData64 = 0x40
+	OpData72 = 0x48
 )
 
 // Enumerate of opcodes
@@ -266,6 +267,7 @@ func init() {
 	opinfoArray[OpData20] = opinfo{"OpData20", opConstructData, opcodePushData}
 	opinfoArray[OpData32] = opinfo{"OpData32", opConstructData, opcodePushData}
 	opinfoArray[OpData64] = opinfo{"OpData64", opConstructData, opcodePushData}
+	opinfoArray[OpData72] = opinfo{"OpData72", opConstructData, opcodePushData}
 
 	opinfoArray[OpIf] = opinfo{"OpIf", opConstructBranch, opcodeRunBranch}
 	opinfoArray[OpElse] = opinfo{"OpElse", opConstructError, opcodeRunError}

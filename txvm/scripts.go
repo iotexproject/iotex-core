@@ -53,7 +53,7 @@ func PayToAddrScript(addr string) ([]byte, error) {
 // SignatureScript creates an input signature script for a transaction.
 func SignatureScript(txin []byte, pubkey []byte, privkey []byte) ([]byte, error) {
 	b := NewScriptBuilder()
-	err := b.AddOp(OpData64)
+	err := b.AddOp(OpData72)
 	if err != nil {
 		return nil, fmt.Errorf("cannot add data: %v", err)
 	}
@@ -64,7 +64,7 @@ func SignatureScript(txin []byte, pubkey []byte, privkey []byte) ([]byte, error)
 		return nil, fmt.Errorf("cannot add data: %v", err)
 	}
 
-	err = b.AddOp(OpData32)
+	err = b.AddOp(OpData72)
 	if err != nil {
 		return nil, fmt.Errorf("cannot add data: %v", err)
 	}
