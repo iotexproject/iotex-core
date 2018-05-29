@@ -176,6 +176,7 @@ func (sf *stateFactory) UpdateStatesWithTransfer(txs []*trx.Tx) error {
 	transferK := [][]byte{}
 	transferV := [][]byte{}
 	sf.pending = nil
+	sf.pending = make(map[common.PKHash]*State)
 	for _, tx := range txs {
 		var pubKeyHash common.PKHash
 		var err error

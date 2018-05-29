@@ -208,7 +208,16 @@ func (t *trie) Delete(key []byte) error {
 
 // Commit writes an array <k[], v[]> as a batch
 func (t *trie) Commit(k, v [][]byte) error {
-	return t.dao.BatchPut(t.bucket, k, v)
+	size := len(k)
+	if size != len(v) {
+		return errors.Wrap(ErrInvalidTrie, "commit <k, v> size not match")
+	}
+	for i := 0; i < size; i++ {
+		if err := t.Upsert(k[i], v[i]); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // RootHash returns the root hash of merkle patricia trie
