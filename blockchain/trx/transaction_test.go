@@ -50,11 +50,11 @@ func TestTransaction(t *testing.T) {
 	assert.Equal(uint32(37), cbtx.TxOut[0].TotalSize())
 	t.Log("TxOut size match pass")
 
-	assert.Equal(uint32(166), cbtx.TotalSize())
+	assert.Equal(uint32(158), cbtx.TotalSize())
 	t.Log("Tx size match pass")
 
 	// verify coinbase transaction hash value
-	expected, _ := hex.DecodeString("fe8a51f0b3db3b5edc3d19dd54400bb81c1a7882a69df2688080d71199ca1bb8")
+	expected, _ := hex.DecodeString("1a0130efd104f6236dac0f1c8c6817465f082e5555c29ef8878abb5ddc8c6002")
 	assert.Equal(expected, hash[:])
 	t.Logf("Coinbase hash = %x match", hash)
 

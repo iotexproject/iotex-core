@@ -81,7 +81,7 @@ type blockchain struct {
 	// used by utxo-based model
 	utk *UtxoTracker // tracks the current UTXO pool
 
-	// used by state-based model
+	// used by account-based model
 	sf statefactory.StateFactory
 }
 
@@ -127,8 +127,8 @@ func (bc *blockchain) Start() (err error) {
 		}
 		if blk != nil {
 			bc.utk.UpdateUtxoPool(blk)
-			if bc.sf != nil && blk.Tranxs != nil {
-				if err := bc.sf.UpdateStatesWithTransfer(blk.Tranxs); err != nil {
+			if bc.sf != nil && blk.TxAct != nil {
+				if err := bc.sf.UpdateStatesWithTransfer(blk.TxAct); err != nil {
 					return err
 				}
 			}
@@ -150,8 +150,8 @@ func (bc *blockchain) commitBlock(blk *Block) error {
 
 	// update UTXO or state factory
 	bc.utk.UpdateUtxoPool(blk)
-	if bc.sf != nil && blk.Tranxs != nil {
-		if err := bc.sf.UpdateStatesWithTransfer(blk.Tranxs); err != nil {
+	if bc.sf != nil && blk.TxAct != nil {
+		if err := bc.sf.UpdateStatesWithTransfer(blk.TxAct); err != nil {
 			return err
 		}
 	}

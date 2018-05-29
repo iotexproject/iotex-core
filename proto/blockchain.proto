@@ -33,6 +33,11 @@ message TxPb {
     // used by utxo-based model
     repeated TxInputPb txIn = 21;
     repeated TxOutputPb txOut = 22;
+}
+
+message TxActPb {
+    uint32 version = 1;
+    uint32 lockTime = 2;
 
     // used by state-based model
     uint64 nonce = 31;
@@ -54,7 +59,8 @@ message VotePb {
 message ActionPb {
     oneof action {
         TxPb tx = 1;
-        VotePb vote = 2;
+        TxActPb txAct = 2;
+        VotePb vote = 3;
     }
 }
 

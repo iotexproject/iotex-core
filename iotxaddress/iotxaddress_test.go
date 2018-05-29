@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	cp "github.com/iotexproject/iotex-core-internal/crypto"
+	cp "github.com/iotexproject/iotex-core/crypto"
 	"github.com/stretchr/testify/assert"
 )
 

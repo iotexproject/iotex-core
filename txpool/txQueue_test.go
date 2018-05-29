@@ -50,18 +50,18 @@ func TestNoncePriorityQueue(t *testing.T) {
 func TestTxQueue_Put(t *testing.T) {
 	assert := assert.New(t)
 	q := NewTxQueue().(*txQueue)
-	tx1 := trx.Tx{Nonce: uint64(2), Amount: big.NewInt(10)}
+	tx1 := trx.TxAct{Nonce: uint64(2), Amount: big.NewInt(10)}
 	q.Put(&tx1)
 	assert.Equal(uint64(2), q.index[0])
 	assert.NotNil(q.items[tx1.Nonce])
-	tx2 := trx.Tx{Nonce: uint64(1), Amount: big.NewInt(100)}
+	tx2 := trx.TxAct{Nonce: uint64(1), Amount: big.NewInt(100)}
 	q.Put(&tx2)
 	assert.Equal(uint64(1), heap.Pop(&q.index))
 	assert.Equal(&tx2, q.items[uint64(1)])
 	assert.Equal(uint64(2), heap.Pop(&q.index))
 	assert.Equal(&tx1, q.items[uint64(2)])
 	// tx3 is a replacement transaction
-	tx3 := trx.Tx{Nonce: uint64(1), Amount: big.NewInt(1000)}
+	tx3 := trx.TxAct{Nonce: uint64(1), Amount: big.NewInt(1000)}
 	err := q.Put(&tx3)
 	assert.NotNil(err)
 }
@@ -69,9 +69,9 @@ func TestTxQueue_Put(t *testing.T) {
 func TestTxQueue_FilterNonce(t *testing.T) {
 	assert := assert.New(t)
 	q := NewTxQueue().(*txQueue)
-	tx1 := trx.Tx{Nonce: uint64(1), Amount: big.NewInt(1)}
-	tx2 := trx.Tx{Nonce: uint64(2), Amount: big.NewInt(100)}
-	tx3 := trx.Tx{Nonce: uint64(3), Amount: big.NewInt(1000)}
+	tx1 := trx.TxAct{Nonce: uint64(1), Amount: big.NewInt(1)}
+	tx2 := trx.TxAct{Nonce: uint64(2), Amount: big.NewInt(100)}
+	tx3 := trx.TxAct{Nonce: uint64(3), Amount: big.NewInt(1000)}
 	q.Put(&tx1)
 	q.Put(&tx2)
 	q.Put(&tx3)
@@ -84,11 +84,11 @@ func TestTxQueue_FilterNonce(t *testing.T) {
 func TestTxQueue_UpdateNonce(t *testing.T) {
 	assert := assert.New(t)
 	q := NewTxQueue().(*txQueue)
-	tx1 := trx.Tx{Nonce: uint64(1), Amount: big.NewInt(1)}
-	tx2 := trx.Tx{Nonce: uint64(3), Amount: big.NewInt(1000)}
-	tx3 := trx.Tx{Nonce: uint64(4), Amount: big.NewInt(10000)}
-	tx4 := trx.Tx{Nonce: uint64(6), Amount: big.NewInt(100000)}
-	tx5 := trx.Tx{Nonce: uint64(2), Amount: big.NewInt(100)}
+	tx1 := trx.TxAct{Nonce: uint64(1), Amount: big.NewInt(1)}
+	tx2 := trx.TxAct{Nonce: uint64(3), Amount: big.NewInt(1000)}
+	tx3 := trx.TxAct{Nonce: uint64(4), Amount: big.NewInt(10000)}
+	tx4 := trx.TxAct{Nonce: uint64(6), Amount: big.NewInt(100000)}
+	tx5 := trx.TxAct{Nonce: uint64(2), Amount: big.NewInt(100)}
 	q.Put(&tx1)
 	q.Put(&tx2)
 	q.Put(&tx3)
@@ -105,11 +105,11 @@ func TestTxQueue_UpdateNonce(t *testing.T) {
 func TestTxQueue_ConfirmedTxs(t *testing.T) {
 	assert := assert.New(t)
 	q := NewTxQueue().(*txQueue)
-	tx1 := trx.Tx{Nonce: uint64(2), Amount: big.NewInt(1)}
-	tx2 := trx.Tx{Nonce: uint64(3), Amount: big.NewInt(100)}
-	tx3 := trx.Tx{Nonce: uint64(4), Amount: big.NewInt(1000)}
-	tx4 := trx.Tx{Nonce: uint64(6), Amount: big.NewInt(10000)}
-	tx5 := trx.Tx{Nonce: uint64(7), Amount: big.NewInt(100000)}
+	tx1 := trx.TxAct{Nonce: uint64(2), Amount: big.NewInt(1)}
+	tx2 := trx.TxAct{Nonce: uint64(3), Amount: big.NewInt(100)}
+	tx3 := trx.TxAct{Nonce: uint64(4), Amount: big.NewInt(1000)}
+	tx4 := trx.TxAct{Nonce: uint64(6), Amount: big.NewInt(10000)}
+	tx5 := trx.TxAct{Nonce: uint64(7), Amount: big.NewInt(100000)}
 	q.Put(&tx1)
 	q.Put(&tx2)
 	q.Put(&tx3)
@@ -117,5 +117,5 @@ func TestTxQueue_ConfirmedTxs(t *testing.T) {
 	q.Put(&tx5)
 	q.confirmedNonce = 4
 	txs := q.ConfirmedTxs()
-	assert.Equal([]*trx.Tx{&tx1, &tx2}, txs)
+	assert.Equal([]*trx.TxAct{&tx1, &tx2}, txs)
 }
