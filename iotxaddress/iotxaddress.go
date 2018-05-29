@@ -157,18 +157,3 @@ func isValidChainID(chainid []byte) bool {
 	}
 	return true
 }
-
-// ByteStream returns the address in byte stream format
-func (address *Address) ByteStream() []byte {
-	stream := []byte(address.RawAddress)
-	stream = append(stream, address.PublicKey...)
-	stream = append(stream, address.PrivateKey...)
-	return stream
-}
-
-// HashAddress returns the hash of Address
-func (address *Address) HashAddress() common.Hash32B {
-	hash := blake2b.Sum256(address.ByteStream())
-	hash = blake2b.Sum256(hash[:])
-	return hash
-}
