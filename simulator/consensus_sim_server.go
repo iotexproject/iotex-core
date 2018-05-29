@@ -138,9 +138,9 @@ func (s *server) Ping(in *pb.Request, stream pb.Simulator_PingServer) error {
 	return nil
 }
 
-func (s *server) Exit(context context.Context, in *pb.Empty) *pb.Empty {
-	os.Exit(0)
-	return &pb.Empty{}
+func (s *server) Exit(context context.Context, in *pb.Empty) (*pb.Empty, error) {
+	defer os.Exit(0)
+	return &pb.Empty{}, nil
 }
 
 func main() {

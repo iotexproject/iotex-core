@@ -7,15 +7,12 @@
 """This module defines the Solver class, which takes in a list of players and simulates a proof of stake system for a specified number of rounds.
 """
 
-import block
-import player
-import transaction
-import pbftconsensus
-import consensus_client
-
 import math
 import random
 import statistics
+
+import player
+import consensus_client
 
 class Solver:
     def __init__(self, opts):
@@ -62,69 +59,10 @@ class Solver:
             others = self.players[:i]+self.players[i+1:]
             self.players[i].connections = random.sample(others, self.N_CONNECTIONS)
 
-    def chooseProposers(self):
-        """Choose proposer for next round; chance of being chosen proportional to stake"""
-
-        return random.choice([i.id for i in self.players])
-    
-        """totalStake = self.calcTotalStake()
-        coins = random.sample(list(range(1, int(totalStake+1))), self.N_PROPOSERS) 
-
-        proposers = []
-        
-        startCoins = 0 # coin number right before the start of the current player's set of coins
-        endCoins = 0 # the player's last coin number
-        for i in self.players:
-            endCoins += i.stake
-            for j in coins:
-                if j <= endCoins and j > startCoins:
-                    proposers.append(i)
-            startCoins = endCoins
-
-        proposers = [i.id for i in proposers]
-
-        # prevent player from being chosen twice
-        if len(proposers) != len(set(proposers)):
-            proposers = self.chooseProposers()
-        
-        return proposers"""
-
-    """def payout(self, vset, proposer):
-        # validator/proposer rewards
-        for i in vset:
-            i.stake += 1
-
-        proposer.stake += 1
-
-        # tx fee distribution
-        totFee = sum([i.fee for i in self.blockchain.txs])
-        n      = len(vset) + 1
-        for i in vset:
-            i.stake += totFee/n
-
-        proposer.stake += totFee/n"""
-
     def nextRound(self, heartbeat):
         """Simulates the next round"""
-
+        
         self.heartbeat = heartbeat
-
-        """# if start of round, reset validator, proposer set & update common blockchain
-        if heartbeat % Solver.N_HEARTBEATS_IN_ROUND == 0:
-            self.propSet = self.chooseProposers()  # choose proposer set
-
-            # update common blockchain among players
-            currBlock = self.players[0].blockchain
-            same = True
-            for i in self.players:
-                if currBlock != i.blockchain:
-                    same = False
-                    break
-
-            if same and currBlock != None:
-                currBlock = block.Block(currBlock.txs, id=currBlock.id, proposer=currBlock.proposer)
-                currBlock.next = self.blockchain
-                self.blockchain = currBlock"""
 
         for i in self.players:
             i.action(heartbeat)
@@ -134,19 +72,6 @@ class Solver:
         
         for i in range(self.nHeartbeats):
             self.nextRound(i)
-
-        """# update common blockchain among players
-        currBlock = self.players[0].blockchain
-        same = True
-        for i in self.players:
-            if currBlock != i.blockchain:
-                same = False
-                break
-
-        if same and currBlock != None:
-            currBlock = block.Block(currBlock.txs, id=currBlock.id, proposer=currBlock.proposer)
-            currBlock.next = self.blockchain
-            self.blockchain = currBlock"""
 
     def calcPercentStake(self):
         """Calculates the percent stake for each player"""

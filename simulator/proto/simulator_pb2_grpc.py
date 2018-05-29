@@ -24,6 +24,11 @@ class SimulatorStub(object):
         request_serializer=simulator__pb2.InitRequest.SerializeToString,
         response_deserializer=simulator__pb2.Proposal.FromString,
         )
+    self.Exit = channel.unary_unary(
+        '/simulator.Simulator/Exit',
+        request_serializer=simulator__pb2.Empty.SerializeToString,
+        response_deserializer=simulator__pb2.Empty.FromString,
+        )
 
 
 class SimulatorServicer(object):
@@ -44,6 +49,13 @@ class SimulatorServicer(object):
     context.set_details('Method not implemented!')
     raise NotImplementedError('Method not implemented!')
 
+  def Exit(self, request, context):
+    # missing associated documentation comment in .proto file
+    pass
+    context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+    context.set_details('Method not implemented!')
+    raise NotImplementedError('Method not implemented!')
+
 
 def add_SimulatorServicer_to_server(servicer, server):
   rpc_method_handlers = {
@@ -56,6 +68,11 @@ def add_SimulatorServicer_to_server(servicer, server):
           servicer.Init,
           request_deserializer=simulator__pb2.InitRequest.FromString,
           response_serializer=simulator__pb2.Proposal.SerializeToString,
+      ),
+      'Exit': grpc.unary_unary_rpc_method_handler(
+          servicer.Exit,
+          request_deserializer=simulator__pb2.Empty.FromString,
+          response_serializer=simulator__pb2.Empty.SerializeToString,
       ),
   }
   generic_handler = grpc.method_handlers_generic_handler(
