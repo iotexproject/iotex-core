@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotexproject/iotex-core/blockchain"
@@ -195,7 +196,8 @@ func TestLocalCommit(t *testing.T) {
 }
 
 func TestLocalSync(t *testing.T) {
-	logger.UseDebugLogger()
+	l := logger.Logger().Level(zerolog.DebugLevel)
+	logger.SetLogger(&l)
 	assert := assert.New(t)
 	os.Remove(testDBPath)
 	defer os.Remove(testDBPath)

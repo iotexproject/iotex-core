@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/crypto/blake2b"
 
@@ -27,7 +28,8 @@ func TestEmptyTrie(t *testing.T) {
 
 func TestInsert(t *testing.T) {
 	assert := assert.New(t)
-	logger.UseDebugLogger()
+	l := logger.Logger().Level(zerolog.DebugLevel)
+	logger.SetLogger(&l)
 
 	tr := trie{dao: db.NewMemKVStore(), root: &branch{}, toRoot: list.New(), numEntry: 1, numBranch: 1}
 	root := emptyRoot
@@ -223,7 +225,8 @@ func TestInsert(t *testing.T) {
 
 func Test1kEntries(t *testing.T) {
 	assert := assert.New(t)
-	logger.UseDebugLogger()
+	l := logger.Logger().Level(zerolog.DebugLevel)
+	logger.SetLogger(&l)
 
 	defer os.Remove(testTriePath)
 	tr, err := NewTrie(testTriePath)
@@ -283,7 +286,8 @@ func TestPressure(t *testing.T) {
 	}
 
 	assert := assert.New(t)
-	logger.UseDebugLogger()
+	l := logger.Logger().Level(zerolog.DebugLevel)
+	logger.SetLogger(&l)
 
 	defer os.Remove(testTriePath)
 	tr, err := NewTrie(testTriePath)
