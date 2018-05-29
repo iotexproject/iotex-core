@@ -12,13 +12,14 @@ import (
 	"github.com/iotexproject/iotex-core/logger"
 )
 
+// RADIX specifies the number of unique digits in patricia
 const RADIX = 256
 
 var (
-	// ErrInvalidPatricia: invalid operation
+	// ErrInvalidPatricia indicates invalid operation
 	ErrInvalidPatricia = errors.New("invalid patricia operation")
 
-	// ErrPathDiverge: the path diverges
+	// ErrPathDiverge indicates the path diverges
 	ErrPathDiverge = errors.New("path diverges")
 )
 
@@ -360,7 +361,7 @@ func (l *leaf) deserialize(stream []byte) error {
 //      B[k[0]] -> Leaf <k[1:], v> this is the <k, v> to be inserted
 //======================================
 func (l *leaf) split(match int, k, v []byte, stack *list.List) error {
-	var node patricia = nil
+	var node patricia
 	divPath := l.Path[match:]
 	logger.Debug().Hex("curr key", divPath).Msg("diverge")
 	// add leaf for new <k, v>

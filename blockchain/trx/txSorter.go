@@ -10,7 +10,10 @@ import (
 	"bytes"
 )
 
+// TxInSorter is TxInput sorter that implements Sort interface
 type TxInSorter []*TxInput
+
+// TxOutSorter is TxOutput sorter that implements Sort interface
 type TxOutSorter []*TxOutput
 
 // Sort Interface implementation for *TxInput slice

@@ -87,11 +87,14 @@ func bytesToState(ss []byte) (*State, error) {
 //======================================
 // functions for State
 //======================================
+
+// AddBalance adds balance for state
 func (st *State) AddBalance(amount *big.Int) error {
 	st.Balance.Add(st.Balance, amount)
 	return nil
 }
 
+// SubBalance subtracts balance for state
 func (st *State) SubBalance(amount *big.Int) error {
 	// make sure there's enough fund to spend
 	if amount.Cmp(st.Balance) == 1 {

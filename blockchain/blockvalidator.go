@@ -13,6 +13,7 @@ import (
 	"github.com/iotexproject/iotex-core/statefactory"
 )
 
+// Validator is the interface of validator
 type Validator interface {
 	// Validate validates the given block's content
 	Validate(block *Block, tipHeight uint64, tipHash common.Hash32B) error

@@ -24,7 +24,7 @@ var (
 	cow = []byte{1, 2, 5, 6, 7, 8, 9, 0}
 	ant = []byte{2, 3, 4, 5, 6, 7, 8, 9}
 
-	testV [8][]byte = [8][]byte{[]byte("ham"), []byte("car"), []byte("cat"), []byte("dog"), []byte("egg"), []byte("fox"), []byte("cow"), []byte("ant")}
+	testV = [8][]byte{[]byte("ham"), []byte("car"), []byte("cat"), []byte("dog"), []byte("egg"), []byte("fox"), []byte("cow"), []byte("ant")}
 )
 
 func TestPatricia(t *testing.T) {
