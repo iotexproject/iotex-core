@@ -14,11 +14,7 @@ import numpy as np
 
 from proto import simulator_pb2_grpc
 from proto import simulator_pb2
-import block
 import solver
-import transaction
-import states
-import message
 import consensus_client
 
 class Player:

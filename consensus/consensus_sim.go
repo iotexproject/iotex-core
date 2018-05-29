@@ -82,7 +82,6 @@ func NewConsensusSim(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxP
 		msgBodyS := hex.EncodeToString(msgBody)
 
 		cs.sendMessage(0, msgType, msgBodyS)
-
 		return nil
 	}
 
@@ -93,7 +92,6 @@ func NewConsensusSim(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxP
 		hash := [32]byte(blk.HashBlock())
 		s := hex.EncodeToString(hash[:])
 		cs.sendMessage(1, 0, s)
-
 		return bc.AddBlockCommit(blk)
 	}
 
@@ -167,7 +165,6 @@ func (c *consensusSim) HandleViewChange(m proto.Message, done chan bool) error {
 
 	err := c.scheme.Handle(m)
 	c.scheme.SetDoneStream(done)
-
 	return err
 }
 
@@ -203,7 +200,6 @@ func SeparateMsg(m proto.Message) (uint32, []byte) {
 	if err != nil {
 		logger.Error().Msg("Cannot retrieve message body from message")
 	}
-
 	return msgType, msgBody
 }
 
@@ -214,6 +210,5 @@ func CombineMsg(msgType uint32, msgBody []byte) proto.Message {
 	if err != nil {
 		logger.Error().Msg("Could not combine msgType and msgBody into a proto.Message object")
 	}
-
 	return protoMsg
 }

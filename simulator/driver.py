@@ -6,15 +6,14 @@
 
 """This file runs the solver for any arbitrary user-defined test case. Meant to be programmed on top of."""
 
-import block
-import player
-import solver
-import transaction
-import consensus_client
-
 import math
+import os
 import random
 import statistics
+
+import player
+import solver
+import consensus_client
 
 def drive(opts):
     """Drive execution of the program. opts: dictionary of options.
@@ -50,7 +49,8 @@ def drive(opts):
         print("\t"+str(i.blockchain).replace("\n", "\n\t"))
         print()
 
+    try: consensus_client.Consensus.close()
+    except: pass
 
-    print(sol.blockchain)
-
-    consensus_client.Consensus.close()
+    # get rid of useless .db files
+    os.system("rm chain*.db")

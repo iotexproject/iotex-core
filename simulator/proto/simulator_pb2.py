@@ -19,7 +19,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='simulator.proto',
   package='simulator',
   syntax='proto3',
-  serialized_pb=_b('\n\x0fsimulator.proto\x12\tsimulator\"C\n\x07Request\x12\x10\n\x08playerID\x18\x01 \x01(\x05\x12\x17\n\x0finternalMsgType\x18\x02 \x01(\r\x12\r\n\x05value\x18\x03 \x01(\t\"\x1f\n\x0bInitRequest\x12\x10\n\x08nPlayers\x18\x01 \x01(\x05\"D\n\x05Reply\x12\x13\n\x0bmessageType\x18\x01 \x01(\x05\x12\x17\n\x0finternalMsgType\x18\x02 \x01(\r\x12\r\n\x05value\x18\x03 \x01(\t\"D\n\x08Proposal\x12\x10\n\x08playerID\x18\x01 \x01(\x05\x12\x17\n\x0finternalMsgType\x18\x02 \x01(\r\x12\r\n\x05value\x18\x03 \x01(\t\"\x07\n\x05\x45mpty2v\n\tSimulator\x12\x30\n\x04Ping\x12\x12.simulator.Request\x1a\x10.simulator.Reply\"\x00\x30\x01\x12\x37\n\x04Init\x12\x16.simulator.InitRequest\x1a\x13.simulator.Proposal\"\x00\x30\x01\x62\x06proto3')
+  serialized_pb=_b('\n\x0fsimulator.proto\x12\tsimulator\"C\n\x07Request\x12\x10\n\x08playerID\x18\x01 \x01(\x05\x12\x17\n\x0finternalMsgType\x18\x02 \x01(\r\x12\r\n\x05value\x18\x03 \x01(\t\"\x1f\n\x0bInitRequest\x12\x10\n\x08nPlayers\x18\x01 \x01(\x05\"D\n\x05Reply\x12\x13\n\x0bmessageType\x18\x01 \x01(\x05\x12\x17\n\x0finternalMsgType\x18\x02 \x01(\r\x12\r\n\x05value\x18\x03 \x01(\t\"D\n\x08Proposal\x12\x10\n\x08playerID\x18\x01 \x01(\x05\x12\x17\n\x0finternalMsgType\x18\x02 \x01(\r\x12\r\n\x05value\x18\x03 \x01(\t\"\x07\n\x05\x45mpty2\xa4\x01\n\tSimulator\x12\x30\n\x04Ping\x12\x12.simulator.Request\x1a\x10.simulator.Reply\"\x00\x30\x01\x12\x37\n\x04Init\x12\x16.simulator.InitRequest\x1a\x13.simulator.Proposal\"\x00\x30\x01\x12,\n\x04\x45xit\x12\x10.simulator.Empty\x1a\x10.simulator.Empty\"\x00\x62\x06proto3')
 )
 
 
@@ -264,8 +264,8 @@ _SIMULATOR = _descriptor.ServiceDescriptor(
   file=DESCRIPTOR,
   index=0,
   options=None,
-  serialized_start=281,
-  serialized_end=399,
+  serialized_start=282,
+  serialized_end=446,
   methods=[
   _descriptor.MethodDescriptor(
     name='Ping',
@@ -283,6 +283,15 @@ _SIMULATOR = _descriptor.ServiceDescriptor(
     containing_service=None,
     input_type=_INITREQUEST,
     output_type=_PROPOSAL,
+    options=None,
+  ),
+  _descriptor.MethodDescriptor(
+    name='Exit',
+    full_name='simulator.Simulator.Exit',
+    index=2,
+    containing_service=None,
+    input_type=_EMPTY,
+    output_type=_EMPTY,
     options=None,
   ),
 ])

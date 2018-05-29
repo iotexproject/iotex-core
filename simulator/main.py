@@ -28,11 +28,9 @@ import random
 import grpc
 from docopt     import docopt
 
-import block
 import driver
 import player
 import solver
-import transaction
 
 if __name__=="__main__":
     args = docopt(__doc__)
