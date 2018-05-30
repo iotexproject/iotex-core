@@ -25,4 +25,11 @@ func (h *start) Handle(event *fsm.Event) {
 		prevotes: make(map[net.Addr]*common.Hash32B),
 		votes:    make(map[net.Addr]*common.Hash32B),
 	}
+	delegates, err := h.pool.AllDelegates()
+	if err != nil {
+		event.Err = err
+		return
+	}
+	// Assume the view of the delegates are fixed during a consensus round
+	h.roundCtx.delegates = delegates
 }

@@ -9,7 +9,6 @@ package rolldpos
 import (
 	"net"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -37,6 +36,8 @@ type roundCtx struct {
 	blockHash *common.Hash32B
 	prevotes  map[net.Addr]*common.Hash32B
 	votes     map[net.Addr]*common.Hash32B
+	isPr      bool
+	delegates []net.Addr
 }
 
 // DNet is the delegate networks interface.
@@ -46,18 +47,23 @@ type DNet interface {
 	Broadcast(msg proto.Message) error
 }
 
+// rollDPoSCB contains all the callback functions used in RollDPoS
+type rollDPoSCB struct {
+	propCb scheme.CreateBlockCB
+	voteCb scheme.TellPeerCB
+	consCb scheme.ConsensusDoneCB
+	pubCb  scheme.BroadcastCB
+	prCb   scheme.IsProposerCB
+}
+
 // RollDPoS is the RollDPoS consensus scheme
 type RollDPoS struct {
+	rollDPoSCB
 	bc        blockchain.Blockchain
-	propCb    scheme.CreateBlockCB
-	voteCb    scheme.TellPeerCB
-	consCb    scheme.ConsensusDoneCB
-	pubCb     scheme.BroadcastCB
 	fsm       fsm.Machine
 	roundCtx  *roundCtx
 	self      net.Addr
-	proposer  bool // am i the proposer for this round or not
-	delegates []net.Addr
+	pool      delegate.Pool
 	wg        sync.WaitGroup
 	quit      chan struct{}
 	eventChan chan *fsm.Event
@@ -67,24 +73,31 @@ type RollDPoS struct {
 }
 
 // NewRollDPoS creates a RollDPoS struct
-func NewRollDPoS(cfg config.RollDPoS, prop scheme.CreateBlockCB, vote scheme.TellPeerCB, cons scheme.ConsensusDoneCB,
-	pub scheme.BroadcastCB, bc blockchain.Blockchain, myaddr net.Addr, dlg delegate.Pool) *RollDPoS {
-	delegates, err := dlg.AllDelegates()
-	if err != nil {
-		logger.Error().Err(err)
-		syscall.Exit(syscall.SYS_EXIT)
+func NewRollDPoS(
+	cfg config.RollDPoS,
+	prop scheme.CreateBlockCB,
+	vote scheme.TellPeerCB,
+	cons scheme.ConsensusDoneCB,
+	pub scheme.BroadcastCB,
+	pr scheme.IsProposerCB,
+	bc blockchain.Blockchain,
+	myaddr net.Addr,
+	dlg delegate.Pool) *RollDPoS {
+	cb := rollDPoSCB{
+		propCb: prop,
+		voteCb: vote,
+		consCb: cons,
+		pubCb:  pub,
+		prCb:   pr,
 	}
 	sc := &RollDPoS{
-		propCb:    prop,
-		voteCb:    vote,
-		consCb:    cons,
-		pubCb:     pub,
-		bc:        bc,
-		self:      myaddr,
-		delegates: delegates,
-		quit:      make(chan struct{}),
-		eventChan: make(chan *fsm.Event, 100),
-		cfg:       cfg,
+		rollDPoSCB: cb,
+		bc:         bc,
+		self:       myaddr,
+		pool:       dlg,
+		quit:       make(chan struct{}),
+		eventChan:  make(chan *fsm.Event, 100),
+		cfg:        cfg,
 	}
 	sc.pr = NewProposerRotation(sc)
 	sc.fsm = fsmCreate(sc)

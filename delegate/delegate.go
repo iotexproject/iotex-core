@@ -7,11 +7,17 @@
 package delegate
 
 import (
+	"errors"
 	"net"
 
 	cm "github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/common/service"
 	"github.com/iotexproject/iotex-core/config"
+)
+
+var (
+	// ErrZeroDelegate indicates seeing 0 delegates in the network
+	ErrZeroDelegate = errors.New("zero delegates in the network")
 )
 
 // Pool is the interface

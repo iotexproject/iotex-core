@@ -26,7 +26,7 @@ mkdir -p ./test/mock/mock_delegate
 mockgen -destination=./test/mock/mock_delegate/mock_delegate.go  \
         -source=./delegate/delegate.go \
         -package=mock_delegate \
-        Delegate
+        Pool
 
 mkdir -p ./test/mock/mock_txpool
 mockgen -destination=./test/mock/mock_txpool/mock_txpool.go  \

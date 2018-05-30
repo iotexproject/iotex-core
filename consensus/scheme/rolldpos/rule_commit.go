@@ -39,7 +39,7 @@ func (r ruleCommit) Condition(event *fsm.Event) bool {
 		r.consCb(r.roundCtx.block)
 
 		// only proposer needs to broadcast the consensus block
-		if r.proposer {
+		if r.roundCtx.isPr {
 			logger.Warn().
 				Str("node", r.self.String()).
 				Msg("|||||| broadcast block")
@@ -57,5 +57,5 @@ func (r ruleCommit) reachedMaj() bool {
 			agreed++
 		}
 	}
-	return agreed >= len(r.delegates)*2/3+1
+	return agreed >= len(r.roundCtx.delegates)*2/3+1
 }

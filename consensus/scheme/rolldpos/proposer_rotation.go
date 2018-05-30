@@ -7,8 +7,11 @@
 package rolldpos
 
 import (
+	"net"
+
 	"github.com/iotexproject/iotex-core/common/routine"
 	"github.com/iotexproject/iotex-core/consensus/fsm"
+	"github.com/iotexproject/iotex-core/delegate"
 	"github.com/iotexproject/iotex-core/logger"
 )
 
@@ -20,12 +23,13 @@ type proposerRotation struct {
 }
 
 func (s *proposerRotation) Do() {
-	proposer := s.delegates[0]
-	s.proposer = proposer.String() == s.self.String()
-	if !s.proposer || s.fsm.CurrentState() != stateStart {
+	isPr, err := s.prCb(s.self, s.pool, nil, 0)
+	if err != nil {
+		logger.Error().Err(err).Msg("failed to get delegates")
+	}
+	if !isPr || s.fsm.CurrentState() != stateStart {
 		return
 	}
-
 	height, err := s.bc.TipHeight()
 	if err == nil {
 		logger.Warn().
@@ -43,4 +47,17 @@ func (s *proposerRotation) Do() {
 // NewProposerRotation creates a recurring task of proposer rotation.
 func NewProposerRotation(r *RollDPoS) *routine.RecurringTask {
 	return routine.NewRecurringTask(&proposerRotation{r}, r.cfg.ProposerRotation.Interval)
+}
+
+// FixedProposer will check if the current node is the first in the delegate list
+func FixedProposer(self net.Addr, pool delegate.Pool, _ []byte, _ uint64) (bool, error) {
+	// TODO: Need to check if the node should panic if it's not able to get the delegates
+	delegates, err := pool.AllDelegates()
+	if err != nil {
+		return false, err
+	}
+	if len(delegates) == 0 {
+		return false, delegate.ErrZeroDelegate
+	}
+	return self.String() == delegates[0].String(), nil
 }

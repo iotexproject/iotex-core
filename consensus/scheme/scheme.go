@@ -7,22 +7,28 @@
 package scheme
 
 import (
+	"net"
+
 	"github.com/golang/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/delegate"
 )
 
 // CreateBlockCB defines the callback to create a new block
 type CreateBlockCB func() (*blockchain.Block, error)
 
 // TellPeerCB defines the callback to tell (which is a unicast) message to peers on P2P network
-type TellPeerCB func(msg proto.Message) error
+type TellPeerCB func(proto.Message) error
 
 // ConsensusDoneCB defines the callback when consensus is reached
 type ConsensusDoneCB func(*blockchain.Block) error
 
 // BroadcastCB defines the callback to publish the consensus result
 type BroadcastCB func(*blockchain.Block) error
+
+// IsProposerCB defines the callback to check the if itself is the the proposer for the coming round
+type IsProposerCB func(net.Addr, delegate.Pool, []byte, uint64) (bool, error)
 
 // Scheme is the interface that consensus schemes should implement
 type Scheme interface {

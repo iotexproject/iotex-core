@@ -93,7 +93,16 @@ func createTestRollDPoS(
 		bc:   bc,
 		dp:   dp,
 	})
-	return NewRollDPoS(csCfg, createblockCB, tellblockCB, commitBlockCB, broadcastBlockCB, bc, dNet.Self(), dp)
+	return NewRollDPoS(
+		csCfg,
+		createblockCB,
+		tellblockCB,
+		commitBlockCB,
+		broadcastBlockCB,
+		FixedProposer,
+		bc,
+		dNet.Self(),
+		dp)
 }
 
 type testCs struct {

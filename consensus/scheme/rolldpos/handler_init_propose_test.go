@@ -18,13 +18,17 @@ func TestInitProposeInjectError(t *testing.T) {
 	t.Parallel()
 
 	err := errors.New("error")
-	h := initPropose{
-		RollDPoS: &RollDPoS{
-			propCb: func() (*blockchain.Block, error) {
-				return nil, err
-			},
+	cb := rollDPoSCB{
+		propCb: func() (*blockchain.Block, error) {
+			return nil, err
 		},
 	}
+	h := initPropose{
+		RollDPoS: &RollDPoS{
+			rollDPoSCB: cb,
+		},
+	}
+	h.roundCtx = &roundCtx{}
 
 	evt := &fsm.Event{}
 	h.Handle(evt)

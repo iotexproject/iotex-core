@@ -24,6 +24,7 @@ func (h *initPropose) TimeoutDuration() *time.Duration {
 }
 
 func (h *initPropose) Handle(event *fsm.Event) {
+	h.roundCtx.isPr = true
 	blk, err := h.propCb()
 	if err != nil {
 		event.Err = err
