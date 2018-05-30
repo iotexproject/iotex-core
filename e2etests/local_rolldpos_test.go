@@ -30,6 +30,8 @@ func TestLocalRollDPoS(t *testing.T) {
 	flag.Parse()
 
 	cfg, err := config.LoadConfigWithPathWithoutValidation(localRollDPoSConfig)
+	// disable account-based testing
+	cfg.Chain.TrieDBPath = ""
 	assert.Nil(err)
 
 	var svrs []itx.Server

@@ -37,6 +37,8 @@ func init() {
 
 func main() {
 	cfg, err := config.LoadConfigWithPath(*configFile)
+	// disable account-based testing
+	cfg.Chain.TrieDBPath = ""
 
 	if err != nil {
 		os.Exit(1)

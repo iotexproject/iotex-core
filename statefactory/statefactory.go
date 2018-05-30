@@ -16,6 +16,7 @@ import (
 	trx "github.com/iotexproject/iotex-core/blockchain/trx"
 	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/trie"
 )
 
@@ -53,7 +54,7 @@ type (
 	StateFactory interface {
 		CreateState(string, uint64) (*State, error)
 		Balance(string) (*big.Int, error)
-		UpdateStatesWithTransfer([]*trx.TxAct) error
+		UpdateStatesWithTransfer([]*trx.Transfer) error
 		SetNonce(string, uint64) error
 		Nonce(string) (uint64, error)
 		RootHash() common.Hash32B
@@ -111,6 +112,18 @@ func (st *State) SubBalance(amount *big.Int) error {
 // NewStateFactory creates a new state factory
 func NewStateFactory(trie trie.Trie) StateFactory {
 	return &stateFactory{trie: trie, pending: make(map[common.PKHash]*State)}
+}
+
+// NewStateFactoryTrieDB creates a new stateFactory from Trie
+func NewStateFactoryTrieDB(dbPath string) (StateFactory, error) {
+	if len(dbPath) == 0 {
+		return nil, nil
+	}
+	tr, err := trie.NewTrie(dbPath)
+	if err != nil {
+		return nil, err
+	}
+	return &stateFactory{trie: tr, pending: make(map[common.PKHash]*State)}, nil
 }
 
 // CreateState adds a new State with initial balance to the factory
@@ -174,7 +187,7 @@ func (sf *stateFactory) RootHash() common.Hash32B {
 }
 
 // UpdateStatesWithTransfer updates a State from the given value transfer
-func (sf *stateFactory) UpdateStatesWithTransfer(txs []*trx.TxAct) error {
+func (sf *stateFactory) UpdateStatesWithTransfer(txs []*trx.Transfer) error {
 	var ss []byte
 	transferK := [][]byte{}
 	transferV := [][]byte{}
@@ -186,6 +199,7 @@ func (sf *stateFactory) UpdateStatesWithTransfer(txs []*trx.TxAct) error {
 		// check sender
 		pkhash := iotxaddress.GetPubkeyHash(tx.Sender)
 		if pkhash == nil {
+			logger.Warn().Msg("wrong addr")
 			return ErrInvalidAddr
 		}
 		copy(pubKeyHash[:], pkhash)

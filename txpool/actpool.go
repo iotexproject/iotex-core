@@ -43,9 +43,9 @@ type ActPool interface {
 	// Reset resets actpool state
 	Reset()
 	// PickTxs returns all currently accepted transactions in actpool
-	PickTxs() (map[string][]*trx.TxAct, error)
+	PickTxs() (map[string][]*trx.Transfer, error)
 	// AddTx adds a transaction into the pool after validation
-	AddTx(tx *trx.TxAct) error
+	AddTx(tx *trx.Transfer) error
 }
 
 // actPool implements ActPool interface
@@ -53,7 +53,7 @@ type actPool struct {
 	mutex      sync.RWMutex
 	sf         statefactory.StateFactory
 	accountTxs map[string]TxQueue
-	allTxs     map[common.Hash32B]*trx.TxAct
+	allTxs     map[common.Hash32B]*trx.Transfer
 }
 
 // NewActPool constructs a new actpool
@@ -61,7 +61,7 @@ func NewActPool(trie trie.Trie) ActPool {
 	ap := &actPool{
 		sf:         statefactory.NewStateFactory(trie),
 		accountTxs: make(map[string]TxQueue),
-		allTxs:     make(map[common.Hash32B]*trx.TxAct),
+		allTxs:     make(map[common.Hash32B]*trx.Transfer),
 	}
 	return ap
 }
@@ -100,11 +100,11 @@ func (ap *actPool) Reset() {
 }
 
 // PickTxs returns all currently accepted transactions for all accounts
-func (ap *actPool) PickTxs() (map[string][]*trx.TxAct, error) {
+func (ap *actPool) PickTxs() (map[string][]*trx.Transfer, error) {
 	ap.mutex.Lock()
 	defer ap.mutex.Unlock()
 
-	pending := make(map[string][]*trx.TxAct)
+	pending := make(map[string][]*trx.Transfer)
 	for from, queue := range ap.accountTxs {
 		pending[from] = queue.ConfirmedTxs()
 	}
@@ -112,7 +112,7 @@ func (ap *actPool) PickTxs() (map[string][]*trx.TxAct, error) {
 }
 
 // validateTx checks whether a transaction is valid
-func (ap *actPool) validateTx(tx *trx.TxAct) error {
+func (ap *actPool) validateTx(tx *trx.Transfer) error {
 	// Reject oversized transaction
 	if tx.TotalSize() > 32*1024 {
 		return errors.Wrapf(ErrActPool, "oversized data")
@@ -139,7 +139,7 @@ func (ap *actPool) validateTx(tx *trx.TxAct) error {
 }
 
 // AddTx inserts a new transaction into account queue if it passes validation
-func (ap *actPool) AddTx(tx *trx.TxAct) error {
+func (ap *actPool) AddTx(tx *trx.Transfer) error {
 	ap.mutex.Lock()
 	defer ap.mutex.Unlock()
 	hash := tx.Hash()

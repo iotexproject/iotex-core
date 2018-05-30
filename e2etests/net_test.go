@@ -31,6 +31,8 @@ func TestNetSync(t *testing.T) {
 	defer os.Remove(testDBPath)
 
 	config, err := config.LoadConfigWithPathWithoutValidation(localFullnodeConfig)
+	// disable account-based testing
+	config.Chain.TrieDBPath = ""
 	assert.Nil(err)
 	if testing.Short() {
 		t.Skip("Skipping the overlay test in short mode.")
