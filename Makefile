@@ -19,7 +19,7 @@ BUILD_TARGET_TXINJ=txinjector
 # Docker parameters
 DOCKERCMD=docker
 
-all: build test
+all: clean build test
 .PHONY: build
 build:
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
@@ -52,6 +52,7 @@ clean:
 	rm -f ./bin/$(BUILD_TARGET_SERVER)
 	rm -f ./bin/$(BUILD_TARGET_TXINJ)
 	rm -f chain.db
+	rm -f ./e2etests/*.db
 	rm -f block.dat
 
 .PHONY: run

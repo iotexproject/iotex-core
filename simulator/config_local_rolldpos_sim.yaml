@@ -35,6 +35,7 @@ consensus:
         proposerrotation:
             enabled: true
             interval: 1ms
+            nodelay: true
         unmatchedeventttl: 1000s
         acceptpropose:
             ttl: 1000s

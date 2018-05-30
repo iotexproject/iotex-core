@@ -112,6 +112,8 @@ type ProposerRotation struct {
 	Interval time.Duration
 	// Enabled flags whether we periodically rotate the proposer and trigger a new round of RollDPoS
 	Enabled bool
+	// NoDelay flags whether the consensus engine automatically goes to the start stage when it ends with no delay
+	NoDelay bool
 }
 
 // AcceptPropose is the RollDPoS AcceptPropose config
