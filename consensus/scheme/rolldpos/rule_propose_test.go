@@ -19,16 +19,19 @@ import (
 func TestRuleProposeErrorVoteNil(t *testing.T) {
 	t.Parallel()
 
+	cb := rollDPoSCB{
+		voteCb: func(msg proto.Message) error {
+			vc, ok := (msg).(*iproto.ViewChangeMsg)
+			assert.True(t, ok)
+			assert.Nil(t, vc.Block)
+			assert.Equal(t, vc.Vctype, iproto.ViewChangeMsg_PROPOSE)
+			return nil
+		},
+	}
 	h := rulePropose{
 		RollDPoS: &RollDPoS{
-			self: common.NewTCPNode(""),
-			voteCb: func(msg proto.Message) error {
-				vc, ok := (msg).(*iproto.ViewChangeMsg)
-				assert.True(t, ok)
-				assert.Nil(t, vc.Block)
-				assert.Equal(t, vc.Vctype, iproto.ViewChangeMsg_PROPOSE)
-				return nil
-			},
+			self:       common.NewTCPNode(""),
+			rollDPoSCB: cb,
 		},
 	}
 	assert.True(t, h.Condition(&fsm.Event{Err: errors.New("err")}))

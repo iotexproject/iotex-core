@@ -76,6 +76,7 @@ func NewConsensus(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxPool
 			tellBlockCB,
 			commitBlockCB,
 			broadcastBlockCB,
+			rolldpos.FixedProposer,
 			bc,
 			bs.P2P().Self(),
 			dlg)

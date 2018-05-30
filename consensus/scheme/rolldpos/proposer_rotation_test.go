@@ -16,6 +16,8 @@ import (
 
 	bc "github.com/iotexproject/iotex-core/blockchain"
 	cm "github.com/iotexproject/iotex-core/common"
+	"github.com/iotexproject/iotex-core/delegate"
+	"github.com/iotexproject/iotex-core/test/mock/mock_delegate"
 )
 
 func TestProposerRotation(t *testing.T) {
@@ -43,4 +45,32 @@ func TestProposerRotation(t *testing.T) {
 	time.Sleep(2 * time.Second)
 
 	assert.NotNil(t, cs.roundCtx)
+	assert.Equal(t, true, cs.roundCtx.isPr)
+	assert.Equal(t, delegates, cs.roundCtx.delegates)
+}
+
+func TestFixedProposer(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	delegates := []net.Addr{
+		cm.NewTCPNode("192.168.0.1:10000"),
+		cm.NewTCPNode("192.168.0.1:10001"),
+	}
+	pool := mock_delegate.NewMockPool(ctrl)
+	pool.EXPECT().AllDelegates().Return(delegates, nil).Times(2)
+
+	isPr, err := FixedProposer(delegates[0], pool, nil, 0)
+	assert.Nil(t, err)
+	assert.True(t, isPr)
+
+	isPr, err = FixedProposer(delegates[1], pool, nil, 0)
+	assert.Nil(t, err)
+	assert.False(t, isPr)
+
+	pool.EXPECT().AllDelegates().Return(nil, delegate.ErrZeroDelegate).Times(1)
+
+	isPr, err = FixedProposer(delegates[1], pool, nil, 0)
+	assert.Equal(t, delegate.ErrZeroDelegate, err)
+	assert.False(t, isPr)
 }

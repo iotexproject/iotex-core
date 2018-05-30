@@ -114,6 +114,7 @@ func NewSim(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxPool, bs b
 		tellBlockCB,
 		commitBlockCB,
 		broadcastBlockCB,
+		rolldpos.FixedProposer,
 		bc,
 		bs.P2P().Self(),
 		dlg)
