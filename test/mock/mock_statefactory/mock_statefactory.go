@@ -63,7 +63,7 @@ func (mr *MockStateFactoryMockRecorder) Balance(arg0 interface{}) *gomock.Call {
 }
 
 // UpdateStatesWithTransfer mocks base method
-func (m *MockStateFactory) UpdateStatesWithTransfer(arg0 []*trx.TxAct) error {
+func (m *MockStateFactory) UpdateStatesWithTransfer(arg0 []*trx.Transfer) error {
 	ret := m.ctrl.Call(m, "UpdateStatesWithTransfer", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0

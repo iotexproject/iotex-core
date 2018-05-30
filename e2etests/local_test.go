@@ -17,7 +17,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	trx "github.com/iotexproject/iotex-core/blockchain/trx"
 	cm "github.com/iotexproject/iotex-core/common"
-	cfg "github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network"
 	"github.com/iotexproject/iotex-core/proto"
@@ -36,18 +36,20 @@ func TestLocalCommit(t *testing.T) {
 	os.Remove(testDBPath)
 	defer os.Remove(testDBPath)
 
-	config, err := cfg.LoadConfigWithPathWithoutValidation(localTestConfigPath)
+	cfg, err := config.LoadConfigWithPathWithoutValidation(localTestConfigPath)
 	assert.Nil(err)
-	config.Network.BootstrapNodes = []string{"127.0.0.1:10000"}
-	config.Chain.ChainDBPath = testDBPath
-	config.Consensus.Scheme = cfg.NOOPScheme
-	config.Delegate.Addrs = []string{"127.0.0.1:10000"}
+	cfg.Network.BootstrapNodes = []string{"127.0.0.1:10000"}
+	cfg.Chain.ChainDBPath = testDBPath
+	// disable account-based testing
+	cfg.Chain.TrieDBPath = ""
+	cfg.Consensus.Scheme = config.NOOPScheme
+	cfg.Delegate.Addrs = []string{"127.0.0.1:10000"}
 
 	blockchain.Gen.TotalSupply = uint64(50 << 22)
 	blockchain.Gen.BlockReward = uint64(0)
 
 	// create node
-	svr := itx.NewServer(*config)
+	svr := itx.NewServer(*cfg)
 	err = svr.Init()
 	assert.Nil(err)
 	err = svr.Start()
@@ -65,7 +67,7 @@ func TestLocalCommit(t *testing.T) {
 	p2 := svr.P2p()
 	assert.NotNil(p2)
 
-	p1 := network.NewOverlay(&config.Network)
+	p1 := network.NewOverlay(&cfg.Network)
 	assert.NotNil(p1)
 	p1.PRC.Addr = "127.0.0.1:10001"
 	p1.Init()
@@ -204,15 +206,17 @@ func TestLocalSync(t *testing.T) {
 	os.Remove(testDB2Path)
 	defer os.Remove(testDB2Path)
 
-	config, err := cfg.LoadConfigWithPathWithoutValidation(localTestConfigPath)
+	cfg, err := config.LoadConfigWithPathWithoutValidation(localTestConfigPath)
 	assert.Nil(err)
-	config.NodeType = cfg.DelegateType
-	config.Delegate.Addrs = []string{"127.0.0.1:10000"}
-	config.Chain.ChainDBPath = testDBPath
-	config.Consensus.Scheme = cfg.NOOPScheme
+	cfg.NodeType = config.DelegateType
+	cfg.Delegate.Addrs = []string{"127.0.0.1:10000"}
+	cfg.Chain.ChainDBPath = testDBPath
+	// disable account-based testing
+	cfg.Chain.TrieDBPath = ""
+	cfg.Consensus.Scheme = config.NOOPScheme
 
 	// create node 1
-	svr := itx.NewServer(*config)
+	svr := itx.NewServer(*cfg)
 	err = svr.Init()
 	assert.Nil(err)
 	err = svr.Start()
@@ -241,10 +245,10 @@ func TestLocalSync(t *testing.T) {
 	assert.NotNil(p2)
 
 	// create node 2
-	config.NodeType = cfg.FullNodeType
-	config.Network.Addr = "127.0.0.1:10001"
-	config.Chain.ChainDBPath = testDB2Path
-	cli := itx.NewServer(*config)
+	cfg.NodeType = config.FullNodeType
+	cfg.Network.Addr = "127.0.0.1:10001"
+	cfg.Chain.ChainDBPath = testDB2Path
+	cli := itx.NewServer(*cfg)
 	cli.Init()
 	cli.Start()
 	defer cli.Stop()

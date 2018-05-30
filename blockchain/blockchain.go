@@ -97,6 +97,13 @@ func NewBlockchain(dao *blockDAO, cfg *config.Config, gen *Genesis, sf statefact
 		validator: &validator{sf: sf, utk: utk},
 	}
 	chain.AddService(dao)
+	// add Genesis block miner into Trie
+	if sf != nil {
+		if _, err := chain.sf.CreateState(cfg.Chain.MinerAddr.RawAddress, gen.TotalSupply); err != nil {
+			logger.Error().Err(err).Msg("Failed to add miner into StateFactory")
+			return nil
+		}
+	}
 	return chain
 }
 
@@ -245,7 +252,6 @@ func (bc *blockchain) AddBlockCommit(blk *Block) error {
 	if err := bc.ValidateBlock(blk); err != nil {
 		return err
 	}
-
 	return bc.commitBlock(blk)
 }
 
@@ -258,9 +264,16 @@ func (bc *blockchain) AddBlockSync(blk *Block) error {
 
 // CreateBlockchain creates a new blockchain and DB instance
 func CreateBlockchain(cfg *config.Config, gen *Genesis) Blockchain {
+	// create DB access
 	dao := newBlockDAO(db.NewBoltDB(cfg.Chain.ChainDBPath, nil))
-
-	chain := NewBlockchain(dao, cfg, gen, nil)
+	// create StateFactory
+	sf, err := statefactory.NewStateFactoryTrieDB(cfg.Chain.TrieDBPath)
+	if err != nil {
+		logger.Error().Err(err).Msg("Failed to initialize statefactory")
+		return nil
+	}
+	// create the Blockchain
+	chain := NewBlockchain(dao, cfg, gen, sf)
 	if err := chain.Init(); err != nil {
 		logger.Error().Err(err).Msg("Failed to initialize blockchain")
 		return nil
@@ -284,7 +297,6 @@ func CreateBlockchain(cfg *config.Config, gen *Genesis) Blockchain {
 			logger.Error().Msg("Cannot create genesis block.")
 			return nil
 		}
-
 		// Genesis block has height 0
 		if genesis.Header.height != 0 {
 			logger.Error().
@@ -292,10 +304,9 @@ func CreateBlockchain(cfg *config.Config, gen *Genesis) Blockchain {
 				Msg("Expecting 0")
 			return nil
 		}
-
 		// add Genesis block as very first block
 		if err := chain.AddBlockCommit(genesis); err != nil {
-			logger.Error().Err(err)
+			logger.Error().Err(err).Msg("Failed to commit Genesis block")
 			return nil
 		}
 	}

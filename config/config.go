@@ -64,7 +64,7 @@ type Network struct {
 // Chain is the config struct for blockchain package
 type Chain struct {
 	ChainDBPath string
-
+	TrieDBPath  string
 	//RawMinerAddr is the struct that stores private/public keys in string
 	RawMinerAddr RawMinerAddr
 

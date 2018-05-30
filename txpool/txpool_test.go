@@ -37,25 +37,19 @@ func TestTxPool(t *testing.T) {
 	defer os.Remove(testDBPath)
 	assert := assert.New(t)
 
-	config, err := config.LoadConfigWithPathWithoutValidation(testingConfigPath)
+	cfg, err := config.LoadConfigWithPathWithoutValidation(testingConfigPath)
 	assert.Nil(err)
-	config.Chain.ChainDBPath = testDBPath
+	cfg.Chain.ChainDBPath = testDBPath
+	// disable account-based testing
+	cfg.Chain.TrieDBPath = ""
 	// Disable block reward to make bookkeeping easier
 	Gen.BlockReward = uint64(0)
-
-	// Create a blockchain from scratch
-	// bc := CreateBlockchain(&config.Config{Chain: config.Chain{ChainDBPath: testDBPath}})
-	bc := CreateBlockchain(config, Gen)
-	//ctrl := gomock.NewController(t)
-	//defer ctrl.Finish()
-
-	//bc := mock_blockchain.NewMockBlockchain(ctrl)
-	if assert.NotNil(bc) {
-		t.Log("blockchain created")
-	}
+	bc := CreateBlockchain(cfg, Gen)
+	assert.NotNil(bc)
 	defer bc.Stop()
 
 	tp := New(bc)
+	assert.NotNil(tp)
 	cbTx := trx.NewCoinbaseTx(ta.Addrinfo["miner"].RawAddress, 50, testCoinbaseData)
 	assert.NotNil(cbTx)
 	if _, err := tp.ProcessTx(cbTx, true, false, 13245); assert.NotNil(err) {

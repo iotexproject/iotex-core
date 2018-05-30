@@ -50,7 +50,7 @@ type BlockHeader struct {
 type Block struct {
 	Header *BlockHeader
 	Tranxs []*trx.Tx
-	TxAct  []*trx.TxAct
+	TxAct  []*trx.Transfer
 	Votes  []*iproto.VotePb
 }
 
