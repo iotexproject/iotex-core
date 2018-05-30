@@ -30,6 +30,10 @@ func (r ruleCommit) Condition(event *fsm.Event) bool {
 			Err(event.Err).
 			Bool("r.reachedMaj()", r.reachedMaj()).
 			Msg("|||||| no consensus agreed")
+
+		if r.cfg.ProposerRotation.NoDelay {
+			r.prnd.Do()
+		}
 		return true
 	}
 
@@ -46,6 +50,11 @@ func (r ruleCommit) Condition(event *fsm.Event) bool {
 			r.pubCb(r.roundCtx.block)
 		}
 	}
+
+	if r.cfg.ProposerRotation.NoDelay {
+		r.prnd.Do()
+	}
+
 	return true
 }
 

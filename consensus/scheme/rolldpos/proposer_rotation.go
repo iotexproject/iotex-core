@@ -15,41 +15,42 @@ import (
 	"github.com/iotexproject/iotex-core/logger"
 )
 
-// proposerRotation is supposed to rotate the proposer per round of PBFT.
+// ProposerRotation is supposed to rotate the proposer per round of PBFT.
 // However, use the first delegate as the proposer for now.
 // We can propose based on the block height in the future.
-type proposerRotation struct {
+type ProposerRotation struct {
 	*RollDPoS
 }
 
-func (s *proposerRotation) Do() {
+// Do handles transition to stateInitPropose
+func (s *ProposerRotation) Do() {
 	height, err := s.bc.TipHeight()
 	if err != nil {
-		logger.Error().Msg("Failed to get blockchain height")
+		logger.Error().Err(err).Msg("failed to get blockchain height")
 		return
 	}
-
 	pr, err := s.prCb(s.pool, nil, 0, height)
-	if err != nil {
-		logger.Error().Err(err).Msg("failed to get delegates")
-	}
-	if pr.String() != s.self.String() || s.fsm.CurrentState() != stateStart {
+	if pr.String() != s.self.String() || (!s.cfg.ProposerRotation.NoDelay && s.fsm.CurrentState() != stateStart) {
 		return
 	}
-
 	logger.Warn().
 		Str("proposer", s.self.String()).
 		Uint64("height", height+1).
-		Msg("Propose new block")
+		Msg("Propose new block height")
 
-	s.fsm.HandleTransition(&fsm.Event{
+	s.eventChan <- &fsm.Event{
 		State: stateInitPropose,
-	})
+	}
+}
+
+// NewProposerRotationNoDelay creates a ProposerRotation object
+func NewProposerRotationNoDelay(r *RollDPoS) *ProposerRotation {
+	return &ProposerRotation{r}
 }
 
 // NewProposerRotation creates a recurring task of proposer rotation.
 func NewProposerRotation(r *RollDPoS) *routine.RecurringTask {
-	return routine.NewRecurringTask(&proposerRotation{r}, r.cfg.ProposerRotation.Interval)
+	return routine.NewRecurringTask(&ProposerRotation{r}, r.cfg.ProposerRotation.Interval)
 }
 
 // FixedProposer will always choose the first in the delegate list as the proposer
