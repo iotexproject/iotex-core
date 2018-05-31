@@ -39,42 +39,47 @@ const (
 	NonceSizeInBytes = 8
 )
 
-// TxInput defines the transaction input protocol buffer
-type TxInput = iproto.TxInputPb
+type (
+	// TxInput defines the transaction input protocol buffer
+	TxInput = iproto.TxInputPb
 
-// TxOutput defines the transaction output protocol buffer
-type TxOutput struct {
-	*iproto.TxOutputPb // embedded
+	// TxOutput defines the transaction output protocol buffer
+	TxOutput struct {
+		*iproto.TxOutputPb // embedded
 
-	// below fields only used internally, not part of serialize/deserialize
-	OutIndex int32 // outIndex is needed when spending UTXO
-}
+		// below fields only used internally, not part of serialize/deserialize
+		OutIndex int32 // outIndex is needed when spending UTXO
+	}
 
-// Tx defines the struct of utxo-based transaction
-// make sure the variable type and order of this struct is same as "type Tx" in blockchain.pb.go
-type Tx struct {
-	Version  uint32
-	LockTime uint32 // transaction to be locked until this time
+	// Tx defines the struct of utxo-based transaction
+	// make sure the variable type and order of this struct is same as "type Tx" in blockchain.pb.go
+	Tx struct {
+		Version  uint32
+		LockTime uint32 // transaction to be locked until this time
 
-	// used by utxo-based model
-	TxIn  []*TxInput
-	TxOut []*TxOutput
-}
+		// used by utxo-based model
+		TxIn  []*TxInput
+		TxOut []*TxOutput
+	}
 
-// Transfer defines the struct of account-based transaction
-type Transfer struct {
-	Version  uint32
-	LockTime uint32 // transaction to be locked until this time
+	// Transfer defines the struct of account-based transfer
+	Transfer struct {
+		Version  uint32
+		LockTime uint32 // transaction to be locked until this time
 
-	// used by account-based model
-	Nonce           uint64
-	Amount          *big.Int
-	Sender          string
-	Recipient       string
-	Payload         []byte
-	SenderPublicKey []byte
-	Signature       []byte
-}
+		// used by account-based model
+		Nonce           uint64
+		Amount          *big.Int
+		Sender          string
+		Recipient       string
+		Payload         []byte
+		SenderPublicKey []byte
+		Signature       []byte
+	}
+
+	// Vote defines the struct of account-based vote
+	Vote = iproto.VotePb
+)
 
 // NewTxInput returns a TxInput instance
 func NewTxInput(hash common.Hash32B, index int32, unlock []byte, seq uint32) *TxInput {

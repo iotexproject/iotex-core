@@ -48,10 +48,10 @@ type BlockHeader struct {
 
 // Block defines the struct of block
 type Block struct {
-	Header *BlockHeader
-	Tranxs []*trx.Tx
-	TxAct  []*trx.Transfer
-	Votes  []*iproto.VotePb
+	Header    *BlockHeader
+	Tranxs    []*trx.Tx
+	Transfers []*trx.Transfer
+	Votes     []*iproto.VotePb
 }
 
 // NewBlock returns a new block
@@ -105,6 +105,7 @@ func (b *Block) ByteStreamHeader() []byte {
 	stream = append(stream, tmp4B...)
 	common.MachineEndian.PutUint32(tmp4B, b.Header.trnxDataSize)
 	stream = append(stream, tmp4B...)
+	stream = append(stream, b.Header.blockSig...)
 	return stream
 }
 
@@ -142,15 +143,17 @@ func (b *Block) ConvertToBlockHeaderPb() *iproto.BlockHeaderPb {
 
 // ConvertToBlockPb converts Block to BlockPb
 func (b *Block) ConvertToBlockPb() *iproto.BlockPb {
-	if len(b.Tranxs)+len(b.Votes) == 0 {
+	if len(b.Tranxs)+len(b.Transfers)+len(b.Votes) == 0 {
 		return nil
 	}
-
+	// assemble actions
 	actions := []*iproto.ActionPb{}
 	for _, tx := range b.Tranxs {
 		actions = append(actions, &iproto.ActionPb{&iproto.ActionPb_Tx{tx.ConvertToTxPb()}})
 	}
-
+	for _, tsf := range b.Transfers {
+		actions = append(actions, &iproto.ActionPb{&iproto.ActionPb_Transfer{tsf.ConvertToTransferPb()}})
+	}
 	for _, vote := range b.Votes {
 		actions = append(actions, &iproto.ActionPb{&iproto.ActionPb_Vote{vote}})
 	}

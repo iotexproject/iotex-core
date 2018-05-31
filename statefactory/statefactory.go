@@ -46,14 +46,15 @@ type (
 		Address      string
 		IsCandidate  bool
 		VotingWeight *big.Int
-		Voters       map[common.Hash32B]*big.Int
+		Votee        common.PKHash
+		Voters       map[common.PKHash]*big.Int
 	}
 
 	// StateFactory defines an interface for managing states
 	StateFactory interface {
 		CreateState(string, uint64) (*State, error)
 		Balance(string) (*big.Int, error)
-		CommitStateChanges([]*trx.Transfer) error
+		CommitStateChanges([]*trx.Transfer, []*trx.Vote) error
 		SetNonce(string, uint64) error
 		Nonce(string) (uint64, error)
 		RootHash() common.Hash32B
@@ -184,10 +185,10 @@ func (sf *stateFactory) RootHash() common.Hash32B {
 	return sf.trie.RootHash()
 }
 
-// CommitStateChanges updates a State from the given value transfer
-func (sf *stateFactory) CommitStateChanges(txs []*trx.Transfer) error {
+// CommitStateChanges updates a State from the given actions
+func (sf *stateFactory) CommitStateChanges(tsf []*trx.Transfer, vote []*trx.Vote) error {
 	pending := make(map[common.PKHash]*State)
-	for _, tx := range txs {
+	for _, tx := range tsf {
 		var pubKeyHash common.PKHash
 		var err error
 		// check sender
