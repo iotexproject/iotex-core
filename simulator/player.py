@@ -32,10 +32,11 @@ class Player:
 
         self.stake = stake  # the number of tokens the player has staked in the system
 
-        self.blockchain  = []   # blockchain (technically a blocklist)
-        self.connections = []   # list of connected players
-        self.inbound     = []   # inbound messages from other players in the network at heartbeat r
-        self.outbound    = []   # outbound messages to other players in the network at heartbeat r
+        self.blockchain   = []    # blockchain (technically a blocklist)
+        self.connections  = []    # list of connected players
+        self.inbound      = []    # inbound messages from other players in the network at heartbeat r
+        self.outbound     = []    # outbound messages to other players in the network at heartbeat r
+        self.seenMessages = set() # set of seen messages
 
         self.consensus          = consensus_client.Consensus()
         self.consensus.playerID = self.id
@@ -46,6 +47,7 @@ class Player:
 
         print("player %d action started at heartbeat %d" % (self.id, heartbeat))
 
+        # self.inbound: [(msgType, msgBody), timestamp]
         # print messages
         for msg, timestamp in self.inbound:
             print("received %s with timestamp %f" % (Player.msgMap[msg], timestamp))
@@ -57,6 +59,10 @@ class Player:
         for msg, timestamp in self.inbound:
             # note: msg is a tuple: (msgType, msgBody)
             if timestamp > heartbeat: continue
+
+            # 1999 is dummy message
+            if msg[0] != 1999 and msg in self.seenMessages: continue
+            self.seenMessages.add(msg)
 
             print("sent %s to consensus engine" % Player.msgMap[msg])
             received = self.consensus.processMessage(msg)
@@ -71,6 +77,8 @@ class Player:
                 else: # block to be committed
                     self.blockchain.append(v[1])
                     print("committed %s to blockchain" % Player.msgMap[v])
+
+            if msg[0] != 1999: self.outbound.append([msg, timestamp])
             
         self.inbound = list(filter(lambda x: x[1] > heartbeat, self.inbound)) # get rid of processed messages
         
