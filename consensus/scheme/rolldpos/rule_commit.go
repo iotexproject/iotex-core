@@ -29,7 +29,7 @@ func (r ruleCommit) Condition(event *fsm.Event) bool {
 			Bool("state time out", event.StateTimedOut).
 			Err(event.Err).
 			Bool("r.reachedMaj()", r.reachedMaj()).
-			Msg("|||||| no consensus agreed")
+			Msg("no consensus agreed")
 
 		if int(r.cfg.ProposerRotation.Interval) == 0 {
 			r.prnd.Do()
@@ -42,13 +42,11 @@ func (r ruleCommit) Condition(event *fsm.Event) bool {
 	if r.roundCtx.block != nil {
 		r.consCb(r.roundCtx.block)
 
-		// only proposer needs to broadcast the consensus block
-		if r.roundCtx.isPr {
-			logger.Warn().
-				Str("node", r.self.String()).
-				Msg("|||||| broadcast block")
-			r.pubCb(r.roundCtx.block)
-		}
+		// All delegates need to broadcast the consensus block
+		logger.Warn().
+			Str("node", r.self.String()).
+			Msg("broadcast block")
+		r.pubCb(r.roundCtx.block)
 	}
 
 	if int(r.cfg.ProposerRotation.Interval) == 0 {

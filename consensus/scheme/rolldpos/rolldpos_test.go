@@ -45,7 +45,8 @@ func createTestRollDPoS(
 	delegates []net.Addr,
 	mockFn mockFn,
 	enableProposerRotation bool,
-	prCb scheme.GetProposerCB) *RollDPoS {
+	prCb scheme.GetProposerCB,
+	bcCnt *int) *RollDPoS {
 	bc := mock_blockchain.NewMockBlockchain(ctrl)
 
 	tp := txpool.New(bc)
@@ -65,6 +66,9 @@ func createTestRollDPoS(
 		return bc.AddBlockCommit(blk)
 	}
 	broadcastBlockCB := func(blk *blockchain.Block) error {
+		if bcCnt != nil {
+			*bcCnt++
+		}
 		return nil
 	}
 	dp := mock_delegate.NewMockPool(ctrl)
@@ -154,6 +158,8 @@ func testByzantineFault(t *testing.T, proposerNode int) {
 		cm.NewTCPNode("192.168.0.2:10002"),
 		cm.NewTCPNode("192.168.0.3:10003"),
 	}
+
+	bcCnt := 0
 	for _, d := range delegates {
 		cur := d // watch out for the callback
 
@@ -185,7 +191,7 @@ func testByzantineFault(t *testing.T, proposerNode int) {
 			})
 			tcs.mocks = mcks
 		}
-		tcs.cs = createTestRollDPoS(ctrl, cur, delegates, m, false, FixedProposer)
+		tcs.cs = createTestRollDPoS(ctrl, cur, delegates, m, false, FixedProposer, &bcCnt)
 		tcs.cs.Start()
 		defer tcs.cs.Stop()
 		tcss[cur] = tcs
@@ -240,6 +246,11 @@ func testByzantineFault(t *testing.T, proposerNode int) {
 		assert.Equal(t, fsm.State("START"), tcs.cs.fsm.CurrentState(), "back to START in the end")
 	}
 	voteStats(t, tcss)
+	if proposerNode == 0 {
+		assert.Equal(t, 0, bcCnt)
+	} else {
+		assert.Equal(t, 4, bcCnt)
+	}
 }
 
 func voteStats(t *testing.T, tcss map[net.Addr]testCs) {
@@ -275,6 +286,8 @@ func TestRollDPoSFourTrustyNodes(t *testing.T) {
 		cm.NewTCPNode("192.168.0.2:10002"),
 		cm.NewTCPNode("192.168.0.3:10003"),
 	}
+
+	bcCnt := 0
 	for _, d := range delegates {
 		cur := d // watch out for the callback
 
@@ -295,7 +308,7 @@ func TestRollDPoSFourTrustyNodes(t *testing.T) {
 			})
 			tcs.mocks = mcks
 		}
-		tcs.cs = createTestRollDPoS(ctrl, cur, delegates, m, false, FixedProposer)
+		tcs.cs = createTestRollDPoS(ctrl, cur, delegates, m, false, FixedProposer, &bcCnt)
 		tcs.cs.Start()
 		defer tcs.cs.Stop()
 		tcss[cur] = tcs
@@ -324,6 +337,7 @@ func TestRollDPoSFourTrustyNodes(t *testing.T) {
 	for _, tcs := range tcss {
 		assert.Equal(t, fsm.State("START"), tcs.cs.fsm.CurrentState(), "back to START in the end")
 	}
+	assert.Equal(t, 4, bcCnt)
 }
 
 // Delegate0 receives PROPOSE from Delegate1 and hence move to PREVOTE state and timeout to other states and finally to start
@@ -344,7 +358,7 @@ func TestRollDPoSConsumePROPOSE(t *testing.T) {
 		mcks.bc.EXPECT().ValidateBlock(gomock.Any()).AnyTimes()
 		mcks.bc.EXPECT().AddBlockCommit(gomock.Any()).Times(0)
 	}
-	cs := createTestRollDPoS(ctrl, delegates[0], delegates, m, false, FixedProposer)
+	cs := createTestRollDPoS(ctrl, delegates[0], delegates, m, false, FixedProposer, nil)
 	cs.Start()
 	defer cs.Stop()
 
@@ -378,7 +392,7 @@ func TestRollDPoSConsumeErrorStateHandlerNotMatched(t *testing.T) {
 		cm.NewTCPNode("192.168.0.2:10002"),
 	}
 	m := func(mcks mocks) {}
-	cs := createTestRollDPoS(ctrl, delegates[0], delegates, m, false, FixedProposer)
+	cs := createTestRollDPoS(ctrl, delegates[0], delegates, m, false, FixedProposer, nil)
 
 	cs.Start()
 	defer cs.Stop()
