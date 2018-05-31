@@ -9,6 +9,8 @@ RUN cd $GOPATH/src/github.com/iotexproject/iotex-core/ && \
     make clean build && \
     ln -s $GOPATH/src/github.com/iotexproject/iotex-core/bin/server /usr/local/bin/iotex-server  && \
     ln -s $GOPATH/src/github.com/iotexproject/iotex-core/bin/txinjector /usr/local/bin/iotex-txinjector && \
+    mkdir -p /usr/local/lib/iotex/ && \
+    cp $GOPATH/src/github.com/iotexproject/iotex-core/crypto/lib/libsect283k1_ubuntu.so /usr/lib/ && \
     mkdir -p /etc/iotex/ && \
     ln -s $GOPATH/src/github.com/iotexproject/iotex-core/config.yaml /etc/iotex/config.yaml && \
     mkdir -p /var/log/iotex/
