@@ -16,7 +16,6 @@ import (
 	trx "github.com/iotexproject/iotex-core/blockchain/trx"
 	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/iotxaddress"
-	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/trie"
 )
 
@@ -54,7 +53,7 @@ type (
 	StateFactory interface {
 		CreateState(string, uint64) (*State, error)
 		Balance(string) (*big.Int, error)
-		UpdateStatesWithTransfer([]*trx.Transfer) error
+		CommitStateChanges([]*trx.Transfer) error
 		SetNonce(string, uint64) error
 		Nonce(string) (uint64, error)
 		RootHash() common.Hash32B
@@ -62,8 +61,7 @@ type (
 
 	// stateFactory implements StateFactory interface, tracks changes in a map and batch-commits to trie/db
 	stateFactory struct {
-		trie    trie.Trie
-		pending map[common.PKHash]*State
+		trie trie.Trie
 	}
 )
 
@@ -111,7 +109,7 @@ func (st *State) SubBalance(amount *big.Int) error {
 
 // NewStateFactory creates a new state factory
 func NewStateFactory(trie trie.Trie) StateFactory {
-	return &stateFactory{trie: trie, pending: make(map[common.PKHash]*State)}
+	return &stateFactory{trie: trie}
 }
 
 // NewStateFactoryTrieDB creates a new stateFactory from Trie
@@ -123,7 +121,7 @@ func NewStateFactoryTrieDB(dbPath string) (StateFactory, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &stateFactory{trie: tr, pending: make(map[common.PKHash]*State)}, nil
+	return &stateFactory{trie: tr}, nil
 }
 
 // CreateState adds a new State with initial balance to the factory
@@ -186,28 +184,24 @@ func (sf *stateFactory) RootHash() common.Hash32B {
 	return sf.trie.RootHash()
 }
 
-// UpdateStatesWithTransfer updates a State from the given value transfer
-func (sf *stateFactory) UpdateStatesWithTransfer(txs []*trx.Transfer) error {
-	var ss []byte
-	transferK := [][]byte{}
-	transferV := [][]byte{}
-	sf.pending = nil
-	sf.pending = make(map[common.PKHash]*State)
+// CommitStateChanges updates a State from the given value transfer
+func (sf *stateFactory) CommitStateChanges(txs []*trx.Transfer) error {
+	pending := make(map[common.PKHash]*State)
 	for _, tx := range txs {
 		var pubKeyHash common.PKHash
 		var err error
 		// check sender
 		pkhash := iotxaddress.GetPubkeyHash(tx.Sender)
 		if pkhash == nil {
-			logger.Warn().Msg("wrong addr")
 			return ErrInvalidAddr
 		}
 		copy(pubKeyHash[:], pkhash)
-		sender, exist := sf.pending[pubKeyHash]
+		sender, exist := pending[pubKeyHash]
 		if !exist {
 			if sender, err = sf.getState(tx.Sender); err != nil {
 				return err
 			}
+			pending[pubKeyHash] = sender
 		}
 		if tx.Amount.Cmp(sender.Balance) == 1 {
 			return ErrNotEnoughBalance
@@ -216,18 +210,16 @@ func (sf *stateFactory) UpdateStatesWithTransfer(txs []*trx.Transfer) error {
 		if err := sender.SubBalance(tx.Amount); err != nil {
 			return err
 		}
-		sf.pending[pubKeyHash] = sender
-		if ss, err = stateToBytes(sender); err != nil {
-			return err
+		// update sender nonce
+		if tx.Nonce > sender.Nonce {
+			sender.Nonce = tx.Nonce
 		}
-		transferK = append(transferK, iotxaddress.GetPubkeyHash(tx.Sender))
-		transferV = append(transferV, ss)
 		// check recipient
 		if pkhash = iotxaddress.GetPubkeyHash(tx.Recipient); pkhash == nil {
 			return ErrInvalidAddr
 		}
 		copy(pubKeyHash[:], pkhash)
-		recipient, exist := sf.pending[pubKeyHash]
+		recipient, exist := pending[pubKeyHash]
 		if !exist {
 			recipient, err = sf.getState(tx.Recipient)
 			switch {
@@ -238,16 +230,24 @@ func (sf *stateFactory) UpdateStatesWithTransfer(txs []*trx.Transfer) error {
 			case err != nil:
 				return err
 			}
+			pending[pubKeyHash] = recipient
 		}
 		// update recipient balance
 		if err := recipient.AddBalance(tx.Amount); err != nil {
 			return err
 		}
-		sf.pending[pubKeyHash] = recipient
-		if ss, err = stateToBytes(recipient); err != nil {
+	}
+	// construct <k, v> list of pending state
+	transferK := [][]byte{}
+	transferV := [][]byte{}
+	for pkhash, state := range pending {
+		ss, err := stateToBytes(state)
+		if err != nil {
 			return err
 		}
-		transferK = append(transferK, iotxaddress.GetPubkeyHash(tx.Recipient))
+		addr := make([]byte, len(pkhash))
+		copy(addr, pkhash[:])
+		transferK = append(transferK, addr)
 		transferV = append(transferV, ss)
 	}
 	// commit the state changes to Trie in a batch

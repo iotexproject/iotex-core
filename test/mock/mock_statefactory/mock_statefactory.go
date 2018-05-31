@@ -62,16 +62,16 @@ func (mr *MockStateFactoryMockRecorder) Balance(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Balance", reflect.TypeOf((*MockStateFactory)(nil).Balance), arg0)
 }
 
-// UpdateStatesWithTransfer mocks base method
-func (m *MockStateFactory) UpdateStatesWithTransfer(arg0 []*trx.Transfer) error {
-	ret := m.ctrl.Call(m, "UpdateStatesWithTransfer", arg0)
+// CommitStateChanges mocks base method
+func (m *MockStateFactory) CommitStateChanges(arg0 []*trx.Transfer) error {
+	ret := m.ctrl.Call(m, "CommitStateChanges", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// UpdateStatesWithTransfer indicates an expected call of UpdateStatesWithTransfer
-func (mr *MockStateFactoryMockRecorder) UpdateStatesWithTransfer(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateStatesWithTransfer", reflect.TypeOf((*MockStateFactory)(nil).UpdateStatesWithTransfer), arg0)
+// CommitStateChanges indicates an expected call of CommitStateChanges
+func (mr *MockStateFactoryMockRecorder) CommitStateChanges(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitStateChanges", reflect.TypeOf((*MockStateFactory)(nil).CommitStateChanges), arg0)
 }
 
 // SetNonce mocks base method

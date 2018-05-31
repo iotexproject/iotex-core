@@ -357,7 +357,7 @@ func TestActPool_Reset(t *testing.T) {
 	pickedTxs, _ := ap1.PickTxs()
 	// ap1 commits update of balance to trie
 	for _, txs := range pickedTxs {
-		err := ap1.sf.UpdateStatesWithTransfer(txs)
+		err := ap1.sf.CommitStateChanges(txs)
 		assert.Nil(err)
 	}
 	// ap1 commits update of nonce to trie
@@ -477,7 +477,7 @@ func TestActPool_Reset(t *testing.T) {
 	pickedTxs, _ = ap2.PickTxs()
 	// ap2 commits update of balance to trie
 	for _, txs := range pickedTxs {
-		err := ap2.sf.UpdateStatesWithTransfer(txs)
+		err := ap2.sf.CommitStateChanges(txs)
 		assert.Nil(err)
 	}
 	// ap2 commits update of nonce to trie
