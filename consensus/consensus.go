@@ -32,6 +32,22 @@ type consensus struct {
 	scheme scheme.Scheme
 }
 
+func chooseGetProposerCB(prCbName string) (prCb scheme.GetProposerCB) {
+	switch prCbName {
+	case "":
+		fallthrough
+	case "FixedProposer":
+		prCb = rolldpos.FixedProposer
+	case "PseudoRotatedProposer":
+		prCb = rolldpos.PseudoRotatedProposer
+	default:
+		logger.Panic().
+			Str("func name", prCbName).
+			Msg("invalid GetProposerCB implementation")
+	}
+	return
+}
+
 // NewConsensus creates a consensus struct.
 func NewConsensus(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxPool, bs blocksync.BlockSync, dlg delegate.Pool) Consensus {
 	if bc == nil || bs == nil {
@@ -70,27 +86,14 @@ func NewConsensus(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxPool
 
 	switch cfg.Consensus.Scheme {
 	case config.RollDPoSScheme:
-		var prCb scheme.GetProposerCB
-		switch cfg.Consensus.RollDPoS.ProposerCB {
-		case "":
-		case "FixedProposer":
-			prCb = rolldpos.FixedProposer
-			break
-		case "PseudoRotatedProposer":
-			prCb = rolldpos.PseudoRotatedProposer
-			break
-		default:
-			logger.Panic().
-				Str("func name", cfg.Consensus.RollDPoS.ProposerCB).
-				Msg("invalid GetProposerCB implementation")
-		}
+
 		cs.scheme = rolldpos.NewRollDPoS(
 			cfg.Consensus.RollDPoS,
 			mintBlockCB,
 			tellBlockCB,
 			commitBlockCB,
 			broadcastBlockCB,
-			prCb,
+			chooseGetProposerCB(cfg.Consensus.RollDPoS.ProposerCB),
 			bc,
 			bs.P2P().Self(),
 			dlg)
