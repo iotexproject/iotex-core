@@ -70,13 +70,27 @@ func NewConsensus(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxPool
 
 	switch cfg.Consensus.Scheme {
 	case config.RollDPoSScheme:
+		var prCb scheme.GetProposerCB
+		switch cfg.Consensus.RollDPoS.ProposerCB {
+		case "":
+		case "FixedProposer":
+			prCb = rolldpos.FixedProposer
+			break
+		case "PseudoRotatedProposer":
+			prCb = rolldpos.PseudoRotatedProposer
+			break
+		default:
+			logger.Panic().
+				Str("func name", cfg.Consensus.RollDPoS.ProposerCB).
+				Msg("invalid GetProposerCB implementation")
+		}
 		cs.scheme = rolldpos.NewRollDPoS(
 			cfg.Consensus.RollDPoS,
 			mintBlockCB,
 			tellBlockCB,
 			commitBlockCB,
 			broadcastBlockCB,
-			rolldpos.FixedProposer,
+			prCb,
 			bc,
 			bs.P2P().Self(),
 			dlg)

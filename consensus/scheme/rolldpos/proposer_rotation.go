@@ -23,22 +23,25 @@ type proposerRotation struct {
 }
 
 func (s *proposerRotation) Do() {
-	isPr, err := s.prCb(s.self, s.pool, nil, 0)
+	height, err := s.bc.TipHeight()
+	if err != nil {
+		logger.Error().Msg("Failed to get blockchain height")
+		return
+	}
+
+	pr, err := s.prCb(s.pool, nil, 0, height)
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to get delegates")
 	}
-	if !isPr || s.fsm.CurrentState() != stateStart {
+	if pr.String() != s.self.String() || s.fsm.CurrentState() != stateStart {
 		return
 	}
-	height, err := s.bc.TipHeight()
-	if err == nil {
-		logger.Warn().
-			Str("proposer", s.self.String()).
-			Uint64("height", height+1).
-			Msg("Propose new block height")
-	} else {
-		logger.Error().Msg("Failed to get blockchain height")
-	}
+
+	logger.Warn().
+		Str("proposer", s.self.String()).
+		Uint64("height", height+1).
+		Msg("Propose new block")
+
 	s.fsm.HandleTransition(&fsm.Event{
 		State: stateInitPropose,
 	})
@@ -49,15 +52,33 @@ func NewProposerRotation(r *RollDPoS) *routine.RecurringTask {
 	return routine.NewRecurringTask(&proposerRotation{r}, r.cfg.ProposerRotation.Interval)
 }
 
-// FixedProposer will check if the current node is the first in the delegate list
-func FixedProposer(self net.Addr, pool delegate.Pool, _ []byte, _ uint64) (bool, error) {
+// FixedProposer will always choose the first in the delegate list as the proposer
+func FixedProposer(pool delegate.Pool, _ []byte, _ uint64, _ uint64) (net.Addr, error) {
+	delegates, err := getNonEmptyProposerList(pool)
+	if err != nil {
+		return nil, err
+	}
+	return delegates[0], nil
+}
+
+// PseudoRotatedProposer will rotate among the delegates to choose the proposer
+func PseudoRotatedProposer(pool delegate.Pool, _ []byte, _ uint64, height uint64) (net.Addr, error) {
+	delegates, err := getNonEmptyProposerList(pool)
+	if err != nil {
+		return nil, err
+	}
+	return delegates[height%uint64(len(delegates))], nil
+}
+
+func getNonEmptyProposerList(pool delegate.Pool) ([]net.Addr, error) {
 	// TODO: Need to check if the node should panic if it's not able to get the delegates
+	// TODO: Get the delegates at the start of an epoch and put it into an epoch context
 	delegates, err := pool.AllDelegates()
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 	if len(delegates) == 0 {
-		return false, delegate.ErrZeroDelegate
+		return nil, delegate.ErrZeroDelegate
 	}
-	return self.String() == delegates[0].String(), nil
+	return delegates, nil
 }

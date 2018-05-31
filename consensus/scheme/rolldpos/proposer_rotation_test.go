@@ -38,7 +38,7 @@ func TestProposerRotation(t *testing.T) {
 		genesis := bc.NewGenesisBlock(bc.Gen)
 		mcks.bc.EXPECT().MintNewBlock(gomock.Any(), gomock.Any(), gomock.Any()).Return(genesis, nil).AnyTimes()
 	}
-	cs := createTestRollDPoS(ctrl, delegates[0], delegates, m, true)
+	cs := createTestRollDPoS(ctrl, delegates[0], delegates, m, true, FixedProposer)
 	cs.Start()
 	defer cs.Stop()
 
@@ -58,19 +58,36 @@ func TestFixedProposer(t *testing.T) {
 		cm.NewTCPNode("192.168.0.1:10001"),
 	}
 	pool := mock_delegate.NewMockPool(ctrl)
-	pool.EXPECT().AllDelegates().Return(delegates, nil).Times(2)
+	pool.EXPECT().AllDelegates().Return(delegates, nil).Times(1)
 
-	isPr, err := FixedProposer(delegates[0], pool, nil, 0)
+	pr, err := FixedProposer(pool, nil, 0, 0)
 	assert.Nil(t, err)
-	assert.True(t, isPr)
-
-	isPr, err = FixedProposer(delegates[1], pool, nil, 0)
-	assert.Nil(t, err)
-	assert.False(t, isPr)
+	assert.Equal(t, delegates[0].String(), pr.String())
+	assert.NotEqual(t, delegates[1].String(), pr.String())
 
 	pool.EXPECT().AllDelegates().Return(nil, delegate.ErrZeroDelegate).Times(1)
 
-	isPr, err = FixedProposer(delegates[1], pool, nil, 0)
+	pr, err = FixedProposer(pool, nil, 0, 0)
+	assert.Nil(t, pr)
 	assert.Equal(t, delegate.ErrZeroDelegate, err)
-	assert.False(t, isPr)
+}
+
+func TestPseudoRotatedProposer(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	delegates := []net.Addr{
+		cm.NewTCPNode("192.168.0.1:10000"),
+		cm.NewTCPNode("192.168.0.1:10001"),
+		cm.NewTCPNode("192.168.0.1:10002"),
+		cm.NewTCPNode("192.168.0.1:10003"),
+	}
+	pool := mock_delegate.NewMockPool(ctrl)
+	pool.EXPECT().AllDelegates().Return(delegates, nil).AnyTimes()
+
+	for i := 0; i < 4; i++ {
+		pr, err := PseudoRotatedProposer(pool, nil, 0, 10000+uint64(i))
+		assert.Nil(t, err)
+		assert.Equal(t, delegates[i].String(), pr.String())
+	}
 }
