@@ -31,7 +31,7 @@ func (r ruleCommit) Condition(event *fsm.Event) bool {
 			Bool("r.reachedMaj()", r.reachedMaj()).
 			Msg("|||||| no consensus agreed")
 
-		if r.cfg.ProposerRotation.NoDelay {
+		if int(r.cfg.ProposerRotation.Interval) == 0 {
 			r.prnd.Do()
 		}
 		return true
@@ -51,7 +51,7 @@ func (r ruleCommit) Condition(event *fsm.Event) bool {
 		}
 	}
 
-	if r.cfg.ProposerRotation.NoDelay {
+	if int(r.cfg.ProposerRotation.Interval) == 0 {
 		r.prnd.Do()
 	}
 

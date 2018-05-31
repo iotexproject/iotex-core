@@ -41,7 +41,6 @@ consensus:
         proposerrotation:
             enabled: true
             interval: 3s
-            nodelay: true
         unmatchedeventttl: 3s
         acceptpropose:
             ttl: 1s
@@ -50,6 +49,9 @@ consensus:
         acceptvote:
             ttl: 1s
     blockcreationinterval: 1s
+
+blocksync:
+    interval: 3s
 
 delegate:
     addrs:

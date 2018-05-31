@@ -34,8 +34,6 @@ consensus:
     rolldpos:
         proposerrotation:
             enabled: true
-            interval: 1ms
-            nodelay: true
         unmatchedeventttl: 1000s
         acceptpropose:
             ttl: 1000s
@@ -44,6 +42,9 @@ consensus:
         acceptvote:
             ttl: 1000s
     blockcreationinterval: 1000s
+
+blocksync:
+    interval: 70ms
 
 delegate:
     addrs:

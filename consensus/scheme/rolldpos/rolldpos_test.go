@@ -88,8 +88,8 @@ func createTestRollDPoS(
 	}
 	if enableProposerRotation {
 		csCfg.ProposerRotation.Enabled = enableProposerRotation
-		csCfg.ProposerRotation.Interval = time.Second
 	}
+	csCfg.ProposerRotation.Interval = time.Second
 	mockFn(mocks{
 		dNet: dNet,
 		bc:   bc,
