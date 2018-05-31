@@ -110,3 +110,49 @@ func (m *MockStateFactory) RootHash() common.Hash32B {
 func (mr *MockStateFactoryMockRecorder) RootHash() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RootHash", reflect.TypeOf((*MockStateFactory)(nil).RootHash))
 }
+
+// Delegates mocks base method
+func (m *MockStateFactory) Delegates() []*statefactory.Candidate {
+	ret := m.ctrl.Call(m, "Delegates")
+	ret0, _ := ret[0].([]*statefactory.Candidate)
+	return ret0
+}
+
+// Delegates indicates an expected call of Delegates
+func (mr *MockStateFactoryMockRecorder) Delegates() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delegates", reflect.TypeOf((*MockStateFactory)(nil).Delegates))
+}
+
+// Candidates mocks base method
+func (m *MockStateFactory) Candidates() []*statefactory.Candidate {
+	ret := m.ctrl.Call(m, "Candidates")
+	ret0, _ := ret[0].([]*statefactory.Candidate)
+	return ret0
+}
+
+// Candidates indicates an expected call of Candidates
+func (mr *MockStateFactoryMockRecorder) Candidates() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Candidates", reflect.TypeOf((*MockStateFactory)(nil).Candidates))
+}
+
+// Buffer mocks base method
+func (m *MockStateFactory) Buffer() []*statefactory.Candidate {
+	ret := m.ctrl.Call(m, "Buffer")
+	ret0, _ := ret[0].([]*statefactory.Candidate)
+	return ret0
+}
+
+// Buffer indicates an expected call of Buffer
+func (mr *MockStateFactoryMockRecorder) Buffer() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Buffer", reflect.TypeOf((*MockStateFactory)(nil).Buffer))
+}
+
+// UpdateVotes mocks base method
+func (m *MockStateFactory) UpdateVotes(arg0 *statefactory.Candidate, arg1 *big.Int) {
+	m.ctrl.Call(m, "UpdateVotes", arg0, arg1)
+}
+
+// UpdateVotes indicates an expected call of UpdateVotes
+func (mr *MockStateFactoryMockRecorder) UpdateVotes(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateVotes", reflect.TypeOf((*MockStateFactory)(nil).UpdateVotes), arg0, arg1)
+}
