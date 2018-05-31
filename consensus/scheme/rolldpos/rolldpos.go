@@ -162,6 +162,15 @@ loop:
 			fErr := errors.Cause(err)
 			switch fErr {
 			case fsm.ErrStateHandlerNotMatched:
+				// if fsm state has not changed since message was last seen, write to done channel
+				if n.fsm.CurrentState() == r.SeenState && n.done != nil {
+					select {
+					case n.done <- true: // try to write to done if possible
+					default:
+					}
+				}
+				r.SeenState = n.fsm.CurrentState()
+
 				if r.ExpireAt == nil {
 					expireAt := time.Now().Add(n.cfg.UnmatchedEventTTL)
 					r.ExpireAt = &expireAt
