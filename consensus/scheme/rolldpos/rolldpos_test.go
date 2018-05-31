@@ -21,6 +21,7 @@ import (
 	cm "github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/fsm"
+	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/proto"
@@ -43,7 +44,8 @@ func createTestRollDPoS(
 	self net.Addr,
 	delegates []net.Addr,
 	mockFn mockFn,
-	enableProposerRotation bool) *RollDPoS {
+	enableProposerRotation bool,
+	prCb scheme.GetProposerCB) *RollDPoS {
 	bc := mock_blockchain.NewMockBlockchain(ctrl)
 
 	tp := txpool.New(bc)
@@ -99,7 +101,7 @@ func createTestRollDPoS(
 		tellblockCB,
 		commitBlockCB,
 		broadcastBlockCB,
-		FixedProposer,
+		prCb,
 		bc,
 		dNet.Self(),
 		dp)
@@ -183,7 +185,7 @@ func testByzantineFault(t *testing.T, proposerNode int) {
 			})
 			tcs.mocks = mcks
 		}
-		tcs.cs = createTestRollDPoS(ctrl, cur, delegates, m, false)
+		tcs.cs = createTestRollDPoS(ctrl, cur, delegates, m, false, FixedProposer)
 		tcs.cs.Start()
 		defer tcs.cs.Stop()
 		tcss[cur] = tcs
@@ -293,7 +295,7 @@ func TestRollDPoSFourTrustyNodes(t *testing.T) {
 			})
 			tcs.mocks = mcks
 		}
-		tcs.cs = createTestRollDPoS(ctrl, cur, delegates, m, false)
+		tcs.cs = createTestRollDPoS(ctrl, cur, delegates, m, false, FixedProposer)
 		tcs.cs.Start()
 		defer tcs.cs.Stop()
 		tcss[cur] = tcs
@@ -342,7 +344,7 @@ func TestRollDPoSConsumePROPOSE(t *testing.T) {
 		mcks.bc.EXPECT().ValidateBlock(gomock.Any()).AnyTimes()
 		mcks.bc.EXPECT().AddBlockCommit(gomock.Any()).Times(0)
 	}
-	cs := createTestRollDPoS(ctrl, delegates[0], delegates, m, false)
+	cs := createTestRollDPoS(ctrl, delegates[0], delegates, m, false, FixedProposer)
 	cs.Start()
 	defer cs.Stop()
 
@@ -376,7 +378,7 @@ func TestRollDPoSConsumeErrorStateHandlerNotMatched(t *testing.T) {
 		cm.NewTCPNode("192.168.0.2:10002"),
 	}
 	m := func(mcks mocks) {}
-	cs := createTestRollDPoS(ctrl, delegates[0], delegates, m, false)
+	cs := createTestRollDPoS(ctrl, delegates[0], delegates, m, false, FixedProposer)
 
 	cs.Start()
 	defer cs.Stop()

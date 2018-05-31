@@ -53,7 +53,7 @@ type rollDPoSCB struct {
 	voteCb scheme.TellPeerCB
 	consCb scheme.ConsensusDoneCB
 	pubCb  scheme.BroadcastCB
-	prCb   scheme.IsProposerCB
+	prCb   scheme.GetProposerCB
 }
 
 // RollDPoS is the RollDPoS consensus scheme
@@ -79,7 +79,7 @@ func NewRollDPoS(
 	vote scheme.TellPeerCB,
 	cons scheme.ConsensusDoneCB,
 	pub scheme.BroadcastCB,
-	pr scheme.IsProposerCB,
+	pr scheme.GetProposerCB,
 	bc blockchain.Blockchain,
 	myaddr net.Addr,
 	dlg delegate.Pool) *RollDPoS {

@@ -99,6 +99,7 @@ type Consensus struct {
 // RollDPoS is the config struct for RollDPoS consensus package
 type RollDPoS struct {
 	ProposerRotation  ProposerRotation
+	ProposerCB        string
 	UnmatchedEventTTL time.Duration
 	AcceptPropose     AcceptPropose
 	AcceptPrevote     AcceptPrevote

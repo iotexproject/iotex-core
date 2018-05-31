@@ -27,8 +27,8 @@ type ConsensusDoneCB func(*blockchain.Block) error
 // BroadcastCB defines the callback to publish the consensus result
 type BroadcastCB func(*blockchain.Block) error
 
-// IsProposerCB defines the callback to check the if itself is the the proposer for the coming round
-type IsProposerCB func(net.Addr, delegate.Pool, []byte, uint64) (bool, error)
+// GetProposerCB defines the callback to check the if itself is the the proposer for the coming round
+type GetProposerCB func(delegate.Pool, []byte, uint64, uint64) (net.Addr, error)
 
 // Scheme is the interface that consensus schemes should implement
 type Scheme interface {

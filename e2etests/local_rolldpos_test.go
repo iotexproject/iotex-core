@@ -24,14 +24,24 @@ const (
 	localRollDPoSConfig = "./config_local_rolldpos.yaml"
 )
 
-// 4 delegates and 3 full nodes
 func TestLocalRollDPoS(t *testing.T) {
+	t.Run("FixedProposer", func(t *testing.T) {
+		testLocalRollDPoS("FixedProposer", t)
+	})
+	t.Run("PseudoRotatedProposer", func(t *testing.T) {
+		testLocalRollDPoS("PseudoRotatedProposer", t)
+	})
+}
+
+// 4 delegates and 3 full nodes
+func testLocalRollDPoS(prCb string, t *testing.T) {
 	assert := assert.New(t)
 	flag.Parse()
 
 	cfg, err := config.LoadConfigWithPathWithoutValidation(localRollDPoSConfig)
 	// disable account-based testing
 	cfg.Chain.TrieDBPath = ""
+	cfg.Consensus.RollDPoS.ProposerCB = prCb
 	assert.Nil(err)
 
 	var svrs []itx.Server
