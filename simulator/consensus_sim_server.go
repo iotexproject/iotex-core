@@ -36,6 +36,7 @@ import (
 const (
 	port           = ":50051"
 	rolldposConfig = "./config_local_rolldpos_sim.yaml"
+	dummyMsgType   = 1999
 )
 
 // server is used to implement message.SimulatorServer.
@@ -127,7 +128,7 @@ func (s *server) Ping(in *pb.Request, stream pb.Simulator_PingServer) error {
 	s.nodes[in.PlayerID].SendUnsent()
 
 	// message type of 1999 means that it's a dummy message to allow the engine to pass back proposed blocks
-	if in.InternalMsgType != 1999 {
+	if in.InternalMsgType != dummyMsgType {
 		msg := consensus.CombineMsg(in.InternalMsgType, msgValue)
 		s.nodes[in.PlayerID].HandleViewChange(msg, done)
 		time.Sleep(5 * time.Millisecond)
