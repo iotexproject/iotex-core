@@ -51,17 +51,14 @@ func (trs TransitionRuleMap) Copy() TransitionRuleMap {
 
 // Event is holding request event info across the handler and the rule.
 type Event struct {
-	Err error
-
+	Err           error
 	State         State
 	StateTimedOut bool
-
-	Block     *blockchain.Block
-	BlockHash *common.Hash32B
-
-	SenderAddr net.Addr
-
-	ExpireAt *time.Time
+	Block         *blockchain.Block
+	BlockHash     *common.Hash32B
+	SenderAddr    net.Addr
+	ExpireAt      *time.Time
+	SeenState     State
 }
 
 // Rule condition is evaluated when state handler is called.
