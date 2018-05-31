@@ -86,7 +86,7 @@ func (b *Block) PrevHash() common.Hash32B {
 	return b.Header.prevBlockHash
 }
 
-// ByteStream returns a byte stream of the block header
+// ByteStreamHeader returns a byte stream of the block header
 func (b *Block) ByteStreamHeader() []byte {
 	stream := make([]byte, 4)
 	common.MachineEndian.PutUint32(stream, b.Header.version)

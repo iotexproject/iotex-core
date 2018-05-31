@@ -96,6 +96,11 @@ type Consensus struct {
 	BlockCreationInterval time.Duration
 }
 
+// BlockSync is the config struct for the BlockSync
+type BlockSync struct {
+	Interval time.Duration // update duration
+}
+
 // RollDPoS is the config struct for RollDPoS consensus package
 type RollDPoS struct {
 	ProposerRotation  ProposerRotation
@@ -112,8 +117,6 @@ type ProposerRotation struct {
 	Interval time.Duration
 	// Enabled flags whether we periodically rotate the proposer and trigger a new round of RollDPoS
 	Enabled bool
-	// NoDelay flags whether the consensus engine automatically goes to the start stage when it ends with no delay
-	NoDelay bool
 }
 
 // AcceptPropose is the RollDPoS AcceptPropose config
@@ -155,6 +158,7 @@ type Config struct {
 	Consensus Consensus
 	Delegate  Delegate
 	RPC       RPC
+	BlockSync BlockSync
 }
 
 // IsDelegate returns true if the node type is Delegate

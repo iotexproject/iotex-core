@@ -69,7 +69,7 @@ type RollDPoS struct {
 	eventChan chan *fsm.Event
 	cfg       config.RollDPoS
 	pr        *routine.RecurringTask
-	prnd      *ProposerRotation
+	prnd      *proposerRotation
 	done      chan bool
 }
 
@@ -100,10 +100,10 @@ func NewRollDPoS(
 		eventChan:  make(chan *fsm.Event, 100),
 		cfg:        cfg,
 	}
-	if cfg.ProposerRotation.NoDelay {
-		sc.prnd = NewProposerRotationNoDelay(sc)
+	if int(cfg.ProposerRotation.Interval) == 0 {
+		sc.prnd = newProposerRotationNoDelay(sc)
 	} else {
-		sc.pr = NewProposerRotation(sc)
+		sc.pr = newProposerRotation(sc)
 	}
 	sc.fsm = fsmCreate(sc)
 	return sc
@@ -115,7 +115,7 @@ func (n *RollDPoS) Start() error {
 
 	n.wg.Add(1)
 	go n.consume()
-	if n.cfg.ProposerRotation.NoDelay {
+	if int(n.cfg.ProposerRotation.Interval) == 0 {
 		n.prnd.Do()
 	} else if n.cfg.ProposerRotation.Enabled {
 		n.pr.Start()

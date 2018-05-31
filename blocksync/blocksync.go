@@ -66,18 +66,11 @@ type blockSyncer struct {
 
 // SyncTaskInterval returns the recurring sync task interval, or 0 if this config should not need to run sync task
 func SyncTaskInterval(cfg *config.Config) time.Duration {
-	interval := time.Duration(0)
-
 	if cfg.IsLightweight() {
-		return interval
+		return time.Duration(0)
 	}
 
-	switch cfg.Consensus.Scheme {
-	case config.RollDPoSScheme:
-		interval = cfg.Consensus.RollDPoS.ProposerRotation.Interval
-	default:
-		interval = cfg.Consensus.BlockCreationInterval
-	}
+	interval := cfg.BlockSync.Interval
 
 	if cfg.IsFullnode() {
 		// fullnode has less stringent requirement of staying in sync so can check less frequently
