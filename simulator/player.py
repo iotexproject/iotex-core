@@ -20,9 +20,10 @@ import consensus_client
 class Player:
     id = 0 # player id
     
-    MEAN_TX_FEE = 0.2                       # mean transaction fee
-    STD_TX_FEE  = 0.05                      # std of transaction fee
-    msgMap      = {(1999, ""): "dummy msg"} # maps message to message name for printing
+    MEAN_TX_FEE    = 0.2                                 # mean transaction fee
+    STD_TX_FEE     = 0.05                                # std of transaction fee
+    DUMMY_MSG_TYPE = 1999                                # if there are no messages to process, dummy message is sent to consensus engine
+    msgMap         = {(DUMMY_MSG_TYPE, ""): "dummy msg"} # maps message to message name for printing
 
     def __init__(self, stake):
         """Creates a new Player object"""
@@ -52,16 +53,15 @@ class Player:
         for msg, timestamp in self.inbound:
             print("received %s with timestamp %f" % (Player.msgMap[msg], timestamp))
 
-        if len(list(filter(lambda x: x[1] <= heartbeat, self.inbound))) == 0: # if there are no messages to process, add a "dummy" message so consensus engine is pinged anyways
-            self.inbound += [[(1999, ""), heartbeat]]
+        if len(list(filter(lambda x: x[1] <= heartbeat, self.inbound))) == 0:
+            self.inbound += [[(Player.DUMMY_MSG_TYPE, ""), heartbeat]]
 
         # process each message
         for msg, timestamp in self.inbound:
             # note: msg is a tuple: (msgType, msgBody)
             if timestamp > heartbeat: continue
 
-            # 1999 is dummy message
-            if msg[0] != 1999 and msg in self.seenMessages: continue
+            if msg[0] != Player.DUMMY_MSG_TYPE and msg in self.seenMessages: continue
             self.seenMessages.add(msg)
 
             print("sent %s to consensus engine" % Player.msgMap[msg])
@@ -78,7 +78,7 @@ class Player:
                     self.blockchain.append(v[1])
                     print("committed %s to blockchain" % Player.msgMap[v])
 
-            if msg[0] != 1999: self.outbound.append([msg, timestamp])
+            if msg[0] != Player.DUMMY_MSG_TYPE: self.outbound.append([msg, timestamp])
             
         self.inbound = list(filter(lambda x: x[1] > heartbeat, self.inbound)) # get rid of processed messages
         
