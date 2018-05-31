@@ -93,6 +93,7 @@ func (h *NilTimeout) TimeoutDuration() *time.Duration {
 
 // Machine is the state machine.
 type Machine struct {
+	name         string
 	state        State
 	initialState State
 	mu           sync.RWMutex
@@ -103,8 +104,8 @@ type Machine struct {
 }
 
 // NewMachine returns a state machine instance
-func NewMachine() Machine {
-	sm := Machine{}
+func NewMachine(name string) Machine {
+	sm := Machine{name: name}
 
 	sm.handlers = make(map[State]Handler)
 	sm.transitions = make(map[State]TransitionRuleMap)
@@ -292,6 +293,11 @@ func (m *Machine) transitionTo(dest State) error {
 		return errors.Wrapf(ErrStateUndefined, "state %s has not been registered", dest)
 	}
 
+	logger.Debug().
+		Str("name", m.name).
+		Str("src", string(m.state)).
+		Str("dst", string(dest)).
+		Msg("state transition")
 	m.state = dest
 
 	return nil

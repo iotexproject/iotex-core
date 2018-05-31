@@ -16,5 +16,7 @@ type ruleNotProposer struct {
 }
 
 func (r ruleNotProposer) Condition(event *fsm.Event) bool {
-	return event.State != stateInitPropose
+	// Proposer itself will be removed to START after committing the block. When receiving PROPOSE event at this moment,
+	// we should just ignore it to prevent taking another round of transition.
+	return (r.roundCtx == nil || !r.roundCtx.isPr) && event.State != stateInitPropose
 }

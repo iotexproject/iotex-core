@@ -38,7 +38,7 @@ func TestProposerRotation(t *testing.T) {
 		genesis := bc.NewGenesisBlock(bc.Gen)
 		mcks.bc.EXPECT().MintNewBlock(gomock.Any(), gomock.Any(), gomock.Any()).Return(genesis, nil).AnyTimes()
 	}
-	cs := createTestRollDPoS(ctrl, delegates[0], delegates, m, true, FixedProposer)
+	cs := createTestRollDPoS(ctrl, delegates[0], delegates, m, true, FixedProposer, nil)
 	cs.Start()
 	defer cs.Stop()
 
