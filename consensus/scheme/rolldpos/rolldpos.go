@@ -37,6 +37,12 @@ type roundCtx struct {
 	prevotes  map[net.Addr]*common.Hash32B
 	votes     map[net.Addr]*common.Hash32B
 	isPr      bool
+}
+
+// epochCtx keeps the context data for the current epoch
+type epochCtx struct {
+	// height means offset for current epoch (i.e., the height of the first block generated in this epoch)
+	height    uint64
 	delegates []net.Addr
 }
 
@@ -61,6 +67,7 @@ type RollDPoS struct {
 	rollDPoSCB
 	bc        blockchain.Blockchain
 	fsm       fsm.Machine
+	epochCtx  *epochCtx
 	roundCtx  *roundCtx
 	self      net.Addr
 	pool      delegate.Pool
@@ -70,6 +77,7 @@ type RollDPoS struct {
 	cfg       config.RollDPoS
 	pr        *routine.RecurringTask
 	prnd      *proposerRotation
+	epoch     *routine.DelayTask
 	done      chan bool
 }
 
@@ -105,27 +113,38 @@ func NewRollDPoS(
 	} else {
 		sc.pr = newProposerRotation(sc)
 	}
+	sc.epoch = routine.NewDelayTask(
+		func() {
+			sc.handleEvent(&fsm.Event{
+				State: stateRoundStart,
+			})
+		},
+		cfg.Delay,
+	)
 	sc.fsm = fsmCreate(sc)
 	return sc
 }
 
-// Start initialize the RollDPoS and start to consume requests from request channel.
+// Start initialize the RollDPoS and roundStart to consume requests from request channel.
 func (n *RollDPoS) Start() error {
-	logger.Info().Msg("Starting RollDPoS")
+	logger.Info().Str("name", n.self.String()).Msg("Starting RollDPoS")
 
 	n.wg.Add(1)
 	go n.consume()
 	if int(n.cfg.ProposerRotation.Interval) == 0 {
 		n.prnd.Do()
 	} else if n.cfg.ProposerRotation.Enabled {
+		n.pr.Init()
 		n.pr.Start()
 	}
+	n.epoch.Init()
+	n.epoch.Start()
 	return nil
 }
 
 // Stop stops the RollDPoS and stop consuming requests from request channel.
 func (n *RollDPoS) Stop() error {
-	logger.Info().Msg("RollDPoS is shutting down")
+	logger.Info().Str("name", n.self.String()).Msg("RollDPoS is shutting down")
 	close(n.quit)
 	n.wg.Wait()
 	return nil
@@ -138,15 +157,17 @@ func (n *RollDPoS) SetDoneStream(done chan bool) {
 
 // Handle handles incoming messages and publish to the channel.
 func (n *RollDPoS) Handle(m proto.Message) error {
-	logger.Debug().Msg("RollDPoS scheme handles incoming requests")
-
 	event, err := eventFromProto(m)
 	if err != nil {
 		return err
 	}
-
-	n.eventChan <- event
+	n.handleEvent(event)
 	return nil
+}
+
+func (n *RollDPoS) handleEvent(e *fsm.Event) {
+	logger.Debug().Msg("RollDPoS scheme handles incoming requests")
+	n.eventChan <- e
 }
 
 func (n *RollDPoS) consume() {

@@ -16,6 +16,7 @@ import (
 
 	bc "github.com/iotexproject/iotex-core/blockchain"
 	cm "github.com/iotexproject/iotex-core/common"
+	"github.com/iotexproject/iotex-core/consensus/fsm"
 	"github.com/iotexproject/iotex-core/delegate"
 	"github.com/iotexproject/iotex-core/test/mock/mock_delegate"
 )
@@ -34,19 +35,19 @@ func TestProposerRotation(t *testing.T) {
 	m := func(mcks mocks) {
 		mcks.dp.EXPECT().AllDelegates().Return(delegates, nil).AnyTimes()
 		mcks.dNet.EXPECT().Broadcast(gomock.Any()).AnyTimes()
-		mcks.bc.EXPECT().TipHeight().AnyTimes()
 		genesis := bc.NewGenesisBlock(bc.Gen)
 		mcks.bc.EXPECT().MintNewBlock(gomock.Any(), gomock.Any(), gomock.Any()).Return(genesis, nil).AnyTimes()
+		mcks.bc.EXPECT().TipHeight().Return(uint64(0), nil).AnyTimes()
 	}
 	cs := createTestRollDPoS(ctrl, delegates[0], delegates, m, true, FixedProposer, nil)
 	cs.Start()
 	defer cs.Stop()
+	cs.handleEvent(&fsm.Event{State: stateRoundStart})
 
 	time.Sleep(2 * time.Second)
 
 	assert.NotNil(t, cs.roundCtx)
 	assert.Equal(t, true, cs.roundCtx.isPr)
-	assert.Equal(t, delegates, cs.roundCtx.delegates)
 }
 
 func TestFixedProposer(t *testing.T) {

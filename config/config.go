@@ -109,6 +109,7 @@ type RollDPoS struct {
 	AcceptPropose     AcceptPropose
 	AcceptPrevote     AcceptPrevote
 	AcceptVote        AcceptVote
+	Delay             time.Duration
 }
 
 // ProposerRotation is the RollDPoS ProposerRotation config

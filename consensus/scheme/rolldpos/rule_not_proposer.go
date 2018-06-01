@@ -16,7 +16,10 @@ type ruleNotProposer struct {
 }
 
 func (r ruleNotProposer) Condition(event *fsm.Event) bool {
-	// Proposer itself will be removed to START after committing the block. When receiving PROPOSE event at this moment,
-	// we should just ignore it to prevent taking another round of transition.
-	return (r.roundCtx == nil || !r.roundCtx.isPr) && event.State != stateInitPropose
+	// Prevent automatically transiting to PROPOSER after going to ROUND_START
+	return event.State != stateRoundStart &&
+		// Prevent the node that will become the proposer
+		event.State != stateInitPropose &&
+		// Ignore the proposer event from the proposer node itself to prevent taking another round of transition
+		!(event.State == stateAcceptPropose && event.SenderAddr != nil && r.self.String() == event.SenderAddr.String())
 }

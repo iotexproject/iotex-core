@@ -48,6 +48,7 @@ consensus:
             ttl: 1s
         acceptvote:
             ttl: 1s
+        delay: 5s
     blockcreationinterval: 1s
 
 blocksync:

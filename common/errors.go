@@ -4,23 +4,11 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package rolldpos
+package common
 
-import (
-	"time"
+import "errors"
 
-	"github.com/iotexproject/iotex-core/consensus/fsm"
+var (
+	// ErrNotImplemented indicates the method is not implemented yet
+	ErrNotImplemented = errors.New("not implemented")
 )
-
-// acceptVote waits for 2k vote messages from others or timeout.
-type acceptVote struct {
-	*RollDPoS
-}
-
-func (h *acceptVote) TimeoutDuration() *time.Duration {
-	return &h.cfg.AcceptVote.TTL
-}
-
-func (h *acceptVote) Handle(event *fsm.Event) {
-	h.roundCtx.votes[event.SenderAddr] = event.BlockHash
-}

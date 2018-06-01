@@ -33,6 +33,7 @@ func TestAcceptPrevoteAndProceedToEnd(t *testing.T) {
 		mcks.dNet.EXPECT().Broadcast(gomock.Any()).AnyTimes()
 		mcks.bc.EXPECT().ValidateBlock(gomock.Any()).AnyTimes()
 		mcks.bc.EXPECT().AddBlockCommit(gomock.Any()).Times(1)
+		mcks.bc.EXPECT().TipHeight().Return(uint64(0), nil).AnyTimes()
 	}
 	cs := createTestRollDPoS(ctrl, delegates[0], delegates, m, false, FixedProposer, nil)
 	cs.Start()
@@ -42,15 +43,23 @@ func TestAcceptPrevoteAndProceedToEnd(t *testing.T) {
 	genesis := NewGenesisBlock(Gen)
 	blkHash := genesis.HashBlock()
 
-	// Accept PROPOSE and then prevote
+	// Accept ROUND_START and then propose
 	event := &fsm.Event{
+		State: stateRoundStart,
+	}
+	err := cs.fsm.HandleTransition(event)
+	assert.Error(t, err, "accept %s error", stateRoundStart)
+	assert.Equal(t, stateRoundStart, cs.fsm.CurrentState(), "current state %s", stateRoundStart)
+
+	// Accept PROPOSE and then prevote
+	event = &fsm.Event{
 		State:      stateAcceptPropose,
 		SenderAddr: delegates[1],
 		Block:      genesis,
 	}
-	err := cs.fsm.HandleTransition(event)
-	assert.NoError(t, err, "accept PROPOSE no error")
-	assert.Equal(t, fsm.State("PREVOTE"), cs.fsm.CurrentState(), "current state PREVOTE")
+	err = cs.fsm.HandleTransition(event)
+	assert.NoError(t, err, "accept %s no error", stateAcceptPropose)
+	assert.Equal(t, stateAcceptPrevote, cs.fsm.CurrentState(), "current state %s", stateAcceptPrevote)
 	assert.Equal(t, genesis, cs.roundCtx.block, "roundCtx.block set")
 	assert.Equal(t, &blkHash, cs.roundCtx.blockHash, "roundCtx.blockHash set")
 
@@ -61,8 +70,8 @@ func TestAcceptPrevoteAndProceedToEnd(t *testing.T) {
 		BlockHash:  &blkHash,
 	}
 	err = cs.fsm.HandleTransition(event)
-	assert.NoError(t, err, "accept PREVOTE no error")
-	assert.Equal(t, fsm.State("VOTE"), cs.fsm.CurrentState(), "current state VOTE")
+	assert.NoError(t, err, "accept %s no error", stateAcceptPrevote)
+	assert.Equal(t, stateAcceptVote, cs.fsm.CurrentState(), "current state %s", stateAcceptVote)
 	assert.Equal(
 		t,
 		map[net.Addr]*common.Hash32B{
@@ -80,8 +89,8 @@ func TestAcceptPrevoteAndProceedToEnd(t *testing.T) {
 		BlockHash:  &blkHash,
 	}
 	err = cs.fsm.HandleTransition(event)
-	assert.NoError(t, err, "accept VOTE no error")
-	assert.Equal(t, fsm.State("START"), cs.fsm.CurrentState(), "current state START")
+	assert.NoError(t, err, "accept %s no error", stateAcceptVote)
+	assert.Equal(t, stateRoundStart, cs.fsm.CurrentState(), "current state %s", stateRoundStart)
 	assert.Equal(
 		t,
 		map[net.Addr]*common.Hash32B{
@@ -109,6 +118,7 @@ func TestAcceptPrevoteAndTimeoutToEnd(t *testing.T) {
 		mcks.dNet.EXPECT().Broadcast(gomock.Any()).AnyTimes()
 		mcks.bc.EXPECT().ValidateBlock(gomock.Any()).Return(errors.New("error"))
 		mcks.bc.EXPECT().AddBlockCommit(gomock.Any()).Times(0)
+		mcks.bc.EXPECT().TipHeight().Return(uint64(0), nil).AnyTimes()
 	}
 	cs := createTestRollDPoS(ctrl, delegates[0], delegates, m, false, FixedProposer, nil)
 	cs.Start()
@@ -117,18 +127,31 @@ func TestAcceptPrevoteAndTimeoutToEnd(t *testing.T) {
 	// arrange proposal request
 	genesis := NewGenesisBlock(Gen)
 
-	// Accept PROPOSE and then prevote
+	// Accept ROUND_START and then propose
 	event := &fsm.Event{
+		State: stateRoundStart,
+	}
+	err := cs.fsm.HandleTransition(event)
+	assert.Error(t, err, "accept %s error", stateRoundStart)
+	assert.Equal(t, stateRoundStart, cs.fsm.CurrentState(), "current state %s", stateRoundStart)
+
+	// Accept PROPOSE and then prevote
+	event = &fsm.Event{
 		State:      stateAcceptPropose,
 		SenderAddr: delegates[1],
 		Block:      genesis,
 	}
-	err := cs.fsm.HandleTransition(event)
-	assert.NoError(t, err, "accept PROPOSE no error")
-	assert.Equal(t, fsm.State("PREVOTE"), cs.fsm.CurrentState(), "current state PREVOTE")
+	err = cs.fsm.HandleTransition(event)
+	assert.NoError(t, err, "accept %s no error", stateAcceptPropose)
+	assert.Equal(t, stateAcceptPrevote, cs.fsm.CurrentState(), "current state %s", stateAcceptPrevote)
 	assert.Nil(t, cs.roundCtx.block, "roundCtx.block nil")
 	assert.Nil(t, cs.roundCtx.blockHash, "roundCtx.blockHash nil")
 
 	time.Sleep(2 * time.Second)
-	assert.Equal(t, fsm.State("START"), cs.fsm.CurrentState(), "current state timeout back to START")
+	assert.Equal(
+		t,
+		fsm.State(stateRoundStart),
+		cs.fsm.CurrentState(),
+		"current state timeout back to %s",
+		stateRoundStart)
 }

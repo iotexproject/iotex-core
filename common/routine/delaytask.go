@@ -12,37 +12,34 @@ import (
 	"github.com/iotexproject/iotex-core/common/service"
 )
 
-// ITimeoutTaskHandler is the interface to implement the timeout task business logic
-type ITimeoutTaskHandler interface {
-	// Do is called on constant interval
-	Do()
-}
+// DelayTaskCB implements the timeout task business logic
+type DelayTaskCB func()
 
-// TimeoutTask represents a timeout task
-type TimeoutTask struct {
+// DelayTask represents a timeout task
+type DelayTask struct {
 	service.AbstractService
-	H        ITimeoutTaskHandler
+	cb       DelayTaskCB
 	Duration time.Duration
 	ch       chan interface{}
 }
 
-// NewTimeoutTask creates an instance of TimeoutTask
-func NewTimeoutTask(h ITimeoutTaskHandler, d time.Duration) *TimeoutTask {
-	return &TimeoutTask{
-		H:        h,
+// NewDelayTask creates an instance of DelayTask
+func NewDelayTask(cb DelayTaskCB, d time.Duration) *DelayTask {
+	return &DelayTask{
+		cb:       cb,
 		Duration: d,
 		ch:       make(chan interface{}, 1),
 	}
 }
 
 // Start starts the timeout
-func (t *TimeoutTask) Start() error {
+func (t *DelayTask) Start() error {
 	go func() {
 		select {
 		case <-t.ch:
 			return
 		case <-time.After(t.Duration):
-			t.H.Do()
+			t.cb()
 		}
 	}()
 
@@ -50,7 +47,7 @@ func (t *TimeoutTask) Start() error {
 }
 
 // Stop stops the timeout
-func (t *TimeoutTask) Stop() error {
+func (t *DelayTask) Stop() error {
 	t.ch <- struct{}{}
 	return nil
 }

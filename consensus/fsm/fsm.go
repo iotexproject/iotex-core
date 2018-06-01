@@ -94,7 +94,7 @@ type Machine struct {
 	state        State
 	initialState State
 	mu           sync.RWMutex
-	toTask       *routine.TimeoutTask
+	toTask       *routine.DelayTask
 
 	transitions map[State]TransitionRuleMap
 	handlers    map[State]Handler
@@ -191,32 +191,34 @@ func (m *Machine) isExpectedState(event *Event) bool {
 	return m.tryMoveToStartingState(event)
 }
 
-// returns true if the fsm is in the initial state and event is meant for a neighboring state; if so, transitions
+// returns true if the fsm is trying to move from the current state to a neighboring state defined in the event
 func (m *Machine) tryMoveToStartingState(event *Event) bool {
-	if m.state == m.initialState {
-		trm, err := m.transitionRules(m.initialState)
+	// TODO: Need to double check the impact of relax the following constraint
+	//if m.state == m.initialState {
+	//trm, err := m.transitionRules(m.initialState)
+	trm, err := m.transitionRules(m.state)
+	if err != nil {
+		return false
+	}
+	for dest, rule := range trm {
+		if dest != event.State {
+			continue
+		}
+
+		// now the event is targeting a starting state.
+		if !rule.Condition(event) {
+			return false
+		}
+
+		h := m.handlers[m.state]
+		h.Handle(event)
+		err := m.transitionAndSetupTimeout(dest, event)
 		if err != nil {
 			return false
 		}
-		for dest, rule := range trm {
-			if dest != event.State {
-				continue
-			}
-
-			// now the event is targeting a starting state.
-			if !rule.Condition(event) {
-				return false
-			}
-
-			err := m.transitionAndSetupTimeout(dest, event)
-			if err != nil {
-				return false
-			}
-			h := m.handlers[m.initialState]
-			h.Handle(event)
-			return true
-		}
+		return true
 	}
+	//}
 	return false
 }
 
@@ -314,28 +316,18 @@ func (m *Machine) transitionAndSetupTimeout(dest State, ctx *Event) error {
 	return nil
 }
 
-type task struct {
-	do func()
-}
-
-func (t *task) Do() {
-	t.do()
-}
-
 func (m *Machine) tryStartTimeout(state State) {
 	handler := m.handlers[state]
 	if handler.TimeoutDuration() == nil {
 		return
 	}
-	m.toTask = routine.NewTimeoutTask(
-		&task{
-			do: func() {
-				ctx := &Event{
-					StateTimedOut: true,
-					State:         state,
-				}
-				m.autoTransition(ctx)
-			},
+	m.toTask = routine.NewDelayTask(
+		func() {
+			ctx := &Event{
+				StateTimedOut: true,
+				State:         state,
+			}
+			m.autoTransition(ctx)
 		},
 		*handler.TimeoutDuration(),
 	)

@@ -118,7 +118,6 @@ type testCs struct {
 
 // 1 faulty node and 3 trusty nodes
 func TestByzantineFault(t *testing.T) {
-	t.Parallel()
 	tests := []struct {
 		desc         string
 		proposerNode int
@@ -168,6 +167,7 @@ func testByzantineFault(t *testing.T, proposerNode int) {
 			mcks.dp.EXPECT().AllDelegates().Return(delegates, nil).AnyTimes()
 			mcks.dNet.EXPECT().Self().Return(cur).AnyTimes()
 			mcks.bc.EXPECT().MintNewBlock(gomock.Any(), gomock.Any(), gomock.Any()).Return(genesis, nil).AnyTimes()
+			mcks.bc.EXPECT().TipHeight().Return(uint64(0), nil).AnyTimes()
 			mcks.bc.EXPECT().ValidateBlock(gomock.Any()).Do(func(blk *Block) error {
 				if blk == nil {
 					return errors.New("invalid block")
@@ -234,6 +234,12 @@ func testByzantineFault(t *testing.T, proposerNode int) {
 		}
 	}
 
+	for _, d := range delegates {
+		tcss[d].cs.fsm.HandleTransition(&fsm.Event{
+			State: stateRoundStart,
+		})
+	}
+
 	// act
 	// trigger proposerNode as proposer
 	tcss[delegates[proposerNode]].cs.fsm.HandleTransition(&fsm.Event{
@@ -243,7 +249,12 @@ func testByzantineFault(t *testing.T, proposerNode int) {
 	// assert
 	time.Sleep(time.Second)
 	for _, tcs := range tcss {
-		assert.Equal(t, fsm.State("START"), tcs.cs.fsm.CurrentState(), "back to START in the end")
+		assert.Equal(
+			t,
+			stateRoundStart,
+			tcs.cs.fsm.CurrentState(),
+			"back to %s in the end",
+			stateRoundStart)
 	}
 	voteStats(t, tcss)
 	if proposerNode == 0 {
@@ -270,8 +281,6 @@ func voteStats(t *testing.T, tcss map[net.Addr]testCs) {
 }
 
 func TestRollDPoSFourTrustyNodes(t *testing.T) {
-	t.Parallel()
-
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -296,6 +305,7 @@ func TestRollDPoSFourTrustyNodes(t *testing.T) {
 			mcks.dp.EXPECT().AllDelegates().Return(delegates, nil).AnyTimes()
 			mcks.dNet.EXPECT().Self().Return(cur).AnyTimes()
 			mcks.bc.EXPECT().MintNewBlock(gomock.Any(), gomock.Any(), gomock.Any()).Return(genesis, nil).AnyTimes()
+			mcks.bc.EXPECT().TipHeight().Return(uint64(0), nil).AnyTimes()
 			mcks.bc.EXPECT().ValidateBlock(gomock.Any()).AnyTimes()
 
 			// =====================
@@ -326,6 +336,12 @@ func TestRollDPoSFourTrustyNodes(t *testing.T) {
 		}).AnyTimes()
 	}
 
+	for _, d := range delegates {
+		tcss[d].cs.fsm.HandleTransition(&fsm.Event{
+			State: stateRoundStart,
+		})
+	}
+
 	// act
 	// trigger 2 as proposer
 	tcss[delegates[2]].cs.fsm.HandleTransition(&fsm.Event{
@@ -335,15 +351,17 @@ func TestRollDPoSFourTrustyNodes(t *testing.T) {
 	// assert
 	time.Sleep(time.Second)
 	for _, tcs := range tcss {
-		assert.Equal(t, fsm.State("START"), tcs.cs.fsm.CurrentState(), "back to START in the end")
+		assert.Equal(
+			t,
+			stateRoundStart,
+			tcs.cs.fsm.CurrentState(),
+			"back to %s in the end", stateRoundStart)
 	}
 	assert.Equal(t, 4, bcCnt)
 }
 
-// Delegate0 receives PROPOSE from Delegate1 and hence move to PREVOTE state and timeout to other states and finally to start
+// Delegate0 receives PROPOSE from Delegate1 and hence move to PREVOTE state and timeout to other states and finally to roundStart
 func TestRollDPoSConsumePROPOSE(t *testing.T) {
-	t.Parallel()
-
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -357,10 +375,15 @@ func TestRollDPoSConsumePROPOSE(t *testing.T) {
 		mcks.dNet.EXPECT().Broadcast(gomock.Any()).AnyTimes()
 		mcks.bc.EXPECT().ValidateBlock(gomock.Any()).AnyTimes()
 		mcks.bc.EXPECT().AddBlockCommit(gomock.Any()).Times(0)
+		mcks.bc.EXPECT().TipHeight().Return(uint64(0), nil).AnyTimes()
+
 	}
 	cs := createTestRollDPoS(ctrl, delegates[0], delegates, m, false, FixedProposer, nil)
 	cs.Start()
 	defer cs.Stop()
+	cs.fsm.HandleTransition(&fsm.Event{
+		State: stateRoundStart,
+	})
 
 	// arrange proposal request
 	genesis := NewGenesisBlock(Gen)
@@ -375,14 +398,17 @@ func TestRollDPoSConsumePROPOSE(t *testing.T) {
 
 	// assert
 	time.Sleep(time.Second)
-	assert.Equal(t, fsm.State("START"), cs.fsm.CurrentState(), "Back to start because of timeout")
+	assert.Equal(
+		t,
+		stateRoundStart,
+		cs.fsm.CurrentState(),
+		"Back to %s because of timeout",
+		stateRoundStart)
 	assert.Equal(t, genesis, cs.roundCtx.block)
 }
 
 // Delegate0 receives unmatched VOTE from Delegate1 and stays in START
 func TestRollDPoSConsumeErrorStateHandlerNotMatched(t *testing.T) {
-	t.Parallel()
-
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -391,11 +417,16 @@ func TestRollDPoSConsumeErrorStateHandlerNotMatched(t *testing.T) {
 		cm.NewTCPNode("192.168.0.1:10001"),
 		cm.NewTCPNode("192.168.0.2:10002"),
 	}
-	m := func(mcks mocks) {}
+	m := func(mcks mocks) {
+		mcks.bc.EXPECT().TipHeight().Return(uint64(0), nil).AnyTimes()
+	}
 	cs := createTestRollDPoS(ctrl, delegates[0], delegates, m, false, FixedProposer, nil)
 
 	cs.Start()
 	defer cs.Stop()
+	cs.fsm.HandleTransition(&fsm.Event{
+		State: stateRoundStart,
+	})
 
 	// arrange unmatched VOTE proposal request
 	proposal := &iproto.ViewChangeMsg{
@@ -409,5 +440,5 @@ func TestRollDPoSConsumeErrorStateHandlerNotMatched(t *testing.T) {
 
 	// assert
 	time.Sleep(time.Second)
-	assert.Equal(t, fsm.State("START"), cs.fsm.CurrentState())
+	assert.Equal(t, stateRoundStart, cs.fsm.CurrentState())
 }

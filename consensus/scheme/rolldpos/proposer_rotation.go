@@ -30,7 +30,9 @@ func (s *proposerRotation) Do() {
 		return
 	}
 	pr, err := s.prCb(s.pool, nil, 0, height)
-	if pr.String() != s.self.String() || (s.cfg.ProposerRotation.Interval != 0 && s.fsm.CurrentState() != stateStart) {
+	// If proposer is not the current node or it's not periodic proposer election on constant interval, then returns
+	if pr.String() != s.self.String() ||
+		(s.cfg.ProposerRotation.Interval != 0 && s.fsm.CurrentState() != stateRoundStart) {
 		return
 	}
 	logger.Warn().
@@ -38,9 +40,9 @@ func (s *proposerRotation) Do() {
 		Uint64("height", height+1).
 		Msg("Propose new block height")
 
-	s.eventChan <- &fsm.Event{
+	s.handleEvent(&fsm.Event{
 		State: stateInitPropose,
-	}
+	})
 }
 
 // newProposerRotationNoDelay creates a ProposerRotation object
@@ -73,7 +75,7 @@ func PseudoRotatedProposer(pool delegate.Pool, _ []byte, _ uint64, height uint64
 
 func getNonEmptyProposerList(pool delegate.Pool) ([]net.Addr, error) {
 	// TODO: Need to check if the node should panic if it's not able to get the delegates
-	// TODO: Get the delegates at the start of an epoch and put it into an epoch context
+	// TODO: Get the delegates at the roundStart of an epoch and put it into an epoch context
 	delegates, err := pool.AllDelegates()
 	if err != nil {
 		return nil, err
