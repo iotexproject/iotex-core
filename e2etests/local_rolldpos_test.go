@@ -17,6 +17,7 @@ import (
 	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/server/itx"
+	"github.com/iotexproject/iotex-core/test/util"
 )
 
 const (
@@ -73,7 +74,61 @@ func testLocalRollDPoS(prCb string, t *testing.T) {
 		defer svr.Stop()
 	}
 
-	time.Sleep(time.Second * 6)
+	check := util.CheckCondition(func() (bool, error) {
+		var hash1, hash2, hash3, hash4 common.Hash32B
+
+		for i, svr := range svrs {
+			bc := svr.Bc()
+			if bc == nil {
+				return false, nil
+			}
+
+			if i == 0 {
+				blk, err := bc.GetBlockByHeight(1)
+				if err != nil {
+					return false, nil
+				}
+				hash1 = blk.HashBlock()
+				blk, err = bc.GetBlockByHeight(2)
+				if err != nil {
+					return false, nil
+				}
+				hash2 = blk.HashBlock()
+				blk, err = bc.GetBlockByHeight(3)
+				if err != nil {
+					return false, nil
+				}
+				hash3 = blk.HashBlock()
+				blk, err = bc.GetBlockByHeight(4)
+				if err != nil {
+					return false, nil
+				}
+				hash4 = blk.HashBlock()
+				continue
+			}
+
+			// verify 4 received blocks
+			blk, err := bc.GetBlockByHeight(1)
+			if err != nil || hash1 != blk.HashBlock() {
+				return false, nil
+			}
+			blk, err = bc.GetBlockByHeight(2)
+			if err != nil || hash2 != blk.HashBlock() {
+				return false, nil
+			}
+			blk, err = bc.GetBlockByHeight(3)
+			if err != nil || hash3 != blk.HashBlock() {
+				return false, nil
+			}
+			blk, err = bc.GetBlockByHeight(4)
+			if err != nil || hash4 != blk.HashBlock() {
+				return false, nil
+			}
+		}
+		return true, nil
+	})
+	err = util.WaitUntil(time.Millisecond*200, time.Second*10, check)
+	assert.Nil(err)
 
 	var hash1, hash2, hash3, hash4 common.Hash32B
 
