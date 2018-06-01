@@ -64,8 +64,8 @@ func NewTxQueue() TxQueue {
 	return &txQueue{
 		items:          make(map[uint64]*trx.Transfer),
 		index:          noncePriorityQueue{},
-		confirmedNonce: uint64(1),
-		pendingNonce:   uint64(1),
+		confirmedNonce: uint64(1), // Taking coinbase Tx into account, confirmedNonce should start with 1
+		pendingNonce:   uint64(1), // Taking coinbase Tx into account, pendingNonce should start with 1
 		pendingBalance: big.NewInt(0),
 	}
 }

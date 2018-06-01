@@ -90,11 +90,11 @@ func (ap *actPool) Reset() {
 
 		// Reset confirmed nonce and pending nonce for each account
 		committedNonce, err := ap.sf.Nonce(from)
-		confirmedNonce := committedNonce + 1
 		if err != nil {
 			logger.Error().Err(err).Msg("Error when resetting Tx")
 			return
 		}
+		confirmedNonce := committedNonce + 1
 		queue.SetConfirmedNonce(confirmedNonce)
 		queue.UpdateNonce(confirmedNonce)
 	}
@@ -222,11 +222,11 @@ func (ap *actPool) AddTx(tx *trx.Transfer) error {
 func (ap *actPool) removeCommittedTxs() {
 	for from, queue := range ap.accountTxs {
 		committedNonce, err := ap.sf.Nonce(from)
-		confirmedNonce := committedNonce + 1
 		if err != nil {
 			logger.Error().Err(err).Msg("Error when removing commited Txs")
 			return
 		}
+		confirmedNonce := committedNonce + 1
 		// Remove all transactions that are committed to new block
 		for _, tx := range queue.FilterNonce(confirmedNonce) {
 			hash := tx.Hash()
