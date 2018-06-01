@@ -61,8 +61,12 @@ func TestActPool_validateTx(t *testing.T) {
 	err = ap.validateTx(&tx)
 	assert.NotNil(ErrBalance, errors.Cause(err))
 	// Case III: Nonce is too low
-	ap.sf.SetNonce(addr.RawAddress, uint64(1))
-	tx = trx.Transfer{Sender: addr.RawAddress, Nonce: uint64(0), Amount: big.NewInt(50)}
+	prevTx := trx.Transfer{Sender: addr.RawAddress, Recipient: addr.RawAddress, Nonce: uint64(1), Amount: big.NewInt(50)}
+	ap.AddTx(&prevTx)
+	err = ap.sf.CommitStateChanges([]*trx.Transfer{&prevTx}, nil)
+	assert.Nil(err)
+	ap.Reset()
+	tx = trx.Transfer{Sender: addr.RawAddress, Recipient: addr.RawAddress, Nonce: uint64(1), Amount: big.NewInt(60)}
 	err = ap.validateTx(&tx)
 	assert.Equal(ErrNonce, errors.Cause(err))
 }
@@ -90,14 +94,14 @@ func TestActPool_AddTx(t *testing.T) {
 		allTxs:     make(map[common.Hash32B]*trx.Transfer),
 	}
 	// Test actpool status after adding a sequence of Txs: need to check confirmed nonce, pending nonce, and pending balance
-	tx1 := trx.Transfer{Sender: addr1.RawAddress, Nonce: uint64(0), Amount: big.NewInt(10)}
-	tx2 := trx.Transfer{Sender: addr1.RawAddress, Nonce: uint64(1), Amount: big.NewInt(20)}
-	tx3 := trx.Transfer{Sender: addr1.RawAddress, Nonce: uint64(2), Amount: big.NewInt(30)}
-	tx4 := trx.Transfer{Sender: addr1.RawAddress, Nonce: uint64(3), Amount: big.NewInt(40)}
-	tx5 := trx.Transfer{Sender: addr1.RawAddress, Nonce: uint64(4), Amount: big.NewInt(50)}
-	tx6 := trx.Transfer{Sender: addr2.RawAddress, Nonce: uint64(0), Amount: big.NewInt(5)}
-	tx7 := trx.Transfer{Sender: addr2.RawAddress, Nonce: uint64(2), Amount: big.NewInt(1)}
-	tx8 := trx.Transfer{Sender: addr2.RawAddress, Nonce: uint64(3), Amount: big.NewInt(5)}
+	tx1 := trx.Transfer{Sender: addr1.RawAddress, Nonce: uint64(1), Amount: big.NewInt(10)}
+	tx2 := trx.Transfer{Sender: addr1.RawAddress, Nonce: uint64(2), Amount: big.NewInt(20)}
+	tx3 := trx.Transfer{Sender: addr1.RawAddress, Nonce: uint64(3), Amount: big.NewInt(30)}
+	tx4 := trx.Transfer{Sender: addr1.RawAddress, Nonce: uint64(4), Amount: big.NewInt(40)}
+	tx5 := trx.Transfer{Sender: addr1.RawAddress, Nonce: uint64(5), Amount: big.NewInt(50)}
+	tx6 := trx.Transfer{Sender: addr2.RawAddress, Nonce: uint64(1), Amount: big.NewInt(5)}
+	tx7 := trx.Transfer{Sender: addr2.RawAddress, Nonce: uint64(3), Amount: big.NewInt(1)}
+	tx8 := trx.Transfer{Sender: addr2.RawAddress, Nonce: uint64(4), Amount: big.NewInt(5)}
 
 	ap.AddTx(&tx1)
 	ap.AddTx(&tx2)
@@ -109,27 +113,27 @@ func TestActPool_AddTx(t *testing.T) {
 	ap.AddTx(&tx8)
 
 	cNonce1, _ := ap.getConfirmedNonce(addr1.RawAddress)
-	assert.Equal(uint64(4), cNonce1)
+	assert.Equal(uint64(5), cNonce1)
 	pBalance1, _ := ap.getPendingBalance(addr1.RawAddress)
 	assert.Equal(uint64(0), pBalance1.Uint64())
 	pNonce1, _ := ap.getPendingNonce(addr1.RawAddress)
-	assert.Equal(uint64(5), pNonce1)
+	assert.Equal(uint64(6), pNonce1)
 
 	cNonce2, _ := ap.getConfirmedNonce(addr2.RawAddress)
-	assert.Equal(uint64(1), cNonce2)
+	assert.Equal(uint64(2), cNonce2)
 	pBalance2, _ := ap.getPendingBalance(addr2.RawAddress)
 	assert.Equal(uint64(5), pBalance2.Uint64())
 	pNonce2, _ := ap.getPendingNonce(addr2.RawAddress)
-	assert.Equal(uint64(1), pNonce2)
+	assert.Equal(uint64(2), pNonce2)
 
-	tx9 := trx.Transfer{Sender: addr2.RawAddress, Nonce: uint64(1), Amount: big.NewInt(3)}
+	tx9 := trx.Transfer{Sender: addr2.RawAddress, Nonce: uint64(2), Amount: big.NewInt(3)}
 	ap.AddTx(&tx9)
 	cNonce2, _ = ap.getConfirmedNonce(addr2.RawAddress)
-	assert.Equal(uint64(3), cNonce2)
+	assert.Equal(uint64(4), cNonce2)
 	pBalance2, _ = ap.getPendingBalance(addr2.RawAddress)
 	assert.Equal(uint64(1), pBalance2.Uint64())
 	pNonce2, _ = ap.getPendingNonce(addr2.RawAddress)
-	assert.Equal(uint64(4), pNonce2)
+	assert.Equal(uint64(5), pNonce2)
 	// Error Case Handling
 	// Case I: Tx already exists in pool
 	err := ap.AddTx(&tx1)
@@ -145,16 +149,16 @@ func TestActPool_AddTx(t *testing.T) {
 	err = ap2.AddTx(&tx1)
 	assert.Equal(ErrActPool, errors.Cause(err))
 	// Case III: Nonce already exists
-	replaceTx := trx.Transfer{Sender: addr1.RawAddress, Nonce: uint64(0), Amount: big.NewInt(1)}
+	replaceTx := trx.Transfer{Sender: addr1.RawAddress, Nonce: uint64(1), Amount: big.NewInt(1)}
 	err = ap.AddTx(&replaceTx)
 	assert.Equal(ErrNonce, errors.Cause(err))
 	// Case IV: Queue space is full
-	for i := 5; i < AccountSlots; i++ {
+	for i := 6; i <= AccountSlots; i++ {
 		tx := trx.Transfer{Sender: addr1.RawAddress, Nonce: uint64(i), Amount: big.NewInt(1)}
 		err := ap.AddTx(&tx)
 		assert.Nil(err)
 	}
-	outOfBoundsTx := trx.Transfer{Sender: addr1.RawAddress, Nonce: uint64(AccountSlots), Amount: big.NewInt(1)}
+	outOfBoundsTx := trx.Transfer{Sender: addr1.RawAddress, Nonce: uint64(AccountSlots + 1), Amount: big.NewInt(1)}
 	err = ap.AddTx(&outOfBoundsTx)
 	assert.Equal(ErrActPool, errors.Cause(err))
 }
@@ -180,14 +184,14 @@ func TestActPool_PickTxs(t *testing.T) {
 		allTxs:     make(map[common.Hash32B]*trx.Transfer),
 	}
 
-	tx1 := trx.Transfer{Sender: addr1.RawAddress, Nonce: uint64(0), Amount: big.NewInt(10)}
-	tx2 := trx.Transfer{Sender: addr1.RawAddress, Nonce: uint64(1), Amount: big.NewInt(20)}
-	tx3 := trx.Transfer{Sender: addr1.RawAddress, Nonce: uint64(2), Amount: big.NewInt(30)}
-	tx4 := trx.Transfer{Sender: addr1.RawAddress, Nonce: uint64(3), Amount: big.NewInt(40)}
-	tx5 := trx.Transfer{Sender: addr1.RawAddress, Nonce: uint64(4), Amount: big.NewInt(50)}
-	tx6 := trx.Transfer{Sender: addr2.RawAddress, Nonce: uint64(1), Amount: big.NewInt(5)}
-	tx7 := trx.Transfer{Sender: addr2.RawAddress, Nonce: uint64(2), Amount: big.NewInt(1)}
-	tx8 := trx.Transfer{Sender: addr2.RawAddress, Nonce: uint64(4), Amount: big.NewInt(5)}
+	tx1 := trx.Transfer{Sender: addr1.RawAddress, Nonce: uint64(1), Amount: big.NewInt(10)}
+	tx2 := trx.Transfer{Sender: addr1.RawAddress, Nonce: uint64(2), Amount: big.NewInt(20)}
+	tx3 := trx.Transfer{Sender: addr1.RawAddress, Nonce: uint64(3), Amount: big.NewInt(30)}
+	tx4 := trx.Transfer{Sender: addr1.RawAddress, Nonce: uint64(4), Amount: big.NewInt(40)}
+	tx5 := trx.Transfer{Sender: addr1.RawAddress, Nonce: uint64(5), Amount: big.NewInt(50)}
+	tx6 := trx.Transfer{Sender: addr2.RawAddress, Nonce: uint64(2), Amount: big.NewInt(5)}
+	tx7 := trx.Transfer{Sender: addr2.RawAddress, Nonce: uint64(3), Amount: big.NewInt(1)}
+	tx8 := trx.Transfer{Sender: addr2.RawAddress, Nonce: uint64(5), Amount: big.NewInt(5)}
 
 	ap.AddTx(&tx1)
 	ap.AddTx(&tx2)
@@ -222,10 +226,10 @@ func TestActPool_removeCommittedTxs(t *testing.T) {
 		allTxs:     make(map[common.Hash32B]*trx.Transfer),
 	}
 
-	tx1 := trx.Transfer{Sender: addr.RawAddress, Nonce: uint64(0), Amount: big.NewInt(10)}
-	tx2 := trx.Transfer{Sender: addr.RawAddress, Nonce: uint64(1), Amount: big.NewInt(20)}
-	tx3 := trx.Transfer{Sender: addr.RawAddress, Nonce: uint64(2), Amount: big.NewInt(30)}
-	tx4 := trx.Transfer{Sender: addr.RawAddress, Nonce: uint64(3), Amount: big.NewInt(40)}
+	tx1 := trx.Transfer{Sender: addr.RawAddress, Recipient: addr.RawAddress, Nonce: uint64(1), Amount: big.NewInt(10)}
+	tx2 := trx.Transfer{Sender: addr.RawAddress, Recipient: addr.RawAddress, Nonce: uint64(2), Amount: big.NewInt(20)}
+	tx3 := trx.Transfer{Sender: addr.RawAddress, Recipient: addr.RawAddress, Nonce: uint64(3), Amount: big.NewInt(30)}
+	tx4 := trx.Transfer{Sender: addr.RawAddress, Recipient: addr.RawAddress, Nonce: uint64(4), Amount: big.NewInt(40)}
 
 	ap.AddTx(&tx1)
 	ap.AddTx(&tx2)
@@ -234,7 +238,7 @@ func TestActPool_removeCommittedTxs(t *testing.T) {
 
 	assert.Equal(4, len(ap.allTxs))
 	assert.NotNil(ap.accountTxs[addr.RawAddress])
-	err := ap.sf.SetNonce(addr.RawAddress, ap.accountTxs[addr.RawAddress].ConfirmedNonce())
+	err := ap.sf.CommitStateChanges([]*trx.Transfer{&tx1, &tx2, &tx3, &tx4}, nil)
 	assert.Nil(err)
 	ap.removeCommittedTxs()
 	assert.Equal(0, len(ap.allTxs))
@@ -273,15 +277,15 @@ func TestActPool_Reset(t *testing.T) {
 	}
 
 	// Txs to be added to ap1
-	tx1 := trx.Transfer{Sender: addr1.RawAddress, Recipient: addr2.RawAddress, Nonce: uint64(0), Amount: big.NewInt(50)}
-	tx2 := trx.Transfer{Sender: addr1.RawAddress, Recipient: addr3.RawAddress, Nonce: uint64(1), Amount: big.NewInt(30)}
-	tx3 := trx.Transfer{Sender: addr1.RawAddress, Recipient: addr2.RawAddress, Nonce: uint64(2), Amount: big.NewInt(60)}
-	tx4 := trx.Transfer{Sender: addr2.RawAddress, Recipient: addr1.RawAddress, Nonce: uint64(0), Amount: big.NewInt(100)}
-	tx5 := trx.Transfer{Sender: addr2.RawAddress, Recipient: addr3.RawAddress, Nonce: uint64(1), Amount: big.NewInt(50)}
-	tx6 := trx.Transfer{Sender: addr2.RawAddress, Recipient: addr1.RawAddress, Nonce: uint64(2), Amount: big.NewInt(60)}
-	tx7 := trx.Transfer{Sender: addr3.RawAddress, Recipient: addr1.RawAddress, Nonce: uint64(0), Amount: big.NewInt(100)}
-	tx8 := trx.Transfer{Sender: addr3.RawAddress, Recipient: addr2.RawAddress, Nonce: uint64(1), Amount: big.NewInt(100)}
-	tx9 := trx.Transfer{Sender: addr3.RawAddress, Recipient: addr1.RawAddress, Nonce: uint64(3), Amount: big.NewInt(100)}
+	tx1 := trx.Transfer{Sender: addr1.RawAddress, Recipient: addr2.RawAddress, Nonce: uint64(1), Amount: big.NewInt(50)}
+	tx2 := trx.Transfer{Sender: addr1.RawAddress, Recipient: addr3.RawAddress, Nonce: uint64(2), Amount: big.NewInt(30)}
+	tx3 := trx.Transfer{Sender: addr1.RawAddress, Recipient: addr2.RawAddress, Nonce: uint64(3), Amount: big.NewInt(60)}
+	tx4 := trx.Transfer{Sender: addr2.RawAddress, Recipient: addr1.RawAddress, Nonce: uint64(1), Amount: big.NewInt(100)}
+	tx5 := trx.Transfer{Sender: addr2.RawAddress, Recipient: addr3.RawAddress, Nonce: uint64(2), Amount: big.NewInt(50)}
+	tx6 := trx.Transfer{Sender: addr2.RawAddress, Recipient: addr1.RawAddress, Nonce: uint64(3), Amount: big.NewInt(60)}
+	tx7 := trx.Transfer{Sender: addr3.RawAddress, Recipient: addr1.RawAddress, Nonce: uint64(1), Amount: big.NewInt(100)}
+	tx8 := trx.Transfer{Sender: addr3.RawAddress, Recipient: addr2.RawAddress, Nonce: uint64(2), Amount: big.NewInt(100)}
+	tx9 := trx.Transfer{Sender: addr3.RawAddress, Recipient: addr1.RawAddress, Nonce: uint64(4), Amount: big.NewInt(100)}
 
 	ap1.AddTx(&tx1)
 	ap1.AddTx(&tx2)
@@ -293,11 +297,11 @@ func TestActPool_Reset(t *testing.T) {
 	ap1.AddTx(&tx8)
 	ap1.AddTx(&tx9)
 	// Txs to be added to ap2 only
-	tx10 := trx.Transfer{Sender: addr1.RawAddress, Recipient: addr2.RawAddress, Nonce: uint64(2), Amount: big.NewInt(20)}
-	tx11 := trx.Transfer{Sender: addr1.RawAddress, Recipient: addr3.RawAddress, Nonce: uint64(3), Amount: big.NewInt(10)}
-	tx12 := trx.Transfer{Sender: addr2.RawAddress, Recipient: addr3.RawAddress, Nonce: uint64(1), Amount: big.NewInt(70)}
-	tx13 := trx.Transfer{Sender: addr3.RawAddress, Recipient: addr1.RawAddress, Nonce: uint64(0), Amount: big.NewInt(200)}
-	tx14 := trx.Transfer{Sender: addr3.RawAddress, Recipient: addr2.RawAddress, Nonce: uint64(1), Amount: big.NewInt(50)}
+	tx10 := trx.Transfer{Sender: addr1.RawAddress, Recipient: addr2.RawAddress, Nonce: uint64(3), Amount: big.NewInt(20)}
+	tx11 := trx.Transfer{Sender: addr1.RawAddress, Recipient: addr3.RawAddress, Nonce: uint64(4), Amount: big.NewInt(10)}
+	tx12 := trx.Transfer{Sender: addr2.RawAddress, Recipient: addr3.RawAddress, Nonce: uint64(2), Amount: big.NewInt(70)}
+	tx13 := trx.Transfer{Sender: addr3.RawAddress, Recipient: addr1.RawAddress, Nonce: uint64(1), Amount: big.NewInt(200)}
+	tx14 := trx.Transfer{Sender: addr3.RawAddress, Recipient: addr2.RawAddress, Nonce: uint64(2), Amount: big.NewInt(50)}
 
 	ap2.AddTx(&tx1)
 	ap2.AddTx(&tx2)
@@ -312,58 +316,54 @@ func TestActPool_Reset(t *testing.T) {
 	// ap1
 	// Addr1
 	ap1CNonce1, _ := ap1.getConfirmedNonce(addr1.RawAddress)
-	assert.Equal(uint64(2), ap1CNonce1)
+	assert.Equal(uint64(3), ap1CNonce1)
 	ap1PNonce1, _ := ap1.getPendingNonce(addr1.RawAddress)
-	assert.Equal(uint64(3), ap1PNonce1)
+	assert.Equal(uint64(4), ap1PNonce1)
 	ap1PBalance1, _ := ap1.getPendingBalance(addr1.RawAddress)
 	assert.Equal(big.NewInt(20).Uint64(), ap1PBalance1.Uint64())
 	// Addr2
 	ap1CNonce2, _ := ap1.getConfirmedNonce(addr2.RawAddress)
-	assert.Equal(uint64(2), ap1CNonce2)
+	assert.Equal(uint64(3), ap1CNonce2)
 	ap1PNonce2, _ := ap1.getPendingNonce(addr2.RawAddress)
-	assert.Equal(uint64(3), ap1PNonce2)
+	assert.Equal(uint64(4), ap1PNonce2)
 	ap1PBalance2, _ := ap1.getPendingBalance(addr2.RawAddress)
 	assert.Equal(big.NewInt(50).Uint64(), ap1PBalance2.Uint64())
 	// Addr3
 	ap1CNonce3, _ := ap1.getConfirmedNonce(addr3.RawAddress)
-	assert.Equal(uint64(2), ap1CNonce3)
+	assert.Equal(uint64(3), ap1CNonce3)
 	ap1PNonce3, _ := ap1.getPendingNonce(addr3.RawAddress)
-	assert.Equal(uint64(2), ap1PNonce3)
+	assert.Equal(uint64(3), ap1PNonce3)
 	ap1PBalance3, _ := ap1.getPendingBalance(addr3.RawAddress)
 	assert.Equal(big.NewInt(100).Uint64(), ap1PBalance3.Uint64())
 	// ap2
 	// Addr1
 	ap2CNonce1, _ := ap2.getConfirmedNonce(addr1.RawAddress)
-	assert.Equal(uint64(3), ap2CNonce1)
+	assert.Equal(uint64(4), ap2CNonce1)
 	ap2PNonce1, _ := ap2.getPendingNonce(addr1.RawAddress)
-	assert.Equal(uint64(4), ap2PNonce1)
+	assert.Equal(uint64(5), ap2PNonce1)
 	ap2PBalance1, _ := ap2.getPendingBalance(addr1.RawAddress)
 	assert.Equal(big.NewInt(0).Uint64(), ap2PBalance1.Uint64())
 	// Addr2
 	ap2CNonce2, _ := ap2.getConfirmedNonce(addr2.RawAddress)
-	assert.Equal(uint64(2), ap2CNonce2)
+	assert.Equal(uint64(3), ap2CNonce2)
 	ap2PNonce2, _ := ap2.getPendingNonce(addr2.RawAddress)
-	assert.Equal(uint64(2), ap2PNonce2)
+	assert.Equal(uint64(3), ap2PNonce2)
 	ap2PBalance2, _ := ap2.getPendingBalance(addr2.RawAddress)
 	assert.Equal(big.NewInt(30).Uint64(), ap2PBalance2.Uint64())
 	// Addr3
 	ap2CNonce3, _ := ap2.getConfirmedNonce(addr3.RawAddress)
-	assert.Equal(uint64(2), ap2CNonce3)
+	assert.Equal(uint64(3), ap2CNonce3)
 	ap2PNonce3, _ := ap2.getPendingNonce(addr3.RawAddress)
-	assert.Equal(uint64(2), ap2PNonce3)
+	assert.Equal(uint64(3), ap2PNonce3)
 	ap2PBalance3, _ := ap2.getPendingBalance(addr3.RawAddress)
 	assert.Equal(big.NewInt(50).Uint64(), ap2PBalance3.Uint64())
 	// Let ap1 be BP's actpool
 	pickedTxs, _ := ap1.PickTxs()
-	// ap1 commits update of balance to trie
+	// ap1 commits update of balance and nonce to trie
 	for _, txs := range pickedTxs {
 		err := ap1.sf.CommitStateChanges(txs, nil)
 		assert.Nil(err)
 	}
-	// ap1 commits update of nonce to trie
-	ap1.sf.SetNonce(addr1.RawAddress, ap1CNonce1)
-	ap1.sf.SetNonce(addr2.RawAddress, ap1CNonce2)
-	ap1.sf.SetNonce(addr3.RawAddress, ap1CNonce3)
 	//Reset
 	ap1.Reset()
 	ap2.Reset()
@@ -371,56 +371,56 @@ func TestActPool_Reset(t *testing.T) {
 	// ap1
 	// Addr1
 	ap1CNonce1, _ = ap1.getConfirmedNonce(addr1.RawAddress)
-	assert.Equal(uint64(3), ap1CNonce1)
+	assert.Equal(uint64(4), ap1CNonce1)
 	ap1PNonce1, _ = ap1.getPendingNonce(addr1.RawAddress)
-	assert.Equal(uint64(3), ap1PNonce1)
+	assert.Equal(uint64(4), ap1PNonce1)
 	ap1PBalance1, _ = ap1.getPendingBalance(addr1.RawAddress)
 	assert.Equal(big.NewInt(160).Uint64(), ap1PBalance1.Uint64())
 	// Addr2
 	ap1CNonce2, _ = ap1.getConfirmedNonce(addr2.RawAddress)
-	assert.Equal(uint64(3), ap1CNonce2)
+	assert.Equal(uint64(4), ap1CNonce2)
 	ap1PNonce2, _ = ap1.getPendingNonce(addr2.RawAddress)
-	assert.Equal(uint64(3), ap1PNonce2)
+	assert.Equal(uint64(4), ap1PNonce2)
 	ap1PBalance2, _ = ap1.getPendingBalance(addr2.RawAddress)
 	assert.Equal(big.NewInt(140).Uint64(), ap1PBalance2.Uint64())
 	// Addr3
 	ap1CNonce3, _ = ap1.getConfirmedNonce(addr3.RawAddress)
-	assert.Equal(uint64(2), ap1CNonce3)
+	assert.Equal(uint64(3), ap1CNonce3)
 	ap1PNonce3, _ = ap1.getPendingNonce(addr3.RawAddress)
-	assert.Equal(uint64(2), ap1PNonce3)
+	assert.Equal(uint64(3), ap1PNonce3)
 	ap1PBalance3, _ = ap1.getPendingBalance(addr3.RawAddress)
 	assert.Equal(big.NewInt(180).Uint64(), ap1PBalance3.Uint64())
 	// ap2
 	// Addr1
 	ap2CNonce1, _ = ap2.getConfirmedNonce(addr1.RawAddress)
-	assert.Equal(uint64(4), ap2CNonce1)
+	assert.Equal(uint64(5), ap2CNonce1)
 	ap2PNonce1, _ = ap2.getPendingNonce(addr1.RawAddress)
-	assert.Equal(uint64(4), ap2PNonce1)
+	assert.Equal(uint64(5), ap2PNonce1)
 	ap2PBalance1, _ = ap2.getPendingBalance(addr1.RawAddress)
 	assert.Equal(big.NewInt(190).Uint64(), ap2PBalance1.Uint64())
 	// Addr2
 	ap2CNonce2, _ = ap2.getConfirmedNonce(addr2.RawAddress)
-	assert.Equal(uint64(2), ap2CNonce2)
+	assert.Equal(uint64(3), ap2CNonce2)
 	ap2PNonce2, _ = ap2.getPendingNonce(addr2.RawAddress)
-	assert.Equal(uint64(2), ap2PNonce2)
+	assert.Equal(uint64(3), ap2PNonce2)
 	ap2PBalance2, _ = ap2.getPendingBalance(addr2.RawAddress)
 	assert.Equal(big.NewInt(200).Uint64(), ap2PBalance2.Uint64())
 	// Addr3
 	ap2CNonce3, _ = ap2.getConfirmedNonce(addr3.RawAddress)
-	assert.Equal(uint64(2), ap2CNonce3)
+	assert.Equal(uint64(3), ap2CNonce3)
 	ap2PNonce3, _ = ap2.getPendingNonce(addr3.RawAddress)
-	assert.Equal(uint64(2), ap2PNonce3)
+	assert.Equal(uint64(3), ap2PNonce3)
 	ap2PBalance3, _ = ap2.getPendingBalance(addr3.RawAddress)
 	assert.Equal(big.NewInt(180).Uint64(), ap2PBalance3.Uint64())
 	// Add more Txs after resetting
 	// Txs To be added to ap1 only
-	tx15 := trx.Transfer{Sender: addr3.RawAddress, Recipient: addr2.RawAddress, Nonce: uint64(2), Amount: big.NewInt(80)}
+	tx15 := trx.Transfer{Sender: addr3.RawAddress, Recipient: addr2.RawAddress, Nonce: uint64(3), Amount: big.NewInt(80)}
 	// Txs To be added to ap2 only
-	tx16 := trx.Transfer{Sender: addr1.RawAddress, Recipient: addr2.RawAddress, Nonce: uint64(4), Amount: big.NewInt(150)}
-	tx17 := trx.Transfer{Sender: addr2.RawAddress, Recipient: addr1.RawAddress, Nonce: uint64(2), Amount: big.NewInt(90)}
-	tx18 := trx.Transfer{Sender: addr2.RawAddress, Recipient: addr3.RawAddress, Nonce: uint64(3), Amount: big.NewInt(100)}
-	tx19 := trx.Transfer{Sender: addr2.RawAddress, Recipient: addr1.RawAddress, Nonce: uint64(4), Amount: big.NewInt(50)}
-	tx20 := trx.Transfer{Sender: addr3.RawAddress, Recipient: addr2.RawAddress, Nonce: uint64(2), Amount: big.NewInt(200)}
+	tx16 := trx.Transfer{Sender: addr1.RawAddress, Recipient: addr2.RawAddress, Nonce: uint64(5), Amount: big.NewInt(150)}
+	tx17 := trx.Transfer{Sender: addr2.RawAddress, Recipient: addr1.RawAddress, Nonce: uint64(3), Amount: big.NewInt(90)}
+	tx18 := trx.Transfer{Sender: addr2.RawAddress, Recipient: addr3.RawAddress, Nonce: uint64(4), Amount: big.NewInt(100)}
+	tx19 := trx.Transfer{Sender: addr2.RawAddress, Recipient: addr1.RawAddress, Nonce: uint64(5), Amount: big.NewInt(50)}
+	tx20 := trx.Transfer{Sender: addr3.RawAddress, Recipient: addr2.RawAddress, Nonce: uint64(3), Amount: big.NewInt(200)}
 
 	ap1.AddTx(&tx15)
 	ap2.AddTx(&tx16)
@@ -432,58 +432,54 @@ func TestActPool_Reset(t *testing.T) {
 	// ap1
 	// Addr1
 	ap1CNonce1, _ = ap1.getConfirmedNonce(addr1.RawAddress)
-	assert.Equal(uint64(3), ap1CNonce1)
+	assert.Equal(uint64(4), ap1CNonce1)
 	ap1PNonce1, _ = ap1.getPendingNonce(addr1.RawAddress)
-	assert.Equal(uint64(3), ap1PNonce1)
+	assert.Equal(uint64(4), ap1PNonce1)
 	ap1PBalance1, _ = ap1.getPendingBalance(addr1.RawAddress)
 	assert.Equal(big.NewInt(160).Uint64(), ap1PBalance1.Uint64())
 	// Addr2
 	ap1CNonce2, _ = ap1.getConfirmedNonce(addr2.RawAddress)
-	assert.Equal(uint64(3), ap1CNonce2)
+	assert.Equal(uint64(4), ap1CNonce2)
 	ap1PNonce2, _ = ap1.getPendingNonce(addr2.RawAddress)
-	assert.Equal(uint64(3), ap1PNonce2)
+	assert.Equal(uint64(4), ap1PNonce2)
 	ap1PBalance2, _ = ap1.getPendingBalance(addr2.RawAddress)
 	assert.Equal(big.NewInt(140).Uint64(), ap1PBalance2.Uint64())
 	// Addr3
 	ap1CNonce3, _ = ap1.getConfirmedNonce(addr3.RawAddress)
-	assert.Equal(uint64(4), ap1CNonce3)
+	assert.Equal(uint64(5), ap1CNonce3)
 	ap1PNonce3, _ = ap1.getPendingNonce(addr3.RawAddress)
-	assert.Equal(uint64(4), ap1PNonce3)
+	assert.Equal(uint64(5), ap1PNonce3)
 	ap1PBalance3, _ = ap1.getPendingBalance(addr3.RawAddress)
 	assert.Equal(big.NewInt(0).Uint64(), ap1PBalance3.Uint64())
 	// ap2
 	// Addr1
 	ap2CNonce1, _ = ap2.getConfirmedNonce(addr1.RawAddress)
-	assert.Equal(uint64(5), ap2CNonce1)
+	assert.Equal(uint64(6), ap2CNonce1)
 	ap2PNonce1, _ = ap2.getPendingNonce(addr1.RawAddress)
-	assert.Equal(uint64(5), ap2PNonce1)
+	assert.Equal(uint64(6), ap2PNonce1)
 	ap2PBalance1, _ = ap2.getPendingBalance(addr1.RawAddress)
 	assert.Equal(big.NewInt(40).Uint64(), ap2PBalance1.Uint64())
 	// Addr2
 	ap2CNonce2, _ = ap2.getConfirmedNonce(addr2.RawAddress)
-	assert.Equal(uint64(4), ap2CNonce2)
+	assert.Equal(uint64(5), ap2CNonce2)
 	ap2PNonce2, _ = ap2.getPendingNonce(addr2.RawAddress)
-	assert.Equal(uint64(5), ap2PNonce2)
+	assert.Equal(uint64(6), ap2PNonce2)
 	ap2PBalance2, _ = ap2.getPendingBalance(addr2.RawAddress)
 	assert.Equal(big.NewInt(10).Uint64(), ap2PBalance2.Uint64())
 	// Addr3
 	ap2CNonce3, _ = ap2.getConfirmedNonce(addr3.RawAddress)
-	assert.Equal(uint64(2), ap2CNonce3)
+	assert.Equal(uint64(3), ap2CNonce3)
 	ap2PNonce3, _ = ap2.getPendingNonce(addr3.RawAddress)
-	assert.Equal(uint64(4), ap2PNonce3)
+	assert.Equal(uint64(5), ap2PNonce3)
 	ap2PBalance3, _ = ap2.getPendingBalance(addr3.RawAddress)
 	assert.Equal(big.NewInt(180).Uint64(), ap2PBalance3.Uint64())
 	// Let ap2 be BP's actpool
 	pickedTxs, _ = ap2.PickTxs()
-	// ap2 commits update of balance to trie
+	// ap2 commits update of balance and nonce to trie
 	for _, txs := range pickedTxs {
 		err := ap2.sf.CommitStateChanges(txs, nil)
 		assert.Nil(err)
 	}
-	// ap2 commits update of nonce to trie
-	ap2.sf.SetNonce(addr1.RawAddress, ap2CNonce1)
-	ap2.sf.SetNonce(addr2.RawAddress, ap2CNonce2)
-	ap2.sf.SetNonce(addr3.RawAddress, ap2CNonce3)
 	//Reset
 	ap1.Reset()
 	ap2.Reset()
@@ -491,45 +487,45 @@ func TestActPool_Reset(t *testing.T) {
 	// ap1
 	// Addr1
 	ap1CNonce1, _ = ap1.getConfirmedNonce(addr1.RawAddress)
-	assert.Equal(uint64(5), ap1CNonce1)
+	assert.Equal(uint64(6), ap1CNonce1)
 	ap1PNonce1, _ = ap1.getPendingNonce(addr1.RawAddress)
-	assert.Equal(uint64(5), ap1PNonce1)
+	assert.Equal(uint64(6), ap1PNonce1)
 	ap1PBalance1, _ = ap1.getPendingBalance(addr1.RawAddress)
 	assert.Equal(big.NewInt(130).Uint64(), ap1PBalance1.Uint64())
 	// Addr2
 	ap1CNonce2, _ = ap1.getConfirmedNonce(addr2.RawAddress)
-	assert.Equal(uint64(4), ap1CNonce2)
+	assert.Equal(uint64(5), ap1CNonce2)
 	ap1PNonce2, _ = ap1.getPendingNonce(addr2.RawAddress)
-	assert.Equal(uint64(4), ap1PNonce2)
+	assert.Equal(uint64(5), ap1PNonce2)
 	ap1PBalance2, _ = ap1.getPendingBalance(addr2.RawAddress)
 	assert.Equal(big.NewInt(180).Uint64(), ap1PBalance2.Uint64())
 	// Addr3
 	ap1CNonce3, _ = ap1.getConfirmedNonce(addr3.RawAddress)
-	assert.Equal(uint64(4), ap1CNonce3)
+	assert.Equal(uint64(5), ap1CNonce3)
 	ap1PNonce3, _ = ap1.getPendingNonce(addr3.RawAddress)
-	assert.Equal(uint64(4), ap1PNonce3)
+	assert.Equal(uint64(5), ap1PNonce3)
 	ap1PBalance3, _ = ap1.getPendingBalance(addr3.RawAddress)
 	assert.Equal(big.NewInt(110).Uint64(), ap1PBalance3.Uint64())
 	// ap2
 	// Addr1
 	ap2CNonce1, _ = ap2.getConfirmedNonce(addr1.RawAddress)
-	assert.Equal(uint64(5), ap2CNonce1)
+	assert.Equal(uint64(6), ap2CNonce1)
 	ap2PNonce1, _ = ap2.getPendingNonce(addr1.RawAddress)
-	assert.Equal(uint64(5), ap2PNonce1)
+	assert.Equal(uint64(6), ap2PNonce1)
 	ap2PBalance1, _ = ap2.getPendingBalance(addr1.RawAddress)
 	assert.Equal(big.NewInt(130).Uint64(), ap2PBalance1.Uint64())
 	// Addr2
 	ap2CNonce2, _ = ap2.getConfirmedNonce(addr2.RawAddress)
-	assert.Equal(uint64(5), ap2CNonce2)
+	assert.Equal(uint64(6), ap2CNonce2)
 	ap2PNonce2, _ = ap2.getPendingNonce(addr2.RawAddress)
-	assert.Equal(uint64(5), ap2PNonce2)
+	assert.Equal(uint64(6), ap2PNonce2)
 	ap2PBalance2, _ = ap2.getPendingBalance(addr2.RawAddress)
 	assert.Equal(big.NewInt(130).Uint64(), ap2PBalance2.Uint64())
 	// Addr3
 	ap2CNonce3, _ = ap2.getConfirmedNonce(addr3.RawAddress)
-	assert.Equal(uint64(3), ap2CNonce3)
+	assert.Equal(uint64(4), ap2CNonce3)
 	ap2PNonce3, _ = ap2.getPendingNonce(addr3.RawAddress)
-	assert.Equal(uint64(4), ap2PNonce3)
+	assert.Equal(uint64(5), ap2PNonce3)
 	ap2PBalance3, _ = ap2.getPendingBalance(addr3.RawAddress)
 	assert.Equal(big.NewInt(90).Uint64(), ap2PBalance3.Uint64())
 }
@@ -539,7 +535,9 @@ func (ap *actPool) getConfirmedNonce(addr string) (uint64, error) {
 	if queue, ok := ap.accountTxs[addr]; ok {
 		return queue.ConfirmedNonce(), nil
 	}
-	return ap.sf.Nonce(addr)
+	committedNonce, err := ap.sf.Nonce(addr)
+	confirmedNonce := committedNonce + 1
+	return confirmedNonce, err
 }
 
 // Helper function to return the correct pending nonce just in case of empty queue
@@ -547,7 +545,9 @@ func (ap *actPool) getPendingNonce(addr string) (uint64, error) {
 	if queue, ok := ap.accountTxs[addr]; ok {
 		return queue.PendingNonce(), nil
 	}
-	return ap.sf.Nonce(addr)
+	committedNonce, err := ap.sf.Nonce(addr)
+	pendingNonce := committedNonce + 1
+	return pendingNonce, err
 }
 
 // Helper function to return the correct pending balance just in case of empty queue
