@@ -11,6 +11,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blocksync"
+	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
@@ -136,5 +137,5 @@ func (c *consensus) HandleViewChange(m proto.Message, done chan bool) error {
 
 // HandleBlockPropose handles a proposed block
 func (c *consensus) HandleBlockPropose(m proto.Message, done chan bool) error {
-	return nil
+	return common.ErrNotImplemented
 }

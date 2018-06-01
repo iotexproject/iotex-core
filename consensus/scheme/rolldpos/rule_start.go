@@ -6,22 +6,12 @@
 
 package rolldpos
 
-import (
-	"time"
+import "github.com/iotexproject/iotex-core/consensus/fsm"
 
-	"github.com/iotexproject/iotex-core/consensus/fsm"
-)
-
-// acceptPropose waits for the proposed block and validate or timeout.
-type acceptPropose struct {
+type ruleStart struct {
 	*RollDPoS
 }
 
-func (h *acceptPropose) TimeoutDuration() *time.Duration {
-	return &h.cfg.AcceptPropose.TTL
-}
-
-func (h *acceptPropose) Handle(event *fsm.Event) {
-	h.roundCtx.prevotes[event.SenderAddr] = event.BlockHash
-	event.Err = h.bc.ValidateBlock(event.Block)
+func (r ruleStart) Condition(event *fsm.Event) bool {
+	return event.State == stateRoundStart
 }

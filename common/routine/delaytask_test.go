@@ -14,17 +14,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-type MockHandler struct {
-	Done bool
-}
-
-func (h *MockHandler) Do() {
-	h.Done = true
-}
-
-func TestTimeoutTaskTimeout(t *testing.T) {
-	h := &MockHandler{}
-	task := routine.NewTimeoutTask(h, 100*time.Millisecond)
+func TestDelayTaskTimeout(t *testing.T) {
+	c := make(chan bool)
+	task := routine.NewDelayTask(func() { c <- true }, 100*time.Millisecond)
 	task.Init()
 	task.Start()
 	defer func() {
@@ -32,16 +24,19 @@ func TestTimeoutTaskTimeout(t *testing.T) {
 	}()
 
 	time.Sleep(600 * time.Millisecond)
-	assert.True(t, h.Done, "Do executed")
+	assert.True(t, <-c, "Do executed")
 }
 
-func TestTimeoutTaskStop(t *testing.T) {
-	h := &MockHandler{}
-	task := routine.NewTimeoutTask(h, 100*time.Millisecond)
+func TestDelayTaskStop(t *testing.T) {
+	c := make(chan bool)
+	task := routine.NewDelayTask(func() { c <- true }, 100*time.Millisecond)
 	task.Init()
 	task.Start()
 	task.Stop()
 
-	time.Sleep(600 * time.Millisecond)
-	assert.False(t, h.Done, "Do not executed because stopped")
+	select {
+	case <-c:
+		t.Fail()
+	case <-time.After(600 * time.Millisecond):
+	}
 }

@@ -64,5 +64,5 @@ func (r ruleCommit) reachedMaj() bool {
 			agreed++
 		}
 	}
-	return agreed >= len(r.roundCtx.delegates)*2/3+1
+	return agreed >= len(r.epochCtx.delegates)*2/3+1
 }
