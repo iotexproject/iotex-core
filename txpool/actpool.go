@@ -90,12 +90,13 @@ func (ap *actPool) Reset() {
 
 		// Reset confirmed nonce and pending nonce for each account
 		committedNonce, err := ap.sf.Nonce(from)
+		confirmedNonce := committedNonce + 1
 		if err != nil {
 			logger.Error().Err(err).Msg("Error when resetting Tx")
 			return
 		}
-		queue.SetConfirmedNonce(committedNonce)
-		queue.UpdateNonce(committedNonce)
+		queue.SetConfirmedNonce(confirmedNonce)
+		queue.UpdateNonce(confirmedNonce)
 	}
 }
 
@@ -127,12 +128,13 @@ func (ap *actPool) validateTx(tx *trx.Transfer) error {
 		return ErrInvalidAddr
 	}
 	// Reject transaction if nonce is too low
-	nonce, err := ap.sf.Nonce(tx.Sender)
+	committedNonce, err := ap.sf.Nonce(tx.Sender)
 	if err != nil {
 		logger.Error().Err(err).Msg("Error when validating Tx")
 		return err
 	}
-	if nonce > tx.Nonce {
+	confirmedNonce := committedNonce + 1
+	if confirmedNonce > tx.Nonce {
 		return errors.Wrapf(ErrNonce, "nonce too low")
 	}
 	return nil
@@ -175,13 +177,14 @@ func (ap *actPool) AddTx(tx *trx.Transfer) error {
 		queue = NewTxQueue()
 		ap.accountTxs[tx.Sender] = queue
 		// Initialize pending nonce and confirmed nonce for new account
-		nonce, err := ap.sf.Nonce(tx.Sender)
+		committedNonce, err := ap.sf.Nonce(tx.Sender)
 		if err != nil {
 			logger.Error().Err(err).Msg("Error when adding Tx")
 			return err
 		}
-		queue.SetPendingNonce(nonce)
-		queue.SetConfirmedNonce(nonce)
+		confirmedNonce := committedNonce + 1
+		queue.SetPendingNonce(confirmedNonce)
+		queue.SetConfirmedNonce(confirmedNonce)
 		// Initialize balance for new account
 		balance, err := ap.sf.Balance(tx.Sender)
 		if err != nil {
@@ -219,12 +222,13 @@ func (ap *actPool) AddTx(tx *trx.Transfer) error {
 func (ap *actPool) removeCommittedTxs() {
 	for from, queue := range ap.accountTxs {
 		committedNonce, err := ap.sf.Nonce(from)
+		confirmedNonce := committedNonce + 1
 		if err != nil {
 			logger.Error().Err(err).Msg("Error when removing commited Txs")
 			return
 		}
 		// Remove all transactions that are committed to new block
-		for _, tx := range queue.FilterNonce(committedNonce) {
+		for _, tx := range queue.FilterNonce(confirmedNonce) {
 			hash := tx.Hash()
 			logger.Info().
 				Bytes("hash", hash[:]).
