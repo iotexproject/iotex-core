@@ -23,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/server/itx"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
+	"github.com/iotexproject/iotex-core/test/util"
 )
 
 const (
@@ -161,6 +162,7 @@ func TestLocalCommit(t *testing.T) {
 	p2.Broadcast(blk3.ConvertToBlockPb())
 	time.Sleep(time.Second)
 
+	// TODO: TipHeight should be 8 here
 	height, err = bc.TipHeight()
 	assert.Nil(err)
 	t.Log("----- Block height = ", height)
@@ -261,7 +263,27 @@ func TestLocalSync(t *testing.T) {
 
 	// P1 download 4 blocks from P2
 	p1.Tell(cm.NewTCPNode(p2.PRC.Addr), &iproto.BlockSync{1, 4})
-	time.Sleep(time.Millisecond * 1500)
+	check := util.CheckCondition(func() (bool, error) {
+		blk1, err := bc1.GetBlockByHeight(1)
+		if err != nil {
+			return false, nil
+		}
+		blk2, err := bc1.GetBlockByHeight(2)
+		if err != nil {
+			return false, nil
+		}
+		blk3, err := bc1.GetBlockByHeight(3)
+		if err != nil {
+			return false, nil
+		}
+		blk4, err := bc1.GetBlockByHeight(4)
+		if err != nil {
+			return false, nil
+		}
+		return hash1 == blk1.HashBlock() && hash2 == blk2.HashBlock() && hash3 == blk3.HashBlock() && hash4 == blk4.HashBlock(), nil
+	})
+	err = util.WaitUntil(time.Millisecond*10, time.Millisecond*2000, check)
+	assert.Nil(err)
 
 	// verify 4 received blocks
 	blk, err = bc1.GetBlockByHeight(1)
