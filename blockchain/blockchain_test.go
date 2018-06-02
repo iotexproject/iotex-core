@@ -14,8 +14,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	trx "github.com/iotexproject/iotex-core/blockchain/trx"
+	"github.com/iotexproject/iotex-core/blockchain/trx"
 	"github.com/iotexproject/iotex-core/common"
+	"github.com/iotexproject/iotex-core/common/utils"
 	"github.com/iotexproject/iotex-core/config"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 )
@@ -157,9 +158,15 @@ func TestCreateBlockchain(t *testing.T) {
 }
 
 func TestLoadBlockchainfromDB(t *testing.T) {
-	defer os.Remove(testDBPath)
 	assert := assert.New(t)
-
+	cleanup := func() {
+		if utils.FileExists(testDBPath) {
+			err := os.Remove(testDBPath)
+			assert.Nil(err)
+		}
+	}
+	cleanup()
+	defer cleanup()
 	config, err := config.LoadConfigWithPathWithoutValidation(testingConfigPath)
 	assert.Nil(err)
 	config.Chain.ChainDBPath = testDBPath

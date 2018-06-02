@@ -35,7 +35,6 @@ lint:
 
 .PHONY: test
 test: fmt
-	rm -f ./e2etests/db.test
 	$(GOTEST) -short ./...
 
 .PHONY: mockgen
@@ -52,7 +51,6 @@ clean:
 	rm -f ./bin/$(BUILD_TARGET_SERVER)
 	rm -f ./bin/$(BUILD_TARGET_TXINJ)
 	rm -f chain.db
-	rm -f ./e2etests/*.db
 	rm -f block.dat
 
 .PHONY: run
