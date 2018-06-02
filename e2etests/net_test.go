@@ -7,7 +7,6 @@
 package e2etests
 
 import (
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -27,8 +26,8 @@ func TestNetSync(t *testing.T) {
 	}
 
 	assert := assert.New(t)
-	os.Remove(testDBPath)
-	defer os.Remove(testDBPath)
+	//os.Remove(testDBPath)
+	//defer os.Remove(testDBPath)
 
 	config, err := config.LoadConfigWithPathWithoutValidation(localFullnodeConfig)
 	// disable account-based testing
@@ -39,7 +38,7 @@ func TestNetSync(t *testing.T) {
 	}
 
 	// create node
-	svr := itx.NewServer(*config)
+	svr := itx.NewTestServer(*config)
 	assert.NotNil(svr)
 	err = svr.Init()
 	assert.Nil(err)

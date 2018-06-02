@@ -33,26 +33,16 @@ type Server struct {
 
 // NewServer creates a new server
 func NewServer(cfg config.Config) Server {
-	// create Blockchain and TxPool
+	// create Blockchain
 	bc := blockchain.CreateBlockchain(&cfg, blockchain.Gen)
-	tp := txpool.New(bc)
+	return newServer(cfg, bc)
+}
 
-	// create P2P network and BlockSync
-	o := network.NewOverlay(&cfg.Network)
-	pool := delegate.NewConfigBasedPool(&cfg.Delegate)
-	bs := blocksync.NewBlockSyncer(&cfg, bc, tp, o, pool)
-
-	// create dispatcher instance
-	dp := dispatcher.NewDispatcher(&cfg, bc, tp, bs, pool)
-	o.AttachDispatcher(dp)
-
-	return Server{
-		bc:  bc,
-		tp:  tp,
-		o:   o,
-		dp:  dp,
-		cfg: cfg,
-	}
+// NewTestServer creates a new test server
+func NewTestServer(cfg config.Config) Server {
+	// create Test Blockchain
+	bc := blockchain.CreateTestBlockchain(&cfg, blockchain.Gen)
+	return newServer(cfg, bc)
 }
 
 // Init initialize the server
@@ -100,4 +90,26 @@ func (s *Server) P2p() *network.Overlay {
 // Dp returns the Dispatcher
 func (s *Server) Dp() cm.Dispatcher {
 	return s.dp
+}
+
+func newServer(cfg config.Config, bc blockchain.Blockchain) Server {
+	// create TxPool
+	tp := txpool.New(bc)
+
+	// create P2P network and BlockSync
+	o := network.NewOverlay(&cfg.Network)
+	pool := delegate.NewConfigBasedPool(&cfg.Delegate)
+	bs := blocksync.NewBlockSyncer(&cfg, bc, tp, o, pool)
+
+	// create dispatcher instance
+	dp := dispatcher.NewDispatcher(&cfg, bc, tp, bs, pool)
+	o.AttachDispatcher(dp)
+
+	return Server{
+		bc:  bc,
+		tp:  tp,
+		o:   o,
+		dp:  dp,
+		cfg: cfg,
+	}
 }

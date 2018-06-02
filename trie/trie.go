@@ -64,11 +64,16 @@ func NewTrie(path string) (Trie, error) {
 	if dao == nil {
 		return nil, errors.New("Cannot create boltDB file")
 	}
-	t := trie{dao: dao, root: &branch{}, toRoot: list.New(), bucket: trieKVNameSpace, numEntry: 1, numBranch: 1}
-	if err := dao.Start(); err != nil {
-		return nil, err
+	return newTrie(dao)
+}
+
+// NewTestTrie creates a test trie with in-memory KV store
+func NewTestTrie() (Trie, error) {
+	dao := db.NewMemKVStore()
+	if dao == nil {
+		return nil, errors.New("Cannot create in-memory KV store")
 	}
-	return &t, nil
+	return newTrie(dao)
 }
 
 // Close close the DB
@@ -394,6 +399,15 @@ func (t *trie) updateDelete(curr patricia, currClps bool, clpsType byte) error {
 //======================================
 // helper functions to operate patricia
 //======================================
+// newTrie creates a trie
+func newTrie(dao db.KVStore) (Trie, error) {
+	t := trie{dao: dao, root: &branch{}, toRoot: list.New(), bucket: trieKVNameSpace, numEntry: 1, numBranch: 1}
+	if err := dao.Start(); err != nil {
+		return nil, err
+	}
+	return &t, nil
+}
+
 // getPatricia retrieves the patricia node from DB according to key
 func (t *trie) getPatricia(key []byte) (patricia, error) {
 	node, err := t.dao.Get(t.bucket, key)

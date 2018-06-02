@@ -105,19 +105,17 @@ func addTestingBlocks(bc Blockchain) error {
 }
 
 func TestCreateBlockchain(t *testing.T) {
-	defer os.Remove(testDBPath)
 	assert := assert.New(t)
 
 	config, err := config.LoadConfigWithPathWithoutValidation(testingConfigPath)
 	assert.Nil(err)
-	config.Chain.ChainDBPath = testDBPath
 	// disable account-based testing
 	config.Chain.TrieDBPath = ""
 	// Disable block reward to make bookkeeping easier
 	Gen.BlockReward = uint64(0)
 
 	// create chain
-	bc := CreateBlockchain(config, Gen)
+	bc := CreateTestBlockchain(config, Gen)
 	assert.NotNil(bc)
 	height, err := bc.TipHeight()
 	assert.Nil(err)
@@ -275,16 +273,13 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 }
 
 func TestEmptyBlockOnlyHasCoinbaseTx(t *testing.T) {
-	defer os.Remove(testDBPath)
-
 	config, err := config.LoadConfigWithPathWithoutValidation(testingConfigPath)
 	assert.Nil(t, err)
-	config.Chain.ChainDBPath = testDBPath
 	// disable account-based testing
 	config.Chain.TrieDBPath = ""
 	Gen.BlockReward = uint64(7777)
 
-	bc := CreateBlockchain(config, Gen)
+	bc := CreateTestBlockchain(config, Gen)
 	defer bc.Stop()
 	assert.NotNil(t, bc)
 

@@ -51,7 +51,7 @@ func testLocalRollDPoS(prCb string, t *testing.T) {
 		cfg.Chain.ChainDBPath = "./test_fullnode_chain" + strconv.Itoa(i) + ".db"
 		cfg.NodeType = config.FullNodeType
 		cfg.Network.Addr = "127.0.0.1:5000" + strconv.Itoa(i)
-		svr := itx.NewServer(*cfg)
+		svr := itx.NewTestServer(*cfg)
 		err = svr.Init()
 		assert.Nil(err)
 		err = svr.Start()
@@ -65,7 +65,7 @@ func testLocalRollDPoS(prCb string, t *testing.T) {
 		cfg.NodeType = config.DelegateType
 		cfg.Network.Addr = "127.0.0.1:4000" + strconv.Itoa(i)
 		cfg.Consensus.Scheme = config.RollDPoSScheme
-		svr := itx.NewServer(*cfg)
+		svr := itx.NewTestServer(*cfg)
 		err = svr.Init()
 		assert.Nil(err)
 		err = svr.Start()
