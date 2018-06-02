@@ -6,7 +6,7 @@ package mock_statefactory
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	trx "github.com/iotexproject/iotex-core/blockchain/trx"
+	action "github.com/iotexproject/iotex-core/blockchain/action"
 	common "github.com/iotexproject/iotex-core/common"
 	statefactory "github.com/iotexproject/iotex-core/statefactory"
 	big "math/big"
@@ -63,7 +63,7 @@ func (mr *MockStateFactoryMockRecorder) Balance(arg0 interface{}) *gomock.Call {
 }
 
 // CommitStateChanges mocks base method
-func (m *MockStateFactory) CommitStateChanges(arg0 []*trx.Transfer, arg1 []*trx.Vote) error {
+func (m *MockStateFactory) CommitStateChanges(arg0 []*action.Transfer, arg1 []*action.Vote) error {
 	ret := m.ctrl.Call(m, "CommitStateChanges", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -133,26 +133,4 @@ func (m *MockStateFactory) Candidates() []*statefactory.Candidate {
 // Candidates indicates an expected call of Candidates
 func (mr *MockStateFactoryMockRecorder) Candidates() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Candidates", reflect.TypeOf((*MockStateFactory)(nil).Candidates))
-}
-
-// Buffer mocks base method
-func (m *MockStateFactory) Buffer() []*statefactory.Candidate {
-	ret := m.ctrl.Call(m, "Buffer")
-	ret0, _ := ret[0].([]*statefactory.Candidate)
-	return ret0
-}
-
-// Buffer indicates an expected call of Buffer
-func (mr *MockStateFactoryMockRecorder) Buffer() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Buffer", reflect.TypeOf((*MockStateFactory)(nil).Buffer))
-}
-
-// UpdateVotes mocks base method
-func (m *MockStateFactory) UpdateVotes(arg0 *statefactory.Candidate, arg1 *big.Int) {
-	m.ctrl.Call(m, "UpdateVotes", arg0, arg1)
-}
-
-// UpdateVotes indicates an expected call of UpdateVotes
-func (mr *MockStateFactoryMockRecorder) UpdateVotes(arg0, arg1 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateVotes", reflect.TypeOf((*MockStateFactory)(nil).UpdateVotes), arg0, arg1)
 }

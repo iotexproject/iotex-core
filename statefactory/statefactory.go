@@ -15,7 +15,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	trx "github.com/iotexproject/iotex-core/blockchain/trx"
+	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/trie"
@@ -77,7 +77,7 @@ type (
 	StateFactory interface {
 		CreateState(string, uint64) (*State, error)
 		Balance(string) (*big.Int, error)
-		CommitStateChanges([]*trx.Transfer, []*trx.Vote) error
+		CommitStateChanges([]*action.Transfer, []*action.Vote) error
 		SetNonce(string, uint64) error
 		Nonce(string) (uint64, error)
 		RootHash() common.Hash32B
@@ -228,7 +228,7 @@ func (sf *stateFactory) RootHash() common.Hash32B {
 }
 
 // CommitStateChanges updates a State from the given actions
-func (sf *stateFactory) CommitStateChanges(tsf []*trx.Transfer, vote []*trx.Vote) error {
+func (sf *stateFactory) CommitStateChanges(tsf []*action.Transfer, vote []*action.Vote) error {
 	pending := make(map[common.PKHash]*State)
 	for _, tx := range tsf {
 		var pubKeyHash common.PKHash

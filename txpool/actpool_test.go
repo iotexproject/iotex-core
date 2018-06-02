@@ -17,7 +17,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 
-	trx "github.com/iotexproject/iotex-core/blockchain/trx"
+	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
@@ -47,26 +47,26 @@ func TestActPool_validateTx(t *testing.T) {
 	ap := &actPool{
 		sf:         sf,
 		accountTxs: make(map[string]TxQueue),
-		allTxs:     make(map[common.Hash32B]*trx.Transfer),
+		allTxs:     make(map[common.Hash32B]*action.Transfer),
 	}
 	// Case I: Oversized Data
 	payload := []byte{}
 	tmpPayload := [32769]byte{}
 	payload = tmpPayload[:]
-	tx := trx.Transfer{Payload: payload}
+	tx := action.Transfer{Payload: payload}
 	err := ap.validateTx(&tx)
 	assert.Equal(ErrActPool, errors.Cause(err))
 	// Case II: Negative Amount
-	tx = trx.Transfer{Amount: big.NewInt(-100)}
+	tx = action.Transfer{Amount: big.NewInt(-100)}
 	err = ap.validateTx(&tx)
 	assert.NotNil(ErrBalance, errors.Cause(err))
 	// Case III: Nonce is too low
-	prevTx := trx.Transfer{Sender: addr.RawAddress, Recipient: addr.RawAddress, Nonce: uint64(1), Amount: big.NewInt(50)}
+	prevTx := action.Transfer{Sender: addr.RawAddress, Recipient: addr.RawAddress, Nonce: uint64(1), Amount: big.NewInt(50)}
 	ap.AddTx(&prevTx)
-	err = ap.sf.CommitStateChanges([]*trx.Transfer{&prevTx}, nil)
+	err = ap.sf.CommitStateChanges([]*action.Transfer{&prevTx}, nil)
 	assert.Nil(err)
 	ap.Reset()
-	tx = trx.Transfer{Sender: addr.RawAddress, Recipient: addr.RawAddress, Nonce: uint64(1), Amount: big.NewInt(60)}
+	tx = action.Transfer{Sender: addr.RawAddress, Recipient: addr.RawAddress, Nonce: uint64(1), Amount: big.NewInt(60)}
 	err = ap.validateTx(&tx)
 	assert.Equal(ErrNonce, errors.Cause(err))
 }
@@ -91,17 +91,17 @@ func TestActPool_AddTx(t *testing.T) {
 	ap := &actPool{
 		sf:         sf,
 		accountTxs: make(map[string]TxQueue),
-		allTxs:     make(map[common.Hash32B]*trx.Transfer),
+		allTxs:     make(map[common.Hash32B]*action.Transfer),
 	}
 	// Test actpool status after adding a sequence of Txs: need to check confirmed nonce, pending nonce, and pending balance
-	tx1 := trx.Transfer{Sender: addr1.RawAddress, Nonce: uint64(1), Amount: big.NewInt(10)}
-	tx2 := trx.Transfer{Sender: addr1.RawAddress, Nonce: uint64(2), Amount: big.NewInt(20)}
-	tx3 := trx.Transfer{Sender: addr1.RawAddress, Nonce: uint64(3), Amount: big.NewInt(30)}
-	tx4 := trx.Transfer{Sender: addr1.RawAddress, Nonce: uint64(4), Amount: big.NewInt(40)}
-	tx5 := trx.Transfer{Sender: addr1.RawAddress, Nonce: uint64(5), Amount: big.NewInt(50)}
-	tx6 := trx.Transfer{Sender: addr2.RawAddress, Nonce: uint64(1), Amount: big.NewInt(5)}
-	tx7 := trx.Transfer{Sender: addr2.RawAddress, Nonce: uint64(3), Amount: big.NewInt(1)}
-	tx8 := trx.Transfer{Sender: addr2.RawAddress, Nonce: uint64(4), Amount: big.NewInt(5)}
+	tx1 := action.Transfer{Sender: addr1.RawAddress, Nonce: uint64(1), Amount: big.NewInt(10)}
+	tx2 := action.Transfer{Sender: addr1.RawAddress, Nonce: uint64(2), Amount: big.NewInt(20)}
+	tx3 := action.Transfer{Sender: addr1.RawAddress, Nonce: uint64(3), Amount: big.NewInt(30)}
+	tx4 := action.Transfer{Sender: addr1.RawAddress, Nonce: uint64(4), Amount: big.NewInt(40)}
+	tx5 := action.Transfer{Sender: addr1.RawAddress, Nonce: uint64(5), Amount: big.NewInt(50)}
+	tx6 := action.Transfer{Sender: addr2.RawAddress, Nonce: uint64(1), Amount: big.NewInt(5)}
+	tx7 := action.Transfer{Sender: addr2.RawAddress, Nonce: uint64(3), Amount: big.NewInt(1)}
+	tx8 := action.Transfer{Sender: addr2.RawAddress, Nonce: uint64(4), Amount: big.NewInt(5)}
 
 	ap.AddTx(&tx1)
 	ap.AddTx(&tx2)
@@ -126,7 +126,7 @@ func TestActPool_AddTx(t *testing.T) {
 	pNonce2, _ := ap.getPendingNonce(addr2.RawAddress)
 	assert.Equal(uint64(2), pNonce2)
 
-	tx9 := trx.Transfer{Sender: addr2.RawAddress, Nonce: uint64(2), Amount: big.NewInt(3)}
+	tx9 := action.Transfer{Sender: addr2.RawAddress, Nonce: uint64(2), Amount: big.NewInt(3)}
 	ap.AddTx(&tx9)
 	cNonce2, _ = ap.getConfirmedNonce(addr2.RawAddress)
 	assert.Equal(uint64(4), cNonce2)
@@ -140,25 +140,25 @@ func TestActPool_AddTx(t *testing.T) {
 	assert.Equal(fmt.Errorf("existed transaction: %x", tx1.Hash()), err)
 	// Case II: Pool space is full
 	mockSF := mock_statefactory.NewMockStateFactory(ctrl)
-	ap2 := &actPool{sf: mockSF, allTxs: make(map[common.Hash32B]*trx.Transfer)}
+	ap2 := &actPool{sf: mockSF, allTxs: make(map[common.Hash32B]*action.Transfer)}
 	for i := 0; i < GlobalSlots; i++ {
-		nTx := trx.Transfer{Amount: big.NewInt(int64(i))}
+		nTx := action.Transfer{Amount: big.NewInt(int64(i))}
 		ap2.allTxs[nTx.Hash()] = &nTx
 	}
 	mockSF.EXPECT().Nonce(gomock.Any()).Times(1).Return(uint64(0), nil)
 	err = ap2.AddTx(&tx1)
 	assert.Equal(ErrActPool, errors.Cause(err))
 	// Case III: Nonce already exists
-	replaceTx := trx.Transfer{Sender: addr1.RawAddress, Nonce: uint64(1), Amount: big.NewInt(1)}
+	replaceTx := action.Transfer{Sender: addr1.RawAddress, Nonce: uint64(1), Amount: big.NewInt(1)}
 	err = ap.AddTx(&replaceTx)
 	assert.Equal(ErrNonce, errors.Cause(err))
 	// Case IV: Queue space is full
 	for i := 6; i <= AccountSlots; i++ {
-		tx := trx.Transfer{Sender: addr1.RawAddress, Nonce: uint64(i), Amount: big.NewInt(1)}
+		tx := action.Transfer{Sender: addr1.RawAddress, Nonce: uint64(i), Amount: big.NewInt(1)}
 		err := ap.AddTx(&tx)
 		assert.Nil(err)
 	}
-	outOfBoundsTx := trx.Transfer{Sender: addr1.RawAddress, Nonce: uint64(AccountSlots + 1), Amount: big.NewInt(1)}
+	outOfBoundsTx := action.Transfer{Sender: addr1.RawAddress, Nonce: uint64(AccountSlots + 1), Amount: big.NewInt(1)}
 	err = ap.AddTx(&outOfBoundsTx)
 	assert.Equal(ErrActPool, errors.Cause(err))
 }
@@ -181,17 +181,17 @@ func TestActPool_PickTxs(t *testing.T) {
 	ap := &actPool{
 		sf:         sf,
 		accountTxs: make(map[string]TxQueue),
-		allTxs:     make(map[common.Hash32B]*trx.Transfer),
+		allTxs:     make(map[common.Hash32B]*action.Transfer),
 	}
 
-	tx1 := trx.Transfer{Sender: addr1.RawAddress, Nonce: uint64(1), Amount: big.NewInt(10)}
-	tx2 := trx.Transfer{Sender: addr1.RawAddress, Nonce: uint64(2), Amount: big.NewInt(20)}
-	tx3 := trx.Transfer{Sender: addr1.RawAddress, Nonce: uint64(3), Amount: big.NewInt(30)}
-	tx4 := trx.Transfer{Sender: addr1.RawAddress, Nonce: uint64(4), Amount: big.NewInt(40)}
-	tx5 := trx.Transfer{Sender: addr1.RawAddress, Nonce: uint64(5), Amount: big.NewInt(50)}
-	tx6 := trx.Transfer{Sender: addr2.RawAddress, Nonce: uint64(2), Amount: big.NewInt(5)}
-	tx7 := trx.Transfer{Sender: addr2.RawAddress, Nonce: uint64(3), Amount: big.NewInt(1)}
-	tx8 := trx.Transfer{Sender: addr2.RawAddress, Nonce: uint64(5), Amount: big.NewInt(5)}
+	tx1 := action.Transfer{Sender: addr1.RawAddress, Nonce: uint64(1), Amount: big.NewInt(10)}
+	tx2 := action.Transfer{Sender: addr1.RawAddress, Nonce: uint64(2), Amount: big.NewInt(20)}
+	tx3 := action.Transfer{Sender: addr1.RawAddress, Nonce: uint64(3), Amount: big.NewInt(30)}
+	tx4 := action.Transfer{Sender: addr1.RawAddress, Nonce: uint64(4), Amount: big.NewInt(40)}
+	tx5 := action.Transfer{Sender: addr1.RawAddress, Nonce: uint64(5), Amount: big.NewInt(50)}
+	tx6 := action.Transfer{Sender: addr2.RawAddress, Nonce: uint64(2), Amount: big.NewInt(5)}
+	tx7 := action.Transfer{Sender: addr2.RawAddress, Nonce: uint64(3), Amount: big.NewInt(1)}
+	tx8 := action.Transfer{Sender: addr2.RawAddress, Nonce: uint64(5), Amount: big.NewInt(5)}
 
 	ap.AddTx(&tx1)
 	ap.AddTx(&tx2)
@@ -204,8 +204,8 @@ func TestActPool_PickTxs(t *testing.T) {
 
 	pending, err := ap.PickTxs()
 	assert.Nil(err)
-	assert.Equal([]*trx.Transfer{&tx1, &tx2, &tx3, &tx4}, pending[addr1.RawAddress])
-	assert.Equal([]*trx.Transfer{}, pending[addr2.RawAddress])
+	assert.Equal([]*action.Transfer{&tx1, &tx2, &tx3, &tx4}, pending[addr1.RawAddress])
+	assert.Equal([]*action.Transfer{}, pending[addr2.RawAddress])
 }
 
 func TestActPool_removeCommittedTxs(t *testing.T) {
@@ -223,13 +223,13 @@ func TestActPool_removeCommittedTxs(t *testing.T) {
 	ap := &actPool{
 		sf:         sf,
 		accountTxs: make(map[string]TxQueue),
-		allTxs:     make(map[common.Hash32B]*trx.Transfer),
+		allTxs:     make(map[common.Hash32B]*action.Transfer),
 	}
 
-	tx1 := trx.Transfer{Sender: addr.RawAddress, Recipient: addr.RawAddress, Nonce: uint64(1), Amount: big.NewInt(10)}
-	tx2 := trx.Transfer{Sender: addr.RawAddress, Recipient: addr.RawAddress, Nonce: uint64(2), Amount: big.NewInt(20)}
-	tx3 := trx.Transfer{Sender: addr.RawAddress, Recipient: addr.RawAddress, Nonce: uint64(3), Amount: big.NewInt(30)}
-	tx4 := trx.Transfer{Sender: addr.RawAddress, Recipient: addr.RawAddress, Nonce: uint64(4), Amount: big.NewInt(40)}
+	tx1 := action.Transfer{Sender: addr.RawAddress, Recipient: addr.RawAddress, Nonce: uint64(1), Amount: big.NewInt(10)}
+	tx2 := action.Transfer{Sender: addr.RawAddress, Recipient: addr.RawAddress, Nonce: uint64(2), Amount: big.NewInt(20)}
+	tx3 := action.Transfer{Sender: addr.RawAddress, Recipient: addr.RawAddress, Nonce: uint64(3), Amount: big.NewInt(30)}
+	tx4 := action.Transfer{Sender: addr.RawAddress, Recipient: addr.RawAddress, Nonce: uint64(4), Amount: big.NewInt(40)}
 
 	ap.AddTx(&tx1)
 	ap.AddTx(&tx2)
@@ -238,7 +238,7 @@ func TestActPool_removeCommittedTxs(t *testing.T) {
 
 	assert.Equal(4, len(ap.allTxs))
 	assert.NotNil(ap.accountTxs[addr.RawAddress])
-	err := ap.sf.CommitStateChanges([]*trx.Transfer{&tx1, &tx2, &tx3, &tx4}, nil)
+	err := ap.sf.CommitStateChanges([]*action.Transfer{&tx1, &tx2, &tx3, &tx4}, nil)
 	assert.Nil(err)
 	ap.removeCommittedTxs()
 	assert.Equal(0, len(ap.allTxs))
@@ -267,25 +267,25 @@ func TestActPool_Reset(t *testing.T) {
 	ap1 := &actPool{
 		sf:         sf,
 		accountTxs: make(map[string]TxQueue),
-		allTxs:     make(map[common.Hash32B]*trx.Transfer),
+		allTxs:     make(map[common.Hash32B]*action.Transfer),
 	}
 
 	ap2 := &actPool{
 		sf:         sf,
 		accountTxs: make(map[string]TxQueue),
-		allTxs:     make(map[common.Hash32B]*trx.Transfer),
+		allTxs:     make(map[common.Hash32B]*action.Transfer),
 	}
 
 	// Txs to be added to ap1
-	tx1 := trx.Transfer{Sender: addr1.RawAddress, Recipient: addr2.RawAddress, Nonce: uint64(1), Amount: big.NewInt(50)}
-	tx2 := trx.Transfer{Sender: addr1.RawAddress, Recipient: addr3.RawAddress, Nonce: uint64(2), Amount: big.NewInt(30)}
-	tx3 := trx.Transfer{Sender: addr1.RawAddress, Recipient: addr2.RawAddress, Nonce: uint64(3), Amount: big.NewInt(60)}
-	tx4 := trx.Transfer{Sender: addr2.RawAddress, Recipient: addr1.RawAddress, Nonce: uint64(1), Amount: big.NewInt(100)}
-	tx5 := trx.Transfer{Sender: addr2.RawAddress, Recipient: addr3.RawAddress, Nonce: uint64(2), Amount: big.NewInt(50)}
-	tx6 := trx.Transfer{Sender: addr2.RawAddress, Recipient: addr1.RawAddress, Nonce: uint64(3), Amount: big.NewInt(60)}
-	tx7 := trx.Transfer{Sender: addr3.RawAddress, Recipient: addr1.RawAddress, Nonce: uint64(1), Amount: big.NewInt(100)}
-	tx8 := trx.Transfer{Sender: addr3.RawAddress, Recipient: addr2.RawAddress, Nonce: uint64(2), Amount: big.NewInt(100)}
-	tx9 := trx.Transfer{Sender: addr3.RawAddress, Recipient: addr1.RawAddress, Nonce: uint64(4), Amount: big.NewInt(100)}
+	tx1 := action.Transfer{Sender: addr1.RawAddress, Recipient: addr2.RawAddress, Nonce: uint64(1), Amount: big.NewInt(50)}
+	tx2 := action.Transfer{Sender: addr1.RawAddress, Recipient: addr3.RawAddress, Nonce: uint64(2), Amount: big.NewInt(30)}
+	tx3 := action.Transfer{Sender: addr1.RawAddress, Recipient: addr2.RawAddress, Nonce: uint64(3), Amount: big.NewInt(60)}
+	tx4 := action.Transfer{Sender: addr2.RawAddress, Recipient: addr1.RawAddress, Nonce: uint64(1), Amount: big.NewInt(100)}
+	tx5 := action.Transfer{Sender: addr2.RawAddress, Recipient: addr3.RawAddress, Nonce: uint64(2), Amount: big.NewInt(50)}
+	tx6 := action.Transfer{Sender: addr2.RawAddress, Recipient: addr1.RawAddress, Nonce: uint64(3), Amount: big.NewInt(60)}
+	tx7 := action.Transfer{Sender: addr3.RawAddress, Recipient: addr1.RawAddress, Nonce: uint64(1), Amount: big.NewInt(100)}
+	tx8 := action.Transfer{Sender: addr3.RawAddress, Recipient: addr2.RawAddress, Nonce: uint64(2), Amount: big.NewInt(100)}
+	tx9 := action.Transfer{Sender: addr3.RawAddress, Recipient: addr1.RawAddress, Nonce: uint64(4), Amount: big.NewInt(100)}
 
 	ap1.AddTx(&tx1)
 	ap1.AddTx(&tx2)
@@ -297,11 +297,11 @@ func TestActPool_Reset(t *testing.T) {
 	ap1.AddTx(&tx8)
 	ap1.AddTx(&tx9)
 	// Txs to be added to ap2 only
-	tx10 := trx.Transfer{Sender: addr1.RawAddress, Recipient: addr2.RawAddress, Nonce: uint64(3), Amount: big.NewInt(20)}
-	tx11 := trx.Transfer{Sender: addr1.RawAddress, Recipient: addr3.RawAddress, Nonce: uint64(4), Amount: big.NewInt(10)}
-	tx12 := trx.Transfer{Sender: addr2.RawAddress, Recipient: addr3.RawAddress, Nonce: uint64(2), Amount: big.NewInt(70)}
-	tx13 := trx.Transfer{Sender: addr3.RawAddress, Recipient: addr1.RawAddress, Nonce: uint64(1), Amount: big.NewInt(200)}
-	tx14 := trx.Transfer{Sender: addr3.RawAddress, Recipient: addr2.RawAddress, Nonce: uint64(2), Amount: big.NewInt(50)}
+	tx10 := action.Transfer{Sender: addr1.RawAddress, Recipient: addr2.RawAddress, Nonce: uint64(3), Amount: big.NewInt(20)}
+	tx11 := action.Transfer{Sender: addr1.RawAddress, Recipient: addr3.RawAddress, Nonce: uint64(4), Amount: big.NewInt(10)}
+	tx12 := action.Transfer{Sender: addr2.RawAddress, Recipient: addr3.RawAddress, Nonce: uint64(2), Amount: big.NewInt(70)}
+	tx13 := action.Transfer{Sender: addr3.RawAddress, Recipient: addr1.RawAddress, Nonce: uint64(1), Amount: big.NewInt(200)}
+	tx14 := action.Transfer{Sender: addr3.RawAddress, Recipient: addr2.RawAddress, Nonce: uint64(2), Amount: big.NewInt(50)}
 
 	ap2.AddTx(&tx1)
 	ap2.AddTx(&tx2)
@@ -414,13 +414,13 @@ func TestActPool_Reset(t *testing.T) {
 	assert.Equal(big.NewInt(180).Uint64(), ap2PBalance3.Uint64())
 	// Add more Txs after resetting
 	// Txs To be added to ap1 only
-	tx15 := trx.Transfer{Sender: addr3.RawAddress, Recipient: addr2.RawAddress, Nonce: uint64(3), Amount: big.NewInt(80)}
+	tx15 := action.Transfer{Sender: addr3.RawAddress, Recipient: addr2.RawAddress, Nonce: uint64(3), Amount: big.NewInt(80)}
 	// Txs To be added to ap2 only
-	tx16 := trx.Transfer{Sender: addr1.RawAddress, Recipient: addr2.RawAddress, Nonce: uint64(5), Amount: big.NewInt(150)}
-	tx17 := trx.Transfer{Sender: addr2.RawAddress, Recipient: addr1.RawAddress, Nonce: uint64(3), Amount: big.NewInt(90)}
-	tx18 := trx.Transfer{Sender: addr2.RawAddress, Recipient: addr3.RawAddress, Nonce: uint64(4), Amount: big.NewInt(100)}
-	tx19 := trx.Transfer{Sender: addr2.RawAddress, Recipient: addr1.RawAddress, Nonce: uint64(5), Amount: big.NewInt(50)}
-	tx20 := trx.Transfer{Sender: addr3.RawAddress, Recipient: addr2.RawAddress, Nonce: uint64(3), Amount: big.NewInt(200)}
+	tx16 := action.Transfer{Sender: addr1.RawAddress, Recipient: addr2.RawAddress, Nonce: uint64(5), Amount: big.NewInt(150)}
+	tx17 := action.Transfer{Sender: addr2.RawAddress, Recipient: addr1.RawAddress, Nonce: uint64(3), Amount: big.NewInt(90)}
+	tx18 := action.Transfer{Sender: addr2.RawAddress, Recipient: addr3.RawAddress, Nonce: uint64(4), Amount: big.NewInt(100)}
+	tx19 := action.Transfer{Sender: addr2.RawAddress, Recipient: addr1.RawAddress, Nonce: uint64(5), Amount: big.NewInt(50)}
+	tx20 := action.Transfer{Sender: addr3.RawAddress, Recipient: addr2.RawAddress, Nonce: uint64(3), Amount: big.NewInt(200)}
 
 	ap1.AddTx(&tx15)
 	ap2.AddTx(&tx16)

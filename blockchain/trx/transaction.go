@@ -4,13 +4,12 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package transaction
+package trx
 
 import (
 	"bytes"
 	"crypto/rand"
 	"fmt"
-	"math/big"
 
 	"github.com/golang/protobuf/proto"
 	"golang.org/x/crypto/blake2b"
@@ -35,8 +34,6 @@ const (
 	VersionSizeInBytes = 4
 	// LockTimeSizeInBytes defines the size of lock time in byte units
 	LockTimeSizeInBytes = 4
-	// NonceSizeInBytes defines the size of nonce in byte units
-	NonceSizeInBytes = 8
 )
 
 type (
@@ -61,24 +58,6 @@ type (
 		TxIn  []*TxInput
 		TxOut []*TxOutput
 	}
-
-	// Transfer defines the struct of account-based transfer
-	Transfer struct {
-		Version  uint32
-		LockTime uint32 // transaction to be locked until this time
-
-		// used by account-based model
-		Nonce           uint64
-		Amount          *big.Int
-		Sender          string
-		Recipient       string
-		Payload         []byte
-		SenderPublicKey []byte
-		Signature       []byte
-	}
-
-	// Vote defines the struct of account-based vote
-	Vote = iproto.VotePb
 )
 
 // NewTxInput returns a TxInput instance
@@ -137,12 +116,10 @@ func (tx *Tx) IsCoinbase() bool {
 // TotalSize returns the total size of this transaction
 func (tx *Tx) TotalSize() uint32 {
 	size := uint32(VersionSizeInBytes + LockTimeSizeInBytes)
-
 	// add transaction input size
 	for _, in := range tx.TxIn {
 		size += in.TotalSize()
 	}
-
 	// add transaction output size
 	for _, out := range tx.TxOut {
 		size += out.TotalSize()
@@ -154,11 +131,9 @@ func (tx *Tx) TotalSize() uint32 {
 func (tx *Tx) ByteStream() []byte {
 	stream := make([]byte, 4)
 	common.MachineEndian.PutUint32(stream, tx.Version)
-
 	temp := make([]byte, 4)
 	common.MachineEndian.PutUint32(temp, tx.LockTime)
 	stream = append(stream, temp...)
-
 	// 1. used by utxo-based model
 	for _, txIn := range tx.TxIn {
 		stream = append(stream, txIn.ByteStream()...)
@@ -196,7 +171,6 @@ func (tx *Tx) ConvertFromTxPb(pbTx *iproto.TxPb) {
 	// set trnx fields
 	tx.Version = pbTx.GetVersion()
 	tx.LockTime = pbTx.GetLockTime()
-
 	// used by utxo-based model
 	tx.TxIn = nil
 	tx.TxIn = pbTx.TxIn
@@ -209,12 +183,11 @@ func (tx *Tx) ConvertFromTxPb(pbTx *iproto.TxPb) {
 
 // Deserialize parse the byte stream into Tx
 func (tx *Tx) Deserialize(buf []byte) error {
-	pbTx := iproto.TxPb{}
-	if err := proto.Unmarshal(buf, &pbTx); err != nil {
-		panic(err)
+	pbTx := &iproto.TxPb{}
+	if err := proto.Unmarshal(buf, pbTx); err != nil {
+		return err
 	}
-
-	tx.ConvertFromTxPb(&pbTx)
+	tx.ConvertFromTxPb(pbTx)
 	return nil
 }
 
@@ -274,137 +247,4 @@ func (out *TxOutput) ByteStream() []byte {
 	stream = append(stream, out.LockScript...)
 
 	return stream
-}
-
-//======================================
-// Below are account-based transaction functions
-//======================================
-
-// NewTransfer returns a Transfer instance
-func NewTransfer(in []*TxInput, out []*TxOutput, lockTime uint32) *Transfer {
-	return &Transfer{
-		Version:  common.ProtocolVersion,
-		LockTime: lockTime,
-
-		// used by account-based model
-		Nonce:  0,
-		Amount: big.NewInt(0),
-		// TODO: transition SF pass in actual sender/recipient
-		Sender:    "",
-		Recipient: "",
-		Payload:   []byte{},
-	}
-}
-
-// TotalSize returns the total size of this Transfer
-func (tsf *Transfer) TotalSize() uint32 {
-	size := uint32(VersionSizeInBytes + LockTimeSizeInBytes)
-	// add nonce, amount, sender, receipt, and payload sizes
-	size += uint32(NonceSizeInBytes)
-	if tsf.Amount != nil && len(tsf.Amount.Bytes()) > 0 {
-		size += uint32(len(tsf.Amount.Bytes()))
-	}
-	size += uint32(len(tsf.Sender))
-	size += uint32(len(tsf.Recipient))
-	size += uint32(len(tsf.Payload))
-	size += uint32(len(tsf.SenderPublicKey))
-	size += uint32(len(tsf.Signature))
-	return size
-}
-
-// ByteStream returns a raw byte stream of this Transfer
-func (tsf *Transfer) ByteStream() []byte {
-	stream := make([]byte, 4)
-	common.MachineEndian.PutUint32(stream, tsf.Version)
-
-	temp := make([]byte, 4)
-	common.MachineEndian.PutUint32(temp, tsf.LockTime)
-	stream = append(stream, temp...)
-
-	// 2. used by account-based model
-	temp = nil
-	temp = make([]byte, 8)
-	common.MachineEndian.PutUint64(temp, tsf.Nonce)
-	stream = append(stream, temp...)
-	if tsf.Amount != nil && len(tsf.Amount.Bytes()) > 0 {
-		stream = append(stream, tsf.Amount.Bytes()...)
-	}
-	stream = append(stream, tsf.Sender...)
-	stream = append(stream, tsf.Recipient...)
-	stream = append(stream, tsf.Payload...)
-	stream = append(stream, tsf.SenderPublicKey...)
-	stream = append(stream, tsf.Signature...)
-	return stream
-}
-
-// ConvertToTransferPb converts Transfer to protobuf's TransferPb
-func (tsf *Transfer) ConvertToTransferPb() *iproto.TransferPb {
-	// used by account-based model
-	t := &iproto.TransferPb{
-		Version:      tsf.Version,
-		LockTime:     tsf.LockTime,
-		Nonce:        tsf.Nonce,
-		Sender:       tsf.Sender,
-		Recipient:    tsf.Recipient,
-		Payload:      tsf.Payload,
-		SenderPubKey: tsf.SenderPublicKey,
-		Signature:    tsf.Signature,
-	}
-
-	if tsf.Amount != nil && len(tsf.Amount.Bytes()) > 0 {
-		t.Amount = tsf.Amount.Bytes()
-	}
-	return t
-}
-
-// Serialize returns a serialized byte stream for the Transfer
-func (tsf *Transfer) Serialize() ([]byte, error) {
-	return proto.Marshal(tsf.ConvertToTransferPb())
-}
-
-// ConvertFromTransferPb converts a protobuf's TransferPb to Transfer
-func (tsf *Transfer) ConvertFromTransferPb(pbTx *iproto.TransferPb) {
-	// set trnx fields
-	tsf.Version = pbTx.GetVersion()
-	tsf.LockTime = pbTx.GetLockTime()
-
-	// used by account-based model
-	tsf.Nonce = pbTx.Nonce
-	if tsf.Amount == nil {
-		tsf.Amount = big.NewInt(0)
-	}
-	if len(pbTx.Amount) > 0 {
-		tsf.Amount.SetBytes(pbTx.Amount)
-	}
-	tsf.Sender = ""
-	if len(pbTx.Sender) > 0 {
-		tsf.Recipient = string(pbTx.Recipient)
-	}
-	tsf.Recipient = ""
-	if len(pbTx.Recipient) > 0 {
-		tsf.Recipient = string(pbTx.Recipient)
-	}
-	tsf.Payload = nil
-	tsf.Payload = pbTx.Payload
-	tsf.SenderPublicKey = nil
-	tsf.SenderPublicKey = pbTx.SenderPubKey
-	tsf.Signature = nil
-	tsf.Signature = pbTx.Signature
-}
-
-// Deserialize parse the byte stream into Transfer
-func (tsf *Transfer) Deserialize(buf []byte) error {
-	pbTransfer := iproto.TransferPb{}
-	if err := proto.Unmarshal(buf, &pbTransfer); err != nil {
-		panic(err)
-	}
-
-	tsf.ConvertFromTransferPb(&pbTransfer)
-	return nil
-}
-
-// Hash returns the hash of the Transfer
-func (tsf *Transfer) Hash() common.Hash32B {
-	hash := blake2b.Sum256(tsf.ByteStream())
-	return blake2b.Sum256(hash[:])
 }
