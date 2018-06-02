@@ -50,7 +50,7 @@ message TransferPb {
 }
 
 message VotePb {
-    uint32 timestamp = 1;
+    uint64 timestamp = 1;
     string selfPubkey = 2;
     string votePubkey = 3;  // the pubkey this node is voting for
     bytes signature = 4;

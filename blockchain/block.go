@@ -14,6 +14,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"golang.org/x/crypto/blake2b"
 
+	"github.com/iotexproject/iotex-core/blockchain/action"
 	trx "github.com/iotexproject/iotex-core/blockchain/trx"
 	"github.com/iotexproject/iotex-core/common"
 	cp "github.com/iotexproject/iotex-core/crypto"
@@ -50,8 +51,8 @@ type BlockHeader struct {
 type Block struct {
 	Header    *BlockHeader
 	Tranxs    []*trx.Tx
-	Transfers []*trx.Transfer
-	Votes     []*iproto.VotePb
+	Transfers []*action.Transfer
+	Votes     []*action.Vote
 }
 
 // NewBlock returns a new block
@@ -155,7 +156,7 @@ func (b *Block) ConvertToBlockPb() *iproto.BlockPb {
 		actions = append(actions, &iproto.ActionPb{&iproto.ActionPb_Transfer{tsf.ConvertToTransferPb()}})
 	}
 	for _, vote := range b.Votes {
-		actions = append(actions, &iproto.ActionPb{&iproto.ActionPb_Vote{vote}})
+		actions = append(actions, &iproto.ActionPb{&iproto.ActionPb_Vote{vote.ConvertToVotePb()}})
 	}
 	return &iproto.BlockPb{b.ConvertToBlockHeaderPb(), actions}
 }
@@ -191,24 +192,25 @@ func (b *Block) ConvertFromBlockPb(pbBlock *iproto.BlockPb) {
 	hasTrnx := false
 	hasVote := false
 
-	for _, action := range pbBlock.Actions {
-		if txPb := action.GetTx(); txPb != nil {
+	for _, act := range pbBlock.Actions {
+		if txPb := act.GetTx(); txPb != nil {
 			if !hasTrnx {
 				b.Tranxs = []*trx.Tx{}
 				hasTrnx = true
 			}
-			tx := trx.Tx{}
+			tx := &trx.Tx{}
 			tx.ConvertFromTxPb(txPb)
-			b.Tranxs = append(b.Tranxs, &tx)
+			b.Tranxs = append(b.Tranxs, tx)
 			continue
 		}
-
-		if votePb := action.GetVote(); votePb != nil {
+		if votePb := act.GetVote(); votePb != nil {
 			if !hasVote {
-				b.Votes = []*iproto.VotePb{}
+				b.Votes = []*action.Vote{}
 				hasVote = true
 			}
-			b.Votes = append(b.Votes, votePb)
+			vote := &action.Vote{}
+			vote.ConvertFromVotePb(votePb)
+			b.Votes = append(b.Votes, vote)
 			continue
 		}
 	}
