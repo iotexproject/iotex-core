@@ -272,23 +272,23 @@ func CreateBlockchain(cfg *config.Config, gen *Genesis) Blockchain {
 		logger.Error().Err(err).Msg("Failed to initialize statefactory")
 		return nil
 	}
-	return createBlockchain(boltDB, sf, cfg, gen)
+	return createAndInitBlockchain(boltDB, sf, cfg, gen)
 }
 
-// CreateTestBlockchain creates a new test blockchain and in-memory KV store instance
-func CreateTestBlockchain(cfg *config.Config, gen *Genesis) Blockchain {
+// CreateInMemBlockchain creates a new test blockchain and in-memory KV store instance
+func CreateInMemBlockchain(cfg *config.Config, gen *Genesis) Blockchain {
 	memKVStore := db.NewMemKVStore()
 	// If TrieDBPath is empty, we disable account-based testing
 	if len(cfg.Chain.TrieDBPath) == 0 {
-		return createBlockchain(memKVStore, nil, cfg, gen)
+		return createAndInitBlockchain(memKVStore, nil, cfg, gen)
 	}
-	trie, err := trie.NewTestTrie()
+	trie, err := trie.NewInMemTrie()
 	if err != nil {
 		logger.Error().Err(err).Msg("Failed to initialize test trie")
 		return nil
 	}
 	sf := statefactory.NewStateFactory(trie)
-	return createBlockchain(memKVStore, sf, cfg, gen)
+	return createAndInitBlockchain(memKVStore, sf, cfg, gen)
 }
 
 // BalanceOf returns the balance of an address
@@ -361,7 +361,7 @@ func (bc *blockchain) CreateRawTransaction(from *iotxaddress.Address, amount uin
 	return bc.createTx(from, amount, to, true)
 }
 
-func createBlockchain(kvstore db.KVStore, sf statefactory.StateFactory, cfg *config.Config, gen *Genesis) Blockchain {
+func createAndInitBlockchain(kvstore db.KVStore, sf statefactory.StateFactory, cfg *config.Config, gen *Genesis) Blockchain {
 	dao := newBlockDAO(kvstore)
 	// create the Blockchain
 	chain := NewBlockchain(dao, cfg, gen, sf)
@@ -377,29 +377,31 @@ func createBlockchain(kvstore db.KVStore, sf statefactory.StateFactory, cfg *con
 	height, err := chain.TipHeight()
 	if err != nil {
 		logger.Error().Err(err).Msg("Failed to get blockchain height")
+		return nil
 	}
-	if height == 0 {
-		if gen == nil {
-			logger.Error().Msg("Genesis should not be nil.")
-			return nil
-		}
-		genesis := NewGenesisBlock(gen)
-		if genesis == nil {
-			logger.Error().Msg("Cannot create genesis block.")
-			return nil
-		}
-		// Genesis block has height 0
-		if genesis.Header.height != 0 {
-			logger.Error().
-				Uint64("Genesis block has height", genesis.Height()).
-				Msg("Expecting 0")
-			return nil
-		}
-		// add Genesis block as very first block
-		if err := chain.AddBlockCommit(genesis); err != nil {
-			logger.Error().Err(err).Msg("Failed to commit Genesis block")
-			return nil
-		}
+	if height > 0 {
+		return chain
+	}
+	if gen == nil {
+		logger.Error().Msg("Genesis should not be nil.")
+		return nil
+	}
+	genesis := NewGenesisBlock(gen)
+	if genesis == nil {
+		logger.Error().Msg("Cannot create genesis block.")
+		return nil
+	}
+	// Genesis block has height 0
+	if genesis.Header.height != 0 {
+		logger.Error().
+			Uint64("Genesis block has height", genesis.Height()).
+			Msg("Expecting 0")
+		return nil
+	}
+	// add Genesis block as very first block
+	if err := chain.AddBlockCommit(genesis); err != nil {
+		logger.Error().Err(err).Msg("Failed to commit Genesis block")
+		return nil
 	}
 	return chain
 }

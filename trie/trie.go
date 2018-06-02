@@ -64,14 +64,20 @@ func NewTrie(path string) (Trie, error) {
 	if dao == nil {
 		return nil, errors.New("Cannot create boltDB file")
 	}
+	if err := dao.Start(); err != nil {
+		return nil, err
+	}
 	return newTrie(dao)
 }
 
-// NewTestTrie creates a test trie with in-memory KV store
-func NewTestTrie() (Trie, error) {
+// NewInMemTrie creates a test trie with in-memory KV store
+func NewInMemTrie() (Trie, error) {
 	dao := db.NewMemKVStore()
 	if dao == nil {
 		return nil, errors.New("Cannot create in-memory KV store")
+	}
+	if err := dao.Start(); err != nil {
+		return nil, err
 	}
 	return newTrie(dao)
 }
@@ -402,9 +408,6 @@ func (t *trie) updateDelete(curr patricia, currClps bool, clpsType byte) error {
 // newTrie creates a trie
 func newTrie(dao db.KVStore) (Trie, error) {
 	t := trie{dao: dao, root: &branch{}, toRoot: list.New(), bucket: trieKVNameSpace, numEntry: 1, numBranch: 1}
-	if err := dao.Start(); err != nil {
-		return nil, err
-	}
 	return &t, nil
 }
 
