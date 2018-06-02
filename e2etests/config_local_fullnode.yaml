@@ -43,6 +43,9 @@ consensus:
             ttl: 2s
     blockcreationinterval: 1s
 
+blocksync:
+    interval: 1s
+
 delegate:
     addrs:
         - "127.0.0.1:4689"

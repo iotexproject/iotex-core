@@ -21,6 +21,9 @@ import (
 )
 
 const (
+	// TxInputFixedSize defines the fixed size of transaction input
+	TxInputFixedSize = 44
+
 	// TxOutputPb fields
 
 	// ValueSizeInBytes defines the size of value in byte units
@@ -38,7 +41,9 @@ const (
 
 type (
 	// TxInput defines the transaction input protocol buffer
-	TxInput = iproto.TxInputPb
+	TxInput struct {
+		*iproto.TxInputPb
+	}
 
 	// TxOutput defines the transaction output protocol buffer
 	TxOutput struct {
@@ -62,12 +67,13 @@ type (
 
 // NewTxInput returns a TxInput instance
 func NewTxInput(hash common.Hash32B, index int32, unlock []byte, seq uint32) *TxInput {
-	return &TxInput{
+	pbTxIn := &iproto.TxInputPb{
 		hash[:],
 		index,
 		uint32(len(unlock)),
 		unlock,
 		seq}
+	return &TxInput{pbTxIn}
 }
 
 // NewTxOutput returns a TxOutput instance
@@ -146,6 +152,10 @@ func (tx *Tx) ByteStream() []byte {
 
 // ConvertToTxPb converts Tx to protobuf's TxPb
 func (tx *Tx) ConvertToTxPb() *iproto.TxPb {
+	pbIn := make([]*iproto.TxInputPb, len(tx.TxIn))
+	for i, in := range tx.TxIn {
+		pbIn[i] = in.TxInputPb
+	}
 	pbOut := make([]*iproto.TxOutputPb, len(tx.TxOut))
 	for i, out := range tx.TxOut {
 		pbOut[i] = out.TxOutputPb
@@ -156,7 +166,7 @@ func (tx *Tx) ConvertToTxPb() *iproto.TxPb {
 		LockTime: tx.LockTime,
 
 		// used by utxo-based model
-		TxIn:  tx.TxIn,
+		TxIn:  pbIn,
 		TxOut: pbOut,
 	}
 }
@@ -173,7 +183,10 @@ func (tx *Tx) ConvertFromTxPb(pbTx *iproto.TxPb) {
 	tx.LockTime = pbTx.GetLockTime()
 	// used by utxo-based model
 	tx.TxIn = nil
-	tx.TxIn = pbTx.TxIn
+	tx.TxIn = make([]*TxInput, len(pbTx.TxIn))
+	for i, in := range pbTx.TxIn {
+		tx.TxIn[i] = &TxInput{in}
+	}
 	tx.TxOut = nil
 	tx.TxOut = make([]*TxOutput, len(pbTx.TxOut))
 	for i, out := range pbTx.TxOut {
@@ -203,7 +216,42 @@ func (tx *Tx) ConvertToUtxoPb() *iproto.UtxoMapPb {
 }
 
 //======================================
-// Below are transaction output functions
+// Transaction input functions
+//======================================
+
+// TotalSize returns the total size (in bytes) of transaction input
+func (in *TxInput) TotalSize() uint32 {
+	return TxInputFixedSize + uint32(in.UnlockScriptSize)
+}
+
+// ByteStream returns a raw byte stream of transaction input
+func (in *TxInput) ByteStream() []byte {
+	stream := in.TxHash[:]
+	temp := make([]byte, 4)
+	common.MachineEndian.PutUint32(temp, uint32(in.OutIndex))
+	stream = append(stream, temp...)
+	common.MachineEndian.PutUint32(temp, in.UnlockScriptSize)
+	stream = append(stream, temp...)
+	stream = append(stream, in.UnlockScript...)
+	common.MachineEndian.PutUint32(temp, in.Sequence)
+	stream = append(stream, temp...)
+	return stream
+}
+
+// UnlockSuccess checks whether the TxInput can unlock the provided script
+func (in *TxInput) UnlockSuccess(lockScript []byte) bool {
+	v, err := txvm.NewIVM(in.ByteStream(), append(in.UnlockScript, lockScript...))
+	if err != nil {
+		return false
+	}
+	if err := v.Execute(); err != nil {
+		return false
+	}
+	return true
+}
+
+//======================================
+// Transaction output functions
 //======================================
 
 // CreateTxOutput creates a new transaction output

@@ -19,6 +19,7 @@ import (
 	"google.golang.org/grpc"
 
 	trx "github.com/iotexproject/iotex-core/blockchain/trx"
+	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/config"
 	pb "github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
@@ -31,12 +32,12 @@ func decodeHash(in string) []byte {
 }
 
 func testingTx() *trx.Tx {
-	txIn1_0 := &pb.TxInputPb{
-		TxHash:           decodeHash("9de6306b08158c423330f7a27243a1a5cbe39bfd764f07818437882d21241567"),
-		OutIndex:         0,
-		UnlockScriptSize: 98,
-		UnlockScript:     decodeHash("40f9ea2b1357dde55519246a6ad82c466b9f2b988ff81a7c2fb114c932d44f322ba2edd178c2326739638b536e5f803977c24332b8f5b8ebc5f6683ff2bcaad90720b9b8d7316705dc4ff62bb323e610f3f5072abedc9834e999d6537f6681284ea2"),
-	}
+	txHash := common.ZeroHash32B
+	copy(txHash[:], decodeHash("9de6306b08158c423330f7a27243a1a5cbe39bfd764f07818437882d21241567"))
+	txIn1_0 := trx.NewTxInput(
+		txHash, 0,
+		decodeHash("40f9ea2b1357dde55519246a6ad82c466b9f2b988ff81a7c2fb114c932d44f322ba2edd178c2326739638b536e5f803977c24332b8f5b8ebc5f6683ff2bcaad90720b9b8d7316705dc4ff62bb323e610f3f5072abedc9834e999d6537f6681284ea2"),
+		0)
 	txOut1_0 := trx.NewTxOutput(10, 0)
 	txOut1_0.LockScriptSize = 25
 	txOut1_0.LockScript = decodeHash("65b014a97ce8e76ade9b3181c63432a62330a5ca83ab9ba1b1")

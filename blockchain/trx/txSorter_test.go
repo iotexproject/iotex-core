@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/proto"
 )
 
@@ -20,15 +21,15 @@ func TestTxInputSorter(t *testing.T) {
 	// Randomly generate four Byte Streams of length 32 to simulate dummy TxHashes
 	rand.Seed(time.Now().UnixNano())
 
-	hash1 := make([]byte, 32)
-	rand.Read(hash1)
+	hash1 := common.ZeroHash32B
+	rand.Read(hash1[:])
 
-	hash2 := make([]byte, 32)
-	rand.Read(hash2)
+	hash2 := common.ZeroHash32B
+	rand.Read(hash2[:])
 
-	hash3 := make([]byte, 32)
+	hash3 := common.ZeroHash32B
 
-	hash4 := make([]byte, 32)
+	hash4 := common.ZeroHash32B
 
 	// Randomly generate four Byte Streams of length 4 to simulate dummy Unlock Scripts
 	unlock1 := make([]byte, 4)
@@ -44,12 +45,12 @@ func TestTxInputSorter(t *testing.T) {
 	rand.Read(unlock4)
 
 	// Generate four TxInput pointers
-	txInput1 := TxInput{hash1, int32(0), uint32(len(unlock1)), unlock1, uint32(1)}
-	txInput2 := TxInput{hash2, int32(1), uint32(len(unlock2)), unlock2, uint32(1)}
-	txInput3 := TxInput{hash3, int32(3), uint32(len(unlock3)), unlock3, uint32(1)}
-	txInput4 := TxInput{hash4, int32(2), uint32(len(unlock4)), unlock4, uint32(1)}
+	txInput1 := NewTxInput(hash1, int32(0), unlock1, uint32(1))
+	txInput2 := NewTxInput(hash2, int32(1), unlock2, uint32(1))
+	txInput3 := NewTxInput(hash3, int32(3), unlock3, uint32(1))
+	txInput4 := NewTxInput(hash4, int32(2), unlock4, uint32(1))
 
-	in := []*TxInput{&txInput1, &txInput2, &txInput3, &txInput4}
+	in := []*TxInput{txInput1, txInput2, txInput3, txInput4}
 
 	// Display the TxInput ordering before sorting
 	t.Log("The TxHash and OutIndex of each TxInput before sorting are as follows:")
