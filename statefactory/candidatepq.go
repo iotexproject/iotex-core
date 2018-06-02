@@ -21,27 +21,37 @@ type Candidate struct {
 }
 
 // CandidateMinPQ is a min Priority Queue
-type CandidateMinPQ []*Candidate
+type CandidateMinPQ struct {
+	Capacity int
+	pq       []*Candidate
+}
 
 // CandidateMaxPQ is a max Priority Queue
-type CandidateMaxPQ []*Candidate
+type CandidateMaxPQ struct {
+	Capacity int
+	pq       []*Candidate
+}
 
-func (pq CandidateMinPQ) Len() int {
+func (pqStruct CandidateMinPQ) Len() int {
+	pq := pqStruct.pq
 	return len(pq)
 }
 
-func (pq CandidateMinPQ) Less(i, j int) bool {
+func (pqStruct CandidateMinPQ) Less(i, j int) bool {
+	pq := pqStruct.pq
 	return pq[i].Votes.Cmp(pq[j].Votes) < 0
 }
 
-func (pq CandidateMinPQ) Swap(i, j int) {
+func (pqStruct CandidateMinPQ) Swap(i, j int) {
+	pq := pqStruct.pq
 	pq[i], pq[j] = pq[j], pq[i]
 	pq[i].minIndex = i
 	pq[j].minIndex = j
 }
 
 // Push pushes a candidate in the heap
-func (pq *CandidateMinPQ) Push(x interface{}) {
+func (pqStruct *CandidateMinPQ) Push(x interface{}) {
+	pq := &pqStruct.pq
 	n := len(*pq)
 	candidate := x.(*Candidate)
 	candidate.minIndex = n
@@ -49,7 +59,8 @@ func (pq *CandidateMinPQ) Push(x interface{}) {
 }
 
 // Pop pops a candidate in the heap
-func (pq *CandidateMinPQ) Pop() interface{} {
+func (pqStruct *CandidateMinPQ) Pop() interface{} {
+	pq := &pqStruct.pq
 	old := *pq
 	n := len(old)
 	item := old[n-1]
@@ -59,49 +70,60 @@ func (pq *CandidateMinPQ) Pop() interface{} {
 }
 
 // Top returns the candidate with smallest votes
-func (pq *CandidateMinPQ) Top() interface{} {
-	return (*pq)[0]
+func (pqStruct *CandidateMinPQ) Top() interface{} {
+	pq := pqStruct.pq
+	return pq[0]
 }
 
-func (pq *CandidateMinPQ) update(candidate *Candidate, newVote *big.Int) {
+func (pqStruct *CandidateMinPQ) update(candidate *Candidate, newVote *big.Int) {
 	candidate.Votes = newVote
-	heap.Fix(pq, candidate.minIndex)
+	heap.Fix(pqStruct, candidate.minIndex)
 }
 
 // CandidateList return a list of candidates
-func (pq *CandidateMinPQ) CandidateList() []*Candidate {
-	candidates := make([]*Candidate, len(*pq))
-	for i := 0; i < len(*pq); i++ {
-		candidates[i] = (*pq)[i]
+func (pqStruct *CandidateMinPQ) CandidateList() []*Candidate {
+	pq := pqStruct.pq
+	candidates := make([]*Candidate, len(pq))
+	for i := 0; i < len(pq); i++ {
+		candidates[i] = pq[i]
 	}
 	return candidates
 }
 
-func (pq *CandidateMinPQ) exist(address string) *Candidate {
-	for i := 0; i < len(*pq); i++ {
-		if (*pq)[i].Address == address {
-			return (*pq)[i]
+func (pqStruct *CandidateMinPQ) exist(address string) *Candidate {
+	pq := pqStruct.pq
+	for i := 0; i < len(pq); i++ {
+		if pq[i].Address == address {
+			return pq[i]
 		}
 	}
 	return nil
 }
 
-func (pq CandidateMaxPQ) Len() int {
+func (pqStruct *CandidateMinPQ) shouldTake(vote *big.Int) bool {
+	return pqStruct.Len() < pqStruct.Capacity || vote.Cmp(pqStruct.Top().(*Candidate).Votes) >= 0
+}
+
+func (pqStruct CandidateMaxPQ) Len() int {
+	pq := pqStruct.pq
 	return len(pq)
 }
 
-func (pq CandidateMaxPQ) Less(i, j int) bool {
+func (pqStruct CandidateMaxPQ) Less(i, j int) bool {
+	pq := pqStruct.pq
 	return pq[i].Votes.Cmp(pq[j].Votes) > 0
 }
 
-func (pq CandidateMaxPQ) Swap(i, j int) {
+func (pqStruct CandidateMaxPQ) Swap(i, j int) {
+	pq := pqStruct.pq
 	pq[i], pq[j] = pq[j], pq[i]
 	pq[i].maxIndex = i
 	pq[j].maxIndex = j
 }
 
 // Push pushes a candidate in the heap
-func (pq *CandidateMaxPQ) Push(x interface{}) {
+func (pqStruct *CandidateMaxPQ) Push(x interface{}) {
+	pq := &pqStruct.pq
 	n := len(*pq)
 	candidate := x.(*Candidate)
 	candidate.maxIndex = n
@@ -109,7 +131,8 @@ func (pq *CandidateMaxPQ) Push(x interface{}) {
 }
 
 // Pop pops a candidate in the heap
-func (pq *CandidateMaxPQ) Pop() interface{} {
+func (pqStruct *CandidateMaxPQ) Pop() interface{} {
+	pq := &pqStruct.pq
 	old := *pq
 	n := len(old)
 	item := old[n-1]
@@ -119,28 +142,31 @@ func (pq *CandidateMaxPQ) Pop() interface{} {
 }
 
 // Top return the candidate with highest votes
-func (pq *CandidateMaxPQ) Top() interface{} {
-	return (*pq)[0]
+func (pqStruct *CandidateMaxPQ) Top() interface{} {
+	pq := pqStruct.pq
+	return pq[0]
 }
 
-func (pq *CandidateMaxPQ) update(candidate *Candidate, newVote *big.Int) {
+func (pqStruct *CandidateMaxPQ) update(candidate *Candidate, newVote *big.Int) {
 	candidate.Votes = newVote
-	heap.Fix(pq, candidate.maxIndex)
+	heap.Fix(pqStruct, candidate.maxIndex)
 }
 
 // CandidateList return a list of candidates
-func (pq *CandidateMaxPQ) CandidateList() []*Candidate {
-	candidates := make([]*Candidate, len(*pq))
-	for i := 0; i < len(*pq); i++ {
-		candidates[i] = (*pq)[i]
+func (pqStruct *CandidateMaxPQ) CandidateList() []*Candidate {
+	pq := pqStruct.pq
+	candidates := make([]*Candidate, len(pq))
+	for i := 0; i < len(pq); i++ {
+		candidates[i] = pq[i]
 	}
 	return candidates
 }
 
-func (pq *CandidateMaxPQ) exist(address string) *Candidate {
-	for i := 0; i < len(*pq); i++ {
-		if (*pq)[i].Address == address {
-			return (*pq)[i]
+func (pqStruct *CandidateMaxPQ) exist(address string) *Candidate {
+	pq := pqStruct.pq
+	for i := 0; i < len(pq); i++ {
+		if pq[i].Address == address {
+			return pq[i]
 		}
 	}
 	return nil
