@@ -12,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/iotexproject/iotex-core/common/utils"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/server/itx"
 )
@@ -28,8 +29,14 @@ func TestNetSync(t *testing.T) {
 	}
 
 	assert := assert.New(t)
-	os.Remove(testDBPath)
-	defer os.Remove(testDBPath)
+	cleanup := func() {
+		if utils.FileExists(testDBPath) {
+			err := os.Remove(testDBPath)
+			assert.Nil(err)
+		}
+	}
+	cleanup()
+	defer cleanup()
 
 	config, err := config.LoadConfigWithPathWithoutValidation(localFullnodeConfig)
 	// disable account-based testing

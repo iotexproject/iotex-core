@@ -19,6 +19,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/common"
+	"github.com/iotexproject/iotex-core/common/utils"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/statefactory"
@@ -40,7 +41,14 @@ func TestActPool_validateTx(t *testing.T) {
 	// Create one dummy iotex address
 	pubK := "09d8c6fc6f5cb0a03df112da90486fad7cdece1501aaab658551f8afbe7f59ee"
 	addr, _ := iotxaddress.GetAddress(decodeHash(pubK), isTestnet, chainid)
-	defer os.Remove(testTriePath)
+	cleanup := func() {
+		if utils.FileExists(testTriePath) {
+			err := os.Remove(testTriePath)
+			assert.Nil(err)
+		}
+	}
+	cleanup()
+	defer cleanup()
 	trie, _ := trie.NewTrie(testTriePath)
 	sf := statefactory.NewStateFactory(trie)
 	sf.CreateState(addr.RawAddress, uint64(100))
@@ -82,7 +90,14 @@ func TestActPool_AddTx(t *testing.T) {
 	addr1, _ := iotxaddress.GetAddress(decodeHash(pubK1), isTestnet, chainid)
 	pubK2 := "247a92febf1daac9c9d1a0f5224bb61eb14b2f291d10e01daa0aa5cf17d3f83a"
 	addr2, _ := iotxaddress.GetAddress(decodeHash(pubK2), isTestnet, chainid)
-	defer os.Remove(testTriePath)
+	cleanup := func() {
+		if utils.FileExists(testTriePath) {
+			err := os.Remove(testTriePath)
+			assert.Nil(err)
+		}
+	}
+	cleanup()
+	defer cleanup()
 	trie, _ := trie.NewTrie(testTriePath)
 	sf := statefactory.NewStateFactory(trie)
 	sf.CreateState(addr1.RawAddress, uint64(100))
@@ -172,7 +187,14 @@ func TestActPool_PickTxs(t *testing.T) {
 	addr1, _ := iotxaddress.GetAddress(decodeHash(pubK1), isTestnet, chainid)
 	pubK2 := "247a92febf1daac9c9d1a0f5224bb61eb14b2f291d10e01daa0aa5cf17d3f83a"
 	addr2, _ := iotxaddress.GetAddress(decodeHash(pubK2), isTestnet, chainid)
-	defer os.Remove(testTriePath)
+	cleanup := func() {
+		if utils.FileExists(testTriePath) {
+			err := os.Remove(testTriePath)
+			assert.Nil(err)
+		}
+	}
+	cleanup()
+	defer cleanup()
 	trie, _ := trie.NewTrie(testTriePath)
 	sf := statefactory.NewStateFactory(trie)
 	sf.CreateState(addr1.RawAddress, uint64(100))
@@ -215,7 +237,14 @@ func TestActPool_removeCommittedTxs(t *testing.T) {
 	// Create one dummy iotex address
 	pubK := "09d8c6fc6f5cb0a03df112da90486fad7cdece1501aaab658551f8afbe7f59ee"
 	addr, _ := iotxaddress.GetAddress(decodeHash(pubK), isTestnet, chainid)
-	defer os.Remove(testTriePath)
+	cleanup := func() {
+		if utils.FileExists(testTriePath) {
+			err := os.Remove(testTriePath)
+			assert.Nil(err)
+		}
+	}
+	cleanup()
+	defer cleanup()
 	trie, _ := trie.NewTrie(testTriePath)
 	sf := statefactory.NewStateFactory(trie)
 	sf.CreateState(addr.RawAddress, uint64(100))
@@ -257,7 +286,14 @@ func TestActPool_Reset(t *testing.T) {
 	pubK3 := "335664daa5d054e02004c71c28ed4ab4aaec650098fb29e518e23e25274a7273"
 	addr3, _ := iotxaddress.GetAddress(decodeHash(pubK3), isTestnet, chainid)
 
-	defer os.Remove(testTriePath)
+	cleanup := func() {
+		if utils.FileExists(testTriePath) {
+			err := os.Remove(testTriePath)
+			assert.Nil(err)
+		}
+	}
+	cleanup()
+	defer cleanup()
 	trie, _ := trie.NewTrie(testTriePath)
 	sf := statefactory.NewStateFactory(trie)
 	sf.CreateState(addr1.RawAddress, uint64(100))
