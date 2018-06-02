@@ -41,7 +41,7 @@ func NewServer(cfg config.Config) Server {
 // NewTestServer creates a new test server
 func NewTestServer(cfg config.Config) Server {
 	// create Test Blockchain
-	bc := blockchain.CreateTestBlockchain(&cfg, blockchain.Gen)
+	bc := blockchain.CreateInMemBlockchain(&cfg, blockchain.Gen)
 	return newServer(cfg, bc)
 }
 

@@ -40,7 +40,7 @@ func TestTxPool(t *testing.T) {
 	cfg.Chain.TrieDBPath = ""
 	// Disable block reward to make bookkeeping easier
 	Gen.BlockReward = uint64(0)
-	bc := CreateTestBlockchain(cfg, Gen)
+	bc := CreateInMemBlockchain(cfg, Gen)
 	assert.NotNil(bc)
 	defer bc.Stop()
 

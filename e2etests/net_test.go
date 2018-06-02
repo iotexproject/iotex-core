@@ -7,6 +7,7 @@
 package e2etests
 
 import (
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -18,6 +19,7 @@ import (
 const (
 	// localFullnodeConfig is the testnet config path
 	localFullnodeConfig = "./config_local_fullnode.yaml"
+	testDBPath          = "db.test"
 )
 
 func TestNetSync(t *testing.T) {
@@ -26,8 +28,8 @@ func TestNetSync(t *testing.T) {
 	}
 
 	assert := assert.New(t)
-	//os.Remove(testDBPath)
-	//defer os.Remove(testDBPath)
+	os.Remove(testDBPath)
+	defer os.Remove(testDBPath)
 
 	config, err := config.LoadConfigWithPathWithoutValidation(localFullnodeConfig)
 	// disable account-based testing
@@ -38,7 +40,7 @@ func TestNetSync(t *testing.T) {
 	}
 
 	// create node
-	svr := itx.NewTestServer(*config)
+	svr := itx.NewServer(*config)
 	assert.NotNil(svr)
 	err = svr.Init()
 	assert.Nil(err)
