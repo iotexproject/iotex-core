@@ -16,6 +16,7 @@ import (
 
 	. "github.com/iotexproject/iotex-core/blockchain"
 	trx "github.com/iotexproject/iotex-core/blockchain/trx"
+	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/proto"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
@@ -105,12 +106,12 @@ func TestTxPool(t *testing.T) {
 			fmt.Println(tx2.TxIn)
 			return
 		} //*/
-	txIn1_0 := &iproto.TxInputPb{
-		TxHash:           decodeHash("9de6306b08158c423330f7a27243a1a5cbe39bfd764f07818437882d21241567"),
-		OutIndex:         0,
-		UnlockScriptSize: 98,
-		UnlockScript:     decodeHash("40f9ea2b1357dde55519246a6ad82c466b9f2b988ff81a7c2fb114c932d44f322ba2edd178c2326739638b536e5f803977c24332b8f5b8ebc5f6683ff2bcaad90720b9b8d7316705dc4ff62bb323e610f3f5072abedc9834e999d6537f6681284ea2"),
-	}
+	txHash := common.ZeroHash32B
+	copy(txHash[:], decodeHash("9de6306b08158c423330f7a27243a1a5cbe39bfd764f07818437882d21241567"))
+	txIn1_0 := trx.NewTxInput(
+		txHash, 0,
+		decodeHash("40f9ea2b1357dde55519246a6ad82c466b9f2b988ff81a7c2fb114c932d44f322ba2edd178c2326739638b536e5f803977c24332b8f5b8ebc5f6683ff2bcaad90720b9b8d7316705dc4ff62bb323e610f3f5072abedc9834e999d6537f6681284ea2"),
+		0)
 	txOut1_0 := trx.NewTxOutput(10, 0)
 	txOut1_0.LockScriptSize = 25
 	txOut1_0.LockScript = decodeHash("65b014a97ce8e76ade9b3181c63432a62330a5ca83ab9ba1b1")
@@ -139,12 +140,11 @@ func TestTxPool(t *testing.T) {
 		LockTime: 0,
 	}
 
-	txIn2_0 := &iproto.TxInputPb{
-		TxHash:           decodeHash("aeedd06eb44f08abbcc72a2293aff580f13662fa59cc1b0aa4a15ee7c118e4eb"),
-		OutIndex:         0,
-		UnlockScriptSize: 98,
-		UnlockScript:     decodeHash("40535e20b5c5075fa80d6bff220aea755737e3787bfbc7122c0c45015f6c249fbca28d069dc028fad01fda2766ea90411aad38ce9a9de7c59a30e4bebc80b940002009d8c6fc6f5cb0a03df112da90486fad7cdece1501aaab658551f8afbe7f59ee"),
-	}
+	copy(txHash[:], decodeHash("aeedd06eb44f08abbcc72a2293aff580f13662fa59cc1b0aa4a15ee7c118e4eb"))
+	txIn2_0 := trx.NewTxInput(
+		txHash, 0,
+		decodeHash("40535e20b5c5075fa80d6bff220aea755737e3787bfbc7122c0c45015f6c249fbca28d069dc028fad01fda2766ea90411aad38ce9a9de7c59a30e4bebc80b940002009d8c6fc6f5cb0a03df112da90486fad7cdece1501aaab658551f8afbe7f59ee"),
+		0)
 	txOut2_0 := trx.NewTxOutput(3, 0)
 	txOut2_0.LockScriptSize = 25
 	txOut2_0.LockScript = decodeHash("65b014af33097c8fd571c6c1efc52b0a802514ea0fbb03a1b1")

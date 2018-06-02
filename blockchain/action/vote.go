@@ -24,7 +24,7 @@ const (
 type (
 	// Vote defines the struct of account-based vote
 	Vote struct {
-		iproto.VotePb
+		*iproto.VotePb
 	}
 )
 
@@ -49,7 +49,7 @@ func (v *Vote) ByteStream() []byte {
 
 // ConvertToVotePb converts Vote to protobuf's VotePb
 func (v *Vote) ConvertToVotePb() *iproto.VotePb {
-	return &v.VotePb
+	return v.VotePb
 }
 
 // Serialize returns a serialized byte stream for the Transfer
@@ -59,7 +59,7 @@ func (v *Vote) Serialize() ([]byte, error) {
 
 // ConvertFromVotePb converts Vote to protobuf's VotePb
 func (v *Vote) ConvertFromVotePb(pbVote *iproto.VotePb) {
-	v.VotePb = *pbVote
+	v.VotePb = pbVote
 }
 
 // Deserialize parse the byte stream into Vote
