@@ -82,20 +82,30 @@ class Player:
             
         self.inbound = list(filter(lambda x: x[1] > heartbeat, self.inbound)) # get rid of processed messages
         
-        self.sendOutbound() # send messages to connected players
-
-        print()
+        return self.sendOutbound()
 
     def sendOutbound(self):
-        """Send all outbound connections to connected nodes"""
+        """Send all outbound connections to connected nodes.
+           Returns list of nodes messages have been sent to"""
+
+        if len(self.outbound) == 0:
+            flag = False
+        else:
+            flag = True
+
+        ci = []
         
         for i in self.connections:
+            ci.append(i.id)
             for message, timestamp in self.outbound:
                 dt = np.random.exponential(self.MEAN_PROP_TIME) # add propagation time to timestamp
                 print("sent %s to %s" % (Player.msgMap[message], i))
                 i.inbound.append([message, timestamp+dt])
 
         self.outbound.clear()
+        print()
+
+        return ci, flag
 
     def __str__(self):
         return "player %s" % (self.id)
