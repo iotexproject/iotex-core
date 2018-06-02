@@ -7,7 +7,6 @@
 package e2etests
 
 import (
-	"os"
 	"testing"
 	"time"
 
@@ -28,19 +27,14 @@ import (
 
 const (
 	localTestConfigPath = "../config.yaml"
-	testDBPath          = "db.test"
-	testDB2Path         = "db2.test"
 )
 
 func TestLocalCommit(t *testing.T) {
 	assert := assert.New(t)
-	os.Remove(testDBPath)
-	defer os.Remove(testDBPath)
 
 	cfg, err := config.LoadConfigWithPathWithoutValidation(localTestConfigPath)
 	assert.Nil(err)
 	cfg.Network.BootstrapNodes = []string{"127.0.0.1:10000"}
-	cfg.Chain.ChainDBPath = testDBPath
 	// disable account-based testing
 	cfg.Chain.TrieDBPath = ""
 	cfg.Consensus.Scheme = config.NOOPScheme
@@ -50,7 +44,7 @@ func TestLocalCommit(t *testing.T) {
 	blockchain.Gen.BlockReward = uint64(0)
 
 	// create node
-	svr := itx.NewServer(*cfg)
+	svr := itx.NewTestServer(*cfg)
 	err = svr.Init()
 	assert.Nil(err)
 	err = svr.Start()
@@ -203,22 +197,17 @@ func TestLocalSync(t *testing.T) {
 	l := logger.Logger().Level(zerolog.DebugLevel)
 	logger.SetLogger(&l)
 	assert := assert.New(t)
-	os.Remove(testDBPath)
-	defer os.Remove(testDBPath)
-	os.Remove(testDB2Path)
-	defer os.Remove(testDB2Path)
 
 	cfg, err := config.LoadConfigWithPathWithoutValidation(localTestConfigPath)
 	assert.Nil(err)
 	cfg.NodeType = config.DelegateType
 	cfg.Delegate.Addrs = []string{"127.0.0.1:10000"}
-	cfg.Chain.ChainDBPath = testDBPath
 	// disable account-based testing
 	cfg.Chain.TrieDBPath = ""
 	cfg.Consensus.Scheme = config.NOOPScheme
 
 	// create node 1
-	svr := itx.NewServer(*cfg)
+	svr := itx.NewTestServer(*cfg)
 	err = svr.Init()
 	assert.Nil(err)
 	err = svr.Start()
@@ -249,8 +238,7 @@ func TestLocalSync(t *testing.T) {
 	// create node 2
 	cfg.NodeType = config.FullNodeType
 	cfg.Network.Addr = "127.0.0.1:10001"
-	cfg.Chain.ChainDBPath = testDB2Path
-	cli := itx.NewServer(*cfg)
+	cli := itx.NewTestServer(*cfg)
 	cli.Init()
 	cli.Start()
 	defer cli.Stop()

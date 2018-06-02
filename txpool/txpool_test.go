@@ -9,7 +9,6 @@ package txpool
 import (
 	"container/heap"
 	"encoding/hex"
-	"os"
 	"testing"
 	"time"
 
@@ -24,7 +23,6 @@ import (
 
 const (
 	testingConfigPath = "../config.yaml"
-	testDBPath        = "db.test"
 	testCoinbaseData  = "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks"
 )
 
@@ -34,17 +32,15 @@ func decodeHash(in string) []byte {
 }
 
 func TestTxPool(t *testing.T) {
-	defer os.Remove(testDBPath)
 	assert := assert.New(t)
 
 	cfg, err := config.LoadConfigWithPathWithoutValidation(testingConfigPath)
 	assert.Nil(err)
-	cfg.Chain.ChainDBPath = testDBPath
 	// disable account-based testing
 	cfg.Chain.TrieDBPath = ""
 	// Disable block reward to make bookkeeping easier
 	Gen.BlockReward = uint64(0)
-	bc := CreateBlockchain(cfg, Gen)
+	bc := CreateTestBlockchain(cfg, Gen)
 	assert.NotNil(bc)
 	defer bc.Stop()
 

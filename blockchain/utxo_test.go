@@ -8,7 +8,6 @@ package blockchain
 
 import (
 	"fmt"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -18,13 +17,11 @@ import (
 )
 
 func TestUTXO(t *testing.T) {
-	defer os.Remove(testDBPath)
-
 	// create chain
 	totalSupply := uint64(100000000)
 	Gen.TotalSupply = totalSupply
 	Gen.BlockReward = uint64(0)
-	bc := CreateBlockchain(&config.Config{Chain: config.Chain{ChainDBPath: testDBPath}}, Gen)
+	bc := CreateTestBlockchain(&config.Config{}, Gen)
 	assert.NotNil(t, bc)
 	fmt.Println("Create blockchain pass")
 

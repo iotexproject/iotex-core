@@ -23,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/statefactory"
+	"github.com/iotexproject/iotex-core/trie"
 	"github.com/iotexproject/iotex-core/txvm"
 )
 
@@ -264,53 +265,30 @@ func (bc *blockchain) AddBlockSync(blk *Block) error {
 
 // CreateBlockchain creates a new blockchain and DB instance
 func CreateBlockchain(cfg *config.Config, gen *Genesis) Blockchain {
-	// create DB access
-	dao := newBlockDAO(db.NewBoltDB(cfg.Chain.ChainDBPath, nil))
+	boltDB := db.NewBoltDB(cfg.Chain.ChainDBPath, nil)
 	// create StateFactory
 	sf, err := statefactory.NewStateFactoryTrieDB(cfg.Chain.TrieDBPath)
 	if err != nil {
 		logger.Error().Err(err).Msg("Failed to initialize statefactory")
 		return nil
 	}
-	// create the Blockchain
-	chain := NewBlockchain(dao, cfg, gen, sf)
-	if err := chain.Init(); err != nil {
-		logger.Error().Err(err).Msg("Failed to initialize blockchain")
-		return nil
-	}
-	if err := chain.Start(); err != nil {
-		logger.Error().Err(err).Msg("Failed to start blockchain")
-		return nil
-	}
+	return createBlockchain(boltDB, sf, cfg, gen)
+}
 
-	height, err := chain.TipHeight()
+// CreateTestBlockchain creates a new test blockchain and in-memory KV store instance
+func CreateTestBlockchain(cfg *config.Config, gen *Genesis) Blockchain {
+	memKVStore := db.NewMemKVStore()
+	// If TrieDBPath is empty, we disable account-based testing
+	if len(cfg.Chain.TrieDBPath) == 0 {
+		return createBlockchain(memKVStore, nil, cfg, gen)
+	}
+	trie, err := trie.NewTestTrie()
 	if err != nil {
-		logger.Error().Err(err).Msg("Failed to get blockchain height")
+		logger.Error().Err(err).Msg("Failed to initialize test trie")
+		return nil
 	}
-	if height == 0 {
-		if gen == nil {
-			logger.Error().Msg("Genesis should not be nil.")
-			return nil
-		}
-		genesis := NewGenesisBlock(gen)
-		if genesis == nil {
-			logger.Error().Msg("Cannot create genesis block.")
-			return nil
-		}
-		// Genesis block has height 0
-		if genesis.Header.height != 0 {
-			logger.Error().
-				Uint64("Genesis block has height", genesis.Height()).
-				Msg("Expecting 0")
-			return nil
-		}
-		// add Genesis block as very first block
-		if err := chain.AddBlockCommit(genesis); err != nil {
-			logger.Error().Err(err).Msg("Failed to commit Genesis block")
-			return nil
-		}
-	}
-	return chain
+	sf := statefactory.NewStateFactory(trie)
+	return createBlockchain(memKVStore, sf, cfg, gen)
 }
 
 // BalanceOf returns the balance of an address
@@ -381,6 +359,49 @@ func (bc *blockchain) CreateTransaction(from *iotxaddress.Address, amount uint64
 // CreateRawTransaction creates a unsigned transaction paying 'amount' from 'from' to 'to'
 func (bc *blockchain) CreateRawTransaction(from *iotxaddress.Address, amount uint64, to []*Payee) *trx.Tx {
 	return bc.createTx(from, amount, to, true)
+}
+
+func createBlockchain(kvstore db.KVStore, sf statefactory.StateFactory, cfg *config.Config, gen *Genesis) Blockchain {
+	dao := newBlockDAO(kvstore)
+	// create the Blockchain
+	chain := NewBlockchain(dao, cfg, gen, sf)
+	if err := chain.Init(); err != nil {
+		logger.Error().Err(err).Msg("Failed to initialize blockchain")
+		return nil
+	}
+	if err := chain.Start(); err != nil {
+		logger.Error().Err(err).Msg("Failed to start blockchain")
+		return nil
+	}
+
+	height, err := chain.TipHeight()
+	if err != nil {
+		logger.Error().Err(err).Msg("Failed to get blockchain height")
+	}
+	if height == 0 {
+		if gen == nil {
+			logger.Error().Msg("Genesis should not be nil.")
+			return nil
+		}
+		genesis := NewGenesisBlock(gen)
+		if genesis == nil {
+			logger.Error().Msg("Cannot create genesis block.")
+			return nil
+		}
+		// Genesis block has height 0
+		if genesis.Header.height != 0 {
+			logger.Error().
+				Uint64("Genesis block has height", genesis.Height()).
+				Msg("Expecting 0")
+			return nil
+		}
+		// add Genesis block as very first block
+		if err := chain.AddBlockCommit(genesis); err != nil {
+			logger.Error().Err(err).Msg("Failed to commit Genesis block")
+			return nil
+		}
+	}
+	return chain
 }
 
 func resetOutIndex(out []*trx.TxOutput) {
