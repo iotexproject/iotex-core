@@ -14,6 +14,7 @@ import statistics
 import player
 import solver
 import consensus_client
+import plot
 
 def drive(opts):
     """Drive execution of the program. opts: dictionary of options.
@@ -46,3 +47,6 @@ def drive(opts):
 
     # get rid of useless .db files
     os.system("rm chain*.db")
+
+    plot.makeAnim(["out%d.png"%i for i in range(opts["N_ROUNDS"])])
+    os.system("rm -f out*.dot out*.png")

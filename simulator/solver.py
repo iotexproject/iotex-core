@@ -11,6 +11,7 @@ import math
 import random
 import statistics
 
+import plot
 import player
 import consensus_client
 
@@ -64,8 +65,17 @@ class Solver:
         
         self.heartbeat = heartbeat
 
+        messages = []
+        connections = []
         for i in self.players:
-            i.action(heartbeat)
+            message, flag = i.action(heartbeat)
+            if flag:
+                messages.append(message)
+            else:
+                messages.append([])
+            connections.append(message)
+
+        plot.makeGraph(heartbeat, len(self.players), connections, messages)
 
     def simulate(self):
         """Simulate the system"""
