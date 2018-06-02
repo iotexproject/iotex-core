@@ -36,6 +36,7 @@ const (
 	buffer = candidatePool + 1
 )
 
+// TODO: this is only for test config, use 101, 400, 10000 when in production
 const (
 	delegateSize  = 2
 	candidateSize = 3
@@ -142,11 +143,11 @@ func (st *State) SubBalance(amount *big.Int) error {
 func NewStateFactory(tr trie.Trie) StateFactory {
 	return &stateFactory{
 		trie:             tr,
-		delegateHeap:     make(CandidateMinPQ, 0),
-		candidateMinHeap: make(CandidateMinPQ, 0),
-		candidateMaxHeap: make(CandidateMaxPQ, 0),
-		minBuffer:        make(CandidateMinPQ, 0),
-		maxBuffer:        make(CandidateMaxPQ, 0)}
+		delegateHeap:     CandidateMinPQ{delegateSize, make([]*Candidate, 0)},
+		candidateMinHeap: CandidateMinPQ{candidateSize, make([]*Candidate, 0)},
+		candidateMaxHeap: CandidateMaxPQ{candidateSize, make([]*Candidate, 0)},
+		minBuffer:        CandidateMinPQ{bufferSize, make([]*Candidate, 0)},
+		maxBuffer:        CandidateMaxPQ{bufferSize, make([]*Candidate, 0)}}
 }
 
 // NewStateFactoryTrieDB creates a new stateFactory from Trie
@@ -160,11 +161,12 @@ func NewStateFactoryTrieDB(dbPath string) (StateFactory, error) {
 	}
 	return &stateFactory{
 		trie:             tr,
-		delegateHeap:     make(CandidateMinPQ, 0),
-		candidateMinHeap: make(CandidateMinPQ, 0),
-		candidateMaxHeap: make(CandidateMaxPQ, 0),
-		minBuffer:        make(CandidateMinPQ, 0),
-		maxBuffer:        make(CandidateMaxPQ, 0)}, nil
+		delegateHeap:     CandidateMinPQ{delegateSize, make([]*Candidate, 0)},
+		candidateMinHeap: CandidateMinPQ{candidateSize, make([]*Candidate, 0)},
+		candidateMaxHeap: CandidateMaxPQ{candidateSize, make([]*Candidate, 0)},
+		minBuffer:        CandidateMinPQ{bufferSize, make([]*Candidate, 0)},
+		maxBuffer:        CandidateMaxPQ{bufferSize, make([]*Candidate, 0)},
+	}, nil
 }
 
 // CreateState adds a new State with initial balance to the factory
@@ -338,42 +340,45 @@ func (sf *stateFactory) getState(addr string) (*State, error) {
 func (sf *stateFactory) updateVotes(candidate *Candidate, votes *big.Int) {
 	candidate.Votes = votes
 	c, level := sf.inPool(candidate.Address)
-	if level == delegatePool { // if candidate is already in delegate pool
+	switch level {
+	case delegatePool:
+		// if candidate is already in delegate pool
 		sf.delegateHeap.update(c, candidate.Votes)
-	} else if level == candidatePool { // if candidate is already in candidate pool
+	case candidatePool:
+		// if candidate is already in candidate pool
 		sf.candidateMinHeap.update(c, candidate.Votes)
 		sf.candidateMaxHeap.update(c, candidate.Votes)
-	} else if level == buffer { // if candidate is already in buffer
+	case buffer:
+		// if candidate is already in buffer
 		sf.minBuffer.update(c, candidate.Votes)
 		sf.maxBuffer.update(c, candidate.Votes)
-	} else { // candidate is not in any of three pools
+	default:
+		// candidate is not in any of three pools
 		transitCandidate := candidate
-		if len(sf.delegateHeap) == 0 || len(sf.delegateHeap) < delegateSize || candidate.Votes.Cmp(sf.delegateHeap.Top().(*Candidate).Votes) >= 0 {
+		if sf.delegateHeap.shouldTake(transitCandidate.Votes) {
 			// Push candidate into delegate pool
 			heap.Push(&sf.delegateHeap, transitCandidate)
 			transitCandidate = nil
-			if len(sf.delegateHeap) > delegateSize {
+			if sf.delegateHeap.Len() > sf.delegateHeap.Capacity {
 				transitCandidate = heap.Pop(&sf.delegateHeap).(*Candidate)
 			}
 		}
-		if transitCandidate != nil &&
-			(len(sf.candidateMinHeap) == 0 || len(sf.candidateMinHeap) < candidateSize || candidate.Votes.Cmp(sf.candidateMinHeap.Top().(*Candidate).Votes) >= 0) {
+		if transitCandidate != nil && sf.candidateMinHeap.shouldTake(transitCandidate.Votes) {
 			// Push candidate into candidate pool
 			heap.Push(&sf.candidateMinHeap, transitCandidate)
 			heap.Push(&sf.candidateMaxHeap, transitCandidate)
 			transitCandidate = nil
-			if len(sf.candidateMinHeap) > candidateSize {
+			if sf.candidateMinHeap.Len() > sf.candidateMinHeap.Capacity {
 				transitCandidate = heap.Pop(&sf.candidateMinHeap).(*Candidate)
 				heap.Remove(&sf.candidateMaxHeap, transitCandidate.maxIndex)
 			}
 		}
-		if transitCandidate != nil &&
-			(len(sf.minBuffer) == 0 || len(sf.minBuffer) < bufferSize || candidate.Votes.Cmp(sf.minBuffer.Top().(*Candidate).Votes) >= 0) {
+		if transitCandidate != nil && sf.minBuffer.shouldTake(transitCandidate.Votes) {
 			// Push candidate into buffer
 			heap.Push(&sf.minBuffer, transitCandidate)
 			heap.Push(&sf.maxBuffer, transitCandidate)
 			transitCandidate = nil
-			if len(sf.minBuffer) > bufferSize {
+			if sf.minBuffer.Len() > sf.minBuffer.Capacity {
 				transitCandidate = heap.Pop(&sf.minBuffer).(*Candidate)
 				heap.Remove(&sf.maxBuffer, transitCandidate.maxIndex)
 			}
@@ -383,7 +388,7 @@ func (sf *stateFactory) updateVotes(candidate *Candidate, votes *big.Int) {
 }
 
 func (sf *stateFactory) balance() {
-	if len(sf.candidateMinHeap) > 0 && len(sf.maxBuffer) > 0 && sf.candidateMinHeap.Top().(*Candidate).Votes.Cmp(sf.maxBuffer.Top().(*Candidate).Votes) < 0 {
+	if sf.candidateMinHeap.Len() > 0 && sf.maxBuffer.Len() > 0 && sf.candidateMinHeap.Top().(*Candidate).Votes.Cmp(sf.maxBuffer.Top().(*Candidate).Votes) < 0 {
 		cFromCandidatePool := heap.Pop(&sf.candidateMinHeap).(*Candidate)
 		heap.Remove(&sf.candidateMaxHeap, cFromCandidatePool.maxIndex)
 		cFromBuffer := heap.Pop(&sf.maxBuffer).(*Candidate)
@@ -393,7 +398,7 @@ func (sf *stateFactory) balance() {
 		heap.Push(&sf.minBuffer, cFromCandidatePool)
 		heap.Push(&sf.maxBuffer, cFromCandidatePool)
 	}
-	if len(sf.delegateHeap) > 0 && len(sf.candidateMaxHeap) > 0 && sf.delegateHeap.Top().(*Candidate).Votes.Cmp(sf.candidateMaxHeap.Top().(*Candidate).Votes) < 0 {
+	if sf.delegateHeap.Len() > 0 && sf.candidateMaxHeap.Len() > 0 && sf.delegateHeap.Top().(*Candidate).Votes.Cmp(sf.candidateMaxHeap.Top().(*Candidate).Votes) < 0 {
 		cFromDelegatePool := heap.Pop(&sf.delegateHeap).(*Candidate)
 		cFromCandidatePool := heap.Pop(&sf.candidateMaxHeap).(*Candidate)
 		heap.Remove(&sf.candidateMinHeap, cFromCandidatePool.minIndex)
@@ -401,7 +406,7 @@ func (sf *stateFactory) balance() {
 		heap.Push(&sf.candidateMinHeap, cFromDelegatePool)
 		heap.Push(&sf.candidateMaxHeap, cFromDelegatePool)
 	}
-	if len(sf.candidateMinHeap) > 0 && len(sf.maxBuffer) > 0 && sf.candidateMinHeap.Top().(*Candidate).Votes.Cmp(sf.maxBuffer.Top().(*Candidate).Votes) < 0 {
+	if sf.candidateMinHeap.Len() > 0 && sf.maxBuffer.Len() > 0 && sf.candidateMinHeap.Top().(*Candidate).Votes.Cmp(sf.maxBuffer.Top().(*Candidate).Votes) < 0 {
 		cFromCandidatePool := heap.Pop(&sf.candidateMinHeap).(*Candidate)
 		heap.Remove(&sf.candidateMaxHeap, cFromCandidatePool.maxIndex)
 		cFromBuffer := heap.Pop(&sf.maxBuffer).(*Candidate)
@@ -412,7 +417,7 @@ func (sf *stateFactory) balance() {
 		heap.Push(&sf.maxBuffer, cFromCandidatePool)
 	}
 
-	if len(sf.candidateMinHeap) != len(sf.candidateMaxHeap) || len(sf.minBuffer) != len(sf.maxBuffer) {
+	if sf.candidateMinHeap.Len() != sf.candidateMaxHeap.Len() || sf.minBuffer.Len() != sf.maxBuffer.Len() {
 		fmt.Println("***************heap not sync***************")
 	}
 }

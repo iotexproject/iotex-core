@@ -133,11 +133,11 @@ func TestDelegates(t *testing.T) {
 	tr, _ := trie.NewTrie("trie.test")
 	sf := &stateFactory{
 		trie:             tr,
-		delegateHeap:     make(CandidateMinPQ, 0),
-		candidateMinHeap: make(CandidateMinPQ, 0),
-		candidateMaxHeap: make(CandidateMaxPQ, 0),
-		minBuffer:        make(CandidateMinPQ, 0),
-		maxBuffer:        make(CandidateMaxPQ, 0)}
+		delegateHeap:     CandidateMinPQ{delegateSize, make([]*Candidate, 0)},
+		candidateMinHeap: CandidateMinPQ{candidateSize, make([]*Candidate, 0)},
+		candidateMaxHeap: CandidateMaxPQ{candidateSize, make([]*Candidate, 0)},
+		minBuffer:        CandidateMinPQ{bufferSize, make([]*Candidate, 0)},
+		maxBuffer:        CandidateMaxPQ{bufferSize, make([]*Candidate, 0)}}
 
 	sf.updateVotes(c1, big.NewInt(1))
 	assert.True(t, reflect.DeepEqual(voteForm(sf.Delegates()), []string{"a1:1"}))
