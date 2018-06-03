@@ -8,12 +8,11 @@ package db
 
 import (
 	"math/rand"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotexproject/iotex-core/common/utils"
+	"github.com/iotexproject/iotex-core/test/util"
 )
 
 var (
@@ -66,15 +65,8 @@ func TestKVStorePutGet(t *testing.T) {
 
 	path := "/tmp/test-kv-store-" + string(rand.Int())
 	t.Run("Bolt DB", func(t *testing.T) {
-		cleanup := func() {
-			if utils.FileExists(path) {
-				err := os.Remove(path)
-				assert.Nil(t, err)
-			}
-		}
-
-		cleanup()
-		defer cleanup()
+		util.CleanupPath(t, path)
+		defer util.CleanupPath(t, path)
 		testKVStorePutGet(NewBoltDB(path, nil), t)
 	})
 }
@@ -128,15 +120,8 @@ func TestBatchRollback(t *testing.T) {
 
 	path := "/tmp/test-batch-rollback-" + string(rand.Int())
 	t.Run("Bolt DB", func(t *testing.T) {
-		cleanup := func() {
-			if utils.FileExists(path) {
-				err := os.Remove(path)
-				assert.Nil(t, err)
-			}
-		}
-
-		cleanup()
-		defer cleanup()
+		util.CleanupPath(t, path)
+		defer util.CleanupPath(t, path)
 		testBatchRollback(NewBoltDB(path, nil), t)
 	})
 }

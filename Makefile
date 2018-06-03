@@ -51,7 +51,6 @@ clean:
 	rm -f ./bin/$(BUILD_TARGET_SERVER)
 	rm -f ./bin/$(BUILD_TARGET_TXINJ)
 	rm -f chain.db
-	rm -f block.dat
 
 .PHONY: run
 run:

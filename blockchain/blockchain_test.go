@@ -9,16 +9,15 @@ package blockchain
 import (
 	"errors"
 	"fmt"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotexproject/iotex-core/blockchain/trx"
 	"github.com/iotexproject/iotex-core/common"
-	"github.com/iotexproject/iotex-core/common/utils"
 	"github.com/iotexproject/iotex-core/config"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
+	"github.com/iotexproject/iotex-core/test/util"
 )
 
 const (
@@ -159,14 +158,8 @@ func TestCreateBlockchain(t *testing.T) {
 
 func TestLoadBlockchainfromDB(t *testing.T) {
 	assert := assert.New(t)
-	cleanup := func() {
-		if utils.FileExists(testDBPath) {
-			err := os.Remove(testDBPath)
-			assert.Nil(err)
-		}
-	}
-	cleanup()
-	defer cleanup()
+	util.CleanupPath(t, testDBPath)
+	defer util.CleanupPath(t, testDBPath)
 	config, err := config.LoadConfigWithPathWithoutValidation(testingConfigPath)
 	assert.Nil(err)
 	config.Chain.ChainDBPath = testDBPath
