@@ -2,7 +2,6 @@ package trie
 
 import (
 	"container/list"
-	"os"
 	"testing"
 	"time"
 
@@ -10,9 +9,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/crypto/blake2b"
 
-	"github.com/iotexproject/iotex-core/common/utils"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/test/util"
 )
 
 const testTriePath = "trie.test"
@@ -20,14 +19,8 @@ const testTriePath = "trie.test"
 func TestEmptyTrie(t *testing.T) {
 	assert := assert.New(t)
 
-	cleanup := func() {
-		if utils.FileExists(testTriePath) {
-			err := os.Remove(testTriePath)
-			assert.Nil(err)
-		}
-	}
-	cleanup()
-	defer cleanup()
+	util.CleanupPath(t, testTriePath)
+	defer util.CleanupPath(t, testTriePath)
 	tr, err := NewTrie(testTriePath)
 	assert.Nil(err)
 	assert.Equal(tr.RootHash(), emptyRoot)
@@ -236,14 +229,8 @@ func Test1kEntries(t *testing.T) {
 	l := logger.Logger().Level(zerolog.DebugLevel)
 	logger.SetLogger(&l)
 
-	cleanup := func() {
-		if utils.FileExists(testTriePath) {
-			err := os.Remove(testTriePath)
-			assert.Nil(err)
-		}
-	}
-	cleanup()
-	defer cleanup()
+	util.CleanupPath(t, testTriePath)
+	defer util.CleanupPath(t, testTriePath)
 	tr, err := NewTrie(testTriePath)
 	assert.Nil(err)
 	root := emptyRoot
@@ -304,14 +291,8 @@ func TestPressure(t *testing.T) {
 	l := logger.Logger().Level(zerolog.DebugLevel)
 	logger.SetLogger(&l)
 
-	cleanup := func() {
-		if utils.FileExists(testTriePath) {
-			err := os.Remove(testTriePath)
-			assert.Nil(err)
-		}
-	}
-	cleanup()
-	defer cleanup()
+	util.CleanupPath(t, testTriePath)
+	defer util.CleanupPath(t, testTriePath)
 	tr, err := NewTrie(testTriePath)
 	assert.Nil(err)
 	root := emptyRoot

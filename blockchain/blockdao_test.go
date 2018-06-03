@@ -9,16 +9,15 @@ package blockchain
 import (
 	"hash/fnv"
 	"math/rand"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
-	trx "github.com/iotexproject/iotex-core/blockchain/trx"
+	"github.com/iotexproject/iotex-core/blockchain/trx"
 	"github.com/iotexproject/iotex-core/common"
-	"github.com/iotexproject/iotex-core/common/utils"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/test/testaddress"
+	"github.com/iotexproject/iotex-core/test/util"
 )
 
 func TestBlockDAO(t *testing.T) {
@@ -126,15 +125,8 @@ func TestBlockDAO(t *testing.T) {
 
 	path := "/tmp/test-kv-store-" + string(rand.Int())
 	t.Run("Bolt DB", func(t *testing.T) {
-		cleanup := func() {
-			if utils.FileExists(path) {
-				err := os.Remove(path)
-				assert.Nil(t, err)
-			}
-		}
-
-		cleanup()
-		defer cleanup()
+		util.CleanupPath(t, path)
+		defer util.CleanupPath(t, path)
 		testBlockDao(db.NewBoltDB(path, nil), t)
 	})
 

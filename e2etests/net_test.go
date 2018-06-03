@@ -7,14 +7,13 @@
 package e2etests
 
 import (
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotexproject/iotex-core/common/utils"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/server/itx"
+	"github.com/iotexproject/iotex-core/test/util"
 )
 
 const (
@@ -29,14 +28,8 @@ func TestNetSync(t *testing.T) {
 	}
 
 	assert := assert.New(t)
-	cleanup := func() {
-		if utils.FileExists(testDBPath) {
-			err := os.Remove(testDBPath)
-			assert.Nil(err)
-		}
-	}
-	cleanup()
-	defer cleanup()
+	util.CleanupPath(t, testDBPath)
+	defer util.CleanupPath(t, testDBPath)
 
 	config, err := config.LoadConfigWithPathWithoutValidation(localFullnodeConfig)
 	// disable account-based testing
