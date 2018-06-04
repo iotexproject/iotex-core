@@ -7,6 +7,7 @@
 package action
 
 import (
+	"bytes"
 	"math/big"
 
 	"github.com/golang/protobuf/proto"
@@ -41,18 +42,19 @@ type (
 )
 
 // NewTransfer returns a Transfer instance
-func NewTransfer(lockTime uint32, nonce uint64, amount *big.Int, sender string, recipient string, senderPubKey []byte) *Transfer {
+func NewTransfer(lockTime uint32, nonce uint64, amount *big.Int, sender string, recipient string) *Transfer {
 	return &Transfer{
 		Version:  common.ProtocolVersion,
 		LockTime: lockTime,
 
 		// used by account-based model
-		Nonce:           nonce,
-		Amount:          amount,
-		Sender:          sender,
-		Recipient:       recipient,
-		SenderPublicKey: senderPubKey,
-		Payload:         []byte{},
+		Nonce:     nonce,
+		Amount:    amount,
+		Sender:    sender,
+		Recipient: recipient,
+		// Payload is empty for now
+		Payload: []byte{},
+		// SenderPublicKey and Signature will be added in Sign()
 	}
 }
 
@@ -173,6 +175,18 @@ func Sign(raw []byte, sender *iotxaddress.Address) ([]byte, error) {
 	if err := tsf.Deserialize(raw); err != nil {
 		return nil, errors.Wrap(err, "failed to unmarshal Transfer")
 	}
+	// check the sender is correct
+	if tsf.Sender != sender.RawAddress {
+		return nil, errors.Wrapf(ErrActionError, "signing addr %s does not match with Transfer addr %s",
+			sender.RawAddress, tsf.Sender)
+	}
+	// check the public key is actually owned by sender
+	pkhash := iotxaddress.GetPubkeyHash(sender.RawAddress)
+	if bytes.Compare(pkhash, iotxaddress.HashPubKey(sender.PublicKey)) != 0 {
+		return nil, errors.Wrapf(ErrActionError, "signing addr %s does not own correct public key",
+			sender.RawAddress)
+	}
+	tsf.SenderPublicKey = sender.PublicKey
 	if err := tsf.sign(sender); err != nil {
 		return nil, err
 	}
