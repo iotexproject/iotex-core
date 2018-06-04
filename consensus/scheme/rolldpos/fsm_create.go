@@ -13,6 +13,7 @@ import (
 
 const (
 	stateEpochStart    fsm.State = "EPOCH_START"
+	stateDKGGenerate   fsm.State = "DKG_GENERATE"
 	stateRoundStart    fsm.State = "ROUND_START"
 	stateInitPropose   fsm.State = "INIT_PROPOSE"
 	stateAcceptPropose fsm.State = "PROPOSE"
@@ -28,12 +29,14 @@ func fsmCreate(r *RollDPoS) fsm.Machine {
 		return sm
 	}
 	sm.AddState(stateRoundStart, &roundStart{RollDPoS: r})
+	sm.AddState(stateDKGGenerate, &dkgGenerate{RollDPoS: r})
 	sm.AddState(stateInitPropose, &initPropose{RollDPoS: r})
 	sm.AddState(stateAcceptPropose, &acceptPropose{RollDPoS: r})
 	sm.AddState(stateAcceptPrevote, &acceptPrevote{RollDPoS: r})
 	sm.AddState(stateAcceptVote, &acceptVote{RollDPoS: r})
 
-	sm.AddTransition(stateEpochStart, stateRoundStart, &ruleStart{RollDPoS: r})
+	sm.AddTransition(stateEpochStart, stateDKGGenerate, &ruleDKGGenerate{RollDPoS: r})
+	sm.AddTransition(stateDKGGenerate, stateRoundStart, &ruleStart{RollDPoS: r})
 	sm.AddTransition(stateRoundStart, stateInitPropose, &ruleIsProposer{RollDPoS: r})
 	sm.AddTransition(stateRoundStart, stateAcceptPropose, &ruleNotProposer{RollDPoS: r})
 	sm.AddTransition(stateInitPropose, stateAcceptPrevote, &rulePropose{RollDPoS: r})

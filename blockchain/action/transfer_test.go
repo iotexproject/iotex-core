@@ -10,8 +10,7 @@ import (
 	"math/big"
 	"testing"
 
-	//cp "github.com/iotexproject/iotex-core-internal/crypto"
-	"github.com/iotexproject/iotex-core-internal/iotxaddress"
+	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/stretchr/testify/assert"
 )
 

@@ -5,8 +5,6 @@ RUN apt-get install -y --no-install-recommends make && \
 
 COPY ./ $GOPATH/src/github.com/iotexproject/iotex-core/
 
-RUN cd $GOPATH/src/github.com/iotexproject/iotex-core/
-
 ARG SKIP_GLIDE=false
 
 RUN if [ "$SKIP_GLIDE" != true ] ; \

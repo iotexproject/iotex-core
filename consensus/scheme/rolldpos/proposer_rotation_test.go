@@ -7,18 +7,17 @@
 package rolldpos
 
 import (
-	"net"
-	"testing"
-	"time"
-
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"net"
+	"testing"
 
 	bc "github.com/iotexproject/iotex-core/blockchain"
 	cm "github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/consensus/fsm"
 	"github.com/iotexproject/iotex-core/delegate"
 	"github.com/iotexproject/iotex-core/test/mock/mock_delegate"
+	"time"
 )
 
 func TestProposerRotation(t *testing.T) {
@@ -42,10 +41,13 @@ func TestProposerRotation(t *testing.T) {
 	cs := createTestRollDPoS(ctrl, delegates[0], delegates, m, true, FixedProposer, nil)
 	cs.Start()
 	defer cs.Stop()
-	cs.handleEvent(&fsm.Event{State: stateRoundStart})
+	cs.handleEvent(&fsm.Event{State: stateDKGGenerate})
 
-	time.Sleep(2 * time.Second)
-
+	waitForState(
+		t,
+		func() bool { return cs.roundCtx != nil && cs.roundCtx.isPr },
+		2*time.Second,
+		"proposer is not elected")
 	assert.NotNil(t, cs.roundCtx)
 	assert.Equal(t, true, cs.roundCtx.isPr)
 }

@@ -35,6 +35,24 @@ func (h *epochStart) Handle(event *fsm.Event) {
 	h.epochCtx = &epochCtx{height: height, delegates: delegates}
 }
 
+// dkgGenerate is the state of generating DKG.
+type dkgGenerate struct {
+	fsm.NilTimeout
+	*RollDPoS
+}
+
+func (h *dkgGenerate) Handle(event *fsm.Event) {
+	dkg, err := h.dkgCb()
+	if err != nil {
+		event.Err = err
+		return
+	}
+	h.epochCtx.dkg = dkg
+	h.handleEvent(&fsm.Event{
+		State: stateRoundStart,
+	})
+}
+
 // roundStart is the initial and idle state of a round of consensus. It initiates the round context.
 type roundStart struct {
 	fsm.NilTimeout

@@ -120,6 +120,8 @@ W0416 12:52:21.654650    1576 blocksync.go:293] ------ commit block 122 time = 1
 
 ```make docker```
 
+Add `SKIP_GLIDE=true` to skip re-installing dependencies via `glide`.
+
 ## Contribution
 We are glad to have contributors out of the core team; contributions, including (but not limited to) style/bug fixes, implementation of features, proposals of schemes/algorithms, and thorough documentation, are 
 welcomed. Please refer to our [contribution guideline](https://github.com/iotexproject/iotex-core/blob/master/CONTRIBUTING.md) for more information.

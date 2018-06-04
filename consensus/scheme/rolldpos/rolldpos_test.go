@@ -39,6 +39,8 @@ type mocks struct {
 
 type mockFn func(mcks mocks)
 
+var testDKG = cm.DKGHash{4, 6, 8, 9, 4, 6, 8, 9, 4, 6, 8, 9, 4, 6, 8, 9, 4, 6, 8, 9}
+
 func createTestRollDPoS(
 	ctrl *gomock.Controller,
 	self net.Addr,
@@ -70,6 +72,9 @@ func createTestRollDPoS(
 			*bcCnt++
 		}
 		return nil
+	}
+	generateDKGCB := func() (cm.DKGHash, error) {
+		return testDKG, nil
 	}
 	dp := mock_delegate.NewMockPool(ctrl)
 	dp.EXPECT().AllDelegates().Return(delegates, nil).AnyTimes()
@@ -106,6 +111,7 @@ func createTestRollDPoS(
 		commitBlockCB,
 		broadcastBlockCB,
 		prCb,
+		generateDKGCB,
 		bc,
 		dNet.Self(),
 		dp)
@@ -118,6 +124,7 @@ type testCs struct {
 
 // 1 faulty node and 3 trusty nodes
 func TestByzantineFault(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		desc         string
 		proposerNode int
@@ -236,9 +243,10 @@ func testByzantineFault(t *testing.T, proposerNode int) {
 
 	for _, d := range delegates {
 		tcss[d].cs.fsm.HandleTransition(&fsm.Event{
-			State: stateRoundStart,
+			State: stateDKGGenerate,
 		})
 	}
+	time.Sleep(time.Second)
 
 	// act
 	// trigger proposerNode as proposer
@@ -255,6 +263,7 @@ func testByzantineFault(t *testing.T, proposerNode int) {
 			tcs.cs.fsm.CurrentState(),
 			"back to %s in the end",
 			stateRoundStart)
+		assert.Equal(t, testDKG, tcs.cs.epochCtx.dkg)
 	}
 	voteStats(t, tcss)
 	if proposerNode == 0 {
@@ -281,6 +290,7 @@ func voteStats(t *testing.T, tcss map[net.Addr]testCs) {
 }
 
 func TestRollDPoSFourTrustyNodes(t *testing.T) {
+	t.Parallel()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -338,9 +348,10 @@ func TestRollDPoSFourTrustyNodes(t *testing.T) {
 
 	for _, d := range delegates {
 		tcss[d].cs.fsm.HandleTransition(&fsm.Event{
-			State: stateRoundStart,
+			State: stateDKGGenerate,
 		})
 	}
+	time.Sleep(time.Second)
 
 	// act
 	// trigger 2 as proposer
@@ -356,12 +367,14 @@ func TestRollDPoSFourTrustyNodes(t *testing.T) {
 			stateRoundStart,
 			tcs.cs.fsm.CurrentState(),
 			"back to %s in the end", stateRoundStart)
+		assert.Equal(t, testDKG, tcs.cs.epochCtx.dkg)
 	}
 	assert.Equal(t, 4, bcCnt)
 }
 
 // Delegate0 receives PROPOSE from Delegate1 and hence move to PREVOTE state and timeout to other states and finally to roundStart
 func TestRollDPoSConsumePROPOSE(t *testing.T) {
+	t.Parallel()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -382,8 +395,9 @@ func TestRollDPoSConsumePROPOSE(t *testing.T) {
 	cs.Start()
 	defer cs.Stop()
 	cs.fsm.HandleTransition(&fsm.Event{
-		State: stateRoundStart,
+		State: stateDKGGenerate,
 	})
+	time.Sleep(time.Second)
 
 	// arrange proposal request
 	genesis := NewGenesisBlock(Gen)
@@ -409,6 +423,7 @@ func TestRollDPoSConsumePROPOSE(t *testing.T) {
 
 // Delegate0 receives unmatched VOTE from Delegate1 and stays in START
 func TestRollDPoSConsumeErrorStateHandlerNotMatched(t *testing.T) {
+	t.Parallel()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -425,8 +440,9 @@ func TestRollDPoSConsumeErrorStateHandlerNotMatched(t *testing.T) {
 	cs.Start()
 	defer cs.Stop()
 	cs.fsm.HandleTransition(&fsm.Event{
-		State: stateRoundStart,
+		State: stateDKGGenerate,
 	})
+	time.Sleep(time.Second)
 
 	// arrange unmatched VOTE proposal request
 	proposal := &iproto.ViewChangeMsg{
