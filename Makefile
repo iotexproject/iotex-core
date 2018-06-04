@@ -56,6 +56,7 @@ clean:
 .PHONY: run
 run:
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
+	export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$(PWD)/crypto/lib
 	./bin/$(BUILD_TARGET_SERVER) -config=e2etests/config_local_delegate.yaml -log-level=debug
 
 .PHONY: docker

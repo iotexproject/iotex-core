@@ -18,6 +18,8 @@ const (
 	HashSize = 32
 	// PKHashSize defines the size of public-key hash
 	PKHashSize = 20
+	// DKGHashSize defines the size of a DKG hash
+	DKGHashSize = 20
 )
 
 var (
@@ -30,4 +32,6 @@ type (
 	Hash32B [HashSize]byte
 	// PKHash is 20-byte hash
 	PKHash [PKHashSize]byte
+	// DKGHash is 20-byte hash
+	DKGHash [DKGHashSize]byte
 )

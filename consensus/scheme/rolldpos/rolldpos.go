@@ -43,6 +43,7 @@ type roundCtx struct {
 type epochCtx struct {
 	// height means offset for current epoch (i.e., the height of the first block generated in this epoch)
 	height    uint64
+	dkg       common.DKGHash
 	delegates []net.Addr
 }
 
@@ -60,6 +61,7 @@ type rollDPoSCB struct {
 	consCb scheme.ConsensusDoneCB
 	pubCb  scheme.BroadcastCB
 	prCb   scheme.GetProposerCB
+	dkgCb  scheme.GenerateDKGCB
 }
 
 // RollDPoS is the RollDPoS consensus scheme
@@ -89,6 +91,7 @@ func NewRollDPoS(
 	cons scheme.ConsensusDoneCB,
 	pub scheme.BroadcastCB,
 	pr scheme.GetProposerCB,
+	dkg scheme.GenerateDKGCB,
 	bc blockchain.Blockchain,
 	myaddr net.Addr,
 	dlg delegate.Pool) *RollDPoS {
@@ -98,6 +101,7 @@ func NewRollDPoS(
 		consCb: cons,
 		pubCb:  pub,
 		prCb:   pr,
+		dkgCb:  dkg,
 	}
 	sc := &RollDPoS{
 		rollDPoSCB: cb,
@@ -116,7 +120,7 @@ func NewRollDPoS(
 	sc.epoch = routine.NewDelayTask(
 		func() {
 			sc.handleEvent(&fsm.Event{
-				State: stateRoundStart,
+				State: stateDKGGenerate,
 			})
 		},
 		cfg.Delay,

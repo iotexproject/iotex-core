@@ -12,6 +12,7 @@ import (
 	"github.com/golang/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/delegate"
 )
 
@@ -29,6 +30,9 @@ type BroadcastCB func(*blockchain.Block) error
 
 // GetProposerCB defines the callback to check the if itself is the the proposer for the coming round
 type GetProposerCB func(delegate.Pool, []byte, uint64, uint64) (net.Addr, error)
+
+// GenerateDKGCB defines the callback to generate DKG bytes
+type GenerateDKGCB func() (common.DKGHash, error)
 
 // Scheme is the interface that consensus schemes should implement
 type Scheme interface {

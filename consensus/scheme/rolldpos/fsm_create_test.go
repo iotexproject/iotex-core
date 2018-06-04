@@ -15,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 
+	"fmt"
 	. "github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/consensus/fsm"
@@ -43,13 +44,17 @@ func TestAcceptPrevoteAndProceedToEnd(t *testing.T) {
 	genesis := NewGenesisBlock(Gen)
 	blkHash := genesis.HashBlock()
 
-	// Accept ROUND_START and then propose
+	// Accept GENERATE_DKG and it will transit to dkg generate and then automatically to round start
 	event := &fsm.Event{
-		State: stateRoundStart,
+		State: stateDKGGenerate,
 	}
 	err := cs.fsm.HandleTransition(event)
 	assert.Error(t, err, "accept %s error", stateRoundStart)
-	assert.Equal(t, stateRoundStart, cs.fsm.CurrentState(), "current state %s", stateRoundStart)
+	waitForState(
+		t,
+		func() bool { return cs.fsm.CurrentState() == stateRoundStart },
+		100*time.Millisecond,
+		fmt.Sprintf("expected state %s", string(stateRoundStart)))
 
 	// Accept PROPOSE and then prevote
 	event = &fsm.Event{
@@ -127,13 +132,17 @@ func TestAcceptPrevoteAndTimeoutToEnd(t *testing.T) {
 	// arrange proposal request
 	genesis := NewGenesisBlock(Gen)
 
-	// Accept ROUND_START and then propose
+	// Accept GENERATE_DKG and it will transit to dkg generate and then automatically to round start
 	event := &fsm.Event{
-		State: stateRoundStart,
+		State: stateDKGGenerate,
 	}
 	err := cs.fsm.HandleTransition(event)
 	assert.Error(t, err, "accept %s error", stateRoundStart)
-	assert.Equal(t, stateRoundStart, cs.fsm.CurrentState(), "current state %s", stateRoundStart)
+	waitForState(
+		t,
+		func() bool { return cs.fsm.CurrentState() == stateRoundStart },
+		100*time.Millisecond,
+		fmt.Sprintf("expected state %s", string(stateRoundStart)))
 
 	// Accept PROPOSE and then prevote
 	event = &fsm.Event{
@@ -154,4 +163,19 @@ func TestAcceptPrevoteAndTimeoutToEnd(t *testing.T) {
 		cs.fsm.CurrentState(),
 		"current state timeout back to %s",
 		stateRoundStart)
+}
+
+func waitForState(t *testing.T, satisfy func() bool, timeout time.Duration, msg string) {
+	ready := make(chan bool)
+	go func() {
+		for !satisfy() {
+			time.Sleep(10 * time.Millisecond)
+		}
+		ready <- true
+	}()
+	select {
+	case <-ready:
+	case <-time.After(timeout):
+		assert.Fail(t, msg)
+	}
 }
