@@ -15,6 +15,7 @@ GOTEST=$(GOCMD) test
 GOGET=$(GOCMD) get
 BUILD_TARGET_SERVER=server
 BUILD_TARGET_TXINJ=txinjector
+SKIP_GLIDE=false
 
 # Docker parameters
 DOCKERCMD=docker
@@ -59,4 +60,4 @@ run:
 
 .PHONY: docker
 docker:
-	$(DOCKERCMD) build -t iotex-go:1.0 .
+	$(DOCKERCMD) build -t iotex-go:1.0 --build-arg SKIP_GLIDE=$(SKIP_GLIDE) .
