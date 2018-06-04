@@ -39,7 +39,7 @@ func (v *validator) Validate(blk *Block, tipHeight uint64, tipHash common.Hash32
 	// verify new block has height incremented by 1
 	if blk.Header.height != 0 && blk.Header.height != tipHeight+1 {
 		return errors.Wrapf(
-			ErrInvalidBlock,
+			ErrInvalidTipHeight,
 			"Wrong block height %d, expecting %d",
 			blk.Header.height,
 			tipHeight+1)
