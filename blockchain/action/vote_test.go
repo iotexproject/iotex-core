@@ -7,37 +7,32 @@
 package action
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/stretchr/testify/assert"
 )
 
-var chainid = []byte{0x00, 0x00, 0x00, 0x01}
-
-func TestTransfer(t *testing.T) {
+func TestVote(t *testing.T) {
 	assert := assert.New(t)
 	sender, err := iotxaddress.NewAddress(true, chainid)
 	assert.Nil(err)
 	recipient, err := iotxaddress.NewAddress(true, chainid)
 	assert.Nil(err)
-	// Create new transfer and put on wire
-	tsf := NewTransfer(0, 0, big.NewInt(10), sender.RawAddress, recipient.RawAddress)
-	raw, err := tsf.Serialize()
+	// Create new vote and put on wire
+	vote := NewVote(0, sender.PublicKey, recipient.PublicKey)
+	raw, err := vote.Serialize()
 	assert.Nil(err)
 	// Sign the transfer
-	signed, err := SignTransfer(raw, sender)
+	signed, err := SignVote(raw, sender)
 	assert.Nil(err)
 	// deserialize
-	tsf2 := &Transfer{}
-	assert.Nil(tsf2.Deserialize(signed))
-	assert.NotEqual(tsf.Hash(), tsf2.Hash())
+	vote2 := &Vote{}
+	assert.Nil(vote2.Deserialize(signed))
 	// test data match before/after serialization
-	tsf.SenderPublicKey = sender.PublicKey
-	assert.Equal(tsf.Hash(), tsf2.Hash())
+	assert.Equal(vote.Hash(), vote2.Hash())
 	// test signature
-	assert.Nil(tsf2.Verify(sender))
-	assert.NotNil(tsf2.Verify(recipient))
-	assert.NotNil(tsf.Verify(sender))
+	assert.Nil(vote2.Verify(sender))
+	assert.NotNil(vote2.Verify(recipient))
+	assert.NotNil(vote.Verify(sender))
 }
