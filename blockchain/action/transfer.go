@@ -169,8 +169,8 @@ func (tsf *Transfer) Hash() common.Hash32B {
 	return blake2b.Sum256(hash[:])
 }
 
-// Sign signs the Transfer using sender's private key
-func Sign(raw []byte, sender *iotxaddress.Address) ([]byte, error) {
+// SignTransfer signs the Transfer using sender's private key
+func SignTransfer(raw []byte, sender *iotxaddress.Address) ([]byte, error) {
 	tsf := &Transfer{}
 	if err := tsf.Deserialize(raw); err != nil {
 		return nil, errors.Wrap(err, "failed to unmarshal Transfer")

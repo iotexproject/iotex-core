@@ -8,9 +8,13 @@ package action
 
 import (
 	"github.com/golang/protobuf/proto"
+	"github.com/pkg/errors"
 	"golang.org/x/crypto/blake2b"
 
+	"bytes"
 	"github.com/iotexproject/iotex-core/common"
+	cp "github.com/iotexproject/iotex-core/crypto"
+	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/proto"
 )
 
@@ -28,6 +32,16 @@ type (
 	}
 )
 
+// NewVote returns a Vote instance
+func NewVote(timestamp uint64, selfPubKey []byte, votePubKey []byte) *Vote {
+	pbVote := &iproto.VotePb{
+		Timestamp:  timestamp,
+		SelfPubkey: selfPubKey,
+		VotePubkey: votePubKey,
+	}
+	return &Vote{pbVote}
+}
+
 // TotalSize returns the total size of this Vote
 func (v *Vote) TotalSize() uint32 {
 	size := TimestampSizeInBytes
@@ -43,7 +57,7 @@ func (v *Vote) ByteStream() []byte {
 	common.MachineEndian.PutUint64(stream, v.Timestamp)
 	stream = append(stream, v.SelfPubkey...)
 	stream = append(stream, v.VotePubkey...)
-	stream = append(stream, v.Signature...)
+	// Signature = Sign(hash(ByteStream())), so not included
 	return stream
 }
 
@@ -54,7 +68,7 @@ func (v *Vote) ConvertToVotePb() *iproto.VotePb {
 
 // Serialize returns a serialized byte stream for the Transfer
 func (v *Vote) Serialize() ([]byte, error) {
-	return proto.Marshal(v)
+	return proto.Marshal(v.ConvertToVotePb())
 }
 
 // ConvertFromVotePb converts Vote to protobuf's VotePb
@@ -64,9 +78,11 @@ func (v *Vote) ConvertFromVotePb(pbVote *iproto.VotePb) {
 
 // Deserialize parse the byte stream into Vote
 func (v *Vote) Deserialize(buf []byte) error {
-	if err := proto.Unmarshal(buf, v); err != nil {
+	pbVote := &iproto.VotePb{}
+	if err := proto.Unmarshal(buf, pbVote); err != nil {
 		return err
 	}
+	v.ConvertFromVotePb(pbVote)
 	return nil
 }
 
@@ -74,4 +90,48 @@ func (v *Vote) Deserialize(buf []byte) error {
 func (v *Vote) Hash() common.Hash32B {
 	hash := blake2b.Sum256(v.ByteStream())
 	return blake2b.Sum256(hash[:])
+}
+
+// SignVote signs the Vote using sender's private key
+func SignVote(raw []byte, sender *iotxaddress.Address) ([]byte, error) {
+	vote := &Vote{}
+	if err := vote.Deserialize(raw); err != nil {
+		return nil, errors.Wrap(err, "failed to unmarshal Vote")
+	}
+	// check the sender is correct
+	if bytes.Compare(vote.SelfPubkey, sender.PublicKey) != 0 {
+		return nil, errors.Wrapf(ErrActionError, "signing pubKey %x does not match with Vote pubKey %x",
+			vote.SelfPubkey, sender.PublicKey)
+	}
+	// check the public key is actually owned by sender
+	pkhash := iotxaddress.GetPubkeyHash(sender.RawAddress)
+	if bytes.Compare(pkhash, iotxaddress.HashPubKey(sender.PublicKey)) != 0 {
+		return nil, errors.Wrapf(ErrActionError, "signing addr %s does not own correct public key",
+			sender.RawAddress)
+	}
+	if err := vote.sign(sender); err != nil {
+		return nil, err
+	}
+	return vote.Serialize()
+}
+
+// Verify verifies the Vote using sender's public key
+func (v *Vote) Verify(sender *iotxaddress.Address) error {
+	hash := v.Hash()
+	if success := cp.Verify(sender.PublicKey, hash[:], v.Signature); success {
+		return nil
+	}
+	return errors.Wrapf(ErrActionError, "Failed to verify Vote signature = %x", v.Signature)
+}
+
+//======================================
+// private functions
+//======================================
+
+func (v *Vote) sign(sender *iotxaddress.Address) error {
+	hash := v.Hash()
+	if v.Signature = cp.Sign(sender.PrivateKey, hash[:]); v.Signature != nil {
+		return nil
+	}
+	return errors.Wrapf(ErrActionError, "Failed to sign Vote hash = %x", hash)
 }
