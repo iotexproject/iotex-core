@@ -13,7 +13,7 @@ Usage:
 Options:
   --players=<players>             list of tuples e.g. "[(# of players, stake per player), ...]" [default: [(100, 1)]]
   --nconnections=<ncons>          number of connections in the system [default: 8]
-  --nrounds=<nrounds>             number of rounds (proposal/validation/commit) in the simulation [default: 5]
+  --timetosim=<timetosim>         virtual time to simulate the system for [default: 10]
   --meanproptime=<meanproptime>   mean propagation time of messages [default: 0.1]
   --seed=<seed>                   random seed [default: 42]
   --help                          show this
@@ -31,7 +31,7 @@ if __name__=="__main__":
     args = docopt(__doc__)
     opts = {"PLAYERS":              eval(args["--players"]),      
             "N_CONNECTIONS":         int(args["--nconnections"]),   
-            "N_ROUNDS":              int(args["--nrounds"]),
+            "TIME_TO_SIM":           int(args["--timetosim"]),
             "MEAN_PROP_TIME":      float(args["--meanproptime"]),
             "SEED":                  int(args["--seed"])
            }
