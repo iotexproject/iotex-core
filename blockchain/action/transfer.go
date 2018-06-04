@@ -20,10 +20,8 @@ import (
 	"github.com/iotexproject/iotex-core/proto"
 )
 
-var (
-	// ErrActionError indicates error for Action
-	ErrActionError = errors.New("Action error")
-)
+// ErrActionError indicates error for Action
+var ErrActionError = errors.New("Action error")
 
 type (
 	// Transfer defines the struct of account-based transfer
@@ -139,7 +137,7 @@ func (tsf *Transfer) ConvertFromTransferPb(pbTx *iproto.TransferPb) {
 	}
 	tsf.Sender = ""
 	if len(pbTx.Sender) > 0 {
-		tsf.Recipient = string(pbTx.Recipient)
+		tsf.Sender = string(pbTx.Sender)
 	}
 	tsf.Recipient = ""
 	if len(pbTx.Recipient) > 0 {
