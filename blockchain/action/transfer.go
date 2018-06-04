@@ -10,11 +10,19 @@ import (
 	"math/big"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/pkg/errors"
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotexproject/iotex-core/blockchain/trx"
 	"github.com/iotexproject/iotex-core/common"
+	cp "github.com/iotexproject/iotex-core/crypto"
+	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/proto"
+)
+
+var (
+	// ErrActionError indicates error for Action
+	ErrActionError = errors.New("Action error")
 )
 
 type (
@@ -35,18 +43,18 @@ type (
 )
 
 // NewTransfer returns a Transfer instance
-func NewTransfer(in []*trx.TxInput, out []*trx.TxOutput, lockTime uint32) *Transfer {
+func NewTransfer(lockTime uint32, nonce uint64, amount *big.Int, sender string, recipient string, senderPubKey []byte) *Transfer {
 	return &Transfer{
 		Version:  common.ProtocolVersion,
 		LockTime: lockTime,
 
 		// used by account-based model
-		Nonce:  0,
-		Amount: big.NewInt(0),
-		// TODO: transition SF pass in actual sender/recipient
-		Sender:    "",
-		Recipient: "",
-		Payload:   []byte{},
+		Nonce:           nonce,
+		Amount:          amount,
+		Sender:          sender,
+		Recipient:       recipient,
+		SenderPublicKey: senderPubKey,
+		Payload:         []byte{},
 	}
 }
 
@@ -87,7 +95,7 @@ func (tsf *Transfer) ByteStream() []byte {
 	stream = append(stream, tsf.Recipient...)
 	stream = append(stream, tsf.Payload...)
 	stream = append(stream, tsf.SenderPublicKey...)
-	stream = append(stream, tsf.Signature...)
+	// Signature = Sign(hash(ByteStream())), so not included
 	return stream
 }
 
@@ -159,4 +167,37 @@ func (tsf *Transfer) Deserialize(buf []byte) error {
 func (tsf *Transfer) Hash() common.Hash32B {
 	hash := blake2b.Sum256(tsf.ByteStream())
 	return blake2b.Sum256(hash[:])
+}
+
+// Sign signs the Transfer using sender's private key
+func Sign(raw []byte, sender *iotxaddress.Address) ([]byte, error) {
+	tsf := &Transfer{}
+	if err := tsf.Deserialize(raw); err != nil {
+		return nil, errors.Wrap(err, "failed to unmarshal Transfer")
+	}
+	if err := tsf.sign(sender); err != nil {
+		return nil, err
+	}
+	return tsf.Serialize()
+}
+
+// Verify verifies the Transfer using sender's public key
+func (tsf *Transfer) Verify(sender *iotxaddress.Address) error {
+	hash := tsf.Hash()
+	if success := cp.Verify(sender.PublicKey, hash[:], tsf.Signature); success {
+		return nil
+	}
+	return errors.Wrapf(ErrActionError, "Failed to verify Transfer signature = %x", tsf.Signature)
+}
+
+//======================================
+// private functions
+//======================================
+
+func (tsf *Transfer) sign(sender *iotxaddress.Address) error {
+	hash := tsf.Hash()
+	if tsf.Signature = cp.Sign(sender.PrivateKey, hash[:]); tsf.Signature != nil {
+		return nil
+	}
+	return errors.Wrapf(ErrActionError, "Failed to sign Transfer hash = %x", hash)
 }
