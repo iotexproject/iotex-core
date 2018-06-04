@@ -25,6 +25,7 @@ class Solver:
             
         self.nHeartbeats = opts["N_ROUNDS"] # number of total heartbeats
         self.heartbeat   = 0                # the heartbeat, or clock, of the system
+        self.dHeartbeat  = opts["D_HEARTBEAT"]
 
         self.blockchain = None # common blockchain among all players
 
@@ -75,13 +76,13 @@ class Solver:
                 messages.append([])
             connections.append(message)
 
-        plot.makeGraph(heartbeat, len(self.players), connections, messages)
+        plot.makeGraph(heartbeat/self.dHeartbeat, len(self.players), connections, messages)
 
     def simulate(self):
         """Simulate the system"""
         
-        for i in range(self.nHeartbeats):
-            self.nextRound(i)
+        for i in range(self.nHeartbeats+1):
+            self.nextRound(i * self.dHeartbeat)
 
     def calcPercentStake(self):
         """Calculates the percent stake for each player"""

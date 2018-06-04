@@ -20,10 +20,14 @@ def drive(opts):
     """Drive execution of the program. opts: dictionary of options.
        Ex: opts = {"PLAYERS": [(100, 1)], # list of tuples; [(number of players, stake per player)]
             "N_CONNECTIONS": 8,           # number of connections per player
-            "N_ROUNDS": 5,                # number of rounds of proposal/validation/commit
+            "TIME_TO_SIM": 5,             # virtual time to simulate system for
             "MEAN_PROP_TIME": 0.1         # mean propagation time of messages (exponential distribution)
            }"""
 
+    ALPHA = 0.2 # scaling constant -- simulation updates 1//(alpha*latency) times per heartbeat
+    opts["D_HEARTBEAT"] = opts["MEAN_PROP_TIME"] * ALPHA
+    opts["N_ROUNDS"]    = math.ceil(opts["TIME_TO_SIM"] / opts["D_HEARTBEAT"])
+    
     solver.Solver.N_CONNECTIONS         = opts["N_CONNECTIONS"]
     solver.Solver.N_ROUNDS              = opts["N_ROUNDS"]
 

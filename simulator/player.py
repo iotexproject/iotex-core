@@ -46,7 +46,7 @@ class Player:
     def action(self, heartbeat):
         """Executes the player's actions for heartbeat r"""
 
-        print("player %d action started at heartbeat %d" % (self.id, heartbeat))
+        print("player %d action started at heartbeat %f" % (self.id, heartbeat))
 
         # self.inbound: [(msgType, msgBody), timestamp]
         # print messages
