@@ -5,6 +5,19 @@ RUN apt-get install -y --no-install-recommends make && \
 
 COPY ./ $GOPATH/src/github.com/iotexproject/iotex-core/
 
+RUN cd $GOPATH/src/github.com/iotexproject/iotex-core/
+
+ARG SKIP_GLIDE=false
+
+RUN if [ "$SKIP_GLIDE" != true ] ; \
+    then \
+        cd $GOPATH/src/github.com/iotexproject/iotex-core/ && \
+        curl https://glide.sh/get | sh && \
+        glide update && \
+        glide install ; \
+    fi
+
+
 RUN cd $GOPATH/src/github.com/iotexproject/iotex-core/ && \
     make clean build && \
     ln -s $GOPATH/src/github.com/iotexproject/iotex-core/bin/server /usr/local/bin/iotex-server  && \
