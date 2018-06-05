@@ -131,7 +131,7 @@ func (s *server) Ping(in *pb.Request, stream pb.Simulator_PingServer) error {
 	if in.InternalMsgType != dummyMsgType {
 		msg := consensus.CombineMsg(in.InternalMsgType, msgValue)
 		s.nodes[in.PlayerID].HandleViewChange(msg, done)
-		time.Sleep(5 * time.Millisecond)
+		time.Sleep(2 * time.Millisecond)
 		<-done // wait until done
 	}
 

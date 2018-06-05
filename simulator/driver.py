@@ -49,6 +49,7 @@ def drive(opts):
     
     sol.simulate()
 
+    print("==PRINTING LOCAL BLOCKCHAINS==")
     blockchains = []
     nMsgsPassed = []
     timeCreated = []
@@ -57,7 +58,9 @@ def drive(opts):
         blockchains.append(i.blockchain)
         timeCreated.append(i.timeCreated)
         print("%s: %s"%(i, str(i.blockchain).replace("\n", "\n\t")))
-        print("\t"+str(i.blockchain).replace("\n", "\n\t"))
+
+    correctHashes = player.Player.correctHashes
+    print("correct block hashes: %s"%(str(correctHashes).replace("\n", "\n\t")))
 
     try: consensus_client.Consensus.close()
     except: pass
@@ -69,20 +72,27 @@ def drive(opts):
     for i in range(nRounds):
         fullConsensus += all(blockchains[0][i] == j[i] for j in blockchains)
 
+    correctHashes = player.Player.correctHashes
     nMsgsPassed = [sum(nMsgsPassed[j][i] for j in range(len(nMsgsPassed))) for i in range(nRounds)]
     timeCreated = [max(timeCreated[j][i] for j in range(len(timeCreated))) for i in range(nRounds)]
     dts = [timeCreated[0]]+[timeCreated[i+1]-timeCreated[i] for i in range(len(timeCreated)-1)]
+    nConsensus = [0]*max(map(len, blockchains))
+    for i in blockchains:
+        for j in range(len(i)):
+            if i[j] == correctHashes[j]: nConsensus[j] += 1
+    fullConsensus2 = nConsensus.count(len(sol.players))
+    assert fullConsensus2==fullConsensus
 
-    print(nMsgsPassed, sum(nMsgsPassed), len(nMsgsPassed))
     print()
-    print("==N ROUNDS FULLY COMPLETED/N ROUNDS WITH FULL CONSENSUS ACHIEVED = %d/%d = %f=="%(nRounds, fullConsensus, nRounds/fullConsensus))
-        
-    print("==MSGS PASSED PER BLOCK = %s=="%(", ".join(list(map(str, nMsgsPassed)))))
-    print("==AVERAGE MSGS PASSED PER BLOCK = %f=="%(sum(nMsgsPassed)/len(nMsgsPassed)))
-    print("==TIME BLOCKS COMMITTED BY ALL NODES = %s=="%(", ".join(list(map(str, timeCreated)))))
-    print("==TIME TO CREATE BLOCKS = %s=="%(", ".join(list(map(str, dts)))))
-    print("==BLOCKS CREATED PER SECOND = %f=="%(nRounds/opts["TIME_TO_SIM"]))
-
+    print("BLOCKS CREATED PER NODE = %s"%(", ".join(list(map(str, list(map(len, blockchains)))))))
+    print("N DELEGATES WHICH ACHIEVED CONSENSUS IN EACH ROUND = %s"%(", ".join(list(map(str, nConsensus)))))
+    print("N ROUNDS WITH FULL CONSENSUS ACHIEVED/N ROUNDS FULLY COMPLETED = %d/%d = %f"%(fullConsensus, nRounds, fullConsensus/nRounds))
+    print("MSGS PASSED PER BLOCK = %s"%(", ".join(list(map(str, nMsgsPassed)))))
+    print("AVERAGE MSGS PASSED PER BLOCK = %f"%(sum(nMsgsPassed)/len(nMsgsPassed)))
+    print("TIME BLOCKS COMMITTED BY ALL NODES = %s"%(", ".join(list(map(str, timeCreated)))))
+    print("TIME TO CREATE BLOCKS = %s"%(", ".join(list(map(str, dts)))))
+    print("AVERAGE TIME TO CREATE BLOCK = %f"%(sum(dts)/len(dts)))
+    print("BLOCKS CREATED PER SECOND = %f"%(nRounds/opts["TIME_TO_SIM"]))
 
     # get rid of useless .db files
     os.system("rm chain*.db")
