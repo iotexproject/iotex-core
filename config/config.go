@@ -67,9 +67,10 @@ type Chain struct {
 	TrieDBPath  string
 	//RawMinerAddr is the struct that stores private/public keys in string
 	RawMinerAddr RawMinerAddr
-
 	// MinerAddr is an iotxaddress struct where the block rewards will be sent to.
 	MinerAddr iotxaddress.Address
+	// InMemTest creates in-memory DB file for local testing
+	InMemTest bool
 }
 
 // RawMinerAddr is the RawChain struct when loading from yaml file

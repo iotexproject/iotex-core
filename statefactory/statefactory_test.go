@@ -130,7 +130,7 @@ func TestDelegates(t *testing.T) {
 	c10 := &Candidate{Address: "a10", Votes: big.NewInt(10), PubKey: []byte("p10")}
 	c11 := &Candidate{Address: "a11", Votes: big.NewInt(11), PubKey: []byte("p11")}
 	c12 := &Candidate{Address: "a12", Votes: big.NewInt(12), PubKey: []byte("p12")}
-	tr, _ := trie.NewTrie("trie.test")
+	tr, _ := trie.NewTrie("trie.test", false)
 	sf := &stateFactory{
 		trie:             tr,
 		delegateHeap:     CandidateMinPQ{delegateSize, make([]*Candidate, 0)},

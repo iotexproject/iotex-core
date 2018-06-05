@@ -59,27 +59,20 @@ type (
 )
 
 // NewTrie creates a trie with DB filename
-func NewTrie(path string) (Trie, error) {
-	dao := db.NewBoltDB(path, nil)
-	if dao == nil {
-		return nil, errors.New("Cannot create boltDB file")
+func NewTrie(path string, inMem bool) (Trie, error) {
+	var kvStore db.KVStore
+	if inMem {
+		kvStore = db.NewMemKVStore()
+	} else {
+		kvStore = db.NewBoltDB(path, nil)
 	}
-	if err := dao.Start(); err != nil {
+	if kvStore == nil {
+		return nil, errors.New("Failed to create KV store for Trie")
+	}
+	if err := kvStore.Start(); err != nil {
 		return nil, err
 	}
-	return newTrie(dao)
-}
-
-// NewInMemTrie creates a test trie with in-memory KV store
-func NewInMemTrie() (Trie, error) {
-	dao := db.NewMemKVStore()
-	if dao == nil {
-		return nil, errors.New("Cannot create in-memory KV store")
-	}
-	if err := dao.Start(); err != nil {
-		return nil, err
-	}
-	return newTrie(dao)
+	return newTrie(kvStore)
 }
 
 // Close close the DB

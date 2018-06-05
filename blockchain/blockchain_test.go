@@ -111,11 +111,12 @@ func TestCreateBlockchain(t *testing.T) {
 	assert.Nil(err)
 	// disable account-based testing
 	config.Chain.TrieDBPath = ""
+	config.Chain.InMemTest = true
 	// Disable block reward to make bookkeeping easier
 	Gen.BlockReward = uint64(0)
 
 	// create chain
-	bc := CreateInMemBlockchain(config, Gen)
+	bc := CreateBlockchain(config, Gen, nil)
 	assert.NotNil(bc)
 	height, err := bc.TipHeight()
 	assert.Nil(err)
@@ -277,9 +278,10 @@ func TestEmptyBlockOnlyHasCoinbaseTx(t *testing.T) {
 	assert.Nil(t, err)
 	// disable account-based testing
 	config.Chain.TrieDBPath = ""
+	config.Chain.InMemTest = true
 	Gen.BlockReward = uint64(7777)
 
-	bc := CreateInMemBlockchain(config, Gen)
+	bc := CreateBlockchain(config, Gen, nil)
 	defer bc.Stop()
 	assert.NotNil(t, bc)
 

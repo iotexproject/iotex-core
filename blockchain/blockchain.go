@@ -265,24 +265,24 @@ func (bc *blockchain) AddBlockSync(blk *Block) error {
 
 // CreateBlockchain creates a new blockchain and DB instance
 func CreateBlockchain(cfg *config.Config, gen *Genesis, sf statefactory.StateFactory) Blockchain {
-	boltDB := db.NewBoltDB(cfg.Chain.ChainDBPath, nil)
-	return createAndInitBlockchain(boltDB, sf, cfg, gen)
-}
-
-// CreateInMemBlockchain creates a new test blockchain and in-memory KV store instance
-func CreateInMemBlockchain(cfg *config.Config, gen *Genesis) Blockchain {
-	memKVStore := db.NewMemKVStore()
-	// If TrieDBPath is empty, we disable account-based testing
-	if len(cfg.Chain.TrieDBPath) == 0 {
-		return createAndInitBlockchain(memKVStore, nil, cfg, gen)
+	var kvStore db.KVStore
+	if cfg.Chain.InMemTest {
+		kvStore = db.NewMemKVStore()
+		// If TrieDBPath is empty, we disable account-based testing
+		if len(cfg.Chain.TrieDBPath) == 0 {
+			sf = nil
+		} else {
+			trie, err := trie.NewTrie("", true)
+			if err != nil {
+				logger.Error().Err(err).Msg("Failed to initialize in-memory trie")
+				return nil
+			}
+			sf = statefactory.NewStateFactory(trie)
+		}
+	} else {
+		kvStore = db.NewBoltDB(cfg.Chain.ChainDBPath, nil)
 	}
-	trie, err := trie.NewInMemTrie()
-	if err != nil {
-		logger.Error().Err(err).Msg("Failed to initialize test trie")
-		return nil
-	}
-	sf := statefactory.NewStateFactory(trie)
-	return createAndInitBlockchain(memKVStore, sf, cfg, gen)
+	return createAndInitBlockchain(kvStore, sf, cfg, gen)
 }
 
 // BalanceOf returns the balance of an address

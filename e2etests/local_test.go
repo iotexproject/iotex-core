@@ -37,6 +37,7 @@ func TestLocalCommit(t *testing.T) {
 	cfg.Network.BootstrapNodes = []string{"127.0.0.1:10000"}
 	// disable account-based testing
 	cfg.Chain.TrieDBPath = ""
+	cfg.Chain.InMemTest = true
 	cfg.Consensus.Scheme = config.NOOPScheme
 	cfg.Delegate.Addrs = []string{"127.0.0.1:10000"}
 
@@ -44,7 +45,7 @@ func TestLocalCommit(t *testing.T) {
 	blockchain.Gen.BlockReward = uint64(0)
 
 	// create node
-	svr := itx.NewTestServer(*cfg)
+	svr := itx.NewServer(*cfg)
 	err = svr.Init()
 	assert.Nil(err)
 	err = svr.Start()
@@ -204,10 +205,11 @@ func TestLocalSync(t *testing.T) {
 	cfg.Delegate.Addrs = []string{"127.0.0.1:10000"}
 	// disable account-based testing
 	cfg.Chain.TrieDBPath = ""
+	cfg.Chain.InMemTest = true
 	cfg.Consensus.Scheme = config.NOOPScheme
 
 	// create node 1
-	svr := itx.NewTestServer(*cfg)
+	svr := itx.NewServer(*cfg)
 	err = svr.Init()
 	assert.Nil(err)
 	err = svr.Start()
@@ -238,7 +240,7 @@ func TestLocalSync(t *testing.T) {
 	// create node 2
 	cfg.NodeType = config.FullNodeType
 	cfg.Network.Addr = "127.0.0.1:10001"
-	cli := itx.NewTestServer(*cfg)
+	cli := itx.NewServer(*cfg)
 	cli.Init()
 	cli.Start()
 	defer cli.Stop()
