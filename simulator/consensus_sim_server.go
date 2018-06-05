@@ -80,7 +80,7 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 		// set chain database path
 		cfg.Chain.ChainDBPath = "./chain" + strconv.Itoa(i) + ".db"
 
-		bc := blockchain.CreateBlockchain(cfg, blockchain.Gen)
+		bc := blockchain.CreateBlockchain(cfg, blockchain.Gen, nil)
 		tp := txpool.NewTxPool(bc)
 
 		overlay := network.NewOverlay(&cfg.Network)

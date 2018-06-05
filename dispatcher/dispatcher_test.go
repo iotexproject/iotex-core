@@ -31,7 +31,7 @@ func TestNewDispatcher(t *testing.T) {
 	bs := mock_blocksync.NewMockBlockSync(ctrl)
 	dp := mock_delegate.NewMockPool(ctrl)
 
-	d := NewDispatcher(cfg, bc, tp, bs, dp)
+	d := NewDispatcher(cfg, bc, tp, nil, bs, dp)
 	assert.NotNil(t, d)
 
 	bs.EXPECT().Start().Times(1)
@@ -50,7 +50,7 @@ func TestDispatchTxMsg(t *testing.T) {
 	bs := mock_blocksync.NewMockBlockSync(ctrl)
 	dp := mock_delegate.NewMockPool(ctrl)
 
-	d := NewDispatcher(cfg, bc, tp, bs, dp)
+	d := NewDispatcher(cfg, bc, tp, nil, bs, dp)
 	assert.NotNil(t, d)
 
 	bs.EXPECT().Start().Times(1)
@@ -78,7 +78,7 @@ func TestDispatchBlockMsg(t *testing.T) {
 	bs := mock_blocksync.NewMockBlockSync(ctrl)
 	dp := mock_delegate.NewMockPool(ctrl)
 
-	d := NewDispatcher(cfg, bc, tp, bs, dp)
+	d := NewDispatcher(cfg, bc, tp, nil, bs, dp)
 	assert.NotNil(t, d)
 
 	bs.EXPECT().Start().Times(1)
@@ -106,7 +106,7 @@ func TestDispatchBlockSyncReq(t *testing.T) {
 	bs := mock_blocksync.NewMockBlockSync(ctrl)
 	dp := mock_delegate.NewMockPool(ctrl)
 
-	d := NewDispatcher(cfg, bc, tp, bs, dp)
+	d := NewDispatcher(cfg, bc, tp, nil, bs, dp)
 	assert.NotNil(t, d)
 
 	bs.EXPECT().Start().Times(1)
@@ -134,7 +134,7 @@ func TestDispatchBlockSyncData(t *testing.T) {
 	bs := mock_blocksync.NewMockBlockSync(ctrl)
 	dp := mock_delegate.NewMockPool(ctrl)
 
-	d := NewDispatcher(cfg, bc, tp, bs, dp)
+	d := NewDispatcher(cfg, bc, tp, nil, bs, dp)
 	assert.NotNil(t, d)
 
 	bs.EXPECT().Start().Times(1)

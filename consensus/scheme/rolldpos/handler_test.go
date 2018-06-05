@@ -7,11 +7,13 @@
 package rolldpos
 
 import (
-	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/consensus/fsm"
+	"testing"
+
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
-	"testing"
+
+	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/consensus/fsm"
 )
 
 func TestInitProposeInjectError(t *testing.T) {

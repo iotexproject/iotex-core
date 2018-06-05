@@ -45,7 +45,7 @@ func testLocalRollDPoS(prCb string, t *testing.T) {
 	cfg.Consensus.RollDPoS.ProposerCB = prCb
 	assert.Nil(err)
 
-	var svrs []itx.Server
+	var svrs []*itx.Server
 
 	for i := 0; i < 3; i++ {
 		cfg.NodeType = config.FullNodeType

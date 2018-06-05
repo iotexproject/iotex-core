@@ -15,9 +15,10 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/blockchain"
-	trx "github.com/iotexproject/iotex-core/blockchain/trx"
+	"github.com/iotexproject/iotex-core/blockchain/action"
+	"github.com/iotexproject/iotex-core/blockchain/trx"
 	"github.com/iotexproject/iotex-core/blocksync"
-	cm "github.com/iotexproject/iotex-core/common"
+	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/delegate"
@@ -67,19 +68,19 @@ type dispatcher struct {
 }
 
 // NewDispatcher creates a new dispatcher
-func NewDispatcher(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxPool, bs blocksync.BlockSync, dp delegate.Pool) cm.Dispatcher {
+func NewDispatcher(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxPool, ap txpool.ActPool,
+	bs blocksync.BlockSync, dp delegate.Pool) common.Dispatcher {
 	if bc == nil || bs == nil {
 		logger.Error().Msg("Try to attach to a nil blockchain or a nil P2P")
 		return nil
 	}
-
 	d := &dispatcher{
 		newsChan: make(chan interface{}, 1024),
 		quit:     make(chan struct{}),
 		tp:       tp,
+		ap:       ap,
 		bs:       bs,
 	}
-
 	d.cs = consensus.NewConsensus(cfg, bc, tp, bs, dp)
 	return d
 }
@@ -221,7 +222,15 @@ func (d *dispatcher) handleActionMsg(m *actionMsg) {
 	vote := &pb.VotePb{}
 	logger.Info().Str("sig", string(vote.Signature)).Msg("receive actionMsg")
 
-	//todo: call account module to process the vote msg
+	// dispatch to ActPool
+	if pbTsf := m.action.GetTransfer(); pbTsf != nil {
+		tsf := &action.Transfer{}
+		tsf.ConvertFromTransferPb(pbTsf)
+		if err := d.ap.AddTx(tsf); err != nil {
+			logger.Error().Err(err)
+		}
+		return
+	}
 	// signal to let caller know we are done
 	if m.done != nil {
 		m.done <- true

@@ -175,7 +175,7 @@ func TestActPool_PickTxs(t *testing.T) {
 	sf.CreateState(addr1.RawAddress, uint64(100))
 	sf.CreateState(addr2.RawAddress, uint64(10))
 	// Create actpool
-	ap := NewActPool(sf)
+	ap := NewActPool(sf, nil)
 	assert.NotNil(ap)
 
 	tx1 := action.Transfer{Sender: addr1.RawAddress, Nonce: uint64(1), Amount: big.NewInt(10)}

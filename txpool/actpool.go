@@ -58,9 +58,10 @@ type actPool struct {
 }
 
 // NewActPool constructs a new actpool
-func NewActPool(sf statefactory.StateFactory) ActPool {
+func NewActPool(sf statefactory.StateFactory, p2p *network.Overlay) ActPool {
 	ap := &actPool{
 		sf:         sf,
+		p2p:        p2p,
 		accountTxs: make(map[string]TxQueue),
 		allTxs:     make(map[common.Hash32B]*action.Transfer),
 	}

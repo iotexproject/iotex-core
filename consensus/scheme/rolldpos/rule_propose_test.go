@@ -7,13 +7,14 @@
 package rolldpos
 
 import (
+	"testing"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/consensus/fsm"
 	"github.com/iotexproject/iotex-core/proto"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func TestRuleProposeErrorVoteNil(t *testing.T) {

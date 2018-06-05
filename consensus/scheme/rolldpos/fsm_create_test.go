@@ -7,6 +7,7 @@
 package rolldpos
 
 import (
+	"fmt"
 	"net"
 	"testing"
 	"time"
@@ -15,7 +16,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 
-	"fmt"
 	. "github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/consensus/fsm"
