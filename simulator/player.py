@@ -42,6 +42,9 @@ class Player:
         self.consensus          = consensus_client.Consensus()
         self.consensus.playerID = self.id
         self.consensus.player   = self
+        
+        self.nMsgsPassed = [0]
+        self.timeCreated = []
 
     def action(self, heartbeat):
         """Executes the player's actions for heartbeat r"""
@@ -76,6 +79,8 @@ class Player:
                     self.outbound.append([v, timestamp])
                 else: # block to be committed
                     self.blockchain.append(v[1])
+                    self.nMsgsPassed.append(0)
+                    self.timeCreated.append(timestamp)
                     print("committed %s to blockchain" % Player.msgMap[v])
 
             if msg[0] != Player.DUMMY_MSG_TYPE: self.outbound.append([msg, timestamp])
@@ -98,6 +103,7 @@ class Player:
         for i in self.connections:
             ci.append(i.id)
             for message, timestamp in self.outbound:
+                self.nMsgsPassed[-1] += 1
                 dt = np.random.lognormal(self.NORMAL_MEAN, self.NORMAL_STD) # add propagation time to timestamp
                 print("sent %s to %s" % (Player.msgMap[message], i))
                 i.inbound.append([message, timestamp+dt])
