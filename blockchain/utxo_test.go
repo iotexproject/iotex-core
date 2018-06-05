@@ -21,7 +21,9 @@ func TestUTXO(t *testing.T) {
 	totalSupply := uint64(100000000)
 	Gen.TotalSupply = totalSupply
 	Gen.BlockReward = uint64(0)
-	bc := CreateInMemBlockchain(&config.Config{}, Gen)
+	cfg := &config.Config{}
+	cfg.Chain.InMemTest = true
+	bc := CreateBlockchain(cfg, Gen, nil)
 	assert.NotNil(t, bc)
 	fmt.Println("Create blockchain pass")
 

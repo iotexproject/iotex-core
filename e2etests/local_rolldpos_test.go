@@ -42,6 +42,7 @@ func testLocalRollDPoS(prCb string, t *testing.T) {
 	cfg, err := config.LoadConfigWithPathWithoutValidation(localRollDPoSConfig)
 	// disable account-based testing
 	cfg.Chain.TrieDBPath = ""
+	cfg.Chain.InMemTest = true
 	cfg.Consensus.RollDPoS.ProposerCB = prCb
 	assert.Nil(err)
 
@@ -50,7 +51,7 @@ func testLocalRollDPoS(prCb string, t *testing.T) {
 	for i := 0; i < 3; i++ {
 		cfg.NodeType = config.FullNodeType
 		cfg.Network.Addr = "127.0.0.1:5000" + strconv.Itoa(i)
-		svr := itx.NewTestServer(*cfg)
+		svr := itx.NewServer(*cfg)
 		err = svr.Init()
 		assert.Nil(err)
 		err = svr.Start()
@@ -63,7 +64,7 @@ func testLocalRollDPoS(prCb string, t *testing.T) {
 		cfg.NodeType = config.DelegateType
 		cfg.Network.Addr = "127.0.0.1:4000" + strconv.Itoa(i)
 		cfg.Consensus.Scheme = config.RollDPoSScheme
-		svr := itx.NewTestServer(*cfg)
+		svr := itx.NewServer(*cfg)
 		err = svr.Init()
 		assert.Nil(err)
 		err = svr.Start()

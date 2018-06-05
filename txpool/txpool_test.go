@@ -39,9 +39,10 @@ func TestTxPool(t *testing.T) {
 	assert.Nil(err)
 	// disable account-based testing
 	cfg.Chain.TrieDBPath = ""
+	cfg.Chain.InMemTest = true
 	// Disable block reward to make bookkeeping easier
 	Gen.BlockReward = uint64(0)
-	bc := CreateInMemBlockchain(cfg, Gen)
+	bc := CreateBlockchain(cfg, Gen, nil)
 	assert.NotNil(bc)
 	defer bc.Stop()
 

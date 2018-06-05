@@ -155,18 +155,11 @@ func NewStateFactoryTrieDB(dbPath string) (StateFactory, error) {
 	if len(dbPath) == 0 {
 		return nil, nil
 	}
-	tr, err := trie.NewTrie(dbPath)
+	tr, err := trie.NewTrie(dbPath, false)
 	if err != nil {
 		return nil, err
 	}
-	return &stateFactory{
-		trie:             tr,
-		delegateHeap:     CandidateMinPQ{delegateSize, make([]*Candidate, 0)},
-		candidateMinHeap: CandidateMinPQ{candidateSize, make([]*Candidate, 0)},
-		candidateMaxHeap: CandidateMaxPQ{candidateSize, make([]*Candidate, 0)},
-		minBuffer:        CandidateMinPQ{bufferSize, make([]*Candidate, 0)},
-		maxBuffer:        CandidateMaxPQ{bufferSize, make([]*Candidate, 0)},
-	}, nil
+	return NewStateFactory(tr), nil
 }
 
 // CreateState adds a new State with initial balance to the factory

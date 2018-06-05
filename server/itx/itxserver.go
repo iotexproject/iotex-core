@@ -46,13 +46,6 @@ func NewServer(cfg config.Config) *Server {
 	return newServer(cfg, bc, sf)
 }
 
-// NewTestServer creates a new test server
-func NewTestServer(cfg config.Config) *Server {
-	// create Test Blockchain
-	bc := blockchain.CreateInMemBlockchain(&cfg, blockchain.Gen)
-	return newServer(cfg, bc, nil)
-}
-
 // Init initialize the server
 func (s *Server) Init() error {
 	s.dp.Start()
