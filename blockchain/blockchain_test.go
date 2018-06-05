@@ -168,7 +168,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	// Disable block reward to make bookkeeping easier
 	Gen.BlockReward = uint64(0)
 	// Create a blockchain from scratch
-	bc := CreateBlockchain(config, Gen)
+	bc := CreateBlockchain(config, Gen, nil)
 	assert.NotNil(bc)
 	height, err := bc.TipHeight()
 	assert.Nil(err)
@@ -177,7 +177,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	bc.Stop()
 
 	// Load a blockchain from DB
-	bc = CreateBlockchain(config, Gen)
+	bc = CreateBlockchain(config, Gen, nil)
 	defer bc.Stop()
 	assert.NotNil(bc)
 

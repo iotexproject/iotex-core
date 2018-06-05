@@ -264,14 +264,8 @@ func (bc *blockchain) AddBlockSync(blk *Block) error {
 }
 
 // CreateBlockchain creates a new blockchain and DB instance
-func CreateBlockchain(cfg *config.Config, gen *Genesis) Blockchain {
+func CreateBlockchain(cfg *config.Config, gen *Genesis, sf statefactory.StateFactory) Blockchain {
 	boltDB := db.NewBoltDB(cfg.Chain.ChainDBPath, nil)
-	// create StateFactory
-	sf, err := statefactory.NewStateFactoryTrieDB(cfg.Chain.TrieDBPath)
-	if err != nil {
-		logger.Error().Err(err).Msg("Failed to initialize statefactory")
-		return nil
-	}
 	return createAndInitBlockchain(boltDB, sf, cfg, gen)
 }
 

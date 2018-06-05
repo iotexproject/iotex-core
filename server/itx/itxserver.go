@@ -18,6 +18,7 @@ import (
 	"github.com/iotexproject/iotex-core/dispatcher"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network"
+	"github.com/iotexproject/iotex-core/statefactory"
 	"github.com/iotexproject/iotex-core/txpool"
 )
 
@@ -26,23 +27,30 @@ type Server struct {
 	service.Service
 	bc  blockchain.Blockchain
 	tp  txpool.TxPool
+	ap  txpool.ActPool
 	o   *network.Overlay
 	dp  cm.Dispatcher
 	cfg config.Config
 }
 
 // NewServer creates a new server
-func NewServer(cfg config.Config) Server {
+func NewServer(cfg config.Config) *Server {
+	// create StateFactory
+	sf, err := statefactory.NewStateFactoryTrieDB(cfg.Chain.TrieDBPath)
+	if err != nil {
+		logger.Error().Err(err).Msg("Failed to create statefactory")
+		return nil
+	}
 	// create Blockchain
-	bc := blockchain.CreateBlockchain(&cfg, blockchain.Gen)
-	return newServer(cfg, bc)
+	bc := blockchain.CreateBlockchain(&cfg, blockchain.Gen, sf)
+	return newServer(cfg, bc, sf)
 }
 
 // NewTestServer creates a new test server
-func NewTestServer(cfg config.Config) Server {
+func NewTestServer(cfg config.Config) *Server {
 	// create Test Blockchain
 	bc := blockchain.CreateInMemBlockchain(&cfg, blockchain.Gen)
-	return newServer(cfg, bc)
+	return newServer(cfg, bc, nil)
 }
 
 // Init initialize the server
@@ -92,22 +100,23 @@ func (s *Server) Dp() cm.Dispatcher {
 	return s.dp
 }
 
-func newServer(cfg config.Config, bc blockchain.Blockchain) Server {
+func newServer(cfg config.Config, bc blockchain.Blockchain, sf statefactory.StateFactory) *Server {
 	// create TxPool
 	tp := txpool.NewTxPool(bc)
-
 	// create P2P network and BlockSync
 	o := network.NewOverlay(&cfg.Network)
 	pool := delegate.NewConfigBasedPool(&cfg.Delegate)
 	bs := blocksync.NewBlockSyncer(&cfg, bc, tp, o, pool)
-
+	// create ActPool
+	ap := txpool.NewActPool(sf, o)
 	// create dispatcher instance
-	dp := dispatcher.NewDispatcher(&cfg, bc, tp, bs, pool)
+	dp := dispatcher.NewDispatcher(&cfg, bc, tp, ap, bs, pool)
 	o.AttachDispatcher(dp)
 
-	return Server{
+	return &Server{
 		bc:  bc,
 		tp:  tp,
+		ap:  ap,
 		o:   o,
 		dp:  dp,
 		cfg: cfg,

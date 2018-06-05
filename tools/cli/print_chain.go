@@ -12,7 +12,7 @@ import (
 )
 
 func (cli *CLI) printChain(config *config.Config) {
-	cli.bc = blockchain.CreateBlockchain(config, blockchain.Gen)
+	cli.bc = blockchain.CreateBlockchain(config, blockchain.Gen, nil)
 	defer cli.bc.Stop()
 
 	/*
