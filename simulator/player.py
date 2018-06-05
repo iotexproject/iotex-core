@@ -25,6 +25,8 @@ class Player:
     DUMMY_MSG_TYPE = 1999                                # if there are no messages to process, dummy message is sent to consensus engine
     msgMap         = {(DUMMY_MSG_TYPE, ""): "dummy msg"} # maps message to message name for printing
 
+    correctHashes  = []
+
     def __init__(self, stake):
         """Creates a new Player object"""
 
@@ -77,11 +79,19 @@ class Player:
                 
                 if mt == 0: # view state change message
                     self.outbound.append([v, timestamp])
-                else: # block to be committed
+                elif mt == 1: # block to be committed
                     self.blockchain.append(v[1])
                     self.nMsgsPassed.append(0)
                     self.timeCreated.append(timestamp)
                     print("committed %s to blockchain" % Player.msgMap[v])
+                else: # newly proposed block
+                    # separate the blockhash from the actual message
+                    separator = v[1].index("|")
+                    blockHash = v[1][separator+1:]
+                    v = (v[0], v[1][:separator])
+                    
+                    self.outbound.append([v, timestamp])
+                    Player.correctHashes.append(blockHash)
 
             if msg[0] != Player.DUMMY_MSG_TYPE: self.outbound.append([msg, timestamp])
             

@@ -9,10 +9,10 @@
 #PLAYERS="[(1, 0), (2, 1), (1, 2), (1, 4), (1, 8), (1, 16)]"
 PLAYERS="[(5, 1)]"
 N_CONNECTIONS=2
-MEAN_PROP_TIME=0.4
-STD_PROP_TIME=0.2
+MEAN_PROP_TIME=0.2
+STD_PROP_TIME=0
 SEED=42
-TIME_TO_SIM=5
+TIME_TO_SIM=8
 
 python main.py --players="$PLAYERS" --nconnections=$N_CONNECTIONS --timetosim=$TIME_TO_SIM --meanproptime=$MEAN_PROP_TIME --stdproptime=$STD_PROP_TIME --seed=$SEED
 
