@@ -4,17 +4,13 @@
 # permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 # License 2.0 that can be found in the LICENSE file.
 
-#!/bin/sh
+"""This module defines a failure stop consensus client"""
 
-# for instructions on how to run this program run `python main.py --help`
+import consensus_client
 
-PLAYERS="[(9, 0), (1, 1)]"
-N_CONNECTIONS=4
-MEAN_PROP_TIME=0.4
-STD_PROP_TIME=0.1
-SEED=21
-TIME_TO_SIM=10
+class ConsensusFS(consensus_client.Consensus):
+    def __init__(self):
+        super()
 
-python main.py --players="$PLAYERS" --nconnections=$N_CONNECTIONS --timetosim=$TIME_TO_SIM --meanproptime=$MEAN_PROP_TIME --stdproptime=$STD_PROP_TIME --seed=$SEED
-
-
+    def processMessage(self, msg):
+        return list()

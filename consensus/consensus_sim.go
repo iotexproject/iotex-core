@@ -90,9 +90,10 @@ func NewSim(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxPool, bs b
 		vc, ok := (msg).(*iproto.ViewChangeMsg)
 		if ok && vc.Vctype == iproto.ViewChangeMsg_PROPOSE {
 			cs.sendMessage(proposeBlockMsg, msgType, msgBodyS+"|"+hex.EncodeToString(vc.BlockHash)) // send msg + block hash for recording metrics on sim side
+		} else {
+			cs.sendMessage(viewStateChangeMsg, msgType, msgBodyS)
 		}
 
-		cs.sendMessage(viewStateChangeMsg, msgType, msgBodyS)
 		return nil
 	}
 

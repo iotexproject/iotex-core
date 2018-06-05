@@ -16,7 +16,12 @@ from proto import simulator_pb2_grpc
 from proto import simulator_pb2
 import solver
 import consensus_client
+import consensus_failurestop
 
+class CTypes:
+    Honest = 0
+    FailureStop = 1
+    
 class Player:
     id = 0 # player id
     
@@ -27,13 +32,11 @@ class Player:
 
     correctHashes  = []
 
-    def __init__(self, stake):
+    def __init__(self, consensusType):
         """Creates a new Player object"""
 
         self.id = Player.id # the player's id
         Player.id += 1                 
-
-        self.stake = stake  # the number of tokens the player has staked in the system
 
         self.blockchain   = []    # blockchain (technically a blocklist)
         self.connections  = []    # list of connected players
@@ -41,7 +44,12 @@ class Player:
         self.outbound     = []    # outbound messages to other players in the network at heartbeat r
         self.seenMessages = set() # set of seen messages
 
-        self.consensus          = consensus_client.Consensus()
+        if consensusType == CTypes.Honest:
+            self.consensus = consensus_client.Consensus()
+        elif consensusType == CTypes.FailureStop:
+            self.consensus = consensus_failurestop.ConsensusFS()
+
+        self.consensusType      = consensusType
         self.consensus.playerID = self.id
         self.consensus.player   = self
         
@@ -73,6 +81,12 @@ class Player:
             received = self.consensus.processMessage(msg)
             
             for mt, v in received:
+                # if mt = 2, the msgBody is comprised of message|blockHash
+                if "|" in v[1]:
+                    separator = v[1].index("|")
+                    blockHash = v[1][separator+1:]
+                    v = (v[0], v[1][:separator])
+
                 if v not in Player.msgMap:
                     Player.msgMap[v] = "msg "+str(len(Player.msgMap))
                 print("received %s from consensus engine" % Player.msgMap[v])
@@ -85,15 +99,10 @@ class Player:
                     self.timeCreated.append(timestamp)
                     print("committed %s to blockchain" % Player.msgMap[v])
                 else: # newly proposed block
-                    # separate the blockhash from the actual message
-                    separator = v[1].index("|")
-                    blockHash = v[1][separator+1:]
-                    v = (v[0], v[1][:separator])
-                    
                     self.outbound.append([v, timestamp])
                     Player.correctHashes.append(blockHash)
 
-            if msg[0] != Player.DUMMY_MSG_TYPE: self.outbound.append([msg, timestamp])
+            if msg[0] != Player.DUMMY_MSG_TYPE and self.consensusType != CTypes.FailureStop: self.outbound.append([msg, timestamp])
             
         self.inbound = list(filter(lambda x: x[1] > heartbeat, self.inbound)) # get rid of processed messages
         
@@ -104,9 +113,9 @@ class Player:
            Returns list of nodes messages have been sent to"""
 
         if len(self.outbound) == 0:
-            flag = False
+            sentMsgs = False
         else:
-            flag = True
+            sentMsgs = True
 
         ci = []
         
@@ -121,7 +130,7 @@ class Player:
         self.outbound.clear()
         print()
 
-        return ci, flag
+        return ci, sentMsgs
 
     def __str__(self):
         return "player %s" % (self.id)

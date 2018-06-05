@@ -1,6 +1,7 @@
 import os
 import math
 import random
+import sys
 
 import matplotlib
 matplotlib.use("TkAgg")
@@ -61,6 +62,8 @@ def anim(num_frames, redraw_func):
         scroll(f - 1)
       elif key == 'right':
         scroll(f + 1)
+      elif key == 'q':
+        sys.exit(0)
 
     scroll_handle.on_changed(draw_new)
     fig_handle.canvas.mpl_connect('key_press_event', key_press)
@@ -70,7 +73,7 @@ def anim(num_frames, redraw_func):
     play()
     plt.show()
   
-def makeGraph(n, nNodes, connections, messages):
+def makeGraph(n, nNodes, connections, messages, label):
     filename = "out%d"%n
     file = open("%s.dot"%filename, "w")
     file.write("digraph G {\nlayout=\"neato\"\n")
@@ -92,7 +95,7 @@ def makeGraph(n, nNodes, connections, messages):
             file.write("%d->%d[color=\"red\"];\n"%(i, j))
 
     file.write("labelloc=\"t\";\n")
-    file.write("label=\"heartbeat %d\";\n"%n)
+    file.write("label=\"%s\";\n"%label)
     file.write("}\n")
     file.close()
     

@@ -20,8 +20,10 @@ class Solver:
         """Initiates the solver class with the list of players and number of rounds"""
 
         self.players = [] # the list of nodes in the system
-        for nPlayers, stake in opts["PLAYERS"]:
-            self.players.extend([player.Player(stake) for i in range(nPlayers)])
+        for nPlayers, ct in opts["PLAYERS"]:
+            for i in range(nPlayers):
+                print("Created player of type %d"%ct)
+                self.players.append(player.Player(ct))
             
         self.nHeartbeats = opts["N_ROUNDS"] # number of total heartbeats
         self.heartbeat   = 0                # the heartbeat, or clock, of the system
@@ -69,14 +71,14 @@ class Solver:
         messages = []
         connections = []
         for i in self.players:
-            message, flag = i.action(heartbeat)
-            if flag:
+            message, sentMsgs = i.action(heartbeat)
+            if sentMsgs:
                 messages.append(message)
             else:
                 messages.append([])
             connections.append(message)
 
-        plot.makeGraph(round(heartbeat/self.dHeartbeat), len(self.players), connections, messages)
+        plot.makeGraph(round(heartbeat/self.dHeartbeat), len(self.players), connections, messages, "time = %f"%heartbeat)
 
     def simulate(self):
         """Simulate the system"""
@@ -84,15 +86,3 @@ class Solver:
         for i in range(self.nHeartbeats+1):
             self.nextRound(i * self.dHeartbeat)
 
-    def calcPercentStake(self):
-        """Calculates the percent stake for each player"""
-        
-        totalStake = self.calcTotalStake()
-        percent = [i.stake/totalStake for i in self.players]
-
-        return percent
-
-    def calcTotalStake(self):
-        """Calculates the total stake among all players"""
-
-        return sum([i.stake for i in self.players])
