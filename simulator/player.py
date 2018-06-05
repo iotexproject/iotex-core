@@ -98,7 +98,7 @@ class Player:
         for i in self.connections:
             ci.append(i.id)
             for message, timestamp in self.outbound:
-                dt = np.random.exponential(self.MEAN_PROP_TIME) # add propagation time to timestamp
+                dt = np.random.lognormal(self.NORMAL_MEAN, self.NORMAL_STD) # add propagation time to timestamp
                 print("sent %s to %s" % (Player.msgMap[message], i))
                 i.inbound.append([message, timestamp+dt])
 

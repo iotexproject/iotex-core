@@ -14,7 +14,8 @@ Options:
   --players=<players>             list of tuples e.g. "[(# of players, stake per player), ...]" [default: [(100, 1)]]
   --nconnections=<ncons>          number of connections in the system [default: 8]
   --timetosim=<timetosim>         virtual time to simulate the system for [default: 10]
-  --meanproptime=<meanproptime>   mean propagation time of messages [default: 0.1]
+  --meanproptime=<meanproptime>   mean propagation time of messages [default: 1]
+  --stdproptime=<stdproptime>     std deviation of the propagation time of messages [default: 0.1]
   --seed=<seed>                   random seed [default: 42]
   --help                          show this
 """
@@ -33,17 +34,8 @@ if __name__=="__main__":
             "N_CONNECTIONS":         int(args["--nconnections"]),   
             "TIME_TO_SIM":           int(args["--timetosim"]),
             "MEAN_PROP_TIME":      float(args["--meanproptime"]),
+            "STD_PROP_TIME":       float(args["--stdproptime"]),
             "SEED":                  int(args["--seed"])
            }
-
-    """channel  = grpc.insecure_channel('localhost:50051')
-    stub     = simulator_pb2_grpc.SimulatorStub(channel)
-    response = stub.Ping(simulator_pb2.Request(playerID=1,
-                                                     senderID=9,
-                                                     messageType=4,
-                                                     value="block 44"))
-
-    for i in response:
-        print(i)"""
 
     driver.drive(opts)
