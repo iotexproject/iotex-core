@@ -12,6 +12,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/consensus/fsm"
+	"github.com/iotexproject/iotex-core/logger"
 )
 
 // epochStart is the initial and idle state of a round of epoch. It initiates the epoch context.
@@ -32,7 +33,17 @@ func (h *epochStart) Handle(event *fsm.Event) {
 		event.Err = err
 		return
 	}
-	h.epochCtx = &epochCtx{height: height, delegates: delegates}
+	numSubEpochs := uint(1)
+	if h.cfg.NumSubEpochs > 0 {
+		numSubEpochs = h.cfg.NumSubEpochs
+	}
+	// The epoch start height is going to be the next block to generate
+	h.epochCtx = &epochCtx{height: height + 1, delegates: delegates, numSubEpochs: numSubEpochs}
+	logger.Info().
+		Str("name", h.self.String()).
+		Uint64("height", h.epochCtx.height).
+		Msg("epoch start")
+
 }
 
 // dkgGenerate is the state of generating DKG.

@@ -42,9 +42,11 @@ type roundCtx struct {
 // epochCtx keeps the context data for the current epoch
 type epochCtx struct {
 	// height means offset for current epoch (i.e., the height of the first block generated in this epoch)
-	height    uint64
-	dkg       common.DKGHash
-	delegates []net.Addr
+	height uint64
+	// numSubEpochs defines number of sub-epochs/rotations will happen in an epoch
+	numSubEpochs uint
+	dkg          common.DKGHash
+	delegates    []net.Addr
 }
 
 // DNet is the delegate networks interface.

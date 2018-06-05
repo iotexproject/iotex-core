@@ -8,10 +8,8 @@ package rolldpos
 
 import "github.com/iotexproject/iotex-core/consensus/fsm"
 
-type ruleStart struct {
+type ruleRoundStart struct {
 	*RollDPoS
 }
 
-func (r ruleStart) Condition(event *fsm.Event) bool {
-	return event.State == stateRoundStart
-}
+func (r ruleRoundStart) Condition(event *fsm.Event) bool { return event.State == stateRoundStart }

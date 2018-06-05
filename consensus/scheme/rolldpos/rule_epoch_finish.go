@@ -8,12 +8,23 @@ package rolldpos
 
 import "github.com/iotexproject/iotex-core/consensus/fsm"
 
-// ruleDKGGenerate checks if the event is dkg generate
-type ruleDKGGenerate struct {
+type ruleEpochFinish struct {
 	*RollDPoS
 }
 
-func (r ruleDKGGenerate) Condition(event *fsm.Event) bool {
-	// Prevent cascading transition to DKG_GENERATE when moving back to EPOCH_START
-	return event.State != stateEpochStart
+func (r ruleEpochFinish) Condition(event *fsm.Event) bool {
+	if event.State != stateEpochStart {
+		return false
+	}
+	height, err := r.bc.TipHeight()
+	if err != nil {
+		event.Err = err
+		return false
+	}
+	// if the height of the last committed block is already the last one should be minted from this epoch, go back to
+	// epoch start
+	if height >= r.epochCtx.height+uint64(uint(len(r.epochCtx.delegates))*r.epochCtx.numSubEpochs)-1 {
+		return true
+	}
+	return false
 }

@@ -34,7 +34,8 @@ func TestAcceptPrevoteAndProceedToEnd(t *testing.T) {
 		mcks.dNet.EXPECT().Broadcast(gomock.Any()).AnyTimes()
 		mcks.bc.EXPECT().ValidateBlock(gomock.Any()).AnyTimes()
 		mcks.bc.EXPECT().AddBlockCommit(gomock.Any()).Times(1)
-		mcks.bc.EXPECT().TipHeight().Return(uint64(0), nil).AnyTimes()
+		first := mcks.bc.EXPECT().TipHeight().Return(uint64(0), nil).Times(1)
+		mcks.bc.EXPECT().TipHeight().Return(uint64(2), nil).After(first).AnyTimes()
 	}
 	cs := createTestRollDPoS(ctrl, delegates[0], delegates, m, false, FixedProposer, nil)
 	cs.Start()
@@ -50,7 +51,7 @@ func TestAcceptPrevoteAndProceedToEnd(t *testing.T) {
 	}
 	err := cs.fsm.HandleTransition(event)
 	assert.Error(t, err, "accept %s error", stateRoundStart)
-	waitForState(
+	waitFor(
 		t,
 		func() bool { return cs.fsm.CurrentState() == stateRoundStart },
 		100*time.Millisecond,
@@ -87,24 +88,19 @@ func TestAcceptPrevoteAndProceedToEnd(t *testing.T) {
 		"roundCtx.prevote set",
 	)
 
-	// Accept VOTE and then commit
+	// Accept VOTE and then commit and then transit to epoch start
 	event = &fsm.Event{
 		State:      stateAcceptVote,
 		SenderAddr: delegates[1],
 		BlockHash:  &blkHash,
 	}
 	err = cs.fsm.HandleTransition(event)
-	assert.NoError(t, err, "accept %s no error", stateAcceptVote)
-	assert.Equal(t, stateRoundStart, cs.fsm.CurrentState(), "current state %s", stateRoundStart)
-	assert.Equal(
+
+	waitFor(
 		t,
-		map[net.Addr]*common.Hash32B{
-			delegates[0]: &blkHash,
-			delegates[1]: &blkHash,
-		},
-		cs.roundCtx.votes,
-		"roundCtx.votes set",
-	)
+		func() bool { return cs.fsm.CurrentState() == stateEpochStart },
+		time.Second,
+		fmt.Sprintf("expected state %s", string(stateEpochStart)))
 }
 
 func TestAcceptPrevoteAndTimeoutToEnd(t *testing.T) {
@@ -123,7 +119,8 @@ func TestAcceptPrevoteAndTimeoutToEnd(t *testing.T) {
 		mcks.dNet.EXPECT().Broadcast(gomock.Any()).AnyTimes()
 		mcks.bc.EXPECT().ValidateBlock(gomock.Any()).Return(errors.New("error"))
 		mcks.bc.EXPECT().AddBlockCommit(gomock.Any()).Times(0)
-		mcks.bc.EXPECT().TipHeight().Return(uint64(0), nil).AnyTimes()
+		first := mcks.bc.EXPECT().TipHeight().Return(uint64(0), nil).Times(1)
+		mcks.bc.EXPECT().TipHeight().Return(uint64(2), nil).After(first).AnyTimes()
 	}
 	cs := createTestRollDPoS(ctrl, delegates[0], delegates, m, false, FixedProposer, nil)
 	cs.Start()
@@ -138,7 +135,7 @@ func TestAcceptPrevoteAndTimeoutToEnd(t *testing.T) {
 	}
 	err := cs.fsm.HandleTransition(event)
 	assert.Error(t, err, "accept %s error", stateRoundStart)
-	waitForState(
+	waitFor(
 		t,
 		func() bool { return cs.fsm.CurrentState() == stateRoundStart },
 		100*time.Millisecond,
@@ -156,16 +153,14 @@ func TestAcceptPrevoteAndTimeoutToEnd(t *testing.T) {
 	assert.Nil(t, cs.roundCtx.block, "roundCtx.block nil")
 	assert.Nil(t, cs.roundCtx.blockHash, "roundCtx.blockHash nil")
 
-	time.Sleep(2 * time.Second)
-	assert.Equal(
+	waitFor(
 		t,
-		fsm.State(stateRoundStart),
-		cs.fsm.CurrentState(),
-		"current state timeout back to %s",
-		stateRoundStart)
+		func() bool { return cs.fsm.CurrentState() == stateEpochStart },
+		time.Second,
+		fmt.Sprintf("expected state %s", string(stateEpochStart)))
 }
 
-func waitForState(t *testing.T, satisfy func() bool, timeout time.Duration, msg string) {
+func waitFor(t *testing.T, satisfy func() bool, timeout time.Duration, msg string) {
 	ready := make(chan bool)
 	go func() {
 		for !satisfy() {

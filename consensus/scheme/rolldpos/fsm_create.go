@@ -36,9 +36,10 @@ func fsmCreate(r *RollDPoS) fsm.Machine {
 	sm.AddState(stateAcceptVote, &acceptVote{RollDPoS: r})
 
 	sm.AddTransition(stateEpochStart, stateDKGGenerate, &ruleDKGGenerate{RollDPoS: r})
-	sm.AddTransition(stateDKGGenerate, stateRoundStart, &ruleStart{RollDPoS: r})
+	sm.AddTransition(stateDKGGenerate, stateRoundStart, &ruleRoundStart{RollDPoS: r})
 	sm.AddTransition(stateRoundStart, stateInitPropose, &ruleIsProposer{RollDPoS: r})
 	sm.AddTransition(stateRoundStart, stateAcceptPropose, &ruleNotProposer{RollDPoS: r})
+	sm.AddTransition(stateRoundStart, stateEpochStart, &ruleEpochFinish{RollDPoS: r})
 	sm.AddTransition(stateInitPropose, stateAcceptPrevote, &rulePropose{RollDPoS: r})
 	sm.AddTransition(stateAcceptPropose, stateAcceptPrevote, &rulePrevote{RollDPoS: r})
 	sm.AddTransition(stateAcceptPrevote, stateAcceptVote, &ruleVote{RollDPoS: r})
