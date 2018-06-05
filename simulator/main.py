@@ -11,10 +11,10 @@ Usage:
   main.py [options]
 
 Options:
-  --players=<players>             list of tuples e.g. "[(# of players, stake per player), ...]" [default: [(100, 1)]]
-  --nconnections=<ncons>          number of connections in the system [default: 8]
-  --timetosim=<timetosim>         virtual time to simulate the system for [default: 10]
-  --meanproptime=<meanproptime>   mean propagation time of messages [default: 1]
+  --players=<players>             list of tuples e.g. "[(# of players, player type), ...]"; player type 0 = honest node, 1 = failure stop, 2 = fuzz test, 3 = byzantine fault [default: [(10, 0)]]
+  --nconnections=<ncons>          number of connections per person in the network [default: 3]
+  --timetosim=<timetosim>         virtual time in seconds to simulate the system for [default: 10]
+  --meanproptime=<meanproptime>   mean propagation time of messages (latency) [default: 1]
   --stdproptime=<stdproptime>     std deviation of the propagation time of messages [default: 0.1]
   --seed=<seed>                   random seed [default: 42]
   --help                          show this

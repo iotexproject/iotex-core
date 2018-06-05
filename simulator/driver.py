@@ -54,9 +54,10 @@ def drive(opts):
     nMsgsPassed = []
     timeCreated = []
     for i in sol.players:
-        nMsgsPassed.append(i.nMsgsPassed)
-        blockchains.append(i.blockchain)
-        timeCreated.append(i.timeCreated)
+        if i.consensusType == player.CTypes.Honest:
+            nMsgsPassed.append(i.nMsgsPassed)
+            blockchains.append(i.blockchain)
+            timeCreated.append(i.timeCreated)
         print("%s: %s"%(i, str(i.blockchain).replace("\n", "\n\t")))
 
     correctHashes = player.Player.correctHashes
@@ -68,31 +69,42 @@ def drive(opts):
     # calc stats
     print("\n==CALCULATING STATISTICS==")
     nRounds = min(map(len, blockchains)) # number of rounds completed by all
-    fullConsensus = 0 # number of rounds where full consensus was achieved among all players
-    for i in range(nRounds):
-        fullConsensus += all(blockchains[0][i] == j[i] for j in blockchains)
-
     correctHashes = player.Player.correctHashes
     nMsgsPassed = [sum(nMsgsPassed[j][i] for j in range(len(nMsgsPassed))) for i in range(nRounds)]
     timeCreated = [max(timeCreated[j][i] for j in range(len(timeCreated))) for i in range(nRounds)]
-    dts = [timeCreated[0]]+[timeCreated[i+1]-timeCreated[i] for i in range(len(timeCreated)-1)]
+    if len(timeCreated) > 0:
+        dts = [timeCreated[0]]+[timeCreated[i+1]-timeCreated[i] for i in range(len(timeCreated)-1)]
+    else:
+        dts = []
     nConsensus = [0]*max(map(len, blockchains))
     for i in blockchains:
         for j in range(len(i)):
             if i[j] == correctHashes[j]: nConsensus[j] += 1
-    fullConsensus2 = nConsensus.count(len(sol.players))
-    assert fullConsensus2==fullConsensus
+    fullConsensus = nConsensus.count(len(sol.players))
 
     print()
+    print("==Note: consensus statistics only apply to honest nodes==")
     print("BLOCKS CREATED PER NODE = %s"%(", ".join(list(map(str, list(map(len, blockchains)))))))
-    print("N DELEGATES WHICH ACHIEVED CONSENSUS IN EACH ROUND = %s"%(", ".join(list(map(str, nConsensus)))))
-    print("N ROUNDS WITH FULL CONSENSUS ACHIEVED/N ROUNDS FULLY COMPLETED = %d/%d = %f"%(fullConsensus, nRounds, fullConsensus/nRounds))
+    print("N HONEST DELEGATES WHICH ACHIEVED CONSENSUS IN EACH ROUND = %s"%(", ".join(list(map(str, nConsensus)))))
+    if nRounds != 0:
+        print("N ROUNDS WITH FULL CONSENSUS ACHIEVED/N ROUNDS FULLY COMPLETED = %d/%d = %f"%(fullConsensus, nRounds, fullConsensus/nRounds))
+    else:
+        print("N ROUNDS WITH FULL CONSENSUS ACHIEVED/N ROUNDS FULLY COMPLETED = %d/%d = 0"%(fullConsensus, nRounds))
     print("MSGS PASSED PER BLOCK = %s"%(", ".join(list(map(str, nMsgsPassed)))))
-    print("AVERAGE MSGS PASSED PER BLOCK = %f"%(sum(nMsgsPassed)/len(nMsgsPassed)))
-    print("TIME BLOCKS COMMITTED BY ALL NODES = %s"%(", ".join(list(map(str, timeCreated)))))
+    if len(nMsgsPassed) != 0:
+        print("AVERAGE MSGS PASSED PER BLOCK = %f"%(sum(nMsgsPassed)/len(nMsgsPassed)))
+    else:
+        print("AVERAGE MSGS PASSED PER BLOCK = 0")
+    print("TIME BLOCKS COMMITTED BY ALL HONEST NODES = %s"%(", ".join(list(map(str, timeCreated)))))
     print("TIME TO CREATE BLOCKS = %s"%(", ".join(list(map(str, dts)))))
-    print("AVERAGE TIME TO CREATE BLOCK = %f"%(sum(dts)/len(dts)))
-    print("BLOCKS CREATED PER SECOND = %f"%(nRounds/opts["TIME_TO_SIM"]))
+    if len(dts) != 0:
+        print("AVERAGE TIME TO CREATE BLOCK = %f"%(sum(dts)/len(dts)))
+    else:
+        print("AVERAGE TIME TO CREATE BLOCK = 0")
+    if opts["TIME_TO_SIM"] != 0:
+        print("BLOCKS CREATED PER SECOND = %f"%(nRounds/opts["TIME_TO_SIM"]))
+    else:
+        print("BLOCKS CREATED PER SECOND = 0")
 
     # get rid of useless .db files
     os.system("rm chain*.db")
