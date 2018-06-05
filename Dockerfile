@@ -26,4 +26,4 @@ RUN cd $GOPATH/src/github.com/iotexproject/iotex-core/ && \
     ln -s $GOPATH/src/github.com/iotexproject/iotex-core/config.yaml /etc/iotex/config.yaml && \
     mkdir -p /var/log/iotex/
 
-CMD ["iotex-server", "-stderrthreshold=WARNING", "-log_dir=/var/log/iotex/server.log", "-config=/etc/iotex/config.yaml"]
+CMD ["iotex-server", "-log-path=/var/log/iotex/server.log", "-config=/etc/iotex/config.yaml"]
