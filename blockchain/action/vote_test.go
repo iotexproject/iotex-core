@@ -23,7 +23,7 @@ func TestVote(t *testing.T) {
 	vote := NewVote(0, sender.PublicKey, recipient.PublicKey)
 	raw, err := vote.Serialize()
 	assert.Nil(err)
-	// Sign the transfer
+	// Sign the vote
 	signed, err := SignVote(raw, sender)
 	assert.Nil(err)
 	// deserialize

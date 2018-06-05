@@ -46,10 +46,10 @@ type blockSyncMsg struct {
 	done   chan bool
 }
 
-// voteMsg packages a proto vote message.
-type voteMsg struct {
-	vote *pb.VotePb
-	done chan bool
+// actionMsg packages a proto action message.
+type actionMsg struct {
+	action *pb.ActionPb
+	done   chan bool
 }
 
 // dispatcher implements Dispatcher interface.
@@ -63,6 +63,7 @@ type dispatcher struct {
 	bs blocksync.BlockSync
 	cs consensus.Consensus
 	tp txpool.TxPool
+	ap txpool.ActPool
 }
 
 // NewDispatcher creates a new dispatcher
@@ -140,8 +141,8 @@ loop:
 			case *blockSyncMsg:
 				d.handleBlockSyncMsg(msg)
 
-			case *voteMsg:
-				d.handleVoteMsg(msg)
+			case *actionMsg:
+				d.handleActionMsg(msg)
 
 			default:
 				logger.Warn().
@@ -215,10 +216,10 @@ func (d *dispatcher) handleBlockSyncMsg(m *blockSyncMsg) {
 	return
 }
 
-// handleVoteMsg handles voteMsg from all peers.
-func (d *dispatcher) handleVoteMsg(m *voteMsg) {
+// handleActionMsg handles actionMsg from all peers.
+func (d *dispatcher) handleActionMsg(m *actionMsg) {
 	vote := &pb.VotePb{}
-	logger.Info().Str("sig", string(vote.Signature)).Msg("receive voteMsg")
+	logger.Info().Str("sig", string(vote.Signature)).Msg("receive actionMsg")
 
 	//todo: call account module to process the vote msg
 	// signal to let caller know we are done
@@ -273,15 +274,15 @@ func (d *dispatcher) dispatchBlockSyncData(msg proto.Message, done chan bool) {
 	d.newsChan <- &blockMsg{data.Block, pb.MsgBlockSyncDataType, done}
 }
 
-// dispatchVote adds the passed vote message to the news handling queue.
-func (d *dispatcher) dispatchVote(msg proto.Message, done chan bool) {
+// dispatchAction adds the passed action message to the news handling queue.
+func (d *dispatcher) dispatchAction(msg proto.Message, done chan bool) {
 	if atomic.LoadInt32(&d.shutdown) != 0 {
 		if done != nil {
 			close(done)
 		}
 		return
 	}
-	d.newsChan <- &voteMsg{(msg).(*pb.VotePb), done}
+	d.newsChan <- &actionMsg{(msg).(*pb.ActionPb), done}
 }
 
 // HandleBroadcast handles incoming broadcast message
@@ -303,8 +304,8 @@ func (d *dispatcher) HandleBroadcast(message proto.Message, done chan bool) {
 	case pb.MsgBlockProtoMsgType:
 		d.dispatchBlockCommit(message, done)
 		break
-	case pb.MsgVoteType:
-		d.dispatchVote(message, done)
+	case pb.MsgActionType:
+		d.dispatchAction(message, done)
 	default:
 		logger.Warn().
 			Uint32("msgType", msgType).

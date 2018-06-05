@@ -45,7 +45,7 @@ func TestTxPool(t *testing.T) {
 	assert.NotNil(bc)
 	defer bc.Stop()
 
-	tp := New(bc)
+	tp := NewTxPool(bc)
 	assert.NotNil(tp)
 	cbTx := trx.NewCoinbaseTx(ta.Addrinfo["miner"].RawAddress, 50, testCoinbaseData)
 	assert.NotNil(cbTx)

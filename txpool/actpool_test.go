@@ -23,7 +23,6 @@ import (
 	"github.com/iotexproject/iotex-core/statefactory"
 	"github.com/iotexproject/iotex-core/test/mock/mock_statefactory"
 	"github.com/iotexproject/iotex-core/test/util"
-	"github.com/iotexproject/iotex-core/trie"
 )
 
 const testTriePath = "trie.test"
@@ -42,14 +41,11 @@ func TestActPool_validateTx(t *testing.T) {
 	addr, _ := iotxaddress.GetAddress(decodeHash(pubK), isTestnet, chainid)
 	util.CleanupPath(t, testTriePath)
 	defer util.CleanupPath(t, testTriePath)
-	trie, _ := trie.NewTrie(testTriePath)
-	sf := statefactory.NewStateFactory(trie)
+	sf, _ := statefactory.NewStateFactoryTrieDB(testTriePath)
+	assert.NotNil(sf)
 	sf.CreateState(addr.RawAddress, uint64(100))
-	ap := &actPool{
-		sf:         sf,
-		accountTxs: make(map[string]TxQueue),
-		allTxs:     make(map[common.Hash32B]*action.Transfer),
-	}
+	ap := newActPool(sf)
+	assert.NotNil(ap)
 	// Case I: Oversized Data
 	payload := []byte{}
 	tmpPayload := [32769]byte{}
@@ -85,16 +81,13 @@ func TestActPool_AddTx(t *testing.T) {
 	addr2, _ := iotxaddress.GetAddress(decodeHash(pubK2), isTestnet, chainid)
 	util.CleanupPath(t, testTriePath)
 	defer util.CleanupPath(t, testTriePath)
-	trie, _ := trie.NewTrie(testTriePath)
-	sf := statefactory.NewStateFactory(trie)
+	sf, _ := statefactory.NewStateFactoryTrieDB(testTriePath)
+	assert.NotNil(sf)
 	sf.CreateState(addr1.RawAddress, uint64(100))
 	sf.CreateState(addr2.RawAddress, uint64(10))
 	// Create actpool
-	ap := &actPool{
-		sf:         sf,
-		accountTxs: make(map[string]TxQueue),
-		allTxs:     make(map[common.Hash32B]*action.Transfer),
-	}
+	ap := newActPool(sf)
+	assert.NotNil(ap)
 	// Test actpool status after adding a sequence of Txs: need to check confirmed nonce, pending nonce, and pending balance
 	tx1 := action.Transfer{Sender: addr1.RawAddress, Nonce: uint64(1), Amount: big.NewInt(10)}
 	tx2 := action.Transfer{Sender: addr1.RawAddress, Nonce: uint64(2), Amount: big.NewInt(20)}
@@ -142,7 +135,8 @@ func TestActPool_AddTx(t *testing.T) {
 	assert.Equal(fmt.Errorf("existed transaction: %x", tx1.Hash()), err)
 	// Case II: Pool space is full
 	mockSF := mock_statefactory.NewMockStateFactory(ctrl)
-	ap2 := &actPool{sf: mockSF, allTxs: make(map[common.Hash32B]*action.Transfer)}
+	ap2 := newActPool(mockSF)
+	assert.NotNil(ap2)
 	for i := 0; i < GlobalSlots; i++ {
 		nTx := action.Transfer{Amount: big.NewInt(int64(i))}
 		ap2.allTxs[nTx.Hash()] = &nTx
@@ -176,16 +170,13 @@ func TestActPool_PickTxs(t *testing.T) {
 	addr2, _ := iotxaddress.GetAddress(decodeHash(pubK2), isTestnet, chainid)
 	util.CleanupPath(t, testTriePath)
 	defer util.CleanupPath(t, testTriePath)
-	trie, _ := trie.NewTrie(testTriePath)
-	sf := statefactory.NewStateFactory(trie)
+	sf, _ := statefactory.NewStateFactoryTrieDB(testTriePath)
+	assert.NotNil(sf)
 	sf.CreateState(addr1.RawAddress, uint64(100))
 	sf.CreateState(addr2.RawAddress, uint64(10))
 	// Create actpool
-	ap := &actPool{
-		sf:         sf,
-		accountTxs: make(map[string]TxQueue),
-		allTxs:     make(map[common.Hash32B]*action.Transfer),
-	}
+	ap := NewActPool(sf)
+	assert.NotNil(ap)
 
 	tx1 := action.Transfer{Sender: addr1.RawAddress, Nonce: uint64(1), Amount: big.NewInt(10)}
 	tx2 := action.Transfer{Sender: addr1.RawAddress, Nonce: uint64(2), Amount: big.NewInt(20)}
@@ -220,15 +211,12 @@ func TestActPool_removeCommittedTxs(t *testing.T) {
 	addr, _ := iotxaddress.GetAddress(decodeHash(pubK), isTestnet, chainid)
 	util.CleanupPath(t, testTriePath)
 	defer util.CleanupPath(t, testTriePath)
-	trie, _ := trie.NewTrie(testTriePath)
-	sf := statefactory.NewStateFactory(trie)
+	sf, _ := statefactory.NewStateFactoryTrieDB(testTriePath)
+	assert.NotNil(sf)
 	sf.CreateState(addr.RawAddress, uint64(100))
 	// Create actpool
-	ap := &actPool{
-		sf:         sf,
-		accountTxs: make(map[string]TxQueue),
-		allTxs:     make(map[common.Hash32B]*action.Transfer),
-	}
+	ap := newActPool(sf)
+	assert.NotNil(ap)
 
 	tx1 := action.Transfer{Sender: addr.RawAddress, Recipient: addr.RawAddress, Nonce: uint64(1), Amount: big.NewInt(10)}
 	tx2 := action.Transfer{Sender: addr.RawAddress, Recipient: addr.RawAddress, Nonce: uint64(2), Amount: big.NewInt(20)}
@@ -263,23 +251,16 @@ func TestActPool_Reset(t *testing.T) {
 
 	util.CleanupPath(t, testTriePath)
 	defer util.CleanupPath(t, testTriePath)
-	trie, _ := trie.NewTrie(testTriePath)
-	sf := statefactory.NewStateFactory(trie)
+	sf, _ := statefactory.NewStateFactoryTrieDB(testTriePath)
+	assert.NotNil(sf)
 	sf.CreateState(addr1.RawAddress, uint64(100))
 	sf.CreateState(addr2.RawAddress, uint64(200))
 	sf.CreateState(addr3.RawAddress, uint64(300))
 
-	ap1 := &actPool{
-		sf:         sf,
-		accountTxs: make(map[string]TxQueue),
-		allTxs:     make(map[common.Hash32B]*action.Transfer),
-	}
-
-	ap2 := &actPool{
-		sf:         sf,
-		accountTxs: make(map[string]TxQueue),
-		allTxs:     make(map[common.Hash32B]*action.Transfer),
-	}
+	ap1 := newActPool(sf)
+	assert.NotNil(ap1)
+	ap2 := newActPool(sf)
+	assert.NotNil(ap2)
 
 	// Txs to be added to ap1
 	tx1 := action.Transfer{Sender: addr1.RawAddress, Recipient: addr2.RawAddress, Nonce: uint64(1), Amount: big.NewInt(50)}
@@ -533,6 +514,15 @@ func TestActPool_Reset(t *testing.T) {
 	assert.Equal(uint64(5), ap2PNonce3)
 	ap2PBalance3, _ = ap2.getPendingBalance(addr3.RawAddress)
 	assert.Equal(big.NewInt(90).Uint64(), ap2PBalance3.Uint64())
+}
+
+// Helper function to create an instance of actPool
+func newActPool(sf statefactory.StateFactory) *actPool {
+	return &actPool{
+		sf:         sf,
+		accountTxs: make(map[string]TxQueue),
+		allTxs:     make(map[common.Hash32B]*action.Transfer),
+	}
 }
 
 // Helper function to return the correct confirmed nonce just in case of empty queue

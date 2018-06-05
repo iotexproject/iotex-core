@@ -16,8 +16,8 @@ import (
 	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/network"
 	"github.com/iotexproject/iotex-core/statefactory"
-	"github.com/iotexproject/iotex-core/trie"
 )
 
 const (
@@ -52,14 +52,15 @@ type ActPool interface {
 type actPool struct {
 	mutex      sync.RWMutex
 	sf         statefactory.StateFactory
+	p2p        *network.Overlay
 	accountTxs map[string]TxQueue
 	allTxs     map[common.Hash32B]*action.Transfer
 }
 
 // NewActPool constructs a new actpool
-func NewActPool(trie trie.Trie) ActPool {
+func NewActPool(sf statefactory.StateFactory) ActPool {
 	ap := &actPool{
-		sf:         statefactory.NewStateFactory(trie),
+		sf:         sf,
 		accountTxs: make(map[string]TxQueue),
 		allTxs:     make(map[common.Hash32B]*action.Transfer),
 	}
