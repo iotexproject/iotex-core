@@ -76,7 +76,7 @@ class Solver:
                 messages.append([])
             connections.append(message)
 
-        plot.makeGraph(heartbeat/self.dHeartbeat, len(self.players), connections, messages)
+        plot.makeGraph(round(heartbeat/self.dHeartbeat), len(self.players), connections, messages)
 
     def simulate(self):
         """Simulate the system"""

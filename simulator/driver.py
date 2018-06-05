@@ -11,6 +11,8 @@ import os
 import random
 import statistics
 
+import numpy as np
+
 import player
 import solver
 import consensus_client
@@ -21,17 +23,23 @@ def drive(opts):
        Ex: opts = {"PLAYERS": [(100, 1)], # list of tuples; [(number of players, stake per player)]
             "N_CONNECTIONS": 8,           # number of connections per player
             "TIME_TO_SIM": 5,             # virtual time to simulate system for
-            "MEAN_PROP_TIME": 0.1         # mean propagation time of messages (exponential distribution)
+            "MEAN_PROP_TIME": 0.1         # mean propagation time of messages
+            "STD_PROP_TIME": 0.001        # standard deviation of the propagation time of messages
            }"""
 
-    ALPHA = 0.2 # scaling constant -- simulation updates 1//(alpha*latency) times per heartbeat
+    ALPHA = 0.5 # scaling constant -- simulation updates 1//(alpha*latency) times per heartbeat
     opts["D_HEARTBEAT"] = opts["MEAN_PROP_TIME"] * ALPHA
     opts["N_ROUNDS"]    = math.ceil(opts["TIME_TO_SIM"] / opts["D_HEARTBEAT"])
     
     solver.Solver.N_CONNECTIONS         = opts["N_CONNECTIONS"]
     solver.Solver.N_ROUNDS              = opts["N_ROUNDS"]
 
-    player.Player.MEAN_PROP_TIME = opts["MEAN_PROP_TIME"]
+    # convert lognormal mean, std to normal mean, std
+    normal_std = np.sqrt(np.log(1 + (opts["STD_PROP_TIME"]/opts["MEAN_PROP_TIME"])**2))
+    normal_mean = np.log(opts["MEAN_PROP_TIME"]) - normal_std**2 / 2
+
+    player.Player.NORMAL_STD = normal_std
+    player.Player.NORMAL_MEAN  = normal_mean
 
     random.seed(opts["SEED"])
 
