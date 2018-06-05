@@ -49,13 +49,40 @@ def drive(opts):
     
     sol.simulate()
 
+    blockchains = []
+    nMsgsPassed = []
+    timeCreated = []
     for i in sol.players:
-        print(i)
+        nMsgsPassed.append(i.nMsgsPassed)
+        blockchains.append(i.blockchain)
+        timeCreated.append(i.timeCreated)
+        print("%s: %s"%(i, str(i.blockchain).replace("\n", "\n\t")))
         print("\t"+str(i.blockchain).replace("\n", "\n\t"))
-        print()
 
     try: consensus_client.Consensus.close()
     except: pass
+
+    # calc stats
+    print("\n==CALCULATING STATISTICS==")
+    nRounds = min(map(len, blockchains)) # number of rounds completed by all
+    fullConsensus = 0 # number of rounds where full consensus was achieved among all players
+    for i in range(nRounds):
+        fullConsensus += all(blockchains[0][i] == j[i] for j in blockchains)
+
+    nMsgsPassed = [sum(nMsgsPassed[j][i] for j in range(len(nMsgsPassed))) for i in range(nRounds)]
+    timeCreated = [max(timeCreated[j][i] for j in range(len(timeCreated))) for i in range(nRounds)]
+    dts = [timeCreated[0]]+[timeCreated[i+1]-timeCreated[i] for i in range(len(timeCreated)-1)]
+
+    print(nMsgsPassed, sum(nMsgsPassed), len(nMsgsPassed))
+    print()
+    print("==N ROUNDS FULLY COMPLETED/N ROUNDS WITH FULL CONSENSUS ACHIEVED = %d/%d = %f=="%(nRounds, fullConsensus, nRounds/fullConsensus))
+        
+    print("==MSGS PASSED PER BLOCK = %s=="%(", ".join(list(map(str, nMsgsPassed)))))
+    print("==AVERAGE MSGS PASSED PER BLOCK = %f=="%(sum(nMsgsPassed)/len(nMsgsPassed)))
+    print("==TIME BLOCKS COMMITTED BY ALL NODES = %s=="%(", ".join(list(map(str, timeCreated)))))
+    print("==TIME TO CREATE BLOCKS = %s=="%(", ".join(list(map(str, dts)))))
+    print("==BLOCKS CREATED PER SECOND = %f=="%(nRounds/opts["TIME_TO_SIM"]))
+
 
     # get rid of useless .db files
     os.system("rm chain*.db")
