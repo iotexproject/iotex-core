@@ -51,7 +51,7 @@ func createTestRollDPoS(
 	bcCnt *int) *RollDPoS {
 	bc := mock_blockchain.NewMockBlockchain(ctrl)
 
-	tp := txpool.New(bc)
+	tp := txpool.NewTxPool(bc)
 	createblockCB := func() (*blockchain.Block, error) {
 		blk, err := bc.MintNewBlock(tp.PickTxs(), &iotxaddress.Address{}, "")
 		if err != nil {

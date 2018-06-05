@@ -94,7 +94,7 @@ func (s *Server) Dp() cm.Dispatcher {
 
 func newServer(cfg config.Config, bc blockchain.Blockchain) Server {
 	// create TxPool
-	tp := txpool.New(bc)
+	tp := txpool.NewTxPool(bc)
 
 	// create P2P network and BlockSync
 	o := network.NewOverlay(&cfg.Network)

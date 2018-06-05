@@ -119,8 +119,8 @@ type txPool struct {
 	nextExpirationScanTime time.Time
 }
 
-// New creates a TxPool instance
-func New(bc blockchain.Blockchain) TxPool {
+// NewTxPool creates a TxPool instance
+func NewTxPool(bc blockchain.Blockchain) TxPool {
 	return &txPool{
 		bc:                     bc,
 		tags:                   make(map[Tag]map[common.Hash32B]*trx.Tx),
