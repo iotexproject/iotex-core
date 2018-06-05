@@ -33,8 +33,7 @@ type CandidateMaxPQ struct {
 }
 
 func (pqStruct CandidateMinPQ) Len() int {
-	pq := pqStruct.pq
-	return len(pq)
+	return len(pqStruct.pq)
 }
 
 func (pqStruct CandidateMinPQ) Less(i, j int) bool {
@@ -71,8 +70,10 @@ func (pqStruct *CandidateMinPQ) Pop() interface{} {
 
 // Top returns the candidate with smallest votes
 func (pqStruct *CandidateMinPQ) Top() interface{} {
-	pq := pqStruct.pq
-	return pq[0]
+	if pqStruct.Len() == 0 {
+		return nil
+	}
+	return pqStruct.pq[0]
 }
 
 func (pqStruct *CandidateMinPQ) update(candidate *Candidate, newVote *big.Int) {
@@ -105,8 +106,7 @@ func (pqStruct *CandidateMinPQ) shouldTake(vote *big.Int) bool {
 }
 
 func (pqStruct CandidateMaxPQ) Len() int {
-	pq := pqStruct.pq
-	return len(pq)
+	return len(pqStruct.pq)
 }
 
 func (pqStruct CandidateMaxPQ) Less(i, j int) bool {
@@ -143,8 +143,10 @@ func (pqStruct *CandidateMaxPQ) Pop() interface{} {
 
 // Top return the candidate with highest votes
 func (pqStruct *CandidateMaxPQ) Top() interface{} {
-	pq := pqStruct.pq
-	return pq[0]
+	if pqStruct.Len() == 0 {
+		return nil
+	}
+	return pqStruct.pq[0]
 }
 
 func (pqStruct *CandidateMaxPQ) update(candidate *Candidate, newVote *big.Int) {
