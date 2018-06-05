@@ -110,11 +110,13 @@ type RollDPoS struct {
 	AcceptPrevote     AcceptPrevote
 	AcceptVote        AcceptVote
 	Delay             time.Duration
+	NumSubEpochs      uint
 }
 
 // ProposerRotation is the RollDPoS ProposerRotation config
 type ProposerRotation struct {
-	// Interval determines how long to propose another round of RollDPoS.
+	// Interval determines how long to propose another round of RollDPoS. 0 means the next consensus round will be
+	// triggered immediately after finish the current one
 	Interval time.Duration
 	// Enabled flags whether we periodically rotate the proposer and trigger a new round of RollDPoS
 	Enabled bool

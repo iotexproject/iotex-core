@@ -94,6 +94,7 @@ func createTestRollDPoS(
 		AcceptVote: config.AcceptVote{
 			TTL: 300 * time.Millisecond,
 		},
+		Delay: 10 * time.Second,
 	}
 	if enableProposerRotation {
 		csCfg.ProposerRotation.Enabled = enableProposerRotation

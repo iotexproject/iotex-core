@@ -43,7 +43,7 @@ func TestProposerRotation(t *testing.T) {
 	defer cs.Stop()
 	cs.handleEvent(&fsm.Event{State: stateDKGGenerate})
 
-	waitForState(
+	waitFor(
 		t,
 		func() bool { return cs.roundCtx != nil && cs.roundCtx.isPr },
 		2*time.Second,

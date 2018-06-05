@@ -147,6 +147,10 @@ func testLocalRollDPoS(prCb string, t *testing.T) {
 			blk, err = bc.GetBlockByHeight(4)
 			assert.Nil(err)
 			hash4 = blk.HashBlock()
+			// Epoch ends, so that there shouldn't be more blocks
+			blk, err = bc.GetBlockByHeight(5)
+			assert.NotNil(err)
+			assert.Nil(blk)
 			continue
 		}
 
@@ -163,5 +167,9 @@ func testLocalRollDPoS(prCb string, t *testing.T) {
 		blk, err = bc.GetBlockByHeight(4)
 		assert.Nil(err)
 		assert.Equal(hash4, blk.HashBlock())
+		// Epoch ends, so that there shouldn't be more blocks
+		blk, err = bc.GetBlockByHeight(5)
+		assert.NotNil(err)
+		assert.Nil(blk)
 	}
 }

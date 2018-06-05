@@ -34,6 +34,8 @@ func (r ruleCommit) Condition(event *fsm.Event) bool {
 		if int(r.cfg.ProposerRotation.Interval) == 0 {
 			r.prnd.Do()
 		}
+		// TODO: need to commit and broadcast empty block to make proposer and block height map consistently
+		r.notifyRoundFinish()
 		return true
 	}
 
@@ -53,6 +55,7 @@ func (r ruleCommit) Condition(event *fsm.Event) bool {
 		r.prnd.Do()
 	}
 
+	r.notifyRoundFinish()
 	return true
 }
 
@@ -65,4 +68,10 @@ func (r ruleCommit) reachedMaj() bool {
 		}
 	}
 	return agreed >= len(r.epochCtx.delegates)*2/3+1
+}
+
+func (r ruleCommit) notifyRoundFinish() {
+	r.handleEvent(&fsm.Event{
+		State: stateEpochStart,
+	})
 }
