@@ -18,10 +18,12 @@ import (
 const (
 	blockNS                  = "blocks"
 	blockHashHeightMappingNS = "hash<->height"
+	blockTxBlockMappingNS    = "tx<->block"
 )
 
 var (
 	hashPrefix   = []byte("hash.")
+	txPrefix     = []byte("tx.")
 	heightPrefix = []byte("height.")
 	topHeightKey = []byte("top-height")
 )
@@ -57,7 +59,7 @@ func (dao *blockDAO) Start() error {
 func (dao *blockDAO) getBlockHash(height uint64) (common.Hash32B, error) {
 	key := append(heightPrefix, utils.Uint64ToBytes(height)...)
 	value, err := dao.kvstore.Get(blockHashHeightMappingNS, key)
-	var hash common.Hash32B
+	hash := common.ZeroHash32B
 	if err != nil {
 		return hash, errors.Wrap(err, "failed to get block hash")
 	}
@@ -82,16 +84,30 @@ func (dao *blockDAO) getBlockHeight(hash common.Hash32B) (uint64, error) {
 func (dao *blockDAO) getBlock(hash common.Hash32B) (*Block, error) {
 	value, err := dao.kvstore.Get(blockNS, hash[:])
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get block")
+		return nil, errors.Wrapf(err, "failed to get block %x", hash)
 	}
 	if len(value) == 0 {
-		return nil, nil
+		return nil, errors.Wrapf(db.ErrNotExist, "block %x missing", hash)
 	}
 	blk := Block{}
 	if err = blk.Deserialize(value); err != nil {
 		return nil, errors.Wrap(err, "failed to deserialize block")
 	}
 	return &blk, nil
+}
+
+func (dao *blockDAO) getBlockHashByTxHash(hash common.Hash32B) (common.Hash32B, error) {
+	blkHash := common.ZeroHash32B
+	key := append(txPrefix, hash[:]...)
+	value, err := dao.kvstore.Get(blockTxBlockMappingNS, key)
+	if err != nil {
+		return blkHash, errors.Wrapf(err, "failed to get tx %x", hash)
+	}
+	if len(value) == 0 {
+		return blkHash, errors.Wrapf(db.ErrNotExist, "tx %x missing", hash)
+	}
+	copy(blkHash[:], value)
+	return blkHash, nil
 }
 
 // getBlockchainHeight returns the blockchain height
@@ -126,11 +142,21 @@ func (dao *blockDAO) putBlock(blk *Block) error {
 		return errors.Wrap(err, "failed to put height -> hash mapping")
 	}
 	value, err := dao.kvstore.Get(blockNS, topHeightKey)
+	if err != nil {
+		return errors.Wrap(err, "failed to get top height")
+	}
 	topHeight := common.MachineEndian.Uint64(value)
 	if blk.Height() > topHeight {
-		dao.kvstore.Put(blockNS, topHeightKey, height)
-		if err != nil {
-			return errors.Wrap(err, "failed to get top height")
+		if err = dao.kvstore.Put(blockNS, topHeightKey, height); err != nil {
+			return errors.Wrap(err, "failed to put top height")
+		}
+	}
+	// map Tx hash to block hash
+	for _, tx := range blk.Tranxs {
+		txHash := tx.Hash()
+		hashKey := append(txPrefix, txHash[:]...)
+		if err = dao.kvstore.Put(blockTxBlockMappingNS, hashKey, hash[:]); err != nil {
+			return errors.Wrapf(err, "failed to put tx hash %x", txHash)
 		}
 	}
 	return nil

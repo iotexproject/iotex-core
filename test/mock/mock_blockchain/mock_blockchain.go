@@ -125,6 +125,32 @@ func (mr *MockBlockchainMockRecorder) GetBlockByHash(hash interface{}) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockByHash", reflect.TypeOf((*MockBlockchain)(nil).GetBlockByHash), hash)
 }
 
+// GetTransactionByTxHash mocks base method
+func (m *MockBlockchain) GetTransactionByTxHash(hash common.Hash32B) (*trx.Tx, error) {
+	ret := m.ctrl.Call(m, "GetTransactionByTxHash", hash)
+	ret0, _ := ret[0].(*trx.Tx)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetTransactionByTxHash indicates an expected call of GetTransactionByTxHash
+func (mr *MockBlockchainMockRecorder) GetTransactionByTxHash(hash interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTransactionByTxHash", reflect.TypeOf((*MockBlockchain)(nil).GetTransactionByTxHash), hash)
+}
+
+// GetBlockHashByTxHash mocks base method
+func (m *MockBlockchain) GetBlockHashByTxHash(hash common.Hash32B) (common.Hash32B, error) {
+	ret := m.ctrl.Call(m, "GetBlockHashByTxHash", hash)
+	ret0, _ := ret[0].(common.Hash32B)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetBlockHashByTxHash indicates an expected call of GetBlockHashByTxHash
+func (mr *MockBlockchainMockRecorder) GetBlockHashByTxHash(hash interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockHashByTxHash", reflect.TypeOf((*MockBlockchain)(nil).GetBlockHashByTxHash), hash)
+}
+
 // TipHash mocks base method
 func (m *MockBlockchain) TipHash() (common.Hash32B, error) {
 	ret := m.ctrl.Call(m, "TipHash")
