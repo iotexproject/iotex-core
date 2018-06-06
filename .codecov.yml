@@ -1,0 +1,11 @@
+coverage:
+  range: 50...90
+  status:
+    project:
+      default:
+        enabled: yes
+        target: 60%
+    patch:
+      default:
+        enabled: yes
+        target: 60%
