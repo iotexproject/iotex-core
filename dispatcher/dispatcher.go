@@ -229,6 +229,16 @@ func (d *dispatcher) handleActionMsg(m *actionMsg) {
 		if err := d.ap.AddTx(tsf); err != nil {
 			logger.Error().Err(err)
 		}
+		// TODO: defer m.done and return error to caller
+		return
+	}
+	if pbVote := m.action.GetVote(); pbVote != nil {
+		vote := &action.Vote{}
+		vote.ConvertFromVotePb(pbVote)
+		if err := d.ap.AddVote(vote); err != nil {
+			logger.Error().Err(err)
+		}
+		// TODO: defer m.done and return error to caller
 		return
 	}
 	// signal to let caller know we are done

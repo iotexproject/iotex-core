@@ -46,6 +46,8 @@ type ActPool interface {
 	PickTxs() (map[string][]*action.Transfer, error)
 	// AddTx adds a transaction into the pool after validation
 	AddTx(tx *action.Transfer) error
+	// AddVote adds a vote into pool after validation
+	AddVote(vote *action.Vote) error
 }
 
 // actPool implements ActPool interface
@@ -217,6 +219,12 @@ func (ap *actPool) AddTx(tx *action.Transfer) error {
 	if tx.Nonce == nonce {
 		queue.UpdateNonce(tx.Nonce)
 	}
+	return nil
+}
+
+// AddVote inserts a new vote if it passes validation
+func (ap *actPool) AddVote(tx *action.Vote) error {
+	// TODO: Implement AddVote
 	return nil
 }
 
