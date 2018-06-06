@@ -61,4 +61,4 @@ run:
 
 .PHONY: docker
 docker:
-	$(DOCKERCMD) build -t iotex-go:1.0 --build-arg SKIP_GLIDE=$(SKIP_GLIDE) .
+	$(DOCKERCMD) build -t $(USER)/iotex-go:latest --build-arg SKIP_GLIDE=$(SKIP_GLIDE) .
