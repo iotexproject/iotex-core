@@ -8,7 +8,6 @@ package statefactory
 
 import (
 	"encoding/hex"
-	"fmt"
 	"math/big"
 	"strconv"
 	"testing"
@@ -125,7 +124,7 @@ func voteForm(cs []*Candidate) []string {
 	return r
 }
 
-func TestDelegates(t *testing.T) {
+func TestCandidatePool(t *testing.T) {
 	c1 := &Candidate{Address: "a1", Votes: big.NewInt(1), PubKey: []byte("p1")}
 	c2 := &Candidate{Address: "a2", Votes: big.NewInt(2), PubKey: []byte("p2")}
 	c3 := &Candidate{Address: "a3", Votes: big.NewInt(3), PubKey: []byte("p3")}
@@ -140,112 +139,91 @@ func TestDelegates(t *testing.T) {
 	c12 := &Candidate{Address: "a12", Votes: big.NewInt(12), PubKey: []byte("p12")}
 	tr, _ := trie.NewTrie("trie.test", false)
 	sf := &stateFactory{
-		trie:             tr,
-		delegateHeap:     CandidateMinPQ{delegateSize, make([]*Candidate, 0)},
-		candidateMinHeap: CandidateMinPQ{candidateSize, make([]*Candidate, 0)},
-		candidateMaxHeap: CandidateMaxPQ{candidateSize, make([]*Candidate, 0)},
-		minBuffer:        CandidateMinPQ{bufferSize, make([]*Candidate, 0)},
-		maxBuffer:        CandidateMaxPQ{bufferSize, make([]*Candidate, 0)}}
+		trie:                   tr,
+		candidateHeap:          CandidateMinPQ{candidateSize, make([]*Candidate, 0)},
+		candidateBufferMinHeap: CandidateMinPQ{candidateBufferSize, make([]*Candidate, 0)},
+		candidateBufferMaxHeap: CandidateMaxPQ{candidateBufferSize, make([]*Candidate, 0)},
+	}
 
 	sf.updateVotes(c1, big.NewInt(1))
-	assert.True(t, compareStrings(voteForm(sf.Delegates()), []string{"a1:1"}))
-	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{}))
-	assert.True(t, compareStrings(voteForm(sf.Buffer()), []string{}))
+	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a1:1"}))
+	assert.True(t, compareStrings(voteForm(sf.CandidatesBuffer()), []string{}))
 
 	sf.updateVotes(c1, big.NewInt(2))
-	assert.True(t, compareStrings(voteForm(sf.Delegates()), []string{"a1:2"}))
-	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{}))
-	assert.True(t, compareStrings(voteForm(sf.Buffer()), []string{}))
+	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a1:2"}))
+	assert.True(t, compareStrings(voteForm(sf.CandidatesBuffer()), []string{}))
 
 	sf.updateVotes(c2, big.NewInt(2))
-	assert.True(t, compareStrings(voteForm(sf.Delegates()), []string{"a1:2", "a2:2"}))
-	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{}))
-	assert.True(t, compareStrings(voteForm(sf.Buffer()), []string{}))
+	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a1:2", "a2:2"}))
+	assert.True(t, compareStrings(voteForm(sf.CandidatesBuffer()), []string{}))
 
 	sf.updateVotes(c3, big.NewInt(3))
-	assert.True(t, compareStrings(voteForm(sf.Delegates()), []string{"a2:2", "a3:3"}))
-	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a1:2"}))
-	assert.True(t, compareStrings(voteForm(sf.Buffer()), []string{}))
+	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a2:2", "a3:3"}))
+	assert.True(t, compareStrings(voteForm(sf.CandidatesBuffer()), []string{"a1:2"}))
 
 	sf.updateVotes(c4, big.NewInt(4))
-	assert.True(t, compareStrings(voteForm(sf.Delegates()), []string{"a3:3", "a4:4"}))
-	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a1:2", "a2:2"}))
-	assert.True(t, compareStrings(voteForm(sf.Buffer()), []string{}))
+	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a3:3", "a4:4"}))
+	assert.True(t, compareStrings(voteForm(sf.CandidatesBuffer()), []string{"a1:2", "a2:2"}))
 
 	sf.updateVotes(c2, big.NewInt(1))
-	assert.True(t, compareStrings(voteForm(sf.Delegates()), []string{"a3:3", "a4:4"}))
-	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a1:2", "a2:1"}))
-	assert.True(t, compareStrings(voteForm(sf.Buffer()), []string{}))
+	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a3:3", "a4:4"}))
+	assert.True(t, compareStrings(voteForm(sf.CandidatesBuffer()), []string{"a1:2", "a2:1"}))
 
 	sf.updateVotes(c5, big.NewInt(5))
-	assert.True(t, compareStrings(voteForm(sf.Delegates()), []string{"a4:4", "a5:5"}))
-	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a1:2", "a2:1", "a3:3"}))
-	assert.True(t, compareStrings(voteForm(sf.Buffer()), []string{}))
+	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a4:4", "a5:5"}))
+	assert.True(t, compareStrings(voteForm(sf.CandidatesBuffer()), []string{"a1:2", "a2:1", "a3:3"}))
 
 	sf.updateVotes(c2, big.NewInt(9))
-	assert.True(t, compareStrings(voteForm(sf.Delegates()), []string{"a2:9", "a5:5"}))
-	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a1:2", "a3:3", "a4:4"}))
-	assert.True(t, compareStrings(voteForm(sf.Buffer()), []string{}))
+	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a2:9", "a5:5"}))
+	assert.True(t, compareStrings(voteForm(sf.CandidatesBuffer()), []string{"a1:2", "a3:3", "a4:4"}))
 
 	sf.updateVotes(c6, big.NewInt(6))
-	assert.True(t, compareStrings(voteForm(sf.Delegates()), []string{"a2:9", "a6:6"}))
-	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a3:3", "a4:4", "a5:5"}))
-	assert.True(t, compareStrings(voteForm(sf.Buffer()), []string{"a1:2"}))
+	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a2:9", "a6:6"}))
+	assert.True(t, compareStrings(voteForm(sf.CandidatesBuffer()), []string{"a3:3", "a4:4", "a5:5"}))
 
 	sf.updateVotes(c1, big.NewInt(10))
-	assert.True(t, compareStrings(voteForm(sf.Delegates()), []string{"a1:10", "a2:9"}))
-	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a4:4", "a5:5", "a6:6"}))
-	assert.True(t, compareStrings(voteForm(sf.Buffer()), []string{"a3:3"}))
+	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a1:10", "a2:9"}))
+	assert.True(t, compareStrings(voteForm(sf.CandidatesBuffer()), []string{"a4:4", "a5:5", "a6:6"}))
 
 	sf.updateVotes(c7, big.NewInt(7))
-	assert.True(t, compareStrings(voteForm(sf.Delegates()), []string{"a1:10", "a2:9"}))
-	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a5:5", "a6:6", "a7:7"}))
-	assert.True(t, compareStrings(voteForm(sf.Buffer()), []string{"a3:3", "a4:4"}))
+	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a1:10", "a2:9"}))
+	assert.True(t, compareStrings(voteForm(sf.CandidatesBuffer()), []string{"a5:5", "a6:6", "a7:7"}))
 
 	sf.updateVotes(c3, big.NewInt(8))
-	assert.True(t, compareStrings(voteForm(sf.Delegates()), []string{"a1:10", "a2:9"}))
-	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a3:8", "a6:6", "a7:7"}))
-	assert.True(t, compareStrings(voteForm(sf.Buffer()), []string{"a4:4", "a5:5"}))
+	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a1:10", "a2:9"}))
+	assert.True(t, compareStrings(voteForm(sf.CandidatesBuffer()), []string{"a3:8", "a6:6", "a7:7"}))
 
 	sf.updateVotes(c8, big.NewInt(12))
-	assert.True(t, compareStrings(voteForm(sf.Delegates()), []string{"a1:10", "a8:12"}))
-	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a2:9", "a3:8", "a7:7"}))
-	assert.True(t, compareStrings(voteForm(sf.Buffer()), []string{"a4:4", "a5:5", "a6:6"}))
+	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a1:10", "a8:12"}))
+	assert.True(t, compareStrings(voteForm(sf.CandidatesBuffer()), []string{"a2:9", "a3:8", "a7:7"}))
 
 	sf.updateVotes(c4, big.NewInt(8))
-	assert.True(t, compareStrings(voteForm(sf.Delegates()), []string{"a1:10", "a8:12"}))
-	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a2:9", "a3:8", "a4:8"}))
-	assert.True(t, compareStrings(voteForm(sf.Buffer()), []string{"a5:5", "a6:6", "a7:7"}))
+	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a1:10", "a8:12"}))
+	assert.True(t, compareStrings(voteForm(sf.CandidatesBuffer()), []string{"a2:9", "a3:8", "a4:8"}))
 
 	sf.updateVotes(c6, big.NewInt(7))
-	assert.True(t, compareStrings(voteForm(sf.Delegates()), []string{"a1:10", "a8:12"}))
-	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a2:9", "a3:8", "a4:8"}))
-	assert.True(t, compareStrings(voteForm(sf.Buffer()), []string{"a5:5", "a6:7", "a7:7"}))
+	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a1:10", "a8:12"}))
+	assert.True(t, compareStrings(voteForm(sf.CandidatesBuffer()), []string{"a2:9", "a3:8", "a4:8"}))
 
 	sf.updateVotes(c1, big.NewInt(1))
-	assert.True(t, compareStrings(voteForm(sf.Delegates()), []string{"a2:9", "a8:12"}))
-	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a3:8", "a4:8", "a7:7"}))
-	assert.True(t, compareStrings(voteForm(sf.Buffer()), []string{"a1:1", "a5:5", "a6:7"}))
+	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a2:9", "a8:12"}))
+	assert.True(t, compareStrings(voteForm(sf.CandidatesBuffer()), []string{"a3:8", "a4:8", "a1:1"}))
 
 	sf.updateVotes(c9, big.NewInt(2))
-	assert.True(t, compareStrings(voteForm(sf.Delegates()), []string{"a2:9", "a8:12"}))
-	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a3:8", "a4:8", "a7:7"}))
-	assert.True(t, compareStrings(voteForm(sf.Buffer()), []string{"a1:1", "a5:5", "a6:7", "a9:2"}))
+	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a2:9", "a8:12"}))
+	assert.True(t, compareStrings(voteForm(sf.CandidatesBuffer()), []string{"a3:8", "a4:8", "a9:2"}))
 
 	sf.updateVotes(c10, big.NewInt(8))
-	assert.True(t, compareStrings(voteForm(sf.Delegates()), []string{"a2:9", "a8:12"}))
-	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a10:8", "a3:8", "a4:8"}))
-	assert.True(t, compareStrings(voteForm(sf.Buffer()), []string{"a5:5", "a6:7", "a7:7", "a9:2"}))
+	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a2:9", "a8:12"}))
+	assert.True(t, compareStrings(voteForm(sf.CandidatesBuffer()), []string{"a10:8", "a3:8", "a4:8"}))
 
 	sf.updateVotes(c11, big.NewInt(3))
-	assert.True(t, compareStrings(voteForm(sf.Delegates()), []string{"a2:9", "a8:12"}))
-	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a10:8", "a3:8", "a4:8"}))
-	assert.True(t, compareStrings(voteForm(sf.Buffer()), []string{"a11:3", "a5:5", "a6:7", "a7:7"}))
+	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a2:9", "a8:12"}))
+	assert.True(t, compareStrings(voteForm(sf.CandidatesBuffer()), []string{"a10:8", "a3:8", "a4:8"}))
 
 	sf.updateVotes(c12, big.NewInt(1))
-	assert.True(t, compareStrings(voteForm(sf.Delegates()), []string{"a2:9", "a8:12"}))
-	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a10:8", "a3:8", "a4:8"}))
-	assert.True(t, compareStrings(voteForm(sf.Buffer()), []string{"a11:3", "a5:5", "a6:7", "a7:7"}))
+	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a2:9", "a8:12"}))
+	assert.True(t, compareStrings(voteForm(sf.CandidatesBuffer()), []string{"a10:8", "a3:8", "a4:8"}))
 }
 
 func decodeHash(in string) []byte {
@@ -254,102 +232,88 @@ func decodeHash(in string) []byte {
 }
 
 func TestCandidate(t *testing.T) {
-	fmt.Println("star point")
 	// Create three dummy iotex addresses
 	a, _ := iotxaddress.NewAddress(isTestnet, chainid)
 	b, _ := iotxaddress.NewAddress(isTestnet, chainid)
 	c, _ := iotxaddress.NewAddress(isTestnet, chainid)
 	util.CleanupPath(t, testTriePath)
 	defer util.CleanupPath(t, testTriePath)
-	trie, _ := trie.NewTrie(testTriePath, false)
+	tr, _ := trie.NewTrie(testTriePath, false)
 	sf := &stateFactory{
-		trie:             trie,
-		delegateHeap:     CandidateMinPQ{delegateSize, make([]*Candidate, 0)},
-		candidateMinHeap: CandidateMinPQ{candidateSize, make([]*Candidate, 0)},
-		candidateMaxHeap: CandidateMaxPQ{candidateSize, make([]*Candidate, 0)},
-		minBuffer:        CandidateMinPQ{bufferSize, make([]*Candidate, 0)},
-		maxBuffer:        CandidateMaxPQ{bufferSize, make([]*Candidate, 0)},
+		trie:                   tr,
+		candidateHeap:          CandidateMinPQ{candidateSize, make([]*Candidate, 0)},
+		candidateBufferMinHeap: CandidateMinPQ{candidateBufferSize, make([]*Candidate, 0)},
+		candidateBufferMaxHeap: CandidateMaxPQ{candidateBufferSize, make([]*Candidate, 0)},
 	}
 	sf.CreateState(a.RawAddress, uint64(100))
 	sf.CreateState(b.RawAddress, uint64(200))
 	sf.CreateState(c.RawAddress, uint64(300))
 
 	// a:100 b:200 c:300
-	fmt.Println("star point")
-
 	tx1 := action.Transfer{Sender: a.RawAddress, Recipient: b.RawAddress, Nonce: uint64(1), Amount: big.NewInt(10)}
 	tx2 := action.Transfer{Sender: a.RawAddress, Recipient: c.RawAddress, Nonce: uint64(2), Amount: big.NewInt(20)}
 	vote := action.NewVote(0, a.PublicKey, a.PublicKey)
 	err := sf.CommitStateChanges([]*action.Transfer{&tx1, &tx2}, []*action.Vote{vote})
 	assert.Nil(t, err)
-	assert.True(t, compareStrings(voteForm(sf.Delegates()), []string{a.RawAddress + ":70"}))
-	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{}))
-	assert.True(t, compareStrings(voteForm(sf.Buffer()), []string{}))
+	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":70"}))
+	assert.True(t, compareStrings(voteForm(sf.CandidatesBuffer()), []string{}))
 	// a(a):70 b:210 c:320
 
 	tx3 := action.Transfer{Sender: a.RawAddress, Recipient: c.RawAddress, Nonce: uint64(2), Amount: big.NewInt(20)}
 	err = sf.CommitStateChanges([]*action.Transfer{&tx3}, nil)
 	assert.Nil(t, err)
-	assert.True(t, compareStrings(voteForm(sf.Delegates()), []string{a.RawAddress + ":50"}))
-	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{}))
-	assert.True(t, compareStrings(voteForm(sf.Buffer()), []string{}))
+	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":50"}))
+	assert.True(t, compareStrings(voteForm(sf.CandidatesBuffer()), []string{}))
 	// a(a):50 b:210 c:340
 
 	tx4 := action.Transfer{Sender: c.RawAddress, Recipient: a.RawAddress, Nonce: uint64(2), Amount: big.NewInt(100)}
 	err = sf.CommitStateChanges([]*action.Transfer{&tx4}, nil)
 	assert.Nil(t, err)
-	assert.True(t, compareStrings(voteForm(sf.Delegates()), []string{a.RawAddress + ":150"}))
-	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{}))
-	assert.True(t, compareStrings(voteForm(sf.Buffer()), []string{}))
+	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":150"}))
+	assert.True(t, compareStrings(voteForm(sf.CandidatesBuffer()), []string{}))
 	// a(a):150 b:210 c:240
 
 	vote2 := action.NewVote(0, a.PublicKey, c.PublicKey)
 	err = sf.CommitStateChanges(nil, []*action.Vote{vote2})
 	assert.Nil(t, err)
-	assert.True(t, compareStrings(voteForm(sf.Delegates()), []string{a.RawAddress + ":0", c.RawAddress + ":390"}))
-	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{}))
-	assert.True(t, compareStrings(voteForm(sf.Buffer()), []string{}))
+	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":0", c.RawAddress + ":390"}))
+	assert.True(t, compareStrings(voteForm(sf.CandidatesBuffer()), []string{}))
 	// a(c):150(0) b:210 c:240(390)
 
 	vote3 := action.NewVote(0, a.PublicKey, b.PublicKey)
 	err = sf.CommitStateChanges(nil, []*action.Vote{vote3})
 	assert.Nil(t, err)
-	assert.True(t, compareStrings(voteForm(sf.Delegates()), []string{b.RawAddress + ":360", c.RawAddress + ":240"}))
-	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":0"}))
-	assert.True(t, compareStrings(voteForm(sf.Buffer()), []string{}))
+	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{b.RawAddress + ":360", c.RawAddress + ":240"}))
+	assert.True(t, compareStrings(voteForm(sf.CandidatesBuffer()), []string{a.RawAddress + ":0"}))
 	// a(b):150(0) b:210(360) c:240(240)
 
 	vote4 := action.NewVote(0, b.PublicKey, a.PublicKey)
 	err = sf.CommitStateChanges(nil, []*action.Vote{vote4})
 	assert.Nil(t, err)
-	assert.True(t, compareStrings(voteForm(sf.Delegates()), []string{a.RawAddress + ":210", c.RawAddress + ":240"}))
-	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{b.RawAddress + ":150"}))
-	assert.True(t, compareStrings(voteForm(sf.Buffer()), []string{}))
+	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":210", c.RawAddress + ":240"}))
+	assert.True(t, compareStrings(voteForm(sf.CandidatesBuffer()), []string{b.RawAddress + ":150"}))
 	// a(b):150(210) b(a):210(150) c:240(240)
 
 	vote5 := action.NewVote(0, c.PublicKey, b.PublicKey)
 	err = sf.CommitStateChanges(nil, []*action.Vote{vote5})
 	assert.Nil(t, err)
-	assert.True(t, compareStrings(voteForm(sf.Delegates()), []string{a.RawAddress + ":210", b.RawAddress + ":390"}))
-	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{c.RawAddress + ":0"}))
-	assert.True(t, compareStrings(voteForm(sf.Buffer()), []string{}))
+	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":210", b.RawAddress + ":390"}))
+	assert.True(t, compareStrings(voteForm(sf.CandidatesBuffer()), []string{c.RawAddress + ":0"}))
 	// a(b):150(210) b(a):210(390) c(b):240(0)
 
 	vote6 := action.NewVote(0, a.PublicKey, a.PublicKey)
 	err = sf.CommitStateChanges(nil, []*action.Vote{vote6})
 	assert.Nil(t, err)
-	assert.True(t, compareStrings(voteForm(sf.Delegates()), []string{a.RawAddress + ":360", b.RawAddress + ":240"}))
-	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{c.RawAddress + ":0"}))
-	assert.True(t, compareStrings(voteForm(sf.Buffer()), []string{}))
+	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":360", b.RawAddress + ":240"}))
+	assert.True(t, compareStrings(voteForm(sf.CandidatesBuffer()), []string{c.RawAddress + ":0"}))
 	// a():150(360) b(a):210(240) c(b):240(0)
 
 	tx5 := action.Transfer{Sender: b.RawAddress, Recipient: c.RawAddress, Nonce: uint64(2), Amount: big.NewInt(100)}
 	err = sf.CommitStateChanges([]*action.Transfer{&tx5}, []*action.Vote{vote})
 	assert.Nil(t, err)
 	//fmt.Printf("delegate: %v candidate: %v buffer: %v", voteForm(sf.Delegates()), voteForm(sf.Candidates()), voteForm(sf.Buffer()))
-	assert.True(t, compareStrings(voteForm(sf.Delegates()), []string{a.RawAddress + ":260", b.RawAddress + ":340"}))
-	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{c.RawAddress + ":0"}))
-	assert.True(t, compareStrings(voteForm(sf.Buffer()), []string{}))
+	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":260", b.RawAddress + ":340"}))
+	assert.True(t, compareStrings(voteForm(sf.CandidatesBuffer()), []string{c.RawAddress + ":0"}))
 	// a():150(260) b(a):110(340) c(b):340(0)
 }
 
