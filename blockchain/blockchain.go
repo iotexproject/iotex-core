@@ -30,14 +30,18 @@ import (
 // Blockchain represents the blockchain data structure and hosts the APIs to access it
 type Blockchain interface {
 	service.Service
-	// GetHeightByHash returns block's height by hash
+	// GetHeightByHash returns Block's height by hash
 	GetHeightByHash(hash common.Hash32B) (uint64, error)
-	// GetHashByHeight returns block's hash by height
+	// GetHashByHeight returns Block's hash by height
 	GetHashByHeight(height uint64) (common.Hash32B, error)
-	// GetBlockByHeight returns block from the blockchain hash by height
+	// GetBlockByHeight returns Block by height
 	GetBlockByHeight(height uint64) (*Block, error)
-	// GetBlockByHash returns block from the blockchain hash by hash
+	// GetBlockByHash returns Block by hash
 	GetBlockByHash(hash common.Hash32B) (*Block, error)
+	// GetTransactionByTxHash returns transaction by Tx hash
+	GetTransactionByTxHash(hash common.Hash32B) (*trx.Tx, error)
+	// GetBlockHashByTxHash returns Block hash by Tx hash
+	GetBlockHashByTxHash(hash common.Hash32B) (common.Hash32B, error)
 	// TipHash returns tip block's hash
 	TipHash() (common.Hash32B, error)
 	// TipHeight returns tip block's height
@@ -145,27 +149,6 @@ func (bc *blockchain) Start() (err error) {
 	return nil
 }
 
-// commitBlock commits Block to D
-func (bc *blockchain) commitBlock(blk *Block) error {
-	if err := bc.dao.putBlock(blk); err != nil {
-		return err
-	}
-	// update tip hash and height
-	bc.mu.Lock()
-	defer bc.mu.Unlock()
-	bc.tipHeight = blk.Header.height
-	bc.tipHash = blk.HashBlock()
-
-	// update UTXO or state factory
-	bc.utk.UpdateUtxoPool(blk)
-	if bc.sf != nil && blk.Transfers != nil {
-		if err := bc.sf.CommitStateChanges(blk.Transfers, blk.Votes); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // GetHeightByHash returns block's height by hash
 func (bc *blockchain) GetHeightByHash(hash common.Hash32B) (uint64, error) {
 	return bc.dao.getBlockHeight(hash)
@@ -188,6 +171,29 @@ func (bc *blockchain) GetBlockByHeight(height uint64) (*Block, error) {
 // GetBlockByHash returns block from the blockchain hash by hash
 func (bc *blockchain) GetBlockByHash(hash common.Hash32B) (*Block, error) {
 	return bc.dao.getBlock(hash)
+}
+
+// GetTransactionByTxHash returns transaction by Tx hash
+func (bc *blockchain) GetTransactionByTxHash(hash common.Hash32B) (*trx.Tx, error) {
+	blkHash, err := bc.dao.getBlockHashByTxHash(hash)
+	if err != nil {
+		return nil, err
+	}
+	blk, err := bc.dao.getBlock(blkHash)
+	if err != nil {
+		return nil, err
+	}
+	for _, tx := range blk.Tranxs {
+		if tx.Hash() == hash {
+			return tx, nil
+		}
+	}
+	return nil, errors.Errorf("block %x does not have tx %x", blkHash, hash)
+}
+
+// GetBlockHashByTxHash returns Block hash by Tx hash
+func (bc *blockchain) GetBlockHashByTxHash(hash common.Hash32B) (common.Hash32B, error) {
+	return bc.dao.getBlockHashByTxHash(hash)
 }
 
 // TipHash returns tip block's hash
@@ -353,6 +359,28 @@ func (bc *blockchain) CreateTransaction(from *iotxaddress.Address, amount uint64
 // CreateRawTransaction creates a unsigned transaction paying 'amount' from 'from' to 'to'
 func (bc *blockchain) CreateRawTransaction(from *iotxaddress.Address, amount uint64, to []*Payee) *trx.Tx {
 	return bc.createTx(from, amount, to, true)
+}
+
+//======================================
+// private functions
+//=====================================
+// commitBlock commits Block to DB
+func (bc *blockchain) commitBlock(blk *Block) error {
+	if err := bc.dao.putBlock(blk); err != nil {
+		return err
+	}
+	// update tip hash and height
+	bc.mu.Lock()
+	defer bc.mu.Unlock()
+	bc.tipHeight = blk.Header.height
+	bc.tipHash = blk.HashBlock()
+
+	// update UTXO or state factory
+	bc.utk.UpdateUtxoPool(blk)
+	if bc.sf == nil || (blk.Transfers == nil && blk.Votes == nil) {
+		return nil
+	}
+	return bc.sf.CommitStateChanges(blk.Transfers, blk.Votes)
 }
 
 func createAndInitBlockchain(kvstore db.KVStore, sf statefactory.StateFactory, cfg *config.Config, gen *Genesis) Blockchain {

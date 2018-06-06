@@ -271,6 +271,20 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	err = bc.(*blockchain).commitBlock(blk)
 	assert.NotNil(err)
 	fmt.Printf("Cannot add block 3 again: %v\n", err)
+
+	// check all Tx from block 4
+	blk, err = bc.GetBlockByHeight(4)
+	assert.Nil(err)
+	assert.Equal(hash4, blk.HashBlock())
+	for _, tx := range blk.Tranxs {
+		txHash := tx.Hash()
+		hash, err := bc.GetBlockHashByTxHash(txHash)
+		assert.Nil(err)
+		assert.Equal(hash, hash4)
+		tx1, err := bc.GetTransactionByTxHash(txHash)
+		assert.Nil(err)
+		assert.Equal(tx1.Hash(), txHash)
+	}
 }
 
 func TestEmptyBlockOnlyHasCoinbaseTx(t *testing.T) {
