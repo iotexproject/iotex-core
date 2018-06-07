@@ -103,7 +103,7 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 		bc := blockchain.CreateBlockchain(cfg, blockchain.Gen, sf)
 
 		if i >= int(in.NFS+in.NHonest) { // is byzantine node
-			val := bc.GetValidator()
+			val := bc.Validator()
 			byzVal := &byzVal{val: val}
 			bc.SetValidator(byzVal)
 		}
@@ -143,10 +143,6 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 
 	for i := 0; i < int(in.NFS); i++ {
 		s.nodes = append(s.nodes, nil)
-	}
-
-	for i := 0; i < int(in.NBF); i++ {
-
 	}
 
 	fmt.Printf("Simulator initialized with %d players\n", nPlayers)

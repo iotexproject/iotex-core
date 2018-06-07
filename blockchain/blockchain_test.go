@@ -308,3 +308,20 @@ func TestEmptyBlockOnlyHasCoinbaseTx(t *testing.T) {
 	assert.Equal(t, 1, len(blk.Tranxs[0].TxOut))
 	assert.Equal(t, uint64(7777), blk.Tranxs[0].TxOut[0].Value)
 }
+
+func TestBlockchain_Validator(t *testing.T) {
+	config, err := config.LoadConfigWithPathWithoutValidation(testingConfigPath)
+	assert.Nil(t, err)
+	// disable account-based testing
+	config.Chain.TrieDBPath = ""
+	config.Chain.InMemTest = true
+
+	bc := CreateBlockchain(config, Gen, nil)
+	defer bc.Stop()
+	assert.NotNil(t, bc)
+
+	val := bc.Validator()
+	assert.NotNil(t, bc)
+	bc.SetValidator(val)
+	assert.NotNil(t, bc.Validator())
+}
