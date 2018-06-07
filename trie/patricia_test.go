@@ -48,7 +48,7 @@ func TestPatricia(t *testing.T) {
 	assert.Equal(0, bytes.Compare(hash2, b1.Path[11]))
 	assert.Equal(byte(1), b1.Value[0])
 	assert.Equal(byte(6), b1.Value[1])
-	assert.Equal(444, len(stream))
+	assert.Equal(454, len(stream))
 
 	e := leaf{1, nil, make([]byte, common.HashSize)}
 	e.Path = []byte{2, 3, 5, 7}

@@ -194,7 +194,13 @@ func (b *boltDB) Get(namespace string, key []byte) ([]byte, error) {
 
 // Delete deletes a record
 func (b *boltDB) Delete(namespace string, key []byte) error {
-	return nil
+	return b.db.Update(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket([]byte(namespace))
+		if bucket == nil {
+			return errors.Wrapf(bolt.ErrBucketNotFound, "bucket = %s", namespace)
+		}
+		return bucket.Delete(key)
+	})
 }
 
 //======================================

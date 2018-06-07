@@ -40,6 +40,7 @@ type (
 	ptrcKey []byte
 	// branch is the full node having 256 hashes for next level patricia node + hash of leaf node
 	branch struct {
+		Split bool
 		Path  [RADIX]ptrcKey
 		Value []byte
 	}
@@ -65,7 +66,8 @@ func (b *branch) descend(key []byte) ([]byte, int, error) {
 
 // ascend updates the key as a result of child node update
 func (b *branch) ascend(key []byte, index byte) error {
-	if b.Path[index] != nil {
+	if b.Path[index] != nil || b.Split {
+		b.Split = false
 		b.Path[index] = nil
 		b.Path[index] = make([]byte, common.HashSize)
 		copy(b.Path[index], key)
@@ -82,9 +84,7 @@ func (b *branch) insert(k, v []byte, stack *list.List) error {
 	// create a new leaf
 	l := leaf{0, k[1:], v}
 	stack.PushBack(&l)
-	hashl := l.hash()
-	logger.Debug().Hex("leaf", hashl[:8]).Hex("path", k[1:]).Msg("splitB")
-	b.Path[k[0]] = hashl[:]
+	b.Split = true
 	return nil
 }
 
