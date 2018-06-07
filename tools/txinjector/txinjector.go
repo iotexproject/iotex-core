@@ -11,6 +11,7 @@ package main
 
 import (
 	"fmt"
+	"math/big"
 	"math/rand"
 	"time"
 
@@ -45,8 +46,9 @@ func main() {
 	}
 	fmt.Printf("Sending %v coins from 'miner' to 'alfa'", amount)
 
-	r, err := c.CreateRawTx(ctx, &pb.CreateRawTxRequest{
-		From: ta.Addrinfo["miner"].RawAddress, To: ta.Addrinfo["alfa"].RawAddress, Value: amount})
+	a := int64(amount)
+	r, err := c.CreateRawTx(ctx, &pb.CreateRawTransferRequest{
+		Sender: ta.Addrinfo["miner"].RawAddress, Recipient: ta.Addrinfo["alfa"].RawAddress, Amount: big.NewInt(a).Bytes()})
 	if err != nil {
 		panic(err)
 	} else {
@@ -54,7 +56,7 @@ func main() {
 	}
 
 	tx := &pb.TxPb{}
-	if err := proto.Unmarshal(r.SerializedTx, tx); err != nil {
+	if err := proto.Unmarshal(r.SerializedTransfer, tx); err != nil {
 		panic(err)
 	}
 
@@ -71,7 +73,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	_, err = c.SendTx(ctx, &pb.SendTxRequest{SerializedTx: stx})
+	_, err = c.SendTx(ctx, &pb.SendTransferRequest{SerializedTransfer: stx})
 	if err != nil {
 		panic(err)
 	}

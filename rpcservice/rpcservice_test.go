@@ -18,7 +18,7 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
-	trx "github.com/iotexproject/iotex-core/blockchain/trx"
+	"github.com/iotexproject/iotex-core/blockchain/trx"
 	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/config"
 	pb "github.com/iotexproject/iotex-core/proto"
@@ -67,7 +67,7 @@ func testingTx() *trx.Tx {
 	}
 }
 
-func TestCreateRawTx(t *testing.T) {
+func TestCreateRawTransfer(t *testing.T) {
 	cfg := config.Config{
 		RPC: config.RPC{
 			Port: ":42124",
@@ -103,9 +103,9 @@ func TestCreateRawTx(t *testing.T) {
 	mbc.EXPECT().BalanceOf(gomock.Any()).Return(big.NewInt(101)).Times(1)
 	mbc.EXPECT().CreateRawTransaction(gomock.Any(), gomock.Any(), gomock.Any()).Return(testingTx()).Times(1)
 	mdp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any()).Times(0)
-	r, err := c.CreateRawTx(ctx, &pb.CreateRawTxRequest{From: "Alice", To: "Bob", Value: 100})
+	r, err := c.CreateRawTx(ctx, &pb.CreateRawTransferRequest{Sender: "Alice", Recipient: "Bob", Amount: big.NewInt(int64(100)).Bytes()})
 	assert.Nil(t, err)
-	assert.Equal(t, 384, len(r.SerializedTx))
+	assert.Equal(t, 384, len(r.SerializedTransfer))
 	assert.False(t, cbinvoked)
 }
 
@@ -146,7 +146,7 @@ func TestSendTx(t *testing.T) {
 	assert.Nil(t, err)
 
 	mdp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any()).Times(1)
-	_, err = c.SendTx(ctx, &pb.SendTxRequest{SerializedTx: stx})
+	_, err = c.SendTx(ctx, &pb.SendTransferRequest{SerializedTransfer: stx})
 	assert.Nil(t, err)
 	assert.True(t, cbinvoked)
 }
