@@ -16,6 +16,7 @@ import (
 	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/consensus/fsm"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
+	"github.com/iotexproject/iotex-core/test/mock/mock_delegate"
 )
 
 func TestRuleEpochFinishCondition(t *testing.T) {
@@ -42,6 +43,9 @@ func TestRuleEpochFinishCondition(t *testing.T) {
 					common.NewTCPNode("127.0.0.1:10004"),
 				},
 			},
+			rollDPoSCB: rollDPoSCB{
+				epochStartCb: NeverStartNewEpoch,
+			},
 		},
 	}
 
@@ -49,4 +53,20 @@ func TestRuleEpochFinishCondition(t *testing.T) {
 	assert.False(t, h.Condition(&fsm.Event{State: stateEpochStart}))
 	bc.EXPECT().TipHeight().Return(uint64(17), nil).Times(1)
 	assert.True(t, h.Condition(&fsm.Event{State: stateEpochStart}))
+}
+
+func TestStartNextEpochCB(t *testing.T) {
+	t.Parallel()
+
+	ctrl := gomock.NewController(t)
+	pool := mock_delegate.NewMockPool(ctrl)
+	defer ctrl.Finish()
+
+	flag, err := NeverStartNewEpoch(pool)
+	assert.Nil(t, err)
+	assert.False(t, flag)
+
+	flag, err = PseudoStarNewEpoch(pool)
+	assert.Nil(t, err)
+	assert.True(t, flag)
 }

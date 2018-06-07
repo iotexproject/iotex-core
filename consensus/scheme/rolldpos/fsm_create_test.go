@@ -37,7 +37,8 @@ func TestAcceptPrevoteAndProceedToEnd(t *testing.T) {
 		first := mcks.bc.EXPECT().TipHeight().Return(uint64(0), nil).Times(1)
 		mcks.bc.EXPECT().TipHeight().Return(uint64(2), nil).After(first).AnyTimes()
 	}
-	cs := createTestRollDPoS(ctrl, delegates[0], delegates, m, false, FixedProposer, nil)
+	cs := createTestRollDPoS(
+		ctrl, delegates[0], delegates, m, false, FixedProposer, NeverStartNewEpoch, nil)
 	cs.Start()
 	defer cs.Stop()
 
@@ -88,7 +89,7 @@ func TestAcceptPrevoteAndProceedToEnd(t *testing.T) {
 		"roundCtx.prevote set",
 	)
 
-	// Accept VOTE and then commit and then transit to epoch start
+	// Accept VOTE and then commit and then transit to epochStart start
 	event = &fsm.Event{
 		State:      stateAcceptVote,
 		SenderAddr: delegates[1],
@@ -122,7 +123,8 @@ func TestAcceptPrevoteAndTimeoutToEnd(t *testing.T) {
 		first := mcks.bc.EXPECT().TipHeight().Return(uint64(0), nil).Times(1)
 		mcks.bc.EXPECT().TipHeight().Return(uint64(2), nil).After(first).AnyTimes()
 	}
-	cs := createTestRollDPoS(ctrl, delegates[0], delegates, m, false, FixedProposer, nil)
+	cs := createTestRollDPoS(
+		ctrl, delegates[0], delegates, m, false, FixedProposer, NeverStartNewEpoch, nil)
 	cs.Start()
 	defer cs.Stop()
 

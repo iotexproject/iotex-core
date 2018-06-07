@@ -34,6 +34,9 @@ type GetProposerCB func(delegate.Pool, []byte, uint64, uint64) (net.Addr, error)
 // GenerateDKGCB defines the callback to generate DKG bytes
 type GenerateDKGCB func() (common.DKGHash, error)
 
+// StartNextEpochCB defines the callback to check if the next epoch should start
+type StartNextEpochCB func(delegate.Pool) (bool, error)
+
 // Scheme is the interface that consensus schemes should implement
 type Scheme interface {
 	Start() error

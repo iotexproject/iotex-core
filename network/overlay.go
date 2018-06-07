@@ -128,9 +128,6 @@ func (o *Overlay) Tell(node net.Addr, msg proto.Message) error {
 	if peer == nil {
 		return ErrPeerNotFound
 	}
-	logger.Info().
-		Str("addr", peer.Addr).
-		Msg("node")
 
 	msgType, err := iproto.GetTypeFromProtoMsg(msg)
 	if err != nil {
@@ -140,9 +137,6 @@ func (o *Overlay) Tell(node net.Addr, msg proto.Message) error {
 	if err != nil {
 		return err
 	}
-	logger.Info().
-		Str("addr", o.PRC.String()).
-		Msg("request")
 	go peer.Tell(&pb.TellReq{Addr: o.PRC.String(), MsgType: msgType, MsgBody: msgBody})
 	return nil
 }

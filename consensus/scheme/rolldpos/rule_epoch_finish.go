@@ -6,7 +6,10 @@
 
 package rolldpos
 
-import "github.com/iotexproject/iotex-core/consensus/fsm"
+import (
+	"github.com/iotexproject/iotex-core/consensus/fsm"
+	"github.com/iotexproject/iotex-core/delegate"
+)
 
 type ruleEpochFinish struct {
 	*RollDPoS
@@ -21,10 +24,33 @@ func (r ruleEpochFinish) Condition(event *fsm.Event) bool {
 		event.Err = err
 		return false
 	}
-	// if the height of the last committed block is already the last one should be minted from this epoch, go back to
-	// epoch start
+	// if the height of the last committed block is already the last one should be minted from this epochStart, go back to
+	// epochStart start
 	if height >= r.epochCtx.height+uint64(uint(len(r.epochCtx.delegates))*r.epochCtx.numSubEpochs)-1 {
+		if err := startNewEpochIfNecessary(r.RollDPoS); err != nil {
+			event.Err = err
+			return false
+		}
 		return true
 	}
 	return false
 }
+
+func startNewEpochIfNecessary(c *RollDPoS) error {
+	ok, err := c.epochStartCb(c.pool)
+	if err != nil {
+		return err
+	}
+	if ok {
+		c.handleEvent(&fsm.Event{
+			State: stateDKGGenerate,
+		})
+	}
+	return nil
+}
+
+// NeverStartNewEpoch will never allow to start a new epochStart after the first one
+func NeverStartNewEpoch(_ delegate.Pool) (bool, error) { return false, nil }
+
+// PseudoStarNewEpoch will always allow to start a new epochStart after the first one
+func PseudoStarNewEpoch(_ delegate.Pool) (bool, error) { return true, nil }

@@ -33,22 +33,6 @@ type consensus struct {
 	scheme scheme.Scheme
 }
 
-func chooseGetProposerCB(prCbName string) (prCb scheme.GetProposerCB) {
-	switch prCbName {
-	case "":
-		fallthrough
-	case "FixedProposer":
-		prCb = rolldpos.FixedProposer
-	case "PseudoRotatedProposer":
-		prCb = rolldpos.PseudoRotatedProposer
-	default:
-		logger.Panic().
-			Str("func name", prCbName).
-			Msg("invalid GetProposerCB implementation")
-	}
-	return
-}
-
 // NewConsensus creates a consensus struct.
 func NewConsensus(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxPool, bs blocksync.BlockSync, dlg delegate.Pool) Consensus {
 	if bc == nil || bs == nil {
@@ -95,6 +79,7 @@ func NewConsensus(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxPool
 			commitBlockCB,
 			broadcastBlockCB,
 			chooseGetProposerCB(cfg.Consensus.RollDPoS.ProposerCB),
+			chooseStartNextEpochCB(cfg.Consensus.RollDPoS.EpochCB),
 			rolldpos.GeneratePseudoDKG,
 			bc,
 			bs.P2P().Self(),
@@ -139,4 +124,32 @@ func (c *consensus) HandleViewChange(m proto.Message, done chan bool) error {
 // HandleBlockPropose handles a proposed block
 func (c *consensus) HandleBlockPropose(m proto.Message, done chan bool) error {
 	return common.ErrNotImplemented
+}
+
+func chooseGetProposerCB(prCbName string) (prCb scheme.GetProposerCB) {
+	switch prCbName {
+	case "", "FixedProposer":
+		prCb = rolldpos.FixedProposer
+	case "PseudoRotatedProposer":
+		prCb = rolldpos.PseudoRotatedProposer
+	default:
+		logger.Panic().
+			Str("func name", prCbName).
+			Msg("invalid GetProposerCB implementation")
+	}
+	return
+}
+
+func chooseStartNextEpochCB(epochCbName string) (epochCb scheme.StartNextEpochCB) {
+	switch epochCbName {
+	case "", "NeverStartNewEpoch":
+		epochCb = rolldpos.NeverStartNewEpoch
+	case "PseudoStarNewEpoch":
+		epochCb = rolldpos.PseudoStarNewEpoch
+	default:
+		logger.Panic().
+			Str("func name", epochCbName).
+			Msg("invalid StartNextEpochCB implementation")
+	}
+	return
 }

@@ -15,7 +15,7 @@ import (
 	"github.com/iotexproject/iotex-core/logger"
 )
 
-// epochStart is the initial and idle state of a round of epoch. It initiates the epoch context.
+// epochStart is the initial and idle state of a round of epochStart. It initiates the epochStart context.
 type epochStart struct {
 	fsm.NilTimeout
 	*RollDPoS
@@ -37,12 +37,12 @@ func (h *epochStart) Handle(event *fsm.Event) {
 	if h.cfg.NumSubEpochs > 0 {
 		numSubEpochs = h.cfg.NumSubEpochs
 	}
-	// The epoch start height is going to be the next block to generate
+	// The epochStart start height is going to be the next block to generate
 	h.epochCtx = &epochCtx{height: height + 1, delegates: delegates, numSubEpochs: numSubEpochs}
 	logger.Info().
 		Str("name", h.self.String()).
 		Uint64("height", h.epochCtx.height).
-		Msg("epoch start")
+		Msg("enter an epoch")
 
 }
 
