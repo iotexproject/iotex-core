@@ -19,8 +19,9 @@ import consensus_client
 import consensus_failurestop
 
 class CTypes:
-    Honest = 0
-    FailureStop = 1
+    Honest         = 0
+    FailureStop    = 1
+    ByzantineFault = 2
     
 class Player:
     id = 0 # player id
@@ -44,7 +45,7 @@ class Player:
         self.outbound     = []    # outbound messages to other players in the network at heartbeat r
         self.seenMessages = set() # set of seen messages
 
-        if consensusType == CTypes.Honest:
+        if consensusType == CTypes.Honest or consensusType == CTypes.ByzantineFault:
             self.consensus = consensus_client.Consensus()
         elif consensusType == CTypes.FailureStop:
             self.consensus = consensus_failurestop.ConsensusFS()
@@ -100,7 +101,11 @@ class Player:
                     print("committed %s to blockchain" % Player.msgMap[v])
                 else: # newly proposed block
                     self.outbound.append([v, timestamp])
-                    Player.correctHashes.append(blockHash)
+                    print("PROPOSED %s BLOCK"%("HONEST" if self.consensusType == CTypes.Honest else "BYZANTINE"))
+                    if self.consensusType != CTypes.ByzantineFault:
+                        Player.correctHashes.append(blockHash)
+                    else:
+                        Player.correctHashes.append("")
 
             if msg[0] != Player.DUMMY_MSG_TYPE and self.consensusType != CTypes.FailureStop: self.outbound.append([msg, timestamp])
             

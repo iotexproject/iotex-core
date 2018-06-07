@@ -33,8 +33,10 @@ chain:
 consensus:
     scheme: "ROLLDPOS"
     rolldpos:
+        proposercb: "PseudoRotatedProposer"
         proposerrotation:
             enabled: true
+            interval: 1ms
         unmatchedeventttl: 1000s
         acceptpropose:
             ttl: 1000s
@@ -42,6 +44,7 @@ consensus:
             ttl: 1000s
         acceptvote:
             ttl: 1000s
+        numsubepochs: 1000
     blockcreationinterval: 1000s
 
 blocksync:

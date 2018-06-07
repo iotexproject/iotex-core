@@ -27,7 +27,7 @@ def drive(opts):
             "STD_PROP_TIME": 0.001        # standard deviation of the propagation time of messages
            }"""
 
-    ALPHA = 0.5 # scaling constant -- simulation updates 1//(alpha*latency) times per heartbeat
+    ALPHA = 0.8 # scaling constant -- simulation updates 1//(alpha*latency) times per heartbeat
     opts["D_HEARTBEAT"] = opts["MEAN_PROP_TIME"] * ALPHA
     opts["N_ROUNDS"]    = math.ceil(opts["TIME_TO_SIM"] / opts["D_HEARTBEAT"])
     
@@ -80,7 +80,7 @@ def drive(opts):
     for i in blockchains:
         for j in range(len(i)):
             if i[j] == correctHashes[j]: nConsensus[j] += 1
-    fullConsensus = nConsensus.count(len(sol.players))
+    fullConsensus = nConsensus.count(len(blockchains))
 
     print()
     print("==Note: consensus statistics only apply to honest nodes==")
@@ -98,9 +98,10 @@ def drive(opts):
     print("TIME BLOCKS COMMITTED BY ALL HONEST NODES = %s"%(", ".join(list(map(str, timeCreated)))))
     print("TIME TO CREATE BLOCKS = %s"%(", ".join(list(map(str, dts)))))
     if len(dts) != 0:
-        print("AVERAGE TIME TO CREATE BLOCK = %f"%(sum(dts)/len(dts)))
+        avg = sum(dts)/len(dts)
+        print("AVERAGE TIME TO CREATE BLOCK/LATENCY = %f/%f = %f"%(avg, opts["MEAN_PROP_TIME"], avg/opts["MEAN_PROP_TIME"]))
     else:
-        print("AVERAGE TIME TO CREATE BLOCK = 0")
+        print("AVERAGE TIME TO CREATE BLOCK/LATENCY = inf/%f = inf"%opts["MEAN_PROP_TIME"])
     if opts["TIME_TO_SIM"] != 0:
         print("BLOCKS CREATED PER SECOND = %f"%(nRounds/opts["TIME_TO_SIM"]))
     else:

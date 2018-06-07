@@ -69,6 +69,11 @@ type Blockchain interface {
 	ResetUTXO()
 	// UtxoPool returns the UTXO pool of current blockchain
 	UtxoPool() map[common.Hash32B][]*trx.TxOutput
+
+	// GetValidator returns the current validator object
+	GetValidator() Validator
+	// SetValidator sets the current validator object
+	SetValidator(Validator)
 }
 
 // blockchain implements the Blockchain interface
@@ -359,6 +364,14 @@ func (bc *blockchain) CreateTransaction(from *iotxaddress.Address, amount uint64
 // CreateRawTransaction creates a unsigned transaction paying 'amount' from 'from' to 'to'
 func (bc *blockchain) CreateRawTransaction(from *iotxaddress.Address, amount uint64, to []*Payee) *trx.Tx {
 	return bc.createTx(from, amount, to, true)
+}
+
+func (bc *blockchain) SetValidator(val Validator) {
+	bc.validator = val
+}
+
+func (bc *blockchain) GetValidator() Validator {
+	return bc.validator
 }
 
 //======================================
