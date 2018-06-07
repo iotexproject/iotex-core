@@ -11,25 +11,25 @@ package iproto;
 
 // The blockchain service definition
 service ChainService {
-    rpc CreateRawTx (CreateRawTxRequest) returns (CreateRawTxReply) {}
-    rpc SendTx (SendTxRequest) returns (SendTxReply) {}
+    rpc CreateRawTx (CreateRawTransferRequest) returns (CreateRawTransferReply) {}
+    rpc SendTx (SendTransferRequest) returns (SendTransferReply) {}
 }
 
-message CreateRawTxRequest {
-    string from = 1;
-    string to = 2;
-    uint64 fee = 3;
-    uint64 value = 4;
+message CreateRawTransferRequest {
+    string sender = 1;
+    string recipient = 2;
+    bytes amount  = 3;
+    uint64 nonce = 4;
     bytes data = 5;
 }
 
-message CreateRawTxReply {
+message CreateRawTransferReply {
     bytes serialized_tx = 1;
 }
 
-message SendTxRequest {
+message SendTransferRequest {
     bytes serialized_tx = 1;
 }
 
-message SendTxReply {
+message SendTransferReply {
 }

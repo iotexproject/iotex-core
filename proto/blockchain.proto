@@ -58,7 +58,7 @@ message VotePb {
 
 message ActionPb {
     oneof action {
-        TxPb tx = 1;
+        TxPb tx = 1; // To be deprecated
         TransferPb transfer = 2;
         VotePb vote = 3;
     }

@@ -25,10 +25,10 @@ It has these top-level messages:
 	BlockContainer
 	ViewChangeMsg
 	TestPayload
-	CreateRawTxRequest
-	CreateRawTxReply
-	SendTxRequest
-	SendTxReply
+	CreateRawTransferRequest
+	CreateRawTransferReply
+	SendTransferRequest
+	SendTransferReply
 	UtxoPb
 	UtxoEntryPb
 	UtxoMapPb
