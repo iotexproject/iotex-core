@@ -37,7 +37,7 @@ const (
 // TODO: this is only for test config, use 101, 400, 10000 when in production
 const (
 	candidateSize       = 2
-	candidateBufferSize = 3
+	candidateBufferSize = 10
 )
 
 var (
@@ -238,9 +238,12 @@ func (sf *stateFactory) CommitStateChanges(tsf []*action.Transfer, vote []*actio
 		transferV = append(transferV, ss)
 
 		// Perform vote update operation on candidate and delegate pools
+		if !state.IsCandidate {
+			continue
+		}
 		totalWeight := big.NewInt(0)
 		totalWeight.Add(totalWeight, state.VotingWeight)
-		if len(state.Votee) == 0 {
+		if state.Votee == state.Address {
 			totalWeight.Add(totalWeight, state.Balance)
 		}
 		if c, level := sf.inPool(state.Address); level > 0 {
@@ -269,14 +272,13 @@ func (sf *stateFactory) Candidates() []*Candidate {
 	return sf.candidateHeap.CandidateList()
 }
 
-// CandidatesBuffer returns array of candidates in candidate buffer pool
-func (sf *stateFactory) CandidatesBuffer() []*Candidate {
-	return sf.candidateBufferMinHeap.CandidateList()
-}
-
 //======================================
 // private functions
 //=====================================
+func (sf *stateFactory) candidatesBuffer() []*Candidate {
+	return sf.candidateBufferMinHeap.CandidateList()
+}
+
 // getState pulls an existing State
 func (sf *stateFactory) getState(addr string) (*State, error) {
 	pubKeyHash := iotxaddress.GetPubkeyHash(addr)
@@ -420,16 +422,16 @@ func (sf *stateFactory) handleTsf(pending map[common.PKHash]*State, addressToPKM
 		}
 
 		// Update sender and recipient votes
-		if len(sender.Votee) > 0 {
-			// sender already voted
+		if len(sender.Votee) > 0 && sender.Votee != sender.Address {
+			// sender already voted to a different person
 			voteeOfSender, err := sf.upsert(pending, iotxaddress.GetPubkeyHash(sender.Votee))
 			if err != nil {
 				return err
 			}
 			voteeOfSender.VotingWeight.Sub(voteeOfSender.VotingWeight, tx.Amount)
 		}
-		if len(recipient.Votee) > 0 {
-			// recipient already voted
+		if len(recipient.Votee) > 0 && recipient.Votee != recipient.Address {
+			// recipient already voted to a different person
 			voteeOfRecipient, err := sf.upsert(pending, iotxaddress.GetPubkeyHash(recipient.Votee))
 			if err != nil {
 				return err
@@ -454,9 +456,8 @@ func (sf *stateFactory) handleVote(pending map[common.PKHash]*State, addressToPK
 		}
 		addressToPKMap[voteTo.Address] = v.VotePubkey
 
-		// Update old votee's weight regardless of
-		// whom he votes to
-		if len(voteFrom.Votee) > 0 {
+		// Update old votee's weight
+		if len(voteFrom.Votee) > 0 && voteFrom.Votee != voteFrom.Address {
 			// voter already voted
 			oldVotee, err := sf.upsert(pending, iotxaddress.GetPubkeyHash(voteFrom.Votee))
 			if err != nil {
@@ -470,6 +471,9 @@ func (sf *stateFactory) handleVote(pending map[common.PKHash]*State, addressToPK
 			// Voter votes to a different person
 			voteTo.VotingWeight.Add(voteTo.VotingWeight, voteFrom.Balance)
 			voteFrom.Votee = voteTo.Address
+		} else {
+			voteFrom.Votee = voteFrom.Address
+			voteFrom.IsCandidate = true
 		}
 	}
 	return nil
