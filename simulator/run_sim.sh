@@ -8,11 +8,11 @@
 
 # for instructions on how to run this program run `python main.py --help`
 
-PLAYERS="[(9, 0), (1, 1)]"
+PLAYERS="[(2, 0), (0, 1), (6, 2)]"
 N_CONNECTIONS=4
-MEAN_PROP_TIME=0.4
-STD_PROP_TIME=0.1
-SEED=21
+MEAN_PROP_TIME=0.1
+STD_PROP_TIME=0.01
+SEED=20
 TIME_TO_SIM=10
 
 python main.py --players="$PLAYERS" --nconnections=$N_CONNECTIONS --timetosim=$TIME_TO_SIM --meanproptime=$MEAN_PROP_TIME --stdproptime=$STD_PROP_TIME --seed=$SEED

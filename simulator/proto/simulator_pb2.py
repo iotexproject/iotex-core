@@ -19,7 +19,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='simulator.proto',
   package='simulator',
   syntax='proto3',
-  serialized_pb=_b('\n\x0fsimulator.proto\x12\tsimulator\"C\n\x07Request\x12\x10\n\x08playerID\x18\x01 \x01(\x05\x12\x17\n\x0finternalMsgType\x18\x02 \x01(\r\x12\r\n\x05value\x18\x03 \x01(\t\"\x1f\n\x0bInitRequest\x12\x10\n\x08nPlayers\x18\x01 \x01(\x05\"D\n\x05Reply\x12\x13\n\x0bmessageType\x18\x01 \x01(\x05\x12\x17\n\x0finternalMsgType\x18\x02 \x01(\r\x12\r\n\x05value\x18\x03 \x01(\t\"D\n\x08Proposal\x12\x10\n\x08playerID\x18\x01 \x01(\x05\x12\x17\n\x0finternalMsgType\x18\x02 \x01(\r\x12\r\n\x05value\x18\x03 \x01(\t\"\x07\n\x05\x45mpty2\xa4\x01\n\tSimulator\x12\x30\n\x04Ping\x12\x12.simulator.Request\x1a\x10.simulator.Reply\"\x00\x30\x01\x12\x37\n\x04Init\x12\x16.simulator.InitRequest\x1a\x13.simulator.Proposal\"\x00\x30\x01\x12,\n\x04\x45xit\x12\x10.simulator.Empty\x1a\x10.simulator.Empty\"\x00\x62\x06proto3')
+  serialized_pb=_b('\n\x0fsimulator.proto\x12\tsimulator\"C\n\x07Request\x12\x10\n\x08playerID\x18\x01 \x01(\x05\x12\x17\n\x0finternalMsgType\x18\x02 \x01(\r\x12\r\n\x05value\x18\x03 \x01(\t\"8\n\x0bInitRequest\x12\x0f\n\x07nHonest\x18\x01 \x01(\x05\x12\x0b\n\x03nFS\x18\x02 \x01(\x05\x12\x0b\n\x03nBF\x18\x03 \x01(\x05\"D\n\x05Reply\x12\x13\n\x0bmessageType\x18\x01 \x01(\x05\x12\x17\n\x0finternalMsgType\x18\x02 \x01(\r\x12\r\n\x05value\x18\x03 \x01(\t\"D\n\x08Proposal\x12\x10\n\x08playerID\x18\x01 \x01(\x05\x12\x17\n\x0finternalMsgType\x18\x02 \x01(\r\x12\r\n\x05value\x18\x03 \x01(\t\"\x07\n\x05\x45mpty2\xa4\x01\n\tSimulator\x12\x30\n\x04Ping\x12\x12.simulator.Request\x1a\x10.simulator.Reply\"\x00\x30\x01\x12\x37\n\x04Init\x12\x16.simulator.InitRequest\x1a\x13.simulator.Proposal\"\x00\x30\x01\x12,\n\x04\x45xit\x12\x10.simulator.Empty\x1a\x10.simulator.Empty\"\x00\x62\x06proto3')
 )
 
 
@@ -78,8 +78,22 @@ _INITREQUEST = _descriptor.Descriptor(
   containing_type=None,
   fields=[
     _descriptor.FieldDescriptor(
-      name='nPlayers', full_name='simulator.InitRequest.nPlayers', index=0,
+      name='nHonest', full_name='simulator.InitRequest.nHonest', index=0,
       number=1, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='nFS', full_name='simulator.InitRequest.nFS', index=1,
+      number=2, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='nBF', full_name='simulator.InitRequest.nBF', index=2,
+      number=3, type=5, cpp_type=1, label=1,
       has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
@@ -97,7 +111,7 @@ _INITREQUEST = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=99,
-  serialized_end=130,
+  serialized_end=155,
 )
 
 
@@ -141,8 +155,8 @@ _REPLY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=132,
-  serialized_end=200,
+  serialized_start=157,
+  serialized_end=225,
 )
 
 
@@ -186,8 +200,8 @@ _PROPOSAL = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=202,
-  serialized_end=270,
+  serialized_start=227,
+  serialized_end=295,
 )
 
 
@@ -210,8 +224,8 @@ _EMPTY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=272,
-  serialized_end=279,
+  serialized_start=297,
+  serialized_end=304,
 )
 
 DESCRIPTOR.message_types_by_name['Request'] = _REQUEST
@@ -264,8 +278,8 @@ _SIMULATOR = _descriptor.ServiceDescriptor(
   file=DESCRIPTOR,
   index=0,
   options=None,
-  serialized_start=282,
-  serialized_end=446,
+  serialized_start=307,
+  serialized_end=471,
   methods=[
   _descriptor.MethodDescriptor(
     name='Ping',

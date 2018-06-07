@@ -111,18 +111,6 @@ func (mr *MockStateFactoryMockRecorder) RootHash() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RootHash", reflect.TypeOf((*MockStateFactory)(nil).RootHash))
 }
 
-// Delegates mocks base method
-func (m *MockStateFactory) Delegates() []*statefactory.Candidate {
-	ret := m.ctrl.Call(m, "Delegates")
-	ret0, _ := ret[0].([]*statefactory.Candidate)
-	return ret0
-}
-
-// Delegates indicates an expected call of Delegates
-func (mr *MockStateFactoryMockRecorder) Delegates() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delegates", reflect.TypeOf((*MockStateFactory)(nil).Delegates))
-}
-
 // Candidates mocks base method
 func (m *MockStateFactory) Candidates() []*statefactory.Candidate {
 	ret := m.ctrl.Call(m, "Candidates")

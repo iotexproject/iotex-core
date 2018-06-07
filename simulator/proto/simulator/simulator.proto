@@ -17,27 +17,29 @@ service Simulator {
 
 // The request message containing the playerID and the value of the message being fed into the consensus engine
 message Request {
-  int32 playerID = 1;
+  int32 playerID	 = 1;
   uint32 internalMsgType = 2;
-  string value = 3;
+  string value		 = 3;
 }
 
 // The request message telling the server to initialize the necessary parameters
 message InitRequest {
-  int32 nPlayers = 1;
+  int32 nHonest = 1;
+  int32 nFS	= 2;
+  int32 nBF	= 3;
 }
 
 // The response message returning the output of the consensus engine
 message Reply {
-  int32 messageType = 1;
+  int32 messageType	 = 1;
   uint32 internalMsgType = 2;
-  string value = 3;
+  string value		 = 3;
 }
 
 message Proposal {
-  int32 playerID = 1;
+  int32 playerID	 = 1;
   uint32 internalMsgType = 2;
-  string value = 3;
+  string value		 = 3;
 }
 
 // an empty message

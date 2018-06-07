@@ -19,6 +19,20 @@ class Solver:
     def __init__(self, opts):
         """Initiates the solver class with the list of players and number of rounds"""
 
+        # combine opts["PLAYERS"] elements in the case of [(5, 1), ..., (9, 1)]; should be [(14, 1), ...]
+        tmp = {}
+        for nPlayers, ct in opts["PLAYERS"]:
+            if ct in tmp:
+                tmp[ct] += nPlayers
+            else:
+                tmp[ct] = nPlayers
+        opts["PLAYERS"] = [(i[1], i[0]) for i in list(tmp.items())]
+
+        # sort by ct because consensus engine creates consensus objects in order: honest, failure stop, byzantine
+        opts["PLAYERS"].sort(key=lambda x: x[1])
+
+        print(opts["PLAYERS"])
+        
         self.players = [] # the list of nodes in the system
         for nPlayers, ct in opts["PLAYERS"]:
             for i in range(nPlayers):
@@ -44,17 +58,19 @@ class Solver:
             print("%s: %s" % (i, i.connections))
         print()
 
+        nHonest = 0
+        nFS = 0
+        nBF = 0
+        for nPlayers, ct in opts["PLAYERS"]:
+            if ct == player.CTypes.Honest:
+                nHonest = nPlayers
+            elif ct == player.CTypes.FailureStop:
+                nFS = nPlayers
+            elif ct == player.CTypes.ByzantineFault:
+                nBF = nPlayers
+
         # initializes consensus engines and gets the initial block proposals
-        response = consensus_client.Consensus.initConsensus(self.N_PLAYERS)
-        timestamp = 0 # at the start, timestamp is 0
-
-        # adds initial block proposals to players' outbound queue
-        for id, v in response:
-            assert self.players[id].id == id, "player id does not match array position" # make sure player at index id has id id
-
-            self.players[id].outbound.append([v, timestamp])
-
-            print("added %s to player %d" % (v, id))
+        response = consensus_client.Consensus.initConsensus(nHonest, nFS, nBF)
 
     def connectNetwork(self):
         """Form the network of players through random assignment of connections"""

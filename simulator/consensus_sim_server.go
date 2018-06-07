@@ -23,6 +23,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blocksync"
+	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/delegate"
@@ -30,6 +31,7 @@ import (
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network"
 	pb "github.com/iotexproject/iotex-core/simulator/proto/simulator"
+	"github.com/iotexproject/iotex-core/statefactory"
 	"github.com/iotexproject/iotex-core/txpool"
 )
 
@@ -40,8 +42,23 @@ const (
 )
 
 // server is used to implement message.SimulatorServer.
-type server struct {
-	nodes []consensus.Sim // slice of Consensus objects
+type (
+	server struct {
+		nodes []consensus.Sim // slice of Consensus objects
+	}
+	byzVal struct {
+		val blockchain.Validator
+	}
+)
+
+// Validate for the byzantine node uses the actual block validator and returns the opposite
+func (v *byzVal) Validate(blk *blockchain.Block, tipHeight uint64, tipHash common.Hash32B) error {
+	//err := v.val.Validate(blk, tipHeight, tipHash)
+	//if err != nil {
+	//	return nil
+	//}
+	//return errors.New("")
+	return nil
 }
 
 // Ping implements simulator.SimulatorServer
@@ -50,12 +67,14 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 
 	flag.Parse()
 
+	nPlayers := in.NBF + in.NFS + in.NHonest
+
 	var addrs []string // all delegate addresses
-	for i := 0; i < int(in.NPlayers); i++ {
+	for i := 0; i < int(nPlayers); i++ {
 		addrs = append(addrs, "127.0.0.1:32"+strconv.Itoa(i))
 	}
 
-	for i := 0; i < int(in.NPlayers); i++ {
+	for i := 0; i < int(nPlayers); i++ {
 		cfg, err := config.LoadConfigWithPathWithoutValidation(rolldposConfig)
 		if err != nil {
 			logger.Error().Msg("Error loading config file")
@@ -80,7 +99,15 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 		// set chain database path
 		cfg.Chain.ChainDBPath = "./chain" + strconv.Itoa(i) + ".db"
 
-		bc := blockchain.CreateBlockchain(cfg, blockchain.Gen, nil)
+		sf, _ := statefactory.NewStateFactoryTrieDB(cfg.Chain.TrieDBPath)
+		bc := blockchain.CreateBlockchain(cfg, blockchain.Gen, sf)
+
+		if i >= int(in.NFS+in.NHonest) { // is byzantine node
+			val := bc.GetValidator()
+			byzVal := &byzVal{val: val}
+			bc.SetValidator(byzVal)
+		}
+
 		tp := txpool.NewTxPool(bc)
 
 		overlay := network.NewOverlay(&cfg.Network)
@@ -88,7 +115,15 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 		bs := blocksync.NewBlockSyncer(cfg, bc, tp, overlay, dlg)
 		bs.Start()
 
-		node := consensus.NewSim(cfg, bc, tp, bs, dlg)
+		var node consensus.Sim
+		if i < int(in.NHonest) {
+			node = consensus.NewSim(cfg, bc, tp, bs, dlg)
+		} else if i < int(in.NHonest+in.NFS) {
+			s.nodes = append(s.nodes, nil)
+			continue
+		} else {
+			node = consensus.NewSimByzantine(cfg, bc, tp, bs, dlg)
+		}
 
 		s.nodes = append(s.nodes, node)
 
@@ -98,7 +133,7 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 		node.Start()
 
 		fmt.Printf("Node %d initialized and consensus engine started\n", i)
-		time.Sleep(5 * time.Millisecond)
+		time.Sleep(2 * time.Millisecond)
 		<-done
 
 		fmt.Printf("Node %d initialization ended\n", i)
@@ -106,7 +141,15 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 		//s.nodes = append(s.nodes, node)
 	}
 
-	fmt.Printf("Simulator initialized with %d players\n", in.NPlayers)
+	for i := 0; i < int(in.NFS); i++ {
+		s.nodes = append(s.nodes, nil)
+	}
+
+	for i := 0; i < int(in.NBF); i++ {
+
+	}
+
+	fmt.Printf("Simulator initialized with %d players\n", nPlayers)
 
 	return nil
 }

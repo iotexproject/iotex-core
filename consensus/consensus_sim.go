@@ -12,6 +12,7 @@ import (
 	"github.com/golang/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/trx"
 	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
@@ -46,7 +47,6 @@ type sim struct {
 	cfg    *config.Consensus
 	scheme scheme.Scheme
 	stream pbsim.Simulator_PingServer
-	ID     int
 	unsent []*pbsim.Reply
 }
 
@@ -127,7 +127,7 @@ func NewSim(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxPool, bs b
 		tellBlockCB,
 		commitBlockCB,
 		broadcastBlockCB,
-		rolldpos.FixedProposer,
+		chooseGetProposerCB(cfg.Consensus.RollDPoS.ProposerCB),
 		rolldpos.NeverStartNewEpoch,
 		rolldpos.GeneratePseudoDKG,
 		bc,
@@ -138,8 +138,97 @@ func NewSim(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxPool, bs b
 	return cs
 }
 
-func (c *sim) SetID(ID int) {
-	c.ID = ID
+// NewSimByzantine creates a byzantine consensus_sim struct
+func NewSimByzantine(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxPool, bs blocksync.BlockSync, dlg delegate.Pool) Sim {
+	if bc == nil {
+		logger.Error().Msg("Blockchain is nil")
+		return nil
+	}
+
+	if bs == nil {
+		logger.Error().Msg("Blocksync is nil")
+		return nil
+	}
+
+	cs := &sim{cfg: &cfg.Consensus}
+
+	// modify mintBlockCB so that it returns a fraudulent block
+	mintBlockCB := func() (*blockchain.Block, error) {
+		logger.Debug().Msg("mintBlockCB called")
+
+		// create fraudulent transactions
+		txs := []*trx.Tx{trx.NewCoinbaseTx(cfg.Chain.RawMinerAddr.PublicKey, 100, ""),
+			trx.NewCoinbaseTx(cfg.Chain.RawMinerAddr.PublicKey, 200, ""),
+			trx.NewCoinbaseTx(cfg.Chain.RawMinerAddr.PublicKey, 300, "")}
+		blk, err := bc.MintNewBlock(txs, &cfg.Chain.MinerAddr, "")
+		if err != nil {
+			logger.Error().Msg("Failed to mint a block")
+			return nil, err
+		}
+		logger.Info().
+			Uint64("height", blk.Height()).
+			Int("txs", len(blk.Tranxs)).
+			Msg("created a new block")
+
+		return blk, nil
+	}
+
+	// broadcast a message across the P2P network
+	tellBlockCB := func(msg proto.Message) error {
+		logger.Debug().Msg("tellBlockCB called")
+
+		msgType, msgBody := SeparateMsg(msg)
+		msgBodyS := hex.EncodeToString(msgBody)
+
+		// check if message is a newly proposed block
+		vc, ok := (msg).(*iproto.ViewChangeMsg)
+		if ok && vc.Vctype == iproto.ViewChangeMsg_PROPOSE {
+			cs.sendMessage(proposeBlockMsg, msgType, msgBodyS+"|"+hex.EncodeToString(vc.BlockHash)) // send msg + block hash for recording metrics on sim side
+		} else {
+			cs.sendMessage(viewStateChangeMsg, msgType, msgBodyS)
+		}
+
+		return nil
+	}
+
+	// commit a block to the blockchain
+	commitBlockCB := func(blk *blockchain.Block) error {
+		logger.Debug().Msg("commitBlockCB called")
+
+		hash := [32]byte(blk.HashBlock())
+		s := hex.EncodeToString(hash[:])
+		cs.sendMessage(commitBlockMsg, 0, s)
+		return bc.AddBlockCommit(blk)
+	}
+
+	// broadcast a block across the P2P network
+	broadcastBlockCB := func(blk *blockchain.Block) error {
+		logger.Debug().Msg("broadcastBlockCB called")
+
+		if blkPb := blk.ConvertToBlockPb(); blkPb != nil {
+			msgType, msgBody := SeparateMsg(blkPb)
+			msgBodyS := hex.EncodeToString(msgBody)
+
+			cs.sendMessage(viewStateChangeMsg, msgType, msgBodyS)
+		}
+		return nil
+	}
+
+	cs.scheme = rolldpos.NewRollDPoS(
+		cfg.Consensus.RollDPoS,
+		mintBlockCB,
+		tellBlockCB,
+		commitBlockCB,
+		broadcastBlockCB,
+		rolldpos.FixedProposer,
+		rolldpos.NeverStartNewEpoch,
+		rolldpos.GeneratePseudoDKG,
+		bc,
+		bs.P2P().Self(),
+		dlg)
+	cs.unsent = make([]*pbsim.Reply, 0)
+
+	return cs
 }
 
 func (c *sim) sendMessage(messageType int32, internalMsgType uint32, value string) {
