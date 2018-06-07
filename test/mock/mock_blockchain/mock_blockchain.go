@@ -284,16 +284,16 @@ func (mr *MockBlockchainMockRecorder) UtxoPool() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UtxoPool", reflect.TypeOf((*MockBlockchain)(nil).UtxoPool))
 }
 
-// GetValidator mocks base method
-func (m *MockBlockchain) GetValidator() blockchain.Validator {
-	ret := m.ctrl.Call(m, "GetValidator")
+// Validator mocks base method
+func (m *MockBlockchain) Validator() blockchain.Validator {
+	ret := m.ctrl.Call(m, "Validator")
 	ret0, _ := ret[0].(blockchain.Validator)
 	return ret0
 }
 
-// GetValidator indicates an expected call of GetValidator
-func (mr *MockBlockchainMockRecorder) GetValidator() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetValidator", reflect.TypeOf((*MockBlockchain)(nil).GetValidator))
+// Validator indicates an expected call of Validator
+func (mr *MockBlockchainMockRecorder) Validator() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Validator", reflect.TypeOf((*MockBlockchain)(nil).Validator))
 }
 
 // SetValidator mocks base method
