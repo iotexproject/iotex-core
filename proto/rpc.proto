@@ -24,11 +24,11 @@ message CreateRawTransferRequest {
 }
 
 message CreateRawTransferReply {
-    bytes serialized_tx = 1;
+    bytes serialized_transfer = 1;
 }
 
 message SendTransferRequest {
-    bytes serialized_tx = 1;
+    bytes serialized_transfer = 1;
 }
 
 message SendTransferReply {
