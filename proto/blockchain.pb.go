@@ -26,9 +26,9 @@ It has these top-level messages:
 	ViewChangeMsg
 	TestPayload
 	CreateRawTransferRequest
-	CreateRawTransferReply
+	CreateRawTransferResponse
 	SendTransferRequest
-	SendTransferReply
+	SendTransferResponse
 	UtxoPb
 	UtxoEntryPb
 	UtxoMapPb

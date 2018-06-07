@@ -43,34 +43,35 @@ func NewChainServer(c config.RPC, b blockchain.Blockchain, dp cm.Dispatcher, cb 
 }
 
 // CreateRawTx creates a unsigned raw transaction
-func (s *Chainserver) CreateRawTx(ctx context.Context, in *pb.CreateRawTxRequest) (*pb.CreateRawTxReply, error) {
-	if len(in.From) == 0 || len(in.To) == 0 || in.Value == 0 {
+func (s *Chainserver) CreateRawTx(ctx context.Context, in *pb.CreateRawTransferRequest) (*pb.CreateRawTransferResponse, error) {
+	if len(in.Sender) == 0 || len(in.Recipient) == 0 {
 		return nil, errors.New("invalid CreateRawTxRequest")
 	}
 
-	bal := s.blockchain.BalanceOf(in.From)
-	tmp := big.NewInt(0)
-	if bal.Cmp(tmp.SetUint64(in.Value)) == -1 {
-		return nil, errors.New("not enough balance from address: " + in.From)
+	amount := big.NewInt(0)
+	amount.SetBytes(in.Amount)
+	bal := s.blockchain.BalanceOf(in.Sender)
+	if bal.Cmp(amount) == -1 {
+		return nil, errors.New("not enough balance from address: " + in.Sender)
 	}
 
-	p := []*blockchain.Payee{{in.To, in.Value}}
-	tx := s.blockchain.CreateRawTransaction(&iotxaddress.Address{RawAddress: in.From}, in.Value, p)
+	p := []*blockchain.Payee{{in.Recipient, amount.Uint64()}}
+	tx := s.blockchain.CreateRawTransaction(&iotxaddress.Address{RawAddress: in.Sender}, amount.Uint64(), p)
 	stx, err := proto.Marshal(tx.ConvertToTxPb())
 	if err != nil {
 		return nil, err
 	}
-	return &pb.CreateRawTxReply{SerializedTx: stx}, nil
+	return &pb.CreateRawTransferResponse{SerializedTransfer: stx}, nil
 }
 
 // SendTx sends out a signed raw transaction
-func (s *Chainserver) SendTx(ctx context.Context, in *pb.SendTxRequest) (*pb.SendTxReply, error) {
-	if len(in.SerializedTx) == 0 {
+func (s *Chainserver) SendTx(ctx context.Context, in *pb.SendTransferRequest) (*pb.SendTransferResponse, error) {
+	if len(in.SerializedTransfer) == 0 {
 		return nil, errors.New("invalid SendTxRequest")
 	}
 
 	tx := &pb.TxPb{}
-	if err := proto.Unmarshal(in.SerializedTx, tx); err != nil {
+	if err := proto.Unmarshal(in.SerializedTransfer, tx); err != nil {
 		return nil, err
 	}
 	// broadcast to the network
@@ -79,7 +80,7 @@ func (s *Chainserver) SendTx(ctx context.Context, in *pb.SendTxRequest) (*pb.Sen
 	}
 	// send to txpool via dispatcher
 	s.dispatcher.HandleBroadcast(tx, nil)
-	return &pb.SendTxReply{}, nil
+	return &pb.SendTransferResponse{}, nil
 }
 
 // Start starts the chain server
