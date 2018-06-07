@@ -85,6 +85,10 @@ func (pm *PeerManager) AddPeer(addr string) {
 	p := NewTCPPeer(addr)
 	p.Connect(pm.Overlay.Config)
 	pm.Peers.Store(addr, p)
+	logger.Debug().
+		Str("src", pm.Overlay.PRC.String()).
+		Str("dst", addr).
+		Msg("establish an outgoing connection")
 }
 
 // RemovePeer removes an existing peer

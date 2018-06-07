@@ -48,6 +48,7 @@ func createTestRollDPoS(
 	mockFn mockFn,
 	enableProposerRotation bool,
 	prCb scheme.GetProposerCB,
+	epochCb scheme.StartNextEpochCB,
 	bcCnt *int) *RollDPoS {
 	bc := mock_blockchain.NewMockBlockchain(ctrl)
 
@@ -112,6 +113,7 @@ func createTestRollDPoS(
 		commitBlockCB,
 		broadcastBlockCB,
 		prCb,
+		epochCb,
 		generateDKGCB,
 		bc,
 		dNet.Self(),
@@ -199,7 +201,8 @@ func testByzantineFault(t *testing.T, proposerNode int) {
 			})
 			tcs.mocks = mcks
 		}
-		tcs.cs = createTestRollDPoS(ctrl, cur, delegates, m, false, FixedProposer, &bcCnt)
+		tcs.cs = createTestRollDPoS(
+			ctrl, cur, delegates, m, false, FixedProposer, NeverStartNewEpoch, &bcCnt)
 		tcs.cs.Start()
 		defer tcs.cs.Stop()
 		tcss[cur] = tcs
@@ -329,7 +332,8 @@ func TestRollDPoSFourTrustyNodes(t *testing.T) {
 			})
 			tcs.mocks = mcks
 		}
-		tcs.cs = createTestRollDPoS(ctrl, cur, delegates, m, false, FixedProposer, &bcCnt)
+		tcs.cs = createTestRollDPoS(
+			ctrl, cur, delegates, m, false, FixedProposer, NeverStartNewEpoch, &bcCnt)
 		tcs.cs.Start()
 		defer tcs.cs.Stop()
 		tcss[cur] = tcs
@@ -392,7 +396,8 @@ func TestRollDPoSConsumePROPOSE(t *testing.T) {
 		mcks.bc.EXPECT().TipHeight().Return(uint64(0), nil).AnyTimes()
 
 	}
-	cs := createTestRollDPoS(ctrl, delegates[0], delegates, m, false, FixedProposer, nil)
+	cs := createTestRollDPoS(
+		ctrl, delegates[0], delegates, m, false, FixedProposer, NeverStartNewEpoch, nil)
 	cs.Start()
 	defer cs.Stop()
 	cs.fsm.HandleTransition(&fsm.Event{
@@ -436,7 +441,8 @@ func TestRollDPoSConsumeErrorStateHandlerNotMatched(t *testing.T) {
 	m := func(mcks mocks) {
 		mcks.bc.EXPECT().TipHeight().Return(uint64(0), nil).AnyTimes()
 	}
-	cs := createTestRollDPoS(ctrl, delegates[0], delegates, m, false, FixedProposer, nil)
+	cs := createTestRollDPoS(
+		ctrl, delegates[0], delegates, m, false, FixedProposer, NeverStartNewEpoch, nil)
 
 	cs.Start()
 	defer cs.Stop()

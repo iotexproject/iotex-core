@@ -75,7 +75,7 @@ func PseudoRotatedProposer(pool delegate.Pool, _ []byte, _ uint64, height uint64
 
 func getNonEmptyProposerList(pool delegate.Pool) ([]net.Addr, error) {
 	// TODO: Need to check if the node should panic if it's not able to get the delegates
-	// TODO: Get the delegates at the roundStart of an epoch and put it into an epoch context
+	// TODO: Get the delegates at the roundStart of an epochStart and put it into an epochStart context
 	delegates, err := pool.AllDelegates()
 	if err != nil {
 		return nil, err

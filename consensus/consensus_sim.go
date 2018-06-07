@@ -8,6 +8,7 @@ package consensus
 
 import (
 	"encoding/hex"
+
 	"github.com/golang/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/blockchain"
@@ -127,6 +128,7 @@ func NewSim(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxPool, bs b
 		commitBlockCB,
 		broadcastBlockCB,
 		rolldpos.FixedProposer,
+		rolldpos.NeverStartNewEpoch,
 		rolldpos.GeneratePseudoDKG,
 		bc,
 		bs.P2P().Self(),

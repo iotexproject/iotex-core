@@ -39,11 +39,11 @@ type roundCtx struct {
 	isPr      bool
 }
 
-// epochCtx keeps the context data for the current epoch
+// epochCtx keeps the context data for the current epochStart
 type epochCtx struct {
-	// height means offset for current epoch (i.e., the height of the first block generated in this epoch)
+	// height means offset for current epochStart (i.e., the height of the first block generated in this epochStart)
 	height uint64
-	// numSubEpochs defines number of sub-epochs/rotations will happen in an epoch
+	// numSubEpochs defines number of sub-epochs/rotations will happen in an epochStart
 	numSubEpochs uint
 	dkg          common.DKGHash
 	delegates    []net.Addr
@@ -58,31 +58,32 @@ type DNet interface {
 
 // rollDPoSCB contains all the callback functions used in RollDPoS
 type rollDPoSCB struct {
-	propCb scheme.CreateBlockCB
-	voteCb scheme.TellPeerCB
-	consCb scheme.ConsensusDoneCB
-	pubCb  scheme.BroadcastCB
-	prCb   scheme.GetProposerCB
-	dkgCb  scheme.GenerateDKGCB
+	propCb       scheme.CreateBlockCB
+	voteCb       scheme.TellPeerCB
+	consCb       scheme.ConsensusDoneCB
+	pubCb        scheme.BroadcastCB
+	prCb         scheme.GetProposerCB
+	dkgCb        scheme.GenerateDKGCB
+	epochStartCb scheme.StartNextEpochCB
 }
 
 // RollDPoS is the RollDPoS consensus scheme
 type RollDPoS struct {
 	rollDPoSCB
-	bc        blockchain.Blockchain
-	fsm       fsm.Machine
-	epochCtx  *epochCtx
-	roundCtx  *roundCtx
-	self      net.Addr
-	pool      delegate.Pool
-	wg        sync.WaitGroup
-	quit      chan struct{}
-	eventChan chan *fsm.Event
-	cfg       config.RollDPoS
-	pr        *routine.RecurringTask
-	prnd      *proposerRotation
-	epoch     *routine.DelayTask
-	done      chan bool
+	bc             blockchain.Blockchain
+	fsm            fsm.Machine
+	epochCtx       *epochCtx
+	roundCtx       *roundCtx
+	self           net.Addr
+	pool           delegate.Pool
+	wg             sync.WaitGroup
+	quit           chan struct{}
+	eventChan      chan *fsm.Event
+	cfg            config.RollDPoS
+	pr             *routine.RecurringTask
+	prnd           *proposerRotation
+	epochStartTask *routine.DelayTask
+	done           chan bool
 }
 
 // NewRollDPoS creates a RollDPoS struct
@@ -93,17 +94,19 @@ func NewRollDPoS(
 	cons scheme.ConsensusDoneCB,
 	pub scheme.BroadcastCB,
 	pr scheme.GetProposerCB,
+	epochStart scheme.StartNextEpochCB,
 	dkg scheme.GenerateDKGCB,
 	bc blockchain.Blockchain,
 	myaddr net.Addr,
 	dlg delegate.Pool) *RollDPoS {
 	cb := rollDPoSCB{
-		propCb: prop,
-		voteCb: vote,
-		consCb: cons,
-		pubCb:  pub,
-		prCb:   pr,
-		dkgCb:  dkg,
+		propCb:       prop,
+		voteCb:       vote,
+		consCb:       cons,
+		pubCb:        pub,
+		prCb:         pr,
+		dkgCb:        dkg,
+		epochStartCb: epochStart,
 	}
 	sc := &RollDPoS{
 		rollDPoSCB: cb,
@@ -119,7 +122,7 @@ func NewRollDPoS(
 	} else {
 		sc.pr = newProposerRotation(sc)
 	}
-	sc.epoch = routine.NewDelayTask(
+	sc.epochStartTask = routine.NewDelayTask(
 		func() {
 			sc.handleEvent(&fsm.Event{
 				State: stateDKGGenerate,
@@ -143,8 +146,8 @@ func (n *RollDPoS) Start() error {
 		n.pr.Init()
 		n.pr.Start()
 	}
-	n.epoch.Init()
-	n.epoch.Start()
+	n.epochStartTask.Init()
+	n.epochStartTask.Start()
 	return nil
 }
 

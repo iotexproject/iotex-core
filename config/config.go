@@ -106,6 +106,7 @@ type BlockSync struct {
 type RollDPoS struct {
 	ProposerRotation  ProposerRotation
 	ProposerCB        string
+	EpochCB           string
 	UnmatchedEventTTL time.Duration
 	AcceptPropose     AcceptPropose
 	AcceptPrevote     AcceptPrevote
