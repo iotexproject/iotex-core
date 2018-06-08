@@ -40,7 +40,7 @@ func addTestingBlocks(bc Blockchain) error {
 	if tx == nil {
 		return errors.New("empty tx for block 1")
 	}
-	blk, err := bc.MintNewBlock([]*trx.Tx{tx}, ta.Addrinfo["miner"], "")
+	blk, err := bc.MintNewBlock([]*trx.Tx{tx}, nil, nil, ta.Addrinfo["miner"], "")
 	if err != nil {
 		return err
 	}
@@ -58,7 +58,7 @@ func addTestingBlocks(bc Blockchain) error {
 	payee = append(payee, &Payee{ta.Addrinfo["delta"].RawAddress, 1})
 	payee = append(payee, &Payee{ta.Addrinfo["miner"].RawAddress, 1})
 	tx = bc.CreateTransaction(ta.Addrinfo["charlie"], 5, payee)
-	blk, err = bc.MintNewBlock([]*trx.Tx{tx}, ta.Addrinfo["miner"], "")
+	blk, err = bc.MintNewBlock([]*trx.Tx{tx}, nil, nil, ta.Addrinfo["miner"], "")
 	if err != nil {
 		return err
 	}
@@ -73,7 +73,7 @@ func addTestingBlocks(bc Blockchain) error {
 	payee[1] = &Payee{ta.Addrinfo["echo"].RawAddress, 1}
 	payee[2] = &Payee{ta.Addrinfo["foxtrot"].RawAddress, 1}
 	tx = bc.CreateTransaction(ta.Addrinfo["delta"], 4, payee)
-	blk, err = bc.MintNewBlock([]*trx.Tx{tx}, ta.Addrinfo["miner"], "")
+	blk, err = bc.MintNewBlock([]*trx.Tx{tx}, nil, nil, ta.Addrinfo["miner"], "")
 	if err != nil {
 		return err
 	}
@@ -92,7 +92,7 @@ func addTestingBlocks(bc Blockchain) error {
 	payee = append(payee, &Payee{ta.Addrinfo["foxtrot"].RawAddress, 2})
 	payee = append(payee, &Payee{ta.Addrinfo["miner"].RawAddress, 2})
 	tx = bc.CreateTransaction(ta.Addrinfo["echo"], 12, payee)
-	blk, err = bc.MintNewBlock([]*trx.Tx{tx}, ta.Addrinfo["miner"], "")
+	blk, err = bc.MintNewBlock([]*trx.Tx{tx}, nil, nil, ta.Addrinfo["miner"], "")
 	if err != nil {
 		return err
 	}
@@ -299,7 +299,7 @@ func TestEmptyBlockOnlyHasCoinbaseTx(t *testing.T) {
 	defer bc.Stop()
 	assert.NotNil(t, bc)
 
-	blk, err := bc.MintNewBlock([]*trx.Tx{}, ta.Addrinfo["miner"], "")
+	blk, err := bc.MintNewBlock([]*trx.Tx{}, nil, nil, ta.Addrinfo["miner"], "")
 	assert.Nil(t, err)
 	assert.Equal(t, uint64(1), blk.Height())
 	assert.Equal(t, 1, len(blk.Tranxs))

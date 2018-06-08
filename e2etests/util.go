@@ -17,7 +17,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	payee = append(payee, &blockchain.Payee{ta.Addrinfo["echo"].RawAddress, 110})
 	payee = append(payee, &blockchain.Payee{ta.Addrinfo["foxtrot"].RawAddress, 50 << 20})
 	tx := bc.CreateTransaction(ta.Addrinfo["miner"], 280+50<<20, payee)
-	blk, err := bc.MintNewBlock([]*trx.Tx{tx}, ta.Addrinfo["miner"], "")
+	blk, err := bc.MintNewBlock([]*trx.Tx{tx}, nil, nil, ta.Addrinfo["miner"], "")
 	if err != nil {
 		return err
 	}
@@ -35,7 +35,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	payee = append(payee, &blockchain.Payee{ta.Addrinfo["echo"].RawAddress, 1})
 	payee = append(payee, &blockchain.Payee{ta.Addrinfo["miner"].RawAddress, 1})
 	tx = bc.CreateTransaction(ta.Addrinfo["charlie"], 5, payee)
-	blk, err = bc.MintNewBlock([]*trx.Tx{tx}, ta.Addrinfo["miner"], "")
+	blk, err = bc.MintNewBlock([]*trx.Tx{tx}, nil, nil, ta.Addrinfo["miner"], "")
 	if err != nil {
 		return err
 	}
@@ -50,7 +50,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	payee[1] = &blockchain.Payee{ta.Addrinfo["echo"].RawAddress, 1}
 	payee[2] = &blockchain.Payee{ta.Addrinfo["foxtrot"].RawAddress, 1}
 	tx = bc.CreateTransaction(ta.Addrinfo["delta"], 4, payee)
-	blk, err = bc.MintNewBlock([]*trx.Tx{tx}, ta.Addrinfo["miner"], "")
+	blk, err = bc.MintNewBlock([]*trx.Tx{tx}, nil, nil, ta.Addrinfo["miner"], "")
 	if err != nil {
 		return err
 	}
@@ -69,7 +69,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	payee = append(payee, &blockchain.Payee{ta.Addrinfo["foxtrot"].RawAddress, 2})
 	payee = append(payee, &blockchain.Payee{ta.Addrinfo["miner"].RawAddress, 2})
 	tx = bc.CreateTransaction(ta.Addrinfo["echo"], 12, payee)
-	blk, err = bc.MintNewBlock([]*trx.Tx{tx}, ta.Addrinfo["miner"], "")
+	blk, err = bc.MintNewBlock([]*trx.Tx{tx}, nil, nil, ta.Addrinfo["miner"], "")
 	if err != nil {
 		return err
 	}

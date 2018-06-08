@@ -14,6 +14,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-core/blockchain/action"
 	trx "github.com/iotexproject/iotex-core/blockchain/trx"
 	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/common/service"
@@ -49,7 +50,7 @@ type Blockchain interface {
 	// MintNewBlock creates a new block with given transactions
 	// Note: the coinbase transaction will be added to the given transactions
 	// when minting a new block.
-	MintNewBlock([]*trx.Tx, *iotxaddress.Address, string) (*Block, error)
+	MintNewBlock([]*trx.Tx, []*action.Transfer, []*action.Vote, *iotxaddress.Address, string) (*Block, error)
 	// AddBlockCommit adds a new block into blockchain
 	AddBlockCommit(blk *Block) error
 	// AddBlockSync adds a past block into blockchain
@@ -237,7 +238,8 @@ func (bc *blockchain) ValidateBlock(blk *Block) error {
 // MintNewBlock creates a new block with given transactions.
 // Note: the coinbase transaction will be added to the given transactions
 // when minting a new block.
-func (bc *blockchain) MintNewBlock(txs []*trx.Tx, producer *iotxaddress.Address, data string) (*Block, error) {
+func (bc *blockchain) MintNewBlock(txs []*trx.Tx, tsf []*action.Transfer, vote []*action.Vote,
+	producer *iotxaddress.Address, data string) (*Block, error) {
 	cbTx := trx.NewCoinbaseTx(producer.RawAddress, bc.genesis.BlockReward, data)
 	if cbTx == nil {
 		errMsg := "Cannot create coinbase transaction"
@@ -247,7 +249,7 @@ func (bc *blockchain) MintNewBlock(txs []*trx.Tx, producer *iotxaddress.Address,
 
 	txs = append(txs, cbTx)
 	bc.mu.RLock()
-	blk := NewBlock(bc.chainID, bc.tipHeight+1, bc.tipHash, txs, nil, nil)
+	blk := NewBlock(bc.chainID, bc.tipHeight+1, bc.tipHash, txs, tsf, vote)
 	bc.mu.RUnlock()
 	if producer.PrivateKey == nil {
 		logger.Warn().Msg("Unsigned block...")
