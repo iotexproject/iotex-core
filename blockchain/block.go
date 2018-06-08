@@ -56,16 +56,19 @@ type Block struct {
 }
 
 // NewBlock returns a new block
-func NewBlock(chainID uint32, height uint64, prevBlockHash common.Hash32B, transactions []*trx.Tx) *Block {
+func NewBlock(chainID uint32, height uint64, prevBlockHash common.Hash32B,
+	txs []*trx.Tx, tsf []*action.Transfer, vote []*action.Vote) *Block {
 	block := &Block{
 		Header: &BlockHeader{Version, chainID, height, uint64(time.Now().Unix()),
 			prevBlockHash, common.ZeroHash32B, common.ZeroHash32B,
-			uint32(len(transactions)), 0, []byte{}},
-		Tranxs: transactions,
+			uint32(len(txs)), 0, []byte{}},
+		Tranxs:    txs,
+		Transfers: tsf,
+		Votes:     vote,
 	}
 
 	block.Header.txRoot = block.TxRoot()
-	for _, tx := range transactions {
+	for _, tx := range txs {
 		// add up trnx size
 		block.Header.trnxDataSize += tx.TotalSize()
 	}
