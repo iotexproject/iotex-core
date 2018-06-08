@@ -14,7 +14,7 @@ GOCLEAN=$(GOCMD) clean
 GOTEST=$(GOCMD) test
 GOGET=$(GOCMD) get
 BUILD_TARGET_SERVER=server
-BUILD_TARGET_ACTINJ=actInjector
+BUILD_TARGET_ACTINJ=actioninjector
 SKIP_GLIDE=false
 
 # Docker parameters
@@ -24,7 +24,7 @@ all: clean build test
 .PHONY: build
 build:
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
-	$(GOBUILD) -o ./bin/$(BUILD_TARGET_ACTINJ) -v ./tools/actInjector
+	$(GOBUILD) -o ./bin/$(BUILD_TARGET_ACTINJ) -v ./tools/actioninjector
 
 .PHONY: fmt
 fmt:

@@ -26,7 +26,6 @@ import (
 	pb "github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_dispatcher"
-	"github.com/iotexproject/iotex-core/test/mock/mock_statefactory"
 )
 
 func decodeHash(in string) []byte {
@@ -70,7 +69,7 @@ func testingTx() *trx.Tx {
 	}
 }
 
-func testingTsf() *action.Transfer {
+func testingTransfer() *action.Transfer {
 	sender, _ := iotxaddress.NewAddress(true, []byte{0x00, 0x00, 0x00, 0x01})
 	recipient, _ := iotxaddress.NewAddress(true, []byte{0x00, 0x00, 0x00, 0x01})
 	return action.NewTransfer(uint32(0), uint64(1), big.NewInt(100), sender.RawAddress, recipient.RawAddress)
@@ -87,7 +86,6 @@ func TestCreateRawTransfer(t *testing.T) {
 	defer ctrl.Finish()
 	mbc := mock_blockchain.NewMockBlockchain(ctrl)
 	mdp := mock_dispatcher.NewMockDispatcher(ctrl)
-	msf := mock_statefactory.NewMockStateFactory(ctrl)
 
 	cbinvoked := false
 	bcb := func(msg proto.Message) error {
@@ -110,11 +108,8 @@ func TestCreateRawTransfer(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	mbc.EXPECT().BalanceOf(gomock.Any()).Return(big.NewInt(101)).Times(1)
-	mbc.EXPECT().CreateRawTransfer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(testingTsf()).Times(1)
-	mbc.EXPECT().GetSF().Return(msf)
+	mbc.EXPECT().CreateRawTransfer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(testingTransfer()).Times(1)
 	mdp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any()).Times(0)
-	msf.EXPECT().CreateState(gomock.Any(), gomock.Any())
 	r, err := c.CreateRawTx(ctx, &pb.CreateRawTransferRequest{Sender: "Alice", Recipient: "Bob", Amount: big.NewInt(int64(100)).Bytes()})
 	assert.Nil(t, err)
 	assert.Equal(t, 113, len(r.SerializedTransfer))

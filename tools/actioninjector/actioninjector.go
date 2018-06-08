@@ -5,7 +5,7 @@
 // License 2.0 that can be found in the LICENSE file.
 
 // This is a testing tool to inject fake transactions to the blockchain
-// To use, run "make build" and " ./bin/actInjector"
+// To use, run "make build" and " ./bin/actioninjector"
 
 package main
 
@@ -51,9 +51,8 @@ func main() {
 		Sender: ta.Addrinfo["miner"].RawAddress, Recipient: ta.Addrinfo["alfa"].RawAddress, Amount: big.NewInt(a).Bytes(), Nonce: uint64(1), Data: []byte{}})
 	if err != nil {
 		panic(err)
-	} else {
-		fmt.Println("Created raw transfer")
 	}
+	fmt.Println("Created raw transfer")
 
 	tsf := &pb.TransferPb{}
 	if err := proto.Unmarshal(r.SerializedTransfer, tsf); err != nil {

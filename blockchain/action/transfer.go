@@ -170,10 +170,9 @@ func (tsf *Transfer) Hash() common.Hash32B {
 }
 
 // SignTransfer signs the Transfer using sender's private key
-func SignTransfer(raw []byte, sender *iotxaddress.Address) ([]byte, error) {
-	tsf := &Transfer{}
-	if err := tsf.Deserialize(raw); err != nil {
-		return nil, errors.Wrap(err, "failed to unmarshal Transfer")
+func SignTransfer(tsf *Transfer, sender *iotxaddress.Address) (*Transfer, error) {
+	if tsf == nil {
+		return nil, errors.Wrapf(ErrActionError, "transfer should not be nil")
 	}
 	// check the sender is correct
 	if tsf.Sender != sender.RawAddress {
@@ -190,7 +189,7 @@ func SignTransfer(raw []byte, sender *iotxaddress.Address) ([]byte, error) {
 	if err := tsf.sign(sender); err != nil {
 		return nil, err
 	}
-	return tsf.Serialize()
+	return tsf, nil
 }
 
 // Verify verifies the Transfer using sender's public key

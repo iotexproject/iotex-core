@@ -47,15 +47,8 @@ func (s *Chainserver) CreateRawTx(ctx context.Context, in *pb.CreateRawTransferR
 	if len(in.Sender) == 0 || len(in.Recipient) == 0 {
 		return nil, errors.New("invalid CreateRawTxRequest")
 	}
-	// Set up initial balance for sender
-	sf := s.blockchain.GetSF()
-	sf.CreateState(in.Sender, uint64(100))
 	amount := big.NewInt(0)
 	amount.SetBytes(in.Amount)
-	bal := s.blockchain.BalanceOf(in.Sender)
-	if bal.Cmp(amount) == -1 {
-		return nil, errors.New("not enough balance from address: " + in.Sender)
-	}
 
 	tsf := s.blockchain.CreateRawTransfer(uint32(0), in.Nonce, &iotxaddress.Address{RawAddress: in.Sender}, amount, &iotxaddress.Address{RawAddress: in.Recipient})
 	stsf, err := proto.Marshal(tsf.ConvertToTransferPb())
