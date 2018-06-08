@@ -247,7 +247,7 @@ func (bc *blockchain) MintNewBlock(txs []*trx.Tx, producer *iotxaddress.Address,
 
 	txs = append(txs, cbTx)
 	bc.mu.RLock()
-	blk := NewBlock(bc.chainID, bc.tipHeight+1, bc.tipHash, txs)
+	blk := NewBlock(bc.chainID, bc.tipHeight+1, bc.tipHash, txs, nil, nil)
 	bc.mu.RUnlock()
 	if producer.PrivateKey == nil {
 		logger.Warn().Msg("Unsigned block...")

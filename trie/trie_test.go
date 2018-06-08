@@ -336,3 +336,23 @@ func TestPressure(t *testing.T) {
 	// trie should fallback to empty
 	assert.Equal(emptyRoot, tr.RootHash())
 }
+
+func TestDB2(t *testing.T) {
+	assert := assert.New(t)
+	l := logger.Logger().Level(zerolog.DebugLevel)
+	logger.SetLogger(&l)
+
+	util.CleanupPath(t, testTriePath)
+	defer util.CleanupPath(t, testTriePath)
+	tr, err := NewTrie(testTriePath, false)
+	assert.Nil(err)
+
+	err = tr.Upsert([]byte("2df40f36925158e928d5841e953f6324d5ae57553ae8cb1b5cca47fa71d324f9"), []byte("ae248f12ccdc32264fa57a8f41241c00b1ac1f8d05a2c9d4e8cd772ddde350cc"))
+	assert.Nil(err)
+	//err = tr.Upsert([]byte("2df40f36925158e928d5841e953f6324d5ae57553ae8cb1b5cca47fa71d324f9"), []byte("d156b3f6fba922a9a53a018e16912e12d153c87322633ac1675927459c84a5c7"))
+	//assert.Nil(err)
+	err = tr.Upsert([]byte("2df40f36925158e928d5841e953f6324d5ae57553ae8cb1b5cca47fa71d324f9"), []byte("ae248f12ccdc32264fa57a8f41241c00b1ac1f8d05a2c9d4e8cd772ddde350cc"))
+	assert.Nil(err)
+	err = tr.Upsert([]byte("2df40f36925158e928d5841e953f6324d5ae57553ae8cb1b5cca47fa71d324f9"), []byte("ae248f12ccdc32264fa57a8f41241c00b1ac1f8d05a2c9d4e8cd772ddde350cc"))
+	assert.Nil(err)
+}

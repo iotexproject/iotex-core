@@ -33,13 +33,13 @@ func TestBlockDAO(t *testing.T) {
 
 		hash1 := common.Hash32B{}
 		fnv.New32().Sum(hash1[:])
-		blk1 := NewBlock(0, 1, hash1, []*trx.Tx{cbtx1})
+		blk1 := NewBlock(0, 1, hash1, []*trx.Tx{cbtx1}, nil, nil)
 		hash2 := common.Hash32B{}
 		fnv.New32().Sum(hash2[:])
-		blk2 := NewBlock(0, 2, hash2, []*trx.Tx{cbtx2})
+		blk2 := NewBlock(0, 2, hash2, []*trx.Tx{cbtx2}, nil, nil)
 		hash3 := common.Hash32B{}
 		fnv.New32().Sum(hash3[:])
-		blk3 := NewBlock(0, 3, hash3, []*trx.Tx{cbtx3})
+		blk3 := NewBlock(0, 3, hash3, []*trx.Tx{cbtx3}, nil, nil)
 		return []*Block{blk1, blk2, blk3}
 	}
 
