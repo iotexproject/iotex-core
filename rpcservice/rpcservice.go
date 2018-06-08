@@ -42,12 +42,14 @@ func NewChainServer(c config.RPC, b blockchain.Blockchain, dp cm.Dispatcher, cb 
 	return &Chainserver{blockchain: b, config: c, dispatcher: dp, broadcastcb: cb}
 }
 
-// CreateRawTx creates a unsigned raw transaction
+// CreateRawTx creates an unsigned raw transaction
 func (s *Chainserver) CreateRawTx(ctx context.Context, in *pb.CreateRawTransferRequest) (*pb.CreateRawTransferResponse, error) {
 	if len(in.Sender) == 0 || len(in.Recipient) == 0 {
 		return nil, errors.New("invalid CreateRawTxRequest")
 	}
-
+	// Set up initial balance for sender
+	sf := s.blockchain.GetSF()
+	sf.CreateState(in.Sender, uint64(100))
 	amount := big.NewInt(0)
 	amount.SetBytes(in.Amount)
 	bal := s.blockchain.BalanceOf(in.Sender)
@@ -55,13 +57,12 @@ func (s *Chainserver) CreateRawTx(ctx context.Context, in *pb.CreateRawTransferR
 		return nil, errors.New("not enough balance from address: " + in.Sender)
 	}
 
-	p := []*blockchain.Payee{{in.Recipient, amount.Uint64()}}
-	tx := s.blockchain.CreateRawTransaction(&iotxaddress.Address{RawAddress: in.Sender}, amount.Uint64(), p)
-	stx, err := proto.Marshal(tx.ConvertToTxPb())
+	tsf := s.blockchain.CreateRawTransfer(uint32(0), in.Nonce, &iotxaddress.Address{RawAddress: in.Sender}, amount, &iotxaddress.Address{RawAddress: in.Recipient})
+	stsf, err := proto.Marshal(tsf.ConvertToTransferPb())
 	if err != nil {
 		return nil, err
 	}
-	return &pb.CreateRawTransferResponse{SerializedTransfer: stx}, nil
+	return &pb.CreateRawTransferResponse{SerializedTransfer: stsf}, nil
 }
 
 // SendTx sends out a signed raw transaction
@@ -70,16 +71,18 @@ func (s *Chainserver) SendTx(ctx context.Context, in *pb.SendTransferRequest) (*
 		return nil, errors.New("invalid SendTxRequest")
 	}
 
-	tx := &pb.TxPb{}
-	if err := proto.Unmarshal(in.SerializedTransfer, tx); err != nil {
+	tsf := &pb.TransferPb{}
+	if err := proto.Unmarshal(in.SerializedTransfer, tsf); err != nil {
 		return nil, err
 	}
+	// Wrap TransferPb as an ActionPb
+	action := &pb.ActionPb{&pb.ActionPb_Transfer{tsf}}
 	// broadcast to the network
-	if err := s.broadcastcb(tx); err != nil {
+	if err := s.broadcastcb(action); err != nil {
 		return nil, err
 	}
 	// send to txpool via dispatcher
-	s.dispatcher.HandleBroadcast(tx, nil)
+	s.dispatcher.HandleBroadcast(action, nil)
 	return &pb.SendTransferResponse{}, nil
 }
 

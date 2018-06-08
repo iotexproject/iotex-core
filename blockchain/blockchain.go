@@ -60,10 +60,16 @@ type Blockchain interface {
 	BalanceOf(string) *big.Int
 	// CreateTransaction creates a signed transaction paying 'amount' from 'from' to 'to'
 	CreateTransaction(from *iotxaddress.Address, amount uint64, to []*Payee) *trx.Tx
-	// CreateRawTransaction creates a signed transaction paying 'amount' from 'from' to 'to'
+	// CreateRawTransaction creates an unsigned transaction paying 'amount' from 'from' to 'to'
 	CreateRawTransaction(from *iotxaddress.Address, amount uint64, to []*Payee) *trx.Tx
+	// CreateTransfer creates a signed transfer paying 'amount' from 'from' to 'to'
+	CreateTransfer(locktime uint32, nonce uint64, from *iotxaddress.Address, amount *big.Int, to *iotxaddress.Address) (*action.Transfer, error)
+	// CreateRawTransfer creates an unsigned transfer paying 'amount' from 'from' to 'to'
+	CreateRawTransfer(locktime uint32, nonce uint64, from *iotxaddress.Address, amount *big.Int, to *iotxaddress.Address) *action.Transfer
 	// ValidateBlock validates a new block before adding it to the blockchain
 	ValidateBlock(blk *Block) error
+	// GetSF() returns Statefactory
+	GetSF() statefactory.StateFactory
 
 	// The following methods are used only for utxo-based model
 	// Reset resets UTXO
@@ -318,46 +324,6 @@ func (bc *blockchain) UtxoPool() map[common.Hash32B][]*trx.TxOutput {
 	return bc.utk.utxoPool
 }
 
-// createTx creates a transaction paying 'amount' from 'from' to 'to'
-func (bc *blockchain) createTx(from *iotxaddress.Address, amount uint64, to []*Payee, isRaw bool) *trx.Tx {
-	utxo, change := bc.utk.UtxoEntries(from.RawAddress, amount)
-	if utxo == nil {
-		logger.Error().Str("addr", from.RawAddress).Msg("Failed to get UTXO")
-		return nil
-	}
-
-	in := []*trx.TxInput{}
-	for _, out := range utxo {
-		unlock := []byte(out.TxOutputPb.String())
-		if !isRaw {
-			var err error
-			unlock, err = txvm.SignatureScript([]byte(out.TxOutputPb.String()), from.PublicKey, from.PrivateKey)
-			if err != nil {
-				return nil
-			}
-		}
-
-		in = append(in, bc.utk.CreateTxInputUtxo(out.txHash, out.outIndex, unlock))
-	}
-
-	out := []*trx.TxOutput{}
-	for _, payee := range to {
-		out = append(out, bc.utk.CreateTxOutputUtxo(payee.Address, payee.Amount))
-	}
-	if change.Sign() == 1 {
-		out = append(out, bc.utk.CreateTxOutputUtxo(from.RawAddress, change.Uint64()))
-	}
-
-	// Sort TxInput in lexicographical order based on TxHash + OutIndex
-	sort.Sort(trx.TxInSorter(in))
-
-	// Sort TxOutput in lexicographical order based on Value + LockScript and reset OutIndex
-	sort.Sort(trx.TxOutSorter(out))
-	resetOutIndex(out)
-
-	return trx.NewTx(in, out, 0)
-}
-
 // CreateTransaction creates a signed transaction paying 'amount' from 'from' to 'to'
 func (bc *blockchain) CreateTransaction(from *iotxaddress.Address, amount uint64, to []*Payee) *trx.Tx {
 	return bc.createTx(from, amount, to, false)
@@ -376,6 +342,33 @@ func (bc *blockchain) SetValidator(val Validator) {
 // Validator gets the current validator object
 func (bc *blockchain) Validator() Validator {
 	return bc.validator
+}
+
+//  CreateTransfer creates a signed transfer paying 'amount' from 'from' to 'to'
+func (bc *blockchain) CreateTransfer(locktime uint32, nonce uint64, from *iotxaddress.Address, amount *big.Int, to *iotxaddress.Address) (*action.Transfer, error) {
+	tsf := action.NewTransfer(locktime, nonce, amount, from.RawAddress, to.RawAddress)
+	raw, err := tsf.Serialize()
+	if err != nil {
+		logger.Error().Err(err).Msg("Failed to serialize transfer")
+		return nil, err
+	}
+	signed, err := action.SignTransfer(raw, from)
+	tsf = &action.Transfer{}
+	if err := tsf.Deserialize(signed); err != nil {
+		logger.Error().Err(err).Msg("Failed to deserialize transfer")
+		return nil, err
+	}
+	return tsf, nil
+}
+
+// CreateRawTransfer creates an unsigned transfer paying 'amount' from 'from' to 'to'
+func (bc *blockchain) CreateRawTransfer(locktime uint32, nonce uint64, from *iotxaddress.Address, amount *big.Int, to *iotxaddress.Address) *action.Transfer {
+	return action.NewTransfer(locktime, nonce, amount, from.RawAddress, to.RawAddress)
+}
+
+// GetSF returns statefactory
+func (bc *blockchain) GetSF() statefactory.StateFactory {
+	return bc.sf
 }
 
 //======================================
@@ -445,6 +438,49 @@ func createAndInitBlockchain(kvstore db.KVStore, sf statefactory.StateFactory, c
 	return chain
 }
 
+// createTx creates a transaction paying 'amount' from 'from' to 'to'
+func (bc *blockchain) createTx(from *iotxaddress.Address, amount uint64, to []*Payee, isRaw bool) *trx.Tx {
+	utxo, change := bc.utk.UtxoEntries(from.RawAddress, amount)
+	if utxo == nil {
+		logger.Error().Str("addr", from.RawAddress).Msg("Failed to get UTXO")
+		return nil
+	}
+
+	in := []*trx.TxInput{}
+	for _, out := range utxo {
+		unlock := []byte(out.TxOutputPb.String())
+		if !isRaw {
+			var err error
+			unlock, err = txvm.SignatureScript([]byte(out.TxOutputPb.String()), from.PublicKey, from.PrivateKey)
+			if err != nil {
+				return nil
+			}
+		}
+
+		in = append(in, bc.utk.CreateTxInputUtxo(out.txHash, out.outIndex, unlock))
+	}
+
+	out := []*trx.TxOutput{}
+	for _, payee := range to {
+		out = append(out, bc.utk.CreateTxOutputUtxo(payee.Address, payee.Amount))
+	}
+	if change.Sign() == 1 {
+		out = append(out, bc.utk.CreateTxOutputUtxo(from.RawAddress, change.Uint64()))
+	}
+
+	// Sort TxInput in lexicographical order based on TxHash + OutIndex
+	sort.Sort(trx.TxInSorter(in))
+
+	// Sort TxOutput in lexicographical order based on Value + LockScript and reset OutIndex
+	sort.Sort(trx.TxOutSorter(out))
+	resetOutIndex(out)
+
+	return trx.NewTx(in, out, 0)
+}
+
+//======================================
+// util functions
+//=====================================
 func resetOutIndex(out []*trx.TxOutput) {
 	for i := 0; i < len(out); i++ {
 		out[i].OutIndex = int32(i)
