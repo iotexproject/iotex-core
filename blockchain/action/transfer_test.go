@@ -32,7 +32,7 @@ func TestTransfer(t *testing.T) {
 	assert.NotNil(err)
 
 	// Create new transfer and put on wire
-	tsf := NewTransfer(0, 0, big.NewInt(10), sender.RawAddress, recipient.RawAddress)
+	tsf := NewTransfer(0, big.NewInt(10), sender.RawAddress, recipient.RawAddress)
 	assert.Nil(tsf.Signature)
 	assert.NotNil(tsf.Verify(sender))
 

@@ -63,9 +63,9 @@ type Blockchain interface {
 	// CreateRawTransaction creates an unsigned transaction paying 'amount' from 'from' to 'to'
 	CreateRawTransaction(from *iotxaddress.Address, amount uint64, to []*Payee) *trx.Tx
 	// CreateTransfer creates a signed transfer paying 'amount' from 'from' to 'to'
-	CreateTransfer(locktime uint32, nonce uint64, from *iotxaddress.Address, amount *big.Int, to *iotxaddress.Address) (*action.Transfer, error)
+	CreateTransfer(nonce uint64, from *iotxaddress.Address, amount *big.Int, to *iotxaddress.Address) (*action.Transfer, error)
 	// CreateRawTransfer creates an unsigned transfer paying 'amount' from 'from' to 'to'
-	CreateRawTransfer(locktime uint32, nonce uint64, from *iotxaddress.Address, amount *big.Int, to *iotxaddress.Address) *action.Transfer
+	CreateRawTransfer(nonce uint64, from *iotxaddress.Address, amount *big.Int, to *iotxaddress.Address) *action.Transfer
 	// ValidateBlock validates a new block before adding it to the blockchain
 	ValidateBlock(blk *Block) error
 
@@ -343,8 +343,8 @@ func (bc *blockchain) Validator() Validator {
 }
 
 //  CreateTransfer creates a signed transfer paying 'amount' from 'from' to 'to'
-func (bc *blockchain) CreateTransfer(locktime uint32, nonce uint64, from *iotxaddress.Address, amount *big.Int, to *iotxaddress.Address) (*action.Transfer, error) {
-	tsf := action.NewTransfer(locktime, nonce, amount, from.RawAddress, to.RawAddress)
+func (bc *blockchain) CreateTransfer(nonce uint64, from *iotxaddress.Address, amount *big.Int, to *iotxaddress.Address) (*action.Transfer, error) {
+	tsf := action.NewTransfer(nonce, amount, from.RawAddress, to.RawAddress)
 	stsf, err := action.SignTransfer(tsf, from)
 	if err != nil {
 		logger.Error().Err(err).Msg("Failed to sign transfer")
@@ -354,8 +354,8 @@ func (bc *blockchain) CreateTransfer(locktime uint32, nonce uint64, from *iotxad
 }
 
 // CreateRawTransfer creates an unsigned transfer paying 'amount' from 'from' to 'to'
-func (bc *blockchain) CreateRawTransfer(locktime uint32, nonce uint64, from *iotxaddress.Address, amount *big.Int, to *iotxaddress.Address) *action.Transfer {
-	return action.NewTransfer(locktime, nonce, amount, from.RawAddress, to.RawAddress)
+func (bc *blockchain) CreateRawTransfer(nonce uint64, from *iotxaddress.Address, amount *big.Int, to *iotxaddress.Address) *action.Transfer {
+	return action.NewTransfer(nonce, amount, from.RawAddress, to.RawAddress)
 }
 
 //======================================

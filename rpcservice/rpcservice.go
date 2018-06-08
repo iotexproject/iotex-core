@@ -50,7 +50,7 @@ func (s *Chainserver) CreateRawTx(ctx context.Context, in *pb.CreateRawTransferR
 	amount := big.NewInt(0)
 	amount.SetBytes(in.Amount)
 
-	tsf := s.blockchain.CreateRawTransfer(uint32(0), in.Nonce, &iotxaddress.Address{RawAddress: in.Sender}, amount, &iotxaddress.Address{RawAddress: in.Recipient})
+	tsf := s.blockchain.CreateRawTransfer(in.Nonce, &iotxaddress.Address{RawAddress: in.Sender}, amount, &iotxaddress.Address{RawAddress: in.Recipient})
 	stsf, err := proto.Marshal(tsf.ConvertToTransferPb())
 	if err != nil {
 		return nil, err

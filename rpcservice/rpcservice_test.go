@@ -72,7 +72,7 @@ func testingTx() *trx.Tx {
 func testingTransfer() *action.Transfer {
 	sender, _ := iotxaddress.NewAddress(true, []byte{0x00, 0x00, 0x00, 0x01})
 	recipient, _ := iotxaddress.NewAddress(true, []byte{0x00, 0x00, 0x00, 0x01})
-	return action.NewTransfer(uint32(0), uint64(1), big.NewInt(100), sender.RawAddress, recipient.RawAddress)
+	return action.NewTransfer(uint64(1), big.NewInt(100), sender.RawAddress, recipient.RawAddress)
 }
 
 func TestCreateRawTransfer(t *testing.T) {
@@ -108,7 +108,7 @@ func TestCreateRawTransfer(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	mbc.EXPECT().CreateRawTransfer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(testingTransfer()).Times(1)
+	mbc.EXPECT().CreateRawTransfer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(testingTransfer()).Times(1)
 	mdp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any()).Times(0)
 	r, err := c.CreateRawTx(ctx, &pb.CreateRawTransferRequest{Sender: "Alice", Recipient: "Bob", Amount: big.NewInt(int64(100)).Bytes()})
 	assert.Nil(t, err)

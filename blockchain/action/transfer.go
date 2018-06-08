@@ -27,8 +27,7 @@ var ErrActionError = errors.New("Action error")
 type (
 	// Transfer defines the struct of account-based transfer
 	Transfer struct {
-		Version  uint32
-		LockTime uint32 // transaction to be locked until this time
+		Version uint32
 
 		// used by account-based model
 		Nonce           uint64
@@ -42,10 +41,9 @@ type (
 )
 
 // NewTransfer returns a Transfer instance
-func NewTransfer(lockTime uint32, nonce uint64, amount *big.Int, sender string, recipient string) *Transfer {
+func NewTransfer(nonce uint64, amount *big.Int, sender string, recipient string) *Transfer {
 	return &Transfer{
-		Version:  common.ProtocolVersion,
-		LockTime: lockTime,
+		Version: common.ProtocolVersion,
 
 		// used by account-based model
 		Nonce:     nonce,
@@ -79,13 +77,8 @@ func (tsf *Transfer) ByteStream() []byte {
 	stream := make([]byte, 4)
 	common.MachineEndian.PutUint32(stream, tsf.Version)
 
-	temp := make([]byte, 4)
-	common.MachineEndian.PutUint32(temp, tsf.LockTime)
-	stream = append(stream, temp...)
-
 	// 2. used by account-based model
-	temp = nil
-	temp = make([]byte, 8)
+	temp := make([]byte, 8)
 	common.MachineEndian.PutUint64(temp, tsf.Nonce)
 	stream = append(stream, temp...)
 	if tsf.Amount != nil && len(tsf.Amount.Bytes()) > 0 {
@@ -104,7 +97,6 @@ func (tsf *Transfer) ConvertToTransferPb() *iproto.TransferPb {
 	// used by account-based model
 	t := &iproto.TransferPb{
 		Version:      tsf.Version,
-		LockTime:     tsf.LockTime,
 		Nonce:        tsf.Nonce,
 		Sender:       tsf.Sender,
 		Recipient:    tsf.Recipient,
@@ -128,7 +120,6 @@ func (tsf *Transfer) Serialize() ([]byte, error) {
 func (tsf *Transfer) ConvertFromTransferPb(pbTx *iproto.TransferPb) {
 	// set trnx fields
 	tsf.Version = pbTx.GetVersion()
-	tsf.LockTime = pbTx.GetLockTime()
 	// used by account-based model
 	tsf.Nonce = pbTx.Nonce
 	if tsf.Amount == nil {
