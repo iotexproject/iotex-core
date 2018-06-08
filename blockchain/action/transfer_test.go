@@ -10,8 +10,9 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/iotexproject/iotex-core/iotxaddress"
 )
 
 var chainid = []byte{0x00, 0x00, 0x00, 0x01}
@@ -22,22 +23,31 @@ func TestTransfer(t *testing.T) {
 	assert.Nil(err)
 	recipient, err := iotxaddress.NewAddress(true, chainid)
 	assert.Nil(err)
+
+	// Create a nil transfer and sign it
+	var nilTsf *Transfer
+	nilTsf = nil
+	sNilTsf, err := SignTransfer(nilTsf, sender)
+	assert.Nil(sNilTsf)
+	assert.NotNil(err)
+
 	// Create new transfer and put on wire
 	tsf := NewTransfer(0, 0, big.NewInt(10), sender.RawAddress, recipient.RawAddress)
-	raw, err := tsf.Serialize()
-	assert.Nil(err)
-	// Sign the transfer
-	signed, err := SignTransfer(raw, sender)
-	assert.Nil(err)
-	// deserialize
-	tsf2 := &Transfer{}
-	assert.Nil(tsf2.Deserialize(signed))
-	assert.NotEqual(tsf.Hash(), tsf2.Hash())
-	// test data match before/after serialization
-	tsf.SenderPublicKey = sender.PublicKey
-	assert.Equal(tsf.Hash(), tsf2.Hash())
-	// test signature
-	assert.Nil(tsf2.Verify(sender))
-	assert.NotNil(tsf2.Verify(recipient))
+	assert.Nil(tsf.Signature)
 	assert.NotNil(tsf.Verify(sender))
+
+	// Sign the transfer
+	stsf, err := SignTransfer(tsf, sender)
+	assert.Nil(err)
+	assert.NotNil(stsf)
+	assert.Equal(tsf.Hash(), stsf.Hash())
+
+	tsf.SenderPublicKey = sender.PublicKey
+	assert.Equal(tsf.Hash(), stsf.Hash())
+
+	// test signature
+	assert.Nil(stsf.Verify(sender))
+	assert.NotNil(stsf.Verify(recipient))
+	assert.NotNil(tsf.Signature)
+	assert.Nil(tsf.Verify(sender))
 }

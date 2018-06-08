@@ -11,7 +11,6 @@ import (
 	trx "github.com/iotexproject/iotex-core/blockchain/trx"
 	common "github.com/iotexproject/iotex-core/common"
 	iotxaddress "github.com/iotexproject/iotex-core/iotxaddress"
-	statefactory "github.com/iotexproject/iotex-core/statefactory"
 	big "math/big"
 	reflect "reflect"
 )
@@ -287,18 +286,6 @@ func (m *MockBlockchain) ValidateBlock(blk *blockchain.Block) error {
 // ValidateBlock indicates an expected call of ValidateBlock
 func (mr *MockBlockchainMockRecorder) ValidateBlock(blk interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateBlock", reflect.TypeOf((*MockBlockchain)(nil).ValidateBlock), blk)
-}
-
-// GetSF mocks base method
-func (m *MockBlockchain) GetSF() statefactory.StateFactory {
-	ret := m.ctrl.Call(m, "GetSF")
-	ret0, _ := ret[0].(statefactory.StateFactory)
-	return ret0
-}
-
-// GetSF indicates an expected call of GetSF
-func (mr *MockBlockchainMockRecorder) GetSF() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSF", reflect.TypeOf((*MockBlockchain)(nil).GetSF))
 }
 
 // ResetUTXO mocks base method

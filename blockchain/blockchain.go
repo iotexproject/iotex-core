@@ -68,8 +68,6 @@ type Blockchain interface {
 	CreateRawTransfer(locktime uint32, nonce uint64, from *iotxaddress.Address, amount *big.Int, to *iotxaddress.Address) *action.Transfer
 	// ValidateBlock validates a new block before adding it to the blockchain
 	ValidateBlock(blk *Block) error
-	// GetSF() returns Statefactory
-	GetSF() statefactory.StateFactory
 
 	// The following methods are used only for utxo-based model
 	// Reset resets UTXO
@@ -347,28 +345,17 @@ func (bc *blockchain) Validator() Validator {
 //  CreateTransfer creates a signed transfer paying 'amount' from 'from' to 'to'
 func (bc *blockchain) CreateTransfer(locktime uint32, nonce uint64, from *iotxaddress.Address, amount *big.Int, to *iotxaddress.Address) (*action.Transfer, error) {
 	tsf := action.NewTransfer(locktime, nonce, amount, from.RawAddress, to.RawAddress)
-	raw, err := tsf.Serialize()
+	stsf, err := action.SignTransfer(tsf, from)
 	if err != nil {
-		logger.Error().Err(err).Msg("Failed to serialize transfer")
+		logger.Error().Err(err).Msg("Failed to sign transfer")
 		return nil, err
 	}
-	signed, err := action.SignTransfer(raw, from)
-	tsf = &action.Transfer{}
-	if err := tsf.Deserialize(signed); err != nil {
-		logger.Error().Err(err).Msg("Failed to deserialize transfer")
-		return nil, err
-	}
-	return tsf, nil
+	return stsf, nil
 }
 
 // CreateRawTransfer creates an unsigned transfer paying 'amount' from 'from' to 'to'
 func (bc *blockchain) CreateRawTransfer(locktime uint32, nonce uint64, from *iotxaddress.Address, amount *big.Int, to *iotxaddress.Address) *action.Transfer {
 	return action.NewTransfer(locktime, nonce, amount, from.RawAddress, to.RawAddress)
-}
-
-// GetSF returns statefactory
-func (bc *blockchain) GetSF() statefactory.StateFactory {
-	return bc.sf
 }
 
 //======================================
