@@ -79,7 +79,6 @@ func (h *roundStart) Handle(_ *fsm.Event) {
 
 // initPropose proposes a new block and send it out.
 type initPropose struct {
-	fsm.NilTimeout
 	*RollDPoS
 }
 

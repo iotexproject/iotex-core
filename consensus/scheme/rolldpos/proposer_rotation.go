@@ -32,7 +32,7 @@ func (s *proposerRotation) Do() {
 	pr, err := s.prCb(s.pool, nil, 0, height+1)
 	// If proposer is not the current node or it's not periodic proposer election on constant interval, then returns
 	if pr.String() != s.self.String() ||
-		(s.cfg.ProposerRotation.Interval != 0 && s.fsm.CurrentState() != stateRoundStart) {
+		(s.cfg.ProposerInterval != 0 && s.fsm.CurrentState() != stateRoundStart) {
 		return
 	}
 	logger.Warn().
@@ -52,7 +52,7 @@ func newProposerRotationNoDelay(r *RollDPoS) *proposerRotation {
 
 // newProposerRotation creates a recurring task of proposer rotation.
 func newProposerRotation(r *RollDPoS) *routine.RecurringTask {
-	return routine.NewRecurringTask(&proposerRotation{r}, r.cfg.ProposerRotation.Interval)
+	return routine.NewRecurringTask(&proposerRotation{r}, r.cfg.ProposerInterval)
 }
 
 // FixedProposer will always choose the first in the delegate list as the proposer

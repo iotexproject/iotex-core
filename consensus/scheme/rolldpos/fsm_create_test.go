@@ -38,7 +38,7 @@ func TestAcceptPrevoteAndProceedToEnd(t *testing.T) {
 		mcks.bc.EXPECT().TipHeight().Return(uint64(2), nil).After(first).AnyTimes()
 	}
 	cs := createTestRollDPoS(
-		ctrl, delegates[0], delegates, m, false, FixedProposer, NeverStartNewEpoch, nil)
+		ctrl, delegates[0], delegates, m, FixedProposer, time.Hour, NeverStartNewEpoch, nil)
 	cs.Start()
 	defer cs.Stop()
 
@@ -124,7 +124,7 @@ func TestAcceptPrevoteAndTimeoutToEnd(t *testing.T) {
 		mcks.bc.EXPECT().TipHeight().Return(uint64(2), nil).After(first).AnyTimes()
 	}
 	cs := createTestRollDPoS(
-		ctrl, delegates[0], delegates, m, false, FixedProposer, NeverStartNewEpoch, nil)
+		ctrl, delegates[0], delegates, m, FixedProposer, time.Hour, NeverStartNewEpoch, nil)
 	cs.Start()
 	defer cs.Stop()
 

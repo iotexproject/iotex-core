@@ -40,7 +40,7 @@ func TestProposerRotation(t *testing.T) {
 		mcks.bc.EXPECT().TipHeight().Return(uint64(0), nil).AnyTimes()
 	}
 	cs := createTestRollDPoS(
-		ctrl, delegates[0], delegates, m, true, FixedProposer, NeverStartNewEpoch, nil)
+		ctrl, delegates[0], delegates, m, FixedProposer, 10*time.Millisecond, NeverStartNewEpoch, nil)
 	cs.Start()
 	defer cs.Stop()
 	cs.handleEvent(&fsm.Event{State: stateDKGGenerate})

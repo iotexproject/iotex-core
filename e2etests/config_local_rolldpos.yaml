@@ -37,9 +37,7 @@ chain:
 consensus:
     scheme: "ROLLDPOS"
     rolldpos:
-        proposerrotation:
-            enabled: true
-            interval: 700ms
+        proposerinterval: 0ms
         unmatchedeventttl: 90ms
         acceptpropose:
             ttl: 90ms

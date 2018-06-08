@@ -35,16 +35,20 @@ func TestLocalRollDPoS(t *testing.T) {
 			testLocalRollDPoS("PseudoRotatedProposer", "NeverStartNewEpoch", 4, t)
 		})
 	*/
-	t.Run("FixedProposer-PseudoStarNewEpoch", func(t *testing.T) {
-		testLocalRollDPoS("FixedProposer", "PseudoStarNewEpoch", 8, t)
+	t.Run("FixedProposer-PseudoStarNewEpoch-NoInterval", func(t *testing.T) {
+		testLocalRollDPoS("FixedProposer", "PseudoStarNewEpoch", 8, t, 0)
 	})
-	t.Run("PseudoRotatedProposer-PseudoStarNewEpoch", func(t *testing.T) {
-		testLocalRollDPoS("PseudoRotatedProposer", "PseudoStarNewEpoch", 8, t)
+	t.Run("PseudoRotatedProposer-PseudoStarNewEpoch-Interval", func(t *testing.T) {
+		testLocalRollDPoS(
+			"PseudoRotatedProposer", "PseudoStarNewEpoch", 8, t, 100*time.Millisecond)
+	})
+	t.Run("PseudoRotatedProposer-PseudoStarNewEpoch-NoInterval", func(t *testing.T) {
+		testLocalRollDPoS("PseudoRotatedProposer", "PseudoStarNewEpoch", 8, t, 0)
 	})
 }
 
 // 4 delegates and 3 full nodes
-func testLocalRollDPoS(prCb string, epochCb string, numBlocks uint64, t *testing.T) {
+func testLocalRollDPoS(prCb string, epochCb string, numBlocks uint64, t *testing.T, interval time.Duration) {
 	assert := assert.New(t)
 	flag.Parse()
 
@@ -54,6 +58,7 @@ func testLocalRollDPoS(prCb string, epochCb string, numBlocks uint64, t *testing
 	cfg.Chain.InMemTest = true
 	cfg.Consensus.RollDPoS.ProposerCB = prCb
 	cfg.Consensus.RollDPoS.EpochCB = epochCb
+	cfg.Consensus.RollDPoS.ProposerInterval = interval
 	assert.Nil(err)
 
 	var svrs []*itx.Server
@@ -83,7 +88,7 @@ func testLocalRollDPoS(prCb string, epochCb string, numBlocks uint64, t *testing
 		defer svr.Stop()
 	}
 
-	err = util.WaitUntil(time.Millisecond*200, time.Second*10, func() (bool, error) {
+	err = util.WaitUntil(time.Millisecond*200, time.Second*4, func() (bool, error) {
 		for _, svr := range svrs {
 			bc := svr.Bc()
 			if bc == nil {

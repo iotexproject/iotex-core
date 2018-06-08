@@ -117,7 +117,7 @@ func NewRollDPoS(
 		eventChan:  make(chan *fsm.Event, 100),
 		cfg:        cfg,
 	}
-	if int(cfg.ProposerRotation.Interval) == 0 {
+	if cfg.ProposerInterval == 0 {
 		sc.prnd = newProposerRotationNoDelay(sc)
 	} else {
 		sc.pr = newProposerRotation(sc)
@@ -140,9 +140,7 @@ func (n *RollDPoS) Start() error {
 
 	n.wg.Add(1)
 	go n.consume()
-	if int(n.cfg.ProposerRotation.Interval) == 0 {
-		n.prnd.Do()
-	} else if n.cfg.ProposerRotation.Enabled {
+	if n.cfg.ProposerInterval > 0 {
 		n.pr.Init()
 		n.pr.Start()
 	}

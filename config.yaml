@@ -38,9 +38,7 @@ chain:
 consensus:
     scheme: "NOOP"
     rolldpos:
-        proposerrotation:
-            enabled: true
-            interval: 3s
+        proposerinterval: 3s
         unmatchedeventttl: 3s
         acceptpropose:
             ttl: 1s
