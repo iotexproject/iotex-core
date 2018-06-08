@@ -54,7 +54,7 @@ func createTestRollDPoS(
 
 	tp := txpool.NewTxPool(bc)
 	createblockCB := func() (*blockchain.Block, error) {
-		blk, err := bc.MintNewBlock(tp.PickTxs(), &iotxaddress.Address{}, "")
+		blk, err := bc.MintNewBlock(tp.PickTxs(), nil, nil, &iotxaddress.Address{}, "")
 		if err != nil {
 			logger.Error().Msg("Failed to mint a new block")
 			return nil, err
@@ -173,7 +173,7 @@ func testByzantineFault(t *testing.T, proposerNode int) {
 		m := func(mcks mocks) {
 			mcks.dp.EXPECT().AllDelegates().Return(delegates, nil).AnyTimes()
 			mcks.dNet.EXPECT().Self().Return(cur).AnyTimes()
-			mcks.bc.EXPECT().MintNewBlock(gomock.Any(), gomock.Any(), gomock.Any()).Return(genesis, nil).AnyTimes()
+			mcks.bc.EXPECT().MintNewBlock(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(genesis, nil).AnyTimes()
 			mcks.bc.EXPECT().TipHeight().Return(uint64(0), nil).AnyTimes()
 			mcks.bc.EXPECT().ValidateBlock(gomock.Any()).Do(func(blk *Block) error {
 				if blk == nil {
@@ -315,7 +315,7 @@ func TestRollDPoSFourTrustyNodes(t *testing.T) {
 		m := func(mcks mocks) {
 			mcks.dp.EXPECT().AllDelegates().Return(delegates, nil).AnyTimes()
 			mcks.dNet.EXPECT().Self().Return(cur).AnyTimes()
-			mcks.bc.EXPECT().MintNewBlock(gomock.Any(), gomock.Any(), gomock.Any()).Return(genesis, nil).AnyTimes()
+			mcks.bc.EXPECT().MintNewBlock(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(genesis, nil).AnyTimes()
 			mcks.bc.EXPECT().TipHeight().Return(uint64(0), nil).AnyTimes()
 			mcks.bc.EXPECT().ValidateBlock(gomock.Any()).AnyTimes()
 

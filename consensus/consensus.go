@@ -42,7 +42,8 @@ func NewConsensus(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxPool
 
 	cs := &consensus{cfg: &cfg.Consensus}
 	mintBlockCB := func() (*blockchain.Block, error) {
-		blk, err := bc.MintNewBlock(tp.PickTxs(), &cfg.Chain.MinerAddr, "")
+		// TODO: get list of Transfer and Vote from actPool, instead of nil, nil below
+		blk, err := bc.MintNewBlock(tp.PickTxs(), nil, nil, &cfg.Chain.MinerAddr, "")
 		if err != nil {
 			logger.Error().Msg("Failed to mint a block")
 			return nil, err

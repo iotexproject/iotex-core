@@ -67,7 +67,7 @@ func NewSim(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxPool, bs b
 	mintBlockCB := func() (*blockchain.Block, error) {
 		logger.Debug().Msg("mintBlockCB called")
 
-		blk, err := bc.MintNewBlock(tp.PickTxs(), &cfg.Chain.MinerAddr, "")
+		blk, err := bc.MintNewBlock(tp.PickTxs(), nil, nil, &cfg.Chain.MinerAddr, "")
 		if err != nil {
 			logger.Error().Msg("Failed to mint a block")
 			return nil, err
@@ -156,11 +156,12 @@ func NewSimByzantine(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxP
 	mintBlockCB := func() (*blockchain.Block, error) {
 		logger.Debug().Msg("mintBlockCB called")
 
-		// create fraudulent transactions
+		// create sample transactions
 		txs := []*trx.Tx{trx.NewCoinbaseTx(cfg.Chain.RawMinerAddr.PublicKey, 100, ""),
 			trx.NewCoinbaseTx(cfg.Chain.RawMinerAddr.PublicKey, 200, ""),
 			trx.NewCoinbaseTx(cfg.Chain.RawMinerAddr.PublicKey, 300, "")}
-		blk, err := bc.MintNewBlock(txs, &cfg.Chain.MinerAddr, "")
+		// TODO: create sample Transfer and Vote to replace nil, nil below
+		blk, err := bc.MintNewBlock(txs, nil, nil, &cfg.Chain.MinerAddr, "")
 		if err != nil {
 			logger.Error().Msg("Failed to mint a block")
 			return nil, err

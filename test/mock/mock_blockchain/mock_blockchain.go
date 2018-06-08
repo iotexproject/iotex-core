@@ -7,6 +7,7 @@ package mock_blockchain
 import (
 	gomock "github.com/golang/mock/gomock"
 	blockchain "github.com/iotexproject/iotex-core/blockchain"
+	action "github.com/iotexproject/iotex-core/blockchain/action"
 	trx "github.com/iotexproject/iotex-core/blockchain/trx"
 	common "github.com/iotexproject/iotex-core/common"
 	iotxaddress "github.com/iotexproject/iotex-core/iotxaddress"
@@ -178,16 +179,16 @@ func (mr *MockBlockchainMockRecorder) TipHeight() *gomock.Call {
 }
 
 // MintNewBlock mocks base method
-func (m *MockBlockchain) MintNewBlock(arg0 []*trx.Tx, arg1 *iotxaddress.Address, arg2 string) (*blockchain.Block, error) {
-	ret := m.ctrl.Call(m, "MintNewBlock", arg0, arg1, arg2)
+func (m *MockBlockchain) MintNewBlock(arg0 []*trx.Tx, arg1 []*action.Transfer, arg2 []*action.Vote, arg3 *iotxaddress.Address, arg4 string) (*blockchain.Block, error) {
+	ret := m.ctrl.Call(m, "MintNewBlock", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(*blockchain.Block)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // MintNewBlock indicates an expected call of MintNewBlock
-func (mr *MockBlockchainMockRecorder) MintNewBlock(arg0, arg1, arg2 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MintNewBlock", reflect.TypeOf((*MockBlockchain)(nil).MintNewBlock), arg0, arg1, arg2)
+func (mr *MockBlockchainMockRecorder) MintNewBlock(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MintNewBlock", reflect.TypeOf((*MockBlockchain)(nil).MintNewBlock), arg0, arg1, arg2, arg3, arg4)
 }
 
 // AddBlockCommit mocks base method
