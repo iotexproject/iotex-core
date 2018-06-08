@@ -14,7 +14,7 @@ GOCLEAN=$(GOCMD) clean
 GOTEST=$(GOCMD) test
 GOGET=$(GOCMD) get
 BUILD_TARGET_SERVER=server
-BUILD_TARGET_TXINJ=txinjector
+BUILD_TARGET_ACTINJ=actInjector
 SKIP_GLIDE=false
 
 # Docker parameters
@@ -24,7 +24,7 @@ all: clean build test
 .PHONY: build
 build:
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
-	$(GOBUILD) -o ./bin/$(BUILD_TARGET_TXINJ) -v ./tools/txinjector
+	$(GOBUILD) -o ./bin/$(BUILD_TARGET_ACTINJ) -v ./tools/actInjector
 
 .PHONY: fmt
 fmt:
@@ -50,8 +50,9 @@ stringer:
 clean:
 	$(GOCLEAN)
 	rm -f ./bin/$(BUILD_TARGET_SERVER)
-	rm -f ./bin/$(BUILD_TARGET_TXINJ)
+	rm -f ./bin/$(BUILD_TARGET_ACTINJ)
 	rm -f chain.db
+	rm -f trie.db
 
 .PHONY: run
 run:

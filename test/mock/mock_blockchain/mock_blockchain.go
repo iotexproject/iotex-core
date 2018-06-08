@@ -11,6 +11,7 @@ import (
 	trx "github.com/iotexproject/iotex-core/blockchain/trx"
 	common "github.com/iotexproject/iotex-core/common"
 	iotxaddress "github.com/iotexproject/iotex-core/iotxaddress"
+	statefactory "github.com/iotexproject/iotex-core/statefactory"
 	big "math/big"
 	reflect "reflect"
 )
@@ -251,6 +252,31 @@ func (mr *MockBlockchainMockRecorder) CreateRawTransaction(from, amount, to inte
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateRawTransaction", reflect.TypeOf((*MockBlockchain)(nil).CreateRawTransaction), from, amount, to)
 }
 
+// CreateTransfer mocks base method
+func (m *MockBlockchain) CreateTransfer(locktime uint32, nonce uint64, from *iotxaddress.Address, amount *big.Int, to *iotxaddress.Address) (*action.Transfer, error) {
+	ret := m.ctrl.Call(m, "CreateTransfer", locktime, nonce, from, amount, to)
+	ret0, _ := ret[0].(*action.Transfer)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateTransfer indicates an expected call of CreateTransfer
+func (mr *MockBlockchainMockRecorder) CreateTransfer(locktime, nonce, from, amount, to interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateTransfer", reflect.TypeOf((*MockBlockchain)(nil).CreateTransfer), locktime, nonce, from, amount, to)
+}
+
+// CreateRawTransfer mocks base method
+func (m *MockBlockchain) CreateRawTransfer(locktime uint32, nonce uint64, from *iotxaddress.Address, amount *big.Int, to *iotxaddress.Address) *action.Transfer {
+	ret := m.ctrl.Call(m, "CreateRawTransfer", locktime, nonce, from, amount, to)
+	ret0, _ := ret[0].(*action.Transfer)
+	return ret0
+}
+
+// CreateRawTransfer indicates an expected call of CreateRawTransfer
+func (mr *MockBlockchainMockRecorder) CreateRawTransfer(locktime, nonce, from, amount, to interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateRawTransfer", reflect.TypeOf((*MockBlockchain)(nil).CreateRawTransfer), locktime, nonce, from, amount, to)
+}
+
 // ValidateBlock mocks base method
 func (m *MockBlockchain) ValidateBlock(blk *blockchain.Block) error {
 	ret := m.ctrl.Call(m, "ValidateBlock", blk)
@@ -261,6 +287,18 @@ func (m *MockBlockchain) ValidateBlock(blk *blockchain.Block) error {
 // ValidateBlock indicates an expected call of ValidateBlock
 func (mr *MockBlockchainMockRecorder) ValidateBlock(blk interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateBlock", reflect.TypeOf((*MockBlockchain)(nil).ValidateBlock), blk)
+}
+
+// GetSF mocks base method
+func (m *MockBlockchain) GetSF() statefactory.StateFactory {
+	ret := m.ctrl.Call(m, "GetSF")
+	ret0, _ := ret[0].(statefactory.StateFactory)
+	return ret0
+}
+
+// GetSF indicates an expected call of GetSF
+func (mr *MockBlockchainMockRecorder) GetSF() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSF", reflect.TypeOf((*MockBlockchain)(nil).GetSF))
 }
 
 // ResetUTXO mocks base method

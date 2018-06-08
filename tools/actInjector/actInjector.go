@@ -5,7 +5,7 @@
 // License 2.0 that can be found in the LICENSE file.
 
 // This is a testing tool to inject fake transactions to the blockchain
-// To use, run "make build" and " ./bin/txinjector"
+// To use, run "make build" and " ./bin/actInjector"
 
 package main
 
@@ -19,9 +19,9 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
+	"github.com/iotexproject/iotex-core/crypto"
 	pb "github.com/iotexproject/iotex-core/proto"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
-	"github.com/iotexproject/iotex-core/txvm"
 )
 
 const (
@@ -48,51 +48,41 @@ func main() {
 
 	a := int64(amount)
 	r, err := c.CreateRawTx(ctx, &pb.CreateRawTransferRequest{
-		Sender: ta.Addrinfo["miner"].RawAddress, Recipient: ta.Addrinfo["alfa"].RawAddress, Amount: big.NewInt(a).Bytes()})
+		Sender: ta.Addrinfo["miner"].RawAddress, Recipient: ta.Addrinfo["alfa"].RawAddress, Amount: big.NewInt(a).Bytes(), Nonce: uint64(1), Data: []byte{}})
 	if err != nil {
 		panic(err)
 	} else {
-		fmt.Println("Created raw tx")
+		fmt.Println("Created raw transfer")
 	}
 
-	tx := &pb.TxPb{}
-	if err := proto.Unmarshal(r.SerializedTransfer, tx); err != nil {
+	tsf := &pb.TransferPb{}
+	if err := proto.Unmarshal(r.SerializedTransfer, tsf); err != nil {
 		panic(err)
 	}
 
-	for i, rin := range tx.TxIn {
-		unlock, err := txvm.SignatureScript(rin.UnlockScript, ta.Addrinfo["miner"].PublicKey, ta.Addrinfo["miner"].PrivateKey)
-		if err != nil {
-			panic(err)
-		}
-		tx.TxIn[i].UnlockScript = unlock
-		tx.TxIn[i].UnlockScriptSize = uint32(len(unlock))
+	// Sign Transfer
+	if tsf.Signature = crypto.Sign(ta.Addrinfo["miner"].PrivateKey, []byte{0x11, 0x22, 0x33, 0x44}); tsf.Signature == nil {
+		panic(err)
 	}
 
-	stx, err := proto.Marshal(tx)
+	// TODO: Should handle transfer as an action type
+	stsf, err := proto.Marshal(tsf)
 	if err != nil {
 		panic(err)
 	}
-	_, err = c.SendTx(ctx, &pb.SendTransferRequest{SerializedTransfer: stx})
+	_, err = c.SendTx(ctx, &pb.SendTransferRequest{SerializedTransfer: stsf})
 	if err != nil {
 		panic(err)
 	}
 	fmt.Println("Sent out the signed tx: ")
 
-	fmt.Println("version: ", tx.Version)
-	for i := 0; i < len(tx.TxIn); i++ {
-		fmt.Printf("txIn[%v]:\n", i)
-		fmt.Printf("\thash: 0x%x\n", tx.TxIn[i].TxHash)
-		fmt.Println("\tout index:", tx.TxIn[i].OutIndex)
-		fmt.Println("\tunlock script:", tx.TxIn[i].UnlockScript)
-		fmt.Println("\tunlock script size:", tx.TxIn[i].UnlockScriptSize)
-		fmt.Println("\tsequence:", tx.TxIn[i].Sequence)
-	}
-
-	for i := 0; i < len(tx.TxOut); i++ {
-		fmt.Printf("txOut[%v]:\n", i)
-		fmt.Println("\tvalue:", tx.TxOut[i].Value)
-		fmt.Println("\tlock script:", tx.TxOut[i].LockScript)
-		fmt.Println("\tlock script size:", tx.TxOut[i].LockScriptSize)
-	}
+	fmt.Println("Version: ", tsf.Version)
+	fmt.Println("Lock Time: ", tsf.LockTime)
+	fmt.Println("Nonce: ", tsf.Nonce)
+	fmt.Println("Amount: ", tsf.Amount)
+	fmt.Println("Sender: ", tsf.Sender)
+	fmt.Println("Recipient: ", tsf.Recipient)
+	fmt.Println("Payload: ", tsf.Payload)
+	fmt.Println("Sender Public Key: ", tsf.SenderPubKey)
+	fmt.Println("Signature: ", tsf.Signature)
 }
