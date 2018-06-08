@@ -46,8 +46,8 @@ func createTestRollDPoS(
 	self net.Addr,
 	delegates []net.Addr,
 	mockFn mockFn,
-	enableProposerRotation bool,
 	prCb scheme.GetProposerCB,
+	prDelay time.Duration,
 	epochCb scheme.StartNextEpochCB,
 	bcCnt *int) *RollDPoS {
 	bc := mock_blockchain.NewMockBlockchain(ctrl)
@@ -97,10 +97,7 @@ func createTestRollDPoS(
 		},
 		Delay: 10 * time.Second,
 	}
-	if enableProposerRotation {
-		csCfg.ProposerRotation.Enabled = enableProposerRotation
-	}
-	csCfg.ProposerRotation.Interval = time.Second
+	csCfg.ProposerInterval = prDelay
 	mockFn(mocks{
 		dNet: dNet,
 		bc:   bc,
@@ -202,7 +199,7 @@ func testByzantineFault(t *testing.T, proposerNode int) {
 			tcs.mocks = mcks
 		}
 		tcs.cs = createTestRollDPoS(
-			ctrl, cur, delegates, m, false, FixedProposer, NeverStartNewEpoch, &bcCnt)
+			ctrl, cur, delegates, m, FixedProposer, time.Hour, NeverStartNewEpoch, &bcCnt)
 		tcs.cs.Start()
 		defer tcs.cs.Stop()
 		tcss[cur] = tcs
@@ -332,8 +329,7 @@ func TestRollDPoSFourTrustyNodes(t *testing.T) {
 			})
 			tcs.mocks = mcks
 		}
-		tcs.cs = createTestRollDPoS(
-			ctrl, cur, delegates, m, false, FixedProposer, NeverStartNewEpoch, &bcCnt)
+		tcs.cs = createTestRollDPoS(ctrl, cur, delegates, m, FixedProposer, time.Hour, NeverStartNewEpoch, &bcCnt)
 		tcs.cs.Start()
 		defer tcs.cs.Stop()
 		tcss[cur] = tcs
@@ -397,7 +393,7 @@ func TestRollDPoSConsumePROPOSE(t *testing.T) {
 
 	}
 	cs := createTestRollDPoS(
-		ctrl, delegates[0], delegates, m, false, FixedProposer, NeverStartNewEpoch, nil)
+		ctrl, delegates[0], delegates, m, FixedProposer, time.Hour, NeverStartNewEpoch, nil)
 	cs.Start()
 	defer cs.Stop()
 	cs.fsm.HandleTransition(&fsm.Event{
@@ -442,7 +438,7 @@ func TestRollDPoSConsumeErrorStateHandlerNotMatched(t *testing.T) {
 		mcks.bc.EXPECT().TipHeight().Return(uint64(0), nil).AnyTimes()
 	}
 	cs := createTestRollDPoS(
-		ctrl, delegates[0], delegates, m, false, FixedProposer, NeverStartNewEpoch, nil)
+		ctrl, delegates[0], delegates, m, FixedProposer, time.Hour, NeverStartNewEpoch, nil)
 
 	cs.Start()
 	defer cs.Stop()

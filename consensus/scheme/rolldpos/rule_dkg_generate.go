@@ -6,7 +6,9 @@
 
 package rolldpos
 
-import "github.com/iotexproject/iotex-core/consensus/fsm"
+import (
+	"github.com/iotexproject/iotex-core/consensus/fsm"
+)
 
 // ruleDKGGenerate checks if the event is dkg generate
 type ruleDKGGenerate struct {
@@ -15,5 +17,12 @@ type ruleDKGGenerate struct {
 
 func (r ruleDKGGenerate) Condition(event *fsm.Event) bool {
 	// Prevent cascading transition to DKG_GENERATE when moving back to EPOCH_START
-	return event.State != stateEpochStart
+	if event.State == stateEpochStart {
+		return false
+	}
+	// Trigger the proposer election after entering the first round of consensus in an epoch if no delay
+	if r.cfg.ProposerInterval == 0 {
+		r.prnd.Do()
+	}
+	return true
 }

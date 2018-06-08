@@ -31,9 +31,6 @@ func (r ruleCommit) Condition(event *fsm.Event) bool {
 			Bool("r.reachedMaj()", r.reachedMaj()).
 			Msg("no consensus agreed")
 
-		if int(r.cfg.ProposerRotation.Interval) == 0 {
-			r.prnd.Do()
-		}
 		// TODO: need to commit and broadcast empty block to make proposer and block height map consistently
 		r.notifyRoundFinish()
 		return true
@@ -49,10 +46,6 @@ func (r ruleCommit) Condition(event *fsm.Event) bool {
 			Str("node", r.self.String()).
 			Msg("broadcast block")
 		r.pubCb(r.roundCtx.block)
-	}
-
-	if int(r.cfg.ProposerRotation.Interval) == 0 {
-		r.prnd.Do()
 	}
 
 	r.notifyRoundFinish()
@@ -71,7 +64,12 @@ func (r ruleCommit) reachedMaj() bool {
 }
 
 func (r ruleCommit) notifyRoundFinish() {
+	// Fist emit an event to test if FSM should move back to epoch start
+	// If not, FSM will stay at round start, and the second emitted event for proposer will move it to init propose
 	r.handleEvent(&fsm.Event{
 		State: stateEpochStart,
 	})
+	if r.cfg.ProposerInterval == 0 {
+		r.prnd.Do()
+	}
 }
