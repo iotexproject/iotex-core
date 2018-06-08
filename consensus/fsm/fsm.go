@@ -327,7 +327,8 @@ func (m *Machine) tryStartTimeout(state State) {
 				StateTimedOut: true,
 				State:         state,
 			}
-			m.autoTransition(ctx)
+			// Call HandleTransition which has the RW lock to ensure sequential state mutation
+			m.HandleTransition(ctx)
 		},
 		*handler.TimeoutDuration(),
 	)
