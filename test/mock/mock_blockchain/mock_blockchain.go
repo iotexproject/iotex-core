@@ -126,32 +126,6 @@ func (mr *MockBlockchainMockRecorder) GetBlockByHash(hash interface{}) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockByHash", reflect.TypeOf((*MockBlockchain)(nil).GetBlockByHash), hash)
 }
 
-// GetTransferByTransferHash mocks base method
-func (m *MockBlockchain) GetTransferByTransferHash(hash common.Hash32B) (*action.Transfer, error) {
-	ret := m.ctrl.Call(m, "GetTransferByTransferHash", hash)
-	ret0, _ := ret[0].(*action.Transfer)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetTransferByTransferHash indicates an expected call of GetTransferByTransferHash
-func (mr *MockBlockchainMockRecorder) GetTransferByTransferHash(hash interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTransferByTransferHash", reflect.TypeOf((*MockBlockchain)(nil).GetTransferByTransferHash), hash)
-}
-
-// GetBlockHashByTransferHash mocks base method
-func (m *MockBlockchain) GetBlockHashByTransferHash(hash common.Hash32B) (common.Hash32B, error) {
-	ret := m.ctrl.Call(m, "GetBlockHashByTransferHash", hash)
-	ret0, _ := ret[0].(common.Hash32B)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetBlockHashByTransferHash indicates an expected call of GetBlockHashByTransferHash
-func (mr *MockBlockchainMockRecorder) GetBlockHashByTransferHash(hash interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockHashByTransferHash", reflect.TypeOf((*MockBlockchain)(nil).GetBlockHashByTransferHash), hash)
-}
-
 // GetTransfersFromAddress mocks base method
 func (m *MockBlockchain) GetTransfersFromAddress(address string) ([]common.Hash32B, error) {
 	ret := m.ctrl.Call(m, "GetTransfersFromAddress", address)
@@ -176,6 +150,32 @@ func (m *MockBlockchain) GetTransfersToAddress(address string) ([]common.Hash32B
 // GetTransfersToAddress indicates an expected call of GetTransfersToAddress
 func (mr *MockBlockchainMockRecorder) GetTransfersToAddress(address interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTransfersToAddress", reflect.TypeOf((*MockBlockchain)(nil).GetTransfersToAddress), address)
+}
+
+// GetTransferByTransferHash mocks base method
+func (m *MockBlockchain) GetTransferByTransferHash(hash common.Hash32B) (*action.Transfer, error) {
+	ret := m.ctrl.Call(m, "GetTransferByTransferHash", hash)
+	ret0, _ := ret[0].(*action.Transfer)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetTransferByTransferHash indicates an expected call of GetTransferByTransferHash
+func (mr *MockBlockchainMockRecorder) GetTransferByTransferHash(hash interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTransferByTransferHash", reflect.TypeOf((*MockBlockchain)(nil).GetTransferByTransferHash), hash)
+}
+
+// GetBlockHashByTransferHash mocks base method
+func (m *MockBlockchain) GetBlockHashByTransferHash(hash common.Hash32B) (common.Hash32B, error) {
+	ret := m.ctrl.Call(m, "GetBlockHashByTransferHash", hash)
+	ret0, _ := ret[0].(common.Hash32B)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetBlockHashByTransferHash indicates an expected call of GetBlockHashByTransferHash
+func (mr *MockBlockchainMockRecorder) GetBlockHashByTransferHash(hash interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockHashByTransferHash", reflect.TypeOf((*MockBlockchain)(nil).GetBlockHashByTransferHash), hash)
 }
 
 // TipHash mocks base method
@@ -215,6 +215,19 @@ func (m *MockBlockchain) MintNewBlock(arg0 []*trx.Tx, arg1 []*action.Transfer, a
 // MintNewBlock indicates an expected call of MintNewBlock
 func (mr *MockBlockchainMockRecorder) MintNewBlock(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MintNewBlock", reflect.TypeOf((*MockBlockchain)(nil).MintNewBlock), arg0, arg1, arg2, arg3, arg4)
+}
+
+// MintNewDummyBlock mocks base method
+func (m *MockBlockchain) MintNewDummyBlock() (*blockchain.Block, error) {
+	ret := m.ctrl.Call(m, "MintNewDummyBlock")
+	ret0, _ := ret[0].(*blockchain.Block)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// MintNewDummyBlock indicates an expected call of MintNewDummyBlock
+func (mr *MockBlockchainMockRecorder) MintNewDummyBlock() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MintNewDummyBlock", reflect.TypeOf((*MockBlockchain)(nil).MintNewDummyBlock))
 }
 
 // AddBlockCommit mocks base method

@@ -342,3 +342,20 @@ func TestBlockchain_Validator(t *testing.T) {
 	bc.SetValidator(val)
 	assert.NotNil(t, bc.Validator())
 }
+
+func TestBlockchain_MintNewDummyBlock(t *testing.T) {
+	config, err := config.LoadConfigWithPathWithoutValidation(testingConfigPath)
+	assert.Nil(t, err)
+	// disable account-based testing
+	config.Chain.TrieDBPath = ""
+	config.Chain.InMemTest = true
+
+	bc := CreateBlockchain(config, Gen, nil)
+	defer bc.Stop()
+	assert.NotNil(t, bc)
+
+	blk, err := bc.MintNewDummyBlock()
+	assert.Nil(t, err)
+	assert.Equal(t, uint64(1), blk.Height())
+	assert.Equal(t, 0, len(blk.Tranxs))
+}
