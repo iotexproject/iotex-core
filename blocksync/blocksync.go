@@ -365,7 +365,10 @@ func (bs *blockSyncer) commitBlocksInBuffer() error {
 		bs.tp.RemoveTxInBlock(blk)
 
 		//TODO make it structured logging
-		logger.Warn().Msgf("------ commit block %d time = %v\n\n", next, time.Since(bs.actionTime))
+		logger.Warn().
+			Str("name", bs.p2p.PRC.String()).
+			Uint64("height", blk.Height()).
+			Msg("commit a block")
 		bs.actionTime = time.Now()
 
 		// update sliding window
