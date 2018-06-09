@@ -16,16 +16,20 @@ import (
 )
 
 const (
-	blockNS                  = "blocks"
-	blockHashHeightMappingNS = "hash<->height"
-	blockTxBlockMappingNS    = "tx<->block"
+	blockNS                            = "blocks"
+	blockHashHeightMappingNS           = "hash<->height"
+	blockTxBlockMappingNS              = "tx<->block"
+	blockAddressTransferMappingNS      = "address<->transfer"
+	blockAddressTransferCountMappingNS = "address<->transfercount"
 )
 
 var (
-	hashPrefix   = []byte("hash.")
-	txPrefix     = []byte("tx.")
-	heightPrefix = []byte("height.")
-	topHeightKey = []byte("top-height")
+	hashPrefix         = []byte("hash.")
+	txPrefix           = []byte("tx.")
+	heightPrefix       = []byte("height.")
+	topHeightKey       = []byte("top-height")
+	transferFromPrefix = []byte("transfer-from.")
+	transferToPrefix   = []byte("transfer-to.")
 )
 
 type blockDAO struct {
@@ -110,6 +114,82 @@ func (dao *blockDAO) getBlockHashByTxHash(hash common.Hash32B) (common.Hash32B, 
 	return blkHash, nil
 }
 
+func (dao *blockDAO) getTransfersBySenderAddress(address string) ([]common.Hash32B, error) {
+	// get transfers count for sender
+	senderTransferCount, err := dao.getTransferCountBySenderAddress(address)
+	if err != nil {
+		return nil, errors.Wrapf(err, "for sender %x", address)
+	}
+
+	res, getTransfersErr := dao.getTransfersByAddress(address, senderTransferCount, transferFromPrefix)
+	if getTransfersErr != nil {
+		return nil, getTransfersErr
+	}
+
+	return res, nil
+}
+
+func (dao *blockDAO) getTransferCountBySenderAddress(address string) (uint64, error) {
+	senderTransferCountKey := append(transferFromPrefix, address...)
+	value, err := dao.kvstore.Get(blockAddressTransferCountMappingNS, senderTransferCountKey)
+	if err != nil {
+		return 0, nil
+	}
+	if len(value) == 0 {
+		return 0, errors.New("count of transfers as recipient is broken")
+	}
+	return common.MachineEndian.Uint64(value), nil
+}
+
+func (dao *blockDAO) getTransfersByRecipientAddress(address string) ([]common.Hash32B, error) {
+	// get transfers count for recipient
+	recipientTransferCount, getCountErr := dao.getTransferCountByRecipientAddress(address)
+	if getCountErr != nil {
+		return nil, errors.Wrapf(getCountErr, "for recipient %x", address)
+	}
+
+	res, getTransfersErr := dao.getTransfersByAddress(address, recipientTransferCount, transferToPrefix)
+	if getTransfersErr != nil {
+		return nil, getTransfersErr
+	}
+
+	return res, nil
+}
+
+func (dao *blockDAO) getTransfersByAddress(address string, count uint64, keyPrefix []byte) ([]common.Hash32B, error) {
+	var res []common.Hash32B
+
+	for i := uint64(0); i < count; i++ {
+		// put new transfer to recipient
+		key := append(keyPrefix, address...)
+		key = append(key, utils.Uint64ToBytes(i)...)
+		value, err := dao.kvstore.Get(blockAddressTransferMappingNS, key)
+		if err != nil {
+			return res, errors.Wrapf(err, "failed to get transfer for index %x", i)
+		}
+		if len(value) == 0 {
+			return res, errors.Wrapf(db.ErrNotExist, "transfer for index %x missing", i)
+		}
+		transferHash := common.ZeroHash32B
+		copy(transferHash[:], value)
+		res = append(res, transferHash)
+	}
+
+	return res, nil
+}
+
+func (dao *blockDAO) getTransferCountByRecipientAddress(address string) (uint64, error) {
+	recipientTransferCountKey := append(transferToPrefix, address...)
+	value, err := dao.kvstore.Get(blockAddressTransferCountMappingNS, recipientTransferCountKey)
+	if err != nil {
+		return 0, nil
+	}
+	if len(value) == 0 {
+		return 0, errors.New("count of transfers as recipient is broken")
+	}
+	return common.MachineEndian.Uint64(value), nil
+}
+
 // getBlockchainHeight returns the blockchain height
 func (dao *blockDAO) getBlockchainHeight() (uint64, error) {
 	value, err := dao.kvstore.Get(blockNS, topHeightKey)
@@ -159,5 +239,54 @@ func (dao *blockDAO) putBlock(blk *Block) error {
 			return errors.Wrapf(err, "failed to put tx hash %x", txHash)
 		}
 	}
+
+	for _, transfer := range blk.Transfers {
+		transferHash := transfer.Hash()
+
+		// get transfers count for sender
+		senderTransferCount, err := dao.getTransferCountBySenderAddress(transfer.Sender)
+		if err != nil {
+			return errors.Wrapf(err, "for sender %x", transfer.Sender)
+		}
+
+		// put new transfer to sender
+		senderKey := append(transferFromPrefix, transfer.Sender...)
+		senderKey = append(senderKey, utils.Uint64ToBytes(senderTransferCount)...)
+		if err = dao.kvstore.PutIfNotExists(blockAddressTransferMappingNS, senderKey, transferHash[:]); err != nil {
+			return errors.Wrapf(err, "failed to put transfer hash %x for sender %x",
+				transfer.Hash(), transfer.Sender)
+		}
+
+		// update sender transfers count
+		senderTransferCountKey := append(transferFromPrefix, transfer.Sender...)
+		if err = dao.kvstore.Put(blockAddressTransferCountMappingNS, senderTransferCountKey,
+			utils.Uint64ToBytes(senderTransferCount+1)); err != nil {
+			return errors.Wrapf(err, "failed to bump transfer count %x for sender %x",
+				transfer.Hash(), transfer.Sender)
+		}
+
+		// get transfers count for recipient
+		recipientTransferCount, err := dao.getTransferCountByRecipientAddress(transfer.Recipient)
+		if err != nil {
+			return errors.Wrapf(err, "for recipient %x", transfer.Recipient)
+		}
+
+		// put new transfer to recipient
+		recipientKey := append(transferToPrefix, transfer.Recipient...)
+		recipientKey = append(recipientKey, utils.Uint64ToBytes(recipientTransferCount)...)
+		if err = dao.kvstore.PutIfNotExists(blockAddressTransferMappingNS, recipientKey, transferHash[:]); err != nil {
+			return errors.Wrapf(err, "failed to put transfer hash %x for recipient %x",
+				transfer.Hash(), transfer.Recipient)
+		}
+
+		// update recipient transfers count
+		recipientTransferCountKey := append(transferToPrefix, transfer.Recipient...)
+		if err = dao.kvstore.Put(blockAddressTransferCountMappingNS, recipientTransferCountKey,
+			utils.Uint64ToBytes(recipientTransferCount+1)); err != nil {
+			return errors.Wrapf(err, "failed to bump transfer count %x for recipient %x",
+				transfer.Hash(), transfer.Recipient)
+		}
+	}
+
 	return nil
 }

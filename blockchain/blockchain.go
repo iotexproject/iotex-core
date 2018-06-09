@@ -39,6 +39,10 @@ type Blockchain interface {
 	GetBlockByHeight(height uint64) (*Block, error)
 	// GetBlockByHash returns Block by hash
 	GetBlockByHash(hash common.Hash32B) (*Block, error)
+	// GetTransactionByAddress returns transaction from address
+	GetTransfersFromAddress(address string) ([]common.Hash32B, error)
+	// GetTransactionByAddress returns transaction to address
+	GetTransfersToAddress(address string) ([]common.Hash32B, error)
 	// GetTransactionByTxHash returns transaction by Tx hash
 	GetTransactionByTxHash(hash common.Hash32B) (*trx.Tx, error)
 	// GetBlockHashByTxHash returns Block hash by Tx hash
@@ -181,6 +185,24 @@ func (bc *blockchain) GetBlockByHeight(height uint64) (*Block, error) {
 // GetBlockByHash returns block from the blockchain hash by hash
 func (bc *blockchain) GetBlockByHash(hash common.Hash32B) (*Block, error) {
 	return bc.dao.getBlock(hash)
+}
+
+func (bc *blockchain) GetTransfersFromAddress(address string) ([]common.Hash32B, error) {
+	transfersFromAddress, err := bc.dao.getTransfersBySenderAddress(address)
+	if err != nil {
+		return nil, err
+	}
+
+	return transfersFromAddress, nil
+}
+
+func (bc *blockchain) GetTransfersToAddress(address string) ([]common.Hash32B, error) {
+	transfersToAddress, err := bc.dao.getTransfersByRecipientAddress(address)
+	if err != nil {
+		return nil, err
+	}
+
+	return transfersToAddress, nil
 }
 
 // GetTransactionByTxHash returns transaction by Tx hash

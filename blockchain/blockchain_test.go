@@ -9,10 +9,12 @@ package blockchain
 import (
 	"errors"
 	"fmt"
+	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/blockchain/trx"
 	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/config"
@@ -36,11 +38,13 @@ func addTestingBlocks(bc Blockchain) error {
 	payee = append(payee, &Payee{ta.Addrinfo["delta"].RawAddress, 70})
 	payee = append(payee, &Payee{ta.Addrinfo["echo"].RawAddress, 110})
 	payee = append(payee, &Payee{ta.Addrinfo["foxtrot"].RawAddress, 50 << 20})
+	transfers := []*action.Transfer{}
+	transfers = append(transfers, action.NewTransfer(0, big.NewInt(1), ta.Addrinfo["miner"].RawAddress, ta.Addrinfo["charlie"].RawAddress))
 	tx := bc.CreateTransaction(ta.Addrinfo["miner"], 280+(50<<20), payee)
 	if tx == nil {
 		return errors.New("empty tx for block 1")
 	}
-	blk, err := bc.MintNewBlock([]*trx.Tx{tx}, nil, nil, ta.Addrinfo["miner"], "")
+	blk, err := bc.MintNewBlock([]*trx.Tx{tx}, transfers, nil, ta.Addrinfo["miner"], "")
 	if err != nil {
 		return err
 	}
@@ -58,7 +62,12 @@ func addTestingBlocks(bc Blockchain) error {
 	payee = append(payee, &Payee{ta.Addrinfo["delta"].RawAddress, 1})
 	payee = append(payee, &Payee{ta.Addrinfo["miner"].RawAddress, 1})
 	tx = bc.CreateTransaction(ta.Addrinfo["charlie"], 5, payee)
-	blk, err = bc.MintNewBlock([]*trx.Tx{tx}, nil, nil, ta.Addrinfo["miner"], "")
+	transfers = nil
+	transfers = append(transfers, action.NewTransfer(0, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["alfa"].RawAddress))
+	transfers = append(transfers, action.NewTransfer(0, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["bravo"].RawAddress))
+	transfers = append(transfers, action.NewTransfer(0, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["delta"].RawAddress))
+	transfers = append(transfers, action.NewTransfer(0, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["miner"].RawAddress))
+	blk, err = bc.MintNewBlock([]*trx.Tx{tx}, transfers, nil, ta.Addrinfo["miner"], "")
 	if err != nil {
 		return err
 	}
@@ -285,6 +294,14 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		assert.Nil(err)
 		assert.Equal(tx1.Hash(), txHash)
 	}
+
+	fromTransfers, err := bc.GetTransfersFromAddress(ta.Addrinfo["charlie"].RawAddress)
+	assert.Nil(err)
+	assert.Equal(len(fromTransfers), 4)
+
+	toTransfers, err := bc.GetTransfersToAddress(ta.Addrinfo["charlie"].RawAddress)
+	assert.Nil(err)
+	assert.Equal(len(toTransfers), 1)
 }
 
 func TestEmptyBlockOnlyHasCoinbaseTx(t *testing.T) {
