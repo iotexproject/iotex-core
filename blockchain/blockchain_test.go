@@ -290,14 +290,14 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	blk, err = bc.GetBlockByHeight(4)
 	assert.Nil(err)
 	assert.Equal(hash4, blk.HashBlock())
-	for _, tx := range blk.Tranxs {
-		txHash := tx.Hash()
-		hash, err := bc.GetBlockHashByTxHash(txHash)
+	for _, transfer := range blk.Transfers {
+		transferHash := transfer.Hash()
+		hash, err := bc.GetBlockHashByTransferHash(transferHash)
 		assert.Nil(err)
 		assert.Equal(hash, hash4)
-		tx1, err := bc.GetTransactionByTxHash(txHash)
+		transfer1, err := bc.GetTransferByTransferHash(transferHash)
 		assert.Nil(err)
-		assert.Equal(tx1.Hash(), txHash)
+		assert.Equal(transfer1.Hash(), transferHash)
 	}
 
 	fromTransfers, err := bc.GetTransfersFromAddress(ta.Addrinfo["charlie"].RawAddress)

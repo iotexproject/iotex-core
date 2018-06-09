@@ -43,10 +43,10 @@ type Blockchain interface {
 	GetTransfersFromAddress(address string) ([]common.Hash32B, error)
 	// GetTransactionByAddress returns transaction to address
 	GetTransfersToAddress(address string) ([]common.Hash32B, error)
-	// GetTransactionByTxHash returns transaction by Tx hash
-	GetTransactionByTxHash(hash common.Hash32B) (*trx.Tx, error)
+	// GetTransfersByTxHash returns transaction by Tx hash
+	GetTransferByTransferHash(hash common.Hash32B) (*action.Transfer, error)
 	// GetBlockHashByTxHash returns Block hash by Tx hash
-	GetBlockHashByTxHash(hash common.Hash32B) (common.Hash32B, error)
+	GetBlockHashByTransferHash(hash common.Hash32B) (common.Hash32B, error)
 	// TipHash returns tip block's hash
 	TipHash() (common.Hash32B, error)
 	// TipHeight returns tip block's height
@@ -205,9 +205,9 @@ func (bc *blockchain) GetTransfersToAddress(address string) ([]common.Hash32B, e
 	return transfersToAddress, nil
 }
 
-// GetTransactionByTxHash returns transaction by Tx hash
-func (bc *blockchain) GetTransactionByTxHash(hash common.Hash32B) (*trx.Tx, error) {
-	blkHash, err := bc.dao.getBlockHashByTxHash(hash)
+// GetTransferByTransferHash returns transfer by Transfer hash
+func (bc *blockchain) GetTransferByTransferHash(hash common.Hash32B) (*action.Transfer, error) {
+	blkHash, err := bc.dao.getBlockHashByTransferHash(hash)
 	if err != nil {
 		return nil, err
 	}
@@ -215,17 +215,17 @@ func (bc *blockchain) GetTransactionByTxHash(hash common.Hash32B) (*trx.Tx, erro
 	if err != nil {
 		return nil, err
 	}
-	for _, tx := range blk.Tranxs {
-		if tx.Hash() == hash {
-			return tx, nil
+	for _, transfer := range blk.Transfers {
+		if transfer.Hash() == hash {
+			return transfer, nil
 		}
 	}
-	return nil, errors.Errorf("block %x does not have tx %x", blkHash, hash)
+	return nil, errors.Errorf("block %x does not have transfer %x", blkHash, hash)
 }
 
 // GetBlockHashByTxHash returns Block hash by Tx hash
-func (bc *blockchain) GetBlockHashByTxHash(hash common.Hash32B) (common.Hash32B, error) {
-	return bc.dao.getBlockHashByTxHash(hash)
+func (bc *blockchain) GetBlockHashByTransferHash(hash common.Hash32B) (common.Hash32B, error) {
+	return bc.dao.getBlockHashByTransferHash(hash)
 }
 
 // TipHash returns tip block's hash
