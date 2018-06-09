@@ -34,9 +34,11 @@ type (
 )
 
 // NewVote returns a Vote instance
-func NewVote(timestamp uint64, selfPubKey []byte, votePubKey []byte) *Vote {
+func NewVote(nonce uint64, selfPubKey []byte, votePubKey []byte) *Vote {
 	pbVote := &iproto.VotePb{
-		Timestamp:  timestamp,
+		Version: common.ProtocolVersion,
+
+		Nonce:      nonce,
 		SelfPubkey: selfPubKey,
 		VotePubkey: votePubKey,
 	}
