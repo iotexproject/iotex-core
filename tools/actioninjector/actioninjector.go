@@ -76,7 +76,6 @@ func main() {
 	fmt.Println("Sent out the signed tx: ")
 
 	fmt.Println("Version: ", tsf.Version)
-	fmt.Println("Lock Time: ", tsf.LockTime)
 	fmt.Println("Nonce: ", tsf.Nonce)
 	fmt.Println("Amount: ", tsf.Amount)
 	fmt.Println("Sender: ", tsf.Sender)
