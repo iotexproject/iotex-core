@@ -47,75 +47,75 @@ func TestNoncePriorityQueue(t *testing.T) {
 	}
 }
 
-func TestTxQueue_Put(t *testing.T) {
+func TestTsfQueue_Put(t *testing.T) {
 	assert := assert.New(t)
-	q := NewTxQueue().(*txQueue)
-	tx1 := action.Transfer{Nonce: uint64(2), Amount: big.NewInt(10)}
-	q.Put(&tx1)
+	q := NewTsfQueue().(*tsfQueue)
+	tsf1 := action.Transfer{Nonce: uint64(2), Amount: big.NewInt(10)}
+	q.Put(&tsf1)
 	assert.Equal(uint64(2), q.index[0])
-	assert.NotNil(q.items[tx1.Nonce])
-	tx2 := action.Transfer{Nonce: uint64(1), Amount: big.NewInt(100)}
-	q.Put(&tx2)
+	assert.NotNil(q.items[tsf1.Nonce])
+	tsf2 := action.Transfer{Nonce: uint64(1), Amount: big.NewInt(100)}
+	q.Put(&tsf2)
 	assert.Equal(uint64(1), heap.Pop(&q.index))
-	assert.Equal(&tx2, q.items[uint64(1)])
+	assert.Equal(&tsf2, q.items[uint64(1)])
 	assert.Equal(uint64(2), heap.Pop(&q.index))
-	assert.Equal(&tx1, q.items[uint64(2)])
-	// tx3 is a replacement transaction
-	tx3 := action.Transfer{Nonce: uint64(1), Amount: big.NewInt(1000)}
-	err := q.Put(&tx3)
+	assert.Equal(&tsf1, q.items[uint64(2)])
+	// tsf3 is a replacement transfer
+	tsf3 := action.Transfer{Nonce: uint64(1), Amount: big.NewInt(1000)}
+	err := q.Put(&tsf3)
 	assert.NotNil(err)
 }
 
-func TestTxQueue_FilterNonce(t *testing.T) {
+func TestTsfQueue_FilterNonce(t *testing.T) {
 	assert := assert.New(t)
-	q := NewTxQueue().(*txQueue)
-	tx1 := action.Transfer{Nonce: uint64(1), Amount: big.NewInt(1)}
-	tx2 := action.Transfer{Nonce: uint64(2), Amount: big.NewInt(100)}
-	tx3 := action.Transfer{Nonce: uint64(3), Amount: big.NewInt(1000)}
-	q.Put(&tx1)
-	q.Put(&tx2)
-	q.Put(&tx3)
+	q := NewTsfQueue().(*tsfQueue)
+	tsf1 := action.Transfer{Nonce: uint64(1), Amount: big.NewInt(1)}
+	tsf2 := action.Transfer{Nonce: uint64(2), Amount: big.NewInt(100)}
+	tsf3 := action.Transfer{Nonce: uint64(3), Amount: big.NewInt(1000)}
+	q.Put(&tsf1)
+	q.Put(&tsf2)
+	q.Put(&tsf3)
 	q.FilterNonce(uint64(3))
 	assert.Equal(1, len(q.items))
 	assert.Equal(uint64(3), q.index[0])
-	assert.Equal(&tx3, q.items[q.index[0]])
+	assert.Equal(&tsf3, q.items[q.index[0]])
 }
 
-func TestTxQueue_UpdateNonce(t *testing.T) {
+func TestTsfQueue_UpdateNonce(t *testing.T) {
 	assert := assert.New(t)
-	q := NewTxQueue().(*txQueue)
-	tx1 := action.Transfer{Nonce: uint64(1), Amount: big.NewInt(1)}
-	tx2 := action.Transfer{Nonce: uint64(3), Amount: big.NewInt(1000)}
-	tx3 := action.Transfer{Nonce: uint64(4), Amount: big.NewInt(10000)}
-	tx4 := action.Transfer{Nonce: uint64(6), Amount: big.NewInt(100000)}
-	tx5 := action.Transfer{Nonce: uint64(2), Amount: big.NewInt(100)}
-	q.Put(&tx1)
-	q.Put(&tx2)
-	q.Put(&tx3)
-	q.Put(&tx4)
+	q := NewTsfQueue().(*tsfQueue)
+	tsf1 := action.Transfer{Nonce: uint64(1), Amount: big.NewInt(1)}
+	tsf2 := action.Transfer{Nonce: uint64(3), Amount: big.NewInt(1000)}
+	tsf3 := action.Transfer{Nonce: uint64(4), Amount: big.NewInt(10000)}
+	tsf4 := action.Transfer{Nonce: uint64(6), Amount: big.NewInt(100000)}
+	tsf5 := action.Transfer{Nonce: uint64(2), Amount: big.NewInt(100)}
+	q.Put(&tsf1)
+	q.Put(&tsf2)
+	q.Put(&tsf3)
+	q.Put(&tsf4)
 	q.confirmedNonce = uint64(2)
 	q.pendingNonce = uint64(2)
 	q.pendingBalance = big.NewInt(1100)
-	q.Put(&tx5)
+	q.Put(&tsf5)
 	q.UpdateNonce(uint64(2))
 	assert.Equal(uint64(5), q.pendingNonce)
 	assert.Equal(uint64(4), q.confirmedNonce)
 }
 
-func TestTxQueue_ConfirmedTxs(t *testing.T) {
+func TestTsfQueue_ConfirmedTsfs(t *testing.T) {
 	assert := assert.New(t)
-	q := NewTxQueue().(*txQueue)
-	tx1 := action.Transfer{Nonce: uint64(2), Amount: big.NewInt(1)}
-	tx2 := action.Transfer{Nonce: uint64(3), Amount: big.NewInt(100)}
-	tx3 := action.Transfer{Nonce: uint64(4), Amount: big.NewInt(1000)}
-	tx4 := action.Transfer{Nonce: uint64(6), Amount: big.NewInt(10000)}
-	tx5 := action.Transfer{Nonce: uint64(7), Amount: big.NewInt(100000)}
-	q.Put(&tx1)
-	q.Put(&tx2)
-	q.Put(&tx3)
-	q.Put(&tx4)
-	q.Put(&tx5)
+	q := NewTsfQueue().(*tsfQueue)
+	tsf1 := action.Transfer{Nonce: uint64(2), Amount: big.NewInt(1)}
+	tsf2 := action.Transfer{Nonce: uint64(3), Amount: big.NewInt(100)}
+	tsf3 := action.Transfer{Nonce: uint64(4), Amount: big.NewInt(1000)}
+	tsf4 := action.Transfer{Nonce: uint64(6), Amount: big.NewInt(10000)}
+	tsf5 := action.Transfer{Nonce: uint64(7), Amount: big.NewInt(100000)}
+	q.Put(&tsf1)
+	q.Put(&tsf2)
+	q.Put(&tsf3)
+	q.Put(&tsf4)
+	q.Put(&tsf5)
 	q.confirmedNonce = 4
-	txs := q.ConfirmedTxs()
-	assert.Equal([]*action.Transfer{&tx1, &tx2}, txs)
+	tsfs := q.ConfirmedTsfs()
+	assert.Equal([]*action.Transfer{&tsf1, &tsf2}, tsfs)
 }

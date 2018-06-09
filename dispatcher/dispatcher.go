@@ -226,7 +226,7 @@ func (d *dispatcher) handleActionMsg(m *actionMsg) {
 	if pbTsf := m.action.GetTransfer(); pbTsf != nil {
 		tsf := &action.Transfer{}
 		tsf.ConvertFromTransferPb(pbTsf)
-		if err := d.ap.AddTx(tsf); err != nil {
+		if err := d.ap.AddTsf(tsf); err != nil {
 			logger.Error().Err(err)
 		}
 		// TODO: defer m.done and return error to caller
