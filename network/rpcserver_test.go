@@ -18,6 +18,7 @@ import (
 	pb "github.com/iotexproject/iotex-core/network/proto"
 	"github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/test/mock/mock_dispatcher"
+	"github.com/iotexproject/iotex-core/test/util"
 )
 
 func TestRpcPingPong(t *testing.T) {
@@ -34,6 +35,8 @@ func TestRpcPingPong(t *testing.T) {
 		p.Close()
 		s.Stop()
 	}()
+
+	util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) { return o.PRC.Started(), nil })
 
 	pong, err := p.Ping(&pb.Ping{Nonce: uint64(4689), Addr: "127.0.0.1:10001"})
 	assert.Nil(t, err)
@@ -61,6 +64,8 @@ func TestGetPeers(t *testing.T) {
 		p.Close()
 		s.Stop()
 	}()
+
+	util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) { return o.PRC.Started(), nil })
 
 	res, err := p.GetPeers(&pb.GetPeersReq{Count: 1})
 	assert.Nil(t, err)
@@ -102,6 +107,8 @@ func TestBroadcast(t *testing.T) {
 		s.Stop()
 	}()
 
+	util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) { return o.PRC.Started(), nil })
+
 	txMsg := &iproto.TxPb{}
 	b, _ := proto.Marshal(txMsg)
 	res, err := p.BroadcastMsg(
@@ -129,6 +136,8 @@ func TestRPCTell(t *testing.T) {
 		s.Stop()
 		mctrl.Finish()
 	}()
+
+	util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) { return o.PRC.Started(), nil })
 
 	txMsg := &iproto.TxPb{}
 	b, _ := proto.Marshal(txMsg)
@@ -162,6 +171,8 @@ func TestRateLimit(t *testing.T) {
 		s.Stop()
 		mctrl.Finish()
 	}()
+
+	util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) { return o.PRC.Started(), nil })
 
 	var res *pb.TellRes
 	var err error
@@ -203,6 +214,8 @@ func TestSecureRpcPingPong(t *testing.T) {
 		s.Stop()
 	}()
 
+	util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) { return o.PRC.Started(), nil })
+
 	pong, err := p.Ping(&pb.Ping{Nonce: uint64(4689), Addr: "127.0.0.1:10001"})
 	assert.Nil(t, err)
 	assert.NotNil(t, pong)
@@ -214,7 +227,7 @@ func TestSecureRpcPingPong(t *testing.T) {
 }
 
 func TestKeepaliveParams(t *testing.T) {
-	// This only verfies the config doesn't break connections
+	// This only verifies the config doesn't break connections
 	config := LoadTestConfig("", true)
 	config.KLClientParams.Time = 50 * time.Millisecond
 	config.KLClientParams.Timeout = 20 * time.Millisecond
@@ -233,6 +246,8 @@ func TestKeepaliveParams(t *testing.T) {
 		p.Close()
 		s.Stop()
 	}()
+
+	util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) { return o.PRC.Started(), nil })
 
 	for i := 0; i < 5; i++ {
 		time.Sleep(100 * time.Millisecond)

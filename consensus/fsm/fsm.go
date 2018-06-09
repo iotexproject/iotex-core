@@ -292,7 +292,7 @@ func (m *Machine) transitionTo(dest State) error {
 		return errors.Wrapf(ErrStateUndefined, "state %s has not been registered", dest)
 	}
 
-	logger.Debug().
+	logger.Info().
 		Str("name", m.name).
 		Str("src", string(m.state)).
 		Str("dst", string(dest)).

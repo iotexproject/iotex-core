@@ -45,6 +45,10 @@ func TestLocalRollDPoS(t *testing.T) {
 	t.Run("PseudoRotatedProposer-PseudoStarNewEpoch-NoInterval", func(t *testing.T) {
 		testLocalRollDPoS("PseudoRotatedProposer", "PseudoStarNewEpoch", 8, t, 0)
 	})
+	t.Run("PseudoRotatedProposer-PseudoStarNewEpoch-Interval", func(t *testing.T) {
+		testLocalRollDPoS(
+			"PseudoRotatedProposer", "PseudoStarNewEpoch", 8, t, 100*time.Millisecond)
+	})
 }
 
 // 4 delegates and 3 full nodes
@@ -88,7 +92,7 @@ func testLocalRollDPoS(prCb string, epochCb string, numBlocks uint64, t *testing
 		defer svr.Stop()
 	}
 
-	err = util.WaitUntil(time.Millisecond*200, time.Second*4, func() (bool, error) {
+	err = util.WaitUntil(time.Millisecond*200, time.Second*10, func() (bool, error) {
 		for _, svr := range svrs {
 			bc := svr.Bc()
 			if bc == nil {
