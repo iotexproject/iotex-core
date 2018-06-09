@@ -369,13 +369,9 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 
 	for _, pk := range pubKey {
 		pubk, err := hex.DecodeString(pk)
-		if err != nil {
-			panic(err)
-		}
+		assert.Nil(err)
 		address, err := iotxaddress.GetAddress(pubk, false, []byte{0x01, 0x02, 0x03, 0x04})
-		if err != nil {
-			panic(err)
-		}
+		assert.Nil(err)
 		sf.CreateState(address.RawAddress, uint64(100))
 	}
 
