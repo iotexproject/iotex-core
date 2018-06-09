@@ -33,8 +33,8 @@ func (h *noncePriorityQueue) Pop() interface{} {
 	return x
 }
 
-// TxQueue is the interface of txQueue
-type TxQueue interface {
+// TsfQueue is the interface of tsfQueue
+type TsfQueue interface {
 	Overlaps(*action.Transfer) bool
 	Put(*action.Transfer) error
 	FilterNonce(uint64) []*action.Transfer
@@ -47,47 +47,47 @@ type TxQueue interface {
 	PendingBalance() *big.Int
 	Len() int
 	Empty() bool
-	ConfirmedTxs() []*action.Transfer
+	ConfirmedTsfs() []*action.Transfer
 }
 
-// txQueue is a queue of transactions from an account
-type txQueue struct {
-	items          map[uint64]*action.Transfer // Map that stores all the transactions belonging to an account associated with nonces
-	index          noncePriorityQueue          // Priority Queue that stores all the nonces belonging to an account. Nonces are used as indices for transaction map
-	confirmedNonce uint64                      // Current nonce tracking previous transactions that can be committed to the next block
+// tsfQueue is a queue of transfers from an account
+type tsfQueue struct {
+	items          map[uint64]*action.Transfer // Map that stores all the transfers belonging to an account associated with nonces
+	index          noncePriorityQueue          // Priority Queue that stores all the nonces belonging to an account. Nonces are used as indices for transfer map
+	confirmedNonce uint64                      // Current nonce tracking previous transfers that can be committed to the next block
 	pendingNonce   uint64                      // Current pending nonce for the account
 	pendingBalance *big.Int                    // Current pending balance for the account
 }
 
-// NewTxQueue create a new transaction queue
-func NewTxQueue() TxQueue {
-	return &txQueue{
+// NewTsfQueue create a new transfer queue
+func NewTsfQueue() TsfQueue {
+	return &tsfQueue{
 		items:          make(map[uint64]*action.Transfer),
 		index:          noncePriorityQueue{},
-		confirmedNonce: uint64(1), // Taking coinbase Tx into account, confirmedNonce should start with 1
-		pendingNonce:   uint64(1), // Taking coinbase Tx into account, pendingNonce should start with 1
+		confirmedNonce: uint64(1), // Taking coinbase Tsf into account, confirmedNonce should start with 1
+		pendingNonce:   uint64(1), // Taking coinbase Tsf into account, pendingNonce should start with 1
 		pendingBalance: big.NewInt(0),
 	}
 }
 
 // Overlap returns whether the current queue contains the given nonce
-func (q *txQueue) Overlaps(tx *action.Transfer) bool {
-	return q.items[tx.Nonce] != nil
+func (q *tsfQueue) Overlaps(tsf *action.Transfer) bool {
+	return q.items[tsf.Nonce] != nil
 }
 
-// Put inserts a new transaction into the map, also updating the queue's nonce index
-func (q *txQueue) Put(tx *action.Transfer) error {
-	nonce := tx.Nonce
+// Put inserts a new transfer into the map, also updating the queue's nonce index
+func (q *tsfQueue) Put(tsf *action.Transfer) error {
+	nonce := tsf.Nonce
 	if q.items[nonce] != nil {
 		return errors.Wrapf(ErrNonce, "duplicate nonce")
 	}
 	heap.Push(&q.index, nonce)
-	q.items[nonce] = tx
+	q.items[nonce] = tsf
 	return nil
 }
 
-// FilterNonce removes all transactions from the map with a nonce lower than the given threshold
-func (q *txQueue) FilterNonce(threshold uint64) []*action.Transfer {
+// FilterNonce removes all transfers from the map with a nonce lower than the given threshold
+func (q *tsfQueue) FilterNonce(threshold uint64) []*action.Transfer {
 	var removed []*action.Transfer
 	// Pop off priority queue and delete corresponding entries from map until the threshold is reached
 	for q.index.Len() > 0 && (q.index)[0] < threshold {
@@ -99,7 +99,7 @@ func (q *txQueue) FilterNonce(threshold uint64) []*action.Transfer {
 }
 
 // UpdatePendingNonce returns the next pending nonce starting from the given nonce
-func (q *txQueue) UpdateNonce(nonce uint64) {
+func (q *tsfQueue) UpdateNonce(nonce uint64) {
 	for q.items[nonce] != nil {
 		if nonce == q.confirmedNonce && q.pendingBalance.Cmp(q.items[nonce].Amount) >= 0 {
 			q.confirmedNonce++
@@ -111,52 +111,52 @@ func (q *txQueue) UpdateNonce(nonce uint64) {
 }
 
 // SetConfirmedNonce sets the new confirmed nonce for the queue
-func (q *txQueue) SetConfirmedNonce(nonce uint64) {
+func (q *tsfQueue) SetConfirmedNonce(nonce uint64) {
 	q.confirmedNonce = nonce
 }
 
 // ConfirmedNonce returns the current confirmed nonce for the queue
-func (q *txQueue) ConfirmedNonce() uint64 {
+func (q *tsfQueue) ConfirmedNonce() uint64 {
 	return q.confirmedNonce
 }
 
 // SetPendingNonce sets pending nonce for the queue
-func (q *txQueue) SetPendingNonce(nonce uint64) {
+func (q *tsfQueue) SetPendingNonce(nonce uint64) {
 	q.pendingNonce = nonce
 }
 
 // PendingNonce returns the current pending nonce of the queue
-func (q *txQueue) PendingNonce() uint64 {
+func (q *tsfQueue) PendingNonce() uint64 {
 	return q.pendingNonce
 }
 
 // SetPendingBalance sets pending balance for the queue
-func (q *txQueue) SetPendingBalance(balance *big.Int) {
+func (q *tsfQueue) SetPendingBalance(balance *big.Int) {
 	q.pendingBalance = balance
 }
 
 // PendingBalance returns the current pending balance for the queue
-func (q *txQueue) PendingBalance() *big.Int {
+func (q *tsfQueue) PendingBalance() *big.Int {
 	return q.pendingBalance
 }
 
-// Len returns the length of the transaction map
-func (q *txQueue) Len() int {
+// Len returns the length of the transfer map
+func (q *tsfQueue) Len() int {
 	return len(q.items)
 }
 
-// Empty returns whether the queue of transactions is empty or not
-func (q *txQueue) Empty() bool {
+// Empty returns whether the queue of transfers is empty or not
+func (q *tsfQueue) Empty() bool {
 	return q.Len() == 0
 }
 
-// ConfirmedTxs creates a consecutive nonce-sorted slice of transactions
-func (q *txQueue) ConfirmedTxs() []*action.Transfer {
-	txs := make([]*action.Transfer, 0, len(q.items))
+// ConfirmedTsfs creates a consecutive nonce-sorted slice of transfers
+func (q *tsfQueue) ConfirmedTsfs() []*action.Transfer {
+	tsfs := make([]*action.Transfer, 0, len(q.items))
 	nonce := q.index[0]
 	for q.items[nonce] != nil && nonce < q.confirmedNonce {
-		txs = append(txs, q.items[nonce])
+		tsfs = append(tsfs, q.items[nonce])
 		nonce++
 	}
-	return txs
+	return tsfs
 }
