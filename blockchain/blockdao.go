@@ -18,14 +18,14 @@ import (
 const (
 	blockNS                            = "blocks"
 	blockHashHeightMappingNS           = "hash<->height"
-	blockTxBlockMappingNS              = "tx<->block"
+	blockTransferBlockMappingNS        = "transfer<->block"
 	blockAddressTransferMappingNS      = "address<->transfer"
 	blockAddressTransferCountMappingNS = "address<->transfercount"
 )
 
 var (
 	hashPrefix         = []byte("hash.")
-	txPrefix           = []byte("tx.")
+	transferPrefix     = []byte("transfer.")
 	heightPrefix       = []byte("height.")
 	topHeightKey       = []byte("top-height")
 	transferFromPrefix = []byte("transfer-from.")
@@ -100,15 +100,15 @@ func (dao *blockDAO) getBlock(hash common.Hash32B) (*Block, error) {
 	return &blk, nil
 }
 
-func (dao *blockDAO) getBlockHashByTxHash(hash common.Hash32B) (common.Hash32B, error) {
+func (dao *blockDAO) getBlockHashByTransferHash(hash common.Hash32B) (common.Hash32B, error) {
 	blkHash := common.ZeroHash32B
-	key := append(txPrefix, hash[:]...)
-	value, err := dao.kvstore.Get(blockTxBlockMappingNS, key)
+	key := append(transferPrefix, hash[:]...)
+	value, err := dao.kvstore.Get(blockTransferBlockMappingNS, key)
 	if err != nil {
-		return blkHash, errors.Wrapf(err, "failed to get tx %x", hash)
+		return blkHash, errors.Wrapf(err, "failed to get transfer %x", hash)
 	}
 	if len(value) == 0 {
-		return blkHash, errors.Wrapf(db.ErrNotExist, "tx %x missing", hash)
+		return blkHash, errors.Wrapf(db.ErrNotExist, "transfer %x missing", hash)
 	}
 	copy(blkHash[:], value)
 	return blkHash, nil
@@ -231,12 +231,12 @@ func (dao *blockDAO) putBlock(blk *Block) error {
 			return errors.Wrap(err, "failed to put top height")
 		}
 	}
-	// map Tx hash to block hash
-	for _, tx := range blk.Tranxs {
-		txHash := tx.Hash()
-		hashKey := append(txPrefix, txHash[:]...)
-		if err = dao.kvstore.Put(blockTxBlockMappingNS, hashKey, hash[:]); err != nil {
-			return errors.Wrapf(err, "failed to put tx hash %x", txHash)
+	// map Transfer hash to block hash
+	for _, transfer := range blk.Transfers {
+		transferHash := transfer.Hash()
+		hashKey := append(transferPrefix, transferHash[:]...)
+		if err = dao.kvstore.Put(blockTransferBlockMappingNS, hashKey, hash[:]); err != nil {
+			return errors.Wrapf(err, "failed to put transfer hash %x", transferHash)
 		}
 	}
 

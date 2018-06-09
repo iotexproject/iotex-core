@@ -126,30 +126,30 @@ func (mr *MockBlockchainMockRecorder) GetBlockByHash(hash interface{}) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockByHash", reflect.TypeOf((*MockBlockchain)(nil).GetBlockByHash), hash)
 }
 
-// GetTransactionByTxHash mocks base method
-func (m *MockBlockchain) GetTransactionByTxHash(hash common.Hash32B) (*trx.Tx, error) {
-	ret := m.ctrl.Call(m, "GetTransactionByTxHash", hash)
-	ret0, _ := ret[0].(*trx.Tx)
+// GetTransferByTransferHash mocks base method
+func (m *MockBlockchain) GetTransferByTransferHash(hash common.Hash32B) (*action.Transfer, error) {
+	ret := m.ctrl.Call(m, "GetTransferByTransferHash", hash)
+	ret0, _ := ret[0].(*action.Transfer)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetTransactionByTxHash indicates an expected call of GetTransactionByTxHash
-func (mr *MockBlockchainMockRecorder) GetTransactionByTxHash(hash interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTransactionByTxHash", reflect.TypeOf((*MockBlockchain)(nil).GetTransactionByTxHash), hash)
+// GetTransferByTransferHash indicates an expected call of GetTransferByTransferHash
+func (mr *MockBlockchainMockRecorder) GetTransferByTransferHash(hash interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTransferByTransferHash", reflect.TypeOf((*MockBlockchain)(nil).GetTransferByTransferHash), hash)
 }
 
-// GetBlockHashByTxHash mocks base method
-func (m *MockBlockchain) GetBlockHashByTxHash(hash common.Hash32B) (common.Hash32B, error) {
-	ret := m.ctrl.Call(m, "GetBlockHashByTxHash", hash)
+// GetBlockHashByTransferHash mocks base method
+func (m *MockBlockchain) GetBlockHashByTransferHash(hash common.Hash32B) (common.Hash32B, error) {
+	ret := m.ctrl.Call(m, "GetBlockHashByTransferHash", hash)
 	ret0, _ := ret[0].(common.Hash32B)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetBlockHashByTxHash indicates an expected call of GetBlockHashByTxHash
-func (mr *MockBlockchainMockRecorder) GetBlockHashByTxHash(hash interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockHashByTxHash", reflect.TypeOf((*MockBlockchain)(nil).GetBlockHashByTxHash), hash)
+// GetBlockHashByTransferHash indicates an expected call of GetBlockHashByTransferHash
+func (mr *MockBlockchainMockRecorder) GetBlockHashByTransferHash(hash interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockHashByTransferHash", reflect.TypeOf((*MockBlockchain)(nil).GetBlockHashByTransferHash), hash)
 }
 
 // GetTransfersFromAddress mocks base method
