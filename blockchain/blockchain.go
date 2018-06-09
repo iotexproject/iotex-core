@@ -55,6 +55,8 @@ type Blockchain interface {
 	// Note: the coinbase transaction will be added to the given transactions
 	// when minting a new block.
 	MintNewBlock([]*trx.Tx, []*action.Transfer, []*action.Vote, *iotxaddress.Address, string) (*Block, error)
+	// MintNewDummyBlock creates a new dummy block with no transactions
+	MintNewDummyBlock() (*Block, error)
 	// AddBlockCommit adds a new block into blockchain
 	AddBlockCommit(blk *Block) error
 	// AddBlockSync adds a past block into blockchain
@@ -284,6 +286,35 @@ func (bc *blockchain) MintNewBlock(txs []*trx.Tx, tsf []*action.Transfer, vote [
 
 	blkHash := blk.HashBlock()
 	blk.Header.blockSig = cp.Sign(producer.PrivateKey, blkHash[:])
+	return blk, nil
+}
+
+// MintNewDummyBlock creates a new empty block
+// note: coinbase transaction is not included for the proposer
+func (bc *blockchain) MintNewDummyBlock() (*Block, error) {
+	bc.mu.RLock()
+	defer bc.mu.RUnlock()
+
+	prevBlk, err := bc.GetBlockByHeight(bc.tipHeight)
+	if err != nil {
+		return nil, err
+	}
+	timestamp := prevBlk.Header.timestamp + 1
+
+	blk := &Block{
+		Header: &BlockHeader{
+			version:       Version,
+			chainID:       bc.chainID,
+			height:        bc.tipHeight + 1,
+			timestamp:     timestamp,
+			prevBlockHash: bc.tipHash,
+			txRoot:        common.ZeroHash32B,
+			stateRoot:     common.ZeroHash32B,
+			trnxNumber:    0,
+			trnxDataSize:  0,
+			blockSig:      []byte{}},
+	}
+
 	return blk, nil
 }
 
