@@ -221,14 +221,8 @@ func (sf *stateFactory) CommitStateChanges(tsf []*action.Transfer, vote []*actio
 	pending := make(map[common.PKHash]*State)
 	addressToPKMap := make(map[string][]byte)
 
-	err := sf.handleTsf(pending, addressToPKMap, tsf)
-	if err != nil {
-		return err
-	}
-	err = sf.handleVote(pending, addressToPKMap, vote)
-	if err != nil {
-		return err
-	}
+	sf.handleTsf(pending, addressToPKMap, tsf)
+	sf.handleVote(pending, addressToPKMap, vote)
 
 	// construct <k, v> list of pending state
 	transferK := [][]byte{}
