@@ -7,6 +7,7 @@
 package blockchain
 
 import (
+	"encoding/hex"
 	"math"
 	"math/big"
 	"sort"
@@ -108,6 +109,31 @@ type blockchain struct {
 
 // NewBlockchain creates a new blockchain instance
 func NewBlockchain(dao *blockDAO, cfg *config.Config, gen *Genesis, sf statefactory.StateFactory) Blockchain {
+	if sf != nil {
+		// add Genesis block miner into Trie
+		if _, err := sf.CreateState(cfg.Chain.MinerAddr.RawAddress, gen.TotalSupply); err != nil {
+			logger.Error().Err(err).Msg("Failed to add miner into StateFactory")
+			return nil
+		}
+		// add initial delegates into Trie
+		for _, pk := range gen.InitDelegatesPubKey {
+			pubk, err := hex.DecodeString(pk)
+			if err != nil {
+				logger.Error().Err(err).Msg("Failed to denoce public key")
+				return nil
+			}
+			address, err := iotxaddress.GetAddress(pubk, false, []byte{0x01, 0x02, 0x03, 0x04})
+			if err != nil {
+				logger.Error().Err(err).Msg("Failed to get address from public key")
+				return nil
+			}
+			if _, err := sf.CreateState(address.RawAddress, uint64(0)); err != nil {
+				logger.Error().Err(err).Msg("Failed to add initial delegates state into StateFactory")
+				return nil
+			}
+		}
+	}
+
 	utk := NewUtxoTracker()
 	chain := &blockchain{
 		dao:       dao,
@@ -118,13 +144,6 @@ func NewBlockchain(dao *blockDAO, cfg *config.Config, gen *Genesis, sf statefact
 		validator: &validator{sf: sf, utk: utk},
 	}
 	chain.AddService(dao)
-	// add Genesis block miner into Trie
-	if sf != nil {
-		if _, err := chain.sf.CreateState(cfg.Chain.MinerAddr.RawAddress, gen.TotalSupply); err != nil {
-			logger.Error().Err(err).Msg("Failed to add miner into StateFactory")
-			return nil
-		}
-	}
 	return chain
 }
 
