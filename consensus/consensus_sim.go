@@ -66,7 +66,7 @@ func NewSim(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxPool, bs b
 
 	mintBlockCB := func() (*blockchain.Block, error) {
 		logger.Debug().Msg("mintBlockCB called")
-
+		// TODO: get list of Transfer and Vote from actpool, instead of nil, nil below
 		blk, err := bc.MintNewBlock(tp.PickTxs(), nil, nil, &cfg.Chain.MinerAddr, "")
 		if err != nil {
 			logger.Error().Msg("Failed to mint a block")

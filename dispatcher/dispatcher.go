@@ -81,7 +81,7 @@ func NewDispatcher(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxPoo
 		ap:       ap,
 		bs:       bs,
 	}
-	d.cs = consensus.NewConsensus(cfg, bc, tp, bs, dp)
+	d.cs = consensus.NewConsensus(cfg, bc, tp, ap, bs, dp)
 	return d
 }
 
