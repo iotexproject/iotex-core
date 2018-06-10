@@ -10,6 +10,8 @@
 package main
 
 import (
+	"encoding/hex"
+	"flag"
 	"fmt"
 	"math/big"
 	"math/rand"
@@ -20,15 +22,22 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/iotexproject/iotex-core/crypto"
+	"github.com/iotexproject/iotex-core/iotxaddress"
 	pb "github.com/iotexproject/iotex-core/proto"
-	ta "github.com/iotexproject/iotex-core/test/testaddress"
 )
 
 const (
-	port = ":42124"
+	port        = ":42124"
+	pubkeyMiner = "b9b8d7316705dc4ff62bb323e610f3f5072abedc9834e999d6537f6681284ea2"
+	prikeyMiner = "7fbb20b87d34eade61351165aa4c6fa5d87dd349368dd6b9034ea3d3e918c706b9b8d7316705dc4ff62bb323e610f3f5072abedc9834e999d6537f6681284ea2"
+	pubkeyA     = "2c9ccbeb9ee91271f7e5c2103753be9c9edff847e1a51227df6a6b0765f31a4b424e84027b44a663950f013a88b8fd8cdc53b1eda1d4b73f9d9dc12546c8c87d68ff1435a0f8a006"
+	prikeyA     = "b5affb30846a00ef5aa39b57f913d70cd8cf6badd587239863cb67feacf6b9f30c34e800"
 )
 
 func main() {
+	var count int
+	flag.IntVar(&count, "count", 10, "number of action injections")
+	flag.Parse()
 	conn, err := grpc.Dial("127.0.0.1"+port, grpc.WithInsecure())
 	defer conn.Close()
 	if err != nil {
@@ -36,16 +45,18 @@ func main() {
 	}
 
 	c := pb.NewChainServiceClient(conn)
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*20)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*time.Duration(count*5))
 	defer cancel()
 
-	for i := 1; i <= 10; i++ {
-		injectAction(ctx, c, uint64(i))
-		time.Sleep(time.Second * 2)
+	sender := constructAddress(pubkeyMiner, prikeyMiner)
+	recipient := constructAddress(pubkeyA, prikeyA)
+	for i := 1; i <= count; i++ {
+		injectAction(ctx, c, sender, recipient, uint64(i))
+		time.Sleep(time.Second * 5)
 	}
 }
 
-func injectAction(ctx context.Context, c pb.ChainServiceClient, nonce uint64) {
+func injectAction(ctx context.Context, c pb.ChainServiceClient, sender *iotxaddress.Address, recipient *iotxaddress.Address, nonce uint64) {
 	rand.Seed(time.Now().UnixNano())
 	amount := uint64(0)
 	for amount == uint64(0) {
@@ -55,7 +66,7 @@ func injectAction(ctx context.Context, c pb.ChainServiceClient, nonce uint64) {
 
 	a := int64(amount)
 	r, err := c.CreateRawTx(ctx, &pb.CreateRawTransferRequest{
-		Sender: ta.Addrinfo["miner2"].RawAddress, Recipient: ta.Addrinfo["alfa"].RawAddress, Amount: big.NewInt(a).Bytes(), Nonce: nonce, Data: []byte{}})
+		Sender: sender.RawAddress, Recipient: recipient.RawAddress, Amount: big.NewInt(a).Bytes(), Nonce: nonce, Data: []byte{}})
 	if err != nil {
 		panic(err)
 	}
@@ -67,7 +78,7 @@ func injectAction(ctx context.Context, c pb.ChainServiceClient, nonce uint64) {
 	}
 
 	// Sign Transfer
-	if tsf.Signature = crypto.Sign(ta.Addrinfo["miner2"].PrivateKey, []byte{0x11, 0x22, 0x33, 0x44}); tsf.Signature == nil {
+	if tsf.Signature = crypto.Sign(sender.PrivateKey, []byte{0x11, 0x22, 0x33, 0x44}); tsf.Signature == nil {
 		panic(err)
 	}
 
@@ -89,4 +100,21 @@ func injectAction(ctx context.Context, c pb.ChainServiceClient, nonce uint64) {
 	fmt.Println("Payload: ", tsf.Payload)
 	fmt.Println("Sender Public Key: ", tsf.SenderPubKey)
 	fmt.Println("Signature: ", tsf.Signature)
+}
+
+func constructAddress(pubkey, prikey string) *iotxaddress.Address {
+	pubk, err := hex.DecodeString(pubkey)
+	if err != nil {
+		panic(err)
+	}
+	prik, err := hex.DecodeString(prikey)
+	if err != nil {
+		panic(err)
+	}
+	addr, err := iotxaddress.GetAddress(pubk, false, []byte{0x01, 0x02, 0x03, 0x04})
+	if err != nil {
+		panic(err)
+	}
+	addr.PrivateKey = prik
+	return addr
 }

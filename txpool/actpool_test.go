@@ -194,10 +194,8 @@ func TestActPool_PickTsfs(t *testing.T) {
 	ap.AddTsf(&tsf7)
 	ap.AddTsf(&tsf8)
 
-	pending, err := ap.PickTsfs()
-	assert.Nil(err)
-	assert.Equal([]*action.Transfer{&tsf1, &tsf2, &tsf3, &tsf4}, pending[addr1.RawAddress])
-	assert.Equal([]*action.Transfer{}, pending[addr2.RawAddress])
+	pending := ap.PickTsfs()
+	assert.Equal([]*action.Transfer{&tsf1, &tsf2, &tsf3, &tsf4}, pending)
 }
 
 func TestActPool_removeCommittedTsfs(t *testing.T) {
@@ -342,12 +340,10 @@ func TestActPool_Reset(t *testing.T) {
 	ap2PBalance3, _ := ap2.getPendingBalance(addr3.RawAddress)
 	assert.Equal(big.NewInt(50).Uint64(), ap2PBalance3.Uint64())
 	// Let ap1 be BP's actpool
-	pickedTsfs, _ := ap1.PickTsfs()
+	pickedTsfs := ap1.PickTsfs()
 	// ap1 commits update of balance and nonce to trie
-	for _, tsfs := range pickedTsfs {
-		err := ap1.sf.CommitStateChanges(tsfs, nil)
-		assert.Nil(err)
-	}
+	err := ap1.sf.CommitStateChanges(pickedTsfs, nil)
+	assert.Nil(err)
 	//Reset
 	ap1.Reset()
 	ap2.Reset()
@@ -458,12 +454,10 @@ func TestActPool_Reset(t *testing.T) {
 	ap2PBalance3, _ = ap2.getPendingBalance(addr3.RawAddress)
 	assert.Equal(big.NewInt(180).Uint64(), ap2PBalance3.Uint64())
 	// Let ap2 be BP's actpool
-	pickedTsfs, _ = ap2.PickTsfs()
+	pickedTsfs = ap2.PickTsfs()
 	// ap2 commits update of balance and nonce to trie
-	for _, tsfs := range pickedTsfs {
-		err := ap2.sf.CommitStateChanges(tsfs, nil)
-		assert.Nil(err)
-	}
+	err = ap2.sf.CommitStateChanges(pickedTsfs, nil)
+	assert.Nil(err)
 	//Reset
 	ap1.Reset()
 	ap2.Reset()
