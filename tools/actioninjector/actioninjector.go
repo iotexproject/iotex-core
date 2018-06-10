@@ -36,9 +36,16 @@ func main() {
 	}
 
 	c := pb.NewChainServiceClient(conn)
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*20)
 	defer cancel()
 
+	for i := 1; i <= 10; i++ {
+		injectAction(ctx, c, uint64(i))
+		time.Sleep(time.Second * 2)
+	}
+}
+
+func injectAction(ctx context.Context, c pb.ChainServiceClient, nonce uint64) {
 	rand.Seed(time.Now().UnixNano())
 	amount := uint64(0)
 	for amount == uint64(0) {
@@ -48,7 +55,7 @@ func main() {
 
 	a := int64(amount)
 	r, err := c.CreateRawTx(ctx, &pb.CreateRawTransferRequest{
-		Sender: ta.Addrinfo["miner"].RawAddress, Recipient: ta.Addrinfo["alfa"].RawAddress, Amount: big.NewInt(a).Bytes(), Nonce: uint64(1), Data: []byte{}})
+		Sender: ta.Addrinfo["miner2"].RawAddress, Recipient: ta.Addrinfo["alfa"].RawAddress, Amount: big.NewInt(a).Bytes(), Nonce: nonce, Data: []byte{}})
 	if err != nil {
 		panic(err)
 	}
@@ -60,11 +67,10 @@ func main() {
 	}
 
 	// Sign Transfer
-	if tsf.Signature = crypto.Sign(ta.Addrinfo["miner"].PrivateKey, []byte{0x11, 0x22, 0x33, 0x44}); tsf.Signature == nil {
+	if tsf.Signature = crypto.Sign(ta.Addrinfo["miner2"].PrivateKey, []byte{0x11, 0x22, 0x33, 0x44}); tsf.Signature == nil {
 		panic(err)
 	}
 
-	// TODO: Should handle transfer as an action type
 	stsf, err := proto.Marshal(tsf)
 	if err != nil {
 		panic(err)

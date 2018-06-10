@@ -408,7 +408,8 @@ func (sf *stateFactory) handleTsf(pending map[common.PKHash]*State, addressToPKM
 			recipient, err = sf.getState(tx.Recipient)
 			switch {
 			case err == ErrAccountNotExist:
-				if _, e := sf.CreateState(tx.Recipient, 0); e != nil {
+				var e error
+				if recipient, e = sf.CreateState(tx.Recipient, 0); e != nil {
 					return e
 				}
 			case err != nil:

@@ -10,6 +10,7 @@ import (
 	"github.com/golang/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/config"
@@ -34,7 +35,7 @@ type consensus struct {
 }
 
 // NewConsensus creates a consensus struct.
-func NewConsensus(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxPool, bs blocksync.BlockSync, dlg delegate.Pool) Consensus {
+func NewConsensus(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxPool, ap txpool.ActPool, bs blocksync.BlockSync, dlg delegate.Pool) Consensus {
 	if bc == nil || bs == nil {
 		logger.Error().Msg("Try to attach to chain or bs == nil")
 		return nil
@@ -43,7 +44,16 @@ func NewConsensus(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxPool
 	cs := &consensus{cfg: &cfg.Consensus}
 	mintBlockCB := func() (*blockchain.Block, error) {
 		// TODO: get list of Transfer and Vote from actPool, instead of nil, nil below
-		blk, err := bc.MintNewBlock(tp.PickTxs(), nil, nil, &cfg.Chain.MinerAddr, "")
+		transfers, err := ap.PickTsfs()
+		if err != nil {
+			logger.Error().Msg("Failed to pick transfers from actpool")
+			return nil, err
+		}
+		pickedTransfers := []*action.Transfer{}
+		for _, tsfs := range transfers {
+			pickedTransfers = append(pickedTransfers, tsfs...)
+		}
+		blk, err := bc.MintNewBlock(tp.PickTxs(), pickedTransfers, nil, &cfg.Chain.MinerAddr, "")
 		if err != nil {
 			logger.Error().Msg("Failed to mint a block")
 			return nil, err
