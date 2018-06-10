@@ -98,10 +98,10 @@ func newServer(cfg config.Config, bc blockchain.Blockchain, sf statefactory.Stat
 	tp := txpool.NewTxPool(bc)
 	// create P2P network and BlockSync
 	o := network.NewOverlay(&cfg.Network)
-	pool := delegate.NewConfigBasedPool(&cfg.Delegate)
-	bs := blocksync.NewBlockSyncer(&cfg, bc, tp, o, pool)
-	// create ActPool
+	// Create ActPool
 	ap := txpool.NewActPool(sf, o)
+	pool := delegate.NewConfigBasedPool(&cfg.Delegate)
+	bs := blocksync.NewBlockSyncer(&cfg, bc, tp, ap, o, pool)
 	// create dispatcher instance
 	dp := dispatcher.NewDispatcher(&cfg, bc, tp, ap, bs, pool)
 	o.AttachDispatcher(dp)
