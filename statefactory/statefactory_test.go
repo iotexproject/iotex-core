@@ -400,9 +400,8 @@ func TestCandidate(t *testing.T) {
 	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{c.RawAddress + ":110", b.RawAddress + ":90", a.RawAddress + ":100", d.RawAddress + ":0"}))
 	// a(b):90(100) b(c):10(90) c(c):100(+10=110) d(a): 100(0) e(e):500(+0=500) f(f):300(+0=300)
 
-	vote17 := action.NewVote(0, f.PublicKey, d.PublicKey)
-	vote18 := action.NewVote(1, f.PublicKey, d.PublicKey)
-	err = sf.CommitStateChanges([]*action.Transfer{}, []*action.Vote{vote17, vote18})
+	vote17 := action.NewVote(1, f.PublicKey, d.PublicKey)
+	err = sf.CommitStateChanges([]*action.Transfer{}, []*action.Vote{vote17})
 	assert.Nil(t, err)
 	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{d.RawAddress + ":300", e.RawAddress + ":500"}))
 	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{c.RawAddress + ":110", b.RawAddress + ":90", a.RawAddress + ":100", f.RawAddress + ":0"}))
@@ -416,28 +415,6 @@ func TestCandidate(t *testing.T) {
 	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{d.RawAddress + ":100", b.RawAddress + ":90", a.RawAddress + ":100", f.RawAddress + ":0"}))
 	// a(b):90(100) b(c):210(90) c(c):100(+210=310) d(a): 100(100) e(e):500(+0=500) f(d):100(0)
 	//fmt.Printf("%v \n", voteForm(sf.candidatesBuffer()))
-
-	tx9 := action.Transfer{Sender: b.RawAddress, Recipient: a.RawAddress, Nonce: uint64(1), Amount: big.NewInt(10)}
-	err = sf.CommitStateChanges([]*action.Transfer{&tx9}, []*action.Vote{})
-	assert.Nil(t, err)
-	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{c.RawAddress + ":300", e.RawAddress + ":500"}))
-	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{d.RawAddress + ":100", b.RawAddress + ":100", a.RawAddress + ":100", f.RawAddress + ":0"}))
-	// a(b):100(100) b(c):200(100) c(c):100(+200=300) d(a): 100(100) e(e):500(+0=500) f(d):100(0)
-
-	tx10 := action.Transfer{Sender: e.RawAddress, Recipient: d.RawAddress, Nonce: uint64(1), Amount: big.NewInt(300)}
-	err = sf.CommitStateChanges([]*action.Transfer{&tx10}, []*action.Vote{})
-	assert.Nil(t, err)
-	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{c.RawAddress + ":300", a.RawAddress + ":400"}))
-	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{d.RawAddress + ":100", b.RawAddress + ":100", e.RawAddress + ":200", f.RawAddress + ":0"}))
-	// a(b):100(400) b(c):200(100) c(c):100(+200=300) d(a): 400(100) e(e):200(+0=200) f(d):100(0)
-
-	vote19 := action.NewVote(0, d.PublicKey, a.PublicKey)
-	vote20 := action.NewVote(3, d.PublicKey, b.PublicKey)
-	err = sf.CommitStateChanges([]*action.Transfer{}, []*action.Vote{vote19, vote20})
-	assert.Nil(t, err)
-	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{c.RawAddress + ":300", b.RawAddress + ":500"}))
-	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{d.RawAddress + ":100", a.RawAddress + ":0", e.RawAddress + ":200", f.RawAddress + ":0"}))
-	// a(b):100(0) b(c):200(500) c(c):100(+200=300) d(b): 400(100) e(e):200(+0=200) f(d):100(0)
 }
 
 func compareStrings(actual []string, expected []string) bool {
