@@ -10,7 +10,6 @@ import (
 	"github.com/golang/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/config"
@@ -44,16 +43,7 @@ func NewConsensus(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxPool
 	cs := &consensus{cfg: &cfg.Consensus}
 	mintBlockCB := func() (*blockchain.Block, error) {
 		// TODO: get list of Transfer and Vote from actPool, instead of nil, nil below
-		transfers, err := ap.PickTsfs()
-		if err != nil {
-			logger.Error().Msg("Failed to pick transfers from actpool")
-			return nil, err
-		}
-		pickedTransfers := []*action.Transfer{}
-		for _, tsfs := range transfers {
-			pickedTransfers = append(pickedTransfers, tsfs...)
-		}
-		blk, err := bc.MintNewBlock(tp.PickTxs(), pickedTransfers, nil, &cfg.Chain.MinerAddr, "")
+		blk, err := bc.MintNewBlock(tp.PickTxs(), ap.PickTsfs(), nil, &cfg.Chain.MinerAddr, "")
 		if err != nil {
 			logger.Error().Msg("Failed to mint a block")
 			return nil, err

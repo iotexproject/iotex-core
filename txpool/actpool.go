@@ -43,7 +43,7 @@ type ActPool interface {
 	// Reset resets actpool state
 	Reset()
 	// PickTsfs returns all currently accepted transfers in actpool
-	PickTsfs() (map[string][]*action.Transfer, error)
+	PickTsfs() []*action.Transfer
 	// AddTsf adds a transfer into the pool after validation
 	AddTsf(tsf *action.Transfer) error
 	// AddVote adds a vote into pool after validation
@@ -105,15 +105,15 @@ func (ap *actPool) Reset() {
 }
 
 // PickTsfs returns all currently accepted transfers for all accounts
-func (ap *actPool) PickTsfs() (map[string][]*action.Transfer, error) {
+func (ap *actPool) PickTsfs() []*action.Transfer {
 	ap.mutex.Lock()
 	defer ap.mutex.Unlock()
 
-	pending := make(map[string][]*action.Transfer)
-	for from, queue := range ap.accountTsfs {
-		pending[from] = queue.ConfirmedTsfs()
+	pending := []*action.Transfer{}
+	for _, queue := range ap.accountTsfs {
+		pending = append(pending, queue.ConfirmedTsfs()...)
 	}
-	return pending, nil
+	return pending
 }
 
 // validateTsf checks whether a tranfer is valid
