@@ -14,8 +14,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/crypto/blake2b"
 
-	trx "github.com/iotexproject/iotex-core/blockchain/trx"
+	"github.com/iotexproject/iotex-core/blockchain/trx"
 	"github.com/iotexproject/iotex-core/common"
+	"github.com/iotexproject/iotex-core/proto"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 )
 
@@ -111,4 +112,18 @@ func TestMerkle(t *testing.T) {
 	t.Log("Merkle root match pass\n")
 
 	// serialize
+}
+
+func TestBlockConvertFromBlockPb(t *testing.T) {
+	blk := Block{}
+	blk.ConvertFromBlockPb(&iproto.BlockPb{
+		Actions: []*iproto.ActionPb{
+			{Action: &iproto.ActionPb_Transfer{
+				Transfer: &iproto.TransferPb{
+					Version: 666,
+				},
+			}},
+		},
+	})
+	assert.Equal(t, uint32(666), blk.Transfers[0].Version, "pb to block conversion")
 }
