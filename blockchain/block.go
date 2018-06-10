@@ -192,10 +192,21 @@ func (b *Block) ConvertFromBlockPb(pbBlock *iproto.BlockPb) {
 
 	b.Tranxs = nil
 	b.Votes = nil
+	hasTf := false
 	hasTrnx := false
 	hasVote := false
 
 	for _, act := range pbBlock.Actions {
+		if tfPb := act.GetTransfer(); tfPb != nil {
+			if !hasTf {
+				b.Transfers = []*action.Transfer{}
+				hasTf = true
+			}
+			tf := &action.Transfer{}
+			tf.ConvertFromTransferPb(tfPb)
+			b.Transfers = append(b.Transfers, tf)
+			continue
+		}
 		if txPb := act.GetTx(); txPb != nil {
 			if !hasTrnx {
 				b.Tranxs = []*trx.Tx{}
