@@ -15,7 +15,6 @@ import (
 )
 
 func TestGenesis(t *testing.T) {
-	t.Logf("The third alloc address is: %s", Gen.Alloc[2].Address)
 	t.Logf("The TotalSupply is %d", Gen.TotalSupply)
 
 	genesisBlk := NewGenesisBlock(Gen)

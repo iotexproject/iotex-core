@@ -7,6 +7,7 @@
 package blockchain
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
@@ -18,14 +19,18 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/trx"
 	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/statefactory"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/test/util"
+	"github.com/iotexproject/iotex-core/trie"
 )
 
 const (
 	testingConfigPath = "../config.yaml"
 	testDBPath        = "db.test"
 	testCoinbaseData  = "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks"
+	testTriePath      = "trie.test"
 )
 
 func addTestingBlocks(bc Blockchain) error {
@@ -361,4 +366,40 @@ func TestBlockchain_MintNewDummyBlock(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, uint64(1), blk.Height())
 	assert.Equal(t, 0, len(blk.Tranxs))
+}
+
+func TestBlockchainInitialCandidate(t *testing.T) {
+	assert := assert.New(t)
+
+	config, err := config.LoadConfigWithPathWithoutValidation(testingConfigPath)
+	assert.Nil(err)
+	util.CleanupPath(t, testTriePath)
+	defer util.CleanupPath(t, testTriePath)
+	util.CleanupPath(t, testDBPath)
+	defer util.CleanupPath(t, testDBPath)
+
+	config.Chain.TrieDBPath = testTriePath
+	config.Chain.InMemTest = false
+	config.Chain.ChainDBPath = testDBPath
+	// Disable block reward to make bookkeeping easier
+	Gen.BlockReward = uint64(0)
+
+	tr, _ := trie.NewTrie(testTriePath, false)
+	sf := statefactory.NewStateFactory(tr)
+
+	for _, pk := range initDelegatePK {
+		pubk, err := hex.DecodeString(pk)
+		assert.Nil(err)
+		address, err := iotxaddress.GetAddress(pubk, false, []byte{0x01, 0x02, 0x03, 0x04})
+		assert.Nil(err)
+		_, err = sf.CreateState(address.RawAddress, uint64(0))
+		assert.Nil(err)
+	}
+
+	assert.True(len(sf.Candidates()) == 0)
+	bc := CreateBlockchain(config, Gen, sf)
+	assert.NotNil(t, bc)
+	fmt.Println(len(sf.Candidates()))
+	// TODO: change the value when Candidates size is changed
+	assert.True(len(sf.Candidates()) == 2)
 }
