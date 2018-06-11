@@ -145,15 +145,9 @@ func HashPubKey(pubKey []byte) []byte {
 }
 
 func isValidVersion(version byte) bool {
-	if version >= 0x01 {
-		return true
-	}
-	return false
+	return version >= 0x01
 }
 
 func isValidChainID(chainid []byte) bool {
-	if len(chainid) != 4 {
-		return false
-	}
-	return true
+	return len(chainid) == 4
 }

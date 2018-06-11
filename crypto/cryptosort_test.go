@@ -32,7 +32,7 @@ func TestCryptoSort(t *testing.T) {
 
 	same := true
 	for i, s := range hashes {
-		if bytes.Compare(s, hashescp[i]) != 0 {
+		if !bytes.Equal(s, hashescp[i]) {
 			same = false
 			break
 		}

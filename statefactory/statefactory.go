@@ -41,8 +41,6 @@ const (
 )
 
 var (
-	stateFactoryKVNameSpace = "StateFactory"
-
 	// ErrInvalidAddr is the error that the address format is invalid, cannot be decoded
 	ErrInvalidAddr = errors.New("address format is invalid")
 

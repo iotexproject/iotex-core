@@ -244,9 +244,11 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 
 	empblk, err := bc.GetBlockByHash(common.ZeroHash32B)
 	assert.Nil(empblk)
+	assert.NotNil(err.Error())
 
 	blk, err = bc.GetBlockByHeight(60000)
 	assert.Nil(blk)
+	assert.NotNil(err)
 
 	// add wrong blocks
 	h, err := bc.TipHeight()
@@ -277,6 +279,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	// cannot add existing block again
 	blk, err = bc.GetBlockByHeight(3)
 	assert.NotNil(blk)
+	assert.Nil(err)
 	err = bc.(*blockchain).commitBlock(blk)
 	assert.NotNil(err)
 	fmt.Printf("Cannot add block 3 again: %v\n", err)

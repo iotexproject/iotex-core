@@ -43,9 +43,9 @@ type Blockchain interface {
 	GetTransfersFromAddress(address string) ([]common.Hash32B, error)
 	// GetTransactionByAddress returns transaction to address
 	GetTransfersToAddress(address string) ([]common.Hash32B, error)
-	// GetTransfersByTxHash returns transaction by Tx hash
+	// GetTransfersByTxHash returns transaction by transfer hash
 	GetTransferByTransferHash(hash common.Hash32B) (*action.Transfer, error)
-	// GetBlockHashByTxHash returns Block hash by Tx hash
+	// GetBlockHashByTxHash returns Block hash by transfer hash
 	GetBlockHashByTransferHash(hash common.Hash32B) (common.Hash32B, error)
 	// TipHash returns tip block's hash
 	TipHash() (common.Hash32B, error)
@@ -225,7 +225,7 @@ func (bc *blockchain) GetTransferByTransferHash(hash common.Hash32B) (*action.Tr
 	return nil, errors.Errorf("block %x does not have transfer %x", blkHash, hash)
 }
 
-// GetBlockHashByTxHash returns Block hash by Tx hash
+// GetBlockHashByTxHash returns Block hash by transfer hash
 func (bc *blockchain) GetBlockHashByTransferHash(hash common.Hash32B) (common.Hash32B, error) {
 	return bc.dao.getBlockHashByTransferHash(hash)
 }

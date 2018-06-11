@@ -12,7 +12,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/logger"
 )
 
@@ -46,14 +45,10 @@ var (
 type SlidingWindow struct {
 	mu        sync.RWMutex
 	start     time.Time
-	end       time.Time
 	State     int
 	prevState int
 	close     uint64
 	open      uint64
-	orphan    []int           // orphaned item that has not been received yet
-	elapse    []time.Duration // time (in millisecond) it takes to complete each sync task
-	bc        *blockchain.Blockchain
 }
 
 // NewSlidingWindow returns a SlidingWindow instance
