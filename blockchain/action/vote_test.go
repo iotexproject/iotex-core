@@ -13,26 +13,33 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestVote(t *testing.T) {
+func TestVoteSignVerify(t *testing.T) {
 	assert := assert.New(t)
 	sender, err := iotxaddress.NewAddress(true, chainid)
 	assert.Nil(err)
 	recipient, err := iotxaddress.NewAddress(true, chainid)
 	assert.Nil(err)
-	// Create new vote and put on wire
-	vote := NewVote(0, sender.PublicKey, recipient.PublicKey)
-	raw, err := vote.Serialize()
+	v := NewVote(0, sender.PublicKey, recipient.PublicKey)
+
+	signedv, err := v.Sign(sender)
 	assert.Nil(err)
-	// Sign the vote
-	signed, err := SignVote(raw, sender)
+	assert.Nil(signedv.Verify(sender))
+	assert.NotNil(signedv.Verify(recipient))
+}
+
+func TestVoteSerializedDeserialize(t *testing.T) {
+	assert := assert.New(t)
+	sender, err := iotxaddress.NewAddress(true, chainid)
 	assert.Nil(err)
-	// deserialize
-	vote2 := &Vote{}
-	assert.Nil(vote2.Deserialize(signed))
-	// test data match before/after serialization
-	assert.Equal(vote.Hash(), vote2.Hash())
-	// test signature
-	assert.Nil(vote2.Verify(sender))
-	assert.NotNil(vote2.Verify(recipient))
-	assert.NotNil(vote.Verify(sender))
+	recipient, err := iotxaddress.NewAddress(true, chainid)
+	assert.Nil(err)
+
+	v := NewVote(0, sender.PublicKey, recipient.PublicKey)
+	raw, err := v.Serialize()
+	assert.Nil(err)
+
+	newv := &Vote{}
+	assert.Nil(newv.Deserialize(raw))
+	assert.Equal(v.Hash(), newv.Hash())
+	assert.Equal(v.TotalSize(), newv.TotalSize())
 }

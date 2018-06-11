@@ -19,6 +19,9 @@ import (
 	"github.com/iotexproject/iotex-core/proto"
 )
 
+// ErrVoteError indicates error for a vote action
+var ErrVoteError = errors.New("vote error")
+
 const (
 	// NonceSizeInBytes defines the size of nonce in byte units
 	NonceSizeInBytes = 8
@@ -26,12 +29,10 @@ const (
 	TimestampSizeInBytes = 8
 )
 
-type (
-	// Vote defines the struct of account-based vote
-	Vote struct {
-		*iproto.VotePb
-	}
-)
+// Vote defines the struct of account-based vote
+type Vote struct {
+	*iproto.VotePb
+}
 
 // NewVote returns a Vote instance
 func NewVote(nonce uint64, selfPubKey []byte, votePubKey []byte) *Vote {
@@ -96,26 +97,22 @@ func (v *Vote) Hash() common.Hash32B {
 }
 
 // SignVote signs the Vote using sender's private key
-func SignVote(raw []byte, sender *iotxaddress.Address) ([]byte, error) {
-	vote := &Vote{}
-	if err := vote.Deserialize(raw); err != nil {
-		return nil, errors.Wrap(err, "failed to unmarshal Vote")
-	}
+func (v *Vote) Sign(sender *iotxaddress.Address) (*Vote, error) {
 	// check the sender is correct
-	if !bytes.Equal(vote.SelfPubkey, sender.PublicKey) {
-		return nil, errors.Wrapf(ErrActionError, "signing pubKey %x does not match with Vote pubKey %x",
-			vote.SelfPubkey, sender.PublicKey)
+	if !bytes.Equal(v.SelfPubkey, sender.PublicKey) {
+		return nil, errors.Wrapf(ErrVoteError, "signing pubKey %x does not match with Vote pubKey %x",
+			v.SelfPubkey, sender.PublicKey)
 	}
 	// check the public key is actually owned by sender
 	pkhash := iotxaddress.GetPubkeyHash(sender.RawAddress)
 	if !bytes.Equal(pkhash, iotxaddress.HashPubKey(sender.PublicKey)) {
-		return nil, errors.Wrapf(ErrActionError, "signing addr %s does not own correct public key",
+		return nil, errors.Wrapf(ErrVoteError, "signing addr %s does not own correct public key",
 			sender.RawAddress)
 	}
-	if err := vote.sign(sender); err != nil {
+	if err := v.sign(sender); err != nil {
 		return nil, err
 	}
-	return vote.Serialize()
+	return v, nil
 }
 
 // Verify verifies the Vote using sender's public key
@@ -124,7 +121,7 @@ func (v *Vote) Verify(sender *iotxaddress.Address) error {
 	if success := cp.Verify(sender.PublicKey, hash[:], v.Signature); success {
 		return nil
 	}
-	return errors.Wrapf(ErrActionError, "Failed to verify Vote signature = %x", v.Signature)
+	return errors.Wrapf(ErrVoteError, "Failed to verify Vote signature = %x", v.Signature)
 }
 
 //======================================
@@ -136,5 +133,5 @@ func (v *Vote) sign(sender *iotxaddress.Address) error {
 	if v.Signature = cp.Sign(sender.PrivateKey, hash[:]); v.Signature != nil {
 		return nil
 	}
-	return errors.Wrapf(ErrActionError, "Failed to sign Vote hash = %x", hash)
+	return errors.Wrapf(ErrVoteError, "Failed to sign Vote hash = %x", hash)
 }

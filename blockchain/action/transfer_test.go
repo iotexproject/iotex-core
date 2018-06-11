@@ -17,26 +17,19 @@ import (
 
 var chainid = []byte{0x00, 0x00, 0x00, 0x01}
 
-func TestTransfer(t *testing.T) {
+func TestTransferSignVerify(t *testing.T) {
 	assert := assert.New(t)
 	sender, err := iotxaddress.NewAddress(true, chainid)
 	assert.Nil(err)
 	recipient, err := iotxaddress.NewAddress(true, chainid)
 	assert.Nil(err)
 
-	// Create a nil transfer and sign it
-	var nilTsf *Transfer
-	sNilTsf, err := SignTransfer(nilTsf, sender)
-	assert.Nil(sNilTsf)
-	assert.NotNil(err)
-
-	// Create new transfer and put on wire
 	tsf := NewTransfer(0, big.NewInt(10), sender.RawAddress, recipient.RawAddress)
 	assert.Nil(tsf.Signature)
 	assert.NotNil(tsf.Verify(sender))
 
-	// Sign the transfer
-	stsf, err := SignTransfer(tsf, sender)
+	// sign the transfer
+	stsf, err := tsf.Sign(sender)
 	assert.Nil(err)
 	assert.NotNil(stsf)
 	assert.Equal(tsf.Hash(), stsf.Hash())
@@ -44,9 +37,35 @@ func TestTransfer(t *testing.T) {
 	tsf.SenderPublicKey = sender.PublicKey
 	assert.Equal(tsf.Hash(), stsf.Hash())
 
-	// test signature
+	// verify signature
 	assert.Nil(stsf.Verify(sender))
 	assert.NotNil(stsf.Verify(recipient))
 	assert.NotNil(tsf.Signature)
 	assert.Nil(tsf.Verify(sender))
+}
+
+func TestTransferSerializeDeserialize(t *testing.T) {
+	assert := assert.New(t)
+	sender, err := iotxaddress.NewAddress(true, chainid)
+	assert.Nil(err)
+	recipient, err := iotxaddress.NewAddress(true, chainid)
+	assert.Nil(err)
+
+	tsf := NewTransfer(0, big.NewInt(38291), sender.RawAddress, recipient.RawAddress)
+	assert.NotNil(tsf)
+
+	s, err := tsf.Serialize()
+	assert.Nil(err)
+
+	newtsf := &Transfer{}
+	err = newtsf.Deserialize(s)
+	assert.Nil(err)
+
+	assert.Equal(uint64(0), newtsf.Nonce)
+	assert.Equal(uint64(38291), newtsf.Amount.Uint64())
+	assert.Equal(sender.RawAddress, newtsf.Sender)
+	assert.Equal(recipient.RawAddress, newtsf.Recipient)
+
+	assert.Equal(tsf.Hash(), newtsf.Hash())
+	assert.Equal(tsf.TotalSize(), newtsf.TotalSize())
 }
