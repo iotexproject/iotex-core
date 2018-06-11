@@ -66,7 +66,7 @@ var Gen = &Genesis{
 	BlockReward:         uint64(5),
 	Timestamp:           uint64(1524676419),
 	ParentHash:          common.Hash32B{},
-	GenesisCoinbaseData: "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks",
+	GenesisCoinbaseData: "Connecting the physical world, block by block",
 }
 
 // NewGenesisBlock creates a new genesis block
@@ -92,9 +92,18 @@ func NewGenesisBlock(gen *Genesis) *Block {
 	}
 
 	block := &Block{
-		Header: &BlockHeader{Version, gen.GenConfig.ChainID, uint64(0), gen.Timestamp,
-			gen.ParentHash, common.ZeroHash32B, common.ZeroHash32B, uint32(1),
-			0, []byte{}},
+		Header: &BlockHeader{
+			version:       Version,
+			chainID:       gen.GenConfig.ChainID,
+			height:        uint64(0),
+			timestamp:     gen.Timestamp,
+			prevBlockHash: gen.ParentHash,
+			txRoot:        common.ZeroHash32B,
+			stateRoot:     common.ZeroHash32B,
+			trnxNumber:    uint32(1),
+			trnxDataSize:  0,
+			blockSig:      []byte{},
+		},
 		Tranxs: []*trx.Tx{cbtx},
 		Votes:  votes,
 	}
