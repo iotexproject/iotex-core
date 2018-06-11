@@ -157,7 +157,7 @@ func (tsf *Transfer) Hash() common.Hash32B {
 	return blake2b.Sum256(hash[:])
 }
 
-// SignTransfer signs the Transfer using sender's private key
+// Sign signs the Transfer using sender's private key
 func (tsf *Transfer) Sign(sender *iotxaddress.Address) (*Transfer, error) {
 	// check the sender is correct
 	if tsf.Sender != sender.RawAddress {

@@ -270,16 +270,14 @@ func (bc *blockchain) ResetUTXO() {
 
 // ValidateBlock validates a new block before adding it to the blockchain
 func (bc *blockchain) ValidateBlock(blk *Block) error {
+	bc.mu.RLock()
+	defer bc.mu.RUnlock()
+
 	if bc.validator == nil {
 		panic("no block validator")
 	}
 
-	bc.mu.RLock()
-	defer bc.mu.RUnlock()
-	if err := bc.validator.Validate(blk, bc.tipHeight, bc.tipHash); err != nil {
-		return err
-	}
-	return nil
+	return bc.validator.Validate(blk, bc.tipHeight, bc.tipHash)
 }
 
 // MintNewBlock creates a new block with given transactions.

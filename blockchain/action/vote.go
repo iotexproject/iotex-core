@@ -96,7 +96,7 @@ func (v *Vote) Hash() common.Hash32B {
 	return blake2b.Sum256(hash[:])
 }
 
-// SignVote signs the Vote using sender's private key
+// Sign signs the Vote using sender's private key
 func (v *Vote) Sign(sender *iotxaddress.Address) (*Vote, error) {
 	// check the sender is correct
 	if !bytes.Equal(v.SelfPubkey, sender.PublicKey) {
