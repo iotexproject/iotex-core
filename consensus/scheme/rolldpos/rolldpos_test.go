@@ -151,7 +151,7 @@ func testByzantineFault(t *testing.T, proposerNode int) {
 	defer ctrl.Finish()
 
 	// arrange proposal request
-	genesis := NewGenesisBlock(Gen)
+	genesis := NewGenesisBlock()
 	blkHash := genesis.HashBlock()
 
 	t.Log(genesis)
@@ -296,7 +296,7 @@ func TestRollDPoSFourTrustyNodes(t *testing.T) {
 	defer ctrl.Finish()
 
 	// arrange proposal request
-	genesis := NewGenesisBlock(Gen)
+	genesis := NewGenesisBlock()
 
 	// arrange 4 consensus nodes
 	tcss := make(map[net.Addr]testCs)
@@ -402,7 +402,7 @@ func TestRollDPoSConsumePROPOSE(t *testing.T) {
 	time.Sleep(time.Second)
 
 	// arrange proposal request
-	genesis := NewGenesisBlock(Gen)
+	genesis := NewGenesisBlock()
 	proposal := &iproto.ViewChangeMsg{
 		Vctype:     iproto.ViewChangeMsg_PROPOSE,
 		Block:      genesis.ConvertToBlockPb(),

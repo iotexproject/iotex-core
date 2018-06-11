@@ -108,15 +108,15 @@ type blockchain struct {
 }
 
 // NewBlockchain creates a new blockchain instance
-func NewBlockchain(dao *blockDAO, cfg *config.Config, gen *Genesis, sf statefactory.StateFactory) Blockchain {
+func NewBlockchain(dao *blockDAO, cfg *config.Config, sf statefactory.StateFactory) Blockchain {
 	if sf != nil {
 		// add Genesis block miner into Trie
-		if _, err := sf.CreateState(cfg.Chain.MinerAddr.RawAddress, gen.TotalSupply); err != nil {
+		if _, err := sf.CreateState(cfg.Chain.MinerAddr.RawAddress, Gen.TotalSupply); err != nil {
 			logger.Error().Err(err).Msg("Failed to add miner into StateFactory")
 			return nil
 		}
 		// add initial delegates into Trie
-		for _, pk := range gen.InitDelegatesPubKey {
+		for _, pk := range Gen.InitDelegatesPubKey {
 			pubk, err := hex.DecodeString(pk)
 			if err != nil {
 				logger.Error().Err(err).Msg("Failed to denoce public key")
@@ -138,7 +138,7 @@ func NewBlockchain(dao *blockDAO, cfg *config.Config, gen *Genesis, sf statefact
 	chain := &blockchain{
 		dao:       dao,
 		config:    cfg,
-		genesis:   gen,
+		genesis:   Gen,
 		utk:       utk,
 		sf:        sf,
 		validator: &validator{sf: sf, utk: utk},
@@ -353,7 +353,7 @@ func (bc *blockchain) AddBlockSync(blk *Block) error {
 }
 
 // CreateBlockchain creates a new blockchain and DB instance
-func CreateBlockchain(cfg *config.Config, gen *Genesis, sf statefactory.StateFactory) Blockchain {
+func CreateBlockchain(cfg *config.Config, sf statefactory.StateFactory) Blockchain {
 	var kvStore db.KVStore
 	if cfg.Chain.InMemTest {
 		kvStore = db.NewMemKVStore()
@@ -371,7 +371,7 @@ func CreateBlockchain(cfg *config.Config, gen *Genesis, sf statefactory.StateFac
 	} else {
 		kvStore = db.NewBoltDB(cfg.Chain.ChainDBPath, nil)
 	}
-	return createAndInitBlockchain(kvStore, sf, cfg, gen)
+	return createAndInitBlockchain(kvStore, sf, cfg)
 }
 
 // BalanceOf returns the balance of an address
@@ -452,10 +452,10 @@ func (bc *blockchain) commitBlock(blk *Block) error {
 	return bc.sf.CommitStateChanges(blk.Transfers, blk.Votes)
 }
 
-func createAndInitBlockchain(kvstore db.KVStore, sf statefactory.StateFactory, cfg *config.Config, gen *Genesis) Blockchain {
+func createAndInitBlockchain(kvstore db.KVStore, sf statefactory.StateFactory, cfg *config.Config) Blockchain {
 	dao := newBlockDAO(kvstore)
 	// create the Blockchain
-	chain := NewBlockchain(dao, cfg, gen, sf)
+	chain := NewBlockchain(dao, cfg, sf)
 	if err := chain.Init(); err != nil {
 		logger.Error().Err(err).Msg("Failed to initialize blockchain")
 		return nil
@@ -473,11 +473,7 @@ func createAndInitBlockchain(kvstore db.KVStore, sf statefactory.StateFactory, c
 	if height > 0 {
 		return chain
 	}
-	if gen == nil {
-		logger.Error().Msg("Genesis should not be nil.")
-		return nil
-	}
-	genesis := NewGenesisBlock(gen)
+	genesis := NewGenesisBlock()
 	if genesis == nil {
 		logger.Error().Msg("Cannot create genesis block.")
 		return nil

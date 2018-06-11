@@ -43,7 +43,7 @@ func TestAcceptPrevoteAndProceedToEnd(t *testing.T) {
 	defer cs.Stop()
 
 	// arrange proposal request
-	genesis := NewGenesisBlock(Gen)
+	genesis := NewGenesisBlock()
 	blkHash := genesis.HashBlock()
 
 	// Accept GENERATE_DKG and it will transit to dkg generate and then automatically to round start
@@ -129,7 +129,7 @@ func TestAcceptPrevoteAndTimeoutToEnd(t *testing.T) {
 	defer cs.Stop()
 
 	// arrange proposal request
-	genesis := NewGenesisBlock(Gen)
+	genesis := NewGenesisBlock()
 
 	// Accept GENERATE_DKG and it will transit to dkg generate and then automatically to round start
 	event := &fsm.Event{

@@ -130,7 +130,7 @@ func TestCreateBlockchain(t *testing.T) {
 	Gen.BlockReward = uint64(0)
 
 	// create chain
-	bc := CreateBlockchain(config, Gen, nil)
+	bc := CreateBlockchain(config, nil)
 	assert.NotNil(bc)
 	height, err := bc.TipHeight()
 	assert.Nil(err)
@@ -183,7 +183,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	// Disable block reward to make bookkeeping easier
 	Gen.BlockReward = uint64(0)
 	// Create a blockchain from scratch
-	bc := CreateBlockchain(config, Gen, nil)
+	bc := CreateBlockchain(config, nil)
 	assert.NotNil(bc)
 	height, err := bc.TipHeight()
 	assert.Nil(err)
@@ -192,7 +192,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	bc.Stop()
 
 	// Load a blockchain from DB
-	bc = CreateBlockchain(config, Gen, nil)
+	bc = CreateBlockchain(config, nil)
 	defer bc.Stop()
 	assert.NotNil(bc)
 
@@ -320,7 +320,7 @@ func TestEmptyBlockOnlyHasCoinbaseTx(t *testing.T) {
 	config.Chain.InMemTest = true
 	Gen.BlockReward = uint64(7777)
 
-	bc := CreateBlockchain(config, Gen, nil)
+	bc := CreateBlockchain(config, nil)
 	defer bc.Stop()
 	assert.NotNil(t, bc)
 
@@ -341,7 +341,7 @@ func TestBlockchain_Validator(t *testing.T) {
 	config.Chain.TrieDBPath = ""
 	config.Chain.InMemTest = true
 
-	bc := CreateBlockchain(config, Gen, nil)
+	bc := CreateBlockchain(config, nil)
 	defer bc.Stop()
 	assert.NotNil(t, bc)
 
@@ -358,7 +358,7 @@ func TestBlockchain_MintNewDummyBlock(t *testing.T) {
 	config.Chain.TrieDBPath = ""
 	config.Chain.InMemTest = true
 
-	bc := CreateBlockchain(config, Gen, nil)
+	bc := CreateBlockchain(config, nil)
 	defer bc.Stop()
 	assert.NotNil(t, bc)
 
@@ -397,7 +397,7 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 	}
 
 	assert.True(len(sf.Candidates()) == 0)
-	bc := CreateBlockchain(config, Gen, sf)
+	bc := CreateBlockchain(config, sf)
 	assert.NotNil(t, bc)
 	fmt.Println(len(sf.Candidates()))
 	// TODO: change the value when Candidates size is changed
