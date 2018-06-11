@@ -175,6 +175,7 @@ func testByzantineFault(t *testing.T, proposerNode int) {
 			mcks.dNet.EXPECT().Self().Return(cur).AnyTimes()
 			mcks.bc.EXPECT().MintNewBlock(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(genesis, nil).AnyTimes()
 			mcks.bc.EXPECT().TipHeight().Return(uint64(0), nil).AnyTimes()
+			mcks.bc.EXPECT().MintNewDummyBlock().AnyTimes()
 			mcks.bc.EXPECT().ValidateBlock(gomock.Any()).Do(func(blk *Block) error {
 				if blk == nil {
 					return errors.New("invalid block")
@@ -268,7 +269,7 @@ func testByzantineFault(t *testing.T, proposerNode int) {
 	}
 	voteStats(t, tcss)
 	if proposerNode == 0 {
-		assert.Equal(t, 0, bcCnt)
+		assert.Equal(t, 2, bcCnt)
 	} else {
 		assert.Equal(t, 4, bcCnt)
 	}
@@ -318,6 +319,7 @@ func TestRollDPoSFourTrustyNodes(t *testing.T) {
 			mcks.bc.EXPECT().MintNewBlock(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(genesis, nil).AnyTimes()
 			mcks.bc.EXPECT().TipHeight().Return(uint64(0), nil).AnyTimes()
 			mcks.bc.EXPECT().ValidateBlock(gomock.Any()).AnyTimes()
+			mcks.bc.EXPECT().MintNewDummyBlock().AnyTimes()
 
 			// =====================
 			// expect AddBlockCommit
@@ -388,9 +390,9 @@ func TestRollDPoSConsumePROPOSE(t *testing.T) {
 		mcks.dp.EXPECT().AllDelegates().Return(delegates, nil).AnyTimes()
 		mcks.dNet.EXPECT().Broadcast(gomock.Any()).AnyTimes()
 		mcks.bc.EXPECT().ValidateBlock(gomock.Any()).AnyTimes()
-		mcks.bc.EXPECT().AddBlockCommit(gomock.Any()).Times(0)
+		mcks.bc.EXPECT().AddBlockCommit(gomock.Any()).AnyTimes()
 		mcks.bc.EXPECT().TipHeight().Return(uint64(0), nil).AnyTimes()
-
+		mcks.bc.EXPECT().MintNewDummyBlock().Return(blockchain.NewGenesisBlock(), nil).AnyTimes()
 	}
 	cs := createTestRollDPoS(
 		ctrl, delegates[0], delegates, m, FixedProposer, time.Hour, NeverStartNewEpoch, nil)
