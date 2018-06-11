@@ -96,14 +96,14 @@ func (sw *SlidingWindow) updateState() {
 	default:
 		sw.State = Open
 	}
-	logger.Info().
+	logger.Debug().
 		Uint64("close", sw.close).
 		Uint64("open", sw.open).
-		Msg("window")
-	logger.Info().
+		Msg("blocksync window")
+	logger.Debug().
 		Int("prevState", sw.prevState).
 		Int("State", sw.State).
-		Msg("state")
+		Msg("blocksync state")
 }
 
 // Update updates the window [close, open]
