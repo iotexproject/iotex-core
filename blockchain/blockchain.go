@@ -417,7 +417,7 @@ func (bc *blockchain) Validator() Validator {
 //  CreateTransfer creates a signed transfer paying 'amount' from 'from' to 'to'
 func (bc *blockchain) CreateTransfer(nonce uint64, from *iotxaddress.Address, amount *big.Int, to *iotxaddress.Address) (*action.Transfer, error) {
 	tsf := action.NewTransfer(nonce, amount, from.RawAddress, to.RawAddress)
-	stsf, err := action.SignTransfer(tsf, from)
+	stsf, err := tsf.Sign(from)
 	if err != nil {
 		logger.Error().Err(err).Msg("Failed to sign transfer")
 		return nil, err

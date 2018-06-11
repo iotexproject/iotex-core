@@ -21,15 +21,14 @@ import (
 	"github.com/iotexproject/iotex-core/proto"
 )
 
-// ErrActionError indicates error for Action
-var ErrActionError = errors.New("Action error")
+// ErrTransferError indicates error for a transfer action
+var ErrTransferError = errors.New("transfer error")
 
 type (
 	// Transfer defines the struct of account-based transfer
 	Transfer struct {
 		Version uint32
 
-		// used by account-based model
 		Nonce           uint64
 		Amount          *big.Int
 		Sender          string
@@ -45,14 +44,13 @@ func NewTransfer(nonce uint64, amount *big.Int, sender string, recipient string)
 	return &Transfer{
 		Version: common.ProtocolVersion,
 
-		// used by account-based model
 		Nonce:     nonce,
 		Amount:    amount,
 		Sender:    sender,
 		Recipient: recipient,
 		// Payload is empty for now
 		Payload: []byte{},
-		// SenderPublicKey and Signature will be added in Sign()
+		// SenderPublicKey and Signature will be populated in Sign()
 	}
 }
 
@@ -77,7 +75,6 @@ func (tsf *Transfer) ByteStream() []byte {
 	stream := make([]byte, 4)
 	common.MachineEndian.PutUint32(stream, tsf.Version)
 
-	// 2. used by account-based model
 	temp := make([]byte, 8)
 	common.MachineEndian.PutUint64(temp, tsf.Nonce)
 	stream = append(stream, temp...)
@@ -161,19 +158,16 @@ func (tsf *Transfer) Hash() common.Hash32B {
 }
 
 // SignTransfer signs the Transfer using sender's private key
-func SignTransfer(tsf *Transfer, sender *iotxaddress.Address) (*Transfer, error) {
-	if tsf == nil {
-		return nil, errors.Wrapf(ErrActionError, "transfer should not be nil")
-	}
+func (tsf *Transfer) Sign(sender *iotxaddress.Address) (*Transfer, error) {
 	// check the sender is correct
 	if tsf.Sender != sender.RawAddress {
-		return nil, errors.Wrapf(ErrActionError, "signing addr %s does not match with Transfer addr %s",
+		return nil, errors.Wrapf(ErrTransferError, "signing addr %s does not match with Transfer addr %s",
 			sender.RawAddress, tsf.Sender)
 	}
 	// check the public key is actually owned by sender
 	pkhash := iotxaddress.GetPubkeyHash(sender.RawAddress)
 	if !bytes.Equal(pkhash, iotxaddress.HashPubKey(sender.PublicKey)) {
-		return nil, errors.Wrapf(ErrActionError, "signing addr %s does not own correct public key",
+		return nil, errors.Wrapf(ErrTransferError, "signing addr %s does not own correct public key",
 			sender.RawAddress)
 	}
 	tsf.SenderPublicKey = sender.PublicKey
@@ -189,7 +183,7 @@ func (tsf *Transfer) Verify(sender *iotxaddress.Address) error {
 	if success := cp.Verify(sender.PublicKey, hash[:], tsf.Signature); success {
 		return nil
 	}
-	return errors.Wrapf(ErrActionError, "Failed to verify Transfer signature = %x", tsf.Signature)
+	return errors.Wrapf(ErrTransferError, "Failed to verify Transfer signature = %x", tsf.Signature)
 }
 
 //======================================
@@ -201,5 +195,5 @@ func (tsf *Transfer) sign(sender *iotxaddress.Address) error {
 	if tsf.Signature = cp.Sign(sender.PrivateKey, hash[:]); tsf.Signature != nil {
 		return nil
 	}
-	return errors.Wrapf(ErrActionError, "Failed to sign Transfer hash = %x", hash)
+	return errors.Wrapf(ErrTransferError, "Failed to sign Transfer hash = %x", hash)
 }
