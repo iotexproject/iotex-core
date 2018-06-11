@@ -9,37 +9,38 @@ package action
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/iotexproject/iotex-core/iotxaddress"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestVoteSignVerify(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 	sender, err := iotxaddress.NewAddress(true, chainid)
-	assert.Nil(err)
+	require.Nil(err)
 	recipient, err := iotxaddress.NewAddress(true, chainid)
-	assert.Nil(err)
+	require.Nil(err)
 	v := NewVote(0, sender.PublicKey, recipient.PublicKey)
 
 	signedv, err := v.Sign(sender)
-	assert.Nil(err)
-	assert.Nil(signedv.Verify(sender))
-	assert.NotNil(signedv.Verify(recipient))
+	require.Nil(err)
+	require.Nil(signedv.Verify(sender))
+	require.NotNil(signedv.Verify(recipient))
 }
 
 func TestVoteSerializedDeserialize(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 	sender, err := iotxaddress.NewAddress(true, chainid)
-	assert.Nil(err)
+	require.Nil(err)
 	recipient, err := iotxaddress.NewAddress(true, chainid)
-	assert.Nil(err)
+	require.Nil(err)
 
 	v := NewVote(0, sender.PublicKey, recipient.PublicKey)
 	raw, err := v.Serialize()
-	assert.Nil(err)
+	require.Nil(err)
 
 	newv := &Vote{}
-	assert.Nil(newv.Deserialize(raw))
-	assert.Equal(v.Hash(), newv.Hash())
-	assert.Equal(v.TotalSize(), newv.TotalSize())
+	require.Nil(newv.Deserialize(raw))
+	require.Equal(v.Hash(), newv.Hash())
+	require.Equal(v.TotalSize(), newv.TotalSize())
 }
