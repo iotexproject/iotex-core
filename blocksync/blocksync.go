@@ -154,13 +154,13 @@ func (bs *blockSyncer) Stop() error {
 
 // Do checks the sliding window and send more sync request if needed
 func (bs *blockSyncer) Do() {
+	bs.mu.RLock()
+	defer bs.mu.RUnlock()
+
 	if bs.state == Idle {
 		// simple exit if we haven't received any blocks
 		return
 	}
-
-	bs.mu.RLock()
-	defer bs.mu.RUnlock()
 	if bs.state == Init {
 		bs.processFirstBlock()
 		bs.state = Active
@@ -244,12 +244,13 @@ func (bs *blockSyncer) processFirstBlock() error {
 
 // ProcessBlock processes an incoming latest committed block
 func (bs *blockSyncer) ProcessBlock(blk *bc.Block) error {
+	bs.mu.Lock()
+	defer bs.mu.Unlock()
+
 	if !bs.ackBlockCommit {
 		// node is not meant to handle latest committed block, simply exit
 		return nil
 	}
-
-	bs.mu.Lock()
 	height, err := bs.bc.TipHeight()
 	if err != nil {
 		return err
@@ -260,7 +261,6 @@ func (bs *blockSyncer) ProcessBlock(blk *bc.Block) error {
 			bs.p2p.PRC.Addr,
 			bs.currRcvdHeight,
 			height)
-		bs.mu.Unlock()
 		return err
 	}
 
@@ -270,7 +270,6 @@ func (bs *blockSyncer) ProcessBlock(blk *bc.Block) error {
 		// Otherwise waiting DO() to add it will cause thread context switch and incur extra latency, which usually
 		// leads to a duplicate Consensus round on the same block height, increasing chance of Consensus failure
 		if err := bs.processFirstBlock(); err != nil {
-			bs.mu.Unlock()
 			return err
 		}
 		bs.state = Active
@@ -281,7 +280,6 @@ func (bs *blockSyncer) ProcessBlock(blk *bc.Block) error {
 	if bs.state == Idle || bs.state == Init {
 		// indicate first valid block being received, DO() to handle sync request if needed
 		bs.state = Init
-		bs.mu.Unlock()
 		return nil
 	}
 
@@ -290,10 +288,8 @@ func (bs *blockSyncer) ProcessBlock(blk *bc.Block) error {
 		bs.dropHeight = bs.currRcvdHeight
 		//TODO make it structured logging
 		logger.Warn().Msgf("****** [%s] drop block %d", bs.p2p.PRC.Addr, bs.currRcvdHeight)
-		bs.mu.Unlock()
 		return nil
 	}
-	bs.mu.Unlock()
 
 	// check-in incoming block to the buffer
 	if err := bs.checkBlockIntoBuffer(blk); err != nil {
@@ -307,6 +303,9 @@ func (bs *blockSyncer) ProcessBlock(blk *bc.Block) error {
 
 // ProcessBlockSync processes an incoming old block
 func (bs *blockSyncer) ProcessBlockSync(blk *bc.Block) error {
+	bs.mu.Lock()
+	defer bs.mu.Unlock()
+
 	if !bs.ackBlockSync {
 		// node is not meant to handle sync block, simply exit
 		return nil
