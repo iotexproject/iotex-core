@@ -78,7 +78,7 @@ func (dao *blockDAO) getBlockHeight(hash common.Hash32B) (uint64, error) {
 	if err != nil {
 		return 0, errors.Wrap(err, "failed to get block height")
 	}
-	if value == nil || len(value) == 0 {
+	if len(value) == 0 {
 		return 0, errors.Wrapf(db.ErrNotExist, "height missing for block with hash = %x", hash)
 	}
 	return common.MachineEndian.Uint64(value), nil
@@ -196,7 +196,7 @@ func (dao *blockDAO) getBlockchainHeight() (uint64, error) {
 	if err != nil {
 		return 0, errors.Wrap(err, "failed to get top height")
 	}
-	if value == nil || len(value) == 0 {
+	if len(value) == 0 {
 		return 0, errors.Wrap(db.ErrNotExist, "blockchain height missing")
 	}
 	return common.MachineEndian.Uint64(value), nil

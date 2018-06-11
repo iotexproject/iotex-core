@@ -172,7 +172,7 @@ func SignTransfer(tsf *Transfer, sender *iotxaddress.Address) (*Transfer, error)
 	}
 	// check the public key is actually owned by sender
 	pkhash := iotxaddress.GetPubkeyHash(sender.RawAddress)
-	if bytes.Compare(pkhash, iotxaddress.HashPubKey(sender.PublicKey)) != 0 {
+	if !bytes.Equal(pkhash, iotxaddress.HashPubKey(sender.PublicKey)) {
 		return nil, errors.Wrapf(ErrActionError, "signing addr %s does not own correct public key",
 			sender.RawAddress)
 	}

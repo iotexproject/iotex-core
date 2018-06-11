@@ -241,7 +241,7 @@ func (b *Block) Deserialize(buf []byte) error {
 
 	// verify merkle root can match after deserialize
 	txroot := b.TxRoot()
-	if bytes.Compare(b.Header.txRoot[:], txroot[:]) != 0 {
+	if !bytes.Equal(b.Header.txRoot[:], txroot[:]) {
 		return errors.New("Failed to match merkle root after deserialize")
 	}
 	return nil

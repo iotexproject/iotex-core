@@ -116,7 +116,7 @@ func NewCoinbaseTx(toaddr string, amount uint64, data string) *Tx {
 // IsCoinbase checks if it is a coinbase transaction by checking if Vin is empty
 func (tx *Tx) IsCoinbase() bool {
 	return len(tx.TxIn) == 1 && len(tx.TxOut) == 1 && tx.TxIn[0].OutIndex == -1 && tx.TxIn[0].Sequence == 0xffffffff &&
-		bytes.Compare(tx.TxIn[0].TxHash[:], common.ZeroHash32B[:]) == 0
+		bytes.Equal(tx.TxIn[0].TxHash[:], common.ZeroHash32B[:])
 }
 
 // TotalSize returns the total size of this transaction
@@ -276,7 +276,7 @@ func (out *TxOutput) IsLockedWithKey(lockScript []byte) bool {
 		return false
 	}
 	// TODO: avoid hard-coded extraction of public key hash
-	return bytes.Compare(out.LockScript[3:23], lockScript) == 0
+	return bytes.Equal(out.LockScript[3:23], lockScript)
 }
 
 // TotalSize returns the total size of transaction output

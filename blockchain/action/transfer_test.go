@@ -26,7 +26,6 @@ func TestTransfer(t *testing.T) {
 
 	// Create a nil transfer and sign it
 	var nilTsf *Transfer
-	nilTsf = nil
 	sNilTsf, err := SignTransfer(nilTsf, sender)
 	assert.Nil(sNilTsf)
 	assert.NotNil(err)

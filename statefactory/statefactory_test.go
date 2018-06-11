@@ -418,7 +418,7 @@ func TestCandidate(t *testing.T) {
 }
 
 func compareStrings(actual []string, expected []string) bool {
-	act := make(map[string]bool, 0)
+	act := make(map[string]bool)
 	for i := 0; i < len(actual); i++ {
 		act[actual[i]] = true
 	}

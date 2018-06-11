@@ -102,13 +102,13 @@ func SignVote(raw []byte, sender *iotxaddress.Address) ([]byte, error) {
 		return nil, errors.Wrap(err, "failed to unmarshal Vote")
 	}
 	// check the sender is correct
-	if bytes.Compare(vote.SelfPubkey, sender.PublicKey) != 0 {
+	if !bytes.Equal(vote.SelfPubkey, sender.PublicKey) {
 		return nil, errors.Wrapf(ErrActionError, "signing pubKey %x does not match with Vote pubKey %x",
 			vote.SelfPubkey, sender.PublicKey)
 	}
 	// check the public key is actually owned by sender
 	pkhash := iotxaddress.GetPubkeyHash(sender.RawAddress)
-	if bytes.Compare(pkhash, iotxaddress.HashPubKey(sender.PublicKey)) != 0 {
+	if !bytes.Equal(pkhash, iotxaddress.HashPubKey(sender.PublicKey)) {
 		return nil, errors.Wrapf(ErrActionError, "signing addr %s does not own correct public key",
 			sender.RawAddress)
 	}

@@ -174,7 +174,6 @@ func (d *dispatcher) handleTxMsg(m *txMsg) {
 	if m.done != nil {
 		m.done <- true
 	}
-	return
 }
 
 // handleBlockMsg handles blockMsg from peers.
@@ -198,7 +197,6 @@ func (d *dispatcher) handleBlockMsg(m *blockMsg) {
 	if m.done != nil {
 		m.done <- true
 	}
-	return
 }
 
 // handleBlockSyncMsg handles block messages from peers.
@@ -214,7 +212,6 @@ func (d *dispatcher) handleBlockSyncMsg(m *blockSyncMsg) {
 	if m.done != nil {
 		m.done <- true
 	}
-	return
 }
 
 // handleActionMsg handles actionMsg from all peers.
@@ -245,7 +242,6 @@ func (d *dispatcher) handleActionMsg(m *actionMsg) {
 	if m.done != nil {
 		m.done <- true
 	}
-	return
 }
 
 // dispatchTx adds the passed transaction message to the news handling queue.
@@ -316,13 +312,10 @@ func (d *dispatcher) HandleBroadcast(message proto.Message, done chan bool) {
 	switch msgType {
 	case pb.ViewChangeMsgType:
 		d.cs.HandleViewChange(message, done)
-		break
 	case pb.MsgTxProtoMsgType:
 		d.dispatchTx(message, done)
-		break
 	case pb.MsgBlockProtoMsgType:
 		d.dispatchBlockCommit(message, done)
-		break
 	case pb.MsgActionType:
 		d.dispatchAction(message, done)
 	default:
