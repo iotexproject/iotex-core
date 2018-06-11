@@ -13,6 +13,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/common"
@@ -115,7 +116,7 @@ func TestNonce(t *testing.T) {
 	err = sf.SetNonce(addr.RawAddress, uint64(0x11))
 }
 
-func voteForm(cs []*Candidate) []string {
+func voteForm(height uint64, cs []*Candidate) []string {
 	r := make([]string, len(cs))
 	for i := 0; i < len(cs); i++ {
 		r[i] = (*cs[i]).Address + ":" + strconv.FormatInt((*cs[i]).Votes.Int64(), 10)
@@ -253,190 +254,193 @@ func TestCandidate(t *testing.T) {
 	// a:100(0) b:200(0) c:300(0)
 	tx1 := action.Transfer{Sender: a.RawAddress, Recipient: b.RawAddress, Nonce: uint64(1), Amount: big.NewInt(10)}
 	tx2 := action.Transfer{Sender: a.RawAddress, Recipient: c.RawAddress, Nonce: uint64(2), Amount: big.NewInt(20)}
-	err := sf.CommitStateChanges([]*action.Transfer{&tx1, &tx2}, []*action.Vote{})
-	assert.Nil(t, err)
-	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{}))
-	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{}))
+	err := sf.CommitStateChanges(0, []*action.Transfer{&tx1, &tx2}, []*action.Vote{})
+	require.Nil(t, err)
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{}))
+	require.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{}))
 	// a:70 b:210 c:320
 
 	vote := action.NewVote(0, a.PublicKey, a.PublicKey)
-	err = sf.CommitStateChanges([]*action.Transfer{}, []*action.Vote{vote})
-	assert.Nil(t, err)
-	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":70"}))
-	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{}))
+	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote})
+	require.Nil(t, err)
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":70"}))
+	require.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{}))
 	// a(a):70(+0=70) b:210 c:320
 
 	vote2 := action.NewVote(0, b.PublicKey, b.PublicKey)
-	err = sf.CommitStateChanges([]*action.Transfer{}, []*action.Vote{vote2})
-	assert.Nil(t, err)
-	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":70", b.RawAddress + ":210"}))
-	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{}))
+	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote2})
+	require.Nil(t, err)
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":70", b.RawAddress + ":210"}))
+	require.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{}))
 	// a(a):70(+0=70) b(b):210(+0=210) !c:320
 
 	vote3 := action.NewVote(1, a.PublicKey, b.PublicKey)
-	err = sf.CommitStateChanges([]*action.Transfer{}, []*action.Vote{vote3})
-	assert.Nil(t, err)
-	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":0", b.RawAddress + ":280"}))
-	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{}))
+	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote3})
+	require.Nil(t, err)
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":0", b.RawAddress + ":280"}))
+	require.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{}))
 	// a(b):70(0) b(b):210(+70=280) !c:320
 
 	tx3 := action.Transfer{Sender: b.RawAddress, Recipient: a.RawAddress, Nonce: uint64(2), Amount: big.NewInt(20)}
-	err = sf.CommitStateChanges([]*action.Transfer{&tx3}, []*action.Vote{})
-	assert.Nil(t, err)
-	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":0", b.RawAddress + ":280"}))
-	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{}))
+	err = sf.CommitStateChanges(0, []*action.Transfer{&tx3}, []*action.Vote{})
+	require.Nil(t, err)
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":0", b.RawAddress + ":280"}))
+	require.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{}))
 	// a(b):90(0) b(b):190(+90=280) !c:320
 
 	tx4 := action.Transfer{Sender: a.RawAddress, Recipient: b.RawAddress, Nonce: uint64(2), Amount: big.NewInt(20)}
-	err = sf.CommitStateChanges([]*action.Transfer{&tx4}, []*action.Vote{})
-	assert.Nil(t, err)
-	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":0", b.RawAddress + ":280"}))
-	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{}))
+	err = sf.CommitStateChanges(0, []*action.Transfer{&tx4}, []*action.Vote{})
+	require.Nil(t, err)
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":0", b.RawAddress + ":280"}))
+	require.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{}))
 	// a(b):70(0) b(b):210(+70=280) !c:320
 
 	vote4 := action.NewVote(1, b.PublicKey, a.PublicKey)
-	err = sf.CommitStateChanges([]*action.Transfer{}, []*action.Vote{vote4})
-	assert.Nil(t, err)
-	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":210", b.RawAddress + ":70"}))
-	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{}))
+	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote4})
+	require.Nil(t, err)
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":210", b.RawAddress + ":70"}))
+	require.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{}))
 	// a(b):70(210) b(a):210(70) !c:320
 
 	vote5 := action.NewVote(2, b.PublicKey, b.PublicKey)
-	err = sf.CommitStateChanges([]*action.Transfer{}, []*action.Vote{vote5})
-	assert.Nil(t, err)
-	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":0", b.RawAddress + ":280"}))
-	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{}))
+	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote5})
+	require.Nil(t, err)
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":0", b.RawAddress + ":280"}))
+	require.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{}))
 	// a(b):70(0) b(b):210(+70=280) !c:320
 
 	vote6 := action.NewVote(3, b.PublicKey, b.PublicKey)
-	err = sf.CommitStateChanges([]*action.Transfer{}, []*action.Vote{vote6})
-	assert.Nil(t, err)
-	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":0", b.RawAddress + ":280"}))
-	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{}))
+	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote6})
+	require.Nil(t, err)
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":0", b.RawAddress + ":280"}))
+	require.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{}))
 	// a(b):70(0) b(b):210(+70=280) !c:320
 
 	tx5 := action.Transfer{Sender: c.RawAddress, Recipient: a.RawAddress, Nonce: uint64(2), Amount: big.NewInt(20)}
-	err = sf.CommitStateChanges([]*action.Transfer{&tx5}, []*action.Vote{})
-	assert.Nil(t, err)
-	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":0", b.RawAddress + ":300"}))
-	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{}))
+	err = sf.CommitStateChanges(0, []*action.Transfer{&tx5}, []*action.Vote{})
+	require.Nil(t, err)
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":0", b.RawAddress + ":300"}))
+	require.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{}))
 	// a(b):90(0) b(b):210(+90=300) !c:300
 
 	vote7 := action.NewVote(0, c.PublicKey, a.PublicKey)
-	err = sf.CommitStateChanges([]*action.Transfer{}, []*action.Vote{vote7})
-	assert.Nil(t, err)
-	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":300", b.RawAddress + ":300"}))
-	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{}))
+	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote7})
+	require.Nil(t, err)
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":300", b.RawAddress + ":300"}))
+	require.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{}))
 	// a(b):90(300) b(b):210(+90=300) !c(a):300
 
 	vote8 := action.NewVote(4, b.PublicKey, c.PublicKey)
-	err = sf.CommitStateChanges([]*action.Transfer{}, []*action.Vote{vote8})
-	assert.Nil(t, err)
-	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":300", b.RawAddress + ":90"}))
-	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{}))
+	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote8})
+	require.Nil(t, err)
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":300", b.RawAddress + ":90"}))
+	require.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{}))
 	// a(b):90(300) b(c):210(90) !c(a):300
 
 	vote9 := action.NewVote(1, c.PublicKey, c.PublicKey)
-	err = sf.CommitStateChanges([]*action.Transfer{}, []*action.Vote{vote9})
-	assert.Nil(t, err)
-	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{c.RawAddress + ":510", b.RawAddress + ":90"}))
-	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{a.RawAddress + ":0"}))
+	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote9})
+	require.Nil(t, err)
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{c.RawAddress + ":510", b.RawAddress + ":90"}))
+	require.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{a.RawAddress + ":0"}))
 	// a(b):90(0) b(c):210(90) c(c):300(+210=510)
 
 	vote10 := action.NewVote(0, d.PublicKey, e.PublicKey)
-	err = sf.CommitStateChanges([]*action.Transfer{}, []*action.Vote{vote10})
-	assert.Nil(t, err)
-	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{c.RawAddress + ":510", b.RawAddress + ":90"}))
-	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{a.RawAddress + ":0"}))
+	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote10})
+	require.Nil(t, err)
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{c.RawAddress + ":510", b.RawAddress + ":90"}))
+	require.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{a.RawAddress + ":0"}))
 	// a(b):90(0) b(c):210(90) c(c):300(+210=510)
 
 	vote11 := action.NewVote(1, d.PublicKey, d.PublicKey)
-	err = sf.CommitStateChanges([]*action.Transfer{}, []*action.Vote{vote11})
-	assert.Nil(t, err)
-	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{c.RawAddress + ":510", d.RawAddress + ":100"}))
-	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{a.RawAddress + ":0", b.RawAddress + ":90"}))
+	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote11})
+	require.Nil(t, err)
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{c.RawAddress + ":510", d.RawAddress + ":100"}))
+	require.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{a.RawAddress + ":0", b.RawAddress + ":90"}))
 	// a(b):90(0) b(c):210(90) c(c):300(+210=510) d(d): 100(100)
 
 	vote12 := action.NewVote(2, d.PublicKey, a.PublicKey)
-	err = sf.CommitStateChanges([]*action.Transfer{}, []*action.Vote{vote12})
-	assert.Nil(t, err)
-	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{c.RawAddress + ":510", a.RawAddress + ":100"}))
-	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{d.RawAddress + ":0", b.RawAddress + ":90"}))
+	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote12})
+	require.Nil(t, err)
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{c.RawAddress + ":510", a.RawAddress + ":100"}))
+	require.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{d.RawAddress + ":0", b.RawAddress + ":90"}))
 	// a(b):90(100) b(c):210(90) c(c):300(+210=510) d(a): 100(0)
 
 	vote13 := action.NewVote(2, c.PublicKey, d.PublicKey)
-	err = sf.CommitStateChanges([]*action.Transfer{}, []*action.Vote{vote13})
-	assert.Nil(t, err)
-	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{c.RawAddress + ":210", d.RawAddress + ":300"}))
-	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{a.RawAddress + ":100", b.RawAddress + ":90"}))
+	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote13})
+	require.Nil(t, err)
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{c.RawAddress + ":210", d.RawAddress + ":300"}))
+	require.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{a.RawAddress + ":100", b.RawAddress + ":90"}))
 	// a(b):90(100) b(c):210(90) c(d):300(210) d(a): 100(300)
 
 	vote14 := action.NewVote(3, c.PublicKey, c.PublicKey)
-	err = sf.CommitStateChanges([]*action.Transfer{}, []*action.Vote{vote14})
-	assert.Nil(t, err)
-	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{c.RawAddress + ":510", a.RawAddress + ":100"}))
-	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{d.RawAddress + ":0", b.RawAddress + ":90"}))
+	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote14})
+	require.Nil(t, err)
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{c.RawAddress + ":510", a.RawAddress + ":100"}))
+	require.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{d.RawAddress + ":0", b.RawAddress + ":90"}))
 	// a(b):90(100) b(c):210(90) c(c):300(+210=510) d(a): 100(0)
 
 	tx6 := action.Transfer{Sender: c.RawAddress, Recipient: e.RawAddress, Nonce: uint64(1), Amount: big.NewInt(200)}
 	tx7 := action.Transfer{Sender: b.RawAddress, Recipient: e.RawAddress, Nonce: uint64(2), Amount: big.NewInt(200)}
-	err = sf.CommitStateChanges([]*action.Transfer{&tx6, &tx7}, []*action.Vote{})
-	assert.Nil(t, err)
-	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{c.RawAddress + ":110", a.RawAddress + ":100"}))
-	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{d.RawAddress + ":0", b.RawAddress + ":90"}))
+	err = sf.CommitStateChanges(0, []*action.Transfer{&tx6, &tx7}, []*action.Vote{})
+	require.Nil(t, err)
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{c.RawAddress + ":110", a.RawAddress + ":100"}))
+	require.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{d.RawAddress + ":0", b.RawAddress + ":90"}))
 	// a(b):90(100) b(c):10(90) c(c):100(+10=110) d(a): 100(0) !e:500
 
 	vote15 := action.NewVote(0, e.PublicKey, e.PublicKey)
-	err = sf.CommitStateChanges([]*action.Transfer{}, []*action.Vote{vote15})
-	assert.Nil(t, err)
-	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{c.RawAddress + ":110", e.RawAddress + ":500"}))
-	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{d.RawAddress + ":0", b.RawAddress + ":90", a.RawAddress + ":100"}))
+	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote15})
+	require.Nil(t, err)
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{c.RawAddress + ":110", e.RawAddress + ":500"}))
+	require.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{d.RawAddress + ":0", b.RawAddress + ":90", a.RawAddress + ":100"}))
 	// a(b):90(100) b(c):10(90) c(c):100(+10=110) d(a): 100(0) e(e):500(+0=500)
 
 	vote16 := action.NewVote(0, f.PublicKey, f.PublicKey)
-	err = sf.CommitStateChanges([]*action.Transfer{}, []*action.Vote{vote16})
-	assert.Nil(t, err)
-	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{f.RawAddress + ":300", e.RawAddress + ":500"}))
-	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{c.RawAddress + ":110", b.RawAddress + ":90", a.RawAddress + ":100", d.RawAddress + ":0"}))
+	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote16})
+	require.Nil(t, err)
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{f.RawAddress + ":300", e.RawAddress + ":500"}))
+	require.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{c.RawAddress + ":110", b.RawAddress + ":90", a.RawAddress + ":100", d.RawAddress + ":0"}))
 	// a(b):90(100) b(c):10(90) c(c):100(+10=110) d(a): 100(0) e(e):500(+0=500) f(f):300(+0=300)
 
 	vote17 := action.NewVote(0, f.PublicKey, d.PublicKey)
 	vote18 := action.NewVote(1, f.PublicKey, d.PublicKey)
-	err = sf.CommitStateChanges([]*action.Transfer{}, []*action.Vote{vote17, vote18})
-	assert.Nil(t, err)
-	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{d.RawAddress + ":300", e.RawAddress + ":500"}))
-	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{c.RawAddress + ":110", b.RawAddress + ":90", a.RawAddress + ":100", f.RawAddress + ":0"}))
-	//fmt.Printf("%v \n", voteForm(sf.Candidates()))
+	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote17, vote18})
+	require.Nil(t, err)
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{d.RawAddress + ":300", e.RawAddress + ":500"}))
+	require.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{c.RawAddress + ":110", b.RawAddress + ":90", a.RawAddress + ":100", f.RawAddress + ":0"}))
 	// a(b):90(100) b(c):10(90) c(c):100(+10=110) d(a): 100(300) e(e):500(+0=500) f(d):300(0)
 
 	tx8 := action.Transfer{Sender: f.RawAddress, Recipient: b.RawAddress, Nonce: uint64(1), Amount: big.NewInt(200)}
-	err = sf.CommitStateChanges([]*action.Transfer{&tx8}, []*action.Vote{})
-	assert.Nil(t, err)
-	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{c.RawAddress + ":310", e.RawAddress + ":500"}))
-	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{d.RawAddress + ":100", b.RawAddress + ":90", a.RawAddress + ":100", f.RawAddress + ":0"}))
+	err = sf.CommitStateChanges(0, []*action.Transfer{&tx8}, []*action.Vote{})
+	require.Nil(t, err)
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{c.RawAddress + ":310", e.RawAddress + ":500"}))
+	require.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{d.RawAddress + ":100", b.RawAddress + ":90", a.RawAddress + ":100", f.RawAddress + ":0"}))
 	// a(b):90(100) b(c):210(90) c(c):100(+210=310) d(a): 100(100) e(e):500(+0=500) f(d):100(0)
 	//fmt.Printf("%v \n", voteForm(sf.candidatesBuffer()))
 
 	tx9 := action.Transfer{Sender: b.RawAddress, Recipient: a.RawAddress, Nonce: uint64(1), Amount: big.NewInt(10)}
-	err = sf.CommitStateChanges([]*action.Transfer{&tx9}, []*action.Vote{})
-	assert.Nil(t, err)
-	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{c.RawAddress + ":300", e.RawAddress + ":500"}))
-	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{d.RawAddress + ":100", b.RawAddress + ":100", a.RawAddress + ":100", f.RawAddress + ":0"}))
+	err = sf.CommitStateChanges(0, []*action.Transfer{&tx9}, []*action.Vote{})
+	require.Nil(t, err)
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{c.RawAddress + ":300", e.RawAddress + ":500"}))
+	require.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{d.RawAddress + ":100", b.RawAddress + ":100", a.RawAddress + ":100", f.RawAddress + ":0"}))
 	// a(b):100(100) b(c):200(100) c(c):100(+200=300) d(a): 100(100) e(e):500(+0=500) f(d):100(0)
 
 	tx10 := action.Transfer{Sender: e.RawAddress, Recipient: d.RawAddress, Nonce: uint64(1), Amount: big.NewInt(300)}
-	err = sf.CommitStateChanges([]*action.Transfer{&tx10}, []*action.Vote{})
-	assert.Nil(t, err)
-	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{c.RawAddress + ":300", a.RawAddress + ":400"}))
-	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{d.RawAddress + ":100", b.RawAddress + ":100", e.RawAddress + ":200", f.RawAddress + ":0"}))
+	err = sf.CommitStateChanges(1, []*action.Transfer{&tx10}, []*action.Vote{})
+	require.Nil(t, err)
+	height, _ := sf.Candidates()
+	require.True(t, height == 1)
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{c.RawAddress + ":300", a.RawAddress + ":400"}))
+	require.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{d.RawAddress + ":100", b.RawAddress + ":100", e.RawAddress + ":200", f.RawAddress + ":0"}))
 	// a(b):100(400) b(c):200(100) c(c):100(+200=300) d(a): 400(100) e(e):200(+0=200) f(d):100(0)
 
 	vote19 := action.NewVote(0, d.PublicKey, a.PublicKey)
 	vote20 := action.NewVote(3, d.PublicKey, b.PublicKey)
-	err = sf.CommitStateChanges([]*action.Transfer{}, []*action.Vote{vote19, vote20})
-	assert.Nil(t, err)
-	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{c.RawAddress + ":300", b.RawAddress + ":500"}))
-	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{d.RawAddress + ":100", a.RawAddress + ":0", e.RawAddress + ":200", f.RawAddress + ":0"}))
+	err = sf.CommitStateChanges(2, []*action.Transfer{}, []*action.Vote{vote19, vote20})
+	require.Nil(t, err)
+	height, _ = sf.Candidates()
+	require.True(t, height == 2)
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{c.RawAddress + ":300", b.RawAddress + ":500"}))
+	require.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{d.RawAddress + ":100", a.RawAddress + ":0", e.RawAddress + ":200", f.RawAddress + ":0"}))
 	// a(b):100(0) b(c):200(500) c(c):100(+200=300) d(b): 400(100) e(e):200(+0=200) f(d):100(0)
 }
 

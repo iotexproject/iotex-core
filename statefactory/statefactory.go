@@ -73,15 +73,16 @@ type (
 	StateFactory interface {
 		CreateState(string, uint64) (*State, error)
 		Balance(string) (*big.Int, error)
-		CommitStateChanges([]*action.Transfer, []*action.Vote) error
+		CommitStateChanges(uint64, []*action.Transfer, []*action.Vote) error
 		SetNonce(string, uint64) error
 		Nonce(string) (uint64, error)
 		RootHash() common.Hash32B
-		Candidates() []*Candidate
+		Candidates() (uint64, []*Candidate)
 	}
 
 	// stateFactory implements StateFactory interface, tracks changes in a map and batch-commits to trie/db
 	stateFactory struct {
+		currentChainHeight     uint64
 		trie                   trie.Trie
 		candidateHeap          CandidateMinPQ
 		candidateBufferMinHeap CandidateMinPQ
@@ -134,6 +135,7 @@ func (st *State) SubBalance(amount *big.Int) error {
 // NewStateFactory creates a new state factory
 func NewStateFactory(tr trie.Trie) StateFactory {
 	return &stateFactory{
+		currentChainHeight:     0,
 		trie:                   tr,
 		candidateHeap:          CandidateMinPQ{candidateSize, make([]*Candidate, 0)},
 		candidateBufferMinHeap: CandidateMinPQ{candidateBufferSize, make([]*Candidate, 0)},
@@ -212,7 +214,8 @@ func (sf *stateFactory) RootHash() common.Hash32B {
 }
 
 // CommitStateChanges updates a State from the given actions
-func (sf *stateFactory) CommitStateChanges(tsf []*action.Transfer, vote []*action.Vote) error {
+func (sf *stateFactory) CommitStateChanges(chainHeight uint64, tsf []*action.Transfer, vote []*action.Vote) error {
+	sf.currentChainHeight = chainHeight
 	pending := make(map[common.PKHash]*State)
 	addressToPKMap := make(map[string][]byte)
 
@@ -267,15 +270,15 @@ func (sf *stateFactory) CommitStateChanges(tsf []*action.Transfer, vote []*actio
 }
 
 // Candidates returns array of candidates in candidate pool
-func (sf *stateFactory) Candidates() []*Candidate {
-	return sf.candidateHeap.CandidateList()
+func (sf *stateFactory) Candidates() (uint64, []*Candidate) {
+	return sf.currentChainHeight, sf.candidateHeap.CandidateList()
 }
 
 //======================================
 // private functions
 //=====================================
-func (sf *stateFactory) candidatesBuffer() []*Candidate {
-	return sf.candidateBufferMinHeap.CandidateList()
+func (sf *stateFactory) candidatesBuffer() (uint64, []*Candidate) {
+	return sf.currentChainHeight, sf.candidateBufferMinHeap.CandidateList()
 }
 
 // getState pulls an existing State
