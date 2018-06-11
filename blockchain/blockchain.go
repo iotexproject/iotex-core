@@ -175,7 +175,7 @@ func (bc *blockchain) Start() (err error) {
 		if blk != nil {
 			bc.utk.UpdateUtxoPool(blk)
 			if bc.sf != nil && blk.Transfers != nil {
-				if err := bc.sf.CommitStateChanges(blk.Transfers, blk.Votes); err != nil {
+				if err := bc.sf.CommitStateChanges(bc.tipHeight, blk.Transfers, blk.Votes); err != nil {
 					return err
 				}
 			}
@@ -447,7 +447,7 @@ func (bc *blockchain) commitBlock(blk *Block) error {
 	if bc.sf == nil || (blk.Transfers == nil && blk.Votes == nil) {
 		return nil
 	}
-	return bc.sf.CommitStateChanges(blk.Transfers, blk.Votes)
+	return bc.sf.CommitStateChanges(bc.tipHeight, blk.Transfers, blk.Votes)
 }
 
 func createAndInitBlockchain(kvstore db.KVStore, sf statefactory.StateFactory, cfg *config.Config) Blockchain {

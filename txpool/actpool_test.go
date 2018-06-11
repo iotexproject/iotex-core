@@ -58,7 +58,7 @@ func TestActPool_validateTsf(t *testing.T) {
 	// Case III: Nonce is too low
 	prevTsf := action.Transfer{Sender: addr.RawAddress, Recipient: addr.RawAddress, Nonce: uint64(1), Amount: big.NewInt(50)}
 	ap.AddTsf(&prevTsf)
-	err = ap.sf.CommitStateChanges([]*action.Transfer{&prevTsf}, nil)
+	err = ap.sf.CommitStateChanges(0, []*action.Transfer{&prevTsf}, nil)
 	assert.Nil(err)
 	ap.Reset()
 	tsf = action.Transfer{Sender: addr.RawAddress, Recipient: addr.RawAddress, Nonce: uint64(1), Amount: big.NewInt(60)}
@@ -226,7 +226,7 @@ func TestActPool_removeCommittedTsfs(t *testing.T) {
 
 	assert.Equal(4, len(ap.allTsfs))
 	assert.NotNil(ap.accountTsfs[addr.RawAddress])
-	err := ap.sf.CommitStateChanges([]*action.Transfer{&tsf1, &tsf2, &tsf3, &tsf4}, nil)
+	err := ap.sf.CommitStateChanges(0, []*action.Transfer{&tsf1, &tsf2, &tsf3, &tsf4}, nil)
 	assert.Nil(err)
 	ap.removeCommittedTsfs()
 	assert.Equal(0, len(ap.allTsfs))
@@ -342,7 +342,7 @@ func TestActPool_Reset(t *testing.T) {
 	// Let ap1 be BP's actpool
 	pickedTsfs := ap1.PickTsfs()
 	// ap1 commits update of balance and nonce to trie
-	err := ap1.sf.CommitStateChanges(pickedTsfs, nil)
+	err := ap1.sf.CommitStateChanges(0, pickedTsfs, nil)
 	assert.Nil(err)
 	//Reset
 	ap1.Reset()
@@ -456,7 +456,7 @@ func TestActPool_Reset(t *testing.T) {
 	// Let ap2 be BP's actpool
 	pickedTsfs = ap2.PickTsfs()
 	// ap2 commits update of balance and nonce to trie
-	err = ap2.sf.CommitStateChanges(pickedTsfs, nil)
+	err = ap2.sf.CommitStateChanges(0, pickedTsfs, nil)
 	assert.Nil(err)
 	//Reset
 	ap1.Reset()

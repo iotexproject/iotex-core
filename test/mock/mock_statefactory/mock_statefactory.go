@@ -63,15 +63,15 @@ func (mr *MockStateFactoryMockRecorder) Balance(arg0 interface{}) *gomock.Call {
 }
 
 // CommitStateChanges mocks base method
-func (m *MockStateFactory) CommitStateChanges(arg0 []*action.Transfer, arg1 []*action.Vote) error {
-	ret := m.ctrl.Call(m, "CommitStateChanges", arg0, arg1)
+func (m *MockStateFactory) CommitStateChanges(arg0 uint64, arg1 []*action.Transfer, arg2 []*action.Vote) error {
+	ret := m.ctrl.Call(m, "CommitStateChanges", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // CommitStateChanges indicates an expected call of CommitStateChanges
-func (mr *MockStateFactoryMockRecorder) CommitStateChanges(arg0, arg1 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitStateChanges", reflect.TypeOf((*MockStateFactory)(nil).CommitStateChanges), arg0, arg1)
+func (mr *MockStateFactoryMockRecorder) CommitStateChanges(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitStateChanges", reflect.TypeOf((*MockStateFactory)(nil).CommitStateChanges), arg0, arg1, arg2)
 }
 
 // SetNonce mocks base method
@@ -112,10 +112,11 @@ func (mr *MockStateFactoryMockRecorder) RootHash() *gomock.Call {
 }
 
 // Candidates mocks base method
-func (m *MockStateFactory) Candidates() []*statefactory.Candidate {
+func (m *MockStateFactory) Candidates() (uint64, []*statefactory.Candidate) {
 	ret := m.ctrl.Call(m, "Candidates")
-	ret0, _ := ret[0].([]*statefactory.Candidate)
-	return ret0
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].([]*statefactory.Candidate)
+	return ret0, ret1
 }
 
 // Candidates indicates an expected call of Candidates

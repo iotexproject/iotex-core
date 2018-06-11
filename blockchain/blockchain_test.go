@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/blockchain/trx"
@@ -369,10 +370,10 @@ func TestBlockchain_MintNewDummyBlock(t *testing.T) {
 }
 
 func TestBlockchainInitialCandidate(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 
 	config, err := config.LoadConfigWithPathWithoutValidation(testingConfigPath)
-	assert.Nil(err)
+	require.Nil(err)
 	util.CleanupPath(t, testTriePath)
 	defer util.CleanupPath(t, testTriePath)
 	util.CleanupPath(t, testDBPath)
@@ -389,17 +390,20 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 
 	for _, pk := range initDelegatePK {
 		pubk, err := hex.DecodeString(pk)
-		assert.Nil(err)
+		require.Nil(err)
 		address, err := iotxaddress.GetAddress(pubk, false, []byte{0x01, 0x02, 0x03, 0x04})
-		assert.Nil(err)
+		require.Nil(err)
 		_, err = sf.CreateState(address.RawAddress, uint64(0))
-		assert.Nil(err)
+		require.Nil(err)
 	}
 
-	assert.True(len(sf.Candidates()) == 0)
+	height, candidate := sf.Candidates()
+	require.True(height == 0)
+	require.True(len(candidate) == 0)
 	bc := CreateBlockchain(config, sf)
-	assert.NotNil(t, bc)
-	fmt.Println(len(sf.Candidates()))
+	require.NotNil(t, bc)
 	// TODO: change the value when Candidates size is changed
-	assert.True(len(sf.Candidates()) == 2)
+	height, candidate = sf.Candidates()
+	require.True(height == 0)
+	require.True(len(candidate) == 2)
 }
