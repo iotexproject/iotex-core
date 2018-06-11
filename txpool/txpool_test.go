@@ -42,7 +42,7 @@ func TestTxPool(t *testing.T) {
 	cfg.Chain.InMemTest = true
 	// Disable block reward to make bookkeeping easier
 	Gen.BlockReward = uint64(0)
-	bc := CreateBlockchain(cfg, Gen, nil)
+	bc := CreateBlockchain(cfg, nil)
 	assert.NotNil(bc)
 	defer bc.Stop()
 

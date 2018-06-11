@@ -42,7 +42,7 @@ func NewServer(cfg config.Config) *Server {
 		return nil
 	}
 	// create Blockchain
-	bc := blockchain.CreateBlockchain(&cfg, blockchain.Gen, sf)
+	bc := blockchain.CreateBlockchain(&cfg, sf)
 	return newServer(cfg, bc, sf)
 }
 

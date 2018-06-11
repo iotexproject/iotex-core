@@ -70,8 +70,8 @@ var Gen = &Genesis{
 }
 
 // NewGenesisBlock creates a new genesis block
-func NewGenesisBlock(gen *Genesis) *Block {
-	cbtx := trx.NewCoinbaseTx(ta.Addrinfo["miner"].RawAddress, gen.TotalSupply, gen.GenesisCoinbaseData)
+func NewGenesisBlock() *Block {
+	cbtx := trx.NewCoinbaseTx(ta.Addrinfo["miner"].RawAddress, Gen.TotalSupply, Gen.GenesisCoinbaseData)
 	if cbtx == nil {
 		logger.Error().Msg("Cannot create coinbase transaction")
 		return nil
@@ -94,10 +94,10 @@ func NewGenesisBlock(gen *Genesis) *Block {
 	block := &Block{
 		Header: &BlockHeader{
 			version:       Version,
-			chainID:       gen.GenConfig.ChainID,
+			chainID:       Gen.GenConfig.ChainID,
 			height:        uint64(0),
-			timestamp:     gen.Timestamp,
-			prevBlockHash: gen.ParentHash,
+			timestamp:     Gen.Timestamp,
+			prevBlockHash: Gen.ParentHash,
 			txRoot:        common.ZeroHash32B,
 			stateRoot:     common.ZeroHash32B,
 			trnxNumber:    uint32(1),
