@@ -170,10 +170,7 @@ func (b *branch) deserialize(stream []byte) error {
 	// reset variable
 	*b = branch{}
 	dec := gob.NewDecoder(bytes.NewBuffer(stream[1:]))
-	if err := dec.Decode(b); err != nil {
-		return err
-	}
-	return nil
+	return dec.Decode(b)
 }
 
 func (b *branch) print() {
@@ -345,10 +342,7 @@ func (l *leaf) deserialize(stream []byte) error {
 	// reset variable
 	*l = leaf{}
 	dec := gob.NewDecoder(bytes.NewBuffer(stream[1:]))
-	if err := dec.Decode(l); err != nil {
-		return err
-	}
-	return nil
+	return dec.Decode(l)
 }
 
 // split diverging path

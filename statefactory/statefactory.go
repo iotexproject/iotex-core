@@ -203,10 +203,7 @@ func (sf *stateFactory) SetNonce(addr string, value uint64) error {
 	if err != nil {
 		return err
 	}
-	if err := sf.trie.Upsert(iotxaddress.GetPubkeyHash(addr), mstate); err != nil {
-		return err
-	}
-	return nil
+	return sf.trie.Upsert(iotxaddress.GetPubkeyHash(addr), mstate)
 }
 
 // RootHash returns the hash of the root node of the trie
