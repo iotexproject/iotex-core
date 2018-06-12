@@ -17,13 +17,14 @@ import (
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network"
+	"github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/statefactory"
 )
 
 const (
-	// GlobalSlots indicate maximum transfers the whole actpool can hold
+	// GlobalSlots indicate maximum number of actions the whole actpool can hold
 	GlobalSlots = 5120
-	// AccountSlots indicate maximum transfers an account can hold
+	// AccountSlots indicate maximum number of an account queue can hold
 	AccountSlots = 80
 )
 
@@ -42,11 +43,11 @@ var (
 type ActPool interface {
 	// Reset resets actpool state
 	Reset()
-	// PickTsfs returns all currently accepted transfers in actpool
-	PickTsfs() []*action.Transfer
-	// AddTsf adds a transfer into the pool after validation
+	// PickActs returns all currently accepted transfers and votes in actpool
+	PickActs() ([]*action.Transfer, []*action.Vote)
+	// AddTsf adds an transfer into the pool after passing validation
 	AddTsf(tsf *action.Transfer) error
-	// AddVote adds a vote into pool after validation
+	// AddVote adds a vote into the pool after passing validation
 	AddVote(vote *action.Vote) error
 }
 
@@ -55,8 +56,8 @@ type actPool struct {
 	mutex       sync.RWMutex
 	sf          statefactory.StateFactory
 	p2p         *network.Overlay
-	accountTsfs map[string]TsfQueue
-	allTsfs     map[common.Hash32B]*action.Transfer
+	accountActs map[string]ActQueue
+	allActions  map[common.Hash32B]*iproto.ActionPb
 }
 
 // NewActPool constructs a new actpool
@@ -64,26 +65,26 @@ func NewActPool(sf statefactory.StateFactory, p2p *network.Overlay) ActPool {
 	ap := &actPool{
 		sf:          sf,
 		p2p:         p2p,
-		accountTsfs: make(map[string]TsfQueue),
-		allTsfs:     make(map[common.Hash32B]*action.Transfer),
+		accountActs: make(map[string]ActQueue),
+		allActions:  make(map[common.Hash32B]*iproto.ActionPb),
 	}
 	return ap
 }
 
 // Reset resets actpool state
-// Step I: remove all the transfers in actpool that have already been committed to block
+// Step I: remove all the actions in actpool that have already been committed to block
 // Step II: update pending balance of each account if it still exists in pool
 // Step III: update pending nonce and confirmed nonce in each account if it still exists in pool
 // Specifically, first synchronize old confirmed nonce with committed nonce in order to prevent omitting reevaluation of
-// uncommitted but confirmed Tsfs in pool after update of pending balance
+// uncommitted but confirmed actions in pool after update of pending balance
 // Then starting from the current committed nonce, iteratively update pending nonce if nonces are consecutive as well as
 // confirmed nonce if pending balance is sufficient
 func (ap *actPool) Reset() {
 	ap.mutex.Lock()
 	defer ap.mutex.Unlock()
-	// Remove committed transfers in actpool
-	ap.removeCommittedTsfs()
-	for from, queue := range ap.accountTsfs {
+	// Remove committed actions in actpool
+	ap.removeCommittedActs()
+	for from, queue := range ap.accountActs {
 		// Reset pending balance for each account
 		balance, err := ap.sf.Balance(from)
 		if err != nil {
@@ -104,16 +105,27 @@ func (ap *actPool) Reset() {
 	}
 }
 
-// PickTsfs returns all currently accepted transfers for all accounts
-func (ap *actPool) PickTsfs() []*action.Transfer {
+// PickActs returns all currently accepted transfers and votes for all accounts
+func (ap *actPool) PickActs() ([]*action.Transfer, []*action.Vote) {
 	ap.mutex.Lock()
 	defer ap.mutex.Unlock()
 
-	pending := []*action.Transfer{}
-	for _, queue := range ap.accountTsfs {
-		pending = append(pending, queue.ConfirmedTsfs()...)
+	transfers := []*action.Transfer{}
+	votes := []*action.Vote{}
+	for _, queue := range ap.accountActs {
+		for _, act := range queue.ConfirmedActs() {
+			if act.GetTransfer() != nil {
+				tsf := action.Transfer{}
+				tsf.ConvertFromTransferPb(act.GetTransfer())
+				transfers = append(transfers, &tsf)
+			} else {
+				vote := action.Vote{}
+				vote.ConvertFromVotePb(act.GetVote())
+				votes = append(votes, &vote)
+			}
+		}
 	}
-	return pending
+	return transfers, votes
 }
 
 // validateTsf checks whether a tranfer is valid
@@ -126,10 +138,21 @@ func (ap *actPool) validateTsf(tsf *action.Transfer) error {
 	if tsf.Amount.Sign() < 0 {
 		return errors.Wrapf(ErrBalance, "negative value")
 	}
-	// check sender
+	// check if sender's address is valid
 	pkhash := iotxaddress.GetPubkeyHash(tsf.Sender)
 	if pkhash == nil {
 		return ErrInvalidAddr
+	}
+
+	sender, err := iotxaddress.GetAddress(tsf.SenderPublicKey, iotxaddress.IsTestnet, iotxaddress.ChainID)
+	if err != nil {
+		logger.Error().Err(err).Msg("Error when validating transfer")
+		return err
+	}
+	// Verify transfer using sender's public key
+	if err := tsf.Verify(sender); err != nil {
+		logger.Error().Err(err).Msg("Error when validatng transfer")
+		return err
 	}
 	// Reject transfer if nonce is too low
 	committedNonce, err := ap.sf.Nonce(tsf.Sender)
@@ -144,13 +167,43 @@ func (ap *actPool) validateTsf(tsf *action.Transfer) error {
 	return nil
 }
 
+// validateVote checks whether a vote is valid
+func (ap *actPool) validateVote(vote *action.Vote) error {
+	// Reject oversized vote
+	if vote.TotalSize() > 32*1024 {
+		return errors.Wrapf(ErrActPool, "oversized data")
+	}
+	voter, err := iotxaddress.GetAddress(vote.SelfPubkey, iotxaddress.IsTestnet, iotxaddress.ChainID)
+	if err != nil {
+		logger.Error().Err(err).Msg("Error when validating vote")
+		return err
+	}
+	// Verify vote using voter's public key
+	if err := vote.Verify(voter); err != nil {
+		logger.Error().Err(err).Msg("Error when validating vote")
+		return err
+	}
+
+	// Reject vote if nonce is too low
+	committedNonce, err := ap.sf.Nonce(voter.RawAddress)
+	if err != nil {
+		logger.Error().Err(err).Msg("Error when validating vote")
+		return err
+	}
+	confirmedNonce := committedNonce + 1
+	if confirmedNonce > vote.Nonce {
+		return errors.Wrapf(ErrNonce, "nonce too low")
+	}
+	return nil
+}
+
 // AddTsf inserts a new transfer into account queue if it passes validation
 func (ap *actPool) AddTsf(tsf *action.Transfer) error {
 	ap.mutex.Lock()
 	defer ap.mutex.Unlock()
 	hash := tsf.Hash()
 	// Reject transfer if it already exists in pool
-	if ap.allTsfs[hash] != nil {
+	if ap.allActions[hash] != nil {
 		logger.Info().
 			Bytes("hash", hash[:]).
 			Msg("Rejecting existed transfer")
@@ -165,89 +218,130 @@ func (ap *actPool) AddTsf(tsf *action.Transfer) error {
 		return err
 	}
 	// Reject transfer if pool space is full
-	if uint64(len(ap.allTsfs)) >= GlobalSlots {
+	if uint64(len(ap.allActions)) >= GlobalSlots {
 		logger.Info().
 			Bytes("hash", hash[:]).
 			Msg("Rejecting transfer due to insufficient space")
 		return errors.Wrapf(ErrActPool, "insufficient space for transfer")
 	}
-	// check sender
-	pkhash := iotxaddress.GetPubkeyHash(tsf.Sender)
-	if pkhash == nil {
-		return ErrInvalidAddr
+	// Wrap tsf as an action
+	action := &iproto.ActionPb{&iproto.ActionPb_Transfer{tsf.ConvertToTransferPb()}}
+	return ap.addAction(tsf.Sender, action, hash, tsf.Nonce)
+}
+
+// AddVote inserts a new vote into account queue if it passes validation
+func (ap *actPool) AddVote(vote *action.Vote) error {
+	ap.mutex.Lock()
+	defer ap.mutex.Unlock()
+	hash := vote.Hash()
+	// Reject vote if it already exists in pool
+	if ap.allActions[hash] != nil {
+		logger.Info().
+			Bytes("hash", hash[:]).
+			Msg("Rejecting existed vote")
+		return fmt.Errorf("existed vote: %x", hash)
 	}
-	queue := ap.accountTsfs[tsf.Sender]
+	// Reject vote if it fails validation
+	if err := ap.validateVote(vote); err != nil {
+		logger.Info().
+			Bytes("hash", hash[:]).
+			Err(err).
+			Msg("Rejecting invalid vote")
+		return err
+	}
+	// Reject vote if pool space is full
+	if uint64(len(ap.allActions)) >= GlobalSlots {
+		logger.Info().
+			Bytes("hash", hash[:]).
+			Msg("Rejecting vote due to insufficient space")
+		return errors.Wrapf(ErrActPool, "insufficient space for vote")
+	}
+
+	voter, err := iotxaddress.GetAddress(vote.SelfPubkey, iotxaddress.IsTestnet, iotxaddress.ChainID)
+	if err != nil {
+		logger.Error().Err(err).Msg("Error when validating vote")
+		return err
+	}
+	// Wrap vote as an action
+	action := &iproto.ActionPb{&iproto.ActionPb_Vote{vote.ConvertToVotePb()}}
+	return ap.addAction(voter.RawAddress, action, hash, vote.Nonce)
+}
+
+func (ap *actPool) addAction(sender string, action *iproto.ActionPb, hash common.Hash32B, actNonce uint64) error {
+	queue := ap.accountActs[sender]
 	if queue == nil {
-		queue = NewTsfQueue()
-		ap.accountTsfs[tsf.Sender] = queue
+		queue = NewActQueue()
+		ap.accountActs[sender] = queue
 		// Initialize pending nonce and confirmed nonce for new account
-		committedNonce, err := ap.sf.Nonce(tsf.Sender)
+		committedNonce, err := ap.sf.Nonce(sender)
 		if err != nil {
-			logger.Error().Err(err).Msg("Error when adding Tsf")
+			logger.Error().Err(err).Msg("Error when adding action")
 			return err
 		}
 		confirmedNonce := committedNonce + 1
 		queue.SetPendingNonce(confirmedNonce)
 		queue.SetConfirmedNonce(confirmedNonce)
 		// Initialize balance for new account
-		balance, err := ap.sf.Balance(tsf.Sender)
+		balance, err := ap.sf.Balance(sender)
 		if err != nil {
-			logger.Error().Err(err).Msg("Error when adding Tsf")
+			logger.Error().Err(err).Msg("Error when adding action")
 			return err
 		}
 		queue.SetPendingBalance(balance)
 	}
-
-	if queue.Overlaps(tsf) {
+	if queue.Overlaps(action) {
 		// Nonce already exists
 		logger.Info().
 			Bytes("hash", hash[:]).
-			Msg("Rejecting transfer because replacement Tsf is not supported")
+			Msg("Rejecting action because replacement action is not supported")
 		return errors.Wrapf(ErrNonce, "duplicate nonce")
 	}
 
 	if queue.Len() >= AccountSlots {
 		logger.Info().
 			Bytes("hash", hash[:]).
-			Msg("Rejecting transfer due to insufficient space")
-		return errors.Wrapf(ErrActPool, "insufficient space for transfer")
+			Msg("Rejecting action due to insufficient space")
+		return errors.Wrapf(ErrActPool, "insufficient space for action")
 	}
-	queue.Put(tsf)
-	ap.allTsfs[hash] = tsf
+	queue.Put(action)
+	ap.allActions[hash] = action
 	// If the pending nonce equals this nonce, update pending nonce
 	nonce := queue.PendingNonce()
-	if tsf.Nonce == nonce {
-		queue.UpdateNonce(tsf.Nonce)
+	if actNonce == nonce {
+		queue.UpdateNonce(actNonce)
 	}
 	return nil
 }
 
-// AddVote inserts a new vote if it passes validation
-func (ap *actPool) AddVote(vote *action.Vote) error {
-	// TODO: Implement AddVote
-	return nil
-}
-
-// removeCommittedTsfs removes processed (committed to block) transfers from pool
-func (ap *actPool) removeCommittedTsfs() {
-	for from, queue := range ap.accountTsfs {
+// removeCommittedActs removes processed (committed to block) actions from pool
+func (ap *actPool) removeCommittedActs() {
+	for from, queue := range ap.accountActs {
 		committedNonce, err := ap.sf.Nonce(from)
 		if err != nil {
-			logger.Error().Err(err).Msg("Error when removing commited Tsfs")
+			logger.Error().Err(err).Msg("Error when removing committed actions")
 			return
 		}
 		confirmedNonce := committedNonce + 1
-		// Remove all transfers that are committed to new block
-		for _, tsf := range queue.FilterNonce(confirmedNonce) {
-			hash := tsf.Hash()
+		// Remove all actions that are committed to new block
+		for _, act := range queue.FilterNonce(confirmedNonce) {
+			var hash common.Hash32B
+			if act.GetTransfer() != nil {
+				tsf := &action.Transfer{}
+				tsf.ConvertFromTransferPb(act.GetTransfer())
+				hash = tsf.Hash()
+			} else {
+				vote := &action.Vote{}
+				vote.ConvertFromVotePb(act.GetVote())
+				hash = vote.Hash()
+			}
 			logger.Info().
 				Bytes("hash", hash[:]).
-				Msg("Removed committed transfer")
-			delete(ap.allTsfs, hash)
+				Msg("Removed committed action")
+			delete(ap.allActions, hash)
 		}
 		// Delete the queue entry if it becomes empty
 		if queue.Empty() {
-			delete(ap.accountTsfs, from)
+			delete(ap.accountActs, from)
 		}
 	}
 }

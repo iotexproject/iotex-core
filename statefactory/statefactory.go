@@ -449,6 +449,12 @@ func (sf *stateFactory) handleVote(pending map[common.PKHash]*State, addressToPK
 		addressToPKMap[voteFrom.Address] = v.SelfPubkey
 
 		voteAddress, err := iotxaddress.GetAddress(v.VotePubkey, iotxaddress.IsTestnet, iotxaddress.ChainID)
+
+		// update voteFrom nonce
+		if v.Nonce > voteFrom.Nonce {
+			voteFrom.Nonce = v.Nonce
+		}
+
 		voteTo, err := sf.upsert(pending, voteAddress.RawAddress)
 		if err != nil {
 			return err

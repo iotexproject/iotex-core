@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotexproject/iotex-core/blockchain/action"
+	pb "github.com/iotexproject/iotex-core/proto"
 )
 
 func TestNoncePriorityQueue(t *testing.T) {
@@ -47,75 +48,91 @@ func TestNoncePriorityQueue(t *testing.T) {
 	}
 }
 
-func TestTsfQueue_Put(t *testing.T) {
+func TestActQueue_Put(t *testing.T) {
 	assert := assert.New(t)
-	q := NewTsfQueue().(*tsfQueue)
-	tsf1 := action.Transfer{Nonce: uint64(2), Amount: big.NewInt(10)}
-	q.Put(&tsf1)
+	q := NewActQueue().(*actQueue)
+	vote1 := action.Vote{&pb.VotePb{Nonce: uint64(2)}}
+	action1 := &pb.ActionPb{&pb.ActionPb_Vote{vote1.ConvertToVotePb()}}
+	q.Put(action1)
 	assert.Equal(uint64(2), q.index[0])
-	assert.NotNil(q.items[tsf1.Nonce])
+	assert.NotNil(q.items[vote1.Nonce])
 	tsf2 := action.Transfer{Nonce: uint64(1), Amount: big.NewInt(100)}
-	q.Put(&tsf2)
+	action2 := &pb.ActionPb{&pb.ActionPb_Transfer{tsf2.ConvertToTransferPb()}}
+	q.Put(action2)
 	assert.Equal(uint64(1), heap.Pop(&q.index))
-	assert.Equal(&tsf2, q.items[uint64(1)])
+	assert.Equal(action2, q.items[uint64(1)])
 	assert.Equal(uint64(2), heap.Pop(&q.index))
-	assert.Equal(&tsf1, q.items[uint64(2)])
+	assert.Equal(action1, q.items[uint64(2)])
 	// tsf3 is a replacement transfer
 	tsf3 := action.Transfer{Nonce: uint64(1), Amount: big.NewInt(1000)}
-	err := q.Put(&tsf3)
+	action3 := &pb.ActionPb{&pb.ActionPb_Transfer{tsf3.ConvertToTransferPb()}}
+	err := q.Put(action3)
 	assert.NotNil(err)
 }
 
-func TestTsfQueue_FilterNonce(t *testing.T) {
+func TestActQueue_FilterNonce(t *testing.T) {
 	assert := assert.New(t)
-	q := NewTsfQueue().(*tsfQueue)
+	q := NewActQueue().(*actQueue)
 	tsf1 := action.Transfer{Nonce: uint64(1), Amount: big.NewInt(1)}
-	tsf2 := action.Transfer{Nonce: uint64(2), Amount: big.NewInt(100)}
+	action1 := &pb.ActionPb{&pb.ActionPb_Transfer{tsf1.ConvertToTransferPb()}}
+	vote2 := action.Vote{&pb.VotePb{Nonce: uint64(2)}}
+	action2 := &pb.ActionPb{&pb.ActionPb_Vote{vote2.ConvertToVotePb()}}
 	tsf3 := action.Transfer{Nonce: uint64(3), Amount: big.NewInt(1000)}
-	q.Put(&tsf1)
-	q.Put(&tsf2)
-	q.Put(&tsf3)
+	action3 := &pb.ActionPb{&pb.ActionPb_Transfer{tsf3.ConvertToTransferPb()}}
+	q.Put(action1)
+	q.Put(action2)
+	q.Put(action3)
 	q.FilterNonce(uint64(3))
 	assert.Equal(1, len(q.items))
 	assert.Equal(uint64(3), q.index[0])
-	assert.Equal(&tsf3, q.items[q.index[0]])
+	assert.Equal(action3, q.items[q.index[0]])
 }
 
-func TestTsfQueue_UpdateNonce(t *testing.T) {
+func TestActQueue_UpdateNonce(t *testing.T) {
 	assert := assert.New(t)
-	q := NewTsfQueue().(*tsfQueue)
+	q := NewActQueue().(*actQueue)
 	tsf1 := action.Transfer{Nonce: uint64(1), Amount: big.NewInt(1)}
+	action1 := &pb.ActionPb{&pb.ActionPb_Transfer{tsf1.ConvertToTransferPb()}}
 	tsf2 := action.Transfer{Nonce: uint64(3), Amount: big.NewInt(1000)}
+	action2 := &pb.ActionPb{&pb.ActionPb_Transfer{tsf2.ConvertToTransferPb()}}
 	tsf3 := action.Transfer{Nonce: uint64(4), Amount: big.NewInt(10000)}
+	action3 := &pb.ActionPb{&pb.ActionPb_Transfer{tsf3.ConvertToTransferPb()}}
 	tsf4 := action.Transfer{Nonce: uint64(6), Amount: big.NewInt(100000)}
-	tsf5 := action.Transfer{Nonce: uint64(2), Amount: big.NewInt(100)}
-	q.Put(&tsf1)
-	q.Put(&tsf2)
-	q.Put(&tsf3)
-	q.Put(&tsf4)
+	action4 := &pb.ActionPb{&pb.ActionPb_Transfer{tsf4.ConvertToTransferPb()}}
+	vote5 := action.Vote{&pb.VotePb{Nonce: uint64(2)}}
+	action5 := &pb.ActionPb{&pb.ActionPb_Vote{vote5.ConvertToVotePb()}}
+	q.Put(action1)
+	q.Put(action2)
+	q.Put(action3)
+	q.Put(action4)
 	q.confirmedNonce = uint64(2)
 	q.pendingNonce = uint64(2)
-	q.pendingBalance = big.NewInt(1100)
-	q.Put(&tsf5)
+	q.pendingBalance = big.NewInt(1000)
+	q.Put(action5)
 	q.UpdateNonce(uint64(2))
 	assert.Equal(uint64(5), q.pendingNonce)
 	assert.Equal(uint64(4), q.confirmedNonce)
 }
 
-func TestTsfQueue_ConfirmedTsfs(t *testing.T) {
+func TestActQueue_ConfirmedActs(t *testing.T) {
 	assert := assert.New(t)
-	q := NewTsfQueue().(*tsfQueue)
-	tsf1 := action.Transfer{Nonce: uint64(2), Amount: big.NewInt(1)}
+	q := NewActQueue().(*actQueue)
+	vote1 := action.Vote{&pb.VotePb{Nonce: uint64(2)}}
+	action1 := &pb.ActionPb{&pb.ActionPb_Vote{vote1.ConvertToVotePb()}}
 	tsf2 := action.Transfer{Nonce: uint64(3), Amount: big.NewInt(100)}
+	action2 := &pb.ActionPb{&pb.ActionPb_Transfer{tsf2.ConvertToTransferPb()}}
 	tsf3 := action.Transfer{Nonce: uint64(4), Amount: big.NewInt(1000)}
+	action3 := &pb.ActionPb{&pb.ActionPb_Transfer{tsf3.ConvertToTransferPb()}}
 	tsf4 := action.Transfer{Nonce: uint64(6), Amount: big.NewInt(10000)}
+	action4 := &pb.ActionPb{&pb.ActionPb_Transfer{tsf4.ConvertToTransferPb()}}
 	tsf5 := action.Transfer{Nonce: uint64(7), Amount: big.NewInt(100000)}
-	q.Put(&tsf1)
-	q.Put(&tsf2)
-	q.Put(&tsf3)
-	q.Put(&tsf4)
-	q.Put(&tsf5)
+	action5 := &pb.ActionPb{&pb.ActionPb_Transfer{tsf5.ConvertToTransferPb()}}
+	q.Put(action1)
+	q.Put(action2)
+	q.Put(action3)
+	q.Put(action4)
+	q.Put(action5)
 	q.confirmedNonce = 4
-	tsfs := q.ConfirmedTsfs()
-	assert.Equal([]*action.Transfer{&tsf1, &tsf2}, tsfs)
+	actions := q.ConfirmedActs()
+	assert.Equal([]*pb.ActionPb{action1, action2}, actions)
 }
