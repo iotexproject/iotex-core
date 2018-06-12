@@ -198,7 +198,7 @@ func opcodeHash160(node *OpNode, vm *IVM) error {
 	m := s[len(s)-1]
 	news := s[:len(s)-1] // pop
 	hash := blake2b.Sum256(m)
-	news = append(news, hash[7:27])
+	_ = append(news, hash[7:27])
 	return nil
 }
 

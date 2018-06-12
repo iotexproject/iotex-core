@@ -40,7 +40,7 @@ func NewConfigBasedPool(delegate *config.Delegate) *ConfigBasedPool {
 	cbdp := &ConfigBasedPool{}
 	encountered := map[string]bool{} // dedup
 	for _, addr := range delegate.Addrs {
-		if encountered[addr] == false {
+		if !encountered[addr] {
 			encountered[addr] = true
 			cbdp.delegates = append(cbdp.delegates, cm.NewTCPNode(addr))
 		}

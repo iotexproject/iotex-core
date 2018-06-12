@@ -5,6 +5,7 @@ import "testing"
 func TestLogger(t *testing.T) {
 	defer func() {
 		if r := recover(); r == nil {
+			Print("r == nil")
 		}
 	}()
 

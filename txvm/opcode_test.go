@@ -35,7 +35,7 @@ func TestBuildOpNodeFromBytes(t *testing.T) {
 	// Test 2: Opnode not found error
 	t.Logf("HandleTransition 2nd BuildOpNodeFromBytes test")
 	testBytecodes = []byte{OpUnused, Op0}
-	node, offset, err = BuildOpNodeFromBytes(testBytecodes)
+	_, _, err = BuildOpNodeFromBytes(testBytecodes)
 	if err == nil {
 		t.Errorf("Should get an error!")
 	}
@@ -69,7 +69,7 @@ func TestBuildOpNodeFromBytes(t *testing.T) {
 	}
 
 	testBytecodes = []byte{OpIf, OpData2, 0xa0, 0xf3, Op0, OpElse, Op0, OpIf, OpData1, 0x00, Op0, OpEndIf}
-	node, offset, err = BuildOpNodeFromBytes(testBytecodes)
+	_, _, err = BuildOpNodeFromBytes(testBytecodes)
 	if err == nil || err.Error() != "Unbalanced conditional branch. No OpEndIf found" {
 		t.Errorf("Expect an unbalanced conditional branch error")
 	}

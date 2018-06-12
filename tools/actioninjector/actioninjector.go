@@ -39,10 +39,10 @@ func main() {
 	flag.IntVar(&count, "count", 10, "number of action injections")
 	flag.Parse()
 	conn, err := grpc.Dial("127.0.0.1"+port, grpc.WithInsecure())
-	defer conn.Close()
 	if err != nil {
 		panic(err)
 	}
+	defer conn.Close()
 
 	c := pb.NewChainServiceClient(conn)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*time.Duration(count*5))

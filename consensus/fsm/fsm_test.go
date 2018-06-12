@@ -170,7 +170,7 @@ func TestStateTransitionToUnknownState(t *testing.T) {
 }
 
 type TimeoutHandler struct {
-	stopped bool
+	//stopped bool
 }
 
 func (h *TimeoutHandler) TimeoutDuration() *time.Duration {

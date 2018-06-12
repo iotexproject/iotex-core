@@ -45,9 +45,8 @@ func TestActPool_validateTsf(t *testing.T) {
 	ap := newActPool(sf)
 	assert.NotNil(ap)
 	// Case I: Oversized Data
-	payload := []byte{}
 	tmpPayload := [32769]byte{}
-	payload = tmpPayload[:]
+	payload := tmpPayload[:]
 	tsf := action.Transfer{Payload: payload}
 	err := ap.validateTsf(&tsf)
 	assert.Equal(ErrActPool, errors.Cause(err))

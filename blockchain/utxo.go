@@ -92,26 +92,25 @@ func (tk *UtxoTracker) CreateTxOutputUtxo(address string, amount uint64) *trx.Tx
 
 // ValidateTxInputUtxo validates the UTXO in transaction input
 // return amount of UTXO if pass, 0 otherwise
-func (tk *UtxoTracker) ValidateTxInputUtxo(txIn *trx.TxInput) uint64 {
+func (tk *UtxoTracker) ValidateTxInputUtxo(txIn *trx.TxInput) (uint64, error) {
 	hash := common.ZeroHash32B
 	copy(hash[:], txIn.TxHash)
 	unspent, exist := tk.utxoPool[hash]
 
 	// if hash does not exist in UTXO pool, it is spoof/fraudulent spending
 	if !exist {
-		fmt.Errorf("UTXO %x does not exist", hash)
-		return 0
+		return 0, fmt.Errorf("UTXO %x does not exist", hash)
 	}
 
 	// check transaction input, including unlock script can pass authentication
 
 	for _, utxo := range unspent {
 		if utxo.OutIndex == txIn.OutIndex && txIn.UnlockSuccess(utxo.LockScript) {
-			return utxo.Value
+			return utxo.Value, nil
 		}
 	}
 
-	return 0
+	return 0, nil
 }
 
 // ValidateUtxo validates all UTXO in the block
@@ -128,7 +127,7 @@ func (tk *UtxoTracker) ValidateUtxo(blk *Block) error {
 		credit := uint64(0)
 		for _, txIn := range tx.TxIn {
 			// verify UTXO before they can be spent
-			amount := tk.ValidateTxInputUtxo(txIn)
+			amount, _ := tk.ValidateTxInputUtxo(txIn)
 			if amount == 0 {
 				return fmt.Errorf("Cannot validate UTXO %x", txIn.TxHash)
 			}
@@ -171,16 +170,14 @@ func (tk *UtxoTracker) UpdateUtxoPool(blk *Block) error {
 
 		// add new TxOutput into pool
 		utxo := []*trx.TxOutput{}
-		for _, txOut := range tx.TxOut {
-			utxo = append(utxo, txOut)
-		}
+		utxo = append(utxo, tx.TxOut...)
 		tk.utxoPool[txHash] = utxo
 
 		// remove TxInput from pool
 		for _, txIn := range tx.TxIn {
 			hash := common.ZeroHash32B
 			copy(hash[:], txIn.TxHash)
-			unspent, _ := tk.utxoPool[hash]
+			unspent := tk.utxoPool[hash]
 
 			if len(unspent) == 1 {
 				// this is the only UTXO so remove this entry
@@ -223,9 +220,6 @@ func (tk *UtxoTracker) AddTx(tx *trx.Tx, height uint32) {
 	if !exists {
 		outputs = []*trx.TxOutput{}
 	}
-	for _, out := range tx.TxOut {
-		// check script lock
-		outputs = append(outputs, out)
-	}
+	outputs = append(outputs, tx.TxOut...)
 	tk.utxoPool[hash] = outputs
 }

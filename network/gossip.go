@@ -113,7 +113,7 @@ func NewMsgLogsCleaner(g *Gossip) *MsgLogsCleaner {
 func (c *MsgLogsCleaner) Do() {
 	keys := []string{}
 	c.G.MsgLogs.Range(func(key, value interface{}) bool {
-		if time.Now().Sub(value.(time.Time)) > c.G.Overlay.Config.MsgLogRetention {
+		if time.Since(value.(time.Time)) > c.G.Overlay.Config.MsgLogRetention {
 			keys = append(keys, key.(string))
 		}
 		return true

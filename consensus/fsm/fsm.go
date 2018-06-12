@@ -213,10 +213,7 @@ func (m *Machine) tryMoveToStartingState(event *Event) bool {
 		h := m.handlers[m.state]
 		h.Handle(event)
 		err := m.transitionAndSetupTimeout(dest, event)
-		if err != nil {
-			return false
-		}
-		return true
+		return err == nil
 	}
 	//}
 	return false

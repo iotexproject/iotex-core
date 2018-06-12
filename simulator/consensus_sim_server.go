@@ -90,7 +90,7 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 		chainID := make([]byte, 4)
 		binary.LittleEndian.PutUint32(chainID, uint32(i))
 
-		addr, err := iotxaddress.NewAddress(true, chainID)
+		addr, _ := iotxaddress.NewAddress(true, chainID)
 
 		cfg.Chain.RawMinerAddr.PublicKey = hex.EncodeToString(addr.PublicKey)
 		cfg.Chain.RawMinerAddr.PrivateKey = hex.EncodeToString(addr.PrivateKey)

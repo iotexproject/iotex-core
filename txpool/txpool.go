@@ -489,6 +489,7 @@ func (tp *txPool) maybeAcceptTx(tx *trx.Tx, isNew bool, rateLimit bool, rejectDu
 	outputs := utxoTracker.GetPool()[hash]
 	if outputs != nil && !IsFullySpent(outputs) {
 		// return nil, nil, fmt.Errorf("duplicate transaction")
+		fmt.Print("duplicate transaction")
 	}
 	delete(utxoTracker.GetPool(), hash)
 
@@ -621,6 +622,7 @@ func (tp *txPool) ProcessTx(tx *trx.Tx, allowOrphan bool, rateLimit bool, tag Ta
 	return nil, err
 }
 
+/*
 // Count The number of accepted txs in the pool
 func (tp *txPool) count() int {
 	tp.mutex.RLock()
@@ -629,7 +631,7 @@ func (tp *txPool) count() int {
 
 	return count
 }
-
+*/
 // TxDescs The list of descs of accepted txs
 func (tp *txPool) TxDescs() []*TxDesc {
 	tp.mutex.RLock()

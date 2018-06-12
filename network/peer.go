@@ -56,6 +56,9 @@ func (p *Peer) Connect(config *config.Network) error {
 			grpc.WithTransportCredentials(creds),
 			grpc.WithKeepaliveParams(config.KLClientParams),
 			grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(config.MaxMsgSize)))
+		if err != nil {
+			return err
+		}
 	} else {
 		conn, err = grpc.Dial(
 			p.String(),

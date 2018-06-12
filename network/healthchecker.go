@@ -28,7 +28,7 @@ func NewHealthChecker(o *Overlay) *HealthChecker {
 func (hc *HealthChecker) Do() {
 	addrs := []string{}
 	hc.Overlay.PM.Peers.Range(func(key, value interface{}) bool {
-		if time.Now().Sub(value.(*Peer).LastResTime) > hc.SilentInterval {
+		if time.Since(value.(*Peer).LastResTime) > hc.SilentInterval {
 			addrs = append(addrs, key.(string))
 		}
 		return true
