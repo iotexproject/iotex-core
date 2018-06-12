@@ -31,14 +31,7 @@ func (r ruleCommit) Condition(event *fsm.Event) bool {
 			Bool("r.reachedMaj()", r.reachedMaj()).
 			Msg("no consensus agreed")
 
-		blk, err := r.bc.MintNewDummyBlock()
-		if err == nil {
-			r.consCb(blk)
-			r.pubCb(blk)
-		} else {
-			logger.Error().Err(err).Msg("Error minting new dummy block")
-		}
-
+		// TODO: need to commit and broadcast empty block to make proposer and block height map consistently
 		r.notifyRoundFinish()
 		return true
 	}
@@ -46,12 +39,12 @@ func (r ruleCommit) Condition(event *fsm.Event) bool {
 	// consensus reached
 	// TODO: Can roundCtx.block be nil as well? nil may also be a valid consensus result
 	if r.roundCtx.block != nil {
+		r.consCb(r.roundCtx.block)
+
 		// All delegates need to broadcast the consensus block
 		logger.Warn().
 			Str("node", r.self.String()).
 			Msg("broadcast block")
-
-		r.consCb(r.roundCtx.block)
 		r.pubCb(r.roundCtx.block)
 	}
 
