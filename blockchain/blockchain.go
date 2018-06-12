@@ -16,7 +16,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/blockchain/action"
-	trx "github.com/iotexproject/iotex-core/blockchain/trx"
+	"github.com/iotexproject/iotex-core/blockchain/trx"
 	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/common/service"
 	"github.com/iotexproject/iotex-core/config"
@@ -285,17 +285,18 @@ func (bc *blockchain) ValidateBlock(blk *Block) error {
 // when minting a new block.
 func (bc *blockchain) MintNewBlock(txs []*trx.Tx, tsf []*action.Transfer, vote []*action.Vote,
 	producer *iotxaddress.Address, data string) (*Block, error) {
+	bc.mu.RLock()
+	defer bc.mu.RUnlock()
+
 	cbTx := trx.NewCoinbaseTx(producer.RawAddress, bc.genesis.BlockReward, data)
 	if cbTx == nil {
 		errMsg := "Cannot create coinbase transaction"
 		logger.Error().Msg(errMsg)
 		return nil, errors.Errorf(errMsg)
 	}
-
 	txs = append(txs, cbTx)
-	bc.mu.RLock()
+
 	blk := NewBlock(bc.chainID, bc.tipHeight+1, bc.tipHash, txs, tsf, vote)
-	bc.mu.RUnlock()
 	if producer.PrivateKey == nil {
 		logger.Warn().Msg("Unsigned block...")
 		return blk, nil
@@ -306,8 +307,7 @@ func (bc *blockchain) MintNewBlock(txs []*trx.Tx, tsf []*action.Transfer, vote [
 	return blk, nil
 }
 
-// MintNewDummyBlock creates a new empty block
-// note: coinbase transaction is not included for the proposer
+// MintNewDummyBlock creates a new dummy block without any tx/action.
 func (bc *blockchain) MintNewDummyBlock() (*Block, error) {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
@@ -320,15 +320,13 @@ func (bc *blockchain) MintNewDummyBlock() (*Block, error) {
 
 	blk := &Block{
 		Header: &BlockHeader{
-			version:       Version,
+			version:       common.ProtocolVersion,
 			chainID:       bc.chainID,
 			height:        bc.tipHeight + 1,
 			timestamp:     timestamp,
 			prevBlockHash: bc.tipHash,
 			txRoot:        common.ZeroHash32B,
 			stateRoot:     common.ZeroHash32B,
-			trnxNumber:    0,
-			trnxDataSize:  0,
 			blockSig:      []byte{}},
 	}
 
