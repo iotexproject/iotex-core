@@ -14,7 +14,6 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/blake2b"
 
-	"github.com/iotexproject/iotex-core/blockchain/trx"
 	"github.com/iotexproject/iotex-core/common"
 	cp "github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/iotxaddress"
@@ -23,6 +22,9 @@ import (
 
 // ErrTransferError indicates error for a transfer action
 var ErrTransferError = errors.New("transfer error")
+
+// versionSizeInBytes defines the size of version in byte units
+const versionSizeInBytes = 4
 
 type (
 	// Transfer defines the struct of account-based transfer
@@ -56,7 +58,7 @@ func NewTransfer(nonce uint64, amount *big.Int, sender string, recipient string)
 
 // TotalSize returns the total size of this Transfer
 func (tsf *Transfer) TotalSize() uint32 {
-	size := trx.VersionSizeInBytes + trx.LockTimeSizeInBytes
+	size := versionSizeInBytes
 	// add nonce, amount, sender, receipt, and payload sizes
 	size += NonceSizeInBytes
 	if tsf.Amount != nil && len(tsf.Amount.Bytes()) > 0 {

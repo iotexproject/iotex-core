@@ -11,73 +11,73 @@ import (
 	"encoding/hex"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotexproject/iotex-core/blockchain/trx"
 	"github.com/iotexproject/iotex-core/common"
-	"github.com/iotexproject/iotex-core/proto"
+	iproto "github.com/iotexproject/iotex-core/proto"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 )
 
 func TestBasicHash(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 
 	// basic hash test
 	input := []byte("hello")
 	hash := sha256.Sum256(input)
 	hash = sha256.Sum256(hash[:])
 	hello, _ := hex.DecodeString("9595c9df90075148eb06860365df33584b75bff782a510c6cd4883a419833d50")
-	assert.Equal(hello, hash[:])
+	require.Equal(hello, hash[:])
 	t.Logf("sha256(sha256(\"hello\") = %x", hash)
 
 	hash = blake2b.Sum256(input)
 	hash = blake2b.Sum256(hash[:])
 	hello, _ = hex.DecodeString("901c60ffffd77f743729f8fea0233c0b00223428b5192c2015f853562b45ce59")
-	assert.Equal(hello, hash[:])
+	require.Equal(hello, hash[:])
 	t.Logf("blake2b(blake2b(\"hello\") = %x", hash)
 }
 
 func TestMerkle(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 
 	amount := uint64(50 << 22)
 	// create testing transactions
 	cbtx0 := trx.NewCoinbaseTx(ta.Addrinfo["miner"].RawAddress, amount, testCoinbaseData)
-	assert.NotNil(cbtx0)
+	require.NotNil(cbtx0)
 	cbtx1 := trx.NewCoinbaseTx(ta.Addrinfo["alfa"].RawAddress, amount, testCoinbaseData)
-	assert.NotNil(cbtx1)
+	require.NotNil(cbtx1)
 	cbtx2 := trx.NewCoinbaseTx(ta.Addrinfo["bravo"].RawAddress, amount, testCoinbaseData)
-	assert.NotNil(cbtx2)
+	require.NotNil(cbtx2)
 	cbtx3 := trx.NewCoinbaseTx(ta.Addrinfo["charlie"].RawAddress, amount, testCoinbaseData)
-	assert.NotNil(cbtx3)
+	require.NotNil(cbtx3)
 	cbtx4 := trx.NewCoinbaseTx(ta.Addrinfo["echo"].RawAddress, amount, testCoinbaseData)
-	assert.NotNil(cbtx4)
+	require.NotNil(cbtx4)
 
 	// verify tx hash
 	hash0, _ := hex.DecodeString("1a0130efd104f6236dac0f1c8c6817465f082e5555c29ef8878abb5ddc8c6002")
 	actual := cbtx0.Hash()
-	assert.Equal(hash0, actual[:])
+	require.Equal(hash0, actual[:])
 	t.Logf("actual hash = %x", actual[:])
 
 	hash1, _ := hex.DecodeString("bc469f01661dfeb6c1309b5545cddf12836fee8eaa101f0233879089399d73af")
 	actual = cbtx1.Hash()
-	assert.Equal(hash1, actual[:])
+	require.Equal(hash1, actual[:])
 	t.Logf("actual hash = %x", actual[:])
 
 	hash2, _ := hex.DecodeString("4edc136bb713dae6d077a37c8110103334391a24bfcce6dffc8934d1dd24b51d")
 	actual = cbtx2.Hash()
-	assert.Equal(hash2, actual[:])
+	require.Equal(hash2, actual[:])
 	t.Logf("actual hash = %x", actual[:])
 
 	hash3, _ := hex.DecodeString("762404453347e2cdb87239a689eb30645dbef9935a775b58652b44c6e2ce8282")
 	actual = cbtx3.Hash()
-	assert.Equal(hash3, actual[:])
+	require.Equal(hash3, actual[:])
 	t.Logf("actual hash = %x", actual[:])
 
 	hash4, _ := hex.DecodeString("1019ce698e2ac013a5a8d24c67a33e333cf21f1f27ea2986636f2e44c3bbf5e1")
 	actual = cbtx4.Hash()
-	assert.Equal(hash4, actual[:])
+	require.Equal(hash4, actual[:])
 	t.Logf("actual hash = %x", actual[:])
 
 	// manually compute merkle root
@@ -108,22 +108,74 @@ func TestMerkle(t *testing.T) {
 	// create block using above 5 tx and verify merkle
 	block := NewBlock(0, 0, common.ZeroHash32B, []*trx.Tx{cbtx0, cbtx1, cbtx2, cbtx3, cbtx4}, nil, nil)
 	hash := block.TxRoot()
-	assert.Equal(hash07[:], hash[:])
-	t.Log("Merkle root match pass\n")
+	require.Equal(hash07[:], hash[:])
 
-	// serialize
+	t.Log("Merkle root match pass\n")
 }
 
-func TestBlockConvertFromBlockPb(t *testing.T) {
+func TestConvertFromBlockPb(t *testing.T) {
 	blk := Block{}
 	blk.ConvertFromBlockPb(&iproto.BlockPb{
+		Header: &iproto.BlockHeaderPb{
+			Version: common.ProtocolVersion,
+			Height:  123456789,
+		},
 		Actions: []*iproto.ActionPb{
+			{Action: &iproto.ActionPb_Tx{
+				Tx: &iproto.TxPb{
+					Version:  common.ProtocolVersion,
+					LockTime: 6677,
+				},
+			}},
+			{Action: &iproto.ActionPb_Tx{
+				Tx: &iproto.TxPb{
+					Version:  common.ProtocolVersion,
+					LockTime: 7788,
+				},
+			}},
 			{Action: &iproto.ActionPb_Transfer{
 				Transfer: &iproto.TransferPb{
-					Version: 666,
+					Version: common.ProtocolVersion,
+					Nonce:   101,
 				},
+			}},
+			{Action: &iproto.ActionPb_Transfer{
+				Transfer: &iproto.TransferPb{
+					Version: common.ProtocolVersion,
+					Nonce:   102,
+				},
+			}},
+			{Action: &iproto.ActionPb_Vote{
+				Vote: &iproto.VotePb{
+					Version: common.ProtocolVersion,
+					Nonce:   103,
+				},
+			}},
+			{Action: &iproto.ActionPb_Vote{
+				Vote: &iproto.VotePb{
+					Version: common.ProtocolVersion,
+					Nonce:   104},
 			}},
 		},
 	})
-	assert.Equal(t, uint32(666), blk.Transfers[0].Version, "pb to block conversion")
+
+	blk.Header.txRoot = blk.TxRoot()
+
+	raw, err := blk.Serialize()
+	require.Nil(t, err)
+
+	var newblk Block
+	err = newblk.Deserialize(raw)
+	require.Nil(t, err)
+
+	require.Equal(t, uint64(123456789), newblk.Header.height)
+
+	require.Equal(t, uint32(6677), newblk.Tranxs[0].LockTime)
+	require.Equal(t, uint32(7788), newblk.Tranxs[1].LockTime)
+
+	require.Equal(t, uint64(101), newblk.Transfers[0].Nonce)
+	require.Equal(t, uint64(102), newblk.Transfers[1].Nonce)
+
+	require.Equal(t, uint64(103), newblk.Votes[0].Nonce)
+	require.Equal(t, uint64(104), newblk.Votes[1].Nonce)
 }

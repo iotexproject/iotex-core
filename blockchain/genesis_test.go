@@ -25,7 +25,6 @@ func TestGenesis(t *testing.T) {
 	t.Logf("Height: %d", genesisBlk.Header.height)
 	t.Logf("Timestamp: %d", genesisBlk.Header.timestamp)
 	t.Logf("PrevBlockHash: %x", genesisBlk.Header.prevBlockHash)
-	t.Logf("TrnxNumber: %d", genesisBlk.Header.trnxNumber)
 
 	assert := assert.New(t)
 
@@ -36,5 +35,4 @@ func TestGenesis(t *testing.T) {
 	assert.Equal(uint64(0), genesisBlk.Header.height)
 	assert.Equal(uint64(1524676419), genesisBlk.Header.timestamp)
 	assert.Equal(expectedParentHash, genesisBlk.Header.prevBlockHash)
-	assert.Equal(uint32(1), genesisBlk.Header.trnxNumber)
 }

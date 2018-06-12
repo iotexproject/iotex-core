@@ -15,15 +15,11 @@ import (
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotexproject/iotex-core/blockchain/action"
-	trx "github.com/iotexproject/iotex-core/blockchain/trx"
+	"github.com/iotexproject/iotex-core/blockchain/trx"
 	"github.com/iotexproject/iotex-core/common"
 	cp "github.com/iotexproject/iotex-core/crypto"
+	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/proto"
-)
-
-const (
-	// Version of blockchain protocol
-	Version = 1
 )
 
 // Payee defines the struct of payee
@@ -42,8 +38,6 @@ type BlockHeader struct {
 	prevBlockHash common.Hash32B // hash of previous block
 	txRoot        common.Hash32B // merkle root of all transactions
 	stateRoot     common.Hash32B // merkle root of all states
-	trnxNumber    uint32         // number of transaction in this block
-	trnxDataSize  uint32         // size (in bytes) of transaction data in this block
 	blockSig      []byte         // block signature
 }
 
@@ -59,30 +53,27 @@ type Block struct {
 func NewBlock(chainID uint32, height uint64, prevBlockHash common.Hash32B,
 	txs []*trx.Tx, tsf []*action.Transfer, vote []*action.Vote) *Block {
 	block := &Block{
-		Header: &BlockHeader{Version, chainID, height, uint64(time.Now().Unix()),
-			prevBlockHash, common.ZeroHash32B, common.ZeroHash32B,
-			uint32(len(txs)), 0, []byte{}},
+		Header: &BlockHeader{
+			version:       common.ProtocolVersion,
+			chainID:       chainID,
+			height:        height,
+			timestamp:     uint64(time.Now().Unix()),
+			prevBlockHash: prevBlockHash,
+			txRoot:        common.ZeroHash32B,
+			stateRoot:     common.ZeroHash32B,
+		},
 		Tranxs:    txs,
 		Transfers: tsf,
 		Votes:     vote,
 	}
 
 	block.Header.txRoot = block.TxRoot()
-	for _, tx := range txs {
-		// add up trnx size
-		block.Header.trnxDataSize += tx.TotalSize()
-	}
 	return block
 }
 
 // Height returns the height of this block
 func (b *Block) Height() uint64 {
 	return b.Header.height
-}
-
-// TranxsSize returns the size of transactions in this block
-func (b *Block) TranxsSize() uint32 {
-	return b.Header.trnxDataSize
 }
 
 // PrevHash returns the hash of prev block
@@ -105,26 +96,27 @@ func (b *Block) ByteStreamHeader() []byte {
 	stream = append(stream, b.Header.prevBlockHash[:]...)
 	stream = append(stream, b.Header.txRoot[:]...)
 	stream = append(stream, b.Header.stateRoot[:]...)
-	common.MachineEndian.PutUint32(tmp4B, b.Header.trnxNumber)
-	stream = append(stream, tmp4B...)
-	common.MachineEndian.PutUint32(tmp4B, b.Header.trnxDataSize)
-	stream = append(stream, tmp4B...)
 	stream = append(stream, b.Header.blockSig...)
 	return stream
 }
 
 // ByteStream returns a byte stream of the block
-// used to calculate the block hash
 func (b *Block) ByteStream() []byte {
 	stream := b.ByteStreamHeader()
 
 	// Add the stream of blockSig
 	stream = append(stream, b.Header.blockSig[:]...)
 
-	// write all trnx
-	for _, tx := range b.Tranxs {
-		stream = append(stream, tx.ByteStream()...)
+	for _, t := range b.Tranxs {
+		stream = append(stream, t.ByteStream()...)
 	}
+	for _, t := range b.Transfers {
+		stream = append(stream, t.ByteStream()...)
+	}
+	for _, v := range b.Votes {
+		stream = append(stream, v.ByteStream()...)
+	}
+
 	return stream
 }
 
@@ -139,8 +131,6 @@ func (b *Block) ConvertToBlockHeaderPb() *iproto.BlockHeaderPb {
 	pbHeader.PrevBlockHash = b.Header.prevBlockHash[:]
 	pbHeader.TxRoot = b.Header.txRoot[:]
 	pbHeader.StateRoot = b.Header.stateRoot[:]
-	pbHeader.TrnxNumber = b.Header.trnxNumber
-	pbHeader.TrnxDataSize = b.Header.trnxDataSize
 	pbHeader.Signature = b.Header.blockSig[:]
 	return &pbHeader
 }
@@ -150,7 +140,7 @@ func (b *Block) ConvertToBlockPb() *iproto.BlockPb {
 	if len(b.Tranxs)+len(b.Transfers)+len(b.Votes) == 0 {
 		return nil
 	}
-	// assemble actions
+
 	actions := []*iproto.ActionPb{}
 	for _, tx := range b.Tranxs {
 		actions = append(actions, &iproto.ActionPb{&iproto.ActionPb_Tx{tx.ConvertToTxPb()}})
@@ -171,7 +161,6 @@ func (b *Block) Serialize() ([]byte, error) {
 
 // ConvertFromBlockHeaderPb converts BlockHeaderPb to BlockHeader
 func (b *Block) ConvertFromBlockHeaderPb(pbBlock *iproto.BlockPb) {
-	b.Header = nil
 	b.Header = new(BlockHeader)
 
 	b.Header.version = pbBlock.GetHeader().GetVersion()
@@ -181,8 +170,6 @@ func (b *Block) ConvertFromBlockHeaderPb(pbBlock *iproto.BlockPb) {
 	copy(b.Header.prevBlockHash[:], pbBlock.GetHeader().GetPrevBlockHash())
 	copy(b.Header.txRoot[:], pbBlock.GetHeader().GetTxRoot())
 	copy(b.Header.stateRoot[:], pbBlock.GetHeader().GetStateRoot())
-	b.Header.trnxNumber = pbBlock.GetHeader().GetTrnxNumber()
-	b.Header.trnxDataSize = pbBlock.GetHeader().GetTrnxDataSize()
 	b.Header.blockSig = pbBlock.GetHeader().GetSignature()
 }
 
@@ -190,47 +177,30 @@ func (b *Block) ConvertFromBlockHeaderPb(pbBlock *iproto.BlockPb) {
 func (b *Block) ConvertFromBlockPb(pbBlock *iproto.BlockPb) {
 	b.ConvertFromBlockHeaderPb(pbBlock)
 
-	b.Tranxs = nil
-	b.Votes = nil
-	hasTf := false
-	hasTrnx := false
-	hasVote := false
+	b.Tranxs = []*trx.Tx{}
+	b.Transfers = []*action.Transfer{}
+	b.Votes = []*action.Vote{}
 
 	for _, act := range pbBlock.Actions {
 		if tfPb := act.GetTransfer(); tfPb != nil {
-			if !hasTf {
-				b.Transfers = []*action.Transfer{}
-				hasTf = true
-			}
 			tf := &action.Transfer{}
 			tf.ConvertFromTransferPb(tfPb)
 			b.Transfers = append(b.Transfers, tf)
-			continue
-		}
-		if txPb := act.GetTx(); txPb != nil {
-			if !hasTrnx {
-				b.Tranxs = []*trx.Tx{}
-				hasTrnx = true
-			}
+		} else if txPb := act.GetTx(); txPb != nil {
 			tx := &trx.Tx{}
 			tx.ConvertFromTxPb(txPb)
 			b.Tranxs = append(b.Tranxs, tx)
-			continue
-		}
-		if votePb := act.GetVote(); votePb != nil {
-			if !hasVote {
-				b.Votes = []*action.Vote{}
-				hasVote = true
-			}
+		} else if votePb := act.GetVote(); votePb != nil {
 			vote := &action.Vote{}
 			vote.ConvertFromVotePb(votePb)
 			b.Votes = append(b.Votes, vote)
-			continue
+		} else {
+			logger.Fatal().Msg("unexpected action")
 		}
 	}
 }
 
-// Deserialize parse the byte stream into Block
+// Deserialize parses the byte stream into a Block
 func (b *Block) Deserialize(buf []byte) error {
 	pbBlock := iproto.BlockPb{}
 	if err := proto.Unmarshal(buf, &pbBlock); err != nil {
@@ -247,14 +217,23 @@ func (b *Block) Deserialize(buf []byte) error {
 	return nil
 }
 
-// TxRoot returns the Merkle root of all transactions in this block.
+// TxRoot returns the Merkle root of all txs and actions in this block.
 func (b *Block) TxRoot() common.Hash32B {
-	// create hash list of all trnx
-	var txHash []common.Hash32B
-	for _, tx := range b.Tranxs {
-		txHash = append(txHash, tx.Hash())
+	var hash []common.Hash32B
+	for _, t := range b.Tranxs {
+		hash = append(hash, t.Hash())
 	}
-	return cp.NewMerkleTree(txHash).HashTree()
+	for _, t := range b.Transfers {
+		hash = append(hash, t.Hash())
+	}
+	for _, v := range b.Votes {
+		hash = append(hash, v.Hash())
+	}
+
+	if len(hash) == 0 {
+		return common.ZeroHash32B
+	}
+	return cp.NewMerkleTree(hash).HashTree()
 }
 
 // HashBlock return the hash of this block (actually hash of block header)

@@ -17,15 +17,10 @@ import (
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 )
 
-// GenConfig defines the Genesis Configuration
-type GenConfig struct {
-	ChainID uint32
-}
-
 // Genesis defines the Genesis default settings
 type Genesis struct {
 	InitDelegatesPubKey []string
-	GenConfig           GenConfig
+	ChainID             uint32
 	TotalSupply         uint64
 	BlockReward         uint64
 	Timestamp           uint64
@@ -33,7 +28,7 @@ type Genesis struct {
 	GenesisCoinbaseData string
 }
 
-// PubKey hardcodes first 21 candidates to put into candidate pool
+// initDelegatePK hardcodes initial 21 candidates that enter candidate pool
 var initDelegatePK = []string{
 	"86fa928962c85b47671b11a10e1771cff778392be52b5a272cbbf552fc44a7c66a41600562e6b3988db574dc79a9ebab097d516c6b24315dbcb98f4b267c60a6c8d162e2f54f6d00",
 	"f46ff44f7a1ac9ed5f87597abcae0684c618ba7bcef9f7fd3100cb60cef95fa7db0fed0432b0d45a5d0b5dbd2e3129f44f39f1a2503135a1f9e58718d5c4d45aee61adae75e0c206",
@@ -85,7 +80,7 @@ var initVotesSignature = []string{
 // Gen hardcodes genesis default settings
 var Gen = &Genesis{
 	InitDelegatesPubKey: initDelegatePK,
-	GenConfig:           GenConfig{uint32(1)},
+	ChainID:             uint32(1),
 	TotalSupply:         uint64(10000000000),
 	BlockReward:         uint64(5),
 	Timestamp:           uint64(1524676419),
@@ -122,27 +117,20 @@ func NewGenesisBlock() *Block {
 
 	block := &Block{
 		Header: &BlockHeader{
-			version:       Version,
-			chainID:       Gen.GenConfig.ChainID,
+			version:       common.ProtocolVersion,
+			chainID:       Gen.ChainID,
 			height:        uint64(0),
 			timestamp:     Gen.Timestamp,
 			prevBlockHash: Gen.ParentHash,
 			txRoot:        common.ZeroHash32B,
 			stateRoot:     common.ZeroHash32B,
-			trnxNumber:    uint32(1),
-			trnxDataSize:  0,
 			blockSig:      []byte{},
 		},
-		Tranxs: []*trx.Tx{cbtx},
-		Votes:  votes,
+		Tranxs:    []*trx.Tx{cbtx},
+		Transfers: []*action.Transfer{},
+		Votes:     votes,
 	}
 
 	block.Header.txRoot = block.TxRoot()
-
-	for _, tx := range block.Tranxs {
-		// add up trnx size
-		block.Header.trnxDataSize += tx.TotalSize()
-	}
-
 	return block
 }
