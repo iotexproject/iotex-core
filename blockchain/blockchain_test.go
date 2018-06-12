@@ -393,7 +393,7 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 	for _, pk := range initDelegatePK {
 		pubk, err := hex.DecodeString(pk)
 		require.Nil(err)
-		address, err := iotxaddress.GetAddress(pubk, false, []byte{0x01, 0x02, 0x03, 0x04})
+		address, err := iotxaddress.GetAddress(pubk, iotxaddress.IsTestnet, iotxaddress.ChainID)
 		require.Nil(err)
 		_, err = sf.CreateState(address.RawAddress, uint64(0))
 		require.Nil(err)

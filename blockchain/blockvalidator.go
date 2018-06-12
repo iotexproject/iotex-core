@@ -63,7 +63,7 @@ func (v *validator) Validate(blk *Block, tipHeight uint64, tipHash common.Hash32
 	if v.sf != nil {
 		// Verify the signatures here (balance is checked in CommitStateChanges)
 		for _, tsf := range blk.Transfers {
-			address, err := iotxaddress.GetAddress(tsf.SenderPublicKey, false, []byte{0x01, 0x02, 0x03, 0x04})
+			address, err := iotxaddress.GetAddress(tsf.SenderPublicKey, iotxaddress.IsTestnet, iotxaddress.ChainID)
 			if err != nil {
 				return err
 			}
@@ -72,7 +72,7 @@ func (v *validator) Validate(blk *Block, tipHeight uint64, tipHash common.Hash32
 			}
 		}
 		for _, vote := range blk.Votes {
-			address, err := iotxaddress.GetAddress(vote.SelfPubkey, false, []byte{0x01, 0x02, 0x03, 0x04})
+			address, err := iotxaddress.GetAddress(vote.SelfPubkey, iotxaddress.IsTestnet, iotxaddress.ChainID)
 			if err != nil {
 				return err
 			}
