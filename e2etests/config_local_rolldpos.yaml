@@ -46,6 +46,7 @@ consensus:
         acceptvote:
             ttl: 90ms
         delay: 2s
+        eventchansize: 1024
     blockcreationinterval: 1s
 
 blocksync:
@@ -60,3 +61,6 @@ delegate:
 
 rpc:
     port: ":42124"
+
+dispatcher:
+    eventchansize: 1024

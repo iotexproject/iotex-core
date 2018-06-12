@@ -55,11 +55,11 @@ type actionMsg struct {
 
 // iotxDispatcher is the request and event dispatcher for iotx node.
 type iotxDispatcher struct {
-	started  int32
-	shutdown int32
-	newsChan chan interface{}
-	wg       sync.WaitGroup
-	quit     chan struct{}
+	started   int32
+	shutdown  int32
+	eventChan chan interface{}
+	wg        sync.WaitGroup
+	quit      chan struct{}
 
 	bs blocksync.BlockSync
 	cs consensus.Consensus
@@ -75,11 +75,11 @@ func NewDispatcher(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxPoo
 		return nil
 	}
 	d := &iotxDispatcher{
-		newsChan: make(chan interface{}, 1024),
-		quit:     make(chan struct{}),
-		tp:       tp,
-		ap:       ap,
-		bs:       bs,
+		eventChan: make(chan interface{}, cfg.Dispatcher.EventChanSize),
+		quit:      make(chan struct{}),
+		tp:        tp,
+		ap:        ap,
+		bs:        bs,
 	}
 	d.cs = consensus.NewConsensus(cfg, bc, tp, ap, bs, dp)
 	return d
@@ -131,7 +131,7 @@ func (d *iotxDispatcher) newsHandler() {
 loop:
 	for {
 		select {
-		case m := <-d.newsChan:
+		case m := <-d.eventChan:
 			switch msg := m.(type) {
 			case *txMsg:
 				d.handleTxMsg(msg)
@@ -252,7 +252,7 @@ func (d *iotxDispatcher) dispatchTx(msg proto.Message, done chan bool) {
 		}
 		return
 	}
-	d.newsChan <- &txMsg{(msg).(*pb.TxPb), done}
+	d.enqueueEvent(&txMsg{(msg).(*pb.TxPb), done})
 }
 
 // dispatchBlockCommit adds the passed block message to the news handling queue.
@@ -263,7 +263,7 @@ func (d *iotxDispatcher) dispatchBlockCommit(msg proto.Message, done chan bool) 
 		}
 		return
 	}
-	d.newsChan <- &blockMsg{(msg).(*pb.BlockPb), pb.MsgBlockProtoMsgType, done}
+	d.enqueueEvent(&blockMsg{(msg).(*pb.BlockPb), pb.MsgBlockProtoMsgType, done})
 }
 
 // dispatchBlockSyncReq adds the passed block sync request to the news handling queue.
@@ -274,7 +274,7 @@ func (d *iotxDispatcher) dispatchBlockSyncReq(sender string, msg proto.Message, 
 		}
 		return
 	}
-	d.newsChan <- &blockSyncMsg{sender, (msg).(*pb.BlockSync), done}
+	d.enqueueEvent(&blockSyncMsg{sender, (msg).(*pb.BlockSync), done})
 }
 
 // dispatchBlockSyncData handles block sync data
@@ -286,7 +286,7 @@ func (d *iotxDispatcher) dispatchBlockSyncData(msg proto.Message, done chan bool
 		return
 	}
 	data := (msg).(*pb.BlockContainer)
-	d.newsChan <- &blockMsg{data.Block, pb.MsgBlockSyncDataType, done}
+	d.enqueueEvent(&blockMsg{data.Block, pb.MsgBlockSyncDataType, done})
 }
 
 // dispatchAction adds the passed action message to the news handling queue.
@@ -297,7 +297,7 @@ func (d *iotxDispatcher) dispatchAction(msg proto.Message, done chan bool) {
 		}
 		return
 	}
-	d.newsChan <- &actionMsg{(msg).(*pb.ActionPb), done}
+	d.enqueueEvent(&actionMsg{(msg).(*pb.ActionPb), done})
 }
 
 // HandleBroadcast handles incoming broadcast message
@@ -350,4 +350,11 @@ func (d *iotxDispatcher) HandleTell(sender net.Addr, message proto.Message, done
 			Uint32("msgType", msgType).
 			Msg("unexpected msgType handled by HandleTell")
 	}
+}
+
+func (d *iotxDispatcher) enqueueEvent(event interface{}) {
+	if len(d.eventChan) == cap(d.eventChan) {
+		logger.Warn().Msg("dispatcher event chan is full")
+	}
+	d.eventChan <- event
 }

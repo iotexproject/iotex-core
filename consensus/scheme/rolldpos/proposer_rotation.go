@@ -40,7 +40,7 @@ func (s *proposerRotation) Do() {
 		Uint64("height", height+1).
 		Msg("Propose new block height")
 
-	s.handleEvent(&fsm.Event{
+	s.enqueueEvent(&fsm.Event{
 		State: stateInitPropose,
 	})
 }

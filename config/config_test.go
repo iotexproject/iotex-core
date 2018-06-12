@@ -79,6 +79,17 @@ func TestValidateConfig(t *testing.T) {
 	err = validateConfig(cfg)
 	assert.NotNil(t, err)
 	assert.Equal(t, "consensus scheme of lightweight node should be NOOP", err.Error())
+
+	cfg = LoadTestConfig()
+	cfg.Dispatcher.EventChanSize = 0
+	err = validateConfig(cfg)
+	assert.Equal(t, "dispatcher event chan size should be greater than 0", err.Error())
+
+	cfg = LoadTestConfig()
+	cfg.NodeType = DelegateType
+	cfg.Consensus.Scheme = RollDPoSScheme
+	err = validateConfig(cfg)
+	assert.Equal(t, "roll-dpos event chan size should be greater than 0", err.Error())
 }
 
 func LoadTestConfig() *Config {
@@ -121,6 +132,9 @@ func LoadTestConfig() *Config {
 		},
 		Delegate: Delegate{
 			Addrs: []string{"127.0.0.1:10001"},
+		},
+		Dispatcher: Dispatcher{
+			EventChanSize: 1024,
 		},
 	}
 }

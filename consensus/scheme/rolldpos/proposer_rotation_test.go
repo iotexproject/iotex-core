@@ -45,7 +45,7 @@ func TestProposerRotation(t *testing.T) {
 		ctrl, delegates[0], delegates, m, FixedProposer, 10*time.Millisecond, NeverStartNewEpoch, nil)
 	cs.Start()
 	defer cs.Stop()
-	cs.handleEvent(&fsm.Event{State: stateDKGGenerate})
+	cs.enqueueEvent(&fsm.Event{State: stateDKGGenerate})
 
 	waitFor(
 		t,

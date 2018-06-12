@@ -59,7 +59,7 @@ func (h *dkgGenerate) Handle(event *fsm.Event) {
 		return
 	}
 	h.epochCtx.dkg = dkg
-	h.handleEvent(&fsm.Event{
+	h.enqueueEvent(&fsm.Event{
 		State: stateRoundStart,
 	})
 }
