@@ -20,7 +20,7 @@ SKIP_GLIDE=false
 # Pkgs
 ALL_PKGS := $(shell go list ./... )
 PKGS := $(shell go list ./... | grep -v /test/ )
-ROOT_PKG := "github.com/iotexproject/iotex-core-internal"
+ROOT_PKG := "github.com/iotexproject/iotex-core"
 
 # Docker parameters
 DOCKERCMD=docker
