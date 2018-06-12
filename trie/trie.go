@@ -507,9 +507,3 @@ func (t *trie) popToRoot() (patricia, byte) {
 	}
 	return nil, 0
 }
-
-/*
-func (t *trie) stat() {
-	logger.Info().Uint64("B", t.numBranch).Uint64("E", t.numExt).Uint64("L", t.numLeaf).Uint64("Item", t.numEntry).Msg("Counting")
-}
-*/

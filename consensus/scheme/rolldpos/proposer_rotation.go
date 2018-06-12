@@ -31,7 +31,7 @@ func (s *proposerRotation) Do() {
 	}
 	pr, err := s.prCb(s.pool, nil, 0, height+1)
 	if err != nil {
-		logger.Error().Err(err).Msg("failed to get Proposer CB")
+		logger.Error().Err(err).Msg("failed to get the proposer")
 		return
 	}
 	// If proposer is not the current node or it's not periodic proposer election on constant interval, then returns
