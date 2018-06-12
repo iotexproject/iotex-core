@@ -122,7 +122,7 @@ func NewBlockchain(dao *blockDAO, cfg *config.Config, sf statefactory.StateFacto
 				logger.Error().Err(err).Msg("Failed to denoce public key")
 				return nil
 			}
-			address, err := iotxaddress.GetAddress(pubk, false, []byte{0x01, 0x02, 0x03, 0x04})
+			address, err := iotxaddress.GetAddress(pubk, iotxaddress.IsTestnet, iotxaddress.ChainID)
 			if err != nil {
 				logger.Error().Err(err).Msg("Failed to get address from public key")
 				return nil

@@ -102,7 +102,7 @@ func NewGenesisBlock() *Block {
 		if err != nil {
 			panic(err)
 		}
-		address, err := iotxaddress.GetAddress(pubk, false, []byte{0x01, 0x02, 0x03, 0x04})
+		address, err := iotxaddress.GetAddress(pubk, iotxaddress.IsTestnet, iotxaddress.ChainID)
 		if err != nil {
 			panic(err)
 		}

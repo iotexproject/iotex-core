@@ -32,6 +32,10 @@ var (
 	ErrInvalidVersion = errors.New("invalid version")
 	// ErrInvalidChainID is returned when invalid chain ID has been detected.
 	ErrInvalidChainID = errors.New("invalid chain ID")
+	// IsTestnet is used to get address
+	IsTestnet = false
+	// ChainID is used to get address
+	ChainID = []byte{0x01, 0x02, 0x03, 0x04}
 )
 
 const (
