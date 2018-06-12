@@ -163,15 +163,3 @@ func (pqStruct *CandidateMaxPQ) CandidateList() []*Candidate {
 	}
 	return candidates
 }
-
-/*
-func (pqStruct *CandidateMaxPQ) exist(address string) *Candidate {
-	pq := pqStruct.pq
-	for i := 0; i < len(pq); i++ {
-		if pq[i].Address == address {
-			return pq[i]
-		}
-	}
-	return nil
-}
-*/

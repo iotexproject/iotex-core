@@ -134,25 +134,3 @@ func TestUTXO(t *testing.T) {
 		fmt.Printf("Has %d solutions\n", count)
 	*/
 }
-
-/*
-func VerifySol(x, y, z float64, sol *map[float64]bool) bool {
-
-	invar1 := y*z + x*y + x*z
-	invar2 := x * y * z
-
-	if _, exist := (*sol)[invar1+invar2]; !exist {
-		(*sol)[invar1+invar2] = true
-
-		// set multiple of (x,y,z)
-		for k := float64(2); k*z <= 10000; k++ {
-			invar := k * k * (invar1 + k*invar2)
-			(*sol)[invar] = true
-		}
-
-		return true
-	}
-
-	return false
-}
-*/
