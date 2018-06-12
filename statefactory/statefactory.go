@@ -55,6 +55,9 @@ var (
 
 	// ErrFailedToUnmarshalState is the error that the state un-marshaling is failed
 	ErrFailedToUnmarshalState = errors.New("failed to unmarshal state")
+
+	// ErrFailedToSetNonce is the error when setNonce fails
+	ErrFailedToSetNonce = errors.New("failed to set nonce")
 )
 
 type (

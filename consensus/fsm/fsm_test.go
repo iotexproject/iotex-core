@@ -169,9 +169,7 @@ func TestStateTransitionToUnknownState(t *testing.T) {
 	assert.Equal(t, ErrStateUndefined, errors.Cause(err))
 }
 
-type TimeoutHandler struct {
-	//stopped bool
-}
+type TimeoutHandler struct{}
 
 func (h *TimeoutHandler) TimeoutDuration() *time.Duration {
 	d := time.Duration(100 * time.Millisecond)

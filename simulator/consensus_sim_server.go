@@ -90,7 +90,10 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 		chainID := make([]byte, 4)
 		binary.LittleEndian.PutUint32(chainID, uint32(i))
 
-		addr, _ := iotxaddress.NewAddress(true, chainID)
+		addr, err := iotxaddress.NewAddress(true, chainID)
+		if err != nil {
+			logger.Error().Err(err).Msg("failed to create public/private key pair together with the address derived.")
+		}
 
 		cfg.Chain.RawMinerAddr.PublicKey = hex.EncodeToString(addr.PublicKey)
 		cfg.Chain.RawMinerAddr.PrivateKey = hex.EncodeToString(addr.PrivateKey)
