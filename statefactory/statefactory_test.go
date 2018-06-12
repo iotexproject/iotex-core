@@ -114,7 +114,7 @@ func TestNonce(t *testing.T) {
 	mstate, _ = stateToBytes(&State{Address: addr.RawAddress, Nonce: 0x10})
 	trie.EXPECT().Get(gomock.Any()).Times(1).Return(mstate, nil)
 	err = sf.SetNonce(addr.RawAddress, uint64(0x11))
-	assert.Equal(t, ErrFailedToSetNonce, err)
+	assert.Nil(t, err)
 
 }
 
