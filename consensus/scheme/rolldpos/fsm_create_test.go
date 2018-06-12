@@ -95,8 +95,7 @@ func TestAcceptPrevoteAndProceedToEnd(t *testing.T) {
 		SenderAddr: delegates[1],
 		BlockHash:  &blkHash,
 	}
-	err = cs.fsm.HandleTransition(event)
-
+	_ = cs.fsm.HandleTransition(event)
 	waitFor(
 		t,
 		func() bool { return cs.fsm.CurrentState() == stateEpochStart },

@@ -170,7 +170,7 @@ func TestTxPool(t *testing.T) {
 	descs, err := tp.ProcessTx(tx2, true, false, 12341234)
 	assert.Nil(err)
 	assert.Equal(0, len(descs))
-	descs, err = tp.ProcessTx(tx1, true, false, 12341234)
+	_, err = tp.ProcessTx(tx1, true, false, 12341234)
 	t.Log(tp.TxDescs())
 	for hash, desc := range tp.TxDescs() {
 		t.Logf("hash: %x desc: %v", hash, desc)

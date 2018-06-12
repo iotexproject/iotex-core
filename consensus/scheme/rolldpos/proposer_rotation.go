@@ -29,7 +29,7 @@ func (s *proposerRotation) Do() {
 		logger.Error().Err(err).Msg("failed to get blockchain height")
 		return
 	}
-	pr, err := s.prCb(s.pool, nil, 0, height+1)
+	pr, _ := s.prCb(s.pool, nil, 0, height+1)
 	// If proposer is not the current node or it's not periodic proposer election on constant interval, then returns
 	if pr.String() != s.self.String() ||
 		(s.cfg.ProposerInterval != 0 && s.fsm.CurrentState() != stateRoundStart) {

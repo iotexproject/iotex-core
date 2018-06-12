@@ -135,6 +135,7 @@ func TestUTXO(t *testing.T) {
 	*/
 }
 
+/*
 func VerifySol(x, y, z float64, sol *map[float64]bool) bool {
 
 	invar1 := y*z + x*y + x*z
@@ -154,3 +155,4 @@ func VerifySol(x, y, z float64, sol *map[float64]bool) bool {
 
 	return false
 }
+*/

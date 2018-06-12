@@ -33,9 +33,7 @@ func NewMerkleTree(leaves []common.Hash32B) *Merkle {
 		size: size,
 	}
 
-	for i, leaf := range leaves {
-		mk.leaf[i] = leaf
-	}
+	copy(mk.leaf, leaves)
 
 	if size == 1 {
 		mk.root = mk.leaf[0]

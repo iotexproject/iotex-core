@@ -7,6 +7,7 @@
 package network
 
 import (
+	"fmt"
 	"math/rand"
 
 	pb "github.com/iotexproject/iotex-core/network/proto"
@@ -30,6 +31,7 @@ func (h *Pinger) Do() {
 			pong, error := value.(*Peer).Ping(&pb.Ping{Nonce: n, Addr: h.Overlay.PRC.String()})
 			if error == nil && pong.AckNonce == n {
 				// TODO: We need to handle wrong response case too
+				fmt.Print("Handle wrong response case")
 			}
 		}()
 		return true

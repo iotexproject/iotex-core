@@ -164,6 +164,7 @@ func (pqStruct *CandidateMaxPQ) CandidateList() []*Candidate {
 	return candidates
 }
 
+/*
 func (pqStruct *CandidateMaxPQ) exist(address string) *Candidate {
 	pq := pqStruct.pq
 	for i := 0; i < len(pq); i++ {
@@ -173,3 +174,4 @@ func (pqStruct *CandidateMaxPQ) exist(address string) *Candidate {
 	}
 	return nil
 }
+*/
