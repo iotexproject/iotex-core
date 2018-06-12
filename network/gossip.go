@@ -13,9 +13,9 @@ import (
 
 	"golang.org/x/crypto/blake2b"
 
-	cm "github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/common/routine"
 	"github.com/iotexproject/iotex-core/common/service"
+	"github.com/iotexproject/iotex-core/dispatch/dispatcher"
 	pb "github.com/iotexproject/iotex-core/network/proto"
 	pb1 "github.com/iotexproject/iotex-core/proto"
 )
@@ -24,7 +24,7 @@ import (
 type Gossip struct {
 	service.CompositeService
 	Overlay     *Overlay
-	Dispatcher  cm.Dispatcher
+	Dispatcher  dispatcher.Dispatcher
 	MsgLogs     sync.Map
 	CleanerTask *routine.RecurringTask
 }
@@ -41,7 +41,7 @@ func NewGossip(o *Overlay) *Gossip {
 }
 
 // AttachDispatcher attaches to a Dispatcher instance
-func (g *Gossip) AttachDispatcher(dispatcher cm.Dispatcher) {
+func (g *Gossip) AttachDispatcher(dispatcher dispatcher.Dispatcher) {
 	g.Dispatcher = dispatcher
 }
 

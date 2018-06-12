@@ -5,7 +5,7 @@ mkdir -p ./test/mock
 
 mkdir -p ./test/mock/mock_dispatcher
 mockgen -destination=./test/mock/mock_dispatcher/mock_dispatcher.go  \
-        -source=./common/idispatcher.go \
+        -source=./dispatch/dispatcher/dispatcher.go \
         -package=mock_dispatcher \
         Dispatcher
 

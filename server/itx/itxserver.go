@@ -11,11 +11,11 @@ import (
 
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blocksync"
-	cm "github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/common/service"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/delegate"
-	"github.com/iotexproject/iotex-core/dispatcher"
+	"github.com/iotexproject/iotex-core/dispatch"
+	"github.com/iotexproject/iotex-core/dispatch/dispatcher"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network"
 	"github.com/iotexproject/iotex-core/statefactory"
@@ -29,7 +29,7 @@ type Server struct {
 	tp  txpool.TxPool
 	ap  txpool.ActPool
 	o   *network.Overlay
-	dp  cm.Dispatcher
+	dp  dispatcher.Dispatcher
 	cfg config.Config
 }
 
@@ -89,7 +89,7 @@ func (s *Server) P2p() *network.Overlay {
 }
 
 // Dp returns the Dispatcher
-func (s *Server) Dp() cm.Dispatcher {
+func (s *Server) Dp() dispatcher.Dispatcher {
 	return s.dp
 }
 
@@ -103,7 +103,7 @@ func newServer(cfg config.Config, bc blockchain.Blockchain, sf statefactory.Stat
 	pool := delegate.NewConfigBasedPool(&cfg.Delegate)
 	bs := blocksync.NewBlockSyncer(&cfg, bc, tp, ap, o, pool)
 	// create dispatcher instance
-	dp := dispatcher.NewDispatcher(&cfg, bc, tp, ap, bs, pool)
+	dp := dispatch.NewDispatcher(&cfg, bc, tp, ap, bs, pool)
 	o.AttachDispatcher(dp)
 
 	return &Server{

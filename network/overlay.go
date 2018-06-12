@@ -17,6 +17,7 @@ import (
 	"github.com/iotexproject/iotex-core/common/routine"
 	"github.com/iotexproject/iotex-core/common/service"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/dispatch/dispatcher"
 	"github.com/iotexproject/iotex-core/logger"
 	pb "github.com/iotexproject/iotex-core/network/proto"
 	"github.com/iotexproject/iotex-core/proto"
@@ -35,7 +36,7 @@ type Overlay struct {
 	Gossip     *Gossip
 	Tasks      []*routine.RecurringTask
 	Config     *config.Network
-	Dispatcher cm.Dispatcher
+	Dispatcher dispatcher.Dispatcher
 }
 
 // NewOverlay creates an instance of Overlay
@@ -59,7 +60,7 @@ func NewOverlay(config *config.Network) *Overlay {
 }
 
 // AttachDispatcher attaches to a Dispatcher instance
-func (o *Overlay) AttachDispatcher(dispatcher cm.Dispatcher) {
+func (o *Overlay) AttachDispatcher(dispatcher dispatcher.Dispatcher) {
 	o.Dispatcher = dispatcher
 	o.Gossip.AttachDispatcher(dispatcher)
 }
