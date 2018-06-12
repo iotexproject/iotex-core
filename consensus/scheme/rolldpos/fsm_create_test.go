@@ -96,7 +96,7 @@ func TestAcceptPrevoteAndProceedToEnd(t *testing.T) {
 		BlockHash:  &blkHash,
 	}
 	err = cs.fsm.HandleTransition(event)
-	assert.Nil(err)
+	assert.Nil(t, err)
 
 	waitFor(
 		t,
