@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/common"
+	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/statefactory"
 )
 
@@ -60,7 +61,25 @@ func (v *validator) Validate(blk *Block, tipHeight uint64, tipHash common.Hash32
 	}
 
 	if v.sf != nil {
-		// TODO: exam txs based on states
+		// Verify the signatures here (balance is checked in CommitStateChanges)
+		for _, tsf := range blk.Transfers {
+			address, err := iotxaddress.GetAddress(tsf.SenderPublicKey, false, []byte{0x01, 0x02, 0x03, 0x04})
+			if err != nil {
+				return err
+			}
+			if err := tsf.Verify(address); err != nil {
+				return err
+			}
+		}
+		for _, vote := range blk.Votes {
+			address, err := iotxaddress.GetAddress(vote.SelfPubkey, false, []byte{0x01, 0x02, 0x03, 0x04})
+			if err != nil {
+				return err
+			}
+			if err := vote.Verify(address); err != nil {
+				return err
+			}
+		}
 	}
 
 	return nil
