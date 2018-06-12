@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package dispatcher
+package dispatch
 
 import (
 	"net"
@@ -18,10 +18,10 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/blockchain/trx"
 	"github.com/iotexproject/iotex-core/blocksync"
-	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/delegate"
+	"github.com/iotexproject/iotex-core/dispatch/dispatcher"
 	"github.com/iotexproject/iotex-core/logger"
 	pb "github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/txpool"
@@ -53,8 +53,8 @@ type actionMsg struct {
 	done   chan bool
 }
 
-// dispatcher implements Dispatcher interface.
-type dispatcher struct {
+// iotxDispatcher is the request and event dispatcher for iotx node.
+type iotxDispatcher struct {
 	started  int32
 	shutdown int32
 	newsChan chan interface{}
@@ -67,14 +67,14 @@ type dispatcher struct {
 	ap txpool.ActPool
 }
 
-// NewDispatcher creates a new dispatcher
+// NewDispatcher creates a new iotxDispatcher
 func NewDispatcher(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxPool, ap txpool.ActPool,
-	bs blocksync.BlockSync, dp delegate.Pool) common.Dispatcher {
+	bs blocksync.BlockSync, dp delegate.Pool) dispatcher.Dispatcher {
 	if bc == nil || bs == nil {
 		logger.Error().Msg("Try to attach to a nil blockchain or a nil P2P")
 		return nil
 	}
-	d := &dispatcher{
+	d := &iotxDispatcher{
 		newsChan: make(chan interface{}, 1024),
 		quit:     make(chan struct{}),
 		tp:       tp,
@@ -86,7 +86,7 @@ func NewDispatcher(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxPoo
 }
 
 // Start starts the dispatcher.
-func (d *dispatcher) Start() error {
+func (d *iotxDispatcher) Start() error {
 	if atomic.AddInt32(&d.started, 1) != 1 {
 		return errors.New("Dispatcher already started")
 	}
@@ -106,7 +106,7 @@ func (d *dispatcher) Start() error {
 }
 
 // Stop gracefully shuts down the dispatcher by stopping all handlers and waiting for them to finish.
-func (d *dispatcher) Stop() error {
+func (d *iotxDispatcher) Stop() error {
 	if atomic.AddInt32(&d.shutdown, 1) != 1 {
 		logger.Warn().Msg("Dispatcher already in the process of shutting down")
 		return nil
@@ -127,7 +127,7 @@ func (d *dispatcher) Stop() error {
 }
 
 // newsHandler is the main handler for handling all news from peers.
-func (d *dispatcher) newsHandler() {
+func (d *iotxDispatcher) newsHandler() {
 loop:
 	for {
 		select {
@@ -161,7 +161,7 @@ loop:
 }
 
 // handleTxMsg handles txMsg from all peers.
-func (d *dispatcher) handleTxMsg(m *txMsg) {
+func (d *iotxDispatcher) handleTxMsg(m *txMsg) {
 	tx := &trx.Tx{}
 	tx.ConvertFromTxPb(m.tx)
 	x := tx.Hash()
@@ -177,7 +177,7 @@ func (d *dispatcher) handleTxMsg(m *txMsg) {
 }
 
 // handleBlockMsg handles blockMsg from peers.
-func (d *dispatcher) handleBlockMsg(m *blockMsg) {
+func (d *iotxDispatcher) handleBlockMsg(m *blockMsg) {
 	blk := &blockchain.Block{}
 	blk.ConvertFromBlockPb(m.block)
 	hash := blk.HashBlock()
@@ -200,7 +200,7 @@ func (d *dispatcher) handleBlockMsg(m *blockMsg) {
 }
 
 // handleBlockSyncMsg handles block messages from peers.
-func (d *dispatcher) handleBlockSyncMsg(m *blockSyncMsg) {
+func (d *iotxDispatcher) handleBlockSyncMsg(m *blockSyncMsg) {
 	logger.Info().
 		Str("addr", m.sender).Uint64("start", m.sync.Start).Uint64("end", m.sync.End).
 		Msg("receive blockSyncMsg")
@@ -215,7 +215,7 @@ func (d *dispatcher) handleBlockSyncMsg(m *blockSyncMsg) {
 }
 
 // handleActionMsg handles actionMsg from all peers.
-func (d *dispatcher) handleActionMsg(m *actionMsg) {
+func (d *iotxDispatcher) handleActionMsg(m *actionMsg) {
 	vote := &pb.VotePb{}
 	logger.Info().Str("sig", string(vote.Signature)).Msg("receive actionMsg")
 
@@ -245,7 +245,7 @@ func (d *dispatcher) handleActionMsg(m *actionMsg) {
 }
 
 // dispatchTx adds the passed transaction message to the news handling queue.
-func (d *dispatcher) dispatchTx(msg proto.Message, done chan bool) {
+func (d *iotxDispatcher) dispatchTx(msg proto.Message, done chan bool) {
 	if atomic.LoadInt32(&d.shutdown) != 0 {
 		if done != nil {
 			close(done)
@@ -256,7 +256,7 @@ func (d *dispatcher) dispatchTx(msg proto.Message, done chan bool) {
 }
 
 // dispatchBlockCommit adds the passed block message to the news handling queue.
-func (d *dispatcher) dispatchBlockCommit(msg proto.Message, done chan bool) {
+func (d *iotxDispatcher) dispatchBlockCommit(msg proto.Message, done chan bool) {
 	if atomic.LoadInt32(&d.shutdown) != 0 {
 		if done != nil {
 			close(done)
@@ -267,7 +267,7 @@ func (d *dispatcher) dispatchBlockCommit(msg proto.Message, done chan bool) {
 }
 
 // dispatchBlockSyncReq adds the passed block sync request to the news handling queue.
-func (d *dispatcher) dispatchBlockSyncReq(sender string, msg proto.Message, done chan bool) {
+func (d *iotxDispatcher) dispatchBlockSyncReq(sender string, msg proto.Message, done chan bool) {
 	if atomic.LoadInt32(&d.shutdown) != 0 {
 		if done != nil {
 			close(done)
@@ -278,7 +278,7 @@ func (d *dispatcher) dispatchBlockSyncReq(sender string, msg proto.Message, done
 }
 
 // dispatchBlockSyncData handles block sync data
-func (d *dispatcher) dispatchBlockSyncData(msg proto.Message, done chan bool) {
+func (d *iotxDispatcher) dispatchBlockSyncData(msg proto.Message, done chan bool) {
 	if atomic.LoadInt32(&d.shutdown) != 0 {
 		if done != nil {
 			close(done)
@@ -290,7 +290,7 @@ func (d *dispatcher) dispatchBlockSyncData(msg proto.Message, done chan bool) {
 }
 
 // dispatchAction adds the passed action message to the news handling queue.
-func (d *dispatcher) dispatchAction(msg proto.Message, done chan bool) {
+func (d *iotxDispatcher) dispatchAction(msg proto.Message, done chan bool) {
 	if atomic.LoadInt32(&d.shutdown) != 0 {
 		if done != nil {
 			close(done)
@@ -301,7 +301,7 @@ func (d *dispatcher) dispatchAction(msg proto.Message, done chan bool) {
 }
 
 // HandleBroadcast handles incoming broadcast message
-func (d *dispatcher) HandleBroadcast(message proto.Message, done chan bool) {
+func (d *iotxDispatcher) HandleBroadcast(message proto.Message, done chan bool) {
 	msgType, err := pb.GetTypeFromProtoMsg(message)
 	if err != nil {
 		logger.Warn().
@@ -326,7 +326,7 @@ func (d *dispatcher) HandleBroadcast(message proto.Message, done chan bool) {
 }
 
 // HandleTell handles incoming unicast message
-func (d *dispatcher) HandleTell(sender net.Addr, message proto.Message, done chan bool) {
+func (d *iotxDispatcher) HandleTell(sender net.Addr, message proto.Message, done chan bool) {
 	msgType, err := pb.GetTypeFromProtoMsg(message)
 	if err != nil {
 		logger.Warn().

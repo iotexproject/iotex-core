@@ -4,7 +4,8 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package common
+// Package dispatcher defines Dispatcher interface which is used to dispatching incoming request and event. The main reason to pick this as an independent package is to resolve cyclic dependency.
+package dispatcher
 
 import (
 	"net"

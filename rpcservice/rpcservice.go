@@ -17,8 +17,8 @@ import (
 	"google.golang.org/grpc/reflection"
 
 	"github.com/iotexproject/iotex-core/blockchain"
-	cm "github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/dispatch/dispatcher"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	pb "github.com/iotexproject/iotex-core/proto"
@@ -28,13 +28,13 @@ import (
 type Chainserver struct {
 	blockchain  blockchain.Blockchain
 	config      config.RPC
-	dispatcher  cm.Dispatcher
+	dispatcher  dispatcher.Dispatcher
 	grpcserver  *grpc.Server
 	broadcastcb func(proto.Message) error
 }
 
 // NewChainServer creates an instance of chainserver
-func NewChainServer(c config.RPC, b blockchain.Blockchain, dp cm.Dispatcher, cb func(proto.Message) error) *Chainserver {
+func NewChainServer(c config.RPC, b blockchain.Blockchain, dp dispatcher.Dispatcher, cb func(proto.Message) error) *Chainserver {
 	if cb == nil {
 		logger.Error().Msg("cannot new chain server with nil callback")
 		return nil
