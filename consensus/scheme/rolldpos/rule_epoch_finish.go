@@ -42,7 +42,7 @@ func startNewEpochIfNecessary(c *RollDPoS) error {
 		return err
 	}
 	if ok {
-		c.handleEvent(&fsm.Event{
+		c.enqueueEvent(&fsm.Event{
 			State: stateDKGGenerate,
 		})
 	}

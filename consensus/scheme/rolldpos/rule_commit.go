@@ -73,7 +73,7 @@ func (r ruleCommit) reachedMaj() bool {
 func (r ruleCommit) notifyRoundFinish() {
 	// Fist emit an event to test if FSM should move back to epoch start
 	// If not, FSM will stay at round start, and the second emitted event for proposer will move it to init propose
-	r.handleEvent(&fsm.Event{
+	r.enqueueEvent(&fsm.Event{
 		State: stateEpochStart,
 	})
 	if r.cfg.ProposerInterval == 0 {

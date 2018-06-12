@@ -113,6 +113,7 @@ type RollDPoS struct {
 	AcceptVote        AcceptVote
 	Delay             time.Duration
 	NumSubEpochs      uint
+	EventChanSize     uint
 }
 
 // AcceptPropose is the RollDPoS AcceptPropose config
@@ -146,15 +147,21 @@ type RPC struct {
 	Port string
 }
 
+// Dispatcher is the dispatcher config
+type Dispatcher struct {
+	EventChanSize uint
+}
+
 // Config is the root config struct, each package's config should be put as its sub struct
 type Config struct {
-	NodeType  string
-	Network   Network
-	Chain     Chain
-	Consensus Consensus
-	Delegate  Delegate
-	RPC       RPC
-	BlockSync BlockSync
+	NodeType   string
+	Network    Network
+	Chain      Chain
+	Consensus  Consensus
+	Delegate   Delegate
+	RPC        RPC
+	BlockSync  BlockSync
+	Dispatcher Dispatcher
 }
 
 // IsDelegate returns true if the node type is Delegate
@@ -240,6 +247,12 @@ func validateConfig(cfg *Config) error {
 
 	if !cfg.Network.PeerDiscovery && cfg.Network.TopologyPath == "" {
 		return fmt.Errorf("either peer discover should be enabled or a topology should be given")
+	}
+	if cfg.Dispatcher.EventChanSize <= 0 {
+		return fmt.Errorf("dispatcher event chan size should be greater than 0")
+	}
+	if cfg.Consensus.Scheme == RollDPoSScheme && cfg.Consensus.RollDPoS.EventChanSize <= 0 {
+		return fmt.Errorf("roll-dpos event chan size should be greater than 0")
 	}
 	return nil
 }

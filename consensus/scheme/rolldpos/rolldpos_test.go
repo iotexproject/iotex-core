@@ -95,7 +95,8 @@ func createTestRollDPoS(
 		AcceptVote: config.AcceptVote{
 			TTL: 300 * time.Millisecond,
 		},
-		Delay: 10 * time.Second,
+		Delay:         10 * time.Second,
+		EventChanSize: 100,
 	}
 	csCfg.ProposerInterval = prDelay
 	mockFn(mocks{

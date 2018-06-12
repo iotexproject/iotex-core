@@ -98,7 +98,8 @@ func NewRollDPoS(
 	dkg scheme.GenerateDKGCB,
 	bc blockchain.Blockchain,
 	myaddr net.Addr,
-	dlg delegate.Pool) *RollDPoS {
+	dlg delegate.Pool,
+) *RollDPoS {
 	cb := rollDPoSCB{
 		propCb:       prop,
 		voteCb:       vote,
@@ -114,7 +115,7 @@ func NewRollDPoS(
 		self:       myaddr,
 		pool:       dlg,
 		quit:       make(chan struct{}),
-		eventChan:  make(chan *fsm.Event, 100),
+		eventChan:  make(chan *fsm.Event, cfg.EventChanSize),
 		cfg:        cfg,
 	}
 	if cfg.ProposerInterval == 0 {
@@ -124,7 +125,7 @@ func NewRollDPoS(
 	}
 	sc.epochStartTask = routine.NewDelayTask(
 		func() {
-			sc.handleEvent(&fsm.Event{
+			sc.enqueueEvent(&fsm.Event{
 				State: stateDKGGenerate,
 			})
 		},
@@ -168,12 +169,15 @@ func (n *RollDPoS) Handle(m proto.Message) error {
 	if err != nil {
 		return err
 	}
-	n.handleEvent(event)
+	n.enqueueEvent(event)
 	return nil
 }
 
-func (n *RollDPoS) handleEvent(e *fsm.Event) {
+func (n *RollDPoS) enqueueEvent(e *fsm.Event) {
 	logger.Debug().Msg("RollDPoS scheme handles incoming requests")
+	if len(n.eventChan) == cap(n.eventChan) {
+		logger.Warn().Msg("dispatcher event chan is full")
+	}
 	n.eventChan <- e
 }
 
@@ -202,9 +206,9 @@ loop:
 				if r.ExpireAt == nil {
 					expireAt := time.Now().Add(n.cfg.UnmatchedEventTTL)
 					r.ExpireAt = &expireAt
-					n.eventChan <- r
+					n.enqueueEvent(r)
 				} else if time.Now().Before(*r.ExpireAt) {
-					n.eventChan <- r
+					n.enqueueEvent(r)
 				}
 			case fsm.ErrNoTransitionApplied:
 			default:

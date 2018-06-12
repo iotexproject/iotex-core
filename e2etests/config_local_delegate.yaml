@@ -33,15 +33,6 @@ chain:
 
 consensus:
     scheme: "STANDALONE"
-    rolldpos:
-        unmatchedeventttl: 2s
-        acceptpropose:
-            ttl: 2s
-        acceptprevote:
-            ttl: 2s
-        acceptvote:
-            ttl: 2s
-        delay: 1s
     blockcreationinterval: 1s
 
 blocksync:
@@ -53,3 +44,6 @@ delegate:
 
 rpc:
     port: ":42124"
+
+dispatcher:
+    eventchansize: 1024
