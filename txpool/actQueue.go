@@ -23,7 +23,11 @@ func (h noncePriorityQueue) Less(i, j int) bool { return h[i] < h[j] }
 func (h noncePriorityQueue) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
 
 func (h *noncePriorityQueue) Push(x interface{}) {
-	*h = append(*h, x.(uint64))
+	in, ok := x.(uint64)
+	if !ok {
+		return
+	}
+	*h = append(*h, in)
 }
 
 func (h *noncePriorityQueue) Pop() interface{} {
@@ -34,7 +38,7 @@ func (h *noncePriorityQueue) Pop() interface{} {
 	return x
 }
 
-// ActQueue is the interface of tsfQueue
+// ActQueue is the interface of actQueue
 type ActQueue interface {
 	Overlaps(*iproto.ActionPb) bool
 	Put(*iproto.ActionPb) error
@@ -51,16 +55,21 @@ type ActQueue interface {
 	ConfirmedActs() []*iproto.ActionPb
 }
 
-// actQueue is a queue of transfers from an account
+// actQueue is a queue of actions from an account
 type actQueue struct {
-	items          map[uint64]*iproto.ActionPb // Map that stores all the actions belonging to an account associated with nonces
-	index          noncePriorityQueue          // Priority Queue that stores all the nonces belonging to an account. Nonces are used as indices for action map
-	confirmedNonce uint64                      // Current nonce tracking previous actions that can be committed to the next block
-	pendingNonce   uint64                      // Current pending nonce for the account
-	pendingBalance *big.Int                    // Current pending balance for the account
+	// Map that stores all the actions belonging to an account associated with nonces
+	items map[uint64]*iproto.ActionPb
+	// Priority Queue that stores all the nonces belonging to an account. Nonces are used as indices for action map
+	index noncePriorityQueue
+	// Current nonce tracking previous actions that can be committed to the next block
+	confirmedNonce uint64
+	// Current pending nonce for the account
+	pendingNonce uint64
+	// Current pending balance for the account
+	pendingBalance *big.Int
 }
 
-// NewActQueue create a new transfer queue
+// NewActQueue create a new action queue
 func NewActQueue() ActQueue {
 	return &actQueue{
 		items:          make(map[uint64]*iproto.ActionPb),
@@ -120,20 +129,20 @@ func (q *actQueue) FilterNonce(threshold uint64) []*iproto.ActionPb {
 
 // UpdatePendingNonce returns the next pending nonce starting from the given nonce
 func (q *actQueue) UpdateNonce(nonce uint64) {
-	for q.items[nonce] != nil {
-		if nonce == q.confirmedNonce {
-			if q.items[nonce].GetVote() != nil {
-				q.confirmedNonce++
-			} else {
-				tsf := &action.Transfer{}
-				tsf.ConvertFromTransferPb(q.items[nonce].GetTransfer())
-				if q.pendingBalance.Cmp(tsf.Amount) >= 0 {
-					q.confirmedNonce++
-					q.pendingBalance.Sub(q.pendingBalance, tsf.Amount)
-				}
-			}
+	for ; q.items[nonce] != nil; nonce++ {
+		if nonce != q.confirmedNonce {
+			continue
 		}
-		nonce++
+		if q.items[nonce].GetVote() != nil {
+			q.confirmedNonce++
+			continue
+		}
+		tsf := &action.Transfer{}
+		tsf.ConvertFromTransferPb(q.items[nonce].GetTransfer())
+		if q.pendingBalance.Cmp(tsf.Amount) >= 0 {
+			q.confirmedNonce++
+			q.pendingBalance.Sub(q.pendingBalance, tsf.Amount)
+		}
 	}
 	q.pendingNonce = nonce
 }
@@ -180,6 +189,9 @@ func (q *actQueue) Empty() bool {
 
 // ConfirmedTsfs creates a consecutive nonce-sorted slice of actions
 func (q *actQueue) ConfirmedActs() []*iproto.ActionPb {
+	if q.Len() == 0 {
+		return []*iproto.ActionPb{}
+	}
 	acts := make([]*iproto.ActionPb, 0, len(q.items))
 	nonce := q.index[0]
 	for q.items[nonce] != nil && nonce < q.confirmedNonce {

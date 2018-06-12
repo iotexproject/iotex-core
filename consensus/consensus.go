@@ -52,7 +52,6 @@ func NewConsensus(
 
 	cs := &IotxConsensus{cfg: &cfg.Consensus}
 	mintBlockCB := func() (*blockchain.Block, error) {
-		// TODO: get list of Transfer and Vote from actPool, instead of nil, nil below
 		transfers, votes := ap.PickActs()
 		blk, err := bc.MintNewBlock(tp.PickTxs(), transfers, votes, &cfg.Chain.MinerAddr, "")
 		if err != nil {
