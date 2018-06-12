@@ -113,7 +113,9 @@ func TestNonce(t *testing.T) {
 	})
 	mstate, _ = stateToBytes(&State{Address: addr.RawAddress, Nonce: 0x10})
 	trie.EXPECT().Get(gomock.Any()).Times(1).Return(mstate, nil)
-	_ = sf.SetNonce(addr.RawAddress, uint64(0x11))
+	err = sf.SetNonce(addr.RawAddress, uint64(0x11))
+	assert.Equal(t, ErrFailedToSetNonce, err)
+
 }
 
 func voteForm(height uint64, cs []*Candidate) []string {

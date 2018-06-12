@@ -110,7 +110,7 @@ func (tk *UtxoTracker) ValidateTxInputUtxo(txIn *trx.TxInput) (uint64, error) {
 		}
 	}
 
-	return 0, nil
+	return 0, fmt.Errorf("UTXO %x does not exist", hash)
 }
 
 // ValidateUtxo validates all UTXO in the block
@@ -127,8 +127,8 @@ func (tk *UtxoTracker) ValidateUtxo(blk *Block) error {
 		credit := uint64(0)
 		for _, txIn := range tx.TxIn {
 			// verify UTXO before they can be spent
-			amount, _ := tk.ValidateTxInputUtxo(txIn)
-			if amount == 0 {
+			amount, err := tk.ValidateTxInputUtxo(txIn)
+			if err != nil {
 				return fmt.Errorf("Cannot validate UTXO %x", txIn.TxHash)
 			}
 

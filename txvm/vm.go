@@ -8,8 +8,7 @@ package txvm
 
 // IVM defines the struct of IoTeX Virtual Machine
 type IVM struct {
-	ast *IAST
-	//contextStack []*IAST
+	ast    *IAST
 	dstack [][]byte
 	txin   []byte
 }
