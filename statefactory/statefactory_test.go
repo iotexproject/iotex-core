@@ -229,12 +229,12 @@ func voteForm(height uint64, cs []*Candidate) []string {
 
 func TestCandidate(t *testing.T) {
 	// Create three dummy iotex addresses
-	a, _ := iotxaddress.NewAddress(isTestnet, chainid)
-	b, _ := iotxaddress.NewAddress(isTestnet, chainid)
-	c, _ := iotxaddress.NewAddress(isTestnet, chainid)
-	d, _ := iotxaddress.NewAddress(isTestnet, chainid)
-	e, _ := iotxaddress.NewAddress(isTestnet, chainid)
-	f, _ := iotxaddress.NewAddress(isTestnet, chainid)
+	a, _ := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
+	b, _ := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
+	c, _ := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
+	d, _ := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
+	e, _ := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
+	f, _ := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
 	util.CleanupPath(t, testTriePath)
 	defer util.CleanupPath(t, testTriePath)
 	tr, _ := trie.NewTrie(testTriePath, false)
