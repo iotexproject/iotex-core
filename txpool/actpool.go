@@ -22,8 +22,10 @@ import (
 )
 
 const (
-	// ActionSizeLimit is the maximum size of action allowed
-	ActionSizeLimit = 32 * 1024
+	// TransferSizeLimit is the maximum size of transfer allowed
+	TransferSizeLimit = 32 * 1024
+	// VoteSizeLimit is the maximum size of vote allowed
+	VoteSizeLimit = 224
 	// GlobalSlots indicate maximum number of actions the whole actpool can hold
 	GlobalSlots = 5120
 	// AccountSlots indicate maximum number of an account queue can hold
@@ -120,7 +122,9 @@ func (ap *actPool) PickActs() ([]*action.Transfer, []*action.Vote) {
 				tsf := action.Transfer{}
 				tsf.ConvertFromTransferPb(act.GetTransfer())
 				transfers = append(transfers, &tsf)
-			} else {
+				continue
+			}
+			if act.GetVote() != nil {
 				vote := action.Vote{}
 				vote.ConvertFromVotePb(act.GetVote())
 				votes = append(votes, &vote)
@@ -190,11 +194,7 @@ func (ap *actPool) AddVote(vote *action.Vote) error {
 		return errors.Wrapf(ErrActPool, "insufficient space for vote")
 	}
 
-	voter, err := iotxaddress.GetAddress(vote.SelfPubkey, iotxaddress.IsTestnet, iotxaddress.ChainID)
-	if err != nil {
-		logger.Error().Err(err).Msg("Error when validating vote")
-		return err
-	}
+	voter, _ := iotxaddress.GetAddress(vote.SelfPubkey, iotxaddress.IsTestnet, iotxaddress.ChainID)
 	// Wrap vote as an action
 	action := &iproto.ActionPb{&iproto.ActionPb_Vote{vote.ConvertToVotePb()}}
 	return ap.addAction(voter.RawAddress, action, hash, vote.Nonce)
@@ -206,7 +206,7 @@ func (ap *actPool) AddVote(vote *action.Vote) error {
 // validateTsf checks whether a tranfer is valid
 func (ap *actPool) validateTsf(tsf *action.Transfer) error {
 	// Reject oversized transfer
-	if tsf.TotalSize() > ActionSizeLimit {
+	if tsf.TotalSize() > TransferSizeLimit {
 		return errors.Wrapf(ErrActPool, "oversized data")
 	}
 	// Reject transfer of negative amount
@@ -222,18 +222,18 @@ func (ap *actPool) validateTsf(tsf *action.Transfer) error {
 	sender, err := iotxaddress.GetAddress(tsf.SenderPublicKey, iotxaddress.IsTestnet, iotxaddress.ChainID)
 	if err != nil {
 		logger.Error().Err(err).Msg("Error when validating transfer")
-		return err
+		return errors.Wrapf(err, "invalid address")
 	}
 	// Verify transfer using sender's public key
 	if err := tsf.Verify(sender); err != nil {
 		logger.Error().Err(err).Msg("Error when validatng transfer")
-		return err
+		return errors.Wrapf(err, "failed to verify Transfer signature")
 	}
 	// Reject transfer if nonce is too low
 	committedNonce, err := ap.sf.Nonce(tsf.Sender)
 	if err != nil {
 		logger.Error().Err(err).Msg("Error when validating Tsf")
-		return err
+		return errors.Wrapf(err, "invalid nonce value")
 	}
 	confirmedNonce := committedNonce + 1
 	if confirmedNonce > tsf.Nonce {
@@ -245,25 +245,25 @@ func (ap *actPool) validateTsf(tsf *action.Transfer) error {
 // validateVote checks whether a vote is valid
 func (ap *actPool) validateVote(vote *action.Vote) error {
 	// Reject oversized vote
-	if vote.TotalSize() > ActionSizeLimit {
+	if vote.TotalSize() > VoteSizeLimit {
 		return errors.Wrapf(ErrActPool, "oversized data")
 	}
 	voter, err := iotxaddress.GetAddress(vote.SelfPubkey, iotxaddress.IsTestnet, iotxaddress.ChainID)
 	if err != nil {
 		logger.Error().Err(err).Msg("Error when validating vote")
-		return err
+		return errors.Wrapf(err, "invalid address")
 	}
 	// Verify vote using voter's public key
 	if err := vote.Verify(voter); err != nil {
 		logger.Error().Err(err).Msg("Error when validating vote")
-		return err
+		return errors.Wrapf(err, "failed to verify Vote signature")
 	}
 
 	// Reject vote if nonce is too low
 	committedNonce, err := ap.sf.Nonce(voter.RawAddress)
 	if err != nil {
 		logger.Error().Err(err).Msg("Error when validating vote")
-		return err
+		return errors.Wrapf(err, "invalid nonce value")
 	}
 	confirmedNonce := committedNonce + 1
 	if confirmedNonce > vote.Nonce {
