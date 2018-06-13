@@ -103,7 +103,7 @@ func newServer(cfg config.Config, bc blockchain.Blockchain, sf statefactory.Stat
 	pool := delegate.NewConfigBasedPool(&cfg.Delegate)
 	bs := blocksync.NewBlockSyncer(&cfg, bc, tp, ap, o, pool)
 	// create dispatcher instance
-	dp := dispatch.NewDispatcher(&cfg, bc, tp, ap, bs, pool)
+	dp := dispatch.NewDispatcher(&cfg, bc, tp, ap, bs, pool, sf)
 	o.AttachDispatcher(dp)
 
 	return &Server{

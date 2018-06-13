@@ -22,6 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/proto"
 	pb "github.com/iotexproject/iotex-core/proto"
 	pbsim "github.com/iotexproject/iotex-core/simulator/proto/simulator"
+	"github.com/iotexproject/iotex-core/statefactory"
 	"github.com/iotexproject/iotex-core/txpool"
 )
 
@@ -51,7 +52,14 @@ type sim struct {
 }
 
 // NewSim creates a consensus_sim struct
-func NewSim(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxPool, bs blocksync.BlockSync, dlg delegate.Pool) Sim {
+func NewSim(
+	cfg *config.Config,
+	bc blockchain.Blockchain,
+	tp txpool.TxPool,
+	bs blocksync.BlockSync,
+	dlg delegate.Pool,
+	sf statefactory.StateFactory,
+) Sim {
 	if bc == nil {
 		logger.Error().Msg("Blockchain is nil")
 		return nil
@@ -90,7 +98,8 @@ func NewSim(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxPool, bs b
 		// check if message is a newly proposed block
 		vc, ok := (msg).(*iproto.ViewChangeMsg)
 		if ok && vc.Vctype == iproto.ViewChangeMsg_PROPOSE {
-			cs.sendMessage(proposeBlockMsg, msgType, msgBodyS+"|"+hex.EncodeToString(vc.BlockHash)) // send msg + block hash for recording metrics on sim side
+			// send msg + block hash for recording metrics on sim side
+			cs.sendMessage(proposeBlockMsg, msgType, msgBodyS+"|"+hex.EncodeToString(vc.BlockHash))
 		} else {
 			cs.sendMessage(viewStateChangeMsg, msgType, msgBodyS)
 		}
@@ -132,14 +141,23 @@ func NewSim(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxPool, bs b
 		rolldpos.GeneratePseudoDKG,
 		bc,
 		bs.P2P().Self(),
-		dlg)
+		dlg,
+		sf,
+	)
 	cs.unsent = make([]*pbsim.Reply, 0)
 
 	return cs
 }
 
 // NewSimByzantine creates a byzantine consensus_sim struct
-func NewSimByzantine(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxPool, bs blocksync.BlockSync, dlg delegate.Pool) Sim {
+func NewSimByzantine(
+	cfg *config.Config,
+	bc blockchain.Blockchain,
+	tp txpool.TxPool,
+	bs blocksync.BlockSync,
+	dlg delegate.Pool,
+	sf statefactory.StateFactory,
+) Sim {
 	if bc == nil {
 		logger.Error().Msg("Blockchain is nil")
 		return nil
@@ -226,7 +244,9 @@ func NewSimByzantine(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxP
 		rolldpos.GeneratePseudoDKG,
 		bc,
 		bs.P2P().Self(),
-		dlg)
+		dlg,
+		sf,
+	)
 	cs.unsent = make([]*pbsim.Reply, 0)
 
 	return cs
