@@ -1,0 +1,65 @@
+struct CoinStatistic {
+    height int
+    supply int
+    transfers int
+    tps int
+}
+
+struct BlockGenerator {
+    name string
+    address string
+}
+
+struct Block {
+    ID string
+    height int
+    timestamp int
+    transfers int
+    generateBy BlockGenerator
+    amount int
+    forged int
+}
+
+struct Transfer {
+    ID string
+    sender string
+    recipient string
+    amount int
+    fee int
+    timestamp int
+    blockID string
+}
+
+struct AddressDetails {
+    address string
+    totalBalance int
+}
+
+interface Explorer {
+    // get the balance of an address
+    getAddressBalance(address string) int
+
+    // get the address detail of an iotex address
+    getAddressDetails(address string) AddressDetails
+
+    // get list of transactions by start block height, transaction offset and limit
+    getLastTransfersByRange(startBlockHeight int, offset int, limit int) []Transfer
+
+    // get transaction from transaction id
+    getTransferByID(transferID string) Transfer
+
+    // get list of transaction belong to an address
+    getTransfersByAddress(address string) []Transfer
+
+    // get all transfers in a block
+    getTransfersByBlockID(blockID string) []Transfer
+
+    // get list of blocks by block id offset and limit
+    getLastBlocksByRange(offset int, limit int) []Block
+
+    // get block by block id
+    getBlockByID(blockID string) Block
+
+    // get statistic of iotx
+    getCoinStatistic() CoinStatistic
+}

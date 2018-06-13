@@ -19,6 +19,8 @@ import (
 	"github.com/golang/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/explorer"
+	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/rpcservice"
 	"github.com/iotexproject/iotex-core/server/itx"
 )
@@ -66,4 +68,19 @@ func main() {
 	}
 
 	select {}
+
+	if cfg.Explorer.StartExplorer {
+		isTest := cfg.Explorer.IsTest
+		httpPort := cfg.Explorer.Addr
+
+		flag.Parse()
+		env := os.Getenv("APP_ENV")
+		if env == "development" {
+			isTest = true
+		}
+		if isTest {
+			logger.Warn().Msg("Using test server with fake data...")
+		}
+		explorer.StartJSONServer(svr.Bc(), isTest, httpPort)
+	}
 }

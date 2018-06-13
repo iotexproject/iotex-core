@@ -52,7 +52,7 @@ fmt:
 
 .PHONY: lint
 lint:
-	go list ./... | grep -v /vendor/ | xargs $(GOLINT)
+	go list ./... | grep -v /vendor/ | grep -v /explorer/idl/ | xargs $(GOLINT)
 
 .PHONY: lint-rich
 lint-rich:
