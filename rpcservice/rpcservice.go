@@ -42,7 +42,7 @@ func NewChainServer(c config.RPC, b blockchain.Blockchain, dp dispatcher.Dispatc
 	return &Chainserver{blockchain: b, config: c, dispatcher: dp, broadcastcb: cb}
 }
 
-// CreateRawTx creates an unsigned raw transaction
+// CreateRawTransfer creates an unsigned raw transaction
 func (s *Chainserver) CreateRawTransfer(ctx context.Context, in *pb.CreateRawTransferRequest) (*pb.CreateRawTransferResponse, error) {
 	if len(in.Sender) == 0 || len(in.Recipient) == 0 {
 		return nil, errors.New("invalid CreateRawTxRequest")
@@ -58,7 +58,7 @@ func (s *Chainserver) CreateRawTransfer(ctx context.Context, in *pb.CreateRawTra
 	return &pb.CreateRawTransferResponse{SerializedTransfer: stsf}, nil
 }
 
-// SendTx sends out a signed raw transaction
+// SendTransfer sends out a signed raw transaction
 func (s *Chainserver) SendTransfer(ctx context.Context, in *pb.SendTransferRequest) (*pb.SendTransferResponse, error) {
 	if len(in.SerializedTransfer) == 0 {
 		return nil, errors.New("invalid SendTxRequest")

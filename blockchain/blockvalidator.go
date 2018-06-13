@@ -9,7 +9,9 @@ package blockchain
 import (
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/common"
+	cp "github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/statefactory"
 )
@@ -54,6 +56,18 @@ func (v *validator) Validate(blk *Block, tipHeight uint64, tipHash common.Hash32
 			tipHash)
 	}
 
+	if blk.Header.height > 0 {
+		// verify new block's signature is correct
+		blkHash := blk.HashBlock()
+		if !cp.Verify(blk.Header.Pubkey, blkHash[:], blk.Header.blockSig) {
+			return errors.Wrapf(
+				ErrInvalidBlock,
+				"Fail to verify block's signature with public key: %x",
+				blk.Header.Pubkey,
+				tipHash)
+		}
+	}
+
 	if v.utk != nil {
 		if err := v.utk.ValidateUtxo(blk); err != nil {
 			return err
@@ -63,6 +77,16 @@ func (v *validator) Validate(blk *Block, tipHeight uint64, tipHash common.Hash32
 	if v.sf != nil {
 		// Verify the signatures here (balance is checked in CommitStateChanges)
 		for _, tsf := range blk.Transfers {
+			if tsf.IsCoinbase {
+				address, err := iotxaddress.GetAddress(blk.Header.Pubkey, iotxaddress.IsTestnet, iotxaddress.ChainID)
+				if err != nil {
+					return err
+				}
+				if address.RawAddress != tsf.Recipient {
+					return action.ErrTransferError
+				}
+				continue
+			}
 			address, err := iotxaddress.GetAddress(tsf.SenderPublicKey, iotxaddress.IsTestnet, iotxaddress.ChainID)
 			if err != nil {
 				return err
