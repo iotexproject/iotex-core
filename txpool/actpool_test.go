@@ -56,7 +56,7 @@ func TestActPool_validateTsf(t *testing.T) {
 	sf := statefactory.NewStateFactory(tr)
 	assert.NotNil(sf)
 	sf.CreateState(addr1.RawAddress, uint64(100))
-	ap := NewActPool(sf, nil).(*actPool)
+	ap := NewActPool(sf).(*actPool)
 	assert.NotNil(ap)
 	// Case I: Oversized Data
 	tmpPayload := [32769]byte{}
@@ -92,7 +92,7 @@ func TestActPool_validateVote(t *testing.T) {
 	sf := statefactory.NewStateFactory(tr)
 	assert.NotNil(sf)
 	sf.CreateState(addr1.RawAddress, uint64(100))
-	ap := NewActPool(sf, nil).(*actPool)
+	ap := NewActPool(sf).(*actPool)
 	assert.NotNil(ap)
 	// Case I: Oversized Data
 	selfPubKey := []byte{}
@@ -129,7 +129,7 @@ func TestActPool_AddActs(t *testing.T) {
 	sf.CreateState(addr1.RawAddress, uint64(100))
 	sf.CreateState(addr2.RawAddress, uint64(10))
 	// Create actpool
-	ap := NewActPool(sf, nil).(*actPool)
+	ap := NewActPool(sf).(*actPool)
 	assert.NotNil(ap)
 	// Test actpool status after adding a sequence of Tsfs/votes: need to check confirmed nonce, pending nonce, and pending balance
 	tsf1, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(10))
@@ -180,7 +180,7 @@ func TestActPool_AddActs(t *testing.T) {
 	assert.Equal(fmt.Errorf("existed vote: %x", vote4.Hash()), err)
 	// Case II: Pool space is full
 	mockSF := mock_statefactory.NewMockStateFactory(ctrl)
-	ap2 := NewActPool(mockSF, nil).(*actPool)
+	ap2 := NewActPool(mockSF).(*actPool)
 	assert.NotNil(ap2)
 	for i := 0; i < GlobalSlots; i++ {
 		nTsf := action.Transfer{Amount: big.NewInt(int64(i))}
@@ -221,7 +221,7 @@ func TestActPool_PickActs(t *testing.T) {
 	sf.CreateState(addr1.RawAddress, uint64(100))
 	sf.CreateState(addr2.RawAddress, uint64(10))
 	// Create actpool
-	ap := NewActPool(sf, nil)
+	ap := NewActPool(sf)
 	assert.NotNil(ap)
 
 	tsf1, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(10))
@@ -261,7 +261,7 @@ func TestActPool_removeCommittedActs(t *testing.T) {
 	assert.NotNil(sf)
 	sf.CreateState(addr1.RawAddress, uint64(100))
 	// Create actpool
-	ap := NewActPool(sf, nil).(*actPool)
+	ap := NewActPool(sf).(*actPool)
 	assert.NotNil(ap)
 
 	tsf1, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(10))
@@ -296,9 +296,9 @@ func TestActPool_Reset(t *testing.T) {
 	sf.CreateState(addr2.RawAddress, uint64(200))
 	sf.CreateState(addr3.RawAddress, uint64(300))
 
-	ap1 := NewActPool(sf, nil).(*actPool)
+	ap1 := NewActPool(sf).(*actPool)
 	assert.NotNil(ap1)
-	ap2 := NewActPool(sf, nil).(*actPool)
+	ap2 := NewActPool(sf).(*actPool)
 	assert.NotNil(ap2)
 
 	// Tsfs to be added to ap1

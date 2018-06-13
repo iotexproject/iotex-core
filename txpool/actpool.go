@@ -16,7 +16,6 @@ import (
 	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
-	"github.com/iotexproject/iotex-core/network"
 	"github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/statefactory"
 )
@@ -27,9 +26,9 @@ const (
 	// VoteSizeLimit is the maximum size of vote allowed
 	VoteSizeLimit = 224
 	// GlobalSlots indicate maximum number of actions the whole actpool can hold
-	GlobalSlots = 5120
+	GlobalSlots = 8192
 	// AccountSlots indicate maximum number of an account queue can hold
-	AccountSlots = 80
+	AccountSlots = 256
 )
 
 var (
@@ -59,16 +58,14 @@ type ActPool interface {
 type actPool struct {
 	mutex       sync.RWMutex
 	sf          statefactory.StateFactory
-	p2p         *network.Overlay
 	accountActs map[string]ActQueue
 	allActions  map[common.Hash32B]*iproto.ActionPb
 }
 
 // NewActPool constructs a new actpool
-func NewActPool(sf statefactory.StateFactory, p2p *network.Overlay) ActPool {
+func NewActPool(sf statefactory.StateFactory) ActPool {
 	ap := &actPool{
 		sf:          sf,
-		p2p:         p2p,
 		accountActs: make(map[string]ActQueue),
 		allActions:  make(map[common.Hash32B]*iproto.ActionPb),
 	}
@@ -86,6 +83,7 @@ func NewActPool(sf statefactory.StateFactory, p2p *network.Overlay) ActPool {
 func (ap *actPool) Reset() {
 	ap.mutex.Lock()
 	defer ap.mutex.Unlock()
+
 	// Remove committed actions in actpool
 	ap.removeCommittedActs()
 	for from, queue := range ap.accountActs {
@@ -118,13 +116,12 @@ func (ap *actPool) PickActs() ([]*action.Transfer, []*action.Vote) {
 	votes := []*action.Vote{}
 	for _, queue := range ap.accountActs {
 		for _, act := range queue.ConfirmedActs() {
-			if act.GetTransfer() != nil {
+			switch {
+			case act.GetTransfer() != nil:
 				tsf := action.Transfer{}
 				tsf.ConvertFromTransferPb(act.GetTransfer())
 				transfers = append(transfers, &tsf)
-				continue
-			}
-			if act.GetVote() != nil {
+			case act.GetVote() != nil:
 				vote := action.Vote{}
 				vote.ConvertFromVotePb(act.GetVote())
 				votes = append(votes, &vote)
@@ -138,6 +135,7 @@ func (ap *actPool) PickActs() ([]*action.Transfer, []*action.Vote) {
 func (ap *actPool) AddTsf(tsf *action.Transfer) error {
 	ap.mutex.Lock()
 	defer ap.mutex.Unlock()
+
 	hash := tsf.Hash()
 	// Reject transfer if it already exists in pool
 	if ap.allActions[hash] != nil {
@@ -170,6 +168,7 @@ func (ap *actPool) AddTsf(tsf *action.Transfer) error {
 func (ap *actPool) AddVote(vote *action.Vote) error {
 	ap.mutex.Lock()
 	defer ap.mutex.Unlock()
+
 	hash := vote.Hash()
 	// Reject vote if it already exists in pool
 	if ap.allActions[hash] != nil {
@@ -335,11 +334,12 @@ func (ap *actPool) removeCommittedActs() {
 		// Remove all actions that are committed to new block
 		for _, act := range queue.FilterNonce(confirmedNonce) {
 			var hash common.Hash32B
-			if act.GetTransfer() != nil {
+			switch {
+			case act.GetTransfer() != nil:
 				tsf := &action.Transfer{}
 				tsf.ConvertFromTransferPb(act.GetTransfer())
 				hash = tsf.Hash()
-			} else {
+			case act.GetVote() != nil:
 				vote := &action.Vote{}
 				vote.ConvertFromVotePb(act.GetVote())
 				hash = vote.Hash()

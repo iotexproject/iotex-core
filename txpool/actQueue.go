@@ -83,11 +83,12 @@ func NewActQueue() ActQueue {
 // Overlap returns whether the current queue contains the given nonce
 func (q *actQueue) Overlaps(act *iproto.ActionPb) bool {
 	var nonce uint64
-	if act.GetTransfer() != nil {
+	switch {
+	case act.GetTransfer() != nil:
 		tsf := &action.Transfer{}
 		tsf.ConvertFromTransferPb(act.GetTransfer())
 		nonce = tsf.Nonce
-	} else {
+	case act.GetVote() != nil:
 		vote := &action.Vote{}
 		vote.ConvertFromVotePb(act.GetVote())
 		nonce = vote.Nonce
@@ -98,11 +99,12 @@ func (q *actQueue) Overlaps(act *iproto.ActionPb) bool {
 // Put inserts a new action into the map, also updating the queue's nonce index
 func (q *actQueue) Put(act *iproto.ActionPb) error {
 	var nonce uint64
-	if act.GetTransfer() != nil {
+	switch {
+	case act.GetTransfer() != nil:
 		tsf := &action.Transfer{}
 		tsf.ConvertFromTransferPb(act.GetTransfer())
 		nonce = tsf.Nonce
-	} else {
+	case act.GetVote() != nil:
 		vote := &action.Vote{}
 		vote.ConvertFromVotePb(act.GetVote())
 		nonce = vote.Nonce
