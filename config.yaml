@@ -63,3 +63,9 @@ rpc:
 
 dispatcher:
     eventchansize: 1024
+
+explorer:
+    startexplorer: false
+    istest: false
+    addr: "14004"
+

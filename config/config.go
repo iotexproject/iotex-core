@@ -152,6 +152,13 @@ type Dispatcher struct {
 	EventChanSize uint
 }
 
+// Explorer is the explorer service config
+type Explorer struct {
+	StartExplorer bool
+	IsTest        bool
+	Addr          string
+}
+
 // Config is the root config struct, each package's config should be put as its sub struct
 type Config struct {
 	NodeType   string
@@ -162,6 +169,7 @@ type Config struct {
 	RPC        RPC
 	BlockSync  BlockSync
 	Dispatcher Dispatcher
+	Explorer   Explorer
 }
 
 // IsDelegate returns true if the node type is Delegate
