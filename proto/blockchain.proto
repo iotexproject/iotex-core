@@ -48,6 +48,7 @@ message TransferPb {
     string recipient = 6;
     bytes payload  = 7;
     bytes senderPubKey = 8;
+    bool isCoinbase = 9;
 }
 
 message VotePb {
@@ -82,6 +83,7 @@ message BlockHeaderPb {
     uint32 trnxNumber = 8;
     uint32 trnxDataSize = 9;
     bytes signature = 10;
+    bytes pubkey = 11;
 }
 
 // block consists of header followed by transactions
