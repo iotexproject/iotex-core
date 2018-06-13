@@ -1,5 +1,5 @@
 hash: 74643fa67d3888f0ea309f1b5eeaf2ce3eb67383ea77fc50eac7abcb1eee2321
-updated: 2018-05-29T10:24:24.628232-07:00
+updated: 2018-06-13T09:56:55.054599-07:00
 imports:
 - name: github.com/boltdb/bolt
   version: 2f1ce7a837dcb8da3ec595b1dac9d0632f0f99e8
@@ -29,15 +29,15 @@ imports:
   - internal/json
   - log
 - name: github.com/stretchr/testify
-  version: 12b6f73e6084dad08a7c6e575284b177ecafbc71
+  version: f35b8ab0b5a2cef36673838d662e249dd9c94686
   subpackages:
   - assert
+  - require
 - name: golang.org/x/crypto
   version: 650f4a345ab4e5b245a3034b110ebc7299e68186
   subpackages:
   - blake2b
   - ed25519
-  - ed25519/internal/edwards25519
 - name: golang.org/x/net
   version: 309822c5b9b9f80db67f016069a12628d94fad34
   subpackages:
@@ -64,7 +64,7 @@ imports:
   subpackages:
   - googleapis/rpc/status
 - name: google.golang.org/grpc
-  version: 41344da2231b913fa3d983840a57a6b1b7b631a1
+  version: 7a6a684ca69eb4cae85ad0a484f2e531598c047b
   subpackages:
   - balancer
   - balancer/base
