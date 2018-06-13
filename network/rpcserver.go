@@ -34,7 +34,8 @@ type RPCServer struct {
 	counters  sync.Map
 	rateLimit uint64
 	// TODO: mutation of this field is not thread safe
-	started bool
+	started     bool
+	lastReqTime time.Time
 }
 
 // NewRPCServer creates an instance of RPCServer
@@ -48,6 +49,7 @@ func NewRPCServer(o *Overlay) *RPCServer {
 // Ping implements the server side RPC logic
 func (s *RPCServer) Ping(ctx context.Context, ping *pb.Ping) (*pb.Pong, error) {
 	drop, err := s.shouldDropRequest(ctx)
+	s.updateLastResTime()
 	if err != nil {
 		return nil, err
 	}
@@ -61,6 +63,7 @@ func (s *RPCServer) Ping(ctx context.Context, ping *pb.Ping) (*pb.Pong, error) {
 // GetPeers implements the server side RPC logic
 func (s *RPCServer) GetPeers(ctx context.Context, req *pb.GetPeersReq) (*pb.GetPeersRes, error) {
 	drop, err := s.shouldDropRequest(ctx)
+	s.updateLastResTime()
 	if err != nil {
 		return nil, err
 	}
@@ -85,6 +88,7 @@ func (s *RPCServer) GetPeers(ctx context.Context, req *pb.GetPeersReq) (*pb.GetP
 // Broadcast implements the server side RPC logic
 func (s *RPCServer) Broadcast(ctx context.Context, req *pb.BroadcastReq) (*pb.BroadcastRes, error) {
 	drop, err := s.shouldDropRequest(ctx)
+	s.updateLastResTime()
 	if err != nil {
 		return nil, err
 	}
@@ -101,6 +105,7 @@ func (s *RPCServer) Broadcast(ctx context.Context, req *pb.BroadcastReq) (*pb.Br
 // Tell implements the server side RPC logic
 func (s *RPCServer) Tell(ctx context.Context, req *pb.TellReq) (*pb.TellRes, error) {
 	drop, err := s.shouldDropRequest(ctx)
+	s.updateLastResTime()
 	if err != nil {
 		return nil, err
 	}
@@ -169,6 +174,11 @@ func (s *RPCServer) Stop() error {
 	return nil
 }
 
+// LastReqTime returns the timestamp of the last accepted request
+func (s *RPCServer) LastReqTime() time.Time {
+	return s.lastReqTime
+}
+
 func (s *RPCServer) shouldDropRequest(ctx context.Context) (bool, error) {
 	if !s.Overlay.Config.RateLimitEnabled {
 		return false, nil
@@ -196,4 +206,9 @@ func (s *RPCServer) getClientAddr(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("failed to get peer address")
 	}
 	return p.Addr.String(), nil
+}
+
+// Update the last time when successfully getting an req from the peer
+func (s *RPCServer) updateLastResTime() {
+	s.lastReqTime = time.Now()
 }

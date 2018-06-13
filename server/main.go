@@ -18,6 +18,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 
+	"github.com/iotexproject/iotex-core/common/routine"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/explorer"
 	"github.com/iotexproject/iotex-core/logger"
@@ -53,6 +54,21 @@ func main() {
 		os.Exit(1)
 	}
 	defer svr.Stop()
+
+	if cfg.System.HeartbeatInterval > 0 {
+		task := routine.NewRecurringTask(itx.NewHeartbeatHandler(svr), cfg.System.HeartbeatInterval)
+		if err := task.Init(); err != nil {
+			logger.Panic().Err(err)
+		}
+		if err := task.Start(); err != nil {
+			logger.Panic().Err(err)
+		}
+		defer func() {
+			if err := task.Stop(); err != nil {
+				logger.Panic().Err(err)
+			}
+		}()
+	}
 
 	// start the chain server for Tx injection
 	if cfg.RPC != (config.RPC{}) {

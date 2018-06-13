@@ -32,7 +32,7 @@ const (
 	proposeBlockMsg    int32 = 2
 )
 
-// Sim is the interface for handling consensus view change used in the simulator
+// Sim is the interface for handling IotxConsensus view change used in the simulator
 type Sim interface {
 	Start() error
 	Stop() error
@@ -274,7 +274,7 @@ func (c *sim) SetStream(stream *pbsim.Simulator_PingServer) {
 func (c *sim) Start() error {
 	logger.Info().
 		Str("scheme", c.cfg.Scheme).
-		Msg("Starting consensus scheme")
+		Msg("Starting IotxConsensus scheme")
 
 	c.scheme.Start()
 	return nil
@@ -283,7 +283,7 @@ func (c *sim) Start() error {
 func (c *sim) Stop() error {
 	logger.Info().
 		Str("scheme", c.cfg.Scheme).
-		Msg("Stopping consensus scheme")
+		Msg("Stopping IotxConsensus scheme")
 
 	c.scheme.Stop()
 	return nil
@@ -304,7 +304,7 @@ func (c *sim) SendUnsent() {
 	c.unsent = make([]*pbsim.Reply, 0)
 }
 
-// SetDoneStream takes in a boolean channel which will be filled when the consensus is done processing
+// SetDoneStream takes in a boolean channel which will be filled when the IotxConsensus is done processing
 func (c *sim) SetDoneStream(done chan bool) {
 	c.scheme.SetDoneStream(done)
 }

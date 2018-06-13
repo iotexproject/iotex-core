@@ -72,7 +72,7 @@ type rollDPoSCB struct {
 type RollDPoS struct {
 	rollDPoSCB
 	bc             blockchain.Blockchain
-	fsm            fsm.Machine
+	fsm            *fsm.Machine
 	epochCtx       *epochCtx
 	roundCtx       *roundCtx
 	self           net.Addr
@@ -175,6 +175,16 @@ func (n *RollDPoS) Handle(m proto.Message) error {
 	}
 	n.enqueueEvent(event)
 	return nil
+}
+
+// EventChan returns the event chan
+func (n *RollDPoS) EventChan() *chan *fsm.Event {
+	return &n.eventChan
+}
+
+// FSM returns the FSM instance
+func (n *RollDPoS) FSM() *fsm.Machine {
+	return n.fsm
 }
 
 func (n *RollDPoS) enqueueEvent(e *fsm.Event) {

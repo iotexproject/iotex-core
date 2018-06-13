@@ -21,7 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/txpool"
 )
 
-// Consensus is the interface for handling consensus view change.
+// Consensus is the interface for handling IotxConsensus view change.
 type Consensus interface {
 	Start() error
 	Stop() error
@@ -29,12 +29,13 @@ type Consensus interface {
 	HandleBlockPropose(proto.Message, chan bool) error
 }
 
-type consensus struct {
+// IotxConsensus implements Consensus
+type IotxConsensus struct {
 	cfg    *config.Consensus
 	scheme scheme.Scheme
 }
 
-// NewConsensus creates a consensus struct.
+// NewConsensus creates a IotxConsensus struct.
 func NewConsensus(
 	cfg *config.Config,
 	bc blockchain.Blockchain,
@@ -49,7 +50,7 @@ func NewConsensus(
 		return nil
 	}
 
-	cs := &consensus{cfg: &cfg.Consensus}
+	cs := &IotxConsensus{cfg: &cfg.Consensus}
 	mintBlockCB := func() (*blockchain.Block, error) {
 		// TODO: get list of Transfer and Vote from actPool, instead of nil, nil below
 		blk, err := bc.MintNewBlock(tp.PickTxs(), ap.PickTsfs(), nil, &cfg.Chain.MinerAddr, "")
@@ -102,39 +103,46 @@ func NewConsensus(
 	default:
 		logger.Error().
 			Str("scheme", cfg.Consensus.Scheme).
-			Msg("Unexpected consensus scheme")
+			Msg("Unexpected IotxConsensus scheme")
 		return nil
 	}
 
 	return cs
 }
 
-func (c *consensus) Start() error {
+// Start starts running the consensus algorithm
+func (c *IotxConsensus) Start() error {
 	logger.Info().
 		Str("scheme", c.cfg.Scheme).
-		Msg("Starting consensus scheme")
+		Msg("Starting IotxConsensus scheme")
 
 	c.scheme.Start()
 	return nil
 }
 
-func (c *consensus) Stop() error {
+// Stop stops running the consensus algorithm
+func (c *IotxConsensus) Stop() error {
 	logger.Info().
 		Str("scheme", c.cfg.Scheme).
-		Msg("Stopping consensus scheme")
+		Msg("Stopping IotxConsensus scheme")
 
 	c.scheme.Stop()
 	return nil
 }
 
 // HandleViewChange dispatches the call to different schemes
-func (c *consensus) HandleViewChange(m proto.Message, done chan bool) error {
+func (c *IotxConsensus) HandleViewChange(m proto.Message, done chan bool) error {
 	return c.scheme.Handle(m)
 }
 
 // HandleBlockPropose handles a proposed block
-func (c *consensus) HandleBlockPropose(m proto.Message, done chan bool) error {
+func (c *IotxConsensus) HandleBlockPropose(m proto.Message, done chan bool) error {
 	return common.ErrNotImplemented
+}
+
+// Scheme returns the scheme instance
+func (c *IotxConsensus) Scheme() scheme.Scheme {
+	return c.scheme
 }
 
 func chooseGetProposerCB(prCbName string) (prCb scheme.GetProposerCB) {

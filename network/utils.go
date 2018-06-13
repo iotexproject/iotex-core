@@ -20,22 +20,22 @@ import (
 	"github.com/iotexproject/iotex-core/logger"
 )
 
-// stringsAreShuffled shuffles a string slice
-func stringsAreShuffled(slice []string) {
-	for i := range slice {
-		j := rand.Intn(i + 1)
-		slice[i], slice[j] = slice[j], slice[i]
-	}
-}
-
-// lenSyncMap counts the length of a sync.map
-func lenSyncMap(m sync.Map) uint {
+// LenSyncMap counts the length of a sync.map
+func LenSyncMap(m sync.Map) uint {
 	len := uint(0)
 	m.Range(func(_, _ interface{}) bool {
 		len++
 		return true
 	})
 	return len
+}
+
+// stringsAreShuffled shuffles a string slice
+func stringsAreShuffled(slice []string) {
+	for i := range slice {
+		j := rand.Intn(i + 1)
+		slice[i], slice[j] = slice[j], slice[i]
+	}
 }
 
 func loadCertAndCertPool(config *config.Network) (*tls.Certificate, *x509.CertPool, error) {

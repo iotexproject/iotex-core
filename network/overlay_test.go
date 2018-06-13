@@ -119,7 +119,7 @@ func TestOverlay(t *testing.T) {
 
 	time.Sleep(10 * time.Second)
 	for i := 0; i < size; i++ {
-		assert.True(t, lenSyncMap(nodes[i].PM.Peers) >= nodes[i].PM.NumPeersLowerBound)
+		assert.True(t, LenSyncMap(nodes[i].PM.Peers) >= nodes[i].PM.NumPeersLowerBound)
 	}
 
 	nodes[0].Broadcast(&iproto.TxPb{})
@@ -218,9 +218,9 @@ func TestOneConnPerIP(t *testing.T) {
 		p3.Stop()
 	}()
 
-	assert.Equal(t, uint(1), lenSyncMap(p1.PM.Peers))
-	assert.Equal(t, uint(1), lenSyncMap(p2.PM.Peers))
-	assert.Equal(t, uint(1), lenSyncMap(p3.PM.Peers))
+	assert.Equal(t, uint(1), LenSyncMap(p1.PM.Peers))
+	assert.Equal(t, uint(1), LenSyncMap(p2.PM.Peers))
+	assert.Equal(t, uint(1), LenSyncMap(p3.PM.Peers))
 }
 
 func TestConfigBasedTopology(t *testing.T) {
@@ -265,7 +265,7 @@ func TestConfigBasedTopology(t *testing.T) {
 	time.Sleep(2 * time.Second)
 
 	for _, node := range nodes {
-		assert.Equal(t, uint(3), lenSyncMap(node.PM.Peers))
+		assert.Equal(t, uint(3), LenSyncMap(node.PM.Peers))
 		addrs := make([]string, 0)
 		node.PM.Peers.Range(func(key, value interface{}) bool {
 			addrs = append(addrs, key.(string))
