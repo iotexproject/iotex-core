@@ -114,7 +114,7 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 		tp := txpool.NewTxPool(bc)
 
 		overlay := network.NewOverlay(&cfg.Network)
-		ap := txpool.NewActPool(sf, overlay)
+		ap := txpool.NewActPool(sf)
 		dlg := delegate.NewConfigBasedPool(&cfg.Delegate)
 		bs := blocksync.NewBlockSyncer(cfg, bc, tp, ap, overlay, dlg)
 		bs.Start()
