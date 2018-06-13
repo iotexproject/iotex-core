@@ -7,9 +7,9 @@
 package network
 
 import (
-	"fmt"
 	"math/rand"
 
+	"github.com/iotexproject/iotex-core/logger"
 	pb "github.com/iotexproject/iotex-core/network/proto"
 )
 
@@ -28,10 +28,24 @@ func (h *Pinger) Do() {
 	h.Overlay.PM.Peers.Range(func(_, value interface{}) bool {
 		go func() {
 			n := rand.Uint64()
-			pong, error := value.(*Peer).Ping(&pb.Ping{Nonce: n, Addr: h.Overlay.PRC.String()})
-			if error == nil && pong.AckNonce == n {
-				// TODO: We need to handle wrong response case too
-				fmt.Print("Handle wrong response case")
+			p, ok := value.(*Peer)
+			if !ok {
+				logger.Error().Msg("value is not an instance of Peer")
+			}
+			pong, err := p.Ping(&pb.Ping{Nonce: n, Addr: h.Overlay.PRC.String()})
+			if err != nil {
+				logger.Error().Err(err).Msg("error when getting pong")
+				return
+			}
+			if pong == nil {
+				logger.Error().Msg("nil pong")
+				return
+			}
+			if pong.AckNonce != n {
+				logger.Error().
+					Uint64("out-nonce", n).
+					Uint64("in-nonce", pong.AckNonce).
+					Msg("pong carries an unmatched nonce")
 			}
 		}()
 		return true

@@ -7,7 +7,6 @@
 package explorer
 
 import (
-	"flag"
 	"net/http"
 
 	"github.com/coopernurse/barrister-go"
@@ -16,8 +15,6 @@ import (
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/logger"
 )
-
-var configFile = flag.String("config", "./config.yaml", "specify configuration file path")
 
 // LogFilter example of Filter implementation
 type LogFilter struct{}

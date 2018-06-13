@@ -32,7 +32,7 @@ func NewPeerManager(o *Overlay, lb uint, ub uint) *PeerManager {
 
 // AddPeer adds a new peer
 func (pm *PeerManager) AddPeer(addr string) {
-	if lenSyncMap(pm.Peers) >= pm.NumPeersUpperBound {
+	if LenSyncMap(pm.Peers) >= pm.NumPeersUpperBound {
 		logger.Debug().
 			Uint("peers", pm.NumPeersUpperBound).
 			Msg("Node already reached the max number of peers")
@@ -127,7 +127,7 @@ func (pm *PeerManager) GetOrAddPeer(addr string) *Peer {
 	if ok {
 		return peer.(*Peer)
 	}
-	if lenSyncMap(pm.Peers) >= pm.NumPeersUpperBound {
+	if LenSyncMap(pm.Peers) >= pm.NumPeersUpperBound {
 		pm.RemoveLRUPeer()
 	}
 	// TODO: there could be race condition that another peer is added first

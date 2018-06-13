@@ -101,8 +101,8 @@ type Machine struct {
 }
 
 // NewMachine returns a state machine instance
-func NewMachine(name string) Machine {
-	sm := Machine{name: name}
+func NewMachine(name string) *Machine {
+	sm := &Machine{name: name}
 
 	sm.handlers = make(map[State]Handler)
 	sm.transitions = make(map[State]TransitionRuleMap)

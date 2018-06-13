@@ -21,7 +21,7 @@ const (
 	stateAcceptVote    fsm.State = "VOTE"
 )
 
-func fsmCreate(r *RollDPoS) fsm.Machine {
+func fsmCreate(r *RollDPoS) *fsm.Machine {
 	sm := fsm.NewMachine(r.self.String())
 
 	if err := sm.SetInitialState(stateEpochStart, &epochStart{RollDPoS: r}); err != nil {

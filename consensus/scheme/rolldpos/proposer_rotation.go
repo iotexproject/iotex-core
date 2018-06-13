@@ -24,6 +24,7 @@ type proposerRotation struct {
 
 // Do handles transition to stateInitPropose
 func (s *proposerRotation) Do() {
+	logger.Info().Msg("determine if the node is the proposer")
 	height, err := s.bc.TipHeight()
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to get blockchain height")

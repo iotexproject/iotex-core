@@ -159,6 +159,11 @@ type Explorer struct {
 	Addr          string
 }
 
+// System is the system config
+type System struct {
+	HeartbeatInterval time.Duration
+}
+
 // Config is the root config struct, each package's config should be put as its sub struct
 type Config struct {
 	NodeType   string
@@ -170,6 +175,7 @@ type Config struct {
 	BlockSync  BlockSync
 	Dispatcher Dispatcher
 	Explorer   Explorer
+	System     System
 }
 
 // IsDelegate returns true if the node type is Delegate

@@ -1,8 +1,10 @@
-hash: 74643fa67d3888f0ea309f1b5eeaf2ce3eb67383ea77fc50eac7abcb1eee2321
-updated: 2018-06-13T09:56:55.054599-07:00
+hash: 270d47cbe03cba959b6758ea986ff6023b12589d65c2edba2a86ac760b345ed2
+updated: 2018-06-13T11:06:32.608988-07:00
 imports:
 - name: github.com/boltdb/bolt
   version: 2f1ce7a837dcb8da3ec595b1dac9d0632f0f99e8
+- name: github.com/coopernurse/barrister-go
+  version: efbfefb2c4a3db0b55f74d1d1a985317a24ff7de
 - name: github.com/davecgh/go-spew
   version: 346938d642f2ec3594ed81d874461961cd0faa76
   subpackages:
