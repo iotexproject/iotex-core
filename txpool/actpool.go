@@ -141,14 +141,14 @@ func (ap *actPool) AddTsf(tsf *action.Transfer) error {
 	hash := tsf.Hash()
 	// Reject transfer if it already exists in pool
 	if ap.allActions[hash] != nil {
-		logger.Info().
+		logger.Error().
 			Bytes("hash", hash[:]).
 			Msg("Rejecting existed transfer")
 		return fmt.Errorf("existed transfer: %x", hash)
 	}
 	// Reject transfer if it fails validation
 	if err := ap.validateTsf(tsf); err != nil {
-		logger.Info().
+		logger.Error().
 			Bytes("hash", hash[:]).
 			Err(err).
 			Msg("Rejecting invalid transfer")
@@ -156,7 +156,7 @@ func (ap *actPool) AddTsf(tsf *action.Transfer) error {
 	}
 	// Reject transfer if pool space is full
 	if uint64(len(ap.allActions)) >= GlobalSlots {
-		logger.Info().
+		logger.Error().
 			Bytes("hash", hash[:]).
 			Msg("Rejecting transfer due to insufficient space")
 		return errors.Wrapf(ErrActPool, "insufficient space for transfer")
@@ -173,14 +173,14 @@ func (ap *actPool) AddVote(vote *action.Vote) error {
 	hash := vote.Hash()
 	// Reject vote if it already exists in pool
 	if ap.allActions[hash] != nil {
-		logger.Info().
+		logger.Error().
 			Bytes("hash", hash[:]).
 			Msg("Rejecting existed vote")
 		return fmt.Errorf("existed vote: %x", hash)
 	}
 	// Reject vote if it fails validation
 	if err := ap.validateVote(vote); err != nil {
-		logger.Info().
+		logger.Error().
 			Bytes("hash", hash[:]).
 			Err(err).
 			Msg("Rejecting invalid vote")
@@ -188,7 +188,7 @@ func (ap *actPool) AddVote(vote *action.Vote) error {
 	}
 	// Reject vote if pool space is full
 	if uint64(len(ap.allActions)) >= GlobalSlots {
-		logger.Info().
+		logger.Error().
 			Bytes("hash", hash[:]).
 			Msg("Rejecting vote due to insufficient space")
 		return errors.Wrapf(ErrActPool, "insufficient space for vote")
@@ -207,10 +207,12 @@ func (ap *actPool) AddVote(vote *action.Vote) error {
 func (ap *actPool) validateTsf(tsf *action.Transfer) error {
 	// Reject oversized transfer
 	if tsf.TotalSize() > TransferSizeLimit {
+		logger.Error().Msg("Error when validating transfer")
 		return errors.Wrapf(ErrActPool, "oversized data")
 	}
 	// Reject transfer of negative amount
 	if tsf.Amount.Sign() < 0 {
+		logger.Error().Msg("Error when validating transfer")
 		return errors.Wrapf(ErrBalance, "negative value")
 	}
 	// check if sender's address is valid
@@ -237,6 +239,7 @@ func (ap *actPool) validateTsf(tsf *action.Transfer) error {
 	}
 	confirmedNonce := committedNonce + 1
 	if confirmedNonce > tsf.Nonce {
+		logger.Error().Msg("Error when validating transfer")
 		return errors.Wrapf(ErrNonce, "nonce too low")
 	}
 	return nil
@@ -246,6 +249,7 @@ func (ap *actPool) validateTsf(tsf *action.Transfer) error {
 func (ap *actPool) validateVote(vote *action.Vote) error {
 	// Reject oversized vote
 	if vote.TotalSize() > VoteSizeLimit {
+		logger.Error().Msg("Error when validating vote")
 		return errors.Wrapf(ErrActPool, "oversized data")
 	}
 	voter, err := iotxaddress.GetAddress(vote.SelfPubkey, iotxaddress.IsTestnet, iotxaddress.ChainID)
@@ -267,6 +271,7 @@ func (ap *actPool) validateVote(vote *action.Vote) error {
 	}
 	confirmedNonce := committedNonce + 1
 	if confirmedNonce > vote.Nonce {
+		logger.Error().Msg("Error when validating vote")
 		return errors.Wrapf(ErrNonce, "nonce too low")
 	}
 	return nil
@@ -296,14 +301,14 @@ func (ap *actPool) addAction(sender string, action *iproto.ActionPb, hash common
 	}
 	if queue.Overlaps(action) {
 		// Nonce already exists
-		logger.Info().
+		logger.Error().
 			Bytes("hash", hash[:]).
 			Msg("Rejecting action because replacement action is not supported")
 		return errors.Wrapf(ErrNonce, "duplicate nonce")
 	}
 
 	if queue.Len() >= AccountSlots {
-		logger.Info().
+		logger.Error().
 			Bytes("hash", hash[:]).
 			Msg("Rejecting action due to insufficient space")
 		return errors.Wrapf(ErrActPool, "insufficient space for action")
