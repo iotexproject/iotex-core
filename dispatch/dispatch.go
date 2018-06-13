@@ -24,6 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/dispatch/dispatcher"
 	"github.com/iotexproject/iotex-core/logger"
 	pb "github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/statefactory"
 	"github.com/iotexproject/iotex-core/txpool"
 )
 
@@ -68,8 +69,15 @@ type iotxDispatcher struct {
 }
 
 // NewDispatcher creates a new iotxDispatcher
-func NewDispatcher(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxPool, ap txpool.ActPool,
-	bs blocksync.BlockSync, dp delegate.Pool) dispatcher.Dispatcher {
+func NewDispatcher(
+	cfg *config.Config,
+	bc blockchain.Blockchain,
+	tp txpool.TxPool,
+	ap txpool.ActPool,
+	bs blocksync.BlockSync,
+	dp delegate.Pool,
+	sf statefactory.StateFactory,
+) dispatcher.Dispatcher {
 	if bc == nil || bs == nil {
 		logger.Error().Msg("Try to attach to a nil blockchain or a nil P2P")
 		return nil
@@ -81,7 +89,7 @@ func NewDispatcher(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxPoo
 		ap:        ap,
 		bs:        bs,
 	}
-	d.cs = consensus.NewConsensus(cfg, bc, tp, ap, bs, dp)
+	d.cs = consensus.NewConsensus(cfg, bc, tp, ap, bs, dp, sf)
 	return d
 }
 

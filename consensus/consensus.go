@@ -17,6 +17,7 @@ import (
 	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
 	"github.com/iotexproject/iotex-core/delegate"
 	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/statefactory"
 	"github.com/iotexproject/iotex-core/txpool"
 )
 
@@ -34,7 +35,15 @@ type consensus struct {
 }
 
 // NewConsensus creates a consensus struct.
-func NewConsensus(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxPool, ap txpool.ActPool, bs blocksync.BlockSync, dlg delegate.Pool) Consensus {
+func NewConsensus(
+	cfg *config.Config,
+	bc blockchain.Blockchain,
+	tp txpool.TxPool,
+	ap txpool.ActPool,
+	bs blocksync.BlockSync,
+	dlg delegate.Pool,
+	sf statefactory.StateFactory,
+) Consensus {
 	if bc == nil || bs == nil {
 		logger.Error().Msg("Try to attach to chain or bs == nil")
 		return nil
@@ -72,7 +81,6 @@ func NewConsensus(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxPool
 
 	switch cfg.Consensus.Scheme {
 	case config.RollDPoSScheme:
-
 		cs.scheme = rolldpos.NewRollDPoS(
 			cfg.Consensus.RollDPoS,
 			mintBlockCB,
@@ -84,7 +92,9 @@ func NewConsensus(cfg *config.Config, bc blockchain.Blockchain, tp txpool.TxPool
 			rolldpos.GeneratePseudoDKG,
 			bc,
 			bs.P2P().Self(),
-			dlg)
+			dlg,
+			sf,
+		)
 	case config.NOOPScheme:
 		cs.scheme = scheme.NewNoop()
 	case config.StandaloneScheme:

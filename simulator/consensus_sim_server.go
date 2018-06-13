@@ -121,12 +121,12 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 
 		var node consensus.Sim
 		if i < int(in.NHonest) {
-			node = consensus.NewSim(cfg, bc, tp, bs, dlg)
+			node = consensus.NewSim(cfg, bc, tp, bs, dlg, sf)
 		} else if i < int(in.NHonest+in.NFS) {
 			s.nodes = append(s.nodes, nil)
 			continue
 		} else {
-			node = consensus.NewSimByzantine(cfg, bc, tp, bs, dlg)
+			node = consensus.NewSimByzantine(cfg, bc, tp, bs, dlg, sf)
 		}
 
 		s.nodes = append(s.nodes, node)

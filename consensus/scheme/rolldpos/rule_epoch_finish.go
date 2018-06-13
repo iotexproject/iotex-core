@@ -8,7 +8,7 @@ package rolldpos
 
 import (
 	"github.com/iotexproject/iotex-core/consensus/fsm"
-	"github.com/iotexproject/iotex-core/delegate"
+	"github.com/iotexproject/iotex-core/statefactory"
 )
 
 type ruleEpochFinish struct {
@@ -37,7 +37,7 @@ func (r ruleEpochFinish) Condition(event *fsm.Event) bool {
 }
 
 func startNewEpochIfNecessary(c *RollDPoS) error {
-	ok, err := c.epochStartCb(c.pool)
+	ok, err := c.epochStartCb(c.sf)
 	if err != nil {
 		return err
 	}
@@ -50,7 +50,7 @@ func startNewEpochIfNecessary(c *RollDPoS) error {
 }
 
 // NeverStartNewEpoch will never allow to start a new epochStart after the first one
-func NeverStartNewEpoch(_ delegate.Pool) (bool, error) { return false, nil }
+func NeverStartNewEpoch(_ statefactory.StateFactory) (bool, error) { return false, nil }
 
 // PseudoStarNewEpoch will always allow to start a new epochStart after the first one
-func PseudoStarNewEpoch(_ delegate.Pool) (bool, error) { return true, nil }
+func PseudoStarNewEpoch(_ statefactory.StateFactory) (bool, error) { return true, nil }
