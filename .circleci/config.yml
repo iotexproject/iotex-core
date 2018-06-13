@@ -22,9 +22,8 @@ jobs:
       - checkout
 
       # specify any bash command here prefixed with `run: `
-      # Disable lint until https://github.com/golang/go/issues/25872 is resolved
-      # - run: go get -u golang.org/x/lint/golint
-      # - run: golint -set_exit_status $(go list ./... | grep -v /vendor/)
+      - run: go get -u golang.org/x/lint/golint
+      - run: golint -set_exit_status $(go list ./... | grep -v /vendor/ | grep -v /explorer/idl/)
       - run: go get -v -t -d ./...
       - run: go test -short -v ./...
       - run: ./go.test.sh
