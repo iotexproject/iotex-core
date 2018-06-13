@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -408,4 +409,38 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 	height, candidate = sf.Candidates()
 	require.True(height == 0)
 	require.True(len(candidate) == 2)
+}
+
+func TestCoinbaseTransfer(t *testing.T) {
+	require := require.New(t)
+	config, err := config.LoadConfigWithPathWithoutValidation(testingConfigPath)
+	require.Nil(err)
+	util.CleanupPath(t, testTriePath)
+	defer util.CleanupPath(t, testTriePath)
+	util.CleanupPath(t, testDBPath)
+	defer util.CleanupPath(t, testDBPath)
+
+	config.Chain.TrieDBPath = testTriePath
+	config.Chain.InMemTest = false
+	config.Chain.ChainDBPath = testDBPath
+
+	tr, _ := trie.NewTrie(testTriePath, false)
+	sf := statefactory.NewStateFactory(tr)
+
+	Gen.BlockReward = uint64(10)
+
+	bc := CreateBlockchain(config, sf)
+	assert.NotNil(t, bc)
+	height, err := bc.TipHeight()
+	assert.Nil(t, err)
+	assert.Equal(t, 0, int(height))
+
+	transfers := []*action.Transfer{}
+	blk, err := bc.MintNewBlock([]*trx.Tx{}, transfers, nil, ta.Addrinfo["miner"], "")
+	assert.Nil(t, err)
+	require.True(bc.BalanceOf(ta.Addrinfo["miner"].RawAddress).String() == "0")
+	err = bc.AddBlockCommit(blk)
+	assert.Nil(t, err)
+	bc.ResetUTXO()
+	require.True(bc.BalanceOf(ta.Addrinfo["miner"].RawAddress).String() == strconv.Itoa(int(Gen.BlockReward)))
 }

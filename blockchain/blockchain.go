@@ -295,6 +295,7 @@ func (bc *blockchain) MintNewBlock(txs []*trx.Tx, tsf []*action.Transfer, vote [
 		return nil, errors.Errorf(errMsg)
 	}
 	txs = append(txs, cbTx)
+	tsf = append(tsf, action.NewCoinBaseTransfer(big.NewInt(int64(bc.genesis.BlockReward)), producer.RawAddress))
 
 	blk := NewBlock(bc.chainID, bc.tipHeight+1, bc.tipHash, txs, tsf, vote)
 	if producer.PrivateKey == nil {
@@ -302,6 +303,7 @@ func (bc *blockchain) MintNewBlock(txs []*trx.Tx, tsf []*action.Transfer, vote [
 		return blk, nil
 	}
 
+	blk.Header.Pubkey = producer.PublicKey
 	blkHash := blk.HashBlock()
 	blk.Header.blockSig = cp.Sign(producer.PrivateKey, blkHash[:])
 	return blk, nil

@@ -126,7 +126,7 @@ func TestExplorerApi(t *testing.T) {
 	transfers, getErr = svc.GetLastTransfersByRange(4, 1, 3)
 	require.Equal(len(transfers), 3)
 	transfers, getErr = svc.GetLastTransfersByRange(4, 4, 5)
-	require.Equal(len(transfers), 1)
+	require.Equal(len(transfers), 5)
 
 	blks, getBlkErr := svc.GetLastBlocksByRange(3, 4)
 	require.Nil(getBlkErr)
@@ -134,7 +134,7 @@ func TestExplorerApi(t *testing.T) {
 
 	transfers, getErr = svc.GetTransfersByBlockID(blks[2].ID)
 	require.Nil(getErr)
-	require.Equal(len(transfers), 1)
+	require.Equal(len(transfers), 2)
 
 	transfer, getErr := svc.GetTransferByID(transfers[0].ID)
 	require.Equal(transfer.Sender, transfers[0].Sender)
