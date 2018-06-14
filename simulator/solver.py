@@ -10,12 +10,15 @@
 import math
 import random
 import statistics
+import time
 
 import plot
 import player
 import consensus_client
 
 class Solver:
+    timeTakenForPlot = 0
+    
     def __init__(self, opts):
         """Initiates the solver class with the list of players and number of rounds"""
 
@@ -72,6 +75,8 @@ class Solver:
         # initializes consensus engines and gets the initial block proposals
         response = consensus_client.Consensus.initConsensus(nHonest, nFS, nBF)
 
+        self.genGraph = opts["GRAPH"]
+
     def connectNetwork(self):
         """Form the network of players through random assignment of connections"""
 
@@ -94,7 +99,9 @@ class Solver:
                 messages.append([])
             connections.append(message)
 
-        plot.makeGraph(round(heartbeat/self.dHeartbeat), len(self.players), connections, messages, "time = %f"%heartbeat)
+        start_time = time.time()
+        if self.genGraph: plot.makeGraph(round(heartbeat/self.dHeartbeat), len(self.players), connections, messages, "time = %f"%heartbeat)
+        Solver.timeTakenForPlot += time.time()-start_time
 
     def simulate(self):
         """Simulate the system"""

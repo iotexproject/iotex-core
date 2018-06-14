@@ -17,6 +17,7 @@ Options:
   --meanproptime=<meanproptime>   mean propagation time of messages (latency) [default: 1]
   --stdproptime=<stdproptime>     std deviation of the propagation time of messages [default: 0.1]
   --seed=<seed>                   random seed [default: 42]
+  -g                              generate graph animation
   --help                          show this
 """
 import random
@@ -35,7 +36,8 @@ if __name__=="__main__":
             "TIME_TO_SIM":           int(args["--timetosim"]),
             "MEAN_PROP_TIME":      float(args["--meanproptime"]),
             "STD_PROP_TIME":       float(args["--stdproptime"]),
-            "SEED":                  int(args["--seed"])
+            "SEED":                  int(args["--seed"]),
+            "GRAPH":                 bool(args["-g"]),
            }
 
     driver.drive(opts)

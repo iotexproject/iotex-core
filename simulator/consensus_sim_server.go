@@ -15,6 +15,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"runtime/pprof"
 	"strconv"
 	"time"
 
@@ -51,6 +52,8 @@ type (
 	}
 )
 
+var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
+
 // Validate for the byzantine node uses the actual block validator and returns the opposite
 func (v *byzVal) Validate(blk *blockchain.Block, tipHeight uint64, tipHash common.Hash32B) error {
 	//err := v.val.Validate(blk, tipHeight, tipHash)
@@ -63,10 +66,6 @@ func (v *byzVal) Validate(blk *blockchain.Block, tipHeight uint64, tipHash commo
 
 // Ping implements simulator.SimulatorServer
 func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error {
-	fmt.Println()
-
-	flag.Parse()
-
 	nPlayers := in.NBF + in.NFS + in.NHonest
 
 	var addrs []string // all delegate addresses
@@ -184,10 +183,21 @@ func (s *server) Ping(in *pb.Request, stream pb.Simulator_PingServer) error {
 
 func (s *server) Exit(context context.Context, in *pb.Empty) (*pb.Empty, error) {
 	defer os.Exit(0)
+	defer pprof.StopCPUProfile()
 	return &pb.Empty{}, nil
 }
 
 func main() {
+	flag.Parse()
+
+	if *cpuprofile != "" {
+		f, err := os.Create(*cpuprofile)
+		if err != nil {
+			log.Fatal(err)
+		}
+		pprof.StartCPUProfile(f)
+	}
+
 	lis, err := net.Listen("tcp", port)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
