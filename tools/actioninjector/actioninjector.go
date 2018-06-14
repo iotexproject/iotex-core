@@ -65,7 +65,7 @@ func injectAction(ctx context.Context, c pb.ChainServiceClient, sender *iotxaddr
 	fmt.Printf("Sending %v coins from 'miner' to 'alfa'", amount)
 
 	a := int64(amount)
-	r, err := c.CreateRawTx(ctx, &pb.CreateRawTransferRequest{
+	r, err := c.CreateRawTransfer(ctx, &pb.CreateRawTransferRequest{
 		Sender: sender.RawAddress, Recipient: recipient.RawAddress, Amount: big.NewInt(a).Bytes(), Nonce: nonce, Data: []byte{}})
 	if err != nil {
 		panic(err)
@@ -91,7 +91,7 @@ func injectAction(ctx context.Context, c pb.ChainServiceClient, sender *iotxaddr
 	if err != nil {
 		panic(err)
 	}
-	_, err = c.SendTx(ctx, &pb.SendTransferRequest{SerializedTransfer: stsf})
+	_, err = c.SendTransfer(ctx, &pb.SendTransferRequest{SerializedTransfer: stsf})
 	if err != nil {
 		panic(err)
 	}
