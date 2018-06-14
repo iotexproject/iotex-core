@@ -45,7 +45,7 @@ func NewChainServer(c config.RPC, b blockchain.Blockchain, dp dispatcher.Dispatc
 // CreateRawTransfer creates an unsigned raw transaction
 func (s *Chainserver) CreateRawTransfer(ctx context.Context, in *pb.CreateRawTransferRequest) (*pb.CreateRawTransferResponse, error) {
 	if len(in.Sender) == 0 || len(in.Recipient) == 0 {
-		return nil, errors.New("invalid CreateRawTxRequest")
+		return nil, errors.New("invalid CreateRawTransferRequest")
 	}
 	amount := big.NewInt(0)
 	amount.SetBytes(in.Amount)
@@ -61,7 +61,7 @@ func (s *Chainserver) CreateRawTransfer(ctx context.Context, in *pb.CreateRawTra
 // SendTransfer sends out a signed raw transaction
 func (s *Chainserver) SendTransfer(ctx context.Context, in *pb.SendTransferRequest) (*pb.SendTransferResponse, error) {
 	if len(in.SerializedTransfer) == 0 {
-		return nil, errors.New("invalid SendTxRequest")
+		return nil, errors.New("invalid SendTransferRequest")
 	}
 
 	tsf := &pb.TransferPb{}
@@ -77,6 +77,41 @@ func (s *Chainserver) SendTransfer(ctx context.Context, in *pb.SendTransferReque
 	// send to txpool via dispatcher
 	s.dispatcher.HandleBroadcast(action, nil)
 	return &pb.SendTransferResponse{}, nil
+}
+
+// CreateRawVote creates an unsigned raw vote
+func (s *Chainserver) CreateRawVote(ctx context.Context, in *pb.CreateRawVoteRequest) (*pb.CreateRawVoteResponse, error) {
+	if len(in.Voter) == 0 || len(in.Votee) == 0 {
+		return nil, errors.New("invalid CreateRawVoteRequest")
+	}
+
+	vote := s.blockchain.CreateRawVote(in.Nonce, in.Voter, in.Votee)
+	svote, err := proto.Marshal(vote.ConvertToVotePb())
+	if err != nil {
+		return nil, err
+	}
+	return &pb.CreateRawVoteResponse{SerializedVote: svote}, nil
+}
+
+// SendVote sends out a signed vote
+func (s *Chainserver) SendVote(ctx context.Context, in *pb.SendVoteRequest) (*pb.SendVoteResponse, error) {
+	if len(in.SerializedVote) == 0 {
+		return nil, errors.New("invalid SendVoteRequest")
+	}
+
+	vote := &pb.VotePb{}
+	if err := proto.Unmarshal(in.SerializedVote, vote); err != nil {
+		return nil, err
+	}
+	// Wrap VotePb as an ActionPb
+	action := &pb.ActionPb{&pb.ActionPb_Vote{vote}}
+	// broadcast to the network
+	if err := s.broadcastcb(action); err != nil {
+		return nil, err
+	}
+	// send to txpool via dispatcher
+	s.dispatcher.HandleBroadcast(action, nil)
+	return &pb.SendVoteResponse{}, nil
 }
 
 // Start starts the chain server
