@@ -73,6 +73,10 @@ type Blockchain interface {
 	CreateTransfer(nonce uint64, from *iotxaddress.Address, amount *big.Int, to *iotxaddress.Address) (*action.Transfer, error)
 	// CreateRawTransfer creates an unsigned transfer paying 'amount' from 'from' to 'to'
 	CreateRawTransfer(nonce uint64, from *iotxaddress.Address, amount *big.Int, to *iotxaddress.Address) *action.Transfer
+	// CreateVote creates a signed vote
+	CreateVote(nonce uint64, selfPubKey []byte, votePubKey []byte) (*action.Vote, error)
+	// CreateRawVote creates an unsigned vote
+	CreateRawVote(nonce uint64, selfPubKey []byte, votePubKey []byte) *action.Vote
 	// ValidateBlock validates a new block before adding it to the blockchain
 	ValidateBlock(blk *Block) error
 
@@ -410,7 +414,7 @@ func (bc *blockchain) Validator() Validator {
 	return bc.validator
 }
 
-//  CreateTransfer creates a signed transfer paying 'amount' from 'from' to 'to'
+// CreateTransfer creates a signed transfer paying 'amount' from 'from' to 'to'
 func (bc *blockchain) CreateTransfer(nonce uint64, from *iotxaddress.Address, amount *big.Int, to *iotxaddress.Address) (*action.Transfer, error) {
 	tsf := action.NewTransfer(nonce, amount, from.RawAddress, to.RawAddress)
 	stsf, err := tsf.Sign(from)
@@ -424,6 +428,27 @@ func (bc *blockchain) CreateTransfer(nonce uint64, from *iotxaddress.Address, am
 // CreateRawTransfer creates an unsigned transfer paying 'amount' from 'from' to 'to'
 func (bc *blockchain) CreateRawTransfer(nonce uint64, from *iotxaddress.Address, amount *big.Int, to *iotxaddress.Address) *action.Transfer {
 	return action.NewTransfer(nonce, amount, from.RawAddress, to.RawAddress)
+}
+
+// CreateVote creates a signed vote
+func (bc *blockchain) CreateVote(nonce uint64, selfPubKey []byte, votePubKey []byte) (*action.Vote, error) {
+	vote := action.NewVote(nonce, selfPubKey, votePubKey)
+	from, err := iotxaddress.GetAddress(selfPubKey, iotxaddress.IsTestnet, iotxaddress.ChainID)
+	if err != nil {
+		logger.Error().Err(err).Msg("Failed to get voter's address")
+		return nil, errors.Wrapf(err, "invalid address")
+	}
+	sVote, err := vote.Sign(from)
+	if err != nil {
+		logger.Error().Err(err).Msg("Failed to sign vote")
+		return nil, err
+	}
+	return sVote, nil
+}
+
+// CreateRawVote creates an unsigned vote
+func (bc *blockchain) CreateRawVote(nonce uint64, selfPubKey []byte, votePubKey []byte) *action.Vote {
+	return action.NewVote(nonce, selfPubKey, votePubKey)
 }
 
 //======================================

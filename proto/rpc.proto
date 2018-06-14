@@ -12,7 +12,9 @@ package iproto;
 // The blockchain service definition
 service ChainService {
     rpc CreateRawTransfer (CreateRawTransferRequest) returns (CreateRawTransferResponse) {}
+    rpc CreateRawVote (CreateRawVoteRequest) returns (CreateRawVoteResponse) {}
     rpc SendTransfer (SendTransferRequest) returns (SendTransferResponse) {}
+    rpc SendVote (SendVoteRequest) returns (SendVoteResponse) {}
 }
 
 message CreateRawTransferRequest {
@@ -27,9 +29,26 @@ message CreateRawTransferResponse {
     bytes serialized_transfer = 1;
 }
 
+message CreateRawVoteRequest {
+    bytes voter = 1;
+    bytes votee = 2;
+    uint64 nonce = 3;
+}
+
+message CreateRawVoteResponse {
+    bytes serialized_vote = 1;
+}
+
 message SendTransferRequest {
     bytes serialized_transfer = 1;
 }
 
 message SendTransferResponse {
+}
+
+message SendVoteRequest {
+    bytes serialized_vote = 1;
+}
+
+message SendVoteResponse {
 }
