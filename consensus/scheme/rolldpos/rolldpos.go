@@ -190,7 +190,7 @@ func (n *RollDPoS) FSM() *fsm.Machine {
 func (n *RollDPoS) enqueueEvent(e *fsm.Event) {
 	logger.Debug().Msg("RollDPoS scheme handles incoming requests")
 	if len(n.eventChan) == cap(n.eventChan) {
-		logger.Warn().Msg("dispatcher event chan is full")
+		logger.Warn().Msg("roll dpos event chan is full")
 	}
 	n.eventChan <- e
 }
