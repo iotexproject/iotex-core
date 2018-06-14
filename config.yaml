@@ -30,9 +30,9 @@ chain:
     chainDBPath: "./chain.db"
     trieDBPath: "./trie.db"
     rawMinerAddr:
-        privateKey: "7fbb20b87d34eade61351165aa4c6fa5d87dd349368dd6b9034ea3d3e918c706b9b8d7316705dc4ff62bb323e610f3f5072abedc9834e999d6537f6681284ea2"
-        publicKey: "b9b8d7316705dc4ff62bb323e610f3f5072abedc9834e999d6537f6681284ea2"
-        rawAddress: "io1qyqsyqcy6nm58gjd2wr035wz5eyd5uq47zyqpng3gxe7nh"
+        privateKey: "925f0c9e4b6f6d92f2961d01aff6204c44d73c0b9d0da188582932d4fcad0d8ee8c66600"
+        publicKey: "336eb60a5741f585a8e81de64e071327a3b96c15af4af5723598a07b6121e8e813bbd0056ba71ae29c0d64252e913f60afaeb11059908b81ff27cbfa327fd371d35f5ec0cbc01705"
+        rawAddress: "io1qyqsyqcy8uhx9jtdc2xp5wx7nxyq3xf4c3jmxknzkuej8y"
     inMemTest: false
 
 consensus:
