@@ -32,7 +32,7 @@ class Player:
     msgMap         = {(DUMMY_MSG_TYPE, ""): "dummy msg"} # maps message to message name for printing
 
     correctHashes  = []
-
+    
     def __init__(self, consensusType):
         """Creates a new Player object"""
 

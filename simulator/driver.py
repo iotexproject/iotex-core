@@ -8,8 +8,10 @@
 
 import math
 import os
+import pstats
 import random
 import statistics
+import time
 
 import numpy as np
 
@@ -26,6 +28,8 @@ def drive(opts):
             "MEAN_PROP_TIME": 0.1         # mean propagation time of messages
             "STD_PROP_TIME": 0.001        # standard deviation of the propagation time of messages
            }"""
+
+    start_time = time.time()
 
     ALPHA = 0.8 # scaling constant -- simulation updates 1//(alpha*latency) times per heartbeat
     opts["D_HEARTBEAT"] = opts["MEAN_PROP_TIME"] * ALPHA
@@ -110,5 +114,9 @@ def drive(opts):
     # get rid of useless .db files
     os.system("rm chain*.db")
 
-    plot.makeAnim(["out%d.png"%i for i in range(opts["N_ROUNDS"])])
+    print("time taken for sim: ", time.time()-start_time)
+    print("time taken to output graphs: ", solver.Solver.timeTakenForPlot)
+
+    if opts["GRAPH"]: plot.makeAnim(["out%d.png"%i for i in range(opts["N_ROUNDS"])])
+    
     os.system("rm -f out*.dot out*.png")
