@@ -36,6 +36,8 @@ var (
 	ErrInvalidAddr = errors.New("address format is invalid")
 	// ErrActPool indicates the error of actpool
 	ErrActPool = errors.New("invalid actpool")
+	// ErrTransfer indicates the error of transfer
+	ErrTransfer = errors.New("invalid transfer")
 	// ErrNonce indicates the error of nonce
 	ErrNonce = errors.New("invalid nonce")
 	// ErrBalance indicates the error of balance
@@ -204,6 +206,11 @@ func (ap *actPool) AddVote(vote *action.Vote) error {
 //======================================
 // validateTsf checks whether a tranfer is valid
 func (ap *actPool) validateTsf(tsf *action.Transfer) error {
+	// Reject coinbase transfer
+	if tsf.IsCoinbase {
+		logger.Error().Msg("Error when validating transfer")
+		return errors.Wrapf(ErrTransfer, "coinbase transfer")
+	}
 	// Reject oversized transfer
 	if tsf.TotalSize() > TransferSizeLimit {
 		logger.Error().Msg("Error when validating transfer")
@@ -227,13 +234,13 @@ func (ap *actPool) validateTsf(tsf *action.Transfer) error {
 	}
 	// Verify transfer using sender's public key
 	if err := tsf.Verify(sender); err != nil {
-		logger.Error().Err(err).Msg("Error when validatng transfer")
+		logger.Error().Err(err).Msg("Error when validating transfer")
 		return errors.Wrapf(err, "failed to verify Transfer signature")
 	}
 	// Reject transfer if nonce is too low
 	committedNonce, err := ap.sf.Nonce(tsf.Sender)
 	if err != nil {
-		logger.Error().Err(err).Msg("Error when validating Tsf")
+		logger.Error().Err(err).Msg("Error when validating transfer")
 		return errors.Wrapf(err, "invalid nonce value")
 	}
 	confirmedNonce := committedNonce + 1
