@@ -1,54 +1,51 @@
 # go-yaml expects the YAML field corresponding to a struct field to be lowercase. So if your struct field is
 # UpdateInterval, the corresponding field in YAML is updateinterval.
 
-nodetype: "delegate"       # should be one of "delegate", "full_node", and "lightweight"
+nodeType: "delegate"       # should be one of "delegate", "full_node", and "lightweight"
 
 # this doesn't matter since p2p layer is overrun by simulator
 network:
     addr: "INIT BY CODE"
-    msglogscleaninginterval: 2s
-    msglogretention: 10s
-    healthcheckinterval: 1s
-    silentinterval: 5s
-    peermaintainerinterval: 1s
-    allowmulticonnsperip: true
-    numpeerslowerbound: 6
-    numpeersupperbound: 12
-    pinginterval: 1s
-    ratelimitenabled: false
-    ratelimitpersec: 5
-    ratelimitwindowsize: 60s
-    bootstrapnodes:
-    maxmsgsize: 10485760
-    peerdiscovery: true
+    msgLogsCleaningInterval: 2s
+    msgLogRetention: 10s
+    healthCheckInterval: 1s
+    silentInterval: 5s
+    peerMaintainerInterval: 1s
+    allowMultiConnsperIP: true
+    numPeersLowerBound: 6
+    numPeersUpperBound: 12
+    pingInterval: 1s
+    rateLimitEnabled: false
+    rateLimitPerSec: 5
+    rateLimitWindowSize: 60s
+    bootstrapNodes:
+    maxMsgSize: 10485760
+    peerDiscovery: true
 
 chain:
-    chaindbpath: "../chain.db"
-    rawmineraddr:
-        privatekey: "7fbb20b87d34eade61351165aa4c6fa5d87dd349368dd6b9034ea3d3e918c706b9b8d7316705dc4ff62bb323e610f3f5072abedc9834e999d6537f6681284ea2"
-        publickey: "b9b8d7316705dc4ff62bb323e610f3f5072abedc9834e999d6537f6681284ea2"
-        rawaddress: "io1qyqsyqcy6nm58gjd2wr035wz5eyd5uq47zyqpng3gxe7nh"
-    inmemtest: false
+    chainDBPath: "../chain.db"
+    rawMinerAddr:
+        privateKey: "7fbb20b87d34eade61351165aa4c6fa5d87dd349368dd6b9034ea3d3e918c706b9b8d7316705dc4ff62bb323e610f3f5072abedc9834e999d6537f6681284ea2"
+        publicKey: "b9b8d7316705dc4ff62bb323e610f3f5072abedc9834e999d6537f6681284ea2"
+        rawAddress: "io1qyqsyqcy6nm58gjd2wr035wz5eyd5uq47zyqpng3gxe7nh"
+    inMemTest: false
 
 consensus:
     scheme: "ROLLDPOS"
-    rolldpos:
-        proposercb: "PseudoRotatedProposer"
-        proposerrotation:
-            enabled: true
-            interval: 1ms
-        unmatchedeventttl: 1000s
-        acceptpropose:
+    rollDPoS:
+        proposerCB: "PseudoRotatedProposer"
+        unmatchedEventTTL: 1000s
+        acceptPropose:
             ttl: 1000s
-        acceptprevote:
+        acceptPrevote:
             ttl: 1000s
-        acceptvote:
+        acceptVote:
             ttl: 1000s
-        numsubepochs: 1000
-        eventchansize: 1024
-    blockcreationinterval: 1000s
+        numSubEpochs: 1000
+        eventChanSize: 1024
+    blockCreationInterval: 1000s
 
-blocksync:
+blockSync:
     interval: 70ms
 
 delegate:
@@ -59,4 +56,4 @@ rpc:
     port: ":50051"
 
 dispatcher:
-    eventchansize: 1024
+    eventChanSize: 1024

@@ -2,56 +2,56 @@
 # UpdateInterval, the corresponding field in YAML is updateinterval.
 
 
-nodetype: "full_node"            # should be one of "delegate", "full_node", and "lightweight"
+nodeType: "full_node"            # should be one of "delegate", "full_node", and "lightweight"
 
 network:
     addr: "127.0.0.1:10000"
-    msglogscleaninginterval: 2s
-    msglogretention: 10s
-    healthcheckinterval: 1s
-    silentinterval: 5s
-    peermaintainerinterval: 1s
-    allowmulticonnsperip: false
-    numpeerslowerbound: 5
-    numpeersupperbound: 5
-    pinginterval: 1s
-    ratelimitenabled: false
-    ratelimitpersec: 5
-    ratelimitwindowsize: 60s
-    bootstrapnodes: []
-    tlsenabled: false
-    cacrtpath: ""
-    peercrtpath: ""
-    peerkeypath: ""
-    maxmsgsize: 10485760
-    peerdiscovery: true
+    msgLogsCleaningInterval: 2s
+    msgLogRetention: 10s
+    healthCheckInterval: 1s
+    silentInterval: 5s
+    peerMaintainerInterval: 1s
+    allowMultiConnsperIP: false
+    numPeersLowerBound: 5
+    numPeersUpperBound: 5
+    pingInterval: 1s
+    rateLimitEnabled: false
+    rateLimitPerSec: 5
+    rateLimitWindowSize: 60s
+    bootstrapNodes: []
+    tlsEnabled: false
+    caCrtPath: ""
+    peerCrtPath: ""
+    peerKeyPath: ""
+    maxMsgSize: 10485760
+    peerDiscovery: true
 
 chain:
-    chaindbpath: "./chain.db"
-    triedbpath: "./trie.db"
-    rawmineraddr:
-        privatekey: "7fbb20b87d34eade61351165aa4c6fa5d87dd349368dd6b9034ea3d3e918c706b9b8d7316705dc4ff62bb323e610f3f5072abedc9834e999d6537f6681284ea2"
-        publickey: "b9b8d7316705dc4ff62bb323e610f3f5072abedc9834e999d6537f6681284ea2"
-        rawaddress: "io1qyqsyqcy6nm58gjd2wr035wz5eyd5uq47zyqpng3gxe7nh"
-    inmemtest: false
+    chainDBPath: "./chain.db"
+    trieDBPath: "./trie.db"
+    rawMinerAddr:
+        privateKey: "7fbb20b87d34eade61351165aa4c6fa5d87dd349368dd6b9034ea3d3e918c706b9b8d7316705dc4ff62bb323e610f3f5072abedc9834e999d6537f6681284ea2"
+        publicKey: "b9b8d7316705dc4ff62bb323e610f3f5072abedc9834e999d6537f6681284ea2"
+        rawAddress: "io1qyqsyqcy6nm58gjd2wr035wz5eyd5uq47zyqpng3gxe7nh"
+    inMemTest: false
 
 consensus:
     scheme: "NOOP"
-    rolldpos:
-        proposerinterval: 3s
-        unmatchedeventttl: 3s
-        acceptpropose:
+    rollDPoS:
+        proposerInterval: 3s
+        unmatchedEventTTL: 3s
+        acceptPropose:
             ttl: 1s
-        acceptprevote:
+        acceptPrevote:
             ttl: 1s
-        acceptvote:
+        acceptVote:
             ttl: 1s
         delay: 5s
-        numsubepochs: 1
-        eventchansize: 1024
-    blockcreationinterval: 1s
+        numSubEpochs: 1
+        eventChanSize: 1024
+    blockCreationInterval: 1s
 
-blocksync:
+blockSync:
     interval: 3s
 
 delegate:
@@ -62,10 +62,9 @@ rpc:
     port: ":42124"
 
 dispatcher:
-    eventchansize: 1024
+    eventChanSize: 1024
 
 explorer:
-    startexplorer: false
-    istest: false
+    startExplorer: false
+    isTest: false
     addr: "14004"
-

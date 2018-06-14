@@ -1,41 +1,41 @@
 # go-yaml expects the YAML field corresponding to a struct field to be lowercase. So if your struct field is
 # UpdateInterval, the corresponding field in YAML is updateinterval.
 
-nodetype: "delegate"            # should be one of "delegate", "full_node", and "lightweight"
+nodeType: "delegate"            # should be one of "delegate", "full_node", and "lightweight"
 
 network:
     addr: "127.0.0.1:4689"
-    msglogscleaninginterval: 2s
-    msglogretention: 10s
-    healthcheckinterval: 1s
-    silentinterval: 5s
-    peermaintainerinterval: 1s
-    allowmulticonnsperip: true
-    numpeerslowerbound: 5
-    numpeersupperbound: 5
-    pinginterval: 1s
-    ratelimitenabled: false
-    ratelimitpersec: 5
-    ratelimitwindowsize: 60s
-    bootstrapnodes:
+    msgLogsCleaningInterval: 2s
+    msgLogRetention: 10s
+    healthCheckInterval: 1s
+    silentInterval: 5s
+    peerMaintainerInterval: 1s
+    allowMultiConnsperIP: true
+    numPeersLowerBound: 5
+    numPeersUpperBound: 5
+    pingInterval: 1s
+    rateLimitEnabled: false
+    rateLimitPerSec: 5
+    rateLimitWindowSize: 60s
+    bootstrapNodes:
         - "127.0.0.1:4689"
-    maxmsgsize: 10485760
-    peerdiscovery: true
+    maxMsgSize: 10485760
+    peerDiscovery: true
 
 chain:
-    chaindbpath: "./chain.db"
-    triedbpath: "./trie.db"
-    rawmineraddr:
-        privatekey: "925f0c9e4b6f6d92f2961d01aff6204c44d73c0b9d0da188582932d4fcad0d8ee8c66600"
-        publickey: "336eb60a5741f585a8e81de64e071327a3b96c15af4af5723598a07b6121e8e813bbd0056ba71ae29c0d64252e913f60afaeb11059908b81ff27cbfa327fd371d35f5ec0cbc01705"
-        rawaddress: "io1qyqsyqcy8uhx9jtdc2xp5wx7nxyq3xf4c3jmxknzkuej8y"
-    inmemtest: false
+    chainDBPath: "./chain.db"
+    trieDBPath: "./trie.db"
+    rawMinerAddr:
+        privateKey: "925f0c9e4b6f6d92f2961d01aff6204c44d73c0b9d0da188582932d4fcad0d8ee8c66600"
+        publicKey: "336eb60a5741f585a8e81de64e071327a3b96c15af4af5723598a07b6121e8e813bbd0056ba71ae29c0d64252e913f60afaeb11059908b81ff27cbfa327fd371d35f5ec0cbc01705"
+        rawAddress: "io1qyqsyqcy8uhx9jtdc2xp5wx7nxyq3xf4c3jmxknzkuej8y"
+    inMemTest: false
 
 consensus:
     scheme: "STANDALONE"
-    blockcreationinterval: 1s
+    blockCreationInterval: 1s
 
-blocksync:
+blockSync:
     interval: 1s
 
 delegate:
@@ -46,4 +46,4 @@ rpc:
     port: ":42124"
 
 dispatcher:
-    eventchansize: 1024
+    eventChanSize: 1024
