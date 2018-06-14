@@ -335,21 +335,32 @@ func (sf *factory) upsert(pending map[common.PKHash]*State, address string) (*St
 
 func (sf *factory) handleTsf(pending map[common.PKHash]*State, addressToPKMap map[string][]byte, tsf []*action.Transfer) error {
 	for _, tx := range tsf {
-		// check sender
-		sender, err := sf.upsert(pending, tx.Sender)
-		if err != nil {
-			return err
-		}
-		if tx.Amount.Cmp(sender.Balance) == 1 {
-			return ErrNotEnoughBalance
-		}
-		// update sender balance
-		if err := sender.SubBalance(tx.Amount); err != nil {
-			return err
-		}
-		// update sender nonce
-		if tx.Nonce > sender.Nonce {
-			sender.Nonce = tx.Nonce
+		if !tx.IsCoinbase {
+			// check sender
+			sender, err := sf.upsert(pending, tx.Sender)
+			if err != nil {
+				return err
+			}
+			if tx.Amount.Cmp(sender.Balance) == 1 {
+				return ErrNotEnoughBalance
+			}
+			// update sender balance
+			if err := sender.SubBalance(tx.Amount); err != nil {
+				return err
+			}
+			// update sender nonce
+			if tx.Nonce > sender.Nonce {
+				sender.Nonce = tx.Nonce
+			}
+			// Update sender votes
+			if len(sender.Votee) > 0 && sender.Votee != sender.Address {
+				// sender already voted to a different person
+				voteeOfSender, err := sf.upsert(pending, sender.Votee)
+				if err != nil {
+					return err
+				}
+				voteeOfSender.VotingWeight.Sub(voteeOfSender.VotingWeight, tx.Amount)
+			}
 		}
 		// check recipient
 		recipient, err := sf.upsert(pending, tx.Recipient)
@@ -360,16 +371,7 @@ func (sf *factory) handleTsf(pending map[common.PKHash]*State, addressToPKMap ma
 		if err := recipient.AddBalance(tx.Amount); err != nil {
 			return err
 		}
-
-		// Update sender and recipient votes
-		if len(sender.Votee) > 0 && sender.Votee != sender.Address {
-			// sender already voted to a different person
-			voteeOfSender, err := sf.upsert(pending, sender.Votee)
-			if err != nil {
-				return err
-			}
-			voteeOfSender.VotingWeight.Sub(voteeOfSender.VotingWeight, tx.Amount)
-		}
+		// Update recipient votes
 		if len(recipient.Votee) > 0 && recipient.Votee != recipient.Address {
 			// recipient already voted to a different person
 			voteeOfRecipient, err := sf.upsert(pending, recipient.Votee)
@@ -395,12 +397,14 @@ func (sf *factory) handleVote(pending map[common.PKHash]*State, addressToPKMap m
 		addressToPKMap[voteFrom.Address] = v.SelfPubkey
 
 		voteAddress, err := iotxaddress.GetAddress(v.VotePubkey, iotxaddress.IsTestnet, iotxaddress.ChainID)
+		if err != nil {
+			return err
+		}
 
 		// update voteFrom nonce
 		if v.Nonce > voteFrom.Nonce {
 			voteFrom.Nonce = v.Nonce
 		}
-
 		voteTo, err := sf.upsert(pending, voteAddress.RawAddress)
 		if err != nil {
 			return err
