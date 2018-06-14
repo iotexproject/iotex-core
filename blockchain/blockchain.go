@@ -24,7 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
-	"github.com/iotexproject/iotex-core/statefactory"
+	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/trie"
 	"github.com/iotexproject/iotex-core/txvm"
 )
@@ -108,11 +108,11 @@ type blockchain struct {
 	utk *UtxoTracker // tracks the current UTXO pool
 
 	// used by account-based model
-	sf statefactory.StateFactory
+	sf state.Factory
 }
 
 // NewBlockchain creates a new blockchain instance
-func NewBlockchain(dao *blockDAO, cfg *config.Config, sf statefactory.StateFactory) Blockchain {
+func NewBlockchain(dao *blockDAO, cfg *config.Config, sf state.Factory) Blockchain {
 	if sf != nil {
 		// add Genesis block miner into Trie
 		if _, err := sf.CreateState(cfg.Chain.MinerAddr.RawAddress, Gen.TotalSupply); err != nil {
@@ -353,7 +353,7 @@ func (bc *blockchain) AddBlockSync(blk *Block) error {
 }
 
 // CreateBlockchain creates a new blockchain and DB instance
-func CreateBlockchain(cfg *config.Config, sf statefactory.StateFactory) Blockchain {
+func CreateBlockchain(cfg *config.Config, sf state.Factory) Blockchain {
 	var kvStore db.KVStore
 	if cfg.Chain.InMemTest {
 		kvStore = db.NewMemKVStore()
@@ -366,7 +366,7 @@ func CreateBlockchain(cfg *config.Config, sf statefactory.StateFactory) Blockcha
 				logger.Error().Err(err).Msg("Failed to initialize in-memory trie")
 				return nil
 			}
-			sf = statefactory.NewStateFactory(trie)
+			sf = state.NewFactory(trie)
 		}
 	} else {
 		kvStore = db.NewBoltDB(cfg.Chain.ChainDBPath, nil)
@@ -473,7 +473,7 @@ func (bc *blockchain) commitBlock(blk *Block) error {
 	return bc.sf.CommitStateChanges(bc.tipHeight, blk.Transfers, blk.Votes)
 }
 
-func createAndInitBlockchain(kvstore db.KVStore, sf statefactory.StateFactory, cfg *config.Config) Blockchain {
+func createAndInitBlockchain(kvstore db.KVStore, sf state.Factory, cfg *config.Config) Blockchain {
 	dao := newBlockDAO(kvstore)
 	// create the Blockchain
 	chain := NewBlockchain(dao, cfg, sf)

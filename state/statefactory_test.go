@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package statefactory
+package state
 
 import (
 	"math/big"
@@ -47,7 +47,7 @@ func TestRootHash(t *testing.T) {
 	defer ctrl.Finish()
 
 	trie := mock_trie.NewMockTrie(ctrl)
-	sf := NewStateFactory(trie)
+	sf := NewFactory(trie)
 	trie.EXPECT().RootHash().Times(1).Return(common.ZeroHash32B)
 	assert.Equal(t, common.ZeroHash32B, sf.RootHash())
 }
@@ -57,7 +57,7 @@ func TestCreateState(t *testing.T) {
 	defer ctrl.Finish()
 
 	trie := mock_trie.NewMockTrie(ctrl)
-	sf := NewStateFactory(trie)
+	sf := NewFactory(trie)
 	trie.EXPECT().Upsert(gomock.Any(), gomock.Any()).Times(1)
 	addr, err := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
 	assert.Nil(t, err)
@@ -89,7 +89,7 @@ func TestNonce(t *testing.T) {
 	defer ctrl.Finish()
 
 	trie := mock_trie.NewMockTrie(ctrl)
-	sf := NewStateFactory(trie)
+	sf := NewFactory(trie)
 
 	// Add 10 so the balance should be 10
 	addr, err := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
@@ -240,7 +240,7 @@ func TestCandidate(t *testing.T) {
 	util.CleanupPath(t, testTriePath)
 	defer util.CleanupPath(t, testTriePath)
 	tr, _ := trie.NewTrie(testTriePath, false)
-	sf := &stateFactory{
+	sf := &factory{
 		trie:                   tr,
 		candidateHeap:          CandidateMinPQ{candidateSize, make([]*Candidate, 0)},
 		candidateBufferMinHeap: CandidateMinPQ{candidateBufferSize, make([]*Candidate, 0)},

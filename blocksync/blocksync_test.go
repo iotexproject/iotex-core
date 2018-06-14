@@ -14,7 +14,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/network"
 	pb "github.com/iotexproject/iotex-core/proto"
-	"github.com/iotexproject/iotex-core/statefactory"
+	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blocksync"
 	"github.com/iotexproject/iotex-core/test/mock/mock_delegate"
@@ -227,7 +227,7 @@ func TestBlockSyncer_ProcessBlock_TipHeight(t *testing.T) {
 	mTxPool.EXPECT().RemoveTxInBlock(gomock.Any()).AnyTimes()
 
 	tr, _ := trie.NewTrie("", true)
-	sf := statefactory.NewStateFactory(tr)
+	sf := state.NewFactory(tr)
 	assert.NotNil(sf)
 	ap := txpool.NewActPool(sf)
 
@@ -277,7 +277,7 @@ func TestBlockSyncer_ProcessBlockSync(t *testing.T) {
 	mTxPool.EXPECT().RemoveTxInBlock(gomock.Any()).AnyTimes()
 
 	tr, _ := trie.NewTrie("", true)
-	sf := statefactory.NewStateFactory(tr)
+	sf := state.NewFactory(tr)
 	assert.NotNil(sf)
 	ap := txpool.NewActPool(sf)
 

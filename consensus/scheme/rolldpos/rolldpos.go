@@ -23,7 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/delegate"
 	"github.com/iotexproject/iotex-core/logger"
 	pb "github.com/iotexproject/iotex-core/proto"
-	"github.com/iotexproject/iotex-core/statefactory"
+	"github.com/iotexproject/iotex-core/state"
 )
 
 var (
@@ -77,7 +77,7 @@ type RollDPoS struct {
 	roundCtx       *roundCtx
 	self           net.Addr
 	pool           delegate.Pool
-	sf             statefactory.StateFactory
+	sf             state.Factory
 	wg             sync.WaitGroup
 	quit           chan struct{}
 	eventChan      chan *fsm.Event
@@ -101,7 +101,7 @@ func NewRollDPoS(
 	bc blockchain.Blockchain,
 	myaddr net.Addr,
 	dlg delegate.Pool,
-	sf statefactory.StateFactory,
+	sf state.Factory,
 ) *RollDPoS {
 	cb := rollDPoSCB{
 		propCb:       prop,

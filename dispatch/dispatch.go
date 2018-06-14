@@ -24,7 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/dispatch/dispatcher"
 	"github.com/iotexproject/iotex-core/logger"
 	pb "github.com/iotexproject/iotex-core/proto"
-	"github.com/iotexproject/iotex-core/statefactory"
+	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/txpool"
 )
 
@@ -76,7 +76,7 @@ func NewDispatcher(
 	ap txpool.ActPool,
 	bs blocksync.BlockSync,
 	dp delegate.Pool,
-	sf statefactory.StateFactory,
+	sf state.Factory,
 ) dispatcher.Dispatcher {
 	if bc == nil || bs == nil {
 		logger.Error().Msg("Try to attach to a nil blockchain or a nil P2P")

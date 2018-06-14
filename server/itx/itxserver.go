@@ -18,7 +18,7 @@ import (
 	"github.com/iotexproject/iotex-core/dispatch/dispatcher"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network"
-	"github.com/iotexproject/iotex-core/statefactory"
+	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/txpool"
 )
 
@@ -36,7 +36,7 @@ type Server struct {
 // NewServer creates a new server
 func NewServer(cfg config.Config) *Server {
 	// create StateFactory
-	sf, err := statefactory.NewStateFactoryTrieDB(cfg.Chain.TrieDBPath)
+	sf, err := state.NewFactoryFromTrieDBPath(cfg.Chain.TrieDBPath)
 	if err != nil {
 		logger.Error().Err(err).Msg("Failed to create statefactory")
 		return nil
@@ -93,7 +93,7 @@ func (s *Server) Dp() dispatcher.Dispatcher {
 	return s.dp
 }
 
-func newServer(cfg config.Config, bc blockchain.Blockchain, sf statefactory.StateFactory) *Server {
+func newServer(cfg config.Config, bc blockchain.Blockchain, sf state.Factory) *Server {
 	// create TxPool
 	tp := txpool.NewTxPool(bc)
 	// create P2P network and BlockSync

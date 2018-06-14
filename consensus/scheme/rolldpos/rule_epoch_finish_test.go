@@ -16,7 +16,7 @@ import (
 	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/consensus/fsm"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
-	"github.com/iotexproject/iotex-core/test/mock/mock_statefactory"
+	"github.com/iotexproject/iotex-core/test/mock/mock_state"
 )
 
 func TestRuleEpochFinishCondition(t *testing.T) {
@@ -59,7 +59,7 @@ func TestStartNextEpochCB(t *testing.T) {
 	t.Parallel()
 
 	ctrl := gomock.NewController(t)
-	sf := mock_statefactory.NewMockStateFactory(ctrl)
+	sf := mock_state.NewMockFactory(ctrl)
 	defer ctrl.Finish()
 
 	flag, err := NeverStartNewEpoch(sf)

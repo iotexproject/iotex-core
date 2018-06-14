@@ -47,9 +47,9 @@ mockgen -destination=./test/mock/mock_trie/mock_trie.go  \
         -package=mock_trie \
         Trie
 
-mkdir -p ./test/mock/mock_statefactory
-mockgen -destination=./test/mock/mock_statefactory/mock_statefactory.go  \
-        -source=./statefactory/statefactory.go \
-        -imports =github.com/iotexproject/iotex-core/statefactory \
-        -package=mock_statefactory \
-        StateFactory
+mkdir -p ./test/mock/mock_state
+mockgen -destination=./test/mock/mock_state/mock_state.go  \
+        -source=./state/factory.go \
+        -imports =github.com/iotexproject/iotex-core/state \
+        -package=mock_state \
+        Factory
