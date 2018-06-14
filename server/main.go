@@ -83,8 +83,6 @@ func main() {
 		defer cs.Stop()
 	}
 
-	select {}
-
 	if cfg.Explorer.StartExplorer {
 		isTest := cfg.Explorer.IsTest
 		httpPort := cfg.Explorer.Addr
@@ -99,4 +97,6 @@ func main() {
 		}
 		explorer.StartJSONServer(svr.Bc(), isTest, httpPort)
 	}
+
+	select {}
 }
