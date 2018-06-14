@@ -39,8 +39,6 @@ type BlockHeader struct {
 	txRoot        common.Hash32B // merkle root of all transactions
 	stateRoot     common.Hash32B // merkle root of all states
 	blockSig      []byte         // block signature
-	Pubkey        []byte         // block miner's public key
-
 }
 
 // Block defines the struct of block
@@ -98,7 +96,7 @@ func (b *Block) ByteStreamHeader() []byte {
 	stream = append(stream, b.Header.prevBlockHash[:]...)
 	stream = append(stream, b.Header.txRoot[:]...)
 	stream = append(stream, b.Header.stateRoot[:]...)
-	stream = append(stream, b.Header.Pubkey...)
+	stream = append(stream, b.Header.blockSig...)
 	return stream
 }
 
@@ -134,7 +132,6 @@ func (b *Block) ConvertToBlockHeaderPb() *iproto.BlockHeaderPb {
 	pbHeader.TxRoot = b.Header.txRoot[:]
 	pbHeader.StateRoot = b.Header.stateRoot[:]
 	pbHeader.Signature = b.Header.blockSig[:]
-	pbHeader.Pubkey = b.Header.Pubkey[:]
 	return &pbHeader
 }
 
@@ -174,7 +171,6 @@ func (b *Block) ConvertFromBlockHeaderPb(pbBlock *iproto.BlockPb) {
 	copy(b.Header.txRoot[:], pbBlock.GetHeader().GetTxRoot())
 	copy(b.Header.stateRoot[:], pbBlock.GetHeader().GetStateRoot())
 	b.Header.blockSig = pbBlock.GetHeader().GetSignature()
-	b.Header.Pubkey = pbBlock.GetHeader().GetPubkey()
 }
 
 // ConvertFromBlockPb converts BlockPb to Block

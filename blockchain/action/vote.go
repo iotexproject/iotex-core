@@ -27,8 +27,6 @@ const (
 	NonceSizeInBytes = 8
 	// TimestampSizeInBytes defines the size of 8-byte timestamp
 	TimestampSizeInBytes = 8
-	// BooleanSizeInBytes defines the size of booleans
-	BooleanSizeInBytes = 1
 )
 
 // Vote defines the struct of account-based vote
