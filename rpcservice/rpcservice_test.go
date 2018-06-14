@@ -110,7 +110,7 @@ func TestCreateRawTransfer(t *testing.T) {
 
 	mbc.EXPECT().CreateRawTransfer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(testingTransfer()).Times(1)
 	mdp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any()).Times(0)
-	r, err := c.CreateRawTx(ctx, &pb.CreateRawTransferRequest{Sender: "Alice", Recipient: "Bob", Amount: big.NewInt(int64(100)).Bytes()})
+	r, err := c.CreateRawTransfer(ctx, &pb.CreateRawTransferRequest{Sender: "Alice", Recipient: "Bob", Amount: big.NewInt(int64(100)).Bytes()})
 	assert.Nil(t, err)
 	assert.Equal(t, 109, len(r.SerializedTransfer))
 	assert.False(t, cbinvoked)
@@ -153,7 +153,7 @@ func TestSendTx(t *testing.T) {
 	assert.Nil(t, err)
 
 	mdp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any()).Times(1)
-	_, err = c.SendTx(ctx, &pb.SendTransferRequest{SerializedTransfer: stx})
+	_, err = c.SendTransfer(ctx, &pb.SendTransferRequest{SerializedTransfer: stx})
 	assert.Nil(t, err)
 	assert.True(t, cbinvoked)
 }
