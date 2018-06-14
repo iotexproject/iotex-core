@@ -35,49 +35,49 @@ const (
 
 // Network is the config struct for network package
 type Network struct {
-	Addr                    string
-	MsgLogsCleaningInterval time.Duration
-	MsgLogRetention         time.Duration
-	HealthCheckInterval     time.Duration
-	SilentInterval          time.Duration
-	PeerMaintainerInterval  time.Duration
-	AllowMultiConnsPerIP    bool
-	NumPeersLowerBound      uint
-	NumPeersUpperBound      uint
-	PingInterval            time.Duration
-	RateLimitEnabled        bool
-	RateLimitPerSec         uint64
-	RateLimitWindowSize     time.Duration
-	BootstrapNodes          []string
-	TLSEnabled              bool
-	CACrtPath               string
-	PeerCrtPath             string
-	PeerKeyPath             string
-	KLClientParams          keepalive.ClientParameters
-	KLServerParams          keepalive.ServerParameters
-	KLPolicy                keepalive.EnforcementPolicy
-	MaxMsgSize              int
-	PeerDiscovery           bool
-	TopologyPath            string
+	Addr                    string                      `yaml:"addr"`
+	MsgLogsCleaningInterval time.Duration               `yaml:"msgLogsCleaningInterval"`
+	MsgLogRetention         time.Duration               `yaml:"msgLogRetention"`
+	HealthCheckInterval     time.Duration               `yaml:"healthCheckInterval"`
+	SilentInterval          time.Duration               `yaml:"silentInterval"`
+	PeerMaintainerInterval  time.Duration               `yaml:"peerMaintainerInterval"`
+	AllowMultiConnsPerIP    bool                        `yaml:"allowMultiConnsPerIP"`
+	NumPeersLowerBound      uint                        `yaml:"numPeersLowerBound"`
+	NumPeersUpperBound      uint                        `yaml:"numPeersUpperBound"`
+	PingInterval            time.Duration               `yaml:"pingInterval"`
+	RateLimitEnabled        bool                        `yaml:"rateLimitEnabled"`
+	RateLimitPerSec         uint64                      `yaml:"rateLimitPerSec"`
+	RateLimitWindowSize     time.Duration               `yaml:"rateLimitWindowSize"`
+	BootstrapNodes          []string                    `yaml:"bootstrapNodes"`
+	TLSEnabled              bool                        `yaml:"tlsEnabled"`
+	CACrtPath               string                      `yaml:"caCrtPath"`
+	PeerCrtPath             string                      `yaml:"peerCrtPath"`
+	PeerKeyPath             string                      `yaml:"peerKeyPath"`
+	KLClientParams          keepalive.ClientParameters  `yaml:"klClientParams"`
+	KLServerParams          keepalive.ServerParameters  `yaml:"klServerParams"`
+	KLPolicy                keepalive.EnforcementPolicy `yaml:"klPolicy"`
+	MaxMsgSize              int                         `yaml:"maxMsgSize"`
+	PeerDiscovery           bool                        `yaml:"peerDiscovery"`
+	TopologyPath            string                      `yaml:"topologyPath"`
 }
 
 // Chain is the config struct for blockchain package
 type Chain struct {
-	ChainDBPath string
-	TrieDBPath  string
+	ChainDBPath string `yaml:"chainDBPath"`
+	TrieDBPath  string `yaml:"trieDBPath"`
 	//RawMinerAddr is the struct that stores private/public keys in string
-	RawMinerAddr RawMinerAddr
+	RawMinerAddr RawMinerAddr `yaml:"rawMinerAddr"`
 	// MinerAddr is an iotxaddress struct where the block rewards will be sent to.
-	MinerAddr iotxaddress.Address
+	MinerAddr iotxaddress.Address `yaml:"minerAddr"`
 	// InMemTest creates in-memory DB file for local testing
-	InMemTest bool
+	InMemTest bool `yaml:"inMemTest"`
 }
 
 // RawMinerAddr is the RawChain struct when loading from yaml file
 type RawMinerAddr struct {
-	PrivateKey string
-	PublicKey  string
-	RawAddress string
+	PrivateKey string `yaml:"privateKey"`
+	PublicKey  string `yaml:"publicKey"`
+	RawAddress string `yaml:"rawAddress"`
 }
 
 const (
@@ -92,90 +92,90 @@ const (
 // Consensus is the config struct for consensus package
 type Consensus struct {
 	// There are three schemes that are supported
-	Scheme                string
-	RollDPoS              RollDPoS
-	BlockCreationInterval time.Duration
+	Scheme                string        `yaml:"scheme"`
+	RollDPoS              RollDPoS      `yaml:"rollDPoS"`
+	BlockCreationInterval time.Duration `yaml:"blockCreationInterval"`
 }
 
 // BlockSync is the config struct for the BlockSync
 type BlockSync struct {
-	Interval time.Duration // update duration
+	Interval time.Duration `yaml:"interval"` // update duration
 }
 
 // RollDPoS is the config struct for RollDPoS consensus package
 type RollDPoS struct {
-	ProposerInterval  time.Duration
-	ProposerCB        string
-	EpochCB           string
-	UnmatchedEventTTL time.Duration
-	AcceptPropose     AcceptPropose
-	AcceptPrevote     AcceptPrevote
-	AcceptVote        AcceptVote
-	Delay             time.Duration
-	NumSubEpochs      uint
-	EventChanSize     uint
+	ProposerInterval  time.Duration `yaml:"proposerInterval"`
+	ProposerCB        string        `yaml:"proposerCB"`
+	EpochCB           string        `yaml:"epochCB"`
+	UnmatchedEventTTL time.Duration `yaml:"unmatchedEventTTL"`
+	AcceptPropose     AcceptPropose `yaml:"acceptPropose"`
+	AcceptPrevote     AcceptPrevote `yaml:"acceptPrevote"`
+	AcceptVote        AcceptVote    `yaml:"acceptVote"`
+	Delay             time.Duration `yaml:"delay"`
+	NumSubEpochs      uint          `yaml:"numSubEpochs"`
+	EventChanSize     uint          `yaml:"eventChanSize"`
 }
 
 // AcceptPropose is the RollDPoS AcceptPropose config
 type AcceptPropose struct {
 	// TTL is the time the state machine will wait for the AcceptPropose state.
 	// Once timeout, it will move to the next state.
-	TTL time.Duration
+	TTL time.Duration `yaml:"ttl"`
 }
 
 // AcceptPrevote is the RollDPoS AcceptPrevote config
 type AcceptPrevote struct {
 	// TTL is the time the state machine will wait for the AcceptPrevote state.
 	// Once timeout, it will move to the next state.
-	TTL time.Duration
+	TTL time.Duration `yaml:"ttl"`
 }
 
 // AcceptVote is the RollDPoS AcceptVote config
 type AcceptVote struct {
 	// TTL is the time the state machine will wait for the AcceptVote state.
 	// Once timeout, it will move to the next state.
-	TTL time.Duration
+	TTL time.Duration `yaml:"ttl"`
 }
 
 // Delegate is the delegate config
 type Delegate struct {
-	Addrs []string
+	Addrs []string `yaml:"addrs"`
 }
 
 // RPC is the chain service config
 type RPC struct {
-	Port string
+	Port string `yaml:"port"`
 }
 
 // Dispatcher is the dispatcher config
 type Dispatcher struct {
-	EventChanSize uint
+	EventChanSize uint `yaml:"eventChanSize"`
 }
 
 // Explorer is the explorer service config
 type Explorer struct {
-	StartExplorer bool
-	IsTest        bool
-	Addr          string
+	StartExplorer bool   `yaml:"startExplorer"`
+	IsTest        bool   `yaml:"isTest"`
+	Addr          string `yaml:"addr"`
 }
 
 // System is the system config
 type System struct {
-	HeartbeatInterval time.Duration
+	HeartbeatInterval time.Duration `yaml:"heartbeatInterval"`
 }
 
 // Config is the root config struct, each package's config should be put as its sub struct
 type Config struct {
-	NodeType   string
-	Network    Network
-	Chain      Chain
-	Consensus  Consensus
-	Delegate   Delegate
-	RPC        RPC
-	BlockSync  BlockSync
-	Dispatcher Dispatcher
-	Explorer   Explorer
-	System     System
+	NodeType   string     `yaml:"nodeType"`
+	Network    Network    `yaml:"network"`
+	Chain      Chain      `yaml:"chain"`
+	Consensus  Consensus  `yaml:"consensus"`
+	Delegate   Delegate   `yaml:"delegate"`
+	RPC        RPC        `yaml:"rpc"`
+	BlockSync  BlockSync  `yaml:"blockSync"`
+	Dispatcher Dispatcher `yaml:"dispatcher"`
+	Explorer   Explorer   `yaml:"explorer"`
+	System     System     `yaml:"system"`
 }
 
 // IsDelegate returns true if the node type is Delegate
@@ -274,7 +274,7 @@ func validateConfig(cfg *Config) error {
 // Topology is the neighbor list for each node. This is used for generating the P2P network in a given topology. Note
 // that the list contains the outgoing connections.
 type Topology struct {
-	NeighborList map[string][]string
+	NeighborList map[string][]string `yaml:"neighborList"`
 }
 
 // LoadTopology loads the topology struct from the given yaml file
