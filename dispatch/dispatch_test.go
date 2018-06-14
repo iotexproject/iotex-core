@@ -19,7 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blocksync"
 	"github.com/iotexproject/iotex-core/test/mock/mock_delegate"
-	"github.com/iotexproject/iotex-core/test/mock/mock_statefactory"
+	"github.com/iotexproject/iotex-core/test/mock/mock_state"
 	"github.com/iotexproject/iotex-core/test/mock/mock_txpool"
 )
 
@@ -135,7 +135,7 @@ func createDispatcher(
 	tp := mock_txpool.NewMockTxPool(ctrl)
 	bs := mock_blocksync.NewMockBlockSync(ctrl)
 	dp := mock_delegate.NewMockPool(ctrl)
-	sf := mock_statefactory.NewMockStateFactory(ctrl)
+	sf := mock_state.NewMockFactory(ctrl)
 
 	return NewDispatcher(cfg, bc, tp, nil, bs, dp, sf), bs, tp
 }

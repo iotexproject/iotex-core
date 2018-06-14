@@ -11,7 +11,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/iotxaddress"
-	"github.com/iotexproject/iotex-core/statefactory"
+	"github.com/iotexproject/iotex-core/state"
 )
 
 // Validator is the interface of validator
@@ -21,7 +21,7 @@ type Validator interface {
 }
 
 type validator struct {
-	sf  statefactory.StateFactory
+	sf  state.Factory
 	utk *UtxoTracker
 }
 

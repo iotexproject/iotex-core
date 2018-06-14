@@ -21,8 +21,8 @@ import (
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	pb "github.com/iotexproject/iotex-core/proto"
-	"github.com/iotexproject/iotex-core/statefactory"
-	"github.com/iotexproject/iotex-core/test/mock/mock_statefactory"
+	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/test/mock/mock_state"
 	"github.com/iotexproject/iotex-core/trie"
 )
 
@@ -53,7 +53,7 @@ func TestActPool_validateTsf(t *testing.T) {
 	logger.SetLogger(&l)
 	tr, _ := trie.NewTrie("", true)
 	assert.NotNil(tr)
-	sf := statefactory.NewStateFactory(tr)
+	sf := state.NewFactory(tr)
 	assert.NotNil(sf)
 	sf.CreateState(addr1.RawAddress, uint64(100))
 	ap := NewActPool(sf).(*actPool)
@@ -89,7 +89,7 @@ func TestActPool_validateVote(t *testing.T) {
 	logger.SetLogger(&l)
 	tr, _ := trie.NewTrie("", true)
 	assert.NotNil(tr)
-	sf := statefactory.NewStateFactory(tr)
+	sf := state.NewFactory(tr)
 	assert.NotNil(sf)
 	sf.CreateState(addr1.RawAddress, uint64(100))
 	ap := NewActPool(sf).(*actPool)
@@ -124,7 +124,7 @@ func TestActPool_AddActs(t *testing.T) {
 	logger.SetLogger(&l)
 	tr, _ := trie.NewTrie("", true)
 	assert.NotNil(tr)
-	sf := statefactory.NewStateFactory(tr)
+	sf := state.NewFactory(tr)
 	assert.NotNil(sf)
 	sf.CreateState(addr1.RawAddress, uint64(100))
 	sf.CreateState(addr2.RawAddress, uint64(10))
@@ -179,7 +179,7 @@ func TestActPool_AddActs(t *testing.T) {
 	err = ap.AddVote(vote4)
 	assert.Equal(fmt.Errorf("existed vote: %x", vote4.Hash()), err)
 	// Case II: Pool space is full
-	mockSF := mock_statefactory.NewMockStateFactory(ctrl)
+	mockSF := mock_state.NewMockFactory(ctrl)
 	ap2 := NewActPool(mockSF).(*actPool)
 	assert.NotNil(ap2)
 	for i := 0; i < GlobalSlots; i++ {
@@ -216,7 +216,7 @@ func TestActPool_PickActs(t *testing.T) {
 	logger.SetLogger(&l)
 	tr, _ := trie.NewTrie("", true)
 	assert.NotNil(tr)
-	sf := statefactory.NewStateFactory(tr)
+	sf := state.NewFactory(tr)
 	assert.NotNil(sf)
 	sf.CreateState(addr1.RawAddress, uint64(100))
 	sf.CreateState(addr2.RawAddress, uint64(10))
@@ -257,7 +257,7 @@ func TestActPool_removeCommittedActs(t *testing.T) {
 	logger.SetLogger(&l)
 	tr, _ := trie.NewTrie("", true)
 	assert.NotNil(tr)
-	sf := statefactory.NewStateFactory(tr)
+	sf := state.NewFactory(tr)
 	assert.NotNil(sf)
 	sf.CreateState(addr1.RawAddress, uint64(100))
 	// Create actpool
@@ -290,7 +290,7 @@ func TestActPool_Reset(t *testing.T) {
 
 	tr, _ := trie.NewTrie("", true)
 	assert.NotNil(tr)
-	sf := statefactory.NewStateFactory(tr)
+	sf := state.NewFactory(tr)
 	assert.NotNil(sf)
 	sf.CreateState(addr1.RawAddress, uint64(100))
 	sf.CreateState(addr2.RawAddress, uint64(200))

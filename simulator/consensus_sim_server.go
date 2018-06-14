@@ -31,7 +31,7 @@ import (
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network"
 	pb "github.com/iotexproject/iotex-core/simulator/proto/simulator"
-	"github.com/iotexproject/iotex-core/statefactory"
+	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/txpool"
 )
 
@@ -102,7 +102,7 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 		// set chain database path
 		cfg.Chain.ChainDBPath = "./chain" + strconv.Itoa(i) + ".db"
 
-		sf, _ := statefactory.NewStateFactoryTrieDB(cfg.Chain.TrieDBPath)
+		sf, _ := state.NewFactoryFromTrieDBPath(cfg.Chain.TrieDBPath)
 		bc := blockchain.CreateBlockchain(cfg, sf)
 
 		if i >= int(in.NFS+in.NHonest) { // is byzantine node

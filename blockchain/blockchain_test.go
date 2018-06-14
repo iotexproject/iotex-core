@@ -21,7 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/iotxaddress"
-	"github.com/iotexproject/iotex-core/statefactory"
+	"github.com/iotexproject/iotex-core/state"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/test/util"
 	"github.com/iotexproject/iotex-core/trie"
@@ -388,7 +388,7 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 	Gen.BlockReward = uint64(0)
 
 	tr, _ := trie.NewTrie(testTriePath, false)
-	sf := statefactory.NewStateFactory(tr)
+	sf := state.NewFactory(tr)
 
 	for _, pk := range initDelegatePK {
 		pubk, err := hex.DecodeString(pk)

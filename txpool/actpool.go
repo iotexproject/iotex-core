@@ -17,7 +17,7 @@ import (
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/proto"
-	"github.com/iotexproject/iotex-core/statefactory"
+	"github.com/iotexproject/iotex-core/state"
 )
 
 const (
@@ -57,13 +57,13 @@ type ActPool interface {
 // actPool implements ActPool interface
 type actPool struct {
 	mutex       sync.RWMutex
-	sf          statefactory.StateFactory
+	sf          state.Factory
 	accountActs map[string]ActQueue
 	allActions  map[common.Hash32B]*iproto.ActionPb
 }
 
 // NewActPool constructs a new actpool
-func NewActPool(sf statefactory.StateFactory) ActPool {
+func NewActPool(sf state.Factory) ActPool {
 	ap := &actPool{
 		sf:          sf,
 		accountActs: make(map[string]ActQueue),

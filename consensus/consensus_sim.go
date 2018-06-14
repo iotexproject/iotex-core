@@ -22,7 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/proto"
 	pb "github.com/iotexproject/iotex-core/proto"
 	pbsim "github.com/iotexproject/iotex-core/simulator/proto/simulator"
-	"github.com/iotexproject/iotex-core/statefactory"
+	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/txpool"
 )
 
@@ -58,7 +58,7 @@ func NewSim(
 	tp txpool.TxPool,
 	bs blocksync.BlockSync,
 	dlg delegate.Pool,
-	sf statefactory.StateFactory,
+	sf state.Factory,
 ) Sim {
 	if bc == nil {
 		logger.Error().Msg("Blockchain is nil")
@@ -156,7 +156,7 @@ func NewSimByzantine(
 	tp txpool.TxPool,
 	bs blocksync.BlockSync,
 	dlg delegate.Pool,
-	sf statefactory.StateFactory,
+	sf state.Factory,
 ) Sim {
 	if bc == nil {
 		logger.Error().Msg("Blockchain is nil")

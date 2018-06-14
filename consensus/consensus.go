@@ -17,7 +17,7 @@ import (
 	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
 	"github.com/iotexproject/iotex-core/delegate"
 	"github.com/iotexproject/iotex-core/logger"
-	"github.com/iotexproject/iotex-core/statefactory"
+	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/txpool"
 )
 
@@ -43,7 +43,7 @@ func NewConsensus(
 	ap txpool.ActPool,
 	bs blocksync.BlockSync,
 	dlg delegate.Pool,
-	sf statefactory.StateFactory,
+	sf state.Factory,
 ) Consensus {
 	if bc == nil || bs == nil {
 		logger.Error().Msg("Try to attach to chain or bs == nil")

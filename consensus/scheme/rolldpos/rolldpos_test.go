@@ -28,7 +28,7 @@ import (
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_delegate"
 	. "github.com/iotexproject/iotex-core/test/mock/mock_rolldpos"
-	"github.com/iotexproject/iotex-core/test/mock/mock_statefactory"
+	"github.com/iotexproject/iotex-core/test/mock/mock_state"
 	"github.com/iotexproject/iotex-core/txpool"
 )
 
@@ -36,7 +36,7 @@ type mocks struct {
 	dNet *MockDNet
 	bc   *mock_blockchain.MockBlockchain
 	dp   *mock_delegate.MockPool
-	sf   *mock_statefactory.MockStateFactory
+	sf   *mock_state.MockFactory
 }
 
 type mockFn func(mcks mocks)
@@ -101,7 +101,7 @@ func createTestRollDPoS(
 		EventChanSize: 100,
 	}
 	csCfg.ProposerInterval = prDelay
-	sf := mock_statefactory.NewMockStateFactory(ctrl)
+	sf := mock_state.NewMockFactory(ctrl)
 	mockFn(mocks{
 		dNet: dNet,
 		bc:   bc,

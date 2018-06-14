@@ -4,12 +4,10 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package statefactory
+package state
 
 import (
-	"bytes"
 	"container/heap"
-	"encoding/gob"
 	"fmt"
 	"math/big"
 
@@ -58,19 +56,8 @@ var (
 )
 
 type (
-	// State is the canonical representation of an account.
-	State struct {
-		Nonce        uint64
-		Balance      *big.Int
-		Address      string
-		IsCandidate  bool
-		VotingWeight *big.Int
-		Votee        string
-		Voters       map[string]*big.Int
-	}
-
-	// StateFactory defines an interface for managing states
-	StateFactory interface {
+	// Factory defines an interface for managing states
+	Factory interface {
 		CreateState(string, uint64) (*State, error)
 		Balance(string) (*big.Int, error)
 		CommitStateChanges(uint64, []*action.Transfer, []*action.Vote) error
@@ -80,8 +67,8 @@ type (
 		Candidates() (uint64, []*Candidate)
 	}
 
-	// stateFactory implements StateFactory interface, tracks changes in a map and batch-commits to trie/db
-	stateFactory struct {
+	// factory implements StateFactory interface, tracks changes in a map and batch-commits to trie/db
+	factory struct {
 		currentChainHeight     uint64
 		trie                   trie.Trie
 		candidateHeap          CandidateMinPQ
@@ -90,51 +77,9 @@ type (
 	}
 )
 
-func stateToBytes(s *State) ([]byte, error) {
-	var ss bytes.Buffer
-	e := gob.NewEncoder(&ss)
-	if err := e.Encode(s); err != nil {
-		return nil, ErrFailedToMarshalState
-	}
-	return ss.Bytes(), nil
-}
-
-func bytesToState(ss []byte) (*State, error) {
-	var state State
-	e := gob.NewDecoder(bytes.NewBuffer(ss))
-	if err := e.Decode(&state); err != nil {
-		return nil, ErrFailedToUnmarshalState
-	}
-	return &state, nil
-}
-
-//======================================
-// functions for State
-//======================================
-
-// AddBalance adds balance for state
-func (st *State) AddBalance(amount *big.Int) error {
-	st.Balance.Add(st.Balance, amount)
-	return nil
-}
-
-// SubBalance subtracts balance for state
-func (st *State) SubBalance(amount *big.Int) error {
-	// make sure there's enough fund to spend
-	if amount.Cmp(st.Balance) == 1 {
-		return ErrNotEnoughBalance
-	}
-	st.Balance.Sub(st.Balance, amount)
-	return nil
-}
-
-//======================================
-// functions for StateFactory
-//======================================
-
-// NewStateFactory creates a new state factory
-func NewStateFactory(tr trie.Trie) StateFactory {
-	return &stateFactory{
+// NewFactory creates a new state factory
+func NewFactory(tr trie.Trie) Factory {
+	return &factory{
 		currentChainHeight:     0,
 		trie:                   tr,
 		candidateHeap:          CandidateMinPQ{candidateSize, make([]*Candidate, 0)},
@@ -143,20 +88,21 @@ func NewStateFactory(tr trie.Trie) StateFactory {
 	}
 }
 
-// NewStateFactoryTrieDB creates a new stateFactory from Trie
-func NewStateFactoryTrieDB(dbPath string) (StateFactory, error) {
+// NewFactoryFromTrieDBPath creates a new stateFactory from give trie db path.
+func NewFactoryFromTrieDBPath(dbPath string) (Factory, error) {
 	if len(dbPath) == 0 {
+		// TODO not return error here is a hack
 		return nil, nil
 	}
 	tr, err := trie.NewTrie(dbPath, false)
 	if err != nil {
 		return nil, err
 	}
-	return NewStateFactory(tr), nil
+	return NewFactory(tr), nil
 }
 
 // CreateState adds a new State with initial balance to the factory
-func (sf *stateFactory) CreateState(addr string, init uint64) (*State, error) {
+func (sf *factory) CreateState(addr string, init uint64) (*State, error) {
 	pubKeyHash := iotxaddress.GetPubkeyHash(addr)
 	if pubKeyHash == nil {
 		return nil, ErrInvalidAddr
@@ -176,7 +122,7 @@ func (sf *stateFactory) CreateState(addr string, init uint64) (*State, error) {
 }
 
 // Balance returns balance
-func (sf *stateFactory) Balance(addr string) (*big.Int, error) {
+func (sf *factory) Balance(addr string) (*big.Int, error) {
 	state, err := sf.getState(addr)
 	if err != nil {
 		return nil, err
@@ -185,7 +131,7 @@ func (sf *stateFactory) Balance(addr string) (*big.Int, error) {
 }
 
 // Nonce returns the nonce if the account exists
-func (sf *stateFactory) Nonce(addr string) (uint64, error) {
+func (sf *factory) Nonce(addr string) (uint64, error) {
 	state, err := sf.getState(addr)
 	if err != nil {
 		return 0, err
@@ -194,7 +140,7 @@ func (sf *stateFactory) Nonce(addr string) (uint64, error) {
 }
 
 // SetNonce returns the nonce if the account exists
-func (sf *stateFactory) SetNonce(addr string, value uint64) error {
+func (sf *factory) SetNonce(addr string, value uint64) error {
 	state, err := sf.getState(addr)
 	if err != nil {
 		return err
@@ -209,12 +155,12 @@ func (sf *stateFactory) SetNonce(addr string, value uint64) error {
 }
 
 // RootHash returns the hash of the root node of the trie
-func (sf *stateFactory) RootHash() common.Hash32B {
+func (sf *factory) RootHash() common.Hash32B {
 	return sf.trie.RootHash()
 }
 
 // CommitStateChanges updates a State from the given actions
-func (sf *stateFactory) CommitStateChanges(chainHeight uint64, tsf []*action.Transfer, vote []*action.Vote) error {
+func (sf *factory) CommitStateChanges(chainHeight uint64, tsf []*action.Transfer, vote []*action.Vote) error {
 	sf.currentChainHeight = chainHeight
 	pending := make(map[common.PKHash]*State)
 	addressToPKMap := make(map[string][]byte)
@@ -270,24 +216,24 @@ func (sf *stateFactory) CommitStateChanges(chainHeight uint64, tsf []*action.Tra
 }
 
 // Candidates returns array of candidates in candidate pool
-func (sf *stateFactory) Candidates() (uint64, []*Candidate) {
+func (sf *factory) Candidates() (uint64, []*Candidate) {
 	return sf.currentChainHeight, sf.candidateHeap.CandidateList()
 }
 
 //======================================
 // private functions
 //=====================================
-func (sf *stateFactory) candidatesBuffer() (uint64, []*Candidate) {
+func (sf *factory) candidatesBuffer() (uint64, []*Candidate) {
 	return sf.currentChainHeight, sf.candidateBufferMinHeap.CandidateList()
 }
 
 // getState pulls an existing State
-func (sf *stateFactory) getState(addr string) (*State, error) {
+func (sf *factory) getState(addr string) (*State, error) {
 	pubKeyHash := iotxaddress.GetPubkeyHash(addr)
 	return sf.getStateFromPKHash(pubKeyHash)
 }
 
-func (sf *stateFactory) getStateFromPKHash(pubKeyHash []byte) (*State, error) {
+func (sf *factory) getStateFromPKHash(pubKeyHash []byte) (*State, error) {
 	if pubKeyHash == nil {
 		return nil, ErrInvalidAddr
 	}
@@ -301,7 +247,7 @@ func (sf *stateFactory) getStateFromPKHash(pubKeyHash []byte) (*State, error) {
 	return bytesToState(mstate)
 }
 
-func (sf *stateFactory) updateVotes(candidate *Candidate, votes *big.Int) {
+func (sf *factory) updateVotes(candidate *Candidate, votes *big.Int) {
 	candidate.Votes = votes
 	c, level := sf.inPool(candidate.Address)
 	switch level {
@@ -342,7 +288,7 @@ func (sf *stateFactory) updateVotes(candidate *Candidate, votes *big.Int) {
 	}
 }
 
-func (sf *stateFactory) balance() {
+func (sf *factory) balance() {
 	if sf.candidateHeap.Len() > 0 && sf.candidateBufferMaxHeap.Len() > 0 && sf.candidateHeap.Top().(*Candidate).Votes.Cmp(sf.candidateBufferMaxHeap.Top().(*Candidate).Votes) < 0 {
 		cFromCandidatePool := heap.Pop(&sf.candidateHeap).(*Candidate)
 		cFromCandidateBufferPool := heap.Pop(&sf.candidateBufferMaxHeap).(*Candidate)
@@ -353,7 +299,7 @@ func (sf *stateFactory) balance() {
 	}
 }
 
-func (sf *stateFactory) inPool(address string) (*Candidate, int) {
+func (sf *factory) inPool(address string) (*Candidate, int) {
 	if c := sf.candidateHeap.exist(address); c != nil {
 		return c, candidatePool // The candidate exists in the Candidate pool
 	}
@@ -363,7 +309,7 @@ func (sf *stateFactory) inPool(address string) (*Candidate, int) {
 	return nil, 0
 }
 
-func (sf *stateFactory) upsert(pending map[common.PKHash]*State, address string) (*State, error) {
+func (sf *factory) upsert(pending map[common.PKHash]*State, address string) (*State, error) {
 	pkhash := iotxaddress.GetPubkeyHash(address)
 	if pkhash == nil {
 		return nil, ErrInvalidAddr
@@ -387,7 +333,7 @@ func (sf *stateFactory) upsert(pending map[common.PKHash]*State, address string)
 	return state, nil
 }
 
-func (sf *stateFactory) handleTsf(pending map[common.PKHash]*State, addressToPKMap map[string][]byte, tsf []*action.Transfer) error {
+func (sf *factory) handleTsf(pending map[common.PKHash]*State, addressToPKMap map[string][]byte, tsf []*action.Transfer) error {
 	for _, tx := range tsf {
 		// check sender
 		sender, err := sf.upsert(pending, tx.Sender)
@@ -436,7 +382,7 @@ func (sf *stateFactory) handleTsf(pending map[common.PKHash]*State, addressToPKM
 	return nil
 }
 
-func (sf *stateFactory) handleVote(pending map[common.PKHash]*State, addressToPKMap map[string][]byte, vote []*action.Vote) error {
+func (sf *factory) handleVote(pending map[common.PKHash]*State, addressToPKMap map[string][]byte, vote []*action.Vote) error {
 	for _, v := range vote {
 		selfAddress, err := iotxaddress.GetAddress(v.SelfPubkey, iotxaddress.IsTestnet, iotxaddress.ChainID)
 		if err != nil {
