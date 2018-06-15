@@ -8,8 +8,8 @@ import (
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "aaeb16db23c800b891bd76f7505c92d6"
-const BarristerDateGenerated int64 = 1528871587387000000
+const BarristerChecksum string = "c73237e5efe85576316a52e1e91b9f48"
+const BarristerDateGenerated int64 = 1529091683990000000
 
 type CoinStatistic struct {
 	Height    int64 `json:"height"`
@@ -31,6 +31,7 @@ type Block struct {
 	GenerateBy BlockGenerator `json:"generateBy"`
 	Amount     int64          `json:"amount"`
 	Forged     int64          `json:"forged"`
+	Size       int64          `json:"size"`
 }
 
 type Transfer struct {
@@ -46,6 +47,7 @@ type Transfer struct {
 type AddressDetails struct {
 	Address      string `json:"address"`
 	TotalBalance int64  `json:"totalBalance"`
+	Nonce        int64  `json:"nonce"`
 }
 
 type Explorer interface {
@@ -243,6 +245,45 @@ func NewServer(idl *barrister.Idl, ser barrister.Serializer, explorer Explorer) 
 
 var IdlJsonRaw = `[
     {
+        "type": "comment",
+        "name": "",
+        "comment": "",
+        "value": "To compile this file:\n1. Install the barrister translator (IDL -\u003e JSON)\nyou need to be root (or use sudo)\npip install barrister",
+        "extends": "",
+        "fields": null,
+        "values": null,
+        "functions": null,
+        "barrister_version": "",
+        "date_generated": 0,
+        "checksum": ""
+    },
+    {
+        "type": "comment",
+        "name": "",
+        "comment": "",
+        "value": "2. Install barrister-go\ngo get github.com/coopernurse/barrister-go\ngo install github.com/coopernurse/barrister-go/idl2go",
+        "extends": "",
+        "fields": null,
+        "values": null,
+        "functions": null,
+        "barrister_version": "",
+        "date_generated": 0,
+        "checksum": ""
+    },
+    {
+        "type": "comment",
+        "name": "",
+        "comment": "",
+        "value": "3. barrister explorer.idl | $GOPATH/bin/idl2go -i -p explorer",
+        "extends": "",
+        "fields": null,
+        "values": null,
+        "functions": null,
+        "barrister_version": "",
+        "date_generated": 0,
+        "checksum": ""
+    },
+    {
         "type": "struct",
         "name": "CoinStatistic",
         "comment": "",
@@ -367,6 +408,13 @@ var IdlJsonRaw = `[
                 "optional": false,
                 "is_array": false,
                 "comment": ""
+            },
+            {
+                "name": "size",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
             }
         ],
         "values": null,
@@ -454,6 +502,13 @@ var IdlJsonRaw = `[
             },
             {
                 "name": "totalBalance",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "nonce",
                 "type": "int",
                 "optional": false,
                 "is_array": false,
@@ -683,7 +738,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1528871587387,
-        "checksum": "aaeb16db23c800b891bd76f7505c92d6"
+        "date_generated": 1529091683990,
+        "checksum": "c73237e5efe85576316a52e1e91b9f48"
     }
 ]`

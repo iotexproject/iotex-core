@@ -63,8 +63,8 @@ type Blockchain interface {
 	// AddBlockSync adds a past block into blockchain
 	// used by block syncer when the chain in out-of-sync
 	AddBlockSync(blk *Block) error
-	// BalanceOf returns the balance of a given address
-	BalanceOf(string) *big.Int
+	// BalanceNonceOf returns the balance and nonce of a given address
+	BalanceNonceOf(string) (*big.Int, uint64)
 	// CreateTransaction creates a signed transaction paying 'amount' from 'from' to 'to'
 	CreateTransaction(from *iotxaddress.Address, amount uint64, to []*Payee) *trx.Tx
 	// CreateRawTransaction creates an unsigned transaction paying 'amount' from 'from' to 'to'
@@ -376,19 +376,24 @@ func CreateBlockchain(cfg *config.Config, sf state.Factory) Blockchain {
 	return createAndInitBlockchain(kvStore, sf, cfg)
 }
 
-// BalanceOf returns the balance of an address
-func (bc *blockchain) BalanceOf(address string) *big.Int {
+// BalanceNonceOf returns the balance and nonce of an address
+func (bc *blockchain) BalanceNonceOf(address string) (*big.Int, uint64) {
 	if bc.sf != nil {
 		b, err := bc.sf.Balance(address)
 		if err != nil {
-			logger.Error().Err(err)
-			return big.NewInt(0)
+			logger.Warn().Err(err)
+			return big.NewInt(0), 1
 		}
-		return b
+		n, err := bc.sf.Nonce(address)
+		if err != nil {
+			logger.Warn().Err(err)
+			return big.NewInt(0), 1
+		}
+		return b, n
 	}
 
 	_, balance := bc.utk.UtxoEntries(address, math.MaxUint64)
-	return balance
+	return balance, 0
 }
 
 // UtxoPool returns the UTXO pool of current blockchain

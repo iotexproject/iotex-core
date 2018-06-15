@@ -26,11 +26,6 @@ import (
 	"github.com/iotexproject/iotex-core/test/mock/mock_dispatcher"
 )
 
-func decodeHash(in string) []byte {
-	hash, _ := hex.DecodeString(in)
-	return hash
-}
-
 func testingTransfer() *action.Transfer {
 	sender, _ := iotxaddress.NewAddress(true, []byte{0x00, 0x00, 0x00, 0x01})
 	recipient, _ := iotxaddress.NewAddress(true, []byte{0x00, 0x00, 0x00, 0x01})

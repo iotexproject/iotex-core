@@ -22,6 +22,6 @@ func (cli *CLI) getBalance(address string, config *config.Config) {
 	bc := blockchain.CreateBlockchain(config, nil)
 	defer bc.Stop()
 
-	balance := bc.BalanceOf(address)
+	balance, _ := bc.BalanceNonceOf(address)
 	fmt.Printf("Balance of '%s': %d\n", address, balance)
 }

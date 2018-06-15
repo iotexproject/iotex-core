@@ -21,14 +21,14 @@ type Service struct {
 
 // GetAddressBalance returns the balance of an address
 func (exp *Service) GetAddressBalance(address string) (int64, error) {
-	bal := exp.bc.BalanceOf(address)
+	bal, _ := exp.bc.BalanceNonceOf(address)
 	return bal.Int64(), nil
 }
 
 // GetAddressDetails returns the properties of an address
 func (exp *Service) GetAddressDetails(address string) (explorer.AddressDetails, error) {
-	bal := exp.bc.BalanceOf(address)
-	return explorer.AddressDetails{Address: address, TotalBalance: bal.Int64()}, nil
+	bal, non := exp.bc.BalanceNonceOf(address)
+	return explorer.AddressDetails{Address: address, TotalBalance: bal.Int64(), Nonce: int64(non)}, nil
 }
 
 // GetLastTransfersByRange return transfers in [-(offset+limit-1), -offset] from block
@@ -208,8 +208,10 @@ func (exp *Service) GetLastBlocksByRange(offset int64, limit int64) ([]explorer.
 		}
 
 		totalAmount := int64(0)
+		totalSize := uint32(0)
 		for _, transfer := range blk.Transfers {
 			totalAmount += transfer.Amount.Int64()
+			totalSize += transfer.TotalSize()
 		}
 
 		explorerBlock := explorer.Block{
@@ -218,6 +220,7 @@ func (exp *Service) GetLastBlocksByRange(offset int64, limit int64) ([]explorer.
 			Timestamp: int64(blockHeaderPb.Timestamp),
 			Transfers: int64(len(blk.Transfers)),
 			Amount:    totalAmount,
+			Size:      int64(totalSize),
 		}
 
 		res = append(res, explorerBlock)
@@ -243,8 +246,10 @@ func (exp *Service) GetBlockByID(blockID string) (explorer.Block, error) {
 	blkHeaderPb := blk.ConvertToBlockHeaderPb()
 
 	totalAmount := int64(0)
+	totalSize := uint32(0)
 	for _, transfer := range blk.Transfers {
 		totalAmount += transfer.Amount.Int64()
+		totalSize += transfer.TotalSize()
 	}
 
 	explorerBlock := explorer.Block{
@@ -253,6 +258,7 @@ func (exp *Service) GetBlockByID(blockID string) (explorer.Block, error) {
 		Timestamp: int64(blkHeaderPb.Timestamp),
 		Transfers: int64(len(blk.Transfers)),
 		Amount:    totalAmount,
+		Size:      int64(totalSize),
 	}
 
 	return explorerBlock, nil
