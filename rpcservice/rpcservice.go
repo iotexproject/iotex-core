@@ -44,6 +44,8 @@ func NewChainServer(c config.RPC, b blockchain.Blockchain, dp dispatcher.Dispatc
 
 // CreateRawTransfer creates an unsigned raw transaction
 func (s *Chainserver) CreateRawTransfer(ctx context.Context, in *pb.CreateRawTransferRequest) (*pb.CreateRawTransferResponse, error) {
+	logger.Debug().Msg("receive create raw transfer request")
+
 	if len(in.Sender) == 0 || len(in.Recipient) == 0 {
 		return nil, errors.New("invalid CreateRawTransferRequest")
 	}
@@ -60,6 +62,8 @@ func (s *Chainserver) CreateRawTransfer(ctx context.Context, in *pb.CreateRawTra
 
 // SendTransfer sends out a signed raw transaction
 func (s *Chainserver) SendTransfer(ctx context.Context, in *pb.SendTransferRequest) (*pb.SendTransferResponse, error) {
+	logger.Debug().Msg("receive send transfer request")
+
 	if len(in.SerializedTransfer) == 0 {
 		return nil, errors.New("invalid SendTransferRequest")
 	}
@@ -121,7 +125,7 @@ func (s *Chainserver) Start() error {
 		return nil
 	}
 
-	lis, err := net.Listen("tcp", s.config.Port)
+	lis, err := net.Listen("tcp", s.config.Addr)
 	if err != nil {
 		logger.Error().Err(err).Msg("Chain server failed to listen")
 		return err

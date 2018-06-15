@@ -144,7 +144,7 @@ type Delegate struct {
 
 // RPC is the chain service config
 type RPC struct {
-	Port string `yaml:"port"`
+	Addr string `yaml:"addr"`
 }
 
 // Dispatcher is the dispatcher config

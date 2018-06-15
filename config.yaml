@@ -59,7 +59,7 @@ delegate:
         - "127.0.0.1:10000"
 
 rpc:
-    port: ":42124"
+    addr: "127.0.0.1::42124"
 
 dispatcher:
     eventChanSize: 1024

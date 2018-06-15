@@ -45,8 +45,10 @@ func StartJSONServer(blockchain blockchain.Blockchain, isTest bool, port string)
 	http.Handle("/", &svr)
 
 	logger.Info().Msg("Starting Explorer JSON-RPC server on localhost:" + port)
-	if err := http.ListenAndServe(":"+port, nil); err != nil {
-		logger.Error().Msg(err.Error())
-		panic(err)
-	}
+	go func() {
+		if err := http.ListenAndServe(":"+port, nil); err != nil {
+			logger.Error().Msg(err.Error())
+			panic(err)
+		}
+	}()
 }
