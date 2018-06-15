@@ -53,6 +53,10 @@ func NewConsensus(
 	cs := &IotxConsensus{cfg: &cfg.Consensus}
 	mintBlockCB := func() (*blockchain.Block, error) {
 		transfers, votes := ap.PickActs()
+		logger.Debug().
+			Int("transfer", len(transfers)).
+			Int("votes", len(votes)).
+			Msg("pick actions")
 		blk, err := bc.MintNewBlock(tp.PickTxs(), transfers, votes, &cfg.Chain.MinerAddr, "")
 		if err != nil {
 			logger.Error().Msg("Failed to mint a block")

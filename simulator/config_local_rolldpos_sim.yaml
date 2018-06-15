@@ -53,7 +53,7 @@ delegate:
         - "INIT BY CODE"
 
 rpc:
-    port: ":50051"
+    addr: "127.0.0.1:50051"
 
 dispatcher:
     eventChanSize: 1024

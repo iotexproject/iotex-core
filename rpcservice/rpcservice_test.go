@@ -46,7 +46,7 @@ func testingVote() *action.Vote {
 func TestCreateRawTransfer(t *testing.T) {
 	cfg := config.Config{
 		RPC: config.RPC{
-			Port: ":42124",
+			Addr: "127.0.0.1:42124",
 		},
 	}
 
@@ -87,7 +87,7 @@ func TestCreateRawTransfer(t *testing.T) {
 func TestCreateRawVote(t *testing.T) {
 	cfg := config.Config{
 		RPC: config.RPC{
-			Port: ":42124",
+			Addr: "127.0.0.1:42124",
 		},
 	}
 
@@ -130,7 +130,7 @@ func TestCreateRawVote(t *testing.T) {
 func TestSendTransfer(t *testing.T) {
 	cfg := config.Config{
 		RPC: config.RPC{
-			Port: ":42124",
+			Addr: "127.0.0.1:42124",
 		},
 	}
 
@@ -172,7 +172,7 @@ func TestSendTransfer(t *testing.T) {
 func TestSendVote(t *testing.T) {
 	cfg := config.Config{
 		RPC: config.RPC{
-			Port: ":42124",
+			Addr: "127.0.0.1:42124",
 		},
 	}
 
