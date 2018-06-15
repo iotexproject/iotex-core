@@ -83,6 +83,11 @@ func (s *Server) Tp() txpool.TxPool {
 	return s.tp
 }
 
+// Ap returns the Action pool
+func (s *Server) Ap() txpool.ActPool {
+	return s.ap
+}
+
 // P2p returns the P2P network
 func (s *Server) P2p() *network.Overlay {
 	return s.o
