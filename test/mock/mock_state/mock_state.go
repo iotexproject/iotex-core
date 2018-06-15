@@ -74,18 +74,6 @@ func (mr *MockFactoryMockRecorder) CommitStateChanges(arg0, arg1, arg2 interface
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitStateChanges", reflect.TypeOf((*MockFactory)(nil).CommitStateChanges), arg0, arg1, arg2)
 }
 
-// SetNonce mocks base method
-func (m *MockFactory) SetNonce(arg0 string, arg1 uint64) error {
-	ret := m.ctrl.Call(m, "SetNonce", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetNonce indicates an expected call of SetNonce
-func (mr *MockFactoryMockRecorder) SetNonce(arg0, arg1 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetNonce", reflect.TypeOf((*MockFactory)(nil).SetNonce), arg0, arg1)
-}
-
 // Nonce mocks base method
 func (m *MockFactory) Nonce(arg0 string) (uint64, error) {
 	ret := m.ctrl.Call(m, "Nonce", arg0)

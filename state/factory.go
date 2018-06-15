@@ -19,17 +19,16 @@ import (
 	"github.com/iotexproject/iotex-core/trie"
 )
 
-//const (
-//	delegateSize  = 101
-//	candidateSize = 400
-//	bufferSize    = 10000
-//)
-
 const (
 	// Level 1 is for candidate pool
 	candidatePool = 1
 	// Level 2 is for candidate buffer pool
 	candidateBufferPool = candidatePool + 1
+
+	// TODO: make this configurable
+	//	delegateSize  = 101
+	//	candidateSize = 400
+	//	bufferSize    = 10000
 )
 
 // TODO: this is only for test config, use 101, 400, 10000 when in production
@@ -61,7 +60,6 @@ type (
 		CreateState(string, uint64) (*State, error)
 		Balance(string) (*big.Int, error)
 		CommitStateChanges(uint64, []*action.Transfer, []*action.Vote) error
-		SetNonce(string, uint64) error
 		Nonce(string) (uint64, error)
 		RootHash() common.Hash32B
 		Candidates() (uint64, []*Candidate)
@@ -137,21 +135,6 @@ func (sf *factory) Nonce(addr string) (uint64, error) {
 		return 0, err
 	}
 	return state.Nonce, nil
-}
-
-// SetNonce returns the nonce if the account exists
-func (sf *factory) SetNonce(addr string, value uint64) error {
-	state, err := sf.getState(addr)
-	if err != nil {
-		return err
-	}
-	state.Nonce = value
-
-	mstate, err := stateToBytes(state)
-	if err != nil {
-		return err
-	}
-	return sf.trie.Upsert(iotxaddress.GetPubkeyHash(addr), mstate)
 }
 
 // RootHash returns the hash of the root node of the trie
