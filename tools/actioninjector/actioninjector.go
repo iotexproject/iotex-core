@@ -27,7 +27,6 @@ import (
 )
 
 const (
-	port = ":42124"
 	// Miner's public/private key pair is used as sender's key pair
 	pubkeyMiner = "336eb60a5741f585a8e81de64e071327a3b96c15af4af5723598a07b6121e8e813bbd0056ba71ae29c0d64252e913f60afaeb11059908b81ff27cbfa327fd371d35f5ec0cbc01705"
 	prikeyMiner = "925f0c9e4b6f6d92f2961d01aff6204c44d73c0b9d0da188582932d4fcad0d8ee8c66600"
@@ -41,18 +40,33 @@ const (
 )
 
 func main() {
-	var count int
-	flag.IntVar(&count, "count", 10, "number of action injections")
+	// target address for grpc connection. Default is "127.0.0.1:42124"
+	var addr string
+	// number of transfer injections. Default is 50
+	var transferNum int
+	// number of vote injections. Default is 50
+	var voteNum int
+	// sleeping period between every two consecutive action injections in seconds. Default is 5
+	var interval int
+	flag.StringVar(&addr, "address", "127.0.0.1:42124", "target address for grpc connection")
+	flag.IntVar(&transferNum, "transfer-num", 50, "number of transfer injections")
+	flag.IntVar(&voteNum, "vote-num", 50, "number of vote injections")
+	flag.IntVar(&interval, "interval", 5, "sleep interval of two consecutively injected actions in seconds")
 	flag.Parse()
-	conn, err := grpc.Dial("127.0.0.1"+port, grpc.WithInsecure())
+	conn, err := grpc.Dial(addr, grpc.WithInsecure())
 	if err != nil {
 		panic(err)
 	}
 	defer conn.Close()
 
 	c := pb.NewChainServiceClient(conn)
-	// Stop injections after 10 minutes
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
+	var ctx context.Context
+	var cancel context.CancelFunc
+	if interval == 0 {
+		ctx, cancel = context.WithTimeout(context.Background(), time.Second)
+	} else {
+		ctx, cancel = context.WithTimeout(context.Background(), time.Second*time.Duration(interval*(transferNum+voteNum)))
+	}
 	defer cancel()
 
 	sender := constructAddress(pubkeyMiner, prikeyMiner)
@@ -61,13 +75,28 @@ func main() {
 	recipientC := constructAddress(pubkeyC, prikeyC)
 	recipients := []*iotxaddress.Address{recipientA, recipientB, recipientC}
 	rand.Seed(time.Now().UnixNano())
-	for i := 1; ; i++ {
+
+	i := 1
+	for ; transferNum > 0 && voteNum > 0; i += 2 {
 		injectTransfer(ctx, c, sender, recipients[rand.Intn(3)], uint64(i))
-		time.Sleep(time.Second * 5)
-		if (i+1)%3 == 0 {
-			injectVote(ctx, c, sender, recipients[rand.Intn(3)], uint64(i+1))
-			time.Sleep(time.Second * 5)
-			i++
+		time.Sleep(time.Second * time.Duration(interval))
+		injectVote(ctx, c, sender, recipients[rand.Intn(3)], uint64(i+1))
+		time.Sleep(time.Second * time.Duration(interval))
+		transferNum--
+		voteNum--
+	}
+	switch {
+	case transferNum > 0:
+		for ; transferNum > 0; i++ {
+			injectTransfer(ctx, c, sender, recipients[rand.Intn(3)], uint64(i))
+			time.Sleep(time.Second * time.Duration(interval))
+			transferNum--
+		}
+	case voteNum > 0:
+		for ; voteNum > 0; i++ {
+			injectVote(ctx, c, sender, recipients[rand.Intn(3)], uint64(i))
+			time.Sleep(time.Second * time.Duration(interval))
+			voteNum--
 		}
 	}
 }
