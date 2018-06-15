@@ -1,3 +1,14 @@
+// To compile this file:
+// 1. Install the barrister translator (IDL -> JSON)
+// you need to be root (or use sudo)
+// pip install barrister
+
+// 2. Install barrister-go
+// go get github.com/coopernurse/barrister-go
+// go install github.com/coopernurse/barrister-go/idl2go
+
+// 3. barrister explorer.idl | $GOPATH/bin/idl2go -i -p explorer
+
 struct CoinStatistic {
     height int
     supply int
@@ -18,6 +29,7 @@ struct Block {
     generateBy BlockGenerator
     amount int
     forged int
+    size int
 }
 
 struct Transfer {
@@ -33,6 +45,7 @@ struct Transfer {
 struct AddressDetails {
     address string
     totalBalance int
+    nonce int
 }
 
 interface Explorer {

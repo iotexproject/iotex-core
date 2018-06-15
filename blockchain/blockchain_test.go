@@ -438,9 +438,11 @@ func TestCoinbaseTransfer(t *testing.T) {
 	transfers := []*action.Transfer{}
 	blk, err := bc.MintNewBlock([]*trx.Tx{}, transfers, nil, ta.Addrinfo["miner"], "")
 	assert.Nil(t, err)
-	require.True(bc.BalanceOf(ta.Addrinfo["miner"].RawAddress).String() == "10000000000")
+	bal, _ := bc.BalanceNonceOf(ta.Addrinfo["miner"].RawAddress)
+	require.True(bal.String() == "10000000000")
 	err = bc.AddBlockCommit(blk)
 	assert.Nil(t, err)
 	bc.ResetUTXO()
-	require.True(bc.BalanceOf(ta.Addrinfo["miner"].RawAddress).String() == strconv.Itoa(10000000000+int(Gen.BlockReward)))
+	bal, _ = bc.BalanceNonceOf(ta.Addrinfo["miner"].RawAddress)
+	require.True(bal.String() == strconv.Itoa(10000000000+int(Gen.BlockReward)))
 }

@@ -71,30 +71,30 @@ func TestLocalCommit(t *testing.T) {
 	defer p1.Stop()
 
 	// check UTXO
-	change := bc.BalanceOf(ta.Addrinfo["alfa"].RawAddress)
+	change, _ := bc.BalanceNonceOf(ta.Addrinfo["alfa"].RawAddress)
 	t.Logf("Alfa balance = %d", change)
 
-	beta := bc.BalanceOf(ta.Addrinfo["bravo"].RawAddress)
+	beta, _ := bc.BalanceNonceOf(ta.Addrinfo["bravo"].RawAddress)
 	t.Logf("Bravo balance = %d", beta)
 	change.Add(change, beta)
 
-	beta = bc.BalanceOf(ta.Addrinfo["charlie"].RawAddress)
+	beta, _ = bc.BalanceNonceOf(ta.Addrinfo["charlie"].RawAddress)
 	t.Logf("Charlie balance = %d", beta)
 	change.Add(change, beta)
 
-	beta = bc.BalanceOf(ta.Addrinfo["delta"].RawAddress)
+	beta, _ = bc.BalanceNonceOf(ta.Addrinfo["delta"].RawAddress)
 	t.Logf("Delta balance = %d", beta)
 	change.Add(change, beta)
 
-	beta = bc.BalanceOf(ta.Addrinfo["echo"].RawAddress)
+	beta, _ = bc.BalanceNonceOf(ta.Addrinfo["echo"].RawAddress)
 	t.Logf("Echo balance = %d", beta)
 	change.Add(change, beta)
 
-	fox := bc.BalanceOf(ta.Addrinfo["foxtrot"].RawAddress)
+	fox, _ := bc.BalanceNonceOf(ta.Addrinfo["foxtrot"].RawAddress)
 	t.Logf("Foxtrot balance = %d", fox)
 	change.Add(change, fox)
 
-	test := bc.BalanceOf(ta.Addrinfo["miner"].RawAddress)
+	test, _ := bc.BalanceNonceOf(ta.Addrinfo["miner"].RawAddress)
 	t.Logf("test balance = %d", test)
 	change.Add(change, test)
 
@@ -163,30 +163,30 @@ func TestLocalCommit(t *testing.T) {
 	t.Log("----- Block height = ", height)
 
 	// check UTXO
-	change = bc.BalanceOf(ta.Addrinfo["alfa"].RawAddress)
+	change, _ = bc.BalanceNonceOf(ta.Addrinfo["alfa"].RawAddress)
 	t.Logf("Alfa balance = %d", change)
 
-	beta = bc.BalanceOf(ta.Addrinfo["bravo"].RawAddress)
+	beta, _ = bc.BalanceNonceOf(ta.Addrinfo["bravo"].RawAddress)
 	t.Logf("Bravo balance = %d", beta)
 	change.Add(change, beta)
 
-	beta = bc.BalanceOf(ta.Addrinfo["charlie"].RawAddress)
+	beta, _ = bc.BalanceNonceOf(ta.Addrinfo["charlie"].RawAddress)
 	t.Logf("Charlie balance = %d", beta)
 	change.Add(change, beta)
 
-	beta = bc.BalanceOf(ta.Addrinfo["delta"].RawAddress)
+	beta, _ = bc.BalanceNonceOf(ta.Addrinfo["delta"].RawAddress)
 	t.Logf("Delta balance = %d", beta)
 	change.Add(change, beta)
 
-	beta = bc.BalanceOf(ta.Addrinfo["echo"].RawAddress)
+	beta, _ = bc.BalanceNonceOf(ta.Addrinfo["echo"].RawAddress)
 	t.Logf("Echo balance = %d", beta)
 	change.Add(change, beta)
 
-	beta = bc.BalanceOf(ta.Addrinfo["foxtrot"].RawAddress)
+	beta, _ = bc.BalanceNonceOf(ta.Addrinfo["foxtrot"].RawAddress)
 	t.Logf("Foxtrot balance = %d", beta)
 	change.Add(change, beta)
 
-	beta = bc.BalanceOf(ta.Addrinfo["miner"].RawAddress)
+	beta, _ = bc.BalanceNonceOf(ta.Addrinfo["miner"].RawAddress)
 	t.Logf("test balance = %d", beta)
 	change.Add(change, beta)
 

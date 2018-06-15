@@ -119,42 +119,48 @@ func TestExplorerApi(t *testing.T) {
 		bc: bc,
 	}
 
-	transfers, getErr := svc.GetTransfersByAddress(ta.Addrinfo["charlie"].RawAddress)
-	require.Nil(getErr)
+	transfers, err := svc.GetTransfersByAddress(ta.Addrinfo["charlie"].RawAddress)
+	require.Nil(err)
 	require.Equal(len(transfers), 5)
 
-	transfers, getErr = svc.GetLastTransfersByRange(4, 1, 3)
+	transfers, err = svc.GetLastTransfersByRange(4, 1, 3)
 	require.Equal(len(transfers), 3)
-	transfers, getErr = svc.GetLastTransfersByRange(4, 4, 5)
+	require.Nil(err)
+	transfers, err = svc.GetLastTransfersByRange(4, 4, 5)
 	require.Equal(len(transfers), 5)
+	require.Nil(err)
 
 	blks, getBlkErr := svc.GetLastBlocksByRange(3, 4)
 	require.Nil(getBlkErr)
 	require.Equal(len(blks), 4)
 
-	transfers, getErr = svc.GetTransfersByBlockID(blks[2].ID)
-	require.Nil(getErr)
+	transfers, err = svc.GetTransfersByBlockID(blks[2].ID)
+	require.Nil(err)
 	require.Equal(len(transfers), 2)
 
-	transfer, getErr := svc.GetTransferByID(transfers[0].ID)
+	transfer, err := svc.GetTransferByID(transfers[0].ID)
+	require.Nil(err)
 	require.Equal(transfer.Sender, transfers[0].Sender)
 	require.Equal(transfer.Recipient, transfers[0].Recipient)
 
-	blk, getErr := svc.GetBlockByID(blks[0].ID)
+	blk, err := svc.GetBlockByID(blks[0].ID)
+	require.Nil(err)
 	require.Equal(blk.Height, blks[0].Height)
 	require.Equal(blk.Timestamp, blks[0].Timestamp)
+	require.Equal(blk.Size, blks[0].Size)
 
-	stats, getStatsErr := svc.GetCoinStatistic()
-	require.Nil(getStatsErr)
+	stats, err := svc.GetCoinStatistic()
+	require.Nil(err)
 	require.Equal(stats.Supply, int64(10000000000))
 	require.Equal(stats.Height, int64(4))
 
-	balance, getBalanceErr := svc.GetAddressBalance(ta.Addrinfo["charlie"].RawAddress)
-	require.Nil(getBalanceErr)
+	balance, err := svc.GetAddressBalance(ta.Addrinfo["charlie"].RawAddress)
+	require.Nil(err)
 	require.Equal(balance, int64(46))
 
-	addressDetails, getDetailErr := svc.GetAddressDetails(ta.Addrinfo["charlie"].RawAddress)
-	require.Nil(getDetailErr)
+	addressDetails, err := svc.GetAddressDetails(ta.Addrinfo["charlie"].RawAddress)
+	require.Nil(err)
 	require.Equal(addressDetails.TotalBalance, int64(46))
+	require.Equal(addressDetails.Nonce, int64(0))
 	require.Equal(addressDetails.Address, ta.Addrinfo["charlie"].RawAddress)
 }

@@ -95,9 +95,8 @@ func TestActPool_validateVote(t *testing.T) {
 	ap := NewActPool(sf).(*actPool)
 	assert.NotNil(ap)
 	// Case I: Oversized Data
-	selfPubKey := []byte{}
 	tmpSelfPubKey := [32769]byte{}
-	selfPubKey = tmpSelfPubKey[:]
+	selfPubKey := tmpSelfPubKey[:]
 	vote := action.Vote{&pb.VotePb{SelfPubkey: selfPubKey}}
 	err := ap.validateVote(&vote)
 	assert.Equal(ErrActPool, errors.Cause(err))

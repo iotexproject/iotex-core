@@ -254,16 +254,17 @@ func (mr *MockBlockchainMockRecorder) AddBlockSync(blk interface{}) *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddBlockSync", reflect.TypeOf((*MockBlockchain)(nil).AddBlockSync), blk)
 }
 
-// BalanceOf mocks base method
-func (m *MockBlockchain) BalanceOf(arg0 string) *big.Int {
-	ret := m.ctrl.Call(m, "BalanceOf", arg0)
+// BalanceNonceOf mocks base method
+func (m *MockBlockchain) BalanceNonceOf(arg0 string) (*big.Int, uint64) {
+	ret := m.ctrl.Call(m, "BalanceNonceOf", arg0)
 	ret0, _ := ret[0].(*big.Int)
-	return ret0
+	ret1, _ := ret[1].(uint64)
+	return ret0, ret1
 }
 
-// BalanceOf indicates an expected call of BalanceOf
-func (mr *MockBlockchainMockRecorder) BalanceOf(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BalanceOf", reflect.TypeOf((*MockBlockchain)(nil).BalanceOf), arg0)
+// BalanceNonceOf indicates an expected call of BalanceNonceOf
+func (mr *MockBlockchainMockRecorder) BalanceNonceOf(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BalanceNonceOf", reflect.TypeOf((*MockBlockchain)(nil).BalanceNonceOf), arg0)
 }
 
 // CreateTransaction mocks base method

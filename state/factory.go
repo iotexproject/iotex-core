@@ -60,6 +60,7 @@ type (
 		CreateState(string, uint64) (*State, error)
 		Balance(string) (*big.Int, error)
 		CommitStateChanges(uint64, []*action.Transfer, []*action.Vote) error
+		// Note that nonce starts with 1.
 		Nonce(string) (uint64, error)
 		RootHash() common.Hash32B
 		Candidates() (uint64, []*Candidate)
