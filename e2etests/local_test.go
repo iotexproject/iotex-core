@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotexproject/iotex-core/blockchain"
-	trx "github.com/iotexproject/iotex-core/blockchain/trx"
+	"github.com/iotexproject/iotex-core/blockchain/trx"
 	cm "github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/logger"
@@ -114,8 +114,16 @@ func TestLocalCommit(t *testing.T) {
 	payee = append(payee, &blockchain.Payee{ta.Addrinfo["alfa"].RawAddress, 1})
 	tx := bc.CreateTransaction(ta.Addrinfo["charlie"], 1, payee)
 	bc.ResetUTXO()
-	p1.Broadcast(tx.ConvertToTxPb())
-	time.Sleep(time.Second)
+	check := util.CheckCondition(func() (bool, error) {
+		p1.Broadcast(tx.ConvertToTxPb())
+		hash := tx.Hash()
+		if tx, _ := tp.FetchTx(&hash); tx != nil {
+			return true, nil
+		}
+		return false, nil
+	})
+	err = util.WaitUntil(time.Millisecond*10, time.Millisecond*2000, check)
+	assert.Nil(err)
 
 	blk1, err := bc.MintNewBlock(tp.PickTxs(), nil, nil, ta.Addrinfo["miner"], "")
 	assert.Nil(err)
@@ -151,13 +159,23 @@ func TestLocalCommit(t *testing.T) {
 	p2.Broadcast(tx4.ConvertToTxPb())
 
 	// send block 2-4-1-3 out of order
-	p2.Broadcast(blk2.ConvertToBlockPb())
+	p1.Broadcast(blk2.ConvertToBlockPb())
 	p1.Broadcast(blk4.ConvertToBlockPb())
 	p1.Broadcast(blk1.ConvertToBlockPb())
-	p2.Broadcast(blk3.ConvertToBlockPb())
+	p1.Broadcast(blk3.ConvertToBlockPb())
 	time.Sleep(time.Second)
 
-	// TODO: TipHeight should be 8 here
+	// TipHeight should be 8 here
+	//check = util.CheckCondition(func() (bool, error) {
+	//	height, _ = bc.TipHeight()
+	//	if height == 8 {
+	//		return true, nil
+	//	}
+	//	return false, nil
+	//})
+	//err = util.WaitUntil(time.Millisecond*10, time.Second * 5, check)
+	//assert.Nil(err)
+
 	height, err = bc.TipHeight()
 	assert.Nil(err)
 	t.Log("----- Block height = ", height)
