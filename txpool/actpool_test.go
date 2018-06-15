@@ -58,21 +58,25 @@ func TestActPool_validateTsf(t *testing.T) {
 	sf.CreateState(addr1.RawAddress, uint64(100))
 	ap := NewActPool(sf).(*actPool)
 	assert.NotNil(ap)
-	// Case I: Oversized Data
+	// Case I: Coinbase Transfer
+	coinbaseTsf := action.Transfer{IsCoinbase: true}
+	err := ap.validateTsf(&coinbaseTsf)
+	assert.Equal(ErrTransfer, errors.Cause(err))
+	// Case II: Oversized Data
 	tmpPayload := [32769]byte{}
 	payload := tmpPayload[:]
 	tsf := action.Transfer{Payload: payload}
-	err := ap.validateTsf(&tsf)
+	err = ap.validateTsf(&tsf)
 	assert.Equal(ErrActPool, errors.Cause(err))
-	// Case II: Negative Amount
+	// Case III: Negative Amount
 	tsf = action.Transfer{Amount: big.NewInt(-100)}
 	err = ap.validateTsf(&tsf)
 	assert.NotNil(ErrBalance, errors.Cause(err))
-	// Case III: Signature Verification Fails
+	// Case IV: Signature Verification Fails
 	unsignedTsf := action.NewTransfer(uint64(1), big.NewInt(1), addr1.RawAddress, addr1.RawAddress)
 	err = ap.validateTsf(unsignedTsf)
 	assert.Equal(action.ErrTransferError, errors.Cause(err))
-	// Case IV: Nonce is too low
+	// Case V: Nonce is too low
 	prevTsf, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(50))
 	ap.AddTsf(prevTsf)
 	err = ap.sf.CommitStateChanges(0, []*action.Transfer{prevTsf}, nil)
