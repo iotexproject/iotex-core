@@ -8,6 +8,7 @@ package trie
 
 import (
 	"container/list"
+	"sync"
 
 	"github.com/pkg/errors"
 
@@ -45,6 +46,7 @@ type (
 
 	// trie implements the Trie interface
 	trie struct {
+		mutex     sync.RWMutex
 		dao       db.KVStore
 		root      patricia
 		toRoot    *list.List // stores the path from root to diverging node
@@ -77,17 +79,122 @@ func NewTrie(path string, inMem bool) (Trie, error) {
 
 // Close close the DB
 func (t *trie) Close() error {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
 	return t.dao.Stop()
 }
 
 // Upsert a new entry
 func (t *trie) Upsert(key, value []byte) error {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
+	return t.upsert(key, value)
+}
+
+// Get an existing entry
+func (t *trie) Get(key []byte) ([]byte, error) {
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+
+	ptr, size, err := t.query(key)
+	t.clear()
+	if size != len(key) {
+		return nil, errors.Wrapf(ErrNotExist, "key = %x not exist", key)
+	}
+	if err != nil {
+		return nil, err
+	}
+	// retrieve the value from terminal patricia node
+	size = len(key)
+	return t.getValue(ptr, key[size-1])
+}
+
+// Delete an entry
+func (t *trie) Delete(key []byte) error {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
+	var ptr patricia
+	var size int
+	var err error
+	ptr, size, err = t.query(key)
+	if size != len(key) {
+		return errors.Wrapf(ErrNotExist, "key = %x not exist", key)
+	}
+	if err != nil {
+		return err
+	}
+	var index byte
+	var childClps bool
+	var clpsType byte
+	t.clpsK, t.clpsV = nil, nil
+	if _, ok := ptr.(*branch); ok {
+		// for branch, the entry to delete is the leaf matching last byte of path
+		size = len(key)
+		index = key[size-1]
+		if ptr, err = t.getPatricia(ptr.(*branch).Path[index]); err != nil {
+			return err
+		}
+	} else {
+		ptr, index = t.popToRoot()
+	}
+	// delete the entry and update if it can collapse
+	if childClps, clpsType, err = t.delete(ptr, index); err != nil {
+		return err
+	}
+	if t.numEntry == 1 {
+		return errors.Wrapf(ErrInvalidTrie, "trie has more entries than ever added")
+	}
+	t.numEntry--
+	if t.numEntry == 2 {
+		// only 1 entry left (the other being the root), collapse into leaf
+		clpsType = 0
+	}
+	// update upstream nodes on path ascending to root
+	return t.updateDelete(ptr, childClps, clpsType)
+}
+
+// Commit writes an array <k[], v[]> as a batch
+func (t *trie) Commit(k, v [][]byte) error {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
+	size := len(k)
+	if size != len(v) {
+		return errors.Wrap(ErrInvalidTrie, "commit <k, v> size not match")
+	}
+	for i := 0; i < size; i++ {
+		if err := t.upsert(k[i], v[i]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// RootHash returns the root hash of merkle patricia trie
+func (t *trie) RootHash() common.Hash32B {
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+
+	return t.root.hash()
+}
+
+//======================================
+// private functions
+//======================================
+
+// upsert a new entry
+func (t *trie) upsert(key, value []byte) error {
 	var ptr patricia
 	var size int
 	var err error
 	var hashChild common.Hash32B
 	ptr, size, err = t.query(key)
 	if err != nil {
+		// TODO: nil ptr could happen: https://github.com/iotexproject/iotex-core-internal/issues/447. Add mutex
+		// to Trie to walk around, but we need to figure out the root cause
 		// key does not exist, insert at the diverging patricia node
 		nb, ne, nl := ptr.increase(key[size:])
 		addNode := list.New()
@@ -153,85 +260,6 @@ func (t *trie) Upsert(key, value []byte) error {
 	return t.updateInsert(hashChild[:])
 }
 
-// Get an existing entry
-func (t *trie) Get(key []byte) ([]byte, error) {
-	ptr, size, err := t.query(key)
-	t.clear()
-	if size != len(key) {
-		return nil, errors.Wrapf(ErrNotExist, "key = %x not exist", key)
-	}
-	if err != nil {
-		return nil, err
-	}
-	// retrieve the value from terminal patricia node
-	size = len(key)
-	return t.getValue(ptr, key[size-1])
-}
-
-// Delete an entry
-func (t *trie) Delete(key []byte) error {
-	var ptr patricia
-	var size int
-	var err error
-	ptr, size, err = t.query(key)
-	if size != len(key) {
-		return errors.Wrapf(ErrNotExist, "key = %x not exist", key)
-	}
-	if err != nil {
-		return err
-	}
-	var index byte
-	var childClps bool
-	var clpsType byte
-	t.clpsK, t.clpsV = nil, nil
-	if _, ok := ptr.(*branch); ok {
-		// for branch, the entry to delete is the leaf matching last byte of path
-		size = len(key)
-		index = key[size-1]
-		if ptr, err = t.getPatricia(ptr.(*branch).Path[index]); err != nil {
-			return err
-		}
-	} else {
-		ptr, index = t.popToRoot()
-	}
-	// delete the entry and update if it can collapse
-	if childClps, clpsType, err = t.delete(ptr, index); err != nil {
-		return err
-	}
-	if t.numEntry == 1 {
-		return errors.Wrapf(ErrInvalidTrie, "trie has more entries than ever added")
-	}
-	t.numEntry--
-	if t.numEntry == 2 {
-		// only 1 entry left (the other being the root), collapse into leaf
-		clpsType = 0
-	}
-	// update upstream nodes on path ascending to root
-	return t.updateDelete(ptr, childClps, clpsType)
-}
-
-// Commit writes an array <k[], v[]> as a batch
-func (t *trie) Commit(k, v [][]byte) error {
-	size := len(k)
-	if size != len(v) {
-		return errors.Wrap(ErrInvalidTrie, "commit <k, v> size not match")
-	}
-	for i := 0; i < size; i++ {
-		if err := t.Upsert(k[i], v[i]); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// RootHash returns the root hash of merkle patricia trie
-func (t *trie) RootHash() common.Hash32B {
-	return t.root.hash()
-}
-
-//======================================
-// private functions
-//======================================
 // query returns the diverging patricia node, and length of matching path in bytes
 func (t *trie) query(key []byte) (patricia, int, error) {
 	ptr := t.root
@@ -311,8 +339,8 @@ func (t *trie) updateInsert(hashChild []byte) error {
 		}
 		// delete the current node
 		hashCurr := curr.hash()
-		logger.Info().Hex("curr key", hashCurr[:8]).Msg("10-4")
-		logger.Info().Hex("child key", hashChild[:8]).Msg("10-4")
+		logger.Debug().Hex("curr key", hashCurr[:8]).Msg("10-4")
+		logger.Debug().Hex("child key", hashChild[:8]).Msg("10-4")
 		if err := t.delPatricia(curr); err != nil {
 			return err
 		}
@@ -334,7 +362,7 @@ func (t *trie) updateInsert(hashChild []byte) error {
 func (t *trie) updateDelete(curr patricia, currClps bool, clpsType byte) error {
 	contClps := false
 	for t.toRoot.Len() > 0 {
-		logger.Info().Int("stack size", t.toRoot.Len()).Msg("clps")
+		logger.Debug().Int("stack size", t.toRoot.Len()).Msg("clps")
 		next, index := t.popToRoot()
 		if next == nil {
 			return errors.Wrap(ErrInvalidPatricia, "patricia pushed on stack is not valid")
@@ -349,8 +377,8 @@ func (t *trie) updateDelete(curr patricia, currClps bool, clpsType byte) error {
 		noEntry := t.clpsK == nil && t.clpsV == nil
 		var nextClps bool
 		t.clpsK, t.clpsV, nextClps = next.collapse(t.clpsK, t.clpsV, index, currClps && (!isRoot || noEntry))
-		logger.Info().Bool("curr", currClps).Msg("clps")
-		logger.Info().Bool("next", nextClps).Msg("clps")
+		logger.Debug().Bool("curr", currClps).Msg("clps")
+		logger.Debug().Bool("next", nextClps).Msg("clps")
 		if nextClps {
 			// current node can also collapse, concatenate the path and keep going
 			contClps = true
@@ -360,7 +388,7 @@ func (t *trie) updateDelete(curr patricia, currClps bool, clpsType byte) error {
 				continue
 			}
 		}
-		logger.Info().Bool("cont", contClps).Msg("clps")
+		logger.Debug().Bool("cont", contClps).Msg("clps")
 		if contClps {
 			// only 1 entry (which is the root) left, the trie fallback to an empty trie
 			if isRoot && t.numEntry == 1 {
@@ -372,7 +400,7 @@ func (t *trie) updateDelete(curr patricia, currClps bool, clpsType byte) error {
 			// otherwise collapse into a leaf node
 			if t.clpsV != nil {
 				curr = &leaf{clpsType, t.clpsK, t.clpsV}
-				logger.Info().Hex("k", t.clpsK).Hex("v", t.clpsV).Msg("clps")
+				logger.Debug().Hex("k", t.clpsK).Hex("v", t.clpsV).Msg("clps")
 				// after collapsing, the trie might rollback to an earlier state in the history (before adding the deleted entry)
 				// so the node we try to put may already exist in DB
 				if err := t.putPatricia(curr); err != nil {
