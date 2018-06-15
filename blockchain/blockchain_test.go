@@ -316,28 +316,6 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	assert.Equal(len(toTransfers), 1)
 }
 
-func TestEmptyBlockOnlyHasCoinbaseTx(t *testing.T) {
-	config, err := config.LoadConfigWithPathWithoutValidation(testingConfigPath)
-	assert.Nil(t, err)
-	// disable account-based testing
-	config.Chain.TrieDBPath = ""
-	config.Chain.InMemTest = true
-	Gen.BlockReward = uint64(7777)
-
-	bc := CreateBlockchain(config, nil)
-	defer bc.Stop()
-	assert.NotNil(t, bc)
-
-	blk, err := bc.MintNewBlock([]*trx.Tx{}, nil, nil, ta.Addrinfo["miner"], "")
-	assert.Nil(t, err)
-	assert.Equal(t, uint64(1), blk.Height())
-	assert.Equal(t, 1, len(blk.Tranxs))
-	assert.True(t, blk.Tranxs[0].IsCoinbase())
-	assert.Equal(t, 1, len(blk.Tranxs[0].TxIn))
-	assert.Equal(t, 1, len(blk.Tranxs[0].TxOut))
-	assert.Equal(t, uint64(7777), blk.Tranxs[0].TxOut[0].Value)
-}
-
 func TestBlockchain_Validator(t *testing.T) {
 	config, err := config.LoadConfigWithPathWithoutValidation(testingConfigPath)
 	assert.Nil(t, err)
@@ -430,19 +408,22 @@ func TestCoinbaseTransfer(t *testing.T) {
 	Gen.BlockReward = uint64(10)
 
 	bc := CreateBlockchain(config, sf)
-	assert.NotNil(t, bc)
+	require.NotNil(bc)
 	height, err := bc.TipHeight()
-	assert.Nil(t, err)
-	assert.Equal(t, 0, int(height))
+	require.Nil(err)
+	require.Equal(0, int(height))
 
 	transfers := []*action.Transfer{}
 	blk, err := bc.MintNewBlock([]*trx.Tx{}, transfers, nil, ta.Addrinfo["miner"], "")
-	assert.Nil(t, err)
-	bal, _ := bc.BalanceNonceOf(ta.Addrinfo["miner"].RawAddress)
-	require.True(bal.String() == "10000000000")
+	require.Nil(err)
+	b, _ := bc.BalanceNonceOf(ta.Addrinfo["miner"].RawAddress)
+	require.True(b.String() == "10000000000")
 	err = bc.AddBlockCommit(blk)
-	assert.Nil(t, err)
-	bc.ResetUTXO()
-	bal, _ = bc.BalanceNonceOf(ta.Addrinfo["miner"].RawAddress)
-	require.True(bal.String() == strconv.Itoa(10000000000+int(Gen.BlockReward)))
+	require.Nil(err)
+	height, err = bc.TipHeight()
+	require.Nil(err)
+	require.True(height == 1)
+	require.True(len(blk.Transfers) == 1)
+	b, _ = bc.BalanceNonceOf(ta.Addrinfo["miner"].RawAddress)
+	require.True(b.String() == strconv.Itoa(10000000000+int(Gen.BlockReward)))
 }

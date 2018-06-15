@@ -12,6 +12,7 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/trx"
@@ -27,6 +28,7 @@ import (
 
 const (
 	localTestConfigPath = "../config.yaml"
+	testTriePath        = "trie.test"
 )
 
 func TestLocalCommit(t *testing.T) {
@@ -236,7 +238,7 @@ func TestLocalSync(t *testing.T) {
 
 	bc := svr.Bc()
 	assert.NotNil(bc)
-	assert.Nil(addTestingBlocks(bc))
+	assert.Nil(addTestingTsfBlocks(bc))
 	t.Log("Create blockchain pass")
 
 	blk, err := bc.GetBlockByHeight(1)
@@ -307,4 +309,97 @@ func TestLocalSync(t *testing.T) {
 	assert.Nil(err)
 	assert.Equal(hash4, blk.HashBlock())
 	t.Log("4 blocks received correctly")
+}
+
+func TestLocalCommitTsf(t *testing.T) {
+	require := require.New(t)
+
+	cfg, err := config.LoadConfigWithPathWithoutValidation(localTestConfigPath)
+	require.Nil(err)
+	cfg.Network.BootstrapNodes = []string{"127.0.0.1:10000"}
+
+	util.CleanupPath(t, testTriePath)
+	defer util.CleanupPath(t, testTriePath)
+	util.CleanupPath(t, testDBPath)
+	defer util.CleanupPath(t, testDBPath)
+
+	cfg.Chain.TrieDBPath = testTriePath
+	cfg.Chain.InMemTest = false
+	cfg.Chain.ChainDBPath = testDBPath
+	cfg.Consensus.Scheme = config.NOOPScheme
+	cfg.Delegate.Addrs = []string{"127.0.0.1:10000"}
+
+	blockchain.Gen.TotalSupply = uint64(50 << 22)
+	blockchain.Gen.BlockReward = uint64(0)
+
+	// create node
+	svr := itx.NewServer(*cfg)
+	err = svr.Init()
+	require.Nil(err)
+	err = svr.Start()
+	require.Nil(err)
+	defer svr.Stop()
+
+	bc := svr.Bc()
+	require.NotNil(bc)
+	require.Nil(addTestingTsfBlocks(bc))
+	t.Log("Create blockchain pass")
+
+	ap := svr.Ap()
+	require.NotNil(ap)
+
+	p2 := svr.P2p()
+	require.NotNil(p2)
+
+	p1 := network.NewOverlay(&cfg.Network)
+	require.NotNil(p1)
+	p1.PRC.Addr = "127.0.0.1:10001"
+	p1.Init()
+	p1.Start()
+	defer p1.Stop()
+
+	// check balance
+	change, _ := bc.BalanceNonceOf(ta.Addrinfo["alfa"].RawAddress)
+	t.Logf("Alfa balance = %d", change)
+	require.True(change.String() == "23")
+
+	beta, _ := bc.BalanceNonceOf(ta.Addrinfo["bravo"].RawAddress)
+	t.Logf("Bravo balance = %d", beta)
+	change.Add(change, beta)
+	require.True(beta.String() == "34")
+
+	beta, _ = bc.BalanceNonceOf(ta.Addrinfo["charlie"].RawAddress)
+	t.Logf("Charlie balance = %d", beta)
+	change.Add(change, beta)
+	require.True(beta.String() == "47")
+
+	beta, _ = bc.BalanceNonceOf(ta.Addrinfo["delta"].RawAddress)
+	t.Logf("Delta balance = %d", beta)
+	change.Add(change, beta)
+	require.True(beta.String() == "69")
+
+	beta, _ = bc.BalanceNonceOf(ta.Addrinfo["echo"].RawAddress)
+	t.Logf("Echo balance = %d", beta)
+	change.Add(change, beta)
+	require.True(beta.String() == "100")
+
+	fox, _ := bc.BalanceNonceOf(ta.Addrinfo["foxtrot"].RawAddress)
+	t.Logf("Foxtrot balance = %d", fox)
+	change.Add(change, fox)
+	require.True(fox.String() == "52428803")
+
+	test, _ := bc.BalanceNonceOf(ta.Addrinfo["miner"].RawAddress)
+	t.Logf("test balance = %d", test)
+	change.Add(change, test)
+
+	require.Equal(uint64(50<<22), change.Uint64())
+	t.Log("Total balance match")
+
+	if beta.Sign() == 0 || fox.Sign() == 0 || test.Sign() == 0 {
+		return
+	}
+
+	height, err := bc.TipHeight()
+	require.Nil(err)
+	require.True(height == 4)
 }

@@ -292,13 +292,6 @@ func (bc *blockchain) MintNewBlock(txs []*trx.Tx, tsf []*action.Transfer, vote [
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
 
-	cbTx := trx.NewCoinbaseTx(producer.RawAddress, bc.genesis.BlockReward, data)
-	if cbTx == nil {
-		errMsg := "Cannot create coinbase transaction"
-		logger.Error().Msg(errMsg)
-		return nil, errors.Errorf(errMsg)
-	}
-	txs = append(txs, cbTx)
 	tsf = append(tsf, action.NewCoinBaseTransfer(big.NewInt(int64(bc.genesis.BlockReward)), producer.RawAddress))
 
 	blk := NewBlock(bc.chainID, bc.tipHeight+1, bc.tipHash, txs, tsf, vote)
