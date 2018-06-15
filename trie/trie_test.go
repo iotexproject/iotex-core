@@ -336,3 +336,22 @@ func TestPressure(t *testing.T) {
 	// trie should fallback to empty
 	assert.Equal(emptyRoot, tr.RootHash())
 }
+
+func TestQuery(t *testing.T) {
+	assert := assert.New(t)
+	l := logger.Logger().Level(zerolog.DebugLevel)
+	logger.SetLogger(&l)
+
+	tr := trie{dao: db.NewMemKVStore(), root: &branch{}, toRoot: list.New(), numEntry: 1, numBranch: 1}
+	assert.Equal(uint64(1), tr.numBranch)
+	// key length > 0
+	ptr, match, err := tr.query(cat)
+	assert.NotNil(ptr)
+	assert.Equal(0, match)
+	assert.NotNil(err)
+	// key length == 0
+	ptr, match, err = tr.query([]byte{})
+	assert.Equal(tr.root, ptr)
+	assert.Equal(0, match)
+	assert.Nil(err)
+}
