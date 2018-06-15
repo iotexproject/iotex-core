@@ -105,17 +105,6 @@ func TestNonce(t *testing.T) {
 	trie.EXPECT().Get(gomock.Any()).Times(1).Return(nil, nil)
 	_, err = sf.Nonce(addr.RawAddress)
 	assert.Equal(t, ErrFailedToUnmarshalState, err)
-
-	trie.EXPECT().Upsert(gomock.Any(), gomock.Any()).Times(1).Do(func(key, value []byte) error {
-		state, _ := bytesToState(value)
-		assert.Equal(t, uint64(0x11), state.Nonce)
-		return nil
-	})
-	mstate, _ = stateToBytes(&State{Address: addr.RawAddress, Nonce: 0x10})
-	trie.EXPECT().Get(gomock.Any()).Times(1).Return(mstate, nil)
-	err = sf.SetNonce(addr.RawAddress, uint64(0x11))
-	assert.Nil(t, err)
-
 }
 
 func voteForm(height uint64, cs []*Candidate) []string {
