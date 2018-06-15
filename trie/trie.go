@@ -260,7 +260,7 @@ func (t *trie) query(key []byte) (patricia, int, error) {
 		size += match
 		key = key[match:]
 	}
-	return nil, size, nil
+	return ptr, size, nil
 }
 
 // delete removes the entry stored in patricia node, and returns if the node can collapse
