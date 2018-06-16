@@ -95,7 +95,7 @@ func main() {
 		if isTest {
 			logger.Warn().Msg("Using test server with fake data...")
 		}
-		explorer.StartJSONServer(svr.Bc(), isTest, httpPort)
+		explorer.StartJSONServer(svr.Bc(), isTest, httpPort, cfg.Explorer.TpsWindow)
 	}
 
 	select {}

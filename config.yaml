@@ -68,3 +68,4 @@ explorer:
     startExplorer: false
     isTest: false
     addr: "14004"
+    tpsWindow: 10

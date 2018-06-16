@@ -32,9 +32,10 @@ func (f LogFilter) PostInvoke(r *barrister.RequestResponse) bool {
 }
 
 // StartJSONServer start the json server for explorer
-func StartJSONServer(blockchain blockchain.Blockchain, isTest bool, port string) {
+func StartJSONServer(blockchain blockchain.Blockchain, isTest bool, port string, tpsWindow int) {
 	svc := Service{
-		bc: blockchain,
+		bc:        blockchain,
+		tpsWindow: tpsWindow,
 	}
 	idl := barrister.MustParseIdlJson([]byte(explorer.IdlJsonRaw))
 	svr := explorer.NewJSONServer(idl, true, &svc)

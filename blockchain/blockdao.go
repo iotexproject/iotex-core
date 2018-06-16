@@ -28,6 +28,7 @@ var (
 	transferPrefix     = []byte("transfer.")
 	heightPrefix       = []byte("height.")
 	topHeightKey       = []byte("top-height")
+	totalTransfersKey  = []byte("total-transfers")
 	transferFromPrefix = []byte("transfer-from.")
 	transferToPrefix   = []byte("transfer-to.")
 )
@@ -55,6 +56,12 @@ func (dao *blockDAO) Start() error {
 	err = dao.kvstore.PutIfNotExists(blockNS, topHeightKey, make([]byte, 8))
 	if err != nil {
 		return errors.Wrap(err, "failed to write initial value for top height")
+	}
+
+	// set init total transfer to be 0
+	err = dao.kvstore.PutIfNotExists(blockNS, totalTransfersKey, make([]byte, 8))
+	if err != nil {
+		return errors.Wrap(err, "failed to write initial value for total transfers")
 	}
 	return nil
 }
@@ -202,6 +209,18 @@ func (dao *blockDAO) getBlockchainHeight() (uint64, error) {
 	return common.MachineEndian.Uint64(value), nil
 }
 
+// getTotalTransfers returns the total number of transfers
+func (dao *blockDAO) getTotalTransfers() (uint64, error) {
+	value, err := dao.kvstore.Get(blockNS, totalTransfersKey)
+	if err != nil {
+		return 0, errors.Wrap(err, "failed to get total transfers")
+	}
+	if len(value) == 0 {
+		return 0, errors.Wrap(db.ErrNotExist, "total transfers missing")
+	}
+	return common.MachineEndian.Uint64(value), nil
+}
+
 // putBlock puts a block
 func (dao *blockDAO) putBlock(blk *Block) error {
 	height := utils.Uint64ToBytes(blk.Height())
@@ -231,6 +250,18 @@ func (dao *blockDAO) putBlock(blk *Block) error {
 			return errors.Wrap(err, "failed to put top height")
 		}
 	}
+
+	value, err = dao.kvstore.Get(blockNS, totalTransfersKey)
+	if err != nil {
+		return errors.Wrap(err, "failed to get total transfers")
+	}
+	totalTransfers := common.MachineEndian.Uint64(value)
+	totalTransfers += uint64(len(blk.Transfers))
+	totalTransfersBytes := utils.Uint64ToBytes(totalTransfers)
+	if err = dao.kvstore.Put(blockNS, totalTransfersKey, totalTransfersBytes); err != nil {
+		return errors.Wrap(err, "failed to put total transfers")
+	}
+
 	// map Transfer hash to block hash
 	for _, transfer := range blk.Transfers {
 		transferHash := transfer.Hash()

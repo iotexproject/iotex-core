@@ -116,7 +116,8 @@ func TestExplorerApi(t *testing.T) {
 	bc.Stop()
 
 	svc := Service{
-		bc: bc,
+		bc:        bc,
+		tpsWindow: 10,
 	}
 
 	transfers, err := svc.GetTransfersByAddress(ta.Addrinfo["charlie"].RawAddress)
@@ -153,6 +154,8 @@ func TestExplorerApi(t *testing.T) {
 	require.Nil(err)
 	require.Equal(stats.Supply, int64(10000000000))
 	require.Equal(stats.Height, int64(4))
+	require.Equal(stats.Transfers, int64(9))
+	require.Equal(stats.Tps, int64(9))
 
 	balance, err := svc.GetAddressBalance(ta.Addrinfo["charlie"].RawAddress)
 	require.Nil(err)
