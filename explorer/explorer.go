@@ -16,7 +16,8 @@ import (
 
 // Service provide api for user to query blockchain data
 type Service struct {
-	bc blockchain.Blockchain
+	bc        blockchain.Blockchain
+	tpsWindow int
 }
 
 // GetAddressBalance returns the balance of an address
@@ -266,14 +267,41 @@ func (exp *Service) GetBlockByID(blockID string) (explorer.Block, error) {
 
 // GetCoinStatistic returns stats in blockchain
 func (exp *Service) GetCoinStatistic() (explorer.CoinStatistic, error) {
-	tipHeight, getHeightErr := exp.bc.TipHeight()
-	if getHeightErr != nil {
-		return explorer.CoinStatistic{}, getHeightErr
+	tipHeight, err := exp.bc.TipHeight()
+	if err != nil {
+		return explorer.CoinStatistic{}, err
 	}
 
+	totalTransfers, err := exp.bc.GetTotalTransfers()
+	if err != nil {
+		return explorer.CoinStatistic{}, err
+	}
+
+	blockLimit := int64(exp.tpsWindow)
+	// avoid genesis block
+	if int64(tipHeight) < blockLimit {
+		blockLimit = int64(tipHeight)
+	}
+	blks, err := exp.GetLastBlocksByRange(int64(tipHeight), blockLimit)
+	if err != nil {
+		return explorer.CoinStatistic{}, err
+	}
+	timeDuration := blks[0].Timestamp - blks[len(blks)-1].Timestamp
+	// if time duration is less than 1 second, we set it to be 1 second
+	if timeDuration == 0 {
+		timeDuration = 1
+	}
+	transferNumber := int64(0)
+	for _, blk := range blks {
+		transferNumber += blk.Transfers
+	}
+	tps := transferNumber / timeDuration
+
 	explorerCoinStats := explorer.CoinStatistic{
-		Height: int64(tipHeight),
-		Supply: int64(blockchain.Gen.TotalSupply),
+		Height:    int64(tipHeight),
+		Supply:    int64(blockchain.Gen.TotalSupply),
+		Transfers: int64(totalTransfers),
+		Tps:       tps,
 	}
 	return explorerCoinStats, nil
 }

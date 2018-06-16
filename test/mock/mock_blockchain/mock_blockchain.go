@@ -139,6 +139,19 @@ func (mr *MockBlockchainMockRecorder) GetTransfersFromAddress(address interface{
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTransfersFromAddress", reflect.TypeOf((*MockBlockchain)(nil).GetTransfersFromAddress), address)
 }
 
+// GetTotalTransfers mocks base method
+func (m *MockBlockchain) GetTotalTransfers() (uint64, error) {
+	ret := m.ctrl.Call(m, "GetTotalTransfers")
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetTransfersToAddress indicates an expected call of GetTransfersToAddress
+func (mr *MockBlockchainMockRecorder) GetTotalTransfers(address interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTotalTransfers", reflect.TypeOf((*MockBlockchain)(nil).GetTotalTransfers), address)
+}
+
 // GetTransfersToAddress mocks base method
 func (m *MockBlockchain) GetTransfersToAddress(address string) ([]common.Hash32B, error) {
 	ret := m.ctrl.Call(m, "GetTransfersToAddress", address)

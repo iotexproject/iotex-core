@@ -314,6 +314,10 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	toTransfers, err := bc.GetTransfersToAddress(ta.Addrinfo["charlie"].RawAddress)
 	assert.Nil(err)
 	assert.Equal(len(toTransfers), 1)
+
+	totalTransfers, err := bc.GetTotalTransfers()
+	assert.Nil(err)
+	assert.Equal(totalTransfers, uint64(9))
 }
 
 func TestBlockchain_Validator(t *testing.T) {

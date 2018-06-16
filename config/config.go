@@ -157,6 +157,7 @@ type Explorer struct {
 	StartExplorer bool   `yaml:"startExplorer"`
 	IsTest        bool   `yaml:"isTest"`
 	Addr          string `yaml:"addr"`
+	TpsWindow     int    `yaml:"tpsWindow"`
 }
 
 // System is the system config
