@@ -51,6 +51,8 @@ func NewVote(nonce uint64, selfPubKey []byte, votePubKey []byte) *Vote {
 // TotalSize returns the total size of this Vote
 func (v *Vote) TotalSize() uint32 {
 	size := TimestampSizeInBytes
+	size += NonceSizeInBytes
+	size += versionSizeInBytes
 	size += len(v.SelfPubkey)
 	size += len(v.VotePubkey)
 	size += len(v.Signature)
@@ -63,6 +65,12 @@ func (v *Vote) ByteStream() []byte {
 	common.MachineEndian.PutUint64(stream, v.Timestamp)
 	stream = append(stream, v.SelfPubkey...)
 	stream = append(stream, v.VotePubkey...)
+	temp := make([]byte, 8)
+	common.MachineEndian.PutUint64(temp, v.Nonce)
+	stream = append(stream, temp...)
+	temp = make([]byte, 4)
+	common.MachineEndian.PutUint32(temp, v.Version)
+	stream = append(stream, temp...)
 	// Signature = Sign(hash(ByteStream())), so not included
 	return stream
 }
