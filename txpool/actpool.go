@@ -24,7 +24,7 @@ const (
 	// TransferSizeLimit is the maximum size of transfer allowed
 	TransferSizeLimit = 32 * 1024
 	// VoteSizeLimit is the maximum size of vote allowed
-	VoteSizeLimit = 224
+	VoteSizeLimit = 236
 	// GlobalSlots indicate maximum number of actions the whole actpool can hold
 	GlobalSlots = 8192
 	// AccountSlots indicate maximum number of an account queue can hold
