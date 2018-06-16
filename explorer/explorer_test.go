@@ -7,7 +7,6 @@
 package explorer
 
 import (
-	"errors"
 	"fmt"
 	"math/big"
 	"testing"
@@ -17,34 +16,26 @@ import (
 
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/action"
-	"github.com/iotexproject/iotex-core/blockchain/trx"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
+	"github.com/iotexproject/iotex-core/test/util"
+	"github.com/iotexproject/iotex-core/trie"
 )
 
 const (
 	testingConfigPath = "../config.yaml"
+	testTriePath      = "trie.test"
+	testDBPath        = "db.test"
 )
 
 func addTestingBlocks(bc blockchain.Blockchain) error {
 	// Add block 1
 	// test --> A, B, C, D, E, F
-	payee := []*blockchain.Payee{}
-	payee = append(payee, &blockchain.Payee{ta.Addrinfo["alfa"].RawAddress, 20})
-	payee = append(payee, &blockchain.Payee{ta.Addrinfo["bravo"].RawAddress, 30})
-	payee = append(payee, &blockchain.Payee{ta.Addrinfo["charlie"].RawAddress, 50})
-	payee = append(payee, &blockchain.Payee{ta.Addrinfo["delta"].RawAddress, 70})
-	payee = append(payee, &blockchain.Payee{ta.Addrinfo["echo"].RawAddress, 110})
-	payee = append(payee, &blockchain.Payee{ta.Addrinfo["foxtrot"].RawAddress, 50 << 20})
-	transfers := []*action.Transfer{}
-	transfers = append(transfers, action.NewTransfer(0, big.NewInt(1), ta.Addrinfo["miner"].RawAddress, ta.Addrinfo["charlie"].RawAddress))
-	tx := bc.CreateTransaction(ta.Addrinfo["miner"], 280+(50<<20), payee)
-	if tx == nil {
-		return errors.New("empty tx for block 1")
-	}
-	blk, err := bc.MintNewBlock([]*trx.Tx{tx}, transfers, nil, ta.Addrinfo["miner"], "")
+	tsf := action.NewTransfer(0, big.NewInt(10), ta.Addrinfo["miner"].RawAddress, ta.Addrinfo["charlie"].RawAddress)
+	tsf, _ = tsf.Sign(ta.Addrinfo["miner"])
+	blk, err := bc.MintNewBlock(nil, []*action.Transfer{tsf}, nil, ta.Addrinfo["miner"], "")
 	if err != nil {
 		return err
 	}
@@ -55,19 +46,15 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 
 	// Add block 2
 	// Charlie --> A, B, D, E, test
-	payee = nil
-	payee = append(payee, &blockchain.Payee{ta.Addrinfo["alfa"].RawAddress, 1})
-	payee = append(payee, &blockchain.Payee{ta.Addrinfo["bravo"].RawAddress, 1})
-	payee = append(payee, &blockchain.Payee{ta.Addrinfo["charlie"].RawAddress, 1})
-	payee = append(payee, &blockchain.Payee{ta.Addrinfo["delta"].RawAddress, 1})
-	payee = append(payee, &blockchain.Payee{ta.Addrinfo["miner"].RawAddress, 1})
-	tx = bc.CreateTransaction(ta.Addrinfo["charlie"], 5, payee)
-	transfers = nil
-	transfers = append(transfers, action.NewTransfer(0, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["alfa"].RawAddress))
-	transfers = append(transfers, action.NewTransfer(0, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["bravo"].RawAddress))
-	transfers = append(transfers, action.NewTransfer(0, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["delta"].RawAddress))
-	transfers = append(transfers, action.NewTransfer(0, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["miner"].RawAddress))
-	blk, err = bc.MintNewBlock([]*trx.Tx{tx}, transfers, nil, ta.Addrinfo["miner"], "")
+	tsf1 := action.NewTransfer(0, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["alfa"].RawAddress)
+	tsf1, _ = tsf1.Sign(ta.Addrinfo["charlie"])
+	tsf2 := action.NewTransfer(0, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["bravo"].RawAddress)
+	tsf2, _ = tsf2.Sign(ta.Addrinfo["charlie"])
+	tsf3 := action.NewTransfer(0, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["delta"].RawAddress)
+	tsf3, _ = tsf3.Sign(ta.Addrinfo["charlie"])
+	tsf4 := action.NewTransfer(0, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["miner"].RawAddress)
+	tsf4, _ = tsf4.Sign(ta.Addrinfo["charlie"])
+	blk, err = bc.MintNewBlock(nil, []*action.Transfer{tsf1, tsf2, tsf3, tsf4}, nil, ta.Addrinfo["miner"], "")
 	if err != nil {
 		return err
 	}
@@ -103,14 +90,22 @@ func TestExplorerApi(t *testing.T) {
 	require := require.New(t)
 	config, err := config.LoadConfigWithPathWithoutValidation(testingConfigPath)
 	require.Nil(err)
-	// disable account-based testing
-	config.Chain.TrieDBPath = ""
+	util.CleanupPath(t, testTriePath)
+	defer util.CleanupPath(t, testTriePath)
+	util.CleanupPath(t, testDBPath)
+	defer util.CleanupPath(t, testDBPath)
+
+	config.Chain.TrieDBPath = testTriePath
 	config.Chain.InMemTest = true
+	config.Chain.ChainDBPath = testDBPath
+
+	tr, _ := trie.NewTrie(testTriePath, false)
+	sf := state.NewFactory(tr)
 	// Disable block reward to make bookkeeping easier
 	blockchain.Gen.BlockReward = uint64(0)
 
 	// create chain
-	bc := blockchain.CreateBlockchain(config, nil)
+	bc := blockchain.CreateBlockchain(config, sf)
 	require.NotNil(bc)
 	height, err := bc.TipHeight()
 	require.Nil(err)
@@ -159,6 +154,15 @@ func TestExplorerApi(t *testing.T) {
 	require.Equal(stats.Height, int64(4))
 	require.Equal(stats.Transfers, int64(9))
 	require.Equal(stats.Tps, int64(9))
+
+	balance, err := svc.GetAddressBalance(ta.Addrinfo["charlie"].RawAddress)
+	require.Nil(err)
+	require.Equal(balance, int64(6))
+
+	addressDetails, err := svc.GetAddressDetails(ta.Addrinfo["charlie"].RawAddress)
+	require.Equal(addressDetails.TotalBalance, int64(6))
+	require.Equal(addressDetails.Nonce, int64(0))
+	require.Equal(addressDetails.Address, ta.Addrinfo["charlie"].RawAddress)
 }
 
 func TestService_GetAddressDetails(t *testing.T) {

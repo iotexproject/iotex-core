@@ -8,7 +8,6 @@ package blockchain
 
 import (
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"math/big"
 	"strconv"
@@ -35,87 +34,89 @@ const (
 	testTriePath      = "trie.test"
 )
 
-func addTestingBlocks(bc Blockchain) error {
+func addTestingTsfBlocks(bc Blockchain) error {
 	// Add block 1
 	// test --> A, B, C, D, E, F
-	payee := []*Payee{}
-	payee = append(payee, &Payee{ta.Addrinfo["alfa"].RawAddress, 20})
-	payee = append(payee, &Payee{ta.Addrinfo["bravo"].RawAddress, 30})
-	payee = append(payee, &Payee{ta.Addrinfo["charlie"].RawAddress, 50})
-	payee = append(payee, &Payee{ta.Addrinfo["delta"].RawAddress, 70})
-	payee = append(payee, &Payee{ta.Addrinfo["echo"].RawAddress, 110})
-	payee = append(payee, &Payee{ta.Addrinfo["foxtrot"].RawAddress, 50 << 20})
-	transfers := []*action.Transfer{}
-	transfers = append(transfers, action.NewTransfer(0, big.NewInt(1), ta.Addrinfo["miner"].RawAddress, ta.Addrinfo["charlie"].RawAddress))
-	tx := bc.CreateTransaction(ta.Addrinfo["miner"], 280+(50<<20), payee)
-	if tx == nil {
-		return errors.New("empty tx for block 1")
-	}
-	blk, err := bc.MintNewBlock([]*trx.Tx{tx}, transfers, nil, ta.Addrinfo["miner"], "")
+	tsf1 := action.NewTransfer(1, big.NewInt(20), ta.Addrinfo["miner"].RawAddress, ta.Addrinfo["alfa"].RawAddress)
+	tsf1, err := tsf1.Sign(ta.Addrinfo["miner"])
+	tsf2 := action.NewTransfer(1, big.NewInt(30), ta.Addrinfo["miner"].RawAddress, ta.Addrinfo["bravo"].RawAddress)
+	tsf2, err = tsf2.Sign(ta.Addrinfo["miner"])
+	tsf3 := action.NewTransfer(1, big.NewInt(50), ta.Addrinfo["miner"].RawAddress, ta.Addrinfo["charlie"].RawAddress)
+	tsf3, err = tsf3.Sign(ta.Addrinfo["miner"])
+	tsf4 := action.NewTransfer(1, big.NewInt(70), ta.Addrinfo["miner"].RawAddress, ta.Addrinfo["delta"].RawAddress)
+	tsf4, err = tsf4.Sign(ta.Addrinfo["miner"])
+	tsf5 := action.NewTransfer(1, big.NewInt(110), ta.Addrinfo["miner"].RawAddress, ta.Addrinfo["echo"].RawAddress)
+	tsf5, err = tsf5.Sign(ta.Addrinfo["miner"])
+	tsf6 := action.NewTransfer(1, big.NewInt(50<<20), ta.Addrinfo["miner"].RawAddress, ta.Addrinfo["foxtrot"].RawAddress)
+	tsf6, err = tsf6.Sign(ta.Addrinfo["miner"])
+
+	blk, err := bc.MintNewBlock(nil, []*action.Transfer{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}, nil, ta.Addrinfo["miner"], "")
 	if err != nil {
 		return err
 	}
 	if err := bc.AddBlockCommit(blk); err != nil {
 		return err
 	}
-	bc.ResetUTXO()
 
 	// Add block 2
 	// Charlie --> A, B, D, E, test
-	payee = nil
-	payee = append(payee, &Payee{ta.Addrinfo["alfa"].RawAddress, 1})
-	payee = append(payee, &Payee{ta.Addrinfo["bravo"].RawAddress, 1})
-	payee = append(payee, &Payee{ta.Addrinfo["charlie"].RawAddress, 1})
-	payee = append(payee, &Payee{ta.Addrinfo["delta"].RawAddress, 1})
-	payee = append(payee, &Payee{ta.Addrinfo["miner"].RawAddress, 1})
-	tx = bc.CreateTransaction(ta.Addrinfo["charlie"], 5, payee)
-	transfers = nil
-	transfers = append(transfers, action.NewTransfer(0, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["alfa"].RawAddress))
-	transfers = append(transfers, action.NewTransfer(0, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["bravo"].RawAddress))
-	transfers = append(transfers, action.NewTransfer(0, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["delta"].RawAddress))
-	transfers = append(transfers, action.NewTransfer(0, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["miner"].RawAddress))
-	blk, err = bc.MintNewBlock([]*trx.Tx{tx}, transfers, nil, ta.Addrinfo["miner"], "")
+	tsf1 = action.NewTransfer(1, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["alfa"].RawAddress)
+	tsf1, err = tsf1.Sign(ta.Addrinfo["charlie"])
+	tsf2 = action.NewTransfer(1, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["bravo"].RawAddress)
+	tsf2, err = tsf2.Sign(ta.Addrinfo["charlie"])
+	tsf3 = action.NewTransfer(1, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["delta"].RawAddress)
+	tsf3, err = tsf3.Sign(ta.Addrinfo["charlie"])
+	tsf4 = action.NewTransfer(1, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["echo"].RawAddress)
+	tsf4, err = tsf4.Sign(ta.Addrinfo["charlie"])
+	tsf5 = action.NewTransfer(1, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["miner"].RawAddress)
+	tsf5, err = tsf5.Sign(ta.Addrinfo["charlie"])
+	blk, err = bc.MintNewBlock(nil, []*action.Transfer{tsf1, tsf2, tsf3, tsf4, tsf5}, nil, ta.Addrinfo["miner"], "")
 	if err != nil {
 		return err
 	}
 	if err := bc.AddBlockCommit(blk); err != nil {
 		return err
 	}
-	bc.ResetUTXO()
 
 	// Add block 3
 	// Delta --> B, E, F, test
-	payee = payee[1:]
-	payee[1] = &Payee{ta.Addrinfo["echo"].RawAddress, 1}
-	payee[2] = &Payee{ta.Addrinfo["foxtrot"].RawAddress, 1}
-	tx = bc.CreateTransaction(ta.Addrinfo["delta"], 4, payee)
-	blk, err = bc.MintNewBlock([]*trx.Tx{tx}, nil, nil, ta.Addrinfo["miner"], "")
+	tsf1 = action.NewTransfer(1, big.NewInt(1), ta.Addrinfo["delta"].RawAddress, ta.Addrinfo["bravo"].RawAddress)
+	tsf1, err = tsf1.Sign(ta.Addrinfo["delta"])
+	tsf2 = action.NewTransfer(1, big.NewInt(1), ta.Addrinfo["delta"].RawAddress, ta.Addrinfo["echo"].RawAddress)
+	tsf2, err = tsf2.Sign(ta.Addrinfo["delta"])
+	tsf3 = action.NewTransfer(1, big.NewInt(1), ta.Addrinfo["delta"].RawAddress, ta.Addrinfo["foxtrot"].RawAddress)
+	tsf3, err = tsf3.Sign(ta.Addrinfo["delta"])
+	tsf4 = action.NewTransfer(1, big.NewInt(1), ta.Addrinfo["delta"].RawAddress, ta.Addrinfo["miner"].RawAddress)
+	tsf4, err = tsf4.Sign(ta.Addrinfo["delta"])
+	blk, err = bc.MintNewBlock(nil, []*action.Transfer{tsf1, tsf2, tsf3, tsf4}, nil, ta.Addrinfo["miner"], "")
 	if err != nil {
 		return err
 	}
 	if err := bc.AddBlockCommit(blk); err != nil {
 		return err
 	}
-	bc.ResetUTXO()
 
 	// Add block 4
 	// Delta --> A, B, C, D, F, test
-	payee = nil
-	payee = append(payee, &Payee{ta.Addrinfo["alfa"].RawAddress, 2})
-	payee = append(payee, &Payee{ta.Addrinfo["bravo"].RawAddress, 2})
-	payee = append(payee, &Payee{ta.Addrinfo["charlie"].RawAddress, 2})
-	payee = append(payee, &Payee{ta.Addrinfo["delta"].RawAddress, 2})
-	payee = append(payee, &Payee{ta.Addrinfo["foxtrot"].RawAddress, 2})
-	payee = append(payee, &Payee{ta.Addrinfo["miner"].RawAddress, 2})
-	tx = bc.CreateTransaction(ta.Addrinfo["echo"], 12, payee)
-	blk, err = bc.MintNewBlock([]*trx.Tx{tx}, nil, nil, ta.Addrinfo["miner"], "")
+	tsf1 = action.NewTransfer(1, big.NewInt(2), ta.Addrinfo["echo"].RawAddress, ta.Addrinfo["alfa"].RawAddress)
+	tsf1, err = tsf1.Sign(ta.Addrinfo["echo"])
+	tsf2 = action.NewTransfer(1, big.NewInt(2), ta.Addrinfo["echo"].RawAddress, ta.Addrinfo["bravo"].RawAddress)
+	tsf2, err = tsf2.Sign(ta.Addrinfo["echo"])
+	tsf3 = action.NewTransfer(1, big.NewInt(2), ta.Addrinfo["echo"].RawAddress, ta.Addrinfo["charlie"].RawAddress)
+	tsf3, err = tsf3.Sign(ta.Addrinfo["echo"])
+	tsf4 = action.NewTransfer(1, big.NewInt(2), ta.Addrinfo["echo"].RawAddress, ta.Addrinfo["delta"].RawAddress)
+	tsf4, err = tsf4.Sign(ta.Addrinfo["echo"])
+	tsf5 = action.NewTransfer(1, big.NewInt(2), ta.Addrinfo["echo"].RawAddress, ta.Addrinfo["foxtrot"].RawAddress)
+	tsf5, err = tsf5.Sign(ta.Addrinfo["echo"])
+	tsf6 = action.NewTransfer(1, big.NewInt(2), ta.Addrinfo["echo"].RawAddress, ta.Addrinfo["miner"].RawAddress)
+	tsf6, err = tsf6.Sign(ta.Addrinfo["echo"])
+	blk, err = bc.MintNewBlock(nil, []*action.Transfer{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}, nil, ta.Addrinfo["miner"], "")
 	if err != nil {
 		return err
 	}
 	if err := bc.AddBlockCommit(blk); err != nil {
 		return err
 	}
-	bc.ResetUTXO()
 
 	return nil
 }
@@ -147,7 +148,7 @@ func TestCreateBlockchain(t *testing.T) {
 	data, err := genesis.Serialize()
 	assert.Nil(err)
 
-	assert.Equal(1, len(genesis.Tranxs))
+	assert.Equal(0, len(genesis.Tranxs))
 	assert.Equal(0, len(genesis.Transfers))
 	assert.Equal(21, len(genesis.Votes))
 
@@ -169,7 +170,7 @@ func TestCreateBlockchain(t *testing.T) {
 	fmt.Printf("Serialize/Deserialize Block merkle = %x match\n", hash)
 
 	// add 4 sample blocks
-	assert.Nil(addTestingBlocks(bc))
+	assert.Nil(addTestingTsfBlocks(bc))
 	height, err = bc.TipHeight()
 	assert.Nil(err)
 	assert.Equal(4, int(height))
@@ -177,26 +178,33 @@ func TestCreateBlockchain(t *testing.T) {
 
 func TestLoadBlockchainfromDB(t *testing.T) {
 	assert := assert.New(t)
-	util.CleanupPath(t, testDBPath)
-	defer util.CleanupPath(t, testDBPath)
+
 	config, err := config.LoadConfigWithPathWithoutValidation(testingConfigPath)
 	assert.Nil(err)
+	util.CleanupPath(t, testTriePath)
+	defer util.CleanupPath(t, testTriePath)
+	util.CleanupPath(t, testDBPath)
+	defer util.CleanupPath(t, testDBPath)
+
+	config.Chain.TrieDBPath = testTriePath
+	config.Chain.InMemTest = false
 	config.Chain.ChainDBPath = testDBPath
-	// disable account-based testing
-	config.Chain.TrieDBPath = ""
+
+	tr, _ := trie.NewTrie(testTriePath, false)
+	sf := state.NewFactory(tr)
 	// Disable block reward to make bookkeeping easier
 	Gen.BlockReward = uint64(0)
 	// Create a blockchain from scratch
-	bc := CreateBlockchain(config, nil)
+	bc := CreateBlockchain(config, sf)
 	assert.NotNil(bc)
 	height, err := bc.TipHeight()
 	assert.Nil(err)
 	fmt.Printf("Open blockchain pass, height = %d\n", height)
-	assert.Nil(addTestingBlocks(bc))
+	assert.Nil(addTestingTsfBlocks(bc))
 	bc.Stop()
 
 	// Load a blockchain from DB
-	bc = CreateBlockchain(config, nil)
+	bc = CreateBlockchain(config, sf)
 	defer bc.Stop()
 	assert.NotNil(bc)
 
@@ -309,15 +317,15 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 
 	fromTransfers, err := bc.GetTransfersFromAddress(ta.Addrinfo["charlie"].RawAddress)
 	assert.Nil(err)
-	assert.Equal(len(fromTransfers), 4)
+	assert.Equal(len(fromTransfers), 5)
 
 	toTransfers, err := bc.GetTransfersToAddress(ta.Addrinfo["charlie"].RawAddress)
 	assert.Nil(err)
-	assert.Equal(len(toTransfers), 1)
+	assert.Equal(len(toTransfers), 2)
 
 	totalTransfers, err := bc.GetTotalTransfers()
 	assert.Nil(err)
-	assert.Equal(totalTransfers, uint64(9))
+	assert.Equal(totalTransfers, uint64(25))
 }
 
 func TestBlockchain_Validator(t *testing.T) {
