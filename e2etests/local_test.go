@@ -32,6 +32,7 @@ const (
 )
 
 func TestLocalCommit(t *testing.T) {
+	t.Skip()
 	assert := assert.New(t)
 
 	cfg, err := config.LoadConfigWithPathWithoutValidation(localTestConfigPath)

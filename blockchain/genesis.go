@@ -13,8 +13,6 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/trx"
 	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/iotxaddress"
-	"github.com/iotexproject/iotex-core/logger"
-	ta "github.com/iotexproject/iotex-core/test/testaddress"
 )
 
 // Genesis defines the Genesis default settings
@@ -90,12 +88,6 @@ var Gen = &Genesis{
 
 // NewGenesisBlock creates a new genesis block
 func NewGenesisBlock() *Block {
-	cbtx := trx.NewCoinbaseTx(ta.Addrinfo["miner"].RawAddress, Gen.TotalSupply, Gen.GenesisCoinbaseData)
-	if cbtx == nil {
-		logger.Error().Msg("Cannot create coinbase transaction")
-		return nil
-	}
-
 	votes := []*action.Vote{}
 	for i, pk := range initDelegatePK {
 		pubk, err := hex.DecodeString(pk)
@@ -126,7 +118,7 @@ func NewGenesisBlock() *Block {
 			stateRoot:     common.ZeroHash32B,
 			blockSig:      []byte{},
 		},
-		Tranxs:    []*trx.Tx{cbtx},
+		Tranxs:    []*trx.Tx{},
 		Transfers: []*action.Transfer{},
 		Votes:     votes,
 	}
