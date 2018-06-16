@@ -47,3 +47,8 @@ rpc:
 
 dispatcher:
     eventChanSize: 1024
+
+explorer:
+    startExplorer: true
+    isTest: false
+    addr: "14004"
