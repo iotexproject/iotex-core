@@ -122,6 +122,30 @@ W0416 12:52:21.654650    1576 blocksync.go:293] ------ commit block 122 time = 1
 
 Add `SKIP_GLIDE=true` to skip re-installing dependencies via `glide`.
 
+# Use ActionInjector To Inject Actions
+Open one terminal window and run the command below to compile and start the test chain server with the configuration specified in "config_local_delegate.yaml" (This is optional, just in case you don't have a node running).
+
+`make; make run`
+
+Open a new terminal window and start running actioninjector.
+
+`./bin/actioninjector`
+
+You can use command line flags to customize the injector.
+
+```
+-addr=local_address_for_rpc_connection
+-transfer-num=number_of_transfers
+-vote-num=number_of_votes
+-interval=sleeping_interval_in_seconds
+```
+
+Default flag values: 
+* addr="127.0.0.1"
+* transfer-num=50
+* vote-num=50
+* interval=5
+
 ## Contribution
 We are glad to have contributors out of the core team; contributions, including (but not limited to) style/bug fixes, implementation of features, proposals of schemes/algorithms, and thorough documentation, are 
 welcomed. Please refer to our [contribution guideline](https://github.com/iotexproject/iotex-core/blob/master/CONTRIBUTING.md) for more information.
