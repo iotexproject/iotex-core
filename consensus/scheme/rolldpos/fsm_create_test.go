@@ -118,6 +118,8 @@ func TestAcceptPrevoteAndTimeoutToEnd(t *testing.T) {
 	}
 	m := func(mcks mocks) {
 		mcks.dp.EXPECT().AllDelegates().Return(delegates, nil).AnyTimes()
+		mcks.dp.EXPECT().RollDelegates(gomock.Any()).Return(delegates, nil).AnyTimes()
+		mcks.dp.EXPECT().NumDelegatesPerEpoch().Return(uint(2), nil).AnyTimes()
 		mcks.dNet.EXPECT().Broadcast(gomock.Any()).AnyTimes()
 		mcks.bc.EXPECT().ValidateBlock(gomock.Any()).Return(errors.New("error"))
 		mcks.bc.EXPECT().CommitBlock(gomock.Any()).Times(0)

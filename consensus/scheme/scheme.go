@@ -30,13 +30,13 @@ type ConsensusDoneCB func(*blockchain.Block) error
 type BroadcastCB func(*blockchain.Block) error
 
 // GetProposerCB defines the callback to check the if itself is the the proposer for the coming round
-type GetProposerCB func(delegate.Pool, []byte, uint64, uint64) (net.Addr, error)
+type GetProposerCB func([]net.Addr, []byte, uint64, uint64) (net.Addr, error)
 
 // GenerateDKGCB defines the callback to generate DKG bytes
 type GenerateDKGCB func() (common.DKGHash, error)
 
 // StartNextEpochCB defines the callback to check if the next epoch should start
-type StartNextEpochCB func(state.Factory) (bool, error)
+type StartNextEpochCB func(net.Addr, uint64, state.Factory, delegate.Pool) (bool, error)
 
 // Scheme is the interface that consensus schemes should implement
 type Scheme interface {

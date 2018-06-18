@@ -168,6 +168,8 @@ func chooseStartNextEpochCB(epochCbName string) (epochCb scheme.StartNextEpochCB
 		epochCb = rolldpos.NeverStartNewEpoch
 	case "PseudoStarNewEpoch":
 		epochCb = rolldpos.PseudoStarNewEpoch
+	case "PseudoStartRollingEpoch":
+		epochCb = rolldpos.PseudoStartRollingEpoch
 	default:
 		logger.Panic().
 			Str("func name", epochCbName).

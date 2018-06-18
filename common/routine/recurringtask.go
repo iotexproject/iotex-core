@@ -44,6 +44,9 @@ func (t *RecurringTask) Start() error {
 
 // Stop stops the timer
 func (t *RecurringTask) Stop() error {
-	t.ticker.Stop()
+	// TODO: actually this happens when stop is called before init/start. We should prevent this from happening
+	if t.ticker != nil {
+		t.ticker.Stop()
+	}
 	return nil
 }

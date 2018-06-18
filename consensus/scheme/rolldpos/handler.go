@@ -12,7 +12,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/consensus/fsm"
-	"github.com/iotexproject/iotex-core/logger"
 )
 
 // epochStart is the initial and idle state of a round of epochStart. It initiates the epochStart context.
@@ -22,27 +21,6 @@ type epochStart struct {
 }
 
 func (h *epochStart) Handle(event *fsm.Event) {
-	// Assume the view of the delegates are fixed during a consensus round
-	delegates, err := h.pool.AllDelegates()
-	if err != nil {
-		event.Err = err
-		return
-	}
-	height, err := h.bc.TipHeight()
-	if err != nil {
-		event.Err = err
-		return
-	}
-	numSubEpochs := uint(1)
-	if h.cfg.NumSubEpochs > 0 {
-		numSubEpochs = h.cfg.NumSubEpochs
-	}
-	// The epochStart start height is going to be the next block to generate
-	h.epochCtx = &epochCtx{height: height + 1, delegates: delegates, numSubEpochs: numSubEpochs}
-	logger.Info().
-		Str("name", h.self.String()).
-		Uint64("height", h.epochCtx.height).
-		Msg("enter an epoch")
 
 }
 

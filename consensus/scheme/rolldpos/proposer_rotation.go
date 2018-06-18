@@ -24,20 +24,27 @@ type proposerRotation struct {
 
 // Do handles transition to stateInitPropose
 func (s *proposerRotation) Do() {
-	logger.Info().Msg("determine if the node is the proposer")
+	logger.Debug().Msg("determine if the node is the proposer")
+	// If it's periodic proposer election on constant interval and the state is not ROUND_START, then returns
+	if s.cfg.ProposerInterval != 0 && s.fsm.CurrentState() != stateRoundStart {
+		return
+	}
 	height, err := s.bc.TipHeight()
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to get blockchain height")
 		return
 	}
-	pr, err := s.prCb(s.pool, nil, 0, height+1)
+	if s.epochCtx == nil {
+		logger.Error().Msg("epoch context is nil")
+		return
+	}
+	pr, err := s.prCb(s.epochCtx.Delegates(), nil, 0, height+1)
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to get the proposer")
 		return
 	}
-	// If proposer is not the current node or it's not periodic proposer election on constant interval, then returns
-	if pr.String() != s.self.String() ||
-		(s.cfg.ProposerInterval != 0 && s.fsm.CurrentState() != stateRoundStart) {
+	// If proposer is not the current node, then returns
+	if pr.String() != s.self.String() {
 		return
 	}
 	logger.Warn().
@@ -61,32 +68,17 @@ func newProposerRotation(r *RollDPoS) *routine.RecurringTask {
 }
 
 // FixedProposer will always choose the first in the delegate list as the proposer
-func FixedProposer(pool delegate.Pool, _ []byte, _ uint64, _ uint64) (net.Addr, error) {
-	delegates, err := getNonEmptyProposerList(pool)
-	if err != nil {
-		return nil, err
+func FixedProposer(delegates []net.Addr, _ []byte, _ uint64, _ uint64) (net.Addr, error) {
+	if len(delegates) == 0 {
+		return nil, delegate.ErrZeroDelegate
 	}
 	return delegates[0], nil
 }
 
 // PseudoRotatedProposer will rotate among the delegates to choose the proposer
-func PseudoRotatedProposer(pool delegate.Pool, _ []byte, _ uint64, height uint64) (net.Addr, error) {
-	delegates, err := getNonEmptyProposerList(pool)
-	if err != nil {
-		return nil, err
-	}
-	return delegates[height%uint64(len(delegates))], nil
-}
-
-func getNonEmptyProposerList(pool delegate.Pool) ([]net.Addr, error) {
-	// TODO: Need to check if the node should panic if it's not able to get the delegates
-	// TODO: Get the delegates at the roundStart of an epochStart and put it into an epochStart context
-	delegates, err := pool.AllDelegates()
-	if err != nil {
-		return nil, err
-	}
+func PseudoRotatedProposer(delegates []net.Addr, _ []byte, _ uint64, height uint64) (net.Addr, error) {
 	if len(delegates) == 0 {
 		return nil, delegate.ErrZeroDelegate
 	}
-	return delegates, nil
+	return delegates[height%uint64(len(delegates))], nil
 }

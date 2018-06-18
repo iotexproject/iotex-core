@@ -79,6 +79,8 @@ func createTestRollDPoS(
 	}
 	dp := mock_delegate.NewMockPool(ctrl)
 	dp.EXPECT().AllDelegates().Return(delegates, nil).AnyTimes()
+	dp.EXPECT().RollDelegates(gomock.Any()).Return(delegates, nil).AnyTimes()
+	dp.EXPECT().NumDelegatesPerEpoch().Return(uint(len(delegates)), nil).AnyTimes()
 	dNet := NewMockDNet(ctrl)
 	dNet.EXPECT().Self().Return(self)
 	tellblockCB := func(msg proto.Message) error {
@@ -95,8 +97,10 @@ func createTestRollDPoS(
 		AcceptVote: config.AcceptVote{
 			TTL: 300 * time.Millisecond,
 		},
-		Delay:         10 * time.Second,
-		EventChanSize: 100,
+		Delay:            10 * time.Second,
+		EventChanSize:    100,
+		DelegateInterval: time.Hour,
+		NumSubEpochs:     1,
 	}
 	csCfg.ProposerInterval = prDelay
 	sf := mock_state.NewMockFactory(ctrl)
