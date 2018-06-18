@@ -119,8 +119,8 @@ type blockchain struct {
 func NewBlockchain(dao *blockDAO, cfg *config.Config, sf state.Factory) Blockchain {
 	if sf != nil {
 		// add Genesis block miner into Trie
-		if _, err := sf.CreateState(cfg.Chain.ProducerAddr.RawAddress, Gen.TotalSupply); err != nil {
-			logger.Error().Err(err).Msg("Failed to add miner into StateFactory")
+		if _, err := sf.CreateState(Gen.Creator, Gen.TotalSupply); err != nil {
+			logger.Error().Err(err).Msg("Failed to add Creator into StateFactory")
 			return nil
 		}
 		// add initial delegates into Trie
@@ -374,7 +374,9 @@ func CreateBlockchain(cfg *config.Config, sf state.Factory) Blockchain {
 				logger.Error().Err(err).Msg("Failed to initialize in-memory trie")
 				return nil
 			}
-			sf = state.NewFactory(trie)
+			if sf == nil {
+				sf = state.NewFactory(trie)
+			}
 		}
 	} else {
 		kvStore = db.NewBoltDB(cfg.Chain.ChainDBPath, nil)

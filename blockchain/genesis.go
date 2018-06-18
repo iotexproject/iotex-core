@@ -24,6 +24,7 @@ type Genesis struct {
 	Timestamp           uint64
 	ParentHash          common.Hash32B
 	GenesisCoinbaseData string
+	Creator             string
 }
 
 // initDelegatePK hardcodes initial 21 candidates that enter candidate pool
@@ -84,6 +85,7 @@ var Gen = &Genesis{
 	Timestamp:           uint64(1524676419),
 	ParentHash:          common.Hash32B{},
 	GenesisCoinbaseData: "Connecting the physical world, block by block",
+	Creator:             "io1qyqsyqcy222ggazmccgf7dsx9m9vfqtadw82ygwhjnxtmx",
 }
 
 // NewGenesisBlock creates a new genesis block

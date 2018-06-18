@@ -99,8 +99,9 @@ func TestExplorerApi(t *testing.T) {
 	config.Chain.InMemTest = true
 	config.Chain.ChainDBPath = testDBPath
 
-	tr, _ := trie.NewTrie(testTriePath, false)
+	tr, _ := trie.NewTrie(testTriePath, true)
 	sf := state.NewFactory(tr)
+	sf.CreateState(ta.Addrinfo["miner"].RawAddress, blockchain.Gen.TotalSupply)
 	// Disable block reward to make bookkeeping easier
 	blockchain.Gen.BlockReward = uint64(0)
 
