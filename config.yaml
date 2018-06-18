@@ -36,6 +36,7 @@ chain:
 consensus:
     scheme: "NOOP"
     rollDPoS:
+        delegateInterval: 10s
         proposerInterval: 3s
         unmatchedEventTTL: 3s
         acceptPropose:
@@ -67,3 +68,6 @@ explorer:
     isTest: false
     addr: "14004"
     tpsWindow: 10
+
+system:
+    heartbeatInterval: 0s

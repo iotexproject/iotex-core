@@ -40,14 +40,33 @@ type roundCtx struct {
 	isPr      bool
 }
 
-// epochCtx keeps the context data for the current epochStart
-type epochCtx struct {
+// EpochCtx keeps the context data for the current epochStart
+type EpochCtx struct {
+	// num is the ordinal number of an epoch
+	num uint64
 	// height means offset for current epochStart (i.e., the height of the first block generated in this epochStart)
 	height uint64
 	// numSubEpochs defines number of sub-epochs/rotations will happen in an epochStart
 	numSubEpochs uint
 	dkg          common.DKGHash
 	delegates    []net.Addr
+}
+
+// Num returns the ordinal number of the epoch
+func (e *EpochCtx) Num() uint64 {
+	return e.num
+}
+
+// Height returns the starting height of the epoch
+func (e *EpochCtx) Height() uint64 {
+	return e.height
+}
+
+// Delegates returns a copy of the delegates
+func (e *EpochCtx) Delegates() []net.Addr {
+	o := make([]net.Addr, len(e.delegates))
+	copy(o, e.delegates)
+	return o
 }
 
 // DNet is the delegate networks interface.
@@ -73,7 +92,7 @@ type RollDPoS struct {
 	rollDPoSCB
 	bc             blockchain.Blockchain
 	fsm            *fsm.Machine
-	epochCtx       *epochCtx
+	epochCtx       *EpochCtx
 	roundCtx       *roundCtx
 	self           net.Addr
 	pool           delegate.Pool
@@ -84,6 +103,7 @@ type RollDPoS struct {
 	cfg            config.RollDPoS
 	pr             *routine.RecurringTask
 	prnd           *proposerRotation
+	dlgRollTask    *routine.RecurringTask
 	epochStartTask *routine.DelayTask
 	done           chan bool
 }
@@ -127,11 +147,16 @@ func NewRollDPoS(
 	} else {
 		sc.pr = newProposerRotation(sc)
 	}
+	sc.dlgRollTask = newDelegateRoll(sc)
 	sc.epochStartTask = routine.NewDelayTask(
+		// Delay the start of first epoch to give every nodes the time to finish ramp-up
 		func() {
-			sc.enqueueEvent(&fsm.Event{
-				State: stateDKGGenerate,
-			})
+			if err := sc.dlgRollTask.Init(); err != nil {
+				logger.Panic().Err(err).Msg("error when initiating delegate roll task")
+			}
+			if err := sc.dlgRollTask.Start(); err != nil {
+				logger.Panic().Err(err).Msg("error when starting delegate roll task")
+			}
 		},
 		cfg.Delay,
 	)
@@ -146,17 +171,36 @@ func (n *RollDPoS) Start() error {
 	n.wg.Add(1)
 	go n.consume()
 	if n.cfg.ProposerInterval > 0 {
-		n.pr.Init()
-		n.pr.Start()
+		if err := n.pr.Init(); err != nil {
+			return err
+		}
+		if err := n.pr.Start(); err != nil {
+			return err
+		}
 	}
-	n.epochStartTask.Init()
-	n.epochStartTask.Start()
+	if err := n.epochStartTask.Init(); err != nil {
+		return err
+	}
+	if err := n.epochStartTask.Start(); err != nil {
+		return err
+	}
 	return nil
 }
 
 // Stop stops the RollDPoS and stop consuming requests from request channel.
 func (n *RollDPoS) Stop() error {
 	logger.Info().Str("name", n.self.String()).Msg("RollDPoS is shutting down")
+	if n.cfg.ProposerInterval > 0 {
+		if err := n.pr.Stop(); err != nil {
+			return err
+		}
+	}
+	if err := n.dlgRollTask.Stop(); err != nil {
+		return err
+	}
+	if err := n.epochStartTask.Stop(); err != nil {
+		return err
+	}
 	close(n.quit)
 	n.wg.Wait()
 	return nil

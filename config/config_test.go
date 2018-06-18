@@ -17,8 +17,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/keepalive"
 	"gopkg.in/yaml.v2"
-
-	"github.com/iotexproject/iotex-core/iotxaddress"
 )
 
 func TestLoadTestConfig(t *testing.T) {
@@ -37,7 +35,6 @@ func TestLoadTestConfig(t *testing.T) {
 	config2, err := LoadConfigWithPath(path)
 	assert.Nil(t, err)
 	assert.NotNil(t, config2)
-	config2.Chain.ProducerAddr = iotxaddress.Address{}
 	assert.Equal(t, config1, config2)
 }
 
@@ -57,7 +54,6 @@ func TestValidateConfig(t *testing.T) {
 	assert.Equal(t, "invalid miner's address", err.Error())
 
 	cfg = LoadTestConfig()
-	setProducerAddr(cfg)
 	cfg.Chain.ProducerAddr.PublicKey = []byte("hello world")
 	cfg.Chain.ProducerAddr.PrivateKey = []byte("world hello")
 	err = validateConfig(cfg)
@@ -65,21 +61,18 @@ func TestValidateConfig(t *testing.T) {
 	assert.Equal(t, "producer has unmatched pubkey and prikey", err.Error())
 
 	cfg = LoadTestConfig()
-	setProducerAddr(cfg)
 	cfg.Explorer.Enabled = true
 	err = validateConfig(cfg)
 	assert.NotNil(t, err)
 	assert.Equal(t, "tps window is not a positive integer when the explorer is enabled", err.Error())
 
 	cfg = LoadTestConfig()
-	setProducerAddr(cfg)
 	cfg.Network.PeerDiscovery = false
 	err = validateConfig(cfg)
 	assert.NotNil(t, err)
 	assert.Equal(t, "either peer discover should be enabled or a topology should be given", err.Error())
 
 	cfg = LoadTestConfig()
-	setProducerAddr(cfg)
 	cfg.NodeType = FullNodeType
 	cfg.Consensus.Scheme = RollDPoSScheme
 	err = validateConfig(cfg)
@@ -92,21 +85,24 @@ func TestValidateConfig(t *testing.T) {
 	assert.Equal(t, "consensus scheme of lightweight node should be NOOP", err.Error())
 
 	cfg = LoadTestConfig()
-	setProducerAddr(cfg)
 	cfg.Dispatcher.EventChanSize = 0
 	err = validateConfig(cfg)
 	assert.Equal(t, "dispatcher event chan size should be greater than 0", err.Error())
 
 	cfg = LoadTestConfig()
-	setProducerAddr(cfg)
 	cfg.NodeType = DelegateType
 	cfg.Consensus.Scheme = RollDPoSScheme
 	err = validateConfig(cfg)
 	assert.Equal(t, "roll-dpos event chan size should be greater than 0", err.Error())
+
+	cfg = LoadTestConfig()
+	cfg.Delegate.RollNum = 2
+	err = validateConfig(cfg)
+	assert.Equal(t, "rolling delegates number is greater than total configured delegates", err.Error())
 }
 
 func LoadTestConfig() *Config {
-	return &Config{
+	cfg := &Config{
 		NodeType: FullNodeType,
 		Network: Network{
 			MsgLogsCleaningInterval: 2 * time.Second,
@@ -148,6 +144,8 @@ func LoadTestConfig() *Config {
 			EventChanSize: 1024,
 		},
 	}
+	setProducerAddr(cfg)
+	return cfg
 }
 
 func TestLoadTestTopology(t *testing.T) {

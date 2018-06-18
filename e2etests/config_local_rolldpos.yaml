@@ -35,6 +35,7 @@ chain:
 consensus:
     scheme: "ROLLDPOS"
     rollDPoS:
+        delegateInterval: 90ms
         proposerInterval: 0ms
         unmatchedEventTTL: 90ms
         acceptPropose:

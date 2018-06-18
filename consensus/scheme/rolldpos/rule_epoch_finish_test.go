@@ -16,7 +16,6 @@ import (
 	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/consensus/fsm"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
-	"github.com/iotexproject/iotex-core/test/mock/mock_state"
 )
 
 func TestRuleEpochFinishCondition(t *testing.T) {
@@ -32,7 +31,7 @@ func TestRuleEpochFinishCondition(t *testing.T) {
 	h := ruleEpochFinish{
 		RollDPoS: &RollDPoS{
 			bc: bc,
-			epochCtx: &epochCtx{
+			epochCtx: &EpochCtx{
 				height:       10,
 				numSubEpochs: 2,
 				dkg:          dkg,
@@ -53,20 +52,4 @@ func TestRuleEpochFinishCondition(t *testing.T) {
 	assert.False(t, h.Condition(&fsm.Event{State: stateEpochStart}))
 	bc.EXPECT().TipHeight().Return(uint64(17), nil).Times(1)
 	assert.True(t, h.Condition(&fsm.Event{State: stateEpochStart}))
-}
-
-func TestStartNextEpochCB(t *testing.T) {
-	t.Parallel()
-
-	ctrl := gomock.NewController(t)
-	sf := mock_state.NewMockFactory(ctrl)
-	defer ctrl.Finish()
-
-	flag, err := NeverStartNewEpoch(sf)
-	assert.Nil(t, err)
-	assert.False(t, flag)
-
-	flag, err = PseudoStarNewEpoch(sf)
-	assert.Nil(t, err)
-	assert.True(t, flag)
 }

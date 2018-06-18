@@ -100,6 +100,7 @@ type BlockSync struct {
 
 // RollDPoS is the config struct for RollDPoS consensus package
 type RollDPoS struct {
+	DelegateInterval  time.Duration `yaml:"delegateInterval"`
 	ProposerInterval  time.Duration `yaml:"proposerInterval"`
 	ProposerCB        string        `yaml:"proposerCB"`
 	EpochCB           string        `yaml:"epochCB"`
@@ -135,7 +136,8 @@ type AcceptVote struct {
 
 // Delegate is the delegate config
 type Delegate struct {
-	Addrs []string `yaml:"addrs"`
+	Addrs   []string `yaml:"addrs"`
+	RollNum uint     `yaml:"rollNum"`
 }
 
 // RPC is the chain service config
@@ -276,6 +278,9 @@ func validateConfig(cfg *Config) error {
 	}
 	if cfg.Consensus.Scheme == RollDPoSScheme && cfg.Consensus.RollDPoS.EventChanSize <= 0 {
 		return fmt.Errorf("roll-dpos event chan size should be greater than 0")
+	}
+	if cfg.Delegate.RollNum > uint(len(cfg.Delegate.Addrs)) {
+		return fmt.Errorf("rolling delegates number is greater than total configured delegates")
 	}
 	return nil
 }

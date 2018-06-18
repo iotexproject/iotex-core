@@ -9,15 +9,16 @@ package rolldpos
 import (
 	"net"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/fsm"
-	"github.com/iotexproject/iotex-core/delegate"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
+	"github.com/iotexproject/iotex-core/test/mock/mock_delegate"
 )
 
 func TestRuleDKGGenerateCondition(t *testing.T) {
@@ -29,31 +30,39 @@ func TestRuleDKGGenerateCondition(t *testing.T) {
 	addr := common.NewTCPNode("127.0.0.1:40001")
 	bc := mock_blockchain.NewMockBlockchain(ctrl)
 	bc.EXPECT().TipHeight().Return(uint64(16), nil).Times(1)
+	pool := mock_delegate.NewMockPool(ctrl)
+	pool.EXPECT().NumDelegatesPerEpoch().Return(uint(4), nil).Times(1)
+	delegates := []net.Addr{
+		common.NewTCPNode("127.0.0.1:40001"),
+		common.NewTCPNode("127.0.0.1:40002"),
+		common.NewTCPNode("127.0.0.1:40003"),
+		common.NewTCPNode("127.0.0.1:40004"),
+	}
+	pool.EXPECT().RollDelegates(gomock.Any()).Return(delegates, nil).Times(1)
 
-	elected := false
 	h := ruleDKGGenerate{
 		RollDPoS: &RollDPoS{
 			self: addr,
 			cfg: config.RollDPoS{
-				ProposerInterval: 0,
+				ProposerInterval: time.Millisecond,
+				NumSubEpochs:     2,
 			},
-			bc: bc,
-			rollDPoSCB: rollDPoSCB{
-				prCb: func(_ delegate.Pool, _ []byte, _ uint64, _ uint64) (net.Addr, error) {
-					elected = true
-					return addr, nil
-				},
-			},
+			bc:        bc,
 			eventChan: make(chan *fsm.Event, 1),
+			pool:      pool,
 		},
 	}
 	h.RollDPoS.prnd = &proposerRotation{RollDPoS: h.RollDPoS}
 
-	assert.True(
+	require.True(
 		t,
 		h.Condition(&fsm.Event{
 			State: stateRoundStart,
 		}),
 	)
-	assert.True(t, elected)
+	require.NotNil(t, h.epochCtx)
+	require.Equal(t, uint64(3), h.epochCtx.Num())
+	require.Equal(t, uint64(17), h.epochCtx.height)
+	require.Equal(t, delegates, h.epochCtx.delegates)
+
 }

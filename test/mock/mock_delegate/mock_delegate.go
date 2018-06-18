@@ -46,6 +46,19 @@ func (mr *MockPoolMockRecorder) AllDelegates() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllDelegates", reflect.TypeOf((*MockPool)(nil).AllDelegates))
 }
 
+// RollDelegates mocks base method
+func (m *MockPool) RollDelegates(arg0 uint64) ([]net.Addr, error) {
+	ret := m.ctrl.Call(m, "RollDelegates", arg0)
+	ret0, _ := ret[0].([]net.Addr)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RollDelegates indicates an expected call of RollDelegates
+func (mr *MockPoolMockRecorder) RollDelegates(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RollDelegates", reflect.TypeOf((*MockPool)(nil).RollDelegates), arg0)
+}
+
 // AnotherDelegate mocks base method
 func (m *MockPool) AnotherDelegate(self string) net.Addr {
 	ret := m.ctrl.Call(m, "AnotherDelegate", self)
@@ -56,4 +69,17 @@ func (m *MockPool) AnotherDelegate(self string) net.Addr {
 // AnotherDelegate indicates an expected call of AnotherDelegate
 func (mr *MockPoolMockRecorder) AnotherDelegate(self interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AnotherDelegate", reflect.TypeOf((*MockPool)(nil).AnotherDelegate), self)
+}
+
+// NumDelegatesPerEpoch mocks base method
+func (m *MockPool) NumDelegatesPerEpoch() (uint, error) {
+	ret := m.ctrl.Call(m, "NumDelegatesPerEpoch")
+	ret0, _ := ret[0].(uint)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// NumDelegatesPerEpoch indicates an expected call of NumDelegatesPerEpoch
+func (mr *MockPoolMockRecorder) NumDelegatesPerEpoch() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NumDelegatesPerEpoch", reflect.TypeOf((*MockPool)(nil).NumDelegatesPerEpoch))
 }
