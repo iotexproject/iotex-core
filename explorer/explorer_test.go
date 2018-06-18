@@ -12,12 +12,15 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/blockchain/trx"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 )
 
@@ -156,14 +159,32 @@ func TestExplorerApi(t *testing.T) {
 	require.Equal(stats.Height, int64(4))
 	require.Equal(stats.Transfers, int64(9))
 	require.Equal(stats.Tps, int64(9))
+}
 
-	balance, err := svc.GetAddressBalance(ta.Addrinfo["charlie"].RawAddress)
-	require.Nil(err)
-	require.Equal(balance, int64(46))
+func TestService_GetAddressDetails(t *testing.T) {
+	require := require.New(t)
 
-	addressDetails, err := svc.GetAddressDetails(ta.Addrinfo["charlie"].RawAddress)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	s := state.State{
+		Balance:      big.NewInt(46),
+		Nonce:        uint64(0),
+		Address:      "123",
+		IsCandidate:  false,
+		VotingWeight: big.NewInt(100),
+		Votee:        "456",
+	}
+
+	mBc := mock_blockchain.NewMockBlockchain(ctrl)
+	mBc.EXPECT().StateByAddr("123").Times(1).Return(&s, nil)
+
+	state, err := mBc.StateByAddr("123")
 	require.Nil(err)
-	require.Equal(addressDetails.TotalBalance, int64(46))
-	require.Equal(addressDetails.Nonce, int64(0))
-	require.Equal(addressDetails.Address, ta.Addrinfo["charlie"].RawAddress)
+	require.Equal(big.NewInt(46), state.Balance)
+	require.Equal(uint64(0), state.Nonce)
+	require.Equal("123", state.Address)
+	require.Equal(false, state.IsCandidate)
+	require.Equal(big.NewInt(100), state.VotingWeight)
+	require.Equal("456", state.Votee)
 }

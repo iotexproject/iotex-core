@@ -22,14 +22,26 @@ type Service struct {
 
 // GetAddressBalance returns the balance of an address
 func (exp *Service) GetAddressBalance(address string) (int64, error) {
-	bal, _ := exp.bc.BalanceNonceOf(address)
-	return bal.Int64(), nil
+	state, err := exp.bc.StateByAddr(address)
+	if err != nil {
+		return int64(0), err
+	}
+	return state.Balance.Int64(), nil
 }
 
 // GetAddressDetails returns the properties of an address
 func (exp *Service) GetAddressDetails(address string) (explorer.AddressDetails, error) {
-	bal, non := exp.bc.BalanceNonceOf(address)
-	return explorer.AddressDetails{Address: address, TotalBalance: bal.Int64(), Nonce: int64(non)}, nil
+	state, err := exp.bc.StateByAddr(address)
+	if err != nil {
+		return explorer.AddressDetails{}, err
+	}
+	details := explorer.AddressDetails{
+		Address:      address,
+		TotalBalance: (*state).Balance.Int64(),
+		Nonce:        int64((*state).Nonce),
+	}
+
+	return details, nil
 }
 
 // GetLastTransfersByRange return transfers in [-(offset+limit-1), -offset] from block

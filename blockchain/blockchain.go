@@ -65,8 +65,10 @@ type Blockchain interface {
 	// AddBlockSync adds a past block into blockchain
 	// used by block syncer when the chain in out-of-sync
 	AddBlockSync(blk *Block) error
-	// BalanceNonceOf returns the balance and nonce of a given address
-	BalanceNonceOf(string) (*big.Int, uint64)
+	// BalanceOf returns the balance of an address
+	BalanceOf(address string) *big.Int
+	// StateByAddr returns state of a given address
+	StateByAddr(string) (*state.State, error)
 	// CreateTransaction creates a signed transaction paying 'amount' from 'from' to 'to'
 	CreateTransaction(from *iotxaddress.Address, amount uint64, to []*Payee) *trx.Tx
 	// CreateRawTransaction creates an unsigned transaction paying 'amount' from 'from' to 'to'
@@ -380,24 +382,34 @@ func CreateBlockchain(cfg *config.Config, sf state.Factory) Blockchain {
 	return createAndInitBlockchain(kvStore, sf, cfg)
 }
 
-// BalanceNonceOf returns the balance and nonce of an address
-func (bc *blockchain) BalanceNonceOf(address string) (*big.Int, uint64) {
+// TODO: Please deprecate this method when Utxo is deprecated
+// BalanceOf returns the balance of an address
+func (bc *blockchain) BalanceOf(address string) *big.Int {
 	if bc.sf != nil {
-		b, err := bc.sf.Balance(address)
+		s, err := bc.StateByAddr(address)
 		if err != nil {
-			logger.Warn().Err(err)
-			return big.NewInt(0), 1
+			return big.NewInt(0)
 		}
-		n, err := bc.sf.Nonce(address)
-		if err != nil {
-			logger.Warn().Err(err)
-			return big.NewInt(0), 1
-		}
-		return b, n
+		return s.Balance
 	}
 
 	_, balance := bc.utk.UtxoEntries(address, math.MaxUint64)
-	return balance, 0
+	return balance
+}
+
+// StateByAddr returns the state of an address
+func (bc *blockchain) StateByAddr(address string) (*state.State, error) {
+	if bc.sf != nil {
+		s, err := bc.sf.State(address)
+		if err != nil {
+			logger.Warn().Err(err).Str("Address", address)
+			return nil, errors.New("account does not exist")
+		}
+
+		return s, nil
+	}
+
+	return nil, errors.New("state factory is nil")
 }
 
 // UtxoPool returns the UTXO pool of current blockchain

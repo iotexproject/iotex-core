@@ -35,30 +35,30 @@ func TestUTXO(t *testing.T) {
 	assert.Nil(t, addTestingBlocks(bc))
 
 	// check all UTXO
-	total, _ := bc.BalanceNonceOf(ta.Addrinfo["alfa"].RawAddress)
+	total := bc.BalanceOf(ta.Addrinfo["alfa"].RawAddress)
 	fmt.Printf("Alfa balance = %d\n", total)
 
-	beta, _ := bc.BalanceNonceOf(ta.Addrinfo["bravo"].RawAddress)
+	beta := bc.BalanceOf(ta.Addrinfo["bravo"].RawAddress)
 	fmt.Printf("Bravo balance = %d\n", beta)
 	total.Add(total, beta)
 
-	beta, _ = bc.BalanceNonceOf(ta.Addrinfo["charlie"].RawAddress)
+	beta = bc.BalanceOf(ta.Addrinfo["charlie"].RawAddress)
 	fmt.Printf("Charlie balance = %d\n", beta)
 	total.Add(total, beta)
 
-	beta, _ = bc.BalanceNonceOf(ta.Addrinfo["delta"].RawAddress)
+	beta = bc.BalanceOf(ta.Addrinfo["delta"].RawAddress)
 	fmt.Printf("Delta balance = %d\n", beta)
 	total.Add(total, beta)
 
-	beta, _ = bc.BalanceNonceOf(ta.Addrinfo["echo"].RawAddress)
+	beta = bc.BalanceOf(ta.Addrinfo["echo"].RawAddress)
 	fmt.Printf("Echo balance = %d\n", beta)
 	total.Add(total, beta)
 
-	beta, _ = bc.BalanceNonceOf(ta.Addrinfo["foxtrot"].RawAddress)
+	beta = bc.BalanceOf(ta.Addrinfo["foxtrot"].RawAddress)
 	fmt.Printf("Foxtrot balance = %d\n", beta)
 	total.Add(total, beta)
 
-	beta, _ = bc.BalanceNonceOf(ta.Addrinfo["miner"].RawAddress)
+	beta = bc.BalanceOf(ta.Addrinfo["miner"].RawAddress)
 	fmt.Printf("test balance = %d\n", beta)
 	utxo, _ := bc.(*blockchain).utk.UtxoEntries(ta.Addrinfo["miner"].RawAddress, beta.Uint64())
 	assert.NotNil(t, utxo)

@@ -87,6 +87,19 @@ func (mr *MockFactoryMockRecorder) Nonce(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Nonce", reflect.TypeOf((*MockFactory)(nil).Nonce), arg0)
 }
 
+// State mocks base method
+func (m *MockFactory) State(arg0 string) (*state.State, error) {
+	ret := m.ctrl.Call(m, "State", arg0)
+	ret0, _ := ret[0].(*state.State)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// State indicates an expected call of State
+func (mr *MockFactoryMockRecorder) State(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "State", reflect.TypeOf((*MockFactory)(nil).State), arg0)
+}
+
 // RootHash mocks base method
 func (m *MockFactory) RootHash() common.Hash32B {
 	ret := m.ctrl.Call(m, "RootHash")
