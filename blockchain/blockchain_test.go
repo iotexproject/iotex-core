@@ -192,6 +192,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 
 	tr, _ := trie.NewTrie(testTriePath, false)
 	sf := state.NewFactory(tr)
+	sf.CreateState(ta.Addrinfo["miner"].RawAddress, Gen.TotalSupply)
 	// Disable block reward to make bookkeeping easier
 	Gen.BlockReward = uint64(0)
 	// Create a blockchain from scratch
@@ -416,6 +417,7 @@ func TestCoinbaseTransfer(t *testing.T) {
 
 	tr, _ := trie.NewTrie(testTriePath, false)
 	sf := state.NewFactory(tr)
+	sf.CreateState(ta.Addrinfo["miner"].RawAddress, Gen.TotalSupply)
 
 	Gen.BlockReward = uint64(10)
 
@@ -429,7 +431,7 @@ func TestCoinbaseTransfer(t *testing.T) {
 	blk, err := bc.MintNewBlock([]*trx.Tx{}, transfers, nil, ta.Addrinfo["miner"], "")
 	require.Nil(err)
 	b := bc.BalanceOf(ta.Addrinfo["miner"].RawAddress)
-	require.True(b.String() == "10000000000")
+	require.True(b.String() == strconv.Itoa(int(Gen.TotalSupply)))
 	err = bc.AddBlockCommit(blk)
 	require.Nil(err)
 	height, err = bc.TipHeight()
@@ -437,7 +439,7 @@ func TestCoinbaseTransfer(t *testing.T) {
 	require.True(height == 1)
 	require.True(len(blk.Transfers) == 1)
 	b = bc.BalanceOf(ta.Addrinfo["miner"].RawAddress)
-	require.True(b.String() == strconv.Itoa(10000000000+int(Gen.BlockReward)))
+	require.True(b.String() == strconv.Itoa(int(Gen.TotalSupply)+int(Gen.BlockReward)))
 }
 
 func TestBlockchain_StateByAddr(t *testing.T) {
@@ -451,10 +453,10 @@ func TestBlockchain_StateByAddr(t *testing.T) {
 	bc := CreateBlockchain(config, nil)
 	require.NotNil(bc)
 
-	s, _ := bc.StateByAddr("io1qyqsyqcy8uhx9jtdc2xp5wx7nxyq3xf4c3jmxknzkuej8y")
+	s, _ := bc.StateByAddr(Gen.Creator)
 	require.Equal(uint64(0), s.Nonce)
-	require.Equal(big.NewInt(10000000000), s.Balance)
-	require.Equal("io1qyqsyqcy8uhx9jtdc2xp5wx7nxyq3xf4c3jmxknzkuej8y", s.Address)
+	require.Equal(big.NewInt(int64(Gen.TotalSupply)), s.Balance)
+	require.Equal(Gen.Creator, s.Address)
 	require.Equal(false, s.IsCandidate)
 	require.Equal(big.NewInt(0), s.VotingWeight)
 	require.Equal("", s.Votee)
