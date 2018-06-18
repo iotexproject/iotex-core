@@ -11,6 +11,7 @@ import (
 	trx "github.com/iotexproject/iotex-core/blockchain/trx"
 	common "github.com/iotexproject/iotex-core/common"
 	iotxaddress "github.com/iotexproject/iotex-core/iotxaddress"
+	state "github.com/iotexproject/iotex-core/state"
 	big "math/big"
 	reflect "reflect"
 )
@@ -267,17 +268,29 @@ func (mr *MockBlockchainMockRecorder) AddBlockSync(blk interface{}) *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddBlockSync", reflect.TypeOf((*MockBlockchain)(nil).AddBlockSync), blk)
 }
 
-// BalanceNonceOf mocks base method
-func (m *MockBlockchain) BalanceNonceOf(arg0 string) (*big.Int, uint64) {
-	ret := m.ctrl.Call(m, "BalanceNonceOf", arg0)
+// BalanceOf mocks base method
+func (m *MockBlockchain) BalanceOf(address string) *big.Int {
+	ret := m.ctrl.Call(m, "BalanceOf", address)
 	ret0, _ := ret[0].(*big.Int)
-	ret1, _ := ret[1].(uint64)
+	return ret0
+}
+
+// BalanceOf indicates an expected call of BalanceOf
+func (mr *MockBlockchainMockRecorder) BalanceOf(address interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BalanceOf", reflect.TypeOf((*MockBlockchain)(nil).BalanceOf), address)
+}
+
+// StateByAddr mocks base method
+func (m *MockBlockchain) StateByAddr(arg0 string) (*state.State, error) {
+	ret := m.ctrl.Call(m, "StateByAddr", arg0)
+	ret0, _ := ret[0].(*state.State)
+	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// BalanceNonceOf indicates an expected call of BalanceNonceOf
-func (mr *MockBlockchainMockRecorder) BalanceNonceOf(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BalanceNonceOf", reflect.TypeOf((*MockBlockchain)(nil).BalanceNonceOf), arg0)
+// StateByAddr indicates an expected call of StateByAddr
+func (mr *MockBlockchainMockRecorder) StateByAddr(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateByAddr", reflect.TypeOf((*MockBlockchain)(nil).StateByAddr), arg0)
 }
 
 // CreateTransaction mocks base method

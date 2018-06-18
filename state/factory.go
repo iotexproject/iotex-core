@@ -62,6 +62,7 @@ type (
 		CommitStateChanges(uint64, []*action.Transfer, []*action.Vote) error
 		// Note that nonce starts with 1.
 		Nonce(string) (uint64, error)
+		State(string) (*State, error)
 		RootHash() common.Hash32B
 		Candidates() (uint64, []*Candidate)
 	}
@@ -136,6 +137,11 @@ func (sf *factory) Nonce(addr string) (uint64, error) {
 		return 0, err
 	}
 	return state.Nonce, nil
+}
+
+// State returns the state if the address exists
+func (sf *factory) State(addr string) (*State, error) {
+	return sf.getState(addr)
 }
 
 // RootHash returns the hash of the root node of the trie

@@ -420,7 +420,7 @@ func TestCoinbaseTransfer(t *testing.T) {
 	transfers := []*action.Transfer{}
 	blk, err := bc.MintNewBlock([]*trx.Tx{}, transfers, nil, ta.Addrinfo["miner"], "")
 	require.Nil(err)
-	b, _ := bc.BalanceNonceOf(ta.Addrinfo["miner"].RawAddress)
+	b := bc.BalanceOf(ta.Addrinfo["miner"].RawAddress)
 	require.True(b.String() == "10000000000")
 	err = bc.AddBlockCommit(blk)
 	require.Nil(err)
@@ -428,6 +428,27 @@ func TestCoinbaseTransfer(t *testing.T) {
 	require.Nil(err)
 	require.True(height == 1)
 	require.True(len(blk.Transfers) == 1)
-	b, _ = bc.BalanceNonceOf(ta.Addrinfo["miner"].RawAddress)
+	b = bc.BalanceOf(ta.Addrinfo["miner"].RawAddress)
 	require.True(b.String() == strconv.Itoa(10000000000+int(Gen.BlockReward)))
+}
+
+func TestBlockchain_StateByAddr(t *testing.T) {
+	require := require.New(t)
+
+	config, err := config.LoadConfigWithPathWithoutValidation(testingConfigPath)
+	require.Nil(err)
+	// disable account-based testing
+	config.Chain.InMemTest = true
+	// create chain
+	bc := CreateBlockchain(config, nil)
+	require.NotNil(bc)
+
+	s, _ := bc.StateByAddr("io1qyqsyqcy8uhx9jtdc2xp5wx7nxyq3xf4c3jmxknzkuej8y")
+	require.Equal(uint64(0), s.Nonce)
+	require.Equal(big.NewInt(10000000000), s.Balance)
+	require.Equal("io1qyqsyqcy8uhx9jtdc2xp5wx7nxyq3xf4c3jmxknzkuej8y", s.Address)
+	require.Equal(false, s.IsCandidate)
+	require.Equal(big.NewInt(0), s.VotingWeight)
+	require.Equal("", s.Votee)
+	require.Equal(map[string]*big.Int(map[string]*big.Int(nil)), s.Voters)
 }
