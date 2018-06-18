@@ -15,6 +15,7 @@ GOTEST=$(GOCMD) test
 GOGET=$(GOCMD) get
 BUILD_TARGET_SERVER=server
 BUILD_TARGET_ACTINJ=actioninjector
+BUILD_TARGET_ADDRGEN=addrgen
 SKIP_GLIDE=false
 
 # Pkgs
@@ -45,6 +46,7 @@ all: clean build test
 build:
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_ACTINJ) -v ./tools/actioninjector
+	$(GOBUILD) -o ./bin/$(BUILD_TARGET_ADDRGEN) -v ./tools/addrgen
 
 .PHONY: fmt
 fmt:
