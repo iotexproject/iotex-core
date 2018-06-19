@@ -81,7 +81,7 @@ func NewSim(
 		}
 		logger.Info().
 			Uint64("height", blk.Height()).
-			Int("txs", len(blk.Tranxs)).
+			Int("transfers", len(blk.Transfers)).
 			Msg("created a new block")
 
 		return blk, nil
@@ -186,7 +186,7 @@ func NewSimByzantine(
 		}
 		logger.Info().
 			Uint64("height", blk.Height()).
-			Int("txs", len(blk.Tranxs)).
+			Int("transfers", len(blk.Transfers)).
 			Msg("created a new block")
 
 		return blk, nil

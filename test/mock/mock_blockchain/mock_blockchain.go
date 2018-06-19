@@ -8,7 +8,6 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	blockchain "github.com/iotexproject/iotex-core/blockchain"
 	action "github.com/iotexproject/iotex-core/blockchain/action"
-	trx "github.com/iotexproject/iotex-core/blockchain/trx"
 	common "github.com/iotexproject/iotex-core/common"
 	iotxaddress "github.com/iotexproject/iotex-core/iotxaddress"
 	state "github.com/iotexproject/iotex-core/state"
@@ -293,30 +292,6 @@ func (mr *MockBlockchainMockRecorder) ValidateBlock(blk interface{}) *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateBlock", reflect.TypeOf((*MockBlockchain)(nil).ValidateBlock), blk)
 }
 
-// CreateTransaction mocks base method
-func (m *MockBlockchain) CreateTransaction(from *iotxaddress.Address, amount uint64, to []*blockchain.Payee) *trx.Tx {
-	ret := m.ctrl.Call(m, "CreateTransaction", from, amount, to)
-	ret0, _ := ret[0].(*trx.Tx)
-	return ret0
-}
-
-// CreateTransaction indicates an expected call of CreateTransaction
-func (mr *MockBlockchainMockRecorder) CreateTransaction(from, amount, to interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateTransaction", reflect.TypeOf((*MockBlockchain)(nil).CreateTransaction), from, amount, to)
-}
-
-// CreateRawTransaction mocks base method
-func (m *MockBlockchain) CreateRawTransaction(from *iotxaddress.Address, amount uint64, to []*blockchain.Payee) *trx.Tx {
-	ret := m.ctrl.Call(m, "CreateRawTransaction", from, amount, to)
-	ret0, _ := ret[0].(*trx.Tx)
-	return ret0
-}
-
-// CreateRawTransaction indicates an expected call of CreateRawTransaction
-func (mr *MockBlockchainMockRecorder) CreateRawTransaction(from, amount, to interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateRawTransaction", reflect.TypeOf((*MockBlockchain)(nil).CreateRawTransaction), from, amount, to)
-}
-
 // CreateTransfer mocks base method
 func (m *MockBlockchain) CreateTransfer(nonce uint64, from *iotxaddress.Address, amount *big.Int, to *iotxaddress.Address) (*action.Transfer, error) {
 	ret := m.ctrl.Call(m, "CreateTransfer", nonce, from, amount, to)
@@ -365,28 +340,6 @@ func (m *MockBlockchain) CreateRawVote(nonce uint64, selfPubKey, votePubKey []by
 // CreateRawVote indicates an expected call of CreateRawVote
 func (mr *MockBlockchainMockRecorder) CreateRawVote(nonce, selfPubKey, votePubKey interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateRawVote", reflect.TypeOf((*MockBlockchain)(nil).CreateRawVote), nonce, selfPubKey, votePubKey)
-}
-
-// ResetUTXO mocks base method
-func (m *MockBlockchain) ResetUTXO() {
-	m.ctrl.Call(m, "ResetUTXO")
-}
-
-// ResetUTXO indicates an expected call of ResetUTXO
-func (mr *MockBlockchainMockRecorder) ResetUTXO() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResetUTXO", reflect.TypeOf((*MockBlockchain)(nil).ResetUTXO))
-}
-
-// UtxoPool mocks base method
-func (m *MockBlockchain) UtxoPool() map[common.Hash32B][]*trx.TxOutput {
-	ret := m.ctrl.Call(m, "UtxoPool")
-	ret0, _ := ret[0].(map[common.Hash32B][]*trx.TxOutput)
-	return ret0
-}
-
-// UtxoPool indicates an expected call of UtxoPool
-func (mr *MockBlockchainMockRecorder) UtxoPool() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UtxoPool", reflect.TypeOf((*MockBlockchain)(nil).UtxoPool))
 }
 
 // Validator mocks base method

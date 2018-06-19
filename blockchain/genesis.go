@@ -10,7 +10,6 @@ import (
 	"encoding/hex"
 
 	"github.com/iotexproject/iotex-core/blockchain/action"
-	"github.com/iotexproject/iotex-core/blockchain/trx"
 	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 )
@@ -120,7 +119,6 @@ func NewGenesisBlock() *Block {
 			stateRoot:     common.ZeroHash32B,
 			blockSig:      []byte{},
 		},
-		Tranxs:    []*trx.Tx{},
 		Transfers: []*action.Transfer{},
 		Votes:     votes,
 	}

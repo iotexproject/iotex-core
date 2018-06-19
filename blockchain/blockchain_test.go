@@ -147,7 +147,6 @@ func TestCreateBlockchain(t *testing.T) {
 	data, err := genesis.Serialize()
 	assert.Nil(err)
 
-	assert.Equal(0, len(genesis.Tranxs))
 	assert.Equal(0, len(genesis.Transfers))
 	assert.Equal(21, len(genesis.Votes))
 
@@ -359,7 +358,6 @@ func TestBlockchain_MintNewDummyBlock(t *testing.T) {
 	blk, err := bc.MintNewDummyBlock()
 	assert.Nil(t, err)
 	assert.Equal(t, uint64(1), blk.Height())
-	assert.Equal(t, 0, len(blk.Tranxs))
 }
 
 func TestBlockchainInitialCandidate(t *testing.T) {
