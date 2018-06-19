@@ -9,10 +9,15 @@ package explorer
 import (
 	"encoding/hex"
 
+	"github.com/pkg/errors"
+
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 )
+
+// ErrInternalServer indicates the internal server error
+var ErrInternalServer = errors.New("internal server error")
 
 // Service provide api for user to query blockchain data
 type Service struct {
@@ -292,24 +297,30 @@ func (exp *Service) GetBlockByID(blockID string) (explorer.Block, error) {
 
 // GetCoinStatistic returns stats in blockchain
 func (exp *Service) GetCoinStatistic() (explorer.CoinStatistic, error) {
+	stat := explorer.CoinStatistic{}
+
 	tipHeight, err := exp.bc.TipHeight()
 	if err != nil {
-		return explorer.CoinStatistic{}, err
+		return stat, err
 	}
 
 	totalTransfers, err := exp.bc.GetTotalTransfers()
 	if err != nil {
-		return explorer.CoinStatistic{}, err
+		return stat, err
 	}
 
 	blockLimit := int64(exp.tpsWindow)
+	if blockLimit <= 0 {
+		return stat, errors.Wrapf(ErrInternalServer, "block limit is %d", blockLimit)
+	}
+
 	// avoid genesis block
 	if int64(tipHeight) < blockLimit {
 		blockLimit = int64(tipHeight)
 	}
 	blks, err := exp.GetLastBlocksByRange(int64(tipHeight), blockLimit)
 	if err != nil {
-		return explorer.CoinStatistic{}, err
+		return stat, err
 	}
 	timeDuration := blks[0].Timestamp - blks[len(blks)-1].Timestamp
 	// if time duration is less than 1 second, we set it to be 1 second

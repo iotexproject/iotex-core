@@ -83,7 +83,7 @@ func main() {
 		defer cs.Stop()
 	}
 
-	if cfg.Explorer.StartExplorer {
+	if cfg.Explorer.Enabled {
 		isTest := cfg.Explorer.IsTest
 		httpPort := cfg.Explorer.Addr
 
