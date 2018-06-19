@@ -29,7 +29,6 @@ import (
 	"github.com/iotexproject/iotex-core/test/mock/mock_delegate"
 	. "github.com/iotexproject/iotex-core/test/mock/mock_rolldpos"
 	"github.com/iotexproject/iotex-core/test/mock/mock_state"
-	"github.com/iotexproject/iotex-core/txpool"
 )
 
 type mocks struct {
@@ -54,9 +53,8 @@ func createTestRollDPoS(
 	bcCnt *int) *RollDPoS {
 	bc := mock_blockchain.NewMockBlockchain(ctrl)
 
-	tp := txpool.NewTxPool(bc)
 	createblockCB := func() (*blockchain.Block, error) {
-		blk, err := bc.MintNewBlock(tp.PickTxs(), nil, nil, &iotxaddress.Address{}, "")
+		blk, err := bc.MintNewBlock(nil, nil, nil, &iotxaddress.Address{}, "")
 		if err != nil {
 			logger.Error().Msg("Failed to mint a new block")
 			return nil, err

@@ -24,7 +24,6 @@ import (
 	pb "github.com/iotexproject/iotex-core/proto"
 	pbsim "github.com/iotexproject/iotex-core/simulator/proto/simulator"
 	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-core/txpool"
 )
 
 const (
@@ -56,7 +55,6 @@ type sim struct {
 func NewSim(
 	cfg *config.Config,
 	bc blockchain.Blockchain,
-	tp txpool.TxPool,
 	bs blocksync.BlockSync,
 	dlg delegate.Pool,
 	sf state.Factory,
@@ -76,7 +74,7 @@ func NewSim(
 	mintBlockCB := func() (*blockchain.Block, error) {
 		logger.Debug().Msg("mintBlockCB called")
 		// TODO: get list of Transfer and Vote from actpool, instead of nil, nil below
-		blk, err := bc.MintNewBlock(tp.PickTxs(), nil, nil, &cfg.Chain.ProducerAddr, "")
+		blk, err := bc.MintNewBlock(nil, nil, nil, &cfg.Chain.ProducerAddr, "")
 		if err != nil {
 			logger.Error().Msg("Failed to mint a block")
 			return nil, err
@@ -154,7 +152,6 @@ func NewSim(
 func NewSimByzantine(
 	cfg *config.Config,
 	bc blockchain.Blockchain,
-	tp txpool.TxPool,
 	bs blocksync.BlockSync,
 	dlg delegate.Pool,
 	sf state.Factory,

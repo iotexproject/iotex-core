@@ -20,49 +20,26 @@ import (
 	"github.com/iotexproject/iotex-core/test/mock/mock_blocksync"
 	"github.com/iotexproject/iotex-core/test/mock/mock_delegate"
 	"github.com/iotexproject/iotex-core/test/mock/mock_state"
-	"github.com/iotexproject/iotex-core/test/mock/mock_txpool"
 )
 
 func TestNewDispatcher(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	d, bs, _ := createDispatcher(ctrl)
+	d, bs := createDispatcher(ctrl)
 	assert.NotNil(t, d)
 
 	bs.EXPECT().Start().Times(1)
 	bs.EXPECT().Stop().Times(1)
 	d.Start()
 	defer d.Stop()
-}
-
-func TestDispatchTxMsg(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	d, bs, tp := createDispatcher(ctrl)
-	assert.NotNil(t, d)
-
-	bs.EXPECT().Start().Times(1)
-	bs.EXPECT().Stop().Times(1)
-	d.Start()
-	defer d.Stop()
-
-	done := make(chan bool, 1000)
-	tp.EXPECT().ProcessTx(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1000).Return(nil, nil)
-	for i := 0; i < 1000; i++ {
-		d.HandleBroadcast(&iproto.TxPb{}, done)
-	}
-	for i := 0; i < 1000; i++ {
-		<-done
-	}
 }
 
 func TestDispatchBlockMsg(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	d, bs, _ := createDispatcher(ctrl)
+	d, bs := createDispatcher(ctrl)
 	assert.NotNil(t, d)
 
 	bs.EXPECT().Start().Times(1)
@@ -84,7 +61,7 @@ func TestDispatchBlockSyncReq(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	d, bs, _ := createDispatcher(ctrl)
+	d, bs := createDispatcher(ctrl)
 	assert.NotNil(t, d)
 
 	bs.EXPECT().Start().Times(1)
@@ -106,7 +83,7 @@ func TestDispatchBlockSyncData(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	d, bs, _ := createDispatcher(ctrl)
+	d, bs := createDispatcher(ctrl)
 	assert.NotNil(t, d)
 
 	bs.EXPECT().Start().Times(1)
@@ -126,16 +103,15 @@ func TestDispatchBlockSyncData(t *testing.T) {
 
 func createDispatcher(
 	ctrl *gomock.Controller,
-) (dispatcher.Dispatcher, *mock_blocksync.MockBlockSync, *mock_txpool.MockTxPool) {
+) (dispatcher.Dispatcher, *mock_blocksync.MockBlockSync) {
 	cfg := &config.Config{
 		Consensus:  config.Consensus{Scheme: config.NOOPScheme},
 		Dispatcher: config.Dispatcher{EventChanSize: 1024},
 	}
 	bc := mock_blockchain.NewMockBlockchain(ctrl)
-	tp := mock_txpool.NewMockTxPool(ctrl)
 	bs := mock_blocksync.NewMockBlockSync(ctrl)
 	dp := mock_delegate.NewMockPool(ctrl)
 	sf := mock_state.NewMockFactory(ctrl)
 
-	return NewDispatcher(cfg, bc, tp, nil, bs, dp, sf), bs, tp
+	return NewDispatcher(cfg, bc, nil, bs, dp, sf), bs
 }
