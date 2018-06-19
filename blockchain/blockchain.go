@@ -62,9 +62,9 @@ type Blockchain interface {
 	StateByAddr(address string) (*state.State, error)
 
 	// For block operations
-	// MintNewBlock creates a new block with given transactions
-	// Note: the coinbase transaction will be added to the given transactions when minting a new block.
-	MintNewBlock(trx []*trx.Tx, tsf []*action.Transfer, vote []*action.Vote, address *iotxaddress.Address, data string) (*Block, error)
+	// MintNewBlock creates a new block with given actions
+	// Note: the coinbase transfer will be added to the given transfers when minting a new block
+	MintNewBlock(tsf []*action.Transfer, vote []*action.Vote, address *iotxaddress.Address, data string) (*Block, error)
 	// MintNewDummyBlock creates a new dummy block with no transactions
 	MintNewDummyBlock() (*Block, error)
 	// CommitBlock validates and appends a block to the chain
@@ -300,10 +300,10 @@ func (bc *blockchain) ValidateBlock(blk *Block) error {
 	return bc.validator.Validate(blk, bc.tipHeight, bc.tipHash)
 }
 
-// MintNewBlock creates a new block with given transactions.
-// Note: the coinbase transaction will be added to the given transactions
-// when minting a new block.
-func (bc *blockchain) MintNewBlock(txs []*trx.Tx, tsf []*action.Transfer, vote []*action.Vote,
+// MintNewBlock creates a new block with given actions
+// Note: the coinbase transfer will be added to the given transfers
+// when minting a new block
+func (bc *blockchain) MintNewBlock(tsf []*action.Transfer, vote []*action.Vote,
 	producer *iotxaddress.Address, data string) (*Block, error) {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()

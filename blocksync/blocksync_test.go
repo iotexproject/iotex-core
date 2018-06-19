@@ -15,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/iotexproject/iotex-core/actpool"
 	bc "github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/config"
@@ -25,7 +26,6 @@ import (
 	"github.com/iotexproject/iotex-core/test/mock/mock_blocksync"
 	"github.com/iotexproject/iotex-core/test/mock/mock_delegate"
 	"github.com/iotexproject/iotex-core/trie"
-	"github.com/iotexproject/iotex-core/txpool"
 )
 
 func TestSyncTaskInterval(t *testing.T) {
@@ -231,7 +231,7 @@ func TestBlockSyncer_ProcessBlock_TipHeight(t *testing.T) {
 	tr, _ := trie.NewTrie("", true)
 	sf := state.NewFactory(tr)
 	assert.NotNil(sf)
-	ap := txpool.NewActPool(sf)
+	ap := actpool.NewActPool(sf)
 
 	p2p := generateP2P()
 
@@ -278,7 +278,7 @@ func TestBlockSyncer_ProcessBlockSync(t *testing.T) {
 	tr, _ := trie.NewTrie("", true)
 	sf := state.NewFactory(tr)
 	assert.NotNil(sf)
-	ap := txpool.NewActPool(sf)
+	ap := actpool.NewActPool(sf)
 
 	p2p := generateP2P()
 

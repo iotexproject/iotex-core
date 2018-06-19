@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/iotexproject/iotex-core/actpool"
 	bc "github.com/iotexproject/iotex-core/blockchain"
 	cm "github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/common/routine"
@@ -20,7 +21,6 @@ import (
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network"
 	pb "github.com/iotexproject/iotex-core/proto"
-	"github.com/iotexproject/iotex-core/txpool"
 )
 
 const (
@@ -57,7 +57,7 @@ type blockSyncer struct {
 	actionTime     time.Time
 	sw             *SlidingWindow
 	bc             bc.Blockchain
-	ap             txpool.ActPool
+	ap             actpool.ActPool
 	p2p            *network.Overlay
 	task           *routine.RecurringTask
 	fnd            string
@@ -80,7 +80,7 @@ func SyncTaskInterval(cfg *config.Config) time.Duration {
 }
 
 // NewBlockSyncer returns a new block syncer instance
-func NewBlockSyncer(cfg *config.Config, chain bc.Blockchain, ap txpool.ActPool, p2p *network.Overlay, dp delegate.Pool) BlockSync {
+func NewBlockSyncer(cfg *config.Config, chain bc.Blockchain, ap actpool.ActPool, p2p *network.Overlay, dp delegate.Pool) BlockSync {
 	sync := &blockSyncer{
 		state:      Idle,
 		rcvdBlocks: map[uint64]*bc.Block{},

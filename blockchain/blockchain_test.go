@@ -17,7 +17,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/blockchain/action"
-	"github.com/iotexproject/iotex-core/blockchain/trx"
 	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/iotxaddress"
@@ -50,7 +49,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	tsf6 := action.NewTransfer(1, big.NewInt(50<<20), ta.Addrinfo["miner"].RawAddress, ta.Addrinfo["foxtrot"].RawAddress)
 	tsf6, err = tsf6.Sign(ta.Addrinfo["miner"])
 
-	blk, err := bc.MintNewBlock(nil, []*action.Transfer{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}, nil, ta.Addrinfo["miner"], "")
+	blk, err := bc.MintNewBlock([]*action.Transfer{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}, nil, ta.Addrinfo["miner"], "")
 	if err != nil {
 		return err
 	}
@@ -70,7 +69,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	tsf4, err = tsf4.Sign(ta.Addrinfo["charlie"])
 	tsf5 = action.NewTransfer(1, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["miner"].RawAddress)
 	tsf5, err = tsf5.Sign(ta.Addrinfo["charlie"])
-	blk, err = bc.MintNewBlock(nil, []*action.Transfer{tsf1, tsf2, tsf3, tsf4, tsf5}, nil, ta.Addrinfo["miner"], "")
+	blk, err = bc.MintNewBlock([]*action.Transfer{tsf1, tsf2, tsf3, tsf4, tsf5}, nil, ta.Addrinfo["miner"], "")
 	if err != nil {
 		return err
 	}
@@ -88,7 +87,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	tsf3, err = tsf3.Sign(ta.Addrinfo["delta"])
 	tsf4 = action.NewTransfer(1, big.NewInt(1), ta.Addrinfo["delta"].RawAddress, ta.Addrinfo["miner"].RawAddress)
 	tsf4, err = tsf4.Sign(ta.Addrinfo["delta"])
-	blk, err = bc.MintNewBlock(nil, []*action.Transfer{tsf1, tsf2, tsf3, tsf4}, nil, ta.Addrinfo["miner"], "")
+	blk, err = bc.MintNewBlock([]*action.Transfer{tsf1, tsf2, tsf3, tsf4}, nil, ta.Addrinfo["miner"], "")
 	if err != nil {
 		return err
 	}
@@ -110,7 +109,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	tsf5, err = tsf5.Sign(ta.Addrinfo["echo"])
 	tsf6 = action.NewTransfer(1, big.NewInt(2), ta.Addrinfo["echo"].RawAddress, ta.Addrinfo["miner"].RawAddress)
 	tsf6, err = tsf6.Sign(ta.Addrinfo["echo"])
-	blk, err = bc.MintNewBlock(nil, []*action.Transfer{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}, nil, ta.Addrinfo["miner"], "")
+	blk, err = bc.MintNewBlock([]*action.Transfer{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}, nil, ta.Addrinfo["miner"], "")
 	if err != nil {
 		return err
 	}
@@ -428,7 +427,7 @@ func TestCoinbaseTransfer(t *testing.T) {
 	require.Equal(0, int(height))
 
 	transfers := []*action.Transfer{}
-	blk, err := bc.MintNewBlock([]*trx.Tx{}, transfers, nil, ta.Addrinfo["miner"], "")
+	blk, err := bc.MintNewBlock(transfers, nil, ta.Addrinfo["miner"], "")
 	require.Nil(err)
 	b := bc.BalanceOf(ta.Addrinfo["miner"].RawAddress)
 	require.True(b.String() == strconv.Itoa(int(Gen.TotalSupply)))

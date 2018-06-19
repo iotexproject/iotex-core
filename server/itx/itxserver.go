@@ -9,6 +9,7 @@ package itx
 import (
 	"os"
 
+	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/common/service"
@@ -19,14 +20,13 @@ import (
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network"
 	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-core/txpool"
 )
 
 // Server is the iotex server instance containing all components.
 type Server struct {
 	service.Service
 	bc  blockchain.Blockchain
-	ap  txpool.ActPool
+	ap  actpool.ActPool
 	o   *network.Overlay
 	dp  dispatcher.Dispatcher
 	cfg config.Config
@@ -78,7 +78,7 @@ func (s *Server) Bc() blockchain.Blockchain {
 }
 
 // Ap returns the Action pool
-func (s *Server) Ap() txpool.ActPool {
+func (s *Server) Ap() actpool.ActPool {
 	return s.ap
 }
 
@@ -96,7 +96,7 @@ func newServer(cfg config.Config, bc blockchain.Blockchain, sf state.Factory) *S
 	// create P2P network and BlockSync
 	o := network.NewOverlay(&cfg.Network)
 	// Create ActPool
-	ap := txpool.NewActPool(sf)
+	ap := actpool.NewActPool(sf)
 	pool := delegate.NewConfigBasedPool(&cfg.Delegate)
 	bs := blocksync.NewBlockSyncer(&cfg, bc, ap, o, pool)
 	// create dispatcher instance

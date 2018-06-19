@@ -22,6 +22,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
+	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/common"
@@ -33,7 +34,6 @@ import (
 	"github.com/iotexproject/iotex-core/network"
 	pb "github.com/iotexproject/iotex-core/simulator/proto/simulator"
 	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-core/txpool"
 )
 
 const (
@@ -111,7 +111,7 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 		}
 
 		overlay := network.NewOverlay(&cfg.Network)
-		ap := txpool.NewActPool(sf)
+		ap := actpool.NewActPool(sf)
 		dlg := delegate.NewConfigBasedPool(&cfg.Delegate)
 		bs := blocksync.NewBlockSyncer(cfg, bc, ap, overlay, dlg)
 		bs.Start()
