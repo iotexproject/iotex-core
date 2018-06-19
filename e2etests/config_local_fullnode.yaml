@@ -27,9 +27,8 @@ chain:
     chainDBPath: "./db.test"
     trieDBPath: "./trie.db"
     rawMinerAddr:
-        privateKey: "7fbb20b87d34eade61351165aa4c6fa5d87dd349368dd6b9034ea3d3e918c706b9b8d7316705dc4ff62bb323e610f3f5072abedc9834e999d6537f6681284ea2"
-        publicKey: "b9b8d7316705dc4ff62bb323e610f3f5072abedc9834e999d6537f6681284ea2"
-        rawAddress: "io1qyqsyqcy6nm58gjd2wr035wz5eyd5uq47zyqpng3gxe7nh"
+    producerPrivKey: "7fbb20b87d34eade61351165aa4c6fa5d87dd349368dd6b9034ea3d3e918c706b9b8d7316705dc4ff62bb323e610f3f5072abedc9834e999d6537f6681284ea2"
+    producerPubKey: "b9b8d7316705dc4ff62bb323e610f3f5072abedc9834e999d6537f6681284ea2"
     inMemTest: false
 
 consensus:

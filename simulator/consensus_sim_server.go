@@ -95,9 +95,9 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 			logger.Error().Err(err).Msg("failed to create public/private key pair together with the address derived.")
 		}
 
-		cfg.Chain.RawMinerAddr.PublicKey = hex.EncodeToString(addr.PublicKey)
-		cfg.Chain.RawMinerAddr.PrivateKey = hex.EncodeToString(addr.PrivateKey)
-		cfg.Chain.RawMinerAddr.RawAddress = addr.RawAddress
+		cfg.Chain.ProducerAddr.PublicKey = addr.PublicKey
+		cfg.Chain.ProducerAddr.PrivateKey = addr.PrivateKey
+		cfg.Chain.ProducerAddr.RawAddress = addr.RawAddress
 
 		// set chain database path
 		cfg.Chain.ChainDBPath = "./chain" + strconv.Itoa(i) + ".db"
