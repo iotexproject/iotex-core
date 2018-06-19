@@ -46,7 +46,7 @@ func (exp *Service) GetAddressDetails(address string) (explorer.AddressDetails, 
 
 // GetLastTransfersByRange return transfers in [-(offset+limit-1), -offset] from block
 // with height startBlockHeight
-func (exp *Service) GetLastTransfersByRange(startBlockHeight int64, offset int64, limit int64) ([]explorer.Transfer, error) {
+func (exp *Service) GetLastTransfersByRange(startBlockHeight int64, offset int64, limit int64, showCoinBase bool) ([]explorer.Transfer, error) {
 	var res []explorer.Transfer
 	transferCount := uint64(0)
 
@@ -64,23 +64,28 @@ func (exp *Service) GetLastTransfersByRange(startBlockHeight int64, offset int64
 		}
 
 		for i := len(blk.Transfers) - 1; i >= 0 && int64(len(res)) < limit; i-- {
-			transferCount++
+			if showCoinBase || !blk.Transfers[i].IsCoinbase {
+				transferCount++
+			}
+
 			if transferCount <= uint64(offset) {
 				continue
 			}
 
-			hash := blk.Transfers[i].Hash()
-			explorerTransfer := explorer.Transfer{
-				Amount:    blk.Transfers[i].Amount.Int64(),
-				Timestamp: int64(blk.ConvertToBlockHeaderPb().Timestamp),
-				ID:        hex.EncodeToString(hash[:]),
-				BlockID:   blkID,
-				Sender:    blk.Transfers[i].Sender,
-				Recipient: blk.Transfers[i].Recipient,
-				Fee:       0, // TODO: we need to get the actual fee.
+			// if showCoinBase is true, add coinbase transfers, else only put non-coinbase transfers
+			if showCoinBase || !blk.Transfers[i].IsCoinbase {
+				hash := blk.Transfers[i].Hash()
+				explorerTransfer := explorer.Transfer{
+					Amount:    blk.Transfers[i].Amount.Int64(),
+					Timestamp: int64(blk.ConvertToBlockHeaderPb().Timestamp),
+					ID:        hex.EncodeToString(hash[:]),
+					BlockID:   blkID,
+					Sender:    blk.Transfers[i].Sender,
+					Recipient: blk.Transfers[i].Recipient,
+					Fee:       0, // TODO: we need to get the actual fee.
+				}
+				res = append(res, explorerTransfer)
 			}
-
-			res = append(res, explorerTransfer)
 		}
 	}
 
@@ -234,6 +239,10 @@ func (exp *Service) GetLastBlocksByRange(offset int64, limit int64) ([]explorer.
 			Transfers: int64(len(blk.Transfers)),
 			Amount:    totalAmount,
 			Size:      int64(totalSize),
+			GenerateBy: explorer.BlockGenerator{
+				Name:    "",
+				Address: hex.EncodeToString(blk.Header.Pubkey),
+			},
 		}
 
 		res = append(res, explorerBlock)
@@ -272,6 +281,10 @@ func (exp *Service) GetBlockByID(blockID string) (explorer.Block, error) {
 		Transfers: int64(len(blk.Transfers)),
 		Amount:    totalAmount,
 		Size:      int64(totalSize),
+		GenerateBy: explorer.BlockGenerator{
+			Name:    "",
+			Address: hex.EncodeToString(blk.Header.Pubkey),
+		},
 	}
 
 	return explorerBlock, nil

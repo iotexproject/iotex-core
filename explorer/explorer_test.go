@@ -123,11 +123,18 @@ func TestExplorerApi(t *testing.T) {
 	require.Nil(err)
 	require.Equal(len(transfers), 5)
 
-	transfers, err = svc.GetLastTransfersByRange(4, 1, 3)
-	require.Equal(len(transfers), 3)
+	transfers, err = svc.GetLastTransfersByRange(4, 1, 3, true)
+	require.Equal(3, len(transfers))
 	require.Nil(err)
-	transfers, err = svc.GetLastTransfersByRange(4, 4, 5)
-	require.Equal(len(transfers), 5)
+	transfers, err = svc.GetLastTransfersByRange(4, 4, 5, true)
+	require.Equal(5, len(transfers))
+	require.Nil(err)
+
+	transfers, err = svc.GetLastTransfersByRange(4, 1, 3, false)
+	require.Equal(3, len(transfers))
+	require.Nil(err)
+	transfers, err = svc.GetLastTransfersByRange(4, 4, 5, false)
+	require.Equal(1, len(transfers))
 	require.Nil(err)
 
 	blks, getBlkErr := svc.GetLastBlocksByRange(3, 4)
@@ -166,7 +173,7 @@ func TestExplorerApi(t *testing.T) {
 	require.Equal(addressDetails.Address, ta.Addrinfo["charlie"].RawAddress)
 }
 
-func TestService_GetAddressDetails(t *testing.T) {
+func TestService_StateByAddr(t *testing.T) {
 	require := require.New(t)
 
 	ctrl := gomock.NewController(t)
