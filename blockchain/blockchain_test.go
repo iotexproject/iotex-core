@@ -281,7 +281,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	// add block with wrong height
 	cbTsf := action.NewCoinBaseTransfer(big.NewInt(50), ta.Addrinfo["bravo"].RawAddress)
 	assert.NotNil(cbTsf)
-	blk = NewBlock(0, h+2, hash, nil, []*action.Transfer{cbTsf}, nil)
+	blk = NewBlock(0, h+2, hash, []*action.Transfer{cbTsf}, nil)
 	err = bc.ValidateBlock(blk)
 	assert.NotNil(err)
 	fmt.Printf("Cannot validate block %d: %v\n", blk.Height(), err)
@@ -289,7 +289,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	// add block with zero prev hash
 	cbTsf2 := action.NewCoinBaseTransfer(big.NewInt(50), ta.Addrinfo["bravo"].RawAddress)
 	assert.NotNil(cbTsf2)
-	blk = NewBlock(0, h+1, common.ZeroHash32B, nil, []*action.Transfer{cbTsf2}, nil)
+	blk = NewBlock(0, h+1, common.ZeroHash32B, []*action.Transfer{cbTsf2}, nil)
 	err = bc.ValidateBlock(blk)
 	assert.NotNil(err)
 	fmt.Printf("Cannot validate block %d: %v\n", blk.Height(), err)

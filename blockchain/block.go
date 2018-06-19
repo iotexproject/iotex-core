@@ -53,7 +53,7 @@ type Block struct {
 
 // NewBlock returns a new block
 func NewBlock(chainID uint32, height uint64, prevBlockHash common.Hash32B,
-	txs []*trx.Tx, tsf []*action.Transfer, vote []*action.Vote) *Block {
+	tsf []*action.Transfer, vote []*action.Vote) *Block {
 	block := &Block{
 		Header: &BlockHeader{
 			version:       common.ProtocolVersion,
@@ -64,7 +64,6 @@ func NewBlock(chainID uint32, height uint64, prevBlockHash common.Hash32B,
 			txRoot:        common.ZeroHash32B,
 			stateRoot:     common.ZeroHash32B,
 		},
-		Tranxs:    txs,
 		Transfers: tsf,
 		Votes:     vote,
 	}

@@ -310,7 +310,7 @@ func (bc *blockchain) MintNewBlock(txs []*trx.Tx, tsf []*action.Transfer, vote [
 
 	tsf = append(tsf, action.NewCoinBaseTransfer(big.NewInt(int64(bc.genesis.BlockReward)), producer.RawAddress))
 
-	blk := NewBlock(bc.chainID, bc.tipHeight+1, bc.tipHash, txs, tsf, vote)
+	blk := NewBlock(bc.chainID, bc.tipHeight+1, bc.tipHash, tsf, vote)
 	if producer.PrivateKey == nil {
 		logger.Warn().Msg("Unsigned block...")
 		return blk, nil
