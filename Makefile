@@ -93,6 +93,10 @@ mockgen:
 stringer:
 	sh ./misc/scripts/stringer.sh
 
+.PHONY: license
+license:
+	@./misc/scripts/licenseheader.sh
+
 .PHONY: dev-deps
 dev-deps:
 	@echo "Installing dev dependencies..."
