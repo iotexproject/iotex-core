@@ -279,17 +279,17 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	fmt.Printf("Current tip = %d hash = %x\n", h, hash)
 
 	// add block with wrong height
-	cbTx := trx.NewCoinbaseTx(ta.Addrinfo["bravo"].RawAddress, 50, testCoinbaseData)
-	assert.NotNil(cbTx)
-	blk = NewBlock(0, h+2, hash, []*trx.Tx{cbTx}, nil, nil)
+	cbTsf := action.NewCoinBaseTransfer(big.NewInt(50), ta.Addrinfo["bravo"].RawAddress)
+	assert.NotNil(cbTsf)
+	blk = NewBlock(0, h+2, hash, nil, []*action.Transfer{cbTsf}, nil)
 	err = bc.ValidateBlock(blk)
 	assert.NotNil(err)
 	fmt.Printf("Cannot validate block %d: %v\n", blk.Height(), err)
 
 	// add block with zero prev hash
-	cbTx = trx.NewCoinbaseTx(ta.Addrinfo["bravo"].RawAddress, 50, testCoinbaseData)
-	assert.NotNil(cbTx)
-	blk = NewBlock(0, h+1, common.ZeroHash32B, []*trx.Tx{cbTx}, nil, nil)
+	cbTsf2 := action.NewCoinBaseTransfer(big.NewInt(50), ta.Addrinfo["bravo"].RawAddress)
+	assert.NotNil(cbTsf2)
+	blk = NewBlock(0, h+1, common.ZeroHash32B, nil, []*action.Transfer{cbTsf2}, nil)
 	err = bc.ValidateBlock(blk)
 	assert.NotNil(err)
 	fmt.Printf("Cannot validate block %d: %v\n", blk.Height(), err)
