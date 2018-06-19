@@ -54,7 +54,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	if err != nil {
 		return err
 	}
-	if err := bc.AddBlockCommit(blk); err != nil {
+	if err := bc.CommitBlock(blk); err != nil {
 		return err
 	}
 
@@ -74,7 +74,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	if err != nil {
 		return err
 	}
-	if err := bc.AddBlockCommit(blk); err != nil {
+	if err := bc.CommitBlock(blk); err != nil {
 		return err
 	}
 
@@ -92,7 +92,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	if err != nil {
 		return err
 	}
-	if err := bc.AddBlockCommit(blk); err != nil {
+	if err := bc.CommitBlock(blk); err != nil {
 		return err
 	}
 
@@ -114,7 +114,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	if err != nil {
 		return err
 	}
-	if err := bc.AddBlockCommit(blk); err != nil {
+	if err := bc.CommitBlock(blk); err != nil {
 		return err
 	}
 
@@ -432,7 +432,7 @@ func TestCoinbaseTransfer(t *testing.T) {
 	require.Nil(err)
 	b := bc.BalanceOf(ta.Addrinfo["miner"].RawAddress)
 	require.True(b.String() == strconv.Itoa(int(Gen.TotalSupply)))
-	err = bc.AddBlockCommit(blk)
+	err = bc.CommitBlock(blk)
 	require.Nil(err)
 	height, err = bc.TipHeight()
 	require.Nil(err)

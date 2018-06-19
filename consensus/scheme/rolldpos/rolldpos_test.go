@@ -68,7 +68,7 @@ func createTestRollDPoS(
 		return blk, nil
 	}
 	commitBlockCB := func(blk *blockchain.Block) error {
-		return bc.AddBlockCommit(blk)
+		return bc.CommitBlock(blk)
 	}
 	broadcastBlockCB := func(blk *blockchain.Block) error {
 		if bcCnt != nil {
@@ -190,9 +190,9 @@ func testByzantineFault(t *testing.T, proposerNode int) {
 			}).AnyTimes()
 
 			// =====================
-			// expect AddBlockCommit
+			// expect CommitBlock
 			// =====================
-			mcks.bc.EXPECT().AddBlockCommit(gomock.Any()).AnyTimes().Do(func(blk *Block) error {
+			mcks.bc.EXPECT().CommitBlock(gomock.Any()).AnyTimes().Do(func(blk *Block) error {
 				if proposerNode == 0 {
 					// commit nil when proposer is faulty
 					assert.Nil(t, blk, "final block committed")
@@ -200,7 +200,7 @@ func testByzantineFault(t *testing.T, proposerNode int) {
 					// commit block when proposer is trusty
 					assert.Equal(t, *genesis, *blk, "final block committed")
 				}
-				t.Log(cur, "AddBlockCommit: ", blk)
+				t.Log(cur, "CommitBlock: ", blk)
 				return nil
 			})
 			tcs.mocks = mcks
@@ -327,10 +327,10 @@ func TestRollDPoSFourTrustyNodes(t *testing.T) {
 			mcks.bc.EXPECT().ValidateBlock(gomock.Any()).AnyTimes()
 
 			// =====================
-			// expect AddBlockCommit
+			// expect CommitBlock
 			// =====================
-			mcks.bc.EXPECT().AddBlockCommit(gomock.Any()).AnyTimes().Do(func(blk *Block) error {
-				t.Log(cur, "AddBlockCommit: ", blk)
+			mcks.bc.EXPECT().CommitBlock(gomock.Any()).AnyTimes().Do(func(blk *Block) error {
+				t.Log(cur, "CommitBlock: ", blk)
 				assert.Equal(t, *genesis, *blk, "final block committed")
 				return nil
 			})
@@ -395,7 +395,7 @@ func TestRollDPoSConsumePROPOSE(t *testing.T) {
 		mcks.dp.EXPECT().AllDelegates().Return(delegates, nil).AnyTimes()
 		mcks.dNet.EXPECT().Broadcast(gomock.Any()).AnyTimes()
 		mcks.bc.EXPECT().ValidateBlock(gomock.Any()).AnyTimes()
-		mcks.bc.EXPECT().AddBlockCommit(gomock.Any()).Times(0)
+		mcks.bc.EXPECT().CommitBlock(gomock.Any()).Times(0)
 		mcks.bc.EXPECT().TipHeight().Return(uint64(0), nil).AnyTimes()
 
 	}

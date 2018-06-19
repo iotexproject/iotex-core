@@ -127,6 +127,19 @@ func (mr *MockBlockchainMockRecorder) GetBlockByHash(hash interface{}) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockByHash", reflect.TypeOf((*MockBlockchain)(nil).GetBlockByHash), hash)
 }
 
+// GetTotalTransfers mocks base method
+func (m *MockBlockchain) GetTotalTransfers() (uint64, error) {
+	ret := m.ctrl.Call(m, "GetTotalTransfers")
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetTotalTransfers indicates an expected call of GetTotalTransfers
+func (mr *MockBlockchainMockRecorder) GetTotalTransfers() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTotalTransfers", reflect.TypeOf((*MockBlockchain)(nil).GetTotalTransfers))
+}
+
 // GetTransfersFromAddress mocks base method
 func (m *MockBlockchain) GetTransfersFromAddress(address string) ([]common.Hash32B, error) {
 	ret := m.ctrl.Call(m, "GetTransfersFromAddress", address)
@@ -138,19 +151,6 @@ func (m *MockBlockchain) GetTransfersFromAddress(address string) ([]common.Hash3
 // GetTransfersFromAddress indicates an expected call of GetTransfersFromAddress
 func (mr *MockBlockchainMockRecorder) GetTransfersFromAddress(address interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTransfersFromAddress", reflect.TypeOf((*MockBlockchain)(nil).GetTransfersFromAddress), address)
-}
-
-// GetTotalTransfers mocks base method
-func (m *MockBlockchain) GetTotalTransfers() (uint64, error) {
-	ret := m.ctrl.Call(m, "GetTotalTransfers")
-	ret0, _ := ret[0].(uint64)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetTransfersToAddress indicates an expected call of GetTransfersToAddress
-func (mr *MockBlockchainMockRecorder) GetTotalTransfers(address interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTotalTransfers", reflect.TypeOf((*MockBlockchain)(nil).GetTotalTransfers), address)
 }
 
 // GetTransfersToAddress mocks base method
@@ -218,17 +218,42 @@ func (mr *MockBlockchainMockRecorder) TipHeight() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TipHeight", reflect.TypeOf((*MockBlockchain)(nil).TipHeight))
 }
 
+// BalanceOf mocks base method
+func (m *MockBlockchain) BalanceOf(address string) *big.Int {
+	ret := m.ctrl.Call(m, "BalanceOf", address)
+	ret0, _ := ret[0].(*big.Int)
+	return ret0
+}
+
+// BalanceOf indicates an expected call of BalanceOf
+func (mr *MockBlockchainMockRecorder) BalanceOf(address interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BalanceOf", reflect.TypeOf((*MockBlockchain)(nil).BalanceOf), address)
+}
+
+// StateByAddr mocks base method
+func (m *MockBlockchain) StateByAddr(address string) (*state.State, error) {
+	ret := m.ctrl.Call(m, "StateByAddr", address)
+	ret0, _ := ret[0].(*state.State)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// StateByAddr indicates an expected call of StateByAddr
+func (mr *MockBlockchainMockRecorder) StateByAddr(address interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateByAddr", reflect.TypeOf((*MockBlockchain)(nil).StateByAddr), address)
+}
+
 // MintNewBlock mocks base method
-func (m *MockBlockchain) MintNewBlock(arg0 []*trx.Tx, arg1 []*action.Transfer, arg2 []*action.Vote, arg3 *iotxaddress.Address, arg4 string) (*blockchain.Block, error) {
-	ret := m.ctrl.Call(m, "MintNewBlock", arg0, arg1, arg2, arg3, arg4)
+func (m *MockBlockchain) MintNewBlock(trx []*trx.Tx, tsf []*action.Transfer, vote []*action.Vote, address *iotxaddress.Address, data string) (*blockchain.Block, error) {
+	ret := m.ctrl.Call(m, "MintNewBlock", trx, tsf, vote, address, data)
 	ret0, _ := ret[0].(*blockchain.Block)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // MintNewBlock indicates an expected call of MintNewBlock
-func (mr *MockBlockchainMockRecorder) MintNewBlock(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MintNewBlock", reflect.TypeOf((*MockBlockchain)(nil).MintNewBlock), arg0, arg1, arg2, arg3, arg4)
+func (mr *MockBlockchainMockRecorder) MintNewBlock(trx, tsf, vote, address, data interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MintNewBlock", reflect.TypeOf((*MockBlockchain)(nil).MintNewBlock), trx, tsf, vote, address, data)
 }
 
 // MintNewDummyBlock mocks base method
@@ -244,53 +269,28 @@ func (mr *MockBlockchainMockRecorder) MintNewDummyBlock() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MintNewDummyBlock", reflect.TypeOf((*MockBlockchain)(nil).MintNewDummyBlock))
 }
 
-// AddBlockCommit mocks base method
-func (m *MockBlockchain) AddBlockCommit(blk *blockchain.Block) error {
-	ret := m.ctrl.Call(m, "AddBlockCommit", blk)
+// CommitBlock mocks base method
+func (m *MockBlockchain) CommitBlock(blk *blockchain.Block) error {
+	ret := m.ctrl.Call(m, "CommitBlock", blk)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// AddBlockCommit indicates an expected call of AddBlockCommit
-func (mr *MockBlockchainMockRecorder) AddBlockCommit(blk interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddBlockCommit", reflect.TypeOf((*MockBlockchain)(nil).AddBlockCommit), blk)
+// CommitBlock indicates an expected call of CommitBlock
+func (mr *MockBlockchainMockRecorder) CommitBlock(blk interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitBlock", reflect.TypeOf((*MockBlockchain)(nil).CommitBlock), blk)
 }
 
-// AddBlockSync mocks base method
-func (m *MockBlockchain) AddBlockSync(blk *blockchain.Block) error {
-	ret := m.ctrl.Call(m, "AddBlockSync", blk)
+// ValidateBlock mocks base method
+func (m *MockBlockchain) ValidateBlock(blk *blockchain.Block) error {
+	ret := m.ctrl.Call(m, "ValidateBlock", blk)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// AddBlockSync indicates an expected call of AddBlockSync
-func (mr *MockBlockchainMockRecorder) AddBlockSync(blk interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddBlockSync", reflect.TypeOf((*MockBlockchain)(nil).AddBlockSync), blk)
-}
-
-// BalanceOf mocks base method
-func (m *MockBlockchain) BalanceOf(address string) *big.Int {
-	ret := m.ctrl.Call(m, "BalanceOf", address)
-	ret0, _ := ret[0].(*big.Int)
-	return ret0
-}
-
-// BalanceOf indicates an expected call of BalanceOf
-func (mr *MockBlockchainMockRecorder) BalanceOf(address interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BalanceOf", reflect.TypeOf((*MockBlockchain)(nil).BalanceOf), address)
-}
-
-// StateByAddr mocks base method
-func (m *MockBlockchain) StateByAddr(arg0 string) (*state.State, error) {
-	ret := m.ctrl.Call(m, "StateByAddr", arg0)
-	ret0, _ := ret[0].(*state.State)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// StateByAddr indicates an expected call of StateByAddr
-func (mr *MockBlockchainMockRecorder) StateByAddr(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateByAddr", reflect.TypeOf((*MockBlockchain)(nil).StateByAddr), arg0)
+// ValidateBlock indicates an expected call of ValidateBlock
+func (mr *MockBlockchainMockRecorder) ValidateBlock(blk interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateBlock", reflect.TypeOf((*MockBlockchain)(nil).ValidateBlock), blk)
 }
 
 // CreateTransaction mocks base method
@@ -367,18 +367,6 @@ func (mr *MockBlockchainMockRecorder) CreateRawVote(nonce, selfPubKey, votePubKe
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateRawVote", reflect.TypeOf((*MockBlockchain)(nil).CreateRawVote), nonce, selfPubKey, votePubKey)
 }
 
-// ValidateBlock mocks base method
-func (m *MockBlockchain) ValidateBlock(blk *blockchain.Block) error {
-	ret := m.ctrl.Call(m, "ValidateBlock", blk)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// ValidateBlock indicates an expected call of ValidateBlock
-func (mr *MockBlockchainMockRecorder) ValidateBlock(blk interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateBlock", reflect.TypeOf((*MockBlockchain)(nil).ValidateBlock), blk)
-}
-
 // ResetUTXO mocks base method
 func (m *MockBlockchain) ResetUTXO() {
 	m.ctrl.Call(m, "ResetUTXO")
@@ -414,11 +402,11 @@ func (mr *MockBlockchainMockRecorder) Validator() *gomock.Call {
 }
 
 // SetValidator mocks base method
-func (m *MockBlockchain) SetValidator(arg0 blockchain.Validator) {
-	m.ctrl.Call(m, "SetValidator", arg0)
+func (m *MockBlockchain) SetValidator(val blockchain.Validator) {
+	m.ctrl.Call(m, "SetValidator", val)
 }
 
 // SetValidator indicates an expected call of SetValidator
-func (mr *MockBlockchainMockRecorder) SetValidator(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetValidator", reflect.TypeOf((*MockBlockchain)(nil).SetValidator), arg0)
+func (mr *MockBlockchainMockRecorder) SetValidator(val interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetValidator", reflect.TypeOf((*MockBlockchain)(nil).SetValidator), val)
 }

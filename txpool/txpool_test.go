@@ -84,7 +84,7 @@ func TestTxPool(t *testing.T) {
 			}
 			blk := bc.MintNewBlock([]*Tx{tx1}, Addrinfo["miner"], "")
 			fmt.Println(blk)
-			err := bc.AddBlockCommit(blk)
+			err := bc.CommitBlock(blk)
 			assert.Nil(err)
 			fmt.Println("Add 1st block")
 			bc.ResetUTXO()

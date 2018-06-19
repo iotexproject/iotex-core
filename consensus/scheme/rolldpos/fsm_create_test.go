@@ -33,7 +33,7 @@ func TestAcceptPrevoteAndProceedToEnd(t *testing.T) {
 		mcks.dp.EXPECT().AllDelegates().Return(delegates, nil).AnyTimes()
 		mcks.dNet.EXPECT().Broadcast(gomock.Any()).AnyTimes()
 		mcks.bc.EXPECT().ValidateBlock(gomock.Any()).AnyTimes()
-		mcks.bc.EXPECT().AddBlockCommit(gomock.Any()).Times(1)
+		mcks.bc.EXPECT().CommitBlock(gomock.Any()).Times(1)
 		first := mcks.bc.EXPECT().TipHeight().Return(uint64(0), nil).Times(1)
 		mcks.bc.EXPECT().TipHeight().Return(uint64(2), nil).After(first).AnyTimes()
 	}
@@ -120,7 +120,7 @@ func TestAcceptPrevoteAndTimeoutToEnd(t *testing.T) {
 		mcks.dp.EXPECT().AllDelegates().Return(delegates, nil).AnyTimes()
 		mcks.dNet.EXPECT().Broadcast(gomock.Any()).AnyTimes()
 		mcks.bc.EXPECT().ValidateBlock(gomock.Any()).Return(errors.New("error"))
-		mcks.bc.EXPECT().AddBlockCommit(gomock.Any()).Times(0)
+		mcks.bc.EXPECT().CommitBlock(gomock.Any()).Times(0)
 		first := mcks.bc.EXPECT().TipHeight().Return(uint64(0), nil).Times(1)
 		mcks.bc.EXPECT().TipHeight().Return(uint64(2), nil).After(first).AnyTimes()
 	}
