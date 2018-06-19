@@ -8,8 +8,8 @@ import (
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "c73237e5efe85576316a52e1e91b9f48"
-const BarristerDateGenerated int64 = 1529091683990000000
+const BarristerChecksum string = "f1cb123804f563c1dcb0665f4b238ca0"
+const BarristerDateGenerated int64 = 1529438220368000000
 
 type CoinStatistic struct {
 	Height    int64 `json:"height"`
@@ -53,7 +53,7 @@ type AddressDetails struct {
 type Explorer interface {
 	GetAddressBalance(address string) (int64, error)
 	GetAddressDetails(address string) (AddressDetails, error)
-	GetLastTransfersByRange(startBlockHeight int64, offset int64, limit int64) ([]Transfer, error)
+	GetLastTransfersByRange(startBlockHeight int64, offset int64, limit int64, showCoinBase bool) ([]Transfer, error)
 	GetTransferByID(transferID string) (Transfer, error)
 	GetTransfersByAddress(address string) ([]Transfer, error)
 	GetTransfersByBlockID(blockID string) ([]Transfer, error)
@@ -107,8 +107,8 @@ func (_p ExplorerProxy) GetAddressDetails(address string) (AddressDetails, error
 	return AddressDetails{}, _err
 }
 
-func (_p ExplorerProxy) GetLastTransfersByRange(startBlockHeight int64, offset int64, limit int64) ([]Transfer, error) {
-	_res, _err := _p.client.Call("Explorer.getLastTransfersByRange", startBlockHeight, offset, limit)
+func (_p ExplorerProxy) GetLastTransfersByRange(startBlockHeight int64, offset int64, limit int64, showCoinBase bool) ([]Transfer, error) {
+	_res, _err := _p.client.Call("Explorer.getLastTransfersByRange", startBlockHeight, offset, limit, showCoinBase)
 	if _err == nil {
 		_retType := _p.idl.Method("Explorer.getLastTransfersByRange").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf([]Transfer{}), _res, "")
@@ -594,6 +594,13 @@ var IdlJsonRaw = `[
                         "optional": false,
                         "is_array": false,
                         "comment": ""
+                    },
+                    {
+                        "name": "showCoinBase",
+                        "type": "bool",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
                     }
                 ],
                 "returns": {
@@ -738,7 +745,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1529091683990,
-        "checksum": "c73237e5efe85576316a52e1e91b9f48"
+        "date_generated": 1529438220368,
+        "checksum": "f1cb123804f563c1dcb0665f4b238ca0"
     }
 ]`

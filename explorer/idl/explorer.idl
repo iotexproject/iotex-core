@@ -56,7 +56,7 @@ interface Explorer {
     getAddressDetails(address string) AddressDetails
 
     // get list of transactions by start block height, transaction offset and limit
-    getLastTransfersByRange(startBlockHeight int, offset int, limit int) []Transfer
+    getLastTransfersByRange(startBlockHeight int, offset int, limit int, showCoinBase bool) []Transfer
 
     // get transaction from transaction id
     getTransferByID(transferID string) Transfer

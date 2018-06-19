@@ -73,7 +73,7 @@ func (exp *TestExplorer) GetAddressDetails(address string) (explorer.AddressDeta
 
 // GetLastTransfersByRange return transfers in [-(offset+limit-1), -offset] from block
 // with height startBlockHeight
-func (exp *TestExplorer) GetLastTransfersByRange(startBlockHeight int64, offset int64, limit int64) ([]explorer.Transfer, error) {
+func (exp *TestExplorer) GetLastTransfersByRange(startBlockHeight int64, offset int64, limit int64, showCoinBase bool) ([]explorer.Transfer, error) {
 	var txs []explorer.Transfer
 	for i := int64(0); i < limit; i++ {
 		txs = append(txs, randTransaction())
@@ -88,12 +88,12 @@ func (exp *TestExplorer) GetTransferByID(tid string) (explorer.Transfer, error) 
 
 // GetTransfersByAddress returns all transfers associate with an address
 func (exp *TestExplorer) GetTransfersByAddress(address string) ([]explorer.Transfer, error) {
-	return exp.GetLastTransfersByRange(0, 0, 50)
+	return exp.GetLastTransfersByRange(0, 0, 50, true)
 }
 
 // GetTransfersByBlockID returns transfers in a block
 func (exp *TestExplorer) GetTransfersByBlockID(blockID string) ([]explorer.Transfer, error) {
-	return exp.GetLastTransfersByRange(0, 0, 50)
+	return exp.GetLastTransfersByRange(0, 0, 50, true)
 }
 
 // GetLastBlocksByRange get block with height [offset-limit+1, offset]
