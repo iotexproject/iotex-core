@@ -61,7 +61,7 @@ func createTestRollDPoS(
 		}
 		logger.Info().
 			Uint64("height", blk.Height()).
-			Int("txs", len(blk.Tranxs)).
+			Int("transfers", len(blk.Transfers)).
 			Msg("Created a new block")
 		return blk, nil
 	}

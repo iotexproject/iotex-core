@@ -15,7 +15,6 @@ import (
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotexproject/iotex-core/blockchain/action"
-	"github.com/iotexproject/iotex-core/blockchain/trx"
 	"github.com/iotexproject/iotex-core/common"
 	cp "github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/logger"
@@ -46,7 +45,6 @@ type BlockHeader struct {
 // Block defines the struct of block
 type Block struct {
 	Header    *BlockHeader
-	Tranxs    []*trx.Tx
 	Transfers []*action.Transfer
 	Votes     []*action.Vote
 }
@@ -108,9 +106,6 @@ func (b *Block) ByteStream() []byte {
 	// Add the stream of blockSig
 	stream = append(stream, b.Header.blockSig[:]...)
 
-	for _, t := range b.Tranxs {
-		stream = append(stream, t.ByteStream()...)
-	}
 	for _, t := range b.Transfers {
 		stream = append(stream, t.ByteStream()...)
 	}
@@ -139,14 +134,11 @@ func (b *Block) ConvertToBlockHeaderPb() *iproto.BlockHeaderPb {
 
 // ConvertToBlockPb converts Block to BlockPb
 func (b *Block) ConvertToBlockPb() *iproto.BlockPb {
-	if len(b.Tranxs)+len(b.Transfers)+len(b.Votes) == 0 {
+	if len(b.Transfers)+len(b.Votes) == 0 {
 		return nil
 	}
 
 	actions := []*iproto.ActionPb{}
-	for _, tx := range b.Tranxs {
-		actions = append(actions, &iproto.ActionPb{&iproto.ActionPb_Tx{tx.ConvertToTxPb()}})
-	}
 	for _, tsf := range b.Transfers {
 		actions = append(actions, &iproto.ActionPb{&iproto.ActionPb_Transfer{tsf.ConvertToTransferPb()}})
 	}
@@ -180,7 +172,6 @@ func (b *Block) ConvertFromBlockHeaderPb(pbBlock *iproto.BlockPb) {
 func (b *Block) ConvertFromBlockPb(pbBlock *iproto.BlockPb) {
 	b.ConvertFromBlockHeaderPb(pbBlock)
 
-	b.Tranxs = []*trx.Tx{}
 	b.Transfers = []*action.Transfer{}
 	b.Votes = []*action.Vote{}
 
@@ -189,10 +180,6 @@ func (b *Block) ConvertFromBlockPb(pbBlock *iproto.BlockPb) {
 			tf := &action.Transfer{}
 			tf.ConvertFromTransferPb(tfPb)
 			b.Transfers = append(b.Transfers, tf)
-		} else if txPb := act.GetTx(); txPb != nil {
-			tx := &trx.Tx{}
-			tx.ConvertFromTxPb(txPb)
-			b.Tranxs = append(b.Tranxs, tx)
 		} else if votePb := act.GetVote(); votePb != nil {
 			vote := &action.Vote{}
 			vote.ConvertFromVotePb(votePb)
@@ -223,9 +210,6 @@ func (b *Block) Deserialize(buf []byte) error {
 // TxRoot returns the Merkle root of all txs and actions in this block.
 func (b *Block) TxRoot() common.Hash32B {
 	var hash []common.Hash32B
-	for _, t := range b.Tranxs {
-		hash = append(hash, t.Hash())
-	}
 	for _, t := range b.Transfers {
 		hash = append(hash, t.Hash())
 	}

@@ -42,7 +42,6 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	if err := bc.CommitBlock(blk); err != nil {
 		return err
 	}
-	bc.ResetUTXO()
 
 	// Add block 2
 	// Charlie --> A, B, D, E, test
@@ -61,7 +60,6 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	if err := bc.CommitBlock(blk); err != nil {
 		return err
 	}
-	bc.ResetUTXO()
 
 	// Add block 3
 	blk, err = bc.MintNewBlock(nil, nil, ta.Addrinfo["miner"], "")
@@ -71,7 +69,6 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	if err := bc.CommitBlock(blk); err != nil {
 		return err
 	}
-	bc.ResetUTXO()
 
 	// Add block 4
 	blk, err = bc.MintNewBlock(nil, nil, ta.Addrinfo["miner"], "")
@@ -81,7 +78,6 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	if err := bc.CommitBlock(blk); err != nil {
 		return err
 	}
-	bc.ResetUTXO()
 
 	return nil
 }

@@ -122,18 +122,6 @@ func TestConvertFromBlockPb(t *testing.T) {
 			Height:  123456789,
 		},
 		Actions: []*iproto.ActionPb{
-			{Action: &iproto.ActionPb_Tx{
-				Tx: &iproto.TxPb{
-					Version:  common.ProtocolVersion,
-					LockTime: 6677,
-				},
-			}},
-			{Action: &iproto.ActionPb_Tx{
-				Tx: &iproto.TxPb{
-					Version:  common.ProtocolVersion,
-					LockTime: 7788,
-				},
-			}},
 			{Action: &iproto.ActionPb_Transfer{
 				Transfer: &iproto.TransferPb{
 					Version: common.ProtocolVersion,
@@ -170,9 +158,6 @@ func TestConvertFromBlockPb(t *testing.T) {
 	require.Nil(t, err)
 
 	require.Equal(t, uint64(123456789), newblk.Header.height)
-
-	require.Equal(t, uint32(6677), newblk.Tranxs[0].LockTime)
-	require.Equal(t, uint32(7788), newblk.Tranxs[1].LockTime)
 
 	require.Equal(t, uint64(101), newblk.Transfers[0].Nonce)
 	require.Equal(t, uint64(102), newblk.Transfers[1].Nonce)

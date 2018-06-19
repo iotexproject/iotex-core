@@ -63,7 +63,7 @@ func NewConsensus(
 		}
 		logger.Info().
 			Uint64("height", blk.Height()).
-			Int("length", len(blk.Tranxs)).
+			Int("length", len(blk.Transfers)).
 			Msg("created a new block")
 		return blk, nil
 	}

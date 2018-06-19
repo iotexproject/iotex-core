@@ -8,15 +8,12 @@ package blockchain
 
 import (
 	"encoding/hex"
-	"math"
 	"math/big"
-	"sort"
 	"sync"
 
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/blockchain/action"
-	"github.com/iotexproject/iotex-core/blockchain/trx"
 	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/common/service"
 	"github.com/iotexproject/iotex-core/config"
@@ -26,7 +23,6 @@ import (
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/trie"
-	"github.com/iotexproject/iotex-core/txvm"
 )
 
 // Blockchain represents the blockchain data structure and hosts the APIs to access it
@@ -73,10 +69,6 @@ type Blockchain interface {
 	ValidateBlock(blk *Block) error
 
 	// For action operations
-	// CreateTransaction creates a signed transaction paying 'amount' from 'from' to 'to'
-	CreateTransaction(from *iotxaddress.Address, amount uint64, to []*Payee) *trx.Tx
-	// CreateRawTransaction creates an unsigned transaction paying 'amount' from 'from' to 'to'
-	CreateRawTransaction(from *iotxaddress.Address, amount uint64, to []*Payee) *trx.Tx
 	// CreateTransfer creates a signed transfer paying 'amount' from 'from' to 'to'
 	CreateTransfer(nonce uint64, from *iotxaddress.Address, amount *big.Int, to *iotxaddress.Address) (*action.Transfer, error)
 	// CreateRawTransfer creates an unsigned transfer paying 'amount' from 'from' to 'to'
@@ -85,12 +77,6 @@ type Blockchain interface {
 	CreateVote(nonce uint64, selfPubKey []byte, votePubKey []byte) (*action.Vote, error)
 	// CreateRawVote creates an unsigned vote
 	CreateRawVote(nonce uint64, selfPubKey []byte, votePubKey []byte) *action.Vote
-
-	// The following methods are used only for utxo-based model
-	// Reset resets UTXO
-	ResetUTXO()
-	// UtxoPool returns the UTXO pool of current blockchain
-	UtxoPool() map[common.Hash32B][]*trx.TxOutput
 
 	// Validator returns the current validator object
 	Validator() Validator
@@ -109,9 +95,6 @@ type blockchain struct {
 	tipHeight uint64
 	tipHash   common.Hash32B
 	validator Validator
-
-	// used by utxo-based model
-	utk *UtxoTracker // tracks the current UTXO pool
 
 	// used by account-based model
 	sf state.Factory
@@ -144,14 +127,12 @@ func NewBlockchain(dao *blockDAO, cfg *config.Config, sf state.Factory) Blockcha
 		}
 	}
 
-	utk := NewUtxoTracker()
 	chain := &blockchain{
 		dao:       dao,
 		config:    cfg,
 		genesis:   Gen,
-		utk:       utk,
 		sf:        sf,
-		validator: &validator{sf: sf, utk: utk},
+		validator: &validator{sf: sf},
 	}
 	chain.AddService(dao)
 	return chain
@@ -177,14 +158,13 @@ func (bc *blockchain) Start() (err error) {
 		return err
 	}
 
-	// populate UTXO or state factory
+	// populate state factory
 	for i := uint64(0); i <= bc.tipHeight; i++ {
 		blk, err := bc.GetBlockByHeight(i)
 		if err != nil {
 			return err
 		}
 		if blk != nil {
-			bc.utk.UpdateUtxoPool(blk)
 			if bc.sf != nil && blk.Transfers != nil {
 				if err := bc.sf.CommitStateChanges(bc.tipHeight, blk.Transfers, blk.Votes); err != nil {
 					return err
@@ -281,11 +261,6 @@ func (bc *blockchain) TipHeight() (uint64, error) {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
 	return bc.tipHeight, nil
-}
-
-// ResetUTXO resets UTXO
-func (bc *blockchain) ResetUTXO() {
-	bc.utk.Reset()
 }
 
 // ValidateBlock validates a new block before adding it to the blockchain
@@ -390,9 +365,7 @@ func (bc *blockchain) BalanceOf(address string) *big.Int {
 		}
 		return s.Balance
 	}
-
-	_, balance := bc.utk.UtxoEntries(address, math.MaxUint64)
-	return balance
+	return big.NewInt(0)
 }
 
 // StateByAddr returns the state of an address
@@ -408,21 +381,6 @@ func (bc *blockchain) StateByAddr(address string) (*state.State, error) {
 	}
 
 	return nil, errors.New("state factory is nil")
-}
-
-// UtxoPool returns the UTXO pool of current blockchain
-func (bc *blockchain) UtxoPool() map[common.Hash32B][]*trx.TxOutput {
-	return bc.utk.utxoPool
-}
-
-// CreateTransaction creates a signed transaction paying 'amount' from 'from' to 'to'
-func (bc *blockchain) CreateTransaction(from *iotxaddress.Address, amount uint64, to []*Payee) *trx.Tx {
-	return bc.createTx(from, amount, to, false)
-}
-
-// CreateRawTransaction creates a unsigned transaction paying 'amount' from 'from' to 'to'
-func (bc *blockchain) CreateRawTransaction(from *iotxaddress.Address, amount uint64, to []*Payee) *trx.Tx {
-	return bc.createTx(from, amount, to, true)
 }
 
 // SetValidator sets the current validator object
@@ -486,8 +444,7 @@ func (bc *blockchain) commitBlock(blk *Block) error {
 	bc.tipHeight = blk.Header.height
 	bc.tipHash = blk.HashBlock()
 
-	// update UTXO or state factory
-	bc.utk.UpdateUtxoPool(blk)
+	// update state factory
 	if bc.sf == nil || (blk.Transfers == nil && blk.Votes == nil) {
 		return nil
 	}
@@ -533,53 +490,4 @@ func createAndInitBlockchain(kvstore db.KVStore, sf state.Factory, cfg *config.C
 		return nil
 	}
 	return chain
-}
-
-// createTx creates a transaction paying 'amount' from 'from' to 'to'
-func (bc *blockchain) createTx(from *iotxaddress.Address, amount uint64, to []*Payee, isRaw bool) *trx.Tx {
-	utxo, change := bc.utk.UtxoEntries(from.RawAddress, amount)
-	if utxo == nil {
-		logger.Error().Str("addr", from.RawAddress).Msg("Failed to get UTXO")
-		return nil
-	}
-
-	in := []*trx.TxInput{}
-	for _, out := range utxo {
-		unlock := []byte(out.TxOutputPb.String())
-		if !isRaw {
-			var err error
-			unlock, err = txvm.SignatureScript([]byte(out.TxOutputPb.String()), from.PublicKey, from.PrivateKey)
-			if err != nil {
-				return nil
-			}
-		}
-
-		in = append(in, bc.utk.CreateTxInputUtxo(out.txHash, out.outIndex, unlock))
-	}
-
-	out := []*trx.TxOutput{}
-	for _, payee := range to {
-		out = append(out, bc.utk.CreateTxOutputUtxo(payee.Address, payee.Amount))
-	}
-	if change.Sign() == 1 {
-		out = append(out, bc.utk.CreateTxOutputUtxo(from.RawAddress, change.Uint64()))
-	}
-
-	// Sort TxInput in lexicographical order based on TxHash + OutIndex
-	sort.Sort(trx.TxInSorter(in))
-
-	// Sort TxOutput in lexicographical order based on Value + LockScript and reset OutIndex
-	sort.Sort(trx.TxOutSorter(out))
-	resetOutIndex(out)
-
-	return trx.NewTx(in, out, 0)
-}
-
-//======================================
-// util functions
-//=====================================
-func resetOutIndex(out []*trx.TxOutput) {
-	for i := 0; i < len(out); i++ {
-		out[i].OutIndex = int32(i)
-	}
 }

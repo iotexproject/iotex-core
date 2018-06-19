@@ -23,8 +23,7 @@ type Validator interface {
 }
 
 type validator struct {
-	sf  state.Factory
-	utk *UtxoTracker
+	sf state.Factory
 }
 
 var (
@@ -65,12 +64,6 @@ func (v *validator) Validate(blk *Block, tipHeight uint64, tipHash common.Hash32
 				"Fail to verify block's signature with public key: %x",
 				blk.Header.Pubkey,
 				tipHash)
-		}
-	}
-
-	if v.utk != nil {
-		if err := v.utk.ValidateUtxo(blk); err != nil {
-			return err
 		}
 	}
 
