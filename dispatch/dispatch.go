@@ -14,6 +14,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/blocksync"
@@ -24,7 +25,6 @@ import (
 	"github.com/iotexproject/iotex-core/logger"
 	pb "github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-core/txpool"
 )
 
 // txMsg packages a proto tx message.
@@ -63,14 +63,14 @@ type IotxDispatcher struct {
 
 	bs blocksync.BlockSync
 	cs consensus.Consensus
-	ap txpool.ActPool
+	ap actpool.ActPool
 }
 
 // NewDispatcher creates a new IotxDispatcher
 func NewDispatcher(
 	cfg *config.Config,
 	bc blockchain.Blockchain,
-	ap txpool.ActPool,
+	ap actpool.ActPool,
 	bs blocksync.BlockSync,
 	dp delegate.Pool,
 	sf state.Factory,

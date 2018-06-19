@@ -78,7 +78,7 @@ func (s *Chainserver) SendTransfer(ctx context.Context, in *pb.SendTransferReque
 	if err := s.broadcastcb(action); err != nil {
 		return nil, err
 	}
-	// send to txpool via dispatcher
+	// send to actpool via dispatcher
 	s.dispatcher.HandleBroadcast(action, nil)
 	return &pb.SendTransferResponse{}, nil
 }
@@ -113,7 +113,7 @@ func (s *Chainserver) SendVote(ctx context.Context, in *pb.SendVoteRequest) (*pb
 	if err := s.broadcastcb(action); err != nil {
 		return nil, err
 	}
-	// send to txpool via dispatcher
+	// send to actpool via dispatcher
 	s.dispatcher.HandleBroadcast(action, nil)
 	return &pb.SendVoteResponse{}, nil
 }

@@ -9,6 +9,7 @@ package consensus
 import (
 	"github.com/golang/protobuf/proto"
 
+	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/common"
@@ -18,7 +19,6 @@ import (
 	"github.com/iotexproject/iotex-core/delegate"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-core/txpool"
 )
 
 // Consensus is the interface for handling IotxConsensus view change.
@@ -39,7 +39,7 @@ type IotxConsensus struct {
 func NewConsensus(
 	cfg *config.Config,
 	bc blockchain.Blockchain,
-	ap txpool.ActPool,
+	ap actpool.ActPool,
 	bs blocksync.BlockSync,
 	dlg delegate.Pool,
 	sf state.Factory,
@@ -56,7 +56,7 @@ func NewConsensus(
 			Int("transfer", len(transfers)).
 			Int("votes", len(votes)).
 			Msg("pick actions")
-		blk, err := bc.MintNewBlock(nil, transfers, votes, &cfg.Chain.ProducerAddr, "")
+		blk, err := bc.MintNewBlock(transfers, votes, &cfg.Chain.ProducerAddr, "")
 		if err != nil {
 			logger.Error().Msg("Failed to mint a block")
 			return nil, err

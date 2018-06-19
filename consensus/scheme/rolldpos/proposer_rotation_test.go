@@ -36,7 +36,7 @@ func TestProposerRotation(t *testing.T) {
 		mcks.dp.EXPECT().AllDelegates().Return(delegates, nil).AnyTimes()
 		mcks.dNet.EXPECT().Broadcast(gomock.Any()).AnyTimes()
 		genesis := bc.NewGenesisBlock()
-		mcks.bc.EXPECT().MintNewBlock(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(genesis, nil).AnyTimes()
+		mcks.bc.EXPECT().MintNewBlock(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(genesis, nil).AnyTimes()
 		mcks.bc.EXPECT().TipHeight().Return(uint64(0), nil).AnyTimes()
 	}
 	cs := createTestRollDPoS(

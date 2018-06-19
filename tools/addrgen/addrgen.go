@@ -12,7 +12,7 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/iotexproject/iotex-core-internal/iotxaddress"
+	"github.com/iotexproject/iotex-core/iotxaddress"
 )
 
 func main() {
