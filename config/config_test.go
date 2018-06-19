@@ -37,6 +37,7 @@ func TestLoadTestConfig(t *testing.T) {
 	config2, err := LoadConfigWithPath(path)
 	assert.Nil(t, err)
 	assert.NotNil(t, config2)
+	config2.Chain.ProducerAddr = iotxaddress.Address{}
 	assert.Equal(t, config1, config2)
 }
 
@@ -45,30 +46,33 @@ func TestLoadProdConfig(t *testing.T) {
 	assert.Nil(t, err)
 	assert.NotNil(t, config)
 	assert.NotEmpty(t, config.Chain.ChainDBPath)
-	assert.NotEmpty(t, config.Chain.MinerAddr)
+	assert.NotEmpty(t, config.Chain.ProducerAddr)
 }
 
 func TestValidateConfig(t *testing.T) {
 	cfg := LoadTestConfig()
-	cfg.Chain.MinerAddr.RawAddress = "invalid_address"
+	cfg.Chain.ProducerAddr.RawAddress = "invalid_address"
 	err := validateConfig(cfg)
 	assert.NotNil(t, err)
 	assert.Equal(t, "invalid miner's address", err.Error())
 
 	cfg = LoadTestConfig()
-	cfg.Chain.MinerAddr.RawAddress = ""
-	cfg.NodeType = "invalid_type"
+	setProducerAddr(cfg)
+	cfg.Chain.ProducerAddr.PublicKey = []byte("hello world")
+	cfg.Chain.ProducerAddr.PrivateKey = []byte("world hello")
 	err = validateConfig(cfg)
 	assert.NotNil(t, err)
-	assert.Equal(t, "unknown node type invalid_type", err.Error())
+	assert.Equal(t, "producer has unmatched pubkey and prikey", err.Error())
 
 	cfg = LoadTestConfig()
+	setProducerAddr(cfg)
 	cfg.Network.PeerDiscovery = false
 	err = validateConfig(cfg)
 	assert.NotNil(t, err)
 	assert.Equal(t, "either peer discover should be enabled or a topology should be given", err.Error())
 
 	cfg = LoadTestConfig()
+	setProducerAddr(cfg)
 	cfg.NodeType = FullNodeType
 	cfg.Consensus.Scheme = RollDPoSScheme
 	err = validateConfig(cfg)
@@ -81,11 +85,13 @@ func TestValidateConfig(t *testing.T) {
 	assert.Equal(t, "consensus scheme of lightweight node should be NOOP", err.Error())
 
 	cfg = LoadTestConfig()
+	setProducerAddr(cfg)
 	cfg.Dispatcher.EventChanSize = 0
 	err = validateConfig(cfg)
 	assert.Equal(t, "dispatcher event chan size should be greater than 0", err.Error())
 
 	cfg = LoadTestConfig()
+	setProducerAddr(cfg)
 	cfg.NodeType = DelegateType
 	cfg.Consensus.Scheme = RollDPoSScheme
 	err = validateConfig(cfg)
@@ -121,11 +127,9 @@ func LoadTestConfig() *Config {
 			TopologyPath:            "",
 		},
 		Chain: Chain{
-			ChainDBPath: "./a/fake/path",
-			MinerAddr: iotxaddress.Address{
-				PrivateKey: []byte{},
-				PublicKey:  []byte{},
-			},
+			ChainDBPath:     "./a/fake/path",
+			ProducerPrivKey: "925f0c9e4b6f6d92f2961d01aff6204c44d73c0b9d0da188582932d4fcad0d8ee8c66600",
+			ProducerPubKey:  "336eb60a5741f585a8e81de64e071327a3b96c15af4af5723598a07b6121e8e813bbd0056ba71ae29c0d64252e913f60afaeb11059908b81ff27cbfa327fd371d35f5ec0cbc01705",
 		},
 		Consensus: Consensus{
 			Scheme: NOOPScheme,

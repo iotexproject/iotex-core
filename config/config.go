@@ -15,6 +15,7 @@ import (
 	"google.golang.org/grpc/keepalive"
 	"gopkg.in/yaml.v2"
 
+	cp "github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 )
@@ -65,19 +66,14 @@ type Network struct {
 type Chain struct {
 	ChainDBPath string `yaml:"chainDBPath"`
 	TrieDBPath  string `yaml:"trieDBPath"`
-	//RawMinerAddr is the struct that stores private/public keys in string
-	RawMinerAddr RawMinerAddr `yaml:"rawMinerAddr"`
-	// MinerAddr is an iotxaddress struct where the block rewards will be sent to.
-	MinerAddr iotxaddress.Address `yaml:"minerAddr"`
+
+	ProducerPubKey  string `yaml:"producerPubKey"`
+	ProducerPrivKey string `yaml:"producerPrivKey"`
+	// ProducerAddr is an iotxaddress struct constructed from ProducerPubKey and ProducerPrivKey
+	ProducerAddr iotxaddress.Address `yaml:"producerAddr"`
+
 	// InMemTest creates in-memory DB file for local testing
 	InMemTest bool `yaml:"inMemTest"`
-}
-
-// RawMinerAddr is the RawChain struct when loading from yaml file
-type RawMinerAddr struct {
-	PrivateKey string `yaml:"privateKey"`
-	PublicKey  string `yaml:"publicKey"`
-	RawAddress string `yaml:"rawAddress"`
 }
 
 const (
@@ -224,10 +220,12 @@ func loadConfigWithPathInternal(path string, validate bool) (*Config, error) {
 		logger.Error().Err(err).Msg("Error when decoding the config file")
 		return nil, err
 	}
-	if err := setMinerAddr(&config); err != nil {
+
+	if err := setProducerAddr(&config); err != nil {
 		logger.Error().Err(err).Msg("Error when decoding key string")
 		return nil, err
 	}
+
 	if validate {
 		if err = validateConfig(&config); err != nil {
 			logger.Error().Err(err).Msg("Error when validating config")
@@ -239,9 +237,16 @@ func loadConfigWithPathInternal(path string, validate bool) (*Config, error) {
 
 // validateConfig validates the given config
 func validateConfig(cfg *Config) error {
-	// Validate miner's address
-	if len(cfg.Chain.MinerAddr.RawAddress) > 0 && !iotxaddress.ValidateAddress(cfg.Chain.MinerAddr.RawAddress) {
+	// Validate producer's address
+	if len(cfg.Chain.ProducerAddr.RawAddress) > 0 && !iotxaddress.ValidateAddress(cfg.Chain.ProducerAddr.RawAddress) {
 		return fmt.Errorf("invalid miner's address")
+	}
+
+	// Validate producer pubkey and prikey by signing a dummy message and verify it
+	const dummyMsg = "connecting the physical world block by block"
+	sig := cp.Sign(cfg.Chain.ProducerAddr.PrivateKey, []byte(dummyMsg))
+	if !cp.Verify(cfg.Chain.ProducerAddr.PublicKey, []byte(dummyMsg), sig) {
+		return fmt.Errorf("producer has unmatched pubkey and prikey")
 	}
 
 	// Validate node type
@@ -296,21 +301,23 @@ func LoadTopology(path string) (*Topology, error) {
 	return &topology, nil
 }
 
-// setMinerAddr sets MinerAddr based on the data from RawMinerAddr
-func setMinerAddr(config *Config) error {
-	priKey, err := hex.DecodeString(config.Chain.RawMinerAddr.PrivateKey)
+// setProducerAddr sets ProducerAddr based on the data from RawMinerAddr
+func setProducerAddr(config *Config) error {
+	priKey, err := hex.DecodeString(config.Chain.ProducerPrivKey)
 	if err != nil {
 		return err
 	}
-	pubKey, err := hex.DecodeString(config.Chain.RawMinerAddr.PublicKey)
+	pubKey, err := hex.DecodeString(config.Chain.ProducerPubKey)
 	if err != nil {
 		return err
 	}
-	minerAddr := iotxaddress.Address{}
-	minerAddr.RawAddress = config.Chain.RawMinerAddr.RawAddress
-	minerAddr.PrivateKey = priKey
-	minerAddr.PublicKey = pubKey
 
-	config.Chain.MinerAddr = minerAddr
+	addr, err := iotxaddress.GetAddress(pubKey, iotxaddress.IsTestnet, iotxaddress.ChainID)
+	if err != nil {
+		return err
+	}
+	addr.PrivateKey = priKey
+
+	config.Chain.ProducerAddr = *addr
 	return nil
 }
