@@ -122,7 +122,8 @@ W0416 12:52:21.654650    1576 blocksync.go:293] ------ commit block 122 time = 1
 
 Add `SKIP_GLIDE=true` to skip re-installing dependencies via `glide`.
 
-# Use ActionInjector To Inject Actions
+## Dev Tools
+### Use ActionInjector To Inject Actions
 Open one terminal window and run the command below to compile and start the test chain server with the configuration specified in "config_local_delegate.yaml" (This is optional, just in case you don't have a node running).
 
 `make; make run`
@@ -145,6 +146,18 @@ Default flag values:
 * transfer-num=50
 * vote-num=50
 * interval=5
+
+### Use AddrGen To Generate Addresses
+Open a terminal window and run the command below to start running addrgen.
+
+`make build; ./bin/addrgen`
+
+You can use command line flag to customize the address generator.
+
+`-number=numer_of_addresses_to_be_generated`
+
+Default flag value:
+* number=10
 
 ## Contribution
 We are glad to have contributors out of the core team; contributions, including (but not limited to) style/bug fixes, implementation of features, proposals of schemes/algorithms, and thorough documentation, are 
