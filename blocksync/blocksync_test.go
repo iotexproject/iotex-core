@@ -201,7 +201,7 @@ func TestBlockSyncer_ProcessBlock_TipHeightError(t *testing.T) {
 	}
 
 	bs := NewBlockSyncer(cfgFullNode, mBc, nil, nil, p2p, mPool)
-	blk := bc.NewBlock(uint32(123), uint64(4), common.Hash32B{}, nil, nil, nil)
+	blk := bc.NewBlock(uint32(123), uint64(4), common.Hash32B{}, nil, nil)
 	bs.(*blockSyncer).ackBlockCommit = false
 	assert.Nil(bs.ProcessBlock(blk))
 
@@ -238,7 +238,7 @@ func TestBlockSyncer_ProcessBlock_TipHeight(t *testing.T) {
 	}
 
 	bs := NewBlockSyncer(cfgFullNode, mBc, mTxPool, ap, p2p, mPool)
-	blk := bc.NewBlock(uint32(123), uint64(4), common.Hash32B{}, nil, nil, nil)
+	blk := bc.NewBlock(uint32(123), uint64(4), common.Hash32B{}, nil, nil)
 
 	bs.(*blockSyncer).ackBlockCommit = true
 	// less than tip height
@@ -246,15 +246,15 @@ func TestBlockSyncer_ProcessBlock_TipHeight(t *testing.T) {
 
 	// special case
 	bs.(*blockSyncer).state = Idle
-	blkHeightSpecial := bc.NewBlock(uint32(123), uint64(6), common.Hash32B{}, nil, nil, nil)
+	blkHeightSpecial := bc.NewBlock(uint32(123), uint64(6), common.Hash32B{}, nil, nil)
 	assert.Nil(bs.ProcessBlock(blkHeightSpecial))
 
 	// < block height
-	blkHeightLess := bc.NewBlock(uint32(123), uint64(4), common.Hash32B{}, nil, nil, nil)
+	blkHeightLess := bc.NewBlock(uint32(123), uint64(4), common.Hash32B{}, nil, nil)
 	assert.Error(bs.ProcessBlock(blkHeightLess))
 
 	// > block height
-	blkHeightMore := bc.NewBlock(uint32(123), uint64(7), common.Hash32B{}, nil, nil, nil)
+	blkHeightMore := bc.NewBlock(uint32(123), uint64(7), common.Hash32B{}, nil, nil)
 	assert.Nil(bs.ProcessBlock(blkHeightMore))
 }
 
@@ -288,7 +288,7 @@ func TestBlockSyncer_ProcessBlockSync(t *testing.T) {
 	}
 
 	bs := NewBlockSyncer(cfgFullNode, mBc, mTxPool, ap, p2p, mPool)
-	blk := bc.NewBlock(uint32(123), uint64(4), common.Hash32B{}, nil, nil, nil)
+	blk := bc.NewBlock(uint32(123), uint64(4), common.Hash32B{}, nil, nil)
 	bs.(*blockSyncer).ackBlockSync = false
 	assert.Nil(bs.ProcessBlockSync(blk))
 

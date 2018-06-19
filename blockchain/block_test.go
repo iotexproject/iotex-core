@@ -107,7 +107,7 @@ func TestMerkle(t *testing.T) {
 	t.Logf("hash07 = %x", hash07)
 
 	// create block using above 5 tx and verify merkle
-	block := NewBlock(0, 0, common.ZeroHash32B, nil, []*action.Transfer{cbtsf0, cbtsf1, cbtsf2, cbtsf3, cbtsf4}, nil)
+	block := NewBlock(0, 0, common.ZeroHash32B, []*action.Transfer{cbtsf0, cbtsf1, cbtsf2, cbtsf3, cbtsf4}, nil)
 	hash := block.TxRoot()
 	require.Equal(hash07[:], hash[:])
 

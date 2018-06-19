@@ -15,7 +15,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/blockchain/trx"
 	cm "github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/logger"
@@ -137,7 +136,7 @@ func TestLocalCommit(t *testing.T) {
 	payee = nil
 	payee = append(payee, &blockchain.Payee{ta.Addrinfo["delta"].RawAddress, 1})
 	tx2 := bc.CreateTransaction(ta.Addrinfo["foxtrot"], 1, payee)
-	blk2 := blockchain.NewBlock(0, height+2, hash1, []*trx.Tx{tx2}, nil, nil)
+	blk2 := blockchain.NewBlock(0, height+2, hash1, nil, nil)
 	hash2 := blk2.HashBlock()
 	bc.ResetUTXO()
 	p2.Broadcast(tx2.ConvertToTxPb())
@@ -147,7 +146,7 @@ func TestLocalCommit(t *testing.T) {
 	payee = nil
 	payee = append(payee, &blockchain.Payee{ta.Addrinfo["bravo"].RawAddress, 1})
 	tx3 := bc.CreateTransaction(ta.Addrinfo["bravo"], 1, payee)
-	blk3 := blockchain.NewBlock(0, height+3, hash2, []*trx.Tx{tx3}, nil, nil)
+	blk3 := blockchain.NewBlock(0, height+3, hash2, nil, nil)
 	hash3 := blk3.HashBlock()
 	bc.ResetUTXO()
 	p1.Broadcast(tx3.ConvertToTxPb())
@@ -157,7 +156,7 @@ func TestLocalCommit(t *testing.T) {
 	payee = nil
 	payee = append(payee, &blockchain.Payee{ta.Addrinfo["echo"].RawAddress, 1})
 	tx4 := bc.CreateTransaction(ta.Addrinfo["miner"], 1, payee)
-	blk4 := blockchain.NewBlock(0, height+4, hash3, []*trx.Tx{tx4}, nil, nil)
+	blk4 := blockchain.NewBlock(0, height+4, hash3, nil, nil)
 	bc.ResetUTXO()
 	p2.Broadcast(tx4.ConvertToTxPb())
 
