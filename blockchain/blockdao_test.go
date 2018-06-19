@@ -8,12 +8,13 @@ package blockchain
 
 import (
 	"hash/fnv"
+	"math/big"
 	"math/rand"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotexproject/iotex-core/blockchain/trx"
+	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/test/testaddress"
@@ -24,22 +25,22 @@ func TestBlockDAO(t *testing.T) {
 	getBlocks := func() []*Block {
 		amount := uint64(50 << 22)
 		// create testing transactions
-		cbtx1 := trx.NewCoinbaseTx(testaddress.Addrinfo["alfa"].RawAddress, amount, testCoinbaseData)
-		assert.NotNil(t, cbtx1)
-		cbtx2 := trx.NewCoinbaseTx(testaddress.Addrinfo["bravo"].RawAddress, amount, testCoinbaseData)
-		assert.NotNil(t, cbtx2)
-		cbtx3 := trx.NewCoinbaseTx(testaddress.Addrinfo["charlie"].RawAddress, amount, testCoinbaseData)
-		assert.NotNil(t, cbtx3)
+		cbTsf1 := action.NewCoinBaseTransfer(big.NewInt(int64((amount))), testaddress.Addrinfo["alfa"].RawAddress)
+		assert.NotNil(t, cbTsf1)
+		cbTsf2 := action.NewCoinBaseTransfer(big.NewInt(int64((amount))), testaddress.Addrinfo["bravo"].RawAddress)
+		assert.NotNil(t, cbTsf2)
+		cbTsf3 := action.NewCoinBaseTransfer(big.NewInt(int64((amount))), testaddress.Addrinfo["charlie"].RawAddress)
+		assert.NotNil(t, cbTsf3)
 
 		hash1 := common.Hash32B{}
 		fnv.New32().Sum(hash1[:])
-		blk1 := NewBlock(0, 1, hash1, []*trx.Tx{cbtx1}, nil, nil)
+		blk1 := NewBlock(0, 1, hash1, nil, []*action.Transfer{cbTsf1}, nil)
 		hash2 := common.Hash32B{}
 		fnv.New32().Sum(hash2[:])
-		blk2 := NewBlock(0, 2, hash2, []*trx.Tx{cbtx2}, nil, nil)
+		blk2 := NewBlock(0, 2, hash2, nil, []*action.Transfer{cbTsf2}, nil)
 		hash3 := common.Hash32B{}
 		fnv.New32().Sum(hash3[:])
-		blk3 := NewBlock(0, 3, hash3, []*trx.Tx{cbtx3}, nil, nil)
+		blk3 := NewBlock(0, 3, hash3, nil, []*action.Transfer{cbTsf3}, nil)
 		return []*Block{blk1, blk2, blk3}
 	}
 
@@ -67,7 +68,7 @@ func TestBlockDAO(t *testing.T) {
 		blk, err := dao.getBlock(blks[0].HashBlock())
 		assert.Nil(t, err)
 		assert.NotNil(t, blk)
-		assert.Equal(t, blks[0].Tranxs[0].Hash(), blk.Tranxs[0].Hash())
+		assert.Equal(t, blks[0].Transfers[0].Hash(), blk.Transfers[0].Hash())
 		height, err = dao.getBlockchainHeight()
 		assert.Nil(t, err)
 		assert.Equal(t, uint64(1), height)
@@ -77,7 +78,7 @@ func TestBlockDAO(t *testing.T) {
 		blk, err = dao.getBlock(blks[2].HashBlock())
 		assert.Nil(t, err)
 		assert.NotNil(t, blk)
-		assert.Equal(t, blks[2].Tranxs[0].Hash(), blk.Tranxs[0].Hash())
+		assert.Equal(t, blks[2].Transfers[0].Hash(), blk.Transfers[0].Hash())
 		height, err = dao.getBlockchainHeight()
 		assert.Nil(t, err)
 		assert.Equal(t, uint64(3), height)
@@ -87,7 +88,7 @@ func TestBlockDAO(t *testing.T) {
 		blk, err = dao.getBlock(blks[1].HashBlock())
 		assert.Nil(t, err)
 		assert.NotNil(t, blk)
-		assert.Equal(t, blks[1].Tranxs[0].Hash(), blk.Tranxs[0].Hash())
+		assert.Equal(t, blks[1].Transfers[0].Hash(), blk.Transfers[0].Hash())
 		height, err = dao.getBlockchainHeight()
 		assert.Nil(t, err)
 		assert.Equal(t, uint64(3), height)

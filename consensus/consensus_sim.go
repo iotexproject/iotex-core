@@ -8,11 +8,12 @@ package consensus
 
 import (
 	"encoding/hex"
+	"math/big"
 
 	"github.com/golang/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/blockchain/trx"
+	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
@@ -175,11 +176,13 @@ func NewSimByzantine(
 		logger.Debug().Msg("mintBlockCB called")
 
 		// create sample transactions
-		txs := []*trx.Tx{trx.NewCoinbaseTx(cfg.Chain.ProducerAddr.RawAddress, 100, ""),
-			trx.NewCoinbaseTx(cfg.Chain.ProducerAddr.RawAddress, 200, ""),
-			trx.NewCoinbaseTx(cfg.Chain.ProducerAddr.RawAddress, 300, "")}
+		tsf := []*action.Transfer{
+			action.NewCoinBaseTransfer(big.NewInt(100), cfg.Chain.ProducerAddr.RawAddress),
+			action.NewCoinBaseTransfer(big.NewInt(200), cfg.Chain.ProducerAddr.RawAddress),
+			action.NewCoinBaseTransfer(big.NewInt(300), cfg.Chain.ProducerAddr.RawAddress),
+		}
 		// TODO: create sample Transfer and Vote to replace nil, nil below
-		blk, err := bc.MintNewBlock(txs, nil, nil, &cfg.Chain.ProducerAddr, "")
+		blk, err := bc.MintNewBlock(nil, tsf, nil, &cfg.Chain.ProducerAddr, "")
 		if err != nil {
 			logger.Error().Msg("Failed to mint a block")
 			return nil, err

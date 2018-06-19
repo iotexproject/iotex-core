@@ -9,14 +9,15 @@ package blockchain
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/blake2b"
 
-	"github.com/iotexproject/iotex-core/blockchain/trx"
+	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/common"
-	iproto "github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/proto"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 )
 
@@ -43,40 +44,40 @@ func TestMerkle(t *testing.T) {
 
 	amount := uint64(50 << 22)
 	// create testing transactions
-	cbtx0 := trx.NewCoinbaseTx(ta.Addrinfo["miner"].RawAddress, amount, testCoinbaseData)
-	require.NotNil(cbtx0)
-	cbtx1 := trx.NewCoinbaseTx(ta.Addrinfo["alfa"].RawAddress, amount, testCoinbaseData)
-	require.NotNil(cbtx1)
-	cbtx2 := trx.NewCoinbaseTx(ta.Addrinfo["bravo"].RawAddress, amount, testCoinbaseData)
-	require.NotNil(cbtx2)
-	cbtx3 := trx.NewCoinbaseTx(ta.Addrinfo["charlie"].RawAddress, amount, testCoinbaseData)
-	require.NotNil(cbtx3)
-	cbtx4 := trx.NewCoinbaseTx(ta.Addrinfo["echo"].RawAddress, amount, testCoinbaseData)
-	require.NotNil(cbtx4)
+	cbtsf0 := action.NewCoinBaseTransfer(big.NewInt(int64(amount)), ta.Addrinfo["miner"].RawAddress)
+	require.NotNil(cbtsf0)
+	cbtsf1 := action.NewCoinBaseTransfer(big.NewInt(int64(amount)), ta.Addrinfo["alfa"].RawAddress)
+	require.NotNil(cbtsf1)
+	cbtsf2 := action.NewCoinBaseTransfer(big.NewInt(int64(amount)), ta.Addrinfo["bravo"].RawAddress)
+	require.NotNil(cbtsf2)
+	cbtsf3 := action.NewCoinBaseTransfer(big.NewInt(int64(amount)), ta.Addrinfo["charlie"].RawAddress)
+	require.NotNil(cbtsf3)
+	cbtsf4 := action.NewCoinBaseTransfer(big.NewInt(int64(amount)), ta.Addrinfo["echo"].RawAddress)
+	require.NotNil(cbtsf4)
 
 	// verify tx hash
-	hash0, _ := hex.DecodeString("1a0130efd104f6236dac0f1c8c6817465f082e5555c29ef8878abb5ddc8c6002")
-	actual := cbtx0.Hash()
+	hash0, _ := hex.DecodeString("38628817384f0c67ea3396529162e8d7cb4491c227c6a8eaaaf8828bc11614fd")
+	actual := cbtsf0.Hash()
 	require.Equal(hash0, actual[:])
 	t.Logf("actual hash = %x", actual[:])
 
-	hash1, _ := hex.DecodeString("bc469f01661dfeb6c1309b5545cddf12836fee8eaa101f0233879089399d73af")
-	actual = cbtx1.Hash()
+	hash1, _ := hex.DecodeString("ce5dd70b032614bd8e3d82b257b478eb49a4da90d531e7db6cd4eebc98ed149d")
+	actual = cbtsf1.Hash()
 	require.Equal(hash1, actual[:])
 	t.Logf("actual hash = %x", actual[:])
 
-	hash2, _ := hex.DecodeString("4edc136bb713dae6d077a37c8110103334391a24bfcce6dffc8934d1dd24b51d")
-	actual = cbtx2.Hash()
+	hash2, _ := hex.DecodeString("164914612e8628e0de69ea4e4184e63d46439ceb46c46fc60a43b636277dc1e9")
+	actual = cbtsf2.Hash()
 	require.Equal(hash2, actual[:])
 	t.Logf("actual hash = %x", actual[:])
 
-	hash3, _ := hex.DecodeString("762404453347e2cdb87239a689eb30645dbef9935a775b58652b44c6e2ce8282")
-	actual = cbtx3.Hash()
+	hash3, _ := hex.DecodeString("73e0a24bb15687ffb98c254f617db7e7d59963f020de38b1a7c284ffde7dc8d5")
+	actual = cbtsf3.Hash()
 	require.Equal(hash3, actual[:])
 	t.Logf("actual hash = %x", actual[:])
 
-	hash4, _ := hex.DecodeString("1019ce698e2ac013a5a8d24c67a33e333cf21f1f27ea2986636f2e44c3bbf5e1")
-	actual = cbtx4.Hash()
+	hash4, _ := hex.DecodeString("e1c72a310432a0040bedb40ee8ea885fc93258f19687e271a2e2c2fb62723474")
+	actual = cbtsf4.Hash()
 	require.Equal(hash4, actual[:])
 	t.Logf("actual hash = %x", actual[:])
 
@@ -106,7 +107,7 @@ func TestMerkle(t *testing.T) {
 	t.Logf("hash07 = %x", hash07)
 
 	// create block using above 5 tx and verify merkle
-	block := NewBlock(0, 0, common.ZeroHash32B, []*trx.Tx{cbtx0, cbtx1, cbtx2, cbtx3, cbtx4}, nil, nil)
+	block := NewBlock(0, 0, common.ZeroHash32B, nil, []*action.Transfer{cbtsf0, cbtsf1, cbtsf2, cbtsf3, cbtsf4}, nil)
 	hash := block.TxRoot()
 	require.Equal(hash07[:], hash[:])
 
