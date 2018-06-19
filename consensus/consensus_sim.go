@@ -114,7 +114,7 @@ func NewSim(
 		hash := [32]byte(blk.HashBlock())
 		s := hex.EncodeToString(hash[:])
 		cs.sendMessage(commitBlockMsg, 0, s)
-		return bc.AddBlockCommit(blk)
+		return bc.CommitBlock(blk)
 	}
 
 	// broadcast a block across the P2P network
@@ -217,7 +217,7 @@ func NewSimByzantine(
 		hash := [32]byte(blk.HashBlock())
 		s := hex.EncodeToString(hash[:])
 		cs.sendMessage(commitBlockMsg, 0, s)
-		return bc.AddBlockCommit(blk)
+		return bc.CommitBlock(blk)
 	}
 
 	// broadcast a block across the P2P network

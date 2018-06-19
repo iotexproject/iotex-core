@@ -357,7 +357,7 @@ func (bs *blockSyncer) commitBlocksInBuffer() error {
 	}
 	next := height + 1
 	for blk := bs.rcvdBlocks[next]; blk != nil; {
-		if err := bs.bc.AddBlockCommit(blk); err != nil {
+		if err := bs.bc.CommitBlock(blk); err != nil {
 			return err
 		}
 		delete(bs.rcvdBlocks, next)

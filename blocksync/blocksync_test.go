@@ -221,7 +221,7 @@ func TestBlockSyncer_ProcessBlock_TipHeight(t *testing.T) {
 
 	mBc := mock_blockchain.NewMockBlockchain(ctrl)
 	mBc.EXPECT().TipHeight().AnyTimes().Return(uint64(5), nil)
-	mBc.EXPECT().AddBlockCommit(gomock.Any()).AnyTimes()
+	mBc.EXPECT().CommitBlock(gomock.Any()).AnyTimes()
 
 	mTxPool := mock_txpool.NewMockTxPool(ctrl)
 	mTxPool.EXPECT().RemoveTxInBlock(gomock.Any()).AnyTimes()

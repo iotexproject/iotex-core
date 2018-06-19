@@ -32,6 +32,8 @@ import (
 // Blockchain represents the blockchain data structure and hosts the APIs to access it
 type Blockchain interface {
 	service.Service
+
+	// For exposing blockchain states
 	// GetHeightByHash returns Block's height by hash
 	GetHeightByHash(hash common.Hash32B) (uint64, error)
 	// GetHashByHeight returns Block's hash by height
@@ -54,21 +56,23 @@ type Blockchain interface {
 	TipHash() (common.Hash32B, error)
 	// TipHeight returns tip block's height
 	TipHeight() (uint64, error)
-	// MintNewBlock creates a new block with given transactions
-	// Note: the coinbase transaction will be added to the given transactions
-	// when minting a new block.
-	MintNewBlock([]*trx.Tx, []*action.Transfer, []*action.Vote, *iotxaddress.Address, string) (*Block, error)
-	// MintNewDummyBlock creates a new dummy block with no transactions
-	MintNewDummyBlock() (*Block, error)
-	// AddBlockCommit adds a new block into blockchain
-	AddBlockCommit(blk *Block) error
-	// AddBlockSync adds a past block into blockchain
-	// used by block syncer when the chain in out-of-sync
-	AddBlockSync(blk *Block) error
 	// BalanceOf returns the balance of an address
 	BalanceOf(address string) *big.Int
 	// StateByAddr returns state of a given address
-	StateByAddr(string) (*state.State, error)
+	StateByAddr(address string) (*state.State, error)
+
+	// For block operations
+	// MintNewBlock creates a new block with given transactions
+	// Note: the coinbase transaction will be added to the given transactions when minting a new block.
+	MintNewBlock(trx []*trx.Tx, tsf []*action.Transfer, vote []*action.Vote, address *iotxaddress.Address, data string) (*Block, error)
+	// MintNewDummyBlock creates a new dummy block with no transactions
+	MintNewDummyBlock() (*Block, error)
+	// CommitBlock validates and appends a block to the chain
+	CommitBlock(blk *Block) error
+	// ValidateBlock validates a new block before adding it to the blockchain
+	ValidateBlock(blk *Block) error
+
+	// For action operations
 	// CreateTransaction creates a signed transaction paying 'amount' from 'from' to 'to'
 	CreateTransaction(from *iotxaddress.Address, amount uint64, to []*Payee) *trx.Tx
 	// CreateRawTransaction creates an unsigned transaction paying 'amount' from 'from' to 'to'
@@ -81,8 +85,6 @@ type Blockchain interface {
 	CreateVote(nonce uint64, selfPubKey []byte, votePubKey []byte) (*action.Vote, error)
 	// CreateRawVote creates an unsigned vote
 	CreateRawVote(nonce uint64, selfPubKey []byte, votePubKey []byte) *action.Vote
-	// ValidateBlock validates a new block before adding it to the blockchain
-	ValidateBlock(blk *Block) error
 
 	// The following methods are used only for utxo-based model
 	// Reset resets UTXO
@@ -93,7 +95,7 @@ type Blockchain interface {
 	// Validator returns the current validator object
 	Validator() Validator
 	// SetValidator sets the current validator object
-	SetValidator(Validator)
+	SetValidator(val Validator)
 }
 
 // blockchain implements the Blockchain interface
@@ -160,6 +162,7 @@ func (bc *blockchain) Start() (err error) {
 	if err = bc.CompositeService.Start(); err != nil {
 		return err
 	}
+
 	// get blockchain tip height
 	bc.mu.Lock()
 	defer bc.mu.Unlock()
@@ -345,18 +348,11 @@ func (bc *blockchain) MintNewDummyBlock() (*Block, error) {
 	return blk, nil
 }
 
-// AddBlockCommit appends a new block into blockchain
-func (bc *blockchain) AddBlockCommit(blk *Block) error {
+//  CommitBlock validates and appends a block to the chain
+func (bc *blockchain) CommitBlock(blk *Block) error {
 	if err := bc.ValidateBlock(blk); err != nil {
 		return err
 	}
-	return bc.commitBlock(blk)
-}
-
-// AddBlockSync adds a past block into blockchain
-// used by block syncer when the chain in out-of-sync
-func (bc *blockchain) AddBlockSync(blk *Block) error {
-	// directly commit block into blockchain DB
 	return bc.commitBlock(blk)
 }
 
@@ -479,7 +475,7 @@ func (bc *blockchain) CreateRawVote(nonce uint64, selfPubKey []byte, votePubKey 
 //======================================
 // private functions
 //=====================================
-// commitBlock commits Block to DB
+// commitBlock commits a block to the chain
 func (bc *blockchain) commitBlock(blk *Block) error {
 	if err := bc.dao.putBlock(blk); err != nil {
 		return err
@@ -532,7 +528,7 @@ func createAndInitBlockchain(kvstore db.KVStore, sf state.Factory, cfg *config.C
 		return nil
 	}
 	// add Genesis block as very first block
-	if err := chain.AddBlockCommit(genesis); err != nil {
+	if err := chain.CommitBlock(genesis); err != nil {
 		logger.Error().Err(err).Msg("Failed to commit Genesis block")
 		return nil
 	}

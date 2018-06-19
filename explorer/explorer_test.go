@@ -39,7 +39,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	if err != nil {
 		return err
 	}
-	if err := bc.AddBlockCommit(blk); err != nil {
+	if err := bc.CommitBlock(blk); err != nil {
 		return err
 	}
 	bc.ResetUTXO()
@@ -58,7 +58,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	if err != nil {
 		return err
 	}
-	if err := bc.AddBlockCommit(blk); err != nil {
+	if err := bc.CommitBlock(blk); err != nil {
 		return err
 	}
 	bc.ResetUTXO()
@@ -68,7 +68,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	if err != nil {
 		return err
 	}
-	if err := bc.AddBlockCommit(blk); err != nil {
+	if err := bc.CommitBlock(blk); err != nil {
 		return err
 	}
 	bc.ResetUTXO()
@@ -78,7 +78,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	if err != nil {
 		return err
 	}
-	if err := bc.AddBlockCommit(blk); err != nil {
+	if err := bc.CommitBlock(blk); err != nil {
 		return err
 	}
 	bc.ResetUTXO()
