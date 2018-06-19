@@ -26,7 +26,6 @@ import (
 type Server struct {
 	service.Service
 	bc  blockchain.Blockchain
-	tp  txpool.TxPool
 	ap  txpool.ActPool
 	o   *network.Overlay
 	dp  dispatcher.Dispatcher
@@ -78,11 +77,6 @@ func (s *Server) Bc() blockchain.Blockchain {
 	return s.bc
 }
 
-// Tp returns the TxPool
-func (s *Server) Tp() txpool.TxPool {
-	return s.tp
-}
-
 // Ap returns the Action pool
 func (s *Server) Ap() txpool.ActPool {
 	return s.ap
@@ -99,21 +93,18 @@ func (s *Server) Dp() dispatcher.Dispatcher {
 }
 
 func newServer(cfg config.Config, bc blockchain.Blockchain, sf state.Factory) *Server {
-	// create TxPool
-	tp := txpool.NewTxPool(bc)
 	// create P2P network and BlockSync
 	o := network.NewOverlay(&cfg.Network)
 	// Create ActPool
 	ap := txpool.NewActPool(sf)
 	pool := delegate.NewConfigBasedPool(&cfg.Delegate)
-	bs := blocksync.NewBlockSyncer(&cfg, bc, tp, ap, o, pool)
+	bs := blocksync.NewBlockSyncer(&cfg, bc, ap, o, pool)
 	// create dispatcher instance
-	dp := dispatch.NewDispatcher(&cfg, bc, tp, ap, bs, pool, sf)
+	dp := dispatch.NewDispatcher(&cfg, bc, ap, bs, pool, sf)
 	o.AttachDispatcher(dp)
 
 	return &Server{
 		bc:  bc,
-		tp:  tp,
 		ap:  ap,
 		o:   o,
 		dp:  dp,

@@ -39,7 +39,6 @@ type IotxConsensus struct {
 func NewConsensus(
 	cfg *config.Config,
 	bc blockchain.Blockchain,
-	tp txpool.TxPool,
 	ap txpool.ActPool,
 	bs blocksync.BlockSync,
 	dlg delegate.Pool,
@@ -57,7 +56,7 @@ func NewConsensus(
 			Int("transfer", len(transfers)).
 			Int("votes", len(votes)).
 			Msg("pick actions")
-		blk, err := bc.MintNewBlock(tp.PickTxs(), transfers, votes, &cfg.Chain.ProducerAddr, "")
+		blk, err := bc.MintNewBlock(nil, transfers, votes, &cfg.Chain.ProducerAddr, "")
 		if err != nil {
 			logger.Error().Msg("Failed to mint a block")
 			return nil, err

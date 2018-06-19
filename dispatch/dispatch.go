@@ -16,7 +16,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/action"
-	"github.com/iotexproject/iotex-core/blockchain/trx"
 	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus"
@@ -64,7 +63,6 @@ type IotxDispatcher struct {
 
 	bs blocksync.BlockSync
 	cs consensus.Consensus
-	tp txpool.TxPool
 	ap txpool.ActPool
 }
 
@@ -72,7 +70,6 @@ type IotxDispatcher struct {
 func NewDispatcher(
 	cfg *config.Config,
 	bc blockchain.Blockchain,
-	tp txpool.TxPool,
 	ap txpool.ActPool,
 	bs blocksync.BlockSync,
 	dp delegate.Pool,
@@ -85,11 +82,10 @@ func NewDispatcher(
 	d := &IotxDispatcher{
 		eventChan: make(chan interface{}, cfg.Dispatcher.EventChanSize),
 		quit:      make(chan struct{}),
-		tp:        tp,
 		ap:        ap,
 		bs:        bs,
 	}
-	d.cs = consensus.NewConsensus(cfg, bc, tp, ap, bs, dp, sf)
+	d.cs = consensus.NewConsensus(cfg, bc, ap, bs, dp, sf)
 	return d
 }
 
@@ -151,17 +147,14 @@ loop:
 		select {
 		case m := <-d.eventChan:
 			switch msg := m.(type) {
-			case *txMsg:
-				d.handleTxMsg(msg)
+			case *actionMsg:
+				d.handleActionMsg(msg)
 
 			case *blockMsg:
 				d.handleBlockMsg(msg)
 
 			case *blockSyncMsg:
 				d.handleBlockSyncMsg(msg)
-
-			case *actionMsg:
-				d.handleActionMsg(msg)
 
 			default:
 				logger.Warn().
@@ -178,15 +171,29 @@ loop:
 	logger.Info().Msg("News handler done")
 }
 
-// handleTxMsg handles txMsg from all peers.
-func (d *IotxDispatcher) handleTxMsg(m *txMsg) {
-	tx := &trx.Tx{}
-	tx.ConvertFromTxPb(m.tx)
-	x := tx.Hash()
-	logger.Info().Hex("hash", x[:]).Msg("receive txMsg")
-	// dispatch to TxPool
-	if _, err := d.tp.ProcessTx(tx, true, true, 0); err != nil {
-		logger.Error().Err(err)
+// handleActionMsg handles actionMsg from all peers.
+func (d *IotxDispatcher) handleActionMsg(m *actionMsg) {
+	vote := &pb.VotePb{}
+	logger.Info().Str("sig", string(vote.Signature)).Msg("receive actionMsg")
+
+	// dispatch to ActPool
+	if pbTsf := m.action.GetTransfer(); pbTsf != nil {
+		tsf := &action.Transfer{}
+		tsf.ConvertFromTransferPb(pbTsf)
+		if err := d.ap.AddTsf(tsf); err != nil {
+			logger.Error().Err(err)
+		}
+		// TODO: defer m.done and return error to caller
+		return
+	}
+	if pbVote := m.action.GetVote(); pbVote != nil {
+		vote := &action.Vote{}
+		vote.ConvertFromVotePb(pbVote)
+		if err := d.ap.AddVote(vote); err != nil {
+			logger.Error().Err(err)
+		}
+		// TODO: defer m.done and return error to caller
+		return
 	}
 	// signal to let caller know we are done
 	if m.done != nil {
@@ -232,45 +239,15 @@ func (d *IotxDispatcher) handleBlockSyncMsg(m *blockSyncMsg) {
 	}
 }
 
-// handleActionMsg handles actionMsg from all peers.
-func (d *IotxDispatcher) handleActionMsg(m *actionMsg) {
-	vote := &pb.VotePb{}
-	logger.Info().Str("sig", string(vote.Signature)).Msg("receive actionMsg")
-
-	// dispatch to ActPool
-	if pbTsf := m.action.GetTransfer(); pbTsf != nil {
-		tsf := &action.Transfer{}
-		tsf.ConvertFromTransferPb(pbTsf)
-		if err := d.ap.AddTsf(tsf); err != nil {
-			logger.Error().Err(err)
-		}
-		// TODO: defer m.done and return error to caller
-		return
-	}
-	if pbVote := m.action.GetVote(); pbVote != nil {
-		vote := &action.Vote{}
-		vote.ConvertFromVotePb(pbVote)
-		if err := d.ap.AddVote(vote); err != nil {
-			logger.Error().Err(err)
-		}
-		// TODO: defer m.done and return error to caller
-		return
-	}
-	// signal to let caller know we are done
-	if m.done != nil {
-		m.done <- true
-	}
-}
-
-// dispatchTx adds the passed transaction message to the news handling queue.
-func (d *IotxDispatcher) dispatchTx(msg proto.Message, done chan bool) {
+// dispatchAction adds the passed action message to the news handling queue.
+func (d *IotxDispatcher) dispatchAction(msg proto.Message, done chan bool) {
 	if atomic.LoadInt32(&d.shutdown) != 0 {
 		if done != nil {
 			close(done)
 		}
 		return
 	}
-	d.enqueueEvent(&txMsg{(msg).(*pb.TxPb), done})
+	d.enqueueEvent(&actionMsg{(msg).(*pb.ActionPb), done})
 }
 
 // dispatchBlockCommit adds the passed block message to the news handling queue.
@@ -307,17 +284,6 @@ func (d *IotxDispatcher) dispatchBlockSyncData(msg proto.Message, done chan bool
 	d.enqueueEvent(&blockMsg{data.Block, pb.MsgBlockSyncDataType, done})
 }
 
-// dispatchAction adds the passed action message to the news handling queue.
-func (d *IotxDispatcher) dispatchAction(msg proto.Message, done chan bool) {
-	if atomic.LoadInt32(&d.shutdown) != 0 {
-		if done != nil {
-			close(done)
-		}
-		return
-	}
-	d.enqueueEvent(&actionMsg{(msg).(*pb.ActionPb), done})
-}
-
 // HandleBroadcast handles incoming broadcast message
 func (d *IotxDispatcher) HandleBroadcast(message proto.Message, done chan bool) {
 	msgType, err := pb.GetTypeFromProtoMsg(message)
@@ -330,12 +296,10 @@ func (d *IotxDispatcher) HandleBroadcast(message proto.Message, done chan bool) 
 	switch msgType {
 	case pb.ViewChangeMsgType:
 		d.cs.HandleViewChange(message, done)
-	case pb.MsgTxProtoMsgType:
-		d.dispatchTx(message, done)
-	case pb.MsgBlockProtoMsgType:
-		d.dispatchBlockCommit(message, done)
 	case pb.MsgActionType:
 		d.dispatchAction(message, done)
+	case pb.MsgBlockProtoMsgType:
+		d.dispatchBlockCommit(message, done)
 	default:
 		logger.Warn().
 			Uint32("msgType", msgType).

@@ -28,13 +28,6 @@ mockgen -destination=./test/mock/mock_delegate/mock_delegate.go  \
         -package=mock_delegate \
         Pool
 
-mkdir -p ./test/mock/mock_txpool
-mockgen -destination=./test/mock/mock_txpool/mock_txpool.go  \
-        -source=./txpool/txpool.go \
-        -imports =github.com/iotexproject/iotex-core/txpool \
-        -package=mock_txpool \
-        TxPool
-
 mkdir -p ./test/mock/mock_blocksync
 mockgen -destination=./test/mock/mock_blocksync/mock_blocksync.go  \
         -source=./blocksync/blocksync.go \

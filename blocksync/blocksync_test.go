@@ -24,7 +24,6 @@ import (
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blocksync"
 	"github.com/iotexproject/iotex-core/test/mock/mock_delegate"
-	"github.com/iotexproject/iotex-core/test/mock/mock_txpool"
 	"github.com/iotexproject/iotex-core/trie"
 	"github.com/iotexproject/iotex-core/txpool"
 )
@@ -97,7 +96,7 @@ func TestNewBlockSyncer(t *testing.T) {
 		NodeType: config.LightweightType,
 	}
 
-	bsLightWeight := NewBlockSyncer(cfgLightWeight, nil, nil, nil, p2p, mPool)
+	bsLightWeight := NewBlockSyncer(cfgLightWeight, nil, nil, p2p, mPool)
 	assert.Nil(bsLightWeight)
 
 	// Delegate
@@ -105,7 +104,7 @@ func TestNewBlockSyncer(t *testing.T) {
 		NodeType: config.DelegateType,
 	}
 
-	bsDelegate := NewBlockSyncer(cfgDelegate, nil, nil, nil, p2p, mPool)
+	bsDelegate := NewBlockSyncer(cfgDelegate, nil, nil, p2p, mPool)
 	assert.Equal("123", bsDelegate.(*blockSyncer).fnd)
 
 	// FullNode
@@ -113,7 +112,7 @@ func TestNewBlockSyncer(t *testing.T) {
 		NodeType: config.FullNodeType,
 	}
 
-	bsFullNode := NewBlockSyncer(cfgFullNode, nil, nil, nil, p2p, mPool)
+	bsFullNode := NewBlockSyncer(cfgFullNode, nil, nil, p2p, mPool)
 	assert.Equal("123", bsFullNode.(*blockSyncer).fnd)
 }
 
@@ -132,7 +131,7 @@ func TestBlockSyncer_P2P(t *testing.T) {
 	cfgFullNode := &config.Config{
 		NodeType: config.FullNodeType,
 	}
-	bs := NewBlockSyncer(cfgFullNode, nil, nil, nil, p2p, mPool)
+	bs := NewBlockSyncer(cfgFullNode, nil, nil, p2p, mPool)
 	assert.Equal(p2p, bs.P2P())
 }
 
@@ -176,7 +175,7 @@ func TestBlockSyncer_ProcessSyncRequest(t *testing.T) {
 		NodeType: config.FullNodeType,
 	}
 
-	bs := NewBlockSyncer(cfgFullNode, mBc, nil, nil, p2p, mPool)
+	bs := NewBlockSyncer(cfgFullNode, mBc, nil, p2p, mPool)
 
 	pbBs := &pb.BlockSync{
 		Start: 1,
@@ -206,7 +205,7 @@ func TestBlockSyncer_ProcessBlock_TipHeightError(t *testing.T) {
 		NodeType: config.FullNodeType,
 	}
 
-	bs := NewBlockSyncer(cfgFullNode, mBc, nil, nil, p2p, mPool)
+	bs := NewBlockSyncer(cfgFullNode, mBc, nil, p2p, mPool)
 	blk := bc.NewBlock(uint32(123), uint64(4), common.Hash32B{}, nil, nil)
 	bs.(*blockSyncer).ackBlockCommit = false
 	assert.Nil(bs.ProcessBlock(blk))
@@ -229,9 +228,6 @@ func TestBlockSyncer_ProcessBlock_TipHeight(t *testing.T) {
 	mBc.EXPECT().TipHeight().AnyTimes().Return(uint64(5), nil)
 	mBc.EXPECT().CommitBlock(gomock.Any()).AnyTimes()
 
-	mTxPool := mock_txpool.NewMockTxPool(ctrl)
-	mTxPool.EXPECT().RemoveTxInBlock(gomock.Any()).AnyTimes()
-
 	tr, _ := trie.NewTrie("", true)
 	sf := state.NewFactory(tr)
 	assert.NotNil(sf)
@@ -243,7 +239,7 @@ func TestBlockSyncer_ProcessBlock_TipHeight(t *testing.T) {
 		NodeType: config.FullNodeType,
 	}
 
-	bs := NewBlockSyncer(cfgFullNode, mBc, mTxPool, ap, p2p, mPool)
+	bs := NewBlockSyncer(cfgFullNode, mBc, ap, p2p, mPool)
 	blk := bc.NewBlock(uint32(123), uint64(4), common.Hash32B{}, nil, nil)
 
 	bs.(*blockSyncer).ackBlockCommit = true
@@ -279,9 +275,6 @@ func TestBlockSyncer_ProcessBlockSync(t *testing.T) {
 	mBc.EXPECT().TipHeight().Times(1).Return(uint64(5), nil)
 	mBc.EXPECT().TipHeight().Times(1).Return(uint64(6), nil)
 
-	mTxPool := mock_txpool.NewMockTxPool(ctrl)
-	mTxPool.EXPECT().RemoveTxInBlock(gomock.Any()).AnyTimes()
-
 	tr, _ := trie.NewTrie("", true)
 	sf := state.NewFactory(tr)
 	assert.NotNil(sf)
@@ -293,7 +286,7 @@ func TestBlockSyncer_ProcessBlockSync(t *testing.T) {
 		NodeType: config.FullNodeType,
 	}
 
-	bs := NewBlockSyncer(cfgFullNode, mBc, mTxPool, ap, p2p, mPool)
+	bs := NewBlockSyncer(cfgFullNode, mBc, ap, p2p, mPool)
 	blk := bc.NewBlock(uint32(123), uint64(4), common.Hash32B{}, nil, nil)
 	bs.(*blockSyncer).ackBlockSync = false
 	assert.Nil(bs.ProcessBlockSync(blk))

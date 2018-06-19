@@ -57,7 +57,6 @@ type blockSyncer struct {
 	actionTime     time.Time
 	sw             *SlidingWindow
 	bc             bc.Blockchain
-	tp             txpool.TxPool
 	ap             txpool.ActPool
 	p2p            *network.Overlay
 	task           *routine.RecurringTask
@@ -81,13 +80,12 @@ func SyncTaskInterval(cfg *config.Config) time.Duration {
 }
 
 // NewBlockSyncer returns a new block syncer instance
-func NewBlockSyncer(cfg *config.Config, chain bc.Blockchain, tp txpool.TxPool, ap txpool.ActPool, p2p *network.Overlay, dp delegate.Pool) BlockSync {
+func NewBlockSyncer(cfg *config.Config, chain bc.Blockchain, ap txpool.ActPool, p2p *network.Overlay, dp delegate.Pool) BlockSync {
 	sync := &blockSyncer{
 		state:      Idle,
 		rcvdBlocks: map[uint64]*bc.Block{},
 		sw:         NewSlidingWindow(),
 		bc:         chain,
-		tp:         tp,
 		ap:         ap,
 		p2p:        p2p,
 		dp:         dp}
@@ -362,8 +360,6 @@ func (bs *blockSyncer) commitBlocksInBuffer() error {
 		}
 		delete(bs.rcvdBlocks, next)
 
-		// remove transactions in this block from TxPool
-		bs.tp.RemoveTxInBlock(blk)
 		// remove transfers in this block from ActPool and reset ActPool state
 		bs.ap.Reset()
 

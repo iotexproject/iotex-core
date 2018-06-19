@@ -110,22 +110,20 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 			bc.SetValidator(byzVal)
 		}
 
-		tp := txpool.NewTxPool(bc)
-
 		overlay := network.NewOverlay(&cfg.Network)
 		ap := txpool.NewActPool(sf)
 		dlg := delegate.NewConfigBasedPool(&cfg.Delegate)
-		bs := blocksync.NewBlockSyncer(cfg, bc, tp, ap, overlay, dlg)
+		bs := blocksync.NewBlockSyncer(cfg, bc, ap, overlay, dlg)
 		bs.Start()
 
 		var node consensus.Sim
 		if i < int(in.NHonest) {
-			node = consensus.NewSim(cfg, bc, tp, bs, dlg, sf)
+			node = consensus.NewSim(cfg, bc, bs, dlg, sf)
 		} else if i < int(in.NHonest+in.NFS) {
 			s.nodes = append(s.nodes, nil)
 			continue
 		} else {
-			node = consensus.NewSimByzantine(cfg, bc, tp, bs, dlg, sf)
+			node = consensus.NewSimByzantine(cfg, bc, bs, dlg, sf)
 		}
 
 		s.nodes = append(s.nodes, node)
