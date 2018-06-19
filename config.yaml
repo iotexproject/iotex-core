@@ -63,7 +63,7 @@ dispatcher:
     eventChanSize: 1024
 
 explorer:
-    startExplorer: false
+    enabled: false
     isTest: false
     addr: "14004"
     tpsWindow: 10

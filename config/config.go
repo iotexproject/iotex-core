@@ -150,10 +150,10 @@ type Dispatcher struct {
 
 // Explorer is the explorer service config
 type Explorer struct {
-	StartExplorer bool   `yaml:"startExplorer"`
-	IsTest        bool   `yaml:"isTest"`
-	Addr          string `yaml:"addr"`
-	TpsWindow     int    `yaml:"tpsWindow"`
+	Enabled   bool   `yaml:"enabled"`
+	IsTest    bool   `yaml:"isTest"`
+	Addr      string `yaml:"addr"`
+	TpsWindow int    `yaml:"tpsWindow"`
 }
 
 // System is the system config
@@ -265,6 +265,9 @@ func validateConfig(cfg *Config) error {
 		return fmt.Errorf("unknown node type %s", cfg.NodeType)
 	}
 
+	if cfg.Explorer.Enabled && cfg.Explorer.TpsWindow <= 0 {
+		return fmt.Errorf("tps window is not a positive integer when the explorer is enabled")
+	}
 	if !cfg.Network.PeerDiscovery && cfg.Network.TopologyPath == "" {
 		return fmt.Errorf("either peer discover should be enabled or a topology should be given")
 	}

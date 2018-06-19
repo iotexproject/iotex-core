@@ -66,6 +66,13 @@ func TestValidateConfig(t *testing.T) {
 
 	cfg = LoadTestConfig()
 	setProducerAddr(cfg)
+	cfg.Explorer.Enabled = true
+	err = validateConfig(cfg)
+	assert.NotNil(t, err)
+	assert.Equal(t, "tps window is not a positive integer when the explorer is enabled", err.Error())
+
+	cfg = LoadTestConfig()
+	setProducerAddr(cfg)
 	cfg.Network.PeerDiscovery = false
 	err = validateConfig(cfg)
 	assert.NotNil(t, err)
