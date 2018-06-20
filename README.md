@@ -80,11 +80,11 @@ cd iotex-core
 
 ```make fmt; make build```
 
-#### Setup Precommit Hook
+~~#### Setup Precommit Hook~~
 
-Install git hook tools from [precommit hook](https://pre-commit.com/) first and then
+~~Install git hook tools from [precommit hook](https://pre-commit.com/) first and then~~
 
-```pre-commit install```
+~~```pre-commit install```~~
 
 ### Run Unit Tests
 ```make test```
