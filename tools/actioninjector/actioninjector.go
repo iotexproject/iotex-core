@@ -28,10 +28,6 @@ import (
 )
 
 const (
-	// Port number for grpc connection
-	grpcPort = ":42124"
-	// Port number for jrpc connection
-	jrpcPort = ":14004"
 	// Miner's public/private key pair is used as sender's key pair
 	pubkeyMiner = "336eb60a5741f585a8e81de64e071327a3b96c15af4af5723598a07b6121e8e813bbd0056ba71ae29c0d64252e913f60afaeb11059908b81ff27cbfa327fd371d35f5ec0cbc01705"
 	prikeyMiner = "925f0c9e4b6f6d92f2961d01aff6204c44d73c0b9d0da188582932d4fcad0d8ee8c66600"
@@ -45,36 +41,35 @@ const (
 )
 
 func main() {
-	// target address for rpc connection. Default is "127.0.0.1"
-	var addr string
+	// target address:port for grpc connection. Default is "127.0.0.1:42124"
+	var grpcAddrPort string
+	// target address:port for jrpc connection. Default is "127.0.0.1:14004"
+	var jrpcAddrPort string
 	// number of transfer injections. Default is 50
 	var transferNum int
 	// number of vote injections. Default is 50
 	var voteNum int
 	// sleeping period between every two consecutive action injections in seconds. Default is 5
 	var interval int
-	flag.StringVar(&addr, "address", "127.0.0.1", "target address for rpc connection")
+	// aps indicates how many actions to be injected in one second
+	var aps int
+	flag.StringVar(&grpcAddrPort, "grpc-addr-port", "127.0.0.1:42124", "target address:port for grpc connection")
+	flag.StringVar(&jrpcAddrPort, "jrpc-addr-port", "127.0.0.1:14004", "target address:port for jrpc connection")
 	flag.IntVar(&transferNum, "transfer-num", 50, "number of transfer injections")
 	flag.IntVar(&voteNum, "vote-num", 50, "number of vote injections")
 	flag.IntVar(&interval, "interval", 5, "sleep interval of two consecutively injected actions in seconds")
+	flag.IntVar(&aps, "aps", 0, "actions to be injected per second")
 	flag.Parse()
-	conn, err := grpc.Dial(addr+grpcPort, grpc.WithInsecure())
+	conn, err := grpc.Dial(grpcAddrPort, grpc.WithInsecure())
 	if err != nil {
 		panic(err)
 	}
 	defer conn.Close()
 
 	client := pb.NewChainServiceClient(conn)
-	var ctx context.Context
-	var cancel context.CancelFunc
-	if interval == 0 {
-		ctx, cancel = context.WithTimeout(context.Background(), time.Second)
-	} else {
-		ctx, cancel = context.WithTimeout(context.Background(), time.Second*time.Duration(interval*(transferNum+voteNum)))
-	}
-	defer cancel()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*time.Duration(interval*(transferNum+voteNum)))
 
-	proxy := explorer.NewExplorerProxy("http://" + addr + jrpcPort)
+	proxy := explorer.NewExplorerProxy("http://" + jrpcAddrPort)
 	sender := constructAddress(pubkeyMiner, prikeyMiner)
 	recipientA := constructAddress(pubkeyA, prikeyA)
 	recipientB := constructAddress(pubkeyB, prikeyB)
@@ -87,6 +82,43 @@ func main() {
 		panic(err)
 	}
 	i := addrDetails.Nonce + 1
+
+	// APS Mode
+	if aps > 0 {
+		ctx, cancel = context.WithTimeout(context.Background(), time.Minute)
+		defer cancel()
+		injectByAps(ctx, i, aps, client, sender, recipients)
+		time.Sleep(time.Second * 2)
+	} else {
+		if interval == 0 {
+			ctx, cancel = context.WithTimeout(context.Background(), time.Second)
+		}
+		defer cancel()
+		injectByInterval(ctx, transferNum, voteNum, i, interval, client, sender, recipients)
+	}
+}
+
+// Inject Actions in APS Mode
+func injectByAps(ctx context.Context, i int64, aps int, client pb.ChainServiceClient, sender *iotxaddress.Address, recipients []*iotxaddress.Address) {
+	timeout := time.After(time.Minute)
+	tick := time.Tick(time.Duration(1/float64(aps)*1000) * time.Millisecond)
+loop:
+	for ; ; i++ {
+		select {
+		case <-timeout:
+			break loop
+		case <-tick:
+			if i%2 == 1 {
+				go injectTransfer(ctx, client, sender, recipients[rand.Intn(3)], uint64(i))
+			} else {
+				go injectVote(ctx, client, sender, recipients[rand.Intn(3)], uint64(i))
+			}
+		}
+	}
+}
+
+// Inject Actions in Interval Mode
+func injectByInterval(ctx context.Context, transferNum int, voteNum int, i int64, interval int, client pb.ChainServiceClient, sender *iotxaddress.Address, recipients []*iotxaddress.Address) {
 	for ; transferNum > 0 && voteNum > 0; i += 2 {
 		injectTransfer(ctx, client, sender, recipients[rand.Intn(3)], uint64(i))
 		time.Sleep(time.Second * time.Duration(interval))

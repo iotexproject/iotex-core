@@ -142,14 +142,14 @@ func (ap *actPool) AddTsf(tsf *action.Transfer) error {
 	// Reject transfer if it already exists in pool
 	if ap.allActions[hash] != nil {
 		logger.Error().
-			Bytes("hash", hash[:]).
+			Hex("hash", hash[:]).
 			Msg("Rejecting existed transfer")
 		return fmt.Errorf("existed transfer: %x", hash)
 	}
 	// Reject transfer if it fails validation
 	if err := ap.validateTsf(tsf); err != nil {
 		logger.Error().
-			Bytes("hash", hash[:]).
+			Hex("hash", hash[:]).
 			Err(err).
 			Msg("Rejecting invalid transfer")
 		return err
@@ -157,7 +157,7 @@ func (ap *actPool) AddTsf(tsf *action.Transfer) error {
 	// Reject transfer if pool space is full
 	if uint64(len(ap.allActions)) >= GlobalSlots {
 		logger.Error().
-			Bytes("hash", hash[:]).
+			Hex("hash", hash[:]).
 			Msg("Rejecting transfer due to insufficient space")
 		return errors.Wrapf(ErrActPool, "insufficient space for transfer")
 	}
@@ -175,14 +175,14 @@ func (ap *actPool) AddVote(vote *action.Vote) error {
 	// Reject vote if it already exists in pool
 	if ap.allActions[hash] != nil {
 		logger.Error().
-			Bytes("hash", hash[:]).
+			Hex("hash", hash[:]).
 			Msg("Rejecting existed vote")
 		return fmt.Errorf("existed vote: %x", hash)
 	}
 	// Reject vote if it fails validation
 	if err := ap.validateVote(vote); err != nil {
 		logger.Error().
-			Bytes("hash", hash[:]).
+			Hex("hash", hash[:]).
 			Err(err).
 			Msg("Rejecting invalid vote")
 		return err
@@ -190,7 +190,7 @@ func (ap *actPool) AddVote(vote *action.Vote) error {
 	// Reject vote if pool space is full
 	if uint64(len(ap.allActions)) >= GlobalSlots {
 		logger.Error().
-			Bytes("hash", hash[:]).
+			Hex("hash", hash[:]).
 			Msg("Rejecting vote due to insufficient space")
 		return errors.Wrapf(ErrActPool, "insufficient space for vote")
 	}
@@ -308,14 +308,14 @@ func (ap *actPool) addAction(sender string, action *iproto.ActionPb, hash common
 	if queue.Overlaps(action) {
 		// Nonce already exists
 		logger.Error().
-			Bytes("hash", hash[:]).
+			Hex("hash", hash[:]).
 			Msg("Rejecting action because replacement action is not supported")
 		return errors.Wrapf(ErrNonce, "duplicate nonce")
 	}
 
 	if queue.Len() >= AccountSlots {
 		logger.Error().
-			Bytes("hash", hash[:]).
+			Hex("hash", hash[:]).
 			Msg("Rejecting action due to insufficient space")
 		return errors.Wrapf(ErrActPool, "insufficient space for action")
 	}
@@ -352,7 +352,7 @@ func (ap *actPool) removeCommittedActs() {
 				hash = vote.Hash()
 			}
 			logger.Info().
-				Bytes("hash", hash[:]).
+				Hex("hash", hash[:]).
 				Msg("Removed committed action")
 			delete(ap.allActions, hash)
 		}
