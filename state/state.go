@@ -14,7 +14,8 @@ import (
 
 // State is the canonical representation of an account.
 type State struct {
-	// coinbase transfer's nonce is 0; nonce of other actions should start from 1
+	// 0 is reserved from actions in genesis block and coinbase transfers nonces
+	// other actions' nonces start from 1
 	Nonce        uint64
 	Balance      *big.Int
 	Address      string

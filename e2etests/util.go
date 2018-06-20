@@ -16,9 +16,9 @@ import (
 )
 
 func addTestingTsfBlocks(bc blockchain.Blockchain) error {
-	tsf0 := action.NewTransfer(1, big.NewInt(int64(blockchain.Gen.TotalSupply)), blockchain.Gen.Creator, ta.Addrinfo["miner"].RawAddress)
-	pubk, err := hex.DecodeString("d01164c3afe47406728d3e17861a3251dcff39e62bdc2b93ccb69a02785a175e195b5605517fd647eb7dd095b3d862dffb087f35eacf10c6859d04a100dbfb7358eeca9d5c37c904")
-	sign, err := hex.DecodeString("492cf06f6bc77b248e236e09cde00fab433fac6d2d161d1a2b02176f5ed78a3aea4c0d002989f95722c9e282e2627aa49541d8e3e9c07bbdbb6574a907683074798fc9fad359f301")
+	tsf0 := action.NewTransfer(1, big.NewInt(100000000), blockchain.Gen.CreatorAddr, ta.Addrinfo["miner"].RawAddress)
+	pubk, err := hex.DecodeString(blockchain.Gen.CreatorPubKey)
+	sign, err := hex.DecodeString("847af98bf2c92873f3f7ed02399c7407d0df35c9a45da6947df43638bf2df32d263e59011fab0e4d5380c4c49c579ccd0a25b1260e586f5f379979f38db91ac5f3c7468a6e389d00")
 	if err != nil {
 		return err
 	}
