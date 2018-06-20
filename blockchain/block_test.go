@@ -17,6 +17,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/common"
+	cp "github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/proto"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 )
@@ -164,4 +165,23 @@ func TestConvertFromBlockPb(t *testing.T) {
 
 	require.Equal(t, uint64(103), newblk.Votes[0].Nonce)
 	require.Equal(t, uint64(104), newblk.Votes[1].Nonce)
+}
+
+func TestWrongRootHash(t *testing.T) {
+	require := require.New(t)
+	val := validator{nil}
+	tsf1 := action.NewTransfer(1, big.NewInt(20), ta.Addrinfo["miner"].RawAddress, ta.Addrinfo["alfa"].RawAddress)
+	tsf1, err := tsf1.Sign(ta.Addrinfo["miner"])
+	require.Nil(err)
+	tsf2 := action.NewTransfer(1, big.NewInt(30), ta.Addrinfo["miner"].RawAddress, ta.Addrinfo["bravo"].RawAddress)
+	tsf2, err = tsf2.Sign(ta.Addrinfo["miner"])
+	require.Nil(err)
+	hash := tsf1.Hash()
+	blk := NewBlock(1, 1, hash, []*action.Transfer{tsf1, tsf2}, nil)
+	blk.Header.Pubkey = ta.Addrinfo["miner"].PublicKey
+	blkHash := blk.HashBlock()
+	blk.Header.blockSig = cp.Sign(ta.Addrinfo["miner"].PrivateKey, blkHash[:])
+	require.Nil(val.Validate(blk, 0, hash))
+	blk.Transfers[0], blk.Transfers[1] = blk.Transfers[1], blk.Transfers[0]
+	require.NotNil(val.Validate(blk, 0, hash))
 }

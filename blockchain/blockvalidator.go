@@ -7,6 +7,8 @@
 package blockchain
 
 import (
+	"bytes"
+
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/blockchain/action"
@@ -65,6 +67,16 @@ func (v *validator) Validate(blk *Block, tipHeight uint64, tipHash common.Hash32
 				blk.Header.Pubkey,
 				tipHash)
 		}
+	}
+
+	hashExpect := blk.Header.txRoot
+	hashActual := blk.TxRoot()
+	if bytes.Compare(hashExpect[:], hashActual[:]) != 0 {
+		return errors.Wrapf(
+			ErrInvalidBlock,
+			"Wrong tx hash %x, expecting %x",
+			hashActual,
+			hashActual)
 	}
 
 	if v.sf != nil {
