@@ -55,6 +55,7 @@ func (exp *Service) GetLastTransfersByRange(startBlockHeight int64, offset int64
 	var res []explorer.Transfer
 	transferCount := uint64(0)
 
+ChainLoop:
 	for height := startBlockHeight; height >= 0; height-- {
 		var blkID = ""
 		hash, getHashErr := exp.bc.GetHashByHeight(uint64(height))
@@ -68,7 +69,7 @@ func (exp *Service) GetLastTransfersByRange(startBlockHeight int64, offset int64
 			return res, getErr
 		}
 
-		for i := len(blk.Transfers) - 1; i >= 0 && int64(len(res)) < limit; i-- {
+		for i := len(blk.Transfers) - 1; i >= 0; i-- {
 			if showCoinBase || !blk.Transfers[i].IsCoinbase {
 				transferCount++
 			}
@@ -90,6 +91,9 @@ func (exp *Service) GetLastTransfersByRange(startBlockHeight int64, offset int64
 					Fee:       0, // TODO: we need to get the actual fee.
 				}
 				res = append(res, explorerTransfer)
+				if int64(len(res)) >= limit {
+					break ChainLoop
+				}
 			}
 		}
 	}
