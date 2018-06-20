@@ -13,7 +13,8 @@ struct CoinStatistic {
     height int
     supply int
     transfers int
-    tps int
+    votes int
+    aps int
 }
 
 struct BlockGenerator {
@@ -26,6 +27,7 @@ struct Block {
     height int
     timestamp int
     transfers int
+    votes int
     generateBy BlockGenerator
     amount int
     forged int

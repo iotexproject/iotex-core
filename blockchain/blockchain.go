@@ -40,6 +40,8 @@ type Blockchain interface {
 	GetBlockByHash(hash common.Hash32B) (*Block, error)
 	// GetTotalTransfers returns the total number of transfers
 	GetTotalTransfers() (uint64, error)
+	// GetTotalVotes returns the total number of votes
+	GetTotalVotes() (uint64, error)
 	// GetTransactionByAddress returns transaction from address
 	GetTransfersFromAddress(address string) ([]common.Hash32B, error)
 	// GetTransactionByAddress returns transaction to address
@@ -206,6 +208,15 @@ func (bc *blockchain) GetTotalTransfers() (uint64, error) {
 	}
 
 	return totalTransfers, nil
+}
+
+func (bc *blockchain) GetTotalVotes() (uint64, error) {
+	totalVotes, err := bc.dao.getTotalVotes()
+	if err != nil {
+		return uint64(0), err
+	}
+
+	return totalVotes, nil
 }
 
 func (bc *blockchain) GetTransfersFromAddress(address string) ([]common.Hash32B, error) {
