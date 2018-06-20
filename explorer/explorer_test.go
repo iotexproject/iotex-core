@@ -53,7 +53,9 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	tsf3, _ = tsf3.Sign(ta.Addrinfo["charlie"])
 	tsf4 := action.NewTransfer(0, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["miner"].RawAddress)
 	tsf4, _ = tsf4.Sign(ta.Addrinfo["charlie"])
-	blk, err = bc.MintNewBlock([]*action.Transfer{tsf1, tsf2, tsf3, tsf4}, nil, ta.Addrinfo["miner"], "")
+	vote1 := action.NewVote(0, ta.Addrinfo["charlie"].PublicKey, ta.Addrinfo["charlie"].PublicKey)
+	vote1, _ = vote1.Sign(ta.Addrinfo["charlie"])
+	blk, err = bc.MintNewBlock([]*action.Transfer{tsf1, tsf2, tsf3, tsf4}, []*action.Vote{vote1}, ta.Addrinfo["miner"], "")
 	if err != nil {
 		return err
 	}
@@ -71,7 +73,11 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	}
 
 	// Add block 4
-	blk, err = bc.MintNewBlock(nil, nil, ta.Addrinfo["miner"], "")
+	vote1 = action.NewVote(0, ta.Addrinfo["charlie"].PublicKey, ta.Addrinfo["charlie"].PublicKey)
+	vote2 := action.NewVote(0, ta.Addrinfo["alfa"].PublicKey, ta.Addrinfo["alfa"].PublicKey)
+	vote1, _ = vote1.Sign(ta.Addrinfo["charlie"])
+	vote2, _ = vote2.Sign(ta.Addrinfo["alfa"])
+	blk, err = bc.MintNewBlock(nil, []*action.Vote{vote1, vote2}, ta.Addrinfo["miner"], "")
 	if err != nil {
 		return err
 	}
@@ -151,13 +157,16 @@ func TestExplorerApi(t *testing.T) {
 	require.Equal(blk.Height, blks[0].Height)
 	require.Equal(blk.Timestamp, blks[0].Timestamp)
 	require.Equal(blk.Size, blks[0].Size)
+	require.Equal(blk.Votes, int64(0))
+	require.Equal(blk.Transfers, int64(1))
 
 	stats, err := svc.GetCoinStatistic()
 	require.Nil(err)
 	require.Equal(stats.Supply, int64(10000000000))
 	require.Equal(stats.Height, int64(4))
 	require.Equal(stats.Transfers, int64(9))
-	require.Equal(stats.Tps, int64(9))
+	require.Equal(stats.Votes, int64(24))
+	require.Equal(stats.Aps, int64(12))
 
 	balance, err := svc.GetAddressBalance(ta.Addrinfo["charlie"].RawAddress)
 	require.Nil(err)

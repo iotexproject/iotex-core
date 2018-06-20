@@ -242,6 +242,7 @@ func (exp *Service) GetLastBlocksByRange(offset int64, limit int64) ([]explorer.
 			Height:    int64(blockHeaderPb.Height),
 			Timestamp: int64(blockHeaderPb.Timestamp),
 			Transfers: int64(len(blk.Transfers)),
+			Votes:     int64(len(blk.Votes)),
 			Amount:    totalAmount,
 			Size:      int64(totalSize),
 			GenerateBy: explorer.BlockGenerator{
@@ -284,6 +285,7 @@ func (exp *Service) GetBlockByID(blockID string) (explorer.Block, error) {
 		Height:    int64(blkHeaderPb.Height),
 		Timestamp: int64(blkHeaderPb.Timestamp),
 		Transfers: int64(len(blk.Transfers)),
+		Votes:     int64(len(blk.Votes)),
 		Amount:    totalAmount,
 		Size:      int64(totalSize),
 		GenerateBy: explorer.BlockGenerator{
@@ -309,6 +311,11 @@ func (exp *Service) GetCoinStatistic() (explorer.CoinStatistic, error) {
 		return stat, err
 	}
 
+	totalVotes, err := exp.bc.GetTotalVotes()
+	if err != nil {
+		return stat, err
+	}
+
 	blockLimit := int64(exp.tpsWindow)
 	if blockLimit <= 0 {
 		return stat, errors.Wrapf(ErrInternalServer, "block limit is %d", blockLimit)
@@ -322,22 +329,28 @@ func (exp *Service) GetCoinStatistic() (explorer.CoinStatistic, error) {
 	if err != nil {
 		return stat, err
 	}
+
+	if len(blks) == 0 {
+		return stat, errors.New("get 0 blocks! not able to calculate aps")
+	}
+
 	timeDuration := blks[0].Timestamp - blks[len(blks)-1].Timestamp
 	// if time duration is less than 1 second, we set it to be 1 second
 	if timeDuration == 0 {
 		timeDuration = 1
 	}
-	transferNumber := int64(0)
+	actionNumber := int64(0)
 	for _, blk := range blks {
-		transferNumber += blk.Transfers
+		actionNumber += (blk.Transfers + blk.Votes)
 	}
-	tps := transferNumber / timeDuration
+	aps := actionNumber / timeDuration
 
 	explorerCoinStats := explorer.CoinStatistic{
 		Height:    int64(tipHeight),
 		Supply:    int64(blockchain.Gen.TotalSupply),
 		Transfers: int64(totalTransfers),
-		Tps:       tps,
+		Votes:     int64(totalVotes),
+		Aps:       aps,
 	}
 	return explorerCoinStats, nil
 }

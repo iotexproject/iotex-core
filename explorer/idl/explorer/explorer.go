@@ -8,14 +8,15 @@ import (
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "f1cb123804f563c1dcb0665f4b238ca0"
-const BarristerDateGenerated int64 = 1529438220368000000
+const BarristerChecksum string = "5bfc05ce00c6db2acc1370679969d159"
+const BarristerDateGenerated int64 = 1529472246257000000
 
 type CoinStatistic struct {
 	Height    int64 `json:"height"`
 	Supply    int64 `json:"supply"`
 	Transfers int64 `json:"transfers"`
-	Tps       int64 `json:"tps"`
+	Votes     int64 `json:"votes"`
+	Aps       int64 `json:"aps"`
 }
 
 type BlockGenerator struct {
@@ -28,6 +29,7 @@ type Block struct {
 	Height     int64          `json:"height"`
 	Timestamp  int64          `json:"timestamp"`
 	Transfers  int64          `json:"transfers"`
+	Votes      int64          `json:"votes"`
 	GenerateBy BlockGenerator `json:"generateBy"`
 	Amount     int64          `json:"amount"`
 	Forged     int64          `json:"forged"`
@@ -312,7 +314,14 @@ var IdlJsonRaw = `[
                 "comment": ""
             },
             {
-                "name": "tps",
+                "name": "votes",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "aps",
                 "type": "int",
                 "optional": false,
                 "is_array": false,
@@ -383,6 +392,13 @@ var IdlJsonRaw = `[
             },
             {
                 "name": "transfers",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "votes",
                 "type": "int",
                 "optional": false,
                 "is_array": false,
@@ -745,7 +761,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1529438220368,
-        "checksum": "f1cb123804f563c1dcb0665f4b238ca0"
+        "date_generated": 1529472246257,
+        "checksum": "5bfc05ce00c6db2acc1370679969d159"
     }
 ]`

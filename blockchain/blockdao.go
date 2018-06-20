@@ -24,11 +24,14 @@ const (
 )
 
 var (
-	hashPrefix         = []byte("hash.")
-	transferPrefix     = []byte("transfer.")
-	heightPrefix       = []byte("height.")
-	topHeightKey       = []byte("top-height")
+	hashPrefix     = []byte("hash.")
+	transferPrefix = []byte("transfer.")
+	heightPrefix   = []byte("height.")
+	// mutate this field is not thread safe, pls only mutate it in putBlock!
+	topHeightKey = []byte("top-height")
+	// mutate this field is not thread safe, pls only mutate it in putBlock!
 	totalTransfersKey  = []byte("total-transfers")
+	totalVotesKey      = []byte("total-votes")
 	transferFromPrefix = []byte("transfer-from.")
 	transferToPrefix   = []byte("transfer-to.")
 )
@@ -63,6 +66,13 @@ func (dao *blockDAO) Start() error {
 	if err != nil {
 		return errors.Wrap(err, "failed to write initial value for total transfers")
 	}
+
+	// set init total vote to be 0
+	err = dao.kvstore.PutIfNotExists(blockNS, totalVotesKey, make([]byte, 8))
+	if err != nil {
+		return errors.Wrap(err, "failed to write initial value for total votes")
+	}
+
 	return nil
 }
 
@@ -221,6 +231,18 @@ func (dao *blockDAO) getTotalTransfers() (uint64, error) {
 	return common.MachineEndian.Uint64(value), nil
 }
 
+// getTotalVotes returns the total number of votes
+func (dao *blockDAO) getTotalVotes() (uint64, error) {
+	value, err := dao.kvstore.Get(blockNS, totalVotesKey)
+	if err != nil {
+		return 0, errors.Wrap(err, "failed to get total votes")
+	}
+	if len(value) == 0 {
+		return 0, errors.Wrap(db.ErrNotExist, "total votes missing")
+	}
+	return common.MachineEndian.Uint64(value), nil
+}
+
 // putBlock puts a block
 func (dao *blockDAO) putBlock(blk *Block) error {
 	height := utils.Uint64ToBytes(blk.Height())
@@ -260,6 +282,17 @@ func (dao *blockDAO) putBlock(blk *Block) error {
 	totalTransfersBytes := utils.Uint64ToBytes(totalTransfers)
 	if err = dao.kvstore.Put(blockNS, totalTransfersKey, totalTransfersBytes); err != nil {
 		return errors.Wrap(err, "failed to put total transfers")
+	}
+
+	value, err = dao.kvstore.Get(blockNS, totalVotesKey)
+	if err != nil {
+		return errors.Wrap(err, "failed to get total votes")
+	}
+	totalVotes := common.MachineEndian.Uint64(value)
+	totalVotes += uint64(len(blk.Votes))
+	totalVotesBytes := utils.Uint64ToBytes(totalVotes)
+	if err = dao.kvstore.Put(blockNS, totalVotesKey, totalVotesBytes); err != nil {
+		return errors.Wrap(err, "failed to put total votes")
 	}
 
 	// map Transfer hash to block hash
