@@ -61,7 +61,7 @@ func TestRuleDKGGenerateCondition(t *testing.T) {
 		}),
 	)
 	require.NotNil(t, h.epochCtx)
-	require.Equal(t, uint64(3), h.epochCtx.Num())
+	require.Equal(t, uint64(3), h.epochCtx.num)
 	require.Equal(t, uint64(17), h.epochCtx.height)
 	require.Equal(t, delegates, h.epochCtx.delegates)
 

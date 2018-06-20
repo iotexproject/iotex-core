@@ -10,8 +10,10 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/common/routine"
 	"github.com/iotexproject/iotex-core/logger"
 )
@@ -75,4 +77,12 @@ func (n *Standalone) Stop() error {
 func (n *Standalone) Handle(message proto.Message) error {
 	logger.Warn().Msg("Standalone scheme does not handle incoming requests")
 	return nil
+}
+
+// Metrics is not implemented for standalone scheme
+func (n *Standalone) Metrics() (ConsensusMetrics, error) {
+	return ConsensusMetrics{}, errors.Wrapf(
+		common.ErrNotImplemented,
+		"standalone scheme does not supported metrics yet",
+	)
 }

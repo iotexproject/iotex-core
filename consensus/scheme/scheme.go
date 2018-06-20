@@ -44,4 +44,12 @@ type Scheme interface {
 	Stop() error
 	Handle(msg proto.Message) error
 	SetDoneStream(chan bool)
+	Metrics() (ConsensusMetrics, error)
+}
+
+// ConsensusMetrics contains consensus metrics to expose
+type ConsensusMetrics struct {
+	LatestEpoch         uint64
+	LatestDelegates     []net.Addr
+	LatestBlockProducer net.Addr
 }

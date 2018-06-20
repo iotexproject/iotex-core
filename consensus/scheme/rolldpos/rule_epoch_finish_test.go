@@ -31,7 +31,7 @@ func TestRuleEpochFinishCondition(t *testing.T) {
 	h := ruleEpochFinish{
 		RollDPoS: &RollDPoS{
 			bc: bc,
-			epochCtx: &EpochCtx{
+			epochCtx: &epochCtx{
 				height:       10,
 				numSubEpochs: 2,
 				dkg:          dkg,
