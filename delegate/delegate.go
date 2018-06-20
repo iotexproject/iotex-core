@@ -8,12 +8,12 @@ package delegate
 
 import (
 	"errors"
-	"math/rand"
 	"net"
 
-	cm "github.com/iotexproject/iotex-core/common"
+	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/common/service"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/crypto"
 )
 
 var (
@@ -50,7 +50,7 @@ func NewConfigBasedPool(cfg *config.Delegate) *ConfigBasedPool {
 	for _, addr := range cfg.Addrs {
 		if !encountered[addr] {
 			encountered[addr] = true
-			cbdp.delegates = append(cbdp.delegates, cm.NewTCPNode(addr))
+			cbdp.delegates = append(cbdp.delegates, common.NewTCPNode(addr))
 		}
 	}
 	return cbdp
@@ -69,13 +69,18 @@ func (cbdp *ConfigBasedPool) RollDelegates(epochNum uint64) ([]net.Addr, error) 
 		return cbdp.AllDelegates()
 	}
 
-	// Generate a random delegates slice based on the epoch ordinal number
-	seed := int64(epochNum)
-	r := rand.New(rand.NewSource(seed))
+	// Generate a random delegates slice based on the crypto sort
+	hs := make([][]byte, len(cbdp.delegates))
+	h2a := make(map[string]net.Addr)
+	for i, d := range cbdp.delegates {
+		aStr := d.String()
+		hs[i] = []byte(aStr)
+		h2a[aStr] = d
+	}
+	crypto.Sort(hs, epochNum)
 	o := make([]net.Addr, len(cbdp.delegates))
-	perm := r.Perm(len(cbdp.delegates))
-	for i, j := range perm {
-		o[i] = cbdp.delegates[j]
+	for i, h := range hs {
+		o[i] = h2a[string(h)]
 	}
 
 	// Get the first RollNum as the rolling delegates
