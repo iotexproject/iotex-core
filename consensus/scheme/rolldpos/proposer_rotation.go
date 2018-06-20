@@ -38,7 +38,7 @@ func (s *proposerRotation) Do() {
 		logger.Error().Msg("epoch context is nil")
 		return
 	}
-	pr, err := s.prCb(s.epochCtx.Delegates(), nil, 0, height+1)
+	pr, err := s.prCb(s.epochCtx.delegates, nil, 0, height+1)
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to get the proposer")
 		return

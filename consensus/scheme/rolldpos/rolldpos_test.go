@@ -15,10 +15,10 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/blockchain"
-	. "github.com/iotexproject/iotex-core/blockchain"
-	cm "github.com/iotexproject/iotex-core/common"
+	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/fsm"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
@@ -27,12 +27,12 @@ import (
 	"github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_delegate"
-	. "github.com/iotexproject/iotex-core/test/mock/mock_rolldpos"
+	"github.com/iotexproject/iotex-core/test/mock/mock_rolldpos"
 	"github.com/iotexproject/iotex-core/test/mock/mock_state"
 )
 
 type mocks struct {
-	dNet *MockDNet
+	dNet *mock_rolldpos.MockDNet
 	bc   *mock_blockchain.MockBlockchain
 	dp   *mock_delegate.MockPool
 	sf   *mock_state.MockFactory
@@ -40,7 +40,7 @@ type mocks struct {
 
 type mockFn func(mcks mocks)
 
-var testDKG = cm.DKGHash{4, 6, 8, 9, 4, 6, 8, 9, 4, 6, 8, 9, 4, 6, 8, 9, 4, 6, 8, 9}
+var testDKG = common.DKGHash{4, 6, 8, 9, 4, 6, 8, 9, 4, 6, 8, 9, 4, 6, 8, 9, 4, 6, 8, 9}
 
 func createTestRollDPoS(
 	ctrl *gomock.Controller,
@@ -74,14 +74,14 @@ func createTestRollDPoS(
 		}
 		return nil
 	}
-	generateDKGCB := func() (cm.DKGHash, error) {
+	generateDKGCB := func() (common.DKGHash, error) {
 		return testDKG, nil
 	}
 	dp := mock_delegate.NewMockPool(ctrl)
 	dp.EXPECT().AllDelegates().Return(delegates, nil).AnyTimes()
 	dp.EXPECT().RollDelegates(gomock.Any()).Return(delegates, nil).AnyTimes()
 	dp.EXPECT().NumDelegatesPerEpoch().Return(uint(len(delegates)), nil).AnyTimes()
-	dNet := NewMockDNet(ctrl)
+	dNet := mock_rolldpos.NewMockDNet(ctrl)
 	dNet.EXPECT().Self().Return(self)
 	tellblockCB := func(msg proto.Message) error {
 		return dNet.Broadcast(msg)
@@ -160,7 +160,7 @@ func testByzantineFault(t *testing.T, proposerNode int) {
 	defer ctrl.Finish()
 
 	// arrange proposal request
-	genesis := NewGenesisBlock()
+	genesis := blockchain.NewGenesisBlock()
 	blkHash := genesis.HashBlock()
 
 	t.Log(genesis)
@@ -168,10 +168,10 @@ func testByzantineFault(t *testing.T, proposerNode int) {
 	// arrange 4 consensus nodes
 	tcss := make(map[net.Addr]testCs)
 	delegates := []net.Addr{
-		cm.NewTCPNode("192.168.0.0:10000"),
-		cm.NewTCPNode("192.168.0.1:10001"),
-		cm.NewTCPNode("192.168.0.2:10002"),
-		cm.NewTCPNode("192.168.0.3:10003"),
+		common.NewTCPNode("192.168.0.0:10000"),
+		common.NewTCPNode("192.168.0.1:10001"),
+		common.NewTCPNode("192.168.0.2:10002"),
+		common.NewTCPNode("192.168.0.3:10003"),
 	}
 
 	bcCnt := 0
@@ -184,7 +184,7 @@ func testByzantineFault(t *testing.T, proposerNode int) {
 			mcks.dNet.EXPECT().Self().Return(cur).AnyTimes()
 			mcks.bc.EXPECT().MintNewBlock(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(genesis, nil).AnyTimes()
 			mcks.bc.EXPECT().TipHeight().Return(uint64(0), nil).AnyTimes()
-			mcks.bc.EXPECT().ValidateBlock(gomock.Any()).Do(func(blk *Block) error {
+			mcks.bc.EXPECT().ValidateBlock(gomock.Any()).Do(func(blk *blockchain.Block) error {
 				if blk == nil {
 					return errors.New("invalid block")
 				}
@@ -194,7 +194,7 @@ func testByzantineFault(t *testing.T, proposerNode int) {
 			// =====================
 			// expect CommitBlock
 			// =====================
-			mcks.bc.EXPECT().CommitBlock(gomock.Any()).AnyTimes().Do(func(blk *Block) error {
+			mcks.bc.EXPECT().CommitBlock(gomock.Any()).AnyTimes().Do(func(blk *blockchain.Block) error {
 				if proposerNode == 0 {
 					// commit nil when proposer is faulty
 					assert.Nil(t, blk, "final block committed")
@@ -305,15 +305,15 @@ func TestRollDPoSFourTrustyNodes(t *testing.T) {
 	defer ctrl.Finish()
 
 	// arrange proposal request
-	genesis := NewGenesisBlock()
+	genesis := blockchain.NewGenesisBlock()
 
 	// arrange 4 consensus nodes
 	tcss := make(map[net.Addr]testCs)
 	delegates := []net.Addr{
-		cm.NewTCPNode("192.168.0.0:10000"),
-		cm.NewTCPNode("192.168.0.1:10001"),
-		cm.NewTCPNode("192.168.0.2:10002"),
-		cm.NewTCPNode("192.168.0.3:10003"),
+		common.NewTCPNode("192.168.0.0:10000"),
+		common.NewTCPNode("192.168.0.1:10001"),
+		common.NewTCPNode("192.168.0.2:10002"),
+		common.NewTCPNode("192.168.0.3:10003"),
 	}
 
 	bcCnt := 0
@@ -331,7 +331,7 @@ func TestRollDPoSFourTrustyNodes(t *testing.T) {
 			// =====================
 			// expect CommitBlock
 			// =====================
-			mcks.bc.EXPECT().CommitBlock(gomock.Any()).AnyTimes().Do(func(blk *Block) error {
+			mcks.bc.EXPECT().CommitBlock(gomock.Any()).AnyTimes().Do(func(blk *blockchain.Block) error {
 				t.Log(cur, "CommitBlock: ", blk)
 				assert.Equal(t, *genesis, *blk, "final block committed")
 				return nil
@@ -378,6 +378,13 @@ func TestRollDPoSFourTrustyNodes(t *testing.T) {
 			tcs.cs.fsm.CurrentState(),
 			"back to %s in the end", stateRoundStart)
 		assert.Equal(t, testDKG, tcs.cs.epochCtx.dkg)
+
+		metrics, err := tcs.cs.Metrics()
+		require.Nil(t, err)
+		require.NotNil(t, metrics)
+		require.Equal(t, uint64(1), metrics.LatestEpoch)
+		require.Equal(t, delegates, metrics.LatestDelegates)
+		require.Equal(t, delegates[0], metrics.LatestBlockProducer)
 	}
 	assert.Equal(t, 4, bcCnt)
 }
@@ -390,8 +397,8 @@ func TestRollDPoSConsumePROPOSE(t *testing.T) {
 
 	// arrange 2 consensus nodes
 	delegates := []net.Addr{
-		cm.NewTCPNode("192.168.0.1:10001"),
-		cm.NewTCPNode("192.168.0.2:10002"),
+		common.NewTCPNode("192.168.0.1:10001"),
+		common.NewTCPNode("192.168.0.2:10002"),
 	}
 	m := func(mcks mocks) {
 		mcks.dp.EXPECT().AllDelegates().Return(delegates, nil).AnyTimes()
@@ -411,7 +418,7 @@ func TestRollDPoSConsumePROPOSE(t *testing.T) {
 	time.Sleep(time.Second)
 
 	// arrange proposal request
-	genesis := NewGenesisBlock()
+	genesis := blockchain.NewGenesisBlock()
 	proposal := &iproto.ViewChangeMsg{
 		Vctype:     iproto.ViewChangeMsg_PROPOSE,
 		Block:      genesis.ConvertToBlockPb(),
@@ -440,8 +447,8 @@ func TestRollDPoSConsumeErrorStateHandlerNotMatched(t *testing.T) {
 
 	// arrange 2 consensus nodes
 	delegates := []net.Addr{
-		cm.NewTCPNode("192.168.0.1:10001"),
-		cm.NewTCPNode("192.168.0.2:10002"),
+		common.NewTCPNode("192.168.0.1:10001"),
+		common.NewTCPNode("192.168.0.2:10002"),
 	}
 	m := func(mcks mocks) {
 		mcks.bc.EXPECT().TipHeight().Return(uint64(0), nil).AnyTimes()

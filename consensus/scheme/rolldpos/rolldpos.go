@@ -40,8 +40,8 @@ type roundCtx struct {
 	isPr      bool
 }
 
-// EpochCtx keeps the context data for the current epochStart
-type EpochCtx struct {
+// epochCtx keeps the context data for the current epochStart
+type epochCtx struct {
 	// num is the ordinal number of an epoch
 	num uint64
 	// height means offset for current epochStart (i.e., the height of the first block generated in this epochStart)
@@ -50,23 +50,6 @@ type EpochCtx struct {
 	numSubEpochs uint
 	dkg          common.DKGHash
 	delegates    []net.Addr
-}
-
-// Num returns the ordinal number of the epoch
-func (e *EpochCtx) Num() uint64 {
-	return e.num
-}
-
-// Height returns the starting height of the epoch
-func (e *EpochCtx) Height() uint64 {
-	return e.height
-}
-
-// Delegates returns a copy of the delegates
-func (e *EpochCtx) Delegates() []net.Addr {
-	o := make([]net.Addr, len(e.delegates))
-	copy(o, e.delegates)
-	return o
 }
 
 // DNet is the delegate networks interface.
@@ -92,7 +75,7 @@ type RollDPoS struct {
 	rollDPoSCB
 	bc             blockchain.Blockchain
 	fsm            *fsm.Machine
-	epochCtx       *EpochCtx
+	epochCtx       *epochCtx
 	roundCtx       *roundCtx
 	self           net.Addr
 	pool           delegate.Pool
@@ -229,6 +212,38 @@ func (n *RollDPoS) EventChan() *chan *fsm.Event {
 // FSM returns the FSM instance
 func (n *RollDPoS) FSM() *fsm.Machine {
 	return n.fsm
+}
+
+// Metrics returns the roll dpos metrics
+func (n *RollDPoS) Metrics() (scheme.ConsensusMetrics, error) {
+	// TODO: we should cache the metrics somewhere to prevent recalculating the metrics too frequently
+	var metrics scheme.ConsensusMetrics
+	// Compute the height
+	height, err := n.bc.TipHeight()
+	if err != nil {
+		return metrics, err
+	}
+	numDlgs, err := n.pool.NumDelegatesPerEpoch()
+	if err != nil {
+		return metrics, err
+	}
+	epochNum := height/(uint64(numDlgs)*uint64(n.cfg.NumSubEpochs)) + 1
+	// Compute delegates
+	delegates, err := n.pool.RollDelegates(epochNum)
+	if err != nil {
+		return metrics, err
+	}
+	// Compute block producer
+	producer, err := n.prCb(delegates, nil, 0, height)
+	if err != nil {
+		return metrics, err
+	}
+	metrics = scheme.ConsensusMetrics{
+		LatestEpoch:         epochNum,
+		LatestDelegates:     delegates,
+		LatestBlockProducer: producer,
+	}
+	return metrics, err
 }
 
 func (n *RollDPoS) enqueueEvent(e *fsm.Event) {

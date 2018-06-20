@@ -27,6 +27,7 @@ type Consensus interface {
 	Stop() error
 	HandleViewChange(proto.Message, chan bool) error
 	HandleBlockPropose(proto.Message, chan bool) error
+	Metrics() (scheme.ConsensusMetrics, error)
 }
 
 // IotxConsensus implements Consensus
@@ -131,6 +132,11 @@ func (c *IotxConsensus) Stop() error {
 
 	c.scheme.Stop()
 	return nil
+}
+
+// Metrics returns consensus metrics
+func (c *IotxConsensus) Metrics() (scheme.ConsensusMetrics, error) {
+	return c.scheme.Metrics()
 }
 
 // HandleViewChange dispatches the call to different schemes

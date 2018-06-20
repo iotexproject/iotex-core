@@ -52,7 +52,7 @@ func (r ruleDKGGenerate) Condition(event *fsm.Event) bool {
 	}
 
 	// The epochStart start height is going to be the next block to generate
-	r.epochCtx = &EpochCtx{
+	r.epochCtx = &epochCtx{
 		num:          epochNum,
 		height:       height + 1,
 		delegates:    delegates,
