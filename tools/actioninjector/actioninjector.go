@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"math/big"
 	"math/rand"
+	"sync"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -87,8 +88,9 @@ func main() {
 	if aps > 0 {
 		ctx, cancel = context.WithTimeout(context.Background(), time.Minute)
 		defer cancel()
-		injectByAps(ctx, i, aps, client, sender, recipients)
-		time.Sleep(time.Second * 2)
+		wg := &sync.WaitGroup{}
+		injectByAps(ctx, wg, i, aps, client, sender, recipients)
+		wg.Wait()
 	} else {
 		if interval == 0 {
 			ctx, cancel = context.WithTimeout(context.Background(), time.Second)
@@ -99,7 +101,7 @@ func main() {
 }
 
 // Inject Actions in APS Mode
-func injectByAps(ctx context.Context, i int64, aps int, client pb.ChainServiceClient, sender *iotxaddress.Address, recipients []*iotxaddress.Address) {
+func injectByAps(ctx context.Context, wg *sync.WaitGroup, i int64, aps int, client pb.ChainServiceClient, sender *iotxaddress.Address, recipients []*iotxaddress.Address) {
 	timeout := time.After(time.Minute)
 	tick := time.Tick(time.Duration(1/float64(aps)*1000) * time.Millisecond)
 loop:
@@ -108,10 +110,11 @@ loop:
 		case <-timeout:
 			break loop
 		case <-tick:
+			wg.Add(1)
 			if i%2 == 1 {
-				go injectTransfer(ctx, client, sender, recipients[rand.Intn(3)], uint64(i))
+				go injectTransfer(ctx, wg, client, sender, recipients[rand.Intn(3)], uint64(i))
 			} else {
-				go injectVote(ctx, client, sender, recipients[rand.Intn(3)], uint64(i))
+				go injectVote(ctx, wg, client, sender, recipients[rand.Intn(3)], uint64(i))
 			}
 		}
 	}
@@ -120,9 +123,9 @@ loop:
 // Inject Actions in Interval Mode
 func injectByInterval(ctx context.Context, transferNum int, voteNum int, i int64, interval int, client pb.ChainServiceClient, sender *iotxaddress.Address, recipients []*iotxaddress.Address) {
 	for ; transferNum > 0 && voteNum > 0; i += 2 {
-		injectTransfer(ctx, client, sender, recipients[rand.Intn(3)], uint64(i))
+		injectTransfer(ctx, nil, client, sender, recipients[rand.Intn(3)], uint64(i))
 		time.Sleep(time.Second * time.Duration(interval))
-		injectVote(ctx, client, sender, recipients[rand.Intn(3)], uint64(i+1))
+		injectVote(ctx, nil, client, sender, recipients[rand.Intn(3)], uint64(i+1))
 		time.Sleep(time.Second * time.Duration(interval))
 		transferNum--
 		voteNum--
@@ -130,23 +133,23 @@ func injectByInterval(ctx context.Context, transferNum int, voteNum int, i int64
 	switch {
 	case transferNum > 0:
 		for ; transferNum > 0; i++ {
-			injectTransfer(ctx, client, sender, recipients[rand.Intn(3)], uint64(i))
+			injectTransfer(ctx, nil, client, sender, recipients[rand.Intn(3)], uint64(i))
 			time.Sleep(time.Second * time.Duration(interval))
 			transferNum--
 		}
 	case voteNum > 0:
 		for ; voteNum > 0; i++ {
-			injectVote(ctx, client, sender, recipients[rand.Intn(3)], uint64(i))
+			injectVote(ctx, nil, client, sender, recipients[rand.Intn(3)], uint64(i))
 			time.Sleep(time.Second * time.Duration(interval))
 			voteNum--
 		}
 	}
 }
 
-func injectTransfer(ctx context.Context, c pb.ChainServiceClient, sender *iotxaddress.Address, recipient *iotxaddress.Address, nonce uint64) {
+func injectTransfer(ctx context.Context, wg *sync.WaitGroup, c pb.ChainServiceClient, sender *iotxaddress.Address, recipient *iotxaddress.Address, nonce uint64) {
 	amount := uint64(0)
 	for amount == uint64(0) {
-		amount = uint64(rand.Intn(10))
+		amount = uint64(rand.Intn(5))
 	}
 	fmt.Printf("Sending %v coins from 'miner'\n", amount)
 
@@ -191,9 +194,13 @@ func injectTransfer(ctx context.Context, c pb.ChainServiceClient, sender *iotxad
 	fmt.Println("Payload: ", tsf.Payload)
 	fmt.Println("Sender Public Key: ", tsf.SenderPubKey)
 	fmt.Println("Signature: ", tsf.Signature)
+
+	if wg != nil {
+		wg.Done()
+	}
 }
 
-func injectVote(ctx context.Context, c pb.ChainServiceClient, sender *iotxaddress.Address, recipient *iotxaddress.Address, nonce uint64) {
+func injectVote(ctx context.Context, wg *sync.WaitGroup, c pb.ChainServiceClient, sender *iotxaddress.Address, recipient *iotxaddress.Address, nonce uint64) {
 	fmt.Println("Voting from 'miner'")
 	r, err := c.CreateRawVote(ctx, &pb.CreateRawVoteRequest{Voter: sender.PublicKey, Votee: recipient.PublicKey, Nonce: nonce})
 	if err != nil {
@@ -229,6 +236,10 @@ func injectVote(ctx context.Context, c pb.ChainServiceClient, sender *iotxaddres
 	fmt.Println("Sender Public Key: ", votePb.SelfPubkey)
 	fmt.Println("Recipient Public Key: ", votePb.VotePubkey)
 	fmt.Println("Signature: ", votePb.Signature)
+
+	if wg != nil {
+		wg.Done()
+	}
 }
 
 func constructAddress(pubkey, prikey string) *iotxaddress.Address {
