@@ -136,7 +136,7 @@ func TestExplorerApi(t *testing.T) {
 	require.Equal(3, len(transfers))
 	require.Nil(err)
 	transfers, err = svc.GetLastTransfersByRange(4, 4, 5, false)
-	require.Equal(1, len(transfers))
+	require.Equal(5, len(transfers))
 	require.Nil(err)
 
 	blks, getBlkErr := svc.GetLastBlocksByRange(3, 4)
@@ -162,9 +162,9 @@ func TestExplorerApi(t *testing.T) {
 
 	stats, err := svc.GetCoinStatistic()
 	require.Nil(err)
-	require.Equal(stats.Supply, int64(10000000000))
+	require.Equal(stats.Supply, int64(blockchain.Gen.TotalSupply))
 	require.Equal(stats.Height, int64(4))
-	require.Equal(stats.Transfers, int64(9))
+	require.Equal(stats.Transfers, int64(19))
 	require.Equal(stats.Votes, int64(24))
 	require.Equal(stats.Aps, int64(12))
 

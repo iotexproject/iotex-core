@@ -104,7 +104,7 @@ type blockchain struct {
 func NewBlockchain(dao *blockDAO, cfg *config.Config, sf state.Factory) Blockchain {
 	if sf != nil {
 		// add Genesis block miner into Trie
-		if _, err := sf.CreateState(Gen.Creator, Gen.TotalSupply); err != nil {
+		if _, err := sf.CreateState(Gen.CreatorAddr, Gen.TotalSupply); err != nil {
 			logger.Error().Err(err).Msg("Failed to add Creator into StateFactory")
 			return nil
 		}

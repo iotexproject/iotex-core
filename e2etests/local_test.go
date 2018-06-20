@@ -406,7 +406,7 @@ func TestLocalCommitTsf(t *testing.T) {
 	t.Logf("test balance = %d", test)
 	change.Add(change, test)
 
-	require.Equal(uint64(50<<22), change.Uint64())
+	require.Equal(uint64(100000000), change.Uint64())
 	t.Log("Total balance match")
 
 	if beta.Sign() == 0 || fox.Sign() == 0 || test.Sign() == 0 {

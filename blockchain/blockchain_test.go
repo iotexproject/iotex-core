@@ -7,7 +7,6 @@
 package blockchain
 
 import (
-	"encoding/hex"
 	"fmt"
 	"math/big"
 	"strconv"
@@ -19,7 +18,6 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/state"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/test/util"
@@ -147,7 +145,7 @@ func TestCreateBlockchain(t *testing.T) {
 	data, err := genesis.Serialize()
 	assert.Nil(err)
 
-	assert.Equal(0, len(genesis.Transfers))
+	assert.Equal(10, len(genesis.Transfers))
 	assert.Equal(21, len(genesis.Votes))
 
 	fmt.Printf("Block size match pass\n")
@@ -324,7 +322,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 
 	totalTransfers, err := bc.GetTotalTransfers()
 	require.Nil(err)
-	require.Equal(totalTransfers, uint64(25))
+	require.Equal(totalTransfers, uint64(35))
 
 	totalVotes, err := bc.GetTotalVotes()
 	require.Nil(err)
@@ -382,15 +380,6 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 
 	tr, _ := trie.NewTrie(testTriePath, false)
 	sf := state.NewFactory(tr)
-
-	for _, pk := range initDelegatePK {
-		pubk, err := hex.DecodeString(pk)
-		require.Nil(err)
-		address, err := iotxaddress.GetAddress(pubk, iotxaddress.IsTestnet, iotxaddress.ChainID)
-		require.Nil(err)
-		_, err = sf.CreateState(address.RawAddress, uint64(0))
-		require.Nil(err)
-	}
 
 	height, candidate := sf.Candidates()
 	require.True(height == 0)
@@ -458,10 +447,10 @@ func TestBlockchain_StateByAddr(t *testing.T) {
 	bc := CreateBlockchain(config, nil)
 	require.NotNil(bc)
 
-	s, _ := bc.StateByAddr(Gen.Creator)
+	s, _ := bc.StateByAddr(Gen.CreatorAddr)
 	require.Equal(uint64(0), s.Nonce)
-	require.Equal(big.NewInt(int64(Gen.TotalSupply)), s.Balance)
-	require.Equal(Gen.Creator, s.Address)
+	require.Equal(big.NewInt(9900000000), s.Balance)
+	require.Equal(Gen.CreatorAddr, s.Address)
 	require.Equal(false, s.IsCandidate)
 	require.Equal(big.NewInt(0), s.VotingWeight)
 	require.Equal("", s.Votee)

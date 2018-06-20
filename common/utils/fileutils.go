@@ -6,7 +6,13 @@
 
 package utils
 
-import "os"
+import (
+	"os"
+	"path"
+	"strings"
+
+	"github.com/iotexproject/iotex-core/logger"
+)
 
 // FileExists checks if a file or a directory already exists
 func FileExists(path string) bool {
@@ -14,4 +20,18 @@ func FileExists(path string) bool {
 		return false
 	}
 	return true
+}
+
+// GetFileAbsPath returns the absolute path of a file in blockchain directory
+func GetFileAbsPath(filename string) string {
+	pwd, err := os.Getwd()
+	if err != nil {
+		logger.Fatal().Err(err).Msg("Fail to get absolute path of genesis actions yaml file")
+	}
+	firstIndex := strings.LastIndex(pwd, "iotex-core")
+	index := strings.Index(pwd[firstIndex:], "/")
+	if index == -1 {
+		return path.Join(pwd, "blockchain", filename)
+	}
+	return path.Join(pwd[0:firstIndex+index], "blockchain", filename)
 }
