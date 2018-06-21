@@ -51,6 +51,9 @@ struct AddressDetails {
 }
 
 interface Explorer {
+    // get the blockchain tip height
+    getBlockchainHeight() int
+
     // get the balance of an address
     getAddressBalance(address string) int
 

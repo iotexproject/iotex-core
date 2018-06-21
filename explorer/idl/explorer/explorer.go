@@ -8,8 +8,8 @@ import (
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "7523960cdee36019afba12848330d715"
-const BarristerDateGenerated int64 = 1529515887080000000
+const BarristerChecksum string = "01c3803b29feed2934a312dbb59d3b1c"
+const BarristerDateGenerated int64 = 1529620700488000000
 
 type CoinStatistic struct {
 	Height    int64 `json:"height"`
@@ -53,6 +53,7 @@ type AddressDetails struct {
 }
 
 type Explorer interface {
+	GetBlockchainHeight() (int64, error)
 	GetAddressBalance(address string) (int64, error)
 	GetAddressDetails(address string) (AddressDetails, error)
 	GetLastTransfersByRange(startBlockHeight int64, offset int64, limit int64, showCoinBase bool) ([]Transfer, error)
@@ -71,6 +72,24 @@ func NewExplorerProxy(c barrister.Client) Explorer {
 type ExplorerProxy struct {
 	client barrister.Client
 	idl    *barrister.Idl
+}
+
+func (_p ExplorerProxy) GetBlockchainHeight() (int64, error) {
+	_res, _err := _p.client.Call("Explorer.getBlockchainHeight")
+	if _err == nil {
+		_retType := _p.idl.Method("Explorer.getBlockchainHeight").Returns
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(int64(0)), _res, "")
+	}
+	if _err == nil {
+		_cast, _ok := _res.(int64)
+		if !_ok {
+			_t := reflect.TypeOf(_res)
+			_msg := fmt.Sprintf("Explorer.getBlockchainHeight returned invalid type: %v", _t)
+			return int64(0), &barrister.JsonRpcError{Code: -32000, Message: _msg}
+		}
+		return _cast, nil
+	}
+	return int64(0), _err
 }
 
 func (_p ExplorerProxy) GetAddressBalance(address string) (int64, error) {
@@ -547,6 +566,18 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": [
             {
+                "name": "getBlockchainHeight",
+                "comment": "get the blockchain tip height",
+                "params": [],
+                "returns": {
+                    "name": "",
+                    "type": "int",
+                    "optional": false,
+                    "is_array": false,
+                    "comment": ""
+                }
+            },
+            {
                 "name": "getAddressBalance",
                 "comment": "get the balance of an address",
                 "params": [
@@ -789,7 +820,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1529515887080,
-        "checksum": "7523960cdee36019afba12848330d715"
+        "date_generated": 1529620700488,
+        "checksum": "01c3803b29feed2934a312dbb59d3b1c"
     }
 ]`

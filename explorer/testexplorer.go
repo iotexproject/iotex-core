@@ -58,6 +58,11 @@ func randBlock() explorer.Block {
 type TestExplorer struct {
 }
 
+// GetBlockchainHeight returns the blockchain height
+func (exp *TestExplorer) GetBlockchainHeight() (int64, error) {
+	return randAmount(), nil
+}
+
 // GetAddressBalance returns the balance of an address
 func (exp *TestExplorer) GetAddressBalance(address string) (int64, error) {
 	return randAmount(), nil

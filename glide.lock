@@ -1,5 +1,5 @@
-hash: 270d47cbe03cba959b6758ea986ff6023b12589d65c2edba2a86ac760b345ed2
-updated: 2018-06-20T01:32:45.892177-04:00
+hash: e0cd68792fa3c122507de99feb6d955f2a3b3e29b7f5d1548ad56ad9858f2707
+updated: 2018-06-21T15:07:36.537587-07:00
 imports:
 - name: github.com/boltdb/bolt
   version: 2f1ce7a837dcb8da3ec595b1dac9d0632f0f99e8
@@ -22,6 +22,8 @@ imports:
   - ptypes/any
   - ptypes/duration
   - ptypes/timestamp
+- name: github.com/inconshreveable/mousetrap
+  version: 76626ae9c91c4f2a10f34cad8ce83ea42c93bb75
 - name: github.com/pkg/errors
   version: 645ef00459ed84a119197bfb8d8205042c6df63d
 - name: github.com/rs/zerolog
@@ -30,6 +32,10 @@ imports:
   - internal/cbor
   - internal/json
   - log
+- name: github.com/spf13/cobra
+  version: 1e58aa3361fd650121dceeedc399e7189c05674a
+- name: github.com/spf13/pflag
+  version: 3ebe029320b2676d667ae88da602a5f854788a8a
 - name: github.com/stretchr/testify
   version: f35b8ab0b5a2cef36673838d662e249dd9c94686
   subpackages:
