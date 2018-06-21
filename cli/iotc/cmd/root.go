@@ -13,14 +13,14 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/iotexproject/iotex-core-internal/config"
-	"github.com/iotexproject/iotex-core-internal/explorer"
-	eidl "github.com/iotexproject/iotex-core-internal/explorer/idl/explorer"
-	"github.com/iotexproject/iotex-core-internal/logger"
+	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/explorer"
+	eidl "github.com/iotexproject/iotex-core/explorer/idl/explorer"
+	"github.com/iotexproject/iotex-core/logger"
 )
 
 const (
-	yamlPath  = "/src/github.com/iotexproject/iotex-core-internal/e2etests/config_local_delegate.yaml"
+	yamlPath  = "/src/github.com/iotexproject/iotex-core/e2etests/config_local_delegate.yaml"
 	localhost = "http://127.0.0.1:"
 )
 

@@ -8,8 +8,8 @@ import (
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "01c3803b29feed2934a312dbb59d3b1c"
-const BarristerDateGenerated int64 = 1529620700488000000
+const BarristerChecksum string = "aaf37aa79134f4e61f8b7ecc9fabc6ab"
+const BarristerDateGenerated int64 = 1529619347408000000
 
 type CoinStatistic struct {
 	Height    int64 `json:"height"`
@@ -38,11 +38,21 @@ type Block struct {
 
 type Transfer struct {
 	ID        string `json:"ID"`
+	Nounce    int64  `json:"nounce"`
 	Sender    string `json:"sender"`
 	Recipient string `json:"recipient"`
 	Amount    int64  `json:"amount"`
 	Fee       int64  `json:"fee"`
 	Timestamp int64  `json:"timestamp"`
+	BlockID   string `json:"blockID"`
+}
+
+type Vote struct {
+	ID        string `json:"ID"`
+	Nounce    int64  `json:"nounce"`
+	Timestamp int64  `json:"timestamp"`
+	Voter     string `json:"voter"`
+	Votee     string `json:"votee"`
 	BlockID   string `json:"blockID"`
 }
 
@@ -59,9 +69,13 @@ type Explorer interface {
 	GetLastTransfersByRange(startBlockHeight int64, offset int64, limit int64, showCoinBase bool) ([]Transfer, error)
 	GetTransferByID(transferID string) (Transfer, error)
 	GetTransfersByAddress(address string, offset int64, limit int64) ([]Transfer, error)
-	GetTransfersByBlockID(blockID string, offset int64, limit int64) ([]Transfer, error)
+	GetTransfersByBlockID(blkID string, offset int64, limit int64) ([]Transfer, error)
+	GetLastVotesByRange(startBlockHeight int64, offset int64, limit int64) ([]Vote, error)
+	GetVoteByID(voteID string) (Vote, error)
+	GetVotesByAddress(address string, offset int64, limit int64) ([]Vote, error)
+	GetVotesByBlockID(blkID string, offset int64, limit int64) ([]Vote, error)
 	GetLastBlocksByRange(offset int64, limit int64) ([]Block, error)
-	GetBlockByID(blockID string) (Block, error)
+	GetBlockByID(blkID string) (Block, error)
 	GetCoinStatistic() (CoinStatistic, error)
 }
 
@@ -182,8 +196,8 @@ func (_p ExplorerProxy) GetTransfersByAddress(address string, offset int64, limi
 	return []Transfer{}, _err
 }
 
-func (_p ExplorerProxy) GetTransfersByBlockID(blockID string, offset int64, limit int64) ([]Transfer, error) {
-	_res, _err := _p.client.Call("Explorer.getTransfersByBlockID", blockID, offset, limit)
+func (_p ExplorerProxy) GetTransfersByBlockID(blkID string, offset int64, limit int64) ([]Transfer, error) {
+	_res, _err := _p.client.Call("Explorer.getTransfersByBlockID", blkID, offset, limit)
 	if _err == nil {
 		_retType := _p.idl.Method("Explorer.getTransfersByBlockID").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf([]Transfer{}), _res, "")
@@ -198,6 +212,78 @@ func (_p ExplorerProxy) GetTransfersByBlockID(blockID string, offset int64, limi
 		return _cast, nil
 	}
 	return []Transfer{}, _err
+}
+
+func (_p ExplorerProxy) GetLastVotesByRange(startBlockHeight int64, offset int64, limit int64) ([]Vote, error) {
+	_res, _err := _p.client.Call("Explorer.getLastVotesByRange", startBlockHeight, offset, limit)
+	if _err == nil {
+		_retType := _p.idl.Method("Explorer.getLastVotesByRange").Returns
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf([]Vote{}), _res, "")
+	}
+	if _err == nil {
+		_cast, _ok := _res.([]Vote)
+		if !_ok {
+			_t := reflect.TypeOf(_res)
+			_msg := fmt.Sprintf("Explorer.getLastVotesByRange returned invalid type: %v", _t)
+			return []Vote{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
+		}
+		return _cast, nil
+	}
+	return []Vote{}, _err
+}
+
+func (_p ExplorerProxy) GetVoteByID(voteID string) (Vote, error) {
+	_res, _err := _p.client.Call("Explorer.getVoteByID", voteID)
+	if _err == nil {
+		_retType := _p.idl.Method("Explorer.getVoteByID").Returns
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(Vote{}), _res, "")
+	}
+	if _err == nil {
+		_cast, _ok := _res.(Vote)
+		if !_ok {
+			_t := reflect.TypeOf(_res)
+			_msg := fmt.Sprintf("Explorer.getVoteByID returned invalid type: %v", _t)
+			return Vote{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
+		}
+		return _cast, nil
+	}
+	return Vote{}, _err
+}
+
+func (_p ExplorerProxy) GetVotesByAddress(address string, offset int64, limit int64) ([]Vote, error) {
+	_res, _err := _p.client.Call("Explorer.getVotesByAddress", address, offset, limit)
+	if _err == nil {
+		_retType := _p.idl.Method("Explorer.getVotesByAddress").Returns
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf([]Vote{}), _res, "")
+	}
+	if _err == nil {
+		_cast, _ok := _res.([]Vote)
+		if !_ok {
+			_t := reflect.TypeOf(_res)
+			_msg := fmt.Sprintf("Explorer.getVotesByAddress returned invalid type: %v", _t)
+			return []Vote{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
+		}
+		return _cast, nil
+	}
+	return []Vote{}, _err
+}
+
+func (_p ExplorerProxy) GetVotesByBlockID(blkID string, offset int64, limit int64) ([]Vote, error) {
+	_res, _err := _p.client.Call("Explorer.getVotesByBlockID", blkID, offset, limit)
+	if _err == nil {
+		_retType := _p.idl.Method("Explorer.getVotesByBlockID").Returns
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf([]Vote{}), _res, "")
+	}
+	if _err == nil {
+		_cast, _ok := _res.([]Vote)
+		if !_ok {
+			_t := reflect.TypeOf(_res)
+			_msg := fmt.Sprintf("Explorer.getVotesByBlockID returned invalid type: %v", _t)
+			return []Vote{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
+		}
+		return _cast, nil
+	}
+	return []Vote{}, _err
 }
 
 func (_p ExplorerProxy) GetLastBlocksByRange(offset int64, limit int64) ([]Block, error) {
@@ -218,8 +304,8 @@ func (_p ExplorerProxy) GetLastBlocksByRange(offset int64, limit int64) ([]Block
 	return []Block{}, _err
 }
 
-func (_p ExplorerProxy) GetBlockByID(blockID string) (Block, error) {
-	_res, _err := _p.client.Call("Explorer.getBlockByID", blockID)
+func (_p ExplorerProxy) GetBlockByID(blkID string) (Block, error) {
+	_res, _err := _p.client.Call("Explorer.getBlockByID", blkID)
 	if _err == nil {
 		_retType := _p.idl.Method("Explorer.getBlockByID").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(Block{}), _res, "")
@@ -473,6 +559,13 @@ var IdlJsonRaw = `[
                 "comment": ""
             },
             {
+                "name": "nounce",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
                 "name": "sender",
                 "type": "string",
                 "optional": false,
@@ -503,6 +596,62 @@ var IdlJsonRaw = `[
             {
                 "name": "timestamp",
                 "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "blockID",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            }
+        ],
+        "values": null,
+        "functions": null,
+        "barrister_version": "",
+        "date_generated": 0,
+        "checksum": ""
+    },
+    {
+        "type": "struct",
+        "name": "Vote",
+        "comment": "",
+        "value": "",
+        "extends": "",
+        "fields": [
+            {
+                "name": "ID",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "nounce",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "timestamp",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "voter",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "votee",
+                "type": "string",
                 "optional": false,
                 "is_array": false,
                 "comment": ""
@@ -619,7 +768,7 @@ var IdlJsonRaw = `[
             },
             {
                 "name": "getLastTransfersByRange",
-                "comment": "get list of transactions by start block height, transaction offset and limit",
+                "comment": "get list of transfers by start block height, transfer offset and limit",
                 "params": [
                     {
                         "name": "startBlockHeight",
@@ -660,7 +809,7 @@ var IdlJsonRaw = `[
             },
             {
                 "name": "getTransferByID",
-                "comment": "get transaction from transaction id",
+                "comment": "get transfers from transaction id",
                 "params": [
                     {
                         "name": "transferID",
@@ -680,7 +829,7 @@ var IdlJsonRaw = `[
             },
             {
                 "name": "getTransfersByAddress",
-                "comment": "get list of transaction belong to an address",
+                "comment": "get list of transfer belong to an address",
                 "params": [
                     {
                         "name": "address",
@@ -717,7 +866,7 @@ var IdlJsonRaw = `[
                 "comment": "get all transfers in a block",
                 "params": [
                     {
-                        "name": "blockID",
+                        "name": "blkID",
                         "type": "string",
                         "optional": false,
                         "is_array": false,
@@ -741,6 +890,128 @@ var IdlJsonRaw = `[
                 "returns": {
                     "name": "",
                     "type": "Transfer",
+                    "optional": false,
+                    "is_array": true,
+                    "comment": ""
+                }
+            },
+            {
+                "name": "getLastVotesByRange",
+                "comment": "get list of votes by start block height, vote offset and limit",
+                "params": [
+                    {
+                        "name": "startBlockHeight",
+                        "type": "int",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    },
+                    {
+                        "name": "offset",
+                        "type": "int",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    },
+                    {
+                        "name": "limit",
+                        "type": "int",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    }
+                ],
+                "returns": {
+                    "name": "",
+                    "type": "Vote",
+                    "optional": false,
+                    "is_array": true,
+                    "comment": ""
+                }
+            },
+            {
+                "name": "getVoteByID",
+                "comment": "get vote from vote id",
+                "params": [
+                    {
+                        "name": "voteID",
+                        "type": "string",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    }
+                ],
+                "returns": {
+                    "name": "",
+                    "type": "Vote",
+                    "optional": false,
+                    "is_array": false,
+                    "comment": ""
+                }
+            },
+            {
+                "name": "getVotesByAddress",
+                "comment": "get list of vote belong to an address",
+                "params": [
+                    {
+                        "name": "address",
+                        "type": "string",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    },
+                    {
+                        "name": "offset",
+                        "type": "int",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    },
+                    {
+                        "name": "limit",
+                        "type": "int",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    }
+                ],
+                "returns": {
+                    "name": "",
+                    "type": "Vote",
+                    "optional": false,
+                    "is_array": true,
+                    "comment": ""
+                }
+            },
+            {
+                "name": "getVotesByBlockID",
+                "comment": "get all votes in a block",
+                "params": [
+                    {
+                        "name": "blkID",
+                        "type": "string",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    },
+                    {
+                        "name": "offset",
+                        "type": "int",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    },
+                    {
+                        "name": "limit",
+                        "type": "int",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    }
+                ],
+                "returns": {
+                    "name": "",
+                    "type": "Vote",
                     "optional": false,
                     "is_array": true,
                     "comment": ""
@@ -778,7 +1049,7 @@ var IdlJsonRaw = `[
                 "comment": "get block by block id",
                 "params": [
                     {
-                        "name": "blockID",
+                        "name": "blkID",
                         "type": "string",
                         "optional": false,
                         "is_array": false,
@@ -820,7 +1091,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1529620700488,
-        "checksum": "01c3803b29feed2934a312dbb59d3b1c"
+        "date_generated": 1529619347408,
+        "checksum": "aaf37aa79134f4e61f8b7ecc9fabc6ab"
     }
 ]`

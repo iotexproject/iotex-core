@@ -11,7 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/iotexproject/iotex-core-internal/logger"
+	"github.com/iotexproject/iotex-core/logger"
 )
 
 // detailsCmd represents the details command

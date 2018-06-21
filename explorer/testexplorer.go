@@ -39,6 +39,17 @@ func randTransaction() explorer.Transfer {
 	}
 }
 
+func randVote() explorer.Vote {
+	return explorer.Vote{
+		ID:        randAmountString(),
+		Timestamp: randAmount(),
+		BlockID:   randAmountString(),
+		Nounce:    randAmount(),
+		Voter:     randAmountString(),
+		Votee:     randAmountString(),
+	}
+}
+
 func randBlock() explorer.Block {
 	return explorer.Block{
 		ID:        randAmountString(),
@@ -87,18 +98,43 @@ func (exp *TestExplorer) GetLastTransfersByRange(startBlockHeight int64, offset 
 }
 
 // GetTransferByID returns transfer by transfer id
-func (exp *TestExplorer) GetTransferByID(tid string) (explorer.Transfer, error) {
+func (exp *TestExplorer) GetTransferByID(transferID string) (explorer.Transfer, error) {
 	return randTransaction(), nil
 }
 
 // GetTransfersByAddress returns all transfers associate with an address
 func (exp *TestExplorer) GetTransfersByAddress(address string, offset int64, limit int64) ([]explorer.Transfer, error) {
-	return exp.GetLastTransfersByRange(0, 0, 50, true)
+	return exp.GetLastTransfersByRange(0, offset, limit, true)
 }
 
 // GetTransfersByBlockID returns transfers in a block
 func (exp *TestExplorer) GetTransfersByBlockID(blockID string, offset int64, limit int64) ([]explorer.Transfer, error) {
-	return exp.GetLastTransfersByRange(0, 0, 50, true)
+	return exp.GetLastTransfersByRange(0, offset, limit, true)
+}
+
+// GetLastVotesByRange return votes in [-(offset+limit-1), -offset] from block
+// with height startBlockHeight
+func (exp *TestExplorer) GetLastVotesByRange(startBlockHeight int64, offset int64, limit int64) ([]explorer.Vote, error) {
+	var votes []explorer.Vote
+	for i := int64(0); i < limit; i++ {
+		votes = append(votes, randVote())
+	}
+	return votes, nil
+}
+
+// GetVoteByID returns vote by vote id
+func (exp *TestExplorer) GetVoteByID(voteID string) (explorer.Vote, error) {
+	return randVote(), nil
+}
+
+// GetVotesByAddress returns all votes associate with an address
+func (exp *TestExplorer) GetVotesByAddress(address string, offset int64, limit int64) ([]explorer.Vote, error) {
+	return exp.GetLastVotesByRange(0, offset, limit)
+}
+
+// GetVotesByBlockID returns votes in a block
+func (exp *TestExplorer) GetVotesByBlockID(blkID string, offset int64, limit int64) ([]explorer.Vote, error) {
+	return exp.GetLastVotesByRange(0, offset, limit)
 }
 
 // GetLastBlocksByRange get block with height [offset-limit+1, offset]
@@ -111,7 +147,7 @@ func (exp *TestExplorer) GetLastBlocksByRange(offset int64, limit int64) ([]expl
 }
 
 // GetBlockByID returns block by block id
-func (exp *TestExplorer) GetBlockByID(blockID string) (explorer.Block, error) {
+func (exp *TestExplorer) GetBlockByID(blkID string) (explorer.Block, error) {
 	return randBlock(), nil
 }
 

@@ -53,7 +53,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	tsf3, _ = tsf3.Sign(ta.Addrinfo["charlie"])
 	tsf4 := action.NewTransfer(0, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["miner"].RawAddress)
 	tsf4, _ = tsf4.Sign(ta.Addrinfo["charlie"])
-	vote1 := action.NewVote(0, ta.Addrinfo["charlie"].PublicKey, ta.Addrinfo["charlie"].PublicKey)
+	vote1 := action.NewVote(1, ta.Addrinfo["charlie"].PublicKey, ta.Addrinfo["delta"].PublicKey)
 	vote1, _ = vote1.Sign(ta.Addrinfo["charlie"])
 	blk, err = bc.MintNewBlock([]*action.Transfer{tsf1, tsf2, tsf3, tsf4}, []*action.Vote{vote1}, ta.Addrinfo["miner"], "")
 	if err != nil {
@@ -73,8 +73,8 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	}
 
 	// Add block 4
-	vote1 = action.NewVote(0, ta.Addrinfo["charlie"].PublicKey, ta.Addrinfo["charlie"].PublicKey)
-	vote2 := action.NewVote(0, ta.Addrinfo["alfa"].PublicKey, ta.Addrinfo["alfa"].PublicKey)
+	vote1 = action.NewVote(2, ta.Addrinfo["charlie"].PublicKey, ta.Addrinfo["alfa"].PublicKey)
+	vote2 := action.NewVote(3, ta.Addrinfo["alfa"].PublicKey, ta.Addrinfo["charlie"].PublicKey)
 	vote1, _ = vote1.Sign(ta.Addrinfo["charlie"])
 	vote2, _ = vote2.Sign(ta.Addrinfo["alfa"])
 	blk, err = bc.MintNewBlock(nil, []*action.Vote{vote1, vote2}, ta.Addrinfo["miner"], "")
@@ -123,7 +123,23 @@ func TestExplorerApi(t *testing.T) {
 
 	transfers, err := svc.GetTransfersByAddress(ta.Addrinfo["charlie"].RawAddress, 0, 10)
 	require.Nil(err)
-	require.Equal(len(transfers), 5)
+	require.Equal(5, len(transfers))
+
+	votes, err := svc.GetVotesByAddress(ta.Addrinfo["charlie"].RawAddress, 0, 10)
+	require.Nil(err)
+	require.Equal(3, len(votes))
+
+	votes, err = svc.GetVotesByAddress(ta.Addrinfo["charlie"].RawAddress, 0, 2)
+	require.Nil(err)
+	require.Equal(2, len(votes))
+
+	votes, err = svc.GetVotesByAddress(ta.Addrinfo["alfa"].RawAddress, 0, 10)
+	require.Nil(err)
+	require.Equal(2, len(votes))
+
+	votes, err = svc.GetVotesByAddress(ta.Addrinfo["delta"].RawAddress, 0, 10)
+	require.Nil(err)
+	require.Equal(1, len(votes))
 
 	transfers, err = svc.GetLastTransfersByRange(4, 1, 3, true)
 	require.Equal(3, len(transfers))
@@ -139,47 +155,72 @@ func TestExplorerApi(t *testing.T) {
 	require.Equal(5, len(transfers))
 	require.Nil(err)
 
+	votes, err = svc.GetLastVotesByRange(4, 0, 10)
+	require.Equal(10, len(votes))
+	require.Nil(err)
+	votes, err = svc.GetLastVotesByRange(3, 0, 50)
+	require.Equal(22, len(votes))
+	require.Nil(err)
+
 	blks, getBlkErr := svc.GetLastBlocksByRange(3, 4)
 	require.Nil(getBlkErr)
-	require.Equal(len(blks), 4)
+	require.Equal(4, len(blks))
 
 	transfers, err = svc.GetTransfersByBlockID(blks[2].ID, 0, 10)
 	require.Nil(err)
-	require.Equal(len(transfers), 2)
+	require.Equal(2, len(transfers))
+
+	votes, err = svc.GetVotesByBlockID(blks[1].ID, 0, 0)
+	require.Nil(err)
+	require.Equal(0, len(votes))
+
+	votes, err = svc.GetVotesByBlockID(blks[1].ID, 0, 10)
+	require.Nil(err)
+	require.Equal(1, len(votes))
 
 	transfer, err := svc.GetTransferByID(transfers[0].ID)
 	require.Nil(err)
-	require.Equal(transfer.Sender, transfers[0].Sender)
-	require.Equal(transfer.Recipient, transfers[0].Recipient)
+	require.Equal(transfers[0].Sender, transfer.Sender)
+	require.Equal(transfers[0].Recipient, transfer.Recipient)
+	require.Equal(transfers[0].BlockID, transfer.BlockID)
+
+	vote, err := svc.GetVoteByID(votes[0].ID)
+	require.Nil(err)
+	require.Equal(votes[0].Nounce, vote.Nounce)
+	require.Equal(votes[0].BlockID, vote.BlockID)
+	require.Equal(votes[0].Timestamp, vote.Timestamp)
+	require.Equal(votes[0].ID, vote.ID)
+	require.Equal(votes[0].Votee, vote.Votee)
+	require.Equal(votes[0].Voter, vote.Voter)
 
 	blk, err := svc.GetBlockByID(blks[0].ID)
 	require.Nil(err)
-	require.Equal(blk.Height, blks[0].Height)
-	require.Equal(blk.Timestamp, blks[0].Timestamp)
-	require.Equal(blk.Size, blks[0].Size)
-	require.Equal(blk.Votes, int64(0))
-	require.Equal(blk.Transfers, int64(1))
+	require.Equal(blks[0].Height, blk.Height)
+	require.Equal(blks[0].Timestamp, blk.Timestamp)
+	require.Equal(blks[0].Size, blk.Size)
+	require.Equal(int64(0), blk.Votes)
+	require.Equal(int64(1), blk.Transfers)
 
 	stats, err := svc.GetCoinStatistic()
 	require.Nil(err)
-	require.Equal(stats.Supply, int64(blockchain.Gen.TotalSupply))
-	require.Equal(stats.Height, int64(4))
-	require.Equal(stats.Transfers, int64(19))
-	require.Equal(stats.Votes, int64(24))
-	require.Equal(stats.Aps, int64(12))
+	require.Equal(int64(blockchain.Gen.TotalSupply), stats.Supply)
+	require.Equal(int64(4), stats.Height)
+	require.Equal(int64(19), stats.Transfers)
+	require.Equal(int64(24), stats.Votes)
+	require.Equal(int64(12), stats.Aps)
 
 	balance, err := svc.GetAddressBalance(ta.Addrinfo["charlie"].RawAddress)
 	require.Nil(err)
-	require.Equal(balance, int64(6))
+	require.Equal(int64(6), balance)
 
 	addressDetails, err := svc.GetAddressDetails(ta.Addrinfo["charlie"].RawAddress)
-	require.Equal(addressDetails.TotalBalance, int64(6))
-	require.Equal(addressDetails.Nonce, int64(0))
-	require.Equal(addressDetails.Address, ta.Addrinfo["charlie"].RawAddress)
+	require.Equal(int64(6), addressDetails.TotalBalance)
+	require.Equal(int64(2), addressDetails.Nonce)
+	require.Equal(ta.Addrinfo["charlie"].RawAddress, addressDetails.Address)
 
 	tip, err := svc.GetBlockchainHeight()
 	require.Nil(err)
-	require.Equal(int(tip), 4)
+	require.Equal(4, int(tip))
 }
 
 func TestService_StateByAddr(t *testing.T) {
