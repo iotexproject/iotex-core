@@ -6,7 +6,7 @@
 
 package main
 
-import "github.com/iotexproject/iotex-core-internal/cli/iotc/cmd"
+import "github.com/iotexproject/iotex-core/cli/iotc/cmd"
 
 func main() {
 	cmd.Execute()

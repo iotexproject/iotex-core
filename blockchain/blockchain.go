@@ -42,14 +42,22 @@ type Blockchain interface {
 	GetTotalTransfers() (uint64, error)
 	// GetTotalVotes returns the total number of votes
 	GetTotalVotes() (uint64, error)
-	// GetTransactionByAddress returns transaction from address
+	// GetTransfersFromAddress returns transaction from address
 	GetTransfersFromAddress(address string) ([]common.Hash32B, error)
-	// GetTransactionByAddress returns transaction to address
+	// GetTransfersToAddress returns transaction to address
 	GetTransfersToAddress(address string) ([]common.Hash32B, error)
-	// GetTransfersByTxHash returns transaction by transfer hash
+	// GetTransfersByTransferHash returns transfer by transfer hash
 	GetTransferByTransferHash(hash common.Hash32B) (*action.Transfer, error)
-	// GetBlockHashByTxHash returns Block hash by transfer hash
+	// GetBlockHashByTransferHash returns Block hash by transfer hash
 	GetBlockHashByTransferHash(hash common.Hash32B) (common.Hash32B, error)
+	// GetVoteFromAddress returns vote from address
+	GetVotesFromAddress(address string) ([]common.Hash32B, error)
+	// GetVoteToAddress returns vote to address
+	GetVotesToAddress(address string) ([]common.Hash32B, error)
+	// GetVotesByVoteHash returns vote by vote hash
+	GetVoteByVoteHash(hash common.Hash32B) (*action.Vote, error)
+	// GetBlockHashByVoteHash returns Block hash by vote hash
+	GetBlockHashByVoteHash(hash common.Hash32B) (common.Hash32B, error)
 	// TipHash returns tip block's hash
 	TipHash() (common.Hash32B, error)
 	// TipHeight returns tip block's height
@@ -256,6 +264,39 @@ func (bc *blockchain) GetTransferByTransferHash(hash common.Hash32B) (*action.Tr
 // GetBlockHashByTxHash returns Block hash by transfer hash
 func (bc *blockchain) GetBlockHashByTransferHash(hash common.Hash32B) (common.Hash32B, error) {
 	return bc.dao.getBlockHashByTransferHash(hash)
+}
+
+// GetVoteFromAddress returns vote from address
+func (bc *blockchain) GetVotesFromAddress(address string) ([]common.Hash32B, error) {
+	return bc.dao.getVotesBySenderAddress(address)
+}
+
+// GetVoteToAddress returns vote to address
+func (bc *blockchain) GetVotesToAddress(address string) ([]common.Hash32B, error) {
+	return bc.dao.getVotesByRecipientAddress(address)
+}
+
+// GetVotesByVoteHash returns vote by vote hash
+func (bc *blockchain) GetVoteByVoteHash(hash common.Hash32B) (*action.Vote, error) {
+	blkHash, err := bc.dao.getBlockHashByVoteHash(hash)
+	if err != nil {
+		return nil, err
+	}
+	blk, err := bc.dao.getBlock(blkHash)
+	if err != nil {
+		return nil, err
+	}
+	for _, vote := range blk.Votes {
+		if vote.Hash() == hash {
+			return vote, nil
+		}
+	}
+	return nil, errors.Errorf("block %x does not have vote %x", blkHash, hash)
+}
+
+// GetBlockHashByVoteHash returns Block hash by vote hash
+func (bc *blockchain) GetBlockHashByVoteHash(hash common.Hash32B) (common.Hash32B, error) {
+	return bc.dao.getBlockHashByVoteHash(hash)
 }
 
 // TipHash returns tip block's hash

@@ -107,7 +107,19 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	tsf5, err = tsf5.Sign(ta.Addrinfo["echo"])
 	tsf6 = action.NewTransfer(1, big.NewInt(2), ta.Addrinfo["echo"].RawAddress, ta.Addrinfo["miner"].RawAddress)
 	tsf6, err = tsf6.Sign(ta.Addrinfo["echo"])
-	blk, err = bc.MintNewBlock([]*action.Transfer{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}, nil, ta.Addrinfo["miner"], "")
+	vote1 := action.NewVote(0, ta.Addrinfo["charlie"].PublicKey, ta.Addrinfo["alfa"].PublicKey)
+	vote2 := action.NewVote(1, ta.Addrinfo["alfa"].PublicKey, ta.Addrinfo["charlie"].PublicKey)
+	vote1, err = vote1.Sign(ta.Addrinfo["charlie"])
+	if err != nil {
+		return err
+	}
+
+	vote2, err = vote2.Sign(ta.Addrinfo["alfa"])
+	if err != nil {
+		return err
+	}
+
+	blk, err = bc.MintNewBlock([]*action.Transfer{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}, []*action.Vote{vote1, vote2}, ta.Addrinfo["miner"], "")
 	if err != nil {
 		return err
 	}
@@ -312,6 +324,16 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		require.Equal(transfer1.Hash(), transferHash)
 	}
 
+	for _, vote := range blk.Votes {
+		voteHash := vote.Hash()
+		hash, err := bc.GetBlockHashByVoteHash(voteHash)
+		require.Nil(err)
+		require.Equal(hash, hash4)
+		vote1, err := bc.GetVoteByVoteHash(voteHash)
+		require.Nil(err)
+		require.Equal(vote1.Hash(), voteHash)
+	}
+
 	fromTransfers, err := bc.GetTransfersFromAddress(ta.Addrinfo["charlie"].RawAddress)
 	require.Nil(err)
 	require.Equal(len(fromTransfers), 5)
@@ -320,13 +342,29 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	require.Nil(err)
 	require.Equal(len(toTransfers), 2)
 
+	fromVotes, err := bc.GetVotesFromAddress(ta.Addrinfo["charlie"].RawAddress)
+	require.Nil(err)
+	require.Equal(len(fromVotes), 1)
+
+	fromVotes, err = bc.GetVotesFromAddress(ta.Addrinfo["alfa"].RawAddress)
+	require.Nil(err)
+	require.Equal(len(fromVotes), 1)
+
+	toVotes, err := bc.GetVotesToAddress(ta.Addrinfo["charlie"].RawAddress)
+	require.Nil(err)
+	require.Equal(len(toVotes), 1)
+
+	toVotes, err = bc.GetVotesToAddress(ta.Addrinfo["alfa"].RawAddress)
+	require.Nil(err)
+	require.Equal(len(toVotes), 1)
+
 	totalTransfers, err := bc.GetTotalTransfers()
 	require.Nil(err)
 	require.Equal(totalTransfers, uint64(35))
 
 	totalVotes, err := bc.GetTotalVotes()
 	require.Nil(err)
-	require.Equal(totalVotes, uint64(21))
+	require.Equal(totalVotes, uint64(23))
 }
 
 func TestBlockchain_Validator(t *testing.T) {

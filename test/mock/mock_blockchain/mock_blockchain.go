@@ -178,6 +178,32 @@ func (mr *MockBlockchainMockRecorder) GetTransfersToAddress(address interface{})
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTransfersToAddress", reflect.TypeOf((*MockBlockchain)(nil).GetTransfersToAddress), address)
 }
 
+// GetVotesFromAddress mocks base method
+func (m *MockBlockchain) GetVotesFromAddress(address string) ([]common.Hash32B, error) {
+	ret := m.ctrl.Call(m, "GetVotesFromAddress", address)
+	ret0, _ := ret[0].([]common.Hash32B)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetVotesFromAddress indicates an expected call of GetVotesFromAddress
+func (mr *MockBlockchainMockRecorder) GetVotesFromAddress(address interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVotesFromAddress", reflect.TypeOf((*MockBlockchain)(nil).GetVotesFromAddress), address)
+}
+
+// GetVotesToAddress mocks base method
+func (m *MockBlockchain) GetVotesToAddress(address string) ([]common.Hash32B, error) {
+	ret := m.ctrl.Call(m, "GetVotesToAddress", address)
+	ret0, _ := ret[0].([]common.Hash32B)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetVotesToAddress indicates an expected call of GetVotesToAddress
+func (mr *MockBlockchainMockRecorder) GetVotesToAddress(address interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVotesToAddress", reflect.TypeOf((*MockBlockchain)(nil).GetVotesToAddress), address)
+}
+
 // GetTransferByTransferHash mocks base method
 func (m *MockBlockchain) GetTransferByTransferHash(hash common.Hash32B) (*action.Transfer, error) {
 	ret := m.ctrl.Call(m, "GetTransferByTransferHash", hash)
@@ -191,6 +217,19 @@ func (mr *MockBlockchainMockRecorder) GetTransferByTransferHash(hash interface{}
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTransferByTransferHash", reflect.TypeOf((*MockBlockchain)(nil).GetTransferByTransferHash), hash)
 }
 
+// GetVoteByVoteHash mocks base method
+func (m *MockBlockchain) GetVoteByVoteHash(hash common.Hash32B) (*action.Vote, error) {
+	ret := m.ctrl.Call(m, "GetVoteByVoteHash", hash)
+	ret0, _ := ret[0].(*action.Vote)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetVoteByVoteHash indicates an expected call of GetVoteByVoteHash
+func (mr *MockBlockchainMockRecorder) GetVoteByVoteHash(hash interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVoteByVoteHash", reflect.TypeOf((*MockBlockchain)(nil).GetVoteByVoteHash), hash)
+}
+
 // GetBlockHashByTransferHash mocks base method
 func (m *MockBlockchain) GetBlockHashByTransferHash(hash common.Hash32B) (common.Hash32B, error) {
 	ret := m.ctrl.Call(m, "GetBlockHashByTransferHash", hash)
@@ -202,6 +241,32 @@ func (m *MockBlockchain) GetBlockHashByTransferHash(hash common.Hash32B) (common
 // GetBlockHashByTransferHash indicates an expected call of GetBlockHashByTransferHash
 func (mr *MockBlockchainMockRecorder) GetBlockHashByTransferHash(hash interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockHashByTransferHash", reflect.TypeOf((*MockBlockchain)(nil).GetBlockHashByTransferHash), hash)
+}
+
+// GetAddrFromPubKey mocks base method
+func (m *MockBlockchain) GetAddrFromPubKey(pubKey []byte) (string, error) {
+	ret := m.ctrl.Call(m, "GetAddrFromPubKey", pubKey)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAddrFromPubKey indicates an expected call of GetAddrFromPubKey
+func (mr *MockBlockchainMockRecorder) GetAddrFromPubKey(hash interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAddrFromPubKey", reflect.TypeOf((*MockBlockchain)(nil).GetAddrFromPubKey), hash)
+}
+
+// GetBlockHashByVoteHash mocks base method
+func (m *MockBlockchain) GetBlockHashByVoteHash(hash common.Hash32B) (common.Hash32B, error) {
+	ret := m.ctrl.Call(m, "GetBlockHashByVoteHash", hash)
+	ret0, _ := ret[0].(common.Hash32B)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetBlockHashByVoteHash indicates an expected call of GetBlockHashByVoteHash
+func (mr *MockBlockchainMockRecorder) GetBlockHashByVoteHash(hash interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockHashByVoteHash", reflect.TypeOf((*MockBlockchain)(nil).GetBlockHashByVoteHash), hash)
 }
 
 // TipHash mocks base method

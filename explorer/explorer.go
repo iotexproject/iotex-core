@@ -14,6 +14,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
+	"github.com/iotexproject/iotex-core/iotxaddress"
 )
 
 // ErrInternalServer indicates the internal server error
@@ -64,15 +65,15 @@ func (exp *Service) GetLastTransfersByRange(startBlockHeight int64, offset int64
 ChainLoop:
 	for height := startBlockHeight; height >= 0; height-- {
 		var blkID = ""
-		hash, getHashErr := exp.bc.GetHashByHeight(uint64(height))
-		if getHashErr != nil {
-			return res, getHashErr
+		hash, err := exp.bc.GetHashByHeight(uint64(height))
+		if err != nil {
+			return res, err
 		}
 		blkID = hex.EncodeToString(hash[:])
 
-		blk, getErr := exp.bc.GetBlockByHeight(uint64(height))
-		if getErr != nil {
-			return res, getErr
+		blk, err := exp.bc.GetBlockByHeight(uint64(height))
+		if err != nil {
+			return res, err
 		}
 
 		for i := len(blk.Transfers) - 1; i >= 0; i-- {
@@ -86,20 +87,22 @@ ChainLoop:
 
 			// if showCoinBase is true, add coinbase transfers, else only put non-coinbase transfers
 			if showCoinBase || !blk.Transfers[i].IsCoinbase {
+				if int64(len(res)) >= limit {
+					break ChainLoop
+				}
+
 				hash := blk.Transfers[i].Hash()
 				explorerTransfer := explorer.Transfer{
 					Amount:    blk.Transfers[i].Amount.Int64(),
 					Timestamp: int64(blk.ConvertToBlockHeaderPb().Timestamp),
 					ID:        hex.EncodeToString(hash[:]),
+					Nounce:    int64(blk.Transfers[i].Nonce),
 					BlockID:   blkID,
 					Sender:    blk.Transfers[i].Sender,
 					Recipient: blk.Transfers[i].Recipient,
 					Fee:       0, // TODO: we need to get the actual fee.
 				}
 				res = append(res, explorerTransfer)
-				if int64(len(res)) >= limit {
-					break ChainLoop
-				}
 			}
 		}
 	}
@@ -108,10 +111,10 @@ ChainLoop:
 }
 
 // GetTransferByID returns transfer by transfer id
-func (exp *Service) GetTransferByID(tid string) (explorer.Transfer, error) {
-	bytes, decodeErr := hex.DecodeString(tid)
-	if decodeErr != nil {
-		return explorer.Transfer{}, decodeErr
+func (exp *Service) GetTransferByID(transferID string) (explorer.Transfer, error) {
+	bytes, err := hex.DecodeString(transferID)
+	if err != nil {
+		return explorer.Transfer{}, err
 	}
 	var transferHash common.Hash32B
 	copy(transferHash[:], bytes)
@@ -127,58 +130,60 @@ func (exp *Service) GetTransferByID(tid string) (explorer.Transfer, error) {
 // GetTransfersByAddress returns all transfers associate with an address
 func (exp *Service) GetTransfersByAddress(address string, offset int64, limit int64) ([]explorer.Transfer, error) {
 	var res []explorer.Transfer
-	transfersFromAddress, getFromAddressErr := exp.bc.GetTransfersFromAddress(address)
-	if getFromAddressErr != nil {
-		return nil, getFromAddressErr
+	transfersFromAddress, err := exp.bc.GetTransfersFromAddress(address)
+	if err != nil {
+		return nil, err
 	}
 
-	transfersToAddress, getToAddressErr := exp.bc.GetTransfersToAddress(address)
-	if getToAddressErr != nil {
-		return nil, getToAddressErr
+	transfersToAddress, err := exp.bc.GetTransfersToAddress(address)
+	if err != nil {
+		return nil, err
 	}
 
 	transfersFromAddress = append(transfersFromAddress, transfersToAddress...)
-	transferCount := int64(0)
-	for _, transferHash := range transfersFromAddress {
-		transferCount++
-		if transferCount <= offset {
+	for i, transferHash := range transfersFromAddress {
+		if int64(i) < offset {
 			continue
 		}
+
+		if int64(len(res)) >= limit {
+			break
+		}
+
 		explorerTransfer, err := getTransfer(exp.bc, transferHash)
 		if err != nil {
 			return res, err
 		}
 
 		res = append(res, explorerTransfer)
-		if int64(len(res)) >= limit {
-			break
-		}
 	}
 
 	return res, nil
 }
 
 // GetTransfersByBlockID returns transfers in a block
-func (exp *Service) GetTransfersByBlockID(blockID string, offset int64, limit int64) ([]explorer.Transfer, error) {
+func (exp *Service) GetTransfersByBlockID(blkID string, offset int64, limit int64) ([]explorer.Transfer, error) {
 	var res []explorer.Transfer
-	bytes, decodeErr := hex.DecodeString(blockID)
+	bytes, err := hex.DecodeString(blkID)
 
-	if decodeErr != nil {
-		return res, decodeErr
+	if err != nil {
+		return res, err
 	}
 	var hash common.Hash32B
 	copy(hash[:], bytes)
 
-	blk, getErr := exp.bc.GetBlockByHash(hash)
-	if getErr != nil {
-		return res, getErr
+	blk, err := exp.bc.GetBlockByHash(hash)
+	if err != nil {
+		return nil, err
 	}
 
-	transferCount := int64(0)
-	for _, transfer := range blk.Transfers {
-		transferCount++
-		if transferCount <= offset {
+	for i, transfer := range blk.Transfers {
+		if int64(i) < offset {
 			continue
+		}
+
+		if int64(len(res)) >= limit {
+			break
 		}
 
 		hash := transfer.Hash()
@@ -186,15 +191,168 @@ func (exp *Service) GetTransfersByBlockID(blockID string, offset int64, limit in
 			Amount:    transfer.Amount.Int64(),
 			Timestamp: int64(blk.ConvertToBlockHeaderPb().Timestamp),
 			ID:        hex.EncodeToString(hash[:]),
-			BlockID:   blockID,
+			Nounce:    int64(transfer.Nonce),
+			BlockID:   blkID,
 			Sender:    transfer.Sender,
 			Recipient: transfer.Recipient,
 			Fee:       0, // TODO: we need to get the actual fee.
 		}
 		res = append(res, explorerTransfer)
+	}
+	return res, nil
+}
+
+// GetLastVotesByRange return votes in [-(offset+limit-1), -offset] from block
+// with height startBlockHeight
+func (exp *Service) GetLastVotesByRange(startBlockHeight int64, offset int64, limit int64) ([]explorer.Vote, error) {
+	var res []explorer.Vote
+	voteCount := uint64(0)
+
+ChainLoop:
+	for height := startBlockHeight; height >= 0; height-- {
+		hash, err := exp.bc.GetHashByHeight(uint64(height))
+		if err != nil {
+			return res, err
+		}
+		blkID := hex.EncodeToString(hash[:])
+
+		blk, err := exp.bc.GetBlockByHeight(uint64(height))
+		if err != nil {
+			return res, err
+		}
+
+		for i := int64(len(blk.Votes) - 1); i >= 0; i-- {
+			voteCount++
+
+			if voteCount <= uint64(offset) {
+				continue
+			}
+
+			if int64(len(res)) >= limit {
+				break ChainLoop
+			}
+
+			voter, err := getAddrFromPubKey(blk.Votes[i].SelfPubkey)
+			if err != nil {
+				return res, err
+			}
+
+			votee, err := getAddrFromPubKey(blk.Votes[i].VotePubkey)
+			if err != nil {
+				return res, err
+			}
+
+			hash := blk.Votes[i].Hash()
+			explorerVote := explorer.Vote{
+				ID:        hex.EncodeToString(hash[:]),
+				Nounce:    int64(blk.Votes[i].Nonce),
+				Timestamp: int64(blk.Votes[i].Timestamp),
+				Voter:     voter,
+				Votee:     votee,
+				BlockID:   blkID,
+			}
+			res = append(res, explorerVote)
+		}
+	}
+
+	return res, nil
+}
+
+// GetVoteByID returns vote by vote id
+func (exp *Service) GetVoteByID(voteID string) (explorer.Vote, error) {
+	bytes, err := hex.DecodeString(voteID)
+	if err != nil {
+		return explorer.Vote{}, err
+	}
+	var voteHash common.Hash32B
+	copy(voteHash[:], bytes)
+
+	vote, err := getVote(exp.bc, voteHash)
+	if err != nil {
+		return explorer.Vote{}, err
+	}
+
+	return vote, nil
+}
+
+// GetVotesByAddress returns all votes associate with an address
+func (exp *Service) GetVotesByAddress(address string, offset int64, limit int64) ([]explorer.Vote, error) {
+	var res []explorer.Vote
+	votesFromAddress, err := exp.bc.GetVotesFromAddress(address)
+	if err != nil {
+		return nil, err
+	}
+
+	votesToAddress, err := exp.bc.GetVotesToAddress(address)
+	if err != nil {
+		return nil, err
+	}
+
+	votesFromAddress = append(votesFromAddress, votesToAddress...)
+	for i, voteHash := range votesFromAddress {
+		if int64(i) < offset {
+			continue
+		}
+
 		if int64(len(res)) >= limit {
 			break
 		}
+
+		explorerVote, err := getVote(exp.bc, voteHash)
+		if err != nil {
+			return res, err
+		}
+
+		res = append(res, explorerVote)
+	}
+
+	return res, nil
+}
+
+// GetVotesByBlockID returns votes in a block
+func (exp *Service) GetVotesByBlockID(blkID string, offset int64, limit int64) ([]explorer.Vote, error) {
+	var res []explorer.Vote
+	bytes, err := hex.DecodeString(blkID)
+	if err != nil {
+		return res, err
+	}
+	var hash common.Hash32B
+	copy(hash[:], bytes)
+
+	blk, err := exp.bc.GetBlockByHash(hash)
+	if err != nil {
+		return nil, err
+	}
+
+	for i, vote := range blk.Votes {
+		if int64(i) < offset {
+			continue
+		}
+
+		if int64(len(res)) >= limit {
+			break
+		}
+
+		voter, err := getAddrFromPubKey(vote.SelfPubkey)
+		if err != nil {
+			return res, err
+		}
+
+		votee, err := getAddrFromPubKey(vote.VotePubkey)
+		if err != nil {
+			return res, err
+		}
+
+		hash := vote.Hash()
+		explorerVote := explorer.Vote{
+			ID:        hex.EncodeToString(hash[:]),
+			Nounce:    int64(vote.Nonce),
+			Timestamp: int64(vote.Timestamp),
+			Voter:     voter,
+			Votee:     votee,
+			BlockID:   blkID,
+		}
+		res = append(res, explorerVote)
 	}
 	return res, nil
 }
@@ -204,15 +362,15 @@ func (exp *Service) GetLastBlocksByRange(offset int64, limit int64) ([]explorer.
 	var res []explorer.Block
 
 	for height := offset; height >= 0 && int64(len(res)) < limit; height-- {
-		blk, getErr := exp.bc.GetBlockByHeight(uint64(height))
-		if getErr != nil {
-			return res, getErr
+		blk, err := exp.bc.GetBlockByHeight(uint64(height))
+		if err != nil {
+			return res, err
 		}
 
 		blockHeaderPb := blk.ConvertToBlockHeaderPb()
-		hash, encodeErr := exp.bc.GetHashByHeight(uint64(height))
-		if encodeErr != nil {
-			return res, encodeErr
+		hash, err := exp.bc.GetHashByHeight(uint64(height))
+		if err != nil {
+			return res, err
 		}
 
 		totalAmount := int64(0)
@@ -243,17 +401,17 @@ func (exp *Service) GetLastBlocksByRange(offset int64, limit int64) ([]explorer.
 }
 
 // GetBlockByID returns block by block id
-func (exp *Service) GetBlockByID(blockID string) (explorer.Block, error) {
-	bytes, decodeErr := hex.DecodeString(blockID)
-	if decodeErr != nil {
-		return explorer.Block{}, decodeErr
+func (exp *Service) GetBlockByID(blkID string) (explorer.Block, error) {
+	bytes, err := hex.DecodeString(blkID)
+	if err != nil {
+		return explorer.Block{}, err
 	}
 	var hash common.Hash32B
 	copy(hash[:], bytes)
 
-	blk, getErr := exp.bc.GetBlockByHash(hash)
-	if getErr != nil {
-		return explorer.Block{}, getErr
+	blk, err := exp.bc.GetBlockByHash(hash)
+	if err != nil {
+		return explorer.Block{}, err
 	}
 
 	blkHeaderPb := blk.ConvertToBlockHeaderPb()
@@ -266,7 +424,7 @@ func (exp *Service) GetBlockByID(blockID string) (explorer.Block, error) {
 	}
 
 	explorerBlock := explorer.Block{
-		ID:        blockID,
+		ID:        blkID,
 		Height:    int64(blkHeaderPb.Height),
 		Timestamp: int64(blkHeaderPb.Timestamp),
 		Transfers: int64(len(blk.Transfers)),
@@ -344,23 +502,24 @@ func (exp *Service) GetCoinStatistic() (explorer.CoinStatistic, error) {
 func getTransfer(bc blockchain.Blockchain, transferHash common.Hash32B) (explorer.Transfer, error) {
 	explorerTransfer := explorer.Transfer{}
 
-	transfer, getTransferErr := bc.GetTransferByTransferHash(transferHash)
-	if getTransferErr != nil {
-		return explorerTransfer, getTransferErr
+	transfer, err := bc.GetTransferByTransferHash(transferHash)
+	if err != nil {
+		return explorerTransfer, err
 	}
 
-	blkHash, getBlkHashErr := bc.GetBlockHashByTransferHash(transferHash)
-	if getBlkHashErr != nil {
-		return explorerTransfer, getBlkHashErr
+	blkHash, err := bc.GetBlockHashByTransferHash(transferHash)
+	if err != nil {
+		return explorerTransfer, err
 	}
 
-	blk, getBlkErr := bc.GetBlockByHash(blkHash)
-	if getBlkErr != nil {
-		return explorerTransfer, getBlkErr
+	blk, err := bc.GetBlockByHash(blkHash)
+	if err != nil {
+		return explorerTransfer, err
 	}
 
 	hash := transfer.Hash()
 	explorerTransfer = explorer.Transfer{
+		Nounce:    int64(transfer.Nonce),
 		Amount:    transfer.Amount.Int64(),
 		Timestamp: int64(blk.ConvertToBlockHeaderPb().Timestamp),
 		ID:        hex.EncodeToString(hash[:]),
@@ -371,4 +530,49 @@ func getTransfer(bc blockchain.Blockchain, transferHash common.Hash32B) (explore
 	}
 
 	return explorerTransfer, nil
+}
+
+// getVote takes in a blockchain and voteHash and returns a Explorer Vote
+func getVote(bc blockchain.Blockchain, voteHash common.Hash32B) (explorer.Vote, error) {
+	var explorerVote explorer.Vote
+
+	vote, err := bc.GetVoteByVoteHash(voteHash)
+	if err != nil {
+		return explorerVote, err
+	}
+
+	blkHash, err := bc.GetBlockHashByVoteHash(voteHash)
+	if err != nil {
+		return explorerVote, err
+	}
+
+	voter, err := getAddrFromPubKey(vote.SelfPubkey)
+	if err != nil {
+		return explorerVote, err
+	}
+
+	votee, err := getAddrFromPubKey(vote.VotePubkey)
+	if err != nil {
+		return explorerVote, err
+	}
+
+	hash := vote.Hash()
+	explorerVote = explorer.Vote{
+		ID:        hex.EncodeToString(hash[:]),
+		Nounce:    int64(vote.Nonce),
+		Timestamp: int64(vote.Timestamp),
+		Voter:     voter,
+		Votee:     votee,
+		BlockID:   hex.EncodeToString(blkHash[:]),
+	}
+
+	return explorerVote, nil
+}
+
+func getAddrFromPubKey(pubKey []byte) (string, error) {
+	Address, err := iotxaddress.GetAddress(pubKey, iotxaddress.IsTestnet, iotxaddress.ChainID)
+	if err != nil {
+		return "", errors.Wrapf(err, " to get address for pubkey %x", pubKey)
+	}
+	return Address.RawAddress, nil
 }
