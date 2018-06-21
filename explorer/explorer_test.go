@@ -121,7 +121,7 @@ func TestExplorerApi(t *testing.T) {
 		tpsWindow: 10,
 	}
 
-	transfers, err := svc.GetTransfersByAddress(ta.Addrinfo["charlie"].RawAddress)
+	transfers, err := svc.GetTransfersByAddress(ta.Addrinfo["charlie"].RawAddress, 0, 10)
 	require.Nil(err)
 	require.Equal(len(transfers), 5)
 
@@ -143,7 +143,7 @@ func TestExplorerApi(t *testing.T) {
 	require.Nil(getBlkErr)
 	require.Equal(len(blks), 4)
 
-	transfers, err = svc.GetTransfersByBlockID(blks[2].ID)
+	transfers, err = svc.GetTransfersByBlockID(blks[2].ID, 0, 10)
 	require.Nil(err)
 	require.Equal(len(transfers), 2)
 

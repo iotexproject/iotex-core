@@ -8,8 +8,8 @@ import (
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "5bfc05ce00c6db2acc1370679969d159"
-const BarristerDateGenerated int64 = 1529472246257000000
+const BarristerChecksum string = "7523960cdee36019afba12848330d715"
+const BarristerDateGenerated int64 = 1529515887080000000
 
 type CoinStatistic struct {
 	Height    int64 `json:"height"`
@@ -57,8 +57,8 @@ type Explorer interface {
 	GetAddressDetails(address string) (AddressDetails, error)
 	GetLastTransfersByRange(startBlockHeight int64, offset int64, limit int64, showCoinBase bool) ([]Transfer, error)
 	GetTransferByID(transferID string) (Transfer, error)
-	GetTransfersByAddress(address string) ([]Transfer, error)
-	GetTransfersByBlockID(blockID string) ([]Transfer, error)
+	GetTransfersByAddress(address string, offset int64, limit int64) ([]Transfer, error)
+	GetTransfersByBlockID(blockID string, offset int64, limit int64) ([]Transfer, error)
 	GetLastBlocksByRange(offset int64, limit int64) ([]Block, error)
 	GetBlockByID(blockID string) (Block, error)
 	GetCoinStatistic() (CoinStatistic, error)
@@ -145,8 +145,8 @@ func (_p ExplorerProxy) GetTransferByID(transferID string) (Transfer, error) {
 	return Transfer{}, _err
 }
 
-func (_p ExplorerProxy) GetTransfersByAddress(address string) ([]Transfer, error) {
-	_res, _err := _p.client.Call("Explorer.getTransfersByAddress", address)
+func (_p ExplorerProxy) GetTransfersByAddress(address string, offset int64, limit int64) ([]Transfer, error) {
+	_res, _err := _p.client.Call("Explorer.getTransfersByAddress", address, offset, limit)
 	if _err == nil {
 		_retType := _p.idl.Method("Explorer.getTransfersByAddress").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf([]Transfer{}), _res, "")
@@ -163,8 +163,8 @@ func (_p ExplorerProxy) GetTransfersByAddress(address string) ([]Transfer, error
 	return []Transfer{}, _err
 }
 
-func (_p ExplorerProxy) GetTransfersByBlockID(blockID string) ([]Transfer, error) {
-	_res, _err := _p.client.Call("Explorer.getTransfersByBlockID", blockID)
+func (_p ExplorerProxy) GetTransfersByBlockID(blockID string, offset int64, limit int64) ([]Transfer, error) {
+	_res, _err := _p.client.Call("Explorer.getTransfersByBlockID", blockID, offset, limit)
 	if _err == nil {
 		_retType := _p.idl.Method("Explorer.getTransfersByBlockID").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf([]Transfer{}), _res, "")
@@ -657,6 +657,20 @@ var IdlJsonRaw = `[
                         "optional": false,
                         "is_array": false,
                         "comment": ""
+                    },
+                    {
+                        "name": "offset",
+                        "type": "int",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    },
+                    {
+                        "name": "limit",
+                        "type": "int",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
                     }
                 ],
                 "returns": {
@@ -674,6 +688,20 @@ var IdlJsonRaw = `[
                     {
                         "name": "blockID",
                         "type": "string",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    },
+                    {
+                        "name": "offset",
+                        "type": "int",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    },
+                    {
+                        "name": "limit",
+                        "type": "int",
                         "optional": false,
                         "is_array": false,
                         "comment": ""
@@ -761,7 +789,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1529472246257,
-        "checksum": "5bfc05ce00c6db2acc1370679969d159"
+        "date_generated": 1529515887080,
+        "checksum": "7523960cdee36019afba12848330d715"
     }
 ]`

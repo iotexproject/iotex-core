@@ -53,7 +53,7 @@ func (exp *Service) GetAddressDetails(address string) (explorer.AddressDetails, 
 // with height startBlockHeight
 func (exp *Service) GetLastTransfersByRange(startBlockHeight int64, offset int64, limit int64, showCoinBase bool) ([]explorer.Transfer, error) {
 	var res []explorer.Transfer
-	transferCount := uint64(0)
+	transferCount := int64(0)
 
 ChainLoop:
 	for height := startBlockHeight; height >= 0; height-- {
@@ -74,7 +74,7 @@ ChainLoop:
 				transferCount++
 			}
 
-			if transferCount <= uint64(offset) {
+			if transferCount <= offset {
 				continue
 			}
 
@@ -110,35 +110,16 @@ func (exp *Service) GetTransferByID(tid string) (explorer.Transfer, error) {
 	var transferHash common.Hash32B
 	copy(transferHash[:], bytes)
 
-	transfer, getTransferErr := exp.bc.GetTransferByTransferHash(transferHash)
-	if getTransferErr != nil {
-		return explorer.Transfer{}, getTransferErr
+	transfer, err := getTransfer(exp.bc, transferHash)
+	if err != nil {
+		return explorer.Transfer{}, err
 	}
 
-	blkHash, getBlkHashErr := exp.bc.GetBlockHashByTransferHash(transferHash)
-	if getBlkHashErr != nil {
-		return explorer.Transfer{}, getBlkHashErr
-	}
-	blk, getBlkErr := exp.bc.GetBlockByHash(blkHash)
-	if getBlkErr != nil {
-		return explorer.Transfer{}, getBlkErr
-	}
-
-	explorerTransfer := explorer.Transfer{
-		Amount:    transfer.Amount.Int64(),
-		Timestamp: int64(blk.ConvertToBlockHeaderPb().Timestamp),
-		ID:        tid,
-		BlockID:   hex.EncodeToString(blkHash[:]),
-		Sender:    transfer.Sender,
-		Recipient: transfer.Recipient,
-		Fee:       0, // TODO: we need to get the actual fee.
-	}
-
-	return explorerTransfer, nil
+	return transfer, nil
 }
 
 // GetTransfersByAddress returns all transfers associate with an address
-func (exp *Service) GetTransfersByAddress(address string) ([]explorer.Transfer, error) {
+func (exp *Service) GetTransfersByAddress(address string, offset int64, limit int64) ([]explorer.Transfer, error) {
 	var res []explorer.Transfer
 	transfersFromAddress, getFromAddressErr := exp.bc.GetTransfersFromAddress(address)
 	if getFromAddressErr != nil {
@@ -151,56 +132,49 @@ func (exp *Service) GetTransfersByAddress(address string) ([]explorer.Transfer, 
 	}
 
 	transfersFromAddress = append(transfersFromAddress, transfersToAddress...)
-
+	transferCount := int64(0)
 	for _, transferHash := range transfersFromAddress {
-		transfer, getTransferErr := exp.bc.GetTransferByTransferHash(transferHash)
-
-		if getTransferErr != nil {
-			return res, getTransferErr
+		transferCount++
+		if transferCount <= offset {
+			continue
 		}
-
-		blkHash, getBlkHashErr := exp.bc.GetBlockHashByTransferHash(transferHash)
-		if getBlkHashErr != nil {
-			return res, getBlkHashErr
-		}
-		blk, getBlkErr := exp.bc.GetBlockByHash(blkHash)
-		if getBlkErr != nil {
-			return res, getBlkErr
-		}
-
-		hash := transfer.Hash()
-		explorerTransfer := explorer.Transfer{
-			Amount:    transfer.Amount.Int64(),
-			Timestamp: int64(blk.ConvertToBlockHeaderPb().Timestamp),
-			ID:        hex.EncodeToString(hash[:]),
-			BlockID:   hex.EncodeToString(blkHash[:]),
-			Sender:    transfer.Sender,
-			Recipient: transfer.Recipient,
-			Fee:       0, // TODO: we need to get the actual fee.
+		explorerTransfer, err := getTransfer(exp.bc, transferHash)
+		if err != nil {
+			return res, err
 		}
 
 		res = append(res, explorerTransfer)
+		if int64(len(res)) >= limit {
+			break
+		}
 	}
 
 	return res, nil
 }
 
 // GetTransfersByBlockID returns transfers in a block
-func (exp *Service) GetTransfersByBlockID(blockID string) ([]explorer.Transfer, error) {
+func (exp *Service) GetTransfersByBlockID(blockID string, offset int64, limit int64) ([]explorer.Transfer, error) {
 	var res []explorer.Transfer
 	bytes, decodeErr := hex.DecodeString(blockID)
+
 	if decodeErr != nil {
-		return nil, decodeErr
+		return res, decodeErr
 	}
 	var hash common.Hash32B
 	copy(hash[:], bytes)
 
 	blk, getErr := exp.bc.GetBlockByHash(hash)
 	if getErr != nil {
-		return nil, getErr
+		return res, getErr
 	}
 
+	transferCount := int64(0)
 	for _, transfer := range blk.Transfers {
+		transferCount++
+		if transferCount <= offset {
+			continue
+		}
+
 		hash := transfer.Hash()
 		explorerTransfer := explorer.Transfer{
 			Amount:    transfer.Amount.Int64(),
@@ -211,10 +185,11 @@ func (exp *Service) GetTransfersByBlockID(blockID string) ([]explorer.Transfer, 
 			Recipient: transfer.Recipient,
 			Fee:       0, // TODO: we need to get the actual fee.
 		}
-
 		res = append(res, explorerTransfer)
+		if int64(len(res)) >= limit {
+			break
+		}
 	}
-
 	return res, nil
 }
 
@@ -357,4 +332,37 @@ func (exp *Service) GetCoinStatistic() (explorer.CoinStatistic, error) {
 		Aps:       aps,
 	}
 	return explorerCoinStats, nil
+}
+
+// getTransfer takes in a blockchain and transferHash and returns a Explorer Transfer
+func getTransfer(bc blockchain.Blockchain, transferHash common.Hash32B) (explorer.Transfer, error) {
+	explorerTransfer := explorer.Transfer{}
+
+	transfer, getTransferErr := bc.GetTransferByTransferHash(transferHash)
+	if getTransferErr != nil {
+		return explorerTransfer, getTransferErr
+	}
+
+	blkHash, getBlkHashErr := bc.GetBlockHashByTransferHash(transferHash)
+	if getBlkHashErr != nil {
+		return explorerTransfer, getBlkHashErr
+	}
+
+	blk, getBlkErr := bc.GetBlockByHash(blkHash)
+	if getBlkErr != nil {
+		return explorerTransfer, getBlkErr
+	}
+
+	hash := transfer.Hash()
+	explorerTransfer = explorer.Transfer{
+		Amount:    transfer.Amount.Int64(),
+		Timestamp: int64(blk.ConvertToBlockHeaderPb().Timestamp),
+		ID:        hex.EncodeToString(hash[:]),
+		BlockID:   hex.EncodeToString(blkHash[:]),
+		Sender:    transfer.Sender,
+		Recipient: transfer.Recipient,
+		Fee:       0, // TODO: we need to get the actual fee.
+	}
+
+	return explorerTransfer, nil
 }
