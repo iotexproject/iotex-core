@@ -8,6 +8,7 @@ package rolldpos
 
 import (
 	"github.com/iotexproject/iotex-core/consensus/fsm"
+	"github.com/iotexproject/iotex-core/logger"
 )
 
 type ruleEpochFinish struct {
@@ -21,10 +22,11 @@ func (r ruleEpochFinish) Condition(event *fsm.Event) bool {
 	height, err := r.bc.TipHeight()
 	if err != nil {
 		event.Err = err
+		logger.Error().Err(err).Msg("error when querying the blockchain height")
 		return false
 	}
-	// if the height of the last committed block is already the last one should be minted from this epochStart, go back to
-	// epochStart start
+	// if the height of the last committed block is already the last one should be minted from this epochStart, go back
+	// to epochStart start
 	if height >= r.epochCtx.height+uint64(uint(len(r.epochCtx.delegates))*r.epochCtx.numSubEpochs)-1 {
 		return true
 	}

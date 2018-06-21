@@ -34,12 +34,10 @@ consensus:
         delegateInterval: 10s
         proposerCB: "PseudoRotatedProposer"
         unmatchedEventTTL: 1000s
-        acceptPropose:
-            ttl: 1000s
-        acceptPrevote:
-            ttl: 1000s
-        acceptVote:
-            ttl: 1000s
+        roundStartTTL: 1000s
+        acceptProposeTTL: 1000s
+        acceptPrevoteTTL: 1000s
+        acceptVoteTTL: 1000s
         numSubEpochs: 1000
         eventChanSize: 1024
     blockCreationInterval: 1000s

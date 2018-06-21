@@ -31,14 +31,14 @@ func TestRuleDKGGenerateCondition(t *testing.T) {
 	bc := mock_blockchain.NewMockBlockchain(ctrl)
 	bc.EXPECT().TipHeight().Return(uint64(16), nil).Times(1)
 	pool := mock_delegate.NewMockPool(ctrl)
-	pool.EXPECT().NumDelegatesPerEpoch().Return(uint(4), nil).Times(1)
+	pool.EXPECT().NumDelegatesPerEpoch().Return(uint(4), nil).Times(4)
 	delegates := []net.Addr{
 		common.NewTCPNode("127.0.0.1:40001"),
 		common.NewTCPNode("127.0.0.1:40002"),
 		common.NewTCPNode("127.0.0.1:40003"),
 		common.NewTCPNode("127.0.0.1:40004"),
 	}
-	pool.EXPECT().RollDelegates(gomock.Any()).Return(delegates, nil).Times(1)
+	pool.EXPECT().RollDelegates(gomock.Any()).Return(delegates, nil).Times(2)
 
 	h := ruleDKGGenerate{
 		RollDPoS: &RollDPoS{
@@ -53,6 +53,20 @@ func TestRuleDKGGenerateCondition(t *testing.T) {
 		},
 	}
 	h.RollDPoS.prnd = &proposerRotation{RollDPoS: h.RollDPoS}
+
+	require.True(
+		t,
+		h.Condition(&fsm.Event{
+			State: stateRoundStart,
+		}),
+	)
+	require.NotNil(t, h.epochCtx)
+	require.Equal(t, uint64(3), h.epochCtx.num)
+	require.Equal(t, uint64(17), h.epochCtx.height)
+	require.Equal(t, delegates, h.epochCtx.delegates)
+
+	// The epoch should be correctly set even the node misses some early blocks for the epoch
+	bc.EXPECT().TipHeight().Return(uint64(18), nil).Times(1)
 
 	require.True(
 		t,

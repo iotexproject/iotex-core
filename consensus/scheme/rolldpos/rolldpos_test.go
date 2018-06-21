@@ -88,19 +88,14 @@ func createTestRollDPoS(
 	}
 	csCfg := config.RollDPoS{
 		UnmatchedEventTTL: 300 * time.Millisecond,
-		AcceptPropose: config.AcceptPropose{
-			TTL: 300 * time.Millisecond,
-		},
-		AcceptPrevote: config.AcceptPrevote{
-			TTL: 300 * time.Millisecond,
-		},
-		AcceptVote: config.AcceptVote{
-			TTL: 300 * time.Millisecond,
-		},
-		Delay:            10 * time.Second,
-		EventChanSize:    100,
-		DelegateInterval: time.Hour,
-		NumSubEpochs:     1,
+		RoundStartTTL:     10 * time.Second,
+		AcceptProposeTTL:  300 * time.Millisecond,
+		AcceptPrevoteTTL:  300 * time.Millisecond,
+		AcceptVoteTTL:     300 * time.Millisecond,
+		Delay:             10 * time.Second,
+		EventChanSize:     100,
+		DelegateInterval:  time.Hour,
+		NumSubEpochs:      1,
 	}
 	csCfg.ProposerInterval = prDelay
 	sf := mock_state.NewMockFactory(ctrl)

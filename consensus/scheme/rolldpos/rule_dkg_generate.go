@@ -38,6 +38,13 @@ func (r ruleDKGGenerate) Condition(event *fsm.Event) bool {
 		return false
 	}
 
+	// Determine the epoch height offset
+	epochHeight, err := calEpochHeight(&r.cfg, epochNum, r.pool)
+	if err != nil {
+		event.Err = err
+		return false
+	}
+
 	// Get the rolling delegates
 	delegates, err := r.pool.RollDelegates(epochNum)
 	if err != nil {
@@ -54,7 +61,7 @@ func (r ruleDKGGenerate) Condition(event *fsm.Event) bool {
 	// The epochStart start height is going to be the next block to generate
 	r.epochCtx = &epochCtx{
 		num:          epochNum,
-		height:       height + 1,
+		height:       epochHeight,
 		delegates:    delegates,
 		numSubEpochs: numSubEpochs,
 	}
