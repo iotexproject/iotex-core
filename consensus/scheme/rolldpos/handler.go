@@ -44,8 +44,12 @@ func (h *dkgGenerate) Handle(event *fsm.Event) {
 
 // roundStart is the initial and idle state of a round of consensus. It initiates the round context.
 type roundStart struct {
-	fsm.NilTimeout
 	*RollDPoS
+}
+
+// TimeoutDuration returns the duration for timeout
+func (h *roundStart) TimeoutDuration() *time.Duration {
+	return &h.cfg.RoundStartTTL
 }
 
 func (h *roundStart) Handle(_ *fsm.Event) {
@@ -62,7 +66,7 @@ type initPropose struct {
 
 // TimeoutDuration returns the duration for timeout
 func (h *initPropose) TimeoutDuration() *time.Duration {
-	return &h.cfg.AcceptPropose.TTL
+	return &h.cfg.AcceptProposeTTL
 }
 
 func (h *initPropose) Handle(event *fsm.Event) {
@@ -82,7 +86,7 @@ type acceptPrevote struct {
 }
 
 func (h *acceptPrevote) TimeoutDuration() *time.Duration {
-	return &h.cfg.AcceptPrevote.TTL
+	return &h.cfg.AcceptPrevoteTTL
 }
 
 func (h *acceptPrevote) Handle(event *fsm.Event) {
@@ -95,7 +99,7 @@ type acceptPropose struct {
 }
 
 func (h *acceptPropose) TimeoutDuration() *time.Duration {
-	return &h.cfg.AcceptPropose.TTL
+	return &h.cfg.AcceptProposeTTL
 }
 
 func (h *acceptPropose) Handle(event *fsm.Event) {
@@ -109,7 +113,7 @@ type acceptVote struct {
 }
 
 func (h *acceptVote) TimeoutDuration() *time.Duration {
-	return &h.cfg.AcceptVote.TTL
+	return &h.cfg.AcceptVoteTTL
 }
 
 func (h *acceptVote) Handle(event *fsm.Event) {

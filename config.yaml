@@ -39,12 +39,10 @@ consensus:
         delegateInterval: 10s
         proposerInterval: 3s
         unmatchedEventTTL: 3s
-        acceptPropose:
-            ttl: 1s
-        acceptPrevote:
-            ttl: 1s
-        acceptVote:
-            ttl: 1s
+        roundStartTTL: 3s
+        acceptProposeTTL: 1s
+        acceptPrevoteTTL: 1s
+        acceptVoteTTL: 1s
         delay: 5s
         numSubEpochs: 1
         eventChanSize: 1024

@@ -22,21 +22,27 @@ func (r ruleCommit) Condition(event *fsm.Event) bool {
 		return false
 	}
 
+	// no matter consensus is reached or is confirmed not to reach, always finish the current consensus round
+	defer r.notifyRoundFinish()
+
 	// no consensus reached
 	if event.StateTimedOut || event.Err != nil || !r.reachedMaj() {
+		var height uint64
+		if r.roundCtx.block != nil {
+			height = r.roundCtx.block.Height()
+		}
 		logger.Warn().
 			Str("node", r.self.String()).
-			Bool("state time out", event.StateTimedOut).
+			Bool("timeout", event.StateTimedOut).
+			Bool("majority", r.reachedMaj()).
 			Err(event.Err).
-			Bool("r.reachedMaj()", r.reachedMaj()).
+			Uint64("block", height).
 			Msg("no consensus reached")
 
 		// TODO: need to commit and broadcast empty block to make proposer and block height map consistently
-		r.notifyRoundFinish()
 		return true
 	}
 
-	// consensus reached
 	// TODO: Can roundCtx.block be nil as well? nil may also be a valid consensus result
 	if r.roundCtx.block != nil {
 		dlgs := make([]string, 0)
@@ -53,7 +59,7 @@ func (r ruleCommit) Condition(event *fsm.Event) bool {
 				Uint64("block", r.roundCtx.block.Height()).
 				Msg("error when committing a block")
 			event.Err = err
-			return false
+			return true
 		}
 
 		// All delegates need to broadcast the consensus block
@@ -63,11 +69,9 @@ func (r ruleCommit) Condition(event *fsm.Event) bool {
 				Uint64("block", r.roundCtx.block.Height()).
 				Msg("error when committing a block")
 			event.Err = err
-			return false
+			return true
 		}
 	}
-
-	r.notifyRoundFinish()
 	return true
 }
 

@@ -12,4 +12,12 @@ type ruleRoundStart struct {
 	*RollDPoS
 }
 
-func (r ruleRoundStart) Condition(event *fsm.Event) bool { return event.State == stateRoundStart }
+func (r ruleRoundStart) Condition(event *fsm.Event) bool {
+	// If the consensus is timeout at ROUND_START, goes back to EPOCH_START
+	if event.State == stateRoundStart && event.StateTimedOut {
+		r.enqueueEvent(&fsm.Event{
+			State: stateEpochStart,
+		})
+	}
+	return event.State == stateRoundStart
+}

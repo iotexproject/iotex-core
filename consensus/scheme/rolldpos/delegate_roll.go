@@ -97,3 +97,13 @@ func calcEpochNum(cfg *config.RollDPoS, height uint64, pool delegate.Pool) (uint
 	epochNum := height/(uint64(numDlgs)*uint64(cfg.NumSubEpochs)) + 1
 	return epochNum, nil
 }
+
+// calEpochHeight calculates the epoch start height offset by the epoch ordinal number
+func calEpochHeight(cfg *config.RollDPoS, epochNum uint64, pool delegate.Pool) (uint64, error) {
+	numDlgs, err := pool.NumDelegatesPerEpoch()
+	if err != nil {
+		return 0, err
+	}
+	epochHeight := uint64(numDlgs)*uint64(cfg.NumSubEpochs)*(epochNum-1) + 1
+	return epochHeight, nil
+}

@@ -38,12 +38,10 @@ consensus:
         delegateInterval: 90ms
         proposerInterval: 0ms
         unmatchedEventTTL: 90ms
-        acceptPropose:
-            ttl: 90ms
-        acceptPrevote:
-            ttl: 90ms
-        acceptVote:
-            ttl: 90ms
+        roundStartTTL: 10s
+        acceptProposeTTL: 90ms
+        acceptPrevoteTTL: 90ms
+        acceptVoteTTL: 90ms
         delay: 2s
         eventChanSize: 1024
     blockCreationInterval: 1s

@@ -105,33 +105,13 @@ type RollDPoS struct {
 	ProposerCB        string        `yaml:"proposerCB"`
 	EpochCB           string        `yaml:"epochCB"`
 	UnmatchedEventTTL time.Duration `yaml:"unmatchedEventTTL"`
-	AcceptPropose     AcceptPropose `yaml:"acceptPropose"`
-	AcceptPrevote     AcceptPrevote `yaml:"acceptPrevote"`
-	AcceptVote        AcceptVote    `yaml:"acceptVote"`
+	RoundStartTTL     time.Duration `yaml:"roundStartTTL"`
+	AcceptProposeTTL  time.Duration `yaml:"acceptProposeTTL"`
+	AcceptPrevoteTTL  time.Duration `yaml:"acceptPrevoteTTL"`
+	AcceptVoteTTL     time.Duration `yaml:"acceptVoteTTL"`
 	Delay             time.Duration `yaml:"delay"`
 	NumSubEpochs      uint          `yaml:"numSubEpochs"`
 	EventChanSize     uint          `yaml:"eventChanSize"`
-}
-
-// AcceptPropose is the RollDPoS AcceptPropose config
-type AcceptPropose struct {
-	// TTL is the time the state machine will wait for the AcceptPropose state.
-	// Once timeout, it will move to the next state.
-	TTL time.Duration `yaml:"ttl"`
-}
-
-// AcceptPrevote is the RollDPoS AcceptPrevote config
-type AcceptPrevote struct {
-	// TTL is the time the state machine will wait for the AcceptPrevote state.
-	// Once timeout, it will move to the next state.
-	TTL time.Duration `yaml:"ttl"`
-}
-
-// AcceptVote is the RollDPoS AcceptVote config
-type AcceptVote struct {
-	// TTL is the time the state machine will wait for the AcceptVote state.
-	// Once timeout, it will move to the next state.
-	TTL time.Duration `yaml:"ttl"`
 }
 
 // Delegate is the delegate config
