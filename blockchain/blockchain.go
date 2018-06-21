@@ -54,8 +54,6 @@ type Blockchain interface {
 	TipHash() (common.Hash32B, error)
 	// TipHeight returns tip block's height
 	TipHeight() (uint64, error)
-	// BalanceOf returns the balance of an address
-	BalanceOf(address string) *big.Int
 	// StateByAddr returns state of a given address
 	StateByAddr(address string) (*state.State, error)
 
@@ -364,19 +362,6 @@ func CreateBlockchain(cfg *config.Config, sf state.Factory) Blockchain {
 		kvStore = db.NewBoltDB(cfg.Chain.ChainDBPath, nil)
 	}
 	return createAndInitBlockchain(kvStore, sf, cfg)
-}
-
-// TODO: Please deprecate this method when Utxo is deprecated
-// BalanceOf returns the balance of an address
-func (bc *blockchain) BalanceOf(address string) *big.Int {
-	if bc.sf != nil {
-		s, err := bc.StateByAddr(address)
-		if err != nil {
-			return big.NewInt(0)
-		}
-		return s.Balance
-	}
-	return big.NewInt(0)
 }
 
 // StateByAddr returns the state of an address
