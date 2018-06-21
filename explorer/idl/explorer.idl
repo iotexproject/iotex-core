@@ -64,10 +64,10 @@ interface Explorer {
     getTransferByID(transferID string) Transfer
 
     // get list of transaction belong to an address
-    getTransfersByAddress(address string) []Transfer
+    getTransfersByAddress(address string, offset int, limit int) []Transfer
 
     // get all transfers in a block
-    getTransfersByBlockID(blockID string) []Transfer
+    getTransfersByBlockID(blockID string, offset int, limit int) []Transfer
 
     // get list of blocks by block id offset and limit
     getLastBlocksByRange(offset int, limit int) []Block

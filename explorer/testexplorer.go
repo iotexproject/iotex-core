@@ -87,12 +87,12 @@ func (exp *TestExplorer) GetTransferByID(tid string) (explorer.Transfer, error) 
 }
 
 // GetTransfersByAddress returns all transfers associate with an address
-func (exp *TestExplorer) GetTransfersByAddress(address string) ([]explorer.Transfer, error) {
+func (exp *TestExplorer) GetTransfersByAddress(address string, offset int64, limit int64) ([]explorer.Transfer, error) {
 	return exp.GetLastTransfersByRange(0, 0, 50, true)
 }
 
 // GetTransfersByBlockID returns transfers in a block
-func (exp *TestExplorer) GetTransfersByBlockID(blockID string) ([]explorer.Transfer, error) {
+func (exp *TestExplorer) GetTransfersByBlockID(blockID string, offset int64, limit int64) ([]explorer.Transfer, error) {
 	return exp.GetLastTransfersByRange(0, 0, 50, true)
 }
 
