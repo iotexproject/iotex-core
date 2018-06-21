@@ -147,7 +147,7 @@ func (m *MockBlockchain) GetTotalVotes() (uint64, error) {
 	return ret0, ret1
 }
 
-// GetTotalTransfers indicates an expected call of GetTotalTransfers
+// GetTotalVotes indicates an expected call of GetTotalVotes
 func (mr *MockBlockchainMockRecorder) GetTotalVotes() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTotalVotes", reflect.TypeOf((*MockBlockchain)(nil).GetTotalVotes))
 }
@@ -228,18 +228,6 @@ func (m *MockBlockchain) TipHeight() (uint64, error) {
 // TipHeight indicates an expected call of TipHeight
 func (mr *MockBlockchainMockRecorder) TipHeight() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TipHeight", reflect.TypeOf((*MockBlockchain)(nil).TipHeight))
-}
-
-// BalanceOf mocks base method
-func (m *MockBlockchain) BalanceOf(address string) *big.Int {
-	ret := m.ctrl.Call(m, "BalanceOf", address)
-	ret0, _ := ret[0].(*big.Int)
-	return ret0
-}
-
-// BalanceOf indicates an expected call of BalanceOf
-func (mr *MockBlockchainMockRecorder) BalanceOf(address interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BalanceOf", reflect.TypeOf((*MockBlockchain)(nil).BalanceOf), address)
 }
 
 // StateByAddr mocks base method

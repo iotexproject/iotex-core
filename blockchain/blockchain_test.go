@@ -431,7 +431,9 @@ func TestCoinbaseTransfer(t *testing.T) {
 	transfers := []*action.Transfer{}
 	blk, err := bc.MintNewBlock(transfers, nil, ta.Addrinfo["miner"], "")
 	require.Nil(err)
-	b := bc.BalanceOf(ta.Addrinfo["miner"].RawAddress)
+	s, err := bc.StateByAddr(ta.Addrinfo["miner"].RawAddress)
+	require.Nil(err)
+	b := s.Balance
 	require.True(b.String() == strconv.Itoa(int(Gen.TotalSupply)))
 	err = bc.CommitBlock(blk)
 	require.Nil(err)
@@ -439,7 +441,9 @@ func TestCoinbaseTransfer(t *testing.T) {
 	require.Nil(err)
 	require.True(height == 1)
 	require.True(len(blk.Transfers) == 1)
-	b = bc.BalanceOf(ta.Addrinfo["miner"].RawAddress)
+	s, err = bc.StateByAddr(ta.Addrinfo["miner"].RawAddress)
+	require.Nil(err)
+	b = s.Balance
 	require.True(b.String() == strconv.Itoa(int(Gen.TotalSupply)+int(Gen.BlockReward)))
 }
 

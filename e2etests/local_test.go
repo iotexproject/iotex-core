@@ -359,36 +359,50 @@ func TestLocalCommitTsf(t *testing.T) {
 	defer p1.Stop()
 
 	// check balance
-	change := bc.BalanceOf(ta.Addrinfo["alfa"].RawAddress)
+	s, err := bc.StateByAddr(ta.Addrinfo["alfa"].RawAddress)
+	require.Nil(err)
+	change := s.Balance
 	t.Logf("Alfa balance = %d", change)
 	require.True(change.String() == "23")
 
-	beta := bc.BalanceOf(ta.Addrinfo["bravo"].RawAddress)
+	s, err = bc.StateByAddr(ta.Addrinfo["bravo"].RawAddress)
+	require.Nil(err)
+	beta := s.Balance
 	t.Logf("Bravo balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "34")
 
-	beta = bc.BalanceOf(ta.Addrinfo["charlie"].RawAddress)
+	s, err = bc.StateByAddr(ta.Addrinfo["charlie"].RawAddress)
+	require.Nil(err)
+	beta = s.Balance
 	t.Logf("Charlie balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "47")
 
-	beta = bc.BalanceOf(ta.Addrinfo["delta"].RawAddress)
+	s, err = bc.StateByAddr(ta.Addrinfo["delta"].RawAddress)
+	require.Nil(err)
+	beta = s.Balance
 	t.Logf("Delta balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "69")
 
-	beta = bc.BalanceOf(ta.Addrinfo["echo"].RawAddress)
+	s, err = bc.StateByAddr(ta.Addrinfo["echo"].RawAddress)
+	require.Nil(err)
+	beta = s.Balance
 	t.Logf("Echo balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "100")
 
-	fox := bc.BalanceOf(ta.Addrinfo["foxtrot"].RawAddress)
+	s, err = bc.StateByAddr(ta.Addrinfo["foxtrot"].RawAddress)
+	require.Nil(err)
+	fox := s.Balance
 	t.Logf("Foxtrot balance = %d", fox)
 	change.Add(change, fox)
 	require.True(fox.String() == "52428803")
 
-	test := bc.BalanceOf(ta.Addrinfo["miner"].RawAddress)
+	s, err = bc.StateByAddr(ta.Addrinfo["miner"].RawAddress)
+	require.Nil(err)
+	test := s.Balance
 	t.Logf("test balance = %d", test)
 	change.Add(change, test)
 
