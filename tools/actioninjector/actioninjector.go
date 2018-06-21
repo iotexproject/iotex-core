@@ -43,9 +43,9 @@ const (
 
 func main() {
 	// target address:port for grpc connection. Default is "127.0.0.1:42124"
-	var grpcAddrPort string
+	var grpcAddr string
 	// target address:port for jrpc connection. Default is "127.0.0.1:14004"
-	var jrpcAddrPort string
+	var jrpcAddr string
 	// number of transfer injections. Default is 50
 	var transferNum int
 	// number of vote injections. Default is 50
@@ -54,14 +54,17 @@ func main() {
 	var interval int
 	// aps indicates how many actions to be injected in one second
 	var aps int
-	flag.StringVar(&grpcAddrPort, "grpc-addr-port", "127.0.0.1:42124", "target address:port for grpc connection")
-	flag.StringVar(&jrpcAddrPort, "jrpc-addr-port", "127.0.0.1:14004", "target address:port for jrpc connection")
+	// duration indicates how long the injection will run in seconds
+	var duration int
+	flag.StringVar(&grpcAddr, "grpc-addr", "178.128.190.131:15000", "target address:port for grpc connection")
+	flag.StringVar(&jrpcAddr, "jrpc-addr", "178.128.190.131:14000", "target address:port for jrpc connection")
 	flag.IntVar(&transferNum, "transfer-num", 50, "number of transfer injections")
 	flag.IntVar(&voteNum, "vote-num", 50, "number of vote injections")
 	flag.IntVar(&interval, "interval", 5, "sleep interval of two consecutively injected actions in seconds")
 	flag.IntVar(&aps, "aps", 0, "actions to be injected per second")
+	flag.IntVar(&duration, "duration", 60, "duration when the injection will run in seconds")
 	flag.Parse()
-	conn, err := grpc.Dial(grpcAddrPort, grpc.WithInsecure())
+	conn, err := grpc.Dial(grpcAddr, grpc.WithInsecure())
 	if err != nil {
 		panic(err)
 	}
@@ -70,7 +73,7 @@ func main() {
 	client := pb.NewChainServiceClient(conn)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*time.Duration(interval*(transferNum+voteNum)))
 
-	proxy := explorer.NewExplorerProxy("http://" + jrpcAddrPort)
+	proxy := explorer.NewExplorerProxy("http://" + jrpcAddr)
 	sender := constructAddress(pubkeyMiner, prikeyMiner)
 	recipientA := constructAddress(pubkeyA, prikeyA)
 	recipientB := constructAddress(pubkeyB, prikeyB)
@@ -86,10 +89,11 @@ func main() {
 
 	// APS Mode
 	if aps > 0 {
-		ctx, cancel = context.WithTimeout(context.Background(), time.Minute)
+		d := time.Duration(duration) * time.Second
+		ctx, cancel = context.WithTimeout(context.Background(), d)
 		defer cancel()
 		wg := &sync.WaitGroup{}
-		injectByAps(ctx, wg, i, aps, client, sender, recipients)
+		injectByAps(ctx, wg, i, aps, client, sender, recipients, d)
 		wg.Wait()
 	} else {
 		if interval == 0 {
@@ -101,8 +105,17 @@ func main() {
 }
 
 // Inject Actions in APS Mode
-func injectByAps(ctx context.Context, wg *sync.WaitGroup, i int64, aps int, client pb.ChainServiceClient, sender *iotxaddress.Address, recipients []*iotxaddress.Address) {
-	timeout := time.After(time.Minute)
+func injectByAps(
+	ctx context.Context,
+	wg *sync.WaitGroup,
+	i int64,
+	aps int,
+	client pb.ChainServiceClient,
+	sender *iotxaddress.Address,
+	recipients []*iotxaddress.Address,
+	duration time.Duration,
+) {
+	timeout := time.After(duration)
 	tick := time.Tick(time.Duration(1/float64(aps)*1000) * time.Millisecond)
 loop:
 	for ; ; i++ {
