@@ -6,11 +6,12 @@
 .AppleDouble
 .LSOverride
 
+# profiling output
+*prof*
 
 # Binaries for programs and plugins
 *.exe
 *.dll
-*.so
 *.dylib
 *.pyc
 

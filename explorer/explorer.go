@@ -25,6 +25,12 @@ type Service struct {
 	tpsWindow int
 }
 
+// GetBlockchainHeight returns the current blockchain tip height
+func (exp *Service) GetBlockchainHeight() (int64, error) {
+	tip, err := exp.bc.TipHeight()
+	return int64(tip), err
+}
+
 // GetAddressBalance returns the balance of an address
 func (exp *Service) GetAddressBalance(address string) (int64, error) {
 	state, err := exp.bc.StateByAddr(address)

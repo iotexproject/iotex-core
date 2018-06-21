@@ -10,12 +10,14 @@
 GOCMD=go
 GOLINT=golint
 GOBUILD=$(GOCMD) build
+GOINSTALL=$(GOCMD) install
 GOCLEAN=$(GOCMD) clean
 GOTEST=$(GOCMD) test
 GOGET=$(GOCMD) get
 BUILD_TARGET_SERVER=server
 BUILD_TARGET_ACTINJ=actioninjector
 BUILD_TARGET_ADDRGEN=addrgen
+BUILD_TARGET_IOTC=iotc
 SKIP_GLIDE=false
 
 # Pkgs
@@ -47,6 +49,7 @@ build:
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_ACTINJ) -v ./tools/actioninjector
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_ADDRGEN) -v ./tools/addrgen
+	$(GOBUILD) -o ./bin/$(BUILD_TARGET_IOTC) -v ./cli/iotc
 
 .PHONY: fmt
 fmt:
@@ -111,6 +114,8 @@ clean:
 	@echo "Cleaning..."
 	$(ECHO_V)rm -f ./bin/$(BUILD_TARGET_SERVER)
 	$(ECHO_V)rm -f ./bin/$(BUILD_TARGET_ACTINJ)
+	$(ECHO_V)rm -f ./bin/$(BUILD_TARGET_ADDRGEN)
+	$(ECHO_V)rm -f ./bin/$(BUILD_TARGET_IOTC)	
 	$(ECHO_V)rm -f chain.db
 	$(ECHO_V)rm -f trie.db
 	$(ECHO_V)rm -f $(COV_REPORT) $(COV_HTML) $(LINT_LOG)
@@ -119,7 +124,7 @@ clean:
 	$(ECHO_V)$(GOCLEAN) -i $(PKGS)
 
 .PHONY: run
-run:
+run: clean
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
 	export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$(PWD)/crypto/lib
 	./bin/$(BUILD_TARGET_SERVER) -config=e2etests/config_local_delegate.yaml -log-level=debug

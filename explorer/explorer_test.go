@@ -176,6 +176,10 @@ func TestExplorerApi(t *testing.T) {
 	require.Equal(addressDetails.TotalBalance, int64(6))
 	require.Equal(addressDetails.Nonce, int64(0))
 	require.Equal(addressDetails.Address, ta.Addrinfo["charlie"].RawAddress)
+
+	tip, err := svc.GetBlockchainHeight()
+	require.Nil(err)
+	require.Equal(int(tip), 4)
 }
 
 func TestService_StateByAddr(t *testing.T) {
