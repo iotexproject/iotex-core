@@ -20,6 +20,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/common/routine"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/dispatch"
 	"github.com/iotexproject/iotex-core/explorer"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/rpcservice"
@@ -95,7 +96,11 @@ func main() {
 		if isTest {
 			logger.Warn().Msg("Using test server with fake data...")
 		}
-		explorer.StartJSONServer(svr.Bc(), isTest, httpPort, cfg.Explorer.TpsWindow)
+		d, ok := svr.Dp().(*dispatch.IotxDispatcher)
+		if !ok {
+			logger.Fatal().Msg("unexpected dispatcher module")
+		}
+		explorer.StartJSONServer(svr.Bc(), d.Consensus(), isTest, httpPort, cfg.Explorer.TpsWindow)
 	}
 
 	select {}

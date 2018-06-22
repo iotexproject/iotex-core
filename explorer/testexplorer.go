@@ -14,76 +14,25 @@ import (
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 )
 
-func randAmount() int64 {
-	rand.Seed(time.Now().UnixNano())
-	amount := int64(0)
-	for amount == int64(0) {
-		amount = int64(rand.Intn(100000000))
-	}
-	return amount
-}
-
-func randAmountString() string {
-	return strconv.FormatInt(randAmount(), 10)
-}
-
-func randTransaction() explorer.Transfer {
-	return explorer.Transfer{
-		ID:        randAmountString(),
-		Sender:    randAmountString(),
-		Recipient: randAmountString(),
-		Amount:    randAmount(),
-		Fee:       12,
-		Timestamp: randAmount(),
-		BlockID:   randAmountString(),
-	}
-}
-
-func randVote() explorer.Vote {
-	return explorer.Vote{
-		ID:        randAmountString(),
-		Timestamp: randAmount(),
-		BlockID:   randAmountString(),
-		Nounce:    randAmount(),
-		Voter:     randAmountString(),
-		Votee:     randAmountString(),
-	}
-}
-
-func randBlock() explorer.Block {
-	return explorer.Block{
-		ID:        randAmountString(),
-		Height:    randAmount(),
-		Timestamp: randAmount(),
-		Transfers: randAmount(),
-		GenerateBy: explorer.BlockGenerator{
-			Name:    randAmountString(),
-			Address: randAmountString(),
-		},
-		Amount: randAmount(),
-		Forged: randAmount(),
-	}
-}
-
 // TestExplorer return an explorer for test purpose
 type TestExplorer struct {
 }
 
 // GetBlockchainHeight returns the blockchain height
 func (exp *TestExplorer) GetBlockchainHeight() (int64, error) {
-	return randAmount(), nil
+	return randInt64(), nil
 }
 
 // GetAddressBalance returns the balance of an address
 func (exp *TestExplorer) GetAddressBalance(address string) (int64, error) {
-	return randAmount(), nil
+	return randInt64(), nil
 }
 
 // GetAddressDetails returns the properties of an address
 func (exp *TestExplorer) GetAddressDetails(address string) (explorer.AddressDetails, error) {
 	return explorer.AddressDetails{
 		Address:      address,
-		TotalBalance: randAmount(),
+		TotalBalance: randInt64(),
 	}, nil
 }
 
@@ -154,7 +103,73 @@ func (exp *TestExplorer) GetBlockByID(blkID string) (explorer.Block, error) {
 // GetCoinStatistic returns stats in blockchain
 func (exp *TestExplorer) GetCoinStatistic() (explorer.CoinStatistic, error) {
 	return explorer.CoinStatistic{
-		Height: randAmount(),
-		Supply: randAmount(),
+		Height: randInt64(),
+		Supply: randInt64(),
 	}, nil
+}
+
+// GetConsensusMetrics returns the fake consensus metrics
+func (exp *TestExplorer) GetConsensusMetrics() (explorer.ConsensusMetrics, error) {
+	delegates := []string{
+		randString(),
+		randString(),
+		randString(),
+		randString(),
+	}
+	return explorer.ConsensusMetrics{
+		LatestEpoch:         randInt64(),
+		LatestDelegates:     delegates,
+		LatestBlockProducer: delegates[0],
+	}, nil
+}
+
+func randInt64() int64 {
+	rand.Seed(time.Now().UnixNano())
+	amount := int64(0)
+	for amount == int64(0) {
+		amount = int64(rand.Intn(100000000))
+	}
+	return amount
+}
+
+func randString() string {
+	return strconv.FormatInt(randInt64(), 10)
+}
+
+func randTransaction() explorer.Transfer {
+	return explorer.Transfer{
+		ID:        randString(),
+		Sender:    randString(),
+		Recipient: randString(),
+		Amount:    randInt64(),
+		Fee:       12,
+		Timestamp: randInt64(),
+		BlockID:   randString(),
+	}
+}
+
+func randVote() explorer.Vote {
+	return explorer.Vote{
+		ID:        randString(),
+		Timestamp: randInt64(),
+		BlockID:   randString(),
+		Nounce:    randInt64(),
+		Voter:     randString(),
+		Votee:     randString(),
+	}
+}
+
+func randBlock() explorer.Block {
+	return explorer.Block{
+		ID:        randString(),
+		Height:    randInt64(),
+		Timestamp: randInt64(),
+		Transfers: randInt64(),
+		GenerateBy: explorer.BlockGenerator{
+			Name:    randString(),
+			Address: randString(),
+		},
+		Amount: randInt64(),
+		Forged: randInt64(),
+	}
 }

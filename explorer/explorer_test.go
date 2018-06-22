@@ -9,6 +9,7 @@ package explorer
 import (
 	"fmt"
 	"math/big"
+	"net"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -16,9 +17,12 @@ import (
 
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/action"
+	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
+	"github.com/iotexproject/iotex-core/test/mock/mock_consensus"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/test/util"
 	"github.com/iotexproject/iotex-core/trie"
@@ -249,4 +253,35 @@ func TestService_StateByAddr(t *testing.T) {
 	require.Equal(false, state.IsCandidate)
 	require.Equal(big.NewInt(100), state.VotingWeight)
 	require.Equal("456", state.Votee)
+}
+
+func TestService_GetConsensusMetrics(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	delegates := []net.Addr{
+		common.NewTCPNode("127.0.0.1:40000"),
+		common.NewTCPNode("127.0.0.1:40001"),
+		common.NewTCPNode("127.0.0.1:40002"),
+		common.NewTCPNode("127.0.0.1:40003"),
+	}
+	c := mock_consensus.NewMockConsensus(ctrl)
+	c.EXPECT().Metrics().Return(scheme.ConsensusMetrics{
+		LatestEpoch:         1,
+		LatestDelegates:     delegates,
+		LatestBlockProducer: delegates[3],
+	}, nil)
+
+	svc := Service{c: c}
+
+	m, err := svc.GetConsensusMetrics()
+	require.Nil(t, err)
+	require.NotNil(t, m)
+	require.Equal(t, int64(1), m.LatestEpoch)
+	require.Equal(
+		t,
+		[]string{"127.0.0.1:40000", "127.0.0.1:40001", "127.0.0.1:40002", "127.0.0.1:40003"},
+		m.LatestDelegates,
+	)
+	require.Equal(t, "127.0.0.1:40003", m.LatestBlockProducer)
 }

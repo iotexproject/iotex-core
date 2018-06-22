@@ -12,6 +12,7 @@ import (
 	"github.com/coopernurse/barrister-go"
 
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/logger"
 )
@@ -32,9 +33,16 @@ func (f LogFilter) PostInvoke(r *barrister.RequestResponse) bool {
 }
 
 // StartJSONServer start the json server for explorer
-func StartJSONServer(blockchain blockchain.Blockchain, isTest bool, port string, tpsWindow int) {
+func StartJSONServer(
+	blockchain blockchain.Blockchain,
+	consensus consensus.Consensus,
+	isTest bool,
+	port string,
+	tpsWindow int,
+) {
 	svc := Service{
 		bc:        blockchain,
+		c:         consensus,
 		tpsWindow: tpsWindow,
 	}
 	idl := barrister.MustParseIdlJson([]byte(explorer.IdlJsonRaw))

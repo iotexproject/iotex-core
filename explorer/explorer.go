@@ -13,6 +13,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/common"
+	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 )
@@ -23,6 +24,7 @@ var ErrInternalServer = errors.New("internal server error")
 // Service provide api for user to query blockchain data
 type Service struct {
 	bc        blockchain.Blockchain
+	c         consensus.Consensus
 	tpsWindow int
 }
 
@@ -484,7 +486,7 @@ func (exp *Service) GetCoinStatistic() (explorer.CoinStatistic, error) {
 	}
 	actionNumber := int64(0)
 	for _, blk := range blks {
-		actionNumber += (blk.Transfers + blk.Votes)
+		actionNumber += blk.Transfers + blk.Votes
 	}
 	aps := actionNumber / timeDuration
 
@@ -496,6 +498,27 @@ func (exp *Service) GetCoinStatistic() (explorer.CoinStatistic, error) {
 		Aps:       aps,
 	}
 	return explorerCoinStats, nil
+}
+
+// GetConsensusMetrics returns the latest consensus metrics
+func (exp *Service) GetConsensusMetrics() (explorer.ConsensusMetrics, error) {
+	cm, err := exp.c.Metrics()
+	if err != nil {
+		return explorer.ConsensusMetrics{}, err
+	}
+	dStrs := make([]string, len(cm.LatestDelegates))
+	for i, d := range cm.LatestDelegates {
+		dStrs[i] = d.String()
+	}
+	var bpStr string
+	if cm.LatestBlockProducer != nil {
+		bpStr = cm.LatestBlockProducer.String()
+	}
+	return explorer.ConsensusMetrics{
+		LatestEpoch:         int64(cm.LatestEpoch),
+		LatestDelegates:     dStrs,
+		LatestBlockProducer: bpStr,
+	}, nil
 }
 
 // getTransfer takes in a blockchain and transferHash and returns a Explorer Transfer
