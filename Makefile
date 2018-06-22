@@ -115,7 +115,8 @@ clean:
 	$(ECHO_V)rm -f ./bin/$(BUILD_TARGET_SERVER)
 	$(ECHO_V)rm -f ./bin/$(BUILD_TARGET_ACTINJ)
 	$(ECHO_V)rm -f ./bin/$(BUILD_TARGET_ADDRGEN)
-	$(ECHO_V)rm -f ./bin/$(BUILD_TARGET_IOTC)	
+	$(ECHO_V)rm -f ./bin/$(BUILD_TARGET_IOTC)
+	$(ECHO_V)rm -f ./e2etest/chain*.db
 	$(ECHO_V)rm -f chain.db
 	$(ECHO_V)rm -f trie.db
 	$(ECHO_V)rm -f $(COV_REPORT) $(COV_HTML) $(LINT_LOG)
@@ -124,10 +125,13 @@ clean:
 	$(ECHO_V)$(GOCLEAN) -i $(PKGS)
 
 .PHONY: run
-run: clean
+run:
+	$(ECHO_V)rm -f chain.db
+	$(ECHO_V)rm -f trie.db
+	$(ECHO_V)rm -f ./e2etest/chain*.db
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
 	export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$(PWD)/crypto/lib
-	./bin/$(BUILD_TARGET_SERVER) -config=e2etests/config_local_delegate.yaml -log-level=debug
+	./bin/$(BUILD_TARGET_SERVER) -config=e2etest/config_local_delegate.yaml -log-level=debug
 
 .PHONY: docker
 docker:
