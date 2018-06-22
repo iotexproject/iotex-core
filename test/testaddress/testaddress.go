@@ -7,9 +7,8 @@
 package testaddress
 
 import (
-	"encoding/hex"
-
 	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/test/util"
 )
 
 const (
@@ -34,32 +33,15 @@ const (
 // Addrinfo contains the address information
 var Addrinfo map[string]*iotxaddress.Address
 
-func constructAddress(pubkey, prikey string) *iotxaddress.Address {
-	pubk, err := hex.DecodeString(pubkey)
-	if err != nil {
-		panic(err)
-	}
-	prik, err := hex.DecodeString(prikey)
-	if err != nil {
-		panic(err)
-	}
-	addr, err := iotxaddress.GetAddress(pubk, iotxaddress.IsTestnet, iotxaddress.ChainID)
-	if err != nil {
-		panic(err)
-	}
-	addr.PrivateKey = prik
-	return addr
-}
-
 func init() {
 	Addrinfo = make(map[string]*iotxaddress.Address)
 
-	Addrinfo["miner"] = constructAddress(pubkeyMiner, prikeyMiner)
-	Addrinfo["alfa"] = constructAddress(pubkeyA, prikeyA)
-	Addrinfo["bravo"] = constructAddress(pubkeyB, prikeyB)
-	Addrinfo["charlie"] = constructAddress(pubkeyC, prikeyC)
-	Addrinfo["delta"] = constructAddress(pubkeyD, prikeyD)
-	Addrinfo["echo"] = constructAddress(pubkeyE, prikeyE)
-	Addrinfo["foxtrot"] = constructAddress(pubkeyF, prikeyF)
-	Addrinfo["galilei"] = constructAddress(pubkeyG, prikeyG)
+	Addrinfo["miner"] = util.ConstructAddress(pubkeyMiner, prikeyMiner)
+	Addrinfo["alfa"] = util.ConstructAddress(pubkeyA, prikeyA)
+	Addrinfo["bravo"] = util.ConstructAddress(pubkeyB, prikeyB)
+	Addrinfo["charlie"] = util.ConstructAddress(pubkeyC, prikeyC)
+	Addrinfo["delta"] = util.ConstructAddress(pubkeyD, prikeyD)
+	Addrinfo["echo"] = util.ConstructAddress(pubkeyE, prikeyE)
+	Addrinfo["foxtrot"] = util.ConstructAddress(pubkeyF, prikeyF)
+	Addrinfo["galilei"] = util.ConstructAddress(pubkeyG, prikeyG)
 }

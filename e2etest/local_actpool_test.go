@@ -4,24 +4,23 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package e2etests
+package e2etest
 
 import (
-	"encoding/hex"
 	"math/big"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core-internal/blockchain"
-	"github.com/iotexproject/iotex-core-internal/blockchain/action"
-	"github.com/iotexproject/iotex-core-internal/config"
-	"github.com/iotexproject/iotex-core-internal/iotxaddress"
-	"github.com/iotexproject/iotex-core-internal/network"
-	pb "github.com/iotexproject/iotex-core-internal/proto"
-	"github.com/iotexproject/iotex-core-internal/server/itx"
-	"github.com/iotexproject/iotex-core-internal/test/util"
+	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/action"
+	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/network"
+	pb "github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/server/itx"
+	"github.com/iotexproject/iotex-core/test/util"
 )
 
 const (
@@ -79,8 +78,8 @@ func TestLocalActPool(t *testing.T) {
 	p1.Start()
 	defer p1.Stop()
 
-	from := constructAddress(fromPubKey, fromPrivKey)
-	to := constructAddress(toPubKey, toPrivKey)
+	from := util.ConstructAddress(fromPubKey, fromPrivKey)
+	to := util.ConstructAddress(toPubKey, toPrivKey)
 
 	// Create three valid actions from "from" to "to"
 	tsf1, _ := signedTransfer(from, to, uint64(1), big.NewInt(1))
@@ -184,8 +183,8 @@ func TestPressureActPool(t *testing.T) {
 	p1.Start()
 	defer p1.Stop()
 
-	from := constructAddress(fromPubKey, fromPrivKey)
-	to := constructAddress(toPubKey, toPrivKey)
+	from := util.ConstructAddress(fromPubKey, fromPrivKey)
+	to := util.ConstructAddress(toPubKey, toPrivKey)
 
 	// Create 1000 valid transfers and broadcast
 	tsf1, _ := signedTransfer(from, to, uint64(1), big.NewInt(1))
@@ -225,24 +224,6 @@ func TestPressureActPool(t *testing.T) {
 	// Take coinbase transfer into account, there should be 257 transfers in the block
 	// because every account can hold up to 256 actions in actpool
 	require.Equal(257, len(blk.Transfers))
-}
-
-// Helper function to return iotex addresses
-func constructAddress(pubkey, prikey string) *iotxaddress.Address {
-	pubk, err := hex.DecodeString(pubkey)
-	if err != nil {
-		panic(err)
-	}
-	prik, err := hex.DecodeString(prikey)
-	if err != nil {
-		panic(err)
-	}
-	addr, err := iotxaddress.GetAddress(pubk, iotxaddress.IsTestnet, iotxaddress.ChainID)
-	if err != nil {
-		panic(err)
-	}
-	addr.PrivateKey = prik
-	return addr
 }
 
 // Helper function to return a signed transfer

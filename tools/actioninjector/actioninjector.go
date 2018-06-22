@@ -10,7 +10,6 @@
 package main
 
 import (
-	"encoding/hex"
 	"flag"
 	"fmt"
 	"math/big"
@@ -26,6 +25,7 @@ import (
 	"github.com/iotexproject/iotex-core/explorer"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	pb "github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/test/util"
 )
 
 const (
@@ -74,10 +74,10 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*time.Duration(interval*(transferNum+voteNum)))
 
 	proxy := explorer.NewExplorerProxy("http://" + jrpcAddr)
-	sender := constructAddress(pubkeyMiner, prikeyMiner)
-	recipientA := constructAddress(pubkeyA, prikeyA)
-	recipientB := constructAddress(pubkeyB, prikeyB)
-	recipientC := constructAddress(pubkeyC, prikeyC)
+	sender := util.ConstructAddress(pubkeyMiner, prikeyMiner)
+	recipientA := util.ConstructAddress(pubkeyA, prikeyA)
+	recipientB := util.ConstructAddress(pubkeyB, prikeyB)
+	recipientC := util.ConstructAddress(pubkeyC, prikeyC)
 	recipients := []*iotxaddress.Address{recipientA, recipientB, recipientC}
 	rand.Seed(time.Now().UnixNano())
 
@@ -253,21 +253,4 @@ func injectVote(ctx context.Context, wg *sync.WaitGroup, c pb.ChainServiceClient
 	if wg != nil {
 		wg.Done()
 	}
-}
-
-func constructAddress(pubkey, prikey string) *iotxaddress.Address {
-	pubk, err := hex.DecodeString(pubkey)
-	if err != nil {
-		panic(err)
-	}
-	prik, err := hex.DecodeString(prikey)
-	if err != nil {
-		panic(err)
-	}
-	addr, err := iotxaddress.GetAddress(pubk, iotxaddress.IsTestnet, iotxaddress.ChainID)
-	if err != nil {
-		panic(err)
-	}
-	addr.PrivateKey = prik
-	return addr
 }

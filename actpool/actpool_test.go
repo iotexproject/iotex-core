@@ -7,7 +7,6 @@
 package actpool
 
 import (
-	"encoding/hex"
 	"fmt"
 	"math/big"
 	"testing"
@@ -23,6 +22,7 @@ import (
 	pb "github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/mock/mock_state"
+	"github.com/iotexproject/iotex-core/test/util"
 	"github.com/iotexproject/iotex-core/trie"
 )
 
@@ -40,11 +40,11 @@ const (
 )
 
 var (
-	addr1 = constructAddress(pubkeyA, prikeyA)
-	addr2 = constructAddress(pubkeyB, prikeyB)
-	addr3 = constructAddress(pubkeyC, prikeyC)
-	addr4 = constructAddress(pubkeyD, prikeyD)
-	addr5 = constructAddress(pubkeyE, prikeyE)
+	addr1 = util.ConstructAddress(pubkeyA, prikeyA)
+	addr2 = util.ConstructAddress(pubkeyB, prikeyB)
+	addr3 = util.ConstructAddress(pubkeyC, prikeyC)
+	addr4 = util.ConstructAddress(pubkeyD, prikeyD)
+	addr5 = util.ConstructAddress(pubkeyE, prikeyE)
 )
 
 func TestActPool_validateTsf(t *testing.T) {
@@ -636,24 +636,6 @@ func (ap *actPool) getPendingBalance(addr string) (*big.Int, error) {
 		return queue.PendingBalance(), nil
 	}
 	return ap.sf.Balance(addr)
-}
-
-// Helper function to return iotex addresses
-func constructAddress(pubkey, prikey string) *iotxaddress.Address {
-	pubk, err := hex.DecodeString(pubkey)
-	if err != nil {
-		panic(err)
-	}
-	prik, err := hex.DecodeString(prikey)
-	if err != nil {
-		panic(err)
-	}
-	addr, err := iotxaddress.GetAddress(pubk, iotxaddress.IsTestnet, iotxaddress.ChainID)
-	if err != nil {
-		panic(err)
-	}
-	addr.PrivateKey = prik
-	return addr
 }
 
 // Helper function to return a signed transfer
