@@ -17,6 +17,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/common"
 	cp "github.com/iotexproject/iotex-core/crypto"
+	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/proto"
 )
@@ -228,4 +229,15 @@ func (b *Block) HashBlock() common.Hash32B {
 	hash := blake2b.Sum256(b.ByteStreamHeader())
 	hash = blake2b.Sum256(hash[:])
 	return hash
+}
+
+// SignBlock allows signer to sign the block b
+func (b *Block) SignBlock(signer *iotxaddress.Address) error {
+	if signer.PrivateKey == nil {
+		return errors.New("The private key is nil")
+	}
+	b.Header.Pubkey = signer.PublicKey
+	blkHash := b.HashBlock()
+	b.Header.blockSig = cp.Sign(signer.PrivateKey, blkHash[:])
+	return nil
 }
