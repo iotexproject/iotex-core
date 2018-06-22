@@ -211,11 +211,11 @@ func (d *IotxDispatcher) handleBlockMsg(m *blockMsg) {
 
 	if m.blkType == pb.MsgBlockProtoMsgType {
 		if err := d.bs.ProcessBlock(blk); err != nil {
-			logger.Error().Err(err)
+			logger.Error().Err(err).Msg("Fail to process the block")
 		}
 	} else if m.blkType == pb.MsgBlockSyncDataType {
 		if err := d.bs.ProcessBlockSync(blk); err != nil {
-			logger.Error().Err(err)
+			logger.Error().Err(err).Msg("Fail to sync the block")
 		}
 	}
 	// signal to let caller know we are done
