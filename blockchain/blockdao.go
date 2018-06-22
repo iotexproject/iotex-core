@@ -91,6 +91,9 @@ func (dao *blockDAO) getBlockHash(height uint64) (common.Hash32B, error) {
 	if err != nil {
 		return hash, errors.Wrap(err, "failed to get block hash")
 	}
+	if len(hash) != len(value) {
+		return hash, errors.Wrap(err, "blockhash is broken")
+	}
 	copy(hash[:], value)
 	return hash, nil
 }
