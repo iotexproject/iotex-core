@@ -16,11 +16,12 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/common/utils"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 )
 
-const testnetActionPath = "testnetActions.yaml"
+const testnetActionPath = "testnet_actions.yaml"
 
 // Genesis defines the Genesis default settings
 type Genesis struct {
@@ -73,8 +74,13 @@ var Gen = &Genesis{
 }
 
 // NewGenesisBlock creates a new genesis block
-func NewGenesisBlock() *Block {
-	filePath := utils.GetFileAbsPath(testnetActionPath)
+func NewGenesisBlock(cfg *config.Config) *Block {
+	var filePath string
+	if cfg != nil && cfg.Chain.GenesisActionsPath != "" {
+		filePath = cfg.Chain.GenesisActionsPath
+	} else {
+		filePath = utils.GetFileAbsPath(testnetActionPath)
+	}
 
 	actionsBytes, err := ioutil.ReadFile(filePath)
 	if err != nil {
