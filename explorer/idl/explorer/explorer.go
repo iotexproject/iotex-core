@@ -3,8 +3,8 @@ package explorer
 
 import (
 	"fmt"
-	"reflect"
 	"github.com/coopernurse/barrister-go"
+	"reflect"
 )
 
 const BarristerVersion string = "0.1.6"
@@ -12,62 +12,61 @@ const BarristerChecksum string = "825d00b6df957edba7b31dbf47f9800f"
 const BarristerDateGenerated int64 = 1529691378447000000
 
 type CoinStatistic struct {
-	Height	int64	`json:"height"`
-	Supply	int64	`json:"supply"`
-	Transfers	int64	`json:"transfers"`
-	Votes	int64	`json:"votes"`
-	Aps	int64	`json:"aps"`
+	Height    int64 `json:"height"`
+	Supply    int64 `json:"supply"`
+	Transfers int64 `json:"transfers"`
+	Votes     int64 `json:"votes"`
+	Aps       int64 `json:"aps"`
 }
 
 type BlockGenerator struct {
-	Name	string	`json:"name"`
-	Address	string	`json:"address"`
+	Name    string `json:"name"`
+	Address string `json:"address"`
 }
 
 type Block struct {
-	ID	string	`json:"ID"`
-	Height	int64	`json:"height"`
-	Timestamp	int64	`json:"timestamp"`
-	Transfers	int64	`json:"transfers"`
-	Votes	int64	`json:"votes"`
-	GenerateBy	BlockGenerator	`json:"generateBy"`
-	Amount	int64	`json:"amount"`
-	Forged	int64	`json:"forged"`
-	Size	int64	`json:"size"`
+	ID         string         `json:"ID"`
+	Height     int64          `json:"height"`
+	Timestamp  int64          `json:"timestamp"`
+	Transfers  int64          `json:"transfers"`
+	Votes      int64          `json:"votes"`
+	GenerateBy BlockGenerator `json:"generateBy"`
+	Amount     int64          `json:"amount"`
+	Forged     int64          `json:"forged"`
+	Size       int64          `json:"size"`
 }
 
 type Transfer struct {
-	ID	string	`json:"ID"`
-	Nounce	int64	`json:"nounce"`
-	Sender	string	`json:"sender"`
-	Recipient	string	`json:"recipient"`
-	Amount	int64	`json:"amount"`
-	Fee	int64	`json:"fee"`
-	Timestamp	int64	`json:"timestamp"`
-	BlockID	string	`json:"blockID"`
+	ID        string `json:"ID"`
+	Nounce    int64  `json:"nounce"`
+	Sender    string `json:"sender"`
+	Recipient string `json:"recipient"`
+	Amount    int64  `json:"amount"`
+	Fee       int64  `json:"fee"`
+	Timestamp int64  `json:"timestamp"`
+	BlockID   string `json:"blockID"`
 }
 
 type Vote struct {
-	ID	string	`json:"ID"`
-	Nounce	int64	`json:"nounce"`
-	Timestamp	int64	`json:"timestamp"`
-	Voter	string	`json:"voter"`
-	Votee	string	`json:"votee"`
-	BlockID	string	`json:"blockID"`
+	ID        string `json:"ID"`
+	Nounce    int64  `json:"nounce"`
+	Timestamp int64  `json:"timestamp"`
+	Voter     string `json:"voter"`
+	Votee     string `json:"votee"`
+	BlockID   string `json:"blockID"`
 }
 
 type AddressDetails struct {
-	Address	string	`json:"address"`
-	TotalBalance	int64	`json:"totalBalance"`
-	Nonce	int64	`json:"nonce"`
+	Address      string `json:"address"`
+	TotalBalance int64  `json:"totalBalance"`
+	Nonce        int64  `json:"nonce"`
 }
 
 type ConsensusMetrics struct {
-	LatestEpoch	int64	`json:"latestEpoch"`
-	LatestDelegates	[]string	`json:"latestDelegates"`
-	LatestBlockProducer	string	`json:"latestBlockProducer"`
+	LatestEpoch         int64    `json:"latestEpoch"`
+	LatestDelegates     []string `json:"latestDelegates"`
+	LatestBlockProducer string   `json:"latestBlockProducer"`
 }
-
 
 type Explorer interface {
 	GetBlockchainHeight() (int64, error)
@@ -87,7 +86,9 @@ type Explorer interface {
 	GetConsensusMetrics() (ConsensusMetrics, error)
 }
 
-func NewExplorerProxy(c barrister.Client) Explorer { return ExplorerProxy{c, barrister.MustParseIdlJson([]byte(IdlJsonRaw))} }
+func NewExplorerProxy(c barrister.Client) Explorer {
+	return ExplorerProxy{c, barrister.MustParseIdlJson([]byte(IdlJsonRaw))}
+}
 
 type ExplorerProxy struct {
 	client barrister.Client
