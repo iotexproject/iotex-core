@@ -185,3 +185,18 @@ func TestWrongRootHash(t *testing.T) {
 	blk.Transfers[0], blk.Transfers[1] = blk.Transfers[1], blk.Transfers[0]
 	require.NotNil(val.Validate(blk, 0, hash))
 }
+
+func TestSignBlock(t *testing.T) {
+	require := require.New(t)
+	val := validator{nil}
+	tsf1 := action.NewTransfer(1, big.NewInt(20), ta.Addrinfo["miner"].RawAddress, ta.Addrinfo["alfa"].RawAddress)
+	tsf1, err := tsf1.Sign(ta.Addrinfo["miner"])
+	require.Nil(err)
+	tsf2 := action.NewTransfer(1, big.NewInt(30), ta.Addrinfo["miner"].RawAddress, ta.Addrinfo["bravo"].RawAddress)
+	tsf2, err = tsf2.Sign(ta.Addrinfo["miner"])
+	require.Nil(err)
+	hash := tsf1.Hash()
+	blk := NewBlock(1, 3, hash, []*action.Transfer{tsf1, tsf2}, nil)
+	blk.SignBlock(ta.Addrinfo["miner"])
+	require.Nil(val.Validate(blk, 2, hash))
+}

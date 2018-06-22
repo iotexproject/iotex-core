@@ -87,7 +87,6 @@ func NewGenesisBlock(cfg *config.Config) *Block {
 		logger.Fatal().Err(err).Msg("Fail to create genesis block")
 	}
 	actions := GenesisAction{}
-	err = yaml.Unmarshal(actionsBytes, &actions)
 	if err := yaml.Unmarshal(actionsBytes, &actions); err != nil {
 		logger.Fatal().Err(err).Msg("Fail to create genesis block")
 	}
