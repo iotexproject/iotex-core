@@ -155,7 +155,7 @@ func testByzantineFault(t *testing.T, proposerNode int) {
 	defer ctrl.Finish()
 
 	// arrange proposal request
-	genesis := blockchain.NewGenesisBlock()
+	genesis := blockchain.NewGenesisBlock(nil)
 	blkHash := genesis.HashBlock()
 
 	t.Log(genesis)
@@ -300,7 +300,7 @@ func TestRollDPoSFourTrustyNodes(t *testing.T) {
 	defer ctrl.Finish()
 
 	// arrange proposal request
-	genesis := blockchain.NewGenesisBlock()
+	genesis := blockchain.NewGenesisBlock(nil)
 
 	// arrange 4 consensus nodes
 	tcss := make(map[net.Addr]testCs)
@@ -413,7 +413,7 @@ func TestRollDPoSConsumePROPOSE(t *testing.T) {
 	time.Sleep(time.Second)
 
 	// arrange proposal request
-	genesis := blockchain.NewGenesisBlock()
+	genesis := blockchain.NewGenesisBlock(nil)
 	proposal := &iproto.ViewChangeMsg{
 		Vctype:     iproto.ViewChangeMsg_PROPOSE,
 		Block:      genesis.ConvertToBlockPb(),

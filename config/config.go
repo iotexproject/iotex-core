@@ -73,7 +73,8 @@ type Chain struct {
 	ProducerAddr iotxaddress.Address `yaml:"producerAddr"`
 
 	// InMemTest creates in-memory DB file for local testing
-	InMemTest bool `yaml:"inMemTest"`
+	InMemTest          bool   `yaml:"inMemTest"`
+	GenesisActionsPath string `yaml:"genesisActionsPath"`
 }
 
 const (

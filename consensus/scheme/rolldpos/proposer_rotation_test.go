@@ -34,7 +34,7 @@ func TestProposerRotation(t *testing.T) {
 	m := func(mcks mocks) {
 		mcks.dp.EXPECT().AllDelegates().Return(delegates, nil).AnyTimes()
 		mcks.dNet.EXPECT().Broadcast(gomock.Any()).AnyTimes()
-		genesis := blockchain.NewGenesisBlock()
+		genesis := blockchain.NewGenesisBlock(nil)
 		mcks.bc.EXPECT().
 			MintNewBlock(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(genesis, nil).

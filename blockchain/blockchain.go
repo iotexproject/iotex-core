@@ -509,7 +509,7 @@ func createAndInitBlockchain(kvstore db.KVStore, sf state.Factory, cfg *config.C
 	if height > 0 {
 		return chain
 	}
-	genesis := NewGenesisBlock()
+	genesis := NewGenesisBlock(cfg)
 	if genesis == nil {
 		logger.Error().Msg("Cannot create genesis block.")
 		return nil
