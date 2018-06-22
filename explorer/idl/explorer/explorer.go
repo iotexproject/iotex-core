@@ -8,8 +8,8 @@ import (
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "aaf37aa79134f4e61f8b7ecc9fabc6ab"
-const BarristerDateGenerated int64 = 1529619347408000000
+const BarristerChecksum string = "825d00b6df957edba7b31dbf47f9800f"
+const BarristerDateGenerated int64 = 1529624748052000000
 
 type CoinStatistic struct {
 	Height    int64 `json:"height"`
@@ -62,6 +62,12 @@ type AddressDetails struct {
 	Nonce        int64  `json:"nonce"`
 }
 
+type ConsensusMetrics struct {
+	LatestEpoch         int64    `json:"latestEpoch"`
+	LatestDelegates     []string `json:"latestDelegates"`
+	LatestBlockProducer string   `json:"latestBlockProducer"`
+}
+
 type Explorer interface {
 	GetBlockchainHeight() (int64, error)
 	GetAddressBalance(address string) (int64, error)
@@ -77,6 +83,7 @@ type Explorer interface {
 	GetLastBlocksByRange(offset int64, limit int64) ([]Block, error)
 	GetBlockByID(blkID string) (Block, error)
 	GetCoinStatistic() (CoinStatistic, error)
+	GetConsensusMetrics() (ConsensusMetrics, error)
 }
 
 func NewExplorerProxy(c barrister.Client) Explorer {
@@ -340,6 +347,24 @@ func (_p ExplorerProxy) GetCoinStatistic() (CoinStatistic, error) {
 	return CoinStatistic{}, _err
 }
 
+func (_p ExplorerProxy) GetConsensusMetrics() (ConsensusMetrics, error) {
+	_res, _err := _p.client.Call("Explorer.getConsensusMetrics")
+	if _err == nil {
+		_retType := _p.idl.Method("Explorer.getConsensusMetrics").Returns
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(ConsensusMetrics{}), _res, "")
+	}
+	if _err == nil {
+		_cast, _ok := _res.(ConsensusMetrics)
+		if !_ok {
+			_t := reflect.TypeOf(_res)
+			_msg := fmt.Sprintf("Explorer.getConsensusMetrics returned invalid type: %v", _t)
+			return ConsensusMetrics{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
+		}
+		return _cast, nil
+	}
+	return ConsensusMetrics{}, _err
+}
+
 func NewJSONServer(idl *barrister.Idl, forceASCII bool, explorer Explorer) barrister.Server {
 	return NewServer(idl, &barrister.JsonSerializer{forceASCII}, explorer)
 }
@@ -351,6 +376,19 @@ func NewServer(idl *barrister.Idl, ser barrister.Serializer, explorer Explorer) 
 }
 
 var IdlJsonRaw = `[
+    {
+        "type": "comment",
+        "name": "",
+        "comment": "",
+        "value": "Copyright (c) 2018 IoTeX\nThis is an alpha (internal) release and is not suitable for production. This source code is provided ‘as is’ and no\nwarranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent\npermitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache\nLicense 2.0 that can be found in the LICENSE file.",
+        "extends": "",
+        "fields": null,
+        "values": null,
+        "functions": null,
+        "barrister_version": "",
+        "date_generated": 0,
+        "checksum": ""
+    },
     {
         "type": "comment",
         "name": "",
@@ -694,6 +732,41 @@ var IdlJsonRaw = `[
             {
                 "name": "nonce",
                 "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            }
+        ],
+        "values": null,
+        "functions": null,
+        "barrister_version": "",
+        "date_generated": 0,
+        "checksum": ""
+    },
+    {
+        "type": "struct",
+        "name": "ConsensusMetrics",
+        "comment": "",
+        "value": "",
+        "extends": "",
+        "fields": [
+            {
+                "name": "latestEpoch",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "latestDelegates",
+                "type": "string",
+                "optional": false,
+                "is_array": true,
+                "comment": ""
+            },
+            {
+                "name": "latestBlockProducer",
+                "type": "string",
                 "optional": false,
                 "is_array": false,
                 "comment": ""
@@ -1075,6 +1148,18 @@ var IdlJsonRaw = `[
                     "is_array": false,
                     "comment": ""
                 }
+            },
+            {
+                "name": "getConsensusMetrics",
+                "comment": "get consensus metrics",
+                "params": [],
+                "returns": {
+                    "name": "",
+                    "type": "ConsensusMetrics",
+                    "optional": false,
+                    "is_array": false,
+                    "comment": ""
+                }
             }
         ],
         "barrister_version": "",
@@ -1091,7 +1176,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1529619347408,
-        "checksum": "aaf37aa79134f4e61f8b7ecc9fabc6ab"
+        "date_generated": 1529624748052,
+        "checksum": "825d00b6df957edba7b31dbf47f9800f"
     }
 ]`

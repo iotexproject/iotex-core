@@ -46,3 +46,10 @@ mockgen -destination=./test/mock/mock_state/mock_state.go  \
         -imports =github.com/iotexproject/iotex-core/state \
         -package=mock_state \
         Factory
+
+mkdir -p ./test/mock/mock_consensus
+mockgen -destination=./test/mock/mock_consensus/mock_consensus.go  \
+        -source=./consensus/consensus.go \
+        -imports =github.com/iotexproject/iotex-core/consensus \
+        -package=mock_consensus \
+        Consensus
