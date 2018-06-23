@@ -135,17 +135,27 @@ Open a new terminal window and start running actioninjector.
 You can use command line flags to customize the injector.
 
 ```
--addr=local_address_for_rpc_connection
+-config-path=path_of_config_file_of_genesis_transfer_addresses
+-grpc-addr=target_address_for_grpc_connection
+-jrpc-addr=target_address_for_jrpc_connection
 -transfer-num=number_of_transfers
 -vote-num=number_of_votes
 -interval=sleeping_interval_in_seconds
+-aps=actions_to_be_injected_per_second_APS_MODE_ONLY
+-duration=duration_of_injector_running_in_seconds_APS_MODE_ONLY
 ```
 
-Default flag values: 
-* addr="127.0.0.1"
+Default flag values:
+* config-path="./tools/actioninjector/gentsfaddrs.yaml"
+* grpc-addr="127.0.0.1:42124"
+* jrpc-addr="127.0.0.1:14004"
 * transfer-num=50
 * vote-num=50
 * interval=5
+* aps=0
+* duration=60
+
+Note: APS is a running mode option which is disabled by default. When aps > 0, APS mode is enabled and the injector alternates to inject transfers and votes within the time frame specified by duration.
 
 ### Use addrgen to generate addresses
 Open a terminal window and run the command below to start running addrgen.
