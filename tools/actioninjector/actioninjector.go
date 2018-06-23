@@ -31,11 +31,7 @@ import (
 	"github.com/iotexproject/iotex-core/test/util"
 )
 
-const (
-	filePath = "../tools/actioninjector/senderaddrs.yaml"
-)
-
-// Addresses are the addresses getting transfers from Creator in genesis block
+// Addresses indicate the addresses getting transfers from Creator in genesis block
 type Addresses struct {
 	PKPairs []PKPair `yaml:"pkPairs"`
 }
@@ -47,9 +43,11 @@ type PKPair struct {
 }
 
 func main() {
-	// target address:port for grpc connection. Default is "127.0.0.1:42124"
+	// path of config file containing all the public/private key paris of addresses getting transfers from Creator in genesis block
+	var configPath string
+	// target address for grpc connection. Default is "127.0.0.1:42124"
 	var grpcAddr string
-	// target address:port for jrpc connection. Default is "127.0.0.1:14004"
+	// target address for jrpc connection. Default is "127.0.0.1:14004"
 	var jrpcAddr string
 	// number of transfer injections. Default is 50
 	var transferNum int
@@ -57,12 +55,13 @@ func main() {
 	var voteNum int
 	// sleeping period between every two consecutive action injections in seconds. Default is 5
 	var interval int
-	// aps indicates how many actions to be injected in one second
+	// aps indicates how many actions to be injected in one second. Default is 0
 	var aps int
-	// duration indicates how long the injection will run in seconds
+	// duration indicates how long the injection will run in seconds. Default is 60
 	var duration int
-	flag.StringVar(&grpcAddr, "grpc-addr", "127.0.0.1:42124", "target address:port for grpc connection")
-	flag.StringVar(&jrpcAddr, "jrpc-addr", "127.0.0.1:14004", "target address:port for jrpc connection")
+	flag.StringVar(&configPath, "config-path", "./tools/actioninjector/gentsfaddrs.yaml", "path of config file of genesis transfer addresses")
+	flag.StringVar(&grpcAddr, "grpc-addr", "127.0.0.1:42124", "target ip:port for grpc connection")
+	flag.StringVar(&jrpcAddr, "jrpc-addr", "127.0.0.1:14004", "target ip:port for jrpc connection")
 	flag.IntVar(&transferNum, "transfer-num", 50, "number of transfer injections")
 	flag.IntVar(&voteNum, "vote-num", 50, "number of vote injections")
 	flag.IntVar(&interval, "interval", 5, "sleep interval of two consecutively injected actions in seconds")
@@ -81,7 +80,7 @@ func main() {
 	proxy := explorer.NewExplorerProxy("http://" + jrpcAddr)
 
 	// Load Senders' public/private key pairs
-	addrBytes, err := ioutil.ReadFile(filePath)
+	addrBytes, err := ioutil.ReadFile(configPath)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Failed to start injecting actions")
 	}
