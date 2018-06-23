@@ -380,6 +380,7 @@ func TestRollDPoSFourTrustyNodes(t *testing.T) {
 		require.Equal(t, uint64(1), metrics.LatestEpoch)
 		require.Equal(t, delegates, metrics.LatestDelegates)
 		require.Equal(t, delegates[0], metrics.LatestBlockProducer)
+		require.Equal(t, delegates, metrics.Candidates)
 	}
 	assert.Equal(t, 4, bcCnt)
 }

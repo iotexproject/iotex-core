@@ -70,6 +70,7 @@ struct ConsensusMetrics {
     latestEpoch int
     latestDelegates []string
     latestBlockProducer string
+	candidates []string
 }
 
 interface Explorer {

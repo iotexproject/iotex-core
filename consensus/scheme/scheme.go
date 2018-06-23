@@ -52,4 +52,5 @@ type ConsensusMetrics struct {
 	LatestEpoch         uint64
 	LatestDelegates     []net.Addr
 	LatestBlockProducer net.Addr
+	Candidates          []net.Addr
 }
