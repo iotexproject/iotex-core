@@ -173,10 +173,6 @@ loop:
 
 // handleActionMsg handles actionMsg from all peers.
 func (d *IotxDispatcher) handleActionMsg(m *actionMsg) {
-	vote := &pb.VotePb{}
-	logger.Info().Str("sig", string(vote.Signature)).Msg("receive actionMsg")
-
-	// dispatch to ActPool
 	if pbTsf := m.action.GetTransfer(); pbTsf != nil {
 		tsf := &action.Transfer{}
 		tsf.ConvertFromTransferPb(pbTsf)
