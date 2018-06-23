@@ -30,6 +30,7 @@ type Server struct {
 	o   *network.Overlay
 	dp  dispatcher.Dispatcher
 	cfg config.Config
+	sf  state.Factory
 }
 
 // NewServer creates a new server
@@ -92,6 +93,11 @@ func (s *Server) Dp() dispatcher.Dispatcher {
 	return s.dp
 }
 
+// Sf returns the StateFactory
+func (s *Server) Sf() state.Factory {
+	return s.sf
+}
+
 func newServer(cfg config.Config, bc blockchain.Blockchain, sf state.Factory) *Server {
 	// create P2P network and BlockSync
 	o := network.NewOverlay(&cfg.Network)
@@ -109,5 +115,6 @@ func newServer(cfg config.Config, bc blockchain.Blockchain, sf state.Factory) *S
 		o:   o,
 		dp:  dp,
 		cfg: cfg,
+		sf:  sf,
 	}
 }
