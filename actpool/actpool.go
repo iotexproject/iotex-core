@@ -351,7 +351,7 @@ func (ap *actPool) removeCommittedActs() {
 				vote.ConvertFromVotePb(act.GetVote())
 				hash = vote.Hash()
 			}
-			logger.Info().
+			logger.Debug().
 				Hex("hash", hash[:]).
 				Msg("Removed committed action")
 			delete(ap.allActions, hash)
