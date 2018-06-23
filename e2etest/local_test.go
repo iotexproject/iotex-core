@@ -8,6 +8,7 @@ package e2etest
 
 import (
 	"math/big"
+	"sort"
 	"testing"
 	"time"
 
@@ -19,6 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/action"
 	cm "github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network"
 	pb "github.com/iotexproject/iotex-core/proto"
@@ -378,4 +380,149 @@ func TestLocalSync(t *testing.T) {
 	assert.Nil(err)
 	assert.Equal(hash4, blk.HashBlock())
 	t.Log("4 blocks received correctly")
+}
+
+func TestVoteLocalCommit(t *testing.T) {
+	require := require.New(t)
+
+	cfg, err := config.LoadConfigWithPathWithoutValidation(localTestConfigPath)
+	require.Nil(err)
+	cfg.Network.BootstrapNodes = []string{"127.0.0.1:10000"}
+
+	util.CleanupPath(t, testTriePath)
+	defer util.CleanupPath(t, testTriePath)
+	util.CleanupPath(t, testDBPath)
+	defer util.CleanupPath(t, testDBPath)
+
+	cfg.Chain.TrieDBPath = testTriePath
+	cfg.Chain.InMemTest = false
+	cfg.Chain.ChainDBPath = testDBPath
+	cfg.Consensus.Scheme = config.NOOPScheme
+	cfg.Delegate.Addrs = []string{"127.0.0.1:10000"}
+
+	blockchain.Gen.TotalSupply = uint64(50 << 22)
+	blockchain.Gen.BlockReward = uint64(0)
+
+	// create node
+	svr := itx.NewServer(*cfg)
+	err = svr.Init()
+	require.Nil(err)
+	err = svr.Start()
+	require.Nil(err)
+	defer svr.Stop()
+
+	bc := svr.Bc()
+	require.NotNil(bc)
+	require.Nil(addTestingTsfBlocks(bc))
+	t.Log("Create blockchain pass")
+
+	ap := svr.Ap()
+	require.NotNil(ap)
+
+	p2 := svr.P2p()
+	require.NotNil(p2)
+
+	p1 := network.NewOverlay(&cfg.Network)
+	require.NotNil(p1)
+	p1.PRC.Addr = "127.0.0.1:10001"
+	p1.Init()
+	p1.Start()
+	defer p1.Stop()
+
+	height, err := bc.TipHeight()
+	require.Nil(err)
+	require.True(height == 4)
+
+	// Add block 1
+	// Alfa, Bravo and Charlie selfnomination
+	vote1, err := newSignedVote(1, ta.Addrinfo["alfa"], ta.Addrinfo["alfa"])
+	require.Nil(err)
+	vote2, err := newSignedVote(1, ta.Addrinfo["bravo"], ta.Addrinfo["bravo"])
+	require.Nil(err)
+	vote3, err := newSignedVote(2, ta.Addrinfo["charlie"], ta.Addrinfo["charlie"])
+	require.Nil(err)
+	act1 := &pb.ActionPb{&pb.ActionPb_Vote{vote1.ConvertToVotePb()}}
+	act2 := &pb.ActionPb{&pb.ActionPb_Vote{vote2.ConvertToVotePb()}}
+	act3 := &pb.ActionPb{&pb.ActionPb_Vote{vote3.ConvertToVotePb()}}
+	err = util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
+		if err := p1.Broadcast(act1); err != nil {
+			return false, err
+		}
+		if err := p1.Broadcast(act2); err != nil {
+			return false, err
+		}
+		if err := p1.Broadcast(act3); err != nil {
+			return false, err
+		}
+		time.Sleep(time.Second)
+		_, votes := ap.PickActs()
+		return len(votes) == 3, nil
+	})
+	require.Nil(err)
+
+	_, votes := ap.PickActs()
+	blk1, err := bc.MintNewBlock(nil, votes, ta.Addrinfo["miner"], "")
+	hash1 := blk1.HashBlock()
+	require.Nil(err)
+
+	// Add block 2
+	// Vote A -> D, C -> A
+	vote4, err := newSignedVote(2, ta.Addrinfo["alfa"], ta.Addrinfo["delta"])
+	require.Nil(err)
+	vote5, err := newSignedVote(3, ta.Addrinfo["charlie"], ta.Addrinfo["alfa"])
+	require.Nil(err)
+	blk2 := blockchain.NewBlock(0, height+2, hash1, nil, []*action.Vote{vote4, vote5})
+	err = blk2.SignBlock(ta.Addrinfo["miner"])
+	require.Nil(err)
+	act4 := &pb.ActionPb{&pb.ActionPb_Vote{vote4.ConvertToVotePb()}}
+	act5 := &pb.ActionPb{&pb.ActionPb_Vote{vote5.ConvertToVotePb()}}
+	err = util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
+		if err := p1.Broadcast(act4); err != nil {
+			return false, err
+		}
+		if err := p1.Broadcast(act5); err != nil {
+			return false, err
+		}
+		_, votes := ap.PickActs()
+		return len(votes) == 5, nil
+	})
+	require.Nil(err)
+
+	p1.Broadcast(blk1.ConvertToBlockPb())
+	p1.Broadcast(blk2.ConvertToBlockPb())
+
+	err = util.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+		height, err := bc.TipHeight()
+		if err != nil {
+			return false, err
+		}
+		return int(height) == 6, nil
+	})
+	require.Nil(err)
+	height, err = bc.TipHeight()
+	require.Nil(err)
+	require.Equal(6, int(height))
+
+	sf := svr.Sf()
+	h, candidates := sf.Candidates()
+	candidatesAddr := make([]string, len(candidates))
+	for i, can := range candidates {
+		candidatesAddr[i] = can.Address
+	}
+	require.Equal(6, int(h))
+	require.Equal(2, len(candidates))
+
+	sort.Sort(sort.StringSlice(candidatesAddr))
+	require.Equal(ta.Addrinfo["alfa"].RawAddress, candidatesAddr[0])
+	require.Equal(ta.Addrinfo["bravo"].RawAddress, candidatesAddr[1])
+
+}
+
+func newSignedVote(nonce int, from *iotxaddress.Address, to *iotxaddress.Address) (*action.Vote, error) {
+	vote := action.NewVote(uint64(nonce), from.PublicKey, to.PublicKey)
+	vote, err := vote.Sign(from)
+	if err != nil {
+		return nil, err
+	}
+	return vote, nil
 }
