@@ -238,10 +238,16 @@ func (n *RollDPoS) Metrics() (scheme.ConsensusMetrics, error) {
 	if err != nil {
 		return metrics, err
 	}
+	// Get all candidates
+	candidates, err := n.pool.AllDelegates()
+	if err != nil {
+		return metrics, err
+	}
 	metrics = scheme.ConsensusMetrics{
 		LatestEpoch:         epochNum,
 		LatestDelegates:     delegates,
 		LatestBlockProducer: producer,
+		Candidates:          candidates,
 	}
 	return metrics, err
 }

@@ -259,17 +259,21 @@ func TestService_GetConsensusMetrics(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	delegates := []net.Addr{
+	candidates := []net.Addr{
 		common.NewTCPNode("127.0.0.1:40000"),
 		common.NewTCPNode("127.0.0.1:40001"),
 		common.NewTCPNode("127.0.0.1:40002"),
 		common.NewTCPNode("127.0.0.1:40003"),
+		common.NewTCPNode("127.0.0.1:40004"),
+		common.NewTCPNode("127.0.0.1:40005"),
+		common.NewTCPNode("127.0.0.1:40006"),
 	}
 	c := mock_consensus.NewMockConsensus(ctrl)
 	c.EXPECT().Metrics().Return(scheme.ConsensusMetrics{
 		LatestEpoch:         1,
-		LatestDelegates:     delegates,
-		LatestBlockProducer: delegates[3],
+		LatestDelegates:     candidates[:4],
+		LatestBlockProducer: candidates[3],
+		Candidates:          candidates,
 	}, nil)
 
 	svc := Service{c: c}
@@ -280,8 +284,26 @@ func TestService_GetConsensusMetrics(t *testing.T) {
 	require.Equal(t, int64(1), m.LatestEpoch)
 	require.Equal(
 		t,
-		[]string{"127.0.0.1:40000", "127.0.0.1:40001", "127.0.0.1:40002", "127.0.0.1:40003"},
+		[]string{
+			"127.0.0.1:40000",
+			"127.0.0.1:40001",
+			"127.0.0.1:40002",
+			"127.0.0.1:40003",
+		},
 		m.LatestDelegates,
 	)
 	require.Equal(t, "127.0.0.1:40003", m.LatestBlockProducer)
+	require.Equal(
+		t,
+		[]string{
+			"127.0.0.1:40000",
+			"127.0.0.1:40001",
+			"127.0.0.1:40002",
+			"127.0.0.1:40003",
+			"127.0.0.1:40004",
+			"127.0.0.1:40005",
+			"127.0.0.1:40006",
+		},
+		m.Candidates,
+	)
 }

@@ -8,8 +8,8 @@ import (
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "825d00b6df957edba7b31dbf47f9800f"
-const BarristerDateGenerated int64 = 1529700771241000000
+const BarristerChecksum string = "964fbff1475a5fcdab6b709521b4f839"
+const BarristerDateGenerated int64 = 1529713555154000000
 
 type CoinStatistic struct {
 	Height    int64 `json:"height"`
@@ -66,6 +66,7 @@ type ConsensusMetrics struct {
 	LatestEpoch         int64    `json:"latestEpoch"`
 	LatestDelegates     []string `json:"latestDelegates"`
 	LatestBlockProducer string   `json:"latestBlockProducer"`
+	Candidates          []string `json:"candidates"`
 }
 
 type Explorer interface {
@@ -770,6 +771,13 @@ var IdlJsonRaw = `[
                 "optional": false,
                 "is_array": false,
                 "comment": ""
+            },
+            {
+                "name": "candidates",
+                "type": "string",
+                "optional": false,
+                "is_array": true,
+                "comment": ""
             }
         ],
         "values": null,
@@ -1176,7 +1184,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1529700771241,
-        "checksum": "825d00b6df957edba7b31dbf47f9800f"
+        "date_generated": 1529713555154,
+        "checksum": "964fbff1475a5fcdab6b709521b4f839"
     }
 ]`
