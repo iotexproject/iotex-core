@@ -95,8 +95,9 @@ func (t *trie) Upsert(key, value []byte) error {
 
 // Get an existing entry
 func (t *trie) Get(key []byte) ([]byte, error) {
-	t.mutex.RLock()
-	defer t.mutex.RUnlock()
+	// Use write lock because t.clear() will mutate toRoot
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
 
 	ptr, size, err := t.query(key)
 	t.clear()
