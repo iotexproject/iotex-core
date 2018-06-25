@@ -24,6 +24,7 @@ network:
         - "127.0.0.1:40003"
     maxMsgSize: 10485760
     peerDiscovery: true
+    ttl: 3
 
 chain:
     chainDBPath: "../chain.db"

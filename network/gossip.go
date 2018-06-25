@@ -16,6 +16,7 @@ import (
 	"github.com/iotexproject/iotex-core/common/routine"
 	"github.com/iotexproject/iotex-core/common/service"
 	"github.com/iotexproject/iotex-core/dispatch/dispatcher"
+	"github.com/iotexproject/iotex-core/logger"
 	pb "github.com/iotexproject/iotex-core/network/proto"
 	pb1 "github.com/iotexproject/iotex-core/proto"
 )
@@ -52,13 +53,15 @@ func (g *Gossip) OnReceivingMsg(msg *pb.BroadcastReq) error {
 	if ok {
 		return nil
 	}
+	// Record the message
+	g.storeBroadcastMsgChecksum(checksum)
 	// Call dispatch to notify that a new message comes in
 	err := g.processMsg(msg.MsgType, msg.MsgBody)
 	if err != nil {
 		return err
 	}
 	// Relay the message to the neighbors
-	err = g.relayMsg(msg.MsgType, msg.MsgBody, checksum)
+	err = g.relayMsg(msg.MsgType, msg.MsgBody, msg.Ttl-1)
 	if err != nil {
 		return nil
 	}
@@ -76,13 +79,18 @@ func (g *Gossip) processMsg(msgType uint32, msgBody []byte) error {
 	return nil
 }
 
-func (g *Gossip) relayMsg(msgType uint32, msgBody []byte, checksum string) error {
-	// Record the message
-	g.storeBroadcastMsgChecksum(checksum)
+func (g *Gossip) relayMsg(msgType uint32, msgBody []byte, ttl uint32) error {
+	if ttl < 0 {
+		logger.Warn().
+			Str("name", g.Overlay.PRC.String()).
+			Uint32("msg", msgType).
+			Msg("message used up all delivery hops")
+		return nil
+	}
 	// Send the message to all neighbors
 	g.Overlay.PM.Peers.Range(func(_, value interface{}) bool {
 		go func() {
-			value.(*Peer).BroadcastMsg(&pb.BroadcastReq{MsgType: msgType, MsgBody: msgBody})
+			value.(*Peer).BroadcastMsg(&pb.BroadcastReq{MsgType: msgType, MsgBody: msgBody, Ttl: ttl})
 		}()
 		return true
 	})

@@ -25,6 +25,7 @@ network:
     peerKeyPath: ""
     maxMsgSize: 10485760
     peerDiscovery: true
+    ttl: 3
 
 chain:
     chainDBPath: "./chain.db"

@@ -46,6 +46,7 @@ func LoadTestConfig(addr string, allowMultiConnsPerIP bool) *config.Network {
 			BootstrapNodes:          []string{"127.0.0.1:10001", "127.0.0.1:10002"},
 			MaxMsgSize:              1024 * 1024 * 10,
 			PeerDiscovery:           true,
+			TTL:                     3,
 		},
 	}
 	return &config.Network

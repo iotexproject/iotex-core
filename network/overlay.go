@@ -109,7 +109,9 @@ func (o *Overlay) Broadcast(msg proto.Message) error {
 		return err
 	}
 	// Source also needs to remember the message sent so that it wouldn't process it again
-	o.Gossip.relayMsg(msgType, msgBody, o.Gossip.getBroadcastMsgChecksum(msgBody))
+	o.Gossip.storeBroadcastMsgChecksum(o.Gossip.getBroadcastMsgChecksum(msgBody))
+	// Kick off the message
+	o.Gossip.relayMsg(msgType, msgBody, o.Config.TTL)
 	return nil
 }
 

@@ -40,6 +40,7 @@ message BroadcastReq {
     uint32 header = 1;
     uint32 msg_type = 2;
     bytes msg_body = 3;
+    uint32 ttl = 4; // in terms of the number of hops
 }
 
 message BroadcastRes {
