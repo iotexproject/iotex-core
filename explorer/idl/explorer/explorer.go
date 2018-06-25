@@ -8,8 +8,8 @@ import (
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "964fbff1475a5fcdab6b709521b4f839"
-const BarristerDateGenerated int64 = 1529713555154000000
+const BarristerChecksum string = "cd3753370149337a9c93afe9947e9ec1"
+const BarristerDateGenerated int64 = 1529950923870000000
 
 type CoinStatistic struct {
 	Height    int64 `json:"height"`
@@ -38,7 +38,7 @@ type Block struct {
 
 type Transfer struct {
 	ID        string `json:"ID"`
-	Nounce    int64  `json:"nounce"`
+	Nonce     int64  `json:"nonce"`
 	Sender    string `json:"sender"`
 	Recipient string `json:"recipient"`
 	Amount    int64  `json:"amount"`
@@ -49,7 +49,7 @@ type Transfer struct {
 
 type Vote struct {
 	ID        string `json:"ID"`
-	Nounce    int64  `json:"nounce"`
+	Nonce     int64  `json:"nonce"`
 	Timestamp int64  `json:"timestamp"`
 	Voter     string `json:"voter"`
 	Votee     string `json:"votee"`
@@ -598,7 +598,7 @@ var IdlJsonRaw = `[
                 "comment": ""
             },
             {
-                "name": "nounce",
+                "name": "nonce",
                 "type": "int",
                 "optional": false,
                 "is_array": false,
@@ -668,7 +668,7 @@ var IdlJsonRaw = `[
                 "comment": ""
             },
             {
-                "name": "nounce",
+                "name": "nonce",
                 "type": "int",
                 "optional": false,
                 "is_array": false,
@@ -1184,7 +1184,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1529713555154,
-        "checksum": "964fbff1475a5fcdab6b709521b4f839"
+        "date_generated": 1529950923870,
+        "checksum": "cd3753370149337a9c93afe9947e9ec1"
     }
 ]`

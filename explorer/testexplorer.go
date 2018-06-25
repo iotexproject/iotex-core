@@ -153,7 +153,7 @@ func randVote() explorer.Vote {
 		ID:        randString(),
 		Timestamp: randInt64(),
 		BlockID:   randString(),
-		Nounce:    randInt64(),
+		Nonce:     randInt64(),
 		Voter:     randString(),
 		Votee:     randString(),
 	}

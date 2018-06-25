@@ -98,7 +98,7 @@ ChainLoop:
 					Amount:    blk.Transfers[i].Amount.Int64(),
 					Timestamp: int64(blk.ConvertToBlockHeaderPb().Timestamp),
 					ID:        hex.EncodeToString(hash[:]),
-					Nounce:    int64(blk.Transfers[i].Nonce),
+					Nonce:     int64(blk.Transfers[i].Nonce),
 					BlockID:   blkID,
 					Sender:    blk.Transfers[i].Sender,
 					Recipient: blk.Transfers[i].Recipient,
@@ -193,7 +193,7 @@ func (exp *Service) GetTransfersByBlockID(blkID string, offset int64, limit int6
 			Amount:    transfer.Amount.Int64(),
 			Timestamp: int64(blk.ConvertToBlockHeaderPb().Timestamp),
 			ID:        hex.EncodeToString(hash[:]),
-			Nounce:    int64(transfer.Nonce),
+			Nonce:     int64(transfer.Nonce),
 			BlockID:   blkID,
 			Sender:    transfer.Sender,
 			Recipient: transfer.Recipient,
@@ -247,7 +247,7 @@ ChainLoop:
 			hash := blk.Votes[i].Hash()
 			explorerVote := explorer.Vote{
 				ID:        hex.EncodeToString(hash[:]),
-				Nounce:    int64(blk.Votes[i].Nonce),
+				Nonce:     int64(blk.Votes[i].Nonce),
 				Timestamp: int64(blk.Votes[i].Timestamp),
 				Voter:     voter,
 				Votee:     votee,
@@ -348,7 +348,7 @@ func (exp *Service) GetVotesByBlockID(blkID string, offset int64, limit int64) (
 		hash := vote.Hash()
 		explorerVote := explorer.Vote{
 			ID:        hex.EncodeToString(hash[:]),
-			Nounce:    int64(vote.Nonce),
+			Nonce:     int64(vote.Nonce),
 			Timestamp: int64(vote.Timestamp),
 			Voter:     voter,
 			Votee:     votee,
@@ -547,7 +547,7 @@ func getTransfer(bc blockchain.Blockchain, transferHash common.Hash32B) (explore
 
 	hash := transfer.Hash()
 	explorerTransfer = explorer.Transfer{
-		Nounce:    int64(transfer.Nonce),
+		Nonce:     int64(transfer.Nonce),
 		Amount:    transfer.Amount.Int64(),
 		Timestamp: int64(blk.ConvertToBlockHeaderPb().Timestamp),
 		ID:        hex.EncodeToString(hash[:]),
@@ -587,7 +587,7 @@ func getVote(bc blockchain.Blockchain, voteHash common.Hash32B) (explorer.Vote, 
 	hash := vote.Hash()
 	explorerVote = explorer.Vote{
 		ID:        hex.EncodeToString(hash[:]),
-		Nounce:    int64(vote.Nonce),
+		Nonce:     int64(vote.Nonce),
 		Timestamp: int64(vote.Timestamp),
 		Voter:     voter,
 		Votee:     votee,
