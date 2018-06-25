@@ -127,6 +127,7 @@ func LoadTestConfig() *Config {
 			KLPolicy:                keepalive.EnforcementPolicy{MinTime: 30 * time.Second},
 			MaxMsgSize:              1024 * 1024 * 10,
 			PeerDiscovery:           true,
+			TTL:                     3,
 			TopologyPath:            "",
 		},
 		Chain: Chain{

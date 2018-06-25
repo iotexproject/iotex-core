@@ -60,6 +60,7 @@ type Network struct {
 	MaxMsgSize              int                         `yaml:"maxMsgSize"`
 	PeerDiscovery           bool                        `yaml:"peerDiscovery"`
 	TopologyPath            string                      `yaml:"topologyPath"`
+	TTL                     uint32                      `yaml:"ttl"`
 }
 
 // Chain is the config struct for blockchain package
