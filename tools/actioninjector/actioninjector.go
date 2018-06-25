@@ -283,8 +283,8 @@ func injectVote(ctx context.Context, wg *sync.WaitGroup, c pb.ChainServiceClient
 
 // Helper function to get the nonce of next injected action
 func createInjection(counter map[string]uint64, addrs []*iotxaddress.Address) (*iotxaddress.Address, *iotxaddress.Address, uint64) {
-	sender := addrs[rand.Intn(10)]
-	recipient := addrs[rand.Intn(10)]
+	sender := addrs[rand.Intn(len(addrs))]
+	recipient := addrs[rand.Intn(len(addrs))]
 	nonce := counter[sender.RawAddress]
 	counter[sender.RawAddress]++
 	return sender, recipient, nonce
