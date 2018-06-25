@@ -349,7 +349,7 @@ func (exp *Service) GetVotesByBlockID(blkID string, offset int64, limit int64) (
 		explorerVote := explorer.Vote{
 			ID:        hex.EncodeToString(hash[:]),
 			Nonce:     int64(vote.Nonce),
-			Timestamp: int64(vote.Timestamp),
+			Timestamp: int64(blk.ConvertToBlockHeaderPb().Timestamp),
 			Voter:     voter,
 			Votee:     votee,
 			BlockID:   blkID,
@@ -574,6 +574,11 @@ func getVote(bc blockchain.Blockchain, voteHash common.Hash32B) (explorer.Vote, 
 		return explorerVote, err
 	}
 
+	blk, err := bc.GetBlockByHash(blkHash)
+	if err != nil {
+		return explorerVote, err
+	}
+
 	voter, err := getAddrFromPubKey(vote.SelfPubkey)
 	if err != nil {
 		return explorerVote, err
@@ -588,7 +593,7 @@ func getVote(bc blockchain.Blockchain, voteHash common.Hash32B) (explorer.Vote, 
 	explorerVote = explorer.Vote{
 		ID:        hex.EncodeToString(hash[:]),
 		Nonce:     int64(vote.Nonce),
-		Timestamp: int64(vote.Timestamp),
+		Timestamp: int64(blk.ConvertToBlockHeaderPb().Timestamp),
 		Voter:     voter,
 		Votee:     votee,
 		BlockID:   hex.EncodeToString(blkHash[:]),
