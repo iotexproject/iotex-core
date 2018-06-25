@@ -486,6 +486,7 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.Nil(err)
 	blk2 := blockchain.NewBlock(0, height+2, hash1, nil, []*action.Vote{vote4, vote5})
 	err = blk2.SignBlock(ta.Addrinfo["miner"])
+	hash2 := blk2.HashBlock()
 	require.Nil(err)
 	act4 := &pb.ActionPb{&pb.ActionPb_Vote{vote4.ConvertToVotePb()}}
 	act5 := &pb.ActionPb{&pb.ActionPb_Vote{vote5.ConvertToVotePb()}}
@@ -512,9 +513,9 @@ func TestVoteLocalCommit(t *testing.T) {
 		return int(height) == 6, nil
 	})
 	require.Nil(err)
-	height, err = bc.TipHeight()
+	tipheight, err := bc.TipHeight()
 	require.Nil(err)
-	require.Equal(6, int(height))
+	require.Equal(6, int(tipheight))
 
 	sf := svr.Sf()
 	h, candidates := sf.Candidates()
@@ -528,6 +529,95 @@ func TestVoteLocalCommit(t *testing.T) {
 	sort.Sort(sort.StringSlice(candidatesAddr))
 	require.Equal(ta.Addrinfo["alfa"].RawAddress, candidatesAddr[0])
 	require.Equal(ta.Addrinfo["bravo"].RawAddress, candidatesAddr[1])
+
+	// Add block 3
+	// D self nomination
+	vote6 := action.NewVote(uint64(2), ta.Addrinfo["delta"].PublicKey, ta.Addrinfo["delta"].PublicKey)
+	vote6, err = vote6.Sign(ta.Addrinfo["delta"])
+	require.Nil(err)
+	blk3 := blockchain.NewBlock(0, height+3, hash2, nil, []*action.Vote{vote6})
+	err = blk3.SignBlock(ta.Addrinfo["miner"])
+	hash3 := blk3.HashBlock()
+	require.Nil(err)
+	act6 := &pb.ActionPb{&pb.ActionPb_Vote{vote6.ConvertToVotePb()}}
+	err = util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
+		if err := p1.Broadcast(act6); err != nil {
+			return false, err
+		}
+		_, votes := ap.PickActs()
+		return len(votes) == 1, nil
+	})
+	require.Nil(err)
+
+	p1.Broadcast(blk3.ConvertToBlockPb())
+
+	err = util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
+		height, err := bc.TipHeight()
+		if err != nil {
+			return false, err
+		}
+		return int(height) == 7, nil
+	})
+	require.Nil(err)
+	tipheight, err = bc.TipHeight()
+	require.Nil(err)
+	require.Equal(7, int(tipheight))
+
+	h, candidates = sf.Candidates()
+	candidatesAddr = make([]string, len(candidates))
+	for i, can := range candidates {
+		candidatesAddr[i] = can.Address
+	}
+	require.Equal(7, int(h))
+	require.Equal(2, len(candidates))
+
+	sort.Sort(sort.StringSlice(candidatesAddr))
+	require.Equal(ta.Addrinfo["alfa"].RawAddress, candidatesAddr[0])
+	require.Equal(ta.Addrinfo["delta"].RawAddress, candidatesAddr[1])
+
+	// Add block 4
+	// Unvote A
+	vote7 := action.NewVote(uint64(3), ta.Addrinfo["alfa"].PublicKey, []byte{})
+	vote7, err = vote7.Sign(ta.Addrinfo["alfa"])
+	require.Nil(err)
+	blk4 := blockchain.NewBlock(0, height+4, hash3, nil, []*action.Vote{vote7})
+	err = blk4.SignBlock(ta.Addrinfo["miner"])
+	require.Nil(err)
+	act7 := &pb.ActionPb{&pb.ActionPb_Vote{vote7.ConvertToVotePb()}}
+	err = util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
+		if err := p1.Broadcast(act7); err != nil {
+			return false, err
+		}
+		_, votes := ap.PickActs()
+		return len(votes) == 1, nil
+	})
+	require.Nil(err)
+
+	p1.Broadcast(blk4.ConvertToBlockPb())
+
+	err = util.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+		height, err := bc.TipHeight()
+		if err != nil {
+			return false, err
+		}
+		return int(height) == 8, nil
+	})
+	require.Nil(err)
+	tipheight, err = bc.TipHeight()
+	require.Nil(err)
+	require.Equal(8, int(tipheight))
+
+	h, candidates = sf.Candidates()
+	candidatesAddr = make([]string, len(candidates))
+	for i, can := range candidates {
+		candidatesAddr[i] = can.Address
+	}
+	require.Equal(8, int(h))
+	require.Equal(2, len(candidates))
+
+	sort.Sort(sort.StringSlice(candidatesAddr))
+	require.Equal(ta.Addrinfo["bravo"].RawAddress, candidatesAddr[0])
+	require.Equal(ta.Addrinfo["delta"].RawAddress, candidatesAddr[1])
 
 }
 

@@ -436,6 +436,68 @@ func TestCandidate(t *testing.T) {
 	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{c.RawAddress + ":300", b.RawAddress + ":500"}))
 	require.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{d.RawAddress + ":100", a.RawAddress + ":0", e.RawAddress + ":200", f.RawAddress + ":0"}))
 	// a(b):100(0) b(c):200(500) c(c):100(+200=300) d(b): 400(100) e(e):200(+0=200) f(d):100(0)
+
+	vote21 := action.NewVote(4, c.PublicKey, []byte{})
+	err = sf.CommitStateChanges(3, []*action.Transfer{}, []*action.Vote{vote21})
+	require.Nil(t, err)
+	height, _ = sf.Candidates()
+	require.True(t, height == 3)
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{e.RawAddress + ":200", b.RawAddress + ":500"}))
+	require.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{d.RawAddress + ":100", a.RawAddress + ":0", f.RawAddress + ":0"}))
+	// a(b):100(0) b(c):200(500) [c(c):100(+200=300)] d(b): 400(100) e(e):200(+0=200) f(d):100(0)
+
+	vote22 := action.NewVote(4, f.PublicKey, []byte{})
+	err = sf.CommitStateChanges(3, []*action.Transfer{}, []*action.Vote{vote22})
+	require.Nil(t, err)
+	height, _ = sf.Candidates()
+	require.True(t, height == 3)
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{e.RawAddress + ":200", b.RawAddress + ":500"}))
+	require.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{d.RawAddress + ":0", a.RawAddress + ":0"}))
+	// a(b):100(0) b(c):200(500) [c(c):100(+200=300)] d(b): 400(100) e(e):200(+0=200) f(d):100(0)
+}
+
+func TestUnvote(t *testing.T) {
+	// Create three dummy iotex addresses
+	a, _ := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
+	b, _ := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
+
+	util.CleanupPath(t, testTriePath)
+	defer util.CleanupPath(t, testTriePath)
+	tr, _ := trie.NewTrie(testTriePath, false)
+	sf := &factory{
+		trie:                   tr,
+		candidateHeap:          CandidateMinPQ{candidateSize, make([]*Candidate, 0)},
+		candidateBufferMinHeap: CandidateMinPQ{candidateBufferSize, make([]*Candidate, 0)},
+		candidateBufferMaxHeap: CandidateMaxPQ{candidateBufferSize, make([]*Candidate, 0)},
+	}
+	sf.CreateState(a.RawAddress, uint64(100))
+	sf.CreateState(b.RawAddress, uint64(200))
+
+	vote1 := action.NewVote(0, a.PublicKey, []byte{})
+	err := sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote1})
+	require.Nil(t, err)
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{}))
+	require.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{}))
+
+	vote2 := action.NewVote(0, a.PublicKey, a.PublicKey)
+	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote2})
+	require.Nil(t, err)
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":100"}))
+	require.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{}))
+
+	vote3 := action.NewVote(0, a.PublicKey, []byte{})
+	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote3})
+	require.Nil(t, err)
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{}))
+	require.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{}))
+
+	vote4 := action.NewVote(0, b.PublicKey, b.PublicKey)
+	vote5 := action.NewVote(0, a.PublicKey, b.PublicKey)
+	vote6 := action.NewVote(0, a.PublicKey, []byte{})
+	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote4, vote5, vote6})
+	require.Nil(t, err)
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{b.RawAddress + ":200"}))
+	require.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{}))
 }
 
 func compareStrings(actual []string, expected []string) bool {

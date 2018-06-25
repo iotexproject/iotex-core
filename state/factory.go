@@ -8,7 +8,6 @@ package state
 
 import (
 	"container/heap"
-	"fmt"
 	"math/big"
 
 	"github.com/pkg/errors"
@@ -27,13 +26,13 @@ const (
 	// Level 2 is for candidate buffer pool
 	candidateBufferPool = candidatePool + 1
 
-	// TODO: make this configurable
+	// TODO(zhen): make this configurable
 	//	delegateSize  = 101
 	//	candidateSize = 400
 	//	bufferSize    = 10000
 )
 
-// TODO: this is only for test config, use 101, 400, 10000 when in production
+// TODO(zhen): this is only for test config, use 101, 400, 10000 when in production
 const (
 	candidateSize       = 2
 	candidateBufferSize = 10
@@ -215,6 +214,8 @@ func (sf *factory) CommitStateChanges(chainHeight uint64, tsf []*action.Transfer
 
 		// Perform vote update operation on candidate and delegate pools
 		if !state.IsCandidate {
+			// remove the candidate if the person is not a candidate anymore
+			sf.removeCandidate(state.Address)
 			continue
 		}
 		totalWeight := big.NewInt(0)
@@ -312,7 +313,31 @@ func (sf *factory) updateVotes(candidate *Candidate, votes *big.Int) {
 
 	// Temporarily leave it here to check the algorithm is correct
 	if sf.candidateBufferMinHeap.Len() != sf.candidateBufferMaxHeap.Len() {
-		fmt.Println("***************heap not sync***************")
+		logger.Warn().Msg("candidateBuffer min and max heap not sync")
+	}
+}
+
+func (sf *factory) removeCandidate(address string) {
+	c, level := sf.inPool(address)
+	switch level {
+	case candidatePool:
+		heap.Remove(&sf.candidateHeap, c.minIndex)
+		if sf.candidateBufferMinHeap.Len() > 0 {
+			promoteCandidate := heap.Pop(&sf.candidateBufferMaxHeap).(*Candidate)
+			heap.Remove(&sf.candidateBufferMinHeap, promoteCandidate.minIndex)
+			heap.Push(&sf.candidateHeap, promoteCandidate)
+		}
+	case candidateBufferPool:
+		heap.Remove(&sf.candidateBufferMinHeap, c.minIndex)
+		heap.Remove(&sf.candidateBufferMaxHeap, c.maxIndex)
+	default:
+		break
+	}
+	sf.balance()
+
+	// Temporarily leave it here to check the algorithm is correct
+	if sf.candidateBufferMinHeap.Len() != sf.candidateBufferMaxHeap.Len() {
+		logger.Warn().Msg("candidateBuffer min and max heap not sync")
 	}
 }
 
@@ -424,21 +449,10 @@ func (sf *factory) handleVote(pending map[common.PKHash]*State, addressToPKMap m
 		}
 		addressToPKMap[voteFrom.Address] = v.SelfPubkey
 
-		voteAddress, err := iotxaddress.GetAddress(v.VotePubkey, iotxaddress.IsTestnet, iotxaddress.ChainID)
-		if err != nil {
-			return err
-		}
-
 		// update voteFrom nonce
 		if v.Nonce > voteFrom.Nonce {
 			voteFrom.Nonce = v.Nonce
 		}
-		voteTo, err := sf.upsert(pending, voteAddress.RawAddress)
-		if err != nil {
-			return err
-		}
-		addressToPKMap[voteTo.Address] = v.VotePubkey
-
 		// Update old votee's weight
 		if len(voteFrom.Votee) > 0 && voteFrom.Votee != voteFrom.Address {
 			// voter already voted
@@ -449,6 +463,22 @@ func (sf *factory) handleVote(pending map[common.PKHash]*State, addressToPKMap m
 			oldVotee.VotingWeight.Sub(oldVotee.VotingWeight, voteFrom.Balance)
 			voteFrom.Votee = ""
 		}
+
+		if len(v.VotePubkey) == 0 {
+			// unvote operation
+			voteFrom.IsCandidate = false
+			continue
+		}
+
+		voteAddress, err := iotxaddress.GetAddress(v.VotePubkey, iotxaddress.IsTestnet, iotxaddress.ChainID)
+		if err != nil {
+			return err
+		}
+		voteTo, err := sf.upsert(pending, voteAddress.RawAddress)
+		if err != nil {
+			return err
+		}
+		addressToPKMap[voteTo.Address] = v.VotePubkey
 
 		if voteFrom.Address != voteTo.Address {
 			// Voter votes to a different person
