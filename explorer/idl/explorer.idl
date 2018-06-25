@@ -42,7 +42,7 @@ struct Block {
 
 struct Transfer {
     ID string
-    nounce int
+    nonce int
     sender string
     recipient string
     amount int
@@ -53,7 +53,7 @@ struct Transfer {
 
 struct Vote {
     ID string
-    nounce int
+    nonce int
     timestamp int
     voter string
     votee string

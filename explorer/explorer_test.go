@@ -190,7 +190,7 @@ func TestExplorerApi(t *testing.T) {
 
 	vote, err := svc.GetVoteByID(votes[0].ID)
 	require.Nil(err)
-	require.Equal(votes[0].Nounce, vote.Nounce)
+	require.Equal(votes[0].Nonce, vote.Nonce)
 	require.Equal(votes[0].BlockID, vote.BlockID)
 	require.Equal(votes[0].Timestamp, vote.Timestamp)
 	require.Equal(votes[0].ID, vote.ID)
