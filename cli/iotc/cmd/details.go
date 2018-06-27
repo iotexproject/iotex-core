@@ -21,19 +21,19 @@ var detailsCmd = &cobra.Command{
 	Long:  `Returns the details of given account, namely the balance and the nonce.`,
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		details(args)
+		fmt.Println(details(args))
 	},
 }
 
-func details(args []string) {
+func details(args []string) string {
 	client, _ := getClientAndCfg()
 	det, err := client.GetAddressDetails(args[0])
 	if err != nil {
 		logger.Error().Err(err).Msgf("cannot get details for address %s", args[0])
-		return
+		return ""
 	}
-	fmt.Printf("Address %s nonce: %d\n", args[0], det.Nonce)
-	fmt.Printf("Address %s balance: %d\n", args[0], det.TotalBalance)
+	return fmt.Sprintf("Address %s nonce: %d\n", args[0], det.Nonce) +
+		fmt.Sprintf("Address %s balance: %d", args[0], det.TotalBalance)
 }
 
 func init() {

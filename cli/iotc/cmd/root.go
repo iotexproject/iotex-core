@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	yamlPath  = "/src/github.com/iotexproject/iotex-core/e2etests/config_local_delegate.yaml"
+	yamlPath  = "/src/github.com/iotexproject/iotex-core/e2etest/config_local_delegate.yaml"
 	localhost = "http://127.0.0.1:"
 )
 

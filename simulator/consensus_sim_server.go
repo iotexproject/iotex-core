@@ -101,7 +101,7 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 		// set chain database path
 		cfg.Chain.ChainDBPath = "./chain" + strconv.Itoa(i) + ".db"
 
-		sf, _ := state.NewFactoryFromTrieDBPath(cfg.Chain.TrieDBPath)
+		sf, _ := state.NewFactoryFromTrieDBPath(cfg.Chain.TrieDBPath, false)
 		bc := blockchain.CreateBlockchain(cfg, sf)
 
 		if i >= int(in.NFS+in.NHonest) { // is byzantine node

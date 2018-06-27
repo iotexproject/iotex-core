@@ -23,20 +23,22 @@ var transfersCmd = &cobra.Command{
 	Long:  `Returns the transfers associated with a given address`,
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		transfers(args)
+		fmt.Println(transfers(args))
 	},
 }
 
-func transfers(args []string) {
+func transfers(args []string) string {
 	client, _ := getClientAndCfg()
 	transfers, err := client.GetTransfersByAddress(args[0], 0, int64(limit))
 	if err != nil {
 		logger.Error().Err(err).Msgf("cannot get transfers for address %s", args[0])
-		return
+		return ""
 	}
+	var res string
 	for _, t := range transfers {
-		fmt.Printf("%+v\n", t)
+		res += fmt.Sprintf("%+v\n", t)
 	}
+	return res[:len(res)-1] // get rid of the extra \n at the end
 }
 
 func init() {

@@ -21,18 +21,18 @@ var balanceCmd = &cobra.Command{
 	Long:  `Returns the current balance of given address.`,
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		balance(args)
+		fmt.Println(balance(args))
 	},
 }
 
-func balance(args []string) {
+func balance(args []string) string {
 	client, _ := getClientAndCfg()
 	balance, err := client.GetAddressBalance(args[0])
 	if err != nil {
 		logger.Error().Err(err).Msgf("cannot get balance for address %s", args[0])
-		return
+		return ""
 	}
-	fmt.Printf("Address %s balance: %d\n", args[0], balance)
+	return fmt.Sprintf("Address %s balance: %d", args[0], balance)
 }
 
 func init() {
