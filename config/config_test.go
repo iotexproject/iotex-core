@@ -144,6 +144,10 @@ func LoadTestConfig() *Config {
 		Dispatcher: Dispatcher{
 			EventChanSize: 1024,
 		},
+		ActPool: ActPool{
+			MaxNumActPerPool: 32768,
+			MaxNumActPerAcct: 2048,
+		},
 	}
 	setProducerAddr(cfg)
 	return cfg

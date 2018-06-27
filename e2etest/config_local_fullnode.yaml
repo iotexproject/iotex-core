@@ -47,3 +47,7 @@ rpc:
 
 dispatcher:
     eventChanSize: 1024
+
+actPool:
+    maxNumActPerPool: 32768
+    maxNumActPerAcct: 2048

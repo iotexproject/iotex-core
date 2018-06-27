@@ -14,6 +14,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/common"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/proto"
@@ -25,10 +26,6 @@ const (
 	TransferSizeLimit = 32 * 1024
 	// VoteSizeLimit is the maximum size of vote allowed
 	VoteSizeLimit = 236
-	// GlobalSlots indicate maximum number of actions the whole actpool can hold
-	GlobalSlots = 8192
-	// AccountSlots indicate maximum number of an account queue can hold
-	AccountSlots = 256
 )
 
 var (
@@ -58,20 +55,29 @@ type ActPool interface {
 
 // actPool implements ActPool interface
 type actPool struct {
-	mutex       sync.RWMutex
-	sf          state.Factory
-	accountActs map[string]ActQueue
-	allActions  map[common.Hash32B]*iproto.ActionPb
+	mutex sync.RWMutex
+	// maxNumActPerPool indicates maximum number of actions the whole actpool can hold
+	maxNumActPerPool uint64
+	// maxNumActPerAcct indicates maximum number of actions an account queue can hold
+	maxNumActPerAcct uint64
+	sf               state.Factory
+	accountActs      map[string]ActQueue
+	allActions       map[common.Hash32B]*iproto.ActionPb
 }
 
 // NewActPool constructs a new actpool
-func NewActPool(sf state.Factory) ActPool {
-	ap := &actPool{
-		sf:          sf,
-		accountActs: make(map[string]ActQueue),
-		allActions:  make(map[common.Hash32B]*iproto.ActionPb),
+func NewActPool(sf state.Factory, cfg config.ActPool) (ActPool, error) {
+	if sf == nil {
+		return nil, errors.New("Try to attach a nil statefactory")
 	}
-	return ap
+	ap := &actPool{
+		maxNumActPerPool: cfg.MaxNumActPerPool,
+		maxNumActPerAcct: cfg.MaxNumActPerAcct,
+		sf:               sf,
+		accountActs:      make(map[string]ActQueue),
+		allActions:       make(map[common.Hash32B]*iproto.ActionPb),
+	}
+	return ap, nil
 }
 
 // Reset resets actpool state
@@ -155,7 +161,7 @@ func (ap *actPool) AddTsf(tsf *action.Transfer) error {
 		return err
 	}
 	// Reject transfer if pool space is full
-	if uint64(len(ap.allActions)) >= GlobalSlots {
+	if uint64(len(ap.allActions)) >= ap.maxNumActPerPool {
 		logger.Error().
 			Hex("hash", hash[:]).
 			Msg("Rejecting transfer due to insufficient space")
@@ -188,7 +194,7 @@ func (ap *actPool) AddVote(vote *action.Vote) error {
 		return err
 	}
 	// Reject vote if pool space is full
-	if uint64(len(ap.allActions)) >= GlobalSlots {
+	if uint64(len(ap.allActions)) >= ap.maxNumActPerPool {
 		logger.Error().
 			Hex("hash", hash[:]).
 			Msg("Rejecting vote due to insufficient space")
@@ -313,7 +319,7 @@ func (ap *actPool) addAction(sender string, action *iproto.ActionPb, hash common
 		return errors.Wrapf(ErrNonce, "duplicate nonce")
 	}
 
-	if queue.Len() >= AccountSlots {
+	if uint64(queue.Len()) >= ap.maxNumActPerAcct {
 		logger.Error().
 			Hex("hash", hash[:]).
 			Msg("Rejecting action due to insufficient space")

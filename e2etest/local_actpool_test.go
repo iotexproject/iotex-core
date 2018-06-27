@@ -132,7 +132,7 @@ func TestLocalActPool(t *testing.T) {
 			break
 		}
 	}
-	// Take coinbase transfer into account, there should be 3 transfers in the block
+	// Taking coinbase transfer into account, there should be 3 transfers in the block
 	require.Equal(3, len(blk.Transfers))
 	require.Equal(1, len(blk.Votes))
 }
@@ -156,6 +156,7 @@ func TestPressureActPool(t *testing.T) {
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Consensus.Scheme = config.StandaloneScheme
 	cfg.Delegate.Addrs = []string{"127.0.0.1:10000"}
+	cfg.ActPool.MaxNumActPerAcct = 256
 
 	blockchain.Gen.TotalSupply = uint64(50 << 22)
 	blockchain.Gen.BlockReward = uint64(0)
@@ -223,7 +224,7 @@ func TestPressureActPool(t *testing.T) {
 			break
 		}
 	}
-	// Take coinbase transfer into account, there should be 257 transfers in the block
+	// Taking coinbase transfer into account, there should be 257 transfers in the block
 	// because every account can hold up to 256 actions in actpool
 	require.Equal(257, len(blk.Transfers))
 }

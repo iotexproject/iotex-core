@@ -145,6 +145,12 @@ type System struct {
 	HeartbeatInterval time.Duration `yaml:"heartbeatInterval"`
 }
 
+// ActPool is the actpool config
+type ActPool struct {
+	MaxNumActPerPool uint64 `yaml:"maxNumActPerPool"`
+	MaxNumActPerAcct uint64 `yaml:"maxNumActPerAcct"`
+}
+
 // Config is the root config struct, each package's config should be put as its sub struct
 type Config struct {
 	NodeType   string     `yaml:"nodeType"`
@@ -157,6 +163,7 @@ type Config struct {
 	Dispatcher Dispatcher `yaml:"dispatcher"`
 	Explorer   Explorer   `yaml:"explorer"`
 	System     System     `yaml:"system"`
+	ActPool    ActPool    `yaml:"actPool"`
 }
 
 // IsDelegate returns true if the node type is Delegate
@@ -263,6 +270,14 @@ func validateConfig(cfg *Config) error {
 	}
 	if cfg.Delegate.RollNum > uint(len(cfg.Delegate.Addrs)) {
 		return fmt.Errorf("rolling delegates number is greater than total configured delegates")
+	}
+	maxNumActPerPool := cfg.ActPool.MaxNumActPerPool
+	maxNumActPerAcct := cfg.ActPool.MaxNumActPerAcct
+	if maxNumActPerPool <= 0 || maxNumActPerAcct <= 0 {
+		return fmt.Errorf("maximum number of actions per pool or per account cannot be zero or negative")
+	}
+	if maxNumActPerPool < maxNumActPerAcct {
+		return fmt.Errorf("maximum number of actions per pool cannot be less than maximum number of actions per account")
 	}
 	return nil
 }
