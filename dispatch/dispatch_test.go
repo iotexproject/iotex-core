@@ -110,8 +110,9 @@ func createDispatcher(
 	}
 	bc := mock_blockchain.NewMockBlockchain(ctrl)
 	bs := mock_blocksync.NewMockBlockSync(ctrl)
-	dp := mock_delegate.NewMockPool(ctrl)
+	pool := mock_delegate.NewMockPool(ctrl)
 	sf := mock_state.NewMockFactory(ctrl)
+	dp, _ := NewDispatcher(cfg, bc, nil, bs, pool, sf)
 
-	return NewDispatcher(cfg, bc, nil, bs, dp, sf), bs
+	return dp, bs
 }
