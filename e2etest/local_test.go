@@ -31,7 +31,10 @@ import (
 
 const (
 	localTestConfigPath = "../config.yaml"
+	testDBPath          = "db.test"
+	testDBPath2         = "db.test2"
 	testTriePath        = "trie.test"
+	testTriePath2       = "trie.test2"
 )
 
 func TestLocalCommit(t *testing.T) {
@@ -294,9 +297,14 @@ func TestLocalSync(t *testing.T) {
 	assert.Nil(err)
 	cfg.NodeType = config.DelegateType
 	cfg.Delegate.Addrs = []string{"127.0.0.1:10000"}
-	// disable account-based testing
-	cfg.Chain.TrieDBPath = ""
-	cfg.Chain.InMemTest = true
+	util.CleanupPath(t, testTriePath)
+	defer util.CleanupPath(t, testTriePath)
+	util.CleanupPath(t, testDBPath)
+	defer util.CleanupPath(t, testDBPath)
+
+	cfg.Chain.TrieDBPath = testTriePath
+	cfg.Chain.InMemTest = false
+	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Consensus.Scheme = config.NOOPScheme
 
 	// create node 1
@@ -327,6 +335,14 @@ func TestLocalSync(t *testing.T) {
 
 	p2 := svr.P2p()
 	assert.NotNil(p2)
+
+	util.CleanupPath(t, testTriePath2)
+	defer util.CleanupPath(t, testTriePath2)
+	util.CleanupPath(t, testDBPath2)
+	defer util.CleanupPath(t, testDBPath2)
+
+	cfg.Chain.TrieDBPath = testTriePath2
+	cfg.Chain.ChainDBPath = testDBPath2
 
 	// create node 2
 	cfg.NodeType = config.FullNodeType
