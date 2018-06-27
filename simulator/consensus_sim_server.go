@@ -113,7 +113,7 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 		overlay := network.NewOverlay(&cfg.Network)
 		ap := actpool.NewActPool(sf)
 		dlg := delegate.NewConfigBasedPool(&cfg.Delegate)
-		bs := blocksync.NewBlockSyncer(cfg, bc, ap, overlay, dlg)
+		bs, _ := blocksync.NewBlockSyncer(cfg, bc, ap, overlay, dlg)
 		bs.Start()
 
 		var node consensus.Sim

@@ -7,9 +7,9 @@
 package blocksync
 
 import (
+	"errors"
 	"fmt"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/iotexproject/iotex-core/actpool"
@@ -80,8 +80,8 @@ func SyncTaskInterval(cfg *config.Config) time.Duration {
 }
 
 // NewBlockSyncer returns a new block syncer instance
-func NewBlockSyncer(cfg *config.Config, chain bc.Blockchain, ap actpool.ActPool, p2p *network.Overlay, dp delegate.Pool) BlockSync {
-	sync := &blockSyncer{
+func NewBlockSyncer(cfg *config.Config, chain bc.Blockchain, ap actpool.ActPool, p2p *network.Overlay, dp delegate.Pool) (BlockSync, error) {
+	bs := &blockSyncer{
 		state:      Idle,
 		rcvdBlocks: map[uint64]*bc.Block{},
 		sw:         NewSlidingWindow(),
@@ -90,40 +90,37 @@ func NewBlockSyncer(cfg *config.Config, chain bc.Blockchain, ap actpool.ActPool,
 		p2p:        p2p,
 		dp:         dp}
 
-	sync.ackBlockCommit = cfg.IsDelegate() || cfg.IsFullnode()
-	sync.ackBlockSync = cfg.IsDelegate() || cfg.IsFullnode()
-	sync.ackSyncReq = cfg.IsDelegate() || cfg.IsFullnode()
+	bs.ackBlockCommit = cfg.IsDelegate() || cfg.IsFullnode()
+	bs.ackBlockSync = cfg.IsDelegate() || cfg.IsFullnode()
+	bs.ackSyncReq = cfg.IsDelegate() || cfg.IsFullnode()
 
 	if interval := SyncTaskInterval(cfg); interval != 0 {
-		sync.task = routine.NewRecurringTask(sync, interval)
+		bs.task = routine.NewRecurringTask(bs, interval)
 	}
 
 	delegates, err := dp.AllDelegates()
-	if err != nil || len(delegates) == 0 {
-		if err != nil {
-			logger.Error().Err(err)
-		} else {
-			logger.Error().Msg("No delegates found")
-		}
-		syscall.Exit(syscall.SYS_EXIT)
+	if err != nil {
+		return nil, err
+	}
+	if len(delegates) == 0 {
+		return nil, errors.New("No delegates found")
 	}
 
 	switch cfg.NodeType {
 	case config.DelegateType:
 		// pick a delegate that is not myself
 		if dlg := dp.AnotherDelegate(p2p.PRC.Addr); dlg != nil {
-			sync.fnd = dlg.String()
+			bs.fnd = dlg.String()
 		}
 	case config.FullNodeType:
 		// pick any valid delegate
 		if dlg := dp.AnotherDelegate(""); dlg != nil {
-			sync.fnd = dlg.String()
+			bs.fnd = dlg.String()
 		}
 	default:
-		logger.Error().Str("node_type", cfg.NodeType).Msg("Unexpected node type.")
-		return nil
+		return nil, errors.New("Unexpected node type: " + cfg.NodeType)
 	}
-	return sync
+	return bs, nil
 }
 
 // P2P returns the network overlay object
