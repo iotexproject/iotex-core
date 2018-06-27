@@ -7,7 +7,6 @@
 package blockchain
 
 import (
-	"encoding/hex"
 	"math/big"
 	"sync"
 
@@ -76,14 +75,10 @@ type Blockchain interface {
 	ValidateBlock(blk *Block) error
 
 	// For action operations
-	// CreateTransfer creates a signed transfer paying 'amount' from 'from' to 'to'
-	CreateTransfer(nonce uint64, from *iotxaddress.Address, amount *big.Int, to *iotxaddress.Address) (*action.Transfer, error)
 	// CreateRawTransfer creates an unsigned transfer paying 'amount' from 'from' to 'to'
 	CreateRawTransfer(nonce uint64, from *iotxaddress.Address, amount *big.Int, to *iotxaddress.Address) *action.Transfer
-	// CreateVote creates a signed vote
-	CreateVote(nonce uint64, selfPubKey []byte, votePubKey []byte) (*action.Vote, error)
 	// CreateRawVote creates an unsigned vote
-	CreateRawVote(nonce uint64, selfPubKey []byte, votePubKey []byte) *action.Vote
+	CreateRawVote(nonce uint64, from *iotxaddress.Address, to *iotxaddress.Address) *action.Vote
 
 	// Validator returns the current validator object
 	Validator() Validator
@@ -239,27 +234,10 @@ func (bc *blockchain) initValidator() {
 func (bc *blockchain) initStateFactory() error {
 	sf := bc.sf
 	if sf != nil {
-		// add Genesis block miner into Trie
+		// add producer into Trie
 		if _, err := sf.CreateState(Gen.CreatorAddr, Gen.TotalSupply); err != nil {
 			logger.Error().Err(err).Msg("Failed to add Creator into StateFactory")
 			return err
-		}
-		// add initial delegates into Trie
-		for _, pk := range Gen.InitDelegatesPubKey {
-			pubk, err := hex.DecodeString(pk)
-			if err != nil {
-				logger.Error().Err(err).Msg("Failed to denoce public key")
-				return err
-			}
-			address, err := iotxaddress.GetAddress(pubk, iotxaddress.IsTestnet, iotxaddress.ChainID)
-			if err != nil {
-				logger.Error().Err(err).Msg("Failed to get address from public key")
-				return err
-			}
-			if _, err := sf.CreateState(address.RawAddress, uint64(0)); err != nil {
-				logger.Error().Err(err).Msg("Failed to add initial delegates state into StateFactory")
-				return err
-			}
 		}
 	}
 
@@ -526,41 +504,14 @@ func (bc *blockchain) Validator() Validator {
 	return bc.validator
 }
 
-// CreateTransfer creates a signed transfer paying 'amount' from 'from' to 'to'
-func (bc *blockchain) CreateTransfer(nonce uint64, from *iotxaddress.Address, amount *big.Int, to *iotxaddress.Address) (*action.Transfer, error) {
-	tsf := action.NewTransfer(nonce, amount, from.RawAddress, to.RawAddress)
-	stsf, err := tsf.Sign(from)
-	if err != nil {
-		logger.Error().Err(err).Msg("Failed to sign transfer")
-		return nil, err
-	}
-	return stsf, nil
-}
-
 // CreateRawTransfer creates an unsigned transfer paying 'amount' from 'from' to 'to'
 func (bc *blockchain) CreateRawTransfer(nonce uint64, from *iotxaddress.Address, amount *big.Int, to *iotxaddress.Address) *action.Transfer {
 	return action.NewTransfer(nonce, amount, from.RawAddress, to.RawAddress)
 }
 
-// CreateVote creates a signed vote
-func (bc *blockchain) CreateVote(nonce uint64, selfPubKey []byte, votePubKey []byte) (*action.Vote, error) {
-	vote := action.NewVote(nonce, selfPubKey, votePubKey)
-	from, err := iotxaddress.GetAddress(selfPubKey, iotxaddress.IsTestnet, iotxaddress.ChainID)
-	if err != nil {
-		logger.Error().Err(err).Msg("Failed to get voter's address")
-		return nil, errors.Wrapf(err, "invalid address")
-	}
-	sVote, err := vote.Sign(from)
-	if err != nil {
-		logger.Error().Err(err).Msg("Failed to sign vote")
-		return nil, err
-	}
-	return sVote, nil
-}
-
 // CreateRawVote creates an unsigned vote
-func (bc *blockchain) CreateRawVote(nonce uint64, selfPubKey []byte, votePubKey []byte) *action.Vote {
-	return action.NewVote(nonce, selfPubKey, votePubKey)
+func (bc *blockchain) CreateRawVote(nonce uint64, from *iotxaddress.Address, to *iotxaddress.Address) *action.Vote {
+	return action.NewVote(nonce, from.PublicKey, to.PublicKey)
 }
 
 //======================================

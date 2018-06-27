@@ -89,7 +89,7 @@ func (s *Chainserver) CreateRawVote(ctx context.Context, in *pb.CreateRawVoteReq
 		return nil, errors.New("invalid CreateRawVoteRequest")
 	}
 
-	vote := s.blockchain.CreateRawVote(in.Nonce, in.Voter, in.Votee)
+	vote := s.blockchain.CreateRawVote(in.Nonce, &iotxaddress.Address{PublicKey: in.Voter}, &iotxaddress.Address{PublicKey: in.Votee})
 	svote, err := proto.Marshal(vote.ConvertToVotePb())
 	if err != nil {
 		return nil, err
