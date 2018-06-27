@@ -27,12 +27,6 @@ import (
 	"github.com/iotexproject/iotex-core/state"
 )
 
-// txMsg packages a proto tx message.
-type txMsg struct {
-	tx   *pb.TxPb
-	done chan bool
-}
-
 // blockMsg packages a proto block message.
 type blockMsg struct {
 	block   *pb.BlockPb
@@ -66,7 +60,7 @@ type IotxDispatcher struct {
 	ap actpool.ActPool
 }
 
-// NewDispatcher creates a new IotxDispatcher
+// NewDispatcher creates a new Dispatcher
 func NewDispatcher(
 	cfg *config.Config,
 	bc blockchain.Blockchain,
@@ -74,10 +68,9 @@ func NewDispatcher(
 	bs blocksync.BlockSync,
 	dp delegate.Pool,
 	sf state.Factory,
-) dispatcher.Dispatcher {
+) (dispatcher.Dispatcher, error) {
 	if bc == nil || bs == nil {
-		logger.Error().Msg("Try to attach to a nil blockchain or a nil P2P")
-		return nil
+		return nil, errors.New("Try to attach to a nil blockchain or a nil P2P")
 	}
 	d := &IotxDispatcher{
 		eventChan: make(chan interface{}, cfg.Dispatcher.EventChanSize),
@@ -86,7 +79,7 @@ func NewDispatcher(
 		bs:        bs,
 	}
 	d.cs = consensus.NewConsensus(cfg, bc, ap, bs, dp, sf)
-	return d
+	return d, nil
 }
 
 // Start starts the dispatcher.
@@ -179,17 +172,12 @@ func (d *IotxDispatcher) handleActionMsg(m *actionMsg) {
 		if err := d.ap.AddTsf(tsf); err != nil {
 			logger.Error().Err(err)
 		}
-		// TODO: defer m.done and return error to caller
-		return
-	}
-	if pbVote := m.action.GetVote(); pbVote != nil {
+	} else if pbVote := m.action.GetVote(); pbVote != nil {
 		vote := &action.Vote{}
 		vote.ConvertFromVotePb(pbVote)
 		if err := d.ap.AddVote(vote); err != nil {
 			logger.Error().Err(err)
 		}
-		// TODO: defer m.done and return error to caller
-		return
 	}
 	// signal to let caller know we are done
 	if m.done != nil {

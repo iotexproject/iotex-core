@@ -110,7 +110,10 @@ func newServer(cfg config.Config, bc blockchain.Blockchain, sf state.Factory) *S
 	}
 
 	// create dispatcher instance
-	dp := dispatch.NewDispatcher(&cfg, bc, ap, bs, pool, sf)
+	dp, err := dispatch.NewDispatcher(&cfg, bc, ap, bs, pool, sf)
+	if err != nil {
+		logger.Fatal().Err(err)
+	}
 	o.AttachDispatcher(dp)
 
 	return &Server{
