@@ -61,6 +61,13 @@ func (g *Gossip) OnReceivingMsg(msg *pb.BroadcastReq) error {
 		return err
 	}
 	// Relay the message to the neighbors
+	if msg.Ttl == 0 && msg.Ttl-1 == 0 {
+		logger.Debug().
+			Str("name", g.Overlay.PRC.String()).
+			Uint32("msg", msg.MsgType).
+			Msg("message used up all delivery hops")
+		return nil
+	}
 	err = g.relayMsg(msg.MsgType, msg.MsgBody, msg.Ttl-1)
 	if err != nil {
 		return nil
@@ -80,13 +87,6 @@ func (g *Gossip) processMsg(msgType uint32, msgBody []byte) error {
 }
 
 func (g *Gossip) relayMsg(msgType uint32, msgBody []byte, ttl uint32) error {
-	if ttl < 0 {
-		logger.Warn().
-			Str("name", g.Overlay.PRC.String()).
-			Uint32("msg", msgType).
-			Msg("message used up all delivery hops")
-		return nil
-	}
 	// Send the message to all neighbors
 	g.Overlay.PM.Peers.Range(func(_, value interface{}) bool {
 		go func() {
