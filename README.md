@@ -13,16 +13,19 @@ contact us if you intend to run it in production.
 ![systemflowchart](https://user-images.githubusercontent.com/15241597/38832065-3e57ca3a-4176-11e8-9bff-110387cf2378.png)
 
 ## Feature List
-### Testnet Preview (codename: StoneVan)
+### Testnet Alpha (codename: Strive)
 1. TBC (Transactions, Block & Chain)
 * Bech32-encoded address
 * Serialization and deserialize of messages on the wire
 * Merkle tree
-* Transactions, blocks and chain
-* Transaction pool
+* Actions, transfers, votes, blocks and chain
 * Fast and reliable blockchain storage and query using BoltDB
 * Block sync from network peers
 * Basic framework for script and VM
+* Account/state layer built on top of Merkle Patricia tree
+* Voting and unvoting for block producer candidates
+* New account-based action pool
+
 2. Network
 * Efficient gossip protocol over TLS
 * Broadcast & unicast semantics
@@ -30,21 +33,34 @@ contact us if you intend to run it in production.
 * Rate-limit requests per connection
 * Peer discovery
 * Large-scale simulation and load test
+
 3. Consensus
 * Framework for plugable consensus 
 * Standalone and NOOP schemes
-* Basic implementation of R-DPoS scheme
-4. Clients
-* Initial RPC support
-* Tools for injecting transactions/blocks
-5. Testing \& Integration
-* Unit test coverage > 50%
-* Integration tests
-* Staging development to 50 nodes (for internal use only)
+* Full implementation of FSM-based Roll-DPoS
+* Roll-DPoS simulator
+* Initial implementation of random beacon
 
-### Testnet Alpha \& Beta
-* libsect283k1 and integration
-* Random beacon and full R-DPoS with voting support
+4. Clients
+* JSON RPC support
+* UI Design and backend implementation of explorer
+* Command line console
+
+5. Crypto
+* libsect283 -- lightweight crypto library, with cgo binding
+* libtblsmnt -- Intial BLS signature parameterization and implementation, with cgo binding
+
+6. Testing \& Integration & Deployment
+* Unit test coverage > 60%
+* Thorough integration tests
+* Dockerization of IoTeX server
+* Testnet deployment of 20+ block producer delegates in production
+* Action injection and address generation tools
+* Enhancement of existing features, performance improvement and code refactoring
+
+### Testnet Beta
+
+* Random beacon, roll-DPoS and voting fully integration
 * Lightweight stealth address
 * Cross Chain Communication (CCC)
 * Fast block sync and checkpointing
