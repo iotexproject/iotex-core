@@ -364,6 +364,13 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	totalVotes, err := bc.GetTotalVotes()
 	require.Nil(err)
 	require.Equal(totalVotes, uint64(23))
+
+	_, err = bc.GetTransferByTransferHash(common.ZeroHash32B)
+	require.NotNil(err)
+	_, err = bc.GetVoteByVoteHash(common.ZeroHash32B)
+	require.NotNil(err)
+	_, err = bc.StateByAddr("")
+	require.NotNil(err)
 }
 
 func TestBlockchain_Validator(t *testing.T) {

@@ -25,7 +25,6 @@ const testnetActionPath = "testnet_actions.yaml"
 
 // Genesis defines the Genesis default settings
 type Genesis struct {
-	InitDelegatesPubKey []string
 	ChainID             uint32
 	TotalSupply         uint64
 	BlockReward         uint64

@@ -27,6 +27,7 @@ RUN cd $GOPATH/src/github.com/iotexproject/iotex-core/ && \
     mkdir -p /etc/iotex/ && \
     ln -s $GOPATH/src/github.com/iotexproject/iotex-core/config.yaml /etc/iotex/config.yaml && \
     ln -s $GOPATH/src/github.com/iotexproject/iotex-core/blockchain/testnet_actions.yaml /etc/iotex/testnet_actions.yaml && \
+    sed -i '/inMemTest/a \    genesisActionsPath: \/etc\/iotex\/testnet_actions\.yaml' /etc/iotex/config.yaml && \
     mkdir -p /var/log/iotex/
 
 CMD ["iotex-server", "-log-path=/var/log/iotex/server.log", "-config=/etc/iotex/config.yaml"]
