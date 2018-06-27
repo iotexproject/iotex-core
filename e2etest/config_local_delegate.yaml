@@ -53,3 +53,7 @@ explorer:
     isTest: false
     addr: "14004"
     tpsWindow: 10
+
+actPool:
+    maxNumActPerPool: 32768
+    maxNumActPerAcct: 2048

@@ -111,7 +111,10 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 		}
 
 		overlay := network.NewOverlay(&cfg.Network)
-		ap := actpool.NewActPool(sf)
+		ap, err := actpool.NewActPool(sf, cfg.ActPool)
+		if err != nil {
+			logger.Fatal().Err(err).Msg("Fail to create actpool")
+		}
 		dlg := delegate.NewConfigBasedPool(&cfg.Delegate)
 		bs, _ := blocksync.NewBlockSyncer(cfg, bc, ap, overlay, dlg)
 		bs.Start()

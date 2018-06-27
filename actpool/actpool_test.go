@@ -15,8 +15,10 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/blockchain/action"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	pb "github.com/iotexproject/iotex-core/proto"
@@ -39,6 +41,11 @@ const (
 	prikeyE = "53a827f7c5b4b4040b22ae9b12fcaa234e8362fa022480f50b8643981806ed67c7f77a00"
 )
 
+const (
+	maxNumActPerPool = 8192
+	maxNumActPerAcct = 256
+)
+
 var (
 	addr1 = util.ConstructAddress(pubkeyA, prikeyA)
 	addr2 = util.ConstructAddress(pubkeyB, prikeyB)
@@ -56,11 +63,14 @@ func TestActPool_validateTsf(t *testing.T) {
 	sf := state.NewFactory(tr)
 	assert.NotNil(sf)
 	sf.CreateState(addr1.RawAddress, uint64(100))
-	ap := NewActPool(sf).(*actPool)
-	assert.NotNil(ap)
+	apConfig := config.ActPool{maxNumActPerPool, maxNumActPerAcct}
+	Ap, err := NewActPool(sf, apConfig)
+	assert.Nil(err)
+	ap, ok := Ap.(*actPool)
+	require.True(t, ok)
 	// Case I: Coinbase Transfer
 	coinbaseTsf := action.Transfer{IsCoinbase: true}
-	err := ap.validateTsf(&coinbaseTsf)
+	err = ap.validateTsf(&coinbaseTsf)
 	assert.Equal(ErrTransfer, errors.Cause(err))
 	// Case II: Oversized Data
 	tmpPayload := [32769]byte{}
@@ -96,13 +106,16 @@ func TestActPool_validateVote(t *testing.T) {
 	sf := state.NewFactory(tr)
 	assert.NotNil(sf)
 	sf.CreateState(addr1.RawAddress, uint64(100))
-	ap := NewActPool(sf).(*actPool)
-	assert.NotNil(ap)
+	apConfig := config.ActPool{maxNumActPerPool, maxNumActPerAcct}
+	Ap, err := NewActPool(sf, apConfig)
+	assert.Nil(err)
+	ap, ok := Ap.(*actPool)
+	require.True(t, ok)
 	// Case I: Oversized Data
 	tmpSelfPubKey := [32769]byte{}
 	selfPubKey := tmpSelfPubKey[:]
 	vote := action.Vote{&pb.VotePb{SelfPubkey: selfPubKey}}
-	err := ap.validateVote(&vote)
+	err = ap.validateVote(&vote)
 	assert.Equal(ErrActPool, errors.Cause(err))
 	// Case II: Signature Verification Fails
 	unsignedVote := action.NewVote(1, addr1.PublicKey, addr2.PublicKey)
@@ -132,8 +145,11 @@ func TestActPool_AddActs(t *testing.T) {
 	sf.CreateState(addr1.RawAddress, uint64(100))
 	sf.CreateState(addr2.RawAddress, uint64(10))
 	// Create actpool
-	ap := NewActPool(sf).(*actPool)
-	assert.NotNil(ap)
+	apConfig := config.ActPool{maxNumActPerPool, maxNumActPerAcct}
+	Ap, err := NewActPool(sf, apConfig)
+	assert.Nil(err)
+	ap, ok := Ap.(*actPool)
+	require.True(t, ok)
 	// Test actpool status after adding a sequence of Tsfs/votes: need to check confirmed nonce, pending nonce, and pending balance
 	tsf1, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(10))
 	tsf2, _ := signedTransfer(addr1, addr1, uint64(2), big.NewInt(20))
@@ -177,15 +193,17 @@ func TestActPool_AddActs(t *testing.T) {
 	assert.Equal(uint64(5), pNonce2)
 	// Error Case Handling
 	// Case I: Action already exists in pool
-	err := ap.AddTsf(tsf1)
+	err = ap.AddTsf(tsf1)
 	assert.Equal(fmt.Errorf("existed transfer: %x", tsf1.Hash()), err)
 	err = ap.AddVote(vote4)
 	assert.Equal(fmt.Errorf("existed vote: %x", vote4.Hash()), err)
 	// Case II: Pool space is full
 	mockSF := mock_state.NewMockFactory(ctrl)
-	ap2 := NewActPool(mockSF).(*actPool)
-	assert.NotNil(ap2)
-	for i := 0; i < GlobalSlots; i++ {
+	Ap2, err := NewActPool(mockSF, apConfig)
+	assert.Nil(err)
+	ap2, ok := Ap2.(*actPool)
+	require.True(t, ok)
+	for i := uint64(0); i < ap2.maxNumActPerPool; i++ {
 		nTsf := action.Transfer{Amount: big.NewInt(int64(i))}
 		nAction := &pb.ActionPb{&pb.ActionPb_Transfer{nTsf.ConvertToTransferPb()}}
 		ap2.allActions[nTsf.Hash()] = nAction
@@ -203,12 +221,12 @@ func TestActPool_AddActs(t *testing.T) {
 	err = ap.AddVote(replaceVote)
 	assert.Equal(ErrNonce, errors.Cause(err))
 	// Case IV: Queue space is full
-	for i := 6; i <= AccountSlots; i++ {
+	for i := uint64(6); i <= ap.maxNumActPerAcct; i++ {
 		tsf, _ := signedTransfer(addr1, addr1, uint64(i), big.NewInt(1))
 		err := ap.AddTsf(tsf)
 		assert.Nil(err)
 	}
-	outOfBoundsTsf, _ := signedTransfer(addr1, addr1, uint64(AccountSlots+1), big.NewInt(1))
+	outOfBoundsTsf, _ := signedTransfer(addr1, addr1, uint64(ap.maxNumActPerAcct+1), big.NewInt(1))
 	err = ap.AddTsf(outOfBoundsTsf)
 	assert.Equal(ErrActPool, errors.Cause(err))
 }
@@ -224,8 +242,11 @@ func TestActPool_PickActs(t *testing.T) {
 	sf.CreateState(addr1.RawAddress, uint64(100))
 	sf.CreateState(addr2.RawAddress, uint64(10))
 	// Create actpool
-	ap := NewActPool(sf)
-	assert.NotNil(ap)
+	apConfig := config.ActPool{maxNumActPerPool, maxNumActPerAcct}
+	Ap, err := NewActPool(sf, apConfig)
+	assert.Nil(err)
+	ap, ok := Ap.(*actPool)
+	require.True(t, ok)
 
 	tsf1, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(10))
 	tsf2, _ := signedTransfer(addr1, addr1, uint64(2), big.NewInt(20))
@@ -264,8 +285,11 @@ func TestActPool_removeCommittedActs(t *testing.T) {
 	assert.NotNil(sf)
 	sf.CreateState(addr1.RawAddress, uint64(100))
 	// Create actpool
-	ap := NewActPool(sf).(*actPool)
-	assert.NotNil(ap)
+	apConfig := config.ActPool{maxNumActPerPool, maxNumActPerAcct}
+	Ap, err := NewActPool(sf, apConfig)
+	assert.Nil(err)
+	ap, ok := Ap.(*actPool)
+	require.True(t, ok)
 
 	tsf1, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(10))
 	tsf2, _ := signedTransfer(addr1, addr1, uint64(2), big.NewInt(20))
@@ -279,7 +303,7 @@ func TestActPool_removeCommittedActs(t *testing.T) {
 
 	assert.Equal(4, len(ap.allActions))
 	assert.NotNil(ap.accountActs[addr1.RawAddress])
-	err := ap.sf.CommitStateChanges(0, []*action.Transfer{tsf1, tsf2, tsf3}, []*action.Vote{vote4})
+	err = ap.sf.CommitStateChanges(0, []*action.Transfer{tsf1, tsf2, tsf3}, []*action.Vote{vote4})
 	assert.Nil(err)
 	ap.removeCommittedActs()
 	assert.Equal(0, len(ap.allActions))
@@ -299,10 +323,15 @@ func TestActPool_Reset(t *testing.T) {
 	sf.CreateState(addr2.RawAddress, uint64(200))
 	sf.CreateState(addr3.RawAddress, uint64(300))
 
-	ap1 := NewActPool(sf).(*actPool)
-	assert.NotNil(ap1)
-	ap2 := NewActPool(sf).(*actPool)
-	assert.NotNil(ap2)
+	apConfig := config.ActPool{maxNumActPerPool, maxNumActPerAcct}
+	Ap1, err := NewActPool(sf, apConfig)
+	assert.Nil(err)
+	ap1, ok := Ap1.(*actPool)
+	require.True(t, ok)
+	Ap2, err := NewActPool(sf, apConfig)
+	assert.Nil(err)
+	ap2, ok := Ap2.(*actPool)
+	require.True(t, ok)
 
 	// Tsfs to be added to ap1
 	tsf1, _ := signedTransfer(addr1, addr2, uint64(1), big.NewInt(50))
@@ -388,7 +417,7 @@ func TestActPool_Reset(t *testing.T) {
 	// Let ap1 be BP's actpool
 	pickedTsfs, pickedVotes := ap1.PickActs()
 	// ap1 commits update of accounts to trie
-	err := ap1.sf.CommitStateChanges(0, pickedTsfs, pickedVotes)
+	err = ap1.sf.CommitStateChanges(0, pickedTsfs, pickedVotes)
 	assert.Nil(err)
 	//Reset
 	ap1.Reset()

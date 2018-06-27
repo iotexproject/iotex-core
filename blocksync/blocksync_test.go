@@ -237,7 +237,8 @@ func TestBlockSyncer_ProcessBlock_TipHeight(t *testing.T) {
 	tr, _ := trie.NewTrie("", true)
 	sf := state.NewFactory(tr)
 	assert.NotNil(sf)
-	ap := actpool.NewActPool(sf)
+	apConfig := config.ActPool{8192, 256}
+	ap, err := actpool.NewActPool(sf, apConfig)
 
 	p2p := generateP2P()
 
@@ -285,7 +286,8 @@ func TestBlockSyncer_ProcessBlockSync(t *testing.T) {
 	tr, _ := trie.NewTrie("", true)
 	sf := state.NewFactory(tr)
 	assert.NotNil(sf)
-	ap := actpool.NewActPool(sf)
+	apConfig := config.ActPool{8192, 256}
+	ap, err := actpool.NewActPool(sf, apConfig)
 
 	p2p := generateP2P()
 

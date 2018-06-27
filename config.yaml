@@ -70,3 +70,7 @@ explorer:
 
 system:
     heartbeatInterval: 0s
+
+actPool:
+    maxNumActPerPool: 32768
+    maxNumActPerAcct: 2048
