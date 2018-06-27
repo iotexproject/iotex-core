@@ -89,12 +89,12 @@ func NewFactory(tr trie.Trie) Factory {
 }
 
 // NewFactoryFromTrieDBPath creates a new stateFactory from give trie db path.
-func NewFactoryFromTrieDBPath(dbPath string) (Factory, error) {
+func NewFactoryFromTrieDBPath(dbPath string, inMem bool) (Factory, error) {
 	if len(dbPath) == 0 {
 		// TODO not return error here is a hack
 		return nil, nil
 	}
-	tr, err := trie.NewTrie(dbPath, false)
+	tr, err := trie.NewTrie(dbPath, inMem)
 	if err != nil {
 		return nil, err
 	}

@@ -21,14 +21,14 @@ var selfCmd = &cobra.Command{
 	Short: "Returns this node's address",
 	Long:  `Returns this node's address`,
 	Run: func(cmd *cobra.Command, args []string) {
-		self()
+		fmt.Println(self())
 	},
 }
 
-func self() {
+func self() string {
 	_, cfg := getClientAndCfg()
 	rawAddr := address(cfg.Chain.ProducerPubKey)
-	fmt.Printf("this node's address is %s\n", rawAddr)
+	return fmt.Sprintf("this node's address is %s", rawAddr)
 }
 
 func address(pubkey string) string {

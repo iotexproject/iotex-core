@@ -36,7 +36,7 @@ type Server struct {
 // NewServer creates a new server
 func NewServer(cfg config.Config) *Server {
 	// create StateFactory
-	sf, err := state.NewFactoryFromTrieDBPath(cfg.Chain.TrieDBPath)
+	sf, err := state.NewFactoryFromTrieDBPath(cfg.Chain.TrieDBPath, false)
 	if err != nil {
 		logger.Error().Err(err).Msg("Failed to create statefactory")
 		return nil

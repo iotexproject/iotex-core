@@ -21,17 +21,18 @@ var heightCmd = &cobra.Command{
 	Long:  `Returns the current height of the blockchain.`,
 	Args:  cobra.ExactArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
-		height()
+		fmt.Println(height())
 	},
 }
 
-func height() {
+func height() string {
 	client, _ := getClientAndCfg()
 	tip, err := client.GetBlockchainHeight()
 	if err != nil {
 		logger.Error().Err(err).Msg("cannot get blockchain height")
+		return ""
 	}
-	fmt.Printf("blockchain height: %d\n", tip)
+	return fmt.Sprintf("blockchain height: %d", tip)
 }
 
 func init() {
