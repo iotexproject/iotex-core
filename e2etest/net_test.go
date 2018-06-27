@@ -19,7 +19,6 @@ import (
 const (
 	// localFullnodeConfig is the testnet config path
 	localFullnodeConfig = "./config_local_fullnode.yaml"
-	testDBPath          = "db.test"
 )
 
 func TestNetSync(t *testing.T) {
