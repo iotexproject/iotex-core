@@ -8,7 +8,6 @@ package network
 
 import (
 	"net"
-	"syscall"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
@@ -89,8 +88,7 @@ func (o *Overlay) addPeerMaintainer() {
 func (o *Overlay) addConfigBasedPeerMaintainer() {
 	topology, err := config.LoadTopology(o.Config.TopologyPath)
 	if err != nil {
-		logger.Error().Err(err)
-		syscall.Exit(syscall.SYS_EXIT)
+		logger.Fatal().Err(err)
 	}
 	cbpm := NewConfigBasedPeerMaintainer(o, topology)
 	cbpmTask := routine.NewRecurringTask(cbpm, o.Config.PeerMaintainerInterval)
