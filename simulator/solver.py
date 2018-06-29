@@ -74,6 +74,9 @@ class Solver:
 
         # initializes consensus engines and gets the initial block proposals
         response = consensus_client.Consensus.initConsensus(nHonest, nFS, nBF)
+        
+        # delay for 2 seconds to allow nodes to ramp up (matches delay in consensus code)
+        time.sleep(2)
 
         self.genGraph = opts["GRAPH"]
 

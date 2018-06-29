@@ -136,7 +136,7 @@ func NewSim(
 		commitBlockCB,
 		broadcastBlockCB,
 		chooseGetProposerCB(cfg.Consensus.RollDPoS.ProposerCB),
-		rolldpos.NeverStartNewEpoch,
+		chooseStartNextEpochCB(cfg.Consensus.RollDPoS.EpochCB),
 		rolldpos.GeneratePseudoDKG,
 		bc,
 		bs.P2P().Self(),

@@ -62,6 +62,7 @@ func testLocalRollDPoS(prCb string, epochCb string, numBlocks uint64, t *testing
 	cfg.Consensus.RollDPoS.ProposerCB = prCb
 	cfg.Consensus.RollDPoS.EpochCB = epochCb
 	cfg.Consensus.RollDPoS.ProposerInterval = interval
+	cfg.Consensus.RollDPoS.NumSubEpochs = 1
 	require.Nil(err)
 
 	var svrs []*itx.Server
