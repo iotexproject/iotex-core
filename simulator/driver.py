@@ -113,6 +113,7 @@ def drive(opts):
 
     # get rid of useless .db files
     os.system("rm chain*.db")
+    os.system("rm trie*.db")
 
     print("time taken for sim: ", time.time()-start_time)
     print("time taken to output graphs: ", solver.Solver.timeTakenForPlot)
