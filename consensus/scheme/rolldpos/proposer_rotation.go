@@ -45,12 +45,16 @@ func (s *proposerRotation) Do() {
 	}
 	// If proposer is not the current node, then returns
 	if pr.String() != s.self.String() {
+		logger.Info().
+			Str("proposer", s.self.String()).
+			Uint64("height", height+1).
+			Msg("not the proposer")
 		return
 	}
-	logger.Warn().
+	logger.Info().
 		Str("proposer", s.self.String()).
 		Uint64("height", height+1).
-		Msg("Propose new block height")
+		Msg("propose new block height")
 
 	s.enqueueEvent(&fsm.Event{
 		State: stateInitPropose,
