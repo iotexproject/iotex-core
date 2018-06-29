@@ -8,7 +8,6 @@ package main
 
 import (
 	"context"
-	"encoding/binary"
 	"encoding/hex"
 	"flag"
 	"fmt"
@@ -86,17 +85,12 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 		cfg.Network.Addr = addrs[i]
 
 		// create public/private key pair and address
-		chainID := make([]byte, 4)
-		binary.LittleEndian.PutUint32(chainID, uint32(i))
-
-		addr, err := iotxaddress.NewAddress(true, chainID)
+		addr, err := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
 		if err != nil {
 			logger.Error().Err(err).Msg("failed to create public/private key pair together with the address derived.")
 		}
 
-		cfg.Chain.ProducerAddr.PublicKey = addr.PublicKey
-		cfg.Chain.ProducerAddr.PrivateKey = addr.PrivateKey
-		cfg.Chain.ProducerAddr.RawAddress = addr.RawAddress
+		cfg.Chain.ProducerAddr = *addr
 
 		// set chain database path
 		cfg.Chain.ChainDBPath = "./chain" + strconv.Itoa(i) + ".db"

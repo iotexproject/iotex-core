@@ -440,6 +440,7 @@ func (bc *blockchain) MintNewBlock(tsf []*action.Transfer, vote []*action.Vote,
 	}
 
 	blk.Header.Pubkey = producer.PublicKey
+
 	blkHash := blk.HashBlock()
 	blk.Header.blockSig = cp.Sign(producer.PrivateKey, blkHash[:])
 	return blk, nil

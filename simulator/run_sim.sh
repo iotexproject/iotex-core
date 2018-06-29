@@ -13,7 +13,7 @@ N_CONNECTIONS=4
 MEAN_PROP_TIME=0.1
 STD_PROP_TIME=0.01
 SEED=20
-TIME_TO_SIM=3
+TIME_TO_SIM=2
 
 # python main.py --players="$PLAYERS" --nconnections=$N_CONNECTIONS --timetosim=$TIME_TO_SIM --meanproptime=$MEAN_PROP_TIME --stdproptime=$STD_PROP_TIME --seed=$SEED
 pyinstrument -o pyprofile.html --html main.py --players="$PLAYERS" --nconnections=$N_CONNECTIONS --timetosim=$TIME_TO_SIM --meanproptime=$MEAN_PROP_TIME --stdproptime=$STD_PROP_TIME --seed=$SEED
