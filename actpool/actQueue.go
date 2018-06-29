@@ -44,6 +44,8 @@ type ActQueue interface {
 	Put(*iproto.ActionPb) error
 	FilterNonce(uint64) []*iproto.ActionPb
 	UpdateNonce(uint64)
+	SetStartNonce(uint64)
+	StartNonce() uint64
 	SetConfirmedNonce(uint64)
 	ConfirmedNonce() uint64
 	SetPendingNonce(uint64)
@@ -61,6 +63,8 @@ type actQueue struct {
 	items map[uint64]*iproto.ActionPb
 	// Priority Queue that stores all the nonces belonging to an account. Nonces are used as indices for action map
 	index noncePriorityQueue
+	// Current nonce tracking the first action in queue
+	startNonce uint64
 	// Current nonce tracking previous actions that can be committed to the next block
 	confirmedNonce uint64
 	// Current pending nonce for the account
@@ -74,6 +78,7 @@ func NewActQueue() ActQueue {
 	return &actQueue{
 		items:          make(map[uint64]*iproto.ActionPb),
 		index:          noncePriorityQueue{},
+		startNonce:     uint64(1), // Taking coinbase Action into account, startNonce should start with 1
 		confirmedNonce: uint64(1), // Taking coinbase Action into account, confirmedNonce should start with 1
 		pendingNonce:   uint64(1), // Taking coinbase Action into account, pendingNonce should start with 1
 		pendingBalance: big.NewInt(0),
@@ -147,6 +152,16 @@ func (q *actQueue) UpdateNonce(nonce uint64) {
 		}
 	}
 	q.pendingNonce = nonce
+}
+
+// SetStartNonce sets the new start nonce for the queue
+func (q *actQueue) SetStartNonce(nonce uint64) {
+	q.startNonce = nonce
+}
+
+// StartNonce returns the current start nonce of the queue
+func (q *actQueue) StartNonce() uint64 {
+	return q.startNonce
 }
 
 // SetConfirmedNonce sets the new confirmed nonce for the queue

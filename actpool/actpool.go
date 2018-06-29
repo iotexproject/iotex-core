@@ -110,6 +110,7 @@ func (ap *actPool) Reset() {
 			return
 		}
 		confirmedNonce := committedNonce + 1
+		queue.SetStartNonce(confirmedNonce)
 		queue.SetConfirmedNonce(confirmedNonce)
 		queue.UpdateNonce(confirmedNonce)
 	}
@@ -162,7 +163,7 @@ func (ap *actPool) AddTsf(tsf *action.Transfer) error {
 	}
 	// Reject transfer if pool space is full
 	if uint64(len(ap.allActions)) >= ap.maxNumActPerPool {
-		logger.Error().
+		logger.Warn().
 			Hex("hash", hash[:]).
 			Msg("Rejecting transfer due to insufficient space")
 		return errors.Wrapf(ErrActPool, "insufficient space for transfer")
@@ -195,7 +196,7 @@ func (ap *actPool) AddVote(vote *action.Vote) error {
 	}
 	// Reject vote if pool space is full
 	if uint64(len(ap.allActions)) >= ap.maxNumActPerPool {
-		logger.Error().
+		logger.Warn().
 			Hex("hash", hash[:]).
 			Msg("Rejecting vote due to insufficient space")
 		return errors.Wrapf(ErrActPool, "insufficient space for vote")
@@ -303,6 +304,7 @@ func (ap *actPool) addAction(sender string, action *iproto.ActionPb, hash common
 		confirmedNonce := committedNonce + 1
 		queue.SetPendingNonce(confirmedNonce)
 		queue.SetConfirmedNonce(confirmedNonce)
+		queue.SetStartNonce(confirmedNonce)
 		// Initialize balance for new account
 		balance, err := ap.sf.Balance(sender)
 		if err != nil {
@@ -319,11 +321,12 @@ func (ap *actPool) addAction(sender string, action *iproto.ActionPb, hash common
 		return errors.Wrapf(ErrNonce, "duplicate nonce")
 	}
 
-	if uint64(queue.Len()) >= ap.maxNumActPerAcct {
-		logger.Error().
+	if actNonce-queue.StartNonce() >= ap.maxNumActPerAcct {
+		logger.Warn().
 			Hex("hash", hash[:]).
-			Msg("Rejecting action due to insufficient space")
-		return errors.Wrapf(ErrActPool, "insufficient space for action")
+			Uint64("startNonce", queue.StartNonce()).Uint64("actNonce", actNonce).
+			Msg("Rejecting action because nonce is too large")
+		return errors.Wrapf(ErrNonce, "nonce too large")
 	}
 	queue.Put(action)
 	ap.allActions[hash] = action
