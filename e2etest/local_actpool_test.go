@@ -138,6 +138,8 @@ func TestLocalActPool(t *testing.T) {
 }
 
 func TestPressureActPool(t *testing.T) {
+	t.Skip()
+
 	require := require.New(t)
 
 	cfg, err := config.LoadConfigWithPathWithoutValidation(localTestConfigPath)
