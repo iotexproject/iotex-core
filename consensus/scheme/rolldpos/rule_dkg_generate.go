@@ -21,10 +21,6 @@ func (r ruleDKGGenerate) Condition(event *fsm.Event) bool {
 	if event.State == stateEpochStart {
 		return false
 	}
-	// Trigger the proposer election after entering the first round of consensus in an epoch if no delay
-	if r.cfg.ProposerInterval == 0 {
-		r.prnd.Do()
-	}
 
 	// Determine the epoch ordinal number
 	height, err := r.bc.TipHeight()
@@ -65,6 +61,12 @@ func (r ruleDKGGenerate) Condition(event *fsm.Event) bool {
 		delegates:    delegates,
 		numSubEpochs: numSubEpochs,
 	}
+
+	// Trigger the proposer election after entering the first round of consensus in an epoch if no delay
+	if r.cfg.ProposerInterval == 0 {
+		r.prnd.Do()
+	}
+
 	logger.Info().
 		Str("name", r.self.String()).
 		Uint64("height", r.epochCtx.height).
