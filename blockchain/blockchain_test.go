@@ -21,7 +21,6 @@ import (
 	"github.com/iotexproject/iotex-core/state"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/test/util"
-	"github.com/iotexproject/iotex-core/trie"
 )
 
 const (
@@ -137,12 +136,11 @@ func TestCreateBlockchain(t *testing.T) {
 	assert.Nil(err)
 	// disable account-based testing
 	config.Chain.TrieDBPath = ""
-	config.Chain.InMemTest = true
 	// Disable block reward to make bookkeeping easier
 	Gen.BlockReward = uint64(0)
 
 	// create chain
-	bc := CreateBlockchain(config, nil)
+	bc := NewBlockchain(config, InMemDaoOption())
 	assert.NotNil(bc)
 	height, err := bc.TipHeight()
 	assert.Nil(err)
@@ -194,17 +192,18 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	util.CleanupPath(t, testDBPath)
 	defer util.CleanupPath(t, testDBPath)
 
-	config.Chain.TrieDBPath = testTriePath
-	config.Chain.InMemTest = false
-	config.Chain.ChainDBPath = testDBPath
-
-	tr, _ := trie.NewTrie(testTriePath, false)
-	sf := state.NewFactory(tr)
-	sf.CreateState(ta.Addrinfo["miner"].RawAddress, Gen.TotalSupply)
 	// Disable block reward to make bookkeeping easier
 	Gen.BlockReward = uint64(0)
+
+	config.Chain.TrieDBPath = testTriePath
+	config.Chain.ChainDBPath = testDBPath
+
+	sf, err := state.NewFactory(config, state.DefaultTrieOption())
+	require.Nil(err)
+	sf.CreateState(ta.Addrinfo["miner"].RawAddress, Gen.TotalSupply)
+
 	// Create a blockchain from scratch
-	bc := CreateBlockchain(config, sf)
+	bc := NewBlockchain(config, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	require.NotNil(bc)
 	height, err := bc.TipHeight()
 	require.Nil(err)
@@ -213,7 +212,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	bc.Stop()
 
 	// Load a blockchain from DB
-	bc = CreateBlockchain(config, sf)
+	bc = NewBlockchain(config, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	defer bc.Stop()
 	require.NotNil(bc)
 
@@ -372,9 +371,8 @@ func TestBlockchain_Validator(t *testing.T) {
 	assert.Nil(t, err)
 	// disable account-based testing
 	config.Chain.TrieDBPath = ""
-	config.Chain.InMemTest = true
 
-	bc := CreateBlockchain(config, nil)
+	bc := NewBlockchain(config, InMemDaoOption(), InMemStateFactoryOption())
 	defer bc.Stop()
 	assert.NotNil(t, bc)
 
@@ -389,9 +387,8 @@ func TestBlockchain_MintNewDummyBlock(t *testing.T) {
 	assert.Nil(t, err)
 	// disable account-based testing
 	config.Chain.TrieDBPath = ""
-	config.Chain.InMemTest = true
 
-	bc := CreateBlockchain(config, nil)
+	bc := NewBlockchain(config, InMemDaoOption(), InMemStateFactoryOption())
 	defer bc.Stop()
 	assert.NotNil(t, bc)
 
@@ -411,18 +408,17 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 	defer util.CleanupPath(t, testDBPath)
 
 	config.Chain.TrieDBPath = testTriePath
-	config.Chain.InMemTest = false
 	config.Chain.ChainDBPath = testDBPath
 	// Disable block reward to make bookkeeping easier
 	Gen.BlockReward = uint64(0)
 
-	tr, _ := trie.NewTrie(testTriePath, false)
-	sf := state.NewFactory(tr)
+	sf, err := state.NewFactory(config, state.DefaultTrieOption())
+	require.Nil(err)
 
 	height, candidate := sf.Candidates()
 	require.True(height == 0)
 	require.True(len(candidate) == 0)
-	bc := CreateBlockchain(config, sf)
+	bc := NewBlockchain(config, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	require.NotNil(t, bc)
 	// TODO: change the value when Candidates size is changed
 	height, candidate = sf.Candidates()
@@ -440,16 +436,15 @@ func TestCoinbaseTransfer(t *testing.T) {
 	defer util.CleanupPath(t, testDBPath)
 
 	config.Chain.TrieDBPath = testTriePath
-	config.Chain.InMemTest = false
 	config.Chain.ChainDBPath = testDBPath
 
-	tr, _ := trie.NewTrie(testTriePath, false)
-	sf := state.NewFactory(tr)
+	sf, err := state.NewFactory(config, state.DefaultTrieOption())
+	require.Nil(err)
 	sf.CreateState(ta.Addrinfo["miner"].RawAddress, Gen.TotalSupply)
 
 	Gen.BlockReward = uint64(10)
 
-	bc := CreateBlockchain(config, sf)
+	bc := NewBlockchain(config, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	require.NotNil(bc)
 	height, err := bc.TipHeight()
 	require.Nil(err)
@@ -480,9 +475,8 @@ func TestBlockchain_StateByAddr(t *testing.T) {
 	config, err := config.LoadConfigWithPathWithoutValidation(testingConfigPath)
 	require.Nil(err)
 	// disable account-based testing
-	config.Chain.InMemTest = true
 	// create chain
-	bc := CreateBlockchain(config, nil)
+	bc := NewBlockchain(config, InMemDaoOption(), InMemStateFactoryOption())
 	require.NotNil(bc)
 
 	s, _ := bc.StateByAddr(Gen.CreatorAddr)

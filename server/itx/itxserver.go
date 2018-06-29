@@ -36,13 +36,24 @@ type Server struct {
 // NewServer creates a new server
 func NewServer(cfg config.Config) *Server {
 	// create StateFactory
-	sf, err := state.NewFactoryFromTrieDBPath(cfg.Chain.TrieDBPath, false)
+	sf, err := state.NewFactory(&cfg, state.DefaultTrieOption())
 	if err != nil {
 		logger.Error().Err(err).Msg("Failed to create statefactory")
 		return nil
 	}
 	// create Blockchain
-	bc := blockchain.CreateBlockchain(&cfg, sf)
+	bc := blockchain.NewBlockchain(&cfg, blockchain.PrecreatedStateFactoryOption(sf), blockchain.BoltDBDaoOption())
+	return newServer(cfg, bc, sf)
+}
+
+// NewInMemTestServer creates a test server in memory
+func NewInMemTestServer(cfg config.Config) *Server {
+	sf, err := state.NewFactory(&cfg, state.InMemTrieOption())
+	if err != nil {
+		logger.Error().Err(err).Msg("Failed to create statefactory")
+		return nil
+	}
+	bc := blockchain.NewBlockchain(&cfg, blockchain.PrecreatedStateFactoryOption(sf), blockchain.InMemDaoOption())
 	return newServer(cfg, bc, sf)
 }
 

@@ -78,7 +78,7 @@ func (cli *CLI) Run() {
 		if *createChainAddress == "" {
 			os.Exit(1)
 		}
-		cli.bc = blockchain.CreateBlockchain(config, nil)
+		cli.bc = blockchain.NewBlockchain(config, blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption())
 		defer cli.bc.Stop()
 	}
 	if getBalanceCmd.Parsed() {

@@ -59,7 +59,6 @@ func testLocalRollDPoS(prCb string, epochCb string, numBlocks uint64, t *testing
 	cfg, err := config.LoadConfigWithPathWithoutValidation(localRollDPoSConfig)
 	// disable account-based testing
 	cfg.Chain.TrieDBPath = ""
-	cfg.Chain.InMemTest = true
 	cfg.Consensus.RollDPoS.ProposerCB = prCb
 	cfg.Consensus.RollDPoS.EpochCB = epochCb
 	cfg.Consensus.RollDPoS.ProposerInterval = interval
@@ -70,7 +69,7 @@ func testLocalRollDPoS(prCb string, epochCb string, numBlocks uint64, t *testing
 	for i := 0; i < 3; i++ {
 		cfg.NodeType = config.FullNodeType
 		cfg.Network.Addr = "127.0.0.1:5000" + strconv.Itoa(i)
-		svr := itx.NewServer(*cfg)
+		svr := itx.NewInMemTestServer(*cfg)
 		err = svr.Init()
 		require.Nil(err)
 		err = svr.Start()
@@ -83,7 +82,7 @@ func testLocalRollDPoS(prCb string, epochCb string, numBlocks uint64, t *testing
 		cfg.NodeType = config.DelegateType
 		cfg.Network.Addr = "127.0.0.1:4000" + strconv.Itoa(i)
 		cfg.Consensus.Scheme = config.RollDPoSScheme
-		svr := itx.NewServer(*cfg)
+		svr := itx.NewInMemTestServer(*cfg)
 		err = svr.Init()
 		require.Nil(err)
 		err = svr.Start()
