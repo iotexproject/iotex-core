@@ -25,7 +25,6 @@ import (
 	"github.com/iotexproject/iotex-core/test/mock/mock_consensus"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/test/util"
-	"github.com/iotexproject/iotex-core/trie"
 )
 
 const (
@@ -102,17 +101,16 @@ func TestExplorerApi(t *testing.T) {
 	defer util.CleanupPath(t, testDBPath)
 
 	config.Chain.TrieDBPath = testTriePath
-	config.Chain.InMemTest = true
 	config.Chain.ChainDBPath = testDBPath
 
-	tr, _ := trie.NewTrie(testTriePath, true)
-	sf := state.NewFactory(tr)
+	sf, err := state.NewFactory(config, state.InMemTrieOption())
+	require.Nil(err)
 	sf.CreateState(ta.Addrinfo["miner"].RawAddress, blockchain.Gen.TotalSupply)
 	// Disable block reward to make bookkeeping easier
 	blockchain.Gen.BlockReward = uint64(0)
 
 	// create chain
-	bc := blockchain.CreateBlockchain(config, sf)
+	bc := blockchain.NewBlockchain(config, blockchain.PrecreatedStateFactoryOption(sf), blockchain.InMemDaoOption())
 	require.NotNil(bc)
 	height, err := bc.TipHeight()
 	require.Nil(err)

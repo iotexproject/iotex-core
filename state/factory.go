@@ -15,7 +15,9 @@ import (
 
 	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/common"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/trie"
 )
 
@@ -77,28 +79,64 @@ type (
 	}
 )
 
+// FactoryOption sets Factory construction parameter
+type FactoryOption func(*factory, *config.Config) error
+
+// PrecreatedTrieOption uses pre-created trie for state factory
+func PrecreatedTrieOption(tr trie.Trie) FactoryOption {
+	return func(sf *factory, cfg *config.Config) error {
+		sf.trie = tr
+
+		return nil
+	}
+}
+
+// DefaultTrieOption creates trie from config for state factory
+func DefaultTrieOption() FactoryOption {
+	return func(sf *factory, cfg *config.Config) error {
+		dbPath := cfg.Chain.TrieDBPath
+		if len(dbPath) == 0 {
+			return errors.New("Invalid empty trie db path")
+		}
+		tr, err := trie.NewTrie(dbPath, false)
+		if err != nil {
+			return errors.Wrapf(err, "Failed to generate trie from config")
+		}
+		sf.trie = tr
+
+		return nil
+	}
+}
+
+// InMemTrieOption creates in memory trie for state factory
+func InMemTrieOption() FactoryOption {
+	return func(sf *factory, cfg *config.Config) error {
+		tr, err := trie.NewTrie("", true)
+		if err != nil {
+			return errors.Wrapf(err, "Failed to initialize in-memory trie")
+		}
+		sf.trie = tr
+
+		return nil
+	}
+}
+
 // NewFactory creates a new state factory
-func NewFactory(tr trie.Trie) Factory {
-	return &factory{
+func NewFactory(cfg *config.Config, opts ...FactoryOption) (Factory, error) {
+	sf := &factory{
 		currentChainHeight:     0,
-		trie:                   tr,
 		candidateHeap:          CandidateMinPQ{candidateSize, make([]*Candidate, 0)},
 		candidateBufferMinHeap: CandidateMinPQ{candidateBufferSize, make([]*Candidate, 0)},
 		candidateBufferMaxHeap: CandidateMaxPQ{candidateBufferSize, make([]*Candidate, 0)},
 	}
-}
 
-// NewFactoryFromTrieDBPath creates a new stateFactory from give trie db path.
-func NewFactoryFromTrieDBPath(dbPath string, inMem bool) (Factory, error) {
-	if len(dbPath) == 0 {
-		// TODO not return error here is a hack
-		return nil, nil
+	for _, opt := range opts {
+		if err := opt(sf, cfg); err != nil {
+			logger.Error().Err(err).Msgf("Failed to create state factory option %s", opt)
+			return nil, err
+		}
 	}
-	tr, err := trie.NewTrie(dbPath, inMem)
-	if err != nil {
-		return nil, err
-	}
-	return NewFactory(tr), nil
+	return sf, nil
 }
 
 // CreateState adds a new State with initial balance to the factory

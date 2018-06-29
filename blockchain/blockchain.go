@@ -22,7 +22,6 @@ import (
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-core/trie"
 )
 
 // Blockchain represents the blockchain data structure and hosts the APIs to access it
@@ -108,42 +107,163 @@ type blockchain struct {
 	sf state.Factory
 }
 
-// NewBlockchain creates a new blockchain instance
-func NewBlockchain(dao *blockDAO, cfg *config.Config, sf state.Factory) Blockchain {
+// Option sets blockchain construction parameter
+type Option func(*blockchain, *config.Config) error
+
+// DefaultStateFactoryOption sets blockchain's sf from config
+func DefaultStateFactoryOption() Option {
+	return func(bc *blockchain, cfg *config.Config) error {
+		sf, err := state.NewFactory(cfg, state.DefaultTrieOption())
+		if err != nil {
+			return errors.Wrapf(err, "Failed to create state factory")
+		}
+		bc.sf = sf
+
+		return nil
+	}
+}
+
+// PrecreatedStateFactoryOption sets blockchain's state.Factory to sf
+func PrecreatedStateFactoryOption(sf state.Factory) Option {
+	return func(bc *blockchain, conf *config.Config) error {
+		bc.sf = sf
+
+		return nil
+	}
+}
+
+// InMemStateFactoryOption sets blockchain's state.Factory as in memory sf
+func InMemStateFactoryOption() Option {
+	return func(bc *blockchain, cfg *config.Config) error {
+		sf, err := state.NewFactory(cfg, state.InMemTrieOption())
+		if err != nil {
+			return errors.Wrapf(err, "Failed to create state factory")
+		}
+		bc.sf = sf
+
+		return nil
+	}
+}
+
+// PrecreatedDaoOption sets blockchain's dao
+func PrecreatedDaoOption(dao *blockDAO) Option {
+	return func(bc *blockchain, conf *config.Config) error {
+		bc.dao = dao
+
+		return nil
+	}
+}
+
+// BoltDBDaoOption sets blockchain's dao with BoltDB from config.Chain.ChainDBPath
+func BoltDBDaoOption() Option {
+	return func(bc *blockchain, cfg *config.Config) error {
+		bc.dao = newBlockDAO(db.NewBoltDB(cfg.Chain.ChainDBPath, nil))
+
+		return nil
+	}
+}
+
+// InMemDaoOption sets blockchain's dao with MemKVStore
+func InMemDaoOption() Option {
+	return func(bc *blockchain, cfg *config.Config) error {
+		bc.dao = newBlockDAO(db.NewMemKVStore())
+
+		return nil
+	}
+}
+
+// NewBlockchain creates a new blockchain and DB instance
+func NewBlockchain(cfg *config.Config, opts ...Option) Blockchain {
+	// create the Blockchain
+	chain := &blockchain{
+		config:  cfg,
+		genesis: Gen,
+	}
+	for _, opt := range opts {
+		if err := opt(chain, cfg); err != nil {
+			logger.Error().Err(err).Msgf("Failed to create blockchain option %s", opt)
+			return nil
+		}
+	}
+	chain.initValidator()
+	chain.addDaoService()
+	if err := chain.initStateFactory(); err != nil {
+		logger.Error().Err(err).Msg("Failed to initialize state.Factory")
+		return nil
+	}
+	if err := chain.Init(); err != nil {
+		logger.Error().Err(err).Msg("Failed to initialize blockchain")
+		return nil
+	}
+	if err := chain.Start(); err != nil {
+		logger.Error().Err(err).Msg("Failed to start blockchain")
+		return nil
+	}
+
+	height, err := chain.TipHeight()
+	if err != nil {
+		logger.Error().Err(err).Msg("Failed to get blockchain height")
+		return nil
+	}
+	if height > 0 {
+		return chain
+	}
+	genesis := NewGenesisBlock(cfg)
+	if genesis == nil {
+		logger.Error().Msg("Cannot create genesis block.")
+		return nil
+	}
+	// Genesis block has height 0
+	if genesis.Header.height != 0 {
+		logger.Error().
+			Uint64("Genesis block has height", genesis.Height()).
+			Msg("Expecting 0")
+		return nil
+	}
+	// add Genesis block as very first block
+	if err := chain.CommitBlock(genesis); err != nil {
+		logger.Error().Err(err).Msg("Failed to commit Genesis block")
+		return nil
+	}
+	return chain
+}
+
+func (bc *blockchain) addDaoService() {
+	bc.AddService(bc.dao)
+}
+
+func (bc *blockchain) initValidator() {
+	bc.validator = &validator{sf: bc.sf}
+}
+
+func (bc *blockchain) initStateFactory() error {
+	sf := bc.sf
 	if sf != nil {
 		// add Genesis block miner into Trie
 		if _, err := sf.CreateState(Gen.CreatorAddr, Gen.TotalSupply); err != nil {
 			logger.Error().Err(err).Msg("Failed to add Creator into StateFactory")
-			return nil
+			return err
 		}
 		// add initial delegates into Trie
 		for _, pk := range Gen.InitDelegatesPubKey {
 			pubk, err := hex.DecodeString(pk)
 			if err != nil {
 				logger.Error().Err(err).Msg("Failed to denoce public key")
-				return nil
+				return err
 			}
 			address, err := iotxaddress.GetAddress(pubk, iotxaddress.IsTestnet, iotxaddress.ChainID)
 			if err != nil {
 				logger.Error().Err(err).Msg("Failed to get address from public key")
-				return nil
+				return err
 			}
 			if _, err := sf.CreateState(address.RawAddress, uint64(0)); err != nil {
 				logger.Error().Err(err).Msg("Failed to add initial delegates state into StateFactory")
-				return nil
+				return err
 			}
 		}
 	}
 
-	chain := &blockchain{
-		dao:       dao,
-		config:    cfg,
-		genesis:   Gen,
-		sf:        sf,
-		validator: &validator{sf: sf},
-	}
-	chain.AddService(dao)
-	return chain
+	return nil
 }
 
 // Start starts the blockchain
@@ -381,30 +501,6 @@ func (bc *blockchain) CommitBlock(blk *Block) error {
 	return bc.commitBlock(blk)
 }
 
-// CreateBlockchain creates a new blockchain and DB instance
-func CreateBlockchain(cfg *config.Config, sf state.Factory) Blockchain {
-	var kvStore db.KVStore
-	if cfg.Chain.InMemTest {
-		kvStore = db.NewMemKVStore()
-		// If TrieDBPath is empty, we disable account-based testing
-		if len(cfg.Chain.TrieDBPath) == 0 {
-			sf = nil
-		} else {
-			trie, err := trie.NewTrie("", true)
-			if err != nil {
-				logger.Error().Err(err).Msg("Failed to initialize in-memory trie")
-				return nil
-			}
-			if sf == nil {
-				sf = state.NewFactory(trie)
-			}
-		}
-	} else {
-		kvStore = db.NewBoltDB(cfg.Chain.ChainDBPath, nil)
-	}
-	return createAndInitBlockchain(kvStore, sf, cfg)
-}
-
 // StateByAddr returns the state of an address
 func (bc *blockchain) StateByAddr(address string) (*state.State, error) {
 	if bc.sf != nil {
@@ -486,45 +582,4 @@ func (bc *blockchain) commitBlock(blk *Block) error {
 		return nil
 	}
 	return bc.sf.CommitStateChanges(bc.tipHeight, blk.Transfers, blk.Votes)
-}
-
-func createAndInitBlockchain(kvstore db.KVStore, sf state.Factory, cfg *config.Config) Blockchain {
-	dao := newBlockDAO(kvstore)
-	// create the Blockchain
-	chain := NewBlockchain(dao, cfg, sf)
-	if err := chain.Init(); err != nil {
-		logger.Error().Err(err).Msg("Failed to initialize blockchain")
-		return nil
-	}
-	if err := chain.Start(); err != nil {
-		logger.Error().Err(err).Msg("Failed to start blockchain")
-		return nil
-	}
-
-	height, err := chain.TipHeight()
-	if err != nil {
-		logger.Error().Err(err).Msg("Failed to get blockchain height")
-		return nil
-	}
-	if height > 0 {
-		return chain
-	}
-	genesis := NewGenesisBlock(cfg)
-	if genesis == nil {
-		logger.Error().Msg("Cannot create genesis block.")
-		return nil
-	}
-	// Genesis block has height 0
-	if genesis.Header.height != 0 {
-		logger.Error().
-			Uint64("Genesis block has height", genesis.Height()).
-			Msg("Expecting 0")
-		return nil
-	}
-	// add Genesis block as very first block
-	if err := chain.CommitBlock(genesis); err != nil {
-		logger.Error().Err(err).Msg("Failed to commit Genesis block")
-		return nil
-	}
-	return chain
 }

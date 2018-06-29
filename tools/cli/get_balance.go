@@ -19,7 +19,7 @@ func (cli *CLI) getBalance(address string, config *config.Config) {
 	if !iotxaddress.ValidateAddress(address) {
 		logger.Fatal().Msg("ERROR: Address is not valid")
 	}
-	bc := blockchain.CreateBlockchain(config, nil)
+	bc := blockchain.NewBlockchain(config, blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption())
 	defer bc.Stop()
 
 	state, _ := bc.StateByAddr(address)

@@ -50,7 +50,6 @@ func TestLocalCommit(t *testing.T) {
 	defer util.CleanupPath(t, testDBPath)
 
 	cfg.Chain.TrieDBPath = testTriePath
-	cfg.Chain.InMemTest = false
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Consensus.Scheme = config.NOOPScheme
 	cfg.Delegate.Addrs = []string{"127.0.0.1:10000"}
@@ -303,7 +302,6 @@ func TestLocalSync(t *testing.T) {
 	defer util.CleanupPath(t, testDBPath)
 
 	cfg.Chain.TrieDBPath = testTriePath
-	cfg.Chain.InMemTest = false
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Consensus.Scheme = config.NOOPScheme
 
@@ -411,7 +409,6 @@ func TestVoteLocalCommit(t *testing.T) {
 	defer util.CleanupPath(t, testDBPath)
 
 	cfg.Chain.TrieDBPath = testTriePath
-	cfg.Chain.InMemTest = false
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Consensus.Scheme = config.NOOPScheme
 	cfg.Delegate.Addrs = []string{"127.0.0.1:10000"}

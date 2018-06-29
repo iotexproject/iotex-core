@@ -25,7 +25,6 @@ import (
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blocksync"
 	"github.com/iotexproject/iotex-core/test/mock/mock_delegate"
-	"github.com/iotexproject/iotex-core/trie"
 )
 
 func TestSyncTaskInterval(t *testing.T) {
@@ -234,8 +233,7 @@ func TestBlockSyncer_ProcessBlock_TipHeight(t *testing.T) {
 	mBc.EXPECT().TipHeight().AnyTimes().Return(uint64(5), nil)
 	mBc.EXPECT().CommitBlock(gomock.Any()).AnyTimes()
 
-	tr, _ := trie.NewTrie("", true)
-	sf := state.NewFactory(tr)
+	sf, err := state.NewFactory(nil, state.InMemTrieOption())
 	assert.NotNil(sf)
 	apConfig := config.ActPool{8192, 256}
 	ap, err := actpool.NewActPool(sf, apConfig)
@@ -283,8 +281,7 @@ func TestBlockSyncer_ProcessBlockSync(t *testing.T) {
 	mBc.EXPECT().TipHeight().Times(1).Return(uint64(5), nil)
 	mBc.EXPECT().TipHeight().Times(1).Return(uint64(6), nil)
 
-	tr, _ := trie.NewTrie("", true)
-	sf := state.NewFactory(tr)
+	sf, err := state.NewFactory(nil, state.InMemTrieOption())
 	assert.NotNil(sf)
 	apConfig := config.ActPool{8192, 256}
 	ap, err := actpool.NewActPool(sf, apConfig)

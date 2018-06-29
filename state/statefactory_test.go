@@ -47,7 +47,8 @@ func TestRootHash(t *testing.T) {
 	defer ctrl.Finish()
 
 	trie := mock_trie.NewMockTrie(ctrl)
-	sf := NewFactory(trie)
+	sf, err := NewFactory(nil, PrecreatedTrieOption(trie))
+	assert.Nil(t, err)
 	trie.EXPECT().RootHash().Times(1).Return(common.ZeroHash32B)
 	assert.Equal(t, common.ZeroHash32B, sf.RootHash())
 }
@@ -57,7 +58,8 @@ func TestCreateState(t *testing.T) {
 	defer ctrl.Finish()
 
 	trie := mock_trie.NewMockTrie(ctrl)
-	sf := NewFactory(trie)
+	sf, err := NewFactory(nil, PrecreatedTrieOption(trie))
+	assert.Nil(t, err)
 	trie.EXPECT().Upsert(gomock.Any(), gomock.Any()).Times(1)
 	addr, err := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
 	assert.Nil(t, err)
@@ -89,7 +91,8 @@ func TestNonce(t *testing.T) {
 	defer ctrl.Finish()
 
 	trie := mock_trie.NewMockTrie(ctrl)
-	sf := NewFactory(trie)
+	sf, err := NewFactory(nil, PrecreatedTrieOption(trie))
+	assert.Nil(t, err)
 
 	// Add 10 so the balance should be 10
 	addr, err := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})

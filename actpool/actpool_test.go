@@ -25,7 +25,6 @@ import (
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/mock/mock_state"
 	"github.com/iotexproject/iotex-core/test/util"
-	"github.com/iotexproject/iotex-core/trie"
 )
 
 const (
@@ -58,10 +57,9 @@ func TestActPool_validateTsf(t *testing.T) {
 	assert := assert.New(t)
 	l := logger.Logger().Level(zerolog.DebugLevel)
 	logger.SetLogger(&l)
-	tr, _ := trie.NewTrie("", true)
-	assert.NotNil(tr)
-	sf := state.NewFactory(tr)
+	sf, err := state.NewFactory(nil, state.InMemTrieOption())
 	assert.NotNil(sf)
+	assert.Nil(err)
 	sf.CreateState(addr1.RawAddress, uint64(100))
 	apConfig := config.ActPool{maxNumActPerPool, maxNumActPerAcct}
 	Ap, err := NewActPool(sf, apConfig)
@@ -101,10 +99,9 @@ func TestActPool_validateVote(t *testing.T) {
 	assert := assert.New(t)
 	l := logger.Logger().Level(zerolog.DebugLevel)
 	logger.SetLogger(&l)
-	tr, _ := trie.NewTrie("", true)
-	assert.NotNil(tr)
-	sf := state.NewFactory(tr)
+	sf, err := state.NewFactory(nil, state.InMemTrieOption())
 	assert.NotNil(sf)
+	assert.Nil(err)
 	sf.CreateState(addr1.RawAddress, uint64(100))
 	apConfig := config.ActPool{maxNumActPerPool, maxNumActPerAcct}
 	Ap, err := NewActPool(sf, apConfig)
@@ -138,10 +135,9 @@ func TestActPool_AddActs(t *testing.T) {
 	assert := assert.New(t)
 	l := logger.Logger().Level(zerolog.DebugLevel)
 	logger.SetLogger(&l)
-	tr, _ := trie.NewTrie("", true)
-	assert.NotNil(tr)
-	sf := state.NewFactory(tr)
+	sf, err := state.NewFactory(nil, state.InMemTrieOption())
 	assert.NotNil(sf)
+	assert.Nil(err)
 	sf.CreateState(addr1.RawAddress, uint64(100))
 	sf.CreateState(addr2.RawAddress, uint64(10))
 	// Create actpool
@@ -230,10 +226,9 @@ func TestActPool_PickActs(t *testing.T) {
 	assert := assert.New(t)
 	l := logger.Logger().Level(zerolog.DebugLevel)
 	logger.SetLogger(&l)
-	tr, _ := trie.NewTrie("", true)
-	assert.NotNil(tr)
-	sf := state.NewFactory(tr)
+	sf, err := state.NewFactory(nil, state.InMemTrieOption())
 	assert.NotNil(sf)
+	assert.Nil(err)
 	sf.CreateState(addr1.RawAddress, uint64(100))
 	sf.CreateState(addr2.RawAddress, uint64(10))
 	// Create actpool
@@ -274,10 +269,9 @@ func TestActPool_removeCommittedActs(t *testing.T) {
 	assert := assert.New(t)
 	l := logger.Logger().Level(zerolog.DebugLevel)
 	logger.SetLogger(&l)
-	tr, _ := trie.NewTrie("", true)
-	assert.NotNil(tr)
-	sf := state.NewFactory(tr)
+	sf, err := state.NewFactory(nil, state.InMemTrieOption())
 	assert.NotNil(sf)
+	assert.Nil(err)
 	sf.CreateState(addr1.RawAddress, uint64(100))
 	// Create actpool
 	apConfig := config.ActPool{maxNumActPerPool, maxNumActPerAcct}
@@ -310,10 +304,9 @@ func TestActPool_Reset(t *testing.T) {
 	l := logger.Logger().Level(zerolog.DebugLevel)
 	logger.SetLogger(&l)
 
-	tr, _ := trie.NewTrie("", true)
-	assert.NotNil(tr)
-	sf := state.NewFactory(tr)
+	sf, err := state.NewFactory(nil, state.InMemTrieOption())
 	assert.NotNil(sf)
+	assert.Nil(err)
 	sf.CreateState(addr1.RawAddress, uint64(100))
 	sf.CreateState(addr2.RawAddress, uint64(200))
 	sf.CreateState(addr3.RawAddress, uint64(300))

@@ -101,8 +101,11 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 		// set chain database path
 		cfg.Chain.ChainDBPath = "./chain" + strconv.Itoa(i) + ".db"
 
-		sf, _ := state.NewFactoryFromTrieDBPath(cfg.Chain.TrieDBPath, false)
-		bc := blockchain.CreateBlockchain(cfg, sf)
+		sf, err := state.NewFactory(cfg, state.DefaultTrieOption())
+		if err != nil {
+			logger.Error().Err(err).Msg("Failed to create state factory")
+		}
+		bc := blockchain.NewBlockchain(cfg, blockchain.PrecreatedStateFactoryOption(sf), blockchain.BoltDBDaoOption())
 
 		if i >= int(in.NFS+in.NHonest) { // is byzantine node
 			val := bc.Validator()

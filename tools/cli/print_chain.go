@@ -12,7 +12,7 @@ import (
 )
 
 func (cli *CLI) printChain(config *config.Config) {
-	cli.bc = blockchain.CreateBlockchain(config, nil)
+	cli.bc = blockchain.NewBlockchain(config, blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption())
 	defer cli.bc.Stop()
 
 	/*
