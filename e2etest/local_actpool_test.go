@@ -118,28 +118,26 @@ func TestLocalActPool(t *testing.T) {
 	p1.Broadcast(act6)
 	// Wait until actpool is reset
 	err = util.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
-		transfers, votes := ap.PickActs()
-		return len(transfers)+len(votes) == 0, nil
-	})
-	// Check whether there is a committed block containing all the valid actions picked from actpool
-	height, err := bc.TipHeight()
-	require.Nil(err)
-	blk := &blockchain.Block{}
-	for h := height; h > 0; h-- {
-		blk, err = bc.GetBlockByHeight(h)
-		require.Nil(err)
-		if len(blk.Votes) > 0 {
-			break
+		// Check whether current committed blocks contain all the valid actions picked from actpool
+		height, _ := bc.TipHeight()
+		var tsfCount int
+		var voteCount int
+		for h := height; h > 0; h-- {
+			blk, _ := bc.GetBlockByHeight(h)
+			if len(blk.Transfers) > 1 {
+				tsfCount += len(blk.Transfers) - 1
+			}
+			if len(blk.Votes) > 0 {
+				voteCount += len(blk.Votes)
+			}
 		}
-	}
-	// Taking coinbase transfer into account, there should be 3 transfers in the block
-	require.Equal(3, len(blk.Transfers))
-	require.Equal(1, len(blk.Votes))
+		// Excluding coinbase transfers, there should be 2 valid transfers and 1 valid vote in committed blocks
+		return tsfCount == 2 && voteCount == 1, nil
+	})
+	require.Nil(err)
 }
 
 func TestPressureActPool(t *testing.T) {
-	t.Skip()
-
 	require := require.New(t)
 
 	cfg, err := config.LoadConfigWithPathWithoutValidation(localTestConfigPath)
@@ -210,23 +208,19 @@ func TestPressureActPool(t *testing.T) {
 
 	// Wait until actpool is reset
 	err = util.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
-		transfers, votes := ap.PickActs()
-		return len(transfers)+len(votes) == 0, nil
-	})
-	// Check whether there is a committed block containing all the valid actions picked from actpool
-	height, err := bc.TipHeight()
-	require.Nil(err)
-	blk := &blockchain.Block{}
-	for h := height; h > 0; h-- {
-		blk, err = bc.GetBlockByHeight(h)
-		require.Nil(err)
-		if len(blk.Transfers) > 1 {
-			break
+		// Check whether current committed blocks contain all the valid actions picked from actpool
+		height, _ := bc.TipHeight()
+		var tsfCount int
+		for h := height; h > 0; h-- {
+			blk, _ := bc.GetBlockByHeight(h)
+			if len(blk.Transfers) > 1 {
+				tsfCount += len(blk.Transfers) - 1
+			}
 		}
-	}
-	// Taking coinbase transfer into account, there should be 257 transfers in the block
-	// because every account can hold up to 256 actions in actpool
-	require.Equal(257, len(blk.Transfers))
+		// Excluding coinbase transfers, there should be 256 valid transfers in committed blocks
+		return tsfCount == 256, nil
+	})
+	require.Nil(err)
 }
 
 // Helper function to return a signed transfer

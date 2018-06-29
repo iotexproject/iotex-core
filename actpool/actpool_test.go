@@ -220,15 +220,10 @@ func TestActPool_AddActs(t *testing.T) {
 	replaceVote, _ := signedVote(addr1, addr2, uint64(4))
 	err = ap.AddVote(replaceVote)
 	assert.Equal(ErrNonce, errors.Cause(err))
-	// Case IV: Queue space is full
-	for i := uint64(6); i <= ap.maxNumActPerAcct; i++ {
-		tsf, _ := signedTransfer(addr1, addr1, uint64(i), big.NewInt(1))
-		err := ap.AddTsf(tsf)
-		assert.Nil(err)
-	}
+	// Case IV: Nonce is too large
 	outOfBoundsTsf, _ := signedTransfer(addr1, addr1, uint64(ap.maxNumActPerAcct+1), big.NewInt(1))
 	err = ap.AddTsf(outOfBoundsTsf)
-	assert.Equal(ErrActPool, errors.Cause(err))
+	assert.Equal(ErrNonce, errors.Cause(err))
 }
 
 func TestActPool_PickActs(t *testing.T) {
