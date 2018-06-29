@@ -100,6 +100,7 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 
 		// set chain database path
 		cfg.Chain.ChainDBPath = "./chain" + strconv.Itoa(i) + ".db"
+		cfg.Chain.TrieDBPath = "./trie" + strconv.Itoa(i) + ".db"
 
 		sf, err := state.NewFactory(cfg, state.DefaultTrieOption())
 		if err != nil {
