@@ -11,7 +11,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"io/ioutil"
 	"math/big"
 	"math/rand"
@@ -199,7 +198,7 @@ func injectTransfer(ctx context.Context, wg *sync.WaitGroup, c pb.ChainServiceCl
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Failed to inject transfer")
 	}
-	fmt.Println("Created raw transfer")
+	logger.Info().Msg("Created raw transfer")
 
 	tsf := &pb.TransferPb{}
 	if err := proto.Unmarshal(r.SerializedTransfer, tsf); err != nil {
@@ -224,16 +223,16 @@ func injectTransfer(ctx context.Context, wg *sync.WaitGroup, c pb.ChainServiceCl
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Failed to inject transfer")
 	}
-	fmt.Println("Sent out the signed transfer: ")
+	logger.Info().Msg("Sent out the signed transfer: ")
 
-	fmt.Printf("Version: %d\n", tsf.Version)
-	fmt.Printf("Nonce: %d\n", tsf.Nonce)
-	fmt.Printf("Amount: %x\n", tsf.Amount)
-	fmt.Printf("Sender: %s\n", tsf.Sender)
-	fmt.Printf("Recipient: %s\n", tsf.Recipient)
-	fmt.Printf("Payload: %x\n", tsf.Payload)
-	fmt.Printf("Sender Public Key: %x\n", tsf.SenderPubKey)
-	fmt.Printf("Signature: %x\n", tsf.Signature)
+	logger.Info().Uint32("Version", tsf.Version).Msg(" ")
+	logger.Info().Uint64("Nonce", tsf.Nonce).Msg(" ")
+	logger.Info().Hex("Amount", tsf.Amount).Msg(" ")
+	logger.Info().Str("Sender", tsf.Sender).Msg(" ")
+	logger.Info().Str("Recipient", tsf.Recipient).Msg(" ")
+	logger.Info().Hex("Payload", tsf.Payload).Msg(" ")
+	logger.Info().Hex("Sender Public Key", tsf.SenderPubKey).Msg(" ")
+	logger.Info().Hex("Signature", tsf.Signature).Msg(" ")
 
 	if wg != nil {
 		wg.Done()
@@ -245,7 +244,7 @@ func injectVote(ctx context.Context, wg *sync.WaitGroup, c pb.ChainServiceClient
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Failed to inject vote")
 	}
-	fmt.Println("Created raw vote")
+	logger.Info().Msg("Created raw vote")
 
 	votePb := &pb.VotePb{}
 	if err := proto.Unmarshal(r.SerializedVote, votePb); err != nil {
@@ -268,13 +267,13 @@ func injectVote(ctx context.Context, wg *sync.WaitGroup, c pb.ChainServiceClient
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Failed to inject vote")
 	}
-	fmt.Println("Sent out the signed vote: ")
+	logger.Info().Msg("Sent out the signed vote: ")
 
-	fmt.Printf("Version: %d\n", votePb.Version)
-	fmt.Printf("Nonce: %d\n", votePb.Nonce)
-	fmt.Printf("Sender Public Key: %x\n", votePb.SelfPubkey)
-	fmt.Printf("Recipient Public Key: %x\n", votePb.VotePubkey)
-	fmt.Printf("Signature: %x\n", votePb.Signature)
+	logger.Info().Uint32("Version", votePb.Version).Msg(" ")
+	logger.Info().Uint64("Nonce", votePb.Nonce).Msg(" ")
+	logger.Info().Hex("Sender Public Key", votePb.SelfPubkey).Msg(" ")
+	logger.Info().Hex("Recipient Public Key", votePb.VotePubkey).Msg(" ")
+	logger.Info().Hex("Signature", votePb.Signature).Msg(" ")
 
 	if wg != nil {
 		wg.Done()
