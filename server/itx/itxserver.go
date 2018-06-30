@@ -120,13 +120,13 @@ func newServer(cfg config.Config, bc blockchain.Blockchain, sf state.Factory) *S
 	pool := delegate.NewConfigBasedPool(&cfg.Delegate)
 	bs, err := blocksync.NewBlockSyncer(&cfg, bc, ap, o, pool)
 	if err != nil {
-		logger.Fatal().Err(err)
+		logger.Fatal().Err(err).Msg("Fail to create blockSyncer")
 	}
 
 	// create dispatcher instance
 	dp, err := dispatch.NewDispatcher(&cfg, bc, ap, bs, pool, sf)
 	if err != nil {
-		logger.Fatal().Err(err)
+		logger.Fatal().Err(err).Msg("Fail to create dispatcher")
 	}
 	o.AttachDispatcher(dp)
 
