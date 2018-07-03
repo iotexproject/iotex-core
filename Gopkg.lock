@@ -94,6 +94,11 @@
   version = "v1.2.2"
 
 [[projects]]
+  name = "github.com/zjshen14/go-fsm"
+  packages = ["."]
+  revision = "4528c8749aae8cb7868a391390ebd15f5ea84618"
+
+[[projects]]
   branch = "master"
   name = "golang.org/x/crypto"
   packages = ["blake2b"]
@@ -198,6 +203,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "7898ea2e6365a424fb9698f5a44ef414abb14de52402ed1bba5c6030d72bf98b"
+  inputs-digest = "1d1282266386c574f8ad0bb36c25e3165e027c293deee661bd2e500cc6ad842e"
   solver-name = "gps-cdcl"
   solver-version = 1
