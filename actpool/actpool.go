@@ -83,17 +83,17 @@ func NewActPool(sf state.Factory, cfg config.ActPool) (ActPool, error) {
 // Reset resets actpool state
 // Step I: remove all the actions in actpool that have already been committed to block
 // Step II: update pending balance of each account if it still exists in pool
-// Step III: update pending nonce and confirmed nonce in each account if it still exists in pool
-// Specifically, first synchronize old confirmed nonce with committed nonce in order to prevent omitting reevaluation of
-// uncommitted but confirmed actions in pool after update of pending balance
-// Then starting from the current committed nonce, iteratively update pending nonce if nonces are consecutive as well as
-// confirmed nonce if pending balance is sufficient
+// Step III: update queue's status in each account and remove invalid actions following queue's update
+// Specifically, first reset the pending nonce based on confirmed nonce in order to prevent omitting reevaluation of
+// unconfirmed but pending actions in pool after update of pending balance
+// Then starting from the current confirmed nonce, iteratively update pending nonce if nonces are consecutive and pending
+// balance is sufficient, and remove all the subsequent actions once the pending balance becomes insufficient
 func (ap *actPool) Reset() {
 	ap.mutex.Lock()
 	defer ap.mutex.Unlock()
 
-	// Remove committed actions in actpool
-	ap.removeCommittedActs()
+	// Remove confirmed actions in actpool
+	ap.removeConfirmedActs()
 	for from, queue := range ap.accountActs {
 		// Reset pending balance for each account
 		balance, err := ap.sf.Balance(from)
@@ -103,16 +103,16 @@ func (ap *actPool) Reset() {
 		}
 		queue.SetPendingBalance(balance)
 
-		// Reset confirmed nonce and pending nonce for each account
-		committedNonce, err := ap.sf.Nonce(from)
+		// Reset pending nonce and remove invalid actions for each account
+		confirmedNonce, err := ap.sf.Nonce(from)
 		if err != nil {
-			logger.Error().Err(err).Msg("Error when resetting Tsf")
+			logger.Error().Err(err).Msg("Error when resetting actpool state")
 			return
 		}
-		confirmedNonce := committedNonce + 1
-		queue.SetStartNonce(confirmedNonce)
-		queue.SetConfirmedNonce(confirmedNonce)
-		queue.UpdateNonce(confirmedNonce)
+		pendingNonce := confirmedNonce + 1
+		queue.SetStartNonce(pendingNonce)
+		queue.SetPendingNonce(pendingNonce)
+		ap.updateAccount(from)
 	}
 }
 
@@ -124,7 +124,7 @@ func (ap *actPool) PickActs() ([]*action.Transfer, []*action.Vote) {
 	transfers := []*action.Transfer{}
 	votes := []*action.Vote{}
 	for _, queue := range ap.accountActs {
-		for _, act := range queue.ConfirmedActs() {
+		for _, act := range queue.PendingActs() {
 			switch {
 			case act.GetTransfer() != nil:
 				tsf := action.Transfer{}
@@ -245,13 +245,13 @@ func (ap *actPool) validateTsf(tsf *action.Transfer) error {
 		return errors.Wrapf(err, "failed to verify Transfer signature")
 	}
 	// Reject transfer if nonce is too low
-	committedNonce, err := ap.sf.Nonce(tsf.Sender)
+	confirmedNonce, err := ap.sf.Nonce(tsf.Sender)
 	if err != nil {
 		logger.Error().Err(err).Msg("Error when validating transfer")
 		return errors.Wrapf(err, "invalid nonce value")
 	}
-	confirmedNonce := committedNonce + 1
-	if confirmedNonce > tsf.Nonce {
+	pendingNonce := confirmedNonce + 1
+	if pendingNonce > tsf.Nonce {
 		logger.Error().Msg("Error when validating transfer")
 		return errors.Wrapf(ErrNonce, "nonce too low")
 	}
@@ -277,34 +277,34 @@ func (ap *actPool) validateVote(vote *action.Vote) error {
 	}
 
 	// Reject vote if nonce is too low
-	committedNonce, err := ap.sf.Nonce(voter.RawAddress)
+	confirmedNonce, err := ap.sf.Nonce(voter.RawAddress)
 	if err != nil {
 		logger.Error().Err(err).Msg("Error when validating vote")
 		return errors.Wrapf(err, "invalid nonce value")
 	}
-	confirmedNonce := committedNonce + 1
-	if confirmedNonce > vote.Nonce {
+	pendingNonce := confirmedNonce + 1
+	if pendingNonce > vote.Nonce {
 		logger.Error().Msg("Error when validating vote")
 		return errors.Wrapf(ErrNonce, "nonce too low")
 	}
 	return nil
 }
 
-func (ap *actPool) addAction(sender string, action *iproto.ActionPb, hash common.Hash32B, actNonce uint64) error {
+func (ap *actPool) addAction(sender string, act *iproto.ActionPb, hash common.Hash32B, actNonce uint64) error {
 	queue := ap.accountActs[sender]
 	if queue == nil {
 		queue = NewActQueue()
 		ap.accountActs[sender] = queue
-		// Initialize pending nonce and confirmed nonce for new account
-		committedNonce, err := ap.sf.Nonce(sender)
+
+		confirmedNonce, err := ap.sf.Nonce(sender)
 		if err != nil {
 			logger.Error().Err(err).Msg("Error when adding action")
 			return err
 		}
-		confirmedNonce := committedNonce + 1
-		queue.SetPendingNonce(confirmedNonce)
-		queue.SetConfirmedNonce(confirmedNonce)
-		queue.SetStartNonce(confirmedNonce)
+		// Initialize pending nonce for new account
+		pendingNonce := confirmedNonce + 1
+		queue.SetPendingNonce(pendingNonce)
+		queue.SetStartNonce(pendingNonce)
 		// Initialize balance for new account
 		balance, err := ap.sf.Balance(sender)
 		if err != nil {
@@ -313,7 +313,7 @@ func (ap *actPool) addAction(sender string, action *iproto.ActionPb, hash common
 		}
 		queue.SetPendingBalance(balance)
 	}
-	if queue.Overlaps(action) {
+	if queue.Overlaps(act) {
 		// Nonce already exists
 		logger.Error().
 			Hex("hash", hash[:]).
@@ -322,52 +322,86 @@ func (ap *actPool) addAction(sender string, action *iproto.ActionPb, hash common
 	}
 
 	if actNonce-queue.StartNonce() >= ap.maxNumActPerAcct {
+		// Nonce exceeds current range
 		logger.Warn().
 			Hex("hash", hash[:]).
 			Uint64("startNonce", queue.StartNonce()).Uint64("actNonce", actNonce).
 			Msg("Rejecting action because nonce is too large")
 		return errors.Wrapf(ErrNonce, "nonce too large")
 	}
-	queue.Put(action)
-	ap.allActions[hash] = action
-	// If the pending nonce equals this nonce, update pending nonce
+
+	if transfer := act.GetTransfer(); transfer != nil {
+		tsf := &action.Transfer{}
+		tsf.ConvertFromTransferPb(transfer)
+		if queue.PendingBalance().Cmp(tsf.Amount) < 0 {
+			// Pending balance is insufficient
+			logger.Warn().
+				Hex("hash", hash[:]).
+				Msg("Rejecting transfer due to insufficient balance")
+			return errors.Wrapf(ErrBalance, "insufficient balance for transfer")
+		}
+	}
+
+	queue.Put(act)
+	ap.allActions[hash] = act
+	// If the pending nonce equals this nonce, update queue
 	nonce := queue.PendingNonce()
 	if actNonce == nonce {
-		queue.UpdateNonce(actNonce)
+		ap.updateAccount(sender)
 	}
 	return nil
 }
 
-// removeCommittedActs removes processed (committed to block) actions from pool
-func (ap *actPool) removeCommittedActs() {
+// removeConfirmedActs removes processed (committed to block) actions from pool
+func (ap *actPool) removeConfirmedActs() {
 	for from, queue := range ap.accountActs {
-		committedNonce, err := ap.sf.Nonce(from)
+		confirmedNonce, err := ap.sf.Nonce(from)
 		if err != nil {
-			logger.Error().Err(err).Msg("Error when removing committed actions")
+			logger.Error().Err(err).Msg("Error when removing confirmed actions")
 			return
 		}
-		confirmedNonce := committedNonce + 1
+		pendingNonce := confirmedNonce + 1
 		// Remove all actions that are committed to new block
-		for _, act := range queue.FilterNonce(confirmedNonce) {
-			var hash common.Hash32B
-			switch {
-			case act.GetTransfer() != nil:
-				tsf := &action.Transfer{}
-				tsf.ConvertFromTransferPb(act.GetTransfer())
-				hash = tsf.Hash()
-			case act.GetVote() != nil:
-				vote := &action.Vote{}
-				vote.ConvertFromVotePb(act.GetVote())
-				hash = vote.Hash()
-			}
-			logger.Debug().
-				Hex("hash", hash[:]).
-				Msg("Removed committed action")
-			delete(ap.allActions, hash)
-		}
+		acts := queue.FilterNonce(pendingNonce)
+		ap.removeInvalidActs(acts)
+
 		// Delete the queue entry if it becomes empty
 		if queue.Empty() {
 			delete(ap.accountActs, from)
 		}
+	}
+}
+
+func (ap *actPool) removeInvalidActs(acts []*iproto.ActionPb) {
+	for _, act := range acts {
+		var hash common.Hash32B
+		switch {
+		case act.GetTransfer() != nil:
+			tsf := &action.Transfer{}
+			tsf.ConvertFromTransferPb(act.GetTransfer())
+			hash = tsf.Hash()
+		case act.GetVote() != nil:
+			vote := &action.Vote{}
+			vote.ConvertFromVotePb(act.GetVote())
+			hash = vote.Hash()
+		}
+		logger.Debug().
+			Hex("hash", hash[:]).
+			Msg("Removed invalidated action")
+		delete(ap.allActions, hash)
+	}
+}
+
+// updateAccount updates queue's status and remove invalidated actions from pool if necessary
+func (ap *actPool) updateAccount(sender string) {
+	queue := ap.accountActs[sender]
+	acts := queue.UpdateQueue(queue.PendingNonce())
+	if len(acts) > 0 {
+		ap.removeInvalidActs(acts)
+	}
+
+	// Delete the queue entry if it becomes empty
+	if queue.Empty() {
+		delete(ap.accountActs, sender)
 	}
 }

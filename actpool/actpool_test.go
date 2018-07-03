@@ -165,15 +165,11 @@ func TestActPool_AddActs(t *testing.T) {
 	ap.AddTsf(tsf7)
 	ap.AddTsf(tsf8)
 
-	cNonce1, _ := ap.getConfirmedNonce(addr1.RawAddress)
-	assert.Equal(uint64(5), cNonce1)
 	pBalance1, _ := ap.getPendingBalance(addr1.RawAddress)
 	assert.Equal(uint64(40), pBalance1.Uint64())
 	pNonce1, _ := ap.getPendingNonce(addr1.RawAddress)
-	assert.Equal(uint64(6), pNonce1)
+	assert.Equal(uint64(5), pNonce1)
 
-	cNonce2, _ := ap.getConfirmedNonce(addr2.RawAddress)
-	assert.Equal(uint64(2), cNonce2)
 	pBalance2, _ := ap.getPendingBalance(addr2.RawAddress)
 	assert.Equal(uint64(5), pBalance2.Uint64())
 	pNonce2, _ := ap.getPendingNonce(addr2.RawAddress)
@@ -181,12 +177,10 @@ func TestActPool_AddActs(t *testing.T) {
 
 	tsf9, _ := signedTransfer(addr2, addr2, uint64(2), big.NewInt(3))
 	ap.AddTsf(tsf9)
-	cNonce2, _ = ap.getConfirmedNonce(addr2.RawAddress)
-	assert.Equal(uint64(4), cNonce2)
 	pBalance2, _ = ap.getPendingBalance(addr2.RawAddress)
 	assert.Equal(uint64(1), pBalance2.Uint64())
 	pNonce2, _ = ap.getPendingNonce(addr2.RawAddress)
-	assert.Equal(uint64(5), pNonce2)
+	assert.Equal(uint64(4), pNonce2)
 	// Error Case Handling
 	// Case I: Action already exists in pool
 	err = ap.AddTsf(tsf1)
@@ -220,6 +214,10 @@ func TestActPool_AddActs(t *testing.T) {
 	outOfBoundsTsf, _ := signedTransfer(addr1, addr1, uint64(ap.maxNumActPerAcct+1), big.NewInt(1))
 	err = ap.AddTsf(outOfBoundsTsf)
 	assert.Equal(ErrNonce, errors.Cause(err))
+	// Case V: Insufficient balance
+	overBalTsf, _ := signedTransfer(addr2, addr2, uint64(4), big.NewInt(20))
+	err = ap.AddTsf(overBalTsf)
+	assert.Equal(ErrBalance, errors.Cause(err))
 }
 
 func TestActPool_PickActs(t *testing.T) {
@@ -265,7 +263,7 @@ func TestActPool_PickActs(t *testing.T) {
 	assert.Equal([]*action.Vote{vote7}, pickedVotes)
 }
 
-func TestActPool_removeCommittedActs(t *testing.T) {
+func TestActPool_removeConfirmedActs(t *testing.T) {
 	assert := assert.New(t)
 	l := logger.Logger().Level(zerolog.DebugLevel)
 	logger.SetLogger(&l)
@@ -294,7 +292,7 @@ func TestActPool_removeCommittedActs(t *testing.T) {
 	assert.NotNil(ap.accountActs[addr1.RawAddress])
 	err = ap.sf.CommitStateChanges(0, []*action.Transfer{tsf1, tsf2, tsf3}, []*action.Vote{vote4})
 	assert.Nil(err)
-	ap.removeCommittedActs()
+	ap.removeConfirmedActs()
 	assert.Equal(0, len(ap.allActions))
 	assert.Nil(ap.accountActs[addr1.RawAddress])
 }
@@ -360,44 +358,32 @@ func TestActPool_Reset(t *testing.T) {
 	// Check confirmed nonce, pending nonce, and pending balance after adding Tsfs above for each account
 	// ap1
 	// Addr1
-	ap1CNonce1, _ := ap1.getConfirmedNonce(addr1.RawAddress)
-	assert.Equal(uint64(3), ap1CNonce1)
 	ap1PNonce1, _ := ap1.getPendingNonce(addr1.RawAddress)
-	assert.Equal(uint64(4), ap1PNonce1)
+	assert.Equal(uint64(3), ap1PNonce1)
 	ap1PBalance1, _ := ap1.getPendingBalance(addr1.RawAddress)
 	assert.Equal(big.NewInt(20).Uint64(), ap1PBalance1.Uint64())
 	// Addr2
-	ap1CNonce2, _ := ap1.getConfirmedNonce(addr2.RawAddress)
-	assert.Equal(uint64(3), ap1CNonce2)
 	ap1PNonce2, _ := ap1.getPendingNonce(addr2.RawAddress)
-	assert.Equal(uint64(4), ap1PNonce2)
+	assert.Equal(uint64(3), ap1PNonce2)
 	ap1PBalance2, _ := ap1.getPendingBalance(addr2.RawAddress)
 	assert.Equal(big.NewInt(50).Uint64(), ap1PBalance2.Uint64())
 	// Addr3
-	ap1CNonce3, _ := ap1.getConfirmedNonce(addr3.RawAddress)
-	assert.Equal(uint64(3), ap1CNonce3)
 	ap1PNonce3, _ := ap1.getPendingNonce(addr3.RawAddress)
 	assert.Equal(uint64(3), ap1PNonce3)
 	ap1PBalance3, _ := ap1.getPendingBalance(addr3.RawAddress)
 	assert.Equal(big.NewInt(100).Uint64(), ap1PBalance3.Uint64())
 	// ap2
 	// Addr1
-	ap2CNonce1, _ := ap2.getConfirmedNonce(addr1.RawAddress)
-	assert.Equal(uint64(4), ap2CNonce1)
 	ap2PNonce1, _ := ap2.getPendingNonce(addr1.RawAddress)
-	assert.Equal(uint64(5), ap2PNonce1)
+	assert.Equal(uint64(4), ap2PNonce1)
 	ap2PBalance1, _ := ap2.getPendingBalance(addr1.RawAddress)
 	assert.Equal(big.NewInt(0).Uint64(), ap2PBalance1.Uint64())
 	// Addr2
-	ap2CNonce2, _ := ap2.getConfirmedNonce(addr2.RawAddress)
-	assert.Equal(uint64(3), ap2CNonce2)
 	ap2PNonce2, _ := ap2.getPendingNonce(addr2.RawAddress)
 	assert.Equal(uint64(3), ap2PNonce2)
 	ap2PBalance2, _ := ap2.getPendingBalance(addr2.RawAddress)
 	assert.Equal(big.NewInt(30).Uint64(), ap2PBalance2.Uint64())
 	// Addr3
-	ap2CNonce3, _ := ap2.getConfirmedNonce(addr3.RawAddress)
-	assert.Equal(uint64(3), ap2CNonce3)
 	ap2PNonce3, _ := ap2.getPendingNonce(addr3.RawAddress)
 	assert.Equal(uint64(3), ap2PNonce3)
 	ap2PBalance3, _ := ap2.getPendingBalance(addr3.RawAddress)
@@ -413,44 +399,32 @@ func TestActPool_Reset(t *testing.T) {
 	// Check confirmed nonce, pending nonce, and pending balance after resetting actpool for each account
 	// ap1
 	// Addr1
-	ap1CNonce1, _ = ap1.getConfirmedNonce(addr1.RawAddress)
-	assert.Equal(uint64(4), ap1CNonce1)
 	ap1PNonce1, _ = ap1.getPendingNonce(addr1.RawAddress)
-	assert.Equal(uint64(4), ap1PNonce1)
+	assert.Equal(uint64(3), ap1PNonce1)
 	ap1PBalance1, _ = ap1.getPendingBalance(addr1.RawAddress)
-	assert.Equal(big.NewInt(160).Uint64(), ap1PBalance1.Uint64())
+	assert.Equal(big.NewInt(220).Uint64(), ap1PBalance1.Uint64())
 	// Addr2
-	ap1CNonce2, _ = ap1.getConfirmedNonce(addr2.RawAddress)
-	assert.Equal(uint64(4), ap1CNonce2)
 	ap1PNonce2, _ = ap1.getPendingNonce(addr2.RawAddress)
-	assert.Equal(uint64(4), ap1PNonce2)
+	assert.Equal(uint64(3), ap1PNonce2)
 	ap1PBalance2, _ = ap1.getPendingBalance(addr2.RawAddress)
-	assert.Equal(big.NewInt(140).Uint64(), ap1PBalance2.Uint64())
+	assert.Equal(big.NewInt(200).Uint64(), ap1PBalance2.Uint64())
 	// Addr3
-	ap1CNonce3, _ = ap1.getConfirmedNonce(addr3.RawAddress)
-	assert.Equal(uint64(3), ap1CNonce3)
 	ap1PNonce3, _ = ap1.getPendingNonce(addr3.RawAddress)
 	assert.Equal(uint64(3), ap1PNonce3)
 	ap1PBalance3, _ = ap1.getPendingBalance(addr3.RawAddress)
 	assert.Equal(big.NewInt(180).Uint64(), ap1PBalance3.Uint64())
 	// ap2
 	// Addr1
-	ap2CNonce1, _ = ap2.getConfirmedNonce(addr1.RawAddress)
-	assert.Equal(uint64(5), ap2CNonce1)
 	ap2PNonce1, _ = ap2.getPendingNonce(addr1.RawAddress)
-	assert.Equal(uint64(5), ap2PNonce1)
+	assert.Equal(uint64(4), ap2PNonce1)
 	ap2PBalance1, _ = ap2.getPendingBalance(addr1.RawAddress)
-	assert.Equal(big.NewInt(190).Uint64(), ap2PBalance1.Uint64())
+	assert.Equal(big.NewInt(200).Uint64(), ap2PBalance1.Uint64())
 	// Addr2
-	ap2CNonce2, _ = ap2.getConfirmedNonce(addr2.RawAddress)
-	assert.Equal(uint64(3), ap2CNonce2)
 	ap2PNonce2, _ = ap2.getPendingNonce(addr2.RawAddress)
 	assert.Equal(uint64(3), ap2PNonce2)
 	ap2PBalance2, _ = ap2.getPendingBalance(addr2.RawAddress)
 	assert.Equal(big.NewInt(200).Uint64(), ap2PBalance2.Uint64())
 	// Addr3
-	ap2CNonce3, _ = ap2.getConfirmedNonce(addr3.RawAddress)
-	assert.Equal(uint64(3), ap2CNonce3)
 	ap2PNonce3, _ = ap2.getPendingNonce(addr3.RawAddress)
 	assert.Equal(uint64(3), ap2PNonce3)
 	ap2PBalance3, _ = ap2.getPendingBalance(addr3.RawAddress)
@@ -459,7 +433,7 @@ func TestActPool_Reset(t *testing.T) {
 	// Tsfs To be added to ap1 only
 	tsf15, _ := signedTransfer(addr3, addr2, uint64(3), big.NewInt(80))
 	// Tsfs To be added to ap2 only
-	tsf16, _ := signedTransfer(addr1, addr2, uint64(5), big.NewInt(150))
+	tsf16, _ := signedTransfer(addr1, addr2, uint64(4), big.NewInt(150))
 	tsf17, _ := signedTransfer(addr2, addr1, uint64(3), big.NewInt(90))
 	tsf18, _ := signedTransfer(addr2, addr3, uint64(4), big.NewInt(100))
 	tsf19, _ := signedTransfer(addr2, addr1, uint64(5), big.NewInt(50))
@@ -474,46 +448,34 @@ func TestActPool_Reset(t *testing.T) {
 	// Check confirmed nonce, pending nonce, and pending balance after adding Tsfs above for each account
 	// ap1
 	// Addr1
-	ap1CNonce1, _ = ap1.getConfirmedNonce(addr1.RawAddress)
-	assert.Equal(uint64(4), ap1CNonce1)
 	ap1PNonce1, _ = ap1.getPendingNonce(addr1.RawAddress)
-	assert.Equal(uint64(4), ap1PNonce1)
+	assert.Equal(uint64(3), ap1PNonce1)
 	ap1PBalance1, _ = ap1.getPendingBalance(addr1.RawAddress)
-	assert.Equal(big.NewInt(160).Uint64(), ap1PBalance1.Uint64())
+	assert.Equal(big.NewInt(220).Uint64(), ap1PBalance1.Uint64())
 	// Addr2
-	ap1CNonce2, _ = ap1.getConfirmedNonce(addr2.RawAddress)
-	assert.Equal(uint64(4), ap1CNonce2)
 	ap1PNonce2, _ = ap1.getPendingNonce(addr2.RawAddress)
-	assert.Equal(uint64(4), ap1PNonce2)
+	assert.Equal(uint64(3), ap1PNonce2)
 	ap1PBalance2, _ = ap1.getPendingBalance(addr2.RawAddress)
-	assert.Equal(big.NewInt(140).Uint64(), ap1PBalance2.Uint64())
+	assert.Equal(big.NewInt(200).Uint64(), ap1PBalance2.Uint64())
 	// Addr3
-	ap1CNonce3, _ = ap1.getConfirmedNonce(addr3.RawAddress)
-	assert.Equal(uint64(5), ap1CNonce3)
 	ap1PNonce3, _ = ap1.getPendingNonce(addr3.RawAddress)
 	assert.Equal(uint64(5), ap1PNonce3)
 	ap1PBalance3, _ = ap1.getPendingBalance(addr3.RawAddress)
 	assert.Equal(big.NewInt(0).Uint64(), ap1PBalance3.Uint64())
 	// ap2
 	// Addr1
-	ap2CNonce1, _ = ap2.getConfirmedNonce(addr1.RawAddress)
-	assert.Equal(uint64(6), ap2CNonce1)
 	ap2PNonce1, _ = ap2.getPendingNonce(addr1.RawAddress)
-	assert.Equal(uint64(6), ap2PNonce1)
+	assert.Equal(uint64(5), ap2PNonce1)
 	ap2PBalance1, _ = ap2.getPendingBalance(addr1.RawAddress)
-	assert.Equal(big.NewInt(40).Uint64(), ap2PBalance1.Uint64())
+	assert.Equal(big.NewInt(50).Uint64(), ap2PBalance1.Uint64())
 	// Addr2
-	ap2CNonce2, _ = ap2.getConfirmedNonce(addr2.RawAddress)
-	assert.Equal(uint64(5), ap2CNonce2)
 	ap2PNonce2, _ = ap2.getPendingNonce(addr2.RawAddress)
-	assert.Equal(uint64(6), ap2PNonce2)
+	assert.Equal(uint64(5), ap2PNonce2)
 	ap2PBalance2, _ = ap2.getPendingBalance(addr2.RawAddress)
 	assert.Equal(big.NewInt(10).Uint64(), ap2PBalance2.Uint64())
 	// Addr3
-	ap2CNonce3, _ = ap2.getConfirmedNonce(addr3.RawAddress)
-	assert.Equal(uint64(3), ap2CNonce3)
 	ap2PNonce3, _ = ap2.getPendingNonce(addr3.RawAddress)
-	assert.Equal(uint64(5), ap2PNonce3)
+	assert.Equal(uint64(3), ap2PNonce3)
 	ap2PBalance3, _ = ap2.getPendingBalance(addr3.RawAddress)
 	assert.Equal(big.NewInt(180).Uint64(), ap2PBalance3.Uint64())
 	// Let ap2 be BP's actpool
@@ -527,53 +489,41 @@ func TestActPool_Reset(t *testing.T) {
 	// Check confirmed nonce, pending nonce, and pending balance after resetting actpool for each account
 	// ap1
 	// Addr1
-	ap1CNonce1, _ = ap1.getConfirmedNonce(addr1.RawAddress)
-	assert.Equal(uint64(6), ap1CNonce1)
 	ap1PNonce1, _ = ap1.getPendingNonce(addr1.RawAddress)
-	assert.Equal(uint64(6), ap1PNonce1)
+	assert.Equal(uint64(5), ap1PNonce1)
 	ap1PBalance1, _ = ap1.getPendingBalance(addr1.RawAddress)
-	assert.Equal(big.NewInt(130).Uint64(), ap1PBalance1.Uint64())
+	assert.Equal(big.NewInt(140).Uint64(), ap1PBalance1.Uint64())
 	// Addr2
-	ap1CNonce2, _ = ap1.getConfirmedNonce(addr2.RawAddress)
-	assert.Equal(uint64(5), ap1CNonce2)
 	ap1PNonce2, _ = ap1.getPendingNonce(addr2.RawAddress)
 	assert.Equal(uint64(5), ap1PNonce2)
 	ap1PBalance2, _ = ap1.getPendingBalance(addr2.RawAddress)
 	assert.Equal(big.NewInt(180).Uint64(), ap1PBalance2.Uint64())
 	// Addr3
-	ap1CNonce3, _ = ap1.getConfirmedNonce(addr3.RawAddress)
-	assert.Equal(uint64(5), ap1CNonce3)
 	ap1PNonce3, _ = ap1.getPendingNonce(addr3.RawAddress)
 	assert.Equal(uint64(5), ap1PNonce3)
 	ap1PBalance3, _ = ap1.getPendingBalance(addr3.RawAddress)
-	assert.Equal(big.NewInt(110).Uint64(), ap1PBalance3.Uint64())
+	assert.Equal(big.NewInt(100).Uint64(), ap1PBalance3.Uint64())
 	// ap2
 	// Addr1
-	ap2CNonce1, _ = ap2.getConfirmedNonce(addr1.RawAddress)
-	assert.Equal(uint64(6), ap2CNonce1)
 	ap2PNonce1, _ = ap2.getPendingNonce(addr1.RawAddress)
-	assert.Equal(uint64(6), ap2PNonce1)
+	assert.Equal(uint64(5), ap2PNonce1)
 	ap2PBalance1, _ = ap2.getPendingBalance(addr1.RawAddress)
-	assert.Equal(big.NewInt(130).Uint64(), ap2PBalance1.Uint64())
+	assert.Equal(big.NewInt(140).Uint64(), ap2PBalance1.Uint64())
 	// Addr2
-	ap2CNonce2, _ = ap2.getConfirmedNonce(addr2.RawAddress)
-	assert.Equal(uint64(6), ap2CNonce2)
 	ap2PNonce2, _ = ap2.getPendingNonce(addr2.RawAddress)
-	assert.Equal(uint64(6), ap2PNonce2)
+	assert.Equal(uint64(5), ap2PNonce2)
 	ap2PBalance2, _ = ap2.getPendingBalance(addr2.RawAddress)
-	assert.Equal(big.NewInt(130).Uint64(), ap2PBalance2.Uint64())
+	assert.Equal(big.NewInt(180).Uint64(), ap2PBalance2.Uint64())
 	// Addr3
-	ap2CNonce3, _ = ap2.getConfirmedNonce(addr3.RawAddress)
-	assert.Equal(uint64(4), ap2CNonce3)
 	ap2PNonce3, _ = ap2.getPendingNonce(addr3.RawAddress)
-	assert.Equal(uint64(5), ap2PNonce3)
+	assert.Equal(uint64(3), ap2PNonce3)
 	ap2PBalance3, _ = ap2.getPendingBalance(addr3.RawAddress)
-	assert.Equal(big.NewInt(90).Uint64(), ap2PBalance3.Uint64())
+	assert.Equal(big.NewInt(280).Uint64(), ap2PBalance3.Uint64())
 
 	// Add two more players
 	sf.CreateState(addr4.RawAddress, uint64(10))
 	sf.CreateState(addr5.RawAddress, uint64(20))
-	tsf21, _ := signedTransfer(addr4, addr5, uint64(1), big.NewInt(20))
+	tsf21, _ := signedTransfer(addr4, addr5, uint64(1), big.NewInt(10))
 	vote22, _ := signedVote(addr4, addr4, uint64(2))
 	vote23, _ := signedVote(addr4, addr5, uint64(3))
 	vote24, _ := signedVote(addr5, addr4, uint64(1))
@@ -589,15 +539,11 @@ func TestActPool_Reset(t *testing.T) {
 	// Check confirmed nonce, pending nonce, and pending balance after adding actions above for account4 and account5
 	// ap1
 	// Addr4
-	ap1CNonce4, _ := ap1.getConfirmedNonce(addr4.RawAddress)
-	assert.Equal(uint64(1), ap1CNonce4)
 	ap1PNonce4, _ := ap1.getPendingNonce(addr4.RawAddress)
 	assert.Equal(uint64(4), ap1PNonce4)
 	ap1PBalance4, _ := ap1.getPendingBalance(addr4.RawAddress)
-	assert.Equal(big.NewInt(10).Uint64(), ap1PBalance4.Uint64())
+	assert.Equal(big.NewInt(0).Uint64(), ap1PBalance4.Uint64())
 	// Addr5
-	ap1CNonce5, _ := ap1.getConfirmedNonce(addr5.RawAddress)
-	assert.Equal(uint64(4), ap1CNonce5)
 	ap1PNonce5, _ := ap1.getPendingNonce(addr5.RawAddress)
 	assert.Equal(uint64(4), ap1PNonce5)
 	ap1PBalance5, _ := ap1.getPendingBalance(addr5.RawAddress)
@@ -612,29 +558,52 @@ func TestActPool_Reset(t *testing.T) {
 	// Check confirmed nonce, pending nonce, and pending balance after resetting actpool for each account
 	// ap1
 	// Addr4
-	ap1CNonce4, _ = ap1.getConfirmedNonce(addr4.RawAddress)
-	assert.Equal(uint64(4), ap1CNonce4)
 	ap1PNonce4, _ = ap1.getPendingNonce(addr4.RawAddress)
 	assert.Equal(uint64(4), ap1PNonce4)
 	ap1PBalance4, _ = ap1.getPendingBalance(addr4.RawAddress)
-	assert.Equal(big.NewInt(0).Uint64(), ap1PBalance4.Uint64())
+	assert.Equal(big.NewInt(10).Uint64(), ap1PBalance4.Uint64())
 	// Addr5
-	ap1CNonce5, _ = ap1.getConfirmedNonce(addr5.RawAddress)
-	assert.Equal(uint64(4), ap1CNonce5)
 	ap1PNonce5, _ = ap1.getPendingNonce(addr5.RawAddress)
 	assert.Equal(uint64(4), ap1PNonce5)
 	ap1PBalance5, _ = ap1.getPendingBalance(addr5.RawAddress)
-	assert.Equal(big.NewInt(10).Uint64(), ap1PBalance5.Uint64())
+	assert.Equal(big.NewInt(20).Uint64(), ap1PBalance5.Uint64())
 }
 
-// Helper function to return the correct confirmed nonce just in case of empty queue
-func (ap *actPool) getConfirmedNonce(addr string) (uint64, error) {
-	if queue, ok := ap.accountActs[addr]; ok {
-		return queue.ConfirmedNonce(), nil
-	}
-	committedNonce, err := ap.sf.Nonce(addr)
-	confirmedNonce := committedNonce + 1
-	return confirmedNonce, err
+func TestActPool_removeInvalidActs(t *testing.T) {
+	assert := assert.New(t)
+	l := logger.Logger().Level(zerolog.DebugLevel)
+	logger.SetLogger(&l)
+	sf, err := state.NewFactory(nil, state.InMemTrieOption())
+	assert.NotNil(sf)
+	assert.Nil(err)
+	sf.CreateState(addr1.RawAddress, uint64(100))
+	// Create actpool
+	apConfig := config.ActPool{maxNumActPerPool, maxNumActPerAcct}
+	Ap, err := NewActPool(sf, apConfig)
+	assert.Nil(err)
+	ap, ok := Ap.(*actPool)
+	require.True(t, ok)
+
+	tsf1, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(10))
+	tsf2, _ := signedTransfer(addr1, addr1, uint64(2), big.NewInt(20))
+	tsf3, _ := signedTransfer(addr1, addr1, uint64(3), big.NewInt(30))
+	vote4, _ := signedVote(addr1, addr1, uint64(4))
+
+	ap.AddTsf(tsf1)
+	ap.AddTsf(tsf2)
+	ap.AddTsf(tsf3)
+	ap.AddVote(vote4)
+
+	hash1 := tsf1.Hash()
+	action1 := &pb.ActionPb{&pb.ActionPb_Transfer{tsf1.ConvertToTransferPb()}}
+	hash2 := vote4.Hash()
+	action2 := &pb.ActionPb{&pb.ActionPb_Vote{vote4.ConvertToVotePb()}}
+	acts := []*pb.ActionPb{action1, action2}
+	assert.NotNil(ap.allActions[hash1])
+	assert.NotNil(ap.allActions[hash2])
+	ap.removeInvalidActs(acts)
+	assert.Nil(ap.allActions[hash1])
+	assert.Nil(ap.allActions[hash2])
 }
 
 // Helper function to return the correct pending nonce just in case of empty queue

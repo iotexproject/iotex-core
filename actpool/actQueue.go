@@ -9,6 +9,7 @@ package actpool
 import (
 	"container/heap"
 	"math/big"
+	"sort"
 
 	"github.com/pkg/errors"
 
@@ -43,18 +44,16 @@ type ActQueue interface {
 	Overlaps(*iproto.ActionPb) bool
 	Put(*iproto.ActionPb) error
 	FilterNonce(uint64) []*iproto.ActionPb
-	UpdateNonce(uint64)
 	SetStartNonce(uint64)
 	StartNonce() uint64
-	SetConfirmedNonce(uint64)
-	ConfirmedNonce() uint64
+	UpdateQueue(uint64) []*iproto.ActionPb
 	SetPendingNonce(uint64)
 	PendingNonce() uint64
 	SetPendingBalance(*big.Int)
 	PendingBalance() *big.Int
 	Len() int
 	Empty() bool
-	ConfirmedActs() []*iproto.ActionPb
+	PendingActs() []*iproto.ActionPb
 }
 
 // actQueue is a queue of actions from an account
@@ -65,9 +64,7 @@ type actQueue struct {
 	index noncePriorityQueue
 	// Current nonce tracking the first action in queue
 	startNonce uint64
-	// Current nonce tracking previous actions that can be committed to the next block
-	confirmedNonce uint64
-	// Current pending nonce for the account
+	// Current pending nonce tracking previous actions that can be committed to the next block for the account
 	pendingNonce uint64
 	// Current pending balance for the account
 	pendingBalance *big.Int
@@ -79,7 +76,6 @@ func NewActQueue() ActQueue {
 		items:          make(map[uint64]*iproto.ActionPb),
 		index:          noncePriorityQueue{},
 		startNonce:     uint64(1), // Taking coinbase Action into account, startNonce should start with 1
-		confirmedNonce: uint64(1), // Taking coinbase Action into account, confirmedNonce should start with 1
 		pendingNonce:   uint64(1), // Taking coinbase Action into account, pendingNonce should start with 1
 		pendingBalance: big.NewInt(0),
 	}
@@ -134,24 +130,52 @@ func (q *actQueue) FilterNonce(threshold uint64) []*iproto.ActionPb {
 	return removed
 }
 
-// UpdatePendingNonce returns the next pending nonce starting from the given nonce
-func (q *actQueue) UpdateNonce(nonce uint64) {
+// UpdateQueue updates the pending nonce and balance of the queue
+func (q *actQueue) UpdateQueue(nonce uint64) []*iproto.ActionPb {
+	// First, starting from the current pending nonce, incrementally find the next pending nonce
+	// while updating pending balance if transfers are payable
 	for ; q.items[nonce] != nil; nonce++ {
-		if nonce != q.confirmedNonce {
-			continue
-		}
 		if q.items[nonce].GetVote() != nil {
-			q.confirmedNonce++
 			continue
 		}
 		tsf := &action.Transfer{}
 		tsf.ConvertFromTransferPb(q.items[nonce].GetTransfer())
-		if q.pendingBalance.Cmp(tsf.Amount) >= 0 {
-			q.confirmedNonce++
-			q.pendingBalance.Sub(q.pendingBalance, tsf.Amount)
+		if q.pendingBalance.Cmp(tsf.Amount) < 0 {
+			break
 		}
+		q.pendingBalance.Sub(q.pendingBalance, tsf.Amount)
 	}
 	q.pendingNonce = nonce
+
+	// Find the index of new pending nonce within the queue
+	sort.Sort(q.index)
+	i := 0
+	for ; i < q.index.Len(); i++ {
+		if q.index[i] >= nonce {
+			break
+		}
+	}
+	// Case I: An unpayable transfer has been found while updating pending nonce/balance
+	// Remove all the subsequent actions in the queue starting from the index of new pending nonce
+	if q.items[nonce] != nil {
+		return q.removeActs(i)
+	}
+
+	// Case II: All transfers are payable while updating pending nonce/balance
+	// Check all the subsequent actions in the queue starting from the index of new pending nonce
+	// Find the nonce index of the first unpayable transfer
+	// Remove all the subsequent actions in the queue starting from that index
+	for ; i < q.index.Len(); i++ {
+		nonce = q.index[i]
+		if transfer := q.items[nonce].GetTransfer(); transfer != nil {
+			tsf := &action.Transfer{}
+			tsf.ConvertFromTransferPb(transfer)
+			if q.pendingBalance.Cmp(tsf.Amount) < 0 {
+				break
+			}
+		}
+	}
+	return q.removeActs(i)
 }
 
 // SetStartNonce sets the new start nonce for the queue
@@ -162,16 +186,6 @@ func (q *actQueue) SetStartNonce(nonce uint64) {
 // StartNonce returns the current start nonce of the queue
 func (q *actQueue) StartNonce() uint64 {
 	return q.startNonce
-}
-
-// SetConfirmedNonce sets the new confirmed nonce for the queue
-func (q *actQueue) SetConfirmedNonce(nonce uint64) {
-	q.confirmedNonce = nonce
-}
-
-// ConfirmedNonce returns the current confirmed nonce of the queue
-func (q *actQueue) ConfirmedNonce() uint64 {
-	return q.confirmedNonce
 }
 
 // SetPendingNonce sets pending nonce for the queue
@@ -204,16 +218,27 @@ func (q *actQueue) Empty() bool {
 	return q.Len() == 0
 }
 
-// ConfirmedTsfs creates a consecutive nonce-sorted slice of actions
-func (q *actQueue) ConfirmedActs() []*iproto.ActionPb {
+// PendingActs creates a consecutive nonce-sorted slice of actions
+func (q *actQueue) PendingActs() []*iproto.ActionPb {
 	if q.Len() == 0 {
 		return []*iproto.ActionPb{}
 	}
 	acts := make([]*iproto.ActionPb, 0, len(q.items))
 	nonce := q.index[0]
-	for q.items[nonce] != nil && nonce < q.confirmedNonce {
+	for ; q.items[nonce] != nil; nonce++ {
 		acts = append(acts, q.items[nonce])
-		nonce++
 	}
 	return acts
+}
+
+// removeActs removes all the actions starting at idx from queue
+func (q *actQueue) removeActs(idx int) []*iproto.ActionPb {
+	removedFromQueue := []*iproto.ActionPb{}
+	for i := idx; i < q.index.Len(); i++ {
+		removedFromQueue = append(removedFromQueue, q.items[q.index[i]])
+		delete(q.items, q.index[i])
+	}
+	q.index = q.index[:idx]
+	heap.Init(&q.index)
+	return removedFromQueue
 }
