@@ -274,11 +274,10 @@ func (bs *blockSyncer) ProcessBlock(blk *bc.Block) error {
 
 	// TODO  Refancor the sync part to make logic clear and thorough
 	// Just simply check the incoming blocks into the buffer
-	//if bs.state == Idle || bs.state == Init {
-	//	// indicate first valid block being received, DO() to handle sync request if needed
-	//	bs.state = Init
-	//	return nil
-	//}
+	if bs.state == Idle || bs.state == Init {
+		//	// indicate first valid block being received, DO() to handle sync request if needed
+		bs.state = Init
+	}
 
 	if bs.state == Active && bs.sw.State == Open {
 		// when window is open we are still WIP to sync old blocks, so simply drop incoming blocks

@@ -30,16 +30,21 @@ func TestNetSync(t *testing.T) {
 	util.CleanupPath(t, testDBPath)
 	defer util.CleanupPath(t, testDBPath)
 
-	config, err := config.LoadConfigWithPathWithoutValidation(localFullnodeConfig)
-	// disable account-based testing
-	config.Chain.TrieDBPath = ""
+	cfg, err := config.LoadConfigWithPathWithoutValidation(localFullnodeConfig)
+	util.CleanupPath(t, testTriePath)
+	defer util.CleanupPath(t, testTriePath)
+	util.CleanupPath(t, testDBPath)
+	defer util.CleanupPath(t, testDBPath)
+
+	cfg.Chain.TrieDBPath = testTriePath
+	cfg.Chain.ChainDBPath = testDBPath
 	assert.Nil(err)
 	if testing.Short() {
 		t.Skip("Skipping the overlay test in short mode.")
 	}
 
 	// create node
-	svr := itx.NewServer(*config)
+	svr := itx.NewServer(*cfg)
 	assert.NotNil(svr)
 	err = svr.Init()
 	assert.Nil(err)
