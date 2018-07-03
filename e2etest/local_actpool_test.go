@@ -96,12 +96,12 @@ func TestLocalActPool(t *testing.T) {
 	vote6 := action.NewVote(uint64(6), from.PublicKey, to.PublicKey)
 
 	// Wrap transfers and votes as actions
-	act1 := &pb.ActionPb{&pb.ActionPb_Transfer{tsf1.ConvertToTransferPb()}}
-	act2 := &pb.ActionPb{&pb.ActionPb_Vote{vote2.ConvertToVotePb()}}
-	act3 := &pb.ActionPb{&pb.ActionPb_Transfer{tsf3.ConvertToTransferPb()}}
-	act4 := &pb.ActionPb{&pb.ActionPb_Vote{vote4.ConvertToVotePb()}}
-	act5 := &pb.ActionPb{&pb.ActionPb_Transfer{tsf5.ConvertToTransferPb()}}
-	act6 := &pb.ActionPb{&pb.ActionPb_Vote{vote6.ConvertToVotePb()}}
+	act1 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf1.ConvertToTransferPb()}}
+	act2 := &pb.ActionPb{Action: &pb.ActionPb_Vote{vote2.ConvertToVotePb()}}
+	act3 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf3.ConvertToTransferPb()}}
+	act4 := &pb.ActionPb{Action: &pb.ActionPb_Vote{vote4.ConvertToVotePb()}}
+	act5 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf5.ConvertToTransferPb()}}
+	act6 := &pb.ActionPb{Action: &pb.ActionPb_Vote{vote6.ConvertToVotePb()}}
 
 	// Wait until actions can be successfully broadcasted
 	err = util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
@@ -190,7 +190,7 @@ func TestPressureActPool(t *testing.T) {
 	// Create 1000 valid transfers and broadcast
 	tsf1, _ := signedTransfer(from, to, uint64(1), big.NewInt(1))
 	// Wrap transfers and votes as actions
-	act1 := &pb.ActionPb{&pb.ActionPb_Transfer{tsf1.ConvertToTransferPb()}}
+	act1 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf1.ConvertToTransferPb()}}
 
 	// Wait until transfers can be successfully broadcasted
 	err = util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
@@ -202,7 +202,7 @@ func TestPressureActPool(t *testing.T) {
 	})
 	for i := 2; i <= 1000; i++ {
 		tsf, _ := signedTransfer(from, to, uint64(i), big.NewInt(int64(i)))
-		act := &pb.ActionPb{&pb.ActionPb_Transfer{tsf.ConvertToTransferPb()}}
+		act := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf.ConvertToTransferPb()}}
 		p1.Broadcast(act)
 	}
 

@@ -68,18 +68,18 @@ type (
 // NewTxInput returns a TxInput instance
 func NewTxInput(hash common.Hash32B, index int32, unlock []byte, seq uint32) *TxInput {
 	pbTxIn := &iproto.TxInputPb{
-		hash[:],
-		index,
-		uint32(len(unlock)),
-		unlock,
-		seq}
+		TxHash:           hash[:],
+		OutIndex:         index,
+		UnlockScriptSize: uint32(len(unlock)),
+		UnlockScript:     unlock,
+		Sequence:         seq}
 	return &TxInput{pbTxIn}
 }
 
 // NewTxOutput returns a TxOutput instance
 func NewTxOutput(amount uint64, index int32) *TxOutput {
 	return &TxOutput{
-		&iproto.TxOutputPb{amount, 0, nil},
+		&iproto.TxOutputPb{Value: amount, LockScriptSize: 0, LockScript: nil},
 		index}
 }
 

@@ -147,7 +147,7 @@ func TestLocalCommit(t *testing.T) {
 	s, err = bc.StateByAddr(ta.Addrinfo["charlie"].RawAddress)
 	tsf1 := action.NewTransfer(s.Nonce+1, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["alfa"].RawAddress)
 	tsf1, err = tsf1.Sign(ta.Addrinfo["charlie"])
-	act1 := &pb.ActionPb{&pb.ActionPb_Transfer{tsf1.ConvertToTransferPb()}}
+	act1 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf1.ConvertToTransferPb()}}
 	err = util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		if err := p1.Broadcast(act1); err != nil {
 			return false, err
@@ -171,7 +171,7 @@ func TestLocalCommit(t *testing.T) {
 	err = blk2.SignBlock(ta.Addrinfo["miner"])
 	require.Nil(err)
 	hash2 := blk2.HashBlock()
-	act2 := &pb.ActionPb{&pb.ActionPb_Transfer{tsf2.ConvertToTransferPb()}}
+	act2 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf2.ConvertToTransferPb()}}
 	err = util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		if err := p1.Broadcast(act2); err != nil {
 			return false, err
@@ -190,7 +190,7 @@ func TestLocalCommit(t *testing.T) {
 	err = blk3.SignBlock(ta.Addrinfo["miner"])
 	require.Nil(err)
 	hash3 := blk3.HashBlock()
-	act3 := &pb.ActionPb{&pb.ActionPb_Transfer{tsf3.ConvertToTransferPb()}}
+	act3 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf3.ConvertToTransferPb()}}
 	err = util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		if err := p1.Broadcast(act3); err != nil {
 			return false, err
@@ -208,7 +208,7 @@ func TestLocalCommit(t *testing.T) {
 	blk4 := blockchain.NewBlock(0, height+4, hash3, []*action.Transfer{tsf4}, nil)
 	err = blk4.SignBlock(ta.Addrinfo["miner"])
 	require.Nil(err)
-	act4 := &pb.ActionPb{&pb.ActionPb_Transfer{tsf4.ConvertToTransferPb()}}
+	act4 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf4.ConvertToTransferPb()}}
 	err = util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		if err := p1.Broadcast(act4); err != nil {
 			return false, err
@@ -357,7 +357,7 @@ func TestLocalSync(t *testing.T) {
 	assert.NotNil(p1)
 
 	// P1 download 4 blocks from P2
-	p1.Tell(cm.NewTCPNode(p2.PRC.Addr), &pb.BlockSync{1, 4})
+	p1.Tell(cm.NewTCPNode(p2.PRC.Addr), &pb.BlockSync{Start: 1, End: 4})
 	check := util.CheckCondition(func() (bool, error) {
 		blk1, err := bc1.GetBlockByHeight(1)
 		if err != nil {
@@ -454,9 +454,9 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.Nil(err)
 	vote3, err := newSignedVote(2, ta.Addrinfo["charlie"], ta.Addrinfo["charlie"])
 	require.Nil(err)
-	act1 := &pb.ActionPb{&pb.ActionPb_Vote{vote1.ConvertToVotePb()}}
-	act2 := &pb.ActionPb{&pb.ActionPb_Vote{vote2.ConvertToVotePb()}}
-	act3 := &pb.ActionPb{&pb.ActionPb_Vote{vote3.ConvertToVotePb()}}
+	act1 := &pb.ActionPb{Action: &pb.ActionPb_Vote{vote1.ConvertToVotePb()}}
+	act2 := &pb.ActionPb{Action: &pb.ActionPb_Vote{vote2.ConvertToVotePb()}}
+	act3 := &pb.ActionPb{Action: &pb.ActionPb_Vote{vote3.ConvertToVotePb()}}
 	err = util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		if err := p1.Broadcast(act1); err != nil {
 			return false, err
@@ -488,8 +488,8 @@ func TestVoteLocalCommit(t *testing.T) {
 	err = blk2.SignBlock(ta.Addrinfo["miner"])
 	hash2 := blk2.HashBlock()
 	require.Nil(err)
-	act4 := &pb.ActionPb{&pb.ActionPb_Vote{vote4.ConvertToVotePb()}}
-	act5 := &pb.ActionPb{&pb.ActionPb_Vote{vote5.ConvertToVotePb()}}
+	act4 := &pb.ActionPb{Action: &pb.ActionPb_Vote{vote4.ConvertToVotePb()}}
+	act5 := &pb.ActionPb{Action: &pb.ActionPb_Vote{vote5.ConvertToVotePb()}}
 	err = util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		if err := p1.Broadcast(act4); err != nil {
 			return false, err
@@ -539,7 +539,7 @@ func TestVoteLocalCommit(t *testing.T) {
 	err = blk3.SignBlock(ta.Addrinfo["miner"])
 	hash3 := blk3.HashBlock()
 	require.Nil(err)
-	act6 := &pb.ActionPb{&pb.ActionPb_Vote{vote6.ConvertToVotePb()}}
+	act6 := &pb.ActionPb{Action: &pb.ActionPb_Vote{vote6.ConvertToVotePb()}}
 	err = util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		if err := p1.Broadcast(act6); err != nil {
 			return false, err
@@ -583,7 +583,7 @@ func TestVoteLocalCommit(t *testing.T) {
 	blk4 := blockchain.NewBlock(0, height+4, hash3, nil, []*action.Vote{vote7})
 	err = blk4.SignBlock(ta.Addrinfo["miner"])
 	require.Nil(err)
-	act7 := &pb.ActionPb{&pb.ActionPb_Vote{vote7.ConvertToVotePb()}}
+	act7 := &pb.ActionPb{Action: &pb.ActionPb_Vote{vote7.ConvertToVotePb()}}
 	err = util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		if err := p1.Broadcast(act7); err != nil {
 			return false, err

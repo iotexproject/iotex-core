@@ -169,7 +169,7 @@ func (ap *actPool) AddTsf(tsf *action.Transfer) error {
 		return errors.Wrapf(ErrActPool, "insufficient space for transfer")
 	}
 	// Wrap tsf as an action
-	action := &iproto.ActionPb{&iproto.ActionPb_Transfer{tsf.ConvertToTransferPb()}}
+	action := &iproto.ActionPb{Action: &iproto.ActionPb_Transfer{tsf.ConvertToTransferPb()}}
 	return ap.addAction(tsf.Sender, action, hash, tsf.Nonce)
 }
 
@@ -204,7 +204,7 @@ func (ap *actPool) AddVote(vote *action.Vote) error {
 
 	voter, _ := iotxaddress.GetAddress(vote.SelfPubkey, iotxaddress.IsTestnet, iotxaddress.ChainID)
 	// Wrap vote as an action
-	action := &iproto.ActionPb{&iproto.ActionPb_Vote{vote.ConvertToVotePb()}}
+	action := &iproto.ActionPb{Action: &iproto.ActionPb_Vote{vote.ConvertToVotePb()}}
 	return ap.addAction(voter.RawAddress, action, hash, vote.Nonce)
 }
 
