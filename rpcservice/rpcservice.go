@@ -73,7 +73,7 @@ func (s *Chainserver) SendTransfer(ctx context.Context, in *pb.SendTransferReque
 		return nil, err
 	}
 	// Wrap TransferPb as an ActionPb
-	action := &pb.ActionPb{&pb.ActionPb_Transfer{tsf}}
+	action := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf}}
 	// broadcast to the network
 	if err := s.broadcastcb(action); err != nil {
 		return nil, err
@@ -108,7 +108,7 @@ func (s *Chainserver) SendVote(ctx context.Context, in *pb.SendVoteRequest) (*pb
 		return nil, err
 	}
 	// Wrap VotePb as an ActionPb
-	action := &pb.ActionPb{&pb.ActionPb_Vote{vote}}
+	action := &pb.ActionPb{Action: &pb.ActionPb_Vote{vote}}
 	// broadcast to the network
 	if err := s.broadcastcb(action); err != nil {
 		return nil, err

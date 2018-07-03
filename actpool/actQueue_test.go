@@ -52,12 +52,12 @@ func TestActQueue_Put(t *testing.T) {
 	assert := assert.New(t)
 	q := NewActQueue().(*actQueue)
 	vote1 := action.Vote{&pb.VotePb{Nonce: uint64(2)}}
-	action1 := &pb.ActionPb{&pb.ActionPb_Vote{vote1.ConvertToVotePb()}}
+	action1 := &pb.ActionPb{Action: &pb.ActionPb_Vote{vote1.ConvertToVotePb()}}
 	q.Put(action1)
 	assert.Equal(uint64(2), q.index[0])
 	assert.NotNil(q.items[vote1.Nonce])
 	tsf2 := action.Transfer{Nonce: uint64(1), Amount: big.NewInt(100)}
-	action2 := &pb.ActionPb{&pb.ActionPb_Transfer{tsf2.ConvertToTransferPb()}}
+	action2 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf2.ConvertToTransferPb()}}
 	q.Put(action2)
 	assert.Equal(uint64(1), heap.Pop(&q.index))
 	assert.Equal(action2, q.items[uint64(1)])
@@ -65,7 +65,7 @@ func TestActQueue_Put(t *testing.T) {
 	assert.Equal(action1, q.items[uint64(2)])
 	// tsf3 is a replacement transfer
 	tsf3 := action.Transfer{Nonce: uint64(1), Amount: big.NewInt(1000)}
-	action3 := &pb.ActionPb{&pb.ActionPb_Transfer{tsf3.ConvertToTransferPb()}}
+	action3 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf3.ConvertToTransferPb()}}
 	err := q.Put(action3)
 	assert.NotNil(err)
 }
@@ -74,11 +74,11 @@ func TestActQueue_FilterNonce(t *testing.T) {
 	assert := assert.New(t)
 	q := NewActQueue().(*actQueue)
 	tsf1 := action.Transfer{Nonce: uint64(1), Amount: big.NewInt(1)}
-	action1 := &pb.ActionPb{&pb.ActionPb_Transfer{tsf1.ConvertToTransferPb()}}
+	action1 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf1.ConvertToTransferPb()}}
 	vote2 := action.Vote{&pb.VotePb{Nonce: uint64(2)}}
-	action2 := &pb.ActionPb{&pb.ActionPb_Vote{vote2.ConvertToVotePb()}}
+	action2 := &pb.ActionPb{Action: &pb.ActionPb_Vote{vote2.ConvertToVotePb()}}
 	tsf3 := action.Transfer{Nonce: uint64(3), Amount: big.NewInt(1000)}
-	action3 := &pb.ActionPb{&pb.ActionPb_Transfer{tsf3.ConvertToTransferPb()}}
+	action3 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf3.ConvertToTransferPb()}}
 	q.Put(action1)
 	q.Put(action2)
 	q.Put(action3)
@@ -92,15 +92,15 @@ func TestActQueue_UpdateNonce(t *testing.T) {
 	assert := assert.New(t)
 	q := NewActQueue().(*actQueue)
 	tsf1 := action.Transfer{Nonce: uint64(1), Amount: big.NewInt(1)}
-	action1 := &pb.ActionPb{&pb.ActionPb_Transfer{tsf1.ConvertToTransferPb()}}
+	action1 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf1.ConvertToTransferPb()}}
 	tsf2 := action.Transfer{Nonce: uint64(3), Amount: big.NewInt(1000)}
-	action2 := &pb.ActionPb{&pb.ActionPb_Transfer{tsf2.ConvertToTransferPb()}}
+	action2 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf2.ConvertToTransferPb()}}
 	tsf3 := action.Transfer{Nonce: uint64(4), Amount: big.NewInt(10000)}
-	action3 := &pb.ActionPb{&pb.ActionPb_Transfer{tsf3.ConvertToTransferPb()}}
+	action3 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf3.ConvertToTransferPb()}}
 	tsf4 := action.Transfer{Nonce: uint64(6), Amount: big.NewInt(100000)}
-	action4 := &pb.ActionPb{&pb.ActionPb_Transfer{tsf4.ConvertToTransferPb()}}
+	action4 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf4.ConvertToTransferPb()}}
 	vote5 := action.Vote{&pb.VotePb{Nonce: uint64(2)}}
-	action5 := &pb.ActionPb{&pb.ActionPb_Vote{vote5.ConvertToVotePb()}}
+	action5 := &pb.ActionPb{Action: &pb.ActionPb_Vote{vote5.ConvertToVotePb()}}
 	q.Put(action1)
 	q.Put(action2)
 	q.Put(action3)
@@ -117,15 +117,15 @@ func TestActQueue_PendingActs(t *testing.T) {
 	assert := assert.New(t)
 	q := NewActQueue().(*actQueue)
 	vote1 := action.Vote{&pb.VotePb{Nonce: uint64(2)}}
-	action1 := &pb.ActionPb{&pb.ActionPb_Vote{vote1.ConvertToVotePb()}}
+	action1 := &pb.ActionPb{Action: &pb.ActionPb_Vote{vote1.ConvertToVotePb()}}
 	tsf2 := action.Transfer{Nonce: uint64(3), Amount: big.NewInt(100)}
-	action2 := &pb.ActionPb{&pb.ActionPb_Transfer{tsf2.ConvertToTransferPb()}}
+	action2 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf2.ConvertToTransferPb()}}
 	tsf3 := action.Transfer{Nonce: uint64(5), Amount: big.NewInt(1000)}
-	action3 := &pb.ActionPb{&pb.ActionPb_Transfer{tsf3.ConvertToTransferPb()}}
+	action3 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf3.ConvertToTransferPb()}}
 	tsf4 := action.Transfer{Nonce: uint64(6), Amount: big.NewInt(10000)}
-	action4 := &pb.ActionPb{&pb.ActionPb_Transfer{tsf4.ConvertToTransferPb()}}
+	action4 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf4.ConvertToTransferPb()}}
 	tsf5 := action.Transfer{Nonce: uint64(7), Amount: big.NewInt(100000)}
-	action5 := &pb.ActionPb{&pb.ActionPb_Transfer{tsf5.ConvertToTransferPb()}}
+	action5 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf5.ConvertToTransferPb()}}
 	q.Put(action1)
 	q.Put(action2)
 	q.Put(action3)
@@ -140,11 +140,11 @@ func TestActQueue_removeActs(t *testing.T) {
 	assert := assert.New(t)
 	q := NewActQueue().(*actQueue)
 	tsf1 := action.Transfer{Nonce: uint64(1), Amount: big.NewInt(100)}
-	action1 := &pb.ActionPb{&pb.ActionPb_Transfer{tsf1.ConvertToTransferPb()}}
+	action1 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf1.ConvertToTransferPb()}}
 	vote2 := action.Vote{&pb.VotePb{Nonce: uint64(2)}}
-	action2 := &pb.ActionPb{&pb.ActionPb_Vote{vote2.ConvertToVotePb()}}
+	action2 := &pb.ActionPb{Action: &pb.ActionPb_Vote{vote2.ConvertToVotePb()}}
 	tsf3 := action.Transfer{Nonce: uint64(3), Amount: big.NewInt(1000)}
-	action3 := &pb.ActionPb{&pb.ActionPb_Transfer{tsf3.ConvertToTransferPb()}}
+	action3 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf3.ConvertToTransferPb()}}
 	q.Put(action1)
 	q.Put(action2)
 	q.Put(action3)
@@ -154,11 +154,11 @@ func TestActQueue_removeActs(t *testing.T) {
 	assert.Equal([]*pb.ActionPb{action1, action2, action3}, removed)
 
 	tsf4 := action.Transfer{Nonce: uint64(4), Amount: big.NewInt(10000)}
-	action4 := &pb.ActionPb{&pb.ActionPb_Transfer{tsf4.ConvertToTransferPb()}}
+	action4 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf4.ConvertToTransferPb()}}
 	tsf5 := action.Transfer{Nonce: uint64(5), Amount: big.NewInt(100000)}
-	action5 := &pb.ActionPb{&pb.ActionPb_Transfer{tsf5.ConvertToTransferPb()}}
+	action5 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf5.ConvertToTransferPb()}}
 	vote6 := action.Vote{&pb.VotePb{Nonce: uint64(6)}}
-	action6 := &pb.ActionPb{&pb.ActionPb_Vote{vote6.ConvertToVotePb()}}
+	action6 := &pb.ActionPb{Action: &pb.ActionPb_Vote{vote6.ConvertToVotePb()}}
 	q.Put(action4)
 	q.Put(action5)
 	q.Put(action6)

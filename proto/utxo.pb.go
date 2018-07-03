@@ -12,17 +12,45 @@ var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+
 type UtxoPb struct {
-	Value          uint64 `protobuf:"varint,1,opt,name=value" json:"value,omitempty"`
-	Index          int32  `protobuf:"varint,2,opt,name=index" json:"index,omitempty"`
-	LockScriptSize uint32 `protobuf:"varint,3,opt,name=lockScriptSize" json:"lockScriptSize,omitempty"`
-	LockScript     []byte `protobuf:"bytes,4,opt,name=lockScript,proto3" json:"lockScript,omitempty"`
+	Value                uint64   `protobuf:"varint,1,opt,name=value" json:"value,omitempty"`
+	Index                int32    `protobuf:"varint,2,opt,name=index" json:"index,omitempty"`
+	LockScriptSize       uint32   `protobuf:"varint,3,opt,name=lockScriptSize" json:"lockScriptSize,omitempty"`
+	LockScript           []byte   `protobuf:"bytes,4,opt,name=lockScript,proto3" json:"lockScript,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *UtxoPb) Reset()                    { *m = UtxoPb{} }
-func (m *UtxoPb) String() string            { return proto.CompactTextString(m) }
-func (*UtxoPb) ProtoMessage()               {}
-func (*UtxoPb) Descriptor() ([]byte, []int) { return fileDescriptor2, []int{0} }
+func (m *UtxoPb) Reset()         { *m = UtxoPb{} }
+func (m *UtxoPb) String() string { return proto.CompactTextString(m) }
+func (*UtxoPb) ProtoMessage()    {}
+func (*UtxoPb) Descriptor() ([]byte, []int) {
+	return fileDescriptor_utxo_068ba50b15b3d586, []int{0}
+}
+func (m *UtxoPb) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_UtxoPb.Unmarshal(m, b)
+}
+func (m *UtxoPb) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_UtxoPb.Marshal(b, m, deterministic)
+}
+func (dst *UtxoPb) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_UtxoPb.Merge(dst, src)
+}
+func (m *UtxoPb) XXX_Size() int {
+	return xxx_messageInfo_UtxoPb.Size(m)
+}
+func (m *UtxoPb) XXX_DiscardUnknown() {
+	xxx_messageInfo_UtxoPb.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_UtxoPb proto.InternalMessageInfo
 
 func (m *UtxoPb) GetValue() uint64 {
 	if m != nil {
@@ -53,14 +81,36 @@ func (m *UtxoPb) GetLockScript() []byte {
 }
 
 type UtxoEntryPb struct {
-	Hash []byte    `protobuf:"bytes,1,opt,name=hash,proto3" json:"hash,omitempty"`
-	Utxo []*UtxoPb `protobuf:"bytes,2,rep,name=utxo" json:"utxo,omitempty"`
+	Hash                 []byte    `protobuf:"bytes,1,opt,name=hash,proto3" json:"hash,omitempty"`
+	Utxo                 []*UtxoPb `protobuf:"bytes,2,rep,name=utxo" json:"utxo,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}  `json:"-"`
+	XXX_unrecognized     []byte    `json:"-"`
+	XXX_sizecache        int32     `json:"-"`
 }
 
-func (m *UtxoEntryPb) Reset()                    { *m = UtxoEntryPb{} }
-func (m *UtxoEntryPb) String() string            { return proto.CompactTextString(m) }
-func (*UtxoEntryPb) ProtoMessage()               {}
-func (*UtxoEntryPb) Descriptor() ([]byte, []int) { return fileDescriptor2, []int{1} }
+func (m *UtxoEntryPb) Reset()         { *m = UtxoEntryPb{} }
+func (m *UtxoEntryPb) String() string { return proto.CompactTextString(m) }
+func (*UtxoEntryPb) ProtoMessage()    {}
+func (*UtxoEntryPb) Descriptor() ([]byte, []int) {
+	return fileDescriptor_utxo_068ba50b15b3d586, []int{1}
+}
+func (m *UtxoEntryPb) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_UtxoEntryPb.Unmarshal(m, b)
+}
+func (m *UtxoEntryPb) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_UtxoEntryPb.Marshal(b, m, deterministic)
+}
+func (dst *UtxoEntryPb) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_UtxoEntryPb.Merge(dst, src)
+}
+func (m *UtxoEntryPb) XXX_Size() int {
+	return xxx_messageInfo_UtxoEntryPb.Size(m)
+}
+func (m *UtxoEntryPb) XXX_DiscardUnknown() {
+	xxx_messageInfo_UtxoEntryPb.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_UtxoEntryPb proto.InternalMessageInfo
 
 func (m *UtxoEntryPb) GetHash() []byte {
 	if m != nil {
@@ -77,13 +127,35 @@ func (m *UtxoEntryPb) GetUtxo() []*UtxoPb {
 }
 
 type UtxoMapPb struct {
-	UtxoEntry []*UtxoEntryPb `protobuf:"bytes,1,rep,name=utxoEntry" json:"utxoEntry,omitempty"`
+	UtxoEntry            []*UtxoEntryPb `protobuf:"bytes,1,rep,name=utxoEntry" json:"utxoEntry,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}       `json:"-"`
+	XXX_unrecognized     []byte         `json:"-"`
+	XXX_sizecache        int32          `json:"-"`
 }
 
-func (m *UtxoMapPb) Reset()                    { *m = UtxoMapPb{} }
-func (m *UtxoMapPb) String() string            { return proto.CompactTextString(m) }
-func (*UtxoMapPb) ProtoMessage()               {}
-func (*UtxoMapPb) Descriptor() ([]byte, []int) { return fileDescriptor2, []int{2} }
+func (m *UtxoMapPb) Reset()         { *m = UtxoMapPb{} }
+func (m *UtxoMapPb) String() string { return proto.CompactTextString(m) }
+func (*UtxoMapPb) ProtoMessage()    {}
+func (*UtxoMapPb) Descriptor() ([]byte, []int) {
+	return fileDescriptor_utxo_068ba50b15b3d586, []int{2}
+}
+func (m *UtxoMapPb) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_UtxoMapPb.Unmarshal(m, b)
+}
+func (m *UtxoMapPb) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_UtxoMapPb.Marshal(b, m, deterministic)
+}
+func (dst *UtxoMapPb) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_UtxoMapPb.Merge(dst, src)
+}
+func (m *UtxoMapPb) XXX_Size() int {
+	return xxx_messageInfo_UtxoMapPb.Size(m)
+}
+func (m *UtxoMapPb) XXX_DiscardUnknown() {
+	xxx_messageInfo_UtxoMapPb.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_UtxoMapPb proto.InternalMessageInfo
 
 func (m *UtxoMapPb) GetUtxoEntry() []*UtxoEntryPb {
 	if m != nil {
@@ -98,9 +170,9 @@ func init() {
 	proto.RegisterType((*UtxoMapPb)(nil), "iproto.utxoMapPb")
 }
 
-func init() { proto.RegisterFile("utxo.proto", fileDescriptor2) }
+func init() { proto.RegisterFile("utxo.proto", fileDescriptor_utxo_068ba50b15b3d586) }
 
-var fileDescriptor2 = []byte{
+var fileDescriptor_utxo_068ba50b15b3d586 = []byte{
 	// 207 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x5c, 0x8e, 0x31, 0x6b, 0x87, 0x30,
 	0x10, 0xc5, 0xc9, 0xdf, 0x28, 0xf4, 0xb4, 0x0e, 0xd7, 0x0e, 0x99, 0x4a, 0xc8, 0x50, 0x32, 0x09,

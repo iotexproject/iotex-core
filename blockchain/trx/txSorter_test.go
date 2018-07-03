@@ -85,10 +85,10 @@ func TestTxOutputSorter(t *testing.T) {
 	rand.Read(lock4)
 
 	// Randomly generate four TxOutput pointers
-	txOut1 := TxOutput{&iproto.TxOutputPb{uint64(100), uint32(len(lock1)), lock1}, int32(0)}
-	txOut2 := TxOutput{&iproto.TxOutputPb{uint64(10), uint32(len(lock2)), lock2}, int32(1)}
-	txOut3 := TxOutput{&iproto.TxOutputPb{uint64(50), uint32(len(lock3)), lock3}, int32(2)}
-	txOut4 := TxOutput{&iproto.TxOutputPb{uint64(100), uint32(len(lock4)), lock4}, int32(3)}
+	txOut1 := TxOutput{&iproto.TxOutputPb{Value: uint64(100), LockScriptSize: uint32(len(lock1)), LockScript: lock1}, int32(0)}
+	txOut2 := TxOutput{&iproto.TxOutputPb{Value: uint64(10), LockScriptSize: uint32(len(lock2)), LockScript: lock2}, int32(1)}
+	txOut3 := TxOutput{&iproto.TxOutputPb{Value: uint64(50), LockScriptSize: uint32(len(lock3)), LockScript: lock3}, int32(2)}
+	txOut4 := TxOutput{&iproto.TxOutputPb{Value: uint64(100), LockScriptSize: uint32(len(lock4)), LockScript: lock4}, int32(3)}
 
 	out := []*TxOutput{&txOut1, &txOut2, &txOut3, &txOut4}
 

@@ -195,7 +195,7 @@ func TestActPool_AddActs(t *testing.T) {
 	require.True(t, ok)
 	for i := uint64(0); i < ap2.maxNumActPerPool; i++ {
 		nTsf := action.Transfer{Amount: big.NewInt(int64(i))}
-		nAction := &pb.ActionPb{&pb.ActionPb_Transfer{nTsf.ConvertToTransferPb()}}
+		nAction := &pb.ActionPb{Action: &pb.ActionPb_Transfer{nTsf.ConvertToTransferPb()}}
 		ap2.allActions[nTsf.Hash()] = nAction
 	}
 	mockSF.EXPECT().Nonce(gomock.Any()).Times(2).Return(uint64(0), nil)
@@ -595,9 +595,9 @@ func TestActPool_removeInvalidActs(t *testing.T) {
 	ap.AddVote(vote4)
 
 	hash1 := tsf1.Hash()
-	action1 := &pb.ActionPb{&pb.ActionPb_Transfer{tsf1.ConvertToTransferPb()}}
+	action1 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf1.ConvertToTransferPb()}}
 	hash2 := vote4.Hash()
-	action2 := &pb.ActionPb{&pb.ActionPb_Vote{vote4.ConvertToVotePb()}}
+	action2 := &pb.ActionPb{Action: &pb.ActionPb_Vote{vote4.ConvertToVotePb()}}
 	acts := []*pb.ActionPb{action1, action2}
 	assert.NotNil(ap.allActions[hash1])
 	assert.NotNil(ap.allActions[hash2])

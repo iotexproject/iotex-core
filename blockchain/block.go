@@ -141,12 +141,12 @@ func (b *Block) ConvertToBlockPb() *iproto.BlockPb {
 
 	actions := []*iproto.ActionPb{}
 	for _, tsf := range b.Transfers {
-		actions = append(actions, &iproto.ActionPb{&iproto.ActionPb_Transfer{tsf.ConvertToTransferPb()}})
+		actions = append(actions, &iproto.ActionPb{Action: &iproto.ActionPb_Transfer{tsf.ConvertToTransferPb()}})
 	}
 	for _, vote := range b.Votes {
-		actions = append(actions, &iproto.ActionPb{&iproto.ActionPb_Vote{vote.ConvertToVotePb()}})
+		actions = append(actions, &iproto.ActionPb{Action: &iproto.ActionPb_Vote{vote.ConvertToVotePb()}})
 	}
-	return &iproto.BlockPb{b.ConvertToBlockHeaderPb(), actions}
+	return &iproto.BlockPb{Header: b.ConvertToBlockHeaderPb(), Actions: actions}
 }
 
 // Serialize returns the serialized byte stream of the block

@@ -38,7 +38,7 @@ func (m *CreateRawTransferRequest) Reset()         { *m = CreateRawTransferReque
 func (m *CreateRawTransferRequest) String() string { return proto.CompactTextString(m) }
 func (*CreateRawTransferRequest) ProtoMessage()    {}
 func (*CreateRawTransferRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rpc_9795d60f63b5a206, []int{0}
+	return fileDescriptor_rpc_3a4b7e1b850fd7c2, []int{0}
 }
 func (m *CreateRawTransferRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CreateRawTransferRequest.Unmarshal(m, b)
@@ -104,7 +104,7 @@ func (m *CreateRawTransferResponse) Reset()         { *m = CreateRawTransferResp
 func (m *CreateRawTransferResponse) String() string { return proto.CompactTextString(m) }
 func (*CreateRawTransferResponse) ProtoMessage()    {}
 func (*CreateRawTransferResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rpc_9795d60f63b5a206, []int{1}
+	return fileDescriptor_rpc_3a4b7e1b850fd7c2, []int{1}
 }
 func (m *CreateRawTransferResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CreateRawTransferResponse.Unmarshal(m, b)
@@ -144,7 +144,7 @@ func (m *CreateRawVoteRequest) Reset()         { *m = CreateRawVoteRequest{} }
 func (m *CreateRawVoteRequest) String() string { return proto.CompactTextString(m) }
 func (*CreateRawVoteRequest) ProtoMessage()    {}
 func (*CreateRawVoteRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rpc_9795d60f63b5a206, []int{2}
+	return fileDescriptor_rpc_3a4b7e1b850fd7c2, []int{2}
 }
 func (m *CreateRawVoteRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CreateRawVoteRequest.Unmarshal(m, b)
@@ -196,7 +196,7 @@ func (m *CreateRawVoteResponse) Reset()         { *m = CreateRawVoteResponse{} }
 func (m *CreateRawVoteResponse) String() string { return proto.CompactTextString(m) }
 func (*CreateRawVoteResponse) ProtoMessage()    {}
 func (*CreateRawVoteResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rpc_9795d60f63b5a206, []int{3}
+	return fileDescriptor_rpc_3a4b7e1b850fd7c2, []int{3}
 }
 func (m *CreateRawVoteResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CreateRawVoteResponse.Unmarshal(m, b)
@@ -234,7 +234,7 @@ func (m *SendTransferRequest) Reset()         { *m = SendTransferRequest{} }
 func (m *SendTransferRequest) String() string { return proto.CompactTextString(m) }
 func (*SendTransferRequest) ProtoMessage()    {}
 func (*SendTransferRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rpc_9795d60f63b5a206, []int{4}
+	return fileDescriptor_rpc_3a4b7e1b850fd7c2, []int{4}
 }
 func (m *SendTransferRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SendTransferRequest.Unmarshal(m, b)
@@ -271,7 +271,7 @@ func (m *SendTransferResponse) Reset()         { *m = SendTransferResponse{} }
 func (m *SendTransferResponse) String() string { return proto.CompactTextString(m) }
 func (*SendTransferResponse) ProtoMessage()    {}
 func (*SendTransferResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rpc_9795d60f63b5a206, []int{5}
+	return fileDescriptor_rpc_3a4b7e1b850fd7c2, []int{5}
 }
 func (m *SendTransferResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SendTransferResponse.Unmarshal(m, b)
@@ -302,7 +302,7 @@ func (m *SendVoteRequest) Reset()         { *m = SendVoteRequest{} }
 func (m *SendVoteRequest) String() string { return proto.CompactTextString(m) }
 func (*SendVoteRequest) ProtoMessage()    {}
 func (*SendVoteRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rpc_9795d60f63b5a206, []int{6}
+	return fileDescriptor_rpc_3a4b7e1b850fd7c2, []int{6}
 }
 func (m *SendVoteRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SendVoteRequest.Unmarshal(m, b)
@@ -339,7 +339,7 @@ func (m *SendVoteResponse) Reset()         { *m = SendVoteResponse{} }
 func (m *SendVoteResponse) String() string { return proto.CompactTextString(m) }
 func (*SendVoteResponse) ProtoMessage()    {}
 func (*SendVoteResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rpc_9795d60f63b5a206, []int{7}
+	return fileDescriptor_rpc_3a4b7e1b850fd7c2, []int{7}
 }
 func (m *SendVoteResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SendVoteResponse.Unmarshal(m, b)
@@ -541,9 +541,9 @@ var _ChainService_serviceDesc = grpc.ServiceDesc{
 	Metadata: "rpc.proto",
 }
 
-func init() { proto.RegisterFile("rpc.proto", fileDescriptor_rpc_9795d60f63b5a206) }
+func init() { proto.RegisterFile("rpc.proto", fileDescriptor_rpc_3a4b7e1b850fd7c2) }
 
-var fileDescriptor_rpc_9795d60f63b5a206 = []byte{
+var fileDescriptor_rpc_3a4b7e1b850fd7c2 = []byte{
 	// 374 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x52, 0x4d, 0x4b, 0xeb, 0x40,
 	0x14, 0x7d, 0xe9, 0x17, 0xaf, 0x97, 0xbc, 0x57, 0xbd, 0x8d, 0x35, 0xd6, 0x0a, 0x31, 0x1b, 0xbb,
