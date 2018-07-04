@@ -12,9 +12,9 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	cm "github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/dispatch/dispatcher"
+	"github.com/iotexproject/iotex-core/network/node"
 	"github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blocksync"
@@ -72,7 +72,7 @@ func TestDispatchBlockSyncReq(t *testing.T) {
 	done := make(chan bool, 1000)
 	bs.EXPECT().ProcessSyncRequest(gomock.Any(), gomock.Any()).Times(1000).Return(nil)
 	for i := 0; i < 1000; i++ {
-		d.HandleTell(cm.NewTCPNode("192.168.0.0:10000"), &iproto.BlockSync{}, done)
+		d.HandleTell(node.NewTCPNode("192.168.0.0:10000"), &iproto.BlockSync{}, done)
 	}
 	for i := 0; i < 1000; i++ {
 		<-done
@@ -94,7 +94,7 @@ func TestDispatchBlockSyncData(t *testing.T) {
 	done := make(chan bool, 1000)
 	bs.EXPECT().ProcessBlockSync(gomock.Any()).Times(1000).Return(nil)
 	for i := 0; i < 1000; i++ {
-		d.HandleTell(cm.NewTCPNode("192.168.0.0:10000"), &iproto.BlockContainer{Block: &iproto.BlockPb{}}, done)
+		d.HandleTell(node.NewTCPNode("192.168.0.0:10000"), &iproto.BlockContainer{Block: &iproto.BlockPb{}}, done)
 	}
 	for i := 0; i < 1000; i++ {
 		<-done

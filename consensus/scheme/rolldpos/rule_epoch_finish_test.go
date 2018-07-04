@@ -13,8 +13,9 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/consensus/fsm"
+	"github.com/iotexproject/iotex-core/network/node"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 )
 
@@ -27,7 +28,7 @@ func TestRuleEpochFinishCondition(t *testing.T) {
 	bc := mock_blockchain.NewMockBlockchain(ctrl)
 	bc.EXPECT().TipHeight().Return(uint64(16), nil).Times(1)
 
-	var dkg common.DKGHash
+	var dkg hash.DKGHash
 	h := ruleEpochFinish{
 		RollDPoS: &RollDPoS{
 			bc: bc,
@@ -36,10 +37,10 @@ func TestRuleEpochFinishCondition(t *testing.T) {
 				numSubEpochs: 2,
 				dkg:          dkg,
 				delegates: []net.Addr{
-					common.NewTCPNode("127.0.0.1:10001"),
-					common.NewTCPNode("127.0.0.1:10002"),
-					common.NewTCPNode("127.0.0.1:10003"),
-					common.NewTCPNode("127.0.0.1:10004"),
+					node.NewTCPNode("127.0.0.1:10001"),
+					node.NewTCPNode("127.0.0.1:10002"),
+					node.NewTCPNode("127.0.0.1:10003"),
+					node.NewTCPNode("127.0.0.1:10004"),
 				},
 			},
 			rollDPoSCB: rollDPoSCB{

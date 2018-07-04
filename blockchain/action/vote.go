@@ -13,9 +13,11 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/blake2b"
 
-	"github.com/iotexproject/iotex-core/common"
 	cp "github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/pkg/enc"
+	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/proto"
 )
 
@@ -39,7 +41,7 @@ type Vote struct {
 // NewVote returns a Vote instance
 func NewVote(nonce uint64, selfPubKey []byte, votePubKey []byte) *Vote {
 	pbVote := &iproto.VotePb{
-		Version: common.ProtocolVersion,
+		Version: version.ProtocolVersion,
 
 		Nonce:      nonce,
 		SelfPubkey: selfPubKey,
@@ -62,14 +64,14 @@ func (v *Vote) TotalSize() uint32 {
 // ByteStream returns a raw byte stream of this Transfer
 func (v *Vote) ByteStream() []byte {
 	stream := make([]byte, TimestampSizeInBytes)
-	common.MachineEndian.PutUint64(stream, v.Timestamp)
+	enc.MachineEndian.PutUint64(stream, v.Timestamp)
 	stream = append(stream, v.SelfPubkey...)
 	stream = append(stream, v.VotePubkey...)
 	temp := make([]byte, 8)
-	common.MachineEndian.PutUint64(temp, v.Nonce)
+	enc.MachineEndian.PutUint64(temp, v.Nonce)
 	stream = append(stream, temp...)
 	temp = make([]byte, 4)
-	common.MachineEndian.PutUint32(temp, v.Version)
+	enc.MachineEndian.PutUint32(temp, v.Version)
 	stream = append(stream, temp...)
 	// Signature = Sign(hash(ByteStream())), so not included
 	return stream
@@ -101,7 +103,7 @@ func (v *Vote) Deserialize(buf []byte) error {
 }
 
 // Hash returns the hash of the Vote
-func (v *Vote) Hash() common.Hash32B {
+func (v *Vote) Hash() hash.Hash32B {
 	hash := blake2b.Sum256(v.ByteStream())
 	return blake2b.Sum256(hash[:])
 }

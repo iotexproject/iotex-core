@@ -18,12 +18,13 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/fsm"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/network/node"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_delegate"
@@ -40,7 +41,7 @@ type mocks struct {
 
 type mockFn func(mcks mocks)
 
-var testDKG = common.DKGHash{4, 6, 8, 9, 4, 6, 8, 9, 4, 6, 8, 9, 4, 6, 8, 9, 4, 6, 8, 9}
+var testDKG = hash.DKGHash{4, 6, 8, 9, 4, 6, 8, 9, 4, 6, 8, 9, 4, 6, 8, 9, 4, 6, 8, 9}
 
 func createTestRollDPoS(
 	ctrl *gomock.Controller,
@@ -74,7 +75,7 @@ func createTestRollDPoS(
 		}
 		return nil
 	}
-	generateDKGCB := func() (common.DKGHash, error) {
+	generateDKGCB := func() (hash.DKGHash, error) {
 		return testDKG, nil
 	}
 	dp := mock_delegate.NewMockPool(ctrl)
@@ -163,10 +164,10 @@ func testByzantineFault(t *testing.T, proposerNode int) {
 	// arrange 4 consensus nodes
 	tcss := make(map[net.Addr]testCs)
 	delegates := []net.Addr{
-		common.NewTCPNode("192.168.0.0:10000"),
-		common.NewTCPNode("192.168.0.1:10001"),
-		common.NewTCPNode("192.168.0.2:10002"),
-		common.NewTCPNode("192.168.0.3:10003"),
+		node.NewTCPNode("192.168.0.0:10000"),
+		node.NewTCPNode("192.168.0.1:10001"),
+		node.NewTCPNode("192.168.0.2:10002"),
+		node.NewTCPNode("192.168.0.3:10003"),
 	}
 
 	bcCnt := 0
@@ -305,10 +306,10 @@ func TestRollDPoSFourTrustyNodes(t *testing.T) {
 	// arrange 4 consensus nodes
 	tcss := make(map[net.Addr]testCs)
 	delegates := []net.Addr{
-		common.NewTCPNode("192.168.0.0:10000"),
-		common.NewTCPNode("192.168.0.1:10001"),
-		common.NewTCPNode("192.168.0.2:10002"),
-		common.NewTCPNode("192.168.0.3:10003"),
+		node.NewTCPNode("192.168.0.0:10000"),
+		node.NewTCPNode("192.168.0.1:10001"),
+		node.NewTCPNode("192.168.0.2:10002"),
+		node.NewTCPNode("192.168.0.3:10003"),
 	}
 
 	bcCnt := 0
@@ -393,8 +394,8 @@ func TestRollDPoSConsumePROPOSE(t *testing.T) {
 
 	// arrange 2 consensus nodes
 	delegates := []net.Addr{
-		common.NewTCPNode("192.168.0.1:10001"),
-		common.NewTCPNode("192.168.0.2:10002"),
+		node.NewTCPNode("192.168.0.1:10001"),
+		node.NewTCPNode("192.168.0.2:10002"),
 	}
 	m := func(mcks mocks) {
 		mcks.dp.EXPECT().AllDelegates().Return(delegates, nil).AnyTimes()
@@ -443,8 +444,8 @@ func TestRollDPoSConsumeErrorStateHandlerNotMatched(t *testing.T) {
 
 	// arrange 2 consensus nodes
 	delegates := []net.Addr{
-		common.NewTCPNode("192.168.0.1:10001"),
-		common.NewTCPNode("192.168.0.2:10002"),
+		node.NewTCPNode("192.168.0.1:10001"),
+		node.NewTCPNode("192.168.0.2:10002"),
 	}
 	m := func(mcks mocks) {
 		mcks.bc.EXPECT().TipHeight().Return(uint64(0), nil).AnyTimes()

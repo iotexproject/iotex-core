@@ -16,8 +16,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/blockchain/action"
-	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/test/mock/mock_trie"
 	"github.com/iotexproject/iotex-core/test/util"
 	"github.com/iotexproject/iotex-core/trie"
@@ -49,8 +49,8 @@ func TestRootHash(t *testing.T) {
 	trie := mock_trie.NewMockTrie(ctrl)
 	sf, err := NewFactory(nil, PrecreatedTrieOption(trie))
 	assert.Nil(t, err)
-	trie.EXPECT().RootHash().Times(1).Return(common.ZeroHash32B)
-	assert.Equal(t, common.ZeroHash32B, sf.RootHash())
+	trie.EXPECT().RootHash().Times(1).Return(hash.ZeroHash32B)
+	assert.Equal(t, hash.ZeroHash32B, sf.RootHash())
 }
 
 func TestCreateState(t *testing.T) {

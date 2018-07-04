@@ -14,11 +14,12 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/blockchain/action"
-	"github.com/iotexproject/iotex-core/common"
-	"github.com/iotexproject/iotex-core/common/utils"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
+	"github.com/iotexproject/iotex-core/pkg/version"
 )
 
 const testnetActionPath = "testnet_actions.yaml"
@@ -29,7 +30,7 @@ type Genesis struct {
 	TotalSupply         uint64
 	BlockReward         uint64
 	Timestamp           uint64
-	ParentHash          common.Hash32B
+	ParentHash          hash.Hash32B
 	GenesisCoinbaseData string
 	CreatorAddr         string
 	CreatorPubKey       string
@@ -66,7 +67,7 @@ var Gen = &Genesis{
 	TotalSupply:         uint64(10000000000),
 	BlockReward:         uint64(5),
 	Timestamp:           uint64(1524676419),
-	ParentHash:          common.Hash32B{},
+	ParentHash:          hash.Hash32B{},
 	GenesisCoinbaseData: "Connecting the physical world, block by block",
 	CreatorAddr:         "io1qyqsyqcy222ggazmccgf7dsx9m9vfqtadw82ygwhjnxtmx",
 	CreatorPubKey:       "d01164c3afe47406728d3e17861a3251dcff39e62bdc2b93ccb69a02785a175e195b5605517fd647eb7dd095b3d862dffb087f35eacf10c6859d04a100dbfb7358eeca9d5c37c904",
@@ -78,7 +79,7 @@ func NewGenesisBlock(cfg *config.Config) *Block {
 	if cfg != nil && cfg.Chain.GenesisActionsPath != "" {
 		filePath = cfg.Chain.GenesisActionsPath
 	} else {
-		filePath = utils.GetFileAbsPath(testnetActionPath)
+		filePath = fileutil.GetFileAbsPath(testnetActionPath)
 	}
 
 	actionsBytes, err := ioutil.ReadFile(filePath)
@@ -126,13 +127,13 @@ func NewGenesisBlock(cfg *config.Config) *Block {
 
 	block := &Block{
 		Header: &BlockHeader{
-			version:       common.ProtocolVersion,
+			version:       version.ProtocolVersion,
 			chainID:       Gen.ChainID,
 			height:        uint64(0),
 			timestamp:     Gen.Timestamp,
 			prevBlockHash: Gen.ParentHash,
-			txRoot:        common.ZeroHash32B,
-			stateRoot:     common.ZeroHash32B,
+			txRoot:        hash.ZeroHash32B,
+			stateRoot:     hash.ZeroHash32B,
 			blockSig:      []byte{},
 		},
 		Transfers: transfers,

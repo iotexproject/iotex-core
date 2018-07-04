@@ -16,8 +16,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/blockchain/action"
-	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/config"
+	_hash "github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/state"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/test/util"
@@ -267,7 +267,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	require.Equal(hash4, blk.HashBlock())
 	fmt.Printf("block 4 hash = %x\n", hash4)
 
-	empblk, err := bc.GetBlockByHash(common.ZeroHash32B)
+	empblk, err := bc.GetBlockByHash(_hash.ZeroHash32B)
 	require.Nil(empblk)
 	require.NotNil(err.Error())
 
@@ -296,7 +296,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	// add block with zero prev hash
 	cbTsf2 := action.NewCoinBaseTransfer(big.NewInt(50), ta.Addrinfo["bravo"].RawAddress)
 	require.NotNil(cbTsf2)
-	blk = NewBlock(0, h+1, common.ZeroHash32B, []*action.Transfer{cbTsf2}, nil)
+	blk = NewBlock(0, h+1, _hash.ZeroHash32B, []*action.Transfer{cbTsf2}, nil)
 	err = bc.ValidateBlock(blk)
 	require.NotNil(err)
 	fmt.Printf("Cannot validate block %d: %v\n", blk.Height(), err)
@@ -365,9 +365,9 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	require.Nil(err)
 	require.Equal(totalVotes, uint64(23))
 
-	_, err = bc.GetTransferByTransferHash(common.ZeroHash32B)
+	_, err = bc.GetTransferByTransferHash(_hash.ZeroHash32B)
 	require.NotNil(err)
-	_, err = bc.GetVoteByVoteHash(common.ZeroHash32B)
+	_, err = bc.GetVoteByVoteHash(_hash.ZeroHash32B)
 	require.NotNil(err)
 	_, err = bc.StateByAddr("")
 	require.NotNil(err)

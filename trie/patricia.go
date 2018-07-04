@@ -14,8 +14,8 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/blake2b"
 
-	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 )
 
 // RADIX specifies the number of unique digits in patricia
@@ -38,7 +38,7 @@ type (
 		collapse([]byte, []byte, byte, bool) ([]byte, []byte, bool)
 		set([]byte, byte) error
 		blob() ([]byte, []byte, error)
-		hash() common.Hash32B // hash of this node
+		hash() hash.Hash32B // hash of this node
 		serialize() ([]byte, error)
 		deserialize([]byte) error
 	}
@@ -75,7 +75,7 @@ func (b *branch) ascend(key []byte, index byte) error {
 	if b.Path[index] != nil || b.Split {
 		b.Split = false
 		b.Path[index] = nil
-		b.Path[index] = make([]byte, common.HashSize)
+		b.Path[index] = make([]byte, hash.HashSize)
 		copy(b.Path[index], key)
 	}
 	return nil
@@ -139,7 +139,7 @@ func (b *branch) set(v []byte, index byte) error {
 	if b.Path[index] != nil {
 		return errors.Wrapf(ErrInvalidPatricia, "branch already has path = %d", index)
 	}
-	b.Path[index] = make([]byte, common.HashSize)
+	b.Path[index] = make([]byte, hash.HashSize)
 	copy(b.Path[index], v)
 	return nil
 }
@@ -151,7 +151,7 @@ func (b *branch) blob() ([]byte, []byte, error) {
 }
 
 // hash return the hash of this node
-func (b *branch) hash() common.Hash32B {
+func (b *branch) hash() hash.Hash32B {
 	stream := []byte{}
 	for i := 0; i < RADIX; i++ {
 		stream = append(stream, b.Path[i]...)
@@ -209,7 +209,7 @@ func (l *leaf) ascend(key []byte, index byte) error {
 		return errors.Wrap(ErrInvalidPatricia, "leaf should not exist on path ascending to root")
 	}
 	l.Value = nil
-	l.Value = make([]byte, common.HashSize)
+	l.Value = make([]byte, hash.HashSize)
 	copy(l.Value, key)
 	return nil
 }
@@ -326,7 +326,7 @@ func (l *leaf) blob() ([]byte, []byte, error) {
 }
 
 // hash return the hash of this node
-func (l *leaf) hash() common.Hash32B {
+func (l *leaf) hash() hash.Hash32B {
 	stream := append([]byte{l.Ext}, l.Path...)
 	stream = append(stream, l.Value...)
 	return blake2b.Sum256(stream)

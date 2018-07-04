@@ -15,8 +15,8 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotexproject/iotex-core/blockchain/action"
-	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/test/util"
 )
@@ -32,13 +32,13 @@ func TestBlockDAO(t *testing.T) {
 		cbTsf3 := action.NewCoinBaseTransfer(big.NewInt(int64((amount))), testaddress.Addrinfo["charlie"].RawAddress)
 		assert.NotNil(t, cbTsf3)
 
-		hash1 := common.Hash32B{}
+		hash1 := hash.Hash32B{}
 		fnv.New32().Sum(hash1[:])
 		blk1 := NewBlock(0, 1, hash1, []*action.Transfer{cbTsf1}, nil)
-		hash2 := common.Hash32B{}
+		hash2 := hash.Hash32B{}
 		fnv.New32().Sum(hash2[:])
 		blk2 := NewBlock(0, 2, hash2, []*action.Transfer{cbTsf2}, nil)
-		hash3 := common.Hash32B{}
+		hash3 := hash.Hash32B{}
 		fnv.New32().Sum(hash3[:])
 		blk3 := NewBlock(0, 3, hash3, []*action.Transfer{cbTsf3}, nil)
 		return []*Block{blk1, blk2, blk3}

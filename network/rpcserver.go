@@ -17,18 +17,18 @@ import (
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/reflection"
 
-	cm "github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/common/service"
-	"github.com/iotexproject/iotex-core/common/utils"
 	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/network/node"
 	pb "github.com/iotexproject/iotex-core/network/proto"
+	"github.com/iotexproject/iotex-core/pkg/counter"
 	"github.com/iotexproject/iotex-core/proto"
 )
 
 // RPCServer represents the listener at the transportation layer
 type RPCServer struct {
 	service.AbstractService
-	cm.Node
+	node.Node
 	Server    *grpc.Server
 	Overlay   *Overlay
 	counters  sync.Map
@@ -70,7 +70,7 @@ func (s *RPCServer) GetPeers(ctx context.Context, req *pb.GetPeersReq) (*pb.GetP
 	if drop {
 		return nil, fmt.Errorf("sended requests too frequently")
 	}
-	addrs := []string{}
+	var addrs []string
 	s.Overlay.PM.Peers.Range(func(key, value interface{}) bool {
 		addrs = append(addrs, value.(*Peer).String())
 		return true
@@ -117,7 +117,7 @@ func (s *RPCServer) Tell(ctx context.Context, req *pb.TellReq) (*pb.TellRes, err
 		return nil, err
 	}
 	if s.Overlay.Dispatcher != nil {
-		s.Overlay.Dispatcher.HandleTell(cm.NewTCPNode(req.Addr), protoMsg, nil)
+		s.Overlay.Dispatcher.HandleTell(node.NewTCPNode(req.Addr), protoMsg, nil)
 	}
 	return &pb.TellRes{Header: iproto.MagicBroadcastMsgHeader}, nil
 }
@@ -189,9 +189,9 @@ func (s *RPCServer) shouldDropRequest(ctx context.Context) (bool, error) {
 	}
 	c, _ := s.counters.LoadOrStore(
 		addr,
-		utils.NewSlidingWindowCounterWithSecondSlot(s.Overlay.Config.RateLimitWindowSize))
-	c.(*utils.SlidingWindowCounter).Increment()
-	if c.(*utils.SlidingWindowCounter).Count() > s.rateLimit {
+		counter.NewSlidingWindowCounterWithSecondSlot(s.Overlay.Config.RateLimitWindowSize))
+	c.(*counter.SlidingWindowCounter).Increment()
+	if c.(*counter.SlidingWindowCounter).Count() > s.rateLimit {
 		return true, nil
 	}
 	return false, nil

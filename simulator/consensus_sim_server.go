@@ -24,13 +24,13 @@ import (
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blocksync"
-	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/delegate"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 	pb "github.com/iotexproject/iotex-core/simulator/proto/simulator"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -54,7 +54,7 @@ type (
 var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
 
 // Validate for the byzantine node uses the actual block validator and returns the opposite
-func (v *byzVal) Validate(blk *blockchain.Block, tipHeight uint64, tipHash common.Hash32B) error {
+func (v *byzVal) Validate(blk *blockchain.Block, tipHeight uint64, tipHash hash.Hash32B) error {
 	//err := v.val.Validate(blk, tipHeight, tipHash)
 	//if err != nil {
 	//	return nil

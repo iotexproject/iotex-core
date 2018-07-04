@@ -23,8 +23,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v2"
 
-	cm "github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/network/node"
 	"github.com/iotexproject/iotex-core/proto"
 )
 
@@ -181,12 +181,12 @@ func TestTell(t *testing.T) {
 	}()
 
 	// P1 tell Tx Msg
-	p1.Tell(&cm.Node{Addr: "127.0.0.1:10002"}, &iproto.TxPb{Version: uint32(12345678)})
+	p1.Tell(&node.Node{Addr: "127.0.0.1:10002"}, &iproto.TxPb{Version: uint32(12345678)})
 	time.Sleep(time.Second)
 	assert.Equal(t, uint32(1), dp2.Count)
 
 	// P2 tell Tx Msg
-	p2.Tell(&cm.Node{Addr: "127.0.0.1:10001"}, &iproto.TxPb{Version: uint32(87654321)})
+	p2.Tell(&node.Node{Addr: "127.0.0.1:10001"}, &iproto.TxPb{Version: uint32(87654321)})
 	time.Sleep(time.Second)
 	assert.Equal(t, uint32(1), dp1.Count)
 }
@@ -328,7 +328,7 @@ func runBenchmarkOp(tell bool, size int, parallel bool, tls bool, b *testing.B) 
 		b.RunParallel(func(pb *testing.PB) {
 			for pb.Next() {
 				if tell {
-					p1.Tell(&cm.Node{Addr: "127.0.0.1:10002"}, &iproto.TestPayload{MsgBody: bytes})
+					p1.Tell(&node.Node{Addr: "127.0.0.1:10002"}, &iproto.TestPayload{MsgBody: bytes})
 				} else {
 					p1.Broadcast(&iproto.TestPayload{MsgBody: bytes})
 				}
@@ -338,7 +338,7 @@ func runBenchmarkOp(tell bool, size int, parallel bool, tls bool, b *testing.B) 
 	} else {
 		for i := 0; i < b.N; i++ {
 			if tell {
-				p1.Tell(&cm.Node{Addr: "127.0.0.1:10002"}, &iproto.TestPayload{MsgBody: bytes})
+				p1.Tell(&node.Node{Addr: "127.0.0.1:10002"}, &iproto.TestPayload{MsgBody: bytes})
 			} else {
 				p1.Broadcast(&iproto.TestPayload{MsgBody: bytes})
 			}

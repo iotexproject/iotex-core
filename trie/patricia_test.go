@@ -13,7 +13,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotexproject/iotex-core/common"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 )
 
 var (
@@ -57,7 +57,7 @@ func TestPatricia(t *testing.T) {
 	assert.Equal(byte(6), b1.Value[1])
 	assert.Equal(454, len(stream))
 
-	e := leaf{1, nil, make([]byte, common.HashSize)}
+	e := leaf{1, nil, make([]byte, hash.HashSize)}
 	e.Path = []byte{2, 3, 5, 7}
 	copy(e.Value, hash1)
 	stream, err = e.serialize()
@@ -74,7 +74,7 @@ func TestPatricia(t *testing.T) {
 	assert.Equal(byte(7), e1.Path[3])
 	assert.Equal(93, len(stream))
 
-	l := leaf{Value: make([]byte, common.HashSize)}
+	l := leaf{Value: make([]byte, hash.HashSize)}
 	l.Path = []byte{4, 6, 8, 9}
 	copy(l.Value, hash2)
 	stream, err = l.serialize()
@@ -111,7 +111,7 @@ func TestDescend(t *testing.T) {
 	assert.Nil(err)
 
 	// testing ext
-	e := leaf{1, nil, make([]byte, common.HashSize)}
+	e := leaf{1, nil, make([]byte, hash.HashSize)}
 	e.Path = []byte{1, 2, 3, 5, 6}
 	copy(e.Value, hash1)
 	b, match, err = e.descend(ant)

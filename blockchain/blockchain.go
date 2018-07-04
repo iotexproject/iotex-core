@@ -13,13 +13,14 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/blockchain/action"
-	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/common/service"
 	"github.com/iotexproject/iotex-core/config"
 	cp "github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -33,35 +34,35 @@ type Blockchain interface {
 	Nonce(addr string) (uint64, error)
 	// For exposing blockchain states
 	// GetHeightByHash returns Block's height by hash
-	GetHeightByHash(hash common.Hash32B) (uint64, error)
+	GetHeightByHash(hash hash.Hash32B) (uint64, error)
 	// GetHashByHeight returns Block's hash by height
-	GetHashByHeight(height uint64) (common.Hash32B, error)
+	GetHashByHeight(height uint64) (hash.Hash32B, error)
 	// GetBlockByHeight returns Block by height
 	GetBlockByHeight(height uint64) (*Block, error)
 	// GetBlockByHash returns Block by hash
-	GetBlockByHash(hash common.Hash32B) (*Block, error)
+	GetBlockByHash(hash hash.Hash32B) (*Block, error)
 	// GetTotalTransfers returns the total number of transfers
 	GetTotalTransfers() (uint64, error)
 	// GetTotalVotes returns the total number of votes
 	GetTotalVotes() (uint64, error)
 	// GetTransfersFromAddress returns transaction from address
-	GetTransfersFromAddress(address string) ([]common.Hash32B, error)
+	GetTransfersFromAddress(address string) ([]hash.Hash32B, error)
 	// GetTransfersToAddress returns transaction to address
-	GetTransfersToAddress(address string) ([]common.Hash32B, error)
+	GetTransfersToAddress(address string) ([]hash.Hash32B, error)
 	// GetTransfersByTransferHash returns transfer by transfer hash
-	GetTransferByTransferHash(hash common.Hash32B) (*action.Transfer, error)
+	GetTransferByTransferHash(hash hash.Hash32B) (*action.Transfer, error)
 	// GetBlockHashByTransferHash returns Block hash by transfer hash
-	GetBlockHashByTransferHash(hash common.Hash32B) (common.Hash32B, error)
+	GetBlockHashByTransferHash(hash hash.Hash32B) (hash.Hash32B, error)
 	// GetVoteFromAddress returns vote from address
-	GetVotesFromAddress(address string) ([]common.Hash32B, error)
+	GetVotesFromAddress(address string) ([]hash.Hash32B, error)
 	// GetVoteToAddress returns vote to address
-	GetVotesToAddress(address string) ([]common.Hash32B, error)
+	GetVotesToAddress(address string) ([]hash.Hash32B, error)
 	// GetVotesByVoteHash returns vote by vote hash
-	GetVoteByVoteHash(hash common.Hash32B) (*action.Vote, error)
+	GetVoteByVoteHash(hash hash.Hash32B) (*action.Vote, error)
 	// GetBlockHashByVoteHash returns Block hash by vote hash
-	GetBlockHashByVoteHash(hash common.Hash32B) (common.Hash32B, error)
+	GetBlockHashByVoteHash(hash hash.Hash32B) (hash.Hash32B, error)
 	// TipHash returns tip block's hash
-	TipHash() (common.Hash32B, error)
+	TipHash() (hash.Hash32B, error)
 	// TipHeight returns tip block's height
 	TipHeight() (uint64, error)
 	// StateByAddr returns state of a given address
@@ -99,7 +100,7 @@ type blockchain struct {
 	genesis   *Genesis
 	chainID   uint32
 	tipHeight uint64
-	tipHash   common.Hash32B
+	tipHash   hash.Hash32B
 	validator Validator
 
 	// used by account-based model
@@ -296,12 +297,12 @@ func (bc *blockchain) Nonce(addr string) (uint64, error) {
 }
 
 // GetHeightByHash returns block's height by hash
-func (bc *blockchain) GetHeightByHash(hash common.Hash32B) (uint64, error) {
+func (bc *blockchain) GetHeightByHash(hash hash.Hash32B) (uint64, error) {
 	return bc.dao.getBlockHeight(hash)
 }
 
 // GetHashByHeight returns block's hash by height
-func (bc *blockchain) GetHashByHeight(height uint64) (common.Hash32B, error) {
+func (bc *blockchain) GetHashByHeight(height uint64) (hash.Hash32B, error) {
 	return bc.dao.getBlockHash(height)
 }
 
@@ -315,7 +316,7 @@ func (bc *blockchain) GetBlockByHeight(height uint64) (*Block, error) {
 }
 
 // GetBlockByHash returns block from the blockchain hash by hash
-func (bc *blockchain) GetBlockByHash(hash common.Hash32B) (*Block, error) {
+func (bc *blockchain) GetBlockByHash(hash hash.Hash32B) (*Block, error) {
 	return bc.dao.getBlock(hash)
 }
 
@@ -337,7 +338,7 @@ func (bc *blockchain) GetTotalVotes() (uint64, error) {
 	return totalVotes, nil
 }
 
-func (bc *blockchain) GetTransfersFromAddress(address string) ([]common.Hash32B, error) {
+func (bc *blockchain) GetTransfersFromAddress(address string) ([]hash.Hash32B, error) {
 	transfersFromAddress, err := bc.dao.getTransfersBySenderAddress(address)
 	if err != nil {
 		return nil, err
@@ -346,7 +347,7 @@ func (bc *blockchain) GetTransfersFromAddress(address string) ([]common.Hash32B,
 	return transfersFromAddress, nil
 }
 
-func (bc *blockchain) GetTransfersToAddress(address string) ([]common.Hash32B, error) {
+func (bc *blockchain) GetTransfersToAddress(address string) ([]hash.Hash32B, error) {
 	transfersToAddress, err := bc.dao.getTransfersByRecipientAddress(address)
 	if err != nil {
 		return nil, err
@@ -356,7 +357,7 @@ func (bc *blockchain) GetTransfersToAddress(address string) ([]common.Hash32B, e
 }
 
 // GetTransferByTransferHash returns transfer by Transfer hash
-func (bc *blockchain) GetTransferByTransferHash(hash common.Hash32B) (*action.Transfer, error) {
+func (bc *blockchain) GetTransferByTransferHash(hash hash.Hash32B) (*action.Transfer, error) {
 	blkHash, err := bc.dao.getBlockHashByTransferHash(hash)
 	if err != nil {
 		return nil, err
@@ -374,22 +375,22 @@ func (bc *blockchain) GetTransferByTransferHash(hash common.Hash32B) (*action.Tr
 }
 
 // GetBlockHashByTxHash returns Block hash by transfer hash
-func (bc *blockchain) GetBlockHashByTransferHash(hash common.Hash32B) (common.Hash32B, error) {
+func (bc *blockchain) GetBlockHashByTransferHash(hash hash.Hash32B) (hash.Hash32B, error) {
 	return bc.dao.getBlockHashByTransferHash(hash)
 }
 
 // GetVoteFromAddress returns vote from address
-func (bc *blockchain) GetVotesFromAddress(address string) ([]common.Hash32B, error) {
+func (bc *blockchain) GetVotesFromAddress(address string) ([]hash.Hash32B, error) {
 	return bc.dao.getVotesBySenderAddress(address)
 }
 
 // GetVoteToAddress returns vote to address
-func (bc *blockchain) GetVotesToAddress(address string) ([]common.Hash32B, error) {
+func (bc *blockchain) GetVotesToAddress(address string) ([]hash.Hash32B, error) {
 	return bc.dao.getVotesByRecipientAddress(address)
 }
 
 // GetVotesByVoteHash returns vote by vote hash
-func (bc *blockchain) GetVoteByVoteHash(hash common.Hash32B) (*action.Vote, error) {
+func (bc *blockchain) GetVoteByVoteHash(hash hash.Hash32B) (*action.Vote, error) {
 	blkHash, err := bc.dao.getBlockHashByVoteHash(hash)
 	if err != nil {
 		return nil, err
@@ -407,12 +408,12 @@ func (bc *blockchain) GetVoteByVoteHash(hash common.Hash32B) (*action.Vote, erro
 }
 
 // GetBlockHashByVoteHash returns Block hash by vote hash
-func (bc *blockchain) GetBlockHashByVoteHash(hash common.Hash32B) (common.Hash32B, error) {
+func (bc *blockchain) GetBlockHashByVoteHash(hash hash.Hash32B) (hash.Hash32B, error) {
 	return bc.dao.getBlockHashByVoteHash(hash)
 }
 
 // TipHash returns tip block's hash
-func (bc *blockchain) TipHash() (common.Hash32B, error) {
+func (bc *blockchain) TipHash() (hash.Hash32B, error) {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
 	return bc.tipHash, nil
@@ -473,13 +474,13 @@ func (bc *blockchain) MintNewDummyBlock() (*Block, error) {
 
 	blk := &Block{
 		Header: &BlockHeader{
-			version:       common.ProtocolVersion,
+			version:       version.ProtocolVersion,
 			chainID:       bc.chainID,
 			height:        bc.tipHeight + 1,
 			timestamp:     timestamp,
 			prevBlockHash: bc.tipHash,
-			txRoot:        common.ZeroHash32B,
-			stateRoot:     common.ZeroHash32B,
+			txRoot:        hash.ZeroHash32B,
+			stateRoot:     hash.ZeroHash32B,
 			blockSig:      []byte{}},
 	}
 

@@ -11,9 +11,9 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/common"
-	cm "github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/consensus/fsm"
+	"github.com/iotexproject/iotex-core/network/node"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 	pb "github.com/iotexproject/iotex-core/proto"
 )
 
@@ -26,7 +26,7 @@ func eventFromProto(m proto.Message) (*fsm.Event, error) {
 
 	event.State = fsm.State(vc.GetVctype().String())
 
-	event.SenderAddr = cm.NewTCPNode(vc.GetSenderAddr())
+	event.SenderAddr = node.NewTCPNode(vc.GetSenderAddr())
 
 	blkPb := vc.GetBlock()
 	if blkPb != nil {
@@ -36,7 +36,7 @@ func eventFromProto(m proto.Message) (*fsm.Event, error) {
 	}
 
 	if blkHashPb := vc.GetBlockHash(); blkHashPb != nil {
-		event.BlockHash = &common.Hash32B{}
+		event.BlockHash = &hash.Hash32B{}
 		copy(event.BlockHash[:], blkHashPb)
 	}
 	return event, nil

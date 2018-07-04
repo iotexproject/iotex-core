@@ -13,7 +13,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotexproject/iotex-core/common"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 )
 
 func decodeHash(in string) [32]byte {
@@ -24,7 +24,7 @@ func decodeHash(in string) [32]byte {
 }
 
 func TestMerkleTree(t *testing.T) {
-	var inputs []common.Hash32B
+	var inputs []hash.Hash32B
 
 	// with no leave
 	m := NewMerkleTree(inputs)

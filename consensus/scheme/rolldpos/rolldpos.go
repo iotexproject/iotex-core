@@ -15,13 +15,13 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/common"
-	"github.com/iotexproject/iotex-core/common/routine"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/fsm"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/delegate"
 	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/routine"
 	pb "github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -34,9 +34,9 @@ var (
 // roundCtx keeps the context data for the current round and block.
 type roundCtx struct {
 	block     *blockchain.Block
-	blockHash *common.Hash32B
-	prevotes  map[net.Addr]*common.Hash32B
-	votes     map[net.Addr]*common.Hash32B
+	blockHash *hash.Hash32B
+	prevotes  map[net.Addr]*hash.Hash32B
+	votes     map[net.Addr]*hash.Hash32B
 	isPr      bool
 }
 
@@ -48,7 +48,7 @@ type epochCtx struct {
 	height uint64
 	// numSubEpochs defines number of sub-epochs/rotations will happen in an epochStart
 	numSubEpochs uint
-	dkg          common.DKGHash
+	dkg          hash.DKGHash
 	delegates    []net.Addr
 }
 

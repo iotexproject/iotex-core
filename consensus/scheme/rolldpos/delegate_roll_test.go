@@ -13,7 +13,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/common"
+	"github.com/iotexproject/iotex-core/network/node"
 	"github.com/iotexproject/iotex-core/test/mock/mock_delegate"
 	"github.com/iotexproject/iotex-core/test/mock/mock_state"
 )
@@ -21,7 +21,7 @@ import (
 func TestStartNextEpochCB(t *testing.T) {
 	t.Parallel()
 
-	self := common.NewTCPNode("127.0.0.1:40000")
+	self := node.NewTCPNode("127.0.0.1:40000")
 	ctrl := gomock.NewController(t)
 	sf := mock_state.NewMockFactory(ctrl)
 	pool := mock_delegate.NewMockPool(ctrl)
@@ -38,10 +38,10 @@ func TestStartNextEpochCB(t *testing.T) {
 	// Among the rolling delegates
 	pool.EXPECT().RollDelegates(gomock.Any()).Return(
 		[]net.Addr{
-			common.NewTCPNode("127.0.0.1:40000"),
-			common.NewTCPNode("127.0.0.1:40001"),
-			common.NewTCPNode("127.0.0.1:40002"),
-			common.NewTCPNode("127.0.0.1:40003"),
+			node.NewTCPNode("127.0.0.1:40000"),
+			node.NewTCPNode("127.0.0.1:40001"),
+			node.NewTCPNode("127.0.0.1:40002"),
+			node.NewTCPNode("127.0.0.1:40003"),
 		},
 		nil,
 	).Times(1)
@@ -52,9 +52,9 @@ func TestStartNextEpochCB(t *testing.T) {
 	// Not among the rolling delegates
 	pool.EXPECT().RollDelegates(gomock.Any()).Return(
 		[]net.Addr{
-			common.NewTCPNode("127.0.0.1:40001"),
-			common.NewTCPNode("127.0.0.1:40002"),
-			common.NewTCPNode("127.0.0.1:40003"),
+			node.NewTCPNode("127.0.0.1:40001"),
+			node.NewTCPNode("127.0.0.1:40002"),
+			node.NewTCPNode("127.0.0.1:40003"),
 		},
 		nil,
 	).Times(1)

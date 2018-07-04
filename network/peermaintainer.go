@@ -10,8 +10,8 @@ import (
 	"math/rand"
 	"net"
 
-	cm "github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/network/node"
 	pb "github.com/iotexproject/iotex-core/network/proto"
 )
 
@@ -86,7 +86,7 @@ func NewConfigBasedPeerMaintainer(o *Overlay, t *config.Topology) *ConfigBasedPe
 	for host, neighbors := range t.NeighborList {
 		if host == o.RPC.String() {
 			for _, addr := range neighbors {
-				cbpm.Addrs = append(cbpm.Addrs, cm.NewTCPNode(addr))
+				cbpm.Addrs = append(cbpm.Addrs, node.NewTCPNode(addr))
 			}
 		}
 	}

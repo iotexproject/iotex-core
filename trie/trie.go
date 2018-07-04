@@ -12,9 +12,9 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 )
 
 var (
@@ -29,7 +29,7 @@ var (
 
 var (
 	// emptyRoot is the root hash of an empty trie
-	emptyRoot = common.Hash32B{0xe, 0x57, 0x51, 0xc0, 0x26, 0xe5, 0x43, 0xb2, 0xe8, 0xab, 0x2e, 0xb0, 0x60, 0x99,
+	emptyRoot = hash.Hash32B{0xe, 0x57, 0x51, 0xc0, 0x26, 0xe5, 0x43, 0xb2, 0xe8, 0xab, 0x2e, 0xb0, 0x60, 0x99,
 		0xda, 0xa1, 0xd1, 0xe5, 0xdf, 0x47, 0x77, 0x8f, 0x77, 0x87, 0xfa, 0xab, 0x45, 0xcd, 0xf1, 0x2f, 0xe3, 0xa8}
 )
 
@@ -41,7 +41,7 @@ type (
 		Delete([]byte) error             // delete an entry
 		Commit([][]byte, [][]byte) error // commit the state changes in a batch
 		Close() error                    // close the trie DB
-		RootHash() common.Hash32B        // returns trie's root hash
+		RootHash() hash.Hash32B          // returns trie's root hash
 	}
 
 	// trie implements the Trie interface
@@ -175,7 +175,7 @@ func (t *trie) Commit(k, v [][]byte) error {
 }
 
 // RootHash returns the root hash of merkle patricia trie
-func (t *trie) RootHash() common.Hash32B {
+func (t *trie) RootHash() hash.Hash32B {
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
 
@@ -191,7 +191,7 @@ func (t *trie) upsert(key, value []byte) error {
 	var ptr patricia
 	var size int
 	var err error
-	var hashChild common.Hash32B
+	var hashChild hash.Hash32B
 	ptr, size, err = t.query(key)
 	if err != nil {
 		// TODO: nil ptr could happen: https://github.com/iotexproject/iotex-core-internal/issues/447. Add mutex

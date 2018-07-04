@@ -10,8 +10,8 @@ import (
 	"net"
 	"time"
 
-	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/consensus/fsm"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 )
 
 // epochStart is the initial and idle state of a round of epochStart. It initiates the epochStart context.
@@ -54,8 +54,8 @@ func (h *roundStart) TimeoutDuration() *time.Duration {
 
 func (h *roundStart) Handle(_ *fsm.Event) {
 	h.roundCtx = &roundCtx{
-		prevotes: make(map[net.Addr]*common.Hash32B),
-		votes:    make(map[net.Addr]*common.Hash32B),
+		prevotes: make(map[net.Addr]*hash.Hash32B),
+		votes:    make(map[net.Addr]*hash.Hash32B),
 	}
 }
 

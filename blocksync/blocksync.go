@@ -14,12 +14,12 @@ import (
 
 	"github.com/iotexproject/iotex-core/actpool"
 	bc "github.com/iotexproject/iotex-core/blockchain"
-	cm "github.com/iotexproject/iotex-core/common"
-	"github.com/iotexproject/iotex-core/common/routine"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/delegate"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network"
+	"github.com/iotexproject/iotex-core/network/node"
+	"github.com/iotexproject/iotex-core/pkg/routine"
 	pb "github.com/iotexproject/iotex-core/proto"
 )
 
@@ -165,7 +165,7 @@ func (bs *blockSyncer) Do() {
 	// This handles the case where a sync takes long time. By the time the window is closing, enough new
 	// blocks are being dropped, so we check the window range and issue a new sync request
 	if bs.state == Active && bs.sw.State != Open && bs.syncHeight < bs.dropHeight {
-		bs.p2p.Tell(cm.NewTCPNode(bs.fnd), &pb.BlockSync{Start: bs.syncHeight + 1, End: bs.dropHeight})
+		bs.p2p.Tell(node.NewTCPNode(bs.fnd), &pb.BlockSync{Start: bs.syncHeight + 1, End: bs.dropHeight})
 		logger.Warn().
 			Str("addr", bs.p2p.RPC.Addr).
 			Uint64("start", bs.syncHeight+1).
@@ -207,7 +207,7 @@ func (bs *blockSyncer) ProcessSyncRequest(sender string, sync *pb.BlockSync) err
 			return err
 		}
 		// TODO: send back multiple blocks in one shot
-		bs.p2p.Tell(cm.NewTCPNode(sender), &pb.BlockContainer{Block: blk.ConvertToBlockPb()})
+		bs.p2p.Tell(node.NewTCPNode(sender), &pb.BlockContainer{Block: blk.ConvertToBlockPb()})
 		//time.Sleep(time.Millisecond << 8)
 	}
 	return nil
@@ -227,7 +227,7 @@ func (bs *blockSyncer) processFirstBlock() error {
 			bs.syncHeight+1,
 			bs.currRcvdHeight,
 			bs.fnd)
-		bs.p2p.Tell(cm.NewTCPNode(bs.fnd), &pb.BlockSync{Start: bs.syncHeight + 1, End: bs.currRcvdHeight})
+		bs.p2p.Tell(node.NewTCPNode(bs.fnd), &pb.BlockSync{Start: bs.syncHeight + 1, End: bs.currRcvdHeight})
 	}
 	if err := bs.sw.SetRange(bs.syncHeight, bs.currRcvdHeight); err != nil {
 		return err

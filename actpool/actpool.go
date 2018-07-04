@@ -14,10 +14,10 @@ import (
 
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/action"
-	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/proto"
 )
 
@@ -62,7 +62,7 @@ type actPool struct {
 	maxNumActPerAcct uint64
 	bc               blockchain.Blockchain
 	accountActs      map[string]ActQueue
-	allActions       map[common.Hash32B]*iproto.ActionPb
+	allActions       map[hash.Hash32B]*iproto.ActionPb
 }
 
 // NewActPool constructs a new actpool
@@ -75,7 +75,7 @@ func NewActPool(bc blockchain.Blockchain, cfg config.ActPool) (ActPool, error) {
 		maxNumActPerAcct: cfg.MaxNumActPerAcct,
 		bc:               bc,
 		accountActs:      make(map[string]ActQueue),
-		allActions:       make(map[common.Hash32B]*iproto.ActionPb),
+		allActions:       make(map[hash.Hash32B]*iproto.ActionPb),
 	}
 	return ap, nil
 }
@@ -290,7 +290,7 @@ func (ap *actPool) validateVote(vote *action.Vote) error {
 	return nil
 }
 
-func (ap *actPool) addAction(sender string, act *iproto.ActionPb, hash common.Hash32B, actNonce uint64) error {
+func (ap *actPool) addAction(sender string, act *iproto.ActionPb, hash hash.Hash32B, actNonce uint64) error {
 	queue := ap.accountActs[sender]
 	if queue == nil {
 		queue = NewActQueue()
@@ -373,7 +373,7 @@ func (ap *actPool) removeConfirmedActs() {
 
 func (ap *actPool) removeInvalidActs(acts []*iproto.ActionPb) {
 	for _, act := range acts {
-		var hash common.Hash32B
+		var hash hash.Hash32B
 		switch {
 		case act.GetTransfer() != nil:
 			tsf := &action.Transfer{}

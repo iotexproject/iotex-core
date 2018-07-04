@@ -13,10 +13,10 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/blockchain/action"
-	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/trie"
 )
 
@@ -64,7 +64,7 @@ type (
 		// Note that nonce starts with 1.
 		Nonce(string) (uint64, error)
 		State(string) (*State, error)
-		RootHash() common.Hash32B
+		RootHash() hash.Hash32B
 		Candidates() (uint64, []*Candidate)
 	}
 
@@ -182,14 +182,14 @@ func (sf *factory) State(addr string) (*State, error) {
 }
 
 // RootHash returns the hash of the root node of the trie
-func (sf *factory) RootHash() common.Hash32B {
+func (sf *factory) RootHash() hash.Hash32B {
 	return sf.trie.RootHash()
 }
 
 // CommitStateChanges updates a State from the given actions
 func (sf *factory) CommitStateChanges(chainHeight uint64, tsf []*action.Transfer, vote []*action.Vote) error {
 	sf.currentChainHeight = chainHeight
-	pending := make(map[common.PKHash]*State)
+	pending := make(map[hash.PKHash]*State)
 	addressToPKMap := make(map[string][]byte)
 
 	if err := sf.handleTsf(pending, addressToPKMap, tsf); err != nil {
@@ -362,12 +362,12 @@ func (sf *factory) inPool(address string) (*Candidate, int) {
 	return nil, 0
 }
 
-func (sf *factory) upsert(pending map[common.PKHash]*State, address string) (*State, error) {
+func (sf *factory) upsert(pending map[hash.PKHash]*State, address string) (*State, error) {
 	pkhash := iotxaddress.GetPubkeyHash(address)
 	if pkhash == nil {
 		return nil, ErrInvalidAddr
 	}
-	var tempPubKeyHash common.PKHash
+	var tempPubKeyHash hash.PKHash
 	var err error
 	copy(tempPubKeyHash[:], pkhash)
 	state, exist := pending[tempPubKeyHash]
@@ -386,7 +386,7 @@ func (sf *factory) upsert(pending map[common.PKHash]*State, address string) (*St
 	return state, nil
 }
 
-func (sf *factory) handleTsf(pending map[common.PKHash]*State, addressToPKMap map[string][]byte, tsf []*action.Transfer) error {
+func (sf *factory) handleTsf(pending map[hash.PKHash]*State, addressToPKMap map[string][]byte, tsf []*action.Transfer) error {
 	for _, tx := range tsf {
 		if !tx.IsCoinbase {
 			// check sender
@@ -437,7 +437,7 @@ func (sf *factory) handleTsf(pending map[common.PKHash]*State, addressToPKMap ma
 	return nil
 }
 
-func (sf *factory) handleVote(pending map[common.PKHash]*State, addressToPKMap map[string][]byte, vote []*action.Vote) error {
+func (sf *factory) handleVote(pending map[hash.PKHash]*State, addressToPKMap map[string][]byte, vote []*action.Vote) error {
 	for _, v := range vote {
 		selfAddress, err := iotxaddress.GetAddress(v.SelfPubkey, iotxaddress.IsTestnet, iotxaddress.ChainID)
 		if err != nil {

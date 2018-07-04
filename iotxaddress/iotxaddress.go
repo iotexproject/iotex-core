@@ -22,9 +22,9 @@ import (
 
 	"golang.org/x/crypto/blake2b"
 
-	"github.com/iotexproject/iotex-core/common"
 	cp "github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/iotxaddress/bech32"
+	"github.com/iotexproject/iotex-core/pkg/version"
 )
 
 var (
@@ -77,7 +77,7 @@ func GetAddress(pub []byte, isTestnet bool, chainid []byte) (*Address, error) {
 		hrp = testnetPrefix
 	}
 
-	payload := append([]byte{common.ProtocolVersion}, append(chainid, HashPubKey(pub)...)...)
+	payload := append([]byte{version.ProtocolVersion}, append(chainid, HashPubKey(pub)...)...)
 	// Group the payload into 5 bit groups.
 	grouped, err := bech32.ConvertBits(payload, 8, 5, true)
 	if err != nil {

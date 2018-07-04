@@ -9,19 +9,19 @@ package crypto
 import (
 	"golang.org/x/crypto/blake2b"
 
-	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 )
 
 // Merkle tree struct
 type Merkle struct {
-	root common.Hash32B
-	leaf []common.Hash32B
+	root hash.Hash32B
+	leaf []hash.Hash32B
 	size int
 }
 
 // NewMerkleTree creates a merkle tree given hashed leaves
-func NewMerkleTree(leaves []common.Hash32B) *Merkle {
+func NewMerkleTree(leaves []hash.Hash32B) *Merkle {
 	size := len(leaves)
 	if size == 0 {
 		logger.Warn().Msg("Try to create merkle tree with empty leaf list!")
@@ -29,7 +29,7 @@ func NewMerkleTree(leaves []common.Hash32B) *Merkle {
 	}
 
 	mk := &Merkle{
-		leaf: make([]common.Hash32B, (size+1)>>1<<1),
+		leaf: make([]hash.Hash32B, (size+1)>>1<<1),
 		size: size,
 	}
 
@@ -50,13 +50,13 @@ func NewMerkleTree(leaves []common.Hash32B) *Merkle {
 }
 
 // HashTree calculates the root hash of a merkle tree
-func (mk *Merkle) HashTree() common.Hash32B {
-	if mk.root != common.ZeroHash32B {
+func (mk *Merkle) HashTree() hash.Hash32B {
+	if mk.root != hash.ZeroHash32B {
 		return mk.root
 	}
 
 	length := mk.size >> 1
-	merkle := make([]common.Hash32B, length)
+	merkle := make([]hash.Hash32B, length)
 
 	// first round, compute hash from original leaf
 	for i := 0; i < length; i++ {

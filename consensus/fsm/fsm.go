@@ -14,9 +14,9 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/common"
-	"github.com/iotexproject/iotex-core/common/routine"
 	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/routine"
 )
 
 var (
@@ -55,7 +55,7 @@ type Event struct {
 	State         State
 	StateTimedOut bool
 	Block         *blockchain.Block
-	BlockHash     *common.Hash32B
+	BlockHash     *hash.Hash32B
 	SenderAddr    net.Addr
 	ExpireAt      *time.Time
 	SeenState     State

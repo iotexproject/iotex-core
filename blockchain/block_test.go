@@ -16,8 +16,9 @@ import (
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotexproject/iotex-core/blockchain/action"
-	"github.com/iotexproject/iotex-core/common"
 	cp "github.com/iotexproject/iotex-core/crypto"
+	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/proto"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 )
@@ -108,7 +109,7 @@ func TestMerkle(t *testing.T) {
 	t.Logf("hash07 = %x", hash07)
 
 	// create block using above 5 tx and verify merkle
-	block := NewBlock(0, 0, common.ZeroHash32B, []*action.Transfer{cbtsf0, cbtsf1, cbtsf2, cbtsf3, cbtsf4}, nil)
+	block := NewBlock(0, 0, hash.ZeroHash32B, []*action.Transfer{cbtsf0, cbtsf1, cbtsf2, cbtsf3, cbtsf4}, nil)
 	hash := block.TxRoot()
 	require.Equal(hash07[:], hash[:])
 
@@ -119,31 +120,31 @@ func TestConvertFromBlockPb(t *testing.T) {
 	blk := Block{}
 	blk.ConvertFromBlockPb(&iproto.BlockPb{
 		Header: &iproto.BlockHeaderPb{
-			Version: common.ProtocolVersion,
+			Version: version.ProtocolVersion,
 			Height:  123456789,
 		},
 		Actions: []*iproto.ActionPb{
 			{Action: &iproto.ActionPb_Transfer{
 				Transfer: &iproto.TransferPb{
-					Version: common.ProtocolVersion,
+					Version: version.ProtocolVersion,
 					Nonce:   101,
 				},
 			}},
 			{Action: &iproto.ActionPb_Transfer{
 				Transfer: &iproto.TransferPb{
-					Version: common.ProtocolVersion,
+					Version: version.ProtocolVersion,
 					Nonce:   102,
 				},
 			}},
 			{Action: &iproto.ActionPb_Vote{
 				Vote: &iproto.VotePb{
-					Version: common.ProtocolVersion,
+					Version: version.ProtocolVersion,
 					Nonce:   103,
 				},
 			}},
 			{Action: &iproto.ActionPb_Vote{
 				Vote: &iproto.VotePb{
-					Version: common.ProtocolVersion,
+					Version: version.ProtocolVersion,
 					Nonce:   104},
 			}},
 		},

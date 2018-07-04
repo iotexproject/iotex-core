@@ -12,13 +12,13 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
-	cm "github.com/iotexproject/iotex-core/common"
-	"github.com/iotexproject/iotex-core/common/routine"
 	"github.com/iotexproject/iotex-core/common/service"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/dispatch/dispatcher"
 	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/network/node"
 	pb "github.com/iotexproject/iotex-core/network/proto"
+	"github.com/iotexproject/iotex-core/pkg/routine"
 	"github.com/iotexproject/iotex-core/proto"
 )
 
@@ -115,9 +115,9 @@ func (o *Overlay) Broadcast(msg proto.Message) error {
 
 // GetPeers returns the current neighbors' network identifiers
 func (o *Overlay) GetPeers() []net.Addr {
-	nodes := []net.Addr{}
+	var nodes []net.Addr
 	o.PM.Peers.Range(func(_, value interface{}) bool {
-		nodes = append(nodes, &cm.Node{Addr: value.(*Peer).String()})
+		nodes = append(nodes, &node.Node{Addr: value.(*Peer).String()})
 		return true
 	})
 	return nodes
