@@ -5,14 +5,13 @@ RUN apt-get install -y --no-install-recommends make && \
 
 COPY ./ $GOPATH/src/github.com/iotexproject/iotex-core/
 
-ARG SKIP_GLIDE=false
+ARG SKIP_DEP=false
 
-RUN if [ "$SKIP_GLIDE" != true ] ; \
+RUN if [ "$SKIP_DEP" != true ] ; \
     then \
         cd $GOPATH/src/github.com/iotexproject/iotex-core/ && \
-        curl https://glide.sh/get | sh && \
-        glide update && \
-        glide install ; \
+	curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh && \
+        dep ensure ; \
     fi
 
 

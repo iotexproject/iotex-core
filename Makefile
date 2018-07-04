@@ -18,7 +18,7 @@ BUILD_TARGET_SERVER=server
 BUILD_TARGET_ACTINJ=actioninjector
 BUILD_TARGET_ADDRGEN=addrgen
 BUILD_TARGET_IOTC=iotc
-SKIP_GLIDE=false
+SKIP_DEP=false
 
 # Pkgs
 ALL_PKGS := $(shell go list ./... )
@@ -135,4 +135,4 @@ run:
 
 .PHONY: docker
 docker:
-	$(DOCKERCMD) build -t $(USER)/iotex-go:latest --build-arg SKIP_GLIDE=$(SKIP_GLIDE) .
+	$(DOCKERCMD) build -t $(USER)/iotex-go:latest --build-arg SKIP_DEP=$(SKIP_DEP) .
