@@ -17,13 +17,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	pb "github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-core/test/mock/mock_state"
+	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/util"
 )
 
@@ -53,6 +54,10 @@ var (
 	addr5 = util.ConstructAddress(pubkeyE, prikeyE)
 )
 
+func createBlockchain(sf state.Factory) blockchain.Blockchain {
+	return blockchain.NewBlockchain(nil, blockchain.InMemDaoOption(), blockchain.PrecreatedStateFactoryOption(sf))
+}
+
 func TestActPool_validateTsf(t *testing.T) {
 	assert := assert.New(t)
 	l := logger.Logger().Level(zerolog.DebugLevel)
@@ -61,8 +66,9 @@ func TestActPool_validateTsf(t *testing.T) {
 	assert.NotNil(sf)
 	assert.Nil(err)
 	sf.CreateState(addr1.RawAddress, uint64(100))
+	bc := createBlockchain(sf)
 	apConfig := config.ActPool{maxNumActPerPool, maxNumActPerAcct}
-	Ap, err := NewActPool(sf, apConfig)
+	Ap, err := NewActPool(bc, apConfig)
 	assert.Nil(err)
 	ap, ok := Ap.(*actPool)
 	require.True(t, ok)
@@ -87,7 +93,7 @@ func TestActPool_validateTsf(t *testing.T) {
 	// Case V: Nonce is too low
 	prevTsf, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(50))
 	ap.AddTsf(prevTsf)
-	err = ap.sf.CommitStateChanges(0, []*action.Transfer{prevTsf}, nil)
+	err = sf.CommitStateChanges(0, []*action.Transfer{prevTsf}, nil)
 	assert.Nil(err)
 	ap.Reset()
 	nTsf, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(60))
@@ -103,8 +109,9 @@ func TestActPool_validateVote(t *testing.T) {
 	assert.NotNil(sf)
 	assert.Nil(err)
 	sf.CreateState(addr1.RawAddress, uint64(100))
+	bc := createBlockchain(sf)
 	apConfig := config.ActPool{maxNumActPerPool, maxNumActPerAcct}
-	Ap, err := NewActPool(sf, apConfig)
+	Ap, err := NewActPool(bc, apConfig)
 	assert.Nil(err)
 	ap, ok := Ap.(*actPool)
 	require.True(t, ok)
@@ -121,7 +128,7 @@ func TestActPool_validateVote(t *testing.T) {
 	// Case III: Nonce is too low
 	prevTsf, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(50))
 	ap.AddTsf(prevTsf)
-	err = ap.sf.CommitStateChanges(0, []*action.Transfer{prevTsf}, nil)
+	err = sf.CommitStateChanges(0, []*action.Transfer{prevTsf}, nil)
 	assert.Nil(err)
 	ap.Reset()
 	nVote, _ := signedVote(addr1, addr1, uint64(1))
@@ -140,9 +147,10 @@ func TestActPool_AddActs(t *testing.T) {
 	assert.Nil(err)
 	sf.CreateState(addr1.RawAddress, uint64(100))
 	sf.CreateState(addr2.RawAddress, uint64(10))
+	bc := createBlockchain(sf)
 	// Create actpool
 	apConfig := config.ActPool{maxNumActPerPool, maxNumActPerAcct}
-	Ap, err := NewActPool(sf, apConfig)
+	Ap, err := NewActPool(bc, apConfig)
 	assert.Nil(err)
 	ap, ok := Ap.(*actPool)
 	require.True(t, ok)
@@ -188,8 +196,8 @@ func TestActPool_AddActs(t *testing.T) {
 	err = ap.AddVote(vote4)
 	assert.Equal(fmt.Errorf("existed vote: %x", vote4.Hash()), err)
 	// Case II: Pool space is full
-	mockSF := mock_state.NewMockFactory(ctrl)
-	Ap2, err := NewActPool(mockSF, apConfig)
+	mockBC := mock_blockchain.NewMockBlockchain(ctrl)
+	Ap2, err := NewActPool(mockBC, apConfig)
 	assert.Nil(err)
 	ap2, ok := Ap2.(*actPool)
 	require.True(t, ok)
@@ -198,7 +206,7 @@ func TestActPool_AddActs(t *testing.T) {
 		nAction := &pb.ActionPb{Action: &pb.ActionPb_Transfer{nTsf.ConvertToTransferPb()}}
 		ap2.allActions[nTsf.Hash()] = nAction
 	}
-	mockSF.EXPECT().Nonce(gomock.Any()).Times(2).Return(uint64(0), nil)
+	mockBC.EXPECT().Nonce(gomock.Any()).Times(2).Return(uint64(0), nil)
 	err = ap2.AddTsf(tsf1)
 	assert.Equal(ErrActPool, errors.Cause(err))
 	err = ap2.AddVote(vote4)
@@ -229,9 +237,10 @@ func TestActPool_PickActs(t *testing.T) {
 	assert.Nil(err)
 	sf.CreateState(addr1.RawAddress, uint64(100))
 	sf.CreateState(addr2.RawAddress, uint64(10))
+	bc := createBlockchain(sf)
 	// Create actpool
 	apConfig := config.ActPool{maxNumActPerPool, maxNumActPerAcct}
-	Ap, err := NewActPool(sf, apConfig)
+	Ap, err := NewActPool(bc, apConfig)
 	assert.Nil(err)
 	ap, ok := Ap.(*actPool)
 	require.True(t, ok)
@@ -271,9 +280,10 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	assert.NotNil(sf)
 	assert.Nil(err)
 	sf.CreateState(addr1.RawAddress, uint64(100))
+	bc := createBlockchain(sf)
 	// Create actpool
 	apConfig := config.ActPool{maxNumActPerPool, maxNumActPerAcct}
-	Ap, err := NewActPool(sf, apConfig)
+	Ap, err := NewActPool(bc, apConfig)
 	assert.Nil(err)
 	ap, ok := Ap.(*actPool)
 	require.True(t, ok)
@@ -290,7 +300,7 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 
 	assert.Equal(4, len(ap.allActions))
 	assert.NotNil(ap.accountActs[addr1.RawAddress])
-	err = ap.sf.CommitStateChanges(0, []*action.Transfer{tsf1, tsf2, tsf3}, []*action.Vote{vote4})
+	err = sf.CommitStateChanges(0, []*action.Transfer{tsf1, tsf2, tsf3}, []*action.Vote{vote4})
 	assert.Nil(err)
 	ap.removeConfirmedActs()
 	assert.Equal(0, len(ap.allActions))
@@ -308,13 +318,14 @@ func TestActPool_Reset(t *testing.T) {
 	sf.CreateState(addr1.RawAddress, uint64(100))
 	sf.CreateState(addr2.RawAddress, uint64(200))
 	sf.CreateState(addr3.RawAddress, uint64(300))
+	bc := createBlockchain(sf)
 
 	apConfig := config.ActPool{maxNumActPerPool, maxNumActPerAcct}
-	Ap1, err := NewActPool(sf, apConfig)
+	Ap1, err := NewActPool(bc, apConfig)
 	assert.Nil(err)
 	ap1, ok := Ap1.(*actPool)
 	require.True(t, ok)
-	Ap2, err := NewActPool(sf, apConfig)
+	Ap2, err := NewActPool(bc, apConfig)
 	assert.Nil(err)
 	ap2, ok := Ap2.(*actPool)
 	require.True(t, ok)
@@ -391,7 +402,7 @@ func TestActPool_Reset(t *testing.T) {
 	// Let ap1 be BP's actpool
 	pickedTsfs, pickedVotes := ap1.PickActs()
 	// ap1 commits update of accounts to trie
-	err = ap1.sf.CommitStateChanges(0, pickedTsfs, pickedVotes)
+	err = sf.CommitStateChanges(0, pickedTsfs, pickedVotes)
 	assert.Nil(err)
 	//Reset
 	ap1.Reset()
@@ -481,7 +492,7 @@ func TestActPool_Reset(t *testing.T) {
 	// Let ap2 be BP's actpool
 	pickedTsfs, pickedVotes = ap2.PickActs()
 	// ap2 commits update of accounts to trie
-	err = ap2.sf.CommitStateChanges(0, pickedTsfs, pickedVotes)
+	err = sf.CommitStateChanges(0, pickedTsfs, pickedVotes)
 	assert.Nil(err)
 	//Reset
 	ap1.Reset()
@@ -551,7 +562,7 @@ func TestActPool_Reset(t *testing.T) {
 	// Let ap1 be BP's actpool
 	pickedTsfs, pickedVotes = ap1.PickActs()
 	// ap1 commits update of accounts to trie
-	err = ap1.sf.CommitStateChanges(0, pickedTsfs, pickedVotes)
+	err = sf.CommitStateChanges(0, pickedTsfs, pickedVotes)
 	assert.Nil(err)
 	//Reset
 	ap1.Reset()
@@ -577,9 +588,10 @@ func TestActPool_removeInvalidActs(t *testing.T) {
 	assert.NotNil(sf)
 	assert.Nil(err)
 	sf.CreateState(addr1.RawAddress, uint64(100))
+	bc := createBlockchain(sf)
 	// Create actpool
 	apConfig := config.ActPool{maxNumActPerPool, maxNumActPerAcct}
-	Ap, err := NewActPool(sf, apConfig)
+	Ap, err := NewActPool(bc, apConfig)
 	assert.Nil(err)
 	ap, ok := Ap.(*actPool)
 	require.True(t, ok)
@@ -611,7 +623,7 @@ func (ap *actPool) getPendingNonce(addr string) (uint64, error) {
 	if queue, ok := ap.accountActs[addr]; ok {
 		return queue.PendingNonce(), nil
 	}
-	committedNonce, err := ap.sf.Nonce(addr)
+	committedNonce, err := ap.bc.Nonce(addr)
 	pendingNonce := committedNonce + 1
 	return pendingNonce, err
 }
@@ -621,7 +633,7 @@ func (ap *actPool) getPendingBalance(addr string) (*big.Int, error) {
 	if queue, ok := ap.accountActs[addr]; ok {
 		return queue.PendingBalance(), nil
 	}
-	return ap.sf.Balance(addr)
+	return ap.bc.Balance(addr)
 }
 
 // Helper function to return a signed transfer

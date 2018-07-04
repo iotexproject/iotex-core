@@ -27,6 +27,10 @@ import (
 type Blockchain interface {
 	service.Service
 
+	// Balance returns balance of an account
+	Balance(addr string) (*big.Int, error)
+	// Nonce returns the nonce if the account exists
+	Nonce(addr string) (uint64, error)
 	// For exposing blockchain states
 	// GetHeightByHash returns Block's height by hash
 	GetHeightByHash(hash common.Hash32B) (uint64, error)
@@ -279,6 +283,16 @@ func (bc *blockchain) Start() (err error) {
 		}
 	}
 	return nil
+}
+
+// Balance returns balance of address
+func (bc *blockchain) Balance(addr string) (*big.Int, error) {
+	return bc.sf.Balance(addr)
+}
+
+// Nonce returns the nonce if the account exists
+func (bc *blockchain) Nonce(addr string) (uint64, error) {
+	return bc.sf.Nonce(addr)
 }
 
 // GetHeightByHash returns block's height by hash

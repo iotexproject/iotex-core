@@ -113,7 +113,7 @@ func newServer(cfg config.Config, bc blockchain.Blockchain, sf state.Factory) *S
 	// create P2P network and BlockSync
 	o := network.NewOverlay(&cfg.Network)
 	// Create ActPool
-	ap, err := actpool.NewActPool(sf, cfg.ActPool)
+	ap, err := actpool.NewActPool(bc, cfg.ActPool)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Fail to create actpool")
 	}

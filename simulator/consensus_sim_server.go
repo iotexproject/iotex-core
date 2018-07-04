@@ -109,7 +109,7 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 		}
 
 		overlay := network.NewOverlay(&cfg.Network)
-		ap, err := actpool.NewActPool(sf, cfg.ActPool)
+		ap, err := actpool.NewActPool(bc, cfg.ActPool)
 		if err != nil {
 			logger.Fatal().Err(err).Msg("Fail to create actpool")
 		}

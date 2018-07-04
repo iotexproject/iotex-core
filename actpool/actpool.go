@@ -12,13 +12,13 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/proto"
-	"github.com/iotexproject/iotex-core/state"
 )
 
 const (
@@ -60,20 +60,20 @@ type actPool struct {
 	maxNumActPerPool uint64
 	// maxNumActPerAcct indicates maximum number of actions an account queue can hold
 	maxNumActPerAcct uint64
-	sf               state.Factory
+	bc               blockchain.Blockchain
 	accountActs      map[string]ActQueue
 	allActions       map[common.Hash32B]*iproto.ActionPb
 }
 
 // NewActPool constructs a new actpool
-func NewActPool(sf state.Factory, cfg config.ActPool) (ActPool, error) {
-	if sf == nil {
-		return nil, errors.New("Try to attach a nil statefactory")
+func NewActPool(bc blockchain.Blockchain, cfg config.ActPool) (ActPool, error) {
+	if bc == nil {
+		return nil, errors.New("Try to attach a nil blockchain")
 	}
 	ap := &actPool{
 		maxNumActPerPool: cfg.MaxNumActPerPool,
 		maxNumActPerAcct: cfg.MaxNumActPerAcct,
-		sf:               sf,
+		bc:               bc,
 		accountActs:      make(map[string]ActQueue),
 		allActions:       make(map[common.Hash32B]*iproto.ActionPb),
 	}
@@ -96,7 +96,7 @@ func (ap *actPool) Reset() {
 	ap.removeConfirmedActs()
 	for from, queue := range ap.accountActs {
 		// Reset pending balance for each account
-		balance, err := ap.sf.Balance(from)
+		balance, err := ap.bc.Balance(from)
 		if err != nil {
 			logger.Error().Err(err).Msg("Error when resetting actpool state")
 			return
@@ -104,7 +104,7 @@ func (ap *actPool) Reset() {
 		queue.SetPendingBalance(balance)
 
 		// Reset pending nonce and remove invalid actions for each account
-		confirmedNonce, err := ap.sf.Nonce(from)
+		confirmedNonce, err := ap.bc.Nonce(from)
 		if err != nil {
 			logger.Error().Err(err).Msg("Error when resetting actpool state")
 			return
@@ -245,7 +245,7 @@ func (ap *actPool) validateTsf(tsf *action.Transfer) error {
 		return errors.Wrapf(err, "failed to verify Transfer signature")
 	}
 	// Reject transfer if nonce is too low
-	confirmedNonce, err := ap.sf.Nonce(tsf.Sender)
+	confirmedNonce, err := ap.bc.Nonce(tsf.Sender)
 	if err != nil {
 		logger.Error().Err(err).Msg("Error when validating transfer")
 		return errors.Wrapf(err, "invalid nonce value")
@@ -277,7 +277,7 @@ func (ap *actPool) validateVote(vote *action.Vote) error {
 	}
 
 	// Reject vote if nonce is too low
-	confirmedNonce, err := ap.sf.Nonce(voter.RawAddress)
+	confirmedNonce, err := ap.bc.Nonce(voter.RawAddress)
 	if err != nil {
 		logger.Error().Err(err).Msg("Error when validating vote")
 		return errors.Wrapf(err, "invalid nonce value")
@@ -295,8 +295,7 @@ func (ap *actPool) addAction(sender string, act *iproto.ActionPb, hash common.Ha
 	if queue == nil {
 		queue = NewActQueue()
 		ap.accountActs[sender] = queue
-
-		confirmedNonce, err := ap.sf.Nonce(sender)
+		confirmedNonce, err := ap.bc.Nonce(sender)
 		if err != nil {
 			logger.Error().Err(err).Msg("Error when adding action")
 			return err
@@ -306,7 +305,7 @@ func (ap *actPool) addAction(sender string, act *iproto.ActionPb, hash common.Ha
 		queue.SetPendingNonce(pendingNonce)
 		queue.SetStartNonce(pendingNonce)
 		// Initialize balance for new account
-		balance, err := ap.sf.Balance(sender)
+		balance, err := ap.bc.Balance(sender)
 		if err != nil {
 			logger.Error().Err(err).Msg("Error when adding action")
 			return err
@@ -355,7 +354,7 @@ func (ap *actPool) addAction(sender string, act *iproto.ActionPb, hash common.Ha
 // removeConfirmedActs removes processed (committed to block) actions from pool
 func (ap *actPool) removeConfirmedActs() {
 	for from, queue := range ap.accountActs {
-		confirmedNonce, err := ap.sf.Nonce(from)
+		confirmedNonce, err := ap.bc.Nonce(from)
 		if err != nil {
 			logger.Error().Err(err).Msg("Error when removing confirmed actions")
 			return
