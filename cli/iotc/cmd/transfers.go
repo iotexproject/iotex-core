@@ -28,7 +28,11 @@ var transfersCmd = &cobra.Command{
 }
 
 func transfers(args []string) string {
-	client, _ := getClientAndCfg()
+	client, err := getClient()
+	if err != nil {
+		logger.Error().Err(err).Msg("cannot get explorer client")
+		return ""
+	}
 	transfers, err := client.GetTransfersByAddress(args[0], 0, int64(limit))
 	if err != nil {
 		logger.Error().Err(err).Msgf("cannot get transfers for address %s", args[0])

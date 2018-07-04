@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/logger"
 )
 
 // selfCmd represents the self command
@@ -26,21 +27,24 @@ var selfCmd = &cobra.Command{
 }
 
 func self() string {
-	_, cfg := getClientAndCfg()
-	rawAddr := address(cfg.Chain.ProducerPubKey)
-	return fmt.Sprintf("this node's address is %s", rawAddr)
-}
-
-func address(pubkey string) string {
-	pubk, err := hex.DecodeString(pubkey)
+	cfg, err := getCfg()
 	if err != nil {
-		panic(err)
+		logger.Error().Err(err).Msg("unable to find config file")
+		return ""
+	}
+	pubk, err := hex.DecodeString(cfg.Chain.ProducerPubKey)
+	if err != nil {
+		logger.Error().Err(err).Msg("unable to decode pubkey")
+		return ""
 	}
 	addr, err := iotxaddress.GetAddress(pubk, iotxaddress.IsTestnet, iotxaddress.ChainID)
 	if err != nil {
-		panic(err)
+		logger.Error().Err(err).Msg("unable to construct address from pubkey")
+		return ""
 	}
-	return addr.RawAddress
+
+	rawAddr := addr.RawAddress
+	return fmt.Sprintf("this node's address is %s", rawAddr)
 }
 
 func init() {

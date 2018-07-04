@@ -24,6 +24,10 @@ const (
 	localhost = "http://127.0.0.1:"
 )
 
+var (
+	address string
+)
+
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "iotc [command] [flags]",
@@ -40,8 +44,33 @@ func Execute() {
 	}
 }
 
-// getClientAndCfg gets the explorer client and config file
-func getClientAndCfg() (eidl.Explorer, *config.Config) {
+func init() {
+	rootCmd.PersistentFlags().StringVarP(&address, "address", "a", "", "max transfers to display")
+}
+
+// getClient gets the explorer client and config file
+func getClient() (eidl.Explorer, error) {
+	if address == "" {
+		gopath := os.Getenv("GOPATH")
+		if gopath == "" {
+			logger.Error().Msg("please set GOPATH environment variable")
+			gopath = build.Default.GOPATH
+		}
+		configFile := gopath + yamlPath
+		cfg, err := config.LoadConfigWithPath(configFile)
+		if err != nil {
+			logger.Error().Err(err).Msg("cannot access config file")
+			return nil, err
+		}
+		port := cfg.Explorer.Addr
+
+		return explorer.NewExplorerProxy(localhost + port), nil
+	}
+
+	return explorer.NewExplorerProxy(address), nil
+}
+
+func getCfg() (*config.Config, error) {
 	gopath := os.Getenv("GOPATH")
 	if gopath == "" {
 		logger.Error().Msg("please set GOPATH environment variable")
@@ -51,9 +80,7 @@ func getClientAndCfg() (eidl.Explorer, *config.Config) {
 	cfg, err := config.LoadConfigWithPath(configFile)
 	if err != nil {
 		logger.Error().Err(err).Msg("cannot access config file")
+		return nil, err
 	}
-	port := cfg.Explorer.Addr
-	client := explorer.NewExplorerProxy(localhost + port)
-
-	return client, cfg
+	return cfg, nil
 }

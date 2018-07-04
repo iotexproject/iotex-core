@@ -26,7 +26,11 @@ var detailsCmd = &cobra.Command{
 }
 
 func details(args []string) string {
-	client, _ := getClientAndCfg()
+	client, err := getClient()
+	if err != nil {
+		logger.Error().Err(err).Msg("cannot get explorer client")
+		return ""
+	}
 	det, err := client.GetAddressDetails(args[0])
 	if err != nil {
 		logger.Error().Err(err).Msgf("cannot get details for address %s", args[0])

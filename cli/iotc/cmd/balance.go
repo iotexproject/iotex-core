@@ -26,7 +26,11 @@ var balanceCmd = &cobra.Command{
 }
 
 func balance(args []string) string {
-	client, _ := getClientAndCfg()
+	client, err := getClient()
+	if err != nil {
+		logger.Error().Err(err).Msg("cannot getexplorer client")
+		return ""
+	}
 	balance, err := client.GetAddressBalance(args[0])
 	if err != nil {
 		logger.Error().Err(err).Msgf("cannot get balance for address %s", args[0])
