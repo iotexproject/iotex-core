@@ -15,7 +15,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/network/node"
 	"github.com/iotexproject/iotex-core/test/mock/mock_delegate"
-	"github.com/iotexproject/iotex-core/test/mock/mock_state"
 )
 
 func TestStartNextEpochCB(t *testing.T) {
@@ -23,15 +22,14 @@ func TestStartNextEpochCB(t *testing.T) {
 
 	self := node.NewTCPNode("127.0.0.1:40000")
 	ctrl := gomock.NewController(t)
-	sf := mock_state.NewMockFactory(ctrl)
 	pool := mock_delegate.NewMockPool(ctrl)
 	defer ctrl.Finish()
 
-	flag, err := NeverStartNewEpoch(self, 1, sf, pool)
+	flag, err := NeverStartNewEpoch(self, 1, pool)
 	require.Nil(t, err)
 	require.False(t, flag)
 
-	flag, err = PseudoStarNewEpoch(self, 1, sf, pool)
+	flag, err = PseudoStarNewEpoch(self, 1, pool)
 	require.Nil(t, err)
 	require.True(t, flag)
 
@@ -45,7 +43,7 @@ func TestStartNextEpochCB(t *testing.T) {
 		},
 		nil,
 	).Times(1)
-	flag, err = PseudoStartRollingEpoch(self, 1, sf, pool)
+	flag, err = PseudoStartRollingEpoch(self, 1, pool)
 	require.Nil(t, err)
 	require.True(t, flag)
 
@@ -58,7 +56,7 @@ func TestStartNextEpochCB(t *testing.T) {
 		},
 		nil,
 	).Times(1)
-	flag, err = PseudoStartRollingEpoch(self, 1, sf, pool)
+	flag, err = PseudoStartRollingEpoch(self, 1, pool)
 	require.Nil(t, err)
 	require.False(t, flag)
 }

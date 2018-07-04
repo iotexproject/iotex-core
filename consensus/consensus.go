@@ -18,7 +18,6 @@ import (
 	"github.com/iotexproject/iotex-core/delegate"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/errcode"
-	"github.com/iotexproject/iotex-core/state"
 )
 
 // Consensus is the interface for handling IotxConsensus view change.
@@ -43,7 +42,6 @@ func NewConsensus(
 	ap actpool.ActPool,
 	bs blocksync.BlockSync,
 	dlg delegate.Pool,
-	sf state.Factory,
 ) Consensus {
 	if bc == nil || bs == nil {
 		logger.Error().Msg("Try to attach to chain or bs == nil")
@@ -98,7 +96,6 @@ func NewConsensus(
 			bc,
 			bs.P2P().Self(),
 			dlg,
-			sf,
 		)
 	case config.NOOPScheme:
 		cs.scheme = scheme.NewNoop()

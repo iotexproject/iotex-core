@@ -14,7 +14,6 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/delegate"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/state"
 )
 
 // CreateBlockCB defines the callback to create a new block
@@ -36,7 +35,7 @@ type GetProposerCB func([]net.Addr, []byte, uint64, uint64) (net.Addr, error)
 type GenerateDKGCB func() (hash.DKGHash, error)
 
 // StartNextEpochCB defines the callback to check if the next epoch should start
-type StartNextEpochCB func(net.Addr, uint64, state.Factory, delegate.Pool) (bool, error)
+type StartNextEpochCB func(net.Addr, uint64, delegate.Pool) (bool, error)
 
 // Scheme is the interface that consensus schemes should implement
 type Scheme interface {

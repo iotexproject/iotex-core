@@ -32,6 +32,8 @@ type Blockchain interface {
 	Balance(addr string) (*big.Int, error)
 	// Nonce returns the nonce if the account exists
 	Nonce(addr string) (uint64, error)
+	// Candidates returns the candidate list
+	Candidates() (uint64, []*state.Candidate)
 	// For exposing blockchain states
 	// GetHeightByHash returns Block's height by hash
 	GetHeightByHash(hash hash.Hash32B) (uint64, error)
@@ -294,6 +296,11 @@ func (bc *blockchain) Balance(addr string) (*big.Int, error) {
 // Nonce returns the nonce if the account exists
 func (bc *blockchain) Nonce(addr string) (uint64, error) {
 	return bc.sf.Nonce(addr)
+}
+
+// Candidates returns the candidate list
+func (bc *blockchain) Candidates() (uint64, []*state.Candidate) {
+	return bc.sf.Candidates()
 }
 
 // GetHeightByHash returns block's height by hash

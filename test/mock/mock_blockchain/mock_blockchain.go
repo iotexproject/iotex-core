@@ -100,6 +100,19 @@ func (mr *MockBlockchainMockRecorder) Nonce(addr interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Nonce", reflect.TypeOf((*MockBlockchain)(nil).Nonce), addr)
 }
 
+// Candidates mocks base method
+func (m *MockBlockchain) Candidates() (uint64, []*state.Candidate) {
+	ret := m.ctrl.Call(m, "Candidates")
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].([]*state.Candidate)
+	return ret0, ret1
+}
+
+// Candidates indicates an expected call of Candidates
+func (mr *MockBlockchainMockRecorder) Candidates() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Candidates", reflect.TypeOf((*MockBlockchain)(nil).Candidates))
+}
+
 // GetHeightByHash mocks base method
 func (m *MockBlockchain) GetHeightByHash(hash hash.Hash32B) (uint64, error) {
 	ret := m.ctrl.Call(m, "GetHeightByHash", hash)

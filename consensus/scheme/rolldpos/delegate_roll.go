@@ -14,7 +14,6 @@ import (
 	"github.com/iotexproject/iotex-core/delegate"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/routine"
-	"github.com/iotexproject/iotex-core/state"
 )
 
 // delegateRoll is supposed to roll the delegates for each epoch
@@ -38,7 +37,7 @@ func (d *delegateRoll) Do() {
 		return
 	}
 
-	ok, err := d.epochStartCb(d.self, epochNum, d.sf, d.pool)
+	ok, err := d.epochStartCb(d.self, epochNum, d.pool)
 	if err != nil {
 		logger.Error().Err(err).Msg("error when determining if the node will participate into next epoch")
 		return
@@ -65,17 +64,17 @@ func newDelegateRoll(r *RollDPoS) *routine.RecurringTask {
 }
 
 // NeverStartNewEpoch will never allow to start a new epochStart after the first one
-func NeverStartNewEpoch(_ net.Addr, _ uint64, _ state.Factory, _ delegate.Pool) (bool, error) {
+func NeverStartNewEpoch(_ net.Addr, _ uint64, _ delegate.Pool) (bool, error) {
 	return false, nil
 }
 
 // PseudoStarNewEpoch will always allow to start a new epochStart after the first one
-func PseudoStarNewEpoch(_ net.Addr, _ uint64, _ state.Factory, _ delegate.Pool) (bool, error) {
+func PseudoStarNewEpoch(_ net.Addr, _ uint64, _ delegate.Pool) (bool, error) {
 	return true, nil
 }
 
 // PseudoStartRollingEpoch will only allows the delegates chosen for given epoch to enter the epoch
-func PseudoStartRollingEpoch(self net.Addr, epochNum uint64, _ state.Factory, pool delegate.Pool) (bool, error) {
+func PseudoStartRollingEpoch(self net.Addr, epochNum uint64, pool delegate.Pool) (bool, error) {
 	delegates, err := pool.RollDelegates(epochNum)
 	if err != nil {
 		return false, err
