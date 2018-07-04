@@ -19,7 +19,6 @@ import (
 	"github.com/iotexproject/iotex-core/dispatch/dispatcher"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network"
-	"github.com/iotexproject/iotex-core/state"
 )
 
 // Server is the iotex server instance containing all components.
@@ -30,31 +29,19 @@ type Server struct {
 	o   *network.Overlay
 	dp  dispatcher.Dispatcher
 	cfg config.Config
-	sf  state.Factory
 }
 
 // NewServer creates a new server
 func NewServer(cfg config.Config) *Server {
-	// create StateFactory
-	sf, err := state.NewFactory(&cfg, state.DefaultTrieOption())
-	if err != nil {
-		logger.Error().Err(err).Msg("Failed to create statefactory")
-		return nil
-	}
 	// create Blockchain
-	bc := blockchain.NewBlockchain(&cfg, blockchain.PrecreatedStateFactoryOption(sf), blockchain.BoltDBDaoOption())
-	return newServer(cfg, bc, sf)
+	bc := blockchain.NewBlockchain(&cfg, blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption())
+	return newServer(cfg, bc)
 }
 
 // NewInMemTestServer creates a test server in memory
 func NewInMemTestServer(cfg config.Config) *Server {
-	sf, err := state.NewFactory(&cfg, state.InMemTrieOption())
-	if err != nil {
-		logger.Error().Err(err).Msg("Failed to create statefactory")
-		return nil
-	}
-	bc := blockchain.NewBlockchain(&cfg, blockchain.PrecreatedStateFactoryOption(sf), blockchain.InMemDaoOption())
-	return newServer(cfg, bc, sf)
+	bc := blockchain.NewBlockchain(&cfg, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	return newServer(cfg, bc)
 }
 
 // Init initialize the server
@@ -104,12 +91,7 @@ func (s *Server) Dp() dispatcher.Dispatcher {
 	return s.dp
 }
 
-// Sf returns the StateFactory
-func (s *Server) Sf() state.Factory {
-	return s.sf
-}
-
-func newServer(cfg config.Config, bc blockchain.Blockchain, sf state.Factory) *Server {
+func newServer(cfg config.Config, bc blockchain.Blockchain) *Server {
 	// create P2P network and BlockSync
 	o := network.NewOverlay(&cfg.Network)
 	// Create ActPool
@@ -124,7 +106,7 @@ func newServer(cfg config.Config, bc blockchain.Blockchain, sf state.Factory) *S
 	}
 
 	// create dispatcher instance
-	dp, err := dispatch.NewDispatcher(&cfg, bc, ap, bs, pool, sf)
+	dp, err := dispatch.NewDispatcher(&cfg, bc, ap, bs, pool)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Fail to create dispatcher")
 	}
@@ -136,6 +118,5 @@ func newServer(cfg config.Config, bc blockchain.Blockchain, sf state.Factory) *S
 		o:   o,
 		dp:  dp,
 		cfg: cfg,
-		sf:  sf,
 	}
 }

@@ -23,7 +23,6 @@ import (
 	"github.com/iotexproject/iotex-core/proto"
 	pb "github.com/iotexproject/iotex-core/proto"
 	pbsim "github.com/iotexproject/iotex-core/simulator/proto/simulator"
-	"github.com/iotexproject/iotex-core/state"
 )
 
 const (
@@ -57,7 +56,6 @@ func NewSim(
 	bc blockchain.Blockchain,
 	bs blocksync.BlockSync,
 	dlg delegate.Pool,
-	sf state.Factory,
 ) Sim {
 	if bc == nil {
 		logger.Error().Msg("Blockchain is nil")
@@ -141,7 +139,6 @@ func NewSim(
 		bc,
 		bs.P2P().Self(),
 		dlg,
-		sf,
 	)
 	cs.unsent = make([]*pbsim.Reply, 0)
 
@@ -154,7 +151,6 @@ func NewSimByzantine(
 	bc blockchain.Blockchain,
 	bs blocksync.BlockSync,
 	dlg delegate.Pool,
-	sf state.Factory,
 ) Sim {
 	if bc == nil {
 		logger.Error().Msg("Blockchain is nil")
@@ -245,7 +241,6 @@ func NewSimByzantine(
 		bc,
 		bs.P2P().Self(),
 		dlg,
-		sf,
 	)
 	cs.unsent = make([]*pbsim.Reply, 0)
 

@@ -517,8 +517,7 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.Nil(err)
 	require.Equal(6, int(tipheight))
 
-	sf := svr.Sf()
-	h, candidates := sf.Candidates()
+	h, candidates := svr.Bc().Candidates()
 	candidatesAddr := make([]string, len(candidates))
 	for i, can := range candidates {
 		candidatesAddr[i] = can.Address
@@ -563,7 +562,7 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.Nil(err)
 	require.Equal(7, int(tipheight))
 
-	h, candidates = sf.Candidates()
+	h, candidates = svr.Bc().Candidates()
 	candidatesAddr = make([]string, len(candidates))
 	for i, can := range candidates {
 		candidatesAddr[i] = can.Address
@@ -607,7 +606,7 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.Nil(err)
 	require.Equal(8, int(tipheight))
 
-	h, candidates = sf.Candidates()
+	h, candidates = svr.Bc().Candidates()
 	candidatesAddr = make([]string, len(candidates))
 	for i, can := range candidates {
 		candidatesAddr[i] = can.Address

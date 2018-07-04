@@ -24,7 +24,6 @@ import (
 	"github.com/iotexproject/iotex-core/dispatch/dispatcher"
 	"github.com/iotexproject/iotex-core/logger"
 	pb "github.com/iotexproject/iotex-core/proto"
-	"github.com/iotexproject/iotex-core/state"
 )
 
 // blockMsg packages a proto block message.
@@ -67,7 +66,6 @@ func NewDispatcher(
 	ap actpool.ActPool,
 	bs blocksync.BlockSync,
 	dp delegate.Pool,
-	sf state.Factory,
 ) (dispatcher.Dispatcher, error) {
 	if bc == nil || bs == nil {
 		return nil, errors.New("Try to attach to a nil blockchain or a nil P2P")
@@ -78,7 +76,7 @@ func NewDispatcher(
 		ap:        ap,
 		bs:        bs,
 	}
-	d.cs = consensus.NewConsensus(cfg, bc, ap, bs, dp, sf)
+	d.cs = consensus.NewConsensus(cfg, bc, ap, bs, dp)
 	return d, nil
 }
 

@@ -32,7 +32,6 @@ import (
 	"github.com/iotexproject/iotex-core/network"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	pb "github.com/iotexproject/iotex-core/simulator/proto/simulator"
-	"github.com/iotexproject/iotex-core/state"
 )
 
 const (
@@ -96,11 +95,7 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 		cfg.Chain.ChainDBPath = "./chain" + strconv.Itoa(i) + ".db"
 		cfg.Chain.TrieDBPath = "./trie" + strconv.Itoa(i) + ".db"
 
-		sf, err := state.NewFactory(cfg, state.DefaultTrieOption())
-		if err != nil {
-			logger.Error().Err(err).Msg("Failed to create state factory")
-		}
-		bc := blockchain.NewBlockchain(cfg, blockchain.PrecreatedStateFactoryOption(sf), blockchain.BoltDBDaoOption())
+		bc := blockchain.NewBlockchain(cfg, blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption())
 
 		if i >= int(in.NFS+in.NHonest) { // is byzantine node
 			val := bc.Validator()
@@ -119,12 +114,12 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 
 		var node consensus.Sim
 		if i < int(in.NHonest) {
-			node = consensus.NewSim(cfg, bc, bs, dlg, sf)
+			node = consensus.NewSim(cfg, bc, bs, dlg)
 		} else if i < int(in.NHonest+in.NFS) {
 			s.nodes = append(s.nodes, nil)
 			continue
 		} else {
-			node = consensus.NewSimByzantine(cfg, bc, bs, dlg, sf)
+			node = consensus.NewSimByzantine(cfg, bc, bs, dlg)
 		}
 
 		s.nodes = append(s.nodes, node)

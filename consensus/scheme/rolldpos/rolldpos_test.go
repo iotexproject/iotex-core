@@ -99,12 +99,10 @@ func createTestRollDPoS(
 		NumSubEpochs:      1,
 	}
 	csCfg.ProposerInterval = prDelay
-	sf := mock_state.NewMockFactory(ctrl)
 	mockFn(mocks{
 		dNet: dNet,
 		bc:   bc,
 		dp:   dp,
-		sf:   sf,
 	})
 	return NewRollDPoS(
 		csCfg,
@@ -118,7 +116,6 @@ func createTestRollDPoS(
 		bc,
 		dNet.Self(),
 		dp,
-		sf,
 	)
 }
 
