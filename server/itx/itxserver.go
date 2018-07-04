@@ -14,11 +14,13 @@ import (
 	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/common/service"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/delegate"
 	"github.com/iotexproject/iotex-core/dispatch"
 	"github.com/iotexproject/iotex-core/dispatch/dispatcher"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network"
+	"github.com/iotexproject/iotex-core/state"
 )
 
 // Server is the iotex server instance containing all components.
@@ -29,6 +31,8 @@ type Server struct {
 	o   *network.Overlay
 	dp  dispatcher.Dispatcher
 	cfg config.Config
+	sf  state.Factory
+	cs  consensus.Consensus
 }
 
 // NewServer creates a new server
@@ -91,6 +95,16 @@ func (s *Server) Dp() dispatcher.Dispatcher {
 	return s.dp
 }
 
+// Sf returns the StateFactory
+func (s *Server) Sf() state.Factory {
+	return s.sf
+}
+
+// Cs returns the consensus instance
+func (s *Server) Cs() consensus.Consensus {
+	return s.cs
+}
+
 func newServer(cfg config.Config, bc blockchain.Blockchain) *Server {
 	// create P2P network and BlockSync
 	o := network.NewOverlay(&cfg.Network)
@@ -104,9 +118,13 @@ func newServer(cfg config.Config, bc blockchain.Blockchain) *Server {
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Fail to create blockSyncer")
 	}
+	cs := consensus.NewConsensus(&cfg, bc, ap, bs, pool)
+	if cs == nil {
+		logger.Fatal().Msg("Failed to create Consensus")
+	}
 
 	// create dispatcher instance
-	dp, err := dispatch.NewDispatcher(&cfg, bc, ap, bs, pool)
+	dp, err := dispatch.NewDispatcher(&cfg, ap, bs, cs)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Fail to create dispatcher")
 	}
@@ -118,5 +136,6 @@ func newServer(cfg config.Config, bc blockchain.Blockchain) *Server {
 		o:   o,
 		dp:  dp,
 		cfg: cfg,
+		cs:  cs,
 	}
 }

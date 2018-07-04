@@ -20,7 +20,6 @@ import (
 	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus"
-	"github.com/iotexproject/iotex-core/delegate"
 	"github.com/iotexproject/iotex-core/dispatch/dispatcher"
 	"github.com/iotexproject/iotex-core/logger"
 	pb "github.com/iotexproject/iotex-core/proto"
@@ -62,21 +61,20 @@ type IotxDispatcher struct {
 // NewDispatcher creates a new Dispatcher
 func NewDispatcher(
 	cfg *config.Config,
-	bc blockchain.Blockchain,
 	ap actpool.ActPool,
 	bs blocksync.BlockSync,
-	dp delegate.Pool,
+	cs consensus.Consensus,
 ) (dispatcher.Dispatcher, error) {
-	if bc == nil || bs == nil {
-		return nil, errors.New("Try to attach to a nil blockchain or a nil P2P")
+	if bs == nil {
+		return nil, errors.New("Try to attach to a nil P2P")
 	}
 	d := &IotxDispatcher{
 		eventChan: make(chan interface{}, cfg.Dispatcher.EventChanSize),
 		quit:      make(chan struct{}),
 		ap:        ap,
 		bs:        bs,
+		cs:        cs,
 	}
-	d.cs = consensus.NewConsensus(cfg, bc, ap, bs, dp)
 	return d, nil
 }
 
@@ -119,11 +117,6 @@ func (d *IotxDispatcher) Stop() error {
 	close(d.quit)
 	d.wg.Wait()
 	return nil
-}
-
-// Consensus returns the consensus instance
-func (d *IotxDispatcher) Consensus() consensus.Consensus {
-	return d.cs
 }
 
 // EventChan returns the event chan

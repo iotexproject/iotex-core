@@ -16,9 +16,8 @@ import (
 	"github.com/iotexproject/iotex-core/dispatch/dispatcher"
 	"github.com/iotexproject/iotex-core/network/node"
 	"github.com/iotexproject/iotex-core/proto"
-	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blocksync"
-	"github.com/iotexproject/iotex-core/test/mock/mock_delegate"
+	"github.com/iotexproject/iotex-core/test/mock/mock_consensus"
 )
 
 func TestNewDispatcher(t *testing.T) {
@@ -107,10 +106,11 @@ func createDispatcher(
 		Consensus:  config.Consensus{Scheme: config.NOOPScheme},
 		Dispatcher: config.Dispatcher{EventChanSize: 1024},
 	}
-	bc := mock_blockchain.NewMockBlockchain(ctrl)
 	bs := mock_blocksync.NewMockBlockSync(ctrl)
-	pool := mock_delegate.NewMockPool(ctrl)
-	dp, _ := NewDispatcher(cfg, bc, nil, bs, pool)
+	cs := mock_consensus.NewMockConsensus(ctrl)
+	cs.EXPECT().Start().Times(1)
+	cs.EXPECT().Stop().Times(1)
+	dp, _ := NewDispatcher(cfg, nil, bs, cs)
 
 	return dp, bs
 }
