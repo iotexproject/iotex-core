@@ -26,7 +26,10 @@ var heightCmd = &cobra.Command{
 }
 
 func height() string {
-	client, _ := getClientAndCfg()
+	client, err := getClient()
+	if err != nil {
+		logger.Error().Err(err).Msg("cannot get explorer client")
+	}
 	tip, err := client.GetBlockchainHeight()
 	if err != nil {
 		logger.Error().Err(err).Msg("cannot get blockchain height")

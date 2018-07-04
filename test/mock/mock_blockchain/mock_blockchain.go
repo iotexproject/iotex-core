@@ -220,8 +220,8 @@ func (mr *MockBlockchainMockRecorder) GetTransferByTransferHash(h interface{}) *
 }
 
 // GetBlockHashByTransferHash mocks base method
-func (m *MockBlockchain) GetBlockHashByTransferHash(hash hash.Hash32B) (hash.Hash32B, error) {
-	ret := m.ctrl.Call(m, "GetBlockHashByTransferHash", hash)
+func (m *MockBlockchain) GetBlockHashByTransferHash(h hash.Hash32B) (hash.Hash32B, error) {
+	ret := m.ctrl.Call(m, "GetBlockHashByTransferHash", h)
 	ret0, _ := ret[0].(hash.Hash32B)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
@@ -272,8 +272,8 @@ func (mr *MockBlockchainMockRecorder) GetVoteByVoteHash(h interface{}) *gomock.C
 }
 
 // GetBlockHashByVoteHash mocks base method
-func (m *MockBlockchain) GetBlockHashByVoteHash(hash hash.Hash32B) (hash.Hash32B, error) {
-	ret := m.ctrl.Call(m, "GetBlockHashByVoteHash", hash)
+func (m *MockBlockchain) GetBlockHashByVoteHash(h hash.Hash32B) (hash.Hash32B, error) {
+	ret := m.ctrl.Call(m, "GetBlockHashByVoteHash", h)
 	ret0, _ := ret[0].(hash.Hash32B)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
