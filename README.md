@@ -82,7 +82,6 @@ contact us if you intend to run it in production.
 | Components | Version | Description |
 |----------|-------------|-------------|
 |[Golang](https://golang.org) | >= 1.9.2| The Go Programming Language |
-|[Glide](https://github.com/Masterminds/glide) | >= 0.13.0 | Glide is a dependency management tool for Go |
 
 ### Setup Dev Environment
 ```
@@ -92,7 +91,7 @@ git clone git@github.com:iotexproject/iotex-core.git
 cd iotex-core
 ```
 
-```glide install```
+```dep ensure```
 
 ```make fmt; make build```
 
@@ -136,7 +135,7 @@ W0416 12:52:21.654650    1576 blocksync.go:293] ------ commit block 122 time = 1
 
 ```make docker```
 
-Add `SKIP_GLIDE=true` to skip re-installing dependencies via `glide`.
+Add `SKIP_DEP=true` to skip re-installing dependencies via `dep`.
 
 ## Dev Tools
 ### Use actioninjector to inject actions
