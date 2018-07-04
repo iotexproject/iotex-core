@@ -21,7 +21,6 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/network"
 	pb "github.com/iotexproject/iotex-core/proto"
-	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blocksync"
 	"github.com/iotexproject/iotex-core/test/mock/mock_delegate"
@@ -233,10 +232,8 @@ func TestBlockSyncer_ProcessBlock_TipHeight(t *testing.T) {
 	mBc.EXPECT().TipHeight().AnyTimes().Return(uint64(5), nil)
 	mBc.EXPECT().CommitBlock(gomock.Any()).AnyTimes()
 
-	sf, err := state.NewFactory(nil, state.InMemTrieOption())
-	assert.NotNil(sf)
 	apConfig := config.ActPool{8192, 256}
-	ap, err := actpool.NewActPool(sf, apConfig)
+	ap, err := actpool.NewActPool(mBc, apConfig)
 
 	p2p := generateP2P()
 
@@ -281,10 +278,8 @@ func TestBlockSyncer_ProcessBlockSync(t *testing.T) {
 	mBc.EXPECT().TipHeight().Times(1).Return(uint64(5), nil)
 	mBc.EXPECT().TipHeight().Times(1).Return(uint64(6), nil)
 
-	sf, err := state.NewFactory(nil, state.InMemTrieOption())
-	assert.NotNil(sf)
 	apConfig := config.ActPool{8192, 256}
-	ap, err := actpool.NewActPool(sf, apConfig)
+	ap, err := actpool.NewActPool(mBc, apConfig)
 
 	p2p := generateP2P()
 
