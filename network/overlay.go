@@ -31,7 +31,7 @@ var (
 type Overlay struct {
 	service.CompositeService
 	PM         *PeerManager
-	PRC        *RPCServer
+	RPC        *RPCServer
 	Gossip     *Gossip
 	Tasks      []*routine.RecurringTask
 	Config     *config.Network
@@ -41,10 +41,10 @@ type Overlay struct {
 // NewOverlay creates an instance of Overlay
 func NewOverlay(config *config.Network) *Overlay {
 	o := &Overlay{Config: config}
-	o.PRC = NewRPCServer(o)
+	o.RPC = NewRPCServer(o)
 	o.PM = NewPeerManager(o, config.NumPeersLowerBound, config.NumPeersUpperBound)
 	o.Gossip = NewGossip(o)
-	o.AddService(o.PRC)
+	o.AddService(o.RPC)
 	o.AddService(o.PM)
 	o.AddService(o.Gossip)
 
@@ -138,11 +138,11 @@ func (o *Overlay) Tell(node net.Addr, msg proto.Message) error {
 	if err != nil {
 		return err
 	}
-	go peer.Tell(&pb.TellReq{Addr: o.PRC.String(), MsgType: msgType, MsgBody: msgBody})
+	go peer.Tell(&pb.TellReq{Addr: o.RPC.String(), MsgType: msgType, MsgBody: msgBody})
 	return nil
 }
 
-// Self returns the PRC server address to receive messages
+// Self returns the RPC server address to receive messages
 func (o *Overlay) Self() net.Addr {
-	return o.PRC
+	return o.RPC
 }

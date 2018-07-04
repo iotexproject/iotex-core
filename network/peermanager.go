@@ -38,7 +38,7 @@ func (pm *PeerManager) AddPeer(addr string) {
 			Msg("Node already reached the max number of peers")
 		return
 	}
-	if pm.Overlay.PRC.String() == addr {
+	if pm.Overlay.RPC.String() == addr {
 		logger.Debug().
 			Str("addr", addr).
 			Msg("Node at address is the current node")
@@ -86,7 +86,7 @@ func (pm *PeerManager) AddPeer(addr string) {
 	p.Connect(pm.Overlay.Config)
 	pm.Peers.Store(addr, p)
 	logger.Debug().
-		Str("src", pm.Overlay.PRC.String()).
+		Str("src", pm.Overlay.RPC.String()).
 		Str("dst", addr).
 		Msg("establish an outgoing connection")
 }

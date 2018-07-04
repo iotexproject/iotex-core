@@ -46,7 +46,7 @@ func (h *HeartbeatHandler) Do() {
 		}
 		return true
 	})
-	lastInTime := h.s.P2p().PRC.LastReqTime()
+	lastInTime := h.s.P2p().RPC.LastReqTime()
 
 	// Dispatcher metrics
 	dp, ok := h.s.Dp().(*dispatch.IotxDispatcher)

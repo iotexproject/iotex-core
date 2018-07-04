@@ -78,7 +78,7 @@ func TestLocalCommit(t *testing.T) {
 
 	p1 := network.NewOverlay(&cfg.Network)
 	require.NotNil(p1)
-	p1.PRC.Addr = "127.0.0.1:10001"
+	p1.RPC.Addr = "127.0.0.1:10001"
 	p1.Init()
 	p1.Start()
 	defer p1.Stop()
@@ -357,7 +357,7 @@ func TestLocalSync(t *testing.T) {
 	assert.NotNil(p1)
 
 	// P1 download 4 blocks from P2
-	p1.Tell(cm.NewTCPNode(p2.PRC.Addr), &pb.BlockSync{Start: 1, End: 4})
+	p1.Tell(cm.NewTCPNode(p2.RPC.Addr), &pb.BlockSync{Start: 1, End: 4})
 	check := util.CheckCondition(func() (bool, error) {
 		blk1, err := bc1.GetBlockByHeight(1)
 		if err != nil {
@@ -437,7 +437,7 @@ func TestVoteLocalCommit(t *testing.T) {
 
 	p1 := network.NewOverlay(&cfg.Network)
 	require.NotNil(p1)
-	p1.PRC.Addr = "127.0.0.1:10001"
+	p1.RPC.Addr = "127.0.0.1:10001"
 	p1.Init()
 	p1.Start()
 	defer p1.Stop()

@@ -63,7 +63,7 @@ func (g *Gossip) OnReceivingMsg(msg *pb.BroadcastReq) error {
 	// Relay the message to the neighbors
 	if msg.Ttl == 0 && msg.Ttl-1 == 0 {
 		logger.Debug().
-			Str("name", g.Overlay.PRC.String()).
+			Str("name", g.Overlay.RPC.String()).
 			Uint32("msg", msg.MsgType).
 			Msg("message used up all delivery hops")
 		return nil

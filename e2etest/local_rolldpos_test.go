@@ -118,8 +118,8 @@ func testLocalRollDPoS(prCb string, epochCb string, numBlocks uint64, t *testing
 		if i == 0 {
 			for j := uint64(1); j <= numBlocks; j++ {
 				blk, err := bc.GetBlockByHeight(j)
-				require.Nil(err, "%s gets non-nil error", svr.P2p().PRC.String())
-				require.NotNil(blk, "%s gets nil block", svr.P2p().PRC.String())
+				require.Nil(err, "%s gets non-nil error", svr.P2p().RPC.String())
+				require.NotNil(blk, "%s gets nil block", svr.P2p().RPC.String())
 				hashes[j] = blk.HashBlock()
 			}
 		}
@@ -127,8 +127,8 @@ func testLocalRollDPoS(prCb string, epochCb string, numBlocks uint64, t *testing
 		// verify received blocks
 		for j := uint64(1); j <= numBlocks; j++ {
 			blk, err := bc.GetBlockByHeight(j)
-			require.Nil(err, "%s gets non-nil error", svr.P2p().PRC.String())
-			require.NotNil(blk, "%s gets nil block", svr.P2p().PRC.String())
+			require.Nil(err, "%s gets non-nil error", svr.P2p().RPC.String())
+			require.NotNil(blk, "%s gets nil block", svr.P2p().RPC.String())
 			require.Equal(hashes[j], blk.HashBlock())
 		}
 	}

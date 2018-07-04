@@ -26,7 +26,7 @@ func TestRpcPingPong(t *testing.T) {
 	o := &Overlay{Config: config}
 	o.PM = &PeerManager{Overlay: o, NumPeersLowerBound: 1, NumPeersUpperBound: 1}
 	s := NewRPCServer(o)
-	o.PRC = s
+	o.RPC = s
 	s.Start()
 	p := NewPeer(s.Network(), s.String())
 	p.Connect(config)
@@ -36,7 +36,7 @@ func TestRpcPingPong(t *testing.T) {
 		s.Stop()
 	}()
 
-	util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) { return o.PRC.Started(), nil })
+	util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) { return o.RPC.Started(), nil })
 
 	pong, err := p.Ping(&pb.Ping{Nonce: uint64(4689), Addr: "127.0.0.1:10001"})
 	assert.Nil(t, err)
@@ -55,7 +55,7 @@ func TestGetPeers(t *testing.T) {
 	o.PM.Peers.Store("127.0.0.1:10001", NewTCPPeer("127.0.0.1:10001"))
 	o.PM.Peers.Store("127.0.0.1:10002", NewTCPPeer("127.0.0.1:10002"))
 	s := NewRPCServer(o)
-	o.PRC = s
+	o.RPC = s
 	s.Start()
 	p := NewPeer(s.Network(), s.String())
 	p.Connect(config)
@@ -65,7 +65,7 @@ func TestGetPeers(t *testing.T) {
 		s.Stop()
 	}()
 
-	util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) { return o.PRC.Started(), nil })
+	util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) { return o.RPC.Started(), nil })
 
 	res, err := p.GetPeers(&pb.GetPeersReq{Count: 1})
 	assert.Nil(t, err)
@@ -97,7 +97,7 @@ func TestBroadcast(t *testing.T) {
 	o.PM = &PeerManager{Overlay: o}
 	o.Gossip = &Gossip{Overlay: o}
 	s := NewRPCServer(o)
-	o.PRC = s
+	o.RPC = s
 	s.Start()
 	p := NewPeer(s.Network(), s.String())
 	p.Connect(config)
@@ -107,7 +107,7 @@ func TestBroadcast(t *testing.T) {
 		s.Stop()
 	}()
 
-	util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) { return o.PRC.Started(), nil })
+	util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) { return o.RPC.Started(), nil })
 
 	txMsg := &iproto.TxPb{}
 	b, _ := proto.Marshal(txMsg)
@@ -126,7 +126,7 @@ func TestRPCTell(t *testing.T) {
 	config := LoadTestConfig("", true)
 	o := &Overlay{Dispatcher: dp, Config: config}
 	s := NewRPCServer(o)
-	o.PRC = s
+	o.RPC = s
 	s.Start()
 	p := NewPeer(s.Network(), s.String())
 	p.Connect(config)
@@ -137,7 +137,7 @@ func TestRPCTell(t *testing.T) {
 		mctrl.Finish()
 	}()
 
-	util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) { return o.PRC.Started(), nil })
+	util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) { return o.RPC.Started(), nil })
 
 	txMsg := &iproto.TxPb{}
 	b, _ := proto.Marshal(txMsg)
@@ -161,7 +161,7 @@ func TestRateLimit(t *testing.T) {
 	config.RateLimitWindowSize = time.Second
 	o := &Overlay{Dispatcher: dp, Config: config}
 	s := NewRPCServer(o)
-	o.PRC = s
+	o.RPC = s
 	s.Start()
 	p := NewPeer(s.Network(), s.String())
 	p.Connect(config)
@@ -172,7 +172,7 @@ func TestRateLimit(t *testing.T) {
 		mctrl.Finish()
 	}()
 
-	util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) { return o.PRC.Started(), nil })
+	util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) { return o.RPC.Started(), nil })
 
 	var res *pb.TellRes
 	var err error
@@ -204,7 +204,7 @@ func TestSecureRpcPingPong(t *testing.T) {
 	o := &Overlay{Config: config}
 	o.PM = &PeerManager{Overlay: o, NumPeersLowerBound: 1, NumPeersUpperBound: 1}
 	s := NewRPCServer(o)
-	o.PRC = s
+	o.RPC = s
 	s.Start()
 	p := NewPeer(s.Network(), s.String())
 	p.Connect(config)
@@ -214,7 +214,7 @@ func TestSecureRpcPingPong(t *testing.T) {
 		s.Stop()
 	}()
 
-	util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) { return o.PRC.Started(), nil })
+	util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) { return o.RPC.Started(), nil })
 
 	pong, err := p.Ping(&pb.Ping{Nonce: uint64(4689), Addr: "127.0.0.1:10001"})
 	assert.Nil(t, err)
@@ -237,7 +237,7 @@ func TestKeepaliveParams(t *testing.T) {
 	o := &Overlay{Config: config}
 	o.PM = &PeerManager{Overlay: o, NumPeersLowerBound: 1, NumPeersUpperBound: 1}
 	s := NewRPCServer(o)
-	o.PRC = s
+	o.RPC = s
 	s.Start()
 	p := NewPeer(s.Network(), s.String())
 	p.Connect(config)
@@ -247,7 +247,7 @@ func TestKeepaliveParams(t *testing.T) {
 		s.Stop()
 	}()
 
-	util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) { return o.PRC.Started(), nil })
+	util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) { return o.RPC.Started(), nil })
 
 	for i := 0; i < 5; i++ {
 		time.Sleep(100 * time.Millisecond)

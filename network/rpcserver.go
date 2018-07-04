@@ -152,7 +152,7 @@ func (s *RPCServer) Start() error {
 	// Register reflection service on gRPC peer.
 	reflection.Register(s.Server)
 	go func() {
-		logger.Info().Str("addr", s.String()).Msg("start PRC server")
+		logger.Info().Str("addr", s.String()).Msg("start RPC server")
 		s.started = true
 		if err := s.Server.Serve(lis); err != nil {
 			logger.Fatal().Err(err).Msg("Node failed to serve")
@@ -168,7 +168,7 @@ func (s *RPCServer) Started() bool {
 
 // Stop stops the rpc server
 func (s *RPCServer) Stop() error {
-	logger.Info().Str("addr", s.String()).Msg("stop PRC server")
+	logger.Info().Str("addr", s.String()).Msg("stop RPC server")
 	s.Server.Stop()
 	s.started = false
 	return nil
