@@ -273,7 +273,7 @@ func TestConfigBasedTopology(t *testing.T) {
 			return true
 		})
 		sort.Strings(addrs)
-		assert.Equal(t, topology.NeighborList[node.PRC.String()], addrs)
+		assert.Equal(t, topology.NeighborList[node.RPC.String()], addrs)
 	}
 }
 

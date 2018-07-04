@@ -32,7 +32,7 @@ func (h *Pinger) Do() {
 			if !ok {
 				logger.Error().Msg("value is not an instance of Peer")
 			}
-			pong, err := p.Ping(&pb.Ping{Nonce: n, Addr: h.Overlay.PRC.String()})
+			pong, err := p.Ping(&pb.Ping{Nonce: n, Addr: h.Overlay.RPC.String()})
 			if err != nil {
 				logger.Error().Err(err).Msg("error when getting pong")
 				return

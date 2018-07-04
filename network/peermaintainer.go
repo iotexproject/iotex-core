@@ -84,7 +84,7 @@ type ConfigBasedPeerMaintainer struct {
 func NewConfigBasedPeerMaintainer(o *Overlay, t *config.Topology) *ConfigBasedPeerMaintainer {
 	cbpm := &ConfigBasedPeerMaintainer{Overlay: o}
 	for host, neighbors := range t.NeighborList {
-		if host == o.PRC.String() {
+		if host == o.RPC.String() {
 			for _, addr := range neighbors {
 				cbpm.Addrs = append(cbpm.Addrs, cm.NewTCPNode(addr))
 			}

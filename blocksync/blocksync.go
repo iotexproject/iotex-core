@@ -109,7 +109,7 @@ func NewBlockSyncer(cfg *config.Config, chain bc.Blockchain, ap actpool.ActPool,
 	switch cfg.NodeType {
 	case config.DelegateType:
 		// pick a delegate that is not myself
-		if dlg := dp.AnotherDelegate(p2p.PRC.Addr); dlg != nil {
+		if dlg := dp.AnotherDelegate(p2p.RPC.Addr); dlg != nil {
 			bs.fnd = dlg.String()
 		}
 	case config.FullNodeType:
@@ -167,7 +167,7 @@ func (bs *blockSyncer) Do() {
 	if bs.state == Active && bs.sw.State != Open && bs.syncHeight < bs.dropHeight {
 		bs.p2p.Tell(cm.NewTCPNode(bs.fnd), &pb.BlockSync{Start: bs.syncHeight + 1, End: bs.dropHeight})
 		logger.Warn().
-			Str("addr", bs.p2p.PRC.Addr).
+			Str("addr", bs.p2p.RPC.Addr).
 			Uint64("start", bs.syncHeight+1).
 			Uint64("end", bs.dropHeight).
 			Str("to", bs.fnd).
@@ -223,7 +223,7 @@ func (bs *blockSyncer) processFirstBlock() error {
 		//TODO make it structured logging
 		logger.Warn().Msgf(
 			"++++++ [%s] Send first start = %d end = %d to %s",
-			bs.p2p.PRC.Addr,
+			bs.p2p.RPC.Addr,
 			bs.syncHeight+1,
 			bs.currRcvdHeight,
 			bs.fnd)
@@ -253,7 +253,7 @@ func (bs *blockSyncer) ProcessBlock(blk *bc.Block) error {
 	if bs.currRcvdHeight = blk.Height(); bs.currRcvdHeight <= height {
 		err := fmt.Errorf(
 			"****** [%s] Received block height %d <= Blockchain tip height %d",
-			bs.p2p.PRC.Addr,
+			bs.p2p.RPC.Addr,
 			bs.currRcvdHeight,
 			height)
 		return err
@@ -283,7 +283,7 @@ func (bs *blockSyncer) ProcessBlock(blk *bc.Block) error {
 		// when window is open we are still WIP to sync old blocks, so simply drop incoming blocks
 		bs.dropHeight = bs.currRcvdHeight
 		//TODO make it structured logging
-		logger.Warn().Msgf("****** [%s] drop block %d", bs.p2p.PRC.Addr, bs.currRcvdHeight)
+		logger.Warn().Msgf("****** [%s] drop block %d", bs.p2p.RPC.Addr, bs.currRcvdHeight)
 		return nil
 	}
 
@@ -315,7 +315,7 @@ func (bs *blockSyncer) ProcessBlockSync(blk *bc.Block) error {
 		//TODO make it structured logging
 		logger.Warn().Msgf(
 			"****** [%s] Received block height %d <= Blockchain tip height %d",
-			bs.p2p.PRC.Addr,
+			bs.p2p.RPC.Addr,
 			blk.Height(),
 			height)
 		return nil
@@ -332,12 +332,12 @@ func (bs *blockSyncer) ProcessBlockSync(blk *bc.Block) error {
 func (bs *blockSyncer) checkBlockIntoBuffer(blk *bc.Block) error {
 	height := blk.Height()
 	if bs.rcvdBlocks[height] != nil {
-		return fmt.Errorf("|||||| [%s] discard existing block %d", bs.p2p.PRC.Addr, height)
+		return fmt.Errorf("|||||| [%s] discard existing block %d", bs.p2p.RPC.Addr, height)
 	}
 	bs.rcvdBlocks[height] = blk
 
 	logger.Warn().
-		Str("addr", bs.p2p.PRC.Addr).
+		Str("addr", bs.p2p.RPC.Addr).
 		Uint64("block", height).
 		Dur("interval", time.Since(bs.actionTime)).
 		Msg("received block")
@@ -363,7 +363,7 @@ func (bs *blockSyncer) commitBlocksInBuffer() error {
 
 		//TODO make it structured logging
 		logger.Warn().
-			Str("name", bs.p2p.PRC.String()).
+			Str("name", bs.p2p.RPC.String()).
 			Uint64("height", blk.Height()).
 			Msg("commit a block")
 		bs.actionTime = time.Now()

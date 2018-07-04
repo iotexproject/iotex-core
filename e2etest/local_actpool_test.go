@@ -73,7 +73,7 @@ func TestLocalActPool(t *testing.T) {
 
 	p1 := network.NewOverlay(&cfg.Network)
 	require.NotNil(p1)
-	p1.PRC.Addr = "127.0.0.1:10001"
+	p1.RPC.Addr = "127.0.0.1:10001"
 	p1.Init()
 	p1.Start()
 	defer p1.Stop()
@@ -179,7 +179,7 @@ func TestPressureActPool(t *testing.T) {
 
 	p1 := network.NewOverlay(&cfg.Network)
 	require.NotNil(p1)
-	p1.PRC.Addr = "127.0.0.1:10001"
+	p1.RPC.Addr = "127.0.0.1:10001"
 	p1.Init()
 	p1.Start()
 	defer p1.Stop()
