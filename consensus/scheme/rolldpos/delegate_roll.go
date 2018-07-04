@@ -9,11 +9,11 @@ package rolldpos
 import (
 	"net"
 
-	"github.com/iotexproject/iotex-core/common/routine"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/fsm"
 	"github.com/iotexproject/iotex-core/delegate"
 	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/pkg/routine"
 	"github.com/iotexproject/iotex-core/state"
 )
 

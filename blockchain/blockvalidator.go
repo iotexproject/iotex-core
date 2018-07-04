@@ -12,16 +12,16 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/blockchain/action"
-	"github.com/iotexproject/iotex-core/common"
 	cp "github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/state"
 )
 
 // Validator is the interface of validator
 type Validator interface {
 	// Validate validates the given block's content
-	Validate(block *Block, tipHeight uint64, tipHash common.Hash32B) error
+	Validate(block *Block, tipHeight uint64, tipHash hash.Hash32B) error
 }
 
 type validator struct {
@@ -36,7 +36,7 @@ var (
 )
 
 // Validate validates the given block's content
-func (v *validator) Validate(blk *Block, tipHeight uint64, tipHash common.Hash32B) error {
+func (v *validator) Validate(blk *Block, tipHeight uint64, tipHash hash.Hash32B) error {
 	if blk == nil {
 		return ErrInvalidBlock
 	}

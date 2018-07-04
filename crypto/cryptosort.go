@@ -12,7 +12,7 @@ import (
 
 	"golang.org/x/crypto/blake2b"
 
-	"github.com/iotexproject/iotex-core/common"
+	"github.com/iotexproject/iotex-core/pkg/enc"
 )
 
 var (
@@ -23,7 +23,7 @@ var (
 // Sort sorts a given slices of hashes cryptographically using blake2b hash function
 func Sort(hashes [][]byte, nonce uint64) error {
 	nb := make([]byte, 8)
-	common.MachineEndian.PutUint64(nb, nonce)
+	enc.MachineEndian.PutUint64(nb, nonce)
 
 	sort.Slice(hashes[:], func(i, j int) bool {
 		hi := blake2b.Sum256(append(append(hashes[i], cryptoSeed...), nb...))

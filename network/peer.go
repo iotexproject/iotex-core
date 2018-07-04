@@ -12,16 +12,16 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
-	cm "github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/network/node"
 	pb "github.com/iotexproject/iotex-core/network/proto"
 	"github.com/iotexproject/iotex-core/proto"
 )
 
 // Peer represents a node in the peer-to-peer networks
 type Peer struct {
-	cm.Node
+	node.Node
 	Client      pb.PeerClient
 	Conn        *grpc.ClientConn
 	Ctx         context.Context

@@ -7,7 +7,7 @@ package mock_state
 import (
 	gomock "github.com/golang/mock/gomock"
 	action "github.com/iotexproject/iotex-core/blockchain/action"
-	common "github.com/iotexproject/iotex-core/common"
+	hash "github.com/iotexproject/iotex-core/pkg/hash"
 	state "github.com/iotexproject/iotex-core/state"
 	big "math/big"
 	reflect "reflect"
@@ -101,9 +101,9 @@ func (mr *MockFactoryMockRecorder) State(arg0 interface{}) *gomock.Call {
 }
 
 // RootHash mocks base method
-func (m *MockFactory) RootHash() common.Hash32B {
+func (m *MockFactory) RootHash() hash.Hash32B {
 	ret := m.ctrl.Call(m, "RootHash")
-	ret0, _ := ret[0].(common.Hash32B)
+	ret0, _ := ret[0].(hash.Hash32B)
 	return ret0
 }
 

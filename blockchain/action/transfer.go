@@ -14,9 +14,11 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/blake2b"
 
-	"github.com/iotexproject/iotex-core/common"
 	cp "github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/pkg/enc"
+	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/proto"
 )
 
@@ -46,7 +48,7 @@ type (
 // NewTransfer returns a Transfer instance
 func NewTransfer(nonce uint64, amount *big.Int, sender string, recipient string) *Transfer {
 	return &Transfer{
-		Version: common.ProtocolVersion,
+		Version: version.ProtocolVersion,
 
 		Nonce:     nonce,
 		Amount:    amount,
@@ -62,7 +64,7 @@ func NewTransfer(nonce uint64, amount *big.Int, sender string, recipient string)
 // NewCoinBaseTransfer returns a coinbase Transfer
 func NewCoinBaseTransfer(amount *big.Int, recipient string) *Transfer {
 	return &Transfer{
-		Version:   common.ProtocolVersion,
+		Version:   version.ProtocolVersion,
 		Amount:    amount,
 		Recipient: recipient,
 		// Payload is empty for now
@@ -92,9 +94,9 @@ func (tsf *Transfer) TotalSize() uint32 {
 // ByteStream returns a raw byte stream of this Transfer
 func (tsf *Transfer) ByteStream() []byte {
 	stream := make([]byte, 4)
-	common.MachineEndian.PutUint32(stream, tsf.Version)
+	enc.MachineEndian.PutUint32(stream, tsf.Version)
 	temp := make([]byte, 8)
-	common.MachineEndian.PutUint64(temp, tsf.Nonce)
+	enc.MachineEndian.PutUint64(temp, tsf.Nonce)
 	stream = append(stream, temp...)
 	if tsf.Amount != nil && len(tsf.Amount.Bytes()) > 0 {
 		stream = append(stream, tsf.Amount.Bytes()...)
@@ -177,7 +179,7 @@ func (tsf *Transfer) Deserialize(buf []byte) error {
 }
 
 // Hash returns the hash of the Transfer
-func (tsf *Transfer) Hash() common.Hash32B {
+func (tsf *Transfer) Hash() hash.Hash32B {
 	hash := blake2b.Sum256(tsf.ByteStream())
 	return blake2b.Sum256(hash[:])
 }

@@ -9,11 +9,12 @@ package blockchain
 import (
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/common/service"
-	"github.com/iotexproject/iotex-core/common/utils"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/pkg/enc"
+	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
 const (
@@ -84,10 +85,10 @@ func (dao *blockDAO) Start() error {
 }
 
 // getBlockHash returns the block hash by height
-func (dao *blockDAO) getBlockHash(height uint64) (common.Hash32B, error) {
-	key := append(heightPrefix, utils.Uint64ToBytes(height)...)
+func (dao *blockDAO) getBlockHash(height uint64) (hash.Hash32B, error) {
+	key := append(heightPrefix, byteutil.Uint64ToBytes(height)...)
 	value, err := dao.kvstore.Get(blockHashHeightMappingNS, key)
-	hash := common.ZeroHash32B
+	hash := hash.ZeroHash32B
 	if err != nil {
 		return hash, errors.Wrap(err, "failed to get block hash")
 	}
@@ -99,7 +100,7 @@ func (dao *blockDAO) getBlockHash(height uint64) (common.Hash32B, error) {
 }
 
 // getBlockHeight returns the block height by hash
-func (dao *blockDAO) getBlockHeight(hash common.Hash32B) (uint64, error) {
+func (dao *blockDAO) getBlockHeight(hash hash.Hash32B) (uint64, error) {
 	key := append(hashPrefix, hash[:]...)
 	value, err := dao.kvstore.Get(blockHashHeightMappingNS, key)
 	if err != nil {
@@ -108,11 +109,11 @@ func (dao *blockDAO) getBlockHeight(hash common.Hash32B) (uint64, error) {
 	if len(value) == 0 {
 		return 0, errors.Wrapf(db.ErrNotExist, "height missing for block with hash = %x", hash)
 	}
-	return common.MachineEndian.Uint64(value), nil
+	return enc.MachineEndian.Uint64(value), nil
 }
 
 // getBlock returns a block
-func (dao *blockDAO) getBlock(hash common.Hash32B) (*Block, error) {
+func (dao *blockDAO) getBlock(hash hash.Hash32B) (*Block, error) {
 	value, err := dao.kvstore.Get(blockNS, hash[:])
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get block %x", hash)
@@ -127,35 +128,35 @@ func (dao *blockDAO) getBlock(hash common.Hash32B) (*Block, error) {
 	return &blk, nil
 }
 
-func (dao *blockDAO) getBlockHashByTransferHash(hash common.Hash32B) (common.Hash32B, error) {
-	blkHash := common.ZeroHash32B
-	key := append(transferPrefix, hash[:]...)
+func (dao *blockDAO) getBlockHashByTransferHash(h hash.Hash32B) (hash.Hash32B, error) {
+	blkHash := hash.ZeroHash32B
+	key := append(transferPrefix, h[:]...)
 	value, err := dao.kvstore.Get(blockTransferBlockMappingNS, key)
 	if err != nil {
-		return blkHash, errors.Wrapf(err, "failed to get transfer %x", hash)
+		return blkHash, errors.Wrapf(err, "failed to get transfer %x", h)
 	}
 	if len(value) == 0 {
-		return blkHash, errors.Wrapf(db.ErrNotExist, "transfer %x missing", hash)
+		return blkHash, errors.Wrapf(db.ErrNotExist, "transfer %x missing", h)
 	}
 	copy(blkHash[:], value)
 	return blkHash, nil
 }
 
-func (dao *blockDAO) getBlockHashByVoteHash(hash common.Hash32B) (common.Hash32B, error) {
-	blkHash := common.ZeroHash32B
-	key := append(votePrefix, hash[:]...)
+func (dao *blockDAO) getBlockHashByVoteHash(h hash.Hash32B) (hash.Hash32B, error) {
+	blkHash := hash.ZeroHash32B
+	key := append(votePrefix, h[:]...)
 	value, err := dao.kvstore.Get(blockVoteBlockMappingNS, key)
 	if err != nil {
-		return blkHash, errors.Wrapf(err, "failed to get vote %x", hash)
+		return blkHash, errors.Wrapf(err, "failed to get vote %x", h)
 	}
 	if len(value) == 0 {
-		return blkHash, errors.Wrapf(db.ErrNotExist, "vote %x missing", hash)
+		return blkHash, errors.Wrapf(db.ErrNotExist, "vote %x missing", h)
 	}
 	copy(blkHash[:], value)
 	return blkHash, nil
 }
 
-func (dao *blockDAO) getTransfersBySenderAddress(address string) ([]common.Hash32B, error) {
+func (dao *blockDAO) getTransfersBySenderAddress(address string) ([]hash.Hash32B, error) {
 	// get transfers count for sender
 	senderTransferCount, err := dao.getTransferCountBySenderAddress(address)
 	if err != nil {
@@ -179,10 +180,10 @@ func (dao *blockDAO) getTransferCountBySenderAddress(address string) (uint64, er
 	if len(value) == 0 {
 		return 0, errors.New("count of transfers as recipient is broken")
 	}
-	return common.MachineEndian.Uint64(value), nil
+	return enc.MachineEndian.Uint64(value), nil
 }
 
-func (dao *blockDAO) getTransfersByRecipientAddress(address string) ([]common.Hash32B, error) {
+func (dao *blockDAO) getTransfersByRecipientAddress(address string) ([]hash.Hash32B, error) {
 	// get transfers count for recipient
 	recipientTransferCount, getCountErr := dao.getTransferCountByRecipientAddress(address)
 	if getCountErr != nil {
@@ -197,13 +198,13 @@ func (dao *blockDAO) getTransfersByRecipientAddress(address string) ([]common.Ha
 	return res, nil
 }
 
-func (dao *blockDAO) getTransfersByAddress(address string, count uint64, keyPrefix []byte) ([]common.Hash32B, error) {
-	var res []common.Hash32B
+func (dao *blockDAO) getTransfersByAddress(address string, count uint64, keyPrefix []byte) ([]hash.Hash32B, error) {
+	var res []hash.Hash32B
 
 	for i := uint64(0); i < count; i++ {
 		// put new transfer to recipient
 		key := append(keyPrefix, address...)
-		key = append(key, utils.Uint64ToBytes(i)...)
+		key = append(key, byteutil.Uint64ToBytes(i)...)
 		value, err := dao.kvstore.Get(blockAddressTransferMappingNS, key)
 		if err != nil {
 			return res, errors.Wrapf(err, "failed to get transfer for index %x", i)
@@ -211,7 +212,7 @@ func (dao *blockDAO) getTransfersByAddress(address string, count uint64, keyPref
 		if len(value) == 0 {
 			return res, errors.Wrapf(db.ErrNotExist, "transfer for index %x missing", i)
 		}
-		transferHash := common.ZeroHash32B
+		transferHash := hash.ZeroHash32B
 		copy(transferHash[:], value)
 		res = append(res, transferHash)
 	}
@@ -228,11 +229,11 @@ func (dao *blockDAO) getTransferCountByRecipientAddress(address string) (uint64,
 	if len(value) == 0 {
 		return 0, errors.New("count of transfers as recipient is broken")
 	}
-	return common.MachineEndian.Uint64(value), nil
+	return enc.MachineEndian.Uint64(value), nil
 }
 
 // getVotesBySenderAddress returns votes count for sender
-func (dao *blockDAO) getVotesBySenderAddress(address string) ([]common.Hash32B, error) {
+func (dao *blockDAO) getVotesBySenderAddress(address string) ([]hash.Hash32B, error) {
 	senderVoteCount, err := dao.getVoteCountBySenderAddress(address)
 	if err != nil {
 		return nil, errors.Wrapf(err, "to get votecount for sender %x", address)
@@ -256,11 +257,11 @@ func (dao *blockDAO) getVoteCountBySenderAddress(address string) (uint64, error)
 	if len(value) == 0 {
 		return 0, errors.New("count of votes as sender is broken")
 	}
-	return common.MachineEndian.Uint64(value), nil
+	return enc.MachineEndian.Uint64(value), nil
 }
 
 // getVotesByRecipientAddress returns votes by recipient address
-func (dao *blockDAO) getVotesByRecipientAddress(address string) ([]common.Hash32B, error) {
+func (dao *blockDAO) getVotesByRecipientAddress(address string) ([]hash.Hash32B, error) {
 	recipientVoteCount, err := dao.getVoteCountByRecipientAddress(address)
 	if err != nil {
 		return nil, errors.Wrapf(err, "to get votecount for recipient %x", address)
@@ -275,13 +276,13 @@ func (dao *blockDAO) getVotesByRecipientAddress(address string) ([]common.Hash32
 }
 
 // getVotesByAddress returns votes by address
-func (dao *blockDAO) getVotesByAddress(address string, count uint64, keyPrefix []byte) ([]common.Hash32B, error) {
-	var res []common.Hash32B
+func (dao *blockDAO) getVotesByAddress(address string, count uint64, keyPrefix []byte) ([]hash.Hash32B, error) {
+	var res []hash.Hash32B
 
 	for i := uint64(0); i < count; i++ {
 		// put new vote to recipient
 		key := append(keyPrefix, address...)
-		key = append(key, utils.Uint64ToBytes(i)...)
+		key = append(key, byteutil.Uint64ToBytes(i)...)
 		value, err := dao.kvstore.Get(blockAddressVoteMappingNS, key)
 		if err != nil {
 			return res, errors.Wrapf(err, "failed to get vote for index %x", i)
@@ -289,7 +290,7 @@ func (dao *blockDAO) getVotesByAddress(address string, count uint64, keyPrefix [
 		if len(value) == 0 {
 			return res, errors.Wrapf(db.ErrNotExist, "vote for index %x missing", i)
 		}
-		voteHash := common.ZeroHash32B
+		voteHash := hash.ZeroHash32B
 		copy(voteHash[:], value)
 		res = append(res, voteHash)
 	}
@@ -307,7 +308,7 @@ func (dao *blockDAO) getVoteCountByRecipientAddress(address string) (uint64, err
 	if len(value) == 0 {
 		return 0, errors.New("count of votes as recipient is broken")
 	}
-	return common.MachineEndian.Uint64(value), nil
+	return enc.MachineEndian.Uint64(value), nil
 }
 
 // getBlockchainHeight returns the blockchain height
@@ -319,7 +320,7 @@ func (dao *blockDAO) getBlockchainHeight() (uint64, error) {
 	if len(value) == 0 {
 		return 0, errors.Wrap(db.ErrNotExist, "blockchain height missing")
 	}
-	return common.MachineEndian.Uint64(value), nil
+	return enc.MachineEndian.Uint64(value), nil
 }
 
 // getTotalTransfers returns the total number of transfers
@@ -331,7 +332,7 @@ func (dao *blockDAO) getTotalTransfers() (uint64, error) {
 	if len(value) == 0 {
 		return 0, errors.Wrap(db.ErrNotExist, "total transfers missing")
 	}
-	return common.MachineEndian.Uint64(value), nil
+	return enc.MachineEndian.Uint64(value), nil
 }
 
 // getTotalVotes returns the total number of votes
@@ -343,12 +344,12 @@ func (dao *blockDAO) getTotalVotes() (uint64, error) {
 	if len(value) == 0 {
 		return 0, errors.Wrap(db.ErrNotExist, "total votes missing")
 	}
-	return common.MachineEndian.Uint64(value), nil
+	return enc.MachineEndian.Uint64(value), nil
 }
 
 // putBlock puts a block
 func (dao *blockDAO) putBlock(blk *Block) error {
-	height := utils.Uint64ToBytes(blk.Height())
+	height := byteutil.Uint64ToBytes(blk.Height())
 	serialized, err := blk.Serialize()
 	if err != nil {
 		return errors.Wrap(err, "failed to serialize block")
@@ -369,7 +370,7 @@ func (dao *blockDAO) putBlock(blk *Block) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to get top height")
 	}
-	topHeight := common.MachineEndian.Uint64(value)
+	topHeight := enc.MachineEndian.Uint64(value)
 	if blk.Height() > topHeight {
 		if err = dao.kvstore.Put(blockNS, topHeightKey, height); err != nil {
 			return errors.Wrap(err, "failed to put top height")
@@ -380,9 +381,9 @@ func (dao *blockDAO) putBlock(blk *Block) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to get total transfers")
 	}
-	totalTransfers := common.MachineEndian.Uint64(value)
+	totalTransfers := enc.MachineEndian.Uint64(value)
 	totalTransfers += uint64(len(blk.Transfers))
-	totalTransfersBytes := utils.Uint64ToBytes(totalTransfers)
+	totalTransfersBytes := byteutil.Uint64ToBytes(totalTransfers)
 	if err = dao.kvstore.Put(blockNS, totalTransfersKey, totalTransfersBytes); err != nil {
 		return errors.Wrap(err, "failed to put total transfers")
 	}
@@ -391,9 +392,9 @@ func (dao *blockDAO) putBlock(blk *Block) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to get total votes")
 	}
-	totalVotes := common.MachineEndian.Uint64(value)
+	totalVotes := enc.MachineEndian.Uint64(value)
 	totalVotes += uint64(len(blk.Votes))
-	totalVotesBytes := utils.Uint64ToBytes(totalVotes)
+	totalVotesBytes := byteutil.Uint64ToBytes(totalVotes)
 	if err = dao.kvstore.Put(blockNS, totalVotesKey, totalVotesBytes); err != nil {
 		return errors.Wrap(err, "failed to put total votes")
 	}
@@ -442,7 +443,7 @@ func putTransfers(dao *blockDAO, blk *Block) error {
 
 		// put new transfer to sender
 		senderKey := append(transferFromPrefix, transfer.Sender...)
-		senderKey = append(senderKey, utils.Uint64ToBytes(senderTransferCount)...)
+		senderKey = append(senderKey, byteutil.Uint64ToBytes(senderTransferCount)...)
 		if err = dao.kvstore.PutIfNotExists(blockAddressTransferMappingNS, senderKey, transferHash[:]); err != nil {
 			return errors.Wrapf(err, "failed to put transfer hash %x for sender %x",
 				transfer.Hash(), transfer.Sender)
@@ -451,7 +452,7 @@ func putTransfers(dao *blockDAO, blk *Block) error {
 		// update sender transfers count
 		senderTransferCountKey := append(transferFromPrefix, transfer.Sender...)
 		if err = dao.kvstore.Put(blockAddressTransferCountMappingNS, senderTransferCountKey,
-			utils.Uint64ToBytes(senderTransferCount+1)); err != nil {
+			byteutil.Uint64ToBytes(senderTransferCount+1)); err != nil {
 			return errors.Wrapf(err, "failed to bump transfer count %x for sender %x",
 				transfer.Hash(), transfer.Sender)
 		}
@@ -464,7 +465,7 @@ func putTransfers(dao *blockDAO, blk *Block) error {
 
 		// put new transfer to recipient
 		recipientKey := append(transferToPrefix, transfer.Recipient...)
-		recipientKey = append(recipientKey, utils.Uint64ToBytes(recipientTransferCount)...)
+		recipientKey = append(recipientKey, byteutil.Uint64ToBytes(recipientTransferCount)...)
 		if err = dao.kvstore.PutIfNotExists(blockAddressTransferMappingNS, recipientKey, transferHash[:]); err != nil {
 			return errors.Wrapf(err, "failed to put transfer hash %x for recipient %x",
 				transfer.Hash(), transfer.Recipient)
@@ -473,7 +474,7 @@ func putTransfers(dao *blockDAO, blk *Block) error {
 		// update recipient transfers count
 		recipientTransferCountKey := append(transferToPrefix, transfer.Recipient...)
 		if err = dao.kvstore.Put(blockAddressTransferCountMappingNS, recipientTransferCountKey,
-			utils.Uint64ToBytes(recipientTransferCount+1)); err != nil {
+			byteutil.Uint64ToBytes(recipientTransferCount+1)); err != nil {
 			return errors.Wrapf(err, "failed to bump transfer count %x for recipient %x",
 				transfer.Hash(), transfer.Recipient)
 		}
@@ -507,7 +508,7 @@ func putVotes(dao *blockDAO, blk *Block) error {
 
 		// put new vote to sender
 		senderKey := append(voteFromPrefix, Sender...)
-		senderKey = append(senderKey, utils.Uint64ToBytes(senderVoteCount)...)
+		senderKey = append(senderKey, byteutil.Uint64ToBytes(senderVoteCount)...)
 		if err = dao.kvstore.PutIfNotExists(blockAddressVoteMappingNS, senderKey, voteHash[:]); err != nil {
 			return errors.Wrapf(err, "failed to put vote hash %x for sender %x",
 				voteHash, Sender)
@@ -516,7 +517,7 @@ func putVotes(dao *blockDAO, blk *Block) error {
 		// update sender votes count
 		senderVoteCountKey := append(voteFromPrefix, Sender...)
 		if err = dao.kvstore.Put(blockAddressVoteCountMappingNS, senderVoteCountKey,
-			utils.Uint64ToBytes(senderVoteCount+1)); err != nil {
+			byteutil.Uint64ToBytes(senderVoteCount+1)); err != nil {
 			return errors.Wrapf(err, "failed to bump vote count %x for sender %x",
 				voteHash, Sender)
 		}
@@ -529,7 +530,7 @@ func putVotes(dao *blockDAO, blk *Block) error {
 
 		// put new vote to recipient
 		recipientKey := append(voteToPrefix, Recipient...)
-		recipientKey = append(recipientKey, utils.Uint64ToBytes(recipientVoteCount)...)
+		recipientKey = append(recipientKey, byteutil.Uint64ToBytes(recipientVoteCount)...)
 		if err = dao.kvstore.PutIfNotExists(blockAddressVoteMappingNS, recipientKey, voteHash[:]); err != nil {
 			return errors.Wrapf(err, "failed to put vote hash %x for recipient %x",
 				voteHash, Recipient)
@@ -538,7 +539,7 @@ func putVotes(dao *blockDAO, blk *Block) error {
 		// update recipient votes count
 		recipientVoteCountKey := append(voteToPrefix, Recipient...)
 		if err = dao.kvstore.Put(blockAddressVoteCountMappingNS, recipientVoteCountKey,
-			utils.Uint64ToBytes(recipientVoteCount+1)); err != nil {
+			byteutil.Uint64ToBytes(recipientVoteCount+1)); err != nil {
 			return errors.Wrapf(err, "failed to bump vote count %x for recipient %x",
 				voteHash, Recipient)
 		}

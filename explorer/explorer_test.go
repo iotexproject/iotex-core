@@ -17,9 +17,9 @@ import (
 
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/action"
-	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
+	"github.com/iotexproject/iotex-core/network/node"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_consensus"
@@ -258,13 +258,13 @@ func TestService_GetConsensusMetrics(t *testing.T) {
 	defer ctrl.Finish()
 
 	candidates := []net.Addr{
-		common.NewTCPNode("127.0.0.1:40000"),
-		common.NewTCPNode("127.0.0.1:40001"),
-		common.NewTCPNode("127.0.0.1:40002"),
-		common.NewTCPNode("127.0.0.1:40003"),
-		common.NewTCPNode("127.0.0.1:40004"),
-		common.NewTCPNode("127.0.0.1:40005"),
-		common.NewTCPNode("127.0.0.1:40006"),
+		node.NewTCPNode("127.0.0.1:40000"),
+		node.NewTCPNode("127.0.0.1:40001"),
+		node.NewTCPNode("127.0.0.1:40002"),
+		node.NewTCPNode("127.0.0.1:40003"),
+		node.NewTCPNode("127.0.0.1:40004"),
+		node.NewTCPNode("127.0.0.1:40005"),
+		node.NewTCPNode("127.0.0.1:40006"),
 	}
 	c := mock_consensus.NewMockConsensus(ctrl)
 	c.EXPECT().Metrics().Return(scheme.ConsensusMetrics{

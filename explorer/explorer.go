@@ -12,10 +12,10 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 )
 
 // ErrInternalServer indicates the internal server error
@@ -118,7 +118,7 @@ func (exp *Service) GetTransferByID(transferID string) (explorer.Transfer, error
 	if err != nil {
 		return explorer.Transfer{}, err
 	}
-	var transferHash common.Hash32B
+	var transferHash hash.Hash32B
 	copy(transferHash[:], bytes)
 
 	transfer, err := getTransfer(exp.bc, transferHash)
@@ -171,7 +171,7 @@ func (exp *Service) GetTransfersByBlockID(blkID string, offset int64, limit int6
 	if err != nil {
 		return res, err
 	}
-	var hash common.Hash32B
+	var hash hash.Hash32B
 	copy(hash[:], bytes)
 
 	blk, err := exp.bc.GetBlockByHash(hash)
@@ -266,7 +266,7 @@ func (exp *Service) GetVoteByID(voteID string) (explorer.Vote, error) {
 	if err != nil {
 		return explorer.Vote{}, err
 	}
-	var voteHash common.Hash32B
+	var voteHash hash.Hash32B
 	copy(voteHash[:], bytes)
 
 	vote, err := getVote(exp.bc, voteHash)
@@ -318,7 +318,7 @@ func (exp *Service) GetVotesByBlockID(blkID string, offset int64, limit int64) (
 	if err != nil {
 		return res, err
 	}
-	var hash common.Hash32B
+	var hash hash.Hash32B
 	copy(hash[:], bytes)
 
 	blk, err := exp.bc.GetBlockByHash(hash)
@@ -408,7 +408,7 @@ func (exp *Service) GetBlockByID(blkID string) (explorer.Block, error) {
 	if err != nil {
 		return explorer.Block{}, err
 	}
-	var hash common.Hash32B
+	var hash hash.Hash32B
 	copy(hash[:], bytes)
 
 	blk, err := exp.bc.GetBlockByHash(hash)
@@ -527,7 +527,7 @@ func (exp *Service) GetConsensusMetrics() (explorer.ConsensusMetrics, error) {
 }
 
 // getTransfer takes in a blockchain and transferHash and returns a Explorer Transfer
-func getTransfer(bc blockchain.Blockchain, transferHash common.Hash32B) (explorer.Transfer, error) {
+func getTransfer(bc blockchain.Blockchain, transferHash hash.Hash32B) (explorer.Transfer, error) {
 	explorerTransfer := explorer.Transfer{}
 
 	transfer, err := bc.GetTransferByTransferHash(transferHash)
@@ -561,7 +561,7 @@ func getTransfer(bc blockchain.Blockchain, transferHash common.Hash32B) (explore
 }
 
 // getVote takes in a blockchain and voteHash and returns a Explorer Vote
-func getVote(bc blockchain.Blockchain, voteHash common.Hash32B) (explorer.Vote, error) {
+func getVote(bc blockchain.Blockchain, voteHash hash.Hash32B) (explorer.Vote, error) {
 	var explorerVote explorer.Vote
 
 	vote, err := bc.GetVoteByVoteHash(voteHash)

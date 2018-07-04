@@ -13,11 +13,11 @@ import (
 
 	"golang.org/x/crypto/blake2b"
 
-	"github.com/iotexproject/iotex-core/common/routine"
 	"github.com/iotexproject/iotex-core/common/service"
 	"github.com/iotexproject/iotex-core/dispatch/dispatcher"
 	"github.com/iotexproject/iotex-core/logger"
 	pb "github.com/iotexproject/iotex-core/network/proto"
+	"github.com/iotexproject/iotex-core/pkg/routine"
 	pb1 "github.com/iotexproject/iotex-core/proto"
 )
 

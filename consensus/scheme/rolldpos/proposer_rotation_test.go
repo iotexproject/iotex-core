@@ -15,9 +15,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/consensus/fsm"
 	"github.com/iotexproject/iotex-core/delegate"
+	"github.com/iotexproject/iotex-core/network/node"
 )
 
 func TestProposerRotation(t *testing.T) {
@@ -28,8 +28,8 @@ func TestProposerRotation(t *testing.T) {
 
 	// arrange 2 consensus nodes
 	delegates := []net.Addr{
-		common.NewTCPNode("192.168.0.1:10000"),
-		common.NewTCPNode("192.168.0.1:10001"),
+		node.NewTCPNode("192.168.0.1:10000"),
+		node.NewTCPNode("192.168.0.1:10001"),
 	}
 	m := func(mcks mocks) {
 		mcks.dp.EXPECT().AllDelegates().Return(delegates, nil).AnyTimes()
@@ -58,8 +58,8 @@ func TestProposerRotation(t *testing.T) {
 
 func TestFixedProposer(t *testing.T) {
 	delegates := []net.Addr{
-		common.NewTCPNode("192.168.0.1:10000"),
-		common.NewTCPNode("192.168.0.1:10001"),
+		node.NewTCPNode("192.168.0.1:10000"),
+		node.NewTCPNode("192.168.0.1:10001"),
 	}
 
 	pr, err := FixedProposer(delegates, nil, 0, 0)
@@ -74,10 +74,10 @@ func TestFixedProposer(t *testing.T) {
 
 func TestPseudoRotatedProposer(t *testing.T) {
 	delegates := []net.Addr{
-		common.NewTCPNode("192.168.0.1:10000"),
-		common.NewTCPNode("192.168.0.1:10001"),
-		common.NewTCPNode("192.168.0.1:10002"),
-		common.NewTCPNode("192.168.0.1:10003"),
+		node.NewTCPNode("192.168.0.1:10000"),
+		node.NewTCPNode("192.168.0.1:10001"),
+		node.NewTCPNode("192.168.0.1:10002"),
+		node.NewTCPNode("192.168.0.1:10003"),
 	}
 
 	for i := 0; i < 4; i++ {

@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotexproject/iotex-core/common"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/proto"
 )
 
@@ -21,15 +21,15 @@ func TestTxInputSorter(t *testing.T) {
 	// Randomly generate four Byte Streams of length 32 to simulate dummy TxHashes
 	rand.Seed(time.Now().UnixNano())
 
-	hash1 := common.ZeroHash32B
+	hash1 := hash.ZeroHash32B
 	rand.Read(hash1[:])
 
-	hash2 := common.ZeroHash32B
+	hash2 := hash.ZeroHash32B
 	rand.Read(hash2[:])
 
-	hash3 := common.ZeroHash32B
+	hash3 := hash.ZeroHash32B
 
-	hash4 := common.ZeroHash32B
+	hash4 := hash.ZeroHash32B
 
 	// Randomly generate four Byte Streams of length 4 to simulate dummy Unlock Scripts
 	unlock1 := make([]byte, 4)

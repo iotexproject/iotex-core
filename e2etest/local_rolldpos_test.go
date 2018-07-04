@@ -14,8 +14,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/server/itx"
 )
 
@@ -110,7 +110,7 @@ func testLocalRollDPoS(prCb string, epochCb string, numBlocks uint64, t *testing
 	}
 	waitUntil(t, satisfy, 100*time.Millisecond, 10*time.Second, "at least one node misses enough block")
 
-	hashes := make([]common.Hash32B, numBlocks+1)
+	hashes := make([]hash.Hash32B, numBlocks+1)
 	for i, svr := range svrs {
 		bc := svr.Bc()
 		require.NotNil(bc)

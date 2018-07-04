@@ -18,11 +18,11 @@ import (
 
 	"github.com/golang/protobuf/proto"
 
-	"github.com/iotexproject/iotex-core/common/routine"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/dispatch"
 	"github.com/iotexproject/iotex-core/explorer"
 	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/pkg/routine"
 	"github.com/iotexproject/iotex-core/rpcservice"
 	"github.com/iotexproject/iotex-core/server/itx"
 )

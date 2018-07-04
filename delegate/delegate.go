@@ -10,10 +10,10 @@ import (
 	"errors"
 	"net"
 
-	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/common/service"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/crypto"
+	"github.com/iotexproject/iotex-core/network/node"
 )
 
 var (
@@ -50,7 +50,7 @@ func NewConfigBasedPool(cfg *config.Delegate) *ConfigBasedPool {
 	for _, addr := range cfg.Addrs {
 		if !encountered[addr] {
 			encountered[addr] = true
-			cbdp.delegates = append(cbdp.delegates, common.NewTCPNode(addr))
+			cbdp.delegates = append(cbdp.delegates, node.NewTCPNode(addr))
 		}
 	}
 	return cbdp

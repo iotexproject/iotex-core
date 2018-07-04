@@ -15,10 +15,12 @@ import (
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotexproject/iotex-core/blockchain/action"
-	"github.com/iotexproject/iotex-core/common"
 	cp "github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/pkg/enc"
+	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/proto"
 )
 
@@ -31,15 +33,15 @@ type Payee struct {
 // BlockHeader defines the struct of block header
 // make sure the variable type and order of this struct is same as "BlockHeaderPb" in blockchain.pb.go
 type BlockHeader struct {
-	version       uint32         // version
-	chainID       uint32         // this chain's ID
-	height        uint64         // block height
-	timestamp     uint64         // timestamp
-	prevBlockHash common.Hash32B // hash of previous block
-	txRoot        common.Hash32B // merkle root of all transactions
-	stateRoot     common.Hash32B // merkle root of all states
-	blockSig      []byte         // block signature
-	Pubkey        []byte         // block miner's public key
+	version       uint32       // version
+	chainID       uint32       // this chain's ID
+	height        uint64       // block height
+	timestamp     uint64       // timestamp
+	prevBlockHash hash.Hash32B // hash of previous block
+	txRoot        hash.Hash32B // merkle root of all transactions
+	stateRoot     hash.Hash32B // merkle root of all states
+	blockSig      []byte       // block signature
+	Pubkey        []byte       // block miner's public key
 
 }
 
@@ -51,17 +53,17 @@ type Block struct {
 }
 
 // NewBlock returns a new block
-func NewBlock(chainID uint32, height uint64, prevBlockHash common.Hash32B,
+func NewBlock(chainID uint32, height uint64, prevBlockHash hash.Hash32B,
 	tsf []*action.Transfer, vote []*action.Vote) *Block {
 	block := &Block{
 		Header: &BlockHeader{
-			version:       common.ProtocolVersion,
+			version:       version.ProtocolVersion,
 			chainID:       chainID,
 			height:        height,
 			timestamp:     uint64(time.Now().Unix()),
 			prevBlockHash: prevBlockHash,
-			txRoot:        common.ZeroHash32B,
-			stateRoot:     common.ZeroHash32B,
+			txRoot:        hash.ZeroHash32B,
+			stateRoot:     hash.ZeroHash32B,
 		},
 		Transfers: tsf,
 		Votes:     vote,
@@ -77,21 +79,21 @@ func (b *Block) Height() uint64 {
 }
 
 // PrevHash returns the hash of prev block
-func (b *Block) PrevHash() common.Hash32B {
+func (b *Block) PrevHash() hash.Hash32B {
 	return b.Header.prevBlockHash
 }
 
 // ByteStreamHeader returns a byte stream of the block header
 func (b *Block) ByteStreamHeader() []byte {
 	stream := make([]byte, 4)
-	common.MachineEndian.PutUint32(stream, b.Header.version)
+	enc.MachineEndian.PutUint32(stream, b.Header.version)
 	tmp4B := make([]byte, 4)
-	common.MachineEndian.PutUint32(tmp4B, b.Header.chainID)
+	enc.MachineEndian.PutUint32(tmp4B, b.Header.chainID)
 	stream = append(stream, tmp4B...)
 	tmp8B := make([]byte, 8)
-	common.MachineEndian.PutUint64(tmp8B, uint64(b.Header.height))
+	enc.MachineEndian.PutUint64(tmp8B, uint64(b.Header.height))
 	stream = append(stream, tmp8B...)
-	common.MachineEndian.PutUint64(tmp8B, b.Header.timestamp)
+	enc.MachineEndian.PutUint64(tmp8B, b.Header.timestamp)
 	stream = append(stream, tmp8B...)
 	stream = append(stream, b.Header.prevBlockHash[:]...)
 	stream = append(stream, b.Header.txRoot[:]...)
@@ -209,23 +211,23 @@ func (b *Block) Deserialize(buf []byte) error {
 }
 
 // TxRoot returns the Merkle root of all txs and actions in this block.
-func (b *Block) TxRoot() common.Hash32B {
-	var hash []common.Hash32B
+func (b *Block) TxRoot() hash.Hash32B {
+	var h []hash.Hash32B
 	for _, t := range b.Transfers {
-		hash = append(hash, t.Hash())
+		h = append(h, t.Hash())
 	}
 	for _, v := range b.Votes {
-		hash = append(hash, v.Hash())
+		h = append(h, v.Hash())
 	}
 
-	if len(hash) == 0 {
-		return common.ZeroHash32B
+	if len(h) == 0 {
+		return hash.ZeroHash32B
 	}
-	return cp.NewMerkleTree(hash).HashTree()
+	return cp.NewMerkleTree(h).HashTree()
 }
 
 // HashBlock return the hash of this block (actually hash of block header)
-func (b *Block) HashBlock() common.Hash32B {
+func (b *Block) HashBlock() hash.Hash32B {
 	hash := blake2b.Sum256(b.ByteStreamHeader())
 	hash = blake2b.Sum256(hash[:])
 	return hash

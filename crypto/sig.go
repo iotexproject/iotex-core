@@ -21,7 +21,7 @@ import (
 	"bytes"
 	"encoding/binary"
 
-	"github.com/iotexproject/iotex-core/common"
+	"github.com/iotexproject/iotex-core/pkg/enc"
 )
 
 // NewKeyPair generates a new public/private key pair
@@ -79,7 +79,7 @@ func publicKeySerialization(pubKey C.ec283_point_lambda_aff) ([]byte, error) {
 		xl[i+9] = (uint32)(pubKey.l[i])
 	}
 	buf := new(bytes.Buffer)
-	err := binary.Write(buf, common.MachineEndian, xl)
+	err := binary.Write(buf, enc.MachineEndian, xl)
 	if err != nil {
 		return buf.Bytes(), err
 	}
@@ -90,7 +90,7 @@ func publicKeyDeserialization(pubKey []byte) (C.ec283_point_lambda_aff, error) {
 	var xl [18]uint32
 	var pub C.ec283_point_lambda_aff
 	rbuf := bytes.NewReader(pubKey)
-	err := binary.Read(rbuf, common.MachineEndian, &xl)
+	err := binary.Read(rbuf, enc.MachineEndian, &xl)
 	if err != nil {
 		return pub, err
 	}
@@ -107,7 +107,7 @@ func privateKeySerialization(privKey [9]C.uint32_t) ([]byte, error) {
 		d[i] = (uint32)(privKey[i])
 	}
 	buf := new(bytes.Buffer)
-	err := binary.Write(buf, common.MachineEndian, d)
+	err := binary.Write(buf, enc.MachineEndian, d)
 	if err != nil {
 		return buf.Bytes(), err
 	}
@@ -118,7 +118,7 @@ func privateKeyDeserialization(privKey []byte) ([9]C.uint32_t, error) {
 	var d [9]uint32
 	var priv [9]C.uint32_t
 	rbuf := bytes.NewReader(privKey)
-	err := binary.Read(rbuf, common.MachineEndian, &d)
+	err := binary.Read(rbuf, enc.MachineEndian, &d)
 	if err != nil {
 		return priv, err
 	}
@@ -135,7 +135,7 @@ func signatureSerialization(signature C.ecdsa_signature) ([]byte, error) {
 		rs[i+9] = (uint32)(signature.s[i])
 	}
 	buf := new(bytes.Buffer)
-	err := binary.Write(buf, common.MachineEndian, rs)
+	err := binary.Write(buf, enc.MachineEndian, rs)
 	if err != nil {
 		return buf.Bytes(), err
 	}
@@ -146,7 +146,7 @@ func signatureDeserialization(signatureBytes []byte) (C.ecdsa_signature, error) 
 	var rs [18]uint32
 	var signature C.ecdsa_signature
 	buff := bytes.NewReader(signatureBytes)
-	err := binary.Read(buff, common.MachineEndian, &rs)
+	err := binary.Read(buff, enc.MachineEndian, &rs)
 	if err != nil {
 		return signature, err
 	}

@@ -12,12 +12,12 @@ import (
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blocksync"
-	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
 	"github.com/iotexproject/iotex-core/delegate"
 	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/pkg/errcode"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -146,7 +146,7 @@ func (c *IotxConsensus) HandleViewChange(m proto.Message, done chan bool) error 
 
 // HandleBlockPropose handles a proposed block
 func (c *IotxConsensus) HandleBlockPropose(m proto.Message, done chan bool) error {
-	return common.ErrNotImplemented
+	return errcode.ErrNotImplemented
 }
 
 // Scheme returns the scheme instance

@@ -4,34 +4,9 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package common
+package enc
 
 import "encoding/binary"
 
 // MachineEndian is the endianess of the machine
 var MachineEndian = binary.LittleEndian
-
-const (
-	// ProtocolVersion defines Protocol version, starting from 1
-	ProtocolVersion = 0x01
-	// HashSize defines the size of hash
-	HashSize = 32
-	// PKHashSize defines the size of public-key hash
-	PKHashSize = 20
-	// DKGHashSize defines the size of a DKG hash
-	DKGHashSize = 20
-)
-
-var (
-	// ZeroHash32B is 32-bytes of all zero
-	ZeroHash32B = Hash32B{}
-)
-
-type (
-	// Hash32B is 32-byte hash
-	Hash32B [HashSize]byte
-	// PKHash is 20-byte hash
-	PKHash [PKHashSize]byte
-	// DKGHash is 20-byte hash
-	DKGHash [DKGHashSize]byte
-)

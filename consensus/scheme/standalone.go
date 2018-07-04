@@ -13,9 +13,9 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/common"
-	"github.com/iotexproject/iotex-core/common/routine"
 	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/pkg/errcode"
+	"github.com/iotexproject/iotex-core/pkg/routine"
 )
 
 // Standalone is the consensus scheme that periodically create blocks
@@ -82,7 +82,7 @@ func (n *Standalone) Handle(message proto.Message) error {
 // Metrics is not implemented for standalone scheme
 func (n *Standalone) Metrics() (ConsensusMetrics, error) {
 	return ConsensusMetrics{}, errors.Wrapf(
-		common.ErrNotImplemented,
+		errcode.ErrNotImplemented,
 		"standalone scheme does not supported metrics yet",
 	)
 }

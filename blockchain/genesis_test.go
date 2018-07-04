@@ -11,7 +11,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotexproject/iotex-core/common"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 )
 
 func TestGenesis(t *testing.T) {
@@ -28,7 +28,7 @@ func TestGenesis(t *testing.T) {
 
 	assert := assert.New(t)
 
-	expectedParentHash := common.Hash32B{}
+	expectedParentHash := hash.Hash32B{}
 
 	assert.Equal(uint32(1), genesisBlk.Header.version)
 	assert.Equal(uint32(1), genesisBlk.Header.chainID)

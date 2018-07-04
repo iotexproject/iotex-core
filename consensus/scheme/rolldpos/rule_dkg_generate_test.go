@@ -14,9 +14,9 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/fsm"
+	"github.com/iotexproject/iotex-core/network/node"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_delegate"
 )
@@ -27,16 +27,16 @@ func TestRuleDKGGenerateCondition(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	addr := common.NewTCPNode("127.0.0.1:40001")
+	addr := node.NewTCPNode("127.0.0.1:40001")
 	bc := mock_blockchain.NewMockBlockchain(ctrl)
 	bc.EXPECT().TipHeight().Return(uint64(16), nil).Times(1)
 	pool := mock_delegate.NewMockPool(ctrl)
 	pool.EXPECT().NumDelegatesPerEpoch().Return(uint(4), nil).Times(4)
 	delegates := []net.Addr{
-		common.NewTCPNode("127.0.0.1:40001"),
-		common.NewTCPNode("127.0.0.1:40002"),
-		common.NewTCPNode("127.0.0.1:40003"),
-		common.NewTCPNode("127.0.0.1:40004"),
+		node.NewTCPNode("127.0.0.1:40001"),
+		node.NewTCPNode("127.0.0.1:40002"),
+		node.NewTCPNode("127.0.0.1:40003"),
+		node.NewTCPNode("127.0.0.1:40004"),
 	}
 	pool.EXPECT().RollDelegates(gomock.Any()).Return(delegates, nil).Times(2)
 

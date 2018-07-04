@@ -4,13 +4,9 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package rolldpos
+package version
 
-import "github.com/iotexproject/iotex-core/pkg/hash"
-
-// GeneratePseudoDKG generates a pseudo DKG bytes
-func GeneratePseudoDKG() (hash.DKGHash, error) {
-	var dkg hash.DKGHash
-	// TODO: fill the logic to generate DKG
-	return dkg, nil
-}
+const (
+	// ProtocolVersion defines Protocol version, starting from 1
+	ProtocolVersion = 0x01
+)

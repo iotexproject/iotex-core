@@ -4,9 +4,9 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package common
+package node
 
-// Node is the root struct to embed the newtork identifier
+// Node is the root struct to embed the network identifier
 type Node struct {
 	NetworkType string
 	Addr        string

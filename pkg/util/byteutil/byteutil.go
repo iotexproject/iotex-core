@@ -4,20 +4,20 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package utils
+package byteutil
 
-import "github.com/iotexproject/iotex-core/common"
+import "github.com/iotexproject/iotex-core/pkg/enc"
 
 // Uint32ToBytes converts a uint32 to 4 bytes with the machine endian
 func Uint32ToBytes(value uint32) []byte {
 	bytes := make([]byte, 4)
-	common.MachineEndian.PutUint32(bytes, value)
+	enc.MachineEndian.PutUint32(bytes, value)
 	return bytes
 }
 
 // Uint64ToBytes converts a uint64 to 8 bytes with the machine endian
 func Uint64ToBytes(value uint64) []byte {
 	bytes := make([]byte, 8)
-	common.MachineEndian.PutUint64(bytes, value)
+	enc.MachineEndian.PutUint64(bytes, value)
 	return bytes
 }

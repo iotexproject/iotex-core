@@ -12,7 +12,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotexproject/iotex-core/common/routine"
+	"github.com/iotexproject/iotex-core/pkg/routine"
 )
 
 func TestDelayTaskTimeout(t *testing.T) {

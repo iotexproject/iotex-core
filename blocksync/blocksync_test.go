@@ -17,9 +17,10 @@ import (
 
 	"github.com/iotexproject/iotex-core/actpool"
 	bc "github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/network"
+	"github.com/iotexproject/iotex-core/network/node"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 	pb "github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blocksync"
@@ -84,8 +85,8 @@ func TestNewBlockSyncer(t *testing.T) {
 	defer ctrl.Finish()
 
 	mPool := mock_delegate.NewMockPool(ctrl)
-	mPool.EXPECT().AllDelegates().Times(3).Return([]net.Addr{common.NewNode("", "123")}, nil)
-	mPool.EXPECT().AnotherDelegate(gomock.Any()).Times(2).Return(common.NewNode("", "123"))
+	mPool.EXPECT().AllDelegates().Times(3).Return([]net.Addr{node.NewNode("", "123")}, nil)
+	mPool.EXPECT().AnotherDelegate(gomock.Any()).Times(2).Return(node.NewNode("", "123"))
 
 	p2p := generateP2P()
 
@@ -124,8 +125,8 @@ func TestBlockSyncer_P2P(t *testing.T) {
 	defer ctrl.Finish()
 
 	mPool := mock_delegate.NewMockPool(ctrl)
-	mPool.EXPECT().AllDelegates().Times(1).Return([]net.Addr{common.NewNode("", "123")}, nil)
-	mPool.EXPECT().AnotherDelegate(gomock.Any()).Times(1).Return(common.NewNode("", "123"))
+	mPool.EXPECT().AllDelegates().Times(1).Return([]net.Addr{node.NewNode("", "123")}, nil)
+	mPool.EXPECT().AnotherDelegate(gomock.Any()).Times(1).Return(node.NewNode("", "123"))
 
 	p2p := generateP2P()
 
@@ -166,8 +167,8 @@ func TestBlockSyncer_ProcessSyncRequest(t *testing.T) {
 	defer ctrl.Finish()
 
 	mPool := mock_delegate.NewMockPool(ctrl)
-	mPool.EXPECT().AllDelegates().Times(1).Return([]net.Addr{common.NewNode("", "123")}, nil)
-	mPool.EXPECT().AnotherDelegate(gomock.Any()).Times(1).Return(common.NewNode("", "123"))
+	mPool.EXPECT().AllDelegates().Times(1).Return([]net.Addr{node.NewNode("", "123")}, nil)
+	mPool.EXPECT().AnotherDelegate(gomock.Any()).Times(1).Return(node.NewNode("", "123"))
 
 	mBc := mock_blockchain.NewMockBlockchain(ctrl)
 	mBc.EXPECT().GetBlockByHeight(gomock.Any()).AnyTimes()
@@ -196,8 +197,8 @@ func TestBlockSyncer_ProcessBlock_TipHeightError(t *testing.T) {
 	defer ctrl.Finish()
 
 	mPool := mock_delegate.NewMockPool(ctrl)
-	mPool.EXPECT().AllDelegates().Times(1).Return([]net.Addr{common.NewNode("", "123")}, nil)
-	mPool.EXPECT().AnotherDelegate(gomock.Any()).Times(1).Return(common.NewNode("", "123"))
+	mPool.EXPECT().AllDelegates().Times(1).Return([]net.Addr{node.NewNode("", "123")}, nil)
+	mPool.EXPECT().AnotherDelegate(gomock.Any()).Times(1).Return(node.NewNode("", "123"))
 
 	mBc := mock_blockchain.NewMockBlockchain(ctrl)
 	// TipHeight return ERROR
@@ -210,7 +211,7 @@ func TestBlockSyncer_ProcessBlock_TipHeightError(t *testing.T) {
 
 	bs, err := NewBlockSyncer(cfgFullNode, mBc, nil, p2p, mPool)
 	assert.Nil(err)
-	blk := bc.NewBlock(uint32(123), uint64(4), common.Hash32B{}, nil, nil)
+	blk := bc.NewBlock(uint32(123), uint64(4), hash.Hash32B{}, nil, nil)
 	bs.(*blockSyncer).ackBlockCommit = false
 	assert.Nil(bs.ProcessBlock(blk))
 
@@ -225,8 +226,8 @@ func TestBlockSyncer_ProcessBlock_TipHeight(t *testing.T) {
 	defer ctrl.Finish()
 
 	mPool := mock_delegate.NewMockPool(ctrl)
-	mPool.EXPECT().AllDelegates().Times(1).Return([]net.Addr{common.NewNode("", "123")}, nil)
-	mPool.EXPECT().AnotherDelegate(gomock.Any()).Times(1).Return(common.NewNode("", "123"))
+	mPool.EXPECT().AllDelegates().Times(1).Return([]net.Addr{node.NewNode("", "123")}, nil)
+	mPool.EXPECT().AnotherDelegate(gomock.Any()).Times(1).Return(node.NewNode("", "123"))
 
 	mBc := mock_blockchain.NewMockBlockchain(ctrl)
 	mBc.EXPECT().TipHeight().AnyTimes().Return(uint64(5), nil)
@@ -243,7 +244,7 @@ func TestBlockSyncer_ProcessBlock_TipHeight(t *testing.T) {
 
 	bs, err := NewBlockSyncer(cfgFullNode, mBc, ap, p2p, mPool)
 	assert.Nil(err)
-	blk := bc.NewBlock(uint32(123), uint64(4), common.Hash32B{}, nil, nil)
+	blk := bc.NewBlock(uint32(123), uint64(4), hash.Hash32B{}, nil, nil)
 
 	bs.(*blockSyncer).ackBlockCommit = true
 	// less than tip height
@@ -251,15 +252,15 @@ func TestBlockSyncer_ProcessBlock_TipHeight(t *testing.T) {
 
 	// special case
 	bs.(*blockSyncer).state = Idle
-	blkHeightSpecial := bc.NewBlock(uint32(123), uint64(6), common.Hash32B{}, nil, nil)
+	blkHeightSpecial := bc.NewBlock(uint32(123), uint64(6), hash.Hash32B{}, nil, nil)
 	assert.Nil(bs.ProcessBlock(blkHeightSpecial))
 
 	// < block height
-	blkHeightLess := bc.NewBlock(uint32(123), uint64(4), common.Hash32B{}, nil, nil)
+	blkHeightLess := bc.NewBlock(uint32(123), uint64(4), hash.Hash32B{}, nil, nil)
 	assert.Error(bs.ProcessBlock(blkHeightLess))
 
 	// > block height
-	blkHeightMore := bc.NewBlock(uint32(123), uint64(7), common.Hash32B{}, nil, nil)
+	blkHeightMore := bc.NewBlock(uint32(123), uint64(7), hash.Hash32B{}, nil, nil)
 	assert.Nil(bs.ProcessBlock(blkHeightMore))
 }
 
@@ -270,8 +271,8 @@ func TestBlockSyncer_ProcessBlockSync(t *testing.T) {
 	defer ctrl.Finish()
 
 	mPool := mock_delegate.NewMockPool(ctrl)
-	mPool.EXPECT().AllDelegates().Times(1).Return([]net.Addr{common.NewNode("", "123")}, nil)
-	mPool.EXPECT().AnotherDelegate(gomock.Any()).Times(1).Return(common.NewNode("", "123"))
+	mPool.EXPECT().AllDelegates().Times(1).Return([]net.Addr{node.NewNode("", "123")}, nil)
+	mPool.EXPECT().AnotherDelegate(gomock.Any()).Times(1).Return(node.NewNode("", "123"))
 
 	mBc := mock_blockchain.NewMockBlockchain(ctrl)
 	mBc.EXPECT().TipHeight().Times(1).Return(uint64(0), errors.New("Error"))
@@ -289,7 +290,7 @@ func TestBlockSyncer_ProcessBlockSync(t *testing.T) {
 
 	bs, err := NewBlockSyncer(cfgFullNode, mBc, ap, p2p, mPool)
 	assert.Nil(err)
-	blk := bc.NewBlock(uint32(123), uint64(4), common.Hash32B{}, nil, nil)
+	blk := bc.NewBlock(uint32(123), uint64(4), hash.Hash32B{}, nil, nil)
 	bs.(*blockSyncer).ackBlockSync = false
 	assert.Nil(bs.ProcessBlockSync(blk))
 

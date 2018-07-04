@@ -7,8 +7,8 @@
 package rolldpos
 
 import (
-	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/consensus/fsm"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/proto"
 )
 
@@ -30,7 +30,7 @@ func (r rulePrevote) Condition(event *fsm.Event) bool {
 
 	// set self prevoted
 	r.roundCtx.block = event.Block
-	var blkHash *common.Hash32B
+	var blkHash *hash.Hash32B
 	if event.Block != nil {
 		bkh := event.Block.HashBlock()
 		blkHash = &bkh

@@ -10,8 +10,8 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core/common"
 	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/pkg/errcode"
 )
 
 // Noop is the consensus scheme that does NOT create blocks
@@ -45,7 +45,7 @@ func (n *Noop) Handle(message proto.Message) error {
 // Metrics is not implemented for standalone scheme
 func (n *Noop) Metrics() (ConsensusMetrics, error) {
 	return ConsensusMetrics{}, errors.Wrapf(
-		common.ErrNotImplemented,
+		errcode.ErrNotImplemented,
 		"noop scheme does not supported metrics yet",
 	)
 }
