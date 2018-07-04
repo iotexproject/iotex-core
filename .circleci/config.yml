@@ -6,7 +6,7 @@ jobs:
   build:
     docker:
       # specify the version
-      - image: circleci/golang:1.9
+      - image: iotex/iotex-core-ci:2.0
 
       # Specify service dependencies here if necessary
       # CircleCI maintains a library of pre-built images
@@ -22,7 +22,6 @@ jobs:
       - checkout
 
       # specify any bash command here prefixed with `run: `
-      - run: go get -u golang.org/x/lint/golint
       - run: golint -set_exit_status $(go list ./... | grep -v /vendor/ | grep -v /explorer/idl/)
       - run: go get -v -t -d ./...
       - run: go test -short -v ./...
