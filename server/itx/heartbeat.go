@@ -57,7 +57,7 @@ func (h *HeartbeatHandler) Do() {
 	numDPEvts := len(*dp.EventChan())
 
 	// Consensus metrics
-	cs, ok := dp.Consensus().(*consensus.IotxConsensus)
+	cs, ok := h.s.cs.(*consensus.IotxConsensus)
 	if !ok {
 		logger.Error().Msg("consensus is not the instance of IotxConsensus")
 		return
