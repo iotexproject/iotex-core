@@ -40,4 +40,5 @@ if __name__=="__main__":
             "GRAPH":                 bool(args["-g"]),
            }
 
+    print(opts)
     driver.drive(opts)

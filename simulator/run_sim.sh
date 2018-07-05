@@ -8,8 +8,8 @@
 
 # for instructions on how to run this program run `python main.py --help`
 
-PLAYERS="[(21, 0), (0, 1), (0, 2)]"
-N_CONNECTIONS=4
+PLAYERS="[(10, 0), (0, 1), (0, 2)]"
+N_CONNECTIONS=3
 MEAN_PROP_TIME=0.1
 STD_PROP_TIME=0.01
 SEED=20
