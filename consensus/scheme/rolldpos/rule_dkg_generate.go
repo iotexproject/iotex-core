@@ -64,7 +64,7 @@ func (r ruleDKGGenerate) Condition(event *fsm.Event) bool {
 
 	// Trigger the proposer election after entering the first round of consensus in an epoch if no delay
 	if r.cfg.ProposerInterval == 0 {
-		r.prnd.Do()
+		r.prnd.Handle()
 	}
 
 	logger.Info().

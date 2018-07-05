@@ -93,6 +93,6 @@ func (r ruleCommit) notifyRoundFinish() {
 		State: stateEpochStart,
 	})
 	if r.cfg.ProposerInterval == 0 {
-		r.prnd.Do()
+		r.prnd.Handle()
 	}
 }

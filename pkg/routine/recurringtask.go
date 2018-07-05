@@ -10,37 +10,59 @@ import (
 	"context"
 	"time"
 
+	"github.com/facebookgo/clock"
+
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 )
 
 var _ lifecycle.StartStopper = (*RecurringTask)(nil)
 
-// IRecurringTaskHandler is the interface to implement the recurring task business logic
-type IRecurringTaskHandler interface {
-	// Do is called on constant interval
-	Do()
+// RecurringTaskOption is option to RecurringTask.
+type RecurringTaskOption interface {
+	SetRecurringTaskOption(*RecurringTask)
 }
 
 // RecurringTask represents a recurring task
 type RecurringTask struct {
-	H        IRecurringTaskHandler
-	Interval time.Duration
-	ticker   *time.Ticker
+	t        Task
+	interval time.Duration
+	ticker   *clock.Ticker
+	ch       chan interface{}
+	clock    clock.Clock
 }
 
 // NewRecurringTask creates an instance of RecurringTask
-func NewRecurringTask(h IRecurringTaskHandler, i time.Duration) *RecurringTask {
-	return &RecurringTask{H: h, Interval: i}
+func NewRecurringTask(t Task, i time.Duration, ops ...RecurringTaskOption) *RecurringTask {
+	rt := &RecurringTask{
+		t:        t,
+		interval: i,
+		ch:       make(chan interface{}, 1),
+		clock:    clock.New(),
+	}
+	for _, opt := range ops {
+		opt.SetRecurringTaskOption(rt)
+	}
+	return rt
 }
 
 // Start starts the timer
-func (t *RecurringTask) Start(_ context.Context) error {
-	t.ticker = time.NewTicker(t.Interval)
+func (t *RecurringTask) Start(ctx context.Context) error {
+	t.ticker = t.clock.Ticker(t.interval)
+	ready := make(chan struct{})
 	go func() {
-		for range t.ticker.C {
-			t.H.Do()
+		close(ready)
+		for {
+			select {
+			// TODO (soy) we can not cancel on ctx.Done, seems there is something cause context timeout of recurring task unexpected
+			case <-t.ch:
+				return
+			case <-t.ticker.C:
+				t.t()
+			}
 		}
 	}()
+
+	<-ready
 	return nil
 }
 
@@ -50,5 +72,6 @@ func (t *RecurringTask) Stop(_ context.Context) error {
 	if t.ticker != nil {
 		t.ticker.Stop()
 	}
+	t.ch <- struct{}{}
 	return nil
 }

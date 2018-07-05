@@ -25,9 +25,9 @@ func NewPeerMaintainer(o *Overlay) *PeerMaintainer {
 	return &PeerMaintainer{Overlay: o}
 }
 
-// Do maintain peer connection. Current strategy is to get the (upper_bound - count) peer addresses from one of the
+// Update maintains peer connection. Current strategy is to get the (upper_bound - count) peer addresses from one of the
 // current peer if the count is lower than the lower bound
-func (pm *PeerMaintainer) Do() {
+func (pm *PeerMaintainer) Update() {
 	count := LenSyncMap(pm.Overlay.PM.Peers)
 	if count == 0 {
 		// TODO: Now we simply read the bootstrap nodes from the config. This needs to be changed in the future
@@ -93,8 +93,8 @@ func NewConfigBasedPeerMaintainer(o *Overlay, t *config.Topology) *ConfigBasedPe
 	return cbpm
 }
 
-// Do adds the configured addresses into the peer list
-func (cbpm *ConfigBasedPeerMaintainer) Do() {
+// Update adds the configured addresses into the peer list
+func (cbpm *ConfigBasedPeerMaintainer) Update() {
 	addrs := make(map[string]bool)
 	for _, addr := range cbpm.Addrs {
 		addrs[addr.String()] = false

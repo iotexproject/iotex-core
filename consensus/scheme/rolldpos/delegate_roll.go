@@ -21,8 +21,8 @@ type delegateRoll struct {
 	*RollDPoS
 }
 
-// Do handles transition to stateDKGGenerate
-func (d *delegateRoll) Do() {
+// Handle handles transition to stateDKGGenerate
+func (d *delegateRoll) Handle() {
 	if d.fsm.CurrentState() != stateEpochStart {
 		return
 	}
@@ -60,7 +60,8 @@ func (d *delegateRoll) Do() {
 
 // newDelegateRoll creates a recurring task of delegate roll
 func newDelegateRoll(r *RollDPoS) *routine.RecurringTask {
-	return routine.NewRecurringTask(&delegateRoll{r}, r.cfg.DelegateInterval)
+	dr := &delegateRoll{r}
+	return routine.NewRecurringTask(dr.Handle, r.cfg.DelegateInterval)
 }
 
 // NeverStartNewEpoch will never allow to start a new epochStart after the first one
