@@ -10,21 +10,22 @@ import (
 	"encoding/hex"
 
 	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/logger"
 )
 
 // ConstructAddress constructs an iotex address
 func ConstructAddress(pubkey, prikey string) *iotxaddress.Address {
 	pubk, err := hex.DecodeString(pubkey)
 	if err != nil {
-		panic(err)
+		logger.Error().Err(err).Msg("Failed to construct the address")
 	}
 	prik, err := hex.DecodeString(prikey)
 	if err != nil {
-		panic(err)
+		logger.Error().Err(err).Msg("Failed to construct the address")
 	}
 	addr, err := iotxaddress.GetAddress(pubk, iotxaddress.IsTestnet, iotxaddress.ChainID)
 	if err != nil {
-		panic(err)
+		logger.Error().Err(err).Msg("Failed to construct the address")
 	}
 	addr.PrivateKey = prik
 	return addr
