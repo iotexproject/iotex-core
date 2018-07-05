@@ -23,8 +23,8 @@ func NewPinger(o *Overlay) *Pinger {
 	return &Pinger{Overlay: o}
 }
 
-// Do ping the neighbor peers
-func (h *Pinger) Do() {
+// Ping pings the neighbor peers
+func (h *Pinger) Ping() {
 	h.Overlay.PM.Peers.Range(func(_, value interface{}) bool {
 		go func() {
 			n := rand.Uint64()

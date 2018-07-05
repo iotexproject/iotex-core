@@ -20,6 +20,12 @@
   version = "v1.1.0"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/facebookgo/clock"
+  packages = ["."]
+  revision = "600d898af40aa09a7a93ecb9265d87b0504b6f03"
+
+[[projects]]
   name = "github.com/golang/mock"
   packages = ["gomock"]
   revision = "c34cdb4725f4c3844d095133c6e40e448b86589b"
@@ -192,6 +198,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "51e85f11fd5c07e8e14ab0b58829d8eba9d702468d3327fcef30350f1168d8ac"
+  inputs-digest = "7898ea2e6365a424fb9698f5a44ef414abb14de52402ed1bba5c6030d72bf98b"
   solver-name = "gps-cdcl"
   solver-version = 1

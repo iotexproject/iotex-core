@@ -22,8 +22,8 @@ type proposerRotation struct {
 	*RollDPoS
 }
 
-// Do handles transition to stateInitPropose
-func (s *proposerRotation) Do() {
+// Handle handles transition to stateInitPropose
+func (s *proposerRotation) Handle() {
 	logger.Debug().Msg("determine if the node is the proposer")
 	// If it's periodic proposer election on constant interval and the state is not ROUND_START, then returns
 	if s.cfg.ProposerInterval != 0 && s.fsm.CurrentState() != stateRoundStart {
@@ -68,7 +68,8 @@ func newProposerRotationNoDelay(r *RollDPoS) *proposerRotation {
 
 // newProposerRotation creates a recurring task of proposer rotation.
 func newProposerRotation(r *RollDPoS) *routine.RecurringTask {
-	return routine.NewRecurringTask(&proposerRotation{r}, r.cfg.ProposerInterval)
+	pr := &proposerRotation{r}
+	return routine.NewRecurringTask(pr.Handle, r.cfg.ProposerInterval)
 }
 
 // FixedProposer will always choose the first in the delegate list as the proposer

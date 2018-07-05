@@ -4,14 +4,17 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package routine
+package routine_test
 
 import (
 	"context"
 	"testing"
 	"time"
 
+	"github.com/facebookgo/clock"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/iotexproject/iotex-core/pkg/routine"
 )
 
 type MockHandler struct {
@@ -25,12 +28,13 @@ func (h *MockHandler) Do() {
 func TestRecurringTask(t *testing.T) {
 	h := &MockHandler{Count: 0}
 	ctx := context.Background()
-	task := NewRecurringTask(h, 100*time.Millisecond)
+	ck := clock.NewMock()
+	task := routine.NewRecurringTask(h.Do, 100*time.Millisecond, routine.WithClock(ck))
 	task.Start(ctx)
 	defer func() {
 		task.Stop(ctx)
 	}()
 
-	time.Sleep(600 * time.Millisecond)
+	ck.Add(600 * time.Millisecond)
 	assert.True(t, h.Count >= 5)
 }

@@ -70,21 +70,21 @@ func (o *Overlay) AttachDispatcher(dispatcher dispatcher.Dispatcher) {
 
 func (o *Overlay) addPingTask() {
 	ping := NewPinger(o)
-	pingTask := routine.NewRecurringTask(ping, o.Config.PingInterval)
+	pingTask := routine.NewRecurringTask(ping.Ping, o.Config.PingInterval)
 	o.lifecycle.Add(pingTask)
 	o.Tasks = append(o.Tasks, pingTask)
 }
 
 func (o *Overlay) addHealthCheckTask() {
 	hc := NewHealthChecker(o)
-	hcTask := routine.NewRecurringTask(hc, o.Config.HealthCheckInterval)
+	hcTask := routine.NewRecurringTask(hc.Check, o.Config.HealthCheckInterval)
 	o.lifecycle.Add(hcTask)
 	o.Tasks = append(o.Tasks, hcTask)
 }
 
 func (o *Overlay) addPeerMaintainer() {
 	pm := NewPeerMaintainer(o)
-	pmTask := routine.NewRecurringTask(pm, o.Config.PeerMaintainerInterval)
+	pmTask := routine.NewRecurringTask(pm.Update, o.Config.PeerMaintainerInterval)
 	o.lifecycle.Add(pmTask)
 	o.Tasks = append(o.Tasks, pmTask)
 }
@@ -95,7 +95,7 @@ func (o *Overlay) addConfigBasedPeerMaintainer() {
 		logger.Fatal().Err(err).Msg("Fail to load topology")
 	}
 	cbpm := NewConfigBasedPeerMaintainer(o, topology)
-	cbpmTask := routine.NewRecurringTask(cbpm, o.Config.PeerMaintainerInterval)
+	cbpmTask := routine.NewRecurringTask(cbpm.Update, o.Config.PeerMaintainerInterval)
 	o.lifecycle.Add(cbpmTask)
 	o.Tasks = append(o.Tasks, cbpmTask)
 }

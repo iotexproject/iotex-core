@@ -30,8 +30,8 @@ func NewHeartbeatHandler(s *Server) *HeartbeatHandler {
 	return &HeartbeatHandler{s: s}
 }
 
-// Do executes the logging logic
-func (h *HeartbeatHandler) Do() {
+// Log executes the logging logic
+func (h *HeartbeatHandler) Log() {
 	// Network metrics
 	numPeers := network.LenSyncMap(h.s.P2p().PM.Peers)
 	lastOutTime := time.Unix(0, 0)

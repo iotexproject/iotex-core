@@ -55,7 +55,7 @@ func main() {
 	defer svr.Stop(ctx)
 
 	if cfg.System.HeartbeatInterval > 0 {
-		task := routine.NewRecurringTask(itx.NewHeartbeatHandler(svr), cfg.System.HeartbeatInterval)
+		task := routine.NewRecurringTask(itx.NewHeartbeatHandler(svr).Log, cfg.System.HeartbeatInterval)
 		if err := task.Start(ctx); err != nil {
 			logger.Panic().Err(err)
 		}

@@ -4,6 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package common
+package routine
 
-// TODO: Delete this file. (Created this file because /common is empty and it needs a go file)
+// Task is the task logic to run.
+type Task func()

@@ -97,7 +97,7 @@ func NewBlockSyncer(cfg *config.Config, chain bc.Blockchain, ap actpool.ActPool,
 	bs.ackSyncReq = cfg.IsDelegate() || cfg.IsFullnode()
 
 	if interval := SyncTaskInterval(cfg); interval != 0 {
-		bs.task = routine.NewRecurringTask(bs, interval)
+		bs.task = routine.NewRecurringTask(bs.Sync, interval)
 	}
 
 	delegates, err := dp.AllDelegates()
@@ -148,8 +148,8 @@ func (bs *blockSyncer) Stop(ctx context.Context) error {
 	return nil
 }
 
-// Do checks the sliding window and send more sync request if needed
-func (bs *blockSyncer) Do() {
+// Sync checks the sliding window and send more sync request if needed
+func (bs *blockSyncer) Sync() {
 	bs.mu.RLock()
 	defer bs.mu.RUnlock()
 

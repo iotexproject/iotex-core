@@ -24,8 +24,8 @@ func NewHealthChecker(o *Overlay) *HealthChecker {
 	return hc
 }
 
-// Do check peer health
-func (hc *HealthChecker) Do() {
+// Check checks peer health
+func (hc *HealthChecker) Check() {
 	addrs := []string{}
 	hc.Overlay.PM.Peers.Range(func(key, value interface{}) bool {
 		if time.Since(value.(*Peer).LastResTime) > hc.SilentInterval {

@@ -36,7 +36,7 @@ type Gossip struct {
 func NewGossip(o *Overlay) *Gossip {
 	g := &Gossip{Overlay: o}
 	cleaner := NewMsgLogsCleaner(g)
-	g.CleanerTask = routine.NewRecurringTask(cleaner, o.Config.MsgLogsCleaningInterval)
+	g.CleanerTask = routine.NewRecurringTask(cleaner.Clean, o.Config.MsgLogsCleaningInterval)
 	g.lifecycle.Add(g.CleanerTask)
 	return g
 }
@@ -123,8 +123,8 @@ func NewMsgLogsCleaner(g *Gossip) *MsgLogsCleaner {
 	return c
 }
 
-// Do log cleaning
-func (c *MsgLogsCleaner) Do() {
+// Clean cleans logs
+func (c *MsgLogsCleaner) Clean() {
 	keys := []string{}
 	c.G.MsgLogs.Range(func(key, value interface{}) bool {
 		if time.Since(value.(time.Time)) > c.G.Overlay.Config.MsgLogRetention {
