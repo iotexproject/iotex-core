@@ -24,6 +24,5 @@ jobs:
       # specify any bash command here prefixed with `run: `
       - run: golint -set_exit_status $(go list ./... | grep -v /vendor/ | grep -v /explorer/idl/)
       - run: go get -v -t -d ./...
-      - run: go test -short -v ./...
       - run: ./go.test.sh
       - run: bash <(curl -s https://codecov.io/bash)
