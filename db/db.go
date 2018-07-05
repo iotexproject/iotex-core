@@ -7,12 +7,13 @@
 package db
 
 import (
+	"context"
 	"sync"
 
 	"github.com/boltdb/bolt"
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core/common/service"
+	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 )
 
 var (
@@ -26,7 +27,8 @@ var (
 
 // KVStore is the interface of KV store.
 type KVStore interface {
-	service.Service
+	lifecycle.StartStopper
+
 	// Put insert or update a record identified by (namespace, key)
 	Put(string, []byte, []byte) error
 	// BatchPut insert or update a slice of records identified by (namespace, key)
@@ -45,14 +47,15 @@ const (
 
 // memKVStore is the in-memory implementation of KVStore for testing purpose
 type memKVStore struct {
-	service.AbstractService
 	data sync.Map
 }
 
 // NewMemKVStore instantiates an in-memory KV store
-func NewMemKVStore() KVStore {
-	return &memKVStore{}
-}
+func NewMemKVStore() KVStore { return &memKVStore{} }
+
+func (m *memKVStore) Start(_ context.Context) error { return nil }
+
+func (m *memKVStore) Stop(_ context.Context) error { return nil }
 
 // Put inserts a <key, value> record
 func (m *memKVStore) Put(namespace string, key []byte, value []byte) error {
@@ -96,13 +99,10 @@ func (m *memKVStore) Delete(namespace string, key []byte) error {
 	return nil
 }
 
-const (
-	fileMode = 0600
-)
+const fileMode = 0600
 
 // boltDB is KVStore implementation based bolt DB
 type boltDB struct {
-	service.AbstractService
 	db      *bolt.DB
 	path    string
 	options *bolt.Options
@@ -114,7 +114,7 @@ func NewBoltDB(path string, options *bolt.Options) KVStore {
 }
 
 // Start opens the BoltDB (creates new file if not existing yet)
-func (b *boltDB) Start() error {
+func (b *boltDB) Start(_ context.Context) error {
 	db, err := bolt.Open(b.path, fileMode, b.options)
 	if err != nil {
 		return err
@@ -124,9 +124,7 @@ func (b *boltDB) Start() error {
 }
 
 // Stop closes the BoltDB
-func (b *boltDB) Stop() error {
-	return b.db.Close()
-}
+func (b *boltDB) Stop(_ context.Context) error { return b.db.Close() }
 
 // Put inserts a <key, value> record
 func (b *boltDB) Put(namespace string, key []byte, value []byte) error {

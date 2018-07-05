@@ -10,14 +10,12 @@ import (
 	"net"
 	"sync"
 
-	"github.com/iotexproject/iotex-core/common/service"
 	"github.com/iotexproject/iotex-core/logger"
 )
 
 // PeerManager represents the outgoing neighbor list
 // TODO: We should decouple peer address and peer. Node can know more nodes than it connects to
 type PeerManager struct {
-	service.CompositeService
 	// TODO: Need to revisit sync.Map: https://github.com/golang/go/issues/24112
 	Peers              sync.Map
 	Overlay            *Overlay

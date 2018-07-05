@@ -7,6 +7,7 @@
 package blocksync
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"sync"
@@ -19,6 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network"
 	"github.com/iotexproject/iotex-core/network/node"
+	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/routine"
 	pb "github.com/iotexproject/iotex-core/proto"
 )
@@ -34,8 +36,8 @@ const (
 
 // BlockSync defines the interface of blocksyncer
 type BlockSync interface {
-	Start() error
-	Stop() error
+	lifecycle.StartStopper
+
 	P2P() *network.Overlay
 	ProcessSyncRequest(sender string, sync *pb.BlockSync) error
 	ProcessBlock(blk *bc.Block) error
@@ -129,20 +131,19 @@ func (bs *blockSyncer) P2P() *network.Overlay {
 }
 
 // Start starts a block syncer
-func (bs *blockSyncer) Start() error {
+func (bs *blockSyncer) Start(ctx context.Context) error {
 	logger.Print("Starting block syncer")
 	if bs.task != nil {
-		bs.task.Init()
-		bs.task.Start()
+		bs.task.Start(ctx)
 	}
 	return nil
 }
 
 // Stop stops a block syncer
-func (bs *blockSyncer) Stop() error {
+func (bs *blockSyncer) Stop(ctx context.Context) error {
 	logger.Print("Stopping block syncer")
 	if bs.task != nil {
-		bs.task.Stop()
+		bs.task.Stop(ctx)
 	}
 	return nil
 }

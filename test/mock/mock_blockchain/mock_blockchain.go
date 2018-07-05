@@ -5,6 +5,7 @@
 package mock_blockchain
 
 import (
+	context "context"
 	gomock "github.com/golang/mock/gomock"
 	blockchain "github.com/iotexproject/iotex-core/blockchain"
 	action "github.com/iotexproject/iotex-core/blockchain/action"
@@ -38,40 +39,28 @@ func (m *MockBlockchain) EXPECT() *MockBlockchainMockRecorder {
 	return m.recorder
 }
 
-// Init mocks base method
-func (m *MockBlockchain) Init() error {
-	ret := m.ctrl.Call(m, "Init")
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Init indicates an expected call of Init
-func (mr *MockBlockchainMockRecorder) Init() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Init", reflect.TypeOf((*MockBlockchain)(nil).Init))
-}
-
 // Start mocks base method
-func (m *MockBlockchain) Start() error {
-	ret := m.ctrl.Call(m, "Start")
+func (m *MockBlockchain) Start(arg0 context.Context) error {
+	ret := m.ctrl.Call(m, "Start", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Start indicates an expected call of Start
-func (mr *MockBlockchainMockRecorder) Start() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockBlockchain)(nil).Start))
+func (mr *MockBlockchainMockRecorder) Start(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockBlockchain)(nil).Start), arg0)
 }
 
 // Stop mocks base method
-func (m *MockBlockchain) Stop() error {
-	ret := m.ctrl.Call(m, "Stop")
+func (m *MockBlockchain) Stop(arg0 context.Context) error {
+	ret := m.ctrl.Call(m, "Stop", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Stop indicates an expected call of Stop
-func (mr *MockBlockchainMockRecorder) Stop() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockBlockchain)(nil).Stop))
+func (mr *MockBlockchainMockRecorder) Stop(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockBlockchain)(nil).Stop), arg0)
 }
 
 // Balance mocks base method

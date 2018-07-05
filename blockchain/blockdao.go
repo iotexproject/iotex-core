@@ -7,13 +7,15 @@
 package blockchain
 
 import (
+	"context"
+
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core/common/service"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
@@ -44,28 +46,34 @@ var (
 	voteToPrefix       = []byte("vote-to.")
 )
 
+var _ lifecycle.StartStopper = (*blockDAO)(nil)
+
 type blockDAO struct {
-	service.CompositeService
-	kvstore db.KVStore
+	kvstore   db.KVStore
+	lifecycle lifecycle.Lifecycle
 }
 
 // newBlockDAO instantiates a block DAO
 func newBlockDAO(kvstore db.KVStore) *blockDAO {
 	blockDAO := &blockDAO{kvstore: kvstore}
-	blockDAO.AddService(kvstore)
+	blockDAO.lifecycle.Add(kvstore)
 	return blockDAO
 }
 
 // Start starts block DAO and initiates the top height if it doesn't exist
-func (dao *blockDAO) Start() error {
-	err := dao.CompositeService.Start()
+func (dao *blockDAO) Start(ctx context.Context) error {
+	err := dao.lifecycle.OnStart(ctx)
 	if err != nil {
 		return errors.Wrap(err, "failed to start child services")
 	}
 
 	// set init height value
-	err = dao.kvstore.PutIfNotExists(blockNS, topHeightKey, make([]byte, 8))
-	if err != nil {
+	if err := dao.kvstore.PutIfNotExists(blockNS, topHeightKey, make([]byte, 8)); err != nil {
+		// ok on none-fresh db
+		if err == db.ErrAlreadyExist {
+			return nil
+		}
+
 		return errors.Wrap(err, "failed to write initial value for top height")
 	}
 
@@ -83,6 +91,9 @@ func (dao *blockDAO) Start() error {
 
 	return nil
 }
+
+// Stop stops block DAO.
+func (dao *blockDAO) Stop(ctx context.Context) error { return dao.lifecycle.OnStop(ctx) }
 
 // getBlockHash returns the block hash by height
 func (dao *blockDAO) getBlockHash(height uint64) (hash.Hash32B, error) {

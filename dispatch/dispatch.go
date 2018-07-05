@@ -7,6 +7,7 @@
 package dispatch
 
 import (
+	"context"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -79,17 +80,17 @@ func NewDispatcher(
 }
 
 // Start starts the dispatcher.
-func (d *IotxDispatcher) Start() error {
+func (d *IotxDispatcher) Start(ctx context.Context) error {
 	if atomic.AddInt32(&d.started, 1) != 1 {
 		return errors.New("Dispatcher already started")
 	}
 
 	logger.Info().Msg("Starting dispatcher")
-	if err := d.cs.Start(); err != nil {
+	if err := d.cs.Start(ctx); err != nil {
 		return err
 	}
 
-	if err := d.bs.Start(); err != nil {
+	if err := d.bs.Start(ctx); err != nil {
 		return err
 	}
 
@@ -99,18 +100,18 @@ func (d *IotxDispatcher) Start() error {
 }
 
 // Stop gracefully shuts down the dispatcher by stopping all handlers and waiting for them to finish.
-func (d *IotxDispatcher) Stop() error {
+func (d *IotxDispatcher) Stop(ctx context.Context) error {
 	if atomic.AddInt32(&d.shutdown, 1) != 1 {
 		logger.Warn().Msg("Dispatcher already in the process of shutting down")
 		return nil
 	}
 
 	logger.Info().Msg("Dispatcher is shutting down")
-	if err := d.cs.Stop(); err != nil {
+	if err := d.cs.Stop(ctx); err != nil {
 		return err
 	}
 
-	if err := d.bs.Stop(); err != nil {
+	if err := d.bs.Stop(ctx); err != nil {
 		return err
 	}
 

@@ -65,6 +65,7 @@ func (v *byzVal) Validate(blk *blockchain.Block, tipHeight uint64, tipHash hash.
 // Ping implements simulator.SimulatorServer
 func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error {
 	nPlayers := in.NBF + in.NFS + in.NHonest
+	ctx := context.Background()
 
 	var addrs []string // all delegate addresses
 	for i := 0; i < int(nPlayers); i++ {
@@ -110,7 +111,7 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 		}
 		dlg := delegate.NewConfigBasedPool(&cfg.Delegate)
 		bs, _ := blocksync.NewBlockSyncer(cfg, bc, ap, overlay, dlg)
-		bs.Start()
+		bs.Start(ctx)
 
 		var node consensus.Sim
 		if i < int(in.NHonest) {
@@ -127,7 +128,7 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 		done := make(chan bool)
 		node.SetDoneStream(done)
 
-		node.Start()
+		node.Start(ctx)
 
 		fmt.Printf("Node %d initialized and consensus engine started\n", i)
 		time.Sleep(2 * time.Millisecond)

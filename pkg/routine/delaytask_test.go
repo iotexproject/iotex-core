@@ -7,6 +7,7 @@
 package routine_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -17,11 +18,11 @@ import (
 
 func TestDelayTaskTimeout(t *testing.T) {
 	c := make(chan bool)
+	ctx := context.Background()
 	task := routine.NewDelayTask(func() { c <- true }, 100*time.Millisecond)
-	task.Init()
-	task.Start()
+	task.Start(ctx)
 	defer func() {
-		task.Stop()
+		task.Stop(ctx)
 	}()
 
 	time.Sleep(600 * time.Millisecond)
@@ -30,10 +31,10 @@ func TestDelayTaskTimeout(t *testing.T) {
 
 func TestDelayTaskStop(t *testing.T) {
 	c := make(chan bool)
+	ctx := context.Background()
 	task := routine.NewDelayTask(func() { c <- true }, 100*time.Millisecond)
-	task.Init()
-	task.Start()
-	task.Stop()
+	task.Start(ctx)
+	task.Stop(ctx)
 
 	select {
 	case <-c:

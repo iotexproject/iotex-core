@@ -7,6 +7,7 @@
 package e2etest
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -44,13 +45,13 @@ func TestNetSync(t *testing.T) {
 	}
 
 	// create node
+	ctx := context.Background()
 	svr := itx.NewServer(*cfg)
 	assert.NotNil(svr)
-	err = svr.Init()
 	assert.Nil(err)
-	err = svr.Start()
+	err = svr.Start(ctx)
 	assert.Nil(err)
-	defer svr.Stop()
+	defer svr.Stop(ctx)
 
 	select {}
 }

@@ -21,6 +21,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/net/context"
 	"gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/config"
@@ -64,11 +65,11 @@ func LoadTestConfigWithTLSEnabled(addr string, allowMultiConnsPerIP bool) *confi
 type MockDispatcher struct {
 }
 
-func (d *MockDispatcher) Start() error {
+func (d *MockDispatcher) Start(_ context.Context) error {
 	return nil
 }
 
-func (d *MockDispatcher) Stop() error {
+func (d *MockDispatcher) Stop(_ context.Context) error {
 	return nil
 }
 
@@ -88,6 +89,7 @@ func (d1 *MockDispatcher1) HandleBroadcast(proto.Message, chan bool) {
 }
 
 func TestOverlay(t *testing.T) {
+	ctx := context.Background()
 	if testing.Short() {
 		t.Skip("Skipping the overlay test in short mode.")
 	}
@@ -107,14 +109,13 @@ func TestOverlay(t *testing.T) {
 		}
 		node := NewOverlay(config)
 		node.AttachDispatcher(dp)
-		node.Init()
-		node.Start()
+		node.Start(ctx)
 		nodes = append(nodes, node)
 	}
 
 	defer func() {
 		for _, node := range nodes {
-			node.Stop()
+			node.Stop(ctx)
 		}
 	}()
 
@@ -159,25 +160,24 @@ func (d2 *MockDispatcher2) HandleTell(sender net.Addr, message proto.Message, do
 }
 
 func TestTell(t *testing.T) {
+	ctx := context.Background()
 	if testing.Short() {
 		t.Skip("Skipping the overlay test in short mode.")
 	}
 	dp1 := &MockDispatcher2{T: t}
 	p1 := NewOverlay(LoadTestConfig("127.0.0.1:10001", true))
 	p1.AttachDispatcher(dp1)
-	p1.Init()
-	p1.Start()
+	p1.Start(ctx)
 	dp2 := &MockDispatcher2{T: t}
 	p2 := NewOverlay(LoadTestConfig("127.0.0.1:10002", true))
 	p2.AttachDispatcher(dp2)
-	p2.Init()
-	p2.Start()
+	p2.Start(ctx)
 
 	time.Sleep(2 * time.Second)
 
 	defer func() {
-		p1.Stop()
-		p2.Stop()
+		p1.Stop(ctx)
+		p2.Stop(ctx)
 	}()
 
 	// P1 tell Tx Msg
@@ -192,31 +192,29 @@ func TestTell(t *testing.T) {
 }
 
 func TestOneConnPerIP(t *testing.T) {
+	ctx := context.Background()
 	if testing.Short() {
 		t.Skip("Skipping the overlay test in short mode.")
 	}
 	dp1 := &MockDispatcher2{T: t}
 	p1 := NewOverlay(LoadTestConfig("127.0.0.1:10001", false))
 	p1.AttachDispatcher(dp1)
-	p1.Init()
-	p1.Start()
+	p1.Start(ctx)
 	dp2 := &MockDispatcher2{T: t}
 	p2 := NewOverlay(LoadTestConfig("127.0.0.1:10002", false))
 	p2.AttachDispatcher(dp2)
-	p2.Init()
-	p2.Start()
+	p2.Start(ctx)
 	dp3 := &MockDispatcher2{T: t}
 	p3 := NewOverlay(LoadTestConfig("127.0.0.1:10003", false))
 	p3.AttachDispatcher(dp3)
-	p3.Init()
-	p3.Start()
+	p3.Start(ctx)
 
 	time.Sleep(2 * time.Second)
 
 	defer func() {
-		p1.Stop()
-		p2.Stop()
-		p3.Stop()
+		p1.Stop(ctx)
+		p2.Stop(ctx)
+		p3.Stop(ctx)
 	}()
 
 	assert.Equal(t, uint(1), LenSyncMap(p1.PM.Peers))
@@ -225,6 +223,7 @@ func TestOneConnPerIP(t *testing.T) {
 }
 
 func TestConfigBasedTopology(t *testing.T) {
+	ctx := context.Background()
 	if testing.Short() {
 		t.Skip("Skipping the overlay test in short mode.")
 	}
@@ -249,14 +248,13 @@ func TestConfigBasedTopology(t *testing.T) {
 		dp := &MockDispatcher{}
 		node := NewOverlay(config)
 		node.AttachDispatcher(dp)
-		node.Init()
-		node.Start()
+		node.Start(ctx)
 		nodes[i-1] = node
 	}
 
 	defer func() {
 		for _, node := range nodes {
-			node.Stop()
+			node.Stop(ctx)
 		}
 		if os.Remove(path) != nil {
 			assert.Fail(t, "Error when deleting the test file")
@@ -291,6 +289,7 @@ func (d3 *MockDispatcher3) HandleBroadcast(proto.Message, chan bool) {
 }
 
 func runBenchmarkOp(tell bool, size int, parallel bool, tls bool, b *testing.B) {
+	ctx := context.Background()
 	var cfg1, cfg2 *config.Network
 	if tls {
 		cfg1 = LoadTestConfigWithTLSEnabled("127.0.0.1:10001", true)
@@ -303,18 +302,16 @@ func runBenchmarkOp(tell bool, size int, parallel bool, tls bool, b *testing.B) 
 	d1 := &MockDispatcher3{C: c1}
 	p1 := NewOverlay(cfg1)
 	p1.AttachDispatcher(d1)
-	p1.Init()
-	p1.Start()
+	p1.Start(ctx)
 	c2 := make(chan bool)
 	d2 := &MockDispatcher3{C: c2}
 	p2 := NewOverlay(cfg2)
 	p2.AttachDispatcher(d2)
-	p2.Init()
-	p2.Start()
+	p2.Start(ctx)
 
 	defer func() {
-		p1.Stop()
-		p2.Stop()
+		p1.Stop(ctx)
+		p2.Stop(ctx)
 	}()
 
 	time.Sleep(time.Second)

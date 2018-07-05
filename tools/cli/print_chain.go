@@ -7,13 +7,17 @@
 package cli
 
 import (
+	"context"
+
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 )
 
 func (cli *CLI) printChain(config *config.Config) {
+
+	ctx := context.Background()
 	cli.bc = blockchain.NewBlockchain(config, blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption())
-	defer cli.bc.Stop()
+	defer cli.bc.Stop(ctx)
 
 	/*
 		it := cli.bc.Iterator()

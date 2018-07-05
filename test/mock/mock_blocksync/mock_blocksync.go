@@ -5,6 +5,7 @@
 package mock_blocksync
 
 import (
+	context "context"
 	gomock "github.com/golang/mock/gomock"
 	blockchain "github.com/iotexproject/iotex-core/blockchain"
 	network "github.com/iotexproject/iotex-core/network"
@@ -36,27 +37,27 @@ func (m *MockBlockSync) EXPECT() *MockBlockSyncMockRecorder {
 }
 
 // Start mocks base method
-func (m *MockBlockSync) Start() error {
-	ret := m.ctrl.Call(m, "Start")
+func (m *MockBlockSync) Start(arg0 context.Context) error {
+	ret := m.ctrl.Call(m, "Start", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Start indicates an expected call of Start
-func (mr *MockBlockSyncMockRecorder) Start() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockBlockSync)(nil).Start))
+func (mr *MockBlockSyncMockRecorder) Start(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockBlockSync)(nil).Start), arg0)
 }
 
 // Stop mocks base method
-func (m *MockBlockSync) Stop() error {
-	ret := m.ctrl.Call(m, "Stop")
+func (m *MockBlockSync) Stop(arg0 context.Context) error {
+	ret := m.ctrl.Call(m, "Stop", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Stop indicates an expected call of Stop
-func (mr *MockBlockSyncMockRecorder) Stop() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockBlockSync)(nil).Stop))
+func (mr *MockBlockSyncMockRecorder) Stop(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockBlockSync)(nil).Stop), arg0)
 }
 
 // P2P mocks base method

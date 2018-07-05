@@ -7,6 +7,7 @@
 package rolldpos
 
 import (
+	"context"
 	"net"
 	"sync"
 	"time"
@@ -130,10 +131,7 @@ func NewRollDPoS(
 	sc.epochStartTask = routine.NewDelayTask(
 		// Delay the start of first epoch to give every nodes the time to finish ramp-up
 		func() {
-			if err := sc.dlgRollTask.Init(); err != nil {
-				logger.Panic().Err(err).Msg("error when initiating delegate roll task")
-			}
-			if err := sc.dlgRollTask.Start(); err != nil {
+			if err := sc.dlgRollTask.Start(context.Background()); err != nil {
 				logger.Panic().Err(err).Msg("error when starting delegate roll task")
 			}
 		},
@@ -144,40 +142,34 @@ func NewRollDPoS(
 }
 
 // Start initialize the RollDPoS and roundStart to consume requests from request channel.
-func (n *RollDPoS) Start() error {
+func (n *RollDPoS) Start(ctx context.Context) error {
 	logger.Info().Str("name", n.self.String()).Msg("Starting RollDPoS")
 
 	n.wg.Add(1)
 	go n.consume()
 	if n.cfg.ProposerInterval > 0 {
-		if err := n.pr.Init(); err != nil {
-			return err
-		}
-		if err := n.pr.Start(); err != nil {
+		if err := n.pr.Start(ctx); err != nil {
 			return err
 		}
 	}
-	if err := n.epochStartTask.Init(); err != nil {
-		return err
-	}
-	if err := n.epochStartTask.Start(); err != nil {
+	if err := n.epochStartTask.Start(ctx); err != nil {
 		return err
 	}
 	return nil
 }
 
 // Stop stops the RollDPoS and stop consuming requests from request channel.
-func (n *RollDPoS) Stop() error {
+func (n *RollDPoS) Stop(ctx context.Context) error {
 	logger.Info().Str("name", n.self.String()).Msg("RollDPoS is shutting down")
 	if n.cfg.ProposerInterval > 0 {
-		if err := n.pr.Stop(); err != nil {
+		if err := n.pr.Stop(ctx); err != nil {
 			return err
 		}
 	}
-	if err := n.dlgRollTask.Stop(); err != nil {
+	if err := n.dlgRollTask.Stop(ctx); err != nil {
 		return err
 	}
-	if err := n.epochStartTask.Stop(); err != nil {
+	if err := n.epochStartTask.Stop(ctx); err != nil {
 		return err
 	}
 	close(n.quit)

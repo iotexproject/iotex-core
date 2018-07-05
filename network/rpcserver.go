@@ -17,20 +17,23 @@ import (
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/reflection"
 
-	"github.com/iotexproject/iotex-core/common/service"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network/node"
 	pb "github.com/iotexproject/iotex-core/network/proto"
 	"github.com/iotexproject/iotex-core/pkg/counter"
+	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/proto"
 )
 
+var _ lifecycle.StartStopper = (*RPCServer)(nil)
+
 // RPCServer represents the listener at the transportation layer
 type RPCServer struct {
-	service.AbstractService
 	node.Node
-	Server    *grpc.Server
-	Overlay   *Overlay
+
+	Server  *grpc.Server
+	Overlay *Overlay
+
 	counters  sync.Map
 	rateLimit uint64
 	// TODO: mutation of this field is not thread safe
@@ -123,7 +126,7 @@ func (s *RPCServer) Tell(ctx context.Context, req *pb.TellReq) (*pb.TellRes, err
 }
 
 // Start starts the rpc server
-func (s *RPCServer) Start() error {
+func (s *RPCServer) Start(_ context.Context) error {
 	lis, err := net.Listen(s.Network(), s.String())
 	if err != nil {
 		logger.Error().Err(err).Msg("Node failed to listen")
@@ -167,7 +170,7 @@ func (s *RPCServer) Started() bool {
 }
 
 // Stop stops the rpc server
-func (s *RPCServer) Stop() error {
+func (s *RPCServer) Stop(_ context.Context) error {
 	logger.Info().Str("addr", s.String()).Msg("stop RPC server")
 	s.Server.Stop()
 	s.started = false

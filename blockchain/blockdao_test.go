@@ -7,6 +7,7 @@
 package blockchain
 
 import (
+	"context"
 	"hash/fnv"
 	"math/big"
 	"math/rand"
@@ -48,13 +49,12 @@ func TestBlockDAO(t *testing.T) {
 	assert.Equal(t, 3, len(blks))
 
 	testBlockDao := func(kvstore db.KVStore, t *testing.T) {
+		ctx := context.Background()
 		dao := newBlockDAO(kvstore)
-		err := dao.Init()
-		assert.Nil(t, err)
-		err = dao.Start()
+		err := dao.Start(ctx)
 		assert.Nil(t, err)
 		defer func() {
-			err = dao.Stop()
+			err = dao.Stop(ctx)
 			assert.Nil(t, err)
 		}()
 

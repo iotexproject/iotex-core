@@ -8,6 +8,7 @@ package trie
 
 import (
 	"container/list"
+	"context"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -71,7 +72,7 @@ func NewTrie(path string, inMem bool) (Trie, error) {
 	if kvStore == nil {
 		return nil, errors.New("Failed to create KV store for Trie")
 	}
-	if err := kvStore.Start(); err != nil {
+	if err := kvStore.Start(context.Background()); err != nil {
 		return nil, err
 	}
 	return newTrie(kvStore)
@@ -82,7 +83,7 @@ func (t *trie) Close() error {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
-	return t.dao.Stop()
+	return t.dao.Stop(context.Background())
 }
 
 // Upsert a new entry

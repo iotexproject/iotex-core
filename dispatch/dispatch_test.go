@@ -7,6 +7,7 @@
 package dispatch
 
 import (
+	"context"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -24,26 +25,28 @@ func TestNewDispatcher(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	ctx := context.Background()
 	d, bs := createDispatcher(ctrl)
 	assert.NotNil(t, d)
 
-	bs.EXPECT().Start().Times(1)
-	bs.EXPECT().Stop().Times(1)
-	d.Start()
-	defer d.Stop()
+	bs.EXPECT().Start(gomock.Any()).Times(1)
+	bs.EXPECT().Stop(gomock.Any()).Times(1)
+	d.Start(ctx)
+	defer d.Stop(ctx)
 }
 
 func TestDispatchBlockMsg(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	ctx := context.Background()
 	d, bs := createDispatcher(ctrl)
 	assert.NotNil(t, d)
 
-	bs.EXPECT().Start().Times(1)
-	bs.EXPECT().Stop().Times(1)
-	d.Start()
-	defer d.Stop()
+	bs.EXPECT().Start(gomock.Any()).Times(1)
+	bs.EXPECT().Stop(gomock.Any()).Times(1)
+	d.Start(ctx)
+	defer d.Stop(ctx)
 
 	done := make(chan bool, 1000)
 	bs.EXPECT().ProcessBlock(gomock.Any()).Times(1000).Return(nil)
@@ -59,13 +62,14 @@ func TestDispatchBlockSyncReq(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	ctx := context.Background()
 	d, bs := createDispatcher(ctrl)
 	assert.NotNil(t, d)
 
-	bs.EXPECT().Start().Times(1)
-	bs.EXPECT().Stop().Times(1)
-	d.Start()
-	defer d.Stop()
+	bs.EXPECT().Start(gomock.Any()).Times(1)
+	bs.EXPECT().Stop(gomock.Any()).Times(1)
+	d.Start(ctx)
+	defer d.Stop(ctx)
 
 	done := make(chan bool, 1000)
 	bs.EXPECT().ProcessSyncRequest(gomock.Any(), gomock.Any()).Times(1000).Return(nil)
@@ -81,13 +85,14 @@ func TestDispatchBlockSyncData(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	ctx := context.Background()
 	d, bs := createDispatcher(ctrl)
 	assert.NotNil(t, d)
 
-	bs.EXPECT().Start().Times(1)
-	bs.EXPECT().Stop().Times(1)
-	d.Start()
-	defer d.Stop()
+	bs.EXPECT().Start(gomock.Any()).Times(1)
+	bs.EXPECT().Stop(gomock.Any()).Times(1)
+	d.Start(ctx)
+	defer d.Stop(ctx)
 
 	done := make(chan bool, 1000)
 	bs.EXPECT().ProcessBlockSync(gomock.Any()).Times(1000).Return(nil)
@@ -108,8 +113,8 @@ func createDispatcher(
 	}
 	bs := mock_blocksync.NewMockBlockSync(ctrl)
 	cs := mock_consensus.NewMockConsensus(ctrl)
-	cs.EXPECT().Start().Times(1)
-	cs.EXPECT().Stop().Times(1)
+	cs.EXPECT().Start(gomock.Any()).Times(1)
+	cs.EXPECT().Stop(gomock.Any()).Times(1)
 	dp, _ := NewDispatcher(cfg, nil, bs, cs)
 
 	return dp, bs

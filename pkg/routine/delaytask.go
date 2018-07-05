@@ -7,17 +7,19 @@
 package routine
 
 import (
+	"context"
 	"time"
 
-	"github.com/iotexproject/iotex-core/common/service"
+	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 )
+
+var _ lifecycle.StartStopper = (*DelayTask)(nil)
 
 // DelayTaskCB implements the timeout task business logic
 type DelayTaskCB func()
 
 // DelayTask represents a timeout task
 type DelayTask struct {
-	service.AbstractService
 	cb       DelayTaskCB
 	Duration time.Duration
 	ch       chan interface{}
@@ -33,7 +35,7 @@ func NewDelayTask(cb DelayTaskCB, d time.Duration) *DelayTask {
 }
 
 // Start starts the timeout
-func (t *DelayTask) Start() error {
+func (t *DelayTask) Start(ctx context.Context) error {
 	go func() {
 		select {
 		case <-t.ch:
@@ -47,7 +49,7 @@ func (t *DelayTask) Start() error {
 }
 
 // Stop stops the timeout
-func (t *DelayTask) Stop() error {
+func (t *DelayTask) Stop(ctx context.Context) error {
 	t.ch <- struct{}{}
 	return nil
 }

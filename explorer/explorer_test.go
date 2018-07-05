@@ -7,6 +7,7 @@
 package explorer
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 	"net"
@@ -110,13 +111,14 @@ func TestExplorerApi(t *testing.T) {
 	blockchain.Gen.BlockReward = uint64(0)
 
 	// create chain
+	ctx := context.Background()
 	bc := blockchain.NewBlockchain(config, blockchain.PrecreatedStateFactoryOption(sf), blockchain.InMemDaoOption())
 	require.NotNil(bc)
 	height, err := bc.TipHeight()
 	require.Nil(err)
 	fmt.Printf("Open blockchain pass, height = %d\n", height)
 	require.Nil(addTestingBlocks(bc))
-	bc.Stop()
+	bc.Stop(ctx)
 
 	svc := Service{
 		bc:        bc,

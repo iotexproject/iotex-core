@@ -7,6 +7,7 @@
 package db
 
 import (
+	"context"
 	"math/rand"
 	"testing"
 
@@ -24,13 +25,12 @@ var (
 func TestKVStorePutGet(t *testing.T) {
 	testKVStorePutGet := func(kvStore KVStore, t *testing.T) {
 		assert := assert.New(t)
+		ctx := context.Background()
 
-		err := kvStore.Init()
-		assert.Nil(err)
-		err = kvStore.Start()
+		err := kvStore.Start(ctx)
 		assert.Nil(err)
 		defer func() {
-			err = kvStore.Stop()
+			err = kvStore.Stop(ctx)
 			assert.Nil(err)
 		}()
 
@@ -75,14 +75,13 @@ func TestBatchRollback(t *testing.T) {
 	testBatchRollback := func(kvStore KVStore, t *testing.T) {
 		assert := assert.New(t)
 
+		ctx := context.Background()
 		kvboltDB := kvStore.(*boltDB)
 
-		err := kvboltDB.Init()
-		assert.Nil(err)
-		err = kvboltDB.Start()
+		err := kvboltDB.Start(ctx)
 		assert.Nil(err)
 		defer func() {
-			err = kvboltDB.Stop()
+			err = kvboltDB.Stop(ctx)
 			assert.Nil(err)
 		}()
 

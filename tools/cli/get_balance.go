@@ -7,6 +7,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/iotexproject/iotex-core/blockchain"
@@ -16,11 +17,13 @@ import (
 )
 
 func (cli *CLI) getBalance(address string, config *config.Config) {
+
+	ctx := context.Background()
 	if !iotxaddress.ValidateAddress(address) {
 		logger.Fatal().Msg("ERROR: Address is not valid")
 	}
 	bc := blockchain.NewBlockchain(config, blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption())
-	defer bc.Stop()
+	defer bc.Stop(ctx)
 
 	state, _ := bc.StateByAddr(address)
 	fmt.Printf("Balance of '%s': %d\n", address, state.Balance)

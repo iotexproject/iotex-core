@@ -7,6 +7,7 @@
 package rolldpos
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"testing"
@@ -25,6 +26,7 @@ import (
 func TestAcceptPrevoteAndProceedToEnd(t *testing.T) {
 	t.Parallel()
 
+	ctx := context.Background()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -40,8 +42,8 @@ func TestAcceptPrevoteAndProceedToEnd(t *testing.T) {
 	}
 	cs := createTestRollDPoS(
 		ctrl, delegates[0], delegates, m, FixedProposer, time.Hour, NeverStartNewEpoch, nil)
-	cs.Start()
-	defer cs.Stop()
+	cs.Start(ctx)
+	defer cs.Stop(ctx)
 
 	// arrange proposal request
 	genesis := NewGenesisBlock(nil)
@@ -112,6 +114,7 @@ func TestAcceptPrevoteAndTimeoutToEnd(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	ctx := context.Background()
 	// arrange 2 consensus nodes
 	delegates := []net.Addr{
 		node.NewTCPNode("192.168.0.1:10001"),
@@ -129,8 +132,8 @@ func TestAcceptPrevoteAndTimeoutToEnd(t *testing.T) {
 	}
 	cs := createTestRollDPoS(
 		ctrl, delegates[0], delegates, m, FixedProposer, time.Hour, NeverStartNewEpoch, nil)
-	cs.Start()
-	defer cs.Stop()
+	cs.Start(ctx)
+	defer cs.Stop(ctx)
 
 	// arrange proposal request
 	genesis := NewGenesisBlock(nil)

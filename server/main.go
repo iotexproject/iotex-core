@@ -12,6 +12,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -45,26 +46,21 @@ func main() {
 		os.Exit(1)
 	}
 
+	ctx := context.Background()
 	// create and start the node
 	svr := itx.NewServer(*cfg)
-	if err := svr.Init(); err != nil {
+	if err := svr.Start(ctx); err != nil {
 		os.Exit(1)
 	}
-	if err := svr.Start(); err != nil {
-		os.Exit(1)
-	}
-	defer svr.Stop()
+	defer svr.Stop(ctx)
 
 	if cfg.System.HeartbeatInterval > 0 {
 		task := routine.NewRecurringTask(itx.NewHeartbeatHandler(svr), cfg.System.HeartbeatInterval)
-		if err := task.Init(); err != nil {
-			logger.Panic().Err(err)
-		}
-		if err := task.Start(); err != nil {
+		if err := task.Start(ctx); err != nil {
 			logger.Panic().Err(err)
 		}
 		defer func() {
-			if err := task.Stop(); err != nil {
+			if err := task.Stop(ctx); err != nil {
 				logger.Panic().Err(err)
 			}
 		}()

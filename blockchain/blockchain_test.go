@@ -7,6 +7,7 @@
 package blockchain
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 	"strconv"
@@ -131,6 +132,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 
 func TestCreateBlockchain(t *testing.T) {
 	assert := assert.New(t)
+	ctx := context.Background()
 
 	config, err := config.LoadConfigWithPathWithoutValidation(testingConfigPath)
 	assert.Nil(err)
@@ -146,7 +148,7 @@ func TestCreateBlockchain(t *testing.T) {
 	assert.Nil(err)
 	assert.Equal(0, int(height))
 	fmt.Printf("Create blockchain pass, height = %d\n", height)
-	defer bc.Stop()
+	defer bc.Stop(ctx)
 
 	// verify Genesis block
 	genesis, _ := bc.GetBlockByHeight(0)
@@ -209,11 +211,12 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	require.Nil(err)
 	fmt.Printf("Open blockchain pass, height = %d\n", height)
 	require.Nil(addTestingTsfBlocks(bc))
-	bc.Stop()
+	ctx := context.Background()
+	bc.Stop(ctx)
 
 	// Load a blockchain from DB
 	bc = NewBlockchain(config, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
-	defer bc.Stop()
+	defer bc.Stop(ctx)
 	require.NotNil(bc)
 
 	// check hash<-->height mapping
@@ -379,8 +382,9 @@ func TestBlockchain_Validator(t *testing.T) {
 	// disable account-based testing
 	config.Chain.TrieDBPath = ""
 
+	ctx := context.Background()
 	bc := NewBlockchain(config, InMemDaoOption(), InMemStateFactoryOption())
-	defer bc.Stop()
+	defer bc.Stop(ctx)
 	assert.NotNil(t, bc)
 
 	val := bc.Validator()
@@ -395,8 +399,9 @@ func TestBlockchain_MintNewDummyBlock(t *testing.T) {
 	// disable account-based testing
 	config.Chain.TrieDBPath = ""
 
+	ctx := context.Background()
 	bc := NewBlockchain(config, InMemDaoOption(), InMemStateFactoryOption())
-	defer bc.Stop()
+	defer bc.Stop(ctx)
 	assert.NotNil(t, bc)
 
 	blk, err := bc.MintNewDummyBlock()

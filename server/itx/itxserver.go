@@ -7,12 +7,12 @@
 package itx
 
 import (
+	"context"
 	"os"
 
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blocksync"
-	"github.com/iotexproject/iotex-core/common/service"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/delegate"
@@ -25,7 +25,6 @@ import (
 
 // Server is the iotex server instance containing all components.
 type Server struct {
-	service.Service
 	bc  blockchain.Blockchain
 	ap  actpool.ActPool
 	o   *network.Overlay
@@ -48,19 +47,13 @@ func NewInMemTestServer(cfg config.Config) *Server {
 	return newServer(cfg, bc)
 }
 
-// Init initialize the server
-func (s *Server) Init() error {
-	s.dp.Start()
-	if err := s.o.Init(); err != nil {
+// Start starts the server
+func (s *Server) Start(ctx context.Context) error {
+	if err := s.dp.Start(ctx); err != nil {
 		logger.Error().Err(err)
 		return err
 	}
-	return nil
-}
-
-// Start starts the server
-func (s *Server) Start() error {
-	if err := s.o.Start(); err != nil {
+	if err := s.o.Start(ctx); err != nil {
 		logger.Error().Err(err)
 		return err
 	}
@@ -68,10 +61,10 @@ func (s *Server) Start() error {
 }
 
 // Stop stops the server
-func (s *Server) Stop() {
-	s.o.Stop()
-	s.dp.Stop()
-	s.bc.Stop()
+func (s *Server) Stop(ctx context.Context) {
+	s.o.Stop(ctx)
+	s.dp.Stop(ctx)
+	s.bc.Stop(ctx)
 	os.Remove(s.cfg.Chain.ChainDBPath)
 }
 

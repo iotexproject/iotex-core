@@ -7,6 +7,7 @@
 package e2etest
 
 import (
+	"context"
 	"flag"
 	"strconv"
 	"testing"
@@ -54,6 +55,7 @@ func TestLocalRollDPoS(t *testing.T) {
 // 4 delegates and 3 full nodes
 func testLocalRollDPoS(prCb string, epochCb string, numBlocks uint64, t *testing.T, interval time.Duration) {
 	require := require.New(t)
+	ctx := context.Background()
 	flag.Parse()
 
 	cfg, err := config.LoadConfigWithPathWithoutValidation(localRollDPoSConfig)
@@ -71,12 +73,11 @@ func testLocalRollDPoS(prCb string, epochCb string, numBlocks uint64, t *testing
 		cfg.NodeType = config.FullNodeType
 		cfg.Network.Addr = "127.0.0.1:5000" + strconv.Itoa(i)
 		svr := itx.NewInMemTestServer(*cfg)
-		err = svr.Init()
 		require.Nil(err)
-		err = svr.Start()
+		err = svr.Start(ctx)
 		require.Nil(err)
 		svrs = append(svrs, svr)
-		defer svr.Stop()
+		defer svr.Stop(ctx)
 	}
 
 	for i := 0; i < 4; i++ {
@@ -84,12 +85,11 @@ func testLocalRollDPoS(prCb string, epochCb string, numBlocks uint64, t *testing
 		cfg.Network.Addr = "127.0.0.1:4000" + strconv.Itoa(i)
 		cfg.Consensus.Scheme = config.RollDPoSScheme
 		svr := itx.NewInMemTestServer(*cfg)
-		err = svr.Init()
 		require.Nil(err)
-		err = svr.Start()
+		err = svr.Start(ctx)
 		require.Nil(err)
 		svrs = append(svrs, svr)
-		defer svr.Stop()
+		defer svr.Stop(ctx)
 	}
 
 	satisfy := func() bool {

@@ -7,6 +7,7 @@
 package cli
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -38,6 +39,7 @@ func (cli *CLI) validateArgs() {
 // Run processes the command line input
 func (cli *CLI) Run() {
 	cli.validateArgs()
+	ctx := context.Background()
 
 	printChainCmd := flag.NewFlagSet("printchain", flag.ExitOnError)
 
@@ -79,7 +81,7 @@ func (cli *CLI) Run() {
 			os.Exit(1)
 		}
 		cli.bc = blockchain.NewBlockchain(config, blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption())
-		defer cli.bc.Stop()
+		defer cli.bc.Stop(ctx)
 	}
 	if getBalanceCmd.Parsed() {
 		cli.getBalance(*getBalanceAddress, config)

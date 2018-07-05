@@ -7,6 +7,7 @@
 package routine
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -23,11 +24,11 @@ func (h *MockHandler) Do() {
 
 func TestRecurringTask(t *testing.T) {
 	h := &MockHandler{Count: 0}
+	ctx := context.Background()
 	task := NewRecurringTask(h, 100*time.Millisecond)
-	task.Init()
-	task.Start()
+	task.Start(ctx)
 	defer func() {
-		task.Stop()
+		task.Stop(ctx)
 	}()
 
 	time.Sleep(600 * time.Millisecond)

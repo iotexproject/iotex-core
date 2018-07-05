@@ -11,14 +11,14 @@ import (
 	"net"
 
 	"github.com/golang/protobuf/proto"
+
+	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 )
 
 // Dispatcher is used by peers, handles incoming block and header notifications and relays announcements of new blocks.
 type Dispatcher interface {
-	// Start starts a dispatcher
-	Start() error
-	// Stop stops a dispatcher
-	Stop() error
+	lifecycle.StartStopper
+
 	// HandleBroadcast handles the incoming broadcast message. The transportation layer semantics is at least once.
 	// That said, the handler is likely to receive duplicate messages.
 	HandleBroadcast(proto.Message, chan bool)

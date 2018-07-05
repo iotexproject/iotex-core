@@ -1,5 +1,5 @@
-hash: e0cd68792fa3c122507de99feb6d955f2a3b3e29b7f5d1548ad56ad9858f2707
-updated: 2018-06-21T15:07:36.537587-07:00
+hash: 167a51dddcc8573b74593dc139c5b95a438f01859039021cfb834e67b44d62bb
+updated: 2018-07-04T10:16:48.299726-07:00
 imports:
 - name: github.com/boltdb/bolt
   version: 2f1ce7a837dcb8da3ec595b1dac9d0632f0f99e8
@@ -56,6 +56,10 @@ imports:
   - internal/timeseries
   - lex/httplex
   - trace
+- name: golang.org/x/sync
+  version: 1d60e4601c6fd243af51cc01ddf169918a5407ca
+  subpackages:
+  - errgroup
 - name: golang.org/x/sys
   version: 37707fdb30a5b38865cfb95e5aab41707daec7fd
   subpackages:

@@ -7,10 +7,13 @@
 package routine
 
 import (
+	"context"
 	"time"
 
-	"github.com/iotexproject/iotex-core/common/service"
+	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 )
+
+var _ lifecycle.StartStopper = (*RecurringTask)(nil)
 
 // IRecurringTaskHandler is the interface to implement the recurring task business logic
 type IRecurringTaskHandler interface {
@@ -20,7 +23,6 @@ type IRecurringTaskHandler interface {
 
 // RecurringTask represents a recurring task
 type RecurringTask struct {
-	service.AbstractService
 	H        IRecurringTaskHandler
 	Interval time.Duration
 	ticker   *time.Ticker
@@ -32,7 +34,7 @@ func NewRecurringTask(h IRecurringTaskHandler, i time.Duration) *RecurringTask {
 }
 
 // Start starts the timer
-func (t *RecurringTask) Start() error {
+func (t *RecurringTask) Start(_ context.Context) error {
 	t.ticker = time.NewTicker(t.Interval)
 	go func() {
 		for range t.ticker.C {
@@ -43,7 +45,7 @@ func (t *RecurringTask) Start() error {
 }
 
 // Stop stops the timer
-func (t *RecurringTask) Stop() error {
+func (t *RecurringTask) Stop(_ context.Context) error {
 	// TODO: actually this happens when stop is called before init/start. We should prevent this from happening
 	if t.ticker != nil {
 		t.ticker.Stop()

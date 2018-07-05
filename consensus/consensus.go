@@ -7,6 +7,8 @@
 package consensus
 
 import (
+	"context"
+
 	"github.com/golang/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/actpool"
@@ -18,12 +20,13 @@ import (
 	"github.com/iotexproject/iotex-core/delegate"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/errcode"
+	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 )
 
 // Consensus is the interface for handling IotxConsensus view change.
 type Consensus interface {
-	Start() error
-	Stop() error
+	lifecycle.StartStopper
+
 	HandleViewChange(proto.Message, chan bool) error
 	HandleBlockPropose(proto.Message, chan bool) error
 	Metrics() (scheme.ConsensusMetrics, error)
@@ -112,22 +115,22 @@ func NewConsensus(
 }
 
 // Start starts running the consensus algorithm
-func (c *IotxConsensus) Start() error {
+func (c *IotxConsensus) Start(ctx context.Context) error {
 	logger.Info().
 		Str("scheme", c.cfg.Scheme).
 		Msg("Starting IotxConsensus scheme")
 
-	c.scheme.Start()
+	c.scheme.Start(ctx)
 	return nil
 }
 
 // Stop stops running the consensus algorithm
-func (c *IotxConsensus) Stop() error {
+func (c *IotxConsensus) Stop(ctx context.Context) error {
 	logger.Info().
 		Str("scheme", c.cfg.Scheme).
 		Msg("Stopping IotxConsensus scheme")
 
-	c.scheme.Stop()
+	c.scheme.Stop(ctx)
 	return nil
 }
 

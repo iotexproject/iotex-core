@@ -27,9 +27,6 @@ func TestConfigBasedPool_AllDelegates(t *testing.T) {
 	}
 
 	cbdp := NewConfigBasedPool(&cfg.Delegate)
-	cbdp.Init()
-	cbdp.Start()
-	defer cbdp.Stop()
 
 	delegates, err := cbdp.AllDelegates()
 	require.Nil(t, err)
@@ -54,9 +51,6 @@ func TestConfigBasedPool_RollDelegates(t *testing.T) {
 	}
 
 	cbdp := NewConfigBasedPool(&cfg.Delegate)
-	cbdp.Init()
-	cbdp.Start()
-	defer cbdp.Stop()
 
 	dlgts1, err := cbdp.RollDelegates(uint64(1))
 	require.Nil(t, err)
@@ -114,9 +108,6 @@ func TestConfigBasedPool_NumDelegates(t *testing.T) {
 	}
 
 	cbdp := NewConfigBasedPool(&cfg.Delegate)
-	cbdp.Init()
-	cbdp.Start()
-	defer cbdp.Stop()
 
 	num, err := cbdp.NumDelegatesPerEpoch()
 	require.Nil(t, err)

@@ -7,6 +7,7 @@
 package rolldpos
 
 import (
+	"context"
 	"net"
 	"testing"
 	"time"
@@ -200,10 +201,11 @@ func testByzantineFault(t *testing.T, proposerNode int) {
 			})
 			tcs.mocks = mcks
 		}
+		ctx := context.Background()
 		tcs.cs = createTestRollDPoS(
 			ctrl, cur, delegates, m, FixedProposer, time.Hour, NeverStartNewEpoch, &bcCnt)
-		tcs.cs.Start()
-		defer tcs.cs.Stop()
+		tcs.cs.Start(ctx)
+		defer tcs.cs.Stop(ctx)
 		tcss[cur] = tcs
 	}
 
@@ -331,9 +333,10 @@ func TestRollDPoSFourTrustyNodes(t *testing.T) {
 			})
 			tcs.mocks = mcks
 		}
+		ctx := context.Background()
 		tcs.cs = createTestRollDPoS(ctrl, cur, delegates, m, FixedProposer, time.Hour, NeverStartNewEpoch, &bcCnt)
-		tcs.cs.Start()
-		defer tcs.cs.Stop()
+		tcs.cs.Start(ctx)
+		defer tcs.cs.Stop(ctx)
 		tcss[cur] = tcs
 	}
 
@@ -402,10 +405,11 @@ func TestRollDPoSConsumePROPOSE(t *testing.T) {
 		mcks.bc.EXPECT().TipHeight().Return(uint64(0), nil).AnyTimes()
 
 	}
+	ctx := context.Background()
 	cs := createTestRollDPoS(
 		ctrl, delegates[0], delegates, m, FixedProposer, time.Hour, NeverStartNewEpoch, nil)
-	cs.Start()
-	defer cs.Stop()
+	cs.Start(ctx)
+	defer cs.Stop(ctx)
 	cs.fsm.HandleTransition(&fsm.Event{
 		State: stateDKGGenerate,
 	})
@@ -447,11 +451,12 @@ func TestRollDPoSConsumeErrorStateHandlerNotMatched(t *testing.T) {
 	m := func(mcks mocks) {
 		mcks.bc.EXPECT().TipHeight().Return(uint64(0), nil).AnyTimes()
 	}
+	ctx := context.Background()
 	cs := createTestRollDPoS(
 		ctrl, delegates[0], delegates, m, FixedProposer, time.Hour, NeverStartNewEpoch, nil)
 
-	cs.Start()
-	defer cs.Stop()
+	cs.Start(ctx)
+	defer cs.Stop(ctx)
 	cs.fsm.HandleTransition(&fsm.Event{
 		State: stateDKGGenerate,
 	})
