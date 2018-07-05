@@ -223,7 +223,7 @@ func TestLocalCommit(t *testing.T) {
 	p1.Broadcast(blk1.ConvertToBlockPb())
 	p1.Broadcast(blk3.ConvertToBlockPb())
 
-	err = util.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+	err = util.WaitUntil(10*time.Millisecond, 10*time.Second, func() (bool, error) {
 		height, err := bc.TipHeight()
 		if err != nil {
 			return false, err
@@ -376,7 +376,7 @@ func TestLocalSync(t *testing.T) {
 		}
 		return hash1 == blk1.HashBlock() && hash2 == blk2.HashBlock() && hash3 == blk3.HashBlock() && hash4 == blk4.HashBlock(), nil
 	})
-	err = util.WaitUntil(time.Millisecond*10, time.Millisecond*2000, check)
+	err = util.WaitUntil(time.Millisecond*10, time.Second*5, check)
 	assert.Nil(err)
 
 	// verify 4 received blocks
@@ -455,7 +455,7 @@ func TestVoteLocalCommit(t *testing.T) {
 	act1 := &pb.ActionPb{Action: &pb.ActionPb_Vote{vote1.ConvertToVotePb()}}
 	act2 := &pb.ActionPb{Action: &pb.ActionPb_Vote{vote2.ConvertToVotePb()}}
 	act3 := &pb.ActionPb{Action: &pb.ActionPb_Vote{vote3.ConvertToVotePb()}}
-	err = util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
+	err = util.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
 		if err := p1.Broadcast(act1); err != nil {
 			return false, err
 		}
