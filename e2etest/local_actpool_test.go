@@ -206,7 +206,7 @@ func TestPressureActPool(t *testing.T) {
 	}
 
 	// Wait until actpool is reset
-	err = util.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+	err = util.WaitUntil(10*time.Millisecond, 10*time.Second, func() (bool, error) {
 		// Check whether current committed blocks contain all the valid actions picked from actpool
 		height, _ := bc.TipHeight()
 		var tsfCount int
