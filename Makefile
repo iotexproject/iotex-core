@@ -68,6 +68,7 @@ lint-rich:
 .PHONY: test
 test: fmt
 	$(GOTEST) -short ./...
+	cd simulator/ && pytest && cd ..
 
 .PHONY: test-rich
 test-rich:
