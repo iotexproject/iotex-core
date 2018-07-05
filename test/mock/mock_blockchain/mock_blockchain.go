@@ -103,16 +103,16 @@ func (mr *MockBlockchainMockRecorder) Candidates() *gomock.Call {
 }
 
 // GetHeightByHash mocks base method
-func (m *MockBlockchain) GetHeightByHash(hash hash.Hash32B) (uint64, error) {
-	ret := m.ctrl.Call(m, "GetHeightByHash", hash)
+func (m *MockBlockchain) GetHeightByHash(h hash.Hash32B) (uint64, error) {
+	ret := m.ctrl.Call(m, "GetHeightByHash", h)
 	ret0, _ := ret[0].(uint64)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetHeightByHash indicates an expected call of GetHeightByHash
-func (mr *MockBlockchainMockRecorder) GetHeightByHash(hash interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetHeightByHash", reflect.TypeOf((*MockBlockchain)(nil).GetHeightByHash), hash)
+func (mr *MockBlockchainMockRecorder) GetHeightByHash(h interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetHeightByHash", reflect.TypeOf((*MockBlockchain)(nil).GetHeightByHash), h)
 }
 
 // GetHashByHeight mocks base method
@@ -142,16 +142,16 @@ func (mr *MockBlockchainMockRecorder) GetBlockByHeight(height interface{}) *gomo
 }
 
 // GetBlockByHash mocks base method
-func (m *MockBlockchain) GetBlockByHash(hash hash.Hash32B) (*blockchain.Block, error) {
-	ret := m.ctrl.Call(m, "GetBlockByHash", hash)
+func (m *MockBlockchain) GetBlockByHash(h hash.Hash32B) (*blockchain.Block, error) {
+	ret := m.ctrl.Call(m, "GetBlockByHash", h)
 	ret0, _ := ret[0].(*blockchain.Block)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetBlockByHash indicates an expected call of GetBlockByHash
-func (mr *MockBlockchainMockRecorder) GetBlockByHash(hash interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockByHash", reflect.TypeOf((*MockBlockchain)(nil).GetBlockByHash), hash)
+func (mr *MockBlockchainMockRecorder) GetBlockByHash(h interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockByHash", reflect.TypeOf((*MockBlockchain)(nil).GetBlockByHash), h)
 }
 
 // GetTotalTransfers mocks base method
@@ -207,16 +207,16 @@ func (mr *MockBlockchainMockRecorder) GetTransfersToAddress(address interface{})
 }
 
 // GetTransferByTransferHash mocks base method
-func (m *MockBlockchain) GetTransferByTransferHash(hash hash.Hash32B) (*action.Transfer, error) {
-	ret := m.ctrl.Call(m, "GetTransferByTransferHash", hash)
+func (m *MockBlockchain) GetTransferByTransferHash(h hash.Hash32B) (*action.Transfer, error) {
+	ret := m.ctrl.Call(m, "GetTransferByTransferHash", h)
 	ret0, _ := ret[0].(*action.Transfer)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetTransferByTransferHash indicates an expected call of GetTransferByTransferHash
-func (mr *MockBlockchainMockRecorder) GetTransferByTransferHash(hash interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTransferByTransferHash", reflect.TypeOf((*MockBlockchain)(nil).GetTransferByTransferHash), hash)
+func (mr *MockBlockchainMockRecorder) GetTransferByTransferHash(h interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTransferByTransferHash", reflect.TypeOf((*MockBlockchain)(nil).GetTransferByTransferHash), h)
 }
 
 // GetBlockHashByTransferHash mocks base method
@@ -228,8 +228,8 @@ func (m *MockBlockchain) GetBlockHashByTransferHash(hash hash.Hash32B) (hash.Has
 }
 
 // GetBlockHashByTransferHash indicates an expected call of GetBlockHashByTransferHash
-func (mr *MockBlockchainMockRecorder) GetBlockHashByTransferHash(hash interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockHashByTransferHash", reflect.TypeOf((*MockBlockchain)(nil).GetBlockHashByTransferHash), hash)
+func (mr *MockBlockchainMockRecorder) GetBlockHashByTransferHash(h interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockHashByTransferHash", reflect.TypeOf((*MockBlockchain)(nil).GetBlockHashByTransferHash), h)
 }
 
 // GetVotesFromAddress mocks base method
@@ -259,16 +259,16 @@ func (mr *MockBlockchainMockRecorder) GetVotesToAddress(address interface{}) *go
 }
 
 // GetVoteByVoteHash mocks base method
-func (m *MockBlockchain) GetVoteByVoteHash(hash hash.Hash32B) (*action.Vote, error) {
-	ret := m.ctrl.Call(m, "GetVoteByVoteHash", hash)
+func (m *MockBlockchain) GetVoteByVoteHash(h hash.Hash32B) (*action.Vote, error) {
+	ret := m.ctrl.Call(m, "GetVoteByVoteHash", h)
 	ret0, _ := ret[0].(*action.Vote)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetVoteByVoteHash indicates an expected call of GetVoteByVoteHash
-func (mr *MockBlockchainMockRecorder) GetVoteByVoteHash(hash interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVoteByVoteHash", reflect.TypeOf((*MockBlockchain)(nil).GetVoteByVoteHash), hash)
+func (mr *MockBlockchainMockRecorder) GetVoteByVoteHash(h interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVoteByVoteHash", reflect.TypeOf((*MockBlockchain)(nil).GetVoteByVoteHash), h)
 }
 
 // GetBlockHashByVoteHash mocks base method
@@ -280,8 +280,8 @@ func (m *MockBlockchain) GetBlockHashByVoteHash(hash hash.Hash32B) (hash.Hash32B
 }
 
 // GetBlockHashByVoteHash indicates an expected call of GetBlockHashByVoteHash
-func (mr *MockBlockchainMockRecorder) GetBlockHashByVoteHash(hash interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockHashByVoteHash", reflect.TypeOf((*MockBlockchain)(nil).GetBlockHashByVoteHash), hash)
+func (mr *MockBlockchainMockRecorder) GetBlockHashByVoteHash(h interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockHashByVoteHash", reflect.TypeOf((*MockBlockchain)(nil).GetBlockHashByVoteHash), h)
 }
 
 // TipHash mocks base method

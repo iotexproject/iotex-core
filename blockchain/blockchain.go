@@ -37,13 +37,13 @@ type Blockchain interface {
 	Candidates() (uint64, []*state.Candidate)
 	// For exposing blockchain states
 	// GetHeightByHash returns Block's height by hash
-	GetHeightByHash(hash hash.Hash32B) (uint64, error)
+	GetHeightByHash(h hash.Hash32B) (uint64, error)
 	// GetHashByHeight returns Block's hash by height
 	GetHashByHeight(height uint64) (hash.Hash32B, error)
 	// GetBlockByHeight returns Block by height
 	GetBlockByHeight(height uint64) (*Block, error)
 	// GetBlockByHash returns Block by hash
-	GetBlockByHash(hash hash.Hash32B) (*Block, error)
+	GetBlockByHash(h hash.Hash32B) (*Block, error)
 	// GetTotalTransfers returns the total number of transfers
 	GetTotalTransfers() (uint64, error)
 	// GetTotalVotes returns the total number of votes
@@ -53,17 +53,17 @@ type Blockchain interface {
 	// GetTransfersToAddress returns transaction to address
 	GetTransfersToAddress(address string) ([]hash.Hash32B, error)
 	// GetTransfersByTransferHash returns transfer by transfer hash
-	GetTransferByTransferHash(hash hash.Hash32B) (*action.Transfer, error)
+	GetTransferByTransferHash(h hash.Hash32B) (*action.Transfer, error)
 	// GetBlockHashByTransferHash returns Block hash by transfer hash
-	GetBlockHashByTransferHash(hash hash.Hash32B) (hash.Hash32B, error)
+	GetBlockHashByTransferHash(h hash.Hash32B) (hash.Hash32B, error)
 	// GetVoteFromAddress returns vote from address
 	GetVotesFromAddress(address string) ([]hash.Hash32B, error)
 	// GetVoteToAddress returns vote to address
 	GetVotesToAddress(address string) ([]hash.Hash32B, error)
 	// GetVotesByVoteHash returns vote by vote hash
-	GetVoteByVoteHash(hash hash.Hash32B) (*action.Vote, error)
+	GetVoteByVoteHash(h hash.Hash32B) (*action.Vote, error)
 	// GetBlockHashByVoteHash returns Block hash by vote hash
-	GetBlockHashByVoteHash(hash hash.Hash32B) (hash.Hash32B, error)
+	GetBlockHashByVoteHash(h hash.Hash32B) (hash.Hash32B, error)
 	// TipHash returns tip block's hash
 	TipHash() (hash.Hash32B, error)
 	// TipHeight returns tip block's height
@@ -300,8 +300,8 @@ func (bc *blockchain) Candidates() (uint64, []*state.Candidate) {
 }
 
 // GetHeightByHash returns block's height by hash
-func (bc *blockchain) GetHeightByHash(hash hash.Hash32B) (uint64, error) {
-	return bc.dao.getBlockHeight(hash)
+func (bc *blockchain) GetHeightByHash(h hash.Hash32B) (uint64, error) {
+	return bc.dao.getBlockHeight(h)
 }
 
 // GetHashByHeight returns block's hash by height
@@ -319,8 +319,8 @@ func (bc *blockchain) GetBlockByHeight(height uint64) (*Block, error) {
 }
 
 // GetBlockByHash returns block from the blockchain hash by hash
-func (bc *blockchain) GetBlockByHash(hash hash.Hash32B) (*Block, error) {
-	return bc.dao.getBlock(hash)
+func (bc *blockchain) GetBlockByHash(h hash.Hash32B) (*Block, error) {
+	return bc.dao.getBlock(h)
 }
 
 func (bc *blockchain) GetTotalTransfers() (uint64, error) {
@@ -360,8 +360,8 @@ func (bc *blockchain) GetTransfersToAddress(address string) ([]hash.Hash32B, err
 }
 
 // GetTransferByTransferHash returns transfer by Transfer hash
-func (bc *blockchain) GetTransferByTransferHash(hash hash.Hash32B) (*action.Transfer, error) {
-	blkHash, err := bc.dao.getBlockHashByTransferHash(hash)
+func (bc *blockchain) GetTransferByTransferHash(h hash.Hash32B) (*action.Transfer, error) {
+	blkHash, err := bc.dao.getBlockHashByTransferHash(h)
 	if err != nil {
 		return nil, err
 	}
@@ -370,16 +370,16 @@ func (bc *blockchain) GetTransferByTransferHash(hash hash.Hash32B) (*action.Tran
 		return nil, err
 	}
 	for _, transfer := range blk.Transfers {
-		if transfer.Hash() == hash {
+		if transfer.Hash() == h {
 			return transfer, nil
 		}
 	}
-	return nil, errors.Errorf("block %x does not have transfer %x", blkHash, hash)
+	return nil, errors.Errorf("block %x does not have transfer %x", blkHash, h)
 }
 
 // GetBlockHashByTxHash returns Block hash by transfer hash
-func (bc *blockchain) GetBlockHashByTransferHash(hash hash.Hash32B) (hash.Hash32B, error) {
-	return bc.dao.getBlockHashByTransferHash(hash)
+func (bc *blockchain) GetBlockHashByTransferHash(h hash.Hash32B) (hash.Hash32B, error) {
+	return bc.dao.getBlockHashByTransferHash(h)
 }
 
 // GetVoteFromAddress returns vote from address
@@ -393,8 +393,8 @@ func (bc *blockchain) GetVotesToAddress(address string) ([]hash.Hash32B, error) 
 }
 
 // GetVotesByVoteHash returns vote by vote hash
-func (bc *blockchain) GetVoteByVoteHash(hash hash.Hash32B) (*action.Vote, error) {
-	blkHash, err := bc.dao.getBlockHashByVoteHash(hash)
+func (bc *blockchain) GetVoteByVoteHash(h hash.Hash32B) (*action.Vote, error) {
+	blkHash, err := bc.dao.getBlockHashByVoteHash(h)
 	if err != nil {
 		return nil, err
 	}
@@ -403,16 +403,16 @@ func (bc *blockchain) GetVoteByVoteHash(hash hash.Hash32B) (*action.Vote, error)
 		return nil, err
 	}
 	for _, vote := range blk.Votes {
-		if vote.Hash() == hash {
+		if vote.Hash() == h {
 			return vote, nil
 		}
 	}
-	return nil, errors.Errorf("block %x does not have vote %x", blkHash, hash)
+	return nil, errors.Errorf("block %x does not have vote %x", blkHash, h)
 }
 
 // GetBlockHashByVoteHash returns Block hash by vote hash
-func (bc *blockchain) GetBlockHashByVoteHash(hash hash.Hash32B) (hash.Hash32B, error) {
-	return bc.dao.getBlockHashByVoteHash(hash)
+func (bc *blockchain) GetBlockHashByVoteHash(h hash.Hash32B) (hash.Hash32B, error) {
+	return bc.dao.getBlockHashByVoteHash(h)
 }
 
 // TipHash returns tip block's hash
