@@ -7,6 +7,7 @@
 package e2etest
 
 import (
+	"context"
 	"math/big"
 	"testing"
 	"time"
@@ -54,12 +55,12 @@ func TestLocalActPool(t *testing.T) {
 	blockchain.Gen.BlockReward = uint64(0)
 
 	// create node
+	ctx := context.Background()
 	svr := itx.NewServer(*cfg)
-	err = svr.Init()
 	require.Nil(err)
-	err = svr.Start()
+	err = svr.Start(ctx)
 	require.Nil(err)
-	defer svr.Stop()
+	defer svr.Stop(ctx)
 
 	bc := svr.Bc()
 	require.NotNil(bc)
@@ -74,9 +75,8 @@ func TestLocalActPool(t *testing.T) {
 	p1 := network.NewOverlay(&cfg.Network)
 	require.NotNil(p1)
 	p1.RPC.Addr = "127.0.0.1:10001"
-	p1.Init()
-	p1.Start()
-	defer p1.Stop()
+	p1.Start(ctx)
+	defer p1.Stop(ctx)
 
 	from := util.ConstructAddress(fromPubKey, fromPrivKey)
 	to := util.ConstructAddress(toPubKey, toPrivKey)
@@ -160,12 +160,12 @@ func TestPressureActPool(t *testing.T) {
 	blockchain.Gen.BlockReward = uint64(0)
 
 	// create node
+	ctx := context.Background()
 	svr := itx.NewServer(*cfg)
-	err = svr.Init()
 	require.Nil(err)
-	err = svr.Start()
+	err = svr.Start(ctx)
 	require.Nil(err)
-	defer svr.Stop()
+	defer svr.Stop(ctx)
 
 	bc := svr.Bc()
 	require.NotNil(bc)
@@ -180,9 +180,8 @@ func TestPressureActPool(t *testing.T) {
 	p1 := network.NewOverlay(&cfg.Network)
 	require.NotNil(p1)
 	p1.RPC.Addr = "127.0.0.1:10001"
-	p1.Init()
-	p1.Start()
-	defer p1.Stop()
+	p1.Start(ctx)
+	defer p1.Stop(ctx)
 
 	from := util.ConstructAddress(fromPubKey, fromPrivKey)
 	to := util.ConstructAddress(toPubKey, toPrivKey)

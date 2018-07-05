@@ -7,6 +7,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/iotexproject/iotex-core/blockchain"
@@ -16,6 +17,7 @@ import (
 )
 
 func (cli *CLI) send(from, to string, amount uint64, config *config.Config) {
+	ctx := context.Background()
 	if !iotxaddress.ValidateAddress(from) {
 		logger.Fatal().Msg("ERROR: Sender address is not valid")
 	}
@@ -24,7 +26,7 @@ func (cli *CLI) send(from, to string, amount uint64, config *config.Config) {
 	}
 
 	bc := blockchain.NewBlockchain(config, blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption())
-	defer bc.Stop()
+	defer bc.Stop(ctx)
 
 	//tx := blockchain.NewUTXOTransaction(from, to, amount, bc)
 	//bc.MineBlock([]*blockchain.Tx{tx})

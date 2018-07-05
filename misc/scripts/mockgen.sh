@@ -53,3 +53,7 @@ mockgen -destination=./test/mock/mock_consensus/mock_consensus.go  \
         -imports =github.com/iotexproject/iotex-core/consensus \
         -package=mock_consensus \
         Consensus
+
+mkdir -p ./test/mock/mock_lifecycle
+mockgen -destination=./test/mock/mock_lifecycle/mock_lifecycle.go \
+        github.com/iotexproject/iotex-core/pkg/lifecycle StartStopper

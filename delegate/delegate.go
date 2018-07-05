@@ -10,7 +10,6 @@ import (
 	"errors"
 	"net"
 
-	"github.com/iotexproject/iotex-core/common/service"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/network/node"
@@ -38,7 +37,6 @@ type Pool interface {
 
 // ConfigBasedPool is the simple delegate pool implementing Pool interface
 type ConfigBasedPool struct {
-	service.AbstractService
 	cfg       *config.Delegate
 	delegates []net.Addr
 }

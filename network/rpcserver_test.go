@@ -14,6 +14,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/net/context"
 
 	pb "github.com/iotexproject/iotex-core/network/proto"
 	"github.com/iotexproject/iotex-core/proto"
@@ -22,18 +23,19 @@ import (
 )
 
 func TestRpcPingPong(t *testing.T) {
+	ctx := context.Background()
 	config := LoadTestConfig("", true)
 	o := &Overlay{Config: config}
 	o.PM = &PeerManager{Overlay: o, NumPeersLowerBound: 1, NumPeersUpperBound: 1}
 	s := NewRPCServer(o)
 	o.RPC = s
-	s.Start()
+	s.Start(ctx)
 	p := NewPeer(s.Network(), s.String())
 	p.Connect(config)
 
 	defer func() {
 		p.Close()
-		s.Stop()
+		s.Stop(ctx)
 	}()
 
 	util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) { return o.RPC.Started(), nil })
@@ -49,6 +51,7 @@ func TestRpcPingPong(t *testing.T) {
 }
 
 func TestGetPeers(t *testing.T) {
+	ctx := context.Background()
 	config := LoadTestConfig("", true)
 	o := &Overlay{Config: config}
 	o.PM = &PeerManager{Overlay: o}
@@ -56,13 +59,13 @@ func TestGetPeers(t *testing.T) {
 	o.PM.Peers.Store("127.0.0.1:10002", NewTCPPeer("127.0.0.1:10002"))
 	s := NewRPCServer(o)
 	o.RPC = s
-	s.Start()
+	s.Start(ctx)
 	p := NewPeer(s.Network(), s.String())
 	p.Connect(config)
 
 	defer func() {
 		p.Close()
-		s.Stop()
+		s.Stop(ctx)
 	}()
 
 	util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) { return o.RPC.Started(), nil })
@@ -92,19 +95,20 @@ func TestGetPeers(t *testing.T) {
 }
 
 func TestBroadcast(t *testing.T) {
+	ctx := context.Background()
 	config := LoadTestConfig("", true)
 	o := &Overlay{Config: config}
 	o.PM = &PeerManager{Overlay: o}
 	o.Gossip = &Gossip{Overlay: o}
 	s := NewRPCServer(o)
 	o.RPC = s
-	s.Start()
+	s.Start(ctx)
 	p := NewPeer(s.Network(), s.String())
 	p.Connect(config)
 
 	defer func() {
 		p.Close()
-		s.Stop()
+		s.Stop(ctx)
 	}()
 
 	util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) { return o.RPC.Started(), nil })
@@ -119,6 +123,7 @@ func TestBroadcast(t *testing.T) {
 }
 
 func TestRPCTell(t *testing.T) {
+	ctx := context.Background()
 	mctrl := gomock.NewController(t)
 	dp := mock_dispatcher.NewMockDispatcher(mctrl)
 	dp.EXPECT().HandleTell(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
@@ -127,13 +132,13 @@ func TestRPCTell(t *testing.T) {
 	o := &Overlay{Dispatcher: dp, Config: config}
 	s := NewRPCServer(o)
 	o.RPC = s
-	s.Start()
+	s.Start(ctx)
 	p := NewPeer(s.Network(), s.String())
 	p.Connect(config)
 
 	defer func() {
 		p.Close()
-		s.Stop()
+		s.Stop(ctx)
 		mctrl.Finish()
 	}()
 
@@ -151,6 +156,7 @@ func TestRPCTell(t *testing.T) {
 }
 
 func TestRateLimit(t *testing.T) {
+	ctx := context.Background()
 	mctrl := gomock.NewController(t)
 	dp := mock_dispatcher.NewMockDispatcher(mctrl)
 	dp.EXPECT().HandleTell(gomock.Any(), gomock.Any(), gomock.Any()).Times(5)
@@ -162,13 +168,13 @@ func TestRateLimit(t *testing.T) {
 	o := &Overlay{Dispatcher: dp, Config: config}
 	s := NewRPCServer(o)
 	o.RPC = s
-	s.Start()
+	s.Start(ctx)
 	p := NewPeer(s.Network(), s.String())
 	p.Connect(config)
 
 	defer func() {
 		p.Close()
-		s.Stop()
+		s.Stop(ctx)
 		mctrl.Finish()
 	}()
 
@@ -196,6 +202,7 @@ func TestRateLimit(t *testing.T) {
 }
 
 func TestSecureRpcPingPong(t *testing.T) {
+	ctx := context.Background()
 	config := LoadTestConfig("", true)
 	config.TLSEnabled = true
 	config.CACrtPath = "../test/assets/ssl/iotex.io.crt"
@@ -205,13 +212,13 @@ func TestSecureRpcPingPong(t *testing.T) {
 	o.PM = &PeerManager{Overlay: o, NumPeersLowerBound: 1, NumPeersUpperBound: 1}
 	s := NewRPCServer(o)
 	o.RPC = s
-	s.Start()
+	s.Start(ctx)
 	p := NewPeer(s.Network(), s.String())
 	p.Connect(config)
 
 	defer func() {
 		p.Close()
-		s.Stop()
+		s.Stop(ctx)
 	}()
 
 	util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) { return o.RPC.Started(), nil })
@@ -228,6 +235,7 @@ func TestSecureRpcPingPong(t *testing.T) {
 
 func TestKeepaliveParams(t *testing.T) {
 	// This only verifies the config doesn't break connections
+	ctx := context.Background()
 	config := LoadTestConfig("", true)
 	config.KLClientParams.Time = 50 * time.Millisecond
 	config.KLClientParams.Timeout = 20 * time.Millisecond
@@ -238,13 +246,13 @@ func TestKeepaliveParams(t *testing.T) {
 	o.PM = &PeerManager{Overlay: o, NumPeersLowerBound: 1, NumPeersUpperBound: 1}
 	s := NewRPCServer(o)
 	o.RPC = s
-	s.Start()
+	s.Start(ctx)
 	p := NewPeer(s.Network(), s.String())
 	p.Connect(config)
 
 	defer func() {
 		p.Close()
-		s.Stop()
+		s.Stop(ctx)
 	}()
 
 	util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) { return o.RPC.Started(), nil })

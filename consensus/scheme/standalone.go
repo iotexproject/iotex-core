@@ -7,6 +7,7 @@
 package scheme
 
 import (
+	"context"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -57,20 +58,16 @@ func NewStandalone(create CreateBlockCB, commit ConsensusDoneCB, pub BroadcastCB
 }
 
 // Start starts the service for a standalone
-func (n *Standalone) Start() error {
-	n.task.Init()
-	n.task.Start()
-
-	return nil
+func (n *Standalone) Start(ctx context.Context) error {
+	return n.task.Start(ctx)
 }
 
 // SetDoneStream does nothing in Standalone (only used in simulator)
 func (n *Standalone) SetDoneStream(done chan bool) {}
 
 // Stop stops the service for a standalone
-func (n *Standalone) Stop() error {
-	n.task.Stop()
-	return nil
+func (n *Standalone) Stop(ctx context.Context) error {
+	return n.task.Stop(ctx)
 }
 
 // Handle handles incoming requests

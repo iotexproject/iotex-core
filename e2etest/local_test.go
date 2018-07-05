@@ -7,6 +7,7 @@
 package e2etest
 
 import (
+	"context"
 	"math/big"
 	"sort"
 	"testing"
@@ -58,12 +59,12 @@ func TestLocalCommit(t *testing.T) {
 	blockchain.Gen.BlockReward = uint64(0)
 
 	// create node
+	ctx := context.Background()
 	svr := itx.NewServer(*cfg)
-	err = svr.Init()
 	require.Nil(err)
-	err = svr.Start()
+	err = svr.Start(ctx)
 	require.Nil(err)
-	defer svr.Stop()
+	defer svr.Stop(ctx)
 
 	bc := svr.Bc()
 	require.NotNil(bc)
@@ -79,9 +80,8 @@ func TestLocalCommit(t *testing.T) {
 	p1 := network.NewOverlay(&cfg.Network)
 	require.NotNil(p1)
 	p1.RPC.Addr = "127.0.0.1:10001"
-	p1.Init()
-	p1.Start()
-	defer p1.Stop()
+	p1.Start(ctx)
+	defer p1.Stop(ctx)
 
 	// check balance
 	s, err := bc.StateByAddr(ta.Addrinfo["alfa"].RawAddress)
@@ -306,12 +306,12 @@ func TestLocalSync(t *testing.T) {
 	cfg.Consensus.Scheme = config.NOOPScheme
 
 	// create node 1
+	ctx := context.Background()
 	svr := itx.NewServer(*cfg)
-	err = svr.Init()
 	assert.Nil(err)
-	err = svr.Start()
+	err = svr.Start(ctx)
 	assert.Nil(err)
-	defer svr.Stop()
+	defer svr.Stop(ctx)
 
 	bc := svr.Bc()
 	assert.NotNil(bc)
@@ -346,9 +346,8 @@ func TestLocalSync(t *testing.T) {
 	cfg.NodeType = config.FullNodeType
 	cfg.Network.Addr = "127.0.0.1:10001"
 	cli := itx.NewServer(*cfg)
-	cli.Init()
-	cli.Start()
-	defer cli.Stop()
+	cli.Start(ctx)
+	defer cli.Stop(ctx)
 
 	bc1 := cli.Bc()
 	assert.NotNil(bc1)
@@ -417,12 +416,12 @@ func TestVoteLocalCommit(t *testing.T) {
 	blockchain.Gen.BlockReward = uint64(0)
 
 	// create node
+	ctx := context.Background()
 	svr := itx.NewServer(*cfg)
-	err = svr.Init()
 	require.Nil(err)
-	err = svr.Start()
+	err = svr.Start(ctx)
 	require.Nil(err)
-	defer svr.Stop()
+	defer svr.Stop(ctx)
 
 	bc := svr.Bc()
 	require.NotNil(bc)
@@ -438,9 +437,8 @@ func TestVoteLocalCommit(t *testing.T) {
 	p1 := network.NewOverlay(&cfg.Network)
 	require.NotNil(p1)
 	p1.RPC.Addr = "127.0.0.1:10001"
-	p1.Init()
-	p1.Start()
-	defer p1.Stop()
+	p1.Start(ctx)
+	defer p1.Stop(ctx)
 
 	height, err := bc.TipHeight()
 	require.Nil(err)

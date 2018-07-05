@@ -7,6 +7,7 @@
 package consensus
 
 import (
+	"context"
 	"encoding/hex"
 	"math/big"
 
@@ -20,6 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
 	"github.com/iotexproject/iotex-core/delegate"
 	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/proto"
 	pb "github.com/iotexproject/iotex-core/proto"
 	pbsim "github.com/iotexproject/iotex-core/simulator/proto/simulator"
@@ -33,8 +35,8 @@ const (
 
 // Sim is the interface for handling IotxConsensus view change used in the simulator
 type Sim interface {
-	Start() error
-	Stop() error
+	lifecycle.StartStopper
+
 	HandleViewChange(proto.Message, chan bool) error
 	HandleBlockPropose(proto.Message, chan bool) error
 	SetStream(*pbsim.Simulator_PingServer)
@@ -266,21 +268,21 @@ func (c *sim) SetStream(stream *pbsim.Simulator_PingServer) {
 	c.stream = *stream
 }
 
-func (c *sim) Start() error {
+func (c *sim) Start(ctx context.Context) error {
 	logger.Info().
 		Str("scheme", c.cfg.Scheme).
 		Msg("Starting IotxConsensus scheme")
 
-	c.scheme.Start()
+	c.scheme.Start(ctx)
 	return nil
 }
 
-func (c *sim) Stop() error {
+func (c *sim) Stop(ctx context.Context) error {
 	logger.Info().
 		Str("scheme", c.cfg.Scheme).
 		Msg("Stopping IotxConsensus scheme")
 
-	c.scheme.Stop()
+	c.scheme.Stop(ctx)
 	return nil
 }
 

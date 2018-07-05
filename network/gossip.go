@@ -7,39 +7,45 @@
 package network
 
 import (
+	"context"
 	"encoding/hex"
 	"sync"
 	"time"
 
 	"golang.org/x/crypto/blake2b"
 
-	"github.com/iotexproject/iotex-core/common/service"
 	"github.com/iotexproject/iotex-core/dispatch/dispatcher"
 	"github.com/iotexproject/iotex-core/logger"
 	pb "github.com/iotexproject/iotex-core/network/proto"
+	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/routine"
 	pb1 "github.com/iotexproject/iotex-core/proto"
 )
 
 // Gossip relays messages in the overlay (at least once semantics)
 type Gossip struct {
-	service.CompositeService
 	Overlay     *Overlay
 	Dispatcher  dispatcher.Dispatcher
 	MsgLogs     sync.Map
 	CleanerTask *routine.RecurringTask
+
+	lifecycle lifecycle.Lifecycle
 }
 
 // NewGossip generates a Gossip instance
 func NewGossip(o *Overlay) *Gossip {
 	g := &Gossip{Overlay: o}
 	cleaner := NewMsgLogsCleaner(g)
-	cleanerTask :=
-		routine.NewRecurringTask(cleaner, o.Config.MsgLogsCleaningInterval)
-	g.CleanerTask = cleanerTask
-	g.AddService(cleanerTask)
+	g.CleanerTask = routine.NewRecurringTask(cleaner, o.Config.MsgLogsCleaningInterval)
+	g.lifecycle.Add(g.CleanerTask)
 	return g
 }
+
+// Start starts Gossip.
+func (g *Gossip) Start(ctx context.Context) error { return g.lifecycle.OnStart(ctx) }
+
+// Stop stops Gossip.
+func (g *Gossip) Stop(ctx context.Context) error { return g.lifecycle.OnStop(ctx) }
 
 // AttachDispatcher attaches to a Dispatcher instance
 func (g *Gossip) AttachDispatcher(dispatcher dispatcher.Dispatcher) {

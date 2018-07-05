@@ -7,26 +7,27 @@
 package blockchain
 
 import (
+	"context"
 	"math/big"
 	"sync"
 
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/blockchain/action"
-	"github.com/iotexproject/iotex-core/common/service"
 	"github.com/iotexproject/iotex-core/config"
 	cp "github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/state"
 )
 
 // Blockchain represents the blockchain data structure and hosts the APIs to access it
 type Blockchain interface {
-	service.Service
+	lifecycle.StartStopper
 
 	// Balance returns balance of an account
 	Balance(addr string) (*big.Int, error)
@@ -95,7 +96,6 @@ type Blockchain interface {
 
 // blockchain implements the Blockchain interface
 type blockchain struct {
-	service.CompositeService
 	mu        sync.RWMutex // mutex to protect utk, tipHeight and tipHash
 	dao       *blockDAO
 	config    *config.Config
@@ -104,6 +104,7 @@ type blockchain struct {
 	tipHeight uint64
 	tipHash   hash.Hash32B
 	validator Validator
+	lifecycle lifecycle.Lifecycle
 
 	// used by account-based model
 	sf state.Factory
@@ -193,11 +194,7 @@ func NewBlockchain(cfg *config.Config, opts ...Option) Blockchain {
 		logger.Error().Err(err).Msg("Failed to initialize state.Factory")
 		return nil
 	}
-	if err := chain.Init(); err != nil {
-		logger.Error().Err(err).Msg("Failed to initialize blockchain")
-		return nil
-	}
-	if err := chain.Start(); err != nil {
+	if err := chain.Start(context.Background()); err != nil {
 		logger.Error().Err(err).Msg("Failed to start blockchain")
 		return nil
 	}
@@ -230,13 +227,9 @@ func NewBlockchain(cfg *config.Config, opts ...Option) Blockchain {
 	return chain
 }
 
-func (bc *blockchain) addDaoService() {
-	bc.AddService(bc.dao)
-}
+func (bc *blockchain) addDaoService() { bc.lifecycle.Add(bc.dao) }
 
-func (bc *blockchain) initValidator() {
-	bc.validator = &validator{sf: bc.sf}
-}
+func (bc *blockchain) initValidator() { bc.validator = &validator{sf: bc.sf} }
 
 func (bc *blockchain) initStateFactory() error {
 	sf := bc.sf
@@ -252,8 +245,8 @@ func (bc *blockchain) initStateFactory() error {
 }
 
 // Start starts the blockchain
-func (bc *blockchain) Start() (err error) {
-	if err = bc.CompositeService.Start(); err != nil {
+func (bc *blockchain) Start(ctx context.Context) (err error) {
+	if err = bc.lifecycle.OnStart(ctx); err != nil {
 		return err
 	}
 
@@ -287,6 +280,9 @@ func (bc *blockchain) Start() (err error) {
 	}
 	return nil
 }
+
+// Stop stops the blockchain.
+func (bc *blockchain) Stop(ctx context.Context) error { return bc.lifecycle.OnStop(ctx) }
 
 // Balance returns balance of address
 func (bc *blockchain) Balance(addr string) (*big.Int, error) {

@@ -7,6 +7,8 @@
 package scheme
 
 import (
+	"context"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
@@ -24,14 +26,10 @@ func NewNoop() Scheme {
 }
 
 // Start does nothing here
-func (n *Noop) Start() error {
-	return nil
-}
+func (n *Noop) Start(_ context.Context) error { return nil }
 
 // Stop does nothing here
-func (n *Noop) Stop() error {
-	return nil
-}
+func (n *Noop) Stop(_ context.Context) error { return nil }
 
 // SetDoneStream does nothing for Noop (only used in simulator)
 func (n *Noop) SetDoneStream(done chan bool) {}

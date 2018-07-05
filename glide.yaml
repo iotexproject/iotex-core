@@ -34,3 +34,6 @@ import:
   version: ^1.6.0
   subpackages:
   - log
+- package: golang.org/x/sync
+  subpackages:
+  - errgroup

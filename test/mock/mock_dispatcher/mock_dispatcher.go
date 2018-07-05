@@ -5,6 +5,7 @@
 package mock_dispatcher
 
 import (
+	context "context"
 	gomock "github.com/golang/mock/gomock"
 	proto "github.com/golang/protobuf/proto"
 	net "net"
@@ -35,27 +36,27 @@ func (m *MockDispatcher) EXPECT() *MockDispatcherMockRecorder {
 }
 
 // Start mocks base method
-func (m *MockDispatcher) Start() error {
-	ret := m.ctrl.Call(m, "Start")
+func (m *MockDispatcher) Start(arg0 context.Context) error {
+	ret := m.ctrl.Call(m, "Start", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Start indicates an expected call of Start
-func (mr *MockDispatcherMockRecorder) Start() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockDispatcher)(nil).Start))
+func (mr *MockDispatcherMockRecorder) Start(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockDispatcher)(nil).Start), arg0)
 }
 
 // Stop mocks base method
-func (m *MockDispatcher) Stop() error {
-	ret := m.ctrl.Call(m, "Stop")
+func (m *MockDispatcher) Stop(arg0 context.Context) error {
+	ret := m.ctrl.Call(m, "Stop", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Stop indicates an expected call of Stop
-func (mr *MockDispatcherMockRecorder) Stop() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockDispatcher)(nil).Stop))
+func (mr *MockDispatcherMockRecorder) Stop(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockDispatcher)(nil).Stop), arg0)
 }
 
 // HandleBroadcast mocks base method

@@ -7,6 +7,7 @@
 package blocksync
 
 import (
+	"context"
 	"net"
 	"testing"
 	"time"
@@ -144,9 +145,10 @@ func TestBlockSyncer_Start(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	ctx := context.Background()
 	mBs := mock_blocksync.NewMockBlockSync(ctrl)
-	mBs.EXPECT().Start().Times(1)
-	assert.Nil(mBs.Start())
+	mBs.EXPECT().Start(gomock.Any()).Times(1)
+	assert.Nil(mBs.Start(ctx))
 }
 
 func TestBlockSyncer_Stop(t *testing.T) {
@@ -155,9 +157,10 @@ func TestBlockSyncer_Stop(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	ctx := context.Background()
 	mBs := mock_blocksync.NewMockBlockSync(ctrl)
-	mBs.EXPECT().Stop().Times(1)
-	assert.Nil(mBs.Stop())
+	mBs.EXPECT().Stop(gomock.Any()).Times(1)
+	assert.Nil(mBs.Stop(ctx))
 }
 
 func TestBlockSyncer_ProcessSyncRequest(t *testing.T) {

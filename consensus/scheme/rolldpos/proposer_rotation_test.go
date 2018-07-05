@@ -7,6 +7,7 @@
 package rolldpos
 
 import (
+	"context"
 	"net"
 	"testing"
 	"time"
@@ -26,6 +27,7 @@ func TestProposerRotation(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	ctx := context.Background()
 	// arrange 2 consensus nodes
 	delegates := []net.Addr{
 		node.NewTCPNode("192.168.0.1:10000"),
@@ -43,8 +45,8 @@ func TestProposerRotation(t *testing.T) {
 	}
 	cs := createTestRollDPoS(
 		ctrl, delegates[0], delegates, m, FixedProposer, 10*time.Millisecond, NeverStartNewEpoch, nil)
-	cs.Start()
-	defer cs.Stop()
+	cs.Start(ctx)
+	defer cs.Stop(ctx)
 	cs.enqueueEvent(&fsm.Event{State: stateDKGGenerate})
 
 	waitFor(

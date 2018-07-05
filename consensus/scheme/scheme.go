@@ -14,6 +14,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/delegate"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 )
 
 // CreateBlockCB defines the callback to create a new block
@@ -39,8 +40,8 @@ type StartNextEpochCB func(net.Addr, uint64, delegate.Pool) (bool, error)
 
 // Scheme is the interface that consensus schemes should implement
 type Scheme interface {
-	Start() error
-	Stop() error
+	lifecycle.StartStopper
+
 	Handle(msg proto.Message) error
 	SetDoneStream(chan bool)
 	Metrics() (ConsensusMetrics, error)

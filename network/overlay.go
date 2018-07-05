@@ -7,35 +7,35 @@
 package network
 
 import (
+	"context"
 	"net"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core/common/service"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/dispatch/dispatcher"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network/node"
 	pb "github.com/iotexproject/iotex-core/network/proto"
+	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/routine"
 	"github.com/iotexproject/iotex-core/proto"
 )
 
-var (
-	// ErrPeerNotFound means the peer is not found
-	ErrPeerNotFound = errors.New("Peer not found")
-)
+// ErrPeerNotFound means the peer is not found
+var ErrPeerNotFound = errors.New("Peer not found")
 
 // Overlay represents the peer-to-peer network
 type Overlay struct {
-	service.CompositeService
 	PM         *PeerManager
 	RPC        *RPCServer
 	Gossip     *Gossip
 	Tasks      []*routine.RecurringTask
 	Config     *config.Network
 	Dispatcher dispatcher.Dispatcher
+
+	lifecycle lifecycle.Lifecycle
 }
 
 // NewOverlay creates an instance of Overlay
@@ -44,9 +44,7 @@ func NewOverlay(config *config.Network) *Overlay {
 	o.RPC = NewRPCServer(o)
 	o.PM = NewPeerManager(o, config.NumPeersLowerBound, config.NumPeersUpperBound)
 	o.Gossip = NewGossip(o)
-	o.AddService(o.RPC)
-	o.AddService(o.PM)
-	o.AddService(o.Gossip)
+	o.lifecycle.AddModels(o.RPC, o.PM, o.Gossip)
 
 	o.addPingTask()
 	o.addHealthCheckTask()
@@ -58,6 +56,12 @@ func NewOverlay(config *config.Network) *Overlay {
 	return o
 }
 
+// Start starts Overlay and it's sub-models.
+func (o *Overlay) Start(ctx context.Context) error { return o.lifecycle.OnStart(ctx) }
+
+// Stop stops Overlay and it's sub-models.
+func (o *Overlay) Stop(ctx context.Context) error { return o.lifecycle.OnStop(ctx) }
+
 // AttachDispatcher attaches to a Dispatcher instance
 func (o *Overlay) AttachDispatcher(dispatcher dispatcher.Dispatcher) {
 	o.Dispatcher = dispatcher
@@ -67,21 +71,21 @@ func (o *Overlay) AttachDispatcher(dispatcher dispatcher.Dispatcher) {
 func (o *Overlay) addPingTask() {
 	ping := NewPinger(o)
 	pingTask := routine.NewRecurringTask(ping, o.Config.PingInterval)
-	o.AddService(pingTask)
+	o.lifecycle.Add(pingTask)
 	o.Tasks = append(o.Tasks, pingTask)
 }
 
 func (o *Overlay) addHealthCheckTask() {
 	hc := NewHealthChecker(o)
 	hcTask := routine.NewRecurringTask(hc, o.Config.HealthCheckInterval)
-	o.AddService(hcTask)
+	o.lifecycle.Add(hcTask)
 	o.Tasks = append(o.Tasks, hcTask)
 }
 
 func (o *Overlay) addPeerMaintainer() {
 	pm := NewPeerMaintainer(o)
 	pmTask := routine.NewRecurringTask(pm, o.Config.PeerMaintainerInterval)
-	o.AddService(pmTask)
+	o.lifecycle.Add(pmTask)
 	o.Tasks = append(o.Tasks, pmTask)
 }
 
@@ -92,7 +96,7 @@ func (o *Overlay) addConfigBasedPeerMaintainer() {
 	}
 	cbpm := NewConfigBasedPeerMaintainer(o, topology)
 	cbpmTask := routine.NewRecurringTask(cbpm, o.Config.PeerMaintainerInterval)
-	o.AddService(cbpmTask)
+	o.lifecycle.Add(cbpmTask)
 	o.Tasks = append(o.Tasks, cbpmTask)
 }
 

@@ -7,6 +7,7 @@
 package fsm
 
 import (
+	"context"
 	"net"
 	"sync"
 	"time"
@@ -329,12 +330,12 @@ func (m *Machine) tryStartTimeout(state State) {
 		},
 		*handler.TimeoutDuration(),
 	)
-	m.toTask.Start()
+	m.toTask.Start(context.Background())
 }
 
 func (m *Machine) tryStopTimeout() {
 	if m.toTask != nil {
-		m.toTask.Stop()
+		m.toTask.Stop(context.Background())
 		m.toTask = nil
 	}
 }
