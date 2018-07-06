@@ -23,6 +23,7 @@ func TestBech32(t *testing.T) {
 		{"abcdef1qpzry9x8gf2tvdw0s3jn54khce6mua7lmqqqxw", true},
 		{"11qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqc8247j", true},
 		{"split1checkupstagehandshakeupstreamerranterredcaperred2y9e3w", true},
+		{"Split1checkupstagehandshakeupstreamerranterredcaperred2y9e3w", false},                   // mix of lower upper
 		{"split1checkupstagehandshakeupstreamerranterredcaperred2y9e2w", false},                   // invalid checksum
 		{"s lit1checkupstagehandshakeupstreamerranterredcaperredp8hs2p", false},                   // invalid character (space) in hrp
 		{"spl" + string(127) + "t1checkupstagehandshakeupstreamerranterredcaperred2y9e3w", false}, // invalid character (DEL) in hrp

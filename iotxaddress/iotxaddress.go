@@ -68,10 +68,6 @@ func NewAddress(isTestnet bool, chainid []byte) (*Address, error) {
 
 // GetAddress returns the address given a public key and necessary params.
 func GetAddress(pub []byte, isTestnet bool, chainid []byte) (*Address, error) {
-	if !isValidChainID(chainid) {
-		return nil, ErrInvalidChainID
-	}
-
 	hrp := mainnetPrefix
 	if isTestnet {
 		hrp = testnetPrefix
@@ -96,23 +92,18 @@ func GetPubkeyHash(address string) []byte {
 	if err != nil {
 		return nil
 	}
+	if !isValidHrp(hrp) {
+		return nil
+	}
 
 	// Exclude the separator, version and chainID
 	payload, err := bech32.ConvertBits(grouped[:], 5, 8, false)
 	if err != nil {
 		return nil
 	}
-
-	if hrp != mainnetPrefix && hrp != testnetPrefix {
-		return nil
-	}
 	if !isValidVersion(payload[0]) {
 		return nil
 	}
-	if !isValidChainID(payload[1:5]) {
-		return nil
-	}
-
 	return payload[5:25]
 }
 
@@ -122,20 +113,16 @@ func ValidateAddress(address string) bool {
 	if err != nil {
 		return false
 	}
+	if !isValidHrp(hrp) {
+		return false
+	}
 
 	// Exclude the separator, version and chainID
 	payload, err := bech32.ConvertBits(grouped[:], 5, 8, false)
 	if err != nil {
 		return false
 	}
-
-	if hrp != mainnetPrefix && hrp != testnetPrefix {
-		return false
-	}
 	if !isValidVersion(payload[0]) {
-		return false
-	}
-	if !isValidChainID(payload[1:5]) {
 		return false
 	}
 	return true
@@ -148,10 +135,10 @@ func HashPubKey(pubKey []byte) []byte {
 	return digest[7:27]
 }
 
-func isValidVersion(version byte) bool {
-	return version >= 0x01
+func isValidHrp(hrp string) bool {
+	return hrp == mainnetPrefix || hrp == testnetPrefix
 }
 
-func isValidChainID(chainid []byte) bool {
-	return len(chainid) == 4
+func isValidVersion(version byte) bool {
+	return version >= 0x01
 }
