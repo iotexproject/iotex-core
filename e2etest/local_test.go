@@ -479,9 +479,18 @@ func TestVoteLocalCommit(t *testing.T) {
 	hash1 := blk1.HashBlock()
 	require.Nil(err)
 
+	p1.Broadcast(blk1.ConvertToBlockPb())
+	err = util.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+		height, err := bc.TipHeight()
+		if err != nil {
+			return false, err
+		}
+		return int(height) == 5, nil
+	})
+
 	// Add block 2
-	// Vote A -> D, C -> A
-	vote4, err := newSignedVote(2, ta.Addrinfo["alfa"], ta.Addrinfo["delta"])
+	// Vote A -> B, C -> A
+	vote4, err := newSignedVote(2, ta.Addrinfo["alfa"], ta.Addrinfo["bravo"])
 	require.Nil(err)
 	vote5, err := newSignedVote(3, ta.Addrinfo["charlie"], ta.Addrinfo["alfa"])
 	require.Nil(err)
@@ -499,11 +508,10 @@ func TestVoteLocalCommit(t *testing.T) {
 			return false, err
 		}
 		_, votes := ap.PickActs()
-		return len(votes) == 5, nil
+		return len(votes) == 2, nil
 	})
 	require.Nil(err)
 
-	p1.Broadcast(blk1.ConvertToBlockPb())
 	p1.Broadcast(blk2.ConvertToBlockPb())
 
 	err = util.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
@@ -572,13 +580,13 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.Equal(2, len(candidates))
 
 	sort.Sort(sort.StringSlice(candidatesAddr))
-	require.Equal(ta.Addrinfo["alfa"].RawAddress, candidatesAddr[0])
+	require.Equal(ta.Addrinfo["bravo"].RawAddress, candidatesAddr[0])
 	require.Equal(ta.Addrinfo["delta"].RawAddress, candidatesAddr[1])
 
 	// Add block 4
-	// Unvote A
-	vote7 := action.NewVote(uint64(3), ta.Addrinfo["alfa"].PublicKey, []byte{})
-	vote7, err = vote7.Sign(ta.Addrinfo["alfa"])
+	// Unvote B
+	vote7 := action.NewVote(uint64(3), ta.Addrinfo["bravo"].PublicKey, []byte{})
+	vote7, err = vote7.Sign(ta.Addrinfo["bravo"])
 	require.Nil(err)
 	blk4 := blockchain.NewBlock(0, height+4, hash3, nil, []*action.Vote{vote7})
 	err = blk4.SignBlock(ta.Addrinfo["miner"])
@@ -616,9 +624,8 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.Equal(2, len(candidates))
 
 	sort.Sort(sort.StringSlice(candidatesAddr))
-	require.Equal(ta.Addrinfo["bravo"].RawAddress, candidatesAddr[0])
+	require.Equal(ta.Addrinfo["alfa"].RawAddress, candidatesAddr[0])
 	require.Equal(ta.Addrinfo["delta"].RawAddress, candidatesAddr[1])
-
 }
 
 func newSignedVote(nonce int, from *iotxaddress.Address, to *iotxaddress.Address) (*action.Vote, error) {

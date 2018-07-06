@@ -39,6 +39,8 @@ var (
 	ErrNonce = errors.New("invalid nonce")
 	// ErrBalance indicates the error of balance
 	ErrBalance = errors.New("invalid balance")
+	// ErrVotee indicates the error of votee
+	ErrVotee = errors.New("votee is not a candidate")
 )
 
 // ActPool is the interface of actpool
@@ -268,7 +270,7 @@ func (ap *actPool) validateVote(vote *action.Vote) error {
 	voter, err := iotxaddress.GetAddress(vote.SelfPubkey, iotxaddress.IsTestnet, iotxaddress.ChainID)
 	if err != nil {
 		logger.Error().Err(err).Msg("Error when validating vote")
-		return errors.Wrapf(err, "invalid address")
+		return errors.Wrapf(err, "invalid voter address")
 	}
 	// Verify vote using voter's public key
 	if err := vote.Verify(voter); err != nil {
@@ -282,6 +284,30 @@ func (ap *actPool) validateVote(vote *action.Vote) error {
 		logger.Error().Err(err).Msg("Error when validating vote")
 		return errors.Wrapf(err, "invalid nonce value")
 	}
+	if len(vote.VotePubkey) > 0 {
+		// Reject vote if votee is not a candidate
+		votee, err := iotxaddress.GetAddress(vote.VotePubkey, iotxaddress.IsTestnet, iotxaddress.ChainID)
+		if err != nil {
+			logger.Error().
+				Err(err).Hex("voter", vote.SelfPubkey[:]).Hex("votee", vote.VotePubkey).
+				Msg("Error when validating vote")
+			return errors.Wrapf(err, "invalid votee public key: %x", vote.VotePubkey)
+		}
+		voteeState, err := ap.bc.StateByAddr(votee.RawAddress)
+		if err != nil {
+			logger.Error().Err(err).
+				Hex("voter", vote.SelfPubkey[:]).Hex("votee", vote.VotePubkey).
+				Msg("Error when validating vote")
+			return errors.Wrapf(err, "cannot find votee's state: %x", vote.VotePubkey)
+		}
+		if voter.RawAddress != votee.RawAddress && !voteeState.IsCandidate {
+			logger.Error().Err(ErrVotee).
+				Hex("voter", vote.SelfPubkey[:]).Hex("votee", vote.VotePubkey).
+				Msg("Error when validating vote")
+			return errors.Wrapf(ErrVotee, "votee has not self-nominated: %s", votee.RawAddress)
+		}
+	}
+
 	pendingNonce := confirmedNonce + 1
 	if pendingNonce > vote.Nonce {
 		logger.Error().Msg("Error when validating vote")

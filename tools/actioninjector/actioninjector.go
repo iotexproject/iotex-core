@@ -55,7 +55,7 @@ func main() {
 	var aps int
 	// duration indicates how long the injection will run in seconds. Default is 60
 	var duration int
-	flag.StringVar(&configPath, "config-path", "./tools/actioninjector/gentsfaddrs.yaml", "path of config file of genesis transfer addresses")
+	flag.StringVar(&configPath, "injector-config-path", "./tools/actioninjector/gentsfaddrs.yaml", "path of config file of genesis transfer addresses")
 	flag.StringVar(&addr, "addr", "127.0.0.1:14004", "target ip:port for jrpc connection")
 	flag.IntVar(&transferNum, "transfer-num", 50, "number of transfer injections")
 	flag.IntVar(&voteNum, "vote-num", 50, "number of vote injections")
@@ -86,6 +86,7 @@ func main() {
 
 	// Initiate the map of nonce counter
 	counter := make(map[string]uint64)
+	candidates := make(map[string]bool)
 	for _, addr := range addrs {
 		addrDetails, err := proxy.GetAddressDetails(addr.RawAddress)
 		if err != nil {
@@ -93,6 +94,9 @@ func main() {
 		}
 		nonce := uint64(addrDetails.Nonce + 1)
 		counter[addr.RawAddress] = nonce
+		if addrDetails.IsCandidate {
+			candidates[addr.RawAddress] = true
+		}
 	}
 
 	rand.Seed(time.Now().UnixNano())
@@ -101,10 +105,10 @@ func main() {
 	if aps > 0 {
 		d := time.Duration(duration) * time.Second
 		wg := &sync.WaitGroup{}
-		injectByAps(wg, aps, counter, proxy, addrs, d)
+		injectByAps(wg, aps, counter, proxy, addrs, d, candidates)
 		wg.Wait()
 	} else {
-		injectByInterval(transferNum, voteNum, interval, counter, proxy, addrs)
+		injectByInterval(transferNum, voteNum, interval, counter, proxy, addrs, candidates)
 	}
 }
 
@@ -116,6 +120,7 @@ func injectByAps(
 	client exp.Explorer,
 	addrs []*iotxaddress.Address,
 	duration time.Duration,
+	candidates map[string]bool,
 ) {
 	timeout := time.After(duration)
 	tick := time.Tick(time.Duration(1/float64(aps)*1000) * time.Millisecond)
@@ -126,10 +131,12 @@ loop:
 			break loop
 		case <-tick:
 			wg.Add(1)
-			sender, recipient, nonce := createInjection(counter, addrs)
-			if nonce%2 == 1 {
+			rand := rand.Intn(2)
+			if rand%2 == 1 {
+				sender, recipient, nonce := createTransferInjection(counter, addrs)
 				go injectTransfer(wg, client, sender, recipient, nonce)
 			} else {
+				sender, recipient, nonce := createVoteInjection(counter, addrs, candidates)
 				go injectVote(wg, client, sender, recipient, nonce)
 			}
 		}
@@ -137,13 +144,13 @@ loop:
 }
 
 // Inject Actions in Interval Mode
-func injectByInterval(transferNum int, voteNum int, interval int, counter map[string]uint64, client exp.Explorer, addrs []*iotxaddress.Address) {
+func injectByInterval(transferNum int, voteNum int, interval int, counter map[string]uint64, client exp.Explorer, addrs []*iotxaddress.Address, candidates map[string]bool) {
 	for transferNum > 0 && voteNum > 0 {
-		sender, recipient, nonce := createInjection(counter, addrs)
+		sender, recipient, nonce := createTransferInjection(counter, addrs)
 		injectTransfer(nil, client, sender, recipient, nonce)
 		time.Sleep(time.Second * time.Duration(interval))
 
-		sender, recipient, nonce = createInjection(counter, addrs)
+		sender, recipient, nonce = createVoteInjection(counter, addrs, candidates)
 		injectVote(nil, client, sender, recipient, nonce)
 		time.Sleep(time.Second * time.Duration(interval))
 		transferNum--
@@ -152,14 +159,14 @@ func injectByInterval(transferNum int, voteNum int, interval int, counter map[st
 	switch {
 	case transferNum > 0:
 		for transferNum > 0 {
-			sender, recipient, nonce := createInjection(counter, addrs)
+			sender, recipient, nonce := createTransferInjection(counter, addrs)
 			injectTransfer(nil, client, sender, recipient, nonce)
 			time.Sleep(time.Second * time.Duration(interval))
 			transferNum--
 		}
 	case voteNum > 0:
 		for voteNum > 0 {
-			sender, recipient, nonce := createInjection(counter, addrs)
+			sender, recipient, nonce := createVoteInjection(counter, addrs, candidates)
 			injectVote(nil, client, sender, recipient, nonce)
 			time.Sleep(time.Second * time.Duration(interval))
 			voteNum--
@@ -275,10 +282,30 @@ func injectVote(wg *sync.WaitGroup, c exp.Explorer, sender *iotxaddress.Address,
 	}
 }
 
-// Helper function to get the nonce of next injected action
-func createInjection(counter map[string]uint64, addrs []*iotxaddress.Address) (*iotxaddress.Address, *iotxaddress.Address, uint64) {
+// Helper function to get the nonce of next injected transfer
+func createTransferInjection(counter map[string]uint64, addrs []*iotxaddress.Address) (*iotxaddress.Address, *iotxaddress.Address, uint64) {
 	sender := addrs[rand.Intn(len(addrs))]
 	recipient := addrs[rand.Intn(len(addrs))]
+	nonce := counter[sender.RawAddress]
+	counter[sender.RawAddress]++
+	return sender, recipient, nonce
+}
+
+// Helper function to get the nonce of next injected vote
+func createVoteInjection(counter map[string]uint64, addrs []*iotxaddress.Address, candidates map[string]bool) (*iotxaddress.Address, *iotxaddress.Address, uint64) {
+	sender := addrs[rand.Intn(len(addrs))]
+	nextCandidates := []*iotxaddress.Address{}
+	for _, address := range addrs {
+		if address.RawAddress == sender.RawAddress {
+			nextCandidates = append(nextCandidates, address)
+			continue
+		}
+		if _, ok := candidates[address.RawAddress]; ok {
+			nextCandidates = append(nextCandidates, address)
+		}
+	}
+	recipient := nextCandidates[rand.Intn(len(nextCandidates))]
+	candidates[recipient.RawAddress] = true
 	nonce := counter[sender.RawAddress]
 	counter[sender.RawAddress]++
 	return sender, recipient, nonce
