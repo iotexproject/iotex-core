@@ -13,6 +13,7 @@ import (
 	"math/rand"
 	"net"
 	"os"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -21,12 +22,14 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/net/context"
 	"gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/network/node"
 	"github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/test/util"
 )
 
 func LoadTestConfig(addr string, allowMultiConnsPerIP bool) *config.Network {
@@ -161,9 +164,6 @@ func (d2 *MockDispatcher2) HandleTell(sender net.Addr, message proto.Message, do
 
 func TestTell(t *testing.T) {
 	ctx := context.Background()
-	if testing.Short() {
-		t.Skip("Skipping the overlay test in short mode.")
-	}
 	dp1 := &MockDispatcher2{T: t}
 	p1 := NewOverlay(LoadTestConfig("127.0.0.1:10001", true))
 	p1.AttachDispatcher(dp1)
@@ -173,8 +173,6 @@ func TestTell(t *testing.T) {
 	p2.AttachDispatcher(dp2)
 	p2.Start(ctx)
 
-	time.Sleep(2 * time.Second)
-
 	defer func() {
 		p1.Stop(ctx)
 		p2.Stop(ctx)
@@ -182,20 +180,23 @@ func TestTell(t *testing.T) {
 
 	// P1 tell Tx Msg
 	p1.Tell(&node.Node{Addr: "127.0.0.1:10002"}, &iproto.TxPb{Version: uint32(12345678)})
-	time.Sleep(time.Second)
-	assert.Equal(t, uint32(1), dp2.Count)
-
 	// P2 tell Tx Msg
 	p2.Tell(&node.Node{Addr: "127.0.0.1:10001"}, &iproto.TxPb{Version: uint32(87654321)})
-	time.Sleep(time.Second)
-	assert.Equal(t, uint32(1), dp1.Count)
+
+	err := util.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+		if dp2.Count != uint32(1) {
+			return false, nil
+		}
+		if dp1.Count != uint32(1) {
+			return false, nil
+		}
+		return true, nil
+	})
+	require.Nil(t, err)
 }
 
 func TestOneConnPerIP(t *testing.T) {
 	ctx := context.Background()
-	if testing.Short() {
-		t.Skip("Skipping the overlay test in short mode.")
-	}
 	dp1 := &MockDispatcher2{T: t}
 	p1 := NewOverlay(LoadTestConfig("127.0.0.1:10001", false))
 	p1.AttachDispatcher(dp1)
@@ -209,24 +210,29 @@ func TestOneConnPerIP(t *testing.T) {
 	p3.AttachDispatcher(dp3)
 	p3.Start(ctx)
 
-	time.Sleep(2 * time.Second)
-
 	defer func() {
 		p1.Stop(ctx)
 		p2.Stop(ctx)
 		p3.Stop(ctx)
 	}()
 
-	assert.Equal(t, uint(1), LenSyncMap(p1.PM.Peers))
-	assert.Equal(t, uint(1), LenSyncMap(p2.PM.Peers))
-	assert.Equal(t, uint(1), LenSyncMap(p3.PM.Peers))
+	err := util.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+		if uint(1) != LenSyncMap(p1.PM.Peers) {
+			return false, nil
+		}
+		if uint(1) != LenSyncMap(p2.PM.Peers) {
+			return false, nil
+		}
+		if uint(1) != LenSyncMap(p3.PM.Peers) {
+			return false, nil
+		}
+		return true, nil
+	})
+	require.Nil(t, err)
 }
 
 func TestConfigBasedTopology(t *testing.T) {
 	ctx := context.Background()
-	if testing.Short() {
-		t.Skip("Skipping the overlay test in short mode.")
-	}
 	topology := config.Topology{
 		NeighborList: map[string][]string{
 			"127.0.0.1:10001": []string{"127.0.0.1:10002", "127.0.0.1:10003", "127.0.0.1:10004"},
@@ -261,18 +267,24 @@ func TestConfigBasedTopology(t *testing.T) {
 		}
 	}()
 
-	time.Sleep(2 * time.Second)
-
-	for _, node := range nodes {
-		assert.Equal(t, uint(3), LenSyncMap(node.PM.Peers))
-		addrs := make([]string, 0)
-		node.PM.Peers.Range(func(key, value interface{}) bool {
-			addrs = append(addrs, key.(string))
-			return true
-		})
-		sort.Strings(addrs)
-		assert.Equal(t, topology.NeighborList[node.RPC.String()], addrs)
-	}
+	err = util.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+		for _, node := range nodes {
+			if uint(3) != LenSyncMap(node.PM.Peers) {
+				return false, nil
+			}
+			addrs := make([]string, 0)
+			node.PM.Peers.Range(func(key, value interface{}) bool {
+				addrs = append(addrs, key.(string))
+				return true
+			})
+			sort.Strings(addrs)
+			if !reflect.DeepEqual(topology.NeighborList[node.RPC.String()], addrs) {
+				return false, nil
+			}
+		}
+		return true, nil
+	})
+	require.Nil(t, err)
 }
 
 type MockDispatcher3 struct {
