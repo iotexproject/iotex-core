@@ -67,7 +67,8 @@ def drive(opts):
     correctHashes = player.Player.correctHashes
     print("correct block hashes: %s"%(str(correctHashes).replace("\n", "\n\t")))
 
-    close() # close server
+    try: consensus_client.Consensus.close()
+    except: pass
 
     # calc stats
     print("\n==CALCULATING STATISTICS==")
@@ -120,9 +121,3 @@ def drive(opts):
     if opts["GRAPH"]: plot.makeAnim(["out%d.png"%i for i in range(opts["N_ROUNDS"])])
     
     os.system("rm -f out*.dot out*.png")
-
-    return sol
-
-def close():
-    try: consensus_client.Consensus.close()
-    except: pass
