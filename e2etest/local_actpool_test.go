@@ -84,17 +84,17 @@ func TestLocalActPool(t *testing.T) {
 
 	// Create three valid actions from "from" to "to"
 	tsf1, _ := signedTransfer(from, to, uint64(1), big.NewInt(1))
-	vote2, _ := signedVote(from, to, uint64(2))
+	vote2, _ := signedVote(from, from, uint64(2))
 	tsf3, _ := signedTransfer(from, to, uint64(3), big.NewInt(3))
 
 	// Create three invalid actions from "from" to "to"
 	// Existed Vote
-	vote4, _ := signedVote(from, to, uint64(2))
+	vote4, _ := signedVote(from, from, uint64(2))
 	// Coinbase Transfer
 	tsf5, _ := signedTransfer(from, to, uint64(5), big.NewInt(5))
 	tsf5.IsCoinbase = true
 	// Unsigned Vote
-	vote6 := action.NewVote(uint64(6), from.PublicKey, to.PublicKey)
+	vote6 := action.NewVote(uint64(6), from.PublicKey, from.PublicKey)
 
 	// Wrap transfers and votes as actions
 	act1 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf1.ConvertToTransferPb()}}

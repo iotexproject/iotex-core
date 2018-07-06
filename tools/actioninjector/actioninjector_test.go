@@ -82,10 +82,10 @@ func TestActioninjector(t *testing.T) {
 	rand.Seed(time.Now().UnixNano())
 
 	// Test injectByAps
-	aps := 8
+	aps := 50
 	d := time.Second
 	wg := &sync.WaitGroup{}
-	injectByAps(wg, aps, counter, client, addrs, d)
+	injectByAps(wg, aps, counter, client, addrs, d, make(map[string]bool))
 	wg.Wait()
 
 	bc := svr.Bc()
@@ -112,7 +112,7 @@ func TestActioninjector(t *testing.T) {
 	transferNum := 2
 	voteNum := 1
 	interval := 1
-	injectByInterval(transferNum, voteNum, interval, counter, client, addrs)
+	injectByInterval(transferNum, voteNum, interval, counter, client, addrs, make(map[string]bool))
 
 	// Wait until committed blocks contain all the injected actions in Interval Mode
 	err = util.WaitUntil(10*time.Millisecond, 3*time.Second, func() (bool, error) {

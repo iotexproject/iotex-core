@@ -73,6 +73,7 @@ struct AddressDetails {
     address string
     totalBalance int
     nonce int
+    isCandidate bool
 }
 
 struct ConsensusMetrics {

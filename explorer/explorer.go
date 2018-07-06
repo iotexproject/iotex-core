@@ -61,6 +61,7 @@ func (exp *Service) GetAddressDetails(address string) (explorer.AddressDetails, 
 		Address:      address,
 		TotalBalance: (*state).Balance.Int64(),
 		Nonce:        int64((*state).Nonce),
+		IsCandidate:  (*state).IsCandidate,
 	}
 
 	return details, nil

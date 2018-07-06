@@ -109,6 +109,7 @@ func TestActPool_validateVote(t *testing.T) {
 	assert.NotNil(sf)
 	assert.Nil(err)
 	sf.CreateState(addr1.RawAddress, uint64(100))
+	sf.CreateState(addr2.RawAddress, uint64(100))
 	bc := createBlockchain(sf)
 	apConfig := config.ActPool{maxNumActPerPool, maxNumActPerAcct}
 	Ap, err := NewActPool(bc, apConfig)
@@ -134,6 +135,10 @@ func TestActPool_validateVote(t *testing.T) {
 	nVote, _ := signedVote(addr1, addr1, uint64(1))
 	err = ap.validateVote(nVote)
 	assert.Equal(ErrNonce, errors.Cause(err))
+	// Case IV: Votee is not a candidate
+	vote2, _ := signedVote(addr1, addr2, uint64(2))
+	err = ap.validateVote(vote2)
+	assert.Equal(ErrVotee, errors.Cause(err))
 }
 
 func TestActPool_AddActs(t *testing.T) {
@@ -207,6 +212,7 @@ func TestActPool_AddActs(t *testing.T) {
 		ap2.allActions[nTsf.Hash()] = nAction
 	}
 	mockBC.EXPECT().Nonce(gomock.Any()).Times(2).Return(uint64(0), nil)
+	mockBC.EXPECT().StateByAddr(gomock.Any()).Times(1).Return(nil, nil)
 	err = ap2.AddTsf(tsf1)
 	assert.Equal(ErrActPool, errors.Cause(err))
 	err = ap2.AddVote(vote4)
@@ -215,8 +221,8 @@ func TestActPool_AddActs(t *testing.T) {
 	replaceTsf, _ := signedTransfer(addr1, addr2, uint64(1), big.NewInt(1))
 	err = ap.AddTsf(replaceTsf)
 	assert.Equal(ErrNonce, errors.Cause(err))
-	replaceVote, _ := signedVote(addr1, addr2, uint64(4))
-	err = ap.AddVote(replaceVote)
+	replaceVote := action.NewVote(4, addr1.PublicKey, []byte{})
+	replaceVote, _ = replaceVote.Sign(addr1)
 	assert.Equal(ErrNonce, errors.Cause(err))
 	// Case IV: Nonce is too large
 	outOfBoundsTsf, _ := signedTransfer(addr1, addr1, uint64(ap.maxNumActPerAcct+1), big.NewInt(1))
@@ -536,10 +542,12 @@ func TestActPool_Reset(t *testing.T) {
 	sf.CreateState(addr5.RawAddress, uint64(20))
 	tsf21, _ := signedTransfer(addr4, addr5, uint64(1), big.NewInt(10))
 	vote22, _ := signedVote(addr4, addr4, uint64(2))
-	vote23, _ := signedVote(addr4, addr5, uint64(3))
-	vote24, _ := signedVote(addr5, addr4, uint64(1))
+	vote23 := action.NewVote(3, addr4.PublicKey, []byte{})
+	vote23, err = vote23.Sign(addr4)
+	vote24, _ := signedVote(addr5, addr5, uint64(1))
 	tsf25, _ := signedTransfer(addr5, addr4, uint64(2), big.NewInt(10))
-	vote26, _ := signedVote(addr5, addr5, uint64(3))
+	vote26 := action.NewVote(3, addr5.PublicKey, []byte{})
+	vote26, err = vote26.Sign(addr5)
 
 	ap1.AddTsf(tsf21)
 	ap1.AddVote(vote22)

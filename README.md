@@ -150,7 +150,7 @@ Open a new terminal window and start running actioninjector.
 You can use command line flags to customize the injector.
 
 ```
--config-path=path_of_config_file_of_genesis_transfer_addresses
+-injector-config-path=path_of_config_file_of_genesis_transfer_addresses
 -addr=target_address_for_jrpc_connection
 -transfer-num=number_of_transfers
 -vote-num=number_of_votes
@@ -160,7 +160,7 @@ You can use command line flags to customize the injector.
 ```
 
 Default flag values:
-* config-path="./tools/actioninjector/gentsfaddrs.yaml"
+* injector-config-path="./tools/actioninjector/gentsfaddrs.yaml"
 * addr="127.0.0.1:14004"
 * transfer-num=50
 * vote-num=50
