@@ -11,52 +11,87 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	cp "github.com/iotexproject/iotex-core/crypto"
+	"github.com/iotexproject/iotex-core/iotxaddress/bech32"
+	"github.com/iotexproject/iotex-core/pkg/version"
 )
 
 // TestNewAddress tests create new asset address.
 func TestNewAddress(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 	addr, err := NewAddress(true, []byte{0x00, 0x00, 0x00, 0x01})
-	assert.Nil(err)
-	assert.NotNil(addr.PrivateKey)
-	assert.NotNil(addr.PublicKey)
-	assert.NotEqual("", addr.RawAddress)
+	require.Nil(err)
+	require.NotNil(addr.PrivateKey)
+	require.NotNil(addr.PublicKey)
+	require.NotEqual("", addr.RawAddress)
 
 	t.Log("Generated address is ", addr.RawAddress)
 	t.Logf("Generated public key = %x", addr.PublicKey)
 	t.Logf("Generated private key = %x", addr.PrivateKey)
 
 	p2pkh := HashPubKey(addr.PublicKey)
-	if assert.Equal(p2pkh, GetPubkeyHash(addr.RawAddress)) {
-		t.Logf("P2PKH = %x", p2pkh)
-	}
+	require.Equal(p2pkh, GetPubkeyHash(addr.RawAddress))
+	t.Logf("P2PKH = %x", p2pkh)
 
 	rmsg := make([]byte, 2048)
 	rand.Read(rmsg)
 
 	sig := cp.Sign(addr.PrivateKey, rmsg)
-	assert.True(cp.Verify(addr.PublicKey, rmsg, sig))
+	require.True(cp.Verify(addr.PublicKey, rmsg, sig))
 }
 
 // TestGetAddress tests get address for a given public key and params.
 func TestGetandValidateAddress(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 	pub, _, err := cp.NewKeyPair()
-	assert.Nil(err)
+	require.Nil(err)
 
 	addr, err := GetAddress(pub, false, []byte{0x00, 0x00, 0x00, 0x01})
-	assert.Nil(err)
+	require.Nil(err)
 	t.Log(addr)
-	assert.True(strings.HasPrefix(addr.RawAddress, mainnetPrefix))
-	assert.True(ValidateAddress(addr.RawAddress))
+	require.True(strings.HasPrefix(addr.RawAddress, mainnetPrefix))
+	require.True(ValidateAddress(addr.RawAddress))
 	addrstr := strings.Replace(addr.RawAddress, "1", "?", -1)
-	assert.False(ValidateAddress(addrstr))
+	require.False(ValidateAddress(addrstr))
 
 	addr, err = GetAddress(pub, true, []byte{0x00, 0x00, 0x00, 0x01})
-	assert.Nil(err)
+	require.Nil(err)
 	t.Log(addr)
-	assert.True(strings.HasPrefix(addr.RawAddress, testnetPrefix))
+	require.True(strings.HasPrefix(addr.RawAddress, testnetPrefix))
+}
+
+const wrongPrefix = "ix"
+
+func TestInvalidAddress(t *testing.T) {
+	require := require.New(t)
+	chainid := []byte{0x00, 0x00, 0x00, 0x01}
+	addr, err := NewAddress(true, chainid)
+
+	pub, pri, err := cp.NewKeyPair()
+	require.NotNil(pub)
+	require.NotNil(pri)
+	require.Nil(err)
+	addr.PrivateKey = pri
+
+	// test invalid prefix
+	payload := append([]byte{version.ProtocolVersion}, append(chainid, HashPubKey(pub)...)...)
+	grouped, err := bech32.ConvertBits(payload, 8, 5, true)
+	require.Nil(err)
+	raddr, err := bech32.Encode(wrongPrefix, grouped)
+	require.NotNil(raddr)
+	require.Nil(err)
+	require.Nil(GetPubkeyHash(raddr))
+	require.Equal(false, ValidateAddress(raddr))
+
+	// test invalid version
+	payload = append([]byte{0}, append(chainid, HashPubKey(pub)...)...)
+	grouped, err = bech32.ConvertBits(payload, 8, 5, true)
+	require.Nil(err)
+	raddr, err = bech32.Encode(mainnetPrefix, grouped)
+	require.NotNil(raddr)
+	require.Nil(err)
+	require.Nil(GetPubkeyHash(raddr))
+	require.Equal(false, ValidateAddress(raddr))
 }
