@@ -174,6 +174,10 @@ func TestExplorerApi(t *testing.T) {
 	require.Nil(err)
 	require.Equal(2, len(transfers))
 
+	// fail
+	_, err = svc.GetTransfersByBlockID("", 0, 10)
+	require.Error(err)
+
 	votes, err = svc.GetVotesByBlockID(blks[1].ID, 0, 0)
 	require.Nil(err)
 	require.Equal(0, len(votes))
@@ -182,11 +186,18 @@ func TestExplorerApi(t *testing.T) {
 	require.Nil(err)
 	require.Equal(1, len(votes))
 
+	_, err = svc.GetVotesByBlockID("", 0, 10)
+	require.Error(err)
+
 	transfer, err := svc.GetTransferByID(transfers[0].ID)
 	require.Nil(err)
 	require.Equal(transfers[0].Sender, transfer.Sender)
 	require.Equal(transfers[0].Recipient, transfer.Recipient)
 	require.Equal(transfers[0].BlockID, transfer.BlockID)
+
+	// error
+	_, err = svc.GetTransferByID("")
+	require.Error(err)
 
 	vote, err := svc.GetVoteByID(votes[0].ID)
 	require.Nil(err)
@@ -197,6 +208,10 @@ func TestExplorerApi(t *testing.T) {
 	require.Equal(votes[0].Votee, vote.Votee)
 	require.Equal(votes[0].Voter, vote.Voter)
 
+	// fail
+	_, err = svc.GetVoteByID("")
+	require.Error(err)
+
 	blk, err := svc.GetBlockByID(blks[0].ID)
 	require.Nil(err)
 	require.Equal(blks[0].Height, blk.Height)
@@ -204,6 +219,9 @@ func TestExplorerApi(t *testing.T) {
 	require.Equal(blks[0].Size, blk.Size)
 	require.Equal(int64(0), blk.Votes)
 	require.Equal(int64(1), blk.Transfers)
+
+	_, err = svc.GetBlockByID("")
+	require.Error(err)
 
 	stats, err := svc.GetCoinStatistic()
 	require.Nil(err)
@@ -213,14 +231,24 @@ func TestExplorerApi(t *testing.T) {
 	require.Equal(int64(24), stats.Votes)
 	require.Equal(int64(12), stats.Aps)
 
+	// success
 	balance, err := svc.GetAddressBalance(ta.Addrinfo["charlie"].RawAddress)
 	require.Nil(err)
 	require.Equal(int64(6), balance)
 
+	// error
+	_, err = svc.GetAddressBalance("")
+	require.Error(err)
+
+	// success
 	addressDetails, err := svc.GetAddressDetails(ta.Addrinfo["charlie"].RawAddress)
 	require.Equal(int64(6), addressDetails.TotalBalance)
 	require.Equal(int64(2), addressDetails.Nonce)
 	require.Equal(ta.Addrinfo["charlie"].RawAddress, addressDetails.Address)
+
+	// error
+	_, err = svc.GetAddressDetails("")
+	require.Error(err)
 
 	tip, err := svc.GetBlockchainHeight()
 	require.Nil(err)
