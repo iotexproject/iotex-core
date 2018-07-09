@@ -46,13 +46,13 @@ func (s *proposerRotation) Handle() {
 	// If proposer is not the current node, then returns
 	if pr.String() != s.self.String() {
 		logger.Info().
-			Str("proposer", s.self.String()).
+			Str("proposer", pr.String()).
 			Uint64("height", height+1).
 			Msg("not the proposer")
 		return
 	}
 	logger.Info().
-		Str("proposer", s.self.String()).
+		Str("proposer", pr.String()).
 		Uint64("height", height+1).
 		Msg("propose new block height")
 
