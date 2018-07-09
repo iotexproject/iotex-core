@@ -48,7 +48,7 @@ func StartJSONServer(
 	idl := barrister.MustParseIdlJson([]byte(explorer.IdlJsonRaw))
 	svr := explorer.NewJSONServer(idl, true, &svc)
 	if isTest {
-		svr = explorer.NewJSONServer(idl, true, &TestExplorer{})
+		svr = explorer.NewJSONServer(idl, true, &MockExplorer{})
 	}
 	svr.AddFilter(LogFilter{})
 	http.Handle("/", &svr)
