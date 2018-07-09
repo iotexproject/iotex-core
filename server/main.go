@@ -26,8 +26,6 @@ import (
 	"github.com/iotexproject/iotex-core/server/itx"
 )
 
-var configFile = flag.String("config", "./config.yaml", "specify configuration file path")
-
 func init() {
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr,
@@ -39,7 +37,7 @@ func init() {
 }
 
 func main() {
-	cfg, err := config.LoadConfigWithPath(*configFile)
+	cfg, err := config.New()
 
 	if err != nil {
 		os.Exit(1)

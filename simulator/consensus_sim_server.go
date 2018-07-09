@@ -73,7 +73,8 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 	}
 
 	for i := 0; i < int(nPlayers); i++ {
-		cfg, err := config.LoadConfigWithPathWithoutValidation(rolldposConfig)
+		config.Path = rolldposConfig
+		cfg, err := config.New()
 		if err != nil {
 			logger.Error().Msg("Error loading config file")
 		}
@@ -90,7 +91,8 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 			logger.Error().Err(err).Msg("failed to create public/private key pair together with the address derived.")
 		}
 
-		cfg.Chain.ProducerAddr = *addr
+		cfg.Chain.ProducerPrivKey = hex.EncodeToString(addr.PrivateKey)
+		cfg.Chain.ProducerPubKey = hex.EncodeToString(addr.PublicKey)
 
 		// set chain database path
 		cfg.Chain.ChainDBPath = "./chain" + strconv.Itoa(i) + ".db"

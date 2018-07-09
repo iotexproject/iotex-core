@@ -12,11 +12,11 @@ import (
 	"golang.org/x/net/context"
 	"gopkg.in/yaml.v2"
 
-	"github.com/iotexproject/iotex-core-internal/config"
-	"github.com/iotexproject/iotex-core-internal/explorer"
-	"github.com/iotexproject/iotex-core-internal/iotxaddress"
-	"github.com/iotexproject/iotex-core-internal/server/itx"
-	"github.com/iotexproject/iotex-core-internal/test/util"
+	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/explorer"
+	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/server/itx"
+	"github.com/iotexproject/iotex-core/test/util"
 )
 
 const (
@@ -32,7 +32,8 @@ func TestActioninjector(t *testing.T) {
 	util.CleanupPath(t, testDBPath)
 	defer util.CleanupPath(t, testDBPath)
 
-	cfg, err := config.LoadConfigWithPath("../../e2etest/config_local_delegate.yaml")
+	config.Path = "../../e2etest/config_local_delegate.yaml"
+	cfg, err := config.New()
 	require.Nil(err)
 
 	ctx := context.Background()

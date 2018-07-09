@@ -242,7 +242,7 @@ func TestConfigBasedTopology(t *testing.T) {
 	addr3 := randomAddress()
 	addr4 := randomAddress()
 	addresses := []string{addr1, addr2, addr3, addr4}
-	topology := config.Topology{
+	topology := Topology{
 		NeighborList: map[string][]string{
 			addr1: []string{addr2, addr3, addr4},
 			addr2: []string{addr1, addr3, addr4},

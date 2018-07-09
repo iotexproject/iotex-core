@@ -58,7 +58,8 @@ func testLocalRollDPoS(prCb string, epochCb string, numBlocks uint64, t *testing
 	ctx := context.Background()
 	flag.Parse()
 
-	cfg, err := config.LoadConfigWithPathWithoutValidation(localRollDPoSConfig)
+	config.Path = localRollDPoSConfig
+	cfg, err := config.New()
 	// disable account-based testing
 	cfg.Chain.TrieDBPath = ""
 	cfg.Consensus.RollDPoS.ProposerCB = prCb

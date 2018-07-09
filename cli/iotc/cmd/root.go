@@ -56,8 +56,8 @@ func getClient() (eidl.Explorer, error) {
 			logger.Error().Msg("please set GOPATH environment variable")
 			gopath = build.Default.GOPATH
 		}
-		configFile := gopath + yamlPath
-		cfg, err := config.LoadConfigWithPath(configFile)
+		config.Path = gopath + yamlPath
+		cfg, err := config.New()
 		if err != nil {
 			logger.Error().Err(err).Msg("cannot access config file")
 			return nil, err
@@ -76,8 +76,8 @@ func getCfg() (*config.Config, error) {
 		logger.Error().Msg("please set GOPATH environment variable")
 		gopath = build.Default.GOPATH
 	}
-	configFile := gopath + yamlPath
-	cfg, err := config.LoadConfigWithPath(configFile)
+	config.Path = gopath + yamlPath
+	cfg, err := config.New()
 	if err != nil {
 		logger.Error().Err(err).Msg("cannot access config file")
 		return nil, err
