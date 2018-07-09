@@ -74,7 +74,11 @@ func NewSim(
 	mintBlockCB := func() (*blockchain.Block, error) {
 		logger.Debug().Msg("mintBlockCB called")
 		// TODO: get list of Transfer and Vote from actpool, instead of nil, nil below
-		blk, err := bc.MintNewBlock(nil, nil, &cfg.Chain.ProducerAddr, "")
+		addr, err := cfg.ProducerAddr()
+		if err != nil {
+			return nil, err
+		}
+		blk, err := bc.MintNewBlock(nil, nil, addr, "")
 		if err != nil {
 			logger.Error().Msg("Failed to mint a block")
 			return nil, err
@@ -171,13 +175,17 @@ func NewSimByzantine(
 		logger.Debug().Msg("mintBlockCB called")
 
 		// create sample transactions
+		addr, err := cfg.ProducerAddr()
+		if err != nil {
+			return nil, err
+		}
 		tsf := []*action.Transfer{
-			action.NewCoinBaseTransfer(big.NewInt(100), cfg.Chain.ProducerAddr.RawAddress),
-			action.NewCoinBaseTransfer(big.NewInt(200), cfg.Chain.ProducerAddr.RawAddress),
-			action.NewCoinBaseTransfer(big.NewInt(300), cfg.Chain.ProducerAddr.RawAddress),
+			action.NewCoinBaseTransfer(big.NewInt(100), addr.RawAddress),
+			action.NewCoinBaseTransfer(big.NewInt(200), addr.RawAddress),
+			action.NewCoinBaseTransfer(big.NewInt(300), addr.RawAddress),
 		}
 		// TODO: create sample Transfer and Vote to replace nil, nil below
-		blk, err := bc.MintNewBlock(tsf, nil, &cfg.Chain.ProducerAddr, "")
+		blk, err := bc.MintNewBlock(tsf, nil, addr, "")
 		if err != nil {
 			logger.Error().Msg("Failed to mint a block")
 			return nil, err

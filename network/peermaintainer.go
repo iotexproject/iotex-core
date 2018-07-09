@@ -10,7 +10,6 @@ import (
 	"math/rand"
 	"net"
 
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/network/node"
 	pb "github.com/iotexproject/iotex-core/network/proto"
 )
@@ -81,7 +80,7 @@ type ConfigBasedPeerMaintainer struct {
 }
 
 // NewConfigBasedPeerMaintainer creates an instance of ConfigBasedPeerMaintainer
-func NewConfigBasedPeerMaintainer(o *Overlay, t *config.Topology) *ConfigBasedPeerMaintainer {
+func NewConfigBasedPeerMaintainer(o *Overlay, t *Topology) *ConfigBasedPeerMaintainer {
 	cbpm := &ConfigBasedPeerMaintainer{Overlay: o}
 	for host, neighbors := range t.NeighborList {
 		if host == o.RPC.String() {

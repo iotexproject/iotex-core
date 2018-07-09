@@ -31,7 +31,8 @@ func TestNetSync(t *testing.T) {
 	util.CleanupPath(t, testDBPath)
 	defer util.CleanupPath(t, testDBPath)
 
-	cfg, err := config.LoadConfigWithPathWithoutValidation(localFullnodeConfig)
+	config.Path = localFullnodeConfig
+	cfg, err := config.New()
 	util.CleanupPath(t, testTriePath)
 	defer util.CleanupPath(t, testTriePath)
 	util.CleanupPath(t, testDBPath)

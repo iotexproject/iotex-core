@@ -7,178 +7,239 @@
 package config
 
 import (
+	"encoding/hex"
+	"fmt"
 	"io/ioutil"
-	"math/rand"
 	"os"
-	"strconv"
+	"path/filepath"
+	"strings"
 	"testing"
-	"time"
 
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
-	"google.golang.org/grpc/keepalive"
-	"gopkg.in/yaml.v2"
+	"github.com/stretchr/testify/require"
+
+	"github.com/iotexproject/iotex-core/test/testaddress"
 )
 
-func TestLoadTestConfig(t *testing.T) {
-	config1 := LoadTestConfig()
-	configStr, err := yaml.Marshal(config1)
-	assert.Nil(t, err)
-	path := "/tmp/config_" + strconv.Itoa(rand.Int()) + ".yaml"
-	ioutil.WriteFile(path, configStr, 0666)
+func TestNewDefaultConfig(t *testing.T) {
+	// Default config doesn't have block producer addr setup
+	cfg, err := New()
+	require.NotNil(t, err)
+	require.Nil(t, cfg)
+	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
+}
 
+func TestNewConfigWithoutValidation(t *testing.T) {
+	cfg, err := New(DoNotValidate)
+	require.Nil(t, err)
+	require.NotNil(t, cfg)
+	require.Equal(t, Default, *cfg)
+}
+
+func TestNewConfigWithWrongConfigPath(t *testing.T) {
+	Path = "wrong_path"
+	defer func() { Path = "" }()
+
+	cfg, err := New()
+	require.NotNil(t, err)
+	require.Nil(t, cfg)
+	require.Equal(t, "open wrong_path: no such file or directory", err.Error())
+}
+
+func TestNewConfigWithOverride(t *testing.T) {
+	cfgStr := fmt.Sprintf(`
+nodeType: %s
+chain:
+    producerPrivKey: "%s"
+    producerPubKey: "%s"
+`,
+		DelegateType,
+		hex.EncodeToString(testaddress.Addrinfo["alfa"].PrivateKey),
+		hex.EncodeToString(testaddress.Addrinfo["alfa"].PublicKey),
+	)
+	Path = filepath.Join(os.TempDir(), "config.yaml")
+	ioutil.WriteFile(Path, []byte(cfgStr), 0666)
 	defer func() {
-		if os.Remove(path) != nil {
-			assert.Fail(t, "Error when deleting the test file")
-		}
+		err := os.Remove(Path)
+		Path = ""
+		require.Nil(t, err)
 	}()
 
-	config2, err := LoadConfigWithPath(path)
-	assert.Nil(t, err)
-	assert.NotNil(t, config2)
-	assert.Equal(t, config1, config2)
+	cfg, err := New()
+	require.Nil(t, err)
+	require.NotNil(t, cfg)
+	require.Equal(t, DelegateType, cfg.NodeType)
+	require.Equal(t, hex.EncodeToString(testaddress.Addrinfo["alfa"].PrivateKey), cfg.Chain.ProducerPrivKey)
+	require.Equal(t, hex.EncodeToString(testaddress.Addrinfo["alfa"].PublicKey), cfg.Chain.ProducerPubKey)
 }
 
-func TestLoadProdConfig(t *testing.T) {
-	config, err := LoadConfigWithPath("../config.yaml")
-	assert.Nil(t, err)
-	assert.NotNil(t, config)
-	assert.NotEmpty(t, config.Chain.ChainDBPath)
-	assert.NotEmpty(t, config.Chain.ProducerAddr)
+func TestValidateAddr(t *testing.T) {
+	cfg := Default
+	cfg.Chain.ProducerPubKey = "hello world"
+	cfg.Chain.ProducerPrivKey = "world hello"
+	err := ValidateAddr(&cfg)
+	assert.NotNil(t, err)
+	assert.True(t, strings.Contains(err.Error(), "encoding/hex:"), err.Error())
+
+	cfg.Chain.ProducerPubKey = hex.EncodeToString(testaddress.Addrinfo["alfa"].PublicKey)
+	cfg.Chain.ProducerPrivKey = hex.EncodeToString(testaddress.Addrinfo["bravo"].PrivateKey)
+	err = ValidateAddr(&cfg)
+	assert.NotNil(t, err)
+	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
+	require.True(
+		t,
+		strings.Contains(err.Error(), "block producer has unmatched pubkey and prikey"),
+	)
 }
 
-func TestValidateConfig(t *testing.T) {
-	cfg := LoadTestConfig()
-	cfg.Chain.ProducerAddr.RawAddress = "invalid_address"
-	err := validateConfig(cfg)
-	assert.NotNil(t, err)
-	assert.Equal(t, "invalid miner's address", err.Error())
-
-	cfg = LoadTestConfig()
-	cfg.Chain.ProducerAddr.PublicKey = []byte("hello world")
-	cfg.Chain.ProducerAddr.PrivateKey = []byte("world hello")
-	err = validateConfig(cfg)
-	assert.NotNil(t, err)
-	assert.Equal(t, "producer has unmatched pubkey and prikey", err.Error())
-
-	cfg = LoadTestConfig()
+func TestValidateExplorer(t *testing.T) {
+	cfg := Default
 	cfg.Explorer.Enabled = true
-	err = validateConfig(cfg)
-	assert.NotNil(t, err)
-	assert.Equal(t, "tps window is not a positive integer when the explorer is enabled", err.Error())
+	cfg.Explorer.TpsWindow = 0
+	err := ValidateExplorer(&cfg)
+	require.NotNil(t, err)
+	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
+	require.True(
+		t,
+		strings.Contains(err.Error(), "tps window is not a positive integer when the explorer is enabled"),
+	)
+}
 
-	cfg = LoadTestConfig()
-	cfg.Network.PeerDiscovery = false
-	err = validateConfig(cfg)
-	assert.NotNil(t, err)
-	assert.Equal(t, "either peer discover should be enabled or a topology should be given", err.Error())
-
-	cfg = LoadTestConfig()
+func TestValidateConsensusScheme(t *testing.T) {
+	cfg := Default
 	cfg.NodeType = FullNodeType
 	cfg.Consensus.Scheme = RollDPoSScheme
-	err = validateConfig(cfg)
-	assert.NotNil(t, err)
-	assert.Equal(t, "consensus scheme of fullnode should be NOOP", err.Error())
+	err := ValidateConsensusScheme(&cfg)
+	require.NotNil(t, err)
+	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
+	require.True(
+		t,
+		strings.Contains(err.Error(), "consensus scheme of fullnode should be NOOP"),
+	)
 
 	cfg.NodeType = LightweightType
-	err = validateConfig(cfg)
+	err = ValidateConsensusScheme(&cfg)
 	assert.NotNil(t, err)
-	assert.Equal(t, "consensus scheme of lightweight node should be NOOP", err.Error())
+	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
+	require.True(
+		t,
+		strings.Contains(err.Error(), "consensus scheme of lightweight node should be NOOP"),
+	)
 
-	cfg = LoadTestConfig()
+	cfg.NodeType = "Unknown"
+	err = ValidateConsensusScheme(&cfg)
+	require.NotNil(t, err)
+	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
+	require.True(
+		t,
+		strings.Contains(err.Error(), "unknown node type"),
+	)
+}
+
+func TestValidateDispatcher(t *testing.T) {
+	cfg := Default
 	cfg.Dispatcher.EventChanSize = 0
-	err = validateConfig(cfg)
-	assert.Equal(t, "dispatcher event chan size should be greater than 0", err.Error())
+	err := ValidateDispatcher(&cfg)
+	require.NotNil(t, err)
+	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
+	require.True(
+		t,
+		strings.Contains(err.Error(), "dispatcher event chan size should be greater than 0"),
+	)
+}
 
-	cfg = LoadTestConfig()
+func TestValidateRollDPoS(t *testing.T) {
+	cfg := Default
 	cfg.NodeType = DelegateType
 	cfg.Consensus.Scheme = RollDPoSScheme
-	err = validateConfig(cfg)
-	assert.Equal(t, "roll-dpos event chan size should be greater than 0", err.Error())
+	cfg.Consensus.RollDPoS.EventChanSize = 0
+	err := ValidateRollDPoS(&cfg)
+	require.NotNil(t, err)
+	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
+	require.True(
+		t,
+		strings.Contains(err.Error(), "roll-DPoS event chan size should be greater than 0"),
+	)
+}
 
-	cfg = LoadTestConfig()
+func TestValidateNetwork(t *testing.T) {
+	cfg := Default
+	cfg.Network.PeerDiscovery = false
+	err := ValidateNetwork(&cfg)
+	require.NotNil(t, err)
+	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
+	require.True(
+		t,
+		strings.Contains(err.Error(), "either peer discover should be enabled or a topology should be given"),
+	)
+}
+
+func TestValidateDelegate(t *testing.T) {
+	cfg := Default
 	cfg.Delegate.RollNum = 2
-	err = validateConfig(cfg)
-	assert.Equal(t, "rolling delegates number is greater than total configured delegates", err.Error())
+	err := ValidateDelegate(&cfg)
+	require.NotNil(t, err)
+	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
+	require.True(
+		t,
+		strings.Contains(err.Error(), "rolling delegates number is greater than total configured delegates"),
+	)
 }
 
-func LoadTestConfig() *Config {
-	cfg := &Config{
-		NodeType: FullNodeType,
-		Network: Network{
-			MsgLogsCleaningInterval: 2 * time.Second,
-			MsgLogRetention:         10 * time.Second,
-			HealthCheckInterval:     time.Second,
-			SilentInterval:          5 * time.Second,
-			PeerMaintainerInterval:  time.Second,
-			NumPeersLowerBound:      5,
-			NumPeersUpperBound:      5,
-			AllowMultiConnsPerIP:    false,
-			PingInterval:            time.Second,
-			RateLimitEnabled:        true,
-			RateLimitPerSec:         5,
-			RateLimitWindowSize:     60 * time.Second,
-			BootstrapNodes:          []string{},
-			TLSEnabled:              false,
-			CACrtPath:               "",
-			PeerCrtPath:             "",
-			PeerKeyPath:             "",
-			KLClientParams:          keepalive.ClientParameters{Time: 60 * time.Second},
-			KLServerParams:          keepalive.ServerParameters{Time: 60 * time.Second},
-			KLPolicy:                keepalive.EnforcementPolicy{MinTime: 30 * time.Second},
-			MaxMsgSize:              1024 * 1024 * 10,
-			PeerDiscovery:           true,
-			TTL:                     3,
-			TopologyPath:            "",
-		},
-		Chain: Chain{
-			ChainDBPath:     "./a/fake/path",
-			ProducerPrivKey: "925f0c9e4b6f6d92f2961d01aff6204c44d73c0b9d0da188582932d4fcad0d8ee8c66600",
-			ProducerPubKey:  "336eb60a5741f585a8e81de64e071327a3b96c15af4af5723598a07b6121e8e813bbd0056ba71ae29c0d64252e913f60afaeb11059908b81ff27cbfa327fd371d35f5ec0cbc01705",
-		},
-		Consensus: Consensus{
-			Scheme: NOOPScheme,
-		},
-		Delegate: Delegate{
-			Addrs: []string{"127.0.0.1:10001"},
-		},
-		Dispatcher: Dispatcher{
-			EventChanSize: 1024,
-		},
-		ActPool: ActPool{
-			MaxNumActPerPool: 32768,
-			MaxNumActPerAcct: 2048,
-		},
-	}
-	setProducerAddr(cfg)
-	return cfg
+func TestValidateActPool(t *testing.T) {
+	cfg := Default
+	cfg.ActPool.MaxNumActPerAcct = 0
+	err := ValidateActPool(&cfg)
+	require.NotNil(t, err)
+	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
+	require.True(
+		t,
+		strings.Contains(
+			err.Error(),
+			"maximum number of actions per pool or per account cannot be zero or negative",
+		),
+	)
+
+	cfg.ActPool.MaxNumActPerAcct = 100
+	cfg.ActPool.MaxNumActPerPool = 0
+	err = ValidateActPool(&cfg)
+	require.NotNil(t, err)
+	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
+	require.True(
+		t,
+		strings.Contains(
+			err.Error(),
+			"maximum number of actions per pool or per account cannot be zero or negative",
+		),
+	)
+
+	cfg.ActPool.MaxNumActPerPool = 99
+	err = ValidateActPool(&cfg)
+	require.NotNil(t, err)
+	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
+	require.True(
+		t,
+		strings.Contains(
+			err.Error(),
+			"maximum number of actions per pool cannot be less than maximum number of actions per account",
+		),
+	)
 }
 
-func TestLoadTestTopology(t *testing.T) {
-	topology1 := LoadTestTopology()
-	topologyStr, err := yaml.Marshal(topology1)
-	assert.Nil(t, err)
-	path := "/tmp/topology_" + strconv.Itoa(rand.Int()) + ".yaml"
-	ioutil.WriteFile(path, topologyStr, 0666)
+func TestCheckNodeType(t *testing.T) {
+	cfg := Default
+	require.True(t, cfg.IsFullnode())
+	require.False(t, cfg.IsDelegate())
+	require.False(t, cfg.IsLightweight())
 
-	defer func() {
-		if os.Remove(path) != nil {
-			assert.Fail(t, "Error when deleting the test file")
-		}
-	}()
+	cfg.NodeType = DelegateType
+	require.False(t, cfg.IsFullnode())
+	require.True(t, cfg.IsDelegate())
+	require.False(t, cfg.IsLightweight())
 
-	topology2, err := LoadTopology(path)
-	assert.Nil(t, err)
-	assert.NotNil(t, topology2)
-	assert.Equal(t, topology1, topology2)
-}
-
-func LoadTestTopology() *Topology {
-	return &Topology{
-		NeighborList: map[string][]string{
-			"127.0.0.1:10001": {"127.0.0.1:10002", "127.0.0.1:10003", "127.0.0.1:10004"},
-			"127.0.0.1:10002": {"127.0.0.1:10001", "127.0.0.1:10003", "127.0.0.1:10004"},
-			"127.0.0.1:10003": {"127.0.0.1:10001", "127.0.0.1:10002", "127.0.0.1:10004"},
-			"127.0.0.1:10004": {"127.0.0.1:10001", "127.0.0.1:10002", "127.0.0.1:10003"},
-		},
-	}
+	cfg.NodeType = LightweightType
+	require.False(t, cfg.IsFullnode())
+	require.False(t, cfg.IsDelegate())
+	require.True(t, cfg.IsLightweight())
 }

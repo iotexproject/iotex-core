@@ -41,7 +41,8 @@ const (
 func TestLocalCommit(t *testing.T) {
 	require := require.New(t)
 
-	cfg, err := config.LoadConfigWithPathWithoutValidation(localTestConfigPath)
+	config.Path = localTestConfigPath
+	cfg, err := config.New()
 	require.Nil(err)
 	cfg.Network.BootstrapNodes = []string{"127.0.0.1:10000"}
 
@@ -292,7 +293,8 @@ func TestLocalSync(t *testing.T) {
 	logger.SetLogger(&l)
 	assert := assert.New(t)
 
-	cfg, err := config.LoadConfigWithPathWithoutValidation(localTestConfigPath)
+	config.Path = localTestConfigPath
+	cfg, err := config.New()
 	assert.Nil(err)
 	cfg.NodeType = config.DelegateType
 	cfg.Delegate.Addrs = []string{"127.0.0.1:10000"}
@@ -398,7 +400,8 @@ func TestLocalSync(t *testing.T) {
 func TestVoteLocalCommit(t *testing.T) {
 	require := require.New(t)
 
-	cfg, err := config.LoadConfigWithPathWithoutValidation(localTestConfigPath)
+	config.Path = localTestConfigPath
+	cfg, err := config.New()
 	require.Nil(err)
 	cfg.Network.BootstrapNodes = []string{"127.0.0.1:10000"}
 

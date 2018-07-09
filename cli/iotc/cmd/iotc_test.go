@@ -20,7 +20,8 @@ import (
 var configFile = "../../../e2etest/config_local_delegate.yaml"
 
 func Test_All(t *testing.T) {
-	cfg, err := config.LoadConfigWithPath(configFile)
+	config.Path = configFile
+	cfg, err := config.New()
 	require.Nil(t, err)
 	httpPort := cfg.Explorer.Addr
 	explorer.StartJSONServer(nil, nil, nil, nil, true, httpPort, 0)

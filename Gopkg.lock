@@ -52,7 +52,7 @@
 
 [[projects]]
   branch = "master"
-  name = "github.com/iotexproject/iotex-core-internal"
+  name = "github.com/iotexproject/iotex-core"
   packages = [
     "blockchain",
     "blockchain/action",

@@ -107,17 +107,18 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 
 func TestExplorerApi(t *testing.T) {
 	require := require.New(t)
-	config, err := config.LoadConfigWithPathWithoutValidation(testingConfigPath)
+	config.Path = testingConfigPath
+	cfg, err := config.New()
 	require.Nil(err)
 	util.CleanupPath(t, testTriePath)
 	defer util.CleanupPath(t, testTriePath)
 	util.CleanupPath(t, testDBPath)
 	defer util.CleanupPath(t, testDBPath)
 
-	config.Chain.TrieDBPath = testTriePath
-	config.Chain.ChainDBPath = testDBPath
+	cfg.Chain.TrieDBPath = testTriePath
+	cfg.Chain.ChainDBPath = testDBPath
 
-	sf, err := state.NewFactory(config, state.InMemTrieOption())
+	sf, err := state.NewFactory(cfg, state.InMemTrieOption())
 	require.Nil(err)
 	sf.CreateState(ta.Addrinfo["miner"].RawAddress, blockchain.Gen.TotalSupply)
 	// Disable block reward to make bookkeeping easier
@@ -125,7 +126,7 @@ func TestExplorerApi(t *testing.T) {
 
 	// create chain
 	ctx := context.Background()
-	bc := blockchain.NewBlockchain(config, blockchain.PrecreatedStateFactoryOption(sf), blockchain.InMemDaoOption())
+	bc := blockchain.NewBlockchain(cfg, blockchain.PrecreatedStateFactoryOption(sf), blockchain.InMemDaoOption())
 	require.NotNil(bc)
 	height, err := bc.TipHeight()
 	require.Nil(err)

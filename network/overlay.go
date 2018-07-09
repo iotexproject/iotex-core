@@ -90,7 +90,7 @@ func (o *Overlay) addPeerMaintainer() {
 }
 
 func (o *Overlay) addConfigBasedPeerMaintainer() {
-	topology, err := config.LoadTopology(o.Config.TopologyPath)
+	topology, err := NewTopology(o.Config.TopologyPath)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Fail to load topology")
 	}
