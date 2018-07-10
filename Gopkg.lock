@@ -51,6 +51,36 @@
   version = "v1.0"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/iotexproject/iotex-core-internal"
+  packages = [
+    "blockchain",
+    "blockchain/action",
+    "config",
+    "crypto",
+    "db",
+    "delegate",
+    "explorer/idl/explorer",
+    "iotxaddress",
+    "iotxaddress/bech32",
+    "logger",
+    "network/node",
+    "pkg/enc",
+    "pkg/hash",
+    "pkg/lifecycle",
+    "pkg/util/byteutil",
+    "pkg/util/fileutil",
+    "pkg/version",
+    "proto",
+    "state",
+    "test/mock/mock_blockchain",
+    "test/mock/mock_delegate",
+    "test/util",
+    "trie"
+  ]
+  revision = "3b86f69422ee730e5513e13030fc213aa392b29f"
+
+[[projects]]
   name = "github.com/pkg/errors"
   packages = ["."]
   revision = "645ef00459ed84a119197bfb8d8205042c6df63d"
@@ -203,6 +233,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "1d1282266386c574f8ad0bb36c25e3165e027c293deee661bd2e500cc6ad842e"
+  inputs-digest = "4859138ee1811753da603bc379ca04ba91d1a6efc89f32ea60810a61b00f03d1"
   solver-name = "gps-cdcl"
   solver-version = 1

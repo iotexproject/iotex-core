@@ -8,14 +8,20 @@ package explorer
 
 import (
 	"encoding/hex"
+	"encoding/json"
+	"math/big"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/consensus"
+	"github.com/iotexproject/iotex-core/dispatch/dispatcher"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	pb "github.com/iotexproject/iotex-core/proto"
 )
 
 // ErrInternalServer indicates the internal server error
@@ -23,9 +29,11 @@ var ErrInternalServer = errors.New("internal server error")
 
 // Service provide api for user to query blockchain data
 type Service struct {
-	bc        blockchain.Blockchain
-	c         consensus.Consensus
-	tpsWindow int
+	bc          blockchain.Blockchain
+	c           consensus.Consensus
+	dp          dispatcher.Dispatcher
+	broadcastcb func(proto.Message) error
+	tpsWindow   int
 }
 
 // GetBlockchainHeight returns the current blockchain tip height
@@ -524,6 +532,142 @@ func (exp *Service) GetConsensusMetrics() (explorer.ConsensusMetrics, error) {
 		LatestBlockProducer: bpStr,
 		Candidates:          cStrs,
 	}, nil
+}
+
+// CreateRawTransfer creates a raw transfer
+func (exp *Service) CreateRawTransfer(request explorer.CreateRawTransferRequest) (explorer.CreateRawTransferResponse, error) {
+	logger.Debug().Msg("receive create raw transfer request")
+
+	if len(request.Sender) == 0 || len(request.Recipient) == 0 {
+		return explorer.CreateRawTransferResponse{}, errors.New("invalid CreateRawTransferRequest")
+	}
+	amount := big.NewInt(request.Amount)
+
+	tsf := exp.bc.CreateRawTransfer(uint64(request.Nonce), &iotxaddress.Address{RawAddress: request.Sender}, amount, &iotxaddress.Address{RawAddress: request.Recipient})
+	stsf, err := json.Marshal(tsf.ToJSON())
+	if err != nil {
+		return explorer.CreateRawTransferResponse{}, err
+	}
+	return explorer.CreateRawTransferResponse{hex.EncodeToString(stsf[:])}, nil
+}
+
+// SendTransfer sends a transfer
+func (exp *Service) SendTransfer(request explorer.SendTransferRequest) (explorer.SendTransferResponse, error) {
+	logger.Debug().Msg("receive send transfer request")
+
+	if len(request.SerlializedTransfer) == 0 {
+		return explorer.SendTransferResponse{}, errors.New("invalid SendTransferRequest")
+	}
+
+	tsfJSON := &explorer.Transfer{}
+	serializedTransfer, err := hex.DecodeString(request.SerlializedTransfer)
+	if err != nil {
+		return explorer.SendTransferResponse{}, err
+	}
+	if err := json.Unmarshal(serializedTransfer, tsfJSON); err != nil {
+		return explorer.SendTransferResponse{}, err
+	}
+	amount := big.NewInt(tsfJSON.Amount).Bytes()
+
+	payload, err := hex.DecodeString(tsfJSON.Payload)
+	if err != nil {
+		return explorer.SendTransferResponse{}, err
+	}
+	senderPubKey, err := hex.DecodeString(tsfJSON.SenderPubKey)
+	if err != nil {
+		return explorer.SendTransferResponse{}, err
+	}
+	signature, err := hex.DecodeString(tsfJSON.Signature)
+	if err != nil {
+		return explorer.SendTransferResponse{}, err
+	}
+	tsfPb := &pb.TransferPb{
+		Version:      uint32(tsfJSON.Version),
+		Nonce:        uint64(tsfJSON.Nonce),
+		Signature:    signature,
+		Amount:       amount,
+		Sender:       tsfJSON.Sender,
+		Recipient:    tsfJSON.Recipient,
+		Payload:      payload,
+		SenderPubKey: senderPubKey,
+		IsCoinbase:   tsfJSON.IsCoinbase,
+	}
+
+	// Wrap TransferPb as an ActionPb
+	action := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsfPb}}
+	// broadcast to the network
+	if err := exp.broadcastcb(action); err != nil {
+		return explorer.SendTransferResponse{}, err
+	}
+	// send to actpool via dispatcher
+	exp.dp.HandleBroadcast(action, nil)
+	return explorer.SendTransferResponse{true}, nil
+}
+
+// CreateRawVote creates a raw vote
+func (exp *Service) CreateRawVote(request explorer.CreateRawVoteRequest) (explorer.CreateRawVoteResponse, error) {
+	if len(request.Voter) == 0 || len(request.Votee) == 0 {
+		return explorer.CreateRawVoteResponse{}, errors.New("invalid CreateRawVoteRequest")
+	}
+	voterPubKey, err := hex.DecodeString(request.Voter)
+	if err != nil {
+		return explorer.CreateRawVoteResponse{}, err
+	}
+	voteePubKey, err := hex.DecodeString(request.Votee)
+	if err != nil {
+		return explorer.CreateRawVoteResponse{}, err
+	}
+	vote := exp.bc.CreateRawVote(uint64(request.Nonce), &iotxaddress.Address{PublicKey: voterPubKey}, &iotxaddress.Address{PublicKey: voteePubKey})
+	svote, err := json.Marshal(vote.ToJSON())
+	if err != nil {
+		return explorer.CreateRawVoteResponse{}, err
+	}
+	return explorer.CreateRawVoteResponse{hex.EncodeToString(svote[:])}, nil
+}
+
+// SendVote sends a vote
+func (exp *Service) SendVote(request explorer.SendVoteRequest) (explorer.SendVoteResponse, error) {
+	if len(request.SerializedVote) == 0 {
+		return explorer.SendVoteResponse{}, errors.New("invalid SendVoteRequest")
+	}
+
+	voteJSON := &explorer.Vote{}
+	serialzedVote, err := hex.DecodeString(request.SerializedVote)
+	if err != nil {
+		return explorer.SendVoteResponse{}, err
+	}
+	if err := json.Unmarshal(serialzedVote, voteJSON); err != nil {
+		return explorer.SendVoteResponse{}, err
+	}
+	selfPubKey, err := hex.DecodeString(voteJSON.VoterPubKey)
+	if err != nil {
+		return explorer.SendVoteResponse{}, err
+	}
+	votePubKey, err := hex.DecodeString(voteJSON.VoteePubKey)
+	if err != nil {
+		return explorer.SendVoteResponse{}, err
+	}
+	signature, err := hex.DecodeString(voteJSON.Signature)
+	if err != nil {
+		return explorer.SendVoteResponse{}, err
+	}
+	votePb := &pb.VotePb{
+		Version:    uint32(voteJSON.Version),
+		Nonce:      uint64(voteJSON.Nonce),
+		SelfPubkey: selfPubKey,
+		VotePubkey: votePubKey,
+		Signature:  signature,
+	}
+
+	// Wrap VotePb as an ActionPb
+	action := &pb.ActionPb{Action: &pb.ActionPb_Vote{votePb}}
+	// broadcast to the network
+	if err := exp.broadcastcb(action); err != nil {
+		return explorer.SendVoteResponse{}, err
+	}
+	// send to actpool via dispatcher
+	exp.dp.HandleBroadcast(action, nil)
+	return explorer.SendVoteResponse{true}, nil
 }
 
 // getTransfer takes in a blockchain and transferHash and returns a Explorer Transfer

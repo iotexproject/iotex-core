@@ -23,7 +23,6 @@ import (
 	"github.com/iotexproject/iotex-core/explorer"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/routine"
-	"github.com/iotexproject/iotex-core/rpcservice"
 	"github.com/iotexproject/iotex-core/server/itx"
 )
 
@@ -66,19 +65,6 @@ func main() {
 		}()
 	}
 
-	// start the chain server for Tx injection
-	if cfg.RPC != (config.RPC{}) {
-		bcb := func(msg proto.Message) error {
-			return svr.P2p().Broadcast(msg)
-		}
-		cs := rpcservice.NewChainServer(cfg.RPC, svr.Bc(), svr.Dp(), bcb)
-		if cs == nil {
-			os.Exit(1)
-		}
-		cs.Start()
-		defer cs.Stop()
-	}
-
 	if cfg.Explorer.Enabled {
 		isTest := cfg.Explorer.IsTest
 		httpPort := cfg.Explorer.Addr
@@ -91,7 +77,10 @@ func main() {
 		if isTest {
 			logger.Warn().Msg("Using test server with fake data...")
 		}
-		explorer.StartJSONServer(svr.Bc(), svr.Cs(), isTest, httpPort, cfg.Explorer.TpsWindow)
+		bcb := func(msg proto.Message) error {
+			return svr.P2p().Broadcast(msg)
+		}
+		explorer.StartJSONServer(svr.Bc(), svr.Cs(), svr.Dp(), bcb, isTest, httpPort, cfg.Explorer.TpsWindow)
 	}
 
 	select {}

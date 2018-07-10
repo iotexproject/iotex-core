@@ -57,9 +57,6 @@ delegate:
         - "127.0.0.1:40002"
         - "127.0.0.1:40003"
 
-rpc:
-    addr: "127.0.0.1:42124"
-
 dispatcher:
     eventchansize: 1024
 

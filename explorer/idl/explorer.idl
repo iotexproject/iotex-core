@@ -41,22 +41,31 @@ struct Block {
 }
 
 struct Transfer {
+    version int
     ID string
     nonce int
     sender string
     recipient string
     amount int
+    senderPubKey string
+    signature string
+    payload string
+    isCoinbase bool
     fee int
     timestamp int
     blockID string
 }
 
 struct Vote {
+    version int
     ID string
     nonce int
     timestamp int
     voter string
     votee string
+    voterPubKey string
+    voteePubKey string
+    signature string
     blockID string
 }
 
@@ -71,6 +80,43 @@ struct ConsensusMetrics {
     latestDelegates []string
     latestBlockProducer string
 	candidates []string
+}
+
+struct CreateRawTransferRequest {
+    sender string
+    recipient string
+    amount int
+    nonce int
+}
+
+struct CreateRawTransferResponse {
+    serializedTransfer string
+}
+
+struct CreateRawVoteRequest {
+    voter string
+    votee string
+    nonce int
+}
+
+struct CreateRawVoteResponse {
+    serializedVote string
+}
+
+struct SendTransferRequest {
+    serlializedTransfer string
+}
+
+struct SendTransferResponse {
+    transferSent bool
+}
+
+struct SendVoteRequest {
+    serializedVote string
+}
+
+struct SendVoteResponse {
+    voteSent bool
 }
 
 interface Explorer {
@@ -118,4 +164,16 @@ interface Explorer {
 
     // get consensus metrics
     getConsensusMetrics() ConsensusMetrics
+
+    // create raw transfer
+    createRawTransfer(request CreateRawTransferRequest) CreateRawTransferResponse
+
+    // create raw vote
+    createRawVote(request CreateRawVoteRequest) CreateRawVoteResponse
+
+    // send transfer
+    sendTransfer(request SendTransferRequest) SendTransferResponse
+
+    // send vote
+    sendVote(request SendVoteRequest) SendVoteResponse
 }

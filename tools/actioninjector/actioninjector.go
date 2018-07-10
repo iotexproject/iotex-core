@@ -10,6 +10,8 @@
 package main
 
 import (
+	"encoding/hex"
+	"encoding/json"
 	"flag"
 	"io/ioutil"
 	"math/big"
@@ -17,16 +19,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/protobuf/proto"
-	"golang.org/x/net/context"
-	"google.golang.org/grpc"
 	"gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/explorer"
+	exp "github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
-	pb "github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/test/util"
 )
 
@@ -44,10 +43,8 @@ type PKPair struct {
 func main() {
 	// path of config file containing all the public/private key paris of addresses getting transfers from Creator in genesis block
 	var configPath string
-	// target address for grpc connection. Default is "127.0.0.1:42124"
-	var grpcAddr string
 	// target address for jrpc connection. Default is "127.0.0.1:14004"
-	var jrpcAddr string
+	var addr string
 	// number of transfer injections. Default is 50
 	var transferNum int
 	// number of vote injections. Default is 50
@@ -59,24 +56,15 @@ func main() {
 	// duration indicates how long the injection will run in seconds. Default is 60
 	var duration int
 	flag.StringVar(&configPath, "config-path", "./tools/actioninjector/gentsfaddrs.yaml", "path of config file of genesis transfer addresses")
-	flag.StringVar(&grpcAddr, "grpc-addr", "127.0.0.1:42124", "target ip:port for grpc connection")
-	flag.StringVar(&jrpcAddr, "jrpc-addr", "127.0.0.1:14004", "target ip:port for jrpc connection")
+	flag.StringVar(&addr, "addr", "127.0.0.1:14004", "target ip:port for jrpc connection")
 	flag.IntVar(&transferNum, "transfer-num", 50, "number of transfer injections")
 	flag.IntVar(&voteNum, "vote-num", 50, "number of vote injections")
 	flag.IntVar(&interval, "interval", 5, "sleep interval of two consecutively injected actions in seconds")
 	flag.IntVar(&aps, "aps", 0, "actions to be injected per second")
 	flag.IntVar(&duration, "duration", 60, "duration when the injection will run in seconds")
 	flag.Parse()
-	conn, err := grpc.Dial(grpcAddr, grpc.WithInsecure())
-	if err != nil {
-		logger.Fatal().Err(err).Msg("Failed to start injecting actions")
-	}
-	defer conn.Close()
 
-	client := pb.NewChainServiceClient(conn)
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*time.Duration(interval*(transferNum+voteNum)))
-
-	proxy := explorer.NewExplorerProxy("http://" + jrpcAddr)
+	proxy := explorer.NewExplorerProxy("http://" + addr)
 
 	// Load Senders' public/private key pairs
 	addrBytes, err := ioutil.ReadFile(configPath)
@@ -112,27 +100,20 @@ func main() {
 	// APS Mode
 	if aps > 0 {
 		d := time.Duration(duration) * time.Second
-		ctx, cancel = context.WithTimeout(context.Background(), d)
-		defer cancel()
 		wg := &sync.WaitGroup{}
-		injectByAps(ctx, wg, aps, counter, client, addrs, d)
+		injectByAps(wg, aps, counter, proxy, addrs, d)
 		wg.Wait()
 	} else {
-		if interval == 0 {
-			ctx, cancel = context.WithTimeout(context.Background(), time.Second)
-		}
-		defer cancel()
-		injectByInterval(ctx, transferNum, voteNum, interval, counter, client, addrs)
+		injectByInterval(transferNum, voteNum, interval, counter, proxy, addrs)
 	}
 }
 
 // Inject Actions in APS Mode
 func injectByAps(
-	ctx context.Context,
 	wg *sync.WaitGroup,
 	aps int,
 	counter map[string]uint64,
-	client pb.ChainServiceClient,
+	client exp.Explorer,
 	addrs []*iotxaddress.Address,
 	duration time.Duration,
 ) {
@@ -147,23 +128,23 @@ loop:
 			wg.Add(1)
 			sender, recipient, nonce := createInjection(counter, addrs)
 			if nonce%2 == 1 {
-				go injectTransfer(ctx, wg, client, sender, recipient, nonce)
+				go injectTransfer(wg, client, sender, recipient, nonce)
 			} else {
-				go injectVote(ctx, wg, client, sender, recipient, nonce)
+				go injectVote(wg, client, sender, recipient, nonce)
 			}
 		}
 	}
 }
 
 // Inject Actions in Interval Mode
-func injectByInterval(ctx context.Context, transferNum int, voteNum int, interval int, counter map[string]uint64, client pb.ChainServiceClient, addrs []*iotxaddress.Address) {
+func injectByInterval(transferNum int, voteNum int, interval int, counter map[string]uint64, client exp.Explorer, addrs []*iotxaddress.Address) {
 	for transferNum > 0 && voteNum > 0 {
 		sender, recipient, nonce := createInjection(counter, addrs)
-		injectTransfer(ctx, nil, client, sender, recipient, nonce)
+		injectTransfer(nil, client, sender, recipient, nonce)
 		time.Sleep(time.Second * time.Duration(interval))
 
 		sender, recipient, nonce = createInjection(counter, addrs)
-		injectVote(ctx, nil, client, sender, recipient, nonce)
+		injectVote(nil, client, sender, recipient, nonce)
 		time.Sleep(time.Second * time.Duration(interval))
 		transferNum--
 		voteNum--
@@ -172,108 +153,122 @@ func injectByInterval(ctx context.Context, transferNum int, voteNum int, interva
 	case transferNum > 0:
 		for transferNum > 0 {
 			sender, recipient, nonce := createInjection(counter, addrs)
-			injectTransfer(ctx, nil, client, sender, recipient, nonce)
+			injectTransfer(nil, client, sender, recipient, nonce)
 			time.Sleep(time.Second * time.Duration(interval))
 			transferNum--
 		}
 	case voteNum > 0:
 		for voteNum > 0 {
 			sender, recipient, nonce := createInjection(counter, addrs)
-			injectVote(ctx, nil, client, sender, recipient, nonce)
+			injectVote(nil, client, sender, recipient, nonce)
 			time.Sleep(time.Second * time.Duration(interval))
 			voteNum--
 		}
 	}
 }
 
-func injectTransfer(ctx context.Context, wg *sync.WaitGroup, c pb.ChainServiceClient, sender *iotxaddress.Address, recipient *iotxaddress.Address, nonce uint64) {
-	amount := uint64(0)
-	for amount == uint64(0) {
-		amount = uint64(rand.Intn(5))
+func injectTransfer(wg *sync.WaitGroup, c exp.Explorer, sender *iotxaddress.Address, recipient *iotxaddress.Address, nonce uint64) {
+	amount := int64(0)
+	for amount == int64(0) {
+		amount = int64(rand.Intn(5))
 	}
 
-	a := int64(amount)
-	r, err := c.CreateRawTransfer(ctx, &pb.CreateRawTransferRequest{
-		Sender: sender.RawAddress, Recipient: recipient.RawAddress, Amount: big.NewInt(a).Bytes(), Nonce: nonce, Data: []byte{}})
+	r, err := c.CreateRawTransfer(exp.CreateRawTransferRequest{Sender: sender.RawAddress, Recipient: recipient.RawAddress, Amount: amount, Nonce: int64(nonce)})
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Failed to inject transfer")
 	}
 	logger.Info().Msg("Created raw transfer")
 
-	tsf := &pb.TransferPb{}
-	if err := proto.Unmarshal(r.SerializedTransfer, tsf); err != nil {
+	tsf := &exp.Transfer{}
+	serializedTransfer, err := hex.DecodeString(r.SerializedTransfer)
+	if err != nil {
+		logger.Fatal().Err(err).Msg("Failed to inject transfer")
+	}
+	if err := json.Unmarshal(serializedTransfer, tsf); err != nil {
 		logger.Fatal().Err(err).Msg("Failed to inject transfer")
 	}
 
 	// Sign Transfer
-	value := big.NewInt(0)
-	transfer := action.NewTransfer(tsf.Nonce, value.SetBytes(tsf.Amount), tsf.Sender, tsf.Recipient)
+	transfer := action.NewTransfer(uint64(tsf.Nonce), big.NewInt(tsf.Amount), tsf.Sender, tsf.Recipient)
 	transfer, err = transfer.Sign(sender)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Failed to inject transfer")
 	}
-	tsf.SenderPubKey = transfer.SenderPublicKey
-	tsf.Signature = transfer.Signature
+	tsf.SenderPubKey = hex.EncodeToString(transfer.SenderPublicKey)
+	tsf.Signature = hex.EncodeToString(transfer.Signature)
 
-	stsf, err := proto.Marshal(tsf)
+	stsf, err := json.Marshal(tsf)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Failed to inject transfer")
 	}
-	_, err = c.SendTransfer(ctx, &pb.SendTransferRequest{SerializedTransfer: stsf})
+	_, err = c.SendTransfer(exp.SendTransferRequest{hex.EncodeToString(stsf[:])})
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Failed to inject transfer")
 	}
 	logger.Info().Msg("Sent out the signed transfer: ")
 
-	logger.Info().Uint32("Version", tsf.Version).Msg(" ")
-	logger.Info().Uint64("Nonce", tsf.Nonce).Msg(" ")
-	logger.Info().Hex("Amount", tsf.Amount).Msg(" ")
+	logger.Info().Int64("Version", tsf.Version).Msg(" ")
+	logger.Info().Int64("Nonce", tsf.Nonce).Msg(" ")
+	logger.Info().Int64("Amount", tsf.Amount).Msg(" ")
 	logger.Info().Str("Sender", tsf.Sender).Msg(" ")
 	logger.Info().Str("Recipient", tsf.Recipient).Msg(" ")
-	logger.Info().Hex("Payload", tsf.Payload).Msg(" ")
-	logger.Info().Hex("Sender Public Key", tsf.SenderPubKey).Msg(" ")
-	logger.Info().Hex("Signature", tsf.Signature).Msg(" ")
+	logger.Info().Str("Payload", tsf.Payload).Msg(" ")
+	logger.Info().Str("Sender Public Key", tsf.SenderPubKey).Msg(" ")
+	logger.Info().Str("Signature", tsf.Signature).Msg(" ")
+	logger.Info().Bool("IsCoinbase", tsf.IsCoinbase).Msg(" ")
 
 	if wg != nil {
 		wg.Done()
 	}
 }
 
-func injectVote(ctx context.Context, wg *sync.WaitGroup, c pb.ChainServiceClient, sender *iotxaddress.Address, recipient *iotxaddress.Address, nonce uint64) {
-	r, err := c.CreateRawVote(ctx, &pb.CreateRawVoteRequest{Voter: sender.PublicKey, Votee: recipient.PublicKey, Nonce: nonce})
+func injectVote(wg *sync.WaitGroup, c exp.Explorer, sender *iotxaddress.Address, recipient *iotxaddress.Address, nonce uint64) {
+	r, err := c.CreateRawVote(exp.CreateRawVoteRequest{Voter: hex.EncodeToString(sender.PublicKey), Votee: hex.EncodeToString(recipient.PublicKey), Nonce: int64(nonce)})
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Failed to inject vote")
 	}
 	logger.Info().Msg("Created raw vote")
 
-	votePb := &pb.VotePb{}
-	if err := proto.Unmarshal(r.SerializedVote, votePb); err != nil {
+	jsonVote := &exp.Vote{}
+	serializedVote, err := hex.DecodeString(r.SerializedVote)
+	if err != nil {
+		logger.Fatal().Err(err).Msg("Failed to inject vote")
+	}
+	if err := json.Unmarshal(serializedVote, jsonVote); err != nil {
 		logger.Fatal().Err(err).Msg("Failed to inject vote")
 	}
 
 	// Sign Vote
-	vote := action.NewVote(votePb.Nonce, votePb.SelfPubkey, votePb.VotePubkey)
+	voterPubKey, err := hex.DecodeString(jsonVote.VoterPubKey)
+	if err != nil {
+		logger.Fatal().Err(err).Msg("Failed to inject vote")
+	}
+	voteePubKey, err := hex.DecodeString(jsonVote.VoteePubKey)
+	if err != nil {
+		logger.Fatal().Err(err).Msg("Failed to inject vote")
+	}
+	vote := action.NewVote(uint64(jsonVote.Nonce), voterPubKey, voteePubKey)
 	vote, err = vote.Sign(sender)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Failed to inject vote")
 	}
-	votePb.Signature = vote.Signature
+	jsonVote.Signature = hex.EncodeToString(vote.Signature)
 
-	svote, err := proto.Marshal(votePb)
+	svote, err := json.Marshal(jsonVote)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Failed to inject vote")
 	}
-	_, err = c.SendVote(ctx, &pb.SendVoteRequest{SerializedVote: svote})
+	_, err = c.SendVote(exp.SendVoteRequest{SerializedVote: hex.EncodeToString(svote[:])})
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Failed to inject vote")
 	}
 	logger.Info().Msg("Sent out the signed vote: ")
 
-	logger.Info().Uint32("Version", votePb.Version).Msg(" ")
-	logger.Info().Uint64("Nonce", votePb.Nonce).Msg(" ")
-	logger.Info().Hex("Sender Public Key", votePb.SelfPubkey).Msg(" ")
-	logger.Info().Hex("Recipient Public Key", votePb.VotePubkey).Msg(" ")
-	logger.Info().Hex("Signature", votePb.Signature).Msg(" ")
+	logger.Info().Int64("Version", jsonVote.Version).Msg(" ")
+	logger.Info().Int64("Nonce", jsonVote.Nonce).Msg(" ")
+	logger.Info().Str("Sender Public Key", jsonVote.VoterPubKey).Msg(" ")
+	logger.Info().Str("Recipient Public Key", jsonVote.VoteePubKey).Msg(" ")
+	logger.Info().Str("Signature", jsonVote.Signature).Msg(" ")
 
 	if wg != nil {
 		wg.Done()

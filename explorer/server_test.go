@@ -7,7 +7,7 @@
 package explorer
 
 import (
-	"github.com/iotexproject/iotex-core-internal/logger"
+	"github.com/iotexproject/iotex-core/logger"
 	"github.com/stretchr/testify/require"
 	"net/http"
 	"testing"
@@ -16,7 +16,7 @@ import (
 
 func TestServer(t *testing.T) {
 	require := require.New(t)
-	StartJSONServer(nil, nil, true, "14004", 0)
+	StartJSONServer(nil, nil, nil, nil, true, "14004", 0)
 
 	timeout := time.Duration(20 * time.Second)
 	client := http.Client{

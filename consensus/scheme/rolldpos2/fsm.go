@@ -16,7 +16,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/zjshen14/go-fsm"
 
-	"github.com/iotexproject/iotex-core-internal/logger"
+	"github.com/iotexproject/iotex-core/logger"
 )
 
 const (

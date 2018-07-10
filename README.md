@@ -151,8 +151,7 @@ You can use command line flags to customize the injector.
 
 ```
 -config-path=path_of_config_file_of_genesis_transfer_addresses
--grpc-addr=target_address_for_grpc_connection
--jrpc-addr=target_address_for_jrpc_connection
+-addr=target_address_for_jrpc_connection
 -transfer-num=number_of_transfers
 -vote-num=number_of_votes
 -interval=sleeping_interval_in_seconds
@@ -162,8 +161,7 @@ You can use command line flags to customize the injector.
 
 Default flag values:
 * config-path="./tools/actioninjector/gentsfaddrs.yaml"
-* grpc-addr="127.0.0.1:42124"
-* jrpc-addr="127.0.0.1:14004"
+* addr="127.0.0.1:14004"
 * transfer-num=50
 * vote-num=50
 * interval=5

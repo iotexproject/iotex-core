@@ -8,6 +8,7 @@ package action
 
 import (
 	"bytes"
+	"encoding/hex"
 	"math/big"
 
 	"github.com/golang/protobuf/proto"
@@ -15,7 +16,9 @@ import (
 	"golang.org/x/crypto/blake2b"
 
 	cp "github.com/iotexproject/iotex-core/crypto"
+	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/version"
@@ -134,6 +137,26 @@ func (tsf *Transfer) ConvertToTransferPb() *iproto.TransferPb {
 	return t
 }
 
+// ToJSON converts Transfer to TransferJSON
+func (tsf *Transfer) ToJSON() *explorer.Transfer {
+	// used by account-based model
+	t := &explorer.Transfer{
+		Version:      int64(tsf.Version),
+		Nonce:        int64(tsf.Nonce),
+		Sender:       tsf.Sender,
+		Recipient:    tsf.Recipient,
+		Payload:      hex.EncodeToString(tsf.Payload),
+		SenderPubKey: hex.EncodeToString(tsf.SenderPublicKey),
+		Signature:    hex.EncodeToString(tsf.Signature),
+		IsCoinbase:   tsf.IsCoinbase,
+	}
+
+	if tsf.Amount != nil && len(tsf.Amount.Bytes()) > 0 {
+		t.Amount = tsf.Amount.Int64()
+	}
+	return t
+}
+
 // Serialize returns a serialized byte stream for the Transfer
 func (tsf *Transfer) Serialize() ([]byte, error) {
 	return proto.Marshal(tsf.ConvertToTransferPb())
@@ -166,6 +189,38 @@ func (tsf *Transfer) ConvertFromTransferPb(pbTx *iproto.TransferPb) {
 	tsf.Signature = nil
 	tsf.Signature = pbTx.Signature
 	tsf.IsCoinbase = pbTx.IsCoinbase
+}
+
+// NewTransferFromJSON creates a new Transfer from TransferJSON
+func NewTransferFromJSON(jsonTsf *explorer.Transfer) (*Transfer, error) {
+	tsf := &Transfer{}
+	tsf.Version = uint32(jsonTsf.Version)
+	// used by account-based model
+	tsf.Nonce = uint64(jsonTsf.Nonce)
+	tsf.Amount = big.NewInt(jsonTsf.Amount)
+	tsf.Sender = jsonTsf.Sender
+	tsf.Recipient = jsonTsf.Recipient
+	payload, err := hex.DecodeString(jsonTsf.Payload)
+	if err != nil {
+		logger.Error().Err(err).Msg("Fail to create a new Transfer from TransferJSON")
+		return nil, err
+	}
+	tsf.Payload = payload
+	senderPubKey, err := hex.DecodeString(jsonTsf.SenderPubKey)
+	if err != nil {
+		logger.Error().Err(err).Msg("Fail to create a new Transfer from TransferJSON")
+		return nil, err
+	}
+	tsf.SenderPublicKey = senderPubKey
+	signature, err := hex.DecodeString(jsonTsf.Signature)
+	if err != nil {
+		logger.Error().Err(err).Msg("Fail to create a new Transfer from TransferJSON")
+		return nil, err
+	}
+	tsf.Signature = signature
+	tsf.IsCoinbase = jsonTsf.IsCoinbase
+
+	return tsf, nil
 }
 
 // Deserialize parse the byte stream into Transfer

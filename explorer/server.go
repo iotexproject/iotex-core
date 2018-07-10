@@ -10,9 +10,11 @@ import (
 	"net/http"
 
 	"github.com/coopernurse/barrister-go"
+	"github.com/golang/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/consensus"
+	"github.com/iotexproject/iotex-core/dispatch/dispatcher"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/logger"
 )
@@ -36,14 +38,18 @@ func (f LogFilter) PostInvoke(r *barrister.RequestResponse) bool {
 func StartJSONServer(
 	blockchain blockchain.Blockchain,
 	consensus consensus.Consensus,
+	dp dispatcher.Dispatcher,
+	cb func(proto.Message) error,
 	isTest bool,
 	port string,
 	tpsWindow int,
 ) {
 	svc := Service{
-		bc:        blockchain,
-		c:         consensus,
-		tpsWindow: tpsWindow,
+		bc:          blockchain,
+		c:           consensus,
+		dp:          dp,
+		broadcastcb: cb,
+		tpsWindow:   tpsWindow,
 	}
 	idl := barrister.MustParseIdlJson([]byte(explorer.IdlJsonRaw))
 	svr := explorer.NewJSONServer(idl, true, &svc)

@@ -8,22 +8,28 @@ package explorer
 
 import (
 	"context"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"net"
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
+	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/network/node"
+	pb "github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_consensus"
+	"github.com/iotexproject/iotex-core/test/mock/mock_dispatcher"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/test/util"
 )
@@ -32,6 +38,13 @@ const (
 	testingConfigPath = "../config.yaml"
 	testTriePath      = "trie.test"
 	testDBPath        = "db.test"
+)
+
+const (
+	senderRawAddr    = "io1qyqsyqcyy3vtzaghs2z30m8kzux8hqggpf0gmqu8xy959d"
+	recipientRawAddr = "io1qyqsyqcy2a97s6h6lcrzuy7adyhyusnegn780rwcd0ssc2"
+	senderPubKey     = "32d83ff52f2b34b297918a7ea3e032d5a1a3a635300a4fd7451b7c873650dedd2175e20536edc118df678f840820541b23287dd2a011a2b1865d91acfe859574f2c83f7d9542aa01"
+	recipientPubKey  = "ba7aa38cc6f68da81832433a3c4911abea6730c381d9d6bac35ea36504060860d56567058fd96b0a746c3b3792f8a5a2b4295e6565a300ef92f10d5aa50953a1e15398463774c604"
 )
 
 func addTestingBlocks(bc blockchain.Blockchain) error {
@@ -334,4 +347,102 @@ func TestService_GetConsensusMetrics(t *testing.T) {
 		},
 		m.Candidates,
 	)
+}
+
+func TestService_CreateRawTransfer(t *testing.T) {
+	require := require.New(t)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mBc := mock_blockchain.NewMockBlockchain(ctrl)
+	svc := Service{bc: mBc}
+
+	request := explorer.CreateRawTransferRequest{}
+	response, err := svc.CreateRawTransfer(request)
+	require.Equal(explorer.CreateRawTransferResponse{}, response)
+	require.NotNil(err)
+
+	request = explorer.CreateRawTransferRequest{Sender: senderRawAddr, Recipient: recipientRawAddr, Amount: 1, Nonce: 1}
+	mBc.EXPECT().CreateRawTransfer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1).
+		Return(&action.Transfer{Nonce: uint64(1), Amount: big.NewInt(1), Sender: senderRawAddr, Recipient: recipientPubKey})
+	_, err = svc.CreateRawTransfer(request)
+	require.Nil(err)
+}
+
+func TestService_SendTransfer(t *testing.T) {
+	require := require.New(t)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mDp := mock_dispatcher.NewMockDispatcher(ctrl)
+	bcb := func(msg proto.Message) error {
+		return nil
+	}
+	svc := Service{dp: mDp, broadcastcb: bcb}
+
+	request := explorer.SendTransferRequest{}
+	response, err := svc.SendTransfer(request)
+	require.Equal(false, response.TransferSent)
+	require.NotNil(err)
+
+	tsfJSON := explorer.Transfer{Nonce: 1, Amount: 1, Sender: senderRawAddr, Recipient: recipientRawAddr}
+	stsf, err := json.Marshal(tsfJSON)
+	require.Nil(err)
+	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any()).Times(1)
+	response, err = svc.SendTransfer(explorer.SendTransferRequest{hex.EncodeToString(stsf[:])})
+	require.Equal(true, response.TransferSent)
+	require.Nil(err)
+}
+
+func TestService_CreateRawVote(t *testing.T) {
+	require := require.New(t)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mBc := mock_blockchain.NewMockBlockchain(ctrl)
+	svc := Service{bc: mBc}
+
+	request := explorer.CreateRawVoteRequest{}
+	response, err := svc.CreateRawVote(request)
+	require.Equal(explorer.CreateRawVoteResponse{}, response)
+	require.NotNil(err)
+
+	request = explorer.CreateRawVoteRequest{Voter: senderPubKey, Votee: recipientPubKey, Nonce: 1}
+	selfPubKey, err := hex.DecodeString(senderPubKey)
+	require.Nil(err)
+	votePubKey, err := hex.DecodeString(recipientPubKey)
+	require.Nil(err)
+	mBc.EXPECT().CreateRawVote(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).
+		Return(&action.Vote{&pb.VotePb{Nonce: uint64(1), SelfPubkey: selfPubKey, VotePubkey: votePubKey}})
+	_, err = svc.CreateRawVote(request)
+	require.Nil(err)
+}
+
+func TestService_SendVote(t *testing.T) {
+	require := require.New(t)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mDp := mock_dispatcher.NewMockDispatcher(ctrl)
+	bcb := func(msg proto.Message) error {
+		return nil
+	}
+	svc := Service{dp: mDp, broadcastcb: bcb}
+
+	request := explorer.SendVoteRequest{}
+	response, err := svc.SendVote(request)
+	require.Equal(false, response.VoteSent)
+	require.NotNil(err)
+
+	voteJSON := explorer.Vote{Nonce: 1, Voter: senderPubKey, Votee: recipientPubKey}
+	svote, err := json.Marshal(voteJSON)
+	require.Nil(err)
+	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any()).Times(1)
+	response, err = svc.SendVote(explorer.SendVoteRequest{hex.EncodeToString(svote[:])})
+	require.Equal(true, response.VoteSent)
+	require.Nil(err)
 }

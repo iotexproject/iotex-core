@@ -54,9 +54,6 @@ delegate:
     addrs:
         - "INIT BY CODE"
 
-rpc:
-    addr: "127.0.0.1:50051"
-
 dispatcher:
     eventChanSize: 1024
 
