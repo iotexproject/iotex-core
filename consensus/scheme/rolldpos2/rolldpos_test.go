@@ -15,10 +15,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core-internal/config"
-	"github.com/iotexproject/iotex-core-internal/network/node"
-	"github.com/iotexproject/iotex-core-internal/test/mock/mock_blockchain"
-	"github.com/iotexproject/iotex-core-internal/test/mock/mock_delegate"
+	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/network/node"
+	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
+	"github.com/iotexproject/iotex-core/test/mock/mock_delegate"
 )
 
 func TestRollDPoSCtx(t *testing.T) {

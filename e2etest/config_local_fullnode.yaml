@@ -42,9 +42,6 @@ delegate:
     addrs:
         - "127.0.0.1:4689"
 
-rpc:
-    addr: "127.0.0.1:42124"
-
 dispatcher:
     eventChanSize: 1024
 

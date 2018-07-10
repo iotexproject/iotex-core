@@ -11,10 +11,10 @@ import (
 
 	"github.com/facebookgo/clock"
 
-	"github.com/iotexproject/iotex-core-internal/blockchain"
-	"github.com/iotexproject/iotex-core-internal/config"
-	"github.com/iotexproject/iotex-core-internal/delegate"
-	"github.com/iotexproject/iotex-core-internal/pkg/hash"
+	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/delegate"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 )
 
 type rollDPoSCtx struct {

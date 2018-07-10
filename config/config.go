@@ -122,11 +122,6 @@ type Delegate struct {
 	RollNum uint     `yaml:"rollNum"`
 }
 
-// RPC is the chain service config
-type RPC struct {
-	Addr string `yaml:"addr"`
-}
-
 // Dispatcher is the dispatcher config
 type Dispatcher struct {
 	EventChanSize uint `yaml:"eventChanSize"`
@@ -158,7 +153,6 @@ type Config struct {
 	Chain      Chain      `yaml:"chain"`
 	Consensus  Consensus  `yaml:"consensus"`
 	Delegate   Delegate   `yaml:"delegate"`
-	RPC        RPC        `yaml:"rpc"`
 	BlockSync  BlockSync  `yaml:"blockSync"`
 	Dispatcher Dispatcher `yaml:"dispatcher"`
 	Explorer   Explorer   `yaml:"explorer"`

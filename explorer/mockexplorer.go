@@ -123,6 +123,26 @@ func (exp *MockExplorer) GetConsensusMetrics() (explorer.ConsensusMetrics, error
 	}, nil
 }
 
+// CreateRawTransfer creates a fake raw transfer
+func (exp *MockExplorer) CreateRawTransfer(request explorer.CreateRawTransferRequest) (explorer.CreateRawTransferResponse, error) {
+	return explorer.CreateRawTransferResponse{}, nil
+}
+
+// SendTransfer sends a fake transfer
+func (exp *MockExplorer) SendTransfer(request explorer.SendTransferRequest) (explorer.SendTransferResponse, error) {
+	return explorer.SendTransferResponse{}, nil
+}
+
+// CreateRawVote creates a fake raw vote
+func (exp *MockExplorer) CreateRawVote(request explorer.CreateRawVoteRequest) (explorer.CreateRawVoteResponse, error) {
+	return explorer.CreateRawVoteResponse{}, nil
+}
+
+// SendVote sends a fake vote
+func (exp *MockExplorer) SendVote(request explorer.SendVoteRequest) (explorer.SendVoteResponse, error) {
+	return explorer.SendVoteResponse{}, nil
+}
+
 func randInt64() int64 {
 	rand.Seed(time.Now().UnixNano())
 	amount := int64(0)

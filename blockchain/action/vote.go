@@ -8,13 +8,16 @@ package action
 
 import (
 	"bytes"
+	"encoding/hex"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/blake2b"
 
 	cp "github.com/iotexproject/iotex-core/crypto"
+	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/version"
@@ -82,14 +85,55 @@ func (v *Vote) ConvertToVotePb() *iproto.VotePb {
 	return v.VotePb
 }
 
+// ToJSON converts Vote to VoteJSON
+func (v *Vote) ToJSON() *explorer.Vote {
+	// used by account-based model
+	vote := &explorer.Vote{
+		Version:     int64(v.Version),
+		Nonce:       int64(v.Nonce),
+		VoterPubKey: hex.EncodeToString(v.SelfPubkey),
+		VoteePubKey: hex.EncodeToString(v.VotePubkey),
+		Signature:   hex.EncodeToString(v.Signature),
+	}
+	return vote
+}
+
 // Serialize returns a serialized byte stream for the Transfer
 func (v *Vote) Serialize() ([]byte, error) {
 	return proto.Marshal(v.ConvertToVotePb())
 }
 
-// ConvertFromVotePb converts Vote to protobuf's VotePb
+// ConvertFromVotePb converts a protobuf's VotePb to Vote
 func (v *Vote) ConvertFromVotePb(pbVote *iproto.VotePb) {
 	v.VotePb = pbVote
+}
+
+// NewVoteFromJSON creates a new Vote from VoteJSON
+func NewVoteFromJSON(jsonVote *explorer.Vote) (*Vote, error) {
+	v := &Vote{}
+	v.Version = uint32(jsonVote.Version)
+	// used by account-based model
+	v.Nonce = uint64(jsonVote.Nonce)
+	voterPubKey, err := hex.DecodeString(jsonVote.VoterPubKey)
+	if err != nil {
+		logger.Error().Err(err).Msg("Fail to create a new Vote from VoteJSON")
+		return nil, err
+	}
+	v.SelfPubkey = voterPubKey
+	voteePubKey, err := hex.DecodeString(jsonVote.VoteePubKey)
+	if err != nil {
+		logger.Error().Err(err).Msg("Fail to create a new Vote from VoteJSON")
+		return nil, err
+	}
+	v.VotePubkey = voteePubKey
+	signature, err := hex.DecodeString(jsonVote.Signature)
+	if err != nil {
+		logger.Error().Err(err).Msg("Fail to create a new Vote from VoteJSON")
+		return nil, err
+	}
+	v.Signature = signature
+
+	return v, nil
 }
 
 // Deserialize parse the byte stream into Vote
