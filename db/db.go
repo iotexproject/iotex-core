@@ -31,14 +31,14 @@ type KVStore interface {
 
 	// Put insert or update a record identified by (namespace, key)
 	Put(string, []byte, []byte) error
-	// BatchPut insert or update a slice of records identified by (namespace, key)
-	BatchPut(string, [][]byte, [][]byte) error
 	// Put puts a record only if (namespace, key) doesn't exist, otherwise return ErrAlreadyExist
 	PutIfNotExists(string, []byte, []byte) error
 	// Get gets a record by (namespace, key)
 	Get(string, []byte) ([]byte, error)
 	// Delete deletes a record by (namespace, key)
 	Delete(string, []byte) error
+	// Batch return a kv store batch api object
+	Batch() KVStoreBatch
 }
 
 const (
@@ -60,17 +60,6 @@ func (m *memKVStore) Stop(_ context.Context) error { return nil }
 // Put inserts a <key, value> record
 func (m *memKVStore) Put(namespace string, key []byte, value []byte) error {
 	m.data.Store(namespace+keyDelimiter+string(key), value)
-	return nil
-}
-
-// BatchPut inserts a slice of records <key[], value[]>
-func (m *memKVStore) BatchPut(namespace string, key [][]byte, value [][]byte) error {
-	if len(key) != len(value) {
-		return errors.Wrap(ErrInvalidDB, "batch put <k, v> size not match")
-	}
-	for i := 0; i < len(key); i++ {
-		m.data.Store(namespace+keyDelimiter+string(key[i]), value[i])
-	}
 	return nil
 }
 
@@ -97,6 +86,11 @@ func (m *memKVStore) Get(namespace string, key []byte) ([]byte, error) {
 func (m *memKVStore) Delete(namespace string, key []byte) error {
 	m.data.Delete(namespace + keyDelimiter + string(key))
 	return nil
+}
+
+// Delete deletes a record
+func (m *memKVStore) Batch() KVStoreBatch {
+	return NewMemKVStoreBatch(&m.data)
 }
 
 const fileMode = 0600
@@ -134,25 +128,6 @@ func (b *boltDB) Put(namespace string, key []byte, value []byte) error {
 			return err
 		}
 		return bucket.Put(key, value)
-	})
-}
-
-// BatchPut inserts a slice of records <key[], value[]>
-func (b *boltDB) BatchPut(namespace string, key [][]byte, value [][]byte) error {
-	return b.db.Update(func(tx *bolt.Tx) error {
-		bucket, err := tx.CreateBucketIfNotExists([]byte(namespace))
-		if err != nil {
-			return err
-		}
-		if len(key) != len(value) {
-			return errors.Wrap(ErrInvalidDB, "batch put <k, v> size not match")
-		}
-		for i := 0; i < len(key); i++ {
-			if err := bucket.Put(key[i], value[i]); err != nil {
-				return err
-			}
-		}
-		return nil
 	})
 }
 
@@ -199,6 +174,11 @@ func (b *boltDB) Delete(namespace string, key []byte) error {
 		}
 		return bucket.Delete(key)
 	})
+}
+
+// Batch return a kv store batch api object
+func (b *boltDB) Batch() KVStoreBatch {
+	return NewBoltDBBatch(b)
 }
 
 //======================================
