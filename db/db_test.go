@@ -12,14 +12,19 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/test/util"
 )
 
 var (
-	bucket = "test_ns"
-	testK  = [3][]byte{[]byte("key_1"), []byte("key_2"), []byte("key_3")}
-	testV  = [3][]byte{[]byte("value_1"), []byte("value_2"), []byte("value_3")}
+	bucket1 = "test_ns1"
+	bucket2 = "test_ns2"
+	bucket3 = "test_ns3"
+	testK1  = [3][]byte{[]byte("key_1"), []byte("key_2"), []byte("key_3")}
+	testV1  = [3][]byte{[]byte("value_1"), []byte("value_2"), []byte("value_3")}
+	testK2  = [3][]byte{[]byte("key_4"), []byte("key_5"), []byte("key_6")}
+	testV2  = [3][]byte{[]byte("value_4"), []byte("value_5"), []byte("value_6")}
 )
 
 func TestKVStorePutGet(t *testing.T) {
@@ -34,29 +39,29 @@ func TestKVStorePutGet(t *testing.T) {
 			assert.Nil(err)
 		}()
 
-		err = kvStore.Put(bucket, []byte("key"), []byte("value"))
+		err = kvStore.Put(bucket1, []byte("key"), []byte("value"))
 		assert.Nil(err)
-		value, err := kvStore.Get(bucket, []byte("key"))
+		value, err := kvStore.Get(bucket1, []byte("key"))
 		assert.Nil(err)
 		assert.Equal([]byte("value"), value)
 		value, err = kvStore.Get("test_ns_1", []byte("key"))
 		assert.NotNil(err)
 		assert.Nil(value)
-		value, err = kvStore.Get(bucket, testK[0])
+		value, err = kvStore.Get(bucket1, testK1[0])
 		assert.NotNil(err)
 		assert.Nil(value)
 
-		err = kvStore.PutIfNotExists(bucket, testK[0], testV[0])
+		err = kvStore.PutIfNotExists(bucket1, testK1[0], testV1[0])
 		assert.Nil(err)
-		value, err = kvStore.Get(bucket, testK[0])
+		value, err = kvStore.Get(bucket1, testK1[0])
 		assert.Nil(err)
-		assert.Equal(testV[0], value)
+		assert.Equal(testV1[0], value)
 
-		err = kvStore.PutIfNotExists(bucket, testK[0], testV[1])
+		err = kvStore.PutIfNotExists(bucket1, testK1[0], testV1[1])
 		assert.NotNil(err)
-		value, err = kvStore.Get(bucket, testK[0])
+		value, err = kvStore.Get(bucket1, testK1[0])
 		assert.Nil(err)
-		assert.Equal(testV[0], value)
+		assert.Equal(testV1[0], value)
 	}
 
 	t.Run("In-memory KV Store", func(t *testing.T) {
@@ -85,36 +90,145 @@ func TestBatchRollback(t *testing.T) {
 			assert.Nil(err)
 		}()
 
-		err = kvboltDB.Put(bucket, testK[0], testV[0])
+		err = kvboltDB.Put(bucket1, testK1[0], testV1[0])
 		assert.Nil(err)
-		value, err := kvboltDB.Get(bucket, testK[0])
+		value, err := kvboltDB.Get(bucket1, testK1[0])
 		assert.Nil(err)
-		assert.Equal(testV[0], value)
-		err = kvboltDB.Put(bucket, testK[1], testV[1])
+		assert.Equal(testV1[0], value)
+		err = kvboltDB.Put(bucket1, testK1[1], testV1[1])
 		assert.Nil(err)
-		value, err = kvboltDB.Get(bucket, testK[1])
+		value, err = kvboltDB.Get(bucket1, testK1[1])
 		assert.Nil(err)
-		assert.Equal(testV[1], value)
-		err = kvboltDB.Put(bucket, testK[2], testV[2])
+		assert.Equal(testV1[1], value)
+		err = kvboltDB.Put(bucket1, testK1[2], testV1[2])
 		assert.Nil(err)
-		value, err = kvboltDB.Get(bucket, testK[2])
+		value, err = kvboltDB.Get(bucket1, testK1[2])
 		assert.Nil(err)
-		assert.Equal(testV[2], value)
+		assert.Equal(testV1[2], value)
 
-		testV1 := [3][]byte{[]byte("value1.1"), []byte("value2.1"), []byte("value3.1")}
+		testV := [3][]byte{[]byte("value1.1"), []byte("value2.1"), []byte("value3.1")}
 
-		err = kvboltDB.batchPutForceFail(bucket, testK[:], testV1[:])
+		err = kvboltDB.batchPutForceFail(bucket1, testK1[:], testV[:])
 		assert.NotNil(err)
 
-		value, err = kvboltDB.Get(bucket, testK[0])
+		value, err = kvboltDB.Get(bucket1, testK1[0])
 		assert.Nil(err)
-		assert.Equal(testV[0], value)
-		value, err = kvboltDB.Get(bucket, testK[1])
+		assert.Equal(testV1[0], value)
+		value, err = kvboltDB.Get(bucket1, testK1[1])
 		assert.Nil(err)
-		assert.Equal(testV[1], value)
-		value, err = kvboltDB.Get(bucket, testK[2])
+		assert.Equal(testV1[1], value)
+		value, err = kvboltDB.Get(bucket1, testK1[2])
 		assert.Nil(err)
-		assert.Equal(testV[2], value)
+		assert.Equal(testV1[2], value)
+	}
+
+	path := "/tmp/test-batch-rollback-" + string(rand.Int())
+	t.Run("Bolt DB", func(t *testing.T) {
+		util.CleanupPath(t, path)
+		defer util.CleanupPath(t, path)
+		testBatchRollback(NewBoltDB(path, nil), t)
+	})
+}
+
+func TestDBBatch(t *testing.T) {
+	testBatchRollback := func(kvStore KVStore, t *testing.T) {
+		require := require.New(t)
+
+		ctx := context.Background()
+		kvboltDB := kvStore.(*boltDB)
+		batch := boltDBBatch{bdb: kvboltDB}
+
+		err := kvboltDB.Start(ctx)
+		require.Nil(err)
+		defer func() {
+			err = kvboltDB.Stop(ctx)
+			require.Nil(err)
+		}()
+
+		err = kvboltDB.Put(bucket1, testK1[0], testV1[1])
+		require.Nil(err)
+
+		err = kvboltDB.Put(bucket2, testK2[1], testV2[0])
+		require.Nil(err)
+
+		err = kvboltDB.Put(bucket1, testK1[2], testV1[0])
+		require.Nil(err)
+
+		batch.Put(bucket1, testK1[0], testV1[0])
+		batch.Put(bucket2, testK2[1], testV2[1])
+
+		value, err := kvboltDB.Get(bucket1, testK1[0])
+		require.Nil(err)
+		require.Equal(testV1[1], value)
+
+		value, err = kvboltDB.Get(bucket2, testK2[1])
+		require.Nil(err)
+		require.Equal(testV2[0], value)
+
+		err = batch.Commit()
+		require.Nil(err)
+
+		value, err = kvboltDB.Get(bucket1, testK1[0])
+		require.Nil(err)
+		require.Equal(testV1[0], value)
+
+		value, err = kvboltDB.Get(bucket2, testK2[1])
+		require.Nil(err)
+		require.Equal(testV2[1], value)
+
+		value, err = kvboltDB.Get(bucket1, testK1[2])
+		require.Nil(err)
+		require.Equal(testV1[0], value)
+
+		batch.Put(bucket1, testK1[0], testV1[1])
+		batch.PutIfNotExists(bucket2, testK2[1], testV2[0])
+		err = batch.Commit()
+		require.Equal(err, ErrAlreadyExist)
+		batch.Clear()
+
+		value, err = kvboltDB.Get(bucket2, testK2[1])
+		require.Nil(err)
+		require.Equal(testV2[1], value)
+
+		value, err = kvboltDB.Get(bucket1, testK1[0])
+		require.Nil(err)
+		require.Equal(testV1[0], value)
+
+		batch.PutIfNotExists(bucket3, testK2[0], testV2[0])
+		err = batch.Commit()
+		require.Nil(err)
+
+		value, err = kvboltDB.Get(bucket3, testK2[0])
+		require.Nil(err)
+		require.Equal(testV2[0], value)
+
+		batch.Put(bucket1, testK1[2], testV1[2])
+		// we did not set key in bucket3 yet, so this operation will fail and
+		// cause transaction rollback
+		batch.PutIfNotExists(bucket3, testK2[0], testV2[1])
+		err = batch.Commit()
+		require.NotNil(err)
+
+		value, err = kvboltDB.Get(bucket1, testK1[2])
+		require.Nil(err)
+		require.Equal(testV1[0], value)
+
+		value, err = kvboltDB.Get(bucket2, testK2[1])
+		require.Nil(err)
+		require.Equal(testV2[1], value)
+
+		batch.Clear()
+		batch.Put(bucket1, testK1[2], testV1[2])
+		batch.Delete(bucket2, testK2[1])
+		err = batch.Commit()
+		require.Nil(err)
+
+		value, err = kvboltDB.Get(bucket1, testK1[2])
+		require.Nil(err)
+		require.Equal(testV1[2], value)
+
+		value, err = kvboltDB.Get(bucket2, testK2[1])
+		require.NotNil(err)
 	}
 
 	path := "/tmp/test-batch-rollback-" + string(rand.Int())
