@@ -116,7 +116,7 @@ func TestLocalActPool(t *testing.T) {
 	p1.Broadcast(act4)
 	p1.Broadcast(act5)
 	p1.Broadcast(act6)
-	// Wait until actpool is reset
+	// Wait until committed blocks contain all the broadcasted actions
 	err = util.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
 		// Check whether current committed blocks contain all the valid actions picked from actpool
 		height, _ := bc.TipHeight()
@@ -205,7 +205,7 @@ func TestPressureActPool(t *testing.T) {
 		p1.Broadcast(act)
 	}
 
-	// Wait until actpool is reset
+	// Wait until committed blocks contain all broadcasted actions
 	err = util.WaitUntil(10*time.Millisecond, 10*time.Second, func() (bool, error) {
 		// Check whether current committed blocks contain all the valid actions picked from actpool
 		height, _ := bc.TipHeight()
