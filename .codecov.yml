@@ -4,8 +4,8 @@ coverage:
     project:
       default:
         enabled: yes
-        target: 60%
+        target: 70%
     patch:
       default:
         enabled: yes
-        target: 60%
+        target: 70%
