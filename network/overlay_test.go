@@ -7,7 +7,6 @@
 package network
 
 import (
-	"fmt"
 	"io/ioutil"
 	"math"
 	"math/rand"
@@ -165,11 +164,13 @@ func (d2 *MockDispatcher2) HandleTell(sender net.Addr, message proto.Message, do
 func TestTell(t *testing.T) {
 	ctx := context.Background()
 	dp1 := &MockDispatcher2{T: t}
-	p1 := NewOverlay(LoadTestConfig("127.0.0.1:10001", true))
+	addr1 := randomAddress()
+	addr2 := randomAddress()
+	p1 := NewOverlay(LoadTestConfig(addr1, true))
 	p1.AttachDispatcher(dp1)
 	p1.Start(ctx)
 	dp2 := &MockDispatcher2{T: t}
-	p2 := NewOverlay(LoadTestConfig("127.0.0.1:10002", true))
+	p2 := NewOverlay(LoadTestConfig(addr2, true))
 	p2.AttachDispatcher(dp2)
 	p2.Start(ctx)
 
@@ -179,9 +180,9 @@ func TestTell(t *testing.T) {
 	}()
 
 	// P1 tell Tx Msg
-	p1.Tell(&node.Node{Addr: "127.0.0.1:10002"}, &iproto.TxPb{Version: uint32(12345678)})
+	p1.Tell(&node.Node{Addr: addr2}, &iproto.TxPb{Version: uint32(12345678)})
 	// P2 tell Tx Msg
-	p2.Tell(&node.Node{Addr: "127.0.0.1:10001"}, &iproto.TxPb{Version: uint32(87654321)})
+	p2.Tell(&node.Node{Addr: addr1}, &iproto.TxPb{Version: uint32(87654321)})
 
 	err := util.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
 		if dp2.Count != uint32(1) {
@@ -198,15 +199,18 @@ func TestTell(t *testing.T) {
 func TestOneConnPerIP(t *testing.T) {
 	ctx := context.Background()
 	dp1 := &MockDispatcher2{T: t}
-	p1 := NewOverlay(LoadTestConfig("127.0.0.1:10001", false))
+	addr1 := randomAddress()
+	addr2 := randomAddress()
+	addr3 := randomAddress()
+	p1 := NewOverlay(LoadTestConfig(addr1, false))
 	p1.AttachDispatcher(dp1)
 	p1.Start(ctx)
 	dp2 := &MockDispatcher2{T: t}
-	p2 := NewOverlay(LoadTestConfig("127.0.0.1:10002", false))
+	p2 := NewOverlay(LoadTestConfig(addr2, false))
 	p2.AttachDispatcher(dp2)
 	p2.Start(ctx)
 	dp3 := &MockDispatcher2{T: t}
-	p3 := NewOverlay(LoadTestConfig("127.0.0.1:10003", false))
+	p3 := NewOverlay(LoadTestConfig(addr3, false))
 	p3.AttachDispatcher(dp3)
 	p3.Start(ctx)
 
@@ -233,12 +237,17 @@ func TestOneConnPerIP(t *testing.T) {
 
 func TestConfigBasedTopology(t *testing.T) {
 	ctx := context.Background()
+	addr1 := randomAddress()
+	addr2 := randomAddress()
+	addr3 := randomAddress()
+	addr4 := randomAddress()
+	addresses := []string{addr1, addr2, addr3, addr4}
 	topology := config.Topology{
 		NeighborList: map[string][]string{
-			"127.0.0.1:10001": []string{"127.0.0.1:10002", "127.0.0.1:10003", "127.0.0.1:10004"},
-			"127.0.0.1:10002": []string{"127.0.0.1:10001", "127.0.0.1:10003", "127.0.0.1:10004"},
-			"127.0.0.1:10003": []string{"127.0.0.1:10001", "127.0.0.1:10002", "127.0.0.1:10004"},
-			"127.0.0.1:10004": []string{"127.0.0.1:10001", "127.0.0.1:10002", "127.0.0.1:10003"},
+			addr1: []string{addr2, addr3, addr4},
+			addr2: []string{addr1, addr3, addr4},
+			addr3: []string{addr1, addr2, addr4},
+			addr4: []string{addr1, addr2, addr3},
 		},
 	}
 	topologyStr, err := yaml.Marshal(topology)
@@ -248,7 +257,7 @@ func TestConfigBasedTopology(t *testing.T) {
 
 	nodes := make([]*Overlay, 4)
 	for i := 1; i <= 4; i++ {
-		config := LoadTestConfig(fmt.Sprintf("127.0.0.1:1000%d", i), true)
+		config := LoadTestConfig(addresses[i-1], true)
 		config.PeerDiscovery = false
 		config.TopologyPath = path
 		dp := &MockDispatcher{}
@@ -278,6 +287,7 @@ func TestConfigBasedTopology(t *testing.T) {
 				return true
 			})
 			sort.Strings(addrs)
+			sort.Strings(topology.NeighborList[node.RPC.String()])
 			if !reflect.DeepEqual(topology.NeighborList[node.RPC.String()], addrs) {
 				return false, nil
 			}
@@ -398,6 +408,11 @@ func BenchmarkParallelSecureTell(b *testing.B) {
 			runBenchmarkOp(true, size, true, true, b)
 		})
 	}
+}
+
+func randomAddress() string {
+	endPoint := rand.Intn(40000) + 10000
+	return "127.0.0.1:" + strconv.Itoa(endPoint)
 }
 
 /*
