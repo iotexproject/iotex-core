@@ -8,21 +8,17 @@ package cmd
 
 import (
 	"fmt"
-	"go/build"
 	"os"
+	"strconv"
 
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/explorer"
 	eidl "github.com/iotexproject/iotex-core/explorer/idl/explorer"
-	"github.com/iotexproject/iotex-core/logger"
 )
 
-const (
-	yamlPath  = "/src/github.com/iotexproject/iotex-core/e2etest/config_local_delegate.yaml"
-	localhost = "http://127.0.0.1:"
-)
+const localhost = "http://127.0.0.1:"
 
 var (
 	address string
@@ -51,36 +47,7 @@ func init() {
 // getClient gets the explorer client and config file
 func getClient() (eidl.Explorer, error) {
 	if address == "" {
-		gopath := os.Getenv("GOPATH")
-		if gopath == "" {
-			logger.Error().Msg("please set GOPATH environment variable")
-			gopath = build.Default.GOPATH
-		}
-		config.Path = gopath + yamlPath
-		cfg, err := config.New()
-		if err != nil {
-			logger.Error().Err(err).Msg("cannot access config file")
-			return nil, err
-		}
-		port := cfg.Explorer.Addr
-
-		return explorer.NewExplorerProxy(localhost + port), nil
+		return explorer.NewExplorerProxy(localhost + strconv.Itoa(config.Default.Explorer.Port)), nil
 	}
-
 	return explorer.NewExplorerProxy(address), nil
-}
-
-func getCfg() (*config.Config, error) {
-	gopath := os.Getenv("GOPATH")
-	if gopath == "" {
-		logger.Error().Msg("please set GOPATH environment variable")
-		gopath = build.Default.GOPATH
-	}
-	config.Path = gopath + yamlPath
-	cfg, err := config.New()
-	if err != nil {
-		logger.Error().Err(err).Msg("cannot access config file")
-		return nil, err
-	}
-	return cfg, nil
 }

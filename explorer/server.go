@@ -8,6 +8,7 @@ package explorer
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/coopernurse/barrister-go"
 	"github.com/golang/protobuf/proto"
@@ -41,7 +42,7 @@ func StartJSONServer(
 	dp dispatcher.Dispatcher,
 	cb func(proto.Message) error,
 	isTest bool,
-	port string,
+	port int,
 	tpsWindow int,
 ) {
 	svc := Service{
@@ -59,9 +60,10 @@ func StartJSONServer(
 	svr.AddFilter(LogFilter{})
 	http.Handle("/", &svr)
 
-	logger.Info().Msg("Starting Explorer JSON-RPC server on localhost:" + port)
+	portStr := strconv.Itoa(port)
+	logger.Info().Msg("Starting Explorer JSON-RPC server on localhost:" + portStr)
 	go func() {
-		if err := http.ListenAndServe(":"+port, nil); err != nil {
+		if err := http.ListenAndServe(":"+portStr, nil); err != nil {
 			logger.Error().Msg(err.Error())
 			panic(err)
 		}

@@ -35,9 +35,8 @@ import (
 )
 
 const (
-	port           = ":50051"
-	rolldposConfig = "./config_local_rolldpos_sim.yaml"
-	dummyMsgType   = 1999
+	port         = ":50051"
+	dummyMsgType = 1999
 )
 
 // server is used to implement message.SimulatorServer.
@@ -73,24 +72,31 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 	}
 
 	for i := 0; i < int(nPlayers); i++ {
-		config.Path = rolldposConfig
-		cfg, err := config.New()
-		if err != nil {
-			logger.Error().Msg("Error loading config file")
-		}
-
-		//s.nodes = make([]consensus.Sim, in.NPlayers) // allocate all the necessary space now because otherwise nodes will get copied and create pointer issues
+		cfg := config.Default
+		// s.nodes = make([]consensus.Sim, in.NPlayers)
+		// allocate all the necessary space now because otherwise nodes will get copied and create pointer issues
+		cfg.Consensus.Scheme = config.RollDPoSScheme
+		cfg.Consensus.RollDPoS.DelegateInterval = time.Millisecond
+		cfg.Consensus.RollDPoS.ProposerInterval = 0
+		cfg.Consensus.RollDPoS.UnmatchedEventTTL = 1000 * time.Second
+		cfg.Consensus.RollDPoS.RoundStartTTL = 1000 * time.Second
+		cfg.Consensus.RollDPoS.AcceptProposeTTL = 1000 * time.Second
+		cfg.Consensus.RollDPoS.AcceptPrevoteTTL = 1000 * time.Second
+		cfg.Consensus.RollDPoS.AcceptVoteTTL = 1000 * time.Second
+		cfg.Consensus.RollDPoS.ProposerCB = "PseudoRotatedProposer"
+		cfg.Consensus.RollDPoS.ProposerCB = "PseudoStarNewEpoch"
 
 		// handle node address, delegate addresses, etc.
 		cfg.Delegate.Addrs = addrs
 		cfg.Network.Addr = addrs[i]
+		cfg.Network.NumPeersLowerBound = 6
+		cfg.Network.NumPeersUpperBound = 12
 
 		// create public/private key pair and address
 		addr, err := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
 		if err != nil {
 			logger.Error().Err(err).Msg("failed to create public/private key pair together with the address derived.")
 		}
-
 		cfg.Chain.ProducerPrivKey = hex.EncodeToString(addr.PrivateKey)
 		cfg.Chain.ProducerPubKey = hex.EncodeToString(addr.PublicKey)
 
@@ -98,7 +104,7 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 		cfg.Chain.ChainDBPath = "./chain" + strconv.Itoa(i) + ".db"
 		cfg.Chain.TrieDBPath = "./trie" + strconv.Itoa(i) + ".db"
 
-		bc := blockchain.NewBlockchain(cfg, blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption())
+		bc := blockchain.NewBlockchain(&cfg, blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption())
 
 		if i >= int(in.NFS+in.NHonest) { // is byzantine node
 			val := bc.Validator()
@@ -112,17 +118,17 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 			logger.Fatal().Err(err).Msg("Fail to create actpool")
 		}
 		dlg := delegate.NewConfigBasedPool(&cfg.Delegate)
-		bs, _ := blocksync.NewBlockSyncer(cfg, bc, ap, overlay, dlg)
+		bs, _ := blocksync.NewBlockSyncer(&cfg, bc, ap, overlay, dlg)
 		bs.Start(ctx)
 
 		var node consensus.Sim
 		if i < int(in.NHonest) {
-			node = consensus.NewSim(cfg, bc, bs, dlg)
+			node = consensus.NewSim(&cfg, bc, bs, dlg)
 		} else if i < int(in.NHonest+in.NFS) {
 			s.nodes = append(s.nodes, nil)
 			continue
 		} else {
-			node = consensus.NewSimByzantine(cfg, bc, bs, dlg)
+			node = consensus.NewSimByzantine(&cfg, bc, bs, dlg)
 		}
 
 		s.nodes = append(s.nodes, node)

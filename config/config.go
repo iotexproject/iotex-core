@@ -94,11 +94,11 @@ var (
 			Scheme: NOOPScheme,
 			RollDPoS: RollDPoS{
 				DelegateInterval:  10 * time.Second,
-				ProposerInterval:  3 * time.Second,
+				ProposerInterval:  10 * time.Second,
 				ProposerCB:        "",
 				EpochCB:           "",
 				UnmatchedEventTTL: 3 * time.Second,
-				RoundStartTTL:     3 * time.Second,
+				RoundStartTTL:     10 * time.Second,
 				AcceptProposeTTL:  time.Second,
 				AcceptPrevoteTTL:  time.Second,
 				AcceptVoteTTL:     time.Second,
@@ -106,9 +106,8 @@ var (
 				NumSubEpochs:      1,
 				EventChanSize:     10000,
 			},
-			BlockCreationInterval: 3 * time.Millisecond,
+			BlockCreationInterval: 10 * time.Second,
 		},
-
 		BlockSync: BlockSync{
 			Interval: 10 * time.Second,
 		},
@@ -123,7 +122,7 @@ var (
 		Explorer: Explorer{
 			Enabled:   true,
 			IsTest:    false,
-			Addr:      "127.0.0.1:14004",
+			Port:      14004,
 			TpsWindow: 10,
 		},
 		System: System{
@@ -231,10 +230,10 @@ type (
 
 	// Explorer is the explorer service config
 	Explorer struct {
-		Enabled   bool   `yaml:"enabled"`
-		IsTest    bool   `yaml:"isTest"`
-		Addr      string `yaml:"addr"`
-		TpsWindow int    `yaml:"tpsWindow"`
+		Enabled   bool `yaml:"enabled"`
+		IsTest    bool `yaml:"isTest"`
+		Port      int  `yaml:"addr"`
+		TpsWindow int  `yaml:"tpsWindow"`
 	}
 
 	// System is the system config

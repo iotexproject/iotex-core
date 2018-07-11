@@ -8,20 +8,18 @@ package e2etest
 
 import (
 	"context"
+	"encoding/hex"
 	"math/big"
 	"sort"
 	"testing"
 	"time"
 
-	"github.com/rs/zerolog"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/iotxaddress"
-	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network"
 	"github.com/iotexproject/iotex-core/network/node"
 	pb "github.com/iotexproject/iotex-core/proto"
@@ -31,41 +29,28 @@ import (
 )
 
 const (
-	localTestConfigPath = "../config.yaml"
-	testDBPath          = "db.test"
-	testDBPath2         = "db.test2"
-	testTriePath        = "trie.test"
-	testTriePath2       = "trie.test2"
+	testDBPath    = "db.test"
+	testDBPath2   = "db.test2"
+	testTriePath  = "trie.test"
+	testTriePath2 = "trie.test2"
 )
 
 func TestLocalCommit(t *testing.T) {
 	require := require.New(t)
 
-	config.Path = localTestConfigPath
-	cfg, err := config.New()
-	require.Nil(err)
-	cfg.Network.BootstrapNodes = []string{"127.0.0.1:10000"}
-
 	util.CleanupPath(t, testTriePath)
-	defer util.CleanupPath(t, testTriePath)
 	util.CleanupPath(t, testDBPath)
-	defer util.CleanupPath(t, testDBPath)
-
-	cfg.Chain.TrieDBPath = testTriePath
-	cfg.Chain.ChainDBPath = testDBPath
-	cfg.Consensus.Scheme = config.NOOPScheme
-	cfg.Delegate.Addrs = []string{"127.0.0.1:10000"}
 
 	blockchain.Gen.TotalSupply = uint64(50 << 22)
 	blockchain.Gen.BlockReward = uint64(0)
 
+	cfg, err := newTestConfig()
+	require.Nil(err)
+
 	// create node
 	ctx := context.Background()
-	svr := itx.NewServer(*cfg)
-	require.Nil(err)
-	err = svr.Start(ctx)
-	require.Nil(err)
-	defer svr.Stop(ctx)
+	svr := itx.NewServer(cfg)
+	require.Nil(svr.Start(ctx))
 
 	bc := svr.Bc()
 	require.NotNil(bc)
@@ -82,7 +67,13 @@ func TestLocalCommit(t *testing.T) {
 	require.NotNil(p1)
 	p1.RPC.Addr = "127.0.0.1:10001"
 	p1.Start(ctx)
-	defer p1.Stop(ctx)
+
+	defer func() {
+		require.Nil(p1.Stop(ctx))
+		require.Nil(svr.Stop(ctx))
+		util.CleanupPath(t, testTriePath)
+		util.CleanupPath(t, testDBPath)
+	}()
 
 	// check balance
 	s, err := bc.StateByAddr(ta.Addrinfo["alfa"].RawAddress)
@@ -289,57 +280,42 @@ func TestLocalCommit(t *testing.T) {
 }
 
 func TestLocalSync(t *testing.T) {
-	l := logger.Logger().Level(zerolog.DebugLevel)
-	logger.SetLogger(&l)
-	assert := assert.New(t)
+	require := require.New(t)
 
-	config.Path = localTestConfigPath
-	cfg, err := config.New()
-	assert.Nil(err)
-	cfg.NodeType = config.DelegateType
-	cfg.Delegate.Addrs = []string{"127.0.0.1:10000"}
 	util.CleanupPath(t, testTriePath)
-	defer util.CleanupPath(t, testTriePath)
 	util.CleanupPath(t, testDBPath)
-	defer util.CleanupPath(t, testDBPath)
 
-	cfg.Chain.TrieDBPath = testTriePath
-	cfg.Chain.ChainDBPath = testDBPath
-	cfg.Consensus.Scheme = config.NOOPScheme
+	cfg, err := newTestConfig()
+	require.Nil(err)
 
 	// create node 1
 	ctx := context.Background()
-	svr := itx.NewServer(*cfg)
-	assert.Nil(err)
-	err = svr.Start(ctx)
-	assert.Nil(err)
-	defer svr.Stop(ctx)
+	svr := itx.NewServer(cfg)
+	require.Nil(svr.Start(ctx))
 
 	bc := svr.Bc()
-	assert.NotNil(bc)
-	assert.Nil(addTestingTsfBlocks(bc))
+	require.NotNil(bc)
+	require.Nil(addTestingTsfBlocks(bc))
 	t.Log("Create blockchain pass")
 
 	blk, err := bc.GetBlockByHeight(1)
-	assert.Nil(err)
+	require.Nil(err)
 	hash1 := blk.HashBlock()
 	blk, err = bc.GetBlockByHeight(2)
-	assert.Nil(err)
+	require.Nil(err)
 	hash2 := blk.HashBlock()
 	blk, err = bc.GetBlockByHeight(3)
-	assert.Nil(err)
+	require.Nil(err)
 	hash3 := blk.HashBlock()
 	blk, err = bc.GetBlockByHeight(4)
-	assert.Nil(err)
+	require.Nil(err)
 	hash4 := blk.HashBlock()
 
 	p2 := svr.P2p()
-	assert.NotNil(p2)
+	require.NotNil(p2)
 
 	util.CleanupPath(t, testTriePath2)
-	defer util.CleanupPath(t, testTriePath2)
 	util.CleanupPath(t, testDBPath2)
-	defer util.CleanupPath(t, testDBPath2)
 
 	cfg.Chain.TrieDBPath = testTriePath2
 	cfg.Chain.ChainDBPath = testDBPath2
@@ -347,15 +323,25 @@ func TestLocalSync(t *testing.T) {
 	// create node 2
 	cfg.NodeType = config.FullNodeType
 	cfg.Network.Addr = "127.0.0.1:10001"
-	cli := itx.NewServer(*cfg)
-	cli.Start(ctx)
-	defer cli.Stop(ctx)
+	cli := itx.NewServer(cfg)
+	require.Nil(cli.Start(ctx))
 
 	bc1 := cli.Bc()
-	assert.NotNil(bc1)
+	require.NotNil(bc1)
 
 	p1 := cli.P2p()
-	assert.NotNil(p1)
+	require.NotNil(p1)
+
+	defer func() {
+		require.Nil(cli.Stop(ctx))
+		require.Nil(p1.Stop(ctx))
+		require.Nil(p2.Stop(ctx))
+		require.Nil(svr.Stop(ctx))
+		util.CleanupPath(t, testTriePath)
+		util.CleanupPath(t, testDBPath)
+		util.CleanupPath(t, testTriePath2)
+		util.CleanupPath(t, testDBPath2)
+	}()
 
 	// P1 download 4 blocks from P2
 	p1.Tell(node.NewTCPNode(p2.RPC.Addr), &pb.BlockSync{Start: 1, End: 4})
@@ -379,52 +365,40 @@ func TestLocalSync(t *testing.T) {
 		return hash1 == blk1.HashBlock() && hash2 == blk2.HashBlock() && hash3 == blk3.HashBlock() && hash4 == blk4.HashBlock(), nil
 	})
 	err = util.WaitUntil(time.Millisecond*10, time.Second*5, check)
-	assert.Nil(err)
+	require.Nil(err)
 
 	// verify 4 received blocks
 	blk, err = bc1.GetBlockByHeight(1)
-	assert.Nil(err)
-	assert.Equal(hash1, blk.HashBlock())
+	require.Nil(err)
+	require.Equal(hash1, blk.HashBlock())
 	blk, err = bc1.GetBlockByHeight(2)
-	assert.Nil(err)
-	assert.Equal(hash2, blk.HashBlock())
+	require.Nil(err)
+	require.Equal(hash2, blk.HashBlock())
 	blk, err = bc1.GetBlockByHeight(3)
-	assert.Nil(err)
-	assert.Equal(hash3, blk.HashBlock())
+	require.Nil(err)
+	require.Equal(hash3, blk.HashBlock())
 	blk, err = bc1.GetBlockByHeight(4)
-	assert.Nil(err)
-	assert.Equal(hash4, blk.HashBlock())
+	require.Nil(err)
+	require.Equal(hash4, blk.HashBlock())
 	t.Log("4 blocks received correctly")
 }
 
 func TestVoteLocalCommit(t *testing.T) {
 	require := require.New(t)
 
-	config.Path = localTestConfigPath
-	cfg, err := config.New()
-	require.Nil(err)
-	cfg.Network.BootstrapNodes = []string{"127.0.0.1:10000"}
-
 	util.CleanupPath(t, testTriePath)
-	defer util.CleanupPath(t, testTriePath)
 	util.CleanupPath(t, testDBPath)
-	defer util.CleanupPath(t, testDBPath)
 
-	cfg.Chain.TrieDBPath = testTriePath
-	cfg.Chain.ChainDBPath = testDBPath
-	cfg.Consensus.Scheme = config.NOOPScheme
-	cfg.Delegate.Addrs = []string{"127.0.0.1:10000"}
+	cfg, err := newTestConfig()
+	require.Nil(err)
 
 	blockchain.Gen.TotalSupply = uint64(50 << 22)
 	blockchain.Gen.BlockReward = uint64(0)
 
 	// create node
 	ctx := context.Background()
-	svr := itx.NewServer(*cfg)
-	require.Nil(err)
-	err = svr.Start(ctx)
-	require.Nil(err)
-	defer svr.Stop(ctx)
+	svr := itx.NewServer(cfg)
+	require.Nil(svr.Start(ctx))
 
 	bc := svr.Bc()
 	require.NotNil(bc)
@@ -434,14 +408,17 @@ func TestVoteLocalCommit(t *testing.T) {
 	ap := svr.Ap()
 	require.NotNil(ap)
 
-	p2 := svr.P2p()
-	require.NotNil(p2)
-
 	p1 := network.NewOverlay(&cfg.Network)
 	require.NotNil(p1)
 	p1.RPC.Addr = "127.0.0.1:10001"
 	p1.Start(ctx)
-	defer p1.Stop(ctx)
+
+	defer func() {
+		require.Nil(p1.Stop(ctx))
+		require.Nil(svr.Stop(ctx))
+		util.CleanupPath(t, testTriePath)
+		util.CleanupPath(t, testDBPath)
+	}()
 
 	height, err := bc.TipHeight()
 	require.Nil(err)
@@ -635,4 +612,21 @@ func newSignedVote(nonce int, from *iotxaddress.Address, to *iotxaddress.Address
 		return nil, err
 	}
 	return vote, nil
+}
+
+func newTestConfig() (*config.Config, error) {
+	cfg := config.Default
+	cfg.Chain.TrieDBPath = testTriePath
+	cfg.Chain.ChainDBPath = testDBPath
+	cfg.Consensus.Scheme = config.NOOPScheme
+	cfg.Network.Addr = "127.0.0.1:10000"
+	cfg.Network.BootstrapNodes = []string{"127.0.0.1:10000"}
+	cfg.Delegate.Addrs = []string{"127.0.0.1:10000"}
+	addr, err := iotxaddress.NewAddress(true, iotxaddress.ChainID)
+	if err != nil {
+		return nil, err
+	}
+	cfg.Chain.ProducerPubKey = hex.EncodeToString(addr.PublicKey)
+	cfg.Chain.ProducerPrivKey = hex.EncodeToString(addr.PrivateKey)
+	return &cfg, nil
 }

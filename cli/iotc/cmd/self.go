@@ -7,13 +7,9 @@
 package cmd
 
 import (
-	"encoding/hex"
 	"fmt"
 
 	"github.com/spf13/cobra"
-
-	"github.com/iotexproject/iotex-core/iotxaddress"
-	"github.com/iotexproject/iotex-core/logger"
 )
 
 // selfCmd represents the self command
@@ -27,24 +23,28 @@ var selfCmd = &cobra.Command{
 }
 
 func self() string {
-	cfg, err := getCfg()
-	if err != nil {
-		logger.Error().Err(err).Msg("unable to find config file")
-		return ""
-	}
-	pubk, err := hex.DecodeString(cfg.Chain.ProducerPubKey)
-	if err != nil {
-		logger.Error().Err(err).Msg("unable to decode pubkey")
-		return ""
-	}
-	addr, err := iotxaddress.GetAddress(pubk, iotxaddress.IsTestnet, iotxaddress.ChainID)
-	if err != nil {
-		logger.Error().Err(err).Msg("unable to construct address from pubkey")
-		return ""
-	}
+	// TODO: address should be return from the node API instead of a local config
+	return ""
+	/*
+		cfg, err := getCfg()
+		if err != nil {
+			logger.Error().Err(err).Msg("unable to find config file")
+			return ""
+		}
+		pubk, err := hex.DecodeString(cfg.Chain.ProducerPubKey)
+		if err != nil {
+			logger.Error().Err(err).Msg("unable to decode pubkey")
+			return ""
+		}
+		addr, err := iotxaddress.GetAddress(pubk, iotxaddress.IsTestnet, iotxaddress.ChainID)
+		if err != nil {
+			logger.Error().Err(err).Msg("unable to construct address from pubkey")
+			return ""
+		}
 
-	rawAddr := addr.RawAddress
-	return fmt.Sprintf("this node's address is %s", rawAddr)
+		rawAddr := addr.RawAddress
+		return fmt.Sprintf("this node's address is %s", rawAddr)
+	*/
 }
 
 func init() {

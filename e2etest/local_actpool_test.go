@@ -8,6 +8,7 @@ package e2etest
 
 import (
 	"context"
+	"encoding/hex"
 	"math/big"
 	"testing"
 	"time"
@@ -36,32 +37,19 @@ const (
 func TestLocalActPool(t *testing.T) {
 	require := require.New(t)
 
-	config.Path = localTestConfigPath
-	cfg, err := config.New()
-	require.Nil(err)
-	cfg.Network.BootstrapNodes = []string{"127.0.0.1:10000"}
-
 	util.CleanupPath(t, testTriePath)
-	defer util.CleanupPath(t, testTriePath)
 	util.CleanupPath(t, testDBPath)
-	defer util.CleanupPath(t, testDBPath)
 
-	cfg.Chain.TrieDBPath = testTriePath
-	cfg.Chain.InMemTest = false
-	cfg.Chain.ChainDBPath = testDBPath
-	cfg.Consensus.Scheme = config.StandaloneScheme
-	cfg.Delegate.Addrs = []string{"127.0.0.1:10000"}
+	cfg, err := newActPoolConfig()
+	require.Nil(err)
 
 	blockchain.Gen.TotalSupply = uint64(50 << 22)
 	blockchain.Gen.BlockReward = uint64(0)
 
 	// create node
 	ctx := context.Background()
-	svr := itx.NewServer(*cfg)
-	require.Nil(err)
-	err = svr.Start(ctx)
-	require.Nil(err)
-	defer svr.Stop(ctx)
+	svr := itx.NewServer(cfg)
+	require.Nil(svr.Start(ctx))
 
 	bc := svr.Bc()
 	require.NotNil(bc)
@@ -70,14 +58,17 @@ func TestLocalActPool(t *testing.T) {
 	ap := svr.Ap()
 	require.NotNil(ap)
 
-	p2 := svr.P2p()
-	require.NotNil(p2)
-
+	cfg.Network.Addr = "127.0.0.1:10001"
 	p1 := network.NewOverlay(&cfg.Network)
 	require.NotNil(p1)
-	p1.RPC.Addr = "127.0.0.1:10001"
-	p1.Start(ctx)
-	defer p1.Stop(ctx)
+	require.Nil(p1.Start(ctx))
+
+	defer func() {
+		require.Nil(p1.Stop(ctx))
+		require.Nil(svr.Stop(ctx))
+		util.CleanupPath(t, testTriePath)
+		util.CleanupPath(t, testDBPath)
+	}()
 
 	from := util.ConstructAddress(fromPubKey, fromPrivKey)
 	to := util.ConstructAddress(toPubKey, toPrivKey)
@@ -141,33 +132,19 @@ func TestLocalActPool(t *testing.T) {
 func TestPressureActPool(t *testing.T) {
 	require := require.New(t)
 
-	config.Path = localTestConfigPath
-	cfg, err := config.New()
-	require.Nil(err)
-	cfg.Network.BootstrapNodes = []string{"127.0.0.1:10000"}
-
 	util.CleanupPath(t, testTriePath)
-	defer util.CleanupPath(t, testTriePath)
 	util.CleanupPath(t, testDBPath)
-	defer util.CleanupPath(t, testDBPath)
 
-	cfg.Chain.TrieDBPath = testTriePath
-	cfg.Chain.InMemTest = false
-	cfg.Chain.ChainDBPath = testDBPath
-	cfg.Consensus.Scheme = config.StandaloneScheme
-	cfg.Delegate.Addrs = []string{"127.0.0.1:10000"}
-	cfg.ActPool.MaxNumActPerAcct = 256
+	cfg, err := newActPoolConfig()
+	require.Nil(err)
 
 	blockchain.Gen.TotalSupply = uint64(50 << 22)
 	blockchain.Gen.BlockReward = uint64(0)
 
 	// create node
 	ctx := context.Background()
-	svr := itx.NewServer(*cfg)
-	require.Nil(err)
-	err = svr.Start(ctx)
-	require.Nil(err)
-	defer svr.Stop(ctx)
+	svr := itx.NewServer(cfg)
+	require.Nil(svr.Start(ctx))
 
 	bc := svr.Bc()
 	require.NotNil(bc)
@@ -176,14 +153,17 @@ func TestPressureActPool(t *testing.T) {
 	ap := svr.Ap()
 	require.NotNil(ap)
 
-	p2 := svr.P2p()
-	require.NotNil(p2)
-
+	cfg.Network.Addr = "127.0.0.1:10001"
 	p1 := network.NewOverlay(&cfg.Network)
 	require.NotNil(p1)
-	p1.RPC.Addr = "127.0.0.1:10001"
-	p1.Start(ctx)
-	defer p1.Stop(ctx)
+	require.Nil(p1.Start(ctx))
+
+	defer func() {
+		require.Nil(p1.Stop(ctx))
+		require.Nil(svr.Stop(ctx))
+		util.CleanupPath(t, testTriePath)
+		util.CleanupPath(t, testDBPath)
+	}()
 
 	from := util.ConstructAddress(fromPubKey, fromPrivKey)
 	to := util.ConstructAddress(toPubKey, toPrivKey)
@@ -191,7 +171,7 @@ func TestPressureActPool(t *testing.T) {
 	// Create 1000 valid transfers and broadcast
 	tsf1, _ := signedTransfer(from, to, uint64(1), big.NewInt(1))
 	// Wrap transfers and votes as actions
-	act1 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf1.ConvertToTransferPb()}}
+	act1 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{Transfer: tsf1.ConvertToTransferPb()}}
 
 	// Wait until transfers can be successfully broadcasted
 	err = util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
@@ -203,7 +183,7 @@ func TestPressureActPool(t *testing.T) {
 	})
 	for i := 2; i <= 1000; i++ {
 		tsf, _ := signedTransfer(from, to, uint64(i), big.NewInt(int64(i)))
-		act := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf.ConvertToTransferPb()}}
+		act := &pb.ActionPb{Action: &pb.ActionPb_Transfer{Transfer: tsf.ConvertToTransferPb()}}
 		p1.Broadcast(act)
 	}
 
@@ -214,7 +194,7 @@ func TestPressureActPool(t *testing.T) {
 		var tsfCount int
 		for h := height; h > 0; h-- {
 			blk, _ := bc.GetBlockByHeight(h)
-			if len(blk.Transfers) > 1 {
+			if len(blk.Transfers) >= 1 {
 				tsfCount += len(blk.Transfers) - 1
 			}
 		}
@@ -225,7 +205,12 @@ func TestPressureActPool(t *testing.T) {
 }
 
 // Helper function to return a signed transfer
-func signedTransfer(sender *iotxaddress.Address, recipient *iotxaddress.Address, nonce uint64, amount *big.Int) (*action.Transfer, error) {
+func signedTransfer(
+	sender *iotxaddress.Address,
+	recipient *iotxaddress.Address,
+	nonce uint64,
+	amount *big.Int,
+) (*action.Transfer, error) {
 	transfer := action.NewTransfer(nonce, amount, sender.RawAddress, recipient.RawAddress)
 	return transfer.Sign(sender)
 }
@@ -234,4 +219,25 @@ func signedTransfer(sender *iotxaddress.Address, recipient *iotxaddress.Address,
 func signedVote(voter *iotxaddress.Address, votee *iotxaddress.Address, nonce uint64) (*action.Vote, error) {
 	vote := action.NewVote(nonce, voter.PublicKey, votee.PublicKey)
 	return vote.Sign(voter)
+}
+
+func newActPoolConfig() (*config.Config, error) {
+	cfg := config.Default
+	cfg.Chain.TrieDBPath = testTriePath
+	cfg.Chain.InMemTest = false
+	cfg.Chain.ChainDBPath = testDBPath
+	cfg.Consensus.Scheme = config.StandaloneScheme
+	cfg.Consensus.BlockCreationInterval = time.Second
+	cfg.Network.Addr = "127.0.0.1:10000"
+	cfg.Network.BootstrapNodes = []string{"127.0.0.1:10000"}
+	cfg.Delegate.Addrs = []string{"127.0.0.1:10000"}
+	cfg.ActPool.MaxNumActPerAcct = 256
+
+	addr, err := iotxaddress.NewAddress(true, iotxaddress.ChainID)
+	if err != nil {
+		return nil, err
+	}
+	cfg.Chain.ProducerPubKey = hex.EncodeToString(addr.PublicKey)
+	cfg.Chain.ProducerPrivKey = hex.EncodeToString(addr.PrivateKey)
+	return &cfg, nil
 }
