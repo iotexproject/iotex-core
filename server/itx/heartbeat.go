@@ -33,9 +33,14 @@ func NewHeartbeatHandler(s *Server) *HeartbeatHandler {
 // Log executes the logging logic
 func (h *HeartbeatHandler) Log() {
 	// Network metrics
-	numPeers := network.LenSyncMap(h.s.P2p().PM.Peers)
+	p2p, ok := h.s.P2p().(*network.IotxOverlay)
+	if !ok {
+		logger.Error().Msg("value is not the instance of IotxOverlay")
+		return
+	}
+	numPeers := network.LenSyncMap(p2p.PM.Peers)
 	lastOutTime := time.Unix(0, 0)
-	h.s.P2p().PM.Peers.Range(func(_, value interface{}) bool {
+	p2p.PM.Peers.Range(func(_, value interface{}) bool {
 		p, ok := value.(*network.Peer)
 		if !ok {
 			logger.Error().Msg("value is not the instance of Peer")
@@ -46,7 +51,7 @@ func (h *HeartbeatHandler) Log() {
 		}
 		return true
 	})
-	lastInTime := h.s.P2p().RPC.LastReqTime()
+	lastInTime := p2p.RPC.LastReqTime()
 
 	// Dispatcher metrics
 	dp, ok := h.s.Dp().(*dispatch.IotxDispatcher)

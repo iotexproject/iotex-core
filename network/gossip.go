@@ -22,9 +22,9 @@ import (
 	pb1 "github.com/iotexproject/iotex-core/proto"
 )
 
-// Gossip relays messages in the overlay (at least once semantics)
+// Gossip relays messages in the IotxOverlay (at least once semantics)
 type Gossip struct {
-	Overlay     *Overlay
+	Overlay     *IotxOverlay
 	Dispatcher  dispatcher.Dispatcher
 	MsgLogs     sync.Map
 	CleanerTask *routine.RecurringTask
@@ -33,7 +33,7 @@ type Gossip struct {
 }
 
 // NewGossip generates a Gossip instance
-func NewGossip(o *Overlay) *Gossip {
+func NewGossip(o *IotxOverlay) *Gossip {
 	g := &Gossip{Overlay: o}
 	cleaner := NewMsgLogsCleaner(g)
 	g.CleanerTask = routine.NewRecurringTask(cleaner.Clean, o.Config.MsgLogsCleaningInterval)

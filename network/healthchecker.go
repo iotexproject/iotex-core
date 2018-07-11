@@ -13,12 +13,12 @@ import (
 // HealthChecker will check its peers at constant interval. If a peer is found not reachable for given period, it would
 // be removed from the peer list
 type HealthChecker struct {
-	Overlay        *Overlay
+	Overlay        *IotxOverlay
 	SilentInterval time.Duration
 }
 
 // NewHealthChecker creates an instance of HealthChecker
-func NewHealthChecker(o *Overlay) *HealthChecker {
+func NewHealthChecker(o *IotxOverlay) *HealthChecker {
 	hc := &HealthChecker{Overlay: o}
 	hc.SilentInterval = o.Config.SilentInterval
 	return hc

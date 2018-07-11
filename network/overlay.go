@@ -27,7 +27,16 @@ import (
 var ErrPeerNotFound = errors.New("Peer not found")
 
 // Overlay represents the peer-to-peer network
-type Overlay struct {
+type Overlay interface {
+	lifecycle.StartStopper
+	Broadcast(proto.Message) error
+	Tell(net.Addr, proto.Message) error
+	Self() net.Addr
+	GetPeers() []net.Addr
+}
+
+// IotxOverlay is the implementation
+type IotxOverlay struct {
 	PM         *PeerManager
 	RPC        *RPCServer
 	Gossip     *Gossip
@@ -38,9 +47,9 @@ type Overlay struct {
 	lifecycle lifecycle.Lifecycle
 }
 
-// NewOverlay creates an instance of Overlay
-func NewOverlay(config *config.Network) *Overlay {
-	o := &Overlay{Config: config}
+// NewOverlay creates an instance of IotxOverlay
+func NewOverlay(config *config.Network) *IotxOverlay {
+	o := &IotxOverlay{Config: config}
 	o.RPC = NewRPCServer(o)
 	o.PM = NewPeerManager(o, config.NumPeersLowerBound, config.NumPeersUpperBound)
 	o.Gossip = NewGossip(o)
@@ -56,40 +65,40 @@ func NewOverlay(config *config.Network) *Overlay {
 	return o
 }
 
-// Start starts Overlay and it's sub-models.
-func (o *Overlay) Start(ctx context.Context) error { return o.lifecycle.OnStart(ctx) }
+// Start starts IotxOverlay and it's sub-models.
+func (o *IotxOverlay) Start(ctx context.Context) error { return o.lifecycle.OnStart(ctx) }
 
-// Stop stops Overlay and it's sub-models.
-func (o *Overlay) Stop(ctx context.Context) error { return o.lifecycle.OnStop(ctx) }
+// Stop stops IotxOverlay and it's sub-models.
+func (o *IotxOverlay) Stop(ctx context.Context) error { return o.lifecycle.OnStop(ctx) }
 
 // AttachDispatcher attaches to a Dispatcher instance
-func (o *Overlay) AttachDispatcher(dispatcher dispatcher.Dispatcher) {
+func (o *IotxOverlay) AttachDispatcher(dispatcher dispatcher.Dispatcher) {
 	o.Dispatcher = dispatcher
 	o.Gossip.AttachDispatcher(dispatcher)
 }
 
-func (o *Overlay) addPingTask() {
+func (o *IotxOverlay) addPingTask() {
 	ping := NewPinger(o)
 	pingTask := routine.NewRecurringTask(ping.Ping, o.Config.PingInterval)
 	o.lifecycle.Add(pingTask)
 	o.Tasks = append(o.Tasks, pingTask)
 }
 
-func (o *Overlay) addHealthCheckTask() {
+func (o *IotxOverlay) addHealthCheckTask() {
 	hc := NewHealthChecker(o)
 	hcTask := routine.NewRecurringTask(hc.Check, o.Config.HealthCheckInterval)
 	o.lifecycle.Add(hcTask)
 	o.Tasks = append(o.Tasks, hcTask)
 }
 
-func (o *Overlay) addPeerMaintainer() {
+func (o *IotxOverlay) addPeerMaintainer() {
 	pm := NewPeerMaintainer(o)
 	pmTask := routine.NewRecurringTask(pm.Update, o.Config.PeerMaintainerInterval)
 	o.lifecycle.Add(pmTask)
 	o.Tasks = append(o.Tasks, pmTask)
 }
 
-func (o *Overlay) addConfigBasedPeerMaintainer() {
+func (o *IotxOverlay) addConfigBasedPeerMaintainer() {
 	topology, err := NewTopology(o.Config.TopologyPath)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Fail to load topology")
@@ -101,7 +110,7 @@ func (o *Overlay) addConfigBasedPeerMaintainer() {
 }
 
 // Broadcast lets the caller to broadcast the message to all nodes in the P2P network
-func (o *Overlay) Broadcast(msg proto.Message) error {
+func (o *IotxOverlay) Broadcast(msg proto.Message) error {
 	msgType, err := iproto.GetTypeFromProtoMsg(msg)
 	if err != nil {
 		return err
@@ -118,7 +127,7 @@ func (o *Overlay) Broadcast(msg proto.Message) error {
 }
 
 // GetPeers returns the current neighbors' network identifiers
-func (o *Overlay) GetPeers() []net.Addr {
+func (o *IotxOverlay) GetPeers() []net.Addr {
 	var nodes []net.Addr
 	o.PM.Peers.Range(func(_, value interface{}) bool {
 		nodes = append(nodes, &node.Node{Addr: value.(*Peer).String()})
@@ -128,7 +137,7 @@ func (o *Overlay) GetPeers() []net.Addr {
 }
 
 // Tell tells a given node a proto message
-func (o *Overlay) Tell(node net.Addr, msg proto.Message) error {
+func (o *IotxOverlay) Tell(node net.Addr, msg proto.Message) error {
 	peer := o.PM.GetOrAddPeer(node.String())
 	if peer == nil {
 		return ErrPeerNotFound
@@ -147,6 +156,6 @@ func (o *Overlay) Tell(node net.Addr, msg proto.Message) error {
 }
 
 // Self returns the RPC server address to receive messages
-func (o *Overlay) Self() net.Addr {
+func (o *IotxOverlay) Self() net.Addr {
 	return o.RPC
 }

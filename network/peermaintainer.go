@@ -16,11 +16,11 @@ import (
 
 // PeerMaintainer helps maintain enough connections to other peers in the P2P networks
 type PeerMaintainer struct {
-	Overlay *Overlay
+	Overlay *IotxOverlay
 }
 
 // NewPeerMaintainer creates an instance of PeerMaintainer
-func NewPeerMaintainer(o *Overlay) *PeerMaintainer {
+func NewPeerMaintainer(o *IotxOverlay) *PeerMaintainer {
 	return &PeerMaintainer{Overlay: o}
 }
 
@@ -75,12 +75,12 @@ func (pm *PeerMaintainer) Update() {
 
 // ConfigBasedPeerMaintainer maintain the neighbors by reading the topology file
 type ConfigBasedPeerMaintainer struct {
-	Overlay *Overlay
+	Overlay *IotxOverlay
 	Addrs   []net.Addr
 }
 
 // NewConfigBasedPeerMaintainer creates an instance of ConfigBasedPeerMaintainer
-func NewConfigBasedPeerMaintainer(o *Overlay, t *Topology) *ConfigBasedPeerMaintainer {
+func NewConfigBasedPeerMaintainer(o *IotxOverlay, t *Topology) *ConfigBasedPeerMaintainer {
 	cbpm := &ConfigBasedPeerMaintainer{Overlay: o}
 	for host, neighbors := range t.NeighborList {
 		if host == o.RPC.String() {

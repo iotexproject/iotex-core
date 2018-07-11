@@ -59,7 +59,7 @@ func TestSyncTaskInterval(t *testing.T) {
 	assert.Equal(interval, fullNode)
 }
 
-func generateP2P() *network.Overlay {
+func generateP2P() network.Overlay {
 	c := &config.Network{
 		Addr: "127.0.0.1:10001",
 		MsgLogsCleaningInterval: 2 * time.Second,

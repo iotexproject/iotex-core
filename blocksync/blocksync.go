@@ -38,7 +38,7 @@ const (
 type BlockSync interface {
 	lifecycle.StartStopper
 
-	P2P() *network.Overlay
+	P2P() network.Overlay
 	ProcessSyncRequest(sender string, sync *pb.BlockSync) error
 	ProcessBlock(blk *bc.Block) error
 	ProcessBlockSync(blk *bc.Block) error
@@ -60,7 +60,7 @@ type blockSyncer struct {
 	sw             *SlidingWindow
 	bc             bc.Blockchain
 	ap             actpool.ActPool
-	p2p            *network.Overlay
+	p2p            network.Overlay
 	task           *routine.RecurringTask
 	fnd            string
 	dp             delegate.Pool
@@ -82,7 +82,13 @@ func SyncTaskInterval(cfg *config.Config) time.Duration {
 }
 
 // NewBlockSyncer returns a new block syncer instance
-func NewBlockSyncer(cfg *config.Config, chain bc.Blockchain, ap actpool.ActPool, p2p *network.Overlay, dp delegate.Pool) (BlockSync, error) {
+func NewBlockSyncer(
+	cfg *config.Config,
+	chain bc.Blockchain,
+	ap actpool.ActPool,
+	p2p network.Overlay,
+	dp delegate.Pool,
+) (BlockSync, error) {
 	bs := &blockSyncer{
 		state:      Idle,
 		rcvdBlocks: map[uint64]*bc.Block{},
@@ -111,7 +117,7 @@ func NewBlockSyncer(cfg *config.Config, chain bc.Blockchain, ap actpool.ActPool,
 	switch cfg.NodeType {
 	case config.DelegateType:
 		// pick a delegate that is not myself
-		if dlg := dp.AnotherDelegate(p2p.RPC.Addr); dlg != nil {
+		if dlg := dp.AnotherDelegate(p2p.Self().String()); dlg != nil {
 			bs.fnd = dlg.String()
 		}
 	case config.FullNodeType:
@@ -126,7 +132,7 @@ func NewBlockSyncer(cfg *config.Config, chain bc.Blockchain, ap actpool.ActPool,
 }
 
 // P2P returns the network overlay object
-func (bs *blockSyncer) P2P() *network.Overlay {
+func (bs *blockSyncer) P2P() network.Overlay {
 	return bs.p2p
 }
 
@@ -168,7 +174,7 @@ func (bs *blockSyncer) Sync() {
 	if bs.state == Active && bs.sw.State != Open && bs.syncHeight < bs.dropHeight {
 		bs.p2p.Tell(node.NewTCPNode(bs.fnd), &pb.BlockSync{Start: bs.syncHeight + 1, End: bs.dropHeight})
 		logger.Warn().
-			Str("addr", bs.p2p.RPC.Addr).
+			Str("addr", bs.p2p.Self().String()).
 			Uint64("start", bs.syncHeight+1).
 			Uint64("end", bs.dropHeight).
 			Str("to", bs.fnd).
@@ -224,7 +230,7 @@ func (bs *blockSyncer) processFirstBlock() error {
 		//TODO make it structured logging
 		logger.Warn().Msgf(
 			"++++++ [%s] Send first start = %d end = %d to %s",
-			bs.p2p.RPC.Addr,
+			bs.p2p.Self().String(),
 			bs.syncHeight+1,
 			bs.currRcvdHeight,
 			bs.fnd)
@@ -254,7 +260,7 @@ func (bs *blockSyncer) ProcessBlock(blk *bc.Block) error {
 	if bs.currRcvdHeight = blk.Height(); bs.currRcvdHeight <= height {
 		err := fmt.Errorf(
 			"****** [%s] Received block height %d <= Blockchain tip height %d",
-			bs.p2p.RPC.Addr,
+			bs.p2p.Self().String(),
 			bs.currRcvdHeight,
 			height)
 		return err
@@ -284,7 +290,7 @@ func (bs *blockSyncer) ProcessBlock(blk *bc.Block) error {
 		// when window is open we are still WIP to sync old blocks, so simply drop incoming blocks
 		bs.dropHeight = bs.currRcvdHeight
 		//TODO make it structured logging
-		logger.Warn().Msgf("****** [%s] drop block %d", bs.p2p.RPC.Addr, bs.currRcvdHeight)
+		logger.Warn().Msgf("****** [%s] drop block %d", bs.p2p.Self().String(), bs.currRcvdHeight)
 		return nil
 	}
 
@@ -316,7 +322,7 @@ func (bs *blockSyncer) ProcessBlockSync(blk *bc.Block) error {
 		//TODO make it structured logging
 		logger.Warn().Msgf(
 			"****** [%s] Received block height %d <= Blockchain tip height %d",
-			bs.p2p.RPC.Addr,
+			bs.p2p.Self().String(),
 			blk.Height(),
 			height)
 		return nil
@@ -333,12 +339,12 @@ func (bs *blockSyncer) ProcessBlockSync(blk *bc.Block) error {
 func (bs *blockSyncer) checkBlockIntoBuffer(blk *bc.Block) error {
 	height := blk.Height()
 	if bs.rcvdBlocks[height] != nil {
-		return fmt.Errorf("|||||| [%s] discard existing block %d", bs.p2p.RPC.Addr, height)
+		return fmt.Errorf("|||||| [%s] discard existing block %d", bs.p2p.Self().String(), height)
 	}
 	bs.rcvdBlocks[height] = blk
 
 	logger.Warn().
-		Str("addr", bs.p2p.RPC.Addr).
+		Str("addr", bs.p2p.Self().String()).
 		Uint64("block", height).
 		Dur("interval", time.Since(bs.actionTime)).
 		Msg("received block")
@@ -364,7 +370,7 @@ func (bs *blockSyncer) commitBlocksInBuffer() error {
 
 		//TODO make it structured logging
 		logger.Warn().
-			Str("name", bs.p2p.RPC.String()).
+			Str("name", bs.p2p.Self().String()).
 			Uint64("height", blk.Height()).
 			Msg("commit a block")
 		bs.actionTime = time.Now()

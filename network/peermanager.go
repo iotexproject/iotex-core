@@ -18,13 +18,13 @@ import (
 type PeerManager struct {
 	// TODO: Need to revisit sync.Map: https://github.com/golang/go/issues/24112
 	Peers              sync.Map
-	Overlay            *Overlay
+	Overlay            *IotxOverlay
 	NumPeersLowerBound uint
 	NumPeersUpperBound uint
 }
 
 // NewPeerManager creates an instance of PeerManager
-func NewPeerManager(o *Overlay, lb uint, ub uint) *PeerManager {
+func NewPeerManager(o *IotxOverlay, lb uint, ub uint) *PeerManager {
 	return &PeerManager{Overlay: o, NumPeersLowerBound: lb, NumPeersUpperBound: ub}
 }
 

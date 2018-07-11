@@ -61,9 +61,9 @@ func (mr *MockBlockSyncMockRecorder) Stop(arg0 interface{}) *gomock.Call {
 }
 
 // P2P mocks base method
-func (m *MockBlockSync) P2P() *network.Overlay {
+func (m *MockBlockSync) P2P() network.Overlay {
 	ret := m.ctrl.Call(m, "P2P")
-	ret0, _ := ret[0].(*network.Overlay)
+	ret0, _ := ret[0].(network.Overlay)
 	return ret0
 }
 

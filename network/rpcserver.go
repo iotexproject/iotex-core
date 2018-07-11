@@ -32,7 +32,7 @@ type RPCServer struct {
 	node.Node
 
 	Server  *grpc.Server
-	Overlay *Overlay
+	Overlay *IotxOverlay
 
 	counters  sync.Map
 	rateLimit uint64
@@ -42,7 +42,7 @@ type RPCServer struct {
 }
 
 // NewRPCServer creates an instance of RPCServer
-func NewRPCServer(o *Overlay) *RPCServer {
+func NewRPCServer(o *IotxOverlay) *RPCServer {
 	s := &RPCServer{Overlay: o}
 	s.Addr = o.Config.Addr
 	s.rateLimit = o.Config.RateLimitPerSec * uint64(o.Config.RateLimitWindowSize) / uint64(time.Second)

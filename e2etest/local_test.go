@@ -344,7 +344,7 @@ func TestLocalSync(t *testing.T) {
 	}()
 
 	// P1 download 4 blocks from P2
-	p1.Tell(node.NewTCPNode(p2.RPC.Addr), &pb.BlockSync{Start: 1, End: 4})
+	p1.Tell(node.NewTCPNode(p2.Self().String()), &pb.BlockSync{Start: 1, End: 4})
 	check := util.CheckCondition(func() (bool, error) {
 		blk1, err := bc1.GetBlockByHeight(1)
 		if err != nil {
