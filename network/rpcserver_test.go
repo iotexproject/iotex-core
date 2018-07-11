@@ -25,7 +25,7 @@ import (
 func TestRpcPingPong(t *testing.T) {
 	ctx := context.Background()
 	config := LoadTestConfig("", true)
-	o := &Overlay{Config: config}
+	o := &IotxOverlay{Config: config}
 	o.PM = &PeerManager{Overlay: o, NumPeersLowerBound: 1, NumPeersUpperBound: 1}
 	s := NewRPCServer(o)
 	o.RPC = s
@@ -53,7 +53,7 @@ func TestRpcPingPong(t *testing.T) {
 func TestGetPeers(t *testing.T) {
 	ctx := context.Background()
 	config := LoadTestConfig("", true)
-	o := &Overlay{Config: config}
+	o := &IotxOverlay{Config: config}
 	o.PM = &PeerManager{Overlay: o}
 	o.PM.Peers.Store("127.0.0.1:10001", NewTCPPeer("127.0.0.1:10001"))
 	o.PM.Peers.Store("127.0.0.1:10002", NewTCPPeer("127.0.0.1:10002"))
@@ -97,7 +97,7 @@ func TestGetPeers(t *testing.T) {
 func TestBroadcast(t *testing.T) {
 	ctx := context.Background()
 	config := LoadTestConfig("", true)
-	o := &Overlay{Config: config}
+	o := &IotxOverlay{Config: config}
 	o.PM = &PeerManager{Overlay: o}
 	o.Gossip = &Gossip{Overlay: o}
 	s := NewRPCServer(o)
@@ -129,7 +129,7 @@ func TestRPCTell(t *testing.T) {
 	dp.EXPECT().HandleTell(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
 
 	config := LoadTestConfig("", true)
-	o := &Overlay{Dispatcher: dp, Config: config}
+	o := &IotxOverlay{Dispatcher: dp, Config: config}
 	s := NewRPCServer(o)
 	o.RPC = s
 	s.Start(ctx)
@@ -165,7 +165,7 @@ func TestRateLimit(t *testing.T) {
 	config.RateLimitEnabled = true
 	config.RateLimitPerSec = 5
 	config.RateLimitWindowSize = time.Second
-	o := &Overlay{Dispatcher: dp, Config: config}
+	o := &IotxOverlay{Dispatcher: dp, Config: config}
 	s := NewRPCServer(o)
 	o.RPC = s
 	s.Start(ctx)
@@ -208,7 +208,7 @@ func TestSecureRpcPingPong(t *testing.T) {
 	config.CACrtPath = "../test/assets/ssl/iotex.io.crt"
 	config.PeerCrtPath = "../test/assets/ssl/127.0.0.1.crt"
 	config.PeerKeyPath = "../test/assets/ssl/127.0.0.1.key"
-	o := &Overlay{Config: config}
+	o := &IotxOverlay{Config: config}
 	o.PM = &PeerManager{Overlay: o, NumPeersLowerBound: 1, NumPeersUpperBound: 1}
 	s := NewRPCServer(o)
 	o.RPC = s
@@ -242,7 +242,7 @@ func TestKeepaliveParams(t *testing.T) {
 	config.KLServerParams.Time = 50 * time.Second
 	config.KLClientParams.Timeout = 20 * time.Millisecond
 	config.KLPolicy.MinTime = 20 * time.Millisecond
-	o := &Overlay{Config: config}
+	o := &IotxOverlay{Config: config}
 	o.PM = &PeerManager{Overlay: o, NumPeersLowerBound: 1, NumPeersUpperBound: 1}
 	s := NewRPCServer(o)
 	o.RPC = s

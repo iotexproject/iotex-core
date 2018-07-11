@@ -26,7 +26,7 @@ import (
 type Server struct {
 	bc  blockchain.Blockchain
 	ap  actpool.ActPool
-	o   *network.Overlay
+	o   network.Overlay
 	dp  dispatcher.Dispatcher
 	cfg *config.Config
 	cs  consensus.Consensus
@@ -78,7 +78,7 @@ func (s *Server) Ap() actpool.ActPool {
 }
 
 // P2p returns the P2P network
-func (s *Server) P2p() *network.Overlay {
+func (s *Server) P2p() network.Overlay {
 	return s.o
 }
 

@@ -15,11 +15,11 @@ import (
 
 // Pinger is the recurring logic to constantly check if the node can talk to its peers
 type Pinger struct {
-	Overlay *Overlay
+	Overlay *IotxOverlay
 }
 
 // NewPinger creates an instance of Pinger
-func NewPinger(o *Overlay) *Pinger {
+func NewPinger(o *IotxOverlay) *Pinger {
 	return &Pinger{Overlay: o}
 }
 

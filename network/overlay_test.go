@@ -93,11 +93,11 @@ func (d1 *MockDispatcher1) HandleBroadcast(proto.Message, chan bool) {
 func TestOverlay(t *testing.T) {
 	ctx := context.Background()
 	if testing.Short() {
-		t.Skip("Skipping the overlay test in short mode.")
+		t.Skip("Skipping the IotxOverlay test in short mode.")
 	}
 	size := 10
 	dps := []*MockDispatcher1{}
-	nodes := []*Overlay{}
+	nodes := []*IotxOverlay{}
 	for i := 0; i < size; i++ {
 		dp := &MockDispatcher1{}
 		dps = append(dps, dp)
@@ -255,7 +255,7 @@ func TestConfigBasedTopology(t *testing.T) {
 	path := "/tmp/topology_" + strconv.Itoa(rand.Int()) + ".yaml"
 	ioutil.WriteFile(path, topologyStr, 0666)
 
-	nodes := make([]*Overlay, 4)
+	nodes := make([]*IotxOverlay, 4)
 	for i := 1; i <= 4; i++ {
 		config := LoadTestConfig(addresses[i-1], true)
 		config.PeerDiscovery = false
