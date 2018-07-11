@@ -20,7 +20,6 @@ import (
 	"github.com/iotexproject/iotex-core/dispatch/dispatcher"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network"
-	"github.com/iotexproject/iotex-core/state"
 )
 
 // Server is the iotex server instance containing all components.
@@ -29,21 +28,20 @@ type Server struct {
 	ap  actpool.ActPool
 	o   *network.Overlay
 	dp  dispatcher.Dispatcher
-	cfg config.Config
-	sf  state.Factory
+	cfg *config.Config
 	cs  consensus.Consensus
 }
 
 // NewServer creates a new server
-func NewServer(cfg config.Config) *Server {
+func NewServer(cfg *config.Config) *Server {
 	// create Blockchain
-	bc := blockchain.NewBlockchain(&cfg, blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption())
+	bc := blockchain.NewBlockchain(cfg, blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption())
 	return newServer(cfg, bc)
 }
 
 // NewInMemTestServer creates a test server in memory
-func NewInMemTestServer(cfg config.Config) *Server {
-	bc := blockchain.NewBlockchain(&cfg, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+func NewInMemTestServer(cfg *config.Config) *Server {
+	bc := blockchain.NewBlockchain(cfg, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
 	return newServer(cfg, bc)
 }
 
@@ -61,11 +59,12 @@ func (s *Server) Start(ctx context.Context) error {
 }
 
 // Stop stops the server
-func (s *Server) Stop(ctx context.Context) {
+func (s *Server) Stop(ctx context.Context) error {
 	s.o.Stop(ctx)
 	s.dp.Stop(ctx)
 	s.bc.Stop(ctx)
 	os.Remove(s.cfg.Chain.ChainDBPath)
+	return nil
 }
 
 // Bc returns the Blockchain
@@ -88,17 +87,13 @@ func (s *Server) Dp() dispatcher.Dispatcher {
 	return s.dp
 }
 
-// Sf returns the StateFactory
-func (s *Server) Sf() state.Factory {
-	return s.sf
-}
-
 // Cs returns the consensus instance
 func (s *Server) Cs() consensus.Consensus {
 	return s.cs
 }
 
-func newServer(cfg config.Config, bc blockchain.Blockchain) *Server {
+func newServer(cfg *config.Config, bc blockchain.Blockchain) *Server {
+
 	// create P2P network and BlockSync
 	o := network.NewOverlay(&cfg.Network)
 	// Create ActPool
@@ -107,17 +102,17 @@ func newServer(cfg config.Config, bc blockchain.Blockchain) *Server {
 		logger.Fatal().Err(err).Msg("Fail to create actpool")
 	}
 	pool := delegate.NewConfigBasedPool(&cfg.Delegate)
-	bs, err := blocksync.NewBlockSyncer(&cfg, bc, ap, o, pool)
+	bs, err := blocksync.NewBlockSyncer(cfg, bc, ap, o, pool)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Fail to create blockSyncer")
 	}
-	cs := consensus.NewConsensus(&cfg, bc, ap, bs, pool)
+	cs := consensus.NewConsensus(cfg, bc, ap, bs, pool)
 	if cs == nil {
 		logger.Fatal().Msg("Failed to create Consensus")
 	}
 
 	// create dispatcher instance
-	dp, err := dispatch.NewDispatcher(&cfg, ap, bs, cs)
+	dp, err := dispatch.NewDispatcher(cfg, ap, bs, cs)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Fail to create dispatcher")
 	}

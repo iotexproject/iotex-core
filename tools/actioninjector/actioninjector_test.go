@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/hex"
 	"io/ioutil"
 	"math/rand"
 	"sync"
@@ -20,32 +21,30 @@ import (
 )
 
 const (
-	testDBPath   = "./chain.db"
-	testTriePath = "./trie.db"
+	testChainPath = "./chain.db"
+	testTriePath  = "./trie.db"
 )
 
 func TestActioninjector(t *testing.T) {
 	require := require.New(t)
 
+	util.CleanupPath(t, testChainPath)
+	defer util.CleanupPath(t, testChainPath)
 	util.CleanupPath(t, testTriePath)
 	defer util.CleanupPath(t, testTriePath)
-	util.CleanupPath(t, testDBPath)
-	defer util.CleanupPath(t, testDBPath)
 
-	config.Path = "../../e2etest/config_local_delegate.yaml"
-	cfg, err := config.New()
-	require.Nil(err)
-
+	cfg, err := newConfig()
+	require.Nil(err, nil)
 	ctx := context.Background()
 
 	// create and start the node
-	svr := itx.NewServer(*cfg)
+	svr := itx.NewServer(cfg)
 	err = svr.Start(ctx)
 	require.Nil(err)
 	defer svr.Stop(ctx)
 
 	// Start JSON Server
-	httpPort := cfg.Explorer.Addr
+	httpPort := cfg.Explorer.Port
 	bcb := func(msg proto.Message) error {
 		return svr.P2p().Broadcast(msg)
 	}
@@ -132,4 +131,21 @@ func TestActioninjector(t *testing.T) {
 		return tsfCount+voteCount >= 9, nil
 	})
 	require.Nil(err)
+}
+
+func newConfig() (*config.Config, error) {
+	cfg := config.Default
+	cfg.NodeType = config.DelegateType
+	cfg.Consensus.Scheme = config.StandaloneScheme
+	cfg.Consensus.BlockCreationInterval = 100 * time.Millisecond
+	cfg.Delegate.Addrs = []string{"127.0.0.1:4689"}
+	cfg.Chain.ChainDBPath = testChainPath
+	cfg.Chain.TrieDBPath = testTriePath
+	addr, err := iotxaddress.NewAddress(true, iotxaddress.ChainID)
+	if err != nil {
+		return nil, err
+	}
+	cfg.Chain.ProducerPubKey = hex.EncodeToString(addr.PublicKey)
+	cfg.Chain.ProducerPrivKey = hex.EncodeToString(addr.PrivateKey)
+	return &cfg, nil
 }

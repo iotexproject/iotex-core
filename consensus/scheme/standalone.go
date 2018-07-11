@@ -45,7 +45,6 @@ func (s *standaloneHandler) Run() {
 		logger.Error().Err(err)
 		return
 	}
-
 	s.pubCb(blk)
 }
 

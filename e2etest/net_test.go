@@ -9,17 +9,14 @@ package e2etest
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/server/itx"
 	"github.com/iotexproject/iotex-core/test/util"
-)
-
-const (
-	// localFullnodeConfig is the testnet config path
-	localFullnodeConfig = "./config_local_fullnode.yaml"
 )
 
 func TestNetSync(t *testing.T) {
@@ -27,32 +24,34 @@ func TestNetSync(t *testing.T) {
 		t.Skip("Skipping TestNetSync in short mode.")
 	}
 
-	assert := assert.New(t)
-	util.CleanupPath(t, testDBPath)
-	defer util.CleanupPath(t, testDBPath)
-
-	config.Path = localFullnodeConfig
-	cfg, err := config.New()
 	util.CleanupPath(t, testTriePath)
 	defer util.CleanupPath(t, testTriePath)
 	util.CleanupPath(t, testDBPath)
 	defer util.CleanupPath(t, testDBPath)
 
+	cfg := config.Default
+	cfg.Network.Addr = "127.0.0.1:4688"
+	cfg.Network.BootstrapNodes = []string{"127.0.0.1:4689"}
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
-	assert.Nil(err)
+	cfg.Delegate.Addrs = []string{"127.0.0.1:4689"}
+	cfg.BlockSync.Interval = time.Second
+
 	if testing.Short() {
 		t.Skip("Skipping the overlay test in short mode.")
 	}
 
 	// create node
 	ctx := context.Background()
-	svr := itx.NewServer(*cfg)
-	assert.NotNil(svr)
-	assert.Nil(err)
-	err = svr.Start(ctx)
-	assert.Nil(err)
-	defer svr.Stop(ctx)
+	svr := itx.NewServer(&cfg)
+	require.NotNil(t, svr)
+	assert.Nil(t, svr.Start(ctx))
+
+	defer func() {
+		require.Nil(t, svr.Stop(ctx))
+		util.CleanupPath(t, testTriePath)
+		util.CleanupPath(t, testDBPath)
+	}()
 
 	select {}
 }

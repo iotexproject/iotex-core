@@ -139,7 +139,8 @@ Add `SKIP_DEP=true` to skip re-installing dependencies via `dep`.
 
 ## Dev Tools
 ### Use actioninjector to inject actions
-Open one terminal window and run the command below to compile and start the test chain server with the configuration specified in "config_local_delegate.yaml" (This is optional, just in case you don't have a node running).
+Open one terminal window and run the command below to compile and start the test chain server. (This is optional, just
+in case you don't have a node running).
 
 `make; make run`
 

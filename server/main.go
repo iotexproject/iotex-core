@@ -6,7 +6,7 @@
 
 // Usage:
 //   make build
-//   ./bin/server -config=./config.yaml
+//   ./bin/server -config-file=./config.yaml
 //
 
 package main
@@ -45,7 +45,7 @@ func main() {
 
 	ctx := context.Background()
 	// create and start the node
-	svr := itx.NewServer(*cfg)
+	svr := itx.NewServer(cfg)
 	if err := svr.Start(ctx); err != nil {
 		os.Exit(1)
 	}
@@ -65,9 +65,6 @@ func main() {
 
 	if cfg.Explorer.Enabled {
 		isTest := cfg.Explorer.IsTest
-		httpPort := cfg.Explorer.Addr
-
-		flag.Parse()
 		env := os.Getenv("APP_ENV")
 		if env == "development" {
 			isTest = true
@@ -78,7 +75,7 @@ func main() {
 		bcb := func(msg proto.Message) error {
 			return svr.P2p().Broadcast(msg)
 		}
-		explorer.StartJSONServer(svr.Bc(), svr.Cs(), svr.Dp(), bcb, isTest, httpPort, cfg.Explorer.TpsWindow)
+		explorer.StartJSONServer(svr.Bc(), svr.Cs(), svr.Dp(), bcb, isTest, cfg.Explorer.Port, cfg.Explorer.TpsWindow)
 	}
 
 	select {}
