@@ -33,6 +33,10 @@ type Blockchain interface {
 	Balance(addr string) (*big.Int, error)
 	// Nonce returns the nonce if the account exists
 	Nonce(addr string) (uint64, error)
+	// CreateState adds a new State with initial balance to the factory
+	CreateState(addr string, init uint64) (*state.State, error)
+	// CommitStateChanges updates a State from the given actions
+	CommitStateChanges(chainHeight uint64, tsf []*action.Transfer, vote []*action.Vote) error
 	// Candidates returns the candidate list
 	Candidates() (uint64, []*state.Candidate)
 	// For exposing blockchain states
@@ -292,6 +296,16 @@ func (bc *blockchain) Balance(addr string) (*big.Int, error) {
 // Nonce returns the nonce if the account exists
 func (bc *blockchain) Nonce(addr string) (uint64, error) {
 	return bc.sf.Nonce(addr)
+}
+
+// CreateState adds a new State with initial balance to the factory
+func (bc *blockchain) CreateState(addr string, init uint64) (*state.State, error) {
+	return bc.sf.CreateState(addr, init)
+}
+
+// CommitStateChanges updates a State from the given actions
+func (bc *blockchain) CommitStateChanges(chainHeight uint64, tsf []*action.Transfer, vote []*action.Vote) error {
+	return bc.sf.CommitStateChanges(chainHeight, tsf, vote)
 }
 
 // Candidates returns the candidate list

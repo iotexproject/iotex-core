@@ -89,6 +89,31 @@ func (mr *MockBlockchainMockRecorder) Nonce(addr interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Nonce", reflect.TypeOf((*MockBlockchain)(nil).Nonce), addr)
 }
 
+// CreateState mocks base method
+func (m *MockBlockchain) CreateState(addr string, init uint64) (*state.State, error) {
+	ret := m.ctrl.Call(m, "CreateState", addr, init)
+	ret0, _ := ret[0].(*state.State)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateState indicates an expected call of CreateState
+func (mr *MockBlockchainMockRecorder) CreateState(addr, init interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateState", reflect.TypeOf((*MockBlockchain)(nil).CreateState), addr, init)
+}
+
+// CommitStateChanges mocks base method
+func (m *MockBlockchain) CommitStateChanges(chainHeight uint64, tsf []*action.Transfer, vote []*action.Vote) error {
+	ret := m.ctrl.Call(m, "CommitStateChanges", chainHeight, tsf, vote)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CommitStateChanges indicates an expected call of CommitStateChanges
+func (mr *MockBlockchainMockRecorder) CommitStateChanges(chainHeight, tsf, vote interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitStateChanges", reflect.TypeOf((*MockBlockchain)(nil).CommitStateChanges), chainHeight, tsf, vote)
+}
+
 // Candidates mocks base method
 func (m *MockBlockchain) Candidates() (uint64, []*state.Candidate) {
 	ret := m.ctrl.Call(m, "Candidates")

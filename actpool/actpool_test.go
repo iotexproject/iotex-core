@@ -14,7 +14,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/blockchain"
@@ -23,7 +22,6 @@ import (
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	pb "github.com/iotexproject/iotex-core/proto"
-	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/util"
 )
@@ -54,111 +52,103 @@ var (
 	addr5 = util.ConstructAddress(pubkeyE, prikeyE)
 )
 
-func createBlockchain(sf state.Factory) blockchain.Blockchain {
-	return blockchain.NewBlockchain(nil, blockchain.InMemDaoOption(), blockchain.PrecreatedStateFactoryOption(sf))
-}
-
 func TestActPool_validateTsf(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 	l := logger.Logger().Level(zerolog.DebugLevel)
 	logger.SetLogger(&l)
-	sf, err := state.NewFactory(nil, state.InMemTrieOption())
-	assert.NotNil(sf)
-	assert.Nil(err)
-	sf.CreateState(addr1.RawAddress, uint64(100))
-	bc := createBlockchain(sf)
+	bc := blockchain.NewBlockchain(nil, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	_, err := bc.CreateState(addr1.RawAddress, uint64(100))
+	require.Nil(err)
 	apConfig := config.ActPool{maxNumActPerPool, maxNumActPerAcct}
 	Ap, err := NewActPool(bc, apConfig)
-	assert.Nil(err)
+	require.Nil(err)
 	ap, ok := Ap.(*actPool)
-	require.True(t, ok)
+	require.True(ok)
 	// Case I: Coinbase Transfer
 	coinbaseTsf := action.Transfer{IsCoinbase: true}
 	err = ap.validateTsf(&coinbaseTsf)
-	assert.Equal(ErrTransfer, errors.Cause(err))
+	require.Equal(ErrTransfer, errors.Cause(err))
 	// Case II: Oversized Data
 	tmpPayload := [32769]byte{}
 	payload := tmpPayload[:]
 	tsf := action.Transfer{Payload: payload}
 	err = ap.validateTsf(&tsf)
-	assert.Equal(ErrActPool, errors.Cause(err))
+	require.Equal(ErrActPool, errors.Cause(err))
 	// Case III: Negative Amount
 	tsf = action.Transfer{Amount: big.NewInt(-100)}
 	err = ap.validateTsf(&tsf)
-	assert.NotNil(ErrBalance, errors.Cause(err))
+	require.NotNil(ErrBalance, errors.Cause(err))
 	// Case IV: Signature Verification Fails
 	unsignedTsf := action.NewTransfer(uint64(1), big.NewInt(1), addr1.RawAddress, addr1.RawAddress)
 	err = ap.validateTsf(unsignedTsf)
-	assert.Equal(action.ErrTransferError, errors.Cause(err))
+	require.Equal(action.ErrTransferError, errors.Cause(err))
 	// Case V: Nonce is too low
 	prevTsf, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(50))
 	ap.AddTsf(prevTsf)
-	err = sf.CommitStateChanges(0, []*action.Transfer{prevTsf}, nil)
-	assert.Nil(err)
+	err = bc.CommitStateChanges(0, []*action.Transfer{prevTsf}, nil)
+	require.Nil(err)
 	ap.Reset()
 	nTsf, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(60))
 	err = ap.validateTsf(nTsf)
-	assert.Equal(ErrNonce, errors.Cause(err))
+	require.Equal(ErrNonce, errors.Cause(err))
 }
 
 func TestActPool_validateVote(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 	l := logger.Logger().Level(zerolog.DebugLevel)
 	logger.SetLogger(&l)
-	sf, err := state.NewFactory(nil, state.InMemTrieOption())
-	assert.NotNil(sf)
-	assert.Nil(err)
-	sf.CreateState(addr1.RawAddress, uint64(100))
-	sf.CreateState(addr2.RawAddress, uint64(100))
-	bc := createBlockchain(sf)
+	bc := blockchain.NewBlockchain(nil, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	_, err := bc.CreateState(addr1.RawAddress, uint64(100))
+	require.Nil(err)
+	_, err = bc.CreateState(addr2.RawAddress, uint64(100))
+	require.Nil(err)
 	apConfig := config.ActPool{maxNumActPerPool, maxNumActPerAcct}
 	Ap, err := NewActPool(bc, apConfig)
-	assert.Nil(err)
+	require.Nil(err)
 	ap, ok := Ap.(*actPool)
-	require.True(t, ok)
+	require.True(ok)
 	// Case I: Oversized Data
 	tmpSelfPubKey := [32769]byte{}
 	selfPubKey := tmpSelfPubKey[:]
 	vote := action.Vote{&pb.VotePb{SelfPubkey: selfPubKey}}
 	err = ap.validateVote(&vote)
-	assert.Equal(ErrActPool, errors.Cause(err))
+	require.Equal(ErrActPool, errors.Cause(err))
 	// Case II: Signature Verification Fails
 	unsignedVote := action.NewVote(1, addr1.PublicKey, addr2.PublicKey)
 	err = ap.validateVote(unsignedVote)
-	assert.Equal(action.ErrVoteError, errors.Cause(err))
+	require.Equal(action.ErrVoteError, errors.Cause(err))
 	// Case III: Nonce is too low
 	prevTsf, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(50))
 	ap.AddTsf(prevTsf)
-	err = sf.CommitStateChanges(0, []*action.Transfer{prevTsf}, nil)
-	assert.Nil(err)
+	err = bc.CommitStateChanges(0, []*action.Transfer{prevTsf}, nil)
+	require.Nil(err)
 	ap.Reset()
 	nVote, _ := signedVote(addr1, addr1, uint64(1))
 	err = ap.validateVote(nVote)
-	assert.Equal(ErrNonce, errors.Cause(err))
+	require.Equal(ErrNonce, errors.Cause(err))
 	// Case IV: Votee is not a candidate
 	vote2, _ := signedVote(addr1, addr2, uint64(2))
 	err = ap.validateVote(vote2)
-	assert.Equal(ErrVotee, errors.Cause(err))
+	require.Equal(ErrVotee, errors.Cause(err))
 }
 
 func TestActPool_AddActs(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	assert := assert.New(t)
+	require := require.New(t)
 	l := logger.Logger().Level(zerolog.DebugLevel)
 	logger.SetLogger(&l)
-	sf, err := state.NewFactory(nil, state.InMemTrieOption())
-	assert.NotNil(sf)
-	assert.Nil(err)
-	sf.CreateState(addr1.RawAddress, uint64(100))
-	sf.CreateState(addr2.RawAddress, uint64(10))
-	bc := createBlockchain(sf)
+	bc := blockchain.NewBlockchain(nil, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	_, err := bc.CreateState(addr1.RawAddress, uint64(100))
+	require.Nil(err)
+	_, err = bc.CreateState(addr2.RawAddress, uint64(10))
+	require.Nil(err)
 	// Create actpool
 	apConfig := config.ActPool{maxNumActPerPool, maxNumActPerAcct}
 	Ap, err := NewActPool(bc, apConfig)
-	assert.Nil(err)
+	require.Nil(err)
 	ap, ok := Ap.(*actPool)
-	require.True(t, ok)
+	require.True(ok)
 	// Test actpool status after adding a sequence of Tsfs/votes: need to check confirmed nonce, pending nonce, and pending balance
 	tsf1, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(10))
 	tsf2, _ := signedTransfer(addr1, addr1, uint64(2), big.NewInt(20))
@@ -179,33 +169,33 @@ func TestActPool_AddActs(t *testing.T) {
 	ap.AddTsf(tsf8)
 
 	pBalance1, _ := ap.getPendingBalance(addr1.RawAddress)
-	assert.Equal(uint64(40), pBalance1.Uint64())
+	require.Equal(uint64(40), pBalance1.Uint64())
 	pNonce1, _ := ap.getPendingNonce(addr1.RawAddress)
-	assert.Equal(uint64(5), pNonce1)
+	require.Equal(uint64(5), pNonce1)
 
 	pBalance2, _ := ap.getPendingBalance(addr2.RawAddress)
-	assert.Equal(uint64(5), pBalance2.Uint64())
+	require.Equal(uint64(5), pBalance2.Uint64())
 	pNonce2, _ := ap.getPendingNonce(addr2.RawAddress)
-	assert.Equal(uint64(2), pNonce2)
+	require.Equal(uint64(2), pNonce2)
 
 	tsf9, _ := signedTransfer(addr2, addr2, uint64(2), big.NewInt(3))
 	ap.AddTsf(tsf9)
 	pBalance2, _ = ap.getPendingBalance(addr2.RawAddress)
-	assert.Equal(uint64(1), pBalance2.Uint64())
+	require.Equal(uint64(1), pBalance2.Uint64())
 	pNonce2, _ = ap.getPendingNonce(addr2.RawAddress)
-	assert.Equal(uint64(4), pNonce2)
+	require.Equal(uint64(4), pNonce2)
 	// Error Case Handling
 	// Case I: Action already exists in pool
 	err = ap.AddTsf(tsf1)
-	assert.Equal(fmt.Errorf("existed transfer: %x", tsf1.Hash()), err)
+	require.Equal(fmt.Errorf("existed transfer: %x", tsf1.Hash()), err)
 	err = ap.AddVote(vote4)
-	assert.Equal(fmt.Errorf("existed vote: %x", vote4.Hash()), err)
+	require.Equal(fmt.Errorf("existed vote: %x", vote4.Hash()), err)
 	// Case II: Pool space is full
 	mockBC := mock_blockchain.NewMockBlockchain(ctrl)
 	Ap2, err := NewActPool(mockBC, apConfig)
-	assert.Nil(err)
+	require.Nil(err)
 	ap2, ok := Ap2.(*actPool)
-	require.True(t, ok)
+	require.True(ok)
 	for i := uint64(0); i < ap2.maxNumActPerPool; i++ {
 		nTsf := action.Transfer{Amount: big.NewInt(int64(i))}
 		nAction := &pb.ActionPb{Action: &pb.ActionPb_Transfer{nTsf.ConvertToTransferPb()}}
@@ -214,42 +204,41 @@ func TestActPool_AddActs(t *testing.T) {
 	mockBC.EXPECT().Nonce(gomock.Any()).Times(2).Return(uint64(0), nil)
 	mockBC.EXPECT().StateByAddr(gomock.Any()).Times(1).Return(nil, nil)
 	err = ap2.AddTsf(tsf1)
-	assert.Equal(ErrActPool, errors.Cause(err))
+	require.Equal(ErrActPool, errors.Cause(err))
 	err = ap2.AddVote(vote4)
-	assert.Equal(ErrActPool, errors.Cause(err))
+	require.Equal(ErrActPool, errors.Cause(err))
 	// Case III: Nonce already exists
 	replaceTsf, _ := signedTransfer(addr1, addr2, uint64(1), big.NewInt(1))
 	err = ap.AddTsf(replaceTsf)
-	assert.Equal(ErrNonce, errors.Cause(err))
+	require.Equal(ErrNonce, errors.Cause(err))
 	replaceVote := action.NewVote(4, addr1.PublicKey, []byte{})
 	replaceVote, _ = replaceVote.Sign(addr1)
-	assert.Equal(ErrNonce, errors.Cause(err))
+	require.Equal(ErrNonce, errors.Cause(err))
 	// Case IV: Nonce is too large
 	outOfBoundsTsf, _ := signedTransfer(addr1, addr1, uint64(ap.maxNumActPerAcct+1), big.NewInt(1))
 	err = ap.AddTsf(outOfBoundsTsf)
-	assert.Equal(ErrNonce, errors.Cause(err))
+	require.Equal(ErrNonce, errors.Cause(err))
 	// Case V: Insufficient balance
 	overBalTsf, _ := signedTransfer(addr2, addr2, uint64(4), big.NewInt(20))
 	err = ap.AddTsf(overBalTsf)
-	assert.Equal(ErrBalance, errors.Cause(err))
+	require.Equal(ErrBalance, errors.Cause(err))
 }
 
 func TestActPool_PickActs(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 	l := logger.Logger().Level(zerolog.DebugLevel)
 	logger.SetLogger(&l)
-	sf, err := state.NewFactory(nil, state.InMemTrieOption())
-	assert.NotNil(sf)
-	assert.Nil(err)
-	sf.CreateState(addr1.RawAddress, uint64(100))
-	sf.CreateState(addr2.RawAddress, uint64(10))
-	bc := createBlockchain(sf)
+	bc := blockchain.NewBlockchain(nil, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	_, err := bc.CreateState(addr1.RawAddress, uint64(100))
+	require.Nil(err)
+	_, err = bc.CreateState(addr2.RawAddress, uint64(10))
+	require.Nil(err)
 	// Create actpool
 	apConfig := config.ActPool{maxNumActPerPool, maxNumActPerAcct}
 	Ap, err := NewActPool(bc, apConfig)
-	assert.Nil(err)
+	require.Nil(err)
 	ap, ok := Ap.(*actPool)
-	require.True(t, ok)
+	require.True(ok)
 
 	tsf1, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(10))
 	tsf2, _ := signedTransfer(addr1, addr1, uint64(2), big.NewInt(20))
@@ -274,25 +263,23 @@ func TestActPool_PickActs(t *testing.T) {
 	ap.AddTsf(tsf10)
 
 	pickedTsfs, pickedVotes := ap.PickActs()
-	assert.Equal([]*action.Transfer{tsf1, tsf2, tsf3, tsf4}, pickedTsfs)
-	assert.Equal([]*action.Vote{vote7}, pickedVotes)
+	require.Equal([]*action.Transfer{tsf1, tsf2, tsf3, tsf4}, pickedTsfs)
+	require.Equal([]*action.Vote{vote7}, pickedVotes)
 }
 
 func TestActPool_removeConfirmedActs(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 	l := logger.Logger().Level(zerolog.DebugLevel)
 	logger.SetLogger(&l)
-	sf, err := state.NewFactory(nil, state.InMemTrieOption())
-	assert.NotNil(sf)
-	assert.Nil(err)
-	sf.CreateState(addr1.RawAddress, uint64(100))
-	bc := createBlockchain(sf)
+	bc := blockchain.NewBlockchain(nil, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	_, err := bc.CreateState(addr1.RawAddress, uint64(100))
+	require.Nil(err)
 	// Create actpool
 	apConfig := config.ActPool{maxNumActPerPool, maxNumActPerAcct}
 	Ap, err := NewActPool(bc, apConfig)
-	assert.Nil(err)
+	require.Nil(err)
 	ap, ok := Ap.(*actPool)
-	require.True(t, ok)
+	require.True(ok)
 
 	tsf1, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(10))
 	tsf2, _ := signedTransfer(addr1, addr1, uint64(2), big.NewInt(20))
@@ -304,37 +291,37 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	ap.AddTsf(tsf3)
 	ap.AddVote(vote4)
 
-	assert.Equal(4, len(ap.allActions))
-	assert.NotNil(ap.accountActs[addr1.RawAddress])
-	err = sf.CommitStateChanges(0, []*action.Transfer{tsf1, tsf2, tsf3}, []*action.Vote{vote4})
-	assert.Nil(err)
+	require.Equal(4, len(ap.allActions))
+	require.NotNil(ap.accountActs[addr1.RawAddress])
+	err = bc.CommitStateChanges(0, []*action.Transfer{tsf1, tsf2, tsf3}, []*action.Vote{vote4})
+	require.Nil(err)
 	ap.removeConfirmedActs()
-	assert.Equal(0, len(ap.allActions))
-	assert.Nil(ap.accountActs[addr1.RawAddress])
+	require.Equal(0, len(ap.allActions))
+	require.Nil(ap.accountActs[addr1.RawAddress])
 }
 
 func TestActPool_Reset(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 	l := logger.Logger().Level(zerolog.DebugLevel)
 	logger.SetLogger(&l)
 
-	sf, err := state.NewFactory(nil, state.InMemTrieOption())
-	assert.NotNil(sf)
-	assert.Nil(err)
-	sf.CreateState(addr1.RawAddress, uint64(100))
-	sf.CreateState(addr2.RawAddress, uint64(200))
-	sf.CreateState(addr3.RawAddress, uint64(300))
-	bc := createBlockchain(sf)
+	bc := blockchain.NewBlockchain(nil, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	_, err := bc.CreateState(addr1.RawAddress, uint64(100))
+	require.Nil(err)
+	_, err = bc.CreateState(addr2.RawAddress, uint64(200))
+	require.Nil(err)
+	_, err = bc.CreateState(addr3.RawAddress, uint64(300))
+	require.Nil(err)
 
 	apConfig := config.ActPool{maxNumActPerPool, maxNumActPerAcct}
 	Ap1, err := NewActPool(bc, apConfig)
-	assert.Nil(err)
+	require.Nil(err)
 	ap1, ok := Ap1.(*actPool)
-	require.True(t, ok)
+	require.True(ok)
 	Ap2, err := NewActPool(bc, apConfig)
-	assert.Nil(err)
+	require.Nil(err)
 	ap2, ok := Ap2.(*actPool)
-	require.True(t, ok)
+	require.True(ok)
 
 	// Tsfs to be added to ap1
 	tsf1, _ := signedTransfer(addr1, addr2, uint64(1), big.NewInt(50))
@@ -376,40 +363,40 @@ func TestActPool_Reset(t *testing.T) {
 	// ap1
 	// Addr1
 	ap1PNonce1, _ := ap1.getPendingNonce(addr1.RawAddress)
-	assert.Equal(uint64(3), ap1PNonce1)
+	require.Equal(uint64(3), ap1PNonce1)
 	ap1PBalance1, _ := ap1.getPendingBalance(addr1.RawAddress)
-	assert.Equal(big.NewInt(20).Uint64(), ap1PBalance1.Uint64())
+	require.Equal(big.NewInt(20).Uint64(), ap1PBalance1.Uint64())
 	// Addr2
 	ap1PNonce2, _ := ap1.getPendingNonce(addr2.RawAddress)
-	assert.Equal(uint64(3), ap1PNonce2)
+	require.Equal(uint64(3), ap1PNonce2)
 	ap1PBalance2, _ := ap1.getPendingBalance(addr2.RawAddress)
-	assert.Equal(big.NewInt(50).Uint64(), ap1PBalance2.Uint64())
+	require.Equal(big.NewInt(50).Uint64(), ap1PBalance2.Uint64())
 	// Addr3
 	ap1PNonce3, _ := ap1.getPendingNonce(addr3.RawAddress)
-	assert.Equal(uint64(3), ap1PNonce3)
+	require.Equal(uint64(3), ap1PNonce3)
 	ap1PBalance3, _ := ap1.getPendingBalance(addr3.RawAddress)
-	assert.Equal(big.NewInt(100).Uint64(), ap1PBalance3.Uint64())
+	require.Equal(big.NewInt(100).Uint64(), ap1PBalance3.Uint64())
 	// ap2
 	// Addr1
 	ap2PNonce1, _ := ap2.getPendingNonce(addr1.RawAddress)
-	assert.Equal(uint64(4), ap2PNonce1)
+	require.Equal(uint64(4), ap2PNonce1)
 	ap2PBalance1, _ := ap2.getPendingBalance(addr1.RawAddress)
-	assert.Equal(big.NewInt(0).Uint64(), ap2PBalance1.Uint64())
+	require.Equal(big.NewInt(0).Uint64(), ap2PBalance1.Uint64())
 	// Addr2
 	ap2PNonce2, _ := ap2.getPendingNonce(addr2.RawAddress)
-	assert.Equal(uint64(3), ap2PNonce2)
+	require.Equal(uint64(3), ap2PNonce2)
 	ap2PBalance2, _ := ap2.getPendingBalance(addr2.RawAddress)
-	assert.Equal(big.NewInt(30).Uint64(), ap2PBalance2.Uint64())
+	require.Equal(big.NewInt(30).Uint64(), ap2PBalance2.Uint64())
 	// Addr3
 	ap2PNonce3, _ := ap2.getPendingNonce(addr3.RawAddress)
-	assert.Equal(uint64(3), ap2PNonce3)
+	require.Equal(uint64(3), ap2PNonce3)
 	ap2PBalance3, _ := ap2.getPendingBalance(addr3.RawAddress)
-	assert.Equal(big.NewInt(50).Uint64(), ap2PBalance3.Uint64())
+	require.Equal(big.NewInt(50).Uint64(), ap2PBalance3.Uint64())
 	// Let ap1 be BP's actpool
 	pickedTsfs, pickedVotes := ap1.PickActs()
 	// ap1 commits update of accounts to trie
-	err = sf.CommitStateChanges(0, pickedTsfs, pickedVotes)
-	assert.Nil(err)
+	err = bc.CommitStateChanges(0, pickedTsfs, pickedVotes)
+	require.Nil(err)
 	//Reset
 	ap1.Reset()
 	ap2.Reset()
@@ -417,35 +404,35 @@ func TestActPool_Reset(t *testing.T) {
 	// ap1
 	// Addr1
 	ap1PNonce1, _ = ap1.getPendingNonce(addr1.RawAddress)
-	assert.Equal(uint64(3), ap1PNonce1)
+	require.Equal(uint64(3), ap1PNonce1)
 	ap1PBalance1, _ = ap1.getPendingBalance(addr1.RawAddress)
-	assert.Equal(big.NewInt(220).Uint64(), ap1PBalance1.Uint64())
+	require.Equal(big.NewInt(220).Uint64(), ap1PBalance1.Uint64())
 	// Addr2
 	ap1PNonce2, _ = ap1.getPendingNonce(addr2.RawAddress)
-	assert.Equal(uint64(3), ap1PNonce2)
+	require.Equal(uint64(3), ap1PNonce2)
 	ap1PBalance2, _ = ap1.getPendingBalance(addr2.RawAddress)
-	assert.Equal(big.NewInt(200).Uint64(), ap1PBalance2.Uint64())
+	require.Equal(big.NewInt(200).Uint64(), ap1PBalance2.Uint64())
 	// Addr3
 	ap1PNonce3, _ = ap1.getPendingNonce(addr3.RawAddress)
-	assert.Equal(uint64(3), ap1PNonce3)
+	require.Equal(uint64(3), ap1PNonce3)
 	ap1PBalance3, _ = ap1.getPendingBalance(addr3.RawAddress)
-	assert.Equal(big.NewInt(180).Uint64(), ap1PBalance3.Uint64())
+	require.Equal(big.NewInt(180).Uint64(), ap1PBalance3.Uint64())
 	// ap2
 	// Addr1
 	ap2PNonce1, _ = ap2.getPendingNonce(addr1.RawAddress)
-	assert.Equal(uint64(4), ap2PNonce1)
+	require.Equal(uint64(4), ap2PNonce1)
 	ap2PBalance1, _ = ap2.getPendingBalance(addr1.RawAddress)
-	assert.Equal(big.NewInt(200).Uint64(), ap2PBalance1.Uint64())
+	require.Equal(big.NewInt(200).Uint64(), ap2PBalance1.Uint64())
 	// Addr2
 	ap2PNonce2, _ = ap2.getPendingNonce(addr2.RawAddress)
-	assert.Equal(uint64(3), ap2PNonce2)
+	require.Equal(uint64(3), ap2PNonce2)
 	ap2PBalance2, _ = ap2.getPendingBalance(addr2.RawAddress)
-	assert.Equal(big.NewInt(200).Uint64(), ap2PBalance2.Uint64())
+	require.Equal(big.NewInt(200).Uint64(), ap2PBalance2.Uint64())
 	// Addr3
 	ap2PNonce3, _ = ap2.getPendingNonce(addr3.RawAddress)
-	assert.Equal(uint64(3), ap2PNonce3)
+	require.Equal(uint64(3), ap2PNonce3)
 	ap2PBalance3, _ = ap2.getPendingBalance(addr3.RawAddress)
-	assert.Equal(big.NewInt(180).Uint64(), ap2PBalance3.Uint64())
+	require.Equal(big.NewInt(180).Uint64(), ap2PBalance3.Uint64())
 	// Add more Tsfs after resetting
 	// Tsfs To be added to ap1 only
 	tsf15, _ := signedTransfer(addr3, addr2, uint64(3), big.NewInt(80))
@@ -466,40 +453,40 @@ func TestActPool_Reset(t *testing.T) {
 	// ap1
 	// Addr1
 	ap1PNonce1, _ = ap1.getPendingNonce(addr1.RawAddress)
-	assert.Equal(uint64(3), ap1PNonce1)
+	require.Equal(uint64(3), ap1PNonce1)
 	ap1PBalance1, _ = ap1.getPendingBalance(addr1.RawAddress)
-	assert.Equal(big.NewInt(220).Uint64(), ap1PBalance1.Uint64())
+	require.Equal(big.NewInt(220).Uint64(), ap1PBalance1.Uint64())
 	// Addr2
 	ap1PNonce2, _ = ap1.getPendingNonce(addr2.RawAddress)
-	assert.Equal(uint64(3), ap1PNonce2)
+	require.Equal(uint64(3), ap1PNonce2)
 	ap1PBalance2, _ = ap1.getPendingBalance(addr2.RawAddress)
-	assert.Equal(big.NewInt(200).Uint64(), ap1PBalance2.Uint64())
+	require.Equal(big.NewInt(200).Uint64(), ap1PBalance2.Uint64())
 	// Addr3
 	ap1PNonce3, _ = ap1.getPendingNonce(addr3.RawAddress)
-	assert.Equal(uint64(5), ap1PNonce3)
+	require.Equal(uint64(5), ap1PNonce3)
 	ap1PBalance3, _ = ap1.getPendingBalance(addr3.RawAddress)
-	assert.Equal(big.NewInt(0).Uint64(), ap1PBalance3.Uint64())
+	require.Equal(big.NewInt(0).Uint64(), ap1PBalance3.Uint64())
 	// ap2
 	// Addr1
 	ap2PNonce1, _ = ap2.getPendingNonce(addr1.RawAddress)
-	assert.Equal(uint64(5), ap2PNonce1)
+	require.Equal(uint64(5), ap2PNonce1)
 	ap2PBalance1, _ = ap2.getPendingBalance(addr1.RawAddress)
-	assert.Equal(big.NewInt(50).Uint64(), ap2PBalance1.Uint64())
+	require.Equal(big.NewInt(50).Uint64(), ap2PBalance1.Uint64())
 	// Addr2
 	ap2PNonce2, _ = ap2.getPendingNonce(addr2.RawAddress)
-	assert.Equal(uint64(5), ap2PNonce2)
+	require.Equal(uint64(5), ap2PNonce2)
 	ap2PBalance2, _ = ap2.getPendingBalance(addr2.RawAddress)
-	assert.Equal(big.NewInt(10).Uint64(), ap2PBalance2.Uint64())
+	require.Equal(big.NewInt(10).Uint64(), ap2PBalance2.Uint64())
 	// Addr3
 	ap2PNonce3, _ = ap2.getPendingNonce(addr3.RawAddress)
-	assert.Equal(uint64(3), ap2PNonce3)
+	require.Equal(uint64(3), ap2PNonce3)
 	ap2PBalance3, _ = ap2.getPendingBalance(addr3.RawAddress)
-	assert.Equal(big.NewInt(180).Uint64(), ap2PBalance3.Uint64())
+	require.Equal(big.NewInt(180).Uint64(), ap2PBalance3.Uint64())
 	// Let ap2 be BP's actpool
 	pickedTsfs, pickedVotes = ap2.PickActs()
 	// ap2 commits update of accounts to trie
-	err = sf.CommitStateChanges(0, pickedTsfs, pickedVotes)
-	assert.Nil(err)
+	err = bc.CommitStateChanges(0, pickedTsfs, pickedVotes)
+	require.Nil(err)
 	//Reset
 	ap1.Reset()
 	ap2.Reset()
@@ -507,39 +494,41 @@ func TestActPool_Reset(t *testing.T) {
 	// ap1
 	// Addr1
 	ap1PNonce1, _ = ap1.getPendingNonce(addr1.RawAddress)
-	assert.Equal(uint64(5), ap1PNonce1)
+	require.Equal(uint64(5), ap1PNonce1)
 	ap1PBalance1, _ = ap1.getPendingBalance(addr1.RawAddress)
-	assert.Equal(big.NewInt(140).Uint64(), ap1PBalance1.Uint64())
+	require.Equal(big.NewInt(140).Uint64(), ap1PBalance1.Uint64())
 	// Addr2
 	ap1PNonce2, _ = ap1.getPendingNonce(addr2.RawAddress)
-	assert.Equal(uint64(5), ap1PNonce2)
+	require.Equal(uint64(5), ap1PNonce2)
 	ap1PBalance2, _ = ap1.getPendingBalance(addr2.RawAddress)
-	assert.Equal(big.NewInt(180).Uint64(), ap1PBalance2.Uint64())
+	require.Equal(big.NewInt(180).Uint64(), ap1PBalance2.Uint64())
 	// Addr3
 	ap1PNonce3, _ = ap1.getPendingNonce(addr3.RawAddress)
-	assert.Equal(uint64(5), ap1PNonce3)
+	require.Equal(uint64(5), ap1PNonce3)
 	ap1PBalance3, _ = ap1.getPendingBalance(addr3.RawAddress)
-	assert.Equal(big.NewInt(100).Uint64(), ap1PBalance3.Uint64())
+	require.Equal(big.NewInt(100).Uint64(), ap1PBalance3.Uint64())
 	// ap2
 	// Addr1
 	ap2PNonce1, _ = ap2.getPendingNonce(addr1.RawAddress)
-	assert.Equal(uint64(5), ap2PNonce1)
+	require.Equal(uint64(5), ap2PNonce1)
 	ap2PBalance1, _ = ap2.getPendingBalance(addr1.RawAddress)
-	assert.Equal(big.NewInt(140).Uint64(), ap2PBalance1.Uint64())
+	require.Equal(big.NewInt(140).Uint64(), ap2PBalance1.Uint64())
 	// Addr2
 	ap2PNonce2, _ = ap2.getPendingNonce(addr2.RawAddress)
-	assert.Equal(uint64(5), ap2PNonce2)
+	require.Equal(uint64(5), ap2PNonce2)
 	ap2PBalance2, _ = ap2.getPendingBalance(addr2.RawAddress)
-	assert.Equal(big.NewInt(180).Uint64(), ap2PBalance2.Uint64())
+	require.Equal(big.NewInt(180).Uint64(), ap2PBalance2.Uint64())
 	// Addr3
 	ap2PNonce3, _ = ap2.getPendingNonce(addr3.RawAddress)
-	assert.Equal(uint64(3), ap2PNonce3)
+	require.Equal(uint64(3), ap2PNonce3)
 	ap2PBalance3, _ = ap2.getPendingBalance(addr3.RawAddress)
-	assert.Equal(big.NewInt(280).Uint64(), ap2PBalance3.Uint64())
+	require.Equal(big.NewInt(280).Uint64(), ap2PBalance3.Uint64())
 
 	// Add two more players
-	sf.CreateState(addr4.RawAddress, uint64(10))
-	sf.CreateState(addr5.RawAddress, uint64(20))
+	_, err = bc.CreateState(addr4.RawAddress, uint64(10))
+	require.Nil(err)
+	_, err = bc.CreateState(addr5.RawAddress, uint64(20))
+	require.Nil(err)
 	tsf21, _ := signedTransfer(addr4, addr5, uint64(1), big.NewInt(10))
 	vote22, _ := signedVote(addr4, addr4, uint64(2))
 	vote23 := action.NewVote(3, addr4.PublicKey, []byte{})
@@ -559,50 +548,48 @@ func TestActPool_Reset(t *testing.T) {
 	// ap1
 	// Addr4
 	ap1PNonce4, _ := ap1.getPendingNonce(addr4.RawAddress)
-	assert.Equal(uint64(4), ap1PNonce4)
+	require.Equal(uint64(4), ap1PNonce4)
 	ap1PBalance4, _ := ap1.getPendingBalance(addr4.RawAddress)
-	assert.Equal(big.NewInt(0).Uint64(), ap1PBalance4.Uint64())
+	require.Equal(big.NewInt(0).Uint64(), ap1PBalance4.Uint64())
 	// Addr5
 	ap1PNonce5, _ := ap1.getPendingNonce(addr5.RawAddress)
-	assert.Equal(uint64(4), ap1PNonce5)
+	require.Equal(uint64(4), ap1PNonce5)
 	ap1PBalance5, _ := ap1.getPendingBalance(addr5.RawAddress)
-	assert.Equal(big.NewInt(10).Uint64(), ap1PBalance5.Uint64())
+	require.Equal(big.NewInt(10).Uint64(), ap1PBalance5.Uint64())
 	// Let ap1 be BP's actpool
 	pickedTsfs, pickedVotes = ap1.PickActs()
 	// ap1 commits update of accounts to trie
-	err = sf.CommitStateChanges(0, pickedTsfs, pickedVotes)
-	assert.Nil(err)
+	err = bc.CommitStateChanges(0, pickedTsfs, pickedVotes)
+	require.Nil(err)
 	//Reset
 	ap1.Reset()
 	// Check confirmed nonce, pending nonce, and pending balance after resetting actpool for each account
 	// ap1
 	// Addr4
 	ap1PNonce4, _ = ap1.getPendingNonce(addr4.RawAddress)
-	assert.Equal(uint64(4), ap1PNonce4)
+	require.Equal(uint64(4), ap1PNonce4)
 	ap1PBalance4, _ = ap1.getPendingBalance(addr4.RawAddress)
-	assert.Equal(big.NewInt(10).Uint64(), ap1PBalance4.Uint64())
+	require.Equal(big.NewInt(10).Uint64(), ap1PBalance4.Uint64())
 	// Addr5
 	ap1PNonce5, _ = ap1.getPendingNonce(addr5.RawAddress)
-	assert.Equal(uint64(4), ap1PNonce5)
+	require.Equal(uint64(4), ap1PNonce5)
 	ap1PBalance5, _ = ap1.getPendingBalance(addr5.RawAddress)
-	assert.Equal(big.NewInt(20).Uint64(), ap1PBalance5.Uint64())
+	require.Equal(big.NewInt(20).Uint64(), ap1PBalance5.Uint64())
 }
 
 func TestActPool_removeInvalidActs(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 	l := logger.Logger().Level(zerolog.DebugLevel)
 	logger.SetLogger(&l)
-	sf, err := state.NewFactory(nil, state.InMemTrieOption())
-	assert.NotNil(sf)
-	assert.Nil(err)
-	sf.CreateState(addr1.RawAddress, uint64(100))
-	bc := createBlockchain(sf)
+	bc := blockchain.NewBlockchain(nil, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	_, err := bc.CreateState(addr1.RawAddress, uint64(100))
+	require.Nil(err)
 	// Create actpool
 	apConfig := config.ActPool{maxNumActPerPool, maxNumActPerAcct}
 	Ap, err := NewActPool(bc, apConfig)
-	assert.Nil(err)
+	require.Nil(err)
 	ap, ok := Ap.(*actPool)
-	require.True(t, ok)
+	require.True(ok)
 
 	tsf1, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(10))
 	tsf2, _ := signedTransfer(addr1, addr1, uint64(2), big.NewInt(20))
@@ -619,11 +606,11 @@ func TestActPool_removeInvalidActs(t *testing.T) {
 	hash2 := vote4.Hash()
 	action2 := &pb.ActionPb{Action: &pb.ActionPb_Vote{vote4.ConvertToVotePb()}}
 	acts := []*pb.ActionPb{action1, action2}
-	assert.NotNil(ap.allActions[hash1])
-	assert.NotNil(ap.allActions[hash2])
+	require.NotNil(ap.allActions[hash1])
+	require.NotNil(ap.allActions[hash2])
 	ap.removeInvalidActs(acts)
-	assert.Nil(ap.allActions[hash1])
-	assert.Nil(ap.allActions[hash2])
+	require.Nil(ap.allActions[hash1])
+	require.Nil(ap.allActions[hash2])
 }
 
 // Helper function to return the correct pending nonce just in case of empty queue
