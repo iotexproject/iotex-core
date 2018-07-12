@@ -65,7 +65,7 @@ func (m *memKVStore) Put(namespace string, key []byte, value []byte) error {
 
 // PutIfNotExists inserts a <key, value> record only if it does not exist yet, otherwise return ErrAlreadyExist
 func (m *memKVStore) PutIfNotExists(namespace string, key []byte, value []byte) error {
-	_, loaded := m.data.LoadOrStore(namespace + keyDelimiter + string(key), value)
+	_, loaded := m.data.LoadOrStore(namespace+keyDelimiter+string(key), value)
 	if loaded {
 		return ErrAlreadyExist
 	}
