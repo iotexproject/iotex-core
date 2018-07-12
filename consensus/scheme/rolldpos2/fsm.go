@@ -15,7 +15,10 @@ import (
 	"github.com/pkg/errors"
 	"github.com/zjshen14/go-fsm"
 
+	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/proto"
 )
 
 const (
@@ -36,6 +39,7 @@ const (
 	eRollDelegates       fsm.EventType = "E_ROLL_DELEGATES"
 	eGenerateDKG         fsm.EventType = "E_GENERATE_DKG"
 	eStartRound          fsm.EventType = "E_START_ROUND"
+	eInitBlock           fsm.EventType = "E_INIT_BLOCK"
 	eProposeBlock        fsm.EventType = "E_PROPOSE_BLOCK"
 	eProposeBlockTimeout fsm.EventType = "E_PROPOSE_BLOCK_TIMEOUT"
 	ePrevote             fsm.EventType = "E_PREVOTE"
@@ -51,6 +55,8 @@ const (
 var (
 	// errEvtCast indicates the error of casting the event
 	errEvtCast = errors.New("error when casting the event")
+	// errEvtConvert indicates the error of converting the event from/to the proto message
+	errEvtConvert = errors.New("error when converting the event from/to the proto message")
 
 	// consensusStates is a slice consisting of all consensusEvt states
 	consensusStates = []fsm.State{
@@ -67,25 +73,65 @@ var (
 // iConsensusEvt is the interface of all events for the consensusEvt FSM
 type iConsensusEvt interface {
 	fsm.Event
-	Time() time.Time
+	timestamp() time.Time
+	toProtoMsg() (*iproto.ViewChangeMsg, error)
+	fromProtoMsg(msg *iproto.ViewChangeMsg) error
 	// TODO: we need to add height or some other ctx to identify which consensus round the event is associated to
 }
 
 type consensusEvt struct {
-	t    fsm.EventType
-	time time.Time
+	t  fsm.EventType
+	ts time.Time
 }
 
 func newCEvt(t fsm.EventType, c clock.Clock) *consensusEvt {
 	return &consensusEvt{
-		t:    t,
-		time: c.Now(),
+		t:  t,
+		ts: c.Now(),
 	}
 }
 
 func (e *consensusEvt) Type() fsm.EventType { return e.t }
 
-func (e *consensusEvt) Time() time.Time { return e.time }
+func (e *consensusEvt) timestamp() time.Time { return e.ts }
+
+func (e *consensusEvt) toProtoMsg() (*iproto.ViewChangeMsg, error) {
+	return nil, errors.Wrap(errEvtConvert, "converting to the proto message is not implemented")
+}
+
+func (e *consensusEvt) fromProtoMsg(pMsg *iproto.ViewChangeMsg) error {
+	return errors.Wrap(errEvtConvert, "converting from the proto message is not implemented")
+}
+
+type proposeBlkEvt struct {
+	consensusEvt
+
+	blk *blockchain.Block
+}
+
+func newProposeBlkEvt(blk *blockchain.Block, c clock.Clock) *proposeBlkEvt {
+	return &proposeBlkEvt{
+		consensusEvt: *newCEvt(eProposeBlock, c),
+		blk:          blk,
+	}
+}
+
+func (e *proposeBlkEvt) toProtoMsg() (*iproto.ViewChangeMsg, error) {
+	return &iproto.ViewChangeMsg{
+		Vctype: iproto.ViewChangeMsg_PROPOSE,
+		Block:  e.blk.ConvertToBlockPb(),
+	}, nil
+}
+
+func (e *proposeBlkEvt) fromProtoMsg(pMsg *iproto.ViewChangeMsg) error {
+	if pMsg.Vctype != iproto.ViewChangeMsg_PROPOSE {
+		return errors.Wrapf(errEvtConvert, "pMsg Vctype is %d", pMsg.Vctype)
+	}
+	if pMsg.Block != nil {
+		e.blk.ConvertFromBlockPb(pMsg.Block)
+	}
+	return nil
+}
 
 // backdoorEvt is used for testing purpose to set the consensusEvt FSM to any particular state
 type backdoorEvt struct {
@@ -121,8 +167,8 @@ func newConsensusFSM(ctx *rollDPoSCtx) (*cFSM, error) {
 		AddTransition(sEpochStart, eRollDelegates, cm.handleRollDelegatesEvt, []fsm.State{sEpochStart, sDKGGeneration}).
 		AddTransition(sDKGGeneration, eGenerateDKG, cm.handleGenerateDKGEvt, []fsm.State{sRoundStart}).
 		AddTransition(sRoundStart, eStartRound, cm.handleStartRoundEvt, []fsm.State{sInitPropose, sAcceptPropose}).
-		AddTransition(sInitPropose, eProposeBlock, cm.handleProposeBlockEvt, []fsm.State{sAcceptPrevote}).
-		AddTransition(sAcceptPropose, eProposeBlock, cm.handleProposeBlockEvt, []fsm.State{sAcceptPrevote}).
+		AddTransition(sInitPropose, eInitBlock, cm.handleInitBlockEvt, []fsm.State{sAcceptPrevote}).
+		AddTransition(sAcceptPropose, eInitBlock, cm.handleProposeBlockEvt, []fsm.State{sAcceptPrevote}).
 		AddTransition(sAcceptPropose, eProposeBlockTimeout, cm.handleProposeBlockEvt, []fsm.State{sAcceptPrevote}).
 		AddTransition(sAcceptPrevote, ePrevote, cm.handlePrevoteEvt, []fsm.State{sAcceptPrevote, sAcceptVote}).
 		AddTransition(sAcceptPrevote, ePrevoteTimeout, cm.handlePrevoteEvt, []fsm.State{sAcceptVote}).
@@ -153,18 +199,18 @@ func (m *cFSM) Start(c context.Context) error {
 				src := m.fsm.CurrentState()
 				if err := m.fsm.Handle(evt); err != nil {
 					if errors.Cause(err) == fsm.ErrTransitionNotFound {
-						if time.Since(evt.Time()) <= m.ctx.cfg.UnmatchedEventTTL {
+						if time.Since(evt.timestamp()) <= m.ctx.cfg.UnmatchedEventTTL {
 							// TODO: avoid putting the unmatched event into the event queue immediately
-							m.enqueue(evt, 0)
+							m.produce(evt, 0)
 							logger.Debug().
-								Str("id", m.ctx.id).
+								Str("id", m.ctx.addr.RawAddress).
 								Str("src", string(src)).
 								Err(err).
 								Msg("consensusEvt state transition could find the match")
 						}
 					} else {
 						logger.Error().
-							Str("id", m.ctx.id).
+							Str("id", m.ctx.addr.RawAddress).
 							Str("src", string(src)).
 							Err(err).
 							Msg("consensusEvt state transition fails")
@@ -172,7 +218,7 @@ func (m *cFSM) Start(c context.Context) error {
 				} else {
 					dst := m.fsm.CurrentState()
 					logger.Info().
-						Str("id", m.ctx.id).
+						Str("id", m.ctx.addr.RawAddress).
 						Str("src", string(src)).
 						Str("dst", string(dst)).
 						Msg("consensusEvt state transition happens")
@@ -194,7 +240,8 @@ func (m *cFSM) currentState() fsm.State {
 	return m.fsm.CurrentState()
 }
 
-func (m *cFSM) enqueue(evt iConsensusEvt, delay time.Duration) {
+// produce adds an event into the queue for the consensus FSM to process
+func (m *cFSM) produce(evt iConsensusEvt, delay time.Duration) {
 	if delay > 0 {
 		m.wg.Add(1)
 		go func() {
@@ -210,7 +257,7 @@ func (m *cFSM) enqueue(evt iConsensusEvt, delay time.Duration) {
 	}
 }
 
-func (m *cFSM) handleRollDelegatesEvt(evt fsm.Event) (fsm.State, error) {
+func (m *cFSM) handleRollDelegatesEvt(_ fsm.Event) (fsm.State, error) {
 	epochNum, epochHeight, err := m.ctx.calcEpochNumAndHeight()
 	if err != nil {
 		return sInvalid, errors.Wrap(
@@ -218,7 +265,7 @@ func (m *cFSM) handleRollDelegatesEvt(evt fsm.Event) (fsm.State, error) {
 			"error when determining the epoch ordinal number and start height offset",
 		)
 	}
-	delegates, err := m.ctx.getRollingDelegates(epochNum)
+	delegates, err := m.ctx.rollingDelegates(epochNum)
 	if err != nil {
 		return sInvalid, errors.Wrap(
 			err,
@@ -242,42 +289,80 @@ func (m *cFSM) handleRollDelegatesEvt(evt fsm.Event) (fsm.State, error) {
 		}
 
 		// Trigger the event to generate DKG
-		m.enqueue(m.newCEvt(eGenerateDKG), 0)
+		m.produce(m.newCEvt(eGenerateDKG), 0)
 
 		logger.Info().
-			Str("id", m.ctx.id).
+			Str("id", m.ctx.addr.RawAddress).
 			Uint64("epoch", epochNum).
 			Uint64("height", epochHeight).
 			Msg("current node is the delegate")
 		return sDKGGeneration, nil
 	}
 	// Else, stay at the current state and check again later
-	m.enqueue(m.newCEvt(eRollDelegates), m.ctx.cfg.DelegateInterval)
+	m.produce(m.newCEvt(eRollDelegates), m.ctx.cfg.DelegateInterval)
 	logger.Info().
-		Str("id", m.ctx.id).
+		Str("id", m.ctx.addr.RawAddress).
 		Uint64("epoch", epochNum).
 		Uint64("height", epochHeight).
 		Msg("current node is not the delegate")
 	return sEpochStart, nil
 }
 
-func (m *cFSM) handleGenerateDKGEvt(evt fsm.Event) (fsm.State, error) {
-	// TODO: generate DKG
-
-	m.enqueue(m.newCEvt(eStartRound), 0)
+func (m *cFSM) handleGenerateDKGEvt(_ fsm.Event) (fsm.State, error) {
+	dkg, err := m.ctx.generateDKG()
+	if err != nil {
+		return sInvalid, err
+	}
+	m.ctx.epoch.dkg = dkg
+	m.produce(m.newCEvt(eStartRound), 0)
 	return sRoundStart, nil
 }
 
-func (m *cFSM) handleStartRoundEvt(evt fsm.Event) (fsm.State, error) {
-	// TODO: setup round context and check the if the current node is the block producer
-	elected := true
-	if elected {
-		// TODO: propose a block
-		m.enqueue(m.newCEvt(eProposeBlock), 0)
+func (m *cFSM) handleStartRoundEvt(_ fsm.Event) (fsm.State, error) {
+	proposer, height, err := m.ctx.rotatedProposer()
+	if err != nil {
+		logger.Error().
+			Str("id", m.ctx.addr.RawAddress).
+			Err(err).
+			Msg("error when getting the proposer")
+		return sInvalid, err
+	}
+	m.ctx.round = roundCtx{
+		prevotes: make(map[string]*hash.Hash32B),
+		votes:    make(map[string]*hash.Hash32B),
+		proposer: proposer,
+	}
+	if proposer == m.ctx.addr.RawAddress {
+		logger.Info().
+			Str("proposer", proposer).
+			Uint64("height", height).
+			Msg("current node is the proposer")
+		m.produce(m.newCEvt(eInitBlock), 0)
 		// TODO: we may need timeout event for block producer too
 		return sInitPropose, nil
 	}
-	m.enqueue(m.newCEvt(ePrevoteTimeout), m.ctx.cfg.AcceptProposeTTL)
+	logger.Info().
+		Str("proposer", proposer).
+		Uint64("height", height).
+		Msg("current node is not the proposer")
+	m.produce(m.newCEvt(eProposeBlockTimeout), m.ctx.cfg.AcceptProposeTTL)
+	return sAcceptPropose, nil
+}
+
+func (m *cFSM) handleInitBlockEvt(evt fsm.Event) (fsm.State, error) {
+	blk, err := m.ctx.mintBlock()
+	if err != nil {
+		return sInvalid, err
+	}
+	proposeBlkEvt := m.newProposeBlkEvt(blk)
+	proposeBlkEvtProto, err := proposeBlkEvt.toProtoMsg()
+	if err != nil {
+		return sInvalid, err
+	}
+	// Notify itself
+	m.produce(proposeBlkEvt, 0)
+	// Notify other delegates
+	m.ctx.p2p.Broadcast(proposeBlkEvtProto)
 	return sAcceptPropose, nil
 }
 
@@ -288,8 +373,8 @@ func (m *cFSM) handleProposeBlockEvt(evt fsm.Event) (fsm.State, error) {
 	case eProposeBlockTimeout:
 		// TODO: prevote failure
 	}
-	m.enqueue(m.newCEvt(ePrevote), 0)
-	m.enqueue(m.newCEvt(ePrevoteTimeout), m.ctx.cfg.AcceptPrevoteTTL)
+	m.produce(m.newCEvt(ePrevote), 0)
+	m.produce(m.newCEvt(ePrevoteTimeout), m.ctx.cfg.AcceptPrevoteTTL)
 	return sAcceptPrevote, nil
 }
 
@@ -300,8 +385,8 @@ func (m *cFSM) handlePrevoteEvt(evt fsm.Event) (fsm.State, error) {
 	case ePrevoteTimeout:
 		// TODO: vote failure
 	}
-	m.enqueue(m.newCEvt(eVote), 0)
-	m.enqueue(m.newCEvt(eVoteTimeout), m.ctx.cfg.AcceptPrevoteTTL)
+	m.produce(m.newCEvt(eVote), 0)
+	m.produce(m.newCEvt(eVoteTimeout), m.ctx.cfg.AcceptPrevoteTTL)
 	return sAcceptVote, nil
 }
 
@@ -312,7 +397,7 @@ func (m *cFSM) handleVoteEvt(evt fsm.Event) (fsm.State, error) {
 	case eVoteTimeout:
 		// TODO: commit a dummy block
 	}
-	m.enqueue(m.newCEvt(eFinishEpoch), 0)
+	m.produce(m.newCEvt(eFinishEpoch), 0)
 	return sAcceptVote, nil
 }
 
@@ -320,10 +405,10 @@ func (m *cFSM) handleFinishEpochEvt(evt fsm.Event) (fsm.State, error) {
 	// TODO: determine if the epoch has finished
 	finished := true
 	if finished {
-		m.enqueue(m.newCEvt(eRollDelegates), 0)
+		m.produce(m.newCEvt(eRollDelegates), 0)
 		return sEpochStart, nil
 	}
-	m.enqueue(m.newCEvt(eStartRound), 0)
+	m.produce(m.newCEvt(eStartRound), 0)
 	return sRoundStart, nil
 
 }
@@ -339,17 +424,21 @@ func (m *cFSM) handleBackdoorEvt(evt fsm.Event) (fsm.State, error) {
 
 func (m *cFSM) isDelegate(delegates []string) bool {
 	for _, d := range delegates {
-		if m.ctx.id == d {
+		if m.ctx.addr.RawAddress == d {
 			return true
 		}
 	}
 	return false
 }
 
-func (m *cFSM) newCEvt(t fsm.EventType) iConsensusEvt {
+func (m *cFSM) newCEvt(t fsm.EventType) *consensusEvt {
 	return newCEvt(t, m.ctx.clock)
 }
 
-func (m *cFSM) newBackdoorEvt(dst fsm.State) iConsensusEvt {
+func (m *cFSM) newProposeBlkEvt(blk *blockchain.Block) *proposeBlkEvt {
+	return newProposeBlkEvt(blk, m.ctx.clock)
+}
+
+func (m *cFSM) newBackdoorEvt(dst fsm.State) *backdoorEvt {
 	return newBackdoorEvt(dst, m.ctx.clock)
 }

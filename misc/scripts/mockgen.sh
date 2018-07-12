@@ -63,3 +63,9 @@ mockgen -destination=./test/mock/mock_network/mock_overlay.go  \
 mkdir -p ./test/mock/mock_lifecycle
 mockgen -destination=./test/mock/mock_lifecycle/mock_lifecycle.go \
         github.com/iotexproject/iotex-core/pkg/lifecycle StartStopper
+
+mkdir -p ./test/mock/mock_actpool
+mockgen -destination=./test/mock/mock_actpool/mock_actpool.go  \
+        -source=./actpool/actpool.go \
+        -package=mock_actpool \
+        ActPool

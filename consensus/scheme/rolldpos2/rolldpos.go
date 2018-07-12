@@ -9,24 +9,30 @@ package rolldpos2
 import (
 	"github.com/facebookgo/clock"
 
+	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/delegate"
+	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/network"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 )
 
 type rollDPoSCtx struct {
-	cfg   config.RollDPoS
-	id    string
-	chain blockchain.Blockchain
-	pool  delegate.Pool
-	epoch epochCtx
-	round roundCtx
-	clock clock.Clock
+	cfg     config.RollDPoS
+	addr    *iotxaddress.Address
+	chain   blockchain.Blockchain
+	actPool actpool.ActPool
+	pool    delegate.Pool
+	p2p     network.Overlay
+	epoch   epochCtx
+	round   roundCtx
+	clock   clock.Clock
 }
 
-// getRollingDelegates will only allows the delegates chosen for given epoch to enter the epoch
-func (ctx *rollDPoSCtx) getRollingDelegates(epochNum uint64) ([]string, error) {
+// rollingDelegates will only allows the delegates chosen for given epoch to enter the epoch
+func (ctx *rollDPoSCtx) rollingDelegates(epochNum uint64) ([]string, error) {
 	// TODO: replace the pseudo roll delegates method with integrating with real delegate pool
 	return ctx.pool.RollDelegates(epochNum)
 }
@@ -48,6 +54,13 @@ func (ctx *rollDPoSCtx) calcEpochNumAndHeight() (uint64, uint64, error) {
 	return epochNum, epochHeight, nil
 }
 
+// generateDKG generates a pseudo DKG bytes
+func (ctx *rollDPoSCtx) generateDKG() (hash.DKGHash, error) {
+	var dkg hash.DKGHash
+	// TODO: fill the logic to generate DKG
+	return dkg, nil
+}
+
 // getNumSubEpochs returns max(configured number, 1)
 func (ctx *rollDPoSCtx) getNumSubEpochs() uint {
 	num := uint(1)
@@ -55,6 +68,41 @@ func (ctx *rollDPoSCtx) getNumSubEpochs() uint {
 		num = ctx.cfg.NumSubEpochs
 	}
 	return num
+}
+
+// rotatedProposer will rotate among the delegates to choose the proposer. It is pseudo order based on the position
+// in the delegate list and the block height
+func (ctx *rollDPoSCtx) rotatedProposer() (string, uint64, error) {
+	height, err := ctx.chain.TipHeight()
+	if err != nil {
+		return "", 0, err
+	}
+	// Next block height
+	height++
+	numDelegates := len(ctx.epoch.delegates)
+	if numDelegates == 0 {
+		return "", 0, delegate.ErrZeroDelegate
+	}
+	return ctx.epoch.delegates[(height)%uint64(numDelegates)], height, nil
+}
+
+func (ctx *rollDPoSCtx) mintBlock() (*blockchain.Block, error) {
+	transfers, votes := ctx.actPool.PickActs()
+	logger.Debug().
+		Int("transfer", len(transfers)).
+		Int("votes", len(votes)).
+		Msg("pick actions from the action pool")
+	blk, err := ctx.chain.MintNewBlock(transfers, votes, ctx.addr, "")
+	if err != nil {
+		logger.Error().Msg("error when minting a block")
+		return nil, err
+	}
+	logger.Info().
+		Uint64("height", blk.Height()).
+		Int("transfers", len(blk.Transfers)).
+		Int("votes", len(blk.Votes)).
+		Msg("minted a new block")
+	return blk, nil
 }
 
 // epochCtx keeps the context data for the current epoch
@@ -71,9 +119,8 @@ type epochCtx struct {
 
 // roundCtx keeps the context data for the current round and block.
 type roundCtx struct {
-	block     *blockchain.Block
-	blockHash *hash.Hash32B
-	prevotes  map[string]*hash.Hash32B
-	votes     map[string]*hash.Hash32B
-	isPr      bool
+	block    *blockchain.Block
+	prevotes map[string]*hash.Hash32B
+	votes    map[string]*hash.Hash32B
+	proposer string
 }
