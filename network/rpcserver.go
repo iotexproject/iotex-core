@@ -174,6 +174,8 @@ func (s *RPCServer) Stop(_ context.Context) error {
 	logger.Info().Str("addr", s.String()).Msg("stop RPC server")
 	s.Server.Stop()
 	s.started = false
+	// Wait for a second because the rpc server stop is not blocking
+	time.Sleep(time.Second)
 	return nil
 }
 

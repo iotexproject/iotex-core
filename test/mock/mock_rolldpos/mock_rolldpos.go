@@ -7,7 +7,6 @@ package mock_rolldpos
 import (
 	gomock "github.com/golang/mock/gomock"
 	proto "github.com/golang/protobuf/proto"
-	net "net"
 	reflect "reflect"
 )
 
@@ -35,7 +34,7 @@ func (m *MockDNet) EXPECT() *MockDNetMockRecorder {
 }
 
 // Tell mocks base method
-func (m *MockDNet) Tell(node net.Addr, msg proto.Message) error {
+func (m *MockDNet) Tell(node string, msg proto.Message) error {
 	ret := m.ctrl.Call(m, "Tell", node, msg)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -47,9 +46,9 @@ func (mr *MockDNetMockRecorder) Tell(node, msg interface{}) *gomock.Call {
 }
 
 // Self mocks base method
-func (m *MockDNet) Self() net.Addr {
+func (m *MockDNet) Self() string {
 	ret := m.ctrl.Call(m, "Self")
-	ret0, _ := ret[0].(net.Addr)
+	ret0, _ := ret[0].(string)
 	return ret0
 }
 

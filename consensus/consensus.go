@@ -89,6 +89,11 @@ func NewConsensus(
 		return nil
 	}
 
+	addr, err := cfg.ProducerAddr()
+	if err != nil {
+		logger.Panic().Err(err).Msg("Fail to create new consensus")
+	}
+
 	switch cfg.Consensus.Scheme {
 	case config.RollDPoSScheme:
 		cs.scheme = rolldpos.NewRollDPoS(
@@ -101,7 +106,7 @@ func NewConsensus(
 			chooseStartNextEpochCB(cfg.Consensus.RollDPoS.EpochCB),
 			rolldpos.GeneratePseudoDKG,
 			bc,
-			bs.P2P().Self(),
+			addr.RawAddress,
 			dlg,
 		)
 	case config.NOOPScheme:

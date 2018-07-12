@@ -7,7 +7,6 @@
 package rolldpos2
 
 import (
-	"net"
 	"testing"
 
 	"github.com/facebookgo/clock"
@@ -16,7 +15,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/network/node"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_delegate"
 )
@@ -25,11 +23,11 @@ func TestRollDPoSCtx(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	candidates := []net.Addr{
-		node.NewTCPNode("127.0.0.1:40000"),
-		node.NewTCPNode("127.0.0.1:40001"),
-		node.NewTCPNode("127.0.0.1:40002"),
-		node.NewTCPNode("127.0.0.1:40003"),
+	candidates := []string{
+		"io1qyqsyqcy6nm58gjd2wr035wz5eyd5uq47zyqpng3gxe7nh",
+		"io1qyqsyqcy6m6hkqkj3f4w4eflm2gzydmvc0mumm7kgax4l3",
+		"io1qyqsyqcyyu9pfazcx0wglp35h2h4fm0hl8p8z2u35vkcwc",
+		"io1qyqsyqcyg9pk8zg8xzkmv6g3630xggvacq9e77cwtd4rkc",
 	}
 	ctx := makeTestRollDPoSCtx(
 		ctrl,
@@ -67,7 +65,7 @@ func makeTestRollDPoSCtx(
 	mochPool(pool)
 	return &rollDPoSCtx{
 		cfg:   cfg,
-		id:    node.NewTCPNode("127.0.0.1:40000"),
+		id:    "io1qyqsyqcy6nm58gjd2wr035wz5eyd5uq47zyqpng3gxe7nh",
 		chain: chain,
 		pool:  pool,
 		clock: clock.NewMock(),

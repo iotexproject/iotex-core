@@ -8,7 +8,6 @@ package fsm
 
 import (
 	"context"
-	"net"
 	"sync"
 	"time"
 
@@ -57,7 +56,7 @@ type Event struct {
 	StateTimedOut bool
 	Block         *blockchain.Block
 	BlockHash     *hash.Hash32B
-	SenderAddr    net.Addr
+	SenderAddr    string
 	ExpireAt      *time.Time
 	SeenState     State
 }

@@ -517,15 +517,15 @@ func (exp *Service) GetConsensusMetrics() (explorer.ConsensusMetrics, error) {
 	}
 	dStrs := make([]string, len(cm.LatestDelegates))
 	for i, d := range cm.LatestDelegates {
-		dStrs[i] = d.String()
+		dStrs[i] = d
 	}
 	var bpStr string
-	if cm.LatestBlockProducer != nil {
-		bpStr = cm.LatestBlockProducer.String()
+	if cm.LatestBlockProducer != "" {
+		bpStr = cm.LatestBlockProducer
 	}
 	cStrs := make([]string, len(cm.Candidates))
 	for i, c := range cm.Candidates {
-		cStrs[i] = c.String()
+		cStrs[i] = c
 	}
 	return explorer.ConsensusMetrics{
 		LatestEpoch:         int64(cm.LatestEpoch),

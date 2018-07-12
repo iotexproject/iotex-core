@@ -7,8 +7,6 @@
 package rolldpos
 
 import (
-	"net"
-
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/fsm"
 	"github.com/iotexproject/iotex-core/delegate"
@@ -44,7 +42,7 @@ func (d *delegateRoll) Handle() {
 	}
 	if ok {
 		logger.Info().
-			Str("name", d.self.String()).
+			Str("name", d.self).
 			Uint64("epoch", epochNum).
 			Msg("the current node is the delegate")
 		d.enqueueEvent(&fsm.Event{
@@ -52,7 +50,7 @@ func (d *delegateRoll) Handle() {
 		})
 	} else {
 		logger.Info().
-			Str("name", d.self.String()).
+			Str("name", d.self).
 			Uint64("epoch", epochNum).
 			Msg("the current node is not the delegate")
 	}
@@ -65,23 +63,23 @@ func newDelegateRoll(r *RollDPoS) *routine.RecurringTask {
 }
 
 // NeverStartNewEpoch will never allow to start a new epochStart after the first one
-func NeverStartNewEpoch(_ net.Addr, _ uint64, _ delegate.Pool) (bool, error) {
+func NeverStartNewEpoch(_ string, _ uint64, _ delegate.Pool) (bool, error) {
 	return false, nil
 }
 
 // PseudoStarNewEpoch will always allow to start a new epochStart after the first one
-func PseudoStarNewEpoch(_ net.Addr, _ uint64, _ delegate.Pool) (bool, error) {
+func PseudoStarNewEpoch(_ string, _ uint64, _ delegate.Pool) (bool, error) {
 	return true, nil
 }
 
 // PseudoStartRollingEpoch will only allows the delegates chosen for given epoch to enter the epoch
-func PseudoStartRollingEpoch(self net.Addr, epochNum uint64, pool delegate.Pool) (bool, error) {
+func PseudoStartRollingEpoch(self string, epochNum uint64, pool delegate.Pool) (bool, error) {
 	delegates, err := pool.RollDelegates(epochNum)
 	if err != nil {
 		return false, err
 	}
 	for _, d := range delegates {
-		if self.String() == d.String() {
+		if self == d {
 			return true, nil
 		}
 	}

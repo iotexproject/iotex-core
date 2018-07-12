@@ -8,11 +8,9 @@ package delegate
 
 import (
 	"errors"
-	"net"
 
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/crypto"
-	"github.com/iotexproject/iotex-core/network/node"
 )
 
 var (
@@ -23,13 +21,13 @@ var (
 // Pool is the interface
 type Pool interface {
 	// AllDelegates returns all delegates
-	AllDelegates() ([]net.Addr, error)
+	AllDelegates() ([]string, error)
 
 	// RollDelegates returns rolling delegates
-	RollDelegates(uint64) ([]net.Addr, error)
+	RollDelegates(uint64) ([]string, error)
 
 	// AnotherDelegate return another delegate that is not the passed-in address
-	AnotherDelegate(self string) net.Addr
+	AnotherDelegate(self string) string
 
 	// NumDelegatesPerEpoch returns number of delegates per epoch
 	NumDelegatesPerEpoch() (uint, error)
@@ -38,7 +36,7 @@ type Pool interface {
 // ConfigBasedPool is the simple delegate pool implementing Pool interface
 type ConfigBasedPool struct {
 	cfg       *config.Delegate
-	delegates []net.Addr
+	delegates []string
 }
 
 // NewConfigBasedPool creates an instance of config-based delegate pool
@@ -48,37 +46,34 @@ func NewConfigBasedPool(cfg *config.Delegate) *ConfigBasedPool {
 	for _, addr := range cfg.Addrs {
 		if !encountered[addr] {
 			encountered[addr] = true
-			cbdp.delegates = append(cbdp.delegates, node.NewTCPNode(addr))
+			cbdp.delegates = append(cbdp.delegates, addr)
 		}
 	}
 	return cbdp
 }
 
 // AllDelegates implements getting the delegates from config
-func (cbdp *ConfigBasedPool) AllDelegates() ([]net.Addr, error) {
-	o := make([]net.Addr, len(cbdp.delegates))
+func (cbdp *ConfigBasedPool) AllDelegates() ([]string, error) {
+	o := make([]string, len(cbdp.delegates))
 	copy(o, cbdp.delegates)
 	return o, nil
 }
 
 // RollDelegates implements getting the rolling delegates per epoch
-func (cbdp *ConfigBasedPool) RollDelegates(epochNum uint64) ([]net.Addr, error) {
+func (cbdp *ConfigBasedPool) RollDelegates(epochNum uint64) ([]string, error) {
 	if cbdp.cfg.RollNum == 0 {
 		return cbdp.AllDelegates()
 	}
 
 	// Generate a random delegates slice based on the crypto sort
 	hs := make([][]byte, len(cbdp.delegates))
-	h2a := make(map[string]net.Addr)
 	for i, d := range cbdp.delegates {
-		aStr := d.String()
-		hs[i] = []byte(aStr)
-		h2a[aStr] = d
+		hs[i] = []byte(d)
 	}
 	crypto.Sort(hs, epochNum)
-	o := make([]net.Addr, len(cbdp.delegates))
+	o := make([]string, len(cbdp.delegates))
 	for i, h := range hs {
-		o[i] = h2a[string(h)]
+		o[i] = string(h)
 	}
 
 	// Get the first RollNum as the rolling delegates
@@ -86,13 +81,13 @@ func (cbdp *ConfigBasedPool) RollDelegates(epochNum uint64) ([]net.Addr, error) 
 }
 
 // AnotherDelegate return the first delegate that is not the passed-in address
-func (cbdp *ConfigBasedPool) AnotherDelegate(self string) net.Addr {
+func (cbdp *ConfigBasedPool) AnotherDelegate(self string) string {
 	for _, v := range cbdp.delegates {
-		if self != v.String() {
+		if self != v {
 			return v
 		}
 	}
-	return nil
+	return ""
 }
 
 // NumDelegatesPerEpoch returns the configured rolling delegates number or all delegates number if 0

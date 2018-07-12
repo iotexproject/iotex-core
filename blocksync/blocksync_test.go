@@ -8,7 +8,6 @@ package blocksync
 
 import (
 	"context"
-	"net"
 	"testing"
 	"time"
 
@@ -20,12 +19,10 @@ import (
 	bc "github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/network"
-	"github.com/iotexproject/iotex-core/network/node"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	pb "github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blocksync"
-	"github.com/iotexproject/iotex-core/test/mock/mock_delegate"
 )
 
 func TestSyncTaskInterval(t *testing.T) {
@@ -82,13 +79,6 @@ func generateP2P() network.Overlay {
 func TestNewBlockSyncer(t *testing.T) {
 	assert := assert.New(t)
 
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	mPool := mock_delegate.NewMockPool(ctrl)
-	mPool.EXPECT().AllDelegates().Times(3).Return([]net.Addr{node.NewNode("", "123")}, nil)
-	mPool.EXPECT().AnotherDelegate(gomock.Any()).Times(2).Return(node.NewNode("", "123"))
-
 	p2p := generateP2P()
 
 	// Lightweight
@@ -96,7 +86,7 @@ func TestNewBlockSyncer(t *testing.T) {
 		NodeType: config.LightweightType,
 	}
 
-	bsLightWeight, err := NewBlockSyncer(cfgLightWeight, nil, nil, p2p, mPool)
+	bsLightWeight, err := NewBlockSyncer(cfgLightWeight, nil, nil, p2p)
 	assert.NotNil(err)
 	assert.Nil(bsLightWeight)
 
@@ -104,8 +94,9 @@ func TestNewBlockSyncer(t *testing.T) {
 	cfgDelegate := &config.Config{
 		NodeType: config.DelegateType,
 	}
+	cfgDelegate.Network.BootstrapNodes = []string{"123"}
 
-	bsDelegate, err := NewBlockSyncer(cfgDelegate, nil, nil, p2p, mPool)
+	bsDelegate, err := NewBlockSyncer(cfgDelegate, nil, nil, p2p)
 	assert.Nil(err)
 	assert.Equal("123", bsDelegate.(*blockSyncer).fnd)
 
@@ -113,8 +104,9 @@ func TestNewBlockSyncer(t *testing.T) {
 	cfgFullNode := &config.Config{
 		NodeType: config.FullNodeType,
 	}
+	cfgFullNode.Network.BootstrapNodes = []string{"123"}
 
-	bsFullNode, err := NewBlockSyncer(cfgFullNode, nil, nil, p2p, mPool)
+	bsFullNode, err := NewBlockSyncer(cfgFullNode, nil, nil, p2p)
 	assert.Nil(err)
 	assert.Equal("123", bsFullNode.(*blockSyncer).fnd)
 }
@@ -122,19 +114,13 @@ func TestNewBlockSyncer(t *testing.T) {
 func TestBlockSyncer_P2P(t *testing.T) {
 	assert := assert.New(t)
 
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	mPool := mock_delegate.NewMockPool(ctrl)
-	mPool.EXPECT().AllDelegates().Times(1).Return([]net.Addr{node.NewNode("", "123")}, nil)
-	mPool.EXPECT().AnotherDelegate(gomock.Any()).Times(1).Return(node.NewNode("", "123"))
-
 	p2p := generateP2P()
 
 	cfgFullNode := &config.Config{
 		NodeType: config.FullNodeType,
 	}
-	bs, err := NewBlockSyncer(cfgFullNode, nil, nil, p2p, mPool)
+	cfgFullNode.Network.BootstrapNodes = []string{"123"}
+	bs, err := NewBlockSyncer(cfgFullNode, nil, nil, p2p)
 	assert.Nil(err)
 	assert.Equal(p2p, bs.P2P())
 }
@@ -169,10 +155,6 @@ func TestBlockSyncer_ProcessSyncRequest(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mPool := mock_delegate.NewMockPool(ctrl)
-	mPool.EXPECT().AllDelegates().Times(1).Return([]net.Addr{node.NewNode("", "123")}, nil)
-	mPool.EXPECT().AnotherDelegate(gomock.Any()).Times(1).Return(node.NewNode("", "123"))
-
 	mBc := mock_blockchain.NewMockBlockchain(ctrl)
 	mBc.EXPECT().GetBlockByHeight(gomock.Any()).AnyTimes()
 	p2p := generateP2P()
@@ -180,8 +162,9 @@ func TestBlockSyncer_ProcessSyncRequest(t *testing.T) {
 	cfgFullNode := &config.Config{
 		NodeType: config.FullNodeType,
 	}
+	cfgFullNode.Network.BootstrapNodes = []string{"123"}
 
-	bs, err := NewBlockSyncer(cfgFullNode, mBc, nil, p2p, mPool)
+	bs, err := NewBlockSyncer(cfgFullNode, mBc, nil, p2p)
 	assert.Nil(err)
 
 	pbBs := &pb.BlockSync{
@@ -199,10 +182,6 @@ func TestBlockSyncer_ProcessBlock_TipHeightError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mPool := mock_delegate.NewMockPool(ctrl)
-	mPool.EXPECT().AllDelegates().Times(1).Return([]net.Addr{node.NewNode("", "123")}, nil)
-	mPool.EXPECT().AnotherDelegate(gomock.Any()).Times(1).Return(node.NewNode("", "123"))
-
 	mBc := mock_blockchain.NewMockBlockchain(ctrl)
 	// TipHeight return ERROR
 	mBc.EXPECT().TipHeight().Times(1).Return(uint64(0), errors.New("Error"))
@@ -211,8 +190,9 @@ func TestBlockSyncer_ProcessBlock_TipHeightError(t *testing.T) {
 	cfgFullNode := &config.Config{
 		NodeType: config.FullNodeType,
 	}
+	cfgFullNode.Network.BootstrapNodes = []string{"123"}
 
-	bs, err := NewBlockSyncer(cfgFullNode, mBc, nil, p2p, mPool)
+	bs, err := NewBlockSyncer(cfgFullNode, mBc, nil, p2p)
 	assert.Nil(err)
 	blk := bc.NewBlock(uint32(123), uint64(4), hash.Hash32B{}, nil, nil)
 	bs.(*blockSyncer).ackBlockCommit = false
@@ -228,10 +208,6 @@ func TestBlockSyncer_ProcessBlock_TipHeight(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mPool := mock_delegate.NewMockPool(ctrl)
-	mPool.EXPECT().AllDelegates().Times(1).Return([]net.Addr{node.NewNode("", "123")}, nil)
-	mPool.EXPECT().AnotherDelegate(gomock.Any()).Times(1).Return(node.NewNode("", "123"))
-
 	mBc := mock_blockchain.NewMockBlockchain(ctrl)
 	mBc.EXPECT().TipHeight().AnyTimes().Return(uint64(5), nil)
 	mBc.EXPECT().CommitBlock(gomock.Any()).AnyTimes()
@@ -244,8 +220,9 @@ func TestBlockSyncer_ProcessBlock_TipHeight(t *testing.T) {
 	cfgFullNode := &config.Config{
 		NodeType: config.FullNodeType,
 	}
+	cfgFullNode.Network.BootstrapNodes = []string{"123"}
 
-	bs, err := NewBlockSyncer(cfgFullNode, mBc, ap, p2p, mPool)
+	bs, err := NewBlockSyncer(cfgFullNode, mBc, ap, p2p)
 	assert.Nil(err)
 	blk := bc.NewBlock(uint32(123), uint64(4), hash.Hash32B{}, nil, nil)
 
@@ -273,10 +250,6 @@ func TestBlockSyncer_ProcessBlockSync(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mPool := mock_delegate.NewMockPool(ctrl)
-	mPool.EXPECT().AllDelegates().Times(1).Return([]net.Addr{node.NewNode("", "123")}, nil)
-	mPool.EXPECT().AnotherDelegate(gomock.Any()).Times(1).Return(node.NewNode("", "123"))
-
 	mBc := mock_blockchain.NewMockBlockchain(ctrl)
 	mBc.EXPECT().TipHeight().Times(1).Return(uint64(0), errors.New("Error"))
 	mBc.EXPECT().TipHeight().Times(1).Return(uint64(5), nil)
@@ -290,8 +263,9 @@ func TestBlockSyncer_ProcessBlockSync(t *testing.T) {
 	cfgFullNode := &config.Config{
 		NodeType: config.FullNodeType,
 	}
+	cfgFullNode.Network.BootstrapNodes = []string{"123"}
 
-	bs, err := NewBlockSyncer(cfgFullNode, mBc, ap, p2p, mPool)
+	bs, err := NewBlockSyncer(cfgFullNode, mBc, ap, p2p)
 	assert.Nil(err)
 	blk := bc.NewBlock(uint32(123), uint64(4), hash.Hash32B{}, nil, nil)
 	bs.(*blockSyncer).ackBlockSync = false

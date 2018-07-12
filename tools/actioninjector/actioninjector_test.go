@@ -136,9 +136,9 @@ func TestActioninjector(t *testing.T) {
 func newConfig() (*config.Config, error) {
 	cfg := config.Default
 	cfg.NodeType = config.DelegateType
+	cfg.Network.BootstrapNodes = []string{"127.0.0.1:4689", "127.0.0.1:10000"}
 	cfg.Consensus.Scheme = config.StandaloneScheme
 	cfg.Consensus.BlockCreationInterval = 100 * time.Millisecond
-	cfg.Delegate.Addrs = []string{"127.0.0.1:4689"}
 	cfg.Chain.ChainDBPath = testChainPath
 	cfg.Chain.TrieDBPath = testTriePath
 	addr, err := iotxaddress.NewAddress(true, iotxaddress.ChainID)

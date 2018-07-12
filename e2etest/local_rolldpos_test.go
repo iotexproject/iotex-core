@@ -136,14 +136,13 @@ func waitUntil(t *testing.T, satisfy func() bool, interval time.Duration, timeou
 
 func newConfig(prCb string, epochCb string, interval time.Duration) (*config.Config, error) {
 	addrs := []string{
-		"127.0.0.1:40000",
-		"127.0.0.1:40001",
-		"127.0.0.1:40002",
-		"127.0.0.1:40003",
+		"127.0.0.1:10000",
+		"127.0.0.1:10001",
+		"127.0.0.1:10002",
+		"127.0.0.1:10003",
 	}
 	cfg := config.Default
 	cfg.Network.BootstrapNodes = addrs
-	cfg.Delegate.Addrs = addrs
 	// disable account-based testing
 	cfg.Chain.TrieDBPath = ""
 	cfg.Consensus.RollDPoS = config.RollDPoS{

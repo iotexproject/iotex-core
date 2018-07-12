@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotexproject/iotex-core/consensus/fsm"
-	"github.com/iotexproject/iotex-core/network/node"
 	"github.com/iotexproject/iotex-core/proto"
 )
 
@@ -32,7 +31,6 @@ func TestRuleProposeErrorVoteNil(t *testing.T) {
 	}
 	h := rulePropose{
 		RollDPoS: &RollDPoS{
-			self:       node.NewTCPNode(""),
 			rollDPoSCB: cb,
 		},
 	}

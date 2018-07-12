@@ -68,7 +68,7 @@ func (r ruleDKGGenerate) Condition(event *fsm.Event) bool {
 	}
 
 	logger.Info().
-		Str("name", r.self.String()).
+		Str("name", r.self).
 		Uint64("height", r.epochCtx.height).
 		Msg("enter an epoch")
 	return true

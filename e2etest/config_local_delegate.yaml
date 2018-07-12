@@ -23,7 +23,7 @@ blockSync:
 
 delegate:
     addrs:
-        - "127.0.0.1:4689"
+        - "io1qyqsyqcy8uhx9jtdc2xp5wx7nxyq3xf4c3jmxknzkuej8y"
 
 dispatcher:
     eventChanSize: 1024

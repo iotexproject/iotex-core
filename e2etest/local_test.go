@@ -63,6 +63,8 @@ func TestLocalCommit(t *testing.T) {
 	p2 := svr.P2p()
 	require.NotNil(p2)
 
+	// Narrow down BootstrapNodes options to smooth peer maintenance
+	cfg.Network.BootstrapNodes = []string{"127.0.0.1:10000"}
 	p1 := network.NewOverlay(&cfg.Network)
 	require.NotNil(p1)
 	p1.RPC.Addr = "127.0.0.1:10001"
@@ -323,6 +325,8 @@ func TestLocalSync(t *testing.T) {
 	// create node 2
 	cfg.NodeType = config.FullNodeType
 	cfg.Network.Addr = "127.0.0.1:10001"
+	// Narrow down BootstrapNodes options to smooth peer maintenance
+	cfg.Network.BootstrapNodes = []string{"127.0.0.1:10000"}
 	cli := itx.NewServer(cfg)
 	require.Nil(cli.Start(ctx))
 
@@ -408,6 +412,8 @@ func TestVoteLocalCommit(t *testing.T) {
 	ap := svr.Ap()
 	require.NotNil(ap)
 
+	// Narrow down BootstrapNodes options to smooth peer maintenance
+	cfg.Network.BootstrapNodes = []string{"127.0.0.1:10000"}
 	p1 := network.NewOverlay(&cfg.Network)
 	require.NotNil(p1)
 	p1.RPC.Addr = "127.0.0.1:10001"
@@ -620,8 +626,7 @@ func newTestConfig() (*config.Config, error) {
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Consensus.Scheme = config.NOOPScheme
 	cfg.Network.Addr = "127.0.0.1:10000"
-	cfg.Network.BootstrapNodes = []string{"127.0.0.1:10000"}
-	cfg.Delegate.Addrs = []string{"127.0.0.1:10000"}
+	cfg.Network.BootstrapNodes = []string{"127.0.0.1:10000", "127.0.0.1:4689"}
 	addr, err := iotxaddress.NewAddress(true, iotxaddress.ChainID)
 	if err != nil {
 		return nil, err

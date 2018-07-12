@@ -7,7 +7,6 @@
 package rolldpos
 
 import (
-	"net"
 	"time"
 
 	"github.com/iotexproject/iotex-core/consensus/fsm"
@@ -54,8 +53,8 @@ func (h *roundStart) TimeoutDuration() *time.Duration {
 
 func (h *roundStart) Handle(_ *fsm.Event) {
 	h.roundCtx = &roundCtx{
-		prevotes: make(map[net.Addr]*hash.Hash32B),
-		votes:    make(map[net.Addr]*hash.Hash32B),
+		prevotes: make(map[string]*hash.Hash32B),
+		votes:    make(map[string]*hash.Hash32B),
 	}
 }
 

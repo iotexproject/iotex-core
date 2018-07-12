@@ -12,7 +12,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
-	"net"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -24,7 +23,6 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
-	"github.com/iotexproject/iotex-core/network/node"
 	pb "github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
@@ -298,14 +296,14 @@ func TestService_GetConsensusMetrics(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	candidates := []net.Addr{
-		node.NewTCPNode("127.0.0.1:40000"),
-		node.NewTCPNode("127.0.0.1:40001"),
-		node.NewTCPNode("127.0.0.1:40002"),
-		node.NewTCPNode("127.0.0.1:40003"),
-		node.NewTCPNode("127.0.0.1:40004"),
-		node.NewTCPNode("127.0.0.1:40005"),
-		node.NewTCPNode("127.0.0.1:40006"),
+	candidates := []string{
+		"io1qyqsyqcy6nm58gjd2wr035wz5eyd5uq47zyqpng3gxe7nh",
+		"io1qyqsyqcy6m6hkqkj3f4w4eflm2gzydmvc0mumm7kgax4l3",
+		"io1qyqsyqcyyu9pfazcx0wglp35h2h4fm0hl8p8z2u35vkcwc",
+		"io1qyqsyqcyg9pk8zg8xzkmv6g3630xggvacq9e77cwtd4rkc",
+		"io1qyqsyqcy8anpz644uhw85rpjplwfv80s687pvhch5ues2k",
+		"io1qyqsyqcy65j0upntgz8wq8sum6chetur8ft68uwnfa2m3k",
+		"io1qyqsyqcyvx7pmg9pq5kefh5mkxx7fxfmct2x9fpg080r7m",
 	}
 	c := mock_consensus.NewMockConsensus(ctrl)
 	c.EXPECT().Metrics().Return(scheme.ConsensusMetrics{
@@ -324,24 +322,24 @@ func TestService_GetConsensusMetrics(t *testing.T) {
 	require.Equal(
 		t,
 		[]string{
-			"127.0.0.1:40000",
-			"127.0.0.1:40001",
-			"127.0.0.1:40002",
-			"127.0.0.1:40003",
+			"io1qyqsyqcy6nm58gjd2wr035wz5eyd5uq47zyqpng3gxe7nh",
+			"io1qyqsyqcy6m6hkqkj3f4w4eflm2gzydmvc0mumm7kgax4l3",
+			"io1qyqsyqcyyu9pfazcx0wglp35h2h4fm0hl8p8z2u35vkcwc",
+			"io1qyqsyqcyg9pk8zg8xzkmv6g3630xggvacq9e77cwtd4rkc",
 		},
 		m.LatestDelegates,
 	)
-	require.Equal(t, "127.0.0.1:40003", m.LatestBlockProducer)
+	require.Equal(t, "io1qyqsyqcyg9pk8zg8xzkmv6g3630xggvacq9e77cwtd4rkc", m.LatestBlockProducer)
 	require.Equal(
 		t,
 		[]string{
-			"127.0.0.1:40000",
-			"127.0.0.1:40001",
-			"127.0.0.1:40002",
-			"127.0.0.1:40003",
-			"127.0.0.1:40004",
-			"127.0.0.1:40005",
-			"127.0.0.1:40006",
+			"io1qyqsyqcy6nm58gjd2wr035wz5eyd5uq47zyqpng3gxe7nh",
+			"io1qyqsyqcy6m6hkqkj3f4w4eflm2gzydmvc0mumm7kgax4l3",
+			"io1qyqsyqcyyu9pfazcx0wglp35h2h4fm0hl8p8z2u35vkcwc",
+			"io1qyqsyqcyg9pk8zg8xzkmv6g3630xggvacq9e77cwtd4rkc",
+			"io1qyqsyqcy8anpz644uhw85rpjplwfv80s687pvhch5ues2k",
+			"io1qyqsyqcy65j0upntgz8wq8sum6chetur8ft68uwnfa2m3k",
+			"io1qyqsyqcyvx7pmg9pq5kefh5mkxx7fxfmct2x9fpg080r7m",
 		},
 		m.Candidates,
 	)

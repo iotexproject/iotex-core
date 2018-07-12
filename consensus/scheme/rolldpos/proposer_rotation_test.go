@@ -8,7 +8,6 @@ package rolldpos
 
 import (
 	"context"
-	"net"
 	"testing"
 	"time"
 
@@ -18,7 +17,6 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/consensus/fsm"
 	"github.com/iotexproject/iotex-core/delegate"
-	"github.com/iotexproject/iotex-core/network/node"
 )
 
 func TestProposerRotation(t *testing.T) {
@@ -29,9 +27,9 @@ func TestProposerRotation(t *testing.T) {
 
 	ctx := context.Background()
 	// arrange 2 consensus nodes
-	delegates := []net.Addr{
-		node.NewTCPNode("192.168.0.1:10000"),
-		node.NewTCPNode("192.168.0.1:10001"),
+	delegates := []string{
+		"io1qyqsyqcy6nm58gjd2wr035wz5eyd5uq47zyqpng3gxe7nh",
+		"io1qyqsyqcy6m6hkqkj3f4w4eflm2gzydmvc0mumm7kgax4l3",
 	}
 	m := func(mcks mocks) {
 		mcks.dp.EXPECT().AllDelegates().Return(delegates, nil).AnyTimes()
@@ -59,32 +57,32 @@ func TestProposerRotation(t *testing.T) {
 }
 
 func TestFixedProposer(t *testing.T) {
-	delegates := []net.Addr{
-		node.NewTCPNode("192.168.0.1:10000"),
-		node.NewTCPNode("192.168.0.1:10001"),
+	delegates := []string{
+		"io1qyqsyqcy6nm58gjd2wr035wz5eyd5uq47zyqpng3gxe7nh",
+		"io1qyqsyqcy6m6hkqkj3f4w4eflm2gzydmvc0mumm7kgax4l3",
 	}
 
 	pr, err := FixedProposer(delegates, nil, 0, 0)
 	require.Nil(t, err)
-	require.Equal(t, delegates[0].String(), pr.String())
-	require.NotEqual(t, delegates[1].String(), pr.String())
+	require.Equal(t, delegates[0], pr)
+	require.NotEqual(t, delegates[1], pr)
 
-	pr, err = FixedProposer(make([]net.Addr, 0), nil, 0, 0)
-	require.Nil(t, pr)
+	pr, err = FixedProposer(make([]string, 0), nil, 0, 0)
+	require.Equal(t, "", pr)
 	require.Equal(t, delegate.ErrZeroDelegate, err)
 }
 
 func TestPseudoRotatedProposer(t *testing.T) {
-	delegates := []net.Addr{
-		node.NewTCPNode("192.168.0.1:10000"),
-		node.NewTCPNode("192.168.0.1:10001"),
-		node.NewTCPNode("192.168.0.1:10002"),
-		node.NewTCPNode("192.168.0.1:10003"),
+	delegates := []string{
+		"io1qyqsyqcy6nm58gjd2wr035wz5eyd5uq47zyqpng3gxe7nh",
+		"io1qyqsyqcy6m6hkqkj3f4w4eflm2gzydmvc0mumm7kgax4l3",
+		"io1qyqsyqcyyu9pfazcx0wglp35h2h4fm0hl8p8z2u35vkcwc",
+		"io1qyqsyqcyg9pk8zg8xzkmv6g3630xggvacq9e77cwtd4rkc",
 	}
 
 	for i := 0; i < 4; i++ {
 		pr, err := PseudoRotatedProposer(delegates, nil, 0, 10000+uint64(i))
 		require.Nil(t, err)
-		require.Equal(t, delegates[i].String(), pr.String())
+		require.Equal(t, delegates[i], pr)
 	}
 }

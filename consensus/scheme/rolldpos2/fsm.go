@@ -8,7 +8,6 @@ package rolldpos2
 
 import (
 	"context"
-	"net"
 	"sync"
 	"time"
 
@@ -158,14 +157,14 @@ func (m *cFSM) Start(c context.Context) error {
 							// TODO: avoid putting the unmatched event into the event queue immediately
 							m.enqueue(evt, 0)
 							logger.Debug().
-								Str("id", m.ctx.id.String()).
+								Str("id", m.ctx.id).
 								Str("src", string(src)).
 								Err(err).
 								Msg("consensusEvt state transition could find the match")
 						}
 					} else {
 						logger.Error().
-							Str("id", m.ctx.id.String()).
+							Str("id", m.ctx.id).
 							Str("src", string(src)).
 							Err(err).
 							Msg("consensusEvt state transition fails")
@@ -173,7 +172,7 @@ func (m *cFSM) Start(c context.Context) error {
 				} else {
 					dst := m.fsm.CurrentState()
 					logger.Info().
-						Str("id", m.ctx.id.String()).
+						Str("id", m.ctx.id).
 						Str("src", string(src)).
 						Str("dst", string(dst)).
 						Msg("consensusEvt state transition happens")
@@ -246,7 +245,7 @@ func (m *cFSM) handleRollDelegatesEvt(evt fsm.Event) (fsm.State, error) {
 		m.enqueue(m.newCEvt(eGenerateDKG), 0)
 
 		logger.Info().
-			Str("id", m.ctx.id.String()).
+			Str("id", m.ctx.id).
 			Uint64("epoch", epochNum).
 			Uint64("height", epochHeight).
 			Msg("current node is the delegate")
@@ -255,7 +254,7 @@ func (m *cFSM) handleRollDelegatesEvt(evt fsm.Event) (fsm.State, error) {
 	// Else, stay at the current state and check again later
 	m.enqueue(m.newCEvt(eRollDelegates), m.ctx.cfg.DelegateInterval)
 	logger.Info().
-		Str("id", m.ctx.id.String()).
+		Str("id", m.ctx.id).
 		Uint64("epoch", epochNum).
 		Uint64("height", epochHeight).
 		Msg("current node is not the delegate")
@@ -338,9 +337,9 @@ func (m *cFSM) handleBackdoorEvt(evt fsm.Event) (fsm.State, error) {
 	return bEvt.dst, nil
 }
 
-func (m *cFSM) isDelegate(delegates []net.Addr) bool {
+func (m *cFSM) isDelegate(delegates []string) bool {
 	for _, d := range delegates {
-		if m.ctx.id.String() == d.String() {
+		if m.ctx.id == d {
 			return true
 		}
 	}
