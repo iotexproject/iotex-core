@@ -8,15 +8,15 @@ package blocksync
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/iotexproject/iotex-core/actpool"
 	bc "github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/delegate"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network"
 	"github.com/iotexproject/iotex-core/network/node"
@@ -63,7 +63,6 @@ type blockSyncer struct {
 	p2p            network.Overlay
 	task           *routine.RecurringTask
 	fnd            string
-	dp             delegate.Pool
 }
 
 // SyncTaskInterval returns the recurring sync task interval, or 0 if this config should not need to run sync task
@@ -87,7 +86,6 @@ func NewBlockSyncer(
 	chain bc.Blockchain,
 	ap actpool.ActPool,
 	p2p network.Overlay,
-	dp delegate.Pool,
 ) (BlockSync, error) {
 	bs := &blockSyncer{
 		state:      Idle,
@@ -95,8 +93,7 @@ func NewBlockSyncer(
 		sw:         NewSlidingWindow(),
 		bc:         chain,
 		ap:         ap,
-		p2p:        p2p,
-		dp:         dp}
+		p2p:        p2p}
 
 	bs.ackBlockCommit = cfg.IsDelegate() || cfg.IsFullnode()
 	bs.ackBlockSync = cfg.IsDelegate() || cfg.IsFullnode()
@@ -106,27 +103,18 @@ func NewBlockSyncer(
 		bs.task = routine.NewRecurringTask(bs.Sync, interval)
 	}
 
-	delegates, err := dp.AllDelegates()
-	if err != nil {
-		return nil, err
+	// TODO:  Rewrite the way of finding neighbors to sync blocks
+	if len(cfg.Network.BootstrapNodes) == 0 {
+		return nil, errors.New("Bootstrap nodes do not exist")
 	}
-	if len(delegates) == 0 {
-		return nil, errors.New("No delegates found")
+	for _, bootstrapNode := range cfg.Network.BootstrapNodes {
+		if bootstrapNode != p2p.Self().String() {
+			bs.fnd = bootstrapNode
+			break
+		}
 	}
-
-	switch cfg.NodeType {
-	case config.DelegateType:
-		// pick a delegate that is not myself
-		if dlg := dp.AnotherDelegate(p2p.Self().String()); dlg != nil {
-			bs.fnd = dlg.String()
-		}
-	case config.FullNodeType:
-		// pick any valid delegate
-		if dlg := dp.AnotherDelegate(""); dlg != nil {
-			bs.fnd = dlg.String()
-		}
-	default:
-		return nil, errors.New("Unexpected node type: " + cfg.NodeType)
+	if bs.fnd == "" {
+		return nil, errors.New("Cannot find suitable bootstrap node")
 	}
 	return bs, nil
 }

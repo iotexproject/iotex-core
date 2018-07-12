@@ -7,8 +7,6 @@
 package rolldpos
 
 import (
-	"net"
-
 	"github.com/iotexproject/iotex-core/consensus/fsm"
 	"github.com/iotexproject/iotex-core/delegate"
 	"github.com/iotexproject/iotex-core/logger"
@@ -44,15 +42,15 @@ func (s *proposerRotation) Handle() {
 		return
 	}
 	// If proposer is not the current node, then returns
-	if pr.String() != s.self.String() {
+	if pr != s.self {
 		logger.Info().
-			Str("proposer", pr.String()).
+			Str("proposer", pr).
 			Uint64("height", height+1).
 			Msg("not the proposer")
 		return
 	}
 	logger.Info().
-		Str("proposer", pr.String()).
+		Str("proposer", pr).
 		Uint64("height", height+1).
 		Msg("propose new block height")
 
@@ -73,17 +71,17 @@ func newProposerRotation(r *RollDPoS) *routine.RecurringTask {
 }
 
 // FixedProposer will always choose the first in the delegate list as the proposer
-func FixedProposer(delegates []net.Addr, _ []byte, _ uint64, _ uint64) (net.Addr, error) {
+func FixedProposer(delegates []string, _ []byte, _ uint64, _ uint64) (string, error) {
 	if len(delegates) == 0 {
-		return nil, delegate.ErrZeroDelegate
+		return "", delegate.ErrZeroDelegate
 	}
 	return delegates[0], nil
 }
 
 // PseudoRotatedProposer will rotate among the delegates to choose the proposer
-func PseudoRotatedProposer(delegates []net.Addr, _ []byte, _ uint64, height uint64) (net.Addr, error) {
+func PseudoRotatedProposer(delegates []string, _ []byte, _ uint64, height uint64) (string, error) {
 	if len(delegates) == 0 {
-		return nil, delegate.ErrZeroDelegate
+		return "", delegate.ErrZeroDelegate
 	}
 	return delegates[height%uint64(len(delegates))], nil
 }

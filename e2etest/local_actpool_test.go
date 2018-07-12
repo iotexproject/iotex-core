@@ -59,6 +59,8 @@ func TestLocalActPool(t *testing.T) {
 	require.NotNil(ap)
 
 	cfg.Network.Addr = "127.0.0.1:10001"
+	// Narrow down BootstrapNodes options to smooth peer maintenance
+	cfg.Network.BootstrapNodes = []string{"127.0.0.1:10000"}
 	p1 := network.NewOverlay(&cfg.Network)
 	require.NotNil(p1)
 	require.Nil(p1.Start(ctx))
@@ -154,6 +156,8 @@ func TestPressureActPool(t *testing.T) {
 	require.NotNil(ap)
 
 	cfg.Network.Addr = "127.0.0.1:10001"
+	// Narrow down BootstrapNodes options to smooth peer maintenance
+	cfg.Network.BootstrapNodes = []string{"127.0.0.1:10000"}
 	p1 := network.NewOverlay(&cfg.Network)
 	require.NotNil(p1)
 	require.Nil(p1.Start(ctx))
@@ -223,14 +227,14 @@ func signedVote(voter *iotxaddress.Address, votee *iotxaddress.Address, nonce ui
 
 func newActPoolConfig() (*config.Config, error) {
 	cfg := config.Default
+	cfg.NodeType = config.DelegateType
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.InMemTest = false
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Consensus.Scheme = config.StandaloneScheme
 	cfg.Consensus.BlockCreationInterval = time.Second
 	cfg.Network.Addr = "127.0.0.1:10000"
-	cfg.Network.BootstrapNodes = []string{"127.0.0.1:10000"}
-	cfg.Delegate.Addrs = []string{"127.0.0.1:10000"}
+	cfg.Network.BootstrapNodes = []string{"127.0.0.1:10000", "127.0.0.1:4687"}
 	cfg.ActPool.MaxNumActPerAcct = 256
 
 	addr, err := iotxaddress.NewAddress(true, iotxaddress.ChainID)

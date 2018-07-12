@@ -133,6 +133,11 @@ func NewSim(
 		return nil
 	}
 
+	addr, err := cfg.ProducerAddr()
+	if err != nil {
+		logger.Panic().Err(err).Msg("Fail to create new consensus")
+	}
+
 	cs.scheme = rolldpos.NewRollDPoS(
 		cfg.Consensus.RollDPoS,
 		mintBlockCB,
@@ -143,7 +148,7 @@ func NewSim(
 		chooseStartNextEpochCB(cfg.Consensus.RollDPoS.EpochCB),
 		rolldpos.GeneratePseudoDKG,
 		bc,
-		bs.P2P().Self(),
+		addr.RawAddress,
 		dlg,
 	)
 	cs.unsent = make([]*pbsim.Reply, 0)
@@ -239,6 +244,11 @@ func NewSimByzantine(
 		return nil
 	}
 
+	addr, err := cfg.ProducerAddr()
+	if err != nil {
+		logger.Panic().Err(err).Msg("Fail to create new consensus")
+	}
+
 	cs.scheme = rolldpos.NewRollDPoS(
 		cfg.Consensus.RollDPoS,
 		mintBlockCB,
@@ -249,7 +259,7 @@ func NewSimByzantine(
 		rolldpos.NeverStartNewEpoch,
 		rolldpos.GeneratePseudoDKG,
 		bc,
-		bs.P2P().Self(),
+		addr.RawAddress,
 		dlg,
 	)
 	cs.unsent = make([]*pbsim.Reply, 0)

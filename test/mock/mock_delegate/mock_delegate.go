@@ -6,7 +6,6 @@ package mock_delegate
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	net "net"
 	reflect "reflect"
 )
 
@@ -34,9 +33,9 @@ func (m *MockPool) EXPECT() *MockPoolMockRecorder {
 }
 
 // AllDelegates mocks base method
-func (m *MockPool) AllDelegates() ([]net.Addr, error) {
+func (m *MockPool) AllDelegates() ([]string, error) {
 	ret := m.ctrl.Call(m, "AllDelegates")
-	ret0, _ := ret[0].([]net.Addr)
+	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -47,9 +46,9 @@ func (mr *MockPoolMockRecorder) AllDelegates() *gomock.Call {
 }
 
 // RollDelegates mocks base method
-func (m *MockPool) RollDelegates(arg0 uint64) ([]net.Addr, error) {
+func (m *MockPool) RollDelegates(arg0 uint64) ([]string, error) {
 	ret := m.ctrl.Call(m, "RollDelegates", arg0)
-	ret0, _ := ret[0].([]net.Addr)
+	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -60,9 +59,9 @@ func (mr *MockPoolMockRecorder) RollDelegates(arg0 interface{}) *gomock.Call {
 }
 
 // AnotherDelegate mocks base method
-func (m *MockPool) AnotherDelegate(self string) net.Addr {
+func (m *MockPool) AnotherDelegate(self string) string {
 	ret := m.ctrl.Call(m, "AnotherDelegate", self)
-	ret0, _ := ret[0].(net.Addr)
+	ret0, _ := ret[0].(string)
 	return ret0
 }
 

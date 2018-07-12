@@ -7,14 +7,12 @@
 package rolldpos
 
 import (
-	"net"
 	"testing"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotexproject/iotex-core/consensus/fsm"
-	"github.com/iotexproject/iotex-core/network/node"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 )
@@ -36,11 +34,11 @@ func TestRuleEpochFinishCondition(t *testing.T) {
 				height:       10,
 				numSubEpochs: 2,
 				dkg:          dkg,
-				delegates: []net.Addr{
-					node.NewTCPNode("127.0.0.1:10001"),
-					node.NewTCPNode("127.0.0.1:10002"),
-					node.NewTCPNode("127.0.0.1:10003"),
-					node.NewTCPNode("127.0.0.1:10004"),
+				delegates: []string{
+					"io1qyqsyqcy6nm58gjd2wr035wz5eyd5uq47zyqpng3gxe7nh",
+					"io1qyqsyqcy6m6hkqkj3f4w4eflm2gzydmvc0mumm7kgax4l3",
+					"io1qyqsyqcyyu9pfazcx0wglp35h2h4fm0hl8p8z2u35vkcwc",
+					"io1qyqsyqcyg9pk8zg8xzkmv6g3630xggvacq9e77cwtd4rkc",
 				},
 			},
 			rollDPoSCB: rollDPoSCB{

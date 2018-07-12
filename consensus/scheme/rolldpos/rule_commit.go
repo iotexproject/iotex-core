@@ -32,7 +32,7 @@ func (r ruleCommit) Condition(event *fsm.Event) bool {
 			height = r.roundCtx.block.Height()
 		}
 		logger.Warn().
-			Str("node", r.self.String()).
+			Str("node", r.self).
 			Bool("timeout", event.StateTimedOut).
 			Bool("majority", r.reachedMaj()).
 			Err(event.Err).
@@ -47,7 +47,7 @@ func (r ruleCommit) Condition(event *fsm.Event) bool {
 	if r.roundCtx.block != nil {
 		dlgs := make([]string, 0)
 		for _, d := range r.epochCtx.delegates {
-			dlgs = append(dlgs, d.String())
+			dlgs = append(dlgs, d)
 		}
 		logger.Info().
 			Strs("delegates", dlgs).
@@ -55,7 +55,7 @@ func (r ruleCommit) Condition(event *fsm.Event) bool {
 			Msg("consensus reached")
 		if err := r.consCb(r.roundCtx.block); err != nil {
 			logger.Error().
-				Str("name", r.self.String()).
+				Str("name", r.self).
 				Uint64("block", r.roundCtx.block.Height()).
 				Msg("error when committing a block")
 			event.Err = err
@@ -65,7 +65,7 @@ func (r ruleCommit) Condition(event *fsm.Event) bool {
 		// All delegates need to broadcast the consensus block
 		if err := r.pubCb(r.roundCtx.block); err != nil {
 			logger.Error().
-				Str("name", r.self.String()).
+				Str("name", r.self).
 				Uint64("block", r.roundCtx.block.Height()).
 				Msg("error when committing a block")
 			event.Err = err

@@ -15,15 +15,24 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 )
 
+var (
+	addrs = []string{
+		"io1qyqsyqcy6nm58gjd2wr035wz5eyd5uq47zyqpng3gxe7nh",
+		"io1qyqsyqcy6m6hkqkj3f4w4eflm2gzydmvc0mumm7kgax4l3",
+		"io1qyqsyqcyyu9pfazcx0wglp35h2h4fm0hl8p8z2u35vkcwc",
+		"io1qyqsyqcyg9pk8zg8xzkmv6g3630xggvacq9e77cwtd4rkc",
+	}
+)
+
 func TestConfigBasedPool_AllDelegates(t *testing.T) {
 	cfg := config.Config{}
 	for i := 0; i < 4; i++ {
-		cfg.Delegate.Addrs = append(cfg.Delegate.Addrs, fmt.Sprintf("127.0.0.1:1000%d", i))
+		cfg.Delegate.Addrs = append(cfg.Delegate.Addrs, addrs[i])
 	}
 
 	// duplicates should be ignored
 	for i := 0; i < 4; i++ {
-		cfg.Delegate.Addrs = append(cfg.Delegate.Addrs, fmt.Sprintf("127.0.0.1:1000%d", i))
+		cfg.Delegate.Addrs = append(cfg.Delegate.Addrs, addrs[i])
 	}
 
 	cbdp := NewConfigBasedPool(&cfg.Delegate)
@@ -32,47 +41,46 @@ func TestConfigBasedPool_AllDelegates(t *testing.T) {
 	require.Nil(t, err)
 	require.Equal(t, 4, len(delegates))
 	for i := 0; i < 4; i++ {
-		require.Equal(t, "tcp", delegates[i].Network())
-		require.Equal(t, fmt.Sprintf("127.0.0.1:1000%d", i), delegates[i].String())
+		require.Equal(t, addrs[i], delegates[i])
 	}
 
-	other := cbdp.AnotherDelegate("127.0.0.1:10000")
-	require.Equal(t, fmt.Sprintf("127.0.0.1:10001"), other.String())
+	other := cbdp.AnotherDelegate("io1qyqsyqcy6nm58gjd2wr035wz5eyd5uq47zyqpng3gxe7nh")
+	require.Equal(t, fmt.Sprintf("io1qyqsyqcy6m6hkqkj3f4w4eflm2gzydmvc0mumm7kgax4l3"), other)
 }
 
 func TestConfigBasedPool_RollDelegates(t *testing.T) {
 	cfg := config.Config{
 		Delegate: config.Delegate{
-			RollNum: 7,
+			RollNum: 2,
 		},
 	}
-	for i := 0; i < 21; i++ {
-		cfg.Delegate.Addrs = append(cfg.Delegate.Addrs, fmt.Sprintf("127.0.0.1:1000%d", i))
+	for i := 0; i < 4; i++ {
+		cfg.Delegate.Addrs = append(cfg.Delegate.Addrs, addrs[i])
 	}
 
 	cbdp := NewConfigBasedPool(&cfg.Delegate)
 
 	dlgts1, err := cbdp.RollDelegates(uint64(1))
 	require.Nil(t, err)
-	require.Equal(t, 7, len(dlgts1))
+	require.Equal(t, 2, len(dlgts1))
 
 	dlgts2, err := cbdp.RollDelegates(uint64(1))
 	require.Nil(t, err)
-	require.Equal(t, 7, len(dlgts2))
+	require.Equal(t, 2, len(dlgts2))
 
 	// delegates should be same for the same epoch ordinal number
-	for i := 0; i < 7; i++ {
-		require.Equal(t, dlgts1[i].String(), dlgts2[i].String())
+	for i := 0; i < 2; i++ {
+		require.Equal(t, dlgts1[i], dlgts2[i])
 	}
 
 	dlgts3, err := cbdp.RollDelegates(uint64(2))
 	require.Nil(t, err)
-	require.Equal(t, 7, len(dlgts3))
+	require.Equal(t, 2, len(dlgts3))
 
 	// delegates should be different between epoch 1 and 2
 	diffCnt := 0
-	for i := 0; i < 7; i++ {
-		if dlgts1[i].String() != dlgts3[i].String() {
+	for i := 0; i < 2; i++ {
+		if dlgts1[i] != dlgts3[i] {
 			diffCnt++
 		}
 	}
@@ -80,12 +88,12 @@ func TestConfigBasedPool_RollDelegates(t *testing.T) {
 
 	dlgts4, err := cbdp.RollDelegates(uint64(3))
 	require.Nil(t, err)
-	require.Equal(t, 7, len(dlgts4))
+	require.Equal(t, 2, len(dlgts4))
 
 	// delegates should be different between epoch 1 and 3
 	diffCnt = 0
-	for i := 0; i < 7; i++ {
-		if dlgts1[i].String() != dlgts4[i].String() {
+	for i := 0; i < 2; i++ {
+		if dlgts1[i] != dlgts4[i] {
 			diffCnt++
 		}
 	}
@@ -93,8 +101,8 @@ func TestConfigBasedPool_RollDelegates(t *testing.T) {
 
 	// delegates should be different between epoch 2 and 3
 	diffCnt = 0
-	for i := 0; i < 7; i++ {
-		if dlgts3[i].String() != dlgts4[i].String() {
+	for i := 0; i < 2; i++ {
+		if dlgts3[i] != dlgts4[i] {
 			diffCnt++
 		}
 	}
@@ -103,15 +111,15 @@ func TestConfigBasedPool_RollDelegates(t *testing.T) {
 
 func TestConfigBasedPool_NumDelegates(t *testing.T) {
 	cfg := config.Config{}
-	for i := 0; i < 21; i++ {
-		cfg.Delegate.Addrs = append(cfg.Delegate.Addrs, fmt.Sprintf("127.0.0.1:1000%d", i))
+	for i := 0; i < 4; i++ {
+		cfg.Delegate.Addrs = append(cfg.Delegate.Addrs, addrs[i])
 	}
 
 	cbdp := NewConfigBasedPool(&cfg.Delegate)
 
 	num, err := cbdp.NumDelegatesPerEpoch()
 	require.Nil(t, err)
-	require.Equal(t, uint(21), num)
+	require.Equal(t, uint(4), num)
 
 	cfg.Delegate.RollNum = 4
 	num, err = cbdp.NumDelegatesPerEpoch()

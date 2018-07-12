@@ -8,7 +8,6 @@ package rolldpos
 
 import (
 	"context"
-	"net"
 	"testing"
 	"time"
 
@@ -24,7 +23,6 @@ import (
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
-	"github.com/iotexproject/iotex-core/network/node"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
@@ -46,8 +44,8 @@ var testDKG = hash.DKGHash{4, 6, 8, 9, 4, 6, 8, 9, 4, 6, 8, 9, 4, 6, 8, 9, 4, 6,
 
 func createTestRollDPoS(
 	ctrl *gomock.Controller,
-	self net.Addr,
-	delegates []net.Addr,
+	self string,
+	delegates []string,
 	mockFn mockFn,
 	prCb scheme.GetProposerCB,
 	prDelay time.Duration,
@@ -160,12 +158,12 @@ func testByzantineFault(t *testing.T, proposerNode int) {
 	t.Log(genesis)
 
 	// arrange 4 consensus nodes
-	tcss := make(map[net.Addr]testCs)
-	delegates := []net.Addr{
-		node.NewTCPNode("192.168.0.0:10000"),
-		node.NewTCPNode("192.168.0.1:10001"),
-		node.NewTCPNode("192.168.0.2:10002"),
-		node.NewTCPNode("192.168.0.3:10003"),
+	tcss := make(map[string]testCs)
+	delegates := []string{
+		"io1qyqsyqcy6nm58gjd2wr035wz5eyd5uq47zyqpng3gxe7nh",
+		"io1qyqsyqcy6m6hkqkj3f4w4eflm2gzydmvc0mumm7kgax4l3",
+		"io1qyqsyqcyyu9pfazcx0wglp35h2h4fm0hl8p8z2u35vkcwc",
+		"io1qyqsyqcyg9pk8zg8xzkmv6g3630xggvacq9e77cwtd4rkc",
 	}
 
 	bcCnt := 0
@@ -278,7 +276,7 @@ func testByzantineFault(t *testing.T, proposerNode int) {
 	}
 }
 
-func voteStats(t *testing.T, tcss map[net.Addr]testCs) {
+func voteStats(t *testing.T, tcss map[string]testCs) {
 	// prevote
 	for _, tcs := range tcss {
 		for i, v := range tcs.cs.roundCtx.prevotes {
@@ -303,12 +301,12 @@ func TestRollDPoSFourTrustyNodes(t *testing.T) {
 	genesis := blockchain.NewGenesisBlock(nil)
 
 	// arrange 4 consensus nodes
-	tcss := make(map[net.Addr]testCs)
-	delegates := []net.Addr{
-		node.NewTCPNode("192.168.0.0:10000"),
-		node.NewTCPNode("192.168.0.1:10001"),
-		node.NewTCPNode("192.168.0.2:10002"),
-		node.NewTCPNode("192.168.0.3:10003"),
+	tcss := make(map[string]testCs)
+	delegates := []string{
+		"io1qyqsyqcy6nm58gjd2wr035wz5eyd5uq47zyqpng3gxe7nh",
+		"io1qyqsyqcy6m6hkqkj3f4w4eflm2gzydmvc0mumm7kgax4l3",
+		"io1qyqsyqcyyu9pfazcx0wglp35h2h4fm0hl8p8z2u35vkcwc",
+		"io1qyqsyqcyg9pk8zg8xzkmv6g3630xggvacq9e77cwtd4rkc",
 	}
 
 	bcCnt := 0
@@ -393,9 +391,9 @@ func TestRollDPoSConsumePROPOSE(t *testing.T) {
 	defer ctrl.Finish()
 
 	// arrange 2 consensus nodes
-	delegates := []net.Addr{
-		node.NewTCPNode("192.168.0.1:10001"),
-		node.NewTCPNode("192.168.0.2:10002"),
+	delegates := []string{
+		"io1qyqsyqcy6m6hkqkj3f4w4eflm2gzydmvc0mumm7kgax4l3",
+		"io1qyqsyqcyyu9pfazcx0wglp35h2h4fm0hl8p8z2u35vkcwc",
 	}
 	m := func(mcks mocks) {
 		mcks.dp.EXPECT().AllDelegates().Return(delegates, nil).AnyTimes()
@@ -420,7 +418,7 @@ func TestRollDPoSConsumePROPOSE(t *testing.T) {
 	proposal := &iproto.ViewChangeMsg{
 		Vctype:     iproto.ViewChangeMsg_PROPOSE,
 		Block:      genesis.ConvertToBlockPb(),
-		SenderAddr: delegates[1].String(),
+		SenderAddr: delegates[1],
 	}
 
 	// act
@@ -444,9 +442,9 @@ func TestRollDPoSConsumeErrorStateHandlerNotMatched(t *testing.T) {
 	defer ctrl.Finish()
 
 	// arrange 2 consensus nodes
-	delegates := []net.Addr{
-		node.NewTCPNode("192.168.0.1:10001"),
-		node.NewTCPNode("192.168.0.2:10002"),
+	delegates := []string{
+		"io1qyqsyqcy6m6hkqkj3f4w4eflm2gzydmvc0mumm7kgax4l3",
+		"io1qyqsyqcyyu9pfazcx0wglp35h2h4fm0hl8p8z2u35vkcwc",
 	}
 	m := func(mcks mocks) {
 		mcks.bc.EXPECT().TipHeight().Return(uint64(0), nil).AnyTimes()
@@ -466,7 +464,7 @@ func TestRollDPoSConsumeErrorStateHandlerNotMatched(t *testing.T) {
 	proposal := &iproto.ViewChangeMsg{
 		Vctype:     iproto.ViewChangeMsg_VOTE,
 		Block:      nil,
-		SenderAddr: delegates[1].String(),
+		SenderAddr: delegates[1],
 	}
 
 	// act

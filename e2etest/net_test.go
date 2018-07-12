@@ -34,7 +34,6 @@ func TestNetSync(t *testing.T) {
 	cfg.Network.BootstrapNodes = []string{"127.0.0.1:4689"}
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
-	cfg.Delegate.Addrs = []string{"127.0.0.1:4689"}
 	cfg.BlockSync.Interval = time.Second
 
 	if testing.Short() {

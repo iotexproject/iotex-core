@@ -22,7 +22,7 @@ const (
 )
 
 func fsmCreate(r *RollDPoS) *fsm.Machine {
-	sm := fsm.NewMachine(r.self.String())
+	sm := fsm.NewMachine(r.self)
 
 	if err := sm.SetInitialState(stateEpochStart, &epochStart{RollDPoS: r}); err != nil {
 		logger.Error().Err(err).Msg("Error when creating fsm")

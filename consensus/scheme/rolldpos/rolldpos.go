@@ -8,7 +8,6 @@ package rolldpos
 
 import (
 	"context"
-	"net"
 	"sync"
 	"time"
 
@@ -35,8 +34,8 @@ var (
 type roundCtx struct {
 	block     *blockchain.Block
 	blockHash *hash.Hash32B
-	prevotes  map[net.Addr]*hash.Hash32B
-	votes     map[net.Addr]*hash.Hash32B
+	prevotes  map[string]*hash.Hash32B
+	votes     map[string]*hash.Hash32B
 	isPr      bool
 }
 
@@ -49,13 +48,13 @@ type epochCtx struct {
 	// numSubEpochs defines number of sub-epochs/rotations will happen in an epochStart
 	numSubEpochs uint
 	dkg          hash.DKGHash
-	delegates    []net.Addr
+	delegates    []string
 }
 
 // DNet is the delegate networks interface.
 type DNet interface {
-	Tell(node net.Addr, msg proto.Message) error
-	Self() net.Addr
+	Tell(node string, msg proto.Message) error
+	Self() string
 	Broadcast(msg proto.Message) error
 }
 
@@ -77,7 +76,7 @@ type RollDPoS struct {
 	fsm            *fsm.Machine
 	epochCtx       *epochCtx
 	roundCtx       *roundCtx
-	self           net.Addr
+	self           string
 	pool           delegate.Pool
 	wg             sync.WaitGroup
 	quit           chan struct{}
@@ -101,7 +100,7 @@ func NewRollDPoS(
 	epochStart scheme.StartNextEpochCB,
 	dkg scheme.GenerateDKGCB,
 	bc blockchain.Blockchain,
-	myaddr net.Addr,
+	myaddr string,
 	dlg delegate.Pool,
 ) *RollDPoS {
 	cb := rollDPoSCB{
@@ -143,7 +142,7 @@ func NewRollDPoS(
 
 // Start initialize the RollDPoS and roundStart to consume requests from request channel.
 func (n *RollDPoS) Start(ctx context.Context) error {
-	logger.Info().Str("name", n.self.String()).Msg("Starting RollDPoS")
+	logger.Info().Str("name", n.self).Msg("Starting RollDPoS")
 
 	n.wg.Add(1)
 	go n.consume()
@@ -160,7 +159,7 @@ func (n *RollDPoS) Start(ctx context.Context) error {
 
 // Stop stops the RollDPoS and stop consuming requests from request channel.
 func (n *RollDPoS) Stop(ctx context.Context) error {
-	logger.Info().Str("name", n.self.String()).Msg("RollDPoS is shutting down")
+	logger.Info().Str("name", n.self).Msg("RollDPoS is shutting down")
 	if n.cfg.ProposerInterval > 0 {
 		if err := n.pr.Stop(ctx); err != nil {
 			return err
@@ -280,7 +279,7 @@ loop:
 			case fsm.ErrNoTransitionApplied:
 			default:
 				logger.Error().
-					Str("RollDPoS", n.self.String()).
+					Str("RollDPoS", n.self).
 					Err(err).
 					Msg("Failed to fsm.HandleTransition")
 			}
@@ -302,6 +301,6 @@ loop:
 }
 
 func (n *RollDPoS) tellDelegates(msg *pb.ViewChangeMsg) {
-	msg.SenderAddr = n.self.String()
+	msg.SenderAddr = n.self
 	n.voteCb(msg)
 }

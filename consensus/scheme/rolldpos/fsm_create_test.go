@@ -9,7 +9,6 @@ package rolldpos
 import (
 	"context"
 	"fmt"
-	"net"
 	"testing"
 	"time"
 
@@ -19,7 +18,6 @@ import (
 
 	. "github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/consensus/fsm"
-	"github.com/iotexproject/iotex-core/network/node"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 )
 
@@ -31,7 +29,7 @@ func TestAcceptPrevoteAndProceedToEnd(t *testing.T) {
 	defer ctrl.Finish()
 
 	// arrange 2 consensus nodes
-	delegates := []net.Addr{node.NewTCPNode("192.168.0.1:10001"), node.NewTCPNode("192.168.0.2:10002")}
+	delegates := []string{"io1qyqsyqcy6nm58gjd2wr035wz5eyd5uq47zyqpng3gxe7nh", "io1qyqsyqcy6m6hkqkj3f4w4eflm2gzydmvc0mumm7kgax4l3"}
 	m := func(mcks mocks) {
 		mcks.dp.EXPECT().AllDelegates().Return(delegates, nil).AnyTimes()
 		mcks.dNet.EXPECT().Broadcast(gomock.Any()).AnyTimes()
@@ -84,7 +82,7 @@ func TestAcceptPrevoteAndProceedToEnd(t *testing.T) {
 	assert.Equal(t, stateAcceptVote, cs.fsm.CurrentState(), "current state %s", stateAcceptVote)
 	assert.Equal(
 		t,
-		map[net.Addr]*hash.Hash32B{
+		map[string]*hash.Hash32B{
 			delegates[0]: &blkHash,
 			delegates[1]: &blkHash,
 		},
@@ -116,9 +114,9 @@ func TestAcceptPrevoteAndTimeoutToEnd(t *testing.T) {
 
 	ctx := context.Background()
 	// arrange 2 consensus nodes
-	delegates := []net.Addr{
-		node.NewTCPNode("192.168.0.1:10001"),
-		node.NewTCPNode("192.168.0.2:10002"),
+	delegates := []string{
+		"io1qyqsyqcy6nm58gjd2wr035wz5eyd5uq47zyqpng3gxe7nh",
+		"io1qyqsyqcy6m6hkqkj3f4w4eflm2gzydmvc0mumm7kgax4l3",
 	}
 	m := func(mcks mocks) {
 		mcks.dp.EXPECT().AllDelegates().Return(delegates, nil).AnyTimes()

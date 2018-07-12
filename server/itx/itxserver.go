@@ -102,7 +102,7 @@ func newServer(cfg *config.Config, bc blockchain.Blockchain) *Server {
 		logger.Fatal().Err(err).Msg("Fail to create actpool")
 	}
 	pool := delegate.NewConfigBasedPool(&cfg.Delegate)
-	bs, err := blocksync.NewBlockSyncer(cfg, bc, ap, o, pool)
+	bs, err := blocksync.NewBlockSyncer(cfg, bc, ap, o)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Fail to create blockSyncer")
 	}

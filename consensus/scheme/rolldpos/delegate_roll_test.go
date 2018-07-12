@@ -7,20 +7,18 @@
 package rolldpos
 
 import (
-	"net"
 	"testing"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/network/node"
 	"github.com/iotexproject/iotex-core/test/mock/mock_delegate"
 )
 
 func TestStartNextEpochCB(t *testing.T) {
 	t.Parallel()
 
-	self := node.NewTCPNode("127.0.0.1:40000")
+	self := "io1qyqsyqcy6nm58gjd2wr035wz5eyd5uq47zyqpng3gxe7nh"
 	ctrl := gomock.NewController(t)
 	pool := mock_delegate.NewMockPool(ctrl)
 	defer ctrl.Finish()
@@ -35,11 +33,11 @@ func TestStartNextEpochCB(t *testing.T) {
 
 	// Among the rolling delegates
 	pool.EXPECT().RollDelegates(gomock.Any()).Return(
-		[]net.Addr{
-			node.NewTCPNode("127.0.0.1:40000"),
-			node.NewTCPNode("127.0.0.1:40001"),
-			node.NewTCPNode("127.0.0.1:40002"),
-			node.NewTCPNode("127.0.0.1:40003"),
+		[]string{
+			"io1qyqsyqcy6nm58gjd2wr035wz5eyd5uq47zyqpng3gxe7nh",
+			"io1qyqsyqcy6m6hkqkj3f4w4eflm2gzydmvc0mumm7kgax4l3",
+			"io1qyqsyqcyyu9pfazcx0wglp35h2h4fm0hl8p8z2u35vkcwc",
+			"io1qyqsyqcyg9pk8zg8xzkmv6g3630xggvacq9e77cwtd4rkc",
 		},
 		nil,
 	).Times(1)
@@ -49,10 +47,10 @@ func TestStartNextEpochCB(t *testing.T) {
 
 	// Not among the rolling delegates
 	pool.EXPECT().RollDelegates(gomock.Any()).Return(
-		[]net.Addr{
-			node.NewTCPNode("127.0.0.1:40001"),
-			node.NewTCPNode("127.0.0.1:40002"),
-			node.NewTCPNode("127.0.0.1:40003"),
+		[]string{
+			"io1qyqsyqcy6m6hkqkj3f4w4eflm2gzydmvc0mumm7kgax4l3",
+			"io1qyqsyqcyyu9pfazcx0wglp35h2h4fm0hl8p8z2u35vkcwc",
+			"io1qyqsyqcyg9pk8zg8xzkmv6g3630xggvacq9e77cwtd4rkc",
 		},
 		nil,
 	).Times(1)

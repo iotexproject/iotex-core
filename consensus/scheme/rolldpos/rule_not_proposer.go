@@ -21,5 +21,5 @@ func (r ruleNotProposer) Condition(event *fsm.Event) bool {
 		// Prevent the node that will become the proposer
 		event.State != stateInitPropose &&
 		// Ignore the proposer event from the proposer node itself to prevent taking another round of transition
-		!(event.State == stateAcceptPropose && event.SenderAddr != nil && r.self.String() == event.SenderAddr.String())
+		!(event.State == stateAcceptPropose && event.SenderAddr != "" && r.self == event.SenderAddr)
 }

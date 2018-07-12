@@ -12,7 +12,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/consensus/fsm"
-	"github.com/iotexproject/iotex-core/network/node"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	pb "github.com/iotexproject/iotex-core/proto"
 )
@@ -26,7 +25,7 @@ func eventFromProto(m proto.Message) (*fsm.Event, error) {
 
 	event.State = fsm.State(vc.GetVctype().String())
 
-	event.SenderAddr = node.NewTCPNode(vc.GetSenderAddr())
+	event.SenderAddr = vc.GetSenderAddr()
 
 	blkPb := vc.GetBlock()
 	if blkPb != nil {
@@ -58,6 +57,6 @@ func protoFromEvent(event *fsm.Event) proto.Message {
 	if event.BlockHash != nil {
 		msg.BlockHash = event.BlockHash[:]
 	}
-	msg.SenderAddr = event.SenderAddr.String()
+	msg.SenderAddr = event.SenderAddr
 	return msg
 }

@@ -7,8 +7,6 @@
 package rolldpos2
 
 import (
-	"net"
-
 	"github.com/facebookgo/clock"
 
 	"github.com/iotexproject/iotex-core/blockchain"
@@ -19,7 +17,7 @@ import (
 
 type rollDPoSCtx struct {
 	cfg   config.RollDPoS
-	id    net.Addr
+	id    string
 	chain blockchain.Blockchain
 	pool  delegate.Pool
 	epoch epochCtx
@@ -28,7 +26,7 @@ type rollDPoSCtx struct {
 }
 
 // getRollingDelegates will only allows the delegates chosen for given epoch to enter the epoch
-func (ctx *rollDPoSCtx) getRollingDelegates(epochNum uint64) ([]net.Addr, error) {
+func (ctx *rollDPoSCtx) getRollingDelegates(epochNum uint64) ([]string, error) {
 	// TODO: replace the pseudo roll delegates method with integrating with real delegate pool
 	return ctx.pool.RollDelegates(epochNum)
 }
@@ -68,14 +66,14 @@ type epochCtx struct {
 	// numSubEpochs defines number of sub-epochs/rotations will happen in an epochStart
 	numSubEpochs uint
 	dkg          hash.DKGHash
-	delegates    []net.Addr
+	delegates    []string
 }
 
 // roundCtx keeps the context data for the current round and block.
 type roundCtx struct {
 	block     *blockchain.Block
 	blockHash *hash.Hash32B
-	prevotes  map[net.Addr]*hash.Hash32B
-	votes     map[net.Addr]*hash.Hash32B
+	prevotes  map[string]*hash.Hash32B
+	votes     map[string]*hash.Hash32B
 	isPr      bool
 }
