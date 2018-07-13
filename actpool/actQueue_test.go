@@ -12,14 +12,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/blockchain/action"
 	pb "github.com/iotexproject/iotex-core/proto"
 )
 
 func TestNoncePriorityQueue(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 	pq := noncePriorityQueue{}
 	// Push four dummy nonce to the queue
 	heap.Push(&pq, uint64(1))
@@ -29,7 +29,7 @@ func TestNoncePriorityQueue(t *testing.T) {
 	i := uint64(1)
 	for pq.Len() > 0 {
 		nonce := heap.Pop(&pq).(uint64)
-		assert.Equal(i, nonce)
+		require.Equal(i, nonce)
 		i++
 	}
 	// Repush the four dummy nonce back to the queue
@@ -49,29 +49,29 @@ func TestNoncePriorityQueue(t *testing.T) {
 }
 
 func TestActQueue_Put(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 	q := NewActQueue().(*actQueue)
 	vote1 := action.Vote{&pb.VotePb{Nonce: uint64(2)}}
 	action1 := &pb.ActionPb{Action: &pb.ActionPb_Vote{vote1.ConvertToVotePb()}}
 	q.Put(action1)
-	assert.Equal(uint64(2), q.index[0])
-	assert.NotNil(q.items[vote1.Nonce])
+	require.Equal(uint64(2), q.index[0])
+	require.NotNil(q.items[vote1.Nonce])
 	tsf2 := action.Transfer{Nonce: uint64(1), Amount: big.NewInt(100)}
 	action2 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf2.ConvertToTransferPb()}}
 	q.Put(action2)
-	assert.Equal(uint64(1), heap.Pop(&q.index))
-	assert.Equal(action2, q.items[uint64(1)])
-	assert.Equal(uint64(2), heap.Pop(&q.index))
-	assert.Equal(action1, q.items[uint64(2)])
+	require.Equal(uint64(1), heap.Pop(&q.index))
+	require.Equal(action2, q.items[uint64(1)])
+	require.Equal(uint64(2), heap.Pop(&q.index))
+	require.Equal(action1, q.items[uint64(2)])
 	// tsf3 is a replacement transfer
 	tsf3 := action.Transfer{Nonce: uint64(1), Amount: big.NewInt(1000)}
 	action3 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf3.ConvertToTransferPb()}}
 	err := q.Put(action3)
-	assert.NotNil(err)
+	require.NotNil(err)
 }
 
 func TestActQueue_FilterNonce(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 	q := NewActQueue().(*actQueue)
 	tsf1 := action.Transfer{Nonce: uint64(1), Amount: big.NewInt(1)}
 	action1 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf1.ConvertToTransferPb()}}
@@ -83,13 +83,13 @@ func TestActQueue_FilterNonce(t *testing.T) {
 	q.Put(action2)
 	q.Put(action3)
 	q.FilterNonce(uint64(3))
-	assert.Equal(1, len(q.items))
-	assert.Equal(uint64(3), q.index[0])
-	assert.Equal(action3, q.items[q.index[0]])
+	require.Equal(1, len(q.items))
+	require.Equal(uint64(3), q.index[0])
+	require.Equal(action3, q.items[q.index[0]])
 }
 
 func TestActQueue_UpdateNonce(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 	q := NewActQueue().(*actQueue)
 	tsf1 := action.Transfer{Nonce: uint64(1), Amount: big.NewInt(1)}
 	action1 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf1.ConvertToTransferPb()}}
@@ -109,12 +109,12 @@ func TestActQueue_UpdateNonce(t *testing.T) {
 	q.pendingBalance = big.NewInt(1000)
 	q.Put(action5)
 	removed := q.UpdateQueue(uint64(2))
-	assert.Equal(uint64(4), q.pendingNonce)
-	assert.Equal([]*pb.ActionPb{action3, action4}, removed)
+	require.Equal(uint64(4), q.pendingNonce)
+	require.Equal([]*pb.ActionPb{action3, action4}, removed)
 }
 
 func TestActQueue_PendingActs(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 	q := NewActQueue().(*actQueue)
 	vote1 := action.Vote{&pb.VotePb{Nonce: uint64(2)}}
 	action1 := &pb.ActionPb{Action: &pb.ActionPb_Vote{vote1.ConvertToVotePb()}}
@@ -133,11 +133,24 @@ func TestActQueue_PendingActs(t *testing.T) {
 	q.Put(action5)
 	q.pendingNonce = 4
 	actions := q.PendingActs()
-	assert.Equal([]*pb.ActionPb{action1, action2}, actions)
+	require.Equal([]*pb.ActionPb{action1, action2}, actions)
+}
+
+func TestActQueue_AllActs(t *testing.T) {
+	require := require.New(t)
+	q := NewActQueue().(*actQueue)
+	vote1 := action.Vote{&pb.VotePb{Nonce: uint64(1)}}
+	action1 := &pb.ActionPb{Action: &pb.ActionPb_Vote{vote1.ConvertToVotePb()}}
+	tsf3 := action.Transfer{Nonce: uint64(3), Amount: big.NewInt(1000)}
+	action3 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf3.ConvertToTransferPb()}}
+	q.Put(action1)
+	q.Put(action3)
+	actions := q.AllActs()
+	require.Equal([]*pb.ActionPb{action1, action3}, actions)
 }
 
 func TestActQueue_removeActs(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 	q := NewActQueue().(*actQueue)
 	tsf1 := action.Transfer{Nonce: uint64(1), Amount: big.NewInt(100)}
 	action1 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf1.ConvertToTransferPb()}}
@@ -149,9 +162,9 @@ func TestActQueue_removeActs(t *testing.T) {
 	q.Put(action2)
 	q.Put(action3)
 	removed := q.removeActs(0)
-	assert.Equal(0, len(q.index))
-	assert.Equal(0, len(q.items))
-	assert.Equal([]*pb.ActionPb{action1, action2, action3}, removed)
+	require.Equal(0, len(q.index))
+	require.Equal(0, len(q.items))
+	require.Equal([]*pb.ActionPb{action1, action2, action3}, removed)
 
 	tsf4 := action.Transfer{Nonce: uint64(4), Amount: big.NewInt(10000)}
 	action4 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf4.ConvertToTransferPb()}}
@@ -163,7 +176,7 @@ func TestActQueue_removeActs(t *testing.T) {
 	q.Put(action5)
 	q.Put(action6)
 	removed = q.removeActs(1)
-	assert.Equal(1, len(q.index))
-	assert.Equal(1, len(q.items))
-	assert.Equal([]*pb.ActionPb{action5, action6}, removed)
+	require.Equal(1, len(q.index))
+	require.Equal(1, len(q.items))
+	require.Equal([]*pb.ActionPb{action5, action6}, removed)
 }
