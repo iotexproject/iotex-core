@@ -285,14 +285,6 @@ loop:
 			}
 		case <-n.quit:
 			break loop
-		default:
-			// if there are no events, try to write to done channel
-			if n.done != nil {
-				select {
-				case n.done <- true: // try to write to done if possible
-				default:
-				}
-			}
 		}
 	}
 
