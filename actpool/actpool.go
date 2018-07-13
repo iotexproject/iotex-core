@@ -219,7 +219,9 @@ func (ap *actPool) GetPendingNonce(addr string) (uint64, error) {
 	if queue, ok := ap.accountActs[addr]; ok {
 		return queue.PendingNonce(), nil
 	}
-	return ap.bc.Nonce(addr)
+	confirmedNonce, err := ap.bc.Nonce(addr)
+	pendingNonce := confirmedNonce + 1
+	return pendingNonce, err
 }
 
 // GetUnconfirmedActs returns unconfirmed actions in pool given an account address

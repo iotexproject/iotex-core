@@ -639,7 +639,7 @@ func TestActPool_GetPendingNonce(t *testing.T) {
 
 	nonce, err := ap.GetPendingNonce(addr2.RawAddress)
 	require.Nil(err)
-	require.Equal(uint64(0), nonce)
+	require.Equal(uint64(1), nonce)
 
 	nonce, err = ap.GetPendingNonce(addr1.RawAddress)
 	require.Nil(err)
