@@ -8,6 +8,8 @@ package blockchain
 
 import (
 	"bytes"
+	"sync"
+	"sync/atomic"
 
 	"github.com/pkg/errors"
 
@@ -81,8 +83,21 @@ func (v *validator) Validate(blk *Block, tipHeight uint64, tipHash hash.Hash32B)
 
 	if v.sf != nil {
 		// Verify the signatures here (balance is checked in CommitStateChanges)
+		verifyCount := len(blk.Transfers) + len(blk.Votes) - 1
+		if blk.Header.height == 0 {
+			verifyCount++
+		}
+		var wg sync.WaitGroup
+		wg.Add(verifyCount)
+		var correctVerify uint64
+		coinbaseCount := 0
 		for _, tsf := range blk.Transfers {
 			if tsf.IsCoinbase {
+				if coinbaseCount > 1 {
+					return errors.Wrapf(
+						ErrInvalidBlock,
+						"Wrong number of coinbase transfers")
+				}
 				address, err := iotxaddress.GetAddress(blk.Header.Pubkey, iotxaddress.IsTestnet, iotxaddress.ChainID)
 				if err != nil {
 					return err
@@ -90,24 +105,44 @@ func (v *validator) Validate(blk *Block, tipHeight uint64, tipHash hash.Hash32B)
 				if address.RawAddress != tsf.Recipient {
 					return action.ErrTransferError
 				}
+				coinbaseCount++
 				continue
 			}
-			address, err := iotxaddress.GetAddress(tsf.SenderPublicKey, iotxaddress.IsTestnet, iotxaddress.ChainID)
-			if err != nil {
-				return err
-			}
-			if err := tsf.Verify(address); err != nil {
-				return err
-			}
+			go func(tsf *action.Transfer, correctTsf *uint64) {
+				defer wg.Done()
+				address, err := iotxaddress.GetAddress(tsf.SenderPublicKey, iotxaddress.IsTestnet, iotxaddress.ChainID)
+				if err != nil {
+					return
+				}
+				if err := tsf.Verify(address); err != nil {
+					return
+				}
+				atomic.AddUint64(correctTsf, uint64(1))
+			}(tsf, &correctVerify)
 		}
 		for _, vote := range blk.Votes {
-			address, err := iotxaddress.GetAddress(vote.SelfPubkey, iotxaddress.IsTestnet, iotxaddress.ChainID)
-			if err != nil {
-				return err
-			}
-			if err := vote.Verify(address); err != nil {
-				return err
-			}
+			go func(vote *action.Vote, correctVote *uint64) {
+				defer wg.Done()
+				address, err := iotxaddress.GetAddress(vote.SelfPubkey, iotxaddress.IsTestnet, iotxaddress.ChainID)
+				if err != nil {
+					return
+				}
+				if err := vote.Verify(address); err != nil {
+					return
+				}
+				atomic.AddUint64(correctVote, uint64(1))
+			}(vote, &correctVerify)
+		}
+		wg.Wait()
+		if correctVerify != uint64(verifyCount) {
+			return errors.Wrapf(
+				ErrInvalidBlock,
+				"Failed to verify actions signature")
+		}
+		if (blk.Header.height != 0 && coinbaseCount != 1) || (blk.Header.height == 0 && coinbaseCount != 0) {
+			return errors.Wrapf(
+				ErrInvalidBlock,
+				"Wrong number of coinbase transfers")
 		}
 	}
 
