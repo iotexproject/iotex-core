@@ -54,6 +54,7 @@ type ActQueue interface {
 	Len() int
 	Empty() bool
 	PendingActs() []*iproto.ActionPb
+	AllActs() []*iproto.ActionPb
 }
 
 // actQueue is a queue of actions from an account
@@ -231,9 +232,22 @@ func (q *actQueue) PendingActs() []*iproto.ActionPb {
 	return acts
 }
 
+// AllActs returns all the actions currently in queue
+func (q *actQueue) AllActs() []*iproto.ActionPb {
+	acts := make([]*iproto.ActionPb, 0, len(q.items))
+	if q.Len() == 0 {
+		return acts
+	}
+	sort.Sort(q.index)
+	for _, nonce := range q.index {
+		acts = append(acts, q.items[nonce])
+	}
+	return acts
+}
+
 // removeActs removes all the actions starting at idx from queue
 func (q *actQueue) removeActs(idx int) []*iproto.ActionPb {
-	removedFromQueue := []*iproto.ActionPb{}
+	removedFromQueue := make([]*iproto.ActionPb, 0)
 	for i := idx; i < q.index.Len(); i++ {
 		removedFromQueue = append(removedFromQueue, q.items[q.index[i]])
 		delete(q.items, q.index[i])

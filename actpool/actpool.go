@@ -53,6 +53,10 @@ type ActPool interface {
 	AddTsf(tsf *action.Transfer) error
 	// AddVote adds a vote into the pool after passing validation
 	AddVote(vote *action.Vote) error
+	// GetPendingNonce returns pending nonce in pool given an account address
+	GetPendingNonce(addr string) (uint64, error)
+	// GetUnconfirmedActs returns unconfirmed actions in pool given an account address
+	GetUnconfirmedActs(addr string) []*iproto.ActionPb
 }
 
 // actPool implements ActPool interface
@@ -123,8 +127,8 @@ func (ap *actPool) PickActs() ([]*action.Transfer, []*action.Vote) {
 	ap.mutex.Lock()
 	defer ap.mutex.Unlock()
 
-	transfers := []*action.Transfer{}
-	votes := []*action.Vote{}
+	transfers := make([]*action.Transfer, 0)
+	votes := make([]*action.Vote, 0)
 	for _, queue := range ap.accountActs {
 		for _, act := range queue.PendingActs() {
 			switch {
@@ -208,6 +212,22 @@ func (ap *actPool) AddVote(vote *action.Vote) error {
 	// Wrap vote as an action
 	action := &iproto.ActionPb{Action: &iproto.ActionPb_Vote{vote.ConvertToVotePb()}}
 	return ap.addAction(voter.RawAddress, action, hash, vote.Nonce)
+}
+
+// GetPendingNonce returns pending nonce in pool or confirmed nonce given an account address
+func (ap *actPool) GetPendingNonce(addr string) (uint64, error) {
+	if queue, ok := ap.accountActs[addr]; ok {
+		return queue.PendingNonce(), nil
+	}
+	return ap.bc.Nonce(addr)
+}
+
+// GetUnconfirmedActs returns unconfirmed actions in pool given an account address
+func (ap *actPool) GetUnconfirmedActs(addr string) []*iproto.ActionPb {
+	if queue, ok := ap.accountActs[addr]; ok {
+		return queue.AllActs()
+	}
+	return make([]*iproto.ActionPb, 0)
 }
 
 //======================================

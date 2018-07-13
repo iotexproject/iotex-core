@@ -613,6 +613,73 @@ func TestActPool_removeInvalidActs(t *testing.T) {
 	require.Nil(ap.allActions[hash2])
 }
 
+func TestActPool_GetPendingNonce(t *testing.T) {
+	require := require.New(t)
+	l := logger.Logger().Level(zerolog.DebugLevel)
+	logger.SetLogger(&l)
+	bc := blockchain.NewBlockchain(nil, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	_, err := bc.CreateState(addr1.RawAddress, uint64(100))
+	require.Nil(err)
+	_, err = bc.CreateState(addr2.RawAddress, uint64(100))
+	require.Nil(err)
+	// Create actpool
+	apConfig := config.ActPool{maxNumActPerPool, maxNumActPerAcct}
+	Ap, err := NewActPool(bc, apConfig)
+	require.Nil(err)
+	ap, ok := Ap.(*actPool)
+	require.True(ok)
+
+	tsf1, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(10))
+	tsf3, _ := signedTransfer(addr1, addr1, uint64(3), big.NewInt(30))
+	vote4, _ := signedVote(addr1, addr1, uint64(4))
+
+	ap.AddTsf(tsf1)
+	ap.AddTsf(tsf3)
+	ap.AddVote(vote4)
+
+	nonce, err := ap.GetPendingNonce(addr2.RawAddress)
+	require.Nil(err)
+	require.Equal(uint64(0), nonce)
+
+	nonce, err = ap.GetPendingNonce(addr1.RawAddress)
+	require.Nil(err)
+	require.Equal(uint64(2), nonce)
+}
+
+func TestActPool_GetUnconfirmedActs(t *testing.T) {
+	require := require.New(t)
+	l := logger.Logger().Level(zerolog.DebugLevel)
+	logger.SetLogger(&l)
+	bc := blockchain.NewBlockchain(nil, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	_, err := bc.CreateState(addr1.RawAddress, uint64(100))
+	require.Nil(err)
+	_, err = bc.CreateState(addr2.RawAddress, uint64(100))
+	require.Nil(err)
+	// Create actpool
+	apConfig := config.ActPool{maxNumActPerPool, maxNumActPerAcct}
+	Ap, err := NewActPool(bc, apConfig)
+	require.Nil(err)
+	ap, ok := Ap.(*actPool)
+	require.True(ok)
+
+	tsf1, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(10))
+	act1 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf1.ConvertToTransferPb()}}
+	tsf3, _ := signedTransfer(addr1, addr1, uint64(3), big.NewInt(30))
+	act3 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf3.ConvertToTransferPb()}}
+	vote4, _ := signedVote(addr1, addr1, uint64(4))
+	act4 := &pb.ActionPb{Action: &pb.ActionPb_Vote{vote4.ConvertToVotePb()}}
+
+	ap.AddTsf(tsf1)
+	ap.AddTsf(tsf3)
+	ap.AddVote(vote4)
+
+	acts := ap.GetUnconfirmedActs(addr2.RawAddress)
+	require.Equal([]*pb.ActionPb{}, acts)
+
+	acts = ap.GetUnconfirmedActs(addr1.RawAddress)
+	require.Equal([]*pb.ActionPb{act1, act3, act4}, acts)
+}
+
 // Helper function to return the correct pending nonce just in case of empty queue
 func (ap *actPool) getPendingNonce(addr string) (uint64, error) {
 	if queue, ok := ap.accountActs[addr]; ok {
