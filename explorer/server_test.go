@@ -18,7 +18,7 @@ import (
 
 func TestServer(t *testing.T) {
 	require := require.New(t)
-	StartJSONServer(nil, nil, nil, nil, true, 14004, 0)
+	StartJSONServer(nil, nil, nil, nil, nil, true, 14004, 0)
 
 	timeout := time.Duration(20 * time.Second)
 	client := http.Client{

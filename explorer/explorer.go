@@ -14,6 +14,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/dispatch/dispatcher"
@@ -32,6 +33,7 @@ type Service struct {
 	bc          blockchain.Blockchain
 	c           consensus.Consensus
 	dp          dispatcher.Dispatcher
+	ap          actpool.ActPool
 	broadcastcb func(proto.Message) error
 	tpsWindow   int
 }
@@ -57,10 +59,15 @@ func (exp *Service) GetAddressDetails(address string) (explorer.AddressDetails, 
 	if err != nil {
 		return explorer.AddressDetails{}, err
 	}
+	pendingNonce, err := exp.ap.GetPendingNonce(address)
+	if err != nil {
+		return explorer.AddressDetails{}, err
+	}
 	details := explorer.AddressDetails{
 		Address:      address,
 		TotalBalance: (*state).Balance.Int64(),
 		Nonce:        int64((*state).Nonce),
+		PendingNonce: int64(pendingNonce),
 		IsCandidate:  (*state).IsCandidate,
 	}
 
@@ -138,7 +145,7 @@ func (exp *Service) GetTransferByID(transferID string) (explorer.Transfer, error
 	return transfer, nil
 }
 
-// GetTransfersByAddress returns all transfers associate with an address
+// GetTransfersByAddress returns all transfers associated with an address
 func (exp *Service) GetTransfersByAddress(address string, offset int64, limit int64) ([]explorer.Transfer, error) {
 	var res []explorer.Transfer
 	transfersFromAddress, err := exp.bc.GetTransfersFromAddress(address)
@@ -164,6 +171,48 @@ func (exp *Service) GetTransfersByAddress(address string, offset int64, limit in
 		explorerTransfer, err := getTransfer(exp.bc, transferHash)
 		if err != nil {
 			return res, err
+		}
+
+		res = append(res, explorerTransfer)
+	}
+
+	return res, nil
+}
+
+// GetUnconfirmedTransfersByAddress returns all unconfirmed transfers in actpool associated with an address
+func (exp *Service) GetUnconfirmedTransfersByAddress(address string, offset int64, limit int64) ([]explorer.Transfer, error) {
+	res := make([]explorer.Transfer, 0)
+	if _, err := exp.bc.StateByAddr(address); err != nil {
+		return res, err
+	}
+
+	acts := exp.ap.GetUnconfirmedActs(address)
+	tsfIndex := int64(0)
+	for _, act := range acts {
+		if act.GetVote() != nil {
+			continue
+		}
+
+		if tsfIndex < offset {
+			tsfIndex++
+			continue
+		}
+
+		if int64(len(res)) >= limit {
+			break
+		}
+
+		transferPb := act.GetTransfer()
+		explorerTransfer := explorer.Transfer{
+			Version:      int64(transferPb.Version),
+			Nonce:        int64(transferPb.Nonce),
+			Sender:       transferPb.Sender,
+			Recipient:    transferPb.Recipient,
+			Amount:       big.NewInt(0).SetBytes(transferPb.Amount).Int64(),
+			Payload:      hex.EncodeToString(transferPb.Payload),
+			SenderPubKey: hex.EncodeToString(transferPb.SenderPubKey),
+			Signature:    hex.EncodeToString(transferPb.Signature),
+			IsCoinbase:   transferPb.IsCoinbase,
 		}
 
 		res = append(res, explorerTransfer)
@@ -286,7 +335,7 @@ func (exp *Service) GetVoteByID(voteID string) (explorer.Vote, error) {
 	return vote, nil
 }
 
-// GetVotesByAddress returns all votes associate with an address
+// GetVotesByAddress returns all votes associated with an address
 func (exp *Service) GetVotesByAddress(address string, offset int64, limit int64) ([]explorer.Vote, error) {
 	var res []explorer.Vote
 	votesFromAddress, err := exp.bc.GetVotesFromAddress(address)
@@ -312,6 +361,44 @@ func (exp *Service) GetVotesByAddress(address string, offset int64, limit int64)
 		explorerVote, err := getVote(exp.bc, voteHash)
 		if err != nil {
 			return res, err
+		}
+
+		res = append(res, explorerVote)
+	}
+
+	return res, nil
+}
+
+// GetUnconfirmedVotesByAddress returns all unconfirmed votes in actpool associated with an address
+func (exp *Service) GetUnconfirmedVotesByAddress(address string, offset int64, limit int64) ([]explorer.Vote, error) {
+	res := make([]explorer.Vote, 0)
+	if _, err := exp.bc.StateByAddr(address); err != nil {
+		return res, err
+	}
+
+	acts := exp.ap.GetUnconfirmedActs(address)
+	voteIndex := int64(0)
+	for _, act := range acts {
+		if act.GetTransfer() != nil {
+			continue
+		}
+
+		if voteIndex < offset {
+			voteIndex++
+			continue
+		}
+
+		if int64(len(res)) >= limit {
+			break
+		}
+
+		votePb := act.GetVote()
+		explorerVote := explorer.Vote{
+			Version:     int64(votePb.Version),
+			Nonce:       int64(votePb.Nonce),
+			VoterPubKey: hex.EncodeToString(votePb.SelfPubkey),
+			VoteePubKey: hex.EncodeToString(votePb.VotePubkey),
+			Signature:   hex.EncodeToString(votePb.Signature),
 		}
 
 		res = append(res, explorerVote)

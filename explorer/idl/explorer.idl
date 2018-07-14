@@ -73,6 +73,7 @@ struct AddressDetails {
     address string
     totalBalance int
     nonce int
+    pendingNonce int
     isCandidate bool
 }
 
@@ -136,8 +137,11 @@ interface Explorer {
     // get transfers from transaction id
     getTransferByID(transferID string) Transfer
 
-    // get list of transfer belong to an address
+    // get list of transfers belonging to an address
     getTransfersByAddress(address string, offset int, limit int) []Transfer
+
+    // get list of unconfirmed transfers in actpool belonging to an address
+    getUnconfirmedTransfersByAddress(address string, offset int, limit int) []Transfer
 
     // get all transfers in a block
     getTransfersByBlockID(blkID string, offset int, limit int) []Transfer
@@ -148,8 +152,11 @@ interface Explorer {
     // get vote from vote id
     getVoteByID(voteID string) Vote
 
-    // get list of vote belong to an address
+    // get list of votes belonging to an address
     getVotesByAddress(address string, offset int, limit int) []Vote
+
+    // get list of unconfirmed votes in actpool belonging to an address
+    getUnconfirmedVotesByAddress(address string, offset int, limit int) []Vote
 
     // get all votes in a block
     getVotesByBlockID(blkID string, offset int, limit int) []Vote

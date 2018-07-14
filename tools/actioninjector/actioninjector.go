@@ -92,7 +92,7 @@ func main() {
 		if err != nil {
 			logger.Fatal().Err(err).Msg("Failed to start injecting actions")
 		}
-		nonce := uint64(addrDetails.Nonce + 1)
+		nonce := uint64(addrDetails.PendingNonce)
 		counter[addr.RawAddress] = nonce
 		if addrDetails.IsCandidate {
 			candidates[addr.RawAddress] = true

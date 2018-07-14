@@ -56,6 +56,11 @@ func (exp *MockExplorer) GetTransfersByAddress(address string, offset int64, lim
 	return exp.GetLastTransfersByRange(0, offset, limit, true)
 }
 
+// GetUnconfirmedTransfersByAddress returns all unconfirmed transfers in actpool associated with an address
+func (exp *MockExplorer) GetUnconfirmedTransfersByAddress(address string, offset int64, limit int64) ([]explorer.Transfer, error) {
+	return exp.GetLastTransfersByRange(0, offset, limit, true)
+}
+
 // GetTransfersByBlockID returns transfers in a block
 func (exp *MockExplorer) GetTransfersByBlockID(blockID string, offset int64, limit int64) ([]explorer.Transfer, error) {
 	return exp.GetLastTransfersByRange(0, offset, limit, true)
@@ -78,6 +83,11 @@ func (exp *MockExplorer) GetVoteByID(voteID string) (explorer.Vote, error) {
 
 // GetVotesByAddress returns all votes associate with an address
 func (exp *MockExplorer) GetVotesByAddress(address string, offset int64, limit int64) ([]explorer.Vote, error) {
+	return exp.GetLastVotesByRange(0, offset, limit)
+}
+
+// GetUnconfirmedVotesByAddress returns all unconfirmed votes in actpool associated with an address
+func (exp *MockExplorer) GetUnconfirmedVotesByAddress(address string, offset int64, limit int64) ([]explorer.Vote, error) {
 	return exp.GetLastVotesByRange(0, offset, limit)
 }
 

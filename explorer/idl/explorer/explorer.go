@@ -8,8 +8,8 @@ import (
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "86b64183aad89acea8abbeb1bcd48a51"
-const BarristerDateGenerated int64 = 1531262273964000000
+const BarristerChecksum string = "2e0cf0c71dde28af5db4509ee9342216"
+const BarristerDateGenerated int64 = 1531523583866000000
 
 type CoinStatistic struct {
 	Height    int64 `json:"height"`
@@ -69,6 +69,7 @@ type AddressDetails struct {
 	Address      string `json:"address"`
 	TotalBalance int64  `json:"totalBalance"`
 	Nonce        int64  `json:"nonce"`
+	PendingNonce int64  `json:"pendingNonce"`
 	IsCandidate  bool   `json:"isCandidate"`
 }
 
@@ -123,10 +124,12 @@ type Explorer interface {
 	GetLastTransfersByRange(startBlockHeight int64, offset int64, limit int64, showCoinBase bool) ([]Transfer, error)
 	GetTransferByID(transferID string) (Transfer, error)
 	GetTransfersByAddress(address string, offset int64, limit int64) ([]Transfer, error)
+	GetUnconfirmedTransfersByAddress(address string, offset int64, limit int64) ([]Transfer, error)
 	GetTransfersByBlockID(blkID string, offset int64, limit int64) ([]Transfer, error)
 	GetLastVotesByRange(startBlockHeight int64, offset int64, limit int64) ([]Vote, error)
 	GetVoteByID(voteID string) (Vote, error)
 	GetVotesByAddress(address string, offset int64, limit int64) ([]Vote, error)
+	GetUnconfirmedVotesByAddress(address string, offset int64, limit int64) ([]Vote, error)
 	GetVotesByBlockID(blkID string, offset int64, limit int64) ([]Vote, error)
 	GetLastBlocksByRange(offset int64, limit int64) ([]Block, error)
 	GetBlockByID(blkID string) (Block, error)
@@ -255,6 +258,24 @@ func (_p ExplorerProxy) GetTransfersByAddress(address string, offset int64, limi
 	return []Transfer{}, _err
 }
 
+func (_p ExplorerProxy) GetUnconfirmedTransfersByAddress(address string, offset int64, limit int64) ([]Transfer, error) {
+	_res, _err := _p.client.Call("Explorer.getUnconfirmedTransfersByAddress", address, offset, limit)
+	if _err == nil {
+		_retType := _p.idl.Method("Explorer.getUnconfirmedTransfersByAddress").Returns
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf([]Transfer{}), _res, "")
+	}
+	if _err == nil {
+		_cast, _ok := _res.([]Transfer)
+		if !_ok {
+			_t := reflect.TypeOf(_res)
+			_msg := fmt.Sprintf("Explorer.getUnconfirmedTransfersByAddress returned invalid type: %v", _t)
+			return []Transfer{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
+		}
+		return _cast, nil
+	}
+	return []Transfer{}, _err
+}
+
 func (_p ExplorerProxy) GetTransfersByBlockID(blkID string, offset int64, limit int64) ([]Transfer, error) {
 	_res, _err := _p.client.Call("Explorer.getTransfersByBlockID", blkID, offset, limit)
 	if _err == nil {
@@ -320,6 +341,24 @@ func (_p ExplorerProxy) GetVotesByAddress(address string, offset int64, limit in
 		if !_ok {
 			_t := reflect.TypeOf(_res)
 			_msg := fmt.Sprintf("Explorer.getVotesByAddress returned invalid type: %v", _t)
+			return []Vote{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
+		}
+		return _cast, nil
+	}
+	return []Vote{}, _err
+}
+
+func (_p ExplorerProxy) GetUnconfirmedVotesByAddress(address string, offset int64, limit int64) ([]Vote, error) {
+	_res, _err := _p.client.Call("Explorer.getUnconfirmedVotesByAddress", address, offset, limit)
+	if _err == nil {
+		_retType := _p.idl.Method("Explorer.getUnconfirmedVotesByAddress").Returns
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf([]Vote{}), _res, "")
+	}
+	if _err == nil {
+		_cast, _ok := _res.([]Vote)
+		if !_ok {
+			_t := reflect.TypeOf(_res)
+			_msg := fmt.Sprintf("Explorer.getUnconfirmedVotesByAddress returned invalid type: %v", _t)
 			return []Vote{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
 		}
 		return _cast, nil
@@ -924,6 +963,13 @@ var IdlJsonRaw = `[
                 "comment": ""
             },
             {
+                "name": "pendingNonce",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
                 "name": "isCandidate",
                 "type": "bool",
                 "optional": false,
@@ -1306,7 +1352,41 @@ var IdlJsonRaw = `[
             },
             {
                 "name": "getTransfersByAddress",
-                "comment": "get list of transfer belong to an address",
+                "comment": "get list of transfers belonging to an address",
+                "params": [
+                    {
+                        "name": "address",
+                        "type": "string",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    },
+                    {
+                        "name": "offset",
+                        "type": "int",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    },
+                    {
+                        "name": "limit",
+                        "type": "int",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    }
+                ],
+                "returns": {
+                    "name": "",
+                    "type": "Transfer",
+                    "optional": false,
+                    "is_array": true,
+                    "comment": ""
+                }
+            },
+            {
+                "name": "getUnconfirmedTransfersByAddress",
+                "comment": "get list of unconfirmed transfers in actpool belonging to an address",
                 "params": [
                     {
                         "name": "address",
@@ -1428,7 +1508,41 @@ var IdlJsonRaw = `[
             },
             {
                 "name": "getVotesByAddress",
-                "comment": "get list of vote belong to an address",
+                "comment": "get list of votes belong to an address",
+                "params": [
+                    {
+                        "name": "address",
+                        "type": "string",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    },
+                    {
+                        "name": "offset",
+                        "type": "int",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    },
+                    {
+                        "name": "limit",
+                        "type": "int",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    }
+                ],
+                "returns": {
+                    "name": "",
+                    "type": "Vote",
+                    "optional": false,
+                    "is_array": true,
+                    "comment": ""
+                }
+            },
+            {
+                "name": "getUnconfirmedVotesByAddress",
+                "comment": "get list of unconfirmed votes in actpool belonging to an address",
                 "params": [
                     {
                         "name": "address",
@@ -1660,7 +1774,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1531262273964,
-        "checksum": "86b64183aad89acea8abbeb1bcd48a51"
+        "date_generated": 1531523583866,
+        "checksum": "2e0cf0c71dde28af5db4509ee9342216"
     }
 ]`

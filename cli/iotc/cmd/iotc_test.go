@@ -18,7 +18,7 @@ import (
 
 func Test_All(t *testing.T) {
 	httpPort := config.Default.Explorer.Port
-	explorer.StartJSONServer(nil, nil, nil, nil, true, httpPort, 0)
+	explorer.StartJSONServer(nil, nil, nil, nil, nil, true, httpPort, 0)
 
 	s := strings.Split(self(), " ")
 	addr := s[len(s)-1]
