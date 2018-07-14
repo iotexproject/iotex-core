@@ -48,7 +48,7 @@ func TestActioninjector(t *testing.T) {
 	bcb := func(msg proto.Message) error {
 		return svr.P2p().Broadcast(msg)
 	}
-	explorer.StartJSONServer(svr.Bc(), svr.Cs(), svr.Dp(), bcb, false, httpPort, cfg.Explorer.TpsWindow)
+	explorer.StartJSONServer(svr.Bc(), svr.Cs(), svr.Dp(), svr.Ap(), bcb, false, httpPort, cfg.Explorer.TpsWindow)
 
 	// Create Explorer Client
 	client := explorer.NewExplorerProxy("http://127.0.0.1:14004")
@@ -74,7 +74,7 @@ func TestActioninjector(t *testing.T) {
 	for _, addr := range addrs {
 		addrDetails, err := client.GetAddressDetails(addr.RawAddress)
 		require.Nil(err)
-		nonce := uint64(addrDetails.Nonce + 1)
+		nonce := uint64(addrDetails.PendingNonce)
 		counter[addr.RawAddress] = nonce
 	}
 

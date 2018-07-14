@@ -43,6 +43,8 @@ func main() {
 		os.Exit(1)
 	}
 
+	cfg.Network.BootstrapNodes = []string{"127.0.0.1:4689", "127.0.0.1:10000"}
+
 	ctx := context.Background()
 	// create and start the node
 	svr := itx.NewServer(cfg)
@@ -75,7 +77,7 @@ func main() {
 		bcb := func(msg proto.Message) error {
 			return svr.P2p().Broadcast(msg)
 		}
-		explorer.StartJSONServer(svr.Bc(), svr.Cs(), svr.Dp(), bcb, isTest, cfg.Explorer.Port, cfg.Explorer.TpsWindow)
+		explorer.StartJSONServer(svr.Bc(), svr.Cs(), svr.Dp(), svr.Ap(), bcb, isTest, cfg.Explorer.Port, cfg.Explorer.TpsWindow)
 	}
 
 	select {}

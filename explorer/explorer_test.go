@@ -18,6 +18,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/config"
@@ -102,6 +103,25 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	return nil
 }
 
+func addActsToActPool(ap actpool.ActPool) error {
+	tsf1 := action.NewTransfer(1, big.NewInt(1), ta.Addrinfo["miner"].RawAddress, ta.Addrinfo["alfa"].RawAddress)
+	tsf1, _ = tsf1.Sign(ta.Addrinfo["miner"])
+	vote1 := action.NewVote(2, ta.Addrinfo["miner"].PublicKey, ta.Addrinfo["miner"].PublicKey)
+	vote1, _ = vote1.Sign(ta.Addrinfo["miner"])
+	tsf2 := action.NewTransfer(3, big.NewInt(1), ta.Addrinfo["miner"].RawAddress, ta.Addrinfo["bravo"].RawAddress)
+	tsf2, _ = tsf2.Sign(ta.Addrinfo["miner"])
+	if err := ap.AddTsf(tsf1); err != nil {
+		return err
+	}
+	if err := ap.AddVote(vote1); err != nil {
+		return err
+	}
+	if err := ap.AddTsf(tsf2); err != nil {
+		return err
+	}
+	return nil
+}
+
 func TestExplorerApi(t *testing.T) {
 	require := require.New(t)
 	cfg := config.Default
@@ -123,6 +143,7 @@ func TestExplorerApi(t *testing.T) {
 	ctx := context.Background()
 	bc := blockchain.NewBlockchain(&cfg, blockchain.PrecreatedStateFactoryOption(sf), blockchain.InMemDaoOption())
 	require.NotNil(bc)
+	ap, err := actpool.NewActPool(bc, cfg.ActPool)
 	height, err := bc.TipHeight()
 	require.Nil(err)
 	fmt.Printf("Open blockchain pass, height = %d\n", height)
@@ -131,6 +152,7 @@ func TestExplorerApi(t *testing.T) {
 
 	svc := Service{
 		bc:        bc,
+		ap:        ap,
 		tpsWindow: 10,
 	}
 
@@ -253,6 +275,7 @@ func TestExplorerApi(t *testing.T) {
 	addressDetails, err := svc.GetAddressDetails(ta.Addrinfo["charlie"].RawAddress)
 	require.Equal(int64(6), addressDetails.TotalBalance)
 	require.Equal(int64(2), addressDetails.Nonce)
+	require.Equal(int64(3), addressDetails.PendingNonce)
 	require.Equal(ta.Addrinfo["charlie"].RawAddress, addressDetails.Address)
 
 	// error
@@ -262,6 +285,32 @@ func TestExplorerApi(t *testing.T) {
 	tip, err := svc.GetBlockchainHeight()
 	require.Nil(err)
 	require.Equal(4, int(tip))
+
+	err = addActsToActPool(ap)
+	require.Nil(err)
+
+	// success
+	transfers, err = svc.GetUnconfirmedTransfersByAddress(ta.Addrinfo["miner"].RawAddress, 0, 3)
+	require.Nil(err)
+	require.Equal(2, len(transfers))
+	require.Equal(int64(1), transfers[0].Nonce)
+	require.Equal(int64(3), transfers[1].Nonce)
+	votes, err = svc.GetUnconfirmedVotesByAddress(ta.Addrinfo["miner"].RawAddress, 0, 3)
+	require.Nil(err)
+	require.Equal(1, len(votes))
+	require.Equal(int64(2), votes[0].Nonce)
+	transfers, err = svc.GetUnconfirmedTransfersByAddress(ta.Addrinfo["miner"].RawAddress, 1, 1)
+	require.Nil(err)
+	require.Equal(1, len(transfers))
+	require.Equal(int64(3), transfers[0].Nonce)
+	votes, err = svc.GetUnconfirmedVotesByAddress(ta.Addrinfo["miner"].RawAddress, 1, 1)
+	require.Equal(0, len(votes))
+
+	// error
+	transfers, err = svc.GetUnconfirmedTransfersByAddress("", 0, 3)
+	require.Error(err)
+	votes, err = svc.GetUnconfirmedVotesByAddress("", 0, 3)
+	require.Error(err)
 }
 
 func TestService_StateByAddr(t *testing.T) {
