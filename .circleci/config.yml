@@ -22,6 +22,7 @@ jobs:
       - checkout
 
       # specify any bash command here prefixed with `run: `
+      - run: export LD_LIBRARY_PATH=/go/src/github.com/iotexproject/iotex-core-internal/crypto/lib:/go/src/github.com/iotexproject/iotex-core/crypto/lib
       - run: golint -set_exit_status $(go list ./... | grep -v /vendor/ | grep -v /explorer/idl/)
       - run: go get -v -t -d ./...
       - run: ./go.test.sh
