@@ -105,11 +105,16 @@ func TestLocalActPool(t *testing.T) {
 		transfers, _ := ap.PickActs()
 		return len(transfers) == 1, nil
 	})
-	p1.Broadcast(act2)
-	p1.Broadcast(act3)
-	p1.Broadcast(act4)
-	p1.Broadcast(act5)
-	p1.Broadcast(act6)
+	err = p1.Broadcast(act2)
+	require.NoError(err)
+	err = p1.Broadcast(act3)
+	require.NoError(err)
+	err = p1.Broadcast(act4)
+	require.NoError(err)
+	err = p1.Broadcast(act5)
+	require.NoError(err)
+	err = p1.Broadcast(act6)
+	require.NoError(err)
 	// Wait until committed blocks contain all the broadcasted actions
 	err = util.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
 		// Check whether current committed blocks contain all the valid actions picked from actpool
@@ -188,7 +193,8 @@ func TestPressureActPool(t *testing.T) {
 	for i := 2; i <= 1000; i++ {
 		tsf, _ := signedTransfer(from, to, uint64(i), big.NewInt(int64(i)))
 		act := &pb.ActionPb{Action: &pb.ActionPb_Transfer{Transfer: tsf.ConvertToTransferPb()}}
-		p1.Broadcast(act)
+		err := p1.Broadcast(act)
+		require.NoError(err)
 	}
 
 	// Wait until committed blocks contain all broadcasted actions

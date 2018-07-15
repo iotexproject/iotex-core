@@ -168,7 +168,10 @@ func (b *boltDBBatch) Commit() error {
 			}
 		}
 		// clear queues
-		b.Clear()
+		err := b.Clear()
+		if err != nil {
+			return errors.Wrap(err, "failed to clear queues when commit")
+		}
 
 		return nil
 	})

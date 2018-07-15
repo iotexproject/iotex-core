@@ -27,8 +27,7 @@ func TestCryptoSort(t *testing.T) {
 		hashescp = append(hashescp, h[:])
 	}
 
-	err := Sort(hashes, 481)
-	assert.Nil(t, err)
+	Sort(hashes, 481)
 
 	same := true
 	for i, s := range hashes {

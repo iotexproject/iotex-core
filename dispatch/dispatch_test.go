@@ -31,8 +31,12 @@ func TestNewDispatcher(t *testing.T) {
 
 	bs.EXPECT().Start(gomock.Any()).Times(1)
 	bs.EXPECT().Stop(gomock.Any()).Times(1)
-	d.Start(ctx)
-	defer d.Stop(ctx)
+	err := d.Start(ctx)
+	assert.NoError(t, err)
+	defer func() {
+		err := d.Stop(ctx)
+		assert.NoError(t, err)
+	}()
 }
 
 func TestDispatchBlockMsg(t *testing.T) {
@@ -45,8 +49,12 @@ func TestDispatchBlockMsg(t *testing.T) {
 
 	bs.EXPECT().Start(gomock.Any()).Times(1)
 	bs.EXPECT().Stop(gomock.Any()).Times(1)
-	d.Start(ctx)
-	defer d.Stop(ctx)
+	err := d.Start(ctx)
+	assert.NoError(t, err)
+	defer func() {
+		err := d.Stop(ctx)
+		assert.NoError(t, err)
+	}()
 
 	done := make(chan bool, 1000)
 	bs.EXPECT().ProcessBlock(gomock.Any()).Times(1000).Return(nil)
@@ -68,8 +76,12 @@ func TestDispatchBlockSyncReq(t *testing.T) {
 
 	bs.EXPECT().Start(gomock.Any()).Times(1)
 	bs.EXPECT().Stop(gomock.Any()).Times(1)
-	d.Start(ctx)
-	defer d.Stop(ctx)
+	err := d.Start(ctx)
+	assert.NoError(t, err)
+	defer func() {
+		err := d.Stop(ctx)
+		assert.NoError(t, err)
+	}()
 
 	done := make(chan bool, 1000)
 	bs.EXPECT().ProcessSyncRequest(gomock.Any(), gomock.Any()).Times(1000).Return(nil)
@@ -91,8 +103,12 @@ func TestDispatchBlockSyncData(t *testing.T) {
 
 	bs.EXPECT().Start(gomock.Any()).Times(1)
 	bs.EXPECT().Stop(gomock.Any()).Times(1)
-	d.Start(ctx)
-	defer d.Stop(ctx)
+	err := d.Start(ctx)
+	assert.NoError(t, err)
+	defer func() {
+		err := d.Stop(ctx)
+		assert.NoError(t, err)
+	}()
 
 	done := make(chan bool, 1000)
 	bs.EXPECT().ProcessBlockSync(gomock.Any()).Times(1000).Return(nil)

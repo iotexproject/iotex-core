@@ -12,6 +12,7 @@ import (
 	"math/big"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/action"
@@ -291,7 +292,10 @@ func (c *sim) Start(ctx context.Context) error {
 		Str("scheme", c.cfg.Scheme).
 		Msg("Starting IotxConsensus scheme")
 
-	c.scheme.Start(ctx)
+	err := c.scheme.Start(ctx)
+	if err != nil {
+		return errors.Wrapf(err, "failed to start scheme %s", c.cfg.Scheme)
+	}
 	return nil
 }
 
@@ -300,7 +304,10 @@ func (c *sim) Stop(ctx context.Context) error {
 		Str("scheme", c.cfg.Scheme).
 		Msg("Stopping IotxConsensus scheme")
 
-	c.scheme.Stop(ctx)
+	err := c.scheme.Stop(ctx)
+	if err != nil {
+		return errors.Wrapf(err, "failed to stop scheme %s", c.cfg.Scheme)
+	}
 	return nil
 }
 
@@ -313,8 +320,15 @@ func (c *sim) HandleViewChange(m proto.Message, done chan bool) error {
 
 // SendUnsent sends all the unsent messages that were not able to send previously
 func (c *sim) SendUnsent() {
+	var errs []error
 	for i := 0; i < len(c.unsent); i++ {
-		c.stream.Send(c.unsent[i])
+		err := c.stream.Send(c.unsent[i])
+		if err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if len(errs) > 0 {
+		logger.Error().Errs("failed to send unsent messages", errs)
 	}
 	c.unsent = make([]*pbsim.Reply, 0)
 }

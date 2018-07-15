@@ -36,7 +36,8 @@ func TestNewAddress(t *testing.T) {
 	t.Logf("P2PKH = %x", p2pkh)
 
 	rmsg := make([]byte, 2048)
-	rand.Read(rmsg)
+	_, err = rand.Read(rmsg)
+	require.NoError(err)
 
 	sig := cp.Sign(addr.PrivateKey, rmsg)
 	require.True(cp.Verify(addr.PublicKey, rmsg, sig))

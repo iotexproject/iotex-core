@@ -59,7 +59,8 @@ chain:
 		hex.EncodeToString(testaddress.Addrinfo["alfa"].PublicKey),
 	)
 	Path = filepath.Join(os.TempDir(), "config.yaml")
-	ioutil.WriteFile(Path, []byte(cfgStr), 0666)
+	err := ioutil.WriteFile(Path, []byte(cfgStr), 0666)
+	require.NoError(t, err)
 	defer func() {
 		err := os.Remove(Path)
 		Path = ""
