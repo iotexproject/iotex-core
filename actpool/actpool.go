@@ -389,7 +389,10 @@ func (ap *actPool) addAction(sender string, act *iproto.ActionPb, hash hash.Hash
 		}
 	}
 
-	queue.Put(act)
+	err := queue.Put(act)
+	if err != nil {
+		return errors.Wrap(err, "cannot put act into ActQueue")
+	}
 	ap.allActions[hash] = act
 	// If the pending nonce equals this nonce, update queue
 	nonce := queue.PendingNonce()
