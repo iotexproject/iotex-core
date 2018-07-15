@@ -9,6 +9,7 @@ package db
 import (
 	"context"
 	"math/rand"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -68,7 +69,7 @@ func TestKVStorePutGet(t *testing.T) {
 		testKVStorePutGet(NewMemKVStore(), t)
 	})
 
-	path := "/tmp/test-kv-store-" + string(rand.Int())
+	path := "/tmp/test-kv-store-" + strconv.Itoa(rand.Int())
 	t.Run("Bolt DB", func(t *testing.T) {
 		util.CleanupPath(t, path)
 		defer util.CleanupPath(t, path)
@@ -122,7 +123,7 @@ func TestBatchRollback(t *testing.T) {
 		assert.Equal(testV1[2], value)
 	}
 
-	path := "/tmp/test-batch-rollback-" + string(rand.Int())
+	path := "/tmp/test-batch-rollback-" + strconv.Itoa(rand.Int())
 	t.Run("Bolt DB", func(t *testing.T) {
 		util.CleanupPath(t, path)
 		defer util.CleanupPath(t, path)
@@ -154,8 +155,10 @@ func TestDBBatch(t *testing.T) {
 		err = kvboltDB.Put(bucket1, testK1[2], testV1[0])
 		require.Nil(err)
 
-		batch.Put(bucket1, testK1[0], testV1[0], "")
-		batch.Put(bucket2, testK2[1], testV2[1], "")
+		err = batch.Put(bucket1, testK1[0], testV1[0], "")
+		require.Nil(err)
+		err = batch.Put(bucket2, testK2[1], testV2[1], "")
+		require.Nil(err)
 
 		value, err := kvboltDB.Get(bucket1, testK1[0])
 		require.Nil(err)
@@ -180,11 +183,14 @@ func TestDBBatch(t *testing.T) {
 		require.Nil(err)
 		require.Equal(testV1[0], value)
 
-		batch.Put(bucket1, testK1[0], testV1[1], "")
-		batch.PutIfNotExists(bucket2, testK2[1], testV2[0], "")
+		err = batch.Put(bucket1, testK1[0], testV1[1], "")
+		require.Nil(err)
+		err = batch.PutIfNotExists(bucket2, testK2[1], testV2[0], "")
+		require.Nil(err)
 		err = batch.Commit()
 		require.Equal(err, ErrAlreadyExist)
-		batch.Clear()
+		err = batch.Clear()
+		require.Nil(err)
 
 		value, err = kvboltDB.Get(bucket2, testK2[1])
 		require.Nil(err)
@@ -194,7 +200,8 @@ func TestDBBatch(t *testing.T) {
 		require.Nil(err)
 		require.Equal(testV1[0], value)
 
-		batch.PutIfNotExists(bucket3, testK2[0], testV2[0], "")
+		err = batch.PutIfNotExists(bucket3, testK2[0], testV2[0], "")
+		require.Nil(err)
 		err = batch.Commit()
 		require.Nil(err)
 
@@ -202,10 +209,12 @@ func TestDBBatch(t *testing.T) {
 		require.Nil(err)
 		require.Equal(testV2[0], value)
 
-		batch.Put(bucket1, testK1[2], testV1[2], "")
+		err = batch.Put(bucket1, testK1[2], testV1[2], "")
+		require.Nil(err)
 		// we did not set key in bucket3 yet, so this operation will fail and
 		// cause transaction rollback
-		batch.PutIfNotExists(bucket3, testK2[0], testV2[1], "")
+		err = batch.PutIfNotExists(bucket3, testK2[0], testV2[1], "")
+		require.Nil(err)
 		err = batch.Commit()
 		require.NotNil(err)
 
@@ -217,9 +226,12 @@ func TestDBBatch(t *testing.T) {
 		require.Nil(err)
 		require.Equal(testV2[1], value)
 
-		batch.Clear()
-		batch.Put(bucket1, testK1[2], testV1[2], "")
-		batch.Delete(bucket2, testK2[1], "")
+		err = batch.Clear()
+		require.Nil(err)
+		err = batch.Put(bucket1, testK1[2], testV1[2], "")
+		require.Nil(err)
+		err = batch.Delete(bucket2, testK2[1], "")
+		require.Nil(err)
 		err = batch.Commit()
 		require.Nil(err)
 
@@ -231,8 +243,8 @@ func TestDBBatch(t *testing.T) {
 		require.NotNil(err)
 	}
 
-	path := "/tmp/test-batch-rollback-" + string(rand.Int())
 	t.Run("Bolt DB", func(t *testing.T) {
+		path := "/tmp/test-batch-rollback-" + strconv.Itoa(rand.Int())
 		util.CleanupPath(t, path)
 		defer util.CleanupPath(t, path)
 		testBatchRollback(NewBoltDB(path, nil), t)

@@ -271,7 +271,12 @@ func (d *IotxDispatcher) HandleBroadcast(message proto.Message, done chan bool) 
 
 	switch msgType {
 	case pb.ViewChangeMsgType:
-		d.cs.HandleViewChange(message, done)
+		err := d.cs.HandleViewChange(message, done)
+		if err != nil {
+			logger.Error().
+				Err(err).
+				Msgf("failed to handle view change")
+		}
 	case pb.MsgActionType:
 		d.dispatchAction(message, done)
 	case pb.MsgBlockProtoMsgType:
@@ -302,7 +307,12 @@ func (d *IotxDispatcher) HandleTell(sender net.Addr, message proto.Message, done
 	case pb.MsgBlockSyncDataType:
 		d.dispatchBlockSyncData(message, done)
 	case pb.MsgBlockProtoMsgType:
-		d.cs.HandleBlockPropose(message, done)
+		err := d.cs.HandleBlockPropose(message, done)
+		if err != nil {
+			logger.Error().
+				Err(err).
+				Msgf("failed to handle block propose")
+		}
 	default:
 		logger.Warn().
 			Uint32("msgType", msgType).

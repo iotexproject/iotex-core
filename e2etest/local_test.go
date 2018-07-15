@@ -68,7 +68,8 @@ func TestLocalCommit(t *testing.T) {
 	p1 := network.NewOverlay(&cfg.Network)
 	require.NotNil(p1)
 	p1.RPC.Addr = "127.0.0.1:10001"
-	p1.Start(ctx)
+	err = p1.Start(ctx)
+	require.NoError(err)
 
 	defer func() {
 		require.Nil(p1.Stop(ctx))
@@ -215,10 +216,14 @@ func TestLocalCommit(t *testing.T) {
 	})
 	require.Nil(err)
 
-	p1.Broadcast(blk2.ConvertToBlockPb())
-	p1.Broadcast(blk4.ConvertToBlockPb())
-	p1.Broadcast(blk1.ConvertToBlockPb())
-	p1.Broadcast(blk3.ConvertToBlockPb())
+	err = p1.Broadcast(blk2.ConvertToBlockPb())
+	require.NoError(err)
+	err = p1.Broadcast(blk4.ConvertToBlockPb())
+	require.NoError(err)
+	err = p1.Broadcast(blk1.ConvertToBlockPb())
+	require.NoError(err)
+	err = p1.Broadcast(blk3.ConvertToBlockPb())
+	require.NoError(err)
 
 	err = util.WaitUntil(10*time.Millisecond, 10*time.Second, func() (bool, error) {
 		height, err := bc.TipHeight()
@@ -351,7 +356,8 @@ func TestLocalSync(t *testing.T) {
 	}()
 
 	// P1 download 4 blocks from P2
-	p1.Tell(node.NewTCPNode(p2.Self().String()), &pb.BlockSync{Start: 1, End: 4})
+	err = p1.Tell(node.NewTCPNode(p2.Self().String()), &pb.BlockSync{Start: 1, End: 4})
+	require.NoError(err)
 	check := util.CheckCondition(func() (bool, error) {
 		blk1, err := bc1.GetBlockByHeight(1)
 		if err != nil {
@@ -420,7 +426,8 @@ func TestVoteLocalCommit(t *testing.T) {
 	p1 := network.NewOverlay(&cfg.Network)
 	require.NotNil(p1)
 	p1.RPC.Addr = "127.0.0.1:10001"
-	p1.Start(ctx)
+	err = p1.Start(ctx)
+	require.NoError(err)
 
 	defer func() {
 		require.Nil(p1.Stop(ctx))
@@ -465,7 +472,8 @@ func TestVoteLocalCommit(t *testing.T) {
 	hash1 := blk1.HashBlock()
 	require.Nil(err)
 
-	p1.Broadcast(blk1.ConvertToBlockPb())
+	err = p1.Broadcast(blk1.ConvertToBlockPb())
+	require.NoError(err)
 	err = util.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
 		height, err := bc.TipHeight()
 		if err != nil {
@@ -500,7 +508,8 @@ func TestVoteLocalCommit(t *testing.T) {
 	})
 	require.Nil(err)
 
-	p1.Broadcast(blk2.ConvertToBlockPb())
+	err = p1.Broadcast(blk2.ConvertToBlockPb())
+	require.NoError(err)
 
 	err = util.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
 		height, err := bc.TipHeight()
@@ -547,7 +556,8 @@ func TestVoteLocalCommit(t *testing.T) {
 	})
 	require.Nil(err)
 
-	p1.Broadcast(blk3.ConvertToBlockPb())
+	err = p1.Broadcast(blk3.ConvertToBlockPb())
+	require.NoError(err)
 
 	err = util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		height, err := bc.TipHeight()
@@ -593,7 +603,8 @@ func TestVoteLocalCommit(t *testing.T) {
 	})
 	require.Nil(err)
 
-	p1.Broadcast(blk4.ConvertToBlockPb())
+	err = p1.Broadcast(blk4.ConvertToBlockPb())
+	require.NoError(err)
 
 	err = util.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
 		height, err := bc.TipHeight()

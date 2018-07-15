@@ -10,6 +10,7 @@ import (
 	"context"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
@@ -129,7 +130,10 @@ func (c *IotxConsensus) Start(ctx context.Context) error {
 		Str("scheme", c.cfg.Scheme).
 		Msg("Starting IotxConsensus scheme")
 
-	c.scheme.Start(ctx)
+	err := c.scheme.Start(ctx)
+	if err != nil {
+		return errors.Wrapf(err, "failed to start scheme %s", c.cfg.Scheme)
+	}
 	return nil
 }
 
@@ -139,7 +143,10 @@ func (c *IotxConsensus) Stop(ctx context.Context) error {
 		Str("scheme", c.cfg.Scheme).
 		Msg("Stopping IotxConsensus scheme")
 
-	c.scheme.Stop(ctx)
+	err := c.scheme.Stop(ctx)
+	if err != nil {
+		return errors.Wrapf(err, "failed to stop scheme %s", c.cfg.Scheme)
+	}
 	return nil
 }
 

@@ -135,7 +135,8 @@ func TestExplorerApi(t *testing.T) {
 
 	sf, err := state.NewFactory(&cfg, state.InMemTrieOption())
 	require.Nil(err)
-	sf.CreateState(ta.Addrinfo["miner"].RawAddress, blockchain.Gen.TotalSupply)
+	_, err = sf.CreateState(ta.Addrinfo["miner"].RawAddress, blockchain.Gen.TotalSupply)
+	require.NoError(err)
 	// Disable block reward to make bookkeeping easier
 	blockchain.Gen.BlockReward = uint64(0)
 
@@ -148,7 +149,8 @@ func TestExplorerApi(t *testing.T) {
 	require.Nil(err)
 	fmt.Printf("Open blockchain pass, height = %d\n", height)
 	require.Nil(addTestingBlocks(bc))
-	bc.Stop(ctx)
+	err = bc.Stop(ctx)
+	require.NoError(err)
 
 	svc := Service{
 		bc:        bc,

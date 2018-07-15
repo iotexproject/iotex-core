@@ -21,7 +21,7 @@ var (
 )
 
 // Sort sorts a given slices of hashes cryptographically using blake2b hash function
-func Sort(hashes [][]byte, nonce uint64) error {
+func Sort(hashes [][]byte, nonce uint64) {
 	nb := make([]byte, 8)
 	enc.MachineEndian.PutUint64(nb, nonce)
 
@@ -30,6 +30,4 @@ func Sort(hashes [][]byte, nonce uint64) error {
 		hj := blake2b.Sum256(append(append(hashes[j], cryptoSeed...), nb...))
 		return bytes.Compare(hi[:], hj[:]) < 0
 	})
-
-	return nil
 }
