@@ -111,13 +111,15 @@ func TestOverlay(t *testing.T) {
 		}
 		node := NewOverlay(config)
 		node.AttachDispatcher(dp)
-		node.Start(ctx)
+		err := node.Start(ctx)
+		assert.NoError(t, err)
 		nodes = append(nodes, node)
 	}
 
 	defer func() {
 		for _, node := range nodes {
-			node.Stop(ctx)
+			err := node.Stop(ctx)
+			assert.NoError(t, err)
 		}
 	}()
 
@@ -126,7 +128,8 @@ func TestOverlay(t *testing.T) {
 		assert.True(t, LenSyncMap(nodes[i].PM.Peers) >= nodes[i].PM.NumPeersLowerBound)
 	}
 
-	nodes[0].Broadcast(&iproto.TxPb{})
+	err := nodes[0].Broadcast(&iproto.TxPb{})
+	assert.NoError(t, err)
 	time.Sleep(5 * time.Second)
 	for i, dp := range dps {
 		if i == 0 {
@@ -168,23 +171,29 @@ func TestTell(t *testing.T) {
 	addr2 := randomAddress()
 	p1 := NewOverlay(LoadTestConfig(addr1, true))
 	p1.AttachDispatcher(dp1)
-	p1.Start(ctx)
+	err := p1.Start(ctx)
+	assert.NoError(t, err)
 	dp2 := &MockDispatcher2{T: t}
 	p2 := NewOverlay(LoadTestConfig(addr2, true))
 	p2.AttachDispatcher(dp2)
-	p2.Start(ctx)
+	err = p2.Start(ctx)
+	assert.NoError(t, err)
 
 	defer func() {
-		p1.Stop(ctx)
-		p2.Stop(ctx)
+		err := p1.Stop(ctx)
+		assert.NoError(t, err)
+		err = p2.Stop(ctx)
+		assert.NoError(t, err)
 	}()
 
 	// P1 tell Tx Msg
-	p1.Tell(&node.Node{Addr: addr2}, &iproto.TxPb{Version: uint32(12345678)})
+	err = p1.Tell(&node.Node{Addr: addr2}, &iproto.TxPb{Version: uint32(12345678)})
+	assert.NoError(t, err)
 	// P2 tell Tx Msg
-	p2.Tell(&node.Node{Addr: addr1}, &iproto.TxPb{Version: uint32(87654321)})
+	err = p2.Tell(&node.Node{Addr: addr1}, &iproto.TxPb{Version: uint32(87654321)})
+	assert.NoError(t, err)
 
-	err := util.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+	err = util.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
 		if dp2.Count != uint32(1) {
 			return false, nil
 		}
@@ -204,23 +213,28 @@ func TestOneConnPerIP(t *testing.T) {
 	addr3 := randomAddress()
 	p1 := NewOverlay(LoadTestConfig(addr1, false))
 	p1.AttachDispatcher(dp1)
-	p1.Start(ctx)
+	err := p1.Start(ctx)
 	dp2 := &MockDispatcher2{T: t}
 	p2 := NewOverlay(LoadTestConfig(addr2, false))
 	p2.AttachDispatcher(dp2)
-	p2.Start(ctx)
+	err = p2.Start(ctx)
+	assert.NoError(t, err)
 	dp3 := &MockDispatcher2{T: t}
 	p3 := NewOverlay(LoadTestConfig(addr3, false))
 	p3.AttachDispatcher(dp3)
-	p3.Start(ctx)
+	err = p3.Start(ctx)
+	assert.NoError(t, err)
 
 	defer func() {
-		p1.Stop(ctx)
-		p2.Stop(ctx)
-		p3.Stop(ctx)
+		err := p1.Stop(ctx)
+		assert.NoError(t, err)
+		err = p2.Stop(ctx)
+		assert.NoError(t, err)
+		err = p3.Stop(ctx)
+		assert.NoError(t, err)
 	}()
 
-	err := util.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+	err = util.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
 		if uint(1) != LenSyncMap(p1.PM.Peers) {
 			return false, nil
 		}
@@ -253,7 +267,8 @@ func TestConfigBasedTopology(t *testing.T) {
 	topologyStr, err := yaml.Marshal(topology)
 	assert.Nil(t, err)
 	path := "/tmp/topology_" + strconv.Itoa(rand.Int()) + ".yaml"
-	ioutil.WriteFile(path, topologyStr, 0666)
+	err = ioutil.WriteFile(path, topologyStr, 0666)
+	assert.NoError(t, err)
 
 	nodes := make([]*IotxOverlay, 4)
 	for i := 1; i <= 4; i++ {
@@ -263,13 +278,15 @@ func TestConfigBasedTopology(t *testing.T) {
 		dp := &MockDispatcher{}
 		node := NewOverlay(config)
 		node.AttachDispatcher(dp)
-		node.Start(ctx)
+		err = node.Start(ctx)
+		assert.NoError(t, err)
 		nodes[i-1] = node
 	}
 
 	defer func() {
 		for _, node := range nodes {
-			node.Stop(ctx)
+			err := node.Stop(ctx)
+			assert.NoError(t, err)
 		}
 		if os.Remove(path) != nil {
 			assert.Fail(t, "Error when deleting the test file")
@@ -324,16 +341,19 @@ func runBenchmarkOp(tell bool, size int, parallel bool, tls bool, b *testing.B) 
 	d1 := &MockDispatcher3{C: c1}
 	p1 := NewOverlay(cfg1)
 	p1.AttachDispatcher(d1)
-	p1.Start(ctx)
+	err := p1.Start(ctx)
 	c2 := make(chan bool)
 	d2 := &MockDispatcher3{C: c2}
 	p2 := NewOverlay(cfg2)
 	p2.AttachDispatcher(d2)
-	p2.Start(ctx)
+	err = p2.Start(ctx)
+	assert.NoError(b, err)
 
 	defer func() {
-		p1.Stop(ctx)
-		p2.Stop(ctx)
+		err := p1.Stop(ctx)
+		assert.NoError(b, err)
+		err = p2.Stop(ctx)
+		assert.NoError(b, err)
 	}()
 
 	time.Sleep(time.Second)
@@ -347,9 +367,11 @@ func runBenchmarkOp(tell bool, size int, parallel bool, tls bool, b *testing.B) 
 		b.RunParallel(func(pb *testing.PB) {
 			for pb.Next() {
 				if tell {
-					p1.Tell(&node.Node{Addr: "127.0.0.1:10002"}, &iproto.TestPayload{MsgBody: bytes})
+					err := p1.Tell(&node.Node{Addr: "127.0.0.1:10002"}, &iproto.TestPayload{MsgBody: bytes})
+					assert.NoError(b, err)
 				} else {
-					p1.Broadcast(&iproto.TestPayload{MsgBody: bytes})
+					err := p1.Broadcast(&iproto.TestPayload{MsgBody: bytes})
+					assert.NoError(b, err)
 				}
 				<-c2
 			}
@@ -357,9 +379,11 @@ func runBenchmarkOp(tell bool, size int, parallel bool, tls bool, b *testing.B) 
 	} else {
 		for i := 0; i < b.N; i++ {
 			if tell {
-				p1.Tell(&node.Node{Addr: "127.0.0.1:10002"}, &iproto.TestPayload{MsgBody: bytes})
+				err := p1.Tell(&node.Node{Addr: "127.0.0.1:10002"}, &iproto.TestPayload{MsgBody: bytes})
+				assert.NoError(b, err)
 			} else {
-				p1.Broadcast(&iproto.TestPayload{MsgBody: bytes})
+				err := p1.Broadcast(&iproto.TestPayload{MsgBody: bytes})
+				assert.NoError(b, err)
 			}
 			<-c2
 		}

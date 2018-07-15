@@ -81,7 +81,13 @@ func (pm *PeerManager) AddPeer(addr string) {
 		}
 	}
 	p := NewTCPPeer(addr)
-	p.Connect(pm.Overlay.Config)
+	err := p.Connect(pm.Overlay.Config)
+	if err != nil {
+		logger.Error().
+			Str("src", pm.Overlay.RPC.String()).
+			Str("dst", addr).
+			Msg("failed to establish an outgoing connection")
+	}
 	pm.Peers.Store(addr, p)
 	logger.Debug().
 		Str("src", pm.Overlay.RPC.String()).
@@ -99,7 +105,13 @@ func (pm *PeerManager) RemovePeer(addr string) {
 		return
 	}
 	pm.Peers.Delete(p.(*Peer).String())
-	p.(*Peer).Close()
+	err := p.(*Peer).Close()
+	if err != nil {
+		logger.Error().
+			Str("src", pm.Overlay.RPC.String()).
+			Str("dst", addr).
+			Msg("failed to terminate an outgoing connection")
+	}
 }
 
 // RemoveLRUPeer removes the least recently used (contacted) peer

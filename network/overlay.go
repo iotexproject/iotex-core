@@ -113,16 +113,19 @@ func (o *IotxOverlay) addConfigBasedPeerMaintainer() {
 func (o *IotxOverlay) Broadcast(msg proto.Message) error {
 	msgType, err := iproto.GetTypeFromProtoMsg(msg)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "failed to convert msg to proto when broadcast")
 	}
 	msgBody, err := proto.Marshal(msg)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "failed to marshal msg when broadcast")
 	}
 	// Source also needs to remember the message sent so that it wouldn't process it again
 	o.Gossip.storeBroadcastMsgChecksum(o.Gossip.getBroadcastMsgChecksum(msgBody))
 	// Kick off the message
-	o.Gossip.relayMsg(msgType, msgBody, o.Config.TTL)
+	err = o.Gossip.relayMsg(msgType, msgBody, o.Config.TTL)
+	if err != nil {
+		return errors.Wrap(err, "failed to relay msg when broadcast")
+	}
 	return nil
 }
 
@@ -145,13 +148,21 @@ func (o *IotxOverlay) Tell(node net.Addr, msg proto.Message) error {
 
 	msgType, err := iproto.GetTypeFromProtoMsg(msg)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "failed to convert msg to proto when tell msg")
 	}
 	msgBody, err := proto.Marshal(msg)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "failed to marshal msg when broadcast")
 	}
-	go peer.Tell(&pb.TellReq{Addr: o.RPC.String(), MsgType: msgType, MsgBody: msgBody})
+	go func() {
+		_, err := peer.Tell(&pb.TellReq{Addr: o.RPC.String(), MsgType: msgType, MsgBody: msgBody})
+		if err != nil {
+			logger.Error().
+				Str("Addr", o.RPC.String()).
+				Str("MsgType", string(msgType)).
+				Msg("failed to tell msg")
+		}
+	}()
 	return nil
 }
 

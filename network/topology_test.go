@@ -16,7 +16,8 @@ func TestLoadTestTopology(t *testing.T) {
 	topologyStr, err := yaml.Marshal(topology1)
 	assert.Nil(t, err)
 	path := "/tmp/topology_" + strconv.Itoa(rand.Int()) + ".yaml"
-	ioutil.WriteFile(path, topologyStr, 0666)
+	err = ioutil.WriteFile(path, topologyStr, 0666)
+	assert.NoError(t, err)
 
 	defer func() {
 		if os.Remove(path) != nil {
