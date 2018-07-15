@@ -126,7 +126,7 @@ func (t *trie) Delete(key []byte) error {
 		return errors.Wrapf(ErrNotExist, "key = %x not exist", key)
 	}
 	if err != nil {
-		return err
+		return errors.Wrap(err, "failed to query")
 	}
 	var index byte
 	var childClps bool
@@ -137,14 +137,14 @@ func (t *trie) Delete(key []byte) error {
 		size = len(key)
 		index = key[size-1]
 		if ptr, err = t.getPatricia(ptr.(*branch).Path[index]); err != nil {
-			return err
+			return errors.Wrap(err, "failed to getPatricia")
 		}
 	} else {
 		ptr, index = t.popToRoot()
 	}
 	// delete the entry and update if it can collapse
 	if childClps, clpsType, err = t.delete(ptr, index); err != nil {
-		return err
+		return errors.Wrap(err, "failed to delete")
 	}
 	if t.numEntry == 1 {
 		return errors.Wrapf(ErrInvalidTrie, "trie has more entries than ever added")
@@ -252,7 +252,10 @@ func (t *trie) upsert(key, value []byte) error {
 			return err
 		}
 		// update with new value
-		ptr.set(value, index)
+		err := ptr.set(value, index)
+		if err != nil {
+
+		}
 		if err := t.putPatricia(ptr); err != nil {
 			return err
 		}
@@ -370,7 +373,7 @@ func (t *trie) updateDelete(curr patricia, currClps bool, clpsType byte) error {
 			return errors.Wrap(ErrInvalidPatricia, "patricia pushed on stack is not valid")
 		}
 		if err := t.delPatricia(next); err != nil {
-			return err
+			return errors.Wrap(err, "failed to put patricia")
 		}
 		// we attempt to collapse in 2 cases:
 		// 1. the current node is not root
@@ -406,18 +409,21 @@ func (t *trie) updateDelete(curr patricia, currClps bool, clpsType byte) error {
 				// after collapsing, the trie might rollback to an earlier state in the history (before adding the deleted entry)
 				// so the node we try to put may already exist in DB
 				if err := t.putPatricia(curr); err != nil {
-					return err
+					return errors.Wrap(err, "failed to put patricia")
 				}
 			}
 		}
 		contClps = false
 		// update current with new child
 		hash := curr.hash()
-		next.ascend(hash[:], index)
+		err := next.ascend(hash[:], index)
+		if err != nil {
+			return errors.Wrap(err, "failed to ascend")
+		}
 		// for the same reason above, the trie might rollback to an earlier state in the history
 		// so the node we try to put may already exist in DB
 		if err := t.putPatricia(next); err != nil {
-			return err
+			return errors.Wrap(err, "failed to put patricia")
 		}
 		currClps = nextClps
 		curr = next
@@ -478,7 +484,7 @@ func (t *trie) putPatricia(ptr patricia) error {
 func (t *trie) putPatriciaNew(ptr patricia) error {
 	value, err := ptr.serialize()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "failed to serialize patricia")
 	}
 	key := ptr.hash()
 	if err := t.dao.PutIfNotExists(t.bucket, key[:], value); err != nil {

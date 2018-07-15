@@ -28,7 +28,7 @@ import (
 
 func init() {
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr,
+		_, _ = fmt.Fprintf(os.Stderr,
 			"usage: server -config=[string]\n")
 		flag.PrintDefaults()
 		os.Exit(2)
@@ -49,7 +49,12 @@ func main() {
 	if err := svr.Start(ctx); err != nil {
 		os.Exit(1)
 	}
-	defer svr.Stop(ctx)
+	defer func() {
+		err := svr.Stop(ctx)
+		if err != nil {
+			logger.Error().Err(err)
+		}
+	}()
 
 	if cfg.System.HeartbeatInterval > 0 {
 		task := routine.NewRecurringTask(itx.NewHeartbeatHandler(svr).Log, cfg.System.HeartbeatInterval)
