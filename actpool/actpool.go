@@ -391,6 +391,10 @@ func (ap *actPool) addAction(sender string, act *iproto.ActionPb, hash hash.Hash
 
 	err := queue.Put(act)
 	if err != nil {
+		logger.Warn().
+			Hex("hash", hash[:]).
+			Err(err).
+			Msg("cannot put act into ActQueue")
 		return errors.Wrap(err, "cannot put act into ActQueue")
 	}
 	ap.allActions[hash] = act
