@@ -198,6 +198,7 @@ func TestSignBlock(t *testing.T) {
 	require.Nil(err)
 	hash := tsf1.Hash()
 	blk := NewBlock(1, 3, hash, []*action.Transfer{tsf1, tsf2}, nil)
-	blk.SignBlock(ta.Addrinfo["miner"])
+	err = blk.SignBlock(ta.Addrinfo["miner"])
+	require.Nil(err)
 	require.Nil(val.Validate(blk, 2, hash))
 }

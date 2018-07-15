@@ -146,7 +146,10 @@ func TestCreateBlockchain(t *testing.T) {
 	assert.Nil(err)
 	assert.Equal(0, int(height))
 	fmt.Printf("Create blockchain pass, height = %d\n", height)
-	defer bc.Stop(ctx)
+	defer func() {
+		err := bc.Stop(ctx)
+		assert.NoError(err)
+	}()
 
 	// verify Genesis block
 	genesis, _ := bc.GetBlockByHeight(0)
@@ -199,7 +202,8 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 
 	sf, err := state.NewFactory(&cfg, state.DefaultTrieOption())
 	require.Nil(err)
-	sf.CreateState(ta.Addrinfo["miner"].RawAddress, Gen.TotalSupply)
+	_, err = sf.CreateState(ta.Addrinfo["miner"].RawAddress, Gen.TotalSupply)
+	assert.NoError(t, err)
 
 	// Create a blockchain from scratch
 	bc := NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
@@ -209,11 +213,15 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	fmt.Printf("Open blockchain pass, height = %d\n", height)
 	require.Nil(addTestingTsfBlocks(bc))
 	ctx := context.Background()
-	bc.Stop(ctx)
+	err = bc.Stop(ctx)
+	require.NoError(err)
 
 	// Load a blockchain from DB
 	bc = NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
-	defer bc.Stop(ctx)
+	defer func() {
+		err := bc.Stop(ctx)
+		require.NoError(err)
+	}()
 	require.NotNil(bc)
 
 	// check hash<-->height mapping
@@ -380,7 +388,10 @@ func TestBlockchain_Validator(t *testing.T) {
 
 	ctx := context.Background()
 	bc := NewBlockchain(&cfg, InMemDaoOption(), InMemStateFactoryOption())
-	defer bc.Stop(ctx)
+	defer func() {
+		err := bc.Stop(ctx)
+		assert.Nil(t, err)
+	}()
 	assert.NotNil(t, bc)
 
 	val := bc.Validator()
@@ -396,7 +407,10 @@ func TestBlockchain_MintNewDummyBlock(t *testing.T) {
 
 	ctx := context.Background()
 	bc := NewBlockchain(&cfg, InMemDaoOption(), InMemStateFactoryOption())
-	defer bc.Stop(ctx)
+	defer func() {
+		err := bc.Stop(ctx)
+		assert.Nil(t, err)
+	}()
 	assert.NotNil(t, bc)
 
 	blk, err := bc.MintNewDummyBlock()
@@ -446,7 +460,8 @@ func TestCoinbaseTransfer(t *testing.T) {
 
 	sf, err := state.NewFactory(&cfg, state.DefaultTrieOption())
 	require.Nil(err)
-	sf.CreateState(ta.Addrinfo["miner"].RawAddress, Gen.TotalSupply)
+	_, err = sf.CreateState(ta.Addrinfo["miner"].RawAddress, Gen.TotalSupply)
+	assert.NoError(t, err)
 
 	Gen.BlockReward = uint64(10)
 
