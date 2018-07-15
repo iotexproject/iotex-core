@@ -29,16 +29,21 @@ func TestRpcPingPong(t *testing.T) {
 	o.PM = &PeerManager{Overlay: o, NumPeersLowerBound: 1, NumPeersUpperBound: 1}
 	s := NewRPCServer(o)
 	o.RPC = s
-	s.Start(ctx)
+	err := s.Start(ctx)
+	assert.NoError(t, err)
 	p := NewPeer(s.Network(), s.String())
-	p.Connect(config)
+	err = p.Connect(config)
+	assert.NoError(t, err)
 
 	defer func() {
-		p.Close()
-		s.Stop(ctx)
+		err := p.Close()
+		assert.NoError(t, err)
+		err = s.Stop(ctx)
+		assert.NoError(t, err)
 	}()
 
-	util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) { return o.RPC.Started(), nil })
+	err = util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) { return o.RPC.Started(), nil })
+	assert.NoError(t, err)
 
 	pong, err := p.Ping(&pb.Ping{Nonce: uint64(4689), Addr: "127.0.0.1:10001"})
 	assert.Nil(t, err)
@@ -59,16 +64,21 @@ func TestGetPeers(t *testing.T) {
 	o.PM.Peers.Store("127.0.0.1:10002", NewTCPPeer("127.0.0.1:10002"))
 	s := NewRPCServer(o)
 	o.RPC = s
-	s.Start(ctx)
+	err := s.Start(ctx)
+	assert.NoError(t, err)
 	p := NewPeer(s.Network(), s.String())
-	p.Connect(config)
+	err = p.Connect(config)
+	assert.NoError(t, err)
 
 	defer func() {
-		p.Close()
-		s.Stop(ctx)
+		err := p.Close()
+		assert.NoError(t, err)
+		err = s.Stop(ctx)
+		assert.NoError(t, err)
 	}()
 
-	util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) { return o.RPC.Started(), nil })
+	err = util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) { return o.RPC.Started(), nil })
+	assert.NoError(t, err)
 
 	res, err := p.GetPeers(&pb.GetPeersReq{Count: 1})
 	assert.Nil(t, err)
@@ -102,16 +112,21 @@ func TestBroadcast(t *testing.T) {
 	o.Gossip = &Gossip{Overlay: o}
 	s := NewRPCServer(o)
 	o.RPC = s
-	s.Start(ctx)
+	err := s.Start(ctx)
+	assert.NoError(t, err)
 	p := NewPeer(s.Network(), s.String())
-	p.Connect(config)
+	err = p.Connect(config)
+	assert.NoError(t, err)
 
 	defer func() {
-		p.Close()
-		s.Stop(ctx)
+		err := p.Close()
+		assert.NoError(t, err)
+		err = s.Stop(ctx)
+		assert.NoError(t, err)
 	}()
 
-	util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) { return o.RPC.Started(), nil })
+	err = util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) { return o.RPC.Started(), nil })
+	assert.NoError(t, err)
 
 	txMsg := &iproto.TxPb{}
 	b, _ := proto.Marshal(txMsg)
@@ -132,17 +147,22 @@ func TestRPCTell(t *testing.T) {
 	o := &IotxOverlay{Dispatcher: dp, Config: config}
 	s := NewRPCServer(o)
 	o.RPC = s
-	s.Start(ctx)
+	err := s.Start(ctx)
+	assert.NoError(t, err)
 	p := NewPeer(s.Network(), s.String())
-	p.Connect(config)
+	err = p.Connect(config)
+	assert.NoError(t, err)
 
 	defer func() {
-		p.Close()
-		s.Stop(ctx)
+		err := p.Close()
+		assert.NoError(t, err)
+		err = s.Stop(ctx)
+		assert.NoError(t, err)
 		mctrl.Finish()
 	}()
 
-	util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) { return o.RPC.Started(), nil })
+	err = util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) { return o.RPC.Started(), nil })
+	assert.NoError(t, err)
 
 	txMsg := &iproto.TxPb{}
 	b, _ := proto.Marshal(txMsg)
@@ -168,20 +188,24 @@ func TestRateLimit(t *testing.T) {
 	o := &IotxOverlay{Dispatcher: dp, Config: config}
 	s := NewRPCServer(o)
 	o.RPC = s
-	s.Start(ctx)
+	err := s.Start(ctx)
+	assert.NoError(t, err)
 	p := NewPeer(s.Network(), s.String())
-	p.Connect(config)
+	err = p.Connect(config)
+	assert.NoError(t, err)
 
 	defer func() {
-		p.Close()
-		s.Stop(ctx)
+		err := p.Close()
+		assert.NoError(t, err)
+		err = s.Stop(ctx)
+		assert.NoError(t, err)
 		mctrl.Finish()
 	}()
 
-	util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) { return o.RPC.Started(), nil })
+	err = util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) { return o.RPC.Started(), nil })
+	assert.NoError(t, err)
 
 	var res *pb.TellRes
-	var err error
 	for i := 0; i < 10; i++ {
 		txMsg := &iproto.TxPb{}
 		b, _ := proto.Marshal(txMsg)
@@ -212,16 +236,21 @@ func TestSecureRpcPingPong(t *testing.T) {
 	o.PM = &PeerManager{Overlay: o, NumPeersLowerBound: 1, NumPeersUpperBound: 1}
 	s := NewRPCServer(o)
 	o.RPC = s
-	s.Start(ctx)
+	err := s.Start(ctx)
+	assert.NoError(t, err)
 	p := NewPeer(s.Network(), s.String())
-	p.Connect(config)
+	err = p.Connect(config)
+	assert.NoError(t, err)
 
 	defer func() {
-		p.Close()
-		s.Stop(ctx)
+		err := p.Close()
+		assert.NoError(t, err)
+		err = s.Stop(ctx)
+		assert.NoError(t, err)
 	}()
 
-	util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) { return o.RPC.Started(), nil })
+	err = util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) { return o.RPC.Started(), nil })
+	assert.NoError(t, err)
 
 	pong, err := p.Ping(&pb.Ping{Nonce: uint64(4689), Addr: "127.0.0.1:10001"})
 	assert.Nil(t, err)
@@ -246,16 +275,20 @@ func TestKeepaliveParams(t *testing.T) {
 	o.PM = &PeerManager{Overlay: o, NumPeersLowerBound: 1, NumPeersUpperBound: 1}
 	s := NewRPCServer(o)
 	o.RPC = s
-	s.Start(ctx)
+	err := s.Start(ctx)
 	p := NewPeer(s.Network(), s.String())
-	p.Connect(config)
+	err = p.Connect(config)
+	assert.NoError(t, err)
 
 	defer func() {
-		p.Close()
-		s.Stop(ctx)
+		err := p.Close()
+		assert.NoError(t, err)
+		err = s.Stop(ctx)
+		assert.NoError(t, err)
 	}()
 
-	util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) { return o.RPC.Started(), nil })
+	err = util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) { return o.RPC.Started(), nil })
+	assert.NoError(t, err)
 
 	for i := 0; i < 5; i++ {
 		time.Sleep(100 * time.Millisecond)
