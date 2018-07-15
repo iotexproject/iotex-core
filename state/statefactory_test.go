@@ -238,17 +238,23 @@ func TestCandidate(t *testing.T) {
 		candidateBufferMinHeap: CandidateMinPQ{candidateBufferSize, make([]*Candidate, 0)},
 		candidateBufferMaxHeap: CandidateMaxPQ{candidateBufferSize, make([]*Candidate, 0)},
 	}
-	sf.CreateState(a.RawAddress, uint64(100))
-	sf.CreateState(b.RawAddress, uint64(200))
-	sf.CreateState(c.RawAddress, uint64(300))
-	sf.CreateState(d.RawAddress, uint64(100))
-	sf.CreateState(e.RawAddress, uint64(100))
-	sf.CreateState(f.RawAddress, uint64(300))
+	_, err := sf.CreateState(a.RawAddress, uint64(100))
+	require.NoError(t, err)
+	_, err = sf.CreateState(b.RawAddress, uint64(200))
+	require.NoError(t, err)
+	_, err = sf.CreateState(c.RawAddress, uint64(300))
+	require.NoError(t, err)
+	_, err = sf.CreateState(d.RawAddress, uint64(100))
+	require.NoError(t, err)
+	_, err = sf.CreateState(e.RawAddress, uint64(100))
+	require.NoError(t, err)
+	_, err = sf.CreateState(f.RawAddress, uint64(300))
+	require.NoError(t, err)
 
 	// a:100(0) b:200(0) c:300(0)
 	tx1 := action.Transfer{Sender: a.RawAddress, Recipient: b.RawAddress, Nonce: uint64(1), Amount: big.NewInt(10)}
 	tx2 := action.Transfer{Sender: a.RawAddress, Recipient: c.RawAddress, Nonce: uint64(2), Amount: big.NewInt(20)}
-	err := sf.CommitStateChanges(0, []*action.Transfer{&tx1, &tx2}, []*action.Vote{})
+	err = sf.CommitStateChanges(0, []*action.Transfer{&tx1, &tx2}, []*action.Vote{})
 	require.Nil(t, err)
 	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{}))
 	require.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{}))
@@ -470,11 +476,13 @@ func TestUnvote(t *testing.T) {
 		candidateBufferMinHeap: CandidateMinPQ{candidateBufferSize, make([]*Candidate, 0)},
 		candidateBufferMaxHeap: CandidateMaxPQ{candidateBufferSize, make([]*Candidate, 0)},
 	}
-	sf.CreateState(a.RawAddress, uint64(100))
-	sf.CreateState(b.RawAddress, uint64(200))
+	_, err := sf.CreateState(a.RawAddress, uint64(100))
+	require.NoError(t, err)
+	_, err = sf.CreateState(b.RawAddress, uint64(200))
+	require.NoError(t, err)
 
 	vote1 := action.NewVote(0, a.PublicKey, []byte{})
-	err := sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote1})
+	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote1})
 	require.Nil(t, err)
 	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{}))
 	require.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{}))

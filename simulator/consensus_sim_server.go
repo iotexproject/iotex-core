@@ -121,7 +121,10 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 		}
 		dlg := delegate.NewConfigBasedPool(&cfg.Delegate)
 		bs, _ := blocksync.NewBlockSyncer(&cfg, bc, ap, overlay)
-		bs.Start(ctx)
+		err = bs.Start(ctx)
+		if err != nil {
+			logger.Fatal().Err(err).Msg("Fail to start blocksync")
+		}
 
 		var node consensus.Sim
 		if i < int(in.NHonest) {
@@ -138,7 +141,10 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 		done := make(chan bool)
 		node.SetDoneStream(done)
 
-		node.Start(ctx)
+		err = node.Start(ctx)
+		if err != nil {
+			logger.Fatal().Err(err).Msg("Fail to start node")
+		}
 
 		fmt.Printf("Node %d initialized and consensus engine started\n", i)
 		time.Sleep(2 * time.Millisecond)
@@ -177,7 +183,10 @@ func (s *server) Ping(in *pb.Request, stream pb.Simulator_PingServer) error {
 	// message type of 1999 means that it's a dummy message to allow the engine to pass back proposed blocks
 	if in.InternalMsgType != dummyMsgType {
 		msg := consensus.CombineMsg(in.InternalMsgType, msgValue)
-		s.nodes[in.PlayerID].HandleViewChange(msg, done)
+		err = s.nodes[in.PlayerID].HandleViewChange(msg, done)
+		if err != nil {
+			logger.Error().Err(err).Msg("failed to handle view change")
+		}
 		time.Sleep(2 * time.Millisecond)
 		<-done // wait until done
 	}
@@ -200,7 +209,10 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		pprof.StartCPUProfile(f)
+		err = pprof.StartCPUProfile(f)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	lis, err := net.Listen("tcp", port)
