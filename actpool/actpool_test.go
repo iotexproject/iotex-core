@@ -121,6 +121,7 @@ func TestActPool_validateVote(t *testing.T) {
 	// Case III: Nonce is too low
 	prevTsf, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(50))
 	err = ap.AddTsf(prevTsf)
+	require.NoError(err)
 	err = bc.CommitStateChanges(0, []*action.Transfer{prevTsf}, nil)
 	require.Nil(err)
 	ap.Reset()
@@ -169,7 +170,7 @@ func TestActPool_AddActs(t *testing.T) {
 	err = ap.AddVote(vote4)
 	require.NoError(err)
 	err = ap.AddTsf(tsf5)
-	require.NoError(err)
+	require.Equal(ErrBalance, errors.Cause(err))
 	err = ap.AddTsf(tsf6)
 	require.NoError(err)
 	err = ap.AddTsf(tsf7)
@@ -189,6 +190,7 @@ func TestActPool_AddActs(t *testing.T) {
 
 	tsf9, _ := signedTransfer(addr2, addr2, uint64(2), big.NewInt(3))
 	err = ap.AddTsf(tsf9)
+	require.NoError(err)
 	pBalance2, _ = ap.getPendingBalance(addr2.RawAddress)
 	require.Equal(uint64(1), pBalance2.Uint64())
 	pNonce2, _ = ap.getPendingNonce(addr2.RawAddress)
@@ -269,9 +271,11 @@ func TestActPool_PickActs(t *testing.T) {
 	err = ap.AddTsf(tsf4)
 	require.NoError(err)
 	err = ap.AddTsf(tsf5)
-	require.NoError(err)
+	require.Equal(ErrBalance, errors.Cause(err))
 	err = ap.AddVote(vote6)
+	require.NoError(err)
 	err = ap.AddVote(vote7)
+	require.NoError(err)
 	err = ap.AddTsf(tsf8)
 	require.NoError(err)
 	err = ap.AddTsf(tsf9)
@@ -310,6 +314,7 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	err = ap.AddTsf(tsf3)
 	require.NoError(err)
 	err = ap.AddVote(vote4)
+	require.NoError(err)
 
 	require.Equal(4, len(ap.allActions))
 	require.NotNil(ap.accountActs[addr1.RawAddress])
@@ -359,13 +364,13 @@ func TestActPool_Reset(t *testing.T) {
 	err = ap1.AddTsf(tsf2)
 	require.NoError(err)
 	err = ap1.AddTsf(tsf3)
-	require.NoError(err)
+	require.Equal(ErrBalance, errors.Cause(err))
 	err = ap1.AddTsf(tsf4)
 	require.NoError(err)
 	err = ap1.AddTsf(tsf5)
 	require.NoError(err)
 	err = ap1.AddTsf(tsf6)
-	require.NoError(err)
+	require.Equal(ErrBalance, errors.Cause(err))
 	err = ap1.AddTsf(tsf7)
 	require.NoError(err)
 	err = ap1.AddTsf(tsf8)
@@ -380,14 +385,23 @@ func TestActPool_Reset(t *testing.T) {
 	tsf14, _ := signedTransfer(addr3, addr2, uint64(2), big.NewInt(50))
 
 	err = ap2.AddTsf(tsf1)
+	require.NoError(err)
 	err = ap2.AddTsf(tsf2)
+	require.NoError(err)
 	err = ap2.AddTsf(tsf10)
+	require.NoError(err)
 	err = ap2.AddTsf(tsf11)
+	require.Equal(ErrBalance, errors.Cause(err))
 	err = ap2.AddTsf(tsf4)
+	require.NoError(err)
 	err = ap2.AddTsf(tsf12)
+	require.NoError(err)
 	err = ap2.AddTsf(tsf13)
+	require.NoError(err)
 	err = ap2.AddTsf(tsf14)
+	require.NoError(err)
 	err = ap2.AddTsf(tsf9)
+	require.Equal(ErrBalance, errors.Cause(err))
 	// Check confirmed nonce, pending nonce, and pending balance after adding Tsfs above for each account
 	// ap1
 	// Addr1
@@ -473,11 +487,17 @@ func TestActPool_Reset(t *testing.T) {
 	tsf20, _ := signedTransfer(addr3, addr2, uint64(3), big.NewInt(200))
 
 	err = ap1.AddTsf(tsf15)
+	require.NoError(err)
 	err = ap2.AddTsf(tsf16)
+	require.NoError(err)
 	err = ap2.AddTsf(tsf17)
+	require.NoError(err)
 	err = ap2.AddTsf(tsf18)
+	require.NoError(err)
 	err = ap2.AddTsf(tsf19)
+	require.Equal(ErrBalance, errors.Cause(err))
 	err = ap2.AddTsf(tsf20)
+	require.Equal(ErrBalance, errors.Cause(err))
 	// Check confirmed nonce, pending nonce, and pending balance after adding Tsfs above for each account
 	// ap1
 	// Addr1
@@ -638,6 +658,7 @@ func TestActPool_removeInvalidActs(t *testing.T) {
 	err = ap.AddTsf(tsf3)
 	require.NoError(err)
 	err = ap.AddVote(vote4)
+	require.NoError(err)
 
 	hash1 := tsf1.Hash()
 	action1 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf1.ConvertToTransferPb()}}
@@ -676,6 +697,7 @@ func TestActPool_GetPendingNonce(t *testing.T) {
 	err = ap.AddTsf(tsf3)
 	require.NoError(err)
 	err = ap.AddVote(vote4)
+	require.NoError(err)
 
 	nonce, err := ap.GetPendingNonce(addr2.RawAddress)
 	require.Nil(err)
@@ -714,6 +736,7 @@ func TestActPool_GetUnconfirmedActs(t *testing.T) {
 	err = ap.AddTsf(tsf3)
 	require.NoError(err)
 	err = ap.AddVote(vote4)
+	require.NoError(err)
 
 	acts := ap.GetUnconfirmedActs(addr2.RawAddress)
 	require.Equal([]*pb.ActionPb{}, acts)
