@@ -43,8 +43,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	cfg.Network.BootstrapNodes = []string{"127.0.0.1:4689", "127.0.0.1:10000"}
-
 	ctx := context.Background()
 	// create and start the node
 	svr := itx.NewServer(cfg)
