@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$GOPATH/src/github.com/iotexproject/iotex-core/crypto/lib
+pwd
+echo $GOPATH
+echo $LD_LIBRARY_PATH
+
 set -e
 echo "" > coverage.txt
 

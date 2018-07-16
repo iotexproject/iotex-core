@@ -118,7 +118,6 @@ func voteForm(height uint64, cs []*Candidate) []string {
 	return r
 }
 
-// Test configure: candidateSize = 2, candidateBufferSize = 3
 //func TestCandidatePool(t *testing.T) {
 //	c1 := &Candidate{Address: "a1", Votes: big.NewInt(1), PubKey: []byte("p1")}
 //	c2 := &Candidate{Address: "a2", Votes: big.NewInt(2), PubKey: []byte("p2")}
