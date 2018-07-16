@@ -6,7 +6,7 @@ jobs:
   build:
     docker:
       # specify the version
-      - image: iotex/iotex-core-ci:2.0
+      - image: iotex/iotex-core-internal-ci:2.0
 
       # Specify service dependencies here if necessary
       # CircleCI maintains a library of pre-built images
