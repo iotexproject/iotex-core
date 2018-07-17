@@ -74,7 +74,7 @@ func (h *HeartbeatHandler) Log() {
 		numCSEvts = len(*rolldpos.EventChan())
 		state = rolldpos.FSM().CurrentState()
 	} else {
-		logger.Warn().Msg("scheme is not the instance of RollDPoS")
+		logger.Debug().Msg("scheme is not the instance of RollDPoS")
 	}
 
 	// Block metrics

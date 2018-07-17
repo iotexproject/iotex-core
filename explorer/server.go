@@ -13,6 +13,7 @@ import (
 	"github.com/coopernurse/barrister-go"
 	"github.com/golang/protobuf/proto"
 
+	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/dispatch/dispatcher"
@@ -40,6 +41,7 @@ func StartJSONServer(
 	blockchain blockchain.Blockchain,
 	consensus consensus.Consensus,
 	dp dispatcher.Dispatcher,
+	ap actpool.ActPool,
 	cb func(proto.Message) error,
 	isTest bool,
 	port int,
@@ -49,6 +51,7 @@ func StartJSONServer(
 		bc:          blockchain,
 		c:           consensus,
 		dp:          dp,
+		ap:          ap,
 		broadcastcb: cb,
 		tpsWindow:   tpsWindow,
 	}

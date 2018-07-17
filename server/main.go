@@ -75,7 +75,7 @@ func main() {
 		bcb := func(msg proto.Message) error {
 			return svr.P2p().Broadcast(msg)
 		}
-		explorer.StartJSONServer(svr.Bc(), svr.Cs(), svr.Dp(), bcb, isTest, cfg.Explorer.Port, cfg.Explorer.TpsWindow)
+		explorer.StartJSONServer(svr.Bc(), svr.Cs(), svr.Dp(), svr.Ap(), bcb, isTest, cfg.Explorer.Port, cfg.Explorer.TpsWindow)
 	}
 
 	select {}

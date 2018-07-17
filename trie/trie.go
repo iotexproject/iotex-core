@@ -224,7 +224,7 @@ func (t *trie) upsert(key, value []byte) error {
 		// if the diverging node is leaf, it will be replaced and no need to update
 		n := t.toRoot.Back()
 		if _, ok := n.Value.(patricia).(*leaf); ok {
-			logger.Warn().Msg("discard leaf")
+			logger.Debug().Msg("discard leaf")
 			t.toRoot.Remove(n)
 		}
 	} else {

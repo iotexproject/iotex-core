@@ -24,9 +24,16 @@ RUN cd $GOPATH/src/github.com/iotexproject/iotex-core/ && \
     mkdir -p /usr/local/lib/iotex/ && \
     cp $GOPATH/src/github.com/iotexproject/iotex-core/crypto/lib/libsect283k1_ubuntu.so /usr/lib/ && \
     mkdir -p /etc/iotex/ && \
-    ln -s $GOPATH/src/github.com/iotexproject/iotex-core/config.yaml /etc/iotex/config.yaml && \
-    ln -s $GOPATH/src/github.com/iotexproject/iotex-core/blockchain/testnet_actions.yaml /etc/iotex/testnet_actions.yaml && \
-    sed -i '/inMemTest/a \    genesisActionsPath: \/etc\/iotex\/testnet_actions\.yaml' /etc/iotex/config.yaml && \
-    mkdir -p /var/log/iotex/
+    echo "chain:" >> /etc/iotex/config.yaml && \
+    echo "    producerPrivKey: \"925f0c9e4b6f6d92f2961d01aff6204c44d73c0b9d0da188582932d4fcad0d8ee8c66600\"" >> /etc/iotex/config.yaml && \
+    echo "    producerPubKey: "336eb60a5741f585a8e81de64e071327a3b96c15af4af5723598a07b6121e8e813bbd0056ba71ae29c0d64252e913f60afaeb11059908b81ff27cbfa327fd371d35f5ec0cbc01705"" >> /etc/iotex/config.yaml && \
+    echo "    genesisActionsPath: /etc/iotex/testnet_actions.yaml" >> /etc/iotex/config.yaml && \
+    echo "network:" >> /etc/iotex/config.yaml && \
+    echo "    bootstrapNodes:" >> /etc/iotex/config.yaml && \
+    echo "        - \"127.0.0.1:4689\"" >> /etc/iotex/config.yaml && \
+    echo "delegate:" >> /etc/iotex/config.yaml && \
+    echo "    addrs:" >> /etc/iotex/config.yaml && \
+    echo "        - \"127.0.0.1:4689\"" >> /etc/iotex/config.yaml && \
+    ln -s $GOPATH/src/github.com/iotexproject/iotex-core/blockchain/testnet_actions.yaml /etc/iotex/testnet_actions.yaml
 
-CMD ["iotex-server", "-log-path=/var/log/iotex/server.log", "-config=/etc/iotex/config.yaml"]
+CMD ["iotex-server", "-config-path=/etc/iotex/config.yaml"]

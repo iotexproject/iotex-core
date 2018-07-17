@@ -18,6 +18,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/iotxaddress"
 	_hash "github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/state"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
@@ -491,4 +492,81 @@ func TestBlockchain_StateByAddr(t *testing.T) {
 	require.Equal(big.NewInt(0), s.VotingWeight)
 	require.Equal("", s.Votee)
 	require.Equal(map[string]*big.Int(map[string]*big.Int(nil)), s.Voters)
+}
+
+func TestBlocks(t *testing.T) {
+	// This test is used for committing block verify benchmark purpose
+	t.Skip()
+	require := require.New(t)
+	cfg := config.Default
+
+	util.CleanupPath(t, testTriePath)
+	defer util.CleanupPath(t, testTriePath)
+	util.CleanupPath(t, testDBPath)
+	defer util.CleanupPath(t, testDBPath)
+
+	cfg.Chain.TrieDBPath = testTriePath
+	cfg.Chain.ChainDBPath = testDBPath
+
+	sf, _ := state.NewFactory(&cfg, state.InMemTrieOption())
+	sf.CreateState(ta.Addrinfo["miner"].RawAddress, Gen.TotalSupply)
+
+	// Create a blockchain from scratch
+	bc := NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
+	a, _ := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
+	c, _ := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
+	sf.CreateState(a.RawAddress, uint64(100000))
+	sf.CreateState(c.RawAddress, uint64(100000))
+
+	for i := 0; i < 10; i++ {
+		tsfs := []*action.Transfer{}
+		for i := 0; i < 1000; i++ {
+			tsf := action.NewTransfer(1, big.NewInt(2), a.RawAddress, c.RawAddress)
+			tsf, _ = tsf.Sign(a)
+			tsfs = append(tsfs, tsf)
+		}
+		blk, _ := bc.MintNewBlock(tsfs, nil, ta.Addrinfo["miner"], "")
+		err := bc.CommitBlock(blk)
+		require.Nil(err)
+	}
+}
+
+func TestActions(t *testing.T) {
+	// This test is used for block verify benchmark purpose
+	t.Skip()
+	require := require.New(t)
+	cfg := config.Default
+
+	util.CleanupPath(t, testTriePath)
+	defer util.CleanupPath(t, testTriePath)
+	util.CleanupPath(t, testDBPath)
+	defer util.CleanupPath(t, testDBPath)
+
+	cfg.Chain.TrieDBPath = testTriePath
+	cfg.Chain.ChainDBPath = testDBPath
+
+	sf, _ := state.NewFactory(&cfg, state.InMemTrieOption())
+	sf.CreateState(ta.Addrinfo["miner"].RawAddress, Gen.TotalSupply)
+
+	// Create a blockchain from scratch
+	bc := NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
+	a, _ := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
+	c, _ := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
+	sf.CreateState(a.RawAddress, uint64(100000))
+	sf.CreateState(c.RawAddress, uint64(100000))
+
+	val := validator{sf}
+	tsfs := []*action.Transfer{}
+	votes := []*action.Vote{}
+	for i := 0; i < 5000; i++ {
+		tsf := action.NewTransfer(1, big.NewInt(2), a.RawAddress, c.RawAddress)
+		tsf, _ = tsf.Sign(a)
+		tsfs = append(tsfs, tsf)
+
+		vote := action.NewVote(1, a.PublicKey, a.PublicKey)
+		vote, _ = vote.Sign(a)
+		votes = append(votes, vote)
+	}
+	blk, _ := bc.MintNewBlock(tsfs, votes, ta.Addrinfo["miner"], "")
+	require.Nil(val.Validate(blk, 0, blk.PrevHash()))
 }
