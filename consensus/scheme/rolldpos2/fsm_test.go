@@ -38,6 +38,8 @@ var testAddrs = []*iotxaddress.Address{
 }
 
 func TestBackdoorEvt(t *testing.T) {
+	t.Parallel()
+
 	ctx := makeTestRollDPoSCtx(
 		testAddrs[0],
 		nil,
@@ -67,6 +69,8 @@ func TestBackdoorEvt(t *testing.T) {
 }
 
 func TestRollDelegatesEvt(t *testing.T) {
+	t.Parallel()
+
 	t.Run("is-delegate", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -105,30 +109,38 @@ func TestRollDelegatesEvt(t *testing.T) {
 }
 
 func TestGenerateDKGEvt(t *testing.T) {
-	addr, err := iotxaddress.NewAddress(true, iotxaddress.ChainID)
-	require.NoError(t, err)
-	ctx := makeTestRollDPoSCtx(
-		addr,
-		nil,
-		config.RollDPoS{
-			EventChanSize: 1,
-		},
-		func(_ *mock_blockchain.MockBlockchain) {},
-		func(_ *mock_delegate.MockPool) {},
-		func(_ *mock_actpool.MockActPool) {},
-		func(_ *mock_network.MockOverlay) {},
-	)
-	cfsm, err := newConsensusFSM(ctx)
-	require.Nil(t, err)
-	require.NotNil(t, cfsm)
+	t.Parallel()
 
-	s, err := cfsm.handleGenerateDKGEvt(cfsm.newCEvt(eGenerateDKG))
-	assert.Equal(t, sRoundStart, s)
-	assert.Nil(t, err)
-	assert.Equal(t, eStartRound, (<-cfsm.evtq).Type())
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	delegates := make([]string, 4)
+	for i := 0; i < 4; i++ {
+		delegates[i] = testAddrs[i].RawAddress
+	}
+	t.Run("no-delay", func(t *testing.T) {
+		_, cfsm := newTestCFSM(t, testAddrs[2], ctrl, delegates, nil)
+		s, err := cfsm.handleGenerateDKGEvt(cfsm.newCEvt(eGenerateDKG))
+		assert.Equal(t, sRoundStart, s)
+		assert.Nil(t, err)
+		assert.Equal(t, eStartRound, (<-cfsm.evtq).Type())
+	})
+	t.Run("delay", func(t *testing.T) {
+		ctx, cfsm := newTestCFSM(t, testAddrs[2], ctrl, delegates, nil)
+		ctx.cfg.ProposerInterval = 2 * time.Second
+		start := time.Now()
+		s, err := cfsm.handleGenerateDKGEvt(cfsm.newCEvt(eGenerateDKG))
+		assert.Equal(t, sRoundStart, s)
+		assert.Nil(t, err)
+		assert.Equal(t, eStartRound, (<-cfsm.evtq).Type())
+		// Allow 1 second delay during the process
+		assert.True(t, time.Since(start) > time.Second)
+	})
 }
 
 func TestStartRoundEvt(t *testing.T) {
+	t.Parallel()
+
 	t.Run("is-proposer", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -178,6 +190,8 @@ func TestStartRoundEvt(t *testing.T) {
 }
 
 func TestHandleInitBlockEvt(t *testing.T) {
+	t.Parallel()
+
 	delegates := make([]string, 4)
 	for i := 0; i < 4; i++ {
 		delegates[i] = testAddrs[i].RawAddress
@@ -223,13 +237,14 @@ func newTestCFSM(
 	t *testing.T,
 	addr *iotxaddress.Address,
 	ctrl *gomock.Controller,
-	candidates []string,
+	delegates []string,
 	mockP2P func(overlay *mock_network.MockOverlay),
 ) (*rollDPoSCtx, *cFSM) {
 	transfer := action.NewTransfer(1, big.NewInt(100), "src", "dst")
 	vote := action.NewVote(2, []byte("src"), []byte("dst"))
 	var prevHash hash.Hash32B
-	blk := blockchain.NewBlock(1, 2, prevHash, []*action.Transfer{transfer}, []*action.Vote{vote})
+	lastBlk := blockchain.NewBlock(1, 1, prevHash, make([]*action.Transfer, 0), make([]*action.Vote, 0))
+	blkToMint := blockchain.NewBlock(1, 2, lastBlk.HashBlock(), []*action.Transfer{transfer}, []*action.Vote{vote})
 	if mockP2P == nil {
 		mockP2P = func(p2p *mock_network.MockOverlay) {
 			p2p.EXPECT().Broadcast(gomock.Any()).Return(nil).AnyTimes()
@@ -243,14 +258,15 @@ func newTestCFSM(
 		},
 		func(blockchain *mock_blockchain.MockBlockchain) {
 			blockchain.EXPECT().TipHeight().Return(uint64(1), nil).AnyTimes()
+			blockchain.EXPECT().GetBlockByHeight(uint64(1)).Return(lastBlk, nil).AnyTimes()
 			blockchain.EXPECT().
 				MintNewBlock(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-				Return(blk, nil).
+				Return(blkToMint, nil).
 				AnyTimes()
 		},
 		func(pool *mock_delegate.MockPool) {
 			pool.EXPECT().NumDelegatesPerEpoch().Return(uint(4), nil).AnyTimes()
-			pool.EXPECT().RollDelegates(gomock.Any()).Return(candidates, nil).AnyTimes()
+			pool.EXPECT().RollDelegates(gomock.Any()).Return(delegates, nil).AnyTimes()
 		},
 		func(actPool *mock_actpool.MockActPool) {
 			actPool.EXPECT().PickActs().Return([]*action.Transfer{transfer}, []*action.Vote{vote}).AnyTimes()

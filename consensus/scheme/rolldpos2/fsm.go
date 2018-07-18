@@ -314,7 +314,18 @@ func (m *cFSM) handleGenerateDKGEvt(_ fsm.Event) (fsm.State, error) {
 		return sInvalid, err
 	}
 	m.ctx.epoch.dkg = dkg
-	m.produce(m.newCEvt(eStartRound), 0)
+
+	duration, err := m.ctx.calcDurationSinceLastBlock()
+	if err != nil {
+		return sInvalid, errors.Wrap(err, "error when computing the duration since last block time")
+	}
+	// If the proposal interval is not set (not zero), the next round will only be started after the configured duration
+	// after last block's creation time, so that we could keep the constant
+	if duration >= m.ctx.cfg.ProposerInterval {
+		m.produce(m.newCEvt(eStartRound), 0)
+	} else {
+		m.produce(m.newCEvt(eStartRound), m.ctx.cfg.ProposerInterval-duration)
+	}
 	return sRoundStart, nil
 }
 
