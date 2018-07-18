@@ -360,32 +360,30 @@ func (dao *blockDAO) getTotalVotes() (uint64, error) {
 
 // putBlock puts a block
 func (dao *blockDAO) putBlock(blk *Block) error {
+	batch := dao.kvstore.Batch()
+
 	height := byteutil.Uint64ToBytes(blk.Height())
+
 	serialized, err := blk.Serialize()
 	if err != nil {
 		return errors.Wrap(err, "failed to serialize block")
 	}
 	hash := blk.HashBlock()
-	if err = dao.kvstore.PutIfNotExists(blockNS, hash[:], serialized); err != nil {
-		return errors.Wrap(err, "failed to put block")
-	}
+	batch.PutIfNotExists(blockNS, hash[:], serialized, "failed to put block")
+
 	hashKey := append(hashPrefix, hash[:]...)
-	if err = dao.kvstore.Put(blockHashHeightMappingNS, hashKey, height); err != nil {
-		return errors.Wrap(err, "failed to put hash -> height mapping")
-	}
+	batch.Put(blockHashHeightMappingNS, hashKey, height, "failed to put hash -> height mapping")
+
 	heightKey := append(heightPrefix, height...)
-	if err = dao.kvstore.Put(blockHashHeightMappingNS, heightKey, hash[:]); err != nil {
-		return errors.Wrap(err, "failed to put height -> hash mapping")
-	}
+	batch.Put(blockHashHeightMappingNS, heightKey, hash[:], "failed to put height -> hash mapping")
+
 	value, err := dao.kvstore.Get(blockNS, topHeightKey)
 	if err != nil {
 		return errors.Wrap(err, "failed to get top height")
 	}
 	topHeight := enc.MachineEndian.Uint64(value)
 	if blk.Height() > topHeight {
-		if err = dao.kvstore.Put(blockNS, topHeightKey, height); err != nil {
-			return errors.Wrap(err, "failed to put top height")
-		}
+		batch.Put(blockNS, topHeightKey, height, "failed to put top height")
 	}
 
 	value, err = dao.kvstore.Get(blockNS, totalTransfersKey)
@@ -395,9 +393,7 @@ func (dao *blockDAO) putBlock(blk *Block) error {
 	totalTransfers := enc.MachineEndian.Uint64(value)
 	totalTransfers += uint64(len(blk.Transfers))
 	totalTransfersBytes := byteutil.Uint64ToBytes(totalTransfers)
-	if err = dao.kvstore.Put(blockNS, totalTransfersKey, totalTransfersBytes); err != nil {
-		return errors.Wrap(err, "failed to put total transfers")
-	}
+	batch.Put(blockNS, totalTransfersKey, totalTransfersBytes, "failed to put total transfers")
 
 	value, err = dao.kvstore.Get(blockNS, totalVotesKey)
 	if err != nil {
@@ -406,35 +402,34 @@ func (dao *blockDAO) putBlock(blk *Block) error {
 	totalVotes := enc.MachineEndian.Uint64(value)
 	totalVotes += uint64(len(blk.Votes))
 	totalVotesBytes := byteutil.Uint64ToBytes(totalVotes)
-	if err = dao.kvstore.Put(blockNS, totalVotesKey, totalVotesBytes); err != nil {
-		return errors.Wrap(err, "failed to put total votes")
-	}
+	batch.Put(blockNS, totalVotesKey, totalVotesBytes, "failed to put total votes")
 
 	// map Transfer hash to block hash
 	for _, transfer := range blk.Transfers {
 		transferHash := transfer.Hash()
 		hashKey := append(transferPrefix, transferHash[:]...)
-		if err = dao.kvstore.Put(blockTransferBlockMappingNS, hashKey, hash[:]); err != nil {
-			return errors.Wrapf(err, "failed to put transfer hash %x", transferHash)
-		}
+		batch.Put(blockTransferBlockMappingNS, hashKey, hash[:], "failed to put transfer hash %x", transferHash)
 	}
 
 	// map Vote hash to block hash
 	for _, vote := range blk.Votes {
 		voteHash := vote.Hash()
 		hashKey := append(votePrefix, voteHash[:]...)
-		if err = dao.kvstore.Put(blockVoteBlockMappingNS, hashKey, hash[:]); err != nil {
-			return errors.Wrapf(err, "failed to put vote hash %x", voteHash)
-		}
+		batch.Put(blockVoteBlockMappingNS, hashKey, hash[:], "failed to put vote hash %x", voteHash)
 	}
 
-	err = putTransfers(dao, blk)
+	err = putTransfers(dao, blk, batch)
 	if err != nil {
 		return err
 	}
 
-	err = putVotes(dao, blk)
+	err = putVotes(dao, blk, batch)
 	if err != nil {
+		return err
+	}
+
+	if err = batch.Commit(); err != nil {
+		println(err)
 		return err
 	}
 
@@ -442,7 +437,10 @@ func (dao *blockDAO) putBlock(blk *Block) error {
 }
 
 // putTransfers store transfer information into db
-func putTransfers(dao *blockDAO, blk *Block) error {
+func putTransfers(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
+	senderDelta := map[string]uint64{}
+	recipientDelta := map[string]uint64{}
+
 	for _, transfer := range blk.Transfers {
 		transferHash := transfer.Hash()
 
@@ -451,51 +449,58 @@ func putTransfers(dao *blockDAO, blk *Block) error {
 		if err != nil {
 			return errors.Wrapf(err, "for sender %x", transfer.Sender)
 		}
+		if delta, ok := senderDelta[transfer.Sender]; ok {
+			senderTransferCount += delta
+			senderDelta[transfer.Sender] = senderDelta[transfer.Sender] + 1
+		} else {
+			senderDelta[transfer.Sender] = 1
+		}
 
 		// put new transfer to sender
 		senderKey := append(transferFromPrefix, transfer.Sender...)
 		senderKey = append(senderKey, byteutil.Uint64ToBytes(senderTransferCount)...)
-		if err = dao.kvstore.PutIfNotExists(blockAddressTransferMappingNS, senderKey, transferHash[:]); err != nil {
-			return errors.Wrapf(err, "failed to put transfer hash %x for sender %x",
-				transfer.Hash(), transfer.Sender)
-		}
+		batch.PutIfNotExists(blockAddressTransferMappingNS, senderKey, transferHash[:], "failed to put transfer hash %x for sender %x",
+			transfer.Hash(), transfer.Sender)
 
 		// update sender transfers count
 		senderTransferCountKey := append(transferFromPrefix, transfer.Sender...)
-		if err = dao.kvstore.Put(blockAddressTransferCountMappingNS, senderTransferCountKey,
-			byteutil.Uint64ToBytes(senderTransferCount+1)); err != nil {
-			return errors.Wrapf(err, "failed to bump transfer count %x for sender %x",
-				transfer.Hash(), transfer.Sender)
-		}
+		batch.Put(blockAddressTransferCountMappingNS, senderTransferCountKey,
+			byteutil.Uint64ToBytes(senderTransferCount+1), "failed to bump transfer count %x for sender %x",
+			transfer.Hash(), transfer.Sender)
 
 		// get transfers count for recipient
 		recipientTransferCount, err := dao.getTransferCountByRecipientAddress(transfer.Recipient)
 		if err != nil {
 			return errors.Wrapf(err, "for recipient %x", transfer.Recipient)
 		}
+		if delta, ok := recipientDelta[transfer.Recipient]; ok {
+			recipientTransferCount += delta
+			recipientDelta[transfer.Recipient] = recipientDelta[transfer.Recipient] + 1
+		} else {
+			recipientDelta[transfer.Recipient] = 1
+		}
 
 		// put new transfer to recipient
 		recipientKey := append(transferToPrefix, transfer.Recipient...)
 		recipientKey = append(recipientKey, byteutil.Uint64ToBytes(recipientTransferCount)...)
-		if err = dao.kvstore.PutIfNotExists(blockAddressTransferMappingNS, recipientKey, transferHash[:]); err != nil {
-			return errors.Wrapf(err, "failed to put transfer hash %x for recipient %x",
-				transfer.Hash(), transfer.Recipient)
-		}
+		batch.PutIfNotExists(blockAddressTransferMappingNS, recipientKey, transferHash[:], "failed to put transfer hash %x for recipient %x",
+			transfer.Hash(), transfer.Recipient)
 
 		// update recipient transfers count
 		recipientTransferCountKey := append(transferToPrefix, transfer.Recipient...)
-		if err = dao.kvstore.Put(blockAddressTransferCountMappingNS, recipientTransferCountKey,
-			byteutil.Uint64ToBytes(recipientTransferCount+1)); err != nil {
-			return errors.Wrapf(err, "failed to bump transfer count %x for recipient %x",
-				transfer.Hash(), transfer.Recipient)
-		}
+		batch.Put(blockAddressTransferCountMappingNS, recipientTransferCountKey,
+			byteutil.Uint64ToBytes(recipientTransferCount+1), "failed to bump transfer count %x for recipient %x",
+			transfer.Hash(), transfer.Recipient)
 	}
 
 	return nil
 }
 
 // putVotes store vote information into db
-func putVotes(dao *blockDAO, blk *Block) error {
+func putVotes(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
+	senderDelta := map[string]uint64{}
+	recipientDelta := map[string]uint64{}
+
 	for _, vote := range blk.Votes {
 		voteHash := vote.Hash()
 
@@ -516,44 +521,48 @@ func putVotes(dao *blockDAO, blk *Block) error {
 		if err != nil {
 			return errors.Wrapf(err, "for sender %x", Sender)
 		}
+		if delta, ok := senderDelta[Sender]; ok {
+			senderVoteCount += delta
+			senderDelta[Sender] = senderDelta[Sender] + 1
+		} else {
+			senderDelta[Sender] = 1
+		}
 
 		// put new vote to sender
 		senderKey := append(voteFromPrefix, Sender...)
 		senderKey = append(senderKey, byteutil.Uint64ToBytes(senderVoteCount)...)
-		if err = dao.kvstore.PutIfNotExists(blockAddressVoteMappingNS, senderKey, voteHash[:]); err != nil {
-			return errors.Wrapf(err, "failed to put vote hash %x for sender %x",
-				voteHash, Sender)
-		}
+		batch.PutIfNotExists(blockAddressVoteMappingNS, senderKey, voteHash[:], "failed to put vote hash %x for sender %x",
+			voteHash, Sender)
 
 		// update sender votes count
 		senderVoteCountKey := append(voteFromPrefix, Sender...)
-		if err = dao.kvstore.Put(blockAddressVoteCountMappingNS, senderVoteCountKey,
-			byteutil.Uint64ToBytes(senderVoteCount+1)); err != nil {
-			return errors.Wrapf(err, "failed to bump vote count %x for sender %x",
-				voteHash, Sender)
-		}
+		batch.Put(blockAddressVoteCountMappingNS, senderVoteCountKey,
+			byteutil.Uint64ToBytes(senderVoteCount+1), "failed to bump vote count %x for sender %x",
+			voteHash, Sender)
 
 		// get votes count for recipient
 		recipientVoteCount, err := dao.getVoteCountByRecipientAddress(Recipient)
 		if err != nil {
 			return errors.Wrapf(err, "for recipient %x", Recipient)
 		}
+		if delta, ok := recipientDelta[Recipient]; ok {
+			recipientVoteCount += delta
+			recipientDelta[Recipient] = recipientDelta[Recipient] + 1
+		} else {
+			recipientDelta[Recipient] = 1
+		}
 
 		// put new vote to recipient
 		recipientKey := append(voteToPrefix, Recipient...)
 		recipientKey = append(recipientKey, byteutil.Uint64ToBytes(recipientVoteCount)...)
-		if err = dao.kvstore.PutIfNotExists(blockAddressVoteMappingNS, recipientKey, voteHash[:]); err != nil {
-			return errors.Wrapf(err, "failed to put vote hash %x for recipient %x",
-				voteHash, Recipient)
-		}
+		batch.PutIfNotExists(blockAddressVoteMappingNS, recipientKey, voteHash[:], "failed to put vote hash %x for recipient %x",
+			voteHash, Recipient)
 
 		// update recipient votes count
 		recipientVoteCountKey := append(voteToPrefix, Recipient...)
-		if err = dao.kvstore.Put(blockAddressVoteCountMappingNS, recipientVoteCountKey,
-			byteutil.Uint64ToBytes(recipientVoteCount+1)); err != nil {
-			return errors.Wrapf(err, "failed to bump vote count %x for recipient %x",
-				voteHash, Recipient)
-		}
+		batch.Put(blockAddressVoteCountMappingNS, recipientVoteCountKey,
+			byteutil.Uint64ToBytes(recipientVoteCount+1), "failed to bump vote count %x for recipient %x",
+			voteHash, Recipient)
 	}
 
 	return nil

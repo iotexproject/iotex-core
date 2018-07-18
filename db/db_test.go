@@ -154,8 +154,8 @@ func TestDBBatch(t *testing.T) {
 		err = kvboltDB.Put(bucket1, testK1[2], testV1[0])
 		require.Nil(err)
 
-		batch.Put(bucket1, testK1[0], testV1[0])
-		batch.Put(bucket2, testK2[1], testV2[1])
+		batch.Put(bucket1, testK1[0], testV1[0], "")
+		batch.Put(bucket2, testK2[1], testV2[1], "")
 
 		value, err := kvboltDB.Get(bucket1, testK1[0])
 		require.Nil(err)
@@ -180,8 +180,8 @@ func TestDBBatch(t *testing.T) {
 		require.Nil(err)
 		require.Equal(testV1[0], value)
 
-		batch.Put(bucket1, testK1[0], testV1[1])
-		batch.PutIfNotExists(bucket2, testK2[1], testV2[0])
+		batch.Put(bucket1, testK1[0], testV1[1], "")
+		batch.PutIfNotExists(bucket2, testK2[1], testV2[0], "")
 		err = batch.Commit()
 		require.Equal(err, ErrAlreadyExist)
 		batch.Clear()
@@ -194,7 +194,7 @@ func TestDBBatch(t *testing.T) {
 		require.Nil(err)
 		require.Equal(testV1[0], value)
 
-		batch.PutIfNotExists(bucket3, testK2[0], testV2[0])
+		batch.PutIfNotExists(bucket3, testK2[0], testV2[0], "")
 		err = batch.Commit()
 		require.Nil(err)
 
@@ -202,10 +202,10 @@ func TestDBBatch(t *testing.T) {
 		require.Nil(err)
 		require.Equal(testV2[0], value)
 
-		batch.Put(bucket1, testK1[2], testV1[2])
+		batch.Put(bucket1, testK1[2], testV1[2], "")
 		// we did not set key in bucket3 yet, so this operation will fail and
 		// cause transaction rollback
-		batch.PutIfNotExists(bucket3, testK2[0], testV2[1])
+		batch.PutIfNotExists(bucket3, testK2[0], testV2[1], "")
 		err = batch.Commit()
 		require.NotNil(err)
 
@@ -218,8 +218,8 @@ func TestDBBatch(t *testing.T) {
 		require.Equal(testV2[1], value)
 
 		batch.Clear()
-		batch.Put(bucket1, testK1[2], testV1[2])
-		batch.Delete(bucket2, testK2[1])
+		batch.Put(bucket1, testK1[2], testV1[2], "")
+		batch.Delete(bucket2, testK2[1], "")
 		err = batch.Commit()
 		require.Nil(err)
 

@@ -16,11 +16,11 @@ import (
 // KVStoreBatch is the interface of KV store.
 type KVStoreBatch interface {
 	// Put insert or update a record identified by (namespace, key)
-	Put(string, []byte, []byte) error
+	Put(string, []byte, []byte, string, ...interface{}) error
 	// PutIfNotExists puts a record only if (namespace, key) doesn't exist, otherwise return ErrAlreadyExist
-	PutIfNotExists(string, []byte, []byte) error
+	PutIfNotExists(string, []byte, []byte, string, ...interface{}) error
 	// Delete deletes a record by (namespace, key)
-	Delete(string, []byte) error
+	Delete(string, []byte, string, ...interface{}) error
 	// Clear clear batch write queue
 	Clear() error
 	// Commit commit queued write to db
@@ -38,10 +38,12 @@ const (
 
 // writeInfo is the struct to store write operation info
 type writeInfo struct {
-	writeType int32
-	namespace string
-	key       []byte
-	value     []byte
+	writeType   int32
+	namespace   string
+	key         []byte
+	value       []byte
+	errorFormat string
+	errorArgs   interface{}
 }
 
 // baseKVStoreBatch is the base class of KVStoreBatch
@@ -55,20 +57,23 @@ func NewBaseKVStoreBatch() KVStoreBatch {
 }
 
 // Put inserts a <key, value> record
-func (b *baseKVStoreBatch) Put(namespace string, key []byte, value []byte) error {
-	b.writeQueue = append(b.writeQueue, writeInfo{writeType: Put, namespace: namespace, key: key, value: value})
+func (b *baseKVStoreBatch) Put(namespace string, key []byte, value []byte, errorFormat string, errorArgs ...interface{}) error {
+	b.writeQueue = append(b.writeQueue, writeInfo{writeType: Put, namespace: namespace,
+		key: key, value: value, errorFormat: errorFormat, errorArgs: errorArgs})
 	return nil
 }
 
 // PutIfNotExists inserts a <key, value> record only if it does not exist yet, otherwise return ErrAlreadyExist
-func (b *baseKVStoreBatch) PutIfNotExists(namespace string, key []byte, value []byte) error {
-	b.writeQueue = append(b.writeQueue, writeInfo{writeType: PutIfNotExists, namespace: namespace, key: key, value: value})
+func (b *baseKVStoreBatch) PutIfNotExists(namespace string, key []byte, value []byte, errorFormat string, errorArgs ...interface{}) error {
+	b.writeQueue = append(b.writeQueue, writeInfo{writeType: PutIfNotExists, namespace: namespace,
+		key: key, value: value, errorFormat: errorFormat, errorArgs: errorArgs})
 	return nil
 }
 
 // Delete deletes a record
-func (b *baseKVStoreBatch) Delete(namespace string, key []byte) error {
-	b.writeQueue = append(b.writeQueue, writeInfo{writeType: Delete, namespace: namespace, key: key})
+func (b *baseKVStoreBatch) Delete(namespace string, key []byte, errorFormat string, errorArgs ...interface{}) error {
+	b.writeQueue = append(b.writeQueue, writeInfo{writeType: Delete, namespace: namespace,
+		key: key, errorFormat: errorFormat, errorArgs: errorArgs})
 	return nil
 }
 
@@ -103,13 +108,16 @@ func (m *memKVStoreBatch) Commit() error {
 			_, ok := m.data.Load(write.namespace + keyDelimiter + string(write.key))
 			if !ok {
 				m.data.Store(write.namespace+keyDelimiter+string(write.key), write.value)
-				return nil
+			} else {
+				return ErrAlreadyExist
 			}
-			return ErrAlreadyExist
 		} else if write.writeType == Delete {
 			m.data.Delete(write.namespace + keyDelimiter + string(write.key))
 		}
 	}
+
+	// clear queues
+	m.Clear()
 
 	return nil
 }
@@ -131,19 +139,20 @@ func (b *boltDBBatch) Commit() error {
 			if write.writeType == Put {
 				bucket, err := tx.CreateBucketIfNotExists([]byte(write.namespace))
 				if err != nil {
-					return err
+					return errors.Wrapf(err, write.errorFormat, write.errorArgs)
 				}
 				if err := bucket.Put(write.key, write.value); err != nil {
-					return err
+					return errors.Wrapf(err, write.errorFormat, write.errorArgs)
 				}
 			} else if write.writeType == PutIfNotExists {
 				bucket, err := tx.CreateBucketIfNotExists([]byte(write.namespace))
 				if err != nil {
-					return err
+					return errors.Wrapf(err, write.errorFormat, write.errorArgs)
 				}
+				print(bucket)
 				if bucket.Get(write.key) == nil {
 					if err := bucket.Put(write.key, write.value); err != nil {
-						return err
+						return errors.Wrapf(err, write.errorFormat, write.errorArgs)
 					}
 				} else {
 					return ErrAlreadyExist
@@ -154,7 +163,7 @@ func (b *boltDBBatch) Commit() error {
 					return errors.Wrapf(bolt.ErrBucketNotFound, "bucket = %s", write.namespace)
 				}
 				if err := bucket.Delete(write.key); err != nil {
-					return err
+					return errors.Wrapf(err, write.errorFormat, write.errorArgs)
 				}
 			}
 		}
