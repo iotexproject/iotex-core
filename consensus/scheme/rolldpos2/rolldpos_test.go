@@ -14,8 +14,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/test/mock/mock_actpool"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_delegate"
@@ -23,6 +26,8 @@ import (
 )
 
 func TestRollDPoSCtx(t *testing.T) {
+	t.Parallel()
+
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -30,6 +35,8 @@ func TestRollDPoSCtx(t *testing.T) {
 	for i := 0; i < 4; i++ {
 		candidates[i] = testAddrs[i].RawAddress
 	}
+	var prevHash hash.Hash32B
+	blk := blockchain.NewBlock(1, 8, prevHash, make([]*action.Transfer, 0), make([]*action.Vote, 0))
 	ctx := makeTestRollDPoSCtx(
 		testAddrs[0],
 		ctrl,
@@ -37,7 +44,8 @@ func TestRollDPoSCtx(t *testing.T) {
 			NumSubEpochs: 2,
 		},
 		func(blockchain *mock_blockchain.MockBlockchain) {
-			blockchain.EXPECT().TipHeight().Return(uint64(8), nil).Times(2)
+			blockchain.EXPECT().TipHeight().Return(uint64(8), nil).Times(3)
+			blockchain.EXPECT().GetBlockByHeight(uint64(8)).Return(blk, nil).Times(1)
 		},
 		func(pool *mock_delegate.MockPool) {
 			pool.EXPECT().NumDelegatesPerEpoch().Return(uint(4), nil).Times(1)
@@ -48,12 +56,12 @@ func TestRollDPoSCtx(t *testing.T) {
 	)
 
 	epoch, height, err := ctx.calcEpochNumAndHeight()
-	require.Nil(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, uint64(2), epoch)
 	assert.Equal(t, uint64(9), height)
 
 	delegates, err := ctx.rollingDelegates(height)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, candidates, delegates)
 
 	ctx.epoch = epochCtx{
@@ -63,9 +71,13 @@ func TestRollDPoSCtx(t *testing.T) {
 		delegates:    delegates,
 	}
 	proposer, height, err := ctx.rotatedProposer()
-	require.Nil(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, candidates[1], proposer)
 	assert.Equal(t, uint64(9), height)
+
+	duration, err := ctx.calcDurationSinceLastBlock()
+	require.NoError(t, err)
+	assert.True(t, duration > 0)
 }
 
 func makeTestRollDPoSCtx(

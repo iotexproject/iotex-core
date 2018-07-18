@@ -7,7 +7,10 @@
 package rolldpos2
 
 import (
+	"time"
+
 	"github.com/facebookgo/clock"
+	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
@@ -86,6 +89,7 @@ func (ctx *rollDPoSCtx) rotatedProposer() (string, uint64, error) {
 	return ctx.epoch.delegates[(height)%uint64(numDelegates)], height, nil
 }
 
+// mintBlock picks the actions and creates an block to propose
 func (ctx *rollDPoSCtx) mintBlock() (*blockchain.Block, error) {
 	transfers, votes := ctx.actPool.PickActs()
 	logger.Debug().
@@ -103,6 +107,20 @@ func (ctx *rollDPoSCtx) mintBlock() (*blockchain.Block, error) {
 		Int("votes", len(blk.Votes)).
 		Msg("minted a new block")
 	return blk, nil
+}
+
+// calcDurationSinceLastBlock returns the duration since last block time
+func (ctx *rollDPoSCtx) calcDurationSinceLastBlock() (time.Duration, error) {
+	height, err := ctx.chain.TipHeight()
+	if err != nil {
+		return 0, errors.Wrap(err, "error when getting the blockchain height")
+	}
+	blk, err := ctx.chain.GetBlockByHeight(height)
+	if err != nil {
+		return 0, errors.Wrapf(err, "error when getting the block at height: %d", height)
+	}
+	lastBlkTime := time.Unix(int64(blk.ConvertToBlockHeaderPb().Timestamp), 0)
+	return time.Since(lastBlkTime), nil
 }
 
 // epochCtx keeps the context data for the current epoch
