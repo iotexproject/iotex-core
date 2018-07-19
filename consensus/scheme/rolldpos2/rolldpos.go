@@ -123,6 +123,35 @@ func (ctx *rollDPoSCtx) calcDurationSinceLastBlock() (time.Duration, error) {
 	return time.Since(lastBlkTime), nil
 }
 
+// calcQuorum calculates if more than 2/3 vote yes or no
+func (ctx *rollDPoSCtx) calcQuorum(decisions map[string]bool) (bool, bool) {
+	yes := 0
+	no := 0
+	for _, decision := range decisions {
+		if decision {
+			yes++
+		} else {
+			no++
+		}
+	}
+	numDelegates := len(ctx.epoch.delegates)
+	return yes >= numDelegates*2/3+1, no >= numDelegates*2/3+1
+}
+
+// isEpochFinished checks the epoch is finished or not
+func (ctx *rollDPoSCtx) isEpochFinished() (bool, error) {
+	height, err := ctx.chain.TipHeight()
+	if err != nil {
+		return false, errors.Wrap(err, "error when getting the blockchain height")
+	}
+	// if the height of the last committed block is already the last one should be minted from this epochStart, go back
+	// to epochStart start
+	if height >= ctx.epoch.height+uint64(uint(len(ctx.epoch.delegates))*ctx.epoch.numSubEpochs)-1 {
+		return true, nil
+	}
+	return false, nil
+}
+
 // epochCtx keeps the context data for the current epoch
 type epochCtx struct {
 	// num is the ordinal number of an epoch
@@ -138,7 +167,7 @@ type epochCtx struct {
 // roundCtx keeps the context data for the current round and block.
 type roundCtx struct {
 	block    *blockchain.Block
-	prevotes map[string]*hash.Hash32B
-	votes    map[string]*hash.Hash32B
+	prevotes map[string]bool
+	votes    map[string]bool
 	proposer string
 }

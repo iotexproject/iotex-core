@@ -78,6 +78,80 @@ func TestRollDPoSCtx(t *testing.T) {
 	duration, err := ctx.calcDurationSinceLastBlock()
 	require.NoError(t, err)
 	assert.True(t, duration > 0)
+
+	yes, no := ctx.calcQuorum(map[string]bool{
+		candidates[0]: true,
+		candidates[1]: true,
+		candidates[2]: true,
+	})
+	assert.True(t, yes)
+	assert.False(t, no)
+
+	yes, no = ctx.calcQuorum(map[string]bool{
+		candidates[0]: false,
+		candidates[1]: false,
+		candidates[2]: false,
+	})
+	assert.False(t, yes)
+	assert.True(t, no)
+
+	yes, no = ctx.calcQuorum(map[string]bool{
+		candidates[0]: true,
+		candidates[1]: true,
+		candidates[2]: false,
+		candidates[3]: false,
+	})
+	assert.False(t, yes)
+	assert.False(t, no)
+}
+
+func TestIsEpochFinished(t *testing.T) {
+	t.Parallel()
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	candidates := make([]string, 4)
+	for i := 0; i < 4; i++ {
+		candidates[i] = testAddrs[i].RawAddress
+	}
+
+	t.Run("not-finished", func(t *testing.T) {
+		ctx := makeTestRollDPoSCtx(
+			testAddrs[0],
+			ctrl,
+			config.RollDPoS{
+				NumSubEpochs: 2,
+			},
+			func(blockchain *mock_blockchain.MockBlockchain) {
+				blockchain.EXPECT().TipHeight().Return(uint64(8), nil).Times(1)
+			},
+			func(_ *mock_delegate.MockPool) {},
+			func(_ *mock_actpool.MockActPool) {},
+			func(_ *mock_network.MockOverlay) {},
+		)
+		finished, err := ctx.isEpochFinished()
+		require.NoError(t, err)
+		assert.False(t, finished)
+	})
+	t.Run("finished", func(t *testing.T) {
+		ctx := makeTestRollDPoSCtx(
+			testAddrs[0],
+			ctrl,
+			config.RollDPoS{
+				NumSubEpochs: 2,
+			},
+			func(blockchain *mock_blockchain.MockBlockchain) {
+				blockchain.EXPECT().TipHeight().Return(uint64(12), nil).Times(1)
+			},
+			func(_ *mock_delegate.MockPool) {},
+			func(_ *mock_actpool.MockActPool) {},
+			func(_ *mock_network.MockOverlay) {},
+		)
+		finished, err := ctx.isEpochFinished()
+		require.NoError(t, err)
+		assert.False(t, finished)
+	})
 }
 
 func makeTestRollDPoSCtx(
