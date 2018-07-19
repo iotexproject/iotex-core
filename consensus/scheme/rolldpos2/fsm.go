@@ -7,7 +7,9 @@
 package rolldpos2
 
 import (
+	"bytes"
 	"context"
+	"encoding/hex"
 	"sync"
 	"time"
 
@@ -74,9 +76,13 @@ var (
 type iConsensusEvt interface {
 	fsm.Event
 	timestamp() time.Time
+	// TODO: we need to add height or some other ctx to identify which consensus round the event is associated to
+}
+
+// protoMsg is the interface of all events that could convert from/to protobuf messages
+type protoMsg interface {
 	toProtoMsg() (*iproto.ViewChangeMsg, error)
 	fromProtoMsg(msg *iproto.ViewChangeMsg) error
-	// TODO: we need to add height or some other ctx to identify which consensus round the event is associated to
 }
 
 type consensusEvt struct {
@@ -105,21 +111,23 @@ func (e *consensusEvt) fromProtoMsg(pMsg *iproto.ViewChangeMsg) error {
 
 type proposeBlkEvt struct {
 	consensusEvt
-
-	blk *blockchain.Block
+	block    *blockchain.Block
+	proposer string
 }
 
-func newProposeBlkEvt(blk *blockchain.Block, c clock.Clock) *proposeBlkEvt {
+func newProposeBlkEvt(block *blockchain.Block, proposer string, c clock.Clock) *proposeBlkEvt {
 	return &proposeBlkEvt{
 		consensusEvt: *newCEvt(eProposeBlock, c),
-		blk:          blk,
+		block:        block,
+		proposer:     proposer,
 	}
 }
 
 func (e *proposeBlkEvt) toProtoMsg() (*iproto.ViewChangeMsg, error) {
 	return &iproto.ViewChangeMsg{
-		Vctype: iproto.ViewChangeMsg_PROPOSE,
-		Block:  e.blk.ConvertToBlockPb(),
+		Vctype:     iproto.ViewChangeMsg_PROPOSE,
+		Block:      e.block.ConvertToBlockPb(),
+		SenderAddr: e.proposer,
 	}, nil
 }
 
@@ -128,8 +136,55 @@ func (e *proposeBlkEvt) fromProtoMsg(pMsg *iproto.ViewChangeMsg) error {
 		return errors.Wrapf(errEvtConvert, "pMsg Vctype is %d", pMsg.Vctype)
 	}
 	if pMsg.Block != nil {
-		e.blk.ConvertFromBlockPb(pMsg.Block)
+		e.block.ConvertFromBlockPb(pMsg.Block)
 	}
+	e.proposer = pMsg.SenderAddr
+	return nil
+}
+
+type voteEvt struct {
+	consensusEvt
+	blkHash  hash.Hash32B
+	decision bool
+	voter    string
+}
+
+func newVoteEvt(t fsm.EventType, blkHash hash.Hash32B, decision bool, voter string, c clock.Clock) *voteEvt {
+	if t != ePrevote && t != eVote {
+		return nil
+	}
+	return &voteEvt{
+		consensusEvt: *newCEvt(t, c),
+		blkHash:      blkHash,
+		decision:     decision,
+		voter:        voter,
+	}
+}
+
+func (e *voteEvt) toProtoMsg() (*iproto.ViewChangeMsg, error) {
+	var vctype iproto.ViewChangeMsg_ViewChangeType
+	switch e.t {
+	case ePrevote:
+		vctype = iproto.ViewChangeMsg_PREVOTE
+	case eVote:
+		vctype = iproto.ViewChangeMsg_VOTE
+	}
+	return &iproto.ViewChangeMsg{
+		Vctype:     vctype,
+		BlockHash:  e.blkHash[:],
+		SenderAddr: e.voter,
+	}, nil
+}
+
+func (e *voteEvt) fromProtoMsg(pMsg *iproto.ViewChangeMsg) error {
+	if e.t == ePrevote && !(pMsg.Vctype == iproto.ViewChangeMsg_PREVOTE) {
+		return errors.Wrapf(errEvtConvert, "pMsg Vctype is %d, it doesn't match %s", pMsg.Vctype, ePrevote)
+	}
+	if e.t == eVote && !(pMsg.Vctype == iproto.ViewChangeMsg_VOTE) {
+		return errors.Wrapf(errEvtConvert, "pMsg Vctype is %d, it doesn't match %s", pMsg.Vctype, eVote)
+	}
+	copy(e.blkHash[:], pMsg.BlockHash)
+	e.voter = pMsg.SenderAddr
 	return nil
 }
 
@@ -339,8 +394,8 @@ func (m *cFSM) handleStartRoundEvt(_ fsm.Event) (fsm.State, error) {
 		return sInvalid, err
 	}
 	m.ctx.round = roundCtx{
-		prevotes: make(map[string]*hash.Hash32B),
-		votes:    make(map[string]*hash.Hash32B),
+		prevotes: make(map[string]bool),
+		votes:    make(map[string]bool),
 		proposer: proposer,
 	}
 	if proposer == m.ctx.addr.RawAddress {
@@ -356,6 +411,7 @@ func (m *cFSM) handleStartRoundEvt(_ fsm.Event) (fsm.State, error) {
 		Str("proposer", proposer).
 		Uint64("height", height).
 		Msg("current node is not the proposer")
+	// Setup timeout for waiting for proposed block
 	m.produce(m.newCEvt(eProposeBlockTimeout), m.ctx.cfg.AcceptProposeTTL)
 	return sAcceptPropose, nil
 }
@@ -363,58 +419,202 @@ func (m *cFSM) handleStartRoundEvt(_ fsm.Event) (fsm.State, error) {
 func (m *cFSM) handleInitBlockEvt(evt fsm.Event) (fsm.State, error) {
 	blk, err := m.ctx.mintBlock()
 	if err != nil {
-		return sInvalid, err
+		return sInvalid, errors.Wrap(err, "error when minting a block")
 	}
 	proposeBlkEvt := m.newProposeBlkEvt(blk)
 	proposeBlkEvtProto, err := proposeBlkEvt.toProtoMsg()
 	if err != nil {
-		return sInvalid, err
+		return sInvalid, errors.Wrap(err, "error when converting a proposeBlkEvt into a proto msg")
 	}
 	// Notify itself
 	m.produce(proposeBlkEvt, 0)
 	// Notify other delegates
-	m.ctx.p2p.Broadcast(proposeBlkEvtProto)
+	if err := m.ctx.p2p.Broadcast(proposeBlkEvtProto); err != nil {
+		logger.Error().
+			Err(err).
+			Str("id", m.ctx.addr.RawAddress).
+			Msg("error when broadcasting proposeBlkEvt")
+	}
 	return sAcceptPropose, nil
 }
 
 func (m *cFSM) handleProposeBlockEvt(evt fsm.Event) (fsm.State, error) {
+	received := true
+	validated := true
+	m.ctx.round.block = nil
 	switch evt.Type() {
 	case eProposeBlock:
-		// TODO: validate a block and prevote based on the result
+		proposeBlkEvt, ok := evt.(*proposeBlkEvt)
+		if !ok {
+			return sInvalid, errors.Wrap(errEvtCast, "the event is not a proposeBlkEvt")
+		}
+		// If the block is self proposed, skip validation
+		if proposeBlkEvt.proposer != m.ctx.addr.RawAddress {
+			if err := m.ctx.chain.ValidateBlock(proposeBlkEvt.block); err != nil {
+				blkHash := proposeBlkEvt.block.HashBlock()
+				logger.Error().
+					Str("id", m.ctx.addr.RawAddress).
+					Str("proposer", proposeBlkEvt.proposer).
+					Uint64("block", proposeBlkEvt.block.Height()).
+					Str("hash", hex.EncodeToString(blkHash[:])).
+					Msg("error when validating the block")
+				validated = false
+			}
+		}
+		m.ctx.round.block = proposeBlkEvt.block
 	case eProposeBlockTimeout:
-		// TODO: prevote failure
+		received = false
+		validated = false
 	}
-	m.produce(m.newCEvt(ePrevote), 0)
+
+	if received {
+		prevoteEvt := m.newPrevoteEvt(m.ctx.round.block.HashBlock(), validated)
+		prevoteEvtProto, err := prevoteEvt.toProtoMsg()
+		if err != nil {
+			return sInvalid, errors.Wrap(err, "error when converting a prevoteEvt into a proto msg")
+		}
+		// Notify itself
+		m.produce(prevoteEvt, 0)
+		// Notify other delegates
+		if err := m.ctx.p2p.Broadcast(prevoteEvtProto); err != nil {
+			logger.Error().
+				Err(err).
+				Str("id", m.ctx.addr.RawAddress).
+				Msg("error when broadcasting prevoteEvtProto")
+		}
+	}
+	// Setup timeout for waiting for prevote
 	m.produce(m.newCEvt(ePrevoteTimeout), m.ctx.cfg.AcceptPrevoteTTL)
 	return sAcceptPrevote, nil
 }
 
 func (m *cFSM) handlePrevoteEvt(evt fsm.Event) (fsm.State, error) {
+	var vEvt *voteEvt
 	switch evt.Type() {
 	case ePrevote:
-		// TODO: collect 2/3 quorum and vote based on the result
+		prevoteEvt, ok := evt.(*voteEvt)
+		if !ok {
+			return sInvalid, errors.Wrap(errEvtCast, "the event is not a voteEvt")
+		}
+		var blkHash hash.Hash32B
+		if m.ctx.round.block != nil {
+			blkHash = m.ctx.round.block.HashBlock()
+		}
+		if bytes.Equal(blkHash[:], prevoteEvt.blkHash[:]) {
+			m.ctx.round.prevotes[prevoteEvt.voter] = prevoteEvt.decision
+		}
+		// if ether yes or no is true, block must exists and blkHash must be a valid one
+		yes, no := m.ctx.calcQuorum(m.ctx.round.prevotes)
+		if yes {
+			vEvt = m.newVoteEvt(blkHash, true)
+		} else if no {
+			vEvt = m.newVoteEvt(blkHash, false)
+		}
+		if vEvt == nil {
+			// Wait for more prevotes to come
+			return sAcceptPrevote, nil
+		}
+		// Reached the agreement
 	case ePrevoteTimeout:
-		// TODO: vote failure
+		if m.ctx.round.block != nil {
+			vEvt = m.newVoteEvt(m.ctx.round.block.HashBlock(), false)
+		}
 	}
-	m.produce(m.newCEvt(eVote), 0)
+	if vEvt != nil {
+		vEvtProto, err := vEvt.toProtoMsg()
+		if err != nil {
+			return sInvalid, errors.Wrap(err, "error when converting a voteEvt into a proto msg")
+		}
+		// Notify itself
+		m.produce(vEvt, 0)
+		// Notify other delegates
+		if err := m.ctx.p2p.Broadcast(vEvtProto); err != nil {
+			logger.Error().
+				Err(err).
+				Str("id", m.ctx.addr.RawAddress).
+				Msg("error when broadcasting voteEvtProto")
+		}
+	}
+	// Setup timeout for waiting for vote
 	m.produce(m.newCEvt(eVoteTimeout), m.ctx.cfg.AcceptPrevoteTTL)
 	return sAcceptVote, nil
 }
 
 func (m *cFSM) handleVoteEvt(evt fsm.Event) (fsm.State, error) {
+	consensus := false
+	timeout := false
+	disagreement := false
 	switch evt.Type() {
 	case eVote:
-		// TODO: commit and broadcast a block with consensusEvt
+		voteEvt, ok := evt.(*voteEvt)
+		if !ok {
+			return sInvalid, errors.Wrap(errEvtCast, "the event is not a voteEvt")
+		}
+		var blkHash hash.Hash32B
+		if m.ctx.round.block != nil {
+			blkHash = m.ctx.round.block.HashBlock()
+		}
+		if bytes.Equal(blkHash[:], voteEvt.blkHash[:]) {
+			m.ctx.round.votes[voteEvt.voter] = voteEvt.decision
+		}
+		// if ether yes or no is true, block must exists and blkHash must be a valid one
+		yes, no := m.ctx.calcQuorum(m.ctx.round.votes)
+		if yes {
+			consensus = true
+		} else if no {
+			disagreement = true
+		} else {
+			// Wait for more votes to come
+			return sAcceptVote, nil
+		}
 	case eVoteTimeout:
-		// TODO: commit a dummy block
+		consensus = false
+		timeout = true
+	}
+	if consensus {
+		logger.Info().
+			Str("id", m.ctx.addr.RawAddress).
+			Uint64("block", m.ctx.round.block.Height()).
+			Msg("consensus reached")
+		if err := m.ctx.chain.CommitBlock(m.ctx.round.block); err != nil {
+			logger.Error().
+				Err(err).
+				Str("id", m.ctx.addr.RawAddress).
+				Uint64("block", m.ctx.round.block.Height()).
+				Msg("error when committing a block")
+		} else {
+			if blkProto := m.ctx.round.block.ConvertToBlockPb(); blkProto != nil {
+				if err := m.ctx.p2p.Broadcast(blkProto); err != nil {
+					logger.Error().
+						Err(err).
+						Str("id", m.ctx.addr.RawAddress).
+						Uint64("block", m.ctx.round.block.Height()).
+						Msg("error when broadcasting blkProto")
+				}
+			} else {
+				logger.Error().
+					Str("id", m.ctx.addr.RawAddress).
+					Uint64("block", m.ctx.round.block.Height()).
+					Msg("error when converting a block into a proto msg")
+			}
+		}
+	} else {
+		logger.Warn().
+			Str("id", m.ctx.addr.RawAddress).
+			Uint64("block", m.ctx.round.block.Height()).
+			Bool("timeout", timeout).
+			Bool("disagreement", disagreement).
+			Msg("consensus did not reach")
 	}
 	m.produce(m.newCEvt(eFinishEpoch), 0)
-	return sAcceptVote, nil
+	return sRoundStart, nil
 }
 
 func (m *cFSM) handleFinishEpochEvt(evt fsm.Event) (fsm.State, error) {
-	// TODO: determine if the epoch has finished
-	finished := true
+	finished, err := m.ctx.isEpochFinished()
+	if err != nil {
+		return sInvalid, errors.Wrap(err, "error when checking if the epoch is finished")
+	}
 	if finished {
 		m.produce(m.newCEvt(eRollDelegates), 0)
 		return sEpochStart, nil
@@ -447,7 +647,15 @@ func (m *cFSM) newCEvt(t fsm.EventType) *consensusEvt {
 }
 
 func (m *cFSM) newProposeBlkEvt(blk *blockchain.Block) *proposeBlkEvt {
-	return newProposeBlkEvt(blk, m.ctx.clock)
+	return newProposeBlkEvt(blk, m.ctx.addr.RawAddress, m.ctx.clock)
+}
+
+func (m *cFSM) newPrevoteEvt(blkHash hash.Hash32B, decision bool) *voteEvt {
+	return newVoteEvt(ePrevote, blkHash, decision, m.ctx.addr.RawAddress, m.ctx.clock)
+}
+
+func (m *cFSM) newVoteEvt(blkHash hash.Hash32B, decision bool) *voteEvt {
+	return newVoteEvt(eVote, blkHash, decision, m.ctx.addr.RawAddress, m.ctx.clock)
 }
 
 func (m *cFSM) newBackdoorEvt(dst fsm.State) *backdoorEvt {
