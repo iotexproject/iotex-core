@@ -124,3 +124,16 @@ func (m *MockFactory) Candidates() (uint64, []*state.Candidate) {
 func (mr *MockFactoryMockRecorder) Candidates() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Candidates", reflect.TypeOf((*MockFactory)(nil).Candidates))
 }
+
+// CandidatesByHeight mocks base method
+func (m *MockFactory) CandidatesByHeight(arg0 uint64) ([]*state.Candidate, bool) {
+	ret := m.ctrl.Call(m, "CandidatesByHeight", arg0)
+	ret0, _ := ret[0].([]*state.Candidate)
+	ret1, _ := ret[1].(bool)
+	return ret0, ret1
+}
+
+// CandidatesByHeight indicates an expected call of CandidatesByHeight
+func (mr *MockFactoryMockRecorder) CandidatesByHeight(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CandidatesByHeight", reflect.TypeOf((*MockFactory)(nil).CandidatesByHeight), arg0)
+}

@@ -12,6 +12,8 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_delegate"
 )
 
@@ -21,13 +23,15 @@ func TestStartNextEpochCB(t *testing.T) {
 	self := "io1qyqsyqcy6nm58gjd2wr035wz5eyd5uq47zyqpng3gxe7nh"
 	ctrl := gomock.NewController(t)
 	pool := mock_delegate.NewMockPool(ctrl)
+	bc := mock_blockchain.NewMockBlockchain(ctrl)
+	cfg := &config.RollDPoS{}
 	defer ctrl.Finish()
 
-	flag, err := NeverStartNewEpoch(self, 1, pool)
+	flag, err := NeverStartNewEpoch(self, 1, pool, bc, cfg, 1)
 	require.Nil(t, err)
 	require.False(t, flag)
 
-	flag, err = PseudoStarNewEpoch(self, 1, pool)
+	flag, err = PseudoStarNewEpoch(self, 1, pool, bc, cfg, 1)
 	require.Nil(t, err)
 	require.True(t, flag)
 
@@ -41,7 +45,7 @@ func TestStartNextEpochCB(t *testing.T) {
 		},
 		nil,
 	).Times(1)
-	flag, err = PseudoStartRollingEpoch(self, 1, pool)
+	flag, err = PseudoStartRollingEpoch(self, 1, pool, bc, cfg, 1)
 	require.Nil(t, err)
 	require.True(t, flag)
 
@@ -54,7 +58,7 @@ func TestStartNextEpochCB(t *testing.T) {
 		},
 		nil,
 	).Times(1)
-	flag, err = PseudoStartRollingEpoch(self, 1, pool)
+	flag, err = PseudoStartRollingEpoch(self, 1, pool, bc, cfg, 1)
 	require.Nil(t, err)
 	require.False(t, flag)
 }

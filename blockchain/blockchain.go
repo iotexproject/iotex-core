@@ -39,6 +39,8 @@ type Blockchain interface {
 	CommitStateChanges(chainHeight uint64, tsf []*action.Transfer, vote []*action.Vote) error
 	// Candidates returns the candidate list
 	Candidates() (uint64, []*state.Candidate)
+	// CandidatesByHeight returns the candidate list by a given height
+	CandidatesByHeight(height uint64) ([]*state.Candidate, bool)
 	// For exposing blockchain states
 	// GetHeightByHash returns Block's height by hash
 	GetHeightByHash(h hash.Hash32B) (uint64, error)
@@ -276,7 +278,7 @@ func (bc *blockchain) Start(ctx context.Context) (err error) {
 		}
 		if blk != nil {
 			if bc.sf != nil && blk.Transfers != nil {
-				if err := bc.sf.CommitStateChanges(bc.tipHeight, blk.Transfers, blk.Votes); err != nil {
+				if err := bc.sf.CommitStateChanges(blk.Height(), blk.Transfers, blk.Votes); err != nil {
 					return err
 				}
 			}
@@ -304,13 +306,18 @@ func (bc *blockchain) CreateState(addr string, init uint64) (*state.State, error
 }
 
 // CommitStateChanges updates a State from the given actions
-func (bc *blockchain) CommitStateChanges(chainHeight uint64, tsf []*action.Transfer, vote []*action.Vote) error {
-	return bc.sf.CommitStateChanges(chainHeight, tsf, vote)
+func (bc *blockchain) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer, vote []*action.Vote) error {
+	return bc.sf.CommitStateChanges(blockHeight, tsf, vote)
 }
 
 // Candidates returns the candidate list
 func (bc *blockchain) Candidates() (uint64, []*state.Candidate) {
 	return bc.sf.Candidates()
+}
+
+// CandidatesByHeight returns the candidate list by a given height
+func (bc *blockchain) CandidatesByHeight(height uint64) ([]*state.Candidate, bool) {
+	return bc.sf.CandidatesByHeight(height)
 }
 
 // GetHeightByHash returns block's height by hash
@@ -565,5 +572,5 @@ func (bc *blockchain) commitBlock(blk *Block) error {
 	if bc.sf == nil || (blk.Transfers == nil && blk.Votes == nil) {
 		return nil
 	}
-	return bc.sf.CommitStateChanges(bc.tipHeight, blk.Transfers, blk.Votes)
+	return bc.sf.CommitStateChanges(blk.Height(), blk.Transfers, blk.Votes)
 }

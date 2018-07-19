@@ -45,3 +45,7 @@
 [[constraint]]
   name = "go.uber.org/config"
   version = "1.2.2"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/golang/groupcache"

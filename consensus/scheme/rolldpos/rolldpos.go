@@ -82,6 +82,7 @@ type RollDPoS struct {
 	quit           chan struct{}
 	eventChan      chan *fsm.Event
 	cfg            config.RollDPoS
+	delegateCfg    config.Delegate
 	pr             *routine.RecurringTask
 	prnd           *proposerRotation
 	dlgRollTask    *routine.RecurringTask
@@ -92,6 +93,7 @@ type RollDPoS struct {
 // NewRollDPoS creates a RollDPoS struct
 func NewRollDPoS(
 	cfg config.RollDPoS,
+	delegateCfg config.Delegate,
 	prop scheme.CreateBlockCB,
 	vote scheme.TellPeerCB,
 	cons scheme.ConsensusDoneCB,
@@ -113,13 +115,14 @@ func NewRollDPoS(
 		epochStartCb: epochStart,
 	}
 	sc := &RollDPoS{
-		rollDPoSCB: cb,
-		bc:         bc,
-		self:       myaddr,
-		pool:       dlg,
-		quit:       make(chan struct{}),
-		eventChan:  make(chan *fsm.Event, cfg.EventChanSize),
-		cfg:        cfg,
+		rollDPoSCB:  cb,
+		bc:          bc,
+		self:        myaddr,
+		pool:        dlg,
+		quit:        make(chan struct{}),
+		eventChan:   make(chan *fsm.Event, cfg.EventChanSize),
+		cfg:         cfg,
+		delegateCfg: delegateCfg,
 	}
 	if cfg.ProposerInterval == 0 {
 		sc.prnd = newProposerRotationNoDelay(sc)

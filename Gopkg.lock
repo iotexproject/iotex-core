@@ -26,6 +26,12 @@
   revision = "600d898af40aa09a7a93ecb9265d87b0504b6f03"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/golang/groupcache"
+  packages = ["lru"]
+  revision = "24b0969c4cb722950103eed87108c8d291a8df00"
+
+[[projects]]
   name = "github.com/golang/mock"
   packages = ["gomock"]
   revision = "c34cdb4725f4c3844d095133c6e40e448b86589b"
@@ -49,36 +55,6 @@
   packages = ["."]
   revision = "76626ae9c91c4f2a10f34cad8ce83ea42c93bb75"
   version = "v1.0"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/iotexproject/iotex-core"
-  packages = [
-    "blockchain",
-    "blockchain/action",
-    "config",
-    "crypto",
-    "db",
-    "delegate",
-    "explorer/idl/explorer",
-    "iotxaddress",
-    "iotxaddress/bech32",
-    "logger",
-    "network/node",
-    "pkg/enc",
-    "pkg/hash",
-    "pkg/lifecycle",
-    "pkg/util/byteutil",
-    "pkg/util/fileutil",
-    "pkg/version",
-    "proto",
-    "state",
-    "test/mock/mock_blockchain",
-    "test/mock/mock_delegate",
-    "test/util",
-    "trie"
-  ]
-  revision = "3b86f69422ee730e5513e13030fc213aa392b29f"
 
 [[projects]]
   name = "github.com/pkg/errors"
@@ -255,6 +231,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "52e8ed3ed03a945299546d4ea5919d44d1bf7a382870cd3f8174956e7af89901"
+  inputs-digest = "2f6af4ba87bf7b2f07eafbce5e892bf9989bd1cb39f8ddb811b933b5658dc8d2"
   solver-name = "gps-cdcl"
   solver-version = 1

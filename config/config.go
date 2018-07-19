@@ -110,6 +110,7 @@ var (
 				Delay:             5 * time.Second,
 				NumSubEpochs:      1,
 				EventChanSize:     10000,
+				DelegateLRUSize:   10,
 			},
 			BlockCreationInterval: 10 * time.Second,
 		},
@@ -222,6 +223,7 @@ type (
 		Delay             time.Duration `yaml:"delay"`
 		NumSubEpochs      uint          `yaml:"numSubEpochs"`
 		EventChanSize     uint          `yaml:"eventChanSize"`
+		DelegateLRUSize   uint          `yaml:"delegateLRUSize"`
 	}
 	// Delegate is the delegate config
 	Delegate struct {
