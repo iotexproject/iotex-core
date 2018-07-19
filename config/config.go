@@ -9,12 +9,12 @@ package config
 import (
 	"encoding/hex"
 	"flag"
-	"io/ioutil"
+	"os"
 	"time"
 
 	"github.com/pkg/errors"
+	uconfig "go.uber.org/config"
 	"google.golang.org/grpc/keepalive"
-	"gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/iotxaddress"
@@ -25,8 +25,16 @@ import (
 // the default value in Default var.
 
 func init() {
-	flag.StringVar(&Path, "config-path", "", "Config path")
+	flag.StringVar(&_overwritePath, "config-path", "", "Config path")
+	flag.StringVar(&_secretPath, "secret-path", "", "Secret path")
 }
+
+var (
+	// overwritePath is the path to the config file which overwrite default values
+	_overwritePath string
+	// secretPath is the path to the  config file store secret values
+	_secretPath string
+)
 
 const (
 	// DelegateType represents the delegate node type
@@ -45,14 +53,12 @@ const (
 )
 
 var (
-	// Path is the path to the config file
-	Path string
-
 	// Default is the default config
 	Default = Config{
 		NodeType: FullNodeType,
 		Network: Network{
-			Addr: "127.0.0.1:4689",
+			IP:   "127.0.0.1",
+			Port: 4689,
 			MsgLogsCleaningInterval: 2 * time.Second,
 			MsgLogRetention:         5 * time.Second,
 			HealthCheckInterval:     time.Second,
@@ -149,7 +155,8 @@ var (
 // Network is the config struct for network package
 type (
 	Network struct {
-		Addr                    string                      `yaml:"addr"`
+		IP                      string                      `yaml:"ip"`
+		Port                    int                         `yaml:"port"`
 		MsgLogsCleaningInterval time.Duration               `yaml:"msgLogsCleaningInterval"`
 		MsgLogRetention         time.Duration               `yaml:"msgLogRetention"`
 		HealthCheckInterval     time.Duration               `yaml:"healthCheckInterval"`
@@ -269,18 +276,27 @@ type (
 // the file and override the default configs. By default, it will apply all validation functions. To bypass validation,
 // use DoNotValidate instead.
 func New(validates ...Validate) (*Config, error) {
-	cfg := Default
-	if Path != "" {
-		cfgBytes, err := ioutil.ReadFile(Path)
-		if err != nil {
-			logger.Error().Err(err).Msg("error when reading the config file")
-			return nil, err
-		}
-		if err := yaml.Unmarshal(cfgBytes, &cfg); err != nil {
-			logger.Error().Err(err).Msg("error when reading the config file")
-			return nil, err
-		}
+	opts := make([]uconfig.YAMLOption, 0)
+	opts = append(opts, uconfig.Static(Default))
+	opts = append(opts, uconfig.Expand(os.LookupEnv))
+	if _overwritePath != "" {
+		opts = append(opts, uconfig.File(_overwritePath))
 	}
+	if _secretPath != "" {
+		opts = append(opts, uconfig.File(_secretPath))
+	}
+	yaml, err := uconfig.NewYAML(opts...)
+	if err != nil {
+		logger.Error().Err(err).Msg("Failed to init config.")
+		return nil, err
+	}
+
+	var cfg Config
+	if err := yaml.Get(uconfig.Root).Populate(&cfg); err != nil {
+		logger.Error().Err(err).Msg("Failed to unmarshal YAML config to struct.")
+		return nil, err
+	}
+
 	// By default, the config needs to pass all the validation
 	if len(validates) == 0 {
 		validates = Validates

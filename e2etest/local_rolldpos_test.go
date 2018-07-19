@@ -10,7 +10,6 @@ import (
 	"context"
 	"encoding/hex"
 	"flag"
-	"strconv"
 	"testing"
 	"time"
 
@@ -59,7 +58,8 @@ func testLocalRollDPoS(prCb string, epochCb string, numBlocks uint64, t *testing
 	var svrs []*itx.Server
 	for i := 0; i < 3; i++ {
 		cfg.NodeType = config.FullNodeType
-		cfg.Network.Addr = "127.0.0.1:5000" + strconv.Itoa(i)
+		cfg.Network.IP = "127.0.0.1"
+		cfg.Network.Port = 50000 + i
 		svr := itx.NewInMemTestServer(cfg)
 		require.Nil(svr.Start(ctx))
 		svrs = append(svrs, svr)
@@ -68,7 +68,8 @@ func testLocalRollDPoS(prCb string, epochCb string, numBlocks uint64, t *testing
 
 	for i := 0; i < 4; i++ {
 		cfg.NodeType = config.DelegateType
-		cfg.Network.Addr = "127.0.0.1:4000" + strconv.Itoa(i)
+		cfg.Network.IP = "127.0.0.1"
+		cfg.Network.Port = 40000 + i
 		cfg.Consensus.Scheme = config.RollDPoSScheme
 		svr := itx.NewInMemTestServer(cfg)
 		require.Nil(svr.Start(ctx))

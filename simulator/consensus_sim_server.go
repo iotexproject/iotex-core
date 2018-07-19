@@ -90,7 +90,8 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 
 		// handle node address, delegate addresses, etc.
 		cfg.Delegate.Addrs = addrs
-		cfg.Network.Addr = "127.0.0.1:10000"
+		cfg.Network.IP = "127.0.0.1"
+		cfg.Network.Port = 10000
 		cfg.Network.NumPeersLowerBound = 6
 		cfg.Network.NumPeersUpperBound = 12
 
