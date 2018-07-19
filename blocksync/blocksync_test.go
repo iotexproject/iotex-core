@@ -58,7 +58,8 @@ func TestSyncTaskInterval(t *testing.T) {
 
 func generateP2P() network.Overlay {
 	c := &config.Network{
-		Addr: "127.0.0.1:10001",
+		IP:   "127.0.0.1",
+		Port: 10001,
 		MsgLogsCleaningInterval: 2 * time.Second,
 		MsgLogRetention:         10 * time.Second,
 		HealthCheckInterval:     time.Second,

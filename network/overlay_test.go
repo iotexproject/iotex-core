@@ -32,10 +32,19 @@ import (
 )
 
 func LoadTestConfig(addr string, allowMultiConnsPerIP bool) *config.Network {
+	var (
+		ip   = "127.0.0.1"
+		port int
+	)
+	if addrComp := strings.Split(addr, ":"); len(addrComp) == 2 {
+		ip = addrComp[0]
+		port, _ = strconv.Atoi(addrComp[1])
+	}
 	config := config.Config{
 		NodeType: config.DelegateType,
 		Network: config.Network{
-			Addr: addr,
+			IP:   ip,
+			Port: port,
 			MsgLogsCleaningInterval: 2 * time.Second,
 			MsgLogRetention:         10 * time.Second,
 			HealthCheckInterval:     time.Second,

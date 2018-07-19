@@ -58,7 +58,8 @@ func TestLocalActPool(t *testing.T) {
 	ap := svr.Ap()
 	require.NotNil(ap)
 
-	cfg.Network.Addr = "127.0.0.1:10001"
+	cfg.Network.IP = "127.0.0.1"
+	cfg.Network.Port = 10001
 	// Narrow down BootstrapNodes options to smooth peer maintenance
 	cfg.Network.BootstrapNodes = []string{"127.0.0.1:10000"}
 	p1 := network.NewOverlay(&cfg.Network)
@@ -160,7 +161,8 @@ func TestPressureActPool(t *testing.T) {
 	ap := svr.Ap()
 	require.NotNil(ap)
 
-	cfg.Network.Addr = "127.0.0.1:10001"
+	cfg.Network.IP = "127.0.0.1"
+	cfg.Network.Port = 10001
 	// Narrow down BootstrapNodes options to smooth peer maintenance
 	cfg.Network.BootstrapNodes = []string{"127.0.0.1:10000"}
 	p1 := network.NewOverlay(&cfg.Network)
@@ -239,7 +241,8 @@ func newActPoolConfig() (*config.Config, error) {
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Consensus.Scheme = config.StandaloneScheme
 	cfg.Consensus.BlockCreationInterval = time.Second
-	cfg.Network.Addr = "127.0.0.1:10000"
+	cfg.Network.IP = "127.0.0.1"
+	cfg.Network.Port = 10000
 	cfg.Network.BootstrapNodes = []string{"127.0.0.1:10000", "127.0.0.1:4687"}
 	cfg.ActPool.MaxNumActPerAcct = 256
 

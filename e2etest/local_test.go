@@ -332,7 +332,8 @@ func TestLocalSync(t *testing.T) {
 
 	// create node 2
 	cfg.NodeType = config.FullNodeType
-	cfg.Network.Addr = "127.0.0.1:10001"
+	cfg.Network.IP = "127.0.0.1"
+	cfg.Network.Port = 10001
 	// Narrow down BootstrapNodes options to smooth peer maintenance
 	cfg.Network.BootstrapNodes = []string{"127.0.0.1:10000"}
 	cli := itx.NewServer(cfg)
@@ -645,7 +646,8 @@ func newTestConfig() (*config.Config, error) {
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Consensus.Scheme = config.NOOPScheme
-	cfg.Network.Addr = "127.0.0.1:10000"
+	cfg.Network.IP = "127.0.0.1"
+	cfg.Network.Port = 10000
 	cfg.Network.BootstrapNodes = []string{"127.0.0.1:10000", "127.0.0.1:4689"}
 	addr, err := iotxaddress.NewAddress(true, iotxaddress.ChainID)
 	if err != nil {

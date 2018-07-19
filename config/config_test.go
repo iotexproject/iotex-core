@@ -38,13 +38,13 @@ func TestNewConfigWithoutValidation(t *testing.T) {
 }
 
 func TestNewConfigWithWrongConfigPath(t *testing.T) {
-	Path = "wrong_path"
-	defer func() { Path = "" }()
+	_overwritePath = "wrong_path"
+	defer func() { _overwritePath = "" }()
 
 	cfg, err := New()
 	require.NotNil(t, err)
 	require.Nil(t, cfg)
-	require.Equal(t, "open wrong_path: no such file or directory", err.Error())
+	require.Contains(t, err.Error(), "open wrong_path: no such file or directory")
 }
 
 func TestNewConfigWithOverride(t *testing.T) {
@@ -58,12 +58,12 @@ chain:
 		hex.EncodeToString(testaddress.Addrinfo["alfa"].PrivateKey),
 		hex.EncodeToString(testaddress.Addrinfo["alfa"].PublicKey),
 	)
-	Path = filepath.Join(os.TempDir(), "config.yaml")
-	err := ioutil.WriteFile(Path, []byte(cfgStr), 0666)
+	_overwritePath = filepath.Join(os.TempDir(), "config.yaml")
+	err := ioutil.WriteFile(_overwritePath, []byte(cfgStr), 0666)
 	require.NoError(t, err)
 	defer func() {
-		err := os.Remove(Path)
-		Path = ""
+		err := os.Remove(_overwritePath)
+		_overwritePath = ""
 		require.Nil(t, err)
 	}()
 
@@ -73,6 +73,96 @@ chain:
 	require.Equal(t, DelegateType, cfg.NodeType)
 	require.Equal(t, hex.EncodeToString(testaddress.Addrinfo["alfa"].PrivateKey), cfg.Chain.ProducerPrivKey)
 	require.Equal(t, hex.EncodeToString(testaddress.Addrinfo["alfa"].PublicKey), cfg.Chain.ProducerPubKey)
+}
+
+func TestNewConfigWithSecret(t *testing.T) {
+	cfgStr := fmt.Sprintf(`
+nodeType: %s
+chain:
+    producerPrivKey: "%s"
+    producerPubKey: "%s"
+`,
+		DelegateType,
+		hex.EncodeToString(testaddress.Addrinfo["alfa"].PrivateKey),
+		hex.EncodeToString(testaddress.Addrinfo["alfa"].PublicKey),
+	)
+	_overwritePath = filepath.Join(os.TempDir(), "config.yaml")
+	err := ioutil.WriteFile(_overwritePath, []byte(cfgStr), 0666)
+	require.NoError(t, err)
+	defer func() {
+	}()
+
+	cfgStr = fmt.Sprintf(`
+chain:
+    producerPrivKey: "%s"
+    producerPubKey: "%s"
+`,
+		hex.EncodeToString(testaddress.Addrinfo["echo"].PrivateKey),
+		hex.EncodeToString(testaddress.Addrinfo["echo"].PublicKey),
+	)
+	_secretPath = filepath.Join(os.TempDir(), "secret.yaml")
+	err = ioutil.WriteFile(_secretPath, []byte(cfgStr), 0666)
+	require.NoError(t, err)
+
+	defer func() {
+		err := os.Remove(_overwritePath)
+		require.Nil(t, err)
+		_overwritePath = ""
+		err = os.Remove(_secretPath)
+		require.Nil(t, err)
+		_secretPath = ""
+	}()
+
+	cfg, err := New()
+	require.Nil(t, err)
+	require.NotNil(t, cfg)
+	require.Equal(t, DelegateType, cfg.NodeType)
+	require.Equal(t, hex.EncodeToString(testaddress.Addrinfo["echo"].PrivateKey), cfg.Chain.ProducerPrivKey)
+	require.Equal(t, hex.EncodeToString(testaddress.Addrinfo["echo"].PublicKey), cfg.Chain.ProducerPubKey)
+}
+
+func TestNewConfigWithLookupEnv(t *testing.T) {
+	oldEnv, oldExist := os.LookupEnv("IOTEX_TEST_NODE_TYPE")
+	err := os.Setenv("IOTEX_TEST_NODE_TYPE", DelegateType)
+	require.Nil(t, err)
+
+	cfgStr := fmt.Sprintf(`
+nodeType: ${IOTEX_TEST_NODE_TYPE:"lightweight"}
+chain:
+    producerPrivKey: "%s"
+    producerPubKey: "%s"
+`,
+		hex.EncodeToString(testaddress.Addrinfo["alfa"].PrivateKey),
+		hex.EncodeToString(testaddress.Addrinfo["alfa"].PublicKey),
+	)
+	_overwritePath = filepath.Join(os.TempDir(), "config.yaml")
+	err = ioutil.WriteFile(_overwritePath, []byte(cfgStr), 0666)
+	require.NoError(t, err)
+
+	defer func() {
+		err := os.Remove(_overwritePath)
+		require.Nil(t, err)
+		_overwritePath = ""
+		if oldExist {
+			err = os.Setenv("IOTEX_TEST_NODE_TYPE", oldEnv)
+		} else {
+			err = os.Unsetenv("IOTEX_TEST_NODE_TYPE")
+		}
+		require.Nil(t, err)
+	}()
+
+	cfg, err := New()
+	require.Nil(t, err)
+	require.NotNil(t, cfg)
+	require.Equal(t, DelegateType, cfg.NodeType)
+
+	err = os.Unsetenv("IOTEX_TEST_NODE_TYPE")
+	require.Nil(t, err)
+
+	cfg, err = New()
+	require.Nil(t, err)
+	require.NotNil(t, cfg)
+	require.Equal(t, LightweightType, cfg.NodeType)
 }
 
 func TestValidateAddr(t *testing.T) {

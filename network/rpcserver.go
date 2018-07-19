@@ -9,6 +9,8 @@ package network
 import (
 	"fmt"
 	"net"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -44,7 +46,8 @@ type RPCServer struct {
 // NewRPCServer creates an instance of RPCServer
 func NewRPCServer(o *IotxOverlay) *RPCServer {
 	s := &RPCServer{Overlay: o}
-	s.Addr = o.Config.Addr
+	portStr := strconv.Itoa(o.Config.Port)
+	s.Addr = strings.Join([]string{o.Config.IP, portStr}, ":")
 	s.rateLimit = o.Config.RateLimitPerSec * uint64(o.Config.RateLimitWindowSize) / uint64(time.Second)
 	return s
 }

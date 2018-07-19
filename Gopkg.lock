@@ -129,6 +129,28 @@
   revision = "4528c8749aae8cb7868a391390ebd15f5ea84618"
 
 [[projects]]
+  name = "go.uber.org/atomic"
+  packages = ["."]
+  revision = "1ea20fb1cbb1cc08cbd0d913a96dead89aa18289"
+  version = "v1.3.2"
+
+[[projects]]
+  name = "go.uber.org/config"
+  packages = [
+    ".",
+    "internal/merge",
+    "internal/unreachable"
+  ]
+  revision = "bd43fcdad9e1dc6d3fd7d96489f42c5fc5b671e9"
+  version = "v1.2.2"
+
+[[projects]]
+  name = "go.uber.org/multierr"
+  packages = ["."]
+  revision = "3c4937480c32f4c13a875a1829af76c98ca3d40a"
+  version = "v1.1.0"
+
+[[projects]]
   branch = "master"
   name = "golang.org/x/crypto"
   packages = ["blake2b"]
@@ -233,6 +255,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "4859138ee1811753da603bc379ca04ba91d1a6efc89f32ea60810a61b00f03d1"
+  inputs-digest = "52e8ed3ed03a945299546d4ea5919d44d1bf7a382870cd3f8174956e7af89901"
   solver-name = "gps-cdcl"
   solver-version = 1
