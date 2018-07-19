@@ -7,6 +7,8 @@
 package rolldpos
 
 import (
+	"errors"
+
 	"github.com/iotexproject/iotex-core/consensus/fsm"
 	"github.com/iotexproject/iotex-core/logger"
 )
@@ -42,10 +44,33 @@ func (r ruleDKGGenerate) Condition(event *fsm.Event) bool {
 	}
 
 	// Get the rolling delegates
-	delegates, err := r.pool.RollDelegates(epochNum)
-	if err != nil {
-		event.Err = err
-		return false
+	var delegates []string
+	switch r.cfg.EpochCB {
+	case "StartRollingEpoch":
+		height, err := calEpochHeight(&r.cfg, epochNum, r.pool)
+		if err != nil {
+			event.Err = err
+			return false
+		}
+		candidates, ok := r.bc.CandidatesByHeight(height - 1)
+		if !ok {
+			event.Err = errors.New("Epoch number of statefactory is inconsistent in StartRollingEpoch")
+			return false
+		}
+		if len(candidates) < int(r.delegateCfg.RollNum) {
+			event.Err = errors.New("Candidate pool does not have enough candidates")
+			return false
+		}
+		candidates = candidates[:r.delegateCfg.RollNum]
+		for _, candidate := range candidates {
+			delegates = append(delegates, candidate.Address)
+		}
+	default:
+		delegates, err = r.pool.RollDelegates(epochNum)
+		if err != nil {
+			event.Err = err
+			return false
+		}
 	}
 
 	// Get the sub-epoch number

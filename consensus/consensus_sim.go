@@ -141,6 +141,7 @@ func NewSim(
 
 	cs.scheme = rolldpos.NewRollDPoS(
 		cfg.Consensus.RollDPoS,
+		cfg.Delegate,
 		mintBlockCB,
 		tellBlockCB,
 		commitBlockCB,
@@ -252,6 +253,7 @@ func NewSimByzantine(
 
 	cs.scheme = rolldpos.NewRollDPoS(
 		cfg.Consensus.RollDPoS,
+		cfg.Delegate,
 		mintBlockCB,
 		tellBlockCB,
 		commitBlockCB,

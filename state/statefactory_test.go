@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/golang/groupcache/lru"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -234,6 +235,7 @@ func TestCandidate(t *testing.T) {
 	tr, _ := trie.NewTrie(testTriePath, false)
 	sf := &factory{
 		trie:                   tr,
+		candidatesLRU:          lru.New(10),
 		candidateHeap:          CandidateMinPQ{candidateSize, make([]*Candidate, 0)},
 		candidateBufferMinHeap: CandidateMinPQ{candidateBufferSize, make([]*Candidate, 0)},
 		candidateBufferMaxHeap: CandidateMaxPQ{candidateBufferSize, make([]*Candidate, 0)},
@@ -472,6 +474,7 @@ func TestUnvote(t *testing.T) {
 	tr, _ := trie.NewTrie(testTriePath, false)
 	sf := &factory{
 		trie:                   tr,
+		candidatesLRU:          lru.New(10),
 		candidateHeap:          CandidateMinPQ{candidateSize, make([]*Candidate, 0)},
 		candidateBufferMinHeap: CandidateMinPQ{candidateBufferSize, make([]*Candidate, 0)},
 		candidateBufferMaxHeap: CandidateMaxPQ{candidateBufferSize, make([]*Candidate, 0)},

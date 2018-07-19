@@ -9,7 +9,10 @@ package state
 import (
 	"container/heap"
 	"math/big"
+	"sort"
+	"strings"
 
+	"github.com/golang/groupcache/lru"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/blockchain/action"
@@ -66,11 +69,13 @@ type (
 		State(string) (*State, error)
 		RootHash() hash.Hash32B
 		Candidates() (uint64, []*Candidate)
+		CandidatesByHeight(uint64) ([]*Candidate, bool)
 	}
 
 	// factory implements StateFactory interface, tracks changes in a map and batch-commits to trie/db
 	factory struct {
 		currentChainHeight     uint64
+		candidatesLRU          *lru.Cache
 		trie                   trie.Trie
 		candidateHeap          CandidateMinPQ
 		candidateBufferMinHeap CandidateMinPQ
@@ -124,9 +129,14 @@ func InMemTrieOption() FactoryOption {
 func NewFactory(cfg *config.Config, opts ...FactoryOption) (Factory, error) {
 	sf := &factory{
 		currentChainHeight:     0,
+		candidatesLRU:          lru.New(10),
 		candidateHeap:          CandidateMinPQ{candidateSize, make([]*Candidate, 0)},
 		candidateBufferMinHeap: CandidateMinPQ{candidateBufferSize, make([]*Candidate, 0)},
 		candidateBufferMaxHeap: CandidateMaxPQ{candidateBufferSize, make([]*Candidate, 0)},
+	}
+
+	if cfg != nil {
+		sf.candidatesLRU = lru.New(int(cfg.Consensus.RollDPoS.DelegateLRUSize))
 	}
 
 	for _, opt := range opts {
@@ -187,8 +197,7 @@ func (sf *factory) RootHash() hash.Hash32B {
 }
 
 // CommitStateChanges updates a State from the given actions
-func (sf *factory) CommitStateChanges(chainHeight uint64, tsf []*action.Transfer, vote []*action.Vote) error {
-	sf.currentChainHeight = chainHeight
+func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer, vote []*action.Vote) error {
 	pending := make(map[hash.PKHash]*State)
 	addressToPKMap := make(map[string][]byte)
 
@@ -240,6 +249,16 @@ func (sf *factory) CommitStateChanges(chainHeight uint64, tsf []*action.Transfer
 		// If the candidate who needs vote update but not in the pool
 		// and is not involved in a vote activity, then don't considert him
 	}
+	sf.currentChainHeight = blockHeight
+	candidates := sf.candidateHeap.CandidateList()
+	sort.Slice(candidates, func(i, j int) bool {
+		if candidates[i].Votes.Cmp(candidates[j].Votes) == 0 {
+			return strings.Compare(candidates[i].Address, candidates[j].Address) < 0
+		}
+		return candidates[i].Votes.Cmp(candidates[j].Votes) < 0
+	})
+	sf.candidatesLRU.Add(sf.currentChainHeight, candidates)
+
 	// commit the state changes to Trie in a batch
 	return sf.trie.Commit(transferK, transferV)
 }
@@ -247,6 +266,14 @@ func (sf *factory) CommitStateChanges(chainHeight uint64, tsf []*action.Transfer
 // Candidates returns array of candidates in candidate pool
 func (sf *factory) Candidates() (uint64, []*Candidate) {
 	return sf.currentChainHeight, sf.candidateHeap.CandidateList()
+}
+
+// CandidatesByHeight returns array of candidates in candidate pool of a given height
+func (sf *factory) CandidatesByHeight(height uint64) ([]*Candidate, bool) {
+	if candidates, ok := sf.candidatesLRU.Get(height); ok {
+		return candidates.([]*Candidate), ok
+	}
+	return []*Candidate{}, false
 }
 
 //======================================

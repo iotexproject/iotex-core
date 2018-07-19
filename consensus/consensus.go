@@ -99,6 +99,7 @@ func NewConsensus(
 	case config.RollDPoSScheme:
 		cs.scheme = rolldpos.NewRollDPoS(
 			cfg.Consensus.RollDPoS,
+			cfg.Delegate,
 			mintBlockCB,
 			tellBlockCB,
 			commitBlockCB,
@@ -192,6 +193,8 @@ func chooseStartNextEpochCB(epochCbName string) (epochCb scheme.StartNextEpochCB
 		epochCb = rolldpos.PseudoStarNewEpoch
 	case "PseudoStartRollingEpoch":
 		epochCb = rolldpos.PseudoStartRollingEpoch
+	case "StartRollingEpoch":
+		epochCb = rolldpos.StartRollingEpoch
 	default:
 		logger.Panic().
 			Str("func name", epochCbName).
