@@ -156,6 +156,8 @@ You can use command line flags to customize the injector.
 -transfer-num=number_of_transfers
 -vote-num=number_of_votes
 -interval=sleeping_interval_in_seconds
+-retry-num=maximum_number_of_rpc_retries
+-retry-interval=sleeping_interval_between_two_consecutive_rpc_retries_in_seconds
 -aps=actions_to_be_injected_per_second_APS_MODE_ONLY
 -duration=duration_of_injector_running_in_seconds_APS_MODE_ONLY
 ```
@@ -166,6 +168,8 @@ Default flag values:
 * transfer-num=50
 * vote-num=50
 * interval=5
+* retry-num=5
+* retry-interval=1
 * aps=0
 * duration=60
 
