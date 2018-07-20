@@ -14,6 +14,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/actpool"
 	bc "github.com/iotexproject/iotex-core/blockchain"
@@ -23,6 +24,8 @@ import (
 	pb "github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blocksync"
+	ta "github.com/iotexproject/iotex-core/test/testaddress"
+	"github.com/iotexproject/iotex-core/test/util"
 )
 
 func TestSyncTaskInterval(t *testing.T) {
@@ -276,4 +279,50 @@ func TestBlockSyncer_ProcessBlockSync(t *testing.T) {
 	assert.Error(bs.ProcessBlockSync(blk))
 	assert.Nil(bs.ProcessBlockSync(blk))
 	assert.Nil(bs.ProcessBlockSync(blk))
+}
+
+func TestBlockSyncer_Sync(t *testing.T) {
+	require := require.New(t)
+	ctx := context.Background()
+	cfg, err := newTestConfig()
+	require.Nil(err)
+	util.CleanupPath(t, cfg.Chain.ChainDBPath)
+	util.CleanupPath(t, cfg.Chain.TrieDBPath)
+
+	chain := bc.NewBlockchain(cfg, bc.InMemStateFactoryOption(), bc.InMemDaoOption())
+	require.NotNil(chain)
+	ap, err := actpool.NewActPool(chain, cfg.ActPool)
+	require.NotNil(ap)
+	bs, err := NewBlockSyncer(cfg, chain, ap, network.NewOverlay(&cfg.Network))
+	require.NotNil(bs)
+	require.Nil(bs.Start(ctx))
+	time.Sleep(time.Millisecond << 7)
+
+	defer func() {
+		require.Nil(bs.Stop(ctx))
+		require.Nil(chain.Stop(ctx))
+		util.CleanupPath(t, cfg.Chain.ChainDBPath)
+		util.CleanupPath(t, cfg.Chain.TrieDBPath)
+	}()
+
+	blk, err := chain.MintNewBlock(nil, nil, ta.Addrinfo["miner"], "")
+	require.NotNil(blk)
+	require.Nil(bs.ProcessBlock(blk))
+
+	blk, err = chain.MintNewBlock(nil, nil, ta.Addrinfo["miner"], "")
+	require.NotNil(blk)
+	require.Nil(bs.ProcessBlock(blk))
+	time.Sleep(time.Millisecond << 7)
+}
+
+func newTestConfig() (*config.Config, error) {
+	cfg := config.Default
+	cfg.Chain.TrieDBPath = "trie.test"
+	cfg.Chain.ChainDBPath = "db.test"
+	cfg.BlockSync.Interval = time.Millisecond << 4
+	cfg.Consensus.Scheme = config.NOOPScheme
+	cfg.Network.IP = "127.0.0.1"
+	cfg.Network.Port = 10000
+	cfg.Network.BootstrapNodes = []string{"127.0.0.1:10000", "127.0.0.1:4689"}
+	return &cfg, nil
 }
