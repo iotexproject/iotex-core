@@ -38,16 +38,26 @@ func init() {
 
 func main() {
 	cfg, err := config.New()
-
 	if err != nil {
-		os.Exit(1)
+		logger.Fatal().Err(err).Msg("Failed to new config.")
+		return
 	}
+
+	iotxAddr, err := cfg.ProducerAddr()
+	if err != nil {
+		logger.Fatal().Err(err).Msg("Failed to get producer address from pub/kri key.")
+		return
+	}
+
+	l := logger.With().Str("iotexAddr", iotxAddr.RawAddress).Str("nodeType", cfg.NodeType).Logger()
+	logger.SetLogger(&l)
 
 	ctx := context.Background()
 	// create and start the node
 	svr := itx.NewServer(cfg)
 	if err := svr.Start(ctx); err != nil {
-		os.Exit(1)
+		logger.Fatal().Err(err).Msg("Fail to start server.")
+		return
 	}
 	defer func() {
 		err := svr.Stop(ctx)
