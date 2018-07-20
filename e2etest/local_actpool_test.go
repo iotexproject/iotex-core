@@ -106,6 +106,7 @@ func TestLocalActPool(t *testing.T) {
 		transfers, _ := ap.PickActs()
 		return len(transfers) == 1, nil
 	})
+	require.Nil(err)
 	err = p1.Broadcast(act2)
 	require.NoError(err)
 	err = p1.Broadcast(act3)
@@ -192,6 +193,7 @@ func TestPressureActPool(t *testing.T) {
 		transfers, _ := ap.PickActs()
 		return len(transfers) == 1, nil
 	})
+	require.Nil(err)
 	for i := 2; i <= 1000; i++ {
 		tsf, _ := signedTransfer(from, to, uint64(i), big.NewInt(int64(i)))
 		act := &pb.ActionPb{Action: &pb.ActionPb_Transfer{Transfer: tsf.ConvertToTransferPb()}}

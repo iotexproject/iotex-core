@@ -51,15 +51,22 @@ func main() {
 	var voteNum int
 	// sleeping period between every two consecutive action injections in seconds. Default is 5
 	var interval int
+	// maximum number of rpc retries. Default is 5
+	var retryNum int
+	// sleeping period between two consecutive rpc retries in seconds. Default is 1
+	var retryInterval int
 	// aps indicates how many actions to be injected in one second. Default is 0
 	var aps int
 	// duration indicates how long the injection will run in seconds. Default is 60
 	var duration int
+
 	flag.StringVar(&configPath, "injector-config-path", "./tools/actioninjector/gentsfaddrs.yaml", "path of config file of genesis transfer addresses")
 	flag.StringVar(&addr, "addr", "127.0.0.1:14004", "target ip:port for jrpc connection")
 	flag.IntVar(&transferNum, "transfer-num", 50, "number of transfer injections")
 	flag.IntVar(&voteNum, "vote-num", 50, "number of vote injections")
-	flag.IntVar(&interval, "interval", 5, "sleep interval of two consecutively injected actions in seconds")
+	flag.IntVar(&interval, "interval", 5, "sleep interval between two consecutively injected actions in seconds")
+	flag.IntVar(&retryNum, "retry-num", 5, "maximum number of rpc retries")
+	flag.IntVar(&retryInterval, "retry-interval", 1, "sleep interval between two consecutive rpc retries in seconds")
 	flag.IntVar(&aps, "aps", 0, "actions to be injected per second")
 	flag.IntVar(&duration, "duration", 60, "duration when the injection will run in seconds")
 	flag.Parse()
@@ -105,10 +112,10 @@ func main() {
 	if aps > 0 {
 		d := time.Duration(duration) * time.Second
 		wg := &sync.WaitGroup{}
-		injectByAps(wg, aps, counter, proxy, addrs, d, candidates)
+		injectByAps(wg, aps, counter, proxy, addrs, d, candidates, retryNum, retryInterval)
 		wg.Wait()
 	} else {
-		injectByInterval(transferNum, voteNum, interval, counter, proxy, addrs, candidates)
+		injectByInterval(transferNum, voteNum, interval, counter, proxy, addrs, candidates, retryNum, retryInterval)
 	}
 }
 
@@ -121,6 +128,8 @@ func injectByAps(
 	addrs []*iotxaddress.Address,
 	duration time.Duration,
 	candidates map[string]bool,
+	retryNum int,
+	retryInterval int,
 ) {
 	timeout := time.After(duration)
 	tick := time.Tick(time.Duration(1/float64(aps)*1000) * time.Millisecond)
@@ -134,24 +143,34 @@ loop:
 			rand := rand.Intn(2)
 			if rand%2 == 1 {
 				sender, recipient, nonce := createTransferInjection(counter, addrs)
-				go injectTransfer(wg, client, sender, recipient, nonce)
+				go injectTransfer(wg, client, sender, recipient, nonce, retryNum, retryInterval)
 			} else {
 				sender, recipient, nonce := createVoteInjection(counter, addrs, candidates)
-				go injectVote(wg, client, sender, recipient, nonce)
+				go injectVote(wg, client, sender, recipient, nonce, retryNum, retryInterval)
 			}
 		}
 	}
 }
 
 // Inject Actions in Interval Mode
-func injectByInterval(transferNum int, voteNum int, interval int, counter map[string]uint64, client exp.Explorer, addrs []*iotxaddress.Address, candidates map[string]bool) {
+func injectByInterval(
+	transferNum int,
+	voteNum int,
+	interval int,
+	counter map[string]uint64,
+	client exp.Explorer,
+	addrs []*iotxaddress.Address,
+	candidates map[string]bool,
+	retryNum int,
+	retryInterval int,
+) {
 	for transferNum > 0 && voteNum > 0 {
 		sender, recipient, nonce := createTransferInjection(counter, addrs)
-		injectTransfer(nil, client, sender, recipient, nonce)
+		injectTransfer(nil, client, sender, recipient, nonce, retryNum, retryInterval)
 		time.Sleep(time.Second * time.Duration(interval))
 
 		sender, recipient, nonce = createVoteInjection(counter, addrs, candidates)
-		injectVote(nil, client, sender, recipient, nonce)
+		injectVote(nil, client, sender, recipient, nonce, retryNum, retryInterval)
 		time.Sleep(time.Second * time.Duration(interval))
 		transferNum--
 		voteNum--
@@ -160,27 +179,42 @@ func injectByInterval(transferNum int, voteNum int, interval int, counter map[st
 	case transferNum > 0:
 		for transferNum > 0 {
 			sender, recipient, nonce := createTransferInjection(counter, addrs)
-			injectTransfer(nil, client, sender, recipient, nonce)
+			injectTransfer(nil, client, sender, recipient, nonce, retryNum, retryInterval)
 			time.Sleep(time.Second * time.Duration(interval))
 			transferNum--
 		}
 	case voteNum > 0:
 		for voteNum > 0 {
 			sender, recipient, nonce := createVoteInjection(counter, addrs, candidates)
-			injectVote(nil, client, sender, recipient, nonce)
+			injectVote(nil, client, sender, recipient, nonce, retryNum, retryInterval)
 			time.Sleep(time.Second * time.Duration(interval))
 			voteNum--
 		}
 	}
 }
 
-func injectTransfer(wg *sync.WaitGroup, c exp.Explorer, sender *iotxaddress.Address, recipient *iotxaddress.Address, nonce uint64) {
+func injectTransfer(
+	wg *sync.WaitGroup,
+	c exp.Explorer,
+	sender *iotxaddress.Address,
+	recipient *iotxaddress.Address,
+	nonce uint64,
+	retryNum int,
+	retryInterval int,
+) {
 	amount := int64(0)
 	for amount == int64(0) {
 		amount = int64(rand.Intn(5))
 	}
 
-	r, err := c.CreateRawTransfer(exp.CreateRawTransferRequest{Sender: sender.RawAddress, Recipient: recipient.RawAddress, Amount: amount, Nonce: int64(nonce)})
+	var r exp.CreateRawTransferResponse
+	var err error
+	for i := 0; i < retryNum; i++ {
+		if r, err = c.CreateRawTransfer(exp.CreateRawTransferRequest{Sender: sender.RawAddress, Recipient: recipient.RawAddress, Amount: amount, Nonce: int64(nonce)}); err == nil {
+			break
+		}
+		time.Sleep(time.Duration(retryInterval) * time.Second)
+	}
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Failed to inject transfer")
 	}
@@ -208,7 +242,13 @@ func injectTransfer(wg *sync.WaitGroup, c exp.Explorer, sender *iotxaddress.Addr
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Failed to inject transfer")
 	}
-	_, err = c.SendTransfer(exp.SendTransferRequest{hex.EncodeToString(stsf[:])})
+
+	for i := 0; i < retryNum; i++ {
+		if _, err = c.SendTransfer(exp.SendTransferRequest{hex.EncodeToString(stsf[:])}); err == nil {
+			break
+		}
+		time.Sleep(time.Duration(retryInterval) * time.Second)
+	}
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Failed to inject transfer")
 	}
@@ -229,8 +269,23 @@ func injectTransfer(wg *sync.WaitGroup, c exp.Explorer, sender *iotxaddress.Addr
 	}
 }
 
-func injectVote(wg *sync.WaitGroup, c exp.Explorer, sender *iotxaddress.Address, recipient *iotxaddress.Address, nonce uint64) {
-	r, err := c.CreateRawVote(exp.CreateRawVoteRequest{Voter: hex.EncodeToString(sender.PublicKey), Votee: hex.EncodeToString(recipient.PublicKey), Nonce: int64(nonce)})
+func injectVote(
+	wg *sync.WaitGroup,
+	c exp.Explorer,
+	sender *iotxaddress.Address,
+	recipient *iotxaddress.Address,
+	nonce uint64,
+	retryNum int,
+	retryInterval int,
+) {
+	var r exp.CreateRawVoteResponse
+	var err error
+	for i := 0; i < retryNum; i++ {
+		if r, err = c.CreateRawVote(exp.CreateRawVoteRequest{Voter: hex.EncodeToString(sender.PublicKey), Votee: hex.EncodeToString(recipient.PublicKey), Nonce: int64(nonce)}); err == nil {
+			break
+		}
+		time.Sleep(time.Duration(retryInterval) * time.Second)
+	}
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Failed to inject vote")
 	}
@@ -265,7 +320,13 @@ func injectVote(wg *sync.WaitGroup, c exp.Explorer, sender *iotxaddress.Address,
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Failed to inject vote")
 	}
-	_, err = c.SendVote(exp.SendVoteRequest{SerializedVote: hex.EncodeToString(svote[:])})
+
+	for i := 0; i < retryNum; i++ {
+		if _, err = c.SendVote(exp.SendVoteRequest{SerializedVote: hex.EncodeToString(svote[:])}); err == nil {
+			break
+		}
+		time.Sleep(time.Duration(retryInterval) * time.Second)
+	}
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Failed to inject vote")
 	}
