@@ -7,6 +7,7 @@
 package rolldpos2
 
 import (
+	"math/big"
 	"testing"
 
 	"github.com/facebookgo/clock"
@@ -19,6 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/test/mock/mock_actpool"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_delegate"
@@ -32,7 +34,7 @@ func TestRollDPoSCtx(t *testing.T) {
 	defer ctrl.Finish()
 
 	candidates := make([]string, 4)
-	for i := 0; i < 4; i++ {
+	for i := 0; i < len(candidates); i++ {
 		candidates[i] = testAddrs[i].RawAddress
 	}
 	var prevHash hash.Hash32B
@@ -112,7 +114,7 @@ func TestIsEpochFinished(t *testing.T) {
 	defer ctrl.Finish()
 
 	candidates := make([]string, 4)
-	for i := 0; i < 4; i++ {
+	for i := 0; i < len(candidates); i++ {
 		candidates[i] = testAddrs[i].RawAddress
 	}
 
@@ -152,6 +154,158 @@ func TestIsEpochFinished(t *testing.T) {
 		require.NoError(t, err)
 		assert.False(t, finished)
 	})
+}
+
+func TestNewRollDPoS(t *testing.T) {
+	t.Parallel()
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	t.Run("normal", func(t *testing.T) {
+		r, err := NewRollDPoSBuilder().
+			SetConfig(config.RollDPoS{}).
+			SetAddr(newTestAddr()).
+			SetBlockchain(mock_blockchain.NewMockBlockchain(ctrl)).
+			SetActPool(mock_actpool.NewMockActPool(ctrl)).
+			SetDelegatePool(mock_delegate.NewMockPool(ctrl)).
+			SetP2P(mock_network.NewMockOverlay(ctrl)).
+			Build()
+		assert.NoError(t, err)
+		assert.NotNil(t, r)
+	})
+	t.Run("mock-clock", func(t *testing.T) {
+		r, err := NewRollDPoSBuilder().
+			SetConfig(config.RollDPoS{}).
+			SetAddr(newTestAddr()).
+			SetBlockchain(mock_blockchain.NewMockBlockchain(ctrl)).
+			SetActPool(mock_actpool.NewMockActPool(ctrl)).
+			SetDelegatePool(mock_delegate.NewMockPool(ctrl)).
+			SetP2P(mock_network.NewMockOverlay(ctrl)).
+			SetClock(clock.NewMock()).
+			Build()
+		assert.NoError(t, err)
+		assert.NotNil(t, r)
+		_, ok := r.ctx.clock.(*clock.Mock)
+		assert.True(t, ok)
+	})
+	t.Run("missing-dep", func(t *testing.T) {
+		r, err := NewRollDPoSBuilder().
+			SetConfig(config.RollDPoS{}).
+			SetAddr(newTestAddr()).
+			SetActPool(mock_actpool.NewMockActPool(ctrl)).
+			SetDelegatePool(mock_delegate.NewMockPool(ctrl)).
+			SetP2P(mock_network.NewMockOverlay(ctrl)).
+			Build()
+		assert.Error(t, err)
+		assert.Nil(t, r)
+	})
+}
+
+func TestRollDPoS_Metrics(t *testing.T) {
+	t.Parallel()
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	blockchain := mock_blockchain.NewMockBlockchain(ctrl)
+	blockchain.EXPECT().TipHeight().Return(uint64(8), nil).Times(2)
+
+	candidates := make([]string, 5)
+	for i := 0; i < len(candidates); i++ {
+		candidates[i] = testAddrs[i].RawAddress
+	}
+	pool := mock_delegate.NewMockPool(ctrl)
+	pool.EXPECT().NumDelegatesPerEpoch().Return(uint(4), nil).Times(1)
+	pool.EXPECT().RollDelegates(gomock.Any()).Return(candidates[:4], nil).Times(1)
+	pool.EXPECT().AllDelegates().Return(candidates, nil).Times(1)
+
+	r, err := NewRollDPoSBuilder().
+		SetConfig(config.RollDPoS{}).
+		SetAddr(newTestAddr()).
+		SetBlockchain(blockchain).
+		SetActPool(mock_actpool.NewMockActPool(ctrl)).
+		SetDelegatePool(pool).
+		SetP2P(mock_network.NewMockOverlay(ctrl)).
+		Build()
+	require.NoError(t, err)
+	require.NotNil(t, r)
+
+	m, err := r.Metrics()
+	require.NoError(t, err)
+	assert.Equal(t, uint64(3), m.LatestEpoch)
+	assert.Equal(t, candidates[:4], m.LatestDelegates)
+	assert.Equal(t, candidates[1], m.LatestBlockProducer)
+	assert.Equal(t, candidates, m.Candidates)
+}
+
+func TestRollDPoS_convertToConsensusEvt(t *testing.T) {
+	t.Parallel()
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	r, err := NewRollDPoSBuilder().
+		SetConfig(config.RollDPoS{}).
+		SetAddr(newTestAddr()).
+		SetBlockchain(mock_blockchain.NewMockBlockchain(ctrl)).
+		SetActPool(mock_actpool.NewMockActPool(ctrl)).
+		SetDelegatePool(mock_delegate.NewMockPool(ctrl)).
+		SetP2P(mock_network.NewMockOverlay(ctrl)).
+		Build()
+	assert.NoError(t, err)
+	assert.NotNil(t, r)
+
+	// Test propose msg
+	addr := newTestAddr()
+	transfer := action.NewTransfer(1, big.NewInt(100), "src", "dst")
+	vote := action.NewVote(2, []byte("src"), []byte("dst"))
+	var prevHash hash.Hash32B
+	blk := blockchain.NewBlock(1, 1, prevHash, []*action.Transfer{transfer}, []*action.Vote{vote})
+	msg := iproto.ViewChangeMsg{
+		Vctype:     iproto.ViewChangeMsg_PROPOSE,
+		Block:      blk.ConvertToBlockPb(),
+		SenderAddr: addr.RawAddress,
+	}
+	evt, err := r.convertToConsensusEvt(&msg)
+	assert.NoError(t, err)
+	assert.NotNil(t, evt)
+	pbEvt, ok := evt.(*proposeBlkEvt)
+	assert.True(t, ok)
+	assert.NotNil(t, pbEvt.block)
+
+	// Test prevote msg
+	blkHash := blk.HashBlock()
+	msg = iproto.ViewChangeMsg{
+		Vctype:     iproto.ViewChangeMsg_PREVOTE,
+		BlockHash:  blkHash[:],
+		SenderAddr: addr.RawAddress,
+	}
+	evt, err = r.convertToConsensusEvt(&msg)
+	assert.NoError(t, err)
+	assert.NotNil(t, evt)
+	_, ok = evt.(*voteEvt)
+	assert.True(t, ok)
+
+	// Test prevote msg
+	msg = iproto.ViewChangeMsg{
+		Vctype:     iproto.ViewChangeMsg_VOTE,
+		BlockHash:  blkHash[:],
+		SenderAddr: addr.RawAddress,
+	}
+	evt, err = r.convertToConsensusEvt(&msg)
+	assert.NoError(t, err)
+	assert.NotNil(t, evt)
+	_, ok = evt.(*voteEvt)
+	assert.True(t, ok)
+
+	// Test invalid msg
+	msg = iproto.ViewChangeMsg{
+		Vctype: 100,
+	}
+	evt, err = r.convertToConsensusEvt(&msg)
+	assert.Error(t, err)
+	assert.Nil(t, evt)
 }
 
 func makeTestRollDPoSCtx(
