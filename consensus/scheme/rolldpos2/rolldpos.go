@@ -7,20 +7,27 @@
 package rolldpos2
 
 import (
+	"context"
 	"time"
 
 	"github.com/facebookgo/clock"
+	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/delegate"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/proto"
 )
+
+// ErrNewRollDPoS indicates the error of constructing RollDPoS
+var ErrNewRollDPoS = errors.New("error when constructing RollDPoS")
 
 type rollDPoSCtx struct {
 	cfg     config.RollDPoS
@@ -82,11 +89,17 @@ func (ctx *rollDPoSCtx) rotatedProposer() (string, uint64, error) {
 	}
 	// Next block height
 	height++
-	numDelegates := len(ctx.epoch.delegates)
+	proposer, err := ctx.calcProposer(height, ctx.epoch.delegates)
+	return proposer, height, err
+}
+
+// calcProposer calculates the proposer for the block at a given height
+func (ctx *rollDPoSCtx) calcProposer(height uint64, delegates []string) (string, error) {
+	numDelegates := len(delegates)
 	if numDelegates == 0 {
-		return "", 0, delegate.ErrZeroDelegate
+		return "", delegate.ErrZeroDelegate
 	}
-	return ctx.epoch.delegates[(height)%uint64(numDelegates)], height, nil
+	return delegates[(height)%uint64(numDelegates)], nil
 }
 
 // mintBlock picks the actions and creates an block to propose
@@ -170,4 +183,197 @@ type roundCtx struct {
 	prevotes map[string]bool
 	votes    map[string]bool
 	proposer string
+}
+
+// RollDPoS is Roll-DPoS consensus main entrance
+type RollDPoS struct {
+	cfsm *cFSM
+	ctx  *rollDPoSCtx
+}
+
+// Start starts RollDPoS consensus
+func (r *RollDPoS) Start(ctx context.Context) error {
+	return errors.Wrap(r.cfsm.Start(ctx), "error when starting the consensus FSM")
+}
+
+// Stop stops RollDPoS consensus
+func (r *RollDPoS) Stop(ctx context.Context) error {
+	return errors.Wrap(r.cfsm.Stop(ctx), "error when stopping the consensus FSM")
+}
+
+// Handle handles RollDPoS events coming from the network from other delegates
+func (r *RollDPoS) Handle(msg proto.Message) error {
+	cEvt, err := r.convertToConsensusEvt(msg)
+	if err != nil {
+		return errors.Wrap(err, "error when converting a proto msg to a conesensus event")
+	}
+	r.cfsm.produce(cEvt, 0)
+	return nil
+}
+
+// SetDoneStream does nothing for Noop (only used in simulator)
+func (r *RollDPoS) SetDoneStream(simMsgReady chan bool) {}
+
+// Metrics returns RollDPoS consensus metrics
+func (r *RollDPoS) Metrics() (scheme.ConsensusMetrics, error) {
+	var metrics scheme.ConsensusMetrics
+	// Compute the epoch ordinal number
+	epochNum, _, err := r.ctx.calcEpochNumAndHeight()
+	if err != nil {
+		return metrics, errors.Wrap(err, "error when calculating the epoch ordinal number")
+	}
+	// Compute delegates
+	delegates, err := r.ctx.rollingDelegates(epochNum)
+	if err != nil {
+		return metrics, errors.Wrap(err, "error when getting the rolling delegates")
+	}
+	// Compute the height
+	height, err := r.ctx.chain.TipHeight()
+	if err != nil {
+		return metrics, errors.Wrap(err, "error when getting the blockchain height")
+	}
+	// Compute block producer
+	producer, err := r.ctx.calcProposer(height+1, delegates)
+	if err != nil {
+		return metrics, errors.Wrap(err, "error when calculating the block producer")
+	}
+	// Get all candidates
+	candidates, err := r.ctx.pool.AllDelegates()
+	if err != nil {
+		return metrics, errors.Wrap(err, "error when getting the candidates")
+	}
+	return scheme.ConsensusMetrics{
+		LatestEpoch:         epochNum,
+		LatestDelegates:     delegates,
+		LatestBlockProducer: producer,
+		Candidates:          candidates,
+	}, nil
+}
+
+func (r *RollDPoS) convertToConsensusEvt(msg proto.Message) (iConsensusEvt, error) {
+	vcMsg, ok := msg.(*iproto.ViewChangeMsg)
+	if !ok {
+		return nil, errors.Wrap(ErrEvtCast, "error when casting a proto msg to a ViewChangeMsg")
+	}
+	var cEvt iConsensusEvt
+	switch vcMsg.Vctype {
+	case iproto.ViewChangeMsg_PROPOSE:
+		pbEvt := r.cfsm.newProposeBlkEvt(nil)
+		if err := pbEvt.fromProtoMsg(vcMsg); err != nil {
+			return nil, errors.Wrap(err, "error when casting a proto msg to proposeBlkEvt")
+		}
+		cEvt = pbEvt
+	case iproto.ViewChangeMsg_PREVOTE:
+		var blkHash hash.Hash32B
+		pvEvt := r.cfsm.newPrevoteEvt(blkHash, false)
+		if err := pvEvt.fromProtoMsg(vcMsg); err != nil {
+			return nil, errors.Wrap(err, "error when casting a proto msg to prevoteEvt")
+		}
+		cEvt = pvEvt
+	case iproto.ViewChangeMsg_VOTE:
+		var blkHash hash.Hash32B
+		vEvt := r.cfsm.newVoteEvt(blkHash, false)
+		if err := vEvt.fromProtoMsg(vcMsg); err != nil {
+			return nil, errors.Wrap(err, "error when casting a proto msg to voteEvt")
+		}
+		cEvt = vEvt
+	default:
+		return nil, errors.Wrapf(ErrEvtCast, "unexpected ViewChangeMsg type %d", vcMsg.Vctype)
+	}
+	return cEvt, nil
+}
+
+// RollDPoSBuilder is the builder for RollDPoS
+type RollDPoSBuilder struct {
+	cfg config.RollDPoS
+	// TODO: we should use keystore in the future
+	addr    *iotxaddress.Address
+	chain   blockchain.Blockchain
+	actPool actpool.ActPool
+	pool    delegate.Pool
+	p2p     network.Overlay
+	clock   clock.Clock
+}
+
+// NewRollDPoSBuilder instantiates a RollDPoSBuilder instance
+func NewRollDPoSBuilder() *RollDPoSBuilder {
+	return &RollDPoSBuilder{}
+}
+
+// SetConfig sets RollDPoS config
+func (b *RollDPoSBuilder) SetConfig(cfg config.RollDPoS) *RollDPoSBuilder {
+	b.cfg = cfg
+	return b
+}
+
+// SetAddr sets the address and key pair for signature
+func (b *RollDPoSBuilder) SetAddr(addr *iotxaddress.Address) *RollDPoSBuilder {
+	b.addr = addr
+	return b
+}
+
+// SetBlockchain sets the blockchain APIs
+func (b *RollDPoSBuilder) SetBlockchain(chain blockchain.Blockchain) *RollDPoSBuilder {
+	b.chain = chain
+	return b
+}
+
+// SetActPool sets the action pool APIs
+func (b *RollDPoSBuilder) SetActPool(actPool actpool.ActPool) *RollDPoSBuilder {
+	b.actPool = actPool
+	return b
+}
+
+// SetDelegatePool sets the delegate pool APIs
+func (b *RollDPoSBuilder) SetDelegatePool(pool delegate.Pool) *RollDPoSBuilder {
+	b.pool = pool
+	return b
+}
+
+// SetP2P sets the P2P APIs
+func (b *RollDPoSBuilder) SetP2P(p2p network.Overlay) *RollDPoSBuilder {
+	b.p2p = p2p
+	return b
+}
+
+// SetClock sets the clock
+func (b *RollDPoSBuilder) SetClock(clock clock.Clock) *RollDPoSBuilder {
+	b.clock = clock
+	return b
+}
+
+// Build builds a RollDPoS consensus module
+func (b *RollDPoSBuilder) Build() (*RollDPoS, error) {
+	if b.chain == nil {
+		return nil, errors.Wrap(ErrNewRollDPoS, "blockchain APIs is nil")
+	}
+	if b.actPool == nil {
+		return nil, errors.Wrap(ErrNewRollDPoS, "action pool APIs is nil")
+	}
+	if b.pool == nil {
+		return nil, errors.Wrap(ErrNewRollDPoS, "delegate pool APIs is nil")
+	}
+	if b.p2p == nil {
+		return nil, errors.Wrap(ErrNewRollDPoS, "p2p APIs is nil")
+	}
+	if b.clock == nil {
+		b.clock = clock.New()
+	}
+	ctx := rollDPoSCtx{
+		cfg:     b.cfg,
+		addr:    b.addr,
+		chain:   b.chain,
+		actPool: b.actPool,
+		pool:    b.pool,
+		p2p:     b.p2p,
+		clock:   b.clock,
+	}
+	cfsm, err := newConsensusFSM(&ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "error when constructing the consensus FSM")
+	}
+	return &RollDPoS{
+		cfsm: cfsm,
+		ctx:  &ctx,
+	}, nil
 }

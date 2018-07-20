@@ -55,10 +55,10 @@ const (
 )
 
 var (
-	// errEvtCast indicates the error of casting the event
-	errEvtCast = errors.New("error when casting the event")
-	// errEvtConvert indicates the error of converting the event from/to the proto message
-	errEvtConvert = errors.New("error when converting the event from/to the proto message")
+	// ErrEvtCast indicates the error of casting the event
+	ErrEvtCast = errors.New("error when casting the event")
+	// ErrEvtConvert indicates the error of converting the event from/to the proto message
+	ErrEvtConvert = errors.New("error when converting the event from/to the proto message")
 
 	// consensusStates is a slice consisting of all consensusEvt states
 	consensusStates = []fsm.State{
@@ -102,11 +102,11 @@ func (e *consensusEvt) Type() fsm.EventType { return e.t }
 func (e *consensusEvt) timestamp() time.Time { return e.ts }
 
 func (e *consensusEvt) toProtoMsg() (*iproto.ViewChangeMsg, error) {
-	return nil, errors.Wrap(errEvtConvert, "converting to the proto message is not implemented")
+	return nil, errors.Wrap(ErrEvtConvert, "converting to the proto message is not implemented")
 }
 
 func (e *consensusEvt) fromProtoMsg(pMsg *iproto.ViewChangeMsg) error {
-	return errors.Wrap(errEvtConvert, "converting from the proto message is not implemented")
+	return errors.Wrap(ErrEvtConvert, "converting from the proto message is not implemented")
 }
 
 type proposeBlkEvt struct {
@@ -133,9 +133,10 @@ func (e *proposeBlkEvt) toProtoMsg() (*iproto.ViewChangeMsg, error) {
 
 func (e *proposeBlkEvt) fromProtoMsg(pMsg *iproto.ViewChangeMsg) error {
 	if pMsg.Vctype != iproto.ViewChangeMsg_PROPOSE {
-		return errors.Wrapf(errEvtConvert, "pMsg Vctype is %d", pMsg.Vctype)
+		return errors.Wrapf(ErrEvtConvert, "pMsg Vctype is %d", pMsg.Vctype)
 	}
 	if pMsg.Block != nil {
+		e.block = &blockchain.Block{}
 		e.block.ConvertFromBlockPb(pMsg.Block)
 	}
 	e.proposer = pMsg.SenderAddr
@@ -173,15 +174,16 @@ func (e *voteEvt) toProtoMsg() (*iproto.ViewChangeMsg, error) {
 		Vctype:     vctype,
 		BlockHash:  e.blkHash[:],
 		SenderAddr: e.voter,
+		// TODO: need to add decision to the proto msg
 	}, nil
 }
 
 func (e *voteEvt) fromProtoMsg(pMsg *iproto.ViewChangeMsg) error {
 	if e.t == ePrevote && !(pMsg.Vctype == iproto.ViewChangeMsg_PREVOTE) {
-		return errors.Wrapf(errEvtConvert, "pMsg Vctype is %d, it doesn't match %s", pMsg.Vctype, ePrevote)
+		return errors.Wrapf(ErrEvtConvert, "pMsg Vctype is %d, it doesn't match %s", pMsg.Vctype, ePrevote)
 	}
 	if e.t == eVote && !(pMsg.Vctype == iproto.ViewChangeMsg_VOTE) {
-		return errors.Wrapf(errEvtConvert, "pMsg Vctype is %d, it doesn't match %s", pMsg.Vctype, eVote)
+		return errors.Wrapf(ErrEvtConvert, "pMsg Vctype is %d, it doesn't match %s", pMsg.Vctype, eVote)
 	}
 	copy(e.blkHash[:], pMsg.BlockHash)
 	e.voter = pMsg.SenderAddr
@@ -446,7 +448,7 @@ func (m *cFSM) handleProposeBlockEvt(evt fsm.Event) (fsm.State, error) {
 	case eProposeBlock:
 		proposeBlkEvt, ok := evt.(*proposeBlkEvt)
 		if !ok {
-			return sInvalid, errors.Wrap(errEvtCast, "the event is not a proposeBlkEvt")
+			return sInvalid, errors.Wrap(ErrEvtCast, "the event is not a proposeBlkEvt")
 		}
 		// If the block is self proposed, skip validation
 		if proposeBlkEvt.proposer != m.ctx.addr.RawAddress {
@@ -494,7 +496,7 @@ func (m *cFSM) handlePrevoteEvt(evt fsm.Event) (fsm.State, error) {
 	case ePrevote:
 		prevoteEvt, ok := evt.(*voteEvt)
 		if !ok {
-			return sInvalid, errors.Wrap(errEvtCast, "the event is not a voteEvt")
+			return sInvalid, errors.Wrap(ErrEvtCast, "the event is not a voteEvt")
 		}
 		var blkHash hash.Hash32B
 		if m.ctx.round.block != nil {
@@ -548,7 +550,7 @@ func (m *cFSM) handleVoteEvt(evt fsm.Event) (fsm.State, error) {
 	case eVote:
 		voteEvt, ok := evt.(*voteEvt)
 		if !ok {
-			return sInvalid, errors.Wrap(errEvtCast, "the event is not a voteEvt")
+			return sInvalid, errors.Wrap(ErrEvtCast, "the event is not a voteEvt")
 		}
 		var blkHash hash.Hash32B
 		if m.ctx.round.block != nil {
@@ -628,7 +630,7 @@ func (m *cFSM) handleFinishEpochEvt(evt fsm.Event) (fsm.State, error) {
 func (m *cFSM) handleBackdoorEvt(evt fsm.Event) (fsm.State, error) {
 	bEvt, ok := evt.(*backdoorEvt)
 	if !ok {
-		return sInvalid, errors.Wrap(errEvtCast, "the event is not a backdoorEvt")
+		return sInvalid, errors.Wrap(ErrEvtCast, "the event is not a backdoorEvt")
 	}
 	return bEvt.dst, nil
 }
