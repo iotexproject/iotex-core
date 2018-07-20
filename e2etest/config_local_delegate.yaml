@@ -8,7 +8,7 @@ network:
     port: 4689
     bootstrapNodes:
         - "127.0.0.1:4689"
-        - "127.0.0.1:4690"
+        - "127.0.0.1:10000"
 
 chain:
     chainDBPath: "./chain.db"

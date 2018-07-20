@@ -31,7 +31,7 @@ func TestNetSync(t *testing.T) {
 
 	cfg := config.Default
 	cfg.Network.IP = "127.0.0.1"
-	cfg.Network.Port = 4688
+	cfg.Network.Port = 10000
 	cfg.Network.BootstrapNodes = []string{"127.0.0.1:4689"}
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
