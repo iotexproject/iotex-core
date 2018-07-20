@@ -18,7 +18,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/iotxaddress"
-	"github.com/iotexproject/iotex-core/logger"
 )
 
 // IMPORTANT: to define a config, add a field or a new config type to the existing config types. In addition, provide
@@ -287,14 +286,12 @@ func New(validates ...Validate) (*Config, error) {
 	}
 	yaml, err := uconfig.NewYAML(opts...)
 	if err != nil {
-		logger.Error().Err(err).Msg("Failed to init config.")
-		return nil, err
+		return nil, errors.Wrap(err, "failed to init config")
 	}
 
 	var cfg Config
 	if err := yaml.Get(uconfig.Root).Populate(&cfg); err != nil {
-		logger.Error().Err(err).Msg("Failed to unmarshal YAML config to struct.")
-		return nil, err
+		return nil, errors.Wrap(err, "failed to unmarshal YAML config to struct")
 	}
 
 	// By default, the config needs to pass all the validation
@@ -303,7 +300,7 @@ func New(validates ...Validate) (*Config, error) {
 	}
 	for _, validate := range validates {
 		if err := validate(&cfg); err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "failed to validate config")
 		}
 	}
 	return &cfg, nil
