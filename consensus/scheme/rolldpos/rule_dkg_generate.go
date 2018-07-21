@@ -57,11 +57,11 @@ func (r ruleDKGGenerate) Condition(event *fsm.Event) bool {
 			event.Err = errors.New("Epoch number of statefactory is inconsistent in StartRollingEpoch")
 			return false
 		}
-		if len(candidates) < int(r.delegateCfg.RollNum) {
+		if len(candidates) < int(r.RollDPoS.cfg.NumDelegates) {
 			event.Err = errors.New("Candidate pool does not have enough candidates")
 			return false
 		}
-		candidates = candidates[:r.delegateCfg.RollNum]
+		candidates = candidates[:r.RollDPoS.cfg.NumDelegates]
 		for _, candidate := range candidates {
 			delegates = append(delegates, candidate.Address)
 		}

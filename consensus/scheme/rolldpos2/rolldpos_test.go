@@ -21,6 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/mock/mock_actpool"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_delegate"
@@ -44,15 +45,19 @@ func TestRollDPoSCtx(t *testing.T) {
 		ctrl,
 		config.RollDPoS{
 			NumSubEpochs: 2,
+			NumDelegates: 4,
 		},
 		func(blockchain *mock_blockchain.MockBlockchain) {
 			blockchain.EXPECT().TipHeight().Return(uint64(8), nil).Times(3)
 			blockchain.EXPECT().GetBlockByHeight(uint64(8)).Return(blk, nil).Times(1)
+			blockchain.EXPECT().CandidatesByHeight(gomock.Any()).Return([]*state.Candidate{
+				&state.Candidate{Address: candidates[0]},
+				&state.Candidate{Address: candidates[1]},
+				&state.Candidate{Address: candidates[2]},
+				&state.Candidate{Address: candidates[3]},
+			}, true).Times(1)
 		},
-		func(pool *mock_delegate.MockPool) {
-			pool.EXPECT().NumDelegatesPerEpoch().Return(uint(4), nil).Times(1)
-			pool.EXPECT().RollDelegates(gomock.Any()).Return(candidates, nil).Times(1)
-		},
+		func(pool *mock_delegate.MockPool) {},
 		func(_ *mock_actpool.MockActPool) {},
 		func(_ *mock_network.MockOverlay) {},
 	)
@@ -208,20 +213,25 @@ func TestRollDPoS_Metrics(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	blockchain := mock_blockchain.NewMockBlockchain(ctrl)
-	blockchain.EXPECT().TipHeight().Return(uint64(8), nil).Times(2)
-
 	candidates := make([]string, 5)
 	for i := 0; i < len(candidates); i++ {
 		candidates[i] = testAddrs[i].RawAddress
 	}
+
+	blockchain := mock_blockchain.NewMockBlockchain(ctrl)
+	blockchain.EXPECT().TipHeight().Return(uint64(8), nil).Times(2)
+	blockchain.EXPECT().CandidatesByHeight(gomock.Any()).Return([]*state.Candidate{
+		{Address: candidates[0]},
+		{Address: candidates[1]},
+		{Address: candidates[2]},
+		{Address: candidates[3]},
+	}, true).AnyTimes()
+
 	pool := mock_delegate.NewMockPool(ctrl)
-	pool.EXPECT().NumDelegatesPerEpoch().Return(uint(4), nil).Times(1)
-	pool.EXPECT().RollDelegates(gomock.Any()).Return(candidates[:4], nil).Times(1)
 	pool.EXPECT().AllDelegates().Return(candidates, nil).Times(1)
 
 	r, err := NewRollDPoSBuilder().
-		SetConfig(config.RollDPoS{}).
+		SetConfig(config.RollDPoS{NumDelegates: 4}).
 		SetAddr(newTestAddr()).
 		SetBlockchain(blockchain).
 		SetActPool(mock_actpool.NewMockActPool(ctrl)).

@@ -136,7 +136,7 @@ func NewFactory(cfg *config.Config, opts ...FactoryOption) (Factory, error) {
 	}
 
 	if cfg != nil {
-		sf.candidatesLRU = lru.New(int(cfg.Consensus.RollDPoS.DelegateLRUSize))
+		sf.candidatesLRU = lru.New(int(cfg.Chain.DelegateLRUSize))
 	}
 
 	for _, opt := range opts {

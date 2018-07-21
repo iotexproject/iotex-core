@@ -97,10 +97,6 @@ func createTestRollDPoS(
 		DelegateInterval:  time.Hour,
 		NumSubEpochs:      1,
 	}
-	delegateCfg := config.Delegate{
-		Addrs:   []string{},
-		RollNum: uint(len(delegates)),
-	}
 	csCfg.ProposerInterval = prDelay
 	mockFn(mocks{
 		dNet: dNet,
@@ -109,7 +105,6 @@ func createTestRollDPoS(
 	})
 	return NewRollDPoS(
 		csCfg,
-		delegateCfg,
 		createblockCB,
 		tellblockCB,
 		commitBlockCB,

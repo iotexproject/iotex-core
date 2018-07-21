@@ -99,7 +99,6 @@ func NewConsensus(
 	case config.RollDPoSScheme:
 		cs.scheme = rolldpos.NewRollDPoS(
 			cfg.Consensus.RollDPoS,
-			cfg.Delegate,
 			mintBlockCB,
 			tellBlockCB,
 			commitBlockCB,

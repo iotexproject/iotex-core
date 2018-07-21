@@ -23,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/mock/mock_actpool"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_delegate"
@@ -636,6 +637,7 @@ func newTestCFSM(
 		ctrl,
 		config.RollDPoS{
 			EventChanSize: 2,
+			NumDelegates:  uint(len(delegates)),
 		},
 		func(blockchain *mock_blockchain.MockBlockchain) {
 			blockchain.EXPECT().GetBlockByHeight(uint64(1)).Return(lastBlk, nil).AnyTimes()
@@ -643,6 +645,12 @@ func newTestCFSM(
 				MintNewBlock(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 				Return(blkToMint, nil).
 				AnyTimes()
+			blockchain.EXPECT().CandidatesByHeight(gomock.Any()).Return([]*state.Candidate{
+				{Address: delegates[0]},
+				{Address: delegates[1]},
+				{Address: delegates[2]},
+				{Address: delegates[3]},
+			}, true).AnyTimes()
 			if mockChain == nil {
 				blockchain.EXPECT().TipHeight().Return(uint64(1), nil).AnyTimes()
 				blockchain.EXPECT().ValidateBlock(gomock.Any()).Return(nil).AnyTimes()

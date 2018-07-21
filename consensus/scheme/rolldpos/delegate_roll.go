@@ -38,7 +38,7 @@ func (d *delegateRoll) Handle() {
 		return
 	}
 
-	ok, err := d.epochStartCb(d.self, epochNum, d.pool, d.bc, &d.cfg, uint64(d.delegateCfg.RollNum))
+	ok, err := d.epochStartCb(d.self, epochNum, d.pool, d.bc, &d.cfg)
 	if err != nil {
 		logger.Error().Err(err).Msg("error when determining if the node will participate into next epoch")
 		return
@@ -66,17 +66,17 @@ func newDelegateRoll(r *RollDPoS) *routine.RecurringTask {
 }
 
 // NeverStartNewEpoch will never allow to start a new epochStart after the first one
-func NeverStartNewEpoch(_ string, _ uint64, _ delegate.Pool, _ blockchain.Blockchain, _ *config.RollDPoS, _ uint64) (bool, error) {
+func NeverStartNewEpoch(_ string, _ uint64, _ delegate.Pool, _ blockchain.Blockchain, _ *config.RollDPoS) (bool, error) {
 	return false, nil
 }
 
 // PseudoStarNewEpoch will always allow to start a new epochStart after the first one
-func PseudoStarNewEpoch(_ string, _ uint64, _ delegate.Pool, _ blockchain.Blockchain, _ *config.RollDPoS, _ uint64) (bool, error) {
+func PseudoStarNewEpoch(_ string, _ uint64, _ delegate.Pool, _ blockchain.Blockchain, _ *config.RollDPoS) (bool, error) {
 	return true, nil
 }
 
 // PseudoStartRollingEpoch will only allows the delegates chosen for given epoch to enter the epoch
-func PseudoStartRollingEpoch(self string, epochNum uint64, pool delegate.Pool, _ blockchain.Blockchain, _ *config.RollDPoS, _ uint64) (bool, error) {
+func PseudoStartRollingEpoch(self string, epochNum uint64, pool delegate.Pool, _ blockchain.Blockchain, _ *config.RollDPoS) (bool, error) {
 	delegates, err := pool.RollDelegates(epochNum)
 	if err != nil {
 		return false, err
@@ -90,7 +90,7 @@ func PseudoStartRollingEpoch(self string, epochNum uint64, pool delegate.Pool, _
 }
 
 // StartRollingEpoch will only allows the delegates chosen for given epoch to enter the epoch
-func StartRollingEpoch(self string, epochNum uint64, pool delegate.Pool, bc blockchain.Blockchain, cfg *config.RollDPoS, delegateSize uint64) (bool, error) {
+func StartRollingEpoch(self string, epochNum uint64, pool delegate.Pool, bc blockchain.Blockchain, cfg *config.RollDPoS) (bool, error) {
 	height, err := calEpochHeight(cfg, epochNum, pool)
 	if err != nil {
 		return false, err
@@ -99,10 +99,10 @@ func StartRollingEpoch(self string, epochNum uint64, pool delegate.Pool, bc bloc
 	if !ok {
 		return false, errors.New("Epoch number of statefactory is inconsistent in StartRollingEpoch")
 	}
-	if len(candidates) < int(delegateSize) {
+	if len(candidates) < int(cfg.NumDelegates) {
 		return false, errors.New("Candidate pool does not have enough candidates")
 	}
-	candidates = candidates[:delegateSize]
+	candidates = candidates[:cfg.NumDelegates]
 
 	for _, d := range candidates {
 		if self == d.Address {

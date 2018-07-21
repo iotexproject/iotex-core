@@ -27,11 +27,11 @@ func TestStartNextEpochCB(t *testing.T) {
 	cfg := &config.RollDPoS{}
 	defer ctrl.Finish()
 
-	flag, err := NeverStartNewEpoch(self, 1, pool, bc, cfg, 1)
+	flag, err := NeverStartNewEpoch(self, 1, pool, bc, cfg)
 	require.Nil(t, err)
 	require.False(t, flag)
 
-	flag, err = PseudoStarNewEpoch(self, 1, pool, bc, cfg, 1)
+	flag, err = PseudoStarNewEpoch(self, 1, pool, bc, cfg)
 	require.Nil(t, err)
 	require.True(t, flag)
 
@@ -45,7 +45,7 @@ func TestStartNextEpochCB(t *testing.T) {
 		},
 		nil,
 	).Times(1)
-	flag, err = PseudoStartRollingEpoch(self, 1, pool, bc, cfg, 1)
+	flag, err = PseudoStartRollingEpoch(self, 1, pool, bc, cfg)
 	require.Nil(t, err)
 	require.True(t, flag)
 
@@ -58,7 +58,7 @@ func TestStartNextEpochCB(t *testing.T) {
 		},
 		nil,
 	).Times(1)
-	flag, err = PseudoStartRollingEpoch(self, 1, pool, bc, cfg, 1)
+	flag, err = PseudoStartRollingEpoch(self, 1, pool, bc, cfg)
 	require.Nil(t, err)
 	require.False(t, flag)
 }
