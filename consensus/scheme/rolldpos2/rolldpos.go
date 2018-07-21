@@ -41,10 +41,32 @@ type rollDPoSCtx struct {
 	clock   clock.Clock
 }
 
+var (
+	// ErrCandidatesNotFinalized indicates the height of statefactory is inconsistent with consensus
+	ErrCandidatesNotFinalized = errors.New("Epoch number of statefactory is inconsistent in StartRollingEpoch")
+	// ErrNotEnoughCandidates indicates there are not enough candidates from the candidate pool
+	ErrNotEnoughCandidates = errors.New("Candidate pool does not have enough candidates")
+)
+
 // rollingDelegates will only allows the delegates chosen for given epoch to enter the epoch
 func (ctx *rollDPoSCtx) rollingDelegates(epochNum uint64) ([]string, error) {
-	// TODO: replace the pseudo roll delegates method with integrating with real delegate pool
-	return ctx.pool.RollDelegates(epochNum)
+	numDlgs := ctx.cfg.NumDelegates
+	height := uint64(numDlgs) * uint64(ctx.cfg.NumSubEpochs) * (epochNum - 1)
+	candidates, ok := ctx.chain.CandidatesByHeight(height)
+	if !ok {
+		return []string{}, errors.Wrapf(ErrCandidatesNotFinalized, "Failed to choose delegates from the candidate pool")
+	}
+	if len(candidates) < int(numDlgs) {
+		return []string{}, errors.Wrapf(ErrNotEnoughCandidates, "Failed to choose delegates from the candidate pool")
+	}
+	candidates = candidates[:numDlgs]
+
+	var delegates []string
+	for _, candidate := range candidates {
+		delegates = append(delegates, candidate.Address)
+	}
+
+	return delegates, nil
 }
 
 // calcEpochNum calculates the epoch ordinal number and the epoch start height offset, which is based on the height of
@@ -54,7 +76,7 @@ func (ctx *rollDPoSCtx) calcEpochNumAndHeight() (uint64, uint64, error) {
 	if err != nil {
 		return 0, 0, err
 	}
-	numDlgs, err := ctx.pool.NumDelegatesPerEpoch()
+	numDlgs := ctx.cfg.NumDelegates
 	if err != nil {
 		return 0, 0, err
 	}

@@ -90,6 +90,7 @@ var (
 			ProducerPrivKey:    "",
 			InMemTest:          false,
 			GenesisActionsPath: "",
+			DelegateLRUSize:    10,
 		},
 		ActPool: ActPool{
 			MaxNumActPerPool: 32000,
@@ -110,7 +111,7 @@ var (
 				Delay:             5 * time.Second,
 				NumSubEpochs:      1,
 				EventChanSize:     10000,
-				DelegateLRUSize:   10,
+				NumDelegates:      21,
 			},
 			BlockCreationInterval: 10 * time.Second,
 		},
@@ -194,6 +195,7 @@ type (
 		// InMemTest creates in-memory DB file for local testing
 		InMemTest          bool   `yaml:"inMemTest"`
 		GenesisActionsPath string `yaml:"genesisActionsPath"`
+		DelegateLRUSize    uint   `yaml:"delegateLRUSize"`
 	}
 
 	// Consensus is the config struct for consensus package
@@ -223,7 +225,7 @@ type (
 		Delay             time.Duration `yaml:"delay"`
 		NumSubEpochs      uint          `yaml:"numSubEpochs"`
 		EventChanSize     uint          `yaml:"eventChanSize"`
-		DelegateLRUSize   uint          `yaml:"delegateLRUSize"`
+		NumDelegates      uint          `yaml:"numDelegates"`
 	}
 	// Delegate is the delegate config
 	Delegate struct {

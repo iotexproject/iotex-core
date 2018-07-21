@@ -35,7 +35,7 @@ type GetProposerCB func([]string, []byte, uint64, uint64) (string, error)
 type GenerateDKGCB func() (hash.DKGHash, error)
 
 // StartNextEpochCB defines the callback to check if the next epoch should start
-type StartNextEpochCB func(string, uint64, delegate.Pool, blockchain.Blockchain, *config.RollDPoS, uint64) (bool, error)
+type StartNextEpochCB func(string, uint64, delegate.Pool, blockchain.Blockchain, *config.RollDPoS) (bool, error)
 
 // Scheme is the interface that consensus schemes should implement
 type Scheme interface {
