@@ -21,39 +21,54 @@ import (
 	"github.com/rs/zerolog"
 )
 
+// configs
 var (
-	logger   *zerolog.Logger
-	levelStr string
-	pathStr  string
+	_levelStr string
+	_pathStr  string
+	_colorful bool
 )
 
+var logger *zerolog.Logger
+
 func init() {
-	flag.StringVar(&levelStr, "log-level", zerolog.InfoLevel.String(), "Log level")
-	flag.StringVar(&pathStr, "log-path", "", "Log path")
+	// read config
+	flag.StringVar(&_levelStr, "log-level", zerolog.InfoLevel.String(), "Log level")
+	flag.StringVar(&_pathStr, "log-path", "", "Log path")
+	flag.BoolVar(&_colorful, "log-colorful", false, "Log use coloful consoleWriter")
 
+	// set a default logger
+	l := zerolog.New(os.Stderr).Level(zerolog.InfoLevel).With().Timestamp().Logger()
+	logger = &l
 }
 
-// Logger gets the logger client instance
-func Logger() *zerolog.Logger {
-	if logger == nil {
-		level, err := zerolog.ParseLevel(levelStr)
-		if err != nil {
-			panic(err)
-		}
-		var l zerolog.Logger
-		if pathStr == "" {
-			l = zerolog.New(zerolog.ConsoleWriter{Out: os.Stderr}).Level(level).With().Timestamp().Logger()
-		} else {
-			file, err := os.Create(pathStr)
-			if err != nil {
-				panic(err)
-			}
-			l = zerolog.New(file).Level(level).With().Timestamp().Logger()
-		}
-		logger = &l
+// New creates a new zerolog instance.
+func New() (*zerolog.Logger, error) {
+	level, err := zerolog.ParseLevel(_levelStr)
+	if err != nil {
+		return nil, err
 	}
-	return logger
+	var l zerolog.Logger
+	if _pathStr == "" {
+		var w io.Writer = os.Stderr
+		if _colorful {
+			w = zerolog.ConsoleWriter{Out: w}
+		}
+		l = zerolog.New(w).Level(level).With().Timestamp().Logger()
+	} else {
+		if _colorful {
+			Warn().Msg("log config colorful set to true when log output to file.")
+		}
+		file, err := os.Create(_pathStr)
+		if err != nil {
+			return nil, err
+		}
+		l = zerolog.New(file).Level(level).With().Timestamp().Logger()
+	}
+	return &l, nil
 }
+
+// Logger gets the global logger client instance.
+func Logger() *zerolog.Logger { return logger }
 
 // SetLogger sets the global logger client pointer to arbitrary logger client instance
 func SetLogger(l *zerolog.Logger) {
