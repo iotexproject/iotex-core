@@ -19,6 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/test/mock/mock_trie"
 	"github.com/iotexproject/iotex-core/test/util"
 	"github.com/iotexproject/iotex-core/trie"
@@ -445,7 +446,7 @@ func TestCandidate(t *testing.T) {
 	require.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{d.RawAddress + ":100", a.RawAddress + ":0", e.RawAddress + ":200", f.RawAddress + ":0"}))
 	// a(b):100(0) b(c):200(500) c(c):100(+200=300) d(b): 400(100) e(e):200(+0=200) f(d):100(0)
 
-	vote21 := action.NewVote(4, c.PublicKey, []byte{})
+	vote21 := action.NewVote(4, c.PublicKey, keypair.ZeroPublicKey)
 	err = sf.CommitStateChanges(3, []*action.Transfer{}, []*action.Vote{vote21})
 	require.Nil(t, err)
 	height, _ = sf.Candidates()
@@ -454,7 +455,7 @@ func TestCandidate(t *testing.T) {
 	require.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{d.RawAddress + ":100", a.RawAddress + ":0", f.RawAddress + ":0"}))
 	// a(b):100(0) b(c):200(500) [c(c):100(+200=300)] d(b): 400(100) e(e):200(+0=200) f(d):100(0)
 
-	vote22 := action.NewVote(4, f.PublicKey, []byte{})
+	vote22 := action.NewVote(4, f.PublicKey, keypair.ZeroPublicKey)
 	err = sf.CommitStateChanges(3, []*action.Transfer{}, []*action.Vote{vote22})
 	require.Nil(t, err)
 	height, _ = sf.Candidates()
@@ -484,7 +485,7 @@ func TestUnvote(t *testing.T) {
 	_, err = sf.CreateState(b.RawAddress, uint64(200))
 	require.NoError(t, err)
 
-	vote1 := action.NewVote(0, a.PublicKey, []byte{})
+	vote1 := action.NewVote(0, a.PublicKey, keypair.ZeroPublicKey)
 	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote1})
 	require.Nil(t, err)
 	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{}))
@@ -496,7 +497,7 @@ func TestUnvote(t *testing.T) {
 	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":100"}))
 	require.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{}))
 
-	vote3 := action.NewVote(0, a.PublicKey, []byte{})
+	vote3 := action.NewVote(0, a.PublicKey, keypair.ZeroPublicKey)
 	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote3})
 	require.Nil(t, err)
 	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{}))
@@ -504,7 +505,7 @@ func TestUnvote(t *testing.T) {
 
 	vote4 := action.NewVote(0, b.PublicKey, b.PublicKey)
 	vote5 := action.NewVote(0, a.PublicKey, b.PublicKey)
-	vote6 := action.NewVote(0, a.PublicKey, []byte{})
+	vote6 := action.NewVote(0, a.PublicKey, keypair.ZeroPublicKey)
 	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote4, vote5, vote6})
 	require.Nil(t, err)
 	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{b.RawAddress + ":200"}))

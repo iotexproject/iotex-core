@@ -24,6 +24,7 @@ import (
 
 	cp "github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/iotxaddress/bech32"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/version"
 )
 
@@ -41,12 +42,14 @@ var (
 const (
 	mainnetPrefix = "io"
 	testnetPrefix = "it"
+	pubKeyLength  = 72
+	privKeyLength = 36
 )
 
 // Address contains a pair of key and a string address
 type Address struct {
-	PrivateKey []byte
-	PublicKey  []byte
+	PrivateKey keypair.PrivateKey
+	PublicKey  keypair.PublicKey
 	RawAddress string
 }
 
@@ -67,7 +70,7 @@ func NewAddress(isTestnet bool, chainid []byte) (*Address, error) {
 }
 
 // GetAddress returns the address given a public key and necessary params.
-func GetAddress(pub []byte, isTestnet bool, chainid []byte) (*Address, error) {
+func GetAddress(pub keypair.PublicKey, isTestnet bool, chainid []byte) (*Address, error) {
 	hrp := mainnetPrefix
 	if isTestnet {
 		hrp = testnetPrefix
@@ -129,9 +132,9 @@ func ValidateAddress(address string) bool {
 }
 
 // HashPubKey returns the hash of public key
-func HashPubKey(pubKey []byte) []byte {
+func HashPubKey(pubKey keypair.PublicKey) []byte {
 	// use Blake2b algorithm
-	digest := blake2b.Sum256(pubKey)
+	digest := blake2b.Sum256(pubKey[:])
 	return digest[7:27]
 }
 

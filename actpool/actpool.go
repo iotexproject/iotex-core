@@ -18,6 +18,7 @@ import (
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/proto"
 )
 
@@ -208,7 +209,8 @@ func (ap *actPool) AddVote(vote *action.Vote) error {
 		return errors.Wrapf(ErrActPool, "insufficient space for vote")
 	}
 
-	voter, _ := iotxaddress.GetAddress(vote.SelfPubkey, iotxaddress.IsTestnet, iotxaddress.ChainID)
+	selfPublicKey, _ := vote.SelfPublicKey()
+	voter, _ := iotxaddress.GetAddress(selfPublicKey, iotxaddress.IsTestnet, iotxaddress.ChainID)
 	// Wrap vote as an action
 	action := &iproto.ActionPb{Action: &iproto.ActionPb_Vote{vote.ConvertToVotePb()}}
 	return ap.addAction(voter.RawAddress, action, hash, vote.Nonce)
@@ -289,7 +291,11 @@ func (ap *actPool) validateVote(vote *action.Vote) error {
 		logger.Error().Msg("Error when validating vote")
 		return errors.Wrapf(ErrActPool, "oversized data")
 	}
-	voter, err := iotxaddress.GetAddress(vote.SelfPubkey, iotxaddress.IsTestnet, iotxaddress.ChainID)
+	selfPublicKey, err := vote.SelfPublicKey()
+	if err != nil {
+		return err
+	}
+	voter, err := iotxaddress.GetAddress(selfPublicKey, iotxaddress.IsTestnet, iotxaddress.ChainID)
 	if err != nil {
 		logger.Error().Err(err).Msg("Error when validating vote")
 		return errors.Wrapf(err, "invalid voter address")
@@ -306,9 +312,13 @@ func (ap *actPool) validateVote(vote *action.Vote) error {
 		logger.Error().Err(err).Msg("Error when validating vote")
 		return errors.Wrapf(err, "invalid nonce value")
 	}
-	if len(vote.VotePubkey) > 0 {
+	votePublicKey, err := vote.VotePublicKey()
+	if err != nil {
+		return err
+	}
+	if votePublicKey != keypair.ZeroPublicKey {
 		// Reject vote if votee is not a candidate
-		votee, err := iotxaddress.GetAddress(vote.VotePubkey, iotxaddress.IsTestnet, iotxaddress.ChainID)
+		votee, err := iotxaddress.GetAddress(votePublicKey, iotxaddress.IsTestnet, iotxaddress.ChainID)
 		if err != nil {
 			logger.Error().
 				Err(err).Hex("voter", vote.SelfPubkey[:]).Hex("votee", vote.VotePubkey).

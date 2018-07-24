@@ -7,7 +7,6 @@
 package config
 
 import (
-	"encoding/hex"
 	"flag"
 	"os"
 	"time"
@@ -18,6 +17,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 )
 
 // IMPORTANT: to define a config, add a field or a new config type to the existing config types. In addition, provide
@@ -86,8 +86,8 @@ var (
 		Chain: Chain{
 			ChainDBPath:        "/tmp/chain.db",
 			TrieDBPath:         "/tmp/trie.db",
-			ProducerPubKey:     "",
-			ProducerPrivKey:    "",
+			ProducerPubKey:     keypair.EncodePublicKey(keypair.ZeroPublicKey),
+			ProducerPrivKey:    keypair.EncodePrivateKey(keypair.ZeroPrivateKey),
 			InMemTest:          false,
 			GenesisActionsPath: "",
 			DelegateLRUSize:    10,
@@ -327,14 +327,11 @@ func (cfg *Config) IsLightweight() bool {
 
 // ProducerAddr returns address struct based on the data from producer pub/pri-key in the config
 func (cfg *Config) ProducerAddr() (*iotxaddress.Address, error) {
-	priKey, err := hex.DecodeString(cfg.Chain.ProducerPrivKey)
+	priKey, err := keypair.DecodePrivateKey(cfg.Chain.ProducerPrivKey)
 	if err != nil {
 		return nil, err
 	}
-	pubKey, err := hex.DecodeString(cfg.Chain.ProducerPubKey)
-	if err != nil {
-		return nil, err
-	}
+	pubKey, err := keypair.DecodePublicKey(cfg.Chain.ProducerPubKey)
 	addr, err := iotxaddress.GetAddress(pubKey, iotxaddress.IsTestnet, iotxaddress.ChainID)
 	if err != nil {
 		return nil, err

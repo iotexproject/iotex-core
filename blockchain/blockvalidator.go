@@ -123,7 +123,11 @@ func (v *validator) Validate(blk *Block, tipHeight uint64, tipHash hash.Hash32B)
 		for _, vote := range blk.Votes {
 			go func(vote *action.Vote, correctVote *uint64) {
 				defer wg.Done()
-				address, err := iotxaddress.GetAddress(vote.SelfPubkey, iotxaddress.IsTestnet, iotxaddress.ChainID)
+				selfPublicKey, err := vote.SelfPublicKey()
+				if err != nil {
+					return
+				}
+				address, err := iotxaddress.GetAddress(selfPublicKey, iotxaddress.IsTestnet, iotxaddress.ChainID)
 				if err != nil {
 					return
 				}

@@ -22,6 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	pb "github.com/iotexproject/iotex-core/proto"
 )
 
@@ -203,6 +204,10 @@ func (exp *Service) GetUnconfirmedTransfersByAddress(address string, offset int6
 		}
 
 		transferPb := act.GetTransfer()
+		senderPubKey, err := keypair.BytesToPubKeyString(transferPb.SenderPubKey)
+		if err != nil {
+			return []explorer.Transfer{}, err
+		}
 		explorerTransfer := explorer.Transfer{
 			Version:      int64(transferPb.Version),
 			Nonce:        int64(transferPb.Nonce),
@@ -210,7 +215,7 @@ func (exp *Service) GetUnconfirmedTransfersByAddress(address string, offset int6
 			Recipient:    transferPb.Recipient,
 			Amount:       big.NewInt(0).SetBytes(transferPb.Amount).Int64(),
 			Payload:      hex.EncodeToString(transferPb.Payload),
-			SenderPubKey: hex.EncodeToString(transferPb.SenderPubKey),
+			SenderPubKey: senderPubKey,
 			Signature:    hex.EncodeToString(transferPb.Signature),
 			IsCoinbase:   transferPb.IsCoinbase,
 		}
@@ -292,12 +297,20 @@ ChainLoop:
 				break ChainLoop
 			}
 
-			voter, err := getAddrFromPubKey(blk.Votes[i].SelfPubkey)
+			selfPublicKey, err := blk.Votes[i].SelfPublicKey()
+			if err != nil {
+				return res, err
+			}
+			voter, err := getAddrFromPubKey(selfPublicKey)
 			if err != nil {
 				return res, err
 			}
 
-			votee, err := getAddrFromPubKey(blk.Votes[i].VotePubkey)
+			votePublicKey, err := blk.Votes[i].VotePublicKey()
+			if err != nil {
+				return res, err
+			}
+			votee, err := getAddrFromPubKey(votePublicKey)
 			if err != nil {
 				return res, err
 			}
@@ -393,11 +406,19 @@ func (exp *Service) GetUnconfirmedVotesByAddress(address string, offset int64, l
 		}
 
 		votePb := act.GetVote()
+		voterPubKey, err := keypair.BytesToPubKeyString(votePb.SelfPubkey)
+		if err != nil {
+			return []explorer.Vote{}, err
+		}
+		voteePubKey, err := keypair.BytesToPubKeyString(votePb.VotePubkey)
+		if err != nil {
+			return []explorer.Vote{}, err
+		}
 		explorerVote := explorer.Vote{
 			Version:     int64(votePb.Version),
 			Nonce:       int64(votePb.Nonce),
-			VoterPubKey: hex.EncodeToString(votePb.SelfPubkey),
-			VoteePubKey: hex.EncodeToString(votePb.VotePubkey),
+			VoterPubKey: voterPubKey,
+			VoteePubKey: voteePubKey,
 			Signature:   hex.EncodeToString(votePb.Signature),
 		}
 
@@ -431,12 +452,20 @@ func (exp *Service) GetVotesByBlockID(blkID string, offset int64, limit int64) (
 			break
 		}
 
-		voter, err := getAddrFromPubKey(vote.SelfPubkey)
+		selfPublicKey, err := vote.SelfPublicKey()
+		if err != nil {
+			return res, err
+		}
+		voter, err := getAddrFromPubKey(selfPublicKey)
 		if err != nil {
 			return res, err
 		}
 
-		votee, err := getAddrFromPubKey(vote.VotePubkey)
+		votePublicKey, err := vote.VotePublicKey()
+		if err != nil {
+			return res, err
+		}
+		votee, err := getAddrFromPubKey(votePublicKey)
 		if err != nil {
 			return res, err
 		}
@@ -488,7 +517,7 @@ func (exp *Service) GetLastBlocksByRange(offset int64, limit int64) ([]explorer.
 			Size:      int64(totalSize),
 			GenerateBy: explorer.BlockGenerator{
 				Name:    "",
-				Address: hex.EncodeToString(blk.Header.Pubkey),
+				Address: keypair.EncodePublicKey(blk.Header.Pubkey),
 			},
 		}
 
@@ -531,7 +560,7 @@ func (exp *Service) GetBlockByID(blkID string) (explorer.Block, error) {
 		Size:      int64(totalSize),
 		GenerateBy: explorer.BlockGenerator{
 			Name:    "",
-			Address: hex.EncodeToString(blk.Header.Pubkey),
+			Address: keypair.EncodePublicKey(blk.Header.Pubkey),
 		},
 	}
 
@@ -661,7 +690,7 @@ func (exp *Service) SendTransfer(request explorer.SendTransferRequest) (explorer
 	if err != nil {
 		return explorer.SendTransferResponse{}, err
 	}
-	senderPubKey, err := hex.DecodeString(tsfJSON.SenderPubKey)
+	senderPubKey, err := keypair.StringToPubKeyBytes(tsfJSON.SenderPubKey)
 	if err != nil {
 		return explorer.SendTransferResponse{}, err
 	}
@@ -697,16 +726,20 @@ func (exp *Service) CreateRawVote(request explorer.CreateRawVoteRequest) (explor
 	if len(request.Voter) == 0 || len(request.Votee) == 0 {
 		return explorer.CreateRawVoteResponse{}, errors.New("invalid CreateRawVoteRequest")
 	}
-	voterPubKey, err := hex.DecodeString(request.Voter)
+	voterPubKey, err := keypair.DecodePublicKey(request.Voter)
 	if err != nil {
 		return explorer.CreateRawVoteResponse{}, err
 	}
-	voteePubKey, err := hex.DecodeString(request.Votee)
+	voteePubKey, err := keypair.DecodePublicKey(request.Votee)
 	if err != nil {
 		return explorer.CreateRawVoteResponse{}, err
 	}
 	vote := exp.bc.CreateRawVote(uint64(request.Nonce), &iotxaddress.Address{PublicKey: voterPubKey}, &iotxaddress.Address{PublicKey: voteePubKey})
-	svote, err := json.Marshal(vote.ToJSON())
+	voteJSON, err := vote.ToJSON()
+	if err != nil {
+		return explorer.CreateRawVoteResponse{}, err
+	}
+	svote, err := json.Marshal(voteJSON)
 	if err != nil {
 		return explorer.CreateRawVoteResponse{}, err
 	}
@@ -727,11 +760,11 @@ func (exp *Service) SendVote(request explorer.SendVoteRequest) (explorer.SendVot
 	if err := json.Unmarshal(serialzedVote, voteJSON); err != nil {
 		return explorer.SendVoteResponse{}, err
 	}
-	selfPubKey, err := hex.DecodeString(voteJSON.VoterPubKey)
+	selfPubKey, err := keypair.StringToPubKeyBytes(voteJSON.VoterPubKey)
 	if err != nil {
 		return explorer.SendVoteResponse{}, err
 	}
-	votePubKey, err := hex.DecodeString(voteJSON.VoteePubKey)
+	votePubKey, err := keypair.StringToPubKeyBytes(voteJSON.VoteePubKey)
 	if err != nil {
 		return explorer.SendVoteResponse{}, err
 	}
@@ -811,12 +844,20 @@ func getVote(bc blockchain.Blockchain, voteHash hash.Hash32B) (explorer.Vote, er
 		return explorerVote, err
 	}
 
-	voter, err := getAddrFromPubKey(vote.SelfPubkey)
+	selfPublicKey, err := vote.SelfPublicKey()
+	if err != nil {
+		return explorerVote, err
+	}
+	voter, err := getAddrFromPubKey(selfPublicKey)
 	if err != nil {
 		return explorerVote, err
 	}
 
-	votee, err := getAddrFromPubKey(vote.VotePubkey)
+	votePublicKey, err := vote.VotePublicKey()
+	if err != nil {
+		return explorerVote, err
+	}
+	votee, err := getAddrFromPubKey(votePublicKey)
 	if err != nil {
 		return explorerVote, err
 	}
@@ -834,7 +875,7 @@ func getVote(bc blockchain.Blockchain, voteHash hash.Hash32B) (explorer.Vote, er
 	return explorerVote, nil
 }
 
-func getAddrFromPubKey(pubKey []byte) (string, error) {
+func getAddrFromPubKey(pubKey keypair.PublicKey) (string, error) {
 	Address, err := iotxaddress.GetAddress(pubKey, iotxaddress.IsTestnet, iotxaddress.ChainID)
 	if err != nil {
 		return "", errors.Wrapf(err, " to get address for pubkey %x", pubKey)

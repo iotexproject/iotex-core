@@ -23,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/mock/mock_actpool"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
@@ -628,7 +629,7 @@ func newTestCFSM(
 	mockP2P func(*mock_network.MockOverlay),
 ) *cFSM {
 	transfer := action.NewTransfer(1, big.NewInt(100), "src", "dst")
-	vote := action.NewVote(2, []byte("src"), []byte("dst"))
+	vote := action.NewVote(2, keypair.ZeroPublicKey, keypair.ZeroPublicKey)
 	var prevHash hash.Hash32B
 	lastBlk := blockchain.NewBlock(1, 1, prevHash, make([]*action.Transfer, 0), make([]*action.Vote, 0))
 	blkToMint := blockchain.NewBlock(1, 2, lastBlk.HashBlock(), []*action.Transfer{transfer}, []*action.Vote{vote})

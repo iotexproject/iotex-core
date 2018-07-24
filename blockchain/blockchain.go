@@ -20,6 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/state"
@@ -473,7 +474,7 @@ func (bc *blockchain) MintNewBlock(tsf []*action.Transfer, vote []*action.Vote,
 	tsf = append(tsf, action.NewCoinBaseTransfer(big.NewInt(int64(bc.genesis.BlockReward)), producer.RawAddress))
 
 	blk := NewBlock(bc.chainID, bc.tipHeight+1, bc.tipHash, tsf, vote)
-	if producer.PrivateKey == nil {
+	if producer.PrivateKey == keypair.ZeroPrivateKey {
 		logger.Warn().Msg("Unsigned block...")
 		return blk, nil
 	}

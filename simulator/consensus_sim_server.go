@@ -31,6 +31,7 @@ import (
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	pb "github.com/iotexproject/iotex-core/simulator/proto/simulator"
 )
 
@@ -100,8 +101,8 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 		if err != nil {
 			logger.Error().Err(err).Msg("failed to create public/private key pair together with the address derived.")
 		}
-		cfg.Chain.ProducerPrivKey = hex.EncodeToString(addr.PrivateKey)
-		cfg.Chain.ProducerPubKey = hex.EncodeToString(addr.PublicKey)
+		cfg.Chain.ProducerPrivKey = keypair.EncodePrivateKey(addr.PrivateKey)
+		cfg.Chain.ProducerPubKey = keypair.EncodePublicKey(addr.PublicKey)
 
 		// set chain database path
 		cfg.Chain.ChainDBPath = "./chain" + strconv.Itoa(i) + ".db"

@@ -20,6 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/proto"
 )
@@ -33,15 +34,15 @@ type Payee struct {
 // BlockHeader defines the struct of block header
 // make sure the variable type and order of this struct is same as "BlockHeaderPb" in blockchain.pb.go
 type BlockHeader struct {
-	version       uint32       // version
-	chainID       uint32       // this chain's ID
-	height        uint64       // block height
-	timestamp     uint64       // timestamp
-	prevBlockHash hash.Hash32B // hash of previous block
-	txRoot        hash.Hash32B // merkle root of all transactions
-	stateRoot     hash.Hash32B // merkle root of all states
-	blockSig      []byte       // block signature
-	Pubkey        []byte       // block miner's public key
+	version       uint32            // version
+	chainID       uint32            // this chain's ID
+	height        uint64            // block height
+	timestamp     uint64            // timestamp
+	prevBlockHash hash.Hash32B      // hash of previous block
+	txRoot        hash.Hash32B      // merkle root of all transactions
+	stateRoot     hash.Hash32B      // merkle root of all states
+	blockSig      []byte            // block signature
+	Pubkey        keypair.PublicKey // block miner's public key
 
 }
 
@@ -98,7 +99,7 @@ func (b *Block) ByteStreamHeader() []byte {
 	stream = append(stream, b.Header.prevBlockHash[:]...)
 	stream = append(stream, b.Header.txRoot[:]...)
 	stream = append(stream, b.Header.stateRoot[:]...)
-	stream = append(stream, b.Header.Pubkey...)
+	stream = append(stream, b.Header.Pubkey[:]...)
 	return stream
 }
 
@@ -168,7 +169,7 @@ func (b *Block) ConvertFromBlockHeaderPb(pbBlock *iproto.BlockPb) {
 	copy(b.Header.txRoot[:], pbBlock.GetHeader().GetTxRoot())
 	copy(b.Header.stateRoot[:], pbBlock.GetHeader().GetStateRoot())
 	b.Header.blockSig = pbBlock.GetHeader().GetSignature()
-	b.Header.Pubkey = pbBlock.GetHeader().GetPubkey()
+	copy(b.Header.Pubkey[:], pbBlock.GetHeader().GetPubkey())
 }
 
 // ConvertFromBlockPb converts BlockPb to Block
@@ -235,8 +236,8 @@ func (b *Block) HashBlock() hash.Hash32B {
 
 // SignBlock allows signer to sign the block b
 func (b *Block) SignBlock(signer *iotxaddress.Address) error {
-	if signer.PrivateKey == nil {
-		return errors.New("The private key is nil")
+	if signer.PrivateKey == keypair.ZeroPrivateKey {
+		return errors.New("The private key is empty")
 	}
 	b.Header.Pubkey = signer.PublicKey
 	blkHash := b.HashBlock()

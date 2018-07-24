@@ -8,7 +8,6 @@ package e2etest
 
 import (
 	"context"
-	"encoding/hex"
 	"math/big"
 	"testing"
 	"time"
@@ -20,6 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/network"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	pb "github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/server/itx"
 	"github.com/iotexproject/iotex-core/test/util"
@@ -252,7 +252,7 @@ func newActPoolConfig() (*config.Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	cfg.Chain.ProducerPubKey = hex.EncodeToString(addr.PublicKey)
-	cfg.Chain.ProducerPrivKey = hex.EncodeToString(addr.PrivateKey)
+	cfg.Chain.ProducerPubKey = keypair.EncodePublicKey(addr.PublicKey)
+	cfg.Chain.ProducerPrivKey = keypair.EncodePrivateKey(addr.PrivateKey)
 	return &cfg, nil
 }

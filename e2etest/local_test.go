@@ -8,7 +8,6 @@ package e2etest
 
 import (
 	"context"
-	"encoding/hex"
 	"math/big"
 	"sort"
 	"testing"
@@ -22,6 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/network"
 	"github.com/iotexproject/iotex-core/network/node"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	pb "github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/server/itx"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
@@ -586,7 +586,7 @@ func TestVoteLocalCommit(t *testing.T) {
 
 	// Add block 4
 	// Unvote B
-	vote7 := action.NewVote(uint64(3), ta.Addrinfo["bravo"].PublicKey, []byte{})
+	vote7 := action.NewVote(uint64(3), ta.Addrinfo["bravo"].PublicKey, keypair.ZeroPublicKey)
 	vote7, err = vote7.Sign(ta.Addrinfo["bravo"])
 	require.Nil(err)
 	blk4 := blockchain.NewBlock(0, height+4, hash3,
@@ -653,7 +653,7 @@ func newTestConfig() (*config.Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	cfg.Chain.ProducerPubKey = hex.EncodeToString(addr.PublicKey)
-	cfg.Chain.ProducerPrivKey = hex.EncodeToString(addr.PrivateKey)
+	cfg.Chain.ProducerPubKey = keypair.EncodePublicKey(addr.PublicKey)
+	cfg.Chain.ProducerPrivKey = keypair.EncodePrivateKey(addr.PrivateKey)
 	return &cfg, nil
 }
