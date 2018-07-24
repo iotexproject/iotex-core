@@ -20,6 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/mock/mock_actpool"
@@ -269,7 +270,7 @@ func TestRollDPoS_convertToConsensusEvt(t *testing.T) {
 	// Test propose msg
 	addr := newTestAddr()
 	transfer := action.NewTransfer(1, big.NewInt(100), "src", "dst")
-	vote := action.NewVote(2, []byte("src"), []byte("dst"))
+	vote := action.NewVote(2, keypair.ZeroPublicKey, keypair.ZeroPublicKey)
 	var prevHash hash.Hash32B
 	blk := blockchain.NewBlock(1, 1, prevHash, []*action.Transfer{transfer}, []*action.Vote{vote})
 	msg := iproto.ViewChangeMsg{

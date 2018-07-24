@@ -31,7 +31,7 @@ func self() string {
 			logger.Error().Err(err).Msg("unable to find config file")
 			return ""
 		}
-		pubk, err := hex.DecodeString(cfg.Chain.ProducerPubKey)
+		pubk, err := keypair.DecodePublicKey(cfg.Chain.ProducerPubKey)
 		if err != nil {
 			logger.Error().Err(err).Msg("unable to decode pubkey")
 			return ""

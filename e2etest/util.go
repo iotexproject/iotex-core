@@ -12,12 +12,13 @@ import (
 
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/action"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 )
 
 func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	tsf0 := action.NewTransfer(1, big.NewInt(100000000), blockchain.Gen.CreatorAddr, ta.Addrinfo["miner"].RawAddress)
-	pubk, err := hex.DecodeString(blockchain.Gen.CreatorPubKey)
+	pubk, err := keypair.DecodePublicKey(blockchain.Gen.CreatorPubKey)
 	sign, err := hex.DecodeString("847af98bf2c92873f3f7ed02399c7407d0df35c9a45da6947df43638bf2df32d263e59011fab0e4d5380c4c49c579ccd0a25b1260e586f5f379979f38db91ac5f3c7468a6e389d00")
 	if err != nil {
 		return err

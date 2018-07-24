@@ -504,13 +504,21 @@ func putVotes(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 	for _, vote := range blk.Votes {
 		voteHash := vote.Hash()
 
-		SenderAddress, err := iotxaddress.GetAddress(vote.SelfPubkey, iotxaddress.IsTestnet, iotxaddress.ChainID)
+		selfPublicKey, err := vote.SelfPublicKey()
+		if err != nil {
+			return err
+		}
+		SenderAddress, err := iotxaddress.GetAddress(selfPublicKey, iotxaddress.IsTestnet, iotxaddress.ChainID)
 		if err != nil {
 			return errors.Wrapf(err, " to get sender address for pubkey %x", vote.SelfPubkey)
 		}
 		Sender := SenderAddress.RawAddress
 
-		RecipientAddress, err := iotxaddress.GetAddress(vote.VotePubkey, iotxaddress.IsTestnet, iotxaddress.ChainID)
+		votePublicKey, err := vote.VotePublicKey()
+		if err != nil {
+			return err
+		}
+		RecipientAddress, err := iotxaddress.GetAddress(votePublicKey, iotxaddress.IsTestnet, iotxaddress.ChainID)
 		if err != nil {
 			return errors.Wrapf(err, " to get recipient address for pubkey %x", vote.VotePubkey)
 		}

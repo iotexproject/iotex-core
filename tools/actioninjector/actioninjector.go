@@ -26,6 +26,7 @@ import (
 	exp "github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/test/util"
 )
 
@@ -235,7 +236,7 @@ func injectTransfer(
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Failed to inject transfer")
 	}
-	tsf.SenderPubKey = hex.EncodeToString(transfer.SenderPublicKey)
+	tsf.SenderPubKey = keypair.EncodePublicKey(transfer.SenderPublicKey)
 	tsf.Signature = hex.EncodeToString(transfer.Signature)
 
 	stsf, err := json.Marshal(tsf)
@@ -281,7 +282,7 @@ func injectVote(
 	var r exp.CreateRawVoteResponse
 	var err error
 	for i := 0; i < retryNum; i++ {
-		if r, err = c.CreateRawVote(exp.CreateRawVoteRequest{Voter: hex.EncodeToString(sender.PublicKey), Votee: hex.EncodeToString(recipient.PublicKey), Nonce: int64(nonce)}); err == nil {
+		if r, err = c.CreateRawVote(exp.CreateRawVoteRequest{Voter: keypair.EncodePublicKey(sender.PublicKey), Votee: keypair.EncodePublicKey(recipient.PublicKey), Nonce: int64(nonce)}); err == nil {
 			break
 		}
 		time.Sleep(time.Duration(retryInterval) * time.Second)
@@ -301,11 +302,11 @@ func injectVote(
 	}
 
 	// Sign Vote
-	voterPubKey, err := hex.DecodeString(jsonVote.VoterPubKey)
+	voterPubKey, err := keypair.DecodePublicKey(jsonVote.VoterPubKey)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Failed to inject vote")
 	}
-	voteePubKey, err := hex.DecodeString(jsonVote.VoteePubKey)
+	voteePubKey, err := keypair.DecodePublicKey(jsonVote.VoteePubKey)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Failed to inject vote")
 	}

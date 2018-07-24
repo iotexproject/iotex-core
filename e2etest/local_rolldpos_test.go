@@ -8,7 +8,6 @@ package e2etest
 
 import (
 	"context"
-	"encoding/hex"
 	"flag"
 	"testing"
 	"time"
@@ -18,6 +17,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/server/itx"
 )
 
@@ -164,7 +164,7 @@ func newConfig(prCb string, epochCb string, interval time.Duration) (*config.Con
 	if err != nil {
 		return nil, err
 	}
-	cfg.Chain.ProducerPubKey = hex.EncodeToString(addr.PublicKey)
-	cfg.Chain.ProducerPrivKey = hex.EncodeToString(addr.PrivateKey)
+	cfg.Chain.ProducerPubKey = keypair.EncodePublicKey(addr.PublicKey)
+	cfg.Chain.ProducerPrivKey = keypair.EncodePrivateKey(addr.PrivateKey)
 	return &cfg, nil
 }

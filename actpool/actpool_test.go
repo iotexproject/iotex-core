@@ -21,6 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	pb "github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/util"
@@ -222,7 +223,7 @@ func TestActPool_AddActs(t *testing.T) {
 	replaceTsf, _ := signedTransfer(addr1, addr2, uint64(1), big.NewInt(1))
 	err = ap.AddTsf(replaceTsf)
 	require.Equal(ErrNonce, errors.Cause(err))
-	replaceVote := action.NewVote(4, addr1.PublicKey, []byte{})
+	replaceVote := action.NewVote(4, addr1.PublicKey, keypair.ZeroPublicKey)
 	replaceVote, _ = replaceVote.Sign(addr1)
 	require.Equal(ErrNonce, errors.Cause(err))
 	// Case IV: Nonce is too large
@@ -580,11 +581,11 @@ func TestActPool_Reset(t *testing.T) {
 	require.Nil(err)
 	tsf21, _ := signedTransfer(addr4, addr5, uint64(1), big.NewInt(10))
 	vote22, _ := signedVote(addr4, addr4, uint64(2))
-	vote23 := action.NewVote(3, addr4.PublicKey, []byte{})
+	vote23 := action.NewVote(3, addr4.PublicKey, keypair.ZeroPublicKey)
 	vote23, err = vote23.Sign(addr4)
 	vote24, _ := signedVote(addr5, addr5, uint64(1))
 	tsf25, _ := signedTransfer(addr5, addr4, uint64(2), big.NewInt(10))
-	vote26 := action.NewVote(3, addr5.PublicKey, []byte{})
+	vote26 := action.NewVote(3, addr5.PublicKey, keypair.ZeroPublicKey)
 	vote26, err = vote26.Sign(addr5)
 
 	err = ap1.AddTsf(tsf21)

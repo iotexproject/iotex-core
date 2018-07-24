@@ -20,6 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/trie"
 )
 
@@ -466,7 +467,11 @@ func (sf *factory) handleTsf(pending map[hash.PKHash]*State, addressToPKMap map[
 
 func (sf *factory) handleVote(pending map[hash.PKHash]*State, addressToPKMap map[string][]byte, vote []*action.Vote) error {
 	for _, v := range vote {
-		selfAddress, err := iotxaddress.GetAddress(v.SelfPubkey, iotxaddress.IsTestnet, iotxaddress.ChainID)
+		selfPublicKey, err := v.SelfPublicKey()
+		if err != nil {
+			return err
+		}
+		selfAddress, err := iotxaddress.GetAddress(selfPublicKey, iotxaddress.IsTestnet, iotxaddress.ChainID)
 		if err != nil {
 			return err
 		}
@@ -491,13 +496,21 @@ func (sf *factory) handleVote(pending map[hash.PKHash]*State, addressToPKMap map
 			voteFrom.Votee = ""
 		}
 
-		if len(v.VotePubkey) == 0 {
+		votePublicKey, err := v.VotePublicKey()
+		if err != nil {
+			return err
+		}
+		if votePublicKey == keypair.ZeroPublicKey {
 			// unvote operation
 			voteFrom.IsCandidate = false
 			continue
 		}
 
-		voteAddress, err := iotxaddress.GetAddress(v.VotePubkey, iotxaddress.IsTestnet, iotxaddress.ChainID)
+		votePublicKey, err = v.VotePublicKey()
+		if err != nil {
+			return err
+		}
+		voteAddress, err := iotxaddress.GetAddress(votePublicKey, iotxaddress.IsTestnet, iotxaddress.ChainID)
 		if err != nil {
 			return err
 		}

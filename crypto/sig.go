@@ -22,28 +22,29 @@ import (
 	"encoding/binary"
 
 	"github.com/iotexproject/iotex-core/pkg/enc"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 )
 
 // NewKeyPair generates a new public/private key pair
-func NewKeyPair() ([]byte, []byte, error) {
-	var keypair C.ec283_key_pair
-	C.key_generation(&keypair)
-	pubKey := keypair.Q
-	privKey := keypair.d
+func NewKeyPair() (keypair.PublicKey, keypair.PrivateKey, error) {
+	var kp C.ec283_key_pair
+	C.key_generation(&kp)
+	pubKey := kp.Q
+	privKey := kp.d
 	pub, err := publicKeySerialization(pubKey)
 	if err != nil {
-		return nil, nil, err
+		return keypair.ZeroPublicKey, keypair.ZeroPrivateKey, err
 	}
 	priv, err := privateKeySerialization(privKey)
 	if err != nil {
-		return nil, nil, err
+		return keypair.ZeroPublicKey, keypair.ZeroPrivateKey, err
 	}
 
 	return pub, priv, nil
 }
 
 // Sign signs the msg
-func Sign(priv []byte, msg []byte) []byte {
+func Sign(priv keypair.PrivateKey, msg []byte) []byte {
 	msgString := string(msg[:])
 	privKey, err := privateKeyDeserialization(priv)
 	if err != nil {
@@ -59,7 +60,7 @@ func Sign(priv []byte, msg []byte) []byte {
 }
 
 // Verify verifies the signature
-func Verify(pub []byte, msg []byte, sig []byte) bool {
+func Verify(pub keypair.PublicKey, msg []byte, sig []byte) bool {
 	msgString := string(msg[:])
 	pubKey, err := publicKeyDeserialization(pub)
 	if err != nil {
@@ -72,7 +73,7 @@ func Verify(pub []byte, msg []byte, sig []byte) bool {
 	return C.ECDSA_verify(&pubKey, (*C.uint8_t)(&msg[0]), (C.uint64_t)(len(msgString)), &signature) == 1
 }
 
-func publicKeySerialization(pubKey C.ec283_point_lambda_aff) ([]byte, error) {
+func publicKeySerialization(pubKey C.ec283_point_lambda_aff) (keypair.PublicKey, error) {
 	var xl [18]uint32
 	for i := 0; i < 9; i++ {
 		xl[i] = (uint32)(pubKey.x[i])
@@ -81,15 +82,15 @@ func publicKeySerialization(pubKey C.ec283_point_lambda_aff) ([]byte, error) {
 	buf := new(bytes.Buffer)
 	err := binary.Write(buf, enc.MachineEndian, xl)
 	if err != nil {
-		return buf.Bytes(), err
+		return keypair.ZeroPublicKey, err
 	}
-	return buf.Bytes(), nil
+	return keypair.BytesToPublicKey(buf.Bytes())
 }
 
-func publicKeyDeserialization(pubKey []byte) (C.ec283_point_lambda_aff, error) {
+func publicKeyDeserialization(pubKey keypair.PublicKey) (C.ec283_point_lambda_aff, error) {
 	var xl [18]uint32
 	var pub C.ec283_point_lambda_aff
-	rbuf := bytes.NewReader(pubKey)
+	rbuf := bytes.NewReader(pubKey[:])
 	err := binary.Read(rbuf, enc.MachineEndian, &xl)
 	if err != nil {
 		return pub, err
@@ -101,7 +102,7 @@ func publicKeyDeserialization(pubKey []byte) (C.ec283_point_lambda_aff, error) {
 	return pub, nil
 }
 
-func privateKeySerialization(privKey [9]C.uint32_t) ([]byte, error) {
+func privateKeySerialization(privKey [9]C.uint32_t) (keypair.PrivateKey, error) {
 	var d [9]uint32
 	for i := 0; i < 9; i++ {
 		d[i] = (uint32)(privKey[i])
@@ -109,15 +110,15 @@ func privateKeySerialization(privKey [9]C.uint32_t) ([]byte, error) {
 	buf := new(bytes.Buffer)
 	err := binary.Write(buf, enc.MachineEndian, d)
 	if err != nil {
-		return buf.Bytes(), err
+		return keypair.ZeroPrivateKey, err
 	}
-	return buf.Bytes(), nil
+	return keypair.BytesToPrivateKey(buf.Bytes())
 }
 
-func privateKeyDeserialization(privKey []byte) ([9]C.uint32_t, error) {
+func privateKeyDeserialization(privKey keypair.PrivateKey) ([9]C.uint32_t, error) {
 	var d [9]uint32
 	var priv [9]C.uint32_t
-	rbuf := bytes.NewReader(privKey)
+	rbuf := bytes.NewReader(privKey[:])
 	err := binary.Read(rbuf, enc.MachineEndian, &d)
 	if err != nil {
 		return priv, err

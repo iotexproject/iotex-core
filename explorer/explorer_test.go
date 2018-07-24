@@ -24,6 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	pb "github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
@@ -434,7 +435,7 @@ func TestService_SendTransfer(t *testing.T) {
 	require.Equal(false, response.TransferSent)
 	require.NotNil(err)
 
-	tsfJSON := explorer.Transfer{Nonce: 1, Amount: 1, Sender: senderRawAddr, Recipient: recipientRawAddr}
+	tsfJSON := explorer.Transfer{Nonce: 1, Amount: 1, Sender: senderRawAddr, Recipient: recipientRawAddr, SenderPubKey: senderPubKey}
 	stsf, err := json.Marshal(tsfJSON)
 	require.Nil(err)
 	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any()).Times(1)
@@ -458,9 +459,9 @@ func TestService_CreateRawVote(t *testing.T) {
 	require.NotNil(err)
 
 	request = explorer.CreateRawVoteRequest{Voter: senderPubKey, Votee: recipientPubKey, Nonce: 1}
-	selfPubKey, err := hex.DecodeString(senderPubKey)
+	selfPubKey, err := keypair.StringToPubKeyBytes(senderPubKey)
 	require.Nil(err)
-	votePubKey, err := hex.DecodeString(recipientPubKey)
+	votePubKey, err := keypair.StringToPubKeyBytes(recipientPubKey)
 	require.Nil(err)
 	mBc.EXPECT().CreateRawVote(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).
 		Return(&action.Vote{&pb.VotePb{Nonce: uint64(1), SelfPubkey: selfPubKey, VotePubkey: votePubKey}})
@@ -485,7 +486,7 @@ func TestService_SendVote(t *testing.T) {
 	require.Equal(false, response.VoteSent)
 	require.NotNil(err)
 
-	voteJSON := explorer.Vote{Nonce: 1, Voter: senderPubKey, Votee: recipientPubKey}
+	voteJSON := explorer.Vote{Nonce: 1, VoterPubKey: senderPubKey, VoteePubKey: recipientPubKey}
 	svote, err := json.Marshal(voteJSON)
 	require.Nil(err)
 	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any()).Times(1)

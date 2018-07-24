@@ -7,7 +7,6 @@
 package config
 
 import (
-	"encoding/hex"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -19,6 +18,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 )
 
@@ -55,8 +55,8 @@ chain:
     producerPubKey: "%s"
 `,
 		DelegateType,
-		hex.EncodeToString(testaddress.Addrinfo["alfa"].PrivateKey),
-		hex.EncodeToString(testaddress.Addrinfo["alfa"].PublicKey),
+		keypair.EncodePrivateKey(testaddress.Addrinfo["alfa"].PrivateKey),
+		keypair.EncodePublicKey(testaddress.Addrinfo["alfa"].PublicKey),
 	)
 	_overwritePath = filepath.Join(os.TempDir(), "config.yaml")
 	err := ioutil.WriteFile(_overwritePath, []byte(cfgStr), 0666)
@@ -71,8 +71,8 @@ chain:
 	require.Nil(t, err)
 	require.NotNil(t, cfg)
 	require.Equal(t, DelegateType, cfg.NodeType)
-	require.Equal(t, hex.EncodeToString(testaddress.Addrinfo["alfa"].PrivateKey), cfg.Chain.ProducerPrivKey)
-	require.Equal(t, hex.EncodeToString(testaddress.Addrinfo["alfa"].PublicKey), cfg.Chain.ProducerPubKey)
+	require.Equal(t, keypair.EncodePrivateKey(testaddress.Addrinfo["alfa"].PrivateKey), cfg.Chain.ProducerPrivKey)
+	require.Equal(t, keypair.EncodePublicKey(testaddress.Addrinfo["alfa"].PublicKey), cfg.Chain.ProducerPubKey)
 }
 
 func TestNewConfigWithSecret(t *testing.T) {
@@ -83,8 +83,8 @@ chain:
     producerPubKey: "%s"
 `,
 		DelegateType,
-		hex.EncodeToString(testaddress.Addrinfo["alfa"].PrivateKey),
-		hex.EncodeToString(testaddress.Addrinfo["alfa"].PublicKey),
+		keypair.EncodePrivateKey(testaddress.Addrinfo["alfa"].PrivateKey),
+		keypair.EncodePublicKey(testaddress.Addrinfo["alfa"].PublicKey),
 	)
 	_overwritePath = filepath.Join(os.TempDir(), "config.yaml")
 	err := ioutil.WriteFile(_overwritePath, []byte(cfgStr), 0666)
@@ -97,8 +97,8 @@ chain:
     producerPrivKey: "%s"
     producerPubKey: "%s"
 `,
-		hex.EncodeToString(testaddress.Addrinfo["echo"].PrivateKey),
-		hex.EncodeToString(testaddress.Addrinfo["echo"].PublicKey),
+		keypair.EncodePrivateKey(testaddress.Addrinfo["echo"].PrivateKey),
+		keypair.EncodePublicKey(testaddress.Addrinfo["echo"].PublicKey),
 	)
 	_secretPath = filepath.Join(os.TempDir(), "secret.yaml")
 	err = ioutil.WriteFile(_secretPath, []byte(cfgStr), 0666)
@@ -117,8 +117,8 @@ chain:
 	require.Nil(t, err)
 	require.NotNil(t, cfg)
 	require.Equal(t, DelegateType, cfg.NodeType)
-	require.Equal(t, hex.EncodeToString(testaddress.Addrinfo["echo"].PrivateKey), cfg.Chain.ProducerPrivKey)
-	require.Equal(t, hex.EncodeToString(testaddress.Addrinfo["echo"].PublicKey), cfg.Chain.ProducerPubKey)
+	require.Equal(t, keypair.EncodePrivateKey(testaddress.Addrinfo["echo"].PrivateKey), cfg.Chain.ProducerPrivKey)
+	require.Equal(t, keypair.EncodePublicKey(testaddress.Addrinfo["echo"].PublicKey), cfg.Chain.ProducerPubKey)
 }
 
 func TestNewConfigWithLookupEnv(t *testing.T) {
@@ -132,8 +132,8 @@ chain:
     producerPrivKey: "%s"
     producerPubKey: "%s"
 `,
-		hex.EncodeToString(testaddress.Addrinfo["alfa"].PrivateKey),
-		hex.EncodeToString(testaddress.Addrinfo["alfa"].PublicKey),
+		keypair.EncodePrivateKey(testaddress.Addrinfo["alfa"].PrivateKey),
+		keypair.EncodePublicKey(testaddress.Addrinfo["alfa"].PublicKey),
 	)
 	_overwritePath = filepath.Join(os.TempDir(), "config.yaml")
 	err = ioutil.WriteFile(_overwritePath, []byte(cfgStr), 0666)
@@ -173,8 +173,8 @@ func TestValidateAddr(t *testing.T) {
 	assert.NotNil(t, err)
 	assert.True(t, strings.Contains(err.Error(), "encoding/hex:"), err.Error())
 
-	cfg.Chain.ProducerPubKey = hex.EncodeToString(testaddress.Addrinfo["alfa"].PublicKey)
-	cfg.Chain.ProducerPrivKey = hex.EncodeToString(testaddress.Addrinfo["bravo"].PrivateKey)
+	cfg.Chain.ProducerPubKey = keypair.EncodePublicKey(testaddress.Addrinfo["alfa"].PublicKey)
+	cfg.Chain.ProducerPrivKey = keypair.EncodePrivateKey(testaddress.Addrinfo["bravo"].PrivateKey)
 	err = ValidateAddr(&cfg)
 	assert.NotNil(t, err)
 	require.Equal(t, ErrInvalidCfg, errors.Cause(err))

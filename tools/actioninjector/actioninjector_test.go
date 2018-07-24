@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/hex"
 	"io/ioutil"
 	"math/rand"
 	"sync"
@@ -16,6 +15,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/explorer"
 	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/server/itx"
 	"github.com/iotexproject/iotex-core/test/util"
 )
@@ -147,7 +147,7 @@ func newConfig() (*config.Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	cfg.Chain.ProducerPubKey = hex.EncodeToString(addr.PublicKey)
-	cfg.Chain.ProducerPrivKey = hex.EncodeToString(addr.PrivateKey)
+	cfg.Chain.ProducerPubKey = keypair.EncodePublicKey(addr.PublicKey)
+	cfg.Chain.ProducerPrivKey = keypair.EncodePrivateKey(addr.PrivateKey)
 	return &cfg, nil
 }

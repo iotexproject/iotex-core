@@ -13,6 +13,7 @@ import (
 	"golang.org/x/crypto/blake2b"
 
 	cp "github.com/iotexproject/iotex-core/crypto"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 )
 
 // ConstructFunc takes an array of bytecodes to build an opnode. Note that:
@@ -240,7 +241,11 @@ func opcodeCheckSig(node *OpNode, vm *IVM) error {
 	vm.dstack = vm.dstack[:len(vm.dstack)-2] // pop
 
 	hash := blake2b.Sum256(vm.txin)
-	if cp.Verify(pubkey, hash[:], sig) {
+	publicKey, err := keypair.BytesToPublicKey(pubkey)
+	if err != nil {
+		return err
+	}
+	if cp.Verify(publicKey, hash[:], sig) {
 		return opcodePushTrue(node, vm)
 	}
 	return opcodePushFalse(node, vm)

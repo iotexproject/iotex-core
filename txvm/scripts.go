@@ -14,6 +14,7 @@ import (
 
 	cp "github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 )
 
 // printScript formats a disassembled script for one line printing.
@@ -51,7 +52,7 @@ func PayToAddrScript(addr string) ([]byte, error) {
 }
 
 // SignatureScript creates an input signature script for a transaction.
-func SignatureScript(txin []byte, pubkey []byte, privkey []byte) ([]byte, error) {
+func SignatureScript(txin []byte, pubkey keypair.PublicKey, privkey keypair.PrivateKey) ([]byte, error) {
 	b := NewScriptBuilder()
 	err := b.AddOp(OpData72)
 	if err != nil {
@@ -68,7 +69,7 @@ func SignatureScript(txin []byte, pubkey []byte, privkey []byte) ([]byte, error)
 	if err != nil {
 		return nil, fmt.Errorf("cannot add data: %v", err)
 	}
-	err = b.AddData(pubkey)
+	err = b.AddData(pubkey[:])
 	if err != nil {
 		return nil, fmt.Errorf("cannot add data: %v", err)
 	}

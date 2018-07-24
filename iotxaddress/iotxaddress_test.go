@@ -15,6 +15,7 @@ import (
 
 	cp "github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/iotxaddress/bech32"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/version"
 )
 
@@ -71,8 +72,8 @@ func TestInvalidAddress(t *testing.T) {
 	addr, err := NewAddress(true, chainid)
 
 	pub, pri, err := cp.NewKeyPair()
-	require.NotNil(pub)
-	require.NotNil(pri)
+	require.NotEqual(keypair.ZeroPublicKey, pub)
+	require.NotEqual(keypair.ZeroPrivateKey, pri)
 	require.Nil(err)
 	addr.PrivateKey = pri
 

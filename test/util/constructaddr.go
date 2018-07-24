@@ -7,19 +7,18 @@
 package util
 
 import (
-	"encoding/hex"
-
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 )
 
 // ConstructAddress constructs an iotex address
 func ConstructAddress(pubkey, prikey string) *iotxaddress.Address {
-	pubk, err := hex.DecodeString(pubkey)
+	pubk, err := keypair.DecodePublicKey(pubkey)
 	if err != nil {
 		logger.Error().Err(err).Msg("Failed to construct the address")
 	}
-	prik, err := hex.DecodeString(prikey)
+	prik, err := keypair.DecodePrivateKey(prikey)
 	if err != nil {
 		logger.Error().Err(err).Msg("Failed to construct the address")
 	}

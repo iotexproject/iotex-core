@@ -18,6 +18,7 @@ import (
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
 )
@@ -87,7 +88,7 @@ func NewGenesisBlock(cfg *config.Config) *Block {
 	}
 	votes := []*action.Vote{}
 	for _, nominator := range actions.SelfNominators {
-		pubk, err := hex.DecodeString(nominator.PubKey)
+		pubk, err := keypair.DecodePublicKey(nominator.PubKey)
 		if err != nil {
 			logger.Fatal().Err(err).Msg("Fail to create genesis block")
 		}
@@ -105,7 +106,7 @@ func NewGenesisBlock(cfg *config.Config) *Block {
 	}
 
 	transfers := []*action.Transfer{}
-	creatorPK, err := hex.DecodeString(Gen.CreatorPubKey)
+	creatorPK, err := keypair.DecodePublicKey(Gen.CreatorPubKey)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Fail to create genesis block")
 	}

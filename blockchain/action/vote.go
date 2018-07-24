@@ -20,6 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/proto"
 )
@@ -42,15 +43,25 @@ type Vote struct {
 }
 
 // NewVote returns a Vote instance
-func NewVote(nonce uint64, selfPubKey []byte, votePubKey []byte) *Vote {
+func NewVote(nonce uint64, selfPubKey keypair.PublicKey, votePubKey keypair.PublicKey) *Vote {
 	pbVote := &iproto.VotePb{
 		Version: version.ProtocolVersion,
 
 		Nonce:      nonce,
-		SelfPubkey: selfPubKey,
-		VotePubkey: votePubKey,
+		SelfPubkey: selfPubKey[:],
+		VotePubkey: votePubKey[:],
 	}
 	return &Vote{pbVote}
+}
+
+// SelfPublicKey returns the self public key of the vote
+func (v *Vote) SelfPublicKey() (keypair.PublicKey, error) {
+	return keypair.BytesToPublicKey(v.SelfPubkey)
+}
+
+// VotePublicKey returns the vote public key of the vote
+func (v *Vote) VotePublicKey() (keypair.PublicKey, error) {
+	return keypair.BytesToPublicKey(v.VotePubkey)
 }
 
 // TotalSize returns the total size of this Vote
@@ -86,16 +97,24 @@ func (v *Vote) ConvertToVotePb() *iproto.VotePb {
 }
 
 // ToJSON converts Vote to VoteJSON
-func (v *Vote) ToJSON() *explorer.Vote {
+func (v *Vote) ToJSON() (*explorer.Vote, error) {
 	// used by account-based model
+	voterPubKey, err := keypair.BytesToPubKeyString(v.SelfPubkey)
+	if err != nil {
+		return nil, err
+	}
+	voteePubKey, err := keypair.BytesToPubKeyString(v.VotePubkey)
+	if err != nil {
+		return nil, err
+	}
 	vote := &explorer.Vote{
 		Version:     int64(v.Version),
 		Nonce:       int64(v.Nonce),
-		VoterPubKey: hex.EncodeToString(v.SelfPubkey),
-		VoteePubKey: hex.EncodeToString(v.VotePubkey),
+		VoterPubKey: voterPubKey,
+		VoteePubKey: voteePubKey,
 		Signature:   hex.EncodeToString(v.Signature),
 	}
-	return vote
+	return vote, nil
 }
 
 // Serialize returns a serialized byte stream for the Transfer
@@ -114,13 +133,13 @@ func NewVoteFromJSON(jsonVote *explorer.Vote) (*Vote, error) {
 	v.Version = uint32(jsonVote.Version)
 	// used by account-based model
 	v.Nonce = uint64(jsonVote.Nonce)
-	voterPubKey, err := hex.DecodeString(jsonVote.VoterPubKey)
+	voterPubKey, err := keypair.StringToPubKeyBytes(jsonVote.VoterPubKey)
 	if err != nil {
 		logger.Error().Err(err).Msg("Fail to create a new Vote from VoteJSON")
 		return nil, err
 	}
 	v.SelfPubkey = voterPubKey
-	voteePubKey, err := hex.DecodeString(jsonVote.VoteePubKey)
+	voteePubKey, err := keypair.StringToPubKeyBytes(jsonVote.VoteePubKey)
 	if err != nil {
 		logger.Error().Err(err).Msg("Fail to create a new Vote from VoteJSON")
 		return nil, err
@@ -155,7 +174,7 @@ func (v *Vote) Hash() hash.Hash32B {
 // Sign signs the Vote using sender's private key
 func (v *Vote) Sign(sender *iotxaddress.Address) (*Vote, error) {
 	// check the sender is correct
-	if !bytes.Equal(v.SelfPubkey, sender.PublicKey) {
+	if !bytes.Equal(v.SelfPubkey, sender.PublicKey[:]) {
 		return nil, errors.Wrapf(ErrVoteError, "signing pubKey %x does not match with Vote pubKey %x",
 			v.SelfPubkey, sender.PublicKey)
 	}
