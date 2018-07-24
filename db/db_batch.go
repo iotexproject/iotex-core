@@ -149,7 +149,6 @@ func (b *boltDBBatch) Commit() error {
 				if err != nil {
 					return errors.Wrapf(err, write.errorFormat, write.errorArgs)
 				}
-				print(bucket)
 				if bucket.Get(write.key) == nil {
 					if err := bucket.Put(write.key, write.value); err != nil {
 						return errors.Wrapf(err, write.errorFormat, write.errorArgs)

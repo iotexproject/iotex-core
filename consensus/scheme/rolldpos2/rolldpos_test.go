@@ -51,10 +51,10 @@ func TestRollDPoSCtx(t *testing.T) {
 			blockchain.EXPECT().TipHeight().Return(uint64(8), nil).Times(3)
 			blockchain.EXPECT().GetBlockByHeight(uint64(8)).Return(blk, nil).Times(1)
 			blockchain.EXPECT().CandidatesByHeight(gomock.Any()).Return([]*state.Candidate{
-				&state.Candidate{Address: candidates[0]},
-				&state.Candidate{Address: candidates[1]},
-				&state.Candidate{Address: candidates[2]},
-				&state.Candidate{Address: candidates[3]},
+				{Address: candidates[0]},
+				{Address: candidates[1]},
+				{Address: candidates[2]},
+				{Address: candidates[3]},
 			}, true).Times(1)
 		},
 		func(pool *mock_delegate.MockPool) {},

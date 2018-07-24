@@ -38,13 +38,8 @@ type Genesis struct {
 
 // GenesisAction is the root action struct, each package's action should be put as its sub struct
 type GenesisAction struct {
-	SelfNominators SelfNominators `yaml:"selfNominators"`
-	Transfers      []Transfer     `yaml:"transfers"`
-}
-
-// SelfNominators is the config struct for SelfNominator struct
-type SelfNominators struct {
-	Nominators []Nominator `yaml:"nominator"`
+	SelfNominators []Nominator `yaml:"selfNominators"`
+	Transfers      []Transfer  `yaml:"transfers"`
 }
 
 // Nominator is the Nominator struct for vote struct
@@ -91,7 +86,7 @@ func NewGenesisBlock(cfg *config.Config) *Block {
 		logger.Fatal().Err(err).Msg("Fail to create genesis block")
 	}
 	votes := []*action.Vote{}
-	for _, nominator := range actions.SelfNominators.Nominators {
+	for _, nominator := range actions.SelfNominators {
 		pubk, err := hex.DecodeString(nominator.PubKey)
 		if err != nil {
 			logger.Fatal().Err(err).Msg("Fail to create genesis block")
