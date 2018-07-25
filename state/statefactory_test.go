@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/blockchain/action"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
@@ -49,7 +50,7 @@ func TestRootHash(t *testing.T) {
 	defer ctrl.Finish()
 
 	trie := mock_trie.NewMockTrie(ctrl)
-	sf, err := NewFactory(nil, PrecreatedTrieOption(trie))
+	sf, err := NewFactory(&config.Default, PrecreatedTrieOption(trie))
 	assert.Nil(t, err)
 	trie.EXPECT().RootHash().Times(1).Return(hash.ZeroHash32B)
 	assert.Equal(t, hash.ZeroHash32B, sf.RootHash())
@@ -60,7 +61,7 @@ func TestCreateState(t *testing.T) {
 	defer ctrl.Finish()
 
 	trie := mock_trie.NewMockTrie(ctrl)
-	sf, err := NewFactory(nil, PrecreatedTrieOption(trie))
+	sf, err := NewFactory(&config.Default, PrecreatedTrieOption(trie))
 	assert.Nil(t, err)
 	trie.EXPECT().Upsert(gomock.Any(), gomock.Any()).Times(1)
 	addr, err := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
@@ -93,7 +94,7 @@ func TestNonce(t *testing.T) {
 	defer ctrl.Finish()
 
 	trie := mock_trie.NewMockTrie(ctrl)
-	sf, err := NewFactory(nil, PrecreatedTrieOption(trie))
+	sf, err := NewFactory(&config.Default, PrecreatedTrieOption(trie))
 	assert.Nil(t, err)
 
 	// Add 10 so the balance should be 10
@@ -237,9 +238,9 @@ func TestCandidate(t *testing.T) {
 	sf := &factory{
 		trie:                   tr,
 		candidatesLRU:          lru.New(10),
-		candidateHeap:          CandidateMinPQ{candidateSize, make([]*Candidate, 0)},
-		candidateBufferMinHeap: CandidateMinPQ{candidateBufferSize, make([]*Candidate, 0)},
-		candidateBufferMaxHeap: CandidateMaxPQ{candidateBufferSize, make([]*Candidate, 0)},
+		candidateHeap:          CandidateMinPQ{2, make([]*Candidate, 0)},
+		candidateBufferMinHeap: CandidateMinPQ{10, make([]*Candidate, 0)},
+		candidateBufferMaxHeap: CandidateMaxPQ{10, make([]*Candidate, 0)},
 	}
 	_, err := sf.CreateState(a.RawAddress, uint64(100))
 	require.NoError(t, err)
@@ -476,9 +477,9 @@ func TestUnvote(t *testing.T) {
 	sf := &factory{
 		trie:                   tr,
 		candidatesLRU:          lru.New(10),
-		candidateHeap:          CandidateMinPQ{candidateSize, make([]*Candidate, 0)},
-		candidateBufferMinHeap: CandidateMinPQ{candidateBufferSize, make([]*Candidate, 0)},
-		candidateBufferMaxHeap: CandidateMaxPQ{candidateBufferSize, make([]*Candidate, 0)},
+		candidateHeap:          CandidateMinPQ{2, make([]*Candidate, 0)},
+		candidateBufferMinHeap: CandidateMinPQ{10, make([]*Candidate, 0)},
+		candidateBufferMaxHeap: CandidateMaxPQ{10, make([]*Candidate, 0)},
 	}
 	_, err := sf.CreateState(a.RawAddress, uint64(100))
 	require.NoError(t, err)

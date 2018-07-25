@@ -29,18 +29,9 @@ const (
 	candidatePool = 1
 	// Level 2 is for candidate buffer pool
 	candidateBufferPool = candidatePool + 1
-
-	// TODO(zhen): make this configurable
-	//	delegateSize  = 101
-	//	candidateSize = 400
-	//	bufferSize    = 10000
 )
 
-// TODO(zhen): this is only for test config, use 101, 400, 10000 when in production
-const (
-	candidateSize       = 2
-	candidateBufferSize = 10
-)
+const candidateBufferSize = 100
 
 var (
 	// ErrInvalidAddr is the error that the address format is invalid, cannot be decoded
@@ -130,14 +121,10 @@ func InMemTrieOption() FactoryOption {
 func NewFactory(cfg *config.Config, opts ...FactoryOption) (Factory, error) {
 	sf := &factory{
 		currentChainHeight:     0,
-		candidatesLRU:          lru.New(10),
-		candidateHeap:          CandidateMinPQ{candidateSize, make([]*Candidate, 0)},
+		candidatesLRU:          lru.New(int(cfg.Chain.DelegateLRUSize)),
+		candidateHeap:          CandidateMinPQ{int(cfg.Chain.NumCandidates), make([]*Candidate, 0)},
 		candidateBufferMinHeap: CandidateMinPQ{candidateBufferSize, make([]*Candidate, 0)},
 		candidateBufferMaxHeap: CandidateMaxPQ{candidateBufferSize, make([]*Candidate, 0)},
-	}
-
-	if cfg != nil {
-		sf.candidatesLRU = lru.New(int(cfg.Chain.DelegateLRUSize))
 	}
 
 	for _, opt := range opts {

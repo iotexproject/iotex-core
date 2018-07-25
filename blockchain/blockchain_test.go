@@ -429,6 +429,7 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
+	cfg.Chain.NumCandidates = 2
 	// Disable block reward to make bookkeeping easier
 	Gen.BlockReward = uint64(0)
 
