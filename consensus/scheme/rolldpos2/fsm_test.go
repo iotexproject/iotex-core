@@ -64,7 +64,7 @@ func TestBackdoorEvt(t *testing.T) {
 
 	for _, state := range consensusStates {
 		cfsm.produce(cfsm.newBackdoorEvt(state), 0)
-		util.WaitUntil(10*time.Millisecond, 100*time.Millisecond, func() (bool, error) {
+		testutil.WaitUntil(10*time.Millisecond, 100*time.Millisecond, func() (bool, error) {
 			return state == cfsm.currentState(), nil
 		})
 	}

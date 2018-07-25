@@ -286,8 +286,8 @@ func TestBlockSyncer_Sync(t *testing.T) {
 	ctx := context.Background()
 	cfg, err := newTestConfig()
 	require.Nil(err)
-	util.CleanupPath(t, cfg.Chain.ChainDBPath)
-	util.CleanupPath(t, cfg.Chain.TrieDBPath)
+	testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
+	testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
 
 	chain := bc.NewBlockchain(cfg, bc.InMemStateFactoryOption(), bc.InMemDaoOption())
 	require.NotNil(chain)
@@ -301,8 +301,8 @@ func TestBlockSyncer_Sync(t *testing.T) {
 	defer func() {
 		require.Nil(bs.Stop(ctx))
 		require.Nil(chain.Stop(ctx))
-		util.CleanupPath(t, cfg.Chain.ChainDBPath)
-		util.CleanupPath(t, cfg.Chain.TrieDBPath)
+		testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
+		testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
 	}()
 
 	blk, err := chain.MintNewBlock(nil, nil, ta.Addrinfo["miner"], "")

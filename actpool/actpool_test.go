@@ -46,11 +46,11 @@ const (
 )
 
 var (
-	addr1 = util.ConstructAddress(pubkeyA, prikeyA)
-	addr2 = util.ConstructAddress(pubkeyB, prikeyB)
-	addr3 = util.ConstructAddress(pubkeyC, prikeyC)
-	addr4 = util.ConstructAddress(pubkeyD, prikeyD)
-	addr5 = util.ConstructAddress(pubkeyE, prikeyE)
+	addr1 = testutil.ConstructAddress(pubkeyA, prikeyA)
+	addr2 = testutil.ConstructAddress(pubkeyB, prikeyB)
+	addr3 = testutil.ConstructAddress(pubkeyC, prikeyC)
+	addr4 = testutil.ConstructAddress(pubkeyD, prikeyD)
+	addr5 = testutil.ConstructAddress(pubkeyE, prikeyE)
 )
 
 func TestActPool_validateTsf(t *testing.T) {

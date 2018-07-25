@@ -231,8 +231,8 @@ func TestCandidate(t *testing.T) {
 	d, _ := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
 	e, _ := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
 	f, _ := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
-	util.CleanupPath(t, testTriePath)
-	defer util.CleanupPath(t, testTriePath)
+	testutil.CleanupPath(t, testTriePath)
+	defer testutil.CleanupPath(t, testTriePath)
 	tr, _ := trie.NewTrie(testTriePath, false)
 	sf := &factory{
 		trie:                   tr,
@@ -470,8 +470,8 @@ func TestUnvote(t *testing.T) {
 	a, _ := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
 	b, _ := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
 
-	util.CleanupPath(t, testTriePath)
-	defer util.CleanupPath(t, testTriePath)
+	testutil.CleanupPath(t, testTriePath)
+	defer testutil.CleanupPath(t, testTriePath)
 	tr, _ := trie.NewTrie(testTriePath, false)
 	sf := &factory{
 		trie:                   tr,

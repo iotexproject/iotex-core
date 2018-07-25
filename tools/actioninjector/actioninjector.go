@@ -88,7 +88,7 @@ func main() {
 	// Construct iotex addresses for loaded senders
 	addrs := []*iotxaddress.Address{}
 	for _, pkPair := range addresses.PKPairs {
-		addr := util.ConstructAddress(pkPair.PubKey, pkPair.PriKey)
+		addr := testutil.ConstructAddress(pkPair.PubKey, pkPair.PriKey)
 		addrs = append(addrs, addr)
 	}
 

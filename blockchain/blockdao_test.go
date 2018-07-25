@@ -126,8 +126,8 @@ func TestBlockDAO(t *testing.T) {
 
 	path := "/tmp/test-kv-store-" + string(rand.Int())
 	t.Run("Bolt DB", func(t *testing.T) {
-		util.CleanupPath(t, path)
-		defer util.CleanupPath(t, path)
+		testutil.CleanupPath(t, path)
+		defer testutil.CleanupPath(t, path)
 		testBlockDao(db.NewBoltDB(path, nil), t)
 	})
 
