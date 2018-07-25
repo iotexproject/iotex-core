@@ -46,7 +46,7 @@ func TestMerkle(t *testing.T) {
 
 	amount := uint64(50 << 22)
 	// create testing transactions
-	cbtsf0 := action.NewCoinBaseTransfer(big.NewInt(int64(amount)), ta.Addrinfo["miner"].RawAddress)
+	cbtsf0 := action.NewCoinBaseTransfer(big.NewInt(int64(amount)), ta.Addrinfo["producer"].RawAddress)
 	require.NotNil(cbtsf0)
 	cbtsf1 := action.NewCoinBaseTransfer(big.NewInt(int64(amount)), ta.Addrinfo["alfa"].RawAddress)
 	require.NotNil(cbtsf1)
@@ -171,17 +171,17 @@ func TestConvertFromBlockPb(t *testing.T) {
 func TestWrongRootHash(t *testing.T) {
 	require := require.New(t)
 	val := validator{nil}
-	tsf1 := action.NewTransfer(1, big.NewInt(20), ta.Addrinfo["miner"].RawAddress, ta.Addrinfo["alfa"].RawAddress)
-	tsf1, err := tsf1.Sign(ta.Addrinfo["miner"])
+	tsf1 := action.NewTransfer(1, big.NewInt(20), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["alfa"].RawAddress)
+	tsf1, err := tsf1.Sign(ta.Addrinfo["producer"])
 	require.Nil(err)
-	tsf2 := action.NewTransfer(1, big.NewInt(30), ta.Addrinfo["miner"].RawAddress, ta.Addrinfo["bravo"].RawAddress)
-	tsf2, err = tsf2.Sign(ta.Addrinfo["miner"])
+	tsf2 := action.NewTransfer(1, big.NewInt(30), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress)
+	tsf2, err = tsf2.Sign(ta.Addrinfo["producer"])
 	require.Nil(err)
 	hash := tsf1.Hash()
 	blk := NewBlock(1, 1, hash, []*action.Transfer{tsf1, tsf2}, nil)
-	blk.Header.Pubkey = ta.Addrinfo["miner"].PublicKey
+	blk.Header.Pubkey = ta.Addrinfo["producer"].PublicKey
 	blkHash := blk.HashBlock()
-	blk.Header.blockSig = cp.Sign(ta.Addrinfo["miner"].PrivateKey, blkHash[:])
+	blk.Header.blockSig = cp.Sign(ta.Addrinfo["producer"].PrivateKey, blkHash[:])
 	require.Nil(val.Validate(blk, 0, hash))
 	blk.Transfers[0], blk.Transfers[1] = blk.Transfers[1], blk.Transfers[0]
 	require.NotNil(val.Validate(blk, 0, hash))
@@ -190,15 +190,15 @@ func TestWrongRootHash(t *testing.T) {
 func TestSignBlock(t *testing.T) {
 	require := require.New(t)
 	val := validator{nil}
-	tsf1 := action.NewTransfer(1, big.NewInt(20), ta.Addrinfo["miner"].RawAddress, ta.Addrinfo["alfa"].RawAddress)
-	tsf1, err := tsf1.Sign(ta.Addrinfo["miner"])
+	tsf1 := action.NewTransfer(1, big.NewInt(20), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["alfa"].RawAddress)
+	tsf1, err := tsf1.Sign(ta.Addrinfo["producer"])
 	require.Nil(err)
-	tsf2 := action.NewTransfer(1, big.NewInt(30), ta.Addrinfo["miner"].RawAddress, ta.Addrinfo["bravo"].RawAddress)
-	tsf2, err = tsf2.Sign(ta.Addrinfo["miner"])
+	tsf2 := action.NewTransfer(1, big.NewInt(30), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress)
+	tsf2, err = tsf2.Sign(ta.Addrinfo["producer"])
 	require.Nil(err)
 	hash := tsf1.Hash()
 	blk := NewBlock(1, 3, hash, []*action.Transfer{tsf1, tsf2}, nil)
-	err = blk.SignBlock(ta.Addrinfo["miner"])
+	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.Nil(err)
 	require.Nil(val.Validate(blk, 2, hash))
 }

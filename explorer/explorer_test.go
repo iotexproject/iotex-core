@@ -49,9 +49,9 @@ const (
 func addTestingBlocks(bc blockchain.Blockchain) error {
 	// Add block 1
 	// test --> A, B, C, D, E, F
-	tsf := action.NewTransfer(0, big.NewInt(10), ta.Addrinfo["miner"].RawAddress, ta.Addrinfo["charlie"].RawAddress)
-	tsf, _ = tsf.Sign(ta.Addrinfo["miner"])
-	blk, err := bc.MintNewBlock([]*action.Transfer{tsf}, nil, ta.Addrinfo["miner"], "")
+	tsf := action.NewTransfer(0, big.NewInt(10), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["charlie"].RawAddress)
+	tsf, _ = tsf.Sign(ta.Addrinfo["producer"])
+	blk, err := bc.MintNewBlock([]*action.Transfer{tsf}, nil, ta.Addrinfo["producer"], "")
 	if err != nil {
 		return err
 	}
@@ -67,11 +67,11 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	tsf2, _ = tsf2.Sign(ta.Addrinfo["charlie"])
 	tsf3 := action.NewTransfer(0, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["delta"].RawAddress)
 	tsf3, _ = tsf3.Sign(ta.Addrinfo["charlie"])
-	tsf4 := action.NewTransfer(0, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["miner"].RawAddress)
+	tsf4 := action.NewTransfer(0, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["producer"].RawAddress)
 	tsf4, _ = tsf4.Sign(ta.Addrinfo["charlie"])
 	vote1 := action.NewVote(1, ta.Addrinfo["charlie"].PublicKey, ta.Addrinfo["delta"].PublicKey)
 	vote1, _ = vote1.Sign(ta.Addrinfo["charlie"])
-	blk, err = bc.MintNewBlock([]*action.Transfer{tsf1, tsf2, tsf3, tsf4}, []*action.Vote{vote1}, ta.Addrinfo["miner"], "")
+	blk, err = bc.MintNewBlock([]*action.Transfer{tsf1, tsf2, tsf3, tsf4}, []*action.Vote{vote1}, ta.Addrinfo["producer"], "")
 	if err != nil {
 		return err
 	}
@@ -80,7 +80,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	}
 
 	// Add block 3
-	blk, err = bc.MintNewBlock(nil, nil, ta.Addrinfo["miner"], "")
+	blk, err = bc.MintNewBlock(nil, nil, ta.Addrinfo["producer"], "")
 	if err != nil {
 		return err
 	}
@@ -93,7 +93,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	vote2 := action.NewVote(3, ta.Addrinfo["alfa"].PublicKey, ta.Addrinfo["charlie"].PublicKey)
 	vote1, _ = vote1.Sign(ta.Addrinfo["charlie"])
 	vote2, _ = vote2.Sign(ta.Addrinfo["alfa"])
-	blk, err = bc.MintNewBlock(nil, []*action.Vote{vote1, vote2}, ta.Addrinfo["miner"], "")
+	blk, err = bc.MintNewBlock(nil, []*action.Vote{vote1, vote2}, ta.Addrinfo["producer"], "")
 	if err != nil {
 		return err
 	}
@@ -105,12 +105,12 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 }
 
 func addActsToActPool(ap actpool.ActPool) error {
-	tsf1 := action.NewTransfer(1, big.NewInt(1), ta.Addrinfo["miner"].RawAddress, ta.Addrinfo["alfa"].RawAddress)
-	tsf1, _ = tsf1.Sign(ta.Addrinfo["miner"])
-	vote1 := action.NewVote(2, ta.Addrinfo["miner"].PublicKey, ta.Addrinfo["miner"].PublicKey)
-	vote1, _ = vote1.Sign(ta.Addrinfo["miner"])
-	tsf2 := action.NewTransfer(3, big.NewInt(1), ta.Addrinfo["miner"].RawAddress, ta.Addrinfo["bravo"].RawAddress)
-	tsf2, _ = tsf2.Sign(ta.Addrinfo["miner"])
+	tsf1 := action.NewTransfer(1, big.NewInt(1), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["alfa"].RawAddress)
+	tsf1, _ = tsf1.Sign(ta.Addrinfo["producer"])
+	vote1 := action.NewVote(2, ta.Addrinfo["producer"].PublicKey, ta.Addrinfo["producer"].PublicKey)
+	vote1, _ = vote1.Sign(ta.Addrinfo["producer"])
+	tsf2 := action.NewTransfer(3, big.NewInt(1), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress)
+	tsf2, _ = tsf2.Sign(ta.Addrinfo["producer"])
 	if err := ap.AddTsf(tsf1); err != nil {
 		return err
 	}
@@ -136,7 +136,7 @@ func TestExplorerApi(t *testing.T) {
 
 	sf, err := state.NewFactory(&cfg, state.InMemTrieOption())
 	require.Nil(err)
-	_, err = sf.CreateState(ta.Addrinfo["miner"].RawAddress, blockchain.Gen.TotalSupply)
+	_, err = sf.CreateState(ta.Addrinfo["producer"].RawAddress, blockchain.Gen.TotalSupply)
 	require.NoError(err)
 	// Disable block reward to make bookkeeping easier
 	blockchain.Gen.BlockReward = uint64(0)
@@ -293,20 +293,20 @@ func TestExplorerApi(t *testing.T) {
 	require.Nil(err)
 
 	// success
-	transfers, err = svc.GetUnconfirmedTransfersByAddress(ta.Addrinfo["miner"].RawAddress, 0, 3)
+	transfers, err = svc.GetUnconfirmedTransfersByAddress(ta.Addrinfo["producer"].RawAddress, 0, 3)
 	require.Nil(err)
 	require.Equal(2, len(transfers))
 	require.Equal(int64(1), transfers[0].Nonce)
 	require.Equal(int64(3), transfers[1].Nonce)
-	votes, err = svc.GetUnconfirmedVotesByAddress(ta.Addrinfo["miner"].RawAddress, 0, 3)
+	votes, err = svc.GetUnconfirmedVotesByAddress(ta.Addrinfo["producer"].RawAddress, 0, 3)
 	require.Nil(err)
 	require.Equal(1, len(votes))
 	require.Equal(int64(2), votes[0].Nonce)
-	transfers, err = svc.GetUnconfirmedTransfersByAddress(ta.Addrinfo["miner"].RawAddress, 1, 1)
+	transfers, err = svc.GetUnconfirmedTransfersByAddress(ta.Addrinfo["producer"].RawAddress, 1, 1)
 	require.Nil(err)
 	require.Equal(1, len(transfers))
 	require.Equal(int64(3), transfers[0].Nonce)
-	votes, err = svc.GetUnconfirmedVotesByAddress(ta.Addrinfo["miner"].RawAddress, 1, 1)
+	votes, err = svc.GetUnconfirmedVotesByAddress(ta.Addrinfo["producer"].RawAddress, 1, 1)
 	require.Equal(0, len(votes))
 
 	// error
