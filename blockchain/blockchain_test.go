@@ -33,20 +33,20 @@ const (
 func addTestingTsfBlocks(bc Blockchain) error {
 	// Add block 1
 	// test --> A, B, C, D, E, F
-	tsf1 := action.NewTransfer(1, big.NewInt(20), ta.Addrinfo["miner"].RawAddress, ta.Addrinfo["alfa"].RawAddress)
-	tsf1, err := tsf1.Sign(ta.Addrinfo["miner"])
-	tsf2 := action.NewTransfer(1, big.NewInt(30), ta.Addrinfo["miner"].RawAddress, ta.Addrinfo["bravo"].RawAddress)
-	tsf2, err = tsf2.Sign(ta.Addrinfo["miner"])
-	tsf3 := action.NewTransfer(1, big.NewInt(50), ta.Addrinfo["miner"].RawAddress, ta.Addrinfo["charlie"].RawAddress)
-	tsf3, err = tsf3.Sign(ta.Addrinfo["miner"])
-	tsf4 := action.NewTransfer(1, big.NewInt(70), ta.Addrinfo["miner"].RawAddress, ta.Addrinfo["delta"].RawAddress)
-	tsf4, err = tsf4.Sign(ta.Addrinfo["miner"])
-	tsf5 := action.NewTransfer(1, big.NewInt(110), ta.Addrinfo["miner"].RawAddress, ta.Addrinfo["echo"].RawAddress)
-	tsf5, err = tsf5.Sign(ta.Addrinfo["miner"])
-	tsf6 := action.NewTransfer(1, big.NewInt(50<<20), ta.Addrinfo["miner"].RawAddress, ta.Addrinfo["foxtrot"].RawAddress)
-	tsf6, err = tsf6.Sign(ta.Addrinfo["miner"])
+	tsf1 := action.NewTransfer(1, big.NewInt(20), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["alfa"].RawAddress)
+	tsf1, err := tsf1.Sign(ta.Addrinfo["producer"])
+	tsf2 := action.NewTransfer(1, big.NewInt(30), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress)
+	tsf2, err = tsf2.Sign(ta.Addrinfo["producer"])
+	tsf3 := action.NewTransfer(1, big.NewInt(50), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["charlie"].RawAddress)
+	tsf3, err = tsf3.Sign(ta.Addrinfo["producer"])
+	tsf4 := action.NewTransfer(1, big.NewInt(70), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["delta"].RawAddress)
+	tsf4, err = tsf4.Sign(ta.Addrinfo["producer"])
+	tsf5 := action.NewTransfer(1, big.NewInt(110), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["echo"].RawAddress)
+	tsf5, err = tsf5.Sign(ta.Addrinfo["producer"])
+	tsf6 := action.NewTransfer(1, big.NewInt(50<<20), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["foxtrot"].RawAddress)
+	tsf6, err = tsf6.Sign(ta.Addrinfo["producer"])
 
-	blk, err := bc.MintNewBlock([]*action.Transfer{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}, nil, ta.Addrinfo["miner"], "")
+	blk, err := bc.MintNewBlock([]*action.Transfer{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}, nil, ta.Addrinfo["producer"], "")
 	if err != nil {
 		return err
 	}
@@ -64,9 +64,9 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	tsf3, err = tsf3.Sign(ta.Addrinfo["charlie"])
 	tsf4 = action.NewTransfer(1, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["echo"].RawAddress)
 	tsf4, err = tsf4.Sign(ta.Addrinfo["charlie"])
-	tsf5 = action.NewTransfer(1, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["miner"].RawAddress)
+	tsf5 = action.NewTransfer(1, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["producer"].RawAddress)
 	tsf5, err = tsf5.Sign(ta.Addrinfo["charlie"])
-	blk, err = bc.MintNewBlock([]*action.Transfer{tsf1, tsf2, tsf3, tsf4, tsf5}, nil, ta.Addrinfo["miner"], "")
+	blk, err = bc.MintNewBlock([]*action.Transfer{tsf1, tsf2, tsf3, tsf4, tsf5}, nil, ta.Addrinfo["producer"], "")
 	if err != nil {
 		return err
 	}
@@ -82,9 +82,9 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	tsf2, err = tsf2.Sign(ta.Addrinfo["delta"])
 	tsf3 = action.NewTransfer(1, big.NewInt(1), ta.Addrinfo["delta"].RawAddress, ta.Addrinfo["foxtrot"].RawAddress)
 	tsf3, err = tsf3.Sign(ta.Addrinfo["delta"])
-	tsf4 = action.NewTransfer(1, big.NewInt(1), ta.Addrinfo["delta"].RawAddress, ta.Addrinfo["miner"].RawAddress)
+	tsf4 = action.NewTransfer(1, big.NewInt(1), ta.Addrinfo["delta"].RawAddress, ta.Addrinfo["producer"].RawAddress)
 	tsf4, err = tsf4.Sign(ta.Addrinfo["delta"])
-	blk, err = bc.MintNewBlock([]*action.Transfer{tsf1, tsf2, tsf3, tsf4}, nil, ta.Addrinfo["miner"], "")
+	blk, err = bc.MintNewBlock([]*action.Transfer{tsf1, tsf2, tsf3, tsf4}, nil, ta.Addrinfo["producer"], "")
 	if err != nil {
 		return err
 	}
@@ -104,7 +104,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	tsf4, err = tsf4.Sign(ta.Addrinfo["echo"])
 	tsf5 = action.NewTransfer(1, big.NewInt(2), ta.Addrinfo["echo"].RawAddress, ta.Addrinfo["foxtrot"].RawAddress)
 	tsf5, err = tsf5.Sign(ta.Addrinfo["echo"])
-	tsf6 = action.NewTransfer(1, big.NewInt(2), ta.Addrinfo["echo"].RawAddress, ta.Addrinfo["miner"].RawAddress)
+	tsf6 = action.NewTransfer(1, big.NewInt(2), ta.Addrinfo["echo"].RawAddress, ta.Addrinfo["producer"].RawAddress)
 	tsf6, err = tsf6.Sign(ta.Addrinfo["echo"])
 	vote1 := action.NewVote(0, ta.Addrinfo["charlie"].PublicKey, ta.Addrinfo["alfa"].PublicKey)
 	vote2 := action.NewVote(1, ta.Addrinfo["alfa"].PublicKey, ta.Addrinfo["charlie"].PublicKey)
@@ -118,7 +118,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 		return err
 	}
 
-	blk, err = bc.MintNewBlock([]*action.Transfer{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}, []*action.Vote{vote1, vote2}, ta.Addrinfo["miner"], "")
+	blk, err = bc.MintNewBlock([]*action.Transfer{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}, []*action.Vote{vote1, vote2}, ta.Addrinfo["producer"], "")
 	if err != nil {
 		return err
 	}
@@ -202,7 +202,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 
 	sf, err := state.NewFactory(&cfg, state.DefaultTrieOption())
 	require.Nil(err)
-	_, err = sf.CreateState(ta.Addrinfo["miner"].RawAddress, Gen.TotalSupply)
+	_, err = sf.CreateState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
 	assert.NoError(t, err)
 
 	// Create a blockchain from scratch
@@ -460,7 +460,7 @@ func TestCoinbaseTransfer(t *testing.T) {
 
 	sf, err := state.NewFactory(&cfg, state.DefaultTrieOption())
 	require.Nil(err)
-	_, err = sf.CreateState(ta.Addrinfo["miner"].RawAddress, Gen.TotalSupply)
+	_, err = sf.CreateState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
 	assert.NoError(t, err)
 
 	Gen.BlockReward = uint64(10)
@@ -472,9 +472,9 @@ func TestCoinbaseTransfer(t *testing.T) {
 	require.Equal(0, int(height))
 
 	transfers := []*action.Transfer{}
-	blk, err := bc.MintNewBlock(transfers, nil, ta.Addrinfo["miner"], "")
+	blk, err := bc.MintNewBlock(transfers, nil, ta.Addrinfo["producer"], "")
 	require.Nil(err)
-	s, err := bc.StateByAddr(ta.Addrinfo["miner"].RawAddress)
+	s, err := bc.StateByAddr(ta.Addrinfo["producer"].RawAddress)
 	require.Nil(err)
 	b := s.Balance
 	require.True(b.String() == strconv.Itoa(int(Gen.TotalSupply)))
@@ -484,7 +484,7 @@ func TestCoinbaseTransfer(t *testing.T) {
 	require.Nil(err)
 	require.True(height == 1)
 	require.True(len(blk.Transfers) == 1)
-	s, err = bc.StateByAddr(ta.Addrinfo["miner"].RawAddress)
+	s, err = bc.StateByAddr(ta.Addrinfo["producer"].RawAddress)
 	require.Nil(err)
 	b = s.Balance
 	require.True(b.String() == strconv.Itoa(int(Gen.TotalSupply)+int(Gen.BlockReward)))
@@ -524,7 +524,7 @@ func TestBlocks(t *testing.T) {
 	cfg.Chain.ChainDBPath = testDBPath
 
 	sf, _ := state.NewFactory(&cfg, state.InMemTrieOption())
-	sf.CreateState(ta.Addrinfo["miner"].RawAddress, Gen.TotalSupply)
+	sf.CreateState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
 
 	// Create a blockchain from scratch
 	bc := NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
@@ -540,7 +540,7 @@ func TestBlocks(t *testing.T) {
 			tsf, _ = tsf.Sign(a)
 			tsfs = append(tsfs, tsf)
 		}
-		blk, _ := bc.MintNewBlock(tsfs, nil, ta.Addrinfo["miner"], "")
+		blk, _ := bc.MintNewBlock(tsfs, nil, ta.Addrinfo["producer"], "")
 		err := bc.CommitBlock(blk)
 		require.Nil(err)
 	}
@@ -561,7 +561,7 @@ func TestActions(t *testing.T) {
 	cfg.Chain.ChainDBPath = testDBPath
 
 	sf, _ := state.NewFactory(&cfg, state.InMemTrieOption())
-	sf.CreateState(ta.Addrinfo["miner"].RawAddress, Gen.TotalSupply)
+	sf.CreateState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
 
 	// Create a blockchain from scratch
 	bc := NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
@@ -582,6 +582,6 @@ func TestActions(t *testing.T) {
 		vote, _ = vote.Sign(a)
 		votes = append(votes, vote)
 	}
-	blk, _ := bc.MintNewBlock(tsfs, votes, ta.Addrinfo["miner"], "")
+	blk, _ := bc.MintNewBlock(tsfs, votes, ta.Addrinfo["producer"], "")
 	require.Nil(val.Validate(blk, 0, blk.PrevHash()))
 }
