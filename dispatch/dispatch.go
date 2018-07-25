@@ -297,10 +297,6 @@ func (d *IotxDispatcher) HandleTell(sender net.Addr, message proto.Message, done
 			Msg("unexpected message handled by HandleTell")
 	}
 
-	logger.Info().
-		Str("sender", sender.String()).
-		Str("message", message.String()).
-		Msg("dispatcher.HandleTell from")
 	switch msgType {
 	case pb.MsgBlockSyncReqType:
 		d.dispatchBlockSyncReq(sender.String(), message, done)

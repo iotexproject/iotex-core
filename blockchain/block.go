@@ -37,13 +37,18 @@ type BlockHeader struct {
 	version       uint32            // version
 	chainID       uint32            // this chain's ID
 	height        uint64            // block height
-	timestamp     uint64            // timestamp
+	timestamp     uint64            // unix timestamp
 	prevBlockHash hash.Hash32B      // hash of previous block
 	txRoot        hash.Hash32B      // merkle root of all transactions
 	stateRoot     hash.Hash32B      // merkle root of all states
 	blockSig      []byte            // block signature
 	Pubkey        keypair.PublicKey // block producer's public key
 
+}
+
+// Timestamp returns the timestamp in the block header
+func (bh *BlockHeader) Timestamp() time.Time {
+	return time.Unix(int64(bh.timestamp), 0)
 }
 
 // Block defines the struct of block

@@ -24,6 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/network"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/state"
 )
 
 // ErrNewRollDPoS indicates the error of constructing RollDPoS
@@ -34,11 +35,12 @@ type rollDPoSCtx struct {
 	addr    *iotxaddress.Address
 	chain   blockchain.Blockchain
 	actPool actpool.ActPool
-	pool    delegate.Pool
 	p2p     network.Overlay
 	epoch   epochCtx
 	round   roundCtx
 	clock   clock.Clock
+	// candidatesByHeightFunc is only used for testing purpose
+	candidatesByHeightFunc func(uint64) ([]*state.Candidate, bool)
 }
 
 var (
@@ -52,12 +54,18 @@ var (
 func (ctx *rollDPoSCtx) rollingDelegates(epochNum uint64) ([]string, error) {
 	numDlgs := ctx.cfg.NumDelegates
 	height := uint64(numDlgs) * uint64(ctx.cfg.NumSubEpochs) * (epochNum - 1)
-	candidates, ok := ctx.chain.CandidatesByHeight(height)
+	var candidates []*state.Candidate
+	var ok bool
+	if ctx.candidatesByHeightFunc != nil {
+		candidates, ok = ctx.candidatesByHeightFunc(height)
+	} else {
+		candidates, ok = ctx.chain.CandidatesByHeight(height)
+	}
 	if !ok {
-		return []string{}, errors.Wrapf(ErrCandidatesNotFinalized, "Failed to choose delegates from the candidate pool")
+		return []string{}, errors.Wrap(ErrCandidatesNotFinalized, "error when getting delegates from the candidate pool")
 	}
 	if len(candidates) < int(numDlgs) {
-		return []string{}, errors.Wrapf(ErrNotEnoughCandidates, "Failed to choose delegates from the candidate pool")
+		return []string{}, errors.Wrapf(ErrNotEnoughCandidates, "only %d delegates from the candidate pool", len(candidates))
 	}
 	candidates = candidates[:numDlgs]
 
@@ -154,8 +162,7 @@ func (ctx *rollDPoSCtx) calcDurationSinceLastBlock() (time.Duration, error) {
 	if err != nil {
 		return 0, errors.Wrapf(err, "error when getting the block at height: %d", height)
 	}
-	lastBlkTime := time.Unix(int64(blk.ConvertToBlockHeaderPb().Timestamp), 0)
-	return time.Since(lastBlkTime), nil
+	return time.Since(blk.Header.Timestamp()), nil
 }
 
 // calcQuorum calculates if more than 2/3 vote yes or no
@@ -201,6 +208,7 @@ type epochCtx struct {
 
 // roundCtx keeps the context data for the current round and block.
 type roundCtx struct {
+	height   uint64
 	block    *blockchain.Block
 	prevotes map[string]bool
 	votes    map[string]bool
@@ -215,7 +223,11 @@ type RollDPoS struct {
 
 // Start starts RollDPoS consensus
 func (r *RollDPoS) Start(ctx context.Context) error {
-	return errors.Wrap(r.cfsm.Start(ctx), "error when starting the consensus FSM")
+	if err := r.cfsm.Start(ctx); err != nil {
+		return errors.Wrap(err, "error when starting the consensus FSM")
+	}
+	r.cfsm.produce(r.cfsm.newCEvt(eRollDelegates), r.ctx.cfg.Delay)
+	return nil
 }
 
 // Stop stops RollDPoS consensus
@@ -227,7 +239,7 @@ func (r *RollDPoS) Stop(ctx context.Context) error {
 func (r *RollDPoS) Handle(msg proto.Message) error {
 	cEvt, err := r.convertToConsensusEvt(msg)
 	if err != nil {
-		return errors.Wrap(err, "error when converting a proto msg to a conesensus event")
+		return errors.Wrap(err, "error when converting a proto msg to a consensus event")
 	}
 	r.cfsm.produce(cEvt, 0)
 	return nil
@@ -259,16 +271,13 @@ func (r *RollDPoS) Metrics() (scheme.ConsensusMetrics, error) {
 	if err != nil {
 		return metrics, errors.Wrap(err, "error when calculating the block producer")
 	}
+	// TODO: revive the candidate metric
 	// Get all candidates
-	candidates, err := r.ctx.pool.AllDelegates()
-	if err != nil {
-		return metrics, errors.Wrap(err, "error when getting the candidates")
-	}
 	return scheme.ConsensusMetrics{
 		LatestEpoch:         epochNum,
 		LatestDelegates:     delegates,
 		LatestBlockProducer: producer,
-		Candidates:          candidates,
+		Candidates:          make([]string, 0),
 	}, nil
 }
 
@@ -309,12 +318,12 @@ func (r *RollDPoS) convertToConsensusEvt(msg proto.Message) (iConsensusEvt, erro
 type RollDPoSBuilder struct {
 	cfg config.RollDPoS
 	// TODO: we should use keystore in the future
-	addr    *iotxaddress.Address
-	chain   blockchain.Blockchain
-	actPool actpool.ActPool
-	pool    delegate.Pool
-	p2p     network.Overlay
-	clock   clock.Clock
+	addr                   *iotxaddress.Address
+	chain                  blockchain.Blockchain
+	actPool                actpool.ActPool
+	p2p                    network.Overlay
+	clock                  clock.Clock
+	candidatesByHeightFunc func(uint64) ([]*state.Candidate, bool)
 }
 
 // NewRollDPoSBuilder instantiates a RollDPoSBuilder instance
@@ -346,12 +355,6 @@ func (b *RollDPoSBuilder) SetActPool(actPool actpool.ActPool) *RollDPoSBuilder {
 	return b
 }
 
-// SetDelegatePool sets the delegate pool APIs
-func (b *RollDPoSBuilder) SetDelegatePool(pool delegate.Pool) *RollDPoSBuilder {
-	b.pool = pool
-	return b
-}
-
 // SetP2P sets the P2P APIs
 func (b *RollDPoSBuilder) SetP2P(p2p network.Overlay) *RollDPoSBuilder {
 	b.p2p = p2p
@@ -364,6 +367,14 @@ func (b *RollDPoSBuilder) SetClock(clock clock.Clock) *RollDPoSBuilder {
 	return b
 }
 
+// SetCandidatesByHeightFunc sets candidatesByHeightFunc, which is only used by tests
+func (b *RollDPoSBuilder) SetCandidatesByHeightFunc(
+	candidatesByHeightFunc func(uint64) ([]*state.Candidate, bool),
+) *RollDPoSBuilder {
+	b.candidatesByHeightFunc = candidatesByHeightFunc
+	return b
+}
+
 // Build builds a RollDPoS consensus module
 func (b *RollDPoSBuilder) Build() (*RollDPoS, error) {
 	if b.chain == nil {
@@ -371,9 +382,6 @@ func (b *RollDPoSBuilder) Build() (*RollDPoS, error) {
 	}
 	if b.actPool == nil {
 		return nil, errors.Wrap(ErrNewRollDPoS, "action pool APIs is nil")
-	}
-	if b.pool == nil {
-		return nil, errors.Wrap(ErrNewRollDPoS, "delegate pool APIs is nil")
 	}
 	if b.p2p == nil {
 		return nil, errors.Wrap(ErrNewRollDPoS, "p2p APIs is nil")
@@ -386,9 +394,9 @@ func (b *RollDPoSBuilder) Build() (*RollDPoS, error) {
 		addr:    b.addr,
 		chain:   b.chain,
 		actPool: b.actPool,
-		pool:    b.pool,
 		p2p:     b.p2p,
 		clock:   b.clock,
+		candidatesByHeightFunc: b.candidatesByHeightFunc,
 	}
 	cfsm, err := newConsensusFSM(&ctx)
 	if err != nil {
