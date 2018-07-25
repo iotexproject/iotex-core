@@ -8,26 +8,8 @@
 // To use, run "make build" and " ./bin/addrgen"
 package main
 
-import (
-	"flag"
-	"fmt"
-
-	"github.com/iotexproject/iotex-core/iotxaddress"
-)
+import "github.com/iotexproject/iotex-core/tools/addrgen/internal/cmd"
 
 func main() {
-	var addrNum int
-	flag.IntVar(&addrNum, "number", 10, "number of addresses to be generated")
-	flag.Parse()
-
-	for i := 0; i < addrNum; i++ {
-		addr, err := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
-		if err != nil {
-			panic(err)
-		}
-		fmt.Printf("Public Key: %x\n", addr.PublicKey)
-		fmt.Printf("Private Key: %x\n", addr.PrivateKey)
-		fmt.Printf("Raw Address: %s\n", addr.RawAddress)
-		fmt.Println()
-	}
+	cmd.Execute()
 }
