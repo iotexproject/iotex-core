@@ -36,5 +36,4 @@ RUN cd $GOPATH/src/github.com/iotexproject/iotex-core/ && \
     echo "        - \"127.0.0.1:4689\"" >> /etc/iotex/config.yaml && \
     ln -s $GOPATH/src/github.com/iotexproject/iotex-core/blockchain/testnet_actions.yaml /etc/iotex/testnet_actions.yaml
 
-ENTRYPOINT [ "iotex-server" ]
-CMD ["-config-path=/etc/iotex/config.yaml"]
+CMD [ "iotex-server", "-config-path=/etc/iotex/config.yaml"]

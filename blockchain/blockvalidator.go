@@ -100,10 +100,10 @@ func (v *validator) Validate(blk *Block, tipHeight uint64, tipHash hash.Hash32B)
 				}
 				address, err := iotxaddress.GetAddress(blk.Header.Pubkey, iotxaddress.IsTestnet, iotxaddress.ChainID)
 				if err != nil {
-					return err
+					return errors.Wrap(err, "error when getting the address of the block head")
 				}
 				if address.RawAddress != tsf.Recipient {
-					return action.ErrTransferError
+					return errors.Wrap(action.ErrTransferError, "coinbase transfer recipient address is corrupted")
 				}
 				coinbaseCount++
 				continue

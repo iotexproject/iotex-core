@@ -27,7 +27,6 @@ import (
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/mock/mock_actpool"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
-	"github.com/iotexproject/iotex-core/test/mock/mock_delegate"
 	"github.com/iotexproject/iotex-core/test/mock/mock_network"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -50,7 +49,6 @@ func TestBackdoorEvt(t *testing.T) {
 			EventChanSize: 1,
 		},
 		func(_ *mock_blockchain.MockBlockchain) {},
-		func(_ *mock_delegate.MockPool) {},
 		func(_ *mock_actpool.MockActPool) {},
 		func(_ *mock_network.MockOverlay) {},
 	)
@@ -659,10 +657,6 @@ func newTestCFSM(
 				mockChain(blockchain)
 			}
 		},
-		func(pool *mock_delegate.MockPool) {
-			pool.EXPECT().NumDelegatesPerEpoch().Return(uint(4), nil).AnyTimes()
-			pool.EXPECT().RollDelegates(gomock.Any()).Return(delegates, nil).AnyTimes()
-		},
 		func(actPool *mock_actpool.MockActPool) {
 			actPool.EXPECT().PickActs().Return([]*action.Transfer{transfer}, []*action.Vote{vote}).AnyTimes()
 		},
@@ -681,7 +675,7 @@ func newTestCFSM(
 }
 
 func newTestAddr() *iotxaddress.Address {
-	addr, err := iotxaddress.NewAddress(true, iotxaddress.ChainID)
+	addr, err := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
 	if err != nil {
 		logger.Panic().Err(err).Msg("error when creating test IoTeX address")
 	}

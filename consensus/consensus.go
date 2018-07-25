@@ -18,6 +18,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
+	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos2"
 	"github.com/iotexproject/iotex-core/delegate"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/errcode"
@@ -75,7 +76,7 @@ func NewConsensus(
 		return blk, nil
 	}
 
-	tellBlockCB := func(msg proto.Message) error {
+	_ = func(msg proto.Message) error {
 		return bs.P2P().Broadcast(msg)
 	}
 
@@ -97,19 +98,31 @@ func NewConsensus(
 
 	switch cfg.Consensus.Scheme {
 	case config.RollDPoSScheme:
-		cs.scheme = rolldpos.NewRollDPoS(
-			cfg.Consensus.RollDPoS,
-			mintBlockCB,
-			tellBlockCB,
-			commitBlockCB,
-			broadcastBlockCB,
-			chooseGetProposerCB(cfg.Consensus.RollDPoS.ProposerCB),
-			chooseStartNextEpochCB(cfg.Consensus.RollDPoS.EpochCB),
-			rolldpos.GeneratePseudoDKG,
-			bc,
-			addr.RawAddress,
-			dlg,
-		)
+		/*
+			cs.scheme = rolldpos.NewRollDPoS(
+				cfg.Consensus.RollDPoS,
+				mintBlockCB,
+				tellBlockCB,
+				commitBlockCB,
+				broadcastBlockCB,
+				chooseGetProposerCB(cfg.Consensus.RollDPoS.ProposerCB),
+				chooseStartNextEpochCB(cfg.Consensus.RollDPoS.EpochCB),
+				rolldpos.GeneratePseudoDKG,
+				bc,
+				addr.RawAddress,
+				dlg,
+			)
+		*/
+		cs.scheme, err = rolldpos2.NewRollDPoSBuilder().
+			SetAddr(addr).
+			SetConfig(cfg.Consensus.RollDPoS).
+			SetBlockchain(bc).
+			SetActPool(ap).
+			SetP2P(bs.P2P()).
+			Build()
+		if err != nil {
+			logger.Panic().Err(err).Msg("error when constructing RollDPoS")
+		}
 	case config.NOOPScheme:
 		cs.scheme = scheme.NewNoop()
 	case config.StandaloneScheme:

@@ -133,6 +133,7 @@ message ViewChangeMsg {
     BlockPb block  = 2;
     bytes blockHash = 3;
     string senderAddr = 4;
+    bool decision = 5;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
