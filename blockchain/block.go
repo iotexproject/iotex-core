@@ -42,7 +42,7 @@ type BlockHeader struct {
 	txRoot        hash.Hash32B      // merkle root of all transactions
 	stateRoot     hash.Hash32B      // merkle root of all states
 	blockSig      []byte            // block signature
-	Pubkey        keypair.PublicKey // block miner's public key
+	Pubkey        keypair.PublicKey // block producer's public key
 
 }
 

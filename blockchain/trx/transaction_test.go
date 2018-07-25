@@ -25,7 +25,7 @@ func TestTransaction(t *testing.T) {
 	assert := assert.New(t)
 
 	// create some transactions
-	cbtx := NewCoinbaseTx(ta.Addrinfo["miner"].RawAddress, 50<<22, testCoinbaseData)
+	cbtx := NewCoinbaseTx(ta.Addrinfo["producer"].RawAddress, 50<<22, testCoinbaseData)
 	assert.NotNil(cbtx)
 	hash := cbtx.Hash()
 
@@ -102,7 +102,7 @@ func TestTransaction(t *testing.T) {
 }
 
 func TestIsLockedWithKey(t *testing.T) {
-	addr := ta.Addrinfo["miner"].RawAddress
+	addr := ta.Addrinfo["producer"].RawAddress
 	cbtx := NewCoinbaseTx(addr, 100, testCoinbaseData)
 	assert.NotNil(t, cbtx)
 	assert.False(t, cbtx.TxOut[0].IsLockedWithKey([]byte("tooshort")))

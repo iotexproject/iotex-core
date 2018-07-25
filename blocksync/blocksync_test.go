@@ -305,11 +305,11 @@ func TestBlockSyncer_Sync(t *testing.T) {
 		testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
 	}()
 
-	blk, err := chain.MintNewBlock(nil, nil, ta.Addrinfo["miner"], "")
+	blk, err := chain.MintNewBlock(nil, nil, ta.Addrinfo["producer"], "")
 	require.NotNil(blk)
 	require.Nil(bs.ProcessBlock(blk))
 
-	blk, err = chain.MintNewBlock(nil, nil, ta.Addrinfo["miner"], "")
+	blk, err = chain.MintNewBlock(nil, nil, ta.Addrinfo["producer"], "")
 	require.NotNil(blk)
 	require.Nil(bs.ProcessBlock(blk))
 	time.Sleep(time.Millisecond << 7)
