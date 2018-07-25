@@ -25,7 +25,7 @@ import (
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blocksync"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
-	"github.com/iotexproject/iotex-core/test/util"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestSyncTaskInterval(t *testing.T) {

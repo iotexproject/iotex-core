@@ -17,7 +17,7 @@ import (
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/server/itx"
-	"github.com/iotexproject/iotex-core/test/util"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 const (

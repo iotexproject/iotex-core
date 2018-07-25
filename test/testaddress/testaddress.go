@@ -8,7 +8,7 @@ package testaddress
 
 import (
 	"github.com/iotexproject/iotex-core/iotxaddress"
-	"github.com/iotexproject/iotex-core/test/util"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 const (

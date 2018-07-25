@@ -24,7 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	pb "github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
-	"github.com/iotexproject/iotex-core/test/util"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 const (

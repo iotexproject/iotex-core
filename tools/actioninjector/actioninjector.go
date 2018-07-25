@@ -27,7 +27,7 @@ import (
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
-	"github.com/iotexproject/iotex-core/test/util"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 // Addresses indicate the addresses getting transfers from Creator in genesis block

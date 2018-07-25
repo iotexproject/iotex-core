@@ -17,7 +17,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/logger"
-	"github.com/iotexproject/iotex-core/test/util"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 const testTriePath = "trie.test"

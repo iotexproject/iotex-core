@@ -22,7 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	pb "github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/server/itx"
-	"github.com/iotexproject/iotex-core/test/util"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 const (

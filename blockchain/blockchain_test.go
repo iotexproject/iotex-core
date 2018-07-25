@@ -22,7 +22,7 @@ import (
 	_hash "github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/state"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
-	"github.com/iotexproject/iotex-core/test/util"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 const (

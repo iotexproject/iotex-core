@@ -21,7 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/test/mock/mock_trie"
-	"github.com/iotexproject/iotex-core/test/util"
+	"github.com/iotexproject/iotex-core/testutil"
 	"github.com/iotexproject/iotex-core/trie"
 )
 

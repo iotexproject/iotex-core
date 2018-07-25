@@ -25,7 +25,7 @@ import (
 	pb "github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/server/itx"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
-	"github.com/iotexproject/iotex-core/test/util"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 const (

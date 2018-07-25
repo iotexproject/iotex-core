@@ -16,7 +16,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/server/itx"
-	"github.com/iotexproject/iotex-core/test/util"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestNetSync(t *testing.T) {

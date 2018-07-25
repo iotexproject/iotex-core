@@ -29,7 +29,7 @@ import (
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_delegate"
 	"github.com/iotexproject/iotex-core/test/mock/mock_network"
-	"github.com/iotexproject/iotex-core/test/util"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 var testAddrs = []*iotxaddress.Address{
