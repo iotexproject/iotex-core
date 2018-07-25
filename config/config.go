@@ -91,6 +91,7 @@ var (
 			InMemTest:          false,
 			GenesisActionsPath: "",
 			DelegateLRUSize:    10,
+			NumCandidates:      101,
 		},
 		ActPool: ActPool{
 			MaxNumActPerPool: 32000,
@@ -196,6 +197,7 @@ type (
 		InMemTest          bool   `yaml:"inMemTest"`
 		GenesisActionsPath string `yaml:"genesisActionsPath"`
 		DelegateLRUSize    uint   `yaml:"delegateLRUSize"`
+		NumCandidates      uint   `yaml:"numCandidates"`
 	}
 
 	// Consensus is the config struct for consensus package

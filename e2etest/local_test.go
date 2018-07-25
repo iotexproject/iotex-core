@@ -404,6 +404,7 @@ func TestVoteLocalCommit(t *testing.T) {
 	testutil.CleanupPath(t, testDBPath)
 
 	cfg, err := newTestConfig()
+	cfg.Chain.NumCandidates = 2
 	require.Nil(err)
 
 	blockchain.Gen.TotalSupply = uint64(50 << 22)
