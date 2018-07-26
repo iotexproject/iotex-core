@@ -651,6 +651,46 @@ func (exp *Service) GetConsensusMetrics() (explorer.ConsensusMetrics, error) {
 	}, nil
 }
 
+// GetCandidateMetrics returns the latest delegates metrics
+func (exp *Service) GetCandidateMetrics() (explorer.CandidateMetrics, error) {
+	cm, err := exp.c.Metrics()
+	if err != nil {
+		return explorer.CandidateMetrics{}, errors.Wrapf(
+			err,
+			"Failed to get the delegate metrics")
+	}
+	delegateSet := make(map[string]bool, len(cm.LatestDelegates))
+	for _, d := range cm.LatestDelegates {
+		delegateSet[d] = true
+	}
+	allCandidates, ok := exp.bc.CandidatesByHeight(cm.LatestHeight)
+	if !ok {
+		return explorer.CandidateMetrics{}, errors.Wrapf(blockchain.ErrCandidates,
+			"Failed to get the delegate metrics")
+	}
+	candidates := make([]explorer.Candidate, len(cm.Candidates))
+	for i, c := range allCandidates {
+		candidates[i] = explorer.Candidate{
+			Address:          c.Address,
+			TotalVote:        c.Votes.Int64(),
+			CreationHeight:   int64(c.CreationHeight),
+			LastUpdateHeight: int64(c.LastUpdateHeight),
+			IsDelegate:       false,
+			IsProducer:       false,
+		}
+		if _, ok := delegateSet[c.Address]; ok {
+			candidates[i].IsDelegate = true
+		}
+		if cm.LatestBlockProducer == c.Address {
+			candidates[i].IsProducer = true
+		}
+	}
+
+	return explorer.CandidateMetrics{
+		Candidates: candidates,
+	}, nil
+}
+
 // CreateRawTransfer creates a raw transfer
 func (exp *Service) CreateRawTransfer(request explorer.CreateRawTransferRequest) (explorer.CreateRawTransferResponse, error) {
 	logger.Debug().Msg("receive create raw transfer request")

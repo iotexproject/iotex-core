@@ -120,6 +120,11 @@ type blockchain struct {
 // Option sets blockchain construction parameter
 type Option func(*blockchain, *config.Config) error
 
+var (
+	// ErrCandidates is the error returned when candidates cannot be returned
+	ErrCandidates = errors.New("error when getting candidates")
+)
+
 // DefaultStateFactoryOption sets blockchain's sf from config
 func DefaultStateFactoryOption() Option {
 	return func(bc *blockchain, cfg *config.Config) error {

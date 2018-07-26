@@ -49,6 +49,7 @@ type Scheme interface {
 // ConsensusMetrics contains consensus metrics to expose
 type ConsensusMetrics struct {
 	LatestEpoch         uint64
+	LatestHeight        uint64
 	LatestDelegates     []string
 	LatestBlockProducer string
 	Candidates          []string
