@@ -228,6 +228,7 @@ func TestRollDPoS_Metrics(t *testing.T) {
 		{Address: candidates[1]},
 		{Address: candidates[2]},
 		{Address: candidates[3]},
+		{Address: candidates[4]},
 	}, true).AnyTimes()
 
 	r, err := NewRollDPoSBuilder().
@@ -245,7 +246,7 @@ func TestRollDPoS_Metrics(t *testing.T) {
 	assert.Equal(t, uint64(3), m.LatestEpoch)
 	assert.Equal(t, candidates[:4], m.LatestDelegates)
 	assert.Equal(t, candidates[1], m.LatestBlockProducer)
-	//assert.Equal(t, candidates, m.Candidates)
+	assert.Equal(t, candidates, m.Candidates)
 }
 
 func TestRollDPoS_convertToConsensusEvt(t *testing.T) {

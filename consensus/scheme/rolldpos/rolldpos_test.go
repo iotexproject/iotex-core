@@ -25,6 +25,7 @@ import (
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_delegate"
 	"github.com/iotexproject/iotex-core/test/mock/mock_rolldpos"
@@ -320,6 +321,12 @@ func TestRollDPoSFourTrustyNodes(t *testing.T) {
 			mcks.bc.EXPECT().MintNewBlock(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(genesis, nil).AnyTimes()
 			mcks.bc.EXPECT().TipHeight().Return(uint64(0), nil).AnyTimes()
 			mcks.bc.EXPECT().ValidateBlock(gomock.Any()).AnyTimes()
+			mcks.bc.EXPECT().CandidatesByHeight(gomock.Any()).Return([]*state.Candidate{
+				{Address: delegates[0]},
+				{Address: delegates[1]},
+				{Address: delegates[2]},
+				{Address: delegates[3]},
+			}, true).AnyTimes()
 
 			// =====================
 			// expect CommitBlock
