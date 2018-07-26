@@ -17,7 +17,7 @@ import (
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/server/itx"
-	"github.com/iotexproject/iotex-core/test/util"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 const (
@@ -28,10 +28,10 @@ const (
 func TestActioninjector(t *testing.T) {
 	require := require.New(t)
 
-	util.CleanupPath(t, testChainPath)
-	defer util.CleanupPath(t, testChainPath)
-	util.CleanupPath(t, testTriePath)
-	defer util.CleanupPath(t, testTriePath)
+	testutil.CleanupPath(t, testChainPath)
+	defer testutil.CleanupPath(t, testChainPath)
+	testutil.CleanupPath(t, testTriePath)
+	defer testutil.CleanupPath(t, testTriePath)
 
 	cfg, err := newConfig()
 	require.Nil(err, nil)
@@ -65,7 +65,7 @@ func TestActioninjector(t *testing.T) {
 	// Construct iotex addresses for loaded senders
 	addrs := []*iotxaddress.Address{}
 	for _, pkPair := range addresses.PKPairs {
-		addr := util.ConstructAddress(pkPair.PubKey, pkPair.PriKey)
+		addr := testutil.ConstructAddress(pkPair.PubKey, pkPair.PriKey)
 		addrs = append(addrs, addr)
 	}
 
@@ -91,7 +91,7 @@ func TestActioninjector(t *testing.T) {
 
 	bc := svr.Bc()
 	// Wait until committed blocks contain most of the injected actions in APS Mode
-	err = util.WaitUntil(10*time.Millisecond, time.Second, func() (bool, error) {
+	err = testutil.WaitUntil(10*time.Millisecond, time.Second, func() (bool, error) {
 		height, _ := bc.TipHeight()
 		var tsfCount int
 		var voteCount int
@@ -116,7 +116,7 @@ func TestActioninjector(t *testing.T) {
 	injectByInterval(transferNum, voteNum, interval, counter, client, addrs, make(map[string]bool), retryNum, retryInterval)
 
 	// Wait until committed blocks contain all the injected actions in Interval Mode
-	err = util.WaitUntil(10*time.Millisecond, 3*time.Second, func() (bool, error) {
+	err = testutil.WaitUntil(10*time.Millisecond, 3*time.Second, func() (bool, error) {
 		height, _ := bc.TipHeight()
 		var tsfCount int
 		var voteCount int

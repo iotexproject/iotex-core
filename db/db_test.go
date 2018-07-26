@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/test/util"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 var (
@@ -71,8 +71,8 @@ func TestKVStorePutGet(t *testing.T) {
 
 	path := "/tmp/test-kv-store-" + strconv.Itoa(rand.Int())
 	t.Run("Bolt DB", func(t *testing.T) {
-		util.CleanupPath(t, path)
-		defer util.CleanupPath(t, path)
+		testutil.CleanupPath(t, path)
+		defer testutil.CleanupPath(t, path)
 		testKVStorePutGet(NewBoltDB(path, nil), t)
 	})
 }
@@ -125,8 +125,8 @@ func TestBatchRollback(t *testing.T) {
 
 	path := "/tmp/test-batch-rollback-" + strconv.Itoa(rand.Int())
 	t.Run("Bolt DB", func(t *testing.T) {
-		util.CleanupPath(t, path)
-		defer util.CleanupPath(t, path)
+		testutil.CleanupPath(t, path)
+		defer testutil.CleanupPath(t, path)
 		testBatchRollback(NewBoltDB(path, nil), t)
 	})
 }
@@ -245,8 +245,8 @@ func TestDBBatch(t *testing.T) {
 
 	t.Run("Bolt DB", func(t *testing.T) {
 		path := "/tmp/test-batch-rollback-" + strconv.Itoa(rand.Int())
-		util.CleanupPath(t, path)
-		defer util.CleanupPath(t, path)
+		testutil.CleanupPath(t, path)
+		defer testutil.CleanupPath(t, path)
 		testBatchRollback(NewBoltDB(path, nil), t)
 	})
 }

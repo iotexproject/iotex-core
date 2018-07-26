@@ -16,7 +16,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/server/itx"
-	"github.com/iotexproject/iotex-core/test/util"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestNetSync(t *testing.T) {
@@ -24,10 +24,10 @@ func TestNetSync(t *testing.T) {
 		t.Skip("Skipping TestNetSync in short mode.")
 	}
 
-	util.CleanupPath(t, testTriePath)
-	defer util.CleanupPath(t, testTriePath)
-	util.CleanupPath(t, testDBPath)
-	defer util.CleanupPath(t, testDBPath)
+	testutil.CleanupPath(t, testTriePath)
+	defer testutil.CleanupPath(t, testTriePath)
+	testutil.CleanupPath(t, testDBPath)
+	defer testutil.CleanupPath(t, testDBPath)
 
 	cfg := config.Default
 	cfg.Network.IP = "127.0.0.1"
@@ -49,8 +49,8 @@ func TestNetSync(t *testing.T) {
 
 	defer func() {
 		require.Nil(t, svr.Stop(ctx))
-		util.CleanupPath(t, testTriePath)
-		util.CleanupPath(t, testDBPath)
+		testutil.CleanupPath(t, testTriePath)
+		testutil.CleanupPath(t, testDBPath)
 	}()
 
 	select {}

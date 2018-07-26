@@ -22,7 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	pb "github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/server/itx"
-	"github.com/iotexproject/iotex-core/test/util"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 const (
@@ -37,8 +37,8 @@ const (
 func TestLocalActPool(t *testing.T) {
 	require := require.New(t)
 
-	util.CleanupPath(t, testTriePath)
-	util.CleanupPath(t, testDBPath)
+	testutil.CleanupPath(t, testTriePath)
+	testutil.CleanupPath(t, testDBPath)
 
 	cfg, err := newActPoolConfig()
 	require.Nil(err)
@@ -69,12 +69,12 @@ func TestLocalActPool(t *testing.T) {
 	defer func() {
 		require.Nil(p1.Stop(ctx))
 		require.Nil(svr.Stop(ctx))
-		util.CleanupPath(t, testTriePath)
-		util.CleanupPath(t, testDBPath)
+		testutil.CleanupPath(t, testTriePath)
+		testutil.CleanupPath(t, testDBPath)
 	}()
 
-	from := util.ConstructAddress(fromPubKey, fromPrivKey)
-	to := util.ConstructAddress(toPubKey, toPrivKey)
+	from := testutil.ConstructAddress(fromPubKey, fromPrivKey)
+	to := testutil.ConstructAddress(toPubKey, toPrivKey)
 
 	// Create three valid actions from "from" to "to"
 	tsf1, _ := signedTransfer(from, to, uint64(1), big.NewInt(1))
@@ -99,7 +99,7 @@ func TestLocalActPool(t *testing.T) {
 	act6 := &pb.ActionPb{Action: &pb.ActionPb_Vote{vote6.ConvertToVotePb()}}
 
 	// Wait until actions can be successfully broadcasted
-	err = util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
+	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		if err := p1.Broadcast(act1); err != nil {
 			return false, err
 		}
@@ -118,7 +118,7 @@ func TestLocalActPool(t *testing.T) {
 	err = p1.Broadcast(act6)
 	require.NoError(err)
 	// Wait until committed blocks contain all the broadcasted actions
-	err = util.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+	err = testutil.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
 		// Check whether current committed blocks contain all the valid actions picked from actpool
 		height, _ := bc.TipHeight()
 		var tsfCount int
@@ -141,8 +141,8 @@ func TestLocalActPool(t *testing.T) {
 func TestPressureActPool(t *testing.T) {
 	require := require.New(t)
 
-	util.CleanupPath(t, testTriePath)
-	util.CleanupPath(t, testDBPath)
+	testutil.CleanupPath(t, testTriePath)
+	testutil.CleanupPath(t, testDBPath)
 
 	cfg, err := newActPoolConfig()
 	require.Nil(err)
@@ -173,12 +173,12 @@ func TestPressureActPool(t *testing.T) {
 	defer func() {
 		require.Nil(p1.Stop(ctx))
 		require.Nil(svr.Stop(ctx))
-		util.CleanupPath(t, testTriePath)
-		util.CleanupPath(t, testDBPath)
+		testutil.CleanupPath(t, testTriePath)
+		testutil.CleanupPath(t, testDBPath)
 	}()
 
-	from := util.ConstructAddress(fromPubKey, fromPrivKey)
-	to := util.ConstructAddress(toPubKey, toPrivKey)
+	from := testutil.ConstructAddress(fromPubKey, fromPrivKey)
+	to := testutil.ConstructAddress(toPubKey, toPrivKey)
 
 	// Create 1000 valid transfers and broadcast
 	tsf1, _ := signedTransfer(from, to, uint64(1), big.NewInt(1))
@@ -186,7 +186,7 @@ func TestPressureActPool(t *testing.T) {
 	act1 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{Transfer: tsf1.ConvertToTransferPb()}}
 
 	// Wait until transfers can be successfully broadcasted
-	err = util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
+	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		if err := p1.Broadcast(act1); err != nil {
 			return false, err
 		}
@@ -202,7 +202,7 @@ func TestPressureActPool(t *testing.T) {
 	}
 
 	// Wait until committed blocks contain all broadcasted actions
-	err = util.WaitUntil(10*time.Millisecond, 10*time.Second, func() (bool, error) {
+	err = testutil.WaitUntil(10*time.Millisecond, 10*time.Second, func() (bool, error) {
 		// Check whether current committed blocks contain all the valid actions picked from actpool
 		height, _ := bc.TipHeight()
 		var tsfCount int

@@ -28,7 +28,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/network/node"
 	"github.com/iotexproject/iotex-core/proto"
-	"github.com/iotexproject/iotex-core/test/util"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func LoadTestConfig(addr string, allowMultiConnsPerIP bool) *config.Network {
@@ -202,7 +202,7 @@ func TestTell(t *testing.T) {
 	err = p2.Tell(&node.Node{Addr: addr1}, &iproto.TxPb{Version: uint32(87654321)})
 	assert.NoError(t, err)
 
-	err = util.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+	err = testutil.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
 		if dp2.Count != uint32(1) {
 			return false, nil
 		}
@@ -243,7 +243,7 @@ func TestOneConnPerIP(t *testing.T) {
 		assert.NoError(t, err)
 	}()
 
-	err = util.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+	err = testutil.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
 		if uint(1) != LenSyncMap(p1.PM.Peers) {
 			return false, nil
 		}
@@ -302,7 +302,7 @@ func TestConfigBasedTopology(t *testing.T) {
 		}
 	}()
 
-	err = util.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+	err = testutil.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
 		for _, node := range nodes {
 			if uint(3) != LenSyncMap(node.PM.Peers) {
 				return false, nil

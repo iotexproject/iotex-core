@@ -14,7 +14,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/test/util"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 const (
@@ -28,7 +28,7 @@ func TestPlainKeyStore(t *testing.T) {
 
 	ks, err := NewPlainKeyStore(".")
 	require.Nil(err)
-	addr := util.ConstructAddress(Pubkey, Prikey)
+	addr := testutil.ConstructAddress(Pubkey, Prikey)
 	filePath := filepath.Join(".", addr.RawAddress)
 	defer os.Remove(filePath)
 	//Test Store
@@ -78,7 +78,7 @@ func TestMemKeyStore(t *testing.T) {
 	require := require.New(t)
 
 	ks := NewMemKeyStore()
-	addr := util.ConstructAddress(Pubkey, Prikey)
+	addr := testutil.ConstructAddress(Pubkey, Prikey)
 	// Test Store
 	err := ks.Store("123", addr)
 	require.Equal(ErrAddr, errors.Cause(err))

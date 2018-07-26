@@ -17,7 +17,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/logger"
-	"github.com/iotexproject/iotex-core/test/util"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 const testTriePath = "trie.test"
@@ -25,8 +25,8 @@ const testTriePath = "trie.test"
 func TestEmptyTrie(t *testing.T) {
 	assert := assert.New(t)
 
-	util.CleanupPath(t, testTriePath)
-	defer util.CleanupPath(t, testTriePath)
+	testutil.CleanupPath(t, testTriePath)
+	defer testutil.CleanupPath(t, testTriePath)
 	tr, err := NewTrie(testTriePath, true)
 	assert.Nil(err)
 	assert.Equal(tr.RootHash(), emptyRoot)
@@ -235,8 +235,8 @@ func Test1kEntries(t *testing.T) {
 	l := logger.Logger().Level(zerolog.DebugLevel)
 	logger.SetLogger(&l)
 
-	util.CleanupPath(t, testTriePath)
-	defer util.CleanupPath(t, testTriePath)
+	testutil.CleanupPath(t, testTriePath)
+	defer testutil.CleanupPath(t, testTriePath)
 	tr, err := NewTrie(testTriePath, false)
 	assert.Nil(err)
 	root := emptyRoot
@@ -297,8 +297,8 @@ func TestPressure(t *testing.T) {
 	l := logger.Logger().Level(zerolog.DebugLevel)
 	logger.SetLogger(&l)
 
-	util.CleanupPath(t, testTriePath)
-	defer util.CleanupPath(t, testTriePath)
+	testutil.CleanupPath(t, testTriePath)
+	defer testutil.CleanupPath(t, testTriePath)
 	tr, err := NewTrie(testTriePath, true)
 	assert.Nil(err)
 	root := emptyRoot
