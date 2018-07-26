@@ -20,10 +20,10 @@ import (
 
 var (
 	// AccountKVNameSpace is the bucket name for account trie
-	AccountKVNameSpace  = "Account"
+	AccountKVNameSpace = "Account"
 
 	// CodeKVNameSpace is the bucket name for code
-	CodeKVNameSpace     = "Code"
+	CodeKVNameSpace = "Code"
 
 	// ContractKVNameSpace is the bucket name for contract data storage
 	ContractKVNameSpace = "Contract"

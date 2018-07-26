@@ -230,11 +230,13 @@ func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer
 		}
 		if pubKey, ok := addressToPKMap[address]; ok {
 			candidate := &Candidate{
-				Address:  address,
-				Votes:    totalWeight,
-				PubKey:   pubKey,
-				minIndex: 0,
-				maxIndex: 0,
+				Address:          address,
+				Votes:            totalWeight,
+				PubKey:           pubKey,
+				CreationHeight:   blockHeight,
+				LastUpdateHeight: blockHeight,
+				minIndex:         0,
+				maxIndex:         0,
 			}
 			sf.updateVotes(candidate, totalWeight)
 		}
@@ -301,9 +303,11 @@ func (sf *factory) updateVotes(candidate *Candidate, votes *big.Int) {
 	switch level {
 	case candidatePool:
 		// if candidate is already in candidate pool
+		c.LastUpdateHeight = candidate.LastUpdateHeight
 		sf.candidateHeap.update(c, candidate.Votes)
 	case candidateBufferPool:
 		// if candidate is already in candidate buffer pool
+		c.LastUpdateHeight = candidate.LastUpdateHeight
 		sf.candidateBufferMinHeap.update(c, candidate.Votes)
 		sf.candidateBufferMaxHeap.update(c, candidate.Votes)
 	default:

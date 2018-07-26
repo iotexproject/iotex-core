@@ -77,6 +77,19 @@ struct AddressDetails {
     isCandidate bool
 }
 
+struct Candidate {
+    address string
+    totalVote int
+    creationHeight int
+    lastUpdateHeight int
+    isDelegate bool
+    isProducer bool
+}
+
+struct CandidateMetrics {
+    candidates []Candidate
+}
+
 struct ConsensusMetrics {
     latestEpoch int
     latestDelegates []string
@@ -172,6 +185,9 @@ interface Explorer {
 
     // get consensus metrics
     getConsensusMetrics() ConsensusMetrics
+
+    // get candidates metrics
+    getCandidateMetrics() CandidateMetrics
 
     // create raw transfer
     createRawTransfer(request CreateRawTransferRequest) CreateRawTransferResponse

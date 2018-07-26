@@ -283,6 +283,7 @@ func (r *RollDPoS) Metrics() (scheme.ConsensusMetrics, error) {
 
 	return scheme.ConsensusMetrics{
 		LatestEpoch:         epochNum,
+		LatestHeight:        height,
 		LatestDelegates:     delegates,
 		LatestBlockProducer: producer,
 		Candidates:          candidateAddresses,

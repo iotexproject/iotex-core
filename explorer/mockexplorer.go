@@ -133,6 +133,21 @@ func (exp *MockExplorer) GetConsensusMetrics() (explorer.ConsensusMetrics, error
 	}, nil
 }
 
+// GetCandidateMetrics returns the fake delegates metrics
+func (exp *MockExplorer) GetCandidateMetrics() (explorer.CandidateMetrics, error) {
+	candidate := explorer.Candidate{
+		Address:          randString(),
+		TotalVote:        randInt64(),
+		CreationHeight:   randInt64(),
+		LastUpdateHeight: randInt64(),
+		IsDelegate:       false,
+		IsProducer:       false,
+	}
+	return explorer.CandidateMetrics{
+		Candidates: []explorer.Candidate{candidate},
+	}, nil
+}
+
 // CreateRawTransfer creates a fake raw transfer
 func (exp *MockExplorer) CreateRawTransfer(request explorer.CreateRawTransferRequest) (explorer.CreateRawTransferResponse, error) {
 	return explorer.CreateRawTransferResponse{}, nil
