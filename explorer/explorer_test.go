@@ -31,7 +31,7 @@ import (
 	"github.com/iotexproject/iotex-core/test/mock/mock_consensus"
 	"github.com/iotexproject/iotex-core/test/mock/mock_dispatcher"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
-	"github.com/iotexproject/iotex-core/test/util"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 const (
@@ -129,10 +129,10 @@ func TestExplorerApi(t *testing.T) {
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 
-	util.CleanupPath(t, testTriePath)
-	defer util.CleanupPath(t, testTriePath)
-	util.CleanupPath(t, testDBPath)
-	defer util.CleanupPath(t, testDBPath)
+	testutil.CleanupPath(t, testTriePath)
+	defer testutil.CleanupPath(t, testTriePath)
+	testutil.CleanupPath(t, testDBPath)
+	defer testutil.CleanupPath(t, testDBPath)
 
 	sf, err := state.NewFactory(&cfg, state.InMemTrieOption())
 	require.Nil(err)

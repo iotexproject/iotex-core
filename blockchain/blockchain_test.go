@@ -22,7 +22,7 @@ import (
 	_hash "github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/state"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
-	"github.com/iotexproject/iotex-core/test/util"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 const (
@@ -188,10 +188,10 @@ func TestCreateBlockchain(t *testing.T) {
 func TestLoadBlockchainfromDB(t *testing.T) {
 	require := require.New(t)
 
-	util.CleanupPath(t, testTriePath)
-	defer util.CleanupPath(t, testTriePath)
-	util.CleanupPath(t, testDBPath)
-	defer util.CleanupPath(t, testDBPath)
+	testutil.CleanupPath(t, testTriePath)
+	defer testutil.CleanupPath(t, testTriePath)
+	testutil.CleanupPath(t, testDBPath)
+	defer testutil.CleanupPath(t, testDBPath)
 
 	// Disable block reward to make bookkeeping easier
 	Gen.BlockReward = uint64(0)
@@ -421,10 +421,10 @@ func TestBlockchain_MintNewDummyBlock(t *testing.T) {
 func TestBlockchainInitialCandidate(t *testing.T) {
 	require := require.New(t)
 
-	util.CleanupPath(t, testTriePath)
-	defer util.CleanupPath(t, testTriePath)
-	util.CleanupPath(t, testDBPath)
-	defer util.CleanupPath(t, testDBPath)
+	testutil.CleanupPath(t, testTriePath)
+	defer testutil.CleanupPath(t, testTriePath)
+	testutil.CleanupPath(t, testDBPath)
+	defer testutil.CleanupPath(t, testDBPath)
 
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
@@ -449,10 +449,10 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 func TestCoinbaseTransfer(t *testing.T) {
 	require := require.New(t)
 
-	util.CleanupPath(t, testTriePath)
-	defer util.CleanupPath(t, testTriePath)
-	util.CleanupPath(t, testDBPath)
-	defer util.CleanupPath(t, testDBPath)
+	testutil.CleanupPath(t, testTriePath)
+	defer testutil.CleanupPath(t, testTriePath)
+	testutil.CleanupPath(t, testDBPath)
+	defer testutil.CleanupPath(t, testDBPath)
 
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
@@ -515,10 +515,10 @@ func TestBlocks(t *testing.T) {
 	require := require.New(t)
 	cfg := config.Default
 
-	util.CleanupPath(t, testTriePath)
-	defer util.CleanupPath(t, testTriePath)
-	util.CleanupPath(t, testDBPath)
-	defer util.CleanupPath(t, testDBPath)
+	testutil.CleanupPath(t, testTriePath)
+	defer testutil.CleanupPath(t, testTriePath)
+	testutil.CleanupPath(t, testDBPath)
+	defer testutil.CleanupPath(t, testDBPath)
 
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
@@ -552,10 +552,10 @@ func TestActions(t *testing.T) {
 	require := require.New(t)
 	cfg := config.Default
 
-	util.CleanupPath(t, testTriePath)
-	defer util.CleanupPath(t, testTriePath)
-	util.CleanupPath(t, testDBPath)
-	defer util.CleanupPath(t, testDBPath)
+	testutil.CleanupPath(t, testTriePath)
+	defer testutil.CleanupPath(t, testTriePath)
+	testutil.CleanupPath(t, testDBPath)
+	defer testutil.CleanupPath(t, testDBPath)
 
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath

@@ -8,7 +8,7 @@ package testaddress
 
 import (
 	"github.com/iotexproject/iotex-core/iotxaddress"
-	"github.com/iotexproject/iotex-core/test/util"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 const (
@@ -36,12 +36,12 @@ var Addrinfo map[string]*iotxaddress.Address
 func init() {
 	Addrinfo = make(map[string]*iotxaddress.Address)
 
-	Addrinfo["miner"] = util.ConstructAddress(pubkeyMiner, prikeyMiner)
-	Addrinfo["alfa"] = util.ConstructAddress(pubkeyA, prikeyA)
-	Addrinfo["bravo"] = util.ConstructAddress(pubkeyB, prikeyB)
-	Addrinfo["charlie"] = util.ConstructAddress(pubkeyC, prikeyC)
-	Addrinfo["delta"] = util.ConstructAddress(pubkeyD, prikeyD)
-	Addrinfo["echo"] = util.ConstructAddress(pubkeyE, prikeyE)
-	Addrinfo["foxtrot"] = util.ConstructAddress(pubkeyF, prikeyF)
-	Addrinfo["galilei"] = util.ConstructAddress(pubkeyG, prikeyG)
+	Addrinfo["miner"] = testutil.ConstructAddress(pubkeyMiner, prikeyMiner)
+	Addrinfo["alfa"] = testutil.ConstructAddress(pubkeyA, prikeyA)
+	Addrinfo["bravo"] = testutil.ConstructAddress(pubkeyB, prikeyB)
+	Addrinfo["charlie"] = testutil.ConstructAddress(pubkeyC, prikeyC)
+	Addrinfo["delta"] = testutil.ConstructAddress(pubkeyD, prikeyD)
+	Addrinfo["echo"] = testutil.ConstructAddress(pubkeyE, prikeyE)
+	Addrinfo["foxtrot"] = testutil.ConstructAddress(pubkeyF, prikeyF)
+	Addrinfo["galilei"] = testutil.ConstructAddress(pubkeyG, prikeyG)
 }

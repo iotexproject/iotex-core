@@ -19,7 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/test/testaddress"
-	"github.com/iotexproject/iotex-core/test/util"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestBlockDAO(t *testing.T) {
@@ -126,8 +126,8 @@ func TestBlockDAO(t *testing.T) {
 
 	path := "/tmp/test-kv-store-" + string(rand.Int())
 	t.Run("Bolt DB", func(t *testing.T) {
-		util.CleanupPath(t, path)
-		defer util.CleanupPath(t, path)
+		testutil.CleanupPath(t, path)
+		defer testutil.CleanupPath(t, path)
 		testBlockDao(db.NewBoltDB(path, nil), t)
 	})
 

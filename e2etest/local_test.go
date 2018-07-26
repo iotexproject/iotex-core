@@ -25,7 +25,7 @@ import (
 	pb "github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/server/itx"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
-	"github.com/iotexproject/iotex-core/test/util"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 const (
@@ -38,8 +38,8 @@ const (
 func TestLocalCommit(t *testing.T) {
 	require := require.New(t)
 
-	util.CleanupPath(t, testTriePath)
-	util.CleanupPath(t, testDBPath)
+	testutil.CleanupPath(t, testTriePath)
+	testutil.CleanupPath(t, testDBPath)
 
 	blockchain.Gen.TotalSupply = uint64(50 << 22)
 	blockchain.Gen.BlockReward = uint64(0)
@@ -74,8 +74,8 @@ func TestLocalCommit(t *testing.T) {
 	defer func() {
 		require.Nil(p1.Stop(ctx))
 		require.Nil(svr.Stop(ctx))
-		util.CleanupPath(t, testTriePath)
-		util.CleanupPath(t, testDBPath)
+		testutil.CleanupPath(t, testTriePath)
+		testutil.CleanupPath(t, testDBPath)
 	}()
 
 	// check balance
@@ -143,7 +143,7 @@ func TestLocalCommit(t *testing.T) {
 	tsf1 := action.NewTransfer(s.Nonce+1, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["alfa"].RawAddress)
 	tsf1, err = tsf1.Sign(ta.Addrinfo["charlie"])
 	act1 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf1.ConvertToTransferPb()}}
-	err = util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
+	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		if err := p1.Broadcast(act1); err != nil {
 			return false, err
 		}
@@ -168,7 +168,7 @@ func TestLocalCommit(t *testing.T) {
 	require.Nil(err)
 	hash2 := blk2.HashBlock()
 	act2 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf2.ConvertToTransferPb()}}
-	err = util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
+	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		if err := p1.Broadcast(act2); err != nil {
 			return false, err
 		}
@@ -188,7 +188,7 @@ func TestLocalCommit(t *testing.T) {
 	require.Nil(err)
 	hash3 := blk3.HashBlock()
 	act3 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf3.ConvertToTransferPb()}}
-	err = util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
+	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		if err := p1.Broadcast(act3); err != nil {
 			return false, err
 		}
@@ -207,7 +207,7 @@ func TestLocalCommit(t *testing.T) {
 	err = blk4.SignBlock(ta.Addrinfo["miner"])
 	require.Nil(err)
 	act4 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf4.ConvertToTransferPb()}}
-	err = util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
+	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		if err := p1.Broadcast(act4); err != nil {
 			return false, err
 		}
@@ -225,7 +225,7 @@ func TestLocalCommit(t *testing.T) {
 	err = p1.Broadcast(blk3.ConvertToBlockPb())
 	require.NoError(err)
 
-	err = util.WaitUntil(10*time.Millisecond, 10*time.Second, func() (bool, error) {
+	err = testutil.WaitUntil(10*time.Millisecond, 10*time.Second, func() (bool, error) {
 		height, err := bc.TipHeight()
 		if err != nil {
 			return false, err
@@ -292,8 +292,8 @@ func TestLocalCommit(t *testing.T) {
 func TestLocalSync(t *testing.T) {
 	require := require.New(t)
 
-	util.CleanupPath(t, testTriePath)
-	util.CleanupPath(t, testDBPath)
+	testutil.CleanupPath(t, testTriePath)
+	testutil.CleanupPath(t, testDBPath)
 
 	cfg, err := newTestConfig()
 	require.Nil(err)
@@ -324,8 +324,8 @@ func TestLocalSync(t *testing.T) {
 	p2 := svr.P2p()
 	require.NotNil(p2)
 
-	util.CleanupPath(t, testTriePath2)
-	util.CleanupPath(t, testDBPath2)
+	testutil.CleanupPath(t, testTriePath2)
+	testutil.CleanupPath(t, testDBPath2)
 
 	cfg.Chain.TrieDBPath = testTriePath2
 	cfg.Chain.ChainDBPath = testDBPath2
@@ -350,16 +350,16 @@ func TestLocalSync(t *testing.T) {
 		require.Nil(p1.Stop(ctx))
 		require.Nil(p2.Stop(ctx))
 		require.Nil(svr.Stop(ctx))
-		util.CleanupPath(t, testTriePath)
-		util.CleanupPath(t, testDBPath)
-		util.CleanupPath(t, testTriePath2)
-		util.CleanupPath(t, testDBPath2)
+		testutil.CleanupPath(t, testTriePath)
+		testutil.CleanupPath(t, testDBPath)
+		testutil.CleanupPath(t, testTriePath2)
+		testutil.CleanupPath(t, testDBPath2)
 	}()
 
 	// P1 download 4 blocks from P2
 	err = p1.Tell(node.NewTCPNode(p2.Self().String()), &pb.BlockSync{Start: 1, End: 4})
 	require.NoError(err)
-	check := util.CheckCondition(func() (bool, error) {
+	check := testutil.CheckCondition(func() (bool, error) {
 		blk1, err := bc1.GetBlockByHeight(1)
 		if err != nil {
 			return false, nil
@@ -378,7 +378,7 @@ func TestLocalSync(t *testing.T) {
 		}
 		return hash1 == blk1.HashBlock() && hash2 == blk2.HashBlock() && hash3 == blk3.HashBlock() && hash4 == blk4.HashBlock(), nil
 	})
-	err = util.WaitUntil(time.Millisecond*10, time.Second*5, check)
+	err = testutil.WaitUntil(time.Millisecond*10, time.Second*5, check)
 	require.Nil(err)
 
 	// verify 4 received blocks
@@ -400,8 +400,8 @@ func TestLocalSync(t *testing.T) {
 func TestVoteLocalCommit(t *testing.T) {
 	require := require.New(t)
 
-	util.CleanupPath(t, testTriePath)
-	util.CleanupPath(t, testDBPath)
+	testutil.CleanupPath(t, testTriePath)
+	testutil.CleanupPath(t, testDBPath)
 
 	cfg, err := newTestConfig()
 	require.Nil(err)
@@ -433,8 +433,8 @@ func TestVoteLocalCommit(t *testing.T) {
 	defer func() {
 		require.Nil(p1.Stop(ctx))
 		require.Nil(svr.Stop(ctx))
-		util.CleanupPath(t, testTriePath)
-		util.CleanupPath(t, testDBPath)
+		testutil.CleanupPath(t, testTriePath)
+		testutil.CleanupPath(t, testDBPath)
 	}()
 
 	height, err := bc.TipHeight()
@@ -452,7 +452,7 @@ func TestVoteLocalCommit(t *testing.T) {
 	act1 := &pb.ActionPb{Action: &pb.ActionPb_Vote{vote1.ConvertToVotePb()}}
 	act2 := &pb.ActionPb{Action: &pb.ActionPb_Vote{vote2.ConvertToVotePb()}}
 	act3 := &pb.ActionPb{Action: &pb.ActionPb_Vote{vote3.ConvertToVotePb()}}
-	err = util.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+	err = testutil.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
 		if err := p1.Broadcast(act1); err != nil {
 			return false, err
 		}
@@ -475,7 +475,7 @@ func TestVoteLocalCommit(t *testing.T) {
 
 	err = p1.Broadcast(blk1.ConvertToBlockPb())
 	require.NoError(err)
-	err = util.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+	err = testutil.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
 		height, err := bc.TipHeight()
 		if err != nil {
 			return false, err
@@ -497,7 +497,7 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.Nil(err)
 	act4 := &pb.ActionPb{Action: &pb.ActionPb_Vote{vote4.ConvertToVotePb()}}
 	act5 := &pb.ActionPb{Action: &pb.ActionPb_Vote{vote5.ConvertToVotePb()}}
-	err = util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
+	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		if err := p1.Broadcast(act4); err != nil {
 			return false, err
 		}
@@ -512,7 +512,7 @@ func TestVoteLocalCommit(t *testing.T) {
 	err = p1.Broadcast(blk2.ConvertToBlockPb())
 	require.NoError(err)
 
-	err = util.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+	err = testutil.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
 		height, err := bc.TipHeight()
 		if err != nil {
 			return false, err
@@ -548,7 +548,7 @@ func TestVoteLocalCommit(t *testing.T) {
 	hash3 := blk3.HashBlock()
 	require.Nil(err)
 	act6 := &pb.ActionPb{Action: &pb.ActionPb_Vote{vote6.ConvertToVotePb()}}
-	err = util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
+	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		if err := p1.Broadcast(act6); err != nil {
 			return false, err
 		}
@@ -560,7 +560,7 @@ func TestVoteLocalCommit(t *testing.T) {
 	err = p1.Broadcast(blk3.ConvertToBlockPb())
 	require.NoError(err)
 
-	err = util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
+	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		height, err := bc.TipHeight()
 		if err != nil {
 			return false, err
@@ -595,7 +595,7 @@ func TestVoteLocalCommit(t *testing.T) {
 	err = blk4.SignBlock(ta.Addrinfo["miner"])
 	require.Nil(err)
 	act7 := &pb.ActionPb{Action: &pb.ActionPb_Vote{vote7.ConvertToVotePb()}}
-	err = util.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
+	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		if err := p1.Broadcast(act7); err != nil {
 			return false, err
 		}
@@ -607,7 +607,7 @@ func TestVoteLocalCommit(t *testing.T) {
 	err = p1.Broadcast(blk4.ConvertToBlockPb())
 	require.NoError(err)
 
-	err = util.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+	err = testutil.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
 		height, err := bc.TipHeight()
 		if err != nil {
 			return false, err

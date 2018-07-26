@@ -27,7 +27,7 @@ import (
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
-	"github.com/iotexproject/iotex-core/test/util"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 // Addresses indicate the addresses getting transfers from Creator in genesis block
@@ -88,7 +88,7 @@ func main() {
 	// Construct iotex addresses for loaded senders
 	addrs := []*iotxaddress.Address{}
 	for _, pkPair := range addresses.PKPairs {
-		addr := util.ConstructAddress(pkPair.PubKey, pkPair.PriKey)
+		addr := testutil.ConstructAddress(pkPair.PubKey, pkPair.PriKey)
 		addrs = append(addrs, addr)
 	}
 
