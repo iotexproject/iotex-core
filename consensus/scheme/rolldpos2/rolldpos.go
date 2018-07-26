@@ -271,13 +271,21 @@ func (r *RollDPoS) Metrics() (scheme.ConsensusMetrics, error) {
 	if err != nil {
 		return metrics, errors.Wrap(err, "error when calculating the block producer")
 	}
-	// TODO: revive the candidate metric
 	// Get all candidates
+	candidates, ok := r.ctx.chain.CandidatesByHeight(height)
+	if !ok {
+		return metrics, errors.Wrap(ErrCandidatesNotFinalized, "error when getting all candidates")
+	}
+	candidateAddresses := make([]string, len(candidates))
+	for i, c := range candidates {
+		candidateAddresses[i] = c.Address
+	}
+
 	return scheme.ConsensusMetrics{
 		LatestEpoch:         epochNum,
 		LatestDelegates:     delegates,
 		LatestBlockProducer: producer,
-		Candidates:          make([]string, 0),
+		Candidates:          candidateAddresses,
 	}, nil
 }
 

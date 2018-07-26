@@ -226,15 +226,20 @@ func (n *RollDPoS) Metrics() (scheme.ConsensusMetrics, error) {
 		return metrics, err
 	}
 	// Get all candidates
-	candidates, err := n.pool.AllDelegates()
-	if err != nil {
-		return metrics, err
+	candidates, ok := n.bc.CandidatesByHeight(height)
+	if !ok {
+		return metrics, errors.New("Epoch number of statefactory is inconsistent in StartRollingEpoch")
 	}
+	candidateAddresses := make([]string, len(candidates))
+	for i, c := range candidates {
+		candidateAddresses[i] = c.Address
+	}
+
 	metrics = scheme.ConsensusMetrics{
 		LatestEpoch:         epochNum,
 		LatestDelegates:     delegates,
 		LatestBlockProducer: producer,
-		Candidates:          candidates,
+		Candidates:          candidateAddresses,
 	}
 	return metrics, err
 }
