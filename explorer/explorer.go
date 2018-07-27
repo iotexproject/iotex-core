@@ -644,7 +644,7 @@ func (exp *Service) GetCandidateMetrics() (explorer.CandidateMetrics, error) {
 	if err != nil {
 		return explorer.CandidateMetrics{}, errors.Wrapf(
 			err,
-			"Failed to get the delegate metrics")
+			"Failed to get the candidate metrics")
 	}
 	delegateSet := make(map[string]bool, len(cm.LatestDelegates))
 	for _, d := range cm.LatestDelegates {
@@ -653,7 +653,7 @@ func (exp *Service) GetCandidateMetrics() (explorer.CandidateMetrics, error) {
 	allCandidates, ok := exp.bc.CandidatesByHeight(cm.LatestHeight)
 	if !ok {
 		return explorer.CandidateMetrics{}, errors.Wrapf(blockchain.ErrCandidates,
-			"Failed to get the delegate metrics")
+			"Failed to get the candidate metrics")
 	}
 	candidates := make([]explorer.Candidate, len(cm.Candidates))
 	for i, c := range allCandidates {

@@ -135,7 +135,7 @@ func TestLocalCommit(t *testing.T) {
 
 	height, err := bc.TipHeight()
 	require.Nil(err)
-	require.True(height == 4)
+	require.True(height == 5)
 
 	// transfer 1
 	// C --> A
@@ -230,12 +230,12 @@ func TestLocalCommit(t *testing.T) {
 		if err != nil {
 			return false, err
 		}
-		return int(height) == 8, nil
+		return int(height) == 9, nil
 	})
 	require.Nil(err)
 	height, err = bc.TipHeight()
 	require.Nil(err)
-	require.Equal(8, int(height))
+	require.Equal(9, int(height))
 
 	// check balance
 	s, err = bc.StateByAddr(ta.Addrinfo["alfa"].RawAddress)
@@ -320,6 +320,9 @@ func TestLocalSync(t *testing.T) {
 	blk, err = bc.GetBlockByHeight(4)
 	require.Nil(err)
 	hash4 := blk.HashBlock()
+	blk, err = bc.GetBlockByHeight(5)
+	require.Nil(err)
+	hash5 := blk.HashBlock()
 
 	p2 := svr.P2p()
 	require.NotNil(p2)
@@ -357,7 +360,7 @@ func TestLocalSync(t *testing.T) {
 	}()
 
 	// P1 download 4 blocks from P2
-	err = p1.Tell(node.NewTCPNode(p2.Self().String()), &pb.BlockSync{Start: 1, End: 4})
+	err = p1.Tell(node.NewTCPNode(p2.Self().String()), &pb.BlockSync{Start: 1, End: 5})
 	require.NoError(err)
 	check := testutil.CheckCondition(func() (bool, error) {
 		blk1, err := bc1.GetBlockByHeight(1)
@@ -376,7 +379,12 @@ func TestLocalSync(t *testing.T) {
 		if err != nil {
 			return false, nil
 		}
-		return hash1 == blk1.HashBlock() && hash2 == blk2.HashBlock() && hash3 == blk3.HashBlock() && hash4 == blk4.HashBlock(), nil
+		blk5, err := bc1.GetBlockByHeight(5)
+		if err != nil {
+			return false, nil
+		}
+		return hash1 == blk1.HashBlock() && hash2 == blk2.HashBlock() && hash3 == blk3.HashBlock() &&
+			hash4 == blk4.HashBlock() && hash5 == blk5.HashBlock(), nil
 	})
 	err = testutil.WaitUntil(time.Millisecond*10, time.Second*5, check)
 	require.Nil(err)
@@ -394,6 +402,9 @@ func TestLocalSync(t *testing.T) {
 	blk, err = bc1.GetBlockByHeight(4)
 	require.Nil(err)
 	require.Equal(hash4, blk.HashBlock())
+	blk, err = bc1.GetBlockByHeight(5)
+	require.Nil(err)
+	require.Equal(hash5, blk.HashBlock())
 	t.Log("4 blocks received correctly")
 }
 
@@ -440,7 +451,7 @@ func TestVoteLocalCommit(t *testing.T) {
 
 	height, err := bc.TipHeight()
 	require.Nil(err)
-	require.True(height == 4)
+	require.True(height == 5)
 
 	// Add block 1
 	// Alfa, Bravo and Charlie selfnomination
@@ -448,7 +459,7 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.Nil(err)
 	vote2, err := newSignedVote(1, ta.Addrinfo["bravo"], ta.Addrinfo["bravo"])
 	require.Nil(err)
-	vote3, err := newSignedVote(2, ta.Addrinfo["charlie"], ta.Addrinfo["charlie"])
+	vote3, err := newSignedVote(6, ta.Addrinfo["charlie"], ta.Addrinfo["charlie"])
 	require.Nil(err)
 	act1 := &pb.ActionPb{Action: &pb.ActionPb_Vote{vote1.ConvertToVotePb()}}
 	act2 := &pb.ActionPb{Action: &pb.ActionPb_Vote{vote2.ConvertToVotePb()}}
@@ -481,14 +492,18 @@ func TestVoteLocalCommit(t *testing.T) {
 		if err != nil {
 			return false, err
 		}
-		return int(height) == 5, nil
+		return int(height) == 6, nil
 	})
+	require.NoError(err)
+	tipheight, err := bc.TipHeight()
+	require.Nil(err)
+	require.Equal(6, int(tipheight))
 
 	// Add block 2
 	// Vote A -> B, C -> A
 	vote4, err := newSignedVote(2, ta.Addrinfo["alfa"], ta.Addrinfo["bravo"])
 	require.Nil(err)
-	vote5, err := newSignedVote(3, ta.Addrinfo["charlie"], ta.Addrinfo["alfa"])
+	vote5, err := newSignedVote(7, ta.Addrinfo["charlie"], ta.Addrinfo["alfa"])
 	require.Nil(err)
 	blk2 := blockchain.NewBlock(0, height+2, hash1,
 		[]*action.Transfer{action.NewCoinBaseTransfer(big.NewInt(int64(blockchain.Gen.BlockReward)),
@@ -518,19 +533,19 @@ func TestVoteLocalCommit(t *testing.T) {
 		if err != nil {
 			return false, err
 		}
-		return int(height) == 6, nil
+		return int(height) == 7, nil
 	})
 	require.Nil(err)
-	tipheight, err := bc.TipHeight()
+	tipheight, err = bc.TipHeight()
 	require.Nil(err)
-	require.Equal(6, int(tipheight))
+	require.Equal(7, int(tipheight))
 
 	h, candidates := svr.Bc().Candidates()
 	candidatesAddr := make([]string, len(candidates))
 	for i, can := range candidates {
 		candidatesAddr[i] = can.Address
 	}
-	require.Equal(6, int(h))
+	require.Equal(7, int(h))
 	require.Equal(2, len(candidates))
 
 	sort.Sort(sort.StringSlice(candidatesAddr))
@@ -539,7 +554,7 @@ func TestVoteLocalCommit(t *testing.T) {
 
 	// Add block 3
 	// D self nomination
-	vote6, err := action.NewVote(uint64(2), ta.Addrinfo["delta"].RawAddress, ta.Addrinfo["delta"].RawAddress)
+	vote6, err := action.NewVote(uint64(5), ta.Addrinfo["delta"].RawAddress, ta.Addrinfo["delta"].RawAddress)
 	require.NoError(err)
 	vote6, err = vote6.Sign(ta.Addrinfo["delta"])
 	require.Nil(err)
@@ -567,19 +582,19 @@ func TestVoteLocalCommit(t *testing.T) {
 		if err != nil {
 			return false, err
 		}
-		return int(height) == 7, nil
+		return int(height) == 8, nil
 	})
 	require.Nil(err)
 	tipheight, err = bc.TipHeight()
 	require.Nil(err)
-	require.Equal(7, int(tipheight))
+	require.Equal(8, int(tipheight))
 
 	h, candidates = svr.Bc().Candidates()
 	candidatesAddr = make([]string, len(candidates))
 	for i, can := range candidates {
 		candidatesAddr[i] = can.Address
 	}
-	require.Equal(7, int(h))
+	require.Equal(8, int(h))
 	require.Equal(2, len(candidates))
 
 	sort.Sort(sort.StringSlice(candidatesAddr))
@@ -588,7 +603,7 @@ func TestVoteLocalCommit(t *testing.T) {
 
 	// Add block 4
 	// Unvote B
-	vote7, err := action.NewVote(uint64(3), ta.Addrinfo["bravo"].RawAddress, "")
+	vote7, err := action.NewVote(uint64(2), ta.Addrinfo["bravo"].RawAddress, "")
 	require.NoError(err)
 	vote7, err = vote7.Sign(ta.Addrinfo["bravo"])
 	require.Nil(err)
@@ -615,19 +630,19 @@ func TestVoteLocalCommit(t *testing.T) {
 		if err != nil {
 			return false, err
 		}
-		return int(height) == 8, nil
+		return int(height) == 9, nil
 	})
 	require.Nil(err)
 	tipheight, err = bc.TipHeight()
 	require.Nil(err)
-	require.Equal(8, int(tipheight))
+	require.Equal(9, int(tipheight))
 
 	h, candidates = svr.Bc().Candidates()
 	candidatesAddr = make([]string, len(candidates))
 	for i, can := range candidates {
 		candidatesAddr[i] = can.Address
 	}
-	require.Equal(8, int(h))
+	require.Equal(9, int(h))
 	require.Equal(2, len(candidates))
 
 	sort.Sort(sort.StringSlice(candidatesAddr))
