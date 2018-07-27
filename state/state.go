@@ -10,6 +10,8 @@ import (
 	"bytes"
 	"encoding/gob"
 	"math/big"
+
+	"github.com/iotexproject/iotex-core-internal/pkg/hash"
 )
 
 // State is the canonical representation of an account.
@@ -18,6 +20,8 @@ type State struct {
 	// other actions' nonces start from 1
 	Nonce        uint64
 	Balance      *big.Int
+	Root         hash.Hash32B
+	CodeHash     []byte // hash of the smart contract code if the account is a contract
 	Address      string
 	IsCandidate  bool
 	VotingWeight *big.Int
