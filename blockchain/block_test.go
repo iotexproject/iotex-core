@@ -10,17 +10,23 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"math/big"
+	"strings"
 	"testing"
 
+	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotexproject/iotex-core/blockchain/action"
+	"github.com/iotexproject/iotex-core/config"
 	cp "github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/state"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestBasicHash(t *testing.T) {
@@ -205,4 +211,168 @@ func TestSignBlock(t *testing.T) {
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.Nil(err)
 	require.Nil(val.Validate(blk, 2, hash))
+}
+
+func TestWrongNonce(t *testing.T) {
+	cfg := &config.Default
+	testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
+	defer testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
+	testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
+	defer testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
+	require := require.New(t)
+	sf, err := state.NewFactory(cfg, state.DefaultTrieOption())
+	require.NoError(err)
+	_, err = sf.CreateState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
+	assert.NoError(t, err)
+	val := validator{sf}
+
+	// correct nonce
+	coinbaseTsf := action.NewCoinBaseTransfer(big.NewInt(int64(Gen.BlockReward)), ta.Addrinfo["producer"].RawAddress)
+	tsf1, err := action.NewTransfer(1, big.NewInt(20), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["alfa"].RawAddress)
+	require.NoError(err)
+	tsf1, err = tsf1.Sign(ta.Addrinfo["producer"])
+	require.NoError(err)
+	hash := tsf1.Hash()
+	blk := NewBlock(1, 3, hash, []*action.Transfer{coinbaseTsf, tsf1}, nil)
+	err = blk.SignBlock(ta.Addrinfo["producer"])
+	require.NoError(err)
+	require.NoError(val.Validate(blk, 2, hash))
+	err = sf.CommitStateChanges(1, []*action.Transfer{tsf1}, nil)
+	require.NoError(err)
+
+	// low nonce
+	tsf2, err := action.NewTransfer(1, big.NewInt(30), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress)
+	require.NoError(err)
+	tsf2, err = tsf2.Sign(ta.Addrinfo["producer"])
+	require.NoError(err)
+	hash = tsf1.Hash()
+	blk = NewBlock(1, 3, hash, []*action.Transfer{coinbaseTsf, tsf1, tsf2}, nil)
+	err = blk.SignBlock(ta.Addrinfo["producer"])
+	require.NoError(err)
+	err = val.Validate(blk, 2, hash)
+	require.Equal(ErrActionNonce, errors.Cause(err))
+
+	vote, err := action.NewVote(1, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress)
+	require.NoError(err)
+	vote, err = vote.Sign(ta.Addrinfo["producer"])
+	require.NoError(err)
+	hash = tsf1.Hash()
+	blk = NewBlock(1, 3, hash, []*action.Transfer{coinbaseTsf}, []*action.Vote{vote})
+	err = blk.SignBlock(ta.Addrinfo["producer"])
+	require.NoError(err)
+	err = val.Validate(blk, 2, hash)
+	require.Error(err)
+	require.Equal(ErrActionNonce, errors.Cause(err))
+
+	// duplicate nonce
+	tsf3, err := action.NewTransfer(2, big.NewInt(30), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress)
+	require.NoError(err)
+	tsf3, err = tsf3.Sign(ta.Addrinfo["producer"])
+	tsf4, err := action.NewTransfer(2, big.NewInt(30), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress)
+	require.NoError(err)
+	tsf4, err = tsf4.Sign(ta.Addrinfo["producer"])
+	require.NoError(err)
+	hash = tsf1.Hash()
+	blk = NewBlock(1, 3, hash, []*action.Transfer{coinbaseTsf, tsf3, tsf4}, nil)
+	err = blk.SignBlock(ta.Addrinfo["producer"])
+	require.NoError(err)
+	err = val.Validate(blk, 2, hash)
+	require.Error(err)
+	require.Equal(ErrActionNonce, errors.Cause(err))
+
+	vote2, err := action.NewVote(2, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress)
+	require.NoError(err)
+	vote2, err = vote2.Sign(ta.Addrinfo["producer"])
+	vote3, err := action.NewVote(2, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["charlie"].RawAddress)
+	require.NoError(err)
+	vote3, err = vote3.Sign(ta.Addrinfo["producer"])
+	require.NoError(err)
+	hash = tsf1.Hash()
+	blk = NewBlock(1, 3, hash, []*action.Transfer{coinbaseTsf}, []*action.Vote{vote2, vote3})
+	err = blk.SignBlock(ta.Addrinfo["producer"])
+	require.NoError(err)
+	err = val.Validate(blk, 2, hash)
+	require.Error(err)
+	require.Equal(ErrActionNonce, errors.Cause(err))
+
+	// non consecutive nonce
+	tsf5, err := action.NewTransfer(2, big.NewInt(30), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress)
+	require.NoError(err)
+	tsf5, err = tsf5.Sign(ta.Addrinfo["producer"])
+	tsf6, err := action.NewTransfer(4, big.NewInt(30), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress)
+	require.NoError(err)
+	tsf6, err = tsf6.Sign(ta.Addrinfo["producer"])
+	require.NoError(err)
+	hash = tsf1.Hash()
+	blk = NewBlock(1, 3, hash, []*action.Transfer{coinbaseTsf, tsf5, tsf6}, nil)
+	err = blk.SignBlock(ta.Addrinfo["producer"])
+	require.NoError(err)
+	err = val.Validate(blk, 2, hash)
+	require.Error(err)
+	require.Equal(ErrActionNonce, errors.Cause(err))
+
+	vote4, err := action.NewVote(2, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress)
+	require.NoError(err)
+	vote4, err = vote4.Sign(ta.Addrinfo["producer"])
+	vote5, err := action.NewVote(4, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["charlie"].RawAddress)
+	require.NoError(err)
+	vote5, err = vote5.Sign(ta.Addrinfo["producer"])
+	require.NoError(err)
+	hash = tsf1.Hash()
+	blk = NewBlock(1, 3, hash, []*action.Transfer{coinbaseTsf}, []*action.Vote{vote4, vote5})
+	err = blk.SignBlock(ta.Addrinfo["producer"])
+	require.NoError(err)
+	err = val.Validate(blk, 2, hash)
+	require.Error(err)
+	require.Equal(ErrActionNonce, errors.Cause(err))
+}
+
+func TestWrongCoinbaseTsf(t *testing.T) {
+	cfg := &config.Default
+	testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
+	defer testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
+	testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
+	defer testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
+	require := require.New(t)
+	sf, err := state.NewFactory(cfg, state.DefaultTrieOption())
+	require.NoError(err)
+	_, err = sf.CreateState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
+	assert.NoError(t, err)
+	val := validator{sf}
+
+	// no coinbase tsf
+	coinbaseTsf := action.NewCoinBaseTransfer(big.NewInt(int64(Gen.BlockReward)), ta.Addrinfo["producer"].RawAddress)
+	tsf1, err := action.NewTransfer(1, big.NewInt(20), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["alfa"].RawAddress)
+	require.NoError(err)
+	tsf1, err = tsf1.Sign(ta.Addrinfo["producer"])
+	require.NoError(err)
+	hash := tsf1.Hash()
+	blk := NewBlock(1, 3, hash, []*action.Transfer{tsf1}, nil)
+	err = blk.SignBlock(ta.Addrinfo["producer"])
+	require.NoError(err)
+	err = val.Validate(blk, 2, hash)
+	require.Error(err)
+	require.True(
+		strings.Contains(err.Error(), "Wrong number of coinbase transfers"),
+	)
+
+	// extra coinbase transfer
+	blk = NewBlock(1, 3, hash, []*action.Transfer{coinbaseTsf, coinbaseTsf, tsf1}, nil)
+	err = blk.SignBlock(ta.Addrinfo["producer"])
+	require.NoError(err)
+	err = val.Validate(blk, 2, hash)
+	require.Error(err)
+	require.True(
+		strings.Contains(err.Error(), "Wrong number of coinbase transfers"),
+	)
+
+	// no transfer
+	blk = NewBlock(1, 3, hash, []*action.Transfer{}, nil)
+	err = blk.SignBlock(ta.Addrinfo["producer"])
+	require.NoError(err)
+	err = val.Validate(blk, 2, hash)
+	require.Error(err)
+	require.True(
+		strings.Contains(err.Error(), "Wrong number of coinbase transfers"),
+	)
 }
