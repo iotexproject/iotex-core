@@ -19,9 +19,9 @@ var _ = math.Inf
 const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
 type UtxoPb struct {
-	Value                uint64   `protobuf:"varint,1,opt,name=value" json:"value,omitempty"`
-	Index                int32    `protobuf:"varint,2,opt,name=index" json:"index,omitempty"`
-	LockScriptSize       uint32   `protobuf:"varint,3,opt,name=lockScriptSize" json:"lockScriptSize,omitempty"`
+	Value                uint64   `protobuf:"varint,1,opt,name=value,proto3" json:"value,omitempty"`
+	Index                int32    `protobuf:"varint,2,opt,name=index,proto3" json:"index,omitempty"`
+	LockScriptSize       uint32   `protobuf:"varint,3,opt,name=lockScriptSize,proto3" json:"lockScriptSize,omitempty"`
 	LockScript           []byte   `protobuf:"bytes,4,opt,name=lockScript,proto3" json:"lockScript,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -82,7 +82,7 @@ func (m *UtxoPb) GetLockScript() []byte {
 
 type UtxoEntryPb struct {
 	Hash                 []byte    `protobuf:"bytes,1,opt,name=hash,proto3" json:"hash,omitempty"`
-	Utxo                 []*UtxoPb `protobuf:"bytes,2,rep,name=utxo" json:"utxo,omitempty"`
+	Utxo                 []*UtxoPb `protobuf:"bytes,2,rep,name=utxo,proto3" json:"utxo,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}  `json:"-"`
 	XXX_unrecognized     []byte    `json:"-"`
 	XXX_sizecache        int32     `json:"-"`
@@ -127,7 +127,7 @@ func (m *UtxoEntryPb) GetUtxo() []*UtxoPb {
 }
 
 type UtxoMapPb struct {
-	UtxoEntry            []*UtxoEntryPb `protobuf:"bytes,1,rep,name=utxoEntry" json:"utxoEntry,omitempty"`
+	UtxoEntry            []*UtxoEntryPb `protobuf:"bytes,1,rep,name=utxoEntry,proto3" json:"utxoEntry,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}       `json:"-"`
 	XXX_unrecognized     []byte         `json:"-"`
 	XXX_sizecache        int32          `json:"-"`
