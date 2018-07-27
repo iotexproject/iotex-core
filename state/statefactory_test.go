@@ -13,7 +13,6 @@ import (
 
 	"github.com/golang/groupcache/lru"
 	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/blockchain/action"
@@ -34,83 +33,88 @@ const (
 )
 
 func TestEncodeDecode(t *testing.T) {
+	require := require.New(t)
 	addr, err := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
-	assert.Nil(t, err)
+	require.Nil(err)
 
 	ss, _ := stateToBytes(&State{Address: addr.RawAddress, Nonce: 0x10})
-	assert.NotEmpty(t, ss)
+	require.NotEmpty(ss)
 
 	state, _ := bytesToState(ss)
-	assert.Equal(t, addr.RawAddress, state.Address)
-	assert.Equal(t, uint64(0x10), state.Nonce)
+	require.Equal(addr.RawAddress, state.Address)
+	require.Nil(state.Balance)
+	require.Equal(uint64(0x10), state.Nonce)
+	require.Equal(hash.ZeroHash32B, state.Root)
+	require.Nil(state.CodeHash)
 }
 
 func TestRootHash(t *testing.T) {
+	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	trie := mock_trie.NewMockTrie(ctrl)
 	sf, err := NewFactory(&config.Default, PrecreatedTrieOption(trie))
-	assert.Nil(t, err)
+	require.Nil(err)
 	trie.EXPECT().RootHash().Times(1).Return(hash.ZeroHash32B)
-	assert.Equal(t, hash.ZeroHash32B, sf.RootHash())
+	require.Equal(hash.ZeroHash32B, sf.RootHash())
 }
 
 func TestCreateState(t *testing.T) {
+	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	trie := mock_trie.NewMockTrie(ctrl)
 	sf, err := NewFactory(&config.Default, PrecreatedTrieOption(trie))
-	assert.Nil(t, err)
+	require.Nil(err)
 	trie.EXPECT().Upsert(gomock.Any(), gomock.Any()).Times(1)
 	addr, err := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
-	assert.Nil(t, err)
+	require.Nil(err)
 	state, _ := sf.CreateState(addr.RawAddress, 0)
-	assert.Equal(t, uint64(0x0), state.Nonce)
-	assert.Equal(t, big.NewInt(0), state.Balance)
-	assert.Equal(t, addr.RawAddress, state.Address)
+	require.Equal(uint64(0x0), state.Nonce)
+	require.Equal(big.NewInt(0), state.Balance)
+	require.Equal(addr.RawAddress, state.Address)
 }
 
 func TestBalance(t *testing.T) {
+	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	trie := mock_trie.NewMockTrie(ctrl)
 	addr, err := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
-	assert.Nil(t, err)
+	require.Nil(err)
 	state := &State{Address: addr.RawAddress, Balance: big.NewInt(20)}
-	mstate, _ := stateToBytes(state)
-	trie.EXPECT().Get(gomock.Any()).Times(0).Return(mstate, nil)
 	// Add 10 to the balance
 	err = state.AddBalance(big.NewInt(10))
-	assert.Nil(t, err)
+	require.Nil(err)
 	// balance should == 30 now
-	assert.Equal(t, 0, state.Balance.Cmp(big.NewInt(30)))
+	require.Equal(0, state.Balance.Cmp(big.NewInt(30)))
 }
 
 func TestNonce(t *testing.T) {
+	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	trie := mock_trie.NewMockTrie(ctrl)
 	sf, err := NewFactory(&config.Default, PrecreatedTrieOption(trie))
-	assert.Nil(t, err)
+	require.Nil(err)
 
 	// Add 10 so the balance should be 10
 	addr, err := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
-	assert.Nil(t, err)
+	require.Nil(err)
 	mstate, _ := stateToBytes(&State{Address: addr.RawAddress, Nonce: 0x10})
 	trie.EXPECT().Get(gomock.Any()).Times(1).Return(mstate, nil)
 	addr, err = iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
-	assert.Nil(t, err)
+	require.Nil(err)
 	n, err := sf.Nonce(addr.RawAddress)
-	assert.Equal(t, uint64(0x10), n)
-	assert.Nil(t, err)
+	require.Equal(uint64(0x10), n)
+	require.Nil(err)
 
 	trie.EXPECT().Get(gomock.Any()).Times(1).Return(nil, nil)
 	_, err = sf.Nonce(addr.RawAddress)
-	assert.Equal(t, ErrFailedToUnmarshalState, err)
+	require.Equal(ErrFailedToUnmarshalState, err)
 }
 
 func voteForm(height uint64, cs []*Candidate) []string {
