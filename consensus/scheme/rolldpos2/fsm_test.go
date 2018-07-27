@@ -659,6 +659,7 @@ func newTestCFSM(
 		},
 		func(actPool *mock_actpool.MockActPool) {
 			actPool.EXPECT().PickActs().Return([]*action.Transfer{transfer}, []*action.Vote{vote}).AnyTimes()
+			actPool.EXPECT().Reset().AnyTimes()
 		},
 		func(p2p *mock_network.MockOverlay) {
 			if mockP2P == nil {

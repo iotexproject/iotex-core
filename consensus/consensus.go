@@ -126,7 +126,13 @@ func NewConsensus(
 	case config.NOOPScheme:
 		cs.scheme = scheme.NewNoop()
 	case config.StandaloneScheme:
-		cs.scheme = scheme.NewStandalone(mintBlockCB, commitBlockCB, broadcastBlockCB, bc, cfg.Consensus.BlockCreationInterval)
+		cs.scheme = scheme.NewStandalone(
+			mintBlockCB,
+			commitBlockCB,
+			broadcastBlockCB,
+			bc,
+			cfg.Consensus.BlockCreationInterval,
+		)
 	default:
 		logger.Error().
 			Str("scheme", cfg.Consensus.Scheme).
