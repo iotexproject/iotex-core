@@ -586,6 +586,9 @@ func (m *cFSM) handleVoteEvt(evt fsm.Event) (fsm.State, error) {
 				Uint64("block", m.ctx.round.block.Height()).
 				Msg("error when committing a block")
 		} else {
+			// Remove transfers in this block from ActPool and reset ActPool state
+			m.ctx.actPool.Reset()
+			// Broadcast the committed block to the network
 			if blkProto := m.ctx.round.block.ConvertToBlockPb(); blkProto != nil {
 				if err := m.ctx.p2p.Broadcast(blkProto); err != nil {
 					logger.Error().

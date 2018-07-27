@@ -429,7 +429,6 @@ func (dao *blockDAO) putBlock(blk *Block) error {
 	}
 
 	if err = batch.Commit(); err != nil {
-		println(err)
 		return err
 	}
 
