@@ -152,6 +152,7 @@ var (
 		ValidateNetwork,
 		ValidateDelegate,
 		ValidateActPool,
+		ValidateChain,
 	}
 )
 
@@ -363,6 +364,17 @@ func ValidateAddr(cfg *Config) error {
 	return nil
 }
 
+// ValidateChain validates the chain configure
+func ValidateChain(cfg *Config) error {
+	if cfg.Chain.NumCandidates <= 0 {
+		return errors.Wrapf(ErrInvalidCfg, "candidate number should be greater than 0")
+	}
+	if cfg.Consensus.Scheme == RollDPoSScheme && cfg.Chain.NumCandidates < cfg.Consensus.RollDPoS.NumDelegates {
+		return errors.Wrapf(ErrInvalidCfg, "candidate number should be greater than or equal to delegate number")
+	}
+	return nil
+}
+
 // ValidateConsensusScheme validates the if scheme and node type match
 func ValidateConsensusScheme(cfg *Config) error {
 	switch cfg.NodeType {
@@ -393,6 +405,9 @@ func ValidateDispatcher(cfg *Config) error {
 func ValidateRollDPoS(cfg *Config) error {
 	if cfg.Consensus.Scheme == RollDPoSScheme && cfg.Consensus.RollDPoS.EventChanSize <= 0 {
 		return errors.Wrapf(ErrInvalidCfg, "roll-DPoS event chan size should be greater than 0")
+	}
+	if cfg.Consensus.Scheme == RollDPoSScheme && cfg.Consensus.RollDPoS.NumDelegates <= 0 {
+		return errors.Wrapf(ErrInvalidCfg, "roll-DPoS event delegate number should be greater than 0")
 	}
 	return nil
 }

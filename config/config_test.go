@@ -197,6 +197,31 @@ func TestValidateExplorer(t *testing.T) {
 	)
 }
 
+func TestValidateChain(t *testing.T) {
+	cfg := Default
+	cfg.Chain.NumCandidates = 0
+
+	err := ValidateChain(&cfg)
+	require.Error(t, err)
+	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
+	require.True(
+		t,
+		strings.Contains(err.Error(), "candidate number should be greater than 0"),
+	)
+
+	cfg.NodeType = DelegateType
+	cfg.Consensus.Scheme = RollDPoSScheme
+	cfg.Consensus.RollDPoS.NumDelegates = 5
+	cfg.Chain.NumCandidates = 3
+	err = ValidateChain(&cfg)
+	require.Error(t, err)
+	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
+	require.True(
+		t,
+		strings.Contains(err.Error(), "candidate number should be greater than or equal to delegate number"),
+	)
+}
+
 func TestValidateConsensusScheme(t *testing.T) {
 	cfg := Default
 	cfg.NodeType = FullNodeType
@@ -252,13 +277,23 @@ func TestValidateRollDPoS(t *testing.T) {
 		t,
 		strings.Contains(err.Error(), "roll-DPoS event chan size should be greater than 0"),
 	)
+
+	cfg.Consensus.RollDPoS.EventChanSize = 1
+	cfg.Consensus.RollDPoS.NumDelegates = 0
+	err = ValidateRollDPoS(&cfg)
+	require.NotNil(t, err)
+	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
+	require.True(
+		t,
+		strings.Contains(err.Error(), "roll-DPoS event delegate number should be greater than 0"),
+	)
 }
 
 func TestValidateNetwork(t *testing.T) {
 	cfg := Default
 	cfg.Network.PeerDiscovery = false
 	err := ValidateNetwork(&cfg)
-	require.NotNil(t, err)
+	require.Error(t, err)
 	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
 	require.True(
 		t,
