@@ -36,12 +36,6 @@ message TxPb {
 }
 
 message TransferPb {
-    // TransferPb should share these three fields with other Actions
-    // TODO: extract these three fields to ActionPb
-    uint32 version = 1;
-    uint64 nonce = 2;
-    bytes signature = 3;
-
     // used by state-based model
     bytes amount  = 4;
     string sender = 5;
@@ -52,12 +46,6 @@ message TransferPb {
 }
 
 message VotePb {
-    // VotePb should share these three fields with other Actions
-    // TODO: extract these three fields to ActionPb
-    uint32 version = 1;
-    uint64 nonce = 2;
-    bytes signature = 3;
-
     uint64 timestamp = 4;
     bytes selfPubkey = 5;
     bytes votePubkey = 6;  // the pubkey this node is voting for
@@ -69,6 +57,10 @@ message ActionPb {
         TransferPb transfer = 2;
         VotePb vote = 3;
     }
+
+    uint32 version = 4;
+    uint64 nonce = 5;
+    bytes signature = 6;
 }
 
 // header of a block
