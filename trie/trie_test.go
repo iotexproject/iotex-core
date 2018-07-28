@@ -27,7 +27,7 @@ func TestEmptyTrie(t *testing.T) {
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
-	tr, err := NewTrie(testTriePath, true)
+	tr, err := NewTrie(testTriePath, "test", true)
 	assert.Nil(err)
 	assert.Equal(tr.RootHash(), emptyRoot)
 	assert.Nil(tr.Close())
@@ -237,7 +237,7 @@ func Test1kEntries(t *testing.T) {
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
-	tr, err := NewTrie(testTriePath, false)
+	tr, err := NewTrie(testTriePath, "test", false)
 	assert.Nil(err)
 	root := emptyRoot
 	seed := time.Now().Nanosecond()
@@ -299,7 +299,7 @@ func TestPressure(t *testing.T) {
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
-	tr, err := NewTrie(testTriePath, true)
+	tr, err := NewTrie(testTriePath, "test", true)
 	assert.Nil(err)
 	root := emptyRoot
 	seed := time.Now().Nanosecond()
