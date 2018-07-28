@@ -66,12 +66,15 @@ type (
 
 	// factory implements StateFactory interface, tracks changes in a map and batch-commits to trie/db
 	factory struct {
+		// candidate pool
 		currentChainHeight     uint64
 		candidatesLRU          *lru.Cache
-		trie                   trie.Trie
 		candidateHeap          CandidateMinPQ
 		candidateBufferMinHeap CandidateMinPQ
 		candidateBufferMaxHeap CandidateMaxPQ
+		// accounts
+		cachedAccount map[string]*State // accounts being modified in this Tx
+		trie          trie.Trie         // global state trie
 	}
 )
 
@@ -125,6 +128,7 @@ func NewFactory(cfg *config.Config, opts ...FactoryOption) (Factory, error) {
 		candidateHeap:          CandidateMinPQ{int(cfg.Chain.NumCandidates), make([]*Candidate, 0)},
 		candidateBufferMinHeap: CandidateMinPQ{candidateBufferSize, make([]*Candidate, 0)},
 		candidateBufferMaxHeap: CandidateMaxPQ{candidateBufferSize, make([]*Candidate, 0)},
+		cachedAccount:          make(map[string]*State),
 	}
 
 	for _, opt := range opts {
@@ -145,7 +149,7 @@ func (sf *factory) CreateState(addr string, init uint64) (*State, error) {
 	balance := big.NewInt(0)
 	weight := big.NewInt(0)
 	balance.SetUint64(init)
-	s := State{Address: addr, Balance: balance, VotingWeight: weight}
+	s := State{Balance: balance, VotingWeight: weight}
 	mstate, err := stateToBytes(&s)
 	if err != nil {
 		return nil, err
@@ -186,24 +190,24 @@ func (sf *factory) RootHash() hash.Hash32B {
 
 // CommitStateChanges updates a State from the given actions
 func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer, vote []*action.Vote) error {
-	pending := make(map[hash.PKHash]*State)
 	addressToPKMap := make(map[string][]byte)
 
-	if err := sf.handleTsf(pending, addressToPKMap, tsf); err != nil {
+	if err := sf.handleTsf(addressToPKMap, tsf); err != nil {
 		return err
 	}
-	if err := sf.handleVote(pending, addressToPKMap, vote); err != nil {
+	if err := sf.handleVote(addressToPKMap, vote); err != nil {
 		return err
 	}
 
 	// construct <k, v> list of pending state
 	transferK := [][]byte{}
 	transferV := [][]byte{}
-	for pkhash, state := range pending {
+	for address, state := range sf.cachedAccount {
 		ss, err := stateToBytes(state)
 		if err != nil {
 			return err
 		}
+		pkhash := iotxaddress.GetPubkeyHash(address)
 		addr := make([]byte, len(pkhash))
 		copy(addr, pkhash[:])
 		transferK = append(transferK, addr)
@@ -212,21 +216,21 @@ func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer
 		// Perform vote update operation on candidate and delegate pools
 		if !state.IsCandidate {
 			// remove the candidate if the person is not a candidate anymore
-			sf.removeCandidate(state.Address)
+			sf.removeCandidate(address)
 			continue
 		}
 		totalWeight := big.NewInt(0)
 		totalWeight.Add(totalWeight, state.VotingWeight)
-		if state.Votee == state.Address {
+		if state.Votee == address {
 			totalWeight.Add(totalWeight, state.Balance)
 		}
-		if c, level := sf.inPool(state.Address); level > 0 {
+		if c, level := sf.inPool(address); level > 0 {
 			sf.updateVotes(c, totalWeight)
 			continue
 		}
-		if pubKey, ok := addressToPKMap[state.Address]; ok {
+		if pubKey, ok := addressToPKMap[address]; ok {
 			candidate := &Candidate{
-				Address:  state.Address,
+				Address:  address,
 				Votes:    totalWeight,
 				PubKey:   pubKey,
 				minIndex: 0,
@@ -377,35 +381,28 @@ func (sf *factory) inPool(address string) (*Candidate, int) {
 	return nil, 0
 }
 
-func (sf *factory) upsert(pending map[hash.PKHash]*State, address string) (*State, error) {
-	pkhash := iotxaddress.GetPubkeyHash(address)
-	if pkhash == nil {
-		return nil, ErrInvalidAddr
+func (sf *factory) cache(address string) (*State, error) {
+	if state, exist := sf.cachedAccount[address]; exist {
+		return state, nil
 	}
-	var tempPubKeyHash hash.PKHash
-	var err error
-	copy(tempPubKeyHash[:], pkhash)
-	state, exist := pending[tempPubKeyHash]
-	if !exist {
-		state, err = sf.getState(address)
-		switch {
-		case err == ErrAccountNotExist:
-			if state, err = sf.CreateState(address, 0); err != nil {
-				return nil, err
-			}
-		case err != nil:
+	state, err := sf.getState(address)
+	switch {
+	case err == ErrAccountNotExist:
+		if state, err = sf.CreateState(address, 0); err != nil {
 			return nil, err
 		}
-		pending[tempPubKeyHash] = state
+	case err != nil:
+		return nil, err
 	}
+	sf.cachedAccount[address] = state
 	return state, nil
 }
 
-func (sf *factory) handleTsf(pending map[hash.PKHash]*State, addressToPKMap map[string][]byte, tsf []*action.Transfer) error {
+func (sf *factory) handleTsf(addressToPKMap map[string][]byte, tsf []*action.Transfer) error {
 	for _, tx := range tsf {
 		if !tx.IsCoinbase {
 			// check sender
-			sender, err := sf.upsert(pending, tx.Sender)
+			sender, err := sf.cache(tx.Sender)
 			if err != nil {
 				return err
 			}
@@ -421,9 +418,9 @@ func (sf *factory) handleTsf(pending map[hash.PKHash]*State, addressToPKMap map[
 				sender.Nonce = tx.Nonce
 			}
 			// Update sender votes
-			if len(sender.Votee) > 0 && sender.Votee != sender.Address {
+			if len(sender.Votee) > 0 && sender.Votee != tx.Sender {
 				// sender already voted to a different person
-				voteeOfSender, err := sf.upsert(pending, sender.Votee)
+				voteeOfSender, err := sf.cache(sender.Votee)
 				if err != nil {
 					return err
 				}
@@ -431,7 +428,7 @@ func (sf *factory) handleTsf(pending map[hash.PKHash]*State, addressToPKMap map[
 			}
 		}
 		// check recipient
-		recipient, err := sf.upsert(pending, tx.Recipient)
+		recipient, err := sf.cache(tx.Recipient)
 		if err != nil {
 			return err
 		}
@@ -440,9 +437,9 @@ func (sf *factory) handleTsf(pending map[hash.PKHash]*State, addressToPKMap map[
 			return err
 		}
 		// Update recipient votes
-		if len(recipient.Votee) > 0 && recipient.Votee != recipient.Address {
+		if len(recipient.Votee) > 0 && recipient.Votee != tx.Recipient {
 			// recipient already voted to a different person
-			voteeOfRecipient, err := sf.upsert(pending, recipient.Votee)
+			voteeOfRecipient, err := sf.cache(recipient.Votee)
 			if err != nil {
 				return err
 			}
@@ -452,7 +449,7 @@ func (sf *factory) handleTsf(pending map[hash.PKHash]*State, addressToPKMap map[
 	return nil
 }
 
-func (sf *factory) handleVote(pending map[hash.PKHash]*State, addressToPKMap map[string][]byte, vote []*action.Vote) error {
+func (sf *factory) handleVote(addressToPKMap map[string][]byte, vote []*action.Vote) error {
 	for _, v := range vote {
 		selfPublicKey, err := v.SelfPublicKey()
 		if err != nil {
@@ -462,20 +459,20 @@ func (sf *factory) handleVote(pending map[hash.PKHash]*State, addressToPKMap map
 		if err != nil {
 			return err
 		}
-		voteFrom, err := sf.upsert(pending, selfAddress.RawAddress)
+		voteFrom, err := sf.cache(selfAddress.RawAddress)
 		if err != nil {
 			return err
 		}
-		addressToPKMap[voteFrom.Address] = v.SelfPubkey
+		addressToPKMap[selfAddress.RawAddress] = v.SelfPubkey
 
 		// update voteFrom nonce
 		if v.Nonce > voteFrom.Nonce {
 			voteFrom.Nonce = v.Nonce
 		}
 		// Update old votee's weight
-		if len(voteFrom.Votee) > 0 && voteFrom.Votee != voteFrom.Address {
+		if len(voteFrom.Votee) > 0 && voteFrom.Votee != selfAddress.RawAddress {
 			// voter already voted
-			oldVotee, err := sf.upsert(pending, voteFrom.Votee)
+			oldVotee, err := sf.cache(voteFrom.Votee)
 			if err != nil {
 				return err
 			}
@@ -501,18 +498,18 @@ func (sf *factory) handleVote(pending map[hash.PKHash]*State, addressToPKMap map
 		if err != nil {
 			return err
 		}
-		voteTo, err := sf.upsert(pending, voteAddress.RawAddress)
+		voteTo, err := sf.cache(voteAddress.RawAddress)
 		if err != nil {
 			return err
 		}
-		addressToPKMap[voteTo.Address] = v.VotePubkey
+		addressToPKMap[voteAddress.RawAddress] = v.VotePubkey
 
-		if voteFrom.Address != voteTo.Address {
+		if selfAddress.RawAddress != voteAddress.RawAddress {
 			// Voter votes to a different person
 			voteTo.VotingWeight.Add(voteTo.VotingWeight, voteFrom.Balance)
-			voteFrom.Votee = voteTo.Address
+			voteFrom.Votee = voteAddress.RawAddress
 		} else {
-			voteFrom.Votee = voteFrom.Address
+			voteFrom.Votee = selfAddress.RawAddress
 			voteFrom.IsCandidate = true
 		}
 	}

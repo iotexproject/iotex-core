@@ -34,14 +34,10 @@ const (
 
 func TestEncodeDecode(t *testing.T) {
 	require := require.New(t)
-	addr, err := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
-	require.Nil(err)
-
-	ss, _ := stateToBytes(&State{Address: addr.RawAddress, Nonce: 0x10})
+	ss, _ := stateToBytes(&State{Nonce: 0x10})
 	require.NotEmpty(ss)
 
 	state, _ := bytesToState(ss)
-	require.Equal(addr.RawAddress, state.Address)
 	require.Nil(state.Balance)
 	require.Equal(uint64(0x10), state.Nonce)
 	require.Equal(hash.ZeroHash32B, state.Root)
@@ -74,7 +70,6 @@ func TestCreateState(t *testing.T) {
 	state, _ := sf.CreateState(addr.RawAddress, 0)
 	require.Equal(uint64(0x0), state.Nonce)
 	require.Equal(big.NewInt(0), state.Balance)
-	require.Equal(addr.RawAddress, state.Address)
 }
 
 func TestBalance(t *testing.T) {
@@ -82,11 +77,9 @@ func TestBalance(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	addr, err := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
-	require.Nil(err)
-	state := &State{Address: addr.RawAddress, Balance: big.NewInt(20)}
+	state := &State{Balance: big.NewInt(20)}
 	// Add 10 to the balance
-	err = state.AddBalance(big.NewInt(10))
+	err := state.AddBalance(big.NewInt(10))
 	require.Nil(err)
 	// balance should == 30 now
 	require.Equal(0, state.Balance.Cmp(big.NewInt(30)))
@@ -104,7 +97,7 @@ func TestNonce(t *testing.T) {
 	// Add 10 so the balance should be 10
 	addr, err := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
 	require.Nil(err)
-	mstate, _ := stateToBytes(&State{Address: addr.RawAddress, Nonce: 0x10})
+	mstate, _ := stateToBytes(&State{Nonce: 0x10})
 	trie.EXPECT().Get(gomock.Any()).Times(1).Return(mstate, nil)
 	addr, err = iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
 	require.Nil(err)
@@ -245,6 +238,7 @@ func TestCandidate(t *testing.T) {
 		candidateHeap:          CandidateMinPQ{2, make([]*Candidate, 0)},
 		candidateBufferMinHeap: CandidateMinPQ{10, make([]*Candidate, 0)},
 		candidateBufferMaxHeap: CandidateMaxPQ{10, make([]*Candidate, 0)},
+		cachedAccount:          make(map[string]*State),
 	}
 	_, err := sf.CreateState(a.RawAddress, uint64(100))
 	require.NoError(t, err)
@@ -484,6 +478,7 @@ func TestUnvote(t *testing.T) {
 		candidateHeap:          CandidateMinPQ{2, make([]*Candidate, 0)},
 		candidateBufferMinHeap: CandidateMinPQ{10, make([]*Candidate, 0)},
 		candidateBufferMaxHeap: CandidateMaxPQ{10, make([]*Candidate, 0)},
+		cachedAccount:          make(map[string]*State),
 	}
 	_, err := sf.CreateState(a.RawAddress, uint64(100))
 	require.NoError(t, err)

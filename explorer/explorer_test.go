@@ -325,7 +325,6 @@ func TestService_StateByAddr(t *testing.T) {
 	s := state.State{
 		Balance:      big.NewInt(46),
 		Nonce:        uint64(0),
-		Address:      "123",
 		IsCandidate:  false,
 		VotingWeight: big.NewInt(100),
 		Votee:        "456",
@@ -338,7 +337,6 @@ func TestService_StateByAddr(t *testing.T) {
 	require.Nil(err)
 	require.Equal(big.NewInt(46), state.Balance)
 	require.Equal(uint64(0), state.Nonce)
-	require.Equal("123", state.Address)
 	require.Equal(false, state.IsCandidate)
 	require.Equal(big.NewInt(100), state.VotingWeight)
 	require.Equal("456", state.Votee)
