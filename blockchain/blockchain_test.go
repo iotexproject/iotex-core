@@ -503,7 +503,6 @@ func TestBlockchain_StateByAddr(t *testing.T) {
 	s, _ := bc.StateByAddr(Gen.CreatorAddr)
 	require.Equal(uint64(0), s.Nonce)
 	require.Equal(big.NewInt(9900000000), s.Balance)
-	require.Equal(Gen.CreatorAddr, s.Address)
 	require.Equal(false, s.IsCandidate)
 	require.Equal(big.NewInt(0), s.VotingWeight)
 	require.Equal("", s.Votee)

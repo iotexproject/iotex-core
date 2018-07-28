@@ -11,9 +11,9 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core-internal/blockchain/action"
-	"github.com/iotexproject/iotex-core-internal/crypto"
-	"github.com/iotexproject/iotex-core-internal/iotxaddress"
+	"github.com/iotexproject/iotex-core/blockchain/action"
+	"github.com/iotexproject/iotex-core/crypto"
+	"github.com/iotexproject/iotex-core/iotxaddress"
 )
 
 var (

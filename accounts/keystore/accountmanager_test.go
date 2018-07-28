@@ -13,11 +13,11 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core-internal/blockchain"
-	"github.com/iotexproject/iotex-core-internal/blockchain/action"
-	"github.com/iotexproject/iotex-core-internal/pkg/hash"
-	"github.com/iotexproject/iotex-core-internal/pkg/keypair"
-	"github.com/iotexproject/iotex-core-internal/testutil"
+	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/action"
+	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestAccountManager_NewAccount(t *testing.T) {
