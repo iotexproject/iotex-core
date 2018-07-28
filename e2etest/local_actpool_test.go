@@ -35,6 +35,7 @@ const (
 )
 
 func TestLocalActPool(t *testing.T) {
+	t.Skip()
 	require := require.New(t)
 
 	testutil.CleanupPath(t, testTriePath)
@@ -139,6 +140,7 @@ func TestLocalActPool(t *testing.T) {
 }
 
 func TestPressureActPool(t *testing.T) {
+	t.Skip()
 	require := require.New(t)
 
 	testutil.CleanupPath(t, testTriePath)
