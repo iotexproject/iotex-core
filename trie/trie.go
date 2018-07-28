@@ -19,7 +19,14 @@ import (
 )
 
 var (
-	trieKVNameSpace = "Trie"
+	// AccountKVNameSpace is the bucket name for account trie
+	AccountKVNameSpace  = "Account"
+
+	// CodeKVNameSpace is the bucket name for code
+	CodeKVNameSpace     = "Code"
+
+	// ContractKVNameSpace is the bucket name for contract data storage
+	ContractKVNameSpace = "Contract"
 
 	// ErrInvalidTrie indicates something wrong causing invalid operation
 	ErrInvalidTrie = errors.New("invalid trie operation")
@@ -62,7 +69,7 @@ type (
 )
 
 // NewTrie creates a trie with DB filename
-func NewTrie(path string, inMem bool) (Trie, error) {
+func NewTrie(path string, name string, inMem bool) (Trie, error) {
 	var kvStore db.KVStore
 	if inMem {
 		kvStore = db.NewMemKVStore()
@@ -75,7 +82,7 @@ func NewTrie(path string, inMem bool) (Trie, error) {
 	if err := kvStore.Start(context.Background()); err != nil {
 		return nil, err
 	}
-	return newTrie(kvStore)
+	return newTrie(kvStore, name)
 }
 
 // Close close the DB
@@ -435,8 +442,8 @@ func (t *trie) updateDelete(curr patricia, currClps bool, clpsType byte) error {
 // helper functions to operate patricia
 //======================================
 // newTrie creates a trie
-func newTrie(dao db.KVStore) (Trie, error) {
-	t := trie{dao: dao, root: &branch{}, toRoot: list.New(), bucket: trieKVNameSpace, numEntry: 1, numBranch: 1}
+func newTrie(dao db.KVStore, name string) (Trie, error) {
+	t := trie{dao: dao, root: &branch{}, toRoot: list.New(), bucket: name, numEntry: 1, numBranch: 1}
 	return &t, nil
 }
 

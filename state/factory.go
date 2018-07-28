@@ -97,7 +97,7 @@ func DefaultTrieOption() FactoryOption {
 		if len(dbPath) == 0 {
 			return errors.New("Invalid empty trie db path")
 		}
-		tr, err := trie.NewTrie(dbPath, false)
+		tr, err := trie.NewTrie(dbPath, trie.AccountKVNameSpace, false)
 		if err != nil {
 			return errors.Wrapf(err, "Failed to generate trie from config")
 		}
@@ -110,7 +110,7 @@ func DefaultTrieOption() FactoryOption {
 // InMemTrieOption creates in memory trie for state factory
 func InMemTrieOption() FactoryOption {
 	return func(sf *factory, cfg *config.Config) error {
-		tr, err := trie.NewTrie("", true)
+		tr, err := trie.NewTrie("", trie.AccountKVNameSpace, true)
 		if err != nil {
 			return errors.Wrapf(err, "Failed to initialize in-memory trie")
 		}

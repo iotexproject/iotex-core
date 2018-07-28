@@ -231,7 +231,7 @@ func TestCandidate(t *testing.T) {
 	f, _ := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
-	tr, _ := trie.NewTrie(testTriePath, false)
+	tr, _ := trie.NewTrie(testTriePath, "account", false)
 	sf := &factory{
 		trie:                   tr,
 		candidatesLRU:          lru.New(10),
@@ -471,7 +471,7 @@ func TestUnvote(t *testing.T) {
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
-	tr, _ := trie.NewTrie(testTriePath, false)
+	tr, _ := trie.NewTrie(testTriePath, "account", false)
 	sf := &factory{
 		trie:                   tr,
 		candidatesLRU:          lru.New(10),
