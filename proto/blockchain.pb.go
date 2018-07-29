@@ -44,212 +44,22 @@ func (x ViewChangeMsg_ViewChangeType) String() string {
 	return proto.EnumName(ViewChangeMsg_ViewChangeType_name, int32(x))
 }
 func (ViewChangeMsg_ViewChangeType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_blockchain_d07d911cc98f471b, []int{13, 0}
-}
-
-type TxInputPb struct {
-	TxHash               []byte   `protobuf:"bytes,1,opt,name=txHash,proto3" json:"txHash,omitempty"`
-	OutIndex             int32    `protobuf:"varint,2,opt,name=outIndex" json:"outIndex,omitempty"`
-	UnlockScriptSize     uint32   `protobuf:"varint,3,opt,name=unlockScriptSize" json:"unlockScriptSize,omitempty"`
-	UnlockScript         []byte   `protobuf:"bytes,4,opt,name=unlockScript,proto3" json:"unlockScript,omitempty"`
-	Sequence             uint32   `protobuf:"varint,5,opt,name=sequence" json:"sequence,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *TxInputPb) Reset()         { *m = TxInputPb{} }
-func (m *TxInputPb) String() string { return proto.CompactTextString(m) }
-func (*TxInputPb) ProtoMessage()    {}
-func (*TxInputPb) Descriptor() ([]byte, []int) {
-	return fileDescriptor_blockchain_d07d911cc98f471b, []int{0}
-}
-func (m *TxInputPb) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_TxInputPb.Unmarshal(m, b)
-}
-func (m *TxInputPb) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_TxInputPb.Marshal(b, m, deterministic)
-}
-func (dst *TxInputPb) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_TxInputPb.Merge(dst, src)
-}
-func (m *TxInputPb) XXX_Size() int {
-	return xxx_messageInfo_TxInputPb.Size(m)
-}
-func (m *TxInputPb) XXX_DiscardUnknown() {
-	xxx_messageInfo_TxInputPb.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_TxInputPb proto.InternalMessageInfo
-
-func (m *TxInputPb) GetTxHash() []byte {
-	if m != nil {
-		return m.TxHash
-	}
-	return nil
-}
-
-func (m *TxInputPb) GetOutIndex() int32 {
-	if m != nil {
-		return m.OutIndex
-	}
-	return 0
-}
-
-func (m *TxInputPb) GetUnlockScriptSize() uint32 {
-	if m != nil {
-		return m.UnlockScriptSize
-	}
-	return 0
-}
-
-func (m *TxInputPb) GetUnlockScript() []byte {
-	if m != nil {
-		return m.UnlockScript
-	}
-	return nil
-}
-
-func (m *TxInputPb) GetSequence() uint32 {
-	if m != nil {
-		return m.Sequence
-	}
-	return 0
-}
-
-// TxOutput stores “coins”. It is indivisible, which means that you cannot reference a part of its value.
-// When an output is referenced in a new transaction, it’s spent as a whole. And if its value is greater than required,
-// a change is generated and sent back to the sender.
-type TxOutputPb struct {
-	Value                uint64   `protobuf:"varint,1,opt,name=value" json:"value,omitempty"`
-	LockScriptSize       uint32   `protobuf:"varint,2,opt,name=lockScriptSize" json:"lockScriptSize,omitempty"`
-	LockScript           []byte   `protobuf:"bytes,3,opt,name=lockScript,proto3" json:"lockScript,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *TxOutputPb) Reset()         { *m = TxOutputPb{} }
-func (m *TxOutputPb) String() string { return proto.CompactTextString(m) }
-func (*TxOutputPb) ProtoMessage()    {}
-func (*TxOutputPb) Descriptor() ([]byte, []int) {
-	return fileDescriptor_blockchain_d07d911cc98f471b, []int{1}
-}
-func (m *TxOutputPb) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_TxOutputPb.Unmarshal(m, b)
-}
-func (m *TxOutputPb) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_TxOutputPb.Marshal(b, m, deterministic)
-}
-func (dst *TxOutputPb) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_TxOutputPb.Merge(dst, src)
-}
-func (m *TxOutputPb) XXX_Size() int {
-	return xxx_messageInfo_TxOutputPb.Size(m)
-}
-func (m *TxOutputPb) XXX_DiscardUnknown() {
-	xxx_messageInfo_TxOutputPb.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_TxOutputPb proto.InternalMessageInfo
-
-func (m *TxOutputPb) GetValue() uint64 {
-	if m != nil {
-		return m.Value
-	}
-	return 0
-}
-
-func (m *TxOutputPb) GetLockScriptSize() uint32 {
-	if m != nil {
-		return m.LockScriptSize
-	}
-	return 0
-}
-
-func (m *TxOutputPb) GetLockScript() []byte {
-	if m != nil {
-		return m.LockScript
-	}
-	return nil
-}
-
-type TxPb struct {
-	Version  uint32 `protobuf:"varint,1,opt,name=version" json:"version,omitempty"`
-	LockTime uint32 `protobuf:"varint,2,opt,name=lockTime" json:"lockTime,omitempty"`
-	// used by utxo-based model
-	TxIn                 []*TxInputPb  `protobuf:"bytes,21,rep,name=txIn" json:"txIn,omitempty"`
-	TxOut                []*TxOutputPb `protobuf:"bytes,22,rep,name=txOut" json:"txOut,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
-	XXX_unrecognized     []byte        `json:"-"`
-	XXX_sizecache        int32         `json:"-"`
-}
-
-func (m *TxPb) Reset()         { *m = TxPb{} }
-func (m *TxPb) String() string { return proto.CompactTextString(m) }
-func (*TxPb) ProtoMessage()    {}
-func (*TxPb) Descriptor() ([]byte, []int) {
-	return fileDescriptor_blockchain_d07d911cc98f471b, []int{2}
-}
-func (m *TxPb) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_TxPb.Unmarshal(m, b)
-}
-func (m *TxPb) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_TxPb.Marshal(b, m, deterministic)
-}
-func (dst *TxPb) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_TxPb.Merge(dst, src)
-}
-func (m *TxPb) XXX_Size() int {
-	return xxx_messageInfo_TxPb.Size(m)
-}
-func (m *TxPb) XXX_DiscardUnknown() {
-	xxx_messageInfo_TxPb.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_TxPb proto.InternalMessageInfo
-
-func (m *TxPb) GetVersion() uint32 {
-	if m != nil {
-		return m.Version
-	}
-	return 0
-}
-
-func (m *TxPb) GetLockTime() uint32 {
-	if m != nil {
-		return m.LockTime
-	}
-	return 0
-}
-
-func (m *TxPb) GetTxIn() []*TxInputPb {
-	if m != nil {
-		return m.TxIn
-	}
-	return nil
-}
-
-func (m *TxPb) GetTxOut() []*TxOutputPb {
-	if m != nil {
-		return m.TxOut
-	}
-	return nil
+	return fileDescriptor_blockchain_589eeb1fb3039bc5, []int{10, 0}
 }
 
 type TransferPb struct {
 	// TransferPb should share these three fields with other Actions
 	// TODO: extract these three fields to ActionPb
-	Version   uint32 `protobuf:"varint,1,opt,name=version" json:"version,omitempty"`
-	Nonce     uint64 `protobuf:"varint,2,opt,name=nonce" json:"nonce,omitempty"`
+	Version   uint32 `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
+	Nonce     uint64 `protobuf:"varint,2,opt,name=nonce,proto3" json:"nonce,omitempty"`
 	Signature []byte `protobuf:"bytes,3,opt,name=signature,proto3" json:"signature,omitempty"`
 	// used by state-based model
 	Amount               []byte   `protobuf:"bytes,4,opt,name=amount,proto3" json:"amount,omitempty"`
-	Sender               string   `protobuf:"bytes,5,opt,name=sender" json:"sender,omitempty"`
-	Recipient            string   `protobuf:"bytes,6,opt,name=recipient" json:"recipient,omitempty"`
+	Sender               string   `protobuf:"bytes,5,opt,name=sender,proto3" json:"sender,omitempty"`
+	Recipient            string   `protobuf:"bytes,6,opt,name=recipient,proto3" json:"recipient,omitempty"`
 	Payload              []byte   `protobuf:"bytes,7,opt,name=payload,proto3" json:"payload,omitempty"`
 	SenderPubKey         []byte   `protobuf:"bytes,8,opt,name=senderPubKey,proto3" json:"senderPubKey,omitempty"`
-	IsCoinbase           bool     `protobuf:"varint,9,opt,name=isCoinbase" json:"isCoinbase,omitempty"`
+	IsCoinbase           bool     `protobuf:"varint,9,opt,name=isCoinbase,proto3" json:"isCoinbase,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -259,7 +69,7 @@ func (m *TransferPb) Reset()         { *m = TransferPb{} }
 func (m *TransferPb) String() string { return proto.CompactTextString(m) }
 func (*TransferPb) ProtoMessage()    {}
 func (*TransferPb) Descriptor() ([]byte, []int) {
-	return fileDescriptor_blockchain_d07d911cc98f471b, []int{3}
+	return fileDescriptor_blockchain_589eeb1fb3039bc5, []int{0}
 }
 func (m *TransferPb) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_TransferPb.Unmarshal(m, b)
@@ -345,10 +155,10 @@ func (m *TransferPb) GetIsCoinbase() bool {
 type VotePb struct {
 	// VotePb should share these three fields with other Actions
 	// TODO: extract these three fields to ActionPb
-	Version              uint32   `protobuf:"varint,1,opt,name=version" json:"version,omitempty"`
-	Nonce                uint64   `protobuf:"varint,2,opt,name=nonce" json:"nonce,omitempty"`
+	Version              uint32   `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
+	Nonce                uint64   `protobuf:"varint,2,opt,name=nonce,proto3" json:"nonce,omitempty"`
 	Signature            []byte   `protobuf:"bytes,3,opt,name=signature,proto3" json:"signature,omitempty"`
-	Timestamp            uint64   `protobuf:"varint,4,opt,name=timestamp" json:"timestamp,omitempty"`
+	Timestamp            uint64   `protobuf:"varint,4,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
 	SelfPubkey           []byte   `protobuf:"bytes,5,opt,name=selfPubkey,proto3" json:"selfPubkey,omitempty"`
 	VotePubkey           []byte   `protobuf:"bytes,6,opt,name=votePubkey,proto3" json:"votePubkey,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -360,7 +170,7 @@ func (m *VotePb) Reset()         { *m = VotePb{} }
 func (m *VotePb) String() string { return proto.CompactTextString(m) }
 func (*VotePb) ProtoMessage()    {}
 func (*VotePb) Descriptor() ([]byte, []int) {
-	return fileDescriptor_blockchain_d07d911cc98f471b, []int{4}
+	return fileDescriptor_blockchain_589eeb1fb3039bc5, []int{1}
 }
 func (m *VotePb) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_VotePb.Unmarshal(m, b)
@@ -423,8 +233,10 @@ func (m *VotePb) GetVotePubkey() []byte {
 }
 
 type ActionPb struct {
+	Version   uint32 `protobuf:"varint,4,opt,name=version,proto3" json:"version,omitempty"`
+	Nonce     uint64 `protobuf:"varint,5,opt,name=nonce,proto3" json:"nonce,omitempty"`
+	Signature []byte `protobuf:"bytes,6,opt,name=signature,proto3" json:"signature,omitempty"`
 	// Types that are valid to be assigned to Action:
-	//	*ActionPb_Tx
 	//	*ActionPb_Transfer
 	//	*ActionPb_Vote
 	Action               isActionPb_Action `protobuf_oneof:"action"`
@@ -437,7 +249,7 @@ func (m *ActionPb) Reset()         { *m = ActionPb{} }
 func (m *ActionPb) String() string { return proto.CompactTextString(m) }
 func (*ActionPb) ProtoMessage()    {}
 func (*ActionPb) Descriptor() ([]byte, []int) {
-	return fileDescriptor_blockchain_d07d911cc98f471b, []int{5}
+	return fileDescriptor_blockchain_589eeb1fb3039bc5, []int{2}
 }
 func (m *ActionPb) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ActionPb.Unmarshal(m, b)
@@ -457,34 +269,46 @@ func (m *ActionPb) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_ActionPb proto.InternalMessageInfo
 
-type isActionPb_Action interface {
-	isActionPb_Action()
-}
-
-type ActionPb_Tx struct {
-	Tx *TxPb `protobuf:"bytes,1,opt,name=tx,oneof"`
-}
-type ActionPb_Transfer struct {
-	Transfer *TransferPb `protobuf:"bytes,2,opt,name=transfer,oneof"`
-}
-type ActionPb_Vote struct {
-	Vote *VotePb `protobuf:"bytes,3,opt,name=vote,oneof"`
-}
-
-func (*ActionPb_Tx) isActionPb_Action()       {}
-func (*ActionPb_Transfer) isActionPb_Action() {}
-func (*ActionPb_Vote) isActionPb_Action()     {}
-
-func (m *ActionPb) GetAction() isActionPb_Action {
+func (m *ActionPb) GetVersion() uint32 {
 	if m != nil {
-		return m.Action
+		return m.Version
+	}
+	return 0
+}
+
+func (m *ActionPb) GetNonce() uint64 {
+	if m != nil {
+		return m.Nonce
+	}
+	return 0
+}
+
+func (m *ActionPb) GetSignature() []byte {
+	if m != nil {
+		return m.Signature
 	}
 	return nil
 }
 
-func (m *ActionPb) GetTx() *TxPb {
-	if x, ok := m.GetAction().(*ActionPb_Tx); ok {
-		return x.Tx
+type isActionPb_Action interface {
+	isActionPb_Action()
+}
+
+type ActionPb_Transfer struct {
+	Transfer *TransferPb `protobuf:"bytes,2,opt,name=transfer,proto3,oneof"`
+}
+
+type ActionPb_Vote struct {
+	Vote *VotePb `protobuf:"bytes,3,opt,name=vote,proto3,oneof"`
+}
+
+func (*ActionPb_Transfer) isActionPb_Action() {}
+
+func (*ActionPb_Vote) isActionPb_Action() {}
+
+func (m *ActionPb) GetAction() isActionPb_Action {
+	if m != nil {
+		return m.Action
 	}
 	return nil
 }
@@ -506,7 +330,6 @@ func (m *ActionPb) GetVote() *VotePb {
 // XXX_OneofFuncs is for the internal use of the proto package.
 func (*ActionPb) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
 	return _ActionPb_OneofMarshaler, _ActionPb_OneofUnmarshaler, _ActionPb_OneofSizer, []interface{}{
-		(*ActionPb_Tx)(nil),
 		(*ActionPb_Transfer)(nil),
 		(*ActionPb_Vote)(nil),
 	}
@@ -516,11 +339,6 @@ func _ActionPb_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
 	m := msg.(*ActionPb)
 	// action
 	switch x := m.Action.(type) {
-	case *ActionPb_Tx:
-		b.EncodeVarint(1<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Tx); err != nil {
-			return err
-		}
 	case *ActionPb_Transfer:
 		b.EncodeVarint(2<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.Transfer); err != nil {
@@ -541,14 +359,6 @@ func _ActionPb_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
 func _ActionPb_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
 	m := msg.(*ActionPb)
 	switch tag {
-	case 1: // action.tx
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(TxPb)
-		err := b.DecodeMessage(msg)
-		m.Action = &ActionPb_Tx{msg}
-		return true, err
 	case 2: // action.transfer
 		if wire != proto.WireBytes {
 			return true, proto.ErrInternalBadWireType
@@ -574,11 +384,6 @@ func _ActionPb_OneofSizer(msg proto.Message) (n int) {
 	m := msg.(*ActionPb)
 	// action
 	switch x := m.Action.(type) {
-	case *ActionPb_Tx:
-		s := proto.Size(x.Tx)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
 	case *ActionPb_Transfer:
 		s := proto.Size(x.Transfer)
 		n += 1 // tag and wire
@@ -598,15 +403,15 @@ func _ActionPb_OneofSizer(msg proto.Message) (n int) {
 
 // header of a block
 type BlockHeaderPb struct {
-	Version              uint32   `protobuf:"varint,1,opt,name=version" json:"version,omitempty"`
-	ChainID              uint32   `protobuf:"varint,2,opt,name=chainID" json:"chainID,omitempty"`
-	Height               uint64   `protobuf:"varint,3,opt,name=height" json:"height,omitempty"`
-	Timestamp            uint64   `protobuf:"varint,4,opt,name=timestamp" json:"timestamp,omitempty"`
+	Version              uint32   `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
+	ChainID              uint32   `protobuf:"varint,2,opt,name=chainID,proto3" json:"chainID,omitempty"`
+	Height               uint64   `protobuf:"varint,3,opt,name=height,proto3" json:"height,omitempty"`
+	Timestamp            uint64   `protobuf:"varint,4,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
 	PrevBlockHash        []byte   `protobuf:"bytes,5,opt,name=prevBlockHash,proto3" json:"prevBlockHash,omitempty"`
 	TxRoot               []byte   `protobuf:"bytes,6,opt,name=txRoot,proto3" json:"txRoot,omitempty"`
 	StateRoot            []byte   `protobuf:"bytes,7,opt,name=stateRoot,proto3" json:"stateRoot,omitempty"`
-	TrnxNumber           uint32   `protobuf:"varint,8,opt,name=trnxNumber" json:"trnxNumber,omitempty"`
-	TrnxDataSize         uint32   `protobuf:"varint,9,opt,name=trnxDataSize" json:"trnxDataSize,omitempty"`
+	TrnxNumber           uint32   `protobuf:"varint,8,opt,name=trnxNumber,proto3" json:"trnxNumber,omitempty"`
+	TrnxDataSize         uint32   `protobuf:"varint,9,opt,name=trnxDataSize,proto3" json:"trnxDataSize,omitempty"`
 	Signature            []byte   `protobuf:"bytes,10,opt,name=signature,proto3" json:"signature,omitempty"`
 	Pubkey               []byte   `protobuf:"bytes,11,opt,name=pubkey,proto3" json:"pubkey,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -618,7 +423,7 @@ func (m *BlockHeaderPb) Reset()         { *m = BlockHeaderPb{} }
 func (m *BlockHeaderPb) String() string { return proto.CompactTextString(m) }
 func (*BlockHeaderPb) ProtoMessage()    {}
 func (*BlockHeaderPb) Descriptor() ([]byte, []int) {
-	return fileDescriptor_blockchain_d07d911cc98f471b, []int{6}
+	return fileDescriptor_blockchain_589eeb1fb3039bc5, []int{3}
 }
 func (m *BlockHeaderPb) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_BlockHeaderPb.Unmarshal(m, b)
@@ -718,8 +523,8 @@ func (m *BlockHeaderPb) GetPubkey() []byte {
 // block consists of header followed by transactions
 // hash of current block can be computed from header hence not stored
 type BlockPb struct {
-	Header               *BlockHeaderPb `protobuf:"bytes,1,opt,name=header" json:"header,omitempty"`
-	Actions              []*ActionPb    `protobuf:"bytes,2,rep,name=actions" json:"actions,omitempty"`
+	Header               *BlockHeaderPb `protobuf:"bytes,1,opt,name=header,proto3" json:"header,omitempty"`
+	Actions              []*ActionPb    `protobuf:"bytes,2,rep,name=actions,proto3" json:"actions,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}       `json:"-"`
 	XXX_unrecognized     []byte         `json:"-"`
 	XXX_sizecache        int32          `json:"-"`
@@ -729,7 +534,7 @@ func (m *BlockPb) Reset()         { *m = BlockPb{} }
 func (m *BlockPb) String() string { return proto.CompactTextString(m) }
 func (*BlockPb) ProtoMessage()    {}
 func (*BlockPb) Descriptor() ([]byte, []int) {
-	return fileDescriptor_blockchain_d07d911cc98f471b, []int{7}
+	return fileDescriptor_blockchain_589eeb1fb3039bc5, []int{4}
 }
 func (m *BlockPb) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_BlockPb.Unmarshal(m, b)
@@ -765,9 +570,9 @@ func (m *BlockPb) GetActions() []*ActionPb {
 
 // index of block raw data file
 type BlockIndex struct {
-	Start                uint64   `protobuf:"varint,1,opt,name=start" json:"start,omitempty"`
-	End                  uint64   `protobuf:"varint,2,opt,name=end" json:"end,omitempty"`
-	Offset               []uint32 `protobuf:"varint,3,rep,packed,name=offset" json:"offset,omitempty"`
+	Start                uint64   `protobuf:"varint,1,opt,name=start,proto3" json:"start,omitempty"`
+	End                  uint64   `protobuf:"varint,2,opt,name=end,proto3" json:"end,omitempty"`
+	Offset               []uint32 `protobuf:"varint,3,rep,packed,name=offset,proto3" json:"offset,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -777,7 +582,7 @@ func (m *BlockIndex) Reset()         { *m = BlockIndex{} }
 func (m *BlockIndex) String() string { return proto.CompactTextString(m) }
 func (*BlockIndex) ProtoMessage()    {}
 func (*BlockIndex) Descriptor() ([]byte, []int) {
-	return fileDescriptor_blockchain_d07d911cc98f471b, []int{8}
+	return fileDescriptor_blockchain_589eeb1fb3039bc5, []int{5}
 }
 func (m *BlockIndex) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_BlockIndex.Unmarshal(m, b)
@@ -822,7 +627,7 @@ func (m *BlockIndex) GetOffset() []uint32 {
 // BELOW ARE DEFINITIONS FOR ON-WIRE MESSAGES!
 // //////////////////////////////////////////////////////////////////////////////////////////////////
 type PingMsg struct {
-	Nonce                uint64   `protobuf:"varint,1,opt,name=nonce" json:"nonce,omitempty"`
+	Nonce                uint64   `protobuf:"varint,1,opt,name=nonce,proto3" json:"nonce,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -832,7 +637,7 @@ func (m *PingMsg) Reset()         { *m = PingMsg{} }
 func (m *PingMsg) String() string { return proto.CompactTextString(m) }
 func (*PingMsg) ProtoMessage()    {}
 func (*PingMsg) Descriptor() ([]byte, []int) {
-	return fileDescriptor_blockchain_d07d911cc98f471b, []int{9}
+	return fileDescriptor_blockchain_589eeb1fb3039bc5, []int{6}
 }
 func (m *PingMsg) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PingMsg.Unmarshal(m, b)
@@ -860,7 +665,7 @@ func (m *PingMsg) GetNonce() uint64 {
 }
 
 type PongMsg struct {
-	AckNonce             uint64   `protobuf:"varint,1,opt,name=ack_nonce,json=ackNonce" json:"ack_nonce,omitempty"`
+	AckNonce             uint64   `protobuf:"varint,1,opt,name=ack_nonce,json=ackNonce,proto3" json:"ack_nonce,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -870,7 +675,7 @@ func (m *PongMsg) Reset()         { *m = PongMsg{} }
 func (m *PongMsg) String() string { return proto.CompactTextString(m) }
 func (*PongMsg) ProtoMessage()    {}
 func (*PongMsg) Descriptor() ([]byte, []int) {
-	return fileDescriptor_blockchain_d07d911cc98f471b, []int{10}
+	return fileDescriptor_blockchain_589eeb1fb3039bc5, []int{7}
 }
 func (m *PongMsg) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PongMsg.Unmarshal(m, b)
@@ -898,8 +703,8 @@ func (m *PongMsg) GetAckNonce() uint64 {
 }
 
 type BlockSync struct {
-	Start                uint64   `protobuf:"varint,2,opt,name=start" json:"start,omitempty"`
-	End                  uint64   `protobuf:"varint,3,opt,name=end" json:"end,omitempty"`
+	Start                uint64   `protobuf:"varint,2,opt,name=start,proto3" json:"start,omitempty"`
+	End                  uint64   `protobuf:"varint,3,opt,name=end,proto3" json:"end,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -909,7 +714,7 @@ func (m *BlockSync) Reset()         { *m = BlockSync{} }
 func (m *BlockSync) String() string { return proto.CompactTextString(m) }
 func (*BlockSync) ProtoMessage()    {}
 func (*BlockSync) Descriptor() ([]byte, []int) {
-	return fileDescriptor_blockchain_d07d911cc98f471b, []int{11}
+	return fileDescriptor_blockchain_589eeb1fb3039bc5, []int{8}
 }
 func (m *BlockSync) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_BlockSync.Unmarshal(m, b)
@@ -946,7 +751,7 @@ func (m *BlockSync) GetEnd() uint64 {
 // block container
 // used to send old/existing blocks in block sync
 type BlockContainer struct {
-	Block                *BlockPb `protobuf:"bytes,1,opt,name=block" json:"block,omitempty"`
+	Block                *BlockPb `protobuf:"bytes,1,opt,name=block,proto3" json:"block,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -956,7 +761,7 @@ func (m *BlockContainer) Reset()         { *m = BlockContainer{} }
 func (m *BlockContainer) String() string { return proto.CompactTextString(m) }
 func (*BlockContainer) ProtoMessage()    {}
 func (*BlockContainer) Descriptor() ([]byte, []int) {
-	return fileDescriptor_blockchain_d07d911cc98f471b, []int{12}
+	return fileDescriptor_blockchain_589eeb1fb3039bc5, []int{9}
 }
 func (m *BlockContainer) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_BlockContainer.Unmarshal(m, b)
@@ -984,11 +789,11 @@ func (m *BlockContainer) GetBlock() *BlockPb {
 }
 
 type ViewChangeMsg struct {
-	Vctype               ViewChangeMsg_ViewChangeType `protobuf:"varint,1,opt,name=vctype,enum=iproto.ViewChangeMsg_ViewChangeType" json:"vctype,omitempty"`
-	Block                *BlockPb                     `protobuf:"bytes,2,opt,name=block" json:"block,omitempty"`
+	Vctype               ViewChangeMsg_ViewChangeType `protobuf:"varint,1,opt,name=vctype,proto3,enum=iproto.ViewChangeMsg_ViewChangeType" json:"vctype,omitempty"`
+	Block                *BlockPb                     `protobuf:"bytes,2,opt,name=block,proto3" json:"block,omitempty"`
 	BlockHash            []byte                       `protobuf:"bytes,3,opt,name=blockHash,proto3" json:"blockHash,omitempty"`
-	SenderAddr           string                       `protobuf:"bytes,4,opt,name=senderAddr" json:"senderAddr,omitempty"`
-	Decision             bool                         `protobuf:"varint,5,opt,name=decision" json:"decision,omitempty"`
+	SenderAddr           string                       `protobuf:"bytes,4,opt,name=senderAddr,proto3" json:"senderAddr,omitempty"`
+	Decision             bool                         `protobuf:"varint,5,opt,name=decision,proto3" json:"decision,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                     `json:"-"`
 	XXX_unrecognized     []byte                       `json:"-"`
 	XXX_sizecache        int32                        `json:"-"`
@@ -998,7 +803,7 @@ func (m *ViewChangeMsg) Reset()         { *m = ViewChangeMsg{} }
 func (m *ViewChangeMsg) String() string { return proto.CompactTextString(m) }
 func (*ViewChangeMsg) ProtoMessage()    {}
 func (*ViewChangeMsg) Descriptor() ([]byte, []int) {
-	return fileDescriptor_blockchain_d07d911cc98f471b, []int{13}
+	return fileDescriptor_blockchain_589eeb1fb3039bc5, []int{10}
 }
 func (m *ViewChangeMsg) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ViewChangeMsg.Unmarshal(m, b)
@@ -1067,7 +872,7 @@ func (m *TestPayload) Reset()         { *m = TestPayload{} }
 func (m *TestPayload) String() string { return proto.CompactTextString(m) }
 func (*TestPayload) ProtoMessage()    {}
 func (*TestPayload) Descriptor() ([]byte, []int) {
-	return fileDescriptor_blockchain_d07d911cc98f471b, []int{14}
+	return fileDescriptor_blockchain_589eeb1fb3039bc5, []int{11}
 }
 func (m *TestPayload) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_TestPayload.Unmarshal(m, b)
@@ -1095,9 +900,6 @@ func (m *TestPayload) GetMsgBody() []byte {
 }
 
 func init() {
-	proto.RegisterType((*TxInputPb)(nil), "iproto.TxInputPb")
-	proto.RegisterType((*TxOutputPb)(nil), "iproto.TxOutputPb")
-	proto.RegisterType((*TxPb)(nil), "iproto.TxPb")
 	proto.RegisterType((*TransferPb)(nil), "iproto.TransferPb")
 	proto.RegisterType((*VotePb)(nil), "iproto.VotePb")
 	proto.RegisterType((*ActionPb)(nil), "iproto.ActionPb")
@@ -1113,69 +915,58 @@ func init() {
 	proto.RegisterEnum("iproto.ViewChangeMsg_ViewChangeType", ViewChangeMsg_ViewChangeType_name, ViewChangeMsg_ViewChangeType_value)
 }
 
-func init() { proto.RegisterFile("blockchain.proto", fileDescriptor_blockchain_d07d911cc98f471b) }
+func init() { proto.RegisterFile("blockchain.proto", fileDescriptor_blockchain_589eeb1fb3039bc5) }
 
-var fileDescriptor_blockchain_d07d911cc98f471b = []byte{
-	// 962 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x55, 0xcd, 0x6e, 0xe3, 0x36,
-	0x17, 0x8d, 0xe4, 0x1f, 0xd9, 0xd7, 0x71, 0x3e, 0x7f, 0x44, 0x66, 0xa0, 0xb6, 0xc1, 0x34, 0x10,
-	0x32, 0x03, 0x63, 0x80, 0x06, 0x45, 0x66, 0xd1, 0x4d, 0x37, 0xf9, 0x31, 0x6a, 0xa3, 0xd3, 0x44,
-	0x60, 0x0c, 0x17, 0x5d, 0x19, 0x94, 0xc4, 0xd8, 0x6a, 0x62, 0x4a, 0x95, 0x28, 0xd7, 0xee, 0x03,
-	0x74, 0xd5, 0xbe, 0x44, 0xb7, 0xdd, 0xf6, 0x3d, 0xfa, 0x4a, 0x05, 0x2f, 0x29, 0x59, 0x9e, 0x0e,
-	0x66, 0x36, 0x5d, 0xd9, 0xe7, 0xf0, 0x8a, 0xf7, 0xf0, 0xde, 0xc3, 0x4b, 0x18, 0x04, 0x4f, 0x49,
-	0xf8, 0x18, 0x2e, 0x59, 0x2c, 0xce, 0xd3, 0x2c, 0x91, 0x09, 0x69, 0xc7, 0xf8, 0xeb, 0xfd, 0x69,
-	0x41, 0x77, 0xba, 0x99, 0x88, 0xb4, 0x90, 0x7e, 0x40, 0x9e, 0x43, 0x5b, 0x6e, 0xc6, 0x2c, 0x5f,
-	0xba, 0xd6, 0xa9, 0x35, 0x3c, 0xa4, 0x06, 0x91, 0x4f, 0xa1, 0x93, 0x14, 0x72, 0x22, 0x22, 0xbe,
-	0x71, 0xed, 0x53, 0x6b, 0xd8, 0xa2, 0x15, 0x26, 0xaf, 0x61, 0x50, 0x08, 0xb5, 0xfd, 0x7d, 0x98,
-	0xc5, 0xa9, 0xbc, 0x8f, 0x7f, 0xe1, 0x6e, 0xe3, 0xd4, 0x1a, 0xf6, 0xe9, 0xbf, 0x78, 0xe2, 0xc1,
-	0x61, 0x9d, 0x73, 0x9b, 0x98, 0x65, 0x8f, 0x53, 0xb9, 0x72, 0xfe, 0x53, 0xc1, 0x45, 0xc8, 0xdd,
-	0x16, 0xee, 0x53, 0x61, 0xef, 0x47, 0x80, 0xe9, 0xe6, 0xae, 0x90, 0x5a, 0xed, 0x31, 0xb4, 0xd6,
-	0xec, 0xa9, 0xe0, 0x28, 0xb6, 0x49, 0x35, 0x20, 0xaf, 0xe0, 0xe8, 0x1d, 0x35, 0x36, 0xee, 0xf2,
-	0x0e, 0x4b, 0x5e, 0x00, 0xd4, 0x94, 0x34, 0x50, 0x49, 0x8d, 0xf1, 0x7e, 0xb7, 0xa0, 0x39, 0xdd,
-	0xf8, 0x01, 0x71, 0xc1, 0x59, 0xf3, 0x2c, 0x8f, 0x13, 0x81, 0x89, 0xfa, 0xb4, 0x84, 0x4a, 0xaa,
-	0xfa, 0x60, 0x1a, 0xaf, 0xca, 0x24, 0x15, 0x26, 0x2f, 0xa1, 0x29, 0x37, 0x13, 0xe1, 0x3e, 0x3b,
-	0x6d, 0x0c, 0x7b, 0x17, 0xff, 0x3f, 0xd7, 0xf5, 0x3e, 0xaf, 0x6a, 0x4d, 0x71, 0x99, 0x0c, 0xa1,
-	0x25, 0xd5, 0x89, 0xdc, 0xe7, 0x18, 0x47, 0x76, 0x71, 0xe5, 0x31, 0xa9, 0x0e, 0xf0, 0x7e, 0xb5,
-	0x01, 0xa6, 0x19, 0x13, 0xf9, 0x03, 0xcf, 0x3e, 0xa8, 0xea, 0x18, 0x5a, 0x22, 0x51, 0xd5, 0xb3,
-	0x75, 0x59, 0x10, 0x90, 0x13, 0xe8, 0xe6, 0xf1, 0x42, 0x30, 0x59, 0x64, 0xdc, 0x9c, 0x76, 0x47,
-	0xa8, 0xc6, 0xb3, 0x55, 0x52, 0x88, 0xb2, 0x25, 0x06, 0x29, 0x3e, 0xe7, 0x22, 0xe2, 0x19, 0xb6,
-	0xa2, 0x4b, 0x0d, 0x52, 0xbb, 0x65, 0x3c, 0x8c, 0xd3, 0x98, 0x0b, 0xe9, 0xb6, 0x71, 0x69, 0x47,
-	0x28, 0x6d, 0x29, 0xdb, 0x3e, 0x25, 0x2c, 0x72, 0x1d, 0xdc, 0xae, 0x84, 0xca, 0x00, 0x7a, 0x07,
-	0xbf, 0x08, 0xbe, 0xe5, 0x5b, 0xb7, 0xa3, 0x0d, 0x50, 0xe7, 0x54, 0x63, 0xe2, 0xfc, 0x3a, 0x89,
-	0x45, 0xc0, 0x72, 0xee, 0x76, 0x4f, 0xad, 0x61, 0x87, 0xd6, 0x18, 0xef, 0x2f, 0x0b, 0xda, 0xb3,
-	0x44, 0xf2, 0xff, 0xbc, 0x08, 0x27, 0xd0, 0x95, 0xf1, 0x8a, 0xe7, 0x92, 0xad, 0x52, 0xac, 0x43,
-	0x93, 0xee, 0x08, 0x25, 0x2b, 0xe7, 0x4f, 0x0f, 0x7e, 0x11, 0x3c, 0xf2, 0x2d, 0x96, 0xe3, 0x90,
-	0xd6, 0x18, 0xb5, 0xbe, 0x56, 0xaa, 0xf4, 0x7a, 0x5b, 0xaf, 0xef, 0x18, 0xef, 0x37, 0x0b, 0x3a,
-	0x97, 0xa1, 0x8c, 0x13, 0xe1, 0x07, 0xe4, 0x05, 0xd8, 0x72, 0x83, 0x9a, 0x7b, 0x17, 0x87, 0xbb,
-	0x9e, 0xfb, 0xc1, 0xf8, 0x80, 0xda, 0x72, 0x43, 0xbe, 0x84, 0x8e, 0x34, 0xbd, 0xc6, 0x13, 0xd4,
-	0x9d, 0x51, 0x79, 0x60, 0x7c, 0x40, 0xab, 0x28, 0x72, 0x06, 0x4d, 0x95, 0x0c, 0x4f, 0xd5, 0xbb,
-	0x38, 0x2a, 0xa3, 0x75, 0xa1, 0xc6, 0x07, 0x14, 0x57, 0xaf, 0x3a, 0xd0, 0x66, 0xa8, 0xc1, 0xfb,
-	0xdb, 0x86, 0xfe, 0x95, 0x72, 0xeb, 0x98, 0xb3, 0xe8, 0x23, 0x8e, 0x72, 0xc1, 0xc1, 0xd9, 0x31,
-	0xb9, 0x31, 0x36, 0x2f, 0xa1, 0xf2, 0xc7, 0x92, 0xc7, 0x8b, 0xa5, 0xbe, 0x40, 0x4d, 0x6a, 0xd0,
-	0x47, 0x4a, 0x79, 0x06, 0xfd, 0x34, 0xe3, 0x6b, 0x9d, 0x5e, 0x4d, 0x1b, 0x5d, 0xcd, 0x7d, 0x52,
-	0x0f, 0x23, 0x9a, 0x24, 0xd2, 0x14, 0xd3, 0x20, 0x6c, 0xa2, 0x64, 0x92, 0xe3, 0x92, 0x63, 0x9a,
-	0x58, 0x12, 0xaa, 0x0d, 0x32, 0x13, 0x9b, 0xdb, 0x62, 0x15, 0xf0, 0x0c, 0xfd, 0xd5, 0xa7, 0x35,
-	0x46, 0x39, 0x50, 0xa1, 0x1b, 0x26, 0x19, 0x0e, 0x87, 0x2e, 0x46, 0xec, 0x71, 0xfb, 0x36, 0x81,
-	0xf7, 0xdc, 0x95, 0x54, 0x37, 0xb9, 0xa7, 0x75, 0x69, 0xe4, 0x45, 0xe0, 0xa0, 0x78, 0x3f, 0x20,
-	0x5f, 0xa8, 0xb2, 0xa8, 0xb2, 0x9a, 0x16, 0x3f, 0x2b, 0xdb, 0xb1, 0x57, 0x71, 0x6a, 0x82, 0xc8,
-	0x6b, 0x70, 0x74, 0x57, 0x72, 0xd7, 0xc6, 0x31, 0x30, 0x28, 0xe3, 0x4b, 0xc3, 0xd0, 0x32, 0xc0,
-	0x7b, 0x0b, 0x80, 0x9b, 0xe8, 0xe1, 0x7b, 0x0c, 0xad, 0x5c, 0xb2, 0x4c, 0x96, 0x23, 0x10, 0x01,
-	0x19, 0x40, 0x83, 0x8b, 0xc8, 0x58, 0x5f, 0xfd, 0x55, 0x9a, 0x93, 0x87, 0x87, 0x9c, 0xab, 0x3e,
-	0x35, 0x86, 0x7d, 0x6a, 0x90, 0xf7, 0x39, 0x38, 0x7e, 0x2c, 0x16, 0xdf, 0xe5, 0x8b, 0xdd, 0x8d,
-	0xb1, 0x6a, 0x37, 0xc6, 0x7b, 0x05, 0x8e, 0x9f, 0xe8, 0x80, 0xcf, 0xa0, 0xcb, 0xc2, 0xc7, 0x79,
-	0x3d, 0xa8, 0xc3, 0xc2, 0xc7, 0x5b, 0x8c, 0x7b, 0x03, 0x5d, 0x94, 0x75, 0xbf, 0x15, 0xe1, 0x4e,
-	0x95, 0xfd, 0x1e, 0x55, 0x8d, 0x4a, 0x95, 0xf7, 0x15, 0x1c, 0xe1, 0x47, 0xd7, 0x89, 0x90, 0x2c,
-	0x16, 0x3c, 0x23, 0x2f, 0xa1, 0x85, 0x4f, 0x95, 0xa9, 0xdb, 0xff, 0xf6, 0xea, 0xa6, 0x66, 0x21,
-	0xae, 0x7a, 0x7f, 0xd8, 0xd0, 0x9f, 0xc5, 0xfc, 0xe7, 0xeb, 0x25, 0x13, 0x0b, 0xae, 0xc4, 0x7d,
-	0x0d, 0xed, 0x75, 0x28, 0xb7, 0xa9, 0x56, 0x76, 0x74, 0x71, 0x56, 0x5d, 0x80, 0x7a, 0x58, 0x0d,
-	0x4d, 0xb7, 0x29, 0xa7, 0xe6, 0x9b, 0x5d, 0x5a, 0xfb, 0x43, 0x69, 0x95, 0x2f, 0x82, 0xca, 0xb3,
-	0x66, 0x7c, 0x54, 0x84, 0x1e, 0x10, 0x6a, 0x8e, 0x5d, 0x46, 0x51, 0x86, 0xa6, 0xef, 0xd2, 0x1a,
-	0xa3, 0x5e, 0x8b, 0x88, 0x87, 0x31, 0x5e, 0xb0, 0x16, 0x4e, 0xb5, 0x0a, 0x7b, 0x14, 0x8e, 0xf6,
-	0xa5, 0x91, 0x13, 0x70, 0x27, 0xb7, 0xb3, 0xcb, 0xb7, 0x93, 0x9b, 0xf9, 0x6c, 0x32, 0xfa, 0x7e,
-	0x7e, 0x3d, 0xbe, 0xbc, 0xfd, 0x66, 0x34, 0x9f, 0xfe, 0xe0, 0x8f, 0x06, 0x07, 0xa4, 0x07, 0x8e,
-	0x4f, 0xef, 0xfc, 0xbb, 0xfb, 0xd1, 0xc0, 0xd2, 0x60, 0x34, 0xbb, 0x9b, 0x8e, 0x06, 0x36, 0xe9,
-	0x40, 0x13, 0xff, 0x35, 0xbc, 0x21, 0xf4, 0xa6, 0x3c, 0x97, 0xbe, 0x19, 0xbd, 0x9f, 0x40, 0x67,
-	0x95, 0x2f, 0xe6, 0x41, 0x12, 0x6d, 0xcd, 0xeb, 0xee, 0xac, 0xf2, 0xc5, 0x55, 0x12, 0x6d, 0x83,
-	0x36, 0x9e, 0xf6, 0xcd, 0x3f, 0x01, 0x00, 0x00, 0xff, 0xff, 0x7d, 0x04, 0x89, 0x73, 0x27, 0x08,
-	0x00, 0x00,
+var fileDescriptor_blockchain_589eeb1fb3039bc5 = []byte{
+	// 797 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x54, 0xdd, 0x6e, 0xf3, 0x34,
+	0x18, 0x5e, 0xfa, 0x93, 0xa4, 0x6f, 0xd7, 0x51, 0x59, 0x80, 0x02, 0x4c, 0x50, 0x45, 0x03, 0x55,
+	0x48, 0x4c, 0xa8, 0xdf, 0x01, 0x27, 0x9c, 0xec, 0xa7, 0x62, 0x15, 0x1f, 0x5b, 0xe4, 0x55, 0x45,
+	0x1c, 0x55, 0x4e, 0xe2, 0xb5, 0xd6, 0x56, 0x3b, 0x8a, 0xdd, 0xb1, 0x70, 0x01, 0x5c, 0x08, 0xd7,
+	0xc0, 0x11, 0x37, 0xc1, 0x2d, 0x21, 0xdb, 0x49, 0x93, 0xa0, 0xef, 0x63, 0x27, 0x1c, 0x25, 0xcf,
+	0xf3, 0xbe, 0xb1, 0x9f, 0x3c, 0x7e, 0xfc, 0xc2, 0x38, 0x7e, 0x12, 0xc9, 0x63, 0xb2, 0x25, 0x8c,
+	0x9f, 0x67, 0xb9, 0x50, 0x02, 0xb9, 0xcc, 0x3c, 0xc3, 0xdf, 0x3b, 0x00, 0xcb, 0x9c, 0x70, 0xf9,
+	0x40, 0xf3, 0x28, 0x46, 0x01, 0x78, 0xcf, 0x34, 0x97, 0x4c, 0xf0, 0xc0, 0x99, 0x38, 0xd3, 0x11,
+	0xae, 0x20, 0xfa, 0x10, 0xfa, 0x5c, 0xf0, 0x84, 0x06, 0x9d, 0x89, 0x33, 0xed, 0x61, 0x0b, 0xd0,
+	0x29, 0x0c, 0x24, 0xdb, 0x70, 0xa2, 0xf6, 0x39, 0x0d, 0xba, 0x13, 0x67, 0x7a, 0x8c, 0x6b, 0x02,
+	0x7d, 0x0c, 0x2e, 0xd9, 0x89, 0x3d, 0x57, 0x41, 0xcf, 0x94, 0x4a, 0xa4, 0x79, 0x49, 0x79, 0x4a,
+	0xf3, 0xa0, 0x3f, 0x71, 0xa6, 0x03, 0x5c, 0x22, 0xbd, 0x5a, 0x4e, 0x13, 0x96, 0x31, 0xca, 0x55,
+	0xe0, 0x9a, 0x52, 0x4d, 0x68, 0x6d, 0x19, 0x29, 0x9e, 0x04, 0x49, 0x03, 0xcf, 0x2c, 0x57, 0x41,
+	0x14, 0xc2, 0xb1, 0x5d, 0x21, 0xda, 0xc7, 0x3f, 0xd2, 0x22, 0xf0, 0x4d, 0xb9, 0xc5, 0xa1, 0xcf,
+	0x01, 0x98, 0xbc, 0x12, 0x8c, 0xc7, 0x44, 0xd2, 0x60, 0x30, 0x71, 0xa6, 0x3e, 0x6e, 0x30, 0xe1,
+	0x9f, 0x0e, 0xb8, 0x2b, 0xa1, 0xe8, 0xff, 0x6e, 0xc2, 0x29, 0x0c, 0x14, 0xdb, 0x51, 0xa9, 0xc8,
+	0x2e, 0x33, 0x3e, 0xf4, 0x70, 0x4d, 0x68, 0x59, 0x92, 0x3e, 0x3d, 0x44, 0xfb, 0xf8, 0x91, 0x16,
+	0xc6, 0x8e, 0x63, 0xdc, 0x60, 0x74, 0xfd, 0x59, 0xab, 0xb2, 0x75, 0xd7, 0xd6, 0x6b, 0x26, 0xfc,
+	0xcb, 0x01, 0xff, 0x22, 0x51, 0x4c, 0xf0, 0xb6, 0xf0, 0xde, 0x7b, 0x84, 0xf7, 0xdf, 0x2b, 0xdc,
+	0xfd, 0xb7, 0xf0, 0x6f, 0xc1, 0x57, 0x65, 0x32, 0xcc, 0xff, 0x0e, 0x67, 0xe8, 0xdc, 0xa6, 0xe6,
+	0xbc, 0x4e, 0xcc, 0xcd, 0x11, 0x3e, 0x74, 0xa1, 0x33, 0xe8, 0x69, 0x69, 0xc6, 0x83, 0xe1, 0xec,
+	0xa4, 0xea, 0xb6, 0xb6, 0xde, 0x1c, 0x61, 0x53, 0xbd, 0xf4, 0xc1, 0x25, 0x46, 0x71, 0xf8, 0x77,
+	0x07, 0x46, 0x97, 0x3a, 0x99, 0x37, 0x94, 0xa4, 0xaf, 0xe4, 0x2f, 0x00, 0xcf, 0xe4, 0x77, 0x71,
+	0x6d, 0xc4, 0x8c, 0x70, 0x05, 0x75, 0x9a, 0xb6, 0x94, 0x6d, 0xb6, 0xca, 0xec, 0xdb, 0xc3, 0x25,
+	0x7a, 0xc5, 0xf8, 0x33, 0x18, 0x65, 0x39, 0x7d, 0xb6, 0xdb, 0x13, 0xb9, 0x2d, 0xbd, 0x6f, 0x93,
+	0x7a, 0x6d, 0xf5, 0x82, 0x85, 0x50, 0xa5, 0x3d, 0x25, 0x32, 0xce, 0x29, 0xa2, 0xa8, 0x29, 0x79,
+	0xa5, 0x73, 0x15, 0xa1, 0x0f, 0x4d, 0xe5, 0xfc, 0xe5, 0x76, 0xbf, 0x8b, 0x69, 0x6e, 0xd2, 0x38,
+	0xc2, 0x0d, 0x46, 0xe7, 0x55, 0xa3, 0x6b, 0xa2, 0xc8, 0x3d, 0xfb, 0xcd, 0xa6, 0x71, 0x84, 0x5b,
+	0x5c, 0xfb, 0x6c, 0xe0, 0x1d, 0x37, 0x2b, 0xb3, 0x91, 0x18, 0x5a, 0x5d, 0x16, 0x85, 0x29, 0x78,
+	0x46, 0x7c, 0x14, 0xa3, 0x6f, 0xb4, 0x2d, 0xda, 0x56, 0xe3, 0xe4, 0x70, 0xf6, 0x51, 0x75, 0x1c,
+	0x2d, 0xc7, 0x71, 0xd9, 0x84, 0xbe, 0x06, 0xcf, 0x9e, 0x8a, 0x0c, 0x3a, 0x93, 0xee, 0x74, 0x38,
+	0x1b, 0x57, 0xfd, 0x55, 0xbc, 0x70, 0xd5, 0x10, 0xbe, 0x05, 0x30, 0x8b, 0x2c, 0x78, 0x4a, 0x5f,
+	0x74, 0xb6, 0xa4, 0x22, 0xb9, 0x32, 0xfb, 0xf4, 0xb0, 0x05, 0x68, 0x0c, 0x5d, 0xca, 0xd3, 0xf2,
+	0xa2, 0xe8, 0x57, 0xad, 0x59, 0x3c, 0x3c, 0x48, 0xaa, 0xcf, 0xa9, 0x3b, 0x1d, 0xe1, 0x12, 0x85,
+	0x5f, 0x80, 0x17, 0x31, 0xbe, 0xf9, 0x49, 0x6e, 0xea, 0x98, 0x3a, 0x8d, 0x98, 0x86, 0x5f, 0x81,
+	0x17, 0x09, 0xdb, 0xf0, 0x19, 0x0c, 0x48, 0xf2, 0xb8, 0x6e, 0x36, 0xf9, 0x24, 0x79, 0xbc, 0x35,
+	0x7d, 0x6f, 0x60, 0x60, 0x64, 0xdd, 0x17, 0x3c, 0xa9, 0x55, 0x75, 0xde, 0xa1, 0xaa, 0x7b, 0x50,
+	0x15, 0x7e, 0x07, 0x27, 0xe6, 0xa3, 0x2b, 0xc1, 0x15, 0x61, 0x9c, 0xe6, 0xe8, 0x4b, 0xe8, 0x9b,
+	0x71, 0x59, 0xfa, 0xf6, 0x41, 0xcb, 0xb7, 0x28, 0xc6, 0xb6, 0x1a, 0xfe, 0xd1, 0x81, 0xd1, 0x8a,
+	0xd1, 0x5f, 0xaf, 0xb6, 0x84, 0x6f, 0xa8, 0x16, 0xf7, 0x3d, 0xb8, 0xcf, 0x89, 0x2a, 0x32, 0xab,
+	0xec, 0x64, 0x76, 0x76, 0xb8, 0x00, 0xcd, 0xb6, 0x06, 0x5a, 0x16, 0x19, 0xc5, 0xe5, 0x37, 0xf5,
+	0xb6, 0x9d, 0xff, 0xda, 0x56, 0xe7, 0x22, 0x3e, 0x64, 0xb6, 0x1c, 0x36, 0x07, 0xc2, 0x8e, 0x13,
+	0x3d, 0xf5, 0x2e, 0xd2, 0x34, 0x37, 0xa1, 0x1f, 0xe0, 0x06, 0x83, 0x3e, 0x05, 0x3f, 0xa5, 0x09,
+	0x33, 0x17, 0xac, 0x6f, 0x66, 0xe0, 0x01, 0x87, 0x18, 0x4e, 0xda, 0xd2, 0xd0, 0x29, 0x04, 0x8b,
+	0xdb, 0xd5, 0xc5, 0xdb, 0xc5, 0xf5, 0x7a, 0xb5, 0x98, 0xff, 0xbc, 0xbe, 0xba, 0xb9, 0xb8, 0xfd,
+	0x61, 0xbe, 0x5e, 0xfe, 0x12, 0xcd, 0xc7, 0x47, 0x68, 0x08, 0x5e, 0x84, 0xef, 0xa2, 0xbb, 0xfb,
+	0xf9, 0xd8, 0xb1, 0x60, 0xbe, 0xba, 0x5b, 0xce, 0xc7, 0x1d, 0xe4, 0x43, 0xcf, 0xbc, 0x75, 0xc3,
+	0x29, 0x0c, 0x97, 0x54, 0xaa, 0xa8, 0x1c, 0xd4, 0x9f, 0x80, 0xbf, 0x93, 0x9b, 0x75, 0x2c, 0xd2,
+	0xc2, 0x78, 0x74, 0x8c, 0xbd, 0x9d, 0xdc, 0x5c, 0x8a, 0xb4, 0x88, 0x5d, 0xf3, 0xb7, 0x6f, 0xfe,
+	0x09, 0x00, 0x00, 0xff, 0xff, 0x74, 0x72, 0x95, 0x81, 0xab, 0x06, 0x00, 0x00,
 }
