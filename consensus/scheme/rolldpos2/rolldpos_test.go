@@ -384,9 +384,6 @@ func TestRollDPoSConsensus(t *testing.T) {
 		cfg := config.Default
 		cfg.Consensus.RollDPoS.Delay = 300 * time.Millisecond
 		cfg.Consensus.RollDPoS.ProposerInterval = time.Second
-		cfg.Consensus.RollDPoS.AcceptProposeTTL = 100 * time.Millisecond
-		cfg.Consensus.RollDPoS.AcceptPrevoteTTL = 100 * time.Millisecond
-		cfg.Consensus.RollDPoS.AcceptVoteTTL = 100 * time.Millisecond
 		cfg.Consensus.RollDPoS.NumDelegates = uint(numNodes)
 
 		chainAddrs := make([]*iotxaddress.Address, 0, numNodes)
