@@ -7,12 +7,12 @@
 package trie
 
 import (
-	"container/list"
 	"testing"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotexproject/iotex-core/db"
@@ -23,223 +23,307 @@ import (
 const testTriePath = "trie.test"
 
 func TestEmptyTrie(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
-	tr, err := NewTrie(testTriePath, "test", true)
-	assert.Nil(err)
-	assert.Equal(tr.RootHash(), emptyRoot)
-	assert.Nil(tr.Close())
+	tr, err := NewTrie(testTriePath, "test", EmptyRoot, true)
+	require.Nil(err)
+	require.Equal(tr.RootHash(), EmptyRoot)
+	require.Nil(tr.Close())
 }
 
-func TestInsert(t *testing.T) {
-	assert := assert.New(t)
+func Test2Roots(t *testing.T) {
+	require := require.New(t)
 	l := logger.Logger().Level(zerolog.DebugLevel)
 	logger.SetLogger(&l)
 
-	tr := trie{dao: db.NewMemKVStore(), root: &branch{}, toRoot: list.New(), numEntry: 1, numBranch: 1}
-	root := emptyRoot
-	assert.Equal(uint64(1), tr.numBranch)
+	testutil.CleanupPath(t, testTriePath)
+	defer testutil.CleanupPath(t, testTriePath)
+
+	// insert couple of entries
+	tr, err := NewTrie(testTriePath, "test", EmptyRoot, false)
+	require.Nil(err)
+	require.Nil(tr.Upsert(cat, testV[2]))
+	v, err := tr.Get(cat)
+	require.Nil(err)
+	require.Equal(testV[2], v)
+	require.Nil(tr.Upsert(car, testV[1]))
+	v, err = tr.Get(car)
+	require.Nil(err)
+	require.Equal(testV[1], v)
+	require.Nil(tr.Upsert(egg, testV[4]))
+	v, err = tr.Get(egg)
+	require.Nil(err)
+	require.Equal(testV[4], v)
+	root := tr.RootHash()
+	tr.Close()
+
+	// insert couple of different entries
+	tr1, err := NewTrie(testTriePath, "test1", EmptyRoot, false)
+	require.Nil(err)
+	require.Nil(tr1.Upsert(dog, testV[3]))
+	v, err = tr1.Get(dog)
+	require.Nil(err)
+	require.Equal(testV[3], v)
+	require.Nil(tr1.Upsert(ham, testV[0]))
+	v, err = tr1.Get(ham)
+	require.Nil(err)
+	require.Equal(testV[0], v)
+	require.Nil(tr1.Upsert(fox, testV[5]))
+	v, err = tr1.Get(fox)
+	require.Nil(err)
+	require.Equal(testV[5], v)
+	root1 := tr1.RootHash()
+	require.NotEqual(root, root1)
+	tr1.Close()
+
+	// load first trie again
+	tr = nil
+	tr, err = NewTrie(testTriePath, "test", root, false)
+	require.Nil(err)
+	// contains cat, car, egg
+	v, err = tr.Get(cat)
+	require.Nil(err)
+	require.Equal(testV[2], v)
+	v, err = tr.Get(car)
+	require.Nil(err)
+	require.Equal(testV[1], v)
+	v, err = tr.Get(egg)
+	require.Nil(err)
+	require.Equal(testV[4], v)
+	// does not contain dog
+	v, err = tr.Get(dog)
+	require.Equal(ErrNotExist, errors.Cause(err))
+	tr.Close()
+
+	// load second trie again
+	tr1 = nil
+	tr1, err = NewTrie(testTriePath, "test1", root1, false)
+	require.Nil(err)
+	// contains dog, ham, fox
+	v, err = tr1.Get(dog)
+	require.Nil(err)
+	require.Equal(testV[3], v)
+	v, err = tr1.Get(ham)
+	require.Nil(err)
+	require.Equal(testV[0], v)
+	v, err = tr1.Get(fox)
+	require.Nil(err)
+	require.Equal(testV[5], v)
+	// does not contain cat
+	v, err = tr1.Get(cat)
+	require.Equal(ErrNotExist, errors.Cause(err))
+}
+
+func TestInsert(t *testing.T) {
+	require := require.New(t)
+	l := logger.Logger().Level(zerolog.DebugLevel)
+	logger.SetLogger(&l)
+
+	tr, err := newTrie(db.NewMemKVStore(), "", EmptyRoot)
+	require.Nil(err)
+	root := EmptyRoot
+	require.Equal(uint64(1), tr.numBranch)
 	// query non-existing entry
 	ptr, match, err := tr.query(cat)
-	assert.NotNil(ptr)
-	assert.Equal(0, match)
-	assert.NotNil(err)
+	require.NotNil(ptr)
+	require.Equal(0, match)
+	require.NotNil(err)
 	tr.clear()
 	// this splits the root B
 	logger.Info().Msg("Put[cat]")
 	err = tr.Upsert(cat, testV[2])
-	assert.Nil(err)
+	require.Nil(err)
 	catRoot := tr.RootHash()
-	assert.NotEqual(catRoot, root)
+	require.NotEqual(catRoot, root)
 	root = catRoot
-	assert.Equal(uint64(1), tr.numLeaf)
+	require.Equal(uint64(1), tr.numLeaf)
 	b, err := tr.Get(cat)
-	assert.Nil(err)
-	assert.Equal(testV[2], b)
+	require.Nil(err)
+	require.Equal(testV[2], b)
 
 	// this splits L --> E + B + 2L
 	logger.Info().Msg("Put[rat]")
 	err = tr.Upsert(rat, []byte("rat"))
-	assert.Nil(err)
+	require.Nil(err)
 	ratRoot := tr.RootHash()
-	assert.NotEqual(ratRoot, root)
+	require.NotEqual(ratRoot, root)
 	root = ratRoot
-	assert.Equal(uint64(2), tr.numBranch)
-	assert.Equal(uint64(1), tr.numExt)
-	assert.Equal(uint64(3), tr.numLeaf)
+	require.Equal(uint64(2), tr.numBranch)
+	require.Equal(uint64(1), tr.numExt)
+	require.Equal(uint64(3), tr.numLeaf)
 	b, err = tr.Get(rat)
-	assert.Nil(err)
-	assert.Equal([]byte("rat"), b)
+	require.Nil(err)
+	require.Equal([]byte("rat"), b)
 
 	// this adds another L to B
 	logger.Info().Msg("Put[car]")
 	err = tr.Upsert(car, testV[1])
-	assert.Nil(err)
+	require.Nil(err)
 	newRoot := tr.RootHash()
-	assert.NotEqual(newRoot, root)
+	require.NotEqual(newRoot, root)
 	root = newRoot
 	b, err = tr.Get(car)
-	assert.Nil(err)
-	assert.Equal(testV[1], b)
+	require.Nil(err)
+	require.Equal(testV[1], b)
 	// delete car
 	logger.Info().Msg("Del[car]")
 	err = tr.Delete(car)
-	assert.Nil(err)
+	require.Nil(err)
 	newRoot = tr.RootHash()
-	assert.NotEqual(newRoot, root)
-	assert.Equal(newRoot, ratRoot)
+	require.NotEqual(newRoot, root)
+	require.Equal(newRoot, ratRoot)
 	root = newRoot
 
 	// this splits E (with match = 3, div = 3)
 	logger.Info().Msg("Put[dog]")
 	err = tr.Upsert(dog, testV[3])
-	assert.Nil(err)
+	require.Nil(err)
 	newRoot = tr.RootHash()
-	assert.NotEqual(newRoot, root)
+	require.NotEqual(newRoot, root)
 	root = newRoot
 	// Get returns "dog" now
 	b, err = tr.Get(dog)
-	assert.Nil(err)
-	assert.Equal(testV[3], b)
+	require.Nil(err)
+	require.Equal(testV[3], b)
 	logger.Info().Msg("Del[dog]")
 	err = tr.Delete(dog)
-	assert.Nil(err)
+	require.Nil(err)
 	newRoot = tr.RootHash()
-	assert.NotEqual(newRoot, root)
+	require.NotEqual(newRoot, root)
 	root = newRoot
 
 	// this splits E (with match = 0, div = 2)
 	logger.Info().Msg("Put[egg]")
 	err = tr.Upsert(egg, testV[4])
-	assert.Nil(err)
+	require.Nil(err)
 	newRoot = tr.RootHash()
-	assert.NotEqual(newRoot, root)
+	require.NotEqual(newRoot, root)
 	root = newRoot
 	b, err = tr.Get(egg)
-	assert.Nil(err)
-	assert.Equal(testV[4], b)
+	require.Nil(err)
+	require.Equal(testV[4], b)
 	// delete egg
 	logger.Info().Msg("Del[egg]")
 	err = tr.Delete(egg)
-	assert.Nil(err)
+	require.Nil(err)
 	eggRoot := tr.RootHash()
-	assert.NotEqual(eggRoot, root)
+	require.NotEqual(eggRoot, root)
 	root = eggRoot
 
 	// this splits E (with match = 4, div = 1)
 	logger.Info().Msg("Put[egg]")
 	err = tr.Upsert(egg, testV[4])
-	assert.Nil(err)
+	require.Nil(err)
 	newRoot = tr.RootHash()
-	assert.NotEqual(newRoot, root)
+	require.NotEqual(newRoot, root)
 	root = newRoot
 	b, err = tr.Get(egg)
-	assert.Nil(err)
-	assert.Equal(testV[4], b)
+	require.Nil(err)
+	require.Equal(testV[4], b)
 	// delete egg
 	logger.Info().Msg("Del[egg]")
 	err = tr.Delete(egg)
-	assert.Nil(err)
+	require.Nil(err)
 	newRoot = tr.RootHash()
-	assert.NotEqual(newRoot, root)
-	assert.Equal(newRoot, eggRoot)
+	require.NotEqual(newRoot, root)
+	require.Equal(newRoot, eggRoot)
 	root = newRoot
 
 	// insert 'ham' 'fox' 'cow'
 	logger.Info().Msg("Put[ham]")
 	err = tr.Upsert(ham, testV[0])
-	assert.Nil(err)
+	require.Nil(err)
 	newRoot = tr.RootHash()
-	assert.NotEqual(newRoot, root)
+	require.NotEqual(newRoot, root)
 	root = newRoot
 	b, err = tr.Get(ham)
-	assert.Nil(err)
-	assert.Equal(testV[0], b)
+	require.Nil(err)
+	require.Equal(testV[0], b)
 	logger.Info().Msg("Put[fox]")
 	err = tr.Upsert(fox, testV[5])
-	assert.Nil(err)
+	require.Nil(err)
 	newRoot = tr.RootHash()
-	assert.NotEqual(newRoot, root)
+	require.NotEqual(newRoot, root)
 	root = newRoot
 	b, err = tr.Get(fox)
-	assert.Nil(err)
-	assert.Equal(testV[5], b)
+	require.Nil(err)
+	require.Equal(testV[5], b)
 	logger.Info().Msg("Put[cow]")
 	err = tr.Upsert(cow, testV[6])
-	assert.Nil(err)
+	require.Nil(err)
 	newRoot = tr.RootHash()
-	assert.NotEqual(newRoot, root)
+	require.NotEqual(newRoot, root)
 	root = newRoot
 	b, err = tr.Get(cow)
-	assert.Nil(err)
-	assert.Equal(testV[6], b)
+	require.Nil(err)
+	require.Equal(testV[6], b)
 
 	// delete fox ham cow
 	logger.Info().Msg("Del[fox]")
 	err = tr.Delete(fox)
-	assert.Nil(err)
+	require.Nil(err)
 	newRoot = tr.RootHash()
-	assert.NotEqual(newRoot, root)
+	require.NotEqual(newRoot, root)
 	root = newRoot
 	logger.Info().Msg("Del[ham]")
 	err = tr.Delete(ham)
-	assert.Nil(err)
+	require.Nil(err)
 	newRoot = tr.RootHash()
-	assert.NotEqual(newRoot, root)
+	require.NotEqual(newRoot, root)
 	root = newRoot
 	logger.Info().Msg("Del[cow]")
 	err = tr.Delete(cow)
-	assert.Nil(err)
+	require.Nil(err)
 	newRoot = tr.RootHash()
-	assert.NotEqual(newRoot, root)
+	require.NotEqual(newRoot, root)
 	root = newRoot
 
 	// this adds another path to root B
 	logger.Info().Msg("Put[ant]")
 	err = tr.Upsert(ant, testV[7])
-	assert.Nil(err)
+	require.Nil(err)
 	newRoot = tr.RootHash()
-	assert.NotEqual(newRoot, root)
+	require.NotEqual(newRoot, root)
 	root = newRoot
 	b, err = tr.Get(ant)
-	assert.Nil(err)
-	assert.Equal(testV[7], b)
+	require.Nil(err)
+	require.Equal(testV[7], b)
 	logger.Info().Msg("Del[ant]")
 	err = tr.Delete(ant)
-	assert.Nil(err)
+	require.Nil(err)
 	newRoot = tr.RootHash()
-	assert.NotEqual(newRoot, root)
+	require.NotEqual(newRoot, root)
 	root = newRoot
 
 	// delete "rat"
 	logger.Info().Msg("Del[rat]")
 	err = tr.Delete(rat)
-	assert.Nil(err)
+	require.Nil(err)
 	newRoot = tr.RootHash()
-	assert.NotEqual(newRoot, root)
+	require.NotEqual(newRoot, root)
 	b, err = tr.Get(rat)
-	assert.NotNil(err)
-	assert.Equal([]byte(nil), b)
+	require.NotNil(err)
+	require.Equal([]byte(nil), b)
 	// delete "cat"
 	logger.Info().Msg("Del[cat]")
 	err = tr.Delete(cat)
-	assert.Nil(err)
-	assert.Equal(emptyRoot, tr.RootHash())
-	assert.Equal(uint64(1), tr.numEntry)
+	require.Nil(err)
+	require.Equal(EmptyRoot, tr.RootHash())
+	require.Equal(uint64(1), tr.numEntry)
 }
 
 func Test1kEntries(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 	l := logger.Logger().Level(zerolog.DebugLevel)
 	logger.SetLogger(&l)
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
-	tr, err := NewTrie(testTriePath, "test", false)
-	assert.Nil(err)
-	root := emptyRoot
+	tr, err := NewTrie(testTriePath, "test", EmptyRoot, false)
+	require.Nil(err)
+	root := EmptyRoot
 	seed := time.Now().Nanosecond()
 	// insert 64k entries
 	var k [32]byte
@@ -252,21 +336,21 @@ func Test1kEntries(t *testing.T) {
 		}
 		logger.Info().Hex("key", k[:8]).Msg("Put --")
 		err := tr.Upsert(k[:8], v)
-		assert.Nil(err)
+		require.Nil(err)
 		newRoot := tr.RootHash()
-		assert.NotEqual(newRoot, emptyRoot)
-		assert.NotEqual(newRoot, root)
+		require.NotEqual(newRoot, EmptyRoot)
+		require.NotEqual(newRoot, root)
 		root = newRoot
 		b, err := tr.Get(k[:8])
-		assert.Nil(err)
-		assert.Equal(v, b)
+		require.Nil(err)
+		require.Equal(v, b)
 		// update <k, v>
 		v = testV[7-k[0]&7]
 		err = tr.Upsert(k[:8], v)
-		assert.Nil(err)
+		require.Nil(err)
 		b, err = tr.Get(k[:8])
-		assert.Nil(err)
-		assert.Equal(v, b)
+		require.Nil(err)
+		require.Equal(v, b)
 	}
 	// delete 64k entries
 	var d [32]byte
@@ -279,13 +363,13 @@ func Test1kEntries(t *testing.T) {
 	for i := 0; i < 1<<10-3; i++ {
 		d = blake2b.Sum256(d[:])
 		logger.Info().Hex("key", d[:8]).Msg("Del --")
-		assert.Nil(tr.Delete(d[:8]))
+		require.Nil(tr.Delete(d[:8]))
 	}
-	assert.Nil(tr.Delete(d1[:8]))
-	assert.Nil(tr.Delete(d2[:8]))
-	assert.Nil(tr.Delete(d3[:8]))
+	require.Nil(tr.Delete(d1[:8]))
+	require.Nil(tr.Delete(d2[:8]))
+	require.Nil(tr.Delete(d3[:8]))
 	// trie should fallback to empty
-	assert.Equal(emptyRoot, tr.RootHash())
+	require.Equal(EmptyRoot, tr.RootHash())
 }
 
 func TestPressure(t *testing.T) {
@@ -293,15 +377,15 @@ func TestPressure(t *testing.T) {
 		t.Skip("Skipping TestPressure in short mode.")
 	}
 
-	assert := assert.New(t)
+	require := require.New(t)
 	l := logger.Logger().Level(zerolog.DebugLevel)
 	logger.SetLogger(&l)
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
-	tr, err := NewTrie(testTriePath, "test", true)
-	assert.Nil(err)
-	root := emptyRoot
+	tr, err := NewTrie(testTriePath, "test", EmptyRoot, true)
+	require.Nil(err)
+	root := EmptyRoot
 	seed := time.Now().Nanosecond()
 	// insert 64k entries
 	var k [32]byte
@@ -314,14 +398,14 @@ func TestPressure(t *testing.T) {
 		}
 		logger.Info().Hex("key", k[:8]).Msg("Put --")
 		err := tr.Upsert(k[:8], v)
-		assert.Nil(err)
+		require.Nil(err)
 		newRoot := tr.RootHash()
-		assert.NotEqual(newRoot, emptyRoot)
-		assert.NotEqual(newRoot, root)
+		require.NotEqual(newRoot, EmptyRoot)
+		require.NotEqual(newRoot, root)
 		root = newRoot
 		b, err := tr.Get(k[:8])
-		assert.Nil(err)
-		assert.Equal(v, b)
+		require.Nil(err)
+		require.Equal(v, b)
 	}
 	// delete 64k entries
 	var d [32]byte
@@ -334,30 +418,31 @@ func TestPressure(t *testing.T) {
 	for i := 0; i < 1<<16-3; i++ {
 		d = blake2b.Sum256(d[:])
 		logger.Info().Hex("key", d[:8]).Msg("Del --")
-		assert.Nil(tr.Delete(d[:8]))
+		require.Nil(tr.Delete(d[:8]))
 	}
-	assert.Nil(tr.Delete(d1[:8]))
-	assert.Nil(tr.Delete(d2[:8]))
-	assert.Nil(tr.Delete(d3[:8]))
+	require.Nil(tr.Delete(d1[:8]))
+	require.Nil(tr.Delete(d2[:8]))
+	require.Nil(tr.Delete(d3[:8]))
 	// trie should fallback to empty
-	assert.Equal(emptyRoot, tr.RootHash())
+	require.Equal(EmptyRoot, tr.RootHash())
 }
 
 func TestQuery(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 	l := logger.Logger().Level(zerolog.DebugLevel)
 	logger.SetLogger(&l)
 
-	tr := trie{dao: db.NewMemKVStore(), root: &branch{}, toRoot: list.New(), numEntry: 1, numBranch: 1}
-	assert.Equal(uint64(1), tr.numBranch)
+	tr, err := newTrie(db.NewMemKVStore(), "", EmptyRoot)
+	require.Nil(err)
+	require.Equal(uint64(1), tr.numBranch)
 	// key length > 0
 	ptr, match, err := tr.query(cat)
-	assert.NotNil(ptr)
-	assert.Equal(0, match)
-	assert.NotNil(err)
+	require.NotNil(ptr)
+	require.Equal(0, match)
+	require.NotNil(err)
 	// key length == 0
 	ptr, match, err = tr.query([]byte{})
-	assert.Equal(tr.root, ptr)
-	assert.Equal(0, match)
-	assert.Nil(err)
+	require.Equal(tr.root, ptr)
+	require.Equal(0, match)
+	require.Nil(err)
 }

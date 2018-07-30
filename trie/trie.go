@@ -33,22 +33,20 @@ var (
 
 	// ErrNotExist indicates entry does not exist
 	ErrNotExist = errors.New("not exist in trie")
-)
 
-var (
-	// emptyRoot is the root hash of an empty trie
-	emptyRoot = hash.Hash32B{0xe, 0x57, 0x51, 0xc0, 0x26, 0xe5, 0x43, 0xb2, 0xe8, 0xab, 0x2e, 0xb0, 0x60, 0x99,
+	// EmptyRoot is the root hash of an empty trie
+	EmptyRoot = hash.Hash32B{0xe, 0x57, 0x51, 0xc0, 0x26, 0xe5, 0x43, 0xb2, 0xe8, 0xab, 0x2e, 0xb0, 0x60, 0x99,
 		0xda, 0xa1, 0xd1, 0xe5, 0xdf, 0x47, 0x77, 0x8f, 0x77, 0x87, 0xfa, 0xab, 0x45, 0xcd, 0xf1, 0x2f, 0xe3, 0xa8}
 )
 
 type (
 	// Trie is the interface of Merkle Patricia Trie
 	Trie interface {
+		Close() error                    // close the trie DB
 		Upsert([]byte, []byte) error     // insert a new entry
 		Get([]byte) ([]byte, error)      // retrieve an existing entry
 		Delete([]byte) error             // delete an entry
 		Commit([][]byte, [][]byte) error // commit the state changes in a batch
-		Close() error                    // close the trie DB
 		RootHash() hash.Hash32B          // returns trie's root hash
 	}
 
@@ -57,6 +55,7 @@ type (
 		mutex     sync.RWMutex
 		dao       db.KVStore
 		root      patricia
+		rootHash  hash.Hash32B
 		toRoot    *list.List // stores the path from root to diverging node
 		bucket    string     // bucket name to store the nodes
 		clpsK     []byte     // path if the node can collapse after deleting an entry
@@ -69,7 +68,7 @@ type (
 )
 
 // NewTrie creates a trie with DB filename
-func NewTrie(path string, name string, inMem bool) (Trie, error) {
+func NewTrie(path string, name string, root hash.Hash32B, inMem bool) (Trie, error) {
 	var kvStore db.KVStore
 	if inMem {
 		kvStore = db.NewMemKVStore()
@@ -82,7 +81,8 @@ func NewTrie(path string, name string, inMem bool) (Trie, error) {
 	if err := kvStore.Start(context.Background()); err != nil {
 		return nil, err
 	}
-	return newTrie(kvStore, name)
+	t, err := newTrie(kvStore, name, root)
+	return &t, err
 }
 
 // Close close the DB
@@ -193,6 +193,29 @@ func (t *trie) RootHash() hash.Hash32B {
 //======================================
 // private functions
 //======================================
+// newTrie creates a trie
+func newTrie(dao db.KVStore, name string, root hash.Hash32B) (trie, error) {
+	t := trie{dao: dao, rootHash: root, toRoot: list.New(), bucket: name, numEntry: 1, numBranch: 1}
+	if err := t.loadRoot(); err != nil {
+		return t, err
+	}
+	return t, nil
+}
+
+// loadRoot loads the root patricia from DB
+func (t *trie) loadRoot() error {
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+
+	if t.rootHash != EmptyRoot {
+		var err error
+		t.root, err = t.getPatricia(t.rootHash[:])
+		return err
+	}
+	// initial empty trie
+	t.root = &branch{}
+	return t.putPatriciaNew(t.root)
+}
 
 // upsert a new entry
 func (t *trie) upsert(key, value []byte) error {
@@ -404,10 +427,12 @@ func (t *trie) updateDelete(curr patricia, currClps bool, clpsType byte) error {
 		if contClps {
 			// only 1 entry (which is the root) left, the trie fallback to an empty trie
 			if isRoot && t.numEntry == 1 {
+				t.delPatricia(t.root)
 				t.root = nil
 				t.root = &branch{}
+				t.rootHash = t.root.hash()
 				logger.Warn().Msg("all entries deleted, trie fallback to empty")
-				return nil
+				return t.putPatriciaNew(t.root)
 			}
 			// otherwise collapse into a leaf node
 			if t.clpsV != nil {
@@ -441,12 +466,6 @@ func (t *trie) updateDelete(curr patricia, currClps bool, clpsType byte) error {
 //======================================
 // helper functions to operate patricia
 //======================================
-// newTrie creates a trie
-func newTrie(dao db.KVStore, name string) (Trie, error) {
-	t := trie{dao: dao, root: &branch{}, toRoot: list.New(), bucket: name, numEntry: 1, numBranch: 1}
-	return &t, nil
-}
-
 // getPatricia retrieves the patricia node from DB according to key
 func (t *trie) getPatricia(key []byte) (patricia, error) {
 	node, err := t.dao.Get(t.bucket, key)
