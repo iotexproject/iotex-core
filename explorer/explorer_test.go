@@ -24,8 +24,6 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
-	pb "github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_consensus"
@@ -49,7 +47,7 @@ const (
 func addTestingBlocks(bc blockchain.Blockchain) error {
 	// Add block 1
 	// test --> A, B, C, D, E, F
-	tsf := action.NewTransfer(0, big.NewInt(10), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["charlie"].RawAddress)
+	tsf, _ := action.NewTransfer(0, big.NewInt(10), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["charlie"].RawAddress)
 	tsf, _ = tsf.Sign(ta.Addrinfo["producer"])
 	blk, err := bc.MintNewBlock([]*action.Transfer{tsf}, nil, ta.Addrinfo["producer"], "")
 	if err != nil {
@@ -61,15 +59,15 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 
 	// Add block 2
 	// Charlie --> A, B, D, E, test
-	tsf1 := action.NewTransfer(0, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["alfa"].RawAddress)
+	tsf1, _ := action.NewTransfer(0, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["alfa"].RawAddress)
 	tsf1, _ = tsf1.Sign(ta.Addrinfo["charlie"])
-	tsf2 := action.NewTransfer(0, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["bravo"].RawAddress)
+	tsf2, _ := action.NewTransfer(0, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["bravo"].RawAddress)
 	tsf2, _ = tsf2.Sign(ta.Addrinfo["charlie"])
-	tsf3 := action.NewTransfer(0, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["delta"].RawAddress)
+	tsf3, _ := action.NewTransfer(0, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["delta"].RawAddress)
 	tsf3, _ = tsf3.Sign(ta.Addrinfo["charlie"])
-	tsf4 := action.NewTransfer(0, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["producer"].RawAddress)
+	tsf4, _ := action.NewTransfer(0, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["producer"].RawAddress)
 	tsf4, _ = tsf4.Sign(ta.Addrinfo["charlie"])
-	vote1 := action.NewVote(1, ta.Addrinfo["charlie"].PublicKey, ta.Addrinfo["delta"].PublicKey)
+	vote1, _ := action.NewVote(1, ta.Addrinfo["charlie"].PublicKey, ta.Addrinfo["delta"].PublicKey)
 	vote1, _ = vote1.Sign(ta.Addrinfo["charlie"])
 	blk, err = bc.MintNewBlock([]*action.Transfer{tsf1, tsf2, tsf3, tsf4}, []*action.Vote{vote1}, ta.Addrinfo["producer"], "")
 	if err != nil {
@@ -89,8 +87,8 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	}
 
 	// Add block 4
-	vote1 = action.NewVote(2, ta.Addrinfo["charlie"].PublicKey, ta.Addrinfo["alfa"].PublicKey)
-	vote2 := action.NewVote(3, ta.Addrinfo["alfa"].PublicKey, ta.Addrinfo["charlie"].PublicKey)
+	vote1, _ = action.NewVote(2, ta.Addrinfo["charlie"].PublicKey, ta.Addrinfo["alfa"].PublicKey)
+	vote2, _ := action.NewVote(3, ta.Addrinfo["alfa"].PublicKey, ta.Addrinfo["charlie"].PublicKey)
 	vote1, _ = vote1.Sign(ta.Addrinfo["charlie"])
 	vote2, _ = vote2.Sign(ta.Addrinfo["alfa"])
 	blk, err = bc.MintNewBlock(nil, []*action.Vote{vote1, vote2}, ta.Addrinfo["producer"], "")
@@ -105,11 +103,11 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 }
 
 func addActsToActPool(ap actpool.ActPool) error {
-	tsf1 := action.NewTransfer(1, big.NewInt(1), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["alfa"].RawAddress)
+	tsf1, _ := action.NewTransfer(1, big.NewInt(1), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["alfa"].RawAddress)
 	tsf1, _ = tsf1.Sign(ta.Addrinfo["producer"])
-	vote1 := action.NewVote(2, ta.Addrinfo["producer"].PublicKey, ta.Addrinfo["producer"].PublicKey)
+	vote1, _ := action.NewVote(2, ta.Addrinfo["producer"].PublicKey, ta.Addrinfo["producer"].PublicKey)
 	vote1, _ = vote1.Sign(ta.Addrinfo["producer"])
-	tsf2 := action.NewTransfer(3, big.NewInt(1), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress)
+	tsf2, _ := action.NewTransfer(3, big.NewInt(1), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress)
 	tsf2, _ = tsf2.Sign(ta.Addrinfo["producer"])
 	if err := ap.AddTsf(tsf1); err != nil {
 		return err
@@ -395,27 +393,6 @@ func TestService_GetConsensusMetrics(t *testing.T) {
 	)
 }
 
-func TestService_CreateRawTransfer(t *testing.T) {
-	require := require.New(t)
-
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	mBc := mock_blockchain.NewMockBlockchain(ctrl)
-	svc := Service{bc: mBc}
-
-	request := explorer.CreateRawTransferRequest{}
-	response, err := svc.CreateRawTransfer(request)
-	require.Equal(explorer.CreateRawTransferResponse{}, response)
-	require.NotNil(err)
-
-	request = explorer.CreateRawTransferRequest{Sender: senderRawAddr, Recipient: recipientRawAddr, Amount: 1, Nonce: 1}
-	mBc.EXPECT().CreateRawTransfer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1).
-		Return(&action.Transfer{Nonce: uint64(1), Amount: big.NewInt(1), Sender: senderRawAddr, Recipient: recipientPubKey})
-	_, err = svc.CreateRawTransfer(request)
-	require.Nil(err)
-}
-
 func TestService_SendTransfer(t *testing.T) {
 	require := require.New(t)
 
@@ -439,31 +416,6 @@ func TestService_SendTransfer(t *testing.T) {
 	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any()).Times(1)
 	response, err = svc.SendTransfer(explorer.SendTransferRequest{hex.EncodeToString(stsf[:])})
 	require.Equal(true, response.TransferSent)
-	require.Nil(err)
-}
-
-func TestService_CreateRawVote(t *testing.T) {
-	require := require.New(t)
-
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	mBc := mock_blockchain.NewMockBlockchain(ctrl)
-	svc := Service{bc: mBc}
-
-	request := explorer.CreateRawVoteRequest{}
-	response, err := svc.CreateRawVote(request)
-	require.Equal(explorer.CreateRawVoteResponse{}, response)
-	require.NotNil(err)
-
-	request = explorer.CreateRawVoteRequest{Voter: senderPubKey, Votee: recipientPubKey, Nonce: 1}
-	selfPubKey, err := keypair.StringToPubKeyBytes(senderPubKey)
-	require.Nil(err)
-	votePubKey, err := keypair.StringToPubKeyBytes(recipientPubKey)
-	require.Nil(err)
-	mBc.EXPECT().CreateRawVote(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).
-		Return(&action.Vote{&pb.VotePb{Nonce: uint64(1), SelfPubkey: selfPubKey, VotePubkey: votePubKey}})
-	_, err = svc.CreateRawVote(request)
 	require.Nil(err)
 }
 

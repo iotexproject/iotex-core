@@ -26,8 +26,12 @@ import (
 	"github.com/iotexproject/iotex-core/proto"
 )
 
-// ErrTransferError indicates error for a transfer action
-var ErrTransferError = errors.New("transfer error")
+var (
+	// ErrTransferError indicates error for a transfer action
+	ErrTransferError = errors.New("transfer error")
+	// ErrAddr indicates error of address
+	ErrAddr = errors.New("address error")
+)
 
 // versionSizeInBytes defines the size of version in byte units
 const versionSizeInBytes = 4
@@ -50,7 +54,11 @@ type (
 )
 
 // NewTransfer returns a Transfer instance
-func NewTransfer(nonce uint64, amount *big.Int, sender string, recipient string) *Transfer {
+func NewTransfer(nonce uint64, amount *big.Int, sender string, recipient string) (*Transfer, error) {
+	if len(sender) == 0 || len(recipient) == 0 {
+		return nil, errors.Wrap(ErrAddr, "address of sender or recipient is empty")
+	}
+
 	return &Transfer{
 		Version: version.ProtocolVersion,
 
@@ -62,7 +70,7 @@ func NewTransfer(nonce uint64, amount *big.Int, sender string, recipient string)
 		Payload:    []byte{},
 		IsCoinbase: false,
 		// SenderPublicKey and Signature will be populated in Sign()
-	}
+	}, nil
 }
 
 // NewCoinBaseTransfer returns a coinbase Transfer

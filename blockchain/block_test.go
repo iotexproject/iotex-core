@@ -171,10 +171,12 @@ func TestConvertFromBlockPb(t *testing.T) {
 func TestWrongRootHash(t *testing.T) {
 	require := require.New(t)
 	val := validator{nil}
-	tsf1 := action.NewTransfer(1, big.NewInt(20), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["alfa"].RawAddress)
-	tsf1, err := tsf1.Sign(ta.Addrinfo["producer"])
+	tsf1, err := action.NewTransfer(1, big.NewInt(20), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["alfa"].RawAddress)
+	require.NoError(err)
+	tsf1, err = tsf1.Sign(ta.Addrinfo["producer"])
 	require.Nil(err)
-	tsf2 := action.NewTransfer(1, big.NewInt(30), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress)
+	tsf2, err := action.NewTransfer(1, big.NewInt(30), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress)
+	require.NoError(err)
 	tsf2, err = tsf2.Sign(ta.Addrinfo["producer"])
 	require.Nil(err)
 	hash := tsf1.Hash()
@@ -190,10 +192,12 @@ func TestWrongRootHash(t *testing.T) {
 func TestSignBlock(t *testing.T) {
 	require := require.New(t)
 	val := validator{nil}
-	tsf1 := action.NewTransfer(1, big.NewInt(20), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["alfa"].RawAddress)
-	tsf1, err := tsf1.Sign(ta.Addrinfo["producer"])
+	tsf1, err := action.NewTransfer(1, big.NewInt(20), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["alfa"].RawAddress)
+	require.NoError(err)
+	tsf1, err = tsf1.Sign(ta.Addrinfo["producer"])
 	require.Nil(err)
-	tsf2 := action.NewTransfer(1, big.NewInt(30), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress)
+	tsf2, err := action.NewTransfer(1, big.NewInt(30), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress)
+	require.NoError(err)
 	tsf2, err = tsf2.Sign(ta.Addrinfo["producer"])
 	require.Nil(err)
 	hash := tsf1.Hash()

@@ -411,30 +411,6 @@ func (mr *MockBlockchainMockRecorder) ValidateBlock(blk interface{}) *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateBlock", reflect.TypeOf((*MockBlockchain)(nil).ValidateBlock), blk)
 }
 
-// CreateRawTransfer mocks base method
-func (m *MockBlockchain) CreateRawTransfer(nonce uint64, from *iotxaddress.Address, amount *big.Int, to *iotxaddress.Address) *action.Transfer {
-	ret := m.ctrl.Call(m, "CreateRawTransfer", nonce, from, amount, to)
-	ret0, _ := ret[0].(*action.Transfer)
-	return ret0
-}
-
-// CreateRawTransfer indicates an expected call of CreateRawTransfer
-func (mr *MockBlockchainMockRecorder) CreateRawTransfer(nonce, from, amount, to interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateRawTransfer", reflect.TypeOf((*MockBlockchain)(nil).CreateRawTransfer), nonce, from, amount, to)
-}
-
-// CreateRawVote mocks base method
-func (m *MockBlockchain) CreateRawVote(nonce uint64, from, to *iotxaddress.Address) *action.Vote {
-	ret := m.ctrl.Call(m, "CreateRawVote", nonce, from, to)
-	ret0, _ := ret[0].(*action.Vote)
-	return ret0
-}
-
-// CreateRawVote indicates an expected call of CreateRawVote
-func (mr *MockBlockchainMockRecorder) CreateRawVote(nonce, from, to interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateRawVote", reflect.TypeOf((*MockBlockchain)(nil).CreateRawVote), nonce, from, to)
-}
-
 // Validator mocks base method
 func (m *MockBlockchain) Validator() blockchain.Validator {
 	ret := m.ctrl.Call(m, "Validator")

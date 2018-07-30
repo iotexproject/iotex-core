@@ -19,6 +19,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/blockchain/action"
@@ -26,7 +27,6 @@ import (
 	exp "github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
@@ -209,37 +209,14 @@ func injectTransfer(
 		amount = int64(rand.Intn(5))
 	}
 
-	var r exp.CreateRawTransferResponse
-	var err error
-	for i := 0; i < retryNum; i++ {
-		if r, err = c.CreateRawTransfer(exp.CreateRawTransferRequest{Sender: sender.RawAddress, Recipient: recipient.RawAddress, Amount: amount, Nonce: int64(nonce)}); err == nil {
-			break
-		}
-		time.Sleep(time.Duration(retryInterval) * time.Second)
-	}
+	transfer, err := createSignedTransfer(sender, recipient, big.NewInt(amount), nonce)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Failed to inject transfer")
 	}
-	logger.Info().Msg("Created raw transfer")
 
-	tsf := &exp.Transfer{}
-	serializedTransfer, err := hex.DecodeString(r.SerializedTransfer)
-	if err != nil {
-		logger.Fatal().Err(err).Msg("Failed to inject transfer")
-	}
-	if err := json.Unmarshal(serializedTransfer, tsf); err != nil {
-		logger.Fatal().Err(err).Msg("Failed to inject transfer")
-	}
+	logger.Info().Msg("Created signed transfer")
 
-	// Sign Transfer
-	transfer := action.NewTransfer(uint64(tsf.Nonce), big.NewInt(tsf.Amount), tsf.Sender, tsf.Recipient)
-	transfer, err = transfer.Sign(sender)
-	if err != nil {
-		logger.Fatal().Err(err).Msg("Failed to inject transfer")
-	}
-	tsf.SenderPubKey = keypair.EncodePublicKey(transfer.SenderPublicKey)
-	tsf.Signature = hex.EncodeToString(transfer.Signature)
-
+	tsf := transfer.ToJSON()
 	stsf, err := json.Marshal(tsf)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Failed to inject transfer")
@@ -280,44 +257,17 @@ func injectVote(
 	retryNum int,
 	retryInterval int,
 ) {
-	var r exp.CreateRawVoteResponse
-	var err error
-	for i := 0; i < retryNum; i++ {
-		if r, err = c.CreateRawVote(exp.CreateRawVoteRequest{Voter: keypair.EncodePublicKey(sender.PublicKey), Votee: keypair.EncodePublicKey(recipient.PublicKey), Nonce: int64(nonce)}); err == nil {
-			break
-		}
-		time.Sleep(time.Duration(retryInterval) * time.Second)
-	}
+	vote, err := createSignedVote(sender, recipient, nonce)
 	if err != nil {
-		logger.Fatal().Err(err).Msg("Failed to inject vote")
-	}
-	logger.Info().Msg("Created raw vote")
-
-	jsonVote := &exp.Vote{}
-	serializedVote, err := hex.DecodeString(r.SerializedVote)
-	if err != nil {
-		logger.Fatal().Err(err).Msg("Failed to inject vote")
-	}
-	if err := json.Unmarshal(serializedVote, jsonVote); err != nil {
 		logger.Fatal().Err(err).Msg("Failed to inject vote")
 	}
 
-	// Sign Vote
-	voterPubKey, err := keypair.DecodePublicKey(jsonVote.VoterPubKey)
-	if err != nil {
-		logger.Fatal().Err(err).Msg("Failed to inject vote")
-	}
-	voteePubKey, err := keypair.DecodePublicKey(jsonVote.VoteePubKey)
-	if err != nil {
-		logger.Fatal().Err(err).Msg("Failed to inject vote")
-	}
-	vote := action.NewVote(uint64(jsonVote.Nonce), voterPubKey, voteePubKey)
-	vote, err = vote.Sign(sender)
-	if err != nil {
-		logger.Fatal().Err(err).Msg("Failed to inject vote")
-	}
-	jsonVote.Signature = hex.EncodeToString(vote.Signature)
+	logger.Info().Msg("Created signed vote")
 
+	jsonVote, err := vote.ToJSON()
+	if err != nil {
+		logger.Fatal().Err(err).Msg("Failed to inject vote")
+	}
 	svote, err := json.Marshal(jsonVote)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Failed to inject vote")
@@ -372,4 +322,30 @@ func createVoteInjection(counter map[string]uint64, addrs []*iotxaddress.Address
 	nonce := counter[sender.RawAddress]
 	counter[sender.RawAddress]++
 	return sender, recipient, nonce
+}
+
+// Helper function to create and sign a transfer
+func createSignedTransfer(sender *iotxaddress.Address, recipient *iotxaddress.Address, amount *big.Int, nonce uint64) (*action.Transfer, error) {
+	rawTransfer, err := action.NewTransfer(nonce, amount, sender.RawAddress, recipient.RawAddress)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create raw transfer")
+	}
+	signedTransfer, err := rawTransfer.Sign(sender)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to sign transfer %v", rawTransfer)
+	}
+	return signedTransfer, nil
+}
+
+// Helper function to create and sign a vote
+func createSignedVote(voter *iotxaddress.Address, votee *iotxaddress.Address, nonce uint64) (*action.Vote, error) {
+	rawVote, err := action.NewVote(nonce, voter.PublicKey, votee.PublicKey)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create raw vote")
+	}
+	signedVote, err := rawVote.Sign(voter)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to sign vote %v", rawVote)
+	}
+	return signedVote, nil
 }

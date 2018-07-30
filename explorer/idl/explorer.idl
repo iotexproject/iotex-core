@@ -97,27 +97,6 @@ struct ConsensusMetrics {
 	candidates []string
 }
 
-struct CreateRawTransferRequest {
-    sender string
-    recipient string
-    amount int
-    nonce int
-}
-
-struct CreateRawTransferResponse {
-    serializedTransfer string
-}
-
-struct CreateRawVoteRequest {
-    voter string
-    votee string
-    nonce int
-}
-
-struct CreateRawVoteResponse {
-    serializedVote string
-}
-
 struct SendTransferRequest {
     serlializedTransfer string
 }
@@ -188,12 +167,6 @@ interface Explorer {
 
     // get candidates metrics
     getCandidateMetrics() CandidateMetrics
-
-    // create raw transfer
-    createRawTransfer(request CreateRawTransferRequest) CreateRawTransferResponse
-
-    // create raw vote
-    createRawVote(request CreateRawVoteRequest) CreateRawVoteResponse
 
     // send transfer
     sendTransfer(request SendTransferRequest) SendTransferResponse

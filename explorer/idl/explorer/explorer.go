@@ -8,8 +8,8 @@ import (
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "feaa7085d861ba42dc4d6ad7b878ac48"
-const BarristerDateGenerated int64 = 1532826033934000000
+const BarristerChecksum string = "d7ea6abf6adbae87fe6193834e52413f"
+const BarristerDateGenerated int64 = 1532979585458000000
 
 type CoinStatistic struct {
 	Height    int64 `json:"height"`
@@ -93,27 +93,6 @@ type ConsensusMetrics struct {
 	Candidates          []string `json:"candidates"`
 }
 
-type CreateRawTransferRequest struct {
-	Sender    string `json:"sender"`
-	Recipient string `json:"recipient"`
-	Amount    int64  `json:"amount"`
-	Nonce     int64  `json:"nonce"`
-}
-
-type CreateRawTransferResponse struct {
-	SerializedTransfer string `json:"serializedTransfer"`
-}
-
-type CreateRawVoteRequest struct {
-	Voter string `json:"voter"`
-	Votee string `json:"votee"`
-	Nonce int64  `json:"nonce"`
-}
-
-type CreateRawVoteResponse struct {
-	SerializedVote string `json:"serializedVote"`
-}
-
 type SendTransferRequest struct {
 	SerlializedTransfer string `json:"serlializedTransfer"`
 }
@@ -149,8 +128,6 @@ type Explorer interface {
 	GetCoinStatistic() (CoinStatistic, error)
 	GetConsensusMetrics() (ConsensusMetrics, error)
 	GetCandidateMetrics() (CandidateMetrics, error)
-	CreateRawTransfer(request CreateRawTransferRequest) (CreateRawTransferResponse, error)
-	CreateRawVote(request CreateRawVoteRequest) (CreateRawVoteResponse, error)
 	SendTransfer(request SendTransferRequest) (SendTransferResponse, error)
 	SendVote(request SendVoteRequest) (SendVoteResponse, error)
 }
@@ -486,42 +463,6 @@ func (_p ExplorerProxy) GetCandidateMetrics() (CandidateMetrics, error) {
 		return _cast, nil
 	}
 	return CandidateMetrics{}, _err
-}
-
-func (_p ExplorerProxy) CreateRawTransfer(request CreateRawTransferRequest) (CreateRawTransferResponse, error) {
-	_res, _err := _p.client.Call("Explorer.createRawTransfer", request)
-	if _err == nil {
-		_retType := _p.idl.Method("Explorer.createRawTransfer").Returns
-		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(CreateRawTransferResponse{}), _res, "")
-	}
-	if _err == nil {
-		_cast, _ok := _res.(CreateRawTransferResponse)
-		if !_ok {
-			_t := reflect.TypeOf(_res)
-			_msg := fmt.Sprintf("Explorer.createRawTransfer returned invalid type: %v", _t)
-			return CreateRawTransferResponse{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
-		}
-		return _cast, nil
-	}
-	return CreateRawTransferResponse{}, _err
-}
-
-func (_p ExplorerProxy) CreateRawVote(request CreateRawVoteRequest) (CreateRawVoteResponse, error) {
-	_res, _err := _p.client.Call("Explorer.createRawVote", request)
-	if _err == nil {
-		_retType := _p.idl.Method("Explorer.createRawVote").Returns
-		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(CreateRawVoteResponse{}), _res, "")
-	}
-	if _err == nil {
-		_cast, _ok := _res.(CreateRawVoteResponse)
-		if !_ok {
-			_t := reflect.TypeOf(_res)
-			_msg := fmt.Sprintf("Explorer.createRawVote returned invalid type: %v", _t)
-			return CreateRawVoteResponse{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
-		}
-		return _cast, nil
-	}
-	return CreateRawVoteResponse{}, _err
 }
 
 func (_p ExplorerProxy) SendTransfer(request SendTransferRequest) (SendTransferResponse, error) {
@@ -1136,125 +1077,6 @@ var IdlJsonRaw = `[
     },
     {
         "type": "struct",
-        "name": "CreateRawTransferRequest",
-        "comment": "",
-        "value": "",
-        "extends": "",
-        "fields": [
-            {
-                "name": "sender",
-                "type": "string",
-                "optional": false,
-                "is_array": false,
-                "comment": ""
-            },
-            {
-                "name": "recipient",
-                "type": "string",
-                "optional": false,
-                "is_array": false,
-                "comment": ""
-            },
-            {
-                "name": "amount",
-                "type": "int",
-                "optional": false,
-                "is_array": false,
-                "comment": ""
-            },
-            {
-                "name": "nonce",
-                "type": "int",
-                "optional": false,
-                "is_array": false,
-                "comment": ""
-            }
-        ],
-        "values": null,
-        "functions": null,
-        "barrister_version": "",
-        "date_generated": 0,
-        "checksum": ""
-    },
-    {
-        "type": "struct",
-        "name": "CreateRawTransferResponse",
-        "comment": "",
-        "value": "",
-        "extends": "",
-        "fields": [
-            {
-                "name": "serializedTransfer",
-                "type": "string",
-                "optional": false,
-                "is_array": false,
-                "comment": ""
-            }
-        ],
-        "values": null,
-        "functions": null,
-        "barrister_version": "",
-        "date_generated": 0,
-        "checksum": ""
-    },
-    {
-        "type": "struct",
-        "name": "CreateRawVoteRequest",
-        "comment": "",
-        "value": "",
-        "extends": "",
-        "fields": [
-            {
-                "name": "voter",
-                "type": "string",
-                "optional": false,
-                "is_array": false,
-                "comment": ""
-            },
-            {
-                "name": "votee",
-                "type": "string",
-                "optional": false,
-                "is_array": false,
-                "comment": ""
-            },
-            {
-                "name": "nonce",
-                "type": "int",
-                "optional": false,
-                "is_array": false,
-                "comment": ""
-            }
-        ],
-        "values": null,
-        "functions": null,
-        "barrister_version": "",
-        "date_generated": 0,
-        "checksum": ""
-    },
-    {
-        "type": "struct",
-        "name": "CreateRawVoteResponse",
-        "comment": "",
-        "value": "",
-        "extends": "",
-        "fields": [
-            {
-                "name": "serializedVote",
-                "type": "string",
-                "optional": false,
-                "is_array": false,
-                "comment": ""
-            }
-        ],
-        "values": null,
-        "functions": null,
-        "barrister_version": "",
-        "date_generated": 0,
-        "checksum": ""
-    },
-    {
-        "type": "struct",
         "name": "SendTransferRequest",
         "comment": "",
         "value": "",
@@ -1790,51 +1612,11 @@ var IdlJsonRaw = `[
             },
             {
                 "name": "getCandidateMetrics",
-                "comment": "get delegates metrics",
+                "comment": "get candidates metrics",
                 "params": [],
                 "returns": {
                     "name": "",
                     "type": "CandidateMetrics",
-                    "optional": false,
-                    "is_array": false,
-                    "comment": ""
-                }
-            },
-            {
-                "name": "createRawTransfer",
-                "comment": "create raw transfer",
-                "params": [
-                    {
-                        "name": "request",
-                        "type": "CreateRawTransferRequest",
-                        "optional": false,
-                        "is_array": false,
-                        "comment": ""
-                    }
-                ],
-                "returns": {
-                    "name": "",
-                    "type": "CreateRawTransferResponse",
-                    "optional": false,
-                    "is_array": false,
-                    "comment": ""
-                }
-            },
-            {
-                "name": "createRawVote",
-                "comment": "create raw vote",
-                "params": [
-                    {
-                        "name": "request",
-                        "type": "CreateRawVoteRequest",
-                        "optional": false,
-                        "is_array": false,
-                        "comment": ""
-                    }
-                ],
-                "returns": {
-                    "name": "",
-                    "type": "CreateRawVoteResponse",
                     "optional": false,
                     "is_array": false,
                     "comment": ""
@@ -1895,7 +1677,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1532826033934,
-        "checksum": "feaa7085d861ba42dc4d6ad7b878ac48"
+        "date_generated": 1532979585458,
+        "checksum": "d7ea6abf6adbae87fe6193834e52413f"
     }
 ]`

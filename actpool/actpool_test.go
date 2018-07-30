@@ -80,7 +80,8 @@ func TestActPool_validateTsf(t *testing.T) {
 	err = ap.validateTsf(&tsf)
 	require.NotNil(ErrBalance, errors.Cause(err))
 	// Case IV: Signature Verification Fails
-	unsignedTsf := action.NewTransfer(uint64(1), big.NewInt(1), addr1.RawAddress, addr1.RawAddress)
+	unsignedTsf, err := action.NewTransfer(uint64(1), big.NewInt(1), addr1.RawAddress, addr1.RawAddress)
+	require.NoError(err)
 	err = ap.validateTsf(unsignedTsf)
 	require.Equal(action.ErrTransferError, errors.Cause(err))
 	// Case V: Nonce is too low
@@ -116,7 +117,8 @@ func TestActPool_validateVote(t *testing.T) {
 	err = ap.validateVote(&vote)
 	require.Equal(ErrActPool, errors.Cause(err))
 	// Case II: Signature Verification Fails
-	unsignedVote := action.NewVote(1, addr1.PublicKey, addr2.PublicKey)
+	unsignedVote, err := action.NewVote(1, addr1.PublicKey, addr2.PublicKey)
+	require.NoError(err)
 	err = ap.validateVote(unsignedVote)
 	require.Equal(action.ErrVoteError, errors.Cause(err))
 	// Case III: Nonce is too low
@@ -223,8 +225,10 @@ func TestActPool_AddActs(t *testing.T) {
 	replaceTsf, _ := signedTransfer(addr1, addr2, uint64(1), big.NewInt(1))
 	err = ap.AddTsf(replaceTsf)
 	require.Equal(ErrNonce, errors.Cause(err))
-	replaceVote := action.NewVote(4, addr1.PublicKey, keypair.ZeroPublicKey)
+	replaceVote, err := action.NewVote(4, addr1.PublicKey, keypair.ZeroPublicKey)
+	require.NoError(err)
 	replaceVote, _ = replaceVote.Sign(addr1)
+	err = ap.AddVote(replaceVote)
 	require.Equal(ErrNonce, errors.Cause(err))
 	// Case IV: Nonce is too large
 	outOfBoundsTsf, _ := signedTransfer(addr1, addr1, uint64(ap.maxNumActPerAcct+1), big.NewInt(1))
@@ -581,12 +585,12 @@ func TestActPool_Reset(t *testing.T) {
 	require.Nil(err)
 	tsf21, _ := signedTransfer(addr4, addr5, uint64(1), big.NewInt(10))
 	vote22, _ := signedVote(addr4, addr4, uint64(2))
-	vote23 := action.NewVote(3, addr4.PublicKey, keypair.ZeroPublicKey)
-	vote23, err = vote23.Sign(addr4)
+	vote23, _ := action.NewVote(3, addr4.PublicKey, keypair.ZeroPublicKey)
+	vote23, _ = vote23.Sign(addr4)
 	vote24, _ := signedVote(addr5, addr5, uint64(1))
 	tsf25, _ := signedTransfer(addr5, addr4, uint64(2), big.NewInt(10))
-	vote26 := action.NewVote(3, addr5.PublicKey, keypair.ZeroPublicKey)
-	vote26, err = vote26.Sign(addr5)
+	vote26, _ := action.NewVote(3, addr5.PublicKey, keypair.ZeroPublicKey)
+	vote26, _ = vote26.Sign(addr5)
 
 	err = ap1.AddTsf(tsf21)
 	require.Nil(err)
@@ -766,12 +770,18 @@ func (ap *actPool) getPendingBalance(addr string) (*big.Int, error) {
 
 // Helper function to return a signed transfer
 func signedTransfer(sender *iotxaddress.Address, recipient *iotxaddress.Address, nonce uint64, amount *big.Int) (*action.Transfer, error) {
-	transfer := action.NewTransfer(nonce, amount, sender.RawAddress, recipient.RawAddress)
+	transfer, err := action.NewTransfer(nonce, amount, sender.RawAddress, recipient.RawAddress)
+	if err != nil {
+		return nil, err
+	}
 	return transfer.Sign(sender)
 }
 
 // Helper function to return a signed vote
 func signedVote(voter *iotxaddress.Address, votee *iotxaddress.Address, nonce uint64) (*action.Vote, error) {
-	vote := action.NewVote(nonce, voter.PublicKey, votee.PublicKey)
+	vote, err := action.NewVote(nonce, voter.PublicKey, votee.PublicKey)
+	if err != nil {
+		return nil, err
+	}
 	return vote.Sign(voter)
 }
