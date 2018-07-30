@@ -7,6 +7,7 @@
 package keystore
 
 import (
+	"encoding/json"
 	"math/big"
 	"testing"
 
@@ -65,13 +66,14 @@ func TestAccountManager_Import(t *testing.T) {
 	require := require.New(t)
 	m := NewMemAccountManager()
 
-	err := m.Import(nil)
-	require.Equal(ErrAddr, errors.Cause(err))
-
-	addr := testutil.ConstructAddress(pubKey1, priKey1)
-	err = m.Import(addr)
+	key := &Key{PublicKey: pubKey1, PrivateKey: priKey1, RawAddress: rawAddr1}
+	keyBytes, err := json.Marshal(key)
 	require.NoError(err)
 
+	err = m.Import(keyBytes)
+	require.NoError(err)
+
+	addr := testutil.ConstructAddress(pubKey1, priKey1)
 	val, err := m.keystore.Get(rawAddr1)
 	require.NoError(err)
 	require.Equal(addr, val)
@@ -86,8 +88,11 @@ func TestAccountManager_SignTransfer(t *testing.T) {
 	require.Nil(signedTransfer)
 	require.Equal(ErrNotExist, errors.Cause(err))
 
-	addr := testutil.ConstructAddress(pubKey1, priKey1)
-	err = m.Import(addr)
+	key := &Key{PublicKey: pubKey1, PrivateKey: priKey1, RawAddress: rawAddr1}
+	keyBytes, err := json.Marshal(key)
+	require.NoError(err)
+
+	err = m.Import(keyBytes)
 	require.NoError(err)
 
 	signedTransfer, err = m.SignTransfer(rawAddr1, rawTransfer)
@@ -108,8 +113,11 @@ func TestAccountManager_SignVote(t *testing.T) {
 	require.Nil(signedVote)
 	require.Equal(ErrNotExist, errors.Cause(err))
 
-	addr := testutil.ConstructAddress(pubKey1, priKey1)
-	err = m.Import(addr)
+	key := &Key{PublicKey: pubKey1, PrivateKey: priKey1, RawAddress: rawAddr1}
+	keyBytes, err := json.Marshal(key)
+	require.NoError(err)
+
+	err = m.Import(keyBytes)
 	require.NoError(err)
 
 	signedVote, err = m.SignVote(rawAddr1, rawVote)
@@ -128,8 +136,11 @@ func TestAccountManager_SignHash(t *testing.T) {
 	require.Nil(signature)
 	require.Equal(ErrNotExist, errors.Cause(err))
 
-	addr := testutil.ConstructAddress(pubKey1, priKey1)
-	err = m.Import(addr)
+	key := &Key{PublicKey: pubKey1, PrivateKey: priKey1, RawAddress: rawAddr1}
+	keyBytes, err := json.Marshal(key)
+	require.NoError(err)
+
+	err = m.Import(keyBytes)
 	require.NoError(err)
 
 	signature, err = m.SignHash(rawAddr1, hash[:])
