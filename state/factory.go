@@ -72,6 +72,7 @@ type (
 		candidateHeap          CandidateMinPQ
 		candidateBufferMinHeap CandidateMinPQ
 		candidateBufferMaxHeap CandidateMaxPQ
+		cachedCandidate        map[string]*Candidate
 		// accounts
 		cachedAccount map[string]*State // accounts being modified in this Tx
 		trie          trie.Trie         // global state trie
@@ -128,6 +129,7 @@ func NewFactory(cfg *config.Config, opts ...FactoryOption) (Factory, error) {
 		candidateHeap:          CandidateMinPQ{int(cfg.Chain.NumCandidates), make([]*Candidate, 0)},
 		candidateBufferMinHeap: CandidateMinPQ{candidateBufferSize, make([]*Candidate, 0)},
 		candidateBufferMaxHeap: CandidateMaxPQ{candidateBufferSize, make([]*Candidate, 0)},
+		cachedCandidate:        make(map[string]*Candidate),
 		cachedAccount:          make(map[string]*State),
 	}
 
@@ -190,12 +192,10 @@ func (sf *factory) RootHash() hash.Hash32B {
 
 // CommitStateChanges updates a State from the given actions
 func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer, vote []*action.Vote) error {
-	addressToPKMap := make(map[string][]byte)
-
-	if err := sf.handleTsf(addressToPKMap, tsf); err != nil {
+	if err := sf.handleTsf(tsf); err != nil {
 		return err
 	}
-	if err := sf.handleVote(addressToPKMap, vote); err != nil {
+	if err := sf.handleVote(blockHeight, vote); err != nil {
 		return err
 	}
 
@@ -216,6 +216,9 @@ func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer
 		// Perform vote update operation on candidate and delegate pools
 		if !state.IsCandidate {
 			// remove the candidate if the person is not a candidate anymore
+			if _, ok := sf.cachedCandidate[address]; ok {
+				delete(sf.cachedCandidate, address)
+			}
 			sf.removeCandidate(address)
 			continue
 		}
@@ -224,24 +227,7 @@ func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer
 		if state.Votee == address {
 			totalWeight.Add(totalWeight, state.Balance)
 		}
-		if c, level := sf.inPool(address); level > 0 {
-			sf.updateVotes(c, totalWeight)
-			continue
-		}
-		if pubKey, ok := addressToPKMap[address]; ok {
-			candidate := &Candidate{
-				Address:          address,
-				Votes:            totalWeight,
-				PubKey:           pubKey,
-				CreationHeight:   blockHeight,
-				LastUpdateHeight: blockHeight,
-				minIndex:         0,
-				maxIndex:         0,
-			}
-			sf.updateVotes(candidate, totalWeight)
-		}
-		// If the candidate who needs vote update but not in the pool
-		// and is not involved in a vote activity, then don't considert him
+		sf.updateCandidate(address, totalWeight, blockHeight)
 	}
 	sf.currentChainHeight = blockHeight
 	candidates := sf.candidateHeap.CandidateList()
@@ -297,19 +283,20 @@ func (sf *factory) getStateFromPKHash(pubKeyHash []byte) (*State, error) {
 	return bytesToState(mstate)
 }
 
-func (sf *factory) updateVotes(candidate *Candidate, votes *big.Int) {
-	candidate.Votes = votes
-	c, level := sf.inPool(candidate.Address)
+func (sf *factory) updateCandidate(address string, totalWeight *big.Int, blockHeight uint64) {
+	// Candidate was added when self-nomination, always exist in cached candidate
+	candidate, _ := sf.cachedCandidate[address]
+	candidate.Votes = totalWeight
+	candidate.LastUpdateHeight = blockHeight
+	_, level := sf.inPool(candidate.Address)
 	switch level {
 	case candidatePool:
 		// if candidate is already in candidate pool
-		c.LastUpdateHeight = candidate.LastUpdateHeight
-		sf.candidateHeap.update(c, candidate.Votes)
+		sf.candidateHeap.update(candidate, candidate.Votes)
 	case candidateBufferPool:
 		// if candidate is already in candidate buffer pool
-		c.LastUpdateHeight = candidate.LastUpdateHeight
-		sf.candidateBufferMinHeap.update(c, candidate.Votes)
-		sf.candidateBufferMaxHeap.update(c, candidate.Votes)
+		sf.candidateBufferMinHeap.update(candidate, candidate.Votes)
+		sf.candidateBufferMaxHeap.update(candidate, candidate.Votes)
 	default:
 		// candidate is not in any of two pools
 		transitCandidate := candidate
@@ -402,7 +389,7 @@ func (sf *factory) cache(address string) (*State, error) {
 	return state, nil
 }
 
-func (sf *factory) handleTsf(addressToPKMap map[string][]byte, tsf []*action.Transfer) error {
+func (sf *factory) handleTsf(tsf []*action.Transfer) error {
 	for _, tx := range tsf {
 		if !tx.IsCoinbase {
 			// check sender
@@ -453,7 +440,7 @@ func (sf *factory) handleTsf(addressToPKMap map[string][]byte, tsf []*action.Tra
 	return nil
 }
 
-func (sf *factory) handleVote(addressToPKMap map[string][]byte, vote []*action.Vote) error {
+func (sf *factory) handleVote(blockHeight uint64, vote []*action.Vote) error {
 	for _, v := range vote {
 		selfPublicKey, err := v.SelfPublicKey()
 		if err != nil {
@@ -467,7 +454,6 @@ func (sf *factory) handleVote(addressToPKMap map[string][]byte, vote []*action.V
 		if err != nil {
 			return err
 		}
-		addressToPKMap[selfAddress.RawAddress] = v.SelfPubkey
 
 		// update voteFrom nonce
 		if v.Nonce > voteFrom.Nonce {
@@ -506,15 +492,24 @@ func (sf *factory) handleVote(addressToPKMap map[string][]byte, vote []*action.V
 		if err != nil {
 			return err
 		}
-		addressToPKMap[voteAddress.RawAddress] = v.VotePubkey
 
 		if selfAddress.RawAddress != voteAddress.RawAddress {
 			// Voter votes to a different person
 			voteTo.VotingWeight.Add(voteTo.VotingWeight, voteFrom.Balance)
 			voteFrom.Votee = voteAddress.RawAddress
 		} else {
+			// Vote to self: self-nomination or cancel the previous vote case
 			voteFrom.Votee = selfAddress.RawAddress
 			voteFrom.IsCandidate = true
+			if _, ok := sf.cachedCandidate[selfAddress.RawAddress]; !ok {
+				sf.cachedCandidate[selfAddress.RawAddress] = &Candidate{
+					Address:        selfAddress.RawAddress,
+					PubKey:         selfPublicKey[:],
+					CreationHeight: blockHeight,
+					minIndex:       0,
+					maxIndex:       0,
+				}
+			}
 		}
 	}
 	return nil
