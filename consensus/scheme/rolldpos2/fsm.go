@@ -472,6 +472,10 @@ func (m *cFSM) handleProposeBlockEvt(evt fsm.Event) (fsm.State, error) {
 	case eProposeBlockTimeout:
 		received = false
 		validated = false
+		logger.Warn().
+			Str("proposer", m.ctx.round.proposer).
+			Uint64("height", m.ctx.round.height).
+			Msg("didn't receive the proposed block before timeout")
 	}
 
 	if received {
@@ -525,6 +529,9 @@ func (m *cFSM) handlePrevoteEvt(evt fsm.Event) (fsm.State, error) {
 		if m.ctx.round.block != nil {
 			vEvt = m.newVoteEvt(m.ctx.round.block.HashBlock(), false)
 		}
+		logger.Warn().
+			Int("prevotes", len(m.ctx.round.prevotes)).
+			Msg("didn't collect enough prevotes before timeout")
 	}
 	if vEvt != nil {
 		vEvtProto, err := vEvt.toProtoMsg()
@@ -575,6 +582,9 @@ func (m *cFSM) handleVoteEvt(evt fsm.Event) (fsm.State, error) {
 	case eVoteTimeout:
 		consensus = false
 		timeout = true
+		logger.Warn().
+			Int("votes", len(m.ctx.round.votes)).
+			Msg("didn't collect enough votes before timeout")
 	}
 	if consensus {
 		logger.Info().
