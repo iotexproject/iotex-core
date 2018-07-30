@@ -133,11 +133,11 @@ func (ks *plainKeyStore) Store(rawAddr string, address *iotxaddress.Address) err
 	defer f.Close()
 	key, err := addrToKey(address)
 	if err != nil {
-		return errors.Wrapf(err, "failed to convert address %v to key", address)
+		return errors.Wrap(err, "failed to convert address to key")
 	}
 	sKey, err := json.Marshal(key)
 	if err != nil {
-		return errors.Wrapf(err, "failed to marshal key %v", key)
+		return errors.Wrap(err, "failed to marshal key")
 	}
 	_, err = io.Copy(f, bytes.NewReader(sKey))
 	return err
@@ -263,11 +263,11 @@ func keyToAddr(key *Key) (*iotxaddress.Address, error) {
 	}
 	publicKey, err := keypair.DecodePublicKey(key.PublicKey)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to decode public key %v", key.PublicKey)
+		return nil, errors.Wrap(err, "failed to decode public key")
 	}
 	privateKey, err := keypair.DecodePrivateKey(key.PrivateKey)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to decode private key %v", key.PrivateKey)
+		return nil, errors.Wrap(err, "failed to decode private key")
 	}
 	return &iotxaddress.Address{PublicKey: publicKey, PrivateKey: privateKey, RawAddress: key.RawAddress}, nil
 }
