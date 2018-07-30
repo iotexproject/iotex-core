@@ -238,6 +238,7 @@ func TestCandidate(t *testing.T) {
 		candidateHeap:          CandidateMinPQ{2, make([]*Candidate, 0)},
 		candidateBufferMinHeap: CandidateMinPQ{10, make([]*Candidate, 0)},
 		candidateBufferMaxHeap: CandidateMaxPQ{10, make([]*Candidate, 0)},
+		cachedCandidate:        make(map[string]*Candidate),
 		cachedAccount:          make(map[string]*State),
 	}
 	_, err := sf.CreateState(a.RawAddress, uint64(100))
@@ -478,6 +479,7 @@ func TestUnvote(t *testing.T) {
 		candidateHeap:          CandidateMinPQ{2, make([]*Candidate, 0)},
 		candidateBufferMinHeap: CandidateMinPQ{10, make([]*Candidate, 0)},
 		candidateBufferMaxHeap: CandidateMaxPQ{10, make([]*Candidate, 0)},
+		cachedCandidate:        make(map[string]*Candidate),
 		cachedAccount:          make(map[string]*State),
 	}
 	_, err := sf.CreateState(a.RawAddress, uint64(100))
