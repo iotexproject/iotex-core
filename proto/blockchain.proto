@@ -38,10 +38,6 @@ message VotePb {
 }
 
 message ActionPb {
-    uint64 nonce = 3;
-    bytes signature = 4;
-    uint32 version = 5;
-
     oneof action {
         TransferPb transfer = 1;
         VotePb vote = 2;
