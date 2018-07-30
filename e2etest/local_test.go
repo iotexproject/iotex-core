@@ -139,9 +139,9 @@ func TestLocalCommit(t *testing.T) {
 
 	// transfer 1
 	// C --> A
-	s, err = bc.StateByAddr(ta.Addrinfo["charlie"].RawAddress)
-	tsf1 := action.NewTransfer(s.Nonce+1, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["alfa"].RawAddress)
-	tsf1, err = tsf1.Sign(ta.Addrinfo["charlie"])
+	s, _ = bc.StateByAddr(ta.Addrinfo["charlie"].RawAddress)
+	tsf1, _ := action.NewTransfer(s.Nonce+1, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["alfa"].RawAddress)
+	tsf1, _ = tsf1.Sign(ta.Addrinfo["charlie"])
 	act1 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf1.ConvertToTransferPb()}}
 	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		if err := p1.Broadcast(act1); err != nil {
@@ -159,9 +159,9 @@ func TestLocalCommit(t *testing.T) {
 
 	// transfer 2
 	// F --> D
-	s, err = bc.StateByAddr(ta.Addrinfo["foxtrot"].RawAddress)
-	tsf2 := action.NewTransfer(s.Nonce+1, big.NewInt(1), ta.Addrinfo["foxtrot"].RawAddress, ta.Addrinfo["delta"].RawAddress)
-	tsf2, err = tsf2.Sign(ta.Addrinfo["foxtrot"])
+	s, _ = bc.StateByAddr(ta.Addrinfo["foxtrot"].RawAddress)
+	tsf2, _ := action.NewTransfer(s.Nonce+1, big.NewInt(1), ta.Addrinfo["foxtrot"].RawAddress, ta.Addrinfo["delta"].RawAddress)
+	tsf2, _ = tsf2.Sign(ta.Addrinfo["foxtrot"])
 	blk2 := blockchain.NewBlock(0, height+2, hash1, []*action.Transfer{tsf2,
 		action.NewCoinBaseTransfer(big.NewInt(int64(blockchain.Gen.BlockReward)), ta.Addrinfo["producer"].RawAddress)}, nil)
 	err = blk2.SignBlock(ta.Addrinfo["producer"])
@@ -179,9 +179,9 @@ func TestLocalCommit(t *testing.T) {
 
 	// transfer 3
 	// B --> B
-	s, err = bc.StateByAddr(ta.Addrinfo["bravo"].RawAddress)
-	tsf3 := action.NewTransfer(s.Nonce+1, big.NewInt(1), ta.Addrinfo["bravo"].RawAddress, ta.Addrinfo["bravo"].RawAddress)
-	tsf3, err = tsf3.Sign(ta.Addrinfo["bravo"])
+	s, _ = bc.StateByAddr(ta.Addrinfo["bravo"].RawAddress)
+	tsf3, _ := action.NewTransfer(s.Nonce+1, big.NewInt(1), ta.Addrinfo["bravo"].RawAddress, ta.Addrinfo["bravo"].RawAddress)
+	tsf3, _ = tsf3.Sign(ta.Addrinfo["bravo"])
 	blk3 := blockchain.NewBlock(0, height+3, hash2, []*action.Transfer{tsf3,
 		action.NewCoinBaseTransfer(big.NewInt(int64(blockchain.Gen.BlockReward)), ta.Addrinfo["producer"].RawAddress)}, nil)
 	err = blk3.SignBlock(ta.Addrinfo["producer"])
@@ -199,9 +199,9 @@ func TestLocalCommit(t *testing.T) {
 
 	// transfer 4
 	// test --> E
-	s, err = bc.StateByAddr(ta.Addrinfo["producer"].RawAddress)
-	tsf4 := action.NewTransfer(s.Nonce+1, big.NewInt(1), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["echo"].RawAddress)
-	tsf4, err = tsf4.Sign(ta.Addrinfo["producer"])
+	s, _ = bc.StateByAddr(ta.Addrinfo["producer"].RawAddress)
+	tsf4, _ := action.NewTransfer(s.Nonce+1, big.NewInt(1), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["echo"].RawAddress)
+	tsf4, _ = tsf4.Sign(ta.Addrinfo["producer"])
 	blk4 := blockchain.NewBlock(0, height+4, hash3, []*action.Transfer{tsf4,
 		action.NewCoinBaseTransfer(big.NewInt(int64(blockchain.Gen.BlockReward)), ta.Addrinfo["producer"].RawAddress)}, nil)
 	err = blk4.SignBlock(ta.Addrinfo["producer"])
@@ -539,7 +539,8 @@ func TestVoteLocalCommit(t *testing.T) {
 
 	// Add block 3
 	// D self nomination
-	vote6 := action.NewVote(uint64(2), ta.Addrinfo["delta"].PublicKey, ta.Addrinfo["delta"].PublicKey)
+	vote6, err := action.NewVote(uint64(2), ta.Addrinfo["delta"].PublicKey, ta.Addrinfo["delta"].PublicKey)
+	require.NoError(err)
 	vote6, err = vote6.Sign(ta.Addrinfo["delta"])
 	require.Nil(err)
 	blk3 := blockchain.NewBlock(0, height+3, hash2,
@@ -587,7 +588,8 @@ func TestVoteLocalCommit(t *testing.T) {
 
 	// Add block 4
 	// Unvote B
-	vote7 := action.NewVote(uint64(3), ta.Addrinfo["bravo"].PublicKey, keypair.ZeroPublicKey)
+	vote7, err := action.NewVote(uint64(3), ta.Addrinfo["bravo"].PublicKey, keypair.ZeroPublicKey)
+	require.NoError(err)
 	vote7, err = vote7.Sign(ta.Addrinfo["bravo"])
 	require.Nil(err)
 	blk4 := blockchain.NewBlock(0, height+4, hash3,
@@ -634,8 +636,11 @@ func TestVoteLocalCommit(t *testing.T) {
 }
 
 func newSignedVote(nonce int, from *iotxaddress.Address, to *iotxaddress.Address) (*action.Vote, error) {
-	vote := action.NewVote(uint64(nonce), from.PublicKey, to.PublicKey)
-	vote, err := vote.Sign(from)
+	vote, err := action.NewVote(uint64(nonce), from.PublicKey, to.PublicKey)
+	if err != nil {
+		return nil, err
+	}
+	vote, err = vote.Sign(from)
 	if err != nil {
 		return nil, err
 	}

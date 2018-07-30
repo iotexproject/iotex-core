@@ -25,8 +25,12 @@ import (
 	"github.com/iotexproject/iotex-core/proto"
 )
 
-// ErrVoteError indicates error for a vote action
-var ErrVoteError = errors.New("vote error")
+var (
+	// ErrVoteError indicates error for a vote action
+	ErrVoteError = errors.New("vote error")
+	// ErrPublicKey indicates error of public key
+	ErrPublicKey = errors.New("public key error")
+)
 
 const (
 	// NonceSizeInBytes defines the size of nonce in byte units
@@ -43,7 +47,11 @@ type Vote struct {
 }
 
 // NewVote returns a Vote instance
-func NewVote(nonce uint64, selfPubKey keypair.PublicKey, votePubKey keypair.PublicKey) *Vote {
+func NewVote(nonce uint64, selfPubKey keypair.PublicKey, votePubKey keypair.PublicKey) (*Vote, error) {
+	if selfPubKey == keypair.ZeroPublicKey {
+		return nil, errors.Wrap(ErrPublicKey, "public key of voter is empty")
+	}
+
 	pbVote := &iproto.VotePb{
 		Version: version.ProtocolVersion,
 
@@ -51,7 +59,7 @@ func NewVote(nonce uint64, selfPubKey keypair.PublicKey, votePubKey keypair.Publ
 		SelfPubkey: selfPubKey[:],
 		VotePubkey: votePubKey[:],
 	}
-	return &Vote{pbVote}
+	return &Vote{pbVote}, nil
 }
 
 // SelfPublicKey returns the self public key of the vote

@@ -39,6 +39,8 @@ var testAddrs = []*iotxaddress.Address{
 	newTestAddr(),
 }
 
+const publicKey = "336eb60a5741f585a8e81de64e071327a3b96c15af4af5723598a07b6121e8e813bbd0056ba71ae29c0d64252e913f60afaeb11059908b81ff27cbfa327fd371d35f5ec0cbc01705"
+
 func TestBackdoorEvt(t *testing.T) {
 	t.Parallel()
 
@@ -626,8 +628,14 @@ func newTestCFSM(
 	mockChain func(*mock_blockchain.MockBlockchain),
 	mockP2P func(*mock_network.MockOverlay),
 ) *cFSM {
-	transfer := action.NewTransfer(1, big.NewInt(100), "src", "dst")
-	vote := action.NewVote(2, keypair.ZeroPublicKey, keypair.ZeroPublicKey)
+	transfer, err := action.NewTransfer(1, big.NewInt(100), "src", "dst")
+	require.NoError(t, err)
+	selfPubKey, err := keypair.DecodePublicKey(publicKey)
+	require.NoError(t, err)
+	votePubKey, err := keypair.DecodePublicKey(publicKey)
+	require.NoError(t, err)
+	vote, err := action.NewVote(2, selfPubKey, votePubKey)
+	require.NoError(t, err)
 	var prevHash hash.Hash32B
 	lastBlk := blockchain.NewBlock(1, 1, prevHash, make([]*action.Transfer, 0), make([]*action.Vote, 0))
 	blkToMint := blockchain.NewBlock(1, 2, lastBlk.HashBlock(), []*action.Transfer{transfer}, []*action.Vote{vote})

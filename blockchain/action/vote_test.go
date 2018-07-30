@@ -20,7 +20,8 @@ func TestVoteSignVerify(t *testing.T) {
 	require.Nil(err)
 	recipient, err := iotxaddress.NewAddress(true, chainid)
 	require.Nil(err)
-	v := NewVote(0, sender.PublicKey, recipient.PublicKey)
+	v, err := NewVote(0, sender.PublicKey, recipient.PublicKey)
+	require.NoError(err)
 
 	signedv, err := v.Sign(sender)
 	require.Nil(err)
@@ -35,7 +36,8 @@ func TestVoteSerializedDeserialize(t *testing.T) {
 	recipient, err := iotxaddress.NewAddress(true, chainid)
 	require.Nil(err)
 
-	v := NewVote(0, sender.PublicKey, recipient.PublicKey)
+	v, err := NewVote(0, sender.PublicKey, recipient.PublicKey)
+	require.NoError(err)
 	raw, err := v.Serialize()
 	require.Nil(err)
 

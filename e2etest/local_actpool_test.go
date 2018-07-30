@@ -89,7 +89,7 @@ func TestLocalActPool(t *testing.T) {
 	tsf5, _ := signedTransfer(from, to, uint64(5), big.NewInt(5))
 	tsf5.IsCoinbase = true
 	// Unsigned Vote
-	vote6 := action.NewVote(uint64(6), from.PublicKey, from.PublicKey)
+	vote6, _ := action.NewVote(uint64(6), from.PublicKey, from.PublicKey)
 
 	// Wrap transfers and votes as actions
 	act1 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf1.ConvertToTransferPb()}}
@@ -227,13 +227,19 @@ func signedTransfer(
 	nonce uint64,
 	amount *big.Int,
 ) (*action.Transfer, error) {
-	transfer := action.NewTransfer(nonce, amount, sender.RawAddress, recipient.RawAddress)
+	transfer, err := action.NewTransfer(nonce, amount, sender.RawAddress, recipient.RawAddress)
+	if err != nil {
+		return nil, err
+	}
 	return transfer.Sign(sender)
 }
 
 // Helper function to return a signed vote
 func signedVote(voter *iotxaddress.Address, votee *iotxaddress.Address, nonce uint64) (*action.Vote, error) {
-	vote := action.NewVote(nonce, voter.PublicKey, votee.PublicKey)
+	vote, err := action.NewVote(nonce, voter.PublicKey, votee.PublicKey)
+	if err != nil {
+		return nil, err
+	}
 	return vote.Sign(voter)
 }
 

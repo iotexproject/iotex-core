@@ -90,11 +90,6 @@ type Blockchain interface {
 	ValidateBlock(blk *Block) error
 
 	// For action operations
-	// CreateRawTransfer creates an unsigned transfer paying 'amount' from 'from' to 'to'
-	CreateRawTransfer(nonce uint64, from *iotxaddress.Address, amount *big.Int, to *iotxaddress.Address) *action.Transfer
-	// CreateRawVote creates an unsigned vote
-	CreateRawVote(nonce uint64, from *iotxaddress.Address, to *iotxaddress.Address) *action.Vote
-
 	// Validator returns the current validator object
 	Validator() Validator
 	// SetValidator sets the current validator object
@@ -548,16 +543,6 @@ func (bc *blockchain) SetValidator(val Validator) {
 // Validator gets the current validator object
 func (bc *blockchain) Validator() Validator {
 	return bc.validator
-}
-
-// CreateRawTransfer creates an unsigned transfer paying 'amount' from 'from' to 'to'
-func (bc *blockchain) CreateRawTransfer(nonce uint64, from *iotxaddress.Address, amount *big.Int, to *iotxaddress.Address) *action.Transfer {
-	return action.NewTransfer(nonce, amount, from.RawAddress, to.RawAddress)
-}
-
-// CreateRawVote creates an unsigned vote
-func (bc *blockchain) CreateRawVote(nonce uint64, from *iotxaddress.Address, to *iotxaddress.Address) *action.Vote {
-	return action.NewVote(nonce, from.PublicKey, to.PublicKey)
 }
 
 //======================================

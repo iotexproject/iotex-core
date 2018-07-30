@@ -14,10 +14,10 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core-internal/blockchain"
-	"github.com/iotexproject/iotex-core-internal/blockchain/action"
-	"github.com/iotexproject/iotex-core-internal/pkg/hash"
-	"github.com/iotexproject/iotex-core-internal/pkg/keypair"
+	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/action"
+	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 )
 
 func TestSingleAccountManager_SignTransfer(t *testing.T) {
@@ -33,7 +33,8 @@ func TestSingleAccountManager_SignTransfer(t *testing.T) {
 	m, err := NewSingleAccountManager(accountManager)
 	require.NoError(err)
 
-	rawTransfer := action.NewTransfer(uint64(1), big.NewInt(1), rawAddr1, rawAddr2)
+	rawTransfer, err := action.NewTransfer(uint64(1), big.NewInt(1), rawAddr1, rawAddr2)
+	require.NoError(err)
 	signedTransfer, err := m.SignTransfer(rawTransfer)
 	require.NoError(err)
 	require.NotNil(signedTransfer)
@@ -61,7 +62,8 @@ func TestSingleAccountManager_SignVote(t *testing.T) {
 	require.NoError(err)
 	votePubKey, err := keypair.DecodePublicKey(pubKey2)
 	require.NoError(err)
-	rawVote := action.NewVote(uint64(1), selfPubKey, votePubKey)
+	rawVote, err := action.NewVote(uint64(1), selfPubKey, votePubKey)
+	require.NoError(err)
 	signedVote, err := m.SignVote(rawVote)
 	require.NoError(err)
 	require.NotNil(signedVote)

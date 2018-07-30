@@ -691,23 +691,6 @@ func (exp *Service) GetCandidateMetrics() (explorer.CandidateMetrics, error) {
 	}, nil
 }
 
-// CreateRawTransfer creates a raw transfer
-func (exp *Service) CreateRawTransfer(request explorer.CreateRawTransferRequest) (explorer.CreateRawTransferResponse, error) {
-	logger.Debug().Msg("receive create raw transfer request")
-
-	if len(request.Sender) == 0 || len(request.Recipient) == 0 {
-		return explorer.CreateRawTransferResponse{}, errors.New("invalid CreateRawTransferRequest")
-	}
-	amount := big.NewInt(request.Amount)
-
-	tsf := exp.bc.CreateRawTransfer(uint64(request.Nonce), &iotxaddress.Address{RawAddress: request.Sender}, amount, &iotxaddress.Address{RawAddress: request.Recipient})
-	stsf, err := json.Marshal(tsf.ToJSON())
-	if err != nil {
-		return explorer.CreateRawTransferResponse{}, err
-	}
-	return explorer.CreateRawTransferResponse{hex.EncodeToString(stsf[:])}, nil
-}
-
 // SendTransfer sends a transfer
 func (exp *Service) SendTransfer(request explorer.SendTransferRequest) (explorer.SendTransferResponse, error) {
 	logger.Debug().Msg("receive send transfer request")
@@ -759,31 +742,6 @@ func (exp *Service) SendTransfer(request explorer.SendTransferRequest) (explorer
 	// send to actpool via dispatcher
 	exp.dp.HandleBroadcast(action, nil)
 	return explorer.SendTransferResponse{true}, nil
-}
-
-// CreateRawVote creates a raw vote
-func (exp *Service) CreateRawVote(request explorer.CreateRawVoteRequest) (explorer.CreateRawVoteResponse, error) {
-	if len(request.Voter) == 0 || len(request.Votee) == 0 {
-		return explorer.CreateRawVoteResponse{}, errors.New("invalid CreateRawVoteRequest")
-	}
-	voterPubKey, err := keypair.DecodePublicKey(request.Voter)
-	if err != nil {
-		return explorer.CreateRawVoteResponse{}, err
-	}
-	voteePubKey, err := keypair.DecodePublicKey(request.Votee)
-	if err != nil {
-		return explorer.CreateRawVoteResponse{}, err
-	}
-	vote := exp.bc.CreateRawVote(uint64(request.Nonce), &iotxaddress.Address{PublicKey: voterPubKey}, &iotxaddress.Address{PublicKey: voteePubKey})
-	voteJSON, err := vote.ToJSON()
-	if err != nil {
-		return explorer.CreateRawVoteResponse{}, err
-	}
-	svote, err := json.Marshal(voteJSON)
-	if err != nil {
-		return explorer.CreateRawVoteResponse{}, err
-	}
-	return explorer.CreateRawVoteResponse{hex.EncodeToString(svote[:])}, nil
 }
 
 // SendVote sends a vote

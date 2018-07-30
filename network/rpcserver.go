@@ -178,7 +178,7 @@ func (s *RPCServer) Stop(_ context.Context) error {
 	s.Server.Stop()
 	s.started = false
 	// Wait for a second because the rpc server stop is not blocking
-	time.Sleep(time.Second)
+	time.Sleep(2 * time.Second)
 	return nil
 }
 
