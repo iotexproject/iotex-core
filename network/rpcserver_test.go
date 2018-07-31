@@ -128,10 +128,10 @@ func TestBroadcast(t *testing.T) {
 	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) { return o.RPC.Started(), nil })
 	assert.NoError(t, err)
 
-	txMsg := &iproto.TxPb{}
+	txMsg := &iproto.ActionPb{}
 	b, _ := proto.Marshal(txMsg)
 	res, err := p.BroadcastMsg(
-		&pb.BroadcastReq{Header: iproto.MagicBroadcastMsgHeader, MsgType: iproto.MsgTxProtoMsgType, MsgBody: b})
+		&pb.BroadcastReq{Header: iproto.MagicBroadcastMsgHeader, MsgType: iproto.MsgActionType, MsgBody: b})
 	assert.Nil(t, err)
 	assert.NotNil(t, res)
 	assert.Equal(t, iproto.MagicBroadcastMsgHeader, res.Header)
@@ -164,11 +164,11 @@ func TestRPCTell(t *testing.T) {
 	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) { return o.RPC.Started(), nil })
 	assert.NoError(t, err)
 
-	txMsg := &iproto.TxPb{}
+	txMsg := &iproto.ActionPb{}
 	b, _ := proto.Marshal(txMsg)
 	res, err := p.Tell(&pb.TellReq{Header: iproto.MagicBroadcastMsgHeader,
 		Addr:    s.String(),
-		MsgType: iproto.MsgTxProtoMsgType,
+		MsgType: iproto.MsgActionType,
 		MsgBody: b})
 	assert.Nil(t, err)
 	assert.NotNil(t, res)
@@ -207,11 +207,11 @@ func TestRateLimit(t *testing.T) {
 
 	var res *pb.TellRes
 	for i := 0; i < 10; i++ {
-		txMsg := &iproto.TxPb{}
+		txMsg := &iproto.ActionPb{}
 		b, _ := proto.Marshal(txMsg)
 		res, err = p.Tell(&pb.TellReq{Header: iproto.MagicBroadcastMsgHeader,
 			Addr:    s.String(),
-			MsgType: iproto.MsgTxProtoMsgType,
+			MsgType: iproto.MsgActionType,
 			MsgBody: b})
 		if i < 5 {
 			assert.Nil(t, err)

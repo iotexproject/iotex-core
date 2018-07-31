@@ -39,8 +39,6 @@ const (
 // GetTypeFromProtoMsg retrieves the proto message type
 func GetTypeFromProtoMsg(msg proto.Message) (uint32, error) {
 	switch msg.(type) {
-	case *TxPb:
-		return MsgTxProtoMsgType, nil
 	case *BlockPb:
 		return MsgBlockProtoMsgType, nil
 	case *ViewChangeMsg:
@@ -62,8 +60,6 @@ func GetTypeFromProtoMsg(msg proto.Message) (uint32, error) {
 func TypifyProtoMsg(tp uint32, msg []byte) (proto.Message, error) {
 	var m proto.Message
 	switch tp {
-	case MsgTxProtoMsgType:
-		m = &TxPb{}
 	case MsgBlockProtoMsgType:
 		m = &BlockPb{}
 	case ViewChangeMsgType:
