@@ -16,6 +16,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/delegate"
@@ -41,6 +42,7 @@ type rollDPoSCtx struct {
 	clock   clock.Clock
 	// candidatesByHeightFunc is only used for testing purpose
 	candidatesByHeightFunc func(uint64) ([]*state.Candidate, bool)
+	sync                   blocksync.BlockSync
 }
 
 var (
@@ -333,6 +335,7 @@ type RollDPoSBuilder struct {
 	p2p                    network.Overlay
 	clock                  clock.Clock
 	candidatesByHeightFunc func(uint64) ([]*state.Candidate, bool)
+	sync                   blocksync.BlockSync
 }
 
 // NewRollDPoSBuilder instantiates a RollDPoSBuilder instance
@@ -384,6 +387,12 @@ func (b *RollDPoSBuilder) SetCandidatesByHeightFunc(
 	return b
 }
 
+// SetBlockSync sets block sync APIs
+func (b *RollDPoSBuilder) SetBlockSync(sync blocksync.BlockSync) *RollDPoSBuilder {
+	b.sync = sync
+	return b
+}
+
 // Build builds a RollDPoS consensus module
 func (b *RollDPoSBuilder) Build() (*RollDPoS, error) {
 	if b.chain == nil {
@@ -406,6 +415,7 @@ func (b *RollDPoSBuilder) Build() (*RollDPoS, error) {
 		p2p:     b.p2p,
 		clock:   b.clock,
 		candidatesByHeightFunc: b.candidatesByHeightFunc,
+		sync: b.sync,
 	}
 	cfsm, err := newConsensusFSM(&ctx)
 	if err != nil {
