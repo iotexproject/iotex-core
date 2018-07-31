@@ -24,7 +24,8 @@ func TestTransferSignVerify(t *testing.T) {
 	recipient, err := iotxaddress.NewAddress(true, chainid)
 	require.Nil(err)
 
-	tsf := NewTransfer(0, big.NewInt(10), sender.RawAddress, recipient.RawAddress)
+	tsf, err := NewTransfer(0, big.NewInt(10), sender.RawAddress, recipient.RawAddress)
+	require.NoError(err)
 	require.Nil(tsf.Signature)
 	require.NotNil(tsf.Verify(sender))
 
@@ -51,7 +52,8 @@ func TestTransferSerializeDeserialize(t *testing.T) {
 	recipient, err := iotxaddress.NewAddress(true, chainid)
 	require.Nil(err)
 
-	tsf := NewTransfer(0, big.NewInt(38291), sender.RawAddress, recipient.RawAddress)
+	tsf, err := NewTransfer(0, big.NewInt(38291), sender.RawAddress, recipient.RawAddress)
+	require.NoError(err)
 	require.NotNil(tsf)
 
 	s, err := tsf.Serialize()

@@ -13,11 +13,13 @@ import (
 
 // Candidate is used in the heap
 type Candidate struct {
-	Address  string
-	Votes    *big.Int
-	PubKey   []byte
-	minIndex int
-	maxIndex int
+	Address          string
+	Votes            *big.Int
+	PubKey           []byte
+	CreationHeight   uint64
+	LastUpdateHeight uint64
+	minIndex         int
+	maxIndex         int
 }
 
 // CandidateMinPQ is a min Priority Queue

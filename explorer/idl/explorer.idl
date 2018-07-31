@@ -77,32 +77,24 @@ struct AddressDetails {
     isCandidate bool
 }
 
+struct Candidate {
+    address string
+    totalVote int
+    creationHeight int
+    lastUpdateHeight int
+    isDelegate bool
+    isProducer bool
+}
+
+struct CandidateMetrics {
+    candidates []Candidate
+}
+
 struct ConsensusMetrics {
     latestEpoch int
     latestDelegates []string
     latestBlockProducer string
 	candidates []string
-}
-
-struct CreateRawTransferRequest {
-    sender string
-    recipient string
-    amount int
-    nonce int
-}
-
-struct CreateRawTransferResponse {
-    serializedTransfer string
-}
-
-struct CreateRawVoteRequest {
-    voter string
-    votee string
-    nonce int
-}
-
-struct CreateRawVoteResponse {
-    serializedVote string
 }
 
 struct SendTransferRequest {
@@ -173,11 +165,8 @@ interface Explorer {
     // get consensus metrics
     getConsensusMetrics() ConsensusMetrics
 
-    // create raw transfer
-    createRawTransfer(request CreateRawTransferRequest) CreateRawTransferResponse
-
-    // create raw vote
-    createRawVote(request CreateRawVoteRequest) CreateRawVoteResponse
+    // get candidates metrics
+    getCandidateMetrics() CandidateMetrics
 
     // send transfer
     sendTransfer(request SendTransferRequest) SendTransferResponse

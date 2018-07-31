@@ -7,6 +7,7 @@
 package keystore
 
 import (
+	"encoding/json"
 	"path/filepath"
 
 	"github.com/pkg/errors"
@@ -69,10 +70,15 @@ func (m *AccountManager) NewAccount() (*iotxaddress.Address, error) {
 	return addr, nil
 }
 
-// Import imports an iotxaddress and stores it as a new account
-func (m *AccountManager) Import(address *iotxaddress.Address) error {
-	if address == nil {
-		return errors.Wrap(ErrAddr, "address cannot be nil")
+// Import imports key bytes and stores it as a new account
+func (m *AccountManager) Import(keyBytes []byte) error {
+	var key Key
+	if err := json.Unmarshal(keyBytes, &key); err != nil {
+		return errors.Wrap(err, "failed to unmarshal key")
+	}
+	address, err := keyToAddr(&key)
+	if err != nil {
+		return errors.Wrap(err, "fail to convert key to address")
 	}
 	if err := m.keystore.Store(address.RawAddress, address); err != nil {
 		return errors.Wrapf(err, "failed to store account %s", address.RawAddress)

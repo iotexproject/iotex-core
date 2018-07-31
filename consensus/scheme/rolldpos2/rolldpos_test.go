@@ -267,8 +267,13 @@ func TestRollDPoS_convertToConsensusEvt(t *testing.T) {
 
 	// Test propose msg
 	addr := newTestAddr()
-	transfer := action.NewTransfer(1, big.NewInt(100), "src", "dst")
-	vote := action.NewVote(2, keypair.ZeroPublicKey, keypair.ZeroPublicKey)
+	transfer, err := action.NewTransfer(1, big.NewInt(100), "src", "dst")
+	require.NoError(t, err)
+	selfPubKey, err := keypair.DecodePublicKey(publicKey)
+	require.NoError(t, err)
+	votePubKey, err := keypair.DecodePublicKey(publicKey)
+	vote, err := action.NewVote(2, selfPubKey, votePubKey)
+	require.NoError(t, err)
 	var prevHash hash.Hash32B
 	blk := blockchain.NewBlock(1, 1, prevHash, []*action.Transfer{transfer}, []*action.Vote{vote})
 	msg := iproto.ViewChangeMsg{
@@ -384,9 +389,6 @@ func TestRollDPoSConsensus(t *testing.T) {
 		cfg := config.Default
 		cfg.Consensus.RollDPoS.Delay = 300 * time.Millisecond
 		cfg.Consensus.RollDPoS.ProposerInterval = time.Second
-		cfg.Consensus.RollDPoS.AcceptProposeTTL = 100 * time.Millisecond
-		cfg.Consensus.RollDPoS.AcceptPrevoteTTL = 100 * time.Millisecond
-		cfg.Consensus.RollDPoS.AcceptVoteTTL = 100 * time.Millisecond
 		cfg.Consensus.RollDPoS.NumDelegates = uint(numNodes)
 
 		chainAddrs := make([]*iotxaddress.Address, 0, numNodes)

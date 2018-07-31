@@ -100,7 +100,10 @@ func NewGenesisBlock(cfg *config.Config) *Block {
 		if err != nil {
 			logger.Fatal().Err(err).Msg("Fail to create genesis block")
 		}
-		vote := action.NewVote(0, address.PublicKey, address.PublicKey)
+		vote, err := action.NewVote(0, address.PublicKey, address.PublicKey)
+		if err != nil {
+			logger.Fatal().Err(err).Msg("Fail to create genesis block")
+		}
 		vote.Signature = sign
 		votes = append(votes, vote)
 	}
@@ -115,7 +118,10 @@ func NewGenesisBlock(cfg *config.Config) *Block {
 		if err != nil {
 			logger.Fatal().Err(err).Msg("Fail to create genesis block")
 		}
-		tsf := action.NewTransfer(0, big.NewInt(transfer.Amount), Gen.CreatorAddr, transfer.Recipient)
+		tsf, err := action.NewTransfer(0, big.NewInt(transfer.Amount), Gen.CreatorAddr, transfer.Recipient)
+		if err != nil {
+			logger.Fatal().Err(err).Msg("Fail to create genesis block")
+		}
 		tsf.SenderPublicKey = creatorPK
 		tsf.Signature = signature
 		transfers = append(transfers, tsf)

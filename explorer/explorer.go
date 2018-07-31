@@ -651,21 +651,44 @@ func (exp *Service) GetConsensusMetrics() (explorer.ConsensusMetrics, error) {
 	}, nil
 }
 
-// CreateRawTransfer creates a raw transfer
-func (exp *Service) CreateRawTransfer(request explorer.CreateRawTransferRequest) (explorer.CreateRawTransferResponse, error) {
-	logger.Debug().Msg("receive create raw transfer request")
-
-	if len(request.Sender) == 0 || len(request.Recipient) == 0 {
-		return explorer.CreateRawTransferResponse{}, errors.New("invalid CreateRawTransferRequest")
-	}
-	amount := big.NewInt(request.Amount)
-
-	tsf := exp.bc.CreateRawTransfer(uint64(request.Nonce), &iotxaddress.Address{RawAddress: request.Sender}, amount, &iotxaddress.Address{RawAddress: request.Recipient})
-	stsf, err := json.Marshal(tsf.ToJSON())
+// GetCandidateMetrics returns the latest delegates metrics
+func (exp *Service) GetCandidateMetrics() (explorer.CandidateMetrics, error) {
+	cm, err := exp.c.Metrics()
 	if err != nil {
-		return explorer.CreateRawTransferResponse{}, err
+		return explorer.CandidateMetrics{}, errors.Wrapf(
+			err,
+			"Failed to get the delegate metrics")
 	}
-	return explorer.CreateRawTransferResponse{hex.EncodeToString(stsf[:])}, nil
+	delegateSet := make(map[string]bool, len(cm.LatestDelegates))
+	for _, d := range cm.LatestDelegates {
+		delegateSet[d] = true
+	}
+	allCandidates, ok := exp.bc.CandidatesByHeight(cm.LatestHeight)
+	if !ok {
+		return explorer.CandidateMetrics{}, errors.Wrapf(blockchain.ErrCandidates,
+			"Failed to get the delegate metrics")
+	}
+	candidates := make([]explorer.Candidate, len(cm.Candidates))
+	for i, c := range allCandidates {
+		candidates[i] = explorer.Candidate{
+			Address:          c.Address,
+			TotalVote:        c.Votes.Int64(),
+			CreationHeight:   int64(c.CreationHeight),
+			LastUpdateHeight: int64(c.LastUpdateHeight),
+			IsDelegate:       false,
+			IsProducer:       false,
+		}
+		if _, ok := delegateSet[c.Address]; ok {
+			candidates[i].IsDelegate = true
+		}
+		if cm.LatestBlockProducer == c.Address {
+			candidates[i].IsProducer = true
+		}
+	}
+
+	return explorer.CandidateMetrics{
+		Candidates: candidates,
+	}, nil
 }
 
 // SendTransfer sends a transfer
@@ -719,31 +742,6 @@ func (exp *Service) SendTransfer(request explorer.SendTransferRequest) (explorer
 	// send to actpool via dispatcher
 	exp.dp.HandleBroadcast(action, nil)
 	return explorer.SendTransferResponse{true}, nil
-}
-
-// CreateRawVote creates a raw vote
-func (exp *Service) CreateRawVote(request explorer.CreateRawVoteRequest) (explorer.CreateRawVoteResponse, error) {
-	if len(request.Voter) == 0 || len(request.Votee) == 0 {
-		return explorer.CreateRawVoteResponse{}, errors.New("invalid CreateRawVoteRequest")
-	}
-	voterPubKey, err := keypair.DecodePublicKey(request.Voter)
-	if err != nil {
-		return explorer.CreateRawVoteResponse{}, err
-	}
-	voteePubKey, err := keypair.DecodePublicKey(request.Votee)
-	if err != nil {
-		return explorer.CreateRawVoteResponse{}, err
-	}
-	vote := exp.bc.CreateRawVote(uint64(request.Nonce), &iotxaddress.Address{PublicKey: voterPubKey}, &iotxaddress.Address{PublicKey: voteePubKey})
-	voteJSON, err := vote.ToJSON()
-	if err != nil {
-		return explorer.CreateRawVoteResponse{}, err
-	}
-	svote, err := json.Marshal(voteJSON)
-	if err != nil {
-		return explorer.CreateRawVoteResponse{}, err
-	}
-	return explorer.CreateRawVoteResponse{hex.EncodeToString(svote[:])}, nil
 }
 
 // SendVote sends a vote
