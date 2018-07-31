@@ -47,80 +47,71 @@ func TestLocalCommit(t *testing.T) {
 	cfg, err := newTestConfig()
 	require.Nil(err)
 
-	// create node
+	// create server
 	ctx := context.Background()
 	svr := itx.NewServer(cfg)
-	require.Nil(svr.Start(ctx))
+	require.NoError(svr.Start(ctx))
+	require.NotNil(svr.Bc())
+	require.NoError(addTestingTsfBlocks(svr.Bc()))
+	require.NotNil(svr.Ap())
+	require.NotNil(svr.P2p())
 
-	bc := svr.Bc()
-	require.NotNil(bc)
-	require.Nil(addTestingTsfBlocks(bc))
-	t.Log("Create blockchain pass")
-
-	ap := svr.Ap()
-	require.NotNil(ap)
-
-	p2 := svr.P2p()
-	require.NotNil(p2)
-
-	// Narrow down BootstrapNodes options to smooth peer maintenance
-	cfg.Network.BootstrapNodes = []string{"127.0.0.1:10000"}
-	p1 := network.NewOverlay(&cfg.Network)
-	require.NotNil(p1)
-	p1.RPC.Addr = "127.0.0.1:10001"
-	err = p1.Start(ctx)
-	require.NoError(err)
+	// create client
+	cfg.Network.BootstrapNodes = []string{svr.P2p().Self().String()}
+	p := network.NewOverlay(&cfg.Network)
+	require.NotNil(p)
+	require.NoError(p.Start(ctx))
 
 	defer func() {
-		require.Nil(p1.Stop(ctx))
+		require.Nil(p.Stop(ctx))
 		require.Nil(svr.Stop(ctx))
 		testutil.CleanupPath(t, testTriePath)
 		testutil.CleanupPath(t, testDBPath)
 	}()
 
 	// check balance
-	s, err := bc.StateByAddr(ta.Addrinfo["alfa"].RawAddress)
+	s, err := svr.Bc().StateByAddr(ta.Addrinfo["alfa"].RawAddress)
 	require.Nil(err)
 	change := s.Balance
 	t.Logf("Alfa balance = %d", change)
 	require.True(change.String() == "23")
 
-	s, err = bc.StateByAddr(ta.Addrinfo["bravo"].RawAddress)
+	s, err = svr.Bc().StateByAddr(ta.Addrinfo["bravo"].RawAddress)
 	require.Nil(err)
 	beta := s.Balance
 	t.Logf("Bravo balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "34")
 
-	s, err = bc.StateByAddr(ta.Addrinfo["charlie"].RawAddress)
+	s, err = svr.Bc().StateByAddr(ta.Addrinfo["charlie"].RawAddress)
 	require.Nil(err)
 	beta = s.Balance
 	t.Logf("Charlie balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "47")
 
-	s, err = bc.StateByAddr(ta.Addrinfo["delta"].RawAddress)
+	s, err = svr.Bc().StateByAddr(ta.Addrinfo["delta"].RawAddress)
 	require.Nil(err)
 	beta = s.Balance
 	t.Logf("Delta balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "69")
 
-	s, err = bc.StateByAddr(ta.Addrinfo["echo"].RawAddress)
+	s, err = svr.Bc().StateByAddr(ta.Addrinfo["echo"].RawAddress)
 	require.Nil(err)
 	beta = s.Balance
 	t.Logf("Echo balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "100")
 
-	s, err = bc.StateByAddr(ta.Addrinfo["foxtrot"].RawAddress)
+	s, err = svr.Bc().StateByAddr(ta.Addrinfo["foxtrot"].RawAddress)
 	require.Nil(err)
 	fox := s.Balance
 	t.Logf("Foxtrot balance = %d", fox)
 	change.Add(change, fox)
 	require.True(fox.String() == "52428803")
 
-	s, err = bc.StateByAddr(ta.Addrinfo["producer"].RawAddress)
+	s, err = svr.Bc().StateByAddr(ta.Addrinfo["producer"].RawAddress)
 	require.Nil(err)
 	test := s.Balance
 	t.Logf("test balance = %d", test)
@@ -133,33 +124,33 @@ func TestLocalCommit(t *testing.T) {
 		return
 	}
 
-	height, err := bc.TipHeight()
+	height, err := svr.Bc().TipHeight()
 	require.Nil(err)
 	require.True(height == 5)
 
 	// transfer 1
 	// C --> A
-	s, _ = bc.StateByAddr(ta.Addrinfo["charlie"].RawAddress)
+	s, _ = svr.Bc().StateByAddr(ta.Addrinfo["charlie"].RawAddress)
 	tsf1, _ := action.NewTransfer(s.Nonce+1, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["alfa"].RawAddress)
 	tsf1, _ = tsf1.Sign(ta.Addrinfo["charlie"])
 	act1 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf1.ConvertToTransferPb()}}
 	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
-		if err := p1.Broadcast(act1); err != nil {
+		if err := p.Broadcast(act1); err != nil {
 			return false, err
 		}
-		tsf, _ := ap.PickActs()
+		tsf, _ := svr.Ap().PickActs()
 		return len(tsf) == 1, nil
 	})
 	require.Nil(err)
 
-	tsf, _ := ap.PickActs()
-	blk1, err := bc.MintNewBlock(tsf, nil, ta.Addrinfo["producer"], "")
+	tsf, _ := svr.Ap().PickActs()
+	blk1, err := svr.Bc().MintNewBlock(tsf, nil, ta.Addrinfo["producer"], "")
 	hash1 := blk1.HashBlock()
 	require.Nil(err)
 
 	// transfer 2
 	// F --> D
-	s, _ = bc.StateByAddr(ta.Addrinfo["foxtrot"].RawAddress)
+	s, _ = svr.Bc().StateByAddr(ta.Addrinfo["foxtrot"].RawAddress)
 	tsf2, _ := action.NewTransfer(s.Nonce+1, big.NewInt(1), ta.Addrinfo["foxtrot"].RawAddress, ta.Addrinfo["delta"].RawAddress)
 	tsf2, _ = tsf2.Sign(ta.Addrinfo["foxtrot"])
 	blk2 := blockchain.NewBlock(0, height+2, hash1, []*action.Transfer{tsf2,
@@ -169,17 +160,17 @@ func TestLocalCommit(t *testing.T) {
 	hash2 := blk2.HashBlock()
 	act2 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf2.ConvertToTransferPb()}}
 	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
-		if err := p1.Broadcast(act2); err != nil {
+		if err := p.Broadcast(act2); err != nil {
 			return false, err
 		}
-		tsf, _ := ap.PickActs()
+		tsf, _ := svr.Ap().PickActs()
 		return len(tsf) == 2, nil
 	})
 	require.Nil(err)
 
 	// transfer 3
 	// B --> B
-	s, _ = bc.StateByAddr(ta.Addrinfo["bravo"].RawAddress)
+	s, _ = svr.Bc().StateByAddr(ta.Addrinfo["bravo"].RawAddress)
 	tsf3, _ := action.NewTransfer(s.Nonce+1, big.NewInt(1), ta.Addrinfo["bravo"].RawAddress, ta.Addrinfo["bravo"].RawAddress)
 	tsf3, _ = tsf3.Sign(ta.Addrinfo["bravo"])
 	blk3 := blockchain.NewBlock(0, height+3, hash2, []*action.Transfer{tsf3,
@@ -189,17 +180,17 @@ func TestLocalCommit(t *testing.T) {
 	hash3 := blk3.HashBlock()
 	act3 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf3.ConvertToTransferPb()}}
 	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
-		if err := p1.Broadcast(act3); err != nil {
+		if err := p.Broadcast(act3); err != nil {
 			return false, err
 		}
-		tsf, _ := ap.PickActs()
+		tsf, _ := svr.Ap().PickActs()
 		return len(tsf) == 3, nil
 	})
 	require.Nil(err)
 
 	// transfer 4
 	// test --> E
-	s, _ = bc.StateByAddr(ta.Addrinfo["producer"].RawAddress)
+	s, _ = svr.Bc().StateByAddr(ta.Addrinfo["producer"].RawAddress)
 	tsf4, _ := action.NewTransfer(s.Nonce+1, big.NewInt(1), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["echo"].RawAddress)
 	tsf4, _ = tsf4.Sign(ta.Addrinfo["producer"])
 	blk4 := blockchain.NewBlock(0, height+4, hash3, []*action.Transfer{tsf4,
@@ -208,78 +199,78 @@ func TestLocalCommit(t *testing.T) {
 	require.Nil(err)
 	act4 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf4.ConvertToTransferPb()}}
 	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
-		if err := p1.Broadcast(act4); err != nil {
+		if err := p.Broadcast(act4); err != nil {
 			return false, err
 		}
-		tsf, _ := ap.PickActs()
+		tsf, _ := svr.Ap().PickActs()
 		return len(tsf) == 4, nil
 	})
 	require.Nil(err)
 
-	err = p1.Broadcast(blk2.ConvertToBlockPb())
+	err = p.Broadcast(blk2.ConvertToBlockPb())
 	require.NoError(err)
-	err = p1.Broadcast(blk4.ConvertToBlockPb())
+	err = p.Broadcast(blk4.ConvertToBlockPb())
 	require.NoError(err)
-	err = p1.Broadcast(blk1.ConvertToBlockPb())
+	err = p.Broadcast(blk1.ConvertToBlockPb())
 	require.NoError(err)
-	err = p1.Broadcast(blk3.ConvertToBlockPb())
+	err = p.Broadcast(blk3.ConvertToBlockPb())
 	require.NoError(err)
 
 	err = testutil.WaitUntil(10*time.Millisecond, 10*time.Second, func() (bool, error) {
-		height, err := bc.TipHeight()
+		height, err := svr.Bc().TipHeight()
 		if err != nil {
 			return false, err
 		}
 		return int(height) == 9, nil
 	})
 	require.Nil(err)
-	height, err = bc.TipHeight()
+	height, err = svr.Bc().TipHeight()
 	require.Nil(err)
 	require.Equal(9, int(height))
 
 	// check balance
-	s, err = bc.StateByAddr(ta.Addrinfo["alfa"].RawAddress)
+	s, err = svr.Bc().StateByAddr(ta.Addrinfo["alfa"].RawAddress)
 	require.Nil(err)
 	change = s.Balance
 	t.Logf("Alfa balance = %d", change)
 	require.True(change.String() == "24")
 
-	s, err = bc.StateByAddr(ta.Addrinfo["bravo"].RawAddress)
+	s, err = svr.Bc().StateByAddr(ta.Addrinfo["bravo"].RawAddress)
 	require.Nil(err)
 	beta = s.Balance
 	t.Logf("Bravo balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "34")
 
-	s, err = bc.StateByAddr(ta.Addrinfo["charlie"].RawAddress)
+	s, err = svr.Bc().StateByAddr(ta.Addrinfo["charlie"].RawAddress)
 	require.Nil(err)
 	beta = s.Balance
 	t.Logf("Charlie balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "46")
 
-	s, err = bc.StateByAddr(ta.Addrinfo["delta"].RawAddress)
+	s, err = svr.Bc().StateByAddr(ta.Addrinfo["delta"].RawAddress)
 	require.Nil(err)
 	beta = s.Balance
 	t.Logf("Delta balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "70")
 
-	s, err = bc.StateByAddr(ta.Addrinfo["echo"].RawAddress)
+	s, err = svr.Bc().StateByAddr(ta.Addrinfo["echo"].RawAddress)
 	require.Nil(err)
 	beta = s.Balance
 	t.Logf("Echo balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "101")
 
-	s, err = bc.StateByAddr(ta.Addrinfo["foxtrot"].RawAddress)
+	s, err = svr.Bc().StateByAddr(ta.Addrinfo["foxtrot"].RawAddress)
 	require.Nil(err)
 	fox = s.Balance
 	t.Logf("Foxtrot balance = %d", fox)
 	change.Add(change, fox)
 	require.True(fox.String() == "52428802")
 
-	s, err = bc.StateByAddr(ta.Addrinfo["producer"].RawAddress)
+	s, err = svr.Bc().StateByAddr(ta.Addrinfo["producer"].RawAddress)
 	require.Nil(err)
 	test = s.Balance
 	t.Logf("test balance = %d", test)
@@ -294,33 +285,32 @@ func TestLocalSync(t *testing.T) {
 
 	testutil.CleanupPath(t, testTriePath)
 	testutil.CleanupPath(t, testDBPath)
+	testutil.CleanupPath(t, testTriePath2)
+	testutil.CleanupPath(t, testDBPath2)
 
 	cfg, err := newTestConfig()
 	require.Nil(err)
 
-	// create node 1
+	// Create server
 	ctx := context.Background()
 	svr := itx.NewServer(cfg)
 	require.Nil(svr.Start(ctx))
+	require.NotNil(svr.Bc())
+	require.Nil(addTestingTsfBlocks(svr.Bc()))
 
-	bc := svr.Bc()
-	require.NotNil(bc)
-	require.Nil(addTestingTsfBlocks(bc))
-	t.Log("Create blockchain pass")
-
-	blk, err := bc.GetBlockByHeight(1)
+	blk, err := svr.Bc().GetBlockByHeight(1)
 	require.Nil(err)
 	hash1 := blk.HashBlock()
-	blk, err = bc.GetBlockByHeight(2)
+	blk, err = svr.Bc().GetBlockByHeight(2)
 	require.Nil(err)
 	hash2 := blk.HashBlock()
-	blk, err = bc.GetBlockByHeight(3)
+	blk, err = svr.Bc().GetBlockByHeight(3)
 	require.Nil(err)
 	hash3 := blk.HashBlock()
-	blk, err = bc.GetBlockByHeight(4)
+	blk, err = svr.Bc().GetBlockByHeight(4)
 	require.Nil(err)
 	hash4 := blk.HashBlock()
-	blk, err = bc.GetBlockByHeight(5)
+	blk, err = svr.Bc().GetBlockByHeight(5)
 	require.Nil(err)
 	hash5 := blk.HashBlock()
 
@@ -333,25 +323,16 @@ func TestLocalSync(t *testing.T) {
 	cfg.Chain.TrieDBPath = testTriePath2
 	cfg.Chain.ChainDBPath = testDBPath2
 
-	// create node 2
+	// Create client
 	cfg.NodeType = config.FullNodeType
-	cfg.Network.IP = "127.0.0.1"
-	cfg.Network.Port = 10001
-	// Narrow down BootstrapNodes options to smooth peer maintenance
-	cfg.Network.BootstrapNodes = []string{"127.0.0.1:10000"}
+	cfg.Network.BootstrapNodes = []string{svr.P2p().Self().String()}
 	cli := itx.NewServer(cfg)
 	require.Nil(cli.Start(ctx))
-
-	bc1 := cli.Bc()
-	require.NotNil(bc1)
-
-	p1 := cli.P2p()
-	require.NotNil(p1)
+	require.NotNil(cli.Bc())
+	require.NotNil(cli.P2p())
 
 	defer func() {
 		require.Nil(cli.Stop(ctx))
-		require.Nil(p1.Stop(ctx))
-		require.Nil(p2.Stop(ctx))
 		require.Nil(svr.Stop(ctx))
 		testutil.CleanupPath(t, testTriePath)
 		testutil.CleanupPath(t, testDBPath)
@@ -360,49 +341,52 @@ func TestLocalSync(t *testing.T) {
 	}()
 
 	// P1 download 4 blocks from P2
-	err = p1.Tell(node.NewTCPNode(p2.Self().String()), &pb.BlockSync{Start: 1, End: 5})
+	err = cli.P2p().Tell(node.NewTCPNode(svr.P2p().Self().String()), &pb.BlockSync{Start: 1, End: 5})
 	require.NoError(err)
 	check := testutil.CheckCondition(func() (bool, error) {
-		blk1, err := bc1.GetBlockByHeight(1)
+		blk1, err := cli.Bc().GetBlockByHeight(1)
 		if err != nil {
 			return false, nil
 		}
-		blk2, err := bc1.GetBlockByHeight(2)
+		blk2, err := cli.Bc().GetBlockByHeight(2)
 		if err != nil {
 			return false, nil
 		}
-		blk3, err := bc1.GetBlockByHeight(3)
+		blk3, err := cli.Bc().GetBlockByHeight(3)
 		if err != nil {
 			return false, nil
 		}
-		blk4, err := bc1.GetBlockByHeight(4)
+		blk4, err := cli.Bc().GetBlockByHeight(4)
 		if err != nil {
 			return false, nil
 		}
-		blk5, err := bc1.GetBlockByHeight(5)
+		blk5, err := cli.Bc().GetBlockByHeight(5)
 		if err != nil {
 			return false, nil
 		}
-		return hash1 == blk1.HashBlock() && hash2 == blk2.HashBlock() && hash3 == blk3.HashBlock() &&
-			hash4 == blk4.HashBlock() && hash5 == blk5.HashBlock(), nil
+		return hash1 == blk1.HashBlock() &&
+			hash2 == blk2.HashBlock() &&
+			hash3 == blk3.HashBlock() &&
+			hash4 == blk4.HashBlock() &&
+			hash5 == blk5.HashBlock(), nil
 	})
 	err = testutil.WaitUntil(time.Millisecond*10, time.Second*5, check)
 	require.Nil(err)
 
 	// verify 4 received blocks
-	blk, err = bc1.GetBlockByHeight(1)
+	blk, err = cli.Bc().GetBlockByHeight(1)
 	require.Nil(err)
 	require.Equal(hash1, blk.HashBlock())
-	blk, err = bc1.GetBlockByHeight(2)
+	blk, err = cli.Bc().GetBlockByHeight(2)
 	require.Nil(err)
 	require.Equal(hash2, blk.HashBlock())
-	blk, err = bc1.GetBlockByHeight(3)
+	blk, err = cli.Bc().GetBlockByHeight(3)
 	require.Nil(err)
 	require.Equal(hash3, blk.HashBlock())
-	blk, err = bc1.GetBlockByHeight(4)
+	blk, err = cli.Bc().GetBlockByHeight(4)
 	require.Nil(err)
 	require.Equal(hash4, blk.HashBlock())
-	blk, err = bc1.GetBlockByHeight(5)
+	blk, err = cli.Bc().GetBlockByHeight(5)
 	require.Nil(err)
 	require.Equal(hash5, blk.HashBlock())
 	t.Log("4 blocks received correctly")
@@ -425,31 +409,23 @@ func TestVoteLocalCommit(t *testing.T) {
 	ctx := context.Background()
 	svr := itx.NewServer(cfg)
 	require.Nil(svr.Start(ctx))
+	require.NotNil(svr.Bc())
+	require.Nil(addTestingTsfBlocks(svr.Bc()))
+	require.NotNil(svr.Ap())
 
-	bc := svr.Bc()
-	require.NotNil(bc)
-	require.Nil(addTestingTsfBlocks(bc))
-	t.Log("Create blockchain pass")
-
-	ap := svr.Ap()
-	require.NotNil(ap)
-
-	// Narrow down BootstrapNodes options to smooth peer maintenance
-	cfg.Network.BootstrapNodes = []string{"127.0.0.1:10000"}
-	p1 := network.NewOverlay(&cfg.Network)
-	require.NotNil(p1)
-	p1.RPC.Addr = "127.0.0.1:10001"
-	err = p1.Start(ctx)
-	require.NoError(err)
+	cfg.Network.BootstrapNodes = []string{svr.P2p().Self().String()}
+	p := network.NewOverlay(&cfg.Network)
+	require.NotNil(p)
+	require.NoError(p.Start(ctx))
 
 	defer func() {
-		require.Nil(p1.Stop(ctx))
+		require.Nil(p.Stop(ctx))
 		require.Nil(svr.Stop(ctx))
 		testutil.CleanupPath(t, testTriePath)
 		testutil.CleanupPath(t, testDBPath)
 	}()
 
-	height, err := bc.TipHeight()
+	height, err := svr.Bc().TipHeight()
 	require.Nil(err)
 	require.True(height == 5)
 
@@ -465,37 +441,37 @@ func TestVoteLocalCommit(t *testing.T) {
 	act2 := &pb.ActionPb{Action: &pb.ActionPb_Vote{vote2.ConvertToVotePb()}}
 	act3 := &pb.ActionPb{Action: &pb.ActionPb_Vote{vote3.ConvertToVotePb()}}
 	err = testutil.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
-		if err := p1.Broadcast(act1); err != nil {
+		if err := p.Broadcast(act1); err != nil {
 			return false, err
 		}
-		if err := p1.Broadcast(act2); err != nil {
+		if err := p.Broadcast(act2); err != nil {
 			return false, err
 		}
-		if err := p1.Broadcast(act3); err != nil {
+		if err := p.Broadcast(act3); err != nil {
 			return false, err
 		}
 		time.Sleep(time.Second)
-		_, votes := ap.PickActs()
+		_, votes := svr.Ap().PickActs()
 		return len(votes) == 3, nil
 	})
 	require.Nil(err)
 
-	_, votes := ap.PickActs()
-	blk1, err := bc.MintNewBlock(nil, votes, ta.Addrinfo["producer"], "")
+	_, votes := svr.Ap().PickActs()
+	blk1, err := svr.Bc().MintNewBlock(nil, votes, ta.Addrinfo["producer"], "")
 	hash1 := blk1.HashBlock()
 	require.Nil(err)
 
-	err = p1.Broadcast(blk1.ConvertToBlockPb())
+	err = p.Broadcast(blk1.ConvertToBlockPb())
 	require.NoError(err)
 	err = testutil.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
-		height, err := bc.TipHeight()
+		height, err := svr.Bc().TipHeight()
 		if err != nil {
 			return false, err
 		}
 		return int(height) == 6, nil
 	})
 	require.NoError(err)
-	tipheight, err := bc.TipHeight()
+	tipheight, err := svr.Bc().TipHeight()
 	require.Nil(err)
 	require.Equal(6, int(tipheight))
 
@@ -514,29 +490,29 @@ func TestVoteLocalCommit(t *testing.T) {
 	act4 := &pb.ActionPb{Action: &pb.ActionPb_Vote{vote4.ConvertToVotePb()}}
 	act5 := &pb.ActionPb{Action: &pb.ActionPb_Vote{vote5.ConvertToVotePb()}}
 	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
-		if err := p1.Broadcast(act4); err != nil {
+		if err := p.Broadcast(act4); err != nil {
 			return false, err
 		}
-		if err := p1.Broadcast(act5); err != nil {
+		if err := p.Broadcast(act5); err != nil {
 			return false, err
 		}
-		_, votes := ap.PickActs()
+		_, votes := svr.Ap().PickActs()
 		return len(votes) == 2, nil
 	})
 	require.Nil(err)
 
-	err = p1.Broadcast(blk2.ConvertToBlockPb())
+	err = p.Broadcast(blk2.ConvertToBlockPb())
 	require.NoError(err)
 
 	err = testutil.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
-		height, err := bc.TipHeight()
+		height, err := svr.Bc().TipHeight()
 		if err != nil {
 			return false, err
 		}
 		return int(height) == 7, nil
 	})
 	require.Nil(err)
-	tipheight, err = bc.TipHeight()
+	tipheight, err = svr.Bc().TipHeight()
 	require.Nil(err)
 	require.Equal(7, int(tipheight))
 
@@ -566,26 +542,26 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.Nil(err)
 	act6 := &pb.ActionPb{Action: &pb.ActionPb_Vote{vote6.ConvertToVotePb()}}
 	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
-		if err := p1.Broadcast(act6); err != nil {
+		if err := p.Broadcast(act6); err != nil {
 			return false, err
 		}
-		_, votes := ap.PickActs()
+		_, votes := svr.Ap().PickActs()
 		return len(votes) == 1, nil
 	})
 	require.Nil(err)
 
-	err = p1.Broadcast(blk3.ConvertToBlockPb())
+	err = p.Broadcast(blk3.ConvertToBlockPb())
 	require.NoError(err)
 
 	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
-		height, err := bc.TipHeight()
+		height, err := svr.Bc().TipHeight()
 		if err != nil {
 			return false, err
 		}
 		return int(height) == 8, nil
 	})
 	require.Nil(err)
-	tipheight, err = bc.TipHeight()
+	tipheight, err = svr.Bc().TipHeight()
 	require.Nil(err)
 	require.Equal(8, int(tipheight))
 
@@ -614,26 +590,26 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.Nil(err)
 	act7 := &pb.ActionPb{Action: &pb.ActionPb_Vote{vote7.ConvertToVotePb()}}
 	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
-		if err := p1.Broadcast(act7); err != nil {
+		if err := p.Broadcast(act7); err != nil {
 			return false, err
 		}
-		_, votes := ap.PickActs()
+		_, votes := svr.Ap().PickActs()
 		return len(votes) == 1, nil
 	})
 	require.Nil(err)
 
-	err = p1.Broadcast(blk4.ConvertToBlockPb())
+	err = p.Broadcast(blk4.ConvertToBlockPb())
 	require.NoError(err)
 
 	err = testutil.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
-		height, err := bc.TipHeight()
+		height, err := svr.Bc().TipHeight()
 		if err != nil {
 			return false, err
 		}
 		return int(height) == 9, nil
 	})
 	require.Nil(err)
-	tipheight, err = bc.TipHeight()
+	tipheight, err = svr.Bc().TipHeight()
 	require.Nil(err)
 	require.Equal(9, int(tipheight))
 
@@ -667,9 +643,7 @@ func newTestConfig() (*config.Config, error) {
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Consensus.Scheme = config.NOOPScheme
-	cfg.Network.IP = "127.0.0.1"
-	cfg.Network.Port = 10000
-	cfg.Network.BootstrapNodes = []string{"127.0.0.1:10000", "127.0.0.1:4689"}
+	cfg.Network.Port = 0
 	addr, err := iotxaddress.NewAddress(true, iotxaddress.ChainID)
 	if err != nil {
 		return nil, err

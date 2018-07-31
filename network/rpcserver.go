@@ -36,10 +36,8 @@ type RPCServer struct {
 	Server  *grpc.Server
 	Overlay *IotxOverlay
 
-	counters  sync.Map
-	rateLimit uint64
-	// TODO: mutation of this field is not thread safe
-	started     bool
+	counters    sync.Map
+	rateLimit   uint64
 	lastReqTime time.Time
 }
 
@@ -157,26 +155,22 @@ func (s *RPCServer) Start(_ context.Context) error {
 	pb.RegisterPeerServer(s.Server, s)
 	// Register reflection service on gRPC peer.
 	reflection.Register(s.Server)
-	go func() {
+	started := make(chan bool)
+	go func(started chan bool) {
 		logger.Info().Str("addr", s.String()).Msg("start RPC server")
-		s.started = true
+		started <- true
 		if err := s.Server.Serve(lis); err != nil {
 			logger.Fatal().Err(err).Msg("Node failed to serve")
 		}
-	}()
+	}(started)
+	<-started
 	return nil
-}
-
-// Started returns the boolean to indicate whether the rpc server is started
-func (s *RPCServer) Started() bool {
-	return s.started
 }
 
 // Stop stops the rpc server
 func (s *RPCServer) Stop(_ context.Context) error {
 	logger.Info().Str("addr", s.String()).Msg("stop RPC server")
 	s.Server.Stop()
-	s.started = false
 	// Wait for a second because the rpc server stop is not blocking
 	time.Sleep(2 * time.Second)
 	return nil

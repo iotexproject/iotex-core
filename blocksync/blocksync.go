@@ -9,10 +9,9 @@ package blocksync
 import (
 	"context"
 	"fmt"
+	"net"
 	"sync"
 	"time"
-
-	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/actpool"
 	bc "github.com/iotexproject/iotex-core/blockchain"
@@ -42,6 +41,7 @@ type BlockSync interface {
 	ProcessSyncRequest(sender string, sync *pb.BlockSync) error
 	ProcessBlock(blk *bc.Block) error
 	ProcessBlockSync(blk *bc.Block) error
+	SetTarget(net.Addr)
 }
 
 // blockSyncer implements BlockSync interface
@@ -103,18 +103,11 @@ func NewBlockSyncer(
 		bs.task = routine.NewRecurringTask(bs.Sync, interval)
 	}
 
-	// TODO:  Rewrite the way of finding neighbors to sync blocks
-	if len(cfg.Network.BootstrapNodes) == 0 {
-		return nil, errors.New("Bootstrap nodes do not exist")
-	}
 	for _, bootstrapNode := range cfg.Network.BootstrapNodes {
 		if bootstrapNode != p2p.Self().String() {
 			bs.fnd = bootstrapNode
 			break
 		}
-	}
-	if bs.fnd == "" {
-		return nil, errors.New("Cannot find suitable bootstrap node")
 	}
 	return bs, nil
 }
@@ -140,6 +133,11 @@ func (bs *blockSyncer) Stop(ctx context.Context) error {
 		bs.task.Stop(ctx)
 	}
 	return nil
+}
+
+// SetTarget sets the target to sync blocks
+func (bs *blockSyncer) SetTarget(addr net.Addr) {
+	bs.fnd = addr.String()
 }
 
 // Sync checks the sliding window and send more sync request if needed

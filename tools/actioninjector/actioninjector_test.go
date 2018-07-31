@@ -26,6 +26,8 @@ const (
 )
 
 func TestActioninjector(t *testing.T) {
+	t.Skip()
+
 	require := require.New(t)
 
 	testutil.CleanupPath(t, testChainPath)

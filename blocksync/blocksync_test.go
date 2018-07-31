@@ -91,8 +91,8 @@ func TestNewBlockSyncer(t *testing.T) {
 	}
 
 	bsLightWeight, err := NewBlockSyncer(cfgLightWeight, nil, nil, p2p)
-	assert.NotNil(err)
-	assert.Nil(bsLightWeight)
+	assert.NoError(err)
+	assert.NotNil(bsLightWeight)
 
 	// Delegate
 	cfgDelegate := &config.Config{
