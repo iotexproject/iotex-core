@@ -9,32 +9,6 @@
 syntax = "proto3";
 package iproto;
 
-message TxInputPb {
-    bytes txHash = 1;   // ref a prev output transaction
-	int32 outIndex = 2;   // index of an output in the transaction
-	uint32 unlockScriptSize = 3;
-    bytes unlockScript = 4;
-    uint32 sequence = 5;
-}
-
-// TxOutput stores “coins”. It is indivisible, which means that you cannot reference a part of its value.
-// When an output is referenced in a new transaction, it’s spent as a whole. And if its value is greater than required,
-// a change is generated and sent back to the sender.
-message TxOutputPb {
-    uint64 value = 1;
-    uint32 lockScriptSize = 2;
-    bytes lockScript = 3;
-}
-
-message TxPb {
-    uint32 version = 1;
-    uint32 lockTime = 2;
-
-    // used by utxo-based model
-    repeated TxInputPb txIn = 21;
-    repeated TxOutputPb txOut = 22;
-}
-
 message TransferPb {
     // TransferPb should share these three fields with other Actions
     // TODO: extract these three fields to ActionPb
@@ -65,9 +39,8 @@ message VotePb {
 
 message ActionPb {
     oneof action {
-        TxPb tx = 1; // To be deprecated
-        TransferPb transfer = 2;
-        VotePb vote = 3;
+        TransferPb transfer = 1;
+        VotePb vote = 2;
     }
 }
 
