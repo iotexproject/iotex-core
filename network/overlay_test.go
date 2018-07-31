@@ -137,7 +137,7 @@ func TestOverlay(t *testing.T) {
 		assert.True(t, LenSyncMap(nodes[i].PM.Peers) >= nodes[i].PM.NumPeersLowerBound)
 	}
 
-	err := nodes[0].Broadcast(&iproto.TxPb{})
+	err := nodes[0].Broadcast(&iproto.ActionPb{})
 	assert.NoError(t, err)
 	time.Sleep(5 * time.Second)
 	for i, dp := range dps {
@@ -169,7 +169,7 @@ func (d2 *MockDispatcher2) HandleTell(sender net.Addr, message proto.Message, do
 	assert.True(d2.T, strings.HasPrefix(sender.Network(), "tcp"))
 	assert.True(d2.T, strings.HasPrefix(sender.String(), "127.0.0.1"))
 	assert.Nil(d2.T, err)
-	assert.Equal(d2.T, iproto.MsgTxProtoMsgType, msgType)
+	assert.Equal(d2.T, iproto.MsgActionType, msgType)
 	d2.Count++
 }
 
@@ -196,10 +196,10 @@ func TestTell(t *testing.T) {
 	}()
 
 	// P1 tell Tx Msg
-	err = p1.Tell(&node.Node{Addr: addr2}, &iproto.TxPb{Version: uint32(12345678)})
+	err = p1.Tell(&node.Node{Addr: addr2}, &iproto.ActionPb{})
 	assert.NoError(t, err)
 	// P2 tell Tx Msg
-	err = p2.Tell(&node.Node{Addr: addr1}, &iproto.TxPb{Version: uint32(87654321)})
+	err = p2.Tell(&node.Node{Addr: addr1}, &iproto.ActionPb{})
 	assert.NoError(t, err)
 
 	err = testutil.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
