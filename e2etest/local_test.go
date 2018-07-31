@@ -539,7 +539,7 @@ func TestVoteLocalCommit(t *testing.T) {
 
 	// Add block 3
 	// D self nomination
-	vote6, err := action.NewVote(uint64(2), ta.Addrinfo["delta"].PublicKey, ta.Addrinfo["delta"].PublicKey)
+	vote6, err := action.NewVote(uint64(2), ta.Addrinfo["delta"].RawAddress, ta.Addrinfo["delta"].RawAddress)
 	require.NoError(err)
 	vote6, err = vote6.Sign(ta.Addrinfo["delta"])
 	require.Nil(err)
@@ -588,7 +588,7 @@ func TestVoteLocalCommit(t *testing.T) {
 
 	// Add block 4
 	// Unvote B
-	vote7, err := action.NewVote(uint64(3), ta.Addrinfo["bravo"].PublicKey, keypair.ZeroPublicKey)
+	vote7, err := action.NewVote(uint64(3), ta.Addrinfo["bravo"].RawAddress, "")
 	require.NoError(err)
 	vote7, err = vote7.Sign(ta.Addrinfo["bravo"])
 	require.Nil(err)
@@ -636,7 +636,7 @@ func TestVoteLocalCommit(t *testing.T) {
 }
 
 func newSignedVote(nonce int, from *iotxaddress.Address, to *iotxaddress.Address) (*action.Vote, error) {
-	vote, err := action.NewVote(uint64(nonce), from.PublicKey, to.PublicKey)
+	vote, err := action.NewVote(uint64(nonce), from.RawAddress, to.RawAddress)
 	if err != nil {
 		return nil, err
 	}

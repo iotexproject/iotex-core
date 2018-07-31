@@ -270,9 +270,9 @@ func TestRollDPoS_convertToConsensusEvt(t *testing.T) {
 	transfer, err := action.NewTransfer(1, big.NewInt(100), "src", "dst")
 	require.NoError(t, err)
 	selfPubKey, err := keypair.DecodePublicKey(publicKey)
+	address, err := iotxaddress.GetAddress(selfPubKey, iotxaddress.IsTestnet, iotxaddress.ChainID)
 	require.NoError(t, err)
-	votePubKey, err := keypair.DecodePublicKey(publicKey)
-	vote, err := action.NewVote(2, selfPubKey, votePubKey)
+	vote, err := action.NewVote(2, address.RawAddress, address.RawAddress)
 	require.NoError(t, err)
 	var prevHash hash.Hash32B
 	blk := blockchain.NewBlock(1, 1, prevHash, []*action.Transfer{transfer}, []*action.Vote{vote})

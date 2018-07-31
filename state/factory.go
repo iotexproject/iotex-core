@@ -20,7 +20,6 @@ import (
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/trie"
 )
 
@@ -442,15 +441,8 @@ func (sf *factory) handleTsf(tsf []*action.Transfer) error {
 
 func (sf *factory) handleVote(blockHeight uint64, vote []*action.Vote) error {
 	for _, v := range vote {
-		selfPublicKey, err := v.SelfPublicKey()
-		if err != nil {
-			return err
-		}
-		selfAddress, err := iotxaddress.GetAddress(selfPublicKey, iotxaddress.IsTestnet, iotxaddress.ChainID)
-		if err != nil {
-			return err
-		}
-		voteFrom, err := sf.cache(selfAddress.RawAddress)
+		voterAddress := v.VoterAddress
+		voteFrom, err := sf.cache(voterAddress)
 		if err != nil {
 			return err
 		}
@@ -460,7 +452,7 @@ func (sf *factory) handleVote(blockHeight uint64, vote []*action.Vote) error {
 			voteFrom.Nonce = v.Nonce
 		}
 		// Update old votee's weight
-		if len(voteFrom.Votee) > 0 && voteFrom.Votee != selfAddress.RawAddress {
+		if len(voteFrom.Votee) > 0 && voteFrom.Votee != voterAddress {
 			// voter already voted
 			oldVotee, err := sf.cache(voteFrom.Votee)
 			if err != nil {
@@ -470,41 +462,30 @@ func (sf *factory) handleVote(blockHeight uint64, vote []*action.Vote) error {
 			voteFrom.Votee = ""
 		}
 
-		votePublicKey, err := v.VotePublicKey()
-		if err != nil {
-			return err
-		}
-		if votePublicKey == keypair.ZeroPublicKey {
+		voteeAddress := v.VoteeAddress
+		if voteeAddress == "" {
 			// unvote operation
 			voteFrom.IsCandidate = false
 			continue
 		}
 
-		votePublicKey, err = v.VotePublicKey()
-		if err != nil {
-			return err
-		}
-		voteAddress, err := iotxaddress.GetAddress(votePublicKey, iotxaddress.IsTestnet, iotxaddress.ChainID)
-		if err != nil {
-			return err
-		}
-		voteTo, err := sf.cache(voteAddress.RawAddress)
+		voteTo, err := sf.cache(voteeAddress)
 		if err != nil {
 			return err
 		}
 
-		if selfAddress.RawAddress != voteAddress.RawAddress {
+		if voterAddress != voteeAddress {
 			// Voter votes to a different person
 			voteTo.VotingWeight.Add(voteTo.VotingWeight, voteFrom.Balance)
-			voteFrom.Votee = voteAddress.RawAddress
+			voteFrom.Votee = voteeAddress
 		} else {
 			// Vote to self: self-nomination or cancel the previous vote case
-			voteFrom.Votee = selfAddress.RawAddress
+			voteFrom.Votee = voterAddress
 			voteFrom.IsCandidate = true
-			if _, ok := sf.cachedCandidate[selfAddress.RawAddress]; !ok {
-				sf.cachedCandidate[selfAddress.RawAddress] = &Candidate{
-					Address:        selfAddress.RawAddress,
-					PubKey:         selfPublicKey[:],
+			if _, ok := sf.cachedCandidate[voterAddress]; !ok {
+				sf.cachedCandidate[voterAddress] = &Candidate{
+					Address:        voterAddress,
+					PubKey:         v.SelfPubkey[:],
 					CreationHeight: blockHeight,
 					minIndex:       0,
 					maxIndex:       0,

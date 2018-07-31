@@ -64,7 +64,6 @@ struct Vote {
     voter string
     votee string
     voterPubKey string
-    voteePubKey string
     signature string
     blockID string
 }

@@ -106,8 +106,8 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	tsf5, _ = tsf5.Sign(ta.Addrinfo["echo"])
 	tsf6, _ = action.NewTransfer(1, big.NewInt(2), ta.Addrinfo["echo"].RawAddress, ta.Addrinfo["producer"].RawAddress)
 	tsf6, _ = tsf6.Sign(ta.Addrinfo["echo"])
-	vote1, _ := action.NewVote(0, ta.Addrinfo["charlie"].PublicKey, ta.Addrinfo["alfa"].PublicKey)
-	vote2, _ := action.NewVote(1, ta.Addrinfo["alfa"].PublicKey, ta.Addrinfo["charlie"].PublicKey)
+	vote1, _ := action.NewVote(0, ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["alfa"].RawAddress)
+	vote2, _ := action.NewVote(1, ta.Addrinfo["alfa"].RawAddress, ta.Addrinfo["charlie"].RawAddress)
 	vote1, err = vote1.Sign(ta.Addrinfo["charlie"])
 	if err != nil {
 		return err
@@ -580,7 +580,7 @@ func TestActions(t *testing.T) {
 		tsf, _ = tsf.Sign(a)
 		tsfs = append(tsfs, tsf)
 
-		vote, err := action.NewVote(1, a.PublicKey, a.PublicKey)
+		vote, err := action.NewVote(1, a.RawAddress, a.RawAddress)
 		require.NoError(err)
 		vote, _ = vote.Sign(a)
 		votes = append(votes, vote)

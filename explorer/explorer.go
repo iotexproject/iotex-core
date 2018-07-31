@@ -306,11 +306,7 @@ ChainLoop:
 				return res, err
 			}
 
-			votePublicKey, err := blk.Votes[i].VotePublicKey()
-			if err != nil {
-				return res, err
-			}
-			votee, err := getAddrFromPubKey(votePublicKey)
+			votee := blk.Votes[i].VoteeAddress
 			if err != nil {
 				return res, err
 			}
@@ -410,15 +406,10 @@ func (exp *Service) GetUnconfirmedVotesByAddress(address string, offset int64, l
 		if err != nil {
 			return []explorer.Vote{}, err
 		}
-		voteePubKey, err := keypair.BytesToPubKeyString(votePb.VotePubkey)
-		if err != nil {
-			return []explorer.Vote{}, err
-		}
 		explorerVote := explorer.Vote{
 			Version:     int64(votePb.Version),
 			Nonce:       int64(votePb.Nonce),
 			VoterPubKey: voterPubKey,
-			VoteePubKey: voteePubKey,
 			Signature:   hex.EncodeToString(votePb.Signature),
 		}
 
@@ -461,11 +452,7 @@ func (exp *Service) GetVotesByBlockID(blkID string, offset int64, limit int64) (
 			return res, err
 		}
 
-		votePublicKey, err := vote.VotePublicKey()
-		if err != nil {
-			return res, err
-		}
-		votee, err := getAddrFromPubKey(votePublicKey)
+		votee := vote.VoteeAddress
 		if err != nil {
 			return res, err
 		}
@@ -762,20 +749,17 @@ func (exp *Service) SendVote(request explorer.SendVoteRequest) (explorer.SendVot
 	if err != nil {
 		return explorer.SendVoteResponse{}, err
 	}
-	votePubKey, err := keypair.StringToPubKeyBytes(voteJSON.VoteePubKey)
-	if err != nil {
-		return explorer.SendVoteResponse{}, err
-	}
 	signature, err := hex.DecodeString(voteJSON.Signature)
 	if err != nil {
 		return explorer.SendVoteResponse{}, err
 	}
 	votePb := &pb.VotePb{
-		Version:    uint32(voteJSON.Version),
-		Nonce:      uint64(voteJSON.Nonce),
-		SelfPubkey: selfPubKey,
-		VotePubkey: votePubKey,
-		Signature:  signature,
+		Version:      uint32(voteJSON.Version),
+		Nonce:        uint64(voteJSON.Nonce),
+		SelfPubkey:   selfPubKey,
+		VoterAddress: voteJSON.Voter,
+		VoteeAddress: voteJSON.Votee,
+		Signature:    signature,
 	}
 
 	// Wrap VotePb as an ActionPb
@@ -851,11 +835,7 @@ func getVote(bc blockchain.Blockchain, voteHash hash.Hash32B) (explorer.Vote, er
 		return explorerVote, err
 	}
 
-	votePublicKey, err := vote.VotePublicKey()
-	if err != nil {
-		return explorerVote, err
-	}
-	votee, err := getAddrFromPubKey(votePublicKey)
+	votee := vote.VoteeAddress
 	if err != nil {
 		return explorerVote, err
 	}
