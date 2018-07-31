@@ -140,15 +140,14 @@ loop:
 		case <-timeout:
 			break loop
 		case <-tick:
-			// TODO: Revive vote injection
 			wg.Add(1)
 			rand := rand.Intn(2)
-			if true || rand%2 == 1 {
+			if rand%2 == 1 {
 				sender, recipient, nonce := createTransferInjection(counter, addrs)
 				go injectTransfer(wg, client, sender, recipient, nonce, retryNum, retryInterval)
 			} else {
-				//sender, recipient, nonce := createVoteInjection(counter, addrs, candidates)
-				//go injectVote(wg, client, sender, recipient, nonce, retryNum, retryInterval)
+				sender, recipient, nonce := createVoteInjection(counter, addrs, candidates)
+				go injectVote(wg, client, sender, recipient, nonce, retryNum, retryInterval)
 			}
 		}
 	}
