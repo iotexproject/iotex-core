@@ -126,7 +126,7 @@ func (bs *blockSyncer) P2P() network.Overlay {
 
 // Start starts a block syncer
 func (bs *blockSyncer) Start(ctx context.Context) error {
-	logger.Print("Starting block syncer")
+	logger.Debug().Msg("Starting block syncer")
 	if bs.task != nil {
 		bs.task.Start(ctx)
 	}
@@ -135,7 +135,7 @@ func (bs *blockSyncer) Start(ctx context.Context) error {
 
 // Stop stops a block syncer
 func (bs *blockSyncer) Stop(ctx context.Context) error {
-	logger.Print("Stopping block syncer")
+	logger.Debug().Msg("Stopping block syncer")
 	if bs.task != nil {
 		bs.task.Stop(ctx)
 	}
