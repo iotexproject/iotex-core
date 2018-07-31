@@ -251,7 +251,7 @@ func newConsensusFSM(ctx *rollDPoSCtx) (*cFSM, error) {
 	}
 	m, err := b.Build()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "error when building the FSM")
 	}
 	cm.fsm = m
 	return cm, nil
@@ -590,14 +590,23 @@ func (m *cFSM) handleVoteEvt(evt fsm.Event) (fsm.State, error) {
 		logger.Info().
 			Uint64("block", m.ctx.round.block.Height()).
 			Msg("consensus reached")
-		if err := m.ctx.chain.CommitBlock(m.ctx.round.block); err != nil {
+
+		// TODO: Remove the blocksync dependency after rewriting blocksync
+		var err error
+		if m.ctx.sync != nil {
+			err = m.ctx.sync.ProcessBlock(m.ctx.round.block)
+		} else {
+			if err = m.ctx.chain.CommitBlock(m.ctx.round.block); err == nil {
+				// Remove transfers in this block from ActPool and reset ActPool state
+				m.ctx.actPool.Reset()
+			}
+		}
+		if err != nil {
 			logger.Error().
 				Err(err).
 				Uint64("block", m.ctx.round.block.Height()).
 				Msg("error when committing a block")
 		} else {
-			// Remove transfers in this block from ActPool and reset ActPool state
-			m.ctx.actPool.Reset()
 			// Broadcast the committed block to the network
 			if blkProto := m.ctx.round.block.ConvertToBlockPb(); blkProto != nil {
 				if err := m.ctx.p2p.Broadcast(blkProto); err != nil {

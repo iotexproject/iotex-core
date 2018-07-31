@@ -119,6 +119,7 @@ func NewConsensus(
 			SetBlockchain(bc).
 			SetActPool(ap).
 			SetP2P(bs.P2P()).
+			SetBlockSync(bs).
 			Build()
 		if err != nil {
 			logger.Panic().Err(err).Msg("error when constructing RollDPoS")
