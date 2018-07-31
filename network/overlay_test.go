@@ -196,10 +196,10 @@ func TestTell(t *testing.T) {
 	}()
 
 	// P1 tell Tx Msg
-	err = p1.Tell(&node.Node{Addr: addr2}, &iproto.ActionPb{Version: uint32(12345678)})
+	err = p1.Tell(&node.Node{Addr: addr2}, &iproto.ActionPb{})
 	assert.NoError(t, err)
 	// P2 tell Tx Msg
-	err = p2.Tell(&node.Node{Addr: addr1}, &iproto.ActionPb{Version: uint32(87654321)})
+	err = p2.Tell(&node.Node{Addr: addr1}, &iproto.ActionPb{})
 	assert.NoError(t, err)
 
 	err = testutil.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
