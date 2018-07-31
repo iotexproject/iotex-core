@@ -16,6 +16,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/action"
+	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -109,7 +110,11 @@ func TestAccountManager_SignVote(t *testing.T) {
 	require.NoError(err)
 	votePubKey, err := keypair.DecodePublicKey(pubKey2)
 	require.NoError(err)
-	rawVote, err := action.NewVote(uint64(1), selfPubKey, votePubKey)
+	voterAddress, err := iotxaddress.GetAddress(selfPubKey, iotxaddress.IsTestnet, iotxaddress.ChainID)
+	require.NoError(err)
+	voteeAddress, err := iotxaddress.GetAddress(votePubKey, iotxaddress.IsTestnet, iotxaddress.ChainID)
+	require.NoError(err)
+	rawVote, err := action.NewVote(uint64(1), voterAddress.RawAddress, voteeAddress.RawAddress)
 	require.NoError(err)
 	signedVote, err := m.SignVote(rawAddr1, rawVote)
 	require.Nil(signedVote)

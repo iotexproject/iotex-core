@@ -286,7 +286,7 @@ func injectVote(
 	logger.Info().Int64("Version", jsonVote.Version).Msg(" ")
 	logger.Info().Int64("Nonce", jsonVote.Nonce).Msg(" ")
 	logger.Info().Str("Sender Public Key", jsonVote.VoterPubKey).Msg(" ")
-	logger.Info().Str("Recipient Public Key", jsonVote.VoteePubKey).Msg(" ")
+	logger.Info().Str("Recipient Address", jsonVote.Votee).Msg(" ")
 	logger.Info().Str("Signature", jsonVote.Signature).Msg(" ")
 
 	if wg != nil {
@@ -338,7 +338,7 @@ func createSignedTransfer(sender *iotxaddress.Address, recipient *iotxaddress.Ad
 
 // Helper function to create and sign a vote
 func createSignedVote(voter *iotxaddress.Address, votee *iotxaddress.Address, nonce uint64) (*action.Vote, error) {
-	rawVote, err := action.NewVote(nonce, voter.PublicKey, votee.PublicKey)
+	rawVote, err := action.NewVote(nonce, voter.RawAddress, votee.RawAddress)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create raw vote")
 	}

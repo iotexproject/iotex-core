@@ -632,9 +632,9 @@ func newTestCFSM(
 	require.NoError(t, err)
 	selfPubKey, err := keypair.DecodePublicKey(publicKey)
 	require.NoError(t, err)
-	votePubKey, err := keypair.DecodePublicKey(publicKey)
+	address, err := iotxaddress.GetAddress(selfPubKey, iotxaddress.IsTestnet, iotxaddress.ChainID)
 	require.NoError(t, err)
-	vote, err := action.NewVote(2, selfPubKey, votePubKey)
+	vote, err := action.NewVote(2, address.RawAddress, address.RawAddress)
 	require.NoError(t, err)
 	var prevHash hash.Hash32B
 	lastBlk := blockchain.NewBlock(1, 1, prevHash, make([]*action.Transfer, 0), make([]*action.Vote, 0))

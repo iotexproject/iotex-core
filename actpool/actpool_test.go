@@ -21,7 +21,6 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	pb "github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -117,7 +116,8 @@ func TestActPool_validateVote(t *testing.T) {
 	err = ap.validateVote(&vote)
 	require.Equal(ErrActPool, errors.Cause(err))
 	// Case II: Signature Verification Fails
-	unsignedVote, err := action.NewVote(1, addr1.PublicKey, addr2.PublicKey)
+	unsignedVote, err := action.NewVote(1, addr1.RawAddress, addr2.RawAddress)
+	unsignedVote.SelfPubkey = addr1.PublicKey[:]
 	require.NoError(err)
 	err = ap.validateVote(unsignedVote)
 	require.Equal(action.ErrVoteError, errors.Cause(err))
@@ -225,7 +225,7 @@ func TestActPool_AddActs(t *testing.T) {
 	replaceTsf, _ := signedTransfer(addr1, addr2, uint64(1), big.NewInt(1))
 	err = ap.AddTsf(replaceTsf)
 	require.Equal(ErrNonce, errors.Cause(err))
-	replaceVote, err := action.NewVote(4, addr1.PublicKey, keypair.ZeroPublicKey)
+	replaceVote, err := action.NewVote(4, addr1.RawAddress, "")
 	require.NoError(err)
 	replaceVote, _ = replaceVote.Sign(addr1)
 	err = ap.AddVote(replaceVote)
@@ -585,11 +585,11 @@ func TestActPool_Reset(t *testing.T) {
 	require.Nil(err)
 	tsf21, _ := signedTransfer(addr4, addr5, uint64(1), big.NewInt(10))
 	vote22, _ := signedVote(addr4, addr4, uint64(2))
-	vote23, _ := action.NewVote(3, addr4.PublicKey, keypair.ZeroPublicKey)
+	vote23, _ := action.NewVote(3, addr4.RawAddress, "")
 	vote23, _ = vote23.Sign(addr4)
 	vote24, _ := signedVote(addr5, addr5, uint64(1))
 	tsf25, _ := signedTransfer(addr5, addr4, uint64(2), big.NewInt(10))
-	vote26, _ := action.NewVote(3, addr5.PublicKey, keypair.ZeroPublicKey)
+	vote26, _ := action.NewVote(3, addr5.RawAddress, "")
 	vote26, _ = vote26.Sign(addr5)
 
 	err = ap1.AddTsf(tsf21)
@@ -779,7 +779,7 @@ func signedTransfer(sender *iotxaddress.Address, recipient *iotxaddress.Address,
 
 // Helper function to return a signed vote
 func signedVote(voter *iotxaddress.Address, votee *iotxaddress.Address, nonce uint64) (*action.Vote, error) {
-	vote, err := action.NewVote(nonce, voter.PublicKey, votee.PublicKey)
+	vote, err := action.NewVote(nonce, voter.RawAddress, votee.RawAddress)
 	if err != nil {
 		return nil, err
 	}

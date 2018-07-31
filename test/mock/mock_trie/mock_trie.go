@@ -33,6 +33,18 @@ func (m *MockTrie) EXPECT() *MockTrieMockRecorder {
 	return m.recorder
 }
 
+// Close mocks base method
+func (m *MockTrie) Close() error {
+	ret := m.ctrl.Call(m, "Close")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Close indicates an expected call of Close
+func (mr *MockTrieMockRecorder) Close() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockTrie)(nil).Close))
+}
+
 // Upsert mocks base method
 func (m *MockTrie) Upsert(arg0, arg1 []byte) error {
 	ret := m.ctrl.Call(m, "Upsert", arg0, arg1)
@@ -80,18 +92,6 @@ func (m *MockTrie) Commit(arg0, arg1 [][]byte) error {
 // Commit indicates an expected call of Commit
 func (mr *MockTrieMockRecorder) Commit(arg0, arg1 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockTrie)(nil).Commit), arg0, arg1)
-}
-
-// Close mocks base method
-func (m *MockTrie) Close() error {
-	ret := m.ctrl.Call(m, "Close")
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Close indicates an expected call of Close
-func (mr *MockTrieMockRecorder) Close() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockTrie)(nil).Close))
 }
 
 // RootHash mocks base method

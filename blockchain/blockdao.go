@@ -12,7 +12,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
@@ -503,25 +502,8 @@ func putVotes(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 	for _, vote := range blk.Votes {
 		voteHash := vote.Hash()
 
-		selfPublicKey, err := vote.SelfPublicKey()
-		if err != nil {
-			return err
-		}
-		SenderAddress, err := iotxaddress.GetAddress(selfPublicKey, iotxaddress.IsTestnet, iotxaddress.ChainID)
-		if err != nil {
-			return errors.Wrapf(err, " to get sender address for pubkey %x", vote.SelfPubkey)
-		}
-		Sender := SenderAddress.RawAddress
-
-		votePublicKey, err := vote.VotePublicKey()
-		if err != nil {
-			return err
-		}
-		RecipientAddress, err := iotxaddress.GetAddress(votePublicKey, iotxaddress.IsTestnet, iotxaddress.ChainID)
-		if err != nil {
-			return errors.Wrapf(err, " to get recipient address for pubkey %x", vote.VotePubkey)
-		}
-		Recipient := RecipientAddress.RawAddress
+		Sender := vote.VoterAddress
+		Recipient := vote.VoteeAddress
 
 		// get votes count for sender
 		senderVoteCount, err := dao.getVoteCountBySenderAddress(Sender)

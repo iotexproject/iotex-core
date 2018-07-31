@@ -34,7 +34,8 @@ message VotePb {
 
     uint64 timestamp = 4;
     bytes selfPubkey = 5;
-    bytes votePubkey = 6;  // the pubkey this node is voting for
+    string voterAddress = 6;  // the address of this node
+    string voteeAddress = 7;  // the address this node is voting for
 }
 
 message ActionPb {

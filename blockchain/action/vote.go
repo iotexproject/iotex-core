@@ -28,8 +28,6 @@ import (
 var (
 	// ErrVoteError indicates error for a vote action
 	ErrVoteError = errors.New("vote error")
-	// ErrPublicKey indicates error of public key
-	ErrPublicKey = errors.New("public key error")
 )
 
 const (
@@ -47,17 +45,16 @@ type Vote struct {
 }
 
 // NewVote returns a Vote instance
-func NewVote(nonce uint64, selfPubKey keypair.PublicKey, votePubKey keypair.PublicKey) (*Vote, error) {
-	if selfPubKey == keypair.ZeroPublicKey {
-		return nil, errors.Wrap(ErrPublicKey, "public key of voter is empty")
+func NewVote(nonce uint64, voterAddress string, voteeAddress string) (*Vote, error) {
+	if voterAddress == "" {
+		return nil, errors.Wrap(ErrAddr, "address of the voter is empty")
 	}
 
 	pbVote := &iproto.VotePb{
-		Version: version.ProtocolVersion,
-
-		Nonce:      nonce,
-		SelfPubkey: selfPubKey[:],
-		VotePubkey: votePubKey[:],
+		Version:      version.ProtocolVersion,
+		Nonce:        nonce,
+		VoterAddress: voterAddress,
+		VoteeAddress: voteeAddress,
 	}
 	return &Vote{pbVote}, nil
 }
@@ -67,18 +64,14 @@ func (v *Vote) SelfPublicKey() (keypair.PublicKey, error) {
 	return keypair.BytesToPublicKey(v.SelfPubkey)
 }
 
-// VotePublicKey returns the vote public key of the vote
-func (v *Vote) VotePublicKey() (keypair.PublicKey, error) {
-	return keypair.BytesToPublicKey(v.VotePubkey)
-}
-
 // TotalSize returns the total size of this Vote
 func (v *Vote) TotalSize() uint32 {
 	size := TimestampSizeInBytes
 	size += NonceSizeInBytes
 	size += versionSizeInBytes
 	size += len(v.SelfPubkey)
-	size += len(v.VotePubkey)
+	size += len(v.VoterAddress)
+	size += len(v.VoteeAddress)
 	size += len(v.Signature)
 	return uint32(size)
 }
@@ -88,7 +81,8 @@ func (v *Vote) ByteStream() []byte {
 	stream := make([]byte, TimestampSizeInBytes)
 	enc.MachineEndian.PutUint64(stream, v.Timestamp)
 	stream = append(stream, v.SelfPubkey...)
-	stream = append(stream, v.VotePubkey...)
+	stream = append(stream, v.VoterAddress...)
+	stream = append(stream, v.VoteeAddress...)
 	temp := make([]byte, 8)
 	enc.MachineEndian.PutUint64(temp, v.Nonce)
 	stream = append(stream, temp...)
@@ -111,15 +105,12 @@ func (v *Vote) ToJSON() (*explorer.Vote, error) {
 	if err != nil {
 		return nil, err
 	}
-	voteePubKey, err := keypair.BytesToPubKeyString(v.VotePubkey)
-	if err != nil {
-		return nil, err
-	}
 	vote := &explorer.Vote{
 		Version:     int64(v.Version),
 		Nonce:       int64(v.Nonce),
 		VoterPubKey: voterPubKey,
-		VoteePubKey: voteePubKey,
+		Voter:       v.VoterAddress,
+		Votee:       v.VoteeAddress,
 		Signature:   hex.EncodeToString(v.Signature),
 	}
 	return vote, nil
@@ -147,12 +138,8 @@ func NewVoteFromJSON(jsonVote *explorer.Vote) (*Vote, error) {
 		return nil, err
 	}
 	v.SelfPubkey = voterPubKey
-	voteePubKey, err := keypair.StringToPubKeyBytes(jsonVote.VoteePubKey)
-	if err != nil {
-		logger.Error().Err(err).Msg("Fail to create a new Vote from VoteJSON")
-		return nil, err
-	}
-	v.VotePubkey = voteePubKey
+	v.VoterAddress = jsonVote.Voter
+	v.VoteeAddress = jsonVote.Votee
 	signature, err := hex.DecodeString(jsonVote.Signature)
 	if err != nil {
 		logger.Error().Err(err).Msg("Fail to create a new Vote from VoteJSON")
@@ -182,9 +169,9 @@ func (v *Vote) Hash() hash.Hash32B {
 // Sign signs the Vote using sender's private key
 func (v *Vote) Sign(sender *iotxaddress.Address) (*Vote, error) {
 	// check the sender is correct
-	if !bytes.Equal(v.SelfPubkey, sender.PublicKey[:]) {
-		return nil, errors.Wrapf(ErrVoteError, "signing pubKey %x does not match with Vote pubKey %x",
-			v.SelfPubkey, sender.PublicKey)
+	if v.VoterAddress != sender.RawAddress {
+		return nil, errors.Wrapf(ErrVoteError, "signing addr %s does not match with Vote addr %s",
+			v.VoterAddress, sender.RawAddress)
 	}
 	// check the public key is actually owned by sender
 	pkhash := iotxaddress.GetPubkeyHash(sender.RawAddress)
@@ -192,6 +179,7 @@ func (v *Vote) Sign(sender *iotxaddress.Address) (*Vote, error) {
 		return nil, errors.Wrapf(ErrVoteError, "signing addr %s does not own correct public key",
 			sender.RawAddress)
 	}
+	v.SelfPubkey = sender.PublicKey[:]
 	if err := v.sign(sender); err != nil {
 		return nil, err
 	}

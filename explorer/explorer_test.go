@@ -67,7 +67,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	tsf3, _ = tsf3.Sign(ta.Addrinfo["charlie"])
 	tsf4, _ := action.NewTransfer(0, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["producer"].RawAddress)
 	tsf4, _ = tsf4.Sign(ta.Addrinfo["charlie"])
-	vote1, _ := action.NewVote(1, ta.Addrinfo["charlie"].PublicKey, ta.Addrinfo["delta"].PublicKey)
+	vote1, _ := action.NewVote(1, ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["delta"].RawAddress)
 	vote1, _ = vote1.Sign(ta.Addrinfo["charlie"])
 	blk, err = bc.MintNewBlock([]*action.Transfer{tsf1, tsf2, tsf3, tsf4}, []*action.Vote{vote1}, ta.Addrinfo["producer"], "")
 	if err != nil {
@@ -87,8 +87,8 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	}
 
 	// Add block 4
-	vote1, _ = action.NewVote(2, ta.Addrinfo["charlie"].PublicKey, ta.Addrinfo["alfa"].PublicKey)
-	vote2, _ := action.NewVote(3, ta.Addrinfo["alfa"].PublicKey, ta.Addrinfo["charlie"].PublicKey)
+	vote1, _ = action.NewVote(2, ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["alfa"].RawAddress)
+	vote2, _ := action.NewVote(3, ta.Addrinfo["alfa"].RawAddress, ta.Addrinfo["charlie"].RawAddress)
 	vote1, _ = vote1.Sign(ta.Addrinfo["charlie"])
 	vote2, _ = vote2.Sign(ta.Addrinfo["alfa"])
 	blk, err = bc.MintNewBlock(nil, []*action.Vote{vote1, vote2}, ta.Addrinfo["producer"], "")
@@ -105,7 +105,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 func addActsToActPool(ap actpool.ActPool) error {
 	tsf1, _ := action.NewTransfer(1, big.NewInt(1), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["alfa"].RawAddress)
 	tsf1, _ = tsf1.Sign(ta.Addrinfo["producer"])
-	vote1, _ := action.NewVote(2, ta.Addrinfo["producer"].PublicKey, ta.Addrinfo["producer"].PublicKey)
+	vote1, _ := action.NewVote(2, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["producer"].RawAddress)
 	vote1, _ = vote1.Sign(ta.Addrinfo["producer"])
 	tsf2, _ := action.NewTransfer(3, big.NewInt(1), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress)
 	tsf2, _ = tsf2.Sign(ta.Addrinfo["producer"])
@@ -436,7 +436,7 @@ func TestService_SendVote(t *testing.T) {
 	require.Equal(false, response.VoteSent)
 	require.NotNil(err)
 
-	voteJSON := explorer.Vote{Nonce: 1, VoterPubKey: senderPubKey, VoteePubKey: recipientPubKey}
+	voteJSON := explorer.Vote{Nonce: 1, VoterPubKey: senderPubKey}
 	svote, err := json.Marshal(voteJSON)
 	require.Nil(err)
 	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any()).Times(1)

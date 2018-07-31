@@ -18,7 +18,6 @@ import (
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/proto"
 )
 
@@ -26,7 +25,7 @@ const (
 	// TransferSizeLimit is the maximum size of transfer allowed
 	TransferSizeLimit = 32 * 1024
 	// VoteSizeLimit is the maximum size of vote allowed
-	VoteSizeLimit = 236
+	VoteSizeLimit = 262
 )
 
 var (
@@ -312,31 +311,26 @@ func (ap *actPool) validateVote(vote *action.Vote) error {
 		logger.Error().Err(err).Msg("Error when validating vote")
 		return errors.Wrapf(err, "invalid nonce value")
 	}
-	votePublicKey, err := vote.VotePublicKey()
-	if err != nil {
-		return err
-	}
-	if votePublicKey != keypair.ZeroPublicKey {
+	if vote.VoteeAddress != "" {
 		// Reject vote if votee is not a candidate
-		votee, err := iotxaddress.GetAddress(votePublicKey, iotxaddress.IsTestnet, iotxaddress.ChainID)
 		if err != nil {
 			logger.Error().
-				Err(err).Hex("voter", vote.SelfPubkey[:]).Hex("votee", vote.VotePubkey).
+				Err(err).Hex("voter", vote.SelfPubkey[:]).Str("votee", vote.VoteeAddress).
 				Msg("Error when validating vote")
-			return errors.Wrapf(err, "invalid votee public key: %x", vote.VotePubkey)
+			return errors.Wrapf(err, "invalid votee public key: %s", vote.VoteeAddress)
 		}
-		voteeState, err := ap.bc.StateByAddr(votee.RawAddress)
+		voteeState, err := ap.bc.StateByAddr(vote.VoteeAddress)
 		if err != nil {
 			logger.Error().Err(err).
-				Hex("voter", vote.SelfPubkey[:]).Hex("votee", vote.VotePubkey).
+				Hex("voter", vote.SelfPubkey[:]).Str("votee", vote.VoteeAddress).
 				Msg("Error when validating vote")
-			return errors.Wrapf(err, "cannot find votee's state: %x", vote.VotePubkey)
+			return errors.Wrapf(err, "cannot find votee's state: %s", vote.VoteeAddress)
 		}
-		if voter.RawAddress != votee.RawAddress && !voteeState.IsCandidate {
+		if voter.RawAddress != vote.VoteeAddress && !voteeState.IsCandidate {
 			logger.Error().Err(ErrVotee).
-				Hex("voter", vote.SelfPubkey[:]).Hex("votee", vote.VotePubkey).
+				Hex("voter", vote.SelfPubkey[:]).Str("votee", vote.VoteeAddress).
 				Msg("Error when validating vote")
-			return errors.Wrapf(ErrVotee, "votee has not self-nominated: %s", votee.RawAddress)
+			return errors.Wrapf(ErrVotee, "votee has not self-nominated: %s", vote.VoteeAddress)
 		}
 	}
 
