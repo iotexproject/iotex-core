@@ -19,7 +19,6 @@ import (
 	pb "github.com/iotexproject/iotex-core/network/proto"
 	"github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/test/mock/mock_dispatcher"
-	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestRpcPingPong(t *testing.T) {
@@ -41,9 +40,6 @@ func TestRpcPingPong(t *testing.T) {
 		err = s.Stop(ctx)
 		assert.NoError(t, err)
 	}()
-
-	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) { return o.RPC.Started(), nil })
-	assert.NoError(t, err)
 
 	pong, err := p.Ping(&pb.Ping{Nonce: uint64(4689), Addr: "127.0.0.1:10001"})
 	assert.Nil(t, err)
@@ -76,9 +72,6 @@ func TestGetPeers(t *testing.T) {
 		err = s.Stop(ctx)
 		assert.NoError(t, err)
 	}()
-
-	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) { return o.RPC.Started(), nil })
-	assert.NoError(t, err)
 
 	res, err := p.GetPeers(&pb.GetPeersReq{Count: 1})
 	assert.Nil(t, err)
@@ -125,11 +118,9 @@ func TestBroadcast(t *testing.T) {
 		assert.NoError(t, err)
 	}()
 
-	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) { return o.RPC.Started(), nil })
 	assert.NoError(t, err)
 
-	txMsg := &iproto.ActionPb{}
-	b, _ := proto.Marshal(txMsg)
+	b, _ := proto.Marshal(&iproto.ActionPb{})
 	res, err := p.BroadcastMsg(
 		&pb.BroadcastReq{Header: iproto.MagicBroadcastMsgHeader, MsgType: iproto.MsgActionType, MsgBody: b})
 	assert.Nil(t, err)
@@ -161,11 +152,7 @@ func TestRPCTell(t *testing.T) {
 		mctrl.Finish()
 	}()
 
-	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) { return o.RPC.Started(), nil })
-	assert.NoError(t, err)
-
-	txMsg := &iproto.ActionPb{}
-	b, _ := proto.Marshal(txMsg)
+	b, _ := proto.Marshal(&iproto.ActionPb{})
 	res, err := p.Tell(&pb.TellReq{Header: iproto.MagicBroadcastMsgHeader,
 		Addr:    s.String(),
 		MsgType: iproto.MsgActionType,
@@ -201,9 +188,6 @@ func TestRateLimit(t *testing.T) {
 		assert.NoError(t, err)
 		mctrl.Finish()
 	}()
-
-	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) { return o.RPC.Started(), nil })
-	assert.NoError(t, err)
 
 	var res *pb.TellRes
 	for i := 0; i < 10; i++ {
@@ -249,9 +233,6 @@ func TestSecureRpcPingPong(t *testing.T) {
 		assert.NoError(t, err)
 	}()
 
-	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) { return o.RPC.Started(), nil })
-	assert.NoError(t, err)
-
 	pong, err := p.Ping(&pb.Ping{Nonce: uint64(4689), Addr: "127.0.0.1:10001"})
 	assert.Nil(t, err)
 	assert.NotNil(t, pong)
@@ -286,9 +267,6 @@ func TestKeepaliveParams(t *testing.T) {
 		err = s.Stop(ctx)
 		assert.NoError(t, err)
 	}()
-
-	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) { return o.RPC.Started(), nil })
-	assert.NoError(t, err)
 
 	for i := 0; i < 5; i++ {
 		time.Sleep(100 * time.Millisecond)
