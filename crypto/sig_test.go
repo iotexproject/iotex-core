@@ -9,17 +9,34 @@ package crypto
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSignVerify(t *testing.T) {
+	require := require.New(t)
 	pub, pri, err := NewKeyPair()
-	assert.Nil(t, err)
+	require.NoError(err)
 
 	message := []byte("hello iotex message")
 	sig := Sign(pri, message)
-	assert.True(t, Verify(pub, message, sig))
+	require.True(Verify(pub, message, sig))
 
 	wrongMessage := []byte("wrong message")
-	assert.False(t, Verify(pub, wrongMessage, sig))
+	require.False(Verify(pub, wrongMessage, sig))
+}
+
+func TestPubKeyGeneration(t *testing.T) {
+	require := require.New(t)
+	expectedPuk, pri, err := NewKeyPair()
+	require.NoError(err)
+
+	actualPuk, err := NewPubKey(pri)
+	require.NoError(err)
+	require.Equal(expectedPuk, actualPuk)
+	message := []byte("hello iotex message")
+	sig := Sign(pri, message)
+	require.True(Verify(actualPuk, message, sig))
+
+	wrongMessage := []byte("wrong message")
+	require.False(Verify(actualPuk, wrongMessage, sig))
 }

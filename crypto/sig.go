@@ -20,6 +20,7 @@ import "C"
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
@@ -28,7 +29,7 @@ import (
 // NewKeyPair generates a new public/private key pair
 func NewKeyPair() (keypair.PublicKey, keypair.PrivateKey, error) {
 	var kp C.ec283_key_pair
-	C.key_generation(&kp)
+	C.keypair_generation(&kp)
 	pubKey := kp.Q
 	privKey := kp.d
 	pub, err := publicKeySerialization(pubKey)
@@ -41,6 +42,23 @@ func NewKeyPair() (keypair.PublicKey, keypair.PrivateKey, error) {
 	}
 
 	return pub, priv, nil
+}
+
+// NewPubKey generates a new public key
+func NewPubKey(priv keypair.PrivateKey) (keypair.PublicKey, error) {
+	var pubKey C.ec283_point_lambda_aff
+	privKey, err := privateKeyDeserialization(priv)
+	if err != nil {
+		return keypair.ZeroPublicKey, nil
+	}
+	if result := C.pk_generation(&privKey[0], &pubKey); result == 0 {
+		return keypair.ZeroPublicKey, errors.New("Fail to generate the public key")
+	}
+	pub, err := publicKeySerialization(pubKey)
+	if err != nil {
+		return keypair.ZeroPublicKey, err
+	}
+	return pub, nil
 }
 
 // Sign signs the msg
