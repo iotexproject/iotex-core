@@ -9,8 +9,9 @@ package itx
 import (
 	"time"
 
+	"github.com/zjshen14/go-fsm"
+
 	"github.com/iotexproject/iotex-core/consensus"
-	"github.com/iotexproject/iotex-core/consensus/fsm"
 	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
 	"github.com/iotexproject/iotex-core/dispatch"
 	"github.com/iotexproject/iotex-core/logger"
@@ -68,11 +69,11 @@ func (h *HeartbeatHandler) Log() {
 		return
 	}
 	rolldpos, ok := cs.Scheme().(*rolldpos.RollDPoS)
-	numCSEvts := 0
+	numPendingEvts := 0
 	var state fsm.State
 	if ok {
-		numCSEvts = len(*rolldpos.EventChan())
-		state = rolldpos.FSM().CurrentState()
+		numPendingEvts = rolldpos.NumPendingEvts()
+		state = rolldpos.CurrentState()
 	} else {
 		logger.Debug().Msg("scheme is not the instance of RollDPoS")
 	}
@@ -89,7 +90,7 @@ func (h *HeartbeatHandler) Log() {
 		Time("last-out", lastOutTime).
 		Time("last-in", lastInTime).
 		Int("dispatcher-events", numDPEvts).
-		Int("rolldpos-events", numCSEvts).
+		Int("rolldpos-events", numPendingEvts).
 		Str("fsm-state", string(state)).
 		Uint64("height", height).
 		Msg("node status")

@@ -10,9 +10,6 @@ import (
 	"github.com/golang/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/delegate"
-	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 )
 
@@ -27,15 +24,6 @@ type ConsensusDoneCB func(*blockchain.Block) error
 
 // BroadcastCB defines the callback to publish the consensus result
 type BroadcastCB func(*blockchain.Block) error
-
-// GetProposerCB defines the callback to check the if itself is the the proposer for the coming round
-type GetProposerCB func([]string, []byte, uint64, uint64) (string, error)
-
-// GenerateDKGCB defines the callback to generate DKG bytes
-type GenerateDKGCB func() (hash.DKGHash, error)
-
-// StartNextEpochCB defines the callback to check if the next epoch should start
-type StartNextEpochCB func(string, uint64, delegate.Pool, blockchain.Blockchain, *config.RollDPoS) (bool, error)
 
 // Scheme is the interface that consensus schemes should implement
 type Scheme interface {

@@ -26,7 +26,6 @@ import (
 	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus"
-	"github.com/iotexproject/iotex-core/delegate"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network"
@@ -86,8 +85,6 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 		cfg.Consensus.RollDPoS.AcceptProposeTTL = 1000 * time.Second
 		cfg.Consensus.RollDPoS.AcceptPrevoteTTL = 1000 * time.Second
 		cfg.Consensus.RollDPoS.AcceptVoteTTL = 1000 * time.Second
-		cfg.Consensus.RollDPoS.ProposerCB = "PseudoRotatedProposer"
-		cfg.Consensus.RollDPoS.ProposerCB = "PseudoStarNewEpoch"
 
 		// handle node address, delegate addresses, etc.
 		cfg.Delegate.Addrs = addrs
@@ -121,7 +118,6 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 		if err != nil {
 			logger.Fatal().Err(err).Msg("Fail to create actpool")
 		}
-		dlg := delegate.NewConfigBasedPool(&cfg.Delegate)
 		bs, _ := blocksync.NewBlockSyncer(&cfg, bc, ap, overlay)
 		err = bs.Start(ctx)
 		if err != nil {
@@ -130,12 +126,12 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 
 		var node consensus.Sim
 		if i < int(in.NHonest) {
-			node = consensus.NewSim(&cfg, bc, bs, dlg)
+			node = consensus.NewSim(&cfg, bc, ap, bs)
 		} else if i < int(in.NHonest+in.NFS) {
 			s.nodes = append(s.nodes, nil)
 			continue
 		} else {
-			node = consensus.NewSimByzantine(&cfg, bc, bs, dlg)
+			node = consensus.NewSimByzantine(&cfg, bc, ap, bs)
 		}
 
 		s.nodes = append(s.nodes, node)

@@ -8,38 +8,196 @@ package rolldpos
 
 import (
 	"context"
-	"sync"
 	"time"
 
+	"github.com/facebookgo/clock"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
+	"github.com/zjshen14/go-fsm"
 
+	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/consensus/fsm"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/delegate"
+	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/network"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/routine"
-	pb "github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/state"
 )
 
-var (
-	// ErrInvalidViewChangeMsg is the error that ViewChangeMsg is invalid
-	ErrInvalidViewChangeMsg = errors.New("ViewChangeMsg is invalid")
-)
+// ErrNewRollDPoS indicates the error of constructing RollDPoS
+var ErrNewRollDPoS = errors.New("error when constructing RollDPoS")
 
-// roundCtx keeps the context data for the current round and block.
-type roundCtx struct {
-	block     *blockchain.Block
-	blockHash *hash.Hash32B
-	prevotes  map[string]*hash.Hash32B
-	votes     map[string]*hash.Hash32B
-	isPr      bool
+type rollDPoSCtx struct {
+	cfg     config.RollDPoS
+	addr    *iotxaddress.Address
+	chain   blockchain.Blockchain
+	actPool actpool.ActPool
+	p2p     network.Overlay
+	epoch   epochCtx
+	round   roundCtx
+	clock   clock.Clock
+	// candidatesByHeightFunc is only used for testing purpose
+	candidatesByHeightFunc func(uint64) ([]*state.Candidate, bool)
+	sync                   blocksync.BlockSync
 }
 
-// epochCtx keeps the context data for the current epochStart
+var (
+	// ErrCandidatesNotFinalized indicates the height of statefactory is inconsistent with consensus
+	ErrCandidatesNotFinalized = errors.New("Epoch number of statefactory is inconsistent in StartRollingEpoch")
+	// ErrNotEnoughCandidates indicates there are not enough candidates from the candidate pool
+	ErrNotEnoughCandidates = errors.New("Candidate pool does not have enough candidates")
+)
+
+// rollingDelegates will only allows the delegates chosen for given epoch to enter the epoch
+func (ctx *rollDPoSCtx) rollingDelegates(epochNum uint64) ([]string, error) {
+	numDlgs := ctx.cfg.NumDelegates
+	height := uint64(numDlgs) * uint64(ctx.cfg.NumSubEpochs) * (epochNum - 1)
+	var candidates []*state.Candidate
+	var ok bool
+	if ctx.candidatesByHeightFunc != nil {
+		candidates, ok = ctx.candidatesByHeightFunc(height)
+	} else {
+		candidates, ok = ctx.chain.CandidatesByHeight(height)
+	}
+	if !ok {
+		return []string{}, errors.Wrap(ErrCandidatesNotFinalized, "error when getting delegates from the candidate pool")
+	}
+	if len(candidates) < int(numDlgs) {
+		return []string{}, errors.Wrapf(ErrNotEnoughCandidates, "only %d delegates from the candidate pool", len(candidates))
+	}
+	candidates = candidates[:numDlgs]
+
+	var delegates []string
+	for _, candidate := range candidates {
+		delegates = append(delegates, candidate.Address)
+	}
+
+	return delegates, nil
+}
+
+// calcEpochNum calculates the epoch ordinal number and the epoch start height offset, which is based on the height of
+// the next block to be produced
+func (ctx *rollDPoSCtx) calcEpochNumAndHeight() (uint64, uint64, error) {
+	height, err := ctx.chain.TipHeight()
+	if err != nil {
+		return 0, 0, err
+	}
+	numDlgs := ctx.cfg.NumDelegates
+	if err != nil {
+		return 0, 0, err
+	}
+	subEpochNum := ctx.getNumSubEpochs()
+	epochNum := height/(uint64(numDlgs)*uint64(subEpochNum)) + 1
+	epochHeight := uint64(numDlgs)*uint64(subEpochNum)*(epochNum-1) + 1
+	return epochNum, epochHeight, nil
+}
+
+// generateDKG generates a pseudo DKG bytes
+func (ctx *rollDPoSCtx) generateDKG() (hash.DKGHash, error) {
+	var dkg hash.DKGHash
+	// TODO: fill the logic to generate DKG
+	return dkg, nil
+}
+
+// getNumSubEpochs returns max(configured number, 1)
+func (ctx *rollDPoSCtx) getNumSubEpochs() uint {
+	num := uint(1)
+	if ctx.cfg.NumSubEpochs > 0 {
+		num = ctx.cfg.NumSubEpochs
+	}
+	return num
+}
+
+// rotatedProposer will rotate among the delegates to choose the proposer. It is pseudo order based on the position
+// in the delegate list and the block height
+func (ctx *rollDPoSCtx) rotatedProposer() (string, uint64, error) {
+	height, err := ctx.chain.TipHeight()
+	if err != nil {
+		return "", 0, err
+	}
+	// Next block height
+	height++
+	proposer, err := ctx.calcProposer(height, ctx.epoch.delegates)
+	return proposer, height, err
+}
+
+// calcProposer calculates the proposer for the block at a given height
+func (ctx *rollDPoSCtx) calcProposer(height uint64, delegates []string) (string, error) {
+	numDelegates := len(delegates)
+	if numDelegates == 0 {
+		return "", delegate.ErrZeroDelegate
+	}
+	return delegates[(height)%uint64(numDelegates)], nil
+}
+
+// mintBlock picks the actions and creates an block to propose
+func (ctx *rollDPoSCtx) mintBlock() (*blockchain.Block, error) {
+	transfers, votes := ctx.actPool.PickActs()
+	logger.Debug().
+		Int("transfer", len(transfers)).
+		Int("votes", len(votes)).
+		Msg("pick actions from the action pool")
+	blk, err := ctx.chain.MintNewBlock(transfers, votes, ctx.addr, "")
+	if err != nil {
+		logger.Error().Msg("error when minting a block")
+		return nil, err
+	}
+	logger.Info().
+		Uint64("height", blk.Height()).
+		Int("transfers", len(blk.Transfers)).
+		Int("votes", len(blk.Votes)).
+		Msg("minted a new block")
+	return blk, nil
+}
+
+// calcDurationSinceLastBlock returns the duration since last block time
+func (ctx *rollDPoSCtx) calcDurationSinceLastBlock() (time.Duration, error) {
+	height, err := ctx.chain.TipHeight()
+	if err != nil {
+		return 0, errors.Wrap(err, "error when getting the blockchain height")
+	}
+	blk, err := ctx.chain.GetBlockByHeight(height)
+	if err != nil {
+		return 0, errors.Wrapf(err, "error when getting the block at height: %d", height)
+	}
+	return time.Since(blk.Header.Timestamp()), nil
+}
+
+// calcQuorum calculates if more than 2/3 vote yes or no
+func (ctx *rollDPoSCtx) calcQuorum(decisions map[string]bool) (bool, bool) {
+	yes := 0
+	no := 0
+	for _, decision := range decisions {
+		if decision {
+			yes++
+		} else {
+			no++
+		}
+	}
+	numDelegates := len(ctx.epoch.delegates)
+	return yes >= numDelegates*2/3+1, no >= numDelegates*2/3+1
+}
+
+// isEpochFinished checks the epoch is finished or not
+func (ctx *rollDPoSCtx) isEpochFinished() (bool, error) {
+	height, err := ctx.chain.TipHeight()
+	if err != nil {
+		return false, errors.Wrap(err, "error when getting the blockchain height")
+	}
+	// if the height of the last committed block is already the last one should be minted from this epochStart, go back
+	// to epochStart start
+	if height >= ctx.epoch.height+uint64(uint(len(ctx.epoch.delegates))*ctx.epoch.numSubEpochs)-1 {
+		return true, nil
+	}
+	return false, nil
+}
+
+// epochCtx keeps the context data for the current epoch
 type epochCtx struct {
 	// num is the ordinal number of an epoch
 	num uint64
@@ -51,254 +209,231 @@ type epochCtx struct {
 	delegates    []string
 }
 
-// DNet is the delegate networks interface.
-type DNet interface {
-	Tell(node string, msg proto.Message) error
-	Self() string
-	Broadcast(msg proto.Message) error
+// roundCtx keeps the context data for the current round and block.
+type roundCtx struct {
+	height   uint64
+	block    *blockchain.Block
+	prevotes map[string]bool
+	votes    map[string]bool
+	proposer string
 }
 
-// rollDPoSCB contains all the callback functions used in RollDPoS
-type rollDPoSCB struct {
-	propCb       scheme.CreateBlockCB
-	voteCb       scheme.TellPeerCB
-	consCb       scheme.ConsensusDoneCB
-	pubCb        scheme.BroadcastCB
-	prCb         scheme.GetProposerCB
-	dkgCb        scheme.GenerateDKGCB
-	epochStartCb scheme.StartNextEpochCB
-}
-
-// RollDPoS is the RollDPoS consensus scheme
+// RollDPoS is Roll-DPoS consensus main entrance
 type RollDPoS struct {
-	rollDPoSCB
-	bc             blockchain.Blockchain
-	fsm            *fsm.Machine
-	epochCtx       *epochCtx
-	roundCtx       *roundCtx
-	self           string
-	pool           delegate.Pool
-	wg             sync.WaitGroup
-	quit           chan struct{}
-	eventChan      chan *fsm.Event
-	cfg            config.RollDPoS
-	pr             *routine.RecurringTask
-	prnd           *proposerRotation
-	dlgRollTask    *routine.RecurringTask
-	epochStartTask *routine.DelayTask
-	done           chan bool
+	cfsm *cFSM
+	ctx  *rollDPoSCtx
 }
 
-// NewRollDPoS creates a RollDPoS struct
-func NewRollDPoS(
-	cfg config.RollDPoS,
-	prop scheme.CreateBlockCB,
-	vote scheme.TellPeerCB,
-	cons scheme.ConsensusDoneCB,
-	pub scheme.BroadcastCB,
-	pr scheme.GetProposerCB,
-	epochStart scheme.StartNextEpochCB,
-	dkg scheme.GenerateDKGCB,
-	bc blockchain.Blockchain,
-	myaddr string,
-	dlg delegate.Pool,
-) *RollDPoS {
-	cb := rollDPoSCB{
-		propCb:       prop,
-		voteCb:       vote,
-		consCb:       cons,
-		pubCb:        pub,
-		prCb:         pr,
-		dkgCb:        dkg,
-		epochStartCb: epochStart,
+// Start starts RollDPoS consensus
+func (r *RollDPoS) Start(ctx context.Context) error {
+	if err := r.cfsm.Start(ctx); err != nil {
+		return errors.Wrap(err, "error when starting the consensus FSM")
 	}
-	sc := &RollDPoS{
-		rollDPoSCB: cb,
-		bc:         bc,
-		self:       myaddr,
-		pool:       dlg,
-		quit:       make(chan struct{}),
-		eventChan:  make(chan *fsm.Event, cfg.EventChanSize),
-		cfg:        cfg,
-	}
-	if cfg.ProposerInterval == 0 {
-		sc.prnd = newProposerRotationNoDelay(sc)
-	} else {
-		sc.pr = newProposerRotation(sc)
-	}
-	sc.dlgRollTask = newDelegateRoll(sc)
-	sc.epochStartTask = routine.NewDelayTask(
-		// Delay the start of first epoch to give every nodes the time to finish ramp-up
-		func() {
-			if err := sc.dlgRollTask.Start(context.Background()); err != nil {
-				logger.Panic().Err(err).Msg("error when starting delegate roll task")
-			}
-		},
-		cfg.Delay,
-	)
-	sc.fsm = fsmCreate(sc)
-	return sc
-}
-
-// Start initialize the RollDPoS and roundStart to consume requests from request channel.
-func (n *RollDPoS) Start(ctx context.Context) error {
-	logger.Info().Str("name", n.self).Msg("Starting RollDPoS")
-
-	n.wg.Add(1)
-	go n.consume()
-	if n.cfg.ProposerInterval > 0 {
-		if err := n.pr.Start(ctx); err != nil {
-			return err
-		}
-	}
-	if err := n.epochStartTask.Start(ctx); err != nil {
-		return err
-	}
+	r.cfsm.produce(r.cfsm.newCEvt(eRollDelegates), r.ctx.cfg.Delay)
 	return nil
 }
 
-// Stop stops the RollDPoS and stop consuming requests from request channel.
-func (n *RollDPoS) Stop(ctx context.Context) error {
-	logger.Info().Str("name", n.self).Msg("RollDPoS is shutting down")
-	if n.cfg.ProposerInterval > 0 {
-		if err := n.pr.Stop(ctx); err != nil {
-			return err
-		}
-	}
-	if err := n.dlgRollTask.Stop(ctx); err != nil {
-		return err
-	}
-	if err := n.epochStartTask.Stop(ctx); err != nil {
-		return err
-	}
-	close(n.quit)
-	n.wg.Wait()
-	return nil
+// Stop stops RollDPoS consensus
+func (r *RollDPoS) Stop(ctx context.Context) error {
+	return errors.Wrap(r.cfsm.Stop(ctx), "error when stopping the consensus FSM")
 }
 
-// SetDoneStream sets a boolean channel which indicates to the simulator that the consensus is done
-func (n *RollDPoS) SetDoneStream(done chan bool) {
-	n.done = done
-}
-
-// Handle handles incoming messages and publish to the channel.
-func (n *RollDPoS) Handle(m proto.Message) error {
-	event, err := eventFromProto(m)
+// Handle handles RollDPoS events coming from the network from other delegates
+func (r *RollDPoS) Handle(msg proto.Message) error {
+	cEvt, err := r.convertToConsensusEvt(msg)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error when converting a proto msg to a consensus event")
 	}
-	n.enqueueEvent(event)
+	r.cfsm.produce(cEvt, 0)
 	return nil
 }
 
-// EventChan returns the event chan
-func (n *RollDPoS) EventChan() *chan *fsm.Event {
-	return &n.eventChan
-}
+// SetDoneStream does nothing for Noop (only used in simulator)
+func (r *RollDPoS) SetDoneStream(simMsgReady chan bool) {}
 
-// FSM returns the FSM instance
-func (n *RollDPoS) FSM() *fsm.Machine {
-	return n.fsm
-}
-
-// Metrics returns the roll dpos metrics
-func (n *RollDPoS) Metrics() (scheme.ConsensusMetrics, error) {
-	// TODO: we should cache the metrics somewhere to prevent recalculating the metrics too frequently
+// Metrics returns RollDPoS consensus metrics
+func (r *RollDPoS) Metrics() (scheme.ConsensusMetrics, error) {
 	var metrics scheme.ConsensusMetrics
-	// Compute the height
-	height, err := n.bc.TipHeight()
+	// Compute the epoch ordinal number
+	epochNum, _, err := r.ctx.calcEpochNumAndHeight()
 	if err != nil {
-		return metrics, err
+		return metrics, errors.Wrap(err, "error when calculating the epoch ordinal number")
 	}
-	numDlgs, err := n.pool.NumDelegatesPerEpoch()
-	if err != nil {
-		return metrics, err
-	}
-	epochNum := height/(uint64(numDlgs)*uint64(n.cfg.NumSubEpochs)) + 1
 	// Compute delegates
-	delegates, err := n.pool.RollDelegates(epochNum)
+	delegates, err := r.ctx.rollingDelegates(epochNum)
 	if err != nil {
-		return metrics, err
+		return metrics, errors.Wrap(err, "error when getting the rolling delegates")
+	}
+	// Compute the height
+	height, err := r.ctx.chain.TipHeight()
+	if err != nil {
+		return metrics, errors.Wrap(err, "error when getting the blockchain height")
 	}
 	// Compute block producer
-	producer, err := n.prCb(delegates, nil, 0, height)
+	producer, err := r.ctx.calcProposer(height+1, delegates)
 	if err != nil {
-		return metrics, err
+		return metrics, errors.Wrap(err, "error when calculating the block producer")
 	}
 	// Get all candidates
-	candidates, ok := n.bc.CandidatesByHeight(height)
+	candidates, ok := r.ctx.chain.CandidatesByHeight(height)
 	if !ok {
-		return metrics, errors.New("Epoch number of statefactory is inconsistent in StartRollingEpoch")
+		return metrics, errors.Wrap(ErrCandidatesNotFinalized, "error when getting all candidates")
 	}
 	candidateAddresses := make([]string, len(candidates))
 	for i, c := range candidates {
 		candidateAddresses[i] = c.Address
 	}
 
-	metrics = scheme.ConsensusMetrics{
+	return scheme.ConsensusMetrics{
 		LatestEpoch:         epochNum,
 		LatestHeight:        height,
 		LatestDelegates:     delegates,
 		LatestBlockProducer: producer,
 		Candidates:          candidateAddresses,
-	}
-	return metrics, err
+	}, nil
 }
 
-func (n *RollDPoS) enqueueEvent(e *fsm.Event) {
-	logger.Debug().Msg("RollDPoS scheme handles incoming requests")
-	if len(n.eventChan) == cap(n.eventChan) {
-		logger.Warn().Msg("roll dpos event chan is full")
-	}
-	n.eventChan <- e
+// NumPendingEvts returns the number of pending events
+func (r *RollDPoS) NumPendingEvts() int {
+	return len(r.cfsm.evtq)
 }
 
-func (n *RollDPoS) consume() {
-loop:
-	for {
-		select {
-		case r := <-n.eventChan:
-			err := n.fsm.HandleTransition(r)
-			if err == nil {
-				break
-			}
+// CurrentState returns the current state
+func (r *RollDPoS) CurrentState() fsm.State {
+	return r.cfsm.fsm.CurrentState()
+}
 
-			fErr := errors.Cause(err)
-			switch fErr {
-			case fsm.ErrStateHandlerNotMatched:
-				// if fsm state has not changed since message was last seen, write to done channel
-				if n.fsm.CurrentState() == r.SeenState && n.done != nil {
-					select {
-					case n.done <- true: // try to write to done if possible
-					default:
-					}
-				}
-				r.SeenState = n.fsm.CurrentState()
-
-				if r.ExpireAt == nil {
-					expireAt := time.Now().Add(n.cfg.UnmatchedEventTTL)
-					r.ExpireAt = &expireAt
-					n.enqueueEvent(r)
-				} else if time.Now().Before(*r.ExpireAt) {
-					n.enqueueEvent(r)
-				}
-			case fsm.ErrNoTransitionApplied:
-			default:
-				logger.Error().
-					Str("RollDPoS", n.self).
-					Err(err).
-					Msg("Failed to fsm.HandleTransition")
-			}
-		case <-n.quit:
-			break loop
+func (r *RollDPoS) convertToConsensusEvt(msg proto.Message) (iConsensusEvt, error) {
+	vcMsg, ok := msg.(*iproto.ViewChangeMsg)
+	if !ok {
+		return nil, errors.Wrap(ErrEvtCast, "error when casting a proto msg to a ViewChangeMsg")
+	}
+	var cEvt iConsensusEvt
+	switch vcMsg.Vctype {
+	case iproto.ViewChangeMsg_PROPOSE:
+		pbEvt := r.cfsm.newProposeBlkEvt(nil)
+		if err := pbEvt.fromProtoMsg(vcMsg); err != nil {
+			return nil, errors.Wrap(err, "error when casting a proto msg to proposeBlkEvt")
 		}
+		cEvt = pbEvt
+	case iproto.ViewChangeMsg_PREVOTE:
+		var blkHash hash.Hash32B
+		pvEvt := r.cfsm.newPrevoteEvt(blkHash, false)
+		if err := pvEvt.fromProtoMsg(vcMsg); err != nil {
+			return nil, errors.Wrap(err, "error when casting a proto msg to prevoteEvt")
+		}
+		cEvt = pvEvt
+	case iproto.ViewChangeMsg_VOTE:
+		var blkHash hash.Hash32B
+		vEvt := r.cfsm.newVoteEvt(blkHash, false)
+		if err := vEvt.fromProtoMsg(vcMsg); err != nil {
+			return nil, errors.Wrap(err, "error when casting a proto msg to voteEvt")
+		}
+		cEvt = vEvt
+	default:
+		return nil, errors.Wrapf(ErrEvtCast, "unexpected ViewChangeMsg type %d", vcMsg.Vctype)
 	}
-
-	n.wg.Done()
-	logger.Info().Msg("consume done")
+	return cEvt, nil
 }
 
-func (n *RollDPoS) tellDelegates(msg *pb.ViewChangeMsg) {
-	msg.SenderAddr = n.self
-	n.voteCb(msg)
+// Builder is the builder for RollDPoS
+type Builder struct {
+	cfg config.RollDPoS
+	// TODO: we should use keystore in the future
+	addr                   *iotxaddress.Address
+	chain                  blockchain.Blockchain
+	actPool                actpool.ActPool
+	p2p                    network.Overlay
+	clock                  clock.Clock
+	candidatesByHeightFunc func(uint64) ([]*state.Candidate, bool)
+	sync                   blocksync.BlockSync
+}
+
+// NewRollDPoSBuilder instantiates a Builder instance
+func NewRollDPoSBuilder() *Builder {
+	return &Builder{}
+}
+
+// SetConfig sets RollDPoS config
+func (b *Builder) SetConfig(cfg config.RollDPoS) *Builder {
+	b.cfg = cfg
+	return b
+}
+
+// SetAddr sets the address and key pair for signature
+func (b *Builder) SetAddr(addr *iotxaddress.Address) *Builder {
+	b.addr = addr
+	return b
+}
+
+// SetBlockchain sets the blockchain APIs
+func (b *Builder) SetBlockchain(chain blockchain.Blockchain) *Builder {
+	b.chain = chain
+	return b
+}
+
+// SetActPool sets the action pool APIs
+func (b *Builder) SetActPool(actPool actpool.ActPool) *Builder {
+	b.actPool = actPool
+	return b
+}
+
+// SetP2P sets the P2P APIs
+func (b *Builder) SetP2P(p2p network.Overlay) *Builder {
+	b.p2p = p2p
+	return b
+}
+
+// SetClock sets the clock
+func (b *Builder) SetClock(clock clock.Clock) *Builder {
+	b.clock = clock
+	return b
+}
+
+// SetCandidatesByHeightFunc sets candidatesByHeightFunc, which is only used by tests
+func (b *Builder) SetCandidatesByHeightFunc(
+	candidatesByHeightFunc func(uint64) ([]*state.Candidate, bool),
+) *Builder {
+	b.candidatesByHeightFunc = candidatesByHeightFunc
+	return b
+}
+
+// SetBlockSync sets block sync APIs
+func (b *Builder) SetBlockSync(sync blocksync.BlockSync) *Builder {
+	b.sync = sync
+	return b
+}
+
+// Build builds a RollDPoS consensus module
+func (b *Builder) Build() (*RollDPoS, error) {
+	if b.chain == nil {
+		return nil, errors.Wrap(ErrNewRollDPoS, "blockchain APIs is nil")
+	}
+	if b.actPool == nil {
+		return nil, errors.Wrap(ErrNewRollDPoS, "action pool APIs is nil")
+	}
+	if b.p2p == nil {
+		return nil, errors.Wrap(ErrNewRollDPoS, "p2p APIs is nil")
+	}
+	if b.clock == nil {
+		b.clock = clock.New()
+	}
+	ctx := rollDPoSCtx{
+		cfg:     b.cfg,
+		addr:    b.addr,
+		chain:   b.chain,
+		actPool: b.actPool,
+		p2p:     b.p2p,
+		clock:   b.clock,
+		candidatesByHeightFunc: b.candidatesByHeightFunc,
+		sync: b.sync,
+	}
+	cfsm, err := newConsensusFSM(&ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "error when constructing the consensus FSM")
+	}
+	return &RollDPoS{
+		cfsm: cfsm,
+		ctx:  &ctx,
+	}, nil
 }
