@@ -18,7 +18,6 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
-	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos2"
 	"github.com/iotexproject/iotex-core/delegate"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/errcode"
@@ -98,22 +97,7 @@ func NewConsensus(
 
 	switch cfg.Consensus.Scheme {
 	case config.RollDPoSScheme:
-		/*
-			cs.scheme = rolldpos.NewRollDPoS(
-				cfg.Consensus.RollDPoS,
-				mintBlockCB,
-				tellBlockCB,
-				commitBlockCB,
-				broadcastBlockCB,
-				chooseGetProposerCB(cfg.Consensus.RollDPoS.ProposerCB),
-				chooseStartNextEpochCB(cfg.Consensus.RollDPoS.EpochCB),
-				rolldpos.GeneratePseudoDKG,
-				bc,
-				addr.RawAddress,
-				dlg,
-			)
-		*/
-		cs.scheme, err = rolldpos2.NewRollDPoSBuilder().
+		cs.scheme, err = rolldpos.NewRollDPoSBuilder().
 			SetAddr(addr).
 			SetConfig(cfg.Consensus.RollDPoS).
 			SetBlockchain(bc).
@@ -188,36 +172,4 @@ func (c *IotxConsensus) HandleBlockPropose(m proto.Message, done chan bool) erro
 // Scheme returns the scheme instance
 func (c *IotxConsensus) Scheme() scheme.Scheme {
 	return c.scheme
-}
-
-func chooseGetProposerCB(prCbName string) (prCb scheme.GetProposerCB) {
-	switch prCbName {
-	case "", "FixedProposer":
-		prCb = rolldpos.FixedProposer
-	case "PseudoRotatedProposer":
-		prCb = rolldpos.PseudoRotatedProposer
-	default:
-		logger.Panic().
-			Str("func name", prCbName).
-			Msg("invalid GetProposerCB implementation")
-	}
-	return
-}
-
-func chooseStartNextEpochCB(epochCbName string) (epochCb scheme.StartNextEpochCB) {
-	switch epochCbName {
-	case "", "NeverStartNewEpoch":
-		epochCb = rolldpos.NeverStartNewEpoch
-	case "PseudoStarNewEpoch":
-		epochCb = rolldpos.PseudoStarNewEpoch
-	case "PseudoStartRollingEpoch":
-		epochCb = rolldpos.PseudoStartRollingEpoch
-	case "StartRollingEpoch":
-		epochCb = rolldpos.StartRollingEpoch
-	default:
-		logger.Panic().
-			Str("func name", epochCbName).
-			Msg("invalid StartNextEpochCB implementation")
-	}
-	return
 }

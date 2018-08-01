@@ -7,477 +7,577 @@
 package rolldpos
 
 import (
-	"context"
+	"fmt"
+	"math/big"
+	"net"
 	"testing"
 	"time"
 
+	"github.com/facebookgo/clock"
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/net/context"
 
+	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/consensus/fsm"
-	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/iotxaddress"
-	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/network/node"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/test/mock/mock_actpool"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
-	"github.com/iotexproject/iotex-core/test/mock/mock_delegate"
-	"github.com/iotexproject/iotex-core/test/mock/mock_rolldpos"
-	"github.com/iotexproject/iotex-core/test/mock/mock_state"
+	"github.com/iotexproject/iotex-core/test/mock/mock_network"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
-type mocks struct {
-	dNet *mock_rolldpos.MockDNet
-	bc   *mock_blockchain.MockBlockchain
-	dp   *mock_delegate.MockPool
-	sf   *mock_state.MockFactory
+func TestRollDPoSCtx(t *testing.T) {
+	t.Parallel()
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	candidates := make([]string, 4)
+	for i := 0; i < len(candidates); i++ {
+		candidates[i] = testAddrs[i].RawAddress
+	}
+	var prevHash hash.Hash32B
+	blk := blockchain.NewBlock(1, 8, prevHash, make([]*action.Transfer, 0), make([]*action.Vote, 0))
+	ctx := makeTestRollDPoSCtx(
+		testAddrs[0],
+		ctrl,
+		config.RollDPoS{
+			NumSubEpochs: 2,
+			NumDelegates: 4,
+		},
+		func(blockchain *mock_blockchain.MockBlockchain) {
+			blockchain.EXPECT().TipHeight().Return(uint64(8), nil).Times(3)
+			blockchain.EXPECT().GetBlockByHeight(uint64(8)).Return(blk, nil).Times(1)
+			blockchain.EXPECT().CandidatesByHeight(gomock.Any()).Return([]*state.Candidate{
+				{Address: candidates[0]},
+				{Address: candidates[1]},
+				{Address: candidates[2]},
+				{Address: candidates[3]},
+			}, true).Times(1)
+		},
+		func(_ *mock_actpool.MockActPool) {},
+		func(_ *mock_network.MockOverlay) {},
+	)
+
+	epoch, height, err := ctx.calcEpochNumAndHeight()
+	require.NoError(t, err)
+	assert.Equal(t, uint64(2), epoch)
+	assert.Equal(t, uint64(9), height)
+
+	delegates, err := ctx.rollingDelegates(height)
+	require.NoError(t, err)
+	assert.Equal(t, candidates, delegates)
+
+	ctx.epoch = epochCtx{
+		num:          epoch,
+		height:       height,
+		numSubEpochs: 1,
+		delegates:    delegates,
+	}
+	proposer, height, err := ctx.rotatedProposer()
+	require.NoError(t, err)
+	assert.Equal(t, candidates[1], proposer)
+	assert.Equal(t, uint64(9), height)
+
+	duration, err := ctx.calcDurationSinceLastBlock()
+	require.NoError(t, err)
+	assert.True(t, duration > 0)
+
+	yes, no := ctx.calcQuorum(map[string]bool{
+		candidates[0]: true,
+		candidates[1]: true,
+		candidates[2]: true,
+	})
+	assert.True(t, yes)
+	assert.False(t, no)
+
+	yes, no = ctx.calcQuorum(map[string]bool{
+		candidates[0]: false,
+		candidates[1]: false,
+		candidates[2]: false,
+	})
+	assert.False(t, yes)
+	assert.True(t, no)
+
+	yes, no = ctx.calcQuorum(map[string]bool{
+		candidates[0]: true,
+		candidates[1]: true,
+		candidates[2]: false,
+		candidates[3]: false,
+	})
+	assert.False(t, yes)
+	assert.False(t, no)
 }
 
-type mockFn func(mcks mocks)
+func TestIsEpochFinished(t *testing.T) {
+	t.Parallel()
 
-var testDKG = hash.DKGHash{4, 6, 8, 9, 4, 6, 8, 9, 4, 6, 8, 9, 4, 6, 8, 9, 4, 6, 8, 9}
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-func createTestRollDPoS(
+	candidates := make([]string, 4)
+	for i := 0; i < len(candidates); i++ {
+		candidates[i] = testAddrs[i].RawAddress
+	}
+
+	t.Run("not-finished", func(t *testing.T) {
+		ctx := makeTestRollDPoSCtx(
+			testAddrs[0],
+			ctrl,
+			config.RollDPoS{
+				NumSubEpochs: 2,
+			},
+			func(blockchain *mock_blockchain.MockBlockchain) {
+				blockchain.EXPECT().TipHeight().Return(uint64(8), nil).Times(1)
+			},
+			func(_ *mock_actpool.MockActPool) {},
+			func(_ *mock_network.MockOverlay) {},
+		)
+		finished, err := ctx.isEpochFinished()
+		require.NoError(t, err)
+		assert.False(t, finished)
+	})
+	t.Run("finished", func(t *testing.T) {
+		ctx := makeTestRollDPoSCtx(
+			testAddrs[0],
+			ctrl,
+			config.RollDPoS{
+				NumSubEpochs: 2,
+			},
+			func(blockchain *mock_blockchain.MockBlockchain) {
+				blockchain.EXPECT().TipHeight().Return(uint64(12), nil).Times(1)
+			},
+			func(_ *mock_actpool.MockActPool) {},
+			func(_ *mock_network.MockOverlay) {},
+		)
+		finished, err := ctx.isEpochFinished()
+		require.NoError(t, err)
+		assert.False(t, finished)
+	})
+}
+
+func TestNewRollDPoS(t *testing.T) {
+	t.Parallel()
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	t.Run("normal", func(t *testing.T) {
+		r, err := NewRollDPoSBuilder().
+			SetConfig(config.RollDPoS{}).
+			SetAddr(newTestAddr()).
+			SetBlockchain(mock_blockchain.NewMockBlockchain(ctrl)).
+			SetActPool(mock_actpool.NewMockActPool(ctrl)).
+			SetP2P(mock_network.NewMockOverlay(ctrl)).
+			Build()
+		assert.NoError(t, err)
+		assert.NotNil(t, r)
+	})
+	t.Run("mock-clock", func(t *testing.T) {
+		r, err := NewRollDPoSBuilder().
+			SetConfig(config.RollDPoS{}).
+			SetAddr(newTestAddr()).
+			SetBlockchain(mock_blockchain.NewMockBlockchain(ctrl)).
+			SetActPool(mock_actpool.NewMockActPool(ctrl)).
+			SetP2P(mock_network.NewMockOverlay(ctrl)).
+			SetClock(clock.NewMock()).
+			Build()
+		assert.NoError(t, err)
+		assert.NotNil(t, r)
+		_, ok := r.ctx.clock.(*clock.Mock)
+		assert.True(t, ok)
+	})
+	t.Run("missing-dep", func(t *testing.T) {
+		r, err := NewRollDPoSBuilder().
+			SetConfig(config.RollDPoS{}).
+			SetAddr(newTestAddr()).
+			SetActPool(mock_actpool.NewMockActPool(ctrl)).
+			SetP2P(mock_network.NewMockOverlay(ctrl)).
+			Build()
+		assert.Error(t, err)
+		assert.Nil(t, r)
+	})
+}
+
+func TestRollDPoS_Metrics(t *testing.T) {
+	t.Parallel()
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	candidates := make([]string, 5)
+	for i := 0; i < len(candidates); i++ {
+		candidates[i] = testAddrs[i].RawAddress
+	}
+
+	blockchain := mock_blockchain.NewMockBlockchain(ctrl)
+	blockchain.EXPECT().TipHeight().Return(uint64(8), nil).Times(2)
+	blockchain.EXPECT().CandidatesByHeight(gomock.Any()).Return([]*state.Candidate{
+		{Address: candidates[0]},
+		{Address: candidates[1]},
+		{Address: candidates[2]},
+		{Address: candidates[3]},
+		{Address: candidates[4]},
+	}, true).AnyTimes()
+
+	r, err := NewRollDPoSBuilder().
+		SetConfig(config.RollDPoS{NumDelegates: 4}).
+		SetAddr(newTestAddr()).
+		SetBlockchain(blockchain).
+		SetActPool(mock_actpool.NewMockActPool(ctrl)).
+		SetP2P(mock_network.NewMockOverlay(ctrl)).
+		Build()
+	require.NoError(t, err)
+	require.NotNil(t, r)
+
+	m, err := r.Metrics()
+	require.NoError(t, err)
+	assert.Equal(t, uint64(3), m.LatestEpoch)
+	assert.Equal(t, candidates[:4], m.LatestDelegates)
+	assert.Equal(t, candidates[1], m.LatestBlockProducer)
+	assert.Equal(t, candidates, m.Candidates)
+}
+
+func TestRollDPoS_convertToConsensusEvt(t *testing.T) {
+	t.Parallel()
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	r, err := NewRollDPoSBuilder().
+		SetConfig(config.RollDPoS{}).
+		SetAddr(newTestAddr()).
+		SetBlockchain(mock_blockchain.NewMockBlockchain(ctrl)).
+		SetActPool(mock_actpool.NewMockActPool(ctrl)).
+		SetP2P(mock_network.NewMockOverlay(ctrl)).
+		Build()
+	assert.NoError(t, err)
+	assert.NotNil(t, r)
+
+	// Test propose msg
+	addr := newTestAddr()
+	transfer, err := action.NewTransfer(1, big.NewInt(100), "src", "dst")
+	require.NoError(t, err)
+	selfPubKey, err := keypair.DecodePublicKey(publicKey)
+	address, err := iotxaddress.GetAddress(selfPubKey, iotxaddress.IsTestnet, iotxaddress.ChainID)
+	require.NoError(t, err)
+	vote, err := action.NewVote(2, address.RawAddress, address.RawAddress)
+	require.NoError(t, err)
+	var prevHash hash.Hash32B
+	blk := blockchain.NewBlock(1, 1, prevHash, []*action.Transfer{transfer}, []*action.Vote{vote})
+	msg := iproto.ViewChangeMsg{
+		Vctype:     iproto.ViewChangeMsg_PROPOSE,
+		Block:      blk.ConvertToBlockPb(),
+		SenderAddr: addr.RawAddress,
+	}
+	evt, err := r.convertToConsensusEvt(&msg)
+	assert.NoError(t, err)
+	assert.NotNil(t, evt)
+	pbEvt, ok := evt.(*proposeBlkEvt)
+	assert.True(t, ok)
+	assert.NotNil(t, pbEvt.block)
+
+	// Test prevote msg
+	blkHash := blk.HashBlock()
+	msg = iproto.ViewChangeMsg{
+		Vctype:     iproto.ViewChangeMsg_PREVOTE,
+		BlockHash:  blkHash[:],
+		SenderAddr: addr.RawAddress,
+	}
+	evt, err = r.convertToConsensusEvt(&msg)
+	assert.NoError(t, err)
+	assert.NotNil(t, evt)
+	_, ok = evt.(*voteEvt)
+	assert.True(t, ok)
+
+	// Test prevote msg
+	msg = iproto.ViewChangeMsg{
+		Vctype:     iproto.ViewChangeMsg_VOTE,
+		BlockHash:  blkHash[:],
+		SenderAddr: addr.RawAddress,
+	}
+	evt, err = r.convertToConsensusEvt(&msg)
+	assert.NoError(t, err)
+	assert.NotNil(t, evt)
+	_, ok = evt.(*voteEvt)
+	assert.True(t, ok)
+
+	// Test invalid msg
+	msg = iproto.ViewChangeMsg{
+		Vctype: 100,
+	}
+	evt, err = r.convertToConsensusEvt(&msg)
+	assert.Error(t, err)
+	assert.Nil(t, evt)
+}
+
+func makeTestRollDPoSCtx(
+	addr *iotxaddress.Address,
 	ctrl *gomock.Controller,
-	self string,
-	delegates []string,
-	mockFn mockFn,
-	prCb scheme.GetProposerCB,
-	prDelay time.Duration,
-	epochCb scheme.StartNextEpochCB,
-	bcCnt *int) *RollDPoS {
-	bc := mock_blockchain.NewMockBlockchain(ctrl)
+	cfg config.RollDPoS,
+	mockChain func(*mock_blockchain.MockBlockchain),
+	mockActPool func(*mock_actpool.MockActPool),
+	mockP2P func(overlay *mock_network.MockOverlay),
+) *rollDPoSCtx {
+	chain := mock_blockchain.NewMockBlockchain(ctrl)
+	mockChain(chain)
+	actPool := mock_actpool.NewMockActPool(ctrl)
+	mockActPool(actPool)
+	p2p := mock_network.NewMockOverlay(ctrl)
+	mockP2P(p2p)
+	return &rollDPoSCtx{
+		cfg:     cfg,
+		addr:    addr,
+		chain:   chain,
+		actPool: actPool,
+		p2p:     p2p,
+		clock:   clock.NewMock(),
+	}
+}
 
-	createblockCB := func() (*blockchain.Block, error) {
-		blk, err := bc.MintNewBlock(nil, nil, &iotxaddress.Address{}, "")
-		if err != nil {
-			logger.Error().Msg("Failed to mint a new block")
-			return nil, err
-		}
-		logger.Info().
-			Uint64("height", blk.Height()).
-			Int("transfers", len(blk.Transfers)).
-			Msg("Created a new block")
-		return blk, nil
-	}
-	commitBlockCB := func(blk *blockchain.Block) error {
-		return bc.CommitBlock(blk)
-	}
-	broadcastBlockCB := func(blk *blockchain.Block) error {
-		if bcCnt != nil {
-			*bcCnt++
-		}
+// E2E RollDPoS tests bellow
+
+type directOverlay struct {
+	addr  net.Addr
+	peers map[net.Addr]*RollDPoS
+}
+
+func (o *directOverlay) Start(_ context.Context) error { return nil }
+
+func (o *directOverlay) Stop(_ context.Context) error { return nil }
+
+func (o *directOverlay) Broadcast(msg proto.Message) error {
+	// Only broadcast consensus message
+	if _, ok := msg.(*iproto.ViewChangeMsg); !ok {
 		return nil
 	}
-	generateDKGCB := func() (hash.DKGHash, error) {
-		return testDKG, nil
+	for _, r := range o.peers {
+		if err := r.Handle(msg); err != nil {
+			return errors.Wrap(err, "error when handling the proto msg directly")
+		}
 	}
-	dp := mock_delegate.NewMockPool(ctrl)
-	dp.EXPECT().AllDelegates().Return(delegates, nil).AnyTimes()
-	dp.EXPECT().RollDelegates(gomock.Any()).Return(delegates, nil).AnyTimes()
-	dp.EXPECT().NumDelegatesPerEpoch().Return(uint(len(delegates)), nil).AnyTimes()
-	dNet := mock_rolldpos.NewMockDNet(ctrl)
-	dNet.EXPECT().Self().Return(self)
-	tellblockCB := func(msg proto.Message) error {
-		return dNet.Broadcast(msg)
-	}
-	csCfg := config.RollDPoS{
-		UnmatchedEventTTL: 300 * time.Millisecond,
-		RoundStartTTL:     10 * time.Second,
-		AcceptProposeTTL:  300 * time.Millisecond,
-		AcceptPrevoteTTL:  300 * time.Millisecond,
-		AcceptVoteTTL:     300 * time.Millisecond,
-		Delay:             10 * time.Second,
-		EventChanSize:     100,
-		DelegateInterval:  time.Hour,
-		NumSubEpochs:      1,
-	}
-	csCfg.ProposerInterval = prDelay
-	mockFn(mocks{
-		dNet: dNet,
-		bc:   bc,
-		dp:   dp,
-	})
-	return NewRollDPoS(
-		csCfg,
-		createblockCB,
-		tellblockCB,
-		commitBlockCB,
-		broadcastBlockCB,
-		prCb,
-		epochCb,
-		generateDKGCB,
-		bc,
-		dNet.Self(),
-		dp,
-	)
+	return nil
 }
 
-type testCs struct {
-	cs    *RollDPoS
-	mocks mocks
+func (o *directOverlay) Tell(net.Addr, proto.Message) error { return nil }
+
+func (o *directOverlay) Self() net.Addr { return o.addr }
+
+func (o *directOverlay) GetPeers() []net.Addr {
+	addrs := make([]net.Addr, 0, len(o.peers))
+	for addr := range o.peers {
+		addrs = append(addrs, addr)
+	}
+	return addrs
 }
 
-// 1 faulty node and 3 trusty nodes
-func TestByzantineFault(t *testing.T) {
+func TestRollDPoSConsensus(t *testing.T) {
 	t.Parallel()
-	tests := []struct {
-		desc         string
-		proposerNode int
-	}{
-		{
-			desc:         "faulty node(0) is a proposer",
-			proposerNode: 0,
-		},
-		{
-			desc:         "faulty node(0) is a validator",
-			proposerNode: 3,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.desc, func(t *testing.T) {
-			testByzantineFault(t, tt.proposerNode)
-		})
-	}
-}
 
-// 1 faulty node and 3 trusty nodes
-func testByzantineFault(t *testing.T, proposerNode int) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+	newConsensusComponents := func(numNodes int) ([]*RollDPoS, []*directOverlay, []blockchain.Blockchain) {
+		cfg := config.Default
+		cfg.Consensus.RollDPoS.Delay = 300 * time.Millisecond
+		cfg.Consensus.RollDPoS.ProposerInterval = time.Second
+		cfg.Consensus.RollDPoS.NumDelegates = uint(numNodes)
 
-	// arrange proposal request
-	genesis := blockchain.NewGenesisBlock(nil)
-	blkHash := genesis.HashBlock()
-
-	t.Log(genesis)
-
-	// arrange 4 consensus nodes
-	tcss := make(map[string]testCs)
-	delegates := []string{
-		"io1qyqsyqcy6nm58gjd2wr035wz5eyd5uq47zyqpng3gxe7nh",
-		"io1qyqsyqcy6m6hkqkj3f4w4eflm2gzydmvc0mumm7kgax4l3",
-		"io1qyqsyqcyyu9pfazcx0wglp35h2h4fm0hl8p8z2u35vkcwc",
-		"io1qyqsyqcyg9pk8zg8xzkmv6g3630xggvacq9e77cwtd4rkc",
-	}
-
-	bcCnt := 0
-	for _, d := range delegates {
-		cur := d // watch out for the callback
-
-		tcs := testCs{}
-		m := func(mcks mocks) {
-			mcks.dp.EXPECT().AllDelegates().Return(delegates, nil).AnyTimes()
-			mcks.dNet.EXPECT().Self().Return(cur).AnyTimes()
-			mcks.bc.EXPECT().MintNewBlock(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(genesis, nil).AnyTimes()
-			mcks.bc.EXPECT().TipHeight().Return(uint64(0), nil).AnyTimes()
-			mcks.bc.EXPECT().ValidateBlock(gomock.Any()).Do(func(blk *blockchain.Block) error {
-				if blk == nil {
-					return errors.New("invalid block")
-				}
-				return nil
-			}).AnyTimes()
-
-			// =====================
-			// expect CommitBlock
-			// =====================
-			mcks.bc.EXPECT().CommitBlock(gomock.Any()).AnyTimes().Do(func(blk *blockchain.Block) error {
-				if proposerNode == 0 {
-					// commit nil when proposer is faulty
-					assert.Nil(t, blk, "final block committed")
-				} else {
-					// commit block when proposer is trusty
-					assert.Equal(t, *genesis, *blk, "final block committed")
-				}
-				t.Log(cur, "CommitBlock: ", blk)
-				return nil
-			})
-			tcs.mocks = mcks
+		chainAddrs := make([]*iotxaddress.Address, 0, numNodes)
+		networkAddrs := make([]net.Addr, 0, numNodes)
+		for i := 0; i < numNodes; i++ {
+			chainAddrs = append(chainAddrs, newTestAddr())
+			networkAddrs = append(networkAddrs, node.NewTCPNode(fmt.Sprintf("127.0.0.%d:4689", i+1)))
 		}
-		ctx := context.Background()
-		tcs.cs = createTestRollDPoS(
-			ctrl, cur, delegates, m, FixedProposer, time.Hour, NeverStartNewEpoch, &bcCnt)
-		tcs.cs.Start(ctx)
-		defer tcs.cs.Stop(ctx)
-		tcss[cur] = tcs
-	}
 
-	// arrange network call
-	for i, d := range delegates {
-		sender := d // watch out for the callback
-		if i == 0 {
-			// faulty node
-			tcss[sender].mocks.dNet.EXPECT().Broadcast(gomock.Any()).Do(func(msg proto.Message) error {
-				for ti, target := range delegates {
-					event, _ := eventFromProto(msg)
-					// I (node 0) send authentic msg to 1 but send reversed msg to 2 and 3
-					if ti == 2 || ti == 3 {
-						if event.Block != nil {
-							event.Block = nil
-						} else {
-							event.Block = genesis
-						}
-						if event.BlockHash != nil {
-							event.BlockHash = nil
-						} else {
-							event.BlockHash = &blkHash
-						}
-					}
-					faultyMsg := protoFromEvent(event)
-					tcss[target].cs.Handle(faultyMsg)
-				}
-				return nil
-			}).AnyTimes()
-		} else {
-			// trusty nodes
-			tcss[sender].mocks.dNet.EXPECT().Broadcast(gomock.Any()).Do(func(msg proto.Message) error {
-				for _, target := range delegates {
-					tcss[target].cs.Handle(msg)
-				}
-				return nil
-			}).AnyTimes()
+		delegateCfg := config.Delegate{
+			RollNum: uint(numNodes),
 		}
-	}
-
-	for _, d := range delegates {
-		tcss[d].cs.fsm.HandleTransition(&fsm.Event{
-			State: stateDKGGenerate,
-		})
-	}
-	time.Sleep(time.Second)
-
-	// act
-	// trigger proposerNode as proposer
-	tcss[delegates[proposerNode]].cs.fsm.HandleTransition(&fsm.Event{
-		State: stateInitPropose,
-	})
-
-	// assert
-	time.Sleep(time.Second)
-	for _, tcs := range tcss {
-		assert.Equal(
-			t,
-			stateRoundStart,
-			tcs.cs.fsm.CurrentState(),
-			"back to %s in the end",
-			stateRoundStart)
-		assert.Equal(t, testDKG, tcs.cs.epochCtx.dkg)
-	}
-	voteStats(t, tcss)
-	if proposerNode == 0 {
-		assert.Equal(t, 0, bcCnt)
-	} else {
-		assert.Equal(t, 4, bcCnt)
-	}
-}
-
-func voteStats(t *testing.T, tcss map[string]testCs) {
-	// prevote
-	for _, tcs := range tcss {
-		for i, v := range tcs.cs.roundCtx.prevotes {
-			t.Log(tcs.cs.self, "collect prevotes [", i, "]", v != nil)
+		chainRawAddrs := make([]string, 0, numNodes)
+		for _, addr := range chainAddrs {
+			chainRawAddrs = append(chainRawAddrs, addr.RawAddress)
 		}
-	}
+		delegateCfg.Addrs = chainRawAddrs
 
-	// votes
-	for _, tcs := range tcss {
-		for i, v := range tcs.cs.roundCtx.votes {
-			t.Log(tcs.cs.self, "collect votes [", i, "]", v != nil)
-		}
-	}
-}
-
-func TestRollDPoSFourTrustyNodes(t *testing.T) {
-	t.Parallel()
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	// arrange proposal request
-	genesis := blockchain.NewGenesisBlock(nil)
-
-	// arrange 4 consensus nodes
-	tcss := make(map[string]testCs)
-	delegates := []string{
-		"io1qyqsyqcy6nm58gjd2wr035wz5eyd5uq47zyqpng3gxe7nh",
-		"io1qyqsyqcy6m6hkqkj3f4w4eflm2gzydmvc0mumm7kgax4l3",
-		"io1qyqsyqcyyu9pfazcx0wglp35h2h4fm0hl8p8z2u35vkcwc",
-		"io1qyqsyqcyg9pk8zg8xzkmv6g3630xggvacq9e77cwtd4rkc",
-	}
-
-	bcCnt := 0
-	for _, d := range delegates {
-		cur := d // watch out for the callback
-
-		tcs := testCs{}
-		m := func(mcks mocks) {
-			mcks.dp.EXPECT().AllDelegates().Return(delegates, nil).AnyTimes()
-			mcks.dNet.EXPECT().Self().Return(cur).AnyTimes()
-			mcks.bc.EXPECT().MintNewBlock(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(genesis, nil).AnyTimes()
-			mcks.bc.EXPECT().TipHeight().Return(uint64(0), nil).AnyTimes()
-			mcks.bc.EXPECT().ValidateBlock(gomock.Any()).AnyTimes()
-			mcks.bc.EXPECT().CandidatesByHeight(gomock.Any()).Return([]*state.Candidate{
-				{Address: delegates[0]},
-				{Address: delegates[1]},
-				{Address: delegates[2]},
-				{Address: delegates[3]},
-			}, true).AnyTimes()
-
-			// =====================
-			// expect CommitBlock
-			// =====================
-			mcks.bc.EXPECT().CommitBlock(gomock.Any()).AnyTimes().Do(func(blk *blockchain.Block) error {
-				t.Log(cur, "CommitBlock: ", blk)
-				assert.Equal(t, *genesis, *blk, "final block committed")
-				return nil
-			})
-			tcs.mocks = mcks
-		}
-		ctx := context.Background()
-		tcs.cs = createTestRollDPoS(ctrl, cur, delegates, m, FixedProposer, time.Hour, NeverStartNewEpoch, &bcCnt)
-		tcs.cs.Start(ctx)
-		defer tcs.cs.Stop(ctx)
-		tcss[cur] = tcs
-	}
-
-	// arrange network call
-	for _, d := range delegates {
-		sender := d // watch out for the callback
-		// trusty nodes
-		tcss[sender].mocks.dNet.EXPECT().Broadcast(gomock.Any()).Do(func(msg proto.Message) error {
-			for _, target := range delegates {
-				tcss[target].cs.Handle(msg)
+		candidatesByHeightFunc := func(_ uint64) ([]*state.Candidate, bool) {
+			candidates := make([]*state.Candidate, 0, numNodes)
+			for _, addr := range chainAddrs {
+				candidates = append(candidates, &state.Candidate{Address: addr.RawAddress})
 			}
-			return nil
-		}).AnyTimes()
+			return candidates, true
+		}
+
+		chains := make([]blockchain.Blockchain, 0, numNodes)
+		p2ps := make([]*directOverlay, 0, numNodes)
+		cs := make([]*RollDPoS, 0, numNodes)
+		for i := 0; i < numNodes; i++ {
+			chain := blockchain.NewBlockchain(&cfg, blockchain.InMemDaoOption(), blockchain.InMemStateFactoryOption())
+			chains = append(chains, chain)
+
+			actPool, err := actpool.NewActPool(chain, cfg.ActPool)
+			require.NoError(t, err)
+
+			p2p := &directOverlay{
+				addr:  networkAddrs[i],
+				peers: make(map[net.Addr]*RollDPoS),
+			}
+			p2ps = append(p2ps, p2p)
+
+			consensus, err := NewRollDPoSBuilder().
+				SetAddr(chainAddrs[i]).
+				SetConfig(cfg.Consensus.RollDPoS).
+				SetBlockchain(chain).
+				SetActPool(actPool).
+				SetP2P(p2p).
+				SetCandidatesByHeightFunc(candidatesByHeightFunc).
+				Build()
+			require.NoError(t, err)
+
+			cs = append(cs, consensus)
+		}
+		for i := 0; i < numNodes; i++ {
+			for j := 0; j < numNodes; j++ {
+				if i != j {
+					p2ps[i].peers[p2ps[j].addr] = cs[j]
+				}
+			}
+		}
+		return cs, p2ps, chains
 	}
 
-	for _, d := range delegates {
-		tcss[d].cs.fsm.HandleTransition(&fsm.Event{
-			State: stateDKGGenerate,
-		})
-	}
-	time.Sleep(time.Second)
+	t.Run("1-block", func(t *testing.T) {
+		ctx := context.Background()
+		cs, p2ps, chains := newConsensusComponents(4)
 
-	// act
-	// trigger 2 as proposer
-	tcss[delegates[2]].cs.fsm.HandleTransition(&fsm.Event{
-		State: stateInitPropose,
+		for i := 0; i < 4; i++ {
+			require.NoError(t, chains[i].Start(ctx))
+			require.NoError(t, p2ps[i].Start(ctx))
+			require.NoError(t, cs[i].Start(ctx))
+		}
+
+		defer func() {
+			for i := 0; i < 4; i++ {
+				require.NoError(t, cs[i].Stop(ctx))
+				require.NoError(t, p2ps[i].Stop(ctx))
+				require.NoError(t, chains[i].Stop(ctx))
+			}
+		}()
+		assert.NoError(t, testutil.WaitUntil(100*time.Millisecond, 10*time.Second, func() (bool, error) {
+			for _, chain := range chains {
+				if blk, err := chain.GetBlockByHeight(1); blk == nil || err != nil {
+					return false, nil
+				}
+			}
+			return true, nil
+		}))
 	})
 
-	// assert
-	time.Sleep(time.Second)
-	for _, tcs := range tcss {
-		assert.Equal(
-			t,
-			stateRoundStart,
-			tcs.cs.fsm.CurrentState(),
-			"back to %s in the end", stateRoundStart)
-		assert.Equal(t, testDKG, tcs.cs.epochCtx.dkg)
+	t.Run("10-epoch", func(t *testing.T) {
+		if testing.Short() {
+			t.Skip("Skip the 10-epoch test in short mode.")
+		}
+		ctx := context.Background()
+		cs, p2ps, chains := newConsensusComponents(4)
 
-		metrics, err := tcs.cs.Metrics()
-		require.Nil(t, err)
-		require.NotNil(t, metrics)
-		require.Equal(t, uint64(1), metrics.LatestEpoch)
-		require.Equal(t, delegates, metrics.LatestDelegates)
-		require.Equal(t, delegates[0], metrics.LatestBlockProducer)
-		require.Equal(t, delegates, metrics.Candidates)
-	}
-	assert.Equal(t, 4, bcCnt)
-}
+		for i := 0; i < 4; i++ {
+			require.NoError(t, chains[i].Start(ctx))
+			require.NoError(t, p2ps[i].Start(ctx))
+			require.NoError(t, cs[i].Start(ctx))
+		}
 
-// Delegate0 receives PROPOSE from Delegate1 and hence move to PREVOTE state and timeout to other states and finally to roundStart
-func TestRollDPoSConsumePROPOSE(t *testing.T) {
-	t.Parallel()
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	// arrange 2 consensus nodes
-	delegates := []string{
-		"io1qyqsyqcy6m6hkqkj3f4w4eflm2gzydmvc0mumm7kgax4l3",
-		"io1qyqsyqcyyu9pfazcx0wglp35h2h4fm0hl8p8z2u35vkcwc",
-	}
-	m := func(mcks mocks) {
-		mcks.dp.EXPECT().AllDelegates().Return(delegates, nil).AnyTimes()
-		mcks.dNet.EXPECT().Broadcast(gomock.Any()).AnyTimes()
-		mcks.bc.EXPECT().ValidateBlock(gomock.Any()).AnyTimes()
-		mcks.bc.EXPECT().CommitBlock(gomock.Any()).Times(0)
-		mcks.bc.EXPECT().TipHeight().Return(uint64(0), nil).AnyTimes()
-
-	}
-	ctx := context.Background()
-	cs := createTestRollDPoS(
-		ctrl, delegates[0], delegates, m, FixedProposer, time.Hour, NeverStartNewEpoch, nil)
-	cs.Start(ctx)
-	defer cs.Stop(ctx)
-	cs.fsm.HandleTransition(&fsm.Event{
-		State: stateDKGGenerate,
+		defer func() {
+			for i := 0; i < 4; i++ {
+				require.NoError(t, cs[i].Stop(ctx))
+				require.NoError(t, p2ps[i].Stop(ctx))
+				require.NoError(t, chains[i].Stop(ctx))
+			}
+		}()
+		assert.NoError(t, testutil.WaitUntil(100*time.Millisecond, 10*time.Second, func() (bool, error) {
+			for _, chain := range chains {
+				if blk, err := chain.GetBlockByHeight(10); blk == nil || err != nil {
+					return false, nil
+				}
+			}
+			return true, nil
+		}))
 	})
-	time.Sleep(time.Second)
 
-	// arrange proposal request
-	genesis := blockchain.NewGenesisBlock(nil)
-	proposal := &iproto.ViewChangeMsg{
-		Vctype:     iproto.ViewChangeMsg_PROPOSE,
-		Block:      genesis.ConvertToBlockPb(),
-		SenderAddr: delegates[1],
-	}
+	t.Run("proposer-network-partition", func(t *testing.T) {
+		ctx := context.Background()
+		cs, p2ps, chains := newConsensusComponents(4)
+		// 1 should be the block 1's proposer
+		for i, p2p := range p2ps {
+			if i == 1 {
+				p2p.peers = make(map[net.Addr]*RollDPoS)
+			} else {
+				delete(p2p.peers, p2ps[1].addr)
+			}
+		}
 
-	// act
-	cs.Handle(proposal)
+		for i := 0; i < 4; i++ {
+			require.NoError(t, chains[i].Start(ctx))
+			require.NoError(t, p2ps[i].Start(ctx))
+			require.NoError(t, cs[i].Start(ctx))
+		}
 
-	// assert
-	time.Sleep(time.Second)
-	assert.Equal(
-		t,
-		stateRoundStart,
-		cs.fsm.CurrentState(),
-		"Back to %s because of timeout",
-		stateRoundStart)
-	assert.Equal(t, genesis, cs.roundCtx.block)
-}
-
-// Delegate0 receives unmatched VOTE from Delegate1 and stays in START
-func TestRollDPoSConsumeErrorStateHandlerNotMatched(t *testing.T) {
-	t.Parallel()
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	// arrange 2 consensus nodes
-	delegates := []string{
-		"io1qyqsyqcy6m6hkqkj3f4w4eflm2gzydmvc0mumm7kgax4l3",
-		"io1qyqsyqcyyu9pfazcx0wglp35h2h4fm0hl8p8z2u35vkcwc",
-	}
-	m := func(mcks mocks) {
-		mcks.bc.EXPECT().TipHeight().Return(uint64(0), nil).AnyTimes()
-	}
-	ctx := context.Background()
-	cs := createTestRollDPoS(
-		ctrl, delegates[0], delegates, m, FixedProposer, time.Hour, NeverStartNewEpoch, nil)
-
-	cs.Start(ctx)
-	defer cs.Stop(ctx)
-	cs.fsm.HandleTransition(&fsm.Event{
-		State: stateDKGGenerate,
+		defer func() {
+			for i := 0; i < 4; i++ {
+				require.NoError(t, cs[i].Stop(ctx))
+				require.NoError(t, p2ps[i].Stop(ctx))
+				require.NoError(t, chains[i].Stop(ctx))
+			}
+		}()
+		time.Sleep(2 * time.Second)
+		for _, chain := range chains {
+			blk, err := chain.GetBlockByHeight(1)
+			assert.Nil(t, blk)
+			assert.Error(t, err)
+		}
 	})
-	time.Sleep(time.Second)
 
-	// arrange unmatched VOTE proposal request
-	proposal := &iproto.ViewChangeMsg{
-		Vctype:     iproto.ViewChangeMsg_VOTE,
-		Block:      nil,
-		SenderAddr: delegates[1],
-	}
+	t.Run("non-proposer-network-partition", func(t *testing.T) {
+		ctx := context.Background()
+		cs, p2ps, chains := newConsensusComponents(4)
+		// 1 should be the block 1's proposer
+		for i, p2p := range p2ps {
+			if i == 0 {
+				p2p.peers = make(map[net.Addr]*RollDPoS)
+			} else {
+				delete(p2p.peers, p2ps[0].addr)
+			}
+		}
 
-	// act
-	cs.Handle(proposal)
+		for i := 0; i < 4; i++ {
+			require.NoError(t, chains[i].Start(ctx))
+			require.NoError(t, p2ps[i].Start(ctx))
+			require.NoError(t, cs[i].Start(ctx))
+		}
 
-	// assert
-	time.Sleep(time.Second)
-	assert.Equal(t, stateRoundStart, cs.fsm.CurrentState())
+		defer func() {
+			for i := 0; i < 4; i++ {
+				require.NoError(t, cs[i].Stop(ctx))
+				require.NoError(t, p2ps[i].Stop(ctx))
+				require.NoError(t, chains[i].Stop(ctx))
+			}
+		}()
+		time.Sleep(2 * time.Second)
+		for i, chain := range chains {
+			blk, err := chain.GetBlockByHeight(1)
+			if i == 0 {
+				assert.Nil(t, blk)
+				assert.Error(t, err)
+			} else {
+				assert.NotNil(t, blk)
+				assert.NoError(t, err)
+			}
+		}
+	})
 }

@@ -102,8 +102,6 @@ var (
 			RollDPoS: RollDPoS{
 				DelegateInterval:       10 * time.Second,
 				ProposerInterval:       10 * time.Second,
-				ProposerCB:             "",
-				EpochCB:                "",
 				UnmatchedEventTTL:      3 * time.Second,
 				UnmatchedEventInterval: 100 * time.Millisecond,
 				RoundStartTTL:          10 * time.Second,
@@ -219,8 +217,6 @@ type (
 	RollDPoS struct {
 		DelegateInterval       time.Duration `yaml:"delegateInterval"`
 		ProposerInterval       time.Duration `yaml:"proposerInterval"`
-		ProposerCB             string        `yaml:"proposerCB"`
-		EpochCB                string        `yaml:"epochCB"`
 		UnmatchedEventTTL      time.Duration `yaml:"unmatchedEventTTL"`
 		UnmatchedEventInterval time.Duration `yaml:"unmatchedEventInterval"`
 		RoundStartTTL          time.Duration `yaml:"roundStartTTL"`
