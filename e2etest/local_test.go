@@ -109,7 +109,7 @@ func TestLocalCommit(t *testing.T) {
 	fox := s.Balance
 	t.Logf("Foxtrot balance = %d", fox)
 	change.Add(change, fox)
-	require.True(fox.String() == "52428803")
+	require.True(fox.String() == "5242883")
 
 	s, err = svr.Bc().StateByAddr(ta.Addrinfo["producer"].RawAddress)
 	require.Nil(err)
@@ -268,7 +268,7 @@ func TestLocalCommit(t *testing.T) {
 	fox = s.Balance
 	t.Logf("Foxtrot balance = %d", fox)
 	change.Add(change, fox)
-	require.True(fox.String() == "52428802")
+	require.True(fox.String() == "5242882")
 
 	s, err = svr.Bc().StateByAddr(ta.Addrinfo["producer"].RawAddress)
 	require.Nil(err)
@@ -431,6 +431,22 @@ func TestVoteLocalCommit(t *testing.T) {
 
 	// Add block 1
 	// Alfa, Bravo and Charlie selfnomination
+	tsf1, err := action.NewTransfer(7, big.NewInt(20000000), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["alfa"].RawAddress)
+	require.Nil(err)
+	tsf1, err = tsf1.Sign(ta.Addrinfo["producer"])
+	require.Nil(err)
+	tsf2, err := action.NewTransfer(8, big.NewInt(20000000), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress)
+	require.Nil(err)
+	tsf2, err = tsf2.Sign(ta.Addrinfo["producer"])
+	require.Nil(err)
+	tsf3, err := action.NewTransfer(9, big.NewInt(20000000), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["charlie"].RawAddress)
+	require.Nil(err)
+	tsf3, err = tsf3.Sign(ta.Addrinfo["producer"])
+	require.Nil(err)
+	tsf4, err := action.NewTransfer(10, big.NewInt(20000000), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["delta"].RawAddress)
+	require.Nil(err)
+	tsf4, err = tsf4.Sign(ta.Addrinfo["producer"])
+	require.Nil(err)
 	vote1, err := newSignedVote(1, ta.Addrinfo["alfa"], ta.Addrinfo["alfa"])
 	require.Nil(err)
 	vote2, err := newSignedVote(1, ta.Addrinfo["bravo"], ta.Addrinfo["bravo"])
@@ -440,6 +456,11 @@ func TestVoteLocalCommit(t *testing.T) {
 	act1 := &pb.ActionPb{Action: &pb.ActionPb_Vote{vote1.ConvertToVotePb()}}
 	act2 := &pb.ActionPb{Action: &pb.ActionPb_Vote{vote2.ConvertToVotePb()}}
 	act3 := &pb.ActionPb{Action: &pb.ActionPb_Vote{vote3.ConvertToVotePb()}}
+	acttsf1 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf1.ConvertToTransferPb()}}
+	acttsf2 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf2.ConvertToTransferPb()}}
+	acttsf3 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf3.ConvertToTransferPb()}}
+	acttsf4 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf4.ConvertToTransferPb()}}
+
 	err = testutil.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
 		if err := p.Broadcast(act1); err != nil {
 			return false, err
@@ -450,14 +471,25 @@ func TestVoteLocalCommit(t *testing.T) {
 		if err := p.Broadcast(act3); err != nil {
 			return false, err
 		}
-		time.Sleep(time.Second)
-		_, votes := svr.Ap().PickActs()
-		return len(votes) == 3, nil
+		if err := p.Broadcast(acttsf1); err != nil {
+			return false, err
+		}
+		if err := p.Broadcast(acttsf2); err != nil {
+			return false, err
+		}
+		if err := p.Broadcast(acttsf3); err != nil {
+			return false, err
+		}
+		if err := p.Broadcast(acttsf4); err != nil {
+			return false, err
+		}
+		transfer, votes := svr.Ap().PickActs()
+		return len(votes)+len(transfer) == 7, nil
 	})
 	require.Nil(err)
 
-	_, votes := svr.Ap().PickActs()
-	blk1, err := svr.Bc().MintNewBlock(nil, votes, ta.Addrinfo["producer"], "")
+	transfers, votes := svr.Ap().PickActs()
+	blk1, err := svr.Bc().MintNewBlock(transfers, votes, ta.Addrinfo["producer"], "")
 	hash1 := blk1.HashBlock()
 	require.Nil(err)
 

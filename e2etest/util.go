@@ -45,7 +45,7 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	tsf4, _ = tsf4.Sign(ta.Addrinfo["producer"])
 	tsf5, _ := action.NewTransfer(5, big.NewInt(110), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["echo"].RawAddress)
 	tsf5, _ = tsf5.Sign(ta.Addrinfo["producer"])
-	tsf6, _ := action.NewTransfer(6, big.NewInt(50<<20), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["foxtrot"].RawAddress)
+	tsf6, _ := action.NewTransfer(6, big.NewInt(5<<20), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["foxtrot"].RawAddress)
 	tsf6, _ = tsf6.Sign(ta.Addrinfo["producer"])
 
 	blk, err = bc.MintNewBlock([]*action.Transfer{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}, nil, ta.Addrinfo["producer"], "")
