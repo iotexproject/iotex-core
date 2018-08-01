@@ -25,33 +25,10 @@ static void modpdiv2(uint32_t *a, uint32_t *adiv2p);
 void modpadd(uint32_t *a, uint32_t *b, uint32_t *aplusb);
 void modpmul(uint32_t *a, uint32_t *b, uint32_t *amulbp);
 void modpinv(uint32_t *a, uint32_t *ainvp);
+void map_to_z281(uint8_t *rndnum, uint32_t *zn);
 
 #ifdef __cplusplus
 }
 #endif
 
 #endif  /* GFP_H */
-										   
-                                                          
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

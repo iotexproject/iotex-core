@@ -18,7 +18,7 @@ extern "C" {
 
 typedef struct
 {
-	uint32_t d[9];         
+    uint32_t d[9];         
     ec283_point_lambda_aff Q;
 }ec283_key_pair;
 
@@ -32,11 +32,28 @@ typedef struct
 uint32_t pk_validation(ec283_point_lambda_aff *Q);
 
 /**
- * Key generation
+ * Key pair generation
  *
  * @param key   a key pair
  */
-void key_generation(ec283_key_pair *key);
+void keypair_generation(ec283_key_pair *key);
+
+/**
+ * Private key generation
+ *
+ * @param sk   a private key
+ */
+void sk_generation(uint32_t *sk);
+
+/**
+ * Public key generation
+ *
+ * @param sk   a private key
+ * @param Q    a public key
+ * Succeed     return 1
+ * Fail        return 0
+ */
+uint32_t pk_generation(uint32_t *sk, ec283_point_lambda_aff *Q);
 
 #ifdef __cplusplus
 }
