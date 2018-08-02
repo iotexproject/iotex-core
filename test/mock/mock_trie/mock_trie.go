@@ -120,6 +120,7 @@ func (mr *MockTrieMockRecorder) EnableBatch() *gomock.Call {
 
 // DisableBatch mocks base method
 func (m *MockTrie) DisableBatch() {
+	m.ctrl.Call(m, "DisableBatch")
 }
 
 // DisableBatch indicates an expected call of DisableBatch
