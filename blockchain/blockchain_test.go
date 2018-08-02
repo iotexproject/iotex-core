@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"math/big"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -401,21 +402,35 @@ func TestBlockchain_Validator(t *testing.T) {
 }
 
 func TestBlockchain_MintNewDummyBlock(t *testing.T) {
-	cfg := config.Default
-	// disable account-based testing
-	cfg.Chain.TrieDBPath = ""
+	cfg := &config.Default
+	testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
+	defer testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
+	testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
+	defer testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
+	require := require.New(t)
+	sf, err := state.NewFactory(cfg, state.DefaultTrieOption())
+	require.NoError(err)
+	val := validator{sf}
 
 	ctx := context.Background()
-	bc := NewBlockchain(&cfg, InMemDaoOption(), InMemStateFactoryOption())
+	bc := NewBlockchain(cfg, InMemDaoOption(), InMemStateFactoryOption())
 	defer func() {
 		err := bc.Stop(ctx)
-		assert.Nil(t, err)
+		require.Nil(err)
 	}()
-	assert.NotNil(t, bc)
+	require.NotNil(bc)
 
-	blk, err := bc.MintNewDummyBlock()
-	assert.Nil(t, err)
-	assert.Equal(t, uint64(1), blk.Height())
+	blk := bc.MintNewDummyBlock()
+	require.Equal(uint64(1), blk.Height())
+	tipHash, _ := bc.TipHash()
+	require.NoError(val.Validate(blk, 0, tipHash))
+	tsf, _ := action.NewTransfer(1, big.NewInt(1), "", "")
+	blk.Transfers = []*action.Transfer{tsf}
+	err = val.Validate(blk, 0, tipHash)
+	require.Error(err)
+	require.True(
+		strings.Contains(err.Error(), "Fail to verify block's signature"),
+	)
 }
 
 func TestBlockchainInitialCandidate(t *testing.T) {
@@ -587,4 +602,38 @@ func TestActions(t *testing.T) {
 	}
 	blk, _ := bc.MintNewBlock(tsfs, votes, ta.Addrinfo["producer"], "")
 	require.Nil(val.Validate(blk, 0, blk.PrevHash()))
+}
+
+func TestDummyReplacement(t *testing.T) {
+	require := require.New(t)
+	cfg := config.Default
+
+	testutil.CleanupPath(t, testTriePath)
+	defer testutil.CleanupPath(t, testTriePath)
+	testutil.CleanupPath(t, testDBPath)
+	defer testutil.CleanupPath(t, testDBPath)
+
+	cfg.Chain.TrieDBPath = testTriePath
+	cfg.Chain.ChainDBPath = testDBPath
+
+	sf, _ := state.NewFactory(&cfg, state.InMemTrieOption())
+	sf.CreateState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
+
+	// Create a blockchain from scratch
+	bc := NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
+	dummuy := bc.MintNewDummyBlock()
+	realBlock, err := bc.MintNewBlock(nil, nil, ta.Addrinfo["producer"], "")
+	require.NotNil(realBlock)
+	require.NoError(err)
+	err = bc.CommitBlock(dummuy)
+	require.NoError(err)
+	actualDummyBlock, err := bc.GetBlockByHeight(1)
+	require.NoError(err)
+	require.Equal(dummuy.HashBlock(), actualDummyBlock.HashBlock())
+
+	//err = bc.CommitBlock(realBlock)
+	//require.NoError(err)
+	//actualRealBlock, err := bc.GetBlockByHeight(1)
+	//require.NoError(err)
+	//require.Equal(realBlock.HashBlock(), actualRealBlock.HashBlock())
 }

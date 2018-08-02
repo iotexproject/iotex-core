@@ -586,41 +586,12 @@ func (m *cFSM) handleVoteEvt(evt fsm.Event) (fsm.State, error) {
 			Int("votes", len(m.ctx.round.votes)).
 			Msg("didn't collect enough votes before timeout")
 	}
+	var pendingBlock *blockchain.Block
 	if consensus {
+		pendingBlock = m.ctx.round.block
 		logger.Info().
-			Uint64("block", m.ctx.round.block.Height()).
+			Uint64("block", pendingBlock.Height()).
 			Msg("consensus reached")
-
-		// TODO: Remove the blocksync dependency after rewriting blocksync
-		var err error
-		if m.ctx.sync != nil {
-			err = m.ctx.sync.ProcessBlock(m.ctx.round.block)
-		} else {
-			if err = m.ctx.chain.CommitBlock(m.ctx.round.block); err == nil {
-				// Remove transfers in this block from ActPool and reset ActPool state
-				m.ctx.actPool.Reset()
-			}
-		}
-		if err != nil {
-			logger.Error().
-				Err(err).
-				Uint64("block", m.ctx.round.block.Height()).
-				Msg("error when committing a block")
-		} else {
-			// Broadcast the committed block to the network
-			if blkProto := m.ctx.round.block.ConvertToBlockPb(); blkProto != nil {
-				if err := m.ctx.p2p.Broadcast(blkProto); err != nil {
-					logger.Error().
-						Err(err).
-						Uint64("block", m.ctx.round.block.Height()).
-						Msg("error when broadcasting blkProto")
-				}
-			} else {
-				logger.Error().
-					Uint64("block", m.ctx.round.block.Height()).
-					Msg("error when converting a block into a proto msg")
-			}
-		}
 	} else {
 		var height uint64
 		if m.ctx.round.block != nil {
@@ -631,7 +602,46 @@ func (m *cFSM) handleVoteEvt(evt fsm.Event) (fsm.State, error) {
 			Bool("timeout", timeout).
 			Bool("disagreement", disagreement).
 			Msg("consensus did not reach")
+		pendingBlock = m.ctx.chain.MintNewDummyBlock()
+		logger.Warn().
+			Uint64("block", pendingBlock.Height()).
+			Msg("dummy block is generated")
 	}
+	// Commit and broadcast the pending block
+	// TODO: Remove the blocksync dependency after rewriting blocksync
+	var err error
+	if m.ctx.sync != nil {
+		err = m.ctx.sync.ProcessBlock(pendingBlock)
+	} else {
+		if err = m.ctx.chain.CommitBlock(pendingBlock); err == nil {
+			// Remove transfers in this block from ActPool and reset ActPool state
+			m.ctx.actPool.Reset()
+		}
+	}
+	if err != nil {
+		logger.Error().
+			Err(err).
+			Uint64("block", pendingBlock.Height()).
+			Bool("dummy", pendingBlock.IsDummyBlock()).
+			Msg("error when committing a block")
+	} else {
+		// Broadcast the committed block to the network
+		if blkProto := pendingBlock.ConvertToBlockPb(); blkProto != nil {
+			if err := m.ctx.p2p.Broadcast(blkProto); err != nil {
+				logger.Error().
+					Err(err).
+					Uint64("block", pendingBlock.Height()).
+					Bool("dummy", pendingBlock.IsDummyBlock()).
+					Msg("error when broadcasting blkProto")
+			}
+		} else {
+			logger.Error().
+				Uint64("block", pendingBlock.Height()).
+				Bool("dummy", pendingBlock.IsDummyBlock()).
+				Msg("error when converting a block into a proto msg")
+		}
+	}
+
 	m.produce(m.newCEvt(eFinishEpoch), 0)
 	return sRoundStart, nil
 }
