@@ -6,6 +6,7 @@ package mock_trie
 
 import (
 	gomock "github.com/golang/mock/gomock"
+	db "github.com/iotexproject/iotex-core/db"
 	hash "github.com/iotexproject/iotex-core/pkg/hash"
 	reflect "reflect"
 )
@@ -31,6 +32,18 @@ func NewMockTrie(ctrl *gomock.Controller) *MockTrie {
 // EXPECT returns an object that allows the caller to indicate expected use
 func (m *MockTrie) EXPECT() *MockTrieMockRecorder {
 	return m.recorder
+}
+
+// TrieDB mocks base method
+func (m *MockTrie) TrieDB() db.KVStore {
+	ret := m.ctrl.Call(m, "TrieDB")
+	ret0, _ := ret[0].(db.KVStore)
+	return ret0
+}
+
+// TrieDB indicates an expected call of TrieDB
+func (mr *MockTrieMockRecorder) TrieDB() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TrieDB", reflect.TypeOf((*MockTrie)(nil).TrieDB))
 }
 
 // Close mocks base method

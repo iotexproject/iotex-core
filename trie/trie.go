@@ -42,6 +42,7 @@ var (
 type (
 	// Trie is the interface of Merkle Patricia Trie
 	Trie interface {
+		TrieDB() db.KVStore              // return the underlying DB instance
 		Close() error                    // close the trie DB
 		Upsert([]byte, []byte) error     // insert a new entry
 		Get([]byte) ([]byte, error)      // retrieve an existing entry
@@ -89,6 +90,17 @@ func NewTrie(path string, name string, root hash.Hash32B, inMem bool) (Trie, err
 	}
 	t, err := newTrie(kvStore, name, root)
 	return &t, err
+}
+
+// NewTrieByName creates a trie with same DB instance but different bucket name
+func NewTrieByName(tr Trie, name string, root hash.Hash32B) (Trie, error) {
+	t, err := newTrie(tr.TrieDB(), name, root)
+	return &t, err
+}
+
+// TrieDB return the underlying DB instance
+func (t *trie) TrieDB() db.KVStore {
+	return t.dao
 }
 
 // Close close the DB
@@ -260,10 +272,13 @@ func (t *trie) upsert(key, value []byte) error {
 		t.numExt += uint64(ne)
 		t.numLeaf += uint64(nl)
 		t.numEntry++
-		// if the diverging node is leaf, it will be replaced and no need to update
+		// if the diverging node is leaf, delete it
 		n := t.toRoot.Back()
 		if _, ok := n.Value.(patricia).(*leaf); ok {
-			logger.Debug().Msg("discard leaf")
+			if err := t.delPatricia(n.Value.(patricia)); err != nil {
+				return err
+			}
+			logger.Info().Msg("delete leaf")
 			t.toRoot.Remove(n)
 		}
 	} else {
@@ -412,7 +427,7 @@ func (t *trie) updateDelete(curr patricia, currClps bool, clpsType byte) error {
 			return errors.Wrap(ErrInvalidPatricia, "patricia pushed on stack is not valid")
 		}
 		if err := t.delPatricia(next); err != nil {
-			return errors.Wrap(err, "failed to put patricia")
+			return errors.Wrap(err, "failed to delete patricia")
 		}
 		// we attempt to collapse in 2 cases:
 		// 1. the current node is not root
