@@ -43,21 +43,7 @@ func main() {
 		return
 	}
 
-	l, err := logger.New()
-	if err != nil {
-		logger.Warn().Err(err).Msg("Cannot config logger, use default one.")
-	} else {
-		logger.SetLogger(l)
-	}
-
-	iotxAddr, err := cfg.ProducerAddr()
-	if err != nil {
-		logger.Fatal().Err(err).Msg("Failed to get producer address from pub/kri key.")
-		return
-	}
-
-	wrapl := logger.With().Str("iotexAddr", iotxAddr.RawAddress).Str("nodeType", cfg.NodeType).Logger()
-	logger.SetLogger(&wrapl)
+	initLogger(cfg)
 
 	ctx := context.Background()
 	// create and start the node
@@ -101,4 +87,20 @@ func main() {
 	}
 
 	select {}
+}
+
+func initLogger(cfg *config.Config) {
+	iotxAddr, err := cfg.ProducerAddr()
+	if err != nil {
+		logger.Fatal().Err(err).Msg("Failed to get producer address from pub/kri key.")
+		return
+	}
+	l, err := logger.New()
+	if err != nil {
+		logger.Warn().Err(err).Msg("Cannot config logger, use default one.")
+	} else {
+		logger.SetLogger(
+			l.With().Str("iotexAddr", iotxAddr.RawAddress).Str("nodeType", cfg.NodeType).Logger(),
+		)
+	}
 }

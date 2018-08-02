@@ -13,14 +13,12 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/iotxaddress"
-	"github.com/iotexproject/iotex-core/logger"
 	pb "github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -54,8 +52,6 @@ var (
 
 func TestActPool_validateTsf(t *testing.T) {
 	require := require.New(t)
-	l := logger.Logger().Level(zerolog.DebugLevel)
-	logger.SetLogger(&l)
 	bc := blockchain.NewBlockchain(&config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
 	_, err := bc.CreateState(addr1.RawAddress, uint64(100))
 	require.Nil(err)
@@ -97,8 +93,6 @@ func TestActPool_validateTsf(t *testing.T) {
 
 func TestActPool_validateVote(t *testing.T) {
 	require := require.New(t)
-	l := logger.Logger().Level(zerolog.DebugLevel)
-	logger.SetLogger(&l)
 	bc := blockchain.NewBlockchain(&config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
 	_, err := bc.CreateState(addr1.RawAddress, uint64(100))
 	require.Nil(err)
@@ -141,8 +135,6 @@ func TestActPool_AddActs(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	require := require.New(t)
-	l := logger.Logger().Level(zerolog.DebugLevel)
-	logger.SetLogger(&l)
 	bc := blockchain.NewBlockchain(&config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
 	_, err := bc.CreateState(addr1.RawAddress, uint64(100))
 	require.Nil(err)
@@ -242,8 +234,6 @@ func TestActPool_AddActs(t *testing.T) {
 
 func TestActPool_PickActs(t *testing.T) {
 	require := require.New(t)
-	l := logger.Logger().Level(zerolog.DebugLevel)
-	logger.SetLogger(&l)
 	bc := blockchain.NewBlockchain(&config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
 	_, err := bc.CreateState(addr1.RawAddress, uint64(100))
 	require.Nil(err)
@@ -295,8 +285,6 @@ func TestActPool_PickActs(t *testing.T) {
 
 func TestActPool_removeConfirmedActs(t *testing.T) {
 	require := require.New(t)
-	l := logger.Logger().Level(zerolog.DebugLevel)
-	logger.SetLogger(&l)
 	bc := blockchain.NewBlockchain(&config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
 	_, err := bc.CreateState(addr1.RawAddress, uint64(100))
 	require.Nil(err)
@@ -332,8 +320,6 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 
 func TestActPool_Reset(t *testing.T) {
 	require := require.New(t)
-	l := logger.Logger().Level(zerolog.DebugLevel)
-	logger.SetLogger(&l)
 
 	bc := blockchain.NewBlockchain(&config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
 	_, err := bc.CreateState(addr1.RawAddress, uint64(100))
@@ -639,8 +625,6 @@ func TestActPool_Reset(t *testing.T) {
 
 func TestActPool_removeInvalidActs(t *testing.T) {
 	require := require.New(t)
-	l := logger.Logger().Level(zerolog.DebugLevel)
-	logger.SetLogger(&l)
 	bc := blockchain.NewBlockchain(&config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
 	_, err := bc.CreateState(addr1.RawAddress, uint64(100))
 	require.Nil(err)
@@ -679,8 +663,6 @@ func TestActPool_removeInvalidActs(t *testing.T) {
 
 func TestActPool_GetPendingNonce(t *testing.T) {
 	require := require.New(t)
-	l := logger.Logger().Level(zerolog.DebugLevel)
-	logger.SetLogger(&l)
 	bc := blockchain.NewBlockchain(&config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
 	_, err := bc.CreateState(addr1.RawAddress, uint64(100))
 	require.Nil(err)
@@ -715,8 +697,6 @@ func TestActPool_GetPendingNonce(t *testing.T) {
 
 func TestActPool_GetUnconfirmedActs(t *testing.T) {
 	require := require.New(t)
-	l := logger.Logger().Level(zerolog.DebugLevel)
-	logger.SetLogger(&l)
 	bc := blockchain.NewBlockchain(&config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
 	_, err := bc.CreateState(addr1.RawAddress, uint64(100))
 	require.Nil(err)

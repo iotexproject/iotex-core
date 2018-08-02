@@ -131,7 +131,7 @@ run:
 	$(ECHO_V)rm -f ./e2etest/chain*.db
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
 	export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH):$(PWD)/crypto/lib
-	./bin/$(BUILD_TARGET_SERVER) -config-path=e2etest/config_local_delegate.yaml
+	./bin/$(BUILD_TARGET_SERVER) -config-path=e2etest/config_local_delegate.yaml -log-colorful=true
 
 .PHONY: docker
 docker:
