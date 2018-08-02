@@ -67,6 +67,12 @@ func New() (*zerolog.Logger, error) {
 	return &l, nil
 }
 
+// PrettyLogger gets a pretty logger client instance.
+func PrettyLogger(lvl zerolog.Level) *zerolog.Logger {
+	l := zerolog.New(zerolog.ConsoleWriter{Out: os.Stderr}).Level(lvl).With().Timestamp().Logger()
+	return &l
+}
+
 // Logger gets the global logger client instance.
 func Logger() *zerolog.Logger { return logger }
 

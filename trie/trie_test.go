@@ -35,8 +35,7 @@ func TestEmptyTrie(t *testing.T) {
 
 func Test2Roots(t *testing.T) {
 	require := require.New(t)
-	l := logger.Logger().Level(zerolog.DebugLevel)
-	logger.SetLogger(&l)
+	logger.SetLogger(logger.PrettyLogger(zerolog.InfoLevel))
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
@@ -57,10 +56,9 @@ func Test2Roots(t *testing.T) {
 	require.Nil(err)
 	require.Equal(testV[4], v)
 	root := tr.RootHash()
-	tr.Close()
 
 	// insert couple of different entries
-	tr1, err := NewTrie(testTriePath, "test1", EmptyRoot, false)
+	tr1, err := NewTrieByName(tr, "test1", EmptyRoot)
 	require.Nil(err)
 	require.Nil(tr1.Upsert(dog, testV[3]))
 	v, err = tr1.Get(dog)
@@ -76,13 +74,8 @@ func Test2Roots(t *testing.T) {
 	require.Equal(testV[5], v)
 	root1 := tr1.RootHash()
 	require.NotEqual(root, root1)
-	tr1.Close()
 
 	// load first trie again
-	tr = nil
-	tr, err = NewTrie(testTriePath, "test", root, false)
-	require.Nil(err)
-	// contains cat, car, egg
 	v, err = tr.Get(cat)
 	require.Nil(err)
 	require.Equal(testV[2], v)
@@ -95,13 +88,8 @@ func Test2Roots(t *testing.T) {
 	// does not contain dog
 	v, err = tr.Get(dog)
 	require.Equal(ErrNotExist, errors.Cause(err))
-	tr.Close()
 
 	// load second trie again
-	tr1 = nil
-	tr1, err = NewTrie(testTriePath, "test1", root1, false)
-	require.Nil(err)
-	// contains dog, ham, fox
 	v, err = tr1.Get(dog)
 	require.Nil(err)
 	require.Equal(testV[3], v)
@@ -118,8 +106,7 @@ func Test2Roots(t *testing.T) {
 
 func TestInsert(t *testing.T) {
 	require := require.New(t)
-	l := logger.Logger().Level(zerolog.DebugLevel)
-	logger.SetLogger(&l)
+	logger.SetLogger(logger.PrettyLogger(zerolog.InfoLevel))
 
 	tr, err := newTrie(db.NewMemKVStore(), "", EmptyRoot)
 	require.Nil(err)
@@ -316,8 +303,7 @@ func TestInsert(t *testing.T) {
 
 func Test1kEntries(t *testing.T) {
 	require := require.New(t)
-	l := logger.Logger().Level(zerolog.DebugLevel)
-	logger.SetLogger(&l)
+	logger.SetLogger(logger.PrettyLogger(zerolog.InfoLevel))
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
@@ -378,8 +364,7 @@ func TestPressure(t *testing.T) {
 	}
 
 	require := require.New(t)
-	l := logger.Logger().Level(zerolog.DebugLevel)
-	logger.SetLogger(&l)
+	logger.SetLogger(logger.PrettyLogger(zerolog.InfoLevel))
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
@@ -429,8 +414,7 @@ func TestPressure(t *testing.T) {
 
 func TestQuery(t *testing.T) {
 	require := require.New(t)
-	l := logger.Logger().Level(zerolog.DebugLevel)
-	logger.SetLogger(&l)
+	logger.SetLogger(logger.PrettyLogger(zerolog.InfoLevel))
 
 	tr, err := newTrie(db.NewMemKVStore(), "", EmptyRoot)
 	require.Nil(err)
