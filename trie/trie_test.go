@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/blake2b"
 
@@ -35,7 +34,6 @@ func TestEmptyTrie(t *testing.T) {
 
 func Test2Roots(t *testing.T) {
 	require := require.New(t)
-	logger.SetLogger(logger.PrettyLogger(zerolog.InfoLevel))
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
@@ -106,7 +104,6 @@ func Test2Roots(t *testing.T) {
 
 func TestInsert(t *testing.T) {
 	require := require.New(t)
-	logger.SetLogger(logger.PrettyLogger(zerolog.InfoLevel))
 
 	tr, err := newTrie(db.NewMemKVStore(), "", EmptyRoot)
 	require.Nil(err)
@@ -303,7 +300,6 @@ func TestInsert(t *testing.T) {
 
 func Test1kEntries(t *testing.T) {
 	require := require.New(t)
-	logger.SetLogger(logger.PrettyLogger(zerolog.InfoLevel))
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
@@ -364,7 +360,6 @@ func TestPressure(t *testing.T) {
 	}
 
 	require := require.New(t)
-	logger.SetLogger(logger.PrettyLogger(zerolog.InfoLevel))
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
@@ -414,7 +409,6 @@ func TestPressure(t *testing.T) {
 
 func TestQuery(t *testing.T) {
 	require := require.New(t)
-	logger.SetLogger(logger.PrettyLogger(zerolog.InfoLevel))
 
 	tr, err := newTrie(db.NewMemKVStore(), "", EmptyRoot)
 	require.Nil(err)

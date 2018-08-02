@@ -28,7 +28,8 @@ var (
 	_colorful bool
 )
 
-var logger *zerolog.Logger
+// logger is initialized with default settings
+var logger = zerolog.New(os.Stderr).Level(zerolog.InfoLevel).With().Timestamp().Logger()
 
 func init() {
 	// read config
@@ -36,18 +37,25 @@ func init() {
 	flag.StringVar(&_pathStr, "log-path", "", "Log path")
 	flag.BoolVar(&_colorful, "log-colorful", false, "Log use coloful consoleWriter")
 
-	// set a default logger
-	l := zerolog.New(os.Stderr).Level(zerolog.InfoLevel).With().Timestamp().Logger()
-	logger = &l
+	if flag.Lookup("test.v") != nil {
+		// set a testing logger
+		flag.Parse()
+		level, err := zerolog.ParseLevel(_levelStr)
+		if err == nil {
+			logger = zerolog.New(zerolog.ConsoleWriter{Out: os.Stderr}).Level(level).With().Timestamp().Logger()
+		} else {
+			logger.Warn().Err(err).Msg("error when initializing the testing logger, use default one.")
+		}
+	}
 }
 
 // New creates a new zerolog instance.
-func New() (*zerolog.Logger, error) {
+func New() (zerolog.Logger, error) {
+	var l zerolog.Logger
 	level, err := zerolog.ParseLevel(_levelStr)
 	if err != nil {
-		return nil, err
+		return l, err
 	}
-	var l zerolog.Logger
 	if _pathStr == "" {
 		var w io.Writer = os.Stderr
 		if _colorful {
@@ -60,24 +68,18 @@ func New() (*zerolog.Logger, error) {
 		}
 		file, err := os.Create(_pathStr)
 		if err != nil {
-			return nil, err
+			return l, err
 		}
 		l = zerolog.New(file).Level(level).With().Timestamp().Logger()
 	}
-	return &l, nil
-}
-
-// PrettyLogger gets a pretty logger client instance.
-func PrettyLogger(lvl zerolog.Level) *zerolog.Logger {
-	l := zerolog.New(zerolog.ConsoleWriter{Out: os.Stderr}).Level(lvl).With().Timestamp().Logger()
-	return &l
+	return l, nil
 }
 
 // Logger gets the global logger client instance.
-func Logger() *zerolog.Logger { return logger }
+func Logger() *zerolog.Logger { return &logger }
 
 // SetLogger sets the global logger client pointer to arbitrary logger client instance
-func SetLogger(l *zerolog.Logger) {
+func SetLogger(l zerolog.Logger) {
 	logger = l
 }
 

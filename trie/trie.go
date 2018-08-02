@@ -278,7 +278,7 @@ func (t *trie) upsert(key, value []byte) error {
 			if err := t.delPatricia(n.Value.(patricia)); err != nil {
 				return err
 			}
-			logger.Info().Msg("delete leaf")
+			logger.Debug().Msg("delete leaf")
 			t.toRoot.Remove(n)
 		}
 	} else {
