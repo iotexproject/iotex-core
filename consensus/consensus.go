@@ -18,7 +18,6 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
-	"github.com/iotexproject/iotex-core/delegate"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/errcode"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
@@ -45,7 +44,6 @@ func NewConsensus(
 	bc blockchain.Blockchain,
 	ap actpool.ActPool,
 	bs blocksync.BlockSync,
-	dlg delegate.Pool,
 ) Consensus {
 	if bc == nil || bs == nil {
 		logger.Error().Msg("Try to attach to chain or bs == nil")

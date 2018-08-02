@@ -15,7 +15,6 @@ import (
 	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus"
-	"github.com/iotexproject/iotex-core/delegate"
 	"github.com/iotexproject/iotex-core/dispatch"
 	"github.com/iotexproject/iotex-core/dispatch/dispatcher"
 	"github.com/iotexproject/iotex-core/logger"
@@ -101,12 +100,11 @@ func newServer(cfg *config.Config, bc blockchain.Blockchain) *Server {
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Fail to create actpool")
 	}
-	pool := delegate.NewConfigBasedPool(&cfg.Delegate)
 	bs, err := blocksync.NewBlockSyncer(cfg, bc, ap, o)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Fail to create blockSyncer")
 	}
-	cs := consensus.NewConsensus(cfg, bc, ap, bs, pool)
+	cs := consensus.NewConsensus(cfg, bc, ap, bs)
 	if cs == nil {
 		logger.Fatal().Msg("Failed to create Consensus")
 	}

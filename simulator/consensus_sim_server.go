@@ -66,13 +66,6 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 	nPlayers := in.NBF + in.NFS + in.NHonest
 	ctx := context.Background()
 
-	addrs := []string{
-		"io1qyqsyqcy6nm58gjd2wr035wz5eyd5uq47zyqpng3gxe7nh",
-		"io1qyqsyqcy6m6hkqkj3f4w4eflm2gzydmvc0mumm7kgax4l3",
-		"io1qyqsyqcyyu9pfazcx0wglp35h2h4fm0hl8p8z2u35vkcwc",
-		"io1qyqsyqcyg9pk8zg8xzkmv6g3630xggvacq9e77cwtd4rkc",
-	}
-
 	for i := 0; i < int(nPlayers); i++ {
 		cfg := config.Default
 		// s.nodes = make([]consensus.Sim, in.NPlayers)
@@ -87,7 +80,6 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 		cfg.Consensus.RollDPoS.AcceptVoteTTL = 1000 * time.Second
 
 		// handle node address, delegate addresses, etc.
-		cfg.Delegate.Addrs = addrs
 		cfg.Network.IP = "127.0.0.1"
 		cfg.Network.Port = 10000
 		cfg.Network.NumPeersLowerBound = 6

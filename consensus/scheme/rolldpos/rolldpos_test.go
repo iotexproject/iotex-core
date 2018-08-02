@@ -398,14 +398,10 @@ func TestRollDPoSConsensus(t *testing.T) {
 			networkAddrs = append(networkAddrs, node.NewTCPNode(fmt.Sprintf("127.0.0.%d:4689", i+1)))
 		}
 
-		delegateCfg := config.Delegate{
-			RollNum: uint(numNodes),
-		}
 		chainRawAddrs := make([]string, 0, numNodes)
 		for _, addr := range chainAddrs {
 			chainRawAddrs = append(chainRawAddrs, addr.RawAddress)
 		}
-		delegateCfg.Addrs = chainRawAddrs
 
 		candidatesByHeightFunc := func(_ uint64) ([]*state.Candidate, bool) {
 			candidates := make([]*state.Candidate, 0, numNodes)

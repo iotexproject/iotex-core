@@ -301,18 +301,6 @@ func TestValidateNetwork(t *testing.T) {
 	)
 }
 
-func TestValidateDelegate(t *testing.T) {
-	cfg := Default
-	cfg.Delegate.RollNum = 2
-	err := ValidateDelegate(&cfg)
-	require.NotNil(t, err)
-	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
-	require.True(
-		t,
-		strings.Contains(err.Error(), "rolling delegates number is greater than total configured delegates"),
-	)
-}
-
 func TestValidateActPool(t *testing.T) {
 	cfg := Default
 	cfg.ActPool.MaxNumActPerAcct = 0
