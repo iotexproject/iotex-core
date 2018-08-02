@@ -375,11 +375,10 @@ func (mr *MockBlockchainMockRecorder) MintNewBlock(tsf, vote, address, data inte
 }
 
 // MintNewDummyBlock mocks base method
-func (m *MockBlockchain) MintNewDummyBlock() (*blockchain.Block, error) {
+func (m *MockBlockchain) MintNewDummyBlock() *blockchain.Block {
 	ret := m.ctrl.Call(m, "MintNewDummyBlock")
 	ret0, _ := ret[0].(*blockchain.Block)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return ret0
 }
 
 // MintNewDummyBlock indicates an expected call of MintNewDummyBlock

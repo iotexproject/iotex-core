@@ -79,6 +79,11 @@ func NewBlock(chainID uint32, height uint64, prevBlockHash hash.Hash32B,
 	return block
 }
 
+// IsDummyBlock checks whether block is a dummy block
+func (b *Block) IsDummyBlock() bool {
+	return b.Header.height > 0 && len(b.Header.blockSig) == 0 && b.Header.Pubkey == keypair.ZeroPublicKey && len(b.Transfers)+len(b.Votes) == 0
+}
+
 // Height returns the height of this block
 func (b *Block) Height() uint64 {
 	return b.Header.height
@@ -143,10 +148,6 @@ func (b *Block) ConvertToBlockHeaderPb() *iproto.BlockHeaderPb {
 
 // ConvertToBlockPb converts Block to BlockPb
 func (b *Block) ConvertToBlockPb() *iproto.BlockPb {
-	if len(b.Transfers)+len(b.Votes) == 0 {
-		return nil
-	}
-
 	actions := []*iproto.ActionPb{}
 	for _, tsf := range b.Transfers {
 		actions = append(actions, &iproto.ActionPb{Action: &iproto.ActionPb_Transfer{tsf.ConvertToTransferPb()}})

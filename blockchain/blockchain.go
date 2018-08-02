@@ -22,7 +22,6 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
-	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -82,8 +81,8 @@ type Blockchain interface {
 	// MintNewBlock creates a new block with given actions
 	// Note: the coinbase transfer will be added to the given transfers when minting a new block
 	MintNewBlock(tsf []*action.Transfer, vote []*action.Vote, address *iotxaddress.Address, data string) (*Block, error)
-	// MintNewDummyBlock creates a new dummy block with no transactions
-	MintNewDummyBlock() (*Block, error)
+	// MintDummyNewBlock creates a new dummy block, used for unreached consensus
+	MintNewDummyBlock() *Block
 	// CommitBlock validates and appends a block to the chain
 	CommitBlock(blk *Block) error
 	// ValidateBlock validates a new block before adding it to the blockchain
@@ -486,30 +485,15 @@ func (bc *blockchain) MintNewBlock(tsf []*action.Transfer, vote []*action.Vote,
 	return blk, nil
 }
 
-// MintNewDummyBlock creates a new dummy block without any tx/action.
-func (bc *blockchain) MintNewDummyBlock() (*Block, error) {
+// MintDummyNewBlock creates a new dummy block, used for unreached consensus
+func (bc *blockchain) MintNewDummyBlock() *Block {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
 
-	prevBlk, err := bc.GetBlockByHeight(bc.tipHeight)
-	if err != nil {
-		return nil, err
-	}
-	timestamp := prevBlk.Header.timestamp + 1
-
-	blk := &Block{
-		Header: &BlockHeader{
-			version:       version.ProtocolVersion,
-			chainID:       bc.chainID,
-			height:        bc.tipHeight + 1,
-			timestamp:     timestamp,
-			prevBlockHash: bc.tipHash,
-			txRoot:        hash.ZeroHash32B,
-			stateRoot:     hash.ZeroHash32B,
-			blockSig:      []byte{}},
-	}
-
-	return blk, nil
+	blk := NewBlock(bc.chainID, bc.tipHeight+1, bc.tipHash, nil, nil)
+	blk.Header.Pubkey = keypair.ZeroPublicKey
+	blk.Header.blockSig = []byte{}
+	return blk
 }
 
 //  CommitBlock validates and appends a block to the chain

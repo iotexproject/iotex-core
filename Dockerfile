@@ -31,9 +31,6 @@ RUN cd $GOPATH/src/github.com/iotexproject/iotex-core/ && \
     echo "network:" >> /etc/iotex/config.yaml && \
     echo "    bootstrapNodes:" >> /etc/iotex/config.yaml && \
     echo "        - \"127.0.0.1:4689\"" >> /etc/iotex/config.yaml && \
-    echo "delegate:" >> /etc/iotex/config.yaml && \
-    echo "    addrs:" >> /etc/iotex/config.yaml && \
-    echo "        - \"127.0.0.1:4689\"" >> /etc/iotex/config.yaml && \
     ln -s $GOPATH/src/github.com/iotexproject/iotex-core/blockchain/testnet_actions.yaml /etc/iotex/testnet_actions.yaml
 
 CMD [ "iotex-server", "-config-path=/etc/iotex/config.yaml"]

@@ -62,6 +62,10 @@ func (v *validator) Validate(blk *Block, tipHeight uint64, tipHash hash.Hash32B)
 			tipHash)
 	}
 
+	if blk.IsDummyBlock() {
+		return nil
+	}
+
 	if blk.Header.height > 0 {
 		// verify new block's signature is correct
 		blkHash := blk.HashBlock()
