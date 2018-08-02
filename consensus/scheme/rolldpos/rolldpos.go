@@ -20,7 +20,6 @@ import (
 	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
-	"github.com/iotexproject/iotex-core/delegate"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network"
@@ -29,8 +28,12 @@ import (
 	"github.com/iotexproject/iotex-core/state"
 )
 
-// ErrNewRollDPoS indicates the error of constructing RollDPoS
-var ErrNewRollDPoS = errors.New("error when constructing RollDPoS")
+var (
+	// ErrNewRollDPoS indicates the error of constructing RollDPoS
+	ErrNewRollDPoS = errors.New("error when constructing RollDPoS")
+	// ErrZeroDelegate indicates seeing 0 delegates in the network
+	ErrZeroDelegate = errors.New("zero delegates in the network")
+)
 
 type rollDPoSCtx struct {
 	cfg     config.RollDPoS
@@ -130,7 +133,7 @@ func (ctx *rollDPoSCtx) rotatedProposer() (string, uint64, error) {
 func (ctx *rollDPoSCtx) calcProposer(height uint64, delegates []string) (string, error) {
 	numDelegates := len(delegates)
 	if numDelegates == 0 {
-		return "", delegate.ErrZeroDelegate
+		return "", ErrZeroDelegate
 	}
 	return delegates[(height)%uint64(numDelegates)], nil
 }

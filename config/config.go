@@ -119,10 +119,6 @@ var (
 			Interval: 10 * time.Second,
 		},
 
-		Delegate: Delegate{
-			Addrs:   make([]string, 0),
-			RollNum: 0,
-		},
 		Dispatcher: Dispatcher{
 			EventChanSize: 10000,
 		},
@@ -148,7 +144,6 @@ var (
 		ValidateDispatcher,
 		ValidateExplorer,
 		ValidateNetwork,
-		ValidateDelegate,
 		ValidateActPool,
 		ValidateChain,
 	}
@@ -228,11 +223,6 @@ type (
 		EventChanSize          uint          `yaml:"eventChanSize"`
 		NumDelegates           uint          `yaml:"numDelegates"`
 	}
-	// Delegate is the delegate config
-	Delegate struct {
-		Addrs   []string `yaml:"addrs"`
-		RollNum uint     `yaml:"rollNum"`
-	}
 
 	// Dispatcher is the dispatcher config
 	Dispatcher struct {
@@ -265,7 +255,6 @@ type (
 		Chain      Chain      `yaml:"chain"`
 		ActPool    ActPool    `yaml:"actPool"`
 		Consensus  Consensus  `yaml:"consensus"`
-		Delegate   Delegate   `yaml:"delegate"`
 		BlockSync  BlockSync  `yaml:"blockSync"`
 		Dispatcher Dispatcher `yaml:"dispatcher"`
 		Explorer   Explorer   `yaml:"explorer"`
@@ -420,14 +409,6 @@ func ValidateExplorer(cfg *Config) error {
 func ValidateNetwork(cfg *Config) error {
 	if !cfg.Network.PeerDiscovery && cfg.Network.TopologyPath == "" {
 		return errors.Wrap(ErrInvalidCfg, "either peer discover should be enabled or a topology should be given")
-	}
-	return nil
-}
-
-// ValidateDelegate validates the delegate configs
-func ValidateDelegate(cfg *Config) error {
-	if cfg.Delegate.RollNum > uint(len(cfg.Delegate.Addrs)) {
-		return errors.Wrap(ErrInvalidCfg, "rolling delegates number is greater than total configured delegates")
 	}
 	return nil
 }

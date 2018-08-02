@@ -22,8 +22,3 @@ consensus:
 
 blockSync:
     interval: 1s
-
-delegate:
-    addrs:
-        - "io1qyqsyqcy8uhx9jtdc2xp5wx7nxyq3xf4c3jmxknzkuej8y"
-
