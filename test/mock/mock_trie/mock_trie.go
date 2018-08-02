@@ -105,3 +105,36 @@ func (m *MockTrie) RootHash() hash.Hash32B {
 func (mr *MockTrieMockRecorder) RootHash() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RootHash", reflect.TypeOf((*MockTrie)(nil).RootHash))
 }
+
+// EnableBatch mocks base method
+func (m *MockTrie) EnableBatch() error {
+	ret := m.ctrl.Call(m, "EnableBatch")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// EnableBatch indicates an expected call of EnableBatch
+func (mr *MockTrieMockRecorder) EnableBatch() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnableBatch", reflect.TypeOf((*MockTrie)(nil).EnableBatch))
+}
+
+// DisableBatch mocks base method
+func (m *MockTrie) DisableBatch() {
+}
+
+// DisableBatch indicates an expected call of DisableBatch
+func (mr *MockTrieMockRecorder) DisableBatch() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DisableBatch", reflect.TypeOf((*MockTrie)(nil).DisableBatch))
+}
+
+// Flush mocks base method
+func (m *MockTrie) Flush() error {
+	ret := m.ctrl.Call(m, "Flush")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Flush indicates an expected call of Flush
+func (mr *MockTrieMockRecorder) Flush() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Flush", reflect.TypeOf((*MockTrie)(nil).Flush))
+}

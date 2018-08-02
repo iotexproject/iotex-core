@@ -48,6 +48,9 @@ type (
 		Delete([]byte) error             // delete an entry
 		Commit([][]byte, [][]byte) error // commit the state changes in a batch
 		RootHash() hash.Hash32B          // returns trie's root hash
+		EnableBatch() error              // enable batch mode
+		DisableBatch()                   // disable batch mode
+		Flush() error                    // flush batched db writes to database
 	}
 
 	// trie implements the Trie interface
@@ -64,6 +67,9 @@ type (
 		numBranch uint64
 		numExt    uint64
 		numLeaf   uint64
+		cache     map[hash.Hash32B][]byte
+		dbBatch   db.KVStoreBatch
+		batchMode bool
 	}
 )
 
@@ -170,6 +176,7 @@ func (t *trie) Commit(k, v [][]byte) error {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
+	t.EnableBatch()
 	size := len(k)
 	if size != len(v) {
 		return errors.Wrap(ErrInvalidTrie, "commit <k, v> size not match")
@@ -179,6 +186,8 @@ func (t *trie) Commit(k, v [][]byte) error {
 			return err
 		}
 	}
+	t.Flush()
+	t.DisableBatch()
 	return nil
 }
 
@@ -466,9 +475,25 @@ func (t *trie) updateDelete(curr patricia, currClps bool, clpsType byte) error {
 //======================================
 // helper functions to operate patricia
 //======================================
+func (t *trie) getCachedPatricia(key []byte) ([]byte, error) {
+	if !t.batchMode {
+		return nil, nil
+	}
+
+	var hashKey hash.Hash32B
+	copy(hashKey[:], key)
+	node := t.cache[hashKey]
+	return node, nil
+}
+
 // getPatricia retrieves the patricia node from DB according to key
 func (t *trie) getPatricia(key []byte) (patricia, error) {
-	node, err := t.dao.Get(t.bucket, key)
+	node, err := t.getCachedPatricia(key)
+
+	if node == nil {
+		node, err = t.dao.Get(t.bucket, key)
+	}
+
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get key %x", key[:8])
 	}
@@ -498,6 +523,12 @@ func (t *trie) putPatricia(ptr patricia) error {
 		return errors.Wrapf(err, "failed to encode node")
 	}
 	key := ptr.hash()
+	if t.batchMode {
+		t.dbBatch.Put(t.bucket, key[:], value, "failed to put key = %x", key[:8])
+		t.cache[key] = value
+		return nil
+	}
+
 	if err := t.dao.Put(t.bucket, key[:], value); err != nil {
 		return errors.Wrapf(err, "failed to put key = %x", key[:8])
 	}
@@ -513,6 +544,16 @@ func (t *trie) putPatriciaNew(ptr patricia) error {
 		return errors.Wrap(err, "failed to serialize patricia")
 	}
 	key := ptr.hash()
+	if t.batchMode {
+		if _, ok := t.cache[key]; ok {
+			return errors.New("failed to put non-existing key = %x")
+		}
+
+		t.cache[key] = value
+		t.dbBatch.PutIfNotExists(t.bucket, key[:], value, "failed to put non-existing key = %x", key[:8])
+		return nil
+	}
+
 	if err := t.dao.PutIfNotExists(t.bucket, key[:], value); err != nil {
 		return errors.Wrapf(err, "failed to put non-existing key = %x", key[:8])
 	}
@@ -523,6 +564,14 @@ func (t *trie) putPatriciaNew(ptr patricia) error {
 // delPatricia deletes the patricia node from DB
 func (t *trie) delPatricia(ptr patricia) error {
 	key := ptr.hash()
+	if t.batchMode {
+		t.dbBatch.Delete(t.bucket, key[:], "failed to delete key = %x", key[:8])
+		if _, ok := t.cache[key]; ok {
+			delete(t.cache, key)
+		}
+		return nil
+	}
+
 	if err := t.dao.Delete(t.bucket, key[:]); err != nil {
 		return errors.Wrapf(err, "failed to delete key = %x", key[:8])
 	}
@@ -568,4 +617,36 @@ func (t *trie) popToRoot() (patricia, byte) {
 		return ptr, index
 	}
 	return nil, 0
+}
+
+// EnableBatch enable batch mode
+func (t *trie) EnableBatch() error {
+	if t.batchMode {
+		return nil
+	}
+
+	// recreate the map to ensure it's clean
+	t.cache = nil
+	t.cache = make(map[hash.Hash32B][]byte)
+
+	// recreate the batch to ensure it's clean
+	t.dbBatch = nil
+	if t.dbBatch = t.dao.Batch(); t.dbBatch == nil {
+		return errors.New("fail to initial batch")
+	}
+	t.batchMode = true
+	return nil
+}
+
+// DisableBatch disable batch mode
+func (t *trie) DisableBatch() {
+	t.batchMode = false
+}
+
+// Flush flush batched db writes to database
+func (t *trie) Flush() error {
+	if t.batchMode {
+		return t.dbBatch.Commit()
+	}
+	return nil
 }
