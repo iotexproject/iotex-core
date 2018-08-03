@@ -7,6 +7,7 @@
 package cmd
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 
@@ -17,8 +18,12 @@ import (
 )
 
 func Test_All(t *testing.T) {
-	httpPort := config.Default.Explorer.Port
-	explorer.StartJSONServer(nil, nil, nil, nil, nil, true, httpPort, 0)
+	cfg := config.Default
+	cfg.Explorer.Port = 0
+	exp := explorer.NewTestSever(config.Default.Explorer)
+	exp.Start(nil)
+
+	address = localhost + strconv.Itoa(exp.Port())
 
 	s := strings.Split(self(), " ")
 	addr := s[len(s)-1]

@@ -13,12 +13,14 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/logger"
 )
 
 func TestServer(t *testing.T) {
 	require := require.New(t)
-	StartJSONServer(nil, nil, nil, nil, nil, true, 14004, 0)
+	svr := NewTestSever(config.Default.Explorer)
+	svr.Start(nil)
 
 	timeout := time.Duration(20 * time.Second)
 	client := http.Client{

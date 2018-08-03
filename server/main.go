@@ -17,10 +17,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/golang/protobuf/proto"
-
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/explorer"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/routine"
 	"github.com/iotexproject/iotex-core/server/itx"
@@ -69,21 +66,6 @@ func main() {
 				logger.Panic().Err(err)
 			}
 		}()
-	}
-
-	if cfg.Explorer.Enabled {
-		isTest := cfg.Explorer.IsTest
-		env := os.Getenv("APP_ENV")
-		if env == "development" {
-			isTest = true
-		}
-		if isTest {
-			logger.Warn().Msg("Using test server with fake data...")
-		}
-		bcb := func(msg proto.Message) error {
-			return svr.P2p().Broadcast(msg)
-		}
-		explorer.StartJSONServer(svr.Bc(), svr.Cs(), svr.Dp(), svr.Ap(), bcb, isTest, cfg.Explorer.Port, cfg.Explorer.TpsWindow)
 	}
 
 	select {}
