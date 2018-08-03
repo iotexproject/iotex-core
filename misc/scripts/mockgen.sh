@@ -16,12 +16,6 @@ mockgen -destination=./test/mock/mock_blockchain/mock_blockchain.go  \
         -package=mock_blockchain \
         Blockchain
 
-mkdir -p ./test/mock/mock_delegate
-mockgen -destination=./test/mock/mock_delegate/mock_delegate.go  \
-        -source=./delegate/delegate.go \
-        -package=mock_delegate \
-        Pool
-
 mkdir -p ./test/mock/mock_blocksync
 mockgen -destination=./test/mock/mock_blocksync/mock_blocksync.go  \
         -source=./blocksync/blocksync.go \

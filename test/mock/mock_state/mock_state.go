@@ -62,18 +62,6 @@ func (mr *MockFactoryMockRecorder) Balance(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Balance", reflect.TypeOf((*MockFactory)(nil).Balance), arg0)
 }
 
-// CommitStateChanges mocks base method
-func (m *MockFactory) CommitStateChanges(arg0 uint64, arg1 []*action.Transfer, arg2 []*action.Vote) error {
-	ret := m.ctrl.Call(m, "CommitStateChanges", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// CommitStateChanges indicates an expected call of CommitStateChanges
-func (mr *MockFactoryMockRecorder) CommitStateChanges(arg0, arg1, arg2 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitStateChanges", reflect.TypeOf((*MockFactory)(nil).CommitStateChanges), arg0, arg1, arg2)
-}
-
 // Nonce mocks base method
 func (m *MockFactory) Nonce(arg0 string) (uint64, error) {
 	ret := m.ctrl.Call(m, "Nonce", arg0)
@@ -110,6 +98,30 @@ func (m *MockFactory) RootHash() hash.Hash32B {
 // RootHash indicates an expected call of RootHash
 func (mr *MockFactoryMockRecorder) RootHash() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RootHash", reflect.TypeOf((*MockFactory)(nil).RootHash))
+}
+
+// CommitStateChanges mocks base method
+func (m *MockFactory) CommitStateChanges(arg0 uint64, arg1 []*action.Transfer, arg2 []*action.Vote) error {
+	ret := m.ctrl.Call(m, "CommitStateChanges", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CommitStateChanges indicates an expected call of CommitStateChanges
+func (mr *MockFactoryMockRecorder) CommitStateChanges(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitStateChanges", reflect.TypeOf((*MockFactory)(nil).CommitStateChanges), arg0, arg1, arg2)
+}
+
+// CreateContract mocks base method
+func (m *MockFactory) CreateContract(addr string, code []byte) error {
+	ret := m.ctrl.Call(m, "CreateContract", addr, code)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CreateContract indicates an expected call of CreateContract
+func (mr *MockFactoryMockRecorder) CreateContract(addr, code interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateContract", reflect.TypeOf((*MockFactory)(nil).CreateContract), addr, code)
 }
 
 // Candidates mocks base method

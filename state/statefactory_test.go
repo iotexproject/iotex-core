@@ -49,6 +49,7 @@ func TestRootHash(t *testing.T) {
 	defer ctrl.Finish()
 
 	trie := mock_trie.NewMockTrie(ctrl)
+	trie.EXPECT().TrieDB().Times(1).Return(nil)
 	sf, err := NewFactory(&config.Default, PrecreatedTrieOption(trie))
 	require.Nil(err)
 	trie.EXPECT().RootHash().Times(1).Return(hash.ZeroHash32B)
@@ -60,15 +61,19 @@ func TestCreateState(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	trie := mock_trie.NewMockTrie(ctrl)
+	trie, err := trie.NewTrie(testTriePath, "account", trie.EmptyRoot, true)
+	require.Nil(err)
 	sf, err := NewFactory(&config.Default, PrecreatedTrieOption(trie))
 	require.Nil(err)
-	trie.EXPECT().Upsert(gomock.Any(), gomock.Any()).Times(1)
 	addr, err := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
 	require.Nil(err)
-	state, _ := sf.CreateState(addr.RawAddress, 0)
+	state, _ := sf.CreateState(addr.RawAddress, 5)
 	require.Equal(uint64(0x0), state.Nonce)
-	require.Equal(big.NewInt(0), state.Balance)
+	require.Equal(big.NewInt(5), state.Balance)
+	ss, err := sf.State(addr.RawAddress)
+	require.Nil(err)
+	require.Equal(uint64(0x0), ss.Nonce)
+	require.Equal(big.NewInt(5), ss.Balance)
 }
 
 func TestBalance(t *testing.T) {
@@ -90,6 +95,7 @@ func TestNonce(t *testing.T) {
 	defer ctrl.Finish()
 
 	trie := mock_trie.NewMockTrie(ctrl)
+	trie.EXPECT().TrieDB().Times(1).Return(nil)
 	sf, err := NewFactory(&config.Default, PrecreatedTrieOption(trie))
 	require.Nil(err)
 
@@ -232,7 +238,7 @@ func TestCandidate(t *testing.T) {
 	defer testutil.CleanupPath(t, testTriePath)
 	tr, _ := trie.NewTrie(testTriePath, "account", trie.EmptyRoot, false)
 	sf := &factory{
-		trie:                   tr,
+		accountTrie:            tr,
 		candidatesLRU:          lru.New(10),
 		candidateHeap:          CandidateMinPQ{2, make([]*Candidate, 0)},
 		candidateBufferMinHeap: CandidateMinPQ{10, make([]*Candidate, 0)},
@@ -517,7 +523,7 @@ func TestUnvote(t *testing.T) {
 	defer testutil.CleanupPath(t, testTriePath)
 	tr, _ := trie.NewTrie(testTriePath, "account", trie.EmptyRoot, false)
 	sf := &factory{
-		trie:                   tr,
+		accountTrie:            tr,
 		candidatesLRU:          lru.New(10),
 		candidateHeap:          CandidateMinPQ{2, make([]*Candidate, 0)},
 		candidateBufferMinHeap: CandidateMinPQ{10, make([]*Candidate, 0)},

@@ -17,8 +17,10 @@ import (
 
 	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/trie"
 )
@@ -42,6 +44,9 @@ var (
 	// ErrAccountNotExist is the error that the account does not exist
 	ErrAccountNotExist = errors.New("the account does not exist")
 
+	// ErrAccountCollision is the error that the account already exists
+	ErrAccountCollision = errors.New("the account already exists")
+
 	// ErrFailedToMarshalState is the error that the state marshaling is failed
 	ErrFailedToMarshalState = errors.New("failed to marshal state")
 
@@ -52,13 +57,16 @@ var (
 type (
 	// Factory defines an interface for managing states
 	Factory interface {
+		// Accounts
 		CreateState(string, uint64) (*State, error)
 		Balance(string) (*big.Int, error)
-		CommitStateChanges(uint64, []*action.Transfer, []*action.Vote) error
-		// Note that nonce starts with 1.
-		Nonce(string) (uint64, error)
+		Nonce(string) (uint64, error) // Note that nonce starts with 1.
 		State(string) (*State, error)
 		RootHash() hash.Hash32B
+		CommitStateChanges(uint64, []*action.Transfer, []*action.Vote) error
+		// Contracts
+		CreateContract(addr string, code []byte) error
+		// Candidate pool
 		Candidates() (uint64, []*Candidate)
 		CandidatesByHeight(uint64) ([]*Candidate, bool)
 	}
@@ -74,7 +82,9 @@ type (
 		cachedCandidate        map[string]*Candidate
 		// accounts
 		cachedAccount map[string]*State // accounts being modified in this Tx
-		trie          trie.Trie         // global state trie
+		accountTrie   trie.Trie         // global state trie
+		contractTrie  trie.Trie         // contract storage trie
+		codeDB        db.KVStore        // code storage DB
 	}
 )
 
@@ -84,8 +94,8 @@ type FactoryOption func(*factory, *config.Config) error
 // PrecreatedTrieOption uses pre-created trie for state factory
 func PrecreatedTrieOption(tr trie.Trie) FactoryOption {
 	return func(sf *factory, cfg *config.Config) error {
-		sf.trie = tr
-
+		sf.accountTrie = tr
+		sf.codeDB = tr.TrieDB()
 		return nil
 	}
 }
@@ -101,8 +111,8 @@ func DefaultTrieOption() FactoryOption {
 		if err != nil {
 			return errors.Wrapf(err, "Failed to generate trie from config")
 		}
-		sf.trie = tr
-
+		sf.accountTrie = tr
+		sf.codeDB = tr.TrieDB()
 		return nil
 	}
 }
@@ -114,8 +124,8 @@ func InMemTrieOption() FactoryOption {
 		if err != nil {
 			return errors.Wrapf(err, "Failed to initialize in-memory trie")
 		}
-		sf.trie = tr
-
+		sf.accountTrie = tr
+		sf.codeDB = tr.TrieDB()
 		return nil
 	}
 }
@@ -141,7 +151,11 @@ func NewFactory(cfg *config.Config, opts ...FactoryOption) (Factory, error) {
 	return sf, nil
 }
 
+//======================================
+// State/Account functions
+//======================================
 // CreateState adds a new State with initial balance to the factory
+// addr should be a bech32 properly-encoded string
 func (sf *factory) CreateState(addr string, init uint64) (*State, error) {
 	pubKeyHash := iotxaddress.GetPubkeyHash(addr)
 	if pubKeyHash == nil {
@@ -155,7 +169,7 @@ func (sf *factory) CreateState(addr string, init uint64) (*State, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := sf.trie.Upsert(pubKeyHash, mstate); err != nil {
+	if err := sf.accountTrie.Upsert(pubKeyHash, mstate); err != nil {
 		return nil, err
 	}
 	return &s, nil
@@ -186,7 +200,7 @@ func (sf *factory) State(addr string) (*State, error) {
 
 // RootHash returns the hash of the root node of the trie
 func (sf *factory) RootHash() hash.Hash32B {
-	return sf.trie.RootHash()
+	return sf.accountTrie.RootHash()
 }
 
 // CommitStateChanges updates a State from the given actions
@@ -239,9 +253,42 @@ func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer
 	sf.candidatesLRU.Add(sf.currentChainHeight, candidates)
 
 	// commit the state changes to Trie in a batch
-	return sf.trie.Commit(transferK, transferV)
+	return sf.accountTrie.Commit(transferK, transferV)
 }
 
+//======================================
+// Contract functions
+//======================================
+// CreateContract creates a new contract account
+func (sf *factory) CreateContract(addr string, code []byte) error {
+	nonce, err := sf.Nonce(addr)
+	if err != nil {
+		return err
+	}
+	temp := make([]byte, 8)
+	enc.MachineEndian.PutUint64(temp, nonce)
+	// generate contract address from owner addr and nonce
+	// nonce guarantees a different contract addr even if the same code is deployed the second time
+	contractAddr, err := iotxaddress.GetAddressByHash(hash.Hash160b(append([]byte(addr), temp...)), iotxaddress.IsTestnet, iotxaddress.ChainID)
+	if err != nil {
+		return err
+	}
+	// only create when contract addr does not exist yet
+	if state, _ := sf.getState(contractAddr.RawAddress); state != nil {
+		return ErrAccountCollision
+	}
+	contract, err := sf.CreateState(contractAddr.RawAddress, 0)
+	contract.CodeHash = hash.Hash256b(code)
+	// put the code into storage trie
+	if err := sf.accountTrie.TrieDB().Put(trie.CodeKVNameSpace, contract.CodeHash, code); err != nil {
+		return err
+	}
+	return nil
+}
+
+//======================================
+// Candidate functions
+//======================================
 // Candidates returns array of candidates in candidate pool
 func (sf *factory) Candidates() (uint64, []*Candidate) {
 	return sf.currentChainHeight, sf.candidateHeap.CandidateList()
@@ -256,12 +303,8 @@ func (sf *factory) CandidatesByHeight(height uint64) ([]*Candidate, bool) {
 }
 
 //======================================
-// private functions
-//=====================================
-func (sf *factory) candidatesBuffer() (uint64, []*Candidate) {
-	return sf.currentChainHeight, sf.candidateBufferMinHeap.CandidateList()
-}
-
+// private state/account functions
+//======================================
 // getState pulls an existing State
 func (sf *factory) getState(addr string) (*State, error) {
 	pubKeyHash := iotxaddress.GetPubkeyHash(addr)
@@ -272,7 +315,7 @@ func (sf *factory) getStateFromPKHash(pubKeyHash []byte) (*State, error) {
 	if pubKeyHash == nil {
 		return nil, ErrInvalidAddr
 	}
-	mstate, err := sf.trie.Get(pubKeyHash)
+	mstate, err := sf.accountTrie.Get(pubKeyHash)
 	if errors.Cause(err) == trie.ErrNotExist {
 		return nil, ErrAccountNotExist
 	}
@@ -280,6 +323,13 @@ func (sf *factory) getStateFromPKHash(pubKeyHash []byte) (*State, error) {
 		return nil, err
 	}
 	return bytesToState(mstate)
+}
+
+//======================================
+// private candidate functions
+//======================================
+func (sf *factory) candidatesBuffer() (uint64, []*Candidate) {
+	return sf.currentChainHeight, sf.candidateBufferMinHeap.CandidateList()
 }
 
 func (sf *factory) updateCandidate(address string, totalWeight *big.Int, blockHeight uint64) {
@@ -371,23 +421,26 @@ func (sf *factory) inPool(address string) (*Candidate, int) {
 	return nil, 0
 }
 
-func (sf *factory) cache(address string) (*State, error) {
-	if state, exist := sf.cachedAccount[address]; exist {
+func (sf *factory) cache(addr string) (*State, error) {
+	if state, exist := sf.cachedAccount[addr]; exist {
 		return state, nil
 	}
-	state, err := sf.getState(address)
+	state, err := sf.getState(addr)
 	switch {
 	case err == ErrAccountNotExist:
-		if state, err = sf.CreateState(address, 0); err != nil {
+		if state, err = sf.CreateState(addr, 0); err != nil {
 			return nil, err
 		}
 	case err != nil:
 		return nil, err
 	}
-	sf.cachedAccount[address] = state
+	sf.cachedAccount[addr] = state
 	return state, nil
 }
 
+//======================================
+// private transfer/vote functions
+//======================================
 func (sf *factory) handleTsf(tsf []*action.Transfer) error {
 	for _, tx := range tsf {
 		if !tx.IsCoinbase {
