@@ -8,6 +8,7 @@ package iotxaddress
 
 import (
 	"crypto/rand"
+	"encoding/hex"
 	"strings"
 	"testing"
 
@@ -15,6 +16,7 @@ import (
 
 	cp "github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/iotxaddress/bech32"
+	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/version"
 )
@@ -22,24 +24,27 @@ import (
 // TestNewAddress tests create new asset address.
 func TestNewAddress(t *testing.T) {
 	require := require.New(t)
+
 	addr, err := NewAddress(true, []byte{0x00, 0x00, 0x00, 0x01})
 	require.Nil(err)
 	require.NotNil(addr.PrivateKey)
 	require.NotNil(addr.PublicKey)
 	require.NotEqual("", addr.RawAddress)
-
-	t.Log("Generated address is ", addr.RawAddress)
-	t.Logf("Generated public key = %x", addr.PublicKey)
-	t.Logf("Generated private key = %x", addr.PrivateKey)
-
+	logger.Info().Str("Generated address", addr.RawAddress).Msg("NewAddress")
+	logger.Info().Hex("Generated public key", addr.PublicKey[:]).Msg("NewAddress")
+	logger.Info().Hex("Generated private key", addr.PrivateKey[:]).Msg("NewAddress")
 	p2pkh := HashPubKey(addr.PublicKey)
 	require.Equal(p2pkh, GetPubkeyHash(addr.RawAddress))
-	t.Logf("P2PKH = %x", p2pkh)
+	logger.Info().Hex("P2PKH", p2pkh).Msg("NewAddress")
+
+	p2pkh, _ = hex.DecodeString("36500e9520e13d02bea26a08e99b6e7145fa6c10")
+	addr1, err := GetAddressByHash(p2pkh, true, []byte{0x00, 0x00, 0x00, 0x01})
+	require.Nil(err)
+	require.Equal(p2pkh, GetPubkeyHash(addr1.RawAddress))
 
 	rmsg := make([]byte, 2048)
 	_, err = rand.Read(rmsg)
 	require.NoError(err)
-
 	sig := cp.Sign(addr.PrivateKey, rmsg)
 	require.True(cp.Verify(addr.PublicKey, rmsg, sig))
 }

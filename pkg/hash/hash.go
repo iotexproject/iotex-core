@@ -6,6 +6,8 @@
 
 package hash
 
+import "golang.org/x/crypto/blake2b"
+
 const (
 	// HashSize defines the size of hash
 	HashSize = 32
@@ -28,3 +30,17 @@ type (
 	// DKGHash is 20-byte hash
 	DKGHash [DKGHashSize]byte
 )
+
+// Hash160b returns 160-bit (20-byte) hash of input
+func Hash160b(input []byte) []byte {
+	// use Blake2b algorithm
+	digest := blake2b.Sum256(input)
+	return digest[7:27]
+}
+
+// Hash256b returns 256-bit (32-byte) hash of input
+func Hash256b(input []byte) []byte {
+	// use Blake2b algorithm
+	digest := blake2b.Sum256(input)
+	return digest[:]
+}

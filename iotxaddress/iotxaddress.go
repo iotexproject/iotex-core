@@ -20,10 +20,9 @@ package iotxaddress
 import (
 	"errors"
 
-	"golang.org/x/crypto/blake2b"
-
 	cp "github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/iotxaddress/bech32"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/version"
 )
@@ -67,6 +66,26 @@ func NewAddress(isTestnet bool, chainid []byte) (*Address, error) {
 
 	addr.PrivateKey = pri
 	return addr, nil
+}
+
+// GetAddressByHash returns the address given a 20-byte hash
+func GetAddressByHash(hash []byte, isTestnet bool, chainid []byte) (*Address, error) {
+	hrp := mainnetPrefix
+	if isTestnet {
+		hrp = testnetPrefix
+	}
+
+	payload := append([]byte{version.ProtocolVersion}, append(chainid, hash...)...)
+	// Group the payload into 5 bit groups.
+	grouped, err := bech32.ConvertBits(payload, 8, 5, true)
+	if err != nil {
+		return nil, err
+	}
+	raddr, err := bech32.Encode(hrp, grouped)
+	if err != nil {
+		return nil, err
+	}
+	return &Address{RawAddress: raddr}, nil
 }
 
 // GetAddress returns the address given a public key and necessary params.
@@ -133,9 +152,7 @@ func ValidateAddress(address string) bool {
 
 // HashPubKey returns the hash of public key
 func HashPubKey(pubKey keypair.PublicKey) []byte {
-	// use Blake2b algorithm
-	digest := blake2b.Sum256(pubKey[:])
-	return digest[7:27]
+	return hash.Hash160b(pubKey[:])
 }
 
 func isValidHrp(hrp string) bool {
