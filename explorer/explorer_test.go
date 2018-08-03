@@ -8,7 +8,6 @@ package explorer
 
 import (
 	"context"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -413,7 +412,7 @@ func TestService_SendTransfer(t *testing.T) {
 	require.Nil(err)
 	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any()).Times(1)
 	p2p.EXPECT().Broadcast(gomock.Any()).Times(1)
-	response, err = svc.SendTransfer(explorer.SendTransferRequest{hex.EncodeToString(stsf[:])})
+	response, err = svc.SendTransfer(explorer.SendTransferRequest{SerlializedTransfer: string(stsf[:])})
 	require.Equal(true, response.TransferSent)
 	require.Nil(err)
 }
@@ -438,7 +437,7 @@ func TestService_SendVote(t *testing.T) {
 	require.Nil(err)
 	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any()).Times(1)
 	p2p.EXPECT().Broadcast(gomock.Any()).Times(1)
-	response, err = svc.SendVote(explorer.SendVoteRequest{hex.EncodeToString(svote[:])})
+	response, err = svc.SendVote(explorer.SendVoteRequest{SerializedVote: string(svote[:])})
 	require.Equal(true, response.VoteSent)
 	require.Nil(err)
 }

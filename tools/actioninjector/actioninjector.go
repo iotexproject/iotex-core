@@ -10,7 +10,6 @@
 package main
 
 import (
-	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"io/ioutil"
@@ -222,7 +221,7 @@ func injectTransfer(
 	}
 
 	for i := 0; i < retryNum; i++ {
-		if _, err = c.SendTransfer(exp.SendTransferRequest{hex.EncodeToString(stsf[:])}); err == nil {
+		if _, err = c.SendTransfer(exp.SendTransferRequest{SerlializedTransfer: string(stsf[:])}); err == nil {
 			break
 		}
 		time.Sleep(time.Duration(retryInterval) * time.Second)
@@ -273,7 +272,7 @@ func injectVote(
 	}
 
 	for i := 0; i < retryNum; i++ {
-		if _, err = c.SendVote(exp.SendVoteRequest{SerializedVote: hex.EncodeToString(svote[:])}); err == nil {
+		if _, err = c.SendVote(exp.SendVoteRequest{SerializedVote: string(svote[:])}); err == nil {
 			break
 		}
 		time.Sleep(time.Duration(retryInterval) * time.Second)

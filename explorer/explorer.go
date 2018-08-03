@@ -687,11 +687,7 @@ func (exp *Service) SendTransfer(request explorer.SendTransferRequest) (explorer
 	}
 
 	tsfJSON := &explorer.Transfer{}
-	serializedTransfer, err := hex.DecodeString(request.SerlializedTransfer)
-	if err != nil {
-		return explorer.SendTransferResponse{}, err
-	}
-	if err := json.Unmarshal(serializedTransfer, tsfJSON); err != nil {
+	if err := json.Unmarshal([]byte(request.SerlializedTransfer), tsfJSON); err != nil {
 		return explorer.SendTransferResponse{}, err
 	}
 	amount := big.NewInt(tsfJSON.Amount).Bytes()
@@ -738,11 +734,7 @@ func (exp *Service) SendVote(request explorer.SendVoteRequest) (explorer.SendVot
 	}
 
 	voteJSON := &explorer.Vote{}
-	serialzedVote, err := hex.DecodeString(request.SerializedVote)
-	if err != nil {
-		return explorer.SendVoteResponse{}, err
-	}
-	if err := json.Unmarshal(serialzedVote, voteJSON); err != nil {
+	if err := json.Unmarshal([]byte(request.SerializedVote), voteJSON); err != nil {
 		return explorer.SendVoteResponse{}, err
 	}
 	selfPubKey, err := keypair.StringToPubKeyBytes(voteJSON.VoterPubKey)
