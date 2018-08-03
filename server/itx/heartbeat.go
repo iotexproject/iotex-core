@@ -34,7 +34,7 @@ func NewHeartbeatHandler(s *Server) *HeartbeatHandler {
 // Log executes the logging logic
 func (h *HeartbeatHandler) Log() {
 	// Network metrics
-	p2p, ok := h.s.P2p().(*network.IotxOverlay)
+	p2p, ok := h.s.P2P().(*network.IotxOverlay)
 	if !ok {
 		logger.Error().Msg("value is not the instance of IotxOverlay")
 		return
@@ -55,7 +55,7 @@ func (h *HeartbeatHandler) Log() {
 	lastInTime := p2p.RPC.LastReqTime()
 
 	// Dispatcher metrics
-	dp, ok := h.s.Dp().(*dispatch.IotxDispatcher)
+	dp, ok := h.s.Dispatcher().(*dispatch.IotxDispatcher)
 	if !ok {
 		logger.Error().Msg("dispatcher is not the instance of IotxDispatcher")
 		return
@@ -63,7 +63,7 @@ func (h *HeartbeatHandler) Log() {
 	numDPEvts := len(*dp.EventChan())
 
 	// Consensus metrics
-	cs, ok := h.s.cs.(*consensus.IotxConsensus)
+	cs, ok := h.s.consensus.(*consensus.IotxConsensus)
 	if !ok {
 		logger.Error().Msg("consensus is not the instance of IotxConsensus")
 		return
@@ -79,7 +79,7 @@ func (h *HeartbeatHandler) Log() {
 	}
 
 	// Block metrics
-	height, err := h.s.Bc().TipHeight()
+	height, err := h.s.Blockchain().TipHeight()
 	if err != nil {
 		logger.Error().Err(err).Msg("error one getting the the blockchain height")
 		height = 0

@@ -7,68 +7,118 @@
 package explorer
 
 import (
+	"net"
 	"net/http"
 	"strconv"
 
 	"github.com/coopernurse/barrister-go"
-	"github.com/golang/protobuf/proto"
+	"github.com/pkg/errors"
+	"golang.org/x/net/context"
 
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/dispatch/dispatcher"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/network"
 )
 
-// LogFilter example of Filter implementation
-type LogFilter struct{}
+// Server is the container of the explorer service
+type Server struct {
+	cfg     config.Explorer
+	exp     explorer.Explorer
+	jrpcSvr barrister.Server
+	httpSvr http.Server
+	port    int
+}
+
+// NewServer instantiates an explorer server
+func NewServer(
+	cfg config.Explorer,
+	chain blockchain.Blockchain,
+	consensus consensus.Consensus,
+	dispatcher dispatcher.Dispatcher,
+	actPool actpool.ActPool,
+	p2p network.Overlay,
+) *Server {
+	return &Server{
+		cfg: cfg,
+		exp: &Service{
+			bc:        chain,
+			c:         consensus,
+			dp:        dispatcher,
+			ap:        actPool,
+			p2p:       p2p,
+			tpsWindow: cfg.TpsWindow,
+		},
+	}
+}
+
+// NewTestSever instantiates an explorer server with mock handler
+func NewTestSever(cfg config.Explorer) *Server {
+	return &Server{
+		cfg: cfg,
+		exp: &MockExplorer{},
+	}
+}
+
+// Start starts the explorer server
+func (s *Server) Start(_ context.Context) error {
+	portStr := strconv.Itoa(s.cfg.Port)
+	started := make(chan bool)
+	go func(started chan bool) {
+		idl := barrister.MustParseIdlJson([]byte(explorer.IdlJsonRaw))
+		s.jrpcSvr = explorer.NewJSONServer(idl, true, s.exp)
+		s.jrpcSvr.AddFilter(logFilter{})
+		s.httpSvr = http.Server{Handler: &s.jrpcSvr}
+		listener, err := net.Listen("tcp", ":"+portStr)
+		if err != nil {
+			logger.Panic().Err(err).Msg("error when creating network listener")
+		}
+		logger.Info().Msgf("Starting Explorer JSON-RPC server on %s", listener.Addr().String())
+		_, port, err := net.SplitHostPort(listener.Addr().String())
+		if err != nil {
+			logger.Panic().Err(err).Msgf("error when spliting addr %s", listener.Addr().String())
+		}
+		s.port, err = strconv.Atoi(port)
+		if err != nil {
+			logger.Panic().Err(err).Msgf("error when converting port %s to int", port)
+		}
+		started <- true
+		if err := s.httpSvr.Serve(listener); err != nil && err != http.ErrServerClosed {
+			logger.Panic().Err(err).Msg("error when serving JSON-RPC requests")
+		}
+	}(started)
+	<-started
+	return nil
+}
+
+// Stop stops the explorer server
+func (s *Server) Stop(ctx context.Context) error {
+	if err := s.httpSvr.Shutdown(ctx); err != nil {
+		return errors.Wrap(err, "error when shutting down explorer http server")
+	}
+	return nil
+}
+
+// Port returns the actually binding port
+func (s *Server) Port() int {
+	return s.port
+}
+
+// logFilter example of Filter implementation
+type logFilter struct{}
 
 // PreInvoke implement empty preinvoke
-func (f LogFilter) PreInvoke(r *barrister.RequestResponse) bool {
-	logger.Debug().Msgf("LogFilter: PreInvoke of method:", r.Method)
+func (f logFilter) PreInvoke(r *barrister.RequestResponse) bool {
+	logger.Debug().Msgf("logFilter: PreInvoke of method:", r.Method)
 	return true
 }
 
 // PostInvoke implement empty postinvoke
-func (f LogFilter) PostInvoke(r *barrister.RequestResponse) bool {
-	logger.Debug().Msgf("LogFilter: PostInvoke of method:", r.Method)
+func (f logFilter) PostInvoke(r *barrister.RequestResponse) bool {
+	logger.Debug().Msgf("logFilter: PostInvoke of method:", r.Method)
 	return true
-}
-
-// StartJSONServer start the json server for explorer
-func StartJSONServer(
-	blockchain blockchain.Blockchain,
-	consensus consensus.Consensus,
-	dp dispatcher.Dispatcher,
-	ap actpool.ActPool,
-	cb func(proto.Message) error,
-	isTest bool,
-	port int,
-	tpsWindow int,
-) {
-	svc := Service{
-		bc:          blockchain,
-		c:           consensus,
-		dp:          dp,
-		ap:          ap,
-		broadcastcb: cb,
-		tpsWindow:   tpsWindow,
-	}
-	idl := barrister.MustParseIdlJson([]byte(explorer.IdlJsonRaw))
-	svr := explorer.NewJSONServer(idl, true, &svc)
-	if isTest {
-		svr = explorer.NewJSONServer(idl, true, &MockExplorer{})
-	}
-	svr.AddFilter(LogFilter{})
-	http.Handle("/", &svr)
-
-	portStr := strconv.Itoa(port)
-	logger.Info().Msg("Starting Explorer JSON-RPC server on localhost:" + portStr)
-	go func() {
-		if err := http.ListenAndServe(":"+portStr, nil); err != nil {
-			logger.Error().Msg(err.Error())
-			panic(err)
-		}
-	}()
 }

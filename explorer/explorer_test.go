@@ -15,7 +15,6 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/actpool"
@@ -28,6 +27,7 @@ import (
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_consensus"
 	"github.com/iotexproject/iotex-core/test/mock/mock_dispatcher"
+	"github.com/iotexproject/iotex-core/test/mock/mock_network"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -400,10 +400,8 @@ func TestService_SendTransfer(t *testing.T) {
 	defer ctrl.Finish()
 
 	mDp := mock_dispatcher.NewMockDispatcher(ctrl)
-	bcb := func(msg proto.Message) error {
-		return nil
-	}
-	svc := Service{dp: mDp, broadcastcb: bcb}
+	p2p := mock_network.NewMockOverlay(ctrl)
+	svc := Service{dp: mDp, p2p: p2p}
 
 	request := explorer.SendTransferRequest{}
 	response, err := svc.SendTransfer(request)
@@ -414,6 +412,7 @@ func TestService_SendTransfer(t *testing.T) {
 	stsf, err := json.Marshal(tsfJSON)
 	require.Nil(err)
 	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any()).Times(1)
+	p2p.EXPECT().Broadcast(gomock.Any()).Times(1)
 	response, err = svc.SendTransfer(explorer.SendTransferRequest{hex.EncodeToString(stsf[:])})
 	require.Equal(true, response.TransferSent)
 	require.Nil(err)
@@ -426,10 +425,8 @@ func TestService_SendVote(t *testing.T) {
 	defer ctrl.Finish()
 
 	mDp := mock_dispatcher.NewMockDispatcher(ctrl)
-	bcb := func(msg proto.Message) error {
-		return nil
-	}
-	svc := Service{dp: mDp, broadcastcb: bcb}
+	p2p := mock_network.NewMockOverlay(ctrl)
+	svc := Service{dp: mDp, p2p: p2p}
 
 	request := explorer.SendVoteRequest{}
 	response, err := svc.SendVote(request)
@@ -440,6 +437,7 @@ func TestService_SendVote(t *testing.T) {
 	svote, err := json.Marshal(voteJSON)
 	require.Nil(err)
 	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any()).Times(1)
+	p2p.EXPECT().Broadcast(gomock.Any()).Times(1)
 	response, err = svc.SendVote(explorer.SendVoteRequest{hex.EncodeToString(svote[:])})
 	require.Equal(true, response.VoteSent)
 	require.Nil(err)

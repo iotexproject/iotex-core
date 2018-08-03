@@ -17,111 +17,142 @@ import (
 	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/dispatch"
 	"github.com/iotexproject/iotex-core/dispatch/dispatcher"
+	"github.com/iotexproject/iotex-core/explorer"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network"
 )
 
 // Server is the iotex server instance containing all components.
 type Server struct {
-	bc  blockchain.Blockchain
-	ap  actpool.ActPool
-	o   network.Overlay
-	dp  dispatcher.Dispatcher
-	cfg *config.Config
-	cs  consensus.Consensus
+	chain      blockchain.Blockchain
+	actPool    actpool.ActPool
+	p2p        network.Overlay
+	dispatcher dispatcher.Dispatcher
+	cfg        *config.Config
+	consensus  consensus.Consensus
+	explorer   *explorer.Server
 }
 
 // NewServer creates a new server
 func NewServer(cfg *config.Config) *Server {
 	// create Blockchain
-	bc := blockchain.NewBlockchain(cfg, blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption())
-	return newServer(cfg, bc)
+	chain := blockchain.NewBlockchain(cfg, blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption())
+	return newServer(cfg, chain)
 }
 
 // NewInMemTestServer creates a test server in memory
 func NewInMemTestServer(cfg *config.Config) *Server {
-	bc := blockchain.NewBlockchain(cfg, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
-	return newServer(cfg, bc)
+	chain := blockchain.NewBlockchain(cfg, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	return newServer(cfg, chain)
 }
 
 // Start starts the server
 func (s *Server) Start(ctx context.Context) error {
-	if err := s.dp.Start(ctx); err != nil {
-		logger.Error().Err(err)
-		return err
+	if err := s.dispatcher.Start(ctx); err != nil {
+		logger.Panic().Err(err).Msg("error when starting dispatcher")
+		return nil
 	}
-	if err := s.o.Start(ctx); err != nil {
-		logger.Error().Err(err)
-		return err
+	if err := s.p2p.Start(ctx); err != nil {
+		logger.Panic().Err(err).Msg("error when starting P2P networks")
+		return nil
+	}
+	if err := s.explorer.Start(ctx); err != nil {
+		logger.Panic().Err(err).Msg("error when starting explorer")
+		return nil
 	}
 	return nil
 }
 
 // Stop stops the server
 func (s *Server) Stop(ctx context.Context) error {
-	s.o.Stop(ctx)
-	s.dp.Stop(ctx)
-	s.bc.Stop(ctx)
-	os.Remove(s.cfg.Chain.ChainDBPath)
+	if err := s.explorer.Stop(ctx); err != nil {
+		logger.Panic().Err(err).Msg("error when stopping explorer")
+		return nil
+	}
+	if err := s.p2p.Stop(ctx); err != nil {
+		logger.Panic().Err(err).Msg("error when stopping P2P networks")
+		return nil
+	}
+	if err := s.dispatcher.Stop(ctx); err != nil {
+		logger.Panic().Err(err).Msg("error when stopping dispatcher")
+		return nil
+	}
+	if err := s.chain.Stop(ctx); err != nil {
+		logger.Panic().Err(err).Msg("error when stopping blockchain")
+		return nil
+	}
 	return nil
 }
 
-// Bc returns the Blockchain
-func (s *Server) Bc() blockchain.Blockchain {
-	return s.bc
+// Blockchain returns the Blockchain
+func (s *Server) Blockchain() blockchain.Blockchain {
+	return s.chain
 }
 
-// Ap returns the Action pool
-func (s *Server) Ap() actpool.ActPool {
-	return s.ap
+// ActionPool returns the Action pool
+func (s *Server) ActionPool() actpool.ActPool {
+	return s.actPool
 }
 
-// P2p returns the P2P network
-func (s *Server) P2p() network.Overlay {
-	return s.o
+// P2P returns the P2P network
+func (s *Server) P2P() network.Overlay {
+	return s.p2p
 }
 
-// Dp returns the Dispatcher
-func (s *Server) Dp() dispatcher.Dispatcher {
-	return s.dp
+// Dispatcher returns the Dispatcher
+func (s *Server) Dispatcher() dispatcher.Dispatcher {
+	return s.dispatcher
 }
 
-// Cs returns the consensus instance
-func (s *Server) Cs() consensus.Consensus {
-	return s.cs
+// Consensus returns the consensus instance
+func (s *Server) Consensus() consensus.Consensus {
+	return s.consensus
 }
 
-func newServer(cfg *config.Config, bc blockchain.Blockchain) *Server {
+// Explorer returns the explorer instance
+func (s *Server) Explorer() *explorer.Server {
+	return s.explorer
+}
 
+func newServer(cfg *config.Config, chain blockchain.Blockchain) *Server {
 	// create P2P network and BlockSync
-	o := network.NewOverlay(&cfg.Network)
+	p2p := network.NewOverlay(&cfg.Network)
 	// Create ActPool
-	ap, err := actpool.NewActPool(bc, cfg.ActPool)
+	actPool, err := actpool.NewActPool(chain, cfg.ActPool)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Fail to create actpool")
 	}
-	bs, err := blocksync.NewBlockSyncer(cfg, bc, ap, o)
+	bs, err := blocksync.NewBlockSyncer(cfg, chain, actPool, p2p)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Fail to create blockSyncer")
 	}
-	cs := consensus.NewConsensus(cfg, bc, ap, bs)
-	if cs == nil {
+	consensus := consensus.NewConsensus(cfg, chain, actPool, bs)
+	if consensus == nil {
 		logger.Fatal().Msg("Failed to create Consensus")
 	}
 
 	// create dispatcher instance
-	dp, err := dispatch.NewDispatcher(cfg, ap, bs, cs)
+	dispatcher, err := dispatch.NewDispatcher(cfg, actPool, bs, consensus)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Fail to create dispatcher")
 	}
-	o.AttachDispatcher(dp)
+	p2p.AttachDispatcher(dispatcher)
+
+	var exp *explorer.Server
+	if cfg.Explorer.IsTest || os.Getenv("APP_ENV") == "development" {
+		logger.Warn().Msg("Using test server with fake data...")
+		exp = explorer.NewTestSever(cfg.Explorer)
+	} else {
+		exp = explorer.NewServer(cfg.Explorer, chain, consensus, dispatcher, actPool, p2p)
+	}
 
 	return &Server{
-		bc:  bc,
-		ap:  ap,
-		o:   o,
-		dp:  dp,
-		cfg: cfg,
-		cs:  cs,
+		cfg:        cfg,
+		chain:      chain,
+		actPool:    actPool,
+		p2p:        p2p,
+		dispatcher: dispatcher,
+		consensus:  consensus,
+		explorer:   exp,
 	}
 }

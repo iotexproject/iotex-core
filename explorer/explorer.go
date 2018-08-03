@@ -11,7 +11,6 @@ import (
 	"encoding/json"
 	"math/big"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/actpool"
@@ -21,6 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/network"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	pb "github.com/iotexproject/iotex-core/proto"
@@ -31,12 +31,12 @@ var ErrInternalServer = errors.New("internal server error")
 
 // Service provide api for user to query blockchain data
 type Service struct {
-	bc          blockchain.Blockchain
-	c           consensus.Consensus
-	dp          dispatcher.Dispatcher
-	ap          actpool.ActPool
-	broadcastcb func(proto.Message) error
-	tpsWindow   int
+	bc        blockchain.Blockchain
+	c         consensus.Consensus
+	dp        dispatcher.Dispatcher
+	ap        actpool.ActPool
+	p2p       network.Overlay
+	tpsWindow int
 }
 
 // GetBlockchainHeight returns the current blockchain tip height
@@ -723,7 +723,7 @@ func (exp *Service) SendTransfer(request explorer.SendTransferRequest) (explorer
 	// Wrap TransferPb as an ActionPb
 	action := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsfPb}}
 	// broadcast to the network
-	if err := exp.broadcastcb(action); err != nil {
+	if err := exp.p2p.Broadcast(action); err != nil {
 		return explorer.SendTransferResponse{}, err
 	}
 	// send to actpool via dispatcher
@@ -765,7 +765,7 @@ func (exp *Service) SendVote(request explorer.SendVoteRequest) (explorer.SendVot
 	// Wrap VotePb as an ActionPb
 	action := &pb.ActionPb{Action: &pb.ActionPb_Vote{votePb}}
 	// broadcast to the network
-	if err := exp.broadcastcb(action); err != nil {
+	if err := exp.p2p.Broadcast(action); err != nil {
 		return explorer.SendVoteResponse{}, err
 	}
 	// send to actpool via dispatcher

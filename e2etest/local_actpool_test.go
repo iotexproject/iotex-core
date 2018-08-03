@@ -51,10 +51,10 @@ func TestLocalActPool(t *testing.T) {
 	ctx := context.Background()
 	svr := itx.NewServer(cfg)
 	require.NoError(svr.Start(ctx))
-	require.NotNil(svr.Ap())
+	require.NotNil(svr.ActionPool())
 
 	// create client
-	cfg.Network.BootstrapNodes = []string{svr.P2p().Self().String()}
+	cfg.Network.BootstrapNodes = []string{svr.P2P().Self().String()}
 	cli := network.NewOverlay(&cfg.Network)
 	require.NotNil(cli)
 	require.NoError(cli.Start(ctx))
@@ -70,7 +70,7 @@ func TestLocalActPool(t *testing.T) {
 	to := testutil.ConstructAddress(toPubKey, toPrivKey)
 
 	require.NoError(testutil.WaitUntil(100*time.Millisecond, 5*time.Second, func() (bool, error) {
-		return len(svr.P2p().GetPeers()) == 1 && len(cli.GetPeers()) == 1, nil
+		return len(svr.P2P().GetPeers()) == 1 && len(cli.GetPeers()) == 1, nil
 	}))
 
 	// Create three valid actions from "from" to "to"
@@ -95,7 +95,7 @@ func TestLocalActPool(t *testing.T) {
 
 	// Wait until server receives all the transfers
 	require.NoError(testutil.WaitUntil(100*time.Millisecond, 5*time.Second, func() (bool, error) {
-		transfers, votes := svr.Ap().PickActs()
+		transfers, votes := svr.ActionPool().PickActs()
 		// 2 valid transfers and 1 valid vote
 		return len(transfers) == 2 && len(votes) == 1, nil
 	}))
@@ -117,10 +117,10 @@ func TestPressureActPool(t *testing.T) {
 	ctx := context.Background()
 	svr := itx.NewServer(cfg)
 	require.Nil(svr.Start(ctx))
-	require.NotNil(svr.Ap())
+	require.NotNil(svr.ActionPool())
 
 	// create client
-	cfg.Network.BootstrapNodes = []string{svr.P2p().Self().String()}
+	cfg.Network.BootstrapNodes = []string{svr.P2P().Self().String()}
 	cli := network.NewOverlay(&cfg.Network)
 	require.NotNil(cli)
 	require.Nil(cli.Start(ctx))
@@ -136,7 +136,7 @@ func TestPressureActPool(t *testing.T) {
 	to := testutil.ConstructAddress(toPubKey, toPrivKey)
 
 	require.NoError(testutil.WaitUntil(100*time.Millisecond, 5*time.Second, func() (bool, error) {
-		return len(svr.P2p().GetPeers()) == 1 && len(cli.GetPeers()) == 1, nil
+		return len(svr.P2P().GetPeers()) == 1 && len(cli.GetPeers()) == 1, nil
 	}))
 
 	require.Nil(err)
@@ -147,7 +147,7 @@ func TestPressureActPool(t *testing.T) {
 
 	// Wait until committed blocks contain all broadcasted actions
 	err = testutil.WaitUntil(10*time.Millisecond, 10*time.Second, func() (bool, error) {
-		transfers, _ := svr.Ap().PickActs()
+		transfers, _ := svr.ActionPool().PickActs()
 		return len(transfers) == 1000, nil
 	})
 	require.Nil(err)
@@ -185,6 +185,7 @@ func newActPoolConfig() (*config.Config, error) {
 	cfg.Consensus.Scheme = config.NOOPScheme
 	cfg.Network.Port = 0
 	cfg.Network.PeerMaintainerInterval = 100 * time.Millisecond
+	cfg.Explorer.Port = 0
 
 	addr, err := iotxaddress.NewAddress(true, iotxaddress.ChainID)
 	if err != nil {
