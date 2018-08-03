@@ -459,6 +459,22 @@ func (bc *blockchain) ValidateBlock(blk *Block) error {
 		panic("no block validator")
 	}
 
+	// replacement logic, used to replace a fake old dummy block
+	if blk.Height() != 0 && blk.Height() <= bc.tipHeight {
+		oldDummyBlock, err := bc.GetBlockByHeight(blk.Height())
+		if err != nil {
+			return errors.Wrapf(err, "The height of the new block is invalid")
+		}
+		if !oldDummyBlock.IsDummyBlock() {
+			return errors.New("The replaced block is not a dummy block")
+		}
+		lastBlock, err := bc.GetBlockByHeight(blk.Height() - 1)
+		if err != nil {
+			return errors.Wrapf(err, "Failed to get the last block when replacing the dummy block")
+		}
+		return bc.validator.Validate(blk, lastBlock.Height(), lastBlock.HashBlock())
+	}
+
 	return bc.validator.Validate(blk, bc.tipHeight, bc.tipHash)
 }
 
