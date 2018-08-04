@@ -76,7 +76,7 @@ func (pm *PeerManager) AddPeer(addr string) {
 		if found {
 			logger.Debug().
 				Str("nHost", nHost).
-				Msg("Another node on the same IP is already the peer")
+				Msg("Another node on the same Host is already the peer")
 			return
 		}
 	}

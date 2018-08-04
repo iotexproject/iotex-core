@@ -43,7 +43,7 @@ func LoadTestConfig(addr string, allowMultiConnsPerIP bool) *config.Network {
 	config := config.Config{
 		NodeType: config.DelegateType,
 		Network: config.Network{
-			IP:   ip,
+			Host: ip,
 			Port: port,
 			MsgLogsCleaningInterval: 2 * time.Second,
 			MsgLogRetention:         10 * time.Second,

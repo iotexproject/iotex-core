@@ -56,7 +56,7 @@ var (
 	Default = Config{
 		NodeType: FullNodeType,
 		Network: Network{
-			IP:   "127.0.0.1",
+			Host: "127.0.0.1",
 			Port: 4689,
 			MsgLogsCleaningInterval: 2 * time.Second,
 			MsgLogRetention:         5 * time.Second,
@@ -152,7 +152,7 @@ var (
 // Network is the config struct for network package
 type (
 	Network struct {
-		IP                      string                      `yaml:"ip"`
+		Host                    string                      `yaml:"ip"`
 		Port                    int                         `yaml:"port"`
 		MsgLogsCleaningInterval time.Duration               `yaml:"msgLogsCleaningInterval"`
 		MsgLogRetention         time.Duration               `yaml:"msgLogRetention"`
