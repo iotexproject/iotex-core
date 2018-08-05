@@ -7,6 +7,7 @@
 package blockchain
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"math/big"
@@ -222,6 +223,7 @@ func TestWrongNonce(t *testing.T) {
 	require := require.New(t)
 	sf, err := state.NewFactory(cfg, state.DefaultTrieOption())
 	require.NoError(err)
+	require.NoError(sf.Start(context.Background()))
 	_, err = sf.CreateState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
 	assert.NoError(t, err)
 	val := validator{sf}
@@ -336,6 +338,7 @@ func TestWrongCoinbaseTsf(t *testing.T) {
 	require := require.New(t)
 	sf, err := state.NewFactory(cfg, state.DefaultTrieOption())
 	require.NoError(err)
+	require.NoError(sf.Start(context.Background()))
 	_, err = sf.CreateState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
 	assert.NoError(t, err)
 	val := validator{sf}

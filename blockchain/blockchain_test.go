@@ -203,8 +203,9 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 
 	sf, err := state.NewFactory(&cfg, state.DefaultTrieOption())
 	require.Nil(err)
+	require.NoError(sf.Start(context.Background()))
 	_, err = sf.CreateState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
-	assert.NoError(t, err)
+	require.NoError(err)
 
 	// Create a blockchain from scratch
 	bc := NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
@@ -410,6 +411,7 @@ func TestBlockchain_MintNewDummyBlock(t *testing.T) {
 	require := require.New(t)
 	sf, err := state.NewFactory(cfg, state.DefaultTrieOption())
 	require.NoError(err)
+	require.NoError(sf.Start(context.Background()))
 	val := validator{sf}
 
 	ctx := context.Background()
@@ -450,12 +452,13 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 
 	sf, err := state.NewFactory(&cfg, state.DefaultTrieOption())
 	require.Nil(err)
+	require.NoError(sf.Start(context.Background()))
 
 	height, candidate := sf.Candidates()
 	require.True(height == 0)
 	require.True(len(candidate) == 0)
 	bc := NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
-	require.NotNil(t, bc)
+	require.NotNil(bc)
 	// TODO: change the value when Candidates size is changed
 	height, candidate = sf.Candidates()
 	require.True(height == 0)
@@ -476,6 +479,7 @@ func TestCoinbaseTransfer(t *testing.T) {
 
 	sf, err := state.NewFactory(&cfg, state.DefaultTrieOption())
 	require.Nil(err)
+	require.NoError(sf.Start(context.Background()))
 	_, err = sf.CreateState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
 	assert.NoError(t, err)
 
@@ -539,6 +543,7 @@ func TestBlocks(t *testing.T) {
 	cfg.Chain.ChainDBPath = testDBPath
 
 	sf, _ := state.NewFactory(&cfg, state.InMemTrieOption())
+	require.NoError(sf.Start(context.Background()))
 	sf.CreateState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
 
 	// Create a blockchain from scratch
@@ -577,6 +582,7 @@ func TestActions(t *testing.T) {
 	cfg.Chain.ChainDBPath = testDBPath
 
 	sf, _ := state.NewFactory(&cfg, state.InMemTrieOption())
+	require.NoError(sf.Start(context.Background()))
 	sf.CreateState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
 
 	// Create a blockchain from scratch
@@ -617,6 +623,7 @@ func TestDummyReplacement(t *testing.T) {
 	cfg.Chain.ChainDBPath = testDBPath
 
 	sf, _ := state.NewFactory(&cfg, state.InMemTrieOption())
+	require.NoError(sf.Start(context.Background()))
 	sf.CreateState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
 
 	// Create a blockchain from scratch
