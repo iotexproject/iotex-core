@@ -70,7 +70,7 @@ func generateP2P() network.Overlay {
 		PeerMaintainerInterval:  time.Second,
 		NumPeersLowerBound:      5,
 		NumPeersUpperBound:      5,
-		AllowMultiConnsPerIP:    true,
+		AllowMultiConnsPerHost:  true,
 		RateLimitEnabled:        false,
 		PingInterval:            time.Second,
 		BootstrapNodes:          []string{"127.0.0.1:10001", "127.0.0.1:10002"},

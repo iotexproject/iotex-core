@@ -49,7 +49,7 @@ func (pm *PeerManager) AddPeer(addr string) {
 			Msg("Node at address is already the peer")
 		return
 	}
-	if !pm.Overlay.Config.AllowMultiConnsPerIP {
+	if !pm.Overlay.Config.AllowMultiConnsPerHost {
 		nHost, _, err := net.SplitHostPort(addr)
 		if err != nil {
 			logger.Error().
