@@ -16,6 +16,7 @@ import (
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 )
 
 var (
@@ -42,8 +43,8 @@ var (
 type (
 	// Trie is the interface of Merkle Patricia Trie
 	Trie interface {
+		lifecycle.StartStopper
 		TrieDB() db.KVStore              // return the underlying DB instance
-		Close() error                    // close the trie DB
 		Upsert([]byte, []byte) error     // insert a new entry
 		Get([]byte) ([]byte, error)      // retrieve an existing entry
 		Delete([]byte) error             // delete an entry
@@ -56,6 +57,7 @@ type (
 
 	// trie implements the Trie interface
 	trie struct {
+		lifecycle lifecycle.Lifecycle
 		mutex     sync.RWMutex
 		dao       db.KVStore
 		root      patricia
@@ -75,40 +77,25 @@ type (
 )
 
 // NewTrie creates a trie with DB filename
-func NewTrie(path string, name string, root hash.Hash32B, inMem bool) (Trie, error) {
-	var kvStore db.KVStore
-	if inMem {
-		kvStore = db.NewMemKVStore()
-	} else {
-		kvStore = db.NewBoltDB(path, nil)
-	}
+func NewTrie(kvStore db.KVStore, name string, root hash.Hash32B) (Trie, error) {
 	if kvStore == nil {
 		return nil, errors.New("Failed to create KV store for Trie")
 	}
-	if err := kvStore.Start(context.Background()); err != nil {
-		return nil, err
-	}
 	t, err := newTrie(kvStore, name, root)
+	t.lifecycle.Add(kvStore)
 	return &t, err
 }
 
-// NewTrieByName creates a trie with same DB instance but different bucket name
-func NewTrieByName(tr Trie, name string, root hash.Hash32B) (Trie, error) {
-	t, err := newTrie(tr.TrieDB(), name, root)
-	return &t, err
+func (t *trie) Start(ctx context.Context) error {
+	t.lifecycle.OnStart(ctx)
+	return t.loadRoot()
 }
+
+func (t *trie) Stop(ctx context.Context) error { return t.lifecycle.OnStop(ctx) }
 
 // TrieDB return the underlying DB instance
 func (t *trie) TrieDB() db.KVStore {
 	return t.dao
-}
-
-// Close close the DB
-func (t *trie) Close() error {
-	t.mutex.Lock()
-	defer t.mutex.Unlock()
-
-	return t.dao.Stop(context.Background())
 }
 
 // Upsert a new entry
@@ -208,7 +195,7 @@ func (t *trie) RootHash() hash.Hash32B {
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
 
-	return t.root.hash()
+	return t.rehashRoot()
 }
 
 //======================================
@@ -217,9 +204,6 @@ func (t *trie) RootHash() hash.Hash32B {
 // newTrie creates a trie
 func newTrie(dao db.KVStore, name string, root hash.Hash32B) (trie, error) {
 	t := trie{dao: dao, rootHash: root, toRoot: list.New(), bucket: name, numEntry: 1, numBranch: 1}
-	if err := t.loadRoot(); err != nil {
-		return t, err
-	}
 	return t, nil
 }
 
@@ -235,7 +219,7 @@ func (t *trie) loadRoot() error {
 	}
 	// initial empty trie
 	t.root = &branch{}
-	return t.putPatriciaNew(t.root)
+	return t.putPatricia(t.root)
 }
 
 // upsert a new entry
@@ -391,6 +375,7 @@ func (t *trie) delete(ptr patricia, index byte) (bool, byte, error) {
 
 // updateInsert rewinds the path back to root and updates nodes along the way
 func (t *trie) updateInsert(hashChild []byte) error {
+	defer t.rehashRoot()
 	for t.toRoot.Len() > 0 {
 		curr, index := t.popToRoot()
 		if curr == nil {
@@ -419,6 +404,7 @@ func (t *trie) updateInsert(hashChild []byte) error {
 
 // updateDelete rewinds the path back to root and updates nodes along the way
 func (t *trie) updateDelete(curr patricia, currClps bool, clpsType byte) error {
+	defer t.rehashRoot()
 	contClps := false
 	for t.toRoot.Len() > 0 {
 		logger.Debug().Int("stack size", t.toRoot.Len()).Msg("clps")
@@ -485,6 +471,11 @@ func (t *trie) updateDelete(curr patricia, currClps bool, clpsType byte) error {
 		curr = next
 	}
 	return nil
+}
+
+func (t *trie) rehashRoot() hash.Hash32B {
+	t.rootHash = t.root.hash()
+	return t.rootHash
 }
 
 //======================================

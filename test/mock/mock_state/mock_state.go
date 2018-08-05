@@ -5,6 +5,7 @@
 package mock_state
 
 import (
+	context "context"
 	gomock "github.com/golang/mock/gomock"
 	action "github.com/iotexproject/iotex-core/blockchain/action"
 	hash "github.com/iotexproject/iotex-core/pkg/hash"
@@ -34,6 +35,30 @@ func NewMockFactory(ctrl *gomock.Controller) *MockFactory {
 // EXPECT returns an object that allows the caller to indicate expected use
 func (m *MockFactory) EXPECT() *MockFactoryMockRecorder {
 	return m.recorder
+}
+
+// Start mocks base method
+func (m *MockFactory) Start(arg0 context.Context) error {
+	ret := m.ctrl.Call(m, "Start", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Start indicates an expected call of Start
+func (mr *MockFactoryMockRecorder) Start(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockFactory)(nil).Start), arg0)
+}
+
+// Stop mocks base method
+func (m *MockFactory) Stop(arg0 context.Context) error {
+	ret := m.ctrl.Call(m, "Stop", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Stop indicates an expected call of Stop
+func (mr *MockFactoryMockRecorder) Stop(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockFactory)(nil).Stop), arg0)
 }
 
 // CreateState mocks base method

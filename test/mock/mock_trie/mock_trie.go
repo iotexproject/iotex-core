@@ -5,6 +5,7 @@
 package mock_trie
 
 import (
+	context "context"
 	gomock "github.com/golang/mock/gomock"
 	db "github.com/iotexproject/iotex-core/db"
 	hash "github.com/iotexproject/iotex-core/pkg/hash"
@@ -34,6 +35,30 @@ func (m *MockTrie) EXPECT() *MockTrieMockRecorder {
 	return m.recorder
 }
 
+// Start mocks base method
+func (m *MockTrie) Start(arg0 context.Context) error {
+	ret := m.ctrl.Call(m, "Start", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Start indicates an expected call of Start
+func (mr *MockTrieMockRecorder) Start(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockTrie)(nil).Start), arg0)
+}
+
+// Stop mocks base method
+func (m *MockTrie) Stop(arg0 context.Context) error {
+	ret := m.ctrl.Call(m, "Stop", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Stop indicates an expected call of Stop
+func (mr *MockTrieMockRecorder) Stop(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockTrie)(nil).Stop), arg0)
+}
+
 // TrieDB mocks base method
 func (m *MockTrie) TrieDB() db.KVStore {
 	ret := m.ctrl.Call(m, "TrieDB")
@@ -44,18 +69,6 @@ func (m *MockTrie) TrieDB() db.KVStore {
 // TrieDB indicates an expected call of TrieDB
 func (mr *MockTrieMockRecorder) TrieDB() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TrieDB", reflect.TypeOf((*MockTrie)(nil).TrieDB))
-}
-
-// Close mocks base method
-func (m *MockTrie) Close() error {
-	ret := m.ctrl.Call(m, "Close")
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Close indicates an expected call of Close
-func (mr *MockTrieMockRecorder) Close() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockTrie)(nil).Close))
 }
 
 // Upsert mocks base method

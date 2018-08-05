@@ -7,6 +7,7 @@
 package trie
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -24,12 +25,11 @@ const testTriePath = "trie.test"
 func TestEmptyTrie(t *testing.T) {
 	require := require.New(t)
 
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
-	tr, err := NewTrie(testTriePath, "test", EmptyRoot, true)
+	tr, err := NewTrie(db.NewMemKVStore(), "test", EmptyRoot)
 	require.Nil(err)
+	require.Nil(tr.Start(context.Background()))
 	require.Equal(tr.RootHash(), EmptyRoot)
-	require.Nil(tr.Close())
+	require.Nil(tr.Stop(context.Background()))
 }
 
 func Test2Roots(t *testing.T) {
@@ -38,9 +38,10 @@ func Test2Roots(t *testing.T) {
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
 
-	// insert couple of entries
-	tr, err := NewTrie(testTriePath, "test", EmptyRoot, false)
+	// first trie
+	tr, err := NewTrie(db.NewBoltDB(testTriePath, nil), "test", EmptyRoot)
 	require.Nil(err)
+	require.Nil(tr.Start(context.Background()))
 	require.Nil(tr.Upsert(cat, testV[2]))
 	v, err := tr.Get(cat)
 	require.Nil(err)
@@ -54,10 +55,12 @@ func Test2Roots(t *testing.T) {
 	require.Nil(err)
 	require.Equal(testV[4], v)
 	root := tr.RootHash()
+	require.Nil(tr.Stop(context.Background()))
 
-	// insert couple of different entries
-	tr1, err := NewTrieByName(tr, "test1", EmptyRoot)
+	// second trie
+	tr1, err := NewTrie(tr.TrieDB(), "test1", EmptyRoot)
 	require.Nil(err)
+	require.Nil(tr1.Start(context.Background()))
 	require.Nil(tr1.Upsert(dog, testV[3]))
 	v, err = tr1.Get(dog)
 	require.Nil(err)
@@ -72,8 +75,10 @@ func Test2Roots(t *testing.T) {
 	require.Equal(testV[5], v)
 	root1 := tr1.RootHash()
 	require.NotEqual(root, root1)
+	require.Nil(tr1.Stop(context.Background()))
 
-	// load first trie again
+	// start first trie again
+	require.Nil(tr.Start(context.Background()))
 	v, err = tr.Get(cat)
 	require.Nil(err)
 	require.Equal(testV[2], v)
@@ -87,19 +92,24 @@ func Test2Roots(t *testing.T) {
 	v, err = tr.Get(dog)
 	require.Equal(ErrNotExist, errors.Cause(err))
 
-	// load second trie again
-	v, err = tr1.Get(dog)
+	// re-create second trie from its root
+	tr2, err := NewTrie(tr.TrieDB(), "test1", root1)
+	require.Nil(err)
+	require.Nil(tr2.Start(context.Background()))
+	v, err = tr2.Get(dog)
 	require.Nil(err)
 	require.Equal(testV[3], v)
-	v, err = tr1.Get(ham)
+	v, err = tr2.Get(ham)
 	require.Nil(err)
 	require.Equal(testV[0], v)
-	v, err = tr1.Get(fox)
+	v, err = tr2.Get(fox)
 	require.Nil(err)
 	require.Equal(testV[5], v)
 	// does not contain cat
-	v, err = tr1.Get(cat)
+	v, err = tr2.Get(cat)
 	require.Equal(ErrNotExist, errors.Cause(err))
+	require.Nil(tr.Stop(context.Background()))
+	require.Nil(tr2.Stop(context.Background()))
 }
 
 func TestInsert(t *testing.T) {
@@ -107,6 +117,7 @@ func TestInsert(t *testing.T) {
 
 	tr, err := newTrie(db.NewMemKVStore(), "", EmptyRoot)
 	require.Nil(err)
+	require.Nil(tr.Start(context.Background()))
 	root := EmptyRoot
 	require.Equal(uint64(1), tr.numBranch)
 	// query non-existing entry
@@ -296,6 +307,7 @@ func TestInsert(t *testing.T) {
 	require.Nil(err)
 	require.Equal(EmptyRoot, tr.RootHash())
 	require.Equal(uint64(1), tr.numEntry)
+	require.Nil(tr.Stop(context.Background()))
 }
 
 func Test1kEntries(t *testing.T) {
@@ -303,8 +315,9 @@ func Test1kEntries(t *testing.T) {
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
-	tr, err := NewTrie(testTriePath, "test", EmptyRoot, false)
+	tr, err := NewTrie(db.NewBoltDB(testTriePath, nil), "test", EmptyRoot)
 	require.Nil(err)
+	require.Nil(tr.Start(context.Background()))
 	root := EmptyRoot
 	seed := time.Now().Nanosecond()
 	// insert 64k entries
@@ -352,6 +365,7 @@ func Test1kEntries(t *testing.T) {
 	require.Nil(tr.Delete(d3[:8]))
 	// trie should fallback to empty
 	require.Equal(EmptyRoot, tr.RootHash())
+	require.Nil(tr.Stop(context.Background()))
 }
 
 func TestPressure(t *testing.T) {
@@ -361,10 +375,9 @@ func TestPressure(t *testing.T) {
 
 	require := require.New(t)
 
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
-	tr, err := NewTrie(testTriePath, "test", EmptyRoot, true)
+	tr, err := NewTrie(db.NewMemKVStore(), "test", EmptyRoot)
 	require.Nil(err)
+	require.Nil(tr.Start(context.Background()))
 	root := EmptyRoot
 	seed := time.Now().Nanosecond()
 	// insert 64k entries
@@ -405,6 +418,7 @@ func TestPressure(t *testing.T) {
 	require.Nil(tr.Delete(d3[:8]))
 	// trie should fallback to empty
 	require.Equal(EmptyRoot, tr.RootHash())
+	require.Nil(tr.Stop(context.Background()))
 }
 
 func TestQuery(t *testing.T) {
@@ -412,6 +426,7 @@ func TestQuery(t *testing.T) {
 
 	tr, err := newTrie(db.NewMemKVStore(), "", EmptyRoot)
 	require.Nil(err)
+	require.Nil(tr.Start(context.Background()))
 	require.Equal(uint64(1), tr.numBranch)
 	// key length > 0
 	ptr, match, err := tr.query(cat)
@@ -423,4 +438,5 @@ func TestQuery(t *testing.T) {
 	require.Equal(tr.root, ptr)
 	require.Equal(0, match)
 	require.Nil(err)
+	require.Nil(tr.Stop(context.Background()))
 }

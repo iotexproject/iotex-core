@@ -8,6 +8,7 @@ package state
 
 import (
 	"container/heap"
+	"context"
 	"math/big"
 	"sort"
 	"strings"
@@ -22,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/trie"
 )
 
@@ -57,6 +59,7 @@ var (
 type (
 	// Factory defines an interface for managing states
 	Factory interface {
+		lifecycle.StartStopper
 		// Accounts
 		CreateState(string, uint64) (*State, error)
 		Balance(string) (*big.Int, error)
@@ -73,6 +76,7 @@ type (
 
 	// factory implements StateFactory interface, tracks changes in a map and batch-commits to trie/db
 	factory struct {
+		lifecycle lifecycle.Lifecycle
 		// candidate pool
 		currentChainHeight     uint64
 		candidatesLRU          *lru.Cache
@@ -107,7 +111,7 @@ func DefaultTrieOption() FactoryOption {
 		if len(dbPath) == 0 {
 			return errors.New("Invalid empty trie db path")
 		}
-		tr, err := trie.NewTrie(dbPath, trie.AccountKVNameSpace, trie.EmptyRoot, false)
+		tr, err := trie.NewTrie(db.NewBoltDB(dbPath, nil), trie.AccountKVNameSpace, trie.EmptyRoot)
 		if err != nil {
 			return errors.Wrapf(err, "Failed to generate trie from config")
 		}
@@ -120,7 +124,7 @@ func DefaultTrieOption() FactoryOption {
 // InMemTrieOption creates in memory trie for state factory
 func InMemTrieOption() FactoryOption {
 	return func(sf *factory, cfg *config.Config) error {
-		tr, err := trie.NewTrie("", trie.AccountKVNameSpace, trie.EmptyRoot, true)
+		tr, err := trie.NewTrie(db.NewMemKVStore(), trie.AccountKVNameSpace, trie.EmptyRoot)
 		if err != nil {
 			return errors.Wrapf(err, "Failed to initialize in-memory trie")
 		}
@@ -148,8 +152,15 @@ func NewFactory(cfg *config.Config, opts ...FactoryOption) (Factory, error) {
 			return nil, err
 		}
 	}
+	if sf.accountTrie != nil {
+		sf.lifecycle.Add(sf.accountTrie)
+	}
 	return sf, nil
 }
+
+func (sf *factory) Start(ctx context.Context) error { return sf.lifecycle.OnStart(ctx) }
+
+func (sf *factory) Stop(ctx context.Context) error { return sf.lifecycle.OnStop(ctx) }
 
 //======================================
 // State/Account functions
@@ -325,6 +336,23 @@ func (sf *factory) getStateFromPKHash(pubKeyHash []byte) (*State, error) {
 	return bytesToState(mstate)
 }
 
+func (sf *factory) cache(addr string) (*State, error) {
+	if state, exist := sf.cachedAccount[addr]; exist {
+		return state, nil
+	}
+	state, err := sf.getState(addr)
+	switch {
+	case err == ErrAccountNotExist:
+		if state, err = sf.CreateState(addr, 0); err != nil {
+			return nil, err
+		}
+	case err != nil:
+		return nil, err
+	}
+	sf.cachedAccount[addr] = state
+	return state, nil
+}
+
 //======================================
 // private candidate functions
 //======================================
@@ -419,23 +447,6 @@ func (sf *factory) inPool(address string) (*Candidate, int) {
 		return c, candidateBufferPool // The candidate exists in the Candidate buffer pool
 	}
 	return nil, 0
-}
-
-func (sf *factory) cache(addr string) (*State, error) {
-	if state, exist := sf.cachedAccount[addr]; exist {
-		return state, nil
-	}
-	state, err := sf.getState(addr)
-	switch {
-	case err == ErrAccountNotExist:
-		if state, err = sf.CreateState(addr, 0); err != nil {
-			return nil, err
-		}
-	case err != nil:
-		return nil, err
-	}
-	sf.cachedAccount[addr] = state
-	return state, nil
 }
 
 //======================================
