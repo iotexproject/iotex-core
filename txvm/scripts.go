@@ -42,7 +42,11 @@ func PayToAddrScript(addr string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot add data: %v", err)
 	}
-	if err := b.AddData(iotxaddress.GetPubkeyHash(addr)); err != nil {
+	h, err := iotxaddress.GetPubkeyHash(addr)
+	if err != nil {
+		return nil, err
+	}
+	if err := b.AddData(h); err != nil {
 		return nil, err
 	}
 	if err := b.AddOps([]byte{OpEqualVerify, OpCheckSig}); err != nil {

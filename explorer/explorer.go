@@ -846,7 +846,7 @@ func getVote(bc blockchain.Blockchain, voteHash hash.Hash32B) (explorer.Vote, er
 }
 
 func getAddrFromPubKey(pubKey keypair.PublicKey) (string, error) {
-	Address, err := iotxaddress.GetAddress(pubKey, iotxaddress.IsTestnet, iotxaddress.ChainID)
+	Address, err := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, iotxaddress.ChainID, pubKey)
 	if err != nil {
 		return "", errors.Wrapf(err, " to get address for pubkey %x", pubKey)
 	}

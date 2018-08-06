@@ -29,8 +29,6 @@ const (
 )
 
 var (
-	// ErrInvalidAddr is the error that the address format is invalid, cannot be decoded
-	ErrInvalidAddr = errors.New("address format is invalid")
 	// ErrActPool indicates the error of actpool
 	ErrActPool = errors.New("invalid actpool")
 	// ErrTransfer indicates the error of transfer
@@ -209,7 +207,7 @@ func (ap *actPool) AddVote(vote *action.Vote) error {
 	}
 
 	selfPublicKey, _ := vote.SelfPublicKey()
-	voter, _ := iotxaddress.GetAddress(selfPublicKey, iotxaddress.IsTestnet, iotxaddress.ChainID)
+	voter, _ := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, iotxaddress.ChainID, selfPublicKey)
 	// Wrap vote as an action
 	action := &iproto.ActionPb{Action: &iproto.ActionPb_Vote{vote.ConvertToVotePb()}}
 	return ap.addAction(voter.RawAddress, action, hash, vote.Nonce)
@@ -254,12 +252,12 @@ func (ap *actPool) validateTsf(tsf *action.Transfer) error {
 		return errors.Wrapf(ErrBalance, "negative value")
 	}
 	// check if sender's address is valid
-	pkhash := iotxaddress.GetPubkeyHash(tsf.Sender)
-	if pkhash == nil {
-		return ErrInvalidAddr
+	_, err := iotxaddress.GetPubkeyHash(tsf.Sender)
+	if err != nil {
+		return errors.Wrap(err, "error when getting the pubkey hash")
 	}
 
-	sender, err := iotxaddress.GetAddress(tsf.SenderPublicKey, iotxaddress.IsTestnet, iotxaddress.ChainID)
+	sender, err := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, iotxaddress.ChainID, tsf.SenderPublicKey)
 	if err != nil {
 		logger.Error().Err(err).Msg("Error when validating transfer")
 		return errors.Wrapf(err, "invalid address")
@@ -294,7 +292,7 @@ func (ap *actPool) validateVote(vote *action.Vote) error {
 	if err != nil {
 		return err
 	}
-	voter, err := iotxaddress.GetAddress(selfPublicKey, iotxaddress.IsTestnet, iotxaddress.ChainID)
+	voter, err := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, iotxaddress.ChainID, selfPublicKey)
 	if err != nil {
 		logger.Error().Err(err).Msg("Error when validating vote")
 		return errors.Wrapf(err, "invalid voter address")

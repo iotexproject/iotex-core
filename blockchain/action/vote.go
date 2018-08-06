@@ -174,8 +174,11 @@ func (v *Vote) Sign(sender *iotxaddress.Address) (*Vote, error) {
 			v.VoterAddress, sender.RawAddress)
 	}
 	// check the public key is actually owned by sender
-	pkhash := iotxaddress.GetPubkeyHash(sender.RawAddress)
-	if !bytes.Equal(pkhash, iotxaddress.HashPubKey(sender.PublicKey)) {
+	pkhash, err := iotxaddress.GetPubkeyHash(sender.RawAddress)
+	if err != nil {
+		return nil, errors.Wrap(err, "error when get the pubkey hash")
+	}
+	if !bytes.Equal(pkhash, keypair.HashPubKey(sender.PublicKey)) {
 		return nil, errors.Wrapf(ErrVoteError, "signing addr %s does not own correct public key",
 			sender.RawAddress)
 	}

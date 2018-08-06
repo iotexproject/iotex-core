@@ -37,9 +37,6 @@ const (
 const candidateBufferSize = 100
 
 var (
-	// ErrInvalidAddr is the error that the address format is invalid, cannot be decoded
-	ErrInvalidAddr = errors.New("address format is invalid")
-
 	// ErrNotEnoughBalance is the error that the balance is not enough
 	ErrNotEnoughBalance = errors.New("not enough balance")
 
@@ -168,9 +165,9 @@ func (sf *factory) Stop(ctx context.Context) error { return sf.lifecycle.OnStop(
 // CreateState adds a new State with initial balance to the factory
 // addr should be a bech32 properly-encoded string
 func (sf *factory) CreateState(addr string, init uint64) (*State, error) {
-	pubKeyHash := iotxaddress.GetPubkeyHash(addr)
-	if pubKeyHash == nil {
-		return nil, ErrInvalidAddr
+	pubKeyHash, err := iotxaddress.GetPubkeyHash(addr)
+	if err != nil {
+		return nil, errors.Wrap(err, "error when getting the pubkey hash")
 	}
 	balance := big.NewInt(0)
 	weight := big.NewInt(0)
@@ -231,7 +228,10 @@ func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer
 		if err != nil {
 			return err
 		}
-		pkhash := iotxaddress.GetPubkeyHash(address)
+		pkhash, err := iotxaddress.GetPubkeyHash(address)
+		if err != nil {
+			return errors.Wrap(err, "error when getting the pubkey hash")
+		}
 		addr := make([]byte, len(pkhash))
 		copy(addr, pkhash[:])
 		transferK = append(transferK, addr)
@@ -280,7 +280,11 @@ func (sf *factory) CreateContract(addr string, code []byte) error {
 	enc.MachineEndian.PutUint64(temp, nonce)
 	// generate contract address from owner addr and nonce
 	// nonce guarantees a different contract addr even if the same code is deployed the second time
-	contractAddr, err := iotxaddress.GetAddressByHash(hash.Hash160b(append([]byte(addr), temp...)), iotxaddress.IsTestnet, iotxaddress.ChainID)
+	contractAddr, err := iotxaddress.GetAddressByHash(
+		iotxaddress.IsTestnet,
+		iotxaddress.ChainID,
+		hash.Hash160b(append([]byte(addr), temp...)),
+	)
 	if err != nil {
 		return err
 	}
@@ -318,13 +322,9 @@ func (sf *factory) CandidatesByHeight(height uint64) ([]*Candidate, bool) {
 //======================================
 // getState pulls an existing State
 func (sf *factory) getState(addr string) (*State, error) {
-	pubKeyHash := iotxaddress.GetPubkeyHash(addr)
-	return sf.getStateFromPKHash(pubKeyHash)
-}
-
-func (sf *factory) getStateFromPKHash(pubKeyHash []byte) (*State, error) {
-	if pubKeyHash == nil {
-		return nil, ErrInvalidAddr
+	pubKeyHash, err := iotxaddress.GetPubkeyHash(addr)
+	if err != nil {
+		return nil, errors.Wrap(err, "error when getting the pubkey hash")
 	}
 	mstate, err := sf.accountTrie.Get(pubKeyHash)
 	if errors.Cause(err) == trie.ErrNotExist {

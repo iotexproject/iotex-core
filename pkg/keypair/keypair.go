@@ -10,6 +10,8 @@ import (
 	"encoding/hex"
 
 	"github.com/pkg/errors"
+
+	"github.com/iotexproject/iotex-core/pkg/hash"
 )
 
 const (
@@ -121,4 +123,9 @@ func BytesToPriKeyString(priKey []byte) (string, error) {
 		return "", errors.Wrap(ErrPrivateKey, "Invalid private key length")
 	}
 	return hex.EncodeToString(priKey), nil
+}
+
+// HashPubKey returns the hash of public key
+func HashPubKey(pubKey PublicKey) []byte {
+	return hash.Hash160b(pubKey[:])
 }

@@ -29,14 +29,19 @@ const (
 func TestPlainKeyStore(t *testing.T) {
 	require := require.New(t)
 
-	ks, err := NewPlainKeyStore(".")
+	ksDir := filepath.Join(os.TempDir(), "keystore")
+
+	os.RemoveAll(ksDir)
+	defer func() {
+		require.NoError(os.RemoveAll(ksDir))
+	}()
+
+	ks, err := NewPlainKeyStore(ksDir)
 	require.NoError(err)
 	addr1 := testutil.ConstructAddress(pubKey1, priKey1)
-	filePath1 := filepath.Join(".", rawAddr1)
-	defer os.Remove(filePath1)
 	//Test Store
 	err = ks.Store("123", addr1)
-	require.Equal(ErrAddr, errors.Cause(err))
+	require.Error(err)
 
 	err = ks.Store(rawAddr1, addr1)
 	require.NoError(err)
@@ -46,7 +51,7 @@ func TestPlainKeyStore(t *testing.T) {
 
 	// Test Get
 	_, err = ks.Get("123")
-	require.Equal(ErrAddr, errors.Cause(err))
+	require.Error(err)
 
 	_, err = ks.Get("io1qyqsyqcy6m6hkqkj3f4w4eflm2gzydmvc0mumm7kgax4l3")
 	require.Equal(ErrNotExist, errors.Cause(err))
@@ -57,7 +62,7 @@ func TestPlainKeyStore(t *testing.T) {
 
 	// Test Has
 	_, err = ks.Has("123")
-	require.Equal(ErrAddr, errors.Cause(err))
+	require.Error(err)
 
 	exist, err := ks.Has(rawAddr1)
 	require.NoError(err)
@@ -65,7 +70,7 @@ func TestPlainKeyStore(t *testing.T) {
 
 	// Test Remove
 	err = ks.Remove("123")
-	require.Equal(ErrAddr, errors.Cause(err))
+	require.Error(err)
 
 	err = ks.Remove("io1qyqsyqcy6m6hkqkj3f4w4eflm2gzydmvc0mumm7kgax4l3")
 	require.Equal(ErrNotExist, errors.Cause(err))
@@ -78,8 +83,6 @@ func TestPlainKeyStore(t *testing.T) {
 
 	// Test All
 	addr2 := testutil.ConstructAddress(pubKey2, priKey2)
-	filePath2 := filepath.Join(".", rawAddr2)
-	defer os.Remove(filePath2)
 	err = ks.Store(rawAddr1, addr1)
 	require.NoError(err)
 	err = ks.Store(rawAddr2, addr2)
@@ -96,7 +99,7 @@ func TestMemKeyStore(t *testing.T) {
 	addr1 := testutil.ConstructAddress(pubKey1, priKey1)
 	// Test Store
 	err := ks.Store("123", addr1)
-	require.Equal(ErrAddr, errors.Cause(err))
+	require.Error(err)
 
 	err = ks.Store(rawAddr1, addr1)
 	require.NoError(err)
@@ -106,7 +109,7 @@ func TestMemKeyStore(t *testing.T) {
 
 	// Test Get
 	_, err = ks.Get("123")
-	require.Equal(ErrAddr, errors.Cause(err))
+	require.Error(err)
 
 	_, err = ks.Get("io1qyqsyqcy6m6hkqkj3f4w4eflm2gzydmvc0mumm7kgax4l3")
 	require.Equal(ErrNotExist, errors.Cause(err))
@@ -117,7 +120,7 @@ func TestMemKeyStore(t *testing.T) {
 
 	// Test Has
 	_, err = ks.Has("123")
-	require.Equal(ErrAddr, errors.Cause(err))
+	require.Error(err)
 
 	exist, err := ks.Has(rawAddr1)
 	require.NoError(err)
@@ -125,7 +128,7 @@ func TestMemKeyStore(t *testing.T) {
 
 	// Test Remove
 	err = ks.Remove("123")
-	require.Equal(ErrAddr, errors.Cause(err))
+	require.Error(err)
 
 	err = ks.Remove("io1qyqsyqcy6m6hkqkj3f4w4eflm2gzydmvc0mumm7kgax4l3")
 	require.Equal(ErrNotExist, errors.Cause(err))
