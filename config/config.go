@@ -322,7 +322,7 @@ func (cfg *Config) ProducerAddr() (*iotxaddress.Address, error) {
 		return nil, err
 	}
 	pubKey, err := keypair.DecodePublicKey(cfg.Chain.ProducerPubKey)
-	addr, err := iotxaddress.GetAddress(pubKey, iotxaddress.IsTestnet, iotxaddress.ChainID)
+	addr, err := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, iotxaddress.ChainID, pubKey)
 	if err != nil {
 		return nil, err
 	}
@@ -337,7 +337,7 @@ func ValidateAddr(cfg *Config) error {
 		return err
 	}
 	// Validate producer's address
-	if len(addr.RawAddress) > 0 && !iotxaddress.ValidateAddress(addr.RawAddress) {
+	if _, err := iotxaddress.GetPubkeyHash(addr.RawAddress); err != nil {
 		return errors.Wrap(ErrInvalidCfg, "invalid block producer address")
 	}
 	// Validate producer pubkey and prikey by signing a dummy message and verify it

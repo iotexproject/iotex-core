@@ -121,7 +121,11 @@ func (v *validator) verifyActions(blk *Block) error {
 			defer wg.Done()
 			// Verify coinbase transfer
 			if tsf.IsCoinbase {
-				address, err := iotxaddress.GetAddress(blk.Header.Pubkey, iotxaddress.IsTestnet, iotxaddress.ChainID)
+				address, err := iotxaddress.GetAddressByPubkey(
+					iotxaddress.IsTestnet,
+					iotxaddress.ChainID,
+					blk.Header.Pubkey,
+				)
 				if err != nil {
 					return
 				}
@@ -133,7 +137,11 @@ func (v *validator) verifyActions(blk *Block) error {
 			}
 
 			// Verify signature
-			address, err := iotxaddress.GetAddress(tsf.SenderPublicKey, iotxaddress.IsTestnet, iotxaddress.ChainID)
+			address, err := iotxaddress.GetAddressByPubkey(
+				iotxaddress.IsTestnet,
+				iotxaddress.ChainID,
+				tsf.SenderPublicKey,
+			)
 			if err != nil {
 				return
 			}
@@ -164,7 +172,7 @@ func (v *validator) verifyActions(blk *Block) error {
 			if err != nil {
 				return
 			}
-			address, err := iotxaddress.GetAddress(selfPublicKey, iotxaddress.IsTestnet, iotxaddress.ChainID)
+			address, err := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, iotxaddress.ChainID, selfPublicKey)
 			if err != nil {
 				return
 			}

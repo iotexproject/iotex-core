@@ -22,7 +22,7 @@ func ConstructAddress(pubkey, prikey string) *iotxaddress.Address {
 	if err != nil {
 		logger.Error().Err(err).Msg("Failed to construct the address")
 	}
-	addr, err := iotxaddress.GetAddress(pubk, iotxaddress.IsTestnet, iotxaddress.ChainID)
+	addr, err := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, iotxaddress.ChainID, pubk)
 	if err != nil {
 		logger.Error().Err(err).Msg("Failed to construct the address")
 	}
