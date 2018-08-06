@@ -4,7 +4,7 @@
 nodeType: "delegate"            # should be one of "delegate", "full_node", and "lightweight"
 
 network:
-    ip: "127.0.0.1"
+    host: "127.0.0.1"
     port: 4689
     bootstrapNodes:
         - "127.0.0.1:4689"

@@ -30,7 +30,7 @@ func TestNetSync(t *testing.T) {
 	defer testutil.CleanupPath(t, testDBPath)
 
 	cfg := config.Default
-	cfg.Network.IP = "127.0.0.1"
+	cfg.Network.Host = "127.0.0.1"
 	cfg.Network.Port = 10000
 	cfg.Network.BootstrapNodes = []string{"127.0.0.1:4689"}
 	cfg.Chain.TrieDBPath = testTriePath

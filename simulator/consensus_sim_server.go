@@ -80,7 +80,7 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 		cfg.Consensus.RollDPoS.AcceptVoteTTL = 1000 * time.Second
 
 		// handle node address, delegate addresses, etc.
-		cfg.Network.IP = "127.0.0.1"
+		cfg.Network.Host = "127.0.0.1"
 		cfg.Network.Port = 10000
 		cfg.Network.NumPeersLowerBound = 6
 		cfg.Network.NumPeersUpperBound = 12
