@@ -31,19 +31,19 @@ import (
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
-func LoadTestConfig(addr string, allowMultiConnsPerIP bool) *config.Network {
+func LoadTestConfig(addr string, allowMultiConnsPerHost bool) *config.Network {
 	var (
-		ip   = "127.0.0.1"
+		host = "127.0.0.1"
 		port int
 	)
 	if addrComp := strings.Split(addr, ":"); len(addrComp) == 2 {
-		ip = addrComp[0]
+		host = addrComp[0]
 		port, _ = strconv.Atoi(addrComp[1])
 	}
 	config := config.Config{
 		NodeType: config.DelegateType,
 		Network: config.Network{
-			IP:   ip,
+			Host: host,
 			Port: port,
 			MsgLogsCleaningInterval: 2 * time.Second,
 			MsgLogRetention:         10 * time.Second,
@@ -52,7 +52,7 @@ func LoadTestConfig(addr string, allowMultiConnsPerIP bool) *config.Network {
 			PeerMaintainerInterval:  time.Second,
 			NumPeersLowerBound:      5,
 			NumPeersUpperBound:      5,
-			AllowMultiConnsPerIP:    allowMultiConnsPerIP,
+			AllowMultiConnsPerHost:  allowMultiConnsPerHost,
 			RateLimitEnabled:        false,
 			PingInterval:            time.Second,
 			BootstrapNodes:          []string{"127.0.0.1:10001", "127.0.0.1:10002"},
@@ -64,8 +64,8 @@ func LoadTestConfig(addr string, allowMultiConnsPerIP bool) *config.Network {
 	return &config.Network
 }
 
-func LoadTestConfigWithTLSEnabled(addr string, allowMultiConnsPerIP bool) *config.Network {
-	cfg := LoadTestConfig(addr, allowMultiConnsPerIP)
+func LoadTestConfigWithTLSEnabled(addr string, allowMultiConnsPerHost bool) *config.Network {
+	cfg := LoadTestConfig(addr, allowMultiConnsPerHost)
 	cfg.TLSEnabled = true
 	cfg.CACrtPath = "../test/assets/ssl/iotex.io.crt"
 	cfg.PeerCrtPath = "../test/assets/ssl/127.0.0.1.crt"
@@ -214,7 +214,7 @@ func TestTell(t *testing.T) {
 	require.Nil(t, err)
 }
 
-func TestOneConnPerIP(t *testing.T) {
+func TestOneConnPerHost(t *testing.T) {
 	ctx := context.Background()
 	dp1 := &MockDispatcher2{T: t}
 	addr1 := randomAddress()

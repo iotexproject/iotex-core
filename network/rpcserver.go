@@ -45,7 +45,7 @@ type RPCServer struct {
 func NewRPCServer(o *IotxOverlay) *RPCServer {
 	s := &RPCServer{Overlay: o}
 	portStr := strconv.Itoa(o.Config.Port)
-	s.Addr = strings.Join([]string{o.Config.IP, portStr}, ":")
+	s.Addr = strings.Join([]string{o.Config.Host, portStr}, ":")
 	s.rateLimit = o.Config.RateLimitPerSec * uint64(o.Config.RateLimitWindowSize) / uint64(time.Second)
 	return s
 }

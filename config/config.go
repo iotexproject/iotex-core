@@ -56,14 +56,14 @@ var (
 	Default = Config{
 		NodeType: FullNodeType,
 		Network: Network{
-			IP:   "127.0.0.1",
+			Host: "127.0.0.1",
 			Port: 4689,
 			MsgLogsCleaningInterval: 2 * time.Second,
 			MsgLogRetention:         5 * time.Second,
 			HealthCheckInterval:     time.Second,
 			SilentInterval:          5 * time.Second,
 			PeerMaintainerInterval:  time.Second,
-			AllowMultiConnsPerIP:    false,
+			AllowMultiConnsPerHost:  false,
 			NumPeersLowerBound:      5,
 			NumPeersUpperBound:      5,
 			PingInterval:            time.Second,
@@ -152,14 +152,14 @@ var (
 // Network is the config struct for network package
 type (
 	Network struct {
-		IP                      string                      `yaml:"ip"`
+		Host                    string                      `yaml:"host"`
 		Port                    int                         `yaml:"port"`
 		MsgLogsCleaningInterval time.Duration               `yaml:"msgLogsCleaningInterval"`
 		MsgLogRetention         time.Duration               `yaml:"msgLogRetention"`
 		HealthCheckInterval     time.Duration               `yaml:"healthCheckInterval"`
 		SilentInterval          time.Duration               `yaml:"silentInterval"`
 		PeerMaintainerInterval  time.Duration               `yaml:"peerMaintainerInterval"`
-		AllowMultiConnsPerIP    bool                        `yaml:"allowMultiConnsPerIP"`
+		AllowMultiConnsPerHost  bool                        `yaml:"allowMultiConnsPerHost"`
 		NumPeersLowerBound      uint                        `yaml:"numPeersLowerBound"`
 		NumPeersUpperBound      uint                        `yaml:"numPeersUpperBound"`
 		PingInterval            time.Duration               `yaml:"pingInterval"`

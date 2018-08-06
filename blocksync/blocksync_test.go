@@ -61,7 +61,7 @@ func TestSyncTaskInterval(t *testing.T) {
 
 func generateP2P() network.Overlay {
 	c := &config.Network{
-		IP:   "127.0.0.1",
+		Host: "127.0.0.1",
 		Port: 10001,
 		MsgLogsCleaningInterval: 2 * time.Second,
 		MsgLogRetention:         10 * time.Second,
@@ -70,7 +70,7 @@ func generateP2P() network.Overlay {
 		PeerMaintainerInterval:  time.Second,
 		NumPeersLowerBound:      5,
 		NumPeersUpperBound:      5,
-		AllowMultiConnsPerIP:    true,
+		AllowMultiConnsPerHost:  true,
 		RateLimitEnabled:        false,
 		PingInterval:            time.Second,
 		BootstrapNodes:          []string{"127.0.0.1:10001", "127.0.0.1:10002"},
@@ -321,7 +321,7 @@ func newTestConfig() (*config.Config, error) {
 	cfg.Chain.ChainDBPath = "db.test"
 	cfg.BlockSync.Interval = time.Millisecond << 4
 	cfg.Consensus.Scheme = config.NOOPScheme
-	cfg.Network.IP = "127.0.0.1"
+	cfg.Network.Host = "127.0.0.1"
 	cfg.Network.Port = 10000
 	cfg.Network.BootstrapNodes = []string{"127.0.0.1:10000", "127.0.0.1:4689"}
 	return &cfg, nil
