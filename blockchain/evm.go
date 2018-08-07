@@ -48,9 +48,9 @@ func (stateDB *EVMStateDBAdapter) GetBalance(hash []byte) *big.Int {
 		logger.Error().Err(err).Msgf("Failed to generate address for %s", hash)
 		return nil
 	}
-	balance, err := stateDB.bc.Balance(addr)
+	balance, err := stateDB.bc.Balance(addr.RawAddress)
 	if err != nil {
-		logger.Error().Err(err).Msgf("Failed to get balance for %s", addr)
+		logger.Error().Err(err).Msgf("Failed to get balance for %s", addr.RawAddress)
 		return nil
 	}
 	return balance
@@ -63,9 +63,9 @@ func (stateDB *EVMStateDBAdapter) GetNonce(hash []byte) uint64 {
 		logger.Error().Err(err).Msgf("Failed to generate address for %s", hash)
 		return 0
 	}
-	nonce, err := stateDB.bc.Nonce(addr)
+	nonce, err := stateDB.bc.Nonce(addr.RawAddress)
 	if err != nil {
-		logger.Error().Err(err).Msgf("Failed to get nonce for %s", addr)
+		logger.Error().Err(err).Msgf("Failed to get nonce for %s", addr.RawAddress)
 		return 0
 	}
 	return nonce
@@ -89,9 +89,9 @@ func (stateDB *EVMStateDBAdapter) GetCode(hash []byte) []byte {
 		logger.Error().Err(err).Msgf("Failed to generate address for %s", hash)
 		return nil
 	}
-	state, err := stateDB.bc.StateByAddr(addr)
+	state, err := stateDB.bc.StateByAddr(addr.RawAddress)
 	if err != nil {
-		logger.Error().Err(err).Msgf("Failed to get code for %s", addr)
+		logger.Error().Err(err).Msgf("Failed to get code for %s", addr.RawAddress)
 		return nil
 	}
 	return state.CodeHash
@@ -104,9 +104,9 @@ func (stateDB *EVMStateDBAdapter) SetCode(hash []byte, code []byte) {
 		logger.Error().Err(err).Msgf("Failed to generate address for %s", hash)
 		return
 	}
-	state, err := stateDB.bc.StateByAddr(addr)
+	state, err := stateDB.bc.StateByAddr(addr.RawAddress)
 	if err != nil {
-		logger.Error().Err(err).Msgf("Failed to set code for %s", addr)
+		logger.Error().Err(err).Msgf("Failed to set code for %s", addr.RawAddress)
 		return
 	}
 	state.CodeHash = code
