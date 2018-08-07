@@ -580,6 +580,37 @@ func TestUnvote(t *testing.T) {
 	require.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{}))
 }
 
+func TestCreateContract(t *testing.T) {
+	require := require.New(t)
+
+	cfg := config.Default
+	cfg.Chain.TrieDBPath = testTriePath
+
+	sf, err := NewFactory(&cfg, DefaultTrieOption())
+	require.Nil(err)
+	require.NoError(sf.Start(context.Background()))
+	addr, err := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
+	require.Nil(err)
+	_, err = sf.CreateState(addr.RawAddress, 5)
+	require.Nil(err)
+
+	code := []byte("test contract creation")
+	contract, err := sf.CreateContract(addr.RawAddress, code)
+	require.Nil(err)
+	require.NotEqual("", contract)
+
+	codeHash := sf.GetCodeHash(contract)
+	require.NotEqual(hash.ZeroHash32B, codeHash)
+	code1 := sf.GetCode(contract)
+	require.Equal(code, code1)
+
+	addr1, _ := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
+	codeHash = sf.GetCodeHash(addr1.RawAddress)
+	require.Equal(hash.ZeroHash32B, codeHash)
+	code1 = sf.GetCode(addr1.RawAddress)
+	require.Equal([]byte(nil), code1)
+}
+
 func compareStrings(actual []string, expected []string) bool {
 	act := make(map[string]bool)
 	for i := 0; i < len(actual); i++ {
