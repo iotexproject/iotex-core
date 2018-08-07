@@ -82,7 +82,10 @@ func initLogger(cfg *config.Config) {
 		logger.Warn().Err(err).Msg("Cannot config logger, use default one.")
 	} else {
 		logger.SetLogger(
-			l.With().Str("iotexAddr", iotxAddr.RawAddress).Str("nodeType", cfg.NodeType).Logger(),
+			l.With().
+				Str("iotexAddr", iotxAddr.RawAddress).
+				Str("networkAddress", fmt.Sprintf("%s:%d", cfg.Network.Host, cfg.Network.Port)).
+				Str("nodeType", cfg.NodeType).Logger(),
 		)
 	}
 }

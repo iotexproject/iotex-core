@@ -160,7 +160,6 @@ func (bs *blockSyncer) Sync() {
 	if bs.state == Active && bs.sw.State != Open && bs.syncHeight < bs.dropHeight {
 		bs.p2p.Tell(node.NewTCPNode(bs.fnd), &pb.BlockSync{Start: bs.syncHeight + 1, End: bs.dropHeight})
 		logger.Warn().
-			Str("addr", bs.p2p.Self().String()).
 			Uint64("start", bs.syncHeight+1).
 			Uint64("end", bs.dropHeight).
 			Str("to", bs.fnd).
@@ -330,7 +329,6 @@ func (bs *blockSyncer) checkBlockIntoBuffer(blk *bc.Block) error {
 	bs.rcvdBlocks[height] = blk
 
 	logger.Warn().
-		Str("addr", bs.p2p.Self().String()).
 		Uint64("block", height).
 		Dur("interval", time.Since(bs.actionTime)).
 		Msg("received block")

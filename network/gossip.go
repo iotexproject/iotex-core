@@ -96,9 +96,18 @@ func (g *Gossip) relayMsg(msgType uint32, msgBody []byte, ttl uint32) error {
 	// Send the message to all neighbors
 	g.Overlay.PM.Peers.Range(func(_, value interface{}) bool {
 		go func() {
-			_, err := value.(*Peer).BroadcastMsg(&pb.BroadcastReq{MsgType: msgType, MsgBody: msgBody, Ttl: ttl})
+			peer, ok := value.(*Peer)
+			if !ok {
+				logger.Error().Msg("value is not an instance of Peer")
+				return
+			}
+			_, err := peer.BroadcastMsg(&pb.BroadcastReq{MsgType: msgType, MsgBody: msgBody, Ttl: ttl})
 			if err != nil {
-				logger.Error().Err(err).Str("MsgType", string(msgType)).Msg("failed to broadcast msg")
+				logger.Error().
+					Err(err).
+					Str("dst", peer.String()).
+					Str("msg-type", string(msgType)).
+					Msg("failed to broadcast a message")
 			}
 		}()
 		return true
