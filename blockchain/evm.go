@@ -61,7 +61,7 @@ func (stateDB *EVMStateDBAdapter) GetNonce(hash []byte) uint64 {
 	addr, err := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, hash)
 	if err != nil {
 		logger.Error().Err(err).Msgf("Failed to generate address for %s", hash)
-		return nil
+		return 0
 	}
 	nonce, err := stateDB.bc.Nonce(addr)
 	if err != nil {
@@ -79,7 +79,7 @@ func (stateDB *EVMStateDBAdapter) SetNonce([]byte, uint64) {
 // GetCodeHash gets the code hash of account
 func (stateDB *EVMStateDBAdapter) GetCodeHash([]byte) hash.Hash32B {
 	logger.Error().Msg("GetCodeHash is not implemented")
-	return nil
+	return hash.ZeroHash32B
 }
 
 // GetCode gets the code saved in hash
@@ -102,7 +102,7 @@ func (stateDB *EVMStateDBAdapter) SetCode(hash []byte, code []byte) {
 	addr, err := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, hash)
 	if err != nil {
 		logger.Error().Err(err).Msgf("Failed to generate address for %s", hash)
-		return nil
+		return
 	}
 	state, err := stateDB.bc.StateByAddr(addr)
 	if err != nil {
@@ -114,7 +114,7 @@ func (stateDB *EVMStateDBAdapter) SetCode(hash []byte, code []byte) {
 
 // GetCodeSize gets the code size saved in hash
 func (stateDB *EVMStateDBAdapter) GetCodeSize(hash []byte) int {
-	code := stateDB.getCode(hash)
+	code := stateDB.GetCode(hash)
 	if code == nil {
 		return 0
 	}
@@ -129,13 +129,13 @@ func (stateDB *EVMStateDBAdapter) AddRefund(uint64) {
 // GetRefund gets refund
 func (stateDB *EVMStateDBAdapter) GetRefund() uint64 {
 	logger.Error().Msg("GetRefund is not implemented")
-	return nil
+	return 0
 }
 
 // GetState gets state
 func (stateDB *EVMStateDBAdapter) GetState([]byte, hash.Hash32B) hash.Hash32B {
 	logger.Error().Msg("GetState is not implemented")
-	return nil
+	return hash.ZeroHash32B
 }
 
 // SetState sets state
