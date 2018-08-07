@@ -12,15 +12,16 @@ import (
 	// "github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/iotex-core-internal/iotxaddress"
 	"github.com/iotexproject/iotex-core-internal/logger"
+	"github.com/iotexproject/iotex-core-internal/pkg/hash"
 )
 
 // EVMStateDBAdapter represents the state db adapter for evm to access iotx blockchain
 type EVMStateDBAdapter struct {
-	bc *blockchain
+	bc Blockchain
 }
 
 // NewEVMStateDBAdapter creates a new state db with iotx blockchain
-func NewEVMStateDBAdapter(bc *Blockchain) *EVMStateDBAdapter {
+func NewEVMStateDBAdapter(bc Blockchain) *EVMStateDBAdapter {
 	return &EVMStateDBAdapter{
 		bc,
 	}
@@ -69,7 +70,7 @@ func (stateDB *EVMStateDBAdapter) SetNonce([]byte, uint64) {
 }
 
 // GetCodeHash gets the code hash of account
-func (stateDB *EVMStateDBAdapter) GetCodeHash([]byte) Hash32B {
+func (stateDB *EVMStateDBAdapter) GetCodeHash([]byte) hash.Hash32B {
 	logger.Error().Msg("GetCodeHash is not implemented")
 }
 
@@ -115,13 +116,13 @@ func (stateDB *EVMStateDBAdapter) GetRefund() uint64 {
 }
 
 // GetState gets state
-func (stateDB *EVMStateDBAdapter) GetState([]byte, Hash32B) Hash32B {
+func (stateDB *EVMStateDBAdapter) GetState([]byte, hash.Hash32B) hash.Hash32B {
 	logger.Error().Msg("GetState is not implemented")
 	return nil
 }
 
 // SetState sets state
-func (stateDB *EVMStateDBAdapter) SetState([]byte, Hash32B, Hash32B) {
+func (stateDB *EVMStateDBAdapter) SetState([]byte, hash.Hash32B, hash.Hash32B) {
 	logger.Error().Msg("SetState is not implemented")
 }
 
@@ -167,12 +168,12 @@ func (stateDB *EVMStateDBAdapter) Snapshot() int {
 // }
 
 // AddPreimage adds the preimage
-func (stateDB *EVMStateDBAdapter) AddPreimage(Hash32B, []byte) {
+func (stateDB *EVMStateDBAdapter) AddPreimage(hash.Hash32B, []byte) {
 	logger.Error().Msg("AddPreimage is not implemented")
 }
 
 // ForEachStorage loops each storage
-func (stateDB *EVMStateDBAdapter) ForEachStorage([]byte, func(Hash32B, Hash32B) bool) {
+func (stateDB *EVMStateDBAdapter) ForEachStorage([]byte, func(hash.Hash32B, hash.Hash32B) bool) {
 	logger.Error().Msg("ForEachStorage is not implemented")
 }
 
