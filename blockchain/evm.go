@@ -44,10 +44,10 @@ func (stateDB *EVMStateDBAdapter) AddBalance([]byte, *big.Int) {
 
 // GetBalance gets the balance of account
 func (stateDB *EVMStateDBAdapter) GetBalance(hash []byte) *big.Int {
-	addr := iotxaddress.GetAddressByHash(hash)
+	addr := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, hash)
 	balance, err := stateDB.bc.Balance(addr)
 	if err != nil {
-		logger.Error().Err(err).Msg("Failed to get balance for %s", addr)
+		logger.Error().Err(err).Msgf("Failed to get balance for %s", addr)
 		return 0
 	}
 	return balance
@@ -55,10 +55,10 @@ func (stateDB *EVMStateDBAdapter) GetBalance(hash []byte) *big.Int {
 
 // GetNonce gets the nonce of account
 func (stateDB *EVMStateDBAdapter) GetNonce(hash []byte) uint64 {
-	addr := iotexaddress.GetAddressByHash(hash)
+	addr := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, hash)
 	nonce, err := stateDB.bc.Nonce(addr)
 	if err != nil {
-		logger.Error().Err(err).Msg("Failed to get nonce for %s", addr)
+		logger.Error().Err(err).Msgf("Failed to get nonce for %s", addr)
 		return 0
 	}
 	return nonce
@@ -76,10 +76,10 @@ func (stateDB *EVMStateDBAdapter) GetCodeHash([]byte) hash.Hash32B {
 
 // GetCode gets the code saved in hash
 func (stateDB *EVMStateDBAdapter) GetCode(hash []byte) []byte {
-	addr := iotexaddress.GetAddressByHash(hash)
+	addr := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, hash)
 	state, error := stateDB.bc.StateByAddr(addr)
 	if error != nil {
-		logger.Error().Err(err).Msg("Failed to get code for %s", addr)
+		logger.Error().Err(err).Msgf("Failed to get code for %s", addr)
 		return nil
 	}
 	return state.CodeHash
@@ -87,9 +87,10 @@ func (stateDB *EVMStateDBAdapter) GetCode(hash []byte) []byte {
 
 // SetCode sets the code saved in hash
 func (stateDB *EVMStateDBAdapter) SetCode(hash []byte, code []byte) {
-	addr := iotexaddress.GetAddressByHash(hash)
+	addr := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, hash)
+	state, error := stateDB.bc.StateByAddr(addr)
 	if err != nil {
-		logger.Error().Err(err).Msg("Failed to set code for %s", addr)
+		logger.Error().Err(err).Msgf("Failed to set code for %s", addr)
 		return
 	}
 	state.CodeHash = code
