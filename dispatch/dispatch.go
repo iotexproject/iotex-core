@@ -203,7 +203,9 @@ func (d *IotxDispatcher) handleBlockMsg(m *blockMsg) {
 // handleBlockSyncMsg handles block messages from peers.
 func (d *IotxDispatcher) handleBlockSyncMsg(m *blockSyncMsg) {
 	logger.Info().
-		Str("addr", m.sender).Uint64("start", m.sync.Start).Uint64("end", m.sync.End).
+		Str("src", m.sender).
+		Uint64("start", m.sync.Start).
+		Uint64("end", m.sync.End).
 		Msg("receive blockSyncMsg")
 	// dispatch to block sync
 	if err := d.bs.ProcessSyncRequest(m.sender, m.sync); err != nil {

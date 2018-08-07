@@ -67,7 +67,7 @@ func (p *Peer) Connect(config *config.Network) error {
 	}
 
 	if err != nil {
-		logger.Error().Err(err).Msg("Peer did not connect")
+		logger.Error().Err(err).Str("dst", p.String()).Msg("Peer did not connect")
 		return err
 	}
 	p.Conn = conn
@@ -83,32 +83,40 @@ func (p *Peer) Close() error {
 
 // Ping implements the client side RPC
 func (p *Peer) Ping(ping *pb.Ping) (*pb.Pong, error) {
-	pong, e := p.Client.Ping(p.Ctx, ping)
-	p.updateLastResTime()
-	return pong, e
+	pong, err := p.Client.Ping(p.Ctx, ping)
+	if err == nil {
+		p.updateLastResTime()
+	}
+	return pong, err
 }
 
 // GetPeers implements the client side RPC
 func (p *Peer) GetPeers(req *pb.GetPeersReq) (*pb.GetPeersRes, error) {
-	res, e := p.Client.GetPeers(p.Ctx, req)
-	p.updateLastResTime()
-	return res, e
+	res, err := p.Client.GetPeers(p.Ctx, req)
+	if err == nil {
+		p.updateLastResTime()
+	}
+	return res, err
 }
 
 // BroadcastMsg implements the client side RPC
 func (p *Peer) BroadcastMsg(req *pb.BroadcastReq) (*pb.BroadcastRes, error) {
 	req.Header = iproto.MagicBroadcastMsgHeader
-	res, e := p.Client.Broadcast(p.Ctx, req)
-	p.updateLastResTime()
-	return res, e
+	res, err := p.Client.Broadcast(p.Ctx, req)
+	if err == nil {
+		p.updateLastResTime()
+	}
+	return res, err
 }
 
 // Tell implements the client side RPC
 func (p *Peer) Tell(req *pb.TellReq) (*pb.TellRes, error) {
 	req.Header = iproto.MagicBroadcastMsgHeader
-	res, e := p.Client.Tell(p.Ctx, req)
-	p.updateLastResTime()
-	return res, e
+	res, err := p.Client.Tell(p.Ctx, req)
+	if err == nil {
+		p.updateLastResTime()
+	}
+	return res, err
 }
 
 // Update the last time when successfully getting an response from the peer

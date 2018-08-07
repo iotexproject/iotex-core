@@ -154,15 +154,15 @@ func (o *IotxOverlay) Tell(node net.Addr, msg proto.Message) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to marshal msg when broadcast")
 	}
-	go func() {
-		_, err := peer.Tell(&pb.TellReq{Addr: o.RPC.String(), MsgType: msgType, MsgBody: msgBody})
+	go func(p *Peer) {
+		_, err := p.Tell(&pb.TellReq{Addr: o.RPC.String(), MsgType: msgType, MsgBody: msgBody})
 		if err != nil {
 			logger.Error().
-				Str("Addr", o.RPC.String()).
-				Str("MsgType", string(msgType)).
-				Msg("failed to tell msg")
+				Str("dst", p.String()).
+				Str("msg-type", string(msgType)).
+				Msg("failed to tell a message")
 		}
-	}()
+	}(peer)
 	return nil
 }
 

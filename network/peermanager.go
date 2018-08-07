@@ -38,14 +38,14 @@ func (pm *PeerManager) AddPeer(addr string) {
 	}
 	if pm.Overlay.RPC.String() == addr {
 		logger.Debug().
-			Str("addr", addr).
+			Str("dst", addr).
 			Msg("Node at address is the current node")
 		return
 	}
 	_, ok := pm.Peers.Load(addr)
 	if ok {
 		logger.Debug().
-			Str("addr", addr).
+			Str("dst", addr).
 			Msg("Node at address is already the peer")
 		return
 	}
@@ -53,7 +53,7 @@ func (pm *PeerManager) AddPeer(addr string) {
 		nHost, _, err := net.SplitHostPort(addr)
 		if err != nil {
 			logger.Error().
-				Str("addr", addr).
+				Str("dst", addr).
 				Msg("Node address is invalid")
 			return
 		}
@@ -63,7 +63,7 @@ func (pm *PeerManager) AddPeer(addr string) {
 			// This should be impossible, otherwise the connection couldn't be established
 			if err != nil {
 				logger.Error().
-					Str("addr", addr).
+					Str("dst", addr).
 					Msg("Node address is invalid")
 				return true
 			}
@@ -75,7 +75,7 @@ func (pm *PeerManager) AddPeer(addr string) {
 		})
 		if found {
 			logger.Debug().
-				Str("nHost", nHost).
+				Str("dst-host", nHost).
 				Msg("Another node on the same Host is already the peer")
 			return
 		}
@@ -84,13 +84,11 @@ func (pm *PeerManager) AddPeer(addr string) {
 	err := p.Connect(pm.Overlay.Config)
 	if err != nil {
 		logger.Error().
-			Str("src", pm.Overlay.RPC.String()).
 			Str("dst", addr).
 			Msg("failed to establish an outgoing connection")
 	}
 	pm.Peers.Store(addr, p)
 	logger.Debug().
-		Str("src", pm.Overlay.RPC.String()).
 		Str("dst", addr).
 		Msg("establish an outgoing connection")
 }
@@ -100,7 +98,7 @@ func (pm *PeerManager) RemovePeer(addr string) {
 	p, found := pm.Peers.Load(addr)
 	if !found {
 		logger.Debug().
-			Str("addr", addr).
+			Str("dst", addr).
 			Msg("Node at address is not a peer")
 		return
 	}
@@ -108,7 +106,6 @@ func (pm *PeerManager) RemovePeer(addr string) {
 	err := p.(*Peer).Close()
 	if err != nil {
 		logger.Error().
-			Str("src", pm.Overlay.RPC.String()).
 			Str("dst", addr).
 			Msg("failed to terminate an outgoing connection")
 	}
