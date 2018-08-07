@@ -195,12 +195,12 @@ func (stateDB *EVMStateDBAdapter) ForEachStorage([]byte, func(hash.Hash32B, hash
 }
 
 // IoTXEVMCanTransfer checks whether the from account has enough balance
-func IoTXEVMCanTransfer(db *EVMStateDBAdapter, fromHash []byte, balance *big.Int) bool {
+func IoTXEVMCanTransfer(db EVMStateDBAdapter, fromHash []byte, balance *big.Int) bool {
 	return db.GetBalance(fromHash) > balance
 }
 
 // IoTXEVMTransfer transfers account
-func IoTXEVMTransfer(db *EVMStateDBAdapter, fromHash, toHash []byte, amount *big.Int) {
+func IoTXEVMTransfer(db EVMStateDBAdapter, fromHash, toHash []byte, amount *big.Int) {
 	db.SubBalance(fromHash, amount)
 	db.AddBalance(toHash, amount)
 }
