@@ -65,7 +65,9 @@ type (
 		RootHash() hash.Hash32B
 		CommitStateChanges(uint64, []*action.Transfer, []*action.Vote) error
 		// Contracts
-		CreateContract(addr string, code []byte) error
+		CreateContract(addr string, code []byte) (string, error)
+		GetCodeHash(addr string) hash.Hash32B
+		GetCode(addr string) []byte
 		// Candidate pool
 		Candidates() (uint64, []*Candidate)
 		CandidatesByHeight(uint64) ([]*Candidate, bool)
@@ -271,34 +273,56 @@ func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer
 // Contract functions
 //======================================
 // CreateContract creates a new contract account
-func (sf *factory) CreateContract(addr string, code []byte) error {
+func (sf *factory) CreateContract(addr string, code []byte) (string, error) {
 	nonce, err := sf.Nonce(addr)
 	if err != nil {
-		return err
+		return "", err
 	}
 	temp := make([]byte, 8)
 	enc.MachineEndian.PutUint64(temp, nonce)
 	// generate contract address from owner addr and nonce
 	// nonce guarantees a different contract addr even if the same code is deployed the second time
-	contractAddr, err := iotxaddress.GetAddressByHash(
-		iotxaddress.IsTestnet,
-		iotxaddress.ChainID,
-		hash.Hash160b(append([]byte(addr), temp...)),
-	)
+	contractHash := hash.Hash160b(append([]byte(addr), temp...))
+	contractAddr, err := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, contractHash)
 	if err != nil {
-		return err
+		return "", err
 	}
 	// only create when contract addr does not exist yet
-	if state, _ := sf.getState(contractAddr.RawAddress); state != nil {
-		return ErrAccountCollision
+	if _, err := sf.getState(contractAddr.RawAddress); err != ErrAccountNotExist {
+		return "", ErrAccountCollision
 	}
-	contract, err := sf.CreateState(contractAddr.RawAddress, 0)
-	contract.CodeHash = hash.Hash256b(code)
-	// put the code into storage trie
+	contract, err := sf.createContract(contractHash, code)
+	if err != nil {
+		return "", err
+	}
+	// put the code into storage DB
 	if err := sf.accountTrie.TrieDB().Put(trie.CodeKVNameSpace, contract.CodeHash, code); err != nil {
-		return err
+		return "", err
 	}
-	return nil
+	return contractAddr.RawAddress, nil
+}
+
+func (sf *factory) GetCodeHash(addr string) hash.Hash32B {
+	codeHash := hash.ZeroHash32B
+	state, err := sf.getState(addr)
+	if err != nil || state.CodeHash == nil {
+		return codeHash
+	}
+	copy(codeHash[:], state.CodeHash)
+	return codeHash
+}
+
+func (sf *factory) GetCode(addr string) []byte {
+	codeHash := sf.GetCodeHash(addr)
+	if codeHash == hash.ZeroHash32B {
+		return nil
+	}
+	// pull the code from storage DB
+	code, err := sf.accountTrie.TrieDB().Get(trie.CodeKVNameSpace, codeHash[:])
+	if err != nil {
+		return nil
+	}
+	return code
 }
 
 //======================================
@@ -351,6 +375,28 @@ func (sf *factory) cache(addr string) (*State, error) {
 	}
 	sf.cachedAccount[addr] = state
 	return state, nil
+}
+
+func (sf *factory) createContract(addrHash []byte, code []byte) (*State, error) {
+	if addrHash == nil {
+		return nil, ErrAccountNotExist
+	}
+	balance := big.NewInt(0)
+	weight := big.NewInt(0)
+	s := State{
+		Balance:      balance,
+		VotingWeight: weight,
+		Root:         trie.EmptyRoot,
+		CodeHash:     hash.Hash256b(code),
+	}
+	mstate, err := stateToBytes(&s)
+	if err != nil {
+		return nil, err
+	}
+	if err := sf.accountTrie.Upsert(addrHash, mstate); err != nil {
+		return nil, err
+	}
+	return &s, nil
 }
 
 //======================================
