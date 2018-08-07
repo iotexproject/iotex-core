@@ -794,6 +794,7 @@ func getTransfer(bc blockchain.Blockchain, transferHash hash.Hash32B) (explorer.
 		Sender:    transfer.Sender,
 		Recipient: transfer.Recipient,
 		Fee:       0, // TODO: we need to get the actual fee.
+		Payload:   hex.EncodeToString(transfer.Payload),
 	}
 
 	return explorerTransfer, nil
