@@ -9,7 +9,6 @@ package blockchain
 import (
 	"math/big"
 
-	// "github.com/ethereum/go-ethereum/core/types"
 	"github.com/iotexproject/iotex-core-internal/iotxaddress"
 	"github.com/iotexproject/iotex-core-internal/logger"
 	"github.com/iotexproject/iotex-core-internal/pkg/hash"
@@ -44,18 +43,26 @@ func (stateDB *EVMStateDBAdapter) AddBalance([]byte, *big.Int) {
 
 // GetBalance gets the balance of account
 func (stateDB *EVMStateDBAdapter) GetBalance(hash []byte) *big.Int {
-	addr := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, hash)
+	addr, err := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, hash)
+	if err != nil {
+		logger.Error().Err(err).Msgf("Failed to generate address for %s", hash)
+		return nil
+	}
 	balance, err := stateDB.bc.Balance(addr)
 	if err != nil {
 		logger.Error().Err(err).Msgf("Failed to get balance for %s", addr)
-		return 0
+		return nil
 	}
 	return balance
 }
 
 // GetNonce gets the nonce of account
 func (stateDB *EVMStateDBAdapter) GetNonce(hash []byte) uint64 {
-	addr := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, hash)
+	addr, err := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, hash)
+	if err != nil {
+		logger.Error().Err(err).Msgf("Failed to generate address for %s", hash)
+		return nil
+	}
 	nonce, err := stateDB.bc.Nonce(addr)
 	if err != nil {
 		logger.Error().Err(err).Msgf("Failed to get nonce for %s", addr)
@@ -72,13 +79,18 @@ func (stateDB *EVMStateDBAdapter) SetNonce([]byte, uint64) {
 // GetCodeHash gets the code hash of account
 func (stateDB *EVMStateDBAdapter) GetCodeHash([]byte) hash.Hash32B {
 	logger.Error().Msg("GetCodeHash is not implemented")
+	return nil
 }
 
 // GetCode gets the code saved in hash
 func (stateDB *EVMStateDBAdapter) GetCode(hash []byte) []byte {
-	addr := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, hash)
-	state, error := stateDB.bc.StateByAddr(addr)
-	if error != nil {
+	addr, err := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, hash)
+	if err != nil {
+		logger.Error().Err(err).Msgf("Failed to generate address for %s", hash)
+		return nil
+	}
+	state, err := stateDB.bc.StateByAddr(addr)
+	if err != nil {
 		logger.Error().Err(err).Msgf("Failed to get code for %s", addr)
 		return nil
 	}
@@ -87,8 +99,12 @@ func (stateDB *EVMStateDBAdapter) GetCode(hash []byte) []byte {
 
 // SetCode sets the code saved in hash
 func (stateDB *EVMStateDBAdapter) SetCode(hash []byte, code []byte) {
-	addr := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, hash)
-	state, error := stateDB.bc.StateByAddr(addr)
+	addr, err := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, hash)
+	if err != nil {
+		logger.Error().Err(err).Msgf("Failed to generate address for %s", hash)
+		return nil
+	}
+	state, err := stateDB.bc.StateByAddr(addr)
 	if err != nil {
 		logger.Error().Err(err).Msgf("Failed to set code for %s", addr)
 		return
@@ -179,12 +195,12 @@ func (stateDB *EVMStateDBAdapter) ForEachStorage([]byte, func(hash.Hash32B, hash
 }
 
 // IoTXEVMCanTransfer checks whether the from account has enough balance
-func IoTXEVMCanTransfer(db StateDB, fromHash []byte, balance *big.Int) bool {
+func IoTXEVMCanTransfer(db *EVMStateDBAdapter, fromHash []byte, balance *big.Int) bool {
 	return db.GetBalance(fromHash) > balance
 }
 
 // IoTXEVMTransfer transfers account
-func IoTXEVMTransfer(db StateDB, fromHash, toHash []byte, amount *big.Int) {
+func IoTXEVMTransfer(db *EVMStateDBAdapter, fromHash, toHash []byte, amount *big.Int) {
 	db.SubBalance(fromHash, amount)
 	db.AddBalance(toHash, amount)
 }
