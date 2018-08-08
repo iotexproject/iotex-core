@@ -606,42 +606,46 @@ func (m *cFSM) handleVoteEvt(evt fsm.Event) (fsm.State, error) {
 		logger.Warn().
 			Uint64("block", pendingBlock.Height()).
 			Msg("dummy block is generated")
+		// TODO: fix committing dummy block
+		pendingBlock = nil
 	}
 	// Commit and broadcast the pending block
-	// TODO: Remove the blocksync dependency after rewriting blocksync
 	var err error
-	if m.ctx.sync != nil {
-		err = m.ctx.sync.ProcessBlock(pendingBlock)
-	} else {
-		if err = m.ctx.chain.CommitBlock(pendingBlock); err == nil {
-			// Remove transfers in this block from ActPool and reset ActPool state
-			m.ctx.actPool.Reset()
-		}
-	}
-	if err != nil {
-		logger.Error().
-			Err(err).
-			Uint64("block", pendingBlock.Height()).
-			Bool("dummy", pendingBlock.IsDummyBlock()).
-			Msg("error when committing a block")
-	} else {
-		// Broadcast the committed block to the network
-		if blkProto := pendingBlock.ConvertToBlockPb(); blkProto != nil {
-			if err := m.ctx.p2p.Broadcast(blkProto); err != nil {
-				logger.Error().
-					Err(err).
-					Uint64("block", pendingBlock.Height()).
-					Bool("dummy", pendingBlock.IsDummyBlock()).
-					Msg("error when broadcasting blkProto")
-			}
+	// TODO: pendingBlock is not supposed to be nil. It's nil because setting pendingBlock = nil above
+	if pendingBlock != nil {
+		// TODO: Remove the blocksync dependency after rewriting blocksync
+		if m.ctx.sync != nil {
+			err = m.ctx.sync.ProcessBlock(pendingBlock)
 		} else {
+			if err = m.ctx.chain.CommitBlock(pendingBlock); err == nil {
+				// Remove transfers in this block from ActPool and reset ActPool state
+				m.ctx.actPool.Reset()
+			}
+		}
+		if err != nil {
 			logger.Error().
+				Err(err).
 				Uint64("block", pendingBlock.Height()).
 				Bool("dummy", pendingBlock.IsDummyBlock()).
-				Msg("error when converting a block into a proto msg")
+				Msg("error when committing a block")
+		} else {
+			// Broadcast the committed block to the network
+			if blkProto := pendingBlock.ConvertToBlockPb(); blkProto != nil {
+				if err := m.ctx.p2p.Broadcast(blkProto); err != nil {
+					logger.Error().
+						Err(err).
+						Uint64("block", pendingBlock.Height()).
+						Bool("dummy", pendingBlock.IsDummyBlock()).
+						Msg("error when broadcasting blkProto")
+				}
+			} else {
+				logger.Error().
+					Uint64("block", pendingBlock.Height()).
+					Bool("dummy", pendingBlock.IsDummyBlock()).
+					Msg("error when converting a block into a proto msg")
+			}
 		}
 	}
-
 	m.produce(m.newCEvt(eFinishEpoch), 0)
 	return sRoundStart, nil
 }
