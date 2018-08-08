@@ -341,6 +341,8 @@ func (m *cFSM) handleRollDelegatesEvt(_ fsm.Event) (fsm.State, error) {
 	}
 	delegates, err := m.ctx.rollingDelegates(epochNum)
 	if err != nil {
+		// Even if error happens, we still need to schedule next check of delegate to tolerate transit error
+		m.produce(m.newCEvt(eRollDelegates), m.ctx.cfg.DelegateInterval)
 		return sInvalid, errors.Wrap(
 			err,
 			"error when determining if the node will participate into next epoch",
