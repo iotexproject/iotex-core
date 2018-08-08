@@ -48,11 +48,12 @@ type actionMsg struct {
 
 // IotxDispatcher is the request and event dispatcher for iotx node.
 type IotxDispatcher struct {
-	started   int32
-	shutdown  int32
-	eventChan chan interface{}
-	wg        sync.WaitGroup
-	quit      chan struct{}
+	started    int32
+	shutdown   int32
+	eventChan  chan interface{}
+	eventAudit map[uint32]int
+	wg         sync.WaitGroup
+	quit       chan struct{}
 
 	bs blocksync.BlockSync
 	cs consensus.Consensus
@@ -70,11 +71,12 @@ func NewDispatcher(
 		return nil, errors.New("Try to attach to a nil P2P")
 	}
 	d := &IotxDispatcher{
-		eventChan: make(chan interface{}, cfg.Dispatcher.EventChanSize),
-		quit:      make(chan struct{}),
-		ap:        ap,
-		bs:        bs,
-		cs:        cs,
+		eventChan:  make(chan interface{}, cfg.Dispatcher.EventChanSize),
+		eventAudit: make(map[uint32]int),
+		quit:       make(chan struct{}),
+		ap:         ap,
+		bs:         bs,
+		cs:         cs,
 	}
 	return d, nil
 }
@@ -125,6 +127,11 @@ func (d *IotxDispatcher) EventChan() *chan interface{} {
 	return &d.eventChan
 }
 
+// EventAudit returns the event audit map
+func (d *IotxDispatcher) EventAudit() map[uint32]int {
+	return d.eventAudit
+}
+
 // newsHandler is the main handler for handling all news from peers.
 func (d *IotxDispatcher) newsHandler() {
 loop:
@@ -134,10 +141,9 @@ loop:
 			switch msg := m.(type) {
 			case *actionMsg:
 				d.handleActionMsg(msg)
-
 			case *blockMsg:
-				d.handleBlockMsg(msg)
 
+				d.handleBlockMsg(msg)
 			case *blockSyncMsg:
 				d.handleBlockSyncMsg(msg)
 
@@ -158,6 +164,7 @@ loop:
 
 // handleActionMsg handles actionMsg from all peers.
 func (d *IotxDispatcher) handleActionMsg(m *actionMsg) {
+	d.eventAudit[pb.MsgActionType] = d.eventAudit[pb.MsgActionType] + 1
 	if pbTsf := m.action.GetTransfer(); pbTsf != nil {
 		tsf := &action.Transfer{}
 		tsf.ConvertFromTransferPb(pbTsf)
@@ -186,10 +193,12 @@ func (d *IotxDispatcher) handleBlockMsg(m *blockMsg) {
 		Uint64("block", blk.Height()).Hex("hash", hash[:]).Msg("receive blockMsg")
 
 	if m.blkType == pb.MsgBlockProtoMsgType {
+		d.eventAudit[pb.MsgBlockProtoMsgType] = d.eventAudit[pb.MsgBlockProtoMsgType] + 1
 		if err := d.bs.ProcessBlock(blk); err != nil {
 			logger.Error().Err(err).Msg("Fail to process the block")
 		}
 	} else if m.blkType == pb.MsgBlockSyncDataType {
+		d.eventAudit[pb.MsgBlockSyncDataType] = d.eventAudit[pb.MsgBlockSyncDataType] + 1
 		if err := d.bs.ProcessBlockSync(blk); err != nil {
 			logger.Error().Err(err).Msg("Fail to sync the block")
 		}
@@ -207,6 +216,7 @@ func (d *IotxDispatcher) handleBlockSyncMsg(m *blockSyncMsg) {
 		Uint64("start", m.sync.Start).
 		Uint64("end", m.sync.End).
 		Msg("receive blockSyncMsg")
+	d.eventAudit[pb.MsgBlockSyncReqType] = d.eventAudit[pb.MsgBlockSyncReqType] + 1
 	// dispatch to block sync
 	if err := d.bs.ProcessSyncRequest(m.sender, m.sync); err != nil {
 		logger.Error().Err(err)
@@ -319,8 +329,11 @@ func (d *IotxDispatcher) HandleTell(sender net.Addr, message proto.Message, done
 }
 
 func (d *IotxDispatcher) enqueueEvent(event interface{}) {
-	if len(d.eventChan) == cap(d.eventChan) {
-		logger.Warn().Msg("dispatcher event chan is full")
-	}
-	d.eventChan <- event
+	go func() {
+		if len(d.eventChan) == cap(d.eventChan) {
+			logger.Warn().Msg("dispatcher event chan is full, drop an event")
+			return
+		}
+		d.eventChan <- event
+	}()
 }

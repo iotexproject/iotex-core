@@ -7,6 +7,7 @@
 package itx
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/zjshen14/go-fsm"
@@ -61,6 +62,11 @@ func (h *HeartbeatHandler) Log() {
 		return
 	}
 	numDPEvts := len(*dp.EventChan())
+	dpEvtsAudit, err := json.Marshal(dp.EventAudit())
+	if err != nil {
+		logger.Error().Msg("error when serializing the dispatcher event audit map")
+		return
+	}
 
 	// Consensus metrics
 	cs, ok := h.s.consensus.(*consensus.IotxConsensus)
@@ -90,6 +96,7 @@ func (h *HeartbeatHandler) Log() {
 		Time("last-out", lastOutTime).
 		Time("last-in", lastInTime).
 		Int("dispatcher-events", numDPEvts).
+		Str("dispatcher-events-audit", string(dpEvtsAudit)).
 		Int("rolldpos-events", numPendingEvts).
 		Str("fsm-state", string(state)).
 		Uint64("height", height).

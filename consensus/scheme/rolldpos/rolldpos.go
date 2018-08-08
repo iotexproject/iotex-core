@@ -63,6 +63,7 @@ func (ctx *rollDPoSCtx) rollingDelegates(epochNum uint64) ([]string, error) {
 	var candidates []*state.Candidate
 	var ok bool
 	if ctx.candidatesByHeightFunc != nil {
+		// Test only
 		candidates, ok = ctx.candidatesByHeightFunc(height)
 	} else {
 		candidates, ok = ctx.chain.CandidatesByHeight(height)
