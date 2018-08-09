@@ -380,8 +380,9 @@ func (sf *factory) cache(addr string) (*State, error) {
 	}
 	state, err := sf.getState(addr)
 	switch {
-	case err == ErrAccountNotExist:
-		if state, err = sf.LoadOrCreateState(addr, 0); err != nil {
+	case errors.Cause(err) == ErrAccountNotExist:
+		state, err = sf.LoadOrCreateState(addr, 0)
+		if err != nil {
 			return nil, err
 		}
 	case err != nil:
