@@ -195,7 +195,39 @@ func (t *trie) RootHash() hash.Hash32B {
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
 
-	return t.rehashRoot()
+	return t.rootHash
+}
+
+// EnableBatch enable batch mode
+func (t *trie) EnableBatch() error {
+	if t.batchMode {
+		return nil
+	}
+
+	// recreate the map to ensure it's clean
+	t.cache = nil
+	t.cache = make(map[hash.Hash32B][]byte)
+
+	// recreate the batch to ensure it's clean
+	t.dbBatch = nil
+	if t.dbBatch = t.dao.Batch(); t.dbBatch == nil {
+		return errors.New("fail to initial batch")
+	}
+	t.batchMode = true
+	return nil
+}
+
+// DisableBatch disable batch mode
+func (t *trie) DisableBatch() {
+	t.batchMode = false
+}
+
+// Flush flush batched db writes to database
+func (t *trie) Flush() error {
+	if t.batchMode {
+		return t.dbBatch.Commit()
+	}
+	return nil
 }
 
 //======================================
@@ -375,7 +407,6 @@ func (t *trie) delete(ptr patricia, index byte) (bool, byte, error) {
 
 // updateInsert rewinds the path back to root and updates nodes along the way
 func (t *trie) updateInsert(hashChild []byte) error {
-	defer t.rehashRoot()
 	for t.toRoot.Len() > 0 {
 		curr, index := t.popToRoot()
 		if curr == nil {
@@ -399,12 +430,13 @@ func (t *trie) updateInsert(hashChild []byte) error {
 			return err
 		}
 	}
+	// update root hash
+	t.rootHash = t.root.hash()
 	return nil
 }
 
 // updateDelete rewinds the path back to root and updates nodes along the way
 func (t *trie) updateDelete(curr patricia, currClps bool, clpsType byte) error {
-	defer t.rehashRoot()
 	contClps := false
 	for t.toRoot.Len() > 0 {
 		logger.Debug().Int("stack size", t.toRoot.Len()).Msg("clps")
@@ -417,9 +449,9 @@ func (t *trie) updateDelete(curr patricia, currClps bool, clpsType byte) error {
 		}
 		// we attempt to collapse in 2 cases:
 		// 1. the current node is not root
-		// 2. the current node is root, but <k, v> is nil meaning no more entries exist on the incoming path
+		// 2. the current node is root, but <v> is nil meaning no more entries exist on the incoming path
 		isRoot := t.toRoot.Len() == 0
-		noEntry := t.clpsK == nil && t.clpsV == nil
+		noEntry := t.clpsV == nil
 		var nextClps bool
 		t.clpsK, t.clpsV, nextClps = next.collapse(t.clpsK, t.clpsV, index, currClps && (!isRoot || noEntry))
 		logger.Debug().Bool("curr", currClps).Msg("clps")
@@ -434,25 +466,13 @@ func (t *trie) updateDelete(curr patricia, currClps bool, clpsType byte) error {
 			}
 		}
 		logger.Debug().Bool("cont", contClps).Msg("clps")
-		if contClps {
-			// only 1 entry (which is the root) left, the trie fallback to an empty trie
-			if isRoot && t.numEntry == 1 {
-				t.delPatricia(t.root)
-				t.root = nil
-				t.root = &branch{}
-				t.rootHash = t.root.hash()
-				logger.Warn().Msg("all entries deleted, trie fallback to empty")
-				return t.putPatriciaNew(t.root)
-			}
-			// otherwise collapse into a leaf node
-			if t.clpsV != nil {
-				curr = &leaf{clpsType, t.clpsK, t.clpsV}
-				logger.Debug().Hex("k", t.clpsK).Hex("v", t.clpsV).Msg("clps")
-				// after collapsing, the trie might rollback to an earlier state in the history (before adding the deleted entry)
-				// so the node we try to put may already exist in DB
-				if err := t.putPatricia(curr); err != nil {
-					return errors.Wrap(err, "failed to put patricia")
-				}
+		if contClps && !noEntry {
+			curr = &leaf{clpsType, t.clpsK, t.clpsV}
+			logger.Info().Hex("k", t.clpsK).Hex("v", t.clpsV).Msg("clps")
+			// after collapsing, the trie might rollback to an earlier state in the history (before adding the deleted entry)
+			// so the node we try to put may already exist in DB
+			if err := t.putPatricia(curr); err != nil {
+				return errors.Wrap(err, "failed to put patricia")
 			}
 		}
 		contClps = false
@@ -470,12 +490,9 @@ func (t *trie) updateDelete(curr patricia, currClps bool, clpsType byte) error {
 		currClps = nextClps
 		curr = next
 	}
-	return nil
-}
-
-func (t *trie) rehashRoot() hash.Hash32B {
+	// update root hash
 	t.rootHash = t.root.hash()
-	return t.rootHash
+	return nil
 }
 
 //======================================
@@ -623,36 +640,4 @@ func (t *trie) popToRoot() (patricia, byte) {
 		return ptr, index
 	}
 	return nil, 0
-}
-
-// EnableBatch enable batch mode
-func (t *trie) EnableBatch() error {
-	if t.batchMode {
-		return nil
-	}
-
-	// recreate the map to ensure it's clean
-	t.cache = nil
-	t.cache = make(map[hash.Hash32B][]byte)
-
-	// recreate the batch to ensure it's clean
-	t.dbBatch = nil
-	if t.dbBatch = t.dao.Batch(); t.dbBatch == nil {
-		return errors.New("fail to initial batch")
-	}
-	t.batchMode = true
-	return nil
-}
-
-// DisableBatch disable batch mode
-func (t *trie) DisableBatch() {
-	t.batchMode = false
-}
-
-// Flush flush batched db writes to database
-func (t *trie) Flush() error {
-	if t.batchMode {
-		return t.dbBatch.Commit()
-	}
-	return nil
 }

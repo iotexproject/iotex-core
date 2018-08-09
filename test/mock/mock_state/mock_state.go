@@ -61,17 +61,17 @@ func (mr *MockFactoryMockRecorder) Stop(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockFactory)(nil).Stop), arg0)
 }
 
-// CreateState mocks base method
-func (m *MockFactory) CreateState(arg0 string, arg1 uint64) (*state.State, error) {
-	ret := m.ctrl.Call(m, "CreateState", arg0, arg1)
+// LoadOrCreateState mocks base method
+func (m *MockFactory) LoadOrCreateState(arg0 string, arg1 uint64) (*state.State, error) {
+	ret := m.ctrl.Call(m, "LoadOrCreateState", arg0, arg1)
 	ret0, _ := ret[0].(*state.State)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// CreateState indicates an expected call of CreateState
-func (mr *MockFactoryMockRecorder) CreateState(arg0, arg1 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateState", reflect.TypeOf((*MockFactory)(nil).CreateState), arg0, arg1)
+// LoadOrCreateState indicates an expected call of LoadOrCreateState
+func (mr *MockFactoryMockRecorder) LoadOrCreateState(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadOrCreateState", reflect.TypeOf((*MockFactory)(nil).LoadOrCreateState), arg0, arg1)
 }
 
 // Balance mocks base method

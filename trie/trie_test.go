@@ -320,7 +320,7 @@ func Test1kEntries(t *testing.T) {
 	require.Nil(tr.Start(context.Background()))
 	root := EmptyRoot
 	seed := time.Now().Nanosecond()
-	// insert 64k entries
+	// insert 1k entries
 	var k [32]byte
 	k[0] = byte(seed)
 	for i := 0; i < 1<<10; i++ {
@@ -330,8 +330,7 @@ func Test1kEntries(t *testing.T) {
 			continue
 		}
 		logger.Info().Hex("key", k[:8]).Msg("Put --")
-		err := tr.Upsert(k[:8], v)
-		require.Nil(err)
+		require.Nil(tr.Upsert(k[:8], v))
 		newRoot := tr.RootHash()
 		require.NotEqual(newRoot, EmptyRoot)
 		require.NotEqual(newRoot, root)
@@ -341,13 +340,12 @@ func Test1kEntries(t *testing.T) {
 		require.Equal(v, b)
 		// update <k, v>
 		v = testV[7-k[0]&7]
-		err = tr.Upsert(k[:8], v)
-		require.Nil(err)
+		require.Nil(tr.Upsert(k[:8], v))
 		b, err = tr.Get(k[:8])
 		require.Nil(err)
 		require.Equal(v, b)
 	}
-	// delete 64k entries
+	// delete 1k entries
 	var d [32]byte
 	d[0] = byte(seed)
 	// save the first 3, delete them last
@@ -359,6 +357,12 @@ func Test1kEntries(t *testing.T) {
 		d = blake2b.Sum256(d[:])
 		logger.Info().Hex("key", d[:8]).Msg("Del --")
 		require.Nil(tr.Delete(d[:8]))
+		newRoot := tr.RootHash()
+		require.NotEqual(newRoot, EmptyRoot)
+		require.NotEqual(newRoot, root)
+		root = newRoot
+		_, err := tr.Get(d[:8])
+		require.Equal(ErrNotExist, errors.Cause(err))
 	}
 	require.Nil(tr.Delete(d1[:8]))
 	require.Nil(tr.Delete(d2[:8]))
@@ -390,8 +394,7 @@ func TestPressure(t *testing.T) {
 			continue
 		}
 		logger.Info().Hex("key", k[:8]).Msg("Put --")
-		err := tr.Upsert(k[:8], v)
-		require.Nil(err)
+		require.Nil(tr.Upsert(k[:8], v))
 		newRoot := tr.RootHash()
 		require.NotEqual(newRoot, EmptyRoot)
 		require.NotEqual(newRoot, root)
@@ -412,6 +415,12 @@ func TestPressure(t *testing.T) {
 		d = blake2b.Sum256(d[:])
 		logger.Info().Hex("key", d[:8]).Msg("Del --")
 		require.Nil(tr.Delete(d[:8]))
+		newRoot := tr.RootHash()
+		require.NotEqual(newRoot, EmptyRoot)
+		require.NotEqual(newRoot, root)
+		root = newRoot
+		_, err := tr.Get(d[:8])
+		require.Equal(ErrNotExist, errors.Cause(err))
 	}
 	require.Nil(tr.Delete(d1[:8]))
 	require.Nil(tr.Delete(d2[:8]))
