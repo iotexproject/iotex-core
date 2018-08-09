@@ -97,7 +97,7 @@ func main() {
 	for _, addr := range addrs {
 		addrDetails, err := proxy.GetAddressDetails(addr.RawAddress)
 		if err != nil {
-			logger.Fatal().Err(err).Msg("Failed to start injecting actions")
+			logger.Fatal().Err(err).Str("addr", addr.RawAddress).Msg("Failed to start injecting actions")
 		}
 		nonce := uint64(addrDetails.PendingNonce)
 		counter[addr.RawAddress] = nonce
