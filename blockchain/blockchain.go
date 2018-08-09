@@ -555,6 +555,6 @@ func (bc *blockchain) commitBlock(blk *Block) error {
 		return nil
 	}
 	err := bc.sf.CommitStateChanges(blk.Height(), blk.Transfers, blk.Votes)
-	logger.Info().Uint64("height", blk.Header.height).Msg("committed a block")
+	logger.Info().Uint64("height", blk.Header.height).Msg("commit a block")
 	return err
 }

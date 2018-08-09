@@ -352,11 +352,6 @@ func (bs *blockSyncer) commitBlocksInBuffer() error {
 		// remove transfers in this block from ActPool and reset ActPool state
 		bs.ap.Reset()
 
-		//TODO make it structured logging
-		logger.Warn().
-			Str("name", bs.p2p.Self().String()).
-			Uint64("height", blk.Height()).
-			Msg("commit a block")
 		bs.actionTime = time.Now()
 
 		// update sliding window

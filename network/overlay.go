@@ -9,7 +9,9 @@ package network
 import (
 	"context"
 	"net"
+	"time"
 
+	"encoding/hex"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
@@ -17,7 +19,8 @@ import (
 	"github.com/iotexproject/iotex-core/dispatch/dispatcher"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network/node"
-	pb "github.com/iotexproject/iotex-core/network/proto"
+	"github.com/iotexproject/iotex-core/network/proto"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/routine"
 	"github.com/iotexproject/iotex-core/proto"
@@ -120,10 +123,11 @@ func (o *IotxOverlay) Broadcast(msg proto.Message) error {
 		return errors.Wrap(err, "failed to marshal msg when broadcast")
 	}
 	// Source also needs to remember the message sent so that it wouldn't process it again
-	o.Gossip.storeBroadcastMsgChecksum(o.Gossip.getBroadcastMsgChecksum(msgBody))
+	msgChecksum := hash.Hash256b(msgBody)
+	checksumStr := hex.EncodeToString(msgChecksum)
+	o.Gossip.MsgLogs.Store(checksumStr, time.Now())
 	// Kick off the message
-	err = o.Gossip.relayMsg(msgType, msgBody, o.Config.TTL)
-	if err != nil {
+	if err = o.Gossip.relayMsg(msgType, msgBody, msgChecksum, o.Config.TTL); err != nil {
 		return errors.Wrap(err, "failed to relay msg when broadcast")
 	}
 	return nil
@@ -155,7 +159,7 @@ func (o *IotxOverlay) Tell(node net.Addr, msg proto.Message) error {
 		return errors.Wrap(err, "failed to marshal msg when broadcast")
 	}
 	go func(p *Peer) {
-		_, err := p.Tell(&pb.TellReq{Addr: o.RPC.String(), MsgType: msgType, MsgBody: msgBody})
+		_, err := p.Tell(&network.TellReq{Addr: o.RPC.String(), MsgType: msgType, MsgBody: msgBody})
 		if err != nil {
 			logger.Error().
 				Str("dst", p.String()).
