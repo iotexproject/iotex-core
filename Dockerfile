@@ -23,6 +23,7 @@ RUN cd $GOPATH/src/github.com/iotexproject/iotex-core/ && \
     ln -s $GOPATH/src/github.com/iotexproject/iotex-core/bin/addrgen /usr/local/bin/iotex-addrgen && \
     mkdir -p /usr/local/lib/iotex/ && \
     cp $GOPATH/src/github.com/iotexproject/iotex-core/crypto/lib/libsect283k1_ubuntu.so /usr/lib/ && \
+    cp $GOPATH/src/github.com/iotexproject/iotex-core/crypto/lib/blslib/libtblsmnt_ubuntu.so /usr/lib/ && \
     mkdir -p /etc/iotex/ && \
     echo "chain:" >> /etc/iotex/config.yaml && \
     echo "    producerPrivKey: \"925f0c9e4b6f6d92f2961d01aff6204c44d73c0b9d0da188582932d4fcad0d8ee8c66600\"" >> /etc/iotex/config.yaml && \
