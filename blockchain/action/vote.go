@@ -14,7 +14,7 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/blake2b"
 
-	cp "github.com/iotexproject/iotex-core/crypto"
+	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
@@ -201,7 +201,7 @@ func (v *Vote) Sign(sender *iotxaddress.Address) (*Vote, error) {
 // Verify verifies the Vote using sender's public key
 func (v *Vote) Verify(sender *iotxaddress.Address) error {
 	hash := v.Hash()
-	if success := cp.Verify(sender.PublicKey, hash[:], v.Signature); success {
+	if success := crypto.EC283.Verify(sender.PublicKey, hash[:], v.Signature); success {
 		return nil
 	}
 	return errors.Wrapf(ErrVoteError, "Failed to verify Vote signature = %x", v.Signature)
@@ -213,7 +213,7 @@ func (v *Vote) Verify(sender *iotxaddress.Address) error {
 
 func (v *Vote) sign(sender *iotxaddress.Address) error {
 	hash := v.Hash()
-	if v.Signature = cp.Sign(sender.PrivateKey, hash[:]); v.Signature != nil {
+	if v.Signature = crypto.EC283.Sign(sender.PrivateKey, hash[:]); v.Signature != nil {
 		return nil
 	}
 	return errors.Wrapf(ErrVoteError, "Failed to sign Vote hash = %x", hash)

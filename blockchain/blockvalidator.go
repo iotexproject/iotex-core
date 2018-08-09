@@ -15,7 +15,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/blockchain/action"
-	cp "github.com/iotexproject/iotex-core/crypto"
+	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/state"
@@ -69,7 +69,7 @@ func (v *validator) Validate(blk *Block, tipHeight uint64, tipHash hash.Hash32B)
 	if blk.Header.height > 0 {
 		// verify new block's signature is correct
 		blkHash := blk.HashBlock()
-		if !cp.Verify(blk.Header.Pubkey, blkHash[:], blk.Header.blockSig) {
+		if !crypto.EC283.Verify(blk.Header.Pubkey, blkHash[:], blk.Header.blockSig) {
 			return errors.Wrapf(
 				ErrInvalidBlock,
 				"Fail to verify block's signature with public key: %x",

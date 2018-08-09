@@ -26,17 +26,24 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 )
 
+// EC283 represents an ec283 struct singleton that contains the set of cryptography functions based on the elliptic
+// curve 283. It is used for blockchain address creation, action and block signature and verification.
+var EC283 ec283
+
+type ec283 struct {
+}
+
 // NewKeyPair generates a new public/private key pair
-func NewKeyPair() (keypair.PublicKey, keypair.PrivateKey, error) {
+func (c *ec283) NewKeyPair() (keypair.PublicKey, keypair.PrivateKey, error) {
 	var kp C.ec283_key_pair
 	C.keypair_generation(&kp)
 	pubKey := kp.Q
 	privKey := kp.d
-	pub, err := publicKeySerialization(pubKey)
+	pub, err := c.publicKeySerialization(pubKey)
 	if err != nil {
 		return keypair.ZeroPublicKey, keypair.ZeroPrivateKey, err
 	}
-	priv, err := privateKeySerialization(privKey)
+	priv, err := c.privateKeySerialization(privKey)
 	if err != nil {
 		return keypair.ZeroPublicKey, keypair.ZeroPrivateKey, err
 	}
@@ -45,16 +52,16 @@ func NewKeyPair() (keypair.PublicKey, keypair.PrivateKey, error) {
 }
 
 // NewPubKey generates a new public key
-func NewPubKey(priv keypair.PrivateKey) (keypair.PublicKey, error) {
+func (c *ec283) NewPubKey(priv keypair.PrivateKey) (keypair.PublicKey, error) {
 	var pubKey C.ec283_point_lambda_aff
-	privKey, err := privateKeyDeserialization(priv)
+	privKey, err := c.privateKeyDeserialization(priv)
 	if err != nil {
 		return keypair.ZeroPublicKey, nil
 	}
 	if result := C.pk_generation(&privKey[0], &pubKey); result == 0 {
 		return keypair.ZeroPublicKey, errors.New("Fail to generate the public key")
 	}
-	pub, err := publicKeySerialization(pubKey)
+	pub, err := c.publicKeySerialization(pubKey)
 	if err != nil {
 		return keypair.ZeroPublicKey, err
 	}
@@ -62,15 +69,15 @@ func NewPubKey(priv keypair.PrivateKey) (keypair.PublicKey, error) {
 }
 
 // Sign signs the msg
-func Sign(priv keypair.PrivateKey, msg []byte) []byte {
+func (c *ec283) Sign(priv keypair.PrivateKey, msg []byte) []byte {
 	msgString := string(msg[:])
-	privKey, err := privateKeyDeserialization(priv)
+	privKey, err := c.privateKeyDeserialization(priv)
 	if err != nil {
 		return nil
 	}
 	var signature C.ecdsa_signature
 	C.ECDSA_sign(&privKey[0], (*C.uint8_t)(&msg[0]), (C.uint64_t)(len(msgString)), &signature)
-	sign, err := signatureSerialization(signature)
+	sign, err := c.signatureSerialization(signature)
 	if err != nil {
 		return nil
 	}
@@ -78,20 +85,20 @@ func Sign(priv keypair.PrivateKey, msg []byte) []byte {
 }
 
 // Verify verifies the signature
-func Verify(pub keypair.PublicKey, msg []byte, sig []byte) bool {
+func (c *ec283) Verify(pub keypair.PublicKey, msg []byte, sig []byte) bool {
 	msgString := string(msg[:])
-	pubKey, err := publicKeyDeserialization(pub)
+	pubKey, err := c.publicKeyDeserialization(pub)
 	if err != nil {
 		return false
 	}
-	signature, err := signatureDeserialization(sig)
+	signature, err := c.signatureDeserialization(sig)
 	if err != nil {
 		return false
 	}
 	return C.ECDSA_verify(&pubKey, (*C.uint8_t)(&msg[0]), (C.uint64_t)(len(msgString)), &signature) == 1
 }
 
-func publicKeySerialization(pubKey C.ec283_point_lambda_aff) (keypair.PublicKey, error) {
+func (*ec283) publicKeySerialization(pubKey C.ec283_point_lambda_aff) (keypair.PublicKey, error) {
 	var xl [18]uint32
 	for i := 0; i < 9; i++ {
 		xl[i] = (uint32)(pubKey.x[i])
@@ -105,7 +112,7 @@ func publicKeySerialization(pubKey C.ec283_point_lambda_aff) (keypair.PublicKey,
 	return keypair.BytesToPublicKey(buf.Bytes())
 }
 
-func publicKeyDeserialization(pubKey keypair.PublicKey) (C.ec283_point_lambda_aff, error) {
+func (*ec283) publicKeyDeserialization(pubKey keypair.PublicKey) (C.ec283_point_lambda_aff, error) {
 	var xl [18]uint32
 	var pub C.ec283_point_lambda_aff
 	rbuf := bytes.NewReader(pubKey[:])
@@ -120,7 +127,7 @@ func publicKeyDeserialization(pubKey keypair.PublicKey) (C.ec283_point_lambda_af
 	return pub, nil
 }
 
-func privateKeySerialization(privKey [9]C.uint32_t) (keypair.PrivateKey, error) {
+func (*ec283) privateKeySerialization(privKey [9]C.uint32_t) (keypair.PrivateKey, error) {
 	var d [9]uint32
 	for i := 0; i < 9; i++ {
 		d[i] = (uint32)(privKey[i])
@@ -133,7 +140,7 @@ func privateKeySerialization(privKey [9]C.uint32_t) (keypair.PrivateKey, error) 
 	return keypair.BytesToPrivateKey(buf.Bytes())
 }
 
-func privateKeyDeserialization(privKey keypair.PrivateKey) ([9]C.uint32_t, error) {
+func (*ec283) privateKeyDeserialization(privKey keypair.PrivateKey) ([9]C.uint32_t, error) {
 	var d [9]uint32
 	var priv [9]C.uint32_t
 	rbuf := bytes.NewReader(privKey[:])
@@ -147,7 +154,7 @@ func privateKeyDeserialization(privKey keypair.PrivateKey) ([9]C.uint32_t, error
 	return priv, nil
 }
 
-func signatureSerialization(signature C.ecdsa_signature) ([]byte, error) {
+func (*ec283) signatureSerialization(signature C.ecdsa_signature) ([]byte, error) {
 	var rs [18]uint32
 	for i := 0; i < 9; i++ {
 		rs[i] = (uint32)(signature.r[i])
@@ -161,7 +168,7 @@ func signatureSerialization(signature C.ecdsa_signature) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func signatureDeserialization(signatureBytes []byte) (C.ecdsa_signature, error) {
+func (*ec283) signatureDeserialization(signatureBytes []byte) (C.ecdsa_signature, error) {
 	var rs [18]uint32
 	var signature C.ecdsa_signature
 	buff := bytes.NewReader(signatureBytes)

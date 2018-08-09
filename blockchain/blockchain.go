@@ -15,7 +15,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/config"
-	cp "github.com/iotexproject/iotex-core/crypto"
+	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
@@ -488,7 +488,7 @@ func (bc *blockchain) MintNewBlock(tsf []*action.Transfer, vote []*action.Vote,
 	blk.Header.Pubkey = producer.PublicKey
 
 	blkHash := blk.HashBlock()
-	blk.Header.blockSig = cp.Sign(producer.PrivateKey, blkHash[:])
+	blk.Header.blockSig = crypto.EC283.Sign(producer.PrivateKey, blkHash[:])
 	return blk, nil
 }
 

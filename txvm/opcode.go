@@ -12,7 +12,7 @@ import (
 
 	"golang.org/x/crypto/blake2b"
 
-	cp "github.com/iotexproject/iotex-core/crypto"
+	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 )
 
@@ -245,7 +245,7 @@ func opcodeCheckSig(node *OpNode, vm *IVM) error {
 	if err != nil {
 		return err
 	}
-	if cp.Verify(publicKey, hash[:], sig) {
+	if crypto.EC283.Verify(publicKey, hash[:], sig) {
 		return opcodePushTrue(node, vm)
 	}
 	return opcodePushFalse(node, vm)

@@ -15,7 +15,7 @@ import (
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotexproject/iotex-core/blockchain/action"
-	cp "github.com/iotexproject/iotex-core/crypto"
+	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/enc"
@@ -230,7 +230,7 @@ func (b *Block) TxRoot() hash.Hash32B {
 	if len(h) == 0 {
 		return hash.ZeroHash32B
 	}
-	return cp.NewMerkleTree(h).HashTree()
+	return crypto.NewMerkleTree(h).HashTree()
 }
 
 // HashBlock return the hash of this block (actually hash of block header)
@@ -247,6 +247,6 @@ func (b *Block) SignBlock(signer *iotxaddress.Address) error {
 	}
 	b.Header.Pubkey = signer.PublicKey
 	blkHash := b.HashBlock()
-	b.Header.blockSig = cp.Sign(signer.PrivateKey, blkHash[:])
+	b.Header.blockSig = crypto.EC283.Sign(signer.PrivateKey, blkHash[:])
 	return nil
 }

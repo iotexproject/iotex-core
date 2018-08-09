@@ -20,7 +20,7 @@ package iotxaddress
 import (
 	"github.com/pkg/errors"
 
-	cp "github.com/iotexproject/iotex-core/crypto"
+	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/iotxaddress/bech32"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/version"
@@ -53,7 +53,7 @@ type Address struct {
 
 // NewAddress returns a newly created public/private key pair together with the address derived.
 func NewAddress(isTestnet bool, chainID []byte) (*Address, error) {
-	pub, pri, err := cp.NewKeyPair()
+	pub, pri, err := crypto.EC283.NewKeyPair()
 	if err != nil {
 		return nil, err
 	}

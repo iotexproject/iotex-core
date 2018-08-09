@@ -21,7 +21,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/config"
-	cp "github.com/iotexproject/iotex-core/crypto"
+	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/proto"
@@ -191,7 +191,7 @@ func TestWrongRootHash(t *testing.T) {
 	blk := NewBlock(1, 1, hash, []*action.Transfer{tsf1, tsf2}, nil)
 	blk.Header.Pubkey = ta.Addrinfo["producer"].PublicKey
 	blkHash := blk.HashBlock()
-	blk.Header.blockSig = cp.Sign(ta.Addrinfo["producer"].PrivateKey, blkHash[:])
+	blk.Header.blockSig = crypto.EC283.Sign(ta.Addrinfo["producer"].PrivateKey, blkHash[:])
 	require.Nil(val.Validate(blk, 0, hash))
 	blk.Transfers[0], blk.Transfers[1] = blk.Transfers[1], blk.Transfers[0]
 	require.NotNil(val.Validate(blk, 0, hash))
