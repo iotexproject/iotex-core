@@ -283,16 +283,16 @@ func (sf *factory) CreateContract(addr string, code []byte) (string, error) {
 		return "", err
 	}
 	// only create when contract addr does not exist yet
-	if _, err := sf.getState(contractAddr.RawAddress); err != ErrAccountNotExist {
+	if _, err := sf.getState(contractAddr.RawAddress); errors.Cause(err) != ErrAccountNotExist {
 		return "", ErrAccountCollision
 	}
 	contract, err := sf.createContract(contractHash, code)
 	if err != nil {
-		return "", err
+		return "", errors.Wrapf(err, "Failed to create contract")
 	}
 	// put the code into storage DB
 	if err := sf.accountTrie.TrieDB().Put(trie.CodeKVNameSpace, contract.CodeHash, code); err != nil {
-		return "", err
+		return "", errors.Wrapf(err, "Failed to store contract code")
 	}
 	return contractAddr.RawAddress, nil
 }
@@ -513,8 +513,19 @@ func (sf *factory) inPool(address string) (*Candidate, int) {
 //======================================
 // private transfer/vote functions
 //======================================
+func (sf *factory) handleContract(owner string, contract []byte) error {
+	// TODO: start vm to run contract = tx.Payload
+	return nil
+}
+
 func (sf *factory) handleTsf(tsf []*action.Transfer) error {
 	for _, tx := range tsf {
+		if tx.IsContract() {
+			if err := sf.handleContract(tx.Sender, tx.Payload); err != nil {
+				return err
+			}
+			continue
+		}
 		if !tx.IsCoinbase {
 			// check sender
 			sender, err := sf.cache(tx.Sender)

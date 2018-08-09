@@ -14,6 +14,7 @@ import (
 
 	"github.com/golang/groupcache/lru"
 	"github.com/golang/mock/gomock"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/blockchain/action"
@@ -598,12 +599,16 @@ func TestCreateContract(t *testing.T) {
 	contract, err := sf.CreateContract(addr.RawAddress, code)
 	require.Nil(err)
 	require.NotEqual("", contract)
-
+	// contract exist
 	codeHash := sf.GetCodeHash(contract)
 	require.NotEqual(hash.ZeroHash32B, codeHash)
 	code1 := sf.GetCode(contract)
 	require.Equal(code, code1)
-
+	// re-create cause collision
+	contract, err = sf.CreateContract(addr.RawAddress, code)
+	require.Equal(ErrAccountCollision, errors.Cause(err))
+	require.Equal("", contract)
+	// non-existing contract
 	addr1, _ := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
 	codeHash = sf.GetCodeHash(addr1.RawAddress)
 	require.Equal(hash.ZeroHash32B, codeHash)

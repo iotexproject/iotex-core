@@ -36,6 +36,9 @@ var (
 // versionSizeInBytes defines the size of version in byte units
 const versionSizeInBytes = 4
 
+// EmptyAddress defines the size of version in byte units
+const EmptyAddress = "00000000000000000000000000000000"
+
 type (
 	// Transfer defines the struct of account-based transfer
 	Transfer struct {
@@ -84,6 +87,11 @@ func NewCoinBaseTransfer(amount *big.Int, recipient string) *Transfer {
 		IsCoinbase: true,
 		// SenderPublicKey and Signature will be populated in Sign()
 	}
+}
+
+// IsContract returns true for contract action
+func (tsf *Transfer) IsContract() bool {
+	return tsf.Recipient == EmptyAddress
 }
 
 // TotalSize returns the total size of this Transfer
