@@ -88,11 +88,11 @@ func (q *actQueue) Overlaps(act *iproto.ActionPb) bool {
 	switch {
 	case act.GetTransfer() != nil:
 		tsf := &action.Transfer{}
-		tsf.ConvertFromTransferPb(act.GetTransfer())
+		tsf.ConvertFromActionPb(act)
 		nonce = tsf.Nonce
 	case act.GetVote() != nil:
 		vote := &action.Vote{}
-		vote.ConvertFromVotePb(act.GetVote())
+		vote.ConvertFromActionPb(act)
 		nonce = vote.Nonce
 	}
 	return q.items[nonce] != nil
@@ -104,11 +104,11 @@ func (q *actQueue) Put(act *iproto.ActionPb) error {
 	switch {
 	case act.GetTransfer() != nil:
 		tsf := &action.Transfer{}
-		tsf.ConvertFromTransferPb(act.GetTransfer())
+		tsf.ConvertFromActionPb(act)
 		nonce = tsf.Nonce
 	case act.GetVote() != nil:
 		vote := &action.Vote{}
-		vote.ConvertFromVotePb(act.GetVote())
+		vote.ConvertFromActionPb(act)
 		nonce = vote.Nonce
 	}
 	if q.items[nonce] != nil {
@@ -140,7 +140,7 @@ func (q *actQueue) UpdateQueue(nonce uint64) []*iproto.ActionPb {
 			continue
 		}
 		tsf := &action.Transfer{}
-		tsf.ConvertFromTransferPb(q.items[nonce].GetTransfer())
+		tsf.ConvertFromActionPb(q.items[nonce])
 		if q.pendingBalance.Cmp(tsf.Amount) < 0 {
 			break
 		}
@@ -168,9 +168,9 @@ func (q *actQueue) UpdateQueue(nonce uint64) []*iproto.ActionPb {
 	// Remove all the subsequent actions in the queue starting from that index
 	for ; i < q.index.Len(); i++ {
 		nonce = q.index[i]
-		if transfer := q.items[nonce].GetTransfer(); transfer != nil {
+		if act := q.items[nonce]; act != nil {
 			tsf := &action.Transfer{}
-			tsf.ConvertFromTransferPb(transfer)
+			tsf.ConvertFromActionPb(act)
 			if q.pendingBalance.Cmp(tsf.Amount) < 0 {
 				break
 			}

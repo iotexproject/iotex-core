@@ -20,7 +20,6 @@ import (
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/network"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
-	pb "github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/server/itx"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -86,12 +85,12 @@ func TestLocalActPool(t *testing.T) {
 	// Unsigned Vote
 	vote6, _ := action.NewVote(uint64(6), from.RawAddress, from.RawAddress)
 
-	require.NoError(cli.Broadcast(&pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf1.ConvertToTransferPb()}}))
-	require.NoError(cli.Broadcast(&pb.ActionPb{Action: &pb.ActionPb_Vote{vote2.ConvertToVotePb()}}))
-	require.NoError(cli.Broadcast(&pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf3.ConvertToTransferPb()}}))
-	require.NoError(cli.Broadcast(&pb.ActionPb{Action: &pb.ActionPb_Vote{vote4.ConvertToVotePb()}}))
-	require.NoError(cli.Broadcast(&pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf5.ConvertToTransferPb()}}))
-	require.NoError(cli.Broadcast(&pb.ActionPb{Action: &pb.ActionPb_Vote{vote6.ConvertToVotePb()}}))
+	require.NoError(cli.Broadcast(tsf1.ConvertToActionPb()))
+	require.NoError(cli.Broadcast(vote2.ConvertToActionPb()))
+	require.NoError(cli.Broadcast(tsf3.ConvertToActionPb()))
+	require.NoError(cli.Broadcast(vote4.ConvertToActionPb()))
+	require.NoError(cli.Broadcast(tsf5.ConvertToActionPb()))
+	require.NoError(cli.Broadcast(vote6.ConvertToActionPb()))
 
 	// Wait until server receives all the transfers
 	require.NoError(testutil.WaitUntil(100*time.Millisecond, 5*time.Second, func() (bool, error) {
@@ -142,7 +141,7 @@ func TestPressureActPool(t *testing.T) {
 	require.Nil(err)
 	for i := 1; i <= 1000; i++ {
 		tsf, _ := signedTransfer(from, to, uint64(i), big.NewInt(int64(i)))
-		require.NoError(cli.Broadcast(&pb.ActionPb{Action: &pb.ActionPb_Transfer{Transfer: tsf.ConvertToTransferPb()}}))
+		require.NoError(cli.Broadcast(tsf.ConvertToActionPb()))
 	}
 
 	// Wait until committed blocks contain all broadcasted actions

@@ -502,8 +502,9 @@ func putVotes(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 	for _, vote := range blk.Votes {
 		voteHash := vote.Hash()
 
-		Sender := vote.VoterAddress
-		Recipient := vote.VoteeAddress
+		pbVote := vote.GetVote()
+		Sender := pbVote.VoterAddress
+		Recipient := pbVote.VoteeAddress
 
 		// get votes count for sender
 		senderVoteCount, err := dao.getVoteCountBySenderAddress(Sender)

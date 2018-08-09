@@ -106,12 +106,19 @@ func TestActPool_validateVote(t *testing.T) {
 	// Case I: Oversized Data
 	tmpSelfPubKey := [32769]byte{}
 	selfPubKey := tmpSelfPubKey[:]
-	vote := action.Vote{&pb.VotePb{SelfPubkey: selfPubKey}}
+	vote := action.Vote{
+		&pb.ActionPb{
+			Action: &pb.ActionPb_Vote{
+				Vote: &pb.VotePb{
+					SelfPubkey: selfPubKey},
+			},
+		},
+	}
 	err = ap.validateVote(&vote)
 	require.Equal(ErrActPool, errors.Cause(err))
 	// Case II: Signature Verification Fails
 	unsignedVote, err := action.NewVote(1, addr1.RawAddress, addr2.RawAddress)
-	unsignedVote.SelfPubkey = addr1.PublicKey[:]
+	unsignedVote.GetVote().SelfPubkey = addr1.PublicKey[:]
 	require.NoError(err)
 	err = ap.validateVote(unsignedVote)
 	require.Equal(action.ErrVoteError, errors.Cause(err))
@@ -204,7 +211,7 @@ func TestActPool_AddActs(t *testing.T) {
 	require.True(ok)
 	for i := uint64(0); i < ap2.maxNumActPerPool; i++ {
 		nTsf := action.Transfer{Amount: big.NewInt(int64(i))}
-		nAction := &pb.ActionPb{Action: &pb.ActionPb_Transfer{nTsf.ConvertToTransferPb()}}
+		nAction := nTsf.ConvertToActionPb()
 		ap2.allActions[nTsf.Hash()] = nAction
 	}
 	mockBC.EXPECT().Nonce(gomock.Any()).Times(2).Return(uint64(0), nil)
@@ -650,9 +657,9 @@ func TestActPool_removeInvalidActs(t *testing.T) {
 	require.NoError(err)
 
 	hash1 := tsf1.Hash()
-	action1 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf1.ConvertToTransferPb()}}
+	action1 := tsf1.ConvertToActionPb()
 	hash2 := vote4.Hash()
-	action2 := &pb.ActionPb{Action: &pb.ActionPb_Vote{vote4.ConvertToVotePb()}}
+	action2 := vote4.ConvertToActionPb()
 	acts := []*pb.ActionPb{action1, action2}
 	require.NotNil(ap.allActions[hash1])
 	require.NotNil(ap.allActions[hash2])
@@ -710,11 +717,11 @@ func TestActPool_GetUnconfirmedActs(t *testing.T) {
 	require.True(ok)
 
 	tsf1, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(10))
-	act1 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf1.ConvertToTransferPb()}}
+	act1 := tsf1.ConvertToActionPb()
 	tsf3, _ := signedTransfer(addr1, addr1, uint64(3), big.NewInt(30))
-	act3 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf3.ConvertToTransferPb()}}
+	act3 := tsf3.ConvertToActionPb()
 	vote4, _ := signedVote(addr1, addr1, uint64(4))
-	act4 := &pb.ActionPb{Action: &pb.ActionPb_Vote{vote4.ConvertToVotePb()}}
+	act4 := vote4.ConvertToActionPb()
 
 	err = ap.AddTsf(tsf1)
 	require.NoError(err)
