@@ -8,18 +8,17 @@ package network
 
 import (
 	"context"
-	"encoding/hex"
 	"sync"
 	"time"
 
-	"golang.org/x/crypto/blake2b"
+	"encoding/hex"
 
 	"github.com/iotexproject/iotex-core/dispatch/dispatcher"
 	"github.com/iotexproject/iotex-core/logger"
-	pb "github.com/iotexproject/iotex-core/network/proto"
+	"github.com/iotexproject/iotex-core/network/proto"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/routine"
-	pb1 "github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/proto"
 )
 
 // Gossip relays messages in the IotxOverlay (at least once semantics)
@@ -53,36 +52,31 @@ func (g *Gossip) AttachDispatcher(dispatcher dispatcher.Dispatcher) {
 }
 
 // OnReceivingMsg listens to and handles the incoming broadcast message
-func (g *Gossip) OnReceivingMsg(msg *pb.BroadcastReq) error {
-	checksum := g.getBroadcastMsgChecksum(msg.MsgBody)
-	_, ok := g.MsgLogs.Load(checksum)
-	if ok {
+func (g *Gossip) OnReceivingMsg(msg *network.BroadcastReq) error {
+	checksumStr := hex.EncodeToString(msg.MsgChecksum)
+	if _, loaded := g.MsgLogs.LoadOrStore(checksumStr, time.Now()); loaded {
 		return nil
 	}
-	// Record the message
-	g.storeBroadcastMsgChecksum(checksum)
 	// Call dispatch to notify that a new message comes in
-	err := g.processMsg(msg.MsgType, msg.MsgBody)
-	if err != nil {
+	if err := g.processMsg(msg.MsgType, msg.MsgBody); err != nil {
 		return err
 	}
 	// Relay the message to the neighbors
-	if msg.Ttl == 0 && msg.Ttl-1 == 0 {
+	if msg.Ttl <= 0 {
 		logger.Debug().
-			Str("name", g.Overlay.RPC.String()).
-			Uint32("msg", msg.MsgType).
+			Uint32("msg-type", msg.MsgType).
+			Str("msg-checksum", hex.EncodeToString(msg.MsgChecksum)).
 			Msg("message used up all delivery hops")
 		return nil
 	}
-	err = g.relayMsg(msg.MsgType, msg.MsgBody, msg.Ttl-1)
-	if err != nil {
+	if err := g.relayMsg(msg.MsgType, msg.MsgBody, msg.MsgChecksum, msg.Ttl-1); err != nil {
 		return nil
 	}
 	return nil
 }
 
 func (g *Gossip) processMsg(msgType uint32, msgBody []byte) error {
-	protoMsg, err := pb1.TypifyProtoMsg(msgType, msgBody)
+	protoMsg, err := iproto.TypifyProtoMsg(msgType, msgBody)
 	if err != nil {
 		return err
 	}
@@ -92,7 +86,7 @@ func (g *Gossip) processMsg(msgType uint32, msgBody []byte) error {
 	return nil
 }
 
-func (g *Gossip) relayMsg(msgType uint32, msgBody []byte, ttl uint32) error {
+func (g *Gossip) relayMsg(msgType uint32, msgBody []byte, msgChecksum []byte, ttl int32) error {
 	// Send the message to all neighbors
 	g.Overlay.PM.Peers.Range(func(_, value interface{}) bool {
 		go func() {
@@ -101,27 +95,27 @@ func (g *Gossip) relayMsg(msgType uint32, msgBody []byte, ttl uint32) error {
 				logger.Error().Msg("value is not an instance of Peer")
 				return
 			}
-			_, err := peer.BroadcastMsg(&pb.BroadcastReq{MsgType: msgType, MsgBody: msgBody, Ttl: ttl})
+			_, err := peer.BroadcastMsg(
+				&network.BroadcastReq{
+					MsgType:     msgType,
+					MsgBody:     msgBody,
+					MsgChecksum: msgChecksum,
+					Ttl:         ttl,
+				},
+			)
 			if err != nil {
 				logger.Error().
 					Err(err).
 					Str("dst", peer.String()).
 					Str("msg-type", string(msgType)).
+					Str("msg-checksum", hex.EncodeToString(msgChecksum)).
+					Int32("ttl", ttl).
 					Msg("failed to broadcast a message")
 			}
 		}()
 		return true
 	})
 	return nil
-}
-
-func (g *Gossip) getBroadcastMsgChecksum(msgBody []byte) string {
-	b := blake2b.Sum256(msgBody)
-	return hex.EncodeToString(b[:])
-}
-
-func (g *Gossip) storeBroadcastMsgChecksum(checksum string) {
-	g.MsgLogs.Store(checksum, time.Now())
 }
 
 // MsgLogsCleaner periodically refreshes the recent received message log
@@ -137,7 +131,7 @@ func NewMsgLogsCleaner(g *Gossip) *MsgLogsCleaner {
 
 // Clean cleans logs
 func (c *MsgLogsCleaner) Clean() {
-	keys := []string{}
+	var keys []string
 	c.G.MsgLogs.Range(func(key, value interface{}) bool {
 		if time.Since(value.(time.Time)) > c.G.Overlay.Config.MsgLogRetention {
 			keys = append(keys, key.(string))
