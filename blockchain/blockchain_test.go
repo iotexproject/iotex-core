@@ -204,7 +204,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	sf, err := state.NewFactory(&cfg, state.DefaultTrieOption())
 	require.Nil(err)
 	require.NoError(sf.Start(context.Background()))
-	_, err = sf.CreateState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
+	_, err = sf.LoadOrCreateState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
 	require.NoError(err)
 
 	// Create a blockchain from scratch
@@ -480,7 +480,7 @@ func TestCoinbaseTransfer(t *testing.T) {
 	sf, err := state.NewFactory(&cfg, state.DefaultTrieOption())
 	require.Nil(err)
 	require.NoError(sf.Start(context.Background()))
-	_, err = sf.CreateState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
+	_, err = sf.LoadOrCreateState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
 	assert.NoError(t, err)
 
 	Gen.BlockReward = uint64(10)
@@ -544,14 +544,14 @@ func TestBlocks(t *testing.T) {
 
 	sf, _ := state.NewFactory(&cfg, state.InMemTrieOption())
 	require.NoError(sf.Start(context.Background()))
-	sf.CreateState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
+	sf.LoadOrCreateState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
 
 	// Create a blockchain from scratch
 	bc := NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	a, _ := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
 	c, _ := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
-	sf.CreateState(a.RawAddress, uint64(100000))
-	sf.CreateState(c.RawAddress, uint64(100000))
+	sf.LoadOrCreateState(a.RawAddress, uint64(100000))
+	sf.LoadOrCreateState(c.RawAddress, uint64(100000))
 
 	for i := 0; i < 10; i++ {
 		tsfs := []*action.Transfer{}
@@ -583,14 +583,14 @@ func TestActions(t *testing.T) {
 
 	sf, _ := state.NewFactory(&cfg, state.InMemTrieOption())
 	require.NoError(sf.Start(context.Background()))
-	sf.CreateState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
+	sf.LoadOrCreateState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
 
 	// Create a blockchain from scratch
 	bc := NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	a, _ := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
 	c, _ := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
-	sf.CreateState(a.RawAddress, uint64(100000))
-	sf.CreateState(c.RawAddress, uint64(100000))
+	sf.LoadOrCreateState(a.RawAddress, uint64(100000))
+	sf.LoadOrCreateState(c.RawAddress, uint64(100000))
 
 	val := validator{sf}
 	tsfs := []*action.Transfer{}
@@ -624,7 +624,7 @@ func TestDummyReplacement(t *testing.T) {
 
 	sf, _ := state.NewFactory(&cfg, state.InMemTrieOption())
 	require.NoError(sf.Start(context.Background()))
-	sf.CreateState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
+	sf.LoadOrCreateState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
 
 	// Create a blockchain from scratch
 	bc := NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())

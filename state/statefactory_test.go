@@ -70,7 +70,7 @@ func TestCreateState(t *testing.T) {
 	require.Nil(sf.Start(context.Background()))
 	addr, err := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
 	require.Nil(err)
-	state, _ := sf.CreateState(addr.RawAddress, 5)
+	state, _ := sf.LoadOrCreateState(addr.RawAddress, 5)
 	require.Equal(uint64(0x0), state.Nonce)
 	require.Equal(big.NewInt(5), state.Balance)
 	ss, err := sf.State(addr.RawAddress)
@@ -250,17 +250,17 @@ func TestCandidate(t *testing.T) {
 		cachedCandidate:        make(map[string]*Candidate),
 		cachedAccount:          make(map[string]*State),
 	}
-	_, err := sf.CreateState(a.RawAddress, uint64(100))
+	_, err := sf.LoadOrCreateState(a.RawAddress, uint64(100))
 	require.NoError(t, err)
-	_, err = sf.CreateState(b.RawAddress, uint64(200))
+	_, err = sf.LoadOrCreateState(b.RawAddress, uint64(200))
 	require.NoError(t, err)
-	_, err = sf.CreateState(c.RawAddress, uint64(300))
+	_, err = sf.LoadOrCreateState(c.RawAddress, uint64(300))
 	require.NoError(t, err)
-	_, err = sf.CreateState(d.RawAddress, uint64(100))
+	_, err = sf.LoadOrCreateState(d.RawAddress, uint64(100))
 	require.NoError(t, err)
-	_, err = sf.CreateState(e.RawAddress, uint64(100))
+	_, err = sf.LoadOrCreateState(e.RawAddress, uint64(100))
 	require.NoError(t, err)
-	_, err = sf.CreateState(f.RawAddress, uint64(300))
+	_, err = sf.LoadOrCreateState(f.RawAddress, uint64(300))
 	require.NoError(t, err)
 
 	// a:100(0) b:200(0) c:300(0)
@@ -536,9 +536,9 @@ func TestUnvote(t *testing.T) {
 		cachedCandidate:        make(map[string]*Candidate),
 		cachedAccount:          make(map[string]*State),
 	}
-	_, err := sf.CreateState(a.RawAddress, uint64(100))
+	_, err := sf.LoadOrCreateState(a.RawAddress, uint64(100))
 	require.NoError(t, err)
-	_, err = sf.CreateState(b.RawAddress, uint64(200))
+	_, err = sf.LoadOrCreateState(b.RawAddress, uint64(200))
 	require.NoError(t, err)
 
 	vote1, err := action.NewVote(0, a.RawAddress, "")
@@ -591,7 +591,7 @@ func TestCreateContract(t *testing.T) {
 	require.NoError(sf.Start(context.Background()))
 	addr, err := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
 	require.Nil(err)
-	_, err = sf.CreateState(addr.RawAddress, 5)
+	_, err = sf.LoadOrCreateState(addr.RawAddress, 5)
 	require.Nil(err)
 
 	code := []byte("test contract creation")

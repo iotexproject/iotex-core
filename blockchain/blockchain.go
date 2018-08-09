@@ -243,7 +243,7 @@ func (bc *blockchain) Start(ctx context.Context) (err error) {
 	}
 	// add producer into Trie
 	if bc.sf != nil {
-		if _, err := bc.sf.CreateState(Gen.CreatorAddr, Gen.TotalSupply); err != nil {
+		if _, err := bc.sf.LoadOrCreateState(Gen.CreatorAddr, Gen.TotalSupply); err != nil {
 			logger.Error().Err(err).Msg("Failed to add Creator into StateFactory")
 			return err
 		}
@@ -293,7 +293,7 @@ func (bc *blockchain) Nonce(addr string) (uint64, error) {
 
 // CreateState adds a new State with initial balance to the factory
 func (bc *blockchain) CreateState(addr string, init uint64) (*state.State, error) {
-	return bc.sf.CreateState(addr, init)
+	return bc.sf.LoadOrCreateState(addr, init)
 }
 
 // CommitStateChanges updates a State from the given actions

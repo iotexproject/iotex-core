@@ -58,7 +58,7 @@ type (
 	Factory interface {
 		lifecycle.StartStopper
 		// Accounts
-		CreateState(string, uint64) (*State, error)
+		LoadOrCreateState(string, uint64) (*State, error)
 		Balance(string) (*big.Int, error)
 		Nonce(string) (uint64, error) // Note that nonce starts with 1.
 		State(string) (*State, error)
@@ -164,25 +164,20 @@ func (sf *factory) Stop(ctx context.Context) error { return sf.lifecycle.OnStop(
 //======================================
 // State/Account functions
 //======================================
-// CreateState adds a new State with initial balance to the factory
+// LoadOrCreateState loads existing or adds a new State with initial balance to the factory
 // addr should be a bech32 properly-encoded string
-func (sf *factory) CreateState(addr string, init uint64) (*State, error) {
-	pubKeyHash, err := iotxaddress.GetPubkeyHash(addr)
-	if err != nil {
-		return nil, errors.Wrap(err, "error when getting the pubkey hash")
-	}
-	balance := big.NewInt(0)
-	weight := big.NewInt(0)
-	balance.SetUint64(init)
-	s := State{Balance: balance, VotingWeight: weight}
-	mstate, err := stateToBytes(&s)
-	if err != nil {
+func (sf *factory) LoadOrCreateState(addr string, init uint64) (*State, error) {
+	// only create if the address did not exist yet
+	state, err := sf.getState(addr)
+	switch {
+	case errors.Cause(err) == ErrAccountNotExist:
+		if state, err = sf.createState(addr, init); err != nil {
+			return nil, err
+		}
+	case err != nil:
 		return nil, err
 	}
-	if err := sf.accountTrie.Upsert(pubKeyHash, mstate); err != nil {
-		return nil, err
-	}
-	return &s, nil
+	return state, nil
 }
 
 // Balance returns balance
@@ -360,6 +355,25 @@ func (sf *factory) getState(addr string) (*State, error) {
 	return bytesToState(mstate)
 }
 
+func (sf *factory) createState(addr string, init uint64) (*State, error) {
+	pubKeyHash, err := iotxaddress.GetPubkeyHash(addr)
+	if err != nil {
+		return nil, errors.Wrap(err, "error when getting the pubkey hash")
+	}
+	balance := big.NewInt(0)
+	weight := big.NewInt(0)
+	balance.SetUint64(init)
+	s := State{Balance: balance, VotingWeight: weight}
+	mstate, err := stateToBytes(&s)
+	if err != nil {
+		return nil, err
+	}
+	if err := sf.accountTrie.Upsert(pubKeyHash, mstate); err != nil {
+		return nil, err
+	}
+	return &s, nil
+}
+
 func (sf *factory) cache(addr string) (*State, error) {
 	if state, exist := sf.cachedAccount[addr]; exist {
 		return state, nil
@@ -367,7 +381,7 @@ func (sf *factory) cache(addr string) (*State, error) {
 	state, err := sf.getState(addr)
 	switch {
 	case err == ErrAccountNotExist:
-		if state, err = sf.CreateState(addr, 0); err != nil {
+		if state, err = sf.LoadOrCreateState(addr, 0); err != nil {
 			return nil, err
 		}
 	case err != nil:
