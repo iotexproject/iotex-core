@@ -15,7 +15,7 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/blake2b"
 
-	cp "github.com/iotexproject/iotex-core/crypto"
+	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
@@ -279,7 +279,7 @@ func (tsf *Transfer) Sign(sender *iotxaddress.Address) (*Transfer, error) {
 // Verify verifies the Transfer using sender's public key
 func (tsf *Transfer) Verify(sender *iotxaddress.Address) error {
 	hash := tsf.Hash()
-	if success := cp.Verify(sender.PublicKey, hash[:], tsf.Signature); success {
+	if success := crypto.EC283.Verify(sender.PublicKey, hash[:], tsf.Signature); success {
 		return nil
 	}
 	return errors.Wrapf(ErrTransferError, "Failed to verify Transfer signature = %x", tsf.Signature)
@@ -291,7 +291,7 @@ func (tsf *Transfer) Verify(sender *iotxaddress.Address) error {
 
 func (tsf *Transfer) sign(sender *iotxaddress.Address) error {
 	hash := tsf.Hash()
-	if tsf.Signature = cp.Sign(sender.PrivateKey, hash[:]); tsf.Signature != nil {
+	if tsf.Signature = crypto.EC283.Sign(sender.PrivateKey, hash[:]); tsf.Signature != nil {
 		return nil
 	}
 	return errors.Wrapf(ErrTransferError, "Failed to sign Transfer hash = %x", hash)

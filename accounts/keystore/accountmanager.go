@@ -124,5 +124,5 @@ func (m *AccountManager) SignHash(rawAddr string, hash []byte) ([]byte, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get account %s", rawAddr)
 	}
-	return crypto.Sign(addr.PrivateKey, hash), nil
+	return crypto.EC283.Sign(addr.PrivateKey, hash), nil
 }

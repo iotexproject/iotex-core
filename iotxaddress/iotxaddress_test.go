@@ -13,7 +13,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	cp "github.com/iotexproject/iotex-core/crypto"
+	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/iotxaddress/bech32"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
@@ -48,8 +48,8 @@ func TestNewAddress(t *testing.T) {
 	rmsg := make([]byte, 2048)
 	_, err = rand.Read(rmsg)
 	require.NoError(err)
-	sig := cp.Sign(addr.PrivateKey, rmsg)
-	require.True(cp.Verify(addr.PublicKey, rmsg, sig))
+	sig := crypto.EC283.Sign(addr.PrivateKey, rmsg)
+	require.True(crypto.EC283.Verify(addr.PublicKey, rmsg, sig))
 }
 
 func TestInvalidAddress(t *testing.T) {
@@ -57,7 +57,7 @@ func TestInvalidAddress(t *testing.T) {
 	chainid := []byte{0x00, 0x00, 0x00, 0x01}
 	addr, err := NewAddress(true, chainid)
 
-	pub, pri, err := cp.NewKeyPair()
+	pub, pri, err := crypto.EC283.NewKeyPair()
 	require.NotEqual(keypair.ZeroPublicKey, pub)
 	require.NotEqual(keypair.ZeroPrivateKey, pri)
 	require.Nil(err)

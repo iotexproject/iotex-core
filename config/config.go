@@ -342,8 +342,8 @@ func ValidateAddr(cfg *Config) error {
 	}
 	// Validate producer pubkey and prikey by signing a dummy message and verify it
 	validationMsg := "connecting the physical world block by block"
-	sig := crypto.Sign(addr.PrivateKey, []byte(validationMsg))
-	if !crypto.Verify(addr.PublicKey, []byte(validationMsg), sig) {
+	sig := crypto.EC283.Sign(addr.PrivateKey, []byte(validationMsg))
+	if !crypto.EC283.Verify(addr.PublicKey, []byte(validationMsg), sig) {
 		return errors.Wrap(ErrInvalidCfg, "block producer has unmatched pubkey and prikey")
 	}
 	return nil

@@ -12,7 +12,7 @@ import (
 
 	"golang.org/x/crypto/blake2b"
 
-	cp "github.com/iotexproject/iotex-core/crypto"
+	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 )
@@ -63,7 +63,7 @@ func SignatureScript(txin []byte, pubkey keypair.PublicKey, privkey keypair.Priv
 		return nil, fmt.Errorf("cannot add data: %v", err)
 	}
 	hash := blake2b.Sum256(txin)
-	sig := cp.Sign(privkey, hash[:])
+	sig := crypto.EC283.Sign(privkey, hash[:])
 	err = b.AddData(sig)
 	if err != nil {
 		return nil, fmt.Errorf("cannot add data: %v", err)
