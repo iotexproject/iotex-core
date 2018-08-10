@@ -21,6 +21,17 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/hash"
 )
 
+var (
+	// ErrInsufficientBalanceForGas is the error that the balance in from account is lower than gas
+	ErrInsufficientBalanceForGas = errors.New("insufficient balance for gas")
+	// ErrNonceTooHigh is the error that the nonce is higher than the from's nonce
+	ErrNonceTooHigh = errors.New("Nonce is too high")
+	// ErrNonceTooLow is the error that the nonce is lower than the from's nonce
+	ErrNonceTooLow = errors.New("Nonce is too low")
+	// ErrOutOfGas is the error when running out of gas
+	ErrOutOfGas = errors.New("Out of gas")
+)
+
 // Header represents the header of blockchain
 type Header struct {
 	ParentHash  common.Hash    `json:"parentHash"       gencodec:"required"`
@@ -288,17 +299,17 @@ func securityDeposit(stateDB vm.StateDB, msg Message) (uint64, error) {
 	if msg.CheckNonce() {
 		nonce := stateDB.GetNonce(msg.From())
 		if nonce < msg.Nonce() {
-			return 0, errors.New("Nonce is too high")
+			return 0, ErrNonceTooHigh
 		}
 		if nonce > msg.Nonce() {
-			return 0, errors.New("Nonce is too low")
+			return 0, ErrNonceTooLow
 		}
 	}
 	gas := msg.Gas()
 	from := msg.From()
 	maxGasValue := new(big.Int).Mul(new(big.Int).SetUint64(gas), msg.GasPrice())
 	if stateDB.GetBalance(from).Cmp(maxGasValue) < 0 {
-		return 0, errors.New("insufficient balance for gas")
+		return 0, ErrInsufficientBalanceForGas
 	}
 	stateDB.SubBalance(from, maxGasValue)
 	return gas, nil
@@ -329,7 +340,7 @@ func ProcessTransfer(tsf *action.Transfer, bc Blockchain) (*Receipt, error) {
 	if remainingGas < intrinsicGas {
 		receipt.Status = uint64(0)
 		receipt.GasConsumed = securityDepositGas - remainingGas
-		return receipt, errors.New("Out of gas")
+		return receipt, ErrOutOfGas
 	}
 	remainingGas -= intrinsicGas
 	sender := vm.AccountRef(msg.From())
