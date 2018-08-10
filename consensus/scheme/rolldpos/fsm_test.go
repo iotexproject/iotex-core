@@ -108,7 +108,43 @@ func TestRollDelegatesEvt(t *testing.T) {
 		assert.Equal(t, uint64(0), cfsm.ctx.epoch.height)
 		assert.Equal(t, eRollDelegates, (<-cfsm.evtq).Type())
 	})
+	t.Run("calcEpochNumAndHeight-error", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
 
+		delegates := make([]string, 4)
+		for i := 0; i < 4; i++ {
+			delegates[i] = testAddrs[i].RawAddress
+		}
+		cfsm := newTestCFSM(t, testAddrs[0], ctrl, delegates, func(mockBlockchain *mock_blockchain.MockBlockchain) {
+			mockBlockchain.EXPECT().TipHeight().Return(uint64(0), errors.New("test error")).Times(1)
+		}, nil)
+		s, err := cfsm.handleRollDelegatesEvt(cfsm.newCEvt(eRollDelegates))
+		assert.Equal(t, sInvalid, s)
+		assert.Error(t, err)
+		// epoch ctx not set
+		assert.Equal(t, uint64(0), cfsm.ctx.epoch.height)
+		assert.Equal(t, eRollDelegates, (<-cfsm.evtq).Type())
+	})
+	t.Run("rollingDelegates-error", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		delegates := make([]string, 4)
+		for i := 0; i < 4; i++ {
+			delegates[i] = testAddrs[i].RawAddress
+		}
+		cfsm := newTestCFSM(t, testAddrs[0], ctrl, delegates, func(mockBlockchain *mock_blockchain.MockBlockchain) {
+			mockBlockchain.EXPECT().TipHeight().Return(uint64(1), nil).Times(1)
+			mockBlockchain.EXPECT().CandidatesByHeight(gomock.Any()).Return(nil, false).Times(1)
+		}, nil)
+		s, err := cfsm.handleRollDelegatesEvt(cfsm.newCEvt(eRollDelegates))
+		assert.Equal(t, sInvalid, s)
+		assert.Error(t, err)
+		// epoch ctx not set
+		assert.Equal(t, uint64(0), cfsm.ctx.epoch.height)
+		assert.Equal(t, eRollDelegates, (<-cfsm.evtq).Type())
+	})
 }
 
 func TestGenerateDKGEvt(t *testing.T) {
@@ -653,13 +689,13 @@ func newTestCFSM(
 				MintNewBlock(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 				Return(blkToMint, nil).
 				AnyTimes()
-			blockchain.EXPECT().CandidatesByHeight(gomock.Any()).Return([]*state.Candidate{
-				{Address: delegates[0]},
-				{Address: delegates[1]},
-				{Address: delegates[2]},
-				{Address: delegates[3]},
-			}, true).AnyTimes()
 			if mockChain == nil {
+				blockchain.EXPECT().CandidatesByHeight(gomock.Any()).Return([]*state.Candidate{
+					{Address: delegates[0]},
+					{Address: delegates[1]},
+					{Address: delegates[2]},
+					{Address: delegates[3]},
+				}, true).AnyTimes()
 				blockchain.EXPECT().TipHeight().Return(uint64(1), nil).AnyTimes()
 				blockchain.EXPECT().ValidateBlock(gomock.Any()).Return(nil).AnyTimes()
 			} else {
