@@ -347,7 +347,12 @@ func ProcessTransfer(tsf *action.Transfer, bc Blockchain) (*Receipt, error) {
 	if msg.To() == nil {
 		// create contract
 		_, _, remainingGas, err = evm.Create(sender, msg.Data(), remainingGas, msg.Value())
-		// receipt.ContractAddress = crypto.CreateAddress(evm.Context.Origin, tsf.Nonce())
+		if err == nil {
+			fromAddr, err := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, msg.From().Bytes())
+			if err == nil {
+				receipt.ContractAddress, err = iotxaddress.CreateContractAddress(fromAddr.RawAddress, tsf.Nonce)
+			}
+		}
 	} else {
 		// process contract
 		_, remainingGas, err = evm.Call(sender, *msg.To(), msg.Data(), remainingGas, msg.Value())
