@@ -23,11 +23,11 @@ import (
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/mock/mock_actpool"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_network"
+	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
@@ -38,8 +38,6 @@ var testAddrs = []*iotxaddress.Address{
 	newTestAddr(),
 	newTestAddr(),
 }
-
-const publicKey = "336eb60a5741f585a8e81de64e071327a3b96c15af4af5723598a07b6121e8e813bbd0056ba71ae29c0d64252e913f60afaeb11059908b81ff27cbfa327fd371d35f5ec0cbc01705"
 
 func TestBackdoorEvt(t *testing.T) {
 	t.Parallel()
@@ -667,7 +665,7 @@ func newTestCFSM(
 ) *cFSM {
 	transfer, err := action.NewTransfer(1, big.NewInt(100), "src", "dst")
 	require.NoError(t, err)
-	selfPubKey, err := keypair.DecodePublicKey(publicKey)
+	selfPubKey := testaddress.Addrinfo["producer"].PublicKey
 	require.NoError(t, err)
 	address, err := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, iotxaddress.ChainID, selfPubKey)
 	require.NoError(t, err)

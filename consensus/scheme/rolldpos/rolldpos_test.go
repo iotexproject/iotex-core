@@ -28,12 +28,12 @@ import (
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/network/node"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/mock/mock_actpool"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_network"
+	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
@@ -269,7 +269,7 @@ func TestRollDPoS_convertToConsensusEvt(t *testing.T) {
 	addr := newTestAddr()
 	transfer, err := action.NewTransfer(1, big.NewInt(100), "src", "dst")
 	require.NoError(t, err)
-	selfPubKey, err := keypair.DecodePublicKey(publicKey)
+	selfPubKey := testaddress.Addrinfo["producer"].PublicKey
 	address, err := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, iotxaddress.ChainID, selfPubKey)
 	require.NoError(t, err)
 	vote, err := action.NewVote(2, address.RawAddress, address.RawAddress)
