@@ -508,17 +508,9 @@ func (sf *factory) inPool(address string) (*Candidate, int) {
 //======================================
 // private transfer/vote functions
 //======================================
-func (sf *factory) handleContract(owner string, contract []byte) error {
-	// TODO: start vm to run contract = tx.Payload
-	return nil
-}
-
 func (sf *factory) handleTsf(tsf []*action.Transfer) error {
 	for _, tx := range tsf {
 		if tx.IsContract() {
-			if err := sf.handleContract(tx.Sender, tx.Payload); err != nil {
-				return err
-			}
 			continue
 		}
 		if !tx.IsCoinbase {
