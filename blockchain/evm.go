@@ -317,6 +317,9 @@ func securityDeposit(stateDB vm.StateDB, msg Message) (uint64, error) {
 
 // ProcessTransfer processes a transfer which contains a contract
 func ProcessTransfer(tsf *action.Transfer, bc Blockchain) (*Receipt, error) {
+	if !tsf.IsContract() {
+		return nil, nil
+	}
 	// TODO (zhi) Generate MSG from transfer
 	receipt := &Receipt{
 		Hash: tsf.Hash(),
@@ -369,7 +372,6 @@ func ProcessTransfer(tsf *action.Transfer, bc Blockchain) (*Receipt, error) {
 	// TODO (zhi) figure out what the following function does
 	// stateDB.Finalise(true)
 	receipt.Status = uint64(1)
-	// TODO (zhi) implement address creation
 	/*
 		receipt.Logs = stateDB.GetLogs(tsf.Hash())
 	*/
