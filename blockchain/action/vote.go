@@ -170,8 +170,7 @@ func (v *Vote) Deserialize(buf []byte) error {
 
 // Hash returns the hash of the Vote
 func (v *Vote) Hash() hash.Hash32B {
-	hash := blake2b.Sum256(v.ByteStream())
-	return blake2b.Sum256(hash[:])
+	return blake2b.Sum256(v.ByteStream())
 }
 
 // Sign signs the Vote using sender's private key

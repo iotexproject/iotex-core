@@ -20,7 +20,7 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	// Add block 1
 	tsf0, _ := action.NewTransfer(1, big.NewInt(100000000), blockchain.Gen.CreatorAddr, ta.Addrinfo["producer"].RawAddress)
 	pubk, _ := keypair.DecodePublicKey(blockchain.Gen.CreatorPubKey)
-	sign, err := hex.DecodeString("847af98bf2c92873f3f7ed02399c7407d0df35c9a45da6947df43638bf2df32d263e59011fab0e4d5380c4c49c579ccd0a25b1260e586f5f379979f38db91ac5f3c7468a6e389d00")
+	sign, err := hex.DecodeString("937ef50d77de65a58da280cd71d46e32786c946c6265b79c330ba6d6e130ac1cd5344b0122d53f065ed7ada532e4295631fb9d595493c7d76e2007af047ab6afdedf3fc072534b00")
 	if err != nil {
 		return err
 	}
