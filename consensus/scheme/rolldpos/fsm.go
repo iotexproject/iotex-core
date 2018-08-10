@@ -334,6 +334,8 @@ func (m *cFSM) produce(evt iConsensusEvt, delay time.Duration) {
 func (m *cFSM) handleRollDelegatesEvt(_ fsm.Event) (fsm.State, error) {
 	epochNum, epochHeight, err := m.ctx.calcEpochNumAndHeight()
 	if err != nil {
+		// Even if error happens, we still need to schedule next check of delegate to tolerate transit error
+		m.produce(m.newCEvt(eRollDelegates), m.ctx.cfg.DelegateInterval)
 		return sInvalid, errors.Wrap(
 			err,
 			"error when determining the epoch ordinal number and start height offset",
