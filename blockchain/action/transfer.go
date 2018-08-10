@@ -257,8 +257,7 @@ func (tsf *Transfer) Deserialize(buf []byte) error {
 
 // Hash returns the hash of the Transfer
 func (tsf *Transfer) Hash() hash.Hash32B {
-	hash := blake2b.Sum256(tsf.ByteStream())
-	return blake2b.Sum256(hash[:])
+	return blake2b.Sum256(tsf.ByteStream())
 }
 
 // Sign signs the Transfer using sender's private key

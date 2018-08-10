@@ -235,9 +235,7 @@ func (b *Block) TxRoot() hash.Hash32B {
 
 // HashBlock return the hash of this block (actually hash of block header)
 func (b *Block) HashBlock() hash.Hash32B {
-	hash := blake2b.Sum256(b.ByteStreamHeader())
-	hash = blake2b.Sum256(hash[:])
-	return hash
+	return blake2b.Sum256(b.ByteStreamHeader())
 }
 
 // SignBlock allows signer to sign the block b
