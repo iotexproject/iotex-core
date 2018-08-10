@@ -84,33 +84,12 @@ func NewActQueue() ActQueue {
 
 // Overlap returns whether the current queue contains the given nonce
 func (q *actQueue) Overlaps(act *iproto.ActionPb) bool {
-	var nonce uint64
-	switch {
-	case act.GetTransfer() != nil:
-		tsf := &action.Transfer{}
-		tsf.ConvertFromActionPb(act)
-		nonce = tsf.Nonce
-	case act.GetVote() != nil:
-		vote := &action.Vote{}
-		vote.ConvertFromActionPb(act)
-		nonce = vote.Nonce
-	}
-	return q.items[nonce] != nil
+	return q.items[act.Nonce] != nil
 }
 
 // Put inserts a new action into the map, also updating the queue's nonce index
 func (q *actQueue) Put(act *iproto.ActionPb) error {
-	var nonce uint64
-	switch {
-	case act.GetTransfer() != nil:
-		tsf := &action.Transfer{}
-		tsf.ConvertFromActionPb(act)
-		nonce = tsf.Nonce
-	case act.GetVote() != nil:
-		vote := &action.Vote{}
-		vote.ConvertFromActionPb(act)
-		nonce = vote.Nonce
-	}
+	nonce := act.Nonce
 	if q.items[nonce] != nil {
 		return errors.Wrapf(ErrNonce, "duplicate nonce")
 	}
@@ -168,7 +147,7 @@ func (q *actQueue) UpdateQueue(nonce uint64) []*iproto.ActionPb {
 	// Remove all the subsequent actions in the queue starting from that index
 	for ; i < q.index.Len(); i++ {
 		nonce = q.index[i]
-		if act := q.items[nonce]; act != nil {
+		if act := q.items[nonce]; act.GetTransfer() != nil {
 			tsf := &action.Transfer{}
 			tsf.ConvertFromActionPb(act)
 			if q.pendingBalance.Cmp(tsf.Amount) < 0 {
