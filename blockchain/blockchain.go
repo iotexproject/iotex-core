@@ -195,10 +195,11 @@ func NewBlockchain(cfg *config.Config, opts ...Option) Blockchain {
 		}
 	}
 	chain.initValidator()
-	chain.addDaoService()
-	if err := chain.initStateFactory(); err != nil {
-		logger.Error().Err(err).Msg("Failed to initialize state.Factory")
-		return nil
+	if chain.dao != nil {
+		chain.lifecycle.Add(chain.dao)
+	}
+	if chain.sf != nil {
+		chain.lifecycle.Add(chain.sf)
 	}
 	if err := chain.Start(context.Background()); err != nil {
 		logger.Error().Err(err).Msg("Failed to start blockchain")
@@ -233,29 +234,20 @@ func NewBlockchain(cfg *config.Config, opts ...Option) Blockchain {
 	return chain
 }
 
-func (bc *blockchain) addDaoService() { bc.lifecycle.Add(bc.dao) }
-
 func (bc *blockchain) initValidator() { bc.validator = &validator{sf: bc.sf} }
-
-func (bc *blockchain) initStateFactory() error {
-	sf := bc.sf
-	if sf != nil {
-		// add producer into Trie
-		if _, err := sf.CreateState(Gen.CreatorAddr, Gen.TotalSupply); err != nil {
-			logger.Error().Err(err).Msg("Failed to add Creator into StateFactory")
-			return err
-		}
-	}
-
-	return nil
-}
 
 // Start starts the blockchain
 func (bc *blockchain) Start(ctx context.Context) (err error) {
 	if err = bc.lifecycle.OnStart(ctx); err != nil {
 		return err
 	}
-
+	// add producer into Trie
+	if bc.sf != nil {
+		if _, err := bc.sf.CreateState(Gen.CreatorAddr, Gen.TotalSupply); err != nil {
+			logger.Error().Err(err).Msg("Failed to add Creator into StateFactory")
+			return err
+		}
+	}
 	// get blockchain tip height
 	bc.mu.Lock()
 	defer bc.mu.Unlock()
@@ -269,7 +261,6 @@ func (bc *blockchain) Start(ctx context.Context) (err error) {
 	if bc.tipHash, err = bc.dao.getBlockHash(bc.tipHeight); err != nil {
 		return err
 	}
-
 	// populate state factory
 	for i := uint64(0); i <= bc.tipHeight; i++ {
 		blk, err := bc.GetBlockByHeight(i)

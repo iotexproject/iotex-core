@@ -133,6 +133,7 @@ func TestExplorerApi(t *testing.T) {
 
 	sf, err := state.NewFactory(&cfg, state.InMemTrieOption())
 	require.Nil(err)
+	require.Nil(sf.Start(context.Background()))
 	_, err = sf.CreateState(ta.Addrinfo["producer"].RawAddress, blockchain.Gen.TotalSupply)
 	require.NoError(err)
 	// Disable block reward to make bookkeeping easier

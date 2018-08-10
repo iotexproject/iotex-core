@@ -798,6 +798,7 @@ func getTransfer(bc blockchain.Blockchain, transferHash hash.Hash32B) (explorer.
 		Sender:    transfer.Sender,
 		Recipient: transfer.Recipient,
 		Fee:       0, // TODO: we need to get the actual fee.
+		Payload:   hex.EncodeToString(transfer.Payload),
 	}
 
 	return explorerTransfer, nil
@@ -850,7 +851,7 @@ func getVote(bc blockchain.Blockchain, voteHash hash.Hash32B) (explorer.Vote, er
 }
 
 func getAddrFromPubKey(pubKey keypair.PublicKey) (string, error) {
-	Address, err := iotxaddress.GetAddress(pubKey, iotxaddress.IsTestnet, iotxaddress.ChainID)
+	Address, err := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, iotxaddress.ChainID, pubKey)
 	if err != nil {
 		return "", errors.Wrapf(err, " to get address for pubkey %x", pubKey)
 	}

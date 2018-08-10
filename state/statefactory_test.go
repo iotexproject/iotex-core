@@ -7,6 +7,7 @@
 package state
 
 import (
+	"context"
 	"math/big"
 	"strconv"
 	"testing"
@@ -17,6 +18,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/test/mock/mock_trie"
@@ -61,10 +63,11 @@ func TestCreateState(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	trie, err := trie.NewTrie(testTriePath, "account", trie.EmptyRoot, true)
+	trie, err := trie.NewTrie(db.NewMemKVStore(), "account", trie.EmptyRoot)
 	require.Nil(err)
 	sf, err := NewFactory(&config.Default, PrecreatedTrieOption(trie))
 	require.Nil(err)
+	require.Nil(sf.Start(context.Background()))
 	addr, err := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
 	require.Nil(err)
 	state, _ := sf.CreateState(addr.RawAddress, 5)
@@ -236,7 +239,8 @@ func TestCandidate(t *testing.T) {
 	f, _ := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
-	tr, _ := trie.NewTrie(testTriePath, "account", trie.EmptyRoot, false)
+	tr, _ := trie.NewTrie(db.NewBoltDB(testTriePath, nil), "account", trie.EmptyRoot)
+	require.Nil(t, tr.Start(context.Background()))
 	sf := &factory{
 		accountTrie:            tr,
 		candidatesLRU:          lru.New(10),
@@ -521,7 +525,8 @@ func TestUnvote(t *testing.T) {
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
-	tr, _ := trie.NewTrie(testTriePath, "account", trie.EmptyRoot, false)
+	tr, _ := trie.NewTrie(db.NewBoltDB(testTriePath, nil), "account", trie.EmptyRoot)
+	require.Nil(t, tr.Start(context.Background()))
 	sf := &factory{
 		accountTrie:            tr,
 		candidatesLRU:          lru.New(10),
@@ -573,6 +578,37 @@ func TestUnvote(t *testing.T) {
 	require.Nil(t, err)
 	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{b.RawAddress + ":200"}))
 	require.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{}))
+}
+
+func TestCreateContract(t *testing.T) {
+	require := require.New(t)
+
+	cfg := config.Default
+	cfg.Chain.TrieDBPath = testTriePath
+
+	sf, err := NewFactory(&cfg, DefaultTrieOption())
+	require.Nil(err)
+	require.NoError(sf.Start(context.Background()))
+	addr, err := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
+	require.Nil(err)
+	_, err = sf.CreateState(addr.RawAddress, 5)
+	require.Nil(err)
+
+	code := []byte("test contract creation")
+	contract, err := sf.CreateContract(addr.RawAddress, code)
+	require.Nil(err)
+	require.NotEqual("", contract)
+
+	codeHash := sf.GetCodeHash(contract)
+	require.NotEqual(hash.ZeroHash32B, codeHash)
+	code1 := sf.GetCode(contract)
+	require.Equal(code, code1)
+
+	addr1, _ := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
+	codeHash = sf.GetCodeHash(addr1.RawAddress)
+	require.Equal(hash.ZeroHash32B, codeHash)
+	code1 = sf.GetCode(addr1.RawAddress)
+	require.Equal([]byte(nil), code1)
 }
 
 func compareStrings(actual []string, expected []string) bool {

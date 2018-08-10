@@ -97,6 +97,7 @@ const fileMode = 0600
 
 // boltDB is KVStore implementation based bolt DB
 type boltDB struct {
+	mutex   sync.RWMutex
 	db      *bolt.DB
 	path    string
 	options *bolt.Options
@@ -104,11 +105,17 @@ type boltDB struct {
 
 // NewBoltDB instantiates a boltdb based KV store
 func NewBoltDB(path string, options *bolt.Options) KVStore {
-	return &boltDB{path: path, options: options}
+	return &boltDB{db: nil, path: path, options: options}
 }
 
 // Start opens the BoltDB (creates new file if not existing yet)
 func (b *boltDB) Start(_ context.Context) error {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
+
+	if b.db != nil {
+		return nil
+	}
 	db, err := bolt.Open(b.path, fileMode, b.options)
 	if err != nil {
 		return err
@@ -118,7 +125,17 @@ func (b *boltDB) Start(_ context.Context) error {
 }
 
 // Stop closes the BoltDB
-func (b *boltDB) Stop(_ context.Context) error { return b.db.Close() }
+func (b *boltDB) Stop(_ context.Context) error {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
+
+	if b.db != nil {
+		err := b.db.Close()
+		b.db = nil
+		return err
+	}
+	return nil
+}
 
 // Put inserts a <key, value> record
 func (b *boltDB) Put(namespace string, key []byte, value []byte) error {

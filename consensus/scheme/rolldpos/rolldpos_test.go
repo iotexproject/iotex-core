@@ -270,7 +270,7 @@ func TestRollDPoS_convertToConsensusEvt(t *testing.T) {
 	transfer, err := action.NewTransfer(1, big.NewInt(100), "src", "dst")
 	require.NoError(t, err)
 	selfPubKey, err := keypair.DecodePublicKey(publicKey)
-	address, err := iotxaddress.GetAddress(selfPubKey, iotxaddress.IsTestnet, iotxaddress.ChainID)
+	address, err := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, iotxaddress.ChainID, selfPubKey)
 	require.NoError(t, err)
 	vote, err := action.NewVote(2, address.RawAddress, address.RawAddress)
 	require.NoError(t, err)

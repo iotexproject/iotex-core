@@ -31,18 +31,20 @@ func (h *Pinger) Ping() {
 			p, ok := value.(*Peer)
 			if !ok {
 				logger.Error().Msg("value is not an instance of Peer")
+				return
 			}
 			pong, err := p.Ping(&pb.Ping{Nonce: n, Addr: h.Overlay.RPC.String()})
 			if err != nil {
-				logger.Error().Err(err).Msg("error when getting pong")
+				logger.Error().Err(err).Str("dst", p.String()).Msg("error when getting pong")
 				return
 			}
 			if pong == nil {
-				logger.Error().Msg("nil pong")
+				logger.Error().Str("dst", p.String()).Msg("nil pong")
 				return
 			}
 			if pong.AckNonce != n {
 				logger.Error().
+					Str("dst", p.String()).
 					Uint64("out-nonce", n).
 					Uint64("in-nonce", pong.AckNonce).
 					Msg("pong carries an unmatched nonce")

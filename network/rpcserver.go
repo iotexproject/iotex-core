@@ -157,7 +157,7 @@ func (s *RPCServer) Start(_ context.Context) error {
 	reflection.Register(s.Server)
 	started := make(chan bool)
 	go func(started chan bool) {
-		logger.Info().Str("addr", s.String()).Msg("start RPC server")
+		logger.Info().Msg("start RPC server")
 		started <- true
 		if err := s.Server.Serve(lis); err != nil {
 			logger.Fatal().Err(err).Msg("Node failed to serve")
@@ -169,7 +169,7 @@ func (s *RPCServer) Start(_ context.Context) error {
 
 // Stop stops the rpc server
 func (s *RPCServer) Stop(_ context.Context) error {
-	logger.Info().Str("addr", s.String()).Msg("stop RPC server")
+	logger.Info().Msg("stop RPC server")
 	s.Server.Stop()
 	return nil
 }

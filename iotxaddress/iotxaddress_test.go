@@ -9,7 +9,6 @@ package iotxaddress
 import (
 	"crypto/rand"
 	"encoding/hex"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -33,14 +32,18 @@ func TestNewAddress(t *testing.T) {
 	logger.Info().Str("Generated address", addr.RawAddress).Msg("NewAddress")
 	logger.Info().Hex("Generated public key", addr.PublicKey[:]).Msg("NewAddress")
 	logger.Info().Hex("Generated private key", addr.PrivateKey[:]).Msg("NewAddress")
-	p2pkh := HashPubKey(addr.PublicKey)
-	require.Equal(p2pkh, GetPubkeyHash(addr.RawAddress))
+	p2pkh := keypair.HashPubKey(addr.PublicKey)
+	p2pkh1, err := GetPubkeyHash(addr.RawAddress)
+	require.NoError(err)
+	require.Equal(p2pkh, p2pkh1)
 	logger.Info().Hex("P2PKH", p2pkh).Msg("NewAddress")
 
 	p2pkh, _ = hex.DecodeString("36500e9520e13d02bea26a08e99b6e7145fa6c10")
-	addr1, err := GetAddressByHash(p2pkh, true, []byte{0x00, 0x00, 0x00, 0x01})
+	addr1, err := GetAddressByHash(true, []byte{0x00, 0x00, 0x00, 0x01}, p2pkh)
 	require.Nil(err)
-	require.Equal(p2pkh, GetPubkeyHash(addr1.RawAddress))
+	p2pkh1, err = GetPubkeyHash(addr1.RawAddress)
+	require.NoError(err)
+	require.Equal(p2pkh, p2pkh1)
 
 	rmsg := make([]byte, 2048)
 	_, err = rand.Read(rmsg)
@@ -48,28 +51,6 @@ func TestNewAddress(t *testing.T) {
 	sig := cp.Sign(addr.PrivateKey, rmsg)
 	require.True(cp.Verify(addr.PublicKey, rmsg, sig))
 }
-
-// TestGetAddress tests get address for a given public key and params.
-func TestGetandValidateAddress(t *testing.T) {
-	require := require.New(t)
-	pub, _, err := cp.NewKeyPair()
-	require.Nil(err)
-
-	addr, err := GetAddress(pub, false, []byte{0x00, 0x00, 0x00, 0x01})
-	require.Nil(err)
-	t.Log(addr)
-	require.True(strings.HasPrefix(addr.RawAddress, mainnetPrefix))
-	require.True(ValidateAddress(addr.RawAddress))
-	addrstr := strings.Replace(addr.RawAddress, "1", "?", -1)
-	require.False(ValidateAddress(addrstr))
-
-	addr, err = GetAddress(pub, true, []byte{0x00, 0x00, 0x00, 0x01})
-	require.Nil(err)
-	t.Log(addr)
-	require.True(strings.HasPrefix(addr.RawAddress, testnetPrefix))
-}
-
-const wrongPrefix = "ix"
 
 func TestInvalidAddress(t *testing.T) {
 	require := require.New(t)
@@ -83,22 +64,25 @@ func TestInvalidAddress(t *testing.T) {
 	addr.PrivateKey = pri
 
 	// test invalid prefix
-	payload := append([]byte{version.ProtocolVersion}, append(chainid, HashPubKey(pub)...)...)
+	payload := append([]byte{version.ProtocolVersion}, append(chainid, keypair.HashPubKey(pub)...)...)
 	grouped, err := bech32.ConvertBits(payload, 8, 5, true)
 	require.Nil(err)
+	wrongPrefix := "ix"
 	raddr, err := bech32.Encode(wrongPrefix, grouped)
 	require.NotNil(raddr)
 	require.Nil(err)
 	require.Nil(GetPubkeyHash(raddr))
-	require.Equal(false, ValidateAddress(raddr))
+	_, err = GetPubkeyHash(raddr)
+	require.Error(err)
 
 	// test invalid version
-	payload = append([]byte{0}, append(chainid, HashPubKey(pub)...)...)
+	payload = append([]byte{0}, append(chainid, keypair.HashPubKey(pub)...)...)
 	grouped, err = bech32.ConvertBits(payload, 8, 5, true)
 	require.Nil(err)
 	raddr, err = bech32.Encode(mainnetPrefix, grouped)
 	require.NotNil(raddr)
 	require.Nil(err)
 	require.Nil(GetPubkeyHash(raddr))
-	require.Equal(false, ValidateAddress(raddr))
+	_, err = GetPubkeyHash(raddr)
+	require.Error(err)
 }
