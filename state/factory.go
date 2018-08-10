@@ -21,7 +21,6 @@ import (
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
-	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/trie"
@@ -273,20 +272,15 @@ func (sf *factory) CreateContract(addr string, code []byte) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	temp := make([]byte, 8)
-	enc.MachineEndian.PutUint64(temp, nonce)
-	// generate contract address from owner addr and nonce
-	// nonce guarantees a different contract addr even if the same code is deployed the second time
-	contractHash := hash.Hash160b(append([]byte(addr), temp...))
-	contractAddr, err := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, contractHash)
+	contractAddr, err := iotxaddress.CreateContractAddress(addr, nonce)
 	if err != nil {
 		return "", err
 	}
 	// only create when contract addr does not exist yet
-	if _, err := sf.getState(contractAddr.RawAddress); errors.Cause(err) != ErrAccountNotExist {
+	if _, err := sf.getState(contractAddr); errors.Cause(err) != ErrAccountNotExist {
 		return "", ErrAccountCollision
 	}
-	contract, err := sf.createContract(contractHash, code)
+	contract, err := sf.createContract(contractAddr, code)
 	if err != nil {
 		return "", errors.Wrapf(err, "Failed to create contract")
 	}
@@ -294,7 +288,7 @@ func (sf *factory) CreateContract(addr string, code []byte) (string, error) {
 	if err := sf.accountTrie.TrieDB().Put(trie.CodeKVNameSpace, contract.CodeHash, code); err != nil {
 		return "", errors.Wrapf(err, "Failed to store contract code")
 	}
-	return contractAddr.RawAddress, nil
+	return contractAddr, nil
 }
 
 func (sf *factory) GetCodeHash(addr string) hash.Hash32B {
@@ -392,8 +386,9 @@ func (sf *factory) cache(addr string) (*State, error) {
 	return state, nil
 }
 
-func (sf *factory) createContract(addrHash []byte, code []byte) (*State, error) {
-	if addrHash == nil {
+func (sf *factory) createContract(addr string, code []byte) (*State, error) {
+	addrHash, err := iotxaddress.GetPubkeyHash(addr)
+	if addrHash == nil || err != nil {
 		return nil, ErrAccountNotExist
 	}
 	balance := big.NewInt(0)
