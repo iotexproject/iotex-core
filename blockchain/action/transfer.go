@@ -126,22 +126,26 @@ func (tsf *Transfer) ByteStream() []byte {
 	return stream
 }
 
-// ConvertToTransferPb converts Transfer to protobuf's TransferPb
-func (tsf *Transfer) ConvertToTransferPb() *iproto.TransferPb {
+// ConvertToActionPb converts Transfer to protobuf's ActionPb
+func (tsf *Transfer) ConvertToActionPb() *iproto.ActionPb {
 	// used by account-based model
-	t := &iproto.TransferPb{
-		Version:      tsf.Version,
-		Nonce:        tsf.Nonce,
-		Sender:       tsf.Sender,
-		Recipient:    tsf.Recipient,
-		Payload:      tsf.Payload,
-		SenderPubKey: tsf.SenderPublicKey[:],
-		Signature:    tsf.Signature,
-		IsCoinbase:   tsf.IsCoinbase,
+	t := &iproto.ActionPb{
+		Action: &iproto.ActionPb_Transfer{
+			Transfer: &iproto.TransferPb{
+				Sender:       tsf.Sender,
+				Recipient:    tsf.Recipient,
+				Payload:      tsf.Payload,
+				SenderPubKey: tsf.SenderPublicKey[:],
+				IsCoinbase:   tsf.IsCoinbase,
+			},
+		},
+		Version:   tsf.Version,
+		Nonce:     tsf.Nonce,
+		Signature: tsf.Signature,
 	}
 
 	if tsf.Amount != nil && len(tsf.Amount.Bytes()) > 0 {
-		t.Amount = tsf.Amount.Bytes()
+		t.GetTransfer().Amount = tsf.Amount.Bytes()
 	}
 	return t
 }
@@ -168,35 +172,37 @@ func (tsf *Transfer) ToJSON() *explorer.Transfer {
 
 // Serialize returns a serialized byte stream for the Transfer
 func (tsf *Transfer) Serialize() ([]byte, error) {
-	return proto.Marshal(tsf.ConvertToTransferPb())
+	return proto.Marshal(tsf.ConvertToActionPb())
 }
 
-// ConvertFromTransferPb converts a protobuf's TransferPb to Transfer
-func (tsf *Transfer) ConvertFromTransferPb(pbTx *iproto.TransferPb) {
+// ConvertFromActionPb converts a protobuf's ActionPb to Transfer
+func (tsf *Transfer) ConvertFromActionPb(pbAct *iproto.ActionPb) {
 	// set trnx fields
-	tsf.Version = pbTx.GetVersion()
+	tsf.Version = pbAct.GetVersion()
 	// used by account-based model
-	tsf.Nonce = pbTx.Nonce
+	tsf.Nonce = pbAct.Nonce
 	if tsf.Amount == nil {
 		tsf.Amount = big.NewInt(0)
 	}
-	if len(pbTx.Amount) > 0 {
-		tsf.Amount.SetBytes(pbTx.Amount)
+
+	pbTsf := pbAct.GetTransfer()
+	if len(pbTsf.Amount) > 0 {
+		tsf.Amount.SetBytes(pbTsf.Amount)
 	}
 	tsf.Sender = ""
-	if len(pbTx.Sender) > 0 {
-		tsf.Sender = string(pbTx.Sender)
+	if len(pbTsf.Sender) > 0 {
+		tsf.Sender = string(pbTsf.Sender)
 	}
 	tsf.Recipient = ""
-	if len(pbTx.Recipient) > 0 {
-		tsf.Recipient = string(pbTx.Recipient)
+	if len(pbTsf.Recipient) > 0 {
+		tsf.Recipient = string(pbTsf.Recipient)
 	}
 	tsf.Payload = nil
-	tsf.Payload = pbTx.Payload
-	copy(tsf.SenderPublicKey[:], pbTx.SenderPubKey)
+	tsf.Payload = pbTsf.Payload
+	copy(tsf.SenderPublicKey[:], pbTsf.SenderPubKey)
 	tsf.Signature = nil
-	tsf.Signature = pbTx.Signature
-	tsf.IsCoinbase = pbTx.IsCoinbase
+	tsf.Signature = pbAct.Signature
+	tsf.IsCoinbase = pbTsf.IsCoinbase
 }
 
 // NewTransferFromJSON creates a new Transfer from TransferJSON
@@ -233,11 +239,11 @@ func NewTransferFromJSON(jsonTsf *explorer.Transfer) (*Transfer, error) {
 
 // Deserialize parse the byte stream into Transfer
 func (tsf *Transfer) Deserialize(buf []byte) error {
-	pbTransfer := &iproto.TransferPb{}
-	if err := proto.Unmarshal(buf, pbTransfer); err != nil {
+	pbAct := &iproto.ActionPb{}
+	if err := proto.Unmarshal(buf, pbAct); err != nil {
 		return err
 	}
-	tsf.ConvertFromTransferPb(pbTransfer)
+	tsf.ConvertFromActionPb(pbAct)
 	return nil
 }
 

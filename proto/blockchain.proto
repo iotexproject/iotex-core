@@ -10,32 +10,20 @@ syntax = "proto3";
 package iproto;
 
 message TransferPb {
-    // TransferPb should share these three fields with other Actions
-    // TODO: extract these three fields to ActionPb
-    uint32 version = 1;
-    uint64 nonce = 2;
-    bytes signature = 3;
-
     // used by state-based model
-    bytes amount  = 4;
-    string sender = 5;
-    string recipient = 6;
-    bytes payload  = 7;
-    bytes senderPubKey = 8;
-    bool isCoinbase = 9;
+    bytes amount  = 1;
+    string sender = 2;
+    string recipient = 3;
+    bytes payload  = 4;
+    bytes senderPubKey = 5;
+    bool isCoinbase = 6;
 }
 
 message VotePb {
-    // VotePb should share these three fields with other Actions
-    // TODO: extract these three fields to ActionPb
-    uint32 version = 1;
-    uint64 nonce = 2;
-    bytes signature = 3;
-
-    uint64 timestamp = 4;
-    bytes selfPubkey = 5;
-    string voterAddress = 6;  // the address of this node
-    string voteeAddress = 7;  // the address this node is voting for
+    uint64 timestamp = 1;
+    bytes selfPubkey = 2;
+    string voterAddress = 3;  // the address of this node
+    string voteeAddress = 4;  // the address this node is voting for
 }
 
 message ActionPb {
@@ -43,6 +31,10 @@ message ActionPb {
         TransferPb transfer = 1;
         VotePb vote = 2;
     }
+
+    uint32 version = 3;
+    uint64 nonce = 4;
+    bytes signature = 5;
 }
 
 // header of a block

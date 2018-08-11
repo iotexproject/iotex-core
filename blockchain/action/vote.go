@@ -41,7 +41,7 @@ const (
 
 // Vote defines the struct of account-based vote
 type Vote struct {
-	*iproto.VotePb
+	*iproto.ActionPb
 }
 
 // NewVote returns a Vote instance
@@ -50,18 +50,22 @@ func NewVote(nonce uint64, voterAddress string, voteeAddress string) (*Vote, err
 		return nil, errors.Wrap(ErrAddr, "address of the voter is empty")
 	}
 
-	pbVote := &iproto.VotePb{
-		Version:      version.ProtocolVersion,
-		Nonce:        nonce,
-		VoterAddress: voterAddress,
-		VoteeAddress: voteeAddress,
+	pbVote := &iproto.ActionPb{
+		Action: &iproto.ActionPb_Vote{
+			Vote: &iproto.VotePb{
+				VoterAddress: voterAddress,
+				VoteeAddress: voteeAddress,
+			},
+		},
+		Version: version.ProtocolVersion,
+		Nonce:   nonce,
 	}
 	return &Vote{pbVote}, nil
 }
 
 // SelfPublicKey returns the self public key of the vote
 func (v *Vote) SelfPublicKey() (keypair.PublicKey, error) {
-	return keypair.BytesToPublicKey(v.SelfPubkey)
+	return keypair.BytesToPublicKey(v.GetVote().SelfPubkey)
 }
 
 // TotalSize returns the total size of this Vote
@@ -69,9 +73,10 @@ func (v *Vote) TotalSize() uint32 {
 	size := TimestampSizeInBytes
 	size += NonceSizeInBytes
 	size += versionSizeInBytes
-	size += len(v.SelfPubkey)
-	size += len(v.VoterAddress)
-	size += len(v.VoteeAddress)
+	pbVote := v.GetVote()
+	size += len(pbVote.SelfPubkey)
+	size += len(pbVote.VoterAddress)
+	size += len(pbVote.VoteeAddress)
 	size += len(v.Signature)
 	return uint32(size)
 }
@@ -79,10 +84,11 @@ func (v *Vote) TotalSize() uint32 {
 // ByteStream returns a raw byte stream of this Transfer
 func (v *Vote) ByteStream() []byte {
 	stream := make([]byte, TimestampSizeInBytes)
-	enc.MachineEndian.PutUint64(stream, v.Timestamp)
-	stream = append(stream, v.SelfPubkey...)
-	stream = append(stream, v.VoterAddress...)
-	stream = append(stream, v.VoteeAddress...)
+	pbVote := v.GetVote()
+	enc.MachineEndian.PutUint64(stream, pbVote.Timestamp)
+	stream = append(stream, pbVote.SelfPubkey...)
+	stream = append(stream, pbVote.VoterAddress...)
+	stream = append(stream, pbVote.VoteeAddress...)
 	temp := make([]byte, 8)
 	enc.MachineEndian.PutUint64(temp, v.Nonce)
 	stream = append(stream, temp...)
@@ -93,15 +99,16 @@ func (v *Vote) ByteStream() []byte {
 	return stream
 }
 
-// ConvertToVotePb converts Vote to protobuf's VotePb
-func (v *Vote) ConvertToVotePb() *iproto.VotePb {
-	return v.VotePb
+// ConvertToActionPb converts Vote to protobuf's ActionPb
+func (v *Vote) ConvertToActionPb() *iproto.ActionPb {
+	return v.ActionPb
 }
 
 // ToJSON converts Vote to VoteJSON
 func (v *Vote) ToJSON() (*explorer.Vote, error) {
 	// used by account-based model
-	voterPubKey, err := keypair.BytesToPubKeyString(v.SelfPubkey)
+	pbVote := v.GetVote()
+	voterPubKey, err := keypair.BytesToPubKeyString(pbVote.SelfPubkey)
 	if err != nil {
 		return nil, err
 	}
@@ -109,8 +116,8 @@ func (v *Vote) ToJSON() (*explorer.Vote, error) {
 		Version:     int64(v.Version),
 		Nonce:       int64(v.Nonce),
 		VoterPubKey: voterPubKey,
-		Voter:       v.VoterAddress,
-		Votee:       v.VoteeAddress,
+		Voter:       pbVote.VoterAddress,
+		Votee:       pbVote.VoteeAddress,
 		Signature:   hex.EncodeToString(v.Signature),
 	}
 	return vote, nil
@@ -118,12 +125,12 @@ func (v *Vote) ToJSON() (*explorer.Vote, error) {
 
 // Serialize returns a serialized byte stream for the Transfer
 func (v *Vote) Serialize() ([]byte, error) {
-	return proto.Marshal(v.ConvertToVotePb())
+	return proto.Marshal(v.ConvertToActionPb())
 }
 
-// ConvertFromVotePb converts a protobuf's VotePb to Vote
-func (v *Vote) ConvertFromVotePb(pbVote *iproto.VotePb) {
-	v.VotePb = pbVote
+// ConvertFromActionPb converts a protobuf's ActionPb to Vote
+func (v *Vote) ConvertFromActionPb(pbAct *iproto.ActionPb) {
+	v.ActionPb = pbAct
 }
 
 // NewVoteFromJSON creates a new Vote from VoteJSON
@@ -137,9 +144,10 @@ func NewVoteFromJSON(jsonVote *explorer.Vote) (*Vote, error) {
 		logger.Error().Err(err).Msg("Fail to create a new Vote from VoteJSON")
 		return nil, err
 	}
-	v.SelfPubkey = voterPubKey
-	v.VoterAddress = jsonVote.Voter
-	v.VoteeAddress = jsonVote.Votee
+	pbVote := v.GetVote()
+	pbVote.SelfPubkey = voterPubKey
+	pbVote.VoterAddress = jsonVote.Voter
+	pbVote.VoteeAddress = jsonVote.Votee
 	signature, err := hex.DecodeString(jsonVote.Signature)
 	if err != nil {
 		logger.Error().Err(err).Msg("Fail to create a new Vote from VoteJSON")
@@ -152,11 +160,11 @@ func NewVoteFromJSON(jsonVote *explorer.Vote) (*Vote, error) {
 
 // Deserialize parse the byte stream into Vote
 func (v *Vote) Deserialize(buf []byte) error {
-	pbVote := &iproto.VotePb{}
+	pbVote := &iproto.ActionPb{}
 	if err := proto.Unmarshal(buf, pbVote); err != nil {
 		return err
 	}
-	v.ConvertFromVotePb(pbVote)
+	v.ConvertFromActionPb(pbVote)
 	return nil
 }
 
@@ -169,9 +177,10 @@ func (v *Vote) Hash() hash.Hash32B {
 // Sign signs the Vote using sender's private key
 func (v *Vote) Sign(sender *iotxaddress.Address) (*Vote, error) {
 	// check the sender is correct
-	if v.VoterAddress != sender.RawAddress {
+	pbVote := v.GetVote()
+	if pbVote.VoterAddress != sender.RawAddress {
 		return nil, errors.Wrapf(ErrVoteError, "signing addr %s does not match with Vote addr %s",
-			v.VoterAddress, sender.RawAddress)
+			pbVote.VoterAddress, sender.RawAddress)
 	}
 	// check the public key is actually owned by sender
 	pkhash, err := iotxaddress.GetPubkeyHash(sender.RawAddress)
@@ -182,7 +191,7 @@ func (v *Vote) Sign(sender *iotxaddress.Address) (*Vote, error) {
 		return nil, errors.Wrapf(ErrVoteError, "signing addr %s does not own correct public key",
 			sender.RawAddress)
 	}
-	v.SelfPubkey = sender.PublicKey[:]
+	pbVote.SelfPubkey = sender.PublicKey[:]
 	if err := v.sign(sender); err != nil {
 		return nil, err
 	}

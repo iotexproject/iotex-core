@@ -209,14 +209,14 @@ func (exp *Service) GetUnconfirmedTransfersByAddress(address string, offset int6
 			return []explorer.Transfer{}, err
 		}
 		explorerTransfer := explorer.Transfer{
-			Version:      int64(transferPb.Version),
-			Nonce:        int64(transferPb.Nonce),
+			Version:      int64(act.Version),
+			Nonce:        int64(act.Nonce),
 			Sender:       transferPb.Sender,
 			Recipient:    transferPb.Recipient,
 			Amount:       big.NewInt(0).SetBytes(transferPb.Amount).Int64(),
 			Payload:      hex.EncodeToString(transferPb.Payload),
 			SenderPubKey: senderPubKey,
-			Signature:    hex.EncodeToString(transferPb.Signature),
+			Signature:    hex.EncodeToString(act.Signature),
 			IsCoinbase:   transferPb.IsCoinbase,
 		}
 
@@ -306,7 +306,7 @@ ChainLoop:
 				return res, err
 			}
 
-			votee := blk.Votes[i].VoteeAddress
+			votee := blk.Votes[i].GetVote().VoteeAddress
 			if err != nil {
 				return res, err
 			}
@@ -315,7 +315,7 @@ ChainLoop:
 			explorerVote := explorer.Vote{
 				ID:        hex.EncodeToString(hash[:]),
 				Nonce:     int64(blk.Votes[i].Nonce),
-				Timestamp: int64(blk.Votes[i].Timestamp),
+				Timestamp: int64(blk.Votes[i].GetVote().Timestamp),
 				Voter:     voter,
 				Votee:     votee,
 				BlockID:   blkID,
@@ -407,10 +407,10 @@ func (exp *Service) GetUnconfirmedVotesByAddress(address string, offset int64, l
 			return []explorer.Vote{}, err
 		}
 		explorerVote := explorer.Vote{
-			Version:     int64(votePb.Version),
-			Nonce:       int64(votePb.Nonce),
+			Version:     int64(act.Version),
+			Nonce:       int64(act.Nonce),
 			VoterPubKey: voterPubKey,
-			Signature:   hex.EncodeToString(votePb.Signature),
+			Signature:   hex.EncodeToString(act.Signature),
 		}
 
 		res = append(res, explorerVote)
@@ -452,7 +452,7 @@ func (exp *Service) GetVotesByBlockID(blkID string, offset int64, limit int64) (
 			return res, err
 		}
 
-		votee := vote.VoteeAddress
+		votee := vote.GetVote().VoteeAddress
 		if err != nil {
 			return res, err
 		}
@@ -704,26 +704,28 @@ func (exp *Service) SendTransfer(request explorer.SendTransferRequest) (explorer
 	if err != nil {
 		return explorer.SendTransferResponse{}, err
 	}
-	tsfPb := &pb.TransferPb{
-		Version:      uint32(tsfJSON.Version),
-		Nonce:        uint64(tsfJSON.Nonce),
-		Signature:    signature,
-		Amount:       amount,
-		Sender:       tsfJSON.Sender,
-		Recipient:    tsfJSON.Recipient,
-		Payload:      payload,
-		SenderPubKey: senderPubKey,
-		IsCoinbase:   tsfJSON.IsCoinbase,
+	actPb := &pb.ActionPb{
+		Action: &pb.ActionPb_Transfer{
+			Transfer: &pb.TransferPb{
+				Amount:       amount,
+				Sender:       tsfJSON.Sender,
+				Recipient:    tsfJSON.Recipient,
+				Payload:      payload,
+				SenderPubKey: senderPubKey,
+				IsCoinbase:   tsfJSON.IsCoinbase,
+			},
+		},
+		Version:   uint32(tsfJSON.Version),
+		Nonce:     uint64(tsfJSON.Nonce),
+		Signature: signature,
 	}
 
-	// Wrap TransferPb as an ActionPb
-	action := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsfPb}}
 	// broadcast to the network
-	if err := exp.p2p.Broadcast(action); err != nil {
+	if err := exp.p2p.Broadcast(actPb); err != nil {
 		return explorer.SendTransferResponse{}, err
 	}
 	// send to actpool via dispatcher
-	exp.dp.HandleBroadcast(action, nil)
+	exp.dp.HandleBroadcast(actPb, nil)
 	return explorer.SendTransferResponse{true}, nil
 }
 
@@ -745,23 +747,25 @@ func (exp *Service) SendVote(request explorer.SendVoteRequest) (explorer.SendVot
 	if err != nil {
 		return explorer.SendVoteResponse{}, err
 	}
-	votePb := &pb.VotePb{
-		Version:      uint32(voteJSON.Version),
-		Nonce:        uint64(voteJSON.Nonce),
-		SelfPubkey:   selfPubKey,
-		VoterAddress: voteJSON.Voter,
-		VoteeAddress: voteJSON.Votee,
-		Signature:    signature,
+	actPb := &pb.ActionPb{
+		Action: &pb.ActionPb_Vote{
+			Vote: &pb.VotePb{
+				SelfPubkey:   selfPubKey,
+				VoterAddress: voteJSON.Voter,
+				VoteeAddress: voteJSON.Votee,
+			},
+		},
+		Version:   uint32(voteJSON.Version),
+		Nonce:     uint64(voteJSON.Nonce),
+		Signature: signature,
 	}
 
-	// Wrap VotePb as an ActionPb
-	action := &pb.ActionPb{Action: &pb.ActionPb_Vote{votePb}}
 	// broadcast to the network
-	if err := exp.p2p.Broadcast(action); err != nil {
+	if err := exp.p2p.Broadcast(actPb); err != nil {
 		return explorer.SendVoteResponse{}, err
 	}
 	// send to actpool via dispatcher
-	exp.dp.HandleBroadcast(action, nil)
+	exp.dp.HandleBroadcast(actPb, nil)
 	return explorer.SendVoteResponse{true}, nil
 }
 
@@ -828,7 +832,7 @@ func getVote(bc blockchain.Blockchain, voteHash hash.Hash32B) (explorer.Vote, er
 		return explorerVote, err
 	}
 
-	votee := vote.VoteeAddress
+	votee := vote.GetVote().VoteeAddress
 	if err != nil {
 		return explorerVote, err
 	}

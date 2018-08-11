@@ -150,10 +150,10 @@ func (b *Block) ConvertToBlockHeaderPb() *iproto.BlockHeaderPb {
 func (b *Block) ConvertToBlockPb() *iproto.BlockPb {
 	actions := []*iproto.ActionPb{}
 	for _, tsf := range b.Transfers {
-		actions = append(actions, &iproto.ActionPb{Action: &iproto.ActionPb_Transfer{tsf.ConvertToTransferPb()}})
+		actions = append(actions, tsf.ConvertToActionPb())
 	}
 	for _, vote := range b.Votes {
-		actions = append(actions, &iproto.ActionPb{Action: &iproto.ActionPb_Vote{vote.ConvertToVotePb()}})
+		actions = append(actions, vote.ConvertToActionPb())
 	}
 	return &iproto.BlockPb{Header: b.ConvertToBlockHeaderPb(), Actions: actions}
 }
@@ -188,11 +188,11 @@ func (b *Block) ConvertFromBlockPb(pbBlock *iproto.BlockPb) {
 	for _, act := range pbBlock.Actions {
 		if tfPb := act.GetTransfer(); tfPb != nil {
 			tf := &action.Transfer{}
-			tf.ConvertFromTransferPb(tfPb)
+			tf.ConvertFromActionPb(act)
 			b.Transfers = append(b.Transfers, tf)
 		} else if votePb := act.GetVote(); votePb != nil {
 			vote := &action.Vote{}
-			vote.ConvertFromVotePb(votePb)
+			vote.ConvertFromActionPb(act)
 			b.Votes = append(b.Votes, vote)
 		} else {
 			logger.Fatal().Msg("unexpected action")
