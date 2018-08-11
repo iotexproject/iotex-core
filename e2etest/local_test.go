@@ -8,6 +8,8 @@ package e2etest
 
 import (
 	"context"
+	"encoding/hex"
+	"fmt"
 	"math/big"
 	"sort"
 	"testing"
@@ -656,6 +658,125 @@ func TestVoteLocalCommit(t *testing.T) {
 	sort.Sort(sort.StringSlice(candidatesAddr))
 	require.Equal(ta.Addrinfo["alfa"].RawAddress, candidatesAddr[0])
 	require.Equal(ta.Addrinfo["delta"].RawAddress, candidatesAddr[1])
+}
+
+func TestDummyBlockReplacement(t *testing.T) {
+	require := require.New(t)
+
+	testutil.CleanupPath(t, testTriePath)
+	testutil.CleanupPath(t, testDBPath)
+
+	blockchain.Gen.TotalSupply = uint64(50 << 22)
+	blockchain.Gen.BlockReward = uint64(0)
+
+	cfg, err := newTestConfig()
+	require.Nil(err)
+
+	// create server
+	ctx := context.Background()
+	svr := itx.NewServer(cfg)
+	require.NoError(svr.Start(ctx))
+	require.NotNil(svr.Blockchain())
+	require.NoError(addTestingDummyBlocm(svr.Blockchain()))
+	require.NotNil(svr.ActionPool())
+	require.NotNil(svr.P2P())
+
+	// create client
+	cfg.Network.BootstrapNodes = []string{svr.P2P().Self().String()}
+	p := network.NewOverlay(&cfg.Network)
+	require.NotNil(p)
+	require.NoError(p.Start(ctx))
+
+	defer func() {
+		require.Nil(p.Stop(ctx))
+		require.Nil(svr.Stop(ctx))
+		testutil.CleanupPath(t, testTriePath)
+		testutil.CleanupPath(t, testDBPath)
+	}()
+
+	dummy1, err := svr.Blockchain().GetBlockByHeight(1)
+	require.NoError(err)
+	require.True(dummy1.IsDummyBlock())
+	dummy2, err := svr.Blockchain().GetBlockByHeight(2)
+	require.NoError(err)
+	require.True(dummy2.IsDummyBlock())
+
+	originChain := blockchain.NewBlockchain(&config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+
+	// Replace the first dummy block
+	tsf0, _ := action.NewTransfer(1, big.NewInt(100000000), blockchain.Gen.CreatorAddr, ta.Addrinfo["producer"].RawAddress)
+	pubk, _ := keypair.DecodePublicKey(blockchain.Gen.CreatorPubKey)
+	sign, err := hex.DecodeString("937ef50d77de65a58da280cd71d46e32786c946c6265b79c330ba6d6e130ac1cd5344b0122d53f065ed7ada532e4295631fb9d595493c7d76e2007af047ab6afdedf3fc072534b00")
+	require.NoError(err)
+	tsf0.SenderPublicKey = pubk
+	tsf0.Signature = sign
+
+	act1 := tsf0.ConvertToActionPb()
+	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
+		if err := p.Broadcast(act1); err != nil {
+			return false, err
+		}
+		tsf, _ := svr.ActionPool().PickActs()
+		return len(tsf) == 1, nil
+	})
+	require.Nil(err)
+
+	tsf, _ := svr.ActionPool().PickActs()
+	blk1, err := originChain.MintNewBlock(tsf, nil, ta.Addrinfo["producer"], "")
+	require.Nil(err)
+
+	err = p.Broadcast(blk1.ConvertToBlockPb())
+	require.NoError(err)
+
+	err = testutil.WaitUntil(10*time.Millisecond, 10*time.Second, func() (bool, error) {
+		hash, err := svr.Blockchain().GetHashByHeight(1)
+		if err != nil {
+			return false, err
+		}
+		return hash == blk1.HashBlock(), nil
+	})
+	require.Nil(err)
+	hash, err := svr.Blockchain().GetHashByHeight(1)
+	require.Equal(hash, blk1.HashBlock())
+	require.NoError(originChain.CommitBlock(blk1))
+
+	// Replace the second dummy block
+	tsf1, err := signedTransfer(ta.Addrinfo["producer"], ta.Addrinfo["alfa"], 1, big.NewInt(1))
+	require.NoError(err)
+	act2 := tsf1.ConvertToActionPb()
+	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
+		if err := p.Broadcast(act2); err != nil {
+			return false, err
+		}
+		tsf, _ := svr.ActionPool().PickActs()
+		return len(tsf) == 1, nil
+	})
+	require.Nil(err)
+
+	tsf, _ = svr.ActionPool().PickActs()
+	fmt.Println(tsf[0].Amount)
+	blk2, err := originChain.MintNewBlock(tsf, nil, ta.Addrinfo["producer"], "")
+	require.Nil(err)
+	err = p.Broadcast(blk2.ConvertToBlockPb())
+	require.NoError(err)
+
+	err = testutil.WaitUntil(10*time.Millisecond, 10*time.Second, func() (bool, error) {
+		hash, err := svr.Blockchain().GetHashByHeight(2)
+		if err != nil {
+			return false, err
+		}
+		return hash == blk2.HashBlock(), nil
+	})
+	require.Nil(err)
+	hash, err = svr.Blockchain().GetHashByHeight(2)
+	require.Equal(hash, blk2.HashBlock())
+
+	bk1, err := svr.Blockchain().GetBlockByHeight(1)
+	require.NoError(err)
+	require.False(bk1.IsDummyBlock())
+	bk2, err := svr.Blockchain().GetBlockByHeight(2)
+	require.NoError(err)
+	require.False(bk2.IsDummyBlock())
 }
 
 func newSignedVote(nonce int, from *iotxaddress.Address, to *iotxaddress.Address) (*action.Vote, error) {

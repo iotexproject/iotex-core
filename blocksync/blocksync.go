@@ -243,12 +243,20 @@ func (bs *blockSyncer) ProcessBlock(blk *bc.Block) error {
 		return err
 	}
 	if bs.currRcvdHeight = blk.Height(); bs.currRcvdHeight <= height {
-		err := fmt.Errorf(
-			"****** [%s] Received block height %d <= Blockchain tip height %d",
-			bs.p2p.Self().String(),
-			bs.currRcvdHeight,
-			height)
-		return err
+		if oldBlock, err := bs.bc.GetBlockByHeight(bs.currRcvdHeight); err != nil || !oldBlock.IsDummyBlock() {
+			err := fmt.Errorf(
+				"****** [%s] Received block height %d <= Blockchain tip height %d",
+				bs.p2p.Self().String(),
+				bs.currRcvdHeight,
+				height)
+			return err
+		}
+		// Replace the old dummy block directly
+		if err := bs.bc.CommitBlock(blk); err != nil {
+			return err
+		}
+		bs.ap.Reset()
+		bs.actionTime = time.Now()
 	}
 
 	if bs.state == Idle && bs.currRcvdHeight == height+1 {
@@ -279,6 +287,12 @@ func (bs *blockSyncer) ProcessBlock(blk *bc.Block) error {
 		return nil
 	}
 
+	if bs.currRcvdHeight <= height {
+		// Replace dummy block case
+		// commit all blocks in buffer that can be added to Blockchain
+		return bs.commitBlocksInBuffer()
+	}
+
 	// check-in incoming block to the buffer
 	if err := bs.checkBlockIntoBuffer(blk); err != nil {
 		logger.Error().Err(err).Msg("")
@@ -304,13 +318,23 @@ func (bs *blockSyncer) ProcessBlockSync(blk *bc.Block) error {
 		return err
 	}
 	if blk.Height() <= height {
-		//TODO make it structured logging
-		logger.Warn().Msgf(
-			"****** [%s] Received block height %d <= Blockchain tip height %d",
-			bs.p2p.Self().String(),
-			blk.Height(),
-			height)
-		return nil
+		if oldBlock, err := bs.bc.GetBlockByHeight(blk.Height()); err != nil || !oldBlock.IsDummyBlock() {
+			//TODO make it structured logging
+			logger.Warn().Msgf(
+				"****** [%s] Received block height %d <= Blockchain tip height %d",
+				bs.p2p.Self().String(),
+				blk.Height(),
+				height)
+			return nil
+		}
+		// Replace the old dummy block directly
+		if err := bs.bc.CommitBlock(blk); err != nil {
+			return err
+		}
+		bs.ap.Reset()
+		bs.actionTime = time.Now()
+		// commit all blocks in buffer that can be added to Blockchain
+		return bs.commitBlocksInBuffer()
 	}
 
 	// check-in incoming block to the buffer
