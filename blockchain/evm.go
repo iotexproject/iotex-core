@@ -12,6 +12,10 @@ import (
 	"github.com/CoderZhi/go-ethereum/common"
 	"github.com/CoderZhi/go-ethereum/core/types"
 	"github.com/CoderZhi/go-ethereum/core/vm"
+	"github.com/CoderZhi/go-ethereum/params"
+	"github.com/pkg/errors"
+
+	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
@@ -49,6 +53,14 @@ type Message interface {
 	Nonce() uint64
 	CheckNonce() bool
 	Data() []byte
+}
+
+// Receipt represents the result of a contract
+type Receipt struct {
+	Status          uint64
+	Hash            hash.Hash32B
+	GasConsumed     uint64
+	ContractAddress string
 }
 
 // EVMStateDBAdapter represents the state db adapter for evm to access iotx blockchain
@@ -114,39 +126,29 @@ func (stateDB *EVMStateDBAdapter) SetNonce(common.Address, uint64) {
 }
 
 // GetCodeHash gets the code hash of account
-func (stateDB *EVMStateDBAdapter) GetCodeHash(common.Address) hash.Hash32B {
-	logger.Error().Msg("GetCodeHash is not implemented")
-	return hash.ZeroHash32B
-}
-
-// GetCode gets the code saved in hash
-func (stateDB *EVMStateDBAdapter) GetCode(evmAddr common.Address) []byte {
+func (stateDB *EVMStateDBAdapter) GetCodeHash(evmAddr common.Address) common.Hash {
 	addr, err := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, evmAddr.Bytes())
 	if err != nil {
 		logger.Error().Err(err).Msgf("Failed to generate address for %s", evmAddr)
-		return nil
+		return common.Hash{}
 	}
 	state, err := stateDB.bc.StateByAddr(addr.RawAddress)
 	if err != nil {
 		logger.Error().Err(err).Msgf("Failed to get code for %s", addr.RawAddress)
-		return nil
+		return common.Hash{}
 	}
-	return state.CodeHash
+	return common.BytesToHash(state.CodeHash)
+}
+
+// GetCode gets the code saved in hash
+func (stateDB *EVMStateDBAdapter) GetCode(evmAddr common.Address) []byte {
+	logger.Error().Msg("GetCode is not implemented")
+	return nil
 }
 
 // SetCode sets the code saved in hash
 func (stateDB *EVMStateDBAdapter) SetCode(evmAddr common.Address, code []byte) {
-	addr, err := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, evmAddr.Bytes())
-	if err != nil {
-		logger.Error().Err(err).Msgf("Failed to generate address for %s", evmAddr)
-		return
-	}
-	state, err := stateDB.bc.StateByAddr(addr.RawAddress)
-	if err != nil {
-		logger.Error().Err(err).Msgf("Failed to set code for %s", addr.RawAddress)
-		return
-	}
-	state.CodeHash = code
+	logger.Error().Msg("SetCode is not implemented")
 }
 
 // GetCodeSize gets the code size saved in hash
@@ -170,13 +172,13 @@ func (stateDB *EVMStateDBAdapter) GetRefund() uint64 {
 }
 
 // GetState gets state
-func (stateDB *EVMStateDBAdapter) GetState(common.Address, hash.Hash32B) hash.Hash32B {
+func (stateDB *EVMStateDBAdapter) GetState(common.Address, common.Hash) common.Hash {
 	logger.Error().Msg("GetState is not implemented")
-	return hash.ZeroHash32B
+	return common.Hash{}
 }
 
 // SetState sets state
-func (stateDB *EVMStateDBAdapter) SetState(common.Address, hash.Hash32B, hash.Hash32B) {
+func (stateDB *EVMStateDBAdapter) SetState(common.Address, common.Hash, common.Hash) {
 	logger.Error().Msg("SetState is not implemented")
 }
 
@@ -222,12 +224,12 @@ func (stateDB *EVMStateDBAdapter) AddLog(*types.Log) {
 }
 
 // AddPreimage adds the preimage
-func (stateDB *EVMStateDBAdapter) AddPreimage(hash.Hash32B, []byte) {
+func (stateDB *EVMStateDBAdapter) AddPreimage(common.Hash, []byte) {
 	logger.Error().Msg("AddPreimage is not implemented")
 }
 
 // ForEachStorage loops each storage
-func (stateDB *EVMStateDBAdapter) ForEachStorage(common.Address, func(hash.Hash32B, hash.Hash32B) bool) {
+func (stateDB *EVMStateDBAdapter) ForEachStorage(common.Address, func(common.Hash, common.Hash) bool) {
 	logger.Error().Msg("ForEachStorage is not implemented")
 }
 
@@ -280,4 +282,80 @@ func GetHashFn(ref *Header, bc Blockchain) func(n uint64) common.Hash {
 
 		return common.Hash{}
 	}
+}
+
+func securityDeposit(stateDB vm.StateDB, msg Message) (uint64, error) {
+	if msg.CheckNonce() {
+		nonce := stateDB.GetNonce(msg.From())
+		if nonce < msg.Nonce() {
+			return 0, errors.New("Nonce is too high")
+		}
+		if nonce > msg.Nonce() {
+			return 0, errors.New("Nonce is too low")
+		}
+	}
+	gas := msg.Gas()
+	from := msg.From()
+	maxGasValue := new(big.Int).Mul(new(big.Int).SetUint64(gas), msg.GasPrice())
+	if stateDB.GetBalance(from).Cmp(maxGasValue) < 0 {
+		return 0, errors.New("insufficient balance for gas")
+	}
+	stateDB.SubBalance(from, maxGasValue)
+	return gas, nil
+}
+
+// ProcessTransfer processes a transfer which contains a contract
+func ProcessTransfer(tsf *action.Transfer, bc Blockchain) (*Receipt, error) {
+	// TODO (zhi) Generate MSG from transfer
+	receipt := &Receipt{
+		Hash: tsf.Hash(),
+	}
+	var msg Message
+	msg = nil
+	var chainConfig params.ChainConfig
+	var config vm.Config
+	// var header Header
+	stateDB := NewEVMStateDBAdapter(bc)
+	context := NewEVMContext(msg, nil, bc, nil)
+	evm := vm.NewEVM(context, stateDB, &chainConfig, config)
+
+	// TODO (zhi) There should be a global parameter of the total gas limit in a block
+	securityDepositGas, err := securityDeposit(stateDB, msg)
+	if err != nil {
+		return nil, err
+	}
+	remainingGas := securityDepositGas
+	intrinsicGas := uint64(10) // Intrinsic Gas
+	if remainingGas < intrinsicGas {
+		receipt.Status = uint64(0)
+		receipt.GasConsumed = securityDepositGas - remainingGas
+		return receipt, errors.New("Out of gas")
+	}
+	remainingGas -= intrinsicGas
+	sender := vm.AccountRef(msg.From())
+	if msg.To() == nil {
+		// create contract
+		_, _, remainingGas, err = evm.Create(sender, msg.Data(), remainingGas, msg.Value())
+		// receipt.ContractAddress = crypto.CreateAddress(evm.Context.Origin, tsf.Nonce())
+	} else {
+		// process contract
+		_, remainingGas, err = evm.Call(sender, *msg.To(), msg.Data(), remainingGas, msg.Value())
+	}
+	receipt.GasConsumed = securityDepositGas - remainingGas
+	remainingValue := new(big.Int).Mul(new(big.Int).SetUint64(remainingGas), msg.GasPrice())
+	stateDB.AddBalance(msg.From(), remainingValue)
+	if err != nil {
+		receipt.Status = uint64(0)
+		if err == vm.ErrInsufficientBalance {
+			return receipt, err
+		}
+	}
+	// TODO (zhi) figure out what the following function does
+	// stateDB.Finalise(true)
+	receipt.Status = uint64(1)
+	// TODO (zhi) implement address creation
+	/*
+		receipt.Logs = stateDB.GetLogs(tsf.Hash())
+	*/
+	return receipt, nil
 }
