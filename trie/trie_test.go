@@ -34,7 +34,6 @@ func TestEmptyTrie(t *testing.T) {
 
 func Test2Roots(t *testing.T) {
 	require := require.New(t)
-
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
 
@@ -58,7 +57,7 @@ func Test2Roots(t *testing.T) {
 	require.Nil(tr.Stop(context.Background()))
 
 	// second trie
-	tr1, err := NewTrie(tr.TrieDB(), "test1", EmptyRoot)
+	tr1, err := NewTrie(tr.TrieDB(), "test", EmptyRoot)
 	require.Nil(err)
 	require.Nil(tr1.Start(context.Background()))
 	require.Nil(tr1.Upsert(dog, testV[3]))
@@ -93,7 +92,7 @@ func Test2Roots(t *testing.T) {
 	require.Equal(ErrNotExist, errors.Cause(err))
 
 	// re-create second trie from its root
-	tr2, err := NewTrie(tr.TrieDB(), "test1", root1)
+	tr2, err := NewTrie(tr.TrieDB(), "test", root1)
 	require.Nil(err)
 	require.Nil(tr2.Start(context.Background()))
 	v, err = tr2.Get(dog)
@@ -310,7 +309,75 @@ func TestInsert(t *testing.T) {
 	require.Nil(tr.Stop(context.Background()))
 }
 
-func Test1kEntries(t *testing.T) {
+func TestBatchCommit(t *testing.T) {
+	require := require.New(t)
+	testutil.CleanupPath(t, testTriePath)
+	defer testutil.CleanupPath(t, testTriePath)
+
+	tr, err := NewTrie(db.NewBoltDB(testTriePath, nil), "test", EmptyRoot)
+	require.Nil(err)
+	require.Nil(tr.Start(context.Background()))
+	// insert 3 entries
+	require.Nil(tr.Upsert(cat, testV[2]))
+	require.Nil(tr.Upsert(car, testV[1]))
+	require.Nil(tr.Upsert(egg, testV[4]))
+	root := tr.RootHash()
+	// start batch mode
+	tr.EnableBatch()
+	require.Nil(tr.Upsert(dog, testV[3]))
+	v, _ := tr.Get(dog)
+	require.Equal(testV[3], v)
+	require.Nil(tr.Upsert(ham, testV[0]))
+	v, _ = tr.Get(ham)
+	require.Equal(testV[0], v)
+	require.Nil(tr.Upsert(fox, testV[5]))
+	v, _ = tr.Get(fox)
+	require.Equal(testV[5], v)
+	require.NotEqual(root, tr.RootHash())
+	// close w/o commit and reopen
+	require.Nil(tr.Stop(context.Background()))
+	tr, err = NewTrie(db.NewBoltDB(testTriePath, nil), "test", root)
+	require.Nil(err)
+	require.Nil(tr.Start(context.Background()))
+	v, _ = tr.Get(cat)
+	require.Equal(testV[2], v)
+	v, _ = tr.Get(car)
+	require.Equal(testV[1], v)
+	v, _ = tr.Get(egg)
+	require.Equal(testV[4], v)
+	// entries not committed won't exist
+	_, err = tr.Get(dog)
+	require.Equal(ErrNotExist, errors.Cause(err))
+
+	// start batch mode
+	tr.EnableBatch()
+	require.Nil(tr.Upsert(dog, testV[3]))
+	require.Nil(tr.Upsert(ham, testV[0]))
+	require.Nil(tr.Upsert(fox, testV[5]))
+	root = tr.RootHash()
+	// commit and reopen
+	require.Nil(tr.Commit())
+	require.Nil(tr.Stop(context.Background()))
+	tr, err = NewTrie(db.NewBoltDB(testTriePath, nil), "test", root)
+	require.Nil(err)
+	require.Nil(tr.Start(context.Background()))
+	// all entries should exist now
+	v, _ = tr.Get(cat)
+	require.Equal(testV[2], v)
+	v, _ = tr.Get(car)
+	require.Equal(testV[1], v)
+	v, _ = tr.Get(egg)
+	require.Equal(testV[4], v)
+	v, _ = tr.Get(dog)
+	require.Equal(testV[3], v)
+	v, _ = tr.Get(ham)
+	require.Equal(testV[0], v)
+	v, _ = tr.Get(fox)
+	require.Equal(testV[5], v)
+	require.Nil(tr.Stop(context.Background()))
+}
+
+func Test2kEntries(t *testing.T) {
 	require := require.New(t)
 
 	testutil.CleanupPath(t, testTriePath)
@@ -318,12 +385,13 @@ func Test1kEntries(t *testing.T) {
 	tr, err := NewTrie(db.NewBoltDB(testTriePath, nil), "test", EmptyRoot)
 	require.Nil(err)
 	require.Nil(tr.Start(context.Background()))
+	tr.EnableBatch()
 	root := EmptyRoot
 	seed := time.Now().Nanosecond()
 	// insert 1k entries
 	var k [32]byte
 	k[0] = byte(seed)
-	for i := 0; i < 1<<10; i++ {
+	for i := 0; i < 1<<11; i++ {
 		k = blake2b.Sum256(k[:])
 		v := testV[k[0]&7]
 		if _, err := tr.Get(k[:8]); err == nil {
@@ -353,7 +421,7 @@ func Test1kEntries(t *testing.T) {
 	d2 := blake2b.Sum256(d1[:])
 	d3 := blake2b.Sum256(d2[:])
 	d = d3
-	for i := 0; i < 1<<10-3; i++ {
+	for i := 0; i < 1<<11-3; i++ {
 		d = blake2b.Sum256(d[:])
 		logger.Info().Hex("key", d[:8]).Msg("Del --")
 		require.Nil(tr.Delete(d[:8]))
@@ -367,6 +435,7 @@ func Test1kEntries(t *testing.T) {
 	require.Nil(tr.Delete(d1[:8]))
 	require.Nil(tr.Delete(d2[:8]))
 	require.Nil(tr.Delete(d3[:8]))
+	require.Nil(tr.Commit())
 	// trie should fallback to empty
 	require.Equal(EmptyRoot, tr.RootHash())
 	require.Nil(tr.Stop(context.Background()))
