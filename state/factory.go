@@ -216,9 +216,8 @@ func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer
 		return err
 	}
 
-	// construct <k, v> list of pending state
-	transferK := [][]byte{}
-	transferV := [][]byte{}
+	// update pending state changes to trie
+	sf.accountTrie.EnableBatch()
 	for address, state := range sf.cachedAccount {
 		ss, err := stateToBytes(state)
 		if err != nil {
@@ -230,8 +229,9 @@ func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer
 		}
 		addr := make([]byte, len(pkhash))
 		copy(addr, pkhash[:])
-		transferK = append(transferK, addr)
-		transferV = append(transferV, ss)
+		if err := sf.accountTrie.Upsert(addr, ss); err != nil {
+			return err
+		}
 
 		// Perform vote update operation on candidate and delegate pools
 		if !state.IsCandidate {
@@ -260,7 +260,7 @@ func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer
 	sf.candidatesLRU.Add(sf.currentChainHeight, candidates)
 
 	// commit the state changes to Trie in a batch
-	return sf.accountTrie.Commit(transferK, transferV)
+	return sf.accountTrie.Commit()
 }
 
 //======================================

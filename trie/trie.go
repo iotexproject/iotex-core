@@ -44,15 +44,13 @@ type (
 	// Trie is the interface of Merkle Patricia Trie
 	Trie interface {
 		lifecycle.StartStopper
-		TrieDB() db.KVStore              // return the underlying DB instance
-		Upsert([]byte, []byte) error     // insert a new entry
-		Get([]byte) ([]byte, error)      // retrieve an existing entry
-		Delete([]byte) error             // delete an entry
-		Commit([][]byte, [][]byte) error // commit the state changes in a batch
-		RootHash() hash.Hash32B          // returns trie's root hash
-		EnableBatch() error              // enable batch mode
-		DisableBatch()                   // disable batch mode
-		Flush() error                    // flush batched db writes to database
+		TrieDB() db.KVStore          // return the underlying DB instance
+		Upsert([]byte, []byte) error // insert a new entry
+		Get([]byte) ([]byte, error)  // retrieve an existing entry
+		Delete([]byte) error         // delete an entry
+		Commit() error               // commit the state changes in a batch
+		RootHash() hash.Hash32B      // returns trie's root hash
+		EnableBatch() error          // enable batch mode
 	}
 
 	// trie implements the Trie interface
@@ -70,9 +68,10 @@ type (
 		numBranch uint64
 		numExt    uint64
 		numLeaf   uint64
-		cache     map[hash.Hash32B][]byte
-		dbBatch   db.KVStoreBatch
+		// batch mode persists to underlying storage in one DB transaction
 		batchMode bool
+		dbBatch   db.KVStoreBatch
+		cache     map[hash.Hash32B][]byte // local cache of <k, v> to be batched
 	}
 )
 
@@ -82,7 +81,6 @@ func NewTrie(kvStore db.KVStore, name string, root hash.Hash32B) (Trie, error) {
 		return nil, errors.New("Failed to create KV store for Trie")
 	}
 	t, err := newTrie(kvStore, name, root)
-	t.lifecycle.Add(kvStore)
 	return &t, err
 }
 
@@ -170,23 +168,15 @@ func (t *trie) Delete(key []byte) error {
 	return t.updateDelete(ptr, childClps, clpsType)
 }
 
-// Commit writes an array <k[], v[]> as a batch
-func (t *trie) Commit(k, v [][]byte) error {
+// Commit local cached <k, v> in a batch
+func (t *trie) Commit() error {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
-	t.EnableBatch()
-	size := len(k)
-	if size != len(v) {
-		return errors.Wrap(ErrInvalidTrie, "commit <k, v> size not match")
+	if t.batchMode {
+		t.batchMode = false
+		return t.dbBatch.Commit()
 	}
-	for i := 0; i < size; i++ {
-		if err := t.upsert(k[i], v[i]); err != nil {
-			return err
-		}
-	}
-	t.Flush()
-	t.DisableBatch()
 	return nil
 }
 
@@ -217,25 +207,13 @@ func (t *trie) EnableBatch() error {
 	return nil
 }
 
-// DisableBatch disable batch mode
-func (t *trie) DisableBatch() {
-	t.batchMode = false
-}
-
-// Flush flush batched db writes to database
-func (t *trie) Flush() error {
-	if t.batchMode {
-		return t.dbBatch.Commit()
-	}
-	return nil
-}
-
 //======================================
 // private functions
 //======================================
 // newTrie creates a trie
 func newTrie(dao db.KVStore, name string, root hash.Hash32B) (trie, error) {
 	t := trie{dao: dao, rootHash: root, toRoot: list.New(), bucket: name, numEntry: 1, numBranch: 1}
+	t.lifecycle.Add(dao)
 	return t, nil
 }
 

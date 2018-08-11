@@ -109,15 +109,15 @@ func (mr *MockTrieMockRecorder) Delete(arg0 interface{}) *gomock.Call {
 }
 
 // Commit mocks base method
-func (m *MockTrie) Commit(arg0, arg1 [][]byte) error {
-	ret := m.ctrl.Call(m, "Commit", arg0, arg1)
+func (m *MockTrie) Commit() error {
+	ret := m.ctrl.Call(m, "Commit")
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Commit indicates an expected call of Commit
-func (mr *MockTrieMockRecorder) Commit(arg0, arg1 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockTrie)(nil).Commit), arg0, arg1)
+func (mr *MockTrieMockRecorder) Commit() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockTrie)(nil).Commit))
 }
 
 // RootHash mocks base method
@@ -142,26 +142,4 @@ func (m *MockTrie) EnableBatch() error {
 // EnableBatch indicates an expected call of EnableBatch
 func (mr *MockTrieMockRecorder) EnableBatch() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnableBatch", reflect.TypeOf((*MockTrie)(nil).EnableBatch))
-}
-
-// DisableBatch mocks base method
-func (m *MockTrie) DisableBatch() {
-	m.ctrl.Call(m, "DisableBatch")
-}
-
-// DisableBatch indicates an expected call of DisableBatch
-func (mr *MockTrieMockRecorder) DisableBatch() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DisableBatch", reflect.TypeOf((*MockTrie)(nil).DisableBatch))
-}
-
-// Flush mocks base method
-func (m *MockTrie) Flush() error {
-	ret := m.ctrl.Call(m, "Flush")
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Flush indicates an expected call of Flush
-func (mr *MockTrieMockRecorder) Flush() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Flush", reflect.TypeOf((*MockTrie)(nil).Flush))
 }
