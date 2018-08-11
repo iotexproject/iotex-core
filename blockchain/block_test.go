@@ -132,28 +132,29 @@ func TestConvertFromBlockPb(t *testing.T) {
 		},
 		Actions: []*iproto.ActionPb{
 			{Action: &iproto.ActionPb_Transfer{
-				Transfer: &iproto.TransferPb{
-					Version: version.ProtocolVersion,
-					Nonce:   101,
-				},
-			}},
+				Transfer: &iproto.TransferPb{},
+			},
+				Version: version.ProtocolVersion,
+				Nonce:   101,
+			},
 			{Action: &iproto.ActionPb_Transfer{
-				Transfer: &iproto.TransferPb{
-					Version: version.ProtocolVersion,
-					Nonce:   102,
-				},
-			}},
+				Transfer: &iproto.TransferPb{},
+			},
+				Version: version.ProtocolVersion,
+				Nonce:   102,
+			},
 			{Action: &iproto.ActionPb_Vote{
-				Vote: &iproto.VotePb{
-					Version: version.ProtocolVersion,
-					Nonce:   103,
-				},
-			}},
+				Vote: &iproto.VotePb{},
+			},
+				Version: version.ProtocolVersion,
+				Nonce:   103,
+			},
 			{Action: &iproto.ActionPb_Vote{
-				Vote: &iproto.VotePb{
-					Version: version.ProtocolVersion,
-					Nonce:   104},
-			}},
+				Vote: &iproto.VotePb{},
+			},
+				Version: version.ProtocolVersion,
+				Nonce:   104,
+			},
 		},
 	})
 

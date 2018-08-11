@@ -167,13 +167,13 @@ func (d *IotxDispatcher) handleActionMsg(m *actionMsg) {
 	d.eventAudit[pb.MsgActionType] = d.eventAudit[pb.MsgActionType] + 1
 	if pbTsf := m.action.GetTransfer(); pbTsf != nil {
 		tsf := &action.Transfer{}
-		tsf.ConvertFromTransferPb(pbTsf)
+		tsf.ConvertFromActionPb(m.action)
 		if err := d.ap.AddTsf(tsf); err != nil {
 			logger.Error().Err(err)
 		}
 	} else if pbVote := m.action.GetVote(); pbVote != nil {
 		vote := &action.Vote{}
-		vote.ConvertFromVotePb(pbVote)
+		vote.ConvertFromActionPb(m.action)
 		if err := d.ap.AddVote(vote); err != nil {
 			logger.Error().Err(err)
 		}

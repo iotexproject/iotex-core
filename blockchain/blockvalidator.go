@@ -154,15 +154,16 @@ func (v *validator) verifyActions(blk *Block) error {
 	for _, vote := range blk.Votes {
 		if blk.Header.height > 0 {
 			// Store the nonce of the voter and verify later
-			if _, ok := confirmedNonceMap[vote.VoterAddress]; !ok {
-				accountNonce, err := v.sf.Nonce(vote.VoterAddress)
+			voterAddress := vote.GetVote().VoterAddress
+			if _, ok := confirmedNonceMap[voterAddress]; !ok {
+				accountNonce, err := v.sf.Nonce(voterAddress)
 				if err != nil {
 					return errors.Wrap(err, "Failed to get the nonce of the voter")
 				}
-				confirmedNonceMap[vote.VoterAddress] = accountNonce
-				accountNonceMap[vote.VoterAddress] = make([]uint64, 0)
+				confirmedNonceMap[voterAddress] = accountNonce
+				accountNonceMap[voterAddress] = make([]uint64, 0)
 			}
-			accountNonceMap[vote.VoterAddress] = append(accountNonceMap[vote.VoterAddress], vote.Nonce)
+			accountNonceMap[voterAddress] = append(accountNonceMap[voterAddress], vote.Nonce)
 		}
 
 		// Verify signature

@@ -551,7 +551,8 @@ func (sf *factory) handleTsf(tsf []*action.Transfer) error {
 
 func (sf *factory) handleVote(blockHeight uint64, vote []*action.Vote) error {
 	for _, v := range vote {
-		voterAddress := v.VoterAddress
+		pbVote := v.GetVote()
+		voterAddress := pbVote.VoterAddress
 		voteFrom, err := sf.cache(voterAddress)
 		if err != nil {
 			return err
@@ -572,7 +573,7 @@ func (sf *factory) handleVote(blockHeight uint64, vote []*action.Vote) error {
 			voteFrom.Votee = ""
 		}
 
-		voteeAddress := v.VoteeAddress
+		voteeAddress := pbVote.VoteeAddress
 		if voteeAddress == "" {
 			// unvote operation
 			voteFrom.IsCandidate = false
@@ -595,7 +596,7 @@ func (sf *factory) handleVote(blockHeight uint64, vote []*action.Vote) error {
 			if _, ok := sf.cachedCandidate[voterAddress]; !ok {
 				sf.cachedCandidate[voterAddress] = &Candidate{
 					Address:        voterAddress,
-					PubKey:         v.SelfPubkey[:],
+					PubKey:         pbVote.SelfPubkey[:],
 					CreationHeight: blockHeight,
 					minIndex:       0,
 					maxIndex:       0,

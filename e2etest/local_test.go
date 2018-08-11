@@ -133,7 +133,7 @@ func TestLocalCommit(t *testing.T) {
 	s, _ = svr.Blockchain().StateByAddr(ta.Addrinfo["charlie"].RawAddress)
 	tsf1, _ := action.NewTransfer(s.Nonce+1, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["alfa"].RawAddress)
 	tsf1, _ = tsf1.Sign(ta.Addrinfo["charlie"])
-	act1 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf1.ConvertToTransferPb()}}
+	act1 := tsf1.ConvertToActionPb()
 	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		if err := p.Broadcast(act1); err != nil {
 			return false, err
@@ -158,7 +158,7 @@ func TestLocalCommit(t *testing.T) {
 	err = blk2.SignBlock(ta.Addrinfo["producer"])
 	require.Nil(err)
 	hash2 := blk2.HashBlock()
-	act2 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf2.ConvertToTransferPb()}}
+	act2 := tsf2.ConvertToActionPb()
 	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		if err := p.Broadcast(act2); err != nil {
 			return false, err
@@ -178,7 +178,7 @@ func TestLocalCommit(t *testing.T) {
 	err = blk3.SignBlock(ta.Addrinfo["producer"])
 	require.Nil(err)
 	hash3 := blk3.HashBlock()
-	act3 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf3.ConvertToTransferPb()}}
+	act3 := tsf3.ConvertToActionPb()
 	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		if err := p.Broadcast(act3); err != nil {
 			return false, err
@@ -197,7 +197,7 @@ func TestLocalCommit(t *testing.T) {
 		action.NewCoinBaseTransfer(big.NewInt(int64(blockchain.Gen.BlockReward)), ta.Addrinfo["producer"].RawAddress)}, nil)
 	err = blk4.SignBlock(ta.Addrinfo["producer"])
 	require.Nil(err)
-	act4 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf4.ConvertToTransferPb()}}
+	act4 := tsf4.ConvertToActionPb()
 	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		if err := p.Broadcast(act4); err != nil {
 			return false, err
@@ -453,13 +453,13 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.Nil(err)
 	vote3, err := newSignedVote(6, ta.Addrinfo["charlie"], ta.Addrinfo["charlie"])
 	require.Nil(err)
-	act1 := &pb.ActionPb{Action: &pb.ActionPb_Vote{vote1.ConvertToVotePb()}}
-	act2 := &pb.ActionPb{Action: &pb.ActionPb_Vote{vote2.ConvertToVotePb()}}
-	act3 := &pb.ActionPb{Action: &pb.ActionPb_Vote{vote3.ConvertToVotePb()}}
-	acttsf1 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf1.ConvertToTransferPb()}}
-	acttsf2 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf2.ConvertToTransferPb()}}
-	acttsf3 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf3.ConvertToTransferPb()}}
-	acttsf4 := &pb.ActionPb{Action: &pb.ActionPb_Transfer{tsf4.ConvertToTransferPb()}}
+	act1 := vote1.ConvertToActionPb()
+	act2 := vote2.ConvertToActionPb()
+	act3 := vote3.ConvertToActionPb()
+	acttsf1 := tsf1.ConvertToActionPb()
+	acttsf2 := tsf2.ConvertToActionPb()
+	acttsf3 := tsf3.ConvertToActionPb()
+	acttsf4 := tsf4.ConvertToActionPb()
 
 	err = testutil.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
 		if err := p.Broadcast(act1); err != nil {
@@ -519,8 +519,8 @@ func TestVoteLocalCommit(t *testing.T) {
 	err = blk2.SignBlock(ta.Addrinfo["producer"])
 	hash2 := blk2.HashBlock()
 	require.Nil(err)
-	act4 := &pb.ActionPb{Action: &pb.ActionPb_Vote{vote4.ConvertToVotePb()}}
-	act5 := &pb.ActionPb{Action: &pb.ActionPb_Vote{vote5.ConvertToVotePb()}}
+	act4 := vote4.ConvertToActionPb()
+	act5 := vote5.ConvertToActionPb()
 	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		if err := p.Broadcast(act4); err != nil {
 			return false, err
@@ -572,7 +572,7 @@ func TestVoteLocalCommit(t *testing.T) {
 	err = blk3.SignBlock(ta.Addrinfo["producer"])
 	hash3 := blk3.HashBlock()
 	require.Nil(err)
-	act6 := &pb.ActionPb{Action: &pb.ActionPb_Vote{vote6.ConvertToVotePb()}}
+	act6 := vote6.ConvertToActionPb()
 	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		if err := p.Broadcast(act6); err != nil {
 			return false, err
@@ -620,7 +620,7 @@ func TestVoteLocalCommit(t *testing.T) {
 			ta.Addrinfo["producer"].RawAddress)}, []*action.Vote{vote7})
 	err = blk4.SignBlock(ta.Addrinfo["producer"])
 	require.Nil(err)
-	act7 := &pb.ActionPb{Action: &pb.ActionPb_Vote{vote7.ConvertToVotePb()}}
+	act7 := vote7.ConvertToActionPb()
 	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		if err := p.Broadcast(act7); err != nil {
 			return false, err

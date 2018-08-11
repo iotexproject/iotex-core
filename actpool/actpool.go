@@ -132,11 +132,11 @@ func (ap *actPool) PickActs() ([]*action.Transfer, []*action.Vote) {
 			switch {
 			case act.GetTransfer() != nil:
 				tsf := action.Transfer{}
-				tsf.ConvertFromTransferPb(act.GetTransfer())
+				tsf.ConvertFromActionPb(act)
 				transfers = append(transfers, &tsf)
 			case act.GetVote() != nil:
 				vote := action.Vote{}
-				vote.ConvertFromVotePb(act.GetVote())
+				vote.ConvertFromActionPb(act)
 				votes = append(votes, &vote)
 			}
 		}
@@ -173,7 +173,7 @@ func (ap *actPool) AddTsf(tsf *action.Transfer) error {
 		return errors.Wrapf(ErrActPool, "insufficient space for transfer")
 	}
 	// Wrap tsf as an action
-	action := &iproto.ActionPb{Action: &iproto.ActionPb_Transfer{tsf.ConvertToTransferPb()}}
+	action := tsf.ConvertToActionPb()
 	return ap.addAction(tsf.Sender, action, hash, tsf.Nonce)
 }
 
@@ -209,7 +209,7 @@ func (ap *actPool) AddVote(vote *action.Vote) error {
 	selfPublicKey, _ := vote.SelfPublicKey()
 	voter, _ := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, iotxaddress.ChainID, selfPublicKey)
 	// Wrap vote as an action
-	action := &iproto.ActionPb{Action: &iproto.ActionPb_Vote{vote.ConvertToVotePb()}}
+	action := vote.ConvertToActionPb()
 	return ap.addAction(voter.RawAddress, action, hash, vote.Nonce)
 }
 
@@ -309,26 +309,27 @@ func (ap *actPool) validateVote(vote *action.Vote) error {
 		logger.Error().Err(err).Msg("Error when validating vote")
 		return errors.Wrapf(err, "invalid nonce value")
 	}
-	if vote.VoteeAddress != "" {
+	pbVote := vote.GetVote()
+	if pbVote.VoteeAddress != "" {
 		// Reject vote if votee is not a candidate
 		if err != nil {
 			logger.Error().
-				Err(err).Hex("voter", vote.SelfPubkey[:]).Str("votee", vote.VoteeAddress).
+				Err(err).Hex("voter", pbVote.SelfPubkey[:]).Str("votee", pbVote.VoteeAddress).
 				Msg("Error when validating vote")
-			return errors.Wrapf(err, "invalid votee public key: %s", vote.VoteeAddress)
+			return errors.Wrapf(err, "invalid votee public key: %s", pbVote.VoteeAddress)
 		}
-		voteeState, err := ap.bc.StateByAddr(vote.VoteeAddress)
+		voteeState, err := ap.bc.StateByAddr(pbVote.VoteeAddress)
 		if err != nil {
 			logger.Error().Err(err).
-				Hex("voter", vote.SelfPubkey[:]).Str("votee", vote.VoteeAddress).
+				Hex("voter", pbVote.SelfPubkey[:]).Str("votee", pbVote.VoteeAddress).
 				Msg("Error when validating vote")
-			return errors.Wrapf(err, "cannot find votee's state: %s", vote.VoteeAddress)
+			return errors.Wrapf(err, "cannot find votee's state: %s", pbVote.VoteeAddress)
 		}
-		if voter.RawAddress != vote.VoteeAddress && !voteeState.IsCandidate {
+		if voter.RawAddress != pbVote.VoteeAddress && !voteeState.IsCandidate {
 			logger.Error().Err(ErrVotee).
-				Hex("voter", vote.SelfPubkey[:]).Str("votee", vote.VoteeAddress).
+				Hex("voter", pbVote.SelfPubkey[:]).Str("votee", pbVote.VoteeAddress).
 				Msg("Error when validating vote")
-			return errors.Wrapf(ErrVotee, "votee has not self-nominated: %s", vote.VoteeAddress)
+			return errors.Wrapf(ErrVotee, "votee has not self-nominated: %s", pbVote.VoteeAddress)
 		}
 	}
 
@@ -381,7 +382,7 @@ func (ap *actPool) addAction(sender string, act *iproto.ActionPb, hash hash.Hash
 
 	if transfer := act.GetTransfer(); transfer != nil {
 		tsf := &action.Transfer{}
-		tsf.ConvertFromTransferPb(transfer)
+		tsf.ConvertFromActionPb(act)
 		if queue.PendingBalance().Cmp(tsf.Amount) < 0 {
 			// Pending balance is insufficient
 			logger.Warn().
@@ -434,11 +435,11 @@ func (ap *actPool) removeInvalidActs(acts []*iproto.ActionPb) {
 		switch {
 		case act.GetTransfer() != nil:
 			tsf := &action.Transfer{}
-			tsf.ConvertFromTransferPb(act.GetTransfer())
+			tsf.ConvertFromActionPb(act)
 			hash = tsf.Hash()
 		case act.GetVote() != nil:
 			vote := &action.Vote{}
-			vote.ConvertFromVotePb(act.GetVote())
+			vote.ConvertFromActionPb(act)
 			hash = vote.Hash()
 		}
 		logger.Debug().
