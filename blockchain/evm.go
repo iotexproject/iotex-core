@@ -22,12 +22,10 @@ import (
 )
 
 var (
-	// ErrInsufficientBalanceForGas is the error that the balance in from account is lower than gas
+	// ErrInsufficientBalanceForGas is the error that the balance in sender account is lower than gas
 	ErrInsufficientBalanceForGas = errors.New("insufficient balance for gas")
-	// ErrNonceTooHigh is the error that the nonce is higher than the from's nonce
-	ErrNonceTooHigh = errors.New("Nonce is too high")
-	// ErrNonceTooLow is the error that the nonce is lower than the from's nonce
-	ErrNonceTooLow = errors.New("Nonce is too low")
+	// ErrInconsistentNonce is the error that the nonce is different from sender's nonce
+	ErrInconsistentNonce = errors.New("Nonce is not identical to sender nonce")
 	// ErrOutOfGas is the error when running out of gas
 	ErrOutOfGas = errors.New("Out of gas")
 )
@@ -51,20 +49,12 @@ type Header struct {
 	// Nonce       BlockNonce     `json:"nonce"            gencodec:"required"`
 }
 
-// Message represents a message sent to a contract.
-type Message interface {
-	From() common.Address
-	//FromFrontier() (common.Address, error)
-	To() *common.Address
-
-	GasPrice() *big.Int
-	Gas() uint64
-	Value() *big.Int
-
-	Nonce() uint64
-	CheckNonce() bool
-	Data() []byte
-}
+var (
+	// FailureStatus is the status that contract execution failed
+	FailureStatus = uint64(0)
+	// SuccessStatus is the status that contract execution success
+	SuccessStatus = uint64(1)
+)
 
 // Receipt represents the result of a contract
 type Receipt struct {
@@ -256,7 +246,7 @@ func MakeTransfer(db vm.StateDB, fromHash, toHash common.Address, amount *big.In
 }
 
 // NewEVMContext creates a new context for use in the EVM.
-func NewEVMContext(msg Message, header *Header, bc Blockchain, author *common.Address) vm.Context {
+func NewEVMContext(senderAddr common.Address, gasPrice *big.Int, header *Header, bc Blockchain, author *common.Address) vm.Context {
 	// If we don't have an explicit author (i.e. not mining), extract from the header
 	/*
 		var beneficiary common.Address
@@ -270,13 +260,13 @@ func NewEVMContext(msg Message, header *Header, bc Blockchain, author *common.Ad
 		CanTransfer: CanTransfer,
 		Transfer:    MakeTransfer,
 		GetHash:     GetHashFn(header, bc),
-		Origin:      msg.From(),
+		Origin:      senderAddr,
 		Coinbase:    *author,
 		BlockNumber: new(big.Int).Set(header.Number),
 		Time:        new(big.Int).Set(header.Time),
 		Difficulty:  new(big.Int).Set(header.Difficulty),
 		GasLimit:    header.GasLimit,
-		GasPrice:    new(big.Int).Set(msg.GasPrice()),
+		GasPrice:    new(big.Int).Set(gasPrice),
 	}
 }
 
@@ -295,24 +285,26 @@ func GetHashFn(ref *Header, bc Blockchain) func(n uint64) common.Hash {
 	}
 }
 
-func securityDeposit(stateDB vm.StateDB, msg Message) (uint64, error) {
-	if msg.CheckNonce() {
-		nonce := stateDB.GetNonce(msg.From())
-		if nonce < msg.Nonce() {
-			return 0, ErrNonceTooHigh
-		}
-		if nonce > msg.Nonce() {
-			return 0, ErrNonceTooLow
+func securityDeposit(stateDB vm.StateDB, checkNonce bool, senderAddr common.Address, gas uint64, gasPrice *big.Int, nonce uint64) (uint64, error) {
+	if checkNonce {
+		senderNonce := stateDB.GetNonce(senderAddr)
+		if senderNonce != nonce {
+			return 0, ErrInconsistentNonce
 		}
 	}
-	gas := msg.Gas()
-	from := msg.From()
-	maxGasValue := new(big.Int).Mul(new(big.Int).SetUint64(gas), msg.GasPrice())
-	if stateDB.GetBalance(from).Cmp(maxGasValue) < 0 {
+	maxGasValue := new(big.Int).Mul(new(big.Int).SetUint64(gas), gasPrice)
+	if stateDB.GetBalance(senderAddr).Cmp(maxGasValue) < 0 {
 		return 0, ErrInsufficientBalanceForGas
 	}
-	stateDB.SubBalance(from, maxGasValue)
+	stateDB.SubBalance(senderAddr, maxGasValue)
 	return gas, nil
+}
+
+// ExtractContractParams extracts contractor parameters from transfer payload
+func ExtractContractParams(tsf *action.Transfer) ([]byte, uint64, *big.Int, bool, error) {
+	payload := tsf.Payload
+	// TODO (zhi) decode payload
+	return payload, 0, new(big.Int), false, nil
 }
 
 // ProcessTransfer processes a transfer which contains a contract
@@ -320,21 +312,30 @@ func ProcessTransfer(tsf *action.Transfer, bc Blockchain) (*Receipt, error) {
 	if !tsf.IsContract() {
 		return nil, nil
 	}
-	// TODO (zhi) Generate MSG from transfer
 	receipt := &Receipt{
-		Hash: tsf.Hash(),
+		GasConsumed: 0,
+		Hash:        tsf.Hash(),
+		Status:      FailureStatus,
 	}
-	var msg Message
-	msg = nil
+	senderHash, err := iotxaddress.GetPubkeyHash(tsf.Sender)
+	if err != nil {
+		return receipt, err
+	}
+	senderAddr := common.BytesToAddress(senderHash)
+	transferAmount := tsf.Amount
+	data, gas, gasPrice, checkNonce, err := ExtractContractParams(tsf)
+	if err != nil {
+		return receipt, err
+	}
 	var chainConfig params.ChainConfig
 	var config vm.Config
 	// var header Header
 	stateDB := NewEVMStateDBAdapter(bc)
-	context := NewEVMContext(msg, nil, bc, nil)
+	context := NewEVMContext(senderAddr, gasPrice, nil, bc, nil)
 	evm := vm.NewEVM(context, stateDB, &chainConfig, config)
 
 	// TODO (zhi) There should be a global parameter of the total gas limit in a block
-	securityDepositGas, err := securityDeposit(stateDB, msg)
+	securityDepositGas, err := securityDeposit(stateDB, checkNonce, senderAddr, gas, gasPrice, tsf.Nonce)
 	if err != nil {
 		return nil, err
 	}
@@ -346,32 +347,39 @@ func ProcessTransfer(tsf *action.Transfer, bc Blockchain) (*Receipt, error) {
 		return receipt, ErrOutOfGas
 	}
 	remainingGas -= intrinsicGas
-	sender := vm.AccountRef(msg.From())
-	if msg.To() == nil {
+	sender := vm.AccountRef(senderAddr)
+	if tsf.Recipient == action.EmptyAddress {
 		// create contract
-		_, _, remainingGas, err = evm.Create(sender, msg.Data(), remainingGas, msg.Value())
+		_, _, remainingGas, err = evm.Create(sender, data, remainingGas, transferAmount)
 		if err == nil {
-			fromAddr, err := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, msg.From().Bytes())
+			fromAddr, err := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, senderHash)
 			if err == nil {
 				receipt.ContractAddress, err = iotxaddress.CreateContractAddress(fromAddr.RawAddress, tsf.Nonce)
 			}
 		}
 	} else {
+		recipientHash, err := iotxaddress.GetPubkeyHash(tsf.Recipient)
+		if err != nil {
+			receipt.Status = FailureStatus
+			receipt.GasConsumed = securityDepositGas - remainingGas
+			return receipt, err
+		}
+		recipientAddr := common.BytesToAddress(recipientHash)
 		// process contract
-		_, remainingGas, err = evm.Call(sender, *msg.To(), msg.Data(), remainingGas, msg.Value())
+		_, remainingGas, err = evm.Call(sender, recipientAddr, data, remainingGas, transferAmount)
 	}
 	receipt.GasConsumed = securityDepositGas - remainingGas
-	remainingValue := new(big.Int).Mul(new(big.Int).SetUint64(remainingGas), msg.GasPrice())
-	stateDB.AddBalance(msg.From(), remainingValue)
+	remainingValue := new(big.Int).Mul(new(big.Int).SetUint64(remainingGas), gasPrice)
+	stateDB.AddBalance(senderAddr, remainingValue)
 	if err != nil {
-		receipt.Status = uint64(0)
+		receipt.Status = FailureStatus
 		if err == vm.ErrInsufficientBalance {
 			return receipt, err
 		}
 	}
 	// TODO (zhi) figure out what the following function does
 	// stateDB.Finalise(true)
-	receipt.Status = uint64(1)
+	receipt.Status = SuccessStatus
 	/*
 		receipt.Logs = stateDB.GetLogs(tsf.Hash())
 	*/
