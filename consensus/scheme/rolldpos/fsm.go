@@ -193,13 +193,11 @@ func (e *voteEvt) fromProtoMsg(pMsg *iproto.ViewChangeMsg) error {
 
 type timeoutEvt struct {
 	consensusEvt
-	height uint64
 }
 
-func newTimeoutEvt(t fsm.EventType, height uint64, c clock.Clock) *timeoutEvt {
+func newTimeoutEvt(t fsm.EventType, c clock.Clock) *timeoutEvt {
 	return &timeoutEvt{
 		consensusEvt: *newCEvt(t, c),
-		height:       height,
 	}
 }
 
@@ -267,7 +265,7 @@ func (m *cFSM) Start(c context.Context) error {
 				running = false
 			case evt := <-m.evtq:
 				timeoutEvt, ok := evt.(*timeoutEvt)
-				if ok && timeoutEvt.height < m.ctx.round.height {
+				if ok && timeoutEvt.timestamp().Before(m.ctx.round.timestamp) {
 					logger.Debug().Msg("timeoutEvt is stale")
 					continue
 				}
@@ -405,10 +403,11 @@ func (m *cFSM) handleStartRoundEvt(_ fsm.Event) (fsm.State, error) {
 		return sInvalid, err
 	}
 	m.ctx.round = roundCtx{
-		height:   height,
-		prevotes: make(map[string]bool),
-		votes:    make(map[string]bool),
-		proposer: proposer,
+		height:    height,
+		timestamp: m.ctx.clock.Now(),
+		prevotes:  make(map[string]bool),
+		votes:     make(map[string]bool),
+		proposer:  proposer,
 	}
 	if proposer == m.ctx.addr.RawAddress {
 		logger.Info().
@@ -726,7 +725,7 @@ func (m *cFSM) newVoteEvt(blkHash hash.Hash32B, decision bool) *voteEvt {
 }
 
 func (m *cFSM) newTimeoutEvt(t fsm.EventType, height uint64) *timeoutEvt {
-	return newTimeoutEvt(t, height, m.ctx.clock)
+	return newTimeoutEvt(t, m.ctx.clock)
 }
 
 func (m *cFSM) newBackdoorEvt(dst fsm.State) *backdoorEvt {
