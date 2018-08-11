@@ -215,11 +215,12 @@ type epochCtx struct {
 
 // roundCtx keeps the context data for the current round and block.
 type roundCtx struct {
-	height   uint64
-	block    *blockchain.Block
-	prevotes map[string]bool
-	votes    map[string]bool
-	proposer string
+	height    uint64
+	timestamp time.Time
+	block     *blockchain.Block
+	prevotes  map[string]bool
+	votes     map[string]bool
+	proposer  string
 }
 
 // RollDPoS is Roll-DPoS consensus main entrance
