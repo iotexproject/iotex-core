@@ -118,3 +118,16 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 
 	return nil
 }
+
+func addTestingDummyBlocm(bc blockchain.Blockchain) error {
+	// Add block 1
+	if err := bc.CommitBlock(bc.MintNewDummyBlock()); err != nil {
+		return err
+	}
+	// Add block 2
+	if err := bc.CommitBlock(bc.MintNewDummyBlock()); err != nil {
+		return err
+	}
+
+	return nil
+}
