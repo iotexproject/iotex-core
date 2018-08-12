@@ -59,14 +59,11 @@ type ActPool interface {
 
 // actPool implements ActPool interface
 type actPool struct {
-	mutex sync.RWMutex
-	// maxNumActPerPool indicates maximum number of actions the whole actpool can hold
-	maxNumActPerPool uint64
-	// maxNumActPerAcct indicates maximum number of actions an account queue can hold
-	maxNumActPerAcct uint64
-	bc               blockchain.Blockchain
-	accountActs      map[string]ActQueue
-	allActions       map[hash.Hash32B]*iproto.ActionPb
+	mutex       sync.RWMutex
+	cfg         config.ActPool
+	bc          blockchain.Blockchain
+	accountActs map[string]ActQueue
+	allActions  map[hash.Hash32B]*iproto.ActionPb
 }
 
 // NewActPool constructs a new actpool
@@ -75,11 +72,10 @@ func NewActPool(bc blockchain.Blockchain, cfg config.ActPool) (ActPool, error) {
 		return nil, errors.New("Try to attach a nil blockchain")
 	}
 	ap := &actPool{
-		maxNumActPerPool: cfg.MaxNumActPerPool,
-		maxNumActPerAcct: cfg.MaxNumActPerAcct,
-		bc:               bc,
-		accountActs:      make(map[string]ActQueue),
-		allActions:       make(map[hash.Hash32B]*iproto.ActionPb),
+		cfg:         cfg,
+		bc:          bc,
+		accountActs: make(map[string]ActQueue),
+		allActions:  make(map[hash.Hash32B]*iproto.ActionPb),
 	}
 	return ap, nil
 }
@@ -125,6 +121,7 @@ func (ap *actPool) PickActs() ([]*action.Transfer, []*action.Vote) {
 	ap.mutex.Lock()
 	defer ap.mutex.Unlock()
 
+	numActs := uint64(0)
 	transfers := make([]*action.Transfer, 0)
 	votes := make([]*action.Vote, 0)
 	for _, queue := range ap.accountActs {
@@ -134,10 +131,18 @@ func (ap *actPool) PickActs() ([]*action.Transfer, []*action.Vote) {
 				tsf := action.Transfer{}
 				tsf.ConvertFromActionPb(act)
 				transfers = append(transfers, &tsf)
+				numActs++
 			case act.GetVote() != nil:
 				vote := action.Vote{}
 				vote.ConvertFromActionPb(act)
 				votes = append(votes, &vote)
+				numActs++
+			}
+			if ap.cfg.MaxNumActsToPick > 0 && numActs >= ap.cfg.MaxNumActsToPick {
+				logger.Debug().
+					Uint64("limit", ap.cfg.MaxNumActsToPick).
+					Msg("reach the max number of actions to pick")
+				return transfers, votes
 			}
 		}
 	}
@@ -166,7 +171,7 @@ func (ap *actPool) AddTsf(tsf *action.Transfer) error {
 		return err
 	}
 	// Reject transfer if pool space is full
-	if uint64(len(ap.allActions)) >= ap.maxNumActPerPool {
+	if uint64(len(ap.allActions)) >= ap.cfg.MaxNumActsPerPool {
 		logger.Warn().
 			Hex("hash", hash[:]).
 			Msg("Rejecting transfer due to insufficient space")
@@ -199,7 +204,7 @@ func (ap *actPool) AddVote(vote *action.Vote) error {
 		return err
 	}
 	// Reject vote if pool space is full
-	if uint64(len(ap.allActions)) >= ap.maxNumActPerPool {
+	if uint64(len(ap.allActions)) >= ap.cfg.MaxNumActsPerPool {
 		logger.Warn().
 			Hex("hash", hash[:]).
 			Msg("Rejecting vote due to insufficient space")
@@ -371,7 +376,7 @@ func (ap *actPool) addAction(sender string, act *iproto.ActionPb, hash hash.Hash
 		return errors.Wrapf(ErrNonce, "duplicate nonce")
 	}
 
-	if actNonce-queue.StartNonce() >= ap.maxNumActPerAcct {
+	if actNonce-queue.StartNonce() >= ap.cfg.MaxNumActsPerAcct {
 		// Nonce exceeds current range
 		logger.Warn().
 			Hex("hash", hash[:]).
