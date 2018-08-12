@@ -550,9 +550,7 @@ func (bc *blockchain) commitBlock(blk *Block) error {
 		return nil
 	}
 	err := bc.sf.CommitStateChanges(blk.Height(), blk.Transfers, blk.Votes)
-	for _, tsf := range blk.Transfers {
-		ProcessTransfer(tsf, bc)
-	}
+	ProcessBlock(blk, bc)
 
 	logger.Info().Uint64("height", blk.Header.height).Msg("commit a block")
 	return err
