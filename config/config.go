@@ -94,8 +94,9 @@ var (
 			NumCandidates:      101,
 		},
 		ActPool: ActPool{
-			MaxNumActPerPool: 32000,
-			MaxNumActPerAcct: 2000,
+			MaxNumActsPerPool: 32000,
+			MaxNumActsPerAcct: 2000,
+			MaxNumActsToPick:  0,
 		},
 		Consensus: Consensus{
 			Scheme: NOOPScheme,
@@ -248,8 +249,13 @@ type (
 
 	// ActPool is the actpool config
 	ActPool struct {
-		MaxNumActPerPool uint64 `yaml:"maxNumActPerPool"`
-		MaxNumActPerAcct uint64 `yaml:"maxNumActPerAcct"`
+		// MaxNumActsPerPool indicates maximum number of actions the whole actpool can hold
+		MaxNumActsPerPool uint64 `yaml:"maxNumActsPerPool"`
+		// MaxNumActsPerAcct indicates maximum number of actions an account queue can hold
+		MaxNumActsPerAcct uint64 `yaml:"maxNumActsPerAcct"`
+		// MaxNumActsToPick indicates maximum number of actions to pick to mint a block. Default is 0, which means no
+		// limit on the number of actions to pick.
+		MaxNumActsToPick uint64 `yaml:"maxNumActsToPick"`
 	}
 
 	// Config is the root config struct, each package's config should be put as its sub struct
@@ -419,8 +425,8 @@ func ValidateNetwork(cfg *Config) error {
 
 // ValidateActPool validates the given config
 func ValidateActPool(cfg *Config) error {
-	maxNumActPerPool := cfg.ActPool.MaxNumActPerPool
-	maxNumActPerAcct := cfg.ActPool.MaxNumActPerAcct
+	maxNumActPerPool := cfg.ActPool.MaxNumActsPerPool
+	maxNumActPerAcct := cfg.ActPool.MaxNumActsPerAcct
 	if maxNumActPerPool <= 0 || maxNumActPerAcct <= 0 {
 		return errors.Wrap(
 			ErrInvalidCfg,

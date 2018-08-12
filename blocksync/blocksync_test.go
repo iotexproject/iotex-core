@@ -217,7 +217,7 @@ func TestBlockSyncer_ProcessBlock_TipHeight(t *testing.T) {
 	mBc.EXPECT().TipHeight().AnyTimes().Return(uint64(5), nil)
 	mBc.EXPECT().CommitBlock(gomock.Any()).AnyTimes()
 
-	apConfig := config.ActPool{8192, 256}
+	apConfig := config.ActPool{MaxNumActsPerPool: 8192, MaxNumActsPerAcct: 256}
 	ap, err := actpool.NewActPool(mBc, apConfig)
 
 	p2p := generateP2P()
@@ -262,7 +262,7 @@ func TestBlockSyncer_ProcessBlockSync(t *testing.T) {
 	mBc.EXPECT().TipHeight().Times(1).Return(uint64(5), nil)
 	mBc.EXPECT().TipHeight().Times(1).Return(uint64(6), nil)
 
-	apConfig := config.ActPool{8192, 256}
+	apConfig := config.ActPool{MaxNumActsPerPool: 8192, MaxNumActsPerAcct: 256}
 	ap, err := actpool.NewActPool(mBc, apConfig)
 
 	p2p := generateP2P()

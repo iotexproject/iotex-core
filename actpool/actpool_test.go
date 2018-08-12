@@ -19,7 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/iotxaddress"
-	pb "github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -38,8 +38,8 @@ const (
 )
 
 const (
-	maxNumActPerPool = 8192
-	maxNumActPerAcct = 256
+	maxNumActsPerPool = 8192
+	maxNumActsPerAcct = 256
 )
 
 var (
@@ -55,7 +55,7 @@ func TestActPool_validateTsf(t *testing.T) {
 	bc := blockchain.NewBlockchain(&config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
 	_, err := bc.CreateState(addr1.RawAddress, uint64(100))
 	require.Nil(err)
-	apConfig := config.ActPool{maxNumActPerPool, maxNumActPerAcct}
+	apConfig := getActPoolCfg()
 	Ap, err := NewActPool(bc, apConfig)
 	require.Nil(err)
 	ap, ok := Ap.(*actPool)
@@ -98,7 +98,7 @@ func TestActPool_validateVote(t *testing.T) {
 	require.Nil(err)
 	_, err = bc.CreateState(addr2.RawAddress, uint64(100))
 	require.Nil(err)
-	apConfig := config.ActPool{maxNumActPerPool, maxNumActPerAcct}
+	apConfig := getActPoolCfg()
 	Ap, err := NewActPool(bc, apConfig)
 	require.Nil(err)
 	ap, ok := Ap.(*actPool)
@@ -107,9 +107,9 @@ func TestActPool_validateVote(t *testing.T) {
 	tmpSelfPubKey := [32769]byte{}
 	selfPubKey := tmpSelfPubKey[:]
 	vote := action.Vote{
-		&pb.ActionPb{
-			Action: &pb.ActionPb_Vote{
-				Vote: &pb.VotePb{
+		ActionPb: &iproto.ActionPb{
+			Action: &iproto.ActionPb_Vote{
+				Vote: &iproto.VotePb{
 					SelfPubkey: selfPubKey},
 			},
 		},
@@ -148,7 +148,7 @@ func TestActPool_AddActs(t *testing.T) {
 	_, err = bc.CreateState(addr2.RawAddress, uint64(10))
 	require.Nil(err)
 	// Create actpool
-	apConfig := config.ActPool{maxNumActPerPool, maxNumActPerAcct}
+	apConfig := getActPoolCfg()
 	Ap, err := NewActPool(bc, apConfig)
 	require.Nil(err)
 	ap, ok := Ap.(*actPool)
@@ -209,7 +209,7 @@ func TestActPool_AddActs(t *testing.T) {
 	require.Nil(err)
 	ap2, ok := Ap2.(*actPool)
 	require.True(ok)
-	for i := uint64(0); i < ap2.maxNumActPerPool; i++ {
+	for i := uint64(0); i < ap2.cfg.MaxNumActsPerPool; i++ {
 		nTsf := action.Transfer{Amount: big.NewInt(int64(i))}
 		nAction := nTsf.ConvertToActionPb()
 		ap2.allActions[nTsf.Hash()] = nAction
@@ -230,7 +230,7 @@ func TestActPool_AddActs(t *testing.T) {
 	err = ap.AddVote(replaceVote)
 	require.Equal(ErrNonce, errors.Cause(err))
 	// Case IV: Nonce is too large
-	outOfBoundsTsf, _ := signedTransfer(addr1, addr1, uint64(ap.maxNumActPerAcct+1), big.NewInt(1))
+	outOfBoundsTsf, _ := signedTransfer(addr1, addr1, uint64(ap.cfg.MaxNumActsPerAcct+1), big.NewInt(1))
 	err = ap.AddTsf(outOfBoundsTsf)
 	require.Equal(ErrNonce, errors.Cause(err))
 	// Case V: Insufficient balance
@@ -240,54 +240,76 @@ func TestActPool_AddActs(t *testing.T) {
 }
 
 func TestActPool_PickActs(t *testing.T) {
-	require := require.New(t)
-	bc := blockchain.NewBlockchain(&config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
-	_, err := bc.CreateState(addr1.RawAddress, uint64(100))
-	require.Nil(err)
-	_, err = bc.CreateState(addr2.RawAddress, uint64(10))
-	require.Nil(err)
-	// Create actpool
-	apConfig := config.ActPool{maxNumActPerPool, maxNumActPerAcct}
-	Ap, err := NewActPool(bc, apConfig)
-	require.Nil(err)
-	ap, ok := Ap.(*actPool)
-	require.True(ok)
+	createActPool := func(cfg config.ActPool) (*actPool, []*action.Transfer, []*action.Vote) {
+		require := require.New(t)
+		bc := blockchain.NewBlockchain(&config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+		_, err := bc.CreateState(addr1.RawAddress, uint64(100))
+		require.Nil(err)
+		_, err = bc.CreateState(addr2.RawAddress, uint64(10))
+		require.Nil(err)
+		// Create actpool
+		Ap, err := NewActPool(bc, cfg)
+		require.Nil(err)
+		ap, ok := Ap.(*actPool)
+		require.True(ok)
 
-	tsf1, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(10))
-	tsf2, _ := signedTransfer(addr1, addr1, uint64(2), big.NewInt(20))
-	tsf3, _ := signedTransfer(addr1, addr1, uint64(3), big.NewInt(30))
-	tsf4, _ := signedTransfer(addr1, addr1, uint64(4), big.NewInt(40))
-	tsf5, _ := signedTransfer(addr1, addr1, uint64(5), big.NewInt(50))
-	vote6, _ := signedVote(addr1, addr1, uint64(6))
-	vote7, _ := signedVote(addr2, addr2, uint64(1))
-	tsf8, _ := signedTransfer(addr2, addr2, uint64(3), big.NewInt(5))
-	tsf9, _ := signedTransfer(addr2, addr2, uint64(4), big.NewInt(1))
-	tsf10, _ := signedTransfer(addr2, addr2, uint64(5), big.NewInt(5))
+		tsf1, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(10))
+		tsf2, _ := signedTransfer(addr1, addr1, uint64(2), big.NewInt(20))
+		tsf3, _ := signedTransfer(addr1, addr1, uint64(3), big.NewInt(30))
+		tsf4, _ := signedTransfer(addr1, addr1, uint64(4), big.NewInt(40))
+		tsf5, _ := signedTransfer(addr1, addr1, uint64(5), big.NewInt(50))
+		vote6, _ := signedVote(addr1, addr1, uint64(6))
+		vote7, _ := signedVote(addr2, addr2, uint64(1))
+		tsf8, _ := signedTransfer(addr2, addr2, uint64(3), big.NewInt(5))
+		tsf9, _ := signedTransfer(addr2, addr2, uint64(4), big.NewInt(1))
+		tsf10, _ := signedTransfer(addr2, addr2, uint64(5), big.NewInt(5))
 
-	err = ap.AddTsf(tsf1)
-	require.NoError(err)
-	err = ap.AddTsf(tsf2)
-	require.NoError(err)
-	err = ap.AddTsf(tsf3)
-	require.NoError(err)
-	err = ap.AddTsf(tsf4)
-	require.NoError(err)
-	err = ap.AddTsf(tsf5)
-	require.Equal(ErrBalance, errors.Cause(err))
-	err = ap.AddVote(vote6)
-	require.NoError(err)
-	err = ap.AddVote(vote7)
-	require.NoError(err)
-	err = ap.AddTsf(tsf8)
-	require.NoError(err)
-	err = ap.AddTsf(tsf9)
-	require.NoError(err)
-	err = ap.AddTsf(tsf10)
-	require.NoError(err)
+		err = ap.AddTsf(tsf1)
+		require.NoError(err)
+		err = ap.AddTsf(tsf2)
+		require.NoError(err)
+		err = ap.AddTsf(tsf3)
+		require.NoError(err)
+		err = ap.AddTsf(tsf4)
+		require.NoError(err)
+		err = ap.AddTsf(tsf5)
+		require.Equal(ErrBalance, errors.Cause(err))
+		err = ap.AddVote(vote6)
+		require.NoError(err)
+		err = ap.AddVote(vote7)
+		require.NoError(err)
+		err = ap.AddTsf(tsf8)
+		require.NoError(err)
+		err = ap.AddTsf(tsf9)
+		require.NoError(err)
+		err = ap.AddTsf(tsf10)
+		require.NoError(err)
+		return ap, []*action.Transfer{tsf1, tsf2, tsf3, tsf4}, []*action.Vote{vote7}
+	}
 
-	pickedTsfs, pickedVotes := ap.PickActs()
-	require.Equal([]*action.Transfer{tsf1, tsf2, tsf3, tsf4}, pickedTsfs)
-	require.Equal([]*action.Vote{vote7}, pickedVotes)
+	t.Run("no-limit", func(t *testing.T) {
+		apConfig := getActPoolCfg()
+		ap, transfers, votes := createActPool(apConfig)
+		pickedTsfs, pickedVotes := ap.PickActs()
+		require.Equal(t, transfers, pickedTsfs)
+		require.Equal(t, votes, pickedVotes)
+	})
+	t.Run("enough-limit", func(t *testing.T) {
+		apConfig := getActPoolCfg()
+		apConfig.MaxNumActsToPick = 10
+		ap, transfers, votes := createActPool(apConfig)
+		pickedTsfs, pickedVotes := ap.PickActs()
+		require.Equal(t, transfers, pickedTsfs)
+		require.Equal(t, votes, pickedVotes)
+	})
+	t.Run("low-limit", func(t *testing.T) {
+		apConfig := getActPoolCfg()
+		apConfig.MaxNumActsToPick = 3
+		ap, transfers, _ := createActPool(apConfig)
+		pickedTsfs, pickedVotes := ap.PickActs()
+		require.Equal(t, transfers[:3], pickedTsfs)
+		require.Equal(t, []*action.Vote{}, pickedVotes)
+	})
 }
 
 func TestActPool_removeConfirmedActs(t *testing.T) {
@@ -296,7 +318,8 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	_, err := bc.CreateState(addr1.RawAddress, uint64(100))
 	require.Nil(err)
 	// Create actpool
-	apConfig := config.ActPool{maxNumActPerPool, maxNumActPerAcct}
+
+	apConfig := getActPoolCfg()
 	Ap, err := NewActPool(bc, apConfig)
 	require.Nil(err)
 	ap, ok := Ap.(*actPool)
@@ -336,7 +359,7 @@ func TestActPool_Reset(t *testing.T) {
 	_, err = bc.CreateState(addr3.RawAddress, uint64(300))
 	require.Nil(err)
 
-	apConfig := config.ActPool{maxNumActPerPool, maxNumActPerAcct}
+	apConfig := getActPoolCfg()
 	Ap1, err := NewActPool(bc, apConfig)
 	require.Nil(err)
 	ap1, ok := Ap1.(*actPool)
@@ -636,7 +659,7 @@ func TestActPool_removeInvalidActs(t *testing.T) {
 	_, err := bc.CreateState(addr1.RawAddress, uint64(100))
 	require.Nil(err)
 	// Create actpool
-	apConfig := config.ActPool{maxNumActPerPool, maxNumActPerAcct}
+	apConfig := getActPoolCfg()
 	Ap, err := NewActPool(bc, apConfig)
 	require.Nil(err)
 	ap, ok := Ap.(*actPool)
@@ -660,7 +683,7 @@ func TestActPool_removeInvalidActs(t *testing.T) {
 	action1 := tsf1.ConvertToActionPb()
 	hash2 := vote4.Hash()
 	action2 := vote4.ConvertToActionPb()
-	acts := []*pb.ActionPb{action1, action2}
+	acts := []*iproto.ActionPb{action1, action2}
 	require.NotNil(ap.allActions[hash1])
 	require.NotNil(ap.allActions[hash2])
 	ap.removeInvalidActs(acts)
@@ -676,7 +699,7 @@ func TestActPool_GetPendingNonce(t *testing.T) {
 	_, err = bc.CreateState(addr2.RawAddress, uint64(100))
 	require.Nil(err)
 	// Create actpool
-	apConfig := config.ActPool{maxNumActPerPool, maxNumActPerAcct}
+	apConfig := getActPoolCfg()
 	Ap, err := NewActPool(bc, apConfig)
 	require.Nil(err)
 	ap, ok := Ap.(*actPool)
@@ -710,7 +733,7 @@ func TestActPool_GetUnconfirmedActs(t *testing.T) {
 	_, err = bc.CreateState(addr2.RawAddress, uint64(100))
 	require.Nil(err)
 	// Create actpool
-	apConfig := config.ActPool{maxNumActPerPool, maxNumActPerAcct}
+	apConfig := getActPoolCfg()
 	Ap, err := NewActPool(bc, apConfig)
 	require.Nil(err)
 	ap, ok := Ap.(*actPool)
@@ -731,10 +754,10 @@ func TestActPool_GetUnconfirmedActs(t *testing.T) {
 	require.NoError(err)
 
 	acts := ap.GetUnconfirmedActs(addr2.RawAddress)
-	require.Equal([]*pb.ActionPb{}, acts)
+	require.Equal([]*iproto.ActionPb{}, acts)
 
 	acts = ap.GetUnconfirmedActs(addr1.RawAddress)
-	require.Equal([]*pb.ActionPb{act1, act3, act4}, acts)
+	require.Equal([]*iproto.ActionPb{act1, act3, act4}, acts)
 }
 
 // Helper function to return the correct pending nonce just in case of empty queue
@@ -771,4 +794,11 @@ func signedVote(voter *iotxaddress.Address, votee *iotxaddress.Address, nonce ui
 		return nil, err
 	}
 	return vote.Sign(voter)
+}
+
+func getActPoolCfg() config.ActPool {
+	return config.ActPool{
+		MaxNumActsPerPool: maxNumActsPerPool,
+		MaxNumActsPerAcct: maxNumActsPerAcct,
+	}
 }
