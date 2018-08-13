@@ -12,7 +12,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core-internal/proto"
+	"github.com/iotexproject/iotex-core/proto"
 )
 
 var (

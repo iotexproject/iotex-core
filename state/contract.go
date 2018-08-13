@@ -7,8 +7,8 @@
 package state
 
 import (
-	"github.com/iotexproject/iotex-core-internal/pkg/hash"
-	"github.com/iotexproject/iotex-core-internal/trie"
+	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/trie"
 )
 
 type (
