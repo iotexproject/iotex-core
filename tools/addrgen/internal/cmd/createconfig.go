@@ -8,8 +8,8 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/iotexproject/iotex-core/logger"
 	"io/ioutil"
-	"log"
 
 	"github.com/spf13/cobra"
 
@@ -24,7 +24,7 @@ var createConfigCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		addr, err := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
 		if err != nil {
-			log.Fatal(err)
+			logger.Fatal().Err(err)
 		}
 		cfgStr := fmt.Sprintf(
 			`chain:
@@ -35,7 +35,7 @@ var createConfigCmd = &cobra.Command{
 			addr.PublicKey,
 		)
 		if err := ioutil.WriteFile(_outputFile, []byte(cfgStr), 0666); err != nil {
-			log.Fatal(err)
+			logger.Fatal().Err(err)
 		}
 	},
 }
