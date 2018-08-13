@@ -348,12 +348,21 @@ func TestBatchCommit(t *testing.T) {
 	// entries not committed won't exist
 	_, err = tr.Get(dog)
 	require.Equal(ErrNotExist, errors.Cause(err))
+	_, err = tr.Get(ham)
+	require.Equal(ErrNotExist, errors.Cause(err))
+	_, err = tr.Get(fox)
+	require.Equal(ErrNotExist, errors.Cause(err))
 
 	// start batch mode
 	tr.EnableBatch()
 	require.Nil(tr.Upsert(dog, testV[3]))
 	require.Nil(tr.Upsert(ham, testV[0]))
+	require.Nil(tr.Upsert(fox, testV[6]))
+	v, _ = tr.Get(fox)
+	require.Equal(testV[6], v)
 	require.Nil(tr.Upsert(fox, testV[5]))
+	v, _ = tr.Get(fox)
+	require.Equal(testV[5], v)
 	root = tr.RootHash()
 	// commit and reopen
 	require.Nil(tr.Commit())
