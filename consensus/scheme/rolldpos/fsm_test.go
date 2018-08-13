@@ -134,7 +134,7 @@ func TestRollDelegatesEvt(t *testing.T) {
 		}
 		cfsm := newTestCFSM(t, testAddrs[0], ctrl, delegates, func(mockBlockchain *mock_blockchain.MockBlockchain) {
 			mockBlockchain.EXPECT().TipHeight().Return(uint64(1), nil).Times(1)
-			mockBlockchain.EXPECT().CandidatesByHeight(gomock.Any()).Return(nil, false).Times(1)
+			mockBlockchain.EXPECT().CandidatesByHeight(gomock.Any()).Return(nil, nil).Times(1)
 		}, nil)
 		s, err := cfsm.handleRollDelegatesEvt(cfsm.newCEvt(eRollDelegates))
 		assert.Equal(t, sInvalid, s)
@@ -693,7 +693,7 @@ func newTestCFSM(
 					{Address: delegates[1]},
 					{Address: delegates[2]},
 					{Address: delegates[3]},
-				}, true).AnyTimes()
+				}, nil).AnyTimes()
 				blockchain.EXPECT().TipHeight().Return(uint64(1), nil).AnyTimes()
 				blockchain.EXPECT().ValidateBlock(gomock.Any()).Return(nil).AnyTimes()
 			} else {

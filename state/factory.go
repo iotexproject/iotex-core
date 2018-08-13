@@ -7,13 +7,11 @@
 package state
 
 import (
-	"container/heap"
 	"context"
 	"math/big"
 	"sort"
 	"strings"
 
-	"github.com/golang/groupcache/lru"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/blockchain/action"
@@ -23,17 +21,9 @@ import (
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/trie"
 )
-
-const (
-	// Level 1 is for candidate pool
-	candidatePool = 1
-	// Level 2 is for candidate buffer pool
-	candidateBufferPool = candidatePool + 1
-)
-
-const candidateBufferSize = 100
 
 var (
 	// ErrNotEnoughBalance is the error that the balance is not enough
@@ -69,23 +59,21 @@ type (
 		GetCode(addr string) []byte
 		// Candidate pool
 		Candidates() (uint64, []*Candidate)
-		CandidatesByHeight(uint64) ([]*Candidate, bool)
+		CandidatesByHeight(uint64) ([]*Candidate, error)
 	}
 
 	// factory implements StateFactory interface, tracks changes in a map and batch-commits to trie/db
 	factory struct {
 		lifecycle lifecycle.Lifecycle
 		// candidate pool
-		currentChainHeight     uint64
-		candidatesLRU          *lru.Cache
-		candidateHeap          CandidateMinPQ
-		candidateBufferMinHeap CandidateMinPQ
-		candidateBufferMaxHeap CandidateMaxPQ
-		cachedCandidate        map[string]*Candidate
+		currentChainHeight uint64
+		numCandidates      uint
+		cachedCandidates   map[string]*Candidate
 		// accounts
 		cachedAccount map[string]*State // accounts being modified in this Tx
 		accountTrie   trie.Trie         // global state trie
 		contractTrie  trie.Trie         // contract storage trie
+		candidateTrie trie.Trie         // candidate storage trie
 		codeDB        db.KVStore        // code storage DB
 	}
 )
@@ -93,11 +81,12 @@ type (
 // FactoryOption sets Factory construction parameter
 type FactoryOption func(*factory, *config.Config) error
 
-// PrecreatedTrieOption uses pre-created trie for state factory
-func PrecreatedTrieOption(tr trie.Trie) FactoryOption {
+// PrecreatedTrieOption uses pre-created tries for state factory
+func PrecreatedTrieOption(accountTrie, candidateTrie trie.Trie) FactoryOption {
 	return func(sf *factory, cfg *config.Config) error {
-		sf.accountTrie = tr
-		sf.codeDB = tr.TrieDB()
+		sf.accountTrie = accountTrie
+		sf.candidateTrie = candidateTrie
+		sf.codeDB = accountTrie.TrieDB()
 		return nil
 	}
 }
@@ -111,9 +100,14 @@ func DefaultTrieOption() FactoryOption {
 		}
 		tr, err := trie.NewTrie(db.NewBoltDB(dbPath, nil), trie.AccountKVNameSpace, trie.EmptyRoot)
 		if err != nil {
-			return errors.Wrapf(err, "Failed to generate trie from config")
+			return errors.Wrap(err, "failed to generate accountTrie from config")
 		}
 		sf.accountTrie = tr
+		candidateTrie, err := trie.NewTrie(tr.TrieDB(), trie.CandidateKVNameSpace, trie.EmptyRoot)
+		if err != nil {
+			return errors.Wrap(err, "failed to generate candidateTrie")
+		}
+		sf.candidateTrie = candidateTrie
 		sf.codeDB = tr.TrieDB()
 		return nil
 	}
@@ -124,9 +118,14 @@ func InMemTrieOption() FactoryOption {
 	return func(sf *factory, cfg *config.Config) error {
 		tr, err := trie.NewTrie(db.NewMemKVStore(), trie.AccountKVNameSpace, trie.EmptyRoot)
 		if err != nil {
-			return errors.Wrapf(err, "Failed to initialize in-memory trie")
+			return errors.Wrapf(err, "failed to initialize in-memory accountTrie")
 		}
 		sf.accountTrie = tr
+		candidateTrie, err := trie.NewTrie(tr.TrieDB(), trie.CandidateKVNameSpace, trie.EmptyRoot)
+		if err != nil {
+			return errors.Wrap(err, "failed to initialize in-memory candidateTrie")
+		}
+		sf.candidateTrie = candidateTrie
 		sf.codeDB = tr.TrieDB()
 		return nil
 	}
@@ -135,13 +134,10 @@ func InMemTrieOption() FactoryOption {
 // NewFactory creates a new state factory
 func NewFactory(cfg *config.Config, opts ...FactoryOption) (Factory, error) {
 	sf := &factory{
-		currentChainHeight:     0,
-		candidatesLRU:          lru.New(int(cfg.Chain.DelegateLRUSize)),
-		candidateHeap:          CandidateMinPQ{int(cfg.Chain.NumCandidates), make([]*Candidate, 0)},
-		candidateBufferMinHeap: CandidateMinPQ{candidateBufferSize, make([]*Candidate, 0)},
-		candidateBufferMaxHeap: CandidateMaxPQ{candidateBufferSize, make([]*Candidate, 0)},
-		cachedCandidate:        make(map[string]*Candidate),
-		cachedAccount:          make(map[string]*State),
+		currentChainHeight: 0,
+		numCandidates:      cfg.Chain.NumCandidates,
+		cachedCandidates:   make(map[string]*Candidate),
+		cachedAccount:      make(map[string]*State),
 	}
 
 	for _, opt := range opts {
@@ -152,6 +148,9 @@ func NewFactory(cfg *config.Config, opts ...FactoryOption) (Factory, error) {
 	}
 	if sf.accountTrie != nil {
 		sf.lifecycle.Add(sf.accountTrie)
+	}
+	if sf.candidateTrie != nil {
+		sf.lifecycle.Add(sf.candidateTrie)
 	}
 	return sf, nil
 }
@@ -236,10 +235,9 @@ func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer
 		// Perform vote update operation on candidate and delegate pools
 		if !state.IsCandidate {
 			// remove the candidate if the person is not a candidate anymore
-			if _, ok := sf.cachedCandidate[address]; ok {
-				delete(sf.cachedCandidate, address)
+			if _, ok := sf.cachedCandidates[address]; ok {
+				delete(sf.cachedCandidates, address)
 			}
-			sf.removeCandidate(address)
 			continue
 		}
 		totalWeight := big.NewInt(0)
@@ -250,15 +248,20 @@ func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer
 		sf.updateCandidate(address, totalWeight, blockHeight)
 	}
 	sf.currentChainHeight = blockHeight
-	candidates := sf.candidateHeap.CandidateList()
-	sort.Slice(candidates, func(i, j int) bool {
-		if candidates[i].Votes.Cmp(candidates[j].Votes) == 0 {
-			return strings.Compare(candidates[i].Address, candidates[j].Address) < 0
-		}
-		return candidates[i].Votes.Cmp(candidates[j].Votes) < 0
-	})
-	sf.candidatesLRU.Add(sf.currentChainHeight, candidates)
 
+	// Persist new list of candidates to candidateTrie
+	candidates, err := MapToCandidates(sf.cachedCandidates)
+	if err != nil {
+		return errors.Wrap(err, "failed to convert candidate map to candidates")
+	}
+	sort.Sort(candidates)
+	candidatesBytes, err := Serialize(candidates)
+	if err != nil {
+		return errors.Wrap(err, "failed to serialize candidates")
+	}
+	if err := sf.candidateTrie.Upsert(byteutil.Uint64ToBytes(blockHeight), candidatesBytes); err != nil {
+		return errors.Wrapf(err, "failed to insert candidates on height %d into candidateTrie", blockHeight)
+	}
 	// commit the state changes to Trie in a batch
 	return sf.accountTrie.Commit()
 }
@@ -319,15 +322,32 @@ func (sf *factory) GetCode(addr string) []byte {
 //======================================
 // Candidates returns array of candidates in candidate pool
 func (sf *factory) Candidates() (uint64, []*Candidate) {
-	return sf.currentChainHeight, sf.candidateHeap.CandidateList()
+	candidates, _ := MapToCandidates(sf.cachedCandidates)
+	if len(candidates) <= int(sf.numCandidates) {
+		return sf.currentChainHeight, candidates
+	}
+	sort.Sort(candidates)
+	return sf.currentChainHeight, candidates[:sf.numCandidates]
 }
 
 // CandidatesByHeight returns array of candidates in candidate pool of a given height
-func (sf *factory) CandidatesByHeight(height uint64) ([]*Candidate, bool) {
-	if candidates, ok := sf.candidatesLRU.Get(height); ok {
-		return candidates.([]*Candidate), ok
+func (sf *factory) CandidatesByHeight(height uint64) ([]*Candidate, error) {
+	// Load candidates on the given height from candidateTrie
+	candidatesBytes, err := sf.candidateTrie.Get(byteutil.Uint64ToBytes(height))
+	if err != nil {
+		return []*Candidate{}, errors.Wrapf(err, "failed to get candidates on height %d", height)
 	}
-	return []*Candidate{}, false
+	candidates, err := Deserialize(candidatesBytes)
+	if err != nil {
+		return []*Candidate{}, errors.Wrapf(err, "failed to deserialize candidates on height %d", height)
+	}
+	if len(candidates) > int(sf.numCandidates) {
+		candidates = candidates[:sf.numCandidates]
+	}
+	sort.Slice(candidates, func(i, j int) bool {
+		return strings.Compare(candidates[i].Address, candidates[j].Address) < 0
+	})
+	return candidates, nil
 }
 
 //======================================
@@ -412,97 +432,11 @@ func (sf *factory) createContract(addr string, code []byte) (*State, error) {
 //======================================
 // private candidate functions
 //======================================
-func (sf *factory) candidatesBuffer() (uint64, []*Candidate) {
-	return sf.currentChainHeight, sf.candidateBufferMinHeap.CandidateList()
-}
-
 func (sf *factory) updateCandidate(address string, totalWeight *big.Int, blockHeight uint64) {
-	// Candidate was added when self-nomination, always exist in cached candidate
-	candidate, _ := sf.cachedCandidate[address]
+	// Candidate was added when self-nomination, always exist in cachedCandidates
+	candidate, _ := sf.cachedCandidates[address]
 	candidate.Votes = totalWeight
 	candidate.LastUpdateHeight = blockHeight
-	_, level := sf.inPool(candidate.Address)
-	switch level {
-	case candidatePool:
-		// if candidate is already in candidate pool
-		sf.candidateHeap.update(candidate, candidate.Votes)
-	case candidateBufferPool:
-		// if candidate is already in candidate buffer pool
-		sf.candidateBufferMinHeap.update(candidate, candidate.Votes)
-		sf.candidateBufferMaxHeap.update(candidate, candidate.Votes)
-	default:
-		// candidate is not in any of two pools
-		transitCandidate := candidate
-		if sf.candidateHeap.shouldTake(transitCandidate.Votes) {
-			// Push candidate into candidate pool
-			heap.Push(&sf.candidateHeap, transitCandidate)
-			transitCandidate = nil
-			if sf.candidateHeap.Len() > sf.candidateHeap.Capacity {
-				transitCandidate = heap.Pop(&sf.candidateHeap).(*Candidate)
-			}
-		}
-		if transitCandidate != nil && sf.candidateBufferMinHeap.shouldTake(transitCandidate.Votes) {
-			// Push candidate into candidate pool
-			heap.Push(&sf.candidateBufferMinHeap, transitCandidate)
-			heap.Push(&sf.candidateBufferMaxHeap, transitCandidate)
-			transitCandidate = nil
-			if sf.candidateBufferMinHeap.Len() > sf.candidateBufferMinHeap.Capacity {
-				transitCandidate = heap.Pop(&sf.candidateBufferMinHeap).(*Candidate)
-				heap.Remove(&sf.candidateBufferMaxHeap, transitCandidate.maxIndex)
-			}
-		}
-	}
-	sf.balance()
-
-	// Temporarily leave it here to check the algorithm is correct
-	if sf.candidateBufferMinHeap.Len() != sf.candidateBufferMaxHeap.Len() {
-		logger.Warn().Msg("candidateBuffer min and max heap not sync")
-	}
-}
-
-func (sf *factory) removeCandidate(address string) {
-	c, level := sf.inPool(address)
-	switch level {
-	case candidatePool:
-		heap.Remove(&sf.candidateHeap, c.minIndex)
-		if sf.candidateBufferMinHeap.Len() > 0 {
-			promoteCandidate := heap.Pop(&sf.candidateBufferMaxHeap).(*Candidate)
-			heap.Remove(&sf.candidateBufferMinHeap, promoteCandidate.minIndex)
-			heap.Push(&sf.candidateHeap, promoteCandidate)
-		}
-	case candidateBufferPool:
-		heap.Remove(&sf.candidateBufferMinHeap, c.minIndex)
-		heap.Remove(&sf.candidateBufferMaxHeap, c.maxIndex)
-	default:
-		break
-	}
-	sf.balance()
-
-	// Temporarily leave it here to check the algorithm is correct
-	if sf.candidateBufferMinHeap.Len() != sf.candidateBufferMaxHeap.Len() {
-		logger.Warn().Msg("candidateBuffer min and max heap not sync")
-	}
-}
-
-func (sf *factory) balance() {
-	if sf.candidateHeap.Len() > 0 && sf.candidateBufferMaxHeap.Len() > 0 && sf.candidateHeap.Top().(*Candidate).Votes.Cmp(sf.candidateBufferMaxHeap.Top().(*Candidate).Votes) < 0 {
-		cFromCandidatePool := heap.Pop(&sf.candidateHeap).(*Candidate)
-		cFromCandidateBufferPool := heap.Pop(&sf.candidateBufferMaxHeap).(*Candidate)
-		heap.Remove(&sf.candidateBufferMinHeap, cFromCandidateBufferPool.minIndex)
-		heap.Push(&sf.candidateHeap, cFromCandidateBufferPool)
-		heap.Push(&sf.candidateBufferMinHeap, cFromCandidatePool)
-		heap.Push(&sf.candidateBufferMaxHeap, cFromCandidatePool)
-	}
-}
-
-func (sf *factory) inPool(address string) (*Candidate, int) {
-	if c := sf.candidateHeap.exist(address); c != nil {
-		return c, candidatePool // The candidate exists in the Candidate pool
-	}
-	if c := sf.candidateBufferMinHeap.exist(address); c != nil {
-		return c, candidateBufferPool // The candidate exists in the Candidate buffer pool
-	}
-	return nil, 0
 }
 
 //======================================
@@ -606,13 +540,11 @@ func (sf *factory) handleVote(blockHeight uint64, vote []*action.Vote) error {
 			// Vote to self: self-nomination or cancel the previous vote case
 			voteFrom.Votee = voterAddress
 			voteFrom.IsCandidate = true
-			if _, ok := sf.cachedCandidate[voterAddress]; !ok {
-				sf.cachedCandidate[voterAddress] = &Candidate{
+			if _, ok := sf.cachedCandidates[voterAddress]; !ok {
+				sf.cachedCandidates[voterAddress] = &Candidate{
 					Address:        voterAddress,
 					PubKey:         pbVote.SelfPubkey[:],
 					CreationHeight: blockHeight,
-					minIndex:       0,
-					maxIndex:       0,
 				}
 			}
 		}

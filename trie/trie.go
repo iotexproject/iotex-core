@@ -29,6 +29,9 @@ var (
 	// ContractKVNameSpace is the bucket name for contract data storage
 	ContractKVNameSpace = "Contract"
 
+	// CandidateKVNameSpace is the bucket name for candidate data storage
+	CandidateKVNameSpace = "Candidate"
+
 	// ErrInvalidTrie indicates something wrong causing invalid operation
 	ErrInvalidTrie = errors.New("invalid trie operation")
 

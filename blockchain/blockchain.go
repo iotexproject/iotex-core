@@ -40,7 +40,7 @@ type Blockchain interface {
 	// Candidates returns the candidate list
 	Candidates() (uint64, []*state.Candidate)
 	// CandidatesByHeight returns the candidate list by a given height
-	CandidatesByHeight(height uint64) ([]*state.Candidate, bool)
+	CandidatesByHeight(height uint64) ([]*state.Candidate, error)
 	// For exposing blockchain states
 	// GetHeightByHash returns Block's height by hash
 	GetHeightByHash(h hash.Hash32B) (uint64, error)
@@ -113,11 +113,6 @@ type blockchain struct {
 
 // Option sets blockchain construction parameter
 type Option func(*blockchain, *config.Config) error
-
-var (
-	// ErrCandidates is the error returned when candidates cannot be returned
-	ErrCandidates = errors.New("error when getting candidates")
-)
 
 // DefaultStateFactoryOption sets blockchain's sf from config
 func DefaultStateFactoryOption() Option {
@@ -307,7 +302,7 @@ func (bc *blockchain) Candidates() (uint64, []*state.Candidate) {
 }
 
 // CandidatesByHeight returns the candidate list by a given height
-func (bc *blockchain) CandidatesByHeight(height uint64) ([]*state.Candidate, bool) {
+func (bc *blockchain) CandidatesByHeight(height uint64) ([]*state.Candidate, error) {
 	return bc.sf.CandidatesByHeight(height)
 }
 

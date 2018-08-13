@@ -188,10 +188,10 @@ func (mr *MockFactoryMockRecorder) Candidates() *gomock.Call {
 }
 
 // CandidatesByHeight mocks base method
-func (m *MockFactory) CandidatesByHeight(arg0 uint64) ([]*state.Candidate, bool) {
+func (m *MockFactory) CandidatesByHeight(arg0 uint64) ([]*state.Candidate, error) {
 	ret := m.ctrl.Call(m, "CandidatesByHeight", arg0)
 	ret0, _ := ret[0].([]*state.Candidate)
-	ret1, _ := ret[1].(bool)
+	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 

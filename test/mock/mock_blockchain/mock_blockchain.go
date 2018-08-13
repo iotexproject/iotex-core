@@ -128,10 +128,10 @@ func (mr *MockBlockchainMockRecorder) Candidates() *gomock.Call {
 }
 
 // CandidatesByHeight mocks base method
-func (m *MockBlockchain) CandidatesByHeight(height uint64) ([]*state.Candidate, bool) {
+func (m *MockBlockchain) CandidatesByHeight(height uint64) ([]*state.Candidate, error) {
 	ret := m.ctrl.Call(m, "CandidatesByHeight", height)
 	ret0, _ := ret[0].([]*state.Candidate)
-	ret1, _ := ret[1].(bool)
+	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
