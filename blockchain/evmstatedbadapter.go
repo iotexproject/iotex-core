@@ -13,33 +13,59 @@ import (
 	"github.com/CoderZhi/go-ethereum/core/types"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/state"
 )
 
 // EVMStateDBAdapter represents the state db adapter for evm to access iotx blockchain
 type EVMStateDBAdapter struct {
 	bc Blockchain
+	sf state.Factory
 }
 
 // NewEVMStateDBAdapter creates a new state db with iotx blockchain
 func NewEVMStateDBAdapter(bc Blockchain) *EVMStateDBAdapter {
 	return &EVMStateDBAdapter{
 		bc,
+		bc.GetFactory(),
 	}
 }
 
 // CreateAccount creates an account in iotx blockchain
-func (stateDB *EVMStateDBAdapter) CreateAccount(common.Address) {
-	logger.Error().Msg("CreateAccount is not implemented")
+func (stateDB *EVMStateDBAdapter) CreateAccount(evmAddr common.Address) {
+	addr, err := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, evmAddr.Bytes())
+	if err != nil {
+		logger.Error().Msg("Failed to get address by hash")
+	}
+	_, err = stateDB.bc.CreateState(addr.RawAddress, 0)
+	if err != nil {
+		logger.Error().Msg("Failed to create a new account")
+	}
 }
 
 // SubBalance subtracts balance from account
-func (stateDB *EVMStateDBAdapter) SubBalance(common.Address, *big.Int) {
-	logger.Error().Msg("SubBalance is not implemented")
+func (stateDB *EVMStateDBAdapter) SubBalance(evmAddr common.Address, amount *big.Int) {
+	addr, err := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, evmAddr.Bytes())
+	if err != nil {
+		logger.Error().Msg("Failed to get address by hash")
+	}
+	state, err := stateDB.bc.StateByAddr(addr.RawAddress)
+	if err != nil {
+		logger.Error().Msg("Failed to get the state")
+	}
+	state.SubBalance(amount)
 }
 
 // AddBalance adds balance to account
-func (stateDB *EVMStateDBAdapter) AddBalance(common.Address, *big.Int) {
-	logger.Error().Msg("AddBalance is not implemented")
+func (stateDB *EVMStateDBAdapter) AddBalance(evmAddr common.Address, amount *big.Int) {
+	addr, err := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, evmAddr.Bytes())
+	if err != nil {
+		logger.Error().Msg("Failed to get address by hash")
+	}
+	state, err := stateDB.bc.StateByAddr(addr.RawAddress)
+	if err != nil {
+		logger.Error().Msg("Failed to get the state")
+	}
+	state.AddBalance(amount)
 }
 
 // GetBalance gets the balance of account
