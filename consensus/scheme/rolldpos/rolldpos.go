@@ -45,13 +45,11 @@ type rollDPoSCtx struct {
 	round   roundCtx
 	clock   clock.Clock
 	// candidatesByHeightFunc is only used for testing purpose
-	candidatesByHeightFunc func(uint64) ([]*state.Candidate, bool)
+	candidatesByHeightFunc func(uint64) ([]*state.Candidate, error)
 	sync                   blocksync.BlockSync
 }
 
 var (
-	// ErrCandidatesNotFinalized indicates the height of statefactory is inconsistent with consensus
-	ErrCandidatesNotFinalized = errors.New("Epoch number of statefactory is inconsistent in StartRollingEpoch")
 	// ErrNotEnoughCandidates indicates there are not enough candidates from the candidate pool
 	ErrNotEnoughCandidates = errors.New("Candidate pool does not have enough candidates")
 )
@@ -61,15 +59,15 @@ func (ctx *rollDPoSCtx) rollingDelegates(epochNum uint64) ([]string, error) {
 	numDlgs := ctx.cfg.NumDelegates
 	height := uint64(numDlgs) * uint64(ctx.cfg.NumSubEpochs) * (epochNum - 1)
 	var candidates []*state.Candidate
-	var ok bool
+	var err error
 	if ctx.candidatesByHeightFunc != nil {
 		// Test only
-		candidates, ok = ctx.candidatesByHeightFunc(height)
+		candidates, err = ctx.candidatesByHeightFunc(height)
 	} else {
-		candidates, ok = ctx.chain.CandidatesByHeight(height)
+		candidates, err = ctx.chain.CandidatesByHeight(height)
 	}
-	if !ok {
-		return []string{}, errors.Wrap(ErrCandidatesNotFinalized, "error when getting delegates from the candidate pool")
+	if err != nil {
+		return []string{}, errors.Wrap(err, "error when getting delegates from the candidate pool")
 	}
 	if len(candidates) < int(numDlgs) {
 		return []string{}, errors.Wrapf(ErrNotEnoughCandidates, "only %d delegates from the candidate pool", len(candidates))
@@ -280,9 +278,9 @@ func (r *RollDPoS) Metrics() (scheme.ConsensusMetrics, error) {
 		return metrics, errors.Wrap(err, "error when calculating the block producer")
 	}
 	// Get all candidates
-	candidates, ok := r.ctx.chain.CandidatesByHeight(height)
-	if !ok {
-		return metrics, errors.Wrap(ErrCandidatesNotFinalized, "error when getting all candidates")
+	candidates, err := r.ctx.chain.CandidatesByHeight(height)
+	if err != nil {
+		return metrics, errors.Wrap(err, "error when getting all candidates")
 	}
 	candidateAddresses := make([]string, len(candidates))
 	for i, c := range candidates {
@@ -350,7 +348,7 @@ type Builder struct {
 	actPool                actpool.ActPool
 	p2p                    network.Overlay
 	clock                  clock.Clock
-	candidatesByHeightFunc func(uint64) ([]*state.Candidate, bool)
+	candidatesByHeightFunc func(uint64) ([]*state.Candidate, error)
 	sync                   blocksync.BlockSync
 }
 
@@ -397,7 +395,7 @@ func (b *Builder) SetClock(clock clock.Clock) *Builder {
 
 // SetCandidatesByHeightFunc sets candidatesByHeightFunc, which is only used by tests
 func (b *Builder) SetCandidatesByHeightFunc(
-	candidatesByHeightFunc func(uint64) ([]*state.Candidate, bool),
+	candidatesByHeightFunc func(uint64) ([]*state.Candidate, error),
 ) *Builder {
 	b.candidatesByHeightFunc = candidatesByHeightFunc
 	return b

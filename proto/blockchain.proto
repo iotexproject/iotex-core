@@ -91,6 +91,19 @@ message ViewChangeMsg {
     bool decision = 5;
 }
 
+// Candidates and list of candidates
+message Candidate {
+    string address = 1;
+    bytes votes = 2;
+    bytes pubKey = 3;
+    uint64 creationHeight = 4;
+    uint64 lastUpdateHeight = 5;
+}
+
+message CandidateList {
+    repeated Candidate candidates = 1;
+}
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // BELOW ARE DEFINITIONS FOR TEST-ONLY MESSAGES!
 ////////////////////////////////////////////////////////////////////////////////////////////////////

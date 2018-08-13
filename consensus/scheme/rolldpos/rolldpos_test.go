@@ -64,7 +64,7 @@ func TestRollDPoSCtx(t *testing.T) {
 				{Address: candidates[1]},
 				{Address: candidates[2]},
 				{Address: candidates[3]},
-			}, true).Times(1)
+			}, nil).Times(1)
 		},
 		func(_ *mock_actpool.MockActPool) {},
 		func(_ *mock_network.MockOverlay) {},
@@ -229,7 +229,7 @@ func TestRollDPoS_Metrics(t *testing.T) {
 		{Address: candidates[2]},
 		{Address: candidates[3]},
 		{Address: candidates[4]},
-	}, true).AnyTimes()
+	}, nil).AnyTimes()
 
 	r, err := NewRollDPoSBuilder().
 		SetConfig(config.RollDPoS{NumDelegates: 4}).
@@ -403,12 +403,12 @@ func TestRollDPoSConsensus(t *testing.T) {
 			chainRawAddrs = append(chainRawAddrs, addr.RawAddress)
 		}
 
-		candidatesByHeightFunc := func(_ uint64) ([]*state.Candidate, bool) {
+		candidatesByHeightFunc := func(_ uint64) ([]*state.Candidate, error) {
 			candidates := make([]*state.Candidate, 0, numNodes)
 			for _, addr := range chainAddrs {
 				candidates = append(candidates, &state.Candidate{Address: addr.RawAddress})
 			}
-			return candidates, true
+			return candidates, nil
 		}
 
 		chains := make([]blockchain.Blockchain, 0, numNodes)
