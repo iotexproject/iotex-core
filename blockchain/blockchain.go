@@ -70,6 +70,8 @@ type Blockchain interface {
 	GetVoteByVoteHash(h hash.Hash32B) (*action.Vote, error)
 	// GetBlockHashByVoteHash returns Block hash by vote hash
 	GetBlockHashByVoteHash(h hash.Hash32B) (hash.Hash32B, error)
+	// GetFactory returns the State Factory
+	GetFactory() state.Factory
 	// TipHash returns tip block's hash
 	TipHash() (hash.Hash32B, error)
 	// TipHeight returns tip block's height
@@ -420,6 +422,11 @@ func (bc *blockchain) GetVoteByVoteHash(h hash.Hash32B) (*action.Vote, error) {
 // GetBlockHashByVoteHash returns Block hash by vote hash
 func (bc *blockchain) GetBlockHashByVoteHash(h hash.Hash32B) (hash.Hash32B, error) {
 	return bc.dao.getBlockHashByVoteHash(h)
+}
+
+// GetFactory returns the State Factory
+func (bc *blockchain) GetFactory() state.Factory {
+	return bc.sf
 }
 
 // TipHash returns tip block's hash

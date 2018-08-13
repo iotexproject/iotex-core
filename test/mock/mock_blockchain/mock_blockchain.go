@@ -322,6 +322,18 @@ func (mr *MockBlockchainMockRecorder) GetBlockHashByVoteHash(h interface{}) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockHashByVoteHash", reflect.TypeOf((*MockBlockchain)(nil).GetBlockHashByVoteHash), h)
 }
 
+// GetFactory mocks base method
+func (m *MockBlockchain) GetFactory() state.Factory {
+	ret := m.ctrl.Call(m, "GetFactory")
+	ret0, _ := ret[0].(state.Factory)
+	return ret0
+}
+
+// GetFactory indicates an expected call of GetFactory
+func (mr *MockBlockchainMockRecorder) GetFactory() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFactory", reflect.TypeOf((*MockBlockchain)(nil).GetFactory))
+}
+
 // TipHash mocks base method
 func (m *MockBlockchain) TipHash() (hash.Hash32B, error) {
 	ret := m.ctrl.Call(m, "TipHash")
