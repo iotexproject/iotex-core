@@ -21,3 +21,6 @@ consensus:
 
 blockSync:
     interval: 1s
+
+system:
+    httpProfilingPort: 6060

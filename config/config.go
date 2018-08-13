@@ -130,6 +130,7 @@ var (
 		},
 		System: System{
 			HeartbeatInterval: 10 * time.Second,
+			HTTPProfilingPort: 0,
 		},
 	}
 
@@ -240,6 +241,9 @@ type (
 	// System is the system config
 	System struct {
 		HeartbeatInterval time.Duration `yaml:"heartbeatInterval"`
+		// HTTPProfilingPort is the port number to access golang performance profiling data of a blockchain node. It is
+		// 0 by default, meaning performance profiling has been disabled
+		HTTPProfilingPort int `yaml:"httpProfilingPort"`
 	}
 
 	// ActPool is the actpool config
