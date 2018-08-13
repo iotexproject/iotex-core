@@ -15,6 +15,8 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 
 	"github.com/iotexproject/iotex-core/config"
@@ -68,6 +70,16 @@ func main() {
 		}()
 	}
 
+	if cfg.System.HTTPProfilingPort > 0 {
+		go func() {
+			if err := http.ListenAndServe(
+				fmt.Sprintf(":%d", cfg.System.HTTPProfilingPort),
+				nil,
+			); err != nil {
+				logger.Error().Err(err).Msg("error when serving performance profiling data")
+			}
+		}()
+	}
 	select {}
 }
 
