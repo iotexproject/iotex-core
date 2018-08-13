@@ -143,3 +143,13 @@ func (m *MockTrie) EnableBatch() error {
 func (mr *MockTrieMockRecorder) EnableBatch() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnableBatch", reflect.TypeOf((*MockTrie)(nil).EnableBatch))
 }
+
+// DisableBatch mocks base method
+func (m *MockTrie) DisableBatch() {
+	m.ctrl.Call(m, "DisableBatch")
+}
+
+// DisableBatch indicates an expected call of DisableBatch
+func (mr *MockTrieMockRecorder) DisableBatch() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DisableBatch", reflect.TypeOf((*MockTrie)(nil).DisableBatch))
+}

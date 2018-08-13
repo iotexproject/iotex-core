@@ -54,6 +54,7 @@ type (
 		Commit() error               // commit the state changes in a batch
 		RootHash() hash.Hash32B      // returns trie's root hash
 		EnableBatch() error          // enable batch mode
+		DisableBatch()               // Disable batch mode
 	}
 
 	// trie implements the Trie interface
@@ -177,8 +178,9 @@ func (t *trie) Commit() error {
 	defer t.mutex.Unlock()
 
 	if t.batchMode {
-		t.batchMode = false
-		return t.dbBatch.Commit()
+		err := t.dbBatch.Commit()
+		t.resetCache()
+		return err
 	}
 	return nil
 }
@@ -193,21 +195,25 @@ func (t *trie) RootHash() hash.Hash32B {
 
 // EnableBatch enable batch mode
 func (t *trie) EnableBatch() error {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
 	if t.batchMode {
 		return nil
 	}
 
-	// recreate the map to ensure it's clean
-	t.cache = nil
-	t.cache = make(map[hash.Hash32B][]byte)
-
-	// recreate the batch to ensure it's clean
-	t.dbBatch = nil
-	if t.dbBatch = t.dao.Batch(); t.dbBatch == nil {
-		return errors.New("fail to initial batch")
+	if err := t.resetCache(); err != nil {
+		return err
 	}
 	t.batchMode = true
 	return nil
+}
+
+// DisableBatch disable batch mode
+func (t *trie) DisableBatch() {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+	t.batchMode = false
 }
 
 //======================================
@@ -233,6 +239,19 @@ func (t *trie) loadRoot() error {
 	// initial empty trie
 	t.root = &branch{}
 	return t.putPatricia(t.root)
+}
+
+func (t *trie) resetCache() error {
+	// recreate the map to ensure it's clean
+	t.cache = nil
+	t.cache = make(map[hash.Hash32B][]byte)
+
+	// recreate the batch to ensure it's clean
+	t.dbBatch = nil
+	if t.dbBatch = t.dao.Batch(); t.dbBatch == nil {
+		return errors.New("fail to initial batch")
+	}
+	return nil
 }
 
 // upsert a new entry
