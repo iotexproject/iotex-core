@@ -70,11 +70,12 @@ type (
 		numCandidates      uint
 		cachedCandidates   map[string]*Candidate
 		// accounts
-		cachedAccount map[string]*State // accounts being modified in this Tx
-		accountTrie   trie.Trie         // global state trie
-		contractTrie  trie.Trie         // contract storage trie
-		candidateTrie trie.Trie         // candidate storage trie
-		codeDB        db.KVStore        // code storage DB
+		cachedAccount  map[string]*State   // accounts being modified in this Tx
+		cachedContract map[string]Contract // contracts being modified in this Tx
+		accountTrie    trie.Trie           // global state trie
+		contractTrie   trie.Trie           // contract storage trie
+		candidateTrie  trie.Trie           // candidate storage trie
+		codeDB         db.KVStore          // code storage DB
 	}
 )
 
@@ -138,6 +139,7 @@ func NewFactory(cfg *config.Config, opts ...FactoryOption) (Factory, error) {
 		numCandidates:      cfg.Chain.NumCandidates,
 		cachedCandidates:   make(map[string]*Candidate),
 		cachedAccount:      make(map[string]*State),
+		cachedContract:     make(map[string]Contract),
 	}
 
 	for _, opt := range opts {
@@ -248,7 +250,6 @@ func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer
 		sf.updateCandidate(address, totalWeight, blockHeight)
 	}
 	sf.currentChainHeight = blockHeight
-
 	// Persist new list of candidates to candidateTrie
 	candidates, err := MapToCandidates(sf.cachedCandidates)
 	if err != nil {
@@ -262,7 +263,27 @@ func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer
 	if err := sf.candidateTrie.Upsert(byteutil.Uint64ToBytes(blockHeight), candidatesBytes); err != nil {
 		return errors.Wrapf(err, "failed to insert candidates on height %d into candidateTrie", blockHeight)
 	}
-	// commit the state changes to Trie in a batch
+	// update pending contract changes
+	for address, contract := range sf.cachedContract {
+		if err := contract.Commit(); err != nil {
+			return err
+		}
+		state := contract.SelfState()
+		ss, err := stateToBytes(state)
+		if err != nil {
+			return err
+		}
+		pkhash, err := iotxaddress.GetPubkeyHash(address)
+		if err != nil {
+			return errors.Wrap(err, "error when getting the pubkey hash")
+		}
+		addr := make([]byte, len(pkhash))
+		copy(addr, pkhash[:])
+		if err := sf.accountTrie.Upsert(addr, ss); err != nil {
+			return err
+		}
+	}
+	// commit to underlying Trie in a batch
 	return sf.accountTrie.Commit()
 }
 
@@ -280,23 +301,18 @@ func (sf *factory) CreateContract(addr string, code []byte) (string, error) {
 		return "", err
 	}
 	// only create when contract addr does not exist yet
-	if _, err := sf.getState(contractAddr); errors.Cause(err) != ErrAccountNotExist {
+	if _, err := sf.getContract(contractAddr); errors.Cause(err) != ErrAccountNotExist {
 		return "", ErrAccountCollision
 	}
-	contract, err := sf.createContract(contractAddr, code)
-	if err != nil {
+	if _, err = sf.createContract(contractAddr, code); err != nil {
 		return "", errors.Wrapf(err, "Failed to create contract")
-	}
-	// put the code into storage DB
-	if err := sf.accountTrie.TrieDB().Put(trie.CodeKVNameSpace, contract.CodeHash, code); err != nil {
-		return "", errors.Wrapf(err, "Failed to store contract code")
 	}
 	return contractAddr, nil
 }
 
 func (sf *factory) GetCodeHash(addr string) hash.Hash32B {
 	codeHash := hash.ZeroHash32B
-	state, err := sf.getState(addr)
+	state, err := sf.getContract(addr)
 	if err != nil || state.CodeHash == nil {
 		return codeHash
 	}
@@ -411,22 +427,27 @@ func (sf *factory) createContract(addr string, code []byte) (*State, error) {
 	if addrHash == nil || err != nil {
 		return nil, ErrAccountNotExist
 	}
-	balance := big.NewInt(0)
-	weight := big.NewInt(0)
 	s := State{
-		Balance:      balance,
-		VotingWeight: weight,
+		Balance:      big.NewInt(0),
+		VotingWeight: big.NewInt(0),
 		Root:         trie.EmptyRoot,
 		CodeHash:     hash.Hash256b(code),
 	}
-	mstate, err := stateToBytes(&s)
-	if err != nil {
-		return nil, err
-	}
-	if err := sf.accountTrie.Upsert(addrHash, mstate); err != nil {
-		return nil, err
+	// add to contract cache
+	sf.cachedContract[addr] = newContract(sf.accountTrie, s, trie.EmptyRoot)
+	// put the code into storage DB
+	if err := sf.accountTrie.TrieDB().Put(trie.CodeKVNameSpace, s.CodeHash, code); err != nil {
+		return nil, errors.Wrapf(err, "Failed to store contract code")
 	}
 	return &s, nil
+}
+
+func (sf *factory) getContract(addr string) (*State, error) {
+	// find in local cache
+	if contract, ok := sf.cachedContract[addr]; ok {
+		return contract.SelfState(), nil
+	}
+	return sf.getState(addr)
 }
 
 //======================================

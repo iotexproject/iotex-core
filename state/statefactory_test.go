@@ -619,11 +619,13 @@ func TestCreateContract(t *testing.T) {
 
 	sf, err := NewFactory(&cfg, DefaultTrieOption())
 	require.Nil(err)
-	require.NoError(sf.Start(context.Background()))
+	require.Nil(sf.Start(context.Background()))
 	addr, err := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
 	require.Nil(err)
 	_, err = sf.LoadOrCreateState(addr.RawAddress, 5)
 	require.Nil(err)
+	root := sf.RootHash()
+	require.NotEqual(root, trie.EmptyRoot)
 
 	code := []byte("test contract creation")
 	contract, err := sf.CreateContract(addr.RawAddress, code)
@@ -635,15 +637,32 @@ func TestCreateContract(t *testing.T) {
 	code1 := sf.GetCode(contract)
 	require.Equal(code, code1)
 	// re-create cause collision
-	contract, err = sf.CreateContract(addr.RawAddress, code)
+	contract1, err := sf.CreateContract(addr.RawAddress, code)
 	require.Equal(ErrAccountCollision, errors.Cause(err))
-	require.Equal("", contract)
+	require.Equal("", contract1)
 	// non-existing contract
 	addr1, _ := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
 	codeHash = sf.GetCodeHash(addr1.RawAddress)
 	require.Equal(hash.ZeroHash32B, codeHash)
 	code1 = sf.GetCode(addr1.RawAddress)
 	require.Equal([]byte(nil), code1)
+	sf.CommitStateChanges(0, nil, nil)
+	root = sf.RootHash()
+	require.Nil(sf.Stop(context.Background()))
+
+	tr, err := trie.NewTrie(db.NewBoltDB(testTriePath, nil), trie.AccountKVNameSpace, root)
+	require.Nil(err)
+	sf, err = NewFactory(&cfg, PrecreatedTrieOption(tr, nil))
+	require.Nil(err)
+	require.Nil(sf.Start(context.Background()))
+	// cannot re-create existing
+	_, err = sf.CreateContract(addr.RawAddress, code)
+	require.Equal(ErrAccountCollision, errors.Cause(err))
+	// contract already exist
+	codeHash = sf.GetCodeHash(contract)
+	require.NotEqual(hash.ZeroHash32B, codeHash)
+	code1 = sf.GetCode(contract)
+	require.Equal(code, code1)
 }
 
 func compareStrings(actual []string, expected []string) bool {
