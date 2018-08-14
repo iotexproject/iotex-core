@@ -126,15 +126,15 @@ func (mr *MockFactoryMockRecorder) RootHash() *gomock.Call {
 }
 
 // CommitStateChanges mocks base method
-func (m *MockFactory) CommitStateChanges(arg0 uint64, arg1 []*action.Transfer, arg2 []*action.Vote) error {
-	ret := m.ctrl.Call(m, "CommitStateChanges", arg0, arg1, arg2)
+func (m *MockFactory) CommitStateChanges(arg0 uint64, arg1 []*action.Transfer, arg2 []*action.Vote, arg3 []*action.Execution) error {
+	ret := m.ctrl.Call(m, "CommitStateChanges", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // CommitStateChanges indicates an expected call of CommitStateChanges
-func (mr *MockFactoryMockRecorder) CommitStateChanges(arg0, arg1, arg2 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitStateChanges", reflect.TypeOf((*MockFactory)(nil).CommitStateChanges), arg0, arg1, arg2)
+func (mr *MockFactoryMockRecorder) CommitStateChanges(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitStateChanges", reflect.TypeOf((*MockFactory)(nil).CommitStateChanges), arg0, arg1, arg2, arg3)
 }
 
 // CreateContract mocks base method

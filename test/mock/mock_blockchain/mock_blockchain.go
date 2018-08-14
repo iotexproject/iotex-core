@@ -103,15 +103,15 @@ func (mr *MockBlockchainMockRecorder) CreateState(addr, init interface{}) *gomoc
 }
 
 // CommitStateChanges mocks base method
-func (m *MockBlockchain) CommitStateChanges(chainHeight uint64, tsf []*action.Transfer, vote []*action.Vote) error {
-	ret := m.ctrl.Call(m, "CommitStateChanges", chainHeight, tsf, vote)
+func (m *MockBlockchain) CommitStateChanges(chainHeight uint64, tsf []*action.Transfer, vote []*action.Vote, executions []*action.Execution) error {
+	ret := m.ctrl.Call(m, "CommitStateChanges", chainHeight, tsf, vote, executions)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // CommitStateChanges indicates an expected call of CommitStateChanges
-func (mr *MockBlockchainMockRecorder) CommitStateChanges(chainHeight, tsf, vote interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitStateChanges", reflect.TypeOf((*MockBlockchain)(nil).CommitStateChanges), chainHeight, tsf, vote)
+func (mr *MockBlockchainMockRecorder) CommitStateChanges(chainHeight, tsf, vote, executions interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitStateChanges", reflect.TypeOf((*MockBlockchain)(nil).CommitStateChanges), chainHeight, tsf, vote, executions)
 }
 
 // Candidates mocks base method
@@ -374,16 +374,16 @@ func (mr *MockBlockchainMockRecorder) StateByAddr(address interface{}) *gomock.C
 }
 
 // MintNewBlock mocks base method
-func (m *MockBlockchain) MintNewBlock(tsf []*action.Transfer, vote []*action.Vote, address *iotxaddress.Address, data string) (*blockchain.Block, error) {
-	ret := m.ctrl.Call(m, "MintNewBlock", tsf, vote, address, data)
+func (m *MockBlockchain) MintNewBlock(tsf []*action.Transfer, vote []*action.Vote, executions []*action.Execution, address *iotxaddress.Address, data string) (*blockchain.Block, error) {
+	ret := m.ctrl.Call(m, "MintNewBlock", tsf, vote, executions, address, data)
 	ret0, _ := ret[0].(*blockchain.Block)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // MintNewBlock indicates an expected call of MintNewBlock
-func (mr *MockBlockchainMockRecorder) MintNewBlock(tsf, vote, address, data interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MintNewBlock", reflect.TypeOf((*MockBlockchain)(nil).MintNewBlock), tsf, vote, address, data)
+func (mr *MockBlockchainMockRecorder) MintNewBlock(tsf, vote, executions, address, data interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MintNewBlock", reflect.TypeOf((*MockBlockchain)(nil).MintNewBlock), tsf, vote, executions, address, data)
 }
 
 // MintNewDummyBlock mocks base method

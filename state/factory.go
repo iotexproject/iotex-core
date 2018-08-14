@@ -52,7 +52,7 @@ type (
 		Nonce(string) (uint64, error) // Note that nonce starts with 1.
 		State(string) (*State, error)
 		RootHash() hash.Hash32B
-		CommitStateChanges(uint64, []*action.Transfer, []*action.Vote) error
+		CommitStateChanges(uint64, []*action.Transfer, []*action.Vote, []*action.Execution) error
 		// Contracts
 		CreateContract(string, []byte) (string, error)
 		GetCodeHash(hash.AddrHash) (hash.Hash32B, error)
@@ -227,7 +227,7 @@ func (sf *factory) RootHash() hash.Hash32B {
 }
 
 // CommitStateChanges updates a State from the given actions
-func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer, vote []*action.Vote) error {
+func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer, vote []*action.Vote, executions []*action.Execution) error {
 	if err := sf.handleTsf(tsf); err != nil {
 		return err
 	}

@@ -46,11 +46,13 @@ type ActPool interface {
 	// Reset resets actpool state
 	Reset()
 	// PickActs returns all currently accepted transfers and votes in actpool
-	PickActs() ([]*action.Transfer, []*action.Vote)
+	PickActs() ([]*action.Transfer, []*action.Vote, []*action.Execution)
 	// AddTsf adds an transfer into the pool after passing validation
 	AddTsf(tsf *action.Transfer) error
 	// AddVote adds a vote into the pool after passing validation
 	AddVote(vote *action.Vote) error
+	// AddExecution adds an execution into the pool after passing validation
+	AddExecution(execution *action.Execution) error
 	// GetPendingNonce returns pending nonce in pool given an account address
 	GetPendingNonce(addr string) (uint64, error)
 	// GetUnconfirmedActs returns unconfirmed actions in pool given an account address
@@ -117,13 +119,14 @@ func (ap *actPool) Reset() {
 }
 
 // PickActs returns all currently accepted transfers and votes for all accounts
-func (ap *actPool) PickActs() ([]*action.Transfer, []*action.Vote) {
+func (ap *actPool) PickActs() ([]*action.Transfer, []*action.Vote, []*action.Execution) {
 	ap.mutex.Lock()
 	defer ap.mutex.Unlock()
 
 	numActs := uint64(0)
 	transfers := make([]*action.Transfer, 0)
 	votes := make([]*action.Vote, 0)
+	executions := make([]*action.Execution, 0)
 	for _, queue := range ap.accountActs {
 		for _, act := range queue.PendingActs() {
 			switch {
@@ -137,16 +140,21 @@ func (ap *actPool) PickActs() ([]*action.Transfer, []*action.Vote) {
 				vote.ConvertFromActionPb(act)
 				votes = append(votes, &vote)
 				numActs++
+			case act.GetExecution() != nil:
+				execution := action.Execution{}
+				execution.ConvertFromExecutionPb(act.GetExecution())
+				executions = append(executions, &execution)
+				numActs++
 			}
 			if ap.cfg.MaxNumActsToPick > 0 && numActs >= ap.cfg.MaxNumActsToPick {
 				logger.Debug().
 					Uint64("limit", ap.cfg.MaxNumActsToPick).
 					Msg("reach the max number of actions to pick")
-				return transfers, votes
+				return transfers, votes, executions
 			}
 		}
 	}
-	return transfers, votes
+	return transfers, votes, executions
 }
 
 // AddTsf inserts a new transfer into account queue if it passes validation
@@ -216,6 +224,14 @@ func (ap *actPool) AddVote(vote *action.Vote) error {
 	// Wrap vote as an action
 	action := vote.ConvertToActionPb()
 	return ap.addAction(voter.RawAddress, action, hash, vote.Nonce)
+}
+
+// AddExecution inserts a new execution into account queue if it passes validation
+func (ap *actPool) AddExecution(execution *action.Execution) error {
+	ap.mutex.Lock()
+	defer ap.mutex.Unlock()
+	// TOOD (zhi) implement this api
+	return errors.New("Not implemented")
 }
 
 // GetPendingNonce returns pending nonce in pool or confirmed nonce given an account address
@@ -446,6 +462,10 @@ func (ap *actPool) removeInvalidActs(acts []*iproto.ActionPb) {
 			vote := &action.Vote{}
 			vote.ConvertFromActionPb(act)
 			hash = vote.Hash()
+		case act.GetExecution() != nil:
+			execution := &action.Execution{}
+			execution.ConvertFromExecutionPb(act.GetExecution())
+			hash = execution.Hash()
 		}
 		logger.Debug().
 			Hex("hash", hash[:]).

@@ -83,7 +83,7 @@ func TestActPool_validateTsf(t *testing.T) {
 	prevTsf, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(50))
 	err = ap.AddTsf(prevTsf)
 	require.NoError(err)
-	err = bc.CommitStateChanges(0, []*action.Transfer{prevTsf}, nil)
+	err = bc.CommitStateChanges(0, []*action.Transfer{prevTsf}, nil, nil)
 	require.Nil(err)
 	ap.Reset()
 	nTsf, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(60))
@@ -126,7 +126,7 @@ func TestActPool_validateVote(t *testing.T) {
 	prevTsf, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(50))
 	err = ap.AddTsf(prevTsf)
 	require.NoError(err)
-	err = bc.CommitStateChanges(0, []*action.Transfer{prevTsf}, nil)
+	err = bc.CommitStateChanges(0, []*action.Transfer{prevTsf}, nil, nil)
 	require.Nil(err)
 	ap.Reset()
 	nVote, _ := signedVote(addr1, addr1, uint64(1))
@@ -290,25 +290,28 @@ func TestActPool_PickActs(t *testing.T) {
 	t.Run("no-limit", func(t *testing.T) {
 		apConfig := getActPoolCfg()
 		ap, transfers, votes := createActPool(apConfig)
-		pickedTsfs, pickedVotes := ap.PickActs()
+		pickedTsfs, pickedVotes, pickedExecutions := ap.PickActs()
 		require.Equal(t, transfers, pickedTsfs)
 		require.Equal(t, votes, pickedVotes)
+		require.Equal(t, []*action.Execution{}, pickedExecutions)
 	})
 	t.Run("enough-limit", func(t *testing.T) {
 		apConfig := getActPoolCfg()
 		apConfig.MaxNumActsToPick = 10
 		ap, transfers, votes := createActPool(apConfig)
-		pickedTsfs, pickedVotes := ap.PickActs()
+		pickedTsfs, pickedVotes, pickedExecutions := ap.PickActs()
 		require.Equal(t, transfers, pickedTsfs)
 		require.Equal(t, votes, pickedVotes)
+		require.Equal(t, []*action.Execution{}, pickedExecutions)
 	})
 	t.Run("low-limit", func(t *testing.T) {
 		apConfig := getActPoolCfg()
 		apConfig.MaxNumActsToPick = 3
 		ap, transfers, _ := createActPool(apConfig)
-		pickedTsfs, pickedVotes := ap.PickActs()
+		pickedTsfs, pickedVotes, pickedExecutions := ap.PickActs()
 		require.Equal(t, transfers[:3], pickedTsfs)
 		require.Equal(t, []*action.Vote{}, pickedVotes)
+		require.Equal(t, []*action.Execution{}, pickedExecutions)
 	})
 }
 
@@ -341,7 +344,7 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 
 	require.Equal(4, len(ap.allActions))
 	require.NotNil(ap.accountActs[addr1.RawAddress])
-	err = bc.CommitStateChanges(0, []*action.Transfer{tsf1, tsf2, tsf3}, []*action.Vote{vote4})
+	err = bc.CommitStateChanges(0, []*action.Transfer{tsf1, tsf2, tsf3}, []*action.Vote{vote4}, nil)
 	require.Nil(err)
 	ap.removeConfirmedActs()
 	require.Equal(0, len(ap.allActions))
@@ -457,9 +460,9 @@ func TestActPool_Reset(t *testing.T) {
 	ap2PBalance3, _ := ap2.getPendingBalance(addr3.RawAddress)
 	require.Equal(big.NewInt(50).Uint64(), ap2PBalance3.Uint64())
 	// Let ap1 be BP's actpool
-	pickedTsfs, pickedVotes := ap1.PickActs()
+	pickedTsfs, pickedVotes, pickedExecutions := ap1.PickActs()
 	// ap1 commits update of accounts to trie
-	err = bc.CommitStateChanges(0, pickedTsfs, pickedVotes)
+	err = bc.CommitStateChanges(0, pickedTsfs, pickedVotes, pickedExecutions)
 	require.Nil(err)
 	//Reset
 	ap1.Reset()
@@ -553,9 +556,9 @@ func TestActPool_Reset(t *testing.T) {
 	ap2PBalance3, _ = ap2.getPendingBalance(addr3.RawAddress)
 	require.Equal(big.NewInt(180).Uint64(), ap2PBalance3.Uint64())
 	// Let ap2 be BP's actpool
-	pickedTsfs, pickedVotes = ap2.PickActs()
+	pickedTsfs, pickedVotes, pickedExecutions = ap2.PickActs()
 	// ap2 commits update of accounts to trie
-	err = bc.CommitStateChanges(0, pickedTsfs, pickedVotes)
+	err = bc.CommitStateChanges(0, pickedTsfs, pickedVotes, pickedExecutions)
 	require.Nil(err)
 	//Reset
 	ap1.Reset()
@@ -633,9 +636,9 @@ func TestActPool_Reset(t *testing.T) {
 	ap1PBalance5, _ := ap1.getPendingBalance(addr5.RawAddress)
 	require.Equal(big.NewInt(10).Uint64(), ap1PBalance5.Uint64())
 	// Let ap1 be BP's actpool
-	pickedTsfs, pickedVotes = ap1.PickActs()
+	pickedTsfs, pickedVotes, pickedExecutions = ap1.PickActs()
 	// ap1 commits update of accounts to trie
-	err = bc.CommitStateChanges(0, pickedTsfs, pickedVotes)
+	err = bc.CommitStateChanges(0, pickedTsfs, pickedVotes, pickedExecutions)
 	require.Nil(err)
 	//Reset
 	ap1.Reset()

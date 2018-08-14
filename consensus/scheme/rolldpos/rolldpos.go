@@ -139,12 +139,12 @@ func (ctx *rollDPoSCtx) calcProposer(height uint64, delegates []string) (string,
 
 // mintBlock picks the actions and creates an block to propose
 func (ctx *rollDPoSCtx) mintBlock() (*blockchain.Block, error) {
-	transfers, votes := ctx.actPool.PickActs()
+	transfers, votes, executions := ctx.actPool.PickActs()
 	logger.Debug().
 		Int("transfer", len(transfers)).
 		Int("votes", len(votes)).
 		Msg("pick actions from the action pool")
-	blk, err := ctx.chain.MintNewBlock(transfers, votes, ctx.addr, "")
+	blk, err := ctx.chain.MintNewBlock(transfers, votes, executions, ctx.addr, "")
 	if err != nil {
 		logger.Error().Msg("error when minting a block")
 		return nil, err

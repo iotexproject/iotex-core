@@ -47,7 +47,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	tsf6, _ := action.NewTransfer(6, big.NewInt(50<<20), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["foxtrot"].RawAddress)
 	tsf6, _ = tsf6.Sign(ta.Addrinfo["producer"])
 
-	blk, err := bc.MintNewBlock([]*action.Transfer{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}, nil, ta.Addrinfo["producer"], "")
+	blk, err := bc.MintNewBlock([]*action.Transfer{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}, nil, nil, ta.Addrinfo["producer"], "")
 	if err != nil {
 		return err
 	}
@@ -67,7 +67,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	tsf4, _ = tsf4.Sign(ta.Addrinfo["charlie"])
 	tsf5, _ = action.NewTransfer(5, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["producer"].RawAddress)
 	tsf5, _ = tsf5.Sign(ta.Addrinfo["charlie"])
-	blk, err = bc.MintNewBlock([]*action.Transfer{tsf1, tsf2, tsf3, tsf4, tsf5}, nil, ta.Addrinfo["producer"], "")
+	blk, err = bc.MintNewBlock([]*action.Transfer{tsf1, tsf2, tsf3, tsf4, tsf5}, nil, nil, ta.Addrinfo["producer"], "")
 	if err != nil {
 		return err
 	}
@@ -85,7 +85,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	tsf3, _ = tsf3.Sign(ta.Addrinfo["delta"])
 	tsf4, _ = action.NewTransfer(4, big.NewInt(1), ta.Addrinfo["delta"].RawAddress, ta.Addrinfo["producer"].RawAddress)
 	tsf4, _ = tsf4.Sign(ta.Addrinfo["delta"])
-	blk, err = bc.MintNewBlock([]*action.Transfer{tsf1, tsf2, tsf3, tsf4}, nil, ta.Addrinfo["producer"], "")
+	blk, err = bc.MintNewBlock([]*action.Transfer{tsf1, tsf2, tsf3, tsf4}, nil, nil, ta.Addrinfo["producer"], "")
 	if err != nil {
 		return err
 	}
@@ -119,7 +119,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 		return err
 	}
 
-	blk, err = bc.MintNewBlock([]*action.Transfer{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}, []*action.Vote{vote1, vote2}, ta.Addrinfo["producer"], "")
+	blk, err = bc.MintNewBlock([]*action.Transfer{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}, []*action.Vote{vote1, vote2}, nil, ta.Addrinfo["producer"], "")
 	if err != nil {
 		return err
 	}
@@ -298,7 +298,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	// add block with wrong height
 	cbTsf := action.NewCoinBaseTransfer(big.NewInt(50), ta.Addrinfo["bravo"].RawAddress)
 	require.NotNil(cbTsf)
-	blk = NewBlock(0, h+2, hash, []*action.Transfer{cbTsf}, nil)
+	blk = NewBlock(0, h+2, hash, []*action.Transfer{cbTsf}, nil, nil)
 	err = bc.ValidateBlock(blk)
 	require.NotNil(err)
 	fmt.Printf("Cannot validate block %d: %v\n", blk.Height(), err)
@@ -306,7 +306,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	// add block with zero prev hash
 	cbTsf2 := action.NewCoinBaseTransfer(big.NewInt(50), ta.Addrinfo["bravo"].RawAddress)
 	require.NotNil(cbTsf2)
-	blk = NewBlock(0, h+1, _hash.ZeroHash32B, []*action.Transfer{cbTsf2}, nil)
+	blk = NewBlock(0, h+1, _hash.ZeroHash32B, []*action.Transfer{cbTsf2}, nil, nil)
 	err = bc.ValidateBlock(blk)
 	require.NotNil(err)
 	fmt.Printf("Cannot validate block %d: %v\n", blk.Height(), err)
@@ -492,7 +492,7 @@ func TestCoinbaseTransfer(t *testing.T) {
 	require.Equal(0, int(height))
 
 	transfers := []*action.Transfer{}
-	blk, err := bc.MintNewBlock(transfers, nil, ta.Addrinfo["producer"], "")
+	blk, err := bc.MintNewBlock(transfers, nil, nil, ta.Addrinfo["producer"], "")
 	require.Nil(err)
 	s, err := bc.StateByAddr(ta.Addrinfo["producer"].RawAddress)
 	require.Nil(err)
@@ -561,7 +561,7 @@ func TestBlocks(t *testing.T) {
 			tsf, _ = tsf.Sign(a)
 			tsfs = append(tsfs, tsf)
 		}
-		blk, _ := bc.MintNewBlock(tsfs, nil, ta.Addrinfo["producer"], "")
+		blk, _ := bc.MintNewBlock(tsfs, nil, nil, ta.Addrinfo["producer"], "")
 		err := bc.CommitBlock(blk)
 		require.Nil(err)
 	}
@@ -606,7 +606,7 @@ func TestActions(t *testing.T) {
 		vote, _ = vote.Sign(a)
 		votes = append(votes, vote)
 	}
-	blk, _ := bc.MintNewBlock(tsfs, votes, ta.Addrinfo["producer"], "")
+	blk, _ := bc.MintNewBlock(tsfs, votes, nil, ta.Addrinfo["producer"], "")
 	require.Nil(val.Validate(blk, 0, blk.PrevHash()))
 }
 
@@ -629,7 +629,7 @@ func TestDummyReplacement(t *testing.T) {
 	// Create a blockchain from scratch
 	bc := NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	dummy := bc.MintNewDummyBlock()
-	realBlock, err := bc.MintNewBlock(nil, nil, ta.Addrinfo["producer"], "")
+	realBlock, err := bc.MintNewBlock(nil, nil, nil, ta.Addrinfo["producer"], "")
 	require.NotNil(realBlock)
 	require.NoError(err)
 	err = bc.CommitBlock(dummy)
@@ -644,16 +644,16 @@ func TestDummyReplacement(t *testing.T) {
 	require.NoError(err)
 	require.Equal(realBlock.HashBlock(), actualRealBlock.HashBlock())
 
-	block2, err := bc.MintNewBlock(nil, nil, ta.Addrinfo["producer"], "")
+	block2, err := bc.MintNewBlock(nil, nil, nil, ta.Addrinfo["producer"], "")
 	require.NoError(err)
 	err = bc.CommitBlock(block2)
 	require.NoError(err)
-	block3, err := bc.MintNewBlock(nil, nil, ta.Addrinfo["producer"], "")
+	block3, err := bc.MintNewBlock(nil, nil, nil, ta.Addrinfo["producer"], "")
 	dummyBlock3 := bc.MintNewDummyBlock()
 	require.NoError(err)
 	err = bc.CommitBlock(dummyBlock3)
 	require.NoError(err)
-	block4, err := bc.MintNewBlock(nil, nil, ta.Addrinfo["producer"], "")
+	block4, err := bc.MintNewBlock(nil, nil, nil, ta.Addrinfo["producer"], "")
 	require.NoError(err)
 	err = bc.CommitBlock(block4)
 	require.NoError(err)

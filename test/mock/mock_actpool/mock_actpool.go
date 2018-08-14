@@ -45,11 +45,12 @@ func (mr *MockActPoolMockRecorder) Reset() *gomock.Call {
 }
 
 // PickActs mocks base method
-func (m *MockActPool) PickActs() ([]*action.Transfer, []*action.Vote) {
+func (m *MockActPool) PickActs() ([]*action.Transfer, []*action.Vote, []*action.Execution) {
 	ret := m.ctrl.Call(m, "PickActs")
 	ret0, _ := ret[0].([]*action.Transfer)
 	ret1, _ := ret[1].([]*action.Vote)
-	return ret0, ret1
+	ret2, _ := ret[2].([]*action.Execution)
+	return ret0, ret1, ret2
 }
 
 // PickActs indicates an expected call of PickActs
@@ -79,6 +80,18 @@ func (m *MockActPool) AddVote(vote *action.Vote) error {
 // AddVote indicates an expected call of AddVote
 func (mr *MockActPoolMockRecorder) AddVote(vote interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddVote", reflect.TypeOf((*MockActPool)(nil).AddVote), vote)
+}
+
+// AddExecution mocks base method
+func (m *MockActPool) AddExecution(execution *action.Execution) error {
+	ret := m.ctrl.Call(m, "AddExecution", execution)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AddExecution indicates an expected call of AddExecution
+func (mr *MockActPoolMockRecorder) AddExecution(execution interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddExecution", reflect.TypeOf((*MockActPool)(nil).AddExecution), execution)
 }
 
 // GetPendingNonce mocks base method
