@@ -573,11 +573,13 @@ func TestHandleVoteEvt(t *testing.T) {
 			ctrl,
 			delegates,
 			func(chain *mock_blockchain.MockBlockchain) {
-				//chain.EXPECT().CommitBlock(gomock.Any()).Return(nil).Times(1)
-				chain.EXPECT().MintNewDummyBlock().Return(blockchain.NewBlock(0, 0, hash.ZeroHash32B, nil, nil)).Times(1)
+				chain.EXPECT().CommitBlock(gomock.Any()).Return(nil).Times(1)
+				chain.EXPECT().
+					MintNewDummyBlock().
+					Return(blockchain.NewBlock(0, 0, hash.ZeroHash32B, nil, nil)).Times(1)
 			},
 			func(p2p *mock_network.MockOverlay) {
-				//p2p.EXPECT().Broadcast(gomock.Any()).Return(nil).Times(1)
+				p2p.EXPECT().Broadcast(gomock.Any()).Return(nil).Times(1)
 			},
 		)
 		cfsm.ctx.epoch = epoch
