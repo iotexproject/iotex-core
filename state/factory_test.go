@@ -764,6 +764,31 @@ func TestLoadStoreContract(t *testing.T) {
 	require.Nil(sf.Stop(context.Background()))
 }
 
+func TestLoadStoreHeight(t *testing.T) {
+	require := require.New(t)
+
+	cfg := config.Default
+	cfg.Chain.TrieDBPath = testTriePath
+
+	testutil.CleanupPath(t, testTriePath)
+	defer testutil.CleanupPath(t, testTriePath)
+	statefactory, err := NewFactory(&cfg, DefaultTrieOption())
+	require.Nil(err)
+	require.Nil(statefactory.Start(context.Background()))
+
+	sf := statefactory.(*factory)
+
+	sf.accountTrie.TrieDB().Put(trie.AccountKVNameSpace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0))
+	height, err := sf.Height()
+	require.NoError(err)
+	require.Equal(uint64(0), height)
+
+	sf.accountTrie.TrieDB().Put(trie.AccountKVNameSpace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(10))
+	height, err = sf.Height()
+	require.NoError(err)
+	require.Equal(uint64(10), height)
+}
+
 func compareStrings(actual []string, expected []string) bool {
 	act := make(map[string]bool)
 	for i := 0; i < len(actual); i++ {
