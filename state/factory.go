@@ -55,8 +55,8 @@ type (
 		CommitStateChanges(uint64, []*action.Transfer, []*action.Vote) error
 		// Contracts
 		CreateContract(addr string, code []byte) (string, error)
-		GetCodeHash(addr string) hash.Hash32B
-		GetCode(addr string) []byte
+		GetCodeHash(addr hash.AddrHash) hash.Hash32B
+		GetCode(addr hash.AddrHash) []byte
 		// Candidate pool
 		Candidates() (uint64, []*Candidate)
 		CandidatesByHeight(uint64) ([]*Candidate, error)
@@ -70,12 +70,12 @@ type (
 		numCandidates      uint
 		cachedCandidates   map[string]*Candidate
 		// accounts
-		cachedAccount  map[string]*State   // accounts being modified in this Tx
-		cachedContract map[string]Contract // contracts being modified in this Tx
-		accountTrie    trie.Trie           // global state trie
-		contractTrie   trie.Trie           // contract storage trie
-		candidateTrie  trie.Trie           // candidate storage trie
-		codeDB         db.KVStore          // code storage DB
+		cachedAccount  map[string]*State          // accounts being modified in this Tx
+		cachedContract map[hash.AddrHash]Contract // contracts being modified in this Tx
+		accountTrie    trie.Trie                  // global state trie
+		contractTrie   trie.Trie                  // contract storage trie
+		candidateTrie  trie.Trie                  // candidate storage trie
+		codeDB         db.KVStore                 // code storage DB
 	}
 )
 
@@ -139,7 +139,7 @@ func NewFactory(cfg *config.Config, opts ...FactoryOption) (Factory, error) {
 		numCandidates:      cfg.Chain.NumCandidates,
 		cachedCandidates:   make(map[string]*Candidate),
 		cachedAccount:      make(map[string]*State),
-		cachedContract:     make(map[string]Contract),
+		cachedContract:     make(map[hash.AddrHash]Contract),
 	}
 
 	for _, opt := range opts {
@@ -167,8 +167,12 @@ func (sf *factory) Stop(ctx context.Context) error { return sf.lifecycle.OnStop(
 // LoadOrCreateState loads existing or adds a new State with initial balance to the factory
 // addr should be a bech32 properly-encoded string
 func (sf *factory) LoadOrCreateState(addr string, init uint64) (*State, error) {
+	pkHash, err := iotxaddress.GetPubkeyHash(addr)
+	if err != nil {
+		return nil, errors.Wrap(err, "error when getting the pubkey hash")
+	}
 	// only create if the address did not exist yet
-	state, err := sf.getState(addr)
+	state, err := sf.getState(byteutil.BytesTo20B(pkHash))
 	switch {
 	case errors.Cause(err) == ErrAccountNotExist:
 		if state, err = sf.createState(addr, init); err != nil {
@@ -182,7 +186,11 @@ func (sf *factory) LoadOrCreateState(addr string, init uint64) (*State, error) {
 
 // Balance returns balance
 func (sf *factory) Balance(addr string) (*big.Int, error) {
-	state, err := sf.getState(addr)
+	pkHash, err := iotxaddress.GetPubkeyHash(addr)
+	if err != nil {
+		return nil, errors.Wrap(err, "error when getting the pubkey hash")
+	}
+	state, err := sf.getState(byteutil.BytesTo20B(pkHash))
 	if err != nil {
 		return nil, err
 	}
@@ -191,7 +199,11 @@ func (sf *factory) Balance(addr string) (*big.Int, error) {
 
 // Nonce returns the nonce if the account exists
 func (sf *factory) Nonce(addr string) (uint64, error) {
-	state, err := sf.getState(addr)
+	pkHash, err := iotxaddress.GetPubkeyHash(addr)
+	if err != nil {
+		return 0, errors.Wrap(err, "error when getting the pubkey hash")
+	}
+	state, err := sf.getState(byteutil.BytesTo20B(pkHash))
 	if err != nil {
 		return 0, err
 	}
@@ -200,7 +212,11 @@ func (sf *factory) Nonce(addr string) (uint64, error) {
 
 // State returns the state if the address exists
 func (sf *factory) State(addr string) (*State, error) {
-	return sf.getState(addr)
+	pkHash, err := iotxaddress.GetPubkeyHash(addr)
+	if err != nil {
+		return nil, errors.Wrap(err, "error when getting the pubkey hash")
+	}
+	return sf.getState(byteutil.BytesTo20B(pkHash))
 }
 
 // RootHash returns the hash of the root node of the trie
@@ -224,12 +240,10 @@ func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer
 		if err != nil {
 			return err
 		}
-		pkhash, err := iotxaddress.GetPubkeyHash(address)
+		addr, err := iotxaddress.GetPubkeyHash(address)
 		if err != nil {
 			return errors.Wrap(err, "error when getting the pubkey hash")
 		}
-		addr := make([]byte, len(pkhash))
-		copy(addr, pkhash[:])
 		if err := sf.accountTrie.Upsert(addr, ss); err != nil {
 			return err
 		}
@@ -264,7 +278,7 @@ func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer
 		return errors.Wrapf(err, "failed to insert candidates on height %d into candidateTrie", blockHeight)
 	}
 	// update pending contract changes
-	for address, contract := range sf.cachedContract {
+	for addr, contract := range sf.cachedContract {
 		if err := contract.Commit(); err != nil {
 			return err
 		}
@@ -273,13 +287,7 @@ func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer
 		if err != nil {
 			return err
 		}
-		pkhash, err := iotxaddress.GetPubkeyHash(address)
-		if err != nil {
-			return errors.Wrap(err, "error when getting the pubkey hash")
-		}
-		addr := make([]byte, len(pkhash))
-		copy(addr, pkhash[:])
-		if err := sf.accountTrie.Upsert(addr, ss); err != nil {
+		if err := sf.accountTrie.Upsert(addr[:], ss); err != nil {
 			return err
 		}
 	}
@@ -300,27 +308,30 @@ func (sf *factory) CreateContract(addr string, code []byte) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	hash, err := iotxaddress.GetPubkeyHash(contractAddr)
+	if err != nil {
+		return "", errors.Wrap(err, "error when getting the pubkey hash")
+	}
 	// only create when contract addr does not exist yet
-	if _, err := sf.getContract(contractAddr); errors.Cause(err) != ErrAccountNotExist {
+	contractHash := byteutil.BytesTo20B(hash)
+	if _, err := sf.getContract(contractHash); errors.Cause(err) != ErrAccountNotExist {
 		return "", ErrAccountCollision
 	}
-	if _, err = sf.createContract(contractAddr, code); err != nil {
+	if _, err = sf.createContract(contractHash, code); err != nil {
 		return "", errors.Wrapf(err, "Failed to create contract")
 	}
 	return contractAddr, nil
 }
 
-func (sf *factory) GetCodeHash(addr string) hash.Hash32B {
-	codeHash := hash.ZeroHash32B
+func (sf *factory) GetCodeHash(addr hash.AddrHash) hash.Hash32B {
 	state, err := sf.getContract(addr)
 	if err != nil || state.CodeHash == nil {
-		return codeHash
+		return hash.ZeroHash32B
 	}
-	copy(codeHash[:], state.CodeHash)
-	return codeHash
+	return byteutil.BytesTo32B(state.CodeHash)
 }
 
-func (sf *factory) GetCode(addr string) []byte {
+func (sf *factory) GetCode(addr hash.AddrHash) []byte {
 	codeHash := sf.GetCodeHash(addr)
 	if codeHash == hash.ZeroHash32B {
 		return nil
@@ -331,6 +342,11 @@ func (sf *factory) GetCode(addr string) []byte {
 		return nil
 	}
 	return code
+}
+
+func (sf *factory) GetState(contract, key hash.Hash32B) hash.Hash32B {
+	//if _, err := sf.getContract(contract)
+	return hash.ZeroHash32B
 }
 
 //======================================
@@ -370,12 +386,8 @@ func (sf *factory) CandidatesByHeight(height uint64) ([]*Candidate, error) {
 // private state/account functions
 //======================================
 // getState pulls an existing State
-func (sf *factory) getState(addr string) (*State, error) {
-	pubKeyHash, err := iotxaddress.GetPubkeyHash(addr)
-	if err != nil {
-		return nil, errors.Wrap(err, "error when getting the pubkey hash")
-	}
-	mstate, err := sf.accountTrie.Get(pubKeyHash)
+func (sf *factory) getState(hash hash.AddrHash) (*State, error) {
+	mstate, err := sf.accountTrie.Get(hash[:])
 	if errors.Cause(err) == trie.ErrNotExist {
 		return nil, ErrAccountNotExist
 	}
@@ -405,10 +417,14 @@ func (sf *factory) createState(addr string, init uint64) (*State, error) {
 }
 
 func (sf *factory) cache(addr string) (*State, error) {
+	pkHash, err := iotxaddress.GetPubkeyHash(addr)
+	if err != nil {
+		return nil, errors.Wrap(err, "error when getting the pubkey hash")
+	}
 	if state, exist := sf.cachedAccount[addr]; exist {
 		return state, nil
 	}
-	state, err := sf.getState(addr)
+	state, err := sf.getState(byteutil.BytesTo20B(pkHash))
 	switch {
 	case errors.Cause(err) == ErrAccountNotExist:
 		state, err = sf.LoadOrCreateState(addr, 0)
@@ -422,11 +438,7 @@ func (sf *factory) cache(addr string) (*State, error) {
 	return state, nil
 }
 
-func (sf *factory) createContract(addr string, code []byte) (*State, error) {
-	addrHash, err := iotxaddress.GetPubkeyHash(addr)
-	if addrHash == nil || err != nil {
-		return nil, ErrAccountNotExist
-	}
+func (sf *factory) createContract(addr hash.AddrHash, code []byte) (*State, error) {
 	s := State{
 		Balance:      big.NewInt(0),
 		VotingWeight: big.NewInt(0),
@@ -442,7 +454,7 @@ func (sf *factory) createContract(addr string, code []byte) (*State, error) {
 	return &s, nil
 }
 
-func (sf *factory) getContract(addr string) (*State, error) {
+func (sf *factory) getContract(addr hash.AddrHash) (*State, error) {
 	// find in local cache
 	if contract, ok := sf.cachedContract[addr]; ok {
 		return contract.SelfState(), nil
