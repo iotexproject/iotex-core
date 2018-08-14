@@ -553,7 +553,7 @@ func (bc *blockchain) commitBlock(blk *Block) error {
 	bc.tipHash = blk.HashBlock()
 
 	// update state factory
-	if bc.sf == nil || (blk.Transfers == nil && blk.Votes == nil) {
+	if bc.sf == nil {
 		return nil
 	}
 	err := bc.sf.CommitStateChanges(blk.Height(), blk.Transfers, blk.Votes, blk.Executions)
