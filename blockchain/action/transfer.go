@@ -33,9 +33,6 @@ var (
 	ErrAddr = errors.New("address error")
 )
 
-// versionSizeInBytes defines the size of version in byte units
-const versionSizeInBytes = 4
-
 // EmptyAddress defines the size of version in byte units
 const EmptyAddress = "00000000000000000000000000000000"
 
@@ -96,7 +93,7 @@ func (tsf *Transfer) IsContract() bool {
 
 // TotalSize returns the total size of this Transfer
 func (tsf *Transfer) TotalSize() uint32 {
-	size := versionSizeInBytes
+	size := VersionSizeInBytes
 	// add nonce, amount, sender, receipt, and payload sizes
 	size += NonceSizeInBytes
 	size += BooleanSizeInBytes

@@ -56,6 +56,22 @@ struct Transfer {
     blockID string
 }
 
+struct Execution {
+    version int
+    ID string
+    nonce int
+    executor string
+    contract string
+    amount int
+    executorPubKey string
+    signature string
+    gas int
+    gasPrice int
+    timestamp int
+    data string
+    blockID string
+}
+
 struct Vote {
     version int
     ID string
