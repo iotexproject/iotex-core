@@ -32,7 +32,7 @@ func generate(args []string) string {
 	for i := 0; i < _addrNum; i++ {
 		addr, err := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
 		if err != nil {
-			logger.Fatal().Err(err).Msgf("failed to create address: %v", err)
+			logger.Fatal().Err(err).Msg("failed to create address")
 		}
 		out += fmt.Sprintf("Public Key: %x\nPrivate Key: %x\nRaw Address: %s\n\n",
 			addr.PublicKey, addr.PrivateKey, addr.RawAddress)

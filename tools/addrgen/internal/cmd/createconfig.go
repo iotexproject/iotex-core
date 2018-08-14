@@ -24,7 +24,7 @@ var createConfigCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		addr, err := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
 		if err != nil {
-			logger.Fatal().Err(err).Msgf("failed to create address: %v", err)
+			logger.Fatal().Err(err).Msg("failed to create address")
 		}
 		cfgStr := fmt.Sprintf(
 			`chain:
@@ -35,7 +35,7 @@ var createConfigCmd = &cobra.Command{
 			addr.PublicKey,
 		)
 		if err := ioutil.WriteFile(_outputFile, []byte(cfgStr), 0666); err != nil {
-			logger.Fatal().Err(err).Msgf("failed to write file: %v", err)
+			logger.Fatal().Err(err).Msgf("failed to write file")
 		}
 	},
 }
