@@ -702,6 +702,13 @@ func TestLoadStoreContract(t *testing.T) {
 	require.NotEqual(hash.ZeroHash32B, codeHash)
 	v, _ := sf.GetCode(contract)
 	require.Equal(code, v)
+	// insert entries into storage
+	k1 := byteutil.BytesTo32B(hash.Hash160b([]byte("cat")))
+	v1 := byteutil.BytesTo32B(hash.Hash256b([]byte("cat")))
+	k2 := byteutil.BytesTo32B(hash.Hash160b([]byte("dog")))
+	v2 := byteutil.BytesTo32B(hash.Hash256b([]byte("dog")))
+	require.Nil(sf.SetContractState(contract, k1, v1))
+	require.Nil(sf.SetContractState(contract, k2, v2))
 
 	code1 := []byte("2nd contract creation")
 	contractAddr1, err := sf.CreateContract(addr1.RawAddress, code1)
@@ -714,8 +721,46 @@ func TestLoadStoreContract(t *testing.T) {
 	require.NotEqual(hash.ZeroHash32B, codeHash1)
 	v, _ = sf.GetCode(contract1)
 	require.Equal(code1, v)
+	// insert entries into storage
+	k3 := byteutil.BytesTo32B(hash.Hash160b([]byte("egg")))
+	v3 := byteutil.BytesTo32B(hash.Hash256b([]byte("egg")))
+	k4 := byteutil.BytesTo32B(hash.Hash160b([]byte("hen")))
+	v4 := byteutil.BytesTo32B(hash.Hash256b([]byte("hen")))
+	require.Nil(sf.SetContractState(contract1, k3, v3))
+	require.Nil(sf.SetContractState(contract1, k4, v4))
+
 	require.Nil(sf.CommitStateChanges(0, nil, nil, nil))
 	root = sf.RootHash()
+	require.Nil(sf.Stop(context.Background()))
+
+	// re-open the StateFactory
+	tr, err := trie.NewTrie(db.NewBoltDB(testTriePath, nil), trie.AccountKVNameSpace, root)
+	require.Nil(err)
+	sf, err = NewFactory(&cfg, PrecreatedTrieOption(tr, nil))
+	require.Nil(err)
+	require.Nil(sf.Start(context.Background()))
+	// query first contract
+	w, err := sf.GetContractState(contract, k1)
+	require.Nil(err)
+	require.Equal(v1, w)
+	w, err = sf.GetContractState(contract, k2)
+	require.Nil(err)
+	require.Equal(v2, w)
+	w, err = sf.GetContractState(contract, k3)
+	require.Equal(trie.ErrNotExist, errors.Cause(err))
+	w, err = sf.GetContractState(contract, k4)
+	require.Equal(trie.ErrNotExist, errors.Cause(err))
+	// query second contract
+	w, err = sf.GetContractState(contract1, k3)
+	require.Nil(err)
+	require.Equal(v3, w)
+	w, err = sf.GetContractState(contract1, k4)
+	require.Nil(err)
+	require.Equal(v4, w)
+	w, err = sf.GetContractState(contract1, k1)
+	require.Equal(trie.ErrNotExist, errors.Cause(err))
+	w, err = sf.GetContractState(contract1, k2)
+	require.Equal(trie.ErrNotExist, errors.Cause(err))
 	require.Nil(sf.Stop(context.Background()))
 }
 

@@ -60,11 +60,12 @@ func (c *contract) RootHash() hash.Hash32B {
 }
 
 // newContract returns a Contract instance
-func newContract(tr trie.Trie, state *State, root hash.Hash32B) Contract {
+func newContract(tr trie.Trie, state *State) Contract {
 	c := contract{
 		State: *state,
 		trie:  tr,
 	}
 	c.trie.Start(context.Background())
+	c.trie.EnableBatch()
 	return &c
 }
