@@ -199,7 +199,7 @@ func TestBlockSyncer_ProcessBlock_TipHeightError(t *testing.T) {
 
 	bs, err := NewBlockSyncer(cfgFullNode, mBc, nil, p2p)
 	assert.Nil(err)
-	blk := bc.NewBlock(uint32(123), uint64(4), hash.Hash32B{}, nil, nil)
+	blk := bc.NewBlock(uint32(123), uint64(4), hash.Hash32B{}, nil, nil, nil)
 	bs.(*blockSyncer).ackBlockCommit = false
 	assert.Nil(bs.ProcessBlock(blk))
 
@@ -230,7 +230,7 @@ func TestBlockSyncer_ProcessBlock_TipHeight(t *testing.T) {
 	bs, err := NewBlockSyncer(cfgFullNode, mBc, ap, p2p)
 	assert.Nil(err)
 	vote, _ := action.NewVote(1, "abc", "abc")
-	blk := bc.NewBlock(uint32(123), uint64(4), hash.Hash32B{}, nil, []*action.Vote{vote})
+	blk := bc.NewBlock(uint32(123), uint64(4), hash.Hash32B{}, nil, []*action.Vote{vote}, nil)
 	mBc.EXPECT().GetBlockByHeight(gomock.Any()).AnyTimes().Return(blk, nil)
 
 	bs.(*blockSyncer).ackBlockCommit = true
@@ -239,15 +239,15 @@ func TestBlockSyncer_ProcessBlock_TipHeight(t *testing.T) {
 
 	// special case
 	bs.(*blockSyncer).state = Idle
-	blkHeightSpecial := bc.NewBlock(uint32(123), uint64(6), hash.Hash32B{}, nil, nil)
+	blkHeightSpecial := bc.NewBlock(uint32(123), uint64(6), hash.Hash32B{}, nil, nil, nil)
 	assert.Nil(bs.ProcessBlock(blkHeightSpecial))
 
 	// < block height
-	blkHeightLess := bc.NewBlock(uint32(123), uint64(4), hash.Hash32B{}, nil, nil)
+	blkHeightLess := bc.NewBlock(uint32(123), uint64(4), hash.Hash32B{}, nil, nil, nil)
 	assert.Error(bs.ProcessBlock(blkHeightLess))
 
 	// > block height
-	blkHeightMore := bc.NewBlock(uint32(123), uint64(7), hash.Hash32B{}, nil, nil)
+	blkHeightMore := bc.NewBlock(uint32(123), uint64(7), hash.Hash32B{}, nil, nil, nil)
 	assert.Nil(bs.ProcessBlock(blkHeightMore))
 }
 
@@ -275,7 +275,7 @@ func TestBlockSyncer_ProcessBlockSync(t *testing.T) {
 	bs, err := NewBlockSyncer(cfgFullNode, mBc, ap, p2p)
 	assert.Nil(err)
 	vote, _ := action.NewVote(1, "abc", "abc")
-	blk := bc.NewBlock(uint32(123), uint64(4), hash.Hash32B{}, nil, []*action.Vote{vote})
+	blk := bc.NewBlock(uint32(123), uint64(4), hash.Hash32B{}, nil, []*action.Vote{vote}, nil)
 	mBc.EXPECT().GetBlockByHeight(gomock.Any()).AnyTimes().Return(blk, nil)
 	bs.(*blockSyncer).ackBlockSync = false
 	assert.Nil(bs.ProcessBlockSync(blk))
@@ -310,11 +310,11 @@ func TestBlockSyncer_Sync(t *testing.T) {
 		testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
 	}()
 
-	blk, err := chain.MintNewBlock(nil, nil, ta.Addrinfo["producer"], "")
+	blk, err := chain.MintNewBlock(nil, nil, nil, ta.Addrinfo["producer"], "")
 	require.NotNil(blk)
 	require.Nil(bs.ProcessBlock(blk))
 
-	blk, err = chain.MintNewBlock(nil, nil, ta.Addrinfo["producer"], "")
+	blk, err = chain.MintNewBlock(nil, nil, nil, ta.Addrinfo["producer"], "")
 	require.NotNil(blk)
 	require.Nil(bs.ProcessBlock(blk))
 	time.Sleep(time.Millisecond << 7)

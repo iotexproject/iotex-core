@@ -15,15 +15,15 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/blake2b"
 
-	"github.com/iotexproject/iotex-core-internal/crypto"
-	"github.com/iotexproject/iotex-core-internal/explorer/idl/explorer"
-	"github.com/iotexproject/iotex-core-internal/iotxaddress"
-	"github.com/iotexproject/iotex-core-internal/logger"
-	"github.com/iotexproject/iotex-core-internal/pkg/enc"
-	"github.com/iotexproject/iotex-core-internal/pkg/hash"
-	"github.com/iotexproject/iotex-core-internal/pkg/keypair"
-	"github.com/iotexproject/iotex-core-internal/pkg/version"
-	"github.com/iotexproject/iotex-core-internal/proto"
+	"github.com/iotexproject/iotex-core/crypto"
+	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
+	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/pkg/enc"
+	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"github.com/iotexproject/iotex-core/pkg/version"
+	"github.com/iotexproject/iotex-core/proto"
 )
 
 var (

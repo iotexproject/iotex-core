@@ -48,7 +48,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	// test --> A, B, C, D, E, F
 	tsf, _ := action.NewTransfer(1, big.NewInt(10), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["charlie"].RawAddress)
 	tsf, _ = tsf.Sign(ta.Addrinfo["producer"])
-	blk, err := bc.MintNewBlock([]*action.Transfer{tsf}, nil, ta.Addrinfo["producer"], "")
+	blk, err := bc.MintNewBlock([]*action.Transfer{tsf}, nil, nil, ta.Addrinfo["producer"], "")
 	if err != nil {
 		return err
 	}
@@ -68,7 +68,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	tsf4, _ = tsf4.Sign(ta.Addrinfo["charlie"])
 	vote1, _ := action.NewVote(5, ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["delta"].RawAddress)
 	vote1, _ = vote1.Sign(ta.Addrinfo["charlie"])
-	blk, err = bc.MintNewBlock([]*action.Transfer{tsf1, tsf2, tsf3, tsf4}, []*action.Vote{vote1}, ta.Addrinfo["producer"], "")
+	blk, err = bc.MintNewBlock([]*action.Transfer{tsf1, tsf2, tsf3, tsf4}, []*action.Vote{vote1}, nil, ta.Addrinfo["producer"], "")
 	if err != nil {
 		return err
 	}
@@ -77,7 +77,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	}
 
 	// Add block 3
-	blk, err = bc.MintNewBlock(nil, nil, ta.Addrinfo["producer"], "")
+	blk, err = bc.MintNewBlock(nil, nil, nil, ta.Addrinfo["producer"], "")
 	if err != nil {
 		return err
 	}
@@ -90,7 +90,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	vote2, _ := action.NewVote(1, ta.Addrinfo["alfa"].RawAddress, ta.Addrinfo["charlie"].RawAddress)
 	vote1, _ = vote1.Sign(ta.Addrinfo["charlie"])
 	vote2, _ = vote2.Sign(ta.Addrinfo["alfa"])
-	blk, err = bc.MintNewBlock(nil, []*action.Vote{vote1, vote2}, ta.Addrinfo["producer"], "")
+	blk, err = bc.MintNewBlock(nil, []*action.Vote{vote1, vote2}, nil, ta.Addrinfo["producer"], "")
 	if err != nil {
 		return err
 	}

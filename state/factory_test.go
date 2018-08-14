@@ -271,7 +271,7 @@ func TestCandidates(t *testing.T) {
 	// a:100(0) b:200(0) c:300(0)
 	tx1 := action.Transfer{Sender: a.RawAddress, Recipient: b.RawAddress, Nonce: uint64(1), Amount: big.NewInt(10)}
 	tx2 := action.Transfer{Sender: a.RawAddress, Recipient: c.RawAddress, Nonce: uint64(2), Amount: big.NewInt(20)}
-	err = sf.CommitStateChanges(0, []*action.Transfer{&tx1, &tx2}, []*action.Vote{})
+	err = sf.CommitStateChanges(0, []*action.Transfer{&tx1, &tx2}, []*action.Vote{}, []*action.Execution{})
 	require.Nil(t, err)
 	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{}))
 	// a:70 b:210 c:320
@@ -279,7 +279,7 @@ func TestCandidates(t *testing.T) {
 	vote, err := action.NewVote(0, a.RawAddress, a.RawAddress)
 	vote.GetVote().SelfPubkey = a.PublicKey[:]
 	require.NoError(t, err)
-	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote})
+	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote}, []*action.Execution{})
 	require.Nil(t, err)
 	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":70"}))
 	// a(a):70(+0=70) b:210 c:320
@@ -287,7 +287,7 @@ func TestCandidates(t *testing.T) {
 	vote2, err := action.NewVote(0, b.RawAddress, b.RawAddress)
 	vote2.GetVote().SelfPubkey = b.PublicKey[:]
 	require.NoError(t, err)
-	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote2})
+	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote2}, []*action.Execution{})
 	require.Nil(t, err)
 	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":70", b.RawAddress + ":210"}))
 	// a(a):70(+0=70) b(b):210(+0=210) !c:320
@@ -295,19 +295,19 @@ func TestCandidates(t *testing.T) {
 	vote3, err := action.NewVote(1, a.RawAddress, b.RawAddress)
 	vote3.GetVote().SelfPubkey = a.PublicKey[:]
 	require.NoError(t, err)
-	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote3})
+	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote3}, []*action.Execution{})
 	require.Nil(t, err)
 	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":0", b.RawAddress + ":280"}))
 	// a(b):70(0) b(b):210(+70=280) !c:320
 
 	tx3 := action.Transfer{Sender: b.RawAddress, Recipient: a.RawAddress, Nonce: uint64(2), Amount: big.NewInt(20)}
-	err = sf.CommitStateChanges(0, []*action.Transfer{&tx3}, []*action.Vote{})
+	err = sf.CommitStateChanges(0, []*action.Transfer{&tx3}, []*action.Vote{}, []*action.Execution{})
 	require.Nil(t, err)
 	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":0", b.RawAddress + ":280"}))
 	// a(b):90(0) b(b):190(+90=280) !c:320
 
 	tx4 := action.Transfer{Sender: a.RawAddress, Recipient: b.RawAddress, Nonce: uint64(2), Amount: big.NewInt(20)}
-	err = sf.CommitStateChanges(0, []*action.Transfer{&tx4}, []*action.Vote{})
+	err = sf.CommitStateChanges(0, []*action.Transfer{&tx4}, []*action.Vote{}, []*action.Execution{})
 	require.Nil(t, err)
 	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":0", b.RawAddress + ":280"}))
 	// a(b):70(0) b(b):210(+70=280) !c:320
@@ -315,7 +315,7 @@ func TestCandidates(t *testing.T) {
 	vote4, err := action.NewVote(1, b.RawAddress, a.RawAddress)
 	vote4.GetVote().SelfPubkey = b.PublicKey[:]
 	require.NoError(t, err)
-	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote4})
+	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote4}, []*action.Execution{})
 	require.Nil(t, err)
 	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":210", b.RawAddress + ":70"}))
 	// a(b):70(210) b(a):210(70) !c:320
@@ -323,7 +323,7 @@ func TestCandidates(t *testing.T) {
 	vote5, err := action.NewVote(2, b.RawAddress, b.RawAddress)
 	vote5.GetVote().SelfPubkey = b.PublicKey[:]
 	require.NoError(t, err)
-	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote5})
+	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote5}, []*action.Execution{})
 	require.Nil(t, err)
 	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":0", b.RawAddress + ":280"}))
 	// a(b):70(0) b(b):210(+70=280) !c:320
@@ -331,13 +331,13 @@ func TestCandidates(t *testing.T) {
 	vote6, err := action.NewVote(3, b.RawAddress, b.RawAddress)
 	vote6.GetVote().SelfPubkey = b.PublicKey[:]
 	require.NoError(t, err)
-	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote6})
+	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote6}, []*action.Execution{})
 	require.Nil(t, err)
 	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":0", b.RawAddress + ":280"}))
 	// a(b):70(0) b(b):210(+70=280) !c:320
 
 	tx5 := action.Transfer{Sender: c.RawAddress, Recipient: a.RawAddress, Nonce: uint64(2), Amount: big.NewInt(20)}
-	err = sf.CommitStateChanges(0, []*action.Transfer{&tx5}, []*action.Vote{})
+	err = sf.CommitStateChanges(0, []*action.Transfer{&tx5}, []*action.Vote{}, []*action.Execution{})
 	require.Nil(t, err)
 	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":0", b.RawAddress + ":300"}))
 	// a(b):90(0) b(b):210(+90=300) !c:300
@@ -345,7 +345,7 @@ func TestCandidates(t *testing.T) {
 	vote7, err := action.NewVote(0, c.RawAddress, a.RawAddress)
 	vote7.GetVote().SelfPubkey = c.PublicKey[:]
 	require.NoError(t, err)
-	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote7})
+	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote7}, []*action.Execution{})
 	require.Nil(t, err)
 	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":300", b.RawAddress + ":300"}))
 	// a(b):90(300) b(b):210(+90=300) !c(a):300
@@ -353,7 +353,7 @@ func TestCandidates(t *testing.T) {
 	vote8, err := action.NewVote(4, b.RawAddress, c.RawAddress)
 	vote8.GetVote().SelfPubkey = b.PublicKey[:]
 	require.NoError(t, err)
-	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote8})
+	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote8}, []*action.Execution{})
 	require.Nil(t, err)
 	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":300", b.RawAddress + ":90"}))
 	// a(b):90(300) b(c):210(90) !c(a):300
@@ -361,7 +361,7 @@ func TestCandidates(t *testing.T) {
 	vote9, err := action.NewVote(1, c.RawAddress, c.RawAddress)
 	vote9.GetVote().SelfPubkey = c.PublicKey[:]
 	require.NoError(t, err)
-	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote9})
+	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote9}, []*action.Execution{})
 	require.Nil(t, err)
 	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{c.RawAddress + ":510", b.RawAddress + ":90"}))
 	// a(b):90(0) b(c):210(90) c(c):300(+210=510)
@@ -369,7 +369,7 @@ func TestCandidates(t *testing.T) {
 	vote10, err := action.NewVote(0, d.RawAddress, e.RawAddress)
 	vote10.GetVote().SelfPubkey = d.PublicKey[:]
 	require.NoError(t, err)
-	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote10})
+	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote10}, []*action.Execution{})
 	require.Nil(t, err)
 	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{c.RawAddress + ":510", b.RawAddress + ":90"}))
 	// a(b):90(0) b(c):210(90) c(c):300(+210=510)
@@ -377,7 +377,7 @@ func TestCandidates(t *testing.T) {
 	vote11, err := action.NewVote(1, d.RawAddress, d.RawAddress)
 	vote11.GetVote().SelfPubkey = d.PublicKey[:]
 	require.NoError(t, err)
-	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote11})
+	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote11}, []*action.Execution{})
 	require.Nil(t, err)
 	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{c.RawAddress + ":510", d.RawAddress + ":100"}))
 	// a(b):90(0) b(c):210(90) c(c):300(+210=510) d(d): 100(100)
@@ -385,7 +385,7 @@ func TestCandidates(t *testing.T) {
 	vote12, err := action.NewVote(2, d.RawAddress, a.RawAddress)
 	vote12.GetVote().SelfPubkey = d.PublicKey[:]
 	require.NoError(t, err)
-	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote12})
+	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote12}, []*action.Execution{})
 	require.Nil(t, err)
 	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{c.RawAddress + ":510", a.RawAddress + ":100"}))
 	// a(b):90(100) b(c):210(90) c(c):300(+210=510) d(a): 100(0)
@@ -393,7 +393,7 @@ func TestCandidates(t *testing.T) {
 	vote13, err := action.NewVote(2, c.RawAddress, d.RawAddress)
 	vote13.GetVote().SelfPubkey = c.PublicKey[:]
 	require.NoError(t, err)
-	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote13})
+	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote13}, []*action.Execution{})
 	require.Nil(t, err)
 	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{c.RawAddress + ":210", d.RawAddress + ":300"}))
 	// a(b):90(100) b(c):210(90) c(d):300(210) d(a): 100(300)
@@ -401,14 +401,14 @@ func TestCandidates(t *testing.T) {
 	vote14, err := action.NewVote(3, c.RawAddress, c.RawAddress)
 	vote14.GetVote().SelfPubkey = c.PublicKey[:]
 	require.NoError(t, err)
-	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote14})
+	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote14}, []*action.Execution{})
 	require.Nil(t, err)
 	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{c.RawAddress + ":510", a.RawAddress + ":100"}))
 	// a(b):90(100) b(c):210(90) c(c):300(+210=510) d(a): 100(0)
 
 	tx6 := action.Transfer{Sender: c.RawAddress, Recipient: e.RawAddress, Nonce: uint64(1), Amount: big.NewInt(200)}
 	tx7 := action.Transfer{Sender: b.RawAddress, Recipient: e.RawAddress, Nonce: uint64(2), Amount: big.NewInt(200)}
-	err = sf.CommitStateChanges(0, []*action.Transfer{&tx6, &tx7}, []*action.Vote{})
+	err = sf.CommitStateChanges(0, []*action.Transfer{&tx6, &tx7}, []*action.Vote{}, []*action.Execution{})
 	require.Nil(t, err)
 	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{c.RawAddress + ":110", a.RawAddress + ":100"}))
 	// a(b):90(100) b(c):10(90) c(c):100(+10=110) d(a): 100(0) !e:500
@@ -416,7 +416,7 @@ func TestCandidates(t *testing.T) {
 	vote15, err := action.NewVote(0, e.RawAddress, e.RawAddress)
 	vote15.GetVote().SelfPubkey = e.PublicKey[:]
 	require.NoError(t, err)
-	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote15})
+	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote15}, []*action.Execution{})
 	require.Nil(t, err)
 	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{c.RawAddress + ":110", e.RawAddress + ":500"}))
 	// a(b):90(100) b(c):10(90) c(c):100(+10=110) d(a): 100(0) e(e):500(+0=500)
@@ -424,7 +424,7 @@ func TestCandidates(t *testing.T) {
 	vote16, err := action.NewVote(0, f.RawAddress, f.RawAddress)
 	vote16.GetVote().SelfPubkey = f.PublicKey[:]
 	require.NoError(t, err)
-	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote16})
+	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote16}, []*action.Execution{})
 	require.Nil(t, err)
 	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{f.RawAddress + ":300", e.RawAddress + ":500"}))
 	// a(b):90(100) b(c):10(90) c(c):100(+10=110) d(a): 100(0) e(e):500(+0=500) f(f):300(+0=300)
@@ -435,26 +435,26 @@ func TestCandidates(t *testing.T) {
 	vote18, err := action.NewVote(1, f.RawAddress, d.RawAddress)
 	vote18.GetVote().SelfPubkey = f.PublicKey[:]
 	require.NoError(t, err)
-	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote17, vote18})
+	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote17, vote18}, []*action.Execution{})
 	require.Nil(t, err)
 	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{d.RawAddress + ":300", e.RawAddress + ":500"}))
 	// a(b):90(100) b(c):10(90) c(c):100(+10=110) d(a): 100(300) e(e):500(+0=500) f(d):300(0)
 
 	tx8 := action.Transfer{Sender: f.RawAddress, Recipient: b.RawAddress, Nonce: uint64(1), Amount: big.NewInt(200)}
-	err = sf.CommitStateChanges(0, []*action.Transfer{&tx8}, []*action.Vote{})
+	err = sf.CommitStateChanges(0, []*action.Transfer{&tx8}, []*action.Vote{}, []*action.Execution{})
 	require.Nil(t, err)
 	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{c.RawAddress + ":310", e.RawAddress + ":500"}))
 	// a(b):90(100) b(c):210(90) c(c):100(+210=310) d(a): 100(100) e(e):500(+0=500) f(d):100(0)
 	//fmt.Printf("%v \n", voteForm(sf.candidatesBuffer()))
 
 	tx9 := action.Transfer{Sender: b.RawAddress, Recipient: a.RawAddress, Nonce: uint64(1), Amount: big.NewInt(10)}
-	err = sf.CommitStateChanges(0, []*action.Transfer{&tx9}, []*action.Vote{})
+	err = sf.CommitStateChanges(0, []*action.Transfer{&tx9}, []*action.Vote{}, []*action.Execution{})
 	require.Nil(t, err)
 	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{c.RawAddress + ":300", e.RawAddress + ":500"}))
 	// a(b):100(100) b(c):200(100) c(c):100(+200=300) d(a): 100(100) e(e):500(+0=500) f(d):100(0)
 
 	tx10 := action.Transfer{Sender: e.RawAddress, Recipient: d.RawAddress, Nonce: uint64(1), Amount: big.NewInt(300)}
-	err = sf.CommitStateChanges(1, []*action.Transfer{&tx10}, []*action.Vote{})
+	err = sf.CommitStateChanges(1, []*action.Transfer{&tx10}, []*action.Vote{}, []*action.Execution{})
 	require.Nil(t, err)
 	height, _ := sf.Candidates()
 	require.True(t, height == 1)
@@ -467,7 +467,7 @@ func TestCandidates(t *testing.T) {
 	vote20, err := action.NewVote(3, d.RawAddress, b.RawAddress)
 	vote20.GetVote().SelfPubkey = d.PublicKey[:]
 	require.NoError(t, err)
-	err = sf.CommitStateChanges(2, []*action.Transfer{}, []*action.Vote{vote19, vote20})
+	err = sf.CommitStateChanges(2, []*action.Transfer{}, []*action.Vote{vote19, vote20}, []*action.Execution{})
 	require.Nil(t, err)
 	height, _ = sf.Candidates()
 	require.True(t, height == 2)
@@ -477,7 +477,7 @@ func TestCandidates(t *testing.T) {
 	vote21, err := action.NewVote(4, c.RawAddress, "")
 	vote21.GetVote().SelfPubkey = c.PublicKey[:]
 	require.NoError(t, err)
-	err = sf.CommitStateChanges(3, []*action.Transfer{}, []*action.Vote{vote21})
+	err = sf.CommitStateChanges(3, []*action.Transfer{}, []*action.Vote{vote21}, []*action.Execution{})
 	require.Nil(t, err)
 	height, _ = sf.Candidates()
 	require.True(t, height == 3)
@@ -487,7 +487,7 @@ func TestCandidates(t *testing.T) {
 	vote22, err := action.NewVote(4, f.RawAddress, "")
 	vote22.GetVote().SelfPubkey = f.PublicKey[:]
 	require.NoError(t, err)
-	err = sf.CommitStateChanges(3, []*action.Transfer{}, []*action.Vote{vote22})
+	err = sf.CommitStateChanges(3, []*action.Transfer{}, []*action.Vote{vote22}, []*action.Execution{})
 	require.Nil(t, err)
 	height, _ = sf.Candidates()
 	require.True(t, height == 3)
@@ -576,21 +576,21 @@ func TestUnvote(t *testing.T) {
 	vote1, err := action.NewVote(0, a.RawAddress, "")
 	vote1.GetVote().SelfPubkey = a.PublicKey[:]
 	require.NoError(t, err)
-	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote1})
+	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote1}, []*action.Execution{})
 	require.Nil(t, err)
 	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{}))
 
 	vote2, err := action.NewVote(0, a.RawAddress, a.RawAddress)
 	vote2.GetVote().SelfPubkey = a.PublicKey[:]
 	require.NoError(t, err)
-	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote2})
+	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote2}, []*action.Execution{})
 	require.Nil(t, err)
 	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":100"}))
 
 	vote3, err := action.NewVote(0, a.RawAddress, "")
 	vote3.GetVote().SelfPubkey = a.PublicKey[:]
 	require.NoError(t, err)
-	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote3})
+	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote3}, []*action.Execution{})
 	require.Nil(t, err)
 	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{}))
 
@@ -603,7 +603,7 @@ func TestUnvote(t *testing.T) {
 	vote6, err := action.NewVote(0, a.RawAddress, "")
 	vote6.GetVote().SelfPubkey = a.PublicKey[:]
 	require.NoError(t, err)
-	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote4, vote5, vote6})
+	err = sf.CommitStateChanges(0, []*action.Transfer{}, []*action.Vote{vote4, vote5, vote6}, []*action.Execution{})
 	require.Nil(t, err)
 	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{b.RawAddress + ":200"}))
 }
@@ -649,7 +649,7 @@ func TestCreateContract(t *testing.T) {
 	require.Equal(ErrAccountNotExist, errors.Cause(err))
 	_, err = sf.GetCode(addr1)
 	require.Equal(ErrAccountNotExist, errors.Cause(err))
-	require.Nil(sf.CommitStateChanges(0, nil, nil))
+	require.Nil(sf.CommitStateChanges(0, nil, nil, nil))
 	root = sf.RootHash()
 	require.Nil(sf.Stop(context.Background()))
 
@@ -714,7 +714,7 @@ func TestLoadStoreContract(t *testing.T) {
 	require.NotEqual(hash.ZeroHash32B, codeHash1)
 	v, _ = sf.GetCode(contract1)
 	require.Equal(code1, v)
-	require.Nil(sf.CommitStateChanges(0, nil, nil))
+	require.Nil(sf.CommitStateChanges(0, nil, nil, nil))
 	root = sf.RootHash()
 	require.Nil(sf.Stop(context.Background()))
 }

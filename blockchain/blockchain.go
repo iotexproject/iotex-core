@@ -36,7 +36,7 @@ type Blockchain interface {
 	// CreateState adds a new State with initial balance to the factory
 	CreateState(addr string, init uint64) (*state.State, error)
 	// CommitStateChanges updates a State from the given actions
-	CommitStateChanges(chainHeight uint64, tsf []*action.Transfer, vote []*action.Vote) error
+	CommitStateChanges(chainHeight uint64, tsf []*action.Transfer, vote []*action.Vote, executions []*action.Execution) error
 	// Candidates returns the candidate list
 	Candidates() (uint64, []*state.Candidate)
 	// CandidatesByHeight returns the candidate list by a given height
@@ -82,7 +82,7 @@ type Blockchain interface {
 	// For block operations
 	// MintNewBlock creates a new block with given actions
 	// Note: the coinbase transfer will be added to the given transfers when minting a new block
-	MintNewBlock(tsf []*action.Transfer, vote []*action.Vote, address *iotxaddress.Address, data string) (*Block, error)
+	MintNewBlock(tsf []*action.Transfer, vote []*action.Vote, executions []*action.Execution, address *iotxaddress.Address, data string) (*Block, error)
 	// MintDummyNewBlock creates a new dummy block, used for unreached consensus
 	MintNewDummyBlock() *Block
 	// CommitBlock validates and appends a block to the chain
@@ -266,7 +266,7 @@ func (bc *blockchain) Start(ctx context.Context) (err error) {
 		}
 		if blk != nil {
 			if bc.sf != nil && blk.Transfers != nil {
-				if err := bc.sf.CommitStateChanges(blk.Height(), blk.Transfers, blk.Votes); err != nil {
+				if err := bc.sf.CommitStateChanges(blk.Height(), blk.Transfers, blk.Votes, blk.Executions); err != nil {
 					return err
 				}
 			}
@@ -294,8 +294,8 @@ func (bc *blockchain) CreateState(addr string, init uint64) (*state.State, error
 }
 
 // CommitStateChanges updates a State from the given actions
-func (bc *blockchain) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer, vote []*action.Vote) error {
-	return bc.sf.CommitStateChanges(blockHeight, tsf, vote)
+func (bc *blockchain) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer, vote []*action.Vote, executions []*action.Execution) error {
+	return bc.sf.CommitStateChanges(blockHeight, tsf, vote, executions)
 }
 
 // Candidates returns the candidate list
@@ -474,14 +474,14 @@ func (bc *blockchain) ValidateBlock(blk *Block) error {
 // MintNewBlock creates a new block with given actions
 // Note: the coinbase transfer will be added to the given transfers
 // when minting a new block
-func (bc *blockchain) MintNewBlock(tsf []*action.Transfer, vote []*action.Vote,
+func (bc *blockchain) MintNewBlock(tsf []*action.Transfer, vote []*action.Vote, executions []*action.Execution,
 	producer *iotxaddress.Address, data string) (*Block, error) {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
 
 	tsf = append(tsf, action.NewCoinBaseTransfer(big.NewInt(int64(bc.genesis.BlockReward)), producer.RawAddress))
 
-	blk := NewBlock(bc.chainID, bc.tipHeight+1, bc.tipHash, tsf, vote)
+	blk := NewBlock(bc.chainID, bc.tipHeight+1, bc.tipHash, tsf, vote, executions)
 	if producer.PrivateKey == keypair.ZeroPrivateKey {
 		logger.Warn().Msg("Unsigned block...")
 		return blk, nil
@@ -499,7 +499,7 @@ func (bc *blockchain) MintNewDummyBlock() *Block {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
 
-	blk := NewBlock(bc.chainID, bc.tipHeight+1, bc.tipHash, nil, nil)
+	blk := NewBlock(bc.chainID, bc.tipHeight+1, bc.tipHash, nil, nil, nil)
 	blk.Header.Pubkey = keypair.ZeroPublicKey
 	blk.Header.blockSig = []byte{}
 	return blk
@@ -556,7 +556,7 @@ func (bc *blockchain) commitBlock(blk *Block) error {
 	if bc.sf == nil || (blk.Transfers == nil && blk.Votes == nil) {
 		return nil
 	}
-	err := bc.sf.CommitStateChanges(blk.Height(), blk.Transfers, blk.Votes)
+	err := bc.sf.CommitStateChanges(blk.Height(), blk.Transfers, blk.Votes, blk.Executions)
 	ProcessBlockContracts(blk, bc)
 
 	logger.Info().Uint64("height", blk.Header.height).Msg("commit a block")

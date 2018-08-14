@@ -85,12 +85,12 @@ func TestActionInjector(t *testing.T) {
 
 	// Wait until the injected actions in APS Mode gets into the action pool
 	require.NoError(testutil.WaitUntil(100*time.Millisecond, 5*time.Second, func() (bool, error) {
-		transfers, votes := svr.ActionPool().PickActs()
-		return len(transfers)+len(votes) >= 30, nil
+		transfers, votes, executions := svr.ActionPool().PickActs()
+		return len(transfers)+len(votes)+len(executions) >= 30, nil
 	}))
 
-	transfers, votes := svr.ActionPool().PickActs()
-	numActsBase := len(transfers) + len(votes)
+	transfers, votes, executions := svr.ActionPool().PickActs()
+	numActsBase := len(transfers) + len(votes) + len(executions)
 
 	// Test injectByInterval
 	transferNum := 2
@@ -100,8 +100,8 @@ func TestActionInjector(t *testing.T) {
 
 	// Wait until all the injected actions in Interval Mode gets into the action pool
 	err = testutil.WaitUntil(100*time.Millisecond, 5*time.Second, func() (bool, error) {
-		transfers, votes := svr.ActionPool().PickActs()
-		return len(transfers)+len(votes)-numActsBase == 3, nil
+		transfers, votes, executions := svr.ActionPool().PickActs()
+		return len(transfers)+len(votes)+len(executions)-numActsBase == 3, nil
 	})
 	require.Nil(err)
 }
