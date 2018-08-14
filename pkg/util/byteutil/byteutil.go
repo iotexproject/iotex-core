@@ -25,6 +25,11 @@ func Uint64ToBytes(value uint64) []byte {
 	return bytes
 }
 
+// BytesToUint64 converts 8 bytes with the machine endian to uint64
+func BytesToUint64(value []byte) uint64 {
+	return enc.MachineEndian.Uint64(value)
+}
+
 // BytesTo20B converts a byte slice to 20-Byte array
 func BytesTo20B(b []byte) hash.AddrHash {
 	var h hash.AddrHash

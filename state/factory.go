@@ -42,6 +42,9 @@ var (
 	ErrFailedToUnmarshalState = errors.New("failed to unmarshal state")
 )
 
+// CurrentHeightKey indicates the key of current factory height in underlying database
+const CurrentHeightKey = "currentHeight"
+
 type (
 	// Factory defines an interface for managing states
 	Factory interface {
@@ -226,6 +229,15 @@ func (sf *factory) RootHash() hash.Hash32B {
 	return sf.accountTrie.RootHash()
 }
 
+// Height returns factory's height
+func (sf *factory) Height() (uint64, error) {
+	height, err := sf.accountTrie.TrieDB().Get(trie.AccountKVNameSpace, []byte(CurrentHeightKey))
+	if err != nil {
+		return 0, errors.Wrap(err, "failed to get factory's height from underlying db")
+	}
+	return byteutil.BytesToUint64(height), nil
+}
+
 // CommitStateChanges updates a State from the given actions
 func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer, vote []*action.Vote, executions []*action.Execution) error {
 	if err := sf.handleTsf(tsf); err != nil {
@@ -265,7 +277,6 @@ func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer
 		}
 		sf.updateCandidate(address, totalWeight, blockHeight)
 	}
-	sf.currentChainHeight = blockHeight
 	// Persist new list of candidates to candidateTrie
 	candidates, err := MapToCandidates(sf.cachedCandidates)
 	if err != nil {
@@ -295,7 +306,13 @@ func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer
 		}
 	}
 	// commit to underlying Trie in a batch
-	return sf.accountTrie.Commit()
+	if err := sf.accountTrie.Commit(); err != nil {
+		return errors.Wrap(err, "failed to commit changes to underlying Trie in a batch")
+	}
+
+	// Set current chain height and persist it to db
+	sf.currentChainHeight = blockHeight
+	return sf.accountTrie.TrieDB().Put(trie.AccountKVNameSpace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(blockHeight))
 }
 
 //======================================
