@@ -7,13 +7,11 @@
 package state
 
 import (
-	"container/heap"
 	"context"
 	"math/big"
 	"sort"
 	"strings"
 
-	"github.com/golang/groupcache/lru"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/blockchain/action"
@@ -21,20 +19,11 @@ import (
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
-	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/trie"
 )
-
-const (
-	// Level 1 is for candidate pool
-	candidatePool = 1
-	// Level 2 is for candidate buffer pool
-	candidateBufferPool = candidatePool + 1
-)
-
-const candidateBufferSize = 100
 
 var (
 	// ErrNotEnoughBalance is the error that the balance is not enough
@@ -66,39 +55,39 @@ type (
 		CommitStateChanges(uint64, []*action.Transfer, []*action.Vote) error
 		// Contracts
 		CreateContract(addr string, code []byte) (string, error)
-		GetCodeHash(addr string) hash.Hash32B
-		GetCode(addr string) []byte
+		GetCodeHash(addr hash.AddrHash) hash.Hash32B
+		GetCode(addr hash.AddrHash) []byte
 		// Candidate pool
 		Candidates() (uint64, []*Candidate)
-		CandidatesByHeight(uint64) ([]*Candidate, bool)
+		CandidatesByHeight(uint64) ([]*Candidate, error)
 	}
 
 	// factory implements StateFactory interface, tracks changes in a map and batch-commits to trie/db
 	factory struct {
 		lifecycle lifecycle.Lifecycle
 		// candidate pool
-		currentChainHeight     uint64
-		candidatesLRU          *lru.Cache
-		candidateHeap          CandidateMinPQ
-		candidateBufferMinHeap CandidateMinPQ
-		candidateBufferMaxHeap CandidateMaxPQ
-		cachedCandidate        map[string]*Candidate
+		currentChainHeight uint64
+		numCandidates      uint
+		cachedCandidates   map[string]*Candidate
 		// accounts
-		cachedAccount map[string]*State // accounts being modified in this Tx
-		accountTrie   trie.Trie         // global state trie
-		contractTrie  trie.Trie         // contract storage trie
-		codeDB        db.KVStore        // code storage DB
+		cachedAccount  map[string]*State          // accounts being modified in this Tx
+		cachedContract map[hash.AddrHash]Contract // contracts being modified in this Tx
+		accountTrie    trie.Trie                  // global state trie
+		contractTrie   trie.Trie                  // contract storage trie
+		candidateTrie  trie.Trie                  // candidate storage trie
+		codeDB         db.KVStore                 // code storage DB
 	}
 )
 
 // FactoryOption sets Factory construction parameter
 type FactoryOption func(*factory, *config.Config) error
 
-// PrecreatedTrieOption uses pre-created trie for state factory
-func PrecreatedTrieOption(tr trie.Trie) FactoryOption {
+// PrecreatedTrieOption uses pre-created tries for state factory
+func PrecreatedTrieOption(accountTrie, candidateTrie trie.Trie) FactoryOption {
 	return func(sf *factory, cfg *config.Config) error {
-		sf.accountTrie = tr
-		sf.codeDB = tr.TrieDB()
+		sf.accountTrie = accountTrie
+		sf.candidateTrie = candidateTrie
+		sf.codeDB = accountTrie.TrieDB()
 		return nil
 	}
 }
@@ -112,9 +101,14 @@ func DefaultTrieOption() FactoryOption {
 		}
 		tr, err := trie.NewTrie(db.NewBoltDB(dbPath, nil), trie.AccountKVNameSpace, trie.EmptyRoot)
 		if err != nil {
-			return errors.Wrapf(err, "Failed to generate trie from config")
+			return errors.Wrap(err, "failed to generate accountTrie from config")
 		}
 		sf.accountTrie = tr
+		candidateTrie, err := trie.NewTrie(tr.TrieDB(), trie.CandidateKVNameSpace, trie.EmptyRoot)
+		if err != nil {
+			return errors.Wrap(err, "failed to generate candidateTrie")
+		}
+		sf.candidateTrie = candidateTrie
 		sf.codeDB = tr.TrieDB()
 		return nil
 	}
@@ -125,9 +119,14 @@ func InMemTrieOption() FactoryOption {
 	return func(sf *factory, cfg *config.Config) error {
 		tr, err := trie.NewTrie(db.NewMemKVStore(), trie.AccountKVNameSpace, trie.EmptyRoot)
 		if err != nil {
-			return errors.Wrapf(err, "Failed to initialize in-memory trie")
+			return errors.Wrapf(err, "failed to initialize in-memory accountTrie")
 		}
 		sf.accountTrie = tr
+		candidateTrie, err := trie.NewTrie(tr.TrieDB(), trie.CandidateKVNameSpace, trie.EmptyRoot)
+		if err != nil {
+			return errors.Wrap(err, "failed to initialize in-memory candidateTrie")
+		}
+		sf.candidateTrie = candidateTrie
 		sf.codeDB = tr.TrieDB()
 		return nil
 	}
@@ -136,13 +135,11 @@ func InMemTrieOption() FactoryOption {
 // NewFactory creates a new state factory
 func NewFactory(cfg *config.Config, opts ...FactoryOption) (Factory, error) {
 	sf := &factory{
-		currentChainHeight:     0,
-		candidatesLRU:          lru.New(int(cfg.Chain.DelegateLRUSize)),
-		candidateHeap:          CandidateMinPQ{int(cfg.Chain.NumCandidates), make([]*Candidate, 0)},
-		candidateBufferMinHeap: CandidateMinPQ{candidateBufferSize, make([]*Candidate, 0)},
-		candidateBufferMaxHeap: CandidateMaxPQ{candidateBufferSize, make([]*Candidate, 0)},
-		cachedCandidate:        make(map[string]*Candidate),
-		cachedAccount:          make(map[string]*State),
+		currentChainHeight: 0,
+		numCandidates:      cfg.Chain.NumCandidates,
+		cachedCandidates:   make(map[string]*Candidate),
+		cachedAccount:      make(map[string]*State),
+		cachedContract:     make(map[hash.AddrHash]Contract),
 	}
 
 	for _, opt := range opts {
@@ -153,6 +150,9 @@ func NewFactory(cfg *config.Config, opts ...FactoryOption) (Factory, error) {
 	}
 	if sf.accountTrie != nil {
 		sf.lifecycle.Add(sf.accountTrie)
+	}
+	if sf.candidateTrie != nil {
+		sf.lifecycle.Add(sf.candidateTrie)
 	}
 	return sf, nil
 }
@@ -167,8 +167,12 @@ func (sf *factory) Stop(ctx context.Context) error { return sf.lifecycle.OnStop(
 // LoadOrCreateState loads existing or adds a new State with initial balance to the factory
 // addr should be a bech32 properly-encoded string
 func (sf *factory) LoadOrCreateState(addr string, init uint64) (*State, error) {
+	pkHash, err := iotxaddress.GetPubkeyHash(addr)
+	if err != nil {
+		return nil, errors.Wrap(err, "error when getting the pubkey hash")
+	}
 	// only create if the address did not exist yet
-	state, err := sf.getState(addr)
+	state, err := sf.getState(byteutil.BytesTo20B(pkHash))
 	switch {
 	case errors.Cause(err) == ErrAccountNotExist:
 		if state, err = sf.createState(addr, init); err != nil {
@@ -182,7 +186,11 @@ func (sf *factory) LoadOrCreateState(addr string, init uint64) (*State, error) {
 
 // Balance returns balance
 func (sf *factory) Balance(addr string) (*big.Int, error) {
-	state, err := sf.getState(addr)
+	pkHash, err := iotxaddress.GetPubkeyHash(addr)
+	if err != nil {
+		return nil, errors.Wrap(err, "error when getting the pubkey hash")
+	}
+	state, err := sf.getState(byteutil.BytesTo20B(pkHash))
 	if err != nil {
 		return nil, err
 	}
@@ -191,7 +199,11 @@ func (sf *factory) Balance(addr string) (*big.Int, error) {
 
 // Nonce returns the nonce if the account exists
 func (sf *factory) Nonce(addr string) (uint64, error) {
-	state, err := sf.getState(addr)
+	pkHash, err := iotxaddress.GetPubkeyHash(addr)
+	if err != nil {
+		return 0, errors.Wrap(err, "error when getting the pubkey hash")
+	}
+	state, err := sf.getState(byteutil.BytesTo20B(pkHash))
 	if err != nil {
 		return 0, err
 	}
@@ -200,7 +212,11 @@ func (sf *factory) Nonce(addr string) (uint64, error) {
 
 // State returns the state if the address exists
 func (sf *factory) State(addr string) (*State, error) {
-	return sf.getState(addr)
+	pkHash, err := iotxaddress.GetPubkeyHash(addr)
+	if err != nil {
+		return nil, errors.Wrap(err, "error when getting the pubkey hash")
+	}
+	return sf.getState(byteutil.BytesTo20B(pkHash))
 }
 
 // RootHash returns the hash of the root node of the trie
@@ -217,30 +233,27 @@ func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer
 		return err
 	}
 
-	// construct <k, v> list of pending state
-	transferK := [][]byte{}
-	transferV := [][]byte{}
+	// update pending state changes to trie
+	sf.accountTrie.EnableBatch()
 	for address, state := range sf.cachedAccount {
 		ss, err := stateToBytes(state)
 		if err != nil {
 			return err
 		}
-		pkhash, err := iotxaddress.GetPubkeyHash(address)
+		addr, err := iotxaddress.GetPubkeyHash(address)
 		if err != nil {
 			return errors.Wrap(err, "error when getting the pubkey hash")
 		}
-		addr := make([]byte, len(pkhash))
-		copy(addr, pkhash[:])
-		transferK = append(transferK, addr)
-		transferV = append(transferV, ss)
+		if err := sf.accountTrie.Upsert(addr, ss); err != nil {
+			return err
+		}
 
 		// Perform vote update operation on candidate and delegate pools
 		if !state.IsCandidate {
 			// remove the candidate if the person is not a candidate anymore
-			if _, ok := sf.cachedCandidate[address]; ok {
-				delete(sf.cachedCandidate, address)
+			if _, ok := sf.cachedCandidates[address]; ok {
+				delete(sf.cachedCandidates, address)
 			}
-			sf.removeCandidate(address)
 			continue
 		}
 		totalWeight := big.NewInt(0)
@@ -251,17 +264,35 @@ func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer
 		sf.updateCandidate(address, totalWeight, blockHeight)
 	}
 	sf.currentChainHeight = blockHeight
-	candidates := sf.candidateHeap.CandidateList()
-	sort.Slice(candidates, func(i, j int) bool {
-		if candidates[i].Votes.Cmp(candidates[j].Votes) == 0 {
-			return strings.Compare(candidates[i].Address, candidates[j].Address) < 0
+	// Persist new list of candidates to candidateTrie
+	candidates, err := MapToCandidates(sf.cachedCandidates)
+	if err != nil {
+		return errors.Wrap(err, "failed to convert candidate map to candidates")
+	}
+	sort.Sort(candidates)
+	candidatesBytes, err := Serialize(candidates)
+	if err != nil {
+		return errors.Wrap(err, "failed to serialize candidates")
+	}
+	if err := sf.candidateTrie.Upsert(byteutil.Uint64ToBytes(blockHeight), candidatesBytes); err != nil {
+		return errors.Wrapf(err, "failed to insert candidates on height %d into candidateTrie", blockHeight)
+	}
+	// update pending contract changes
+	for addr, contract := range sf.cachedContract {
+		if err := contract.Commit(); err != nil {
+			return err
 		}
-		return candidates[i].Votes.Cmp(candidates[j].Votes) < 0
-	})
-	sf.candidatesLRU.Add(sf.currentChainHeight, candidates)
-
-	// commit the state changes to Trie in a batch
-	return sf.accountTrie.Commit(transferK, transferV)
+		state := contract.SelfState()
+		ss, err := stateToBytes(state)
+		if err != nil {
+			return err
+		}
+		if err := sf.accountTrie.Upsert(addr[:], ss); err != nil {
+			return err
+		}
+	}
+	// commit to underlying Trie in a batch
+	return sf.accountTrie.Commit()
 }
 
 //======================================
@@ -273,41 +304,34 @@ func (sf *factory) CreateContract(addr string, code []byte) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	temp := make([]byte, 8)
-	enc.MachineEndian.PutUint64(temp, nonce)
-	// generate contract address from owner addr and nonce
-	// nonce guarantees a different contract addr even if the same code is deployed the second time
-	contractHash := hash.Hash160b(append([]byte(addr), temp...))
-	contractAddr, err := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, contractHash)
+	contractAddr, err := iotxaddress.CreateContractAddress(addr, nonce)
 	if err != nil {
 		return "", err
 	}
+	hash, err := iotxaddress.GetPubkeyHash(contractAddr)
+	if err != nil {
+		return "", errors.Wrap(err, "error when getting the pubkey hash")
+	}
 	// only create when contract addr does not exist yet
-	if _, err := sf.getState(contractAddr.RawAddress); errors.Cause(err) != ErrAccountNotExist {
+	contractHash := byteutil.BytesTo20B(hash)
+	if _, err := sf.getContract(contractHash); errors.Cause(err) != ErrAccountNotExist {
 		return "", ErrAccountCollision
 	}
-	contract, err := sf.createContract(contractHash, code)
-	if err != nil {
+	if _, err = sf.createContract(contractHash, code); err != nil {
 		return "", errors.Wrapf(err, "Failed to create contract")
 	}
-	// put the code into storage DB
-	if err := sf.accountTrie.TrieDB().Put(trie.CodeKVNameSpace, contract.CodeHash, code); err != nil {
-		return "", errors.Wrapf(err, "Failed to store contract code")
-	}
-	return contractAddr.RawAddress, nil
+	return contractAddr, nil
 }
 
-func (sf *factory) GetCodeHash(addr string) hash.Hash32B {
-	codeHash := hash.ZeroHash32B
-	state, err := sf.getState(addr)
+func (sf *factory) GetCodeHash(addr hash.AddrHash) hash.Hash32B {
+	state, err := sf.getContract(addr)
 	if err != nil || state.CodeHash == nil {
-		return codeHash
+		return hash.ZeroHash32B
 	}
-	copy(codeHash[:], state.CodeHash)
-	return codeHash
+	return byteutil.BytesTo32B(state.CodeHash)
 }
 
-func (sf *factory) GetCode(addr string) []byte {
+func (sf *factory) GetCode(addr hash.AddrHash) []byte {
 	codeHash := sf.GetCodeHash(addr)
 	if codeHash == hash.ZeroHash32B {
 		return nil
@@ -320,32 +344,50 @@ func (sf *factory) GetCode(addr string) []byte {
 	return code
 }
 
+func (sf *factory) GetState(contract, key hash.Hash32B) hash.Hash32B {
+	//if _, err := sf.getContract(contract)
+	return hash.ZeroHash32B
+}
+
 //======================================
 // Candidate functions
 //======================================
 // Candidates returns array of candidates in candidate pool
 func (sf *factory) Candidates() (uint64, []*Candidate) {
-	return sf.currentChainHeight, sf.candidateHeap.CandidateList()
+	candidates, _ := MapToCandidates(sf.cachedCandidates)
+	if len(candidates) <= int(sf.numCandidates) {
+		return sf.currentChainHeight, candidates
+	}
+	sort.Sort(candidates)
+	return sf.currentChainHeight, candidates[:sf.numCandidates]
 }
 
 // CandidatesByHeight returns array of candidates in candidate pool of a given height
-func (sf *factory) CandidatesByHeight(height uint64) ([]*Candidate, bool) {
-	if candidates, ok := sf.candidatesLRU.Get(height); ok {
-		return candidates.([]*Candidate), ok
+func (sf *factory) CandidatesByHeight(height uint64) ([]*Candidate, error) {
+	// Load candidates on the given height from candidateTrie
+	candidatesBytes, err := sf.candidateTrie.Get(byteutil.Uint64ToBytes(height))
+	if err != nil {
+		return []*Candidate{}, errors.Wrapf(err, "failed to get candidates on height %d", height)
 	}
-	return []*Candidate{}, false
+	candidates, err := Deserialize(candidatesBytes)
+	if err != nil {
+		return []*Candidate{}, errors.Wrapf(err, "failed to deserialize candidates on height %d", height)
+	}
+	if len(candidates) > int(sf.numCandidates) {
+		candidates = candidates[:sf.numCandidates]
+	}
+	sort.Slice(candidates, func(i, j int) bool {
+		return strings.Compare(candidates[i].Address, candidates[j].Address) < 0
+	})
+	return candidates, nil
 }
 
 //======================================
 // private state/account functions
 //======================================
 // getState pulls an existing State
-func (sf *factory) getState(addr string) (*State, error) {
-	pubKeyHash, err := iotxaddress.GetPubkeyHash(addr)
-	if err != nil {
-		return nil, errors.Wrap(err, "error when getting the pubkey hash")
-	}
-	mstate, err := sf.accountTrie.Get(pubKeyHash)
+func (sf *factory) getState(hash hash.AddrHash) (*State, error) {
+	mstate, err := sf.accountTrie.Get(hash[:])
 	if errors.Cause(err) == trie.ErrNotExist {
 		return nil, ErrAccountNotExist
 	}
@@ -375,10 +417,14 @@ func (sf *factory) createState(addr string, init uint64) (*State, error) {
 }
 
 func (sf *factory) cache(addr string) (*State, error) {
+	pkHash, err := iotxaddress.GetPubkeyHash(addr)
+	if err != nil {
+		return nil, errors.Wrap(err, "error when getting the pubkey hash")
+	}
 	if state, exist := sf.cachedAccount[addr]; exist {
 		return state, nil
 	}
-	state, err := sf.getState(addr)
+	state, err := sf.getState(byteutil.BytesTo20B(pkHash))
 	switch {
 	case errors.Cause(err) == ErrAccountNotExist:
 		state, err = sf.LoadOrCreateState(addr, 0)
@@ -392,138 +438,46 @@ func (sf *factory) cache(addr string) (*State, error) {
 	return state, nil
 }
 
-func (sf *factory) createContract(addrHash []byte, code []byte) (*State, error) {
-	if addrHash == nil {
-		return nil, ErrAccountNotExist
-	}
-	balance := big.NewInt(0)
-	weight := big.NewInt(0)
+func (sf *factory) createContract(addr hash.AddrHash, code []byte) (*State, error) {
 	s := State{
-		Balance:      balance,
-		VotingWeight: weight,
+		Balance:      big.NewInt(0),
+		VotingWeight: big.NewInt(0),
 		Root:         trie.EmptyRoot,
 		CodeHash:     hash.Hash256b(code),
 	}
-	mstate, err := stateToBytes(&s)
-	if err != nil {
-		return nil, err
-	}
-	if err := sf.accountTrie.Upsert(addrHash, mstate); err != nil {
-		return nil, err
+	// add to contract cache
+	sf.cachedContract[addr] = newContract(sf.accountTrie, s, trie.EmptyRoot)
+	// put the code into storage DB
+	if err := sf.accountTrie.TrieDB().Put(trie.CodeKVNameSpace, s.CodeHash, code); err != nil {
+		return nil, errors.Wrapf(err, "Failed to store contract code")
 	}
 	return &s, nil
+}
+
+func (sf *factory) getContract(addr hash.AddrHash) (*State, error) {
+	// find in local cache
+	if contract, ok := sf.cachedContract[addr]; ok {
+		return contract.SelfState(), nil
+	}
+	return sf.getState(addr)
 }
 
 //======================================
 // private candidate functions
 //======================================
-func (sf *factory) candidatesBuffer() (uint64, []*Candidate) {
-	return sf.currentChainHeight, sf.candidateBufferMinHeap.CandidateList()
-}
-
 func (sf *factory) updateCandidate(address string, totalWeight *big.Int, blockHeight uint64) {
-	// Candidate was added when self-nomination, always exist in cached candidate
-	candidate, _ := sf.cachedCandidate[address]
+	// Candidate was added when self-nomination, always exist in cachedCandidates
+	candidate, _ := sf.cachedCandidates[address]
 	candidate.Votes = totalWeight
 	candidate.LastUpdateHeight = blockHeight
-	_, level := sf.inPool(candidate.Address)
-	switch level {
-	case candidatePool:
-		// if candidate is already in candidate pool
-		sf.candidateHeap.update(candidate, candidate.Votes)
-	case candidateBufferPool:
-		// if candidate is already in candidate buffer pool
-		sf.candidateBufferMinHeap.update(candidate, candidate.Votes)
-		sf.candidateBufferMaxHeap.update(candidate, candidate.Votes)
-	default:
-		// candidate is not in any of two pools
-		transitCandidate := candidate
-		if sf.candidateHeap.shouldTake(transitCandidate.Votes) {
-			// Push candidate into candidate pool
-			heap.Push(&sf.candidateHeap, transitCandidate)
-			transitCandidate = nil
-			if sf.candidateHeap.Len() > sf.candidateHeap.Capacity {
-				transitCandidate = heap.Pop(&sf.candidateHeap).(*Candidate)
-			}
-		}
-		if transitCandidate != nil && sf.candidateBufferMinHeap.shouldTake(transitCandidate.Votes) {
-			// Push candidate into candidate pool
-			heap.Push(&sf.candidateBufferMinHeap, transitCandidate)
-			heap.Push(&sf.candidateBufferMaxHeap, transitCandidate)
-			transitCandidate = nil
-			if sf.candidateBufferMinHeap.Len() > sf.candidateBufferMinHeap.Capacity {
-				transitCandidate = heap.Pop(&sf.candidateBufferMinHeap).(*Candidate)
-				heap.Remove(&sf.candidateBufferMaxHeap, transitCandidate.maxIndex)
-			}
-		}
-	}
-	sf.balance()
-
-	// Temporarily leave it here to check the algorithm is correct
-	if sf.candidateBufferMinHeap.Len() != sf.candidateBufferMaxHeap.Len() {
-		logger.Warn().Msg("candidateBuffer min and max heap not sync")
-	}
-}
-
-func (sf *factory) removeCandidate(address string) {
-	c, level := sf.inPool(address)
-	switch level {
-	case candidatePool:
-		heap.Remove(&sf.candidateHeap, c.minIndex)
-		if sf.candidateBufferMinHeap.Len() > 0 {
-			promoteCandidate := heap.Pop(&sf.candidateBufferMaxHeap).(*Candidate)
-			heap.Remove(&sf.candidateBufferMinHeap, promoteCandidate.minIndex)
-			heap.Push(&sf.candidateHeap, promoteCandidate)
-		}
-	case candidateBufferPool:
-		heap.Remove(&sf.candidateBufferMinHeap, c.minIndex)
-		heap.Remove(&sf.candidateBufferMaxHeap, c.maxIndex)
-	default:
-		break
-	}
-	sf.balance()
-
-	// Temporarily leave it here to check the algorithm is correct
-	if sf.candidateBufferMinHeap.Len() != sf.candidateBufferMaxHeap.Len() {
-		logger.Warn().Msg("candidateBuffer min and max heap not sync")
-	}
-}
-
-func (sf *factory) balance() {
-	if sf.candidateHeap.Len() > 0 && sf.candidateBufferMaxHeap.Len() > 0 && sf.candidateHeap.Top().(*Candidate).Votes.Cmp(sf.candidateBufferMaxHeap.Top().(*Candidate).Votes) < 0 {
-		cFromCandidatePool := heap.Pop(&sf.candidateHeap).(*Candidate)
-		cFromCandidateBufferPool := heap.Pop(&sf.candidateBufferMaxHeap).(*Candidate)
-		heap.Remove(&sf.candidateBufferMinHeap, cFromCandidateBufferPool.minIndex)
-		heap.Push(&sf.candidateHeap, cFromCandidateBufferPool)
-		heap.Push(&sf.candidateBufferMinHeap, cFromCandidatePool)
-		heap.Push(&sf.candidateBufferMaxHeap, cFromCandidatePool)
-	}
-}
-
-func (sf *factory) inPool(address string) (*Candidate, int) {
-	if c := sf.candidateHeap.exist(address); c != nil {
-		return c, candidatePool // The candidate exists in the Candidate pool
-	}
-	if c := sf.candidateBufferMinHeap.exist(address); c != nil {
-		return c, candidateBufferPool // The candidate exists in the Candidate buffer pool
-	}
-	return nil, 0
 }
 
 //======================================
 // private transfer/vote functions
 //======================================
-func (sf *factory) handleContract(owner string, contract []byte) error {
-	// TODO: start vm to run contract = tx.Payload
-	return nil
-}
-
 func (sf *factory) handleTsf(tsf []*action.Transfer) error {
 	for _, tx := range tsf {
 		if tx.IsContract() {
-			if err := sf.handleContract(tx.Sender, tx.Payload); err != nil {
-				return err
-			}
 			continue
 		}
 		if !tx.IsCoinbase {
@@ -619,13 +573,11 @@ func (sf *factory) handleVote(blockHeight uint64, vote []*action.Vote) error {
 			// Vote to self: self-nomination or cancel the previous vote case
 			voteFrom.Votee = voterAddress
 			voteFrom.IsCandidate = true
-			if _, ok := sf.cachedCandidate[voterAddress]; !ok {
-				sf.cachedCandidate[voterAddress] = &Candidate{
+			if _, ok := sf.cachedCandidates[voterAddress]; !ok {
+				sf.cachedCandidates[voterAddress] = &Candidate{
 					Address:        voterAddress,
 					PubKey:         pbVote.SelfPubkey[:],
 					CreationHeight: blockHeight,
-					minIndex:       0,
-					maxIndex:       0,
 				}
 			}
 		}

@@ -18,6 +18,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/actpool"
 	bc "github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/network"
 	"github.com/iotexproject/iotex-core/pkg/hash"
@@ -216,7 +217,7 @@ func TestBlockSyncer_ProcessBlock_TipHeight(t *testing.T) {
 	mBc.EXPECT().TipHeight().AnyTimes().Return(uint64(5), nil)
 	mBc.EXPECT().CommitBlock(gomock.Any()).AnyTimes()
 
-	apConfig := config.ActPool{8192, 256}
+	apConfig := config.ActPool{MaxNumActsPerPool: 8192, MaxNumActsPerAcct: 256}
 	ap, err := actpool.NewActPool(mBc, apConfig)
 
 	p2p := generateP2P()
@@ -228,7 +229,9 @@ func TestBlockSyncer_ProcessBlock_TipHeight(t *testing.T) {
 
 	bs, err := NewBlockSyncer(cfgFullNode, mBc, ap, p2p)
 	assert.Nil(err)
-	blk := bc.NewBlock(uint32(123), uint64(4), hash.Hash32B{}, nil, nil)
+	vote, _ := action.NewVote(1, "abc", "abc")
+	blk := bc.NewBlock(uint32(123), uint64(4), hash.Hash32B{}, nil, []*action.Vote{vote})
+	mBc.EXPECT().GetBlockByHeight(gomock.Any()).AnyTimes().Return(blk, nil)
 
 	bs.(*blockSyncer).ackBlockCommit = true
 	// less than tip height
@@ -259,7 +262,7 @@ func TestBlockSyncer_ProcessBlockSync(t *testing.T) {
 	mBc.EXPECT().TipHeight().Times(1).Return(uint64(5), nil)
 	mBc.EXPECT().TipHeight().Times(1).Return(uint64(6), nil)
 
-	apConfig := config.ActPool{8192, 256}
+	apConfig := config.ActPool{MaxNumActsPerPool: 8192, MaxNumActsPerAcct: 256}
 	ap, err := actpool.NewActPool(mBc, apConfig)
 
 	p2p := generateP2P()
@@ -271,7 +274,9 @@ func TestBlockSyncer_ProcessBlockSync(t *testing.T) {
 
 	bs, err := NewBlockSyncer(cfgFullNode, mBc, ap, p2p)
 	assert.Nil(err)
-	blk := bc.NewBlock(uint32(123), uint64(4), hash.Hash32B{}, nil, nil)
+	vote, _ := action.NewVote(1, "abc", "abc")
+	blk := bc.NewBlock(uint32(123), uint64(4), hash.Hash32B{}, nil, []*action.Vote{vote})
+	mBc.EXPECT().GetBlockByHeight(gomock.Any()).AnyTimes().Return(blk, nil)
 	bs.(*blockSyncer).ackBlockSync = false
 	assert.Nil(bs.ProcessBlockSync(blk))
 

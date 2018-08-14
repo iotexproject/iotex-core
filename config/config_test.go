@@ -303,7 +303,7 @@ func TestValidateNetwork(t *testing.T) {
 
 func TestValidateActPool(t *testing.T) {
 	cfg := Default
-	cfg.ActPool.MaxNumActPerAcct = 0
+	cfg.ActPool.MaxNumActsPerAcct = 0
 	err := ValidateActPool(&cfg)
 	require.NotNil(t, err)
 	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
@@ -315,8 +315,8 @@ func TestValidateActPool(t *testing.T) {
 		),
 	)
 
-	cfg.ActPool.MaxNumActPerAcct = 100
-	cfg.ActPool.MaxNumActPerPool = 0
+	cfg.ActPool.MaxNumActsPerAcct = 100
+	cfg.ActPool.MaxNumActsPerPool = 0
 	err = ValidateActPool(&cfg)
 	require.NotNil(t, err)
 	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
@@ -328,7 +328,7 @@ func TestValidateActPool(t *testing.T) {
 		),
 	)
 
-	cfg.ActPool.MaxNumActPerPool = 99
+	cfg.ActPool.MaxNumActsPerPool = 99
 	err = ValidateActPool(&cfg)
 	require.NotNil(t, err)
 	require.Equal(t, ErrInvalidCfg, errors.Cause(err))

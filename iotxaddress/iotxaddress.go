@@ -22,6 +22,8 @@ import (
 
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/iotxaddress/bech32"
+	"github.com/iotexproject/iotex-core/pkg/enc"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/version"
 )
@@ -74,6 +76,16 @@ func GetAddressByHash(isTestnet bool, chainID, hash []byte) (*Address, error) {
 		return nil, errors.Wrap(err, "error when getting raw address")
 	}
 	return &Address{RawAddress: raddr}, nil
+}
+
+// CreateContractAddress returns the contract address given owner address and nonce
+func CreateContractAddress(ownerAddr string, nonce uint64) (string, error) {
+	temp := make([]byte, 8)
+	enc.MachineEndian.PutUint64(temp, nonce)
+	// generate contract address from owner addr and nonce
+	// nonce guarantees a different contract addr even if the same code is deployed the second time
+	contractHash := hash.Hash160b(append([]byte(ownerAddr), temp...))
+	return getRawAddress(IsTestnet, ChainID, contractHash)
 }
 
 // GetAddressByPubkey returns the address given a public key and necessary params.

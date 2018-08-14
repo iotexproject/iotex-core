@@ -40,7 +40,7 @@ type Blockchain interface {
 	// Candidates returns the candidate list
 	Candidates() (uint64, []*state.Candidate)
 	// CandidatesByHeight returns the candidate list by a given height
-	CandidatesByHeight(height uint64) ([]*state.Candidate, bool)
+	CandidatesByHeight(height uint64) ([]*state.Candidate, error)
 	// For exposing blockchain states
 	// GetHeightByHash returns Block's height by hash
 	GetHeightByHash(h hash.Hash32B) (uint64, error)
@@ -70,6 +70,8 @@ type Blockchain interface {
 	GetVoteByVoteHash(h hash.Hash32B) (*action.Vote, error)
 	// GetBlockHashByVoteHash returns Block hash by vote hash
 	GetBlockHashByVoteHash(h hash.Hash32B) (hash.Hash32B, error)
+	// GetFactory returns the State Factory
+	GetFactory() state.Factory
 	// TipHash returns tip block's hash
 	TipHash() (hash.Hash32B, error)
 	// TipHeight returns tip block's height
@@ -113,11 +115,6 @@ type blockchain struct {
 
 // Option sets blockchain construction parameter
 type Option func(*blockchain, *config.Config) error
-
-var (
-	// ErrCandidates is the error returned when candidates cannot be returned
-	ErrCandidates = errors.New("error when getting candidates")
-)
 
 // DefaultStateFactoryOption sets blockchain's sf from config
 func DefaultStateFactoryOption() Option {
@@ -307,7 +304,7 @@ func (bc *blockchain) Candidates() (uint64, []*state.Candidate) {
 }
 
 // CandidatesByHeight returns the candidate list by a given height
-func (bc *blockchain) CandidatesByHeight(height uint64) ([]*state.Candidate, bool) {
+func (bc *blockchain) CandidatesByHeight(height uint64) ([]*state.Candidate, error) {
 	return bc.sf.CandidatesByHeight(height)
 }
 
@@ -425,6 +422,11 @@ func (bc *blockchain) GetVoteByVoteHash(h hash.Hash32B) (*action.Vote, error) {
 // GetBlockHashByVoteHash returns Block hash by vote hash
 func (bc *blockchain) GetBlockHashByVoteHash(h hash.Hash32B) (hash.Hash32B, error) {
 	return bc.dao.getBlockHashByVoteHash(h)
+}
+
+// GetFactory returns the State Factory
+func (bc *blockchain) GetFactory() state.Factory {
+	return bc.sf
 }
 
 // TipHash returns tip block's hash
@@ -555,6 +557,8 @@ func (bc *blockchain) commitBlock(blk *Block) error {
 		return nil
 	}
 	err := bc.sf.CommitStateChanges(blk.Height(), blk.Transfers, blk.Votes)
+	ProcessBlockContracts(blk, bc)
+
 	logger.Info().Uint64("height", blk.Header.height).Msg("commit a block")
 	return err
 }

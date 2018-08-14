@@ -29,6 +29,9 @@ var (
 	// ContractKVNameSpace is the bucket name for contract data storage
 	ContractKVNameSpace = "Contract"
 
+	// CandidateKVNameSpace is the bucket name for candidate data storage
+	CandidateKVNameSpace = "Candidate"
+
 	// ErrInvalidTrie indicates something wrong causing invalid operation
 	ErrInvalidTrie = errors.New("invalid trie operation")
 
@@ -44,15 +47,14 @@ type (
 	// Trie is the interface of Merkle Patricia Trie
 	Trie interface {
 		lifecycle.StartStopper
-		TrieDB() db.KVStore              // return the underlying DB instance
-		Upsert([]byte, []byte) error     // insert a new entry
-		Get([]byte) ([]byte, error)      // retrieve an existing entry
-		Delete([]byte) error             // delete an entry
-		Commit([][]byte, [][]byte) error // commit the state changes in a batch
-		RootHash() hash.Hash32B          // returns trie's root hash
-		EnableBatch() error              // enable batch mode
-		DisableBatch()                   // disable batch mode
-		Flush() error                    // flush batched db writes to database
+		TrieDB() db.KVStore          // return the underlying DB instance
+		Upsert([]byte, []byte) error // insert a new entry
+		Get([]byte) ([]byte, error)  // retrieve an existing entry
+		Delete([]byte) error         // delete an entry
+		Commit() error               // commit the state changes in a batch
+		RootHash() hash.Hash32B      // returns trie's root hash
+		EnableBatch() error          // enable batch mode
+		DisableBatch()               // Disable batch mode
 	}
 
 	// trie implements the Trie interface
@@ -70,9 +72,10 @@ type (
 		numBranch uint64
 		numExt    uint64
 		numLeaf   uint64
-		cache     map[hash.Hash32B][]byte
-		dbBatch   db.KVStoreBatch
+		// batch mode persists to underlying storage in one DB transaction
 		batchMode bool
+		dbBatch   db.KVStoreBatch
+		cache     map[hash.Hash32B][]byte // local cache of <k, v> to be batched
 	}
 )
 
@@ -82,7 +85,6 @@ func NewTrie(kvStore db.KVStore, name string, root hash.Hash32B) (Trie, error) {
 		return nil, errors.New("Failed to create KV store for Trie")
 	}
 	t, err := newTrie(kvStore, name, root)
-	t.lifecycle.Add(kvStore)
 	return &t, err
 }
 
@@ -170,23 +172,16 @@ func (t *trie) Delete(key []byte) error {
 	return t.updateDelete(ptr, childClps, clpsType)
 }
 
-// Commit writes an array <k[], v[]> as a batch
-func (t *trie) Commit(k, v [][]byte) error {
+// Commit local cached <k, v> in a batch
+func (t *trie) Commit() error {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
-	t.EnableBatch()
-	size := len(k)
-	if size != len(v) {
-		return errors.Wrap(ErrInvalidTrie, "commit <k, v> size not match")
+	if t.batchMode {
+		err := t.dbBatch.Commit()
+		t.resetCache()
+		return err
 	}
-	for i := 0; i < size; i++ {
-		if err := t.upsert(k[i], v[i]); err != nil {
-			return err
-		}
-	}
-	t.Flush()
-	t.DisableBatch()
 	return nil
 }
 
@@ -200,18 +195,15 @@ func (t *trie) RootHash() hash.Hash32B {
 
 // EnableBatch enable batch mode
 func (t *trie) EnableBatch() error {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
 	if t.batchMode {
 		return nil
 	}
 
-	// recreate the map to ensure it's clean
-	t.cache = nil
-	t.cache = make(map[hash.Hash32B][]byte)
-
-	// recreate the batch to ensure it's clean
-	t.dbBatch = nil
-	if t.dbBatch = t.dao.Batch(); t.dbBatch == nil {
-		return errors.New("fail to initial batch")
+	if err := t.resetCache(); err != nil {
+		return err
 	}
 	t.batchMode = true
 	return nil
@@ -219,15 +211,9 @@ func (t *trie) EnableBatch() error {
 
 // DisableBatch disable batch mode
 func (t *trie) DisableBatch() {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
 	t.batchMode = false
-}
-
-// Flush flush batched db writes to database
-func (t *trie) Flush() error {
-	if t.batchMode {
-		return t.dbBatch.Commit()
-	}
-	return nil
 }
 
 //======================================
@@ -236,6 +222,7 @@ func (t *trie) Flush() error {
 // newTrie creates a trie
 func newTrie(dao db.KVStore, name string, root hash.Hash32B) (trie, error) {
 	t := trie{dao: dao, rootHash: root, toRoot: list.New(), bucket: name, numEntry: 1, numBranch: 1}
+	t.lifecycle.Add(dao)
 	return t, nil
 }
 
@@ -252,6 +239,19 @@ func (t *trie) loadRoot() error {
 	// initial empty trie
 	t.root = &branch{}
 	return t.putPatricia(t.root)
+}
+
+func (t *trie) resetCache() error {
+	// recreate the map to ensure it's clean
+	t.cache = nil
+	t.cache = make(map[hash.Hash32B][]byte)
+
+	// recreate the batch to ensure it's clean
+	t.dbBatch = nil
+	if t.dbBatch = t.dao.Batch(); t.dbBatch == nil {
+		return errors.New("fail to initial batch")
+	}
+	return nil
 }
 
 // upsert a new entry
