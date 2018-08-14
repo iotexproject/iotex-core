@@ -34,7 +34,7 @@ func NewEVMStateDBAdapter(bc Blockchain) *EVMStateDBAdapter {
 func (stateDB *EVMStateDBAdapter) CreateAccount(evmAddr common.Address) {
 	addr, err := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, evmAddr.Bytes())
 	if err != nil {
-		logger.Error().Msg("Failed to get address by hash")
+		logger.Error().Msgf("Failed to get address by hash, %v", evmAddr)
 	}
 	_, err = stateDB.bc.CreateState(addr.RawAddress, 0)
 	if err != nil {

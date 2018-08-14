@@ -7,6 +7,7 @@
 package blockchain
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/CoderZhi/go-ethereum/common"
@@ -89,13 +90,14 @@ func NewEVMParams(blk *Block, execution *action.Execution, stateDB *EVMStateDBAd
 	if err != nil {
 		return nil, err
 	}
-	var contractAddr common.Address
+	var contractAddrPointer *common.Address
 	if execution.Contract != action.EmptyAddress {
 		contractHash, err := iotxaddress.GetPubkeyHash(execution.Contract)
 		if err != nil {
 			return nil, err
 		}
-		contractAddr = common.BytesToAddress(contractHash)
+		contractAddr := common.BytesToAddress(contractHash)
+		contractAddrPointer = &contractAddr
 	}
 	producerHash := keypair.HashPubKey(blk.Header.Pubkey)
 	producer := common.BytesToAddress(producerHash)
@@ -117,7 +119,7 @@ func NewEVMParams(blk *Block, execution *action.Execution, stateDB *EVMStateDBAd
 		execution.Nonce,
 		executorIoTXAddress.RawAddress,
 		execution.Amount,
-		&contractAddr,
+		contractAddrPointer,
 		uint64(execution.Gas),
 		execution.Data,
 	}, nil
@@ -186,6 +188,7 @@ func ExecuteContract(blk *Block, execution *action.Execution, bc Blockchain, gas
 		remainingValue := new(big.Int).Mul(new(big.Int).SetUint64(remainingGas), ps.context.GasPrice)
 		stateDB.AddBalance(ps.context.Origin, remainingValue)
 	}
+	fmt.Printf("Receipt: %+v %v\n", receipt, err)
 	return receipt, err
 }
 
@@ -205,13 +208,14 @@ func executeInEVM(evmParams *EVMParams, stateDB *EVMStateDBAdapter, gasLimit *ui
 	contractAddress := action.EmptyAddress
 	remainingGas -= intrinsicGas
 	executor := vm.AccountRef(evmParams.context.Origin)
+	fmt.Printf("contract: %s\n", evmParams.contract)
 	if evmParams.contract == nil {
 		// create contract
 		_, _, remainingGas, err := evm.Create(executor, evmParams.data, remainingGas, evmParams.amount)
 		if err != nil {
 			return remainingGas, action.EmptyAddress, err
 		}
-
+		fmt.Printf("create contract address with %s, %d\n", evmParams.executorRawAddress, evmParams.nonce)
 		contractAddress, err = iotxaddress.CreateContractAddress(evmParams.executorRawAddress, evmParams.nonce)
 		if err != nil {
 			return remainingGas, action.EmptyAddress, err
