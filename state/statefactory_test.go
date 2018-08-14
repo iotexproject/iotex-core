@@ -628,25 +628,25 @@ func TestCreateContract(t *testing.T) {
 	require.NotEqual(root, trie.EmptyRoot)
 
 	code := []byte("test contract creation")
-	contract, err := sf.CreateContract(addr.RawAddress, code)
+	contractAddr, err := sf.CreateContract(addr.RawAddress, code)
 	require.Nil(err)
-	require.NotEqual("", contract)
+	require.NotEqual("", contractAddr)
+	contractHash, err := iotxaddress.GetPubkeyHash(contractAddr)
+	require.Nil(err)
+	contract := byteutil.BytesTo20B(contractHash)
 	// contract exist
 	codeHash := sf.GetCodeHash(contract)
 	require.NotEqual(hash.ZeroHash32B, codeHash)
-	code1 := sf.GetCode(contract)
-	require.Equal(code, code1)
+	require.Equal(code, sf.GetCode(contract))
 	// re-create cause collision
 	contract1, err := sf.CreateContract(addr.RawAddress, code)
 	require.Equal(ErrAccountCollision, errors.Cause(err))
 	require.Equal("", contract1)
 	// non-existing contract
-	addr1, _ := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
-	codeHash = sf.GetCodeHash(addr1.RawAddress)
-	require.Equal(hash.ZeroHash32B, codeHash)
-	code1 = sf.GetCode(addr1.RawAddress)
-	require.Equal([]byte(nil), code1)
-	sf.CommitStateChanges(0, nil, nil)
+	addr1 := byteutil.BytesTo20B(hash.Hash160b([]byte("random")))
+	require.Equal(hash.ZeroHash32B, sf.GetCodeHash(addr1))
+	require.Equal([]byte(nil), sf.GetCode(addr1))
+	require.Nil(sf.CommitStateChanges(0, nil, nil))
 	root = sf.RootHash()
 	require.Nil(sf.Stop(context.Background()))
 
@@ -659,10 +659,55 @@ func TestCreateContract(t *testing.T) {
 	_, err = sf.CreateContract(addr.RawAddress, code)
 	require.Equal(ErrAccountCollision, errors.Cause(err))
 	// contract already exist
-	codeHash = sf.GetCodeHash(contract)
+	require.Equal(codeHash, sf.GetCodeHash(contract))
+	require.Equal(code, sf.GetCode(contract))
+	require.Nil(sf.Stop(context.Background()))
+}
+
+func TestLoadStoreContract(t *testing.T) {
+	require := require.New(t)
+
+	cfg := config.Default
+	cfg.Chain.TrieDBPath = testTriePath
+
+	testutil.CleanupPath(t, testTriePath)
+	defer testutil.CleanupPath(t, testTriePath)
+	sf, err := NewFactory(&cfg, DefaultTrieOption())
+	require.Nil(err)
+	require.Nil(sf.Start(context.Background()))
+	addr, err := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
+	require.Nil(err)
+	_, err = sf.LoadOrCreateState(addr.RawAddress, 5)
+	require.Nil(err)
+	addr1, err := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
+	require.Nil(err)
+	_, err = sf.LoadOrCreateState(addr1.RawAddress, 6)
+	require.Nil(err)
+	root := sf.RootHash()
+	require.NotEqual(root, trie.EmptyRoot)
+
+	code := []byte("test contract creation")
+	contractAddr, err := sf.CreateContract(addr.RawAddress, code)
+	require.Nil(err)
+	require.NotEqual("", contractAddr)
+	contractHash, err := iotxaddress.GetPubkeyHash(contractAddr)
+	require.Nil(err)
+	contract := byteutil.BytesTo20B(contractHash)
+	codeHash := sf.GetCodeHash(contract)
 	require.NotEqual(hash.ZeroHash32B, codeHash)
-	code1 = sf.GetCode(contract)
-	require.Equal(code, code1)
+	require.Equal(code, sf.GetCode(contract))
+
+	code1 := []byte("2nd contract creation")
+	contractAddr1, err := sf.CreateContract(addr1.RawAddress, code1)
+	require.Nil(err)
+	require.NotEqual("", contractAddr1)
+	contractHash, err = iotxaddress.GetPubkeyHash(contractAddr1)
+	require.Nil(err)
+	contract1 := byteutil.BytesTo20B(contractHash)
+	codeHash1 := sf.GetCodeHash(contract1)
+	require.NotEqual(hash.ZeroHash32B, codeHash1)
+	require.Equal(code1, sf.GetCode(contract1))
+	require.Nil(sf.Stop(context.Background()))
 }
 
 func compareStrings(actual []string, expected []string) bool {
