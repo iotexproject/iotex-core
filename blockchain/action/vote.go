@@ -30,15 +30,6 @@ var (
 	ErrVoteError = errors.New("vote error")
 )
 
-const (
-	// NonceSizeInBytes defines the size of nonce in byte units
-	NonceSizeInBytes = 8
-	// TimestampSizeInBytes defines the size of 8-byte timestamp
-	TimestampSizeInBytes = 8
-	// BooleanSizeInBytes defines the size of booleans
-	BooleanSizeInBytes = 1
-)
-
 // Vote defines the struct of account-based vote
 type Vote struct {
 	*iproto.ActionPb
@@ -72,7 +63,7 @@ func (v *Vote) SelfPublicKey() (keypair.PublicKey, error) {
 func (v *Vote) TotalSize() uint32 {
 	size := TimestampSizeInBytes
 	size += NonceSizeInBytes
-	size += versionSizeInBytes
+	size += VersionSizeInBytes
 	pbVote := v.GetVote()
 	size += len(pbVote.SelfPubkey)
 	size += len(pbVote.VoterAddress)

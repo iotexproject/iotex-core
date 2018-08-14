@@ -3,13 +3,14 @@ package explorer
 
 import (
 	"fmt"
-	"github.com/coopernurse/barrister-go"
 	"reflect"
+
+	"github.com/coopernurse/barrister-go"
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "8b776e4eeea7ae069881c1bdf783244c"
-const BarristerDateGenerated int64 = 1533000739049000000
+const BarristerChecksum string = "239ed24897f32fb841b2efe8c1f7e326"
+const BarristerDateGenerated int64 = 1534203997297000000
 
 type CoinStatistic struct {
 	Height    int64 `json:"height"`
@@ -50,6 +51,22 @@ type Transfer struct {
 	Fee          int64  `json:"fee"`
 	Timestamp    int64  `json:"timestamp"`
 	BlockID      string `json:"blockID"`
+}
+
+type Execution struct {
+	Version        int64  `json:"version"`
+	ID             string `json:"ID"`
+	Nonce          int64  `json:"nonce"`
+	Executor       string `json:"executor"`
+	Contract       string `json:"contract"`
+	Amount         int64  `json:"amount"`
+	ExecutorPubKey string `json:"executorPubKey"`
+	Signature      string `json:"signature"`
+	Gas            int64  `json:"gas"`
+	GasPrice       int64  `json:"gasPrice"`
+	Timestamp      int64  `json:"timestamp"`
+	Data           string `json:"data"`
+	BlockID        string `json:"blockID"`
 }
 
 type Vote struct {
@@ -804,6 +821,111 @@ var IdlJsonRaw = `[
             {
                 "name": "timestamp",
                 "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "blockID",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            }
+        ],
+        "values": null,
+        "functions": null,
+        "barrister_version": "",
+        "date_generated": 0,
+        "checksum": ""
+    },
+    {
+        "type": "struct",
+        "name": "Execution",
+        "comment": "",
+        "value": "",
+        "extends": "",
+        "fields": [
+            {
+                "name": "version",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "ID",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "nonce",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "executor",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "contract",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "amount",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "executorPubKey",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "signature",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "gas",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "gasPrice",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "timestamp",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "data",
+                "type": "string",
                 "optional": false,
                 "is_array": false,
                 "comment": ""
@@ -1669,7 +1791,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1533000739049,
-        "checksum": "8b776e4eeea7ae069881c1bdf783244c"
+        "date_generated": 1534203997297,
+        "checksum": "239ed24897f32fb841b2efe8c1f7e326"
     }
 ]`

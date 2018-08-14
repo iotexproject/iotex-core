@@ -26,15 +26,30 @@ message VotePb {
     string voteeAddress = 4;  // the address this node is voting for
 }
 
-message ActionPb {
-    oneof action {
-        TransferPb transfer = 1;
-        VotePb vote = 2;
-    }
+message ExecutionPb {
+    // ExecutionPb should share these three fields with other Actions
+    // TODO: extract these three fields to ActionPb
+    uint32 version = 1;
+    uint64 nonce = 2;
+    bytes signature = 3;
+    bytes amount  = 4;
+    string executor = 5;
+    string contract = 6;
+    bytes executorPubKey = 7;
+    uint32 gas = 8;
+    uint32 gasPrice = 9;
+    bytes data = 10;
+}
 
-    uint32 version = 3;
-    uint64 nonce = 4;
-    bytes signature = 5;
+message ActionPb {
+    uint32 version = 1;
+    uint64 nonce = 2;
+    bytes signature = 3;
+    oneof action {
+        TransferPb transfer = 10;
+        VotePb vote = 11;
+        ExecutionPb execution = 12;
+    }
 }
 
 // header of a block
