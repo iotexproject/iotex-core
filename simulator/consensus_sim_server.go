@@ -196,23 +196,23 @@ func main() {
 	if *cpuprofile != "" {
 		f, err := os.Create(*cpuprofile)
 		if err != nil {
-			logger.Fatal().Err(err)
+			logger.Fatal().Err(err).Msgf("failed to create file: %v", err)
 		}
 		err = pprof.StartCPUProfile(f)
 		if err != nil {
-			logger.Fatal().Err(err)
+			logger.Fatal().Err(err).Msgf("failed to start CPU profile: %v", err)
 		}
 	}
 
 	lis, err := net.Listen("tcp", port)
 	if err != nil {
-		logger.Fatal().Msgf("failed to listen: %v", err)
+		logger.Fatal().Err(err).Msgf("failed to listen: %v", err)
 	}
 	s := grpc.NewServer()
 	pb.RegisterSimulatorServer(s, &server{})
 	// Register reflection service on gRPC server.
 	reflection.Register(s)
 	if err := s.Serve(lis); err != nil {
-		logger.Fatal().Msgf("failed to serve: %v", err)
+		logger.Fatal().Err(err).Msgf("failed to serve: %v", err)
 	}
 }

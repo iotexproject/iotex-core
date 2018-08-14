@@ -8,11 +8,11 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/iotexproject/iotex-core/logger"
 
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/logger"
 )
 
 // generateCmd represents the generate command
@@ -21,7 +21,7 @@ var generateCmd = &cobra.Command{
 	Short: "Generates n number of iotex address key pairs.",
 	Long:  `Generates n number of iotex address key pairs.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		logger.Logger().Printf("\n%s\n", generate(args))
+		logger.Info().Msgf("\n%s\n", generate(args))
 	},
 }
 
@@ -32,7 +32,7 @@ func generate(args []string) string {
 	for i := 0; i < _addrNum; i++ {
 		addr, err := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
 		if err != nil {
-			logger.Fatal().Err(err)
+			logger.Fatal().Err(err).Msgf("failed to create address: %v", err)
 		}
 		out += fmt.Sprintf("Public Key: %x\nPrivate Key: %x\nRaw Address: %s\n\n",
 			addr.PublicKey, addr.PrivateKey, addr.RawAddress)
