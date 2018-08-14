@@ -20,8 +20,8 @@ type State struct {
 	// other actions' nonces start from 1
 	Nonce        uint64
 	Balance      *big.Int
-	Root         hash.Hash32B
-	CodeHash     []byte // hash of the smart contract code if the account is a contract
+	Root         hash.Hash32B // storage trie root for contract account
+	CodeHash     []byte       // hash of the smart contract byte-code for contract account
 	IsCandidate  bool
 	VotingWeight *big.Int
 	Votee        string

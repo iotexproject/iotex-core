@@ -635,17 +635,20 @@ func TestCreateContract(t *testing.T) {
 	require.Nil(err)
 	contract := byteutil.BytesTo20B(contractHash)
 	// contract exist
-	codeHash := sf.GetCodeHash(contract)
+	codeHash, _ := sf.GetCodeHash(contract)
 	require.NotEqual(hash.ZeroHash32B, codeHash)
-	require.Equal(code, sf.GetCode(contract))
+	v, _ := sf.GetCode(contract)
+	require.Equal(code, v)
 	// re-create cause collision
 	contract1, err := sf.CreateContract(addr.RawAddress, code)
 	require.Equal(ErrAccountCollision, errors.Cause(err))
 	require.Equal("", contract1)
 	// non-existing contract
 	addr1 := byteutil.BytesTo20B(hash.Hash160b([]byte("random")))
-	require.Equal(hash.ZeroHash32B, sf.GetCodeHash(addr1))
-	require.Equal([]byte(nil), sf.GetCode(addr1))
+	_, err = sf.GetCodeHash(addr1)
+	require.Equal(ErrAccountNotExist, errors.Cause(err))
+	_, err = sf.GetCode(addr1)
+	require.Equal(ErrAccountNotExist, errors.Cause(err))
 	require.Nil(sf.CommitStateChanges(0, nil, nil))
 	root = sf.RootHash()
 	require.Nil(sf.Stop(context.Background()))
@@ -659,8 +662,10 @@ func TestCreateContract(t *testing.T) {
 	_, err = sf.CreateContract(addr.RawAddress, code)
 	require.Equal(ErrAccountCollision, errors.Cause(err))
 	// contract already exist
-	require.Equal(codeHash, sf.GetCodeHash(contract))
-	require.Equal(code, sf.GetCode(contract))
+	h, _ := sf.GetCodeHash(contract)
+	require.Equal(codeHash, h)
+	v, _ = sf.GetCode(contract)
+	require.Equal(code, v)
 	require.Nil(sf.Stop(context.Background()))
 }
 
@@ -693,9 +698,10 @@ func TestLoadStoreContract(t *testing.T) {
 	contractHash, err := iotxaddress.GetPubkeyHash(contractAddr)
 	require.Nil(err)
 	contract := byteutil.BytesTo20B(contractHash)
-	codeHash := sf.GetCodeHash(contract)
+	codeHash, _ := sf.GetCodeHash(contract)
 	require.NotEqual(hash.ZeroHash32B, codeHash)
-	require.Equal(code, sf.GetCode(contract))
+	v, _ := sf.GetCode(contract)
+	require.Equal(code, v)
 
 	code1 := []byte("2nd contract creation")
 	contractAddr1, err := sf.CreateContract(addr1.RawAddress, code1)
@@ -704,9 +710,12 @@ func TestLoadStoreContract(t *testing.T) {
 	contractHash, err = iotxaddress.GetPubkeyHash(contractAddr1)
 	require.Nil(err)
 	contract1 := byteutil.BytesTo20B(contractHash)
-	codeHash1 := sf.GetCodeHash(contract1)
+	codeHash1, _ := sf.GetCodeHash(contract1)
 	require.NotEqual(hash.ZeroHash32B, codeHash1)
-	require.Equal(code1, sf.GetCode(contract1))
+	v, _ = sf.GetCode(contract1)
+	require.Equal(code1, v)
+	require.Nil(sf.CommitStateChanges(0, nil, nil))
+	root = sf.RootHash()
 	require.Nil(sf.Stop(context.Background()))
 }
 
