@@ -285,6 +285,7 @@ func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer
 			return err
 		}
 		state := contract.SelfState()
+		// store the account (with new storage trie root) into state trie
 		ss, err := stateToBytes(state)
 		if err != nil {
 			return err
@@ -451,7 +452,7 @@ func (sf *factory) cache(addr string) (*State, error) {
 	state, err := sf.getState(byteutil.BytesTo20B(pkHash))
 	switch {
 	case errors.Cause(err) == ErrAccountNotExist:
-		state, err = sf.LoadOrCreateState(addr, 0)
+		state, err = sf.createState(addr, 0)
 		if err != nil {
 			return nil, err
 		}
@@ -469,13 +470,17 @@ func (sf *factory) createContract(addr hash.AddrHash, code []byte) (Contract, er
 		Root:         trie.EmptyRoot,
 		CodeHash:     hash.Hash256b(code),
 	}
-	// add to contract cache
-	contract := newContract(sf.accountTrie, &s, trie.EmptyRoot)
-	sf.cachedContract[addr] = contract
+	tr, err := trie.NewTrie(sf.accountTrie.TrieDB(), trie.ContractKVNameSpace, trie.EmptyRoot)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Failed to create storage trie for new contract %x", addr)
+	}
+	contract := newContract(tr, &s)
 	// put the code into storage DB
 	if err := sf.accountTrie.TrieDB().Put(trie.CodeKVNameSpace, s.CodeHash, code); err != nil {
-		return nil, errors.Wrapf(err, "Failed to store code for contract %x", addr)
+		return nil, errors.Wrapf(err, "Failed to store code for new contract %x", addr)
 	}
+	// add to contract cache
+	sf.cachedContract[addr] = contract
 	return contract, nil
 }
 
@@ -490,9 +495,9 @@ func (sf *factory) getContract(addr hash.AddrHash) (Contract, error) {
 	}
 	tr, err := trie.NewTrie(sf.accountTrie.TrieDB(), trie.ContractKVNameSpace, state.Root)
 	if err != nil {
-		return nil, errors.Wrapf(err, "Failed to create storage trie for contract %x", addr)
+		return nil, errors.Wrapf(err, "Failed to create storage trie for existing contract %x", addr)
 	}
-	contract := newContract(tr, state, state.Root)
+	contract := newContract(tr, state)
 	// add to contract cache
 	sf.cachedContract[addr] = contract
 	return contract, nil
