@@ -11,7 +11,6 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
-	"log"
 	"net"
 	"os"
 	"runtime/pprof"
@@ -197,23 +196,23 @@ func main() {
 	if *cpuprofile != "" {
 		f, err := os.Create(*cpuprofile)
 		if err != nil {
-			log.Fatal(err)
+			logger.Fatal().Err(err).Msg("failed to create file")
 		}
 		err = pprof.StartCPUProfile(f)
 		if err != nil {
-			log.Fatal(err)
+			logger.Fatal().Err(err).Msg("failed to start CPU profile")
 		}
 	}
 
 	lis, err := net.Listen("tcp", port)
 	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
+		logger.Fatal().Err(err).Msg("failed to listen")
 	}
 	s := grpc.NewServer()
 	pb.RegisterSimulatorServer(s, &server{})
 	// Register reflection service on gRPC server.
 	reflection.Register(s)
 	if err := s.Serve(lis); err != nil {
-		log.Fatalf("failed to serve: %v", err)
+		logger.Fatal().Err(err).Msg("failed to serve")
 	}
 }
