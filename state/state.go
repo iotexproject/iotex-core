@@ -21,7 +21,7 @@ type State struct {
 	Nonce        uint64
 	Balance      *big.Int
 	Root         hash.Hash32B // storage trie root for contract account
-	CodeHash     []byte       // hash of the smart contract byte-code for contract account
+	CodeHash     hash.Hash32B // hash of the smart contract byte-code for contract account
 	IsCandidate  bool
 	VotingWeight *big.Int
 	Votee        string
