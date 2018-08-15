@@ -18,8 +18,9 @@ import (
 
 // EVMStateDBAdapter represents the state db adapter for evm to access iotx blockchain
 type EVMStateDBAdapter struct {
-	bc Blockchain
-	sf state.Factory
+	bc  Blockchain
+	sf  state.Factory
+	err error
 }
 
 // NewEVMStateDBAdapter creates a new state db with iotx blockchain
@@ -27,7 +28,19 @@ func NewEVMStateDBAdapter(bc Blockchain) *EVMStateDBAdapter {
 	return &EVMStateDBAdapter{
 		bc,
 		bc.GetFactory(),
+		nil,
 	}
+}
+
+func (stateDB *EVMStateDBAdapter) logError(err error) {
+	if stateDB.err == nil {
+		stateDB.err = err
+	}
+}
+
+// Error returns the first stored error during evm contract execution
+func (stateDB *EVMStateDBAdapter) Error() error {
+	return stateDB.err
 }
 
 // CreateAccount creates an account in iotx blockchain
@@ -35,10 +48,14 @@ func (stateDB *EVMStateDBAdapter) CreateAccount(evmAddr common.Address) {
 	addr, err := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, evmAddr.Bytes())
 	if err != nil {
 		logger.Error().Msgf("Failed to get address by hash, %v", evmAddr)
+		stateDB.logError(err)
+		return
 	}
 	_, err = stateDB.bc.CreateState(addr.RawAddress, 0)
 	if err != nil {
 		logger.Error().Msg("Failed to create a new account")
+		stateDB.logError(err)
+		return
 	}
 }
 
@@ -47,10 +64,14 @@ func (stateDB *EVMStateDBAdapter) SubBalance(evmAddr common.Address, amount *big
 	addr, err := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, evmAddr.Bytes())
 	if err != nil {
 		logger.Error().Msg("Failed to get address by hash")
+		stateDB.logError(err)
+		return
 	}
 	state, err := stateDB.bc.StateByAddr(addr.RawAddress)
 	if err != nil {
 		logger.Error().Msg("Failed to get the state")
+		stateDB.logError(err)
+		return
 	}
 	state.SubBalance(amount)
 }
@@ -60,10 +81,14 @@ func (stateDB *EVMStateDBAdapter) AddBalance(evmAddr common.Address, amount *big
 	addr, err := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, evmAddr.Bytes())
 	if err != nil {
 		logger.Error().Msg("Failed to get address by hash")
+		stateDB.logError(err)
+		return
 	}
 	state, err := stateDB.bc.StateByAddr(addr.RawAddress)
 	if err != nil {
 		logger.Error().Msg("Failed to get the state")
+		stateDB.logError(err)
+		return
 	}
 	state.AddBalance(amount)
 }
@@ -73,6 +98,7 @@ func (stateDB *EVMStateDBAdapter) GetBalance(evmAddr common.Address) *big.Int {
 	addr, err := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, evmAddr.Bytes())
 	if err != nil {
 		logger.Error().Err(err).Msgf("Failed to generate address for %s", evmAddr)
+		stateDB.logError(err)
 		return nil
 	}
 	balance, err := stateDB.bc.Balance(addr.RawAddress)
@@ -88,11 +114,13 @@ func (stateDB *EVMStateDBAdapter) GetNonce(evmAddr common.Address) uint64 {
 	addr, err := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, evmAddr.Bytes())
 	if err != nil {
 		logger.Error().Err(err).Msgf("Failed to generate address for %s", evmAddr)
+		stateDB.logError(err)
 		return 0
 	}
 	nonce, err := stateDB.bc.Nonce(addr.RawAddress)
 	if err != nil {
 		logger.Error().Err(err).Msgf("Failed to get nonce for %s", addr.RawAddress)
+		stateDB.logError(err)
 		return 0
 	}
 	return nonce
@@ -108,11 +136,13 @@ func (stateDB *EVMStateDBAdapter) GetCodeHash(evmAddr common.Address) common.Has
 	addr, err := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, evmAddr.Bytes())
 	if err != nil {
 		logger.Error().Err(err).Msgf("Failed to generate address for %s", evmAddr)
+		stateDB.logError(err)
 		return common.Hash{}
 	}
 	state, err := stateDB.bc.StateByAddr(addr.RawAddress)
 	if err != nil {
 		logger.Error().Err(err).Msgf("Failed to get code for %s", addr.RawAddress)
+		stateDB.logError(err)
 		return common.Hash{}
 	}
 	return common.BytesToHash(state.CodeHash)
