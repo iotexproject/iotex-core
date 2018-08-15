@@ -209,21 +209,21 @@ func executeInEVM(evmParams *EVMParams, stateDB *EVMStateDBAdapter, gasLimit *ui
 		return evmParams.gas, remainingGas, action.EmptyAddress, ErrOutOfGas
 	}
 	var err error
-	contractAddress := action.EmptyAddress
+	contractRawAddress := action.EmptyAddress
 	remainingGas -= intrinsicGas
 	executor := vm.AccountRef(evmParams.context.Origin)
 	fmt.Printf("contract: %s\n", evmParams.contract)
 	if evmParams.contract == nil {
 		// create contract
-		_, _, remainingGas, err := evm.Create(executor, evmParams.data, remainingGas, evmParams.amount)
+		_, evmContractAddress, remainingGas, err := evm.Create(executor, evmParams.data, remainingGas, evmParams.amount)
 		if err != nil {
 			return evmParams.gas, remainingGas, action.EmptyAddress, err
 		}
-		fmt.Printf("create contract address with %s, %d\n", evmParams.executorRawAddress, evmParams.nonce)
-		contractAddress, err = iotxaddress.CreateContractAddress(evmParams.executorRawAddress, evmParams.nonce)
+		contractAddress, err := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, evmContractAddress.Bytes())
 		if err != nil {
 			return evmParams.gas, remainingGas, action.EmptyAddress, err
 		}
+		contractRawAddress = contractAddress.RawAddress
 	} else {
 		// process contract
 		_, remainingGas, err = evm.Call(executor, *evmParams.contract, evmParams.data, remainingGas, evmParams.amount)
@@ -243,5 +243,5 @@ func executeInEVM(evmParams *EVMParams, stateDB *EVMStateDBAdapter, gasLimit *ui
 	/*
 		receipt.Logs = stateDB.GetLogs(tsf.Hash())
 	*/
-	return evmParams.gas, remainingGas, contractAddress, nil
+	return evmParams.gas, remainingGas, contractRawAddress, nil
 }

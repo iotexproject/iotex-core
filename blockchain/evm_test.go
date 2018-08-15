@@ -59,7 +59,7 @@ func TestEVM(t *testing.T) {
 	fmt.Printf("Committed\n")
 	/*
 		TODO (zhi) check contract code
-		contractAddr := "io1qyqsyqcyy52ay2tl3u5g8sm8ugft5z23fp9pjndmszhsj9"
+		contractAddr := "io1qyqsyqcy3kcd2pyfwus69nzgvkwhg8mk8h336dt86pg6cj"
 		contractPubkeyHash, err := iotxaddress.GetPubkeyHash(contractAddr)
 		fmt.Printf("pub key: %v, %v", contractPubkeyHash, err)
 		contractState, err := sf.State(contractAddr)

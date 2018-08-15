@@ -370,6 +370,7 @@ func (sf *factory) CreateContract(addr string, code []byte) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	// TODO (dustin) use precreated address if any
 	contractAddr, err := iotxaddress.CreateContractAddress(addr, nonce)
 	if err != nil {
 		return "", err
