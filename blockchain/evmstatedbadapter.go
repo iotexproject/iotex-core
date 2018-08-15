@@ -13,6 +13,7 @@ import (
 	"github.com/CoderZhi/go-ethereum/core/types"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -47,29 +48,30 @@ func (stateDB *EVMStateDBAdapter) Error() error {
 func (stateDB *EVMStateDBAdapter) CreateAccount(evmAddr common.Address) {
 	addr, err := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, evmAddr.Bytes())
 	if err != nil {
-		logger.Error().Msgf("Failed to get address by hash, %v", evmAddr)
+		logger.Error().Err(err).Msgf("Failed to generate address for %s", evmAddr)
 		stateDB.logError(err)
 		return
 	}
 	_, err = stateDB.bc.CreateState(addr.RawAddress, 0)
 	if err != nil {
-		logger.Error().Msg("Failed to create a new account")
+		logger.Error().Err(err).Msg("CreateAccount")
 		stateDB.logError(err)
 		return
 	}
+	logger.Info().Hex("addrHash", evmAddr[:]).Msg("CreateAccount")
 }
 
 // SubBalance subtracts balance from account
 func (stateDB *EVMStateDBAdapter) SubBalance(evmAddr common.Address, amount *big.Int) {
 	addr, err := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, evmAddr.Bytes())
 	if err != nil {
-		logger.Error().Msg("Failed to get address by hash")
+		logger.Error().Err(err).Msgf("Failed to generate address for %s", evmAddr)
 		stateDB.logError(err)
 		return
 	}
 	state, err := stateDB.bc.StateByAddr(addr.RawAddress)
 	if err != nil {
-		logger.Error().Msg("Failed to get the state")
+		logger.Error().Err(err).Msg("SubBalance")
 		stateDB.logError(err)
 		return
 	}
@@ -80,13 +82,13 @@ func (stateDB *EVMStateDBAdapter) SubBalance(evmAddr common.Address, amount *big
 func (stateDB *EVMStateDBAdapter) AddBalance(evmAddr common.Address, amount *big.Int) {
 	addr, err := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, evmAddr.Bytes())
 	if err != nil {
-		logger.Error().Msg("Failed to get address by hash")
+		logger.Error().Err(err).Msgf("Failed to generate address for %s", evmAddr)
 		stateDB.logError(err)
 		return
 	}
 	state, err := stateDB.bc.StateByAddr(addr.RawAddress)
 	if err != nil {
-		logger.Error().Msg("Failed to get the state")
+		logger.Error().Err(err).Msg("AddBalance")
 		stateDB.logError(err)
 		return
 	}
@@ -103,7 +105,7 @@ func (stateDB *EVMStateDBAdapter) GetBalance(evmAddr common.Address) *big.Int {
 	}
 	balance, err := stateDB.bc.Balance(addr.RawAddress)
 	if err != nil {
-		logger.Error().Err(err).Msgf("Failed to get balance for %s", addr.RawAddress)
+		logger.Error().Err(err).Msg("GetBalance")
 		return nil
 	}
 	return balance
@@ -119,7 +121,7 @@ func (stateDB *EVMStateDBAdapter) GetNonce(evmAddr common.Address) uint64 {
 	}
 	nonce, err := stateDB.bc.Nonce(addr.RawAddress)
 	if err != nil {
-		logger.Error().Err(err).Msgf("Failed to get nonce for %s", addr.RawAddress)
+		logger.Error().Err(err).Msg("GetNonce")
 		stateDB.logError(err)
 		return 0
 	}
@@ -133,30 +135,32 @@ func (stateDB *EVMStateDBAdapter) SetNonce(common.Address, uint64) {
 
 // GetCodeHash gets the code hash of account
 func (stateDB *EVMStateDBAdapter) GetCodeHash(evmAddr common.Address) common.Hash {
-	addr, err := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, evmAddr.Bytes())
+	codeHash := common.Hash{}
+	hash, err := stateDB.sf.GetCodeHash(byteutil.BytesTo20B(evmAddr[:]))
 	if err != nil {
-		logger.Error().Err(err).Msgf("Failed to generate address for %s", evmAddr)
+		logger.Error().Err(err).Msgf("GetCodeHash")
 		stateDB.logError(err)
-		return common.Hash{}
+		return codeHash
 	}
-	state, err := stateDB.bc.StateByAddr(addr.RawAddress)
-	if err != nil {
-		logger.Error().Err(err).Msgf("Failed to get code for %s", addr.RawAddress)
-		stateDB.logError(err)
-		return common.Hash{}
-	}
-	return common.BytesToHash(state.CodeHash)
+	copy(codeHash[:], hash[:])
+	return codeHash
 }
 
 // GetCode gets the code saved in hash
 func (stateDB *EVMStateDBAdapter) GetCode(evmAddr common.Address) []byte {
-	logger.Error().Msg("GetCode is not implemented")
-	return nil
+	code, err := stateDB.sf.GetCode(byteutil.BytesTo20B(evmAddr[:]))
+	if err != nil {
+		logger.Error().Err(err).Msg("GetCode")
+		return nil
+	}
+	return code
 }
 
 // SetCode sets the code saved in hash
 func (stateDB *EVMStateDBAdapter) SetCode(evmAddr common.Address, code []byte) {
-	logger.Error().Msg("SetCode is not implemented")
+	if err := stateDB.sf.SetCode(byteutil.BytesTo20B(evmAddr[:]), code); err != nil {
+		logger.Error().Err(err).Msg("SetCode")
+	}
 }
 
 // GetCodeSize gets the code size saved in hash

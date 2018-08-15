@@ -31,10 +31,10 @@ var (
 	ErrNotEnoughBalance = errors.New("not enough balance")
 
 	// ErrAccountNotExist is the error that the account does not exist
-	ErrAccountNotExist = errors.New("the account does not exist")
+	ErrAccountNotExist = errors.New("account does not exist")
 
 	// ErrAccountCollision is the error that the account already exists
-	ErrAccountCollision = errors.New("the account already exists")
+	ErrAccountCollision = errors.New("account already exists")
 
 	// ErrFailedToMarshalState is the error that the state marshaling is failed
 	ErrFailedToMarshalState = errors.New("failed to marshal state")
@@ -69,6 +69,7 @@ type (
 		CreateContract(string, []byte) (string, error)
 		GetCodeHash(hash.AddrHash) (hash.Hash32B, error)
 		GetCode(hash.AddrHash) ([]byte, error)
+		SetCode(hash.AddrHash, []byte) error
 		GetContractState(hash.AddrHash, hash.Hash32B) (hash.Hash32B, error)
 		SetContractState(hash.AddrHash, hash.Hash32B, hash.Hash32B) error
 		// Candidate pool
@@ -396,21 +397,30 @@ func (sf *factory) GetCodeHash(addr hash.AddrHash) (hash.Hash32B, error) {
 	if err != nil {
 		return hash.ZeroHash32B, errors.Wrapf(err, "Failed to GetCodeHash for contract %x", addr)
 	}
-	return byteutil.BytesTo32B(contract.SelfState().CodeHash), nil
+	return contract.SelfState().CodeHash, nil
 }
 
 // GetCode returns contract's code
 func (sf *factory) GetCode(addr hash.AddrHash) ([]byte, error) {
-	codeHash, err := sf.GetCodeHash(addr)
+	contract, err := sf.getContract(addr)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "Failed to GetCodeHash for contract %x", addr)
 	}
-	// pull the code from storage DB
-	code, err := sf.accountTrie.TrieDB().Get(trie.CodeKVNameSpace, codeHash[:])
+	code, err := contract.GetCode()
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to GetCode for contract %x", addr)
 	}
 	return code, nil
+}
+
+// SetCode sets contract's code
+func (sf *factory) SetCode(addr hash.AddrHash, code []byte) error {
+	contract, err := sf.getContract(addr)
+	if err != nil {
+		return errors.Wrapf(err, "Failed to SetCode for contract %x", addr)
+	}
+	contract.SetCode(byteutil.BytesTo32B(hash.Hash256b(code)), code)
+	return nil
 }
 
 // GetContractState returns contract's storage value
@@ -528,18 +538,14 @@ func (sf *factory) createContract(addr hash.AddrHash, code []byte) (Contract, er
 		Balance:      big.NewInt(0),
 		VotingWeight: big.NewInt(0),
 		Root:         trie.EmptyRoot,
-		CodeHash:     hash.Hash256b(code),
+		CodeHash:     byteutil.BytesTo32B(hash.Hash256b(code)),
 	}
 	tr, err := trie.NewTrie(sf.accountTrie.TrieDB(), trie.ContractKVNameSpace, trie.EmptyRoot)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to create storage trie for new contract %x", addr)
 	}
-	contract := newContract(tr, &s)
-	// put the code into storage DB
-	if err := sf.accountTrie.TrieDB().Put(trie.CodeKVNameSpace, s.CodeHash, code); err != nil {
-		return nil, errors.Wrapf(err, "Failed to store code for new contract %x", addr)
-	}
 	// add to contract cache
+	contract := newContract(&s, code, tr)
 	sf.cachedContract[addr] = contract
 	return contract, nil
 }
@@ -557,8 +563,8 @@ func (sf *factory) getContract(addr hash.AddrHash) (Contract, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to create storage trie for existing contract %x", addr)
 	}
-	contract := newContract(tr, state)
 	// add to contract cache
+	contract := newContract(state, nil, tr)
 	sf.cachedContract[addr] = contract
 	return contract, nil
 }
