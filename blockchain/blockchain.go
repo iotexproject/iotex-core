@@ -84,6 +84,10 @@ type Blockchain interface {
 	// MintNewBlock creates a new block with given actions
 	// Note: the coinbase transfer will be added to the given transfers when minting a new block
 	MintNewBlock(tsf []*action.Transfer, vote []*action.Vote, executions []*action.Execution, address *iotxaddress.Address, data string) (*Block, error)
+	// TODO: Merge the MintNewDKGBlock into MintNewBlock
+	// MintNewDKGBlock creates a new block with given actions and dkg keys
+	MintNewDKGBlock(tsf []*action.Transfer, vote []*action.Vote, executions []*action.Execution,
+		producer *iotxaddress.Address, dkgAddress *iotxaddress.DKGAddress, seed []byte, data string) (*Block, error)
 	// MintDummyNewBlock creates a new dummy block, used for unreached consensus
 	MintNewDummyBlock() *Block
 	// CommitBlock validates and appends a block to the chain
@@ -515,8 +519,45 @@ func (bc *blockchain) MintNewBlock(tsf []*action.Transfer, vote []*action.Vote, 
 		return blk, nil
 	}
 
-	blk.Header.Pubkey = producer.PublicKey
+	blk.Header.DKGID = []byte{}
+	blk.Header.DKGPubkey = []byte{}
+	blk.Header.DKGBlockSig = []byte{}
 
+	blk.Header.Pubkey = producer.PublicKey
+	blkHash := blk.HashBlock()
+	blk.Header.blockSig = crypto.EC283.Sign(producer.PrivateKey, blkHash[:])
+	return blk, nil
+}
+
+// MintNewDKGBlock creates a new block with given actions and dkg keys
+// Note: the coinbase transfer will be added to the given transfers
+// when minting a new block
+func (bc *blockchain) MintNewDKGBlock(tsf []*action.Transfer, vote []*action.Vote, executions []*action.Execution,
+	producer *iotxaddress.Address, dkgAddress *iotxaddress.DKGAddress, seed []byte, data string) (*Block, error) {
+	bc.mu.RLock()
+	defer bc.mu.RUnlock()
+
+	tsf = append(tsf, action.NewCoinBaseTransfer(big.NewInt(int64(bc.genesis.BlockReward)), producer.RawAddress))
+
+	blk := NewBlock(bc.chainID, bc.tipHeight+1, bc.tipHash, bc.clk, tsf, vote, executions)
+	if producer.PrivateKey == keypair.ZeroPrivateKey {
+		logger.Warn().Msg("Unsigned block...")
+		return blk, nil
+	}
+
+	blk.Header.DKGID = []byte{}
+	blk.Header.DKGPubkey = []byte{}
+	blk.Header.DKGBlockSig = []byte{}
+	if len(dkgAddress.PublicKey) > 0 && len(dkgAddress.PrivateKey) > 0 && len(dkgAddress.ID) > 0 {
+		blk.Header.DKGID = dkgAddress.ID
+		blk.Header.DKGPubkey = dkgAddress.PublicKey
+		var err error
+		if _, blk.Header.DKGBlockSig, err = crypto.BLS.SignShare(dkgAddress.PrivateKey, seed); err != nil {
+			return nil, errors.Wrap(err, "Failed to do DKG sign")
+		}
+	}
+
+	blk.Header.Pubkey = producer.PublicKey
 	blkHash := blk.HashBlock()
 	blk.Header.blockSig = crypto.EC283.Sign(producer.PrivateKey, blkHash[:])
 	return blk, nil

@@ -11,6 +11,7 @@ import (
 	"math/big"
 	"sort"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -527,6 +528,9 @@ func TestCandidatesByHeight(t *testing.T) {
 
 	sf.candidateTrie.Upsert(byteutil.Uint64ToBytes(0), candidatesBytes)
 	candidates, err := sf.CandidatesByHeight(0)
+	sort.Slice(candidates, func(i, j int) bool {
+		return strings.Compare(candidates[i].Address, candidates[j].Address) < 0
+	})
 	require.NoError(t, err)
 	require.Equal(t, 2, len(candidates))
 	require.Equal(t, "Alpha", candidates[0].Address)
@@ -539,6 +543,9 @@ func TestCandidatesByHeight(t *testing.T) {
 
 	sf.candidateTrie.Upsert(byteutil.Uint64ToBytes(1), candidatesBytes)
 	candidates, err = sf.CandidatesByHeight(1)
+	sort.Slice(candidates, func(i, j int) bool {
+		return strings.Compare(candidates[i].Address, candidates[j].Address) < 0
+	})
 	require.NoError(t, err)
 	require.Equal(t, 2, len(candidates))
 	require.Equal(t, "Beta", candidates[0].Address)

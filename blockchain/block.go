@@ -45,6 +45,9 @@ type BlockHeader struct {
 	receiptRoot   hash.Hash32B      // root of receipt trie
 	blockSig      []byte            // block signature
 	Pubkey        keypair.PublicKey // block producer's public key
+	DKGID         []byte            // dkg ID of producer
+	DKGPubkey     []byte            // dkg public key of producer
+	DKGBlockSig   []byte            // dkg signature of producer
 
 }
 
@@ -134,6 +137,9 @@ func (b *Block) ByteStream() []byte {
 
 	// Add the stream of blockSig
 	stream = append(stream, b.Header.blockSig[:]...)
+	stream = append(stream, b.Header.DKGID[:]...)
+	stream = append(stream, b.Header.DKGPubkey[:]...)
+	stream = append(stream, b.Header.DKGBlockSig[:]...)
 
 	for _, t := range b.Transfers {
 		stream = append(stream, t.ByteStream()...)
@@ -161,6 +167,9 @@ func (b *Block) ConvertToBlockHeaderPb() *iproto.BlockHeaderPb {
 	pbHeader.ReceiptRoot = b.Header.receiptRoot[:]
 	pbHeader.Signature = b.Header.blockSig[:]
 	pbHeader.Pubkey = b.Header.Pubkey[:]
+	pbHeader.DkgID = b.Header.DKGID[:]
+	pbHeader.DkgPubkey = b.Header.DKGPubkey[:]
+	pbHeader.DkgSignature = b.Header.DKGBlockSig[:]
 	return &pbHeader
 }
 
@@ -198,6 +207,9 @@ func (b *Block) ConvertFromBlockHeaderPb(pbBlock *iproto.BlockPb) {
 	copy(b.Header.receiptRoot[:], pbBlock.GetHeader().GetReceiptRoot())
 	b.Header.blockSig = pbBlock.GetHeader().GetSignature()
 	copy(b.Header.Pubkey[:], pbBlock.GetHeader().GetPubkey())
+	b.Header.DKGID = pbBlock.GetHeader().GetDkgID()
+	b.Header.DKGPubkey = pbBlock.GetHeader().GetDkgPubkey()
+	b.Header.DKGBlockSig = pbBlock.GetHeader().GetDkgSignature()
 }
 
 // ConvertFromBlockPb converts BlockPb to Block

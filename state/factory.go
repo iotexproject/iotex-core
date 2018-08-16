@@ -8,12 +8,10 @@ package state
 
 import (
 	"context"
-	"math/big"
-	"sort"
-	"strings"
-
 	"github.com/boltdb/bolt"
 	"github.com/pkg/errors"
+	"math/big"
+	"sort"
 
 	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/config"
@@ -511,9 +509,6 @@ func (sf *factory) CandidatesByHeight(height uint64) ([]*Candidate, error) {
 	if len(candidates) > int(sf.numCandidates) {
 		candidates = candidates[:sf.numCandidates]
 	}
-	sort.Slice(candidates, func(i, j int) bool {
-		return strings.Compare(candidates[i].Address, candidates[j].Address) < 0
-	})
 	return candidates, nil
 }
 

@@ -31,3 +31,15 @@ func Sort(hashes [][]byte, nonce uint64) {
 		return bytes.Compare(hi[:], hj[:]) < 0
 	})
 }
+
+// SortCandidates sorts a given slices of hashes cryptographically using blake2b hash function
+func SortCandidates(candidates []string, epochNum uint64) {
+	nb := make([]byte, 8)
+	enc.MachineEndian.PutUint64(nb, epochNum)
+
+	sort.Slice(candidates[:], func(i, j int) bool {
+		hi := blake2b.Sum256(append(append([]byte(candidates[i]), cryptoSeed...), nb...))
+		hj := blake2b.Sum256(append(append([]byte(candidates[j]), cryptoSeed...), nb...))
+		return bytes.Compare(hi[:], hj[:]) < 0
+	})
+}

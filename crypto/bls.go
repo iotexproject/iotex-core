@@ -22,7 +22,8 @@ import (
 )
 
 const (
-	degree      = 10
+	// Degree is used for threshold BLS
+	Degree      = 10
 	idlength    = 32
 	sigSize     = 5 // number of uint32s in sig
 	privkeySize = 5
@@ -131,11 +132,11 @@ func (b *bls) VerifyShare(pubkey []byte, msg []byte, sig []byte) error {
 // SignAggregate generates an aggregate signature
 func (b *bls) SignAggregate(ids [][]uint8, sigs [][]byte) ([]byte, error) {
 	var aggsig [sigSize]C.uint32_t
-	var idsSer [degree + 1][idlength]C.uint8_t
-	var sigsSer [degree + 1][sigSize]C.uint32_t
+	var idsSer [Degree + 1][idlength]C.uint8_t
+	var sigsSer [Degree + 1][sigSize]C.uint32_t
 	var err error
 
-	for i := 0; i < degree+1; i++ {
+	for i := 0; i < Degree+1; i++ {
 		for j := 0; j < idlength; j++ {
 			idsSer[i][j] = (C.uint8_t)(ids[i][j])
 		}
@@ -155,14 +156,14 @@ func (b *bls) SignAggregate(ids [][]uint8, sigs [][]byte) ([]byte, error) {
 	return []byte{}, errors.Wrap(ErrInvalidSignature, "Failed to generate aggregate signature")
 }
 
-// VerifyAggregate verifies the aggregate signature given that there are at least degree+1 signers
+// VerifyAggregate verifies the aggregate signature given that there are at least Degree+1 signers
 func (b *bls) VerifyAggregate(ids [][]uint8, pubkeys [][]byte, msg []byte, aggsig []byte) error {
-	var idsSer [degree + 1][idlength]C.uint8_t
-	var pubkeysSer [degree + 1]C.ec_point_aff_twist
+	var idsSer [Degree + 1][idlength]C.uint8_t
+	var pubkeysSer [Degree + 1]C.ec_point_aff_twist
 	var err error
 	msgString := string(msg[:])
 
-	for i := 0; i < degree+1; i++ {
+	for i := 0; i < Degree+1; i++ {
 		for j := 0; j < idlength; j++ {
 			idsSer[i][j] = (C.uint8_t)(ids[i][j])
 		}
