@@ -17,6 +17,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -50,7 +51,12 @@ func TestEVM(t *testing.T) {
 	require.NoError(err)
 	blk, err := bc.MintNewBlock(nil, nil, []*action.Execution{execution}, ta.Addrinfo["producer"], "")
 	require.NoError(err)
-	err = bc.CommitBlock(blk)
+	require.Nil(bc.CommitBlock(blk))
+
+	contractAddrHash, _ := hex.DecodeString("8db0d504897721a2cc48659d741f763de31d3567")
+	code, err := bc.GetFactory().GetCode(byteutil.BytesTo20B(contractAddrHash))
+	require.Nil(err)
+	require.Equal(data[31:], code)
 	/*
 		TODO (zhi) check contract code
 		contractAddr := "io1qyqsyqcy3kcd2pyfwus69nzgvkwhg8mk8h336dt86pg6cj"

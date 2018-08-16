@@ -332,6 +332,7 @@ func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer
 			return err
 		}
 		state := contract.SelfState()
+		logger.Warn().Msgf("commit code hash %x", state.CodeHash)
 		// store the account (with new storage trie root) into state trie
 		ss, err := stateToBytes(state)
 		if err != nil {
@@ -420,6 +421,8 @@ func (sf *factory) SetCode(addr hash.AddrHash, code []byte) error {
 		return errors.Wrapf(err, "Failed to SetCode for contract %x", addr)
 	}
 	contract.SetCode(byteutil.BytesTo32B(hash.Hash256b(code)), code)
+	logger.Warn().Hex("hash", hash.Hash256b(code)[:]).Msg("SetCode")
+	logger.Warn().Hex("code", code).Msg("SetCode")
 	return nil
 }
 
@@ -445,6 +448,7 @@ func (sf *factory) SetContractState(addr hash.AddrHash, key, value hash.Hash32B)
 	if err := contract.SetState(key, value[:]); err != nil {
 		return errors.Wrapf(err, "Failed to SetContractState for contract %x", addr)
 	}
+	logger.Warn().Hex("key", key[:]).Hex("value", value[:]).Msg("SetContractState")
 	return nil
 }
 
