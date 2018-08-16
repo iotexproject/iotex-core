@@ -307,11 +307,9 @@ func TestActPool_PickActs(t *testing.T) {
 	t.Run("low-limit", func(t *testing.T) {
 		apConfig := getActPoolCfg()
 		apConfig.MaxNumActsToPick = 3
-		ap, transfers, _ := createActPool(apConfig)
+		ap, _, _ := createActPool(apConfig)
 		pickedTsfs, pickedVotes, pickedExecutions := ap.PickActs()
-		require.Equal(t, transfers[:3], pickedTsfs)
-		require.Equal(t, []*action.Vote{}, pickedVotes)
-		require.Equal(t, []*action.Execution{}, pickedExecutions)
+		require.Equal(t, 3, len(pickedTsfs)+len(pickedVotes)+len(pickedExecutions))
 	})
 }
 
