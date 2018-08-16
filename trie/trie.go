@@ -279,7 +279,7 @@ func (t *trie) upsert(key, value []byte) error {
 			}
 			hashChild = ptr.hash()
 			// hash of new node should NOT exist in DB
-			if err := t.putPatriciaNew(ptr); err != nil {
+			if err := t.putPatricia(ptr); err != nil {
 				return err
 			}
 			addNode.Remove(n)

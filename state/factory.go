@@ -12,6 +12,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/boltdb/bolt"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/blockchain/action"
@@ -42,8 +43,14 @@ var (
 	ErrFailedToUnmarshalState = errors.New("failed to unmarshal state")
 )
 
-// CurrentHeightKey indicates the key of current factory height in underlying database
-const CurrentHeightKey = "currentHeight"
+const (
+	// CurrentHeightKey indicates the key of current factory height in underlying database
+	CurrentHeightKey = "currentHeight"
+	// AccountTrieRootKey indicates the key of accountTrie root hash in underlying database
+	AccountTrieRootKey = "accountTrieRoot"
+	// CandidateTrieRootKey indicates the key of candidateTrie root hash in underlying database
+	CandidateTrieRootKey = "candidateTrieRoot"
+)
 
 type (
 	// Factory defines an interface for managing states
@@ -55,6 +62,8 @@ type (
 		Nonce(string) (uint64, error) // Note that nonce starts with 1.
 		State(string) (*State, error)
 		RootHash() hash.Hash32B
+		CandidateRootHash() hash.Hash32B
+		Height() (uint64, error)
 		CommitStateChanges(uint64, []*action.Transfer, []*action.Vote, []*action.Execution) error
 		// Contracts
 		CreateContract(string, []byte) (string, error)
@@ -104,16 +113,28 @@ func DefaultTrieOption() FactoryOption {
 		if len(dbPath) == 0 {
 			return errors.New("Invalid empty trie db path")
 		}
-		tr, err := trie.NewTrie(db.NewBoltDB(dbPath, nil), trie.AccountKVNameSpace, trie.EmptyRoot)
+		trieDB := db.NewBoltDB(dbPath, nil)
+		if err := trieDB.Start(context.Background()); err != nil {
+			return errors.Wrap(err, "failed to start trie db")
+		}
+
+		accountTrieRoot, err := sf.getRoot(trieDB, trie.AccountKVNameSpace, AccountTrieRootKey)
+		if err != nil {
+			return errors.Wrap(err, "failed to get accountTrie's root hash from underlying db")
+		}
+		tr, err := trie.NewTrie(trieDB, trie.AccountKVNameSpace, accountTrieRoot)
 		if err != nil {
 			return errors.Wrap(err, "failed to generate accountTrie from config")
 		}
 		sf.accountTrie = tr
-		candidateTrie, err := trie.NewTrie(tr.TrieDB(), trie.CandidateKVNameSpace, trie.EmptyRoot)
+
+		candidateTrieRoot, err := sf.getRoot(trieDB, trie.CandidateKVNameSpace, CandidateTrieRootKey)
 		if err != nil {
+			return errors.Wrap(err, "failed to get candidateTrie's root hash from underlying db")
+		}
+		if sf.candidateTrie, err = trie.NewTrie(tr.TrieDB(), trie.CandidateKVNameSpace, candidateTrieRoot); err != nil {
 			return errors.Wrap(err, "failed to generate candidateTrie")
 		}
-		sf.candidateTrie = candidateTrie
 		sf.codeDB = tr.TrieDB()
 		return nil
 	}
@@ -127,11 +148,9 @@ func InMemTrieOption() FactoryOption {
 			return errors.Wrapf(err, "failed to initialize in-memory accountTrie")
 		}
 		sf.accountTrie = tr
-		candidateTrie, err := trie.NewTrie(tr.TrieDB(), trie.CandidateKVNameSpace, trie.EmptyRoot)
-		if err != nil {
+		if sf.candidateTrie, err = trie.NewTrie(tr.TrieDB(), trie.CandidateKVNameSpace, trie.EmptyRoot); err != nil {
 			return errors.Wrap(err, "failed to initialize in-memory candidateTrie")
 		}
-		sf.candidateTrie = candidateTrie
 		sf.codeDB = tr.TrieDB()
 		return nil
 	}
@@ -224,9 +243,14 @@ func (sf *factory) State(addr string) (*State, error) {
 	return sf.getState(byteutil.BytesTo20B(pkHash))
 }
 
-// RootHash returns the hash of the root node of the trie
+// RootHash returns the hash of the root node of the accountTrie
 func (sf *factory) RootHash() hash.Hash32B {
 	return sf.accountTrie.RootHash()
+}
+
+// CandidateRootHash returns the hash of the root node of the candidateTrie
+func (sf *factory) CandidateRootHash() hash.Hash32B {
+	return sf.candidateTrie.RootHash()
 }
 
 // Height returns factory's height
@@ -240,6 +264,17 @@ func (sf *factory) Height() (uint64, error) {
 
 // CommitStateChanges updates a State from the given actions
 func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer, vote []*action.Vote, executions []*action.Execution) error {
+	// Recover cachedCandidates after restart factory
+	if blockHeight > 0 && len(sf.cachedCandidates) == 0 {
+		candidates, err := sf.getCandidates(blockHeight - 1)
+		if err != nil {
+			return errors.Wrapf(err, "failed to get previous candidates on height %d", blockHeight-1)
+		}
+		if sf.cachedCandidates, err = CandidatesToMap(candidates); err != nil {
+			return errors.Wrap(err, "failed to convert candidate list to map of cached candidates")
+		}
+	}
+
 	if err := sf.handleTsf(tsf); err != nil {
 		return err
 	}
@@ -280,7 +315,7 @@ func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer
 	// Persist new list of candidates to candidateTrie
 	candidates, err := MapToCandidates(sf.cachedCandidates)
 	if err != nil {
-		return errors.Wrap(err, "failed to convert candidate map to candidates")
+		return errors.Wrap(err, "failed to convert map of cached candidates to candidate list")
 	}
 	sort.Sort(candidates)
 	candidatesBytes, err := Serialize(candidates)
@@ -310,9 +345,20 @@ func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer
 		return errors.Wrap(err, "failed to commit changes to underlying Trie in a batch")
 	}
 
+	trieDB := sf.accountTrie.TrieDB()
+	// Persist accountTrie's root hash and candidateTrie's root hash to underlying db
+	accountRootHash := sf.RootHash()
+	if err := trieDB.Put(trie.AccountKVNameSpace, []byte(AccountTrieRootKey), accountRootHash[:]); err != nil {
+		return errors.Wrap(err, "failed to update accountTrie's root hash in underlying db")
+	}
+	candidateRootHash := sf.CandidateRootHash()
+	if err := trieDB.Put(trie.CandidateKVNameSpace, []byte(CandidateTrieRootKey), candidateRootHash[:]); err != nil {
+		return errors.Wrap(err, "failed to update candidateTrie's root hash in underlying db")
+	}
+
 	// Set current chain height and persist it to db
 	sf.currentChainHeight = blockHeight
-	return sf.accountTrie.TrieDB().Put(trie.AccountKVNameSpace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(blockHeight))
+	return trieDB.Put(trie.AccountKVNameSpace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(blockHeight))
 }
 
 //======================================
@@ -407,13 +453,9 @@ func (sf *factory) Candidates() (uint64, []*Candidate) {
 // CandidatesByHeight returns array of candidates in candidate pool of a given height
 func (sf *factory) CandidatesByHeight(height uint64) ([]*Candidate, error) {
 	// Load candidates on the given height from candidateTrie
-	candidatesBytes, err := sf.candidateTrie.Get(byteutil.Uint64ToBytes(height))
+	candidates, err := sf.getCandidates(height)
 	if err != nil {
 		return []*Candidate{}, errors.Wrapf(err, "failed to get candidates on height %d", height)
-	}
-	candidates, err := Deserialize(candidatesBytes)
-	if err != nil {
-		return []*Candidate{}, errors.Wrapf(err, "failed to deserialize candidates on height %d", height)
 	}
 	if len(candidates) > int(sf.numCandidates) {
 		candidates = candidates[:sf.numCandidates]
@@ -530,6 +572,14 @@ func (sf *factory) updateCandidate(address string, totalWeight *big.Int, blockHe
 	candidate.LastUpdateHeight = blockHeight
 }
 
+func (sf *factory) getCandidates(height uint64) (CandidateList, error) {
+	candidatesBytes, err := sf.candidateTrie.Get(byteutil.Uint64ToBytes(height))
+	if err != nil {
+		return []*Candidate{}, errors.Wrapf(err, "failed to get candidates on height %d", height)
+	}
+	return Deserialize(candidatesBytes)
+}
+
 //======================================
 // private transfer/vote functions
 //======================================
@@ -641,4 +691,20 @@ func (sf *factory) handleVote(blockHeight uint64, vote []*action.Vote) error {
 		}
 	}
 	return nil
+}
+
+//======================================
+// private trie constructor functions
+//======================================
+func (sf *factory) getRoot(trieDB db.KVStore, nameSpace string, key string) (hash.Hash32B, error) {
+	var trieRoot hash.Hash32B
+	switch root, err := trieDB.Get(nameSpace, []byte(key)); errors.Cause(err) {
+	case nil:
+		trieRoot = byteutil.BytesTo32B(root)
+	case bolt.ErrBucketNotFound:
+		trieRoot = trie.EmptyRoot
+	default:
+		return hash.ZeroHash32B, errors.Wrap(err, "failed to get trie's root hash from underlying db")
+	}
+	return trieRoot, nil
 }

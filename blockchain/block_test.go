@@ -240,7 +240,7 @@ func TestWrongNonce(t *testing.T) {
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.NoError(err)
 	require.NoError(val.Validate(blk, 2, hash))
-	err = sf.CommitStateChanges(1, []*action.Transfer{tsf1}, nil, nil)
+	err = sf.CommitStateChanges(0, []*action.Transfer{tsf1}, nil, nil)
 	require.NoError(err)
 
 	// low nonce

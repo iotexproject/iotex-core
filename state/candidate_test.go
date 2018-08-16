@@ -46,4 +46,11 @@ func TestCandidate(t *testing.T) {
 	require.Equal("Theta", candidates[0].Address)
 	require.Equal("Beta", candidates[1].Address)
 	require.Equal("Alpha", candidates[2].Address)
+
+	candidateMap, err = CandidatesToMap(candidateList)
+	require.NoError(err)
+	require.Equal(3, len(candidateMap))
+	require.Equal(uint64(1), candidateMap["Alpha"].Votes.Uint64())
+	require.Equal(uint64(2), candidateMap["Beta"].Votes.Uint64())
+	require.Equal(uint64(3), candidateMap["Theta"].Votes.Uint64())
 }
