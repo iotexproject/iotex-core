@@ -22,6 +22,8 @@ var (
 	ErrCandidatePb = errors.New("invalid protobuf's candidate message")
 	// ErrCandidateMap indicates the error of candidate map
 	ErrCandidateMap = errors.New("invalid candidate map")
+	// ErrCandidateList indicates the error of candidate list
+	ErrCandidateList = errors.New("invalid candidate list")
 )
 
 // Candidate indicates the structure of a candidate
@@ -106,7 +108,7 @@ func Deserialize(buf []byte) (CandidateList, error) {
 	return candidates, nil
 }
 
-// MapToCandidates converts a cachedCandidates to candidate list
+// MapToCandidates converts a map of cachedCandidates to candidate list
 func MapToCandidates(candidateMap map[string]*Candidate) (CandidateList, error) {
 	if candidateMap == nil {
 		return nil, errors.Wrap(ErrCandidateMap, "candidate map cannot be nil")
@@ -116,4 +118,19 @@ func MapToCandidates(candidateMap map[string]*Candidate) (CandidateList, error) 
 		candidates = append(candidates, cand)
 	}
 	return candidates, nil
+}
+
+// CandidatesToMap converts a candidate list to map of cachedCandidates
+func CandidatesToMap(candidates CandidateList) (map[string]*Candidate, error) {
+	if candidates == nil {
+		return nil, errors.Wrap(ErrCandidateList, "candidate list cannot be nil")
+	}
+	candidateMap := make(map[string]*Candidate)
+	for _, candidate := range candidates {
+		if candidate == nil {
+			return nil, errors.Wrap(ErrCandidate, "candidate cannot be nil")
+		}
+		candidateMap[candidate.Address] = candidate
+	}
+	return candidateMap, nil
 }
