@@ -9,7 +9,6 @@ package e2etest
 import (
 	"context"
 	"encoding/hex"
-	"fmt"
 	"math/big"
 	"sort"
 	"testing"
@@ -805,7 +804,6 @@ func TestDummyBlockReplacement(t *testing.T) {
 	require.Nil(err)
 
 	tsf, _, _ = svr.ActionPool().PickActs()
-	fmt.Println(tsf[0].Amount)
 	blk2, err := originChain.MintNewBlock(tsf, nil, nil, ta.Addrinfo["producer"], "")
 	require.Nil(err)
 	err = p.Broadcast(blk2.ConvertToBlockPb())

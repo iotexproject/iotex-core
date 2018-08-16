@@ -79,6 +79,9 @@ message BlockHeaderPb {
     bytes reserved = 9;
     bytes signature = 10;
     bytes pubkey = 11;
+    bytes dkgID = 12;
+    bytes dkgPubkey = 13;
+    bytes dkgSignature = 14;
 }
 
 // block consists of header followed by transactions

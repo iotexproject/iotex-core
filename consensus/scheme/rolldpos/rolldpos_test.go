@@ -25,6 +25,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/network/node"
 	"github.com/iotexproject/iotex-core/pkg/hash"
@@ -83,8 +84,9 @@ func TestRollDPoSCtx(t *testing.T) {
 	assert.Equal(t, uint64(2), epoch)
 	assert.Equal(t, uint64(9), height)
 
-	delegates, err := ctx.rollingDelegates(height)
+	delegates, err := ctx.rollingDelegates(epoch)
 	require.NoError(t, err)
+	crypto.SortCandidates(candidates, epoch)
 	assert.Equal(t, candidates, delegates)
 
 	ctx.epoch = epochCtx{
@@ -252,6 +254,7 @@ func TestRollDPoS_Metrics(t *testing.T) {
 	m, err := r.Metrics()
 	require.NoError(t, err)
 	assert.Equal(t, uint64(3), m.LatestEpoch)
+	crypto.SortCandidates(candidates, m.LatestEpoch)
 	assert.Equal(t, candidates[:4], m.LatestDelegates)
 	assert.Equal(t, candidates[1], m.LatestBlockProducer)
 	assert.Equal(t, candidates, m.Candidates)
@@ -414,8 +417,14 @@ func TestRollDPoSConsensus(t *testing.T) {
 		}
 
 		chainRawAddrs := make([]string, 0, numNodes)
+		addressMap := make(map[string]*iotxaddress.Address, 0)
 		for _, addr := range chainAddrs {
 			chainRawAddrs = append(chainRawAddrs, addr.RawAddress)
+			addressMap[addr.RawAddress] = addr
+		}
+		crypto.SortCandidates(chainRawAddrs, 1)
+		for i, rawAddress := range chainRawAddrs {
+			chainAddrs[i] = addressMap[rawAddress]
 		}
 
 		candidatesByHeightFunc := func(_ uint64) ([]*state.Candidate, error) {

@@ -8,6 +8,8 @@ package rolldpos
 
 import (
 	"context"
+	"encoding/hex"
+	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -21,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
@@ -88,6 +91,7 @@ func TestRollDelegatesEvt(t *testing.T) {
 		assert.Equal(t, uint64(1), cfsm.ctx.epoch.height)
 		assert.Equal(t, uint64(1), cfsm.ctx.epoch.num)
 		assert.Equal(t, uint(1), cfsm.ctx.epoch.numSubEpochs)
+		crypto.SortCandidates(delegates, cfsm.ctx.epoch.num)
 		assert.Equal(t, delegates, cfsm.ctx.epoch.delegates)
 		assert.Equal(t, eGenerateDKG, (<-cfsm.evtq).Type())
 	})
@@ -746,4 +750,89 @@ func newTestAddr() *iotxaddress.Address {
 		logger.Panic().Err(err).Msg("error when creating test IoTeX address")
 	}
 	return addr
+}
+
+func TestUpdateSeed(t *testing.T) {
+	require := require.New(t)
+	lastSeed, _ := hex.DecodeString("9de6306b08158c423330f7a27243a1a5cbe39bfd764f07818437882d21241567")
+	chain := blockchain.NewBlockchain(&config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	ctx := rollDPoSCtx{cfg: config.Default.Consensus.RollDPoS, chain: chain, epoch: epochCtx{seed: lastSeed}}
+	fsm := cFSM{ctx: &ctx}
+
+	var err error
+	const numNodes = 21
+	addresses := make([]*iotxaddress.Address, numNodes)
+	skList := make([][]uint32, numNodes)
+	idList := make([][]uint8, numNodes)
+	coeffsList := make([][][]uint32, numNodes)
+	sharesList := make([][][]uint32, numNodes)
+	shares := make([][]uint32, numNodes)
+	witnessesList := make([][][]byte, numNodes)
+	sharestatusmatrix := make([][numNodes]bool, numNodes)
+	qsList := make([][]byte, numNodes)
+	pkList := make([][]byte, numNodes)
+	askList := make([][]uint32, numNodes)
+
+	// Generate 21 identifiers for the delegates
+	for i := 0; i < numNodes; i++ {
+		addresses[i], _ = iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
+		idList[i] = hash.Hash256b([]byte(addresses[i].RawAddress))
+		skList[i] = crypto.DKG.SkGeneration()
+	}
+
+	// Initialize DKG and generate secret shares
+	for i := 0; i < numNodes; i++ {
+		coeffsList[i], sharesList[i], witnessesList[i], err = crypto.DKG.Init(skList[i], idList)
+		require.NoError(err)
+	}
+
+	// Verify all the received secret shares
+	for i := 0; i < numNodes; i++ {
+		for j := 0; j < numNodes; j++ {
+			shares[j] = sharesList[j][i]
+		}
+		sharestatusmatrix[i], err = crypto.DKG.SharesCollect(idList[i], shares, witnessesList)
+		require.NoError(err)
+		for _, b := range sharestatusmatrix[i] {
+			require.True(b)
+		}
+	}
+
+	// Generate private and public key shares of a group key
+	for i := 0; i < numNodes; i++ {
+		for j := 0; j < numNodes; j++ {
+			shares[j] = sharesList[j][i]
+		}
+		qsList[i], pkList[i], askList[i], err = crypto.DKG.KeyPairGeneration(shares, sharestatusmatrix)
+		require.NoError(err)
+	}
+
+	// Generate dkg signature for each block
+	require.NoError(err)
+	dummy := chain.MintNewDummyBlock()
+	err = chain.CommitBlock(dummy)
+	require.NoError(err)
+	for i := 1; i < numNodes; i++ {
+		blk, err := chain.MintNewDKGBlock(nil, nil, nil, addresses[i],
+			&iotxaddress.DKGAddress{PrivateKey: askList[i], PublicKey: pkList[i], ID: idList[i]},
+			lastSeed, "")
+		require.NoError(err)
+		err = verifyDKGSignature(blk, lastSeed)
+		require.NoError(err)
+		err = chain.CommitBlock(blk)
+		require.NoError(err)
+		require.Equal(pkList[i], blk.Header.DKGPubkey)
+		require.Equal(idList[i], blk.Header.DKGID)
+		require.True(len(blk.Header.DKGBlockSig) > 0)
+	}
+	height, err := chain.TipHeight()
+	require.NoError(err)
+	require.Equal(int(height), 21)
+
+	newSeed, err := fsm.updateSeed()
+	require.NoError(err)
+	require.True(len(newSeed) > 0)
+	require.NotEqual(fsm.ctx.epoch.seed, newSeed)
+	fmt.Println(fsm.ctx.epoch.seed)
+	fmt.Println(newSeed)
 }
