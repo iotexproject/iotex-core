@@ -612,14 +612,9 @@ func (m *cFSM) handleVoteEvt(evt fsm.Event) (fsm.State, error) {
 	}
 	// Commit and broadcast the pending block
 	var err error
-	// TODO: Remove the blocksync dependency after rewriting blocksync
-	if m.ctx.sync != nil {
-		err = m.ctx.sync.ProcessBlock(pendingBlock)
-	} else {
-		if err = m.ctx.chain.CommitBlock(pendingBlock); err == nil {
-			// Remove transfers in this block from ActPool and reset ActPool state
-			m.ctx.actPool.Reset()
-		}
+	if err = m.ctx.chain.CommitBlock(pendingBlock); err == nil {
+		// Remove transfers in this block from ActPool and reset ActPool state
+		m.ctx.actPool.Reset()
 	}
 	if err != nil {
 		logger.Error().
