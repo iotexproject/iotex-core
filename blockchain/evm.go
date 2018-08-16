@@ -7,10 +7,10 @@
 package blockchain
 
 import (
-	"fmt"
 	"math/big"
 
 	"github.com/CoderZhi/go-ethereum/common"
+	"github.com/CoderZhi/go-ethereum/core/types"
 	"github.com/CoderZhi/go-ethereum/core/vm"
 	"github.com/CoderZhi/go-ethereum/params"
 	"github.com/iotexproject/iotex-core/blockchain/action"
@@ -46,6 +46,7 @@ type Receipt struct {
 	Hash            hash.Hash32B
 	GasConsumed     uint64
 	ContractAddress string
+	Logs            []*types.Log
 }
 
 // CanTransfer checks whether the from account has enough balance
@@ -161,6 +162,7 @@ func securityDeposit(context *EVMParams, stateDB vm.StateDB, gasLimit *uint64) e
 func ExecuteContracts(blk *Block, bc Blockchain) {
 	gasLimit := GasLimit
 	for _, execution := range blk.Executions {
+		// TODO (zhi) log receipt to stateDB
 		ExecuteContract(blk, execution, bc, &gasLimit)
 	}
 }
@@ -192,8 +194,12 @@ func ExecuteContract(blk *Block, execution *action.Execution, bc Blockchain, gas
 		gasValue := new(big.Int).Mul(new(big.Int).SetUint64(depositGas-remainingGas), ps.context.GasPrice)
 		stateDB.AddBalance(ps.context.Coinbase, gasValue)
 	}
-	fmt.Printf("Receipt: %+v %v\n", receipt, err)
+	receipt.Logs = stateDB.Logs()
 	return receipt, err
+}
+
+func intrinsicGas(evmParams *EVMParams) uint64 {
+	return uint64(10)
 }
 
 func executeInEVM(evmParams *EVMParams, stateDB *EVMStateDBAdapter, gasLimit *uint64) (uint64, uint64, string, error) {
@@ -204,15 +210,14 @@ func executeInEVM(evmParams *EVMParams, stateDB *EVMStateDBAdapter, gasLimit *ui
 	var chainConfig params.ChainConfig
 	var config vm.Config
 	evm := vm.NewEVM(evmParams.context, stateDB, &chainConfig, config)
-	intrinsicGas := uint64(10) // Intrinsic Gas
-	if remainingGas < intrinsicGas {
+	intriGas := intrinsicGas(evmParams)
+	if remainingGas < intriGas {
 		return evmParams.gas, remainingGas, action.EmptyAddress, ErrOutOfGas
 	}
 	var err error
 	contractRawAddress := action.EmptyAddress
-	remainingGas -= intrinsicGas
+	remainingGas -= intriGas
 	executor := vm.AccountRef(evmParams.context.Origin)
-	fmt.Printf("contract: %s\n", evmParams.contract)
 	if evmParams.contract == nil {
 		// create contract
 		_, evmContractAddress, remainingGas, err := evm.Create(executor, evmParams.data, remainingGas, evmParams.amount)
@@ -240,8 +245,5 @@ func executeInEVM(evmParams *EVMParams, stateDB *EVMStateDBAdapter, gasLimit *ui
 	}
 	// TODO (zhi) figure out what the following function does
 	// stateDB.Finalise(true)
-	/*
-		receipt.Logs = stateDB.GetLogs(tsf.Hash())
-	*/
 	return evmParams.gas, remainingGas, contractRawAddress, nil
 }
