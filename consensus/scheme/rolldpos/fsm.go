@@ -369,7 +369,6 @@ func (m *cFSM) handleRollDelegatesEvt(_ fsm.Event) (fsm.State, error) {
 
 		logger.Info().
 			Uint64("epoch", epochNum).
-			Uint64("height", epochHeight).
 			Msg("current node is the delegate")
 		return sDKGGeneration, nil
 	}
@@ -377,7 +376,6 @@ func (m *cFSM) handleRollDelegatesEvt(_ fsm.Event) (fsm.State, error) {
 	m.produce(m.newCEvt(eRollDelegates), m.ctx.cfg.DelegateInterval)
 	logger.Info().
 		Uint64("epoch", epochNum).
-		Uint64("height", epochHeight).
 		Msg("current node is not the delegate")
 	return sEpochStart, nil
 }
