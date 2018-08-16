@@ -7,10 +7,10 @@
 package blockchain
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/CoderZhi/go-ethereum/common"
-	"github.com/CoderZhi/go-ethereum/core/types"
 	"github.com/CoderZhi/go-ethereum/core/vm"
 	"github.com/CoderZhi/go-ethereum/params"
 	"github.com/iotexproject/iotex-core/blockchain/action"
@@ -46,7 +46,18 @@ type Receipt struct {
 	Hash            hash.Hash32B
 	GasConsumed     uint64
 	ContractAddress string
-	Logs            []*types.Log
+	Logs            []*Log
+}
+
+// Log stores an evm contract event
+type Log struct {
+	Address     string
+	Topics      []hash.Hash32B
+	Data        []byte
+	BlockNumber uint64
+	TxnHash     hash.Hash32B
+	BLockHash   hash.Hash32B
+	Index       uint
 }
 
 // CanTransfer checks whether the from account has enough balance
@@ -161,15 +172,15 @@ func securityDeposit(context *EVMParams, stateDB vm.StateDB, gasLimit *uint64) e
 // ExecuteContracts process the contracts in a block
 func ExecuteContracts(blk *Block, bc Blockchain) {
 	gasLimit := GasLimit
-	for _, execution := range blk.Executions {
+	for idx, execution := range blk.Executions {
 		// TODO (zhi) log receipt to stateDB
-		ExecuteContract(blk, execution, bc, &gasLimit)
+		executeContract(blk, idx, execution, bc, &gasLimit)
 	}
 }
 
-// ExecuteContract processes a transfer which contains a contract
-func ExecuteContract(blk *Block, execution *action.Execution, bc Blockchain, gasLimit *uint64) (*Receipt, error) {
-	stateDB := NewEVMStateDBAdapter(bc)
+// executeContract processes a transfer which contains a contract
+func executeContract(blk *Block, idx int, execution *action.Execution, bc Blockchain, gasLimit *uint64) (*Receipt, error) {
+	stateDB := NewEVMStateDBAdapter(bc, blk.Height(), blk.HashBlock(), uint(idx), execution.Hash())
 	ps, err := NewEVMParams(blk, execution, stateDB)
 	if err != nil {
 		return nil, err
@@ -195,6 +206,7 @@ func ExecuteContract(blk *Block, execution *action.Execution, bc Blockchain, gas
 		stateDB.AddBalance(ps.context.Coinbase, gasValue)
 	}
 	receipt.Logs = stateDB.Logs()
+	fmt.Printf("Receipt: %+v, %v\n", receipt, err)
 	return receipt, err
 }
 
