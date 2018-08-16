@@ -209,6 +209,13 @@ func NewBlockchain(cfg *config.Config, opts ...Option) Blockchain {
 		return nil
 	}
 	if height > 0 {
+		logger.Info().Msgf("Blockchain restarting height = %d", height)
+		factoryHeight, err := chain.sf.Height()
+		if err != nil {
+			logger.Error().Err(err).Msg("Failed to get factory's height")
+			return nil
+		}
+		logger.Info().Msgf("Factory restarting height = %d", factoryHeight)
 		return chain
 	}
 	genesis := NewGenesisBlock(cfg)
@@ -222,6 +229,13 @@ func NewBlockchain(cfg *config.Config, opts ...Option) Blockchain {
 			Uint64("Genesis block has height", genesis.Height()).
 			Msg("Expecting 0")
 		return nil
+	}
+	// add producer into Trie
+	if chain.sf != nil {
+		if _, err := chain.sf.LoadOrCreateState(Gen.CreatorAddr, Gen.TotalSupply); err != nil {
+			logger.Error().Err(err).Msg("Failed to add Creator into StateFactory")
+			return nil
+		}
 	}
 	// add Genesis block as very first block
 	if err := chain.CommitBlock(genesis); err != nil {
@@ -238,13 +252,6 @@ func (bc *blockchain) Start(ctx context.Context) (err error) {
 	if err = bc.lifecycle.OnStart(ctx); err != nil {
 		return err
 	}
-	// add producer into Trie
-	if bc.sf != nil {
-		if _, err := bc.sf.LoadOrCreateState(Gen.CreatorAddr, Gen.TotalSupply); err != nil {
-			logger.Error().Err(err).Msg("Failed to add Creator into StateFactory")
-			return err
-		}
-	}
 	// get blockchain tip height
 	bc.mu.Lock()
 	defer bc.mu.Unlock()
@@ -259,17 +266,20 @@ func (bc *blockchain) Start(ctx context.Context) (err error) {
 		return err
 	}
 	// populate state factory
-	for i := uint64(0); i <= bc.tipHeight; i++ {
+	if bc.sf == nil {
+		return errors.New("statefactory cannot be nil")
+	}
+	var startHeight uint64
+	if factoryHeight, err := bc.sf.Height(); err == nil {
+		startHeight = factoryHeight + 1
+	}
+	for i := startHeight; i <= bc.tipHeight; i++ {
 		blk, err := bc.GetBlockByHeight(i)
 		if err != nil {
 			return err
 		}
-		if blk != nil {
-			if bc.sf != nil && blk.Transfers != nil {
-				if err := bc.sf.CommitStateChanges(blk.Height(), blk.Transfers, blk.Votes, blk.Executions); err != nil {
-					return err
-				}
-			}
+		if err := bc.sf.CommitStateChanges(blk.Height(), blk.Transfers, blk.Votes, blk.Executions); err != nil {
+			return err
 		}
 	}
 	return nil
