@@ -94,8 +94,8 @@ func (m *memKVStore) Batch() KVStoreBatch {
 }
 
 const (
-	fileMode = 0600
-	quota    = 3
+	fileMode   = 0600
+	numRetries = 3
 )
 
 // boltDB is KVStore implementation based bolt DB
@@ -142,19 +142,19 @@ func (b *boltDB) Stop(_ context.Context) error {
 
 // Put inserts a <key, value> record
 func (b *boltDB) Put(namespace string, key []byte, value []byte) error {
-	c := 0
-retry:
-	err := b.db.Update(func(tx *bolt.Tx) error {
-		bucket, err := tx.CreateBucketIfNotExists([]byte(namespace))
-		if err != nil {
-			return err
-		}
-		return bucket.Put(key, value)
-	})
+	var err error
+	for c := 0; c < numRetries; c++ {
+		err = b.db.Update(func(tx *bolt.Tx) error {
+			bucket, err := tx.CreateBucketIfNotExists([]byte(namespace))
+			if err != nil {
+				return err
+			}
+			return bucket.Put(key, value)
+		})
 
-	if err != nil && c < quota {
-		c++
-		goto retry
+		if err == nil {
+			break
+		}
 	}
 
 	return err
@@ -162,22 +162,22 @@ retry:
 
 // PutIfNotExists inserts a <key, value> record only if it does not exist yet, otherwise return ErrAlreadyExist
 func (b *boltDB) PutIfNotExists(namespace string, key []byte, value []byte) error {
-	c := 0
-retry:
-	err := b.db.Update(func(tx *bolt.Tx) error {
-		bucket, err := tx.CreateBucketIfNotExists([]byte(namespace))
-		if err != nil {
-			return err
-		}
-		if bucket.Get(key) == nil {
-			return bucket.Put(key, value)
-		}
-		return ErrAlreadyExist
-	})
+	var err error
+	for c := 0; c < numRetries; c++ {
+		err = b.db.Update(func(tx *bolt.Tx) error {
+			bucket, err := tx.CreateBucketIfNotExists([]byte(namespace))
+			if err != nil {
+				return err
+			}
+			if bucket.Get(key) == nil {
+				return bucket.Put(key, value)
+			}
+			return ErrAlreadyExist
+		})
 
-	if err != nil && c < quota {
-		c++
-		goto retry
+		if err == nil || err == ErrAlreadyExist {
+			break
+		}
 	}
 
 	return err
@@ -205,19 +205,19 @@ func (b *boltDB) Get(namespace string, key []byte) ([]byte, error) {
 
 // Delete deletes a record
 func (b *boltDB) Delete(namespace string, key []byte) error {
-	c := 0
-retry:
-	err := b.db.Update(func(tx *bolt.Tx) error {
-		bucket := tx.Bucket([]byte(namespace))
-		if bucket == nil {
-			return errors.Wrapf(bolt.ErrBucketNotFound, "bucket = %s", namespace)
-		}
-		return bucket.Delete(key)
-	})
+	var err error
+	for c := 0; c < numRetries; c++ {
+		err = b.db.Update(func(tx *bolt.Tx) error {
+			bucket := tx.Bucket([]byte(namespace))
+			if bucket == nil {
+				return errors.Wrapf(bolt.ErrBucketNotFound, "bucket = %s", namespace)
+			}
+			return bucket.Delete(key)
+		})
 
-	if err != nil && c < quota {
-		c++
-		goto retry
+		if err == nil || err == bolt.ErrBucketNotFound {
+			break
+		}
 	}
 
 	return err
