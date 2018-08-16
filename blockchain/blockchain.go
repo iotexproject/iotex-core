@@ -578,8 +578,8 @@ func (bc *blockchain) commitBlock(blk *Block) error {
 	if bc.sf == nil {
 		return nil
 	}
-	err := bc.sf.CommitStateChanges(blk.Height(), blk.Transfers, blk.Votes, blk.Executions)
 	ExecuteContracts(blk, bc)
+	err := bc.sf.CommitStateChanges(blk.Height(), blk.Transfers, blk.Votes, blk.Executions)
 
 	logger.Info().Uint64("height", blk.Header.height).Msg("commit a block")
 	return err

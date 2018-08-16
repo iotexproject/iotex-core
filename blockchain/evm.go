@@ -15,6 +15,7 @@ import (
 	"github.com/CoderZhi/go-ethereum/params"
 	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/pkg/errors"
@@ -236,6 +237,7 @@ func executeInEVM(evmParams *EVMParams, stateDB *EVMStateDBAdapter, gasLimit *ui
 		if err != nil {
 			return evmParams.gas, remainingGas, action.EmptyAddress, err
 		}
+		logger.Warn().Hex("contract addrHash", evmContractAddress[:]).Msg("executeInEVM")
 		contractAddress, err := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, evmContractAddress.Bytes())
 		if err != nil {
 			return evmParams.gas, remainingGas, action.EmptyAddress, err
@@ -257,5 +259,6 @@ func executeInEVM(evmParams *EVMParams, stateDB *EVMStateDBAdapter, gasLimit *ui
 	}
 	// TODO (zhi) figure out what the following function does
 	// stateDB.Finalise(true)
+	logger.Warn().Str("contract address", contractRawAddress).Msg("executeInEVM")
 	return evmParams.gas, remainingGas, contractRawAddress, nil
 }

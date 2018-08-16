@@ -7,7 +7,6 @@
 package blockchain
 
 import (
-	"fmt"
 	"math/big"
 
 	"github.com/CoderZhi/go-ethereum/common"
@@ -171,7 +170,6 @@ func (stateDB *EVMStateDBAdapter) GetCode(evmAddr common.Address) []byte {
 
 // SetCode sets the code saved in hash
 func (stateDB *EVMStateDBAdapter) SetCode(evmAddr common.Address, code []byte) {
-	fmt.Printf("SetCode %+v, %v\n", evmAddr, code)
 	if err := stateDB.sf.SetCode(byteutil.BytesTo20B(evmAddr[:]), code); err != nil {
 		logger.Error().Err(err).Msg("SetCode")
 	}
@@ -198,14 +196,22 @@ func (stateDB *EVMStateDBAdapter) GetRefund() uint64 {
 }
 
 // GetState gets state
-func (stateDB *EVMStateDBAdapter) GetState(common.Address, common.Hash) common.Hash {
-	logger.Error().Msg("GetState is not implemented")
-	return common.Hash{}
+func (stateDB *EVMStateDBAdapter) GetState(evmAddr common.Address, k common.Hash) common.Hash {
+	storage := common.Hash{}
+	v, err := stateDB.sf.GetContractState(byteutil.BytesTo20B(evmAddr[:]), byteutil.BytesTo32B(k[:]))
+	if err != nil {
+		logger.Error().Err(err).Msg("GetState")
+		return storage
+	}
+	copy(storage[:], v[:])
+	return storage
 }
 
 // SetState sets state
-func (stateDB *EVMStateDBAdapter) SetState(common.Address, common.Hash, common.Hash) {
-	logger.Error().Msg("SetState is not implemented")
+func (stateDB *EVMStateDBAdapter) SetState(evmAddr common.Address, k, v common.Hash) {
+	if err := stateDB.sf.SetContractState(byteutil.BytesTo20B(evmAddr[:]), byteutil.BytesTo32B(k[:]), byteutil.BytesTo32B(v[:])); err != nil {
+		logger.Error().Err(err).Msg("SetState")
+	}
 }
 
 // Suicide kills the contract
@@ -245,7 +251,7 @@ func (stateDB *EVMStateDBAdapter) Snapshot() int {
 
 // AddLog adds log
 func (stateDB *EVMStateDBAdapter) AddLog(evmLog *types.Log) {
-	fmt.Printf("AddLog %+v\n", evmLog)
+	logger.Info().Msgf("AddLog %+v\n", evmLog)
 	addr, err := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, evmLog.Address.Bytes())
 	if err != nil {
 		logger.Error().Err(err).Msg("Invalid address in Log")
