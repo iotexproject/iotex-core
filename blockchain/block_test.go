@@ -14,6 +14,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/facebookgo/clock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -116,7 +117,15 @@ func TestMerkle(t *testing.T) {
 	t.Logf("hash07 = %x", hash07)
 
 	// create block using above 5 tx and verify merkle
-	block := NewBlock(0, 0, hash.ZeroHash32B, []*action.Transfer{cbtsf0, cbtsf1, cbtsf2, cbtsf3, cbtsf4}, nil, nil)
+	block := NewBlock(
+		0,
+		0,
+		hash.ZeroHash32B,
+		clock.New(),
+		[]*action.Transfer{cbtsf0, cbtsf1, cbtsf2, cbtsf3, cbtsf4},
+		nil,
+		nil,
+	)
 	hash := block.TxRoot()
 	require.Equal(hash07[:], hash[:])
 
@@ -188,7 +197,7 @@ func TestWrongRootHash(t *testing.T) {
 	tsf2, err = tsf2.Sign(ta.Addrinfo["producer"])
 	require.Nil(err)
 	hash := tsf1.Hash()
-	blk := NewBlock(1, 1, hash, []*action.Transfer{tsf1, tsf2}, nil, nil)
+	blk := NewBlock(1, 1, hash, clock.New(), []*action.Transfer{tsf1, tsf2}, nil, nil)
 	blk.Header.Pubkey = ta.Addrinfo["producer"].PublicKey
 	blkHash := blk.HashBlock()
 	blk.Header.blockSig = crypto.EC283.Sign(ta.Addrinfo["producer"].PrivateKey, blkHash[:])
@@ -209,7 +218,7 @@ func TestSignBlock(t *testing.T) {
 	tsf2, err = tsf2.Sign(ta.Addrinfo["producer"])
 	require.Nil(err)
 	hash := tsf1.Hash()
-	blk := NewBlock(1, 3, hash, []*action.Transfer{tsf1, tsf2}, nil, nil)
+	blk := NewBlock(1, 3, hash, clock.New(), []*action.Transfer{tsf1, tsf2}, nil, nil)
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.Nil(err)
 	require.Nil(val.Validate(blk, 2, hash))
@@ -236,7 +245,7 @@ func TestWrongNonce(t *testing.T) {
 	tsf1, err = tsf1.Sign(ta.Addrinfo["producer"])
 	require.NoError(err)
 	hash := tsf1.Hash()
-	blk := NewBlock(1, 3, hash, []*action.Transfer{coinbaseTsf, tsf1}, nil, nil)
+	blk := NewBlock(1, 3, hash, clock.New(), []*action.Transfer{coinbaseTsf, tsf1}, nil, nil)
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.NoError(err)
 	require.NoError(val.Validate(blk, 2, hash))
@@ -249,7 +258,7 @@ func TestWrongNonce(t *testing.T) {
 	tsf2, err = tsf2.Sign(ta.Addrinfo["producer"])
 	require.NoError(err)
 	hash = tsf1.Hash()
-	blk = NewBlock(1, 3, hash, []*action.Transfer{coinbaseTsf, tsf1, tsf2}, nil, nil)
+	blk = NewBlock(1, 3, hash, clock.New(), []*action.Transfer{coinbaseTsf, tsf1, tsf2}, nil, nil)
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.NoError(err)
 	err = val.Validate(blk, 2, hash)
@@ -260,7 +269,7 @@ func TestWrongNonce(t *testing.T) {
 	vote, err = vote.Sign(ta.Addrinfo["producer"])
 	require.NoError(err)
 	hash = tsf1.Hash()
-	blk = NewBlock(1, 3, hash, []*action.Transfer{coinbaseTsf}, []*action.Vote{vote}, nil)
+	blk = NewBlock(1, 3, hash, clock.New(), []*action.Transfer{coinbaseTsf}, []*action.Vote{vote}, nil)
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.NoError(err)
 	err = val.Validate(blk, 2, hash)
@@ -276,7 +285,7 @@ func TestWrongNonce(t *testing.T) {
 	tsf4, err = tsf4.Sign(ta.Addrinfo["producer"])
 	require.NoError(err)
 	hash = tsf1.Hash()
-	blk = NewBlock(1, 3, hash, []*action.Transfer{coinbaseTsf, tsf3, tsf4}, nil, nil)
+	blk = NewBlock(1, 3, hash, clock.New(), []*action.Transfer{coinbaseTsf, tsf3, tsf4}, nil, nil)
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.NoError(err)
 	err = val.Validate(blk, 2, hash)
@@ -291,7 +300,7 @@ func TestWrongNonce(t *testing.T) {
 	vote3, err = vote3.Sign(ta.Addrinfo["producer"])
 	require.NoError(err)
 	hash = tsf1.Hash()
-	blk = NewBlock(1, 3, hash, []*action.Transfer{coinbaseTsf}, []*action.Vote{vote2, vote3}, nil)
+	blk = NewBlock(1, 3, hash, clock.New(), []*action.Transfer{coinbaseTsf}, []*action.Vote{vote2, vote3}, nil)
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.NoError(err)
 	err = val.Validate(blk, 2, hash)
@@ -307,7 +316,7 @@ func TestWrongNonce(t *testing.T) {
 	tsf6, err = tsf6.Sign(ta.Addrinfo["producer"])
 	require.NoError(err)
 	hash = tsf1.Hash()
-	blk = NewBlock(1, 3, hash, []*action.Transfer{coinbaseTsf, tsf5, tsf6}, nil, nil)
+	blk = NewBlock(1, 3, hash, clock.New(), []*action.Transfer{coinbaseTsf, tsf5, tsf6}, nil, nil)
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.NoError(err)
 	err = val.Validate(blk, 2, hash)
@@ -322,7 +331,7 @@ func TestWrongNonce(t *testing.T) {
 	vote5, err = vote5.Sign(ta.Addrinfo["producer"])
 	require.NoError(err)
 	hash = tsf1.Hash()
-	blk = NewBlock(1, 3, hash, []*action.Transfer{coinbaseTsf}, []*action.Vote{vote4, vote5}, nil)
+	blk = NewBlock(1, 3, hash, clock.New(), []*action.Transfer{coinbaseTsf}, []*action.Vote{vote4, vote5}, nil)
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.NoError(err)
 	err = val.Validate(blk, 2, hash)
@@ -351,7 +360,7 @@ func TestWrongCoinbaseTsf(t *testing.T) {
 	tsf1, err = tsf1.Sign(ta.Addrinfo["producer"])
 	require.NoError(err)
 	hash := tsf1.Hash()
-	blk := NewBlock(1, 3, hash, []*action.Transfer{tsf1}, nil, nil)
+	blk := NewBlock(1, 3, hash, clock.New(), []*action.Transfer{tsf1}, nil, nil)
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.NoError(err)
 	err = val.Validate(blk, 2, hash)
@@ -361,7 +370,7 @@ func TestWrongCoinbaseTsf(t *testing.T) {
 	)
 
 	// extra coinbase transfer
-	blk = NewBlock(1, 3, hash, []*action.Transfer{coinbaseTsf, coinbaseTsf, tsf1}, nil, nil)
+	blk = NewBlock(1, 3, hash, clock.New(), []*action.Transfer{coinbaseTsf, coinbaseTsf, tsf1}, nil, nil)
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.NoError(err)
 	err = val.Validate(blk, 2, hash)
@@ -371,7 +380,7 @@ func TestWrongCoinbaseTsf(t *testing.T) {
 	)
 
 	// no transfer
-	blk = NewBlock(1, 3, hash, []*action.Transfer{}, nil, nil)
+	blk = NewBlock(1, 3, hash, clock.New(), []*action.Transfer{}, nil, nil)
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.NoError(err)
 	err = val.Validate(blk, 2, hash)

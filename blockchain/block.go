@@ -11,6 +11,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/facebookgo/clock"
 	"github.com/golang/protobuf/proto"
 	"golang.org/x/crypto/blake2b"
 
@@ -60,14 +61,20 @@ type Block struct {
 }
 
 // NewBlock returns a new block
-func NewBlock(chainID uint32, height uint64, prevBlockHash hash.Hash32B,
-	tsf []*action.Transfer, vote []*action.Vote, executions []*action.Execution) *Block {
+func NewBlock(
+	chainID uint32,
+	height uint64,
+	prevBlockHash hash.Hash32B,
+	c clock.Clock,
+	tsf []*action.Transfer,
+	vote []*action.Vote,
+	executions []*action.Execution) *Block {
 	block := &Block{
 		Header: &BlockHeader{
 			version:       version.ProtocolVersion,
 			chainID:       chainID,
 			height:        height,
-			timestamp:     uint64(time.Now().Unix()),
+			timestamp:     uint64(c.Now().Unix()),
 			prevBlockHash: prevBlockHash,
 			txRoot:        hash.ZeroHash32B,
 			stateRoot:     hash.ZeroHash32B,

@@ -13,7 +13,9 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/facebookgo/clock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -298,7 +300,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	// add block with wrong height
 	cbTsf := action.NewCoinBaseTransfer(big.NewInt(50), ta.Addrinfo["bravo"].RawAddress)
 	require.NotNil(cbTsf)
-	blk = NewBlock(0, h+2, hash, []*action.Transfer{cbTsf}, nil, nil)
+	blk = NewBlock(0, h+2, hash, clock.New(), []*action.Transfer{cbTsf}, nil, nil)
 	err = bc.ValidateBlock(blk)
 	require.NotNil(err)
 	fmt.Printf("Cannot validate block %d: %v\n", blk.Height(), err)
@@ -306,7 +308,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	// add block with zero prev hash
 	cbTsf2 := action.NewCoinBaseTransfer(big.NewInt(50), ta.Addrinfo["bravo"].RawAddress)
 	require.NotNil(cbTsf2)
-	blk = NewBlock(0, h+1, _hash.ZeroHash32B, []*action.Transfer{cbTsf2}, nil, nil)
+	blk = NewBlock(0, h+1, _hash.ZeroHash32B, clock.New(), []*action.Transfer{cbTsf2}, nil, nil)
 	err = bc.ValidateBlock(blk)
 	require.NotNil(err)
 	fmt.Printf("Cannot validate block %d: %v\n", blk.Height(), err)
@@ -664,4 +666,16 @@ func TestDummyReplacement(t *testing.T) {
 	actualBlock3, err := bc.GetBlockByHeight(3)
 	require.NoError(err)
 	require.Equal(block3.HashBlock(), actualBlock3.HashBlock())
+}
+
+func TestMintNewBlock(t *testing.T) {
+	t.Parallel()
+	cfg := config.Default
+	clk := clock.NewMock()
+	chain := NewBlockchain(&cfg, InMemDaoOption(), InMemStateFactoryOption(), ClockOption(clk))
+	blk1 := chain.MintNewDummyBlock()
+	clk.Add(2 * time.Second)
+	blk2 := chain.MintNewDummyBlock()
+	require.Equal(t, uint64(2), blk2.Header.timestamp-blk1.Header.timestamp)
+	require.Equal(t, blk1.HashBlock(), blk2.HashBlock())
 }
