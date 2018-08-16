@@ -7,31 +7,41 @@
 package blockchain
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/CoderZhi/go-ethereum/common"
 	"github.com/CoderZhi/go-ethereum/core/types"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 )
 
 // EVMStateDBAdapter represents the state db adapter for evm to access iotx blockchain
 type EVMStateDBAdapter struct {
-	bc   Blockchain
-	sf   state.Factory
-	logs []*types.Log
-	err  error
+	bc             Blockchain
+	sf             state.Factory
+	logs           []*Log
+	err            error
+	blockHeight    uint64
+	blockHash      hash.Hash32B
+	executionIndex uint
+	executionHash  hash.Hash32B
 }
 
 // NewEVMStateDBAdapter creates a new state db with iotx blockchain
-func NewEVMStateDBAdapter(bc Blockchain) *EVMStateDBAdapter {
+func NewEVMStateDBAdapter(bc Blockchain, blockHeight uint64, blockHash hash.Hash32B, executionIndex uint, executionHash hash.Hash32B) *EVMStateDBAdapter {
 	return &EVMStateDBAdapter{
 		bc,
 		bc.GetFactory(),
-		[]*types.Log{},
+		[]*Log{},
 		nil,
+		blockHeight,
+		blockHash,
+		executionIndex,
+		executionHash,
 	}
 }
 
@@ -44,12 +54,6 @@ func (stateDB *EVMStateDBAdapter) logError(err error) {
 // Error returns the first stored error during evm contract execution
 func (stateDB *EVMStateDBAdapter) Error() error {
 	return stateDB.err
-}
-
-// Reset resets the local parameters of state db
-func (stateDB *EVMStateDBAdapter) Reset() {
-	stateDB.logs = nil
-	stateDB.err = nil
 }
 
 // CreateAccount creates an account in iotx blockchain
@@ -130,7 +134,7 @@ func (stateDB *EVMStateDBAdapter) GetNonce(evmAddr common.Address) uint64 {
 	nonce, err := stateDB.bc.Nonce(addr.RawAddress)
 	if err != nil {
 		logger.Error().Err(err).Msg("GetNonce")
-		stateDB.logError(err)
+		// stateDB.logError(err)
 		return 0
 	}
 	return nonce
@@ -167,6 +171,7 @@ func (stateDB *EVMStateDBAdapter) GetCode(evmAddr common.Address) []byte {
 
 // SetCode sets the code saved in hash
 func (stateDB *EVMStateDBAdapter) SetCode(evmAddr common.Address, code []byte) {
+	fmt.Printf("SetCode %+v, %v\n", evmAddr, code)
 	if err := stateDB.sf.SetCode(byteutil.BytesTo20B(evmAddr[:]), code); err != nil {
 		logger.Error().Err(err).Msg("SetCode")
 	}
@@ -239,12 +244,32 @@ func (stateDB *EVMStateDBAdapter) Snapshot() int {
 }
 
 // AddLog adds log
-func (stateDB *EVMStateDBAdapter) AddLog(log *types.Log) {
+func (stateDB *EVMStateDBAdapter) AddLog(evmLog *types.Log) {
+	fmt.Printf("AddLog %+v\n", evmLog)
+	addr, err := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, evmLog.Address.Bytes())
+	if err != nil {
+		logger.Error().Err(err).Msg("Invalid address in Log")
+	}
+	var topics []hash.Hash32B
+	for _, evmTopic := range evmLog.Topics {
+		var topic hash.Hash32B
+		copy(topic[:], evmTopic.Bytes())
+		topics = append(topics, topic)
+	}
+	log := &Log{
+		addr.RawAddress,
+		topics,
+		evmLog.Data,
+		stateDB.blockHeight,
+		stateDB.executionHash,
+		stateDB.blockHash,
+		stateDB.executionIndex,
+	}
 	stateDB.logs = append(stateDB.logs, log)
 }
 
 // Logs returns the logs
-func (stateDB *EVMStateDBAdapter) Logs() []*types.Log {
+func (stateDB *EVMStateDBAdapter) Logs() []*Log {
 	return stateDB.logs
 }
 
