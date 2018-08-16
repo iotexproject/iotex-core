@@ -11,6 +11,7 @@ import (
 	"math/big"
 	"sync"
 
+	"github.com/facebookgo/clock"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/blockchain/action"
@@ -108,6 +109,7 @@ type blockchain struct {
 	tipHash   hash.Hash32B
 	validator Validator
 	lifecycle lifecycle.Lifecycle
+	clk       clock.Clock
 
 	// used by account-based model
 	sf state.Factory
@@ -178,12 +180,22 @@ func InMemDaoOption() Option {
 	}
 }
 
+// ClockOption overrides the default clock
+func ClockOption(clk clock.Clock) Option {
+	return func(bc *blockchain, conf *config.Config) error {
+		bc.clk = clk
+
+		return nil
+	}
+}
+
 // NewBlockchain creates a new blockchain and DB instance
 func NewBlockchain(cfg *config.Config, opts ...Option) Blockchain {
 	// create the Blockchain
 	chain := &blockchain{
 		config:  cfg,
 		genesis: Gen,
+		clk:     clock.New(),
 	}
 	for _, opt := range opts {
 		if err := opt(chain, cfg); err != nil {
@@ -491,7 +503,7 @@ func (bc *blockchain) MintNewBlock(tsf []*action.Transfer, vote []*action.Vote, 
 
 	tsf = append(tsf, action.NewCoinBaseTransfer(big.NewInt(int64(bc.genesis.BlockReward)), producer.RawAddress))
 
-	blk := NewBlock(bc.chainID, bc.tipHeight+1, bc.tipHash, tsf, vote, executions)
+	blk := NewBlock(bc.chainID, bc.tipHeight+1, bc.tipHash, bc.clk, tsf, vote, executions)
 	if producer.PrivateKey == keypair.ZeroPrivateKey {
 		logger.Warn().Msg("Unsigned block...")
 		return blk, nil
@@ -509,7 +521,7 @@ func (bc *blockchain) MintNewDummyBlock() *Block {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
 
-	blk := NewBlock(bc.chainID, bc.tipHeight+1, bc.tipHash, nil, nil, nil)
+	blk := NewBlock(bc.chainID, bc.tipHeight+1, bc.tipHash, bc.clk, nil, nil, nil)
 	blk.Header.Pubkey = keypair.ZeroPublicKey
 	blk.Header.blockSig = []byte{}
 	return blk

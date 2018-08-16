@@ -48,7 +48,15 @@ func TestRollDPoSCtx(t *testing.T) {
 		candidates[i] = testAddrs[i].RawAddress
 	}
 	var prevHash hash.Hash32B
-	blk := blockchain.NewBlock(1, 8, prevHash, make([]*action.Transfer, 0), make([]*action.Vote, 0), make([]*action.Execution, 0))
+	blk := blockchain.NewBlock(
+		1,
+		8,
+		prevHash,
+		clock.New(),
+		make([]*action.Transfer, 0),
+		make([]*action.Vote, 0),
+		make([]*action.Execution, 0),
+	)
 	ctx := makeTestRollDPoSCtx(
 		testAddrs[0],
 		ctrl,
@@ -275,7 +283,14 @@ func TestRollDPoS_convertToConsensusEvt(t *testing.T) {
 	vote, err := action.NewVote(2, address.RawAddress, address.RawAddress)
 	require.NoError(t, err)
 	var prevHash hash.Hash32B
-	blk := blockchain.NewBlock(1, 1, prevHash, []*action.Transfer{transfer}, []*action.Vote{vote}, nil)
+	blk := blockchain.NewBlock(
+		1,
+		1,
+		prevHash,
+		clock.New(),
+		[]*action.Transfer{transfer}, []*action.Vote{vote},
+		nil,
+	)
 	msg := iproto.ViewChangeMsg{
 		Vctype:     iproto.ViewChangeMsg_PROPOSE,
 		Block:      blk.ConvertToBlockPb(),

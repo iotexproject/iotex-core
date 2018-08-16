@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/facebookgo/clock"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -576,7 +577,7 @@ func TestHandleVoteEvt(t *testing.T) {
 				chain.EXPECT().CommitBlock(gomock.Any()).Return(nil).Times(1)
 				chain.EXPECT().
 					MintNewDummyBlock().
-					Return(blockchain.NewBlock(0, 0, hash.ZeroHash32B, nil, nil, nil)).Times(1)
+					Return(blockchain.NewBlock(0, 0, hash.ZeroHash32B, clock.New(), nil, nil, nil)).Times(1)
 			},
 			func(p2p *mock_network.MockOverlay) {
 				p2p.EXPECT().Broadcast(gomock.Any()).Return(nil).Times(1)
@@ -674,8 +675,24 @@ func newTestCFSM(
 	vote, err := action.NewVote(2, address.RawAddress, address.RawAddress)
 	require.NoError(t, err)
 	var prevHash hash.Hash32B
-	lastBlk := blockchain.NewBlock(1, 1, prevHash, make([]*action.Transfer, 0), make([]*action.Vote, 0), make([]*action.Execution, 0))
-	blkToMint := blockchain.NewBlock(1, 2, lastBlk.HashBlock(), []*action.Transfer{transfer}, []*action.Vote{vote}, nil)
+	lastBlk := blockchain.NewBlock(
+		1,
+		1,
+		prevHash,
+		clock.New(),
+		make([]*action.Transfer, 0),
+		make([]*action.Vote, 0),
+		make([]*action.Execution, 0),
+	)
+	blkToMint := blockchain.NewBlock(
+		1,
+		2,
+		lastBlk.HashBlock(),
+		clock.New(),
+		[]*action.Transfer{transfer},
+		[]*action.Vote{vote},
+		nil,
+	)
 	ctx := makeTestRollDPoSCtx(
 		addr,
 		ctrl,
@@ -703,7 +720,10 @@ func newTestCFSM(
 			}
 		},
 		func(actPool *mock_actpool.MockActPool) {
-			actPool.EXPECT().PickActs().Return([]*action.Transfer{transfer}, []*action.Vote{vote}, []*action.Execution{}).AnyTimes()
+			actPool.EXPECT().
+				PickActs().
+				Return([]*action.Transfer{transfer}, []*action.Vote{vote}, []*action.Execution{}).
+				AnyTimes()
 			actPool.EXPECT().Reset().AnyTimes()
 		},
 		func(p2p *mock_network.MockOverlay) {

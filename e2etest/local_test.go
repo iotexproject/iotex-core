@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/facebookgo/clock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/blockchain"
@@ -155,7 +156,7 @@ func TestLocalCommit(t *testing.T) {
 	s, _ = svr.Blockchain().StateByAddr(ta.Addrinfo["foxtrot"].RawAddress)
 	tsf2, _ := action.NewTransfer(s.Nonce+1, big.NewInt(1), ta.Addrinfo["foxtrot"].RawAddress, ta.Addrinfo["delta"].RawAddress)
 	tsf2, _ = tsf2.Sign(ta.Addrinfo["foxtrot"])
-	blk2 := blockchain.NewBlock(0, height+2, hash1, []*action.Transfer{tsf2,
+	blk2 := blockchain.NewBlock(0, height+2, hash1, clock.New(), []*action.Transfer{tsf2,
 		action.NewCoinBaseTransfer(big.NewInt(int64(blockchain.Gen.BlockReward)), ta.Addrinfo["producer"].RawAddress)}, nil, nil)
 	err = blk2.SignBlock(ta.Addrinfo["producer"])
 	require.Nil(err)
@@ -175,8 +176,20 @@ func TestLocalCommit(t *testing.T) {
 	s, _ = svr.Blockchain().StateByAddr(ta.Addrinfo["bravo"].RawAddress)
 	tsf3, _ := action.NewTransfer(s.Nonce+1, big.NewInt(1), ta.Addrinfo["bravo"].RawAddress, ta.Addrinfo["bravo"].RawAddress)
 	tsf3, _ = tsf3.Sign(ta.Addrinfo["bravo"])
-	blk3 := blockchain.NewBlock(0, height+3, hash2, []*action.Transfer{tsf3,
-		action.NewCoinBaseTransfer(big.NewInt(int64(blockchain.Gen.BlockReward)), ta.Addrinfo["producer"].RawAddress)}, nil, nil)
+	blk3 := blockchain.NewBlock(
+		0,
+		height+3,
+		hash2,
+		clock.New(),
+		[]*action.Transfer{
+			tsf3,
+			action.NewCoinBaseTransfer(
+				big.NewInt(int64(blockchain.Gen.BlockReward)),
+				ta.Addrinfo["producer"].RawAddress),
+		},
+		nil,
+		nil,
+	)
 	err = blk3.SignBlock(ta.Addrinfo["producer"])
 	require.Nil(err)
 	hash3 := blk3.HashBlock()
@@ -195,8 +208,21 @@ func TestLocalCommit(t *testing.T) {
 	s, _ = svr.Blockchain().StateByAddr(ta.Addrinfo["producer"].RawAddress)
 	tsf4, _ := action.NewTransfer(s.Nonce+1, big.NewInt(1), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["echo"].RawAddress)
 	tsf4, _ = tsf4.Sign(ta.Addrinfo["producer"])
-	blk4 := blockchain.NewBlock(0, height+4, hash3, []*action.Transfer{tsf4,
-		action.NewCoinBaseTransfer(big.NewInt(int64(blockchain.Gen.BlockReward)), ta.Addrinfo["producer"].RawAddress)}, nil, nil)
+	blk4 := blockchain.NewBlock(
+		0,
+		height+4,
+		hash3,
+		clock.New(),
+		[]*action.Transfer{
+			tsf4,
+			action.NewCoinBaseTransfer(
+				big.NewInt(int64(blockchain.Gen.BlockReward)),
+				ta.Addrinfo["producer"].RawAddress,
+			),
+		},
+		nil,
+		nil,
+	)
 	err = blk4.SignBlock(ta.Addrinfo["producer"])
 	require.Nil(err)
 	act4 := tsf4.ConvertToActionPb()
@@ -515,9 +541,18 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.Nil(err)
 	vote5, err := newSignedVote(7, ta.Addrinfo["charlie"], ta.Addrinfo["alfa"])
 	require.Nil(err)
-	blk2 := blockchain.NewBlock(0, height+2, hash1,
-		[]*action.Transfer{action.NewCoinBaseTransfer(big.NewInt(int64(blockchain.Gen.BlockReward)),
-			ta.Addrinfo["producer"].RawAddress)}, []*action.Vote{vote4, vote5}, nil)
+	blk2 := blockchain.NewBlock(
+		0,
+		height+2,
+		hash1,
+		clock.New(),
+		[]*action.Transfer{
+			action.NewCoinBaseTransfer(big.NewInt(int64(blockchain.Gen.BlockReward)),
+				ta.Addrinfo["producer"].RawAddress),
+		},
+		[]*action.Vote{vote4, vote5},
+		nil,
+	)
 	err = blk2.SignBlock(ta.Addrinfo["producer"])
 	hash2 := blk2.HashBlock()
 	require.Nil(err)
@@ -568,9 +603,18 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.NoError(err)
 	vote6, err = vote6.Sign(ta.Addrinfo["delta"])
 	require.Nil(err)
-	blk3 := blockchain.NewBlock(0, height+3, hash2,
-		[]*action.Transfer{action.NewCoinBaseTransfer(big.NewInt(int64(blockchain.Gen.BlockReward)),
-			ta.Addrinfo["producer"].RawAddress)}, []*action.Vote{vote6}, nil)
+	blk3 := blockchain.NewBlock(
+		0,
+		height+3,
+		hash2,
+		clock.New(),
+		[]*action.Transfer{
+			action.NewCoinBaseTransfer(big.NewInt(int64(blockchain.Gen.BlockReward)),
+				ta.Addrinfo["producer"].RawAddress),
+		},
+		[]*action.Vote{vote6},
+		nil,
+	)
 	err = blk3.SignBlock(ta.Addrinfo["producer"])
 	hash3 := blk3.HashBlock()
 	require.Nil(err)
@@ -617,9 +661,18 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.NoError(err)
 	vote7, err = vote7.Sign(ta.Addrinfo["bravo"])
 	require.Nil(err)
-	blk4 := blockchain.NewBlock(0, height+4, hash3,
-		[]*action.Transfer{action.NewCoinBaseTransfer(big.NewInt(int64(blockchain.Gen.BlockReward)),
-			ta.Addrinfo["producer"].RawAddress)}, []*action.Vote{vote7}, nil)
+	blk4 := blockchain.NewBlock(
+		0,
+		height+4,
+		hash3,
+		clock.New(),
+		[]*action.Transfer{
+			action.NewCoinBaseTransfer(
+				big.NewInt(int64(blockchain.Gen.BlockReward)),
+				ta.Addrinfo["producer"].RawAddress)},
+		[]*action.Vote{vote7},
+		nil,
+	)
 	err = blk4.SignBlock(ta.Addrinfo["producer"])
 	require.Nil(err)
 	act7 := vote7.ConvertToActionPb()

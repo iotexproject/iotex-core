@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/facebookgo/clock"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -199,7 +200,7 @@ func TestBlockSyncer_ProcessBlock_TipHeightError(t *testing.T) {
 
 	bs, err := NewBlockSyncer(cfgFullNode, mBc, nil, p2p)
 	assert.Nil(err)
-	blk := bc.NewBlock(uint32(123), uint64(4), hash.Hash32B{}, nil, nil, nil)
+	blk := bc.NewBlock(uint32(123), uint64(4), hash.Hash32B{}, clock.New(), nil, nil, nil)
 	bs.(*blockSyncer).ackBlockCommit = false
 	assert.Nil(bs.ProcessBlock(blk))
 
@@ -230,7 +231,7 @@ func TestBlockSyncer_ProcessBlock_TipHeight(t *testing.T) {
 	bs, err := NewBlockSyncer(cfgFullNode, mBc, ap, p2p)
 	assert.Nil(err)
 	vote, _ := action.NewVote(1, "abc", "abc")
-	blk := bc.NewBlock(uint32(123), uint64(4), hash.Hash32B{}, nil, []*action.Vote{vote}, nil)
+	blk := bc.NewBlock(uint32(123), uint64(4), hash.Hash32B{}, clock.New(), nil, []*action.Vote{vote}, nil)
 	mBc.EXPECT().GetBlockByHeight(gomock.Any()).AnyTimes().Return(blk, nil)
 
 	bs.(*blockSyncer).ackBlockCommit = true
@@ -239,15 +240,15 @@ func TestBlockSyncer_ProcessBlock_TipHeight(t *testing.T) {
 
 	// special case
 	bs.(*blockSyncer).state = Idle
-	blkHeightSpecial := bc.NewBlock(uint32(123), uint64(6), hash.Hash32B{}, nil, nil, nil)
+	blkHeightSpecial := bc.NewBlock(uint32(123), uint64(6), hash.Hash32B{}, clock.New(), nil, nil, nil)
 	assert.Nil(bs.ProcessBlock(blkHeightSpecial))
 
 	// < block height
-	blkHeightLess := bc.NewBlock(uint32(123), uint64(4), hash.Hash32B{}, nil, nil, nil)
+	blkHeightLess := bc.NewBlock(uint32(123), uint64(4), hash.Hash32B{}, clock.New(), nil, nil, nil)
 	assert.Error(bs.ProcessBlock(blkHeightLess))
 
 	// > block height
-	blkHeightMore := bc.NewBlock(uint32(123), uint64(7), hash.Hash32B{}, nil, nil, nil)
+	blkHeightMore := bc.NewBlock(uint32(123), uint64(7), hash.Hash32B{}, clock.New(), nil, nil, nil)
 	assert.Nil(bs.ProcessBlock(blkHeightMore))
 }
 
@@ -275,7 +276,7 @@ func TestBlockSyncer_ProcessBlockSync(t *testing.T) {
 	bs, err := NewBlockSyncer(cfgFullNode, mBc, ap, p2p)
 	assert.Nil(err)
 	vote, _ := action.NewVote(1, "abc", "abc")
-	blk := bc.NewBlock(uint32(123), uint64(4), hash.Hash32B{}, nil, []*action.Vote{vote}, nil)
+	blk := bc.NewBlock(uint32(123), uint64(4), hash.Hash32B{}, clock.New(), nil, []*action.Vote{vote}, nil)
 	mBc.EXPECT().GetBlockByHeight(gomock.Any()).AnyTimes().Return(blk, nil)
 	bs.(*blockSyncer).ackBlockSync = false
 	assert.Nil(bs.ProcessBlockSync(blk))
