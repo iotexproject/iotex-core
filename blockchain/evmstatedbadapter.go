@@ -19,9 +19,10 @@ import (
 
 // EVMStateDBAdapter represents the state db adapter for evm to access iotx blockchain
 type EVMStateDBAdapter struct {
-	bc  Blockchain
-	sf  state.Factory
-	err error
+	bc   Blockchain
+	sf   state.Factory
+	logs []*types.Log
+	err  error
 }
 
 // NewEVMStateDBAdapter creates a new state db with iotx blockchain
@@ -29,6 +30,7 @@ func NewEVMStateDBAdapter(bc Blockchain) *EVMStateDBAdapter {
 	return &EVMStateDBAdapter{
 		bc,
 		bc.GetFactory(),
+		[]*types.Log{},
 		nil,
 	}
 }
@@ -42,6 +44,12 @@ func (stateDB *EVMStateDBAdapter) logError(err error) {
 // Error returns the first stored error during evm contract execution
 func (stateDB *EVMStateDBAdapter) Error() error {
 	return stateDB.err
+}
+
+// Reset resets the local parameters of state db
+func (stateDB *EVMStateDBAdapter) Reset() {
+	stateDB.logs = nil
+	stateDB.err = nil
 }
 
 // CreateAccount creates an account in iotx blockchain
@@ -139,7 +147,8 @@ func (stateDB *EVMStateDBAdapter) GetCodeHash(evmAddr common.Address) common.Has
 	hash, err := stateDB.sf.GetCodeHash(byteutil.BytesTo20B(evmAddr[:]))
 	if err != nil {
 		logger.Error().Err(err).Msgf("GetCodeHash")
-		stateDB.logError(err)
+		// TODO (zhi) not all err should be logged
+		// stateDB.logError(err)
 		return codeHash
 	}
 	copy(codeHash[:], hash[:])
@@ -230,8 +239,13 @@ func (stateDB *EVMStateDBAdapter) Snapshot() int {
 }
 
 // AddLog adds log
-func (stateDB *EVMStateDBAdapter) AddLog(*types.Log) {
-	logger.Error().Msg("AddLog is not implemented")
+func (stateDB *EVMStateDBAdapter) AddLog(log *types.Log) {
+	stateDB.logs = append(stateDB.logs, log)
+}
+
+// Logs returns the logs
+func (stateDB *EVMStateDBAdapter) Logs() []*types.Log {
+	return stateDB.logs
 }
 
 // AddPreimage adds the preimage
