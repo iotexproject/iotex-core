@@ -120,6 +120,7 @@ ChainLoop:
 					Sender:    blk.Transfers[i].Sender,
 					Recipient: blk.Transfers[i].Recipient,
 					Fee:       0, // TODO: we need to get the actual fee.
+					Payload:   hex.EncodeToString(blk.Transfers[i].Payload),
 				}
 				res = append(res, explorerTransfer)
 			}
@@ -261,6 +262,7 @@ func (exp *Service) GetTransfersByBlockID(blkID string, offset int64, limit int6
 			Sender:    transfer.Sender,
 			Recipient: transfer.Recipient,
 			Fee:       0, // TODO: we need to get the actual fee.
+			Payload:   hex.EncodeToString(transfer.Payload),
 		}
 		res = append(res, explorerTransfer)
 	}
