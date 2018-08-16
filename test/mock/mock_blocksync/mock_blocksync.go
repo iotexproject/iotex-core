@@ -10,7 +10,6 @@ import (
 	blockchain "github.com/iotexproject/iotex-core/blockchain"
 	network "github.com/iotexproject/iotex-core/network"
 	proto "github.com/iotexproject/iotex-core/proto"
-	net "net"
 	reflect "reflect"
 )
 
@@ -107,14 +106,4 @@ func (m *MockBlockSync) ProcessBlockSync(blk *blockchain.Block) error {
 // ProcessBlockSync indicates an expected call of ProcessBlockSync
 func (mr *MockBlockSyncMockRecorder) ProcessBlockSync(blk interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProcessBlockSync", reflect.TypeOf((*MockBlockSync)(nil).ProcessBlockSync), blk)
-}
-
-// SetTarget mocks base method
-func (m *MockBlockSync) SetTarget(arg0 net.Addr) {
-	m.ctrl.Call(m, "SetTarget", arg0)
-}
-
-// SetTarget indicates an expected call of SetTarget
-func (mr *MockBlockSyncMockRecorder) SetTarget(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetTarget", reflect.TypeOf((*MockBlockSync)(nil).SetTarget), arg0)
 }

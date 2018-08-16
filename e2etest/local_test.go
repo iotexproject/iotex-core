@@ -23,9 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/network"
-	"github.com/iotexproject/iotex-core/network/node"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
-	pb "github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/server/itx"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -354,6 +352,7 @@ func TestLocalSync(t *testing.T) {
 	// Create client
 	cfg.NodeType = config.FullNodeType
 	cfg.Network.BootstrapNodes = []string{svr.P2P().Self().String()}
+	cfg.BlockSync.Interval = 1 * time.Second
 	cli := itx.NewServer(cfg)
 	require.Nil(cli.Start(ctx))
 	require.NotNil(cli.Blockchain())
@@ -368,8 +367,10 @@ func TestLocalSync(t *testing.T) {
 		testutil.CleanupPath(t, testDBPath2)
 	}()
 
-	// P1 download 4 blocks from P2
-	err = cli.P2P().Tell(node.NewTCPNode(svr.P2P().Self().String()), &pb.BlockSync{Start: 1, End: 5})
+	err = testutil.WaitUntil(time.Millisecond*10, time.Second*5, func() (bool, error) { return len(svr.P2P().GetPeers()) >= 1, nil })
+	require.Nil(err)
+
+	err = svr.P2P().Broadcast(blk.ConvertToBlockPb())
 	require.NoError(err)
 	check := testutil.CheckCondition(func() (bool, error) {
 		blk1, err := cli.Blockchain().GetBlockByHeight(1)

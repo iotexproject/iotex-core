@@ -125,6 +125,31 @@ func (mr *MockFactoryMockRecorder) RootHash() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RootHash", reflect.TypeOf((*MockFactory)(nil).RootHash))
 }
 
+// CandidateRootHash mocks base method
+func (m *MockFactory) CandidateRootHash() hash.Hash32B {
+	ret := m.ctrl.Call(m, "CandidateRootHash")
+	ret0, _ := ret[0].(hash.Hash32B)
+	return ret0
+}
+
+// CandidateRootHash indicates an expected call of CandidateRootHash
+func (mr *MockFactoryMockRecorder) CandidateRootHash() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CandidateRootHash", reflect.TypeOf((*MockFactory)(nil).CandidateRootHash))
+}
+
+// Height mocks base method
+func (m *MockFactory) Height() (uint64, error) {
+	ret := m.ctrl.Call(m, "Height")
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Height indicates an expected call of Height
+func (mr *MockFactoryMockRecorder) Height() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Height", reflect.TypeOf((*MockFactory)(nil).Height))
+}
+
 // CommitStateChanges mocks base method
 func (m *MockFactory) CommitStateChanges(arg0 uint64, arg1 []*action.Transfer, arg2 []*action.Vote, arg3 []*action.Execution) error {
 	ret := m.ctrl.Call(m, "CommitStateChanges", arg0, arg1, arg2, arg3)

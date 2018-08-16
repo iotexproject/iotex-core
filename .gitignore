@@ -34,3 +34,5 @@ vendor/*
 
 # binary
 bin/*
+coverage.html
+lint.log

@@ -13,13 +13,11 @@ import (
 
 	"github.com/facebookgo/clock"
 	"github.com/golang/mock/gomock"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/actpool"
 	bc "github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/network"
 	"github.com/iotexproject/iotex-core/pkg/hash"
@@ -38,7 +36,7 @@ func TestSyncTaskInterval(t *testing.T) {
 	cfgLightWeight := &config.Config{
 		NodeType: config.LightweightType,
 	}
-	lightWeight := SyncTaskInterval(cfgLightWeight)
+	lightWeight := syncTaskInterval(cfgLightWeight)
 	assert.Equal(interval, lightWeight)
 
 	cfgDelegate := &config.Config{
@@ -47,7 +45,7 @@ func TestSyncTaskInterval(t *testing.T) {
 			Interval: interval,
 		},
 	}
-	delegate := SyncTaskInterval(cfgDelegate)
+	delegate := syncTaskInterval(cfgDelegate)
 	assert.Equal(interval, delegate)
 
 	cfgFullNode := &config.Config{
@@ -57,7 +55,7 @@ func TestSyncTaskInterval(t *testing.T) {
 		},
 	}
 	interval <<= 2
-	fullNode := SyncTaskInterval(cfgFullNode)
+	fullNode := syncTaskInterval(cfgFullNode)
 	assert.Equal(interval, fullNode)
 }
 
@@ -84,15 +82,29 @@ func generateP2P() network.Overlay {
 
 func TestNewBlockSyncer(t *testing.T) {
 	assert := assert.New(t)
+	require := require.New(t)
 
 	p2p := generateP2P()
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mBc := mock_blockchain.NewMockBlockchain(ctrl)
+	// TipHeight return ERROR
+	mBc.EXPECT().TipHeight().AnyTimes().Return(uint64(0), nil)
+	blk := bc.NewBlock(uint32(123), uint64(0), hash.Hash32B{}, clock.New(), nil, nil, nil)
+	mBc.EXPECT().GetBlockByHeight(gomock.Any()).AnyTimes().Return(blk, nil)
+
+	cfg, err := newTestConfig()
+	require.Nil(err)
+	ap, err := actpool.NewActPool(mBc, cfg.ActPool)
+	assert.NoError(err)
 
 	// Lightweight
 	cfgLightWeight := &config.Config{
 		NodeType: config.LightweightType,
 	}
 
-	bsLightWeight, err := NewBlockSyncer(cfgLightWeight, nil, nil, p2p)
+	bsLightWeight, err := NewBlockSyncer(cfgLightWeight, mBc, ap, p2p)
 	assert.NoError(err)
 	assert.NotNil(bsLightWeight)
 
@@ -102,9 +114,8 @@ func TestNewBlockSyncer(t *testing.T) {
 	}
 	cfgDelegate.Network.BootstrapNodes = []string{"123"}
 
-	bsDelegate, err := NewBlockSyncer(cfgDelegate, nil, nil, p2p)
+	_, err = NewBlockSyncer(cfgDelegate, mBc, ap, p2p)
 	assert.Nil(err)
-	assert.Equal("123", bsDelegate.(*blockSyncer).fnd)
 
 	// FullNode
 	cfgFullNode := &config.Config{
@@ -112,26 +123,12 @@ func TestNewBlockSyncer(t *testing.T) {
 	}
 	cfgFullNode.Network.BootstrapNodes = []string{"123"}
 
-	bsFullNode, err := NewBlockSyncer(cfgFullNode, nil, nil, p2p)
-	assert.Nil(err)
-	assert.Equal("123", bsFullNode.(*blockSyncer).fnd)
-}
-
-func TestBlockSyncer_P2P(t *testing.T) {
-	assert := assert.New(t)
-
-	p2p := generateP2P()
-
-	cfgFullNode := &config.Config{
-		NodeType: config.FullNodeType,
-	}
-	cfgFullNode.Network.BootstrapNodes = []string{"123"}
-	bs, err := NewBlockSyncer(cfgFullNode, nil, nil, p2p)
+	bs, err := NewBlockSyncer(cfgFullNode, mBc, ap, p2p)
 	assert.Nil(err)
 	assert.Equal(p2p, bs.P2P())
 }
 
-func TestBlockSyncer_Start(t *testing.T) {
+func TestBlockSyncerStart(t *testing.T) {
 	assert := assert.New(t)
 
 	ctrl := gomock.NewController(t)
@@ -143,7 +140,7 @@ func TestBlockSyncer_Start(t *testing.T) {
 	assert.Nil(mBs.Start(ctx))
 }
 
-func TestBlockSyncer_Stop(t *testing.T) {
+func TestBlockSyncerStop(t *testing.T) {
 	assert := assert.New(t)
 
 	ctrl := gomock.NewController(t)
@@ -155,14 +152,21 @@ func TestBlockSyncer_Stop(t *testing.T) {
 	assert.Nil(mBs.Stop(ctx))
 }
 
-func TestBlockSyncer_ProcessSyncRequest(t *testing.T) {
+func TestBlockSyncerProcessSyncRequest(t *testing.T) {
 	assert := assert.New(t)
+	require := require.New(t)
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	mBc := mock_blockchain.NewMockBlockchain(ctrl)
-	mBc.EXPECT().GetBlockByHeight(gomock.Any()).AnyTimes()
+	blk := bc.NewBlock(uint32(123), uint64(0), hash.Hash32B{}, clock.New(), nil, nil, nil)
+	mBc.EXPECT().GetBlockByHeight(gomock.Any()).AnyTimes().Return(blk, nil)
+	mBc.EXPECT().TipHeight().AnyTimes().Return(uint64(0), nil)
+	cfg, err := newTestConfig()
+	require.Nil(err)
+	ap, err := actpool.NewActPool(mBc, cfg.ActPool)
+	assert.NoError(err)
 	p2p := generateP2P()
 
 	cfgFullNode := &config.Config{
@@ -170,7 +174,7 @@ func TestBlockSyncer_ProcessSyncRequest(t *testing.T) {
 	}
 	cfgFullNode.Network.BootstrapNodes = []string{"123"}
 
-	bs, err := NewBlockSyncer(cfgFullNode, mBc, nil, p2p)
+	bs, err := NewBlockSyncer(cfgFullNode, mBc, ap, p2p)
 	assert.Nil(err)
 
 	pbBs := &pb.BlockSync{
@@ -180,114 +184,179 @@ func TestBlockSyncer_ProcessSyncRequest(t *testing.T) {
 
 	bs.(*blockSyncer).ackSyncReq = false
 	assert.Nil(bs.ProcessSyncRequest("", pbBs))
+	bs.(*blockSyncer).ackSyncReq = true
+	assert.Nil(bs.ProcessSyncRequest("", pbBs))
 }
 
-func TestBlockSyncer_ProcessBlock_TipHeightError(t *testing.T) {
-	assert := assert.New(t)
+func TestBlockSyncerProcessSyncRequestError(t *testing.T) {
+	require := require.New(t)
+	ctx := context.Background()
+	cfg, err := newTestConfig()
+	require.Nil(err)
+	testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
+	testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
 
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+	chain := bc.NewBlockchain(cfg, bc.InMemStateFactoryOption(), bc.InMemDaoOption())
+	require.NotNil(chain)
+	ap, err := actpool.NewActPool(chain, cfg.ActPool)
+	require.NotNil(ap)
+	bs, err := NewBlockSyncer(cfg, chain, ap, network.NewOverlay(&cfg.Network))
+	require.Nil(err)
 
-	mBc := mock_blockchain.NewMockBlockchain(ctrl)
-	// TipHeight return ERROR
-	mBc.EXPECT().TipHeight().Times(1).Return(uint64(0), errors.New("Error"))
-	p2p := generateP2P()
+	defer func() {
+		require.Nil(chain.Stop(ctx))
+		testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
+		testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
+	}()
 
-	cfgFullNode := &config.Config{
-		NodeType: config.FullNodeType,
+	pbBs := &pb.BlockSync{
+		Start: 1,
+		End:   5,
 	}
-	cfgFullNode.Network.BootstrapNodes = []string{"123"}
 
-	bs, err := NewBlockSyncer(cfgFullNode, mBc, nil, p2p)
-	assert.Nil(err)
-	blk := bc.NewBlock(uint32(123), uint64(4), hash.Hash32B{}, clock.New(), nil, nil, nil)
+	bs.(*blockSyncer).ackSyncReq = true
+	require.Error(bs.ProcessSyncRequest("", pbBs))
+}
+
+func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
+	require := require.New(t)
+	ctx := context.Background()
+	cfg, err := newTestConfig()
+	require.Nil(err)
+	testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
+	testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
+
+	chain := bc.NewBlockchain(cfg, bc.InMemStateFactoryOption(), bc.InMemDaoOption())
+	require.NotNil(chain)
+	ap, err := actpool.NewActPool(chain, cfg.ActPool)
+	require.NotNil(ap)
+	bs, err := NewBlockSyncer(cfg, chain, ap, network.NewOverlay(&cfg.Network))
+	require.Nil(err)
+
+	defer func() {
+		require.Nil(chain.Stop(ctx))
+		testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
+		testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
+	}()
+
+	h, _ := chain.TipHeight()
+	blk, err := chain.MintNewBlock(nil, nil, nil, ta.Addrinfo["producer"], "")
+	require.NotNil(blk)
 	bs.(*blockSyncer).ackBlockCommit = false
-	assert.Nil(bs.ProcessBlock(blk))
+	require.Nil(bs.ProcessBlock(blk))
+	h2, _ := chain.TipHeight()
+	assert.Equal(t, h, h2)
 
+	// commit top
 	bs.(*blockSyncer).ackBlockCommit = true
-	assert.Error(bs.ProcessBlock(blk))
+	require.Nil(bs.ProcessBlock(blk))
+	h3, _ := chain.TipHeight()
+	assert.Equal(t, h+1, h3)
+
+	// commit same block again
+	require.Nil(bs.ProcessBlock(blk))
+	h4, _ := chain.TipHeight()
+	assert.Equal(t, h3, h4)
 }
 
-func TestBlockSyncer_ProcessBlock_TipHeight(t *testing.T) {
-	assert := assert.New(t)
+func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
+	require := require.New(t)
+	ctx := context.Background()
+	cfg, err := newTestConfig()
+	require.Nil(err)
+	testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
+	testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
 
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+	chain1 := bc.NewBlockchain(cfg, bc.InMemStateFactoryOption(), bc.InMemDaoOption())
+	require.NotNil(chain1)
+	ap1, err := actpool.NewActPool(chain1, cfg.ActPool)
+	require.NotNil(ap1)
+	bs1, err := NewBlockSyncer(cfg, chain1, ap1, network.NewOverlay(&cfg.Network))
+	require.Nil(err)
+	chain2 := bc.NewBlockchain(cfg, bc.InMemStateFactoryOption(), bc.InMemDaoOption())
+	require.NotNil(chain2)
+	ap2, err := actpool.NewActPool(chain2, cfg.ActPool)
+	require.NotNil(ap2)
+	bs2, err := NewBlockSyncer(cfg, chain2, ap2, network.NewOverlay(&cfg.Network))
+	require.Nil(err)
 
-	mBc := mock_blockchain.NewMockBlockchain(ctrl)
-	mBc.EXPECT().TipHeight().AnyTimes().Return(uint64(5), nil)
-	mBc.EXPECT().CommitBlock(gomock.Any()).AnyTimes()
+	defer func() {
+		require.Nil(chain1.Stop(ctx))
+		require.Nil(chain2.Stop(ctx))
+		testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
+		testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
+	}()
 
-	apConfig := config.ActPool{MaxNumActsPerPool: 8192, MaxNumActsPerAcct: 256}
-	ap, err := actpool.NewActPool(mBc, apConfig)
+	// commit top
+	blk1, err := chain1.MintNewBlock(nil, nil, nil, ta.Addrinfo["producer"], "")
+	require.NotNil(blk1)
+	require.Nil(bs1.ProcessBlock(blk1))
+	blk2, err := chain1.MintNewBlock(nil, nil, nil, ta.Addrinfo["producer"], "")
+	require.NotNil(blk2)
+	require.Nil(bs1.ProcessBlock(blk2))
+	blk3, err := chain1.MintNewBlock(nil, nil, nil, ta.Addrinfo["producer"], "")
+	require.NotNil(blk3)
+	require.Nil(bs1.ProcessBlock(blk3))
+	h1, _ := chain1.TipHeight()
+	assert.Equal(t, uint64(3), h1)
 
-	p2p := generateP2P()
-
-	cfgFullNode := &config.Config{
-		NodeType: config.FullNodeType,
-	}
-	cfgFullNode.Network.BootstrapNodes = []string{"123"}
-
-	bs, err := NewBlockSyncer(cfgFullNode, mBc, ap, p2p)
-	assert.Nil(err)
-	vote, _ := action.NewVote(1, "abc", "abc")
-	blk := bc.NewBlock(uint32(123), uint64(4), hash.Hash32B{}, clock.New(), nil, []*action.Vote{vote}, nil)
-	mBc.EXPECT().GetBlockByHeight(gomock.Any()).AnyTimes().Return(blk, nil)
-
-	bs.(*blockSyncer).ackBlockCommit = true
-	// less than tip height
-	assert.Error(bs.ProcessBlock(blk))
-
-	// special case
-	bs.(*blockSyncer).state = Idle
-	blkHeightSpecial := bc.NewBlock(uint32(123), uint64(6), hash.Hash32B{}, clock.New(), nil, nil, nil)
-	assert.Nil(bs.ProcessBlock(blkHeightSpecial))
-
-	// < block height
-	blkHeightLess := bc.NewBlock(uint32(123), uint64(4), hash.Hash32B{}, clock.New(), nil, nil, nil)
-	assert.Error(bs.ProcessBlock(blkHeightLess))
-
-	// > block height
-	blkHeightMore := bc.NewBlock(uint32(123), uint64(7), hash.Hash32B{}, clock.New(), nil, nil, nil)
-	assert.Nil(bs.ProcessBlock(blkHeightMore))
+	require.Nil(bs2.ProcessBlock(blk3))
+	require.Nil(bs2.ProcessBlock(blk2))
+	require.Nil(bs2.ProcessBlock(blk2))
+	require.Nil(bs2.ProcessBlock(blk1))
+	h2, _ := chain2.TipHeight()
+	assert.Equal(t, h1, h2)
 }
 
-func TestBlockSyncer_ProcessBlockSync(t *testing.T) {
-	assert := assert.New(t)
+func TestBlockSyncerProcessBlockSync(t *testing.T) {
+	require := require.New(t)
+	ctx := context.Background()
+	cfg, err := newTestConfig()
+	require.Nil(err)
+	testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
+	testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
 
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+	chain1 := bc.NewBlockchain(cfg, bc.InMemStateFactoryOption(), bc.InMemDaoOption())
+	require.NotNil(chain1)
+	ap1, err := actpool.NewActPool(chain1, cfg.ActPool)
+	require.NotNil(ap1)
+	bs1, err := NewBlockSyncer(cfg, chain1, ap1, network.NewOverlay(&cfg.Network))
+	require.Nil(err)
+	chain2 := bc.NewBlockchain(cfg, bc.InMemStateFactoryOption(), bc.InMemDaoOption())
+	require.NotNil(chain2)
+	ap2, err := actpool.NewActPool(chain2, cfg.ActPool)
+	require.NotNil(ap2)
+	bs2, err := NewBlockSyncer(cfg, chain2, ap2, network.NewOverlay(&cfg.Network))
+	require.Nil(err)
 
-	mBc := mock_blockchain.NewMockBlockchain(ctrl)
-	mBc.EXPECT().TipHeight().Times(1).Return(uint64(0), errors.New("Error"))
-	mBc.EXPECT().TipHeight().Times(1).Return(uint64(5), nil)
-	mBc.EXPECT().TipHeight().Times(1).Return(uint64(6), nil)
+	defer func() {
+		require.Nil(chain1.Stop(ctx))
+		require.Nil(chain2.Stop(ctx))
+		testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
+		testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
+	}()
 
-	apConfig := config.ActPool{MaxNumActsPerPool: 8192, MaxNumActsPerAcct: 256}
-	ap, err := actpool.NewActPool(mBc, apConfig)
+	// commit top
+	blk1, err := chain1.MintNewBlock(nil, nil, nil, ta.Addrinfo["producer"], "")
+	require.NotNil(blk1)
+	require.Nil(bs1.ProcessBlock(blk1))
+	blk2, err := chain1.MintNewBlock(nil, nil, nil, ta.Addrinfo["producer"], "")
+	require.NotNil(blk2)
+	require.Nil(bs1.ProcessBlock(blk2))
+	blk3, err := chain1.MintNewBlock(nil, nil, nil, ta.Addrinfo["producer"], "")
+	require.NotNil(blk3)
+	require.Nil(bs1.ProcessBlock(blk3))
+	h1, _ := chain1.TipHeight()
+	assert.Equal(t, uint64(3), h1)
 
-	p2p := generateP2P()
-
-	cfgFullNode := &config.Config{
-		NodeType: config.FullNodeType,
-	}
-	cfgFullNode.Network.BootstrapNodes = []string{"123"}
-
-	bs, err := NewBlockSyncer(cfgFullNode, mBc, ap, p2p)
-	assert.Nil(err)
-	vote, _ := action.NewVote(1, "abc", "abc")
-	blk := bc.NewBlock(uint32(123), uint64(4), hash.Hash32B{}, clock.New(), nil, []*action.Vote{vote}, nil)
-	mBc.EXPECT().GetBlockByHeight(gomock.Any()).AnyTimes().Return(blk, nil)
-	bs.(*blockSyncer).ackBlockSync = false
-	assert.Nil(bs.ProcessBlockSync(blk))
-
-	bs.(*blockSyncer).ackBlockSync = true
-	assert.Error(bs.ProcessBlockSync(blk))
-	assert.Nil(bs.ProcessBlockSync(blk))
-	assert.Nil(bs.ProcessBlockSync(blk))
+	require.Nil(bs2.ProcessBlockSync(blk3))
+	require.Nil(bs2.ProcessBlockSync(blk2))
+	require.Nil(bs2.ProcessBlockSync(blk1))
+	h2, _ := chain2.TipHeight()
+	assert.Equal(t, h1, h2)
 }
 
-func TestBlockSyncer_Sync(t *testing.T) {
+func TestBlockSyncerSync(t *testing.T) {
 	require := require.New(t)
 	ctx := context.Background()
 	cfg, err := newTestConfig()

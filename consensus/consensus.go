@@ -79,7 +79,7 @@ func NewConsensus(
 	}
 
 	commitBlockCB := func(blk *blockchain.Block) error {
-		return bs.ProcessBlock(blk)
+		return bc.CommitBlock(blk)
 	}
 
 	broadcastBlockCB := func(blk *blockchain.Block) error {
