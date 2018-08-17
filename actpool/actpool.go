@@ -142,7 +142,7 @@ func (ap *actPool) PickActs() ([]*action.Transfer, []*action.Vote, []*action.Exe
 				numActs++
 			case act.GetExecution() != nil:
 				execution := action.Execution{}
-				execution.ConvertFromExecutionPb(act.GetExecution())
+				execution.ConvertFromActionPb(act)
 				executions = append(executions, &execution)
 				numActs++
 			}
@@ -464,7 +464,7 @@ func (ap *actPool) removeInvalidActs(acts []*iproto.ActionPb) {
 			hash = vote.Hash()
 		case act.GetExecution() != nil:
 			execution := &action.Execution{}
-			execution.ConvertFromExecutionPb(act.GetExecution())
+			execution.ConvertFromActionPb(act)
 			hash = execution.Hash()
 		}
 		logger.Debug().

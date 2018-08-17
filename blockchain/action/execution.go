@@ -104,24 +104,28 @@ func (ex *Execution) ByteStream() []byte {
 	return stream
 }
 
-// ConvertToExecutionPb converts Execution to protobuf's ExecutionPb
-func (ex *Execution) ConvertToExecutionPb() *iproto.ExecutionPb {
-	ep := &iproto.ExecutionPb{
-		Version:        ex.Version,
-		Nonce:          ex.Nonce,
-		Executor:       ex.Executor,
-		Contract:       ex.Contract,
-		ExecutorPubKey: ex.ExecutorPubKey[:],
-		Gas:            ex.Gas,
-		GasPrice:       ex.GasPrice,
-		Signature:      ex.Signature,
-		Data:           ex.Data,
+// ConvertToActionPb converts Execution to protobuf's ActionPb
+func (ex *Execution) ConvertToActionPb() *iproto.ActionPb {
+	act := &iproto.ActionPb{
+		Action: &iproto.ActionPb_Execution{
+			Execution: &iproto.ExecutionPb{
+				Executor:       ex.Executor,
+				Contract:       ex.Contract,
+				ExecutorPubKey: ex.ExecutorPubKey[:],
+				Gas:            ex.Gas,
+				GasPrice:       ex.GasPrice,
+				Data:           ex.Data,
+			},
+		},
+		Version:   ex.Version,
+		Nonce:     ex.Nonce,
+		Signature: ex.Signature,
 	}
 	if ex.Amount != nil && len(ex.Amount.Bytes()) > 0 {
-		ep.Amount = ex.Amount.Bytes()
+		act.GetExecution().Amount = ex.Amount.Bytes()
 	}
 
-	return ep
+	return act
 }
 
 // ToJSON converts Execution to ExecutionJSON
@@ -143,19 +147,20 @@ func (ex *Execution) ToJSON() (*explorer.Execution, error) {
 
 // Serialize returns a serialized byte stream for the Execution
 func (ex *Execution) Serialize() ([]byte, error) {
-	return proto.Marshal(ex.ConvertToExecutionPb())
+	return proto.Marshal(ex.ConvertToActionPb())
 }
 
-// ConvertFromExecutionPb converts a protobuf's ExecutionPb to Execution
-func (ex *Execution) ConvertFromExecutionPb(pbExecution *iproto.ExecutionPb) {
-	ex.Version = pbExecution.GetVersion()
-	ex.Nonce = pbExecution.GetNonce()
-	ex.Executor = pbExecution.GetExecutor()
+// ConvertFromActionPb converts a protobuf's ActionPb to Execution
+func (ex *Execution) ConvertFromActionPb(pbAct *iproto.ActionPb) {
+	ex.Version = pbAct.GetVersion()
+	ex.Nonce = pbAct.GetNonce()
+	pbExecution := pbAct.GetExecution()
+	ex.Executor = pbExecution.Executor
 	ex.Contract = pbExecution.GetContract()
 	copy(ex.ExecutorPubKey[:], pbExecution.GetExecutorPubKey())
 	ex.Gas = pbExecution.GetGas()
 	ex.GasPrice = pbExecution.GetGasPrice()
-	ex.Signature = pbExecution.GetSignature()
+	ex.Signature = pbAct.GetSignature()
 	ex.Data = pbExecution.GetData()
 	if ex.Amount == nil {
 		ex.Amount = big.NewInt(0)
@@ -196,11 +201,11 @@ func NewExecutionFromJSON(jsonExecution *explorer.Execution) (*Execution, error)
 
 // Deserialize parse the byte stream into Execution
 func (ex *Execution) Deserialize(buf []byte) error {
-	pbExecution := &iproto.ExecutionPb{}
-	if err := proto.Unmarshal(buf, pbExecution); err != nil {
+	pbAction := &iproto.ActionPb{}
+	if err := proto.Unmarshal(buf, pbAction); err != nil {
 		return err
 	}
-	ex.ConvertFromExecutionPb(pbExecution)
+	ex.ConvertFromActionPb(pbAction)
 	return nil
 }
 

@@ -168,7 +168,7 @@ func (b *Block) ConvertToBlockPb() *iproto.BlockPb {
 		actions = append(actions, vote.ConvertToActionPb())
 	}
 	for _, execution := range b.Executions {
-		actions = append(actions, &iproto.ActionPb{Action: &iproto.ActionPb_Execution{execution.ConvertToExecutionPb()}})
+		actions = append(actions, execution.ConvertToActionPb())
 	}
 	return &iproto.BlockPb{Header: b.ConvertToBlockHeaderPb(), Actions: actions}
 }
@@ -212,7 +212,7 @@ func (b *Block) ConvertFromBlockPb(pbBlock *iproto.BlockPb) {
 			b.Votes = append(b.Votes, vote)
 		} else if executionPb := act.GetExecution(); executionPb != nil {
 			execution := &action.Execution{}
-			execution.ConvertFromExecutionPb(executionPb)
+			execution.ConvertFromActionPb(act)
 			b.Executions = append(b.Executions, execution)
 		} else {
 			logger.Fatal().Msg("unexpected action")

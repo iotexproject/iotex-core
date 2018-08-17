@@ -240,7 +240,7 @@ func TestActPool_AddActs(t *testing.T) {
 }
 
 func TestActPool_PickActs(t *testing.T) {
-	createActPool := func(cfg config.ActPool) (*actPool, []*action.Transfer, []*action.Vote) {
+	createActPool := func(cfg config.ActPool) (*actPool, []*action.Transfer, []*action.Vote, []*action.Execution) {
 		require := require.New(t)
 		bc := blockchain.NewBlockchain(&config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
 		_, err := bc.CreateState(addr1.RawAddress, uint64(100))
@@ -284,30 +284,30 @@ func TestActPool_PickActs(t *testing.T) {
 		require.NoError(err)
 		err = ap.AddTsf(tsf10)
 		require.NoError(err)
-		return ap, []*action.Transfer{tsf1, tsf2, tsf3, tsf4}, []*action.Vote{vote7}
+		return ap, []*action.Transfer{tsf1, tsf2, tsf3, tsf4}, []*action.Vote{vote7}, []*action.Execution{}
 	}
 
 	t.Run("no-limit", func(t *testing.T) {
 		apConfig := getActPoolCfg()
-		ap, transfers, votes := createActPool(apConfig)
+		ap, transfers, votes, executions := createActPool(apConfig)
 		pickedTsfs, pickedVotes, pickedExecutions := ap.PickActs()
 		require.Equal(t, transfers, pickedTsfs)
 		require.Equal(t, votes, pickedVotes)
-		require.Equal(t, []*action.Execution{}, pickedExecutions)
+		require.Equal(t, executions, pickedExecutions)
 	})
 	t.Run("enough-limit", func(t *testing.T) {
 		apConfig := getActPoolCfg()
 		apConfig.MaxNumActsToPick = 10
-		ap, transfers, votes := createActPool(apConfig)
+		ap, transfers, votes, executions := createActPool(apConfig)
 		pickedTsfs, pickedVotes, pickedExecutions := ap.PickActs()
 		require.Equal(t, transfers, pickedTsfs)
 		require.Equal(t, votes, pickedVotes)
-		require.Equal(t, []*action.Execution{}, pickedExecutions)
+		require.Equal(t, executions, pickedExecutions)
 	})
 	t.Run("low-limit", func(t *testing.T) {
 		apConfig := getActPoolCfg()
 		apConfig.MaxNumActsToPick = 3
-		ap, _, _ := createActPool(apConfig)
+		ap, _, _, _ := createActPool(apConfig)
 		pickedTsfs, pickedVotes, pickedExecutions := ap.PickActs()
 		require.Equal(t, 3, len(pickedTsfs)+len(pickedVotes)+len(pickedExecutions))
 	})
@@ -342,7 +342,7 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 
 	require.Equal(4, len(ap.allActions))
 	require.NotNil(ap.accountActs[addr1.RawAddress])
-	err = bc.CommitStateChanges(0, []*action.Transfer{tsf1, tsf2, tsf3}, []*action.Vote{vote4}, nil)
+	err = bc.CommitStateChanges(0, []*action.Transfer{tsf1, tsf2, tsf3}, []*action.Vote{vote4}, []*action.Execution{})
 	require.Nil(err)
 	ap.removeConfirmedActs()
 	require.Equal(0, len(ap.allActions))
