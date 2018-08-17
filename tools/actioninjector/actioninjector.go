@@ -10,7 +10,6 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"io/ioutil"
 	"math/big"
@@ -215,13 +214,18 @@ func injectTransfer(
 	logger.Info().Msg("Created signed transfer")
 
 	tsf := transfer.ToJSON()
-	stsf, err := json.Marshal(tsf)
-	if err != nil {
-		logger.Fatal().Err(err).Msg("Failed to inject transfer")
+	request := exp.SendTransferRequest{
+		Version:      tsf.Version,
+		Nonce:        tsf.Nonce,
+		Sender:       tsf.Sender,
+		Recipient:    tsf.Recipient,
+		Amount:       tsf.Amount,
+		SenderPubKey: tsf.SenderPubKey,
+		Signature:    tsf.Signature,
+		Payload:      tsf.Payload,
 	}
-
 	for i := 0; i < retryNum; i++ {
-		if _, err = c.SendTransfer(exp.SendTransferRequest{SerlializedTransfer: string(stsf[:])}); err == nil {
+		if _, err = c.SendTransfer(request); err == nil {
 			break
 		}
 		time.Sleep(time.Duration(retryInterval) * time.Second)
@@ -266,13 +270,16 @@ func injectVote(
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Failed to inject vote")
 	}
-	svote, err := json.Marshal(jsonVote)
-	if err != nil {
-		logger.Fatal().Err(err).Msg("Failed to inject vote")
+	request := exp.SendVoteRequest{
+		Version:     jsonVote.Version,
+		Nonce:       jsonVote.Nonce,
+		Voter:       jsonVote.Voter,
+		Votee:       jsonVote.Votee,
+		VoterPubKey: jsonVote.VoterPubKey,
+		Signature:   jsonVote.Signature,
 	}
-
 	for i := 0; i < retryNum; i++ {
-		if _, err = c.SendVote(exp.SendVoteRequest{SerializedVote: string(svote[:])}); err == nil {
+		if _, err = c.SendVote(request); err == nil {
 			break
 		}
 		time.Sleep(time.Duration(retryInterval) * time.Second)

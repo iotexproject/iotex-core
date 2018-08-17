@@ -113,19 +113,32 @@ struct ConsensusMetrics {
 }
 
 struct SendTransferRequest {
-    serlializedTransfer string
+    version int
+    nonce int
+    sender string
+    recipient string
+    amount int
+    senderPubKey string
+    signature string
+    payload string
+    isCoinbase bool
 }
 
 struct SendTransferResponse {
-    transferSent bool
+    hash string
 }
 
 struct SendVoteRequest {
-    serializedVote string
+    version int
+    nonce int
+    voter string
+    votee string
+    voterPubKey string
+    signature string
 }
 
 struct SendVoteResponse {
-    voteSent bool
+    hash string
 }
 
 interface Explorer {

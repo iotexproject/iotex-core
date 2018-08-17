@@ -8,7 +8,6 @@ package explorer
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"math/big"
 	"testing"
@@ -405,16 +404,24 @@ func TestService_SendTransfer(t *testing.T) {
 
 	request := explorer.SendTransferRequest{}
 	response, err := svc.SendTransfer(request)
-	require.Equal(false, response.TransferSent)
+	require.Equal("", response.Hash)
 	require.NotNil(err)
 
-	tsfJSON := explorer.Transfer{Nonce: 1, Amount: 1, Sender: senderRawAddr, Recipient: recipientRawAddr, SenderPubKey: senderPubKey}
-	stsf, err := json.Marshal(tsfJSON)
-	require.Nil(err)
 	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any()).Times(1)
 	p2p.EXPECT().Broadcast(gomock.Any()).Times(1)
-	response, err = svc.SendTransfer(explorer.SendTransferRequest{SerlializedTransfer: string(stsf[:])})
-	require.Equal(true, response.TransferSent)
+
+	r := explorer.SendTransferRequest{
+		Version:      0x1,
+		Nonce:        1,
+		Sender:       senderRawAddr,
+		Recipient:    recipientRawAddr,
+		Amount:       1,
+		SenderPubKey: senderPubKey,
+		Signature:    "",
+		Payload:      "",
+	}
+	response, err = svc.SendTransfer(r)
+	require.NotNil(response.Hash)
 	require.Nil(err)
 }
 
@@ -430,15 +437,22 @@ func TestService_SendVote(t *testing.T) {
 
 	request := explorer.SendVoteRequest{}
 	response, err := svc.SendVote(request)
-	require.Equal(false, response.VoteSent)
+	require.Equal("", response.Hash)
 	require.NotNil(err)
 
-	voteJSON := explorer.Vote{Nonce: 1, VoterPubKey: senderPubKey}
-	svote, err := json.Marshal(voteJSON)
-	require.Nil(err)
 	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any()).Times(1)
 	p2p.EXPECT().Broadcast(gomock.Any()).Times(1)
-	response, err = svc.SendVote(explorer.SendVoteRequest{SerializedVote: string(svote[:])})
-	require.Equal(true, response.VoteSent)
+
+	r := explorer.SendVoteRequest{
+		Version:     0x1,
+		Nonce:       1,
+		Voter:       senderRawAddr,
+		Votee:       senderRawAddr,
+		VoterPubKey: senderPubKey,
+		Signature:   "",
+	}
+
+	response, err = svc.SendVote(r)
+	require.NotNil(response.Hash)
 	require.Nil(err)
 }

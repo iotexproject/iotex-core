@@ -3,14 +3,13 @@ package explorer
 
 import (
 	"fmt"
-	"reflect"
-
 	"github.com/coopernurse/barrister-go"
+	"reflect"
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "239ed24897f32fb841b2efe8c1f7e326"
-const BarristerDateGenerated int64 = 1534203997297000000
+const BarristerChecksum string = "eed608028d409824226a927fe76541c7"
+const BarristerDateGenerated int64 = 1534460896367000000
 
 type CoinStatistic struct {
 	Height    int64 `json:"height"`
@@ -110,19 +109,32 @@ type ConsensusMetrics struct {
 }
 
 type SendTransferRequest struct {
-	SerlializedTransfer string `json:"serlializedTransfer"`
+	Version      int64  `json:"version"`
+	Nonce        int64  `json:"nonce"`
+	Sender       string `json:"sender"`
+	Recipient    string `json:"recipient"`
+	Amount       int64  `json:"amount"`
+	SenderPubKey string `json:"senderPubKey"`
+	Signature    string `json:"signature"`
+	Payload      string `json:"payload"`
+	IsCoinbase   bool   `json:"isCoinbase"`
 }
 
 type SendTransferResponse struct {
-	TransferSent bool `json:"transferSent"`
+	Hash string `json:"hash"`
 }
 
 type SendVoteRequest struct {
-	SerializedVote string `json:"serializedVote"`
+	Version     int64  `json:"version"`
+	Nonce       int64  `json:"nonce"`
+	Voter       string `json:"voter"`
+	Votee       string `json:"votee"`
+	VoterPubKey string `json:"voterPubKey"`
+	Signature   string `json:"signature"`
 }
 
 type SendVoteResponse struct {
-	VoteSent bool `json:"voteSent"`
+	Hash string `json:"hash"`
 }
 
 type Explorer interface {
@@ -1197,8 +1209,64 @@ var IdlJsonRaw = `[
         "extends": "",
         "fields": [
             {
-                "name": "serlializedTransfer",
+                "name": "version",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "nonce",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "sender",
                 "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "recipient",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "amount",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "senderPubKey",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "signature",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "payload",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "isCoinbase",
+                "type": "bool",
                 "optional": false,
                 "is_array": false,
                 "comment": ""
@@ -1218,8 +1286,8 @@ var IdlJsonRaw = `[
         "extends": "",
         "fields": [
             {
-                "name": "transferSent",
-                "type": "bool",
+                "name": "hash",
+                "type": "string",
                 "optional": false,
                 "is_array": false,
                 "comment": ""
@@ -1239,7 +1307,42 @@ var IdlJsonRaw = `[
         "extends": "",
         "fields": [
             {
-                "name": "serializedVote",
+                "name": "version",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "nonce",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "voter",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "votee",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "voterPubKey",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "signature",
                 "type": "string",
                 "optional": false,
                 "is_array": false,
@@ -1260,8 +1363,8 @@ var IdlJsonRaw = `[
         "extends": "",
         "fields": [
             {
-                "name": "voteSent",
-                "type": "bool",
+                "name": "hash",
+                "type": "string",
                 "optional": false,
                 "is_array": false,
                 "comment": ""
@@ -1791,7 +1894,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1534203997297,
-        "checksum": "239ed24897f32fb841b2efe8c1f7e326"
+        "date_generated": 1534460896367,
+        "checksum": "eed608028d409824226a927fe76541c7"
     }
 ]`
