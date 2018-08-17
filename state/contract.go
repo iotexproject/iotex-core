@@ -89,10 +89,9 @@ func (c *contract) RootHash() hash.Hash32B {
 }
 
 // newContract returns a Contract instance
-func newContract(state *State, code []byte, tr trie.Trie) Contract {
+func newContract(state *State, tr trie.Trie) Contract {
 	c := contract{
 		State: state,
-		code:  code,
 		trie:  tr,
 	}
 	c.trie.Start(context.Background())

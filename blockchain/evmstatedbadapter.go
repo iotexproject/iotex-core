@@ -63,7 +63,7 @@ func (stateDB *EVMStateDBAdapter) CreateAccount(evmAddr common.Address) {
 		stateDB.logError(err)
 		return
 	}
-	_, err = stateDB.bc.CreateState(addr.RawAddress, 0)
+	_, err = stateDB.sf.CreateContract(addr.RawAddress)
 	if err != nil {
 		logger.Error().Err(err).Msg("CreateAccount")
 		stateDB.logError(err)
@@ -133,7 +133,7 @@ func (stateDB *EVMStateDBAdapter) GetNonce(evmAddr common.Address) uint64 {
 	nonce, err := stateDB.bc.Nonce(addr.RawAddress)
 	if err != nil {
 		logger.Error().Err(err).Msg("GetNonce")
-		// stateDB.logError(err)
+		stateDB.logError(err)
 		return 0
 	}
 	return nonce

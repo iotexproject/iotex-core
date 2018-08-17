@@ -38,7 +38,7 @@ var (
 	// SuccessStatus is the status that contract execution success
 	SuccessStatus = uint64(1)
 	// GasLimit is the total gas limit to be consumed in a block
-	GasLimit = uint64(100000)
+	GasLimit = uint64(1000000)
 )
 
 // Receipt represents the result of a contract
