@@ -8,13 +8,13 @@ package explorer
 
 import (
 	"encoding/hex"
-	"encoding/json"
 	"math/big"
 
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/dispatch/dispatcher"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
@@ -681,17 +681,9 @@ func (exp *Service) GetCandidateMetrics() (explorer.CandidateMetrics, error) {
 }
 
 // SendTransfer sends a transfer
-func (exp *Service) SendTransfer(request explorer.SendTransferRequest) (explorer.SendTransferResponse, error) {
+func (exp *Service) SendTransfer(tsfJSON explorer.SendTransferRequest) (explorer.SendTransferResponse, error) {
 	logger.Debug().Msg("receive send transfer request")
 
-	if len(request.SerlializedTransfer) == 0 {
-		return explorer.SendTransferResponse{}, errors.New("invalid SendTransferRequest")
-	}
-
-	tsfJSON := &explorer.Transfer{}
-	if err := json.Unmarshal([]byte(request.SerlializedTransfer), tsfJSON); err != nil {
-		return explorer.SendTransferResponse{}, err
-	}
 	amount := big.NewInt(tsfJSON.Amount).Bytes()
 
 	payload, err := hex.DecodeString(tsfJSON.Payload)
@@ -721,26 +713,23 @@ func (exp *Service) SendTransfer(request explorer.SendTransferRequest) (explorer
 		Nonce:     uint64(tsfJSON.Nonce),
 		Signature: signature,
 	}
-
 	// broadcast to the network
 	if err := exp.p2p.Broadcast(actPb); err != nil {
 		return explorer.SendTransferResponse{}, err
 	}
 	// send to actpool via dispatcher
 	exp.dp.HandleBroadcast(actPb, nil)
-	return explorer.SendTransferResponse{true}, nil
+
+	tsf := &action.Transfer{}
+	tsf.ConvertFromActionPb(actPb)
+	h := tsf.Hash()
+	return explorer.SendTransferResponse{Hash: hex.EncodeToString(h[:])}, nil
 }
 
 // SendVote sends a vote
-func (exp *Service) SendVote(request explorer.SendVoteRequest) (explorer.SendVoteResponse, error) {
-	if len(request.SerializedVote) == 0 {
-		return explorer.SendVoteResponse{}, errors.New("invalid SendVoteRequest")
-	}
+func (exp *Service) SendVote(voteJSON explorer.SendVoteRequest) (explorer.SendVoteResponse, error) {
+	logger.Debug().Msg("receive send vote request")
 
-	voteJSON := &explorer.Vote{}
-	if err := json.Unmarshal([]byte(request.SerializedVote), voteJSON); err != nil {
-		return explorer.SendVoteResponse{}, err
-	}
 	selfPubKey, err := keypair.StringToPubKeyBytes(voteJSON.VoterPubKey)
 	if err != nil {
 		return explorer.SendVoteResponse{}, err
@@ -768,7 +757,11 @@ func (exp *Service) SendVote(request explorer.SendVoteRequest) (explorer.SendVot
 	}
 	// send to actpool via dispatcher
 	exp.dp.HandleBroadcast(actPb, nil)
-	return explorer.SendVoteResponse{true}, nil
+
+	v := &action.Vote{}
+	v.ConvertFromActionPb(actPb)
+	h := v.Hash()
+	return explorer.SendVoteResponse{Hash: hex.EncodeToString(h[:])}, nil
 }
 
 // getTransfer takes in a blockchain and transferHash and returns a Explorer Transfer
