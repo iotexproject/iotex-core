@@ -66,7 +66,7 @@ func (stateDB *EVMStateDBAdapter) CreateAccount(evmAddr common.Address) {
 	_, err = stateDB.sf.CreateContract(addr.RawAddress)
 	if err != nil {
 		logger.Error().Err(err).Msg("CreateAccount")
-		stateDB.logError(err)
+		// stateDB.logError(err)
 		return
 	}
 	logger.Info().Hex("addrHash", evmAddr[:]).Msg("CreateAccount")
