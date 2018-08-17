@@ -43,6 +43,7 @@ var (
 
 // Receipt represents the result of a contract
 type Receipt struct {
+	ReturnValue     []byte
 	Status          uint64
 	Hash            hash.Hash32B
 	GasConsumed     uint64
@@ -186,8 +187,9 @@ func executeContract(blk *Block, idx int, execution *action.Execution, bc Blockc
 	if err != nil {
 		return nil, err
 	}
-	depositGas, remainingGas, contractAddress, err := executeInEVM(ps, stateDB, gasLimit)
+	retval, depositGas, remainingGas, contractAddress, err := executeInEVM(ps, stateDB, gasLimit)
 	receipt := &Receipt{
+		ReturnValue:     retval,
 		GasConsumed:     ps.gas - remainingGas,
 		Hash:            execution.Hash(),
 		ContractAddress: contractAddress,
@@ -223,50 +225,53 @@ func getChainConfig() *params.ChainConfig {
 	return &chainConfig
 }
 
-func executeInEVM(evmParams *EVMParams, stateDB *EVMStateDBAdapter, gasLimit *uint64) (uint64, uint64, string, error) {
+func executeInEVM(evmParams *EVMParams, stateDB *EVMStateDBAdapter, gasLimit *uint64) ([]byte, uint64, uint64, string, error) {
 	remainingGas := evmParams.gas
 	if err := securityDeposit(evmParams, stateDB, gasLimit); err != nil {
-		return 0, 0, action.EmptyAddress, err
+		return nil, 0, 0, action.EmptyAddress, err
 	}
 	var config vm.Config
 	chainConfig := getChainConfig()
 	evm := vm.NewEVM(evmParams.context, stateDB, chainConfig, config)
 	intriGas := intrinsicGas(evmParams)
 	if remainingGas < intriGas {
-		return evmParams.gas, remainingGas, action.EmptyAddress, ErrOutOfGas
+		return nil, evmParams.gas, remainingGas, action.EmptyAddress, ErrOutOfGas
 	}
 	var err error
 	contractRawAddress := action.EmptyAddress
 	remainingGas -= intriGas
 	executor := vm.AccountRef(evmParams.context.Origin)
+	ret := []byte{}
 	if evmParams.contract == nil {
 		// create contract
-		_, evmContractAddress, remainingGas, err := evm.Create(executor, evmParams.data, remainingGas, evmParams.amount)
+		var evmContractAddress common.Address
+		ret, evmContractAddress, remainingGas, err = evm.Create(executor, evmParams.data, remainingGas, evmParams.amount)
 		if err != nil {
-			return evmParams.gas, remainingGas, action.EmptyAddress, err
+			return nil, evmParams.gas, remainingGas, action.EmptyAddress, err
 		}
 		logger.Warn().Hex("contract addrHash", evmContractAddress[:]).Msg("executeInEVM")
 		contractAddress, err := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, evmContractAddress.Bytes())
 		if err != nil {
-			return evmParams.gas, remainingGas, action.EmptyAddress, err
+			return nil, evmParams.gas, remainingGas, action.EmptyAddress, err
 		}
 		contractRawAddress = contractAddress.RawAddress
 	} else {
 		// process contract
-		_, remainingGas, err = evm.Call(executor, *evmParams.contract, evmParams.data, remainingGas, evmParams.amount)
+		ret, remainingGas, err = evm.Call(executor, *evmParams.contract, evmParams.data, remainingGas, evmParams.amount)
+		fmt.Printf("RetValue: %v\n", ret)
 	}
 	if err == nil {
 		err = stateDB.Error()
 	}
 	if err == vm.ErrInsufficientBalance {
-		return evmParams.gas, remainingGas, action.EmptyAddress, err
+		return nil, evmParams.gas, remainingGas, action.EmptyAddress, err
 	}
 	if err != nil {
 		// TODO (zhi) should we refund if any error
-		return evmParams.gas, 0, action.EmptyAddress, err
+		return nil, evmParams.gas, 0, action.EmptyAddress, err
 	}
 	// TODO (zhi) figure out what the following function does
 	// stateDB.Finalise(true)
 	logger.Warn().Str("contract address", contractRawAddress).Msg("executeInEVM")
-	return evmParams.gas, remainingGas, contractRawAddress, nil
+	return ret, evmParams.gas, remainingGas, contractRawAddress, nil
 }
