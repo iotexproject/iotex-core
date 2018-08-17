@@ -17,6 +17,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -53,8 +54,9 @@ func TestEVM(t *testing.T) {
 	require.NoError(err)
 	require.Nil(bc.CommitBlock(blk))
 
-	contractAddrHash, _ := hex.DecodeString("8db0d504897721a2cc48659d741f763de31d3567")
-	code, err := bc.GetFactory().GetCode(byteutil.BytesTo20B(contractAddrHash))
+	h, _ := hex.DecodeString("8db0d504897721a2cc48659d741f763de31d3567")
+	contractAddrHash := byteutil.BytesTo20B(h)
+	code, err := bc.GetFactory().GetCode(contractAddrHash)
 	require.Nil(err)
 	require.Equal(data[31:], code)
 	/*
@@ -66,4 +68,32 @@ func TestEVM(t *testing.T) {
 		fmt.Printf("contract state: %+v, %v\n", contractState, err)
 		require.NoError(err)
 	*/
+
+	// store to key 0
+	contractAddr := "io1qyqsyqcy3kcd2pyfwus69nzgvkwhg8mk8h336dt86pg6cj"
+	data, _ = hex.DecodeString("60fe47b1000000000000000000000000000000000000000000000000000000000000000f")
+	execution, err = action.NewExecution(ta.Addrinfo["producer"].RawAddress, contractAddr, 2, big.NewInt(0), uint32(120000), uint32(10), data)
+	require.NoError(err)
+	execution, err = execution.Sign(ta.Addrinfo["producer"])
+	fmt.Printf("execution %+v\n", execution)
+	require.NoError(err)
+	blk, err = bc.MintNewBlock(nil, nil, []*action.Execution{execution}, ta.Addrinfo["producer"], "")
+	require.NoError(err)
+	require.Nil(bc.CommitBlock(blk))
+
+	v, err := bc.GetFactory().GetContractState(contractAddrHash, hash.ZeroHash32B)
+	require.Nil(err)
+	require.Equal(byte(15), v[31])
+
+	// read from key 0
+	contractAddr = "io1qyqsyqcy3kcd2pyfwus69nzgvkwhg8mk8h336dt86pg6cj"
+	data, _ = hex.DecodeString("6d4ce63c")
+	execution, err = action.NewExecution(ta.Addrinfo["producer"].RawAddress, contractAddr, 2, big.NewInt(0), uint32(120000), uint32(10), data)
+	require.NoError(err)
+	execution, err = execution.Sign(ta.Addrinfo["producer"])
+	fmt.Printf("execution %+v\n", execution)
+	require.NoError(err)
+	blk, err = bc.MintNewBlock(nil, nil, []*action.Execution{execution}, ta.Addrinfo["producer"], "")
+	require.NoError(err)
+	require.Nil(bc.CommitBlock(blk))
 }

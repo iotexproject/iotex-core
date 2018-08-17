@@ -66,7 +66,7 @@ type (
 		Height() (uint64, error)
 		CommitStateChanges(uint64, []*action.Transfer, []*action.Vote, []*action.Execution) error
 		// Contracts
-		CreateContract(string, []byte) (string, error)
+		CreateContract(string) (string, error)
 		GetCodeHash(hash.AddrHash) (hash.Hash32B, error)
 		GetCode(hash.AddrHash) ([]byte, error)
 		SetCode(hash.AddrHash, []byte) error
@@ -332,7 +332,6 @@ func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer
 			return err
 		}
 		state := contract.SelfState()
-		logger.Warn().Msgf("commit code hash %x", state.CodeHash)
 		// store the account (with new storage trie root) into state trie
 		ss, err := stateToBytes(state)
 		if err != nil {
@@ -367,29 +366,29 @@ func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer
 // Contract functions
 //======================================
 // CreateContract creates a new contract account
-func (sf *factory) CreateContract(addr string, code []byte) (string, error) {
-	nonce, err := sf.Nonce(addr)
-	if err != nil {
-		return "", err
-	}
-	// TODO (dustin) use precreated address if any
-	contractAddr, err := iotxaddress.CreateContractAddress(addr, nonce)
-	if err != nil {
-		return "", err
-	}
-	hash, err := iotxaddress.GetPubkeyHash(contractAddr)
+func (sf *factory) CreateContract(addr string) (string, error) {
+	hash, err := iotxaddress.GetPubkeyHash(addr)
 	if err != nil {
 		return "", errors.Wrap(err, "error when getting the pubkey hash")
 	}
 	// only create when contract addr does not exist yet
 	contractHash := byteutil.BytesTo20B(hash)
-	if _, err := sf.getContract(contractHash); errors.Cause(err) != ErrAccountNotExist {
+	_, err = sf.getContract(contractHash)
+	switch {
+	case err == nil:
 		return "", ErrAccountCollision
+	case errors.Cause(err) == ErrAccountNotExist:
+		if _, err = sf.createContract(contractHash); err != nil {
+			return "", errors.Wrapf(err, "Failed to create contract %x", contractHash)
+		}
+	case err != nil:
+		return "", err
 	}
-	if _, err = sf.createContract(contractHash, code); err != nil {
-		return "", errors.Wrapf(err, "Failed to create contract %x", contractHash)
+	contractAddr, err := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, contractHash[:])
+	if err != nil {
+		return "", err
 	}
-	return contractAddr, nil
+	return contractAddr.RawAddress, nil
 }
 
 // GetCodeHash returns contract's code hash
@@ -537,19 +536,18 @@ func (sf *factory) cache(addr string) (*State, error) {
 	return state, nil
 }
 
-func (sf *factory) createContract(addr hash.AddrHash, code []byte) (Contract, error) {
+func (sf *factory) createContract(addr hash.AddrHash) (Contract, error) {
 	s := State{
 		Balance:      big.NewInt(0),
 		VotingWeight: big.NewInt(0),
 		Root:         trie.EmptyRoot,
-		CodeHash:     byteutil.BytesTo32B(hash.Hash256b(code)),
 	}
 	tr, err := trie.NewTrie(sf.accountTrie.TrieDB(), trie.ContractKVNameSpace, trie.EmptyRoot)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to create storage trie for new contract %x", addr)
 	}
 	// add to contract cache
-	contract := newContract(&s, code, tr)
+	contract := newContract(&s, tr)
 	sf.cachedContract[addr] = contract
 	return contract, nil
 }
@@ -568,7 +566,7 @@ func (sf *factory) getContract(addr hash.AddrHash) (Contract, error) {
 		return nil, errors.Wrapf(err, "Failed to create storage trie for existing contract %x", addr)
 	}
 	// add to contract cache
-	contract := newContract(state, nil, tr)
+	contract := newContract(state, tr)
 	sf.cachedContract[addr] = contract
 	return contract, nil
 }
