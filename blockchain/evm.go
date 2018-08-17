@@ -22,10 +22,10 @@ import (
 var (
 	// ErrHitGasLimit is the error when hit gas limit
 	ErrHitGasLimit = errors.New("Hit Gas Limit")
-	// ErrInsufficientBalanceForGas is the error that the balance in sender account is lower than gas
+	// ErrInsufficientBalanceForGas is the error that the balance in executor account is lower than gas
 	ErrInsufficientBalanceForGas = errors.New("Insufficient balance for gas")
-	// ErrInconsistentNonce is the error that the nonce is different from sender's nonce
-	ErrInconsistentNonce = errors.New("Nonce is not identical to sender nonce")
+	// ErrInconsistentNonce is the error that the nonce is different from executor's nonce
+	ErrInconsistentNonce = errors.New("Nonce is not identical to executor nonce")
 	// ErrOutOfGas is the error when running out of gas
 	ErrOutOfGas = errors.New("Out of gas")
 )
@@ -60,17 +60,17 @@ func MakeTransfer(db vm.StateDB, fromHash, toHash common.Address, amount *big.In
 
 // EVMParams is the context and parameters
 type EVMParams struct {
-	context          vm.Context
-	nonce            uint64
-	senderRawAddress string
-	amount           *big.Int
-	recipient        *common.Address
-	gas              uint64
-	data             []byte
+	context            vm.Context
+	nonce              uint64
+	executorRawAddress string
+	amount             *big.Int
+	contract           *common.Address
+	gas                uint64
+	data               []byte
 }
 
 // NewEVMParams creates a new context for use in the EVM.
-func NewEVMParams(blk *Block, tsf *action.Transfer, stateDB *EVMStateDBAdapter) (*EVMParams, error) {
+func NewEVMParams(blk *Block, execution *action.Execution, stateDB *EVMStateDBAdapter) (*EVMParams, error) {
 	// If we don't have an explicit author (i.e. not mining), extract from the header
 	/*
 		var beneficiary common.Address
@@ -80,22 +80,22 @@ func NewEVMParams(blk *Block, tsf *action.Transfer, stateDB *EVMStateDBAdapter) 
 			beneficiary = *author
 		}
 	*/
-	senderHash, err := iotxaddress.GetPubkeyHash(tsf.Sender)
+	executorHash, err := iotxaddress.GetPubkeyHash(execution.Executor)
 	if err != nil {
 		return nil, err
 	}
-	senderAddr := common.BytesToAddress(senderHash)
-	senderIoTXAddress, err := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, senderHash)
+	executorAddr := common.BytesToAddress(executorHash)
+	executorIoTXAddress, err := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, executorHash)
 	if err != nil {
 		return nil, err
 	}
-	var recipientAddr common.Address
-	if tsf.Recipient != action.EmptyAddress {
-		recipientHash, err := iotxaddress.GetPubkeyHash(tsf.Recipient)
+	var contractAddr common.Address
+	if execution.Contract != action.EmptyAddress {
+		contractHash, err := iotxaddress.GetPubkeyHash(execution.Contract)
 		if err != nil {
 			return nil, err
 		}
-		recipientAddr = common.BytesToAddress(recipientHash)
+		contractAddr = common.BytesToAddress(contractHash)
 	}
 	producerHash := keypair.HashPubKey(blk.Header.Pubkey)
 	producer := common.BytesToAddress(producerHash)
@@ -103,23 +103,23 @@ func NewEVMParams(blk *Block, tsf *action.Transfer, stateDB *EVMStateDBAdapter) 
 		CanTransfer: CanTransfer,
 		Transfer:    MakeTransfer,
 		GetHash:     GetHashFn(stateDB),
-		Origin:      senderAddr,
+		Origin:      executorAddr,
 		Coinbase:    producer,
 		BlockNumber: new(big.Int).SetUint64(blk.Height()),
 		Time:        new(big.Int).SetInt64(blk.Header.Timestamp().Unix()),
 		Difficulty:  new(big.Int).SetUint64(uint64(50)),
 		GasLimit:    GasLimit,
-		GasPrice:    new(big.Int).SetUint64(uint64(10)),
+		GasPrice:    new(big.Int).SetUint64(uint64(execution.GasPrice)),
 	}
 
 	return &EVMParams{
 		context,
-		tsf.Nonce,
-		senderIoTXAddress.RawAddress,
-		tsf.Amount,
-		&recipientAddr,
-		uint64(100), // gas
-		tsf.Payload, // data
+		execution.Nonce,
+		executorIoTXAddress.RawAddress,
+		execution.Amount,
+		&contractAddr,
+		uint64(execution.Gas),
+		execution.Data,
 	}, nil
 }
 
@@ -139,9 +139,9 @@ func GetHashFn(stateDB *EVMStateDBAdapter) func(n uint64) common.Hash {
 }
 
 func securityDeposit(context *EVMParams, stateDB vm.StateDB, gasLimit *uint64) error {
-	senderNonce := stateDB.GetNonce(context.context.Origin)
-	if senderNonce != context.nonce {
-		return ErrInconsistentNonce
+	executorNonce := stateDB.GetNonce(context.context.Origin)
+	if executorNonce != context.nonce {
+		//return ErrInconsistentNonce
 	}
 	if *gasLimit < context.gas {
 		return ErrHitGasLimit
@@ -155,28 +155,25 @@ func securityDeposit(context *EVMParams, stateDB vm.StateDB, gasLimit *uint64) e
 	return nil
 }
 
-// ProcessBlockContracts process the contracts in a block
-func ProcessBlockContracts(blk *Block, bc Blockchain) {
+// ExecuteContracts process the contracts in a block
+func ExecuteContracts(blk *Block, bc Blockchain) {
 	gasLimit := GasLimit
-	for _, tsf := range blk.Transfers {
-		ProcessContract(blk, tsf, bc, &gasLimit)
+	for _, execution := range blk.Executions {
+		ExecuteContract(blk, execution, bc, &gasLimit)
 	}
 }
 
-// ProcessContract processes a transfer which contains a contract
-func ProcessContract(blk *Block, tsf *action.Transfer, bc Blockchain, gasLimit *uint64) (*Receipt, error) {
-	if !tsf.IsContract() {
-		return nil, nil
-	}
+// ExecuteContract processes a transfer which contains a contract
+func ExecuteContract(blk *Block, execution *action.Execution, bc Blockchain, gasLimit *uint64) (*Receipt, error) {
 	stateDB := NewEVMStateDBAdapter(bc)
-	ps, err := NewEVMParams(blk, tsf, stateDB)
+	ps, err := NewEVMParams(blk, execution, stateDB)
 	if err != nil {
 		return nil, err
 	}
 	remainingGas, contractAddress, err := executeInEVM(ps, stateDB, gasLimit)
 	receipt := &Receipt{
 		GasConsumed:     ps.gas - remainingGas,
-		Hash:            tsf.Hash(),
+		Hash:            execution.Hash(),
 		ContractAddress: contractAddress,
 	}
 	if err != nil {
@@ -207,21 +204,21 @@ func executeInEVM(evmParams *EVMParams, stateDB *EVMStateDBAdapter, gasLimit *ui
 	var err error
 	contractAddress := action.EmptyAddress
 	remainingGas -= intrinsicGas
-	sender := vm.AccountRef(evmParams.context.Origin)
-	if evmParams.recipient == nil {
+	executor := vm.AccountRef(evmParams.context.Origin)
+	if evmParams.contract == nil {
 		// create contract
-		_, _, remainingGas, err := evm.Create(sender, evmParams.data, remainingGas, evmParams.amount)
+		_, _, remainingGas, err := evm.Create(executor, evmParams.data, remainingGas, evmParams.amount)
 		if err != nil {
 			return remainingGas, action.EmptyAddress, err
 		}
 
-		contractAddress, err = iotxaddress.CreateContractAddress(evmParams.senderRawAddress, evmParams.nonce)
+		contractAddress, err = iotxaddress.CreateContractAddress(evmParams.executorRawAddress, evmParams.nonce)
 		if err != nil {
 			return remainingGas, action.EmptyAddress, err
 		}
 	} else {
 		// process contract
-		_, remainingGas, err = evm.Call(sender, *evmParams.recipient, evmParams.data, remainingGas, evmParams.amount)
+		_, remainingGas, err = evm.Call(executor, *evmParams.contract, evmParams.data, remainingGas, evmParams.amount)
 	}
 	if err != nil {
 		if err == vm.ErrInsufficientBalance {

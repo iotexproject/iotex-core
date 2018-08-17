@@ -27,18 +27,13 @@ message VotePb {
 }
 
 message ExecutionPb {
-    // ExecutionPb should share these three fields with other Actions
-    // TODO: extract these three fields to ActionPb
-    uint32 version = 1;
-    uint64 nonce = 2;
-    bytes signature = 3;
-    bytes amount  = 4;
-    string executor = 5;
-    string contract = 6;
-    bytes executorPubKey = 7;
-    uint32 gas = 8;
-    uint32 gasPrice = 9;
-    bytes data = 10;
+    bytes amount  = 1;
+    string executor = 2;
+    string contract = 3;
+    bytes executorPubKey = 4;
+    uint32 gas = 5;
+    uint32 gasPrice = 6;
+    bytes data = 7;
 }
 
 message ActionPb {

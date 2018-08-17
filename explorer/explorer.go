@@ -307,8 +307,8 @@ ChainLoop:
 			if err != nil {
 				return res, err
 			}
-
-			votee := blk.Votes[i].GetVote().VoteeAddress
+			pbVote := blk.Votes[i].GetVote()
+			votee := pbVote.VoteeAddress
 			if err != nil {
 				return res, err
 			}
@@ -317,7 +317,7 @@ ChainLoop:
 			explorerVote := explorer.Vote{
 				ID:        hex.EncodeToString(hash[:]),
 				Nonce:     int64(blk.Votes[i].Nonce),
-				Timestamp: int64(blk.Votes[i].GetVote().Timestamp),
+				Timestamp: int64(pbVote.Timestamp),
 				Voter:     voter,
 				Votee:     votee,
 				BlockID:   blkID,

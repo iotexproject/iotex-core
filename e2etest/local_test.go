@@ -552,7 +552,7 @@ func TestVoteLocalCommit(t *testing.T) {
 				ta.Addrinfo["producer"].RawAddress),
 		},
 		[]*action.Vote{vote4, vote5},
-		nil,
+		[]*action.Execution{},
 	)
 	err = blk2.SignBlock(ta.Addrinfo["producer"])
 	hash2 := blk2.HashBlock()
@@ -614,7 +614,7 @@ func TestVoteLocalCommit(t *testing.T) {
 				ta.Addrinfo["producer"].RawAddress),
 		},
 		[]*action.Vote{vote6},
-		nil,
+		[]*action.Execution{},
 	)
 	err = blk3.SignBlock(ta.Addrinfo["producer"])
 	hash3 := blk3.HashBlock()
@@ -672,7 +672,7 @@ func TestVoteLocalCommit(t *testing.T) {
 				big.NewInt(int64(blockchain.Gen.BlockReward)),
 				ta.Addrinfo["producer"].RawAddress)},
 		[]*action.Vote{vote7},
-		nil,
+		[]*action.Execution{},
 	)
 	err = blk4.SignBlock(ta.Addrinfo["producer"])
 	require.Nil(err)
