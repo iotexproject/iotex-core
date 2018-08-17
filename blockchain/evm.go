@@ -215,14 +215,22 @@ func intrinsicGas(evmParams *EVMParams) uint64 {
 	return uint64(10)
 }
 
+func getChainConfig() *params.ChainConfig {
+	var chainConfig params.ChainConfig
+	// chainConfig.ChainID
+	chainConfig.ConstantinopleBlock = new(big.Int).SetUint64(0) // Constantinople switch block (nil = no fork, 0 = already activated)
+
+	return &chainConfig
+}
+
 func executeInEVM(evmParams *EVMParams, stateDB *EVMStateDBAdapter, gasLimit *uint64) (uint64, uint64, string, error) {
 	remainingGas := evmParams.gas
 	if err := securityDeposit(evmParams, stateDB, gasLimit); err != nil {
 		return 0, 0, action.EmptyAddress, err
 	}
-	var chainConfig params.ChainConfig
 	var config vm.Config
-	evm := vm.NewEVM(evmParams.context, stateDB, &chainConfig, config)
+	chainConfig := getChainConfig()
+	evm := vm.NewEVM(evmParams.context, stateDB, chainConfig, config)
 	intriGas := intrinsicGas(evmParams)
 	if remainingGas < intriGas {
 		return evmParams.gas, remainingGas, action.EmptyAddress, ErrOutOfGas

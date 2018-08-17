@@ -59,15 +59,6 @@ func TestEVM(t *testing.T) {
 	code, err := bc.GetFactory().GetCode(contractAddrHash)
 	require.Nil(err)
 	require.Equal(data[31:], code)
-	/*
-		TODO (zhi) check contract code
-		contractAddr := "io1qyqsyqcy3kcd2pyfwus69nzgvkwhg8mk8h336dt86pg6cj"
-		contractPubkeyHash, err := iotxaddress.GetPubkeyHash(contractAddr)
-		fmt.Printf("pub key: %v, %v", contractPubkeyHash, err)
-		contractState, err := sf.State(contractAddr)
-		fmt.Printf("contract state: %+v, %v\n", contractState, err)
-		require.NoError(err)
-	*/
 
 	// store to key 0
 	contractAddr := "io1qyqsyqcy3kcd2pyfwus69nzgvkwhg8mk8h336dt86pg6cj"
@@ -88,7 +79,7 @@ func TestEVM(t *testing.T) {
 	// read from key 0
 	contractAddr = "io1qyqsyqcy3kcd2pyfwus69nzgvkwhg8mk8h336dt86pg6cj"
 	data, _ = hex.DecodeString("6d4ce63c")
-	execution, err = action.NewExecution(ta.Addrinfo["producer"].RawAddress, contractAddr, 2, big.NewInt(0), uint32(120000), uint32(10), data)
+	execution, err = action.NewExecution(ta.Addrinfo["producer"].RawAddress, contractAddr, 3, big.NewInt(0), uint32(120000), uint32(10), data)
 	require.NoError(err)
 	execution, err = execution.Sign(ta.Addrinfo["producer"])
 	fmt.Printf("execution %+v\n", execution)
