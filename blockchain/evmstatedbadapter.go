@@ -91,6 +91,8 @@ func (stateDB *EVMStateDBAdapter) SubBalance(evmAddr common.Address, amount *big
 
 // AddBalance adds balance to account
 func (stateDB *EVMStateDBAdapter) AddBalance(evmAddr common.Address, amount *big.Int) {
+	logger.Info().Msgf("AddBalance %v to %s\n", amount, evmAddr.Hex())
+
 	addr, err := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, evmAddr.Bytes())
 	if err != nil {
 		logger.Error().Err(err).Msgf("Failed to generate address for %s", evmAddr)
@@ -119,6 +121,7 @@ func (stateDB *EVMStateDBAdapter) GetBalance(evmAddr common.Address) *big.Int {
 		logger.Error().Err(err).Msg("GetBalance")
 		return nil
 	}
+	logger.Info().Msgf("Balance of %s is %v\n", evmAddr.Hex(), balance)
 	return balance
 }
 
@@ -133,7 +136,7 @@ func (stateDB *EVMStateDBAdapter) GetNonce(evmAddr common.Address) uint64 {
 	nonce, err := stateDB.bc.Nonce(addr.RawAddress)
 	if err != nil {
 		logger.Error().Err(err).Msg("GetNonce")
-		stateDB.logError(err)
+		// stateDB.logError(err)
 		return 0
 	}
 	return nonce

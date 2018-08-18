@@ -150,12 +150,9 @@ func NewEVMParams(blk *Block, execution *action.Execution, stateDB *EVMStateDBAd
 // GetHashFn returns a GetHashFunc which retrieves hashes by number
 func GetHashFn(stateDB *EVMStateDBAdapter) func(n uint64) common.Hash {
 	return func(n uint64) common.Hash {
-		tipHeight, err := stateDB.bc.TipHeight()
+		hash, err := stateDB.bc.GetHashByHeight(stateDB.blockHeight - n)
 		if err != nil {
-			hash, err := stateDB.bc.GetHashByHeight(tipHeight - n)
-			if err != nil {
-				return common.BytesToHash(hash[:])
-			}
+			return common.BytesToHash(hash[:])
 		}
 
 		return common.Hash{}
