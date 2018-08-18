@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/trie"
 )
 
@@ -62,7 +63,7 @@ func (c *contract) GetCode() ([]byte, error) {
 
 // SetCode sets the contract's byte-code
 func (c *contract) SetCode(hash hash.Hash32B, code []byte) {
-	c.State.CodeHash = hash
+	c.State.CodeHash = hash[:]
 	c.code = code
 }
 
@@ -73,7 +74,7 @@ func (c *contract) SelfState() *State {
 
 // Commit writes the changes into underlying trie
 func (c *contract) Commit() error {
-	if c.State.CodeHash != hash.ZeroHash32B {
+	if byteutil.BytesTo32B(c.State.CodeHash) != hash.ZeroHash32B {
 		// put the code into storage DB
 		if err := c.trie.TrieDB().Put(trie.CodeKVNameSpace, c.State.CodeHash[:], c.code); err != nil {
 			return errors.Wrapf(err, "Failed to store code for new contract, codeHash %x", c.State.CodeHash[:])

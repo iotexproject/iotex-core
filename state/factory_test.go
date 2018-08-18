@@ -43,7 +43,7 @@ func TestEncodeDecode(t *testing.T) {
 	require.Nil(state.Balance)
 	require.Equal(uint64(0x10), state.Nonce)
 	require.Equal(hash.ZeroHash32B, state.Root)
-	require.Equal(hash.ZeroHash32B, state.CodeHash)
+	require.Equal([]byte(nil), state.CodeHash)
 }
 
 func TestRootHash(t *testing.T) {
