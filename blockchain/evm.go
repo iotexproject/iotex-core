@@ -8,6 +8,7 @@ package blockchain
 
 import (
 	"fmt"
+	"math"
 	"math/big"
 
 	"github.com/CoderZhi/go-ethereum/common"
@@ -30,15 +31,6 @@ var (
 	ErrInconsistentNonce = errors.New("Nonce is not identical to executor nonce")
 	// ErrOutOfGas is the error when running out of gas
 	ErrOutOfGas = errors.New("Out of gas")
-)
-
-var (
-	// FailureStatus is the status that contract execution failed
-	FailureStatus = uint64(0)
-	// SuccessStatus is the status that contract execution success
-	SuccessStatus = uint64(1)
-	// GasLimit is the total gas limit to be consumed in a block
-	GasLimit = uint64(1000000)
 )
 
 // Receipt represents the result of a contract
@@ -72,6 +64,19 @@ func MakeTransfer(db vm.StateDB, fromHash, toHash common.Address, amount *big.In
 	db.SubBalance(fromHash, amount)
 	db.AddBalance(toHash, amount)
 }
+
+const (
+	// ExecutionDataGas represents the execution data gas per uint
+	ExecutionDataGas = uint64(100)
+	// BaseIntrinsicGas represents the base intrinsic gas for execution
+	BaseIntrinsicGas = uint64(10000)
+	// FailureStatus is the status that contract execution failed
+	FailureStatus = uint64(0)
+	// SuccessStatus is the status that contract execution success
+	SuccessStatus = uint64(1)
+	// GasLimit is the total gas limit to be consumed in a block
+	GasLimit = uint64(1000000000)
+)
 
 // EVMParams is the context and parameters
 type EVMParams struct {
@@ -154,20 +159,21 @@ func GetHashFn(stateDB *EVMStateDBAdapter) func(n uint64) common.Hash {
 	}
 }
 
-func securityDeposit(context *EVMParams, stateDB vm.StateDB, gasLimit *uint64) error {
-	executorNonce := stateDB.GetNonce(context.context.Origin)
-	if executorNonce != context.nonce {
+func securityDeposit(ps *EVMParams, stateDB vm.StateDB, gasLimit *uint64) error {
+	executorNonce := stateDB.GetNonce(ps.context.Origin)
+	fmt.Printf("Nonce on %v: %d vs %d\n", ps.context.Origin, executorNonce, ps.nonce)
+	if executorNonce != ps.nonce {
 		//return ErrInconsistentNonce
 	}
-	if *gasLimit < context.gas {
+	if *gasLimit < ps.gas {
 		return ErrHitGasLimit
 	}
-	maxGasValue := new(big.Int).Mul(new(big.Int).SetUint64(context.gas), context.context.GasPrice)
-	if stateDB.GetBalance(context.context.Origin).Cmp(maxGasValue) < 0 {
+	maxGasValue := new(big.Int).Mul(new(big.Int).SetUint64(ps.gas), ps.context.GasPrice)
+	if stateDB.GetBalance(ps.context.Origin).Cmp(maxGasValue) < 0 {
 		return ErrInsufficientBalanceForGas
 	}
-	*gasLimit -= context.gas
-	stateDB.SubBalance(context.context.Origin, maxGasValue)
+	*gasLimit -= ps.gas
+	stateDB.SubBalance(ps.context.Origin, maxGasValue)
 	return nil
 }
 
@@ -213,8 +219,13 @@ func executeContract(blk *Block, idx int, execution *action.Execution, bc Blockc
 	return receipt, err
 }
 
-func intrinsicGas(evmParams *EVMParams) uint64 {
-	return uint64(10)
+func intrinsicGas(evmParams *EVMParams) (uint64, error) {
+	dataSize := uint64(len(evmParams.data))
+	if (math.MaxUint64-BaseIntrinsicGas)/ExecutionDataGas < dataSize {
+		return 0, ErrOutOfGas
+	}
+
+	return dataSize*ExecutionDataGas + BaseIntrinsicGas, nil
 }
 
 func getChainConfig() *params.ChainConfig {
@@ -233,11 +244,13 @@ func executeInEVM(evmParams *EVMParams, stateDB *EVMStateDBAdapter, gasLimit *ui
 	var config vm.Config
 	chainConfig := getChainConfig()
 	evm := vm.NewEVM(evmParams.context, stateDB, chainConfig, config)
-	intriGas := intrinsicGas(evmParams)
+	intriGas, err := intrinsicGas(evmParams)
+	if err != nil {
+		return nil, evmParams.gas, remainingGas, action.EmptyAddress, err
+	}
 	if remainingGas < intriGas {
 		return nil, evmParams.gas, remainingGas, action.EmptyAddress, ErrOutOfGas
 	}
-	var err error
 	contractRawAddress := action.EmptyAddress
 	remainingGas -= intriGas
 	executor := vm.AccountRef(evmParams.context.Origin)
