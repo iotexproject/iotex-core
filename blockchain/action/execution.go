@@ -211,8 +211,7 @@ func (ex *Execution) Deserialize(buf []byte) error {
 
 // Hash returns the hash of the Execution
 func (ex *Execution) Hash() hash.Hash32B {
-	hash := blake2b.Sum256(ex.ByteStream())
-	return blake2b.Sum256(hash[:])
+	return blake2b.Sum256(ex.ByteStream())
 }
 
 // Sign signs the Execution using executer's private key

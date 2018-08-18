@@ -41,7 +41,8 @@ type BlockHeader struct {
 	timestamp     uint64            // unix timestamp
 	prevBlockHash hash.Hash32B      // hash of previous block
 	txRoot        hash.Hash32B      // merkle root of all transactions
-	stateRoot     hash.Hash32B      // merkle root of all states
+	stateRoot     hash.Hash32B      // root of state trie
+	receiptRoot   hash.Hash32B      // root of receipt trie
 	blockSig      []byte            // block signature
 	Pubkey        keypair.PublicKey // block producer's public key
 
@@ -78,6 +79,7 @@ func NewBlock(
 			prevBlockHash: prevBlockHash,
 			txRoot:        hash.ZeroHash32B,
 			stateRoot:     hash.ZeroHash32B,
+			receiptRoot:   hash.ZeroHash32B,
 		},
 		Transfers:  tsf,
 		Votes:      vote,
@@ -121,6 +123,7 @@ func (b *Block) ByteStreamHeader() []byte {
 	stream = append(stream, b.Header.prevBlockHash[:]...)
 	stream = append(stream, b.Header.txRoot[:]...)
 	stream = append(stream, b.Header.stateRoot[:]...)
+	stream = append(stream, b.Header.receiptRoot[:]...)
 	stream = append(stream, b.Header.Pubkey[:]...)
 	return stream
 }
@@ -138,7 +141,9 @@ func (b *Block) ByteStream() []byte {
 	for _, v := range b.Votes {
 		stream = append(stream, v.ByteStream()...)
 	}
-
+	for _, e := range b.Executions {
+		stream = append(stream, e.ByteStream()...)
+	}
 	return stream
 }
 
@@ -153,6 +158,7 @@ func (b *Block) ConvertToBlockHeaderPb() *iproto.BlockHeaderPb {
 	pbHeader.PrevBlockHash = b.Header.prevBlockHash[:]
 	pbHeader.TxRoot = b.Header.txRoot[:]
 	pbHeader.StateRoot = b.Header.stateRoot[:]
+	pbHeader.ReceiptRoot = b.Header.receiptRoot[:]
 	pbHeader.Signature = b.Header.blockSig[:]
 	pbHeader.Pubkey = b.Header.Pubkey[:]
 	return &pbHeader
@@ -189,6 +195,7 @@ func (b *Block) ConvertFromBlockHeaderPb(pbBlock *iproto.BlockPb) {
 	copy(b.Header.prevBlockHash[:], pbBlock.GetHeader().GetPrevBlockHash())
 	copy(b.Header.txRoot[:], pbBlock.GetHeader().GetTxRoot())
 	copy(b.Header.stateRoot[:], pbBlock.GetHeader().GetStateRoot())
+	copy(b.Header.receiptRoot[:], pbBlock.GetHeader().GetReceiptRoot())
 	b.Header.blockSig = pbBlock.GetHeader().GetSignature()
 	copy(b.Header.Pubkey[:], pbBlock.GetHeader().GetPubkey())
 }
@@ -246,7 +253,9 @@ func (b *Block) TxRoot() hash.Hash32B {
 	for _, v := range b.Votes {
 		h = append(h, v.Hash())
 	}
-
+	for _, e := range b.Executions {
+		h = append(h, e.Hash())
+	}
 	if len(h) == 0 {
 		return hash.ZeroHash32B
 	}
