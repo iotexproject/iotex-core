@@ -97,9 +97,9 @@ func (stateDB *EVMStateDBAdapter) AddBalance(evmAddr common.Address, amount *big
 		stateDB.logError(err)
 		return
 	}
-	state, err := stateDB.bc.StateByAddr(addr.RawAddress)
+	state, err := stateDB.sf.CachedState(addr.RawAddress)
 	if err != nil {
-		logger.Error().Err(err).Msg("AddBalance")
+		logger.Error().Err(err).Hex("addrHash", evmAddr[:]).Msg("AddBalance")
 		stateDB.logError(err)
 		return
 	}

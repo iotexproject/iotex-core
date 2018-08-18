@@ -375,7 +375,7 @@ func executeInEVM(evmParams *EVMParams, stateDB *EVMStateDBAdapter, gasLimit *ui
 	}
 	if err != nil {
 		// TODO (zhi) should we refund if any error
-		return nil, evmParams.gas, 0, action.EmptyAddress, err
+		return nil, evmParams.gas, 0, contractRawAddress, err
 	}
 	// TODO (zhi) figure out what the following function does
 	// stateDB.Finalise(true)

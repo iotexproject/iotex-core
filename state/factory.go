@@ -61,6 +61,7 @@ type (
 		Balance(string) (*big.Int, error)
 		Nonce(string) (uint64, error) // Note that nonce starts with 1.
 		State(string) (*State, error)
+		CachedState(string) (*State, error)
 		RootHash() hash.Hash32B
 		CandidateRootHash() hash.Hash32B
 		Height() (uint64, error)
@@ -235,13 +236,28 @@ func (sf *factory) Nonce(addr string) (uint64, error) {
 	return state.Nonce, nil
 }
 
-// State returns the state if the address exists
+// State returns the confirmed state on the chain
 func (sf *factory) State(addr string) (*State, error) {
 	pkHash, err := iotxaddress.GetPubkeyHash(addr)
 	if err != nil {
 		return nil, errors.Wrap(err, "error when getting the pubkey hash")
 	}
 	return sf.getState(byteutil.BytesTo20B(pkHash))
+}
+
+// CachedState returns the cached state if the address exists in local cache
+func (sf *factory) CachedState(addr string) (*State, error) {
+	pkHash, err := iotxaddress.GetPubkeyHash(addr)
+	if err != nil {
+		return nil, errors.Wrap(err, "error when getting the pubkey hash")
+	}
+	if contract, ok := sf.cachedContract[byteutil.BytesTo20B(pkHash)]; ok {
+		return contract.SelfState(), nil
+	}
+	if state, ok := sf.cachedAccount[addr]; ok {
+		return state, nil
+	}
+	return sf.State(addr)
 }
 
 // RootHash returns the hash of the root node of the accountTrie
