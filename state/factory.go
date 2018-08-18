@@ -412,7 +412,7 @@ func (sf *factory) GetCodeHash(addr hash.AddrHash) (hash.Hash32B, error) {
 	if err != nil {
 		return hash.ZeroHash32B, errors.Wrapf(err, "Failed to GetCodeHash for contract %x", addr)
 	}
-	return contract.SelfState().CodeHash, nil
+	return byteutil.BytesTo32B(contract.SelfState().CodeHash), nil
 }
 
 // GetCode returns contract's code
