@@ -53,7 +53,6 @@ func TestRootHash(t *testing.T) {
 
 	accountTrie := mock_trie.NewMockTrie(ctrl)
 	candidateTrie := mock_trie.NewMockTrie(ctrl)
-	accountTrie.EXPECT().TrieDB().Times(1).Return(nil)
 	sf, err := NewFactory(&config.Default, PrecreatedTrieOption(accountTrie, candidateTrie))
 	require.Nil(err)
 	accountTrie.EXPECT().RootHash().Times(1).Return(hash.ZeroHash32B)
@@ -102,7 +101,6 @@ func TestNonce(t *testing.T) {
 
 	accountTrie := mock_trie.NewMockTrie(ctrl)
 	candidateTrie := mock_trie.NewMockTrie(ctrl)
-	accountTrie.EXPECT().TrieDB().Times(1).Return(nil)
 	sf, err := NewFactory(&config.Default, PrecreatedTrieOption(accountTrie, candidateTrie))
 	require.Nil(err)
 
