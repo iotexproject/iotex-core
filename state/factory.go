@@ -99,7 +99,7 @@ func DefaultTrieOption() FactoryOption {
 		if len(dbPath) == 0 {
 			return errors.New("Invalid empty trie db path")
 		}
-		tr, err := trie.NewTrie(db.NewBoltDB(dbPath, nil), trie.AccountKVNameSpace, trie.EmptyRoot)
+		tr, err := trie.NewTrie(db.NewBoltDB(dbPath, &cfg.DB), trie.AccountKVNameSpace, trie.EmptyRoot)
 		if err != nil {
 			return errors.Wrap(err, "failed to generate accountTrie from config")
 		}

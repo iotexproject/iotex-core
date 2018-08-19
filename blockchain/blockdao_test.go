@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotexproject/iotex-core/blockchain/action"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/test/testaddress"
@@ -125,10 +126,14 @@ func TestBlockDAO(t *testing.T) {
 	})
 
 	path := "/tmp/test-kv-store-" + string(rand.Int())
+	cfg := &config.DB{
+		Options:    nil,
+		NumRetries: 3,
+	}
 	t.Run("Bolt DB", func(t *testing.T) {
 		testutil.CleanupPath(t, path)
 		defer testutil.CleanupPath(t, path)
-		testBlockDao(db.NewBoltDB(path, nil), t)
+		testBlockDao(db.NewBoltDB(path, cfg), t)
 	})
 
 }

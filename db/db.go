@@ -13,6 +13,7 @@ import (
 	"github.com/boltdb/bolt"
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 )
 
@@ -94,21 +95,20 @@ func (m *memKVStore) Batch() KVStoreBatch {
 }
 
 const (
-	fileMode   = 0600
-	numRetries = 3
+	fileMode = 0600
 )
 
 // boltDB is KVStore implementation based bolt DB
 type boltDB struct {
-	mutex   sync.RWMutex
-	db      *bolt.DB
-	path    string
-	options *bolt.Options
+	mutex  sync.RWMutex
+	db     *bolt.DB
+	path   string
+	config *config.DB
 }
 
 // NewBoltDB instantiates a boltdb based KV store
-func NewBoltDB(path string, options *bolt.Options) KVStore {
-	return &boltDB{db: nil, path: path, options: options}
+func NewBoltDB(path string, cfg *config.DB) KVStore {
+	return &boltDB{db: nil, path: path, config: cfg}
 }
 
 // Start opens the BoltDB (creates new file if not existing yet)
@@ -119,7 +119,12 @@ func (b *boltDB) Start(_ context.Context) error {
 	if b.db != nil {
 		return nil
 	}
-	db, err := bolt.Open(b.path, fileMode, b.options)
+
+	if b.config == nil {
+		b.config = &config.Default.DB
+	}
+
+	db, err := bolt.Open(b.path, fileMode, b.config.Options)
 	if err != nil {
 		return err
 	}
@@ -143,7 +148,8 @@ func (b *boltDB) Stop(_ context.Context) error {
 // Put inserts a <key, value> record
 func (b *boltDB) Put(namespace string, key []byte, value []byte) error {
 	var err error
-	for c := 0; c < numRetries; c++ {
+	numRetries := b.config.NumRetries
+	for c := uint8(0); c < numRetries; c++ {
 		err = b.db.Update(func(tx *bolt.Tx) error {
 			bucket, err := tx.CreateBucketIfNotExists([]byte(namespace))
 			if err != nil {
@@ -163,7 +169,8 @@ func (b *boltDB) Put(namespace string, key []byte, value []byte) error {
 // PutIfNotExists inserts a <key, value> record only if it does not exist yet, otherwise return ErrAlreadyExist
 func (b *boltDB) PutIfNotExists(namespace string, key []byte, value []byte) error {
 	var err error
-	for c := 0; c < numRetries; c++ {
+	numRetries := b.config.NumRetries
+	for c := uint8(0); c < numRetries; c++ {
 		err = b.db.Update(func(tx *bolt.Tx) error {
 			bucket, err := tx.CreateBucketIfNotExists([]byte(namespace))
 			if err != nil {
@@ -206,7 +213,8 @@ func (b *boltDB) Get(namespace string, key []byte) ([]byte, error) {
 // Delete deletes a record
 func (b *boltDB) Delete(namespace string, key []byte) error {
 	var err error
-	for c := 0; c < numRetries; c++ {
+	numRetries := b.config.NumRetries
+	for c := uint8(0); c < numRetries; c++ {
 		err = b.db.Update(func(tx *bolt.Tx) error {
 			bucket := tx.Bucket([]byte(namespace))
 			if bucket == nil {

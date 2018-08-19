@@ -11,6 +11,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/boltdb/bolt"
 	"github.com/pkg/errors"
 	uconfig "go.uber.org/config"
 	"google.golang.org/grpc/keepalive"
@@ -132,6 +133,10 @@ var (
 		System: System{
 			HeartbeatInterval: 10 * time.Second,
 			HTTPProfilingPort: 0,
+		},
+		DB: DB{
+			Options:    nil,
+			NumRetries: 3,
 		},
 	}
 
@@ -258,6 +263,14 @@ type (
 		MaxNumActsToPick uint64 `yaml:"maxNumActsToPick"`
 	}
 
+	// DB is the blotDB config
+	DB struct {
+		Options *bolt.Options
+
+		// NumRetries is the number of retries
+		NumRetries uint8 `yaml:"numRetries"`
+	}
+
 	// Config is the root config struct, each package's config should be put as its sub struct
 	Config struct {
 		NodeType   string     `yaml:"nodeType"`
@@ -269,6 +282,7 @@ type (
 		Dispatcher Dispatcher `yaml:"dispatcher"`
 		Explorer   Explorer   `yaml:"explorer"`
 		System     System     `yaml:"system"`
+		DB         DB         `yaml:"numRetries"`
 	}
 
 	// Validate is the interface of validating the config
