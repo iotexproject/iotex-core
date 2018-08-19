@@ -172,8 +172,12 @@ func TestRollDice(t *testing.T) {
 	require.NoError(err)
 	require.Nil(bc.CommitBlock(blk))
 
+	balance, err := bc.Balance(contractAddr)
+	require.NoError(err)
+	require.Equal(0, balance.Cmp(big.NewInt(500000000)))
+
 	logger.Info().Msg("Roll Dice")
-	data, _ = hex.DecodeString("1e67bed800000000000000000000000000000000000000000000000000000000000000400000000000000000000000003f2e62c96dc28c1a38de9988089935c465b35a6200000000000000000000000000000000000000000000000000000000000000033132330000000000000000000000000000000000000000000000000000000000")
+	data, _ = hex.DecodeString("1e67bed80000000000000000000000000000000000000000000000000000000000000040000000000000000000000000fd99ea5ad63d9d3a8a4d614bcae138069502255800000000000000000000000000000000000000000000000000000000000000033132330000000000000000000000000000000000000000000000000000000000")
 	execution, err = action.NewExecution(
 		ta.Addrinfo["producer"].RawAddress, contractAddr, 2, big.NewInt(0), uint32(120000), uint32(10), data)
 	require.NoError(err)
@@ -184,4 +188,13 @@ func TestRollDice(t *testing.T) {
 	require.NoError(err)
 	require.Nil(bc.CommitBlock(blk))
 	logger.Info().Msg("Done")
+
+	balance, err = bc.Balance(ta.Addrinfo["alfa"].RawAddress)
+	require.NoError(err)
+	require.Equal(0, balance.Cmp(big.NewInt(300000000)))
+
+	balance, err = bc.Balance(contractAddr)
+	require.NoError(err)
+	logger.Info().Msgf("balance: %v\n", balance)
+	require.Equal(0, balance.Cmp(big.NewInt(200000000)))
 }
