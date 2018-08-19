@@ -63,7 +63,6 @@ type (
 		State(string) (*State, error)
 		CachedState(string) (*State, error)
 		RootHash() hash.Hash32B
-		CandidateRootHash() hash.Hash32B
 		Height() (uint64, error)
 		CommitStateChanges(uint64, []*action.Transfer, []*action.Vote, []*action.Execution) error
 		// Contracts
@@ -91,7 +90,6 @@ type (
 		accountTrie    trie.Trie                  // global state trie
 		contractTrie   trie.Trie                  // contract storage trie
 		candidateTrie  trie.Trie                  // candidate storage trie
-		codeDB         db.KVStore                 // code storage DB
 	}
 )
 
@@ -103,7 +101,6 @@ func PrecreatedTrieOption(accountTrie, candidateTrie trie.Trie) FactoryOption {
 	return func(sf *factory, cfg *config.Config) error {
 		sf.accountTrie = accountTrie
 		sf.candidateTrie = candidateTrie
-		sf.codeDB = accountTrie.TrieDB()
 		return nil
 	}
 }
@@ -137,7 +134,6 @@ func DefaultTrieOption() FactoryOption {
 		if sf.candidateTrie, err = trie.NewTrie(tr.TrieDB(), trie.CandidateKVNameSpace, candidateTrieRoot); err != nil {
 			return errors.Wrap(err, "failed to generate candidateTrie")
 		}
-		sf.codeDB = tr.TrieDB()
 		return nil
 	}
 }
@@ -153,7 +149,6 @@ func InMemTrieOption() FactoryOption {
 		if sf.candidateTrie, err = trie.NewTrie(tr.TrieDB(), trie.CandidateKVNameSpace, trie.EmptyRoot); err != nil {
 			return errors.Wrap(err, "failed to initialize in-memory candidateTrie")
 		}
-		sf.codeDB = tr.TrieDB()
 		return nil
 	}
 }
@@ -265,11 +260,6 @@ func (sf *factory) RootHash() hash.Hash32B {
 	return sf.accountTrie.RootHash()
 }
 
-// CandidateRootHash returns the hash of the root node of the candidateTrie
-func (sf *factory) CandidateRootHash() hash.Hash32B {
-	return sf.candidateTrie.RootHash()
-}
-
 // Height returns factory's height
 func (sf *factory) Height() (uint64, error) {
 	height, err := sf.accountTrie.TrieDB().Get(trie.AccountKVNameSpace, []byte(CurrentHeightKey))
@@ -368,7 +358,7 @@ func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer
 	if err := trieDB.Put(trie.AccountKVNameSpace, []byte(AccountTrieRootKey), accountRootHash[:]); err != nil {
 		return errors.Wrap(err, "failed to update accountTrie's root hash in underlying db")
 	}
-	candidateRootHash := sf.CandidateRootHash()
+	candidateRootHash := sf.candidateTrie.RootHash()
 	if err := trieDB.Put(trie.CandidateKVNameSpace, []byte(CandidateTrieRootKey), candidateRootHash[:]); err != nil {
 		return errors.Wrap(err, "failed to update candidateTrie's root hash in underlying db")
 	}

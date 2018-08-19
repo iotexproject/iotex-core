@@ -113,6 +113,19 @@ func (mr *MockFactoryMockRecorder) State(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "State", reflect.TypeOf((*MockFactory)(nil).State), arg0)
 }
 
+// CachedState mocks base method
+func (m *MockFactory) CachedState(arg0 string) (*state.State, error) {
+	ret := m.ctrl.Call(m, "CachedState", arg0)
+	ret0, _ := ret[0].(*state.State)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CachedState indicates an expected call of CachedState
+func (mr *MockFactoryMockRecorder) CachedState(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CachedState", reflect.TypeOf((*MockFactory)(nil).CachedState), arg0)
+}
+
 // RootHash mocks base method
 func (m *MockFactory) RootHash() hash.Hash32B {
 	ret := m.ctrl.Call(m, "RootHash")
@@ -123,18 +136,6 @@ func (m *MockFactory) RootHash() hash.Hash32B {
 // RootHash indicates an expected call of RootHash
 func (mr *MockFactoryMockRecorder) RootHash() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RootHash", reflect.TypeOf((*MockFactory)(nil).RootHash))
-}
-
-// CandidateRootHash mocks base method
-func (m *MockFactory) CandidateRootHash() hash.Hash32B {
-	ret := m.ctrl.Call(m, "CandidateRootHash")
-	ret0, _ := ret[0].(hash.Hash32B)
-	return ret0
-}
-
-// CandidateRootHash indicates an expected call of CandidateRootHash
-func (mr *MockFactoryMockRecorder) CandidateRootHash() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CandidateRootHash", reflect.TypeOf((*MockFactory)(nil).CandidateRootHash))
 }
 
 // Height mocks base method
@@ -163,16 +164,16 @@ func (mr *MockFactoryMockRecorder) CommitStateChanges(arg0, arg1, arg2, arg3 int
 }
 
 // CreateContract mocks base method
-func (m *MockFactory) CreateContract(arg0 string, arg1 []byte) (string, error) {
-	ret := m.ctrl.Call(m, "CreateContract", arg0, arg1)
+func (m *MockFactory) CreateContract(arg0 string) (string, error) {
+	ret := m.ctrl.Call(m, "CreateContract", arg0)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CreateContract indicates an expected call of CreateContract
-func (mr *MockFactoryMockRecorder) CreateContract(arg0, arg1 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateContract", reflect.TypeOf((*MockFactory)(nil).CreateContract), arg0, arg1)
+func (mr *MockFactoryMockRecorder) CreateContract(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateContract", reflect.TypeOf((*MockFactory)(nil).CreateContract), arg0)
 }
 
 // GetCodeHash mocks base method
@@ -199,6 +200,18 @@ func (m *MockFactory) GetCode(arg0 hash.AddrHash) ([]byte, error) {
 // GetCode indicates an expected call of GetCode
 func (mr *MockFactoryMockRecorder) GetCode(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCode", reflect.TypeOf((*MockFactory)(nil).GetCode), arg0)
+}
+
+// SetCode mocks base method
+func (m *MockFactory) SetCode(arg0 hash.AddrHash, arg1 []byte) error {
+	ret := m.ctrl.Call(m, "SetCode", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetCode indicates an expected call of SetCode
+func (mr *MockFactoryMockRecorder) SetCode(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCode", reflect.TypeOf((*MockFactory)(nil).SetCode), arg0, arg1)
 }
 
 // GetContractState mocks base method
