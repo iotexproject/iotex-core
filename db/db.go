@@ -218,12 +218,15 @@ func (b *boltDB) Delete(namespace string, key []byte) error {
 		err = b.db.Update(func(tx *bolt.Tx) error {
 			bucket := tx.Bucket([]byte(namespace))
 			if bucket == nil {
-				return errors.Wrapf(bolt.ErrBucketNotFound, "bucket = %s", namespace)
+				return bolt.ErrBucketNotFound
 			}
 			return bucket.Delete(key)
 		})
 
-		if err == nil || err == bolt.ErrBucketNotFound {
+		if err == nil {
+			break
+		} else if err == bolt.ErrBucketNotFound {
+			err = errors.Wrapf(err, "bucket = %s", namespace)
 			break
 		}
 	}
