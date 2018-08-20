@@ -255,13 +255,18 @@ func (sf *factory) CachedState(addr string) (*State, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "error when getting the pubkey hash")
 	}
-	if contract, ok := sf.cachedContract[byteutil.BytesTo20B(pkHash)]; ok {
+	if contract, _ := sf.getContract(byteutil.BytesTo20B(pkHash)); contract != nil {
 		return contract.SelfState(), nil
 	}
 	if state, ok := sf.cachedAccount[addr]; ok {
 		return state, nil
 	}
-	return sf.State(addr)
+	// add to local cache
+	state, err := sf.State(addr)
+	if state != nil {
+		sf.cachedAccount[addr] = state
+	}
+	return state, err
 }
 
 // RootHash returns the hash of the root node of the accountTrie
@@ -575,6 +580,9 @@ func (sf *factory) getContract(addr hash.AddrHash) (Contract, error) {
 	state, err := sf.getState(addr)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to get contract %x", addr)
+	}
+	if !state.isContract() {
+		return nil, errors.New("GetState success, but it is not contract")
 	}
 	tr, err := trie.NewTrie(sf.accountTrie.TrieDB(), trie.ContractKVNameSpace, state.Root)
 	if err != nil {

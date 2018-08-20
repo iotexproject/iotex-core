@@ -61,3 +61,10 @@ func (st *State) SubBalance(amount *big.Int) error {
 	st.Balance.Sub(st.Balance, amount)
 	return nil
 }
+
+//======================================
+// private functions
+//======================================
+func (st *State) isContract() bool {
+	return st.CodeHash != nil
+}
