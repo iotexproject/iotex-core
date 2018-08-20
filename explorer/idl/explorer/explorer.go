@@ -8,8 +8,8 @@ import (
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "34b6f708d7497137870bfc66ae5762fa"
-const BarristerDateGenerated int64 = 1535047284429000000
+const BarristerChecksum string = "ea116dbeb184d9eb4d8da2d98274a13a"
+const BarristerDateGenerated int64 = 1535050772329000000
 
 type CoinStatistic struct {
 	Height     int64 `json:"height"`
@@ -70,6 +70,29 @@ type Execution struct {
 	Data           string `json:"data"`
 	BlockID        string `json:"blockID"`
 	IsPending      bool   `json:"isPending"`
+}
+
+type Log struct {
+	Address     string   `json:"address"`
+	Topics      []string `json:"topics"`
+	Data        string   `json:"data"`
+	BlockNumber int64    `json:"blockNumber"`
+	TxnHash     string   `json:"txnHash"`
+	BlockHash   string   `json:"blockHash"`
+	Index       int64    `json:"index"`
+}
+
+type Receipt struct {
+	ReturnValue     string `json:"returnValue"`
+	Status          int64  `json:"status"`
+	Hash            string `json:"hash"`
+	GasConsumed     int64  `json:"gasConsumed"`
+	ContractAddress string `json:"contractAddress"`
+	Logs            []Log  `json:"logs"`
+}
+
+type SendExecutionResponse struct {
+	Receipt Receipt `json:"receipt"`
 }
 
 type Vote struct {
@@ -1124,6 +1147,146 @@ var IdlJsonRaw = `[
             {
                 "name": "isPending",
                 "type": "bool",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            }
+        ],
+        "values": null,
+        "functions": null,
+        "barrister_version": "",
+        "date_generated": 0,
+        "checksum": ""
+    },
+    {
+        "type": "struct",
+        "name": "Log",
+        "comment": "",
+        "value": "",
+        "extends": "",
+        "fields": [
+            {
+                "name": "address",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "topics",
+                "type": "string",
+                "optional": false,
+                "is_array": true,
+                "comment": ""
+            },
+            {
+                "name": "data",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "blockNumber",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "txnHash",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "blockHash",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "index",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            }
+        ],
+        "values": null,
+        "functions": null,
+        "barrister_version": "",
+        "date_generated": 0,
+        "checksum": ""
+    },
+    {
+        "type": "struct",
+        "name": "Receipt",
+        "comment": "",
+        "value": "",
+        "extends": "",
+        "fields": [
+            {
+                "name": "returnValue",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "status",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "hash",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "gasConsumed",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "contractAddress",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "logs",
+                "type": "Log",
+                "optional": false,
+                "is_array": true,
+                "comment": ""
+            }
+        ],
+        "values": null,
+        "functions": null,
+        "barrister_version": "",
+        "date_generated": 0,
+        "checksum": ""
+    },
+    {
+        "type": "struct",
+        "name": "SendExecutionResponse",
+        "comment": "",
+        "value": "",
+        "extends": "",
+        "fields": [
+            {
+                "name": "receipt",
+                "type": "Receipt",
                 "optional": false,
                 "is_array": false,
                 "comment": ""
@@ -2338,7 +2501,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1535047284429,
-        "checksum": "34b6f708d7497137870bfc66ae5762fa"
+        "date_generated": 1535050772329,
+        "checksum": "ea116dbeb184d9eb4d8da2d98274a13a"
     }
 ]`

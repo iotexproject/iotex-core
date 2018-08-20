@@ -76,6 +76,29 @@ struct Execution {
     isPending bool
 }
 
+struct Log {
+    address string
+    topics []string
+    data string
+    blockNumber int
+    txnHash string
+    blockHash string
+    index int
+}
+
+struct Receipt {
+    returnValue string
+    status int
+    hash string
+    gasConsumed int
+    contractAddress string
+    logs []Log
+}
+
+struct SendExecutionResponse {
+    receipt Receipt
+}
+
 struct Vote {
     version int
     ID string
