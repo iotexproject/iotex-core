@@ -52,8 +52,7 @@ func TestRootHash(t *testing.T) {
 	defer ctrl.Finish()
 
 	accountTrie := mock_trie.NewMockTrie(ctrl)
-	candidateTrie := mock_trie.NewMockTrie(ctrl)
-	sf, err := NewFactory(&config.Default, PrecreatedTrieOption(accountTrie, candidateTrie))
+	sf, err := NewFactory(&config.Default, PrecreatedTrieOption(accountTrie))
 	require.Nil(err)
 	accountTrie.EXPECT().RootHash().Times(1).Return(hash.ZeroHash32B)
 	require.Equal(hash.ZeroHash32B, sf.RootHash())
@@ -66,8 +65,7 @@ func TestCreateState(t *testing.T) {
 
 	accountTrie, err := trie.NewTrie(db.NewMemKVStore(), "account", trie.EmptyRoot)
 	require.Nil(err)
-	candidateTrie, err := trie.NewTrie(accountTrie.TrieDB(), "candidate", trie.EmptyRoot)
-	sf, err := NewFactory(&config.Default, PrecreatedTrieOption(accountTrie, candidateTrie))
+	sf, err := NewFactory(&config.Default, PrecreatedTrieOption(accountTrie))
 	require.Nil(err)
 	require.Nil(sf.Start(context.Background()))
 	addr, err := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
@@ -100,8 +98,7 @@ func TestNonce(t *testing.T) {
 	defer ctrl.Finish()
 
 	accountTrie := mock_trie.NewMockTrie(ctrl)
-	candidateTrie := mock_trie.NewMockTrie(ctrl)
-	sf, err := NewFactory(&config.Default, PrecreatedTrieOption(accountTrie, candidateTrie))
+	sf, err := NewFactory(&config.Default, PrecreatedTrieOption(accountTrie))
 	require.Nil(err)
 
 	// Add 10 so the balance should be 10

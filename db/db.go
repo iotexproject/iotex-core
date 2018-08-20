@@ -47,11 +47,12 @@ const (
 
 // memKVStore is the in-memory implementation of KVStore for testing purpose
 type memKVStore struct {
-	data sync.Map
+	data   sync.Map
+	bucket map[string]struct{}
 }
 
 // NewMemKVStore instantiates an in-memory KV store
-func NewMemKVStore() KVStore { return &memKVStore{} }
+func NewMemKVStore() KVStore { return &memKVStore{bucket: make(map[string]struct{})} }
 
 func (m *memKVStore) Start(_ context.Context) error { return nil }
 
@@ -59,12 +60,14 @@ func (m *memKVStore) Stop(_ context.Context) error { return nil }
 
 // Put inserts a <key, value> record
 func (m *memKVStore) Put(namespace string, key []byte, value []byte) error {
+	m.bucket[namespace] = struct{}{}
 	m.data.Store(namespace+keyDelimiter+string(key), value)
 	return nil
 }
 
 // PutIfNotExists inserts a <key, value> record only if it does not exist yet, otherwise return ErrAlreadyExist
 func (m *memKVStore) PutIfNotExists(namespace string, key []byte, value []byte) error {
+	m.bucket[namespace] = struct{}{}
 	_, loaded := m.data.LoadOrStore(namespace+keyDelimiter+string(key), value)
 	if loaded {
 		return ErrAlreadyExist
@@ -75,6 +78,9 @@ func (m *memKVStore) PutIfNotExists(namespace string, key []byte, value []byte) 
 
 // Get retrieves a record
 func (m *memKVStore) Get(namespace string, key []byte) ([]byte, error) {
+	if _, ok := m.bucket[namespace]; !ok {
+		return nil, errors.Wrapf(bolt.ErrBucketNotFound, "bucket = %s", namespace)
+	}
 	value, _ := m.data.Load(namespace + keyDelimiter + string(key))
 	if value != nil {
 		return value.([]byte), nil
@@ -88,9 +94,9 @@ func (m *memKVStore) Delete(namespace string, key []byte) error {
 	return nil
 }
 
-// Delete deletes a record
+// Batch return a kv store batch api object
 func (m *memKVStore) Batch() KVStoreBatch {
-	return NewMemKVStoreBatch(&m.data)
+	return NewMemKVStoreBatch(&m.data, &m.bucket)
 }
 
 const fileMode = 0600

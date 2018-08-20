@@ -64,7 +64,7 @@ func TestCreateContract(t *testing.T) {
 
 	tr, err := trie.NewTrie(db.NewBoltDB(testTriePath, nil), trie.AccountKVNameSpace, root)
 	require.Nil(err)
-	sf, err = NewFactory(&cfg, PrecreatedTrieOption(tr, nil))
+	sf, err = NewFactory(&cfg, PrecreatedTrieOption(tr))
 	require.Nil(err)
 	require.Nil(sf.Start(context.Background()))
 	// cannot re-create existing
@@ -139,7 +139,7 @@ func TestLoadStoreContract(t *testing.T) {
 	// re-open the StateFactory
 	tr, err := trie.NewTrie(db.NewBoltDB(testTriePath, nil), trie.AccountKVNameSpace, root)
 	require.Nil(err)
-	sf, err = NewFactory(&cfg, PrecreatedTrieOption(tr, nil))
+	sf, err = NewFactory(&cfg, PrecreatedTrieOption(tr))
 	require.Nil(err)
 	require.Nil(sf.Start(context.Background()))
 	// query first contract
