@@ -9,7 +9,6 @@ package blockchain
 import (
 	"context"
 	"encoding/hex"
-	"fmt"
 	"math/big"
 	"testing"
 
@@ -25,7 +24,7 @@ import (
 )
 
 func TestEVM(t *testing.T) {
-	fmt.Printf("Test EVM\n")
+	logger.Info().Msgf("Test EVM")
 	require := require.New(t)
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
@@ -69,7 +68,7 @@ func TestEVM(t *testing.T) {
 		ta.Addrinfo["producer"].RawAddress, contractAddr, 2, big.NewInt(0), uint32(120000), uint32(10), data)
 	require.NoError(err)
 	execution, err = execution.Sign(ta.Addrinfo["producer"])
-	fmt.Printf("execution %+v\n", execution)
+	logger.Info().Msgf("execution %+v", execution)
 	require.NoError(err)
 	blk, err = bc.MintNewBlock(nil, nil, []*action.Execution{execution}, ta.Addrinfo["producer"], "")
 	require.NoError(err)
@@ -86,7 +85,7 @@ func TestEVM(t *testing.T) {
 		ta.Addrinfo["producer"].RawAddress, contractAddr, 3, big.NewInt(0), uint32(120000), uint32(10), data)
 	require.NoError(err)
 	execution, err = execution.Sign(ta.Addrinfo["producer"])
-	fmt.Printf("execution %+v\n", execution)
+	logger.Info().Msgf("execution %+v", execution)
 	require.NoError(err)
 	blk, err = bc.MintNewBlock(nil, nil, []*action.Execution{execution}, ta.Addrinfo["producer"], "")
 	require.NoError(err)
@@ -130,7 +129,7 @@ func TestLogReceipt(t *testing.T) {
 }
 
 func TestRollDice(t *testing.T) {
-	fmt.Printf("Test EVM\n")
+	logger.Info().Msgf("Test Roll Dice\n")
 	require := require.New(t)
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
@@ -166,7 +165,7 @@ func TestRollDice(t *testing.T) {
 		ta.Addrinfo["producer"].RawAddress, contractAddr, 2, big.NewInt(500000000), uint32(120000), uint32(10), data)
 	require.NoError(err)
 	execution, err = execution.Sign(ta.Addrinfo["producer"])
-	fmt.Printf("execution %+v\n", execution)
+	logger.Info().Msgf("execution %+v", execution)
 	require.NoError(err)
 	blk, err = bc.MintNewBlock(nil, nil, []*action.Execution{execution}, ta.Addrinfo["producer"], "")
 	require.NoError(err)
@@ -182,7 +181,7 @@ func TestRollDice(t *testing.T) {
 		ta.Addrinfo["producer"].RawAddress, contractAddr, 2, big.NewInt(0), uint32(120000), uint32(10), data)
 	require.NoError(err)
 	execution, err = execution.Sign(ta.Addrinfo["producer"])
-	fmt.Printf("execution %+v\n", execution)
+	logger.Info().Msgf("execution %+v\n", execution)
 	require.NoError(err)
 	blk, err = bc.MintNewBlock(nil, nil, []*action.Execution{execution}, ta.Addrinfo["producer"], "")
 	require.NoError(err)
