@@ -59,7 +59,7 @@ func (stateDB *EVMStateDBAdapter) Error() error {
 func (stateDB *EVMStateDBAdapter) CreateAccount(evmAddr common.Address) {
 	addr, err := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, evmAddr.Bytes())
 	if err != nil {
-		logger.Error().Err(err).Msgf("Failed to generate address for %s", evmAddr)
+		logger.Error().Err(err).Msgf("Failed to generate address for %s", evmAddr.Hex())
 		stateDB.logError(err)
 		return
 	}
@@ -74,28 +74,32 @@ func (stateDB *EVMStateDBAdapter) CreateAccount(evmAddr common.Address) {
 
 // SubBalance subtracts balance from account
 func (stateDB *EVMStateDBAdapter) SubBalance(evmAddr common.Address, amount *big.Int) {
+	// stateDB.GetBalance(evmAddr)
+	logger.Info().Msgf("SubBalance %v from %s\n", amount, evmAddr.Hex())
 	addr, err := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, evmAddr.Bytes())
 	if err != nil {
-		logger.Error().Err(err).Msgf("Failed to generate address for %s", evmAddr)
+		logger.Error().Err(err).Msgf("Failed to generate address for %s", evmAddr.Hex())
 		stateDB.logError(err)
 		return
 	}
-	state, err := stateDB.bc.StateByAddr(addr.RawAddress)
+	state, err := stateDB.sf.CachedState(addr.RawAddress)
 	if err != nil {
 		logger.Error().Err(err).Msg("SubBalance")
 		stateDB.logError(err)
 		return
 	}
 	state.SubBalance(amount)
+	// stateDB.GetBalance(evmAddr)
 }
 
 // AddBalance adds balance to account
 func (stateDB *EVMStateDBAdapter) AddBalance(evmAddr common.Address, amount *big.Int) {
+	// stateDB.GetBalance(evmAddr)
 	logger.Info().Msgf("AddBalance %v to %s\n", amount, evmAddr.Hex())
 
 	addr, err := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, evmAddr.Bytes())
 	if err != nil {
-		logger.Error().Err(err).Msgf("Failed to generate address for %s", evmAddr)
+		logger.Error().Err(err).Msgf("Failed to generate address for %s", evmAddr.Hex())
 		stateDB.logError(err)
 		return
 	}
@@ -106,30 +110,32 @@ func (stateDB *EVMStateDBAdapter) AddBalance(evmAddr common.Address, amount *big
 		return
 	}
 	state.AddBalance(amount)
+	// stateDB.GetBalance(evmAddr)
 }
 
 // GetBalance gets the balance of account
 func (stateDB *EVMStateDBAdapter) GetBalance(evmAddr common.Address) *big.Int {
 	addr, err := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, evmAddr.Bytes())
 	if err != nil {
-		logger.Error().Err(err).Msgf("Failed to generate address for %s", evmAddr)
+		logger.Error().Err(err).Msgf("Failed to generate address for %s", evmAddr.Hex())
 		stateDB.logError(err)
 		return nil
 	}
-	balance, err := stateDB.bc.Balance(addr.RawAddress)
+	state, err := stateDB.sf.CachedState(addr.RawAddress)
 	if err != nil {
 		logger.Error().Err(err).Msg("GetBalance")
 		return nil
 	}
-	logger.Info().Msgf("Balance of %s is %v\n", evmAddr.Hex(), balance)
-	return balance
+	logger.Info().Msgf("Balance of %s is %v\n", evmAddr.Hex(), state.Balance)
+
+	return state.Balance
 }
 
 // GetNonce gets the nonce of account
 func (stateDB *EVMStateDBAdapter) GetNonce(evmAddr common.Address) uint64 {
 	addr, err := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, evmAddr.Bytes())
 	if err != nil {
-		logger.Error().Err(err).Msgf("Failed to generate address for %s", evmAddr)
+		logger.Error().Err(err).Msgf("Failed to generate address for %s", evmAddr.Hex())
 		stateDB.logError(err)
 		return 0
 	}
