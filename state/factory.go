@@ -97,10 +97,9 @@ type (
 type FactoryOption func(*factory, *config.Config) error
 
 // PrecreatedTrieOption uses pre-created tries for state factory
-func PrecreatedTrieOption(accountTrie, candidateTrie trie.Trie) FactoryOption {
+func PrecreatedTrieOption(accountTrie trie.Trie) FactoryOption {
 	return func(sf *factory, cfg *config.Config) error {
 		sf.accountTrie = accountTrie
-		sf.candidateTrie = candidateTrie
 		return nil
 	}
 }
@@ -116,7 +115,7 @@ func DefaultTrieOption() FactoryOption {
 		if err := trieDB.Start(context.Background()); err != nil {
 			return errors.Wrap(err, "failed to start trie db")
 		}
-
+		// create account trie
 		accountTrieRoot, err := sf.getRoot(trieDB, trie.AccountKVNameSpace, AccountTrieRootKey)
 		if err != nil {
 			return errors.Wrap(err, "failed to get accountTrie's root hash from underlying db")
@@ -126,14 +125,6 @@ func DefaultTrieOption() FactoryOption {
 			return errors.Wrap(err, "failed to generate accountTrie from config")
 		}
 		sf.accountTrie = tr
-
-		candidateTrieRoot, err := sf.getRoot(trieDB, trie.CandidateKVNameSpace, CandidateTrieRootKey)
-		if err != nil {
-			return errors.Wrap(err, "failed to get candidateTrie's root hash from underlying db")
-		}
-		if sf.candidateTrie, err = trie.NewTrie(tr.TrieDB(), trie.CandidateKVNameSpace, candidateTrieRoot); err != nil {
-			return errors.Wrap(err, "failed to generate candidateTrie")
-		}
 		return nil
 	}
 }
@@ -141,14 +132,20 @@ func DefaultTrieOption() FactoryOption {
 // InMemTrieOption creates in memory trie for state factory
 func InMemTrieOption() FactoryOption {
 	return func(sf *factory, cfg *config.Config) error {
-		tr, err := trie.NewTrie(db.NewMemKVStore(), trie.AccountKVNameSpace, trie.EmptyRoot)
+		trieDB := db.NewMemKVStore()
+		if err := trieDB.Start(context.Background()); err != nil {
+			return errors.Wrap(err, "failed to start trie db")
+		}
+		// create account trie
+		accountTrieRoot, err := sf.getRoot(trieDB, trie.AccountKVNameSpace, AccountTrieRootKey)
 		if err != nil {
-			return errors.Wrapf(err, "failed to initialize in-memory accountTrie")
+			return errors.Wrap(err, "failed to get accountTrie's root hash from underlying db")
+		}
+		tr, err := trie.NewTrie(trieDB, trie.AccountKVNameSpace, accountTrieRoot)
+		if err != nil {
+			return errors.Wrap(err, "failed to generate accountTrie from config")
 		}
 		sf.accountTrie = tr
-		if sf.candidateTrie, err = trie.NewTrie(tr.TrieDB(), trie.CandidateKVNameSpace, trie.EmptyRoot); err != nil {
-			return errors.Wrap(err, "failed to initialize in-memory candidateTrie")
-		}
 		return nil
 	}
 }
@@ -172,13 +169,25 @@ func NewFactory(cfg *config.Config, opts ...FactoryOption) (Factory, error) {
 	if sf.accountTrie != nil {
 		sf.lifecycle.Add(sf.accountTrie)
 	}
-	if sf.candidateTrie != nil {
-		sf.lifecycle.Add(sf.candidateTrie)
-	}
 	return sf, nil
 }
 
-func (sf *factory) Start(ctx context.Context) error { return sf.lifecycle.OnStart(ctx) }
+func (sf *factory) Start(ctx context.Context) error {
+	sf.lifecycle.OnStart(ctx)
+
+	if sf.candidateTrie != nil {
+		return nil
+	}
+	trieDB := sf.accountTrie.TrieDB()
+	candidateTrieRoot, err := sf.getRoot(trieDB, trie.CandidateKVNameSpace, CandidateTrieRootKey)
+	if err != nil {
+		return errors.Wrap(err, "failed to get candidateTrie's root hash from underlying db")
+	}
+	if sf.candidateTrie, err = trie.NewTrie(trieDB, trie.CandidateKVNameSpace, candidateTrieRoot); err != nil {
+		return errors.Wrap(err, "failed to generate candidateTrie")
+	}
+	return sf.candidateTrie.Start(context.Background())
+}
 
 func (sf *factory) Stop(ctx context.Context) error { return sf.lifecycle.OnStop(ctx) }
 
