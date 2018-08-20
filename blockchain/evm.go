@@ -7,7 +7,6 @@
 package blockchain
 
 import (
-	"fmt"
 	"math"
 	"math/big"
 
@@ -252,9 +251,9 @@ func (log *Log) Deserialize(buf []byte) error {
 
 func securityDeposit(ps *EVMParams, stateDB vm.StateDB, gasLimit *uint64) error {
 	executorNonce := stateDB.GetNonce(ps.context.Origin)
-	fmt.Printf("Nonce on %v: %d vs %d\n", ps.context.Origin, executorNonce, ps.nonce)
 	if executorNonce != ps.nonce {
-		//return ErrInconsistentNonce
+		logger.Error().Msgf("Nonce on %v: %d vs %d", ps.context.Origin, executorNonce, ps.nonce)
+		// return ErrInconsistentNonce
 	}
 	if *gasLimit < ps.gas {
 		return ErrHitGasLimit
@@ -306,7 +305,7 @@ func executeContract(blk *Block, idx int, execution *action.Execution, bc Blockc
 		stateDB.AddBalance(ps.context.Coinbase, gasValue)
 	}
 	receipt.Logs = stateDB.Logs()
-	fmt.Printf("Receipt: %+v, %v\n", receipt, err)
+	logger.Info().Msgf("Receipt: %+v, %v", receipt, err)
 	return receipt, err
 }
 
@@ -362,7 +361,6 @@ func executeInEVM(evmParams *EVMParams, stateDB *EVMStateDBAdapter, gasLimit *ui
 	} else {
 		// process contract
 		ret, remainingGas, err = evm.Call(executor, *evmParams.contract, evmParams.data, remainingGas, evmParams.amount)
-		fmt.Printf("RetValue: %v\n", ret)
 	}
 	if err == nil {
 		err = stateDB.Error()
@@ -376,6 +374,5 @@ func executeInEVM(evmParams *EVMParams, stateDB *EVMStateDBAdapter, gasLimit *ui
 	}
 	// TODO (zhi) figure out what the following function does
 	// stateDB.Finalise(true)
-	logger.Warn().Str("contract address", contractRawAddress).Msg("executeInEVM")
 	return ret, evmParams.gas, remainingGas, contractRawAddress, nil
 }

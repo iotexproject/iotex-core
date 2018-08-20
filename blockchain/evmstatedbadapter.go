@@ -74,8 +74,11 @@ func (stateDB *EVMStateDBAdapter) CreateAccount(evmAddr common.Address) {
 
 // SubBalance subtracts balance from account
 func (stateDB *EVMStateDBAdapter) SubBalance(evmAddr common.Address, amount *big.Int) {
+	if amount.Cmp(big.NewInt(int64(0))) == 0 {
+		return
+	}
 	// stateDB.GetBalance(evmAddr)
-	logger.Info().Msgf("SubBalance %v from %s\n", amount, evmAddr.Hex())
+	logger.Info().Msgf("SubBalance %v from %s", amount, evmAddr.Hex())
 	addr, err := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, evmAddr.Bytes())
 	if err != nil {
 		logger.Error().Err(err).Msgf("Failed to generate address for %s", evmAddr.Hex())
@@ -94,8 +97,11 @@ func (stateDB *EVMStateDBAdapter) SubBalance(evmAddr common.Address, amount *big
 
 // AddBalance adds balance to account
 func (stateDB *EVMStateDBAdapter) AddBalance(evmAddr common.Address, amount *big.Int) {
+	if amount.Cmp(big.NewInt(int64(0))) == 0 {
+		return
+	}
 	// stateDB.GetBalance(evmAddr)
-	logger.Info().Msgf("AddBalance %v to %s\n", amount, evmAddr.Hex())
+	logger.Info().Msgf("AddBalance %v to %s", amount, evmAddr.Hex())
 
 	addr, err := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, evmAddr.Bytes())
 	if err != nil {
@@ -126,7 +132,7 @@ func (stateDB *EVMStateDBAdapter) GetBalance(evmAddr common.Address) *big.Int {
 		logger.Error().Err(err).Msg("GetBalance")
 		return nil
 	}
-	logger.Info().Msgf("Balance of %s is %v\n", evmAddr.Hex(), state.Balance)
+	logger.Info().Msgf("Balance of %s is %v", evmAddr.Hex(), state.Balance)
 
 	return state.Balance
 }
@@ -235,10 +241,20 @@ func (stateDB *EVMStateDBAdapter) HasSuicided(common.Address) bool {
 	return false
 }
 
-// Exist exits the contract
-func (stateDB *EVMStateDBAdapter) Exist(common.Address) bool {
-	logger.Error().Msg("Exist is not implemented")
-	return false
+// Exist checks the existance of an address
+func (stateDB *EVMStateDBAdapter) Exist(evmAddr common.Address) bool {
+	addr, err := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, evmAddr.Bytes())
+	if err != nil {
+		logger.Error().Err(err).Msgf("Failed to generate address for %s", evmAddr.Hex())
+		stateDB.logError(err)
+		return false
+	}
+	logger.Info().Msgf("Check existance of %s", addr.RawAddress)
+	if state, err := stateDB.bc.StateByAddr(addr.RawAddress); err != nil || state == nil {
+		logger.Info().Msgf("Account %s does not exist", addr.RawAddress)
+		return false
+	}
+	return true
 }
 
 // Empty empties the contract
