@@ -77,20 +77,20 @@ func (w *syncWorker) Sync() {
 		logger.Error().Msg("No peer exist to sync with.")
 		return
 	}
-	internals := w.buf.GetBlocksIntervalsToSync(w.targetHeight)
-	logger.Info().Interface("internals", internals).Uint64("targetHeight", w.targetHeight).Msg("block sync internals.")
-	for _, internal := range internals {
+	intervals := w.buf.GetBlocksIntervalsToSync(w.targetHeight)
+	logger.Info().Interface("intervals", intervals).Uint64("targetHeight", w.targetHeight).Msg("block sync intervals.")
+	for _, interval := range intervals {
 		w.rrIdx = w.rrIdx % len(peers)
 		p := peers[w.rrIdx]
-		if err := w.sync(p, internal); err != nil {
+		if err := w.sync(p, interval); err != nil {
 			logger.Warn().Err(err).Msg("Failed to sync block.")
 		}
 		w.rrIdx++
 	}
 }
 
-func (w *syncWorker) sync(p net.Addr, internal syncBlocksInterval) error {
+func (w *syncWorker) sync(p net.Addr, interval syncBlocksInterval) error {
 	return w.p2p.Tell(p, &pb.BlockSync{
-		Start: internal.Start, End: internal.End,
+		Start: interval.Start, End: interval.End,
 	})
 }
