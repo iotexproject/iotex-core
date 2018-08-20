@@ -221,13 +221,14 @@ func NewBlockchain(cfg *config.Config, opts ...Option) Blockchain {
 		return nil
 	}
 	if height > 0 {
-		logger.Info().Msgf("Blockchain restarting height = %d", height)
 		factoryHeight, err := chain.sf.Height()
 		if err != nil {
 			logger.Error().Err(err).Msg("Failed to get factory's height")
 			return nil
 		}
-		logger.Info().Msgf("Factory restarting height = %d", factoryHeight)
+		logger.Info().
+			Uint64("blockchain height", height).Uint64("factory height", factoryHeight).
+			Msg("Restarting blockchain")
 		return chain
 	}
 	genesis := NewGenesisBlock(cfg)
@@ -283,6 +284,11 @@ func (bc *blockchain) Start(ctx context.Context) (err error) {
 	}
 	var startHeight uint64
 	if factoryHeight, err := bc.sf.Height(); err == nil {
+		if factoryHeight > bc.tipHeight {
+			logger.Fatal().
+				Uint64("blockchain height", bc.tipHeight).Uint64("factory height", factoryHeight).
+				Msg("Unexpected height")
+		}
 		startHeight = factoryHeight + 1
 	}
 	for i := startHeight; i <= bc.tipHeight; i++ {
