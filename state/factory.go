@@ -64,7 +64,6 @@ type (
 		Height() (uint64, error)
 		CommitStateChanges(uint64, []*action.Transfer, []*action.Vote, []*action.Execution) error
 		// Contracts
-		CreateContract(string) (string, error)
 		GetCodeHash(hash.AddrHash) (hash.Hash32B, error)
 		GetCode(hash.AddrHash) ([]byte, error)
 		SetCode(hash.AddrHash, []byte) error
@@ -123,6 +122,7 @@ func DefaultTrieOption() FactoryOption {
 			return errors.Wrap(err, "failed to generate accountTrie from config")
 		}
 		sf.accountTrie = tr
+		sf.accountTrie.EnableBatch()
 		return nil
 	}
 }
@@ -144,6 +144,7 @@ func InMemTrieOption() FactoryOption {
 			return errors.Wrap(err, "failed to generate accountTrie from config")
 		}
 		sf.accountTrie = tr
+		sf.accountTrie.EnableBatch()
 		return nil
 	}
 }
@@ -184,6 +185,7 @@ func (sf *factory) Start(ctx context.Context) error {
 	if sf.candidateTrie, err = trie.NewTrie(trieDB, trie.CandidateKVNameSpace, candidateTrieRoot); err != nil {
 		return errors.Wrap(err, "failed to generate candidateTrie")
 	}
+	sf.candidateTrie.EnableBatch()
 	return sf.candidateTrie.Start(context.Background())
 }
 
@@ -308,7 +310,6 @@ func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer
 	}
 
 	// update pending state changes to trie
-	sf.accountTrie.EnableBatch()
 	for address, state := range sf.cachedAccount {
 		ss, err := stateToBytes(state)
 		if err != nil {
@@ -337,19 +338,6 @@ func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer
 		}
 		sf.updateCandidate(address, totalWeight, blockHeight)
 	}
-	// Persist new list of candidates to candidateTrie
-	candidates, err := MapToCandidates(sf.cachedCandidates)
-	if err != nil {
-		return errors.Wrap(err, "failed to convert map of cached candidates to candidate list")
-	}
-	sort.Sort(candidates)
-	candidatesBytes, err := Serialize(candidates)
-	if err != nil {
-		return errors.Wrap(err, "failed to serialize candidates")
-	}
-	if err := sf.candidateTrie.Upsert(byteutil.Uint64ToBytes(blockHeight), candidatesBytes); err != nil {
-		return errors.Wrapf(err, "failed to insert candidates on height %d into candidateTrie", blockHeight)
-	}
 	// update pending contract changes
 	for addr, contract := range sf.cachedContract {
 		if err := contract.Commit(); err != nil {
@@ -365,9 +353,27 @@ func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer
 			return err
 		}
 	}
-	// commit to underlying Trie in a batch
+	// commit to account Trie in a batch
 	if err := sf.accountTrie.Commit(); err != nil {
-		return errors.Wrap(err, "failed to commit changes to underlying Trie in a batch")
+		return errors.Wrap(err, "failed to commit changes to account Trie in a batch")
+	}
+
+	// Persist new list of candidates to candidateTrie
+	candidates, err := MapToCandidates(sf.cachedCandidates)
+	if err != nil {
+		return errors.Wrap(err, "failed to convert map of cached candidates to candidate list")
+	}
+	sort.Sort(candidates)
+	candidatesBytes, err := Serialize(candidates)
+	if err != nil {
+		return errors.Wrap(err, "failed to serialize candidates")
+	}
+	if err := sf.candidateTrie.Upsert(byteutil.Uint64ToBytes(blockHeight), candidatesBytes); err != nil {
+		return errors.Wrapf(err, "failed to insert candidates on height %d into candidateTrie", blockHeight)
+	}
+	// commit to candidate Trie in a batch
+	if err := sf.candidateTrie.Commit(); err != nil {
+		return errors.Wrap(err, "failed to commit changes to account Trie in a batch")
 	}
 
 	trieDB := sf.accountTrie.TrieDB()
@@ -389,32 +395,6 @@ func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer
 //======================================
 // Contract functions
 //======================================
-// CreateContract creates a new contract account
-func (sf *factory) CreateContract(addr string) (string, error) {
-	hash, err := iotxaddress.GetPubkeyHash(addr)
-	if err != nil {
-		return "", errors.Wrap(err, "error when getting the pubkey hash")
-	}
-	// only create when contract addr does not exist yet
-	contractHash := byteutil.BytesTo20B(hash)
-	_, err = sf.getContract(contractHash)
-	switch {
-	case err == nil:
-		return "", ErrAccountCollision
-	case errors.Cause(err) == ErrAccountNotExist:
-		if _, err = sf.createContract(contractHash); err != nil {
-			return "", errors.Wrapf(err, "Failed to create contract %x", contractHash)
-		}
-	case err != nil:
-		return "", err
-	}
-	contractAddr, err := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, contractHash[:])
-	if err != nil {
-		return "", err
-	}
-	return contractAddr.RawAddress, nil
-}
-
 // GetCodeHash returns contract's code hash
 func (sf *factory) GetCodeHash(addr hash.AddrHash) (hash.Hash32B, error) {
 	contract, err := sf.getContract(addr)
