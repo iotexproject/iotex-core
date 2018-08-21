@@ -10,6 +10,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"net"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -21,6 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
+	"github.com/iotexproject/iotex-core/network/node"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_consensus"
@@ -455,4 +457,28 @@ func TestService_SendVote(t *testing.T) {
 	response, err = svc.SendVote(r)
 	require.NotNil(response.Hash)
 	require.Nil(err)
+}
+
+func TestServiceGetPeers(t *testing.T) {
+	require := require.New(t)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mDp := mock_dispatcher.NewMockDispatcher(ctrl)
+	p2p := mock_network.NewMockOverlay(ctrl)
+	svc := Service{dp: mDp, p2p: p2p}
+
+	p2p.EXPECT().GetPeers().Return([]net.Addr{
+		&node.Node{Addr: "127.0.0.1:10002"},
+		&node.Node{Addr: "127.0.0.1:10003"},
+		&node.Node{Addr: "127.0.0.1:10004"},
+	})
+	p2p.EXPECT().Self().Return(&node.Node{Addr: "127.0.0.1:10001"})
+
+	response, err := svc.GetPeers()
+	require.Nil(err)
+	require.Equal("127.0.0.1:10001", response.Self.Address)
+	require.Len(response.Peers, 3)
+	require.Equal("127.0.0.1:10003", response.Peers[1].Address)
 }

@@ -764,6 +764,20 @@ func (exp *Service) SendVote(voteJSON explorer.SendVoteRequest) (explorer.SendVo
 	return explorer.SendVoteResponse{Hash: hex.EncodeToString(h[:])}, nil
 }
 
+// GetPeers return a list of node peers and itself's network addsress info.
+func (exp *Service) GetPeers() (explorer.GetPeersResponse, error) {
+	var peers []explorer.Node
+	for _, p := range exp.p2p.GetPeers() {
+		peers = append(peers, explorer.Node{
+			Address: p.String(),
+		})
+	}
+	return explorer.GetPeersResponse{
+		Self:  explorer.Node{Address: exp.p2p.Self().String()},
+		Peers: peers,
+	}, nil
+}
+
 // getTransfer takes in a blockchain and transferHash and returns a Explorer Transfer
 func getTransfer(bc blockchain.Blockchain, transferHash hash.Hash32B) (explorer.Transfer, error) {
 	explorerTransfer := explorer.Transfer{}

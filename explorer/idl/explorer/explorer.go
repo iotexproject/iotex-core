@@ -3,13 +3,14 @@ package explorer
 
 import (
 	"fmt"
-	"github.com/coopernurse/barrister-go"
 	"reflect"
+
+	"github.com/coopernurse/barrister-go"
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "eed608028d409824226a927fe76541c7"
-const BarristerDateGenerated int64 = 1534460896367000000
+const BarristerChecksum string = "34747da6cc1c565bbaee1db555fe4acb"
+const BarristerDateGenerated int64 = 1534807942107000000
 
 type CoinStatistic struct {
 	Height    int64 `json:"height"`
@@ -137,6 +138,15 @@ type SendVoteResponse struct {
 	Hash string `json:"hash"`
 }
 
+type Node struct {
+	Address string `json:"address"`
+}
+
+type GetPeersResponse struct {
+	Self  Node   `json:"Self"`
+	Peers []Node `json:"Peers"`
+}
+
 type Explorer interface {
 	GetBlockchainHeight() (int64, error)
 	GetAddressBalance(address string) (int64, error)
@@ -158,6 +168,7 @@ type Explorer interface {
 	GetCandidateMetrics() (CandidateMetrics, error)
 	SendTransfer(request SendTransferRequest) (SendTransferResponse, error)
 	SendVote(request SendVoteRequest) (SendVoteResponse, error)
+	GetPeers() (GetPeersResponse, error)
 }
 
 func NewExplorerProxy(c barrister.Client) Explorer {
@@ -527,6 +538,24 @@ func (_p ExplorerProxy) SendVote(request SendVoteRequest) (SendVoteResponse, err
 		return _cast, nil
 	}
 	return SendVoteResponse{}, _err
+}
+
+func (_p ExplorerProxy) GetPeers() (GetPeersResponse, error) {
+	_res, _err := _p.client.Call("Explorer.getPeers")
+	if _err == nil {
+		_retType := _p.idl.Method("Explorer.getPeers").Returns
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(GetPeersResponse{}), _res, "")
+	}
+	if _err == nil {
+		_cast, _ok := _res.(GetPeersResponse)
+		if !_ok {
+			_t := reflect.TypeOf(_res)
+			_msg := fmt.Sprintf("Explorer.getPeers returned invalid type: %v", _t)
+			return GetPeersResponse{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
+		}
+		return _cast, nil
+	}
+	return GetPeersResponse{}, _err
 }
 
 func NewJSONServer(idl *barrister.Idl, forceASCII bool, explorer Explorer) barrister.Server {
@@ -1377,6 +1406,55 @@ var IdlJsonRaw = `[
         "checksum": ""
     },
     {
+        "type": "struct",
+        "name": "Node",
+        "comment": "",
+        "value": "",
+        "extends": "",
+        "fields": [
+            {
+                "name": "address",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            }
+        ],
+        "values": null,
+        "functions": null,
+        "barrister_version": "",
+        "date_generated": 0,
+        "checksum": ""
+    },
+    {
+        "type": "struct",
+        "name": "GetPeersResponse",
+        "comment": "",
+        "value": "",
+        "extends": "",
+        "fields": [
+            {
+                "name": "Self",
+                "type": "Node",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "Peers",
+                "type": "Node",
+                "optional": false,
+                "is_array": true,
+                "comment": ""
+            }
+        ],
+        "values": null,
+        "functions": null,
+        "barrister_version": "",
+        "date_generated": 0,
+        "checksum": ""
+    },
+    {
         "type": "interface",
         "name": "Explorer",
         "comment": "",
@@ -1878,6 +1956,18 @@ var IdlJsonRaw = `[
                     "is_array": false,
                     "comment": ""
                 }
+            },
+            {
+                "name": "getPeers",
+                "comment": "get list of peers",
+                "params": [],
+                "returns": {
+                    "name": "",
+                    "type": "GetPeersResponse",
+                    "optional": false,
+                    "is_array": false,
+                    "comment": ""
+                }
             }
         ],
         "barrister_version": "",
@@ -1894,7 +1984,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1534460896367,
-        "checksum": "eed608028d409824226a927fe76541c7"
+        "date_generated": 1534807942107,
+        "checksum": "34747da6cc1c565bbaee1db555fe4acb"
     }
 ]`
