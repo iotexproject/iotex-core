@@ -61,7 +61,7 @@ type Block struct {
 	Transfers  []*action.Transfer
 	Votes      []*action.Vote
 	Executions []*action.Execution
-	receipts   map[hash.AddrHash]*Receipt
+	receipts   map[hash.Hash32B]*Receipt
 }
 
 // NewBlock returns a new block

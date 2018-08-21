@@ -270,9 +270,12 @@ func securityDeposit(ps *EVMParams, stateDB vm.StateDB, gasLimit *uint64) error 
 // ExecuteContracts process the contracts in a block
 func ExecuteContracts(blk *Block, bc Blockchain) {
 	gasLimit := GasLimit
+	blk.receipts = make(map[hash.Hash32B]*Receipt, 0)
 	for idx, execution := range blk.Executions {
 		// TODO (zhi) log receipt to stateDB
-		executeContract(blk, idx, execution, bc, &gasLimit)
+		if receipt, _ := executeContract(blk, idx, execution, bc, &gasLimit); receipt != nil {
+			blk.receipts[execution.Hash()] = receipt
+		}
 	}
 }
 

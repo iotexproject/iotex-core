@@ -54,6 +54,7 @@ func TestEVM(t *testing.T) {
 	blk, err := bc.MintNewBlock(nil, nil, []*action.Execution{execution}, ta.Addrinfo["producer"], "")
 	require.NoError(err)
 	require.Nil(bc.CommitBlock(blk))
+	require.Equal(1, len(blk.receipts))
 
 	h, _ := hex.DecodeString("8db0d504897721a2cc48659d741f763de31d3567")
 	contractAddrHash := byteutil.BytesTo20B(h)
@@ -73,6 +74,7 @@ func TestEVM(t *testing.T) {
 	blk, err = bc.MintNewBlock(nil, nil, []*action.Execution{execution}, ta.Addrinfo["producer"], "")
 	require.NoError(err)
 	require.Nil(bc.CommitBlock(blk))
+	require.Equal(1, len(blk.receipts))
 
 	v, err := bc.GetFactory().GetContractState(contractAddrHash, hash.ZeroHash32B)
 	require.Nil(err)
@@ -90,6 +92,7 @@ func TestEVM(t *testing.T) {
 	blk, err = bc.MintNewBlock(nil, nil, []*action.Execution{execution}, ta.Addrinfo["producer"], "")
 	require.NoError(err)
 	require.Nil(bc.CommitBlock(blk))
+	require.Equal(1, len(blk.receipts))
 }
 
 func TestLogReceipt(t *testing.T) {
