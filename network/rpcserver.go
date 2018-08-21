@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"net"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -36,6 +35,7 @@ type RPCServer struct {
 	Server  *grpc.Server
 	Overlay *IotxOverlay
 
+	listenPort  string
 	counters    sync.Map
 	rateLimit   uint64
 	lastReqTime time.Time
@@ -44,8 +44,8 @@ type RPCServer struct {
 // NewRPCServer creates an instance of RPCServer
 func NewRPCServer(o *IotxOverlay) *RPCServer {
 	s := &RPCServer{Overlay: o}
-	portStr := strconv.Itoa(o.Config.Port)
-	s.Addr = strings.Join([]string{o.Config.Host, portStr}, ":")
+	s.listenPort = ":" + strconv.Itoa(o.Config.Port)
+	s.Addr = o.Config.Host + s.listenPort
 	s.rateLimit = o.Config.RateLimitPerSec * uint64(o.Config.RateLimitWindowSize) / uint64(time.Second)
 	return s
 }
@@ -128,12 +128,17 @@ func (s *RPCServer) Tell(ctx context.Context, req *pb.TellReq) (*pb.TellRes, err
 
 // Start starts the rpc server
 func (s *RPCServer) Start(_ context.Context) error {
-	lis, err := net.Listen(s.Network(), s.String())
+	lis, err := net.Listen(s.Network(), s.listenPort)
 	if err != nil {
 		logger.Error().Err(err).Msg("Node failed to listen")
 		return err
 	}
-	s.Addr = lis.Addr().String()
+
+	_, port, err := net.SplitHostPort(lis.Addr().String())
+	if err == nil {
+		s.listenPort = ":" + port
+		s.Addr = s.Overlay.Config.Host + s.listenPort
+	}
 	// Create the gRPC server with the credentials
 	if s.Overlay.Config.TLSEnabled {
 		creds, err := generateServerCredentials(s.Overlay.Config)
