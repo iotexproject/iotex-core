@@ -201,16 +201,22 @@ func (sf *factory) LoadOrCreateState(addr string, init uint64) (*State, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "error when getting the pubkey hash")
 	}
-	// only create if the address did not exist yet
+	if state, exist := sf.cachedAccount[addr]; exist {
+		return state, nil
+	}
 	state, err := sf.getState(byteutil.BytesTo20B(pkHash))
 	switch {
 	case errors.Cause(err) == ErrAccountNotExist:
-		if state, err = sf.createState(addr, init); err != nil {
-			return nil, err
+		balance := big.NewInt(0)
+		balance.SetUint64(init)
+		state = &State{
+			Balance:      balance,
+			VotingWeight: big.NewInt(0),
 		}
 	case err != nil:
 		return nil, err
 	}
+	sf.cachedAccount[addr] = state
 	return state, nil
 }
 
@@ -262,7 +268,7 @@ func (sf *factory) CachedState(addr string) (*State, error) {
 		return state, nil
 	}
 	// add to local cache
-	state, err := sf.State(addr)
+	state, err := sf.getState(byteutil.BytesTo20B(pkHash))
 	if state != nil {
 		sf.cachedAccount[addr] = state
 	}
@@ -507,53 +513,12 @@ func (sf *factory) CandidatesByHeight(height uint64) ([]*Candidate, error) {
 func (sf *factory) getState(hash hash.AddrHash) (*State, error) {
 	mstate, err := sf.accountTrie.Get(hash[:])
 	if errors.Cause(err) == trie.ErrNotExist {
-		return nil, ErrAccountNotExist
+		return nil, errors.Wrapf(ErrAccountNotExist, "addrHash = %x", hash[:])
 	}
 	if err != nil {
 		return nil, err
 	}
 	return bytesToState(mstate)
-}
-
-func (sf *factory) createState(addr string, init uint64) (*State, error) {
-	pubKeyHash, err := iotxaddress.GetPubkeyHash(addr)
-	if err != nil {
-		return nil, errors.Wrap(err, "error when getting the pubkey hash")
-	}
-	balance := big.NewInt(0)
-	weight := big.NewInt(0)
-	balance.SetUint64(init)
-	s := State{Balance: balance, VotingWeight: weight}
-	mstate, err := stateToBytes(&s)
-	if err != nil {
-		return nil, err
-	}
-	if err := sf.accountTrie.Upsert(pubKeyHash, mstate); err != nil {
-		return nil, err
-	}
-	return &s, nil
-}
-
-func (sf *factory) cache(addr string) (*State, error) {
-	pkHash, err := iotxaddress.GetPubkeyHash(addr)
-	if err != nil {
-		return nil, errors.Wrap(err, "error when getting the pubkey hash")
-	}
-	if state, exist := sf.cachedAccount[addr]; exist {
-		return state, nil
-	}
-	state, err := sf.getState(byteutil.BytesTo20B(pkHash))
-	switch {
-	case errors.Cause(err) == ErrAccountNotExist:
-		state, err = sf.createState(addr, 0)
-		if err != nil {
-			return nil, err
-		}
-	case err != nil:
-		return nil, err
-	}
-	sf.cachedAccount[addr] = state
-	return state, nil
 }
 
 func (sf *factory) createContract(addr hash.AddrHash) (Contract, error) {
@@ -622,7 +587,7 @@ func (sf *factory) handleTsf(tsf []*action.Transfer) error {
 		}
 		if !tx.IsCoinbase {
 			// check sender
-			sender, err := sf.cache(tx.Sender)
+			sender, err := sf.LoadOrCreateState(tx.Sender, 0)
 			if err != nil {
 				return err
 			}
@@ -640,7 +605,7 @@ func (sf *factory) handleTsf(tsf []*action.Transfer) error {
 			// Update sender votes
 			if len(sender.Votee) > 0 && sender.Votee != tx.Sender {
 				// sender already voted to a different person
-				voteeOfSender, err := sf.cache(sender.Votee)
+				voteeOfSender, err := sf.LoadOrCreateState(sender.Votee, 0)
 				if err != nil {
 					return err
 				}
@@ -648,7 +613,7 @@ func (sf *factory) handleTsf(tsf []*action.Transfer) error {
 			}
 		}
 		// check recipient
-		recipient, err := sf.cache(tx.Recipient)
+		recipient, err := sf.LoadOrCreateState(tx.Recipient, 0)
 		if err != nil {
 			return err
 		}
@@ -659,7 +624,7 @@ func (sf *factory) handleTsf(tsf []*action.Transfer) error {
 		// Update recipient votes
 		if len(recipient.Votee) > 0 && recipient.Votee != tx.Recipient {
 			// recipient already voted to a different person
-			voteeOfRecipient, err := sf.cache(recipient.Votee)
+			voteeOfRecipient, err := sf.LoadOrCreateState(recipient.Votee, 0)
 			if err != nil {
 				return err
 			}
@@ -673,7 +638,7 @@ func (sf *factory) handleVote(blockHeight uint64, vote []*action.Vote) error {
 	for _, v := range vote {
 		pbVote := v.GetVote()
 		voterAddress := pbVote.VoterAddress
-		voteFrom, err := sf.cache(voterAddress)
+		voteFrom, err := sf.LoadOrCreateState(voterAddress, 0)
 		if err != nil {
 			return err
 		}
@@ -685,7 +650,7 @@ func (sf *factory) handleVote(blockHeight uint64, vote []*action.Vote) error {
 		// Update old votee's weight
 		if len(voteFrom.Votee) > 0 && voteFrom.Votee != voterAddress {
 			// voter already voted
-			oldVotee, err := sf.cache(voteFrom.Votee)
+			oldVotee, err := sf.LoadOrCreateState(voteFrom.Votee, 0)
 			if err != nil {
 				return err
 			}
@@ -700,7 +665,7 @@ func (sf *factory) handleVote(blockHeight uint64, vote []*action.Vote) error {
 			continue
 		}
 
-		voteTo, err := sf.cache(voteeAddress)
+		voteTo, err := sf.LoadOrCreateState(voteeAddress, 0)
 		if err != nil {
 			return err
 		}

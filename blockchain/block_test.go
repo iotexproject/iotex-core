@@ -237,6 +237,7 @@ func TestWrongNonce(t *testing.T) {
 	_, err = sf.LoadOrCreateState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
 	assert.NoError(t, err)
 	val := validator{sf}
+	require.Nil(sf.CommitStateChanges(0, nil, nil, nil))
 
 	// correct nonce
 	coinbaseTsf := action.NewCoinBaseTransfer(big.NewInt(int64(Gen.BlockReward)), ta.Addrinfo["producer"].RawAddress)
@@ -248,9 +249,8 @@ func TestWrongNonce(t *testing.T) {
 	blk := NewBlock(1, 3, hash, clock.New(), []*action.Transfer{coinbaseTsf, tsf1}, nil, nil)
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.NoError(err)
-	require.NoError(val.Validate(blk, 2, hash))
-	err = sf.CommitStateChanges(0, []*action.Transfer{tsf1}, nil, nil)
-	require.NoError(err)
+	require.Nil(val.Validate(blk, 2, hash))
+	require.NoError(sf.CommitStateChanges(1, []*action.Transfer{tsf1}, nil, nil))
 
 	// low nonce
 	tsf2, err := action.NewTransfer(1, big.NewInt(30), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress)
@@ -352,6 +352,7 @@ func TestWrongCoinbaseTsf(t *testing.T) {
 	_, err = sf.LoadOrCreateState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
 	assert.NoError(t, err)
 	val := validator{sf}
+	require.Nil(sf.CommitStateChanges(0, nil, nil, nil))
 
 	// no coinbase tsf
 	coinbaseTsf := action.NewCoinBaseTransfer(big.NewInt(int64(Gen.BlockReward)), ta.Addrinfo["producer"].RawAddress)
