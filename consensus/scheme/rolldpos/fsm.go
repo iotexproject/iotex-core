@@ -531,6 +531,7 @@ func (m *cFSM) handlePrevoteEvt(evt fsm.Event) (fsm.State, error) {
 			vEvt = m.newVoteEvt(m.ctx.round.block.HashBlock(), false)
 		}
 		logger.Warn().
+			Uint64("height", m.ctx.round.height).
 			Int("prevotes", len(m.ctx.round.prevotes)).
 			Msg("didn't collect enough prevotes before timeout")
 	}
@@ -584,6 +585,7 @@ func (m *cFSM) handleVoteEvt(evt fsm.Event) (fsm.State, error) {
 		consensus = false
 		timeout = true
 		logger.Warn().
+			Uint64("height", m.ctx.round.height).
 			Int("votes", len(m.ctx.round.votes)).
 			Msg("didn't collect enough votes before timeout")
 	}
