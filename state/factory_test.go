@@ -71,6 +71,7 @@ func TestCreateState(t *testing.T) {
 	addr, err := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
 	require.Nil(err)
 	state, _ := sf.LoadOrCreateState(addr.RawAddress, 5)
+	require.Nil(sf.CommitStateChanges(0, nil, nil, nil))
 	require.Equal(uint64(0x0), state.Nonce)
 	require.Equal(big.NewInt(5), state.Balance)
 	ss, err := sf.State(addr.RawAddress)
