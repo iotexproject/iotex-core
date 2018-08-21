@@ -65,9 +65,9 @@ func TestCreateContract(t *testing.T) {
 	sf, err = NewFactory(&cfg, PrecreatedTrieOption(tr))
 	require.Nil(err)
 	require.Nil(sf.Start(context.Background()))
-	// cannot re-create existing
-	_, err = sf.CreateContract(addr.RawAddress)
-	require.Equal(ErrAccountCollision, errors.Cause(err))
+	// reload same contract
+	contract1, err = sf.LoadOrCreateState(addr.RawAddress, 0)
+	require.Equal(contract1.CodeHash, codeHash[:])
 	// contract already exist
 	h, _ := sf.GetCodeHash(contract)
 	require.Equal(codeHash, h)
