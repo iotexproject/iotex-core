@@ -48,7 +48,6 @@ type BlockHeader struct {
 	DKGID         []byte            // dkg ID of producer
 	DKGPubkey     []byte            // dkg public key of producer
 	DKGBlockSig   []byte            // dkg signature of producer
-
 }
 
 // Timestamp returns the timestamp in the block header
@@ -62,6 +61,7 @@ type Block struct {
 	Transfers  []*action.Transfer
 	Votes      []*action.Vote
 	Executions []*action.Execution
+	receipts   map[hash.AddrHash]*Receipt
 }
 
 // NewBlock returns a new block
