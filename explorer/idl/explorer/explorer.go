@@ -8,8 +8,8 @@ import (
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "51e7b00d135c7fe199006a07f2a41d70"
-const BarristerDateGenerated int64 = 1534876207305000000
+const BarristerChecksum string = "a4b08a268b22c32b15f9dbf57eeb2166"
+const BarristerDateGenerated int64 = 1534876251738000000
 
 type CoinStatistic struct {
 	Height    int64 `json:"height"`
@@ -149,6 +149,10 @@ type GetPeersResponse struct {
 	Peers []Node `json:"Peers"`
 }
 
+type SendSmartContractResponse struct {
+	Hash string `json:"hash"`
+}
+
 type Explorer interface {
 	GetBlockchainHeight() (int64, error)
 	GetAddressBalance(address string) (int64, error)
@@ -170,6 +174,7 @@ type Explorer interface {
 	GetCandidateMetrics() (CandidateMetrics, error)
 	SendTransfer(request SendTransferRequest) (SendTransferResponse, error)
 	SendVote(request SendVoteRequest) (SendVoteResponse, error)
+	SendSmartContract(request Execution) (SendSmartContractResponse, error)
 	GetPeers() (GetPeersResponse, error)
 }
 
@@ -540,6 +545,24 @@ func (_p ExplorerProxy) SendVote(request SendVoteRequest) (SendVoteResponse, err
 		return _cast, nil
 	}
 	return SendVoteResponse{}, _err
+}
+
+func (_p ExplorerProxy) SendSmartContract(request Execution) (SendSmartContractResponse, error) {
+	_res, _err := _p.client.Call("Explorer.sendSmartContract", request)
+	if _err == nil {
+		_retType := _p.idl.Method("Explorer.sendSmartContract").Returns
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(SendSmartContractResponse{}), _res, "")
+	}
+	if _err == nil {
+		_cast, _ok := _res.(SendSmartContractResponse)
+		if !_ok {
+			_t := reflect.TypeOf(_res)
+			_msg := fmt.Sprintf("Explorer.sendSmartContract returned invalid type: %v", _t)
+			return SendSmartContractResponse{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
+		}
+		return _cast, nil
+	}
+	return SendSmartContractResponse{}, _err
 }
 
 func (_p ExplorerProxy) GetPeers() (GetPeersResponse, error) {
@@ -1478,6 +1501,27 @@ var IdlJsonRaw = `[
         "checksum": ""
     },
     {
+        "type": "struct",
+        "name": "SendSmartContractResponse",
+        "comment": "",
+        "value": "",
+        "extends": "",
+        "fields": [
+            {
+                "name": "hash",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            }
+        ],
+        "values": null,
+        "functions": null,
+        "barrister_version": "",
+        "date_generated": 0,
+        "checksum": ""
+    },
+    {
         "type": "interface",
         "name": "Explorer",
         "comment": "",
@@ -1981,6 +2025,26 @@ var IdlJsonRaw = `[
                 }
             },
             {
+                "name": "sendSmartContract",
+                "comment": "sendSmartContract",
+                "params": [
+                    {
+                        "name": "request",
+                        "type": "Execution",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    }
+                ],
+                "returns": {
+                    "name": "",
+                    "type": "SendSmartContractResponse",
+                    "optional": false,
+                    "is_array": false,
+                    "comment": ""
+                }
+            },
+            {
                 "name": "getPeers",
                 "comment": "get list of peers",
                 "params": [],
@@ -2007,7 +2071,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1534876207305,
-        "checksum": "51e7b00d135c7fe199006a07f2a41d70"
+        "date_generated": 1534876251738,
+        "checksum": "a4b08a268b22c32b15f9dbf57eeb2166"
     }
 ]`

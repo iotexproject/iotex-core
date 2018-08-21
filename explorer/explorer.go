@@ -721,6 +721,52 @@ func (exp *Service) GetPeers() (explorer.GetPeersResponse, error) {
 	}, nil
 }
 
+// SendSmartContract sends a smart contract
+func (exp *Service) SendSmartContract(execution explorer.Execution) (explorer.SendSmartContractResponse, error) {
+	logger.Debug().Msg("receive send smart contract request")
+
+	executorPubKey, err := keypair.StringToPubKeyBytes(execution.ExecutorPubKey)
+	if err != nil {
+		return explorer.SendSmartContractResponse{}, err
+	}
+	data, err := hex.DecodeString(execution.Data)
+	if err != nil {
+		return explorer.SendSmartContractResponse{}, err
+	}
+	signature, err := hex.DecodeString(execution.Signature)
+	if err != nil {
+		return explorer.SendSmartContractResponse{}, err
+	}
+	actPb := &pb.ActionPb{
+		Action: &pb.ActionPb_Execution{
+			Execution: &pb.ExecutionPb{
+				Amount:         nil,
+				Executor:       execution.Executor,
+				Contract:       execution.Contract,
+				ExecutorPubKey: executorPubKey,
+				Gas:            uint32(execution.Gas),
+				GasPrice:       uint32(execution.GasPrice),
+				Data:           data,
+			},
+		},
+		Version:   uint32(execution.Version),
+		Nonce:     uint64(execution.Nonce),
+		Signature: signature,
+	}
+	//
+	// broadcast to the network
+	if err := exp.p2p.Broadcast(actPb); err != nil {
+		return explorer.SendSmartContractResponse{}, err
+	}
+	// send to actpool via dispatcher
+	exp.dp.HandleBroadcast(actPb, nil)
+
+	sc := &action.Execution{}
+	sc.ConvertFromActionPb(actPb)
+	h := sc.Hash()
+	return explorer.SendSmartContractResponse{Hash: hex.EncodeToString(h[:])}, nil
+}
+
 // getTransfer takes in a blockchain and transferHash and returns a Explorer Transfer
 func getTransfer(bc blockchain.Blockchain, ap actpool.ActPool, transferHash hash.Hash32B) (explorer.Transfer, error) {
 	explorerTransfer := explorer.Transfer{}
