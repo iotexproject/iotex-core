@@ -153,6 +153,10 @@ struct GetPeersResponse {
     Peers []Node
 }
 
+struct SendSmartContractResponse {
+    hash string
+}
+
 interface Explorer {
     // get the blockchain tip height
     getBlockchainHeight() int
@@ -213,6 +217,9 @@ interface Explorer {
 
     // send vote
     sendVote(request SendVoteRequest) SendVoteResponse
+
+    // sendSmartContract
+    sendSmartContract(request Execution) SendSmartContractResponse
 
     // get list of peers
     getPeers() GetPeersResponse
