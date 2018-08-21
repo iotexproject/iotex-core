@@ -141,6 +141,15 @@ struct SendVoteResponse {
     hash string
 }
 
+struct Node {
+    address string
+}
+
+struct GetPeersResponse {
+    Self Node
+    Peers []Node
+}
+
 interface Explorer {
     // get the blockchain tip height
     getBlockchainHeight() int
@@ -201,4 +210,7 @@ interface Explorer {
 
     // send vote
     sendVote(request SendVoteRequest) SendVoteResponse
+
+    // get list of peers
+    getPeers() GetPeersResponse
 }

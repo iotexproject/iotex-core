@@ -7,8 +7,9 @@
 package explorer
 
 import (
-	"github.com/stretchr/testify/require"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestMockExplorerApi(t *testing.T) {
@@ -59,6 +60,9 @@ func TestMockExplorerApi(t *testing.T) {
 	require.Nil(err)
 
 	_, err = svc.GetConsensusMetrics()
+	require.Nil(err)
+
+	_, err = svc.GetPeers()
 	require.Nil(err)
 
 	randInt64 := randInt64()
