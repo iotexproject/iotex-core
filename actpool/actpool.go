@@ -31,6 +31,10 @@ const (
 var (
 	// ErrActPool indicates the error of actpool
 	ErrActPool = errors.New("invalid actpool")
+	// ErrGasHigherThanLimit indicates the error of gas value
+	ErrGasHigherThanLimit = errors.New("invalid gas for execution")
+	// ErrInsufficientGas indicates the error of insufficient gas value for data storage
+	ErrInsufficientGas = errors.New("insufficient intrinsic gas value")
 	// ErrTransfer indicates the error of transfer
 	ErrTransfer = errors.New("invalid transfer")
 	// ErrNonce indicates the error of nonce
@@ -231,12 +235,27 @@ func (ap *actPool) AddVote(vote *action.Vote) error {
 }
 
 // AddExecution inserts a new execution into account queue if it passes validation
-func (ap *actPool) AddExecution(execution *action.Execution) error {
+func (ap *actPool) AddExecution(exec *action.Execution) error {
 	ap.mutex.Lock()
 	defer ap.mutex.Unlock()
-
-	// TOOD (zhi) implement this api
-	return errors.New("Not implemented")
+	hash := exec.Hash()
+	// Reject execution if it already exists in pool
+	if ap.allActions[hash] != nil {
+		logger.Error().
+			Hex("hash", hash[:]).
+			Msg("Rejecting existed execution")
+		return fmt.Errorf("existed execution: %x", hash)
+	}
+	// Reject execution if pool space is full
+	if uint64(len(ap.allActions)) >= ap.cfg.MaxNumActsPerPool {
+		logger.Warn().
+			Hex("hash", hash[:]).
+			Msg("Rejecting execution due to insufficient space")
+		return errors.Wrapf(ErrActPool, "insufficient space for execution")
+	}
+	// Wrap execution as an action
+	action := exec.ConvertToActionPb()
+	return ap.addAction(exec.Executor, action, hash, exec.Nonce)
 }
 
 // GetPendingNonce returns pending nonce in pool or confirmed nonce given an account address
@@ -433,6 +452,24 @@ func (ap *actPool) addAction(sender string, act *iproto.ActionPb, hash hash.Hash
 				Hex("hash", hash[:]).
 				Msg("Rejecting transfer due to insufficient balance")
 			return errors.Wrapf(ErrBalance, "insufficient balance for transfer")
+		}
+	}
+
+	if execution := act.GetExecution(); execution != nil {
+		exec := &action.Execution{}
+		exec.ConvertFromActionPb(act)
+		if queue.PendingBalance().Cmp(exec.Amount) < 0 {
+			logger.Warn().
+				Hex("hash", hash[:]).
+				Msg("Rejecting execution due to insufficient balance")
+			return errors.Wrapf(ErrBalance, "insufficient balance for execution")
+		}
+		if exec.Gas > blockchain.GasLimit {
+			return errors.Wrapf(ErrGasHigherThanLimit, "Gas is higher than gas limit")
+		}
+		intrinsicGas, err := blockchain.IntrinsicGas(exec.Data)
+		if intrinsicGas > exec.Gas || err != nil {
+			return errors.Wrapf(ErrInsufficientGas, "insufficient gas for execution")
 		}
 	}
 

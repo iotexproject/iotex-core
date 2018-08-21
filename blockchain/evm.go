@@ -141,7 +141,7 @@ func NewEVMParams(blk *Block, execution *action.Execution, stateDB *EVMStateDBAd
 		executorIoTXAddress.RawAddress,
 		execution.Amount,
 		contractAddrPointer,
-		uint64(execution.Gas),
+		execution.Gas,
 		execution.Data,
 	}, nil
 }
@@ -309,8 +309,9 @@ func executeContract(blk *Block, idx int, execution *action.Execution, bc Blockc
 	return receipt, err
 }
 
-func intrinsicGas(evmParams *EVMParams) (uint64, error) {
-	dataSize := uint64(len(evmParams.data))
+// IntrinsicGas returns the intrinsic gas of an execution
+func IntrinsicGas(data []byte) (uint64, error) {
+	dataSize := uint64(len(data))
 	if (math.MaxUint64-BaseIntrinsicGas)/ExecutionDataGas < dataSize {
 		return 0, ErrOutOfGas
 	}
@@ -334,7 +335,7 @@ func executeInEVM(evmParams *EVMParams, stateDB *EVMStateDBAdapter, gasLimit *ui
 	var config vm.Config
 	chainConfig := getChainConfig()
 	evm := vm.NewEVM(evmParams.context, stateDB, chainConfig, config)
-	intriGas, err := intrinsicGas(evmParams)
+	intriGas, err := IntrinsicGas(evmParams.data)
 	if err != nil {
 		return nil, evmParams.gas, remainingGas, action.EmptyAddress, err
 	}
