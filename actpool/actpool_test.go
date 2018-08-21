@@ -770,6 +770,41 @@ func TestActPool_GetUnconfirmedActs(t *testing.T) {
 	require.Equal([]*iproto.ActionPb{act1, act3, act4}, acts)
 }
 
+func TestActPool_GetActionByHash(t *testing.T) {
+	require := require.New(t)
+	bc := blockchain.NewBlockchain(&config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	_, err := bc.CreateState(addr1.RawAddress, uint64(100))
+	require.Nil(err)
+	_, err = bc.CreateState(addr2.RawAddress, uint64(100))
+	require.Nil(err)
+	// Create actpool
+	apConfig := getActPoolCfg()
+	Ap, err := NewActPool(bc, apConfig)
+	require.Nil(err)
+	ap, ok := Ap.(*actPool)
+	require.True(ok)
+
+	tsf1, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(10))
+	hash1 := tsf1.Hash()
+	act1 := tsf1.ConvertToActionPb()
+	vote2, _ := signedVote(addr1, addr1, uint64(2))
+	hash2 := vote2.Hash()
+	act2 := vote2.ConvertToActionPb()
+
+	ap.allActions[hash1] = act1
+	act, err := ap.GetActionByHash(hash1)
+	require.NoError(err)
+	require.Equal(act1, act)
+	act, err = ap.GetActionByHash(hash2)
+	require.Equal(ErrHash, errors.Cause(err))
+	require.Nil(act)
+
+	ap.allActions[hash2] = act2
+	act, err = ap.GetActionByHash(hash2)
+	require.NoError(err)
+	require.Equal(act2, act)
+}
+
 // Helper function to return the correct pending nonce just in case of empty queue
 func (ap *actPool) getPendingNonce(addr string) (uint64, error) {
 	if queue, ok := ap.accountActs[addr]; ok {

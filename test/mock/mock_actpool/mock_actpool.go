@@ -7,6 +7,7 @@ package mock_actpool
 import (
 	gomock "github.com/golang/mock/gomock"
 	action "github.com/iotexproject/iotex-core/blockchain/action"
+	hash "github.com/iotexproject/iotex-core/pkg/hash"
 	proto "github.com/iotexproject/iotex-core/proto"
 	reflect "reflect"
 )
@@ -117,4 +118,17 @@ func (m *MockActPool) GetUnconfirmedActs(addr string) []*proto.ActionPb {
 // GetUnconfirmedActs indicates an expected call of GetUnconfirmedActs
 func (mr *MockActPoolMockRecorder) GetUnconfirmedActs(addr interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnconfirmedActs", reflect.TypeOf((*MockActPool)(nil).GetUnconfirmedActs), addr)
+}
+
+// GetActionByHash mocks base method
+func (m *MockActPool) GetActionByHash(hash hash.Hash32B) (*proto.ActionPb, error) {
+	ret := m.ctrl.Call(m, "GetActionByHash", hash)
+	ret0, _ := ret[0].(*proto.ActionPb)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetActionByHash indicates an expected call of GetActionByHash
+func (mr *MockActPoolMockRecorder) GetActionByHash(hash interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetActionByHash", reflect.TypeOf((*MockActPool)(nil).GetActionByHash), hash)
 }
