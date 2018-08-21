@@ -39,14 +39,14 @@ type Execution struct {
 	Executor       string
 	Contract       string
 	ExecutorPubKey keypair.PublicKey
-	Gas            uint32
-	GasPrice       uint32
+	Gas            uint64
+	GasPrice       uint64
 	Signature      []byte
 	Data           []byte
 }
 
 // NewExecution returns a Execution instance
-func NewExecution(executorAddress string, contractAddress string, nonce uint64, amount *big.Int, gas uint32, gasPrice uint32, data []byte) (*Execution, error) {
+func NewExecution(executorAddress string, contractAddress string, nonce uint64, amount *big.Int, gas uint64, gasPrice uint64, data []byte) (*Execution, error) {
 	if executorAddress == "" {
 		return nil, errors.Wrap(ErrAddr, "address of the executor is empty")
 	}
@@ -94,10 +94,10 @@ func (ex *Execution) ByteStream() []byte {
 	stream = append(stream, ex.Contract...)
 	stream = append(stream, ex.ExecutorPubKey[:]...)
 	temp = make([]byte, GasSizeInBytes)
-	enc.MachineEndian.PutUint32(temp, ex.Gas)
+	enc.MachineEndian.PutUint64(temp, ex.Gas)
 	stream = append(stream, temp...)
 	temp = make([]byte, GasPriceSizeInBytes)
-	enc.MachineEndian.PutUint32(temp, ex.GasPrice)
+	enc.MachineEndian.PutUint64(temp, ex.GasPrice)
 	stream = append(stream, temp...)
 	// Signature = Sign(hash(ByteStream())), so not included
 	stream = append(stream, ex.Data...)

@@ -31,8 +31,8 @@ message ExecutionPb {
     string executor = 2;
     string contract = 3;
     bytes executorPubKey = 4;
-    uint32 gas = 5;
-    uint32 gasPrice = 6;
+    uint64 gas = 5;
+    uint64 gasPrice = 6;
     bytes data = 7;
 }
 
