@@ -54,6 +54,7 @@ struct Transfer {
     fee int
     timestamp int
     blockID string
+    isPending bool
 }
 
 struct Execution {
@@ -70,6 +71,7 @@ struct Execution {
     timestamp int
     data string
     blockID string
+    isPending bool
 }
 
 struct Vote {
@@ -82,6 +84,7 @@ struct Vote {
     voterPubKey string
     signature string
     blockID string
+    isPending bool
 }
 
 struct AddressDetails {

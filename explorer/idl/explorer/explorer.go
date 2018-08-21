@@ -3,14 +3,13 @@ package explorer
 
 import (
 	"fmt"
-	"reflect"
-
 	"github.com/coopernurse/barrister-go"
+	"reflect"
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "34747da6cc1c565bbaee1db555fe4acb"
-const BarristerDateGenerated int64 = 1534807942107000000
+const BarristerChecksum string = "51e7b00d135c7fe199006a07f2a41d70"
+const BarristerDateGenerated int64 = 1534876207305000000
 
 type CoinStatistic struct {
 	Height    int64 `json:"height"`
@@ -51,6 +50,7 @@ type Transfer struct {
 	Fee          int64  `json:"fee"`
 	Timestamp    int64  `json:"timestamp"`
 	BlockID      string `json:"blockID"`
+	IsPending    bool   `json:"isPending"`
 }
 
 type Execution struct {
@@ -67,6 +67,7 @@ type Execution struct {
 	Timestamp      int64  `json:"timestamp"`
 	Data           string `json:"data"`
 	BlockID        string `json:"blockID"`
+	IsPending      bool   `json:"isPending"`
 }
 
 type Vote struct {
@@ -79,6 +80,7 @@ type Vote struct {
 	VoterPubKey string `json:"voterPubKey"`
 	Signature   string `json:"signature"`
 	BlockID     string `json:"blockID"`
+	IsPending   bool   `json:"isPending"`
 }
 
 type AddressDetails struct {
@@ -872,6 +874,13 @@ var IdlJsonRaw = `[
                 "optional": false,
                 "is_array": false,
                 "comment": ""
+            },
+            {
+                "name": "isPending",
+                "type": "bool",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
             }
         ],
         "values": null,
@@ -977,6 +986,13 @@ var IdlJsonRaw = `[
                 "optional": false,
                 "is_array": false,
                 "comment": ""
+            },
+            {
+                "name": "isPending",
+                "type": "bool",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
             }
         ],
         "values": null,
@@ -1051,6 +1067,13 @@ var IdlJsonRaw = `[
             {
                 "name": "blockID",
                 "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "isPending",
+                "type": "bool",
                 "optional": false,
                 "is_array": false,
                 "comment": ""
@@ -1984,7 +2007,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1534807942107,
-        "checksum": "34747da6cc1c565bbaee1db555fe4acb"
+        "date_generated": 1534876207305,
+        "checksum": "51e7b00d135c7fe199006a07f2a41d70"
     }
 ]`

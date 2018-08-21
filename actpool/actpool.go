@@ -39,6 +39,8 @@ var (
 	ErrBalance = errors.New("invalid balance")
 	// ErrVotee indicates the error of votee
 	ErrVotee = errors.New("votee is not a candidate")
+	// ErrHash indicates the error of action's hash
+	ErrHash = errors.New("invalid hash")
 )
 
 // ActPool is the interface of actpool
@@ -57,6 +59,8 @@ type ActPool interface {
 	GetPendingNonce(addr string) (uint64, error)
 	// GetUnconfirmedActs returns unconfirmed actions in pool given an account address
 	GetUnconfirmedActs(addr string) []*iproto.ActionPb
+	// GetActionByHash returns the pending action in pool given action's hash
+	GetActionByHash(hash hash.Hash32B) (*iproto.ActionPb, error)
 }
 
 // actPool implements ActPool interface
@@ -230,12 +234,16 @@ func (ap *actPool) AddVote(vote *action.Vote) error {
 func (ap *actPool) AddExecution(execution *action.Execution) error {
 	ap.mutex.Lock()
 	defer ap.mutex.Unlock()
+
 	// TOOD (zhi) implement this api
 	return errors.New("Not implemented")
 }
 
 // GetPendingNonce returns pending nonce in pool or confirmed nonce given an account address
 func (ap *actPool) GetPendingNonce(addr string) (uint64, error) {
+	ap.mutex.Lock()
+	defer ap.mutex.Unlock()
+
 	if queue, ok := ap.accountActs[addr]; ok {
 		return queue.PendingNonce(), nil
 	}
@@ -246,10 +254,25 @@ func (ap *actPool) GetPendingNonce(addr string) (uint64, error) {
 
 // GetUnconfirmedActs returns unconfirmed actions in pool given an account address
 func (ap *actPool) GetUnconfirmedActs(addr string) []*iproto.ActionPb {
+	ap.mutex.Lock()
+	defer ap.mutex.Unlock()
+
 	if queue, ok := ap.accountActs[addr]; ok {
 		return queue.AllActs()
 	}
 	return make([]*iproto.ActionPb, 0)
+}
+
+// GetActionByHash returns the pending action in pool given action's hash
+func (ap *actPool) GetActionByHash(hash hash.Hash32B) (*iproto.ActionPb, error) {
+	ap.mutex.Lock()
+	defer ap.mutex.Unlock()
+
+	action, ok := ap.allActions[hash]
+	if !ok {
+		return nil, errors.Wrapf(ErrHash, "action hash %x does not exist in pool", hash)
+	}
+	return action, nil
 }
 
 //======================================
