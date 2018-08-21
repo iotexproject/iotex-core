@@ -24,6 +24,7 @@ const (
 	blockTransferBlockMappingNS         = "transfer<->block"
 	blockVoteBlockMappingNS             = "vote<->block"
 	blockExecutionBlockMappingNS        = "execution<->block"
+	blockExecutionReceiptMappingNS      = "ex<->receipt"
 	blockAddressTransferMappingNS       = "address<->transfer"
 	blockAddressTransferCountMappingNS  = "address<->transfercount"
 	blockAddressVoteMappingNS           = "address<->vote"
@@ -555,26 +556,23 @@ func (dao *blockDAO) putBlock(blk *Block) error {
 		batch.Put(blockExecutionBlockMappingNS, hashKey, hash[:], "failed to put execution hash %x", executionHash)
 	}
 
-	err = putTransfers(dao, blk, batch)
-	if err != nil {
+	if err = putTransfers(dao, blk, batch); err != nil {
 		return err
 	}
 
-	err = putVotes(dao, blk, batch)
-	if err != nil {
+	if err = putVotes(dao, blk, batch); err != nil {
 		return err
 	}
 
-	err = putExecutions(dao, blk, batch)
-	if err != nil {
+	if err = putExecutions(dao, blk, batch); err != nil {
 		return err
 	}
 
-	if err = batch.Commit(); err != nil {
+	if err = putReceipts(dao, blk, batch); err != nil {
 		return err
 	}
 
-	return nil
+	return batch.Commit()
 }
 
 // putTransfers stores transfer information into db
@@ -757,6 +755,17 @@ func putExecutions(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 			byteutil.Uint64ToBytes(contractExecutionCount+1), "failed to bump execution count %x for contract %x",
 			execution.Hash(), execution.Contract)
 	}
+	return nil
+}
 
+// putReceipts store receipt into db
+func putReceipts(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
+	for _, r := range blk.receipts {
+		v, err := r.Serialize()
+		if err != nil {
+			return errors.Wrapf(err, "failed to serialize receipt %x", r.Hash[:])
+		}
+		batch.Put(blockExecutionReceiptMappingNS, r.Hash[:], v[:], "failed to put receipt for execution %x", r.Hash[:])
+	}
 	return nil
 }
