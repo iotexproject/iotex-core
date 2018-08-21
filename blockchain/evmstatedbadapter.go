@@ -63,7 +63,7 @@ func (stateDB *EVMStateDBAdapter) CreateAccount(evmAddr common.Address) {
 		stateDB.logError(err)
 		return
 	}
-	_, err = stateDB.sf.CreateContract(addr.RawAddress)
+	_, err = stateDB.sf.LoadOrCreateState(addr.RawAddress, 0)
 	if err != nil {
 		logger.Error().Err(err).Msg("CreateAccount")
 		// stateDB.logError(err)
@@ -151,6 +151,7 @@ func (stateDB *EVMStateDBAdapter) GetNonce(evmAddr common.Address) uint64 {
 		// stateDB.logError(err)
 		return 0
 	}
+	logger.Info().Uint64("nonce", nonce).Msg("GetNonce")
 	return nonce
 }
 
@@ -169,6 +170,7 @@ func (stateDB *EVMStateDBAdapter) GetCodeHash(evmAddr common.Address) common.Has
 		// stateDB.logError(err)
 		return codeHash
 	}
+	logger.Info().Hex("codeHash", hash[:]).Msg("GetCodeHash")
 	copy(codeHash[:], hash[:])
 	return codeHash
 }
@@ -180,6 +182,7 @@ func (stateDB *EVMStateDBAdapter) GetCode(evmAddr common.Address) []byte {
 		logger.Error().Err(err).Msg("GetCode")
 		return nil
 	}
+	logger.Info().Hex("addrHash", evmAddr[:]).Msg("GetCode")
 	return code
 }
 
@@ -188,6 +191,8 @@ func (stateDB *EVMStateDBAdapter) SetCode(evmAddr common.Address, code []byte) {
 	if err := stateDB.sf.SetCode(byteutil.BytesTo20B(evmAddr[:]), code); err != nil {
 		logger.Error().Err(err).Msg("SetCode")
 	}
+	logger.Info().Hex("hash", hash.Hash256b(code)[:]).Msg("SetCode")
+	logger.Info().Hex("code", code).Msg("SetCode")
 }
 
 // GetCodeSize gets the code size saved in hash
@@ -196,6 +201,7 @@ func (stateDB *EVMStateDBAdapter) GetCodeSize(evmAddr common.Address) int {
 	if code == nil {
 		return 0
 	}
+	logger.Info().Hex("addrHash", evmAddr[:]).Msg("GetCodeSize")
 	return len(code)
 }
 
@@ -218,6 +224,7 @@ func (stateDB *EVMStateDBAdapter) GetState(evmAddr common.Address, k common.Hash
 		logger.Error().Err(err).Msg("GetState")
 		return storage
 	}
+	logger.Info().Hex("k", k[:]).Msg("GetState")
 	copy(storage[:], v[:])
 	return storage
 }
@@ -227,6 +234,7 @@ func (stateDB *EVMStateDBAdapter) SetState(evmAddr common.Address, k, v common.H
 	if err := stateDB.sf.SetContractState(byteutil.BytesTo20B(evmAddr[:]), byteutil.BytesTo32B(k[:]), byteutil.BytesTo32B(v[:])); err != nil {
 		logger.Error().Err(err).Msg("SetState")
 	}
+	logger.Info().Hex("k", k[:]).Hex("v", v[:]).Msg("SetState")
 }
 
 // Suicide kills the contract
@@ -249,8 +257,8 @@ func (stateDB *EVMStateDBAdapter) Exist(evmAddr common.Address) bool {
 		stateDB.logError(err)
 		return false
 	}
-	logger.Info().Msgf("Check existance of %s", addr.RawAddress)
-	if state, err := stateDB.bc.StateByAddr(addr.RawAddress); err != nil || state == nil {
+	logger.Info().Msgf("Check existence of %s", addr.RawAddress)
+	if state, err := stateDB.sf.CachedState(addr.RawAddress); err != nil || state == nil {
 		logger.Info().Msgf("Account %s does not exist", addr.RawAddress)
 		return false
 	}

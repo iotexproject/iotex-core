@@ -441,13 +441,25 @@ func (sf *factory) GetCode(addr hash.AddrHash) ([]byte, error) {
 
 // SetCode sets contract's code
 func (sf *factory) SetCode(addr hash.AddrHash, code []byte) error {
-	contract, err := sf.getContract(addr)
-	if err != nil {
-		return errors.Wrapf(err, "Failed to SetCode for contract %x", addr)
+	rawAddress, err := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, addr[:])
+	state, ok := sf.cachedAccount[rawAddress.RawAddress]
+	if ok {
+		delete(sf.cachedAccount, rawAddress.RawAddress)
+	} else {
+		state, err = sf.getState(addr)
+		if err != nil {
+			return errors.Wrapf(err, "Failed to SetCode for contract %x", addr)
+		}
 	}
+	state.Root = trie.EmptyRoot
+	tr, err := trie.NewTrie(sf.accountTrie.TrieDB(), trie.ContractKVNameSpace, state.Root)
+	if err != nil {
+		return errors.Wrapf(err, "Failed to create storage trie for new contract %x", addr)
+	}
+	// add to contract cache
+	contract := newContract(state, tr)
+	sf.cachedContract[addr] = contract
 	contract.SetCode(byteutil.BytesTo32B(hash.Hash256b(code)), code)
-	logger.Warn().Hex("hash", hash.Hash256b(code)[:]).Msg("SetCode")
-	logger.Warn().Hex("code", code).Msg("SetCode")
 	return nil
 }
 
@@ -473,7 +485,6 @@ func (sf *factory) SetContractState(addr hash.AddrHash, key, value hash.Hash32B)
 	if err := contract.SetState(key, value[:]); err != nil {
 		return errors.Wrapf(err, "Failed to SetContractState for contract %x", addr)
 	}
-	logger.Warn().Hex("key", key[:]).Hex("value", value[:]).Msg("SetContractState")
 	return nil
 }
 
