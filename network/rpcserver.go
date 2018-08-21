@@ -162,7 +162,7 @@ func (s *RPCServer) Start(_ context.Context) error {
 	reflection.Register(s.Server)
 	started := make(chan bool)
 	go func(started chan bool) {
-		logger.Info().Msg("start RPC server")
+		logger.Info().Msgf("start RPC server on %s", s.String())
 		started <- true
 		if err := s.Server.Serve(lis); err != nil {
 			logger.Fatal().Err(err).Msg("Node failed to serve")
