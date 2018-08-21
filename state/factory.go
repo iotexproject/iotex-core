@@ -311,15 +311,8 @@ func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer
 
 	// update pending state changes to trie
 	for address, state := range sf.cachedAccount {
-		ss, err := stateToBytes(state)
-		if err != nil {
-			return err
-		}
-		addr, err := iotxaddress.GetPubkeyHash(address)
-		if err != nil {
-			return errors.Wrap(err, "error when getting the pubkey hash")
-		}
-		if err := sf.accountTrie.Upsert(addr, ss); err != nil {
+		addr, _ := iotxaddress.GetPubkeyHash(address)
+		if err := sf.putState(state, addr); err != nil {
 			return err
 		}
 
@@ -345,11 +338,26 @@ func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer
 		}
 		state := contract.SelfState()
 		// store the account (with new storage trie root) into state trie
-		ss, err := stateToBytes(state)
+		if err := sf.putState(state, addr[:]); err != nil {
+			return err
+		}
+	}
+	// increment Executor's Nonce for every execution in this block
+	for _, e := range executions {
+		addr, _ := iotxaddress.GetPubkeyHash(e.Executor)
+		if state, ok := sf.cachedAccount[e.Executor]; ok {
+			state.Nonce = state.Nonce + 1
+			if err := sf.putState(state, addr); err != nil {
+				return err
+			}
+			continue
+		}
+		state, err := sf.getState(byteutil.BytesTo20B(addr))
 		if err != nil {
 			return err
 		}
-		if err := sf.accountTrie.Upsert(addr[:], ss); err != nil {
+		state.Nonce = state.Nonce + 1
+		if err := sf.putState(state, addr); err != nil {
 			return err
 		}
 	}
@@ -495,7 +503,7 @@ func (sf *factory) CandidatesByHeight(height uint64) ([]*Candidate, error) {
 //======================================
 // private state/account functions
 //======================================
-// getState pulls an existing State
+// getState pulls a State from DB
 func (sf *factory) getState(hash hash.AddrHash) (*State, error) {
 	mstate, err := sf.accountTrie.Get(hash[:])
 	if errors.Cause(err) == trie.ErrNotExist {
@@ -505,6 +513,18 @@ func (sf *factory) getState(hash hash.AddrHash) (*State, error) {
 		return nil, err
 	}
 	return bytesToState(mstate)
+}
+
+// getState stores a State to DB
+func (sf *factory) putState(state *State, addr []byte) error {
+	ss, err := stateToBytes(state)
+	if err != nil {
+		return err
+	}
+	if err := sf.accountTrie.Upsert(addr, ss); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (sf *factory) createContract(addr hash.AddrHash) (Contract, error) {
