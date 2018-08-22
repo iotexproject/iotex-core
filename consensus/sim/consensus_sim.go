@@ -14,12 +14,12 @@ import (
 
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
 	pbsim "github.com/iotexproject/iotex-core/consensus/sim/proto"
 	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/network"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/proto"
 )
@@ -54,16 +54,10 @@ func NewSim(
 	cfg *config.Config,
 	bc blockchain.Blockchain,
 	ap actpool.ActPool,
-	bs blocksync.BlockSync,
+	p2p network.Overlay,
 ) Sim {
-	if bc == nil {
-		logger.Error().Msg("Blockchain is nil")
-		return nil
-	}
-
-	if bs == nil {
-		logger.Error().Msg("Blocksync is nil")
-		return nil
+	if bc == nil || ap == nil || p2p == nil {
+		logger.Panic().Msg("Try to attach to nil blockchain, action pool or p2p interface")
 	}
 
 	cs := &sim{cfg: &cfg.Consensus}
@@ -122,8 +116,7 @@ func NewSim(
 		SetConfig(cfg.Consensus.RollDPoS).
 		SetBlockchain(bc).
 		SetActPool(ap).
-		SetP2P(bs.P2P()).
-		SetBlockSync(bs).
+		SetP2P(p2p).
 		Build()
 	if err != nil {
 		logger.Panic().Err(err).Msg("error when constructing RollDPoS")
@@ -136,16 +129,10 @@ func NewSimByzantine(
 	cfg *config.Config,
 	bc blockchain.Blockchain,
 	ap actpool.ActPool,
-	bs blocksync.BlockSync,
+	p2p network.Overlay,
 ) Sim {
-	if bc == nil {
-		logger.Error().Msg("Blockchain is nil")
-		return nil
-	}
-
-	if bs == nil {
-		logger.Error().Msg("Blocksync is nil")
-		return nil
+	if bc == nil || ap == nil || p2p == nil {
+		logger.Panic().Msg("Try to attach to nil blockchain, action pool or p2p interface")
 	}
 
 	cs := &sim{cfg: &cfg.Consensus}
@@ -203,8 +190,7 @@ func NewSimByzantine(
 		SetConfig(cfg.Consensus.RollDPoS).
 		SetBlockchain(bc).
 		SetActPool(ap).
-		SetP2P(bs.P2P()).
-		SetBlockSync(bs).
+		SetP2P(p2p).
 		Build()
 	if err != nil {
 		logger.Panic().Err(err).Msg("error when constructing RollDPoS")

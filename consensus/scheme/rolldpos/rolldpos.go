@@ -354,7 +354,6 @@ type Builder struct {
 	p2p                    network.Overlay
 	clock                  clock.Clock
 	candidatesByHeightFunc func(uint64) ([]*state.Candidate, error)
-	sync                   blocksync.BlockSync
 }
 
 // NewRollDPoSBuilder instantiates a Builder instance
@@ -406,12 +405,6 @@ func (b *Builder) SetCandidatesByHeightFunc(
 	return b
 }
 
-// SetBlockSync sets block sync APIs
-func (b *Builder) SetBlockSync(sync blocksync.BlockSync) *Builder {
-	b.sync = sync
-	return b
-}
-
 // Build builds a RollDPoS consensus module
 func (b *Builder) Build() (*RollDPoS, error) {
 	if b.chain == nil {
@@ -434,7 +427,6 @@ func (b *Builder) Build() (*RollDPoS, error) {
 		p2p:     b.p2p,
 		clock:   b.clock,
 		candidatesByHeightFunc: b.candidatesByHeightFunc,
-		sync: b.sync,
 	}
 	cfsm, err := newConsensusFSM(&ctx)
 	if err != nil {
