@@ -79,6 +79,7 @@ func NewConsensus(
 	}
 
 	commitBlockCB := func(blk *blockchain.Block) error {
+		ap.Reset()
 		return bc.CommitBlock(blk)
 	}
 
