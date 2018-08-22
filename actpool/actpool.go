@@ -246,6 +246,14 @@ func (ap *actPool) AddExecution(exec *action.Execution) error {
 			Msg("Rejecting existed execution")
 		return fmt.Errorf("existed execution: %x", hash)
 	}
+	// Reject transfer if it fails validation
+	if err := ap.validateExecution(exec); err != nil {
+		logger.Error().
+			Hex("hash", hash[:]).
+			Err(err).
+			Msg("Rejecting invalid execution")
+		return err
+	}
 	// Reject execution if pool space is full
 	if uint64(len(ap.allActions)) >= ap.cfg.MaxNumActsPerPool {
 		logger.Warn().
@@ -339,6 +347,51 @@ func (ap *actPool) validateTsf(tsf *action.Transfer) error {
 	pendingNonce := confirmedNonce + 1
 	if pendingNonce > tsf.Nonce {
 		logger.Error().Msg("Error when validating transfer")
+		return errors.Wrapf(ErrNonce, "nonce too low")
+	}
+	return nil
+}
+
+func (ap *actPool) validateExecution(exec *action.Execution) error {
+	// Reject oversized transfer
+	if exec.Gas > blockchain.GasLimit {
+		logger.Error().Msg("Rejecting execution due to high gas")
+		return errors.Wrapf(ErrGasHigherThanLimit, "Gas is higher than gas limit")
+	}
+	intrinsicGas, err := blockchain.IntrinsicGas(exec.Data)
+	if intrinsicGas > exec.Gas || err != nil {
+		logger.Error().Msg("Rejecting execution due to insufficient gas")
+		return errors.Wrapf(ErrInsufficientGas, "insufficient gas for execution")
+	}
+	// Reject execution of negative amount
+	if exec.Amount.Sign() < 0 {
+		logger.Error().Msg("Error when validating execution amount")
+		return errors.Wrapf(ErrBalance, "negative value")
+	}
+	// check if executor's address is valid
+	if _, err := iotxaddress.GetPubkeyHash(exec.Executor); err != nil {
+		return errors.Wrap(err, "error when getting the pubkey hash")
+	}
+
+	executor, err := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, iotxaddress.ChainID, exec.ExecutorPubKey)
+	if err != nil {
+		logger.Error().Err(err).Msg("Error when validating execution")
+		return errors.Wrapf(err, "invalid address")
+	}
+	// Verify transfer using executor's public key
+	if err := exec.Verify(executor); err != nil {
+		logger.Error().Err(err).Msg("Error when validating execution")
+		return errors.Wrapf(err, "failed to verify Execution signature")
+	}
+	// Reject transfer if nonce is too low
+	confirmedNonce, err := ap.bc.Nonce(executor.RawAddress)
+	if err != nil {
+		logger.Error().Err(err).Msg("Error when validating execution")
+		return errors.Wrapf(err, "invalid nonce value")
+	}
+	pendingNonce := confirmedNonce + 1
+	if pendingNonce > exec.Nonce {
+		logger.Error().Msg("Error when validating execution")
 		return errors.Wrapf(ErrNonce, "nonce too low")
 	}
 	return nil
@@ -463,15 +516,6 @@ func (ap *actPool) addAction(sender string, act *iproto.ActionPb, hash hash.Hash
 				Hex("hash", hash[:]).
 				Msg("Rejecting execution due to insufficient balance")
 			return errors.Wrapf(ErrBalance, "insufficient balance for execution")
-		}
-		if exec.Gas > blockchain.GasLimit {
-			logger.Warn().Hex("hash", hash[:]).Msg("Rejecting execution due to high gas")
-			return errors.Wrapf(ErrGasHigherThanLimit, "Gas is higher than gas limit")
-		}
-		intrinsicGas, err := blockchain.IntrinsicGas(exec.Data)
-		if intrinsicGas > exec.Gas || err != nil {
-			logger.Warn().Hex("hash", hash[:]).Msg("Rejecting execution due to insufficient gas")
-			return errors.Wrapf(ErrInsufficientGas, "insufficient gas for execution")
 		}
 	}
 
