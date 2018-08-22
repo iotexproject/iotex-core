@@ -342,11 +342,14 @@ func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer
 			return err
 		}
 	}
-	// increment Executor's Nonce for every execution in this block
+	// increase Executor's Nonce for every execution in this block
 	for _, e := range executions {
 		addr, _ := iotxaddress.GetPubkeyHash(e.Executor)
 		if state, ok := sf.cachedAccount[e.Executor]; ok {
 			state.Nonce = state.Nonce + 1
+			if e.Nonce > state.Nonce {
+				state.Nonce = e.Nonce
+			}
 			if err := sf.putState(state, addr); err != nil {
 				return err
 			}
@@ -357,6 +360,9 @@ func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer
 			return err
 		}
 		state.Nonce = state.Nonce + 1
+		if e.Nonce > state.Nonce {
+			state.Nonce = e.Nonce
+		}
 		if err := sf.putState(state, addr); err != nil {
 			return err
 		}
