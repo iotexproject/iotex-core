@@ -4,9 +4,11 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
+// To compile the proto, run:
+// protoc --go_out=plugins=grpc:. consensus/sim/proto/sim.proto
 syntax = "proto3";
 
-package simulator;
+package sim;
 
 // The simulator service definition.
 service Simulator {

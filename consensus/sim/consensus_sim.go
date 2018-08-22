@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package consensus
+package sim
 
 import (
 	"context"
@@ -18,11 +18,10 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
+	pbsim "github.com/iotexproject/iotex-core/consensus/sim/proto"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/proto"
-	pb "github.com/iotexproject/iotex-core/proto"
-	pbsim "github.com/iotexproject/iotex-core/simulator/proto/simulator"
 )
 
 const (
@@ -308,7 +307,7 @@ func SeparateMsg(m proto.Message) (uint32, []byte) {
 
 // CombineMsg combines a msgType and msgBody into a single proto.Message
 func CombineMsg(msgType uint32, msgBody []byte) proto.Message {
-	protoMsg, err := pb.TypifyProtoMsg(msgType, msgBody)
+	protoMsg, err := iproto.TypifyProtoMsg(msgType, msgBody)
 
 	if err != nil {
 		logger.Error().Msg("Could not combine msgType and msgBody into a proto.Message object")
