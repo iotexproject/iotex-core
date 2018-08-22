@@ -260,7 +260,7 @@ func TestExplorerApi(t *testing.T) {
 	require.Nil(err)
 	require.Equal(int64(blockchain.Gen.TotalSupply), stats.Supply)
 	require.Equal(int64(4), stats.Height)
-	require.Equal(int64(19), stats.Transfers)
+	require.Equal(int64(32), stats.Transfers)
 	require.Equal(int64(24), stats.Votes)
 	require.Equal(int64(12), stats.Aps)
 

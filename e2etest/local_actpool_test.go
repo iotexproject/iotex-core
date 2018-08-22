@@ -27,11 +27,11 @@ import (
 const (
 	// Make sure the key pairs used here match the genesis block
 	// Sender's public/private key pair
-	fromPubKey  = "ff613a9da51bad8da68c3d33d376600bb70fc336b4e2930946628110c9530618c19d6301d4a1c6f423fc227127494f258d352f086193ff27f9da83326a90df34adf0362988c95403"
-	fromPrivKey = "13da3b1704c8a9a373c0e8166ac5690ddb05292372953e8f8c04a9bb75214ad321655401"
+	fromPubKey  = "327ff28d33245f9921d8ab4311496ae1298dc14a0a0babdb7a6031e7bc180330577c9507e740ee30ecc5b73f0c058d2ed9b580cf7530ddddc71f644838828655e451e0c3108de102"
+	fromPrivKey = "1bafc0a6f9f1e939ba4b180b9bd456cd143d9806cf9046eaaaba01e78ec265524669ad00"
 	// Recipient's public/private key pair
-	toPubKey  = "934bb147113945418d572c63b7840768b5d540cded60e799674b7e24a2bff5ad3ec492068722e18053f18d270bcfe8d299a1cee36e758996b7dfb72a0617f60bdbb16f64062aca06"
-	toPrivKey = "c40f03d0023be07a8d430bed0b825f01c5e480d6985001f337e88f6a9c9df489f7a87101"
+	toPubKey  = "0b19932e0ea8553538ac9c0bec245c1b826f3342a5a79a63a03d637331656f57bde8cb0122bf9b2f0d6a1e4d50b9019b0ef99be21d858a20d7314e780199deb44f8dcc0704f78404"
+	toPrivKey = "c3a6f7a3392a8e4e97d3dc3993b908abc35e7398548fb269a3fb67bc4a37e60270940f01"
 )
 
 func TestLocalActPool(t *testing.T) {
@@ -43,7 +43,6 @@ func TestLocalActPool(t *testing.T) {
 	cfg, err := newActPoolConfig()
 	require.NoError(err)
 
-	blockchain.Gen.TotalSupply = uint64(50 << 22)
 	blockchain.Gen.BlockReward = uint64(0)
 
 	// create server
@@ -109,7 +108,6 @@ func TestPressureActPool(t *testing.T) {
 	cfg, err := newActPoolConfig()
 	require.NoError(err)
 
-	blockchain.Gen.TotalSupply = uint64(50 << 22)
 	blockchain.Gen.BlockReward = uint64(0)
 
 	// create server
