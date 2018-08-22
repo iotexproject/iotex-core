@@ -22,7 +22,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/config"
 	pb "github.com/iotexproject/iotex-core/consensus/sim/proto"
 	"github.com/iotexproject/iotex-core/iotxaddress"
@@ -108,20 +107,15 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 		if err != nil {
 			logger.Fatal().Err(err).Msg("Fail to create actpool")
 		}
-		bs, _ := blocksync.NewBlockSyncer(&cfg, bc, ap, overlay)
-		err = bs.Start(ctx)
-		if err != nil {
-			logger.Fatal().Err(err).Msg("Fail to start blocksync")
-		}
 
 		var node Sim
 		if i < int(in.NHonest) {
-			node = NewSim(&cfg, bc, ap, bs)
+			node = NewSim(&cfg, bc, ap, overlay)
 		} else if i < int(in.NHonest+in.NFS) {
 			s.nodes = append(s.nodes, nil)
 			continue
 		} else {
-			node = NewSimByzantine(&cfg, bc, ap, bs)
+			node = NewSimByzantine(&cfg, bc, ap, overlay)
 		}
 
 		s.nodes = append(s.nodes, node)

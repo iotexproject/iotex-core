@@ -126,7 +126,7 @@ func newServer(cfg *config.Config, chain blockchain.Blockchain) *Server {
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Fail to create blockSyncer")
 	}
-	consensus := consensus.NewConsensus(cfg, chain, actPool, bs)
+	consensus := consensus.NewConsensus(cfg, chain, actPool, p2p)
 	if consensus == nil {
 		logger.Fatal().Msg("Failed to create Consensus")
 	}

@@ -14,11 +14,11 @@ import (
 
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
 	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/network"
 	"github.com/iotexproject/iotex-core/pkg/errcode"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 )
@@ -43,11 +43,10 @@ func NewConsensus(
 	cfg *config.Config,
 	bc blockchain.Blockchain,
 	ap actpool.ActPool,
-	bs blocksync.BlockSync,
+	p2p network.Overlay,
 ) Consensus {
-	if bc == nil || bs == nil {
-		logger.Error().Msg("Try to attach to chain or bs == nil")
-		return nil
+	if bc == nil || ap == nil || p2p == nil {
+		logger.Panic().Msg("Try to attach to nil blockchain, action pool or p2p interface")
 	}
 
 	cs := &IotxConsensus{cfg: &cfg.Consensus}
@@ -74,19 +73,18 @@ func NewConsensus(
 		return blk, nil
 	}
 
-	_ = func(msg proto.Message) error {
-		return bs.P2P().Broadcast(msg)
-	}
-
 	commitBlockCB := func(blk *blockchain.Block) error {
-		err := bc.CommitBlock(blk)
+		if err := bc.CommitBlock(blk); err == nil {
+			return err
+		}
+		// Remove transfers in this block from ActPool and reset ActPool state
 		ap.Reset()
-		return err
+		return nil
 	}
 
 	broadcastBlockCB := func(blk *blockchain.Block) error {
 		if blkPb := blk.ConvertToBlockPb(); blkPb != nil {
-			return bs.P2P().Broadcast(blkPb)
+			return p2p.Broadcast(blkPb)
 		}
 		return nil
 	}
@@ -103,8 +101,7 @@ func NewConsensus(
 			SetConfig(cfg.Consensus.RollDPoS).
 			SetBlockchain(bc).
 			SetActPool(ap).
-			SetP2P(bs.P2P()).
-			SetBlockSync(bs).
+			SetP2P(p2p).
 			Build()
 		if err != nil {
 			logger.Panic().Err(err).Msg("error when constructing RollDPoS")
