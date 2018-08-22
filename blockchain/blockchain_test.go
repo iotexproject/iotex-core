@@ -161,7 +161,7 @@ func TestCreateBlockchain(t *testing.T) {
 	data, err := genesis.Serialize()
 	assert.Nil(err)
 
-	assert.Equal(10, len(genesis.Transfers))
+	assert.Equal(23, len(genesis.Transfers))
 	assert.Equal(21, len(genesis.Votes))
 
 	fmt.Printf("Block size match pass\n")
@@ -371,7 +371,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 
 	totalTransfers, err := bc.GetTotalTransfers()
 	require.Nil(err)
-	require.Equal(totalTransfers, uint64(35))
+	require.Equal(totalTransfers, uint64(48))
 
 	totalVotes, err := bc.GetTotalVotes()
 	require.Nil(err)
@@ -523,7 +523,7 @@ func TestBlockchain_StateByAddr(t *testing.T) {
 
 	s, _ := bc.StateByAddr(Gen.CreatorAddr)
 	require.Equal(uint64(0), s.Nonce)
-	require.Equal(big.NewInt(9900000000), s.Balance)
+	require.Equal(big.NewInt(7700000000), s.Balance)
 	require.Equal(false, s.IsCandidate)
 	require.Equal(big.NewInt(0), s.VotingWeight)
 	require.Equal("", s.Votee)
