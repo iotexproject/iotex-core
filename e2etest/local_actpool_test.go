@@ -75,27 +75,31 @@ func TestLocalActPool(t *testing.T) {
 	tsf1, _ := signedTransfer(from, to, uint64(1), big.NewInt(1))
 	vote2, _ := signedVote(from, from, uint64(2))
 	tsf3, _ := signedTransfer(from, to, uint64(3), big.NewInt(3))
+	// Create contract
+	exec4, _ := signedExecution(from, action.EmptyAddress, uint64(4), big.NewInt(0), uint64(120000), uint64(10), []byte{})
+
 	// Create three invalid actions from "from" to "to"
 	// Existed Vote
-	vote4, _ := signedVote(from, from, uint64(2))
+	vote5, _ := signedVote(from, from, uint64(2))
 	// Coinbase Transfer
-	tsf5, _ := signedTransfer(from, to, uint64(5), big.NewInt(5))
-	tsf5.IsCoinbase = true
+	tsf6, _ := signedTransfer(from, to, uint64(6), big.NewInt(5))
+	tsf6.IsCoinbase = true
 	// Unsigned Vote
-	vote6, _ := action.NewVote(uint64(6), from.RawAddress, from.RawAddress)
+	vote7, _ := action.NewVote(uint64(7), from.RawAddress, from.RawAddress)
 
 	require.NoError(cli.Broadcast(tsf1.ConvertToActionPb()))
 	require.NoError(cli.Broadcast(vote2.ConvertToActionPb()))
 	require.NoError(cli.Broadcast(tsf3.ConvertToActionPb()))
-	require.NoError(cli.Broadcast(vote4.ConvertToActionPb()))
-	require.NoError(cli.Broadcast(tsf5.ConvertToActionPb()))
-	require.NoError(cli.Broadcast(vote6.ConvertToActionPb()))
+	require.NoError(cli.Broadcast(exec4.ConvertToActionPb()))
+	require.NoError(cli.Broadcast(vote5.ConvertToActionPb()))
+	require.NoError(cli.Broadcast(tsf6.ConvertToActionPb()))
+	require.NoError(cli.Broadcast(vote7.ConvertToActionPb()))
 
 	// Wait until server receives all the transfers
 	require.NoError(testutil.WaitUntil(100*time.Millisecond, 5*time.Second, func() (bool, error) {
 		transfers, votes, executions := svr.ActionPool().PickActs()
-		// 2 valid transfers and 1 valid vote
-		return len(transfers) == 2 && len(votes) == 1 && len(executions) == 0, nil
+		// 2 valid transfers and 1 valid vote and 1 valid execution
+		return len(transfers) == 2 && len(votes) == 1 && len(executions) == 1, nil
 	}))
 }
 
@@ -171,6 +175,15 @@ func signedVote(voter *iotxaddress.Address, votee *iotxaddress.Address, nonce ui
 		return nil, err
 	}
 	return vote.Sign(voter)
+}
+
+// Helper function to return a signed execution
+func signedExecution(executor *iotxaddress.Address, contractAddr string, nonce uint64, amount *big.Int, gas uint64, gasPrice uint64, data []byte) (*action.Execution, error) {
+	execution, err := action.NewExecution(executor.RawAddress, contractAddr, nonce, amount, gas, gasPrice, data)
+	if err != nil {
+		return nil, err
+	}
+	return execution.Sign(executor)
 }
 
 func newActPoolConfig() (*config.Config, error) {

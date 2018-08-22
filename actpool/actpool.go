@@ -465,10 +465,12 @@ func (ap *actPool) addAction(sender string, act *iproto.ActionPb, hash hash.Hash
 			return errors.Wrapf(ErrBalance, "insufficient balance for execution")
 		}
 		if exec.Gas > blockchain.GasLimit {
+			logger.Warn().Hex("hash", hash[:]).Msg("Rejecting execution due to high gas")
 			return errors.Wrapf(ErrGasHigherThanLimit, "Gas is higher than gas limit")
 		}
 		intrinsicGas, err := blockchain.IntrinsicGas(exec.Data)
 		if intrinsicGas > exec.Gas || err != nil {
+			logger.Warn().Hex("hash", hash[:]).Msg("Rejecting execution due to insufficient gas")
 			return errors.Wrapf(ErrInsufficientGas, "insufficient gas for execution")
 		}
 	}
