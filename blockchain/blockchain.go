@@ -55,6 +55,8 @@ type Blockchain interface {
 	GetTotalTransfers() (uint64, error)
 	// GetTotalVotes returns the total number of votes
 	GetTotalVotes() (uint64, error)
+	// GetTotalExecutions returns the total number of executions
+	GetTotalExecutions() (uint64, error)
 	// GetTransfersFromAddress returns transaction from address
 	GetTransfersFromAddress(address string) ([]hash.Hash32B, error)
 	// GetTransfersToAddress returns transaction to address
@@ -71,6 +73,14 @@ type Blockchain interface {
 	GetVoteByVoteHash(h hash.Hash32B) (*action.Vote, error)
 	// GetBlockHashByVoteHash returns Block hash by vote hash
 	GetBlockHashByVoteHash(h hash.Hash32B) (hash.Hash32B, error)
+	// GetExecutionsFromAddress returns executions from address
+	GetExecutionsFromAddress(address string) ([]hash.Hash32B, error)
+	// GetExecutionsToAddress returns executions to address
+	GetExecutionsToAddress(address string) ([]hash.Hash32B, error)
+	// GetExecutionByExecutionHash returns execution by execution hash
+	GetExecutionByExecutionHash(h hash.Hash32B) (*action.Execution, error)
+	// GetBlockHashByExecutionHash returns Block hash by execution hash
+	GetBlockHashByExecutionHash(h hash.Hash32B) (hash.Hash32B, error)
 	// GetFactory returns the State Factory
 	GetFactory() state.Factory
 	// TipHash returns tip block's hash
@@ -364,43 +374,32 @@ func (bc *blockchain) GetBlockByHash(h hash.Hash32B) (*Block, error) {
 	return bc.dao.getBlock(h)
 }
 
+// GetTotalTransfers returns the total number of transfers
 func (bc *blockchain) GetTotalTransfers() (uint64, error) {
-	totalTransfers, err := bc.dao.getTotalTransfers()
-	if err != nil {
-		return uint64(0), err
-	}
-
-	return totalTransfers, nil
+	return bc.dao.getTotalTransfers()
 }
 
+// GetTotalVotes returns the total number of votes
 func (bc *blockchain) GetTotalVotes() (uint64, error) {
-	totalVotes, err := bc.dao.getTotalVotes()
-	if err != nil {
-		return uint64(0), err
-	}
-
-	return totalVotes, nil
+	return bc.dao.getTotalVotes()
 }
 
+// GetTotalExecutions returns the total number of executions
+func (bc *blockchain) GetTotalExecutions() (uint64, error) {
+	return bc.dao.getTotalExecutions()
+}
+
+// GetTransfersFromAddress returns transfers from address
 func (bc *blockchain) GetTransfersFromAddress(address string) ([]hash.Hash32B, error) {
-	transfersFromAddress, err := bc.dao.getTransfersBySenderAddress(address)
-	if err != nil {
-		return nil, err
-	}
-
-	return transfersFromAddress, nil
+	return bc.dao.getTransfersBySenderAddress(address)
 }
 
+// GetTransfersToAddress returns transfers to address
 func (bc *blockchain) GetTransfersToAddress(address string) ([]hash.Hash32B, error) {
-	transfersToAddress, err := bc.dao.getTransfersByRecipientAddress(address)
-	if err != nil {
-		return nil, err
-	}
-
-	return transfersToAddress, nil
+	return bc.dao.getTransfersByRecipientAddress(address)
 }
 
-// GetTransferByTransferHash returns transfer by Transfer hash
+// GetTransferByTransferHash returns transfer by transfer hash
 func (bc *blockchain) GetTransferByTransferHash(h hash.Hash32B) (*action.Transfer, error) {
 	blkHash, err := bc.dao.getBlockHashByTransferHash(h)
 	if err != nil {
@@ -423,12 +422,12 @@ func (bc *blockchain) GetBlockHashByTransferHash(h hash.Hash32B) (hash.Hash32B, 
 	return bc.dao.getBlockHashByTransferHash(h)
 }
 
-// GetVoteFromAddress returns vote from address
+// GetVoteFromAddress returns votes from address
 func (bc *blockchain) GetVotesFromAddress(address string) ([]hash.Hash32B, error) {
 	return bc.dao.getVotesBySenderAddress(address)
 }
 
-// GetVoteToAddress returns vote to address
+// GetVoteToAddress returns votes to address
 func (bc *blockchain) GetVotesToAddress(address string) ([]hash.Hash32B, error) {
 	return bc.dao.getVotesByRecipientAddress(address)
 }
@@ -454,6 +453,39 @@ func (bc *blockchain) GetVoteByVoteHash(h hash.Hash32B) (*action.Vote, error) {
 // GetBlockHashByVoteHash returns Block hash by vote hash
 func (bc *blockchain) GetBlockHashByVoteHash(h hash.Hash32B) (hash.Hash32B, error) {
 	return bc.dao.getBlockHashByVoteHash(h)
+}
+
+// GetExecutionsFromAddress returns executions from address
+func (bc *blockchain) GetExecutionsFromAddress(address string) ([]hash.Hash32B, error) {
+	return bc.dao.getExecutionsByExecutorAddress(address)
+}
+
+// GetExecutionsToAddress returns executions to address
+func (bc *blockchain) GetExecutionsToAddress(address string) ([]hash.Hash32B, error) {
+	return bc.dao.getExecutionsByContractAddress(address)
+}
+
+// GetExecutionByExecutionHash returns execution by execution hash
+func (bc *blockchain) GetExecutionByExecutionHash(h hash.Hash32B) (*action.Execution, error) {
+	blkHash, err := bc.dao.getBlockHashByExecutionHash(h)
+	if err != nil {
+		return nil, err
+	}
+	blk, err := bc.dao.getBlock(blkHash)
+	if err != nil {
+		return nil, err
+	}
+	for _, execution := range blk.Executions {
+		if execution.Hash() == h {
+			return execution, nil
+		}
+	}
+	return nil, errors.Errorf("block %x does not have execution %x", blkHash, h)
+}
+
+// GetBlockHashByExecutionHash returns Block hash by execution hash
+func (bc *blockchain) GetBlockHashByExecutionHash(h hash.Hash32B) (hash.Hash32B, error) {
+	return bc.dao.getBlockHashByExecutionHash(h)
 }
 
 // GetFactory returns the State Factory

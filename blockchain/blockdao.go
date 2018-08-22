@@ -19,30 +19,37 @@ import (
 )
 
 const (
-	blockNS                            = "blocks"
-	blockHashHeightMappingNS           = "hash<->height"
-	blockTransferBlockMappingNS        = "transfer<->block"
-	blockVoteBlockMappingNS            = "vote<->block"
-	blockAddressTransferMappingNS      = "address<->transfer"
-	blockAddressTransferCountMappingNS = "address<->transfercount"
-	blockAddressVoteMappingNS          = "address<->vote"
-	blockAddressVoteCountMappingNS     = "address<->votecount"
+	blockNS                             = "blocks"
+	blockHashHeightMappingNS            = "hash<->height"
+	blockTransferBlockMappingNS         = "transfer<->block"
+	blockVoteBlockMappingNS             = "vote<->block"
+	blockExecutionBlockMappingNS        = "execution<->block"
+	blockAddressTransferMappingNS       = "address<->transfer"
+	blockAddressTransferCountMappingNS  = "address<->transfercount"
+	blockAddressVoteMappingNS           = "address<->vote"
+	blockAddressVoteCountMappingNS      = "address<->votecount"
+	blockAddressExecutionMappingNS      = "address<->execution"
+	blockAddressExecutionCountMappingNS = "address<->executioncount"
 )
 
 var (
-	hashPrefix     = []byte("hash.")
-	transferPrefix = []byte("transfer.")
-	votePrefix     = []byte("vote.")
-	heightPrefix   = []byte("height.")
+	hashPrefix      = []byte("hash.")
+	transferPrefix  = []byte("transfer.")
+	votePrefix      = []byte("vote.")
+	executionPrefix = []byte("execution.")
+	heightPrefix    = []byte("height.")
 	// mutate this field is not thread safe, pls only mutate it in putBlock!
 	topHeightKey = []byte("top-height")
 	// mutate this field is not thread safe, pls only mutate it in putBlock!
-	totalTransfersKey  = []byte("total-transfers")
-	totalVotesKey      = []byte("total-votes")
-	transferFromPrefix = []byte("transfer-from.")
-	transferToPrefix   = []byte("transfer-to.")
-	voteFromPrefix     = []byte("vote-from.")
-	voteToPrefix       = []byte("vote-to.")
+	totalTransfersKey   = []byte("total-transfers")
+	totalVotesKey       = []byte("total-votes")
+	totalExecutionsKey  = []byte("total-executions")
+	transferFromPrefix  = []byte("transfer-from.")
+	transferToPrefix    = []byte("transfer-to.")
+	voteFromPrefix      = []byte("vote-from.")
+	voteToPrefix        = []byte("vote-to.")
+	executionFromPrefix = []byte("execution-from")
+	executionToPrefix   = []byte("execution-to")
 )
 
 var _ lifecycle.StartStopper = (*blockDAO)(nil)
@@ -77,15 +84,18 @@ func (dao *blockDAO) Start(ctx context.Context) error {
 	}
 
 	// set init total transfer to be 0
-	err = dao.kvstore.PutIfNotExists(blockNS, totalTransfersKey, make([]byte, 8))
-	if err != nil {
+	if err = dao.kvstore.PutIfNotExists(blockNS, totalTransfersKey, make([]byte, 8)); err != nil {
 		return errors.Wrap(err, "failed to write initial value for total transfers")
 	}
 
 	// set init total vote to be 0
-	err = dao.kvstore.PutIfNotExists(blockNS, totalVotesKey, make([]byte, 8))
-	if err != nil {
+	if err = dao.kvstore.PutIfNotExists(blockNS, totalVotesKey, make([]byte, 8)); err != nil {
 		return errors.Wrap(err, "failed to write initial value for total votes")
+	}
+
+	// set init total executions to be 0
+	if err = dao.kvstore.PutIfNotExists(blockNS, totalExecutionsKey, make([]byte, 8)); err != nil {
+		return errors.Wrap(err, "failed to write initial value for total executions")
 	}
 
 	return nil
@@ -166,6 +176,21 @@ func (dao *blockDAO) getBlockHashByVoteHash(h hash.Hash32B) (hash.Hash32B, error
 	return blkHash, nil
 }
 
+func (dao *blockDAO) getBlockHashByExecutionHash(h hash.Hash32B) (hash.Hash32B, error) {
+	blkHash := hash.ZeroHash32B
+	key := append(executionPrefix, h[:]...)
+	value, err := dao.kvstore.Get(blockExecutionBlockMappingNS, key)
+	if err != nil {
+		return blkHash, errors.Wrapf(err, "failed to get execution %x", h)
+	}
+	if len(value) == 0 {
+		return blkHash, errors.Wrapf(db.ErrNotExist, "execution %x missing", h)
+	}
+	copy(blkHash[:], value)
+	return blkHash, nil
+}
+
+// getTransfersBySenderAddress returns transfers for sender
 func (dao *blockDAO) getTransfersBySenderAddress(address string) ([]hash.Hash32B, error) {
 	// get transfers count for sender
 	senderTransferCount, err := dao.getTransferCountBySenderAddress(address)
@@ -181,6 +206,7 @@ func (dao *blockDAO) getTransfersBySenderAddress(address string) ([]hash.Hash32B
 	return res, nil
 }
 
+// getTransferCountBySenderAddress returns transfer count by sender address
 func (dao *blockDAO) getTransferCountBySenderAddress(address string) (uint64, error) {
 	senderTransferCountKey := append(transferFromPrefix, address...)
 	value, err := dao.kvstore.Get(blockAddressTransferCountMappingNS, senderTransferCountKey)
@@ -193,6 +219,7 @@ func (dao *blockDAO) getTransferCountBySenderAddress(address string) (uint64, er
 	return enc.MachineEndian.Uint64(value), nil
 }
 
+// getTransfersByRecipientAddress returns transfers for recipient
 func (dao *blockDAO) getTransfersByRecipientAddress(address string) ([]hash.Hash32B, error) {
 	// get transfers count for recipient
 	recipientTransferCount, getCountErr := dao.getTransferCountByRecipientAddress(address)
@@ -208,6 +235,7 @@ func (dao *blockDAO) getTransfersByRecipientAddress(address string) ([]hash.Hash
 	return res, nil
 }
 
+// getTransfersByAddress returns transfers by address
 func (dao *blockDAO) getTransfersByAddress(address string, count uint64, keyPrefix []byte) ([]hash.Hash32B, error) {
 	var res []hash.Hash32B
 
@@ -230,6 +258,7 @@ func (dao *blockDAO) getTransfersByAddress(address string, count uint64, keyPref
 	return res, nil
 }
 
+// getTransferCountByRecipientAddress returns transfer count by recipient address
 func (dao *blockDAO) getTransferCountByRecipientAddress(address string) (uint64, error) {
 	recipientTransferCountKey := append(transferToPrefix, address...)
 	value, err := dao.kvstore.Get(blockAddressTransferCountMappingNS, recipientTransferCountKey)
@@ -242,7 +271,7 @@ func (dao *blockDAO) getTransferCountByRecipientAddress(address string) (uint64,
 	return enc.MachineEndian.Uint64(value), nil
 }
 
-// getVotesBySenderAddress returns votes count for sender
+// getVotesBySenderAddress returns votes for sender
 func (dao *blockDAO) getVotesBySenderAddress(address string) ([]hash.Hash32B, error) {
 	senderVoteCount, err := dao.getVoteCountBySenderAddress(address)
 	if err != nil {
@@ -321,6 +350,87 @@ func (dao *blockDAO) getVoteCountByRecipientAddress(address string) (uint64, err
 	return enc.MachineEndian.Uint64(value), nil
 }
 
+// getExecutionsByExecutorAddress returns executions for executor
+func (dao *blockDAO) getExecutionsByExecutorAddress(address string) ([]hash.Hash32B, error) {
+	// get executions count for sender
+	executorExecutionCount, err := dao.getExecutionCountByExecutorAddress(address)
+	if err != nil {
+		return nil, errors.Wrapf(err, "for executor %x", address)
+	}
+
+	res, getExecutionsErr := dao.getExecutionsByAddress(address, executorExecutionCount, executionFromPrefix)
+	if getExecutionsErr != nil {
+		return nil, getExecutionsErr
+	}
+
+	return res, nil
+}
+
+// getExecutionCountByExecutorAddress returns execution count by executor address
+func (dao *blockDAO) getExecutionCountByExecutorAddress(address string) (uint64, error) {
+	executorExecutionCountKey := append(executionFromPrefix, address...)
+	value, err := dao.kvstore.Get(blockAddressExecutionCountMappingNS, executorExecutionCountKey)
+	if err != nil {
+		return 0, nil
+	}
+	if len(value) == 0 {
+		return 0, errors.New("count of executions as contract is broken")
+	}
+	return enc.MachineEndian.Uint64(value), nil
+}
+
+// getExecutionsByContractAddress returns executions for contract
+func (dao *blockDAO) getExecutionsByContractAddress(address string) ([]hash.Hash32B, error) {
+	// get execution count for contract
+	contractExecutionCount, getCountErr := dao.getExecutionCountByContractAddress(address)
+	if getCountErr != nil {
+		return nil, errors.Wrapf(getCountErr, "for contract %x", address)
+	}
+
+	res, getExecutionsErr := dao.getExecutionsByAddress(address, contractExecutionCount, executionToPrefix)
+	if getExecutionsErr != nil {
+		return nil, getExecutionsErr
+	}
+
+	return res, nil
+}
+
+// getExecutionsByAddress returns executions by address
+func (dao *blockDAO) getExecutionsByAddress(address string, count uint64, keyPrefix []byte) ([]hash.Hash32B, error) {
+	var res []hash.Hash32B
+
+	for i := uint64(0); i < count; i++ {
+		// put new execution to recipient
+		key := append(keyPrefix, address...)
+		key = append(key, byteutil.Uint64ToBytes(i)...)
+		value, err := dao.kvstore.Get(blockAddressExecutionMappingNS, key)
+		if err != nil {
+			return res, errors.Wrapf(err, "failed to get execution for index %x", i)
+		}
+		if len(value) == 0 {
+			return res, errors.Wrapf(db.ErrNotExist, "execution for index %x missing", i)
+		}
+		executionHash := hash.ZeroHash32B
+		copy(executionHash[:], value)
+		res = append(res, executionHash)
+	}
+
+	return res, nil
+}
+
+// getExecutionCountByContractAddress returns execution count by contract address
+func (dao *blockDAO) getExecutionCountByContractAddress(address string) (uint64, error) {
+	contractExecutionCountKey := append(executionToPrefix, address...)
+	value, err := dao.kvstore.Get(blockAddressExecutionCountMappingNS, contractExecutionCountKey)
+	if err != nil {
+		return 0, nil
+	}
+	if len(value) == 0 {
+		return 0, errors.New("count of executions as contract is broken")
+	}
+	return enc.MachineEndian.Uint64(value), nil
+}
+
 // getBlockchainHeight returns the blockchain height
 func (dao *blockDAO) getBlockchainHeight() (uint64, error) {
 	value, err := dao.kvstore.Get(blockNS, topHeightKey)
@@ -353,6 +463,18 @@ func (dao *blockDAO) getTotalVotes() (uint64, error) {
 	}
 	if len(value) == 0 {
 		return 0, errors.Wrap(db.ErrNotExist, "total votes missing")
+	}
+	return enc.MachineEndian.Uint64(value), nil
+}
+
+// getTotalExecutions returns the total number of executions
+func (dao *blockDAO) getTotalExecutions() (uint64, error) {
+	value, err := dao.kvstore.Get(blockNS, totalExecutionsKey)
+	if err != nil {
+		return 0, errors.Wrap(err, "failed to get total executions")
+	}
+	if len(value) == 0 {
+		return 0, errors.Wrap(db.ErrNotExist, "total executions missing")
 	}
 	return enc.MachineEndian.Uint64(value), nil
 }
@@ -403,6 +525,15 @@ func (dao *blockDAO) putBlock(blk *Block) error {
 	totalVotesBytes := byteutil.Uint64ToBytes(totalVotes)
 	batch.Put(blockNS, totalVotesKey, totalVotesBytes, "failed to put total votes")
 
+	value, err = dao.kvstore.Get(blockNS, totalExecutionsKey)
+	if err != nil {
+		return errors.Wrap(err, "failed to get total executions")
+	}
+	totalExecutions := enc.MachineEndian.Uint64(value)
+	totalExecutions += uint64(len(blk.Executions))
+	totalExecutionsBytes := byteutil.Uint64ToBytes(totalExecutions)
+	batch.Put(blockNS, totalExecutionsKey, totalExecutionsBytes, "failed to put total executions")
+
 	// map Transfer hash to block hash
 	for _, transfer := range blk.Transfers {
 		transferHash := transfer.Hash()
@@ -417,12 +548,24 @@ func (dao *blockDAO) putBlock(blk *Block) error {
 		batch.Put(blockVoteBlockMappingNS, hashKey, hash[:], "failed to put vote hash %x", voteHash)
 	}
 
+	// map execution hash to block hash
+	for _, execution := range blk.Executions {
+		executionHash := execution.Hash()
+		hashKey := append(executionPrefix, executionHash[:]...)
+		batch.Put(blockExecutionBlockMappingNS, hashKey, hash[:], "failed to put execution hash %x", executionHash)
+	}
+
 	err = putTransfers(dao, blk, batch)
 	if err != nil {
 		return err
 	}
 
 	err = putVotes(dao, blk, batch)
+	if err != nil {
+		return err
+	}
+
+	err = putExecutions(dao, blk, batch)
 	if err != nil {
 		return err
 	}
@@ -434,7 +577,7 @@ func (dao *blockDAO) putBlock(blk *Block) error {
 	return nil
 }
 
-// putTransfers store transfer information into db
+// putTransfers stores transfer information into db
 func putTransfers(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 	senderDelta := map[string]uint64{}
 	recipientDelta := map[string]uint64{}
@@ -494,7 +637,7 @@ func putTransfers(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 	return nil
 }
 
-// putVotes store vote information into db
+// putVotes stores vote information into db
 func putVotes(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 	senderDelta := map[string]uint64{}
 	recipientDelta := map[string]uint64{}
@@ -553,6 +696,66 @@ func putVotes(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 		batch.Put(blockAddressVoteCountMappingNS, recipientVoteCountKey,
 			byteutil.Uint64ToBytes(recipientVoteCount+1), "failed to bump vote count %x for recipient %x",
 			voteHash, Recipient)
+	}
+
+	return nil
+}
+
+// putExecutions stores execution information into db
+func putExecutions(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
+	executorDelta := map[string]uint64{}
+	contractDelta := map[string]uint64{}
+
+	for _, execution := range blk.Executions {
+		executionHash := execution.Hash()
+
+		// get execution count for executor
+		executorExecutionCount, err := dao.getExecutionCountByExecutorAddress(execution.Executor)
+		if err != nil {
+			return errors.Wrapf(err, "for executor %x", execution.Executor)
+		}
+		if delta, ok := executorDelta[execution.Executor]; ok {
+			executorExecutionCount += delta
+			executorDelta[execution.Executor] = executorDelta[execution.Executor] + 1
+		} else {
+			executorDelta[execution.Executor] = 1
+		}
+
+		// put new execution to executor
+		executorKey := append(executionFromPrefix, execution.Executor...)
+		executorKey = append(executorKey, byteutil.Uint64ToBytes(executorExecutionCount)...)
+		batch.PutIfNotExists(blockAddressExecutionMappingNS, executorKey, executionHash[:], "failed to put execution hash %x for executor %x",
+			execution.Hash(), execution.Executor)
+
+		// update executor executions count
+		executorExecutionCountKey := append(executionFromPrefix, execution.Executor...)
+		batch.Put(blockAddressExecutionCountMappingNS, executorExecutionCountKey,
+			byteutil.Uint64ToBytes(executorExecutionCount+1), "failed to bump execution count %x for executor %x",
+			execution.Hash(), execution.Executor)
+
+		// get execution count for contract
+		contractExecutionCount, err := dao.getExecutionCountByContractAddress(execution.Contract)
+		if err != nil {
+			return errors.Wrapf(err, "for contract %x", execution.Contract)
+		}
+		if delta, ok := contractDelta[execution.Contract]; ok {
+			contractExecutionCount += delta
+			contractDelta[execution.Contract] = contractDelta[execution.Contract] + 1
+		} else {
+			contractDelta[execution.Contract] = 1
+		}
+
+		// put new execution to contract
+		contractKey := append(executionToPrefix, execution.Contract...)
+		contractKey = append(contractKey, byteutil.Uint64ToBytes(contractExecutionCount)...)
+		batch.PutIfNotExists(blockAddressExecutionMappingNS, contractKey, executionHash[:], "failed to put execution hash %x for contract %x",
+			execution.Hash(), execution.Contract)
+
+		// update contract executions count
+		contractExecutionCountKey := append(executionToPrefix, execution.Contract...)
+		batch.Put(blockAddressExecutionCountMappingNS, contractExecutionCountKey,
+			byteutil.Uint64ToBytes(contractExecutionCount+1), "failed to bump execution count %x for contract %x",
+			execution.Hash(), execution.Contract)
 	}
 
 	return nil
