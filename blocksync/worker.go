@@ -74,7 +74,7 @@ func (w *syncWorker) Sync() {
 
 	peers := w.p2p.GetPeers()
 	if len(peers) == 0 {
-		logger.Error().Msg("No peer exist to sync with.")
+		logger.Info().Msg("No peer exist to sync with.")
 		return
 	}
 	intervals := w.buf.GetBlocksIntervalsToSync(w.targetHeight)
