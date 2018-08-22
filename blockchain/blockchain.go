@@ -81,6 +81,8 @@ type Blockchain interface {
 	GetExecutionByExecutionHash(h hash.Hash32B) (*action.Execution, error)
 	// GetBlockHashByExecutionHash returns Block hash by execution hash
 	GetBlockHashByExecutionHash(h hash.Hash32B) (hash.Hash32B, error)
+	// GetReceiptByExecutionHash returns the receipt by execution hash
+	GetReceiptByExecutionHash(h hash.Hash32B) (*Receipt, error)
 	// GetFactory returns the State Factory
 	GetFactory() state.Factory
 	// TipHash returns tip block's hash
@@ -486,6 +488,11 @@ func (bc *blockchain) GetExecutionByExecutionHash(h hash.Hash32B) (*action.Execu
 // GetBlockHashByExecutionHash returns Block hash by execution hash
 func (bc *blockchain) GetBlockHashByExecutionHash(h hash.Hash32B) (hash.Hash32B, error) {
 	return bc.dao.getBlockHashByExecutionHash(h)
+}
+
+// GetReceiptByExecutionHash returns the receipt by execution hash
+func (bc *blockchain) GetReceiptByExecutionHash(h hash.Hash32B) (*Receipt, error) {
+	return bc.dao.getReceiptByExecutionHash(h)
 }
 
 // GetFactory returns the State Factory
