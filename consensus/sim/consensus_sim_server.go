@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package main
+package sim
 
 import (
 	"context"
@@ -24,13 +24,12 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/consensus"
+	pb "github.com/iotexproject/iotex-core/consensus/sim/proto"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
-	pb "github.com/iotexproject/iotex-core/simulator/proto/simulator"
 )
 
 const (
@@ -41,7 +40,7 @@ const (
 // server is used to implement message.SimulatorServer.
 type (
 	server struct {
-		nodes []consensus.Sim // slice of Consensus objects
+		nodes []Sim // slice of Consensus objects
 	}
 	byzVal struct {
 		val blockchain.Validator
@@ -115,14 +114,14 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 			logger.Fatal().Err(err).Msg("Fail to start blocksync")
 		}
 
-		var node consensus.Sim
+		var node Sim
 		if i < int(in.NHonest) {
-			node = consensus.NewSim(&cfg, bc, ap, bs)
+			node = NewSim(&cfg, bc, ap, bs)
 		} else if i < int(in.NHonest+in.NFS) {
 			s.nodes = append(s.nodes, nil)
 			continue
 		} else {
-			node = consensus.NewSimByzantine(&cfg, bc, ap, bs)
+			node = NewSimByzantine(&cfg, bc, ap, bs)
 		}
 
 		s.nodes = append(s.nodes, node)
@@ -171,7 +170,7 @@ func (s *server) Ping(in *pb.Request, stream pb.Simulator_PingServer) error {
 
 	// message type of 1999 means that it's a dummy message to allow the engine to pass back proposed blocks
 	if in.InternalMsgType != dummyMsgType {
-		msg := consensus.CombineMsg(in.InternalMsgType, msgValue)
+		msg := CombineMsg(in.InternalMsgType, msgValue)
 		err = s.nodes[in.PlayerID].HandleViewChange(msg, done)
 		if err != nil {
 			logger.Error().Err(err).Msg("failed to handle view change")
