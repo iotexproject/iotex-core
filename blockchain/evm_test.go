@@ -16,6 +16,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -62,6 +63,12 @@ func TestEVM(t *testing.T) {
 	require.Nil(err)
 	require.Equal(data[31:], code)
 
+	eHash := execution.Hash()
+	r, _ := bc.GetReceiptByExecutionHash(eHash)
+	require.Equal(eHash, r.Hash)
+	addrHash, _ := iotxaddress.GetPubkeyHash(r.ContractAddress)
+	require.Equal(contractAddrHash[:], addrHash)
+
 	// store to key 0
 	contractAddr := "io1qyqsyqcy3kcd2pyfwus69nzgvkwhg8mk8h336dt86pg6cj"
 	data, _ = hex.DecodeString("60fe47b1000000000000000000000000000000000000000000000000000000000000000f")
@@ -80,6 +87,10 @@ func TestEVM(t *testing.T) {
 	require.Nil(err)
 	require.Equal(byte(15), v[31])
 
+	eHash = execution.Hash()
+	r, _ = bc.GetReceiptByExecutionHash(eHash)
+	require.Equal(eHash, r.Hash)
+
 	// read from key 0
 	contractAddr = "io1qyqsyqcy3kcd2pyfwus69nzgvkwhg8mk8h336dt86pg6cj"
 	data, _ = hex.DecodeString("6d4ce63c")
@@ -93,6 +104,10 @@ func TestEVM(t *testing.T) {
 	require.NoError(err)
 	require.Nil(bc.CommitBlock(blk))
 	require.Equal(1, len(blk.receipts))
+
+	eHash = execution.Hash()
+	r, _ = bc.GetReceiptByExecutionHash(eHash)
+	require.Equal(eHash, r.Hash)
 }
 
 func TestLogReceipt(t *testing.T) {

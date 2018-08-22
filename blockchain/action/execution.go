@@ -26,6 +26,9 @@ import (
 	"github.com/iotexproject/iotex-core/proto"
 )
 
+// EmptyAddress is the empty string
+const EmptyAddress = ""
+
 var (
 	// ErrExecutionError indicates error for an execution action
 	ErrExecutionError = errors.New("execution error")
