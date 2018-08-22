@@ -172,6 +172,7 @@ loop:
 // handleActionMsg handles actionMsg from all peers.
 func (d *IotxDispatcher) handleActionMsg(m *actionMsg) {
 	d.updateEventAudit(pb.MsgActionType)
+	logger.Info().Msgf("Action: %+v", m.action)
 	if pbTsf := m.action.GetTransfer(); pbTsf != nil {
 		tsf := &action.Transfer{}
 		tsf.ConvertFromActionPb(m.action)
@@ -183,6 +184,12 @@ func (d *IotxDispatcher) handleActionMsg(m *actionMsg) {
 		vote.ConvertFromActionPb(m.action)
 		if err := d.ap.AddVote(vote); err != nil {
 			logger.Error().Err(err)
+		}
+	} else if pbExecution := m.action.GetExecution(); pbExecution != nil {
+		execution := &action.Execution{}
+		execution.ConvertFromActionPb(m.action)
+		if err := d.ap.AddExecution(execution); err != nil {
+			logger.Error().Err(err).Msg("Failed to add execution")
 		}
 	}
 	// signal to let caller know we are done
