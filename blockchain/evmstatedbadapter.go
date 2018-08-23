@@ -69,7 +69,7 @@ func (stateDB *EVMStateDBAdapter) CreateAccount(evmAddr common.Address) {
 		// stateDB.logError(err)
 		return
 	}
-	logger.Info().Hex("addrHash", evmAddr[:]).Msg("CreateAccount")
+	logger.Warn().Hex("addrHash", evmAddr[:]).Msg("CreateAccount")
 }
 
 // SubBalance subtracts balance from account
@@ -191,8 +191,8 @@ func (stateDB *EVMStateDBAdapter) SetCode(evmAddr common.Address, code []byte) {
 	if err := stateDB.sf.SetCode(byteutil.BytesTo20B(evmAddr[:]), code); err != nil {
 		logger.Error().Err(err).Msg("SetCode")
 	}
-	logger.Info().Hex("hash", hash.Hash256b(code)[:]).Msg("SetCode")
-	logger.Info().Hex("code", code).Msg("SetCode")
+	logger.Warn().Hex("hash", hash.Hash256b(code)[:]).Msg("SetCode")
+	logger.Warn().Hex("code", code).Msg("SetCode")
 }
 
 // GetCodeSize gets the code size saved in hash
@@ -224,7 +224,7 @@ func (stateDB *EVMStateDBAdapter) GetState(evmAddr common.Address, k common.Hash
 		logger.Error().Err(err).Msg("GetState")
 		return storage
 	}
-	logger.Info().Hex("k", k[:]).Msg("GetState")
+	logger.Warn().Hex("addrHash", evmAddr[:]).Hex("k", k[:]).Msg("GetState")
 	copy(storage[:], v[:])
 	return storage
 }
@@ -233,8 +233,9 @@ func (stateDB *EVMStateDBAdapter) GetState(evmAddr common.Address, k common.Hash
 func (stateDB *EVMStateDBAdapter) SetState(evmAddr common.Address, k, v common.Hash) {
 	if err := stateDB.sf.SetContractState(byteutil.BytesTo20B(evmAddr[:]), byteutil.BytesTo32B(k[:]), byteutil.BytesTo32B(v[:])); err != nil {
 		logger.Error().Err(err).Msg("SetState")
+		return
 	}
-	logger.Info().Hex("k", k[:]).Hex("v", v[:]).Msg("SetState")
+	logger.Warn().Hex("addrHash", evmAddr[:]).Hex("k", k[:]).Hex("v", v[:]).Msg("SetState")
 }
 
 // Suicide kills the contract
