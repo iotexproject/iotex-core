@@ -46,3 +46,25 @@ func TestVoteSerializedDeserialize(t *testing.T) {
 	require.Equal(v.Hash(), newv.Hash())
 	require.Equal(v.TotalSize(), newv.TotalSize())
 }
+
+func TestVoteToJSONFromJSON(t *testing.T) {
+	require := require.New(t)
+	sender, err := iotxaddress.NewAddress(true, chainid)
+	require.Nil(err)
+	recipient, err := iotxaddress.NewAddress(true, chainid)
+	require.Nil(err)
+
+	v, err := NewVote(0, sender.RawAddress, recipient.RawAddress)
+	require.NoError(err)
+
+	expv, err := v.ToJSON()
+	require.Nil(err)
+	require.NotNil(expv)
+
+	newv, err := NewVoteFromJSON(expv)
+	require.Nil(err)
+	require.NotNil(newv)
+
+	require.Equal(v.Hash(), newv.Hash())
+	require.Equal(v.TotalSize(), newv.TotalSize())
+}

@@ -72,3 +72,32 @@ func TestExecutionSerializeDeserialize(t *testing.T) {
 	require.Equal(ex.Hash(), newex.Hash())
 	require.Equal(ex.TotalSize(), newex.TotalSize())
 }
+
+func TestExecutionToJSONFromJSON(t *testing.T) {
+	require := require.New(t)
+	executor, err := iotxaddress.NewAddress(true, chainid)
+	require.Nil(err)
+	contract, err := iotxaddress.NewAddress(true, chainid)
+	require.Nil(err)
+	data, err := hex.DecodeString("60652403")
+
+	ex, err := NewExecution(executor.RawAddress, contract.RawAddress, 0, big.NewInt(123), 1234, 10, data)
+	require.NoError(err)
+	require.NotNil(ex)
+
+	expex, err := ex.ToJSON()
+	require.Nil(err)
+	require.NotNil(expex)
+
+	newex, err := NewExecutionFromJSON(expex)
+	require.Nil(err)
+	require.NotNil(newex)
+
+	require.Equal(uint64(0), newex.Nonce)
+	require.Equal(uint64(123), newex.Amount.Uint64())
+	require.Equal(executor.RawAddress, newex.Executor)
+	require.Equal(contract.RawAddress, newex.Contract)
+
+	require.Equal(ex.Hash(), newex.Hash())
+	require.Equal(ex.TotalSize(), newex.TotalSize())
+}

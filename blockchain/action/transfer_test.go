@@ -71,3 +71,30 @@ func TestTransferSerializeDeserialize(t *testing.T) {
 	require.Equal(tsf.Hash(), newtsf.Hash())
 	require.Equal(tsf.TotalSize(), newtsf.TotalSize())
 }
+
+func TestTransferToJSONFromJSON(t *testing.T) {
+	require := require.New(t)
+	sender, err := iotxaddress.NewAddress(true, chainid)
+	require.Nil(err)
+	recipient, err := iotxaddress.NewAddress(true, chainid)
+	require.Nil(err)
+
+	tsf, err := NewTransfer(0, big.NewInt(38291), sender.RawAddress, recipient.RawAddress)
+	require.NoError(err)
+	require.NotNil(tsf)
+
+	exptsf := tsf.ToJSON()
+	require.NotNil(exptsf)
+
+	newtsf, err := NewTransferFromJSON(exptsf)
+	require.Nil(err)
+	require.NotNil(newtsf)
+
+	require.Equal(uint64(0), newtsf.Nonce)
+	require.Equal(uint64(38291), newtsf.Amount.Uint64())
+	require.Equal(sender.RawAddress, newtsf.Sender)
+	require.Equal(recipient.RawAddress, newtsf.Recipient)
+
+	require.Equal(tsf.Hash(), newtsf.Hash())
+	require.Equal(tsf.TotalSize(), newtsf.TotalSize())
+}
