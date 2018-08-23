@@ -15,6 +15,7 @@ import (
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/action"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/dispatch/dispatcher"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
@@ -37,12 +38,12 @@ var (
 
 // Service provide api for user to query blockchain data
 type Service struct {
-	bc        blockchain.Blockchain
-	c         consensus.Consensus
-	dp        dispatcher.Dispatcher
-	ap        actpool.ActPool
-	p2p       network.Overlay
-	tpsWindow int
+	bc  blockchain.Blockchain
+	c   consensus.Consensus
+	dp  dispatcher.Dispatcher
+	ap  actpool.ActPool
+	p2p network.Overlay
+	cfg config.Explorer
 }
 
 // GetBlockchainHeight returns the current blockchain tip height
@@ -518,7 +519,7 @@ func (exp *Service) GetCoinStatistic() (explorer.CoinStatistic, error) {
 		return stat, err
 	}
 
-	blockLimit := int64(exp.tpsWindow)
+	blockLimit := int64(exp.cfg.TpsWindow)
 	if blockLimit <= 0 {
 		return stat, errors.Wrapf(ErrInternalServer, "block limit is %d", blockLimit)
 	}
@@ -632,6 +633,14 @@ func (exp *Service) SendTransfer(tsfJSON explorer.SendTransferRequest) (explorer
 	payload, err := hex.DecodeString(tsfJSON.Payload)
 	if err != nil {
 		return explorer.SendTransferResponse{}, err
+	}
+	if uint64(len(payload)) > exp.cfg.MaxTransferPayloadBytes {
+		return explorer.SendTransferResponse{}, errors.Wrapf(
+			ErrTransfer,
+			"transfer payload contains %d bytes, and is longer than %d bytes limit",
+			len(payload),
+			exp.cfg.MaxTransferPayloadBytes,
+		)
 	}
 	senderPubKey, err := keypair.StringToPubKeyBytes(tsfJSON.SenderPubKey)
 	if err != nil {

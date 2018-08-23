@@ -8,12 +8,15 @@ package explorer
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"net"
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/actpool"
@@ -153,9 +156,12 @@ func TestExplorerApi(t *testing.T) {
 	require.NoError(err)
 
 	svc := Service{
-		bc:        bc,
-		ap:        ap,
-		tpsWindow: 10,
+		bc: bc,
+		ap: ap,
+		cfg: config.Explorer{
+			TpsWindow:               10,
+			MaxTransferPayloadBytes: 1024,
+		},
 	}
 
 	transfers, err := svc.GetTransfersByAddress(ta.Addrinfo["charlie"].RawAddress, 0, 10)
@@ -481,4 +487,26 @@ func TestServiceGetPeers(t *testing.T) {
 	require.Equal("127.0.0.1:10001", response.Self.Address)
 	require.Len(response.Peers, 3)
 	require.Equal("127.0.0.1:10003", response.Peers[1].Address)
+}
+
+func TestTransferPayloadBytesLimit(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mDp := mock_dispatcher.NewMockDispatcher(ctrl)
+	p2p := mock_network.NewMockOverlay(ctrl)
+	svc := Service{cfg: config.Explorer{MaxTransferPayloadBytes: 8}, dp: mDp, p2p: p2p}
+	var payload [9]byte
+	req := explorer.SendTransferRequest{
+		Payload: hex.EncodeToString(payload[:]),
+	}
+	res, err := svc.SendTransfer(req)
+	assert.Equal(t, explorer.SendTransferResponse{}, res)
+	assert.Error(t, err)
+	assert.Equal(
+		t,
+		"transfer payload contains 9 bytes, and is longer than 8 bytes limit: invalid transfer",
+		err.Error(),
+	)
+	assert.Equal(t, ErrTransfer, errors.Cause(err))
 }

@@ -127,10 +127,11 @@ var (
 			EventChanSize: 10000,
 		},
 		Explorer: Explorer{
-			Enabled:   true,
-			IsTest:    false,
-			Port:      14004,
-			TpsWindow: 10,
+			Enabled:                 true,
+			IsTest:                  false,
+			Port:                    14004,
+			TpsWindow:               10,
+			MaxTransferPayloadBytes: 1024,
 		},
 		System: System{
 			HeartbeatInterval: 10 * time.Second,
@@ -244,6 +245,8 @@ type (
 		IsTest    bool `yaml:"isTest"`
 		Port      int  `yaml:"addr"`
 		TpsWindow int  `yaml:"tpsWindow"`
+		// MaxTransferPayloadBytes limits how many bytes a playload can contain at most
+		MaxTransferPayloadBytes uint64 `yaml:"maxTransferPayloadBytes"`
 	}
 
 	// System is the system config
