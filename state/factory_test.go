@@ -249,7 +249,7 @@ func TestCandidates(t *testing.T) {
 		candidateTrie:    candidateTr,
 		numCandidates:    uint(2),
 		cachedCandidates: make(map[hash.AddrHash]*Candidate),
-		cachedAccount:    make(map[string]*State),
+		cachedAccount:    make(map[hash.AddrHash]*State),
 	}
 	_, err := sf.LoadOrCreateState(a.RawAddress, uint64(100))
 	require.NoError(t, err)
@@ -503,7 +503,7 @@ func TestCandidatesByHeight(t *testing.T) {
 		candidateTrie:    candidateTr,
 		numCandidates:    uint(2),
 		cachedCandidates: make(map[hash.AddrHash]*Candidate),
-		cachedAccount:    make(map[string]*State),
+		cachedAccount:    make(map[hash.AddrHash]*State),
 	}
 
 	cand1 := &Candidate{
@@ -568,7 +568,7 @@ func TestUnvote(t *testing.T) {
 		candidateTrie:    candidateTr,
 		numCandidates:    uint(2),
 		cachedCandidates: make(map[hash.AddrHash]*Candidate),
-		cachedAccount:    make(map[string]*State),
+		cachedAccount:    make(map[hash.AddrHash]*State),
 	}
 	_, err := sf.LoadOrCreateState(a.RawAddress, uint64(100))
 	require.NoError(t, err)

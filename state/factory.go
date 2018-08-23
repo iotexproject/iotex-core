@@ -82,7 +82,7 @@ type (
 		numCandidates      uint
 		cachedCandidates   map[hash.AddrHash]*Candidate
 		// accounts
-		cachedAccount  map[string]*State          // accounts being modified in this Tx
+		cachedAccount  map[hash.AddrHash]*State   // accounts being modified in this Tx
 		cachedContract map[hash.AddrHash]Contract // contracts being modified in this Tx
 		accountTrie    trie.Trie                  // global state trie
 		contractTrie   trie.Trie                  // contract storage trie
@@ -155,7 +155,7 @@ func NewFactory(cfg *config.Config, opts ...FactoryOption) (Factory, error) {
 		currentChainHeight: 0,
 		numCandidates:      cfg.Chain.NumCandidates,
 		cachedCandidates:   make(map[hash.AddrHash]*Candidate),
-		cachedAccount:      make(map[string]*State),
+		cachedAccount:      make(map[hash.AddrHash]*State),
 		cachedContract:     make(map[hash.AddrHash]Contract),
 	}
 
@@ -197,14 +197,12 @@ func (sf *factory) Stop(ctx context.Context) error { return sf.lifecycle.OnStop(
 // LoadOrCreateState loads existing or adds a new State with initial balance to the factory
 // addr should be a bech32 properly-encoded string
 func (sf *factory) LoadOrCreateState(addr string, init uint64) (*State, error) {
-	pkHash, err := iotxaddress.GetPubkeyHash(addr)
+	h, err := iotxaddress.GetPubkeyHash(addr)
 	if err != nil {
 		return nil, errors.Wrap(err, "error when getting the pubkey hash")
 	}
-	if state, exist := sf.cachedAccount[addr]; exist {
-		return state, nil
-	}
-	state, err := sf.getState(byteutil.BytesTo20B(pkHash))
+	addrHash := byteutil.BytesTo20B(h)
+	state, err := sf.cachedState(addrHash)
 	switch {
 	case errors.Cause(err) == ErrAccountNotExist:
 		balance := big.NewInt(0)
@@ -213,10 +211,10 @@ func (sf *factory) LoadOrCreateState(addr string, init uint64) (*State, error) {
 			Balance:      balance,
 			VotingWeight: big.NewInt(0),
 		}
+		sf.cachedAccount[addrHash] = state
 	case err != nil:
 		return nil, err
 	}
-	sf.cachedAccount[addr] = state
 	return state, nil
 }
 
@@ -257,22 +255,15 @@ func (sf *factory) State(addr string) (*State, error) {
 
 // CachedState returns the cached state if the address exists in local cache
 func (sf *factory) CachedState(addr string) (*State, error) {
-	pkHash, err := iotxaddress.GetPubkeyHash(addr)
+	h, err := iotxaddress.GetPubkeyHash(addr)
 	if err != nil {
 		return nil, errors.Wrap(err, "error when getting the pubkey hash")
 	}
-	if contract, _ := sf.getContract(byteutil.BytesTo20B(pkHash)); contract != nil {
+	addrHash := byteutil.BytesTo20B(h)
+	if contract, ok := sf.cachedContract[addrHash]; ok {
 		return contract.SelfState(), nil
 	}
-	if state, ok := sf.cachedAccount[addr]; ok {
-		return state, nil
-	}
-	// add to local cache
-	state, err := sf.getState(byteutil.BytesTo20B(pkHash))
-	if state != nil {
-		sf.cachedAccount[addr] = state
-	}
-	return state, err
+	return sf.cachedState(addrHash)
 }
 
 // RootHash returns the hash of the root node of the accountTrie
@@ -310,31 +301,26 @@ func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer
 	}
 
 	// update pending state changes to trie
-	for address, state := range sf.cachedAccount {
-		addr, _ := iotxaddress.GetPubkeyHash(address)
-		if err := sf.putState(state, addr); err != nil {
+	for addr, state := range sf.cachedAccount {
+		if err := sf.putState(state, addr[:]); err != nil {
 			return err
 		}
-		pkHash, err := iotxaddress.GetPubkeyHash(address)
-		if err != nil {
-			return errors.Wrap(err, "cannot get the hash of the address")
-		}
-		pkHashAddress := byteutil.BytesTo20B(pkHash)
 
 		// Perform vote update operation on candidate and delegate pools
 		if !state.IsCandidate {
 			// remove the candidate if the person is not a candidate anymore
-			if _, ok := sf.cachedCandidates[pkHashAddress]; ok {
-				delete(sf.cachedCandidates, pkHashAddress)
+			if _, ok := sf.cachedCandidates[addr]; ok {
+				delete(sf.cachedCandidates, addr)
 			}
 			continue
 		}
 		totalWeight := big.NewInt(0)
 		totalWeight.Add(totalWeight, state.VotingWeight)
-		if state.Votee == address {
+		voteeAddr, _ := iotxaddress.GetPubkeyHash(state.Votee)
+		if addr == byteutil.BytesTo20B(voteeAddr) {
 			totalWeight.Add(totalWeight, state.Balance)
 		}
-		sf.updateCandidate(pkHashAddress, totalWeight, blockHeight)
+		sf.updateCandidate(addr, totalWeight, blockHeight)
 	}
 	// update pending contract changes
 	for addr, contract := range sf.cachedContract {
@@ -350,19 +336,9 @@ func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer
 	// increase Executor's Nonce for every execution in this block
 	for _, e := range executions {
 		addr, _ := iotxaddress.GetPubkeyHash(e.Executor)
-		if state, ok := sf.cachedAccount[e.Executor]; ok {
-			state.Nonce = state.Nonce + 1
-			if e.Nonce > state.Nonce {
-				state.Nonce = e.Nonce
-			}
-			if err := sf.putState(state, addr); err != nil {
-				return err
-			}
-			continue
-		}
-		state, err := sf.getState(byteutil.BytesTo20B(addr))
+		state, err := sf.cachedState(byteutil.BytesTo20B(addr))
 		if err != nil {
-			return err
+			return errors.Wrap(err, "Executor does not exist")
 		}
 		state.Nonce = state.Nonce + 1
 		if e.Nonce > state.Nonce {
@@ -438,10 +414,10 @@ func (sf *factory) GetCode(addr hash.AddrHash) ([]byte, error) {
 
 // SetCode sets contract's code
 func (sf *factory) SetCode(addr hash.AddrHash, code []byte) error {
-	rawAddress, err := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, addr[:])
-	state, ok := sf.cachedAccount[rawAddress.RawAddress]
+	var err error
+	state, ok := sf.cachedAccount[addr]
 	if ok {
-		delete(sf.cachedAccount, rawAddress.RawAddress)
+		delete(sf.cachedAccount, addr)
 	} else {
 		state, err = sf.getState(addr)
 		if err != nil {
@@ -526,6 +502,18 @@ func (sf *factory) getState(hash hash.AddrHash) (*State, error) {
 	return bytesToState(mstate)
 }
 
+func (sf *factory) cachedState(hash hash.AddrHash) (*State, error) {
+	if state, ok := sf.cachedAccount[hash]; ok {
+		return state, nil
+	}
+	// add to local cache
+	state, err := sf.getState(hash)
+	if state != nil {
+		sf.cachedAccount[hash] = state
+	}
+	return state, err
+}
+
 // getState stores a State to DB
 func (sf *factory) putState(state *State, addr []byte) error {
 	ss, err := stateToBytes(state)
@@ -561,7 +549,7 @@ func (sf *factory) getContract(addr hash.AddrHash) (Contract, error) {
 	}
 	state, err := sf.getState(addr)
 	if err != nil {
-		return nil, errors.Wrapf(err, "Failed to get contract %x", addr)
+		return nil, errors.Wrap(err, "Failed to get contract")
 	}
 	if !state.isContract() {
 		return nil, errors.New("GetState success, but it is not contract")
