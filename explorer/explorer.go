@@ -32,8 +32,10 @@ var (
 	ErrInternalServer = errors.New("internal server error")
 	// ErrTransfer indicates the error of transfer
 	ErrTransfer = errors.New("invalid transfer")
-	//ErrVote indicates the error of vote
+	// ErrVote indicates the error of vote
 	ErrVote = errors.New("invalid vote")
+	// ErrExecution indicates the error of execution
+	ErrExecution = errors.New("invalid execution")
 )
 
 // Service provide api for user to query blockchain data
@@ -82,7 +84,7 @@ func (exp *Service) GetAddressDetails(address string) (explorer.AddressDetails, 
 	return details, nil
 }
 
-// GetLastTransfersByRange return transfers in [-(offset+limit-1), -offset] from block
+// GetLastTransfersByRange returns transfers in [-(offset+limit-1), -offset] from block
 // with height startBlockHeight
 func (exp *Service) GetLastTransfersByRange(startBlockHeight int64, offset int64, limit int64, showCoinBase bool) ([]explorer.Transfer, error) {
 	var res []explorer.Transfer
@@ -140,12 +142,7 @@ func (exp *Service) GetTransferByID(transferID string) (explorer.Transfer, error
 	var transferHash hash.Hash32B
 	copy(transferHash[:], bytes)
 
-	transfer, err := getTransfer(exp.bc, exp.ap, transferHash)
-	if err != nil {
-		return explorer.Transfer{}, err
-	}
-
-	return transfer, nil
+	return getTransfer(exp.bc, exp.ap, transferHash)
 }
 
 // GetTransfersByAddress returns all transfers associated with an address
@@ -253,7 +250,7 @@ func (exp *Service) GetTransfersByBlockID(blkID string, offset int64, limit int6
 	return res, nil
 }
 
-// GetLastVotesByRange return votes in [-(offset+limit-1), -offset] from block
+// GetLastVotesByRange returns votes in [-(offset+limit-1), -offset] from block
 // with height startBlockHeight
 func (exp *Service) GetLastVotesByRange(startBlockHeight int64, offset int64, limit int64) ([]explorer.Vote, error) {
 	var res []explorer.Vote
@@ -305,12 +302,7 @@ func (exp *Service) GetVoteByID(voteID string) (explorer.Vote, error) {
 	var voteHash hash.Hash32B
 	copy(voteHash[:], bytes)
 
-	vote, err := getVote(exp.bc, exp.ap, voteHash)
-	if err != nil {
-		return explorer.Vote{}, err
-	}
-
-	return vote, nil
+	return getVote(exp.bc, exp.ap, voteHash)
 }
 
 // GetVotesByAddress returns all votes associated with an address
@@ -417,6 +409,166 @@ func (exp *Service) GetVotesByBlockID(blkID string, offset int64, limit int64) (
 	return res, nil
 }
 
+// GetLastExecutionsByRange returns executions in [-(offset+limit-1), -offset] from block
+// with height startBlockHeight
+func (exp *Service) GetLastExecutionsByRange(startBlockHeight int64, offset int64, limit int64) ([]explorer.Execution, error) {
+	var res []explorer.Execution
+	executionCount := uint64(0)
+
+ChainLoop:
+	for height := startBlockHeight; height >= 0; height-- {
+		hash, err := exp.bc.GetHashByHeight(uint64(height))
+		if err != nil {
+			return []explorer.Execution{}, err
+		}
+		blkID := hex.EncodeToString(hash[:])
+
+		blk, err := exp.bc.GetBlockByHeight(uint64(height))
+		if err != nil {
+			return []explorer.Execution{}, err
+		}
+
+		for i := int64(len(blk.Executions) - 1); i >= 0; i-- {
+			executionCount++
+
+			if executionCount <= uint64(offset) {
+				continue
+			}
+
+			if int64(len(res)) >= limit {
+				break ChainLoop
+			}
+
+			explorerExecution, err := convertExecutionToExplorerExecution(blk.Executions[i], false)
+			if err != nil {
+				return []explorer.Execution{}, errors.Wrapf(err, "failed to convert execution %v to explorer's JSON execution", blk.Executions[i])
+			}
+			explorerExecution.Timestamp = int64(blk.ConvertToBlockHeaderPb().Timestamp)
+			explorerExecution.BlockID = blkID
+			res = append(res, explorerExecution)
+		}
+	}
+
+	return res, nil
+}
+
+// GetExecutionByID returns execution by execution id
+func (exp *Service) GetExecutionByID(executionID string) (explorer.Execution, error) {
+	bytes, err := hex.DecodeString(executionID)
+	if err != nil {
+		return explorer.Execution{}, err
+	}
+	var executionHash hash.Hash32B
+	copy(executionHash[:], bytes)
+
+	return getExecution(exp.bc, exp.ap, executionHash)
+}
+
+// GetExecutionsByAddress returns all executions associated with an address
+func (exp *Service) GetExecutionsByAddress(address string, offset int64, limit int64) ([]explorer.Execution, error) {
+	var res []explorer.Execution
+	executionsFromAddress, err := exp.bc.GetExecutionsFromAddress(address)
+	if err != nil {
+		return []explorer.Execution{}, err
+	}
+
+	executionsToAddress, err := exp.bc.GetExecutionsToAddress(address)
+	if err != nil {
+		return []explorer.Execution{}, err
+	}
+
+	executionsFromAddress = append(executionsFromAddress, executionsToAddress...)
+	for i, executionHash := range executionsFromAddress {
+		if int64(i) < offset {
+			continue
+		}
+
+		if int64(len(res)) >= limit {
+			break
+		}
+
+		explorerExecution, err := getExecution(exp.bc, exp.ap, executionHash)
+		if err != nil {
+			return []explorer.Execution{}, err
+		}
+
+		res = append(res, explorerExecution)
+	}
+
+	return res, nil
+}
+
+// GetUnconfirmedExecutionsByAddress returns all unconfirmed executions in actpool associated with an address
+func (exp *Service) GetUnconfirmedExecutionsByAddress(address string, offset int64, limit int64) ([]explorer.Execution, error) {
+	res := make([]explorer.Execution, 0)
+	if _, err := exp.bc.StateByAddr(address); err != nil {
+		return []explorer.Execution{}, err
+	}
+
+	acts := exp.ap.GetUnconfirmedActs(address)
+	executionIndex := int64(0)
+	for _, act := range acts {
+		if act.GetExecution() == nil {
+			continue
+		}
+
+		if executionIndex < offset {
+			executionIndex++
+			continue
+		}
+
+		if int64(len(res)) >= limit {
+			break
+		}
+
+		execution := &action.Execution{}
+		execution.ConvertFromActionPb(act)
+		explorerExecution, err := convertExecutionToExplorerExecution(execution, true)
+		if err != nil {
+			return []explorer.Execution{}, errors.Wrapf(err, "failed to convert execution %v to explorer's JSON execution", execution)
+		}
+		res = append(res, explorerExecution)
+	}
+
+	return res, nil
+}
+
+// GetExecutionsByBlockID returns executions in a block
+func (exp *Service) GetExecutionsByBlockID(blkID string, offset int64, limit int64) ([]explorer.Execution, error) {
+	var res []explorer.Execution
+	bytes, err := hex.DecodeString(blkID)
+
+	if err != nil {
+		return []explorer.Execution{}, err
+	}
+	var hash hash.Hash32B
+	copy(hash[:], bytes)
+
+	blk, err := exp.bc.GetBlockByHash(hash)
+	if err != nil {
+		return []explorer.Execution{}, err
+	}
+
+	for i, execution := range blk.Executions {
+		if int64(i) < offset {
+			continue
+		}
+
+		if int64(len(res)) >= limit {
+			break
+		}
+
+		explorerExecution, err := convertExecutionToExplorerExecution(execution, false)
+		if err != nil {
+			return []explorer.Execution{}, errors.Wrapf(err, "failed to convert execution %v to explorer's JSON execution", execution)
+		}
+		explorerExecution.Timestamp = int64(blk.ConvertToBlockHeaderPb().Timestamp)
+		explorerExecution.BlockID = blkID
+		res = append(res, explorerExecution)
+	}
+	return res, nil
+}
+
 // GetLastBlocksByRange get block with height [offset-limit+1, offset]
 func (exp *Service) GetLastBlocksByRange(offset int64, limit int64) ([]explorer.Block, error) {
 	var res []explorer.Block
@@ -441,13 +593,14 @@ func (exp *Service) GetLastBlocksByRange(offset int64, limit int64) ([]explorer.
 		}
 
 		explorerBlock := explorer.Block{
-			ID:        hex.EncodeToString(hash[:]),
-			Height:    int64(blockHeaderPb.Height),
-			Timestamp: int64(blockHeaderPb.Timestamp),
-			Transfers: int64(len(blk.Transfers)),
-			Votes:     int64(len(blk.Votes)),
-			Amount:    totalAmount,
-			Size:      int64(totalSize),
+			ID:         hex.EncodeToString(hash[:]),
+			Height:     int64(blockHeaderPb.Height),
+			Timestamp:  int64(blockHeaderPb.Timestamp),
+			Transfers:  int64(len(blk.Transfers)),
+			Votes:      int64(len(blk.Votes)),
+			Executions: int64(len(blk.Executions)),
+			Amount:     totalAmount,
+			Size:       int64(totalSize),
 			GenerateBy: explorer.BlockGenerator{
 				Name:    "",
 				Address: keypair.EncodePublicKey(blk.Header.Pubkey),
@@ -484,13 +637,14 @@ func (exp *Service) GetBlockByID(blkID string) (explorer.Block, error) {
 	}
 
 	explorerBlock := explorer.Block{
-		ID:        blkID,
-		Height:    int64(blkHeaderPb.Height),
-		Timestamp: int64(blkHeaderPb.Timestamp),
-		Transfers: int64(len(blk.Transfers)),
-		Votes:     int64(len(blk.Votes)),
-		Amount:    totalAmount,
-		Size:      int64(totalSize),
+		ID:         blkID,
+		Height:     int64(blkHeaderPb.Height),
+		Timestamp:  int64(blkHeaderPb.Timestamp),
+		Transfers:  int64(len(blk.Transfers)),
+		Votes:      int64(len(blk.Votes)),
+		Executions: int64(len(blk.Executions)),
+		Amount:     totalAmount,
+		Size:       int64(totalSize),
 		GenerateBy: explorer.BlockGenerator{
 			Name:    "",
 			Address: keypair.EncodePublicKey(blk.Header.Pubkey),
@@ -515,6 +669,11 @@ func (exp *Service) GetCoinStatistic() (explorer.CoinStatistic, error) {
 	}
 
 	totalVotes, err := exp.bc.GetTotalVotes()
+	if err != nil {
+		return stat, err
+	}
+
+	totalExecutions, err := exp.bc.GetTotalExecutions()
 	if err != nil {
 		return stat, err
 	}
@@ -544,16 +703,17 @@ func (exp *Service) GetCoinStatistic() (explorer.CoinStatistic, error) {
 	}
 	actionNumber := int64(0)
 	for _, blk := range blks {
-		actionNumber += blk.Transfers + blk.Votes
+		actionNumber += blk.Transfers + blk.Votes + blk.Executions
 	}
 	aps := actionNumber / timeDuration
 
 	explorerCoinStats := explorer.CoinStatistic{
-		Height:    int64(tipHeight),
-		Supply:    int64(blockchain.Gen.TotalSupply),
-		Transfers: int64(totalTransfers),
-		Votes:     int64(totalVotes),
-		Aps:       aps,
+		Height:     int64(tipHeight),
+		Supply:     int64(blockchain.Gen.TotalSupply),
+		Transfers:  int64(totalTransfers),
+		Votes:      int64(totalVotes),
+		Executions: int64(totalExecutions),
+		Aps:        aps,
 	}
 	return explorerCoinStats, nil
 }
@@ -776,7 +936,7 @@ func (exp *Service) SendSmartContract(execution explorer.Execution) (explorer.Se
 	return explorer.SendSmartContractResponse{Hash: hex.EncodeToString(h[:])}, nil
 }
 
-// getTransfer takes in a blockchain and transferHash and returns a Explorer Transfer
+// getTransfer takes in a blockchain and transferHash and returns an Explorer Transfer
 func getTransfer(bc blockchain.Blockchain, ap actpool.ActPool, transferHash hash.Hash32B) (explorer.Transfer, error) {
 	explorerTransfer := explorer.Transfer{}
 
@@ -810,7 +970,7 @@ func getTransfer(bc blockchain.Blockchain, ap actpool.ActPool, transferHash hash
 	return explorerTransfer, nil
 }
 
-// getVote takes in a blockchain and voteHash and returns a Explorer Vote
+// getVote takes in a blockchain and voteHash and returns an Explorer Vote
 func getVote(bc blockchain.Blockchain, ap actpool.ActPool, voteHash hash.Hash32B) (explorer.Vote, error) {
 	explorerVote := explorer.Vote{}
 
@@ -842,6 +1002,40 @@ func getVote(bc blockchain.Blockchain, ap actpool.ActPool, voteHash hash.Hash32B
 	explorerVote.Timestamp = int64(blk.ConvertToBlockHeaderPb().Timestamp)
 	explorerVote.BlockID = hex.EncodeToString(blkHash[:])
 	return explorerVote, nil
+}
+
+// getExecution takes in a blockchain and executionHash and returns an Explorer execution
+func getExecution(bc blockchain.Blockchain, ap actpool.ActPool, executionHash hash.Hash32B) (explorer.Execution, error) {
+	explorerExecution := explorer.Execution{}
+
+	execution, err := bc.GetExecutionByExecutionHash(executionHash)
+	if err != nil {
+		// Try to fetch pending execution from actpool
+		act, err := ap.GetActionByHash(executionHash)
+		if err != nil || act.GetExecution() == nil {
+			return explorerExecution, err
+		}
+		execution = &action.Execution{}
+		execution.ConvertFromActionPb(act)
+		return convertExecutionToExplorerExecution(execution, true)
+	}
+
+	// Fetch from block
+	blkHash, err := bc.GetBlockHashByExecutionHash(executionHash)
+	if err != nil {
+		return explorerExecution, err
+	}
+	blk, err := bc.GetBlockByHash(blkHash)
+	if err != nil {
+		return explorerExecution, err
+	}
+
+	if explorerExecution, err = convertExecutionToExplorerExecution(execution, false); err != nil {
+		return explorerExecution, errors.Wrapf(err, "failed to convert execution %v to explorer's JSON execution", execution)
+	}
+	explorerExecution.Timestamp = int64(blk.ConvertToBlockHeaderPb().Timestamp)
+	explorerExecution.BlockID = hex.EncodeToString(blkHash[:])
+	return explorerExecution, nil
 }
 
 func getAddrFromPubKey(pubKey keypair.PublicKey) (string, error) {
@@ -896,4 +1090,23 @@ func convertVoteToExplorerVote(vote *action.Vote, isPending bool) (explorer.Vote
 		IsPending: isPending,
 	}
 	return explorerVote, nil
+}
+
+func convertExecutionToExplorerExecution(execution *action.Execution, isPending bool) (explorer.Execution, error) {
+	if execution == nil {
+		return explorer.Execution{}, errors.Wrap(ErrExecution, "execution cannot be nil")
+	}
+	hash := execution.Hash()
+	explorerExecution := explorer.Execution{
+		Nonce:     int64(execution.Nonce),
+		Amount:    execution.Amount.Int64(),
+		ID:        hex.EncodeToString(hash[:]),
+		Executor:  execution.Executor,
+		Contract:  execution.Contract,
+		Gas:       0, // TODO: we need to get the actual gas
+		GasPrice:  0, // TODO: we need to get the actual gas price
+		Data:      hex.EncodeToString(execution.Data),
+		IsPending: isPending,
+	}
+	return explorerExecution, nil
 }

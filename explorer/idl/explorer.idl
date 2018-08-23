@@ -20,6 +20,7 @@ struct CoinStatistic {
     supply int
     transfers int
     votes int
+    executions int
     aps int
 }
 
@@ -34,6 +35,7 @@ struct Block {
     timestamp int
     transfers int
     votes int
+    executions int
     generateBy BlockGenerator
     amount int
     forged int
@@ -196,6 +198,21 @@ interface Explorer {
 
     // get all votes in a block
     getVotesByBlockID(blkID string, offset int, limit int) []Vote
+
+    // get list of executions by start block height, execution offset and limit
+    getLastExecutionsByRange(startBlockHeight int, offset int, limit int) []Execution
+
+    // get execution from execution id
+    getExecutionByID(executionID string) Execution
+
+    // get list of executions belonging to an address
+    getExecutionsByAddress(address string, offset int, limit int) []Execution
+
+    // get list of unconfirmed executions in actpool belonging to an address
+    getUnconfirmedExecutionsByAddress(address string, offset int, limit int) []Execution
+
+    // get all executions in a block
+    getExecutionsByBlockID(blkID string, offset int, limit int) []Execution
 
     // get list of blocks by block id offset and limit
     getLastBlocksByRange(offset int, limit int) []Block

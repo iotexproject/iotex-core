@@ -8,15 +8,16 @@ import (
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "a4b08a268b22c32b15f9dbf57eeb2166"
-const BarristerDateGenerated int64 = 1534876251738000000
+const BarristerChecksum string = "34b6f708d7497137870bfc66ae5762fa"
+const BarristerDateGenerated int64 = 1535047284429000000
 
 type CoinStatistic struct {
-	Height    int64 `json:"height"`
-	Supply    int64 `json:"supply"`
-	Transfers int64 `json:"transfers"`
-	Votes     int64 `json:"votes"`
-	Aps       int64 `json:"aps"`
+	Height     int64 `json:"height"`
+	Supply     int64 `json:"supply"`
+	Transfers  int64 `json:"transfers"`
+	Votes      int64 `json:"votes"`
+	Executions int64 `json:"executions"`
+	Aps        int64 `json:"aps"`
 }
 
 type BlockGenerator struct {
@@ -30,6 +31,7 @@ type Block struct {
 	Timestamp  int64          `json:"timestamp"`
 	Transfers  int64          `json:"transfers"`
 	Votes      int64          `json:"votes"`
+	Executions int64          `json:"executions"`
 	GenerateBy BlockGenerator `json:"generateBy"`
 	Amount     int64          `json:"amount"`
 	Forged     int64          `json:"forged"`
@@ -167,6 +169,11 @@ type Explorer interface {
 	GetVotesByAddress(address string, offset int64, limit int64) ([]Vote, error)
 	GetUnconfirmedVotesByAddress(address string, offset int64, limit int64) ([]Vote, error)
 	GetVotesByBlockID(blkID string, offset int64, limit int64) ([]Vote, error)
+	GetLastExecutionsByRange(startBlockHeight int64, offset int64, limit int64) ([]Execution, error)
+	GetExecutionByID(executionID string) (Execution, error)
+	GetExecutionsByAddress(address string, offset int64, limit int64) ([]Execution, error)
+	GetUnconfirmedExecutionsByAddress(address string, offset int64, limit int64) ([]Execution, error)
+	GetExecutionsByBlockID(blkID string, offset int64, limit int64) ([]Execution, error)
 	GetLastBlocksByRange(offset int64, limit int64) ([]Block, error)
 	GetBlockByID(blkID string) (Block, error)
 	GetCoinStatistic() (CoinStatistic, error)
@@ -419,6 +426,96 @@ func (_p ExplorerProxy) GetVotesByBlockID(blkID string, offset int64, limit int6
 		return _cast, nil
 	}
 	return []Vote{}, _err
+}
+
+func (_p ExplorerProxy) GetLastExecutionsByRange(startBlockHeight int64, offset int64, limit int64) ([]Execution, error) {
+	_res, _err := _p.client.Call("Explorer.getLastExecutionsByRange", startBlockHeight, offset, limit)
+	if _err == nil {
+		_retType := _p.idl.Method("Explorer.getLastExecutionsByRange").Returns
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf([]Execution{}), _res, "")
+	}
+	if _err == nil {
+		_cast, _ok := _res.([]Execution)
+		if !_ok {
+			_t := reflect.TypeOf(_res)
+			_msg := fmt.Sprintf("Explorer.getLastExecutionsByRange returned invalid type: %v", _t)
+			return []Execution{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
+		}
+		return _cast, nil
+	}
+	return []Execution{}, _err
+}
+
+func (_p ExplorerProxy) GetExecutionByID(executionID string) (Execution, error) {
+	_res, _err := _p.client.Call("Explorer.getExecutionByID", executionID)
+	if _err == nil {
+		_retType := _p.idl.Method("Explorer.getExecutionByID").Returns
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(Execution{}), _res, "")
+	}
+	if _err == nil {
+		_cast, _ok := _res.(Execution)
+		if !_ok {
+			_t := reflect.TypeOf(_res)
+			_msg := fmt.Sprintf("Explorer.getExecutionByID returned invalid type: %v", _t)
+			return Execution{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
+		}
+		return _cast, nil
+	}
+	return Execution{}, _err
+}
+
+func (_p ExplorerProxy) GetExecutionsByAddress(address string, offset int64, limit int64) ([]Execution, error) {
+	_res, _err := _p.client.Call("Explorer.getExecutionsByAddress", address, offset, limit)
+	if _err == nil {
+		_retType := _p.idl.Method("Explorer.getExecutionsByAddress").Returns
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf([]Execution{}), _res, "")
+	}
+	if _err == nil {
+		_cast, _ok := _res.([]Execution)
+		if !_ok {
+			_t := reflect.TypeOf(_res)
+			_msg := fmt.Sprintf("Explorer.getExecutionsByAddress returned invalid type: %v", _t)
+			return []Execution{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
+		}
+		return _cast, nil
+	}
+	return []Execution{}, _err
+}
+
+func (_p ExplorerProxy) GetUnconfirmedExecutionsByAddress(address string, offset int64, limit int64) ([]Execution, error) {
+	_res, _err := _p.client.Call("Explorer.getUnconfirmedExecutionsByAddress", address, offset, limit)
+	if _err == nil {
+		_retType := _p.idl.Method("Explorer.getUnconfirmedExecutionsByAddress").Returns
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf([]Execution{}), _res, "")
+	}
+	if _err == nil {
+		_cast, _ok := _res.([]Execution)
+		if !_ok {
+			_t := reflect.TypeOf(_res)
+			_msg := fmt.Sprintf("Explorer.getUnconfirmedExecutionsByAddress returned invalid type: %v", _t)
+			return []Execution{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
+		}
+		return _cast, nil
+	}
+	return []Execution{}, _err
+}
+
+func (_p ExplorerProxy) GetExecutionsByBlockID(blkID string, offset int64, limit int64) ([]Execution, error) {
+	_res, _err := _p.client.Call("Explorer.getExecutionsByBlockID", blkID, offset, limit)
+	if _err == nil {
+		_retType := _p.idl.Method("Explorer.getExecutionsByBlockID").Returns
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf([]Execution{}), _res, "")
+	}
+	if _err == nil {
+		_cast, _ok := _res.([]Execution)
+		if !_ok {
+			_t := reflect.TypeOf(_res)
+			_msg := fmt.Sprintf("Explorer.getExecutionsByBlockID returned invalid type: %v", _t)
+			return []Execution{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
+		}
+		return _cast, nil
+	}
+	return []Execution{}, _err
 }
 
 func (_p ExplorerProxy) GetLastBlocksByRange(offset int64, limit int64) ([]Block, error) {
@@ -682,6 +779,13 @@ var IdlJsonRaw = `[
                 "comment": ""
             },
             {
+                "name": "executions",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
                 "name": "aps",
                 "type": "int",
                 "optional": false,
@@ -760,6 +864,13 @@ var IdlJsonRaw = `[
             },
             {
                 "name": "votes",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "executions",
                 "type": "int",
                 "optional": false,
                 "is_array": false,
@@ -1902,6 +2013,162 @@ var IdlJsonRaw = `[
                 }
             },
             {
+                "name": "getLastExecutionsByRange",
+                "comment": "get list of executions by start block height, execution offset and limit",
+                "params": [
+                    {
+                        "name": "startBlockHeight",
+                        "type": "int",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    },
+                    {
+                        "name": "offset",
+                        "type": "int",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    },
+                    {
+                        "name": "limit",
+                        "type": "int",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    }
+                ],
+                "returns": {
+                    "name": "",
+                    "type": "Execution",
+                    "optional": false,
+                    "is_array": true,
+                    "comment": ""
+                }
+            },
+            {
+                "name": "getExecutionByID",
+                "comment": "get execution from execution id",
+                "params": [
+                    {
+                        "name": "executionID",
+                        "type": "string",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    }
+                ],
+                "returns": {
+                    "name": "",
+                    "type": "Execution",
+                    "optional": false,
+                    "is_array": false,
+                    "comment": ""
+                }
+            },
+            {
+                "name": "getExecutionsByAddress",
+                "comment": "get list of executions belonging to an address",
+                "params": [
+                    {
+                        "name": "address",
+                        "type": "string",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    },
+                    {
+                        "name": "offset",
+                        "type": "int",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    },
+                    {
+                        "name": "limit",
+                        "type": "int",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    }
+                ],
+                "returns": {
+                    "name": "",
+                    "type": "Execution",
+                    "optional": false,
+                    "is_array": true,
+                    "comment": ""
+                }
+            },
+            {
+                "name": "getUnconfirmedExecutionsByAddress",
+                "comment": "get list of unconfirmed executions in actpool belonging to an address",
+                "params": [
+                    {
+                        "name": "address",
+                        "type": "string",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    },
+                    {
+                        "name": "offset",
+                        "type": "int",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    },
+                    {
+                        "name": "limit",
+                        "type": "int",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    }
+                ],
+                "returns": {
+                    "name": "",
+                    "type": "Execution",
+                    "optional": false,
+                    "is_array": true,
+                    "comment": ""
+                }
+            },
+            {
+                "name": "getExecutionsByBlockID",
+                "comment": "get all executions in a block",
+                "params": [
+                    {
+                        "name": "blkID",
+                        "type": "string",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    },
+                    {
+                        "name": "offset",
+                        "type": "int",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    },
+                    {
+                        "name": "limit",
+                        "type": "int",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    }
+                ],
+                "returns": {
+                    "name": "",
+                    "type": "Execution",
+                    "optional": false,
+                    "is_array": true,
+                    "comment": ""
+                }
+            },
+            {
                 "name": "getLastBlocksByRange",
                 "comment": "get list of blocks by block id offset and limit",
                 "params": [
@@ -2071,7 +2338,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1534876251738,
-        "checksum": "a4b08a268b22c32b15f9dbf57eeb2166"
+        "date_generated": 1535047284429,
+        "checksum": "34b6f708d7497137870bfc66ae5762fa"
     }
 ]`
