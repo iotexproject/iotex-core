@@ -46,12 +46,12 @@ func NewServer(
 	return &Server{
 		cfg: cfg,
 		exp: &Service{
-			bc:        chain,
-			c:         consensus,
-			dp:        dispatcher,
-			ap:        actPool,
-			p2p:       p2p,
-			tpsWindow: cfg.TpsWindow,
+			bc:  chain,
+			c:   consensus,
+			dp:  dispatcher,
+			ap:  actPool,
+			p2p: p2p,
+			cfg: cfg,
 		},
 	}
 }
