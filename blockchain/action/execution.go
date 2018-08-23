@@ -175,6 +175,7 @@ func NewExecutionFromJSON(jsonExecution *explorer.Execution) (*Execution, error)
 	ex := &Execution{}
 	ex.Version = uint32(jsonExecution.Version)
 	ex.Nonce = uint64(jsonExecution.Nonce)
+	ex.Amount = big.NewInt(jsonExecution.Amount)
 	ex.Executor = jsonExecution.Executor
 	ex.Contract = jsonExecution.Contract
 	executorPubKey, err := keypair.StringToPubKeyBytes(jsonExecution.ExecutorPubKey)
