@@ -117,7 +117,7 @@ func (t *trie) Get(key []byte) ([]byte, error) {
 	ptr, size, err := t.query(key)
 	t.clear()
 	if size != len(key) {
-		return nil, errors.Wrapf(ErrNotExist, "key = %x not exist", key)
+		return nil, errors.Wrapf(ErrNotExist, "key = %x", key)
 	}
 	if err != nil {
 		return nil, err
@@ -201,12 +201,8 @@ func (t *trie) EnableBatch() error {
 	if t.batchMode {
 		return nil
 	}
-
-	if err := t.resetCache(); err != nil {
-		return err
-	}
 	t.batchMode = true
-	return nil
+	return t.resetCache()
 }
 
 // DisableBatch disable batch mode

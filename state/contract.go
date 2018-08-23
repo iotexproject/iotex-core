@@ -54,11 +54,7 @@ func (c *contract) GetCode() ([]byte, error) {
 	if c.code != nil {
 		return c.code, nil
 	}
-	code, err := c.trie.TrieDB().Get(trie.CodeKVNameSpace, c.State.CodeHash[:])
-	if err != nil {
-		return nil, err
-	}
-	return code, nil
+	return c.trie.TrieDB().Get(trie.CodeKVNameSpace, c.State.CodeHash[:])
 }
 
 // SetCode sets the contract's byte-code

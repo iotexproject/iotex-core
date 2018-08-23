@@ -251,9 +251,9 @@ func (log *Log) Deserialize(buf []byte) error {
 
 func securityDeposit(ps *EVMParams, stateDB vm.StateDB, gasLimit *uint64) error {
 	executorNonce := stateDB.GetNonce(ps.context.Origin)
-	if executorNonce != ps.nonce {
+	if executorNonce > ps.nonce {
 		logger.Error().Msgf("Nonce on %v: %d vs %d", ps.context.Origin, executorNonce, ps.nonce)
-		// return ErrInconsistentNonce
+		return ErrInconsistentNonce
 	}
 	if *gasLimit < ps.gas {
 		return ErrHitGasLimit
@@ -308,7 +308,7 @@ func executeContract(blk *Block, idx int, execution *action.Execution, bc Blockc
 		stateDB.AddBalance(ps.context.Coinbase, gasValue)
 	}
 	receipt.Logs = stateDB.Logs()
-	logger.Error().Msgf("Receipt: %+v, %v", receipt, err)
+	logger.Warn().Msgf("Receipt: %+v, %v", receipt, err)
 	return receipt, err
 }
 
@@ -353,10 +353,10 @@ func executeInEVM(evmParams *EVMParams, stateDB *EVMStateDBAdapter, gasLimit *ui
 		// create contract
 		var evmContractAddress common.Address
 		ret, evmContractAddress, remainingGas, err = evm.Create(executor, evmParams.data, remainingGas, evmParams.amount)
+		logger.Warn().Hex("contract addrHash", evmContractAddress[:]).Msg("evm.Create")
 		if err != nil {
 			return nil, evmParams.gas, remainingGas, action.EmptyAddress, err
 		}
-		logger.Warn().Hex("contract addrHash", evmContractAddress[:]).Msg("executeInEVM")
 		contractAddress, err := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, evmContractAddress.Bytes())
 		if err != nil {
 			return nil, evmParams.gas, remainingGas, action.EmptyAddress, err
