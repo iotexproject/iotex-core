@@ -308,7 +308,7 @@ func executeContract(blk *Block, idx int, execution *action.Execution, bc Blockc
 		stateDB.AddBalance(ps.context.Coinbase, gasValue)
 	}
 	receipt.Logs = stateDB.Logs()
-	logger.Warn().Msgf("Receipt: %+v, %v", receipt, err)
+	logger.Debug().Msgf("Receipt: %+v, %v", receipt, err)
 	return receipt, err
 }
 

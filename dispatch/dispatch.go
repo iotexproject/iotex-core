@@ -172,7 +172,6 @@ loop:
 // handleActionMsg handles actionMsg from all peers.
 func (d *IotxDispatcher) handleActionMsg(m *actionMsg) {
 	d.updateEventAudit(pb.MsgActionType)
-	logger.Info().Msgf("Action: %+v", m.action)
 	if pbTsf := m.action.GetTransfer(); pbTsf != nil {
 		tsf := &action.Transfer{}
 		tsf.ConvertFromActionPb(m.action)
