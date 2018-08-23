@@ -571,7 +571,36 @@ func TestHandleVoteEvt(t *testing.T) {
 		assert.Equal(t, sRoundStart, state)
 		assert.Equal(t, eFinishEpoch, (<-cfsm.evtq).Type())
 	})
-	t.Run("timeout", func(t *testing.T) {
+	t.Run("timeout-blocking", func(t *testing.T) {
+		cfsm := newTestCFSM(
+			t,
+			testAddrs[0],
+			ctrl,
+			delegates,
+			func(chain *mock_blockchain.MockBlockchain) {
+				chain.EXPECT().CommitBlock(gomock.Any()).Return(nil).Times(0)
+				chain.EXPECT().
+					MintNewDummyBlock().
+					Return(blockchain.NewBlock(0, 0, hash.ZeroHash32B, clock.New(), nil, nil, nil)).Times(0)
+			},
+			func(p2p *mock_network.MockOverlay) {
+				p2p.EXPECT().Broadcast(gomock.Any()).Return(nil).Times(0)
+			},
+		)
+		cfsm.ctx.cfg.EnableDummyBlock = false
+		cfsm.ctx.epoch = epoch
+		cfsm.ctx.round = round
+
+		blk, err := cfsm.ctx.mintBlock()
+		assert.NoError(t, err)
+		cfsm.ctx.round.block = blk
+
+		state, err := cfsm.handleVoteEvt(cfsm.newCEvt(eVoteTimeout))
+		assert.NoError(t, err)
+		assert.Equal(t, sRoundStart, state)
+		assert.Equal(t, eFinishEpoch, (<-cfsm.evtq).Type())
+	})
+	t.Run("timeout-dummy-block", func(t *testing.T) {
 		cfsm := newTestCFSM(
 			t,
 			testAddrs[0],
@@ -701,8 +730,9 @@ func newTestCFSM(
 		addr,
 		ctrl,
 		config.RollDPoS{
-			EventChanSize: 2,
-			NumDelegates:  uint(len(delegates)),
+			EventChanSize:    2,
+			NumDelegates:     uint(len(delegates)),
+			EnableDummyBlock: true,
 		},
 		func(blockchain *mock_blockchain.MockBlockchain) {
 			blockchain.EXPECT().GetBlockByHeight(uint64(1)).Return(lastBlk, nil).AnyTimes()

@@ -618,24 +618,24 @@ func (m *cFSM) handleVoteEvt(evt fsm.Event) (fsm.State, error) {
 			Bool("timeout", timeout).
 			Bool("disagreement", disagreement).
 			Msg("consensus did not reach")
-		pendingBlock = m.ctx.chain.MintNewDummyBlock()
-		logger.Warn().
-			Uint64("block", pendingBlock.Height()).
-			Msg("dummy block is generated")
+		if m.ctx.cfg.EnableDummyBlock {
+			pendingBlock = m.ctx.chain.MintNewDummyBlock()
+			logger.Warn().
+				Uint64("block", pendingBlock.Height()).
+				Msg("dummy block is generated")
+		}
 	}
-	// Commit and broadcast the pending block
-	var err error
-	if err = m.ctx.chain.CommitBlock(pendingBlock); err == nil {
+	if pendingBlock != nil {
+		// Commit and broadcast the pending block
+		if err := m.ctx.chain.CommitBlock(pendingBlock); err != nil {
+			logger.Error().
+				Err(err).
+				Uint64("block", pendingBlock.Height()).
+				Bool("dummy", pendingBlock.IsDummyBlock()).
+				Msg("error when committing a block")
+		}
 		// Remove transfers in this block from ActPool and reset ActPool state
 		m.ctx.actPool.Reset()
-	}
-	if err != nil {
-		logger.Error().
-			Err(err).
-			Uint64("block", pendingBlock.Height()).
-			Bool("dummy", pendingBlock.IsDummyBlock()).
-			Msg("error when committing a block")
-	} else {
 		// Broadcast the committed block to the network
 		if blkProto := pendingBlock.ConvertToBlockPb(); blkProto != nil {
 			if err := m.ctx.p2p.Broadcast(blkProto); err != nil {

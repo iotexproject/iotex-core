@@ -114,6 +114,7 @@ var (
 				NumSubEpochs:           1,
 				EventChanSize:          10000,
 				NumDelegates:           21,
+				EnableDummyBlock:       true,
 			},
 			BlockCreationInterval: 10 * time.Second,
 		},
@@ -229,6 +230,7 @@ type (
 		NumSubEpochs           uint          `yaml:"numSubEpochs"`
 		EventChanSize          uint          `yaml:"eventChanSize"`
 		NumDelegates           uint          `yaml:"numDelegates"`
+		EnableDummyBlock       bool          `yaml:"enableDummyBlock"`
 	}
 
 	// Dispatcher is the dispatcher config

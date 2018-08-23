@@ -407,6 +407,9 @@ func TestRollDPoSConsensus(t *testing.T) {
 		cfg := config.Default
 		cfg.Consensus.RollDPoS.Delay = 300 * time.Millisecond
 		cfg.Consensus.RollDPoS.ProposerInterval = time.Second
+		cfg.Consensus.RollDPoS.AcceptProposeTTL = 100 * time.Millisecond
+		cfg.Consensus.RollDPoS.AcceptPrevoteTTL = 100 * time.Millisecond
+		cfg.Consensus.RollDPoS.AcceptVoteTTL = 100 * time.Millisecond
 		cfg.Consensus.RollDPoS.NumDelegates = uint(numNodes)
 
 		chainAddrs := make([]*iotxaddress.Address, 0, numNodes)
@@ -530,7 +533,22 @@ func TestRollDPoSConsensus(t *testing.T) {
 		}))
 	})
 
-	t.Run("proposer-network-partition", func(t *testing.T) {
+	checkChains := func(chains []blockchain.Blockchain) {
+		assert.NoError(t, testutil.WaitUntil(100*time.Millisecond, 2*time.Second, func() (bool, error) {
+			for _, chain := range chains {
+				blk, err := chain.GetBlockByHeight(1)
+				if blk == nil || err != nil {
+					return false, nil
+				}
+				if !blk.IsDummyBlock() {
+					return true, errors.New("not a dummy block")
+				}
+			}
+			return true, nil
+		}))
+	}
+
+	t.Run("proposer-network-partition-dummy-block", func(t *testing.T) {
 		ctx := context.Background()
 		cs, p2ps, chains := newConsensusComponents(4)
 		// 1 should be the block 1's proposer
@@ -555,15 +573,11 @@ func TestRollDPoSConsensus(t *testing.T) {
 				require.NoError(t, chains[i].Stop(ctx))
 			}
 		}()
-		time.Sleep(2 * time.Second)
-		for _, chain := range chains {
-			blk, err := chain.GetBlockByHeight(1)
-			assert.Nil(t, blk)
-			assert.Error(t, err)
-		}
+
+		checkChains(chains)
 	})
 
-	t.Run("non-proposer-network-partition", func(t *testing.T) {
+	t.Run("non-proposer-network-partition-dummy-block", func(t *testing.T) {
 		ctx := context.Background()
 		cs, p2ps, chains := newConsensusComponents(4)
 		// 1 should be the block 1's proposer
@@ -576,6 +590,70 @@ func TestRollDPoSConsensus(t *testing.T) {
 		}
 
 		for i := 0; i < 4; i++ {
+			require.NoError(t, chains[i].Start(ctx))
+			require.NoError(t, p2ps[i].Start(ctx))
+			require.NoError(t, cs[i].Start(ctx))
+		}
+
+		defer func() {
+			for i := 0; i < 4; i++ {
+				require.NoError(t, cs[i].Stop(ctx))
+				require.NoError(t, p2ps[i].Stop(ctx))
+				require.NoError(t, chains[i].Stop(ctx))
+			}
+		}()
+
+		checkChains(chains)
+	})
+
+	t.Run("proposer-network-partition-blocking", func(t *testing.T) {
+		ctx := context.Background()
+		cs, p2ps, chains := newConsensusComponents(4)
+		// 1 should be the block 1's proposer
+		for i, p2p := range p2ps {
+			if i == 1 {
+				p2p.peers = make(map[net.Addr]*RollDPoS)
+			} else {
+				delete(p2p.peers, p2ps[1].addr)
+			}
+		}
+
+		for i := 0; i < 4; i++ {
+			cs[i].ctx.cfg.EnableDummyBlock = false
+			require.NoError(t, chains[i].Start(ctx))
+			require.NoError(t, p2ps[i].Start(ctx))
+			require.NoError(t, cs[i].Start(ctx))
+		}
+
+		defer func() {
+			for i := 0; i < 4; i++ {
+				require.NoError(t, cs[i].Stop(ctx))
+				require.NoError(t, p2ps[i].Stop(ctx))
+				require.NoError(t, chains[i].Stop(ctx))
+			}
+		}()
+		time.Sleep(2 * time.Second)
+		for _, chain := range chains {
+			blk, err := chain.GetBlockByHeight(1)
+			assert.Nil(t, blk)
+			assert.Error(t, err)
+		}
+	})
+
+	t.Run("non-proposer-network-partition-blocking", func(t *testing.T) {
+		ctx := context.Background()
+		cs, p2ps, chains := newConsensusComponents(4)
+		// 1 should be the block 1's proposer
+		for i, p2p := range p2ps {
+			if i == 0 {
+				p2p.peers = make(map[net.Addr]*RollDPoS)
+			} else {
+				delete(p2p.peers, p2ps[0].addr)
+			}
+		}
+
+		for i := 0; i < 4; i++ {
+			cs[i].ctx.cfg.EnableDummyBlock = false
 			require.NoError(t, chains[i].Start(ctx))
 			require.NoError(t, p2ps[i].Start(ctx))
 			require.NoError(t, cs[i].Start(ctx))
