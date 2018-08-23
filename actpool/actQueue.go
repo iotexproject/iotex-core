@@ -204,7 +204,7 @@ func (q *actQueue) PendingActs() []*iproto.ActionPb {
 		return []*iproto.ActionPb{}
 	}
 	acts := make([]*iproto.ActionPb, 0, len(q.items))
-	nonce := q.index[0]
+	nonce := q.startNonce
 	for ; q.items[nonce] != nil; nonce++ {
 		acts = append(acts, q.items[nonce])
 	}
