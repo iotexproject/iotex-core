@@ -1103,8 +1103,8 @@ func convertExecutionToExplorerExecution(execution *action.Execution, isPending 
 		ID:        hex.EncodeToString(hash[:]),
 		Executor:  execution.Executor,
 		Contract:  execution.Contract,
-		Gas:       0, // TODO: we need to get the actual gas
-		GasPrice:  0, // TODO: we need to get the actual gas price
+		Gas:       int64(execution.Gas),
+		GasPrice:  int64(execution.GasPrice),
 		Data:      hex.EncodeToString(execution.Data),
 		IsPending: isPending,
 	}

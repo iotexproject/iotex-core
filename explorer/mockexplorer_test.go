@@ -50,6 +50,18 @@ func TestMockExplorerApi(t *testing.T) {
 	_, err = svc.GetVotesByBlockID("", 0, 10)
 	require.Nil(err)
 
+	_, err = svc.GetLastExecutionsByRange(0, 0, 10)
+	require.Nil(err)
+
+	_, err = svc.GetExecutionByID("")
+	require.Nil(err)
+
+	_, err = svc.GetExecutionsByAddress("", 0, 10)
+	require.Nil(err)
+
+	_, err = svc.GetExecutionsByBlockID("", 0, 10)
+	require.Nil(err)
+
 	_, err = svc.GetLastBlocksByRange(0, 10)
 	require.Nil(err)
 

@@ -26,6 +26,7 @@ import (
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/network/node"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_consensus"
@@ -72,7 +73,9 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	tsf4, _ = tsf4.Sign(ta.Addrinfo["charlie"])
 	vote1, _ := action.NewVote(5, ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["delta"].RawAddress)
 	vote1, _ = vote1.Sign(ta.Addrinfo["charlie"])
-	blk, err = bc.MintNewBlock([]*action.Transfer{tsf1, tsf2, tsf3, tsf4}, []*action.Vote{vote1}, nil, ta.Addrinfo["producer"], "")
+	execution1, _ := action.NewExecution(ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["delta"].RawAddress, 6, big.NewInt(1), 1000000, 10, []byte{1})
+	execution1, _ = execution1.Sign(ta.Addrinfo["charlie"])
+	blk, err = bc.MintNewBlock([]*action.Transfer{tsf1, tsf2, tsf3, tsf4}, []*action.Vote{vote1}, []*action.Execution{execution1}, ta.Addrinfo["producer"], "")
 	if err != nil {
 		return err
 	}
@@ -90,11 +93,15 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	}
 
 	// Add block 4
-	vote1, _ = action.NewVote(6, ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["alfa"].RawAddress)
+	vote1, _ = action.NewVote(7, ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["alfa"].RawAddress)
 	vote2, _ := action.NewVote(1, ta.Addrinfo["alfa"].RawAddress, ta.Addrinfo["charlie"].RawAddress)
 	vote1, _ = vote1.Sign(ta.Addrinfo["charlie"])
 	vote2, _ = vote2.Sign(ta.Addrinfo["alfa"])
-	blk, err = bc.MintNewBlock(nil, []*action.Vote{vote1, vote2}, nil, ta.Addrinfo["producer"], "")
+	execution1, _ = action.NewExecution(ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["delta"].RawAddress, 8, big.NewInt(2), 1000000, 10, []byte{1})
+	execution2, _ := action.NewExecution(ta.Addrinfo["alfa"].RawAddress, ta.Addrinfo["delta"].RawAddress, 2, big.NewInt(1), 1000000, 10, []byte{1})
+	execution1, _ = execution1.Sign(ta.Addrinfo["charlie"])
+	execution2, _ = execution2.Sign(ta.Addrinfo["alfa"])
+	blk, err = bc.MintNewBlock(nil, []*action.Vote{vote1, vote2}, []*action.Execution{execution1, execution2}, ta.Addrinfo["producer"], "")
 	if err != nil {
 		return err
 	}
@@ -112,6 +119,8 @@ func addActsToActPool(ap actpool.ActPool) error {
 	vote1, _ = vote1.Sign(ta.Addrinfo["producer"])
 	tsf2, _ := action.NewTransfer(4, big.NewInt(1), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress)
 	tsf2, _ = tsf2.Sign(ta.Addrinfo["producer"])
+	execution1, _ := action.NewExecution(ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["delta"].RawAddress, 5, big.NewInt(1), 1000000, 10, []byte{1})
+	execution1, _ = execution1.Sign(ta.Addrinfo["producer"])
 	if err := ap.AddTsf(tsf1); err != nil {
 		return err
 	}
@@ -119,6 +128,9 @@ func addActsToActPool(ap actpool.ActPool) error {
 		return err
 	}
 	if err := ap.AddTsf(tsf2); err != nil {
+		return err
+	}
+	if err := ap.AddExecution(execution1); err != nil {
 		return err
 	}
 	return nil
@@ -184,6 +196,14 @@ func TestExplorerApi(t *testing.T) {
 	require.Nil(err)
 	require.Equal(1, len(votes))
 
+	executions, err := svc.GetExecutionsByAddress(ta.Addrinfo["charlie"].RawAddress, 0, 10)
+	require.Nil(err)
+	require.Equal(2, len(executions))
+
+	executions, err = svc.GetExecutionsByAddress(ta.Addrinfo["alfa"].RawAddress, 0, 10)
+	require.Nil(err)
+	require.Equal(1, len(executions))
+
 	transfers, err = svc.GetLastTransfersByRange(4, 1, 3, true)
 	require.Equal(3, len(transfers))
 	require.Nil(err)
@@ -203,6 +223,13 @@ func TestExplorerApi(t *testing.T) {
 	require.Nil(err)
 	votes, err = svc.GetLastVotesByRange(3, 0, 50)
 	require.Equal(22, len(votes))
+	require.Nil(err)
+
+	executions, err = svc.GetLastExecutionsByRange(4, 0, 3)
+	require.Equal(3, len(executions))
+	require.Nil(err)
+	executions, err = svc.GetLastExecutionsByRange(3, 0, 50)
+	require.Equal(1, len(executions))
 	require.Nil(err)
 
 	blks, getBlkErr := svc.GetLastBlocksByRange(3, 4)
@@ -225,8 +252,17 @@ func TestExplorerApi(t *testing.T) {
 	require.Nil(err)
 	require.Equal(1, len(votes))
 
+	// fail
 	_, err = svc.GetVotesByBlockID("", 0, 10)
 	require.Error(err)
+
+	// fail
+	_, err = svc.GetExecutionsByBlockID("", 0, 10)
+	require.Error(err)
+
+	executions, err = svc.GetExecutionsByBlockID(blks[1].ID, 0, 10)
+	require.Nil(err)
+	require.Equal(1, len(executions))
 
 	transfer, err := svc.GetTransferByID(transfers[0].ID)
 	require.Nil(err)
@@ -251,12 +287,26 @@ func TestExplorerApi(t *testing.T) {
 	_, err = svc.GetVoteByID("")
 	require.Error(err)
 
+	execution, err := svc.GetExecutionByID(executions[0].ID)
+	require.Nil(err)
+	require.Equal(executions[0].Nonce, execution.Nonce)
+	require.Equal(executions[0].BlockID, execution.BlockID)
+	require.Equal(executions[0].Timestamp, execution.Timestamp)
+	require.Equal(executions[0].ID, execution.ID)
+	require.Equal(executions[0].Executor, execution.Executor)
+	require.Equal(executions[0].Contract, execution.Contract)
+
+	// fail
+	_, err = svc.GetExecutionByID("")
+	require.Error(err)
+
 	blk, err := svc.GetBlockByID(blks[0].ID)
 	require.Nil(err)
 	require.Equal(blks[0].Height, blk.Height)
 	require.Equal(blks[0].Timestamp, blk.Timestamp)
 	require.Equal(blks[0].Size, blk.Size)
 	require.Equal(int64(0), blk.Votes)
+	require.Equal(int64(0), blk.Executions)
 	require.Equal(int64(1), blk.Transfers)
 
 	_, err = svc.GetBlockByID("")
@@ -268,7 +318,8 @@ func TestExplorerApi(t *testing.T) {
 	require.Equal(int64(4), stats.Height)
 	require.Equal(int64(32), stats.Transfers)
 	require.Equal(int64(24), stats.Votes)
-	require.Equal(int64(12), stats.Aps)
+	require.Equal(int64(3), stats.Executions)
+	require.Equal(int64(15), stats.Aps)
 
 	// success
 	balance, err := svc.GetAddressBalance(ta.Addrinfo["charlie"].RawAddress)
@@ -282,8 +333,8 @@ func TestExplorerApi(t *testing.T) {
 	// success
 	addressDetails, err := svc.GetAddressDetails(ta.Addrinfo["charlie"].RawAddress)
 	require.Equal(int64(6), addressDetails.TotalBalance)
-	require.Equal(int64(6), addressDetails.Nonce)
-	require.Equal(int64(7), addressDetails.PendingNonce)
+	require.Equal(int64(8), addressDetails.Nonce)
+	require.Equal(int64(9), addressDetails.PendingNonce)
 	require.Equal(ta.Addrinfo["charlie"].RawAddress, addressDetails.Address)
 
 	// error
@@ -307,17 +358,27 @@ func TestExplorerApi(t *testing.T) {
 	require.Nil(err)
 	require.Equal(1, len(votes))
 	require.Equal(int64(3), votes[0].Nonce)
+	executions, err = svc.GetUnconfirmedExecutionsByAddress(ta.Addrinfo["producer"].RawAddress, 0, 3)
+	require.Nil(err)
+	require.Equal(1, len(executions))
+	require.Equal(int64(5), executions[0].Nonce)
 	transfers, err = svc.GetUnconfirmedTransfersByAddress(ta.Addrinfo["producer"].RawAddress, 1, 1)
 	require.Nil(err)
 	require.Equal(1, len(transfers))
 	require.Equal(int64(4), transfers[0].Nonce)
 	votes, err = svc.GetUnconfirmedVotesByAddress(ta.Addrinfo["producer"].RawAddress, 1, 1)
+	require.Nil(err)
 	require.Equal(0, len(votes))
+	executions, err = svc.GetUnconfirmedExecutionsByAddress(ta.Addrinfo["producer"].RawAddress, 1, 1)
+	require.Nil(err)
+	require.Equal(0, len(executions))
 
 	// error
 	transfers, err = svc.GetUnconfirmedTransfersByAddress("", 0, 3)
 	require.Error(err)
 	votes, err = svc.GetUnconfirmedVotesByAddress("", 0, 3)
+	require.Error(err)
+	executions, err = svc.GetUnconfirmedExecutionsByAddress("", 0, 3)
 	require.Error(err)
 }
 
@@ -461,6 +522,31 @@ func TestService_SendVote(t *testing.T) {
 	}
 
 	response, err = svc.SendVote(r)
+	require.NotNil(response.Hash)
+	require.Nil(err)
+}
+
+func TestService_SendSmartContract(t *testing.T) {
+	require := require.New(t)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mDp := mock_dispatcher.NewMockDispatcher(ctrl)
+	p2p := mock_network.NewMockOverlay(ctrl)
+	svc := Service{dp: mDp, p2p: p2p}
+
+	execution, _ := action.NewExecution(ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["delta"].RawAddress, 1, big.NewInt(1), 1000000, 10, []byte{1})
+	execution, _ = execution.Sign(ta.Addrinfo["producer"])
+	explorerExecution, _ := convertExecutionToExplorerExecution(execution, true)
+	explorerExecution.Version = int64(execution.Version)
+	explorerExecution.ExecutorPubKey = keypair.EncodePublicKey(execution.ExecutorPubKey)
+	explorerExecution.Signature = hex.EncodeToString(execution.Signature)
+
+	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any()).Times(1)
+	p2p.EXPECT().Broadcast(gomock.Any()).Times(1)
+
+	response, err := svc.SendSmartContract(explorerExecution)
 	require.NotNil(response.Hash)
 	require.Nil(err)
 }
