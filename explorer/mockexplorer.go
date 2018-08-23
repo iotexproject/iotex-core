@@ -96,6 +96,36 @@ func (exp *MockExplorer) GetVotesByBlockID(blkID string, offset int64, limit int
 	return exp.GetLastVotesByRange(0, offset, limit)
 }
 
+// GetLastExecutionsByRange return executions in [-(offset+limit-1), -offset] from block
+// with height startBlockHeight
+func (exp *MockExplorer) GetLastExecutionsByRange(startBlockHeight int64, offset int64, limit int64) ([]explorer.Execution, error) {
+	var executions []explorer.Execution
+	for i := int64(0); i < limit; i++ {
+		executions = append(executions, randExecution())
+	}
+	return executions, nil
+}
+
+// GetExecutionByID returns execution by execution id
+func (exp *MockExplorer) GetExecutionByID(executionID string) (explorer.Execution, error) {
+	return randExecution(), nil
+}
+
+// GetExecutionsByAddress returns all executions associate with an address
+func (exp *MockExplorer) GetExecutionsByAddress(address string, offset int64, limit int64) ([]explorer.Execution, error) {
+	return exp.GetLastExecutionsByRange(0, offset, limit)
+}
+
+// GetUnconfirmedExecutionsByAddress returns all unconfirmed executions in actpool associated with an address
+func (exp *MockExplorer) GetUnconfirmedExecutionsByAddress(address string, offset int64, limit int64) ([]explorer.Execution, error) {
+	return exp.GetLastExecutionsByRange(0, offset, limit)
+}
+
+// GetExecutionsByBlockID returns executions in a block
+func (exp *MockExplorer) GetExecutionsByBlockID(blkID string, offset int64, limit int64) ([]explorer.Execution, error) {
+	return exp.GetLastExecutionsByRange(0, offset, limit)
+}
+
 // GetLastBlocksByRange get block with height [offset-limit+1, offset]
 func (exp *MockExplorer) GetLastBlocksByRange(offset int64, limit int64) ([]explorer.Block, error) {
 	var blks []explorer.Block
@@ -201,6 +231,20 @@ func randVote() explorer.Vote {
 		Nonce:     randInt64(),
 		Voter:     randString(),
 		Votee:     randString(),
+	}
+}
+
+func randExecution() explorer.Execution {
+	return explorer.Execution{
+		ID:        randString(),
+		Timestamp: randInt64(),
+		BlockID:   randString(),
+		Nonce:     randInt64(),
+		Executor:  randString(),
+		Contract:  randString(),
+		Amount:    randInt64(),
+		Gas:       randInt64(),
+		GasPrice:  randInt64(),
 	}
 }
 
