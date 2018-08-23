@@ -12,6 +12,9 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/proto"
 )
 
@@ -109,7 +112,7 @@ func Deserialize(buf []byte) (CandidateList, error) {
 }
 
 // MapToCandidates converts a map of cachedCandidates to candidate list
-func MapToCandidates(candidateMap map[string]*Candidate) (CandidateList, error) {
+func MapToCandidates(candidateMap map[hash.AddrHash]*Candidate) (CandidateList, error) {
 	if candidateMap == nil {
 		return nil, errors.Wrap(ErrCandidateMap, "candidate map cannot be nil")
 	}
@@ -121,16 +124,20 @@ func MapToCandidates(candidateMap map[string]*Candidate) (CandidateList, error) 
 }
 
 // CandidatesToMap converts a candidate list to map of cachedCandidates
-func CandidatesToMap(candidates CandidateList) (map[string]*Candidate, error) {
+func CandidatesToMap(candidates CandidateList) (map[hash.AddrHash]*Candidate, error) {
 	if candidates == nil {
 		return nil, errors.Wrap(ErrCandidateList, "candidate list cannot be nil")
 	}
-	candidateMap := make(map[string]*Candidate)
+	candidateMap := make(map[hash.AddrHash]*Candidate)
 	for _, candidate := range candidates {
 		if candidate == nil {
 			return nil, errors.Wrap(ErrCandidate, "candidate cannot be nil")
 		}
-		candidateMap[candidate.Address] = candidate
+		pkHash, err := iotxaddress.GetPubkeyHash(candidate.Address)
+		if err != nil {
+			return nil, errors.Wrap(err, "cannot get the hash of the address")
+		}
+		candidateMap[byteutil.BytesTo20B(pkHash)] = candidate
 	}
 	return candidateMap, nil
 }

@@ -80,7 +80,7 @@ type (
 		// candidate pool
 		currentChainHeight uint64
 		numCandidates      uint
-		cachedCandidates   map[string]*Candidate
+		cachedCandidates   map[hash.AddrHash]*Candidate
 		// accounts
 		cachedAccount  map[string]*State          // accounts being modified in this Tx
 		cachedContract map[hash.AddrHash]Contract // contracts being modified in this Tx
@@ -154,7 +154,7 @@ func NewFactory(cfg *config.Config, opts ...FactoryOption) (Factory, error) {
 	sf := &factory{
 		currentChainHeight: 0,
 		numCandidates:      cfg.Chain.NumCandidates,
-		cachedCandidates:   make(map[string]*Candidate),
+		cachedCandidates:   make(map[hash.AddrHash]*Candidate),
 		cachedAccount:      make(map[string]*State),
 		cachedContract:     make(map[hash.AddrHash]Contract),
 	}
@@ -315,12 +315,17 @@ func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer
 		if err := sf.putState(state, addr); err != nil {
 			return err
 		}
+		pkHash, err := iotxaddress.GetPubkeyHash(address)
+		if err != nil {
+			return errors.Wrap(err, "cannot get the hash of the address")
+		}
+		pkHashAddress := byteutil.BytesTo20B(pkHash)
 
 		// Perform vote update operation on candidate and delegate pools
 		if !state.IsCandidate {
 			// remove the candidate if the person is not a candidate anymore
-			if _, ok := sf.cachedCandidates[address]; ok {
-				delete(sf.cachedCandidates, address)
+			if _, ok := sf.cachedCandidates[pkHashAddress]; ok {
+				delete(sf.cachedCandidates, pkHashAddress)
 			}
 			continue
 		}
@@ -329,7 +334,7 @@ func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer
 		if state.Votee == address {
 			totalWeight.Add(totalWeight, state.Balance)
 		}
-		sf.updateCandidate(address, totalWeight, blockHeight)
+		sf.updateCandidate(pkHashAddress, totalWeight, blockHeight)
 	}
 	// update pending contract changes
 	for addr, contract := range sf.cachedContract {
@@ -574,9 +579,9 @@ func (sf *factory) getContract(addr hash.AddrHash) (Contract, error) {
 //======================================
 // private candidate functions
 //======================================
-func (sf *factory) updateCandidate(address string, totalWeight *big.Int, blockHeight uint64) {
+func (sf *factory) updateCandidate(pkHash hash.AddrHash, totalWeight *big.Int, blockHeight uint64) {
 	// Candidate was added when self-nomination, always exist in cachedCandidates
-	candidate, _ := sf.cachedCandidates[address]
+	candidate, _ := sf.cachedCandidates[pkHash]
 	candidate.Votes = totalWeight
 	candidate.LastUpdateHeight = blockHeight
 }
@@ -690,8 +695,13 @@ func (sf *factory) handleVote(blockHeight uint64, vote []*action.Vote) error {
 			// Vote to self: self-nomination or cancel the previous vote case
 			voteFrom.Votee = voterAddress
 			voteFrom.IsCandidate = true
-			if _, ok := sf.cachedCandidates[voterAddress]; !ok {
-				sf.cachedCandidates[voterAddress] = &Candidate{
+			pkHash, err := iotxaddress.GetPubkeyHash(voterAddress)
+			if err != nil {
+				return errors.Wrap(err, "cannot get the hash of the address")
+			}
+			pkHashAddress := byteutil.BytesTo20B(pkHash)
+			if _, ok := sf.cachedCandidates[pkHashAddress]; !ok {
+				sf.cachedCandidates[pkHashAddress] = &Candidate{
 					Address:        voterAddress,
 					PubKey:         pbVote.SelfPubkey[:],
 					CreationHeight: blockHeight,
