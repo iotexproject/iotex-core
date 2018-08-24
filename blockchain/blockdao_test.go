@@ -364,6 +364,6 @@ func TestBlockDAO(t *testing.T) {
 	t.Run("Bolt DB for actions", func(t *testing.T) {
 		testutil.CleanupPath(t, path)
 		defer testutil.CleanupPath(t, path)
-		testActionsDao(db.NewBoltDB(path, nil), t)
+		testActionsDao(db.NewBoltDB(path, cfg), t)
 	})
 }
