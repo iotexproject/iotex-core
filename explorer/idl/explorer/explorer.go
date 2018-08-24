@@ -3,13 +3,14 @@ package explorer
 
 import (
 	"fmt"
-	"github.com/coopernurse/barrister-go"
 	"reflect"
+
+	"github.com/coopernurse/barrister-go"
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "ea116dbeb184d9eb4d8da2d98274a13a"
-const BarristerDateGenerated int64 = 1535050772329000000
+const BarristerChecksum string = "8229ce64277da8aa2b622e4b98457750"
+const BarristerDateGenerated int64 = 1535144436418000000
 
 type CoinStatistic struct {
 	Height     int64 `json:"height"`
@@ -206,6 +207,7 @@ type Explorer interface {
 	SendVote(request SendVoteRequest) (SendVoteResponse, error)
 	SendSmartContract(request Execution) (SendSmartContractResponse, error)
 	GetPeers() (GetPeersResponse, error)
+	GetReceiptByExecutionID(id string) (Receipt, error)
 }
 
 func NewExplorerProxy(c barrister.Client) Explorer {
@@ -701,6 +703,24 @@ func (_p ExplorerProxy) GetPeers() (GetPeersResponse, error) {
 		return _cast, nil
 	}
 	return GetPeersResponse{}, _err
+}
+
+func (_p ExplorerProxy) GetReceiptByExecutionID(id string) (Receipt, error) {
+	_res, _err := _p.client.Call("Explorer.getReceiptByExecutionID", id)
+	if _err == nil {
+		_retType := _p.idl.Method("Explorer.getReceiptByExecutionID").Returns
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(Receipt{}), _res, "")
+	}
+	if _err == nil {
+		_cast, _ok := _res.(Receipt)
+		if !_ok {
+			_t := reflect.TypeOf(_res)
+			_msg := fmt.Sprintf("Explorer.getReceiptByExecutionID returned invalid type: %v", _t)
+			return Receipt{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
+		}
+		return _cast, nil
+	}
+	return Receipt{}, _err
 }
 
 func NewJSONServer(idl *barrister.Idl, forceASCII bool, explorer Explorer) barrister.Server {
@@ -2485,6 +2505,26 @@ var IdlJsonRaw = `[
                     "is_array": false,
                     "comment": ""
                 }
+            },
+            {
+                "name": "getReceiptByExecutionID",
+                "comment": "get receipt by execution id",
+                "params": [
+                    {
+                        "name": "id",
+                        "type": "string",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    }
+                ],
+                "returns": {
+                    "name": "",
+                    "type": "Receipt",
+                    "optional": false,
+                    "is_array": false,
+                    "comment": ""
+                }
             }
         ],
         "barrister_version": "",
@@ -2501,7 +2541,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1535050772329,
-        "checksum": "ea116dbeb184d9eb4d8da2d98274a13a"
+        "date_generated": 1535144436418,
+        "checksum": "8229ce64277da8aa2b622e4b98457750"
     }
 ]`
