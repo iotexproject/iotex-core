@@ -581,10 +581,6 @@ func (dao *blockDAO) putBlock(blk *Block) error {
 		return err
 	}
 
-	if err = putReceipts(dao, blk, batch); err != nil {
-		return err
-	}
-
 	return batch.Commit()
 }
 
@@ -772,7 +768,8 @@ func putExecutions(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 }
 
 // putReceipts store receipt into db
-func putReceipts(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
+func (dao *blockDAO) putReceipts(blk *Block) error {
+	batch := dao.kvstore.Batch()
 	for _, r := range blk.receipts {
 		v, err := r.Serialize()
 		if err != nil {
@@ -780,5 +777,5 @@ func putReceipts(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 		}
 		batch.Put(blockExecutionReceiptMappingNS, r.Hash[:], v[:], "failed to put receipt for execution %x", r.Hash[:])
 	}
-	return nil
+	return batch.Commit()
 }

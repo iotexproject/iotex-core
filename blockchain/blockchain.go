@@ -651,13 +651,6 @@ func (bc *blockchain) Validator() Validator {
 //=====================================
 // commitBlock commits a block to the chain
 func (bc *blockchain) commitBlock(blk *Block) error {
-	// update state factory
-	if bc.sf != nil {
-		ExecuteContracts(blk, bc)
-		if err := bc.sf.CommitStateChanges(blk.Height(), blk.Transfers, blk.Votes, blk.Executions); err != nil {
-			return err
-		}
-	}
 	// write block into DB
 	if err := bc.dao.putBlock(blk); err != nil {
 		return err
@@ -667,6 +660,17 @@ func (bc *blockchain) commitBlock(blk *Block) error {
 	defer bc.mu.Unlock()
 	bc.tipHeight = blk.Header.height
 	bc.tipHash = blk.HashBlock()
+	// update state factory
+	if bc.sf != nil {
+		ExecuteContracts(blk, bc)
+		if err := bc.sf.CommitStateChanges(blk.Height(), blk.Transfers, blk.Votes, blk.Executions); err != nil {
+			return err
+		}
+	}
+	// write smart contract receipt into DB
+	if err := bc.dao.putReceipts(blk); err != nil {
+		return err
+	}
 	logger.Info().Uint64("height", blk.Header.height).Msg("commit a block")
 	return nil
 }
