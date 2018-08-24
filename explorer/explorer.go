@@ -36,6 +36,8 @@ var (
 	ErrVote = errors.New("invalid vote")
 	// ErrExecution indicates the error of execution
 	ErrExecution = errors.New("invalid execution")
+	// ErrReceipt indicates the error of receipt
+	ErrReceipt = errors.New("invalid receipt")
 )
 
 // Service provide api for user to query blockchain data
@@ -567,6 +569,22 @@ func (exp *Service) GetExecutionsByBlockID(blkID string, offset int64, limit int
 		res = append(res, explorerExecution)
 	}
 	return res, nil
+}
+
+// GetReceiptByExecutionID gets receipt with corresponding execution id
+func (exp *Service) GetReceiptByExecutionID(id string) (explorer.Receipt, error) {
+	bytes, err := hex.DecodeString(id)
+	if err != nil {
+		return explorer.Receipt{}, err
+	}
+	var executionHash hash.Hash32B
+	copy(executionHash[:], bytes)
+	receipt, err := exp.bc.GetReceiptByExecutionHash(executionHash)
+	if err != nil {
+		return explorer.Receipt{}, err
+	}
+
+	return convertReceiptToExplorerReceipt(receipt)
 }
 
 // GetLastBlocksByRange get block with height [offset-limit+1, offset]
@@ -1109,4 +1127,35 @@ func convertExecutionToExplorerExecution(execution *action.Execution, isPending 
 		IsPending: isPending,
 	}
 	return explorerExecution, nil
+}
+
+func convertReceiptToExplorerReceipt(receipt *blockchain.Receipt) (explorer.Receipt, error) {
+	if receipt == nil {
+		return explorer.Receipt{}, errors.Wrap(ErrReceipt, "receipt cannot be nil")
+	}
+	logs := []explorer.Log{}
+	for _, log := range receipt.Logs {
+		topics := []string{}
+		for _, topic := range log.Topics {
+			topics = append(topics, hex.EncodeToString(topic[:]))
+		}
+		logs = append(logs, explorer.Log{
+			Address:     log.Address,
+			Topics:      topics,
+			Data:        hex.EncodeToString(log.Data),
+			BlockNumber: int64(log.BlockNumber),
+			TxnHash:     hex.EncodeToString(log.TxnHash[:]),
+			BlockHash:   hex.EncodeToString(log.BlockHash[:]),
+			Index:       int64(log.Index),
+		})
+	}
+
+	return explorer.Receipt{
+		ReturnValue:     hex.EncodeToString(receipt.ReturnValue),
+		Status:          int64(receipt.Status),
+		Hash:            hex.EncodeToString(receipt.Hash[:]),
+		GasConsumed:     int64(receipt.GasConsumed),
+		ContractAddress: receipt.ContractAddress,
+		Logs:            logs,
+	}, nil
 }

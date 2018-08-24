@@ -30,7 +30,7 @@ type Log struct {
 	Data        []byte
 	BlockNumber uint64
 	TxnHash     hash.Hash32B
-	BLockHash   hash.Hash32B
+	BlockHash   hash.Hash32B
 	Index       uint
 }
 
@@ -90,7 +90,7 @@ func (log *Log) ConvertToLogPb() *iproto.LogPb {
 	l.Data = log.Data
 	l.BlockNumber = log.BlockNumber
 	l.TxnHash = log.TxnHash[:]
-	l.BlockHash = log.BLockHash[:]
+	l.BlockHash = log.BlockHash[:]
 	l.Index = uint32(log.Index)
 	return l
 }
@@ -106,7 +106,7 @@ func (log *Log) ConvertFromLogPb(pbLog *iproto.LogPb) {
 	log.Data = pbLog.GetData()
 	log.BlockNumber = pbLog.GetBlockNumber()
 	copy(log.TxnHash[:], pbLog.GetTxnHash())
-	copy(log.BLockHash[:], pbLog.GetBlockHash())
+	copy(log.BlockHash[:], pbLog.GetBlockHash())
 	log.Index = uint(pbLog.GetIndex())
 }
 
