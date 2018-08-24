@@ -31,10 +31,10 @@ func NewPeerManager(o *IotxOverlay, lb uint, ub uint) *PeerManager {
 // AddPeer adds a new peer
 func (pm *PeerManager) AddPeer(addr string) {
 	if LenSyncMap(pm.Peers) >= pm.NumPeersUpperBound {
-		pm.RemoveLRUPeer()
 		logger.Debug().
-			Str("dst", addr).
-			Msg("Remove LRU Peer")
+			Uint("peers", pm.NumPeersUpperBound).
+			Msg("Node already reached the max number of peers")
+		return
 	}
 	if pm.Overlay.RPC.String() == addr {
 		logger.Debug().

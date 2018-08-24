@@ -54,6 +54,24 @@ struct Transfer {
     fee int
     timestamp int
     blockID string
+    isPending bool
+}
+
+struct Execution {
+    version int
+    ID string
+    nonce int
+    executor string
+    contract string
+    amount int
+    executorPubKey string
+    signature string
+    gas int
+    gasPrice int
+    timestamp int
+    data string
+    blockID string
+    isPending bool
 }
 
 struct Vote {
@@ -66,6 +84,7 @@ struct Vote {
     voterPubKey string
     signature string
     blockID string
+    isPending bool
 }
 
 struct AddressDetails {
@@ -97,19 +116,45 @@ struct ConsensusMetrics {
 }
 
 struct SendTransferRequest {
-    serlializedTransfer string
+    version int
+    nonce int
+    sender string
+    recipient string
+    amount int
+    senderPubKey string
+    signature string
+    payload string
+    isCoinbase bool
 }
 
 struct SendTransferResponse {
-    transferSent bool
+    hash string
 }
 
 struct SendVoteRequest {
-    serializedVote string
+    version int
+    nonce int
+    voter string
+    votee string
+    voterPubKey string
+    signature string
 }
 
 struct SendVoteResponse {
-    voteSent bool
+    hash string
+}
+
+struct Node {
+    address string
+}
+
+struct GetPeersResponse {
+    Self Node
+    Peers []Node
+}
+
+struct SendSmartContractResponse {
+    hash string
 }
 
 interface Explorer {
@@ -172,4 +217,10 @@ interface Explorer {
 
     // send vote
     sendVote(request SendVoteRequest) SendVoteResponse
+
+    // sendSmartContract
+    sendSmartContract(request Execution) SendSmartContractResponse
+
+    // get list of peers
+    getPeers() GetPeersResponse
 }

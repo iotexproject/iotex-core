@@ -158,6 +158,16 @@ func (exp *MockExplorer) SendVote(request explorer.SendVoteRequest) (explorer.Se
 	return explorer.SendVoteResponse{}, nil
 }
 
+// GetPeers returns a empty GetPeersResponse.
+func (exp *MockExplorer) GetPeers() (explorer.GetPeersResponse, error) {
+	return explorer.GetPeersResponse{}, nil
+}
+
+// SendSmartContract sends a smart contract
+func (exp *MockExplorer) SendSmartContract(request explorer.Execution) (explorer.SendSmartContractResponse, error) {
+	return explorer.SendSmartContractResponse{}, nil
+}
+
 func randInt64() int64 {
 	rand.Seed(time.Now().UnixNano())
 	amount := int64(0)

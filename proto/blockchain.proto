@@ -26,15 +26,44 @@ message VotePb {
     string voteeAddress = 4;  // the address this node is voting for
 }
 
-message ActionPb {
-    oneof action {
-        TransferPb transfer = 1;
-        VotePb vote = 2;
-    }
+message ExecutionPb {
+    bytes amount  = 1;
+    string executor = 2;
+    string contract = 3;
+    bytes executorPubKey = 4;
+    uint64 gas = 5;
+    uint64 gasPrice = 6;
+    bytes data = 7;
+}
 
-    uint32 version = 3;
-    uint64 nonce = 4;
-    bytes signature = 5;
+message LogPb {
+    string address = 1;
+    repeated bytes topics = 2;
+    bytes data = 3;
+    uint64 blockNumber = 4;
+    bytes txnHash = 5;
+    bytes blockHash = 6;
+    uint32 index = 7;
+}
+
+message ReceiptPb {
+    bytes returnValue = 1;
+    uint64 status = 2;
+    bytes hash = 3;
+    uint64 gasConsumed = 4;
+    string contractAddress = 5;
+    repeated LogPb logs = 6;
+}
+
+message ActionPb {
+    uint32 version = 1;
+    uint64 nonce = 2;
+    bytes signature = 3;
+    oneof action {
+        TransferPb transfer = 10;
+        VotePb vote = 11;
+        ExecutionPb execution = 12;
+    }
 }
 
 // header of a block
@@ -46,10 +75,13 @@ message BlockHeaderPb {
     bytes prevBlockHash = 5;
     bytes txRoot = 6;
     bytes stateRoot = 7;
-    uint32 trnxNumber = 8;
-    uint32 trnxDataSize = 9;
+    bytes receiptRoot = 8;
+    bytes reserved = 9;
     bytes signature = 10;
     bytes pubkey = 11;
+    bytes dkgID = 12;
+    bytes dkgPubkey = 13;
+    bytes dkgSignature = 14;
 }
 
 // block consists of header followed by transactions

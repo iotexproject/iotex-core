@@ -11,6 +11,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/facebookgo/clock"
 	"github.com/golang/protobuf/proto"
 	"golang.org/x/crypto/blake2b"
 
@@ -40,10 +41,13 @@ type BlockHeader struct {
 	timestamp     uint64            // unix timestamp
 	prevBlockHash hash.Hash32B      // hash of previous block
 	txRoot        hash.Hash32B      // merkle root of all transactions
-	stateRoot     hash.Hash32B      // merkle root of all states
+	stateRoot     hash.Hash32B      // root of state trie
+	receiptRoot   hash.Hash32B      // root of receipt trie
 	blockSig      []byte            // block signature
 	Pubkey        keypair.PublicKey // block producer's public key
-
+	DKGID         []byte            // dkg ID of producer
+	DKGPubkey     []byte            // dkg public key of producer
+	DKGBlockSig   []byte            // dkg signature of producer
 }
 
 // Timestamp returns the timestamp in the block header
@@ -53,26 +57,36 @@ func (bh *BlockHeader) Timestamp() time.Time {
 
 // Block defines the struct of block
 type Block struct {
-	Header    *BlockHeader
-	Transfers []*action.Transfer
-	Votes     []*action.Vote
+	Header     *BlockHeader
+	Transfers  []*action.Transfer
+	Votes      []*action.Vote
+	Executions []*action.Execution
+	receipts   map[hash.Hash32B]*Receipt
 }
 
 // NewBlock returns a new block
-func NewBlock(chainID uint32, height uint64, prevBlockHash hash.Hash32B,
-	tsf []*action.Transfer, vote []*action.Vote) *Block {
+func NewBlock(
+	chainID uint32,
+	height uint64,
+	prevBlockHash hash.Hash32B,
+	c clock.Clock,
+	tsf []*action.Transfer,
+	vote []*action.Vote,
+	executions []*action.Execution) *Block {
 	block := &Block{
 		Header: &BlockHeader{
 			version:       version.ProtocolVersion,
 			chainID:       chainID,
 			height:        height,
-			timestamp:     uint64(time.Now().Unix()),
+			timestamp:     uint64(c.Now().Unix()),
 			prevBlockHash: prevBlockHash,
 			txRoot:        hash.ZeroHash32B,
 			stateRoot:     hash.ZeroHash32B,
+			receiptRoot:   hash.ZeroHash32B,
 		},
-		Transfers: tsf,
-		Votes:     vote,
+		Transfers:  tsf,
+		Votes:      vote,
+		Executions: executions,
 	}
 
 	block.Header.txRoot = block.TxRoot()
@@ -104,11 +118,15 @@ func (b *Block) ByteStreamHeader() []byte {
 	tmp8B := make([]byte, 8)
 	enc.MachineEndian.PutUint64(tmp8B, uint64(b.Header.height))
 	stream = append(stream, tmp8B...)
-	enc.MachineEndian.PutUint64(tmp8B, b.Header.timestamp)
+	// TODO: exclude timestamp from block hash because dummy block needs to have a consistent hash no matter which
+	// node produces it at a given height. Once we get rid of the dummy block concept, we need to include it into
+	// the hash block hash again
+	//enc.MachineEndian.PutUint64(tmp8B, b.Header.timestamp)
 	stream = append(stream, tmp8B...)
 	stream = append(stream, b.Header.prevBlockHash[:]...)
 	stream = append(stream, b.Header.txRoot[:]...)
 	stream = append(stream, b.Header.stateRoot[:]...)
+	stream = append(stream, b.Header.receiptRoot[:]...)
 	stream = append(stream, b.Header.Pubkey[:]...)
 	return stream
 }
@@ -119,6 +137,9 @@ func (b *Block) ByteStream() []byte {
 
 	// Add the stream of blockSig
 	stream = append(stream, b.Header.blockSig[:]...)
+	stream = append(stream, b.Header.DKGID[:]...)
+	stream = append(stream, b.Header.DKGPubkey[:]...)
+	stream = append(stream, b.Header.DKGBlockSig[:]...)
 
 	for _, t := range b.Transfers {
 		stream = append(stream, t.ByteStream()...)
@@ -126,7 +147,9 @@ func (b *Block) ByteStream() []byte {
 	for _, v := range b.Votes {
 		stream = append(stream, v.ByteStream()...)
 	}
-
+	for _, e := range b.Executions {
+		stream = append(stream, e.ByteStream()...)
+	}
 	return stream
 }
 
@@ -141,8 +164,12 @@ func (b *Block) ConvertToBlockHeaderPb() *iproto.BlockHeaderPb {
 	pbHeader.PrevBlockHash = b.Header.prevBlockHash[:]
 	pbHeader.TxRoot = b.Header.txRoot[:]
 	pbHeader.StateRoot = b.Header.stateRoot[:]
+	pbHeader.ReceiptRoot = b.Header.receiptRoot[:]
 	pbHeader.Signature = b.Header.blockSig[:]
 	pbHeader.Pubkey = b.Header.Pubkey[:]
+	pbHeader.DkgID = b.Header.DKGID[:]
+	pbHeader.DkgPubkey = b.Header.DKGPubkey[:]
+	pbHeader.DkgSignature = b.Header.DKGBlockSig[:]
 	return &pbHeader
 }
 
@@ -154,6 +181,9 @@ func (b *Block) ConvertToBlockPb() *iproto.BlockPb {
 	}
 	for _, vote := range b.Votes {
 		actions = append(actions, vote.ConvertToActionPb())
+	}
+	for _, execution := range b.Executions {
+		actions = append(actions, execution.ConvertToActionPb())
 	}
 	return &iproto.BlockPb{Header: b.ConvertToBlockHeaderPb(), Actions: actions}
 }
@@ -174,8 +204,12 @@ func (b *Block) ConvertFromBlockHeaderPb(pbBlock *iproto.BlockPb) {
 	copy(b.Header.prevBlockHash[:], pbBlock.GetHeader().GetPrevBlockHash())
 	copy(b.Header.txRoot[:], pbBlock.GetHeader().GetTxRoot())
 	copy(b.Header.stateRoot[:], pbBlock.GetHeader().GetStateRoot())
+	copy(b.Header.receiptRoot[:], pbBlock.GetHeader().GetReceiptRoot())
 	b.Header.blockSig = pbBlock.GetHeader().GetSignature()
 	copy(b.Header.Pubkey[:], pbBlock.GetHeader().GetPubkey())
+	b.Header.DKGID = pbBlock.GetHeader().GetDkgID()
+	b.Header.DKGPubkey = pbBlock.GetHeader().GetDkgPubkey()
+	b.Header.DKGBlockSig = pbBlock.GetHeader().GetDkgSignature()
 }
 
 // ConvertFromBlockPb converts BlockPb to Block
@@ -184,6 +218,7 @@ func (b *Block) ConvertFromBlockPb(pbBlock *iproto.BlockPb) {
 
 	b.Transfers = []*action.Transfer{}
 	b.Votes = []*action.Vote{}
+	b.Executions = []*action.Execution{}
 
 	for _, act := range pbBlock.Actions {
 		if tfPb := act.GetTransfer(); tfPb != nil {
@@ -194,6 +229,10 @@ func (b *Block) ConvertFromBlockPb(pbBlock *iproto.BlockPb) {
 			vote := &action.Vote{}
 			vote.ConvertFromActionPb(act)
 			b.Votes = append(b.Votes, vote)
+		} else if executionPb := act.GetExecution(); executionPb != nil {
+			execution := &action.Execution{}
+			execution.ConvertFromActionPb(act)
+			b.Executions = append(b.Executions, execution)
 		} else {
 			logger.Fatal().Msg("unexpected action")
 		}
@@ -226,7 +265,9 @@ func (b *Block) TxRoot() hash.Hash32B {
 	for _, v := range b.Votes {
 		h = append(h, v.Hash())
 	}
-
+	for _, e := range b.Executions {
+		h = append(h, e.Hash())
+	}
 	if len(h) == 0 {
 		return hash.ZeroHash32B
 	}

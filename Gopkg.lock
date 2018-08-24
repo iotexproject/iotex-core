@@ -51,12 +51,6 @@
   revision = "600d898af40aa09a7a93ecb9265d87b0504b6f03"
 
 [[projects]]
-  branch = "master"
-  name = "github.com/golang/groupcache"
-  packages = ["lru"]
-  revision = "24b0969c4cb722950103eed87108c8d291a8df00"
-
-[[projects]]
   name = "github.com/golang/mock"
   packages = ["gomock"]
   revision = "c34cdb4725f4c3844d095133c6e40e448b86589b"
@@ -260,6 +254,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "a4d17e6b2690b75e4f9fef97261fc33e4da96c69621db3fe74ec4dc6fbda51a0"
+  inputs-digest = "f721ecbdd29bcb35394be95c868243433d0623681503e5344c9d58f150cc0f32"
   solver-name = "gps-cdcl"
   solver-version = 1

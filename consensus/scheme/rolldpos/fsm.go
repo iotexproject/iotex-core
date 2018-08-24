@@ -18,6 +18,7 @@ import (
 	"github.com/zjshen14/go-fsm"
 
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/proto"
@@ -369,7 +370,6 @@ func (m *cFSM) handleRollDelegatesEvt(_ fsm.Event) (fsm.State, error) {
 
 		logger.Info().
 			Uint64("epoch", epochNum).
-			Uint64("height", epochHeight).
 			Msg("current node is the delegate")
 		return sDKGGeneration, nil
 	}
@@ -377,7 +377,6 @@ func (m *cFSM) handleRollDelegatesEvt(_ fsm.Event) (fsm.State, error) {
 	m.produce(m.newCEvt(eRollDelegates), m.ctx.cfg.DelegateInterval)
 	logger.Info().
 		Uint64("epoch", epochNum).
-		Uint64("height", epochHeight).
 		Msg("current node is not the delegate")
 	return sEpochStart, nil
 }
@@ -460,8 +459,8 @@ func (m *cFSM) handleProposeBlockEvt(evt fsm.Event) (fsm.State, error) {
 		}
 		// If the block is self proposed, skip validation
 		if proposeBlkEvt.proposer != m.ctx.addr.RawAddress {
+			blkHash := proposeBlkEvt.block.HashBlock()
 			if err := m.ctx.chain.ValidateBlock(proposeBlkEvt.block); err != nil {
-				blkHash := proposeBlkEvt.block.HashBlock()
 				logger.Error().
 					Str("proposer", proposeBlkEvt.proposer).
 					Uint64("block", proposeBlkEvt.block.Height()).
@@ -469,6 +468,18 @@ func (m *cFSM) handleProposeBlockEvt(evt fsm.Event) (fsm.State, error) {
 					Err(err).
 					Msg("error when validating the block")
 				validated = false
+			}
+			// Verify dkg signature
+			if len(proposeBlkEvt.block.Header.DKGPubkey) > 0 && len(proposeBlkEvt.block.Header.DKGBlockSig) > 0 {
+				if err := verifyDKGSignature(proposeBlkEvt.block, m.ctx.epoch.seed); err != nil {
+					logger.Error().
+						Str("proposer", proposeBlkEvt.proposer).
+						Uint64("block", proposeBlkEvt.block.Height()).
+						Str("hash", hex.EncodeToString(blkHash[:])).
+						Err(err).
+						Msg("Failed to verify the DKG signature")
+					validated = false
+				}
 			}
 		}
 		m.ctx.round.block = proposeBlkEvt.block
@@ -533,6 +544,7 @@ func (m *cFSM) handlePrevoteEvt(evt fsm.Event) (fsm.State, error) {
 			vEvt = m.newVoteEvt(m.ctx.round.block.HashBlock(), false)
 		}
 		logger.Warn().
+			Uint64("height", m.ctx.round.height).
 			Int("prevotes", len(m.ctx.round.prevotes)).
 			Msg("didn't collect enough prevotes before timeout")
 	}
@@ -586,6 +598,7 @@ func (m *cFSM) handleVoteEvt(evt fsm.Event) (fsm.State, error) {
 		consensus = false
 		timeout = true
 		logger.Warn().
+			Uint64("height", m.ctx.round.height).
 			Int("votes", len(m.ctx.round.votes)).
 			Msg("didn't collect enough votes before timeout")
 	}
@@ -605,48 +618,38 @@ func (m *cFSM) handleVoteEvt(evt fsm.Event) (fsm.State, error) {
 			Bool("timeout", timeout).
 			Bool("disagreement", disagreement).
 			Msg("consensus did not reach")
-		pendingBlock = m.ctx.chain.MintNewDummyBlock()
-		logger.Warn().
-			Uint64("block", pendingBlock.Height()).
-			Msg("dummy block is generated")
-		// TODO: fix committing dummy block
-		pendingBlock = nil
-	}
-	// Commit and broadcast the pending block
-	var err error
-	// TODO: pendingBlock is not supposed to be nil. It's nil because setting pendingBlock = nil above
-	if pendingBlock != nil {
-		// TODO: Remove the blocksync dependency after rewriting blocksync
-		if m.ctx.sync != nil {
-			err = m.ctx.sync.ProcessBlock(pendingBlock)
-		} else {
-			if err = m.ctx.chain.CommitBlock(pendingBlock); err == nil {
-				// Remove transfers in this block from ActPool and reset ActPool state
-				m.ctx.actPool.Reset()
-			}
+		if m.ctx.cfg.EnableDummyBlock {
+			pendingBlock = m.ctx.chain.MintNewDummyBlock()
+			logger.Warn().
+				Uint64("block", pendingBlock.Height()).
+				Msg("dummy block is generated")
 		}
-		if err != nil {
+	}
+	if pendingBlock != nil {
+		// Commit and broadcast the pending block
+		if err := m.ctx.chain.CommitBlock(pendingBlock); err != nil {
 			logger.Error().
 				Err(err).
 				Uint64("block", pendingBlock.Height()).
 				Bool("dummy", pendingBlock.IsDummyBlock()).
 				Msg("error when committing a block")
-		} else {
-			// Broadcast the committed block to the network
-			if blkProto := pendingBlock.ConvertToBlockPb(); blkProto != nil {
-				if err := m.ctx.p2p.Broadcast(blkProto); err != nil {
-					logger.Error().
-						Err(err).
-						Uint64("block", pendingBlock.Height()).
-						Bool("dummy", pendingBlock.IsDummyBlock()).
-						Msg("error when broadcasting blkProto")
-				}
-			} else {
+		}
+		// Remove transfers in this block from ActPool and reset ActPool state
+		m.ctx.actPool.Reset()
+		// Broadcast the committed block to the network
+		if blkProto := pendingBlock.ConvertToBlockPb(); blkProto != nil {
+			if err := m.ctx.p2p.Broadcast(blkProto); err != nil {
 				logger.Error().
+					Err(err).
 					Uint64("block", pendingBlock.Height()).
 					Bool("dummy", pendingBlock.IsDummyBlock()).
-					Msg("error when converting a block into a proto msg")
+					Msg("error when broadcasting blkProto")
 			}
+		} else {
+			logger.Error().
+				Uint64("block", pendingBlock.Height()).
+				Bool("dummy", pendingBlock.IsDummyBlock()).
+				Msg("error when converting a block into a proto msg")
 		}
 	}
 	m.produce(m.newCEvt(eFinishEpoch), 0)
@@ -730,4 +733,51 @@ func (m *cFSM) newTimeoutEvt(t fsm.EventType, height uint64) *timeoutEvt {
 
 func (m *cFSM) newBackdoorEvt(dst fsm.State) *backdoorEvt {
 	return newBackdoorEvt(dst, m.ctx.clock)
+}
+
+func (m *cFSM) updateSeed() ([]byte, error) {
+	numDlgs := m.ctx.cfg.NumDelegates
+	epochNum, epochHeight, err := m.ctx.calcEpochNumAndHeight()
+	if err != nil {
+		return []byte{}, errors.Wrap(err, "Failed to do decode seed")
+	}
+	if epochNum <= 1 {
+		return []byte{}, nil
+	}
+	selectedID := make([][]uint8, 0)
+	selectedSig := make([][]byte, 0)
+	selectedPK := make([][]byte, 0)
+	endHeight := epochHeight - 1
+	startHeight := uint64(numDlgs)*uint64(m.ctx.cfg.NumSubEpochs)*(epochNum-2) + 1
+	for i := startHeight; i <= endHeight && len(selectedID) < crypto.Degree+1; i++ {
+		blk, err := m.ctx.chain.GetBlockByHeight(i)
+		if err != nil {
+			continue
+		}
+		if len(blk.Header.DKGID) > 0 && len(blk.Header.DKGPubkey) > 0 && len(blk.Header.DKGBlockSig) > 0 {
+			selectedID = append(selectedID, blk.Header.DKGID)
+			selectedSig = append(selectedSig, blk.Header.DKGBlockSig)
+			selectedPK = append(selectedPK, blk.Header.DKGPubkey)
+		}
+	}
+
+	if len(selectedID) < crypto.Degree+1 {
+		return []byte{}, errors.New("DKG signature/pubic key is not enough to aggregate")
+	}
+
+	aggregateSig, err := crypto.BLS.SignAggregate(selectedID, selectedSig)
+	if err != nil {
+		return []byte{}, errors.Wrap(err, "Failed to generate aggregate signature to update Seed")
+	}
+	if err = crypto.BLS.VerifyAggregate(selectedID, selectedPK, m.ctx.epoch.seed, aggregateSig); err != nil {
+		return []byte{}, errors.Wrap(err, "Failed to verify aggregate signature to update Seed")
+	}
+	return aggregateSig, nil
+}
+
+func verifyDKGSignature(blk *blockchain.Block, seedByte []byte) error {
+	if err := crypto.BLS.Verify(blk.Header.DKGPubkey, seedByte, blk.Header.DKGBlockSig); err != nil {
+		return err
+	}
+	return nil
 }

@@ -8,13 +8,14 @@ package explorer
 
 import (
 	"encoding/hex"
-	"encoding/json"
 	"math/big"
 
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/action"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/dispatch/dispatcher"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
@@ -26,17 +27,23 @@ import (
 	pb "github.com/iotexproject/iotex-core/proto"
 )
 
-// ErrInternalServer indicates the internal server error
-var ErrInternalServer = errors.New("internal server error")
+var (
+	// ErrInternalServer indicates the internal server error
+	ErrInternalServer = errors.New("internal server error")
+	// ErrTransfer indicates the error of transfer
+	ErrTransfer = errors.New("invalid transfer")
+	//ErrVote indicates the error of vote
+	ErrVote = errors.New("invalid vote")
+)
 
 // Service provide api for user to query blockchain data
 type Service struct {
-	bc        blockchain.Blockchain
-	c         consensus.Consensus
-	dp        dispatcher.Dispatcher
-	ap        actpool.ActPool
-	p2p       network.Overlay
-	tpsWindow int
+	bc  blockchain.Blockchain
+	c   consensus.Consensus
+	dp  dispatcher.Dispatcher
+	ap  actpool.ActPool
+	p2p network.Overlay
+	cfg config.Explorer
 }
 
 // GetBlockchainHeight returns the current blockchain tip height
@@ -86,13 +93,13 @@ ChainLoop:
 		var blkID = ""
 		hash, err := exp.bc.GetHashByHeight(uint64(height))
 		if err != nil {
-			return res, err
+			return []explorer.Transfer{}, err
 		}
 		blkID = hex.EncodeToString(hash[:])
 
 		blk, err := exp.bc.GetBlockByHeight(uint64(height))
 		if err != nil {
-			return res, err
+			return []explorer.Transfer{}, err
 		}
 
 		for i := len(blk.Transfers) - 1; i >= 0; i-- {
@@ -110,17 +117,12 @@ ChainLoop:
 					break ChainLoop
 				}
 
-				hash := blk.Transfers[i].Hash()
-				explorerTransfer := explorer.Transfer{
-					Amount:    blk.Transfers[i].Amount.Int64(),
-					Timestamp: int64(blk.ConvertToBlockHeaderPb().Timestamp),
-					ID:        hex.EncodeToString(hash[:]),
-					Nonce:     int64(blk.Transfers[i].Nonce),
-					BlockID:   blkID,
-					Sender:    blk.Transfers[i].Sender,
-					Recipient: blk.Transfers[i].Recipient,
-					Fee:       0, // TODO: we need to get the actual fee.
+				explorerTransfer, err := convertTsfToExplorerTsf(blk.Transfers[i], false)
+				if err != nil {
+					return []explorer.Transfer{}, errors.Wrapf(err, "failed to convert transfer %v to explorer's JSON transfer", blk.Transfers[i])
 				}
+				explorerTransfer.Timestamp = int64(blk.ConvertToBlockHeaderPb().Timestamp)
+				explorerTransfer.BlockID = blkID
 				res = append(res, explorerTransfer)
 			}
 		}
@@ -138,7 +140,7 @@ func (exp *Service) GetTransferByID(transferID string) (explorer.Transfer, error
 	var transferHash hash.Hash32B
 	copy(transferHash[:], bytes)
 
-	transfer, err := getTransfer(exp.bc, transferHash)
+	transfer, err := getTransfer(exp.bc, exp.ap, transferHash)
 	if err != nil {
 		return explorer.Transfer{}, err
 	}
@@ -151,12 +153,12 @@ func (exp *Service) GetTransfersByAddress(address string, offset int64, limit in
 	var res []explorer.Transfer
 	transfersFromAddress, err := exp.bc.GetTransfersFromAddress(address)
 	if err != nil {
-		return nil, err
+		return []explorer.Transfer{}, err
 	}
 
 	transfersToAddress, err := exp.bc.GetTransfersToAddress(address)
 	if err != nil {
-		return nil, err
+		return []explorer.Transfer{}, err
 	}
 
 	transfersFromAddress = append(transfersFromAddress, transfersToAddress...)
@@ -169,9 +171,9 @@ func (exp *Service) GetTransfersByAddress(address string, offset int64, limit in
 			break
 		}
 
-		explorerTransfer, err := getTransfer(exp.bc, transferHash)
+		explorerTransfer, err := getTransfer(exp.bc, exp.ap, transferHash)
 		if err != nil {
-			return res, err
+			return []explorer.Transfer{}, err
 		}
 
 		res = append(res, explorerTransfer)
@@ -184,13 +186,13 @@ func (exp *Service) GetTransfersByAddress(address string, offset int64, limit in
 func (exp *Service) GetUnconfirmedTransfersByAddress(address string, offset int64, limit int64) ([]explorer.Transfer, error) {
 	res := make([]explorer.Transfer, 0)
 	if _, err := exp.bc.StateByAddr(address); err != nil {
-		return res, err
+		return []explorer.Transfer{}, err
 	}
 
 	acts := exp.ap.GetUnconfirmedActs(address)
 	tsfIndex := int64(0)
 	for _, act := range acts {
-		if act.GetVote() != nil {
+		if act.GetTransfer() == nil {
 			continue
 		}
 
@@ -203,23 +205,12 @@ func (exp *Service) GetUnconfirmedTransfersByAddress(address string, offset int6
 			break
 		}
 
-		transferPb := act.GetTransfer()
-		senderPubKey, err := keypair.BytesToPubKeyString(transferPb.SenderPubKey)
+		transfer := &action.Transfer{}
+		transfer.ConvertFromActionPb(act)
+		explorerTransfer, err := convertTsfToExplorerTsf(transfer, true)
 		if err != nil {
-			return []explorer.Transfer{}, err
+			return []explorer.Transfer{}, errors.Wrapf(err, "failed to convert transfer %v to explorer's JSON transfer", transfer)
 		}
-		explorerTransfer := explorer.Transfer{
-			Version:      int64(act.Version),
-			Nonce:        int64(act.Nonce),
-			Sender:       transferPb.Sender,
-			Recipient:    transferPb.Recipient,
-			Amount:       big.NewInt(0).SetBytes(transferPb.Amount).Int64(),
-			Payload:      hex.EncodeToString(transferPb.Payload),
-			SenderPubKey: senderPubKey,
-			Signature:    hex.EncodeToString(act.Signature),
-			IsCoinbase:   transferPb.IsCoinbase,
-		}
-
 		res = append(res, explorerTransfer)
 	}
 
@@ -232,14 +223,14 @@ func (exp *Service) GetTransfersByBlockID(blkID string, offset int64, limit int6
 	bytes, err := hex.DecodeString(blkID)
 
 	if err != nil {
-		return res, err
+		return []explorer.Transfer{}, err
 	}
 	var hash hash.Hash32B
 	copy(hash[:], bytes)
 
 	blk, err := exp.bc.GetBlockByHash(hash)
 	if err != nil {
-		return nil, err
+		return []explorer.Transfer{}, err
 	}
 
 	for i, transfer := range blk.Transfers {
@@ -251,17 +242,12 @@ func (exp *Service) GetTransfersByBlockID(blkID string, offset int64, limit int6
 			break
 		}
 
-		hash := transfer.Hash()
-		explorerTransfer := explorer.Transfer{
-			Amount:    transfer.Amount.Int64(),
-			Timestamp: int64(blk.ConvertToBlockHeaderPb().Timestamp),
-			ID:        hex.EncodeToString(hash[:]),
-			Nonce:     int64(transfer.Nonce),
-			BlockID:   blkID,
-			Sender:    transfer.Sender,
-			Recipient: transfer.Recipient,
-			Fee:       0, // TODO: we need to get the actual fee.
+		explorerTransfer, err := convertTsfToExplorerTsf(transfer, false)
+		if err != nil {
+			return []explorer.Transfer{}, errors.Wrapf(err, "failed to convert transfer %v to explorer's JSON transfer", transfer)
 		}
+		explorerTransfer.Timestamp = int64(blk.ConvertToBlockHeaderPb().Timestamp)
+		explorerTransfer.BlockID = blkID
 		res = append(res, explorerTransfer)
 	}
 	return res, nil
@@ -277,13 +263,13 @@ ChainLoop:
 	for height := startBlockHeight; height >= 0; height-- {
 		hash, err := exp.bc.GetHashByHeight(uint64(height))
 		if err != nil {
-			return res, err
+			return []explorer.Vote{}, err
 		}
 		blkID := hex.EncodeToString(hash[:])
 
 		blk, err := exp.bc.GetBlockByHeight(uint64(height))
 		if err != nil {
-			return res, err
+			return []explorer.Vote{}, err
 		}
 
 		for i := int64(len(blk.Votes) - 1); i >= 0; i-- {
@@ -297,29 +283,12 @@ ChainLoop:
 				break ChainLoop
 			}
 
-			selfPublicKey, err := blk.Votes[i].SelfPublicKey()
+			explorerVote, err := convertVoteToExplorerVote(blk.Votes[i], false)
 			if err != nil {
-				return res, err
+				return []explorer.Vote{}, errors.Wrapf(err, "failed to convert vote %v to explorer's JSON vote", blk.Votes[i])
 			}
-			voter, err := getAddrFromPubKey(selfPublicKey)
-			if err != nil {
-				return res, err
-			}
-
-			votee := blk.Votes[i].GetVote().VoteeAddress
-			if err != nil {
-				return res, err
-			}
-
-			hash := blk.Votes[i].Hash()
-			explorerVote := explorer.Vote{
-				ID:        hex.EncodeToString(hash[:]),
-				Nonce:     int64(blk.Votes[i].Nonce),
-				Timestamp: int64(blk.Votes[i].GetVote().Timestamp),
-				Voter:     voter,
-				Votee:     votee,
-				BlockID:   blkID,
-			}
+			explorerVote.Timestamp = int64(blk.ConvertToBlockHeaderPb().Timestamp)
+			explorerVote.BlockID = blkID
 			res = append(res, explorerVote)
 		}
 	}
@@ -336,7 +305,7 @@ func (exp *Service) GetVoteByID(voteID string) (explorer.Vote, error) {
 	var voteHash hash.Hash32B
 	copy(voteHash[:], bytes)
 
-	vote, err := getVote(exp.bc, voteHash)
+	vote, err := getVote(exp.bc, exp.ap, voteHash)
 	if err != nil {
 		return explorer.Vote{}, err
 	}
@@ -349,12 +318,12 @@ func (exp *Service) GetVotesByAddress(address string, offset int64, limit int64)
 	var res []explorer.Vote
 	votesFromAddress, err := exp.bc.GetVotesFromAddress(address)
 	if err != nil {
-		return nil, err
+		return []explorer.Vote{}, err
 	}
 
 	votesToAddress, err := exp.bc.GetVotesToAddress(address)
 	if err != nil {
-		return nil, err
+		return []explorer.Vote{}, err
 	}
 
 	votesFromAddress = append(votesFromAddress, votesToAddress...)
@@ -367,9 +336,9 @@ func (exp *Service) GetVotesByAddress(address string, offset int64, limit int64)
 			break
 		}
 
-		explorerVote, err := getVote(exp.bc, voteHash)
+		explorerVote, err := getVote(exp.bc, exp.ap, voteHash)
 		if err != nil {
-			return res, err
+			return []explorer.Vote{}, err
 		}
 
 		res = append(res, explorerVote)
@@ -382,13 +351,13 @@ func (exp *Service) GetVotesByAddress(address string, offset int64, limit int64)
 func (exp *Service) GetUnconfirmedVotesByAddress(address string, offset int64, limit int64) ([]explorer.Vote, error) {
 	res := make([]explorer.Vote, 0)
 	if _, err := exp.bc.StateByAddr(address); err != nil {
-		return res, err
+		return []explorer.Vote{}, err
 	}
 
 	acts := exp.ap.GetUnconfirmedActs(address)
 	voteIndex := int64(0)
 	for _, act := range acts {
-		if act.GetTransfer() != nil {
+		if act.GetVote() == nil {
 			continue
 		}
 
@@ -401,18 +370,12 @@ func (exp *Service) GetUnconfirmedVotesByAddress(address string, offset int64, l
 			break
 		}
 
-		votePb := act.GetVote()
-		voterPubKey, err := keypair.BytesToPubKeyString(votePb.SelfPubkey)
+		vote := &action.Vote{}
+		vote.ConvertFromActionPb(act)
+		explorerVote, err := convertVoteToExplorerVote(vote, true)
 		if err != nil {
-			return []explorer.Vote{}, err
+			return []explorer.Vote{}, errors.Wrapf(err, "failed to convert vote %v to explorer's JSON vote", vote)
 		}
-		explorerVote := explorer.Vote{
-			Version:     int64(act.Version),
-			Nonce:       int64(act.Nonce),
-			VoterPubKey: voterPubKey,
-			Signature:   hex.EncodeToString(act.Signature),
-		}
-
 		res = append(res, explorerVote)
 	}
 
@@ -424,14 +387,14 @@ func (exp *Service) GetVotesByBlockID(blkID string, offset int64, limit int64) (
 	var res []explorer.Vote
 	bytes, err := hex.DecodeString(blkID)
 	if err != nil {
-		return res, err
+		return []explorer.Vote{}, err
 	}
 	var hash hash.Hash32B
 	copy(hash[:], bytes)
 
 	blk, err := exp.bc.GetBlockByHash(hash)
 	if err != nil {
-		return nil, err
+		return []explorer.Vote{}, err
 	}
 
 	for i, vote := range blk.Votes {
@@ -443,29 +406,12 @@ func (exp *Service) GetVotesByBlockID(blkID string, offset int64, limit int64) (
 			break
 		}
 
-		selfPublicKey, err := vote.SelfPublicKey()
+		explorerVote, err := convertVoteToExplorerVote(vote, false)
 		if err != nil {
-			return res, err
+			return []explorer.Vote{}, errors.Wrapf(err, "failed to convert vote %v to explorer's JSON vote", vote)
 		}
-		voter, err := getAddrFromPubKey(selfPublicKey)
-		if err != nil {
-			return res, err
-		}
-
-		votee := vote.GetVote().VoteeAddress
-		if err != nil {
-			return res, err
-		}
-
-		hash := vote.Hash()
-		explorerVote := explorer.Vote{
-			ID:        hex.EncodeToString(hash[:]),
-			Nonce:     int64(vote.Nonce),
-			Timestamp: int64(blk.ConvertToBlockHeaderPb().Timestamp),
-			Voter:     voter,
-			Votee:     votee,
-			BlockID:   blkID,
-		}
+		explorerVote.Timestamp = int64(blk.ConvertToBlockHeaderPb().Timestamp)
+		explorerVote.BlockID = blkID
 		res = append(res, explorerVote)
 	}
 	return res, nil
@@ -478,13 +424,13 @@ func (exp *Service) GetLastBlocksByRange(offset int64, limit int64) ([]explorer.
 	for height := offset; height >= 0 && int64(len(res)) < limit; height-- {
 		blk, err := exp.bc.GetBlockByHeight(uint64(height))
 		if err != nil {
-			return res, err
+			return []explorer.Block{}, err
 		}
 
 		blockHeaderPb := blk.ConvertToBlockHeaderPb()
 		hash, err := exp.bc.GetHashByHeight(uint64(height))
 		if err != nil {
-			return res, err
+			return []explorer.Block{}, err
 		}
 
 		totalAmount := int64(0)
@@ -573,7 +519,7 @@ func (exp *Service) GetCoinStatistic() (explorer.CoinStatistic, error) {
 		return stat, err
 	}
 
-	blockLimit := int64(exp.tpsWindow)
+	blockLimit := int64(exp.cfg.TpsWindow)
 	if blockLimit <= 0 {
 		return stat, errors.Wrapf(ErrInternalServer, "block limit is %d", blockLimit)
 	}
@@ -679,22 +625,22 @@ func (exp *Service) GetCandidateMetrics() (explorer.CandidateMetrics, error) {
 }
 
 // SendTransfer sends a transfer
-func (exp *Service) SendTransfer(request explorer.SendTransferRequest) (explorer.SendTransferResponse, error) {
+func (exp *Service) SendTransfer(tsfJSON explorer.SendTransferRequest) (explorer.SendTransferResponse, error) {
 	logger.Debug().Msg("receive send transfer request")
 
-	if len(request.SerlializedTransfer) == 0 {
-		return explorer.SendTransferResponse{}, errors.New("invalid SendTransferRequest")
-	}
-
-	tsfJSON := &explorer.Transfer{}
-	if err := json.Unmarshal([]byte(request.SerlializedTransfer), tsfJSON); err != nil {
-		return explorer.SendTransferResponse{}, err
-	}
 	amount := big.NewInt(tsfJSON.Amount).Bytes()
 
 	payload, err := hex.DecodeString(tsfJSON.Payload)
 	if err != nil {
 		return explorer.SendTransferResponse{}, err
+	}
+	if uint64(len(payload)) > exp.cfg.MaxTransferPayloadBytes {
+		return explorer.SendTransferResponse{}, errors.Wrapf(
+			ErrTransfer,
+			"transfer payload contains %d bytes, and is longer than %d bytes limit",
+			len(payload),
+			exp.cfg.MaxTransferPayloadBytes,
+		)
 	}
 	senderPubKey, err := keypair.StringToPubKeyBytes(tsfJSON.SenderPubKey)
 	if err != nil {
@@ -719,26 +665,23 @@ func (exp *Service) SendTransfer(request explorer.SendTransferRequest) (explorer
 		Nonce:     uint64(tsfJSON.Nonce),
 		Signature: signature,
 	}
-
 	// broadcast to the network
 	if err := exp.p2p.Broadcast(actPb); err != nil {
 		return explorer.SendTransferResponse{}, err
 	}
 	// send to actpool via dispatcher
 	exp.dp.HandleBroadcast(actPb, nil)
-	return explorer.SendTransferResponse{true}, nil
+
+	tsf := &action.Transfer{}
+	tsf.ConvertFromActionPb(actPb)
+	h := tsf.Hash()
+	return explorer.SendTransferResponse{Hash: hex.EncodeToString(h[:])}, nil
 }
 
 // SendVote sends a vote
-func (exp *Service) SendVote(request explorer.SendVoteRequest) (explorer.SendVoteResponse, error) {
-	if len(request.SerializedVote) == 0 {
-		return explorer.SendVoteResponse{}, errors.New("invalid SendVoteRequest")
-	}
+func (exp *Service) SendVote(voteJSON explorer.SendVoteRequest) (explorer.SendVoteResponse, error) {
+	logger.Debug().Msg("receive send vote request")
 
-	voteJSON := &explorer.Vote{}
-	if err := json.Unmarshal([]byte(request.SerializedVote), voteJSON); err != nil {
-		return explorer.SendVoteResponse{}, err
-	}
 	selfPubKey, err := keypair.StringToPubKeyBytes(voteJSON.VoterPubKey)
 	if err != nil {
 		return explorer.SendVoteResponse{}, err
@@ -766,87 +709,138 @@ func (exp *Service) SendVote(request explorer.SendVoteRequest) (explorer.SendVot
 	}
 	// send to actpool via dispatcher
 	exp.dp.HandleBroadcast(actPb, nil)
-	return explorer.SendVoteResponse{true}, nil
+
+	v := &action.Vote{}
+	v.ConvertFromActionPb(actPb)
+	h := v.Hash()
+	return explorer.SendVoteResponse{Hash: hex.EncodeToString(h[:])}, nil
+}
+
+// GetPeers return a list of node peers and itself's network addsress info.
+func (exp *Service) GetPeers() (explorer.GetPeersResponse, error) {
+	var peers []explorer.Node
+	for _, p := range exp.p2p.GetPeers() {
+		peers = append(peers, explorer.Node{
+			Address: p.String(),
+		})
+	}
+	return explorer.GetPeersResponse{
+		Self:  explorer.Node{Address: exp.p2p.Self().String()},
+		Peers: peers,
+	}, nil
+}
+
+// SendSmartContract sends a smart contract
+func (exp *Service) SendSmartContract(execution explorer.Execution) (explorer.SendSmartContractResponse, error) {
+	logger.Debug().Msg("receive send smart contract request")
+
+	executorPubKey, err := keypair.StringToPubKeyBytes(execution.ExecutorPubKey)
+	if err != nil {
+		return explorer.SendSmartContractResponse{}, err
+	}
+	data, err := hex.DecodeString(execution.Data)
+	if err != nil {
+		return explorer.SendSmartContractResponse{}, err
+	}
+	signature, err := hex.DecodeString(execution.Signature)
+	if err != nil {
+		return explorer.SendSmartContractResponse{}, err
+	}
+	actPb := &pb.ActionPb{
+		Action: &pb.ActionPb_Execution{
+			Execution: &pb.ExecutionPb{
+				Amount:         nil,
+				Executor:       execution.Executor,
+				Contract:       execution.Contract,
+				ExecutorPubKey: executorPubKey,
+				Gas:            uint64(execution.Gas),
+				GasPrice:       uint64(execution.GasPrice),
+				Data:           data,
+			},
+		},
+		Version:   uint32(execution.Version),
+		Nonce:     uint64(execution.Nonce),
+		Signature: signature,
+	}
+	//
+	// broadcast to the network
+	if err := exp.p2p.Broadcast(actPb); err != nil {
+		return explorer.SendSmartContractResponse{}, err
+	}
+	// send to actpool via dispatcher
+	exp.dp.HandleBroadcast(actPb, nil)
+
+	sc := &action.Execution{}
+	sc.ConvertFromActionPb(actPb)
+	h := sc.Hash()
+	return explorer.SendSmartContractResponse{Hash: hex.EncodeToString(h[:])}, nil
 }
 
 // getTransfer takes in a blockchain and transferHash and returns a Explorer Transfer
-func getTransfer(bc blockchain.Blockchain, transferHash hash.Hash32B) (explorer.Transfer, error) {
+func getTransfer(bc blockchain.Blockchain, ap actpool.ActPool, transferHash hash.Hash32B) (explorer.Transfer, error) {
 	explorerTransfer := explorer.Transfer{}
 
 	transfer, err := bc.GetTransferByTransferHash(transferHash)
 	if err != nil {
-		return explorerTransfer, err
+		// Try to fetch pending transfer from actpool
+		act, err := ap.GetActionByHash(transferHash)
+		if err != nil || act.GetTransfer() == nil {
+			return explorerTransfer, err
+		}
+		transfer = &action.Transfer{}
+		transfer.ConvertFromActionPb(act)
+		return convertTsfToExplorerTsf(transfer, true)
 	}
 
+	// Fetch from block
 	blkHash, err := bc.GetBlockHashByTransferHash(transferHash)
 	if err != nil {
 		return explorerTransfer, err
 	}
-
 	blk, err := bc.GetBlockByHash(blkHash)
 	if err != nil {
 		return explorerTransfer, err
 	}
 
-	hash := transfer.Hash()
-	explorerTransfer = explorer.Transfer{
-		Nonce:     int64(transfer.Nonce),
-		Amount:    transfer.Amount.Int64(),
-		Timestamp: int64(blk.ConvertToBlockHeaderPb().Timestamp),
-		ID:        hex.EncodeToString(hash[:]),
-		BlockID:   hex.EncodeToString(blkHash[:]),
-		Sender:    transfer.Sender,
-		Recipient: transfer.Recipient,
-		Fee:       0, // TODO: we need to get the actual fee.
-		Payload:   hex.EncodeToString(transfer.Payload),
+	if explorerTransfer, err = convertTsfToExplorerTsf(transfer, false); err != nil {
+		return explorerTransfer, errors.Wrapf(err, "failed to convert transfer %v to explorer's JSON transfer", transfer)
 	}
-
+	explorerTransfer.Timestamp = int64(blk.ConvertToBlockHeaderPb().Timestamp)
+	explorerTransfer.BlockID = hex.EncodeToString(blkHash[:])
 	return explorerTransfer, nil
 }
 
 // getVote takes in a blockchain and voteHash and returns a Explorer Vote
-func getVote(bc blockchain.Blockchain, voteHash hash.Hash32B) (explorer.Vote, error) {
-	var explorerVote explorer.Vote
+func getVote(bc blockchain.Blockchain, ap actpool.ActPool, voteHash hash.Hash32B) (explorer.Vote, error) {
+	explorerVote := explorer.Vote{}
 
 	vote, err := bc.GetVoteByVoteHash(voteHash)
 	if err != nil {
-		return explorerVote, err
+		// Try to fetch pending vote from actpool
+		act, err := ap.GetActionByHash(voteHash)
+		if err != nil || act.GetVote() == nil {
+			return explorerVote, err
+		}
+		vote = &action.Vote{}
+		vote.ConvertFromActionPb(act)
+		return convertVoteToExplorerVote(vote, true)
 	}
 
+	// Fetch from block
 	blkHash, err := bc.GetBlockHashByVoteHash(voteHash)
 	if err != nil {
 		return explorerVote, err
 	}
-
 	blk, err := bc.GetBlockByHash(blkHash)
 	if err != nil {
 		return explorerVote, err
 	}
 
-	selfPublicKey, err := vote.SelfPublicKey()
-	if err != nil {
-		return explorerVote, err
+	if explorerVote, err = convertVoteToExplorerVote(vote, false); err != nil {
+		return explorerVote, errors.Wrapf(err, "failed to convert vote %v to explorer's JSON vote", vote)
 	}
-	voter, err := getAddrFromPubKey(selfPublicKey)
-	if err != nil {
-		return explorerVote, err
-	}
-
-	votee := vote.GetVote().VoteeAddress
-	if err != nil {
-		return explorerVote, err
-	}
-
-	hash := vote.Hash()
-	explorerVote = explorer.Vote{
-		ID:        hex.EncodeToString(hash[:]),
-		Nonce:     int64(vote.Nonce),
-		Timestamp: int64(blk.ConvertToBlockHeaderPb().Timestamp),
-		Voter:     voter,
-		Votee:     votee,
-		BlockID:   hex.EncodeToString(blkHash[:]),
-	}
-
+	explorerVote.Timestamp = int64(blk.ConvertToBlockHeaderPb().Timestamp)
+	explorerVote.BlockID = hex.EncodeToString(blkHash[:])
 	return explorerVote, nil
 }
 
@@ -856,4 +850,50 @@ func getAddrFromPubKey(pubKey keypair.PublicKey) (string, error) {
 		return "", errors.Wrapf(err, " to get address for pubkey %x", pubKey)
 	}
 	return Address.RawAddress, nil
+}
+
+func convertTsfToExplorerTsf(transfer *action.Transfer, isPending bool) (explorer.Transfer, error) {
+	if transfer == nil {
+		return explorer.Transfer{}, errors.Wrap(ErrTransfer, "transfer cannot be nil")
+	}
+	hash := transfer.Hash()
+	explorerTransfer := explorer.Transfer{
+		Nonce:     int64(transfer.Nonce),
+		Amount:    transfer.Amount.Int64(),
+		ID:        hex.EncodeToString(hash[:]),
+		Sender:    transfer.Sender,
+		Recipient: transfer.Recipient,
+		Fee:       0, // TODO: we need to get the actual fee.
+		Payload:   hex.EncodeToString(transfer.Payload),
+		IsPending: isPending,
+	}
+	return explorerTransfer, nil
+}
+
+func convertVoteToExplorerVote(vote *action.Vote, isPending bool) (explorer.Vote, error) {
+	if vote == nil {
+		return explorer.Vote{}, errors.Wrap(ErrVote, "vote cannot be nil")
+	}
+	hash := vote.Hash()
+	selfPublicKey, err := vote.SelfPublicKey()
+	if err != nil {
+		return explorer.Vote{}, err
+	}
+	voter, err := getAddrFromPubKey(selfPublicKey)
+	if err != nil {
+		return explorer.Vote{}, err
+	}
+
+	votee := vote.GetVote().VoteeAddress
+	if err != nil {
+		return explorer.Vote{}, err
+	}
+	explorerVote := explorer.Vote{
+		ID:        hex.EncodeToString(hash[:]),
+		Nonce:     int64(vote.Nonce),
+		Voter:     voter,
+		Votee:     votee,
+		IsPending: isPending,
+	}
+	return explorerVote, nil
 }

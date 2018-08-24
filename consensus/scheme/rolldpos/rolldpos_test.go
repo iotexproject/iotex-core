@@ -25,6 +25,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/network/node"
 	"github.com/iotexproject/iotex-core/pkg/hash"
@@ -48,7 +49,15 @@ func TestRollDPoSCtx(t *testing.T) {
 		candidates[i] = testAddrs[i].RawAddress
 	}
 	var prevHash hash.Hash32B
-	blk := blockchain.NewBlock(1, 8, prevHash, make([]*action.Transfer, 0), make([]*action.Vote, 0))
+	blk := blockchain.NewBlock(
+		1,
+		8,
+		prevHash,
+		clock.New(),
+		make([]*action.Transfer, 0),
+		make([]*action.Vote, 0),
+		make([]*action.Execution, 0),
+	)
 	ctx := makeTestRollDPoSCtx(
 		testAddrs[0],
 		ctrl,
@@ -75,8 +84,9 @@ func TestRollDPoSCtx(t *testing.T) {
 	assert.Equal(t, uint64(2), epoch)
 	assert.Equal(t, uint64(9), height)
 
-	delegates, err := ctx.rollingDelegates(height)
+	delegates, err := ctx.rollingDelegates(epoch)
 	require.NoError(t, err)
+	crypto.SortCandidates(candidates, epoch)
 	assert.Equal(t, candidates, delegates)
 
 	ctx.epoch = epochCtx{
@@ -244,6 +254,7 @@ func TestRollDPoS_Metrics(t *testing.T) {
 	m, err := r.Metrics()
 	require.NoError(t, err)
 	assert.Equal(t, uint64(3), m.LatestEpoch)
+	crypto.SortCandidates(candidates, m.LatestEpoch)
 	assert.Equal(t, candidates[:4], m.LatestDelegates)
 	assert.Equal(t, candidates[1], m.LatestBlockProducer)
 	assert.Equal(t, candidates, m.Candidates)
@@ -275,7 +286,14 @@ func TestRollDPoS_convertToConsensusEvt(t *testing.T) {
 	vote, err := action.NewVote(2, address.RawAddress, address.RawAddress)
 	require.NoError(t, err)
 	var prevHash hash.Hash32B
-	blk := blockchain.NewBlock(1, 1, prevHash, []*action.Transfer{transfer}, []*action.Vote{vote})
+	blk := blockchain.NewBlock(
+		1,
+		1,
+		prevHash,
+		clock.New(),
+		[]*action.Transfer{transfer}, []*action.Vote{vote},
+		nil,
+	)
 	msg := iproto.ViewChangeMsg{
 		Vctype:     iproto.ViewChangeMsg_PROPOSE,
 		Block:      blk.ConvertToBlockPb(),
@@ -389,6 +407,9 @@ func TestRollDPoSConsensus(t *testing.T) {
 		cfg := config.Default
 		cfg.Consensus.RollDPoS.Delay = 300 * time.Millisecond
 		cfg.Consensus.RollDPoS.ProposerInterval = time.Second
+		cfg.Consensus.RollDPoS.AcceptProposeTTL = 100 * time.Millisecond
+		cfg.Consensus.RollDPoS.AcceptPrevoteTTL = 100 * time.Millisecond
+		cfg.Consensus.RollDPoS.AcceptVoteTTL = 100 * time.Millisecond
 		cfg.Consensus.RollDPoS.NumDelegates = uint(numNodes)
 
 		chainAddrs := make([]*iotxaddress.Address, 0, numNodes)
@@ -399,8 +420,14 @@ func TestRollDPoSConsensus(t *testing.T) {
 		}
 
 		chainRawAddrs := make([]string, 0, numNodes)
+		addressMap := make(map[string]*iotxaddress.Address, 0)
 		for _, addr := range chainAddrs {
 			chainRawAddrs = append(chainRawAddrs, addr.RawAddress)
+			addressMap[addr.RawAddress] = addr
+		}
+		crypto.SortCandidates(chainRawAddrs, 1)
+		for i, rawAddress := range chainRawAddrs {
+			chainAddrs[i] = addressMap[rawAddress]
 		}
 
 		candidatesByHeightFunc := func(_ uint64) ([]*state.Candidate, error) {
@@ -506,7 +533,22 @@ func TestRollDPoSConsensus(t *testing.T) {
 		}))
 	})
 
-	t.Run("proposer-network-partition", func(t *testing.T) {
+	checkChains := func(chains []blockchain.Blockchain) {
+		assert.NoError(t, testutil.WaitUntil(100*time.Millisecond, 2*time.Second, func() (bool, error) {
+			for _, chain := range chains {
+				blk, err := chain.GetBlockByHeight(1)
+				if blk == nil || err != nil {
+					return false, nil
+				}
+				if !blk.IsDummyBlock() {
+					return true, errors.New("not a dummy block")
+				}
+			}
+			return true, nil
+		}))
+	}
+
+	t.Run("proposer-network-partition-dummy-block", func(t *testing.T) {
 		ctx := context.Background()
 		cs, p2ps, chains := newConsensusComponents(4)
 		// 1 should be the block 1's proposer
@@ -531,15 +573,11 @@ func TestRollDPoSConsensus(t *testing.T) {
 				require.NoError(t, chains[i].Stop(ctx))
 			}
 		}()
-		time.Sleep(2 * time.Second)
-		for _, chain := range chains {
-			blk, err := chain.GetBlockByHeight(1)
-			assert.Nil(t, blk)
-			assert.Error(t, err)
-		}
+
+		checkChains(chains)
 	})
 
-	t.Run("non-proposer-network-partition", func(t *testing.T) {
+	t.Run("non-proposer-network-partition-dummy-block", func(t *testing.T) {
 		ctx := context.Background()
 		cs, p2ps, chains := newConsensusComponents(4)
 		// 1 should be the block 1's proposer
@@ -552,6 +590,70 @@ func TestRollDPoSConsensus(t *testing.T) {
 		}
 
 		for i := 0; i < 4; i++ {
+			require.NoError(t, chains[i].Start(ctx))
+			require.NoError(t, p2ps[i].Start(ctx))
+			require.NoError(t, cs[i].Start(ctx))
+		}
+
+		defer func() {
+			for i := 0; i < 4; i++ {
+				require.NoError(t, cs[i].Stop(ctx))
+				require.NoError(t, p2ps[i].Stop(ctx))
+				require.NoError(t, chains[i].Stop(ctx))
+			}
+		}()
+
+		checkChains(chains)
+	})
+
+	t.Run("proposer-network-partition-blocking", func(t *testing.T) {
+		ctx := context.Background()
+		cs, p2ps, chains := newConsensusComponents(4)
+		// 1 should be the block 1's proposer
+		for i, p2p := range p2ps {
+			if i == 1 {
+				p2p.peers = make(map[net.Addr]*RollDPoS)
+			} else {
+				delete(p2p.peers, p2ps[1].addr)
+			}
+		}
+
+		for i := 0; i < 4; i++ {
+			cs[i].ctx.cfg.EnableDummyBlock = false
+			require.NoError(t, chains[i].Start(ctx))
+			require.NoError(t, p2ps[i].Start(ctx))
+			require.NoError(t, cs[i].Start(ctx))
+		}
+
+		defer func() {
+			for i := 0; i < 4; i++ {
+				require.NoError(t, cs[i].Stop(ctx))
+				require.NoError(t, p2ps[i].Stop(ctx))
+				require.NoError(t, chains[i].Stop(ctx))
+			}
+		}()
+		time.Sleep(2 * time.Second)
+		for _, chain := range chains {
+			blk, err := chain.GetBlockByHeight(1)
+			assert.Nil(t, blk)
+			assert.Error(t, err)
+		}
+	})
+
+	t.Run("non-proposer-network-partition-blocking", func(t *testing.T) {
+		ctx := context.Background()
+		cs, p2ps, chains := newConsensusComponents(4)
+		// 1 should be the block 1's proposer
+		for i, p2p := range p2ps {
+			if i == 0 {
+				p2p.peers = make(map[net.Addr]*RollDPoS)
+			} else {
+				delete(p2p.peers, p2ps[0].addr)
+			}
+		}
+
+		for i := 0; i < 4; i++ {
+			cs[i].ctx.cfg.EnableDummyBlock = false
 			require.NoError(t, chains[i].Start(ctx))
 			require.NoError(t, p2ps[i].Start(ctx))
 			require.NoError(t, cs[i].Start(ctx))

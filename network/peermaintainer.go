@@ -17,6 +17,7 @@ import (
 // PeerMaintainer helps maintain enough connections to other peers in the P2P networks
 type PeerMaintainer struct {
 	Overlay *IotxOverlay
+	round   int
 }
 
 // NewPeerMaintainer creates an instance of PeerMaintainer
@@ -27,6 +28,15 @@ func NewPeerMaintainer(o *IotxOverlay) *PeerMaintainer {
 // Update maintains peer connection. Current strategy is to get the (upper_bound - count) peer addresses from one of the
 // current peer if the count is lower than the lower bound
 func (pm *PeerMaintainer) Update() {
+	defer func() {
+		pm.round++
+	}()
+
+	if pm.Overlay.Config.PeerForceDisconnectionRoundInterval > 0 &&
+		pm.round%pm.Overlay.Config.PeerForceDisconnectionRoundInterval == 0 {
+		pm.Overlay.PM.RemoveLRUPeer()
+	}
+
 	count := LenSyncMap(pm.Overlay.PM.Peers)
 	if count == 0 {
 		// TODO: Now we simply read the bootstrap nodes from the config. This needs to be changed in the future

@@ -53,6 +53,13 @@ type Address struct {
 	RawAddress string
 }
 
+// DKGAddress contains a pair of DKGkey and a DKGID
+type DKGAddress struct {
+	PrivateKey []uint32
+	PublicKey  []byte
+	ID         []uint8
+}
+
 // NewAddress returns a newly created public/private key pair together with the address derived.
 func NewAddress(isTestnet bool, chainID []byte) (*Address, error) {
 	pub, pri, err := crypto.EC283.NewKeyPair()

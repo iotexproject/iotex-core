@@ -7,6 +7,7 @@
 package network
 
 import (
+	"fmt"
 	"io/ioutil"
 	"math"
 	"math/rand"
@@ -32,13 +33,13 @@ import (
 )
 
 func LoadTestConfig(addr string, allowMultiConnsPerHost bool) *config.Network {
-	var (
+	host, portStr, err := net.SplitHostPort(addr)
+	if err != nil {
 		host = "127.0.0.1"
-		port int
-	)
-	if addrComp := strings.Split(addr, ":"); len(addrComp) == 2 {
-		host = addrComp[0]
-		port, _ = strconv.Atoi(addrComp[1])
+	}
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		port = 0
 	}
 	config := config.Config{
 		NodeType: config.DelegateType,
@@ -258,78 +259,6 @@ func TestOneConnPerHost(t *testing.T) {
 	require.Nil(t, err)
 }
 
-func TestAddPeerBoardcast(t *testing.T) {
-	require := require.New(t)
-	ctx := context.Background()
-	if testing.Short() {
-		t.Skip("Skipping the IotxOverlay test in short mode.")
-	}
-
-	size := 7
-	dps := []*MockDispatcher1{}
-	nodes := []*IotxOverlay{}
-	for i := 0; i < size; i++ {
-		dp := &MockDispatcher1{}
-		dps = append(dps, dp)
-		node := NewOverlay(LoadTestConfig("127.0.0.1:1000"+string(i), true))
-		node.AttachDispatcher(dp)
-		err := node.Start(ctx)
-		require.Nil(err)
-		nodes = append(nodes, node)
-	}
-
-	time.Sleep(10 * time.Second)
-
-	for i := 0; i < size; i++ {
-		require.NotEqual(0, LenSyncMap(nodes[i].PM.Peers))
-	}
-
-	err := nodes[0].Broadcast(&iproto.ActionPb{})
-	require.Nil(err)
-	time.Sleep(5 * time.Second)
-
-	for i := 0; i < size; i++ {
-		if i == 0 {
-			require.Equal(uint32(0), dps[i].Count)
-		} else {
-			require.Equal(uint32(1), dps[i].Count)
-		}
-	}
-}
-
-func TestAddPeer(t *testing.T) {
-	require := require.New(t)
-	ctx := context.Background()
-
-	size := 7
-	dps := []*MockDispatcher1{}
-	nodes := []*IotxOverlay{}
-	addrs := []string{}
-	for i := 0; i < size; i++ {
-		dp := &MockDispatcher1{}
-		dps = append(dps, dp)
-		addr := randomAddress()
-		addrs = append(addrs, addr)
-		node := NewOverlay(LoadTestConfig(addr, true))
-		node.AttachDispatcher(dp)
-		err := node.Start(ctx)
-		require.Nil(err)
-		nodes = append(nodes, node)
-	}
-
-	for i := 1; i < size; i++ {
-		nodes[0].PM.AddPeer(addrs[i])
-		_, ok := nodes[0].PM.Peers.Load(addrs[i])
-		require.True(ok)
-
-		if i == size-2 {
-			require.Equal(LenSyncMap(nodes[0].PM.Peers), nodes[0].PM.NumPeersUpperBound)
-		}
-	}
-
-	require.Equal(LenSyncMap(nodes[0].PM.Peers), nodes[0].PM.NumPeersUpperBound)
-}
-
 func TestConfigBasedTopology(t *testing.T) {
 	t.Skip("the test will timeout because of sporadic deadlock")
 
@@ -395,6 +324,52 @@ func TestConfigBasedTopology(t *testing.T) {
 		return true, nil
 	})
 	require.Nil(t, err)
+}
+
+func TestRandomizePeerList(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping TestRandomizePeerList in short mode.")
+	}
+
+	ctx := context.Background()
+	size := 10
+	var dps []*MockDispatcher1
+	var nodes []*IotxOverlay
+	for i := 0; i < size; i++ {
+		dp := &MockDispatcher1{}
+		dps = append(dps, dp)
+		cfg := LoadTestConfig(fmt.Sprintf("127.0.0.1:1000%d", i), true)
+		require.NotNil(t, cfg)
+		cfg.NumPeersLowerBound = 4
+		cfg.NumPeersUpperBound = 4
+		cfg.PeerForceDisconnectionRoundInterval = 1
+		node := NewOverlay(cfg)
+		node.AttachDispatcher(dp)
+		require.NoError(t, node.Start(ctx))
+		nodes = append(nodes, node)
+	}
+	defer func() {
+		for _, n := range nodes {
+			assert.NoError(t, n.Stop(ctx))
+		}
+	}()
+
+	// Sleep for neighbors to be fully shuffled
+	time.Sleep(5 * time.Second)
+
+	err := nodes[0].Broadcast(&iproto.ActionPb{})
+	require.Nil(t, err)
+	time.Sleep(5 * time.Second)
+	testutil.WaitUntil(100*time.Millisecond, 5*time.Second, func() (bool, error) {
+		for i := 0; i < size; i++ {
+			if i == 0 {
+				return uint32(0) != dps[i].Count, nil
+			}
+			return uint32(1) != dps[i].Count, nil
+		}
+		return true, nil
+	})
+
 }
 
 type MockDispatcher3 struct {

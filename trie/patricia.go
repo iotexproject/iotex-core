@@ -227,7 +227,7 @@ func (l *leaf) insert(k, v []byte, stack *list.List) error {
 	}
 	if l.Ext == 1 {
 		// split the current ext
-		logger.Warn().Hex("divKey", k[match:]).Msg("splitE")
+		logger.Debug().Hex("divKey", k[match:]).Msg("splitE")
 		if err := l.split(match, k[match:], v, stack); err != nil {
 			return err
 		}
@@ -242,19 +242,19 @@ func (l *leaf) insert(k, v []byte, stack *list.List) error {
 			e := leaf{1, l.Path[:match], hash[:]}
 			stack.PushFront(&e)
 			hashe := e.hash()
-			logger.Warn().Hex("topE", hashe[:8]).Hex("path", l.Path[:match]).Msg("splitE")
+			logger.Debug().Hex("topE", hashe[:8]).Hex("path", l.Path[:match]).Msg("splitE")
 		} else {
-			logger.Warn().Hex("topB", hash[:8]).Hex("path", l.Path[:match]).Msg("splitE")
+			logger.Debug().Hex("topB", hash[:8]).Hex("path", l.Path[:match]).Msg("splitE")
 		}
 		return nil
 	}
 	// add 2 leaf, l1 is current node, l2 for new <key, value>
 	l1 := leaf{0, l.Path[match+1:], l.Value}
 	hashl1 := l1.hash()
-	logger.Warn().Hex("currL", hashl1[:8]).Hex("path", l.Path[match+1:]).Msg("splitL")
+	logger.Debug().Hex("currL", hashl1[:8]).Hex("path", l.Path[match+1:]).Msg("splitL")
 	l2 := leaf{0, k[match+1:], v}
 	hashl2 := l2.hash()
-	logger.Warn().Hex("newL", hashl2[:8]).Hex("path", k[match+1:]).Msg("splitL")
+	logger.Debug().Hex("newL", hashl2[:8]).Hex("path", k[match+1:]).Msg("splitL")
 	// add 1 branch to link 2 new leaf
 	b := branch{}
 	b.Path[l.Path[match]] = hashl1[:]
@@ -268,10 +268,10 @@ func (l *leaf) insert(k, v []byte, stack *list.List) error {
 		e := leaf{1, k[:match], hashb[:]}
 		stack.PushFront(&e)
 		hashe := e.hash()
-		logger.Warn().Hex("topE", hashe[:8]).Hex("path", l.Path[:match]).Msg("splitL")
+		logger.Debug().Hex("topE", hashe[:8]).Hex("path", l.Path[:match]).Msg("splitL")
 	} else {
 		hashb := b.hash()
-		logger.Warn().Hex("topB", hashb[:8]).Hex("path", l.Path[:match]).Msg("splitL")
+		logger.Debug().Hex("topB", hashb[:8]).Hex("path", l.Path[:match]).Msg("splitL")
 	}
 	return nil
 }
@@ -374,26 +374,26 @@ func (l *leaf) split(match int, k, v []byte, stack *list.List) error {
 	// add leaf for new <k, v>
 	l1 := leaf{0, k[1:], v}
 	hashl := l1.hash()
-	logger.Warn().Hex("newL", hashl[:8]).Hex("path", k[1:]).Msg("splitE")
+	logger.Debug().Hex("newL", hashl[:8]).Hex("path", k[1:]).Msg("splitE")
 	// add 1 branch to link new leaf and current ext (which may split as below)
 	b := branch{}
 	b.Path[k[0]] = hashl[:]
 	switch len(divPath) {
 	case 1:
 		b.Path[divPath[0]] = l.Value
-		logger.Warn().Hex("currL", hashl[:8]).Hex("path", divPath[0:1]).Msg("splitE")
+		logger.Debug().Hex("currL", hashl[:8]).Hex("path", divPath[0:1]).Msg("splitE")
 	default:
 		// add 1 ext to split current ext
 		e := leaf{1, divPath[1:], l.Value}
 		hashe := e.hash()
-		logger.Warn().Hex("currE", hashe[:8]).Hex("k", divPath[1:]).Hex("v", l.Value).Msg("splitE")
+		logger.Debug().Hex("currE", hashe[:8]).Hex("k", divPath[1:]).Hex("v", l.Value).Msg("splitE")
 		// link new leaf and current ext (which becomes e)
 		b.Path[divPath[0]] = hashe[:]
 		node = &e
 	}
 	hashb := b.hash()
 	stack.PushBack(&b)
-	logger.Warn().Hex("newB", hashb[:8]).Hex("path", k[0:1]).Msg("splitE")
+	logger.Debug().Hex("newB", hashb[:8]).Hex("path", k[0:1]).Msg("splitE")
 	if node != nil {
 		stack.PushBack(node)
 	}

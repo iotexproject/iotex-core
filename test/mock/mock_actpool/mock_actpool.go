@@ -7,6 +7,7 @@ package mock_actpool
 import (
 	gomock "github.com/golang/mock/gomock"
 	action "github.com/iotexproject/iotex-core/blockchain/action"
+	hash "github.com/iotexproject/iotex-core/pkg/hash"
 	proto "github.com/iotexproject/iotex-core/proto"
 	reflect "reflect"
 )
@@ -45,11 +46,12 @@ func (mr *MockActPoolMockRecorder) Reset() *gomock.Call {
 }
 
 // PickActs mocks base method
-func (m *MockActPool) PickActs() ([]*action.Transfer, []*action.Vote) {
+func (m *MockActPool) PickActs() ([]*action.Transfer, []*action.Vote, []*action.Execution) {
 	ret := m.ctrl.Call(m, "PickActs")
 	ret0, _ := ret[0].([]*action.Transfer)
 	ret1, _ := ret[1].([]*action.Vote)
-	return ret0, ret1
+	ret2, _ := ret[2].([]*action.Execution)
+	return ret0, ret1, ret2
 }
 
 // PickActs indicates an expected call of PickActs
@@ -81,6 +83,18 @@ func (mr *MockActPoolMockRecorder) AddVote(vote interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddVote", reflect.TypeOf((*MockActPool)(nil).AddVote), vote)
 }
 
+// AddExecution mocks base method
+func (m *MockActPool) AddExecution(execution *action.Execution) error {
+	ret := m.ctrl.Call(m, "AddExecution", execution)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AddExecution indicates an expected call of AddExecution
+func (mr *MockActPoolMockRecorder) AddExecution(execution interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddExecution", reflect.TypeOf((*MockActPool)(nil).AddExecution), execution)
+}
+
 // GetPendingNonce mocks base method
 func (m *MockActPool) GetPendingNonce(addr string) (uint64, error) {
 	ret := m.ctrl.Call(m, "GetPendingNonce", addr)
@@ -104,4 +118,17 @@ func (m *MockActPool) GetUnconfirmedActs(addr string) []*proto.ActionPb {
 // GetUnconfirmedActs indicates an expected call of GetUnconfirmedActs
 func (mr *MockActPoolMockRecorder) GetUnconfirmedActs(addr interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnconfirmedActs", reflect.TypeOf((*MockActPool)(nil).GetUnconfirmedActs), addr)
+}
+
+// GetActionByHash mocks base method
+func (m *MockActPool) GetActionByHash(hash hash.Hash32B) (*proto.ActionPb, error) {
+	ret := m.ctrl.Call(m, "GetActionByHash", hash)
+	ret0, _ := ret[0].(*proto.ActionPb)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetActionByHash indicates an expected call of GetActionByHash
+func (mr *MockActPoolMockRecorder) GetActionByHash(hash interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetActionByHash", reflect.TypeOf((*MockActPool)(nil).GetActionByHash), hash)
 }

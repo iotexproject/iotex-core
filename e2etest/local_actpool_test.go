@@ -27,11 +27,11 @@ import (
 const (
 	// Make sure the key pairs used here match the genesis block
 	// Sender's public/private key pair
-	fromPubKey  = "ff613a9da51bad8da68c3d33d376600bb70fc336b4e2930946628110c9530618c19d6301d4a1c6f423fc227127494f258d352f086193ff27f9da83326a90df34adf0362988c95403"
-	fromPrivKey = "13da3b1704c8a9a373c0e8166ac5690ddb05292372953e8f8c04a9bb75214ad321655401"
+	fromPubKey  = "327ff28d33245f9921d8ab4311496ae1298dc14a0a0babdb7a6031e7bc180330577c9507e740ee30ecc5b73f0c058d2ed9b580cf7530ddddc71f644838828655e451e0c3108de102"
+	fromPrivKey = "1bafc0a6f9f1e939ba4b180b9bd456cd143d9806cf9046eaaaba01e78ec265524669ad00"
 	// Recipient's public/private key pair
-	toPubKey  = "934bb147113945418d572c63b7840768b5d540cded60e799674b7e24a2bff5ad3ec492068722e18053f18d270bcfe8d299a1cee36e758996b7dfb72a0617f60bdbb16f64062aca06"
-	toPrivKey = "c40f03d0023be07a8d430bed0b825f01c5e480d6985001f337e88f6a9c9df489f7a87101"
+	toPubKey  = "0b19932e0ea8553538ac9c0bec245c1b826f3342a5a79a63a03d637331656f57bde8cb0122bf9b2f0d6a1e4d50b9019b0ef99be21d858a20d7314e780199deb44f8dcc0704f78404"
+	toPrivKey = "c3a6f7a3392a8e4e97d3dc3993b908abc35e7398548fb269a3fb67bc4a37e60270940f01"
 )
 
 func TestLocalActPool(t *testing.T) {
@@ -43,7 +43,6 @@ func TestLocalActPool(t *testing.T) {
 	cfg, err := newActPoolConfig()
 	require.NoError(err)
 
-	blockchain.Gen.TotalSupply = uint64(50 << 22)
 	blockchain.Gen.BlockReward = uint64(0)
 
 	// create server
@@ -76,27 +75,31 @@ func TestLocalActPool(t *testing.T) {
 	tsf1, _ := signedTransfer(from, to, uint64(1), big.NewInt(1))
 	vote2, _ := signedVote(from, from, uint64(2))
 	tsf3, _ := signedTransfer(from, to, uint64(3), big.NewInt(3))
+	// Create contract
+	exec4, _ := signedExecution(from, action.EmptyAddress, uint64(4), big.NewInt(0), uint64(120000), uint64(10), []byte{})
+
 	// Create three invalid actions from "from" to "to"
 	// Existed Vote
-	vote4, _ := signedVote(from, from, uint64(2))
+	vote5, _ := signedVote(from, from, uint64(2))
 	// Coinbase Transfer
-	tsf5, _ := signedTransfer(from, to, uint64(5), big.NewInt(5))
-	tsf5.IsCoinbase = true
+	tsf6, _ := signedTransfer(from, to, uint64(6), big.NewInt(5))
+	tsf6.IsCoinbase = true
 	// Unsigned Vote
-	vote6, _ := action.NewVote(uint64(6), from.RawAddress, from.RawAddress)
+	vote7, _ := action.NewVote(uint64(7), from.RawAddress, from.RawAddress)
 
 	require.NoError(cli.Broadcast(tsf1.ConvertToActionPb()))
 	require.NoError(cli.Broadcast(vote2.ConvertToActionPb()))
 	require.NoError(cli.Broadcast(tsf3.ConvertToActionPb()))
-	require.NoError(cli.Broadcast(vote4.ConvertToActionPb()))
-	require.NoError(cli.Broadcast(tsf5.ConvertToActionPb()))
-	require.NoError(cli.Broadcast(vote6.ConvertToActionPb()))
+	require.NoError(cli.Broadcast(exec4.ConvertToActionPb()))
+	require.NoError(cli.Broadcast(vote5.ConvertToActionPb()))
+	require.NoError(cli.Broadcast(tsf6.ConvertToActionPb()))
+	require.NoError(cli.Broadcast(vote7.ConvertToActionPb()))
 
 	// Wait until server receives all the transfers
 	require.NoError(testutil.WaitUntil(100*time.Millisecond, 5*time.Second, func() (bool, error) {
-		transfers, votes := svr.ActionPool().PickActs()
-		// 2 valid transfers and 1 valid vote
-		return len(transfers) == 2 && len(votes) == 1, nil
+		transfers, votes, executions := svr.ActionPool().PickActs()
+		// 2 valid transfers and 1 valid vote and 1 valid execution
+		return len(transfers) == 2 && len(votes) == 1 && len(executions) == 1, nil
 	}))
 }
 
@@ -109,7 +112,6 @@ func TestPressureActPool(t *testing.T) {
 	cfg, err := newActPoolConfig()
 	require.NoError(err)
 
-	blockchain.Gen.TotalSupply = uint64(50 << 22)
 	blockchain.Gen.BlockReward = uint64(0)
 
 	// create server
@@ -146,7 +148,7 @@ func TestPressureActPool(t *testing.T) {
 
 	// Wait until committed blocks contain all broadcasted actions
 	err = testutil.WaitUntil(10*time.Millisecond, 10*time.Second, func() (bool, error) {
-		transfers, _ := svr.ActionPool().PickActs()
+		transfers, _, _ := svr.ActionPool().PickActs()
 		return len(transfers) == 1000, nil
 	})
 	require.Nil(err)
@@ -173,6 +175,15 @@ func signedVote(voter *iotxaddress.Address, votee *iotxaddress.Address, nonce ui
 		return nil, err
 	}
 	return vote.Sign(voter)
+}
+
+// Helper function to return a signed execution
+func signedExecution(executor *iotxaddress.Address, contractAddr string, nonce uint64, amount *big.Int, gas uint64, gasPrice uint64, data []byte) (*action.Execution, error) {
+	execution, err := action.NewExecution(executor.RawAddress, contractAddr, nonce, amount, gas, gasPrice, data)
+	if err != nil {
+		return nil, err
+	}
+	return execution.Sign(executor)
 }
 
 func newActPoolConfig() (*config.Config, error) {

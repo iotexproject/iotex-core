@@ -55,6 +55,7 @@ func TestActPool_validateTsf(t *testing.T) {
 	bc := blockchain.NewBlockchain(&config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
 	_, err := bc.CreateState(addr1.RawAddress, uint64(100))
 	require.Nil(err)
+	require.Nil(bc.GetFactory().CommitStateChanges(0, nil, nil, nil))
 	apConfig := getActPoolCfg()
 	Ap, err := NewActPool(bc, apConfig)
 	require.Nil(err)
@@ -83,7 +84,7 @@ func TestActPool_validateTsf(t *testing.T) {
 	prevTsf, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(50))
 	err = ap.AddTsf(prevTsf)
 	require.NoError(err)
-	err = bc.CommitStateChanges(0, []*action.Transfer{prevTsf}, nil)
+	err = bc.CommitStateChanges(0, []*action.Transfer{prevTsf}, nil, nil)
 	require.Nil(err)
 	ap.Reset()
 	nTsf, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(60))
@@ -98,6 +99,7 @@ func TestActPool_validateVote(t *testing.T) {
 	require.Nil(err)
 	_, err = bc.CreateState(addr2.RawAddress, uint64(100))
 	require.Nil(err)
+	require.Nil(bc.GetFactory().CommitStateChanges(0, nil, nil, nil))
 	apConfig := getActPoolCfg()
 	Ap, err := NewActPool(bc, apConfig)
 	require.Nil(err)
@@ -126,7 +128,7 @@ func TestActPool_validateVote(t *testing.T) {
 	prevTsf, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(50))
 	err = ap.AddTsf(prevTsf)
 	require.NoError(err)
-	err = bc.CommitStateChanges(0, []*action.Transfer{prevTsf}, nil)
+	err = bc.CommitStateChanges(0, []*action.Transfer{prevTsf}, nil, nil)
 	require.Nil(err)
 	ap.Reset()
 	nVote, _ := signedVote(addr1, addr1, uint64(1))
@@ -147,6 +149,7 @@ func TestActPool_AddActs(t *testing.T) {
 	require.Nil(err)
 	_, err = bc.CreateState(addr2.RawAddress, uint64(10))
 	require.Nil(err)
+	require.Nil(bc.GetFactory().CommitStateChanges(0, nil, nil, nil))
 	// Create actpool
 	apConfig := getActPoolCfg()
 	Ap, err := NewActPool(bc, apConfig)
@@ -237,16 +240,28 @@ func TestActPool_AddActs(t *testing.T) {
 	overBalTsf, _ := signedTransfer(addr2, addr2, uint64(4), big.NewInt(20))
 	err = ap.AddTsf(overBalTsf)
 	require.Equal(ErrBalance, errors.Cause(err))
+	// Case VI: over gas limit
+	creationExecution, err := action.NewExecution(addr1.RawAddress, action.EmptyAddress, uint64(5), big.NewInt(int64(0)), blockchain.GasLimit+100, uint64(10), []byte{})
+	require.NoError(err)
+	err = ap.AddExecution(creationExecution)
+	require.Equal(ErrGasHigherThanLimit, errors.Cause(err))
+	// Case VII: insufficient gas
+	creationExecution.Gas = 10
+	tmpData := [1234]byte{}
+	creationExecution.Data = tmpData[:]
+	err = ap.AddExecution(creationExecution)
+	require.Equal(ErrInsufficientGas, errors.Cause(err))
 }
 
 func TestActPool_PickActs(t *testing.T) {
-	createActPool := func(cfg config.ActPool) (*actPool, []*action.Transfer, []*action.Vote) {
+	createActPool := func(cfg config.ActPool) (*actPool, []*action.Transfer, []*action.Vote, []*action.Execution) {
 		require := require.New(t)
 		bc := blockchain.NewBlockchain(&config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
 		_, err := bc.CreateState(addr1.RawAddress, uint64(100))
 		require.Nil(err)
 		_, err = bc.CreateState(addr2.RawAddress, uint64(10))
 		require.Nil(err)
+		require.Nil(bc.GetFactory().CommitStateChanges(0, nil, nil, nil))
 		// Create actpool
 		Ap, err := NewActPool(bc, cfg)
 		require.Nil(err)
@@ -284,31 +299,32 @@ func TestActPool_PickActs(t *testing.T) {
 		require.NoError(err)
 		err = ap.AddTsf(tsf10)
 		require.NoError(err)
-		return ap, []*action.Transfer{tsf1, tsf2, tsf3, tsf4}, []*action.Vote{vote7}
+		return ap, []*action.Transfer{tsf1, tsf2, tsf3, tsf4}, []*action.Vote{vote7}, []*action.Execution{}
 	}
 
 	t.Run("no-limit", func(t *testing.T) {
 		apConfig := getActPoolCfg()
-		ap, transfers, votes := createActPool(apConfig)
-		pickedTsfs, pickedVotes := ap.PickActs()
+		ap, transfers, votes, executions := createActPool(apConfig)
+		pickedTsfs, pickedVotes, pickedExecutions := ap.PickActs()
 		require.Equal(t, transfers, pickedTsfs)
 		require.Equal(t, votes, pickedVotes)
+		require.Equal(t, executions, pickedExecutions)
 	})
 	t.Run("enough-limit", func(t *testing.T) {
 		apConfig := getActPoolCfg()
 		apConfig.MaxNumActsToPick = 10
-		ap, transfers, votes := createActPool(apConfig)
-		pickedTsfs, pickedVotes := ap.PickActs()
+		ap, transfers, votes, executions := createActPool(apConfig)
+		pickedTsfs, pickedVotes, pickedExecutions := ap.PickActs()
 		require.Equal(t, transfers, pickedTsfs)
 		require.Equal(t, votes, pickedVotes)
+		require.Equal(t, executions, pickedExecutions)
 	})
 	t.Run("low-limit", func(t *testing.T) {
 		apConfig := getActPoolCfg()
 		apConfig.MaxNumActsToPick = 3
-		ap, transfers, _ := createActPool(apConfig)
-		pickedTsfs, pickedVotes := ap.PickActs()
-		require.Equal(t, transfers[:3], pickedTsfs)
-		require.Equal(t, []*action.Vote{}, pickedVotes)
+		ap, _, _, _ := createActPool(apConfig)
+		pickedTsfs, pickedVotes, pickedExecutions := ap.PickActs()
+		require.Equal(t, 3, len(pickedTsfs)+len(pickedVotes)+len(pickedExecutions))
 	})
 }
 
@@ -317,8 +333,8 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	bc := blockchain.NewBlockchain(&config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
 	_, err := bc.CreateState(addr1.RawAddress, uint64(100))
 	require.Nil(err)
+	require.Nil(bc.GetFactory().CommitStateChanges(0, nil, nil, nil))
 	// Create actpool
-
 	apConfig := getActPoolCfg()
 	Ap, err := NewActPool(bc, apConfig)
 	require.Nil(err)
@@ -341,7 +357,7 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 
 	require.Equal(4, len(ap.allActions))
 	require.NotNil(ap.accountActs[addr1.RawAddress])
-	err = bc.CommitStateChanges(0, []*action.Transfer{tsf1, tsf2, tsf3}, []*action.Vote{vote4})
+	err = bc.CommitStateChanges(0, []*action.Transfer{tsf1, tsf2, tsf3}, []*action.Vote{vote4}, []*action.Execution{})
 	require.Nil(err)
 	ap.removeConfirmedActs()
 	require.Equal(0, len(ap.allActions))
@@ -358,6 +374,7 @@ func TestActPool_Reset(t *testing.T) {
 	require.Nil(err)
 	_, err = bc.CreateState(addr3.RawAddress, uint64(300))
 	require.Nil(err)
+	require.Nil(bc.GetFactory().CommitStateChanges(0, nil, nil, nil))
 
 	apConfig := getActPoolCfg()
 	Ap1, err := NewActPool(bc, apConfig)
@@ -457,9 +474,9 @@ func TestActPool_Reset(t *testing.T) {
 	ap2PBalance3, _ := ap2.getPendingBalance(addr3.RawAddress)
 	require.Equal(big.NewInt(50).Uint64(), ap2PBalance3.Uint64())
 	// Let ap1 be BP's actpool
-	pickedTsfs, pickedVotes := ap1.PickActs()
+	pickedTsfs, pickedVotes, pickedExecutions := ap1.PickActs()
 	// ap1 commits update of accounts to trie
-	err = bc.CommitStateChanges(0, pickedTsfs, pickedVotes)
+	err = bc.CommitStateChanges(0, pickedTsfs, pickedVotes, pickedExecutions)
 	require.Nil(err)
 	//Reset
 	ap1.Reset()
@@ -553,9 +570,9 @@ func TestActPool_Reset(t *testing.T) {
 	ap2PBalance3, _ = ap2.getPendingBalance(addr3.RawAddress)
 	require.Equal(big.NewInt(180).Uint64(), ap2PBalance3.Uint64())
 	// Let ap2 be BP's actpool
-	pickedTsfs, pickedVotes = ap2.PickActs()
+	pickedTsfs, pickedVotes, pickedExecutions = ap2.PickActs()
 	// ap2 commits update of accounts to trie
-	err = bc.CommitStateChanges(0, pickedTsfs, pickedVotes)
+	err = bc.CommitStateChanges(0, pickedTsfs, pickedVotes, pickedExecutions)
 	require.Nil(err)
 	//Reset
 	ap1.Reset()
@@ -599,6 +616,7 @@ func TestActPool_Reset(t *testing.T) {
 	require.Nil(err)
 	_, err = bc.CreateState(addr5.RawAddress, uint64(20))
 	require.Nil(err)
+	require.Nil(bc.GetFactory().CommitStateChanges(1, nil, nil, nil))
 	tsf21, _ := signedTransfer(addr4, addr5, uint64(1), big.NewInt(10))
 	vote22, _ := signedVote(addr4, addr4, uint64(2))
 	vote23, _ := action.NewVote(3, addr4.RawAddress, "")
@@ -633,9 +651,9 @@ func TestActPool_Reset(t *testing.T) {
 	ap1PBalance5, _ := ap1.getPendingBalance(addr5.RawAddress)
 	require.Equal(big.NewInt(10).Uint64(), ap1PBalance5.Uint64())
 	// Let ap1 be BP's actpool
-	pickedTsfs, pickedVotes = ap1.PickActs()
+	pickedTsfs, pickedVotes, pickedExecutions = ap1.PickActs()
 	// ap1 commits update of accounts to trie
-	err = bc.CommitStateChanges(0, pickedTsfs, pickedVotes)
+	err = bc.CommitStateChanges(0, pickedTsfs, pickedVotes, pickedExecutions)
 	require.Nil(err)
 	//Reset
 	ap1.Reset()
@@ -658,6 +676,7 @@ func TestActPool_removeInvalidActs(t *testing.T) {
 	bc := blockchain.NewBlockchain(&config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
 	_, err := bc.CreateState(addr1.RawAddress, uint64(100))
 	require.Nil(err)
+	require.Nil(bc.GetFactory().CommitStateChanges(0, nil, nil, nil))
 	// Create actpool
 	apConfig := getActPoolCfg()
 	Ap, err := NewActPool(bc, apConfig)
@@ -698,6 +717,7 @@ func TestActPool_GetPendingNonce(t *testing.T) {
 	require.Nil(err)
 	_, err = bc.CreateState(addr2.RawAddress, uint64(100))
 	require.Nil(err)
+	require.Nil(bc.GetFactory().CommitStateChanges(0, nil, nil, nil))
 	// Create actpool
 	apConfig := getActPoolCfg()
 	Ap, err := NewActPool(bc, apConfig)
@@ -732,6 +752,7 @@ func TestActPool_GetUnconfirmedActs(t *testing.T) {
 	require.Nil(err)
 	_, err = bc.CreateState(addr2.RawAddress, uint64(100))
 	require.Nil(err)
+	require.Nil(bc.GetFactory().CommitStateChanges(0, nil, nil, nil))
 	// Create actpool
 	apConfig := getActPoolCfg()
 	Ap, err := NewActPool(bc, apConfig)
@@ -758,6 +779,41 @@ func TestActPool_GetUnconfirmedActs(t *testing.T) {
 
 	acts = ap.GetUnconfirmedActs(addr1.RawAddress)
 	require.Equal([]*iproto.ActionPb{act1, act3, act4}, acts)
+}
+
+func TestActPool_GetActionByHash(t *testing.T) {
+	require := require.New(t)
+	bc := blockchain.NewBlockchain(&config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	_, err := bc.CreateState(addr1.RawAddress, uint64(100))
+	require.Nil(err)
+	_, err = bc.CreateState(addr2.RawAddress, uint64(100))
+	require.Nil(err)
+	// Create actpool
+	apConfig := getActPoolCfg()
+	Ap, err := NewActPool(bc, apConfig)
+	require.Nil(err)
+	ap, ok := Ap.(*actPool)
+	require.True(ok)
+
+	tsf1, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(10))
+	hash1 := tsf1.Hash()
+	act1 := tsf1.ConvertToActionPb()
+	vote2, _ := signedVote(addr1, addr1, uint64(2))
+	hash2 := vote2.Hash()
+	act2 := vote2.ConvertToActionPb()
+
+	ap.allActions[hash1] = act1
+	act, err := ap.GetActionByHash(hash1)
+	require.NoError(err)
+	require.Equal(act1, act)
+	act, err = ap.GetActionByHash(hash2)
+	require.Equal(ErrHash, errors.Cause(err))
+	require.Nil(act)
+
+	ap.allActions[hash2] = act2
+	act, err = ap.GetActionByHash(hash2)
+	require.NoError(err)
+	require.Equal(act2, act)
 }
 
 // Helper function to return the correct pending nonce just in case of empty queue

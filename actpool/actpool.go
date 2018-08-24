@@ -31,6 +31,10 @@ const (
 var (
 	// ErrActPool indicates the error of actpool
 	ErrActPool = errors.New("invalid actpool")
+	// ErrGasHigherThanLimit indicates the error of gas value
+	ErrGasHigherThanLimit = errors.New("invalid gas for execution")
+	// ErrInsufficientGas indicates the error of insufficient gas value for data storage
+	ErrInsufficientGas = errors.New("insufficient intrinsic gas value")
 	// ErrTransfer indicates the error of transfer
 	ErrTransfer = errors.New("invalid transfer")
 	// ErrNonce indicates the error of nonce
@@ -39,6 +43,8 @@ var (
 	ErrBalance = errors.New("invalid balance")
 	// ErrVotee indicates the error of votee
 	ErrVotee = errors.New("votee is not a candidate")
+	// ErrHash indicates the error of action's hash
+	ErrHash = errors.New("invalid hash")
 )
 
 // ActPool is the interface of actpool
@@ -46,15 +52,19 @@ type ActPool interface {
 	// Reset resets actpool state
 	Reset()
 	// PickActs returns all currently accepted transfers and votes in actpool
-	PickActs() ([]*action.Transfer, []*action.Vote)
+	PickActs() ([]*action.Transfer, []*action.Vote, []*action.Execution)
 	// AddTsf adds an transfer into the pool after passing validation
 	AddTsf(tsf *action.Transfer) error
 	// AddVote adds a vote into the pool after passing validation
 	AddVote(vote *action.Vote) error
+	// AddExecution adds an execution into the pool after passing validation
+	AddExecution(execution *action.Execution) error
 	// GetPendingNonce returns pending nonce in pool given an account address
 	GetPendingNonce(addr string) (uint64, error)
 	// GetUnconfirmedActs returns unconfirmed actions in pool given an account address
 	GetUnconfirmedActs(addr string) []*iproto.ActionPb
+	// GetActionByHash returns the pending action in pool given action's hash
+	GetActionByHash(hash hash.Hash32B) (*iproto.ActionPb, error)
 }
 
 // actPool implements ActPool interface
@@ -117,13 +127,14 @@ func (ap *actPool) Reset() {
 }
 
 // PickActs returns all currently accepted transfers and votes for all accounts
-func (ap *actPool) PickActs() ([]*action.Transfer, []*action.Vote) {
+func (ap *actPool) PickActs() ([]*action.Transfer, []*action.Vote, []*action.Execution) {
 	ap.mutex.Lock()
 	defer ap.mutex.Unlock()
 
 	numActs := uint64(0)
 	transfers := make([]*action.Transfer, 0)
 	votes := make([]*action.Vote, 0)
+	executions := make([]*action.Execution, 0)
 	for _, queue := range ap.accountActs {
 		for _, act := range queue.PendingActs() {
 			switch {
@@ -137,16 +148,21 @@ func (ap *actPool) PickActs() ([]*action.Transfer, []*action.Vote) {
 				vote.ConvertFromActionPb(act)
 				votes = append(votes, &vote)
 				numActs++
+			case act.GetExecution() != nil:
+				execution := action.Execution{}
+				execution.ConvertFromActionPb(act)
+				executions = append(executions, &execution)
+				numActs++
 			}
 			if ap.cfg.MaxNumActsToPick > 0 && numActs >= ap.cfg.MaxNumActsToPick {
 				logger.Debug().
 					Uint64("limit", ap.cfg.MaxNumActsToPick).
 					Msg("reach the max number of actions to pick")
-				return transfers, votes
+				return transfers, votes, executions
 			}
 		}
 	}
-	return transfers, votes
+	return transfers, votes, executions
 }
 
 // AddTsf inserts a new transfer into account queue if it passes validation
@@ -218,8 +234,43 @@ func (ap *actPool) AddVote(vote *action.Vote) error {
 	return ap.addAction(voter.RawAddress, action, hash, vote.Nonce)
 }
 
+// AddExecution inserts a new execution into account queue if it passes validation
+func (ap *actPool) AddExecution(exec *action.Execution) error {
+	ap.mutex.Lock()
+	defer ap.mutex.Unlock()
+	hash := exec.Hash()
+	// Reject execution if it already exists in pool
+	if ap.allActions[hash] != nil {
+		logger.Error().
+			Hex("hash", hash[:]).
+			Msg("Rejecting existed execution")
+		return fmt.Errorf("existed execution: %x", hash)
+	}
+	// Reject transfer if it fails validation
+	if err := ap.validateExecution(exec); err != nil {
+		logger.Error().
+			Hex("hash", hash[:]).
+			Err(err).
+			Msg("Rejecting invalid execution")
+		return err
+	}
+	// Reject execution if pool space is full
+	if uint64(len(ap.allActions)) >= ap.cfg.MaxNumActsPerPool {
+		logger.Warn().
+			Hex("hash", hash[:]).
+			Msg("Rejecting execution due to insufficient space")
+		return errors.Wrapf(ErrActPool, "insufficient space for execution")
+	}
+	// Wrap execution as an action
+	action := exec.ConvertToActionPb()
+	return ap.addAction(exec.Executor, action, hash, exec.Nonce)
+}
+
 // GetPendingNonce returns pending nonce in pool or confirmed nonce given an account address
 func (ap *actPool) GetPendingNonce(addr string) (uint64, error) {
+	ap.mutex.Lock()
+	defer ap.mutex.Unlock()
+
 	if queue, ok := ap.accountActs[addr]; ok {
 		return queue.PendingNonce(), nil
 	}
@@ -230,10 +281,25 @@ func (ap *actPool) GetPendingNonce(addr string) (uint64, error) {
 
 // GetUnconfirmedActs returns unconfirmed actions in pool given an account address
 func (ap *actPool) GetUnconfirmedActs(addr string) []*iproto.ActionPb {
+	ap.mutex.Lock()
+	defer ap.mutex.Unlock()
+
 	if queue, ok := ap.accountActs[addr]; ok {
 		return queue.AllActs()
 	}
 	return make([]*iproto.ActionPb, 0)
+}
+
+// GetActionByHash returns the pending action in pool given action's hash
+func (ap *actPool) GetActionByHash(hash hash.Hash32B) (*iproto.ActionPb, error) {
+	ap.mutex.Lock()
+	defer ap.mutex.Unlock()
+
+	action, ok := ap.allActions[hash]
+	if !ok {
+		return nil, errors.Wrapf(ErrHash, "action hash %x does not exist in pool", hash)
+	}
+	return action, nil
 }
 
 //======================================
@@ -281,6 +347,51 @@ func (ap *actPool) validateTsf(tsf *action.Transfer) error {
 	pendingNonce := confirmedNonce + 1
 	if pendingNonce > tsf.Nonce {
 		logger.Error().Msg("Error when validating transfer")
+		return errors.Wrapf(ErrNonce, "nonce too low")
+	}
+	return nil
+}
+
+func (ap *actPool) validateExecution(exec *action.Execution) error {
+	// Reject oversized transfer
+	if exec.Gas > blockchain.GasLimit {
+		logger.Error().Msg("Rejecting execution due to high gas")
+		return errors.Wrapf(ErrGasHigherThanLimit, "Gas is higher than gas limit")
+	}
+	intrinsicGas, err := blockchain.IntrinsicGas(exec.Data)
+	if intrinsicGas > exec.Gas || err != nil {
+		logger.Error().Msg("Rejecting execution due to insufficient gas")
+		return errors.Wrapf(ErrInsufficientGas, "insufficient gas for execution")
+	}
+	// Reject execution of negative amount
+	if exec.Amount.Sign() < 0 {
+		logger.Error().Msg("Error when validating execution amount")
+		return errors.Wrapf(ErrBalance, "negative value")
+	}
+	// check if executor's address is valid
+	if _, err := iotxaddress.GetPubkeyHash(exec.Executor); err != nil {
+		return errors.Wrap(err, "error when getting the pubkey hash")
+	}
+
+	executor, err := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, iotxaddress.ChainID, exec.ExecutorPubKey)
+	if err != nil {
+		logger.Error().Err(err).Msg("Error when validating execution")
+		return errors.Wrapf(err, "invalid address")
+	}
+	// Verify transfer using executor's public key
+	if err := exec.Verify(executor); err != nil {
+		logger.Error().Err(err).Msg("Error when validating execution")
+		return errors.Wrapf(err, "failed to verify Execution signature")
+	}
+	// Reject transfer if nonce is too low
+	confirmedNonce, err := ap.bc.Nonce(executor.RawAddress)
+	if err != nil {
+		logger.Error().Err(err).Msg("Error when validating execution")
+		return errors.Wrapf(err, "invalid nonce value")
+	}
+	pendingNonce := confirmedNonce + 1
+	if pendingNonce > exec.Nonce {
+		logger.Error().Msg("Error when validating execution")
 		return errors.Wrapf(ErrNonce, "nonce too low")
 	}
 	return nil
@@ -397,6 +508,17 @@ func (ap *actPool) addAction(sender string, act *iproto.ActionPb, hash hash.Hash
 		}
 	}
 
+	if execution := act.GetExecution(); execution != nil {
+		exec := &action.Execution{}
+		exec.ConvertFromActionPb(act)
+		if queue.PendingBalance().Cmp(exec.Amount) < 0 {
+			logger.Warn().
+				Hex("hash", hash[:]).
+				Msg("Rejecting execution due to insufficient balance")
+			return errors.Wrapf(ErrBalance, "insufficient balance for execution")
+		}
+	}
+
 	err := queue.Put(act)
 	if err != nil {
 		logger.Warn().
@@ -446,6 +568,10 @@ func (ap *actPool) removeInvalidActs(acts []*iproto.ActionPb) {
 			vote := &action.Vote{}
 			vote.ConvertFromActionPb(act)
 			hash = vote.Hash()
+		case act.GetExecution() != nil:
+			execution := &action.Execution{}
+			execution.ConvertFromActionPb(act)
+			hash = execution.Hash()
 		}
 		logger.Debug().
 			Hex("hash", hash[:]).

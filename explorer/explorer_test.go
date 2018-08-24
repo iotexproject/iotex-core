@@ -8,12 +8,15 @@ package explorer
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/hex"
 	"fmt"
 	"math/big"
+	"net"
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/actpool"
@@ -22,6 +25,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
+	"github.com/iotexproject/iotex-core/network/node"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_consensus"
@@ -48,7 +52,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	// test --> A, B, C, D, E, F
 	tsf, _ := action.NewTransfer(1, big.NewInt(10), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["charlie"].RawAddress)
 	tsf, _ = tsf.Sign(ta.Addrinfo["producer"])
-	blk, err := bc.MintNewBlock([]*action.Transfer{tsf}, nil, ta.Addrinfo["producer"], "")
+	blk, err := bc.MintNewBlock([]*action.Transfer{tsf}, nil, nil, ta.Addrinfo["producer"], "")
 	if err != nil {
 		return err
 	}
@@ -68,7 +72,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	tsf4, _ = tsf4.Sign(ta.Addrinfo["charlie"])
 	vote1, _ := action.NewVote(5, ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["delta"].RawAddress)
 	vote1, _ = vote1.Sign(ta.Addrinfo["charlie"])
-	blk, err = bc.MintNewBlock([]*action.Transfer{tsf1, tsf2, tsf3, tsf4}, []*action.Vote{vote1}, ta.Addrinfo["producer"], "")
+	blk, err = bc.MintNewBlock([]*action.Transfer{tsf1, tsf2, tsf3, tsf4}, []*action.Vote{vote1}, nil, ta.Addrinfo["producer"], "")
 	if err != nil {
 		return err
 	}
@@ -77,7 +81,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	}
 
 	// Add block 3
-	blk, err = bc.MintNewBlock(nil, nil, ta.Addrinfo["producer"], "")
+	blk, err = bc.MintNewBlock(nil, nil, nil, ta.Addrinfo["producer"], "")
 	if err != nil {
 		return err
 	}
@@ -90,7 +94,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	vote2, _ := action.NewVote(1, ta.Addrinfo["alfa"].RawAddress, ta.Addrinfo["charlie"].RawAddress)
 	vote1, _ = vote1.Sign(ta.Addrinfo["charlie"])
 	vote2, _ = vote2.Sign(ta.Addrinfo["alfa"])
-	blk, err = bc.MintNewBlock(nil, []*action.Vote{vote1, vote2}, ta.Addrinfo["producer"], "")
+	blk, err = bc.MintNewBlock(nil, []*action.Vote{vote1, vote2}, nil, ta.Addrinfo["producer"], "")
 	if err != nil {
 		return err
 	}
@@ -152,9 +156,12 @@ func TestExplorerApi(t *testing.T) {
 	require.NoError(err)
 
 	svc := Service{
-		bc:        bc,
-		ap:        ap,
-		tpsWindow: 10,
+		bc: bc,
+		ap: ap,
+		cfg: config.Explorer{
+			TpsWindow:               10,
+			MaxTransferPayloadBytes: 1024,
+		},
 	}
 
 	transfers, err := svc.GetTransfersByAddress(ta.Addrinfo["charlie"].RawAddress, 0, 10)
@@ -259,7 +266,7 @@ func TestExplorerApi(t *testing.T) {
 	require.Nil(err)
 	require.Equal(int64(blockchain.Gen.TotalSupply), stats.Supply)
 	require.Equal(int64(4), stats.Height)
-	require.Equal(int64(19), stats.Transfers)
+	require.Equal(int64(32), stats.Transfers)
 	require.Equal(int64(24), stats.Votes)
 	require.Equal(int64(12), stats.Aps)
 
@@ -405,16 +412,24 @@ func TestService_SendTransfer(t *testing.T) {
 
 	request := explorer.SendTransferRequest{}
 	response, err := svc.SendTransfer(request)
-	require.Equal(false, response.TransferSent)
+	require.Equal("", response.Hash)
 	require.NotNil(err)
 
-	tsfJSON := explorer.Transfer{Nonce: 1, Amount: 1, Sender: senderRawAddr, Recipient: recipientRawAddr, SenderPubKey: senderPubKey}
-	stsf, err := json.Marshal(tsfJSON)
-	require.Nil(err)
 	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any()).Times(1)
 	p2p.EXPECT().Broadcast(gomock.Any()).Times(1)
-	response, err = svc.SendTransfer(explorer.SendTransferRequest{SerlializedTransfer: string(stsf[:])})
-	require.Equal(true, response.TransferSent)
+
+	r := explorer.SendTransferRequest{
+		Version:      0x1,
+		Nonce:        1,
+		Sender:       senderRawAddr,
+		Recipient:    recipientRawAddr,
+		Amount:       1,
+		SenderPubKey: senderPubKey,
+		Signature:    "",
+		Payload:      "",
+	}
+	response, err = svc.SendTransfer(r)
+	require.NotNil(response.Hash)
 	require.Nil(err)
 }
 
@@ -430,15 +445,68 @@ func TestService_SendVote(t *testing.T) {
 
 	request := explorer.SendVoteRequest{}
 	response, err := svc.SendVote(request)
-	require.Equal(false, response.VoteSent)
+	require.Equal("", response.Hash)
 	require.NotNil(err)
 
-	voteJSON := explorer.Vote{Nonce: 1, VoterPubKey: senderPubKey}
-	svote, err := json.Marshal(voteJSON)
-	require.Nil(err)
 	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any()).Times(1)
 	p2p.EXPECT().Broadcast(gomock.Any()).Times(1)
-	response, err = svc.SendVote(explorer.SendVoteRequest{SerializedVote: string(svote[:])})
-	require.Equal(true, response.VoteSent)
+
+	r := explorer.SendVoteRequest{
+		Version:     0x1,
+		Nonce:       1,
+		Voter:       senderRawAddr,
+		Votee:       senderRawAddr,
+		VoterPubKey: senderPubKey,
+		Signature:   "",
+	}
+
+	response, err = svc.SendVote(r)
+	require.NotNil(response.Hash)
 	require.Nil(err)
+}
+
+func TestServiceGetPeers(t *testing.T) {
+	require := require.New(t)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mDp := mock_dispatcher.NewMockDispatcher(ctrl)
+	p2p := mock_network.NewMockOverlay(ctrl)
+	svc := Service{dp: mDp, p2p: p2p}
+
+	p2p.EXPECT().GetPeers().Return([]net.Addr{
+		&node.Node{Addr: "127.0.0.1:10002"},
+		&node.Node{Addr: "127.0.0.1:10003"},
+		&node.Node{Addr: "127.0.0.1:10004"},
+	})
+	p2p.EXPECT().Self().Return(&node.Node{Addr: "127.0.0.1:10001"})
+
+	response, err := svc.GetPeers()
+	require.Nil(err)
+	require.Equal("127.0.0.1:10001", response.Self.Address)
+	require.Len(response.Peers, 3)
+	require.Equal("127.0.0.1:10003", response.Peers[1].Address)
+}
+
+func TestTransferPayloadBytesLimit(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mDp := mock_dispatcher.NewMockDispatcher(ctrl)
+	p2p := mock_network.NewMockOverlay(ctrl)
+	svc := Service{cfg: config.Explorer{MaxTransferPayloadBytes: 8}, dp: mDp, p2p: p2p}
+	var payload [9]byte
+	req := explorer.SendTransferRequest{
+		Payload: hex.EncodeToString(payload[:]),
+	}
+	res, err := svc.SendTransfer(req)
+	assert.Equal(t, explorer.SendTransferResponse{}, res)
+	assert.Error(t, err)
+	assert.Equal(
+		t,
+		"transfer payload contains 9 bytes, and is longer than 8 bytes limit: invalid transfer",
+		err.Error(),
+	)
+	assert.Equal(t, ErrTransfer, errors.Cause(err))
 }

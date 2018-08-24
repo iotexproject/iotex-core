@@ -7,44 +7,53 @@
 package blockchain
 
 import (
+	"math"
 	"math/big"
 
 	"github.com/CoderZhi/go-ethereum/common"
 	"github.com/CoderZhi/go-ethereum/core/vm"
 	"github.com/CoderZhi/go-ethereum/params"
+	"github.com/golang/protobuf/proto"
+	"github.com/pkg/errors"
+
 	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
-	"github.com/pkg/errors"
+	"github.com/iotexproject/iotex-core/proto"
 )
 
 var (
 	// ErrHitGasLimit is the error when hit gas limit
 	ErrHitGasLimit = errors.New("Hit Gas Limit")
-	// ErrInsufficientBalanceForGas is the error that the balance in sender account is lower than gas
+	// ErrInsufficientBalanceForGas is the error that the balance in executor account is lower than gas
 	ErrInsufficientBalanceForGas = errors.New("Insufficient balance for gas")
-	// ErrInconsistentNonce is the error that the nonce is different from sender's nonce
-	ErrInconsistentNonce = errors.New("Nonce is not identical to sender nonce")
+	// ErrInconsistentNonce is the error that the nonce is different from executor's nonce
+	ErrInconsistentNonce = errors.New("Nonce is not identical to executor nonce")
 	// ErrOutOfGas is the error when running out of gas
 	ErrOutOfGas = errors.New("Out of gas")
 )
 
-var (
-	// FailureStatus is the status that contract execution failed
-	FailureStatus = uint64(0)
-	// SuccessStatus is the status that contract execution success
-	SuccessStatus = uint64(1)
-	// GasLimit is the total gas limit to be consumed in a block
-	GasLimit = uint64(100000)
-)
-
 // Receipt represents the result of a contract
 type Receipt struct {
+	ReturnValue     []byte
 	Status          uint64
 	Hash            hash.Hash32B
 	GasConsumed     uint64
 	ContractAddress string
+	Logs            []*Log
+}
+
+// Log stores an evm contract event
+type Log struct {
+	Address     string
+	Topics      []hash.Hash32B
+	Data        []byte
+	BlockNumber uint64
+	TxnHash     hash.Hash32B
+	BLockHash   hash.Hash32B
+	Index       uint
 }
 
 // CanTransfer checks whether the from account has enough balance
@@ -58,19 +67,32 @@ func MakeTransfer(db vm.StateDB, fromHash, toHash common.Address, amount *big.In
 	db.AddBalance(toHash, amount)
 }
 
+const (
+	// ExecutionDataGas represents the execution data gas per uint
+	ExecutionDataGas = uint64(100)
+	// BaseIntrinsicGas represents the base intrinsic gas for execution
+	BaseIntrinsicGas = uint64(10000)
+	// FailureStatus is the status that contract execution failed
+	FailureStatus = uint64(0)
+	// SuccessStatus is the status that contract execution success
+	SuccessStatus = uint64(1)
+	// GasLimit is the total gas limit to be consumed in a block
+	GasLimit = uint64(1000000000)
+)
+
 // EVMParams is the context and parameters
 type EVMParams struct {
-	context          vm.Context
-	nonce            uint64
-	senderRawAddress string
-	amount           *big.Int
-	recipient        *common.Address
-	gas              uint64
-	data             []byte
+	context            vm.Context
+	nonce              uint64
+	executorRawAddress string
+	amount             *big.Int
+	contract           *common.Address
+	gas                uint64
+	data               []byte
 }
 
 // NewEVMParams creates a new context for use in the EVM.
-func NewEVMParams(blk *Block, tsf *action.Transfer, stateDB *EVMStateDBAdapter) (*EVMParams, error) {
+func NewEVMParams(blk *Block, execution *action.Execution, stateDB *EVMStateDBAdapter) (*EVMParams, error) {
 	// If we don't have an explicit author (i.e. not mining), extract from the header
 	/*
 		var beneficiary common.Address
@@ -80,22 +102,23 @@ func NewEVMParams(blk *Block, tsf *action.Transfer, stateDB *EVMStateDBAdapter) 
 			beneficiary = *author
 		}
 	*/
-	senderHash, err := iotxaddress.GetPubkeyHash(tsf.Sender)
+	executorHash, err := iotxaddress.GetPubkeyHash(execution.Executor)
 	if err != nil {
 		return nil, err
 	}
-	senderAddr := common.BytesToAddress(senderHash)
-	senderIoTXAddress, err := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, senderHash)
+	executorAddr := common.BytesToAddress(executorHash)
+	executorIoTXAddress, err := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, executorHash)
 	if err != nil {
 		return nil, err
 	}
-	var recipientAddr common.Address
-	if tsf.Recipient != action.EmptyAddress {
-		recipientHash, err := iotxaddress.GetPubkeyHash(tsf.Recipient)
+	var contractAddrPointer *common.Address
+	if execution.Contract != action.EmptyAddress {
+		contractHash, err := iotxaddress.GetPubkeyHash(execution.Contract)
 		if err != nil {
 			return nil, err
 		}
-		recipientAddr = common.BytesToAddress(recipientHash)
+		contractAddr := common.BytesToAddress(contractHash)
+		contractAddrPointer = &contractAddr
 	}
 	producerHash := keypair.HashPubKey(blk.Header.Pubkey)
 	producer := common.BytesToAddress(producerHash)
@@ -103,80 +126,171 @@ func NewEVMParams(blk *Block, tsf *action.Transfer, stateDB *EVMStateDBAdapter) 
 		CanTransfer: CanTransfer,
 		Transfer:    MakeTransfer,
 		GetHash:     GetHashFn(stateDB),
-		Origin:      senderAddr,
+		Origin:      executorAddr,
 		Coinbase:    producer,
 		BlockNumber: new(big.Int).SetUint64(blk.Height()),
 		Time:        new(big.Int).SetInt64(blk.Header.Timestamp().Unix()),
 		Difficulty:  new(big.Int).SetUint64(uint64(50)),
 		GasLimit:    GasLimit,
-		GasPrice:    new(big.Int).SetUint64(uint64(10)),
+		GasPrice:    new(big.Int).SetUint64(uint64(execution.GasPrice)),
 	}
 
 	return &EVMParams{
 		context,
-		tsf.Nonce,
-		senderIoTXAddress.RawAddress,
-		tsf.Amount,
-		&recipientAddr,
-		uint64(100), // gas
-		tsf.Payload, // data
+		execution.Nonce,
+		executorIoTXAddress.RawAddress,
+		execution.Amount,
+		contractAddrPointer,
+		execution.Gas,
+		execution.Data,
 	}, nil
 }
 
 // GetHashFn returns a GetHashFunc which retrieves hashes by number
 func GetHashFn(stateDB *EVMStateDBAdapter) func(n uint64) common.Hash {
 	return func(n uint64) common.Hash {
-		tipHeight, err := stateDB.bc.TipHeight()
+		hash, err := stateDB.bc.GetHashByHeight(stateDB.blockHeight - n)
 		if err != nil {
-			hash, err := stateDB.bc.GetHashByHeight(tipHeight - n)
-			if err != nil {
-				return common.BytesToHash(hash[:])
-			}
+			return common.BytesToHash(hash[:])
 		}
 
 		return common.Hash{}
 	}
 }
 
-func securityDeposit(context *EVMParams, stateDB vm.StateDB, gasLimit *uint64) error {
-	senderNonce := stateDB.GetNonce(context.context.Origin)
-	if senderNonce != context.nonce {
-		return ErrInconsistentNonce
+// ConvertToReceiptPb converts a Receipt to protobuf's ReceiptPb
+func (receipt *Receipt) ConvertToReceiptPb() *iproto.ReceiptPb {
+	r := &iproto.ReceiptPb{}
+	r.ReturnValue = receipt.ReturnValue
+	r.Status = receipt.Status
+	r.Hash = receipt.Hash[:]
+	r.GasConsumed = receipt.GasConsumed
+	r.ContractAddress = receipt.ContractAddress
+	r.Logs = []*iproto.LogPb{}
+	for _, log := range receipt.Logs {
+		r.Logs = append(r.Logs, log.ConvertToLogPb())
 	}
-	if *gasLimit < context.gas {
-		return ErrHitGasLimit
+	return r
+}
+
+// ConvertFromReceiptPb converts a protobuf's ReceiptPb to Receipt
+func (receipt *Receipt) ConvertFromReceiptPb(pbReceipt *iproto.ReceiptPb) {
+	receipt.ReturnValue = pbReceipt.GetReturnValue()
+	receipt.Status = pbReceipt.GetStatus()
+	copy(receipt.Hash[:], pbReceipt.GetHash())
+	receipt.GasConsumed = pbReceipt.GetGasConsumed()
+	receipt.ContractAddress = pbReceipt.GetContractAddress()
+	logs := pbReceipt.GetLogs()
+	receipt.Logs = make([]*Log, len(logs))
+	for i, log := range logs {
+		receipt.Logs[i] = &Log{}
+		receipt.Logs[i].ConvertFromLogPb(log)
 	}
-	maxGasValue := new(big.Int).Mul(new(big.Int).SetUint64(context.gas), context.context.GasPrice)
-	if stateDB.GetBalance(context.context.Origin).Cmp(maxGasValue) < 0 {
-		return ErrInsufficientBalanceForGas
+}
+
+// Serialize returns a serialized byte stream for the Receipt
+func (receipt *Receipt) Serialize() ([]byte, error) {
+	return proto.Marshal(receipt.ConvertToReceiptPb())
+}
+
+// Deserialize parse the byte stream into Receipt
+func (receipt *Receipt) Deserialize(buf []byte) error {
+	pbReceipt := &iproto.ReceiptPb{}
+	if err := proto.Unmarshal(buf, pbReceipt); err != nil {
+		return err
 	}
-	*gasLimit -= context.gas
-	stateDB.SubBalance(context.context.Origin, maxGasValue)
+	receipt.ConvertFromReceiptPb(pbReceipt)
 	return nil
 }
 
-// ProcessBlockContracts process the contracts in a block
-func ProcessBlockContracts(blk *Block, bc Blockchain) {
+// ConvertToLogPb converts a Log to protobuf's LogPb
+func (log *Log) ConvertToLogPb() *iproto.LogPb {
+	l := &iproto.LogPb{}
+	l.Address = log.Address
+	l.Topics = [][]byte{}
+	for _, topic := range log.Topics {
+		l.Topics = append(l.Topics, topic[:])
+	}
+	l.Data = log.Data
+	l.BlockNumber = log.BlockNumber
+	l.TxnHash = log.TxnHash[:]
+	l.BlockHash = log.BLockHash[:]
+	l.Index = uint32(log.Index)
+	return l
+}
+
+// ConvertFromLogPb converts a protobuf's LogPb to Log
+func (log *Log) ConvertFromLogPb(pbLog *iproto.LogPb) {
+	log.Address = pbLog.GetAddress()
+	pbLogs := pbLog.GetTopics()
+	log.Topics = make([]hash.Hash32B, len(pbLogs))
+	for i, topic := range pbLogs {
+		copy(log.Topics[i][:], topic)
+	}
+	log.Data = pbLog.GetData()
+	log.BlockNumber = pbLog.GetBlockNumber()
+	copy(log.TxnHash[:], pbLog.GetTxnHash())
+	copy(log.BLockHash[:], pbLog.GetBlockHash())
+	log.Index = uint(pbLog.GetIndex())
+}
+
+// Serialize returns a serialized byte stream for the Log
+func (log *Log) Serialize() ([]byte, error) {
+	return proto.Marshal(log.ConvertToLogPb())
+}
+
+// Deserialize parse the byte stream into Log
+func (log *Log) Deserialize(buf []byte) error {
+	pbLog := &iproto.LogPb{}
+	if err := proto.Unmarshal(buf, pbLog); err != nil {
+		return err
+	}
+	log.ConvertFromLogPb(pbLog)
+	return nil
+}
+
+func securityDeposit(ps *EVMParams, stateDB vm.StateDB, gasLimit *uint64) error {
+	executorNonce := stateDB.GetNonce(ps.context.Origin)
+	if executorNonce > ps.nonce {
+		logger.Error().Msgf("Nonce on %v: %d vs %d", ps.context.Origin, executorNonce, ps.nonce)
+		return ErrInconsistentNonce
+	}
+	if *gasLimit < ps.gas {
+		return ErrHitGasLimit
+	}
+	maxGasValue := new(big.Int).Mul(new(big.Int).SetUint64(ps.gas), ps.context.GasPrice)
+	if stateDB.GetBalance(ps.context.Origin).Cmp(maxGasValue) < 0 {
+		return ErrInsufficientBalanceForGas
+	}
+	*gasLimit -= ps.gas
+	stateDB.SubBalance(ps.context.Origin, maxGasValue)
+	return nil
+}
+
+// ExecuteContracts process the contracts in a block
+func ExecuteContracts(blk *Block, bc Blockchain) {
 	gasLimit := GasLimit
-	for _, tsf := range blk.Transfers {
-		ProcessContract(blk, tsf, bc, &gasLimit)
+	blk.receipts = make(map[hash.Hash32B]*Receipt, 0)
+	for idx, execution := range blk.Executions {
+		// TODO (zhi) log receipt to stateDB
+		if receipt, _ := executeContract(blk, idx, execution, bc, &gasLimit); receipt != nil {
+			blk.receipts[execution.Hash()] = receipt
+		}
 	}
 }
 
-// ProcessContract processes a transfer which contains a contract
-func ProcessContract(blk *Block, tsf *action.Transfer, bc Blockchain, gasLimit *uint64) (*Receipt, error) {
-	if !tsf.IsContract() {
-		return nil, nil
-	}
-	stateDB := NewEVMStateDBAdapter(bc)
-	ps, err := NewEVMParams(blk, tsf, stateDB)
+// executeContract processes a transfer which contains a contract
+func executeContract(blk *Block, idx int, execution *action.Execution, bc Blockchain, gasLimit *uint64) (*Receipt, error) {
+	stateDB := NewEVMStateDBAdapter(bc, blk.Height(), blk.HashBlock(), uint(idx), execution.Hash())
+	ps, err := NewEVMParams(blk, execution, stateDB)
 	if err != nil {
 		return nil, err
 	}
-	remainingGas, contractAddress, err := executeInEVM(ps, stateDB, gasLimit)
+	retval, depositGas, remainingGas, contractAddress, err := executeInEVM(ps, stateDB, gasLimit)
 	receipt := &Receipt{
+		ReturnValue:     retval,
 		GasConsumed:     ps.gas - remainingGas,
-		Hash:            tsf.Hash(),
+		Hash:            execution.Hash(),
 		ContractAddress: contractAddress,
 	}
 	if err != nil {
@@ -189,50 +303,80 @@ func ProcessContract(blk *Block, tsf *action.Transfer, bc Blockchain, gasLimit *
 		remainingValue := new(big.Int).Mul(new(big.Int).SetUint64(remainingGas), ps.context.GasPrice)
 		stateDB.AddBalance(ps.context.Origin, remainingValue)
 	}
+	if depositGas-remainingGas > 0 {
+		gasValue := new(big.Int).Mul(new(big.Int).SetUint64(depositGas-remainingGas), ps.context.GasPrice)
+		stateDB.AddBalance(ps.context.Coinbase, gasValue)
+	}
+	receipt.Logs = stateDB.Logs()
+	logger.Debug().Msgf("Receipt: %+v, %v", receipt, err)
 	return receipt, err
 }
 
-func executeInEVM(evmParams *EVMParams, stateDB *EVMStateDBAdapter, gasLimit *uint64) (uint64, string, error) {
+// IntrinsicGas returns the intrinsic gas of an execution
+func IntrinsicGas(data []byte) (uint64, error) {
+	dataSize := uint64(len(data))
+	if (math.MaxUint64-BaseIntrinsicGas)/ExecutionDataGas < dataSize {
+		return 0, ErrOutOfGas
+	}
+
+	return dataSize*ExecutionDataGas + BaseIntrinsicGas, nil
+}
+
+func getChainConfig() *params.ChainConfig {
+	var chainConfig params.ChainConfig
+	// chainConfig.ChainID
+	chainConfig.ConstantinopleBlock = new(big.Int).SetUint64(0) // Constantinople switch block (nil = no fork, 0 = already activated)
+
+	return &chainConfig
+}
+
+func executeInEVM(evmParams *EVMParams, stateDB *EVMStateDBAdapter, gasLimit *uint64) ([]byte, uint64, uint64, string, error) {
 	remainingGas := evmParams.gas
 	if err := securityDeposit(evmParams, stateDB, gasLimit); err != nil {
-		return 0, action.EmptyAddress, err
+		return nil, 0, 0, action.EmptyAddress, err
 	}
-	var chainConfig params.ChainConfig
 	var config vm.Config
-	evm := vm.NewEVM(evmParams.context, stateDB, &chainConfig, config)
-	intrinsicGas := uint64(10) // Intrinsic Gas
-	if remainingGas < intrinsicGas {
-		return remainingGas, action.EmptyAddress, ErrOutOfGas
+	chainConfig := getChainConfig()
+	evm := vm.NewEVM(evmParams.context, stateDB, chainConfig, config)
+	intriGas, err := IntrinsicGas(evmParams.data)
+	if err != nil {
+		return nil, evmParams.gas, remainingGas, action.EmptyAddress, err
 	}
-	var err error
-	contractAddress := action.EmptyAddress
-	remainingGas -= intrinsicGas
-	sender := vm.AccountRef(evmParams.context.Origin)
-	if evmParams.recipient == nil {
+	if remainingGas < intriGas {
+		return nil, evmParams.gas, remainingGas, action.EmptyAddress, ErrOutOfGas
+	}
+	contractRawAddress := action.EmptyAddress
+	remainingGas -= intriGas
+	executor := vm.AccountRef(evmParams.context.Origin)
+	ret := []byte{}
+	if evmParams.contract == nil {
 		// create contract
-		_, _, remainingGas, err := evm.Create(sender, evmParams.data, remainingGas, evmParams.amount)
+		var evmContractAddress common.Address
+		ret, evmContractAddress, remainingGas, err = evm.Create(executor, evmParams.data, remainingGas, evmParams.amount)
+		logger.Warn().Hex("contract addrHash", evmContractAddress[:]).Msg("evm.Create")
 		if err != nil {
-			return remainingGas, action.EmptyAddress, err
+			return nil, evmParams.gas, remainingGas, action.EmptyAddress, err
 		}
-
-		contractAddress, err = iotxaddress.CreateContractAddress(evmParams.senderRawAddress, evmParams.nonce)
+		contractAddress, err := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, evmContractAddress.Bytes())
 		if err != nil {
-			return remainingGas, action.EmptyAddress, err
+			return nil, evmParams.gas, remainingGas, action.EmptyAddress, err
 		}
+		contractRawAddress = contractAddress.RawAddress
 	} else {
 		// process contract
-		_, remainingGas, err = evm.Call(sender, *evmParams.recipient, evmParams.data, remainingGas, evmParams.amount)
+		ret, remainingGas, err = evm.Call(executor, *evmParams.contract, evmParams.data, remainingGas, evmParams.amount)
+	}
+	if err == nil {
+		err = stateDB.Error()
+	}
+	if err == vm.ErrInsufficientBalance {
+		return nil, evmParams.gas, remainingGas, action.EmptyAddress, err
 	}
 	if err != nil {
-		if err == vm.ErrInsufficientBalance {
-			return remainingGas, action.EmptyAddress, err
-		}
-	} else {
-		// TODO (zhi) figure out what the following function does
-		// stateDB.Finalise(true)
+		// TODO (zhi) should we refund if any error
+		return nil, evmParams.gas, 0, contractRawAddress, err
 	}
-	/*
-		receipt.Logs = stateDB.GetLogs(tsf.Hash())
-	*/
-	return remainingGas, contractAddress, nil
+	// TODO (zhi) figure out what the following function does
+	// stateDB.Finalise(true)
+	return ret, evmParams.gas, remainingGas, contractRawAddress, nil
 }

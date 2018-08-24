@@ -58,30 +58,31 @@ var (
 		Network: Network{
 			Host: "127.0.0.1",
 			Port: 4689,
-			MsgLogsCleaningInterval: 2 * time.Second,
-			MsgLogRetention:         5 * time.Second,
-			HealthCheckInterval:     time.Second,
-			SilentInterval:          5 * time.Second,
-			PeerMaintainerInterval:  time.Second,
-			AllowMultiConnsPerHost:  false,
-			NumPeersLowerBound:      5,
-			NumPeersUpperBound:      5,
-			PingInterval:            time.Second,
-			RateLimitEnabled:        false,
-			RateLimitPerSec:         10000,
-			RateLimitWindowSize:     60 * time.Second,
-			BootstrapNodes:          make([]string, 0),
-			TLSEnabled:              false,
-			CACrtPath:               "",
-			PeerCrtPath:             "",
-			PeerKeyPath:             "",
-			KLClientParams:          keepalive.ClientParameters{},
-			KLServerParams:          keepalive.ServerParameters{},
-			KLPolicy:                keepalive.EnforcementPolicy{},
-			MaxMsgSize:              10485760,
-			PeerDiscovery:           true,
-			TopologyPath:            "",
-			TTL:                     3,
+			MsgLogsCleaningInterval:             2 * time.Second,
+			MsgLogRetention:                     5 * time.Second,
+			HealthCheckInterval:                 time.Second,
+			SilentInterval:                      5 * time.Second,
+			PeerMaintainerInterval:              time.Second,
+			PeerForceDisconnectionRoundInterval: 0,
+			AllowMultiConnsPerHost:              false,
+			NumPeersLowerBound:                  5,
+			NumPeersUpperBound:                  5,
+			PingInterval:                        time.Second,
+			RateLimitEnabled:                    false,
+			RateLimitPerSec:                     10000,
+			RateLimitWindowSize:                 60 * time.Second,
+			BootstrapNodes:                      make([]string, 0),
+			TLSEnabled:                          false,
+			CACrtPath:                           "",
+			PeerCrtPath:                         "",
+			PeerKeyPath:                         "",
+			KLClientParams:                      keepalive.ClientParameters{},
+			KLServerParams:                      keepalive.ServerParameters{},
+			KLPolicy:                            keepalive.EnforcementPolicy{},
+			MaxMsgSize:                          10485760,
+			PeerDiscovery:                       true,
+			TopologyPath:                        "",
+			TTL:                                 3,
 		},
 		Chain: Chain{
 			ChainDBPath:        "/tmp/chain.db",
@@ -113,21 +114,24 @@ var (
 				NumSubEpochs:           1,
 				EventChanSize:          10000,
 				NumDelegates:           21,
+				EnableDummyBlock:       true,
 			},
 			BlockCreationInterval: 10 * time.Second,
 		},
 		BlockSync: BlockSync{
-			Interval: 10 * time.Second,
+			Interval:   10 * time.Second,
+			BufferSize: 16,
 		},
 
 		Dispatcher: Dispatcher{
 			EventChanSize: 10000,
 		},
 		Explorer: Explorer{
-			Enabled:   true,
-			IsTest:    false,
-			Port:      14004,
-			TpsWindow: 10,
+			Enabled:                 true,
+			IsTest:                  false,
+			Port:                    14004,
+			TpsWindow:               10,
+			MaxTransferPayloadBytes: 1024,
 		},
 		System: System{
 			HeartbeatInterval: 10 * time.Second,
@@ -157,32 +161,34 @@ var (
 // Network is the config struct for network package
 type (
 	Network struct {
-		Host                    string                      `yaml:"host"`
-		Port                    int                         `yaml:"port"`
-		MsgLogsCleaningInterval time.Duration               `yaml:"msgLogsCleaningInterval"`
-		MsgLogRetention         time.Duration               `yaml:"msgLogRetention"`
-		HealthCheckInterval     time.Duration               `yaml:"healthCheckInterval"`
-		SilentInterval          time.Duration               `yaml:"silentInterval"`
-		PeerMaintainerInterval  time.Duration               `yaml:"peerMaintainerInterval"`
-		AllowMultiConnsPerHost  bool                        `yaml:"allowMultiConnsPerHost"`
-		NumPeersLowerBound      uint                        `yaml:"numPeersLowerBound"`
-		NumPeersUpperBound      uint                        `yaml:"numPeersUpperBound"`
-		PingInterval            time.Duration               `yaml:"pingInterval"`
-		RateLimitEnabled        bool                        `yaml:"rateLimitEnabled"`
-		RateLimitPerSec         uint64                      `yaml:"rateLimitPerSec"`
-		RateLimitWindowSize     time.Duration               `yaml:"rateLimitWindowSize"`
-		BootstrapNodes          []string                    `yaml:"bootstrapNodes"`
-		TLSEnabled              bool                        `yaml:"tlsEnabled"`
-		CACrtPath               string                      `yaml:"caCrtPath"`
-		PeerCrtPath             string                      `yaml:"peerCrtPath"`
-		PeerKeyPath             string                      `yaml:"peerKeyPath"`
-		KLClientParams          keepalive.ClientParameters  `yaml:"klClientParams"`
-		KLServerParams          keepalive.ServerParameters  `yaml:"klServerParams"`
-		KLPolicy                keepalive.EnforcementPolicy `yaml:"klPolicy"`
-		MaxMsgSize              int                         `yaml:"maxMsgSize"`
-		PeerDiscovery           bool                        `yaml:"peerDiscovery"`
-		TopologyPath            string                      `yaml:"topologyPath"`
-		TTL                     int32                       `yaml:"ttl"`
+		Host                    string        `yaml:"host"`
+		Port                    int           `yaml:"port"`
+		MsgLogsCleaningInterval time.Duration `yaml:"msgLogsCleaningInterval"`
+		MsgLogRetention         time.Duration `yaml:"msgLogRetention"`
+		HealthCheckInterval     time.Duration `yaml:"healthCheckInterval"`
+		SilentInterval          time.Duration `yaml:"silentInterval"`
+		PeerMaintainerInterval  time.Duration `yaml:"peerMaintainerInterval"`
+		// Force disconnecting a random peer every given number of peer maintenance round
+		PeerForceDisconnectionRoundInterval int                         `yaml:"peerForceDisconnectionRoundInterval"`
+		AllowMultiConnsPerHost              bool                        `yaml:"allowMultiConnsPerHost"`
+		NumPeersLowerBound                  uint                        `yaml:"numPeersLowerBound"`
+		NumPeersUpperBound                  uint                        `yaml:"numPeersUpperBound"`
+		PingInterval                        time.Duration               `yaml:"pingInterval"`
+		RateLimitEnabled                    bool                        `yaml:"rateLimitEnabled"`
+		RateLimitPerSec                     uint64                      `yaml:"rateLimitPerSec"`
+		RateLimitWindowSize                 time.Duration               `yaml:"rateLimitWindowSize"`
+		BootstrapNodes                      []string                    `yaml:"bootstrapNodes"`
+		TLSEnabled                          bool                        `yaml:"tlsEnabled"`
+		CACrtPath                           string                      `yaml:"caCrtPath"`
+		PeerCrtPath                         string                      `yaml:"peerCrtPath"`
+		PeerKeyPath                         string                      `yaml:"peerKeyPath"`
+		KLClientParams                      keepalive.ClientParameters  `yaml:"klClientParams"`
+		KLServerParams                      keepalive.ServerParameters  `yaml:"klServerParams"`
+		KLPolicy                            keepalive.EnforcementPolicy `yaml:"klPolicy"`
+		MaxMsgSize                          int                         `yaml:"maxMsgSize"`
+		PeerDiscovery                       bool                        `yaml:"peerDiscovery"`
+		TopologyPath                        string                      `yaml:"topologyPath"`
+		TTL                                 int32                       `yaml:"ttl"`
 	}
 
 	// Chain is the config struct for blockchain package
@@ -210,7 +216,8 @@ type (
 
 	// BlockSync is the config struct for the BlockSync
 	BlockSync struct {
-		Interval time.Duration `yaml:"interval"` // update duration
+		Interval   time.Duration `yaml:"interval"` // update duration
+		BufferSize uint64        `yaml:"bufferSize"`
 	}
 
 	// RollDPoS is the config struct for RollDPoS consensus package
@@ -227,6 +234,7 @@ type (
 		NumSubEpochs           uint          `yaml:"numSubEpochs"`
 		EventChanSize          uint          `yaml:"eventChanSize"`
 		NumDelegates           uint          `yaml:"numDelegates"`
+		EnableDummyBlock       bool          `yaml:"enableDummyBlock"`
 	}
 
 	// Dispatcher is the dispatcher config
@@ -240,6 +248,8 @@ type (
 		IsTest    bool `yaml:"isTest"`
 		Port      int  `yaml:"addr"`
 		TpsWindow int  `yaml:"tpsWindow"`
+		// MaxTransferPayloadBytes limits how many bytes a playload can contain at most
+		MaxTransferPayloadBytes uint64 `yaml:"maxTransferPayloadBytes"`
 	}
 
 	// System is the system config

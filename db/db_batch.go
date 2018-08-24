@@ -91,22 +91,25 @@ func (b *baseKVStoreBatch) Commit() error {
 // memKVStoreBatch is the in-memory implementation of KVStore for testing purpose
 type memKVStoreBatch struct {
 	baseKVStoreBatch
-	data *sync.Map
+	data   *sync.Map
+	bucket *map[string]struct{}
 }
 
 // NewMemKVStoreBatch instantiates an in-memory KV store
-func NewMemKVStoreBatch(data *sync.Map) KVStoreBatch {
-	return &memKVStoreBatch{data: data}
+func NewMemKVStoreBatch(data *sync.Map, bucket *map[string]struct{}) KVStoreBatch {
+	return &memKVStoreBatch{data: data, bucket: bucket}
 }
 
 // Send queued write. This function is not really transactional. we think we don't need in mem db
 func (m *memKVStoreBatch) Commit() error {
 	for _, write := range m.writeQueue {
 		if write.writeType == Put {
+			(*m.bucket)[write.namespace] = struct{}{}
 			m.data.Store(write.namespace+keyDelimiter+string(write.key), write.value)
 		} else if write.writeType == PutIfNotExists {
 			_, ok := m.data.Load(write.namespace + keyDelimiter + string(write.key))
 			if !ok {
+				(*m.bucket)[write.namespace] = struct{}{}
 				m.data.Store(write.namespace+keyDelimiter+string(write.key), write.value)
 			} else {
 				return ErrAlreadyExist

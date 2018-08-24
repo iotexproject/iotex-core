@@ -9,22 +9,28 @@ package state
 import (
 	"context"
 
+	"github.com/pkg/errors"
+
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/trie"
 )
 
 type (
 	// Contract is a special type of account with code and storage trie.
 	Contract interface {
-		GetState(key hash.Hash32B) ([]byte, error)
-		SetState(key hash.Hash32B, value []byte) error
+		GetState(hash.Hash32B) ([]byte, error)
+		SetState(hash.Hash32B, []byte) error
+		GetCode() ([]byte, error)
+		SetCode(hash.Hash32B, []byte)
 		SelfState() *State
 		Commit() error
 		RootHash() hash.Hash32B
 	}
 
 	contract struct {
-		State
+		*State
+		code []byte    // contract byte-code
 		trie trie.Trie // storage trie of the contract
 	}
 )
@@ -43,13 +49,33 @@ func (c *contract) SetState(key hash.Hash32B, value []byte) error {
 	return c.trie.Upsert(key[:], value)
 }
 
+// GetCode gets the contract's byte-code
+func (c *contract) GetCode() ([]byte, error) {
+	if c.code != nil {
+		return c.code, nil
+	}
+	return c.trie.TrieDB().Get(trie.CodeKVNameSpace, c.State.CodeHash[:])
+}
+
+// SetCode sets the contract's byte-code
+func (c *contract) SetCode(hash hash.Hash32B, code []byte) {
+	c.State.CodeHash = hash[:]
+	c.code = code
+}
+
 // State returns this contract's state
 func (c *contract) SelfState() *State {
-	return &c.State
+	return c.State
 }
 
 // Commit writes the changes into underlying trie
 func (c *contract) Commit() error {
+	if byteutil.BytesTo32B(c.State.CodeHash) != hash.ZeroHash32B {
+		// put the code into storage DB
+		if err := c.trie.TrieDB().Put(trie.CodeKVNameSpace, c.State.CodeHash[:], c.code); err != nil {
+			return errors.Wrapf(err, "Failed to store code for new contract, codeHash %x", c.State.CodeHash[:])
+		}
+	}
 	c.State.Root = c.trie.RootHash()
 	return c.trie.Commit()
 }
@@ -60,12 +86,12 @@ func (c *contract) RootHash() hash.Hash32B {
 }
 
 // newContract returns a Contract instance
-func newContract(tr trie.Trie, state State, root hash.Hash32B) Contract {
+func newContract(state *State, tr trie.Trie) Contract {
 	c := contract{
 		State: state,
 		trie:  tr,
 	}
-	c.State.Root = root
 	c.trie.Start(context.Background())
+	c.trie.EnableBatch()
 	return &c
 }

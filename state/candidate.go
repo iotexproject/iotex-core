@@ -12,6 +12,9 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/proto"
 )
 
@@ -22,6 +25,8 @@ var (
 	ErrCandidatePb = errors.New("invalid protobuf's candidate message")
 	// ErrCandidateMap indicates the error of candidate map
 	ErrCandidateMap = errors.New("invalid candidate map")
+	// ErrCandidateList indicates the error of candidate list
+	ErrCandidateList = errors.New("invalid candidate list")
 )
 
 // Candidate indicates the structure of a candidate
@@ -106,8 +111,8 @@ func Deserialize(buf []byte) (CandidateList, error) {
 	return candidates, nil
 }
 
-// MapToCandidates converts a cachedCandidates to candidate list
-func MapToCandidates(candidateMap map[string]*Candidate) (CandidateList, error) {
+// MapToCandidates converts a map of cachedCandidates to candidate list
+func MapToCandidates(candidateMap map[hash.AddrHash]*Candidate) (CandidateList, error) {
 	if candidateMap == nil {
 		return nil, errors.Wrap(ErrCandidateMap, "candidate map cannot be nil")
 	}
@@ -116,4 +121,23 @@ func MapToCandidates(candidateMap map[string]*Candidate) (CandidateList, error) 
 		candidates = append(candidates, cand)
 	}
 	return candidates, nil
+}
+
+// CandidatesToMap converts a candidate list to map of cachedCandidates
+func CandidatesToMap(candidates CandidateList) (map[hash.AddrHash]*Candidate, error) {
+	if candidates == nil {
+		return nil, errors.Wrap(ErrCandidateList, "candidate list cannot be nil")
+	}
+	candidateMap := make(map[hash.AddrHash]*Candidate)
+	for _, candidate := range candidates {
+		if candidate == nil {
+			return nil, errors.Wrap(ErrCandidate, "candidate cannot be nil")
+		}
+		pkHash, err := iotxaddress.GetPubkeyHash(candidate.Address)
+		if err != nil {
+			return nil, errors.Wrap(err, "cannot get the hash of the address")
+		}
+		candidateMap[byteutil.BytesTo20B(pkHash)] = candidate
+	}
+	return candidateMap, nil
 }

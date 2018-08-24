@@ -8,8 +8,8 @@ import (
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "8b776e4eeea7ae069881c1bdf783244c"
-const BarristerDateGenerated int64 = 1533000739049000000
+const BarristerChecksum string = "a4b08a268b22c32b15f9dbf57eeb2166"
+const BarristerDateGenerated int64 = 1534876251738000000
 
 type CoinStatistic struct {
 	Height    int64 `json:"height"`
@@ -50,6 +50,24 @@ type Transfer struct {
 	Fee          int64  `json:"fee"`
 	Timestamp    int64  `json:"timestamp"`
 	BlockID      string `json:"blockID"`
+	IsPending    bool   `json:"isPending"`
+}
+
+type Execution struct {
+	Version        int64  `json:"version"`
+	ID             string `json:"ID"`
+	Nonce          int64  `json:"nonce"`
+	Executor       string `json:"executor"`
+	Contract       string `json:"contract"`
+	Amount         int64  `json:"amount"`
+	ExecutorPubKey string `json:"executorPubKey"`
+	Signature      string `json:"signature"`
+	Gas            int64  `json:"gas"`
+	GasPrice       int64  `json:"gasPrice"`
+	Timestamp      int64  `json:"timestamp"`
+	Data           string `json:"data"`
+	BlockID        string `json:"blockID"`
+	IsPending      bool   `json:"isPending"`
 }
 
 type Vote struct {
@@ -62,6 +80,7 @@ type Vote struct {
 	VoterPubKey string `json:"voterPubKey"`
 	Signature   string `json:"signature"`
 	BlockID     string `json:"blockID"`
+	IsPending   bool   `json:"isPending"`
 }
 
 type AddressDetails struct {
@@ -93,19 +112,45 @@ type ConsensusMetrics struct {
 }
 
 type SendTransferRequest struct {
-	SerlializedTransfer string `json:"serlializedTransfer"`
+	Version      int64  `json:"version"`
+	Nonce        int64  `json:"nonce"`
+	Sender       string `json:"sender"`
+	Recipient    string `json:"recipient"`
+	Amount       int64  `json:"amount"`
+	SenderPubKey string `json:"senderPubKey"`
+	Signature    string `json:"signature"`
+	Payload      string `json:"payload"`
+	IsCoinbase   bool   `json:"isCoinbase"`
 }
 
 type SendTransferResponse struct {
-	TransferSent bool `json:"transferSent"`
+	Hash string `json:"hash"`
 }
 
 type SendVoteRequest struct {
-	SerializedVote string `json:"serializedVote"`
+	Version     int64  `json:"version"`
+	Nonce       int64  `json:"nonce"`
+	Voter       string `json:"voter"`
+	Votee       string `json:"votee"`
+	VoterPubKey string `json:"voterPubKey"`
+	Signature   string `json:"signature"`
 }
 
 type SendVoteResponse struct {
-	VoteSent bool `json:"voteSent"`
+	Hash string `json:"hash"`
+}
+
+type Node struct {
+	Address string `json:"address"`
+}
+
+type GetPeersResponse struct {
+	Self  Node   `json:"Self"`
+	Peers []Node `json:"Peers"`
+}
+
+type SendSmartContractResponse struct {
+	Hash string `json:"hash"`
 }
 
 type Explorer interface {
@@ -129,6 +174,8 @@ type Explorer interface {
 	GetCandidateMetrics() (CandidateMetrics, error)
 	SendTransfer(request SendTransferRequest) (SendTransferResponse, error)
 	SendVote(request SendVoteRequest) (SendVoteResponse, error)
+	SendSmartContract(request Execution) (SendSmartContractResponse, error)
+	GetPeers() (GetPeersResponse, error)
 }
 
 func NewExplorerProxy(c barrister.Client) Explorer {
@@ -500,6 +547,42 @@ func (_p ExplorerProxy) SendVote(request SendVoteRequest) (SendVoteResponse, err
 	return SendVoteResponse{}, _err
 }
 
+func (_p ExplorerProxy) SendSmartContract(request Execution) (SendSmartContractResponse, error) {
+	_res, _err := _p.client.Call("Explorer.sendSmartContract", request)
+	if _err == nil {
+		_retType := _p.idl.Method("Explorer.sendSmartContract").Returns
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(SendSmartContractResponse{}), _res, "")
+	}
+	if _err == nil {
+		_cast, _ok := _res.(SendSmartContractResponse)
+		if !_ok {
+			_t := reflect.TypeOf(_res)
+			_msg := fmt.Sprintf("Explorer.sendSmartContract returned invalid type: %v", _t)
+			return SendSmartContractResponse{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
+		}
+		return _cast, nil
+	}
+	return SendSmartContractResponse{}, _err
+}
+
+func (_p ExplorerProxy) GetPeers() (GetPeersResponse, error) {
+	_res, _err := _p.client.Call("Explorer.getPeers")
+	if _err == nil {
+		_retType := _p.idl.Method("Explorer.getPeers").Returns
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(GetPeersResponse{}), _res, "")
+	}
+	if _err == nil {
+		_cast, _ok := _res.(GetPeersResponse)
+		if !_ok {
+			_t := reflect.TypeOf(_res)
+			_msg := fmt.Sprintf("Explorer.getPeers returned invalid type: %v", _t)
+			return GetPeersResponse{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
+		}
+		return _cast, nil
+	}
+	return GetPeersResponse{}, _err
+}
+
 func NewJSONServer(idl *barrister.Idl, forceASCII bool, explorer Explorer) barrister.Server {
 	return NewServer(idl, &barrister.JsonSerializer{forceASCII}, explorer)
 }
@@ -814,6 +897,125 @@ var IdlJsonRaw = `[
                 "optional": false,
                 "is_array": false,
                 "comment": ""
+            },
+            {
+                "name": "isPending",
+                "type": "bool",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            }
+        ],
+        "values": null,
+        "functions": null,
+        "barrister_version": "",
+        "date_generated": 0,
+        "checksum": ""
+    },
+    {
+        "type": "struct",
+        "name": "Execution",
+        "comment": "",
+        "value": "",
+        "extends": "",
+        "fields": [
+            {
+                "name": "version",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "ID",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "nonce",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "executor",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "contract",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "amount",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "executorPubKey",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "signature",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "gas",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "gasPrice",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "timestamp",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "data",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "blockID",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "isPending",
+                "type": "bool",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
             }
         ],
         "values": null,
@@ -888,6 +1090,13 @@ var IdlJsonRaw = `[
             {
                 "name": "blockID",
                 "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "isPending",
+                "type": "bool",
                 "optional": false,
                 "is_array": false,
                 "comment": ""
@@ -1075,8 +1284,64 @@ var IdlJsonRaw = `[
         "extends": "",
         "fields": [
             {
-                "name": "serlializedTransfer",
+                "name": "version",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "nonce",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "sender",
                 "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "recipient",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "amount",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "senderPubKey",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "signature",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "payload",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "isCoinbase",
+                "type": "bool",
                 "optional": false,
                 "is_array": false,
                 "comment": ""
@@ -1096,8 +1361,8 @@ var IdlJsonRaw = `[
         "extends": "",
         "fields": [
             {
-                "name": "transferSent",
-                "type": "bool",
+                "name": "hash",
+                "type": "string",
                 "optional": false,
                 "is_array": false,
                 "comment": ""
@@ -1117,7 +1382,42 @@ var IdlJsonRaw = `[
         "extends": "",
         "fields": [
             {
-                "name": "serializedVote",
+                "name": "version",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "nonce",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "voter",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "votee",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "voterPubKey",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "signature",
                 "type": "string",
                 "optional": false,
                 "is_array": false,
@@ -1138,8 +1438,78 @@ var IdlJsonRaw = `[
         "extends": "",
         "fields": [
             {
-                "name": "voteSent",
-                "type": "bool",
+                "name": "hash",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            }
+        ],
+        "values": null,
+        "functions": null,
+        "barrister_version": "",
+        "date_generated": 0,
+        "checksum": ""
+    },
+    {
+        "type": "struct",
+        "name": "Node",
+        "comment": "",
+        "value": "",
+        "extends": "",
+        "fields": [
+            {
+                "name": "address",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            }
+        ],
+        "values": null,
+        "functions": null,
+        "barrister_version": "",
+        "date_generated": 0,
+        "checksum": ""
+    },
+    {
+        "type": "struct",
+        "name": "GetPeersResponse",
+        "comment": "",
+        "value": "",
+        "extends": "",
+        "fields": [
+            {
+                "name": "Self",
+                "type": "Node",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "Peers",
+                "type": "Node",
+                "optional": false,
+                "is_array": true,
+                "comment": ""
+            }
+        ],
+        "values": null,
+        "functions": null,
+        "barrister_version": "",
+        "date_generated": 0,
+        "checksum": ""
+    },
+    {
+        "type": "struct",
+        "name": "SendSmartContractResponse",
+        "comment": "",
+        "value": "",
+        "extends": "",
+        "fields": [
+            {
+                "name": "hash",
+                "type": "string",
                 "optional": false,
                 "is_array": false,
                 "comment": ""
@@ -1653,6 +2023,38 @@ var IdlJsonRaw = `[
                     "is_array": false,
                     "comment": ""
                 }
+            },
+            {
+                "name": "sendSmartContract",
+                "comment": "sendSmartContract",
+                "params": [
+                    {
+                        "name": "request",
+                        "type": "Execution",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    }
+                ],
+                "returns": {
+                    "name": "",
+                    "type": "SendSmartContractResponse",
+                    "optional": false,
+                    "is_array": false,
+                    "comment": ""
+                }
+            },
+            {
+                "name": "getPeers",
+                "comment": "get list of peers",
+                "params": [],
+                "returns": {
+                    "name": "",
+                    "type": "GetPeersResponse",
+                    "optional": false,
+                    "is_array": false,
+                    "comment": ""
+                }
             }
         ],
         "barrister_version": "",
@@ -1669,7 +2071,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1533000739049,
-        "checksum": "8b776e4eeea7ae069881c1bdf783244c"
+        "date_generated": 1534876251738,
+        "checksum": "a4b08a268b22c32b15f9dbf57eeb2166"
     }
 ]`
