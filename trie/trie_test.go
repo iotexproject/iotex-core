@@ -21,6 +21,8 @@ import (
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
+var cfg = &config.Default.DB
+
 const testTriePath = "trie.test"
 
 func TestEmptyTrie(t *testing.T) {
@@ -39,7 +41,6 @@ func Test2Roots(t *testing.T) {
 	defer testutil.CleanupPath(t, testTriePath)
 
 	// first trie
-	cfg := &config.Default.DB
 	tr, err := NewTrie(db.NewBoltDB(testTriePath, cfg), "test", EmptyRoot)
 	require.Nil(err)
 	require.Nil(tr.Start(context.Background()))
@@ -316,7 +317,6 @@ func TestBatchCommit(t *testing.T) {
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
 
-	cfg := &config.Default.DB
 	tr, err := NewTrie(db.NewBoltDB(testTriePath, cfg), "test", EmptyRoot)
 	require.Nil(err)
 	require.Nil(tr.Start(context.Background()))
@@ -394,7 +394,6 @@ func Test2kEntries(t *testing.T) {
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
-	cfg := &config.Default.DB
 	tr, err := NewTrie(db.NewBoltDB(testTriePath, cfg), "test", EmptyRoot)
 	require.Nil(err)
 	require.Nil(tr.Start(context.Background()))

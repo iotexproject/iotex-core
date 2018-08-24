@@ -28,7 +28,10 @@ import (
 	"github.com/iotexproject/iotex-core/trie"
 )
 
-var chainid = []byte{0x00, 0x00, 0x00, 0x01}
+var (
+	chainid = []byte{0x00, 0x00, 0x00, 0x01}
+	cfg     = &config.Default
+)
 
 const (
 	isTestnet    = true
@@ -244,8 +247,7 @@ func TestCandidates(t *testing.T) {
 	f, _ := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
-	cfg := &config.Default.DB
-	accountTr, _ := trie.NewTrie(db.NewBoltDB(testTriePath, cfg), "account", trie.EmptyRoot)
+	accountTr, _ := trie.NewTrie(db.NewBoltDB(testTriePath, &cfg.DB), "account", trie.EmptyRoot)
 	candidateTr, _ := trie.NewTrie(accountTr.TrieDB(), "candidate", trie.EmptyRoot)
 	require.Nil(t, accountTr.Start(context.Background()))
 	require.Nil(t, candidateTr.Start(context.Background()))
@@ -499,8 +501,7 @@ func TestCandidates(t *testing.T) {
 func TestCandidatesByHeight(t *testing.T) {
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
-	cfg := &config.Default.DB
-	accountTr, _ := trie.NewTrie(db.NewBoltDB(testTriePath, cfg), "account", trie.EmptyRoot)
+	accountTr, _ := trie.NewTrie(db.NewBoltDB(testTriePath, &cfg.DB), "account", trie.EmptyRoot)
 	candidateTr, _ := trie.NewTrie(accountTr.TrieDB(), "candidate", trie.EmptyRoot)
 	require.Nil(t, accountTr.Start(context.Background()))
 	require.Nil(t, candidateTr.Start(context.Background()))
@@ -559,8 +560,7 @@ func TestUnvote(t *testing.T) {
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
-	cfg := &config.Default.DB
-	accountTr, _ := trie.NewTrie(db.NewBoltDB(testTriePath, cfg), "account", trie.EmptyRoot)
+	accountTr, _ := trie.NewTrie(db.NewBoltDB(testTriePath, &cfg.DB), "account", trie.EmptyRoot)
 	candidateTr, _ := trie.NewTrie(accountTr.TrieDB(), "candidate", trie.EmptyRoot)
 	require.Nil(t, accountTr.Start(context.Background()))
 	require.Nil(t, candidateTr.Start(context.Background()))
@@ -614,13 +614,12 @@ func TestUnvote(t *testing.T) {
 func TestCreateContract(t *testing.T) {
 	require := require.New(t)
 
-	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
 
-	sf, err := NewFactory(&cfg, DefaultTrieOption())
+	sf, err := NewFactory(cfg, DefaultTrieOption())
 	require.Nil(err)
 	require.Nil(sf.Start(context.Background()))
 	addr, err := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
@@ -655,7 +654,7 @@ func TestCreateContract(t *testing.T) {
 
 	tr, err := trie.NewTrie(db.NewBoltDB(testTriePath, &cfg.DB), trie.AccountKVNameSpace, root)
 	require.Nil(err)
-	sf, err = NewFactory(&cfg, PrecreatedTrieOption(tr, nil))
+	sf, err = NewFactory(cfg, PrecreatedTrieOption(tr, nil))
 	require.Nil(err)
 	require.Nil(sf.Start(context.Background()))
 	// cannot re-create existing
@@ -670,12 +669,11 @@ func TestCreateContract(t *testing.T) {
 func TestLoadStoreContract(t *testing.T) {
 	require := require.New(t)
 
-	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
-	sf, err := NewFactory(&cfg, DefaultTrieOption())
+	sf, err := NewFactory(cfg, DefaultTrieOption())
 	require.Nil(err)
 	require.Nil(sf.Start(context.Background()))
 	addr, err := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
