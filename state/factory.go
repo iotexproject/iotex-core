@@ -293,6 +293,7 @@ func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer
 		}
 	}
 
+	defer sf.clearCache()
 	if err := sf.handleTsf(tsf); err != nil {
 		return err
 	}
@@ -305,7 +306,6 @@ func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer
 		if err := sf.putState(state, addr[:]); err != nil {
 			return err
 		}
-
 		// Perform vote update operation on candidate and delegate pools
 		if !state.IsCandidate {
 			// remove the candidate if the person is not a candidate anymore
@@ -537,6 +537,14 @@ func (sf *factory) getContract(addr hash.AddrHash) (Contract, error) {
 	contract := newContract(state, tr)
 	sf.cachedContract[addr] = contract
 	return contract, nil
+}
+
+// clearCache removes all local changes after committing to trie
+func (sf *factory) clearCache() {
+	sf.cachedAccount = nil
+	sf.cachedContract = nil
+	sf.cachedAccount = make(map[hash.AddrHash]*State)
+	sf.cachedContract = make(map[hash.AddrHash]Contract)
 }
 
 //======================================

@@ -262,11 +262,6 @@ func TestERC20(t *testing.T) {
 	require.Nil(err)
 	require.Equal(data[335:len(data)-32], code)
 
-	h, _ = iotxaddress.GetPubkeyHash("io1qyqsyqcy8uhx9jtdc2xp5wx7nxyq3xf4c3jmxknzkuej8y")
-	logger.Warn().Hex("web", h[:]).Msg("TestER")
-	h, _ = iotxaddress.GetPubkeyHash(ta.Addrinfo["producer"].RawAddress)
-	logger.Warn().Hex("owner", h[:]).Msg("TestER")
-
 	logger.Warn().Msg("======= Transfer to alfa")
 	data, _ = hex.DecodeString("a9059cbb")
 	alfa := hash.ZeroHash32B

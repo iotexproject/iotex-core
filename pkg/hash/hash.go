@@ -45,6 +45,7 @@ func Hash256b(input []byte) []byte {
 	return digest[:]
 }
 
+// SetBytes copies the byte slice into hash
 func (h *Hash32B) SetBytes(b []byte) {
 	if len(b) > len(h) {
 		b = b[len(b)-HashSize:]
