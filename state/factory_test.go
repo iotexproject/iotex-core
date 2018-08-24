@@ -244,7 +244,8 @@ func TestCandidates(t *testing.T) {
 	f, _ := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
-	accountTr, _ := trie.NewTrie(db.NewBoltDB(testTriePath, nil), "account", trie.EmptyRoot)
+	cfg := &config.Default.DB
+	accountTr, _ := trie.NewTrie(db.NewBoltDB(testTriePath, cfg), "account", trie.EmptyRoot)
 	candidateTr, _ := trie.NewTrie(accountTr.TrieDB(), "candidate", trie.EmptyRoot)
 	require.Nil(t, accountTr.Start(context.Background()))
 	require.Nil(t, candidateTr.Start(context.Background()))
@@ -498,7 +499,8 @@ func TestCandidates(t *testing.T) {
 func TestCandidatesByHeight(t *testing.T) {
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
-	accountTr, _ := trie.NewTrie(db.NewBoltDB(testTriePath, nil), "account", trie.EmptyRoot)
+	cfg := &config.Default.DB
+	accountTr, _ := trie.NewTrie(db.NewBoltDB(testTriePath, cfg), "account", trie.EmptyRoot)
 	candidateTr, _ := trie.NewTrie(accountTr.TrieDB(), "candidate", trie.EmptyRoot)
 	require.Nil(t, accountTr.Start(context.Background()))
 	require.Nil(t, candidateTr.Start(context.Background()))
@@ -557,7 +559,8 @@ func TestUnvote(t *testing.T) {
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
-	accountTr, _ := trie.NewTrie(db.NewBoltDB(testTriePath, nil), "account", trie.EmptyRoot)
+	cfg := &config.Default.DB
+	accountTr, _ := trie.NewTrie(db.NewBoltDB(testTriePath, cfg), "account", trie.EmptyRoot)
 	candidateTr, _ := trie.NewTrie(accountTr.TrieDB(), "candidate", trie.EmptyRoot)
 	require.Nil(t, accountTr.Start(context.Background()))
 	require.Nil(t, candidateTr.Start(context.Background()))
@@ -650,7 +653,7 @@ func TestCreateContract(t *testing.T) {
 	root = sf.RootHash()
 	require.Nil(sf.Stop(context.Background()))
 
-	tr, err := trie.NewTrie(db.NewBoltDB(testTriePath, nil), trie.AccountKVNameSpace, root)
+	tr, err := trie.NewTrie(db.NewBoltDB(testTriePath, &cfg.DB), trie.AccountKVNameSpace, root)
 	require.Nil(err)
 	sf, err = NewFactory(&cfg, PrecreatedTrieOption(tr, nil))
 	require.Nil(err)

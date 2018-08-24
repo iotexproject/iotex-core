@@ -135,7 +135,6 @@ func NewBoltDBBatch(bdb *boltDB) KVStoreBatch {
 // Commit queued write
 func (b *boltDBBatch) Commit() error {
 	var err error
-	var errNamespace string
 	numRetries := b.bdb.config.NumRetries
 	for c := uint8(0); c < numRetries; c++ {
 		err = b.bdb.db.Update(func(tx *bolt.Tx) error {
@@ -163,18 +162,12 @@ func (b *boltDBBatch) Commit() error {
 				} else if write.writeType == Delete {
 					bucket := tx.Bucket([]byte(write.namespace))
 					if bucket == nil {
-						errNamespace = write.namespace
-						return bolt.ErrBucketNotFound
+						return nil
 					}
 					if err := bucket.Delete(write.key); err != nil {
 						return errors.Wrapf(err, write.errorFormat, write.errorArgs)
 					}
 				}
-			}
-			// clear queues
-			err := b.Clear()
-			if err != nil {
-				return errors.Wrap(err, "failed to clear queues when commit")
 			}
 
 			return nil
@@ -182,11 +175,11 @@ func (b *boltDBBatch) Commit() error {
 
 		if err == nil || err == ErrAlreadyExist {
 			break
-		} else if err == bolt.ErrBucketNotFound {
-			err = errors.Wrapf(err, "bucket = %s", errNamespace)
-			break
 		}
 	}
+
+	// clear queues
+	b.Clear()
 
 	return err
 }

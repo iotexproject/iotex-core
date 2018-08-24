@@ -71,7 +71,7 @@ func TestKVStorePutGet(t *testing.T) {
 	})
 
 	path := "/tmp/test-kv-store-" + strconv.Itoa(rand.Int())
-	cfg := &config.DB{Options: nil, NumRetries: 3}
+	cfg := &config.Default.DB
 	t.Run("Bolt DB", func(t *testing.T) {
 		testutil.CleanupPath(t, path)
 		defer testutil.CleanupPath(t, path)
@@ -126,7 +126,7 @@ func TestBatchRollback(t *testing.T) {
 	}
 
 	path := "/tmp/test-batch-rollback-" + strconv.Itoa(rand.Int())
-	cfg := &config.DB{Options: nil, NumRetries: 3}
+	cfg := &config.Default.DB
 	t.Run("Bolt DB", func(t *testing.T) {
 		testutil.CleanupPath(t, path)
 		defer testutil.CleanupPath(t, path)
@@ -248,7 +248,7 @@ func TestDBBatch(t *testing.T) {
 
 	t.Run("Bolt DB", func(t *testing.T) {
 		path := "/tmp/test-batch-rollback-" + strconv.Itoa(rand.Int())
-		cfg := &config.DB{Options: nil, NumRetries: 3}
+		cfg := &config.Default.DB
 		testutil.CleanupPath(t, path)
 		defer testutil.CleanupPath(t, path)
 		testBatchRollback(NewBoltDB(path, cfg), t)

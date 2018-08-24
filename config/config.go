@@ -11,7 +11,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/boltdb/bolt"
 	"github.com/pkg/errors"
 	uconfig "go.uber.org/config"
 	"google.golang.org/grpc/keepalive"
@@ -135,7 +134,6 @@ var (
 			HTTPProfilingPort: 0,
 		},
 		DB: DB{
-			Options:    nil,
 			NumRetries: 3,
 		},
 	}
@@ -265,8 +263,6 @@ type (
 
 	// DB is the blotDB config
 	DB struct {
-		Options *bolt.Options
-
 		// NumRetries is the number of retries
 		NumRetries uint8 `yaml:"numRetries"`
 	}
@@ -282,7 +278,7 @@ type (
 		Dispatcher Dispatcher `yaml:"dispatcher"`
 		Explorer   Explorer   `yaml:"explorer"`
 		System     System     `yaml:"system"`
-		DB         DB         `yaml:"numRetries"`
+		DB         DB         `yaml:"db"`
 	}
 
 	// Validate is the interface of validating the config

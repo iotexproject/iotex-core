@@ -94,9 +94,7 @@ func (m *memKVStore) Batch() KVStoreBatch {
 	return NewMemKVStoreBatch(&m.data)
 }
 
-const (
-	fileMode = 0600
-)
+const fileMode = 0600
 
 // boltDB is KVStore implementation based bolt DB
 type boltDB struct {
@@ -120,11 +118,7 @@ func (b *boltDB) Start(_ context.Context) error {
 		return nil
 	}
 
-	if b.config == nil {
-		b.config = &config.Default.DB
-	}
-
-	db, err := bolt.Open(b.path, fileMode, b.config.Options)
+	db, err := bolt.Open(b.path, fileMode, nil)
 	if err != nil {
 		return err
 	}
@@ -218,15 +212,12 @@ func (b *boltDB) Delete(namespace string, key []byte) error {
 		err = b.db.Update(func(tx *bolt.Tx) error {
 			bucket := tx.Bucket([]byte(namespace))
 			if bucket == nil {
-				return bolt.ErrBucketNotFound
+				return nil
 			}
 			return bucket.Delete(key)
 		})
 
 		if err == nil {
-			break
-		} else if err == bolt.ErrBucketNotFound {
-			err = errors.Wrapf(err, "bucket = %s", namespace)
 			break
 		}
 	}

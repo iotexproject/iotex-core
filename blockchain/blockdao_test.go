@@ -126,10 +126,7 @@ func TestBlockDAO(t *testing.T) {
 	})
 
 	path := "/tmp/test-kv-store-" + string(rand.Int())
-	cfg := &config.DB{
-		Options:    nil,
-		NumRetries: 3,
-	}
+	cfg := &config.Default.DB
 	t.Run("Bolt DB", func(t *testing.T) {
 		testutil.CleanupPath(t, path)
 		defer testutil.CleanupPath(t, path)
