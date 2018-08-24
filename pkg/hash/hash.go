@@ -44,3 +44,10 @@ func Hash256b(input []byte) []byte {
 	digest := blake2b.Sum256(input)
 	return digest[:]
 }
+
+func (h *Hash32B) SetBytes(b []byte) {
+	if len(b) > len(h) {
+		b = b[len(b)-HashSize:]
+	}
+	copy(h[HashSize-len(b):], b)
+}
