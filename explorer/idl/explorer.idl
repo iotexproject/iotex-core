@@ -263,4 +263,7 @@ interface Explorer {
 
     // get list of peers
     getPeers() GetPeersResponse
+
+    // get receipt by execution id
+    getReceiptByExecutionID(id string) Receipt
 }
