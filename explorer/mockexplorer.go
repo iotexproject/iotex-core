@@ -96,6 +96,11 @@ func (exp *MockExplorer) GetVotesByBlockID(blkID string, offset int64, limit int
 	return exp.GetLastVotesByRange(0, offset, limit)
 }
 
+// GetReceiptByExecutionID gets receipt with corresponding execution id
+func (exp *MockExplorer) GetReceiptByExecutionID(id string) (explorer.Receipt, error) {
+	return exp.GetReceiptByExecutionID(id)
+}
+
 // GetLastExecutionsByRange return executions in [-(offset+limit-1), -offset] from block
 // with height startBlockHeight
 func (exp *MockExplorer) GetLastExecutionsByRange(startBlockHeight int64, offset int64, limit int64) ([]explorer.Execution, error) {

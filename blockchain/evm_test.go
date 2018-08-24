@@ -115,7 +115,7 @@ func TestLogReceipt(t *testing.T) {
 	copy(topic[:], hash.Hash256b([]byte("12345")))
 	log.Topics = []hash.Hash32B{topic}
 	copy(log.TxnHash[:], hash.Hash256b([]byte("11111")))
-	copy(log.BLockHash[:], hash.Hash256b([]byte("22222")))
+	copy(log.BlockHash[:], hash.Hash256b([]byte("22222")))
 	s, err := log.Serialize()
 	require.NoError(err)
 	actuallog := Log{}
@@ -126,7 +126,7 @@ func TestLogReceipt(t *testing.T) {
 	require.Equal(log.Data, actuallog.Data)
 	require.Equal(log.BlockNumber, actuallog.BlockNumber)
 	require.Equal(log.TxnHash, actuallog.TxnHash)
-	require.Equal(log.BLockHash, actuallog.BLockHash)
+	require.Equal(log.BlockHash, actuallog.BlockHash)
 	require.Equal(log.Index, actuallog.Index)
 
 	receipt := Receipt{ReturnValue: []byte("12345"), Status: 5, GasConsumed: 6, ContractAddress: "aaaaa", Logs: []*Log{&log}}
