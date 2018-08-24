@@ -175,9 +175,11 @@ func NewExecutionFromJSON(jsonExecution *explorer.Execution) (*Execution, error)
 	ex := &Execution{}
 	ex.Version = uint32(jsonExecution.Version)
 	ex.Nonce = uint64(jsonExecution.Nonce)
-	ex.Amount = big.NewInt(jsonExecution.Amount)
 	ex.Executor = jsonExecution.Executor
 	ex.Contract = jsonExecution.Contract
+	ex.Amount = big.NewInt(jsonExecution.Amount)
+	ex.Gas = uint32(jsonExecution.Gas)
+	ex.GasPrice = uint32(jsonExecution.GasPrice)
 	executorPubKey, err := keypair.StringToPubKeyBytes(jsonExecution.ExecutorPubKey)
 	if err != nil {
 		logger.Error().Err(err).Msg("Fail to create a new Execution from ExecutionJSON")
