@@ -15,7 +15,14 @@ RUN if [ "$SKIP_DEP" != true ] ; \
     fi
 
 
-RUN cd $GOPATH/src/github.com/iotexproject/iotex-core/ && \
+RUN mkdir -p $GOPATH/src/github.com/CoderZhi/go-ethereum/ && \
+    mkdir -p $GOPATH/pkg/linux_amd64/github.com/CoderZhi/ && \
+    cd $GOPATH/src/github.com/iotexproject/iotex-core/pkg/ && \
+    tar -xzvf go-ethereum.tar.gz && \
+    cp -r $GOPATH/src/github.com/iotexproject/iotex-core/pkg/go-ethereum/binary_linux/* $GOPATH/pkg/linux_amd64/github.com/CoderZhi/ && \
+    cp -r $GOPATH/src/github.com/iotexproject/iotex-core/pkg/go-ethereum/go-ethereum/* $GOPATH/src/github.com/CoderZhi/go-ethereum/ && \
+    rm -rf $GOPATH/src/github.com/iotexproject/iotex-core/pkg/go-ethereum/ && \
+    cd $GOPATH/src/github.com/iotexproject/iotex-core/ && \
     make clean build && \
     ln -s $GOPATH/src/github.com/iotexproject/iotex-core/bin/server /usr/local/bin/iotex-server  && \
     ln -s $GOPATH/src/github.com/iotexproject/iotex-core/bin/actioninjector /usr/local/bin/iotex-actioninjector && \
