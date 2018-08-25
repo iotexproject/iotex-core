@@ -241,12 +241,9 @@ func TestCandidates(t *testing.T) {
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
 	accountTr, _ := trie.NewTrie(db.NewBoltDB(testTriePath, nil), "account", trie.EmptyRoot)
-	candidateTr, _ := trie.NewTrie(accountTr.TrieDB(), "candidate", trie.EmptyRoot)
 	require.Nil(t, accountTr.Start(context.Background()))
-	require.Nil(t, candidateTr.Start(context.Background()))
 	sf := &factory{
 		accountTrie:      accountTr,
-		candidateTrie:    candidateTr,
 		numCandidates:    uint(2),
 		cachedCandidates: make(map[hash.AddrHash]*Candidate),
 		cachedAccount:    make(map[hash.AddrHash]*State),
@@ -495,12 +492,9 @@ func TestCandidatesByHeight(t *testing.T) {
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
 	accountTr, _ := trie.NewTrie(db.NewBoltDB(testTriePath, nil), "account", trie.EmptyRoot)
-	candidateTr, _ := trie.NewTrie(accountTr.TrieDB(), "candidate", trie.EmptyRoot)
 	require.Nil(t, accountTr.Start(context.Background()))
-	require.Nil(t, candidateTr.Start(context.Background()))
 	sf := &factory{
 		accountTrie:      accountTr,
-		candidateTrie:    candidateTr,
 		numCandidates:    uint(2),
 		cachedCandidates: make(map[hash.AddrHash]*Candidate),
 		cachedAccount:    make(map[hash.AddrHash]*State),
@@ -526,7 +520,7 @@ func TestCandidatesByHeight(t *testing.T) {
 	candidatesBytes, err := Serialize(candidateList)
 	require.NoError(t, err)
 
-	sf.candidateTrie.Upsert(byteutil.Uint64ToBytes(0), candidatesBytes)
+	sf.accountTrie.TrieDB().Put(trie.CandidateKVNameSpace, byteutil.Uint64ToBytes(0), candidatesBytes)
 	candidates, err := sf.CandidatesByHeight(0)
 	sort.Slice(candidates, func(i, j int) bool {
 		return strings.Compare(candidates[i].Address, candidates[j].Address) < 0
@@ -541,7 +535,7 @@ func TestCandidatesByHeight(t *testing.T) {
 	candidatesBytes, err = Serialize(candidateList)
 	require.NoError(t, err)
 
-	sf.candidateTrie.Upsert(byteutil.Uint64ToBytes(1), candidatesBytes)
+	sf.accountTrie.TrieDB().Put(trie.CandidateKVNameSpace, byteutil.Uint64ToBytes(1), candidatesBytes)
 	candidates, err = sf.CandidatesByHeight(1)
 	sort.Slice(candidates, func(i, j int) bool {
 		return strings.Compare(candidates[i].Address, candidates[j].Address) < 0
@@ -560,12 +554,9 @@ func TestUnvote(t *testing.T) {
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
 	accountTr, _ := trie.NewTrie(db.NewBoltDB(testTriePath, nil), "account", trie.EmptyRoot)
-	candidateTr, _ := trie.NewTrie(accountTr.TrieDB(), "candidate", trie.EmptyRoot)
 	require.Nil(t, accountTr.Start(context.Background()))
-	require.Nil(t, candidateTr.Start(context.Background()))
 	sf := &factory{
 		accountTrie:      accountTr,
-		candidateTrie:    candidateTr,
 		numCandidates:    uint(2),
 		cachedCandidates: make(map[hash.AddrHash]*Candidate),
 		cachedAccount:    make(map[hash.AddrHash]*State),
