@@ -86,7 +86,12 @@ func TestActionInjector(t *testing.T) {
 	wg := &sync.WaitGroup{}
 	retryNum := 5
 	retryInterval := 1
-	injectByAps(wg, aps, counter, client, addrs, d, make(map[string]bool), retryNum, retryInterval)
+	contract := "io1qyqsyqcy3kcd2pyfwus69nzgvkwhg8mk8h336dt86pg6cj"
+	executionAmount := 0
+	executionGas := 1200000
+	executionGasPrice := 10
+	executionData := "2885ad2c"
+	injectByAps(wg, aps, counter, contract, executionAmount, executionGas, executionGasPrice, executionData, client, addrs, d, make(map[string]bool), retryNum, retryInterval)
 	wg.Wait()
 
 	// Wait until the injected actions in APS Mode gets into the action pool
@@ -101,13 +106,14 @@ func TestActionInjector(t *testing.T) {
 	// Test injectByInterval
 	transferNum := 2
 	voteNum := 1
+	executionNum := 1
 	interval := 1
-	injectByInterval(transferNum, voteNum, interval, counter, client, addrs, make(map[string]bool), retryNum, retryInterval)
+	injectByInterval(transferNum, voteNum, executionNum, contract, executionAmount, executionGas, executionGasPrice, executionData, interval, counter, client, addrs, make(map[string]bool), retryNum, retryInterval)
 
 	// Wait until all the injected actions in Interval Mode gets into the action pool
 	err = testutil.WaitUntil(100*time.Millisecond, 5*time.Second, func() (bool, error) {
 		transfers, votes, executions := svr.ActionPool().PickActs()
-		return len(transfers)+len(votes)+len(executions)-numActsBase == 3, nil
+		return len(transfers)+len(votes)+len(executions)-numActsBase == 4, nil
 	})
 	require.Nil(err)
 }
