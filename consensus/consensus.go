@@ -74,12 +74,10 @@ func NewConsensus(
 	}
 
 	commitBlockCB := func(blk *blockchain.Block) error {
-		if err := bc.CommitBlock(blk); err == nil {
-			return err
-		}
+		err := bc.CommitBlock(blk)
 		// Remove transfers in this block from ActPool and reset ActPool state
 		ap.Reset()
-		return nil
+		return err
 	}
 
 	broadcastBlockCB := func(blk *blockchain.Block) error {
