@@ -131,6 +131,8 @@ struct Candidate {
 
 struct CandidateMetrics {
     candidates []Candidate
+    latestEpoch int
+    latestHeight int
 }
 
 struct ConsensusMetrics {
