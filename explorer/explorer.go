@@ -798,7 +798,9 @@ func (exp *Service) GetCandidateMetrics() (explorer.CandidateMetrics, error) {
 	}
 
 	return explorer.CandidateMetrics{
-		Candidates: candidates,
+		Candidates:   candidates,
+		LatestEpoch:  int64(cm.LatestEpoch),
+		LatestHeight: int64(cm.LatestHeight),
 	}, nil
 }
 

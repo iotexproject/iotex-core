@@ -3,14 +3,13 @@ package explorer
 
 import (
 	"fmt"
-	"reflect"
-
 	"github.com/coopernurse/barrister-go"
+	"reflect"
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "8229ce64277da8aa2b622e4b98457750"
-const BarristerDateGenerated int64 = 1535144436418000000
+const BarristerChecksum string = "af02e7d679ce61864914c01c7db84070"
+const BarristerDateGenerated int64 = 1535404709232000000
 
 type CoinStatistic struct {
 	Height     int64 `json:"height"`
@@ -127,7 +126,9 @@ type Candidate struct {
 }
 
 type CandidateMetrics struct {
-	Candidates []Candidate `json:"candidates"`
+	Candidates   []Candidate `json:"candidates"`
+	LatestEpoch  int64       `json:"latestEpoch"`
+	LatestHeight int64       `json:"latestHeight"`
 }
 
 type ConsensusMetrics struct {
@@ -1520,6 +1521,20 @@ var IdlJsonRaw = `[
                 "optional": false,
                 "is_array": true,
                 "comment": ""
+            },
+            {
+                "name": "latestEpoch",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "latestHeight",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
             }
         ],
         "values": null,
@@ -2541,7 +2556,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1535144436418,
-        "checksum": "8229ce64277da8aa2b622e4b98457750"
+        "date_generated": 1535404709232,
+        "checksum": "af02e7d679ce61864914c01c7db84070"
     }
 ]`
