@@ -214,6 +214,22 @@ func TestRollDice(t *testing.T) {
 	balance, err = bc.Balance(contractAddr)
 	require.NoError(err)
 	require.Equal(0, balance.Cmp(big.NewInt(400000000)))
+
+	logger.Info().Msg("Roll Dice To Self")
+	balance, err = bc.Balance(ta.Addrinfo["producer"].RawAddress)
+	data, _ = hex.DecodeString("2885ad2c")
+	execution, err = action.NewExecution(
+		ta.Addrinfo["producer"].RawAddress, contractAddr, 4, big.NewInt(0), uint64(120000), uint64(10), data)
+	require.NoError(err)
+	execution, err = execution.Sign(ta.Addrinfo["producer"])
+	logger.Info().Msgf("execution %+v\n", execution)
+	require.NoError(err)
+	blk, err = bc.MintNewBlock(nil, nil, []*action.Execution{execution}, ta.Addrinfo["producer"], "")
+	require.NoError(err)
+	require.Nil(bc.CommitBlock(blk))
+	balance, err = bc.Balance(ta.Addrinfo["producer"].RawAddress)
+	require.NoError(err)
+	require.Equal(0, balance.Cmp(big.NewInt(9600000040)))
 }
 
 func TestERC20(t *testing.T) {
