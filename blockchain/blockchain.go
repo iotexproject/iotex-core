@@ -301,9 +301,7 @@ func (bc *blockchain) Start(ctx context.Context) (err error) {
 	var startHeight uint64
 	if factoryHeight, err := bc.sf.Height(); err == nil {
 		if factoryHeight > bc.tipHeight {
-			logger.Fatal().
-				Uint64("blockchain height", bc.tipHeight).Uint64("factory height", factoryHeight).
-				Msg("Unexpected height")
+			return errors.New("factory is higher than blockchain")
 		}
 		startHeight = factoryHeight + 1
 	}
