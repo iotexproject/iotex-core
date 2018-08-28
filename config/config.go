@@ -85,14 +85,15 @@ var (
 			TTL:                                 3,
 		},
 		Chain: Chain{
-			ChainDBPath:        "/tmp/chain.db",
-			TrieDBPath:         "/tmp/trie.db",
-			ProducerPubKey:     keypair.EncodePublicKey(keypair.ZeroPublicKey),
-			ProducerPrivKey:    keypair.EncodePrivateKey(keypair.ZeroPrivateKey),
-			InMemTest:          false,
-			GenesisActionsPath: "",
-			DelegateLRUSize:    10,
-			NumCandidates:      101,
+			ChainDBPath:             "/tmp/chain.db",
+			TrieDBPath:              "/tmp/trie.db",
+			ProducerPubKey:          keypair.EncodePublicKey(keypair.ZeroPublicKey),
+			ProducerPrivKey:         keypair.EncodePrivateKey(keypair.ZeroPrivateKey),
+			InMemTest:               false,
+			GenesisActionsPath:      "",
+			DelegateLRUSize:         10,
+			NumCandidates:           101,
+			EnableFallBackToFreshDB: false,
 		},
 		ActPool: ActPool{
 			MaxNumActsPerPool: 32000,
@@ -197,10 +198,11 @@ type (
 		ProducerPrivKey string `yaml:"producerPrivKey"`
 
 		// InMemTest creates in-memory DB file for local testing
-		InMemTest          bool   `yaml:"inMemTest"`
-		GenesisActionsPath string `yaml:"genesisActionsPath"`
-		DelegateLRUSize    uint   `yaml:"delegateLRUSize"`
-		NumCandidates      uint   `yaml:"numCandidates"`
+		InMemTest               bool   `yaml:"inMemTest"`
+		GenesisActionsPath      string `yaml:"genesisActionsPath"`
+		DelegateLRUSize         uint   `yaml:"delegateLRUSize"`
+		NumCandidates           uint   `yaml:"numCandidates"`
+		EnableFallBackToFreshDB bool   `yaml:"enablefallbacktofreshdb"`
 	}
 
 	// Consensus is the config struct for consensus package

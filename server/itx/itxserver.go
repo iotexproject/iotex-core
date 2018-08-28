@@ -37,6 +37,19 @@ type Server struct {
 func NewServer(cfg *config.Config) *Server {
 	// create Blockchain
 	chain := blockchain.NewBlockchain(cfg, blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption())
+	if chain == nil && cfg.Chain.EnableFallBackToFreshDB {
+		logger.Warn().Msg("Chain db and trie db are falling back to fresh ones")
+		if err := os.Rename(cfg.Chain.ChainDBPath, cfg.Chain.ChainDBPath + ".old"); err != nil {
+			logger.Error().Err(err).Msg("Failed to rename old chain db")
+			return nil
+		}
+		if err := os.Rename(cfg.Chain.TrieDBPath, cfg.Chain.TrieDBPath + ".old"); err != nil {
+			logger.Error().Err(err).Msg("Failed to rename old trie db")
+			return nil
+		}
+		chain = blockchain.NewBlockchain(cfg, blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption())
+
+	}
 	return newServer(cfg, chain)
 }
 
