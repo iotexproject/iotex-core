@@ -267,18 +267,18 @@ func (stateDB *EVMStateDBAdapter) Exist(evmAddr common.Address) bool {
 
 // Empty empties the contract
 func (stateDB *EVMStateDBAdapter) Empty(common.Address) bool {
-	logger.Error().Msg("Empty is not implemented")
+	logger.Debug().Msg("Empty is not implemented")
 	return false
 }
 
 // RevertToSnapshot reverts the state factory to snapshot
 func (stateDB *EVMStateDBAdapter) RevertToSnapshot(int) {
-	logger.Error().Msg("RevertToSnapshot is not implemented")
+	logger.Debug().Msg("RevertToSnapshot is not implemented")
 }
 
 // Snapshot returns the snapshot id
 func (stateDB *EVMStateDBAdapter) Snapshot() int {
-	logger.Error().Msg("Snapshot is not implemented")
+	logger.Debug().Msg("Snapshot is not implemented")
 	return 0
 }
 
