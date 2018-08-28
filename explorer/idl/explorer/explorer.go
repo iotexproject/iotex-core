@@ -8,8 +8,8 @@ import (
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "af02e7d679ce61864914c01c7db84070"
-const BarristerDateGenerated int64 = 1535404709232000000
+const BarristerChecksum string = "57b459024f6cea8d6a7dd9dd085c4f4c"
+const BarristerDateGenerated int64 = 1535486378774000000
 
 type CoinStatistic struct {
 	Height     int64 `json:"height"`
@@ -209,6 +209,7 @@ type Explorer interface {
 	SendSmartContract(request Execution) (SendSmartContractResponse, error)
 	GetPeers() (GetPeersResponse, error)
 	GetReceiptByExecutionID(id string) (Receipt, error)
+	ReadExecutionState(contractAddress string, slot int64) (string, error)
 }
 
 func NewExplorerProxy(c barrister.Client) Explorer {
@@ -722,6 +723,24 @@ func (_p ExplorerProxy) GetReceiptByExecutionID(id string) (Receipt, error) {
 		return _cast, nil
 	}
 	return Receipt{}, _err
+}
+
+func (_p ExplorerProxy) ReadExecutionState(contractAddress string, slot int64) (string, error) {
+	_res, _err := _p.client.Call("Explorer.readExecutionState", contractAddress, slot)
+	if _err == nil {
+		_retType := _p.idl.Method("Explorer.readExecutionState").Returns
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(""), _res, "")
+	}
+	if _err == nil {
+		_cast, _ok := _res.(string)
+		if !_ok {
+			_t := reflect.TypeOf(_res)
+			_msg := fmt.Sprintf("Explorer.readExecutionState returned invalid type: %v", _t)
+			return "", &barrister.JsonRpcError{Code: -32000, Message: _msg}
+		}
+		return _cast, nil
+	}
+	return "", _err
 }
 
 func NewJSONServer(idl *barrister.Idl, forceASCII bool, explorer Explorer) barrister.Server {
@@ -2540,6 +2559,33 @@ var IdlJsonRaw = `[
                     "is_array": false,
                     "comment": ""
                 }
+            },
+            {
+                "name": "readExecutionState",
+                "comment": "",
+                "params": [
+                    {
+                        "name": "contractAddress",
+                        "type": "string",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    },
+                    {
+                        "name": "slot",
+                        "type": "int",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    }
+                ],
+                "returns": {
+                    "name": "",
+                    "type": "string",
+                    "optional": false,
+                    "is_array": false,
+                    "comment": ""
+                }
             }
         ],
         "barrister_version": "",
@@ -2556,7 +2602,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1535404709232,
-        "checksum": "af02e7d679ce61864914c01c7db84070"
+        "date_generated": 1535486378774,
+        "checksum": "57b459024f6cea8d6a7dd9dd085c4f4c"
     }
 ]`

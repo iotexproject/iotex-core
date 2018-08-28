@@ -203,6 +203,11 @@ func (exp *MockExplorer) SendSmartContract(request explorer.Execution) (explorer
 	return explorer.SendSmartContractResponse{}, nil
 }
 
+// ReadExecutionState sends a smart contract
+func (exp *MockExplorer) ReadExecutionState(contractAddress string, slot int64) (string, error) {
+	return "100", nil
+}
+
 func randInt64() int64 {
 	rand.Seed(time.Now().UnixNano())
 	amount := int64(0)
