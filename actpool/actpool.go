@@ -65,6 +65,8 @@ type ActPool interface {
 	GetUnconfirmedActs(addr string) []*iproto.ActionPb
 	// GetActionByHash returns the pending action in pool given action's hash
 	GetActionByHash(hash hash.Hash32B) (*iproto.ActionPb, error)
+	// GetSize returns the act pool size
+	GetSize() uint64
 }
 
 // actPool implements ActPool interface
@@ -300,6 +302,14 @@ func (ap *actPool) GetActionByHash(hash hash.Hash32B) (*iproto.ActionPb, error) 
 		return nil, errors.Wrapf(ErrHash, "action hash %x does not exist in pool", hash)
 	}
 	return action, nil
+}
+
+// GetSize returns the act pool size
+func (ap *actPool) GetSize() uint64 {
+	ap.mutex.Lock()
+	defer ap.mutex.Unlock()
+
+	return uint64(len(ap.allActions))
 }
 
 //======================================
