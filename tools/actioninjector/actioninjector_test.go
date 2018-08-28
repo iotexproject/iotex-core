@@ -69,6 +69,9 @@ func TestActionInjector(t *testing.T) {
 		addrs = append(addrs, addr)
 	}
 
+	admins := addrs[len(addrs)-adminNumber:]
+	delegates := addrs[:len(addrs)-adminNumber]
+
 	// Initiate the map of nonce counter
 	counter := make(map[string]uint64)
 	for _, addr := range addrs {
@@ -91,7 +94,7 @@ func TestActionInjector(t *testing.T) {
 	executionGas := 1200000
 	executionGasPrice := 10
 	executionData := "2885ad2c"
-	injectByAps(wg, aps, counter, contract, executionAmount, executionGas, executionGasPrice, executionData, client, addrs, d, make(map[string]bool), retryNum, retryInterval)
+	injectByAps(wg, aps, counter, contract, executionAmount, executionGas, executionGasPrice, executionData, client, admins, delegates, d, retryNum, retryInterval)
 	wg.Wait()
 
 	// Wait until the injected actions in APS Mode gets into the action pool
@@ -108,7 +111,7 @@ func TestActionInjector(t *testing.T) {
 	voteNum := 1
 	executionNum := 1
 	interval := 1
-	injectByInterval(transferNum, voteNum, executionNum, contract, executionAmount, executionGas, executionGasPrice, executionData, interval, counter, client, addrs, make(map[string]bool), retryNum, retryInterval)
+	injectByInterval(transferNum, voteNum, executionNum, contract, executionAmount, executionGas, executionGasPrice, executionData, interval, counter, client, admins, delegates, retryNum, retryInterval)
 
 	// Wait until all the injected actions in Interval Mode gets into the action pool
 	err = testutil.WaitUntil(100*time.Millisecond, 5*time.Second, func() (bool, error) {
