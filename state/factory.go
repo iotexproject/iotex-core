@@ -321,7 +321,6 @@ func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer
 		if err != nil {
 			return errors.Wrap(err, "Executor does not exist")
 		}
-		state.Nonce = state.Nonce + 1
 		if e.Nonce > state.Nonce {
 			state.Nonce = e.Nonce
 		}
