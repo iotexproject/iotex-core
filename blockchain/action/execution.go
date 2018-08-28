@@ -181,8 +181,8 @@ func NewExecutionFromJSON(jsonExecution *explorer.Execution) (*Execution, error)
 	ex.Executor = jsonExecution.Executor
 	ex.Contract = jsonExecution.Contract
 	ex.Amount = big.NewInt(jsonExecution.Amount)
-	ex.Gas = uint32(jsonExecution.Gas)
-	ex.GasPrice = uint32(jsonExecution.GasPrice)
+	ex.Gas = uint64(jsonExecution.Gas)
+	ex.GasPrice = uint64(jsonExecution.GasPrice)
 	executorPubKey, err := keypair.StringToPubKeyBytes(jsonExecution.ExecutorPubKey)
 	if err != nil {
 		logger.Error().Err(err).Msg("Fail to create a new Execution from ExecutionJSON")
