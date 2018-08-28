@@ -49,10 +49,10 @@ func TestCreateContract(t *testing.T) {
 	require.Equal(code, v)
 	// non-existing contract
 	addr1 := byteutil.BytesTo20B(hash.Hash160b([]byte("random")))
-	_, err = sf.GetCodeHash(addr1)
-	require.Equal(ErrAccountNotExist, errors.Cause(err))
-	_, err = sf.GetCode(addr1)
-	require.Equal(ErrAccountNotExist, errors.Cause(err))
+	h, err := sf.GetCodeHash(addr1)
+	require.Equal(hash.ZeroHash32B, h)
+	v, err = sf.GetCode(addr1)
+	require.Equal([]byte(nil), v)
 	require.Nil(sf.CommitStateChanges(0, nil, nil, nil))
 	// reload same contract
 	contract1, err := sf.LoadOrCreateState(addr.RawAddress, 0)
@@ -65,11 +65,11 @@ func TestCreateContract(t *testing.T) {
 	sf, err = NewFactory(&cfg, PrecreatedTrieOption(tr))
 	require.Nil(err)
 	require.Nil(sf.Start(context.Background()))
-	// cannot re-create existing
-	_, err = sf.CreateContract(addr.RawAddress)
-	require.Equal(ErrAccountCollision, errors.Cause(err))
+	// reload same contract
+	contract1, err = sf.LoadOrCreateState(addr.RawAddress, 0)
+	require.Equal(contract1.CodeHash, codeHash[:])
 	// contract already exist
-	h, _ := sf.GetCodeHash(contract)
+	h, _ = sf.GetCodeHash(contract)
 	require.Equal(codeHash, h)
 	v, _ = sf.GetCode(contract)
 	require.Equal(code, v)

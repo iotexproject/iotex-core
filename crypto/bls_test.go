@@ -74,17 +74,17 @@ func TestTBLS(t *testing.T) {
 	selected := make([]int, numnodes)
 	for c := 0; c < 20; c++ {
 		check := make(map[int]bool)
-		for len(check) < degree+1 {
+		for len(check) < Degree+1 {
 			r := rand.Intn(numnodes)
 			if _, ok := check[r]; !ok {
 				selected[len(check)] = r
 				check[r] = true
 			}
 		}
-		selectedID := make([][]uint8, degree+1)
-		selectedSig := make([][]byte, degree+1)
-		selectedPK := make([][]byte, degree+1)
-		for j := 0; j < degree+1; j++ {
+		selectedID := make([][]uint8, Degree+1)
+		selectedSig := make([][]byte, Degree+1)
+		selectedPK := make([][]byte, Degree+1)
+		for j := 0; j < Degree+1; j++ {
 			selectedID[j] = idList[selected[j]]
 			selectedSig[j] = sigList[selected[j]]
 			selectedPK[j] = pkList[selected[j]]

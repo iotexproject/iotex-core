@@ -26,6 +26,7 @@ var (
 	_levelStr string
 	_pathStr  string
 	_colorful bool
+	_callLine bool
 )
 
 // logger is initialized with default settings
@@ -36,6 +37,7 @@ func init() {
 	flag.StringVar(&_levelStr, "log-level", zerolog.InfoLevel.String(), "Log level")
 	flag.StringVar(&_pathStr, "log-path", "", "Log path")
 	flag.BoolVar(&_colorful, "log-colorful", false, "Log use coloful consoleWriter")
+	flag.BoolVar(&_callLine, "log-call-line", false, "Log caller line")
 
 	if flag.Lookup("test.v") != nil {
 		// set a testing logger
@@ -71,6 +73,9 @@ func New() (zerolog.Logger, error) {
 			return l, err
 		}
 		l = zerolog.New(file).Level(level).With().Timestamp().Logger()
+	}
+	if _callLine {
+		l = l.With().Caller().Logger()
 	}
 	return l, nil
 }

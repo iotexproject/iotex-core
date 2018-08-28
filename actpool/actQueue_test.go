@@ -154,6 +154,7 @@ func TestActQueue_PendingActs(t *testing.T) {
 	require.NoError(err)
 	err = q.Put(action5)
 	require.NoError(err)
+	q.startNonce = 2
 	q.pendingNonce = 4
 	actions := q.PendingActs()
 	require.Equal([]*pb.ActionPb{action1, action2}, actions)

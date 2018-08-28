@@ -20,6 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
+	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network"
@@ -72,14 +73,14 @@ func (ctx *rollDPoSCtx) rollingDelegates(epochNum uint64) ([]string, error) {
 	if len(candidates) < int(numDlgs) {
 		return []string{}, errors.Wrapf(ErrNotEnoughCandidates, "only %d delegates from the candidate pool", len(candidates))
 	}
-	candidates = candidates[:numDlgs]
 
-	var delegates []string
+	var candidatesAddress []string
 	for _, candidate := range candidates {
-		delegates = append(delegates, candidate.Address)
+		candidatesAddress = append(candidatesAddress, candidate.Address)
 	}
+	crypto.SortCandidates(candidatesAddress, epochNum)
 
-	return delegates, nil
+	return candidatesAddress[:numDlgs], nil
 }
 
 // calcEpochNum calculates the epoch ordinal number and the epoch start height offset, which is based on the height of
@@ -209,6 +210,8 @@ type epochCtx struct {
 	numSubEpochs uint
 	dkg          hash.DKGHash
 	delegates    []string
+	dkgAddress   iotxaddress.DKGAddress
+	seed         []byte
 }
 
 // roundCtx keeps the context data for the current round and block.
@@ -287,6 +290,8 @@ func (r *RollDPoS) Metrics() (scheme.ConsensusMetrics, error) {
 		candidateAddresses[i] = c.Address
 	}
 
+	crypto.SortCandidates(candidateAddresses, epochNum)
+
 	return scheme.ConsensusMetrics{
 		LatestEpoch:         epochNum,
 		LatestHeight:        height,
@@ -349,7 +354,6 @@ type Builder struct {
 	p2p                    network.Overlay
 	clock                  clock.Clock
 	candidatesByHeightFunc func(uint64) ([]*state.Candidate, error)
-	sync                   blocksync.BlockSync
 }
 
 // NewRollDPoSBuilder instantiates a Builder instance
@@ -401,12 +405,6 @@ func (b *Builder) SetCandidatesByHeightFunc(
 	return b
 }
 
-// SetBlockSync sets block sync APIs
-func (b *Builder) SetBlockSync(sync blocksync.BlockSync) *Builder {
-	b.sync = sync
-	return b
-}
-
 // Build builds a RollDPoS consensus module
 func (b *Builder) Build() (*RollDPoS, error) {
 	if b.chain == nil {
@@ -429,7 +427,6 @@ func (b *Builder) Build() (*RollDPoS, error) {
 		p2p:     b.p2p,
 		clock:   b.clock,
 		candidatesByHeightFunc: b.candidatesByHeightFunc,
-		sync: b.sync,
 	}
 	cfsm, err := newConsensusFSM(&ctx)
 	if err != nil {

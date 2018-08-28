@@ -117,7 +117,7 @@ func (t *trie) Get(key []byte) ([]byte, error) {
 	ptr, size, err := t.query(key)
 	t.clear()
 	if size != len(key) {
-		return nil, errors.Wrapf(ErrNotExist, "key = %x not exist", key)
+		return nil, errors.Wrapf(ErrNotExist, "key = %x", key)
 	}
 	if err != nil {
 		return nil, err
@@ -177,12 +177,13 @@ func (t *trie) Commit() error {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
-	if t.batchMode {
-		err := t.dbBatch.Commit()
-		t.resetCache()
+	if !t.batchMode {
+		return nil
+	}
+	if err := t.dbBatch.Commit(); err != nil {
 		return err
 	}
-	return nil
+	return t.resetCache()
 }
 
 // RootHash returns the root hash of merkle patricia trie
@@ -201,12 +202,8 @@ func (t *trie) EnableBatch() error {
 	if t.batchMode {
 		return nil
 	}
-
-	if err := t.resetCache(); err != nil {
-		return err
-	}
 	t.batchMode = true
-	return nil
+	return t.resetCache()
 }
 
 // DisableBatch disable batch mode
@@ -256,11 +253,11 @@ func (t *trie) resetCache() error {
 
 // upsert a new entry
 func (t *trie) upsert(key, value []byte) error {
-	var ptr patricia
-	var size int
-	var err error
 	var hashChild hash.Hash32B
-	ptr, size, err = t.query(key)
+	ptr, size, err := t.query(key)
+	if ptr == nil {
+		return errors.Wrapf(err, "failed to parse key %x", key)
+	}
 	if err != nil {
 		// TODO: nil ptr could happen: https://github.com/iotexproject/iotex-core-internal/issues/447. Add mutex
 		// to Trie to walk around, but we need to figure out the root cause
@@ -291,9 +288,6 @@ func (t *trie) upsert(key, value []byte) error {
 		// if the diverging node is leaf, delete it
 		n := t.toRoot.Back()
 		if _, ok := n.Value.(patricia).(*leaf); ok {
-			if err := t.delPatricia(n.Value.(patricia)); err != nil {
-				return err
-			}
 			logger.Debug().Msg("delete leaf")
 			t.toRoot.Remove(n)
 		}
@@ -412,21 +406,14 @@ func (t *trie) updateInsert(hashChild []byte) error {
 		if curr == nil {
 			return errors.Wrap(ErrInvalidPatricia, "patricia pushed on stack is not valid")
 		}
-		// delete the current node
-		hashCurr := curr.hash()
-		logger.Debug().Hex("curr key", hashCurr[:8]).Msg("10-4")
-		logger.Debug().Hex("child key", hashChild[:8]).Msg("10-4")
-		if err := t.delPatricia(curr); err != nil {
-			return err
-		}
 		// update the patricia node
 		if err := curr.ascend(hashChild[:], index); err != nil {
 			return err
 		}
-		hashCurr = curr.hash()
+		hashCurr := curr.hash()
 		hashChild = hashCurr[:]
 		// when adding an entry, hash of nodes along the path changes and is expected NOT to exist in DB
-		if err := t.putPatriciaNew(curr); err != nil {
+		if err := t.putPatricia(curr); err != nil {
 			return err
 		}
 	}

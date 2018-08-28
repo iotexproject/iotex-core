@@ -11,6 +11,7 @@ import (
 	"math/big"
 	"sort"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -240,15 +241,12 @@ func TestCandidates(t *testing.T) {
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
 	accountTr, _ := trie.NewTrie(db.NewBoltDB(testTriePath, nil), "account", trie.EmptyRoot)
-	candidateTr, _ := trie.NewTrie(accountTr.TrieDB(), "candidate", trie.EmptyRoot)
 	require.Nil(t, accountTr.Start(context.Background()))
-	require.Nil(t, candidateTr.Start(context.Background()))
 	sf := &factory{
 		accountTrie:      accountTr,
-		candidateTrie:    candidateTr,
 		numCandidates:    uint(2),
-		cachedCandidates: make(map[string]*Candidate),
-		cachedAccount:    make(map[string]*State),
+		cachedCandidates: make(map[hash.AddrHash]*Candidate),
+		cachedAccount:    make(map[hash.AddrHash]*State),
 	}
 	_, err := sf.LoadOrCreateState(a.RawAddress, uint64(100))
 	require.NoError(t, err)
@@ -494,15 +492,12 @@ func TestCandidatesByHeight(t *testing.T) {
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
 	accountTr, _ := trie.NewTrie(db.NewBoltDB(testTriePath, nil), "account", trie.EmptyRoot)
-	candidateTr, _ := trie.NewTrie(accountTr.TrieDB(), "candidate", trie.EmptyRoot)
 	require.Nil(t, accountTr.Start(context.Background()))
-	require.Nil(t, candidateTr.Start(context.Background()))
 	sf := &factory{
 		accountTrie:      accountTr,
-		candidateTrie:    candidateTr,
 		numCandidates:    uint(2),
-		cachedCandidates: make(map[string]*Candidate),
-		cachedAccount:    make(map[string]*State),
+		cachedCandidates: make(map[hash.AddrHash]*Candidate),
+		cachedAccount:    make(map[hash.AddrHash]*State),
 	}
 
 	cand1 := &Candidate{
@@ -525,8 +520,14 @@ func TestCandidatesByHeight(t *testing.T) {
 	candidatesBytes, err := Serialize(candidateList)
 	require.NoError(t, err)
 
-	sf.candidateTrie.Upsert(byteutil.Uint64ToBytes(0), candidatesBytes)
+	trieDB := sf.accountTrie.TrieDB()
+	h := hash.Hash160b(candidatesBytes)
+	require.Nil(t, trieDB.Put(trie.CandidateKVNameSpace, byteutil.Uint64ToBytes(0), h[:]))
+	require.Nil(t, trieDB.Put(trie.CandidateKVNameSpace, h[:], candidatesBytes))
 	candidates, err := sf.CandidatesByHeight(0)
+	sort.Slice(candidates, func(i, j int) bool {
+		return strings.Compare(candidates[i].Address, candidates[j].Address) < 0
+	})
 	require.NoError(t, err)
 	require.Equal(t, 2, len(candidates))
 	require.Equal(t, "Alpha", candidates[0].Address)
@@ -537,8 +538,13 @@ func TestCandidatesByHeight(t *testing.T) {
 	candidatesBytes, err = Serialize(candidateList)
 	require.NoError(t, err)
 
-	sf.candidateTrie.Upsert(byteutil.Uint64ToBytes(1), candidatesBytes)
+	h = hash.Hash160b(candidatesBytes)
+	require.Nil(t, trieDB.Put(trie.CandidateKVNameSpace, byteutil.Uint64ToBytes(1), h[:]))
+	require.Nil(t, trieDB.Put(trie.CandidateKVNameSpace, h[:], candidatesBytes))
 	candidates, err = sf.CandidatesByHeight(1)
+	sort.Slice(candidates, func(i, j int) bool {
+		return strings.Compare(candidates[i].Address, candidates[j].Address) < 0
+	})
 	require.NoError(t, err)
 	require.Equal(t, 2, len(candidates))
 	require.Equal(t, "Beta", candidates[0].Address)
@@ -553,15 +559,12 @@ func TestUnvote(t *testing.T) {
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
 	accountTr, _ := trie.NewTrie(db.NewBoltDB(testTriePath, nil), "account", trie.EmptyRoot)
-	candidateTr, _ := trie.NewTrie(accountTr.TrieDB(), "candidate", trie.EmptyRoot)
 	require.Nil(t, accountTr.Start(context.Background()))
-	require.Nil(t, candidateTr.Start(context.Background()))
 	sf := &factory{
 		accountTrie:      accountTr,
-		candidateTrie:    candidateTr,
 		numCandidates:    uint(2),
-		cachedCandidates: make(map[string]*Candidate),
-		cachedAccount:    make(map[string]*State),
+		cachedCandidates: make(map[hash.AddrHash]*Candidate),
+		cachedAccount:    make(map[hash.AddrHash]*State),
 	}
 	_, err := sf.LoadOrCreateState(a.RawAddress, uint64(100))
 	require.NoError(t, err)
