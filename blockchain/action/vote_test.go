@@ -17,32 +17,32 @@ import (
 func TestVoteSignVerify(t *testing.T) {
 	require := require.New(t)
 	sender, err := iotxaddress.NewAddress(true, chainid)
-	require.Nil(err)
+	require.NoError(err)
 	recipient, err := iotxaddress.NewAddress(true, chainid)
-	require.Nil(err)
+	require.NoError(err)
 	v, err := NewVote(0, sender.RawAddress, recipient.RawAddress)
 	require.NoError(err)
 
 	signedv, err := v.Sign(sender)
-	require.Nil(err)
-	require.Nil(signedv.Verify(sender))
+	require.NoError(err)
+	require.NoError(signedv.Verify(sender))
 	require.NotNil(signedv.Verify(recipient))
 }
 
 func TestVoteSerializedDeserialize(t *testing.T) {
 	require := require.New(t)
 	sender, err := iotxaddress.NewAddress(true, chainid)
-	require.Nil(err)
+	require.NoError(err)
 	recipient, err := iotxaddress.NewAddress(true, chainid)
-	require.Nil(err)
+	require.NoError(err)
 
 	v, err := NewVote(0, sender.RawAddress, recipient.RawAddress)
 	require.NoError(err)
 	raw, err := v.Serialize()
-	require.Nil(err)
+	require.NoError(err)
 
 	newv := &Vote{}
-	require.Nil(newv.Deserialize(raw))
+	require.NoError(newv.Deserialize(raw))
 	require.Equal(v.Hash(), newv.Hash())
 	require.Equal(v.TotalSize(), newv.TotalSize())
 }
@@ -50,19 +50,19 @@ func TestVoteSerializedDeserialize(t *testing.T) {
 func TestVoteToJSONFromJSON(t *testing.T) {
 	require := require.New(t)
 	sender, err := iotxaddress.NewAddress(true, chainid)
-	require.Nil(err)
+	require.NoError(err)
 	recipient, err := iotxaddress.NewAddress(true, chainid)
-	require.Nil(err)
+	require.NoError(err)
 
 	v, err := NewVote(0, sender.RawAddress, recipient.RawAddress)
 	require.NoError(err)
 
 	expv, err := v.ToJSON()
-	require.Nil(err)
+	require.NoError(err)
 	require.NotNil(expv)
 
 	newv, err := NewVoteFromJSON(expv)
-	require.Nil(err)
+	require.NoError(err)
 	require.NotNil(newv)
 
 	require.Equal(v.Hash(), newv.Hash())

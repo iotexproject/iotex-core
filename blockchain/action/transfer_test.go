@@ -20,9 +20,9 @@ var chainid = []byte{0x00, 0x00, 0x00, 0x01}
 func TestTransferSignVerify(t *testing.T) {
 	require := require.New(t)
 	sender, err := iotxaddress.NewAddress(true, chainid)
-	require.Nil(err)
+	require.NoError(err)
 	recipient, err := iotxaddress.NewAddress(true, chainid)
-	require.Nil(err)
+	require.NoError(err)
 
 	tsf, err := NewTransfer(0, big.NewInt(10), sender.RawAddress, recipient.RawAddress)
 	require.NoError(err)
@@ -31,7 +31,7 @@ func TestTransferSignVerify(t *testing.T) {
 
 	// sign the transfer
 	stsf, err := tsf.Sign(sender)
-	require.Nil(err)
+	require.NoError(err)
 	require.NotNil(stsf)
 	require.Equal(tsf.Hash(), stsf.Hash())
 
@@ -39,29 +39,29 @@ func TestTransferSignVerify(t *testing.T) {
 	require.Equal(tsf.Hash(), stsf.Hash())
 
 	// verify signature
-	require.Nil(stsf.Verify(sender))
+	require.NoError(stsf.Verify(sender))
 	require.NotNil(stsf.Verify(recipient))
 	require.NotNil(tsf.Signature)
-	require.Nil(tsf.Verify(sender))
+	require.NoError(tsf.Verify(sender))
 }
 
 func TestTransferSerializeDeserialize(t *testing.T) {
 	require := require.New(t)
 	sender, err := iotxaddress.NewAddress(true, chainid)
-	require.Nil(err)
+	require.NoError(err)
 	recipient, err := iotxaddress.NewAddress(true, chainid)
-	require.Nil(err)
+	require.NoError(err)
 
 	tsf, err := NewTransfer(0, big.NewInt(38291), sender.RawAddress, recipient.RawAddress)
 	require.NoError(err)
 	require.NotNil(tsf)
 
 	s, err := tsf.Serialize()
-	require.Nil(err)
+	require.NoError(err)
 
 	newtsf := &Transfer{}
 	err = newtsf.Deserialize(s)
-	require.Nil(err)
+	require.NoError(err)
 
 	require.Equal(uint64(0), newtsf.Nonce)
 	require.Equal(uint64(38291), newtsf.Amount.Uint64())
@@ -75,9 +75,9 @@ func TestTransferSerializeDeserialize(t *testing.T) {
 func TestTransferToJSONFromJSON(t *testing.T) {
 	require := require.New(t)
 	sender, err := iotxaddress.NewAddress(true, chainid)
-	require.Nil(err)
+	require.NoError(err)
 	recipient, err := iotxaddress.NewAddress(true, chainid)
-	require.Nil(err)
+	require.NoError(err)
 
 	tsf, err := NewTransfer(0, big.NewInt(38291), sender.RawAddress, recipient.RawAddress)
 	require.NoError(err)
@@ -87,7 +87,7 @@ func TestTransferToJSONFromJSON(t *testing.T) {
 	require.NotNil(exptsf)
 
 	newtsf, err := NewTransferFromJSON(exptsf)
-	require.Nil(err)
+	require.NoError(err)
 	require.NotNil(newtsf)
 
 	require.Equal(uint64(0), newtsf.Nonce)
