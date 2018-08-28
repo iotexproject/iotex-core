@@ -13,18 +13,20 @@ contact us if you intend to run it in production.
 ![systemflowchart](https://user-images.githubusercontent.com/15241597/38832065-3e57ca3a-4176-11e8-9bff-110387cf2378.png)
 
 ## Feature List
-### Testnet Alpha (codename: Strive)
+### Testnet Beta (codename: Epik)
 1. TBC (Transactions, Block & Chain)
 * Bech32-encoded address
 * Serialization and deserialize of messages on the wire
 * Merkle tree
 * Actions, transfers, votes, blocks and chain
-* Fast and reliable blockchain storage and query using BoltDB
-* Block sync from network peers
+* Fast and reliable blockchain/state storage via BoltDB and DB transaction support
+* Improved block sync from network peers
 * Basic framework for script and VM
 * Account/state layer built on top of Merkle Patricia tree
 * Voting and unvoting for block producer candidates
 * New account-based action pool
+* Initial implementation of secure keystore of private keys
+* Initial integration with Ethereum Virtual Machine (EVM), smart contracts (Solidity)
 
 2. Network
 * Efficient gossip protocol over TLS
@@ -38,41 +40,44 @@ contact us if you intend to run it in production.
 * Framework for plugable consensus 
 * Standalone and NOOP schemes
 * Full implementation of FSM-based Roll-DPoS
+* Full integration with delegates pool
 * Roll-DPoS simulator
 * Initial implementation of random beacon
 
 4. Clients
-* JSON RPC support
+* Full implementation of JSON RPC
 * UI Design and backend implementation of explorer
 * Command line console
+* Basic wallet
 
 5. Crypto
 * libsect283 -- lightweight crypto library, with cgo binding
-* libtblsmnt -- Intial BLS signature parameterization and implementation, with cgo binding
+* libtblsmnt -- complete BLS signature parameterization and implementation, with cgo binding
+* Implementation of distributed key generation (DKG) with cgo binding
 
 6. Testing \& Integration & Deployment
-* Unit test coverage > 60%
-* Thorough integration tests
+* Improved action injection and address generation tools
+* Work-preserving restart
 * Dockerization of IoTeX server
-* Testnet deployment of 20+ block producer delegates in production
-* Action injection and address generation tools
-* Enhancement of existing features, performance improvement and code refactoring
+* Large-scale testnet deployment via Kubernetes
+* Unit test coverage ~70%
+* Thorough integration tests
+* Enhancement of existing features, performance and robustness
 
-### Testnet Beta
+### Mainnet Preview
 
-* Random beacon, roll-DPoS and voting fully integration
-* Lightweight stealth address
 * Cross Chain Communication (CCC)
+* Improving VM and smart contract
+* Lightweight stealth address
 * Fast block sync and checkpointing
-* Script and VM
 * Full explorer and wallet supporting Hierarchical Deterministic (HD) addresses
 * SPV clients
 * Seeding through IPFS and version negotiation
 * Pluggable transportation framework w/ UDP + TCP support
 * Peer metrics
-* Unit test coverage > 70%
 * e2e demo among 500-1000 peers
 * Enhancement of existing features
+* Performance and stability improvement
 * And much more ...
 
 
