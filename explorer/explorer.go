@@ -24,6 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/network"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	pb "github.com/iotexproject/iotex-core/proto"
 )
 
@@ -929,7 +930,7 @@ func (exp *Service) SendSmartContract(execution explorer.Execution) (explorer.Se
 	actPb := &pb.ActionPb{
 		Action: &pb.ActionPb_Execution{
 			Execution: &pb.ExecutionPb{
-				Amount:         nil,
+				Amount:         byteutil.Uint64ToBytes(uint64(execution.Amount)),
 				Executor:       execution.Executor,
 				Contract:       execution.Contract,
 				ExecutorPubKey: executorPubKey,
