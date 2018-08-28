@@ -184,6 +184,12 @@ func (d *IotxDispatcher) handleActionMsg(m *actionMsg) {
 		if err := d.ap.AddVote(vote); err != nil {
 			logger.Error().Err(err)
 		}
+	} else if pbExecution := m.action.GetExecution(); pbExecution != nil {
+		execution := &action.Execution{}
+		execution.ConvertFromActionPb(m.action)
+		if err := d.ap.AddExecution(execution); err != nil {
+			logger.Error().Err(err).Msg("Failed to add execution")
+		}
 	}
 	// signal to let caller know we are done
 	if m.done != nil {

@@ -13,7 +13,6 @@ import (
 	"github.com/CoderZhi/go-ethereum/common"
 	"github.com/CoderZhi/go-ethereum/core/vm"
 	"github.com/CoderZhi/go-ethereum/params"
-	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/blockchain/action"
@@ -21,7 +20,6 @@ import (
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
-	"github.com/iotexproject/iotex-core/proto"
 )
 
 var (
@@ -34,27 +32,6 @@ var (
 	// ErrOutOfGas is the error when running out of gas
 	ErrOutOfGas = errors.New("Out of gas")
 )
-
-// Receipt represents the result of a contract
-type Receipt struct {
-	ReturnValue     []byte
-	Status          uint64
-	Hash            hash.Hash32B
-	GasConsumed     uint64
-	ContractAddress string
-	Logs            []*Log
-}
-
-// Log stores an evm contract event
-type Log struct {
-	Address     string
-	Topics      []hash.Hash32B
-	Data        []byte
-	BlockNumber uint64
-	TxnHash     hash.Hash32B
-	BLockHash   hash.Hash32B
-	Index       uint
-}
 
 // CanTransfer checks whether the from account has enough balance
 func CanTransfer(db vm.StateDB, fromHash common.Address, balance *big.Int) bool {
@@ -141,7 +118,7 @@ func NewEVMParams(blk *Block, execution *action.Execution, stateDB *EVMStateDBAd
 		executorIoTXAddress.RawAddress,
 		execution.Amount,
 		contractAddrPointer,
-		uint64(execution.Gas),
+		execution.Gas,
 		execution.Data,
 	}, nil
 }
@@ -158,102 +135,11 @@ func GetHashFn(stateDB *EVMStateDBAdapter) func(n uint64) common.Hash {
 	}
 }
 
-// ConvertToReceiptPb converts a Receipt to protobuf's ReceiptPb
-func (receipt *Receipt) ConvertToReceiptPb() *iproto.ReceiptPb {
-	r := &iproto.ReceiptPb{}
-	r.ReturnValue = receipt.ReturnValue
-	r.Status = receipt.Status
-	r.Hash = receipt.Hash[:]
-	r.GasConsumed = receipt.GasConsumed
-	r.ContractAddress = receipt.ContractAddress
-	r.Logs = []*iproto.LogPb{}
-	for _, log := range receipt.Logs {
-		r.Logs = append(r.Logs, log.ConvertToLogPb())
-	}
-	return r
-}
-
-// ConvertFromReceiptPb converts a protobuf's ReceiptPb to Receipt
-func (receipt *Receipt) ConvertFromReceiptPb(pbReceipt *iproto.ReceiptPb) {
-	receipt.ReturnValue = pbReceipt.GetReturnValue()
-	receipt.Status = pbReceipt.GetStatus()
-	copy(receipt.Hash[:], pbReceipt.GetHash())
-	receipt.GasConsumed = pbReceipt.GetGasConsumed()
-	receipt.ContractAddress = pbReceipt.GetContractAddress()
-	logs := pbReceipt.GetLogs()
-	receipt.Logs = make([]*Log, len(logs))
-	for i, log := range logs {
-		receipt.Logs[i] = &Log{}
-		receipt.Logs[i].ConvertFromLogPb(log)
-	}
-}
-
-// Serialize returns a serialized byte stream for the Receipt
-func (receipt *Receipt) Serialize() ([]byte, error) {
-	return proto.Marshal(receipt.ConvertToReceiptPb())
-}
-
-// Deserialize parse the byte stream into Receipt
-func (receipt *Receipt) Deserialize(buf []byte) error {
-	pbReceipt := &iproto.ReceiptPb{}
-	if err := proto.Unmarshal(buf, pbReceipt); err != nil {
-		return err
-	}
-	receipt.ConvertFromReceiptPb(pbReceipt)
-	return nil
-}
-
-// ConvertToLogPb converts a Log to protobuf's LogPb
-func (log *Log) ConvertToLogPb() *iproto.LogPb {
-	l := &iproto.LogPb{}
-	l.Address = log.Address
-	l.Topics = [][]byte{}
-	for _, topic := range log.Topics {
-		l.Topics = append(l.Topics, topic[:])
-	}
-	l.Data = log.Data
-	l.BlockNumber = log.BlockNumber
-	l.TxnHash = log.TxnHash[:]
-	l.BlockHash = log.BLockHash[:]
-	l.Index = uint32(log.Index)
-	return l
-}
-
-// ConvertFromLogPb converts a protobuf's LogPb to Log
-func (log *Log) ConvertFromLogPb(pbLog *iproto.LogPb) {
-	log.Address = pbLog.GetAddress()
-	pbLogs := pbLog.GetTopics()
-	log.Topics = make([]hash.Hash32B, len(pbLogs))
-	for i, topic := range pbLogs {
-		copy(log.Topics[i][:], topic)
-	}
-	log.Data = pbLog.GetData()
-	log.BlockNumber = pbLog.GetBlockNumber()
-	copy(log.TxnHash[:], pbLog.GetTxnHash())
-	copy(log.BLockHash[:], pbLog.GetBlockHash())
-	log.Index = uint(pbLog.GetIndex())
-}
-
-// Serialize returns a serialized byte stream for the Log
-func (log *Log) Serialize() ([]byte, error) {
-	return proto.Marshal(log.ConvertToLogPb())
-}
-
-// Deserialize parse the byte stream into Log
-func (log *Log) Deserialize(buf []byte) error {
-	pbLog := &iproto.LogPb{}
-	if err := proto.Unmarshal(buf, pbLog); err != nil {
-		return err
-	}
-	log.ConvertFromLogPb(pbLog)
-	return nil
-}
-
 func securityDeposit(ps *EVMParams, stateDB vm.StateDB, gasLimit *uint64) error {
 	executorNonce := stateDB.GetNonce(ps.context.Origin)
-	if executorNonce != ps.nonce {
+	if executorNonce > ps.nonce {
 		logger.Error().Msgf("Nonce on %v: %d vs %d", ps.context.Origin, executorNonce, ps.nonce)
-		// return ErrInconsistentNonce
+		return ErrInconsistentNonce
 	}
 	if *gasLimit < ps.gas {
 		return ErrHitGasLimit
@@ -270,9 +156,12 @@ func securityDeposit(ps *EVMParams, stateDB vm.StateDB, gasLimit *uint64) error 
 // ExecuteContracts process the contracts in a block
 func ExecuteContracts(blk *Block, bc Blockchain) {
 	gasLimit := GasLimit
+	blk.receipts = make(map[hash.Hash32B]*Receipt, 0)
 	for idx, execution := range blk.Executions {
 		// TODO (zhi) log receipt to stateDB
-		executeContract(blk, idx, execution, bc, &gasLimit)
+		if receipt, _ := executeContract(blk, idx, execution, bc, &gasLimit); receipt != nil {
+			blk.receipts[execution.Hash()] = receipt
+		}
 	}
 }
 
@@ -305,12 +194,13 @@ func executeContract(blk *Block, idx int, execution *action.Execution, bc Blockc
 		stateDB.AddBalance(ps.context.Coinbase, gasValue)
 	}
 	receipt.Logs = stateDB.Logs()
-	logger.Info().Msgf("Receipt: %+v, %v", receipt, err)
+	logger.Debug().Msgf("Receipt: %+v, %v", receipt, err)
 	return receipt, err
 }
 
-func intrinsicGas(evmParams *EVMParams) (uint64, error) {
-	dataSize := uint64(len(evmParams.data))
+// IntrinsicGas returns the intrinsic gas of an execution
+func IntrinsicGas(data []byte) (uint64, error) {
+	dataSize := uint64(len(data))
 	if (math.MaxUint64-BaseIntrinsicGas)/ExecutionDataGas < dataSize {
 		return 0, ErrOutOfGas
 	}
@@ -334,7 +224,7 @@ func executeInEVM(evmParams *EVMParams, stateDB *EVMStateDBAdapter, gasLimit *ui
 	var config vm.Config
 	chainConfig := getChainConfig()
 	evm := vm.NewEVM(evmParams.context, stateDB, chainConfig, config)
-	intriGas, err := intrinsicGas(evmParams)
+	intriGas, err := IntrinsicGas(evmParams.data)
 	if err != nil {
 		return nil, evmParams.gas, remainingGas, action.EmptyAddress, err
 	}
@@ -349,10 +239,10 @@ func executeInEVM(evmParams *EVMParams, stateDB *EVMStateDBAdapter, gasLimit *ui
 		// create contract
 		var evmContractAddress common.Address
 		ret, evmContractAddress, remainingGas, err = evm.Create(executor, evmParams.data, remainingGas, evmParams.amount)
+		logger.Warn().Hex("contract addrHash", evmContractAddress[:]).Msg("evm.Create")
 		if err != nil {
 			return nil, evmParams.gas, remainingGas, action.EmptyAddress, err
 		}
-		logger.Warn().Hex("contract addrHash", evmContractAddress[:]).Msg("executeInEVM")
 		contractAddress, err := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, evmContractAddress.Bytes())
 		if err != nil {
 			return nil, evmParams.gas, remainingGas, action.EmptyAddress, err

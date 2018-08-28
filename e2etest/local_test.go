@@ -9,7 +9,6 @@ package e2etest
 import (
 	"context"
 	"encoding/hex"
-	"fmt"
 	"math/big"
 	"sort"
 	"testing"
@@ -42,7 +41,6 @@ func TestLocalCommit(t *testing.T) {
 	testutil.CleanupPath(t, testTriePath)
 	testutil.CleanupPath(t, testDBPath)
 
-	blockchain.Gen.TotalSupply = uint64(50 << 22)
 	blockchain.Gen.BlockReward = uint64(0)
 
 	cfg, err := newTestConfig()
@@ -118,7 +116,7 @@ func TestLocalCommit(t *testing.T) {
 	t.Logf("test balance = %d", test)
 	change.Add(change, test)
 
-	require.Equal(uint64(100000000), change.Uint64())
+	require.Equal(uint64(3000000000), change.Uint64())
 	t.Log("Total balance match")
 
 	if beta.Sign() == 0 || fox.Sign() == 0 || test.Sign() == 0 {
@@ -302,7 +300,7 @@ func TestLocalCommit(t *testing.T) {
 	t.Logf("test balance = %d", test)
 	change.Add(change, test)
 
-	require.Equal(uint64(100000000), change.Uint64())
+	require.Equal(uint64(3000000000), change.Uint64())
 	t.Log("Total balance match")
 }
 
@@ -431,7 +429,6 @@ func TestVoteLocalCommit(t *testing.T) {
 	cfg.Chain.NumCandidates = 2
 	require.Nil(err)
 
-	blockchain.Gen.TotalSupply = uint64(50 << 22)
 	blockchain.Gen.BlockReward = uint64(0)
 
 	// create node
@@ -460,19 +457,19 @@ func TestVoteLocalCommit(t *testing.T) {
 
 	// Add block 1
 	// Alfa, Bravo and Charlie selfnomination
-	tsf1, err := action.NewTransfer(7, big.NewInt(20000000), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["alfa"].RawAddress)
+	tsf1, err := action.NewTransfer(7, big.NewInt(200000000), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["alfa"].RawAddress)
 	require.Nil(err)
 	tsf1, err = tsf1.Sign(ta.Addrinfo["producer"])
 	require.Nil(err)
-	tsf2, err := action.NewTransfer(8, big.NewInt(20000000), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress)
+	tsf2, err := action.NewTransfer(8, big.NewInt(200000000), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress)
 	require.Nil(err)
 	tsf2, err = tsf2.Sign(ta.Addrinfo["producer"])
 	require.Nil(err)
-	tsf3, err := action.NewTransfer(9, big.NewInt(20000000), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["charlie"].RawAddress)
+	tsf3, err := action.NewTransfer(9, big.NewInt(200000000), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["charlie"].RawAddress)
 	require.Nil(err)
 	tsf3, err = tsf3.Sign(ta.Addrinfo["producer"])
 	require.Nil(err)
-	tsf4, err := action.NewTransfer(10, big.NewInt(20000000), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["delta"].RawAddress)
+	tsf4, err := action.NewTransfer(10, big.NewInt(200000000), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["delta"].RawAddress)
 	require.Nil(err)
 	tsf4, err = tsf4.Sign(ta.Addrinfo["producer"])
 	require.Nil(err)
@@ -720,7 +717,6 @@ func TestDummyBlockReplacement(t *testing.T) {
 	testutil.CleanupPath(t, testTriePath)
 	testutil.CleanupPath(t, testDBPath)
 
-	blockchain.Gen.TotalSupply = uint64(50 << 22)
 	blockchain.Gen.BlockReward = uint64(0)
 
 	cfg, err := newTestConfig()
@@ -794,6 +790,13 @@ func TestDummyBlockReplacement(t *testing.T) {
 	require.Equal(hash, blk1.HashBlock())
 	require.NoError(originChain.CommitBlock(blk1))
 
+	// Wait for actpool to be reset
+	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
+		tsf, _, _ := svr.ActionPool().PickActs()
+		return len(tsf) == 0, nil
+	})
+	require.Nil(err)
+
 	// Replace the second dummy block
 	tsf1, err := signedTransfer(ta.Addrinfo["producer"], ta.Addrinfo["alfa"], 1, big.NewInt(1))
 	require.NoError(err)
@@ -808,7 +811,6 @@ func TestDummyBlockReplacement(t *testing.T) {
 	require.Nil(err)
 
 	tsf, _, _ = svr.ActionPool().PickActs()
-	fmt.Println(tsf[0].Amount)
 	blk2, err := originChain.MintNewBlock(tsf, nil, nil, ta.Addrinfo["producer"], "")
 	require.Nil(err)
 	err = p.Broadcast(blk2.ConvertToBlockPb())

@@ -70,8 +70,8 @@ func (d *dkg) Init(ms []uint32, ids [][]uint8) ([][]uint32, [][]uint32, [][]byte
 	var idsSer [numnodes][idlength]C.uint8_t
 	var msSer [privkeySize]C.uint32_t
 	var shares [numnodes][sigSize]C.uint32_t
-	var coeffs [degree + 1][sigSize]C.uint32_t
-	var witnesses [degree + 1]C.ec160_point_aff
+	var coeffs [Degree + 1][sigSize]C.uint32_t
+	var witnesses [Degree + 1]C.ec160_point_aff
 	for i := 0; i < numnodes; i++ {
 		for j := 0; j < idlength; j++ {
 			idsSer[i][j] = (C.uint8_t)(ids[i][j])
@@ -82,8 +82,8 @@ func (d *dkg) Init(ms []uint32, ids [][]uint8) ([][]uint32, [][]uint32, [][]byte
 	}
 	ok := C.dkg_init(&msSer[0], &coeffs[0], &idsSer[0], &shares[0], &witnesses[0])
 	if ok == 1 {
-		coeffsDes := make([][]uint32, degree+1)
-		for i := 0; i < degree+1; i++ {
+		coeffsDes := make([][]uint32, Degree+1)
+		for i := 0; i < Degree+1; i++ {
 			coeffsDes[i] = make([]uint32, sigSize)
 			for j := 0; j < sigSize; j++ {
 				coeffsDes[i][j] = (uint32)(coeffs[i][j])
@@ -114,13 +114,13 @@ func (d *dkg) Init(ms []uint32, ids [][]uint8) ([][]uint32, [][]uint32, [][]byte
 func (d *dkg) SharesCollect(id []uint8, shares [][]uint32, witnesses [][][]byte) ([numnodes]bool, error) {
 	var idSer [idlength]C.uint8_t
 	var sharesSer [numnodes][sigSize]C.uint32_t
-	var witnessList [numnodes][degree + 1]C.ec160_point_aff
+	var witnessList [numnodes][Degree + 1]C.ec160_point_aff
 	var sharestatus [numnodes]C.uint8_t
 	for i := 0; i < numnodes; i++ {
 		for j := 0; j < sigSize; j++ {
 			sharesSer[i][j] = (C.uint32_t)(shares[i][j])
 		}
-		for j := 0; j < degree+1; j++ {
+		for j := 0; j < Degree+1; j++ {
 			point, err := pointDeserialization(witnesses[i][j])
 			if err != nil {
 				return [numnodes]bool{}, errors.New("Failed to deserialize point")

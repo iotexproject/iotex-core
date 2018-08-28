@@ -55,6 +55,8 @@ type Blockchain interface {
 	GetTotalTransfers() (uint64, error)
 	// GetTotalVotes returns the total number of votes
 	GetTotalVotes() (uint64, error)
+	// GetTotalExecutions returns the total number of executions
+	GetTotalExecutions() (uint64, error)
 	// GetTransfersFromAddress returns transaction from address
 	GetTransfersFromAddress(address string) ([]hash.Hash32B, error)
 	// GetTransfersToAddress returns transaction to address
@@ -71,6 +73,16 @@ type Blockchain interface {
 	GetVoteByVoteHash(h hash.Hash32B) (*action.Vote, error)
 	// GetBlockHashByVoteHash returns Block hash by vote hash
 	GetBlockHashByVoteHash(h hash.Hash32B) (hash.Hash32B, error)
+	// GetExecutionsFromAddress returns executions from address
+	GetExecutionsFromAddress(address string) ([]hash.Hash32B, error)
+	// GetExecutionsToAddress returns executions to address
+	GetExecutionsToAddress(address string) ([]hash.Hash32B, error)
+	// GetExecutionByExecutionHash returns execution by execution hash
+	GetExecutionByExecutionHash(h hash.Hash32B) (*action.Execution, error)
+	// GetBlockHashByExecutionHash returns Block hash by execution hash
+	GetBlockHashByExecutionHash(h hash.Hash32B) (hash.Hash32B, error)
+	// GetReceiptByExecutionHash returns the receipt by execution hash
+	GetReceiptByExecutionHash(h hash.Hash32B) (*Receipt, error)
 	// GetFactory returns the State Factory
 	GetFactory() state.Factory
 	// TipHash returns tip block's hash
@@ -84,6 +96,10 @@ type Blockchain interface {
 	// MintNewBlock creates a new block with given actions
 	// Note: the coinbase transfer will be added to the given transfers when minting a new block
 	MintNewBlock(tsf []*action.Transfer, vote []*action.Vote, executions []*action.Execution, address *iotxaddress.Address, data string) (*Block, error)
+	// TODO: Merge the MintNewDKGBlock into MintNewBlock
+	// MintNewDKGBlock creates a new block with given actions and dkg keys
+	MintNewDKGBlock(tsf []*action.Transfer, vote []*action.Vote, executions []*action.Execution,
+		producer *iotxaddress.Address, dkgAddress *iotxaddress.DKGAddress, seed []byte, data string) (*Block, error)
 	// MintDummyNewBlock creates a new dummy block, used for unreached consensus
 	MintNewDummyBlock() *Block
 	// CommitBlock validates and appends a block to the chain
@@ -285,9 +301,7 @@ func (bc *blockchain) Start(ctx context.Context) (err error) {
 	var startHeight uint64
 	if factoryHeight, err := bc.sf.Height(); err == nil {
 		if factoryHeight > bc.tipHeight {
-			logger.Fatal().
-				Uint64("blockchain height", bc.tipHeight).Uint64("factory height", factoryHeight).
-				Msg("Unexpected height")
+			return errors.New("factory is higher than blockchain")
 		}
 		startHeight = factoryHeight + 1
 	}
@@ -360,43 +374,32 @@ func (bc *blockchain) GetBlockByHash(h hash.Hash32B) (*Block, error) {
 	return bc.dao.getBlock(h)
 }
 
+// GetTotalTransfers returns the total number of transfers
 func (bc *blockchain) GetTotalTransfers() (uint64, error) {
-	totalTransfers, err := bc.dao.getTotalTransfers()
-	if err != nil {
-		return uint64(0), err
-	}
-
-	return totalTransfers, nil
+	return bc.dao.getTotalTransfers()
 }
 
+// GetTotalVotes returns the total number of votes
 func (bc *blockchain) GetTotalVotes() (uint64, error) {
-	totalVotes, err := bc.dao.getTotalVotes()
-	if err != nil {
-		return uint64(0), err
-	}
-
-	return totalVotes, nil
+	return bc.dao.getTotalVotes()
 }
 
+// GetTotalExecutions returns the total number of executions
+func (bc *blockchain) GetTotalExecutions() (uint64, error) {
+	return bc.dao.getTotalExecutions()
+}
+
+// GetTransfersFromAddress returns transfers from address
 func (bc *blockchain) GetTransfersFromAddress(address string) ([]hash.Hash32B, error) {
-	transfersFromAddress, err := bc.dao.getTransfersBySenderAddress(address)
-	if err != nil {
-		return nil, err
-	}
-
-	return transfersFromAddress, nil
+	return bc.dao.getTransfersBySenderAddress(address)
 }
 
+// GetTransfersToAddress returns transfers to address
 func (bc *blockchain) GetTransfersToAddress(address string) ([]hash.Hash32B, error) {
-	transfersToAddress, err := bc.dao.getTransfersByRecipientAddress(address)
-	if err != nil {
-		return nil, err
-	}
-
-	return transfersToAddress, nil
+	return bc.dao.getTransfersByRecipientAddress(address)
 }
 
-// GetTransferByTransferHash returns transfer by Transfer hash
+// GetTransferByTransferHash returns transfer by transfer hash
 func (bc *blockchain) GetTransferByTransferHash(h hash.Hash32B) (*action.Transfer, error) {
 	blkHash, err := bc.dao.getBlockHashByTransferHash(h)
 	if err != nil {
@@ -419,12 +422,12 @@ func (bc *blockchain) GetBlockHashByTransferHash(h hash.Hash32B) (hash.Hash32B, 
 	return bc.dao.getBlockHashByTransferHash(h)
 }
 
-// GetVoteFromAddress returns vote from address
+// GetVoteFromAddress returns votes from address
 func (bc *blockchain) GetVotesFromAddress(address string) ([]hash.Hash32B, error) {
 	return bc.dao.getVotesBySenderAddress(address)
 }
 
-// GetVoteToAddress returns vote to address
+// GetVoteToAddress returns votes to address
 func (bc *blockchain) GetVotesToAddress(address string) ([]hash.Hash32B, error) {
 	return bc.dao.getVotesByRecipientAddress(address)
 }
@@ -450,6 +453,44 @@ func (bc *blockchain) GetVoteByVoteHash(h hash.Hash32B) (*action.Vote, error) {
 // GetBlockHashByVoteHash returns Block hash by vote hash
 func (bc *blockchain) GetBlockHashByVoteHash(h hash.Hash32B) (hash.Hash32B, error) {
 	return bc.dao.getBlockHashByVoteHash(h)
+}
+
+// GetExecutionsFromAddress returns executions from address
+func (bc *blockchain) GetExecutionsFromAddress(address string) ([]hash.Hash32B, error) {
+	return bc.dao.getExecutionsByExecutorAddress(address)
+}
+
+// GetExecutionsToAddress returns executions to address
+func (bc *blockchain) GetExecutionsToAddress(address string) ([]hash.Hash32B, error) {
+	return bc.dao.getExecutionsByContractAddress(address)
+}
+
+// GetExecutionByExecutionHash returns execution by execution hash
+func (bc *blockchain) GetExecutionByExecutionHash(h hash.Hash32B) (*action.Execution, error) {
+	blkHash, err := bc.dao.getBlockHashByExecutionHash(h)
+	if err != nil {
+		return nil, err
+	}
+	blk, err := bc.dao.getBlock(blkHash)
+	if err != nil {
+		return nil, err
+	}
+	for _, execution := range blk.Executions {
+		if execution.Hash() == h {
+			return execution, nil
+		}
+	}
+	return nil, errors.Errorf("block %x does not have execution %x", blkHash, h)
+}
+
+// GetBlockHashByExecutionHash returns Block hash by execution hash
+func (bc *blockchain) GetBlockHashByExecutionHash(h hash.Hash32B) (hash.Hash32B, error) {
+	return bc.dao.getBlockHashByExecutionHash(h)
+}
+
+// GetReceiptByExecutionHash returns the receipt by execution hash
+func (bc *blockchain) GetReceiptByExecutionHash(h hash.Hash32B) (*Receipt, error) {
+	return bc.dao.getReceiptByExecutionHash(h)
 }
 
 // GetFactory returns the State Factory
@@ -515,8 +556,45 @@ func (bc *blockchain) MintNewBlock(tsf []*action.Transfer, vote []*action.Vote, 
 		return blk, nil
 	}
 
-	blk.Header.Pubkey = producer.PublicKey
+	blk.Header.DKGID = []byte{}
+	blk.Header.DKGPubkey = []byte{}
+	blk.Header.DKGBlockSig = []byte{}
 
+	blk.Header.Pubkey = producer.PublicKey
+	blkHash := blk.HashBlock()
+	blk.Header.blockSig = crypto.EC283.Sign(producer.PrivateKey, blkHash[:])
+	return blk, nil
+}
+
+// MintNewDKGBlock creates a new block with given actions and dkg keys
+// Note: the coinbase transfer will be added to the given transfers
+// when minting a new block
+func (bc *blockchain) MintNewDKGBlock(tsf []*action.Transfer, vote []*action.Vote, executions []*action.Execution,
+	producer *iotxaddress.Address, dkgAddress *iotxaddress.DKGAddress, seed []byte, data string) (*Block, error) {
+	bc.mu.RLock()
+	defer bc.mu.RUnlock()
+
+	tsf = append(tsf, action.NewCoinBaseTransfer(big.NewInt(int64(bc.genesis.BlockReward)), producer.RawAddress))
+
+	blk := NewBlock(bc.chainID, bc.tipHeight+1, bc.tipHash, bc.clk, tsf, vote, executions)
+	if producer.PrivateKey == keypair.ZeroPrivateKey {
+		logger.Warn().Msg("Unsigned block...")
+		return blk, nil
+	}
+
+	blk.Header.DKGID = []byte{}
+	blk.Header.DKGPubkey = []byte{}
+	blk.Header.DKGBlockSig = []byte{}
+	if len(dkgAddress.PublicKey) > 0 && len(dkgAddress.PrivateKey) > 0 && len(dkgAddress.ID) > 0 {
+		blk.Header.DKGID = dkgAddress.ID
+		blk.Header.DKGPubkey = dkgAddress.PublicKey
+		var err error
+		if _, blk.Header.DKGBlockSig, err = crypto.BLS.SignShare(dkgAddress.PrivateKey, seed); err != nil {
+			return nil, errors.Wrap(err, "Failed to do DKG sign")
+		}
+	}
+
+	blk.Header.Pubkey = producer.PublicKey
 	blkHash := blk.HashBlock()
 	blk.Header.blockSig = crypto.EC283.Sign(producer.PrivateKey, blkHash[:])
 	return blk, nil
@@ -571,6 +649,7 @@ func (bc *blockchain) Validator() Validator {
 //=====================================
 // commitBlock commits a block to the chain
 func (bc *blockchain) commitBlock(blk *Block) error {
+	// write block into DB
 	if err := bc.dao.putBlock(blk); err != nil {
 		return err
 	}
@@ -579,14 +658,17 @@ func (bc *blockchain) commitBlock(blk *Block) error {
 	defer bc.mu.Unlock()
 	bc.tipHeight = blk.Header.height
 	bc.tipHash = blk.HashBlock()
-
 	// update state factory
-	if bc.sf == nil {
-		return nil
+	if bc.sf != nil {
+		ExecuteContracts(blk, bc)
+		if err := bc.sf.CommitStateChanges(blk.Height(), blk.Transfers, blk.Votes, blk.Executions); err != nil {
+			return err
+		}
 	}
-	ExecuteContracts(blk, bc)
-	err := bc.sf.CommitStateChanges(blk.Height(), blk.Transfers, blk.Votes, blk.Executions)
-
+	// write smart contract receipt into DB
+	if err := bc.dao.putReceipts(blk); err != nil {
+		return err
+	}
 	logger.Info().Uint64("height", blk.Header.height).Msg("commit a block")
-	return err
+	return nil
 }

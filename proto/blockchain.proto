@@ -31,8 +31,8 @@ message ExecutionPb {
     string executor = 2;
     string contract = 3;
     bytes executorPubKey = 4;
-    uint32 gas = 5;
-    uint32 gasPrice = 6;
+    uint64 gas = 5;
+    uint64 gasPrice = 6;
     bytes data = 7;
 }
 
@@ -79,6 +79,9 @@ message BlockHeaderPb {
     bytes reserved = 9;
     bytes signature = 10;
     bytes pubkey = 11;
+    bytes dkgID = 12;
+    bytes dkgPubkey = 13;
+    bytes dkgSignature = 14;
 }
 
 // block consists of header followed by transactions

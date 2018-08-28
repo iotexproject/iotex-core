@@ -240,6 +240,17 @@ func TestActPool_AddActs(t *testing.T) {
 	overBalTsf, _ := signedTransfer(addr2, addr2, uint64(4), big.NewInt(20))
 	err = ap.AddTsf(overBalTsf)
 	require.Equal(ErrBalance, errors.Cause(err))
+	// Case VI: over gas limit
+	creationExecution, err := action.NewExecution(addr1.RawAddress, action.EmptyAddress, uint64(5), big.NewInt(int64(0)), blockchain.GasLimit+100, uint64(10), []byte{})
+	require.NoError(err)
+	err = ap.AddExecution(creationExecution)
+	require.Equal(ErrGasHigherThanLimit, errors.Cause(err))
+	// Case VII: insufficient gas
+	creationExecution.Gas = 10
+	tmpData := [1234]byte{}
+	creationExecution.Data = tmpData[:]
+	err = ap.AddExecution(creationExecution)
+	require.Equal(ErrInsufficientGas, errors.Cause(err))
 }
 
 func TestActPool_PickActs(t *testing.T) {

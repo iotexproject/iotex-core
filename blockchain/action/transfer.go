@@ -33,9 +33,6 @@ var (
 	ErrAddr = errors.New("address error")
 )
 
-// EmptyAddress defines the size of version in byte units
-const EmptyAddress = "00000000000000000000000000000000"
-
 type (
 	// Transfer defines the struct of account-based transfer
 	Transfer struct {
