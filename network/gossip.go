@@ -61,8 +61,12 @@ func (g *Gossip) OnReceivingMsg(msg *network.BroadcastReq) error {
 	if err := g.processMsg(msg.MsgType, msg.MsgBody); err != nil {
 		return err
 	}
+	// If other nodes use a crazy TTL, truncate it to the local configured value
+	if msg.Ttl > g.Overlay.Config.TTL {
+		msg.Ttl = g.Overlay.Config.TTL
+	}
 	// Relay the message to the neighbors
-	if msg.Ttl <= 0 {
+	if msg.Ttl-1 <= 0 {
 		logger.Debug().
 			Uint32("msg-type", msg.MsgType).
 			Str("msg-checksum", hex.EncodeToString(msg.MsgChecksum)).
