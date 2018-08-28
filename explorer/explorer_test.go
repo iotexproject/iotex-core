@@ -596,3 +596,97 @@ func TestTransferPayloadBytesLimit(t *testing.T) {
 	)
 	assert.Equal(t, ErrTransfer, errors.Cause(err))
 }
+
+func TestExplorerCandidateMetrics(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	candidates := []string{
+		"io1qyqsyqcy6nm58gjd2wr035wz5eyd5uq47zyqpng3gxe7nh",
+		"io1qyqsyqcy6m6hkqkj3f4w4eflm2gzydmvc0mumm7kgax4l3",
+		"io1qyqsyqcyyu9pfazcx0wglp35h2h4fm0hl8p8z2u35vkcwc",
+		"io1qyqsyqcyg9pk8zg8xzkmv6g3630xggvacq9e77cwtd4rkc",
+		"io1qyqsyqcy8anpz644uhw85rpjplwfv80s687pvhch5ues2k",
+		"io1qyqsyqcy65j0upntgz8wq8sum6chetur8ft68uwnfa2m3k",
+		"io1qyqsyqcyvx7pmg9pq5kefh5mkxx7fxfmct2x9fpg080r7m",
+	}
+	c := mock_consensus.NewMockConsensus(ctrl)
+	c.EXPECT().Metrics().Return(scheme.ConsensusMetrics{
+		LatestEpoch:         1,
+		LatestDelegates:     candidates[:4],
+		LatestBlockProducer: candidates[3],
+		Candidates:          candidates,
+	}, nil)
+	bc := mock_blockchain.NewMockBlockchain(ctrl)
+	bc.EXPECT().CandidatesByHeight(gomock.Any()).Return([]*state.Candidate{
+		{Address: candidates[0], Votes: big.NewInt(0)},
+		{Address: candidates[1], Votes: big.NewInt(0)},
+		{Address: candidates[2], Votes: big.NewInt(0)},
+		{Address: candidates[3], Votes: big.NewInt(0)},
+		{Address: candidates[4], Votes: big.NewInt(0)},
+		{Address: candidates[5], Votes: big.NewInt(0)},
+		{Address: candidates[6], Votes: big.NewInt(0)},
+	}, nil)
+
+	svc := Service{c: c, bc: bc}
+
+	metrics, err := svc.GetCandidateMetrics()
+	require.NoError(err)
+	require.True(7 == len(metrics.Candidates))
+	require.True(0 == metrics.LatestHeight)
+	require.True(1 == metrics.LatestEpoch)
+}
+
+func TestExplorerGetReceiptByExecutionID(t *testing.T) {
+	require := require.New(t)
+	cfg := config.Default
+	cfg.Chain.TrieDBPath = testTriePath
+	cfg.Chain.ChainDBPath = testDBPath
+
+	testutil.CleanupPath(t, testTriePath)
+	defer testutil.CleanupPath(t, testTriePath)
+	testutil.CleanupPath(t, testDBPath)
+	defer testutil.CleanupPath(t, testDBPath)
+
+	sf, err := state.NewFactory(&cfg, state.InMemTrieOption())
+	require.Nil(err)
+	require.Nil(sf.Start(context.Background()))
+	_, err = sf.LoadOrCreateState(ta.Addrinfo["producer"].RawAddress, blockchain.Gen.TotalSupply)
+	require.NoError(err)
+	// Disable block reward to make bookkeeping easier
+	blockchain.Gen.BlockReward = uint64(0)
+
+	// create chain
+	ctx := context.Background()
+	bc := blockchain.NewBlockchain(&cfg, blockchain.PrecreatedStateFactoryOption(sf), blockchain.InMemDaoOption())
+	require.NotNil(bc)
+	require.Nil(err)
+	err = bc.Stop(ctx)
+	require.NoError(err)
+
+	svc := Service{
+		bc: bc,
+		cfg: config.Explorer{
+			TpsWindow:               10,
+			MaxTransferPayloadBytes: 1024,
+		},
+	}
+
+	data, _ := hex.DecodeString("608060405234801561001057600080fd5b5060df8061001f6000396000f3006080604052600436106049576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff16806360fe47b114604e5780636d4ce63c146078575b600080fd5b348015605957600080fd5b5060766004803603810190808035906020019092919050505060a0565b005b348015608357600080fd5b50608a60aa565b6040518082815260200191505060405180910390f35b8060008190555050565b600080549050905600a165627a7a7230582002faabbefbbda99b20217cf33cb8ab8100caf1542bf1f48117d72e2c59139aea0029")
+	// data, _ := hex.DecodeString("6060604052600436106100565763ffffffff7c010000000000000000000000000000000000000000000000000000000060003504166341c0e1b581146100585780637bf786f81461006b578063fbf788d61461009c575b005b341561006357600080fd5b6100566100ca565b341561007657600080fd5b61008a600160a060020a03600435166100f1565b60405190815260200160405180910390f35b34156100a757600080fd5b610056600160a060020a036004351660243560ff60443516606435608435610103565b60005433600160a060020a03908116911614156100ef57600054600160a060020a0316ff5b565b60016020526000908152604090205481565b600160a060020a0385166000908152600160205260408120548190861161012957600080fd5b3087876040516c01000000000000000000000000600160a060020a03948516810282529290931690910260148301526028820152604801604051809103902091506001828686866040516000815260200160405260006040516020015260405193845260ff90921660208085019190915260408085019290925260608401929092526080909201915160208103908084039060008661646e5a03f115156101cf57600080fd5b505060206040510351600054600160a060020a039081169116146101f257600080fd5b50600160a060020a03808716600090815260016020526040902054860390301631811161026257600160a060020a0387166000818152600160205260409081902088905582156108fc0290839051600060405180830381858888f19350505050151561025d57600080fd5b6102b7565b6000547f2250e2993c15843b32621c89447cc589ee7a9f049c026986e545d3c2c0c6f97890600160a060020a0316604051600160a060020a03909116815260200160405180910390a186600160a060020a0316ff5b505050505050505600a165627a7a72305820533e856fc37e3d64d1706bcc7dfb6b1d490c8d566ea498d9d01ec08965a896ca0029")
+	execution, err := action.NewExecution(
+		ta.Addrinfo["producer"].RawAddress, action.EmptyAddress, 1, big.NewInt(0), uint64(100000), uint64(10), data)
+	require.NoError(err)
+	execution, err = execution.Sign(ta.Addrinfo["producer"])
+	require.NoError(err)
+	blk, err := bc.MintNewBlock(nil, nil, []*action.Execution{execution}, ta.Addrinfo["producer"], "")
+	require.NoError(err)
+	require.Nil(bc.CommitBlock(blk))
+
+	eHash := execution.Hash()
+	eHashStr := hex.EncodeToString(eHash[:])
+	receipt, err := svc.GetReceiptByExecutionID(eHashStr)
+	require.NoError(err)
+	require.Equal(eHashStr, receipt.Hash)
+}
