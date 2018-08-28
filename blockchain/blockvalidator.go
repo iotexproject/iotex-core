@@ -38,6 +38,12 @@ var (
 	ErrInvalidBlock = errors.New("failed to validate the block")
 	// ErrActionNonce is the error when the nonce of the action is wrong
 	ErrActionNonce = errors.New("invalid action nonce")
+	// ErrGasHigherThanLimit indicates the error of gas value
+	ErrGasHigherThanLimit = errors.New("invalid gas for execution")
+	// ErrInsufficientGas indicates the error of insufficient gas value for data storage
+	ErrInsufficientGas = errors.New("insufficient intrinsic gas value")
+	// ErrBalance indicates the error of balance
+	ErrBalance = errors.New("invalid balance")
 )
 
 // Validate validates the given block's content
@@ -100,11 +106,15 @@ func (v *validator) verifyActions(blk *Block) error {
 	confirmedNonceMap := make(map[string]uint64)
 	accountNonceMap := make(map[string][]uint64)
 	var wg sync.WaitGroup
-	wg.Add(len(blk.Transfers) + len(blk.Votes))
+	wg.Add(len(blk.Transfers) + len(blk.Votes) + len(blk.Executions))
 	var correctAction uint64
 	var coinbaseCount uint64
 	for _, tsf := range blk.Transfers {
 		if blk.Header.height > 0 && !tsf.IsCoinbase {
+			// Verify Nonce
+			// Verify Signature
+			// Verify Coinbase transfer
+
 			// Store the nonce of the sender and verify later
 			if _, ok := confirmedNonceMap[tsf.Sender]; !ok {
 				accountNonce, err := v.sf.Nonce(tsf.Sender)
@@ -152,6 +162,8 @@ func (v *validator) verifyActions(blk *Block) error {
 		}(tsf, &correctAction, &coinbaseCount)
 	}
 	for _, vote := range blk.Votes {
+		// Verify Nonce
+		// Verify Signature
 		if blk.Header.height > 0 {
 			// Store the nonce of the voter and verify later
 			voterAddress := vote.GetVote().VoterAddress
@@ -183,6 +195,53 @@ func (v *validator) verifyActions(blk *Block) error {
 			atomic.AddUint64(correctVote, uint64(1))
 		}(vote, &correctAction)
 	}
+	for _, execution := range blk.Executions {
+		// Verify Nonce
+		// Verify Signature
+		// Verify Gas
+		// Verify Amount
+		if blk.Header.height > 0 {
+			// Store the nonce of the executor and verify later
+			executor := execution.Executor
+			if _, ok := confirmedNonceMap[executor]; !ok {
+				accountNonce, err := v.sf.Nonce(executor)
+				if err != nil {
+					return errors.Wrap(err, "Failed to get the nonce of the executor")
+				}
+				confirmedNonceMap[executor] = accountNonce
+				accountNonceMap[executor] = make([]uint64, 0)
+			}
+			accountNonceMap[executor] = append(accountNonceMap[executor], execution.Nonce)
+		}
+
+		// Verify signature
+		go func(execution *action.Execution, correctVote *uint64) {
+			defer wg.Done()
+			executorPubKey := execution.ExecutorPubKey
+			address, err := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, iotxaddress.ChainID, executorPubKey)
+			if err != nil {
+				return
+			}
+			if err := execution.Verify(address); err != nil {
+				return
+			}
+			atomic.AddUint64(correctVote, uint64(1))
+		}(execution, &correctAction)
+
+		// Reject oversized transfer
+		if execution.Gas > GasLimit {
+			return errors.Wrapf(ErrGasHigherThanLimit, "Gas is higher than gas limit")
+		}
+		intrinsicGas, err := IntrinsicGas(execution.Data)
+		if intrinsicGas > execution.Gas || err != nil {
+			return errors.Wrapf(ErrInsufficientGas, "insufficient gas for execution")
+		}
+
+		// Reject execution of negative amount
+		if execution.Amount.Sign() < 0 {
+			return errors.Wrapf(ErrBalance, "negative value")
+		}
+	}
 	wg.Wait()
 	// Verify coinbase transfer count
 	if (blk.Header.height != 0 && coinbaseCount != 1) || (blk.Header.height == 0 && coinbaseCount != 0) {
@@ -190,7 +249,7 @@ func (v *validator) verifyActions(blk *Block) error {
 			ErrInvalidBlock,
 			"Wrong number of coinbase transfers")
 	}
-	if correctAction+coinbaseCount != uint64(len(blk.Transfers)+len(blk.Votes)) {
+	if correctAction+coinbaseCount != uint64(len(blk.Transfers)+len(blk.Votes)+len(blk.Executions)) {
 		return errors.Wrapf(
 			ErrInvalidBlock,
 			"Failed to verify actions signature")
