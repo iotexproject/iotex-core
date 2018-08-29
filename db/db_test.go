@@ -131,6 +131,52 @@ func TestBatchRollback(t *testing.T) {
 	})
 }
 
+func TestDBInMemBatchCommit(t *testing.T) {
+	require := require.New(t)
+
+	kvStore := NewMemKVStore()
+
+	ctx := context.Background()
+	kvboltDB := kvStore.(*memKVStore)
+	batch := kvStore.Batch()
+
+	err := kvboltDB.Start(ctx)
+	require.Nil(err)
+	defer func() {
+		err = kvboltDB.Stop(ctx)
+		require.Nil(err)
+	}()
+
+	err = kvboltDB.Put(bucket1, testK1[0], testV1[1])
+	require.Nil(err)
+
+	err = kvboltDB.Put(bucket2, testK2[1], testV2[0])
+	require.Nil(err)
+
+	err = kvboltDB.Put(bucket1, testK1[2], testV1[0])
+	require.Nil(err)
+
+	err = batch.Put(bucket1, testK1[0], testV1[0], "")
+	require.Nil(err)
+	err = batch.PutIfNotExists(bucket2, []byte("test"), []byte("test"), "")
+	require.Nil(err)
+
+	value, err := kvboltDB.Get(bucket1, testK1[0])
+	require.Nil(err)
+	require.Equal(testV1[1], value)
+
+	value, err = kvboltDB.Get(bucket2, testK2[1])
+	require.Nil(err)
+	require.Equal(testV2[0], value)
+
+	err = batch.Commit()
+	require.Nil(err)
+
+	value, err = kvboltDB.Get(bucket1, testK1[0])
+	require.Nil(err)
+	require.Equal(testV1[0], value)
+}
+
 func TestDBBatch(t *testing.T) {
 	testBatchRollback := func(kvStore KVStore, t *testing.T) {
 		require := require.New(t)

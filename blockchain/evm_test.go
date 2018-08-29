@@ -68,6 +68,19 @@ func TestEVM(t *testing.T) {
 	require.Nil(err)
 	require.Equal(data[31:], code)
 
+	exe, err := bc.GetExecutionByExecutionHash(eHash)
+	require.Nil(err)
+	require.Equal(eHash, exe.Hash())
+
+	exes, err := bc.GetExecutionsFromAddress(ta.Addrinfo["producer"].RawAddress)
+	require.Nil(err)
+	require.Equal(1, len(exes))
+	require.Equal(eHash, exes[0])
+
+	blkHash, err := bc.GetBlockHashByExecutionHash(eHash)
+	require.Nil(err)
+	require.Equal(blk.HashBlock(), blkHash)
+
 	// store to key 0
 	contractAddr := "io1qyqsyqcy3kcd2pyfwus69nzgvkwhg8mk8h336dt86pg6cj"
 	data, _ = hex.DecodeString("60fe47b1000000000000000000000000000000000000000000000000000000000000000f")

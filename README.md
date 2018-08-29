@@ -104,31 +104,44 @@ cd iotex-core
 ### Run Unit Tests
 ```make test```
 
-### Run 
-```make run```
+### Reboot
+```make reboot``` reboots server from fresh database.
+
 You will see log message output like:
 ```
-W0416 12:52:15.652394    1576 blocksync.go:220] ====== receive tip block 116
-W0416 12:52:15.653014    1576 blocksync.go:276] ------ [127.0.0.1:4689] receive block 116 in 616.939µs
-W0416 12:52:15.653967    1576 blocksync.go:293] ------ commit block 116 time = 923.364µs
+2018-08-28T09:54:02-07:00 |INFO| commit a block height=0 iotexAddr=io1qyqsyqcy8uhx9jtdc2xp5wx7nxyq3xf4c3jmxknzkuej8y networkAddress=127.0.0.1:4689 nodeType=delegate
+2018-08-28T09:54:02-07:00 |INFO| Starting dispatcher iotexAddr=io1qyqsyqcy8uhx9jtdc2xp5wx7nxyq3xf4c3jmxknzkuej8y networkAddress=127.0.0.1:4689 nodeType=delegate
+2018-08-28T09:54:02-07:00 |INFO| Starting IotxConsensus scheme iotexAddr=io1qyqsyqcy8uhx9jtdc2xp5wx7nxyq3xf4c3jmxknzkuej8y networkAddress=127.0.0.1:4689 nodeType=delegate scheme=STANDALONE
+2018-08-28T09:54:02-07:00 |INFO| start RPC server on 127.0.0.1:4689 iotexAddr=io1qyqsyqcy8uhx9jtdc2xp5wx7nxyq3xf4c3jmxknzkuej8y networkAddress=127.0.0.1:4689 nodeType=delegate
+2018-08-28T09:54:02-07:00 |INFO| Starting Explorer JSON-RPC server on [::]:14004 iotexAddr=io1qyqsyqcy8uhx9jtdc2xp5wx7nxyq3xf4c3jmxknzkuej8y networkAddress=127.0.0.1:4689 nodeType=delegate
+2018-08-28T09:54:03-07:00 |INFO| No peer exist to sync with. iotexAddr=io1qyqsyqcy8uhx9jtdc2xp5wx7nxyq3xf4c3jmxknzkuej8y networkAddress=127.0.0.1:4689 nodeType=delegate
+2018-08-28T09:54:03-07:00 |INFO| created a new block at="2018-08-28 09:54:03.210120086 -0700 PDT m=+1.047466065" iotexAddr=io1qyqsyqcy8uhx9jtdc2xp5wx7nxyq3xf4c3jmxknzkuej8y networkAddress=127.0.0.1:4689 nodeType=delegate
+2018-08-28T09:54:03-07:00 |INFO| created a new block height=1 iotexAddr=io1qyqsyqcy8uhx9jtdc2xp5wx7nxyq3xf4c3jmxknzkuej8y length=1 networkAddress=127.0.0.1:4689 nodeType=delegate
+2018-08-28T09:54:03-07:00 |INFO| commit a block height=1 iotexAddr=io1qyqsyqcy8uhx9jtdc2xp5wx7nxyq3xf4c3jmxknzkuej8y networkAddress=127.0.0.1:4689 nodeType=delegate
+2018-08-28T09:54:04-07:00 |INFO| No peer exist to sync with. iotexAddr=io1qyqsyqcy8uhx9jtdc2xp5wx7nxyq3xf4c3jmxknzkuej8y networkAddress=127.0.0.1:4689 nodeType=delegate
+2018-08-28T09:54:04-07:00 |INFO| created a new block at="2018-08-28 09:54:04.213299491 -0700 PDT m=+2.050689454" iotexAddr=io1qyqsyqcy8uhx9jtdc2xp5wx7nxyq3xf4c3jmxknzkuej8y networkAddress=127.0.0.1:4689 nodeType=delegate
+2018-08-28T09:54:04-07:00 |INFO| created a new block height=2 iotexAddr=io1qyqsyqcy8uhx9jtdc2xp5wx7nxyq3xf4c3jmxknzkuej8y length=1 networkAddress=127.0.0.1:4689 nodeType=delegate
+2018-08-28T09:54:04-07:00 |INFO| commit a block height=2 iotexAddr=io1qyqsyqcy8uhx9jtdc2xp5wx7nxyq3xf4c3jmxknzkuej8y networkAddress=127.0.0.1:4689 nodeType=delegate
+```
 
-W0416 12:52:16.648667    1576 blocksync.go:276] ------ [127.0.0.1:4689] receive block 117 in 994.656929ms
-W0416 12:52:16.649745    1576 blocksync.go:293] ------ commit block 117 time = 1.029462ms
+### Run
+```make run``` restarts server with existing database.
 
-W0416 12:52:17.648360    1576 blocksync.go:276] ------ [127.0.0.1:4689] receive block 118 in 998.560518ms
-W0416 12:52:17.649604    1576 blocksync.go:293] ------ commit block 118 time = 1.186833ms
-
-W0416 12:52:18.648309    1576 blocksync.go:276] ------ [127.0.0.1:4689] receive block 119 in 998.658293ms
-W0416 12:52:18.649432    1576 blocksync.go:293] ------ commit block 119 time = 1.075772ms
-
-W0416 12:52:19.653393    1576 blocksync.go:276] ------ [127.0.0.1:4689] receive block 120 in 1.003920977s
-W0416 12:52:19.654698    1576 blocksync.go:293] ------ commit block 120 time = 1.256924ms
-
-W0416 12:52:20.649165    1576 blocksync.go:276] ------ [127.0.0.1:4689] receive block 121 in 994.424355ms
-W0416 12:52:20.650254    1576 blocksync.go:293] ------ commit block 121 time = 1.0282ms
-
-W0416 12:52:21.653420    1576 blocksync.go:276] ------ [127.0.0.1:4689] receive block 122 in 1.00312559s
-W0416 12:52:21.654650    1576 blocksync.go:293] ------ commit block 122 time = 1.182673ms
+You will see log message output like:
+```
+2018-08-28T10:03:40-07:00 |INFO| Restarting blockchain blockchain height=3 factory height=3 iotexAddr=io1qyqsyqcy8uhx9jtdc2xp5wx7nxyq3xf4c3jmxknzkuej8y networkAddress=127.0.0.1:4689 nodeType=delegate
+2018-08-28T10:03:40-07:00 |INFO| Starting dispatcher iotexAddr=io1qyqsyqcy8uhx9jtdc2xp5wx7nxyq3xf4c3jmxknzkuej8y networkAddress=127.0.0.1:4689 nodeType=delegate
+2018-08-28T10:03:40-07:00 |INFO| Starting IotxConsensus scheme iotexAddr=io1qyqsyqcy8uhx9jtdc2xp5wx7nxyq3xf4c3jmxknzkuej8y networkAddress=127.0.0.1:4689 nodeType=delegate scheme=STANDALONE
+2018-08-28T10:03:40-07:00 |INFO| start RPC server on 127.0.0.1:4689 iotexAddr=io1qyqsyqcy8uhx9jtdc2xp5wx7nxyq3xf4c3jmxknzkuej8y networkAddress=127.0.0.1:4689 nodeType=delegate
+2018-08-28T10:03:40-07:00 |INFO| Starting Explorer JSON-RPC server on [::]:14004 iotexAddr=io1qyqsyqcy8uhx9jtdc2xp5wx7nxyq3xf4c3jmxknzkuej8y networkAddress=127.0.0.1:4689 nodeType=delegate
+2018-08-28T10:03:41-07:00 |INFO| created a new block at="2018-08-28 10:03:41.17804365 -0700 PDT m=+1.034361469" iotexAddr=io1qyqsyqcy8uhx9jtdc2xp5wx7nxyq3xf4c3jmxknzkuej8y networkAddress=127.0.0.1:4689 nodeType=delegate
+2018-08-28T10:03:41-07:00 |INFO| No peer exist to sync with. iotexAddr=io1qyqsyqcy8uhx9jtdc2xp5wx7nxyq3xf4c3jmxknzkuej8y networkAddress=127.0.0.1:4689 nodeType=delegate
+2018-08-28T10:03:41-07:00 |INFO| created a new block height=4 iotexAddr=io1qyqsyqcy8uhx9jtdc2xp5wx7nxyq3xf4c3jmxknzkuej8y length=1 networkAddress=127.0.0.1:4689 nodeType=delegate
+2018-08-28T10:03:41-07:00 |INFO| commit a block height=4 iotexAddr=io1qyqsyqcy8uhx9jtdc2xp5wx7nxyq3xf4c3jmxknzkuej8y networkAddress=127.0.0.1:4689 nodeType=delegate
+2018-08-28T10:03:42-07:00 |INFO| No peer exist to sync with. iotexAddr=io1qyqsyqcy8uhx9jtdc2xp5wx7nxyq3xf4c3jmxknzkuej8y networkAddress=127.0.0.1:4689 nodeType=delegate
+2018-08-28T10:03:42-07:00 |INFO| created a new block at="2018-08-28 10:03:42.175542402 -0700 PDT m=+2.031857345" iotexAddr=io1qyqsyqcy8uhx9jtdc2xp5wx7nxyq3xf4c3jmxknzkuej8y networkAddress=127.0.0.1:4689 nodeType=delegate
+2018-08-28T10:03:42-07:00 |INFO| created a new block height=5 iotexAddr=io1qyqsyqcy8uhx9jtdc2xp5wx7nxyq3xf4c3jmxknzkuej8y length=1 networkAddress=127.0.0.1:4689 nodeType=delegate
+2018-08-28T10:03:42-07:00 |INFO| commit a block height=5 iotexAddr=io1qyqsyqcy8uhx9jtdc2xp5wx7nxyq3xf4c3jmxknzkuej8y networkAddress=127.0.0.1:4689 nodeType=delegate
 ```
 
 # Deploy w/ Docker Image
@@ -142,7 +155,7 @@ Add `SKIP_DEP=true` to skip re-installing dependencies via `dep`.
 Open one terminal window and run the command below to compile and start the test chain server. (This is optional, just
 in case you don't have a node running).
 
-`make; make run`
+`make reboot`
 
 Open a new terminal window and start running actioninjector.
 
@@ -155,6 +168,12 @@ You can use command line flags to customize the injector.
 -addr=target_address_for_jrpc_connection
 -transfer-num=number_of_transfers
 -vote-num=number_of_votes
+-execution-num=number_of_executions
+-contract=smart_contract_address
+-execution-amount=execution_amount
+-execution-gas=execution_gas
+-execution-gas-price=execution_gas_price
+-execution-data=execution_data
 -interval=sleeping_interval_in_seconds
 -retry-num=maximum_number_of_rpc_retries
 -retry-interval=sleeping_interval_between_two_consecutive_rpc_retries_in_seconds
@@ -167,6 +186,12 @@ Default flag values:
 * addr="127.0.0.1:14004"
 * transfer-num=50
 * vote-num=50
+* execution-num=50
+* contract="io1qyqsyqcy3kcd2pyfwus69nzgvkwhg8mk8h336dt86pg6cj"
+* execution-amount=0
+* execution-gas=1200000
+* execution-gas-price=10
+* execution-data="2885ad2c"
 * interval=5
 * retry-num=5
 * retry-interval=1

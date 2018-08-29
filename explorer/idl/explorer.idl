@@ -268,4 +268,7 @@ interface Explorer {
 
     // get receipt by execution id
     getReceiptByExecutionID(id string) Receipt
+
+    // read execution state
+    readExecutionState(contractAddress string, slot int) string
 }
