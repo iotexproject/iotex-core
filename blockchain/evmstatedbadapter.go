@@ -179,7 +179,8 @@ func (stateDB *EVMStateDBAdapter) GetCodeHash(evmAddr common.Address) common.Has
 func (stateDB *EVMStateDBAdapter) GetCode(evmAddr common.Address) []byte {
 	code, err := stateDB.sf.GetCode(byteutil.BytesTo20B(evmAddr[:]))
 	if err != nil {
-		logger.Error().Err(err).Msg("GetCode")
+		// TODO: we need to change the log level to error later
+		logger.Debug().Err(err).Msg("GetCode")
 		return nil
 	}
 	logger.Debug().Hex("addrHash", evmAddr[:]).Msg("GetCode")
