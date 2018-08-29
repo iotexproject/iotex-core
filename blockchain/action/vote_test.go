@@ -56,8 +56,10 @@ func TestVoteToJSONFromJSON(t *testing.T) {
 
 	v, err := NewVote(0, sender.RawAddress, recipient.RawAddress)
 	require.NoError(err)
+	signedv, err := v.Sign(sender)
+	require.NoError(err)
 
-	expv, err := v.ToJSON()
+	expv, err := signedv.ToJSON()
 	require.NoError(err)
 	require.NotNil(expv)
 
@@ -65,6 +67,8 @@ func TestVoteToJSONFromJSON(t *testing.T) {
 	require.NoError(err)
 	require.NotNil(newv)
 
+	require.NoError(newv.Verify(sender))
+	require.NotNil(newv.Verify(recipient))
 	require.Equal(v.Hash(), newv.Hash())
 	require.Equal(v.TotalSize(), newv.TotalSize())
 }
