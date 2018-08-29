@@ -141,7 +141,7 @@ func NewVoteFromJSON(jsonVote *explorer.Vote) (*Vote, error) {
 	pbVote := &iproto.ActionPb{
 		Action: &iproto.ActionPb_Vote{
 			Vote: &iproto.VotePb{
-				SelfPubKey:   voterPubKey,
+				SelfPubkey:   voterPubKey,
 				VoterAddress: jsonVote.Voter,
 				VoteeAddress: jsonVote.Votee,
 			},
