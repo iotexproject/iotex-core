@@ -520,10 +520,7 @@ func TestCandidatesByHeight(t *testing.T) {
 	candidatesBytes, err := Serialize(candidateList)
 	require.NoError(t, err)
 
-	trieDB := sf.accountTrie.TrieDB()
-	h := hash.Hash160b(candidatesBytes)
-	require.Nil(t, trieDB.Put(trie.CandidateKVNameSpace, byteutil.Uint64ToBytes(0), h[:]))
-	require.Nil(t, trieDB.Put(trie.CandidateKVNameSpace, h[:], candidatesBytes))
+	sf.accountTrie.TrieDB().Put(trie.CandidateKVNameSpace, byteutil.Uint64ToBytes(0), candidatesBytes)
 	candidates, err := sf.CandidatesByHeight(0)
 	sort.Slice(candidates, func(i, j int) bool {
 		return strings.Compare(candidates[i].Address, candidates[j].Address) < 0
@@ -538,9 +535,7 @@ func TestCandidatesByHeight(t *testing.T) {
 	candidatesBytes, err = Serialize(candidateList)
 	require.NoError(t, err)
 
-	h = hash.Hash160b(candidatesBytes)
-	require.Nil(t, trieDB.Put(trie.CandidateKVNameSpace, byteutil.Uint64ToBytes(1), h[:]))
-	require.Nil(t, trieDB.Put(trie.CandidateKVNameSpace, h[:], candidatesBytes))
+	sf.accountTrie.TrieDB().Put(trie.CandidateKVNameSpace, byteutil.Uint64ToBytes(1), candidatesBytes)
 	candidates, err = sf.CandidatesByHeight(1)
 	sort.Slice(candidates, func(i, j int) bool {
 		return strings.Compare(candidates[i].Address, candidates[j].Address) < 0
