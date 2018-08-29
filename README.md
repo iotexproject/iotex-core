@@ -10,7 +10,7 @@ Currently, This repo is of alpha-quality with limited features supported and it 
 contact us if you intend to run it in production.
 
 ## System Components and Flowchart
-![systemflowchart](https://user-images.githubusercontent.com/15241597/38832065-3e57ca3a-4176-11e8-9bff-110387cf2378.png)
+![systemflowchart_account](https://user-images.githubusercontent.com/15241597/44813900-e9717500-ab8f-11e8-8641-535c151c8df2.png)
 
 ## Feature List
 ### Testnet Beta (codename: Epik)
