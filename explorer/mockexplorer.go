@@ -204,7 +204,7 @@ func (exp *MockExplorer) SendSmartContract(request explorer.Execution) (explorer
 }
 
 // ReadExecutionState sends a smart contract
-func (exp *MockExplorer) ReadExecutionState(contractAddress string, slot int64) (string, error) {
+func (exp *MockExplorer) ReadExecutionState(request explorer.Execution) (string, error) {
 	return "100", nil
 }
 

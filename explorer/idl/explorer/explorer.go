@@ -8,8 +8,8 @@ import (
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "57b459024f6cea8d6a7dd9dd085c4f4c"
-const BarristerDateGenerated int64 = 1535486378774000000
+const BarristerChecksum string = "8af933d782f93b653033aa66329b030b"
+const BarristerDateGenerated int64 = 1535574606391000000
 
 type CoinStatistic struct {
 	Height     int64 `json:"height"`
@@ -209,7 +209,7 @@ type Explorer interface {
 	SendSmartContract(request Execution) (SendSmartContractResponse, error)
 	GetPeers() (GetPeersResponse, error)
 	GetReceiptByExecutionID(id string) (Receipt, error)
-	ReadExecutionState(contractAddress string, slot int64) (string, error)
+	ReadExecutionState(request Execution) (string, error)
 }
 
 func NewExplorerProxy(c barrister.Client) Explorer {
@@ -725,8 +725,8 @@ func (_p ExplorerProxy) GetReceiptByExecutionID(id string) (Receipt, error) {
 	return Receipt{}, _err
 }
 
-func (_p ExplorerProxy) ReadExecutionState(contractAddress string, slot int64) (string, error) {
-	_res, _err := _p.client.Call("Explorer.readExecutionState", contractAddress, slot)
+func (_p ExplorerProxy) ReadExecutionState(request Execution) (string, error) {
+	_res, _err := _p.client.Call("Explorer.readExecutionState", request)
 	if _err == nil {
 		_retType := _p.idl.Method("Explorer.readExecutionState").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(""), _res, "")
@@ -2562,18 +2562,11 @@ var IdlJsonRaw = `[
             },
             {
                 "name": "readExecutionState",
-                "comment": "",
+                "comment": "read execution state",
                 "params": [
                     {
-                        "name": "contractAddress",
-                        "type": "string",
-                        "optional": false,
-                        "is_array": false,
-                        "comment": ""
-                    },
-                    {
-                        "name": "slot",
-                        "type": "int",
+                        "name": "request",
+                        "type": "Execution",
                         "optional": false,
                         "is_array": false,
                         "comment": ""
@@ -2602,7 +2595,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1535486378774,
-        "checksum": "57b459024f6cea8d6a7dd9dd085c4f4c"
+        "date_generated": 1535574606391,
+        "checksum": "8af933d782f93b653033aa66329b030b"
     }
 ]`
