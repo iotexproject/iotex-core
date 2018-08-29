@@ -132,3 +132,15 @@ func (m *MockActPool) GetActionByHash(hash hash.Hash32B) (*proto.ActionPb, error
 func (mr *MockActPoolMockRecorder) GetActionByHash(hash interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetActionByHash", reflect.TypeOf((*MockActPool)(nil).GetActionByHash), hash)
 }
+
+// GetSize mocks base method
+func (m *MockActPool) GetSize() uint64 {
+	ret := m.ctrl.Call(m, "GetSize")
+	ret0, _ := ret[0].(uint64)
+	return ret0
+}
+
+// GetSize indicates an expected call of GetSize
+func (mr *MockActPoolMockRecorder) GetSize() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSize", reflect.TypeOf((*MockActPool)(nil).GetSize))
+}
