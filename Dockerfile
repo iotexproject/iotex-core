@@ -17,6 +17,7 @@ RUN if [ "$SKIP_DEP" != true ] ; \
 
 RUN mkdir -p $GOPATH/src/github.com/CoderZhi/go-ethereum/ && \
     mkdir -p $GOPATH/pkg/linux_amd64/github.com/CoderZhi/ && \
+    rm -rf $GOPATH/src/github.com/iotexproject/iotex-core/vendor/github.com/CoderZhi/go-ethereum/ && \
     cd $GOPATH/src/github.com/iotexproject/iotex-core/pkg/ && \
     tar -xzvf go-ethereum.tar.gz && \
     cp -r $GOPATH/src/github.com/iotexproject/iotex-core/pkg/go-ethereum/binary_linux/* $GOPATH/pkg/linux_amd64/github.com/CoderZhi/ && \
