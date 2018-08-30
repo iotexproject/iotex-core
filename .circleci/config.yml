@@ -6,7 +6,7 @@ jobs:
   build:
     docker:
       # specify the version
-      - image: iotex/iotex-core-ci:2.0
+      - image: iotex/iotex-core-ci:latest
 
       # Specify service dependencies here if necessary
       # CircleCI maintains a library of pre-built images
@@ -23,6 +23,6 @@ jobs:
 
       # specify any bash command here prefixed with `run: `
       - run: golint -set_exit_status $(go list ./... | grep -v /vendor/ | grep -v /explorer/idl/)
-      - run: go get -v -t -d ./...
+      - run: dep ensure
       - run: ./go.test.sh
       - run: bash <(curl -s https://codecov.io/bash)
