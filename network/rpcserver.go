@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/peer"
@@ -27,6 +28,20 @@ import (
 )
 
 var _ lifecycle.StartStopper = (*RPCServer)(nil)
+
+var (
+	sRequestMtc = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "iotex_network_server_request",
+			Help: "Server side request counter.",
+		},
+		[]string{"method", "dropped"},
+	)
+)
+
+func init() {
+	prometheus.MustRegister(sRequestMtc)
+}
 
 // RPCServer represents the listener at the transportation layer
 type RPCServer struct {
@@ -66,6 +81,7 @@ func (s *RPCServer) Ping(ctx context.Context, ping *pb.Ping) (*pb.Pong, error) {
 	if drop {
 		return nil, fmt.Errorf("sended requests too frequently")
 	}
+	sRequestMtc.WithLabelValues("Ping", "false").Inc()
 	s.Overlay.PM.AddPeer(ping.Addr)
 	return &pb.Pong{AckNonce: ping.Nonce}, nil
 }
@@ -80,6 +96,8 @@ func (s *RPCServer) GetPeers(ctx context.Context, req *pb.GetPeersReq) (*pb.GetP
 	if drop {
 		return nil, fmt.Errorf("sended requests too frequently")
 	}
+	sRequestMtc.WithLabelValues("GetPeers", "false").Inc()
+
 	var addrs []string
 	s.Overlay.PM.Peers.Range(func(key, value interface{}) bool {
 		addrs = append(addrs, value.(*Peer).String())
@@ -105,6 +123,8 @@ func (s *RPCServer) Broadcast(ctx context.Context, req *pb.BroadcastReq) (*pb.Br
 	if drop {
 		return nil, fmt.Errorf("sended requests too frequently")
 	}
+	sRequestMtc.WithLabelValues("Broadcast", "false").Inc()
+
 	err = s.Overlay.Gossip.OnReceivingMsg(req)
 	if err == nil {
 		return &pb.BroadcastRes{Header: iproto.MagicBroadcastMsgHeader}, nil
@@ -122,6 +142,8 @@ func (s *RPCServer) Tell(ctx context.Context, req *pb.TellReq) (*pb.TellRes, err
 	if drop {
 		return nil, fmt.Errorf("sended requests too frequently")
 	}
+	sRequestMtc.WithLabelValues("Tell", "false").Inc()
+
 	protoMsg, err := iproto.TypifyProtoMsg(req.MsgType, req.MsgBody)
 	if err != nil {
 		return nil, err

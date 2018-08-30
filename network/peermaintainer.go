@@ -38,6 +38,7 @@ func (pm *PeerMaintainer) Update() {
 	}
 
 	count := LenSyncMap(pm.Overlay.PM.Peers)
+	cConnMtc.WithLabelValues().Set(float64(count))
 	if count == 0 {
 		// TODO: Now we simply read the bootstrap nodes from the config. This needs to be changed in the future
 		bns1 := pm.Overlay.Config.BootstrapNodes
