@@ -36,18 +36,24 @@ type RPCServer struct {
 	Overlay *IotxOverlay
 
 	listenPort  string
-	counters    sync.Map
+	counters    *sync.Map
 	rateLimit   uint64
 	lastReqTime time.Time
 }
 
 // NewRPCServer creates an instance of RPCServer
 func NewRPCServer(o *IotxOverlay) *RPCServer {
-	s := &RPCServer{Overlay: o}
-	s.listenPort = ":" + strconv.Itoa(o.Config.Port)
-	s.Addr = o.Config.Host + s.listenPort
-	s.rateLimit = o.Config.RateLimitPerSec * uint64(o.Config.RateLimitWindowSize) / uint64(time.Second)
-	return s
+	listenPort := ":" + strconv.Itoa(o.Config.Port)
+	return &RPCServer{
+		Overlay: o,
+		Node: node.Node{
+			Addr: o.Config.Host + listenPort,
+		},
+
+		listenPort: listenPort,
+		rateLimit:  o.Config.RateLimitPerSec * uint64(o.Config.RateLimitWindowSize) / uint64(time.Second),
+		counters:   &sync.Map{},
+	}
 }
 
 // Ping implements the server side RPC logic
@@ -175,7 +181,9 @@ func (s *RPCServer) Start(_ context.Context) error {
 // Stop stops the rpc server
 func (s *RPCServer) Stop(_ context.Context) error {
 	logger.Info().Msg("stop RPC server")
-	s.Server.Stop()
+	if s.Server != nil {
+		s.Server.Stop()
+	}
 	return nil
 }
 

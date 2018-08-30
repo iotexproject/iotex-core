@@ -21,7 +21,7 @@ import (
 )
 
 // LenSyncMap counts the length of a sync.map
-func LenSyncMap(m sync.Map) uint {
+func LenSyncMap(m *sync.Map) uint {
 	len := uint(0)
 	m.Range(func(_, _ interface{}) bool {
 		len++

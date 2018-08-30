@@ -17,7 +17,7 @@ import (
 // TODO: We should decouple peer address and peer. Node can know more nodes than it connects to
 type PeerManager struct {
 	// TODO: Need to revisit sync.Map: https://github.com/golang/go/issues/24112
-	Peers              sync.Map
+	Peers              *sync.Map
 	Overlay            *IotxOverlay
 	NumPeersLowerBound uint
 	NumPeersUpperBound uint
@@ -25,7 +25,12 @@ type PeerManager struct {
 
 // NewPeerManager creates an instance of PeerManager
 func NewPeerManager(o *IotxOverlay, lb uint, ub uint) *PeerManager {
-	return &PeerManager{Overlay: o, NumPeersLowerBound: lb, NumPeersUpperBound: ub}
+	return &PeerManager{
+		Overlay:            o,
+		NumPeersLowerBound: lb,
+		NumPeersUpperBound: ub,
+		Peers:              &sync.Map{},
+	}
 }
 
 // AddPeer adds a new peer
