@@ -7,11 +7,11 @@
 package explorer
 
 import (
-	"encoding/binary"
 	"encoding/hex"
 	"math/big"
 
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
@@ -40,6 +40,20 @@ var (
 	// ErrReceipt indicates the error of receipt
 	ErrReceipt = errors.New("invalid receipt")
 )
+
+var (
+	requestMtc = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "iotex_explorer_request",
+			Help: "IoTeX Explorer request counter.",
+		},
+		[]string{"method", "succeed"},
+	)
+)
+
+func init() {
+	prometheus.MustRegister(requestMtc)
+}
 
 // Service provide api for user to query blockchain data
 type Service struct {
@@ -806,8 +820,16 @@ func (exp *Service) GetCandidateMetrics() (explorer.CandidateMetrics, error) {
 }
 
 // SendTransfer sends a transfer
-func (exp *Service) SendTransfer(tsfJSON explorer.SendTransferRequest) (explorer.SendTransferResponse, error) {
+func (exp *Service) SendTransfer(tsfJSON explorer.SendTransferRequest) (resp explorer.SendTransferResponse, err error) {
 	logger.Debug().Msg("receive send transfer request")
+
+	defer func() {
+		succeed := "true"
+		if err != nil {
+			succeed = "false"
+		}
+		requestMtc.WithLabelValues("SendTransfer", succeed).Inc()
+	}()
 
 	amount := big.NewInt(tsfJSON.Amount).Bytes()
 
@@ -847,7 +869,7 @@ func (exp *Service) SendTransfer(tsfJSON explorer.SendTransferRequest) (explorer
 		Signature: signature,
 	}
 	// broadcast to the network
-	if err := exp.p2p.Broadcast(actPb); err != nil {
+	if err = exp.p2p.Broadcast(actPb); err != nil {
 		return explorer.SendTransferResponse{}, err
 	}
 	// send to actpool via dispatcher
@@ -860,8 +882,16 @@ func (exp *Service) SendTransfer(tsfJSON explorer.SendTransferRequest) (explorer
 }
 
 // SendVote sends a vote
-func (exp *Service) SendVote(voteJSON explorer.SendVoteRequest) (explorer.SendVoteResponse, error) {
+func (exp *Service) SendVote(voteJSON explorer.SendVoteRequest) (resp explorer.SendVoteResponse, err error) {
 	logger.Debug().Msg("receive send vote request")
+
+	defer func() {
+		succeed := "true"
+		if err != nil {
+			succeed = "false"
+		}
+		requestMtc.WithLabelValues("SendVote", succeed).Inc()
+	}()
 
 	selfPubKey, err := keypair.StringToPubKeyBytes(voteJSON.VoterPubKey)
 	if err != nil {
@@ -885,7 +915,7 @@ func (exp *Service) SendVote(voteJSON explorer.SendVoteRequest) (explorer.SendVo
 	}
 
 	// broadcast to the network
-	if err := exp.p2p.Broadcast(actPb); err != nil {
+	if err = exp.p2p.Broadcast(actPb); err != nil {
 		return explorer.SendVoteResponse{}, err
 	}
 	// send to actpool via dispatcher
@@ -912,8 +942,16 @@ func (exp *Service) GetPeers() (explorer.GetPeersResponse, error) {
 }
 
 // SendSmartContract sends a smart contract
-func (exp *Service) SendSmartContract(execution explorer.Execution) (explorer.SendSmartContractResponse, error) {
+func (exp *Service) SendSmartContract(execution explorer.Execution) (resp explorer.SendSmartContractResponse, err error) {
 	logger.Debug().Msg("receive send smart contract request")
+
+	defer func() {
+		succeed := "true"
+		if err != nil {
+			succeed = "false"
+		}
+		requestMtc.WithLabelValues("SendSmartContract", succeed).Inc()
+	}()
 
 	executorPubKey, err := keypair.StringToPubKeyBytes(execution.ExecutorPubKey)
 	if err != nil {
@@ -945,7 +983,7 @@ func (exp *Service) SendSmartContract(execution explorer.Execution) (explorer.Se
 	}
 	//
 	// broadcast to the network
-	if err := exp.p2p.Broadcast(actPb); err != nil {
+	if err = exp.p2p.Broadcast(actPb); err != nil {
 		return explorer.SendSmartContractResponse{}, err
 	}
 	// send to actpool via dispatcher
@@ -958,28 +996,38 @@ func (exp *Service) SendSmartContract(execution explorer.Execution) (explorer.Se
 }
 
 // ReadExecutionState reads the state in a contract address specified by the slot
-func (exp *Service) ReadExecutionState(contractAddress string, slot int64) (string, error) {
+func (exp *Service) ReadExecutionState(execution explorer.Execution) (string, error) {
 	logger.Debug().Msg("receive read smart contract request")
-	contractHash, err := hex.DecodeString(contractAddress)
+
+	data, err := hex.DecodeString(execution.Data)
 	if err != nil {
-		logger.Error().Err(err).Msg(" ")
 		return "", err
 	}
-	addrHash := hash.AddrHash{}
-	copy(addrHash[:], contractHash)
-
-	slotHash := hash.Hash32B{}
-	bytes := make([]byte, 8)
-	binary.BigEndian.PutUint64(bytes, uint64(slot))
-	slotHash.SetBytes(bytes)
-
-	val, err := exp.bc.GetFactory().GetContractState(addrHash, slotHash)
+	signature, err := hex.DecodeString(execution.Signature)
 	if err != nil {
-		logger.Error().Err(err).Msg(" ")
 		return "", err
 	}
+	actPb := &pb.ActionPb{
+		Action: &pb.ActionPb_Execution{
+			Execution: &pb.ExecutionPb{
+				Amount:         big.NewInt(execution.Amount).Bytes(),
+				Executor:       execution.Executor,
+				Contract:       execution.Contract,
+				ExecutorPubKey: nil,
+				Gas:            uint64(execution.Gas),
+				GasPrice:       uint64(execution.GasPrice),
+				Data:           data,
+			},
+		},
+		Version:   uint32(execution.Version),
+		Nonce:     uint64(execution.Nonce),
+		Signature: signature,
+	}
 
-	return hex.EncodeToString(val[:]), nil
+	sc := &action.Execution{}
+	sc.ConvertFromActionPb(actPb)
+	res, err := exp.bc.ExecuteContractRead(sc)
+	return hex.EncodeToString(res), nil
 }
 
 // getTransfer takes in a blockchain and transferHash and returns an Explorer Transfer

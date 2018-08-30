@@ -9,6 +9,7 @@ package network
 import (
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
@@ -18,6 +19,28 @@ import (
 	pb "github.com/iotexproject/iotex-core/network/proto"
 	"github.com/iotexproject/iotex-core/proto"
 )
+
+var (
+	cRequestMtc = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "iotex_network_peer_request",
+			Help: "Client side request counter.",
+		},
+		[]string{"method", "succeed"},
+	)
+	cConnMtc = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "iotex_network_peer_connection",
+			Help: "Num of peer connections.",
+		},
+		[]string{},
+	)
+)
+
+func init() {
+	prometheus.MustRegister(cRequestMtc)
+	prometheus.MustRegister(cConnMtc)
+}
 
 // Peer represents a node in the peer-to-peer networks
 type Peer struct {
@@ -83,39 +106,51 @@ func (p *Peer) Close() error {
 
 // Ping implements the client side RPC
 func (p *Peer) Ping(ping *pb.Ping) (*pb.Pong, error) {
+	succeed := "false"
 	pong, err := p.Client.Ping(p.Ctx, ping)
 	if err == nil {
+		succeed = "true"
 		p.updateLastResTime()
 	}
+	cRequestMtc.WithLabelValues("Ping", succeed).Inc()
 	return pong, err
 }
 
 // GetPeers implements the client side RPC
 func (p *Peer) GetPeers(req *pb.GetPeersReq) (*pb.GetPeersRes, error) {
+	succeed := "false"
 	res, err := p.Client.GetPeers(p.Ctx, req)
 	if err == nil {
+		succeed = "true"
 		p.updateLastResTime()
 	}
+	cRequestMtc.WithLabelValues("GetPeer", succeed).Inc()
 	return res, err
 }
 
 // BroadcastMsg implements the client side RPC
 func (p *Peer) BroadcastMsg(req *pb.BroadcastReq) (*pb.BroadcastRes, error) {
+	succeed := "false"
 	req.Header = iproto.MagicBroadcastMsgHeader
 	res, err := p.Client.Broadcast(p.Ctx, req)
 	if err == nil {
+		succeed = "true"
 		p.updateLastResTime()
 	}
+	cRequestMtc.WithLabelValues("Broadcast", succeed).Inc()
 	return res, err
 }
 
 // Tell implements the client side RPC
 func (p *Peer) Tell(req *pb.TellReq) (*pb.TellRes, error) {
+	succeed := "false"
 	req.Header = iproto.MagicBroadcastMsgHeader
 	res, err := p.Client.Tell(p.Ctx, req)
 	if err == nil {
+		succeed = "true"
 		p.updateLastResTime()
 	}
+	cRequestMtc.WithLabelValues("Tell", succeed).Inc()
 	return res, err
 }
 

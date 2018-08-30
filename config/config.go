@@ -137,6 +137,7 @@ var (
 		System: System{
 			HeartbeatInterval: 10 * time.Second,
 			HTTPProfilingPort: 0,
+			HTTPMetricsPort:   8080,
 		},
 	}
 
@@ -257,6 +258,7 @@ type (
 		// HTTPProfilingPort is the port number to access golang performance profiling data of a blockchain node. It is
 		// 0 by default, meaning performance profiling has been disabled
 		HTTPProfilingPort int `yaml:"httpProfilingPort"`
+		HTTPMetricsPort   int `yaml:"httpMetricsPort"`
 	}
 
 	// ActPool is the actpool config
