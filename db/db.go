@@ -47,12 +47,17 @@ const (
 
 // memKVStore is the in-memory implementation of KVStore for testing purpose
 type memKVStore struct {
-	data   sync.Map
+	data   *sync.Map
 	bucket map[string]struct{}
 }
 
 // NewMemKVStore instantiates an in-memory KV store
-func NewMemKVStore() KVStore { return &memKVStore{bucket: make(map[string]struct{})} }
+func NewMemKVStore() KVStore {
+	return &memKVStore{
+		bucket: make(map[string]struct{}),
+		data:   &sync.Map{},
+	}
+}
 
 func (m *memKVStore) Start(_ context.Context) error { return nil }
 
@@ -96,7 +101,7 @@ func (m *memKVStore) Delete(namespace string, key []byte) error {
 
 // Batch return a kv store batch api object
 func (m *memKVStore) Batch() KVStoreBatch {
-	return NewMemKVStoreBatch(&m.data, &m.bucket)
+	return NewMemKVStoreBatch(m.data, &m.bucket)
 }
 
 const fileMode = 0600

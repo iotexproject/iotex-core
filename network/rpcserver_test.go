@@ -25,7 +25,7 @@ func TestRpcPingPong(t *testing.T) {
 	ctx := context.Background()
 	config := LoadTestConfig("", true)
 	o := &IotxOverlay{Config: config}
-	o.PM = &PeerManager{Overlay: o, NumPeersLowerBound: 1, NumPeersUpperBound: 1}
+	o.PM = NewPeerManager(o, 1, 1)
 	s := NewRPCServer(o)
 	o.RPC = s
 	err := s.Start(ctx)
@@ -55,7 +55,7 @@ func TestGetPeers(t *testing.T) {
 	ctx := context.Background()
 	config := LoadTestConfig("", true)
 	o := &IotxOverlay{Config: config}
-	o.PM = &PeerManager{Overlay: o}
+	o.PM = NewPeerManager(o, 0, 0)
 	o.PM.Peers.Store("127.0.0.1:10001", NewTCPPeer("127.0.0.1:10001"))
 	o.PM.Peers.Store("127.0.0.1:10002", NewTCPPeer("127.0.0.1:10002"))
 	s := NewRPCServer(o)
@@ -101,8 +101,8 @@ func TestBroadcast(t *testing.T) {
 	ctx := context.Background()
 	config := LoadTestConfig("", true)
 	o := &IotxOverlay{Config: config}
-	o.PM = &PeerManager{Overlay: o}
-	o.Gossip = &Gossip{Overlay: o}
+	o.PM = NewPeerManager(o, 0, 0)
+	o.Gossip = NewGossip(o)
 	s := NewRPCServer(o)
 	o.RPC = s
 	err := s.Start(ctx)
@@ -217,7 +217,7 @@ func TestSecureRpcPingPong(t *testing.T) {
 	config.PeerCrtPath = "../test/assets/ssl/127.0.0.1.crt"
 	config.PeerKeyPath = "../test/assets/ssl/127.0.0.1.key"
 	o := &IotxOverlay{Config: config}
-	o.PM = &PeerManager{Overlay: o, NumPeersLowerBound: 1, NumPeersUpperBound: 1}
+	o.PM = NewPeerManager(o, 1, 1)
 	s := NewRPCServer(o)
 	o.RPC = s
 	err := s.Start(ctx)
@@ -253,7 +253,7 @@ func TestKeepaliveParams(t *testing.T) {
 	config.KLClientParams.Timeout = 20 * time.Millisecond
 	config.KLPolicy.MinTime = 20 * time.Millisecond
 	o := &IotxOverlay{Config: config}
-	o.PM = &PeerManager{Overlay: o, NumPeersLowerBound: 1, NumPeersUpperBound: 1}
+	o.PM = NewPeerManager(o, 1, 1)
 	s := NewRPCServer(o)
 	o.RPC = s
 	err := s.Start(ctx)
