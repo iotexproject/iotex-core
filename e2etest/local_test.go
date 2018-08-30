@@ -727,7 +727,7 @@ func TestDummyBlockReplacement(t *testing.T) {
 	svr := itx.NewServer(cfg)
 	require.NoError(svr.Start(ctx))
 	require.NotNil(svr.Blockchain())
-	require.NoError(addTestingDummyBlocm(svr.Blockchain()))
+	require.NoError(addTestingDummyBlock(svr.Blockchain()))
 	require.NotNil(svr.ActionPool())
 	require.NotNil(svr.P2P())
 

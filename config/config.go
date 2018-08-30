@@ -91,7 +91,6 @@ var (
 			ProducerPrivKey:         keypair.EncodePrivateKey(keypair.ZeroPrivateKey),
 			InMemTest:               false,
 			GenesisActionsPath:      "",
-			DelegateLRUSize:         10,
 			NumCandidates:           101,
 			EnableFallBackToFreshDB: false,
 		},
@@ -204,7 +203,6 @@ type (
 		// InMemTest creates in-memory DB file for local testing
 		InMemTest               bool   `yaml:"inMemTest"`
 		GenesisActionsPath      string `yaml:"genesisActionsPath"`
-		DelegateLRUSize         uint   `yaml:"delegateLRUSize"`
 		NumCandidates           uint   `yaml:"numCandidates"`
 		EnableFallBackToFreshDB bool   `yaml:"enablefallbacktofreshdb"`
 	}

@@ -264,6 +264,12 @@ func TestCandidates(t *testing.T) {
 	tx2 := action.Transfer{Sender: a.RawAddress, Recipient: c.RawAddress, Nonce: uint64(2), Amount: big.NewInt(20)}
 	err = sf.CommitStateChanges(0, []*action.Transfer{&tx1, &tx2}, []*action.Vote{}, []*action.Execution{})
 	require.Nil(t, err)
+	balanceB, err := sf.Balance(b.RawAddress)
+	require.Nil(t, err)
+	require.Equal(t, balanceB, big.NewInt(210))
+	balanceC, err := sf.Balance(c.RawAddress)
+	require.Nil(t, err)
+	require.Equal(t, balanceC, big.NewInt(320))
 	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{}))
 	// a:70 b:210 c:320
 
@@ -484,6 +490,9 @@ func TestCandidates(t *testing.T) {
 	require.True(t, height == 3)
 	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{e.RawAddress + ":200", b.RawAddress + ":500"}))
 	// a(b):100(0) b(c):200(500) [c(c):100(+200=300)] d(b): 400(100) e(e):200(+0=200) f(d):100(0)
+	cachedStateA, err := sf.CachedState(a.RawAddress)
+	require.Nil(t, err)
+	require.Equal(t, cachedStateA.Balance, big.NewInt(100))
 }
 
 func TestCandidatesByHeight(t *testing.T) {
@@ -609,6 +618,31 @@ func TestLoadStoreHeight(t *testing.T) {
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
 	statefactory, err := NewFactory(cfg, DefaultTrieOption())
+	require.Nil(err)
+	require.Nil(statefactory.Start(context.Background()))
+
+	sf := statefactory.(*factory)
+
+	sf.accountTrie.TrieDB().Put(trie.AccountKVNameSpace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0))
+	height, err := sf.Height()
+	require.NoError(err)
+	require.Equal(uint64(0), height)
+
+	sf.accountTrie.TrieDB().Put(trie.AccountKVNameSpace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(10))
+	height, err = sf.Height()
+	require.NoError(err)
+	require.Equal(uint64(10), height)
+}
+
+func TestLoadStoreHeightInMem(t *testing.T) {
+	require := require.New(t)
+
+	cfg := config.Default
+	cfg.Chain.TrieDBPath = testTriePath
+
+	testutil.CleanupPath(t, testTriePath)
+	defer testutil.CleanupPath(t, testTriePath)
+	statefactory, err := NewFactory(&cfg, InMemTrieOption())
 	require.Nil(err)
 	require.Nil(statefactory.Start(context.Background()))
 
