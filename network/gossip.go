@@ -25,7 +25,7 @@ import (
 type Gossip struct {
 	Overlay     *IotxOverlay
 	Dispatcher  dispatcher.Dispatcher
-	MsgLogs     sync.Map
+	MsgLogs     *sync.Map
 	CleanerTask *routine.RecurringTask
 
 	lifecycle lifecycle.Lifecycle
@@ -33,7 +33,10 @@ type Gossip struct {
 
 // NewGossip generates a Gossip instance
 func NewGossip(o *IotxOverlay) *Gossip {
-	g := &Gossip{Overlay: o}
+	g := &Gossip{
+		Overlay: o,
+		MsgLogs: &sync.Map{},
+	}
 	cleaner := NewMsgLogsCleaner(g)
 	g.CleanerTask = routine.NewRecurringTask(cleaner.Clean, o.Config.MsgLogsCleaningInterval)
 	g.lifecycle.Add(g.CleanerTask)
