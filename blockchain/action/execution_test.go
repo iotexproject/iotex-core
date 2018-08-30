@@ -19,9 +19,9 @@ import (
 func TestExecutionSignVerify(t *testing.T) {
 	require := require.New(t)
 	executor, err := iotxaddress.NewAddress(true, chainid)
-	require.Nil(err)
+	require.NoError(err)
 	contract, err := iotxaddress.NewAddress(true, chainid)
-	require.Nil(err)
+	require.NoError(err)
 	data, err := hex.DecodeString("")
 	require.NoError(err)
 	ex, err := NewExecution(executor.RawAddress, contract.RawAddress, 0, big.NewInt(10), 10, 10, data)
@@ -31,7 +31,7 @@ func TestExecutionSignVerify(t *testing.T) {
 
 	// sign the Execution
 	sex, err := ex.Sign(executor)
-	require.Nil(err)
+	require.NoError(err)
 	require.NotNil(sex)
 	require.Equal(ex.Hash(), sex.Hash())
 
@@ -39,18 +39,18 @@ func TestExecutionSignVerify(t *testing.T) {
 	require.Equal(ex.Hash(), sex.Hash())
 
 	// verify signature
-	require.Nil(sex.Verify(executor))
+	require.NoError(sex.Verify(executor))
 	require.NotNil(sex.Verify(contract))
 	require.NotNil(ex.Signature)
-	require.Nil(ex.Verify(executor))
+	require.NoError(ex.Verify(executor))
 }
 
 func TestExecutionSerializeDeserialize(t *testing.T) {
 	require := require.New(t)
 	executor, err := iotxaddress.NewAddress(true, chainid)
-	require.Nil(err)
+	require.NoError(err)
 	contract, err := iotxaddress.NewAddress(true, chainid)
-	require.Nil(err)
+	require.NoError(err)
 	data, err := hex.DecodeString("60652403")
 
 	ex, err := NewExecution(executor.RawAddress, contract.RawAddress, 0, big.NewInt(123), 1234, 10, data)
@@ -58,11 +58,40 @@ func TestExecutionSerializeDeserialize(t *testing.T) {
 	require.NotNil(ex)
 
 	s, err := ex.Serialize()
-	require.Nil(err)
+	require.NoError(err)
 
 	newex := &Execution{}
 	err = newex.Deserialize(s)
-	require.Nil(err)
+	require.NoError(err)
+
+	require.Equal(uint64(0), newex.Nonce)
+	require.Equal(uint64(123), newex.Amount.Uint64())
+	require.Equal(executor.RawAddress, newex.Executor)
+	require.Equal(contract.RawAddress, newex.Contract)
+
+	require.Equal(ex.Hash(), newex.Hash())
+	require.Equal(ex.TotalSize(), newex.TotalSize())
+}
+
+func TestExecutionToJSONFromJSON(t *testing.T) {
+	require := require.New(t)
+	executor, err := iotxaddress.NewAddress(true, chainid)
+	require.NoError(err)
+	contract, err := iotxaddress.NewAddress(true, chainid)
+	require.NoError(err)
+	data, err := hex.DecodeString("60652403")
+
+	ex, err := NewExecution(executor.RawAddress, contract.RawAddress, 0, big.NewInt(123), 1234, 10, data)
+	require.NoError(err)
+	require.NotNil(ex)
+
+	expex, err := ex.ToJSON()
+	require.NoError(err)
+	require.NotNil(expex)
+
+	newex, err := NewExecutionFromJSON(expex)
+	require.NoError(err)
+	require.NotNil(newex)
 
 	require.Equal(uint64(0), newex.Nonce)
 	require.Equal(uint64(123), newex.Amount.Uint64())

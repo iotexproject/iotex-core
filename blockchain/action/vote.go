@@ -126,27 +126,31 @@ func (v *Vote) ConvertFromActionPb(pbAct *iproto.ActionPb) {
 
 // NewVoteFromJSON creates a new Vote from VoteJSON
 func NewVoteFromJSON(jsonVote *explorer.Vote) (*Vote, error) {
-	v := &Vote{}
-	v.Version = uint32(jsonVote.Version)
 	// used by account-based model
-	v.Nonce = uint64(jsonVote.Nonce)
 	voterPubKey, err := keypair.StringToPubKeyBytes(jsonVote.VoterPubKey)
 	if err != nil {
 		logger.Error().Err(err).Msg("Fail to create a new Vote from VoteJSON")
 		return nil, err
 	}
-	pbVote := v.GetVote()
-	pbVote.SelfPubkey = voterPubKey
-	pbVote.VoterAddress = jsonVote.Voter
-	pbVote.VoteeAddress = jsonVote.Votee
 	signature, err := hex.DecodeString(jsonVote.Signature)
 	if err != nil {
 		logger.Error().Err(err).Msg("Fail to create a new Vote from VoteJSON")
 		return nil, err
 	}
-	v.Signature = signature
 
-	return v, nil
+	pbVote := &iproto.ActionPb{
+		Action: &iproto.ActionPb_Vote{
+			Vote: &iproto.VotePb{
+				SelfPubkey:   voterPubKey,
+				VoterAddress: jsonVote.Voter,
+				VoteeAddress: jsonVote.Votee,
+			},
+		},
+		Version:   uint32(jsonVote.Version),
+		Nonce:     uint64(jsonVote.Nonce),
+		Signature: signature,
+	}
+	return &Vote{pbVote}, nil
 }
 
 // Deserialize parse the byte stream into Vote
