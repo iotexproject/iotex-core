@@ -112,6 +112,11 @@ type Blockchain interface {
 	Validator() Validator
 	// SetValidator sets the current validator object
 	SetValidator(val Validator)
+
+	// For smart contract operations
+	// ExecuteContractRead runs a read-only smart contract operation, this is done off the network since it does not
+	// cause any state change
+	ExecuteContractRead(*action.Execution) ([]byte, error)
 }
 
 // blockchain implements the Blockchain interface
@@ -642,6 +647,12 @@ func (bc *blockchain) SetValidator(val Validator) {
 // Validator gets the current validator object
 func (bc *blockchain) Validator() Validator {
 	return bc.validator
+}
+
+// ExecuteContractRead runs a read-only smart contract operation, this is done off the network since it does not
+// cause any state change
+func (bc *blockchain) ExecuteContractRead(*action.Execution) ([]byte, error) {
+	return nil, nil
 }
 
 //======================================
