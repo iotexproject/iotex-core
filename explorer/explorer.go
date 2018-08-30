@@ -11,6 +11,7 @@ import (
 	"math/big"
 
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
@@ -39,6 +40,20 @@ var (
 	// ErrReceipt indicates the error of receipt
 	ErrReceipt = errors.New("invalid receipt")
 )
+
+var (
+	requestMtc = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "iotex_explorer_request",
+			Help: "IoTeX Explorer request counter.",
+		},
+		[]string{"method", "succeed"},
+	)
+)
+
+func init() {
+	prometheus.MustRegister(requestMtc)
+}
 
 // Service provide api for user to query blockchain data
 type Service struct {
@@ -805,8 +820,16 @@ func (exp *Service) GetCandidateMetrics() (explorer.CandidateMetrics, error) {
 }
 
 // SendTransfer sends a transfer
-func (exp *Service) SendTransfer(tsfJSON explorer.SendTransferRequest) (explorer.SendTransferResponse, error) {
+func (exp *Service) SendTransfer(tsfJSON explorer.SendTransferRequest) (resp explorer.SendTransferResponse, err error) {
 	logger.Debug().Msg("receive send transfer request")
+
+	defer func() {
+		succeed := "true"
+		if err != nil {
+			succeed = "false"
+		}
+		requestMtc.WithLabelValues("SendTransfer", succeed).Inc()
+	}()
 
 	amount := big.NewInt(tsfJSON.Amount).Bytes()
 
@@ -846,7 +869,7 @@ func (exp *Service) SendTransfer(tsfJSON explorer.SendTransferRequest) (explorer
 		Signature: signature,
 	}
 	// broadcast to the network
-	if err := exp.p2p.Broadcast(actPb); err != nil {
+	if err = exp.p2p.Broadcast(actPb); err != nil {
 		return explorer.SendTransferResponse{}, err
 	}
 	// send to actpool via dispatcher
@@ -859,8 +882,16 @@ func (exp *Service) SendTransfer(tsfJSON explorer.SendTransferRequest) (explorer
 }
 
 // SendVote sends a vote
-func (exp *Service) SendVote(voteJSON explorer.SendVoteRequest) (explorer.SendVoteResponse, error) {
+func (exp *Service) SendVote(voteJSON explorer.SendVoteRequest) (resp explorer.SendVoteResponse, err error) {
 	logger.Debug().Msg("receive send vote request")
+
+	defer func() {
+		succeed := "true"
+		if err != nil {
+			succeed = "false"
+		}
+		requestMtc.WithLabelValues("SendVote", succeed).Inc()
+	}()
 
 	selfPubKey, err := keypair.StringToPubKeyBytes(voteJSON.VoterPubKey)
 	if err != nil {
@@ -884,7 +915,7 @@ func (exp *Service) SendVote(voteJSON explorer.SendVoteRequest) (explorer.SendVo
 	}
 
 	// broadcast to the network
-	if err := exp.p2p.Broadcast(actPb); err != nil {
+	if err = exp.p2p.Broadcast(actPb); err != nil {
 		return explorer.SendVoteResponse{}, err
 	}
 	// send to actpool via dispatcher
@@ -911,8 +942,16 @@ func (exp *Service) GetPeers() (explorer.GetPeersResponse, error) {
 }
 
 // SendSmartContract sends a smart contract
-func (exp *Service) SendSmartContract(execution explorer.Execution) (explorer.SendSmartContractResponse, error) {
+func (exp *Service) SendSmartContract(execution explorer.Execution) (resp explorer.SendSmartContractResponse, err error) {
 	logger.Debug().Msg("receive send smart contract request")
+
+	defer func() {
+		succeed := "true"
+		if err != nil {
+			succeed = "false"
+		}
+		requestMtc.WithLabelValues("SendSmartContract", succeed).Inc()
+	}()
 
 	executorPubKey, err := keypair.StringToPubKeyBytes(execution.ExecutorPubKey)
 	if err != nil {
@@ -944,7 +983,7 @@ func (exp *Service) SendSmartContract(execution explorer.Execution) (explorer.Se
 	}
 	//
 	// broadcast to the network
-	if err := exp.p2p.Broadcast(actPb); err != nil {
+	if err = exp.p2p.Broadcast(actPb); err != nil {
 		return explorer.SendSmartContractResponse{}, err
 	}
 	// send to actpool via dispatcher

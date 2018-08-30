@@ -53,3 +53,6 @@
   [[prune.project]]
       name = "github.com/CoderZhi/go-ethereum"
       unused-packages = false
+[[constraint]]
+  name = "github.com/prometheus/client_golang"
+  version = "0.8.0"
