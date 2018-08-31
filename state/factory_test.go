@@ -243,9 +243,8 @@ func TestCandidates(t *testing.T) {
 	f, _ := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
-  
+
 	accountTr, _ := trie.NewTrie(db.NewBoltDB(testTriePath, &cfg.DB), "account", trie.EmptyRoot)
-	candidateTr, _ := trie.NewTrie(accountTr.TrieDB(), "candidate", trie.EmptyRoot)
 	require.Nil(t, accountTr.Start(context.Background()))
 	sf := &factory{
 		accountTrie:      accountTr,
@@ -498,7 +497,6 @@ func TestCandidatesByHeight(t *testing.T) {
 	defer testutil.CleanupPath(t, testTriePath)
 
 	accountTr, _ := trie.NewTrie(db.NewBoltDB(testTriePath, &cfg.DB), "account", trie.EmptyRoot)
-	candidateTr, _ := trie.NewTrie(accountTr.TrieDB(), "candidate", trie.EmptyRoot)
 	require.Nil(t, accountTr.Start(context.Background()))
 	sf := &factory{
 		accountTrie:      accountTr,
@@ -562,7 +560,6 @@ func TestUnvote(t *testing.T) {
 	defer testutil.CleanupPath(t, testTriePath)
 
 	accountTr, _ := trie.NewTrie(db.NewBoltDB(testTriePath, &cfg.DB), "account", trie.EmptyRoot)
-	candidateTr, _ := trie.NewTrie(accountTr.TrieDB(), "candidate", trie.EmptyRoot)
 	require.Nil(t, accountTr.Start(context.Background()))
 	sf := &factory{
 		accountTrie:      accountTr,
