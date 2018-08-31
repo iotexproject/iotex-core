@@ -85,6 +85,8 @@ func (b *blockBuffer) Flush(blk *blockchain.Block) (bool, bCheckinResult) {
 				Msg("Successfully committed block.")
 			delete(b.blocks, syncHeight)
 			continue
+		} else {
+			l.Error().Err(err).Msg("Failed to commit the block")
 		}
 
 		// unable to commit, check reason

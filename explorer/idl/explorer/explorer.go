@@ -8,15 +8,16 @@ import (
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "a4b08a268b22c32b15f9dbf57eeb2166"
-const BarristerDateGenerated int64 = 1534876251738000000
+const BarristerChecksum string = "8af933d782f93b653033aa66329b030b"
+const BarristerDateGenerated int64 = 1535574606391000000
 
 type CoinStatistic struct {
-	Height    int64 `json:"height"`
-	Supply    int64 `json:"supply"`
-	Transfers int64 `json:"transfers"`
-	Votes     int64 `json:"votes"`
-	Aps       int64 `json:"aps"`
+	Height     int64 `json:"height"`
+	Supply     int64 `json:"supply"`
+	Transfers  int64 `json:"transfers"`
+	Votes      int64 `json:"votes"`
+	Executions int64 `json:"executions"`
+	Aps        int64 `json:"aps"`
 }
 
 type BlockGenerator struct {
@@ -30,6 +31,7 @@ type Block struct {
 	Timestamp  int64          `json:"timestamp"`
 	Transfers  int64          `json:"transfers"`
 	Votes      int64          `json:"votes"`
+	Executions int64          `json:"executions"`
 	GenerateBy BlockGenerator `json:"generateBy"`
 	Amount     int64          `json:"amount"`
 	Forged     int64          `json:"forged"`
@@ -70,6 +72,29 @@ type Execution struct {
 	IsPending      bool   `json:"isPending"`
 }
 
+type Log struct {
+	Address     string   `json:"address"`
+	Topics      []string `json:"topics"`
+	Data        string   `json:"data"`
+	BlockNumber int64    `json:"blockNumber"`
+	TxnHash     string   `json:"txnHash"`
+	BlockHash   string   `json:"blockHash"`
+	Index       int64    `json:"index"`
+}
+
+type Receipt struct {
+	ReturnValue     string `json:"returnValue"`
+	Status          int64  `json:"status"`
+	Hash            string `json:"hash"`
+	GasConsumed     int64  `json:"gasConsumed"`
+	ContractAddress string `json:"contractAddress"`
+	Logs            []Log  `json:"logs"`
+}
+
+type SendExecutionResponse struct {
+	Receipt Receipt `json:"receipt"`
+}
+
 type Vote struct {
 	Version     int64  `json:"version"`
 	ID          string `json:"ID"`
@@ -101,7 +126,9 @@ type Candidate struct {
 }
 
 type CandidateMetrics struct {
-	Candidates []Candidate `json:"candidates"`
+	Candidates   []Candidate `json:"candidates"`
+	LatestEpoch  int64       `json:"latestEpoch"`
+	LatestHeight int64       `json:"latestHeight"`
 }
 
 type ConsensusMetrics struct {
@@ -167,6 +194,11 @@ type Explorer interface {
 	GetVotesByAddress(address string, offset int64, limit int64) ([]Vote, error)
 	GetUnconfirmedVotesByAddress(address string, offset int64, limit int64) ([]Vote, error)
 	GetVotesByBlockID(blkID string, offset int64, limit int64) ([]Vote, error)
+	GetLastExecutionsByRange(startBlockHeight int64, offset int64, limit int64) ([]Execution, error)
+	GetExecutionByID(executionID string) (Execution, error)
+	GetExecutionsByAddress(address string, offset int64, limit int64) ([]Execution, error)
+	GetUnconfirmedExecutionsByAddress(address string, offset int64, limit int64) ([]Execution, error)
+	GetExecutionsByBlockID(blkID string, offset int64, limit int64) ([]Execution, error)
 	GetLastBlocksByRange(offset int64, limit int64) ([]Block, error)
 	GetBlockByID(blkID string) (Block, error)
 	GetCoinStatistic() (CoinStatistic, error)
@@ -176,6 +208,8 @@ type Explorer interface {
 	SendVote(request SendVoteRequest) (SendVoteResponse, error)
 	SendSmartContract(request Execution) (SendSmartContractResponse, error)
 	GetPeers() (GetPeersResponse, error)
+	GetReceiptByExecutionID(id string) (Receipt, error)
+	ReadExecutionState(request Execution) (string, error)
 }
 
 func NewExplorerProxy(c barrister.Client) Explorer {
@@ -421,6 +455,96 @@ func (_p ExplorerProxy) GetVotesByBlockID(blkID string, offset int64, limit int6
 	return []Vote{}, _err
 }
 
+func (_p ExplorerProxy) GetLastExecutionsByRange(startBlockHeight int64, offset int64, limit int64) ([]Execution, error) {
+	_res, _err := _p.client.Call("Explorer.getLastExecutionsByRange", startBlockHeight, offset, limit)
+	if _err == nil {
+		_retType := _p.idl.Method("Explorer.getLastExecutionsByRange").Returns
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf([]Execution{}), _res, "")
+	}
+	if _err == nil {
+		_cast, _ok := _res.([]Execution)
+		if !_ok {
+			_t := reflect.TypeOf(_res)
+			_msg := fmt.Sprintf("Explorer.getLastExecutionsByRange returned invalid type: %v", _t)
+			return []Execution{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
+		}
+		return _cast, nil
+	}
+	return []Execution{}, _err
+}
+
+func (_p ExplorerProxy) GetExecutionByID(executionID string) (Execution, error) {
+	_res, _err := _p.client.Call("Explorer.getExecutionByID", executionID)
+	if _err == nil {
+		_retType := _p.idl.Method("Explorer.getExecutionByID").Returns
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(Execution{}), _res, "")
+	}
+	if _err == nil {
+		_cast, _ok := _res.(Execution)
+		if !_ok {
+			_t := reflect.TypeOf(_res)
+			_msg := fmt.Sprintf("Explorer.getExecutionByID returned invalid type: %v", _t)
+			return Execution{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
+		}
+		return _cast, nil
+	}
+	return Execution{}, _err
+}
+
+func (_p ExplorerProxy) GetExecutionsByAddress(address string, offset int64, limit int64) ([]Execution, error) {
+	_res, _err := _p.client.Call("Explorer.getExecutionsByAddress", address, offset, limit)
+	if _err == nil {
+		_retType := _p.idl.Method("Explorer.getExecutionsByAddress").Returns
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf([]Execution{}), _res, "")
+	}
+	if _err == nil {
+		_cast, _ok := _res.([]Execution)
+		if !_ok {
+			_t := reflect.TypeOf(_res)
+			_msg := fmt.Sprintf("Explorer.getExecutionsByAddress returned invalid type: %v", _t)
+			return []Execution{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
+		}
+		return _cast, nil
+	}
+	return []Execution{}, _err
+}
+
+func (_p ExplorerProxy) GetUnconfirmedExecutionsByAddress(address string, offset int64, limit int64) ([]Execution, error) {
+	_res, _err := _p.client.Call("Explorer.getUnconfirmedExecutionsByAddress", address, offset, limit)
+	if _err == nil {
+		_retType := _p.idl.Method("Explorer.getUnconfirmedExecutionsByAddress").Returns
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf([]Execution{}), _res, "")
+	}
+	if _err == nil {
+		_cast, _ok := _res.([]Execution)
+		if !_ok {
+			_t := reflect.TypeOf(_res)
+			_msg := fmt.Sprintf("Explorer.getUnconfirmedExecutionsByAddress returned invalid type: %v", _t)
+			return []Execution{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
+		}
+		return _cast, nil
+	}
+	return []Execution{}, _err
+}
+
+func (_p ExplorerProxy) GetExecutionsByBlockID(blkID string, offset int64, limit int64) ([]Execution, error) {
+	_res, _err := _p.client.Call("Explorer.getExecutionsByBlockID", blkID, offset, limit)
+	if _err == nil {
+		_retType := _p.idl.Method("Explorer.getExecutionsByBlockID").Returns
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf([]Execution{}), _res, "")
+	}
+	if _err == nil {
+		_cast, _ok := _res.([]Execution)
+		if !_ok {
+			_t := reflect.TypeOf(_res)
+			_msg := fmt.Sprintf("Explorer.getExecutionsByBlockID returned invalid type: %v", _t)
+			return []Execution{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
+		}
+		return _cast, nil
+	}
+	return []Execution{}, _err
+}
+
 func (_p ExplorerProxy) GetLastBlocksByRange(offset int64, limit int64) ([]Block, error) {
 	_res, _err := _p.client.Call("Explorer.getLastBlocksByRange", offset, limit)
 	if _err == nil {
@@ -583,6 +707,42 @@ func (_p ExplorerProxy) GetPeers() (GetPeersResponse, error) {
 	return GetPeersResponse{}, _err
 }
 
+func (_p ExplorerProxy) GetReceiptByExecutionID(id string) (Receipt, error) {
+	_res, _err := _p.client.Call("Explorer.getReceiptByExecutionID", id)
+	if _err == nil {
+		_retType := _p.idl.Method("Explorer.getReceiptByExecutionID").Returns
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(Receipt{}), _res, "")
+	}
+	if _err == nil {
+		_cast, _ok := _res.(Receipt)
+		if !_ok {
+			_t := reflect.TypeOf(_res)
+			_msg := fmt.Sprintf("Explorer.getReceiptByExecutionID returned invalid type: %v", _t)
+			return Receipt{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
+		}
+		return _cast, nil
+	}
+	return Receipt{}, _err
+}
+
+func (_p ExplorerProxy) ReadExecutionState(request Execution) (string, error) {
+	_res, _err := _p.client.Call("Explorer.readExecutionState", request)
+	if _err == nil {
+		_retType := _p.idl.Method("Explorer.readExecutionState").Returns
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(""), _res, "")
+	}
+	if _err == nil {
+		_cast, _ok := _res.(string)
+		if !_ok {
+			_t := reflect.TypeOf(_res)
+			_msg := fmt.Sprintf("Explorer.readExecutionState returned invalid type: %v", _t)
+			return "", &barrister.JsonRpcError{Code: -32000, Message: _msg}
+		}
+		return _cast, nil
+	}
+	return "", _err
+}
+
 func NewJSONServer(idl *barrister.Idl, forceASCII bool, explorer Explorer) barrister.Server {
 	return NewServer(idl, &barrister.JsonSerializer{forceASCII}, explorer)
 }
@@ -682,6 +842,13 @@ var IdlJsonRaw = `[
                 "comment": ""
             },
             {
+                "name": "executions",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
                 "name": "aps",
                 "type": "int",
                 "optional": false,
@@ -760,6 +927,13 @@ var IdlJsonRaw = `[
             },
             {
                 "name": "votes",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "executions",
                 "type": "int",
                 "optional": false,
                 "is_array": false,
@@ -1026,6 +1200,146 @@ var IdlJsonRaw = `[
     },
     {
         "type": "struct",
+        "name": "Log",
+        "comment": "",
+        "value": "",
+        "extends": "",
+        "fields": [
+            {
+                "name": "address",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "topics",
+                "type": "string",
+                "optional": false,
+                "is_array": true,
+                "comment": ""
+            },
+            {
+                "name": "data",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "blockNumber",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "txnHash",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "blockHash",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "index",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            }
+        ],
+        "values": null,
+        "functions": null,
+        "barrister_version": "",
+        "date_generated": 0,
+        "checksum": ""
+    },
+    {
+        "type": "struct",
+        "name": "Receipt",
+        "comment": "",
+        "value": "",
+        "extends": "",
+        "fields": [
+            {
+                "name": "returnValue",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "status",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "hash",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "gasConsumed",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "contractAddress",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "logs",
+                "type": "Log",
+                "optional": false,
+                "is_array": true,
+                "comment": ""
+            }
+        ],
+        "values": null,
+        "functions": null,
+        "barrister_version": "",
+        "date_generated": 0,
+        "checksum": ""
+    },
+    {
+        "type": "struct",
+        "name": "SendExecutionResponse",
+        "comment": "",
+        "value": "",
+        "extends": "",
+        "fields": [
+            {
+                "name": "receipt",
+                "type": "Receipt",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            }
+        ],
+        "values": null,
+        "functions": null,
+        "barrister_version": "",
+        "date_generated": 0,
+        "checksum": ""
+    },
+    {
+        "type": "struct",
         "name": "Vote",
         "comment": "",
         "value": "",
@@ -1225,6 +1539,20 @@ var IdlJsonRaw = `[
                 "type": "Candidate",
                 "optional": false,
                 "is_array": true,
+                "comment": ""
+            },
+            {
+                "name": "latestEpoch",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "latestHeight",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
                 "comment": ""
             }
         ],
@@ -1902,6 +2230,162 @@ var IdlJsonRaw = `[
                 }
             },
             {
+                "name": "getLastExecutionsByRange",
+                "comment": "get list of executions by start block height, execution offset and limit",
+                "params": [
+                    {
+                        "name": "startBlockHeight",
+                        "type": "int",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    },
+                    {
+                        "name": "offset",
+                        "type": "int",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    },
+                    {
+                        "name": "limit",
+                        "type": "int",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    }
+                ],
+                "returns": {
+                    "name": "",
+                    "type": "Execution",
+                    "optional": false,
+                    "is_array": true,
+                    "comment": ""
+                }
+            },
+            {
+                "name": "getExecutionByID",
+                "comment": "get execution from execution id",
+                "params": [
+                    {
+                        "name": "executionID",
+                        "type": "string",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    }
+                ],
+                "returns": {
+                    "name": "",
+                    "type": "Execution",
+                    "optional": false,
+                    "is_array": false,
+                    "comment": ""
+                }
+            },
+            {
+                "name": "getExecutionsByAddress",
+                "comment": "get list of executions belonging to an address",
+                "params": [
+                    {
+                        "name": "address",
+                        "type": "string",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    },
+                    {
+                        "name": "offset",
+                        "type": "int",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    },
+                    {
+                        "name": "limit",
+                        "type": "int",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    }
+                ],
+                "returns": {
+                    "name": "",
+                    "type": "Execution",
+                    "optional": false,
+                    "is_array": true,
+                    "comment": ""
+                }
+            },
+            {
+                "name": "getUnconfirmedExecutionsByAddress",
+                "comment": "get list of unconfirmed executions in actpool belonging to an address",
+                "params": [
+                    {
+                        "name": "address",
+                        "type": "string",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    },
+                    {
+                        "name": "offset",
+                        "type": "int",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    },
+                    {
+                        "name": "limit",
+                        "type": "int",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    }
+                ],
+                "returns": {
+                    "name": "",
+                    "type": "Execution",
+                    "optional": false,
+                    "is_array": true,
+                    "comment": ""
+                }
+            },
+            {
+                "name": "getExecutionsByBlockID",
+                "comment": "get all executions in a block",
+                "params": [
+                    {
+                        "name": "blkID",
+                        "type": "string",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    },
+                    {
+                        "name": "offset",
+                        "type": "int",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    },
+                    {
+                        "name": "limit",
+                        "type": "int",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    }
+                ],
+                "returns": {
+                    "name": "",
+                    "type": "Execution",
+                    "optional": false,
+                    "is_array": true,
+                    "comment": ""
+                }
+            },
+            {
                 "name": "getLastBlocksByRange",
                 "comment": "get list of blocks by block id offset and limit",
                 "params": [
@@ -2055,6 +2539,46 @@ var IdlJsonRaw = `[
                     "is_array": false,
                     "comment": ""
                 }
+            },
+            {
+                "name": "getReceiptByExecutionID",
+                "comment": "get receipt by execution id",
+                "params": [
+                    {
+                        "name": "id",
+                        "type": "string",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    }
+                ],
+                "returns": {
+                    "name": "",
+                    "type": "Receipt",
+                    "optional": false,
+                    "is_array": false,
+                    "comment": ""
+                }
+            },
+            {
+                "name": "readExecutionState",
+                "comment": "read execution state",
+                "params": [
+                    {
+                        "name": "request",
+                        "type": "Execution",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    }
+                ],
+                "returns": {
+                    "name": "",
+                    "type": "string",
+                    "optional": false,
+                    "is_array": false,
+                    "comment": ""
+                }
             }
         ],
         "barrister_version": "",
@@ -2071,7 +2595,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1534876251738,
-        "checksum": "a4b08a268b22c32b15f9dbf57eeb2166"
+        "date_generated": 1535574606391,
+        "checksum": "8af933d782f93b653033aa66329b030b"
     }
 ]`

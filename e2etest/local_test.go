@@ -790,6 +790,13 @@ func TestDummyBlockReplacement(t *testing.T) {
 	require.Equal(hash, blk1.HashBlock())
 	require.NoError(originChain.CommitBlock(blk1))
 
+	// Wait for actpool to be reset
+	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
+		tsf, _, _ := svr.ActionPool().PickActs()
+		return len(tsf) == 0, nil
+	})
+	require.Nil(err)
+
 	// Replace the second dummy block
 	tsf1, err := signedTransfer(ta.Addrinfo["producer"], ta.Addrinfo["alfa"], 1, big.NewInt(1))
 	require.NoError(err)

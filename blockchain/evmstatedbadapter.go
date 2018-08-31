@@ -179,7 +179,8 @@ func (stateDB *EVMStateDBAdapter) GetCodeHash(evmAddr common.Address) common.Has
 func (stateDB *EVMStateDBAdapter) GetCode(evmAddr common.Address) []byte {
 	code, err := stateDB.sf.GetCode(byteutil.BytesTo20B(evmAddr[:]))
 	if err != nil {
-		logger.Error().Err(err).Msg("GetCode")
+		// TODO: we need to change the log level to error later
+		logger.Debug().Err(err).Msg("GetCode")
 		return nil
 	}
 	logger.Debug().Hex("addrHash", evmAddr[:]).Msg("GetCode")
@@ -267,18 +268,18 @@ func (stateDB *EVMStateDBAdapter) Exist(evmAddr common.Address) bool {
 
 // Empty empties the contract
 func (stateDB *EVMStateDBAdapter) Empty(common.Address) bool {
-	logger.Error().Msg("Empty is not implemented")
+	logger.Debug().Msg("Empty is not implemented")
 	return false
 }
 
 // RevertToSnapshot reverts the state factory to snapshot
 func (stateDB *EVMStateDBAdapter) RevertToSnapshot(int) {
-	logger.Error().Msg("RevertToSnapshot is not implemented")
+	logger.Debug().Msg("RevertToSnapshot is not implemented")
 }
 
 // Snapshot returns the snapshot id
 func (stateDB *EVMStateDBAdapter) Snapshot() int {
-	logger.Error().Msg("Snapshot is not implemented")
+	logger.Debug().Msg("Snapshot is not implemented")
 	return 0
 }
 

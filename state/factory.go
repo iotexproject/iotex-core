@@ -46,8 +46,6 @@ const (
 	CurrentHeightKey = "currentHeight"
 	// AccountTrieRootKey indicates the key of accountTrie root hash in underlying database
 	AccountTrieRootKey = "accountTrieRoot"
-	// CandidateTrieRootKey indicates the key of candidateTrie root hash in underlying database
-	CandidateTrieRootKey = "candidateTrieRoot"
 )
 
 type (
@@ -86,7 +84,6 @@ type (
 		cachedContract map[hash.AddrHash]Contract // contracts being modified in this Tx
 		accountTrie    trie.Trie                  // global state trie
 		contractTrie   trie.Trie                  // contract storage trie
-		candidateTrie  trie.Trie                  // candidate storage trie
 	}
 )
 
@@ -171,23 +168,7 @@ func NewFactory(cfg *config.Config, opts ...FactoryOption) (Factory, error) {
 	return sf, nil
 }
 
-func (sf *factory) Start(ctx context.Context) error {
-	sf.lifecycle.OnStart(ctx)
-
-	if sf.candidateTrie != nil {
-		return nil
-	}
-	trieDB := sf.accountTrie.TrieDB()
-	candidateTrieRoot, err := sf.getRoot(trieDB, trie.CandidateKVNameSpace, CandidateTrieRootKey)
-	if err != nil {
-		return errors.Wrap(err, "failed to get candidateTrie's root hash from underlying db")
-	}
-	if sf.candidateTrie, err = trie.NewTrie(trieDB, trie.CandidateKVNameSpace, candidateTrieRoot); err != nil {
-		return errors.Wrap(err, "failed to generate candidateTrie")
-	}
-	sf.candidateTrie.EnableBatch()
-	return sf.candidateTrie.Start(context.Background())
-}
+func (sf *factory) Start(ctx context.Context) error { return sf.lifecycle.OnStart(ctx) }
 
 func (sf *factory) Stop(ctx context.Context) error { return sf.lifecycle.OnStop(ctx) }
 
@@ -293,6 +274,7 @@ func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer
 		}
 	}
 
+	defer sf.clearCache()
 	if err := sf.handleTsf(tsf); err != nil {
 		return err
 	}
@@ -305,7 +287,6 @@ func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer
 		if err := sf.putState(state, addr[:]); err != nil {
 			return err
 		}
-
 		// Perform vote update operation on candidate and delegate pools
 		if !state.IsCandidate {
 			// remove the candidate if the person is not a candidate anymore
@@ -340,7 +321,6 @@ func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer
 		if err != nil {
 			return errors.Wrap(err, "Executor does not exist")
 		}
-		state.Nonce = state.Nonce + 1
 		if e.Nonce > state.Nonce {
 			state.Nonce = e.Nonce
 		}
@@ -353,7 +333,14 @@ func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer
 		return errors.Wrap(err, "failed to commit changes to account Trie in a batch")
 	}
 
-	// Persist new list of candidates to candidateTrie
+	trieDB := sf.accountTrie.TrieDB()
+	// Persist accountTrie's root hash
+	accountRootHash := sf.RootHash()
+	if err := trieDB.Put(trie.AccountKVNameSpace, []byte(AccountTrieRootKey), accountRootHash[:]); err != nil {
+		return errors.Wrap(err, "failed to update accountTrie's root hash in underlying db")
+	}
+
+	// Persist new list of candidates to underlying db
 	candidates, err := MapToCandidates(sf.cachedCandidates)
 	if err != nil {
 		return errors.Wrap(err, "failed to convert map of cached candidates to candidate list")
@@ -363,23 +350,8 @@ func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer
 	if err != nil {
 		return errors.Wrap(err, "failed to serialize candidates")
 	}
-	if err := sf.candidateTrie.Upsert(byteutil.Uint64ToBytes(blockHeight), candidatesBytes); err != nil {
-		return errors.Wrapf(err, "failed to insert candidates on height %d into candidateTrie", blockHeight)
-	}
-	// commit to candidate Trie in a batch
-	if err := sf.candidateTrie.Commit(); err != nil {
-		return errors.Wrap(err, "failed to commit changes to account Trie in a batch")
-	}
-
-	trieDB := sf.accountTrie.TrieDB()
-	// Persist accountTrie's root hash and candidateTrie's root hash to underlying db
-	accountRootHash := sf.RootHash()
-	if err := trieDB.Put(trie.AccountKVNameSpace, []byte(AccountTrieRootKey), accountRootHash[:]); err != nil {
-		return errors.Wrap(err, "failed to update accountTrie's root hash in underlying db")
-	}
-	candidateRootHash := sf.candidateTrie.RootHash()
-	if err := trieDB.Put(trie.CandidateKVNameSpace, []byte(CandidateTrieRootKey), candidateRootHash[:]); err != nil {
-		return errors.Wrap(err, "failed to update candidateTrie's root hash in underlying db")
+	if err := trieDB.Put(trie.CandidateKVNameSpace, byteutil.Uint64ToBytes(blockHeight), candidatesBytes); err != nil {
+		return errors.Wrapf(err, "failed to store candidates on height %d into underlying db", blockHeight)
 	}
 
 	// Set current chain height and persist it to db
@@ -469,7 +441,7 @@ func (sf *factory) Candidates() (uint64, []*Candidate) {
 
 // CandidatesByHeight returns array of candidates in candidate pool of a given height
 func (sf *factory) CandidatesByHeight(height uint64) ([]*Candidate, error) {
-	// Load candidates on the given height from candidateTrie
+	// Load candidates on the given height from underlying db
 	candidates, err := sf.getCandidates(height)
 	if err != nil {
 		return []*Candidate{}, errors.Wrapf(err, "failed to get candidates on height %d", height)
@@ -539,6 +511,14 @@ func (sf *factory) getContract(addr hash.AddrHash) (Contract, error) {
 	return contract, nil
 }
 
+// clearCache removes all local changes after committing to trie
+func (sf *factory) clearCache() {
+	sf.cachedAccount = nil
+	sf.cachedContract = nil
+	sf.cachedAccount = make(map[hash.AddrHash]*State)
+	sf.cachedContract = make(map[hash.AddrHash]Contract)
+}
+
 //======================================
 // private candidate functions
 //======================================
@@ -550,7 +530,7 @@ func (sf *factory) updateCandidate(pkHash hash.AddrHash, totalWeight *big.Int, b
 }
 
 func (sf *factory) getCandidates(height uint64) (CandidateList, error) {
-	candidatesBytes, err := sf.candidateTrie.Get(byteutil.Uint64ToBytes(height))
+	candidatesBytes, err := sf.accountTrie.TrieDB().Get(trie.CandidateKVNameSpace, byteutil.Uint64ToBytes(height))
 	if err != nil {
 		return []*Candidate{}, errors.Wrapf(err, "failed to get candidates on height %d", height)
 	}

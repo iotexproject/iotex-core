@@ -12,7 +12,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/trie"
 )
 
@@ -30,8 +29,10 @@ type (
 
 	contract struct {
 		*State
-		code []byte    // contract byte-code
-		trie trie.Trie // storage trie of the contract
+		dirtyCode  bool      // contract's code has been set
+		dirtyState bool      // contract's state has changed
+		code       []byte    // contract byte-code
+		trie       trie.Trie // storage trie of the contract
 	}
 )
 
@@ -46,6 +47,7 @@ func (c *contract) GetState(key hash.Hash32B) ([]byte, error) {
 
 // SetState set the value into contract storage
 func (c *contract) SetState(key hash.Hash32B, value []byte) error {
+	c.dirtyState = true
 	return c.trie.Upsert(key[:], value)
 }
 
@@ -61,6 +63,7 @@ func (c *contract) GetCode() ([]byte, error) {
 func (c *contract) SetCode(hash hash.Hash32B, code []byte) {
 	c.State.CodeHash = hash[:]
 	c.code = code
+	c.dirtyCode = true
 }
 
 // State returns this contract's state
@@ -70,14 +73,21 @@ func (c *contract) SelfState() *State {
 
 // Commit writes the changes into underlying trie
 func (c *contract) Commit() error {
-	if byteutil.BytesTo32B(c.State.CodeHash) != hash.ZeroHash32B {
+	if c.dirtyState {
+		c.State.Root = c.trie.RootHash()
+		if err := c.trie.Commit(); err != nil {
+			return err
+		}
+		c.dirtyState = false
+	}
+	if c.dirtyCode {
 		// put the code into storage DB
 		if err := c.trie.TrieDB().Put(trie.CodeKVNameSpace, c.State.CodeHash[:], c.code); err != nil {
 			return errors.Wrapf(err, "Failed to store code for new contract, codeHash %x", c.State.CodeHash[:])
 		}
+		c.dirtyCode = false
 	}
-	c.State.Root = c.trie.RootHash()
-	return c.trie.Commit()
+	return nil
 }
 
 // RootHash returns storage trie's root hash

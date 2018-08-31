@@ -112,6 +112,11 @@ type Blockchain interface {
 	Validator() Validator
 	// SetValidator sets the current validator object
 	SetValidator(val Validator)
+
+	// For smart contract operations
+	// ExecuteContractRead runs a read-only smart contract operation, this is done off the network since it does not
+	// cause any state change
+	ExecuteContractRead(*action.Execution) ([]byte, error)
 }
 
 // blockchain implements the Blockchain interface
@@ -301,9 +306,7 @@ func (bc *blockchain) Start(ctx context.Context) (err error) {
 	var startHeight uint64
 	if factoryHeight, err := bc.sf.Height(); err == nil {
 		if factoryHeight > bc.tipHeight {
-			logger.Fatal().
-				Uint64("blockchain height", bc.tipHeight).Uint64("factory height", factoryHeight).
-				Msg("Unexpected height")
+			return errors.New("factory is higher than blockchain")
 		}
 		startHeight = factoryHeight + 1
 	}
@@ -646,18 +649,34 @@ func (bc *blockchain) Validator() Validator {
 	return bc.validator
 }
 
+// ExecuteContractRead runs a read-only smart contract operation, this is done off the network since it does not
+// cause any state change
+func (bc *blockchain) ExecuteContractRead(ex *action.Execution) ([]byte, error) {
+	// use latest block as carrier to run the offline execution
+	// the block itself is not used
+	h, _ := bc.TipHeight()
+	blk, err := bc.GetBlockByHeight(h)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get block in ExecuteContractRead")
+	}
+	blk.Executions = nil
+	blk.Executions = []*action.Execution{ex}
+	blk.receipts = nil
+	ExecuteContracts(blk, bc)
+	// pull the results from receipt
+	exHash := ex.Hash()
+	receipt, ok := blk.receipts[exHash]
+	if !ok {
+		return nil, errors.Wrap(err, "failed to get receipt in ExecuteContractRead")
+	}
+	return receipt.ReturnValue, nil
+}
+
 //======================================
 // private functions
 //=====================================
 // commitBlock commits a block to the chain
 func (bc *blockchain) commitBlock(blk *Block) error {
-	// update state factory
-	if bc.sf != nil {
-		ExecuteContracts(blk, bc)
-		if err := bc.sf.CommitStateChanges(blk.Height(), blk.Transfers, blk.Votes, blk.Executions); err != nil {
-			return err
-		}
-	}
 	// write block into DB
 	if err := bc.dao.putBlock(blk); err != nil {
 		return err
@@ -667,6 +686,17 @@ func (bc *blockchain) commitBlock(blk *Block) error {
 	defer bc.mu.Unlock()
 	bc.tipHeight = blk.Header.height
 	bc.tipHash = blk.HashBlock()
+	// update state factory
+	if bc.sf != nil {
+		ExecuteContracts(blk, bc)
+		if err := bc.sf.CommitStateChanges(blk.Height(), blk.Transfers, blk.Votes, blk.Executions); err != nil {
+			return err
+		}
+	}
+	// write smart contract receipt into DB
+	if err := bc.dao.putReceipts(blk); err != nil {
+		return err
+	}
 	logger.Info().Uint64("height", blk.Header.height).Msg("commit a block")
 	return nil
 }
