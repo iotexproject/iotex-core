@@ -28,15 +28,9 @@ import (
 	"github.com/iotexproject/iotex-core/trie"
 )
 
-var (
-	chainid = []byte{0x00, 0x00, 0x00, 0x01}
-	cfg     = &config.Default
-)
+var cfg = &config.Default
 
-const (
-	isTestnet    = true
-	testTriePath = "trie.test"
-)
+const testTriePath = "trie.test"
 
 func TestEncodeDecode(t *testing.T) {
 	require := require.New(t)
