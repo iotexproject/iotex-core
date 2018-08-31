@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
@@ -26,6 +27,7 @@ var (
 	testV1  = [3][]byte{[]byte("value_1"), []byte("value_2"), []byte("value_3")}
 	testK2  = [3][]byte{[]byte("key_4"), []byte("key_5"), []byte("key_6")}
 	testV2  = [3][]byte{[]byte("value_4"), []byte("value_5"), []byte("value_6")}
+	cfg     = &config.Default.DB
 )
 
 func TestKVStorePutGet(t *testing.T) {
@@ -73,7 +75,7 @@ func TestKVStorePutGet(t *testing.T) {
 	t.Run("Bolt DB", func(t *testing.T) {
 		testutil.CleanupPath(t, path)
 		defer testutil.CleanupPath(t, path)
-		testKVStorePutGet(NewBoltDB(path, nil), t)
+		testKVStorePutGet(NewBoltDB(path, cfg), t)
 	})
 }
 
@@ -127,7 +129,7 @@ func TestBatchRollback(t *testing.T) {
 	t.Run("Bolt DB", func(t *testing.T) {
 		testutil.CleanupPath(t, path)
 		defer testutil.CleanupPath(t, path)
-		testBatchRollback(NewBoltDB(path, nil), t)
+		testBatchRollback(NewBoltDB(path, cfg), t)
 	})
 }
 
@@ -293,6 +295,6 @@ func TestDBBatch(t *testing.T) {
 		path := "/tmp/test-batch-rollback-" + strconv.Itoa(rand.Int())
 		testutil.CleanupPath(t, path)
 		defer testutil.CleanupPath(t, path)
-		testBatchRollback(NewBoltDB(path, nil), t)
+		testBatchRollback(NewBoltDB(path, cfg), t)
 	})
 }

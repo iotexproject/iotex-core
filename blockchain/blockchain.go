@@ -186,7 +186,7 @@ func PrecreatedDaoOption(dao *blockDAO) Option {
 // BoltDBDaoOption sets blockchain's dao with BoltDB from config.Chain.ChainDBPath
 func BoltDBDaoOption() Option {
 	return func(bc *blockchain, cfg *config.Config) error {
-		bc.dao = newBlockDAO(db.NewBoltDB(cfg.Chain.ChainDBPath, nil))
+		bc.dao = newBlockDAO(db.NewBoltDB(cfg.Chain.ChainDBPath, &cfg.DB))
 
 		return nil
 	}

@@ -105,7 +105,7 @@ func DefaultTrieOption() FactoryOption {
 		if len(dbPath) == 0 {
 			return errors.New("Invalid empty trie db path")
 		}
-		trieDB := db.NewBoltDB(dbPath, nil)
+		trieDB := db.NewBoltDB(dbPath, &cfg.DB)
 		if err := trieDB.Start(context.Background()); err != nil {
 			return errors.Wrap(err, "failed to start trie db")
 		}
