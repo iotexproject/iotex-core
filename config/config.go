@@ -139,6 +139,9 @@ var (
 			HTTPProfilingPort: 0,
 			HTTPMetricsPort:   8080,
 		},
+		DB: DB{
+			NumRetries: 3,
+		},
 	}
 
 	// ErrInvalidCfg indicates the invalid config value
@@ -272,6 +275,12 @@ type (
 		MaxNumActsToPick uint64 `yaml:"maxNumActsToPick"`
 	}
 
+	// DB is the blotDB config
+	DB struct {
+		// NumRetries is the number of retries
+		NumRetries uint8 `yaml:"numRetries"`
+	}
+
 	// Config is the root config struct, each package's config should be put as its sub struct
 	Config struct {
 		NodeType   string     `yaml:"nodeType"`
@@ -283,6 +292,7 @@ type (
 		Dispatcher Dispatcher `yaml:"dispatcher"`
 		Explorer   Explorer   `yaml:"explorer"`
 		System     System     `yaml:"system"`
+		DB         DB         `yaml:"db"`
 	}
 
 	// Validate is the interface of validating the config

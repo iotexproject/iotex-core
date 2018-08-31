@@ -28,12 +28,9 @@ import (
 	"github.com/iotexproject/iotex-core/trie"
 )
 
-var chainid = []byte{0x00, 0x00, 0x00, 0x01}
+var cfg = &config.Default
 
-const (
-	isTestnet    = true
-	testTriePath = "trie.test"
-)
+const testTriePath = "trie.test"
 
 func TestEncodeDecode(t *testing.T) {
 	require := require.New(t)
@@ -53,7 +50,7 @@ func TestRootHash(t *testing.T) {
 	defer ctrl.Finish()
 
 	accountTrie := mock_trie.NewMockTrie(ctrl)
-	sf, err := NewFactory(&config.Default, PrecreatedTrieOption(accountTrie))
+	sf, err := NewFactory(cfg, PrecreatedTrieOption(accountTrie))
 	require.Nil(err)
 	accountTrie.EXPECT().RootHash().Times(1).Return(hash.ZeroHash32B)
 	require.Equal(hash.ZeroHash32B, sf.RootHash())
@@ -66,7 +63,7 @@ func TestCreateState(t *testing.T) {
 
 	accountTrie, err := trie.NewTrie(db.NewMemKVStore(), "account", trie.EmptyRoot)
 	require.Nil(err)
-	sf, err := NewFactory(&config.Default, PrecreatedTrieOption(accountTrie))
+	sf, err := NewFactory(cfg, PrecreatedTrieOption(accountTrie))
 	require.Nil(err)
 	require.Nil(sf.Start(context.Background()))
 	addr, err := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
@@ -100,7 +97,7 @@ func TestNonce(t *testing.T) {
 	defer ctrl.Finish()
 
 	accountTrie := mock_trie.NewMockTrie(ctrl)
-	sf, err := NewFactory(&config.Default, PrecreatedTrieOption(accountTrie))
+	sf, err := NewFactory(cfg, PrecreatedTrieOption(accountTrie))
 	require.Nil(err)
 
 	// Add 10 so the balance should be 10
@@ -240,7 +237,8 @@ func TestCandidates(t *testing.T) {
 	f, _ := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
-	accountTr, _ := trie.NewTrie(db.NewBoltDB(testTriePath, nil), "account", trie.EmptyRoot)
+
+	accountTr, _ := trie.NewTrie(db.NewBoltDB(testTriePath, &cfg.DB), "account", trie.EmptyRoot)
 	require.Nil(t, accountTr.Start(context.Background()))
 	sf := &factory{
 		accountTrie:      accountTr,
@@ -491,7 +489,8 @@ func TestCandidates(t *testing.T) {
 func TestCandidatesByHeight(t *testing.T) {
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
-	accountTr, _ := trie.NewTrie(db.NewBoltDB(testTriePath, nil), "account", trie.EmptyRoot)
+
+	accountTr, _ := trie.NewTrie(db.NewBoltDB(testTriePath, &cfg.DB), "account", trie.EmptyRoot)
 	require.Nil(t, accountTr.Start(context.Background()))
 	sf := &factory{
 		accountTrie:      accountTr,
@@ -553,7 +552,8 @@ func TestUnvote(t *testing.T) {
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
-	accountTr, _ := trie.NewTrie(db.NewBoltDB(testTriePath, nil), "account", trie.EmptyRoot)
+
+	accountTr, _ := trie.NewTrie(db.NewBoltDB(testTriePath, &cfg.DB), "account", trie.EmptyRoot)
 	require.Nil(t, accountTr.Start(context.Background()))
 	sf := &factory{
 		accountTrie:      accountTr,
@@ -604,12 +604,11 @@ func TestUnvote(t *testing.T) {
 func TestLoadStoreHeight(t *testing.T) {
 	require := require.New(t)
 
-	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
-	statefactory, err := NewFactory(&cfg, DefaultTrieOption())
+	statefactory, err := NewFactory(cfg, DefaultTrieOption())
 	require.Nil(err)
 	require.Nil(statefactory.Start(context.Background()))
 

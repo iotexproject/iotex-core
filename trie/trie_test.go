@@ -15,10 +15,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/blake2b"
 
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/testutil"
 )
+
+var cfg = &config.Default.DB
 
 const testTriePath = "trie.test"
 
@@ -38,7 +41,7 @@ func Test2Roots(t *testing.T) {
 	defer testutil.CleanupPath(t, testTriePath)
 
 	// first trie
-	tr, err := NewTrie(db.NewBoltDB(testTriePath, nil), "test", EmptyRoot)
+	tr, err := NewTrie(db.NewBoltDB(testTriePath, cfg), "test", EmptyRoot)
 	require.Nil(err)
 	require.Nil(tr.Start(context.Background()))
 	require.Nil(tr.Upsert(cat, testV[2]))
@@ -314,7 +317,7 @@ func TestBatchCommit(t *testing.T) {
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
 
-	tr, err := NewTrie(db.NewBoltDB(testTriePath, nil), "test", EmptyRoot)
+	tr, err := NewTrie(db.NewBoltDB(testTriePath, cfg), "test", EmptyRoot)
 	require.Nil(err)
 	require.Nil(tr.Start(context.Background()))
 	// insert 3 entries
@@ -336,7 +339,7 @@ func TestBatchCommit(t *testing.T) {
 	require.NotEqual(root, tr.RootHash())
 	// close w/o commit and reopen
 	require.Nil(tr.Stop(context.Background()))
-	tr, err = NewTrie(db.NewBoltDB(testTriePath, nil), "test", root)
+	tr, err = NewTrie(db.NewBoltDB(testTriePath, cfg), "test", root)
 	require.Nil(err)
 	require.Nil(tr.Start(context.Background()))
 	v, _ = tr.Get(cat)
@@ -367,7 +370,7 @@ func TestBatchCommit(t *testing.T) {
 	// commit and reopen
 	require.Nil(tr.Commit())
 	require.Nil(tr.Stop(context.Background()))
-	tr, err = NewTrie(db.NewBoltDB(testTriePath, nil), "test", root)
+	tr, err = NewTrie(db.NewBoltDB(testTriePath, cfg), "test", root)
 	require.Nil(err)
 	require.Nil(tr.Start(context.Background()))
 	// all entries should exist now
@@ -391,7 +394,7 @@ func Test2kEntries(t *testing.T) {
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
-	tr, err := NewTrie(db.NewBoltDB(testTriePath, nil), "test", EmptyRoot)
+	tr, err := NewTrie(db.NewBoltDB(testTriePath, cfg), "test", EmptyRoot)
 	require.Nil(err)
 	require.Nil(tr.Start(context.Background()))
 	tr.EnableBatch()
