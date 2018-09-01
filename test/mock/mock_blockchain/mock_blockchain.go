@@ -534,3 +534,16 @@ func (m *MockBlockchain) SetValidator(val blockchain.Validator) {
 func (mr *MockBlockchainMockRecorder) SetValidator(val interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetValidator", reflect.TypeOf((*MockBlockchain)(nil).SetValidator), val)
 }
+
+// ExecuteContractRead mocks base method
+func (m *MockBlockchain) ExecuteContractRead(arg0 *action.Execution) ([]byte, error) {
+	ret := m.ctrl.Call(m, "ExecuteContractRead", arg0)
+	ret0, _ := ret[0].([]byte)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ExecuteContractRead indicates an expected call of ExecuteContractRead
+func (mr *MockBlockchainMockRecorder) ExecuteContractRead(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecuteContractRead", reflect.TypeOf((*MockBlockchain)(nil).ExecuteContractRead), arg0)
+}

@@ -137,44 +137,52 @@ func NewBoltDBBatch(bdb *boltDB) KVStoreBatch {
 
 // Commit queued write
 func (b *boltDBBatch) Commit() error {
-	return b.bdb.db.Update(func(tx *bolt.Tx) error {
-		for _, write := range b.writeQueue {
-			if write.writeType == Put {
-				bucket, err := tx.CreateBucketIfNotExists([]byte(write.namespace))
-				if err != nil {
-					return errors.Wrapf(err, write.errorFormat, write.errorArgs)
-				}
-				if err := bucket.Put(write.key, write.value); err != nil {
-					return errors.Wrapf(err, write.errorFormat, write.errorArgs)
-				}
-			} else if write.writeType == PutIfNotExists {
-				bucket, err := tx.CreateBucketIfNotExists([]byte(write.namespace))
-				if err != nil {
-					return errors.Wrapf(err, write.errorFormat, write.errorArgs)
-				}
-				if bucket.Get(write.key) == nil {
+	var err error
+	numRetries := b.bdb.config.NumRetries
+	for c := uint8(0); c < numRetries; c++ {
+		err = b.bdb.db.Update(func(tx *bolt.Tx) error {
+			for _, write := range b.writeQueue {
+				if write.writeType == Put {
+					bucket, err := tx.CreateBucketIfNotExists([]byte(write.namespace))
+					if err != nil {
+						return errors.Wrapf(err, write.errorFormat, write.errorArgs)
+					}
 					if err := bucket.Put(write.key, write.value); err != nil {
 						return errors.Wrapf(err, write.errorFormat, write.errorArgs)
 					}
-				} else {
-					return ErrAlreadyExist
-				}
-			} else if write.writeType == Delete {
-				bucket := tx.Bucket([]byte(write.namespace))
-				if bucket == nil {
-					return errors.Wrapf(bolt.ErrBucketNotFound, "bucket = %s", write.namespace)
-				}
-				if err := bucket.Delete(write.key); err != nil {
-					return errors.Wrapf(err, write.errorFormat, write.errorArgs)
+				} else if write.writeType == PutIfNotExists {
+					bucket, err := tx.CreateBucketIfNotExists([]byte(write.namespace))
+					if err != nil {
+						return errors.Wrapf(err, write.errorFormat, write.errorArgs)
+					}
+					if bucket.Get(write.key) == nil {
+						if err := bucket.Put(write.key, write.value); err != nil {
+							return errors.Wrapf(err, write.errorFormat, write.errorArgs)
+						}
+					} else {
+						return ErrAlreadyExist
+					}
+				} else if write.writeType == Delete {
+					bucket := tx.Bucket([]byte(write.namespace))
+					if bucket == nil {
+						return nil
+					}
+					if err := bucket.Delete(write.key); err != nil {
+						return errors.Wrapf(err, write.errorFormat, write.errorArgs)
+					}
 				}
 			}
-		}
-		// clear queues
-		err := b.Clear()
-		if err != nil {
-			return errors.Wrap(err, "failed to clear queues when commit")
-		}
 
-		return nil
-	})
+			return nil
+		})
+
+		if err == nil || err == ErrAlreadyExist {
+			break
+		}
+	}
+
+	// clear queues
+	b.Clear()
+
+	return err
 }

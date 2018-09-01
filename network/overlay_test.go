@@ -260,8 +260,6 @@ func TestOneConnPerHost(t *testing.T) {
 }
 
 func TestConfigBasedTopology(t *testing.T) {
-	t.Skip("the test will timeout because of sporadic deadlock")
-
 	ctx := context.Background()
 	addr1 := randomAddress()
 	addr2 := randomAddress()

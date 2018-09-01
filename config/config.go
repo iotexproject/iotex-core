@@ -137,6 +137,10 @@ var (
 		System: System{
 			HeartbeatInterval: 10 * time.Second,
 			HTTPProfilingPort: 0,
+			HTTPMetricsPort:   8080,
+		},
+		DB: DB{
+			NumRetries: 3,
 		},
 	}
 
@@ -257,6 +261,7 @@ type (
 		// HTTPProfilingPort is the port number to access golang performance profiling data of a blockchain node. It is
 		// 0 by default, meaning performance profiling has been disabled
 		HTTPProfilingPort int `yaml:"httpProfilingPort"`
+		HTTPMetricsPort   int `yaml:"httpMetricsPort"`
 	}
 
 	// ActPool is the actpool config
@@ -270,6 +275,12 @@ type (
 		MaxNumActsToPick uint64 `yaml:"maxNumActsToPick"`
 	}
 
+	// DB is the blotDB config
+	DB struct {
+		// NumRetries is the number of retries
+		NumRetries uint8 `yaml:"numRetries"`
+	}
+
 	// Config is the root config struct, each package's config should be put as its sub struct
 	Config struct {
 		NodeType   string     `yaml:"nodeType"`
@@ -281,6 +292,7 @@ type (
 		Dispatcher Dispatcher `yaml:"dispatcher"`
 		Explorer   Explorer   `yaml:"explorer"`
 		System     System     `yaml:"system"`
+		DB         DB         `yaml:"db"`
 	}
 
 	// Validate is the interface of validating the config

@@ -19,6 +19,8 @@ import (
 	_ "net/http/pprof"
 	"os"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/routine"
@@ -76,6 +78,17 @@ func main() {
 				fmt.Sprintf(":%d", cfg.System.HTTPProfilingPort),
 				nil,
 			); err != nil {
+				logger.Error().Err(err).Msg("error when serving performance profiling data")
+			}
+		}()
+	}
+
+	if cfg.System.HTTPMetricsPort > 0 {
+		mux := http.NewServeMux()
+		mux.Handle("/metrics", promhttp.Handler())
+		port := fmt.Sprintf(":%d", cfg.System.HTTPMetricsPort)
+		go func() {
+			if err := http.ListenAndServe(port, mux); err != nil {
 				logger.Error().Err(err).Msg("error when serving performance profiling data")
 			}
 		}()

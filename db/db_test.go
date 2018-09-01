@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
@@ -26,6 +27,7 @@ var (
 	testV1  = [3][]byte{[]byte("value_1"), []byte("value_2"), []byte("value_3")}
 	testK2  = [3][]byte{[]byte("key_4"), []byte("key_5"), []byte("key_6")}
 	testV2  = [3][]byte{[]byte("value_4"), []byte("value_5"), []byte("value_6")}
+	cfg     = &config.Default.DB
 )
 
 func TestKVStorePutGet(t *testing.T) {
@@ -73,7 +75,7 @@ func TestKVStorePutGet(t *testing.T) {
 	t.Run("Bolt DB", func(t *testing.T) {
 		testutil.CleanupPath(t, path)
 		defer testutil.CleanupPath(t, path)
-		testKVStorePutGet(NewBoltDB(path, nil), t)
+		testKVStorePutGet(NewBoltDB(path, cfg), t)
 	})
 }
 
@@ -127,8 +129,54 @@ func TestBatchRollback(t *testing.T) {
 	t.Run("Bolt DB", func(t *testing.T) {
 		testutil.CleanupPath(t, path)
 		defer testutil.CleanupPath(t, path)
-		testBatchRollback(NewBoltDB(path, nil), t)
+		testBatchRollback(NewBoltDB(path, cfg), t)
 	})
+}
+
+func TestDBInMemBatchCommit(t *testing.T) {
+	require := require.New(t)
+
+	kvStore := NewMemKVStore()
+
+	ctx := context.Background()
+	kvboltDB := kvStore.(*memKVStore)
+	batch := kvStore.Batch()
+
+	err := kvboltDB.Start(ctx)
+	require.Nil(err)
+	defer func() {
+		err = kvboltDB.Stop(ctx)
+		require.Nil(err)
+	}()
+
+	err = kvboltDB.Put(bucket1, testK1[0], testV1[1])
+	require.Nil(err)
+
+	err = kvboltDB.Put(bucket2, testK2[1], testV2[0])
+	require.Nil(err)
+
+	err = kvboltDB.Put(bucket1, testK1[2], testV1[0])
+	require.Nil(err)
+
+	err = batch.Put(bucket1, testK1[0], testV1[0], "")
+	require.Nil(err)
+	err = batch.PutIfNotExists(bucket2, []byte("test"), []byte("test"), "")
+	require.Nil(err)
+
+	value, err := kvboltDB.Get(bucket1, testK1[0])
+	require.Nil(err)
+	require.Equal(testV1[1], value)
+
+	value, err = kvboltDB.Get(bucket2, testK2[1])
+	require.Nil(err)
+	require.Equal(testV2[0], value)
+
+	err = batch.Commit()
+	require.Nil(err)
+
+	value, err = kvboltDB.Get(bucket1, testK1[0])
+	require.Nil(err)
+	require.Equal(testV1[0], value)
 }
 
 func TestDBBatch(t *testing.T) {
@@ -247,6 +295,6 @@ func TestDBBatch(t *testing.T) {
 		path := "/tmp/test-batch-rollback-" + strconv.Itoa(rand.Int())
 		testutil.CleanupPath(t, path)
 		defer testutil.CleanupPath(t, path)
-		testBatchRollback(NewBoltDB(path, nil), t)
+		testBatchRollback(NewBoltDB(path, cfg), t)
 	})
 }

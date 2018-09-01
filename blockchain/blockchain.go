@@ -112,6 +112,11 @@ type Blockchain interface {
 	Validator() Validator
 	// SetValidator sets the current validator object
 	SetValidator(val Validator)
+
+	// For smart contract operations
+	// ExecuteContractRead runs a read-only smart contract operation, this is done off the network since it does not
+	// cause any state change
+	ExecuteContractRead(*action.Execution) ([]byte, error)
 }
 
 // blockchain implements the Blockchain interface
@@ -181,7 +186,7 @@ func PrecreatedDaoOption(dao *blockDAO) Option {
 // BoltDBDaoOption sets blockchain's dao with BoltDB from config.Chain.ChainDBPath
 func BoltDBDaoOption() Option {
 	return func(bc *blockchain, cfg *config.Config) error {
-		bc.dao = newBlockDAO(db.NewBoltDB(cfg.Chain.ChainDBPath, nil))
+		bc.dao = newBlockDAO(db.NewBoltDB(cfg.Chain.ChainDBPath, &cfg.DB))
 
 		return nil
 	}
@@ -642,6 +647,29 @@ func (bc *blockchain) SetValidator(val Validator) {
 // Validator gets the current validator object
 func (bc *blockchain) Validator() Validator {
 	return bc.validator
+}
+
+// ExecuteContractRead runs a read-only smart contract operation, this is done off the network since it does not
+// cause any state change
+func (bc *blockchain) ExecuteContractRead(ex *action.Execution) ([]byte, error) {
+	// use latest block as carrier to run the offline execution
+	// the block itself is not used
+	h, _ := bc.TipHeight()
+	blk, err := bc.GetBlockByHeight(h)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get block in ExecuteContractRead")
+	}
+	blk.Executions = nil
+	blk.Executions = []*action.Execution{ex}
+	blk.receipts = nil
+	ExecuteContracts(blk, bc)
+	// pull the results from receipt
+	exHash := ex.Hash()
+	receipt, ok := blk.receipts[exHash]
+	if !ok {
+		return nil, errors.Wrap(err, "failed to get receipt in ExecuteContractRead")
+	}
+	return receipt.ReturnValue, nil
 }
 
 //======================================

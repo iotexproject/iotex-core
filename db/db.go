@@ -13,6 +13,7 @@ import (
 	"github.com/boltdb/bolt"
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 )
 
@@ -47,12 +48,17 @@ const (
 
 // memKVStore is the in-memory implementation of KVStore for testing purpose
 type memKVStore struct {
-	data   sync.Map
+	data   *sync.Map
 	bucket map[string]struct{}
 }
 
 // NewMemKVStore instantiates an in-memory KV store
-func NewMemKVStore() KVStore { return &memKVStore{bucket: make(map[string]struct{})} }
+func NewMemKVStore() KVStore {
+	return &memKVStore{
+		bucket: make(map[string]struct{}),
+		data:   &sync.Map{},
+	}
+}
 
 func (m *memKVStore) Start(_ context.Context) error { return nil }
 
@@ -96,22 +102,22 @@ func (m *memKVStore) Delete(namespace string, key []byte) error {
 
 // Batch return a kv store batch api object
 func (m *memKVStore) Batch() KVStoreBatch {
-	return NewMemKVStoreBatch(&m.data, &m.bucket)
+	return NewMemKVStoreBatch(m.data, &m.bucket)
 }
 
 const fileMode = 0600
 
 // boltDB is KVStore implementation based bolt DB
 type boltDB struct {
-	mutex   sync.RWMutex
-	db      *bolt.DB
-	path    string
-	options *bolt.Options
+	mutex  sync.RWMutex
+	db     *bolt.DB
+	path   string
+	config *config.DB
 }
 
 // NewBoltDB instantiates a boltdb based KV store
-func NewBoltDB(path string, options *bolt.Options) KVStore {
-	return &boltDB{db: nil, path: path, options: options}
+func NewBoltDB(path string, cfg *config.DB) KVStore {
+	return &boltDB{db: nil, path: path, config: cfg}
 }
 
 // Start opens the BoltDB (creates new file if not existing yet)
@@ -122,7 +128,8 @@ func (b *boltDB) Start(_ context.Context) error {
 	if b.db != nil {
 		return nil
 	}
-	db, err := bolt.Open(b.path, fileMode, b.options)
+
+	db, err := bolt.Open(b.path, fileMode, nil)
 	if err != nil {
 		return err
 	}
@@ -145,27 +152,47 @@ func (b *boltDB) Stop(_ context.Context) error {
 
 // Put inserts a <key, value> record
 func (b *boltDB) Put(namespace string, key []byte, value []byte) error {
-	return b.db.Update(func(tx *bolt.Tx) error {
-		bucket, err := tx.CreateBucketIfNotExists([]byte(namespace))
-		if err != nil {
-			return err
+	var err error
+	numRetries := b.config.NumRetries
+	for c := uint8(0); c < numRetries; c++ {
+		err = b.db.Update(func(tx *bolt.Tx) error {
+			bucket, err := tx.CreateBucketIfNotExists([]byte(namespace))
+			if err != nil {
+				return err
+			}
+			return bucket.Put(key, value)
+		})
+
+		if err == nil {
+			break
 		}
-		return bucket.Put(key, value)
-	})
+	}
+
+	return err
 }
 
 // PutIfNotExists inserts a <key, value> record only if it does not exist yet, otherwise return ErrAlreadyExist
 func (b *boltDB) PutIfNotExists(namespace string, key []byte, value []byte) error {
-	return b.db.Update(func(tx *bolt.Tx) error {
-		bucket, err := tx.CreateBucketIfNotExists([]byte(namespace))
-		if err != nil {
-			return err
+	var err error
+	numRetries := b.config.NumRetries
+	for c := uint8(0); c < numRetries; c++ {
+		err = b.db.Update(func(tx *bolt.Tx) error {
+			bucket, err := tx.CreateBucketIfNotExists([]byte(namespace))
+			if err != nil {
+				return err
+			}
+			if bucket.Get(key) == nil {
+				return bucket.Put(key, value)
+			}
+			return ErrAlreadyExist
+		})
+
+		if err == nil || err == ErrAlreadyExist {
+			break
 		}
-		if bucket.Get(key) == nil {
-			return bucket.Put(key, value)
-		}
-		return ErrAlreadyExist
-	})
+	}
+
+	return err
 }
 
 // Get retrieves a record
@@ -190,13 +217,23 @@ func (b *boltDB) Get(namespace string, key []byte) ([]byte, error) {
 
 // Delete deletes a record
 func (b *boltDB) Delete(namespace string, key []byte) error {
-	return b.db.Update(func(tx *bolt.Tx) error {
-		bucket := tx.Bucket([]byte(namespace))
-		if bucket == nil {
-			return errors.Wrapf(bolt.ErrBucketNotFound, "bucket = %s", namespace)
+	var err error
+	numRetries := b.config.NumRetries
+	for c := uint8(0); c < numRetries; c++ {
+		err = b.db.Update(func(tx *bolt.Tx) error {
+			bucket := tx.Bucket([]byte(namespace))
+			if bucket == nil {
+				return nil
+			}
+			return bucket.Delete(key)
+		})
+
+		if err == nil {
+			break
 		}
-		return bucket.Delete(key)
-	})
+	}
+
+	return err
 }
 
 // Batch return a kv store batch api object

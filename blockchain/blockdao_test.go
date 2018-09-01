@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/blockchain/action"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/test/testaddress"
@@ -349,10 +350,11 @@ func TestBlockDAO(t *testing.T) {
 	})
 
 	path := "/tmp/test-kv-store-" + string(rand.Int())
+	cfg := &config.Default.DB
 	t.Run("Bolt DB for blocks", func(t *testing.T) {
 		testutil.CleanupPath(t, path)
 		defer testutil.CleanupPath(t, path)
-		testBlockDao(db.NewBoltDB(path, nil), t)
+		testBlockDao(db.NewBoltDB(path, cfg), t)
 	})
 
 	t.Run("In-memory KV Store for actions", func(t *testing.T) {
@@ -362,6 +364,6 @@ func TestBlockDAO(t *testing.T) {
 	t.Run("Bolt DB for actions", func(t *testing.T) {
 		testutil.CleanupPath(t, path)
 		defer testutil.CleanupPath(t, path)
-		testActionsDao(db.NewBoltDB(path, nil), t)
+		testActionsDao(db.NewBoltDB(path, cfg), t)
 	})
 }
