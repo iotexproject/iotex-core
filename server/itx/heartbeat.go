@@ -8,6 +8,7 @@ package itx
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/zjshen14/go-fsm"
@@ -91,6 +92,13 @@ func (h *HeartbeatHandler) Log() {
 		height = 0
 	}
 
+	// Actpool metrics
+	numActs := h.s.actPool.GetSize()
+	capacity := h.s.actPool.GetCapacity()
+	numUnconfirmedActs := h.s.actPool.GetUnconfirmedActSize()
+	s := fmt.Sprintf("size: %d/%d, unconfirmed actions: %d",
+		numActs, capacity, numUnconfirmedActs)
+
 	logger.Info().
 		Uint("num-peers", numPeers).
 		Time("last-out", lastOutTime).
@@ -100,5 +108,6 @@ func (h *HeartbeatHandler) Log() {
 		Int("rolldpos-events", numPendingEvts).
 		Str("fsm-state", string(state)).
 		Uint64("height", height).
+		Str("actpool-state", s).
 		Msg("node status")
 }

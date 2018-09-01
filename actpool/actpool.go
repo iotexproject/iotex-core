@@ -67,6 +67,10 @@ type ActPool interface {
 	GetActionByHash(hash hash.Hash32B) (*iproto.ActionPb, error)
 	// GetSize returns the act pool size
 	GetSize() uint64
+	// GetCapacity returns the act pool capacity
+	GetCapacity() uint64
+	// GetUnconfirmedActSize returns the unconfirmed action's size
+	GetUnconfirmedActSize() uint64
 }
 
 // actPool implements ActPool interface
@@ -310,6 +314,22 @@ func (ap *actPool) GetSize() uint64 {
 	defer ap.mutex.Unlock()
 
 	return uint64(len(ap.allActions))
+}
+
+func (ap *actPool) GetCapacity() uint64 {
+	return ap.cfg.MaxNumActsPerPool
+}
+
+func (ap *actPool) GetUnconfirmedActSize() uint64 {
+	ap.mutex.Lock()
+	defer ap.mutex.Unlock()
+
+	n := uint64(0)
+	for _, queue := range ap.accountActs {
+		n += uint64(queue.Len())
+	}
+
+	return n
 }
 
 //======================================
