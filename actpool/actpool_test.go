@@ -816,6 +816,78 @@ func TestActPool_GetActionByHash(t *testing.T) {
 	require.Equal(act2, act)
 }
 
+func TestActPool_GetCapacity(t *testing.T) {
+	require := require.New(t)
+	bc := blockchain.NewBlockchain(&config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	// Create actpool
+	apConfig := getActPoolCfg()
+	Ap, err := NewActPool(bc, apConfig)
+	require.Nil(err)
+	ap, ok := Ap.(*actPool)
+	require.True(ok)
+	require.Equal(uint64(maxNumActsPerPool), ap.GetCapacity())
+}
+
+func TestActPool_GetSize(t *testing.T) {
+	require := require.New(t)
+	bc := blockchain.NewBlockchain(&config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	_, err := bc.CreateState(addr1.RawAddress, uint64(100))
+	require.Nil(err)
+	require.Nil(bc.CommitStateChanges(0, nil, nil, nil))
+	// Create actpool
+	apConfig := getActPoolCfg()
+	Ap, err := NewActPool(bc, apConfig)
+	require.Nil(err)
+	ap, ok := Ap.(*actPool)
+	require.True(ok)
+	require.Zero(ap.GetSize())
+
+	tsf1, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(10))
+	tsf2, _ := signedTransfer(addr1, addr1, uint64(2), big.NewInt(20))
+	tsf3, _ := signedTransfer(addr1, addr1, uint64(3), big.NewInt(30))
+	vote4, _ := signedVote(addr1, addr1, uint64(4))
+	ap.AddTsf(tsf1)
+	ap.AddTsf(tsf2)
+	ap.AddTsf(tsf3)
+	ap.AddVote(vote4)
+	require.Equal(uint64(4), ap.GetSize())
+
+	require.Nil(bc.CommitStateChanges(0,
+		[]*action.Transfer{tsf1, tsf2, tsf3}, []*action.Vote{vote4}, nil))
+	ap.removeConfirmedActs()
+	require.Equal(uint64(0), ap.GetSize())
+}
+
+func TestActPool_GetUnconfirmedActSize(t *testing.T) {
+	require := require.New(t)
+	bc := blockchain.NewBlockchain(&config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	_, err := bc.CreateState(addr1.RawAddress, uint64(100))
+	require.Nil(err)
+	require.Nil(bc.GetFactory().CommitStateChanges(0, nil, nil, nil))
+	// Create actpool
+	apConfig := getActPoolCfg()
+	Ap, err := NewActPool(bc, apConfig)
+	require.Nil(err)
+	ap, ok := Ap.(*actPool)
+	require.True(ok)
+	require.Zero(ap.GetUnconfirmedActSize())
+
+	tsf1, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(10))
+	tsf2, _ := signedTransfer(addr1, addr1, uint64(2), big.NewInt(20))
+	tsf3, _ := signedTransfer(addr1, addr1, uint64(3), big.NewInt(30))
+	vote4, _ := signedVote(addr1, addr1, uint64(4))
+	ap.AddTsf(tsf1)
+	ap.AddTsf(tsf2)
+	ap.AddTsf(tsf3)
+	ap.AddVote(vote4)
+	require.Equal(uint64(4), ap.GetUnconfirmedActSize())
+
+	require.Nil(bc.GetFactory().CommitStateChanges(0,
+		[]*action.Transfer{tsf1, tsf2, tsf3}, nil, nil))
+	ap.removeConfirmedActs()
+	require.Equal(uint64(1), ap.GetUnconfirmedActSize())
+}
+
 // Helper function to return the correct pending nonce just in case of empty queue
 func (ap *actPool) getPendingNonce(addr string) (uint64, error) {
 	if queue, ok := ap.accountActs[addr]; ok {
