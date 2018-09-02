@@ -316,10 +316,12 @@ func (ap *actPool) GetSize() uint64 {
 	return uint64(len(ap.allActions))
 }
 
+// GetCapacity returns the act pool capacity
 func (ap *actPool) GetCapacity() uint64 {
 	return ap.cfg.MaxNumActsPerPool
 }
 
+// GetUnconfirmedActSize returns the unconfirmed action's size
 func (ap *actPool) GetUnconfirmedActSize() uint64 {
 	ap.mutex.Lock()
 	defer ap.mutex.Unlock()
