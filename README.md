@@ -96,6 +96,8 @@ git clone git@github.com:iotexproject/iotex-core.git
 cd iotex-core
 ```
 
+Install Go dependency management tool from [golang dep](https://github.com/golang/dep) first and then
+
 ```dep ensure```
 
 ```make fmt; make build```
