@@ -1,0 +1,12 @@
+run:
+  deadline: 2m
+  skip-dirs:
+    - .git
+    - proto
+    - vendor
+    - network/proto
+    - explorer/idl
+    - test
+
+linters:
+  enable-all: true
