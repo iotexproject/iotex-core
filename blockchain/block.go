@@ -116,7 +116,7 @@ func (b *Block) ByteStreamHeader() []byte {
 	enc.MachineEndian.PutUint32(tmp4B, b.Header.chainID)
 	stream = append(stream, tmp4B...)
 	tmp8B := make([]byte, 8)
-	enc.MachineEndian.PutUint64(tmp8B, uint64(b.Header.height))
+	enc.MachineEndian.PutUint64(tmp8B, b.Header.height)
 	stream = append(stream, tmp8B...)
 	// TODO: exclude timestamp from block hash because dummy block needs to have a consistent hash no matter which
 	// node produces it at a given height. Once we get rid of the dummy block concept, we need to include it into

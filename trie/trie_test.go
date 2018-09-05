@@ -93,7 +93,7 @@ func Test2Roots(t *testing.T) {
 	require.Nil(err)
 	require.Equal(testV[4], v)
 	// does not contain dog
-	v, err = tr.Get(dog)
+	_, err = tr.Get(dog)
 	require.Equal(ErrNotExist, errors.Cause(err))
 
 	// re-create second trie from its root
@@ -110,7 +110,7 @@ func Test2Roots(t *testing.T) {
 	require.Nil(err)
 	require.Equal(testV[5], v)
 	// does not contain cat
-	v, err = tr2.Get(cat)
+	_, err = tr2.Get(cat)
 	require.Equal(ErrNotExist, errors.Cause(err))
 	require.Nil(tr.Stop(context.Background()))
 	require.Nil(tr2.Stop(context.Background()))

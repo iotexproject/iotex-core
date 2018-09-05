@@ -128,11 +128,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	if err != nil {
 		return err
 	}
-	if err := bc.CommitBlock(blk); err != nil {
-		return err
-	}
-
-	return nil
+	return bc.CommitBlock(blk)
 }
 
 func TestCreateBlockchain(t *testing.T) {
@@ -666,6 +662,7 @@ func TestDummyReplacement(t *testing.T) {
 	require.NoError(err)
 	require.True(actualDummyBlock3.IsDummyBlock())
 	err = bc.CommitBlock(block3)
+	require.NoError(err)
 	actualBlock3, err := bc.GetBlockByHeight(3)
 	require.NoError(err)
 	require.Equal(block3.HashBlock(), actualBlock3.HashBlock())

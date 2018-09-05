@@ -236,6 +236,7 @@ func TestRollDice(t *testing.T) {
 
 	logger.Info().Msg("Roll Dice To Self")
 	balance, err = bc.Balance(ta.Addrinfo["bravo"].RawAddress)
+	require.NoError(err)
 	data, _ = hex.DecodeString("2885ad2c")
 	execution, err = action.NewExecution(
 		ta.Addrinfo["bravo"].RawAddress, contractAddr, 1, big.NewInt(0), uint64(120000), uint64(10), data)

@@ -787,6 +787,7 @@ func TestDummyBlockReplacement(t *testing.T) {
 	})
 	require.Nil(err)
 	hash, err := svr.Blockchain().GetHashByHeight(1)
+	require.Nil(err)
 	require.Equal(hash, blk1.HashBlock())
 	require.NoError(originChain.CommitBlock(blk1))
 
@@ -825,6 +826,7 @@ func TestDummyBlockReplacement(t *testing.T) {
 	})
 	require.Nil(err)
 	hash, err = svr.Blockchain().GetHashByHeight(2)
+	require.Nil(err)
 	require.Equal(hash, blk2.HashBlock())
 
 	bk1, err := svr.Blockchain().GetBlockByHeight(1)

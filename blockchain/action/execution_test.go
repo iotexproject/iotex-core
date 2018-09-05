@@ -52,6 +52,7 @@ func TestExecutionSerializeDeserialize(t *testing.T) {
 	contract, err := iotxaddress.NewAddress(true, chainid)
 	require.NoError(err)
 	data, err := hex.DecodeString("60652403")
+	require.NoError(err)
 
 	ex, err := NewExecution(executor.RawAddress, contract.RawAddress, 0, big.NewInt(123), 1234, 10, data)
 	require.NoError(err)
@@ -80,6 +81,7 @@ func TestExecutionToJSONFromJSON(t *testing.T) {
 	contract, err := iotxaddress.NewAddress(true, chainid)
 	require.NoError(err)
 	data, err := hex.DecodeString("60652403")
+	require.NoError(err)
 
 	ex, err := NewExecution(executor.RawAddress, contract.RawAddress, 0, big.NewInt(123), 1234, 10, data)
 	require.NoError(err)

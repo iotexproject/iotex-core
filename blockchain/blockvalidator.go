@@ -86,7 +86,7 @@ func (v *validator) Validate(blk *Block, tipHeight uint64, tipHash hash.Hash32B)
 
 	hashExpect := blk.Header.txRoot
 	hashActual := blk.TxRoot()
-	if bytes.Compare(hashExpect[:], hashActual[:]) != 0 {
+	if !bytes.Equal(hashExpect[:], hashActual[:]) {
 		return errors.Wrapf(
 			ErrInvalidBlock,
 			"Wrong tx hash %x, expecting %x",

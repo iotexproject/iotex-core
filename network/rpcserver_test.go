@@ -14,6 +14,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/net/context"
 
 	pb "github.com/iotexproject/iotex-core/network/proto"
@@ -257,6 +258,7 @@ func TestKeepaliveParams(t *testing.T) {
 	s := NewRPCServer(o)
 	o.RPC = s
 	err := s.Start(ctx)
+	require.Nil(t, err)
 	p := NewPeer(s.Network(), s.String())
 	err = p.Connect(config)
 	assert.NoError(t, err)
