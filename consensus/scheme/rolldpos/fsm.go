@@ -684,7 +684,7 @@ func (m *cFSM) isDelegate(delegates []string) bool {
 func (m *cFSM) produceStartRoundEvt() error {
 	var (
 		duration time.Duration
-		err error
+		err      error
 	)
 	// If we have the cached last block, we get the timestamp from it
 	if m.ctx.round.block != nil {
