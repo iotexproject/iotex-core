@@ -119,7 +119,6 @@ func DefaultTrieOption() FactoryOption {
 			return errors.Wrap(err, "failed to generate accountTrie from config")
 		}
 		sf.accountTrie = tr
-		sf.accountTrie.EnableBatch()
 		return nil
 	}
 }
@@ -141,7 +140,6 @@ func InMemTrieOption() FactoryOption {
 			return errors.Wrap(err, "failed to generate accountTrie from config")
 		}
 		sf.accountTrie = tr
-		sf.accountTrie.EnableBatch()
 		return nil
 	}
 }

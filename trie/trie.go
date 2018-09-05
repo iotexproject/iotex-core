@@ -53,15 +53,12 @@ type (
 		Delete([]byte) error         // delete an entry
 		Commit() error               // commit the state changes in a batch
 		RootHash() hash.Hash32B      // returns trie's root hash
-		EnableBatch() error          // enable batch mode
-		DisableBatch()               // Disable batch mode
 	}
 
 	// trie implements the Trie interface
 	trie struct {
 		lifecycle lifecycle.Lifecycle
 		mutex     sync.RWMutex
-		dao       db.KVStore
 		root      patricia
 		rootHash  hash.Hash32B
 		toRoot    *list.List // stores the path from root to diverging node
@@ -72,10 +69,7 @@ type (
 		numBranch uint64
 		numExt    uint64
 		numLeaf   uint64
-		// batch mode persists to underlying storage in one DB transaction
-		batchMode bool
-		dbBatch   db.KVStoreBatch
-		cache     map[hash.Hash32B][]byte // local cache of <k, v> to be batched
+		dao       db.CachedKVStore
 	}
 )
 
@@ -97,7 +91,7 @@ func (t *trie) Stop(ctx context.Context) error { return t.lifecycle.OnStop(ctx) 
 
 // TrieDB return the underlying DB instance
 func (t *trie) TrieDB() db.KVStore {
-	return t.dao
+	return t.dao.KVStore()
 }
 
 // Upsert a new entry
@@ -177,13 +171,7 @@ func (t *trie) Commit() error {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
-	if !t.batchMode {
-		return nil
-	}
-	if err := t.dbBatch.Commit(); err != nil {
-		return err
-	}
-	return t.resetCache()
+	return t.dao.Commit()
 }
 
 // RootHash returns the root hash of merkle patricia trie
@@ -194,31 +182,12 @@ func (t *trie) RootHash() hash.Hash32B {
 	return t.rootHash
 }
 
-// EnableBatch enable batch mode
-func (t *trie) EnableBatch() error {
-	t.mutex.Lock()
-	defer t.mutex.Unlock()
-
-	if t.batchMode {
-		return nil
-	}
-	t.batchMode = true
-	return t.resetCache()
-}
-
-// DisableBatch disable batch mode
-func (t *trie) DisableBatch() {
-	t.mutex.Lock()
-	defer t.mutex.Unlock()
-	t.batchMode = false
-}
-
 //======================================
 // private functions
 //======================================
 // newTrie creates a trie
 func newTrie(dao db.KVStore, name string, root hash.Hash32B) (trie, error) {
-	t := trie{dao: dao, rootHash: root, toRoot: list.New(), bucket: name, numEntry: 1, numBranch: 1}
+	t := trie{dao: db.NewCachedKVStore(dao), rootHash: root, toRoot: list.New(), bucket: name, numEntry: 1, numBranch: 1}
 	t.lifecycle.Add(dao)
 	return t, nil
 }
@@ -238,19 +207,6 @@ func (t *trie) loadRoot() error {
 	return t.putPatricia(t.root)
 }
 
-func (t *trie) resetCache() error {
-	// recreate the map to ensure it's clean
-	t.cache = nil
-	t.cache = make(map[hash.Hash32B][]byte)
-
-	// recreate the batch to ensure it's clean
-	t.dbBatch = nil
-	if t.dbBatch = t.dao.Batch(); t.dbBatch == nil {
-		return errors.New("fail to initial batch")
-	}
-	return nil
-}
-
 // upsert a new entry
 func (t *trie) upsert(key, value []byte) error {
 	var hashChild hash.Hash32B
@@ -259,9 +215,6 @@ func (t *trie) upsert(key, value []byte) error {
 		return errors.Wrapf(err, "failed to parse key %x", key)
 	}
 	if err != nil {
-		// TODO: nil ptr could happen: https://github.com/iotexproject/iotex-core-internal/issues/447. Add mutex
-		// to Trie to walk around, but we need to figure out the root cause
-		// key does not exist, insert at the diverging patricia node
 		nb, ne, nl := ptr.increase(key[size:])
 		addNode := list.New()
 		if err := ptr.insert(key[size:], value, addNode); err != nil {
@@ -332,6 +285,9 @@ func (t *trie) upsert(key, value []byte) error {
 // query returns the diverging patricia node, and length of matching path in bytes
 func (t *trie) query(key []byte) (patricia, int, error) {
 	ptr := t.root
+	if ptr == nil {
+		return nil, 0, errors.Wrap(ErrNotExist, "failed to load root")
+	}
 	size := 0
 	for len(key) > 0 {
 		// keep descending the trie
@@ -485,25 +441,9 @@ func (t *trie) updateDelete(curr patricia, currClps bool, clpsType byte) error {
 //======================================
 // helper functions to operate patricia
 //======================================
-func (t *trie) getCachedPatricia(key []byte) ([]byte, error) {
-	if !t.batchMode {
-		return nil, nil
-	}
-
-	var hashKey hash.Hash32B
-	copy(hashKey[:], key)
-	node := t.cache[hashKey]
-	return node, nil
-}
-
 // getPatricia retrieves the patricia node from DB according to key
 func (t *trie) getPatricia(key []byte) (patricia, error) {
-	node, err := t.getCachedPatricia(key)
-
-	if node == nil {
-		node, err = t.dao.Get(t.bucket, key)
-	}
-
+	node, err := t.dao.Get(t.bucket, key)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get key %x", key[:8])
 	}
@@ -530,20 +470,11 @@ func (t *trie) getPatricia(key []byte) (patricia, error) {
 func (t *trie) putPatricia(ptr patricia) error {
 	value, err := ptr.serialize()
 	if err != nil {
-		return errors.Wrapf(err, "failed to encode node")
+		return errors.Wrapf(err, "failed to encode patricia node")
 	}
 	key := ptr.hash()
-	if t.batchMode {
-		t.dbBatch.Put(t.bucket, key[:], value, "failed to put key = %x", key[:8])
-		t.cache[key] = value
-		return nil
-	}
-
-	if err := t.dao.Put(t.bucket, key[:], value); err != nil {
-		return errors.Wrapf(err, "failed to put key = %x", key[:8])
-	}
 	logger.Debug().Hex("key", key[:8]).Msg("put")
-	return nil
+	return t.dao.Put(t.bucket, key[:], value)
 }
 
 // putPatriciaNew stores a new patricia node into DB
@@ -551,42 +482,18 @@ func (t *trie) putPatricia(ptr patricia) error {
 func (t *trie) putPatriciaNew(ptr patricia) error {
 	value, err := ptr.serialize()
 	if err != nil {
-		return errors.Wrap(err, "failed to serialize patricia")
+		return errors.Wrap(err, "failed to encode patricia node")
 	}
 	key := ptr.hash()
-	if t.batchMode {
-		if _, ok := t.cache[key]; ok {
-			return errors.New("failed to put non-existing key = %x")
-		}
-
-		t.cache[key] = value
-		t.dbBatch.PutIfNotExists(t.bucket, key[:], value, "failed to put non-existing key = %x", key[:8])
-		return nil
-	}
-
-	if err := t.dao.PutIfNotExists(t.bucket, key[:], value); err != nil {
-		return errors.Wrapf(err, "failed to put non-existing key = %x", key[:8])
-	}
 	logger.Debug().Hex("key", key[:8]).Msg("putnew")
-	return nil
+	return t.dao.PutIfNotExists(t.bucket, key[:], value)
 }
 
 // delPatricia deletes the patricia node from DB
 func (t *trie) delPatricia(ptr patricia) error {
 	key := ptr.hash()
-	if t.batchMode {
-		t.dbBatch.Delete(t.bucket, key[:], "failed to delete key = %x", key[:8])
-		if _, ok := t.cache[key]; ok {
-			delete(t.cache, key)
-		}
-		return nil
-	}
-
-	if err := t.dao.Delete(t.bucket, key[:]); err != nil {
-		return errors.Wrapf(err, "failed to delete key = %x", key[:8])
-	}
 	logger.Debug().Hex("key", key[:8]).Msg("del")
-	return nil
+	return t.dao.Delete(t.bucket, key[:])
 }
 
 // getValue returns the actual value stored in patricia node

@@ -131,25 +131,3 @@ func (m *MockTrie) RootHash() hash.Hash32B {
 func (mr *MockTrieMockRecorder) RootHash() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RootHash", reflect.TypeOf((*MockTrie)(nil).RootHash))
 }
-
-// EnableBatch mocks base method
-func (m *MockTrie) EnableBatch() error {
-	ret := m.ctrl.Call(m, "EnableBatch")
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// EnableBatch indicates an expected call of EnableBatch
-func (mr *MockTrieMockRecorder) EnableBatch() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnableBatch", reflect.TypeOf((*MockTrie)(nil).EnableBatch))
-}
-
-// DisableBatch mocks base method
-func (m *MockTrie) DisableBatch() {
-	m.ctrl.Call(m, "DisableBatch")
-}
-
-// DisableBatch indicates an expected call of DisableBatch
-func (mr *MockTrieMockRecorder) DisableBatch() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DisableBatch", reflect.TypeOf((*MockTrie)(nil).DisableBatch))
-}

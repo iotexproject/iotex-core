@@ -10,8 +10,8 @@ import (
 	"context"
 	"sync"
 
-	"github.com/iotexproject/iotex-core-internal/pkg/hash"
-	"github.com/iotexproject/iotex-core-internal/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
 type (

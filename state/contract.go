@@ -102,6 +102,5 @@ func newContract(state *State, tr trie.Trie) Contract {
 		trie:  tr,
 	}
 	c.trie.Start(context.Background())
-	c.trie.EnableBatch()
 	return &c
 }
