@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -185,7 +186,7 @@ func TestDBBatch(t *testing.T) {
 
 		ctx := context.Background()
 		kvboltDB := kvStore.(*boltDB)
-		batch := boltDBBatch{bdb: kvboltDB}
+		batch := NewBoltDBBatch(kvboltDB)
 
 		err := kvboltDB.Start(ctx)
 		require.Nil(err)
@@ -296,5 +297,73 @@ func TestDBBatch(t *testing.T) {
 		testutil.CleanupPath(t, path)
 		defer testutil.CleanupPath(t, path)
 		testBatchRollback(NewBoltDB(path, cfg), t)
+	})
+}
+
+func TestCacheKV(t *testing.T) {
+	testFunc := func(kv KVStore, t *testing.T) {
+		require := require.New(t)
+
+		kvc := NewCachedKVStore(kv)
+		require.Nil(kvc.Put(bucket1, testK1[0], testV1[0]))
+		v, _ := kvc.Get(bucket1, testK1[0])
+		require.Equal(testV1[0], v)
+		require.Nil(kvc.Clear())
+		require.Nil(kv.Put(bucket2, testK2[2], testV2[2]))
+		v, _ = kvc.Get(bucket2, testK2[2])
+		require.Equal(testV2[2], v)
+		// <k1[0], v1[0]> is gone
+		require.Nil(kvc.PutIfNotExists(bucket1, testK1[0], testV1[0]))
+		require.Nil(kvc.PutIfNotExists(bucket1, testK1[2], testV1[2]))
+		require.Nil(kvc.PutIfNotExists(bucket1, testK1[1], testV1[1]))
+		v, _ = kvc.Get(bucket1, testK1[0])
+		require.Equal(testV1[0], v)
+		v, _ = kvc.Get(bucket1, testK1[1])
+		require.Equal(testV1[1], v)
+		v, _ = kvc.Get(bucket1, testK1[2])
+		require.Equal(testV1[2], v)
+		// put testK1[1] with a new value
+		require.Nil(kvc.Put(bucket1, testK1[1], testV1[2]))
+		v, _ = kvc.Get(bucket1, testK1[1])
+		require.Equal(testV1[2], v)
+		// cannot put same entry again
+		require.Equal(ErrAlreadyExist, errors.Cause(kvc.PutIfNotExists(bucket1, testK1[1], testV1[0])))
+		// same key but diff bucket name is OK
+		require.Nil(kvc.PutIfNotExists(bucket2, testK1[0], testV1[0]))
+		require.Nil(kvc.Commit())
+
+		kvc = nil
+		kvc = NewCachedKVStore(kv)
+		v, _ = kvc.Get(bucket1, testK1[0])
+		require.Equal(testV1[0], v)
+		v, _ = kvc.Get(bucket1, testK1[1])
+		require.Equal(testV1[2], v)
+		v, _ = kvc.Get(bucket1, testK1[2])
+		require.Equal(testV1[2], v)
+		v, _ = kvc.Get(bucket2, testK1[0])
+		require.Equal(testV1[0], v)
+		require.Nil(kvc.PutIfNotExists(bucket2, testK2[0], testV2[0]))
+		// entry exists in DB but not in cache, so OK at this point
+		require.Nil(kvc.PutIfNotExists(bucket2, testK1[0], testV1[2]))
+		// but would fail upon commit
+		require.Equal(ErrAlreadyExist, errors.Cause(kvc.Commit()))
+	}
+
+	t.Run("In-memory KV Store", func(t *testing.T) {
+		kv := NewMemKVStore()
+		testFunc(kv, t)
+	})
+
+	path := "db.test"
+	t.Run("Bolt DB", func(t *testing.T) {
+		testutil.CleanupPath(t, path)
+		defer testutil.CleanupPath(t, path)
+		kv := NewBoltDB(path, cfg)
+		require.Nil(t, kv.Start(context.Background()))
+		defer func() {
+			err := kv.Stop(context.Background())
+			require.Nil(t, err)
+		}()
+		testFunc(kv, t)
 	})
 }
