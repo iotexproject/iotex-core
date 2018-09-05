@@ -268,10 +268,10 @@ func TestConfigBasedTopology(t *testing.T) {
 	addresses := []string{addr1, addr2, addr3, addr4}
 	topology := Topology{
 		NeighborList: map[string][]string{
-			addr1: []string{addr2, addr3, addr4},
-			addr2: []string{addr1, addr3, addr4},
-			addr3: []string{addr1, addr2, addr4},
-			addr4: []string{addr1, addr2, addr3},
+			addr1: {addr2, addr3, addr4},
+			addr2: {addr1, addr3, addr4},
+			addr3: {addr1, addr2, addr4},
+			addr4: {addr1, addr2, addr3},
 		},
 	}
 	topologyStr, err := yaml.Marshal(topology)
