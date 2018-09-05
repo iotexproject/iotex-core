@@ -682,15 +682,17 @@ func (m *cFSM) isDelegate(delegates []string) bool {
 }
 
 func (m *cFSM) produceStartRoundEvt() error {
-	var duration time.Duration
+	var (
+		duration time.Duration
+		err error
+	)
 	// If we have the cached last block, we get the timestamp from it
 	if m.ctx.round.block != nil {
 		duration = time.Since(m.ctx.round.block.Header.Timestamp())
-	}
-	// Otherwise, we read it from blockchain
-	duration, err := m.ctx.calcDurationSinceLastBlock()
-	if err != nil {
+	} else if duration, err = m.ctx.calcDurationSinceLastBlock(); err != nil {
+		// Otherwise, we read it from blockchain
 		return errors.Wrap(err, "error when computing the duration since last block time")
+
 	}
 	// If the proposal interval is not set (not zero), the next round will only be started after the configured duration
 	// after last block's creation time, so that we could keep the constant
