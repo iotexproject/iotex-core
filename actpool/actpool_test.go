@@ -233,7 +233,7 @@ func TestActPool_AddActs(t *testing.T) {
 	err = ap.AddVote(replaceVote)
 	require.Equal(ErrNonce, errors.Cause(err))
 	// Case IV: Nonce is too large
-	outOfBoundsTsf, _ := signedTransfer(addr1, addr1, uint64(ap.cfg.MaxNumActsPerAcct+1), big.NewInt(1))
+	outOfBoundsTsf, _ := signedTransfer(addr1, addr1, ap.cfg.MaxNumActsPerAcct+1, big.NewInt(1))
 	err = ap.AddTsf(outOfBoundsTsf)
 	require.Equal(ErrNonce, errors.Cause(err))
 	// Case V: Insufficient balance

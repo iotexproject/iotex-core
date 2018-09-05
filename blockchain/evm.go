@@ -109,7 +109,7 @@ func NewEVMParams(blk *Block, execution *action.Execution, stateDB *EVMStateDBAd
 		Time:        new(big.Int).SetInt64(blk.Header.Timestamp().Unix()),
 		Difficulty:  new(big.Int).SetUint64(uint64(50)),
 		GasLimit:    GasLimit,
-		GasPrice:    new(big.Int).SetUint64(uint64(execution.GasPrice)),
+		GasPrice:    new(big.Int).SetUint64(execution.GasPrice),
 	}
 
 	return &EVMParams{
@@ -156,7 +156,7 @@ func securityDeposit(ps *EVMParams, stateDB vm.StateDB, gasLimit *uint64) error 
 // ExecuteContracts process the contracts in a block
 func ExecuteContracts(blk *Block, bc Blockchain) {
 	gasLimit := GasLimit
-	blk.receipts = make(map[hash.Hash32B]*Receipt, 0)
+	blk.receipts = make(map[hash.Hash32B]*Receipt)
 	for idx, execution := range blk.Executions {
 		// TODO (zhi) log receipt to stateDB
 		if receipt, _ := executeContract(blk, idx, execution, bc, &gasLimit); receipt != nil {
@@ -234,7 +234,7 @@ func executeInEVM(evmParams *EVMParams, stateDB *EVMStateDBAdapter, gasLimit *ui
 	contractRawAddress := action.EmptyAddress
 	remainingGas -= intriGas
 	executor := vm.AccountRef(evmParams.context.Origin)
-	ret := []byte{}
+	var ret []byte
 	if evmParams.contract == nil {
 		// create contract
 		var evmContractAddress common.Address

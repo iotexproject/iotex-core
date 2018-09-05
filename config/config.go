@@ -354,6 +354,9 @@ func (cfg *Config) ProducerAddr() (*iotxaddress.Address, error) {
 		return nil, err
 	}
 	pubKey, err := keypair.DecodePublicKey(cfg.Chain.ProducerPubKey)
+	if err != nil {
+		return nil, err
+	}
 	addr, err := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, iotxaddress.ChainID, pubKey)
 	if err != nil {
 		return nil, err
