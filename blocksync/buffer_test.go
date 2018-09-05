@@ -34,6 +34,7 @@ func TestBlockBufferFlush(t *testing.T) {
 	require.NotNil(chain)
 	ap, err := actpool.NewActPool(chain, cfg.ActPool)
 	require.NotNil(ap)
+	require.Nil(err)
 	defer func() {
 		require.Nil(chain.Stop(ctx))
 		testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
@@ -89,6 +90,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 	require.NotNil(chain)
 	ap, err := actpool.NewActPool(chain, cfg.ActPool)
 	require.NotNil(ap)
+	require.Nil(err)
 	defer func() {
 		require.Nil(chain.Stop(ctx))
 		testutil.CleanupPath(t, cfg.Chain.ChainDBPath)

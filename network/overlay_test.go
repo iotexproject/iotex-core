@@ -224,6 +224,7 @@ func TestOneConnPerHost(t *testing.T) {
 	p1 := NewOverlay(LoadTestConfig(addr1, false))
 	p1.AttachDispatcher(dp1)
 	err := p1.Start(ctx)
+	require.Nil(t, err)
 	dp2 := &MockDispatcher2{T: t}
 	p2 := NewOverlay(LoadTestConfig(addr2, false))
 	p2.AttachDispatcher(dp2)
@@ -398,6 +399,7 @@ func runBenchmarkOp(tell bool, size int, parallel bool, tls bool, b *testing.B) 
 	p1 := NewOverlay(cfg1)
 	p1.AttachDispatcher(d1)
 	err := p1.Start(ctx)
+	assert.NoError(b, err)
 	c2 := make(chan bool)
 	d2 := &MockDispatcher3{C: c2}
 	p2 := NewOverlay(cfg2)

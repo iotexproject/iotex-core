@@ -288,7 +288,7 @@ func TestDBBatch(t *testing.T) {
 		require.Nil(err)
 		require.Equal(testV1[2], value)
 
-		value, err = kvboltDB.Get(bucket2, testK2[1])
+		_, err = kvboltDB.Get(bucket2, testK2[1])
 		require.NotNil(err)
 	}
 

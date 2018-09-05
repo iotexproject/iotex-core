@@ -116,7 +116,6 @@ func (b *branch) collapse(k, v []byte, index byte, childClps bool) ([]byte, []by
 	for i := 0; i < RADIX; i++ {
 		if len(b.Path[i]) > 0 {
 			nb++
-			key = nil
 			key = []byte{byte(i)}
 			value = b.Path[i]
 		}
