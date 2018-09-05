@@ -56,11 +56,12 @@ func TestInvalidAddress(t *testing.T) {
 	require := require.New(t)
 	chainid := []byte{0x00, 0x00, 0x00, 0x01}
 	addr, err := NewAddress(true, chainid)
+	require.Nil(err)
 
 	pub, pri, err := crypto.EC283.NewKeyPair()
+	require.Nil(err)
 	require.NotEqual(keypair.ZeroPublicKey, pub)
 	require.NotEqual(keypair.ZeroPrivateKey, pri)
-	require.Nil(err)
 	addr.PrivateKey = pri
 
 	// test invalid prefix

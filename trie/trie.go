@@ -78,8 +78,7 @@ func NewTrie(kvStore db.KVStore, name string, root hash.Hash32B) (Trie, error) {
 	if kvStore == nil {
 		return nil, errors.New("Failed to create KV store for Trie")
 	}
-	t, err := newTrie(kvStore, name, root)
-	return &t, err
+	return newTrie(kvStore, name, root)
 }
 
 func (t *trie) Start(ctx context.Context) error {
@@ -186,8 +185,8 @@ func (t *trie) RootHash() hash.Hash32B {
 // private functions
 //======================================
 // newTrie creates a trie
-func newTrie(dao db.KVStore, name string, root hash.Hash32B) (trie, error) {
-	t := trie{dao: db.NewCachedKVStore(dao), rootHash: root, toRoot: list.New(), bucket: name, numEntry: 1, numBranch: 1}
+func newTrie(dao db.KVStore, name string, root hash.Hash32B) (*trie, error) {
+	t := &trie{dao: db.NewCachedKVStore(dao), rootHash: root, toRoot: list.New(), bucket: name, numEntry: 1, numBranch: 1}
 	t.lifecycle.Add(dao)
 	return t, nil
 }
@@ -271,7 +270,7 @@ func (t *trie) upsert(key, value []byte) error {
 		// update with new value
 		err := ptr.set(value, index)
 		if err != nil {
-
+			return err
 		}
 		if err := t.putPatricia(ptr); err != nil {
 			return err

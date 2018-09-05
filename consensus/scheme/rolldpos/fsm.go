@@ -776,8 +776,5 @@ func (m *cFSM) updateSeed() ([]byte, error) {
 }
 
 func verifyDKGSignature(blk *blockchain.Block, seedByte []byte) error {
-	if err := crypto.BLS.Verify(blk.Header.DKGPubkey, seedByte, blk.Header.DKGBlockSig); err != nil {
-		return err
-	}
-	return nil
+	return crypto.BLS.Verify(blk.Header.DKGPubkey, seedByte, blk.Header.DKGBlockSig)
 }
