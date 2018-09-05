@@ -98,7 +98,7 @@ cd iotex-core
 
 Install Go dependency management tool from [golang dep](https://github.com/golang/dep) first and then
 
-```dep ensure```
+```dep ensure --vendor-only```
 
 ```make fmt; make build```
 
