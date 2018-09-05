@@ -57,6 +57,7 @@ func Test2Roots(t *testing.T) {
 	require.Nil(err)
 	require.Equal(testV[4], v)
 	root := tr.RootHash()
+	require.Nil(tr.Commit())
 	require.Nil(tr.Stop(context.Background()))
 
 	// second trie
@@ -77,6 +78,7 @@ func Test2Roots(t *testing.T) {
 	require.Equal(testV[5], v)
 	root1 := tr1.RootHash()
 	require.NotEqual(root, root1)
+	require.Nil(tr1.Commit())
 	require.Nil(tr1.Stop(context.Background()))
 
 	// start first trie again
@@ -324,9 +326,9 @@ func TestBatchCommit(t *testing.T) {
 	require.Nil(tr.Upsert(cat, testV[2]))
 	require.Nil(tr.Upsert(car, testV[1]))
 	require.Nil(tr.Upsert(egg, testV[4]))
+	require.Nil(tr.Commit())
 	root := tr.RootHash()
-	// start batch mode
-	tr.EnableBatch()
+	// insert another 3 entries
 	require.Nil(tr.Upsert(dog, testV[3]))
 	v, _ := tr.Get(dog)
 	require.Equal(testV[3], v)
@@ -342,6 +344,7 @@ func TestBatchCommit(t *testing.T) {
 	tr, err = NewTrie(db.NewBoltDB(testTriePath, cfg), "test", root)
 	require.Nil(err)
 	require.Nil(tr.Start(context.Background()))
+	// entries committed exist
 	v, _ = tr.Get(cat)
 	require.Equal(testV[2], v)
 	v, _ = tr.Get(car)
@@ -356,8 +359,7 @@ func TestBatchCommit(t *testing.T) {
 	_, err = tr.Get(fox)
 	require.Equal(ErrNotExist, errors.Cause(err))
 
-	// start batch mode
-	tr.EnableBatch()
+	// insert 3 entries again
 	require.Nil(tr.Upsert(dog, testV[3]))
 	require.Nil(tr.Upsert(ham, testV[0]))
 	require.Nil(tr.Upsert(fox, testV[6]))
@@ -397,10 +399,9 @@ func Test2kEntries(t *testing.T) {
 	tr, err := NewTrie(db.NewBoltDB(testTriePath, cfg), "test", EmptyRoot)
 	require.Nil(err)
 	require.Nil(tr.Start(context.Background()))
-	tr.EnableBatch()
 	root := EmptyRoot
 	seed := time.Now().Nanosecond()
-	// insert 1k entries
+	// insert 2k entries
 	var k [32]byte
 	k[0] = byte(seed)
 	for i := 0; i < 1<<11; i++ {
@@ -425,7 +426,7 @@ func Test2kEntries(t *testing.T) {
 		require.Nil(err)
 		require.Equal(v, b)
 	}
-	// delete 1k entries
+	// delete 2k entries
 	var d [32]byte
 	d[0] = byte(seed)
 	// save the first 3, delete them last
