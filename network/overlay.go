@@ -8,10 +8,10 @@ package network
 
 import (
 	"context"
+	"encoding/hex"
 	"net"
 	"time"
 
-	"encoding/hex"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 

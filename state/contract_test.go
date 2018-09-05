@@ -50,12 +50,15 @@ func TestCreateContract(t *testing.T) {
 	// non-existing contract
 	addr1 := byteutil.BytesTo20B(hash.Hash160b([]byte("random")))
 	h, err := sf.GetCodeHash(addr1)
+	require.Error(err)
 	require.Equal(hash.ZeroHash32B, h)
 	v, err = sf.GetCode(addr1)
+	require.Error(err)
 	require.Equal([]byte(nil), v)
 	require.Nil(sf.CommitStateChanges(0, nil, nil, nil))
 	// reload same contract
 	contract1, err := sf.LoadOrCreateState(addr.RawAddress, 0)
+	require.Nil(err)
 	require.Equal(contract1.CodeHash, codeHash[:])
 	root := sf.RootHash()
 	require.Nil(sf.Stop(context.Background()))
@@ -67,6 +70,7 @@ func TestCreateContract(t *testing.T) {
 	require.Nil(sf.Start(context.Background()))
 	// reload same contract
 	contract1, err = sf.LoadOrCreateState(addr.RawAddress, 0)
+	require.Nil(err)
 	require.Equal(contract1.CodeHash, codeHash[:])
 	// contract already exist
 	h, _ = sf.GetCodeHash(contract)
@@ -145,9 +149,9 @@ func TestLoadStoreContract(t *testing.T) {
 	w, err = sf.GetContractState(contract, k2)
 	require.Nil(err)
 	require.Equal(v2, w)
-	w, err = sf.GetContractState(contract, k3)
+	_, err = sf.GetContractState(contract, k3)
 	require.Equal(trie.ErrNotExist, errors.Cause(err))
-	w, err = sf.GetContractState(contract, k4)
+	_, err = sf.GetContractState(contract, k4)
 	require.Equal(trie.ErrNotExist, errors.Cause(err))
 	// query second contract
 	w, err = sf.GetContractState(contract1, k3)
@@ -156,9 +160,9 @@ func TestLoadStoreContract(t *testing.T) {
 	w, err = sf.GetContractState(contract1, k4)
 	require.Nil(err)
 	require.Equal(v4, w)
-	w, err = sf.GetContractState(contract1, k1)
+	_, err = sf.GetContractState(contract1, k1)
 	require.Equal(trie.ErrNotExist, errors.Cause(err))
-	w, err = sf.GetContractState(contract1, k2)
+	_, err = sf.GetContractState(contract1, k2)
 	require.Equal(trie.ErrNotExist, errors.Cause(err))
 	require.Nil(sf.Stop(context.Background()))
 }
