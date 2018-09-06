@@ -23,16 +23,16 @@ import (
 // TODO: HeartbeatHandler opens encapsulation of a few structs to inspect the internal status, we need to find a better
 // approach to do so in the future
 
-var cHeartbeatMtc = prometheus.NewGaugeVec(
+var heartbeatMtc = prometheus.NewGaugeVec(
 	prometheus.GaugeOpts{
-		Name: "iotexHeartbeatStatus",
+		Name: "iotex_heartbeat_status",
 		Help: "Node heartbeat status.",
 	},
-	[]string{"statusType"},
+	[]string{"status_type"},
 )
 
 func init() {
-	prometheus.MustRegister(cHeartbeatMtc)
+	prometheus.MustRegister(heartbeatMtc)
 }
 
 // HeartbeatHandler is the handler to periodically log the system key metrics
@@ -122,12 +122,12 @@ func (h *HeartbeatHandler) Log() {
 		Uint64("pendingActions", pendingActs).
 		Msg("node status")
 
-	cHeartbeatMtc.WithLabelValues("numPeers").Set(float64(numPeers))
-	cHeartbeatMtc.WithLabelValues("pendingDispatcherEvents").Set(float64(numDPEvts))
-	cHeartbeatMtc.WithLabelValues("pendingRolldposEvents").Set(float64(numPendingEvts))
-	cHeartbeatMtc.WithLabelValues("blockchainHeight").Set(float64(height))
-	cHeartbeatMtc.WithLabelValues("actpoolSize").Set(float64(actPoolSize))
-	cHeartbeatMtc.WithLabelValues("actpoolCapacity").Set(float64(actPoolCapacity))
-	cHeartbeatMtc.WithLabelValues("pendingActions").Set(float64(actPoolCapacity))
+	heartbeatMtc.WithLabelValues("numPeers").Set(float64(numPeers))
+	heartbeatMtc.WithLabelValues("pendingDispatcherEvents").Set(float64(numDPEvts))
+	heartbeatMtc.WithLabelValues("pendingRolldposEvents").Set(float64(numPendingEvts))
+	heartbeatMtc.WithLabelValues("blockchainHeight").Set(float64(height))
+	heartbeatMtc.WithLabelValues("actpoolSize").Set(float64(actPoolSize))
+	heartbeatMtc.WithLabelValues("actpoolCapacity").Set(float64(actPoolCapacity))
+	heartbeatMtc.WithLabelValues("pendingActions").Set(float64(actPoolCapacity))
 
 }
