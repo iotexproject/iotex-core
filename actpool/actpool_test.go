@@ -846,10 +846,10 @@ func TestActPool_GetSize(t *testing.T) {
 	tsf2, _ := signedTransfer(addr1, addr1, uint64(2), big.NewInt(20))
 	tsf3, _ := signedTransfer(addr1, addr1, uint64(3), big.NewInt(30))
 	vote4, _ := signedVote(addr1, addr1, uint64(4))
-	ap.AddTsf(tsf1)
-	ap.AddTsf(tsf2)
-	ap.AddTsf(tsf3)
-	ap.AddVote(vote4)
+	require.NoError(ap.AddTsf(tsf1))
+	require.NoError(ap.AddTsf(tsf2))
+	require.NoError(ap.AddTsf(tsf3))
+	require.NoError(ap.AddVote(vote4))
 	require.Equal(uint64(4), ap.GetSize())
 
 	require.NoError(bc.CommitStateChanges(0,
@@ -876,10 +876,10 @@ func TestActPool_GetUnconfirmedActSize(t *testing.T) {
 	tsf2, _ := signedTransfer(addr1, addr1, uint64(2), big.NewInt(20))
 	tsf3, _ := signedTransfer(addr1, addr1, uint64(3), big.NewInt(30))
 	vote4, _ := signedVote(addr1, addr1, uint64(4))
-	ap.AddTsf(tsf1)
-	ap.AddTsf(tsf2)
-	ap.AddTsf(tsf3)
-	ap.AddVote(vote4)
+	require.NoError(ap.AddTsf(tsf1))
+	require.NoError(ap.AddTsf(tsf2))
+	require.NoError(ap.AddTsf(tsf3))
+	require.NoError(ap.AddVote(vote4))
 	require.Equal(uint64(4), ap.GetUnconfirmedActSize())
 
 	require.NoError(bc.GetFactory().CommitStateChanges(0,
