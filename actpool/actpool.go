@@ -310,8 +310,8 @@ func (ap *actPool) GetActionByHash(hash hash.Hash32B) (*iproto.ActionPb, error) 
 
 // GetSize returns the act pool size
 func (ap *actPool) GetSize() uint64 {
-	ap.mutex.Lock()
-	defer ap.mutex.Unlock()
+	ap.mutex.RLock()
+	defer ap.mutex.RUnlock()
 
 	return uint64(len(ap.allActions))
 }
@@ -323,8 +323,8 @@ func (ap *actPool) GetCapacity() uint64 {
 
 // GetUnconfirmedActSize returns the unconfirmed action's size
 func (ap *actPool) GetUnconfirmedActSize() uint64 {
-	ap.mutex.Lock()
-	defer ap.mutex.Unlock()
+	ap.mutex.RLock()
+	defer ap.mutex.RUnlock()
 
 	n := uint64(0)
 	for _, queue := range ap.accountActs {
