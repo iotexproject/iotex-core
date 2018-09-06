@@ -521,7 +521,7 @@ func (ap *actPool) addAction(sender string, act *iproto.ActionPb, hash hash.Hash
 
 	if actNonce-queue.StartNonce() >= ap.cfg.MaxNumActsPerAcct {
 		// Nonce exceeds current range
-		logger.Warn().
+		logger.Debug().
 			Hex("hash", hash[:]).
 			Uint64("startNonce", queue.StartNonce()).Uint64("actNonce", actNonce).
 			Msg("Rejecting action because nonce is too large")
