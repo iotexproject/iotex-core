@@ -1,7 +1,16 @@
-[![Go version](https://img.shields.io/badge/go-1.9.2-blue.svg)](https://github.com/moovweb/gvm)
-[![CircleCI](https://circleci.com/gh/iotexproject/iotex-core.svg?style=svg&circle-token=fe0817d127f251a34b8bdd3336a808c7537e5ec0)](https://circleci.com/gh/iotexproject/iotex-core)
-
 # iotex-core
+
+[![Go version](https://img.shields.io/badge/go-1.10.2-blue.svg)](https://github.com/moovweb/gvm)
+[![CircleCI](https://circleci.com/gh/iotexproject/iotex-core.svg?style=svg&circle-token=fe0817d127f251a34b8bdd3336a808c7537e5ec0)](https://circleci.com/gh/iotexproject/iotex-core)
+[![Go Report Card](https://goreportcard.com/badge/github.com/iotexproject/iotex-core)](https://goreportcard.com/report/github.com/iotexproject/iotex-core)
+[![Coverage](https://codecov.io/gh/iotexproject/iotex-core/branch/master/graph/badge.svg)](https://codecov.io/gh/iotexproject/iotex-core)
+[![Godoc](http://img.shields.io/badge/go-documentation-blue.svg?style=flat-square)](https://godoc.org/github.com/iotexproject/iotex-core)
+[![Releases](https://img.shields.io/github/release/iotexproject/iotex-core/all.svg?style=flat-square)](https://github.com/iotexproject/iotex-core/releases)
+[![LICENSE](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/iotexproject/iotex-core/blob/master/LICENSE)
+
+![IoTeX Logo](logo/IoTeX.png)
+----
+
 Welcome to the official Go implementation of IoTeX protocol! IoTeX is building the next generation of the decentralized 
 network for IoT powered by scalability- and privacy-centric blockchains. Please refer to 
 IoTeX [whitepaper](https://iotex.io/white-paper) for details.
@@ -86,7 +95,7 @@ contact us if you intend to run it in production.
 
 | Components | Version | Description |
 |----------|-------------|-------------|
-|[Golang](https://golang.org) | >= 1.9.2| The Go Programming Language |
+|[Golang](https://golang.org) | >= 1.10.2 && < 1.11| The Go Programming Language |
 
 ### Setup Dev Environment
 ```
@@ -96,7 +105,9 @@ git clone git@github.com:iotexproject/iotex-core.git
 cd iotex-core
 ```
 
-```dep ensure```
+Install Go dependency management tool from [golang dep](https://github.com/golang/dep) first and then
+
+```dep ensure --vendor-only```
 
 ```make fmt; make build```
 

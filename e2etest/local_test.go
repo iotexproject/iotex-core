@@ -727,7 +727,7 @@ func TestDummyBlockReplacement(t *testing.T) {
 	svr := itx.NewServer(cfg)
 	require.NoError(svr.Start(ctx))
 	require.NotNil(svr.Blockchain())
-	require.NoError(addTestingDummyBlocm(svr.Blockchain()))
+	require.NoError(addTestingDummyBlock(svr.Blockchain()))
 	require.NotNil(svr.ActionPool())
 	require.NotNil(svr.P2P())
 
@@ -787,6 +787,7 @@ func TestDummyBlockReplacement(t *testing.T) {
 	})
 	require.Nil(err)
 	hash, err := svr.Blockchain().GetHashByHeight(1)
+	require.Nil(err)
 	require.Equal(hash, blk1.HashBlock())
 	require.NoError(originChain.CommitBlock(blk1))
 
@@ -825,6 +826,7 @@ func TestDummyBlockReplacement(t *testing.T) {
 	})
 	require.Nil(err)
 	hash, err = svr.Blockchain().GetHashByHeight(2)
+	require.Nil(err)
 	require.Equal(hash, blk2.HashBlock())
 
 	bk1, err := svr.Blockchain().GetBlockByHeight(1)

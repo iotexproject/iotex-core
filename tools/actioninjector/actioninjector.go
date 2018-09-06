@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	_ "go.uber.org/automaxprocs"
 	"gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/blockchain/action"
@@ -100,8 +101,7 @@ func main() {
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Failed to start injecting actions")
 	}
-	addresses := Addresses{}
-	err = yaml.Unmarshal(addrBytes, &addresses)
+	var addresses Addresses
 	if err := yaml.Unmarshal(addrBytes, &addresses); err != nil {
 		logger.Fatal().Err(err).Msg("Failed to start injecting actions")
 	}

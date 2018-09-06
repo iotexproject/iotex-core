@@ -8,10 +8,11 @@ package state
 
 import (
 	"context"
-	"github.com/boltdb/bolt"
-	"github.com/pkg/errors"
 	"math/big"
 	"sort"
+
+	"github.com/boltdb/bolt"
+	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/config"
@@ -119,7 +120,6 @@ func DefaultTrieOption() FactoryOption {
 			return errors.Wrap(err, "failed to generate accountTrie from config")
 		}
 		sf.accountTrie = tr
-		sf.accountTrie.EnableBatch()
 		return nil
 	}
 }
@@ -141,7 +141,6 @@ func InMemTrieOption() FactoryOption {
 			return errors.Wrap(err, "failed to generate accountTrie from config")
 		}
 		sf.accountTrie = tr
-		sf.accountTrie.EnableBatch()
 		return nil
 	}
 }
@@ -485,10 +484,7 @@ func (sf *factory) putState(state *State, addr []byte) error {
 	if err != nil {
 		return err
 	}
-	if err := sf.accountTrie.Upsert(addr, ss); err != nil {
-		return err
-	}
-	return nil
+	return sf.accountTrie.Upsert(addr, ss)
 }
 
 func (sf *factory) getContract(addr hash.AddrHash) (Contract, error) {

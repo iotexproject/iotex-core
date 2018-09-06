@@ -65,20 +65,19 @@ func (m *memKVStore) Start(_ context.Context) error { return nil }
 func (m *memKVStore) Stop(_ context.Context) error { return nil }
 
 // Put inserts a <key, value> record
-func (m *memKVStore) Put(namespace string, key []byte, value []byte) error {
+func (m *memKVStore) Put(namespace string, key, value []byte) error {
 	m.bucket[namespace] = struct{}{}
 	m.data.Store(namespace+keyDelimiter+string(key), value)
 	return nil
 }
 
 // PutIfNotExists inserts a <key, value> record only if it does not exist yet, otherwise return ErrAlreadyExist
-func (m *memKVStore) PutIfNotExists(namespace string, key []byte, value []byte) error {
+func (m *memKVStore) PutIfNotExists(namespace string, key, value []byte) error {
 	m.bucket[namespace] = struct{}{}
 	_, loaded := m.data.LoadOrStore(namespace+keyDelimiter+string(key), value)
 	if loaded {
 		return ErrAlreadyExist
 	}
-
 	return nil
 }
 
@@ -102,7 +101,7 @@ func (m *memKVStore) Delete(namespace string, key []byte) error {
 
 // Batch return a kv store batch api object
 func (m *memKVStore) Batch() KVStoreBatch {
-	return NewMemKVStoreBatch(m.data, &m.bucket)
+	return NewMemKVStoreBatch(m)
 }
 
 const fileMode = 0600
@@ -151,7 +150,7 @@ func (b *boltDB) Stop(_ context.Context) error {
 }
 
 // Put inserts a <key, value> record
-func (b *boltDB) Put(namespace string, key []byte, value []byte) error {
+func (b *boltDB) Put(namespace string, key, value []byte) error {
 	var err error
 	numRetries := b.config.NumRetries
 	for c := uint8(0); c < numRetries; c++ {
@@ -172,7 +171,7 @@ func (b *boltDB) Put(namespace string, key []byte, value []byte) error {
 }
 
 // PutIfNotExists inserts a <key, value> record only if it does not exist yet, otherwise return ErrAlreadyExist
-func (b *boltDB) PutIfNotExists(namespace string, key []byte, value []byte) error {
+func (b *boltDB) PutIfNotExists(namespace string, key, value []byte) error {
 	var err error
 	numRetries := b.config.NumRetries
 	for c := uint8(0); c < numRetries; c++ {

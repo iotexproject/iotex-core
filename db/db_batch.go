@@ -7,13 +7,12 @@
 package db
 
 import (
-	"sync"
-
 	"github.com/boltdb/bolt"
 	"github.com/pkg/errors"
 )
 
-// KVStoreBatch is the interface of KV store.
+// KVStoreBatch is the interface of Batch KVStore.
+// It buffers the Put/Delete operations and persist to DB in a single transaction upon Commit()
 type KVStoreBatch interface {
 	// Put insert or update a record identified by (namespace, key)
 	Put(string, []byte, []byte, string, ...interface{}) error
@@ -25,6 +24,8 @@ type KVStoreBatch interface {
 	Clear() error
 	// Commit commit queued write to db
 	Commit() error
+	// KVStore returns the underlying KVStore
+	KVStore() KVStore
 }
 
 const (
@@ -51,20 +52,15 @@ type baseKVStoreBatch struct {
 	writeQueue []writeInfo
 }
 
-// NewBaseKVStoreBatch instantiates an in-memory KV store
-func NewBaseKVStoreBatch() KVStoreBatch {
-	return &baseKVStoreBatch{}
-}
-
 // Put inserts a <key, value> record
-func (b *baseKVStoreBatch) Put(namespace string, key []byte, value []byte, errorFormat string, errorArgs ...interface{}) error {
+func (b *baseKVStoreBatch) Put(namespace string, key, value []byte, errorFormat string, errorArgs ...interface{}) error {
 	b.writeQueue = append(b.writeQueue, writeInfo{writeType: Put, namespace: namespace,
 		key: key, value: value, errorFormat: errorFormat, errorArgs: errorArgs})
 	return nil
 }
 
 // PutIfNotExists inserts a <key, value> record only if it does not exist yet, otherwise return ErrAlreadyExist
-func (b *baseKVStoreBatch) PutIfNotExists(namespace string, key []byte, value []byte, errorFormat string, errorArgs ...interface{}) error {
+func (b *baseKVStoreBatch) PutIfNotExists(namespace string, key, value []byte, errorFormat string, errorArgs ...interface{}) error {
 	b.writeQueue = append(b.writeQueue, writeInfo{writeType: PutIfNotExists, namespace: namespace,
 		key: key, value: value, errorFormat: errorFormat, errorArgs: errorArgs})
 	return nil
@@ -83,48 +79,49 @@ func (b *baseKVStoreBatch) Clear() error {
 	return nil
 }
 
-// Send queued write. This function is not really transactional. we think we don't need in mem db
+// Commit needs to be implemented by derived class
 func (b *baseKVStoreBatch) Commit() error {
 	panic("not implement")
 }
 
-// memKVStoreBatch is the in-memory implementation of KVStore for testing purpose
+//======================================
+// memKVStoreBatch is the in-memory implementation of KVStoreBatch for testing purpose
+//======================================
 type memKVStoreBatch struct {
 	baseKVStoreBatch
-	data   *sync.Map
-	bucket *map[string]struct{}
+	kv *memKVStore
 }
 
 // NewMemKVStoreBatch instantiates an in-memory KV store
-func NewMemKVStoreBatch(data *sync.Map, bucket *map[string]struct{}) KVStoreBatch {
-	return &memKVStoreBatch{data: data, bucket: bucket}
+func NewMemKVStoreBatch(kv *memKVStore) KVStoreBatch {
+	return &memKVStoreBatch{kv: kv}
 }
 
-// Send queued write. This function is not really transactional. we think we don't need in mem db
+// Commit persists pending writes to DB and clears the write queue
 func (m *memKVStoreBatch) Commit() error {
 	for _, write := range m.writeQueue {
 		if write.writeType == Put {
-			(*m.bucket)[write.namespace] = struct{}{}
-			m.data.Store(write.namespace+keyDelimiter+string(write.key), write.value)
+			m.kv.Put(write.namespace, write.key, write.value)
 		} else if write.writeType == PutIfNotExists {
-			_, ok := m.data.Load(write.namespace + keyDelimiter + string(write.key))
-			if !ok {
-				(*m.bucket)[write.namespace] = struct{}{}
-				m.data.Store(write.namespace+keyDelimiter+string(write.key), write.value)
-			} else {
-				return ErrAlreadyExist
+			if err := m.kv.PutIfNotExists(write.namespace, write.key, write.value); err != nil {
+				return err
 			}
 		} else if write.writeType == Delete {
-			m.data.Delete(write.namespace + keyDelimiter + string(write.key))
+			m.kv.Delete(write.namespace, write.key)
 		}
 	}
-
 	// clear queues
-	m.Clear()
-
-	return nil
+	return m.Clear()
 }
 
+// KVStore returns the underlying KVStore
+func (m *memKVStoreBatch) KVStore() KVStore {
+	return m.kv
+}
+
+//======================================
+// boltDBBatch is the DB implementation of KVStoreBatch
+//======================================
 type boltDBBatch struct {
 	baseKVStoreBatch
 	bdb *boltDB
@@ -135,7 +132,7 @@ func NewBoltDBBatch(bdb *boltDB) KVStoreBatch {
 	return &boltDBBatch{bdb: bdb}
 }
 
-// Commit queued write
+// Commit persists pending writes to DB and clears the write queue
 func (b *boltDBBatch) Commit() error {
 	var err error
 	numRetries := b.bdb.config.NumRetries
@@ -185,4 +182,9 @@ func (b *boltDBBatch) Commit() error {
 	b.Clear()
 
 	return err
+}
+
+// KVStore returns the underlying KVStore
+func (b *boltDBBatch) KVStore() KVStore {
+	return b.bdb
 }

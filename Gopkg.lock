@@ -179,6 +179,17 @@
   version = "v1.3.2"
 
 [[projects]]
+  name = "go.uber.org/automaxprocs"
+  packages = [
+    ".",
+    "internal/cgroups",
+    "internal/runtime",
+    "maxprocs"
+  ]
+  revision = "946a8391268aea0a60a86403988ff3ab4b604a83"
+  version = "v1.2.0"
+
+[[projects]]
   name = "go.uber.org/config"
   packages = [
     ".",
@@ -303,6 +314,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "f5a86af689877035c1cabfd209ca3508328d2296911cf416ca3962a346ff58dd"
+  inputs-digest = "deb4a905391280020e1a86344c1aa16f4f428be22a11dae5f94fef13ee0793f2"
   solver-name = "gps-cdcl"
   solver-version = 1

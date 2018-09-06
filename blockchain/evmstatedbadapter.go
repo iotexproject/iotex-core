@@ -250,7 +250,7 @@ func (stateDB *EVMStateDBAdapter) HasSuicided(common.Address) bool {
 	return false
 }
 
-// Exist checks the existance of an address
+// Exist checks the existence of an address
 func (stateDB *EVMStateDBAdapter) Exist(evmAddr common.Address) bool {
 	addr, err := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, evmAddr.Bytes())
 	if err != nil {

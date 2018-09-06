@@ -105,11 +105,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	if err != nil {
 		return err
 	}
-	if err := bc.CommitBlock(blk); err != nil {
-		return err
-	}
-
-	return nil
+	return bc.CommitBlock(blk)
 }
 
 func addActsToActPool(ap actpool.ActPool) error {
@@ -130,10 +126,7 @@ func addActsToActPool(ap actpool.ActPool) error {
 	if err := ap.AddTsf(tsf2); err != nil {
 		return err
 	}
-	if err := ap.AddExecution(execution1); err != nil {
-		return err
-	}
-	return nil
+	return ap.AddExecution(execution1)
 }
 
 func TestExplorerApi(t *testing.T) {
@@ -160,6 +153,7 @@ func TestExplorerApi(t *testing.T) {
 	bc := blockchain.NewBlockchain(&cfg, blockchain.PrecreatedStateFactoryOption(sf), blockchain.InMemDaoOption())
 	require.NotNil(bc)
 	ap, err := actpool.NewActPool(bc, cfg.ActPool)
+	require.Nil(err)
 	height, err := bc.TipHeight()
 	require.Nil(err)
 	fmt.Printf("Open blockchain pass, height = %d\n", height)
@@ -332,6 +326,7 @@ func TestExplorerApi(t *testing.T) {
 
 	// success
 	addressDetails, err := svc.GetAddressDetails(ta.Addrinfo["charlie"].RawAddress)
+	require.Nil(err)
 	require.Equal(int64(6), addressDetails.TotalBalance)
 	require.Equal(int64(8), addressDetails.Nonce)
 	require.Equal(int64(9), addressDetails.PendingNonce)
@@ -374,11 +369,11 @@ func TestExplorerApi(t *testing.T) {
 	require.Equal(0, len(executions))
 
 	// error
-	transfers, err = svc.GetUnconfirmedTransfersByAddress("", 0, 3)
+	_, err = svc.GetUnconfirmedTransfersByAddress("", 0, 3)
 	require.Error(err)
-	votes, err = svc.GetUnconfirmedVotesByAddress("", 0, 3)
+	_, err = svc.GetUnconfirmedVotesByAddress("", 0, 3)
 	require.Error(err)
-	executions, err = svc.GetUnconfirmedExecutionsByAddress("", 0, 3)
+	_, err = svc.GetUnconfirmedExecutionsByAddress("", 0, 3)
 	require.Error(err)
 }
 

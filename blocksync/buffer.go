@@ -114,7 +114,7 @@ func (b *blockBuffer) Flush(blk *blockchain.Block) (bool, bCheckinResult) {
 					Msg("Failed to commit next block.")
 				delete(b.blocks, syncHeight)
 			}
-			// otherwise block is heigher than currently height
+			// otherwise block is higher than currently height
 		}
 	}
 	if syncedHeight != 0 {

@@ -109,7 +109,7 @@ func (exp *Service) GetLastTransfersByRange(startBlockHeight int64, offset int64
 
 ChainLoop:
 	for height := startBlockHeight; height >= 0; height-- {
-		var blkID = ""
+		var blkID string
 		hash, err := exp.bc.GetHashByHeight(uint64(height))
 		if err != nil {
 			return []explorer.Transfer{}, err
@@ -758,17 +758,13 @@ func (exp *Service) GetConsensusMetrics() (explorer.ConsensusMetrics, error) {
 		return explorer.ConsensusMetrics{}, err
 	}
 	dStrs := make([]string, len(cm.LatestDelegates))
-	for i, d := range cm.LatestDelegates {
-		dStrs[i] = d
-	}
+	copy(dStrs, cm.LatestDelegates)
 	var bpStr string
 	if cm.LatestBlockProducer != "" {
 		bpStr = cm.LatestBlockProducer
 	}
 	cStrs := make([]string, len(cm.Candidates))
-	for i, c := range cm.Candidates {
-		cStrs[i] = c
-	}
+	copy(cStrs, cm.Candidates)
 	return explorer.ConsensusMetrics{
 		LatestEpoch:         int64(cm.LatestEpoch),
 		LatestDelegates:     dStrs,
@@ -1027,6 +1023,9 @@ func (exp *Service) ReadExecutionState(execution explorer.Execution) (string, er
 	sc := &action.Execution{}
 	sc.ConvertFromActionPb(actPb)
 	res, err := exp.bc.ExecuteContractRead(sc)
+	if err != nil {
+		return "", err
+	}
 	return hex.EncodeToString(res), nil
 }
 
