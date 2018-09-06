@@ -203,7 +203,7 @@ func (d *IotxDispatcher) handleActionMsg(m *actionMsg) {
 		execution := &action.Execution{}
 		execution.ConvertFromActionPb(m.action)
 		if err := d.ap.AddExecution(execution); err != nil {
-			requestMtc.WithLabelValues("AddExecution", "false").Inc()
+			requestMtc.WithLabelValues("addExecution", "false").Inc()
 			logger.Debug().Err(err).Msg("Failed to add execution")
 		}
 	}
