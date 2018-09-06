@@ -106,7 +106,6 @@ func (h *HeartbeatHandler) Log() {
 
 	actPoolSize := h.s.actPool.GetSize()
 	actPoolCapacity := h.s.actPool.GetCapacity()
-	pendingActs := h.s.actPool.GetUnconfirmedActSize()
 
 	logger.Info().
 		Uint("numPeers", numPeers).
@@ -119,7 +118,6 @@ func (h *HeartbeatHandler) Log() {
 		Uint64("blockchainHeight", height).
 		Uint64("actpoolSize", actPoolSize).
 		Uint64("actpoolCapacity", actPoolCapacity).
-		Uint64("pendingActions", pendingActs).
 		Msg("node status")
 
 	heartbeatMtc.WithLabelValues("numPeers").Set(float64(numPeers))
@@ -128,6 +126,5 @@ func (h *HeartbeatHandler) Log() {
 	heartbeatMtc.WithLabelValues("blockchainHeight").Set(float64(height))
 	heartbeatMtc.WithLabelValues("actpoolSize").Set(float64(actPoolSize))
 	heartbeatMtc.WithLabelValues("actpoolCapacity").Set(float64(actPoolCapacity))
-	heartbeatMtc.WithLabelValues("pendingActions").Set(float64(actPoolCapacity))
 
 }
