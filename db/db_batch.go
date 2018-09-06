@@ -101,13 +101,17 @@ func NewMemKVStoreBatch(kv *memKVStore) KVStoreBatch {
 func (m *memKVStoreBatch) Commit() error {
 	for _, write := range m.writeQueue {
 		if write.writeType == Put {
-			m.kv.Put(write.namespace, write.key, write.value)
+			if err := m.kv.Put(write.namespace, write.key, write.value); err != nil {
+				return err
+			}
 		} else if write.writeType == PutIfNotExists {
 			if err := m.kv.PutIfNotExists(write.namespace, write.key, write.value); err != nil {
 				return err
 			}
 		} else if write.writeType == Delete {
-			m.kv.Delete(write.namespace, write.key)
+			if err := m.kv.Delete(write.namespace, write.key); err != nil {
+				return err
+			}
 		}
 	}
 	// clear queues

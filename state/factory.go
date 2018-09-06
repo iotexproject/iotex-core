@@ -43,9 +43,9 @@ var (
 )
 
 const (
-	// CurrentHeightKey indicates the key of current factory height in underlying database
+	// CurrentHeightKey indicates the key of current factory height in underlying DB
 	CurrentHeightKey = "currentHeight"
-	// AccountTrieRootKey indicates the key of accountTrie root hash in underlying database
+	// AccountTrieRootKey indicates the key of accountTrie root hash in underlying DB
 	AccountTrieRootKey = "accountTrieRoot"
 )
 
@@ -73,7 +73,7 @@ type (
 		CandidatesByHeight(uint64) ([]*Candidate, error)
 	}
 
-	// factory implements StateFactory interface, tracks changes in a map and batch-commits to trie/db
+	// factory implements StateFactory interface, tracks changes to account/contract and batch-commits to DB
 	factory struct {
 		lifecycle lifecycle.Lifecycle
 		// candidate pool
@@ -81,10 +81,10 @@ type (
 		numCandidates      uint
 		cachedCandidates   map[hash.AddrHash]*Candidate
 		// accounts
-		cachedAccount  map[hash.AddrHash]*State   // accounts being modified in this Tx
-		cachedContract map[hash.AddrHash]Contract // contracts being modified in this Tx
+		cachedAccount  map[hash.AddrHash]*State   // accounts being modified in this block
+		cachedContract map[hash.AddrHash]Contract // contracts being modified in this block
 		accountTrie    trie.Trie                  // global state trie
-		contractTrie   trie.Trie                  // contract storage trie
+		dao            db.CachedKVStore           // the underlying DB for account/contract storage
 	}
 )
 
@@ -95,6 +95,7 @@ type FactoryOption func(*factory, *config.Config) error
 func PrecreatedTrieOption(accountTrie trie.Trie) FactoryOption {
 	return func(sf *factory, cfg *config.Config) error {
 		sf.accountTrie = accountTrie
+		sf.dao = db.NewCachedKVStore(sf.accountTrie.TrieDB())
 		return nil
 	}
 }
@@ -110,12 +111,14 @@ func DefaultTrieOption() FactoryOption {
 		if err := trieDB.Start(context.Background()); err != nil {
 			return errors.Wrap(err, "failed to start trie db")
 		}
+		// create a common cached KV to be shared by account trie and all contract trie
+		sf.dao = db.NewCachedKVStore(trieDB)
 		// create account trie
-		accountTrieRoot, err := sf.getRoot(trieDB, trie.AccountKVNameSpace, AccountTrieRootKey)
+		accountTrieRoot, err := sf.getRoot(trie.AccountKVNameSpace, AccountTrieRootKey)
 		if err != nil {
-			return errors.Wrap(err, "failed to get accountTrie's root hash from underlying db")
+			return errors.Wrap(err, "failed to get accountTrie's root hash from underlying DB")
 		}
-		tr, err := trie.NewTrie(trieDB, trie.AccountKVNameSpace, accountTrieRoot)
+		tr, err := trie.NewTrieSharedDB(sf.dao, trie.AccountKVNameSpace, accountTrieRoot)
 		if err != nil {
 			return errors.Wrap(err, "failed to generate accountTrie from config")
 		}
@@ -131,12 +134,14 @@ func InMemTrieOption() FactoryOption {
 		if err := trieDB.Start(context.Background()); err != nil {
 			return errors.Wrap(err, "failed to start trie db")
 		}
+		// create a common cached KV to be shared by account trie and all contract trie
+		sf.dao = db.NewCachedKVStore(trieDB)
 		// create account trie
-		accountTrieRoot, err := sf.getRoot(trieDB, trie.AccountKVNameSpace, AccountTrieRootKey)
+		accountTrieRoot, err := sf.getRoot(trie.AccountKVNameSpace, AccountTrieRootKey)
 		if err != nil {
-			return errors.Wrap(err, "failed to get accountTrie's root hash from underlying db")
+			return errors.Wrap(err, "failed to get accountTrie's root hash from underlying DB")
 		}
-		tr, err := trie.NewTrie(trieDB, trie.AccountKVNameSpace, accountTrieRoot)
+		tr, err := trie.NewTrieSharedDB(sf.dao, trie.AccountKVNameSpace, accountTrieRoot)
 		if err != nil {
 			return errors.Wrap(err, "failed to generate accountTrie from config")
 		}
@@ -253,9 +258,9 @@ func (sf *factory) RootHash() hash.Hash32B {
 
 // Height returns factory's height
 func (sf *factory) Height() (uint64, error) {
-	height, err := sf.accountTrie.TrieDB().Get(trie.AccountKVNameSpace, []byte(CurrentHeightKey))
+	height, err := sf.dao.Get(trie.AccountKVNameSpace, []byte(CurrentHeightKey))
 	if err != nil {
-		return 0, errors.Wrap(err, "failed to get factory's height from underlying db")
+		return 0, errors.Wrap(err, "failed to get factory's height from underlying DB")
 	}
 	return byteutil.BytesToUint64(height), nil
 }
@@ -327,19 +332,12 @@ func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer
 			return err
 		}
 	}
-	// commit to account Trie in a batch
-	if err := sf.accountTrie.Commit(); err != nil {
-		return errors.Wrap(err, "failed to commit changes to account Trie in a batch")
-	}
-
-	trieDB := sf.accountTrie.TrieDB()
 	// Persist accountTrie's root hash
 	accountRootHash := sf.RootHash()
-	if err := trieDB.Put(trie.AccountKVNameSpace, []byte(AccountTrieRootKey), accountRootHash[:]); err != nil {
-		return errors.Wrap(err, "failed to update accountTrie's root hash in underlying db")
+	if err := sf.dao.Put(trie.AccountKVNameSpace, []byte(AccountTrieRootKey), accountRootHash[:]); err != nil {
+		return errors.Wrap(err, "failed to store accountTrie's root hash")
 	}
-
-	// Persist new list of candidates to underlying db
+	// Persist new list of candidates
 	candidates, err := MapToCandidates(sf.cachedCandidates)
 	if err != nil {
 		return errors.Wrap(err, "failed to convert map of cached candidates to candidate list")
@@ -349,13 +347,19 @@ func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer
 	if err != nil {
 		return errors.Wrap(err, "failed to serialize candidates")
 	}
-	if err := trieDB.Put(trie.CandidateKVNameSpace, byteutil.Uint64ToBytes(blockHeight), candidatesBytes); err != nil {
-		return errors.Wrapf(err, "failed to store candidates on height %d into underlying db", blockHeight)
+	if err := sf.dao.Put(trie.CandidateKVNameSpace, byteutil.Uint64ToBytes(blockHeight), candidatesBytes); err != nil {
+		return errors.Wrapf(err, "failed to store candidates on height %d", blockHeight)
 	}
-
-	// Set current chain height and persist it to db
+	// Persist current chain height
 	sf.currentChainHeight = blockHeight
-	return trieDB.Put(trie.AccountKVNameSpace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(blockHeight))
+	if err := sf.dao.Put(trie.AccountKVNameSpace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(blockHeight)); err != nil {
+		return errors.Wrap(err, "failed to store accountTrie's current height")
+	}
+	// commit all changes in a batch
+	if err := sf.accountTrie.Commit(); err != nil {
+		return errors.Wrap(err, "failed to commit all changes to underlying DB in a batch")
+	}
+	return nil
 }
 
 //======================================
@@ -382,7 +386,7 @@ func (sf *factory) GetCode(addr hash.AddrHash) ([]byte, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to GetCode for contract %x", addr)
 	}
-	return sf.accountTrie.TrieDB().Get(trie.CodeKVNameSpace, state.CodeHash[:])
+	return sf.dao.Get(trie.CodeKVNameSpace, state.CodeHash[:])
 }
 
 // SetCode sets contract's code
@@ -497,7 +501,7 @@ func (sf *factory) getContract(addr hash.AddrHash) (Contract, error) {
 	if state.Root == hash.ZeroHash32B {
 		state.Root = trie.EmptyRoot
 	}
-	tr, err := trie.NewTrie(sf.accountTrie.TrieDB(), trie.ContractKVNameSpace, state.Root)
+	tr, err := trie.NewTrieSharedDB(sf.dao, trie.ContractKVNameSpace, state.Root)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to create storage trie for new contract %x", addr)
 	}
@@ -526,7 +530,7 @@ func (sf *factory) updateCandidate(pkHash hash.AddrHash, totalWeight *big.Int, b
 }
 
 func (sf *factory) getCandidates(height uint64) (CandidateList, error) {
-	candidatesBytes, err := sf.accountTrie.TrieDB().Get(trie.CandidateKVNameSpace, byteutil.Uint64ToBytes(height))
+	candidatesBytes, err := sf.dao.Get(trie.CandidateKVNameSpace, byteutil.Uint64ToBytes(height))
 	if err != nil {
 		return []*Candidate{}, errors.Wrapf(err, "failed to get candidates on height %d", height)
 	}
@@ -654,9 +658,9 @@ func (sf *factory) handleVote(blockHeight uint64, vote []*action.Vote) error {
 //======================================
 // private trie constructor functions
 //======================================
-func (sf *factory) getRoot(trieDB db.KVStore, nameSpace string, key string) (hash.Hash32B, error) {
+func (sf *factory) getRoot(nameSpace string, key string) (hash.Hash32B, error) {
 	var trieRoot hash.Hash32B
-	switch root, err := trieDB.Get(nameSpace, []byte(key)); errors.Cause(err) {
+	switch root, err := sf.dao.Get(nameSpace, []byte(key)); errors.Cause(err) {
 	case nil:
 		trieRoot = byteutil.BytesTo32B(root)
 	case bolt.ErrBucketNotFound:
