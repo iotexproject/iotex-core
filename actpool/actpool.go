@@ -69,8 +69,6 @@ type ActPool interface {
 	GetSize() uint64
 	// GetCapacity returns the act pool capacity
 	GetCapacity() uint64
-	// GetUnconfirmedActSize returns the unconfirmed action's size
-	GetUnconfirmedActSize() uint64
 }
 
 // actPool implements ActPool interface
@@ -319,19 +317,6 @@ func (ap *actPool) GetSize() uint64 {
 // GetCapacity returns the act pool capacity
 func (ap *actPool) GetCapacity() uint64 {
 	return ap.cfg.MaxNumActsPerPool
-}
-
-// GetUnconfirmedActSize returns the unconfirmed action's size
-func (ap *actPool) GetUnconfirmedActSize() uint64 {
-	ap.mutex.RLock()
-	defer ap.mutex.RUnlock()
-
-	n := uint64(0)
-	for _, queue := range ap.accountActs {
-		n += uint64(queue.Len())
-	}
-
-	return n
 }
 
 //======================================
