@@ -50,6 +50,7 @@ func TestRootHash(t *testing.T) {
 	defer ctrl.Finish()
 
 	accountTrie := mock_trie.NewMockTrie(ctrl)
+	accountTrie.EXPECT().TrieDB().Times(1).Return(db.NewMemKVStore())
 	sf, err := NewFactory(cfg, PrecreatedTrieOption(accountTrie))
 	require.Nil(err)
 	accountTrie.EXPECT().RootHash().Times(1).Return(hash.ZeroHash32B)
@@ -97,6 +98,7 @@ func TestNonce(t *testing.T) {
 	defer ctrl.Finish()
 
 	accountTrie := mock_trie.NewMockTrie(ctrl)
+	accountTrie.EXPECT().TrieDB().Times(1).Return(db.NewMemKVStore())
 	sf, err := NewFactory(cfg, PrecreatedTrieOption(accountTrie))
 	require.Nil(err)
 
@@ -246,6 +248,7 @@ func TestCandidates(t *testing.T) {
 		cachedCandidates: make(map[hash.AddrHash]*Candidate),
 		cachedAccount:    make(map[hash.AddrHash]*State),
 	}
+	sf.dao = db.NewCachedKVStore(sf.accountTrie.TrieDB())
 	_, err := sf.LoadOrCreateState(a.RawAddress, uint64(100))
 	require.NoError(t, err)
 	_, err = sf.LoadOrCreateState(b.RawAddress, uint64(200))
@@ -507,7 +510,7 @@ func TestCandidatesByHeight(t *testing.T) {
 		cachedCandidates: make(map[hash.AddrHash]*Candidate),
 		cachedAccount:    make(map[hash.AddrHash]*State),
 	}
-
+	sf.dao = db.NewCachedKVStore(sf.accountTrie.TrieDB())
 	cand1 := &Candidate{
 		Address: "Alpha",
 		Votes:   big.NewInt(1),
@@ -528,7 +531,7 @@ func TestCandidatesByHeight(t *testing.T) {
 	candidatesBytes, err := Serialize(candidateList)
 	require.NoError(t, err)
 
-	sf.accountTrie.TrieDB().Put(trie.CandidateKVNameSpace, byteutil.Uint64ToBytes(0), candidatesBytes)
+	require.Nil(t, sf.dao.Put(trie.CandidateKVNameSpace, byteutil.Uint64ToBytes(0), candidatesBytes))
 	candidates, err := sf.CandidatesByHeight(0)
 	sort.Slice(candidates, func(i, j int) bool {
 		return strings.Compare(candidates[i].Address, candidates[j].Address) < 0
@@ -543,7 +546,7 @@ func TestCandidatesByHeight(t *testing.T) {
 	candidatesBytes, err = Serialize(candidateList)
 	require.NoError(t, err)
 
-	sf.accountTrie.TrieDB().Put(trie.CandidateKVNameSpace, byteutil.Uint64ToBytes(1), candidatesBytes)
+	require.Nil(t, sf.dao.Put(trie.CandidateKVNameSpace, byteutil.Uint64ToBytes(1), candidatesBytes))
 	candidates, err = sf.CandidatesByHeight(1)
 	sort.Slice(candidates, func(i, j int) bool {
 		return strings.Compare(candidates[i].Address, candidates[j].Address) < 0
@@ -570,6 +573,7 @@ func TestUnvote(t *testing.T) {
 		cachedCandidates: make(map[hash.AddrHash]*Candidate),
 		cachedAccount:    make(map[hash.AddrHash]*State),
 	}
+	sf.dao = db.NewCachedKVStore(sf.accountTrie.TrieDB())
 	_, err := sf.LoadOrCreateState(a.RawAddress, uint64(100))
 	require.NoError(t, err)
 	_, err = sf.LoadOrCreateState(b.RawAddress, uint64(200))
@@ -623,12 +627,12 @@ func TestLoadStoreHeight(t *testing.T) {
 
 	sf := statefactory.(*factory)
 
-	sf.accountTrie.TrieDB().Put(trie.AccountKVNameSpace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0))
+	require.Nil(sf.dao.Put(trie.AccountKVNameSpace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)))
 	height, err := sf.Height()
 	require.NoError(err)
 	require.Equal(uint64(0), height)
 
-	sf.accountTrie.TrieDB().Put(trie.AccountKVNameSpace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(10))
+	require.Nil(sf.dao.Put(trie.AccountKVNameSpace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(10)))
 	height, err = sf.Height()
 	require.NoError(err)
 	require.Equal(uint64(10), height)
@@ -648,12 +652,12 @@ func TestLoadStoreHeightInMem(t *testing.T) {
 
 	sf := statefactory.(*factory)
 
-	sf.accountTrie.TrieDB().Put(trie.AccountKVNameSpace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0))
+	require.Nil(sf.dao.Put(trie.AccountKVNameSpace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)))
 	height, err := sf.Height()
 	require.NoError(err)
 	require.Equal(uint64(0), height)
 
-	sf.accountTrie.TrieDB().Put(trie.AccountKVNameSpace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(10))
+	require.Nil(sf.dao.Put(trie.AccountKVNameSpace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(10)))
 	height, err = sf.Height()
 	require.NoError(err)
 	require.Equal(uint64(10), height)
