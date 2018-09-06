@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/zjshen14/go-fsm"
 
 	"github.com/iotexproject/iotex-core/consensus"
@@ -21,6 +22,18 @@ import (
 
 // TODO: HeartbeatHandler opens encapsulation of a few structs to inspect the internal status, we need to find a better
 // approach to do so in the future
+
+var cHeartbeatMtc = prometheus.NewGaugeVec(
+	prometheus.GaugeOpts{
+		Name: "iotex_heartbeat_status",
+		Help: "Node heartbeat status.",
+	},
+	[]string{"status_type"},
+)
+
+func init() {
+	prometheus.MustRegister(cHeartbeatMtc)
+}
 
 // HeartbeatHandler is the handler to periodically log the system key metrics
 type HeartbeatHandler struct {
@@ -91,17 +104,30 @@ func (h *HeartbeatHandler) Log() {
 		height = 0
 	}
 
+	actPoolSize := h.s.actPool.GetSize()
+	actPoolCapacity := h.s.actPool.GetCapacity()
+	pendingActs := h.s.actPool.GetUnconfirmedActSize()
+
 	logger.Info().
 		Uint("num-peers", numPeers).
 		Time("last-out", lastOutTime).
 		Time("last-in", lastInTime).
-		Int("dispatcher-events", numDPEvts).
-		Str("dispatcher-events-audit", string(dpEvtsAudit)).
+		Int("pending-dispatcher-events", numDPEvts).
+		Str("pending-dispatcher-events-audit", string(dpEvtsAudit)).
 		Int("rolldpos-events", numPendingEvts).
 		Str("fsm-state", string(state)).
-		Uint64("height", height).
-		Uint64("actpool-size", h.s.actPool.GetSize()).
-		Uint64("actpool-capacity", h.s.actPool.GetCapacity()).
-		Uint64("actpool-unconfirmed-size", h.s.actPool.GetUnconfirmedActSize()).
+		Uint64("blockchain-height", height).
+		Uint64("actpool-size", actPoolSize).
+		Uint64("actpool-capacity", actPoolCapacity).
+		Uint64("pending-actions", pendingActs).
 		Msg("node status")
+
+	cHeartbeatMtc.WithLabelValues("num-peers").Set(float64(numPeers))
+	cHeartbeatMtc.WithLabelValues("pending-dispatcher-events").Set(float64(numDPEvts))
+	cHeartbeatMtc.WithLabelValues("pending-rolldpos-events").Set(float64(numPendingEvts))
+	cHeartbeatMtc.WithLabelValues("blockchain-height").Set(float64(height))
+	cHeartbeatMtc.WithLabelValues("actpool-size").Set(float64(actPoolSize))
+	cHeartbeatMtc.WithLabelValues("actpool-capacity").Set(float64(actPoolCapacity))
+	cHeartbeatMtc.WithLabelValues("pending-actions").Set(float64(actPoolCapacity))
+
 }
