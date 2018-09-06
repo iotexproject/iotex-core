@@ -25,10 +25,10 @@ import (
 
 var cHeartbeatMtc = prometheus.NewGaugeVec(
 	prometheus.GaugeOpts{
-		Name: "iotex_heartbeat_status",
+		Name: "iotexHeartbeatStatus",
 		Help: "Node heartbeat status.",
 	},
-	[]string{"status_type"},
+	[]string{"statusType"},
 )
 
 func init() {
@@ -109,25 +109,25 @@ func (h *HeartbeatHandler) Log() {
 	pendingActs := h.s.actPool.GetUnconfirmedActSize()
 
 	logger.Info().
-		Uint("num-peers", numPeers).
-		Time("last-out", lastOutTime).
-		Time("last-in", lastInTime).
-		Int("pending-dispatcher-events", numDPEvts).
-		Str("pending-dispatcher-events-audit", string(dpEvtsAudit)).
-		Int("rolldpos-events", numPendingEvts).
-		Str("fsm-state", string(state)).
-		Uint64("blockchain-height", height).
-		Uint64("actpool-size", actPoolSize).
-		Uint64("actpool-capacity", actPoolCapacity).
-		Uint64("pending-actions", pendingActs).
+		Uint("numPeers", numPeers).
+		Time("lastOut", lastOutTime).
+		Time("lastIn", lastInTime).
+		Int("pendingDispatcherEvents", numDPEvts).
+		Str("pendingDispatcherEventsAudit", string(dpEvtsAudit)).
+		Int("rolldposEvents", numPendingEvts).
+		Str("fsmState", string(state)).
+		Uint64("blockchainHeight", height).
+		Uint64("actpoolSize", actPoolSize).
+		Uint64("actpoolCapacity", actPoolCapacity).
+		Uint64("pendingActions", pendingActs).
 		Msg("node status")
 
-	cHeartbeatMtc.WithLabelValues("num-peers").Set(float64(numPeers))
-	cHeartbeatMtc.WithLabelValues("pending-dispatcher-events").Set(float64(numDPEvts))
-	cHeartbeatMtc.WithLabelValues("pending-rolldpos-events").Set(float64(numPendingEvts))
-	cHeartbeatMtc.WithLabelValues("blockchain-height").Set(float64(height))
-	cHeartbeatMtc.WithLabelValues("actpool-size").Set(float64(actPoolSize))
-	cHeartbeatMtc.WithLabelValues("actpool-capacity").Set(float64(actPoolCapacity))
-	cHeartbeatMtc.WithLabelValues("pending-actions").Set(float64(actPoolCapacity))
+	cHeartbeatMtc.WithLabelValues("numPeers").Set(float64(numPeers))
+	cHeartbeatMtc.WithLabelValues("pendingDispatcherEvents").Set(float64(numDPEvts))
+	cHeartbeatMtc.WithLabelValues("pendingRolldposEvents").Set(float64(numPendingEvts))
+	cHeartbeatMtc.WithLabelValues("blockchainHeight").Set(float64(height))
+	cHeartbeatMtc.WithLabelValues("actpoolSize").Set(float64(actPoolSize))
+	cHeartbeatMtc.WithLabelValues("actpoolCapacity").Set(float64(actPoolCapacity))
+	cHeartbeatMtc.WithLabelValues("pendingActions").Set(float64(actPoolCapacity))
 
 }
