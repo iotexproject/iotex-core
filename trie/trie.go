@@ -78,7 +78,15 @@ func NewTrie(kvStore db.KVStore, name string, root hash.Hash32B) (Trie, error) {
 	if kvStore == nil {
 		return nil, errors.New("Failed to create KV store for Trie")
 	}
-	return newTrie(kvStore, name, root)
+	return newTrie(kvStore, name, root), nil
+}
+
+// NewTrieSharedDB creates a trie with the shared DB instance
+func NewTrieSharedDB(kvStore db.CachedKVStore, name string, root hash.Hash32B) (Trie, error) {
+	if kvStore == nil {
+		return nil, errors.New("Failed to create KV store for Trie")
+	}
+	return newTrieSharedDB(kvStore, name, root), nil
 }
 
 func (t *trie) Start(ctx context.Context) error {
@@ -185,10 +193,17 @@ func (t *trie) RootHash() hash.Hash32B {
 // private functions
 //======================================
 // newTrie creates a trie
-func newTrie(dao db.KVStore, name string, root hash.Hash32B) (*trie, error) {
+func newTrie(dao db.KVStore, name string, root hash.Hash32B) *trie {
 	t := &trie{dao: db.NewCachedKVStore(dao), rootHash: root, toRoot: list.New(), bucket: name, numEntry: 1, numBranch: 1}
 	t.lifecycle.Add(dao)
-	return t, nil
+	return t
+}
+
+// newTrieSharedDB creates a trie with shared DB
+func newTrieSharedDB(dao db.CachedKVStore, name string, root hash.Hash32B) *trie {
+	t := &trie{dao: dao, rootHash: root, toRoot: list.New(), bucket: name, numEntry: 1, numBranch: 1}
+	t.lifecycle.Add(dao)
+	return t
 }
 
 // loadRoot loads the root patricia from DB
