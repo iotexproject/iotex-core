@@ -14,6 +14,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
@@ -25,6 +26,18 @@ import (
 	"github.com/iotexproject/iotex-core/logger"
 	pb "github.com/iotexproject/iotex-core/proto"
 )
+
+var requestMtc = prometheus.NewCounterVec(
+	prometheus.CounterOpts{
+		Name: "iotex_dispatch_request",
+		Help: "Dispatcher request counter.",
+	},
+	[]string{"method", "succeed"},
+)
+
+func init() {
+	prometheus.MustRegister(requestMtc)
+}
 
 // blockMsg packages a proto block message.
 type blockMsg struct {
@@ -176,19 +189,22 @@ func (d *IotxDispatcher) handleActionMsg(m *actionMsg) {
 		tsf := &action.Transfer{}
 		tsf.ConvertFromActionPb(m.action)
 		if err := d.ap.AddTsf(tsf); err != nil {
-			logger.Error().Err(err)
+			requestMtc.WithLabelValues("addTsf", "false").Inc()
+			logger.Debug().Err(err)
 		}
 	} else if pbVote := m.action.GetVote(); pbVote != nil {
 		vote := &action.Vote{}
 		vote.ConvertFromActionPb(m.action)
 		if err := d.ap.AddVote(vote); err != nil {
-			logger.Error().Err(err)
+			requestMtc.WithLabelValues("addVote", "false").Inc()
+			logger.Debug().Err(err)
 		}
 	} else if pbExecution := m.action.GetExecution(); pbExecution != nil {
 		execution := &action.Execution{}
 		execution.ConvertFromActionPb(m.action)
 		if err := d.ap.AddExecution(execution); err != nil {
-			logger.Error().Err(err).Msg("Failed to add execution")
+			requestMtc.WithLabelValues("addExecution", "false").Inc()
+			logger.Debug().Err(err).Msg("Failed to add execution")
 		}
 	}
 	// signal to let caller know we are done
