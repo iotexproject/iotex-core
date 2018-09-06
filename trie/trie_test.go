@@ -119,8 +119,8 @@ func Test2Roots(t *testing.T) {
 func TestInsert(t *testing.T) {
 	require := require.New(t)
 
-	tr, err := newTrie(db.NewMemKVStore(), "", EmptyRoot)
-	require.Nil(err)
+	tr := newTrie(db.NewMemKVStore(), "", EmptyRoot)
+	require.NotNil(tr)
 	require.Nil(tr.Start(context.Background()))
 	root := EmptyRoot
 	require.Equal(uint64(1), tr.numBranch)
@@ -515,8 +515,8 @@ func TestPressure(t *testing.T) {
 func TestQuery(t *testing.T) {
 	require := require.New(t)
 
-	tr, err := newTrie(db.NewMemKVStore(), "", EmptyRoot)
-	require.Nil(err)
+	tr := newTrie(db.NewMemKVStore(), "", EmptyRoot)
+	require.NotNil(tr)
 	require.Nil(tr.Start(context.Background()))
 	require.Equal(uint64(1), tr.numBranch)
 	// key length > 0

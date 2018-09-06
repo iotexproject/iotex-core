@@ -74,10 +74,8 @@ func (c *contract) SelfState() *State {
 // Commit writes the changes into underlying trie
 func (c *contract) Commit() error {
 	if c.dirtyState {
+		// record the new root hash, global account trie will commit all pending writes to DB
 		c.State.Root = c.trie.RootHash()
-		if err := c.trie.Commit(); err != nil {
-			return err
-		}
 		c.dirtyState = false
 	}
 	if c.dirtyCode {
