@@ -100,5 +100,8 @@ func (h *HeartbeatHandler) Log() {
 		Int("rolldpos-events", numPendingEvts).
 		Str("fsm-state", string(state)).
 		Uint64("height", height).
+		Uint64("actpool-size", h.s.actPool.GetSize()).
+		Uint64("actpool-capacity", h.s.actPool.GetCapacity()).
+		Uint64("actpool-unconfirmed-size", h.s.actPool.GetUnconfirmedActSize()).
 		Msg("node status")
 }

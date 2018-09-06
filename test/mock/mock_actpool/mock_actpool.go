@@ -132,3 +132,39 @@ func (m *MockActPool) GetActionByHash(hash hash.Hash32B) (*proto.ActionPb, error
 func (mr *MockActPoolMockRecorder) GetActionByHash(hash interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetActionByHash", reflect.TypeOf((*MockActPool)(nil).GetActionByHash), hash)
 }
+
+// GetSize mocks base method
+func (m *MockActPool) GetSize() uint64 {
+	ret := m.ctrl.Call(m, "GetSize")
+	ret0, _ := ret[0].(uint64)
+	return ret0
+}
+
+// GetSize indicates an expected call of GetSize
+func (mr *MockActPoolMockRecorder) GetSize() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSize", reflect.TypeOf((*MockActPool)(nil).GetSize))
+}
+
+// GetCapacity mocks base method
+func (m *MockActPool) GetCapacity() uint64 {
+	ret := m.ctrl.Call(m, "GetCapacity")
+	ret0, _ := ret[0].(uint64)
+	return ret0
+}
+
+// GetCapacity indicates an expected call of GetCapacity
+func (mr *MockActPoolMockRecorder) GetCapacity() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCapacity", reflect.TypeOf((*MockActPool)(nil).GetCapacity))
+}
+
+// GetUnconfirmedActSize mocks base method
+func (m *MockActPool) GetUnconfirmedActSize() uint64 {
+	ret := m.ctrl.Call(m, "GetUnconfirmedActSize")
+	ret0, _ := ret[0].(uint64)
+	return ret0
+}
+
+// GetUnconfirmedActSize indicates an expected call of GetUnconfirmedActSize
+func (mr *MockActPoolMockRecorder) GetUnconfirmedActSize() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnconfirmedActSize", reflect.TypeOf((*MockActPool)(nil).GetUnconfirmedActSize))
+}
