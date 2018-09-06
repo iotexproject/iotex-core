@@ -20,6 +20,7 @@ import (
 	"os"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	_ "go.uber.org/automaxprocs"
 
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/logger"
