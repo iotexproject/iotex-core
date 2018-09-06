@@ -91,11 +91,6 @@ func (h *HeartbeatHandler) Log() {
 		height = 0
 	}
 
-	// Actpool metrics
-	numActs := h.s.actPool.GetSize()
-	capacity := h.s.actPool.GetCapacity()
-	numUnconfirmedActs := h.s.actPool.GetUnconfirmedActSize()
-
 	logger.Info().
 		Uint("num-peers", numPeers).
 		Time("last-out", lastOutTime).
@@ -105,8 +100,8 @@ func (h *HeartbeatHandler) Log() {
 		Int("rolldpos-events", numPendingEvts).
 		Str("fsm-state", string(state)).
 		Uint64("height", height).
-		Uint64("actpool-size", numActs).
-		Uint64("actpool-capacity", capacity).
-		Uint64("actpool-unconfirmed-size", numUnconfirmedActs).
+		Uint64("actpool-size", h.s.actPool.GetSize()).
+		Uint64("actpool-capacity", h.s.actPool.GetCapacity()).
+		Uint64("actpool-unconfirmed-size", h.s.actPool.GetUnconfirmedActSize()).
 		Msg("node status")
 }
