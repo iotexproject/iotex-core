@@ -91,7 +91,9 @@ func (c *cachedKVStore) Delete(namespace string, key []byte) error {
 func (c *cachedKVStore) Clear() error {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	c.KVStoreBatch.Clear()
+	if err := c.KVStoreBatch.Clear(); err != nil {
+		return err
+	}
 	return c.clear()
 }
 
