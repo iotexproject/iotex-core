@@ -273,7 +273,7 @@ func (m *cFSM) Start(c context.Context) error {
 				src := m.fsm.CurrentState()
 				if err := m.fsm.Handle(evt); err != nil {
 					if errors.Cause(err) == fsm.ErrTransitionNotFound {
-						if time.Since(evt.timestamp()) <= m.ctx.cfg.UnmatchedEventTTL {
+						if m.ctx.clock.Now().Sub(evt.timestamp()) <= m.ctx.cfg.UnmatchedEventTTL {
 							m.produce(evt, m.ctx.cfg.UnmatchedEventInterval)
 							logger.Debug().
 								Str("src", string(src)).
@@ -320,7 +320,7 @@ func (m *cFSM) produce(evt iConsensusEvt, delay time.Duration) {
 		go func() {
 			select {
 			case <-m.close:
-			case <-time.After(delay):
+			case <-m.ctx.clock.After(delay):
 				m.evtq <- evt
 			}
 			m.wg.Done()
@@ -457,9 +457,22 @@ func (m *cFSM) handleProposeBlockEvt(evt fsm.Event) (fsm.State, error) {
 		if !ok {
 			return sInvalid, errors.Wrap(ErrEvtCast, "the event is not a proposeBlkEvt")
 		}
-		// If the block is self proposed, skip validation
-		if proposeBlkEvt.proposer != m.ctx.addr.RawAddress {
-			blkHash := proposeBlkEvt.block.HashBlock()
+		proposer, err := m.ctx.calcProposer(proposeBlkEvt.block.Height(), m.ctx.epoch.delegates)
+		if err != nil {
+			return sInvalid, errors.Wrap(err, "error when calculating the proposer")
+		}
+		blkHash := proposeBlkEvt.block.HashBlock()
+		if proposeBlkEvt.proposer != proposer {
+			logger.Error().
+				Str("proposer", proposeBlkEvt.proposer).
+				Str("actualProposer", proposer).
+				Uint64("block", proposeBlkEvt.block.Height()).
+				Str("hash", hex.EncodeToString(blkHash[:])).
+				Err(err).
+				Msg("error when validating the block proposer")
+			validated = false
+		} else if proposeBlkEvt.proposer != m.ctx.addr.RawAddress {
+			// If the block is self proposed, skip validation
 			if err := m.ctx.chain.ValidateBlock(proposeBlkEvt.block); err != nil {
 				logger.Error().
 					Str("proposer", proposeBlkEvt.proposer).
@@ -688,7 +701,7 @@ func (m *cFSM) produceStartRoundEvt() error {
 	)
 	// If we have the cached last block, we get the timestamp from it
 	if m.ctx.round.block != nil {
-		duration = time.Since(m.ctx.round.block.Header.Timestamp())
+		duration = m.ctx.clock.Now().Sub(m.ctx.round.block.Header.Timestamp())
 	} else if duration, err = m.ctx.calcDurationSinceLastBlock(); err != nil {
 		// Otherwise, we read it from blockchain
 		return errors.Wrap(err, "error when computing the duration since last block time")
