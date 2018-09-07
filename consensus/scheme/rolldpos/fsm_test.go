@@ -699,13 +699,13 @@ func newTestCFSM(
 	mockChain func(*mock_blockchain.MockBlockchain),
 	mockP2P func(*mock_network.MockOverlay),
 ) *cFSM {
-	transfer, err := action.NewTransfer(1, big.NewInt(100), "src", "dst")
+	transfer, err := action.NewTransfer(1, big.NewInt(100), "src", "dst", []byte{}, uint64(100000), uint64(10))
 	require.NoError(t, err)
 	selfPubKey := testaddress.Addrinfo["producer"].PublicKey
 	require.NoError(t, err)
 	address, err := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, iotxaddress.ChainID, selfPubKey)
 	require.NoError(t, err)
-	vote, err := action.NewVote(2, address.RawAddress, address.RawAddress)
+	vote, err := action.NewVote(2, address.RawAddress, address.RawAddress, uint64(100000), uint64(10))
 	require.NoError(t, err)
 	var prevHash hash.Hash32B
 	lastBlk := blockchain.NewBlock(

@@ -66,27 +66,27 @@ func TestMerkle(t *testing.T) {
 	require.NotNil(cbtsf4)
 
 	// verify tx hash
-	hash0, _ := hex.DecodeString("758dad3b6ef82097a2b17d5876ce18224b41484d2c9147825f66bcdb9803e9f2")
+	hash0, _ := hex.DecodeString("1d425f14a29e0d1cf9aa2949c9dc08fd5c9f50756c6555e92b10cba543b12327")
 	actual := cbtsf0.Hash()
 	require.Equal(hash0, actual[:])
 	t.Logf("actual hash = %x", actual[:])
 
-	hash1, _ := hex.DecodeString("593e06a67b490eba498f941c03bfe024a7c79da02ee4387a046c10c48693c33c")
+	hash1, _ := hex.DecodeString("6f364cbcbb0bc9829c6ddf75f90b66ade586be0da214588f0fa5a2883fc19ea8")
 	actual = cbtsf1.Hash()
 	require.Equal(hash1, actual[:])
 	t.Logf("actual hash = %x", actual[:])
 
-	hash2, _ := hex.DecodeString("f4a77a70d52c7f8497ac4966e156a5975a380aafa020cf0ff2f14a39e831e77a")
+	hash2, _ := hex.DecodeString("8272bf4fc0fe300e1cc30a81f91d2e387dbb0c24eb9b177f37ac2ac5c32b61a6")
 	actual = cbtsf2.Hash()
 	require.Equal(hash2, actual[:])
 	t.Logf("actual hash = %x", actual[:])
 
-	hash3, _ := hex.DecodeString("bf55d60c72b9b6ffb20bdc60e153f55c333abadf1865cbd4dcc015f7fb5733fc")
+	hash3, _ := hex.DecodeString("3a5439aa3fc7094a582433ce1c7950660d8dcfc857050cbbad0b21b7f9c9ef88")
 	actual = cbtsf3.Hash()
 	require.Equal(hash3, actual[:])
 	t.Logf("actual hash = %x", actual[:])
 
-	hash4, _ := hex.DecodeString("811d6021ef714c3346be382e2d467fc39fcdd1de913296bfe5b0f30630205dbb")
+	hash4, _ := hex.DecodeString("2f851a0494fc0d9fb75cc28f07d7d934d743965545d4c4f8df4d7c1e95000804")
 	actual = cbtsf4.Hash()
 	require.Equal(hash4, actual[:])
 	t.Logf("actual hash = %x", actual[:])
@@ -191,11 +191,11 @@ func TestConvertFromBlockPb(t *testing.T) {
 func TestWrongRootHash(t *testing.T) {
 	require := require.New(t)
 	val := validator{nil}
-	tsf1, err := action.NewTransfer(1, big.NewInt(20), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["alfa"].RawAddress)
+	tsf1, err := action.NewTransfer(1, big.NewInt(20), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["alfa"].RawAddress, []byte{}, uint64(100000), uint64(10))
 	require.NoError(err)
 	tsf1, err = tsf1.Sign(ta.Addrinfo["producer"])
 	require.Nil(err)
-	tsf2, err := action.NewTransfer(1, big.NewInt(30), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress)
+	tsf2, err := action.NewTransfer(1, big.NewInt(30), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress, []byte{}, uint64(100000), uint64(10))
 	require.NoError(err)
 	tsf2, err = tsf2.Sign(ta.Addrinfo["producer"])
 	require.Nil(err)
@@ -212,11 +212,11 @@ func TestWrongRootHash(t *testing.T) {
 func TestSignBlock(t *testing.T) {
 	require := require.New(t)
 	val := validator{nil}
-	tsf1, err := action.NewTransfer(1, big.NewInt(20), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["alfa"].RawAddress)
+	tsf1, err := action.NewTransfer(1, big.NewInt(20), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["alfa"].RawAddress, []byte{}, uint64(100000), uint64(10))
 	require.NoError(err)
 	tsf1, err = tsf1.Sign(ta.Addrinfo["producer"])
 	require.Nil(err)
-	tsf2, err := action.NewTransfer(1, big.NewInt(30), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress)
+	tsf2, err := action.NewTransfer(1, big.NewInt(30), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress, []byte{}, uint64(100000), uint64(10))
 	require.NoError(err)
 	tsf2, err = tsf2.Sign(ta.Addrinfo["producer"])
 	require.Nil(err)
@@ -244,7 +244,7 @@ func TestWrongNonce(t *testing.T) {
 
 	// correct nonce
 	coinbaseTsf := action.NewCoinBaseTransfer(big.NewInt(int64(Gen.BlockReward)), ta.Addrinfo["producer"].RawAddress)
-	tsf1, err := action.NewTransfer(1, big.NewInt(20), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["alfa"].RawAddress)
+	tsf1, err := action.NewTransfer(1, big.NewInt(20), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["alfa"].RawAddress, []byte{}, uint64(100000), uint64(10))
 	require.NoError(err)
 	tsf1, err = tsf1.Sign(ta.Addrinfo["producer"])
 	require.NoError(err)
@@ -256,7 +256,7 @@ func TestWrongNonce(t *testing.T) {
 	require.NoError(sf.CommitStateChanges(1, []*action.Transfer{tsf1}, nil, nil))
 
 	// low nonce
-	tsf2, err := action.NewTransfer(1, big.NewInt(30), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress)
+	tsf2, err := action.NewTransfer(1, big.NewInt(30), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress, []byte{}, uint64(100000), uint64(10))
 	require.NoError(err)
 	tsf2, err = tsf2.Sign(ta.Addrinfo["producer"])
 	require.NoError(err)
@@ -267,7 +267,7 @@ func TestWrongNonce(t *testing.T) {
 	err = val.Validate(blk, 2, hash)
 	require.Equal(ErrActionNonce, errors.Cause(err))
 
-	vote, err := action.NewVote(1, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress)
+	vote, err := action.NewVote(1, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress, uint64(100000), uint64(10))
 	require.NoError(err)
 	vote, err = vote.Sign(ta.Addrinfo["producer"])
 	require.NoError(err)
@@ -280,11 +280,11 @@ func TestWrongNonce(t *testing.T) {
 	require.Equal(ErrActionNonce, errors.Cause(err))
 
 	// duplicate nonce
-	tsf3, err := action.NewTransfer(2, big.NewInt(30), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress)
+	tsf3, err := action.NewTransfer(2, big.NewInt(30), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress, []byte{}, uint64(100000), uint64(10))
 	require.NoError(err)
 	tsf3, err = tsf3.Sign(ta.Addrinfo["producer"])
 	require.NoError(err)
-	tsf4, err := action.NewTransfer(2, big.NewInt(30), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress)
+	tsf4, err := action.NewTransfer(2, big.NewInt(30), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress, []byte{}, uint64(100000), uint64(10))
 	require.NoError(err)
 	tsf4, err = tsf4.Sign(ta.Addrinfo["producer"])
 	require.NoError(err)
@@ -296,11 +296,11 @@ func TestWrongNonce(t *testing.T) {
 	require.Error(err)
 	require.Equal(ErrActionNonce, errors.Cause(err))
 
-	vote2, err := action.NewVote(2, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress)
+	vote2, err := action.NewVote(2, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress, uint64(100000), uint64(10))
 	require.NoError(err)
 	vote2, err = vote2.Sign(ta.Addrinfo["producer"])
 	require.NoError(err)
-	vote3, err := action.NewVote(2, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["charlie"].RawAddress)
+	vote3, err := action.NewVote(2, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["charlie"].RawAddress, uint64(100000), uint64(10))
 	require.NoError(err)
 	vote3, err = vote3.Sign(ta.Addrinfo["producer"])
 	require.NoError(err)
@@ -313,11 +313,11 @@ func TestWrongNonce(t *testing.T) {
 	require.Equal(ErrActionNonce, errors.Cause(err))
 
 	// non consecutive nonce
-	tsf5, err := action.NewTransfer(2, big.NewInt(30), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress)
+	tsf5, err := action.NewTransfer(2, big.NewInt(30), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress, []byte{}, uint64(100000), uint64(10))
 	require.NoError(err)
 	tsf5, err = tsf5.Sign(ta.Addrinfo["producer"])
 	require.NoError(err)
-	tsf6, err := action.NewTransfer(4, big.NewInt(30), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress)
+	tsf6, err := action.NewTransfer(4, big.NewInt(30), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress, []byte{}, uint64(100000), uint64(10))
 	require.NoError(err)
 	tsf6, err = tsf6.Sign(ta.Addrinfo["producer"])
 	require.NoError(err)
@@ -329,11 +329,11 @@ func TestWrongNonce(t *testing.T) {
 	require.Error(err)
 	require.Equal(ErrActionNonce, errors.Cause(err))
 
-	vote4, err := action.NewVote(2, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress)
+	vote4, err := action.NewVote(2, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress, uint64(100000), uint64(10))
 	require.NoError(err)
 	vote4, err = vote4.Sign(ta.Addrinfo["producer"])
 	require.NoError(err)
-	vote5, err := action.NewVote(4, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["charlie"].RawAddress)
+	vote5, err := action.NewVote(4, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["charlie"].RawAddress, uint64(100000), uint64(10))
 	require.NoError(err)
 	vote5, err = vote5.Sign(ta.Addrinfo["producer"])
 	require.NoError(err)
@@ -363,7 +363,7 @@ func TestWrongCoinbaseTsf(t *testing.T) {
 
 	// no coinbase tsf
 	coinbaseTsf := action.NewCoinBaseTransfer(big.NewInt(int64(Gen.BlockReward)), ta.Addrinfo["producer"].RawAddress)
-	tsf1, err := action.NewTransfer(1, big.NewInt(20), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["alfa"].RawAddress)
+	tsf1, err := action.NewTransfer(1, big.NewInt(20), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["alfa"].RawAddress, []byte{}, uint64(100000), uint64(10))
 	require.NoError(err)
 	tsf1, err = tsf1.Sign(ta.Addrinfo["producer"])
 	require.NoError(err)
