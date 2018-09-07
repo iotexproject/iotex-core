@@ -31,9 +31,7 @@ message ExecutionPb {
     string executor = 2;
     string contract = 3;
     bytes executorPubKey = 4;
-    uint64 gas = 5;
-    uint64 gasPrice = 6;
-    bytes data = 7;
+    bytes data = 5;
 }
 
 message LogPb {
@@ -58,7 +56,9 @@ message ReceiptPb {
 message ActionPb {
     uint32 version = 1;
     uint64 nonce = 2;
-    bytes signature = 3;
+    uint64 gasLimit = 3;
+    uint64 gasPrice = 4;
+    bytes signature = 5;
     oneof action {
         TransferPb transfer = 10;
         VotePb vote = 11;

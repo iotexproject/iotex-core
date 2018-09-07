@@ -118,7 +118,7 @@ func NewEVMParams(blk *Block, execution *action.Execution, stateDB *EVMStateDBAd
 		executorIoTXAddress.RawAddress,
 		execution.Amount,
 		contractAddrPointer,
-		execution.Gas,
+		execution.GasLimit,
 		execution.Data,
 	}, nil
 }

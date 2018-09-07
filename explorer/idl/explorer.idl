@@ -52,6 +52,8 @@ struct Transfer {
     senderPubKey string
     signature string
     payload string
+    gasLimit int
+    gasPrice int
     isCoinbase bool
     fee int
     timestamp int
@@ -68,7 +70,7 @@ struct Execution {
     amount int
     executorPubKey string
     signature string
-    gas int
+    gasLimit int
     gasPrice int
     timestamp int
     data string
@@ -107,6 +109,8 @@ struct Vote {
     voter string
     votee string
     voterPubKey string
+    gasLimit int
+    gasPrice int
     signature string
     blockID string
     isPending bool
@@ -151,6 +155,8 @@ struct SendTransferRequest {
     senderPubKey string
     signature string
     payload string
+    gasLimit int
+    gasPrice int
     isCoinbase bool
 }
 
@@ -164,6 +170,8 @@ struct SendVoteRequest {
     voter string
     votee string
     voterPubKey string
+    gasLimit int
+    gasPrice int
     signature string
 }
 

@@ -39,17 +39,17 @@ const (
 func addTestingTsfBlocks(bc Blockchain) error {
 	// Add block 1
 	// test --> A, B, C, D, E, F
-	tsf1, _ := action.NewTransfer(1, big.NewInt(20), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["alfa"].RawAddress)
+	tsf1, _ := action.NewTransfer(1, big.NewInt(20), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["alfa"].RawAddress, []byte{}, uint64(100000), uint64(10))
 	tsf1, _ = tsf1.Sign(ta.Addrinfo["producer"])
-	tsf2, _ := action.NewTransfer(2, big.NewInt(30), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress)
+	tsf2, _ := action.NewTransfer(2, big.NewInt(30), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress, []byte{}, uint64(100000), uint64(10))
 	tsf2, _ = tsf2.Sign(ta.Addrinfo["producer"])
-	tsf3, _ := action.NewTransfer(3, big.NewInt(50), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["charlie"].RawAddress)
+	tsf3, _ := action.NewTransfer(3, big.NewInt(50), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["charlie"].RawAddress, []byte{}, uint64(100000), uint64(10))
 	tsf3, _ = tsf3.Sign(ta.Addrinfo["producer"])
-	tsf4, _ := action.NewTransfer(4, big.NewInt(70), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["delta"].RawAddress)
+	tsf4, _ := action.NewTransfer(4, big.NewInt(70), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["delta"].RawAddress, []byte{}, uint64(100000), uint64(10))
 	tsf4, _ = tsf4.Sign(ta.Addrinfo["producer"])
-	tsf5, _ := action.NewTransfer(5, big.NewInt(110), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["echo"].RawAddress)
+	tsf5, _ := action.NewTransfer(5, big.NewInt(110), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["echo"].RawAddress, []byte{}, uint64(100000), uint64(10))
 	tsf5, _ = tsf5.Sign(ta.Addrinfo["producer"])
-	tsf6, _ := action.NewTransfer(6, big.NewInt(50<<20), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["foxtrot"].RawAddress)
+	tsf6, _ := action.NewTransfer(6, big.NewInt(50<<20), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["foxtrot"].RawAddress, []byte{}, uint64(100000), uint64(10))
 	tsf6, _ = tsf6.Sign(ta.Addrinfo["producer"])
 
 	blk, err := bc.MintNewBlock([]*action.Transfer{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}, nil, nil, ta.Addrinfo["producer"], "")
@@ -62,15 +62,15 @@ func addTestingTsfBlocks(bc Blockchain) error {
 
 	// Add block 2
 	// Charlie --> A, B, D, E, test
-	tsf1, _ = action.NewTransfer(1, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["alfa"].RawAddress)
+	tsf1, _ = action.NewTransfer(1, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["alfa"].RawAddress, []byte{}, uint64(100000), uint64(10))
 	tsf1, _ = tsf1.Sign(ta.Addrinfo["charlie"])
-	tsf2, _ = action.NewTransfer(2, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["bravo"].RawAddress)
+	tsf2, _ = action.NewTransfer(2, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["bravo"].RawAddress, []byte{}, uint64(100000), uint64(10))
 	tsf2, _ = tsf2.Sign(ta.Addrinfo["charlie"])
-	tsf3, _ = action.NewTransfer(3, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["delta"].RawAddress)
+	tsf3, _ = action.NewTransfer(3, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["delta"].RawAddress, []byte{}, uint64(100000), uint64(10))
 	tsf3, _ = tsf3.Sign(ta.Addrinfo["charlie"])
-	tsf4, _ = action.NewTransfer(4, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["echo"].RawAddress)
+	tsf4, _ = action.NewTransfer(4, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["echo"].RawAddress, []byte{}, uint64(100000), uint64(10))
 	tsf4, _ = tsf4.Sign(ta.Addrinfo["charlie"])
-	tsf5, _ = action.NewTransfer(5, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["producer"].RawAddress)
+	tsf5, _ = action.NewTransfer(5, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["producer"].RawAddress, []byte{}, uint64(100000), uint64(10))
 	tsf5, _ = tsf5.Sign(ta.Addrinfo["charlie"])
 	blk, err = bc.MintNewBlock([]*action.Transfer{tsf1, tsf2, tsf3, tsf4, tsf5}, nil, nil, ta.Addrinfo["producer"], "")
 	if err != nil {
@@ -82,13 +82,13 @@ func addTestingTsfBlocks(bc Blockchain) error {
 
 	// Add block 3
 	// Delta --> B, E, F, test
-	tsf1, _ = action.NewTransfer(1, big.NewInt(1), ta.Addrinfo["delta"].RawAddress, ta.Addrinfo["bravo"].RawAddress)
+	tsf1, _ = action.NewTransfer(1, big.NewInt(1), ta.Addrinfo["delta"].RawAddress, ta.Addrinfo["bravo"].RawAddress, []byte{}, uint64(100000), uint64(10))
 	tsf1, _ = tsf1.Sign(ta.Addrinfo["delta"])
-	tsf2, _ = action.NewTransfer(2, big.NewInt(1), ta.Addrinfo["delta"].RawAddress, ta.Addrinfo["echo"].RawAddress)
+	tsf2, _ = action.NewTransfer(2, big.NewInt(1), ta.Addrinfo["delta"].RawAddress, ta.Addrinfo["echo"].RawAddress, []byte{}, uint64(100000), uint64(10))
 	tsf2, _ = tsf2.Sign(ta.Addrinfo["delta"])
-	tsf3, _ = action.NewTransfer(3, big.NewInt(1), ta.Addrinfo["delta"].RawAddress, ta.Addrinfo["foxtrot"].RawAddress)
+	tsf3, _ = action.NewTransfer(3, big.NewInt(1), ta.Addrinfo["delta"].RawAddress, ta.Addrinfo["foxtrot"].RawAddress, []byte{}, uint64(100000), uint64(10))
 	tsf3, _ = tsf3.Sign(ta.Addrinfo["delta"])
-	tsf4, _ = action.NewTransfer(4, big.NewInt(1), ta.Addrinfo["delta"].RawAddress, ta.Addrinfo["producer"].RawAddress)
+	tsf4, _ = action.NewTransfer(4, big.NewInt(1), ta.Addrinfo["delta"].RawAddress, ta.Addrinfo["producer"].RawAddress, []byte{}, uint64(100000), uint64(10))
 	tsf4, _ = tsf4.Sign(ta.Addrinfo["delta"])
 	blk, err = bc.MintNewBlock([]*action.Transfer{tsf1, tsf2, tsf3, tsf4}, nil, nil, ta.Addrinfo["producer"], "")
 	if err != nil {
@@ -100,20 +100,20 @@ func addTestingTsfBlocks(bc Blockchain) error {
 
 	// Add block 4
 	// Delta --> A, B, C, D, F, test
-	tsf1, _ = action.NewTransfer(1, big.NewInt(2), ta.Addrinfo["echo"].RawAddress, ta.Addrinfo["alfa"].RawAddress)
+	tsf1, _ = action.NewTransfer(1, big.NewInt(2), ta.Addrinfo["echo"].RawAddress, ta.Addrinfo["alfa"].RawAddress, []byte{}, uint64(100000), uint64(10))
 	tsf1, _ = tsf1.Sign(ta.Addrinfo["echo"])
-	tsf2, _ = action.NewTransfer(2, big.NewInt(2), ta.Addrinfo["echo"].RawAddress, ta.Addrinfo["bravo"].RawAddress)
+	tsf2, _ = action.NewTransfer(2, big.NewInt(2), ta.Addrinfo["echo"].RawAddress, ta.Addrinfo["bravo"].RawAddress, []byte{}, uint64(100000), uint64(10))
 	tsf2, _ = tsf2.Sign(ta.Addrinfo["echo"])
-	tsf3, _ = action.NewTransfer(3, big.NewInt(2), ta.Addrinfo["echo"].RawAddress, ta.Addrinfo["charlie"].RawAddress)
+	tsf3, _ = action.NewTransfer(3, big.NewInt(2), ta.Addrinfo["echo"].RawAddress, ta.Addrinfo["charlie"].RawAddress, []byte{}, uint64(100000), uint64(10))
 	tsf3, _ = tsf3.Sign(ta.Addrinfo["echo"])
-	tsf4, _ = action.NewTransfer(4, big.NewInt(2), ta.Addrinfo["echo"].RawAddress, ta.Addrinfo["delta"].RawAddress)
+	tsf4, _ = action.NewTransfer(4, big.NewInt(2), ta.Addrinfo["echo"].RawAddress, ta.Addrinfo["delta"].RawAddress, []byte{}, uint64(100000), uint64(10))
 	tsf4, _ = tsf4.Sign(ta.Addrinfo["echo"])
-	tsf5, _ = action.NewTransfer(5, big.NewInt(2), ta.Addrinfo["echo"].RawAddress, ta.Addrinfo["foxtrot"].RawAddress)
+	tsf5, _ = action.NewTransfer(5, big.NewInt(2), ta.Addrinfo["echo"].RawAddress, ta.Addrinfo["foxtrot"].RawAddress, []byte{}, uint64(100000), uint64(10))
 	tsf5, _ = tsf5.Sign(ta.Addrinfo["echo"])
-	tsf6, _ = action.NewTransfer(6, big.NewInt(2), ta.Addrinfo["echo"].RawAddress, ta.Addrinfo["producer"].RawAddress)
+	tsf6, _ = action.NewTransfer(6, big.NewInt(2), ta.Addrinfo["echo"].RawAddress, ta.Addrinfo["producer"].RawAddress, []byte{}, uint64(100000), uint64(10))
 	tsf6, _ = tsf6.Sign(ta.Addrinfo["echo"])
-	vote1, _ := action.NewVote(6, ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["alfa"].RawAddress)
-	vote2, _ := action.NewVote(1, ta.Addrinfo["alfa"].RawAddress, ta.Addrinfo["charlie"].RawAddress)
+	vote1, _ := action.NewVote(6, ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["alfa"].RawAddress, uint64(100000), uint64(10))
+	vote2, _ := action.NewVote(1, ta.Addrinfo["alfa"].RawAddress, ta.Addrinfo["charlie"].RawAddress, uint64(100000), uint64(10))
 	vote1, err = vote1.Sign(ta.Addrinfo["charlie"])
 	if err != nil {
 		return err
@@ -427,7 +427,7 @@ func TestBlockchain_MintNewDummyBlock(t *testing.T) {
 	require.Equal(uint64(1), blk.Height())
 	tipHash, _ := bc.TipHash()
 	require.NoError(val.Validate(blk, 0, tipHash))
-	tsf, _ := action.NewTransfer(1, big.NewInt(1), "", "")
+	tsf, _ := action.NewTransfer(1, big.NewInt(1), "", "", []byte{}, uint64(100000), uint64(10))
 	blk.Transfers = []*action.Transfer{tsf}
 	err = val.Validate(blk, 0, tipHash)
 	require.Error(err)
@@ -557,7 +557,7 @@ func TestBlocks(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		tsfs := []*action.Transfer{}
 		for i := 0; i < 1000; i++ {
-			tsf, err := action.NewTransfer(1, big.NewInt(2), a.RawAddress, c.RawAddress)
+			tsf, err := action.NewTransfer(1, big.NewInt(2), a.RawAddress, c.RawAddress, []byte{}, uint64(100000), uint64(10))
 			require.NoError(err)
 			tsf, _ = tsf.Sign(a)
 			tsfs = append(tsfs, tsf)
@@ -597,12 +597,12 @@ func TestActions(t *testing.T) {
 	tsfs := []*action.Transfer{}
 	votes := []*action.Vote{}
 	for i := 0; i < 5000; i++ {
-		tsf, err := action.NewTransfer(1, big.NewInt(2), a.RawAddress, c.RawAddress)
+		tsf, err := action.NewTransfer(1, big.NewInt(2), a.RawAddress, c.RawAddress, []byte{}, uint64(100000), uint64(10))
 		require.NoError(err)
 		tsf, _ = tsf.Sign(a)
 		tsfs = append(tsfs, tsf)
 
-		vote, err := action.NewVote(1, a.RawAddress, a.RawAddress)
+		vote, err := action.NewVote(1, a.RawAddress, a.RawAddress, uint64(100000), uint64(10))
 		require.NoError(err)
 		vote, _ = vote.Sign(a)
 		votes = append(votes, vote)

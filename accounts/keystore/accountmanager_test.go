@@ -85,7 +85,7 @@ func TestAccountManager_SignTransfer(t *testing.T) {
 	require := require.New(t)
 	m := NewMemAccountManager()
 
-	rawTransfer, err := action.NewTransfer(uint64(1), big.NewInt(1), rawAddr1, rawAddr2)
+	rawTransfer, err := action.NewTransfer(uint64(1), big.NewInt(1), rawAddr1, rawAddr2, []byte{}, uint64(100000), uint64(10))
 	require.NoError(err)
 	signedTransfer, err := m.SignTransfer(rawAddr1, rawTransfer)
 	require.Nil(signedTransfer)
@@ -115,7 +115,7 @@ func TestAccountManager_SignVote(t *testing.T) {
 	require.NoError(err)
 	voteeAddress, err := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, iotxaddress.ChainID, votePubKey)
 	require.NoError(err)
-	rawVote, err := action.NewVote(uint64(1), voterAddress.RawAddress, voteeAddress.RawAddress)
+	rawVote, err := action.NewVote(uint64(1), voterAddress.RawAddress, voteeAddress.RawAddress, uint64(100000), uint64(10))
 	require.NoError(err)
 	signedVote, err := m.SignVote(rawAddr1, rawVote)
 	require.Nil(signedVote)

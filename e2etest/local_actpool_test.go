@@ -27,8 +27,8 @@ import (
 const (
 	// Make sure the key pairs used here match the genesis block
 	// Sender's public/private key pair
-	fromPubKey  = "327ff28d33245f9921d8ab4311496ae1298dc14a0a0babdb7a6031e7bc180330577c9507e740ee30ecc5b73f0c058d2ed9b580cf7530ddddc71f644838828655e451e0c3108de102"
-	fromPrivKey = "1bafc0a6f9f1e939ba4b180b9bd456cd143d9806cf9046eaaaba01e78ec265524669ad00"
+	fromPubKey  = "1583147e3bdfcfe697a96c008530e611eb8e7b803ec89bf87f6906b9fdf9289c7394b1001e089af262ebe9984c817d7f33fae62d002401e737634abd7db2d295ea45663a0e365b05"
+	fromPrivKey = "8de7945d4cac2d3654128a008f0c0744d289bd9912d912a38e85eb0dec34aeb6ed58c200"
 	// Recipient's public/private key pair
 	toPubKey  = "0b19932e0ea8553538ac9c0bec245c1b826f3342a5a79a63a03d637331656f57bde8cb0122bf9b2f0d6a1e4d50b9019b0ef99be21d858a20d7314e780199deb44f8dcc0704f78404"
 	toPrivKey = "c3a6f7a3392a8e4e97d3dc3993b908abc35e7398548fb269a3fb67bc4a37e60270940f01"
@@ -85,7 +85,7 @@ func TestLocalActPool(t *testing.T) {
 	tsf6, _ := signedTransfer(from, to, uint64(6), big.NewInt(5))
 	tsf6.IsCoinbase = true
 	// Unsigned Vote
-	vote7, _ := action.NewVote(uint64(7), from.RawAddress, from.RawAddress)
+	vote7, _ := action.NewVote(uint64(7), from.RawAddress, from.RawAddress, uint64(100000), uint64(10))
 
 	require.NoError(cli.Broadcast(tsf1.ConvertToActionPb()))
 	require.NoError(cli.Broadcast(vote2.ConvertToActionPb()))
@@ -161,7 +161,7 @@ func signedTransfer(
 	nonce uint64,
 	amount *big.Int,
 ) (*action.Transfer, error) {
-	transfer, err := action.NewTransfer(nonce, amount, sender.RawAddress, recipient.RawAddress)
+	transfer, err := action.NewTransfer(nonce, amount, sender.RawAddress, recipient.RawAddress, []byte{}, uint64(100000), uint64(10))
 	if err != nil {
 		return nil, err
 	}
@@ -170,7 +170,7 @@ func signedTransfer(
 
 // Helper function to return a signed vote
 func signedVote(voter *iotxaddress.Address, votee *iotxaddress.Address, nonce uint64) (*action.Vote, error) {
-	vote, err := action.NewVote(nonce, voter.RawAddress, votee.RawAddress)
+	vote, err := action.NewVote(nonce, voter.RawAddress, votee.RawAddress, uint64(100000), uint64(10))
 	if err != nil {
 		return nil, err
 	}
@@ -178,8 +178,8 @@ func signedVote(voter *iotxaddress.Address, votee *iotxaddress.Address, nonce ui
 }
 
 // Helper function to return a signed execution
-func signedExecution(executor *iotxaddress.Address, contractAddr string, nonce uint64, amount *big.Int, gas uint64, gasPrice uint64, data []byte) (*action.Execution, error) {
-	execution, err := action.NewExecution(executor.RawAddress, contractAddr, nonce, amount, gas, gasPrice, data)
+func signedExecution(executor *iotxaddress.Address, contractAddr string, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice uint64, data []byte) (*action.Execution, error) {
+	execution, err := action.NewExecution(executor.RawAddress, contractAddr, nonce, amount, gasLimit, gasPrice, data)
 	if err != nil {
 		return nil, err
 	}
