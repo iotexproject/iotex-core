@@ -20,7 +20,7 @@ func TestVoteSignVerify(t *testing.T) {
 	require.NoError(err)
 	recipient, err := iotxaddress.NewAddress(true, chainid)
 	require.NoError(err)
-	v, err := NewVote(0, sender.RawAddress, recipient.RawAddress)
+	v, err := NewVote(0, sender.RawAddress, recipient.RawAddress, uint64(100000), uint64(10))
 	require.NoError(err)
 
 	signedv, err := v.Sign(sender)
@@ -36,7 +36,7 @@ func TestVoteSerializedDeserialize(t *testing.T) {
 	recipient, err := iotxaddress.NewAddress(true, chainid)
 	require.NoError(err)
 
-	v, err := NewVote(0, sender.RawAddress, recipient.RawAddress)
+	v, err := NewVote(0, sender.RawAddress, recipient.RawAddress, uint64(100000), uint64(10))
 	require.NoError(err)
 	raw, err := v.Serialize()
 	require.NoError(err)
@@ -54,7 +54,7 @@ func TestVoteToJSONFromJSON(t *testing.T) {
 	recipient, err := iotxaddress.NewAddress(true, chainid)
 	require.NoError(err)
 
-	v, err := NewVote(0, sender.RawAddress, recipient.RawAddress)
+	v, err := NewVote(0, sender.RawAddress, recipient.RawAddress, uint64(100000), uint64(10))
 	require.NoError(err)
 	signedv, err := v.Sign(sender)
 	require.NoError(err)

@@ -37,11 +37,11 @@ func TestBlockDAO(t *testing.T) {
 		assert.NotNil(t, cbTsf3)
 
 		// create testing votes
-		vote1, err := action.NewVote(1, testaddress.Addrinfo["alfa"].RawAddress, testaddress.Addrinfo["alfa"].RawAddress)
+		vote1, err := action.NewVote(1, testaddress.Addrinfo["alfa"].RawAddress, testaddress.Addrinfo["alfa"].RawAddress, uint64(100000), uint64(10))
 		require.NoError(t, err)
-		vote2, err := action.NewVote(1, testaddress.Addrinfo["bravo"].RawAddress, testaddress.Addrinfo["bravo"].RawAddress)
+		vote2, err := action.NewVote(1, testaddress.Addrinfo["bravo"].RawAddress, testaddress.Addrinfo["bravo"].RawAddress, uint64(100000), uint64(10))
 		require.NoError(t, err)
-		vote3, err := action.NewVote(1, testaddress.Addrinfo["charlie"].RawAddress, testaddress.Addrinfo["charlie"].RawAddress)
+		vote3, err := action.NewVote(1, testaddress.Addrinfo["charlie"].RawAddress, testaddress.Addrinfo["charlie"].RawAddress, uint64(100000), uint64(10))
 		require.NoError(t, err)
 
 		// create testing executions
