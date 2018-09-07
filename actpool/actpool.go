@@ -25,7 +25,7 @@ const (
 	// TransferSizeLimit is the maximum size of transfer allowed
 	TransferSizeLimit = 32 * 1024
 	// VoteSizeLimit is the maximum size of vote allowed
-	VoteSizeLimit = 262
+	VoteSizeLimit = 278
 )
 
 var (

@@ -862,6 +862,8 @@ func (exp *Service) SendTransfer(tsfJSON explorer.SendTransferRequest) (resp exp
 		},
 		Version:   uint32(tsfJSON.Version),
 		Nonce:     uint64(tsfJSON.Nonce),
+		Gas:       uint64(tsfJSON.Gas),
+		GasPrice:  uint64(tsfJSON.GasPrice),
 		Signature: signature,
 	}
 	// broadcast to the network
@@ -907,6 +909,8 @@ func (exp *Service) SendVote(voteJSON explorer.SendVoteRequest) (resp explorer.S
 		},
 		Version:   uint32(voteJSON.Version),
 		Nonce:     uint64(voteJSON.Nonce),
+		Gas:       uint64(voteJSON.Gas),
+		GasPrice:  uint64(voteJSON.GasPrice),
 		Signature: signature,
 	}
 
@@ -968,13 +972,13 @@ func (exp *Service) SendSmartContract(execution explorer.Execution) (resp explor
 				Executor:       execution.Executor,
 				Contract:       execution.Contract,
 				ExecutorPubKey: executorPubKey,
-				Gas:            uint64(execution.Gas),
-				GasPrice:       uint64(execution.GasPrice),
 				Data:           data,
 			},
 		},
 		Version:   uint32(execution.Version),
 		Nonce:     uint64(execution.Nonce),
+		Gas:       uint64(execution.Gas),
+		GasPrice:  uint64(execution.GasPrice),
 		Signature: signature,
 	}
 	//
@@ -1010,13 +1014,13 @@ func (exp *Service) ReadExecutionState(execution explorer.Execution) (string, er
 				Executor:       execution.Executor,
 				Contract:       execution.Contract,
 				ExecutorPubKey: nil,
-				Gas:            uint64(execution.Gas),
-				GasPrice:       uint64(execution.GasPrice),
 				Data:           data,
 			},
 		},
 		Version:   uint32(execution.Version),
 		Nonce:     uint64(execution.Nonce),
+		Gas:       uint64(execution.Gas),
+		GasPrice:  uint64(execution.GasPrice),
 		Signature: signature,
 	}
 
@@ -1152,6 +1156,8 @@ func convertTsfToExplorerTsf(transfer *action.Transfer, isPending bool) (explore
 		Recipient: transfer.Recipient,
 		Fee:       0, // TODO: we need to get the actual fee.
 		Payload:   hex.EncodeToString(transfer.Payload),
+		Gas:       int64(transfer.Gas),
+		GasPrice:  int64(transfer.GasPrice),
 		IsPending: isPending,
 	}
 	return explorerTransfer, nil
@@ -1180,6 +1186,8 @@ func convertVoteToExplorerVote(vote *action.Vote, isPending bool) (explorer.Vote
 		Nonce:     int64(vote.Nonce),
 		Voter:     voter,
 		Votee:     votee,
+		Gas:       int64(vote.Gas),
+		GasPrice:  int64(vote.GasPrice),
 		IsPending: isPending,
 	}
 	return explorerVote, nil

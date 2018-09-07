@@ -115,13 +115,13 @@ func (ex *Execution) ConvertToActionPb() *iproto.ActionPb {
 				Executor:       ex.Executor,
 				Contract:       ex.Contract,
 				ExecutorPubKey: ex.ExecutorPubKey[:],
-				Gas:            ex.Gas,
-				GasPrice:       ex.GasPrice,
 				Data:           ex.Data,
 			},
 		},
 		Version:   ex.Version,
 		Nonce:     ex.Nonce,
+		Gas:       ex.Gas,
+		GasPrice:  ex.GasPrice,
 		Signature: ex.Signature,
 	}
 	if ex.Amount != nil && len(ex.Amount.Bytes()) > 0 {
@@ -157,13 +157,13 @@ func (ex *Execution) Serialize() ([]byte, error) {
 func (ex *Execution) ConvertFromActionPb(pbAct *iproto.ActionPb) {
 	ex.Version = pbAct.GetVersion()
 	ex.Nonce = pbAct.GetNonce()
+	ex.Gas = pbAct.GetGas()
+	ex.GasPrice = pbAct.GetGasPrice()
+	ex.Signature = pbAct.GetSignature()
 	pbExecution := pbAct.GetExecution()
 	ex.Executor = pbExecution.Executor
 	ex.Contract = pbExecution.GetContract()
 	copy(ex.ExecutorPubKey[:], pbExecution.GetExecutorPubKey())
-	ex.Gas = pbExecution.GetGas()
-	ex.GasPrice = pbExecution.GetGasPrice()
-	ex.Signature = pbAct.GetSignature()
 	ex.Data = pbExecution.GetData()
 	if ex.Amount == nil {
 		ex.Amount = big.NewInt(0)
