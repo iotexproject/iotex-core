@@ -48,12 +48,14 @@ func TestRollDPoSCtx(t *testing.T) {
 	for i := 0; i < len(candidates); i++ {
 		candidates[i] = testAddrs[i].RawAddress
 	}
+
+	clock := clock.NewMock()
 	var prevHash hash.Hash32B
 	blk := blockchain.NewBlock(
 		1,
 		8,
 		prevHash,
-		clock.New(),
+		clock,
 		make([]*action.Transfer, 0),
 		make([]*action.Vote, 0),
 		make([]*action.Execution, 0),
@@ -77,6 +79,7 @@ func TestRollDPoSCtx(t *testing.T) {
 		},
 		func(_ *mock_actpool.MockActPool) {},
 		func(_ *mock_network.MockOverlay) {},
+		clock,
 	)
 
 	epoch, height, err := ctx.calcEpochNumAndHeight()
@@ -100,9 +103,10 @@ func TestRollDPoSCtx(t *testing.T) {
 	assert.Equal(t, candidates[1], proposer)
 	assert.Equal(t, uint64(9), height)
 
+	clock.Add(time.Second)
 	duration, err := ctx.calcDurationSinceLastBlock()
 	require.NoError(t, err)
-	assert.True(t, duration > 0)
+	assert.Equal(t, time.Second, duration)
 
 	yes, no := ctx.calcQuorum(map[string]bool{
 		candidates[0]: true,
@@ -153,6 +157,7 @@ func TestIsEpochFinished(t *testing.T) {
 			},
 			func(_ *mock_actpool.MockActPool) {},
 			func(_ *mock_network.MockOverlay) {},
+			clock.NewMock(),
 		)
 		finished, err := ctx.isEpochFinished()
 		require.NoError(t, err)
@@ -170,6 +175,7 @@ func TestIsEpochFinished(t *testing.T) {
 			},
 			func(_ *mock_actpool.MockActPool) {},
 			func(_ *mock_network.MockOverlay) {},
+			clock.NewMock(),
 		)
 		finished, err := ctx.isEpochFinished()
 		require.NoError(t, err)
@@ -347,6 +353,7 @@ func makeTestRollDPoSCtx(
 	mockChain func(*mock_blockchain.MockBlockchain),
 	mockActPool func(*mock_actpool.MockActPool),
 	mockP2P func(overlay *mock_network.MockOverlay),
+	clock clock.Clock,
 ) *rollDPoSCtx {
 	chain := mock_blockchain.NewMockBlockchain(ctrl)
 	mockChain(chain)
@@ -360,7 +367,7 @@ func makeTestRollDPoSCtx(
 		chain:   chain,
 		actPool: actPool,
 		p2p:     p2p,
-		clock:   clock.NewMock(),
+		clock:   clock,
 	}
 }
 
@@ -533,10 +540,10 @@ func TestRollDPoSConsensus(t *testing.T) {
 		}))
 	})
 
-	checkChains := func(chains []blockchain.Blockchain) {
-		assert.NoError(t, testutil.WaitUntil(100*time.Millisecond, 2*time.Second, func() (bool, error) {
+	checkChains := func(chains []blockchain.Blockchain, height uint64) {
+		assert.NoError(t, testutil.WaitUntil(100*time.Millisecond, 5*time.Second, func() (bool, error) {
 			for _, chain := range chains {
-				blk, err := chain.GetBlockByHeight(1)
+				blk, err := chain.GetBlockByHeight(height)
 				if blk == nil || err != nil {
 					return false, nil
 				}
@@ -574,7 +581,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 			}
 		}()
 
-		checkChains(chains)
+		checkChains(chains, 1)
 	})
 
 	t.Run("non-proposer-network-partition-dummy-block", func(t *testing.T) {
@@ -603,7 +610,38 @@ func TestRollDPoSConsensus(t *testing.T) {
 			}
 		}()
 
-		checkChains(chains)
+		checkChains(chains, 1)
+	})
+
+	t.Run("network-partition-time-rotation", func(t *testing.T) {
+		ctx := context.Background()
+		cs, p2ps, chains := newConsensusComponents(4)
+		// 1 should be the block 1's proposer
+		for i, p2p := range p2ps {
+			if i == 1 {
+				p2p.peers = make(map[net.Addr]*RollDPoS)
+			} else {
+				delete(p2p.peers, p2ps[1].addr)
+			}
+		}
+
+		for i := 0; i < 4; i++ {
+			cs[i].ctx.cfg.TimeBasedRotation = true
+			cs[i].ctx.cfg.EnableDummyBlock = false
+			require.NoError(t, chains[i].Start(ctx))
+			require.NoError(t, p2ps[i].Start(ctx))
+			require.NoError(t, cs[i].Start(ctx))
+		}
+
+		defer func() {
+			for i := 0; i < 4; i++ {
+				require.NoError(t, cs[i].Stop(ctx))
+				require.NoError(t, p2ps[i].Stop(ctx))
+				require.NoError(t, chains[i].Stop(ctx))
+			}
+		}()
+
+		checkChains(chains, 4)
 	})
 
 	t.Run("proposer-network-partition-blocking", func(t *testing.T) {

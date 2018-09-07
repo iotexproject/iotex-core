@@ -55,6 +55,7 @@ func TestBackdoorEvt(t *testing.T) {
 		func(_ *mock_blockchain.MockBlockchain) {},
 		func(_ *mock_actpool.MockActPool) {},
 		func(_ *mock_network.MockOverlay) {},
+		clock.New(),
 	)
 	cfsm, err := newConsensusFSM(ctx)
 	require.Nil(t, err)
@@ -84,7 +85,7 @@ func TestRollDelegatesEvt(t *testing.T) {
 		for i := 0; i < 4; i++ {
 			delegates[i] = testAddrs[i].RawAddress
 		}
-		cfsm := newTestCFSM(t, testAddrs[0], ctrl, delegates, nil, nil)
+		cfsm := newTestCFSM(t, testAddrs[0], ctrl, delegates, nil, nil, clock.New())
 		s, err := cfsm.handleRollDelegatesEvt(cfsm.newCEvt(eRollDelegates))
 		assert.Equal(t, sDKGGeneration, s)
 		assert.NoError(t, err)
@@ -103,7 +104,7 @@ func TestRollDelegatesEvt(t *testing.T) {
 		for i := 0; i < 4; i++ {
 			delegates[i] = testAddrs[i+1].RawAddress
 		}
-		cfsm := newTestCFSM(t, testAddrs[0], ctrl, delegates, nil, nil)
+		cfsm := newTestCFSM(t, testAddrs[0], ctrl, delegates, nil, nil, clock.New())
 		s, err := cfsm.handleRollDelegatesEvt(cfsm.newCEvt(eRollDelegates))
 		assert.Equal(t, sEpochStart, s)
 		assert.NoError(t, err)
@@ -119,9 +120,17 @@ func TestRollDelegatesEvt(t *testing.T) {
 		for i := 0; i < 4; i++ {
 			delegates[i] = testAddrs[i].RawAddress
 		}
-		cfsm := newTestCFSM(t, testAddrs[0], ctrl, delegates, func(mockBlockchain *mock_blockchain.MockBlockchain) {
-			mockBlockchain.EXPECT().TipHeight().Return(uint64(0), errors.New("test error")).Times(1)
-		}, nil)
+		cfsm := newTestCFSM(
+			t,
+			testAddrs[0],
+			ctrl,
+			delegates,
+			func(mockBlockchain *mock_blockchain.MockBlockchain) {
+				mockBlockchain.EXPECT().TipHeight().Return(uint64(0), errors.New("test error")).Times(1)
+			},
+			nil,
+			clock.New(),
+		)
 		s, err := cfsm.handleRollDelegatesEvt(cfsm.newCEvt(eRollDelegates))
 		assert.Equal(t, sInvalid, s)
 		assert.Error(t, err)
@@ -137,10 +146,17 @@ func TestRollDelegatesEvt(t *testing.T) {
 		for i := 0; i < 4; i++ {
 			delegates[i] = testAddrs[i].RawAddress
 		}
-		cfsm := newTestCFSM(t, testAddrs[0], ctrl, delegates, func(mockBlockchain *mock_blockchain.MockBlockchain) {
-			mockBlockchain.EXPECT().TipHeight().Return(uint64(1), nil).Times(1)
-			mockBlockchain.EXPECT().CandidatesByHeight(gomock.Any()).Return(nil, nil).Times(1)
-		}, nil)
+		cfsm := newTestCFSM(
+			t,
+			testAddrs[0],
+			ctrl,
+			delegates, func(mockBlockchain *mock_blockchain.MockBlockchain) {
+				mockBlockchain.EXPECT().TipHeight().Return(uint64(1), nil).Times(1)
+				mockBlockchain.EXPECT().CandidatesByHeight(gomock.Any()).Return(nil, nil).Times(1)
+			},
+			nil,
+			clock.New(),
+		)
 		s, err := cfsm.handleRollDelegatesEvt(cfsm.newCEvt(eRollDelegates))
 		assert.Equal(t, sInvalid, s)
 		assert.Error(t, err)
@@ -161,14 +177,14 @@ func TestGenerateDKGEvt(t *testing.T) {
 		delegates[i] = testAddrs[i].RawAddress
 	}
 	t.Run("no-delay", func(t *testing.T) {
-		cfsm := newTestCFSM(t, testAddrs[2], ctrl, delegates, nil, nil)
+		cfsm := newTestCFSM(t, testAddrs[2], ctrl, delegates, nil, nil, clock.New())
 		s, err := cfsm.handleGenerateDKGEvt(cfsm.newCEvt(eGenerateDKG))
 		assert.Equal(t, sRoundStart, s)
 		assert.NoError(t, err)
 		assert.Equal(t, eStartRound, (<-cfsm.evtq).Type())
 	})
 	t.Run("delay", func(t *testing.T) {
-		cfsm := newTestCFSM(t, testAddrs[2], ctrl, delegates, nil, nil)
+		cfsm := newTestCFSM(t, testAddrs[2], ctrl, delegates, nil, nil, clock.New())
 		cfsm.ctx.cfg.ProposerInterval = 2 * time.Second
 		start := time.Now()
 		s, err := cfsm.handleGenerateDKGEvt(cfsm.newCEvt(eGenerateDKG))
@@ -191,7 +207,7 @@ func TestStartRoundEvt(t *testing.T) {
 		for i := 0; i < 4; i++ {
 			delegates[i] = testAddrs[i].RawAddress
 		}
-		cfsm := newTestCFSM(t, testAddrs[2], ctrl, delegates, nil, nil)
+		cfsm := newTestCFSM(t, testAddrs[2], ctrl, delegates, nil, nil, clock.New())
 		cfsm.ctx.epoch = epochCtx{
 			delegates:    delegates,
 			num:          uint64(1),
@@ -214,7 +230,7 @@ func TestStartRoundEvt(t *testing.T) {
 		for i := 0; i < 4; i++ {
 			delegates[i] = testAddrs[i+1].RawAddress
 		}
-		cfsm := newTestCFSM(t, testAddrs[1], ctrl, delegates, nil, nil)
+		cfsm := newTestCFSM(t, testAddrs[1], ctrl, delegates, nil, nil, clock.New())
 		cfsm.ctx.epoch = epochCtx{
 			delegates:    delegates,
 			num:          uint64(1),
@@ -251,6 +267,7 @@ func TestHandleInitBlockEvt(t *testing.T) {
 		func(p2p *mock_network.MockOverlay) {
 			p2p.EXPECT().Broadcast(gomock.Any()).Return(nil).Times(1)
 		},
+		clock.New(),
 	)
 	cfsm.ctx.epoch = epochCtx{
 		delegates:    delegates,
@@ -310,6 +327,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 			func(p2p *mock_network.MockOverlay) {
 				p2p.EXPECT().Broadcast(gomock.Any()).Return(nil).Times(1)
 			},
+			clock.New(),
 		)
 		cfsm.ctx.epoch = epoch
 		cfsm.ctx.round = round
@@ -321,6 +339,49 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		assert.Equal(t, sAcceptPrevote, state)
 		e := <-cfsm.evtq
 		evt, ok := e.(*voteEvt)
+		require.True(t, ok)
+		assert.Equal(t, ePrevote, evt.Type())
+		assert.True(t, evt.decision)
+		assert.Equal(t, ePrevoteTimeout, (<-cfsm.evtq).Type())
+	})
+
+	t.Run("pass-validation-time-rotation", func(t *testing.T) {
+		clock := clock.NewMock()
+		cfsm := newTestCFSM(
+			t,
+			testAddrs[0],
+			ctrl,
+			delegates,
+			nil,
+			func(p2p *mock_network.MockOverlay) {
+				p2p.EXPECT().Broadcast(gomock.Any()).Return(nil).Times(2)
+			},
+			clock,
+		)
+		cfsm.ctx.cfg.TimeBasedRotation = true
+		cfsm.ctx.cfg.ProposerInterval = 10 * time.Second
+		cfsm.ctx.epoch = epoch
+		cfsm.ctx.round = round
+
+		clock.Add(11 * time.Second)
+		blk, err := cfsm.ctx.mintBlock()
+		assert.NoError(t, err)
+		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, delegates[2], cfsm.ctx.clock))
+		assert.NoError(t, err)
+		assert.Equal(t, sAcceptPrevote, state)
+		e := <-cfsm.evtq
+		evt, ok := e.(*voteEvt)
+		require.True(t, ok)
+		assert.Equal(t, ePrevote, evt.Type())
+		assert.True(t, evt.decision)
+		assert.Equal(t, ePrevoteTimeout, (<-cfsm.evtq).Type())
+
+		clock.Add(10 * time.Second)
+		state, err = cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, delegates[3], cfsm.ctx.clock))
+		assert.NoError(t, err)
+		assert.Equal(t, sAcceptPrevote, state)
+		e = <-cfsm.evtq
+		evt, ok = e.(*voteEvt)
 		require.True(t, ok)
 		assert.Equal(t, ePrevote, evt.Type())
 		assert.True(t, evt.decision)
@@ -339,6 +400,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 			func(p2p *mock_network.MockOverlay) {
 				p2p.EXPECT().Broadcast(gomock.Any()).Return(nil).Times(1)
 			},
+			clock.New(),
 		)
 		cfsm.ctx.epoch = epoch
 		cfsm.ctx.round = round
@@ -368,6 +430,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 			func(p2p *mock_network.MockOverlay) {
 				p2p.EXPECT().Broadcast(gomock.Any()).Return(nil).Times(1)
 			},
+			clock.New(),
 		)
 		cfsm.ctx.epoch = epoch
 		cfsm.ctx.round = round
@@ -385,6 +448,66 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		assert.Equal(t, ePrevoteTimeout, (<-cfsm.evtq).Type())
 	})
 
+	t.Run("invalid-proposer", func(t *testing.T) {
+		cfsm := newTestCFSM(
+			t,
+			testAddrs[2],
+			ctrl,
+			delegates,
+			nil,
+			func(p2p *mock_network.MockOverlay) {
+				p2p.EXPECT().Broadcast(gomock.Any()).Return(nil).Times(1)
+			},
+			clock.New(),
+		)
+		cfsm.ctx.epoch = epoch
+		cfsm.ctx.round = round
+
+		blk, err := cfsm.ctx.mintBlock()
+		assert.NoError(t, err)
+		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, delegates[3], cfsm.ctx.clock))
+		assert.NoError(t, err)
+		assert.Equal(t, sAcceptPrevote, state)
+		e := <-cfsm.evtq
+		evt, ok := e.(*voteEvt)
+		require.True(t, ok)
+		assert.Equal(t, ePrevote, evt.Type())
+		assert.False(t, evt.decision)
+		assert.Equal(t, ePrevoteTimeout, (<-cfsm.evtq).Type())
+	})
+
+	t.Run("invalid-proposer-time-rotation", func(t *testing.T) {
+		clock := clock.NewMock()
+		cfsm := newTestCFSM(
+			t,
+			testAddrs[2],
+			ctrl,
+			delegates,
+			nil,
+			func(p2p *mock_network.MockOverlay) {
+				p2p.EXPECT().Broadcast(gomock.Any()).Return(nil).Times(1)
+			},
+			clock,
+		)
+		cfsm.ctx.cfg.TimeBasedRotation = true
+		cfsm.ctx.cfg.ProposerInterval = 10 * time.Second
+		cfsm.ctx.epoch = epoch
+		cfsm.ctx.round = round
+
+		clock.Add(11 * time.Second)
+		blk, err := cfsm.ctx.mintBlock()
+		assert.NoError(t, err)
+		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, delegates[3], cfsm.ctx.clock))
+		assert.NoError(t, err)
+		assert.Equal(t, sAcceptPrevote, state)
+		e := <-cfsm.evtq
+		evt, ok := e.(*voteEvt)
+		require.True(t, ok)
+		assert.Equal(t, ePrevote, evt.Type())
+		assert.False(t, evt.decision)
+		assert.Equal(t, ePrevoteTimeout, (<-cfsm.evtq).Type())
+	})
+
 	t.Run("timeout", func(t *testing.T) {
 		cfsm := newTestCFSM(
 			t,
@@ -397,6 +520,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 			func(p2p *mock_network.MockOverlay) {
 				p2p.EXPECT().Broadcast(gomock.Any()).Return(nil).Times(0)
 			},
+			clock.New(),
 		)
 		cfsm.ctx.epoch = epoch
 		cfsm.ctx.round = round
@@ -441,6 +565,7 @@ func TestHandlePrevoteEvt(t *testing.T) {
 			func(p2p *mock_network.MockOverlay) {
 				p2p.EXPECT().Broadcast(gomock.Any()).Return(nil).Times(1)
 			},
+			clock.New(),
 		)
 		cfsm.ctx.epoch = epoch
 		cfsm.ctx.round = round
@@ -476,6 +601,7 @@ func TestHandlePrevoteEvt(t *testing.T) {
 		assert.True(t, evt.decision)
 		assert.Equal(t, eVoteTimeout, (<-cfsm.evtq).Type())
 	})
+
 	t.Run("timeout", func(t *testing.T) {
 		cfsm := newTestCFSM(
 			t,
@@ -486,6 +612,7 @@ func TestHandlePrevoteEvt(t *testing.T) {
 			func(p2p *mock_network.MockOverlay) {
 				p2p.EXPECT().Broadcast(gomock.Any()).Return(nil).Times(1)
 			},
+			clock.New(),
 		)
 		cfsm.ctx.epoch = epoch
 		cfsm.ctx.round = round
@@ -541,6 +668,7 @@ func TestHandleVoteEvt(t *testing.T) {
 			func(p2p *mock_network.MockOverlay) {
 				p2p.EXPECT().Broadcast(gomock.Any()).Return(nil).Times(1)
 			},
+			clock.New(),
 		)
 		cfsm.ctx.epoch = epoch
 		cfsm.ctx.round = round
@@ -586,6 +714,7 @@ func TestHandleVoteEvt(t *testing.T) {
 			func(p2p *mock_network.MockOverlay) {
 				p2p.EXPECT().Broadcast(gomock.Any()).Return(nil).Times(0)
 			},
+			clock.New(),
 		)
 		cfsm.ctx.cfg.EnableDummyBlock = false
 		cfsm.ctx.epoch = epoch
@@ -615,6 +744,7 @@ func TestHandleVoteEvt(t *testing.T) {
 			func(p2p *mock_network.MockOverlay) {
 				p2p.EXPECT().Broadcast(gomock.Any()).Return(nil).Times(1)
 			},
+			clock.New(),
 		)
 		cfsm.ctx.epoch = epoch
 		cfsm.ctx.round = round
@@ -661,6 +791,7 @@ func TestHandleFinishEpochEvt(t *testing.T) {
 			delegates,
 			nil,
 			nil,
+			clock.New(),
 		)
 		cfsm.ctx.epoch = epoch
 		cfsm.ctx.round = round
@@ -680,6 +811,7 @@ func TestHandleFinishEpochEvt(t *testing.T) {
 				chain.EXPECT().TipHeight().Return(uint64(4), nil).Times(1)
 			},
 			nil,
+			clock.New(),
 		)
 		cfsm.ctx.epoch = epoch
 		cfsm.ctx.round = round
@@ -698,6 +830,7 @@ func newTestCFSM(
 	delegates []string,
 	mockChain func(*mock_blockchain.MockBlockchain),
 	mockP2P func(*mock_network.MockOverlay),
+	clock clock.Clock,
 ) *cFSM {
 	transfer, err := action.NewTransfer(1, big.NewInt(100), "src", "dst")
 	require.NoError(t, err)
@@ -712,7 +845,7 @@ func newTestCFSM(
 		1,
 		1,
 		prevHash,
-		clock.New(),
+		clock,
 		make([]*action.Transfer, 0),
 		make([]*action.Vote, 0),
 		make([]*action.Execution, 0),
@@ -721,7 +854,7 @@ func newTestCFSM(
 		1,
 		2,
 		lastBlk.HashBlock(),
-		clock.New(),
+		clock,
 		[]*action.Transfer{transfer},
 		[]*action.Vote{vote},
 		nil,
@@ -767,6 +900,7 @@ func newTestCFSM(
 				mockP2P(p2p)
 			}
 		},
+		clock,
 	)
 	cfsm, err := newConsensusFSM(ctx)
 	require.Nil(t, err)

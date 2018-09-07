@@ -115,6 +115,7 @@ var (
 				EventChanSize:          10000,
 				NumDelegates:           21,
 				EnableDummyBlock:       true,
+				TimeBasedRotation:      false,
 			},
 			BlockCreationInterval: 10 * time.Second,
 		},
@@ -122,7 +123,6 @@ var (
 			Interval:   10 * time.Second,
 			BufferSize: 16,
 		},
-
 		Dispatcher: Dispatcher{
 			EventChanSize: 10000,
 		},
@@ -236,6 +236,7 @@ type (
 		EventChanSize          uint          `yaml:"eventChanSize"`
 		NumDelegates           uint          `yaml:"numDelegates"`
 		EnableDummyBlock       bool          `yaml:"enableDummyBlock"`
+		TimeBasedRotation      bool          `yaml:"timeBasedRotation"`
 	}
 
 	// Dispatcher is the dispatcher config
@@ -416,7 +417,7 @@ func ValidateConsensusScheme(cfg *Config) error {
 // ValidateDispatcher validates the dispatcher configs
 func ValidateDispatcher(cfg *Config) error {
 	if cfg.Dispatcher.EventChanSize <= 0 {
-		return errors.Wrapf(ErrInvalidCfg, "dispatcher event chan size should be greater than 0")
+		return errors.Wrap(ErrInvalidCfg, "dispatcher event chan size should be greater than 0")
 	}
 	return nil
 }
@@ -424,10 +425,15 @@ func ValidateDispatcher(cfg *Config) error {
 // ValidateRollDPoS validates the roll-DPoS configs
 func ValidateRollDPoS(cfg *Config) error {
 	if cfg.Consensus.Scheme == RollDPoSScheme && cfg.Consensus.RollDPoS.EventChanSize <= 0 {
-		return errors.Wrapf(ErrInvalidCfg, "roll-DPoS event chan size should be greater than 0")
+		return errors.Wrap(ErrInvalidCfg, "roll-DPoS event chan size should be greater than 0")
 	}
 	if cfg.Consensus.Scheme == RollDPoSScheme && cfg.Consensus.RollDPoS.NumDelegates <= 0 {
-		return errors.Wrapf(ErrInvalidCfg, "roll-DPoS event delegate number should be greater than 0")
+		return errors.Wrap(ErrInvalidCfg, "roll-DPoS event delegate number should be greater than 0")
+	}
+	if cfg.Consensus.Scheme == RollDPoSScheme &&
+		cfg.Consensus.RollDPoS.EnableDummyBlock &&
+		cfg.Consensus.RollDPoS.TimeBasedRotation {
+		return errors.Wrap(ErrInvalidCfg, "roll-DPoS should enable dummy block when doing time based rotation")
 	}
 	return nil
 }
@@ -435,7 +441,7 @@ func ValidateRollDPoS(cfg *Config) error {
 // ValidateExplorer validates the explorer configs
 func ValidateExplorer(cfg *Config) error {
 	if cfg.Explorer.Enabled && cfg.Explorer.TpsWindow <= 0 {
-		return errors.Wrapf(ErrInvalidCfg, "tps window is not a positive integer when the explorer is enabled")
+		return errors.Wrap(ErrInvalidCfg, "tps window is not a positive integer when the explorer is enabled")
 	}
 	return nil
 }
