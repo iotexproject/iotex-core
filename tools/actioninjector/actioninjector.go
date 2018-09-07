@@ -52,16 +52,26 @@ func main() {
 	var addr string
 	// number of transfer injections. Default is 50
 	var transferNum int
+	// transfer gas limit. Default is 1000000
+	var transferGasLimit int
+	// transfer gas price. Default is 10
+	var transferGasPrice int
+	// transfer payload. Default is ""
+	var transferPayload string
 	// number of vote injections. Default is 50
 	var voteNum int
+	// vote gas limit. Default is 1000000
+	var voteGasLimit int
+	// vote gas price. Default is 10
+	var voteGasPrice int
 	// number of execution injections. Default is 50
 	var executionNum int
 	// smart contract address. Default is "io1qyqsyqcy3kcd2pyfwus69nzgvkwhg8mk8h336dt86pg6cj"
 	var contract string
 	// execution amount. Default is 0
 	var executionAmount int
-	// execution gas. Default is 1200000
-	var executionGas int
+	// execution gas limit. Default is 1200000
+	var executionGasLimit int
 	// execution gas price. Default is 10
 	var executionGasPrice int
 	// execution data. Default is "2885ad2c"
@@ -80,11 +90,16 @@ func main() {
 	flag.StringVar(&configPath, "injector-config-path", "./tools/actioninjector/gentsfaddrs.yaml", "path of config file of genesis transfer addresses")
 	flag.StringVar(&addr, "addr", "127.0.0.1:14004", "target ip:port for jrpc connection")
 	flag.IntVar(&transferNum, "transfer-num", 50, "number of transfer injections")
+	flag.IntVar(&transferGasLimit, "transfer-gas-limit", 1000000, "transfer gas limit")
+	flag.IntVar(&transferGasPrice, "transfer-gas-price", 10, "transfer gas price")
+	flag.StringVar(&transferPayload, "transfer-payload", "", "transfer payload")
 	flag.IntVar(&voteNum, "vote-num", 50, "number of vote injections")
+	flag.IntVar(&voteGasLimit, "vote-gas-limit", 1000000, "vote gas limit")
+	flag.IntVar(&voteGasPrice, "vote-gas-price", 10, "vote gas price")
 	flag.IntVar(&executionNum, "execution-num", 50, "number of execution injections")
 	flag.StringVar(&contract, "contract", "io1qyqsyqcy3kcd2pyfwus69nzgvkwhg8mk8h336dt86pg6cj", "smart contract address")
 	flag.IntVar(&executionAmount, "execution-amount", 0, "execution amount")
-	flag.IntVar(&executionGas, "execution-gas", 1200000, "execution gas")
+	flag.IntVar(&executionGasLimit, "execution-gas-limit", 1200000, "execution gas limit")
 	flag.IntVar(&executionGasPrice, "execution-gas-price", 10, "execution gas price")
 	flag.StringVar(&executionData, "execution-data", "2885ad2c", "execution data")
 	flag.IntVar(&interval, "interval", 5, "sleep interval between two consecutively injected actions in seconds")
@@ -132,10 +147,10 @@ func main() {
 	if aps > 0 {
 		d := time.Duration(duration) * time.Second
 		wg := &sync.WaitGroup{}
-		injectByAps(wg, aps, counter, contract, executionAmount, executionGas, executionGasPrice, executionData, proxy, admins, delegates, d, retryNum, retryInterval)
+		injectByAps(wg, aps, counter, transferGasLimit, transferGasPrice, transferPayload, voteGasLimit, voteGasPrice, contract, executionAmount, executionGasLimit, executionGasPrice, executionData, proxy, admins, delegates, d, retryNum, retryInterval)
 		wg.Wait()
 	} else {
-		injectByInterval(transferNum, voteNum, executionNum, contract, executionAmount, executionGas, executionGasPrice, executionData, interval, counter, proxy, admins, delegates, retryNum, retryInterval)
+		injectByInterval(transferNum, transferGasLimit, transferGasPrice, transferPayload, voteNum, voteGasLimit, voteGasPrice, executionNum, contract, executionAmount, executionGasLimit, executionGasPrice, executionData, interval, counter, proxy, admins, delegates, retryNum, retryInterval)
 	}
 }
 
@@ -144,9 +159,14 @@ func injectByAps(
 	wg *sync.WaitGroup,
 	aps int,
 	counter map[string]uint64,
+	transferGasLimit int,
+	transferGasPrice int,
+	transferPayload string,
+	voteGasLimit int,
+	voteGasPrice int,
 	contract string,
 	executionAmount int,
-	executionGas int,
+	executionGasLimit int,
 	executionGasPrice int,
 	executionData string,
 	client exp.Explorer,
@@ -168,13 +188,13 @@ loop:
 			switch rand := rand.Intn(3); rand {
 			case 0:
 				sender, recipient, nonce := createTransferInjection(counter, delegates)
-				go injectTransfer(wg, client, sender, recipient, nonce, retryNum, retryInterval)
+				go injectTransfer(wg, client, sender, recipient, nonce, uint64(transferGasLimit), uint64(transferGasPrice), transferPayload, retryNum, retryInterval)
 			case 1:
 				sender, recipient, nonce := createVoteInjection(counter, admins, delegates)
-				go injectVote(wg, client, sender, recipient, nonce, retryNum, retryInterval)
+				go injectVote(wg, client, sender, recipient, nonce, uint64(voteGasLimit), uint64(voteGasPrice), retryNum, retryInterval)
 			case 2:
 				executor, nonce := createExecutionInjection(counter, delegates)
-				go injectExecution(wg, client, executor, contract, nonce, big.NewInt(int64(executionAmount)), uint64(executionGas), uint64(executionGasPrice), executionData, retryNum, retryInterval)
+				go injectExecution(wg, client, executor, contract, nonce, big.NewInt(int64(executionAmount)), uint64(executionGasLimit), uint64(executionGasPrice), executionData, retryNum, retryInterval)
 			}
 		}
 	}
@@ -183,11 +203,16 @@ loop:
 // Inject Actions in Interval Mode
 func injectByInterval(
 	transferNum int,
+	transferGasLimit int,
+	transferGasPrice int,
+	transferPayload string,
 	voteNum int,
+	voteGasLimit int,
+	voteGasPrice int,
 	executionNum int,
 	contract string,
 	executionAmount int,
-	executionGas int,
+	executionGasLimit int,
 	executionGasPrice int,
 	executionData string,
 	interval int,
@@ -200,15 +225,15 @@ func injectByInterval(
 ) {
 	for transferNum > 0 && voteNum > 0 && executionNum > 0 {
 		sender, recipient, nonce := createTransferInjection(counter, delegates)
-		injectTransfer(nil, client, sender, recipient, nonce, retryNum, retryInterval)
+		injectTransfer(nil, client, sender, recipient, nonce, uint64(transferGasLimit), uint64(transferGasPrice), transferPayload, retryNum, retryInterval)
 		time.Sleep(time.Second * time.Duration(interval))
 
 		sender, recipient, nonce = createVoteInjection(counter, admins, delegates)
-		injectVote(nil, client, sender, recipient, nonce, retryNum, retryInterval)
+		injectVote(nil, client, sender, recipient, nonce, uint64(voteGasLimit), uint64(voteGasPrice), retryNum, retryInterval)
 		time.Sleep(time.Second * time.Duration(interval))
 
 		executor, nonce := createExecutionInjection(counter, delegates)
-		injectExecution(nil, client, executor, contract, nonce, big.NewInt(int64(executionAmount)), uint64(executionGas), uint64(executionGasPrice), executionData, retryNum, retryInterval)
+		injectExecution(nil, client, executor, contract, nonce, big.NewInt(int64(executionAmount)), uint64(executionGasLimit), uint64(executionGasPrice), executionData, retryNum, retryInterval)
 		time.Sleep(time.Second * time.Duration(interval))
 
 		transferNum--
@@ -219,11 +244,11 @@ func injectByInterval(
 	case transferNum > 0 && voteNum > 0:
 		for transferNum > 0 && voteNum > 0 {
 			sender, recipient, nonce := createTransferInjection(counter, delegates)
-			injectTransfer(nil, client, sender, recipient, nonce, retryNum, retryInterval)
+			injectTransfer(nil, client, sender, recipient, nonce, uint64(transferGasLimit), uint64(transferGasPrice), transferPayload, retryNum, retryInterval)
 			time.Sleep(time.Second * time.Duration(interval))
 
 			sender, recipient, nonce = createVoteInjection(counter, admins, delegates)
-			injectVote(nil, client, sender, recipient, nonce, retryNum, retryInterval)
+			injectVote(nil, client, sender, recipient, nonce, uint64(voteGasLimit), uint64(voteGasPrice), retryNum, retryInterval)
 			time.Sleep(time.Second * time.Duration(interval))
 
 			transferNum--
@@ -232,11 +257,11 @@ func injectByInterval(
 	case transferNum > 0 && executionNum > 0:
 		for transferNum > 0 && executionNum > 0 {
 			sender, recipient, nonce := createTransferInjection(counter, delegates)
-			injectTransfer(nil, client, sender, recipient, nonce, retryNum, retryInterval)
+			injectTransfer(nil, client, sender, recipient, nonce, uint64(transferGasLimit), uint64(transferGasPrice), transferPayload, retryNum, retryInterval)
 			time.Sleep(time.Second * time.Duration(interval))
 
 			executor, nonce := createExecutionInjection(counter, delegates)
-			injectExecution(nil, client, executor, contract, nonce, big.NewInt(int64(executionAmount)), uint64(executionGas), uint64(executionGasPrice), executionData, retryNum, retryInterval)
+			injectExecution(nil, client, executor, contract, nonce, big.NewInt(int64(executionAmount)), uint64(executionGasLimit), uint64(executionGasPrice), executionData, retryNum, retryInterval)
 			time.Sleep(time.Second * time.Duration(interval))
 
 			transferNum--
@@ -245,11 +270,11 @@ func injectByInterval(
 	case voteNum > 0 && executionNum > 0:
 		for voteNum > 0 && executionNum > 0 {
 			sender, recipient, nonce := createVoteInjection(counter, admins, delegates)
-			injectVote(nil, client, sender, recipient, nonce, retryNum, retryInterval)
+			injectVote(nil, client, sender, recipient, nonce, uint64(voteGasLimit), uint64(voteGasPrice), retryNum, retryInterval)
 			time.Sleep(time.Second * time.Duration(interval))
 
 			executor, nonce := createExecutionInjection(counter, delegates)
-			injectExecution(nil, client, executor, contract, nonce, big.NewInt(int64(executionAmount)), uint64(executionGas), uint64(executionGasPrice), executionData, retryNum, retryInterval)
+			injectExecution(nil, client, executor, contract, nonce, big.NewInt(int64(executionAmount)), uint64(executionGasLimit), uint64(executionGasPrice), executionData, retryNum, retryInterval)
 			time.Sleep(time.Second * time.Duration(interval))
 
 			voteNum--
@@ -260,21 +285,21 @@ func injectByInterval(
 	case transferNum > 0:
 		for transferNum > 0 {
 			sender, recipient, nonce := createTransferInjection(counter, delegates)
-			injectTransfer(nil, client, sender, recipient, nonce, retryNum, retryInterval)
+			injectTransfer(nil, client, sender, recipient, nonce, uint64(transferGasLimit), uint64(transferGasPrice), transferPayload, retryNum, retryInterval)
 			time.Sleep(time.Second * time.Duration(interval))
 			transferNum--
 		}
 	case voteNum > 0:
 		for voteNum > 0 {
 			sender, recipient, nonce := createVoteInjection(counter, admins, delegates)
-			injectVote(nil, client, sender, recipient, nonce, retryNum, retryInterval)
+			injectVote(nil, client, sender, recipient, nonce, uint64(voteGasLimit), uint64(voteGasPrice), retryNum, retryInterval)
 			time.Sleep(time.Second * time.Duration(interval))
 			voteNum--
 		}
 	case executionNum > 0:
 		for executionNum > 0 {
 			executor, nonce := createExecutionInjection(counter, delegates)
-			injectExecution(nil, client, executor, contract, nonce, big.NewInt(int64(executionAmount)), uint64(executionGas), uint64(executionGasPrice), executionData, retryNum, retryInterval)
+			injectExecution(nil, client, executor, contract, nonce, big.NewInt(int64(executionAmount)), uint64(executionGasLimit), uint64(executionGasPrice), executionData, retryNum, retryInterval)
 			time.Sleep(time.Second * time.Duration(interval))
 			executionNum--
 		}
@@ -287,6 +312,9 @@ func injectTransfer(
 	sender *iotxaddress.Address,
 	recipient *iotxaddress.Address,
 	nonce uint64,
+	gasLimit uint64,
+	gasPrice uint64,
+	payload string,
 	retryNum int,
 	retryInterval int,
 ) {
@@ -295,7 +323,7 @@ func injectTransfer(
 		amount = int64(rand.Intn(5))
 	}
 
-	transfer, err := createSignedTransfer(sender, recipient, big.NewInt(amount), nonce)
+	transfer, err := createSignedTransfer(sender, recipient, big.NewInt(amount), nonce, gasLimit, gasPrice, payload)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Failed to inject transfer")
 	}
@@ -310,6 +338,8 @@ func injectTransfer(
 		Recipient:    tsf.Recipient,
 		Amount:       tsf.Amount,
 		SenderPubKey: tsf.SenderPubKey,
+		GasLimit:     tsf.GasLimit,
+		GasPrice:     tsf.GasPrice,
 		Signature:    tsf.Signature,
 		Payload:      tsf.Payload,
 	}
@@ -331,6 +361,8 @@ func injectTransfer(
 	logger.Info().Str("Recipient", tsf.Recipient).Msg(" ")
 	logger.Info().Str("Payload", tsf.Payload).Msg(" ")
 	logger.Info().Str("Sender Public Key", tsf.SenderPubKey).Msg(" ")
+	logger.Info().Int64("Gas Limit", tsf.GasLimit).Msg(" ")
+	logger.Info().Int64("Gas Price", tsf.GasPrice).Msg(" ")
 	logger.Info().Str("Signature", tsf.Signature).Msg(" ")
 	logger.Info().Bool("IsCoinbase", tsf.IsCoinbase).Msg(" ")
 
@@ -345,10 +377,12 @@ func injectVote(
 	sender *iotxaddress.Address,
 	recipient *iotxaddress.Address,
 	nonce uint64,
+	gasLimit uint64,
+	gasPrice uint64,
 	retryNum int,
 	retryInterval int,
 ) {
-	vote, err := createSignedVote(sender, recipient, nonce)
+	vote, err := createSignedVote(sender, recipient, nonce, gasLimit, gasPrice)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Failed to inject vote")
 	}
@@ -365,6 +399,8 @@ func injectVote(
 		Voter:       jsonVote.Voter,
 		Votee:       jsonVote.Votee,
 		VoterPubKey: jsonVote.VoterPubKey,
+		GasLimit:    jsonVote.GasLimit,
+		GasPrice:    jsonVote.GasPrice,
 		Signature:   jsonVote.Signature,
 	}
 	for i := 0; i < retryNum; i++ {
@@ -382,6 +418,8 @@ func injectVote(
 	logger.Info().Int64("Nonce", jsonVote.Nonce).Msg(" ")
 	logger.Info().Str("Sender Public Key", jsonVote.VoterPubKey).Msg(" ")
 	logger.Info().Str("Recipient Address", jsonVote.Votee).Msg(" ")
+	logger.Info().Int64("Gas Limit", jsonVote.GasLimit)
+	logger.Info().Int64("Gas Price", jsonVote.GasLimit)
 	logger.Info().Str("Signature", jsonVote.Signature).Msg(" ")
 
 	if wg != nil {
@@ -396,13 +434,13 @@ func injectExecution(
 	contract string,
 	nonce uint64,
 	amount *big.Int,
-	gas uint64,
+	gasLimit uint64,
 	gasPrice uint64,
 	data string,
 	retryNum int,
 	retryInterval int,
 ) {
-	execution, err := createSignedExecution(executor, contract, nonce, amount, gas, gasPrice, data)
+	execution, err := createSignedExecution(executor, contract, nonce, amount, gasLimit, gasPrice, data)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Failed to inject execution")
 	}
@@ -429,7 +467,7 @@ func injectExecution(
 	logger.Info().Int64("Amount", jsonExecution.Amount).Msg(" ")
 	logger.Info().Str("Executor", jsonExecution.Executor).Msg(" ")
 	logger.Info().Str("Contract", jsonExecution.Contract).Msg(" ")
-	logger.Info().Int64("Gas", jsonExecution.Gas).Msg(" ")
+	logger.Info().Int64("Gas", jsonExecution.GasLimit).Msg(" ")
 	logger.Info().Int64("Gas Price", jsonExecution.GasPrice).Msg(" ")
 	logger.Info().Str("Data", jsonExecution.Data)
 	logger.Info().Str("Signature", jsonExecution.Signature).Msg(" ")
@@ -466,8 +504,20 @@ func createExecutionInjection(counter map[string]uint64, addrs []*iotxaddress.Ad
 }
 
 // Helper function to create and sign a transfer
-func createSignedTransfer(sender *iotxaddress.Address, recipient *iotxaddress.Address, amount *big.Int, nonce uint64) (*action.Transfer, error) {
-	rawTransfer, err := action.NewTransfer(nonce, amount, sender.RawAddress, recipient.RawAddress)
+func createSignedTransfer(
+	sender *iotxaddress.Address,
+	recipient *iotxaddress.Address,
+	amount *big.Int,
+	nonce uint64,
+	gasLimit uint64,
+	gasPrice uint64,
+	payload string,
+) (*action.Transfer, error) {
+	transferPayload, err := hex.DecodeString(payload)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to decode payload %s", payload)
+	}
+	rawTransfer, err := action.NewTransfer(nonce, amount, sender.RawAddress, recipient.RawAddress, transferPayload, gasLimit, gasPrice)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create raw transfer")
 	}
@@ -479,8 +529,14 @@ func createSignedTransfer(sender *iotxaddress.Address, recipient *iotxaddress.Ad
 }
 
 // Helper function to create and sign a vote
-func createSignedVote(voter *iotxaddress.Address, votee *iotxaddress.Address, nonce uint64) (*action.Vote, error) {
-	rawVote, err := action.NewVote(nonce, voter.RawAddress, votee.RawAddress)
+func createSignedVote(
+	voter *iotxaddress.Address,
+	votee *iotxaddress.Address,
+	nonce uint64,
+	gasLimit uint64,
+	gasPrice uint64,
+) (*action.Vote, error) {
+	rawVote, err := action.NewVote(nonce, voter.RawAddress, votee.RawAddress, gasLimit, gasPrice)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create raw vote")
 	}
@@ -497,7 +553,7 @@ func createSignedExecution(
 	contract string,
 	nonce uint64,
 	amount *big.Int,
-	gas uint64,
+	gasLimit uint64,
 	gasPrice uint64,
 	data string,
 ) (*action.Execution, error) {
@@ -505,7 +561,7 @@ func createSignedExecution(
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to decode data %s", data)
 	}
-	rawExecution, err := action.NewExecution(executor.RawAddress, contract, nonce, amount, gas, gasPrice, executionData)
+	rawExecution, err := action.NewExecution(executor.RawAddress, contract, nonce, amount, gasLimit, gasPrice, executionData)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create raw execution")
 	}

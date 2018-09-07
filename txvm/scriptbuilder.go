@@ -62,7 +62,7 @@ func (b *scriptBuilder) AddData(data []byte) error {
 	if len(data) == 0 {
 		return scriptError(ErrInvalidOpdata, "invalid data for scriptBuilder")
 	}
-	// TODO: check agasint maxScriptSize
+	// TODO: check against maxScriptSize
 	b.bytecodes = append(b.bytecodes, data...)
 	return nil
 }

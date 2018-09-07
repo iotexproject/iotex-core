@@ -8,8 +8,8 @@ import (
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "8af933d782f93b653033aa66329b030b"
-const BarristerDateGenerated int64 = 1535574606391000000
+const BarristerChecksum string = "c0172b61fac98ed2fbfde32948a03796"
+const BarristerDateGenerated int64 = 1536352917689000000
 
 type CoinStatistic struct {
 	Height     int64 `json:"height"`
@@ -48,6 +48,8 @@ type Transfer struct {
 	SenderPubKey string `json:"senderPubKey"`
 	Signature    string `json:"signature"`
 	Payload      string `json:"payload"`
+	GasLimit     int64  `json:"gasLimit"`
+	GasPrice     int64  `json:"gasPrice"`
 	IsCoinbase   bool   `json:"isCoinbase"`
 	Fee          int64  `json:"fee"`
 	Timestamp    int64  `json:"timestamp"`
@@ -64,7 +66,7 @@ type Execution struct {
 	Amount         int64  `json:"amount"`
 	ExecutorPubKey string `json:"executorPubKey"`
 	Signature      string `json:"signature"`
-	Gas            int64  `json:"gas"`
+	GasLimit       int64  `json:"gasLimit"`
 	GasPrice       int64  `json:"gasPrice"`
 	Timestamp      int64  `json:"timestamp"`
 	Data           string `json:"data"`
@@ -103,6 +105,8 @@ type Vote struct {
 	Voter       string `json:"voter"`
 	Votee       string `json:"votee"`
 	VoterPubKey string `json:"voterPubKey"`
+	GasLimit    int64  `json:"gasLimit"`
+	GasPrice    int64  `json:"gasPrice"`
 	Signature   string `json:"signature"`
 	BlockID     string `json:"blockID"`
 	IsPending   bool   `json:"isPending"`
@@ -147,6 +151,8 @@ type SendTransferRequest struct {
 	SenderPubKey string `json:"senderPubKey"`
 	Signature    string `json:"signature"`
 	Payload      string `json:"payload"`
+	GasLimit     int64  `json:"gasLimit"`
+	GasPrice     int64  `json:"gasPrice"`
 	IsCoinbase   bool   `json:"isCoinbase"`
 }
 
@@ -160,6 +166,8 @@ type SendVoteRequest struct {
 	Voter       string `json:"voter"`
 	Votee       string `json:"votee"`
 	VoterPubKey string `json:"voterPubKey"`
+	GasLimit    int64  `json:"gasLimit"`
+	GasPrice    int64  `json:"gasPrice"`
 	Signature   string `json:"signature"`
 }
 
@@ -1045,6 +1053,20 @@ var IdlJsonRaw = `[
                 "comment": ""
             },
             {
+                "name": "gasLimit",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "gasPrice",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
                 "name": "isCoinbase",
                 "type": "bool",
                 "optional": false,
@@ -1150,7 +1172,7 @@ var IdlJsonRaw = `[
                 "comment": ""
             },
             {
-                "name": "gas",
+                "name": "gasLimit",
                 "type": "int",
                 "optional": false,
                 "is_array": false,
@@ -1390,6 +1412,20 @@ var IdlJsonRaw = `[
             {
                 "name": "voterPubKey",
                 "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "gasLimit",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "gasPrice",
+                "type": "int",
                 "optional": false,
                 "is_array": false,
                 "comment": ""
@@ -1668,6 +1704,20 @@ var IdlJsonRaw = `[
                 "comment": ""
             },
             {
+                "name": "gasLimit",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "gasPrice",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
                 "name": "isCoinbase",
                 "type": "bool",
                 "optional": false,
@@ -1740,6 +1790,20 @@ var IdlJsonRaw = `[
             {
                 "name": "voterPubKey",
                 "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "gasLimit",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "gasPrice",
+                "type": "int",
                 "optional": false,
                 "is_array": false,
                 "comment": ""
@@ -2595,7 +2659,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1535574606391,
-        "checksum": "8af933d782f93b653033aa66329b030b"
+        "date_generated": 1536352917689,
+        "checksum": "c0172b61fac98ed2fbfde32948a03796"
     }
 ]`
