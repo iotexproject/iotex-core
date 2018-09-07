@@ -135,7 +135,18 @@ func (ctx *rollDPoSCtx) calcProposer(height uint64, delegates []string) (string,
 	if numDelegates == 0 {
 		return "", ErrZeroDelegate
 	}
-	return delegates[(height)%uint64(numDelegates)], nil
+	if !ctx.cfg.TimeBasedRotation {
+		return delegates[(height)%uint64(numDelegates)], nil
+	}
+	duration, err := ctx.calcDurationSinceLastBlock()
+	if err != nil {
+		return "", errors.Wrap(err, "error when computing the duration since last block time")
+	}
+	timeSlotIndex := int64(duration/ctx.cfg.ProposerInterval) - 1
+	if timeSlotIndex < 0 {
+		timeSlotIndex = 0
+	}
+	return delegates[(height+uint64(timeSlotIndex))%uint64(numDelegates)], nil
 }
 
 // mintBlock picks the actions and creates an block to propose
@@ -154,6 +165,7 @@ func (ctx *rollDPoSCtx) mintBlock() (*blockchain.Block, error) {
 		Uint64("height", blk.Height()).
 		Int("transfers", len(blk.Transfers)).
 		Int("votes", len(blk.Votes)).
+		Int("executions", len(blk.Executions)).
 		Msg("minted a new block")
 	return blk, nil
 }
@@ -168,7 +180,7 @@ func (ctx *rollDPoSCtx) calcDurationSinceLastBlock() (time.Duration, error) {
 	if err != nil {
 		return 0, errors.Wrapf(err, "error when getting the block at height: %d", height)
 	}
-	return time.Since(blk.Header.Timestamp()), nil
+	return ctx.clock.Now().Sub(blk.Header.Timestamp()), nil
 }
 
 // calcQuorum calculates if more than 2/3 vote yes or no
