@@ -862,7 +862,7 @@ func (exp *Service) SendTransfer(tsfJSON explorer.SendTransferRequest) (resp exp
 		},
 		Version:   uint32(tsfJSON.Version),
 		Nonce:     uint64(tsfJSON.Nonce),
-		Gas:       uint64(tsfJSON.Gas),
+		GasLimit:  uint64(tsfJSON.GasLimit),
 		GasPrice:  uint64(tsfJSON.GasPrice),
 		Signature: signature,
 	}
@@ -909,7 +909,7 @@ func (exp *Service) SendVote(voteJSON explorer.SendVoteRequest) (resp explorer.S
 		},
 		Version:   uint32(voteJSON.Version),
 		Nonce:     uint64(voteJSON.Nonce),
-		Gas:       uint64(voteJSON.Gas),
+		GasLimit:  uint64(voteJSON.GasLimit),
 		GasPrice:  uint64(voteJSON.GasPrice),
 		Signature: signature,
 	}
@@ -977,7 +977,7 @@ func (exp *Service) SendSmartContract(execution explorer.Execution) (resp explor
 		},
 		Version:   uint32(execution.Version),
 		Nonce:     uint64(execution.Nonce),
-		Gas:       uint64(execution.Gas),
+		GasLimit:  uint64(execution.GasLimit),
 		GasPrice:  uint64(execution.GasPrice),
 		Signature: signature,
 	}
@@ -1019,7 +1019,7 @@ func (exp *Service) ReadExecutionState(execution explorer.Execution) (string, er
 		},
 		Version:   uint32(execution.Version),
 		Nonce:     uint64(execution.Nonce),
-		Gas:       uint64(execution.Gas),
+		GasLimit:  uint64(execution.GasLimit),
 		GasPrice:  uint64(execution.GasPrice),
 		Signature: signature,
 	}
@@ -1156,7 +1156,7 @@ func convertTsfToExplorerTsf(transfer *action.Transfer, isPending bool) (explore
 		Recipient: transfer.Recipient,
 		Fee:       0, // TODO: we need to get the actual fee.
 		Payload:   hex.EncodeToString(transfer.Payload),
-		Gas:       int64(transfer.Gas),
+		GasLimit:  int64(transfer.GasLimit),
 		GasPrice:  int64(transfer.GasPrice),
 		IsPending: isPending,
 	}
@@ -1186,7 +1186,7 @@ func convertVoteToExplorerVote(vote *action.Vote, isPending bool) (explorer.Vote
 		Nonce:     int64(vote.Nonce),
 		Voter:     voter,
 		Votee:     votee,
-		Gas:       int64(vote.Gas),
+		GasLimit:  int64(vote.GasLimit),
 		GasPrice:  int64(vote.GasPrice),
 		IsPending: isPending,
 	}
@@ -1204,7 +1204,7 @@ func convertExecutionToExplorerExecution(execution *action.Execution, isPending 
 		ID:        hex.EncodeToString(hash[:]),
 		Executor:  execution.Executor,
 		Contract:  execution.Contract,
-		Gas:       int64(execution.Gas),
+		GasLimit:  int64(execution.GasLimit),
 		GasPrice:  int64(execution.GasPrice),
 		Data:      hex.EncodeToString(execution.Data),
 		IsPending: isPending,

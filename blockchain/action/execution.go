@@ -42,14 +42,14 @@ type Execution struct {
 	Executor       string
 	Contract       string
 	ExecutorPubKey keypair.PublicKey
-	Gas            uint64
+	GasLimit       uint64
 	GasPrice       uint64
 	Signature      []byte
 	Data           []byte
 }
 
 // NewExecution returns a Execution instance
-func NewExecution(executorAddress string, contractAddress string, nonce uint64, amount *big.Int, gas uint64, gasPrice uint64, data []byte) (*Execution, error) {
+func NewExecution(executorAddress string, contractAddress string, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice uint64, data []byte) (*Execution, error) {
 	if executorAddress == "" {
 		return nil, errors.Wrap(ErrAddr, "address of the executor is empty")
 	}
@@ -59,7 +59,7 @@ func NewExecution(executorAddress string, contractAddress string, nonce uint64, 
 		Nonce:    nonce,
 		Data:     data,
 		Amount:   amount,
-		Gas:      gas,
+		GasLimit: gasLimit,
 		GasPrice: gasPrice,
 		Executor: executorAddress,
 		Contract: contractAddress,
@@ -97,7 +97,7 @@ func (ex *Execution) ByteStream() []byte {
 	stream = append(stream, ex.Contract...)
 	stream = append(stream, ex.ExecutorPubKey[:]...)
 	temp = make([]byte, GasSizeInBytes)
-	enc.MachineEndian.PutUint64(temp, ex.Gas)
+	enc.MachineEndian.PutUint64(temp, ex.GasLimit)
 	stream = append(stream, temp...)
 	temp = make([]byte, GasPriceSizeInBytes)
 	enc.MachineEndian.PutUint64(temp, ex.GasPrice)
@@ -120,7 +120,7 @@ func (ex *Execution) ConvertToActionPb() *iproto.ActionPb {
 		},
 		Version:   ex.Version,
 		Nonce:     ex.Nonce,
-		Gas:       ex.Gas,
+		GasLimit:  ex.GasLimit,
 		GasPrice:  ex.GasPrice,
 		Signature: ex.Signature,
 	}
@@ -140,7 +140,7 @@ func (ex *Execution) ToJSON() (*explorer.Execution, error) {
 		Contract:       ex.Contract,
 		Amount:         ex.Amount.Int64(),
 		ExecutorPubKey: keypair.EncodePublicKey(ex.ExecutorPubKey),
-		Gas:            int64(ex.Gas),
+		GasLimit:       int64(ex.GasLimit),
 		GasPrice:       int64(ex.GasPrice),
 		Data:           hex.EncodeToString(ex.Data),
 		Signature:      hex.EncodeToString(ex.Signature),
@@ -157,7 +157,7 @@ func (ex *Execution) Serialize() ([]byte, error) {
 func (ex *Execution) ConvertFromActionPb(pbAct *iproto.ActionPb) {
 	ex.Version = pbAct.GetVersion()
 	ex.Nonce = pbAct.GetNonce()
-	ex.Gas = pbAct.GetGas()
+	ex.GasLimit = pbAct.GetGasLimit()
 	ex.GasPrice = pbAct.GetGasPrice()
 	ex.Signature = pbAct.GetSignature()
 	pbExecution := pbAct.GetExecution()
@@ -181,7 +181,7 @@ func NewExecutionFromJSON(jsonExecution *explorer.Execution) (*Execution, error)
 	ex.Executor = jsonExecution.Executor
 	ex.Contract = jsonExecution.Contract
 	ex.Amount = big.NewInt(jsonExecution.Amount)
-	ex.Gas = uint64(jsonExecution.Gas)
+	ex.GasLimit = uint64(jsonExecution.GasLimit)
 	ex.GasPrice = uint64(jsonExecution.GasPrice)
 	executorPubKey, err := keypair.StringToPubKeyBytes(jsonExecution.ExecutorPubKey)
 	if err != nil {

@@ -229,11 +229,11 @@ func (v *validator) verifyActions(blk *Block) error {
 		}(execution, &correctAction)
 
 		// Reject oversized transfer
-		if execution.Gas > GasLimit {
+		if execution.GasLimit > GasLimit {
 			return errors.Wrapf(ErrGasHigherThanLimit, "Gas is higher than gas limit")
 		}
 		intrinsicGas, err := IntrinsicGas(execution.Data)
-		if intrinsicGas > execution.Gas || err != nil {
+		if intrinsicGas > execution.GasLimit || err != nil {
 			return errors.Wrapf(ErrInsufficientGas, "insufficient gas for execution")
 		}
 

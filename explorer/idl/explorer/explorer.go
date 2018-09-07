@@ -8,8 +8,8 @@ import (
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "9dff4a48456402cf3c0855c93e18615a"
-const BarristerDateGenerated int64 = 1536270175412000000
+const BarristerChecksum string = "c0172b61fac98ed2fbfde32948a03796"
+const BarristerDateGenerated int64 = 1536352917689000000
 
 type CoinStatistic struct {
 	Height     int64 `json:"height"`
@@ -48,7 +48,7 @@ type Transfer struct {
 	SenderPubKey string `json:"senderPubKey"`
 	Signature    string `json:"signature"`
 	Payload      string `json:"payload"`
-	Gas          int64  `json:"gas"`
+	GasLimit     int64  `json:"gasLimit"`
 	GasPrice     int64  `json:"gasPrice"`
 	IsCoinbase   bool   `json:"isCoinbase"`
 	Fee          int64  `json:"fee"`
@@ -66,7 +66,7 @@ type Execution struct {
 	Amount         int64  `json:"amount"`
 	ExecutorPubKey string `json:"executorPubKey"`
 	Signature      string `json:"signature"`
-	Gas            int64  `json:"gas"`
+	GasLimit       int64  `json:"gasLimit"`
 	GasPrice       int64  `json:"gasPrice"`
 	Timestamp      int64  `json:"timestamp"`
 	Data           string `json:"data"`
@@ -105,7 +105,7 @@ type Vote struct {
 	Voter       string `json:"voter"`
 	Votee       string `json:"votee"`
 	VoterPubKey string `json:"voterPubKey"`
-	Gas         int64  `json:"gas"`
+	GasLimit    int64  `json:"gasLimit"`
 	GasPrice    int64  `json:"gasPrice"`
 	Signature   string `json:"signature"`
 	BlockID     string `json:"blockID"`
@@ -151,7 +151,7 @@ type SendTransferRequest struct {
 	SenderPubKey string `json:"senderPubKey"`
 	Signature    string `json:"signature"`
 	Payload      string `json:"payload"`
-	Gas          int64  `json:"gas"`
+	GasLimit     int64  `json:"gasLimit"`
 	GasPrice     int64  `json:"gasPrice"`
 	IsCoinbase   bool   `json:"isCoinbase"`
 }
@@ -166,7 +166,7 @@ type SendVoteRequest struct {
 	Voter       string `json:"voter"`
 	Votee       string `json:"votee"`
 	VoterPubKey string `json:"voterPubKey"`
-	Gas         int64  `json:"gas"`
+	GasLimit    int64  `json:"gasLimit"`
 	GasPrice    int64  `json:"gasPrice"`
 	Signature   string `json:"signature"`
 }
@@ -1053,7 +1053,7 @@ var IdlJsonRaw = `[
                 "comment": ""
             },
             {
-                "name": "gas",
+                "name": "gasLimit",
                 "type": "int",
                 "optional": false,
                 "is_array": false,
@@ -1172,7 +1172,7 @@ var IdlJsonRaw = `[
                 "comment": ""
             },
             {
-                "name": "gas",
+                "name": "gasLimit",
                 "type": "int",
                 "optional": false,
                 "is_array": false,
@@ -1417,7 +1417,7 @@ var IdlJsonRaw = `[
                 "comment": ""
             },
             {
-                "name": "gas",
+                "name": "gasLimit",
                 "type": "int",
                 "optional": false,
                 "is_array": false,
@@ -1704,7 +1704,7 @@ var IdlJsonRaw = `[
                 "comment": ""
             },
             {
-                "name": "gas",
+                "name": "gasLimit",
                 "type": "int",
                 "optional": false,
                 "is_array": false,
@@ -1795,7 +1795,7 @@ var IdlJsonRaw = `[
                 "comment": ""
             },
             {
-                "name": "gas",
+                "name": "gasLimit",
                 "type": "int",
                 "optional": false,
                 "is_array": false,
@@ -2659,7 +2659,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1536270175412,
-        "checksum": "9dff4a48456402cf3c0855c93e18615a"
+        "date_generated": 1536352917689,
+        "checksum": "c0172b61fac98ed2fbfde32948a03796"
     }
 ]`

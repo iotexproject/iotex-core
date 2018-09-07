@@ -246,7 +246,7 @@ func TestActPool_AddActs(t *testing.T) {
 	err = ap.AddExecution(creationExecution)
 	require.Equal(ErrGasHigherThanLimit, errors.Cause(err))
 	// Case VII: insufficient gas
-	creationExecution.Gas = 10
+	creationExecution.GasLimit = 10
 	tmpData := [1234]byte{}
 	creationExecution.Data = tmpData[:]
 	err = ap.AddExecution(creationExecution)
@@ -881,8 +881,8 @@ func (ap *actPool) getPendingBalance(addr string) (*big.Int, error) {
 }
 
 // Helper function to return a signed transfer
-func signedTransfer(sender *iotxaddress.Address, recipient *iotxaddress.Address, nonce uint64, amount *big.Int, payload []byte, gas uint64, gasPrice uint64) (*action.Transfer, error) {
-	transfer, err := action.NewTransfer(nonce, amount, sender.RawAddress, recipient.RawAddress, payload, gas, gasPrice)
+func signedTransfer(sender *iotxaddress.Address, recipient *iotxaddress.Address, nonce uint64, amount *big.Int, payload []byte, gasLimit uint64, gasPrice uint64) (*action.Transfer, error) {
+	transfer, err := action.NewTransfer(nonce, amount, sender.RawAddress, recipient.RawAddress, payload, gasLimit, gasPrice)
 	if err != nil {
 		return nil, err
 	}
@@ -890,8 +890,8 @@ func signedTransfer(sender *iotxaddress.Address, recipient *iotxaddress.Address,
 }
 
 // Helper function to return a signed vote
-func signedVote(voter *iotxaddress.Address, votee *iotxaddress.Address, nonce uint64, gas uint64, gasPrice uint64) (*action.Vote, error) {
-	vote, err := action.NewVote(nonce, voter.RawAddress, votee.RawAddress, gas, gasPrice)
+func signedVote(voter *iotxaddress.Address, votee *iotxaddress.Address, nonce uint64, gasLimit uint64, gasPrice uint64) (*action.Vote, error) {
+	vote, err := action.NewVote(nonce, voter.RawAddress, votee.RawAddress, gasLimit, gasPrice)
 	if err != nil {
 		return nil, err
 	}

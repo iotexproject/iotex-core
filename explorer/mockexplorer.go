@@ -253,7 +253,7 @@ func randExecution() explorer.Execution {
 		Executor:  randString(),
 		Contract:  randString(),
 		Amount:    randInt64(),
-		Gas:       randInt64(),
+		GasLimit:  randInt64(),
 		GasPrice:  randInt64(),
 	}
 }

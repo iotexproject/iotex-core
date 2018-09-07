@@ -44,7 +44,7 @@ type (
 		Recipient       string
 		Payload         []byte
 		SenderPublicKey keypair.PublicKey
-		Gas             uint64
+		GasLimit        uint64
 		GasPrice        uint64
 		Signature       []byte
 		IsCoinbase      bool
@@ -53,7 +53,7 @@ type (
 )
 
 // NewTransfer returns a Transfer instance
-func NewTransfer(nonce uint64, amount *big.Int, sender string, recipient string, payload []byte, gas uint64, gasPrice uint64) (*Transfer, error) {
+func NewTransfer(nonce uint64, amount *big.Int, sender string, recipient string, payload []byte, gasLimit uint64, gasPrice uint64) (*Transfer, error) {
 	if len(sender) == 0 || len(recipient) == 0 {
 		return nil, errors.Wrap(ErrAddr, "address of sender or recipient is empty")
 	}
@@ -66,7 +66,7 @@ func NewTransfer(nonce uint64, amount *big.Int, sender string, recipient string,
 		Sender:     sender,
 		Recipient:  recipient,
 		Payload:    payload,
-		Gas:        gas,
+		GasLimit:   gasLimit,
 		GasPrice:   gasPrice,
 		IsCoinbase: false,
 		// SenderPublicKey and Signature will be populated in Sign()
@@ -125,7 +125,7 @@ func (tsf *Transfer) ByteStream() []byte {
 	stream = append(stream, tsf.Payload...)
 	stream = append(stream, tsf.SenderPublicKey[:]...)
 	temp = make([]byte, GasSizeInBytes)
-	enc.MachineEndian.PutUint64(temp, tsf.Gas)
+	enc.MachineEndian.PutUint64(temp, tsf.GasLimit)
 	stream = append(stream, temp...)
 	temp = make([]byte, GasPriceSizeInBytes)
 	enc.MachineEndian.PutUint64(temp, tsf.GasPrice)
@@ -154,7 +154,7 @@ func (tsf *Transfer) ConvertToActionPb() *iproto.ActionPb {
 		},
 		Version:   tsf.Version,
 		Nonce:     tsf.Nonce,
-		Gas:       tsf.Gas,
+		GasLimit:  tsf.GasLimit,
 		GasPrice:  tsf.GasPrice,
 		Signature: tsf.Signature,
 	}
@@ -175,7 +175,7 @@ func (tsf *Transfer) ToJSON() *explorer.Transfer {
 		Recipient:    tsf.Recipient,
 		Payload:      hex.EncodeToString(tsf.Payload),
 		SenderPubKey: keypair.EncodePublicKey(tsf.SenderPublicKey),
-		Gas:          int64(tsf.Gas),
+		GasLimit:     int64(tsf.GasLimit),
 		GasPrice:     int64(tsf.GasPrice),
 		Signature:    hex.EncodeToString(tsf.Signature),
 		IsCoinbase:   tsf.IsCoinbase,
@@ -198,7 +198,7 @@ func (tsf *Transfer) ConvertFromActionPb(pbAct *iproto.ActionPb) {
 	tsf.Version = pbAct.GetVersion()
 	// used by account-based model
 	tsf.Nonce = pbAct.Nonce
-	tsf.Gas = pbAct.Gas
+	tsf.GasLimit = pbAct.GasLimit
 	tsf.GasPrice = pbAct.GasPrice
 	if tsf.Amount == nil {
 		tsf.Amount = big.NewInt(0)
@@ -225,7 +225,7 @@ func NewTransferFromJSON(jsonTsf *explorer.Transfer) (*Transfer, error) {
 	tsf.Amount = big.NewInt(jsonTsf.Amount)
 	tsf.Sender = jsonTsf.Sender
 	tsf.Recipient = jsonTsf.Recipient
-	tsf.Gas = uint64(jsonTsf.Gas)
+	tsf.GasLimit = uint64(jsonTsf.GasLimit)
 	tsf.GasPrice = uint64(jsonTsf.GasPrice)
 	payload, err := hex.DecodeString(jsonTsf.Payload)
 	if err != nil {

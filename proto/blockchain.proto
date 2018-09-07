@@ -56,7 +56,7 @@ message ReceiptPb {
 message ActionPb {
     uint32 version = 1;
     uint64 nonce = 2;
-    uint64 gas = 3;
+    uint64 gasLimit = 3;
     uint64 gasPrice = 4;
     bytes signature = 5;
     oneof action {

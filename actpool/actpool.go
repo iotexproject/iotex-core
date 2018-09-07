@@ -371,12 +371,12 @@ func (ap *actPool) validateTsf(tsf *action.Transfer) error {
 
 func (ap *actPool) validateExecution(exec *action.Execution) error {
 	// Reject oversized transfer
-	if exec.Gas > blockchain.GasLimit {
+	if exec.GasLimit > blockchain.GasLimit {
 		logger.Error().Msg("Rejecting execution due to high gas")
 		return errors.Wrapf(ErrGasHigherThanLimit, "Gas is higher than gas limit")
 	}
 	intrinsicGas, err := blockchain.IntrinsicGas(exec.Data)
-	if intrinsicGas > exec.Gas || err != nil {
+	if intrinsicGas > exec.GasLimit || err != nil {
 		logger.Error().Msg("Rejecting execution due to insufficient gas")
 		return errors.Wrapf(ErrInsufficientGas, "insufficient gas for execution")
 	}

@@ -36,7 +36,7 @@ type Vote struct {
 }
 
 // NewVote returns a Vote instance
-func NewVote(nonce uint64, voterAddress string, voteeAddress string, gas uint64, gasPrice uint64) (*Vote, error) {
+func NewVote(nonce uint64, voterAddress string, voteeAddress string, gasLimit uint64, gasPrice uint64) (*Vote, error) {
 	if voterAddress == "" {
 		return nil, errors.Wrap(ErrAddr, "address of the voter is empty")
 	}
@@ -50,7 +50,7 @@ func NewVote(nonce uint64, voterAddress string, voteeAddress string, gas uint64,
 		},
 		Version:  version.ProtocolVersion,
 		Nonce:    nonce,
-		Gas:      gas,
+		GasLimit: gasLimit,
 		GasPrice: gasPrice,
 	}
 	return &Vote{pbVote}, nil
@@ -91,7 +91,7 @@ func (v *Vote) ByteStream() []byte {
 	enc.MachineEndian.PutUint32(temp, v.Version)
 	stream = append(stream, temp...)
 	temp = make([]byte, GasSizeInBytes)
-	enc.MachineEndian.PutUint64(temp, v.Gas)
+	enc.MachineEndian.PutUint64(temp, v.GasLimit)
 	stream = append(stream, temp...)
 	temp = make([]byte, GasPriceSizeInBytes)
 	enc.MachineEndian.PutUint64(temp, v.GasPrice)
@@ -119,7 +119,7 @@ func (v *Vote) ToJSON() (*explorer.Vote, error) {
 		VoterPubKey: voterPubKey,
 		Voter:       pbVote.VoterAddress,
 		Votee:       pbVote.VoteeAddress,
-		Gas:         int64(v.Gas),
+		GasLimit:    int64(v.GasLimit),
 		GasPrice:    int64(v.GasPrice),
 		Signature:   hex.EncodeToString(v.Signature),
 	}
@@ -160,7 +160,7 @@ func NewVoteFromJSON(jsonVote *explorer.Vote) (*Vote, error) {
 		},
 		Version:   uint32(jsonVote.Version),
 		Nonce:     uint64(jsonVote.Nonce),
-		Gas:       uint64(jsonVote.Gas),
+		GasLimit:  uint64(jsonVote.GasLimit),
 		GasPrice:  uint64(jsonVote.GasPrice),
 		Signature: signature,
 	}

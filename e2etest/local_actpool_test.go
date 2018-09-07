@@ -178,8 +178,8 @@ func signedVote(voter *iotxaddress.Address, votee *iotxaddress.Address, nonce ui
 }
 
 // Helper function to return a signed execution
-func signedExecution(executor *iotxaddress.Address, contractAddr string, nonce uint64, amount *big.Int, gas uint64, gasPrice uint64, data []byte) (*action.Execution, error) {
-	execution, err := action.NewExecution(executor.RawAddress, contractAddr, nonce, amount, gas, gasPrice, data)
+func signedExecution(executor *iotxaddress.Address, contractAddr string, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice uint64, data []byte) (*action.Execution, error) {
+	execution, err := action.NewExecution(executor.RawAddress, contractAddr, nonce, amount, gasLimit, gasPrice, data)
 	if err != nil {
 		return nil, err
 	}
