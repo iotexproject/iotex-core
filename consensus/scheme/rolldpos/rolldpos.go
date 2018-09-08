@@ -163,7 +163,7 @@ func (ctx *rollDPoSCtx) calcProposer(height uint64, delegates []string) (string,
 	}
 	// TODO: should downgrade to debug level in the future
 	logger.Info().Int64("slot", timeSlotIndex).Msg("calculate time slot offset")
-	timeSlotMtc.WithLabelValues().Sub(float64(timeSlotIndex))
+	timeSlotMtc.WithLabelValues().Set(float64(timeSlotIndex))
 	return delegates[(height+uint64(timeSlotIndex))%uint64(numDelegates)], nil
 }
 
