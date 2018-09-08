@@ -100,7 +100,9 @@ func TestActionInjector(t *testing.T) {
 	executionGasLimit := 1200000
 	executionGasPrice := 10
 	executionData := "2885ad2c"
-	injectByAps(wg, aps, counter, transferGasLimit, transferGasPrice, transferPayload, voteGasLimit, voteGasPrice, contract, executionAmount, executionGasLimit, executionGasPrice, executionData, client, admins, delegates, d, retryNum, retryInterval, resetInterval)
+	injectByAps(wg, aps, counter, transferGasLimit, transferGasPrice, transferPayload, voteGasLimit, voteGasPrice,
+		contract, executionAmount, executionGasLimit, executionGasPrice, executionData, client, admins, delegates, d,
+		retryNum, retryInterval, resetInterval)
 	wg.Wait()
 
 	// Wait until the injected actions in APS Mode gets into the action pool
@@ -117,7 +119,9 @@ func TestActionInjector(t *testing.T) {
 	voteNum := 1
 	executionNum := 1
 	interval := 1
-	injectByInterval(transferNum, transferGasLimit, transferGasPrice, transferPayload, voteNum, voteGasLimit, voteGasPrice, executionNum, contract, executionAmount, executionGasLimit, executionGasPrice, executionData, interval, counter, client, admins, delegates, retryNum, retryInterval)
+	injectByInterval(transferNum, transferGasLimit, transferGasPrice, transferPayload, voteNum, voteGasLimit,
+		voteGasPrice, executionNum, contract, executionAmount, executionGasLimit, executionGasPrice, executionData,
+		interval, counter, client, admins, delegates, retryNum, retryInterval)
 
 	// Wait until all the injected actions in Interval Mode gets into the action pool
 	err = testutil.WaitUntil(100*time.Millisecond, 5*time.Second, func() (bool, error) {
