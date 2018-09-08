@@ -86,6 +86,8 @@ func main() {
 	var aps int
 	// duration indicates how long the injection will run in seconds. Default is 60
 	var duration int
+	// reset interval indicates the interval to reset nonce counter in seconds. Default is 10
+	var resetInterval int
 
 	flag.StringVar(&configPath, "injector-config-path", "./tools/actioninjector/gentsfaddrs.yaml", "path of config file of genesis transfer addresses")
 	flag.StringVar(&addr, "addr", "127.0.0.1:14004", "target ip:port for jrpc connection")
@@ -107,6 +109,7 @@ func main() {
 	flag.IntVar(&retryInterval, "retry-interval", 1, "sleep interval between two consecutive rpc retries in seconds")
 	flag.IntVar(&aps, "aps", 0, "actions to be injected per second")
 	flag.IntVar(&duration, "duration", 60, "duration when the injection will run in seconds")
+	flag.IntVar(&resetInterval, "reset-interval", 10, "time interval to reset nonce counter in seconds")
 	flag.Parse()
 
 	proxy := explorer.NewExplorerProxy("http://" + addr)
@@ -147,10 +150,14 @@ func main() {
 	if aps > 0 {
 		d := time.Duration(duration) * time.Second
 		wg := &sync.WaitGroup{}
-		injectByAps(wg, aps, counter, transferGasLimit, transferGasPrice, transferPayload, voteGasLimit, voteGasPrice, contract, executionAmount, executionGasLimit, executionGasPrice, executionData, proxy, admins, delegates, d, retryNum, retryInterval)
+		injectByAps(wg, aps, counter, transferGasLimit, transferGasPrice, transferPayload, voteGasLimit, voteGasPrice,
+			contract, executionAmount, executionGasLimit, executionGasPrice, executionData, proxy, admins, delegates, d,
+			retryNum, retryInterval, resetInterval)
 		wg.Wait()
 	} else {
-		injectByInterval(transferNum, transferGasLimit, transferGasPrice, transferPayload, voteNum, voteGasLimit, voteGasPrice, executionNum, contract, executionAmount, executionGasLimit, executionGasPrice, executionData, interval, counter, proxy, admins, delegates, retryNum, retryInterval)
+		injectByInterval(transferNum, transferGasLimit, transferGasPrice, transferPayload, voteNum, voteGasLimit,
+			voteGasPrice, executionNum, contract, executionAmount, executionGasLimit, executionGasPrice, executionData,
+			interval, counter, proxy, admins, delegates, retryNum, retryInterval)
 	}
 }
 
@@ -175,26 +182,48 @@ func injectByAps(
 	duration time.Duration,
 	retryNum int,
 	retryInterval int,
+	resetInterval int,
 ) {
 	timeout := time.After(duration)
 	tick := time.Tick(time.Duration(1/float64(aps)*1000) * time.Millisecond)
+	reset := time.Tick(time.Duration(resetInterval) * time.Second)
 loop:
 	for {
 		select {
 		case <-timeout:
 			break loop
+		case <-reset:
+			for _, admin := range admins {
+				addrDetails, err := client.GetAddressDetails(admin.RawAddress)
+				if err != nil {
+					logger.Fatal().Err(err).Str("addr", admin.RawAddress).Msg("Failed to inject actions by APS")
+				}
+				nonce := uint64(addrDetails.PendingNonce)
+				counter[admin.RawAddress] = nonce
+			}
+			for _, delegate := range delegates {
+				addrDetails, err := client.GetAddressDetails(delegate.RawAddress)
+				if err != nil {
+					logger.Fatal().Err(err).Str("addr", delegate.RawAddress).Msg("Failed to inject actions by APS")
+				}
+				nonce := uint64(addrDetails.PendingNonce)
+				counter[delegate.RawAddress] = nonce
+			}
 		case <-tick:
 			wg.Add(1)
 			switch rand := rand.Intn(3); rand {
 			case 0:
 				sender, recipient, nonce := createTransferInjection(counter, delegates)
-				go injectTransfer(wg, client, sender, recipient, nonce, uint64(transferGasLimit), big.NewInt(int64(transferGasPrice)), transferPayload, retryNum, retryInterval)
+				go injectTransfer(wg, client, sender, recipient, nonce, uint64(transferGasLimit),
+					big.NewInt(int64(transferGasPrice)), transferPayload, retryNum, retryInterval)
 			case 1:
 				sender, recipient, nonce := createVoteInjection(counter, admins, delegates)
-				go injectVote(wg, client, sender, recipient, nonce, uint64(voteGasLimit), big.NewInt(int64(voteGasPrice)), retryNum, retryInterval)
+				go injectVote(wg, client, sender, recipient, nonce, uint64(voteGasLimit),
+					big.NewInt(int64(voteGasPrice)), retryNum, retryInterval)
 			case 2:
 				executor, nonce := createExecutionInjection(counter, delegates)
-				go injectExecution(wg, client, executor, contract, nonce, big.NewInt(int64(executionAmount)), uint64(executionGasLimit), big.NewInt(int64(executionGasPrice)), executionData, retryNum, retryInterval)
+				go injectExecution(wg, client, executor, contract, nonce, big.NewInt(int64(executionAmount)),
+					uint64(executionGasLimit), big.NewInt(int64(executionGasPrice)), executionData, retryNum, retryInterval)
 			}
 		}
 	}
@@ -225,15 +254,18 @@ func injectByInterval(
 ) {
 	for transferNum > 0 && voteNum > 0 && executionNum > 0 {
 		sender, recipient, nonce := createTransferInjection(counter, delegates)
-		injectTransfer(nil, client, sender, recipient, nonce, uint64(transferGasLimit), big.NewInt(int64(transferGasPrice)), transferPayload, retryNum, retryInterval)
+		injectTransfer(nil, client, sender, recipient, nonce, uint64(transferGasLimit),
+			big.NewInt(int64(transferGasPrice)), transferPayload, retryNum, retryInterval)
 		time.Sleep(time.Second * time.Duration(interval))
 
 		sender, recipient, nonce = createVoteInjection(counter, admins, delegates)
-		injectVote(nil, client, sender, recipient, nonce, uint64(voteGasLimit), big.NewInt(int64(voteGasPrice)), retryNum, retryInterval)
+		injectVote(nil, client, sender, recipient, nonce, uint64(voteGasLimit),
+			big.NewInt(int64(voteGasPrice)), retryNum, retryInterval)
 		time.Sleep(time.Second * time.Duration(interval))
 
 		executor, nonce := createExecutionInjection(counter, delegates)
-		injectExecution(nil, client, executor, contract, nonce, big.NewInt(int64(executionAmount)), uint64(executionGasLimit), big.NewInt(int64(executionGasPrice)), executionData, retryNum, retryInterval)
+		injectExecution(nil, client, executor, contract, nonce, big.NewInt(int64(executionAmount)),
+			uint64(executionGasLimit), big.NewInt(int64(executionGasPrice)), executionData, retryNum, retryInterval)
 		time.Sleep(time.Second * time.Duration(interval))
 
 		transferNum--
@@ -244,11 +276,13 @@ func injectByInterval(
 	case transferNum > 0 && voteNum > 0:
 		for transferNum > 0 && voteNum > 0 {
 			sender, recipient, nonce := createTransferInjection(counter, delegates)
-			injectTransfer(nil, client, sender, recipient, nonce, uint64(transferGasLimit), big.NewInt(int64(transferGasPrice)), transferPayload, retryNum, retryInterval)
+			injectTransfer(nil, client, sender, recipient, nonce, uint64(transferGasLimit),
+				big.NewInt(int64(transferGasPrice)), transferPayload, retryNum, retryInterval)
 			time.Sleep(time.Second * time.Duration(interval))
 
 			sender, recipient, nonce = createVoteInjection(counter, admins, delegates)
-			injectVote(nil, client, sender, recipient, nonce, uint64(voteGasLimit), big.NewInt(int64(voteGasPrice)), retryNum, retryInterval)
+			injectVote(nil, client, sender, recipient, nonce, uint64(voteGasLimit),
+				big.NewInt(int64(voteGasPrice)), retryNum, retryInterval)
 			time.Sleep(time.Second * time.Duration(interval))
 
 			transferNum--
@@ -257,11 +291,13 @@ func injectByInterval(
 	case transferNum > 0 && executionNum > 0:
 		for transferNum > 0 && executionNum > 0 {
 			sender, recipient, nonce := createTransferInjection(counter, delegates)
-			injectTransfer(nil, client, sender, recipient, nonce, uint64(transferGasLimit), big.NewInt(int64(transferGasPrice)), transferPayload, retryNum, retryInterval)
+			injectTransfer(nil, client, sender, recipient, nonce, uint64(transferGasLimit),
+				big.NewInt(int64(transferGasPrice)), transferPayload, retryNum, retryInterval)
 			time.Sleep(time.Second * time.Duration(interval))
 
 			executor, nonce := createExecutionInjection(counter, delegates)
-			injectExecution(nil, client, executor, contract, nonce, big.NewInt(int64(executionAmount)), uint64(executionGasLimit), big.NewInt(int64(executionGasPrice)), executionData, retryNum, retryInterval)
+			injectExecution(nil, client, executor, contract, nonce, big.NewInt(int64(executionAmount)),
+				uint64(executionGasLimit), big.NewInt(int64(executionGasPrice)), executionData, retryNum, retryInterval)
 			time.Sleep(time.Second * time.Duration(interval))
 
 			transferNum--
@@ -270,11 +306,13 @@ func injectByInterval(
 	case voteNum > 0 && executionNum > 0:
 		for voteNum > 0 && executionNum > 0 {
 			sender, recipient, nonce := createVoteInjection(counter, admins, delegates)
-			injectVote(nil, client, sender, recipient, nonce, uint64(voteGasLimit), big.NewInt(int64(voteGasPrice)), retryNum, retryInterval)
+			injectVote(nil, client, sender, recipient, nonce, uint64(voteGasLimit),
+				big.NewInt(int64(voteGasPrice)), retryNum, retryInterval)
 			time.Sleep(time.Second * time.Duration(interval))
 
 			executor, nonce := createExecutionInjection(counter, delegates)
-			injectExecution(nil, client, executor, contract, nonce, big.NewInt(int64(executionAmount)), uint64(executionGasLimit), big.NewInt(int64(executionGasPrice)), executionData, retryNum, retryInterval)
+			injectExecution(nil, client, executor, contract, nonce, big.NewInt(int64(executionAmount)),
+				uint64(executionGasLimit), big.NewInt(int64(executionGasPrice)), executionData, retryNum, retryInterval)
 			time.Sleep(time.Second * time.Duration(interval))
 
 			voteNum--
@@ -285,21 +323,24 @@ func injectByInterval(
 	case transferNum > 0:
 		for transferNum > 0 {
 			sender, recipient, nonce := createTransferInjection(counter, delegates)
-			injectTransfer(nil, client, sender, recipient, nonce, uint64(transferGasLimit), big.NewInt(int64(transferGasPrice)), transferPayload, retryNum, retryInterval)
+			injectTransfer(nil, client, sender, recipient, nonce, uint64(transferGasLimit),
+				big.NewInt(int64(transferGasPrice)), transferPayload, retryNum, retryInterval)
 			time.Sleep(time.Second * time.Duration(interval))
 			transferNum--
 		}
 	case voteNum > 0:
 		for voteNum > 0 {
 			sender, recipient, nonce := createVoteInjection(counter, admins, delegates)
-			injectVote(nil, client, sender, recipient, nonce, uint64(voteGasLimit), big.NewInt(int64(voteGasPrice)), retryNum, retryInterval)
+			injectVote(nil, client, sender, recipient, nonce, uint64(voteGasLimit),
+				big.NewInt(int64(voteGasPrice)), retryNum, retryInterval)
 			time.Sleep(time.Second * time.Duration(interval))
 			voteNum--
 		}
 	case executionNum > 0:
 		for executionNum > 0 {
 			executor, nonce := createExecutionInjection(counter, delegates)
-			injectExecution(nil, client, executor, contract, nonce, big.NewInt(int64(executionAmount)), uint64(executionGasLimit), big.NewInt(int64(executionGasPrice)), executionData, retryNum, retryInterval)
+			injectExecution(nil, client, executor, contract, nonce, big.NewInt(int64(executionAmount)),
+				uint64(executionGasLimit), big.NewInt(int64(executionGasPrice)), executionData, retryNum, retryInterval)
 			time.Sleep(time.Second * time.Duration(interval))
 			executionNum--
 		}
@@ -487,7 +528,11 @@ func createTransferInjection(counter map[string]uint64, addrs []*iotxaddress.Add
 }
 
 // Helper function to get the sender, recipient, and nonce of next injected vote
-func createVoteInjection(counter map[string]uint64, admins []*iotxaddress.Address, delegates []*iotxaddress.Address) (*iotxaddress.Address, *iotxaddress.Address, uint64) {
+func createVoteInjection(
+	counter map[string]uint64,
+	admins []*iotxaddress.Address,
+	delegates []*iotxaddress.Address,
+) (*iotxaddress.Address, *iotxaddress.Address, uint64) {
 	sender := admins[rand.Intn(len(admins))]
 	recipient := delegates[rand.Intn(len(delegates))]
 	nonce := counter[sender.RawAddress]
