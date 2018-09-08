@@ -57,7 +57,7 @@ message ActionPb {
     uint32 version = 1;
     uint64 nonce = 2;
     uint64 gasLimit = 3;
-    uint64 gasPrice = 4;
+    bytes gasPrice = 4;
     bytes signature = 5;
     oneof action {
         TransferPb transfer = 10;

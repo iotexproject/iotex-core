@@ -35,7 +35,7 @@ func TestSingleAccountManager_SignTransfer(t *testing.T) {
 	m, err := NewSingleAccountManager(accountManager)
 	require.NoError(err)
 
-	rawTransfer, err := action.NewTransfer(uint64(1), big.NewInt(1), rawAddr1, rawAddr2, []byte{}, uint64(100000), uint64(10))
+	rawTransfer, err := action.NewTransfer(uint64(1), big.NewInt(1), rawAddr1, rawAddr2, []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(err)
 	signedTransfer, err := m.SignTransfer(rawTransfer)
 	require.NoError(err)
@@ -68,7 +68,7 @@ func TestSingleAccountManager_SignVote(t *testing.T) {
 	require.NoError(err)
 	voteeAddress, err := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, iotxaddress.ChainID, votePubKey)
 	require.NoError(err)
-	rawVote, err := action.NewVote(uint64(1), voterAddress.RawAddress, voteeAddress.RawAddress, uint64(100000), uint64(10))
+	rawVote, err := action.NewVote(uint64(1), voterAddress.RawAddress, voteeAddress.RawAddress, uint64(100000), big.NewInt(10))
 	require.NoError(err)
 	signedVote, err := m.SignVote(rawVote)
 	require.NoError(err)

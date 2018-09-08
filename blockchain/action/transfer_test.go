@@ -25,7 +25,7 @@ func TestTransferSignVerify(t *testing.T) {
 	recipient, err := iotxaddress.NewAddress(true, chainid)
 	require.NoError(err)
 
-	tsf, err := NewTransfer(0, big.NewInt(10), sender.RawAddress, recipient.RawAddress, []byte{}, uint64(100000), uint64(10))
+	tsf, err := NewTransfer(0, big.NewInt(10), sender.RawAddress, recipient.RawAddress, []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(err)
 	require.Nil(tsf.Signature)
 	require.NotNil(tsf.Verify(sender))
@@ -53,7 +53,7 @@ func TestTransferSerializeDeserialize(t *testing.T) {
 	recipient, err := iotxaddress.NewAddress(true, chainid)
 	require.NoError(err)
 
-	tsf, err := NewTransfer(0, big.NewInt(38291), sender.RawAddress, recipient.RawAddress, []byte{}, uint64(100000), uint64(10))
+	tsf, err := NewTransfer(0, big.NewInt(38291), sender.RawAddress, recipient.RawAddress, []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(err)
 	require.NotNil(tsf)
 
@@ -80,7 +80,7 @@ func TestTransferToJSONFromJSON(t *testing.T) {
 	recipient, err := iotxaddress.NewAddress(true, chainid)
 	require.NoError(err)
 
-	tsf, err := NewTransfer(0, big.NewInt(38291), sender.RawAddress, recipient.RawAddress, []byte{}, uint64(100000), uint64(10))
+	tsf, err := NewTransfer(0, big.NewInt(38291), sender.RawAddress, recipient.RawAddress, []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(err)
 	require.NotNil(tsf)
 
