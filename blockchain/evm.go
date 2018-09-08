@@ -109,7 +109,7 @@ func NewEVMParams(blk *Block, execution *action.Execution, stateDB *EVMStateDBAd
 		Time:        new(big.Int).SetInt64(blk.Header.Timestamp().Unix()),
 		Difficulty:  new(big.Int).SetUint64(uint64(50)),
 		GasLimit:    GasLimit,
-		GasPrice:    new(big.Int).SetUint64(execution.GasPrice),
+		GasPrice:    execution.GasPrice,
 	}
 
 	return &EVMParams{

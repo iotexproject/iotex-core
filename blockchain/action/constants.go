@@ -17,6 +17,4 @@ const (
 	BooleanSizeInBytes = 1
 	// GasSizeInBytes defines the size of gas in byte uints
 	GasSizeInBytes = 8
-	// GasPriceSizeInBytes defines the size of gas price in byte uints
-	GasPriceSizeInBytes = 8
 )

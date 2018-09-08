@@ -24,7 +24,7 @@ func TestExecutionSignVerify(t *testing.T) {
 	require.NoError(err)
 	data, err := hex.DecodeString("")
 	require.NoError(err)
-	ex, err := NewExecution(executor.RawAddress, contract.RawAddress, 0, big.NewInt(10), 10, 10, data)
+	ex, err := NewExecution(executor.RawAddress, contract.RawAddress, 0, big.NewInt(10), uint64(10), big.NewInt(10), data)
 	require.NoError(err)
 	require.Nil(ex.Signature)
 	require.NotNil(ex.Verify(executor))
@@ -54,7 +54,7 @@ func TestExecutionSerializeDeserialize(t *testing.T) {
 	data, err := hex.DecodeString("60652403")
 	require.NoError(err)
 
-	ex, err := NewExecution(executor.RawAddress, contract.RawAddress, 0, big.NewInt(123), 1234, 10, data)
+	ex, err := NewExecution(executor.RawAddress, contract.RawAddress, 0, big.NewInt(123), uint64(1234), big.NewInt(10), data)
 	require.NoError(err)
 	require.NotNil(ex)
 
@@ -83,7 +83,7 @@ func TestExecutionToJSONFromJSON(t *testing.T) {
 	data, err := hex.DecodeString("60652403")
 	require.NoError(err)
 
-	ex, err := NewExecution(executor.RawAddress, contract.RawAddress, 0, big.NewInt(123), 1234, 10, data)
+	ex, err := NewExecution(executor.RawAddress, contract.RawAddress, 0, big.NewInt(123), uint64(1234), big.NewInt(10), data)
 	require.NoError(err)
 	require.NotNil(ex)
 

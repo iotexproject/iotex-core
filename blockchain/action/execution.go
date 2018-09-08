@@ -43,13 +43,13 @@ type Execution struct {
 	Contract       string
 	ExecutorPubKey keypair.PublicKey
 	GasLimit       uint64
-	GasPrice       uint64
+	GasPrice       *big.Int
 	Signature      []byte
 	Data           []byte
 }
 
 // NewExecution returns a Execution instance
-func NewExecution(executorAddress string, contractAddress string, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice uint64, data []byte) (*Execution, error) {
+func NewExecution(executorAddress string, contractAddress string, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) (*Execution, error) {
 	if executorAddress == "" {
 		return nil, errors.Wrap(ErrAddr, "address of the executor is empty")
 	}
@@ -78,7 +78,9 @@ func (ex *Execution) TotalSize() uint32 {
 	size += len(ex.ExecutorPubKey)
 	size += len(ex.Signature)
 	size += GasSizeInBytes
-	size += GasPriceSizeInBytes
+	if ex.GasPrice != nil && len(ex.GasPrice.Bytes()) > 0 {
+		size += len(ex.GasPrice.Bytes())
+	}
 	size += len(ex.Data)
 	return uint32(size)
 }
@@ -99,9 +101,9 @@ func (ex *Execution) ByteStream() []byte {
 	temp = make([]byte, GasSizeInBytes)
 	enc.MachineEndian.PutUint64(temp, ex.GasLimit)
 	stream = append(stream, temp...)
-	temp = make([]byte, GasPriceSizeInBytes)
-	enc.MachineEndian.PutUint64(temp, ex.GasPrice)
-	stream = append(stream, temp...)
+	if ex.GasPrice != nil && len(ex.GasPrice.Bytes()) > 0 {
+		stream = append(stream, ex.GasPrice.Bytes()...)
+	}
 	// Signature = Sign(hash(ByteStream())), so not included
 	stream = append(stream, ex.Data...)
 	return stream
@@ -121,13 +123,14 @@ func (ex *Execution) ConvertToActionPb() *iproto.ActionPb {
 		Version:   ex.Version,
 		Nonce:     ex.Nonce,
 		GasLimit:  ex.GasLimit,
-		GasPrice:  ex.GasPrice,
 		Signature: ex.Signature,
 	}
 	if ex.Amount != nil && len(ex.Amount.Bytes()) > 0 {
 		act.GetExecution().Amount = ex.Amount.Bytes()
 	}
-
+	if ex.GasPrice != nil && len(ex.GasPrice.Bytes()) > 0 {
+		act.GasPrice = ex.GasPrice.Bytes()
+	}
 	return act
 }
 
@@ -138,12 +141,16 @@ func (ex *Execution) ToJSON() (*explorer.Execution, error) {
 		Nonce:          int64(ex.Nonce),
 		Executor:       ex.Executor,
 		Contract:       ex.Contract,
-		Amount:         ex.Amount.Int64(),
 		ExecutorPubKey: keypair.EncodePublicKey(ex.ExecutorPubKey),
 		GasLimit:       int64(ex.GasLimit),
-		GasPrice:       int64(ex.GasPrice),
 		Data:           hex.EncodeToString(ex.Data),
 		Signature:      hex.EncodeToString(ex.Signature),
+	}
+	if ex.Amount != nil && len(ex.Amount.Bytes()) > 0 {
+		execution.Amount = ex.Amount.Int64()
+	}
+	if ex.GasPrice != nil && len(ex.GasPrice.Bytes()) > 0 {
+		execution.GasPrice = ex.GasPrice.Int64()
 	}
 	return execution, nil
 }
@@ -158,7 +165,6 @@ func (ex *Execution) ConvertFromActionPb(pbAct *iproto.ActionPb) {
 	ex.Version = pbAct.GetVersion()
 	ex.Nonce = pbAct.GetNonce()
 	ex.GasLimit = pbAct.GetGasLimit()
-	ex.GasPrice = pbAct.GetGasPrice()
 	ex.Signature = pbAct.GetSignature()
 	pbExecution := pbAct.GetExecution()
 	ex.Executor = pbExecution.Executor
@@ -171,6 +177,12 @@ func (ex *Execution) ConvertFromActionPb(pbAct *iproto.ActionPb) {
 	if len(pbExecution.Amount) > 0 {
 		ex.Amount.SetBytes(pbExecution.GetAmount())
 	}
+	if ex.GasPrice == nil {
+		ex.GasPrice = big.NewInt(0)
+	}
+	if len(pbAct.GasPrice) > 0 {
+		ex.GasPrice.SetBytes(pbAct.GasPrice)
+	}
 }
 
 // NewExecutionFromJSON creates a new Execution from ExecutionJSON
@@ -182,7 +194,7 @@ func NewExecutionFromJSON(jsonExecution *explorer.Execution) (*Execution, error)
 	ex.Contract = jsonExecution.Contract
 	ex.Amount = big.NewInt(jsonExecution.Amount)
 	ex.GasLimit = uint64(jsonExecution.GasLimit)
-	ex.GasPrice = uint64(jsonExecution.GasPrice)
+	ex.GasPrice = big.NewInt(jsonExecution.GasPrice)
 	executorPubKey, err := keypair.StringToPubKeyBytes(jsonExecution.ExecutorPubKey)
 	if err != nil {
 		logger.Error().Err(err).Msg("Fail to create a new Execution from ExecutionJSON")
