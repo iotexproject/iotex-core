@@ -9,6 +9,7 @@ package action
 import (
 	"bytes"
 	"encoding/hex"
+	"math/big"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
@@ -36,7 +37,7 @@ type Vote struct {
 }
 
 // NewVote returns a Vote instance
-func NewVote(nonce uint64, voterAddress string, voteeAddress string, gasLimit uint64, gasPrice uint64) (*Vote, error) {
+func NewVote(nonce uint64, voterAddress string, voteeAddress string, gasLimit uint64, gasPrice *big.Int) (*Vote, error) {
 	if voterAddress == "" {
 		return nil, errors.Wrap(ErrAddr, "address of the voter is empty")
 	}
@@ -51,7 +52,9 @@ func NewVote(nonce uint64, voterAddress string, voteeAddress string, gasLimit ui
 		Version:  version.ProtocolVersion,
 		Nonce:    nonce,
 		GasLimit: gasLimit,
-		GasPrice: gasPrice,
+	}
+	if gasPrice != nil {
+		pbVote.GasPrice = gasPrice.Bytes()
 	}
 	return &Vote{pbVote}, nil
 }
@@ -71,7 +74,7 @@ func (v *Vote) TotalSize() uint32 {
 	size += len(pbVote.VoterAddress)
 	size += len(pbVote.VoteeAddress)
 	size += GasSizeInBytes
-	size += GasPriceSizeInBytes
+	size += len(v.GasPrice)
 	size += len(v.Signature)
 	return uint32(size)
 }
@@ -93,9 +96,7 @@ func (v *Vote) ByteStream() []byte {
 	temp = make([]byte, GasSizeInBytes)
 	enc.MachineEndian.PutUint64(temp, v.GasLimit)
 	stream = append(stream, temp...)
-	temp = make([]byte, GasPriceSizeInBytes)
-	enc.MachineEndian.PutUint64(temp, v.GasPrice)
-	stream = append(stream, temp...)
+	stream = append(stream, v.GasPrice...)
 	// Signature = Sign(hash(ByteStream())), so not included
 	return stream
 }
@@ -120,7 +121,7 @@ func (v *Vote) ToJSON() (*explorer.Vote, error) {
 		Voter:       pbVote.VoterAddress,
 		Votee:       pbVote.VoteeAddress,
 		GasLimit:    int64(v.GasLimit),
-		GasPrice:    int64(v.GasPrice),
+		GasPrice:    big.NewInt(0).SetBytes(v.GasPrice).Int64(),
 		Signature:   hex.EncodeToString(v.Signature),
 	}
 	return vote, nil
@@ -161,7 +162,7 @@ func NewVoteFromJSON(jsonVote *explorer.Vote) (*Vote, error) {
 		Version:   uint32(jsonVote.Version),
 		Nonce:     uint64(jsonVote.Nonce),
 		GasLimit:  uint64(jsonVote.GasLimit),
-		GasPrice:  uint64(jsonVote.GasPrice),
+		GasPrice:  big.NewInt(jsonVote.GasPrice).Bytes(),
 		Signature: signature,
 	}
 	return &Vote{pbVote}, nil

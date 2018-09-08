@@ -76,18 +76,18 @@ func TestActPool_validateTsf(t *testing.T) {
 	err = ap.validateTsf(&tsf)
 	require.NotNil(ErrBalance, errors.Cause(err))
 	// Case IV: Signature Verification Fails
-	unsignedTsf, err := action.NewTransfer(uint64(1), big.NewInt(1), addr1.RawAddress, addr1.RawAddress, []byte{}, uint64(100000), uint64(10))
+	unsignedTsf, err := action.NewTransfer(uint64(1), big.NewInt(1), addr1.RawAddress, addr1.RawAddress, []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(err)
 	err = ap.validateTsf(unsignedTsf)
 	require.Equal(action.ErrTransferError, errors.Cause(err))
 	// Case V: Nonce is too low
-	prevTsf, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(50), []byte{}, uint64(100000), uint64(10))
+	prevTsf, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(50), []byte{}, uint64(100000), big.NewInt(10))
 	err = ap.AddTsf(prevTsf)
 	require.NoError(err)
 	err = bc.CommitStateChanges(0, []*action.Transfer{prevTsf}, nil, nil)
 	require.NoError(err)
 	ap.Reset()
-	nTsf, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(60), []byte{}, uint64(100000), uint64(10))
+	nTsf, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(60), []byte{}, uint64(100000), big.NewInt(10))
 	err = ap.validateTsf(nTsf)
 	require.Equal(ErrNonce, errors.Cause(err))
 }
@@ -119,23 +119,23 @@ func TestActPool_validateVote(t *testing.T) {
 	err = ap.validateVote(&vote)
 	require.Equal(ErrActPool, errors.Cause(err))
 	// Case II: Signature Verification Fails
-	unsignedVote, err := action.NewVote(1, addr1.RawAddress, addr2.RawAddress, uint64(100000), uint64(10))
+	unsignedVote, err := action.NewVote(1, addr1.RawAddress, addr2.RawAddress, uint64(100000), big.NewInt(10))
 	unsignedVote.GetVote().SelfPubkey = addr1.PublicKey[:]
 	require.NoError(err)
 	err = ap.validateVote(unsignedVote)
 	require.Equal(action.ErrVoteError, errors.Cause(err))
 	// Case III: Nonce is too low
-	prevTsf, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(50), []byte{}, uint64(100000), uint64(10))
+	prevTsf, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(50), []byte{}, uint64(100000), big.NewInt(10))
 	err = ap.AddTsf(prevTsf)
 	require.NoError(err)
 	err = bc.CommitStateChanges(0, []*action.Transfer{prevTsf}, nil, nil)
 	require.NoError(err)
 	ap.Reset()
-	nVote, _ := signedVote(addr1, addr1, uint64(1), uint64(100000), uint64(10))
+	nVote, _ := signedVote(addr1, addr1, uint64(1), uint64(100000), big.NewInt(10))
 	err = ap.validateVote(nVote)
 	require.Equal(ErrNonce, errors.Cause(err))
 	// Case IV: Votee is not a candidate
-	vote2, _ := signedVote(addr1, addr2, uint64(2), uint64(100000), uint64(10))
+	vote2, _ := signedVote(addr1, addr2, uint64(2), uint64(100000), big.NewInt(10))
 	err = ap.validateVote(vote2)
 	require.Equal(ErrVotee, errors.Cause(err))
 }
@@ -157,14 +157,14 @@ func TestActPool_AddActs(t *testing.T) {
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
 	// Test actpool status after adding a sequence of Tsfs/votes: need to check confirmed nonce, pending nonce, and pending balance
-	tsf1, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), uint64(10))
-	tsf2, _ := signedTransfer(addr1, addr1, uint64(2), big.NewInt(20), []byte{}, uint64(100000), uint64(10))
-	tsf3, _ := signedTransfer(addr1, addr1, uint64(3), big.NewInt(30), []byte{}, uint64(100000), uint64(10))
-	vote4, _ := signedVote(addr1, addr1, uint64(4), uint64(100000), uint64(10))
-	tsf5, _ := signedTransfer(addr1, addr1, uint64(5), big.NewInt(50), []byte{}, uint64(100000), uint64(10))
-	tsf6, _ := signedTransfer(addr2, addr2, uint64(1), big.NewInt(5), []byte{}, uint64(100000), uint64(10))
-	tsf7, _ := signedTransfer(addr2, addr2, uint64(3), big.NewInt(1), []byte{}, uint64(100000), uint64(10))
-	tsf8, _ := signedTransfer(addr2, addr2, uint64(4), big.NewInt(5), []byte{}, uint64(100000), uint64(10))
+	tsf1, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(10))
+	tsf2, _ := signedTransfer(addr1, addr1, uint64(2), big.NewInt(20), []byte{}, uint64(100000), big.NewInt(10))
+	tsf3, _ := signedTransfer(addr1, addr1, uint64(3), big.NewInt(30), []byte{}, uint64(100000), big.NewInt(10))
+	vote4, _ := signedVote(addr1, addr1, uint64(4), uint64(100000), big.NewInt(10))
+	tsf5, _ := signedTransfer(addr1, addr1, uint64(5), big.NewInt(50), []byte{}, uint64(100000), big.NewInt(10))
+	tsf6, _ := signedTransfer(addr2, addr2, uint64(1), big.NewInt(5), []byte{}, uint64(100000), big.NewInt(10))
+	tsf7, _ := signedTransfer(addr2, addr2, uint64(3), big.NewInt(1), []byte{}, uint64(100000), big.NewInt(10))
+	tsf8, _ := signedTransfer(addr2, addr2, uint64(4), big.NewInt(5), []byte{}, uint64(100000), big.NewInt(10))
 
 	err = ap.AddTsf(tsf1)
 	require.NoError(err)
@@ -193,7 +193,7 @@ func TestActPool_AddActs(t *testing.T) {
 	pNonce2, _ := ap.getPendingNonce(addr2.RawAddress)
 	require.Equal(uint64(2), pNonce2)
 
-	tsf9, _ := signedTransfer(addr2, addr2, uint64(2), big.NewInt(3), []byte{}, uint64(100000), uint64(10))
+	tsf9, _ := signedTransfer(addr2, addr2, uint64(2), big.NewInt(3), []byte{}, uint64(100000), big.NewInt(10))
 	err = ap.AddTsf(tsf9)
 	require.NoError(err)
 	pBalance2, _ = ap.getPendingBalance(addr2.RawAddress)
@@ -224,24 +224,24 @@ func TestActPool_AddActs(t *testing.T) {
 	err = ap2.AddVote(vote4)
 	require.Equal(ErrActPool, errors.Cause(err))
 	// Case III: Nonce already exists
-	replaceTsf, _ := signedTransfer(addr1, addr2, uint64(1), big.NewInt(1), []byte{}, uint64(100000), uint64(10))
+	replaceTsf, _ := signedTransfer(addr1, addr2, uint64(1), big.NewInt(1), []byte{}, uint64(100000), big.NewInt(10))
 	err = ap.AddTsf(replaceTsf)
 	require.Equal(ErrNonce, errors.Cause(err))
-	replaceVote, err := action.NewVote(4, addr1.RawAddress, "", uint64(100000), uint64(10))
+	replaceVote, err := action.NewVote(4, addr1.RawAddress, "", uint64(100000), big.NewInt(10))
 	require.NoError(err)
 	replaceVote, _ = replaceVote.Sign(addr1)
 	err = ap.AddVote(replaceVote)
 	require.Equal(ErrNonce, errors.Cause(err))
 	// Case IV: Nonce is too large
-	outOfBoundsTsf, _ := signedTransfer(addr1, addr1, ap.cfg.MaxNumActsPerAcct+1, big.NewInt(1), []byte{}, uint64(100000), uint64(10))
+	outOfBoundsTsf, _ := signedTransfer(addr1, addr1, ap.cfg.MaxNumActsPerAcct+1, big.NewInt(1), []byte{}, uint64(100000), big.NewInt(10))
 	err = ap.AddTsf(outOfBoundsTsf)
 	require.Equal(ErrNonce, errors.Cause(err))
 	// Case V: Insufficient balance
-	overBalTsf, _ := signedTransfer(addr2, addr2, uint64(4), big.NewInt(20), []byte{}, uint64(100000), uint64(10))
+	overBalTsf, _ := signedTransfer(addr2, addr2, uint64(4), big.NewInt(20), []byte{}, uint64(100000), big.NewInt(10))
 	err = ap.AddTsf(overBalTsf)
 	require.Equal(ErrBalance, errors.Cause(err))
 	// Case VI: over gas limit
-	creationExecution, err := action.NewExecution(addr1.RawAddress, action.EmptyAddress, uint64(5), big.NewInt(int64(0)), blockchain.GasLimit+100, uint64(10), []byte{})
+	creationExecution, err := action.NewExecution(addr1.RawAddress, action.EmptyAddress, uint64(5), big.NewInt(int64(0)), blockchain.GasLimit+100, big.NewInt(10), []byte{})
 	require.NoError(err)
 	err = ap.AddExecution(creationExecution)
 	require.Equal(ErrGasHigherThanLimit, errors.Cause(err))
@@ -268,16 +268,16 @@ func TestActPool_PickActs(t *testing.T) {
 		ap, ok := Ap.(*actPool)
 		require.True(ok)
 
-		tsf1, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), uint64(10))
-		tsf2, _ := signedTransfer(addr1, addr1, uint64(2), big.NewInt(20), []byte{}, uint64(100000), uint64(10))
-		tsf3, _ := signedTransfer(addr1, addr1, uint64(3), big.NewInt(30), []byte{}, uint64(100000), uint64(10))
-		tsf4, _ := signedTransfer(addr1, addr1, uint64(4), big.NewInt(40), []byte{}, uint64(100000), uint64(10))
-		tsf5, _ := signedTransfer(addr1, addr1, uint64(5), big.NewInt(50), []byte{}, uint64(100000), uint64(10))
-		vote6, _ := signedVote(addr1, addr1, uint64(6), uint64(100000), uint64(10))
-		vote7, _ := signedVote(addr2, addr2, uint64(1), uint64(100000), uint64(10))
-		tsf8, _ := signedTransfer(addr2, addr2, uint64(3), big.NewInt(5), []byte{}, uint64(100000), uint64(10))
-		tsf9, _ := signedTransfer(addr2, addr2, uint64(4), big.NewInt(1), []byte{}, uint64(100000), uint64(10))
-		tsf10, _ := signedTransfer(addr2, addr2, uint64(5), big.NewInt(5), []byte{}, uint64(100000), uint64(10))
+		tsf1, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(10))
+		tsf2, _ := signedTransfer(addr1, addr1, uint64(2), big.NewInt(20), []byte{}, uint64(100000), big.NewInt(10))
+		tsf3, _ := signedTransfer(addr1, addr1, uint64(3), big.NewInt(30), []byte{}, uint64(100000), big.NewInt(10))
+		tsf4, _ := signedTransfer(addr1, addr1, uint64(4), big.NewInt(40), []byte{}, uint64(100000), big.NewInt(10))
+		tsf5, _ := signedTransfer(addr1, addr1, uint64(5), big.NewInt(50), []byte{}, uint64(100000), big.NewInt(10))
+		vote6, _ := signedVote(addr1, addr1, uint64(6), uint64(100000), big.NewInt(10))
+		vote7, _ := signedVote(addr2, addr2, uint64(1), uint64(100000), big.NewInt(10))
+		tsf8, _ := signedTransfer(addr2, addr2, uint64(3), big.NewInt(5), []byte{}, uint64(100000), big.NewInt(10))
+		tsf9, _ := signedTransfer(addr2, addr2, uint64(4), big.NewInt(1), []byte{}, uint64(100000), big.NewInt(10))
+		tsf10, _ := signedTransfer(addr2, addr2, uint64(5), big.NewInt(5), []byte{}, uint64(100000), big.NewInt(10))
 
 		err = ap.AddTsf(tsf1)
 		require.NoError(err)
@@ -341,10 +341,10 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
 
-	tsf1, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), uint64(10))
-	tsf2, _ := signedTransfer(addr1, addr1, uint64(2), big.NewInt(20), []byte{}, uint64(100000), uint64(10))
-	tsf3, _ := signedTransfer(addr1, addr1, uint64(3), big.NewInt(30), []byte{}, uint64(100000), uint64(10))
-	vote4, _ := signedVote(addr1, addr1, uint64(4), uint64(100000), uint64(10))
+	tsf1, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(10))
+	tsf2, _ := signedTransfer(addr1, addr1, uint64(2), big.NewInt(20), []byte{}, uint64(100000), big.NewInt(10))
+	tsf3, _ := signedTransfer(addr1, addr1, uint64(3), big.NewInt(30), []byte{}, uint64(100000), big.NewInt(10))
+	vote4, _ := signedVote(addr1, addr1, uint64(4), uint64(100000), big.NewInt(10))
 
 	err = ap.AddTsf(tsf1)
 	require.NoError(err)
@@ -387,15 +387,15 @@ func TestActPool_Reset(t *testing.T) {
 	require.True(ok)
 
 	// Tsfs to be added to ap1
-	tsf1, _ := signedTransfer(addr1, addr2, uint64(1), big.NewInt(50), []byte{}, uint64(100000), uint64(10))
-	tsf2, _ := signedTransfer(addr1, addr3, uint64(2), big.NewInt(30), []byte{}, uint64(100000), uint64(10))
-	tsf3, _ := signedTransfer(addr1, addr2, uint64(3), big.NewInt(60), []byte{}, uint64(100000), uint64(10))
-	tsf4, _ := signedTransfer(addr2, addr1, uint64(1), big.NewInt(100), []byte{}, uint64(100000), uint64(10))
-	tsf5, _ := signedTransfer(addr2, addr3, uint64(2), big.NewInt(50), []byte{}, uint64(100000), uint64(10))
-	tsf6, _ := signedTransfer(addr2, addr1, uint64(3), big.NewInt(60), []byte{}, uint64(100000), uint64(10))
-	tsf7, _ := signedTransfer(addr3, addr1, uint64(1), big.NewInt(100), []byte{}, uint64(100000), uint64(10))
-	tsf8, _ := signedTransfer(addr3, addr2, uint64(2), big.NewInt(100), []byte{}, uint64(100000), uint64(10))
-	tsf9, _ := signedTransfer(addr3, addr1, uint64(4), big.NewInt(100), []byte{}, uint64(100000), uint64(10))
+	tsf1, _ := signedTransfer(addr1, addr2, uint64(1), big.NewInt(50), []byte{}, uint64(100000), big.NewInt(10))
+	tsf2, _ := signedTransfer(addr1, addr3, uint64(2), big.NewInt(30), []byte{}, uint64(100000), big.NewInt(10))
+	tsf3, _ := signedTransfer(addr1, addr2, uint64(3), big.NewInt(60), []byte{}, uint64(100000), big.NewInt(10))
+	tsf4, _ := signedTransfer(addr2, addr1, uint64(1), big.NewInt(100), []byte{}, uint64(100000), big.NewInt(10))
+	tsf5, _ := signedTransfer(addr2, addr3, uint64(2), big.NewInt(50), []byte{}, uint64(100000), big.NewInt(10))
+	tsf6, _ := signedTransfer(addr2, addr1, uint64(3), big.NewInt(60), []byte{}, uint64(100000), big.NewInt(10))
+	tsf7, _ := signedTransfer(addr3, addr1, uint64(1), big.NewInt(100), []byte{}, uint64(100000), big.NewInt(10))
+	tsf8, _ := signedTransfer(addr3, addr2, uint64(2), big.NewInt(100), []byte{}, uint64(100000), big.NewInt(10))
+	tsf9, _ := signedTransfer(addr3, addr1, uint64(4), big.NewInt(100), []byte{}, uint64(100000), big.NewInt(10))
 
 	err = ap1.AddTsf(tsf1)
 	require.NoError(err)
@@ -416,11 +416,11 @@ func TestActPool_Reset(t *testing.T) {
 	err = ap1.AddTsf(tsf9)
 	require.NoError(err)
 	// Tsfs to be added to ap2 only
-	tsf10, _ := signedTransfer(addr1, addr2, uint64(3), big.NewInt(20), []byte{}, uint64(100000), uint64(10))
-	tsf11, _ := signedTransfer(addr1, addr3, uint64(4), big.NewInt(10), []byte{}, uint64(100000), uint64(10))
-	tsf12, _ := signedTransfer(addr2, addr3, uint64(2), big.NewInt(70), []byte{}, uint64(100000), uint64(10))
-	tsf13, _ := signedTransfer(addr3, addr1, uint64(1), big.NewInt(200), []byte{}, uint64(100000), uint64(10))
-	tsf14, _ := signedTransfer(addr3, addr2, uint64(2), big.NewInt(50), []byte{}, uint64(100000), uint64(10))
+	tsf10, _ := signedTransfer(addr1, addr2, uint64(3), big.NewInt(20), []byte{}, uint64(100000), big.NewInt(10))
+	tsf11, _ := signedTransfer(addr1, addr3, uint64(4), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(10))
+	tsf12, _ := signedTransfer(addr2, addr3, uint64(2), big.NewInt(70), []byte{}, uint64(100000), big.NewInt(10))
+	tsf13, _ := signedTransfer(addr3, addr1, uint64(1), big.NewInt(200), []byte{}, uint64(100000), big.NewInt(10))
+	tsf14, _ := signedTransfer(addr3, addr2, uint64(2), big.NewInt(50), []byte{}, uint64(100000), big.NewInt(10))
 
 	err = ap2.AddTsf(tsf1)
 	require.NoError(err)
@@ -516,13 +516,13 @@ func TestActPool_Reset(t *testing.T) {
 	require.Equal(big.NewInt(180).Uint64(), ap2PBalance3.Uint64())
 	// Add more Tsfs after resetting
 	// Tsfs To be added to ap1 only
-	tsf15, _ := signedTransfer(addr3, addr2, uint64(3), big.NewInt(80), []byte{}, uint64(100000), uint64(10))
+	tsf15, _ := signedTransfer(addr3, addr2, uint64(3), big.NewInt(80), []byte{}, uint64(100000), big.NewInt(10))
 	// Tsfs To be added to ap2 only
-	tsf16, _ := signedTransfer(addr1, addr2, uint64(4), big.NewInt(150), []byte{}, uint64(100000), uint64(10))
-	tsf17, _ := signedTransfer(addr2, addr1, uint64(3), big.NewInt(90), []byte{}, uint64(100000), uint64(10))
-	tsf18, _ := signedTransfer(addr2, addr3, uint64(4), big.NewInt(100), []byte{}, uint64(100000), uint64(10))
-	tsf19, _ := signedTransfer(addr2, addr1, uint64(5), big.NewInt(50), []byte{}, uint64(100000), uint64(10))
-	tsf20, _ := signedTransfer(addr3, addr2, uint64(3), big.NewInt(200), []byte{}, uint64(100000), uint64(10))
+	tsf16, _ := signedTransfer(addr1, addr2, uint64(4), big.NewInt(150), []byte{}, uint64(100000), big.NewInt(10))
+	tsf17, _ := signedTransfer(addr2, addr1, uint64(3), big.NewInt(90), []byte{}, uint64(100000), big.NewInt(10))
+	tsf18, _ := signedTransfer(addr2, addr3, uint64(4), big.NewInt(100), []byte{}, uint64(100000), big.NewInt(10))
+	tsf19, _ := signedTransfer(addr2, addr1, uint64(5), big.NewInt(50), []byte{}, uint64(100000), big.NewInt(10))
+	tsf20, _ := signedTransfer(addr3, addr2, uint64(3), big.NewInt(200), []byte{}, uint64(100000), big.NewInt(10))
 
 	err = ap1.AddTsf(tsf15)
 	require.NoError(err)
@@ -617,13 +617,13 @@ func TestActPool_Reset(t *testing.T) {
 	_, err = bc.CreateState(addr5.RawAddress, uint64(20))
 	require.NoError(err)
 	require.NoError(bc.GetFactory().CommitStateChanges(1, nil, nil, nil))
-	tsf21, _ := signedTransfer(addr4, addr5, uint64(1), big.NewInt(10), []byte{}, uint64(100000), uint64(10))
-	vote22, _ := signedVote(addr4, addr4, uint64(2), uint64(100000), uint64(10))
-	vote23, _ := action.NewVote(3, addr4.RawAddress, "", uint64(100000), uint64(10))
+	tsf21, _ := signedTransfer(addr4, addr5, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(10))
+	vote22, _ := signedVote(addr4, addr4, uint64(2), uint64(100000), big.NewInt(10))
+	vote23, _ := action.NewVote(3, addr4.RawAddress, "", uint64(100000), big.NewInt(10))
 	vote23, _ = vote23.Sign(addr4)
-	vote24, _ := signedVote(addr5, addr5, uint64(1), uint64(100000), uint64(10))
-	tsf25, _ := signedTransfer(addr5, addr4, uint64(2), big.NewInt(10), []byte{}, uint64(100000), uint64(10))
-	vote26, _ := action.NewVote(3, addr5.RawAddress, "", uint64(100000), uint64(10))
+	vote24, _ := signedVote(addr5, addr5, uint64(1), uint64(100000), big.NewInt(10))
+	tsf25, _ := signedTransfer(addr5, addr4, uint64(2), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(10))
+	vote26, _ := action.NewVote(3, addr5.RawAddress, "", uint64(100000), big.NewInt(10))
 	vote26, _ = vote26.Sign(addr5)
 
 	err = ap1.AddTsf(tsf21)
@@ -684,10 +684,10 @@ func TestActPool_removeInvalidActs(t *testing.T) {
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
 
-	tsf1, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), uint64(10))
-	tsf2, _ := signedTransfer(addr1, addr1, uint64(2), big.NewInt(20), []byte{}, uint64(100000), uint64(10))
-	tsf3, _ := signedTransfer(addr1, addr1, uint64(3), big.NewInt(30), []byte{}, uint64(100000), uint64(10))
-	vote4, _ := signedVote(addr1, addr1, uint64(4), uint64(100000), uint64(10))
+	tsf1, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(10))
+	tsf2, _ := signedTransfer(addr1, addr1, uint64(2), big.NewInt(20), []byte{}, uint64(100000), big.NewInt(10))
+	tsf3, _ := signedTransfer(addr1, addr1, uint64(3), big.NewInt(30), []byte{}, uint64(100000), big.NewInt(10))
+	vote4, _ := signedVote(addr1, addr1, uint64(4), uint64(100000), big.NewInt(10))
 
 	err = ap.AddTsf(tsf1)
 	require.NoError(err)
@@ -725,9 +725,9 @@ func TestActPool_GetPendingNonce(t *testing.T) {
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
 
-	tsf1, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), uint64(10))
-	tsf3, _ := signedTransfer(addr1, addr1, uint64(3), big.NewInt(30), []byte{}, uint64(100000), uint64(10))
-	vote4, _ := signedVote(addr1, addr1, uint64(4), uint64(100000), uint64(10))
+	tsf1, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(10))
+	tsf3, _ := signedTransfer(addr1, addr1, uint64(3), big.NewInt(30), []byte{}, uint64(100000), big.NewInt(10))
+	vote4, _ := signedVote(addr1, addr1, uint64(4), uint64(100000), big.NewInt(10))
 
 	err = ap.AddTsf(tsf1)
 	require.NoError(err)
@@ -760,11 +760,11 @@ func TestActPool_GetUnconfirmedActs(t *testing.T) {
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
 
-	tsf1, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), uint64(10))
+	tsf1, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(10))
 	act1 := tsf1.ConvertToActionPb()
-	tsf3, _ := signedTransfer(addr1, addr1, uint64(3), big.NewInt(30), []byte{}, uint64(100000), uint64(10))
+	tsf3, _ := signedTransfer(addr1, addr1, uint64(3), big.NewInt(30), []byte{}, uint64(100000), big.NewInt(10))
 	act3 := tsf3.ConvertToActionPb()
-	vote4, _ := signedVote(addr1, addr1, uint64(4), uint64(100000), uint64(10))
+	vote4, _ := signedVote(addr1, addr1, uint64(4), uint64(100000), big.NewInt(10))
 	act4 := vote4.ConvertToActionPb()
 
 	err = ap.AddTsf(tsf1)
@@ -795,10 +795,10 @@ func TestActPool_GetActionByHash(t *testing.T) {
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
 
-	tsf1, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), uint64(10))
+	tsf1, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(10))
 	hash1 := tsf1.Hash()
 	act1 := tsf1.ConvertToActionPb()
-	vote2, _ := signedVote(addr1, addr1, uint64(2), uint64(100000), uint64(10))
+	vote2, _ := signedVote(addr1, addr1, uint64(2), uint64(100000), big.NewInt(10))
 	hash2 := vote2.Hash()
 	act2 := vote2.ConvertToActionPb()
 
@@ -842,13 +842,13 @@ func TestActPool_GetSize(t *testing.T) {
 	require.True(ok)
 	require.Zero(ap.GetSize())
 
-	tsf1, err := signedTransfer(addr1, addr1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), uint64(10))
+	tsf1, err := signedTransfer(addr1, addr1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(err)
-	tsf2, err := signedTransfer(addr1, addr1, uint64(2), big.NewInt(20), []byte{}, uint64(100000), uint64(10))
+	tsf2, err := signedTransfer(addr1, addr1, uint64(2), big.NewInt(20), []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(err)
-	tsf3, err := signedTransfer(addr1, addr1, uint64(3), big.NewInt(30), []byte{}, uint64(100000), uint64(10))
+	tsf3, err := signedTransfer(addr1, addr1, uint64(3), big.NewInt(30), []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(err)
-	vote4, err := signedVote(addr1, addr1, uint64(4), uint64(100000), uint64(10))
+	vote4, err := signedVote(addr1, addr1, uint64(4), uint64(100000), big.NewInt(10))
 	require.NoError(err)
 	require.NoError(ap.AddTsf(tsf1))
 	require.NoError(ap.AddTsf(tsf2))
@@ -881,7 +881,7 @@ func (ap *actPool) getPendingBalance(addr string) (*big.Int, error) {
 }
 
 // Helper function to return a signed transfer
-func signedTransfer(sender *iotxaddress.Address, recipient *iotxaddress.Address, nonce uint64, amount *big.Int, payload []byte, gasLimit uint64, gasPrice uint64) (*action.Transfer, error) {
+func signedTransfer(sender *iotxaddress.Address, recipient *iotxaddress.Address, nonce uint64, amount *big.Int, payload []byte, gasLimit uint64, gasPrice *big.Int) (*action.Transfer, error) {
 	transfer, err := action.NewTransfer(nonce, amount, sender.RawAddress, recipient.RawAddress, payload, gasLimit, gasPrice)
 	if err != nil {
 		return nil, err
@@ -890,7 +890,7 @@ func signedTransfer(sender *iotxaddress.Address, recipient *iotxaddress.Address,
 }
 
 // Helper function to return a signed vote
-func signedVote(voter *iotxaddress.Address, votee *iotxaddress.Address, nonce uint64, gasLimit uint64, gasPrice uint64) (*action.Vote, error) {
+func signedVote(voter *iotxaddress.Address, votee *iotxaddress.Address, nonce uint64, gasLimit uint64, gasPrice *big.Int) (*action.Vote, error) {
 	vote, err := action.NewVote(nonce, voter.RawAddress, votee.RawAddress, gasLimit, gasPrice)
 	if err != nil {
 		return nil, err

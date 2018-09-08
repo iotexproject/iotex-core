@@ -37,19 +37,19 @@ func TestBlockDAO(t *testing.T) {
 		assert.NotNil(t, cbTsf3)
 
 		// create testing votes
-		vote1, err := action.NewVote(1, testaddress.Addrinfo["alfa"].RawAddress, testaddress.Addrinfo["alfa"].RawAddress, uint64(100000), uint64(10))
+		vote1, err := action.NewVote(1, testaddress.Addrinfo["alfa"].RawAddress, testaddress.Addrinfo["alfa"].RawAddress, uint64(100000), big.NewInt(10))
 		require.NoError(t, err)
-		vote2, err := action.NewVote(1, testaddress.Addrinfo["bravo"].RawAddress, testaddress.Addrinfo["bravo"].RawAddress, uint64(100000), uint64(10))
+		vote2, err := action.NewVote(1, testaddress.Addrinfo["bravo"].RawAddress, testaddress.Addrinfo["bravo"].RawAddress, uint64(100000), big.NewInt(10))
 		require.NoError(t, err)
-		vote3, err := action.NewVote(1, testaddress.Addrinfo["charlie"].RawAddress, testaddress.Addrinfo["charlie"].RawAddress, uint64(100000), uint64(10))
+		vote3, err := action.NewVote(1, testaddress.Addrinfo["charlie"].RawAddress, testaddress.Addrinfo["charlie"].RawAddress, uint64(100000), big.NewInt(10))
 		require.NoError(t, err)
 
 		// create testing executions
-		execution1, err := action.NewExecution(testaddress.Addrinfo["alfa"].RawAddress, testaddress.Addrinfo["delta"].RawAddress, 1, big.NewInt(1), 0, 0, nil)
+		execution1, err := action.NewExecution(testaddress.Addrinfo["alfa"].RawAddress, testaddress.Addrinfo["delta"].RawAddress, 1, big.NewInt(1), 0, big.NewInt(0), nil)
 		require.NoError(t, err)
-		execution2, err := action.NewExecution(testaddress.Addrinfo["bravo"].RawAddress, testaddress.Addrinfo["delta"].RawAddress, 2, big.NewInt(0), 0, 0, nil)
+		execution2, err := action.NewExecution(testaddress.Addrinfo["bravo"].RawAddress, testaddress.Addrinfo["delta"].RawAddress, 2, big.NewInt(0), 0, big.NewInt(0), nil)
 		require.NoError(t, err)
-		execution3, err := action.NewExecution(testaddress.Addrinfo["charlie"].RawAddress, testaddress.Addrinfo["delta"].RawAddress, 3, big.NewInt(2), 0, 0, nil)
+		execution3, err := action.NewExecution(testaddress.Addrinfo["charlie"].RawAddress, testaddress.Addrinfo["delta"].RawAddress, 3, big.NewInt(2), 0, big.NewInt(0), nil)
 		require.NoError(t, err)
 
 		hash1 := hash.Hash32B{}

@@ -863,7 +863,7 @@ func (exp *Service) SendTransfer(tsfJSON explorer.SendTransferRequest) (resp exp
 		Version:   uint32(tsfJSON.Version),
 		Nonce:     uint64(tsfJSON.Nonce),
 		GasLimit:  uint64(tsfJSON.GasLimit),
-		GasPrice:  uint64(tsfJSON.GasPrice),
+		GasPrice:  big.NewInt(tsfJSON.GasPrice).Bytes(),
 		Signature: signature,
 	}
 	// broadcast to the network
@@ -910,7 +910,7 @@ func (exp *Service) SendVote(voteJSON explorer.SendVoteRequest) (resp explorer.S
 		Version:   uint32(voteJSON.Version),
 		Nonce:     uint64(voteJSON.Nonce),
 		GasLimit:  uint64(voteJSON.GasLimit),
-		GasPrice:  uint64(voteJSON.GasPrice),
+		GasPrice:  big.NewInt(voteJSON.GasPrice).Bytes(),
 		Signature: signature,
 	}
 
@@ -978,7 +978,7 @@ func (exp *Service) SendSmartContract(execution explorer.Execution) (resp explor
 		Version:   uint32(execution.Version),
 		Nonce:     uint64(execution.Nonce),
 		GasLimit:  uint64(execution.GasLimit),
-		GasPrice:  uint64(execution.GasPrice),
+		GasPrice:  big.NewInt(execution.GasPrice).Bytes(),
 		Signature: signature,
 	}
 	//
@@ -1020,7 +1020,7 @@ func (exp *Service) ReadExecutionState(execution explorer.Execution) (string, er
 		Version:   uint32(execution.Version),
 		Nonce:     uint64(execution.Nonce),
 		GasLimit:  uint64(execution.GasLimit),
-		GasPrice:  uint64(execution.GasPrice),
+		GasPrice:  big.NewInt(execution.GasPrice).Bytes(),
 		Signature: signature,
 	}
 
@@ -1150,15 +1150,19 @@ func convertTsfToExplorerTsf(transfer *action.Transfer, isPending bool) (explore
 	hash := transfer.Hash()
 	explorerTransfer := explorer.Transfer{
 		Nonce:     int64(transfer.Nonce),
-		Amount:    transfer.Amount.Int64(),
 		ID:        hex.EncodeToString(hash[:]),
 		Sender:    transfer.Sender,
 		Recipient: transfer.Recipient,
 		Fee:       0, // TODO: we need to get the actual fee.
 		Payload:   hex.EncodeToString(transfer.Payload),
 		GasLimit:  int64(transfer.GasLimit),
-		GasPrice:  int64(transfer.GasPrice),
 		IsPending: isPending,
+	}
+	if transfer.Amount != nil && len(transfer.Amount.Bytes()) > 0 {
+		explorerTransfer.Amount = transfer.Amount.Int64()
+	}
+	if transfer.GasPrice != nil && len(transfer.GasPrice.Bytes()) > 0 {
+		explorerTransfer.GasPrice = transfer.GasPrice.Int64()
 	}
 	return explorerTransfer, nil
 }
@@ -1187,7 +1191,7 @@ func convertVoteToExplorerVote(vote *action.Vote, isPending bool) (explorer.Vote
 		Voter:     voter,
 		Votee:     votee,
 		GasLimit:  int64(vote.GasLimit),
-		GasPrice:  int64(vote.GasPrice),
+		GasPrice:  big.NewInt(0).SetBytes(vote.GasPrice).Int64(),
 		IsPending: isPending,
 	}
 	return explorerVote, nil
@@ -1200,14 +1204,18 @@ func convertExecutionToExplorerExecution(execution *action.Execution, isPending 
 	hash := execution.Hash()
 	explorerExecution := explorer.Execution{
 		Nonce:     int64(execution.Nonce),
-		Amount:    execution.Amount.Int64(),
 		ID:        hex.EncodeToString(hash[:]),
 		Executor:  execution.Executor,
 		Contract:  execution.Contract,
 		GasLimit:  int64(execution.GasLimit),
-		GasPrice:  int64(execution.GasPrice),
 		Data:      hex.EncodeToString(execution.Data),
 		IsPending: isPending,
+	}
+	if execution.Amount != nil && len(execution.Amount.Bytes()) > 0 {
+		explorerExecution.Amount = execution.Amount.Int64()
+	}
+	if execution.GasPrice != nil && len(execution.GasPrice.Bytes()) > 0 {
+		explorerExecution.GasPrice = execution.GasPrice.Int64()
 	}
 	return explorerExecution, nil
 }
