@@ -86,6 +86,7 @@ func TestActionInjector(t *testing.T) {
 	// Test injectByAps
 	aps := 50
 	d := time.Second
+	resetInterval := 5
 	wg := &sync.WaitGroup{}
 	retryNum := 5
 	retryInterval := 1
@@ -99,7 +100,7 @@ func TestActionInjector(t *testing.T) {
 	executionGasLimit := 1200000
 	executionGasPrice := 10
 	executionData := "2885ad2c"
-	injectByAps(wg, aps, counter, transferGasLimit, transferGasPrice, transferPayload, voteGasLimit, voteGasPrice, contract, executionAmount, executionGasLimit, executionGasPrice, executionData, client, admins, delegates, d, retryNum, retryInterval)
+	injectByAps(wg, aps, counter, transferGasLimit, transferGasPrice, transferPayload, voteGasLimit, voteGasPrice, contract, executionAmount, executionGasLimit, executionGasPrice, executionData, client, admins, delegates, d, retryNum, retryInterval, resetInterval)
 	wg.Wait()
 
 	// Wait until the injected actions in APS Mode gets into the action pool

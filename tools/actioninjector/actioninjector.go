@@ -86,6 +86,8 @@ func main() {
 	var aps int
 	// duration indicates how long the injection will run in seconds. Default is 60
 	var duration int
+	// reset interval indicates the interval to reset nonce counter in seconds. Default is 10
+	var resetInterval int
 
 	flag.StringVar(&configPath, "injector-config-path", "./tools/actioninjector/gentsfaddrs.yaml", "path of config file of genesis transfer addresses")
 	flag.StringVar(&addr, "addr", "127.0.0.1:14004", "target ip:port for jrpc connection")
@@ -107,6 +109,7 @@ func main() {
 	flag.IntVar(&retryInterval, "retry-interval", 1, "sleep interval between two consecutive rpc retries in seconds")
 	flag.IntVar(&aps, "aps", 0, "actions to be injected per second")
 	flag.IntVar(&duration, "duration", 60, "duration when the injection will run in seconds")
+	flag.IntVar(&resetInterval, "reset-interval", 10, "time interval to reset nonce counter in seconds")
 	flag.Parse()
 
 	proxy := explorer.NewExplorerProxy("http://" + addr)
@@ -147,7 +150,7 @@ func main() {
 	if aps > 0 {
 		d := time.Duration(duration) * time.Second
 		wg := &sync.WaitGroup{}
-		injectByAps(wg, aps, counter, transferGasLimit, transferGasPrice, transferPayload, voteGasLimit, voteGasPrice, contract, executionAmount, executionGasLimit, executionGasPrice, executionData, proxy, admins, delegates, d, retryNum, retryInterval)
+		injectByAps(wg, aps, counter, transferGasLimit, transferGasPrice, transferPayload, voteGasLimit, voteGasPrice, contract, executionAmount, executionGasLimit, executionGasPrice, executionData, proxy, admins, delegates, d, retryNum, retryInterval, resetInterval)
 		wg.Wait()
 	} else {
 		injectByInterval(transferNum, transferGasLimit, transferGasPrice, transferPayload, voteNum, voteGasLimit, voteGasPrice, executionNum, contract, executionAmount, executionGasLimit, executionGasPrice, executionData, interval, counter, proxy, admins, delegates, retryNum, retryInterval)
@@ -175,14 +178,33 @@ func injectByAps(
 	duration time.Duration,
 	retryNum int,
 	retryInterval int,
+	resetInterval int,
 ) {
 	timeout := time.After(duration)
 	tick := time.Tick(time.Duration(1/float64(aps)*1000) * time.Millisecond)
+	reset := time.Tick(time.Duration(resetInterval) * time.Second)
 loop:
 	for {
 		select {
 		case <-timeout:
 			break loop
+		case <-reset:
+			for _, admin := range admins {
+				addrDetails, err := client.GetAddressDetails(admin.RawAddress)
+				if err != nil {
+					logger.Fatal().Err(err).Str("addr", admin.RawAddress).Msg("Failed to inject actions by APS")
+				}
+				nonce := uint64(addrDetails.PendingNonce)
+				counter[admin.RawAddress] = nonce
+			}
+			for _, delegate := range delegates {
+				addrDetails, err := client.GetAddressDetails(delegate.RawAddress)
+				if err != nil {
+					logger.Fatal().Err(err).Str("addr", delegate.RawAddress).Msg("Failed to inject actions by APS")
+				}
+				nonce := uint64(addrDetails.PendingNonce)
+				counter[delegate.RawAddress] = nonce
+			}
 		case <-tick:
 			wg.Add(1)
 			switch rand := rand.Intn(3); rand {

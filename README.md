@@ -200,6 +200,7 @@ You can use command line flags to customize the injector.
 -retry-interval=sleeping_interval_between_two_consecutive_rpc_retries_in_seconds
 -aps=actions_to_be_injected_per_second_APS_MODE_ONLY
 -duration=duration_of_injector_running_in_seconds_APS_MODE_ONLY
+-reset-interval=time_interval_to_reset_nonce_counter_in_seconds
 ```
 
 Default flag values:
@@ -223,6 +224,7 @@ Default flag values:
 * retry-interval=1
 * aps=0
 * duration=60
+* reset-interval=10
 
 Note: APS is a running mode option which is disabled by default. When aps > 0, APS mode is enabled and the injector alternates to inject transfers and votes within the time frame specified by duration.
 
