@@ -310,6 +310,12 @@ func (bc *blockchain) Start(ctx context.Context) (err error) {
 		}
 		startHeight = factoryHeight + 1
 	}
+	// If restarting factory from fresh db, first create creator's state
+	if startHeight == 0 {
+		if _, err := bc.sf.LoadOrCreateState(Gen.CreatorAddr, Gen.TotalSupply); err != nil {
+			return err
+		}
+	}
 	for i := startHeight; i <= bc.tipHeight; i++ {
 		blk, err := bc.GetBlockByHeight(i)
 		if err != nil {
