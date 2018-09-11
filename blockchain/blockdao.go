@@ -11,6 +11,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
@@ -56,13 +57,14 @@ var (
 var _ lifecycle.StartStopper = (*blockDAO)(nil)
 
 type blockDAO struct {
+	config    *config.Config
 	kvstore   db.KVStore
 	lifecycle lifecycle.Lifecycle
 }
 
 // newBlockDAO instantiates a block DAO
-func newBlockDAO(kvstore db.KVStore) *blockDAO {
-	blockDAO := &blockDAO{kvstore: kvstore}
+func newBlockDAO(cfg *config.Config, kvstore db.KVStore) *blockDAO {
+	blockDAO := &blockDAO{config: cfg, kvstore: kvstore}
 	blockDAO.lifecycle.Add(kvstore)
 	return blockDAO
 }
@@ -521,6 +523,11 @@ func (dao *blockDAO) putBlock(blk *Block) error {
 		batch.Put(blockNS, topHeightKey, height, "failed to put top height")
 	}
 
+	if !dao.config.Explorer.Enabled {
+		return batch.Commit()
+	}
+
+	// only build Tsf/Vote/Execution index if enable explorer
 	value, err = dao.kvstore.Get(blockNS, totalTransfersKey)
 	if err != nil {
 		return errors.Wrap(err, "failed to get total transfers")
