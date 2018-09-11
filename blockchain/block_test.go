@@ -374,7 +374,7 @@ func TestWrongCoinbaseTsf(t *testing.T) {
 	err = val.Validate(blk, 2, hash)
 	require.Error(err)
 	require.True(
-		strings.Contains(err.Error(), "Wrong number of coinbase transfers"),
+		strings.Contains(err.Error(), "wrong number of coinbase transfers"),
 	)
 
 	// extra coinbase transfer
@@ -384,7 +384,7 @@ func TestWrongCoinbaseTsf(t *testing.T) {
 	err = val.Validate(blk, 2, hash)
 	require.Error(err)
 	require.True(
-		strings.Contains(err.Error(), "Wrong number of coinbase transfers"),
+		strings.Contains(err.Error(), "wrong number of coinbase transfers"),
 	)
 
 	// no transfer
@@ -394,6 +394,6 @@ func TestWrongCoinbaseTsf(t *testing.T) {
 	err = val.Validate(blk, 2, hash)
 	require.Error(err)
 	require.True(
-		strings.Contains(err.Error(), "Wrong number of coinbase transfers"),
+		strings.Contains(err.Error(), "wrong number of coinbase transfers"),
 	)
 }
