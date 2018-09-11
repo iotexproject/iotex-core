@@ -69,7 +69,8 @@ func TestBlockDAO(t *testing.T) {
 
 	testBlockDao := func(kvstore db.KVStore, t *testing.T) {
 		ctx := context.Background()
-		dao := newBlockDAO(kvstore)
+		cfg := config.Default
+		dao := newBlockDAO(&cfg, kvstore)
 		err := dao.Start(ctx)
 		assert.Nil(t, err)
 		defer func() {
@@ -141,7 +142,9 @@ func TestBlockDAO(t *testing.T) {
 
 	testActionsDao := func(kvstore db.KVStore, t *testing.T) {
 		ctx := context.Background()
-		dao := newBlockDAO(kvstore)
+		cfg := config.Default
+		cfg.Explorer.Enabled = true
+		dao := newBlockDAO(&cfg, kvstore)
 		err := dao.Start(ctx)
 		assert.Nil(t, err)
 		defer func() {
