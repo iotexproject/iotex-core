@@ -127,7 +127,7 @@ var (
 			EventChanSize: 10000,
 		},
 		Explorer: Explorer{
-			Enabled:                 true,
+			Enabled:                 false,
 			IsTest:                  false,
 			Port:                    14004,
 			TpsWindow:               10,
