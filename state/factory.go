@@ -271,24 +271,29 @@ func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer
 	if blockHeight > 0 && len(sf.cachedCandidates) == 0 {
 		candidates, err := sf.getCandidates(blockHeight - 1)
 		if err != nil {
+			logger.Error().Err(err).Msgf("Failed to get previous candidates on height %d", blockHeight-1)
 			return errors.Wrapf(err, "failed to get previous candidates on height %d", blockHeight-1)
 		}
 		if sf.cachedCandidates, err = CandidatesToMap(candidates); err != nil {
+			logger.Error().Err(err).Msg("Failed to convert candidate list to map of cached candidates")
 			return errors.Wrap(err, "failed to convert candidate list to map of cached candidates")
 		}
 	}
 
 	defer sf.clearCache()
 	if err := sf.handleTsf(tsf); err != nil {
+		logger.Error().Err(err).Msg("Failed to handle transfers")
 		return err
 	}
 	if err := sf.handleVote(blockHeight, vote); err != nil {
+		logger.Error().Err(err).Msg("Failed to handle votes")
 		return err
 	}
 
 	// update pending state changes to trie
 	for addr, state := range sf.cachedAccount {
 		if err := sf.putState(state, addr[:]); err != nil {
+			logger.Error().Err(err).Msg("Failed to update pending state changes to trie")
 			return err
 		}
 		// Perform vote update operation on candidate and delegate pools
@@ -310,11 +315,13 @@ func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer
 	// update pending contract changes
 	for addr, contract := range sf.cachedContract {
 		if err := contract.Commit(); err != nil {
+			logger.Error().Err(err).Msg("Failed to update pending contract changes")
 			return err
 		}
 		state := contract.SelfState()
 		// store the account (with new storage trie root) into state trie
 		if err := sf.putState(state, addr[:]); err != nil {
+			logger.Error().Err(err).Msg("Failed to update pending contract state changes to trie")
 			return err
 		}
 	}
@@ -323,40 +330,48 @@ func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer
 		addr, _ := iotxaddress.GetPubkeyHash(e.Executor)
 		state, err := sf.cachedState(byteutil.BytesTo20B(addr))
 		if err != nil {
+			logger.Error().Err(err).Msg("Failed to load state of executor")
 			return errors.Wrap(err, "Executor does not exist")
 		}
 		if e.Nonce > state.Nonce {
 			state.Nonce = e.Nonce
 		}
 		if err := sf.putState(state, addr); err != nil {
+			logger.Error().Err(err).Msg("Failed to update pending state changes to trie")
 			return err
 		}
 	}
 	// Persist accountTrie's root hash
 	accountRootHash := sf.RootHash()
 	if err := sf.dao.Put(trie.AccountKVNameSpace, []byte(AccountTrieRootKey), accountRootHash[:]); err != nil {
+		logger.Error().Err(err).Msg("Failed to persist accountTrie's root hash to underlying db")
 		return errors.Wrap(err, "failed to store accountTrie's root hash")
 	}
 	// Persist new list of candidates
 	candidates, err := MapToCandidates(sf.cachedCandidates)
 	if err != nil {
+		logger.Error().Err(err).Msg("Failed to convert map of cached candidates to candidate list")
 		return errors.Wrap(err, "failed to convert map of cached candidates to candidate list")
 	}
 	sort.Sort(candidates)
 	candidatesBytes, err := Serialize(candidates)
 	if err != nil {
+		logger.Error().Err(err).Msg("Failed to serialize cnaidate list to bytes")
 		return errors.Wrap(err, "failed to serialize candidates")
 	}
 	if err := sf.dao.Put(trie.CandidateKVNameSpace, byteutil.Uint64ToBytes(blockHeight), candidatesBytes); err != nil {
+		logger.Error().Err(err).Msgf("Failed to store candidates on height %d", blockHeight)
 		return errors.Wrapf(err, "failed to store candidates on height %d", blockHeight)
 	}
 	// Persist current chain height
 	sf.currentChainHeight = blockHeight
 	if err := sf.dao.Put(trie.AccountKVNameSpace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(blockHeight)); err != nil {
+		logger.Error().Err(err).Msg("Failed ot store accountTrie's current height")
 		return errors.Wrap(err, "failed to store accountTrie's current height")
 	}
 	// commit all changes in a batch
 	if err := sf.accountTrie.Commit(); err != nil {
+		logger.Error().Err(err).Msg("Failed to commit all changes to underlying DB in a batch")
 		return errors.Wrap(err, "failed to commit all changes to underlying DB in a batch")
 	}
 	return nil
@@ -549,6 +564,8 @@ func (sf *factory) handleTsf(tsf []*action.Transfer) error {
 			// check sender
 			sender, err := sf.LoadOrCreateState(tx.Sender, 0)
 			if err != nil {
+				logger.Error().
+					Err(err).Msgf("Failed to load or create the state of sender %s", tx.Sender)
 				return err
 			}
 			if tx.Amount.Cmp(sender.Balance) == 1 {
@@ -567,6 +584,8 @@ func (sf *factory) handleTsf(tsf []*action.Transfer) error {
 				// sender already voted to a different person
 				voteeOfSender, err := sf.LoadOrCreateState(sender.Votee, 0)
 				if err != nil {
+					logger.Error().
+						Err(err).Msgf("Failed to load or create the state of sender's votee %s", sender.Votee)
 					return err
 				}
 				voteeOfSender.VotingWeight.Sub(voteeOfSender.VotingWeight, tx.Amount)
@@ -575,6 +594,8 @@ func (sf *factory) handleTsf(tsf []*action.Transfer) error {
 		// check recipient
 		recipient, err := sf.LoadOrCreateState(tx.Recipient, 0)
 		if err != nil {
+			logger.Error().
+				Err(err).Msgf("Failed to load or create the state of recipient %s", tx.Recipient)
 			return err
 		}
 		// update recipient balance
@@ -586,6 +607,8 @@ func (sf *factory) handleTsf(tsf []*action.Transfer) error {
 			// recipient already voted to a different person
 			voteeOfRecipient, err := sf.LoadOrCreateState(recipient.Votee, 0)
 			if err != nil {
+				logger.Error().
+					Err(err).Msgf("Failed to load or create the state of recipient's votee %s", recipient.Votee)
 				return err
 			}
 			voteeOfRecipient.VotingWeight.Add(voteeOfRecipient.VotingWeight, tx.Amount)
@@ -600,6 +623,8 @@ func (sf *factory) handleVote(blockHeight uint64, vote []*action.Vote) error {
 		voterAddress := pbVote.VoterAddress
 		voteFrom, err := sf.LoadOrCreateState(voterAddress, 0)
 		if err != nil {
+			logger.Error().
+				Err(err).Msgf("Failed to load or create the state of voter %s", voterAddress)
 			return err
 		}
 
@@ -612,6 +637,8 @@ func (sf *factory) handleVote(blockHeight uint64, vote []*action.Vote) error {
 			// voter already voted
 			oldVotee, err := sf.LoadOrCreateState(voteFrom.Votee, 0)
 			if err != nil {
+				logger.Error().
+					Err(err).Msgf("Failed to load or create the state of voter's old votee %s", voteFrom.Votee)
 				return err
 			}
 			oldVotee.VotingWeight.Sub(oldVotee.VotingWeight, voteFrom.Balance)
@@ -627,6 +654,8 @@ func (sf *factory) handleVote(blockHeight uint64, vote []*action.Vote) error {
 
 		voteTo, err := sf.LoadOrCreateState(voteeAddress, 0)
 		if err != nil {
+			logger.Error().
+				Err(err).Msgf("Failed to load or create the state of votee %s", voteeAddress)
 			return err
 		}
 
