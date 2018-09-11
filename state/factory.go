@@ -198,7 +198,7 @@ func (sf *factory) LoadOrCreateState(addr string, init uint64) (*State, error) {
 		}
 		sf.cachedAccount[addrHash] = state
 	case err != nil:
-		return nil, err
+		return nil, errors.Wrapf(err, "failed to get state of %x from cached state", addrHash)
 	}
 	return state, nil
 }
@@ -211,7 +211,7 @@ func (sf *factory) Balance(addr string) (*big.Int, error) {
 	}
 	state, err := sf.getState(byteutil.BytesTo20B(pkHash))
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "failed to get state of %x", pkHash)
 	}
 	return state.Balance, nil
 }
@@ -224,7 +224,7 @@ func (sf *factory) Nonce(addr string) (uint64, error) {
 	}
 	state, err := sf.getState(byteutil.BytesTo20B(pkHash))
 	if err != nil {
-		return 0, err
+		return 0, errors.Wrapf(err, "failed to get state of %x", pkHash)
 	}
 	return state.Nonce, nil
 }
@@ -280,16 +280,16 @@ func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer
 
 	defer sf.clearCache()
 	if err := sf.handleTsf(tsf); err != nil {
-		return err
+		return errors.Wrap(err, "failed to handle transfers")
 	}
 	if err := sf.handleVote(blockHeight, vote); err != nil {
-		return err
+		return errors.Wrap(err, "failed to handle votes")
 	}
 
 	// update pending state changes to trie
 	for addr, state := range sf.cachedAccount {
 		if err := sf.putState(state, addr[:]); err != nil {
-			return err
+			return errors.Wrap(err, "failed to update pending state changes to trie")
 		}
 		// Perform vote update operation on candidate and delegate pools
 		if !state.IsCandidate {
@@ -310,12 +310,12 @@ func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer
 	// update pending contract changes
 	for addr, contract := range sf.cachedContract {
 		if err := contract.Commit(); err != nil {
-			return err
+			return errors.Wrap(err, "failed to update pending contract changes")
 		}
 		state := contract.SelfState()
 		// store the account (with new storage trie root) into state trie
 		if err := sf.putState(state, addr[:]); err != nil {
-			return err
+			return errors.Wrap(err, "failed to update pending contract state changes to trie")
 		}
 	}
 	// increase Executor's Nonce for every execution in this block
@@ -323,13 +323,13 @@ func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer
 		addr, _ := iotxaddress.GetPubkeyHash(e.Executor)
 		state, err := sf.cachedState(byteutil.BytesTo20B(addr))
 		if err != nil {
-			return errors.Wrap(err, "Executor does not exist")
+			return errors.Wrap(err, "executor does not exist")
 		}
 		if e.Nonce > state.Nonce {
 			state.Nonce = e.Nonce
 		}
 		if err := sf.putState(state, addr); err != nil {
-			return err
+			return errors.Wrap(err, "failed to update pending state changes to trie")
 		}
 	}
 	// Persist accountTrie's root hash
@@ -372,7 +372,7 @@ func (sf *factory) GetCodeHash(addr hash.AddrHash) (hash.Hash32B, error) {
 	}
 	state, err := sf.cachedState(addr)
 	if err != nil {
-		return hash.ZeroHash32B, errors.Wrapf(err, "Failed to GetCodeHash for contract %x", addr)
+		return hash.ZeroHash32B, errors.Wrapf(err, "failed to GetCodeHash for contract %x", addr)
 	}
 	return byteutil.BytesTo32B(state.CodeHash), nil
 }
@@ -384,7 +384,7 @@ func (sf *factory) GetCode(addr hash.AddrHash) ([]byte, error) {
 	}
 	state, err := sf.cachedState(addr)
 	if err != nil {
-		return nil, errors.Wrapf(err, "Failed to GetCode for contract %x", addr)
+		return nil, errors.Wrapf(err, "failed to GetCode for contract %x", addr)
 	}
 	return sf.dao.Get(trie.CodeKVNameSpace, state.CodeHash[:])
 }
@@ -397,7 +397,7 @@ func (sf *factory) SetCode(addr hash.AddrHash, code []byte) error {
 	}
 	contract, err := sf.getContract(addr)
 	if err != nil {
-		return errors.Wrapf(err, "Failed to SetCode for contract %x", addr)
+		return errors.Wrapf(err, "failed to SetCode for contract %x", addr)
 	}
 	contract.SetCode(byteutil.BytesTo32B(hash.Hash256b(code)), code)
 	return nil
@@ -411,7 +411,7 @@ func (sf *factory) GetContractState(addr hash.AddrHash, key hash.Hash32B) (hash.
 	}
 	contract, err := sf.getContract(addr)
 	if err != nil {
-		return hash.ZeroHash32B, errors.Wrapf(err, "Failed to GetContractState for contract %x", addr)
+		return hash.ZeroHash32B, errors.Wrapf(err, "failed to GetContractState for contract %x", addr)
 	}
 	v, err := contract.GetState(key)
 	return byteutil.BytesTo32B(v), err
@@ -424,7 +424,7 @@ func (sf *factory) SetContractState(addr hash.AddrHash, key, value hash.Hash32B)
 	}
 	contract, err := sf.getContract(addr)
 	if err != nil {
-		return errors.Wrapf(err, "Failed to SetContractState for contract %x", addr)
+		return errors.Wrapf(err, "failed to SetContractState for contract %x", addr)
 	}
 	return contract.SetState(key, value[:])
 }
@@ -465,7 +465,7 @@ func (sf *factory) getState(hash hash.AddrHash) (*State, error) {
 		return nil, errors.Wrapf(ErrAccountNotExist, "addrHash = %x", hash[:])
 	}
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "failed to get state of %x", hash)
 	}
 	return bytesToState(mstate)
 }
@@ -486,7 +486,7 @@ func (sf *factory) cachedState(hash hash.AddrHash) (*State, error) {
 func (sf *factory) putState(state *State, addr []byte) error {
 	ss, err := stateToBytes(state)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "failed to convert state %v to bytes", state)
 	}
 	return sf.accountTrie.Upsert(addr, ss)
 }
@@ -494,7 +494,7 @@ func (sf *factory) putState(state *State, addr []byte) error {
 func (sf *factory) getContract(addr hash.AddrHash) (Contract, error) {
 	state, err := sf.cachedState(addr)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "failed to get the cached state of %x", addr)
 	}
 	logger.Warn().Msgf("promote contract %x", addr)
 	delete(sf.cachedAccount, addr)
@@ -503,7 +503,7 @@ func (sf *factory) getContract(addr hash.AddrHash) (Contract, error) {
 	}
 	tr, err := trie.NewTrieSharedDB(sf.dao, trie.ContractKVNameSpace, state.Root)
 	if err != nil {
-		return nil, errors.Wrapf(err, "Failed to create storage trie for new contract %x", addr)
+		return nil, errors.Wrapf(err, "failed to create storage trie for new contract %x", addr)
 	}
 	// add to contract cache
 	contract := newContract(state, tr)
@@ -549,14 +549,14 @@ func (sf *factory) handleTsf(tsf []*action.Transfer) error {
 			// check sender
 			sender, err := sf.LoadOrCreateState(tx.Sender, 0)
 			if err != nil {
-				return err
+				return errors.Wrapf(err, "failed to load or create the state of sender %s", tx.Sender)
 			}
 			if tx.Amount.Cmp(sender.Balance) == 1 {
-				return ErrNotEnoughBalance
+				return errors.Wrapf(ErrNotEnoughBalance, "failed to verify the balance of sender %s", tx.Sender)
 			}
 			// update sender balance
 			if err := sender.SubBalance(tx.Amount); err != nil {
-				return err
+				return errors.Wrapf(err, "failed to update the balance of sender %s", tx.Sender)
 			}
 			// update sender nonce
 			if tx.Nonce > sender.Nonce {
@@ -567,7 +567,7 @@ func (sf *factory) handleTsf(tsf []*action.Transfer) error {
 				// sender already voted to a different person
 				voteeOfSender, err := sf.LoadOrCreateState(sender.Votee, 0)
 				if err != nil {
-					return err
+					return errors.Wrapf(err, "failed to load or create the state of sender's votee %s", sender.Votee)
 				}
 				voteeOfSender.VotingWeight.Sub(voteeOfSender.VotingWeight, tx.Amount)
 			}
@@ -575,18 +575,18 @@ func (sf *factory) handleTsf(tsf []*action.Transfer) error {
 		// check recipient
 		recipient, err := sf.LoadOrCreateState(tx.Recipient, 0)
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "failed to laod or create the state of recipient %s", tx.Recipient)
 		}
 		// update recipient balance
 		if err := recipient.AddBalance(tx.Amount); err != nil {
-			return err
+			return errors.Wrapf(err, "failed to update the balance of recipient %s", tx.Recipient)
 		}
 		// Update recipient votes
 		if len(recipient.Votee) > 0 && recipient.Votee != tx.Recipient {
 			// recipient already voted to a different person
 			voteeOfRecipient, err := sf.LoadOrCreateState(recipient.Votee, 0)
 			if err != nil {
-				return err
+				return errors.Wrapf(err, "failed to load or create the state of recipient's votee %s", recipient.Votee)
 			}
 			voteeOfRecipient.VotingWeight.Add(voteeOfRecipient.VotingWeight, tx.Amount)
 		}
@@ -600,7 +600,7 @@ func (sf *factory) handleVote(blockHeight uint64, vote []*action.Vote) error {
 		voterAddress := pbVote.VoterAddress
 		voteFrom, err := sf.LoadOrCreateState(voterAddress, 0)
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "failed to load or create the state of voter %s", voterAddress)
 		}
 
 		// update voteFrom nonce
@@ -612,7 +612,7 @@ func (sf *factory) handleVote(blockHeight uint64, vote []*action.Vote) error {
 			// voter already voted
 			oldVotee, err := sf.LoadOrCreateState(voteFrom.Votee, 0)
 			if err != nil {
-				return err
+				return errors.Wrapf(err, "failed to load or create the state of voter's old votee %s", voteFrom.Votee)
 			}
 			oldVotee.VotingWeight.Sub(oldVotee.VotingWeight, voteFrom.Balance)
 			voteFrom.Votee = ""
@@ -627,7 +627,7 @@ func (sf *factory) handleVote(blockHeight uint64, vote []*action.Vote) error {
 
 		voteTo, err := sf.LoadOrCreateState(voteeAddress, 0)
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "failed to load or create the state of votee %s", voteeAddress)
 		}
 
 		if voterAddress != voteeAddress {
