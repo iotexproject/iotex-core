@@ -142,4 +142,4 @@ run:
 
 .PHONY: docker
 docker:
-	$(DOCKERCMD) build -t $(USER)/iotex-go:latest --build-arg SKIP_DEP=$(SKIP_DEP) .
+	$(DOCKERCMD) build -t $(USER)/iotex-core:latest --build-arg SKIP_DEP=$(SKIP_DEP) .
