@@ -186,7 +186,7 @@ func PrecreatedDaoOption(dao *blockDAO) Option {
 // BoltDBDaoOption sets blockchain's dao with BoltDB from config.Chain.ChainDBPath
 func BoltDBDaoOption() Option {
 	return func(bc *blockchain, cfg *config.Config) error {
-		bc.dao = newBlockDAO(db.NewBoltDB(cfg.Chain.ChainDBPath, &cfg.DB))
+		bc.dao = newBlockDAO(cfg, db.NewBoltDB(cfg.Chain.ChainDBPath, &cfg.DB))
 
 		return nil
 	}
@@ -195,7 +195,7 @@ func BoltDBDaoOption() Option {
 // InMemDaoOption sets blockchain's dao with MemKVStore
 func InMemDaoOption() Option {
 	return func(bc *blockchain, cfg *config.Config) error {
-		bc.dao = newBlockDAO(db.NewMemKVStore())
+		bc.dao = newBlockDAO(cfg, db.NewMemKVStore())
 
 		return nil
 	}
@@ -387,31 +387,49 @@ func (bc *blockchain) GetBlockByHash(h hash.Hash32B) (*Block, error) {
 
 // GetTotalTransfers returns the total number of transfers
 func (bc *blockchain) GetTotalTransfers() (uint64, error) {
+	if !bc.config.Explorer.Enabled {
+		return 0, errors.New("explorer not enabled")
+	}
 	return bc.dao.getTotalTransfers()
 }
 
 // GetTotalVotes returns the total number of votes
 func (bc *blockchain) GetTotalVotes() (uint64, error) {
+	if !bc.config.Explorer.Enabled {
+		return 0, errors.New("explorer not enabled")
+	}
 	return bc.dao.getTotalVotes()
 }
 
 // GetTotalExecutions returns the total number of executions
 func (bc *blockchain) GetTotalExecutions() (uint64, error) {
+	if !bc.config.Explorer.Enabled {
+		return 0, errors.New("explorer not enabled")
+	}
 	return bc.dao.getTotalExecutions()
 }
 
 // GetTransfersFromAddress returns transfers from address
 func (bc *blockchain) GetTransfersFromAddress(address string) ([]hash.Hash32B, error) {
+	if !bc.config.Explorer.Enabled {
+		return nil, errors.New("explorer not enabled")
+	}
 	return bc.dao.getTransfersBySenderAddress(address)
 }
 
 // GetTransfersToAddress returns transfers to address
 func (bc *blockchain) GetTransfersToAddress(address string) ([]hash.Hash32B, error) {
+	if !bc.config.Explorer.Enabled {
+		return nil, errors.New("explorer not enabled")
+	}
 	return bc.dao.getTransfersByRecipientAddress(address)
 }
 
 // GetTransferByTransferHash returns transfer by transfer hash
 func (bc *blockchain) GetTransferByTransferHash(h hash.Hash32B) (*action.Transfer, error) {
+	if !bc.config.Explorer.Enabled {
+		return nil, errors.New("explorer not enabled")
+	}
 	blkHash, err := bc.dao.getBlockHashByTransferHash(h)
 	if err != nil {
 		return nil, err
@@ -430,21 +448,33 @@ func (bc *blockchain) GetTransferByTransferHash(h hash.Hash32B) (*action.Transfe
 
 // GetBlockHashByTxHash returns Block hash by transfer hash
 func (bc *blockchain) GetBlockHashByTransferHash(h hash.Hash32B) (hash.Hash32B, error) {
+	if !bc.config.Explorer.Enabled {
+		return hash.ZeroHash32B, errors.New("explorer not enabled")
+	}
 	return bc.dao.getBlockHashByTransferHash(h)
 }
 
 // GetVoteFromAddress returns votes from address
 func (bc *blockchain) GetVotesFromAddress(address string) ([]hash.Hash32B, error) {
+	if !bc.config.Explorer.Enabled {
+		return nil, errors.New("explorer not enabled")
+	}
 	return bc.dao.getVotesBySenderAddress(address)
 }
 
 // GetVoteToAddress returns votes to address
 func (bc *blockchain) GetVotesToAddress(address string) ([]hash.Hash32B, error) {
+	if !bc.config.Explorer.Enabled {
+		return nil, errors.New("explorer not enabled")
+	}
 	return bc.dao.getVotesByRecipientAddress(address)
 }
 
 // GetVotesByVoteHash returns vote by vote hash
 func (bc *blockchain) GetVoteByVoteHash(h hash.Hash32B) (*action.Vote, error) {
+	if !bc.config.Explorer.Enabled {
+		return nil, errors.New("explorer not enabled")
+	}
 	blkHash, err := bc.dao.getBlockHashByVoteHash(h)
 	if err != nil {
 		return nil, err
@@ -463,21 +493,33 @@ func (bc *blockchain) GetVoteByVoteHash(h hash.Hash32B) (*action.Vote, error) {
 
 // GetBlockHashByVoteHash returns Block hash by vote hash
 func (bc *blockchain) GetBlockHashByVoteHash(h hash.Hash32B) (hash.Hash32B, error) {
+	if !bc.config.Explorer.Enabled {
+		return hash.ZeroHash32B, errors.New("explorer not enabled")
+	}
 	return bc.dao.getBlockHashByVoteHash(h)
 }
 
 // GetExecutionsFromAddress returns executions from address
 func (bc *blockchain) GetExecutionsFromAddress(address string) ([]hash.Hash32B, error) {
+	if !bc.config.Explorer.Enabled {
+		return nil, errors.New("explorer not enabled")
+	}
 	return bc.dao.getExecutionsByExecutorAddress(address)
 }
 
 // GetExecutionsToAddress returns executions to address
 func (bc *blockchain) GetExecutionsToAddress(address string) ([]hash.Hash32B, error) {
+	if !bc.config.Explorer.Enabled {
+		return nil, errors.New("explorer not enabled")
+	}
 	return bc.dao.getExecutionsByContractAddress(address)
 }
 
 // GetExecutionByExecutionHash returns execution by execution hash
 func (bc *blockchain) GetExecutionByExecutionHash(h hash.Hash32B) (*action.Execution, error) {
+	if !bc.config.Explorer.Enabled {
+		return nil, errors.New("explorer not enabled")
+	}
 	blkHash, err := bc.dao.getBlockHashByExecutionHash(h)
 	if err != nil {
 		return nil, err
@@ -496,11 +538,17 @@ func (bc *blockchain) GetExecutionByExecutionHash(h hash.Hash32B) (*action.Execu
 
 // GetBlockHashByExecutionHash returns Block hash by execution hash
 func (bc *blockchain) GetBlockHashByExecutionHash(h hash.Hash32B) (hash.Hash32B, error) {
+	if !bc.config.Explorer.Enabled {
+		return hash.ZeroHash32B, errors.New("explorer not enabled")
+	}
 	return bc.dao.getBlockHashByExecutionHash(h)
 }
 
 // GetReceiptByExecutionHash returns the receipt by execution hash
 func (bc *blockchain) GetReceiptByExecutionHash(h hash.Hash32B) (*Receipt, error) {
+	if !bc.config.Explorer.Enabled {
+		return nil, errors.New("explorer not enabled")
+	}
 	return bc.dao.getReceiptByExecutionHash(h)
 }
 
