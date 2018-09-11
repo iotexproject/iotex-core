@@ -15,6 +15,7 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/blockchain/action"
@@ -115,7 +116,7 @@ func TestNonce(t *testing.T) {
 
 	accountTrie.EXPECT().Get(gomock.Any()).Times(1).Return(nil, nil)
 	_, err = sf.Nonce(addr.RawAddress)
-	require.Equal(ErrFailedToUnmarshalState, err)
+	require.Equal(ErrFailedToUnmarshalState, errors.Cause(err))
 }
 
 func voteForm(height uint64, cs []*Candidate) []string {
