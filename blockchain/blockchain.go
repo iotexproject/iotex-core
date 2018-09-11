@@ -744,12 +744,14 @@ func (bc *blockchain) commitBlock(blk *Block) error {
 	if bc.sf != nil {
 		ExecuteContracts(blk, bc)
 		if err := bc.sf.CommitStateChanges(blk.Height(), blk.Transfers, blk.Votes, blk.Executions); err != nil {
-			return err
+			// TODO: Will fix the log level later, once committing a block and state changes becomes a transaction
+			logger.Fatal().Err(err).Msgf("Failed to commit state changes on height %d", blk.Height())
 		}
 	}
 	// write smart contract receipt into DB
 	if err := bc.dao.putReceipts(blk); err != nil {
-		return err
+		// TODO: Will fix the log level later, once committing a block and state changes becomes a transaction
+		logger.Fatal().Err(err).Msgf("Failed to put receipts on height %d", blk.Height())
 	}
 	logger.Info().Uint64("height", blk.Header.height).Msg("commit a block")
 	return nil
