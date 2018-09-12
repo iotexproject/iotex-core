@@ -367,7 +367,7 @@ func TestWrongCoinbaseTsf(t *testing.T) {
 	err = val.Validate(blk, 2, hash)
 	require.Error(err)
 	require.True(
-		strings.Contains(err.Error(), "Wrong number of coinbase transfers"),
+		strings.Contains(err.Error(), "wrong number of coinbase transfers"),
 	)
 
 	// extra coinbase transfer
@@ -377,7 +377,7 @@ func TestWrongCoinbaseTsf(t *testing.T) {
 	err = val.Validate(blk, 2, hash)
 	require.Error(err)
 	require.True(
-		strings.Contains(err.Error(), "Wrong number of coinbase transfers"),
+		strings.Contains(err.Error(), "wrong number of coinbase transfers"),
 	)
 
 	// no transfer
@@ -387,6 +387,33 @@ func TestWrongCoinbaseTsf(t *testing.T) {
 	err = val.Validate(blk, 2, hash)
 	require.Error(err)
 	require.True(
-		strings.Contains(err.Error(), "Wrong number of coinbase transfers"),
+		strings.Contains(err.Error(), "wrong number of coinbase transfers"),
 	)
+}
+
+func TestWrongAddress(t *testing.T) {
+	val := validator{}
+	invalidRecipient := "io1qyqsyqcyq5narhapakcsrhksfajfcpl24us3xp38zwvsep"
+	tsf, err := action.NewTransfer(1, big.NewInt(1), ta.Addrinfo["producer"].RawAddress, invalidRecipient)
+	require.NoError(t, err)
+	blk1 := NewBlock(1, 3, hash.ZeroHash32B, clock.New(), []*action.Transfer{tsf}, nil, nil)
+	err = val.verifyActions(blk1)
+	require.Error(t, err)
+	require.True(t, strings.Contains(err.Error(), "failed to validate transfer recipient's address"))
+
+	invalidVotee := "ioaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	vote, err := action.NewVote(1, ta.Addrinfo["producer"].RawAddress, invalidVotee)
+	require.NoError(t, err)
+	blk2 := NewBlock(1, 3, hash.ZeroHash32B, clock.New(), nil, []*action.Vote{vote}, nil)
+	err = val.verifyActions(blk2)
+	require.Error(t, err)
+	require.True(t, strings.Contains(err.Error(), "failed to validate votee's address"))
+
+	invalidContract := "123"
+	execution, err := action.NewExecution(ta.Addrinfo["producer"].RawAddress, invalidContract, 1, big.NewInt(1), uint64(100000), uint64(10), []byte{})
+	require.NoError(t, err)
+	blk3 := NewBlock(1, 3, hash.ZeroHash32B, clock.New(), nil, nil, []*action.Execution{execution})
+	err = val.verifyActions(blk3)
+	require.Error(t, err)
+	require.True(t, strings.Contains(err.Error(), "failed to validate contract's address"))
 }
