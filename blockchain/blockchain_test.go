@@ -590,7 +590,7 @@ func TestBlockchain_MintNewDummyBlock(t *testing.T) {
 	err = val.Validate(blk, 0, tipHash)
 	require.Error(err)
 	require.True(
-		strings.Contains(err.Error(), "Fail to verify block's signature"),
+		strings.Contains(err.Error(), "failed to verify block's signature"),
 	)
 }
 
