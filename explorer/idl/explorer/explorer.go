@@ -9,7 +9,7 @@ import (
 
 const BarristerVersion string = "0.1.6"
 const BarristerChecksum string = "5bd957cffa724fec63f9d979bf845b7a"
-const BarristerDateGenerated int64 = 1536501127762000000
+const BarristerDateGenerated int64 = 1536764350612000000
 
 type CoinStatistic struct {
 	Height     int64 `json:"height"`
@@ -225,7 +225,7 @@ type Explorer interface {
 	GetPeers() (GetPeersResponse, error)
 	GetReceiptByExecutionID(id string) (Receipt, error)
 	ReadExecutionState(request Execution) (string, error)
-	GetBlockOrActionByHash(hash string) (GetBlkOrActResponse, error)
+	GetBlockOrActionByHash(hashStr string) (GetBlkOrActResponse, error)
 }
 
 func NewExplorerProxy(c barrister.Client) Explorer {
@@ -759,8 +759,8 @@ func (_p ExplorerProxy) ReadExecutionState(request Execution) (string, error) {
 	return "", _err
 }
 
-func (_p ExplorerProxy) GetBlockOrActionByHash(hash string) (GetBlkOrActResponse, error) {
-	_res, _err := _p.client.Call("Explorer.getBlockOrActionByHash", hash)
+func (_p ExplorerProxy) GetBlockOrActionByHash(hashStr string) (GetBlkOrActResponse, error) {
+	_res, _err := _p.client.Call("Explorer.getBlockOrActionByHash", hashStr)
 	if _err == nil {
 		_retType := _p.idl.Method("Explorer.getBlockOrActionByHash").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(GetBlkOrActResponse{}), _res, "")
@@ -2717,7 +2717,7 @@ var IdlJsonRaw = `[
                 "comment": "get block or action by a hash",
                 "params": [
                     {
-                        "name": "hash",
+                        "name": "hashStr",
                         "type": "string",
                         "optional": false,
                         "is_array": false,
@@ -2747,7 +2747,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1536501127762,
+        "date_generated": 1536764350612,
         "checksum": "5bd957cffa724fec63f9d979bf845b7a"
     }
 ]`

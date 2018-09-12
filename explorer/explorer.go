@@ -1034,7 +1034,27 @@ func (exp *Service) ReadExecutionState(execution explorer.Execution) (string, er
 }
 
 // GetBlockOrActionByHash get block or action by a hash
-func (exp *Service) GetBlockOrActionByHash(hash string) (explorer.GetBlkOrActResponse, error) {
+func (exp *Service) GetBlockOrActionByHash(hashStr string) (explorer.GetBlkOrActResponse, error) {
+	blk, err := exp.GetBlockByID(hashStr)
+	if err == nil {
+		return explorer.GetBlkOrActResponse{Block: &blk}, nil
+	}
+
+	tsf, err := exp.GetTransferByID(hashStr)
+	if err == nil {
+		return explorer.GetBlkOrActResponse{Transfer: &tsf}, nil
+	}
+
+	vote, err := exp.GetVoteByID(hashStr)
+	if err == nil {
+		return explorer.GetBlkOrActResponse{Vote: &vote}, nil
+	}
+
+	exe, err := exp.GetExecutionByID(hashStr)
+	if err == nil {
+		return explorer.GetBlkOrActResponse{Execution: &exe}, nil
+	}
+
 	return explorer.GetBlkOrActResponse{}, nil
 }
 
