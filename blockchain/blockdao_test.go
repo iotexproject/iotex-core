@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/facebookgo/clock"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -348,6 +349,162 @@ func TestBlockDAO(t *testing.T) {
 		require.Equal(t, executionHash3, contractExecutions[2])
 	}
 
+	testDeleteDao := func(kvstore db.KVStore, t *testing.T) {
+		require := require.New(t)
+
+		ctx := context.Background()
+		cfg := config.Default
+		cfg.Explorer.Enabled = true
+		dao := newBlockDAO(&cfg, kvstore)
+		err := dao.Start(ctx)
+		require.NoError(err)
+		defer func() {
+			err = dao.Stop(ctx)
+			assert.Nil(t, err)
+		}()
+
+		// Put blocks first
+		err = dao.putBlock(blks[0])
+		require.NoError(err)
+		err = dao.putBlock(blks[1])
+		require.NoError(err)
+		err = dao.putBlock(blks[2])
+		require.NoError(err)
+
+		tipHeight, err := dao.getBlockchainHeight()
+		require.NoError(err)
+		require.Equal(uint64(3), tipHeight)
+		blk, err := dao.getBlock(blks[2].HashBlock())
+		require.NoError(err)
+		require.NotNil(blk)
+		transferCount, err := dao.getTotalTransfers()
+		require.NoError(err)
+		require.Equal(uint64(3), transferCount)
+		voteCount, err := dao.getTotalVotes()
+		require.NoError(err)
+		require.Equal(uint64(3), voteCount)
+		executionCount, err := dao.getTotalExecutions()
+		require.NoError(err)
+		require.Equal(uint64(3), executionCount)
+
+		transferHash := blks[2].Transfers[0].Hash()
+		blkHash, err := dao.getBlockHashByTransferHash(transferHash)
+		require.NoError(err)
+		require.Equal(blks[2].HashBlock(), blkHash)
+		voteHash := blks[2].Votes[0].Hash()
+		blkHash, err = dao.getBlockHashByVoteHash(voteHash)
+		require.NoError(err)
+		require.Equal(blks[2].HashBlock(), blkHash)
+		executionHash := blks[2].Executions[0].Hash()
+		blkHash, err = dao.getBlockHashByExecutionHash(executionHash)
+		require.NoError(err)
+		require.Equal(blks[2].HashBlock(), blkHash)
+
+		charlieAddr := testaddress.Addrinfo["charlie"].RawAddress
+		deltaAddr := testaddress.Addrinfo["delta"].RawAddress
+
+		transfersFromCharlie, _ := dao.getTransfersBySenderAddress(charlieAddr)
+		require.Equal(0, len(transfersFromCharlie))
+		transfersToCharlie, _ := dao.getTransfersByRecipientAddress(charlieAddr)
+		require.Equal(1, len(transfersToCharlie))
+		transferFromCharlieCount, _ := dao.getTransferCountBySenderAddress(charlieAddr)
+		require.Equal(uint64(0), transferFromCharlieCount)
+		transferToCharlieCount, _ := dao.getTransferCountByRecipientAddress(charlieAddr)
+		require.Equal(uint64(1), transferToCharlieCount)
+
+		votesFromCharlie, _ := dao.getVotesBySenderAddress(charlieAddr)
+		require.Equal(1, len(votesFromCharlie))
+		votesToCharlie, _ := dao.getVotesByRecipientAddress(charlieAddr)
+		require.Equal(1, len(votesToCharlie))
+		voteFromCharlieCount, _ := dao.getVoteCountBySenderAddress(charlieAddr)
+		require.Equal(uint64(1), voteFromCharlieCount)
+		voteToCharlieCount, _ := dao.getVoteCountByRecipientAddress(charlieAddr)
+		require.Equal(uint64(1), voteToCharlieCount)
+
+		execsFromCharlie, _ := dao.getExecutionsByExecutorAddress(charlieAddr)
+		require.Equal(1, len(execsFromCharlie))
+		execsToCharlie, _ := dao.getExecutionsByContractAddress(charlieAddr)
+		require.Equal(0, len(execsToCharlie))
+		execFromCharlieCount, _ := dao.getExecutionCountByExecutorAddress(charlieAddr)
+		require.Equal(uint64(1), execFromCharlieCount)
+		execToCharlieCount, _ := dao.getExecutionCountByContractAddress(charlieAddr)
+		require.Equal(uint64(0), execToCharlieCount)
+
+		execsFromDelta, _ := dao.getExecutionsByExecutorAddress(deltaAddr)
+		require.Equal(0, len(execsFromDelta))
+		execsToDelta, _ := dao.getExecutionsByContractAddress(deltaAddr)
+		require.Equal(3, len(execsToDelta))
+		execFromDeltaCount, _ := dao.getExecutionCountByExecutorAddress(deltaAddr)
+		require.Equal(uint64(0), execFromDeltaCount)
+		execToDeltaCount, _ := dao.getExecutionCountByContractAddress(deltaAddr)
+		require.Equal(uint64(3), execToDeltaCount)
+
+		// Delete tip block
+		err = dao.deleteTipBlock()
+		require.NoError(err)
+		tipHeight, err = dao.getBlockchainHeight()
+		require.NoError(err)
+		require.Equal(uint64(2), tipHeight)
+		blk, err = dao.getBlock(blks[2].HashBlock())
+		require.Equal(db.ErrNotExist, errors.Cause(err))
+		require.Nil(blk)
+		transferCount, err = dao.getTotalTransfers()
+		require.NoError(err)
+		require.Equal(uint64(2), transferCount)
+		voteCount, err = dao.getTotalVotes()
+		require.NoError(err)
+		require.Equal(uint64(2), voteCount)
+		executionCount, err = dao.getTotalExecutions()
+		require.NoError(err)
+		require.Equal(uint64(2), executionCount)
+
+		blkHash, err = dao.getBlockHashByTransferHash(transferHash)
+		require.Equal(db.ErrNotExist, errors.Cause(err))
+		require.Equal(hash.ZeroHash32B, blkHash)
+		blkHash, err = dao.getBlockHashByVoteHash(voteHash)
+		require.Equal(db.ErrNotExist, errors.Cause(err))
+		require.Equal(hash.ZeroHash32B, blkHash)
+		blkHash, err = dao.getBlockHashByExecutionHash(executionHash)
+		require.Equal(db.ErrNotExist, errors.Cause(err))
+		require.Equal(hash.ZeroHash32B, blkHash)
+
+		transfersFromCharlie, _ = dao.getTransfersBySenderAddress(charlieAddr)
+		require.Equal(0, len(transfersFromCharlie))
+		transfersToCharlie, _ = dao.getTransfersByRecipientAddress(charlieAddr)
+		require.Equal(0, len(transfersToCharlie))
+		transferFromCharlieCount, _ = dao.getTransferCountBySenderAddress(charlieAddr)
+		require.Equal(uint64(0), transferFromCharlieCount)
+		transferToCharlieCount, _ = dao.getTransferCountByRecipientAddress(charlieAddr)
+		require.Equal(uint64(0), transferToCharlieCount)
+
+		votesFromCharlie, _ = dao.getVotesBySenderAddress(charlieAddr)
+		require.Equal(0, len(votesFromCharlie))
+		votesToCharlie, _ = dao.getVotesByRecipientAddress(charlieAddr)
+		require.Equal(0, len(votesToCharlie))
+		voteFromCharlieCount, _ = dao.getVoteCountBySenderAddress(charlieAddr)
+		require.Equal(uint64(0), voteFromCharlieCount)
+		voteToCharlieCount, _ = dao.getVoteCountByRecipientAddress(charlieAddr)
+		require.Equal(uint64(0), voteToCharlieCount)
+
+		execsFromCharlie, _ = dao.getExecutionsByExecutorAddress(charlieAddr)
+		require.Equal(0, len(execsFromCharlie))
+		execsToCharlie, _ = dao.getExecutionsByContractAddress(charlieAddr)
+		require.Equal(0, len(execsToCharlie))
+		execFromCharlieCount, _ = dao.getExecutionCountByExecutorAddress(charlieAddr)
+		require.Equal(uint64(0), execFromCharlieCount)
+		execToCharlieCount, _ = dao.getExecutionCountByContractAddress(charlieAddr)
+		require.Equal(uint64(0), execToCharlieCount)
+
+		execsFromDelta, _ = dao.getExecutionsByExecutorAddress(deltaAddr)
+		require.Equal(0, len(execsFromDelta))
+		execsToDelta, _ = dao.getExecutionsByContractAddress(deltaAddr)
+		require.Equal(2, len(execsToDelta))
+		execFromDeltaCount, _ = dao.getExecutionCountByExecutorAddress(deltaAddr)
+		require.Equal(uint64(0), execFromDeltaCount)
+		execToDeltaCount, _ = dao.getExecutionCountByContractAddress(deltaAddr)
+		require.Equal(uint64(2), execToDeltaCount)
+	}
+
 	t.Run("In-memory KV Store for blocks", func(t *testing.T) {
 		testBlockDao(db.NewMemKVStore(), t)
 	})
@@ -368,5 +525,15 @@ func TestBlockDAO(t *testing.T) {
 		testutil.CleanupPath(t, path)
 		defer testutil.CleanupPath(t, path)
 		testActionsDao(db.NewBoltDB(path, cfg), t)
+	})
+
+	t.Run("In-memory KV Store deletions", func(t *testing.T) {
+		testDeleteDao(db.NewMemKVStore(), t)
+	})
+
+	t.Run("Bolt DB deletions", func(t *testing.T) {
+		testutil.CleanupPath(t, path)
+		defer testutil.CleanupPath(t, path)
+		testDeleteDao(db.NewBoltDB(path, cfg), t)
 	})
 }
