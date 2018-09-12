@@ -15,6 +15,7 @@ import (
 
 	"github.com/facebookgo/clock"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/zjshen14/go-fsm"
 
 	"github.com/iotexproject/iotex-core/blockchain"
@@ -23,6 +24,20 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/proto"
 )
+
+var (
+	consensusMtc = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "iotex_consensus",
+			Help: "Consensus result",
+		},
+		[]string{"result"},
+	)
+)
+
+func init() {
+	prometheus.MustRegister(consensusMtc)
+}
 
 const (
 	// consensusEvt states
@@ -621,6 +636,7 @@ func (m *cFSM) handleVoteEvt(evt fsm.Event) (fsm.State, error) {
 		logger.Info().
 			Uint64("block", pendingBlock.Height()).
 			Msg("consensus reached")
+		consensusMtc.WithLabelValues("true").Inc()
 	} else {
 		var height uint64
 		if m.ctx.round.block != nil {
@@ -631,6 +647,7 @@ func (m *cFSM) handleVoteEvt(evt fsm.Event) (fsm.State, error) {
 			Bool("timeout", timeout).
 			Bool("disagreement", disagreement).
 			Msg("consensus did not reach")
+		consensusMtc.WithLabelValues("false").Inc()
 		if m.ctx.cfg.EnableDummyBlock {
 			pendingBlock = m.ctx.chain.MintNewDummyBlock()
 			logger.Warn().

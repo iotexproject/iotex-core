@@ -55,7 +55,7 @@ func (v *validator) Validate(blk *Block, tipHeight uint64, tipHash hash.Hash32B)
 	if blk.Header.height != 0 && blk.Header.height != tipHeight+1 {
 		return errors.Wrapf(
 			ErrInvalidTipHeight,
-			"Wrong block height %d, expecting %d",
+			"wrong block height %d, expecting %d",
 			blk.Header.height,
 			tipHeight+1)
 	}
@@ -63,7 +63,7 @@ func (v *validator) Validate(blk *Block, tipHeight uint64, tipHash hash.Hash32B)
 	if blk.Header.prevBlockHash != tipHash {
 		return errors.Wrapf(
 			ErrInvalidBlock,
-			"Wrong prev hash %x, expecting %x",
+			"wrong prev hash %x, expecting %x",
 			blk.Header.prevBlockHash,
 			tipHash)
 	}
@@ -78,7 +78,7 @@ func (v *validator) Validate(blk *Block, tipHeight uint64, tipHash hash.Hash32B)
 		if !crypto.EC283.Verify(blk.Header.Pubkey, blkHash[:], blk.Header.blockSig) {
 			return errors.Wrapf(
 				ErrInvalidBlock,
-				"Fail to verify block's signature with public key: %x",
+				"failed to verify block's signature with public key: %x",
 				blk.Header.Pubkey,
 				tipHash)
 		}
@@ -89,7 +89,7 @@ func (v *validator) Validate(blk *Block, tipHeight uint64, tipHash hash.Hash32B)
 	if !bytes.Equal(hashExpect[:], hashActual[:]) {
 		return errors.Wrapf(
 			ErrInvalidBlock,
-			"Wrong tx hash %x, expecting %x",
+			"wrong tx hash %x, expecting %x",
 			hashActual,
 			hashActual)
 	}
@@ -102,7 +102,7 @@ func (v *validator) Validate(blk *Block, tipHeight uint64, tipHash hash.Hash32B)
 }
 
 func (v *validator) verifyActions(blk *Block) error {
-	// Verify transfers and votes (balance is checked in CommitStateChanges)
+	// Verify transfers, votes, and executions (balance is checked in CommitStateChanges)
 	confirmedNonceMap := make(map[string]uint64)
 	accountNonceMap := make(map[string][]uint64)
 	var wg sync.WaitGroup
@@ -110,16 +110,26 @@ func (v *validator) verifyActions(blk *Block) error {
 	var correctAction uint64
 	var coinbaseCount uint64
 	for _, tsf := range blk.Transfers {
-		if blk.Header.height > 0 && !tsf.IsCoinbase {
-			// Verify Nonce
-			// Verify Signature
-			// Verify Coinbase transfer
+		// Verify Address
+		// Verify Nonce
+		// Verify Signature
+		// Verify Coinbase transfer
 
+		if !tsf.IsCoinbase {
+			if _, err := iotxaddress.GetPubkeyHash(tsf.Sender); err != nil {
+				return errors.Wrapf(err, "failed to validate transfer sender's address %s", tsf.Sender)
+			}
+			if _, err := iotxaddress.GetPubkeyHash(tsf.Recipient); err != nil {
+				return errors.Wrapf(err, "failed to validate transfer recipient's address %s", tsf.Recipient)
+			}
+		}
+
+		if blk.Header.height > 0 && !tsf.IsCoinbase {
 			// Store the nonce of the sender and verify later
 			if _, ok := confirmedNonceMap[tsf.Sender]; !ok {
 				accountNonce, err := v.sf.Nonce(tsf.Sender)
 				if err != nil {
-					return errors.Wrap(err, "Failed to get the nonce of transfer sender")
+					return errors.Wrap(err, "failed to get the nonce of transfer sender")
 				}
 				confirmedNonceMap[tsf.Sender] = accountNonce
 				accountNonceMap[tsf.Sender] = make([]uint64, 0)
@@ -162,15 +172,26 @@ func (v *validator) verifyActions(blk *Block) error {
 		}(tsf, &correctAction, &coinbaseCount)
 	}
 	for _, vote := range blk.Votes {
+		// Verify Address
 		// Verify Nonce
 		// Verify Signature
+
+		if _, err := iotxaddress.GetPubkeyHash(vote.GetVote().VoterAddress); err != nil {
+			return errors.Wrapf(err, "failed to validate voter's address %s", vote.GetVote().VoterAddress)
+		}
+		if vote.GetVote().VoteeAddress != action.EmptyAddress {
+			if _, err := iotxaddress.GetPubkeyHash(vote.GetVote().VoteeAddress); err != nil {
+				return errors.Wrapf(err, "failed to validate votee's address %s", vote.GetVote().VoteeAddress)
+			}
+		}
+
 		if blk.Header.height > 0 {
 			// Store the nonce of the voter and verify later
 			voterAddress := vote.GetVote().VoterAddress
 			if _, ok := confirmedNonceMap[voterAddress]; !ok {
 				accountNonce, err := v.sf.Nonce(voterAddress)
 				if err != nil {
-					return errors.Wrap(err, "Failed to get the nonce of the voter")
+					return errors.Wrap(err, "failed to get the nonce of the voter")
 				}
 				confirmedNonceMap[voterAddress] = accountNonce
 				accountNonceMap[voterAddress] = make([]uint64, 0)
@@ -196,17 +217,28 @@ func (v *validator) verifyActions(blk *Block) error {
 		}(vote, &correctAction)
 	}
 	for _, execution := range blk.Executions {
+		// Verify Address
 		// Verify Nonce
 		// Verify Signature
 		// Verify Gas
 		// Verify Amount
+
+		if _, err := iotxaddress.GetPubkeyHash(execution.Executor); err != nil {
+			return errors.Wrapf(err, "failed to validate executor's address %s", execution.Executor)
+		}
+		if execution.Contract != action.EmptyAddress {
+			if _, err := iotxaddress.GetPubkeyHash(execution.Contract); err != nil {
+				return errors.Wrapf(err, "failed to validate contract's address %s", execution.Contract)
+			}
+		}
+
 		if blk.Header.height > 0 {
 			// Store the nonce of the executor and verify later
 			executor := execution.Executor
 			if _, ok := confirmedNonceMap[executor]; !ok {
 				accountNonce, err := v.sf.Nonce(executor)
 				if err != nil {
-					return errors.Wrap(err, "Failed to get the nonce of the executor")
+					return errors.Wrap(err, "failed to get the nonce of the executor")
 				}
 				confirmedNonceMap[executor] = accountNonce
 				accountNonceMap[executor] = make([]uint64, 0)
@@ -228,9 +260,9 @@ func (v *validator) verifyActions(blk *Block) error {
 			atomic.AddUint64(correctVote, uint64(1))
 		}(execution, &correctAction)
 
-		// Reject oversized transfer
+		// Reject oversized execution
 		if execution.GasLimit > GasLimit {
-			return errors.Wrapf(ErrGasHigherThanLimit, "Gas is higher than gas limit")
+			return errors.Wrapf(ErrGasHigherThanLimit, "gas is higher than gas limit")
 		}
 		intrinsicGas, err := IntrinsicGas(execution.Data)
 		if intrinsicGas > execution.GasLimit || err != nil {
@@ -247,12 +279,12 @@ func (v *validator) verifyActions(blk *Block) error {
 	if (blk.Header.height != 0 && coinbaseCount != 1) || (blk.Header.height == 0 && coinbaseCount != 0) {
 		return errors.Wrapf(
 			ErrInvalidBlock,
-			"Wrong number of coinbase transfers")
+			"wrong number of coinbase transfers")
 	}
 	if correctAction+coinbaseCount != uint64(len(blk.Transfers)+len(blk.Votes)+len(blk.Executions)) {
 		return errors.Wrapf(
 			ErrInvalidBlock,
-			"Failed to verify actions signature")
+			"failed to verify actions signature")
 	}
 	if blk.Header.height > 0 {
 		//Verify each account's Nonce

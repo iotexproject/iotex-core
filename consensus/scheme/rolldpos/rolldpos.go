@@ -13,6 +13,7 @@ import (
 	"github.com/facebookgo/clock"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/zjshen14/go-fsm"
 
 	"github.com/iotexproject/iotex-core/actpool"
@@ -28,6 +29,20 @@ import (
 	"github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/state"
 )
+
+var (
+	timeSlotMtc = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "iotex_consensus_time_slot",
+			Help: "Consensus time slot",
+		},
+		[]string{},
+	)
+)
+
+func init() {
+	prometheus.MustRegister(timeSlotMtc)
+}
 
 var (
 	// ErrNewRollDPoS indicates the error of constructing RollDPoS
@@ -146,6 +161,9 @@ func (ctx *rollDPoSCtx) calcProposer(height uint64, delegates []string) (string,
 	if timeSlotIndex < 0 {
 		timeSlotIndex = 0
 	}
+	// TODO: should downgrade to debug level in the future
+	logger.Info().Int64("slot", timeSlotIndex).Msg("calculate time slot offset")
+	timeSlotMtc.WithLabelValues().Set(float64(timeSlotIndex))
 	return delegates[(height+uint64(timeSlotIndex))%uint64(numDelegates)], nil
 }
 
