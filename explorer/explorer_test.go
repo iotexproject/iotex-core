@@ -376,6 +376,46 @@ func TestExplorerApi(t *testing.T) {
 	require.Error(err)
 	_, err = svc.GetUnconfirmedExecutionsByAddress("", 0, 3)
 	require.Error(err)
+
+	// test GetBlockOrActionByHash
+	res, err := svc.GetBlockOrActionByHash("")
+	require.NoError(err)
+	require.Nil(res.Block)
+	require.Nil(res.Transfer)
+	require.Nil(res.Vote)
+	require.Nil(res.Execution)
+
+	res, err = svc.GetBlockOrActionByHash(blks[0].ID)
+	require.NoError(err)
+	require.Nil(res.Transfer)
+	require.Nil(res.Vote)
+	require.Nil(res.Execution)
+	require.Equal(&blks[0], res.Block)
+
+	res, err = svc.GetBlockOrActionByHash(transfers[0].ID)
+	require.NoError(err)
+	require.Nil(res.Block)
+	require.Nil(res.Vote)
+	require.Nil(res.Execution)
+	require.Equal(&transfers[0], res.Transfer)
+
+	votes, err = svc.GetLastVotesByRange(3, 0, 50)
+	require.NoError(err)
+	res, err = svc.GetBlockOrActionByHash(votes[0].ID)
+	require.NoError(err)
+	require.Nil(res.Block)
+	require.Nil(res.Transfer)
+	require.Nil(res.Execution)
+	require.Equal(&votes[0], res.Vote)
+
+	executions, err = svc.GetExecutionsByAddress(ta.Addrinfo["charlie"].RawAddress, 0, 10)
+	require.NoError(err)
+	res, err = svc.GetBlockOrActionByHash(executions[0].ID)
+	require.NoError(err)
+	require.Nil(res.Block)
+	require.Nil(res.Transfer)
+	require.Nil(res.Vote)
+	require.Equal(&executions[0], res.Execution)
 }
 
 func TestService_StateByAddr(t *testing.T) {

@@ -192,6 +192,13 @@ struct SendSmartContractResponse {
     hash string
 }
 
+struct GetBlkOrActResponse {
+    block Block [optional]
+    transfer Transfer [optional]
+    vote Vote [optional]
+    execution Execution [optional]
+}
+
 interface Explorer {
     // get the blockchain tip height
     getBlockchainHeight() int
@@ -279,4 +286,7 @@ interface Explorer {
 
     // read execution state
     readExecutionState(request Execution) string
+
+    // get block or action by a hash
+    getBlockOrActionByHash(hashStr string) GetBlkOrActResponse
 }

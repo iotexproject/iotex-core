@@ -8,8 +8,8 @@ import (
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "c0172b61fac98ed2fbfde32948a03796"
-const BarristerDateGenerated int64 = 1536352917689000000
+const BarristerChecksum string = "5bd957cffa724fec63f9d979bf845b7a"
+const BarristerDateGenerated int64 = 1536764350612000000
 
 type CoinStatistic struct {
 	Height     int64 `json:"height"`
@@ -188,6 +188,13 @@ type SendSmartContractResponse struct {
 	Hash string `json:"hash"`
 }
 
+type GetBlkOrActResponse struct {
+	Block     *Block     `json:"block,omitempty"`
+	Transfer  *Transfer  `json:"transfer,omitempty"`
+	Vote      *Vote      `json:"vote,omitempty"`
+	Execution *Execution `json:"execution,omitempty"`
+}
+
 type Explorer interface {
 	GetBlockchainHeight() (int64, error)
 	GetAddressBalance(address string) (int64, error)
@@ -218,6 +225,7 @@ type Explorer interface {
 	GetPeers() (GetPeersResponse, error)
 	GetReceiptByExecutionID(id string) (Receipt, error)
 	ReadExecutionState(request Execution) (string, error)
+	GetBlockOrActionByHash(hashStr string) (GetBlkOrActResponse, error)
 }
 
 func NewExplorerProxy(c barrister.Client) Explorer {
@@ -749,6 +757,24 @@ func (_p ExplorerProxy) ReadExecutionState(request Execution) (string, error) {
 		return _cast, nil
 	}
 	return "", _err
+}
+
+func (_p ExplorerProxy) GetBlockOrActionByHash(hashStr string) (GetBlkOrActResponse, error) {
+	_res, _err := _p.client.Call("Explorer.getBlockOrActionByHash", hashStr)
+	if _err == nil {
+		_retType := _p.idl.Method("Explorer.getBlockOrActionByHash").Returns
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(GetBlkOrActResponse{}), _res, "")
+	}
+	if _err == nil {
+		_cast, _ok := _res.(GetBlkOrActResponse)
+		if !_ok {
+			_t := reflect.TypeOf(_res)
+			_msg := fmt.Sprintf("Explorer.getBlockOrActionByHash returned invalid type: %v", _t)
+			return GetBlkOrActResponse{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
+		}
+		return _cast, nil
+	}
+	return GetBlkOrActResponse{}, _err
 }
 
 func NewJSONServer(idl *barrister.Idl, forceASCII bool, explorer Explorer) barrister.Server {
@@ -1914,6 +1940,48 @@ var IdlJsonRaw = `[
         "checksum": ""
     },
     {
+        "type": "struct",
+        "name": "GetBlkOrActResponse",
+        "comment": "",
+        "value": "",
+        "extends": "",
+        "fields": [
+            {
+                "name": "block",
+                "type": "Block",
+                "optional": true,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "transfer",
+                "type": "Transfer",
+                "optional": true,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "vote",
+                "type": "Vote",
+                "optional": true,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "execution",
+                "type": "Execution",
+                "optional": true,
+                "is_array": false,
+                "comment": ""
+            }
+        ],
+        "values": null,
+        "functions": null,
+        "barrister_version": "",
+        "date_generated": 0,
+        "checksum": ""
+    },
+    {
         "type": "interface",
         "name": "Explorer",
         "comment": "",
@@ -2643,6 +2711,26 @@ var IdlJsonRaw = `[
                     "is_array": false,
                     "comment": ""
                 }
+            },
+            {
+                "name": "getBlockOrActionByHash",
+                "comment": "get block or action by a hash",
+                "params": [
+                    {
+                        "name": "hashStr",
+                        "type": "string",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    }
+                ],
+                "returns": {
+                    "name": "",
+                    "type": "GetBlkOrActResponse",
+                    "optional": false,
+                    "is_array": false,
+                    "comment": ""
+                }
             }
         ],
         "barrister_version": "",
@@ -2659,7 +2747,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1536352917689,
-        "checksum": "c0172b61fac98ed2fbfde32948a03796"
+        "date_generated": 1536764350612,
+        "checksum": "5bd957cffa724fec63f9d979bf845b7a"
     }
 ]`
