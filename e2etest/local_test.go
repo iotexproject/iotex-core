@@ -752,6 +752,7 @@ func TestDummyBlockReplacement(t *testing.T) {
 	require.True(dummy2.IsDummyBlock())
 
 	originChain := blockchain.NewBlockchain(&config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	require.NoError(originChain.Start(ctx))
 
 	// Replace the first dummy block
 	tsf0, _ := action.NewTransfer(1, big.NewInt(100000000), blockchain.Gen.CreatorAddr, ta.Addrinfo["producer"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))

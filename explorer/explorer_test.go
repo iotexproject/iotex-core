@@ -152,6 +152,7 @@ func TestExplorerApi(t *testing.T) {
 	// create chain
 	ctx := context.Background()
 	bc := blockchain.NewBlockchain(&cfg, blockchain.PrecreatedStateFactoryOption(sf), blockchain.InMemDaoOption())
+	require.NoError(bc.Start(ctx))
 	require.NotNil(bc)
 	ap, err := actpool.NewActPool(bc, cfg.ActPool)
 	require.Nil(err)
@@ -657,6 +658,7 @@ func TestExplorerGetReceiptByExecutionID(t *testing.T) {
 	// create chain
 	ctx := context.Background()
 	bc := blockchain.NewBlockchain(&cfg, blockchain.PrecreatedStateFactoryOption(sf), blockchain.InMemDaoOption())
+	require.NoError(bc.Start(ctx))
 	require.NotNil(bc)
 	require.Nil(err)
 	err = bc.Stop(ctx)

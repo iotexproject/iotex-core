@@ -95,6 +95,9 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 		cfg.Chain.TrieDBPath = "./trie" + strconv.Itoa(i) + ".db"
 
 		bc := blockchain.NewBlockchain(&cfg, blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption())
+		if err := bc.Start(ctx); err != nil {
+			logger.Panic().Err(err).Msg("error when starting blockchain")
+		}
 
 		if i >= int(in.NFS+in.NHonest) { // is byzantine node
 			val := bc.Validator()
