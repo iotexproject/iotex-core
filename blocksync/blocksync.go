@@ -52,17 +52,12 @@ func NewBlockSyncer(
 	if cfg == nil || chain == nil || ap == nil || p2p == nil {
 		return nil, errors.New("cannot create BlockSync: missing param")
 	}
-	startHeight, err := findSyncStartHeight(chain)
-	if err != nil {
-		return nil, err
-	}
+
 	buf := &blockBuffer{
-		blocks:          make(map[uint64]*blockchain.Block),
-		bc:              chain,
-		ap:              ap,
-		size:            cfg.BlockSync.BufferSize,
-		startHeight:     startHeight,
-		confirmedHeight: startHeight - 1,
+		blocks: make(map[uint64]*blockchain.Block),
+		bc:     chain,
+		ap:     ap,
+		size:   cfg.BlockSync.BufferSize,
 	}
 	w := newSyncWorker(cfg, p2p, buf)
 	return &blockSyncer{
@@ -84,6 +79,12 @@ func (bs *blockSyncer) P2P() network.Overlay {
 // Start starts a block syncer
 func (bs *blockSyncer) Start(ctx context.Context) error {
 	logger.Debug().Msg("Starting block syncer")
+	startHeight, err := findSyncStartHeight(bs.bc)
+	if err != nil {
+		return err
+	}
+	bs.buf.startHeight = startHeight
+	bs.buf.confirmedHeight = startHeight - 1
 	return bs.worker.Start(ctx)
 }
 

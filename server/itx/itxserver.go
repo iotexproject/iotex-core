@@ -61,6 +61,10 @@ func NewInMemTestServer(cfg *config.Config) *Server {
 
 // Start starts the server
 func (s *Server) Start(ctx context.Context) error {
+	if err := s.chain.Start(ctx); err != nil {
+		logger.Panic().Err(err).Msg("error when starting blockchain")
+		return nil
+	}
 	if err := s.dispatcher.Start(ctx); err != nil {
 		logger.Panic().Err(err).Msg("error when starting dispatcher")
 		return nil
