@@ -643,6 +643,10 @@ func (bc *blockchain) MintNewDummyBlock() *Block {
 func (bc *blockchain) CommitBlock(blk *Block) error {
 	bc.mu.Lock()
 	defer bc.mu.Unlock()
+	// TODO: we should completely remove validation from committing a block
+	if err := bc.validateBlock(blk); err != nil {
+		return err
+	}
 	return bc.commitBlock(blk)
 }
 
@@ -724,10 +728,6 @@ func (bc *blockchain) validateBlock(blk *Block) error {
 
 // commitBlock commits a block to the chain
 func (bc *blockchain) commitBlock(blk *Block) error {
-	if err := bc.validateBlock(blk); err != nil {
-		return err
-	}
-
 	// write block into DB
 	if err := bc.dao.putBlock(blk); err != nil {
 		return err
