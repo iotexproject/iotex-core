@@ -920,6 +920,7 @@ func TestUpdateSeed(t *testing.T) {
 	require := require.New(t)
 	lastSeed, _ := hex.DecodeString("9de6306b08158c423330f7a27243a1a5cbe39bfd764f07818437882d21241567")
 	chain := blockchain.NewBlockchain(&config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	require.NoError(chain.Start(context.Background()))
 	ctx := rollDPoSCtx{cfg: config.Default.Consensus.RollDPoS, chain: chain, epoch: epochCtx{seed: lastSeed}}
 	fsm := cFSM{ctx: &ctx}
 

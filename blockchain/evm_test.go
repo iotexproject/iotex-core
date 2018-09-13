@@ -39,6 +39,7 @@ func TestEVM(t *testing.T) {
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Explorer.Enabled = true
 	bc := NewBlockchain(&cfg, DefaultStateFactoryOption(), BoltDBDaoOption())
+	require.NoError(bc.Start(ctx))
 	require.NotNil(bc)
 	defer func() {
 		err := bc.Stop(ctx)
@@ -173,6 +174,7 @@ func TestRollDice(t *testing.T) {
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Explorer.Enabled = true
 	bc := NewBlockchain(&cfg, DefaultStateFactoryOption(), BoltDBDaoOption())
+	require.NoError(bc.Start(ctx))
 	require.NotNil(bc)
 	defer func() {
 		err := bc.Stop(ctx)
@@ -268,6 +270,7 @@ func TestERC20(t *testing.T) {
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Explorer.Enabled = true
 	bc := NewBlockchain(&cfg, DefaultStateFactoryOption(), BoltDBDaoOption())
+	require.NoError(bc.Start(ctx))
 	require.NotNil(bc)
 	defer func() {
 		err := bc.Stop(ctx)
