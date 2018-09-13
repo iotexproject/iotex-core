@@ -208,6 +208,11 @@ func (exp *MockExplorer) ReadExecutionState(request explorer.Execution) (string,
 	return "100", nil
 }
 
+// GetBlockOrActionByHash get block or action by a hash
+func (exp *MockExplorer) GetBlockOrActionByHash(hash string) (explorer.GetBlkOrActResponse, error) {
+	return explorer.GetBlkOrActResponse{}, nil
+}
+
 func randInt64() int64 {
 	rand.Seed(time.Now().UnixNano())
 	amount := int64(0)
