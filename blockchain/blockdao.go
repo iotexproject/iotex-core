@@ -614,8 +614,8 @@ func putTransfers(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 		// put new transfer to sender
 		senderKey := append(transferFromPrefix, transfer.Sender...)
 		senderKey = append(senderKey, byteutil.Uint64ToBytes(senderTransferCount)...)
-		batch.PutIfNotExists(blockAddressTransferMappingNS, senderKey, transferHash[:], "failed to put transfer hash %x for sender %x",
-			transfer.Hash(), transfer.Sender)
+		batch.PutIfNotExists(blockAddressTransferMappingNS, senderKey, transferHash[:],
+			"failed to put transfer hash %x for sender %x", transfer.Hash(), transfer.Sender)
 
 		// update sender transfers count
 		senderTransferCountKey := append(transferFromPrefix, transfer.Sender...)
@@ -638,8 +638,8 @@ func putTransfers(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 		// put new transfer to recipient
 		recipientKey := append(transferToPrefix, transfer.Recipient...)
 		recipientKey = append(recipientKey, byteutil.Uint64ToBytes(recipientTransferCount)...)
-		batch.PutIfNotExists(blockAddressTransferMappingNS, recipientKey, transferHash[:], "failed to put transfer hash %x for recipient %x",
-			transfer.Hash(), transfer.Recipient)
+		batch.PutIfNotExists(blockAddressTransferMappingNS, recipientKey, transferHash[:],
+			"failed to put transfer hash %x for recipient %x", transfer.Hash(), transfer.Recipient)
 
 		// update recipient transfers count
 		recipientTransferCountKey := append(transferToPrefix, transfer.Recipient...)
@@ -678,8 +678,8 @@ func putVotes(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 		// put new vote to sender
 		senderKey := append(voteFromPrefix, Sender...)
 		senderKey = append(senderKey, byteutil.Uint64ToBytes(senderVoteCount)...)
-		batch.PutIfNotExists(blockAddressVoteMappingNS, senderKey, voteHash[:], "failed to put vote hash %x for sender %x",
-			voteHash, Sender)
+		batch.PutIfNotExists(blockAddressVoteMappingNS, senderKey, voteHash[:],
+			"failed to put vote hash %x for sender %x", voteHash, Sender)
 
 		// update sender votes count
 		senderVoteCountKey := append(voteFromPrefix, Sender...)
@@ -702,14 +702,14 @@ func putVotes(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 		// put new vote to recipient
 		recipientKey := append(voteToPrefix, Recipient...)
 		recipientKey = append(recipientKey, byteutil.Uint64ToBytes(recipientVoteCount)...)
-		batch.PutIfNotExists(blockAddressVoteMappingNS, recipientKey, voteHash[:], "failed to put vote hash %x for recipient %x",
-			voteHash, Recipient)
+		batch.PutIfNotExists(blockAddressVoteMappingNS, recipientKey, voteHash[:],
+			"failed to put vote hash %x for recipient %x", voteHash, Recipient)
 
 		// update recipient votes count
 		recipientVoteCountKey := append(voteToPrefix, Recipient...)
 		batch.Put(blockAddressVoteCountMappingNS, recipientVoteCountKey,
-			byteutil.Uint64ToBytes(recipientVoteCount+1), "failed to bump vote count %x for recipient %x",
-			voteHash, Recipient)
+			byteutil.Uint64ToBytes(recipientVoteCount+1),
+			"failed to bump vote count %x for recipient %x", voteHash, Recipient)
 	}
 
 	return nil
@@ -738,14 +738,14 @@ func putExecutions(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 		// put new execution to executor
 		executorKey := append(executionFromPrefix, execution.Executor...)
 		executorKey = append(executorKey, byteutil.Uint64ToBytes(executorExecutionCount)...)
-		batch.PutIfNotExists(blockAddressExecutionMappingNS, executorKey, executionHash[:], "failed to put execution hash %x for executor %x",
-			execution.Hash(), execution.Executor)
+		batch.PutIfNotExists(blockAddressExecutionMappingNS, executorKey, executionHash[:],
+			"failed to put execution hash %x for executor %x", execution.Hash(), execution.Executor)
 
 		// update executor executions count
 		executorExecutionCountKey := append(executionFromPrefix, execution.Executor...)
 		batch.Put(blockAddressExecutionCountMappingNS, executorExecutionCountKey,
-			byteutil.Uint64ToBytes(executorExecutionCount+1), "failed to bump execution count %x for executor %x",
-			execution.Hash(), execution.Executor)
+			byteutil.Uint64ToBytes(executorExecutionCount+1),
+			"failed to bump execution count %x for executor %x", execution.Hash(), execution.Executor)
 
 		// get execution count for contract
 		contractExecutionCount, err := dao.getExecutionCountByContractAddress(execution.Contract)
@@ -762,8 +762,8 @@ func putExecutions(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 		// put new execution to contract
 		contractKey := append(executionToPrefix, execution.Contract...)
 		contractKey = append(contractKey, byteutil.Uint64ToBytes(contractExecutionCount)...)
-		batch.PutIfNotExists(blockAddressExecutionMappingNS, contractKey, executionHash[:], "failed to put execution hash %x for contract %x",
-			execution.Hash(), execution.Contract)
+		batch.PutIfNotExists(blockAddressExecutionMappingNS, contractKey, executionHash[:],
+			"failed to put execution hash %x for contract %x", execution.Hash(), execution.Contract)
 
 		// update contract executions count
 		contractExecutionCountKey := append(executionToPrefix, execution.Contract...)
@@ -785,4 +785,334 @@ func (dao *blockDAO) putReceipts(blk *Block) error {
 		batch.Put(blockExecutionReceiptMappingNS, r.Hash[:], v[:], "failed to put receipt for execution %x", r.Hash[:])
 	}
 	return batch.Commit()
+}
+
+// deleteBlock deletes the tip block
+func (dao *blockDAO) deleteTipBlock() error {
+	batch := dao.kvstore.Batch()
+
+	// First obtain tip height from db
+	heightValue, err := dao.kvstore.Get(blockNS, topHeightKey)
+	if err != nil {
+		return errors.Wrap(err, "failed to get tip height")
+	}
+
+	// Obtain tip block hash
+	hash, err := dao.getBlockHash(enc.MachineEndian.Uint64(heightValue))
+	if err != nil {
+		return errors.Wrap(err, "failed to get tip block hash")
+	}
+
+	// Obtain block
+	blk, err := dao.getBlock(hash)
+	if err != nil {
+		return errors.Wrap(err, "failed to get tip block")
+	}
+
+	// Delete hash -> block mapping
+	batch.Delete(blockNS, hash[:], "failed to delete block")
+
+	// Delete hash -> height mapping
+	hashKey := append(hashPrefix, hash[:]...)
+	batch.Delete(blockHashHeightMappingNS, hashKey, "failed to delete hash -> height mapping")
+
+	// Delete height -> hash mapping
+	heightKey := append(heightPrefix, heightValue...)
+	batch.Delete(blockHashHeightMappingNS, heightKey, "failed to delete height -> hash mapping")
+
+	// Update tip height
+	topHeight := enc.MachineEndian.Uint64(heightValue) - 1
+	topHeightValue := byteutil.Uint64ToBytes(topHeight)
+	batch.Put(blockNS, topHeightKey, topHeightValue, "failed to put top height")
+
+	if !dao.config.Explorer.Enabled {
+		return batch.Commit()
+	}
+
+	// Only delete Tsf/Vote/Execution index if enable explorer
+	// Update total transfer count
+	value, err := dao.kvstore.Get(blockNS, totalTransfersKey)
+	if err != nil {
+		return errors.Wrap(err, "failed to get total transfers")
+	}
+	totalTransfers := enc.MachineEndian.Uint64(value)
+	totalTransfers -= uint64(len(blk.Transfers))
+	totalTransfersBytes := byteutil.Uint64ToBytes(totalTransfers)
+	batch.Put(blockNS, totalTransfersKey, totalTransfersBytes, "failed to put total transfers")
+
+	// Update total vote count
+	value, err = dao.kvstore.Get(blockNS, totalVotesKey)
+	if err != nil {
+		return errors.Wrap(err, "failed to get total votes")
+	}
+	totalVotes := enc.MachineEndian.Uint64(value)
+	totalVotes -= uint64(len(blk.Votes))
+	totalVotesBytes := byteutil.Uint64ToBytes(totalVotes)
+	batch.Put(blockNS, totalVotesKey, totalVotesBytes, "failed to put total votes")
+
+	// Update total execution count
+	value, err = dao.kvstore.Get(blockNS, totalExecutionsKey)
+	if err != nil {
+		return errors.Wrap(err, "failed to get total executions")
+	}
+	totalExecutions := enc.MachineEndian.Uint64(value)
+	totalExecutions -= uint64(len(blk.Executions))
+	totalExecutionsBytes := byteutil.Uint64ToBytes(totalExecutions)
+	batch.Put(blockNS, totalExecutionsKey, totalExecutionsBytes, "failed to put total executions")
+
+	// Delete transfer hash -> block hash mapping
+	for _, transfer := range blk.Transfers {
+		transferHash := transfer.Hash()
+		hashKey := append(transferPrefix, transferHash[:]...)
+		batch.Delete(blockTransferBlockMappingNS, hashKey, "failed to delete transfer hash %x", transferHash)
+	}
+
+	// Delete vote hash -> block hash mapping
+	for _, vote := range blk.Votes {
+		voteHash := vote.Hash()
+		hashKey := append(votePrefix, voteHash[:]...)
+		batch.Delete(blockVoteBlockMappingNS, hashKey, "failed to delete vote hash %x", voteHash)
+	}
+
+	// Delete execution hash -> block hash mapping
+	for _, execution := range blk.Executions {
+		executionHash := execution.Hash()
+		hashKey := append(executionPrefix, executionHash[:]...)
+		batch.Delete(blockExecutionBlockMappingNS, hashKey, "failed to delete execution hash %x", executionHash)
+	}
+
+	if err = deleteTransfers(dao, blk, batch); err != nil {
+		return err
+	}
+
+	if err = deleteVotes(dao, blk, batch); err != nil {
+		return err
+	}
+
+	if err = deleteExecutions(dao, blk, batch); err != nil {
+		return err
+	}
+
+	if err = deleteReceipts(blk, batch); err != nil {
+		return err
+	}
+
+	return batch.Commit()
+}
+
+// deleteTransfers deletes transfer information from db
+func deleteTransfers(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
+	// First get the total count of transfers by sender and recipient respectively in the block
+	senderCount := make(map[string]uint64)
+	recipientCount := make(map[string]uint64)
+	for _, transfer := range blk.Transfers {
+		senderCount[transfer.Sender]++
+		recipientCount[transfer.Recipient]++
+	}
+	// Roll back the status of address -> transferCount mapping to the previous block
+	for sender, count := range senderCount {
+		senderTransferCount, err := dao.getTransferCountBySenderAddress(sender)
+		if err != nil {
+			return errors.Wrapf(err, "for sender %x", sender)
+		}
+		senderTransferCountKey := append(transferFromPrefix, sender...)
+		senderCount[sender] = senderTransferCount - count
+		batch.Put(blockAddressTransferCountMappingNS, senderTransferCountKey,
+			byteutil.Uint64ToBytes(senderCount[sender]), "failed to update transfer count for sender %x", sender)
+	}
+	for recipient, count := range recipientCount {
+		recipientTransferCount, err := dao.getTransferCountByRecipientAddress(recipient)
+		if err != nil {
+			return errors.Wrapf(err, "for recipient %x", recipient)
+		}
+		recipientTransferCountKey := append(transferToPrefix, recipient...)
+		recipientCount[recipient] = recipientTransferCount - count
+		batch.Put(blockAddressTransferCountMappingNS, recipientTransferCountKey,
+			byteutil.Uint64ToBytes(recipientCount[recipient]),
+			"failed to update transfer count for recipient %x", recipient)
+	}
+
+	senderDelta := map[string]uint64{}
+	recipientDelta := map[string]uint64{}
+
+	for _, transfer := range blk.Transfers {
+		transferHash := transfer.Hash()
+
+		if delta, ok := senderDelta[transfer.Sender]; ok {
+			senderCount[transfer.Sender] += delta
+			senderDelta[transfer.Sender] = senderDelta[transfer.Sender] + 1
+		} else {
+			senderDelta[transfer.Sender] = 1
+		}
+
+		// Delete new transfer from sender
+		senderKey := append(transferFromPrefix, transfer.Sender...)
+		senderKey = append(senderKey, byteutil.Uint64ToBytes(senderCount[transfer.Sender])...)
+		batch.Delete(blockAddressTransferMappingNS, senderKey, "failed to delete transfer hash %x for sender %x",
+			transfer.Hash(), transfer.Sender)
+
+		if delta, ok := recipientDelta[transfer.Recipient]; ok {
+			recipientCount[transfer.Recipient] += delta
+			recipientDelta[transfer.Recipient] = recipientDelta[transfer.Recipient] + 1
+		} else {
+			recipientDelta[transfer.Recipient] = 1
+		}
+
+		// Delete new transfer to recipient
+		recipientKey := append(transferToPrefix, transfer.Recipient...)
+		recipientKey = append(recipientKey, byteutil.Uint64ToBytes(recipientCount[transfer.Recipient])...)
+		batch.Delete(blockAddressTransferMappingNS, recipientKey, "failed to delete transfer hash %x for recipient %x",
+			transferHash, transfer.Recipient)
+	}
+
+	return nil
+}
+
+// deleteVotes deletes vote information from db
+func deleteVotes(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
+	// First get the total count of votes by sender and recipient respectively in the block
+	senderCount := make(map[string]uint64)
+	recipientCount := make(map[string]uint64)
+	for _, vote := range blk.Votes {
+		sender := vote.GetVote().VoterAddress
+		recipient := vote.GetVote().VoteeAddress
+		senderCount[sender]++
+		recipientCount[recipient]++
+	}
+	// Roll back the status of address -> voteCount mapping to the previous block
+	for sender, count := range senderCount {
+		senderVoteCount, err := dao.getVoteCountBySenderAddress(sender)
+		if err != nil {
+			return errors.Wrapf(err, "for sender %x", sender)
+		}
+		senderVoteCountKey := append(voteFromPrefix, sender...)
+		senderCount[sender] = senderVoteCount - count
+		batch.Put(blockAddressVoteCountMappingNS, senderVoteCountKey, byteutil.Uint64ToBytes(senderCount[sender]),
+			"failed to update vote count for sender %x", sender)
+	}
+	for recipient, count := range recipientCount {
+		recipientVoteCount, err := dao.getVoteCountByRecipientAddress(recipient)
+		if err != nil {
+			return errors.Wrapf(err, "for recipient %x", recipient)
+		}
+		recipientVoteCountKey := append(voteToPrefix, recipient...)
+		recipientCount[recipient] = recipientVoteCount - count
+		batch.Put(blockAddressVoteCountMappingNS, recipientVoteCountKey,
+			byteutil.Uint64ToBytes(recipientCount[recipient]), "failed to update vote count for recipient %x", recipient)
+	}
+
+	senderDelta := map[string]uint64{}
+	recipientDelta := map[string]uint64{}
+
+	for _, vote := range blk.Votes {
+		voteHash := vote.Hash()
+
+		pbVote := vote.GetVote()
+		Sender := pbVote.VoterAddress
+		Recipient := pbVote.VoteeAddress
+
+		if delta, ok := senderDelta[Sender]; ok {
+			senderCount[Sender] += delta
+			senderDelta[Sender] = senderDelta[Sender] + 1
+		} else {
+			senderDelta[Sender] = 1
+		}
+
+		// Delete new vote from sender
+		senderKey := append(voteFromPrefix, Sender...)
+		senderKey = append(senderKey, byteutil.Uint64ToBytes(senderCount[Sender])...)
+		batch.Delete(blockAddressVoteMappingNS, senderKey, "failed to delete vote hash %x for sender %x",
+			voteHash, Sender)
+
+		if delta, ok := recipientDelta[Recipient]; ok {
+			recipientCount[Recipient] += delta
+			recipientDelta[Recipient] = recipientDelta[Recipient] + 1
+		} else {
+			recipientDelta[Recipient] = 1
+		}
+
+		// Delete new vote to recipient
+		recipientKey := append(voteToPrefix, Recipient...)
+		recipientKey = append(recipientKey, byteutil.Uint64ToBytes(recipientCount[Recipient])...)
+		batch.Delete(blockAddressVoteMappingNS, recipientKey, "failed to delete vote hash %x for recipient %x",
+			voteHash, Recipient)
+	}
+
+	return nil
+}
+
+// deleteExecutions deletes execution information from db
+func deleteExecutions(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
+	// First get the total count of executions by executor and contract respectively in the block
+	executorCount := make(map[string]uint64)
+	contractCount := make(map[string]uint64)
+	for _, execution := range blk.Executions {
+		executorCount[execution.Executor]++
+		contractCount[execution.Contract]++
+	}
+	// Roll back the status of address -> executionCount mapping to the previous block
+	for executor, count := range executorCount {
+		executorExecutionCount, err := dao.getExecutionCountByExecutorAddress(executor)
+		if err != nil {
+			return errors.Wrapf(err, "for executor %x", executor)
+		}
+		executorExecutionCountKey := append(executionFromPrefix, executor...)
+		executorCount[executor] = executorExecutionCount - count
+		batch.Put(blockAddressExecutionCountMappingNS, executorExecutionCountKey,
+			byteutil.Uint64ToBytes(executorCount[executor]),
+			"failed to update execution count for executor %x", executor)
+	}
+	for contract, count := range contractCount {
+		contractExecutionCount, err := dao.getExecutionCountByContractAddress(contract)
+		if err != nil {
+			return errors.Wrapf(err, "for contract %x", contract)
+		}
+		contractExecutionCountKey := append(executionToPrefix, contract...)
+		contractCount[contract] = contractExecutionCount - count
+		batch.Put(blockAddressExecutionCountMappingNS, contractExecutionCountKey,
+			byteutil.Uint64ToBytes(contractCount[contract]), "failed to update execution count for contract %x", contract)
+	}
+
+	executorDelta := map[string]uint64{}
+	contractDelta := map[string]uint64{}
+
+	for _, execution := range blk.Executions {
+		executionHash := execution.Hash()
+
+		if delta, ok := executorDelta[execution.Executor]; ok {
+			executorCount[execution.Executor] += delta
+			executorDelta[execution.Executor] = executorDelta[execution.Executor] + 1
+		} else {
+			executorDelta[execution.Executor] = 1
+		}
+
+		// Delete new execution from executor
+		executorKey := append(executionFromPrefix, execution.Executor...)
+		executorKey = append(executorKey, byteutil.Uint64ToBytes(executorCount[execution.Executor])...)
+		batch.Delete(blockAddressExecutionMappingNS, executorKey, "failed to delete execution hash %x for executor %x",
+			execution.Hash(), execution.Executor)
+
+		if delta, ok := contractDelta[execution.Contract]; ok {
+			contractCount[execution.Contract] += delta
+			contractDelta[execution.Contract] = contractDelta[execution.Contract] + 1
+		} else {
+			contractDelta[execution.Contract] = 1
+		}
+
+		// Delete new execution to contract
+		contractKey := append(executionToPrefix, execution.Contract...)
+		contractKey = append(contractKey, byteutil.Uint64ToBytes(contractCount[execution.Contract])...)
+		batch.Delete(blockAddressExecutionMappingNS, contractKey, "failed to delete execution hash %x for contract %x",
+			executionHash, execution.Contract)
+	}
+
+	return nil
+}
+
+// deleteReceipts deletes receipt information from db
+func deleteReceipts(blk *Block, batch db.KVStoreBatch) error {
+	for _, r := range blk.receipts {
+		batch.Delete(blockExecutionReceiptMappingNS, r.Hash[:], "failed to delete receipt for execution %x", r.Hash[:])
+	}
+	return nil
 }
