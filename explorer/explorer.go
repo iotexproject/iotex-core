@@ -1033,6 +1033,27 @@ func (exp *Service) ReadExecutionState(execution explorer.Execution) (string, er
 	return hex.EncodeToString(res), nil
 }
 
+// GetBlockOrActionByHash get block or action by a hash
+func (exp *Service) GetBlockOrActionByHash(hashStr string) (explorer.GetBlkOrActResponse, error) {
+	if blk, err := exp.GetBlockByID(hashStr); err == nil {
+		return explorer.GetBlkOrActResponse{Block: &blk}, nil
+	}
+
+	if tsf, err := exp.GetTransferByID(hashStr); err == nil {
+		return explorer.GetBlkOrActResponse{Transfer: &tsf}, nil
+	}
+
+	if vote, err := exp.GetVoteByID(hashStr); err == nil {
+		return explorer.GetBlkOrActResponse{Vote: &vote}, nil
+	}
+
+	if exe, err := exp.GetExecutionByID(hashStr); err == nil {
+		return explorer.GetBlkOrActResponse{Execution: &exe}, nil
+	}
+
+	return explorer.GetBlkOrActResponse{}, nil
+}
+
 // getTransfer takes in a blockchain and transferHash and returns an Explorer Transfer
 func getTransfer(bc blockchain.Blockchain, ap actpool.ActPool, transferHash hash.Hash32B) (explorer.Transfer, error) {
 	explorerTransfer := explorer.Transfer{}
