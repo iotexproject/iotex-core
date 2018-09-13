@@ -7,6 +7,7 @@
 package actpool
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 	"strings"
@@ -15,8 +16,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
-
-	"context"
 
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/action"

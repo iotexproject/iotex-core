@@ -8,13 +8,12 @@ package blockchain
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"sync"
 
 	"github.com/facebookgo/clock"
 	"github.com/pkg/errors"
-
-	"fmt"
 
 	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/config"
