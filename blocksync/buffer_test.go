@@ -31,6 +31,7 @@ func TestBlockBufferFlush(t *testing.T) {
 	testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
 
 	chain := blockchain.NewBlockchain(cfg, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	require.NoError(chain.Start(ctx))
 	require.NotNil(chain)
 	ap, err := actpool.NewActPool(chain, cfg.ActPool)
 	require.NotNil(ap)
@@ -87,6 +88,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 	testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
 
 	chain := blockchain.NewBlockchain(cfg, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	require.NoError(chain.Start(ctx))
 	require.NotNil(chain)
 	ap, err := actpool.NewActPool(chain, cfg.ActPool)
 	require.NotNil(ap)

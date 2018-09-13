@@ -8,6 +8,7 @@ package blockchain
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"sync"
 
@@ -231,51 +232,6 @@ func NewBlockchain(cfg *config.Config, opts ...Option) Blockchain {
 	if chain.sf != nil {
 		chain.lifecycle.Add(chain.sf)
 	}
-	if err := chain.Start(context.Background()); err != nil {
-		logger.Error().Err(err).Msg("Failed to start blockchain")
-		return nil
-	}
-
-	height, err := chain.TipHeight()
-	if err != nil {
-		logger.Error().Err(err).Msg("Failed to get blockchain height")
-		return nil
-	}
-	if height > 0 {
-		factoryHeight, err := chain.sf.Height()
-		if err != nil {
-			logger.Error().Err(err).Msg("Failed to get factory's height")
-			return nil
-		}
-		logger.Info().
-			Uint64("blockchain height", height).Uint64("factory height", factoryHeight).
-			Msg("Restarting blockchain")
-		return chain
-	}
-	genesis := NewGenesisBlock(cfg)
-	if genesis == nil {
-		logger.Error().Msg("Cannot create genesis block.")
-		return nil
-	}
-	// Genesis block has height 0
-	if genesis.Header.height != 0 {
-		logger.Error().
-			Uint64("Genesis block has height", genesis.Height()).
-			Msg("Expecting 0")
-		return nil
-	}
-	// add producer into Trie
-	if chain.sf != nil {
-		if _, err := chain.sf.LoadOrCreateState(Gen.CreatorAddr, Gen.TotalSupply); err != nil {
-			logger.Error().Err(err).Msg("Failed to add Creator into StateFactory")
-			return nil
-		}
-	}
-	// add Genesis block as very first block
-	if err := chain.CommitBlock(genesis); err != nil {
-		logger.Error().Err(err).Msg("Failed to commit Genesis block")
-		return nil
-	}
 	return chain
 }
 
@@ -286,19 +242,45 @@ func (bc *blockchain) Start(ctx context.Context) (err error) {
 	if err = bc.lifecycle.OnStart(ctx); err != nil {
 		return err
 	}
-	// get blockchain tip height
 	bc.mu.Lock()
 	defer bc.mu.Unlock()
+	// get blockchain tip height
 	if bc.tipHeight, err = bc.dao.getBlockchainHeight(); err != nil {
 		return err
 	}
 	if bc.tipHeight == 0 {
-		return nil
+		return bc.startEmptyBlockchain()
 	}
 	// get blockchain tip hash
 	if bc.tipHash, err = bc.dao.getBlockHash(bc.tipHeight); err != nil {
 		return err
 	}
+	return bc.startExistingBlockchain()
+}
+
+func (bc *blockchain) startEmptyBlockchain() error {
+	genesis := NewGenesisBlock(bc.config)
+	if genesis == nil {
+		return errors.New("cannot create genesis block")
+	}
+	// Genesis block has height 0
+	if genesis.Header.height != 0 {
+		return errors.New(fmt.Sprintf("genesis block has height %d but expects 0", genesis.Height()))
+	}
+	// add producer into Trie
+	if bc.sf != nil {
+		if _, err := bc.sf.LoadOrCreateState(Gen.CreatorAddr, Gen.TotalSupply); err != nil {
+			return errors.Wrap(err, "failed to add Creator into StateFactory")
+		}
+	}
+	// add Genesis block as very first block
+	if err := bc.commitBlock(genesis); err != nil {
+		return errors.Wrap(err, "failed to commit Genesis block")
+	}
+	return nil
+}
+
+func (bc *blockchain) startExistingBlockchain() error {
 	// populate state factory
 	if bc.sf == nil {
 		return errors.New("statefactory cannot be nil")
@@ -325,6 +307,13 @@ func (bc *blockchain) Start(ctx context.Context) (err error) {
 			return err
 		}
 	}
+	factoryHeight, err := bc.sf.Height()
+	if err != nil {
+		return errors.Wrap(err, "failed to get factory's height")
+	}
+	logger.Info().
+		Uint64("blockchain height", bc.tipHeight).Uint64("factory height", factoryHeight).
+		Msg("Restarting blockchain")
 	return nil
 }
 
@@ -575,28 +564,7 @@ func (bc *blockchain) TipHeight() (uint64, error) {
 func (bc *blockchain) ValidateBlock(blk *Block) error {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
-
-	if bc.validator == nil {
-		panic("no block validator")
-	}
-
-	// replacement logic, used to replace a fake old dummy block
-	if blk.Height() != 0 && blk.Height() <= bc.tipHeight {
-		oldDummyBlock, err := bc.GetBlockByHeight(blk.Height())
-		if err != nil {
-			return errors.Wrapf(err, "The height of the new block is invalid")
-		}
-		if !oldDummyBlock.IsDummyBlock() {
-			return errors.New("The replaced block is not a dummy block")
-		}
-		lastBlock, err := bc.GetBlockByHeight(blk.Height() - 1)
-		if err != nil {
-			return errors.Wrapf(err, "Failed to get the last block when replacing the dummy block")
-		}
-		return bc.validator.Validate(blk, lastBlock.Height(), lastBlock.HashBlock())
-	}
-
-	return bc.validator.Validate(blk, bc.tipHeight, bc.tipHash)
+	return bc.validateBlock(blk)
 }
 
 // MintNewBlock creates a new block with given actions
@@ -672,7 +640,10 @@ func (bc *blockchain) MintNewDummyBlock() *Block {
 
 //  CommitBlock validates and appends a block to the chain
 func (bc *blockchain) CommitBlock(blk *Block) error {
-	if err := bc.ValidateBlock(blk); err != nil {
+	bc.mu.Lock()
+	defer bc.mu.Unlock()
+	// TODO: we should completely remove validation from committing a block
+	if err := bc.validateBlock(blk); err != nil {
 		return err
 	}
 	return bc.commitBlock(blk)
@@ -729,6 +700,31 @@ func (bc *blockchain) ExecuteContractRead(ex *action.Execution) ([]byte, error) 
 //======================================
 // private functions
 //=====================================
+
+func (bc *blockchain) validateBlock(blk *Block) error {
+	if bc.validator == nil {
+		logger.Panic().Msg("no block validator")
+	}
+
+	// replacement logic, used to replace a fake old dummy block
+	if blk.Height() != 0 && blk.Height() <= bc.tipHeight {
+		oldDummyBlock, err := bc.GetBlockByHeight(blk.Height())
+		if err != nil {
+			return errors.Wrapf(err, "The height of the new block is invalid")
+		}
+		if !oldDummyBlock.IsDummyBlock() {
+			return errors.New("The replaced block is not a dummy block")
+		}
+		lastBlock, err := bc.GetBlockByHeight(blk.Height() - 1)
+		if err != nil {
+			return errors.Wrapf(err, "Failed to get the last block when replacing the dummy block")
+		}
+		return bc.validator.Validate(blk, lastBlock.Height(), lastBlock.HashBlock())
+	}
+
+	return bc.validator.Validate(blk, bc.tipHeight, bc.tipHash)
+}
+
 // commitBlock commits a block to the chain
 func (bc *blockchain) commitBlock(blk *Block) error {
 	// write block into DB
@@ -736,8 +732,6 @@ func (bc *blockchain) commitBlock(blk *Block) error {
 		return err
 	}
 	// update tip hash and height
-	bc.mu.Lock()
-	defer bc.mu.Unlock()
 	bc.tipHeight = blk.Header.height
 	bc.tipHash = blk.HashBlock()
 	// update state factory
@@ -745,13 +739,13 @@ func (bc *blockchain) commitBlock(blk *Block) error {
 		ExecuteContracts(blk, bc)
 		if err := bc.sf.CommitStateChanges(blk.Height(), blk.Transfers, blk.Votes, blk.Executions); err != nil {
 			// TODO: Will fix the log level later, once committing a block and state changes becomes a transaction
-			logger.Fatal().Err(err).Msgf("Failed to commit state changes on height %d", blk.Height())
+			logger.Panic().Err(err).Msgf("Failed to commit state changes on height %d", blk.Height())
 		}
 	}
 	// write smart contract receipt into DB
 	if err := bc.dao.putReceipts(blk); err != nil {
 		// TODO: Will fix the log level later, once committing a block and state changes becomes a transaction
-		logger.Fatal().Err(err).Msgf("Failed to put receipts on height %d", blk.Height())
+		logger.Panic().Err(err).Msgf("Failed to put receipts on height %d", blk.Height())
 	}
 	logger.Info().Uint64("height", blk.Header.height).Msg("commit a block")
 	return nil

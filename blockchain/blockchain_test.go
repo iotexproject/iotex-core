@@ -143,6 +143,7 @@ func TestCreateBlockchain(t *testing.T) {
 
 	// create chain
 	bc := NewBlockchain(&cfg, InMemDaoOption())
+	require.NoError(t, bc.Start(ctx))
 	assert.NotNil(bc)
 	height, err := bc.TipHeight()
 	assert.Nil(err)
@@ -189,6 +190,7 @@ func TestCreateBlockchain(t *testing.T) {
 
 func TestLoadBlockchainfromDB(t *testing.T) {
 	require := require.New(t)
+	ctx := context.Background()
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
@@ -211,17 +213,18 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 
 	// Create a blockchain from scratch
 	bc := NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
+	require.NoError(bc.Start(ctx))
 	require.NotNil(bc)
 	height, err := bc.TipHeight()
 	require.Nil(err)
 	fmt.Printf("Open blockchain pass, height = %d\n", height)
 	require.Nil(addTestingTsfBlocks(bc))
-	ctx := context.Background()
 	err = bc.Stop(ctx)
 	require.NoError(err)
 
 	// Load a blockchain from DB
 	bc = NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
+	require.NoError(bc.Start(ctx))
 	defer func() {
 		err := bc.Stop(ctx)
 		require.NoError(err)
@@ -391,6 +394,7 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	defer testutil.CleanupPath(t, testTriePath)
 	testutil.CleanupPath(t, testDBPath)
 	defer testutil.CleanupPath(t, testDBPath)
+	ctx := context.Background()
 	// Disable block reward to make bookkeeping easier
 	Gen.BlockReward = uint64(0)
 	cfg := config.Default
@@ -403,16 +407,17 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	require.NoError(err)
 	// Create a blockchain from scratch
 	bc := NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
+	require.NoError(bc.Start(ctx))
 	require.NotNil(bc)
 	height, err := bc.TipHeight()
 	require.Nil(err)
 	fmt.Printf("Open blockchain pass, height = %d\n", height)
 	require.Nil(addTestingTsfBlocks(bc))
-	ctx := context.Background()
 	err = bc.Stop(ctx)
 	require.NoError(err)
 	// Load a blockchain from DB
 	bc = NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
+	require.NoError(bc.Start(ctx))
 	defer func() {
 		err := bc.Stop(ctx)
 		require.NoError(err)
@@ -549,6 +554,7 @@ func TestBlockchain_Validator(t *testing.T) {
 
 	ctx := context.Background()
 	bc := NewBlockchain(&cfg, InMemDaoOption(), InMemStateFactoryOption())
+	require.NoError(t, bc.Start(ctx))
 	defer func() {
 		err := bc.Stop(ctx)
 		assert.Nil(t, err)
@@ -575,6 +581,7 @@ func TestBlockchain_MintNewDummyBlock(t *testing.T) {
 
 	ctx := context.Background()
 	bc := NewBlockchain(cfg, InMemDaoOption(), InMemStateFactoryOption())
+	require.NoError(bc.Start(ctx))
 	defer func() {
 		err := bc.Stop(ctx)
 		require.Nil(err)
@@ -617,6 +624,7 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 	require.True(height == 0)
 	require.True(len(candidate) == 0)
 	bc := NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
+	require.NoError(bc.Start(context.Background()))
 	require.NotNil(bc)
 	// TODO: change the value when Candidates size is changed
 	height, candidate = sf.Candidates()
@@ -645,6 +653,7 @@ func TestCoinbaseTransfer(t *testing.T) {
 	Gen.BlockReward = uint64(10)
 
 	bc := NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
+	require.NoError(bc.Start(context.Background()))
 	require.NotNil(bc)
 	height, err := bc.TipHeight()
 	require.Nil(err)
@@ -676,6 +685,7 @@ func TestBlockchain_StateByAddr(t *testing.T) {
 	// disable account-based testing
 	// create chain
 	bc := NewBlockchain(&cfg, InMemDaoOption(), InMemStateFactoryOption())
+	require.NoError(bc.Start(context.Background()))
 	require.NotNil(bc)
 
 	s, _ := bc.StateByAddr(Gen.CreatorAddr)
@@ -707,6 +717,7 @@ func TestBlocks(t *testing.T) {
 
 	// Create a blockchain from scratch
 	bc := NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
+	require.NoError(bc.Start(context.Background()))
 	a, _ := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
 	c, _ := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
 	sf.LoadOrCreateState(a.RawAddress, uint64(100000))
@@ -746,6 +757,7 @@ func TestActions(t *testing.T) {
 
 	// Create a blockchain from scratch
 	bc := NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
+	require.NoError(bc.Start(context.Background()))
 	a, _ := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
 	c, _ := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
 	sf.LoadOrCreateState(a.RawAddress, uint64(100000))
@@ -787,6 +799,7 @@ func TestDummyReplacement(t *testing.T) {
 
 	// Create a blockchain from scratch
 	bc := NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
+	require.NoError(bc.Start(context.Background()))
 	dummy := bc.MintNewDummyBlock()
 	realBlock, err := bc.MintNewBlock(nil, nil, nil, ta.Addrinfo["producer"], "")
 	require.NotNil(realBlock)
@@ -831,6 +844,7 @@ func TestMintNewBlock(t *testing.T) {
 	cfg := config.Default
 	clk := clock.NewMock()
 	chain := NewBlockchain(&cfg, InMemDaoOption(), InMemStateFactoryOption(), ClockOption(clk))
+	require.NoError(t, chain.Start(context.Background()))
 	blk1 := chain.MintNewDummyBlock()
 	clk.Add(2 * time.Second)
 	blk2 := chain.MintNewDummyBlock()
@@ -844,6 +858,7 @@ func TestMintDKGBlock(t *testing.T) {
 	cfg := config.Default
 	clk := clock.NewMock()
 	chain := NewBlockchain(&cfg, InMemDaoOption(), InMemStateFactoryOption(), ClockOption(clk))
+	require.NoError(chain.Start(context.Background()))
 
 	var err error
 	const numNodes = 21
