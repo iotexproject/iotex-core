@@ -251,19 +251,18 @@ func (bc *blockchain) Start(ctx context.Context) (err error) {
 	}
 	if bc.tipHeight == 0 {
 		return bc.startEmptyBlockchain()
-	} else {
-		// get blockchain tip hash
-		if bc.tipHash, err = bc.dao.getBlockHash(bc.tipHeight); err != nil {
-			return err
-		}
-		return bc.startExistingBlockchain()
 	}
+	// get blockchain tip hash
+	if bc.tipHash, err = bc.dao.getBlockHash(bc.tipHeight); err != nil {
+		return err
+	}
+	return bc.startExistingBlockchain()
 }
 
 func (bc *blockchain) startEmptyBlockchain() error {
 	genesis := NewGenesisBlock(bc.config)
 	if genesis == nil {
-		return errors.New("cannot create genesis block.")
+		return errors.New("cannot create genesis block")
 	}
 	// Genesis block has height 0
 	if genesis.Header.height != 0 {
