@@ -140,6 +140,12 @@ type blockchain struct {
 // Option sets blockchain construction parameter
 type Option func(*blockchain, *config.Config) error
 
+// key specifies the type of recovery height key used by context
+type key string
+
+// RecoveryHeightKey indicates the recovery height key used by context
+const RecoveryHeightKey key = "recoveryHeight"
+
 // DefaultStateFactoryOption sets blockchain's sf from config
 func DefaultStateFactoryOption() Option {
 	return func(bc *blockchain, cfg *config.Config) error {
@@ -255,7 +261,8 @@ func (bc *blockchain) Start(ctx context.Context) (err error) {
 	if bc.tipHash, err = bc.dao.getBlockHash(bc.tipHeight); err != nil {
 		return err
 	}
-	return bc.startExistingBlockchain()
+	recoveryHeight, _ := ctx.Value(RecoveryHeightKey).(uint64)
+	return bc.startExistingBlockchain(recoveryHeight)
 }
 
 func (bc *blockchain) startEmptyBlockchain() error {
@@ -280,7 +287,7 @@ func (bc *blockchain) startEmptyBlockchain() error {
 	return nil
 }
 
-func (bc *blockchain) startExistingBlockchain() error {
+func (bc *blockchain) startExistingBlockchain(recoveryHeight uint64) error {
 	// populate state factory
 	if bc.sf == nil {
 		return errors.New("statefactory cannot be nil")
@@ -298,12 +305,20 @@ func (bc *blockchain) startExistingBlockchain() error {
 			return err
 		}
 	}
+	if recoveryHeight > 0 && startHeight <= recoveryHeight {
+		for bc.tipHeight > recoveryHeight {
+			if err := bc.dao.deleteTipBlock(); err != nil {
+				return err
+			}
+			bc.tipHeight--
+		}
+	}
 	for i := startHeight; i <= bc.tipHeight; i++ {
 		blk, err := bc.GetBlockByHeight(i)
 		if err != nil {
 			return err
 		}
-		if err := bc.sf.CommitStateChanges(blk.Height(), blk.Transfers, blk.Votes, blk.Executions); err != nil {
+		if err := bc.updateState(blk); err != nil {
 			return err
 		}
 	}
@@ -735,18 +750,24 @@ func (bc *blockchain) commitBlock(blk *Block) error {
 	bc.tipHeight = blk.Header.height
 	bc.tipHash = blk.HashBlock()
 	// update state factory
+	if err := bc.updateState(blk); err != nil {
+		logger.Panic().Err(err).Msgf("Failed to update state on height %d", blk.Height())
+	}
+	logger.Info().Uint64("height", blk.Header.height).Msg("commit a block")
+	return nil
+}
+
+func (bc *blockchain) updateState(blk *Block) error {
 	if bc.sf != nil {
+		// update state factory
 		ExecuteContracts(blk, bc)
 		if err := bc.sf.CommitStateChanges(blk.Height(), blk.Transfers, blk.Votes, blk.Executions); err != nil {
-			// TODO: Will fix the log level later, once committing a block and state changes becomes a transaction
-			logger.Panic().Err(err).Msgf("Failed to commit state changes on height %d", blk.Height())
+			return errors.Wrapf(err, "failed to commit state changes on height %d", blk.Height())
 		}
 	}
 	// write smart contract receipt into DB
 	if err := bc.dao.putReceipts(blk); err != nil {
-		// TODO: Will fix the log level later, once committing a block and state changes becomes a transaction
-		logger.Panic().Err(err).Msgf("Failed to put receipts on height %d", blk.Height())
+		return errors.Wrapf(err, "failed to put smart contract receipts into DB on height %d", blk.Height())
 	}
-	logger.Info().Uint64("height", blk.Header.height).Msg("commit a block")
 	return nil
 }
