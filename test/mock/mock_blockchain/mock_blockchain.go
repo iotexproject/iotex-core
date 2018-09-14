@@ -426,11 +426,10 @@ func (mr *MockBlockchainMockRecorder) TipHash() *gomock.Call {
 }
 
 // TipHeight mocks base method
-func (m *MockBlockchain) TipHeight() (uint64, error) {
+func (m *MockBlockchain) TipHeight() uint64 {
 	ret := m.ctrl.Call(m, "TipHeight")
 	ret0, _ := ret[0].(uint64)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return ret0
 }
 
 // TipHeight indicates an expected call of TipHeight

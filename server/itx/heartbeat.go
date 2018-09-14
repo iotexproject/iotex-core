@@ -98,11 +98,7 @@ func (h *HeartbeatHandler) Log() {
 	}
 
 	// Block metrics
-	height, err := h.s.Blockchain().TipHeight()
-	if err != nil {
-		logger.Error().Err(err).Msg("error one getting the the blockchain height")
-		height = 0
-	}
+	height := h.s.Blockchain().TipHeight()
 
 	actPoolSize := h.s.actPool.GetSize()
 	actPoolCapacity := h.s.actPool.GetCapacity()

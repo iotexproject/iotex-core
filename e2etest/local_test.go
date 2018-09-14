@@ -123,8 +123,7 @@ func TestLocalCommit(t *testing.T) {
 		return
 	}
 
-	height, err := svr.Blockchain().TipHeight()
-	require.Nil(err)
+	height := svr.Blockchain().TipHeight()
 	require.True(height == 5)
 
 	// transfer 1
@@ -241,15 +240,11 @@ func TestLocalCommit(t *testing.T) {
 	require.NoError(err)
 
 	err = testutil.WaitUntil(10*time.Millisecond, 10*time.Second, func() (bool, error) {
-		height, err := svr.Blockchain().TipHeight()
-		if err != nil {
-			return false, err
-		}
+		height := svr.Blockchain().TipHeight()
 		return int(height) == 9, nil
 	})
 	require.Nil(err)
-	height, err = svr.Blockchain().TipHeight()
-	require.Nil(err)
+	height = svr.Blockchain().TipHeight()
 	require.Equal(9, int(height))
 
 	// check balance
@@ -451,8 +446,7 @@ func TestVoteLocalCommit(t *testing.T) {
 		testutil.CleanupPath(t, testDBPath)
 	}()
 
-	height, err := svr.Blockchain().TipHeight()
-	require.Nil(err)
+	height := svr.Blockchain().TipHeight()
 	require.True(height == 5)
 
 	// Add block 1
@@ -522,15 +516,11 @@ func TestVoteLocalCommit(t *testing.T) {
 	err = p.Broadcast(blk1.ConvertToBlockPb())
 	require.NoError(err)
 	err = testutil.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
-		height, err := svr.Blockchain().TipHeight()
-		if err != nil {
-			return false, err
-		}
+		height := svr.Blockchain().TipHeight()
 		return int(height) == 6, nil
 	})
 	require.NoError(err)
-	tipheight, err := svr.Blockchain().TipHeight()
-	require.Nil(err)
+	tipheight := svr.Blockchain().TipHeight()
 	require.Equal(6, int(tipheight))
 
 	// Add block 2
@@ -572,15 +562,11 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.NoError(err)
 
 	err = testutil.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
-		height, err := svr.Blockchain().TipHeight()
-		if err != nil {
-			return false, err
-		}
+		height := svr.Blockchain().TipHeight()
 		return int(height) == 7, nil
 	})
 	require.Nil(err)
-	tipheight, err = svr.Blockchain().TipHeight()
-	require.Nil(err)
+	tipheight = svr.Blockchain().TipHeight()
 	require.Equal(7, int(tipheight))
 
 	h, candidates := svr.Blockchain().Candidates()
@@ -630,15 +616,11 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.NoError(err)
 
 	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
-		height, err := svr.Blockchain().TipHeight()
-		if err != nil {
-			return false, err
-		}
+		height := svr.Blockchain().TipHeight()
 		return int(height) == 8, nil
 	})
 	require.Nil(err)
-	tipheight, err = svr.Blockchain().TipHeight()
-	require.Nil(err)
+	tipheight = svr.Blockchain().TipHeight()
 	require.Equal(8, int(tipheight))
 
 	h, candidates = svr.Blockchain().Candidates()
@@ -687,15 +669,11 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.NoError(err)
 
 	err = testutil.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
-		height, err := svr.Blockchain().TipHeight()
-		if err != nil {
-			return false, err
-		}
+		height := svr.Blockchain().TipHeight()
 		return int(height) == 9, nil
 	})
 	require.Nil(err)
-	tipheight, err = svr.Blockchain().TipHeight()
-	require.Nil(err)
+	tipheight = svr.Blockchain().TipHeight()
 	require.Equal(9, int(tipheight))
 
 	h, candidates = svr.Blockchain().Candidates()

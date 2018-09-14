@@ -68,7 +68,7 @@ func TestRollDPoSCtx(t *testing.T) {
 			NumDelegates: 4,
 		},
 		func(blockchain *mock_blockchain.MockBlockchain) {
-			blockchain.EXPECT().TipHeight().Return(uint64(8), nil).Times(3)
+			blockchain.EXPECT().TipHeight().Return(uint64(8)).Times(3)
 			blockchain.EXPECT().GetBlockByHeight(uint64(8)).Return(blk, nil).Times(1)
 			blockchain.EXPECT().CandidatesByHeight(gomock.Any()).Return([]*state.Candidate{
 				{Address: candidates[0]},
@@ -153,7 +153,7 @@ func TestIsEpochFinished(t *testing.T) {
 				NumSubEpochs: 2,
 			},
 			func(blockchain *mock_blockchain.MockBlockchain) {
-				blockchain.EXPECT().TipHeight().Return(uint64(8), nil).Times(1)
+				blockchain.EXPECT().TipHeight().Return(uint64(8)).Times(1)
 			},
 			func(_ *mock_actpool.MockActPool) {},
 			func(_ *mock_network.MockOverlay) {},
@@ -171,7 +171,7 @@ func TestIsEpochFinished(t *testing.T) {
 				NumSubEpochs: 2,
 			},
 			func(blockchain *mock_blockchain.MockBlockchain) {
-				blockchain.EXPECT().TipHeight().Return(uint64(12), nil).Times(1)
+				blockchain.EXPECT().TipHeight().Return(uint64(12)).Times(1)
 			},
 			func(_ *mock_actpool.MockActPool) {},
 			func(_ *mock_network.MockOverlay) {},
@@ -238,7 +238,7 @@ func TestRollDPoS_Metrics(t *testing.T) {
 	}
 
 	blockchain := mock_blockchain.NewMockBlockchain(ctrl)
-	blockchain.EXPECT().TipHeight().Return(uint64(8), nil).Times(2)
+	blockchain.EXPECT().TipHeight().Return(uint64(8)).Times(2)
 	blockchain.EXPECT().CandidatesByHeight(gomock.Any()).Return([]*state.Candidate{
 		{Address: candidates[0]},
 		{Address: candidates[1]},
