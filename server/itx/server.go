@@ -132,6 +132,7 @@ func (s *Server) Consensus() consensus.Consensus {
 	return s.consensus
 }
 
+// BlockSync returns the block syncer
 func (s *Server) BlockSync() blocksync.BlockSync {
 	return s.blocksync
 }
