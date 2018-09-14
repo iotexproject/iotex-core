@@ -22,16 +22,21 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	_ "go.uber.org/automaxprocs"
 
+	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/routine"
 	"github.com/iotexproject/iotex-core/server/itx"
 )
 
+// recoveryHeight is the blockchain height being recovered to
+var recoveryHeight int
+
 func init() {
+	flag.IntVar(&recoveryHeight, "recovery-height", 0, "Recovery height")
 	flag.Usage = func() {
 		_, _ = fmt.Fprintf(os.Stderr,
-			"usage: server -config=[string]\n")
+			"usage: server -config-path=[string] -recovery-height=[int]\n")
 		flag.PrintDefaults()
 		os.Exit(2)
 	}
@@ -47,10 +52,11 @@ func main() {
 
 	initLogger(cfg)
 
-	ctx := context.Background()
 	// create and start the node
 	svr := itx.NewServer(cfg)
-	if err := svr.Start(ctx); err != nil {
+	ctx := context.Background()
+	ctxWithValue := context.WithValue(ctx, blockchain.RecoveryHeightKey, uint64(recoveryHeight))
+	if err := svr.Start(ctxWithValue); err != nil {
 		logger.Fatal().Err(err).Msg("Fail to start server.")
 		return
 	}
