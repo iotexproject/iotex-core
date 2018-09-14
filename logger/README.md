@@ -7,7 +7,6 @@ easily parsed and analyzed from all servers.
 
 ```
 import "logger"
-logger.Print("your message")
 logger.Debug().Str("StrKey", "StrValue").Float("FloatKey", float_number).Msg("Your msg");
 ```
 

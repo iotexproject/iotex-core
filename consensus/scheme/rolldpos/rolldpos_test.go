@@ -541,7 +541,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 	})
 
 	checkChains := func(chains []blockchain.Blockchain, height uint64) {
-		assert.NoError(t, testutil.WaitUntil(100*time.Millisecond, 5*time.Second, func() (bool, error) {
+		assert.NoError(t, testutil.WaitUntil(100*time.Millisecond, 10*time.Second, func() (bool, error) {
 			for _, chain := range chains {
 				blk, err := chain.GetBlockByHeight(height)
 				if blk == nil || err != nil {
