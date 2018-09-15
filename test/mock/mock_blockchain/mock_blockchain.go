@@ -413,11 +413,10 @@ func (mr *MockBlockchainMockRecorder) GetFactory() *gomock.Call {
 }
 
 // TipHash mocks base method
-func (m *MockBlockchain) TipHash() (hash.Hash32B, error) {
+func (m *MockBlockchain) TipHash() hash.Hash32B {
 	ret := m.ctrl.Call(m, "TipHash")
 	ret0, _ := ret[0].(hash.Hash32B)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return ret0
 }
 
 // TipHash indicates an expected call of TipHash

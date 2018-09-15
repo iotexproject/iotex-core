@@ -289,8 +289,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 
 	// add wrong blocks
 	h := bc.TipHeight()
-	hash, err = bc.TipHash()
-	require.Nil(err)
+	hash = bc.TipHash()
 	blk, err = bc.GetBlockByHeight(h)
 	require.Nil(err)
 	require.Equal(hash, blk.HashBlock())
@@ -472,8 +471,7 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	require.NotNil(err)
 	// add wrong blocks
 	h := bc.TipHeight()
-	hash, err = bc.TipHash()
-	require.Nil(err)
+	hash = bc.TipHash()
 	blk, err = bc.GetBlockByHeight(h)
 	require.Nil(err)
 	require.Equal(hash, blk.HashBlock())
@@ -584,7 +582,7 @@ func TestBlockchain_MintNewDummyBlock(t *testing.T) {
 
 	blk := bc.MintNewDummyBlock()
 	require.Equal(uint64(1), blk.Height())
-	tipHash, _ := bc.TipHash()
+	tipHash := bc.TipHash()
 	require.NoError(val.Validate(blk, 0, tipHash))
 	tsf, _ := action.NewTransfer(1, big.NewInt(1), "", "", []byte{}, uint64(100000), big.NewInt(10))
 	blk.Transfers = []*action.Transfer{tsf}
