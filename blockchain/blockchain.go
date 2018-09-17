@@ -87,9 +87,9 @@ type Blockchain interface {
 	// GetFactory returns the State Factory
 	GetFactory() state.Factory
 	// TipHash returns tip block's hash
-	TipHash() (hash.Hash32B, error)
+	TipHash() hash.Hash32B
 	// TipHeight returns tip block's height
-	TipHeight() (uint64, error)
+	TipHeight() uint64
 	// StateByAddr returns state of a given address
 	StateByAddr(address string) (*state.State, error)
 
@@ -562,17 +562,17 @@ func (bc *blockchain) GetFactory() state.Factory {
 }
 
 // TipHash returns tip block's hash
-func (bc *blockchain) TipHash() (hash.Hash32B, error) {
+func (bc *blockchain) TipHash() hash.Hash32B {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
-	return bc.tipHash, nil
+	return bc.tipHash
 }
 
 // TipHeight returns tip block's height
-func (bc *blockchain) TipHeight() (uint64, error) {
+func (bc *blockchain) TipHeight() uint64 {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
-	return bc.tipHeight, nil
+	return bc.tipHeight
 }
 
 // ValidateBlock validates a new block before adding it to the blockchain
@@ -694,7 +694,7 @@ func (bc *blockchain) Validator() Validator {
 func (bc *blockchain) ExecuteContractRead(ex *action.Execution) ([]byte, error) {
 	// use latest block as carrier to run the offline execution
 	// the block itself is not used
-	h, _ := bc.TipHeight()
+	h := bc.TipHeight()
 	blk, err := bc.GetBlockByHeight(h)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get block in ExecuteContractRead")

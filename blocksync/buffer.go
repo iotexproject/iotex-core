@@ -105,7 +105,7 @@ func (b *blockBuffer) Flush(blk *blockchain.Block) (bool, bCheckinResult) {
 			}
 			delete(b.blocks, syncHeight)
 		} else {
-			th, _ := b.bc.TipHeight()
+			th := b.bc.TipHeight()
 			if syncHeight == th+1 {
 				// bad block or forked here
 				l.Error().Uint64("syncHeight", syncHeight).

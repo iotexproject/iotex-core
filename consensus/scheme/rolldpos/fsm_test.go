@@ -126,7 +126,8 @@ func TestRollDelegatesEvt(t *testing.T) {
 			ctrl,
 			delegates,
 			func(mockBlockchain *mock_blockchain.MockBlockchain) {
-				mockBlockchain.EXPECT().TipHeight().Return(uint64(0), errors.New("test error")).Times(1)
+				mockBlockchain.EXPECT().TipHeight().Return(uint64(0)).Times(1)
+				mockBlockchain.EXPECT().CandidatesByHeight(gomock.Any()).Return(nil, nil).Times(1)
 			},
 			nil,
 			clock.New(),
@@ -151,7 +152,7 @@ func TestRollDelegatesEvt(t *testing.T) {
 			testAddrs[0],
 			ctrl,
 			delegates, func(mockBlockchain *mock_blockchain.MockBlockchain) {
-				mockBlockchain.EXPECT().TipHeight().Return(uint64(1), nil).Times(1)
+				mockBlockchain.EXPECT().TipHeight().Return(uint64(1)).Times(1)
 				mockBlockchain.EXPECT().CandidatesByHeight(gomock.Any()).Return(nil, nil).Times(1)
 			},
 			nil,
@@ -808,7 +809,7 @@ func TestHandleFinishEpochEvt(t *testing.T) {
 			ctrl,
 			delegates,
 			func(chain *mock_blockchain.MockBlockchain) {
-				chain.EXPECT().TipHeight().Return(uint64(4), nil).Times(1)
+				chain.EXPECT().TipHeight().Return(uint64(4)).Times(1)
 			},
 			nil,
 			clock.New(),
@@ -880,7 +881,7 @@ func newTestCFSM(
 					{Address: delegates[2]},
 					{Address: delegates[3]},
 				}, nil).AnyTimes()
-				blockchain.EXPECT().TipHeight().Return(uint64(1), nil).AnyTimes()
+				blockchain.EXPECT().TipHeight().Return(uint64(1)).AnyTimes()
 				blockchain.EXPECT().ValidateBlock(gomock.Any()).Return(nil).AnyTimes()
 			} else {
 				mockChain(blockchain)
@@ -990,8 +991,7 @@ func TestUpdateSeed(t *testing.T) {
 		require.Equal(idList[i], blk.Header.DKGID)
 		require.True(len(blk.Header.DKGBlockSig) > 0)
 	}
-	height, err := chain.TipHeight()
-	require.NoError(err)
+	height := chain.TipHeight()
 	require.Equal(int(height), 21)
 
 	newSeed, err := fsm.updateSeed()
