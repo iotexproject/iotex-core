@@ -326,44 +326,50 @@ func (ap *actPool) GetCapacity() uint64 {
 func (ap *actPool) validateTsf(tsf *action.Transfer) error {
 	// Reject coinbase transfer
 	if tsf.IsCoinbase {
-		logger.Error().Msg("Error when validating transfer")
+		logger.Error().Msg("Error when validating whether transfer is coinbase")
 		return errors.Wrapf(ErrTransfer, "coinbase transfer")
 	}
 	// Reject oversized transfer
 	if tsf.TotalSize() > TransferSizeLimit {
-		logger.Error().Msg("Error when validating transfer")
+		logger.Error().Msg("Error when validating transfer's data size")
 		return errors.Wrapf(ErrActPool, "oversized data")
 	}
 	// Reject transfer of negative amount
 	if tsf.Amount.Sign() < 0 {
-		logger.Error().Msg("Error when validating transfer")
+		logger.Error().Msg("Error when validating transfer's amount")
 		return errors.Wrapf(ErrBalance, "negative value")
 	}
+
 	// check if sender's address is valid
-	_, err := iotxaddress.GetPubkeyHash(tsf.Sender)
-	if err != nil {
-		return errors.Wrap(err, "error when getting the pubkey hash")
+	if _, err := iotxaddress.GetPubkeyHash(tsf.Sender); err != nil {
+		logger.Error().Msg("Error when validating transfer sender's address")
+		return errors.Wrapf(err, "error when validating sender's address %s", tsf.Sender)
+	}
+	// check if recipient's address is valid
+	if _, err := iotxaddress.GetPubkeyHash(tsf.Recipient); err != nil {
+		logger.Error().Msg("Error when validating transfer recipient's address")
+		return errors.Wrapf(err, "error when validating recipient's address %s", tsf.Recipient)
 	}
 
 	sender, err := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, iotxaddress.ChainID, tsf.SenderPublicKey)
 	if err != nil {
-		logger.Error().Err(err).Msg("Error when validating transfer")
+		logger.Error().Err(err).Msg("Error when validating transfer sender's public key")
 		return errors.Wrapf(err, "invalid address")
 	}
 	// Verify transfer using sender's public key
 	if err := tsf.Verify(sender); err != nil {
-		logger.Error().Err(err).Msg("Error when validating transfer")
+		logger.Error().Err(err).Msg("Error when validating transfer's signature")
 		return errors.Wrapf(err, "failed to verify Transfer signature")
 	}
 	// Reject transfer if nonce is too low
 	confirmedNonce, err := ap.bc.Nonce(tsf.Sender)
 	if err != nil {
-		logger.Error().Err(err).Msg("Error when validating transfer")
+		logger.Error().Err(err).Msg("Error when validating transfer's nonce")
 		return errors.Wrapf(err, "invalid nonce value")
 	}
 	pendingNonce := confirmedNonce + 1
 	if pendingNonce > tsf.Nonce {
-		logger.Error().Msg("Error when validating transfer")
+		logger.Error().Msg("Error when validating transfer's nonce")
 		return errors.Wrapf(ErrNonce, "nonce too low")
 	}
 	return nil
@@ -382,33 +388,42 @@ func (ap *actPool) validateExecution(exec *action.Execution) error {
 	}
 	// Reject execution of negative amount
 	if exec.Amount.Sign() < 0 {
-		logger.Error().Msg("Error when validating execution amount")
+		logger.Error().Msg("Error when validating execution's amount")
 		return errors.Wrapf(ErrBalance, "negative value")
 	}
+
 	// check if executor's address is valid
 	if _, err := iotxaddress.GetPubkeyHash(exec.Executor); err != nil {
-		return errors.Wrap(err, "error when getting the pubkey hash")
+		logger.Error().Msg("Error when validating executor's address")
+		return errors.Wrapf(err, "error when validating executor's address %s", exec.Executor)
+	}
+	// check if contract's address is valid
+	if exec.Contract != action.EmptyAddress {
+		if _, err := iotxaddress.GetPubkeyHash(exec.Contract); err != nil {
+			logger.Error().Msg("Error when validating contract's address")
+			return errors.Wrapf(err, "error when validating contract's address %s", exec.Contract)
+		}
 	}
 
 	executor, err := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, iotxaddress.ChainID, exec.ExecutorPubKey)
 	if err != nil {
-		logger.Error().Err(err).Msg("Error when validating execution")
+		logger.Error().Err(err).Msg("Error when validating executor's public key")
 		return errors.Wrapf(err, "invalid address")
 	}
 	// Verify transfer using executor's public key
 	if err := exec.Verify(executor); err != nil {
-		logger.Error().Err(err).Msg("Error when validating execution")
+		logger.Error().Err(err).Msg("Error when validating execution's signature")
 		return errors.Wrapf(err, "failed to verify Execution signature")
 	}
 	// Reject transfer if nonce is too low
 	confirmedNonce, err := ap.bc.Nonce(executor.RawAddress)
 	if err != nil {
-		logger.Error().Err(err).Msg("Error when validating execution")
+		logger.Error().Err(err).Msg("Error when validating execution's nonce")
 		return errors.Wrapf(err, "invalid nonce value")
 	}
 	pendingNonce := confirmedNonce + 1
 	if pendingNonce > exec.Nonce {
-		logger.Error().Msg("Error when validating execution")
+		logger.Error().Msg("Error when validating execution's nonce")
 		return errors.Wrapf(ErrNonce, "nonce too low")
 	}
 	return nil
@@ -418,57 +433,66 @@ func (ap *actPool) validateExecution(exec *action.Execution) error {
 func (ap *actPool) validateVote(vote *action.Vote) error {
 	// Reject oversized vote
 	if vote.TotalSize() > VoteSizeLimit {
-		logger.Error().Msg("Error when validating vote")
+		logger.Error().Msg("Error when validating vote's data size")
 		return errors.Wrapf(ErrActPool, "oversized data")
 	}
 	selfPublicKey, err := vote.SelfPublicKey()
 	if err != nil {
-		return err
+		logger.Error().Err(err).Msg("Error when validating voter's public key")
+		return errors.Wrapf(err, "failed to get voter's public key")
 	}
+
+	// check if voter's address is valid
+	if _, err := iotxaddress.GetPubkeyHash(vote.GetVote().VoterAddress); err != nil {
+		logger.Error().Err(err).Msg("Error when validating voter's address")
+		return errors.Wrapf(err, "error when validating voter's address %s", vote.GetVote().VoterAddress)
+	}
+	// check if votee's address is valid
+	if vote.GetVote().VoteeAddress != action.EmptyAddress {
+		if _, err := iotxaddress.GetPubkeyHash(vote.GetVote().VoteeAddress); err != nil {
+			logger.Error().Err(err).Msg("Error when validating votee's address")
+			return errors.Wrapf(err, "error when validating votee's address %s", vote.GetVote().VoteeAddress)
+		}
+	}
+
 	voter, err := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, iotxaddress.ChainID, selfPublicKey)
 	if err != nil {
-		logger.Error().Err(err).Msg("Error when validating vote")
-		return errors.Wrapf(err, "invalid voter address")
+		logger.Error().Err(err).Msg("Error when validating voter's public key")
+		return errors.Wrapf(err, "invalid address")
 	}
 	// Verify vote using voter's public key
 	if err := vote.Verify(voter); err != nil {
-		logger.Error().Err(err).Msg("Error when validating vote")
+		logger.Error().Err(err).Msg("Error when validating vote's signature")
 		return errors.Wrapf(err, "failed to verify Vote signature")
 	}
 
 	// Reject vote if nonce is too low
 	confirmedNonce, err := ap.bc.Nonce(voter.RawAddress)
 	if err != nil {
-		logger.Error().Err(err).Msg("Error when validating vote")
+		logger.Error().Err(err).Msg("Error when validating vote's nonce")
 		return errors.Wrapf(err, "invalid nonce value")
 	}
 	pbVote := vote.GetVote()
 	if pbVote.VoteeAddress != "" {
 		// Reject vote if votee is not a candidate
-		if err != nil {
-			logger.Error().
-				Err(err).Hex("voter", pbVote.SelfPubkey[:]).Str("votee", pbVote.VoteeAddress).
-				Msg("Error when validating vote")
-			return errors.Wrapf(err, "invalid votee public key: %s", pbVote.VoteeAddress)
-		}
 		voteeState, err := ap.bc.StateByAddr(pbVote.VoteeAddress)
 		if err != nil {
 			logger.Error().Err(err).
 				Hex("voter", pbVote.SelfPubkey[:]).Str("votee", pbVote.VoteeAddress).
-				Msg("Error when validating vote")
+				Msg("Error when validating votee's state")
 			return errors.Wrapf(err, "cannot find votee's state: %s", pbVote.VoteeAddress)
 		}
 		if voter.RawAddress != pbVote.VoteeAddress && !voteeState.IsCandidate {
 			logger.Error().Err(ErrVotee).
 				Hex("voter", pbVote.SelfPubkey[:]).Str("votee", pbVote.VoteeAddress).
-				Msg("Error when validating vote")
+				Msg("Error when validating votee's state")
 			return errors.Wrapf(ErrVotee, "votee has not self-nominated: %s", pbVote.VoteeAddress)
 		}
 	}
 
 	pendingNonce := confirmedNonce + 1
 	if pendingNonce > vote.Nonce {
-		logger.Error().Msg("Error when validating vote")
+		logger.Error().Msg("Error when validating vote's nonce")
 		return errors.Wrapf(ErrNonce, "nonce too low")
 	}
 	return nil

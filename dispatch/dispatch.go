@@ -103,11 +103,11 @@ func (d *IotxDispatcher) Start(ctx context.Context) error {
 
 	logger.Info().Msg("Starting dispatcher")
 	if err := d.cs.Start(ctx); err != nil {
-		return err
+		return errors.Wrap(err, "error when starting consensus")
 	}
 
 	if err := d.bs.Start(ctx); err != nil {
-		return err
+		return errors.Wrap(err, "error when starting blocksync")
 	}
 
 	d.wg.Add(1)

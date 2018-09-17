@@ -7,8 +7,10 @@
 package actpool
 
 import (
+	"context"
 	"fmt"
 	"math/big"
+	"strings"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -53,6 +55,7 @@ var (
 func TestActPool_validateTsf(t *testing.T) {
 	require := require.New(t)
 	bc := blockchain.NewBlockchain(&config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	require.NoError(bc.Start(context.Background()))
 	_, err := bc.CreateState(addr1.RawAddress, uint64(100))
 	require.NoError(err)
 	require.NoError(bc.GetFactory().CommitStateChanges(0, nil, nil, nil))
@@ -61,26 +64,31 @@ func TestActPool_validateTsf(t *testing.T) {
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
-	// Case I: Coinbase Transfer
+	// Case I: Coinbase transfer
 	coinbaseTsf := action.Transfer{IsCoinbase: true}
 	err = ap.validateTsf(&coinbaseTsf)
 	require.Equal(ErrTransfer, errors.Cause(err))
-	// Case II: Oversized Data
+	// Case II: Oversized data
 	tmpPayload := [32769]byte{}
 	payload := tmpPayload[:]
 	tsf := action.Transfer{Payload: payload}
 	err = ap.validateTsf(&tsf)
 	require.Equal(ErrActPool, errors.Cause(err))
-	// Case III: Negative Amount
+	// Case III: Negative amount
 	tsf = action.Transfer{Amount: big.NewInt(-100)}
 	err = ap.validateTsf(&tsf)
-	require.NotNil(ErrBalance, errors.Cause(err))
-	// Case IV: Signature Verification Fails
+	require.Equal(ErrBalance, errors.Cause(err))
+	// Case IV: Invalid address
+	tsf = action.Transfer{Sender: addr1.RawAddress, Recipient: "io1qyqsyqcyq5narhapakcsrhksfajfcpl24us3xp38zwvsep", Amount: big.NewInt(1)}
+	err = ap.validateTsf(&tsf)
+	require.Error(err)
+	require.True(strings.Contains(err.Error(), "error when validating recipient's address"))
+	// Case V: Signature verification fails
 	unsignedTsf, err := action.NewTransfer(uint64(1), big.NewInt(1), addr1.RawAddress, addr1.RawAddress, []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(err)
 	err = ap.validateTsf(unsignedTsf)
 	require.Equal(action.ErrTransferError, errors.Cause(err))
-	// Case V: Nonce is too low
+	// Case VI: Nonce is too low
 	prevTsf, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(50), []byte{}, uint64(100000), big.NewInt(10))
 	err = ap.AddTsf(prevTsf)
 	require.NoError(err)
@@ -95,6 +103,7 @@ func TestActPool_validateTsf(t *testing.T) {
 func TestActPool_validateVote(t *testing.T) {
 	require := require.New(t)
 	bc := blockchain.NewBlockchain(&config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	require.NoError(bc.Start(context.Background()))
 	_, err := bc.CreateState(addr1.RawAddress, uint64(100))
 	require.NoError(err)
 	_, err = bc.CreateState(addr2.RawAddress, uint64(100))
@@ -105,7 +114,7 @@ func TestActPool_validateVote(t *testing.T) {
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
-	// Case I: Oversized Data
+	// Case I: Oversized data
 	tmpSelfPubKey := [32769]byte{}
 	selfPubKey := tmpSelfPubKey[:]
 	vote := action.Vote{
@@ -118,13 +127,39 @@ func TestActPool_validateVote(t *testing.T) {
 	}
 	err = ap.validateVote(&vote)
 	require.Equal(ErrActPool, errors.Cause(err))
-	// Case II: Signature Verification Fails
+	// Case II: Invalid voter's public key
+	vote = action.Vote{
+		ActionPb: &iproto.ActionPb{
+			Action: &iproto.ActionPb_Vote{
+				Vote: &iproto.VotePb{},
+			},
+		},
+	}
+	err = ap.validateVote(&vote)
+	require.Error(err)
+	require.True(strings.Contains(err.Error(), "failed to get voter's public key"))
+	// Case III: Invalid address
+	vote = action.Vote{
+		ActionPb: &iproto.ActionPb{
+			Action: &iproto.ActionPb_Vote{
+				Vote: &iproto.VotePb{
+					SelfPubkey:   addr1.PublicKey[:],
+					VoterAddress: addr1.RawAddress,
+					VoteeAddress: "123",
+				},
+			},
+		},
+	}
+	err = ap.validateVote(&vote)
+	require.Error(err)
+	require.True(strings.Contains(err.Error(), "error when validating votee's address"))
+	// Case IV: Signature verification fails
 	unsignedVote, err := action.NewVote(1, addr1.RawAddress, addr2.RawAddress, uint64(100000), big.NewInt(10))
 	unsignedVote.GetVote().SelfPubkey = addr1.PublicKey[:]
 	require.NoError(err)
 	err = ap.validateVote(unsignedVote)
 	require.Equal(action.ErrVoteError, errors.Cause(err))
-	// Case III: Nonce is too low
+	// Case V: Nonce is too low
 	prevTsf, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(50), []byte{}, uint64(100000), big.NewInt(10))
 	err = ap.AddTsf(prevTsf)
 	require.NoError(err)
@@ -134,7 +169,7 @@ func TestActPool_validateVote(t *testing.T) {
 	nVote, _ := signedVote(addr1, addr1, uint64(1), uint64(100000), big.NewInt(10))
 	err = ap.validateVote(nVote)
 	require.Equal(ErrNonce, errors.Cause(err))
-	// Case IV: Votee is not a candidate
+	// Case VI: Votee is not a candidate
 	vote2, _ := signedVote(addr1, addr2, uint64(2), uint64(100000), big.NewInt(10))
 	err = ap.validateVote(vote2)
 	require.Equal(ErrVotee, errors.Cause(err))
@@ -145,6 +180,7 @@ func TestActPool_AddActs(t *testing.T) {
 	defer ctrl.Finish()
 	require := require.New(t)
 	bc := blockchain.NewBlockchain(&config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	require.NoError(bc.Start(context.Background()))
 	_, err := bc.CreateState(addr1.RawAddress, uint64(100))
 	require.NoError(err)
 	_, err = bc.CreateState(addr2.RawAddress, uint64(10))
@@ -257,6 +293,7 @@ func TestActPool_PickActs(t *testing.T) {
 	createActPool := func(cfg config.ActPool) (*actPool, []*action.Transfer, []*action.Vote, []*action.Execution) {
 		require := require.New(t)
 		bc := blockchain.NewBlockchain(&config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+		require.NoError(bc.Start(context.Background()))
 		_, err := bc.CreateState(addr1.RawAddress, uint64(100))
 		require.NoError(err)
 		_, err = bc.CreateState(addr2.RawAddress, uint64(10))
@@ -331,6 +368,7 @@ func TestActPool_PickActs(t *testing.T) {
 func TestActPool_removeConfirmedActs(t *testing.T) {
 	require := require.New(t)
 	bc := blockchain.NewBlockchain(&config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	require.NoError(bc.Start(context.Background()))
 	_, err := bc.CreateState(addr1.RawAddress, uint64(100))
 	require.NoError(err)
 	require.NoError(bc.GetFactory().CommitStateChanges(0, nil, nil, nil))
@@ -368,6 +406,7 @@ func TestActPool_Reset(t *testing.T) {
 	require := require.New(t)
 
 	bc := blockchain.NewBlockchain(&config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	require.NoError(bc.Start(context.Background()))
 	_, err := bc.CreateState(addr1.RawAddress, uint64(100))
 	require.NoError(err)
 	_, err = bc.CreateState(addr2.RawAddress, uint64(200))
@@ -674,6 +713,7 @@ func TestActPool_Reset(t *testing.T) {
 func TestActPool_removeInvalidActs(t *testing.T) {
 	require := require.New(t)
 	bc := blockchain.NewBlockchain(&config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	require.NoError(bc.Start(context.Background()))
 	_, err := bc.CreateState(addr1.RawAddress, uint64(100))
 	require.NoError(err)
 	require.NoError(bc.GetFactory().CommitStateChanges(0, nil, nil, nil))
@@ -713,6 +753,7 @@ func TestActPool_removeInvalidActs(t *testing.T) {
 func TestActPool_GetPendingNonce(t *testing.T) {
 	require := require.New(t)
 	bc := blockchain.NewBlockchain(&config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	require.NoError(bc.Start(context.Background()))
 	_, err := bc.CreateState(addr1.RawAddress, uint64(100))
 	require.NoError(err)
 	_, err = bc.CreateState(addr2.RawAddress, uint64(100))
@@ -748,6 +789,7 @@ func TestActPool_GetPendingNonce(t *testing.T) {
 func TestActPool_GetUnconfirmedActs(t *testing.T) {
 	require := require.New(t)
 	bc := blockchain.NewBlockchain(&config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	require.NoError(bc.Start(context.Background()))
 	_, err := bc.CreateState(addr1.RawAddress, uint64(100))
 	require.NoError(err)
 	_, err = bc.CreateState(addr2.RawAddress, uint64(100))
@@ -784,6 +826,7 @@ func TestActPool_GetUnconfirmedActs(t *testing.T) {
 func TestActPool_GetActionByHash(t *testing.T) {
 	require := require.New(t)
 	bc := blockchain.NewBlockchain(&config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	require.NoError(bc.Start(context.Background()))
 	_, err := bc.CreateState(addr1.RawAddress, uint64(100))
 	require.NoError(err)
 	_, err = bc.CreateState(addr2.RawAddress, uint64(100))
@@ -831,6 +874,7 @@ func TestActPool_GetCapacity(t *testing.T) {
 func TestActPool_GetSize(t *testing.T) {
 	require := require.New(t)
 	bc := blockchain.NewBlockchain(&config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	require.NoError(bc.Start(context.Background()))
 	_, err := bc.CreateState(addr1.RawAddress, uint64(100))
 	require.NoError(err)
 	require.NoError(bc.CommitStateChanges(0, nil, nil, nil))
