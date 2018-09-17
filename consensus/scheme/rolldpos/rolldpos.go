@@ -101,14 +101,8 @@ func (ctx *rollDPoSCtx) rollingDelegates(epochNum uint64) ([]string, error) {
 // calcEpochNum calculates the epoch ordinal number and the epoch start height offset, which is based on the height of
 // the next block to be produced
 func (ctx *rollDPoSCtx) calcEpochNumAndHeight() (uint64, uint64, error) {
-	height, err := ctx.chain.TipHeight()
-	if err != nil {
-		return 0, 0, err
-	}
+	height := ctx.chain.TipHeight()
 	numDlgs := ctx.cfg.NumDelegates
-	if err != nil {
-		return 0, 0, err
-	}
 	subEpochNum := ctx.getNumSubEpochs()
 	epochNum := height/(uint64(numDlgs)*uint64(subEpochNum)) + 1
 	epochHeight := uint64(numDlgs)*uint64(subEpochNum)*(epochNum-1) + 1
@@ -134,10 +128,7 @@ func (ctx *rollDPoSCtx) getNumSubEpochs() uint {
 // rotatedProposer will rotate among the delegates to choose the proposer. It is pseudo order based on the position
 // in the delegate list and the block height
 func (ctx *rollDPoSCtx) rotatedProposer() (string, uint64, error) {
-	height, err := ctx.chain.TipHeight()
-	if err != nil {
-		return "", 0, err
-	}
+	height := ctx.chain.TipHeight()
 	// Next block height
 	height++
 	proposer, err := ctx.calcProposer(height, ctx.epoch.delegates)
@@ -190,10 +181,7 @@ func (ctx *rollDPoSCtx) mintBlock() (*blockchain.Block, error) {
 
 // calcDurationSinceLastBlock returns the duration since last block time
 func (ctx *rollDPoSCtx) calcDurationSinceLastBlock() (time.Duration, error) {
-	height, err := ctx.chain.TipHeight()
-	if err != nil {
-		return 0, errors.Wrap(err, "error when getting the blockchain height")
-	}
+	height := ctx.chain.TipHeight()
 	blk, err := ctx.chain.GetBlockByHeight(height)
 	if err != nil {
 		return 0, errors.Wrapf(err, "error when getting the block at height: %d", height)
@@ -218,10 +206,7 @@ func (ctx *rollDPoSCtx) calcQuorum(decisions map[string]bool) (bool, bool) {
 
 // isEpochFinished checks the epoch is finished or not
 func (ctx *rollDPoSCtx) isEpochFinished() (bool, error) {
-	height, err := ctx.chain.TipHeight()
-	if err != nil {
-		return false, errors.Wrap(err, "error when getting the blockchain height")
-	}
+	height := ctx.chain.TipHeight()
 	// if the height of the last committed block is already the last one should be minted from this epochStart, go back
 	// to epochStart start
 	if height >= ctx.epoch.height+uint64(uint(len(ctx.epoch.delegates))*ctx.epoch.numSubEpochs)-1 {
@@ -301,10 +286,7 @@ func (r *RollDPoS) Metrics() (scheme.ConsensusMetrics, error) {
 		return metrics, errors.Wrap(err, "error when getting the rolling delegates")
 	}
 	// Compute the height
-	height, err := r.ctx.chain.TipHeight()
-	if err != nil {
-		return metrics, errors.Wrap(err, "error when getting the blockchain height")
-	}
+	height := r.ctx.chain.TipHeight()
 	// Compute block producer
 	producer, err := r.ctx.calcProposer(height+1, delegates)
 	if err != nil {

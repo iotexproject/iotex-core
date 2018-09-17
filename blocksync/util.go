@@ -31,7 +31,7 @@ func commitBlock(bc blockchain.Blockchain, ap actpool.ActPool, blk *blockchain.B
 // 3. FIXME this node may still has issue, if it was following the wrong chain, this is actually a general version of 2, but in 3, we need to rollback blockchain first
 func findSyncStartHeight(bc blockchain.Blockchain) (uint64, error) {
 	var next uint64
-	h, _ := bc.TipHeight()
+	h := bc.TipHeight()
 	for ; ; h-- {
 		blk, err := bc.GetBlockByHeight(h)
 		if err != nil {
