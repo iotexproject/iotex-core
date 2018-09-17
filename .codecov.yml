@@ -9,5 +9,3 @@ coverage:
       default:
         enabled: yes
         target: auto
-    ignore:
-      - "txvm"
