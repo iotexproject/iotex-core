@@ -100,16 +100,7 @@ func (d *IotxDispatcher) Start(ctx context.Context) error {
 	if atomic.AddInt32(&d.started, 1) != 1 {
 		return errors.New("Dispatcher already started")
 	}
-
 	logger.Info().Msg("Starting dispatcher")
-	if err := d.cs.Start(ctx); err != nil {
-		return errors.Wrap(err, "error when starting consensus")
-	}
-
-	if err := d.bs.Start(ctx); err != nil {
-		return errors.Wrap(err, "error when starting blocksync")
-	}
-
 	d.wg.Add(1)
 	go d.newsHandler()
 	return nil
@@ -121,16 +112,7 @@ func (d *IotxDispatcher) Stop(ctx context.Context) error {
 		logger.Warn().Msg("Dispatcher already in the process of shutting down")
 		return nil
 	}
-
 	logger.Info().Msg("Dispatcher is shutting down")
-	if err := d.cs.Stop(ctx); err != nil {
-		return err
-	}
-
-	if err := d.bs.Stop(ctx); err != nil {
-		return err
-	}
-
 	close(d.quit)
 	d.wg.Wait()
 	return nil
