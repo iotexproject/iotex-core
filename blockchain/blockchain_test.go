@@ -145,8 +145,7 @@ func TestCreateBlockchain(t *testing.T) {
 	bc := NewBlockchain(&cfg, InMemDaoOption())
 	require.NoError(t, bc.Start(ctx))
 	assert.NotNil(bc)
-	height, err := bc.TipHeight()
-	assert.Nil(err)
+	height := bc.TipHeight()
 	assert.Equal(0, int(height))
 	fmt.Printf("Create blockchain pass, height = %d\n", height)
 	defer func() {
@@ -183,8 +182,7 @@ func TestCreateBlockchain(t *testing.T) {
 
 	// add 4 sample blocks
 	assert.Nil(addTestingTsfBlocks(bc))
-	height, err = bc.TipHeight()
-	assert.Nil(err)
+	height = bc.TipHeight()
 	assert.Equal(4, int(height))
 }
 
@@ -215,8 +213,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	bc := NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	require.NoError(bc.Start(ctx))
 	require.NotNil(bc)
-	height, err := bc.TipHeight()
-	require.Nil(err)
+	height := bc.TipHeight()
 	fmt.Printf("Open blockchain pass, height = %d\n", height)
 	require.Nil(addTestingTsfBlocks(bc))
 	err = bc.Stop(ctx)
@@ -291,10 +288,8 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	require.NotNil(err)
 
 	// add wrong blocks
-	h, err := bc.TipHeight()
-	require.Nil(err)
-	hash, err = bc.TipHash()
-	require.Nil(err)
+	h := bc.TipHeight()
+	hash = bc.TipHash()
 	blk, err = bc.GetBlockByHeight(h)
 	require.Nil(err)
 	require.Equal(hash, blk.HashBlock())
@@ -409,8 +404,7 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	bc := NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	require.NoError(bc.Start(ctx))
 	require.NotNil(bc)
-	height, err := bc.TipHeight()
-	require.Nil(err)
+	height := bc.TipHeight()
 	fmt.Printf("Open blockchain pass, height = %d\n", height)
 	require.Nil(addTestingTsfBlocks(bc))
 	err = bc.Stop(ctx)
@@ -476,10 +470,8 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	require.Nil(blk)
 	require.NotNil(err)
 	// add wrong blocks
-	h, err := bc.TipHeight()
-	require.Nil(err)
-	hash, err = bc.TipHash()
-	require.Nil(err)
+	h := bc.TipHeight()
+	hash = bc.TipHash()
 	blk, err = bc.GetBlockByHeight(h)
 	require.Nil(err)
 	require.Equal(hash, blk.HashBlock())
@@ -590,7 +582,7 @@ func TestBlockchain_MintNewDummyBlock(t *testing.T) {
 
 	blk := bc.MintNewDummyBlock()
 	require.Equal(uint64(1), blk.Height())
-	tipHash, _ := bc.TipHash()
+	tipHash := bc.TipHash()
 	require.NoError(val.Validate(blk, 0, tipHash))
 	tsf, _ := action.NewTransfer(1, big.NewInt(1), "", "", []byte{}, uint64(100000), big.NewInt(10))
 	blk.Transfers = []*action.Transfer{tsf}
@@ -655,8 +647,7 @@ func TestCoinbaseTransfer(t *testing.T) {
 	bc := NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	require.NoError(bc.Start(context.Background()))
 	require.NotNil(bc)
-	height, err := bc.TipHeight()
-	require.Nil(err)
+	height := bc.TipHeight()
 	require.Equal(0, int(height))
 
 	transfers := []*action.Transfer{}
@@ -668,8 +659,7 @@ func TestCoinbaseTransfer(t *testing.T) {
 	require.True(b.String() == strconv.Itoa(int(Gen.TotalSupply)))
 	err = bc.CommitBlock(blk)
 	require.Nil(err)
-	height, err = bc.TipHeight()
-	require.Nil(err)
+	height = bc.TipHeight()
 	require.True(height == 1)
 	require.True(len(blk.Transfers) == 1)
 	s, err = bc.StateByAddr(ta.Addrinfo["producer"].RawAddress)
