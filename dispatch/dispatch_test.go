@@ -26,11 +26,9 @@ func TestNewDispatcher(t *testing.T) {
 	defer ctrl.Finish()
 
 	ctx := context.Background()
-	d, bs := createDispatcher(ctrl)
+	d, _ := createDispatcher(ctrl)
 	assert.NotNil(t, d)
 
-	bs.EXPECT().Start(gomock.Any()).Times(1)
-	bs.EXPECT().Stop(gomock.Any()).Times(1)
 	err := d.Start(ctx)
 	assert.NoError(t, err)
 	defer func() {
@@ -47,8 +45,6 @@ func TestDispatchBlockMsg(t *testing.T) {
 	d, bs := createDispatcher(ctrl)
 	assert.NotNil(t, d)
 
-	bs.EXPECT().Start(gomock.Any()).Times(1)
-	bs.EXPECT().Stop(gomock.Any()).Times(1)
 	err := d.Start(ctx)
 	assert.NoError(t, err)
 	defer func() {
@@ -74,8 +70,6 @@ func TestDispatchBlockSyncReq(t *testing.T) {
 	d, bs := createDispatcher(ctrl)
 	assert.NotNil(t, d)
 
-	bs.EXPECT().Start(gomock.Any()).Times(1)
-	bs.EXPECT().Stop(gomock.Any()).Times(1)
 	err := d.Start(ctx)
 	assert.NoError(t, err)
 	defer func() {
@@ -101,8 +95,6 @@ func TestDispatchBlockSyncData(t *testing.T) {
 	d, bs := createDispatcher(ctrl)
 	assert.NotNil(t, d)
 
-	bs.EXPECT().Start(gomock.Any()).Times(1)
-	bs.EXPECT().Stop(gomock.Any()).Times(1)
 	err := d.Start(ctx)
 	assert.NoError(t, err)
 	defer func() {
@@ -129,8 +121,6 @@ func createDispatcher(
 	}
 	bs := mock_blocksync.NewMockBlockSync(ctrl)
 	cs := mock_consensus.NewMockConsensus(ctrl)
-	cs.EXPECT().Start(gomock.Any()).Times(1)
-	cs.EXPECT().Stop(gomock.Any()).Times(1)
 	dp, _ := NewDispatcher(cfg, nil, bs, cs)
 
 	return dp, bs
