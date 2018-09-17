@@ -156,15 +156,3 @@ func (m *MockActPool) GetCapacity() uint64 {
 func (mr *MockActPoolMockRecorder) GetCapacity() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCapacity", reflect.TypeOf((*MockActPool)(nil).GetCapacity))
 }
-
-// GetUnconfirmedActSize mocks base method
-func (m *MockActPool) GetUnconfirmedActSize() uint64 {
-	ret := m.ctrl.Call(m, "GetUnconfirmedActSize")
-	ret0, _ := ret[0].(uint64)
-	return ret0
-}
-
-// GetUnconfirmedActSize indicates an expected call of GetUnconfirmedActSize
-func (mr *MockActPoolMockRecorder) GetUnconfirmedActSize() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnconfirmedActSize", reflect.TypeOf((*MockActPool)(nil).GetUnconfirmedActSize))
-}

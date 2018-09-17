@@ -67,8 +67,8 @@ type Service struct {
 
 // GetBlockchainHeight returns the current blockchain tip height
 func (exp *Service) GetBlockchainHeight() (int64, error) {
-	tip, err := exp.bc.TipHeight()
-	return int64(tip), err
+	tip := exp.bc.TipHeight()
+	return int64(tip), nil
 }
 
 // GetAddressBalance returns the balance of an address
@@ -691,10 +691,7 @@ func (exp *Service) GetBlockByID(blkID string) (explorer.Block, error) {
 func (exp *Service) GetCoinStatistic() (explorer.CoinStatistic, error) {
 	stat := explorer.CoinStatistic{}
 
-	tipHeight, err := exp.bc.TipHeight()
-	if err != nil {
-		return stat, err
-	}
+	tipHeight := exp.bc.TipHeight()
 
 	totalTransfers, err := exp.bc.GetTotalTransfers()
 	if err != nil {
