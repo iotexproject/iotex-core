@@ -794,6 +794,40 @@ func TestDummyBlockReplacement(t *testing.T) {
 	require.False(bk2.IsDummyBlock())
 }
 
+func TestBlockchainRecovery(t *testing.T) {
+	require := require.New(t)
+
+	testutil.CleanupPath(t, testTriePath)
+	testutil.CleanupPath(t, testDBPath)
+
+	blockchain.Gen.BlockReward = uint64(0)
+
+	cfg, err := newTestConfig()
+	require.Nil(err)
+
+	// create server
+	ctx := context.Background()
+	svr := itx.NewServer(cfg)
+	require.NoError(svr.Start(ctx))
+	bc := svr.Blockchain()
+	require.NotNil(bc)
+	require.NoError(addTestingTsfBlocks(bc))
+
+	defer func() {
+		require.Nil(svr.Stop(ctx))
+		testutil.CleanupPath(t, testTriePath)
+		testutil.CleanupPath(t, testDBPath)
+	}()
+
+	// stop server and delete state db
+	require.NoError(svr.Stop(ctx))
+	testutil.CleanupPath(t, testTriePath)
+
+	// restart server
+	svr = itx.NewServer(cfg)
+	require.NoError(svr.Start(ctx))
+}
+
 func newSignedVote(nonce int, from *iotxaddress.Address, to *iotxaddress.Address) (*action.Vote, error) {
 	vote, err := action.NewVote(uint64(nonce), from.RawAddress, to.RawAddress, uint64(100000), big.NewInt(10))
 	if err != nil {
