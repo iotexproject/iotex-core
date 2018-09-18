@@ -58,7 +58,9 @@ func TestActPool_validateTsf(t *testing.T) {
 	require.NoError(bc.Start(context.Background()))
 	_, err := bc.CreateState(addr1.RawAddress, uint64(100))
 	require.NoError(err)
-	require.NoError(bc.GetFactory().CommitStateChanges(0, nil, nil, nil))
+	_, err = bc.GetFactory().RunActions(0, nil, nil, nil)
+	require.NoError(err)
+	require.Nil(bc.GetFactory().Commit())
 	apConfig := getActPoolCfg()
 	Ap, err := NewActPool(bc, apConfig)
 	require.NoError(err)
@@ -92,8 +94,9 @@ func TestActPool_validateTsf(t *testing.T) {
 	prevTsf, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(50), []byte{}, uint64(100000), big.NewInt(10))
 	err = ap.AddTsf(prevTsf)
 	require.NoError(err)
-	err = bc.CommitStateChanges(0, []*action.Transfer{prevTsf}, nil, nil)
+	_, err = bc.GetFactory().RunActions(0, []*action.Transfer{prevTsf}, nil, nil)
 	require.NoError(err)
+	require.Nil(bc.GetFactory().Commit())
 	ap.Reset()
 	nTsf, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(60), []byte{}, uint64(100000), big.NewInt(10))
 	err = ap.validateTsf(nTsf)
@@ -108,7 +111,9 @@ func TestActPool_validateVote(t *testing.T) {
 	require.NoError(err)
 	_, err = bc.CreateState(addr2.RawAddress, uint64(100))
 	require.NoError(err)
-	require.NoError(bc.GetFactory().CommitStateChanges(0, nil, nil, nil))
+	_, err = bc.GetFactory().RunActions(0, nil, nil, nil)
+	require.NoError(err)
+	require.Nil(bc.GetFactory().Commit())
 	apConfig := getActPoolCfg()
 	Ap, err := NewActPool(bc, apConfig)
 	require.NoError(err)
@@ -163,8 +168,9 @@ func TestActPool_validateVote(t *testing.T) {
 	prevTsf, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(50), []byte{}, uint64(100000), big.NewInt(10))
 	err = ap.AddTsf(prevTsf)
 	require.NoError(err)
-	err = bc.CommitStateChanges(0, []*action.Transfer{prevTsf}, nil, nil)
+	_, err = bc.GetFactory().RunActions(0, []*action.Transfer{prevTsf}, nil, nil)
 	require.NoError(err)
+	require.Nil(bc.GetFactory().Commit())
 	ap.Reset()
 	nVote, _ := signedVote(addr1, addr1, uint64(1), uint64(100000), big.NewInt(10))
 	err = ap.validateVote(nVote)
@@ -185,7 +191,9 @@ func TestActPool_AddActs(t *testing.T) {
 	require.NoError(err)
 	_, err = bc.CreateState(addr2.RawAddress, uint64(10))
 	require.NoError(err)
-	require.NoError(bc.GetFactory().CommitStateChanges(0, nil, nil, nil))
+	_, err = bc.GetFactory().RunActions(0, nil, nil, nil)
+	require.NoError(err)
+	require.Nil(bc.GetFactory().Commit())
 	// Create actpool
 	apConfig := getActPoolCfg()
 	Ap, err := NewActPool(bc, apConfig)
@@ -298,7 +306,9 @@ func TestActPool_PickActs(t *testing.T) {
 		require.NoError(err)
 		_, err = bc.CreateState(addr2.RawAddress, uint64(10))
 		require.NoError(err)
-		require.NoError(bc.GetFactory().CommitStateChanges(0, nil, nil, nil))
+		_, err = bc.GetFactory().RunActions(0, nil, nil, nil)
+		require.NoError(err)
+		require.Nil(bc.GetFactory().Commit())
 		// Create actpool
 		Ap, err := NewActPool(bc, cfg)
 		require.NoError(err)
@@ -371,7 +381,9 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	require.NoError(bc.Start(context.Background()))
 	_, err := bc.CreateState(addr1.RawAddress, uint64(100))
 	require.NoError(err)
-	require.NoError(bc.GetFactory().CommitStateChanges(0, nil, nil, nil))
+	_, err = bc.GetFactory().RunActions(0, nil, nil, nil)
+	require.NoError(err)
+	require.Nil(bc.GetFactory().Commit())
 	// Create actpool
 	apConfig := getActPoolCfg()
 	Ap, err := NewActPool(bc, apConfig)
@@ -395,8 +407,9 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 
 	require.Equal(4, len(ap.allActions))
 	require.NotNil(ap.accountActs[addr1.RawAddress])
-	err = bc.CommitStateChanges(0, []*action.Transfer{tsf1, tsf2, tsf3}, []*action.Vote{vote4}, []*action.Execution{})
+	_, err = bc.GetFactory().RunActions(0, []*action.Transfer{tsf1, tsf2, tsf3}, []*action.Vote{vote4}, []*action.Execution{})
 	require.NoError(err)
+	require.Nil(bc.GetFactory().Commit())
 	ap.removeConfirmedActs()
 	require.Equal(0, len(ap.allActions))
 	require.Nil(ap.accountActs[addr1.RawAddress])
@@ -413,7 +426,9 @@ func TestActPool_Reset(t *testing.T) {
 	require.NoError(err)
 	_, err = bc.CreateState(addr3.RawAddress, uint64(300))
 	require.NoError(err)
-	require.NoError(bc.GetFactory().CommitStateChanges(0, nil, nil, nil))
+	_, err = bc.GetFactory().RunActions(0, nil, nil, nil)
+	require.NoError(err)
+	require.Nil(bc.GetFactory().Commit())
 
 	apConfig := getActPoolCfg()
 	Ap1, err := NewActPool(bc, apConfig)
@@ -515,8 +530,9 @@ func TestActPool_Reset(t *testing.T) {
 	// Let ap1 be BP's actpool
 	pickedTsfs, pickedVotes, pickedExecutions := ap1.PickActs()
 	// ap1 commits update of accounts to trie
-	err = bc.CommitStateChanges(0, pickedTsfs, pickedVotes, pickedExecutions)
+	_, err = bc.GetFactory().RunActions(0, pickedTsfs, pickedVotes, pickedExecutions)
 	require.NoError(err)
+	require.Nil(bc.GetFactory().Commit())
 	//Reset
 	ap1.Reset()
 	ap2.Reset()
@@ -611,8 +627,9 @@ func TestActPool_Reset(t *testing.T) {
 	// Let ap2 be BP's actpool
 	pickedTsfs, pickedVotes, pickedExecutions = ap2.PickActs()
 	// ap2 commits update of accounts to trie
-	err = bc.CommitStateChanges(0, pickedTsfs, pickedVotes, pickedExecutions)
+	_, err = bc.GetFactory().RunActions(0, pickedTsfs, pickedVotes, pickedExecutions)
 	require.NoError(err)
+	require.Nil(bc.GetFactory().Commit())
 	//Reset
 	ap1.Reset()
 	ap2.Reset()
@@ -655,7 +672,9 @@ func TestActPool_Reset(t *testing.T) {
 	require.NoError(err)
 	_, err = bc.CreateState(addr5.RawAddress, uint64(20))
 	require.NoError(err)
-	require.NoError(bc.GetFactory().CommitStateChanges(1, nil, nil, nil))
+	_, err = bc.GetFactory().RunActions(1, nil, nil, nil)
+	require.NoError(err)
+	require.Nil(bc.GetFactory().Commit())
 	tsf21, _ := signedTransfer(addr4, addr5, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(10))
 	vote22, _ := signedVote(addr4, addr4, uint64(2), uint64(100000), big.NewInt(10))
 	vote23, _ := action.NewVote(3, addr4.RawAddress, "", uint64(100000), big.NewInt(10))
@@ -692,8 +711,9 @@ func TestActPool_Reset(t *testing.T) {
 	// Let ap1 be BP's actpool
 	pickedTsfs, pickedVotes, pickedExecutions = ap1.PickActs()
 	// ap1 commits update of accounts to trie
-	err = bc.CommitStateChanges(0, pickedTsfs, pickedVotes, pickedExecutions)
+	_, err = bc.GetFactory().RunActions(0, pickedTsfs, pickedVotes, pickedExecutions)
 	require.NoError(err)
+	require.Nil(bc.GetFactory().Commit())
 	//Reset
 	ap1.Reset()
 	// Check confirmed nonce, pending nonce, and pending balance after resetting actpool for each account
@@ -716,7 +736,9 @@ func TestActPool_removeInvalidActs(t *testing.T) {
 	require.NoError(bc.Start(context.Background()))
 	_, err := bc.CreateState(addr1.RawAddress, uint64(100))
 	require.NoError(err)
-	require.NoError(bc.GetFactory().CommitStateChanges(0, nil, nil, nil))
+	_, err = bc.GetFactory().RunActions(0, nil, nil, nil)
+	require.NoError(err)
+	require.Nil(bc.GetFactory().Commit())
 	// Create actpool
 	apConfig := getActPoolCfg()
 	Ap, err := NewActPool(bc, apConfig)
@@ -758,7 +780,9 @@ func TestActPool_GetPendingNonce(t *testing.T) {
 	require.NoError(err)
 	_, err = bc.CreateState(addr2.RawAddress, uint64(100))
 	require.NoError(err)
-	require.NoError(bc.GetFactory().CommitStateChanges(0, nil, nil, nil))
+	_, err = bc.GetFactory().RunActions(0, nil, nil, nil)
+	require.NoError(err)
+	require.Nil(bc.GetFactory().Commit())
 	// Create actpool
 	apConfig := getActPoolCfg()
 	Ap, err := NewActPool(bc, apConfig)
@@ -794,7 +818,9 @@ func TestActPool_GetUnconfirmedActs(t *testing.T) {
 	require.NoError(err)
 	_, err = bc.CreateState(addr2.RawAddress, uint64(100))
 	require.NoError(err)
-	require.NoError(bc.GetFactory().CommitStateChanges(0, nil, nil, nil))
+	_, err = bc.GetFactory().RunActions(0, nil, nil, nil)
+	require.NoError(err)
+	require.Nil(bc.GetFactory().Commit())
 	// Create actpool
 	apConfig := getActPoolCfg()
 	Ap, err := NewActPool(bc, apConfig)
@@ -877,7 +903,9 @@ func TestActPool_GetSize(t *testing.T) {
 	require.NoError(bc.Start(context.Background()))
 	_, err := bc.CreateState(addr1.RawAddress, uint64(100))
 	require.NoError(err)
-	require.NoError(bc.CommitStateChanges(0, nil, nil, nil))
+	_, err = bc.GetFactory().RunActions(0, nil, nil, nil)
+	require.NoError(err)
+	require.Nil(bc.GetFactory().Commit())
 	// Create actpool
 	apConfig := getActPoolCfg()
 	Ap, err := NewActPool(bc, apConfig)
@@ -899,9 +927,9 @@ func TestActPool_GetSize(t *testing.T) {
 	require.NoError(ap.AddTsf(tsf3))
 	require.NoError(ap.AddVote(vote4))
 	require.Equal(uint64(4), ap.GetSize())
-
-	require.NoError(bc.CommitStateChanges(0,
-		[]*action.Transfer{tsf1, tsf2, tsf3}, []*action.Vote{vote4}, nil))
+	_, err = bc.GetFactory().RunActions(0, []*action.Transfer{tsf1, tsf2, tsf3}, []*action.Vote{vote4}, nil)
+	require.NoError(err)
+	require.Nil(bc.GetFactory().Commit())
 	ap.removeConfirmedActs()
 	require.Equal(uint64(0), ap.GetSize())
 }

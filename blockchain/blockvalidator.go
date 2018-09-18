@@ -102,7 +102,7 @@ func (v *validator) Validate(blk *Block, tipHeight uint64, tipHash hash.Hash32B)
 }
 
 func (v *validator) verifyActions(blk *Block) error {
-	// Verify transfers, votes, and executions (balance is checked in CommitStateChanges)
+	// Verify transfers, votes, and executions (balance is checked in RunActions)
 	confirmedNonceMap := make(map[string]uint64)
 	accountNonceMap := make(map[string][]uint64)
 	var wg sync.WaitGroup

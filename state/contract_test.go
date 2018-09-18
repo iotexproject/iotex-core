@@ -55,12 +55,14 @@ func TestCreateContract(t *testing.T) {
 	v, err = sf.GetCode(addr1)
 	require.Error(err)
 	require.Equal([]byte(nil), v)
-	require.Nil(sf.CommitStateChanges(0, nil, nil, nil))
+	_, err = sf.RunActions(0, nil, nil, nil)
+	require.Nil(err)
 	// reload same contract
 	contract1, err := sf.LoadOrCreateState(addr.RawAddress, 0)
 	require.Nil(err)
 	require.Equal(contract1.CodeHash, codeHash[:])
 	root := sf.RootHash()
+	require.Nil(sf.Commit())
 	require.Nil(sf.Stop(context.Background()))
 
 	tr, err := trie.NewTrie(db.NewBoltDB(testTriePath, nil), trie.AccountKVNameSpace, root)
@@ -131,9 +133,10 @@ func TestLoadStoreContract(t *testing.T) {
 	v4 := byteutil.BytesTo32B(hash.Hash256b([]byte("hen")))
 	require.Nil(sf.SetContractState(contract1, k3, v3))
 	require.Nil(sf.SetContractState(contract1, k4, v4))
-
-	require.Nil(sf.CommitStateChanges(0, nil, nil, nil))
+	_, err = sf.RunActions(0, nil, nil, nil)
+	require.Nil(err)
 	root := sf.RootHash()
+	require.Nil(sf.Commit())
 	require.Nil(sf.Stop(context.Background()))
 
 	// re-open the StateFactory

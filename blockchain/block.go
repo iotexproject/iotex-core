@@ -279,6 +279,14 @@ func (b *Block) HashBlock() hash.Hash32B {
 	return blake2b.Sum256(b.ByteStreamHeader())
 }
 
+// VerifyStateRoot verifies the state root in header
+func (b *Block) VerifyStateRoot(root hash.Hash32B) error {
+	if b.Header.stateRoot != root {
+		return errors.New("State root hash does not match")
+	}
+	return nil
+}
+
 // SignBlock allows signer to sign the block b
 func (b *Block) SignBlock(signer *iotxaddress.Address) error {
 	if signer.PrivateKey == keypair.ZeroPrivateKey {
