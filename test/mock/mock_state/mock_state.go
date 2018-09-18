@@ -151,16 +151,41 @@ func (mr *MockFactoryMockRecorder) Height() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Height", reflect.TypeOf((*MockFactory)(nil).Height))
 }
 
-// CommitStateChanges mocks base method
-func (m *MockFactory) CommitStateChanges(arg0 uint64, arg1 []*action.Transfer, arg2 []*action.Vote, arg3 []*action.Execution) error {
-	ret := m.ctrl.Call(m, "CommitStateChanges", arg0, arg1, arg2, arg3)
+// RunActions mocks base method
+func (m *MockFactory) RunActions(arg0 uint64, arg1 []*action.Transfer, arg2 []*action.Vote, arg3 []*action.Execution) (hash.Hash32B, error) {
+	ret := m.ctrl.Call(m, "RunActions", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(hash.Hash32B)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RunActions indicates an expected call of RunActions
+func (mr *MockFactoryMockRecorder) RunActions(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunActions", reflect.TypeOf((*MockFactory)(nil).RunActions), arg0, arg1, arg2, arg3)
+}
+
+// HasRun mocks base method
+func (m *MockFactory) HasRun() bool {
+	ret := m.ctrl.Call(m, "HasRun")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// HasRun indicates an expected call of HasRun
+func (mr *MockFactoryMockRecorder) HasRun() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasRun", reflect.TypeOf((*MockFactory)(nil).HasRun))
+}
+
+// Commit mocks base method
+func (m *MockFactory) Commit() error {
+	ret := m.ctrl.Call(m, "Commit")
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// CommitStateChanges indicates an expected call of CommitStateChanges
-func (mr *MockFactoryMockRecorder) CommitStateChanges(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitStateChanges", reflect.TypeOf((*MockFactory)(nil).CommitStateChanges), arg0, arg1, arg2, arg3)
+// Commit indicates an expected call of Commit
+func (mr *MockFactoryMockRecorder) Commit() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockFactory)(nil).Commit))
 }
 
 // GetCodeHash mocks base method

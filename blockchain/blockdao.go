@@ -776,6 +776,9 @@ func putExecutions(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 
 // putReceipts store receipt into db
 func (dao *blockDAO) putReceipts(blk *Block) error {
+	if blk.receipts == nil {
+		return nil
+	}
 	batch := dao.kvstore.Batch()
 	for _, r := range blk.receipts {
 		v, err := r.Serialize()

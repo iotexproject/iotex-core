@@ -37,8 +37,6 @@ type Blockchain interface {
 	Nonce(addr string) (uint64, error)
 	// CreateState adds a new State with initial balance to the factory
 	CreateState(addr string, init uint64) (*state.State, error)
-	// CommitStateChanges updates a State from the given actions
-	CommitStateChanges(chainHeight uint64, tsf []*action.Transfer, vote []*action.Vote, executions []*action.Execution) error
 	// Candidates returns the candidate list
 	Candidates() (uint64, []*state.Candidate)
 	// CandidatesByHeight returns the candidate list by a given height
@@ -280,6 +278,15 @@ func (bc *blockchain) startEmptyBlockchain() error {
 			return errors.Wrap(err, "failed to add Creator into StateFactory")
 		}
 	}
+	// run execution and update account trie root hash
+	root, err := bc.runActions(genesis, false)
+	if err != nil {
+		return errors.Wrap(err, "failed to update state changes in Genesis block")
+	}
+	genesis.Header.stateRoot = root
+	if err := bc.validateBlock(genesis); err != nil {
+		return errors.Wrap(err, "failed to validate Genesis block")
+	}
 	// add Genesis block as very first block
 	if err := bc.commitBlock(genesis); err != nil {
 		return errors.Wrap(err, "failed to commit Genesis block")
@@ -318,7 +325,7 @@ func (bc *blockchain) startExistingBlockchain(recoveryHeight uint64) error {
 		if err != nil {
 			return err
 		}
-		if err := bc.updateState(blk); err != nil {
+		if _, err := bc.runActions(blk, true); err != nil {
 			return err
 		}
 	}
@@ -348,11 +355,6 @@ func (bc *blockchain) Nonce(addr string) (uint64, error) {
 // CreateState adds a new State with initial balance to the factory
 func (bc *blockchain) CreateState(addr string, init uint64) (*state.State, error) {
 	return bc.sf.LoadOrCreateState(addr, init)
-}
-
-// CommitStateChanges updates a State from the given actions
-func (bc *blockchain) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer, vote []*action.Vote, executions []*action.Execution) error {
-	return bc.sf.CommitStateChanges(blockHeight, tsf, vote, executions)
 }
 
 // Candidates returns the candidate list
@@ -591,20 +593,19 @@ func (bc *blockchain) MintNewBlock(tsf []*action.Transfer, vote []*action.Vote, 
 	defer bc.mu.RUnlock()
 
 	tsf = append(tsf, action.NewCoinBaseTransfer(big.NewInt(int64(bc.genesis.BlockReward)), producer.RawAddress))
-
 	blk := NewBlock(bc.chainID, bc.tipHeight+1, bc.tipHash, bc.clk, tsf, vote, executions)
-	if producer.PrivateKey == keypair.ZeroPrivateKey {
-		logger.Warn().Msg("Unsigned block...")
-		return blk, nil
-	}
-
 	blk.Header.DKGID = []byte{}
 	blk.Header.DKGPubkey = []byte{}
 	blk.Header.DKGBlockSig = []byte{}
-
-	blk.Header.Pubkey = producer.PublicKey
-	blkHash := blk.HashBlock()
-	blk.Header.blockSig = crypto.EC283.Sign(producer.PrivateKey, blkHash[:])
+	// run execution and update account trie root hash
+	root, err := bc.runActions(blk, false)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Failed to update state changes in new block %d", blk.Height())
+	}
+	blk.Header.stateRoot = root
+	if err := blk.SignBlock(producer); err != nil {
+		return blk, err
+	}
 	return blk, nil
 }
 
@@ -617,13 +618,7 @@ func (bc *blockchain) MintNewDKGBlock(tsf []*action.Transfer, vote []*action.Vot
 	defer bc.mu.RUnlock()
 
 	tsf = append(tsf, action.NewCoinBaseTransfer(big.NewInt(int64(bc.genesis.BlockReward)), producer.RawAddress))
-
 	blk := NewBlock(bc.chainID, bc.tipHeight+1, bc.tipHash, bc.clk, tsf, vote, executions)
-	if producer.PrivateKey == keypair.ZeroPrivateKey {
-		logger.Warn().Msg("Unsigned block...")
-		return blk, nil
-	}
-
 	blk.Header.DKGID = []byte{}
 	blk.Header.DKGPubkey = []byte{}
 	blk.Header.DKGBlockSig = []byte{}
@@ -635,10 +630,15 @@ func (bc *blockchain) MintNewDKGBlock(tsf []*action.Transfer, vote []*action.Vot
 			return nil, errors.Wrap(err, "Failed to do DKG sign")
 		}
 	}
-
-	blk.Header.Pubkey = producer.PublicKey
-	blkHash := blk.HashBlock()
-	blk.Header.blockSig = crypto.EC283.Sign(producer.PrivateKey, blkHash[:])
+	// run execution and update account trie root hash
+	root, err := bc.runActions(blk, false)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Failed to update state changes in new DKG block %d", blk.Height())
+	}
+	blk.Header.stateRoot = root
+	if err := blk.SignBlock(producer); err != nil {
+		return blk, err
+	}
 	return blk, nil
 }
 
@@ -650,6 +650,13 @@ func (bc *blockchain) MintNewDummyBlock() *Block {
 	blk := NewBlock(bc.chainID, bc.tipHeight+1, bc.tipHash, bc.clk, nil, nil, nil)
 	blk.Header.Pubkey = keypair.ZeroPublicKey
 	blk.Header.blockSig = []byte{}
+
+	// run execution and update account trie root hash
+	root, err := bc.runActions(blk, false)
+	if err != nil {
+		return nil
+	}
+	blk.Header.stateRoot = root
 	return blk
 }
 
@@ -672,10 +679,8 @@ func (bc *blockchain) StateByAddr(address string) (*state.State, error) {
 			logger.Warn().Err(err).Str("Address", address)
 			return nil, errors.New("account does not exist")
 		}
-
 		return s, nil
 	}
-
 	return nil, errors.New("state factory is nil")
 }
 
@@ -721,6 +726,8 @@ func (bc *blockchain) validateBlock(blk *Block) error {
 		logger.Panic().Msg("no block validator")
 	}
 
+	tipHeight := bc.tipHeight
+	tipHash := bc.tipHash
 	// replacement logic, used to replace a fake old dummy block
 	if blk.Height() != 0 && blk.Height() <= bc.tipHeight {
 		oldDummyBlock, err := bc.GetBlockByHeight(blk.Height())
@@ -734,10 +741,18 @@ func (bc *blockchain) validateBlock(blk *Block) error {
 		if err != nil {
 			return errors.Wrapf(err, "Failed to get the last block when replacing the dummy block")
 		}
-		return bc.validator.Validate(blk, lastBlock.Height(), lastBlock.HashBlock())
+		tipHeight = lastBlock.Height()
+		tipHash = lastBlock.HashBlock()
 	}
 
-	return bc.validator.Validate(blk, bc.tipHeight, bc.tipHash)
+	if err := bc.validator.Validate(blk, tipHeight, tipHash); err != nil {
+		return errors.Wrapf(err, "Failed to validate block on height %d", tipHeight)
+	}
+	// run actions and update state factory
+	if _, err := bc.runActions(blk, true); err != nil {
+		logger.Panic().Err(err).Msgf("Failed to update state on height %d", tipHeight)
+	}
+	return nil
 }
 
 // commitBlock commits a block to the chain
@@ -749,25 +764,36 @@ func (bc *blockchain) commitBlock(blk *Block) error {
 	// update tip hash and height
 	bc.tipHeight = blk.Header.height
 	bc.tipHash = blk.HashBlock()
-	// update state factory
-	if err := bc.updateState(blk); err != nil {
-		logger.Panic().Err(err).Msgf("Failed to update state on height %d", blk.Height())
+	if bc.sf != nil {
+		if err := bc.sf.Commit(); err != nil {
+			return err
+		}
+		// write smart contract receipt into DB
+		if err := bc.dao.putReceipts(blk); err != nil {
+			return errors.Wrapf(err, "failed to put smart contract receipts into DB on height %d", blk.Height())
+		}
 	}
 	logger.Info().Uint64("height", blk.Header.height).Msg("commit a block")
 	return nil
 }
 
-func (bc *blockchain) updateState(blk *Block) error {
-	if bc.sf != nil {
-		// update state factory
+func (bc *blockchain) runActions(blk *Block, commit bool) (root hash.Hash32B, err error) {
+	if bc.sf == nil {
+		return root, nil
+	}
+	// run executions
+	if blk.Executions != nil && !bc.sf.HasRun() {
 		ExecuteContracts(blk, bc)
-		if err := bc.sf.CommitStateChanges(blk.Height(), blk.Transfers, blk.Votes, blk.Executions); err != nil {
-			return errors.Wrapf(err, "failed to commit state changes on height %d", blk.Height())
+	}
+	// update state factory
+	if root, err = bc.sf.RunActions(blk.Height(), blk.Transfers, blk.Votes, blk.Executions); err != nil {
+		return root, err
+	}
+	if commit {
+		// verify state root hash match
+		if err = blk.VerifyStateRoot(root); err != nil {
+			return root, err
 		}
 	}
-	// write smart contract receipt into DB
-	if err := bc.dao.putReceipts(blk); err != nil {
-		return errors.Wrapf(err, "failed to put smart contract receipts into DB on height %d", blk.Height())
-	}
-	return nil
+	return root, nil
 }

@@ -65,6 +65,18 @@ func (st *State) SubBalance(amount *big.Int) error {
 //======================================
 // private functions
 //======================================
-func (st *State) isContract() bool {
-	return st.CodeHash != nil
+func (st *State) clone() *State {
+	s := *st
+	s.Balance = nil
+	s.Balance = new(big.Int).Set(st.Balance)
+	s.VotingWeight = nil
+	s.VotingWeight = new(big.Int).Set(st.VotingWeight)
+	if st.CodeHash != nil {
+		s.CodeHash = nil
+		s.CodeHash = make([]byte, len(st.CodeHash))
+		copy(s.CodeHash, st.CodeHash)
+	}
+	// Voters won't be used, set to nil for simplicity
+	s.Voters = nil
+	return &s
 }
