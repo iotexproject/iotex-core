@@ -30,6 +30,9 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	if err != nil {
 		return err
 	}
+	if err := bc.ValidateBlock(blk); err != nil {
+		return err
+	}
 	if err := bc.CommitBlock(blk); err != nil {
 		return err
 	}
@@ -52,6 +55,9 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	if err != nil {
 		return err
 	}
+	if err := bc.ValidateBlock(blk); err != nil {
+		return err
+	}
 	if err := bc.CommitBlock(blk); err != nil {
 		return err
 	}
@@ -72,6 +78,9 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	if err != nil {
 		return err
 	}
+	if err := bc.ValidateBlock(blk); err != nil {
+		return err
+	}
 	if err := bc.CommitBlock(blk); err != nil {
 		return err
 	}
@@ -88,6 +97,9 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	_ = action.Sign(tsf4, ta.Addrinfo["delta"])
 	blk, err = bc.MintNewBlock([]*action.Transfer{tsf1, tsf2, tsf3, tsf4}, nil, nil, ta.Addrinfo["producer"], "")
 	if err != nil {
+		return err
+	}
+	if err := bc.ValidateBlock(blk); err != nil {
 		return err
 	}
 	if err := bc.CommitBlock(blk); err != nil {
@@ -112,15 +124,25 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	if err != nil {
 		return err
 	}
-
+	if err := bc.ValidateBlock(blk); err != nil {
+		return err
+	}
 	return bc.CommitBlock(blk)
 }
 
 func addTestingDummyBlock(bc blockchain.Blockchain) error {
 	// Add block 1
-	if err := bc.CommitBlock(bc.MintNewDummyBlock()); err != nil {
+	blk := bc.MintNewDummyBlock()
+	if err := bc.ValidateBlock(blk); err != nil {
+		return err
+	}
+	if err := bc.CommitBlock(blk); err != nil {
 		return err
 	}
 	// Add block 2
-	return bc.CommitBlock(bc.MintNewDummyBlock())
+	blk = bc.MintNewDummyBlock()
+	if err := bc.ValidateBlock(blk); err != nil {
+		return err
+	}
+	return bc.CommitBlock(blk)
 }

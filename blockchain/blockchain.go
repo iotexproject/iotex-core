@@ -328,6 +328,9 @@ func (bc *blockchain) startExistingBlockchain(recoveryHeight uint64) error {
 		if _, err := bc.runActions(blk, true); err != nil {
 			return err
 		}
+		if err := bc.sf.Commit(); err != nil {
+			return err
+		}
 	}
 	factoryHeight, err := bc.sf.Height()
 	if err != nil {
@@ -664,10 +667,6 @@ func (bc *blockchain) MintNewDummyBlock() *Block {
 func (bc *blockchain) CommitBlock(blk *Block) error {
 	bc.mu.Lock()
 	defer bc.mu.Unlock()
-	// TODO: we should completely remove validation from committing a block
-	if err := bc.validateBlock(blk); err != nil {
-		return err
-	}
 	return bc.commitBlock(blk)
 }
 
@@ -777,7 +776,7 @@ func (bc *blockchain) commitBlock(blk *Block) error {
 	return nil
 }
 
-func (bc *blockchain) runActions(blk *Block, commit bool) (root hash.Hash32B, err error) {
+func (bc *blockchain) runActions(blk *Block, verify bool) (root hash.Hash32B, err error) {
 	if bc.sf == nil {
 		return root, nil
 	}
@@ -789,7 +788,7 @@ func (bc *blockchain) runActions(blk *Block, commit bool) (root hash.Hash32B, er
 	if root, err = bc.sf.RunActions(blk.Height(), blk.Transfers, blk.Votes, blk.Executions); err != nil {
 		return root, err
 	}
-	if commit {
+	if verify {
 		// verify state root hash match
 		if err = blk.VerifyStateRoot(root); err != nil {
 			return root, err
