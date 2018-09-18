@@ -8,6 +8,7 @@ package state
 
 import (
 	"context"
+	"encoding/hex"
 	"math/big"
 	"sort"
 	"strconv"
@@ -50,6 +51,30 @@ func TestEncodeDecode(t *testing.T) {
 	require.Equal(hash.ZeroHash32B, state.Root)
 	require.Equal([]byte(nil), state.CodeHash)
 	require.Equal(big.NewInt(1000000000), state.VotingWeight)
+}
+
+func TestGob(t *testing.T) {
+	require := require.New(t)
+	ss, _ := hex.DecodeString("79ff8103010105537461746501ff8200010801054e6f6e6365010600010742616c616e636501ff84000104526f6f7401ff86000108436f646548617368010a00010b497343616e646964617465010200010c566f74696e6757656967687401ff84000105566f746565010c000106566f7465727301ff880000000aff83050102ff8a00000017ff85010101074861736833324201ff860001060140000024ff87040101136d61705b737472696e675d2a6269672e496e7401ff8800010c01ff8400002cff820202022d0120000000000000000000000000000000000000000000000000000000000000000003010200")
+	state, err := bytesToState(ss)
+	require.Nil(err)
+
+	// another serialized byte
+	st, _ := hex.DecodeString("79ff8503010105537461746501ff8600010801054e6f6e6365010600010742616c616e636501ff88000104526f6f7401ff8a000108436f646548617368010a00010b497343616e646964617465010200010c566f74696e6757656967687401ff88000105566f746565010c000106566f7465727301ff8c0000000aff87050102ff8e00000017ff89010101074861736833324201ff8a0001060140000024ff8b040101136d61705b737472696e675d2a6269672e496e7401ff8c00010c01ff8800002cff860202022d0120000000000000000000000000000000000000000000000000000000000000000003010200")
+	require.NotEqual(ss, st)
+
+	// same struct after deserialization
+	tate, err := bytesToState(st)
+	require.Nil(err)
+	require.Equal(state.Nonce, tate.Nonce)
+	require.Equal(state.Balance, tate.Balance)
+	require.Equal(state.Root, tate.Root)
+	require.Equal(state.CodeHash, tate.CodeHash)
+	require.Equal(state.IsCandidate, tate.IsCandidate)
+	require.Equal(state.VotingWeight, tate.VotingWeight)
+	require.Equal(state.Votee, tate.Votee)
+	require.Equal(state.Voters, map[string]*big.Int(nil))
+	require.Equal(tate.Voters, map[string]*big.Int(nil))
 }
 
 func TestRootHash(t *testing.T) {

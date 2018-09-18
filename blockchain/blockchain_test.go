@@ -56,6 +56,9 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	if err != nil {
 		return err
 	}
+	if err := bc.ValidateBlock(blk); err != nil {
+		return err
+	}
 	if err := bc.CommitBlock(blk); err != nil {
 		return err
 	}
@@ -76,6 +79,9 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	if err != nil {
 		return err
 	}
+	if err := bc.ValidateBlock(blk); err != nil {
+		return err
+	}
 	if err := bc.CommitBlock(blk); err != nil {
 		return err
 	}
@@ -92,6 +98,9 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	_ = action.Sign(tsf4, ta.Addrinfo["delta"])
 	blk, err = bc.MintNewBlock([]*action.Transfer{tsf1, tsf2, tsf3, tsf4}, nil, nil, ta.Addrinfo["producer"], "")
 	if err != nil {
+		return err
+	}
+	if err := bc.ValidateBlock(blk); err != nil {
 		return err
 	}
 	if err := bc.CommitBlock(blk); err != nil {
@@ -123,6 +132,9 @@ func addTestingTsfBlocks(bc Blockchain) error {
 
 	blk, err = bc.MintNewBlock([]*action.Transfer{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}, []*action.Vote{vote1, vote2}, nil, ta.Addrinfo["producer"], "")
 	if err != nil {
+		return err
+	}
+	if err := bc.ValidateBlock(blk); err != nil {
 		return err
 	}
 	return bc.CommitBlock(blk)
@@ -654,8 +666,8 @@ func TestCoinbaseTransfer(t *testing.T) {
 	require.Nil(err)
 	b := s.Balance
 	require.True(b.String() == strconv.Itoa(int(Gen.TotalSupply)))
-	err = bc.CommitBlock(blk)
-	require.Nil(err)
+	require.Nil(bc.ValidateBlock(blk))
+	require.Nil(bc.CommitBlock(blk))
 	height = bc.TipHeight()
 	require.True(height == 1)
 	require.True(len(blk.Transfers) == 1)
@@ -721,8 +733,8 @@ func TestBlocks(t *testing.T) {
 			tsfs = append(tsfs, tsf)
 		}
 		blk, _ := bc.MintNewBlock(tsfs, nil, nil, ta.Addrinfo["producer"], "")
-		err := bc.CommitBlock(blk)
-		require.Nil(err)
+		require.Nil(bc.ValidateBlock(blk))
+		require.Nil(bc.CommitBlock(blk))
 	}
 }
 
@@ -790,6 +802,7 @@ func TestDummyReplacement(t *testing.T) {
 	bc := NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	require.NoError(bc.Start(context.Background()))
 	dummy := bc.MintNewDummyBlock()
+	require.Nil(bc.ValidateBlock(dummy))
 	require.NoError(bc.CommitBlock(dummy))
 	actualDummyBlock, err := bc.GetBlockByHeight(1)
 	require.NoError(err)
@@ -800,6 +813,7 @@ func TestDummyReplacement(t *testing.T) {
 	realBlock, err := bc.MintNewBlock(nil, nil, nil, ta.Addrinfo["producer"], "")
 	require.NotNil(realBlock)
 	require.NoError(err)
+	require.Nil(bc.ValidateBlock(realBlock))
 	require.NoError(bc.CommitBlock(realBlock))
 	actualRealBlock, err := bc.GetBlockByHeight(1)
 	require.NoError(err)
@@ -807,11 +821,14 @@ func TestDummyReplacement(t *testing.T) {
 
 	block2, err := bc.MintNewBlock(nil, nil, nil, ta.Addrinfo["producer"], "")
 	require.NoError(err)
+	require.Nil(bc.ValidateBlock(block2))
 	require.NoError(bc.CommitBlock(block2))
 	dummyBlock3 := bc.MintNewDummyBlock()
+	require.Nil(bc.ValidateBlock(dummyBlock3))
 	require.NoError(bc.CommitBlock(dummyBlock3))
 	block4, err := bc.MintNewBlock(nil, nil, nil, ta.Addrinfo["producer"], "")
 	require.NoError(err)
+	require.NoError(bc.ValidateBlock(block4))
 	require.NoError(bc.CommitBlock(block4))
 	actualDummyBlock3, err := bc.GetBlockByHeight(3)
 	require.NoError(err)
@@ -820,6 +837,7 @@ func TestDummyReplacement(t *testing.T) {
 	block3, err := bc.MintNewBlock(nil, nil, nil, ta.Addrinfo["producer"], "")
 	require.NotNil(block3)
 	require.NoError(err)
+	require.NoError(bc.ValidateBlock(block3))
 	require.NoError(bc.CommitBlock(block3))
 	actualBlock3, err := bc.GetBlockByHeight(3)
 	require.NoError(err)
@@ -898,15 +916,15 @@ func TestMintDKGBlock(t *testing.T) {
 	// Generate dkg signature for each block
 	require.NoError(err)
 	dummy := chain.MintNewDummyBlock()
-	err = chain.CommitBlock(dummy)
-	require.NoError(err)
+	require.NoError(chain.ValidateBlock(dummy))
+	require.NoError(chain.CommitBlock(dummy))
 	for i := 1; i < numNodes; i++ {
 		blk, err := chain.MintNewDKGBlock(nil, nil, nil, addresses[i],
 			&iotxaddress.DKGAddress{PrivateKey: askList[i], PublicKey: pkList[i], ID: idList[i]},
 			lastSeed, "")
 		require.NoError(err)
-		err = chain.CommitBlock(blk)
-		require.NoError(err)
+		require.NoError(chain.ValidateBlock(blk))
+		require.NoError(chain.CommitBlock(blk))
 		require.Equal(pkList[i], blk.Header.DKGPubkey)
 		require.Equal(idList[i], blk.Header.DKGID)
 		require.True(len(blk.Header.DKGBlockSig) > 0)
