@@ -231,8 +231,8 @@ func (tsf *Transfer) ConvertFromActionPb(pbAct *iproto.ActionPb) {
 	if len(pbTsf.Amount) > 0 {
 		tsf.amount.SetBytes(pbTsf.Amount)
 	}
-	tsf.srcAddr = string(pbTsf.Sender)
-	tsf.dstAddr = string(pbTsf.Recipient)
+	tsf.srcAddr = pbTsf.Sender
+	tsf.dstAddr = pbTsf.Recipient
 	tsf.payload = pbTsf.Payload
 	copy(tsf.srcPubkey[:], pbTsf.SenderPubKey)
 	tsf.signature = pbAct.Signature

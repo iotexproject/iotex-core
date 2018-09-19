@@ -562,7 +562,8 @@ func createSignedTransfer(
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to decode payload %s", payload)
 	}
-	transfer, err := action.NewTransfer(nonce, amount, sender.RawAddress, recipient.RawAddress, transferPayload, gasLimit, gasPrice)
+	transfer, err := action.NewTransfer(
+		nonce, amount, sender.RawAddress, recipient.RawAddress, transferPayload, gasLimit, gasPrice)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create raw transfer")
 	}

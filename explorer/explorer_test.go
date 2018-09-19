@@ -52,7 +52,9 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	// Add block 1
 	// test --> A, B, C, D, E, F
 	tsf, _ := action.NewTransfer(1, big.NewInt(10), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["charlie"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
-	action.Sign(tsf, ta.Addrinfo["producer"])
+	if err := action.Sign(tsf, ta.Addrinfo["producer"]); err != nil {
+		return err
+	}
 	blk, err := bc.MintNewBlock([]*action.Transfer{tsf}, nil, nil, ta.Addrinfo["producer"], "")
 	if err != nil {
 		return err

@@ -84,7 +84,13 @@ func TestActPool_validateTsf(t *testing.T) {
 	require.Equal(ErrBalance, errors.Cause(err))
 	// Case IV: Invalid address
 	tsf, err = action.NewTransfer(
-		1, big.NewInt(1), addr1.RawAddress, "io1qyqsyqcyq5narhapakcsrhksfajfcpl24us3xp38zwvsep", nil, uint64(0), big.NewInt(0))
+		1,
+		big.NewInt(1),
+		addr1.RawAddress,
+		"io1qyqsyqcyq5narhapakcsrhksfajfcpl24us3xp38zwvsep",
+		nil, uint64(0),
+		big.NewInt(0),
+	)
 	require.NoError(err)
 	err = ap.validateTsf(tsf)
 	require.Error(err)
@@ -261,7 +267,8 @@ func TestActPool_AddActs(t *testing.T) {
 	ap2, ok := Ap2.(*actPool)
 	require.True(ok)
 	for i := uint64(0); i < ap2.cfg.MaxNumActsPerPool; i++ {
-		nTsf, err := action.NewTransfer(uint64(i), big.NewInt(int64(i)), "1", "2", nil, uint64(0), big.NewInt(0))
+		nTsf, err := action.NewTransfer(
+			i, big.NewInt(int64(i)), "1", "2", nil, uint64(0), big.NewInt(0))
 		require.NoError(err)
 		nAction := nTsf.ConvertToActionPb()
 		ap2.allActions[nTsf.Hash()] = nAction
