@@ -292,9 +292,11 @@ func TestCandidates(t *testing.T) {
 	require.NoError(t, err)
 
 	// a:100(0) b:200(0) c:300(0)
-	tx1 := action.Transfer{Sender: a.RawAddress, Recipient: b.RawAddress, Nonce: uint64(1), Amount: big.NewInt(10)}
-	tx2 := action.Transfer{Sender: a.RawAddress, Recipient: c.RawAddress, Nonce: uint64(2), Amount: big.NewInt(20)}
-	newRoot, err := sf.RunActions(0, []*action.Transfer{&tx1, &tx2}, []*action.Vote{}, []*action.Execution{})
+	tx1, err := action.NewTransfer(uint64(1), big.NewInt(10), a.RawAddress, b.RawAddress, nil, uint64(0), big.NewInt(0))
+	require.NoError(t, err)
+	tx2, err := action.NewTransfer(uint64(2), big.NewInt(20), a.RawAddress, c.RawAddress, nil, uint64(0), big.NewInt(0))
+	require.NoError(t, err)
+	newRoot, err := sf.RunActions(0, []*action.Transfer{tx1, tx2}, []*action.Vote{}, []*action.Execution{})
 	require.Nil(t, err)
 	root := newRoot
 	require.NotEqual(t, hash.ZeroHash32B, root)
@@ -341,8 +343,9 @@ func TestCandidates(t *testing.T) {
 	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":0", b.RawAddress + ":280"}))
 	// a(b):70(0) b(b):210(+70=280) !c:320
 
-	tx3 := action.Transfer{Sender: b.RawAddress, Recipient: a.RawAddress, Nonce: uint64(2), Amount: big.NewInt(20)}
-	newRoot, err = sf.RunActions(0, []*action.Transfer{&tx3}, []*action.Vote{}, []*action.Execution{})
+	tx3, err := action.NewTransfer(uint64(2), big.NewInt(20), b.RawAddress, a.RawAddress, nil, uint64(0), big.NewInt(0))
+	require.NoError(t, err)
+	newRoot, err = sf.RunActions(0, []*action.Transfer{tx3}, []*action.Vote{}, []*action.Execution{})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -350,8 +353,9 @@ func TestCandidates(t *testing.T) {
 	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":0", b.RawAddress + ":280"}))
 	// a(b):90(0) b(b):190(+90=280) !c:320
 
-	tx4 := action.Transfer{Sender: a.RawAddress, Recipient: b.RawAddress, Nonce: uint64(2), Amount: big.NewInt(20)}
-	newRoot, err = sf.RunActions(0, []*action.Transfer{&tx4}, []*action.Vote{}, []*action.Execution{})
+	tx4, err := action.NewTransfer(uint64(2), big.NewInt(20), a.RawAddress, b.RawAddress, nil, uint64(0), big.NewInt(0))
+	require.NoError(t, err)
+	newRoot, err = sf.RunActions(0, []*action.Transfer{tx4}, []*action.Vote{}, []*action.Execution{})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -392,8 +396,9 @@ func TestCandidates(t *testing.T) {
 	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":0", b.RawAddress + ":280"}))
 	// a(b):70(0) b(b):210(+70=280) !c:320
 
-	tx5 := action.Transfer{Sender: c.RawAddress, Recipient: a.RawAddress, Nonce: uint64(2), Amount: big.NewInt(20)}
-	newRoot, err = sf.RunActions(0, []*action.Transfer{&tx5}, []*action.Vote{}, []*action.Execution{})
+	tx5, err := action.NewTransfer(uint64(2), big.NewInt(20), c.RawAddress, a.RawAddress, nil, uint64(0), big.NewInt(0))
+	require.NoError(t, err)
+	newRoot, err = sf.RunActions(0, []*action.Transfer{tx5}, []*action.Vote{}, []*action.Execution{})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -489,9 +494,11 @@ func TestCandidates(t *testing.T) {
 	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{c.RawAddress + ":510", a.RawAddress + ":100"}))
 	// a(b):90(100) b(c):210(90) c(c):300(+210=510) d(a): 100(0)
 
-	tx6 := action.Transfer{Sender: c.RawAddress, Recipient: e.RawAddress, Nonce: uint64(1), Amount: big.NewInt(200)}
-	tx7 := action.Transfer{Sender: b.RawAddress, Recipient: e.RawAddress, Nonce: uint64(2), Amount: big.NewInt(200)}
-	newRoot, err = sf.RunActions(0, []*action.Transfer{&tx6, &tx7}, []*action.Vote{}, []*action.Execution{})
+	tx6, err := action.NewTransfer(uint64(1), big.NewInt(200), c.RawAddress, e.RawAddress, nil, uint64(0), big.NewInt(0))
+	require.NoError(t, err)
+	tx7, err := action.NewTransfer(uint64(2), big.NewInt(200), b.RawAddress, e.RawAddress, nil, uint64(0), big.NewInt(0))
+	require.NoError(t, err)
+	newRoot, err = sf.RunActions(0, []*action.Transfer{tx6, tx7}, []*action.Vote{}, []*action.Execution{})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -535,8 +542,9 @@ func TestCandidates(t *testing.T) {
 	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{d.RawAddress + ":300", e.RawAddress + ":500"}))
 	// a(b):90(100) b(c):10(90) c(c):100(+10=110) d(a): 100(300) e(e):500(+0=500) f(d):300(0)
 
-	tx8 := action.Transfer{Sender: f.RawAddress, Recipient: b.RawAddress, Nonce: uint64(1), Amount: big.NewInt(200)}
-	newRoot, err = sf.RunActions(0, []*action.Transfer{&tx8}, []*action.Vote{}, []*action.Execution{})
+	tx8, err := action.NewTransfer(uint64(1), big.NewInt(200), f.RawAddress, b.RawAddress, nil, uint64(0), big.NewInt(0))
+	require.NoError(t, err)
+	newRoot, err = sf.RunActions(0, []*action.Transfer{tx8}, []*action.Vote{}, []*action.Execution{})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -545,8 +553,9 @@ func TestCandidates(t *testing.T) {
 	// a(b):90(100) b(c):210(90) c(c):100(+210=310) d(a): 100(100) e(e):500(+0=500) f(d):100(0)
 	//fmt.Printf("%v \n", voteForm(sf.candidatesBuffer()))
 
-	tx9 := action.Transfer{Sender: b.RawAddress, Recipient: a.RawAddress, Nonce: uint64(1), Amount: big.NewInt(10)}
-	newRoot, err = sf.RunActions(0, []*action.Transfer{&tx9}, []*action.Vote{}, []*action.Execution{})
+	tx9, err := action.NewTransfer(uint64(1), big.NewInt(10), b.RawAddress, a.RawAddress, nil, uint64(0), big.NewInt(0))
+	require.NoError(t, err)
+	newRoot, err = sf.RunActions(0, []*action.Transfer{tx9}, []*action.Vote{}, []*action.Execution{})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -554,8 +563,9 @@ func TestCandidates(t *testing.T) {
 	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{c.RawAddress + ":300", e.RawAddress + ":500"}))
 	// a(b):100(100) b(c):200(100) c(c):100(+200=300) d(a): 100(100) e(e):500(+0=500) f(d):100(0)
 
-	tx10 := action.Transfer{Sender: e.RawAddress, Recipient: d.RawAddress, Nonce: uint64(1), Amount: big.NewInt(300)}
-	newRoot, err = sf.RunActions(1, []*action.Transfer{&tx10}, []*action.Vote{}, []*action.Execution{})
+	tx10, err := action.NewTransfer(uint64(1), big.NewInt(300), e.RawAddress, d.RawAddress, nil, uint64(0), big.NewInt(0))
+	require.NoError(t, err)
+	newRoot, err = sf.RunActions(1, []*action.Transfer{tx10}, []*action.Vote{}, []*action.Execution{})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot

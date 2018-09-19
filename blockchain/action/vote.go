@@ -39,7 +39,7 @@ type Vote struct {
 // NewVote returns a Vote instance
 func NewVote(nonce uint64, voterAddress string, voteeAddress string, gasLimit uint64, gasPrice *big.Int) (*Vote, error) {
 	if voterAddress == "" {
-		return nil, errors.Wrap(ErrAddr, "address of the voter is empty")
+		return nil, errors.Wrap(ErrAddress, "address of the voter is empty")
 	}
 
 	pbVote := &iproto.ActionPb{

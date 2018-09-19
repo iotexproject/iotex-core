@@ -596,27 +596,27 @@ func (sf *factory) handleTsf(tsf []*action.Transfer) error {
 		if tx.IsContract() {
 			continue
 		}
-		if !tx.IsCoinbase {
+		if !tx.IsCoinbase() {
 			// check sender
-			sender, err := sf.LoadOrCreateState(tx.Sender, 0)
+			sender, err := sf.LoadOrCreateState(tx.Sender(), 0)
 			if err != nil {
 				return errors.Wrapf(err, "failed to load or create the state of sender %s", tx.Sender)
 			}
 			// save state before modifying
-			sf.saveState(tx.Sender, sender)
-			if tx.Amount.Cmp(sender.Balance) == 1 {
+			sf.saveState(tx.Sender(), sender)
+			if tx.Amount().Cmp(sender.Balance) == 1 {
 				return errors.Wrapf(ErrNotEnoughBalance, "failed to verify the balance of sender %s", tx.Sender)
 			}
 			// update sender balance
-			if err := sender.SubBalance(tx.Amount); err != nil {
+			if err := sender.SubBalance(tx.Amount()); err != nil {
 				return errors.Wrapf(err, "failed to update the balance of sender %s", tx.Sender)
 			}
 			// update sender nonce
-			if tx.Nonce > sender.Nonce {
-				sender.Nonce = tx.Nonce
+			if tx.Nonce() > sender.Nonce {
+				sender.Nonce = tx.Nonce()
 			}
 			// Update sender votes
-			if len(sender.Votee) > 0 && sender.Votee != tx.Sender {
+			if len(sender.Votee) > 0 && sender.Votee != tx.Sender() {
 				// sender already voted to a different person
 				voteeOfSender, err := sf.LoadOrCreateState(sender.Votee, 0)
 				if err != nil {
@@ -624,22 +624,22 @@ func (sf *factory) handleTsf(tsf []*action.Transfer) error {
 				}
 				// save state before modifying
 				sf.saveState(sender.Votee, voteeOfSender)
-				voteeOfSender.VotingWeight.Sub(voteeOfSender.VotingWeight, tx.Amount)
+				voteeOfSender.VotingWeight.Sub(voteeOfSender.VotingWeight, tx.Amount())
 			}
 		}
 		// check recipient
-		recipient, err := sf.LoadOrCreateState(tx.Recipient, 0)
+		recipient, err := sf.LoadOrCreateState(tx.Recipient(), 0)
 		if err != nil {
-			return errors.Wrapf(err, "failed to laod or create the state of recipient %s", tx.Recipient)
+			return errors.Wrapf(err, "failed to laod or create the state of recipient %s", tx.Recipient())
 		}
 		// save state before modifying
-		sf.saveState(tx.Recipient, recipient)
+		sf.saveState(tx.Recipient(), recipient)
 		// update recipient balance
-		if err := recipient.AddBalance(tx.Amount); err != nil {
+		if err := recipient.AddBalance(tx.Amount()); err != nil {
 			return errors.Wrapf(err, "failed to update the balance of recipient %s", tx.Recipient)
 		}
 		// Update recipient votes
-		if len(recipient.Votee) > 0 && recipient.Votee != tx.Recipient {
+		if len(recipient.Votee) > 0 && recipient.Votee != tx.Recipient() {
 			// recipient already voted to a different person
 			voteeOfRecipient, err := sf.LoadOrCreateState(recipient.Votee, 0)
 			if err != nil {
@@ -647,7 +647,7 @@ func (sf *factory) handleTsf(tsf []*action.Transfer) error {
 			}
 			// save state before modifying
 			sf.saveState(recipient.Votee, voteeOfRecipient)
-			voteeOfRecipient.VotingWeight.Add(voteeOfRecipient.VotingWeight, tx.Amount)
+			voteeOfRecipient.VotingWeight.Add(voteeOfRecipient.VotingWeight, tx.Amount())
 		}
 	}
 	return nil

@@ -122,7 +122,7 @@ ChainLoop:
 		}
 
 		for i := len(blk.Transfers) - 1; i >= 0; i-- {
-			if showCoinBase || !blk.Transfers[i].IsCoinbase {
+			if showCoinBase || !blk.Transfers[i].IsCoinbase() {
 				transferCount++
 			}
 
@@ -131,7 +131,7 @@ ChainLoop:
 			}
 
 			// if showCoinBase is true, add coinbase transfers, else only put non-coinbase transfers
-			if showCoinBase || !blk.Transfers[i].IsCoinbase {
+			if showCoinBase || !blk.Transfers[i].IsCoinbase() {
 				if int64(len(res)) >= limit {
 					break ChainLoop
 				}
@@ -621,7 +621,7 @@ func (exp *Service) GetLastBlocksByRange(offset int64, limit int64) ([]explorer.
 		totalAmount := int64(0)
 		totalSize := uint32(0)
 		for _, transfer := range blk.Transfers {
-			totalAmount += transfer.Amount.Int64()
+			totalAmount += transfer.Amount().Int64()
 			totalSize += transfer.TotalSize()
 		}
 
@@ -665,7 +665,7 @@ func (exp *Service) GetBlockByID(blkID string) (explorer.Block, error) {
 	totalAmount := int64(0)
 	totalSize := uint32(0)
 	for _, transfer := range blk.Transfers {
-		totalAmount += transfer.Amount.Int64()
+		totalAmount += transfer.Amount().Int64()
 		totalSize += transfer.TotalSize()
 	}
 
@@ -1167,20 +1167,20 @@ func convertTsfToExplorerTsf(transfer *action.Transfer, isPending bool) (explore
 	}
 	hash := transfer.Hash()
 	explorerTransfer := explorer.Transfer{
-		Nonce:     int64(transfer.Nonce),
+		Nonce:     int64(transfer.Nonce()),
 		ID:        hex.EncodeToString(hash[:]),
-		Sender:    transfer.Sender,
-		Recipient: transfer.Recipient,
+		Sender:    transfer.Sender(),
+		Recipient: transfer.Recipient(),
 		Fee:       0, // TODO: we need to get the actual fee.
-		Payload:   hex.EncodeToString(transfer.Payload),
-		GasLimit:  int64(transfer.GasLimit),
+		Payload:   hex.EncodeToString(transfer.Payload()),
+		GasLimit:  int64(transfer.GasLimit()),
 		IsPending: isPending,
 	}
-	if transfer.Amount != nil && len(transfer.Amount.Bytes()) > 0 {
-		explorerTransfer.Amount = transfer.Amount.Int64()
+	if transfer.Amount() != nil && len(transfer.Amount().Bytes()) > 0 {
+		explorerTransfer.Amount = transfer.Amount().Int64()
 	}
-	if transfer.GasPrice != nil && len(transfer.GasPrice.Bytes()) > 0 {
-		explorerTransfer.GasPrice = transfer.GasPrice.Int64()
+	if transfer.GasPrice() != nil && len(transfer.GasPrice().Bytes()) > 0 {
+		explorerTransfer.GasPrice = transfer.GasPrice().Int64()
 	}
 	return explorerTransfer, nil
 }
