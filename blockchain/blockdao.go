@@ -600,52 +600,52 @@ func putTransfers(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 		transferHash := transfer.Hash()
 
 		// get transfers count for sender
-		senderTransferCount, err := dao.getTransferCountBySenderAddress(transfer.Sender)
+		senderTransferCount, err := dao.getTransferCountBySenderAddress(transfer.Sender())
 		if err != nil {
-			return errors.Wrapf(err, "for sender %x", transfer.Sender)
+			return errors.Wrapf(err, "for sender %x", transfer.Sender())
 		}
-		if delta, ok := senderDelta[transfer.Sender]; ok {
+		if delta, ok := senderDelta[transfer.Sender()]; ok {
 			senderTransferCount += delta
-			senderDelta[transfer.Sender] = senderDelta[transfer.Sender] + 1
+			senderDelta[transfer.Sender()] = senderDelta[transfer.Sender()] + 1
 		} else {
-			senderDelta[transfer.Sender] = 1
+			senderDelta[transfer.Sender()] = 1
 		}
 
 		// put new transfer to sender
-		senderKey := append(transferFromPrefix, transfer.Sender...)
+		senderKey := append(transferFromPrefix, transfer.Sender()...)
 		senderKey = append(senderKey, byteutil.Uint64ToBytes(senderTransferCount)...)
 		batch.PutIfNotExists(blockAddressTransferMappingNS, senderKey, transferHash[:],
-			"failed to put transfer hash %x for sender %x", transfer.Hash(), transfer.Sender)
+			"failed to put transfer hash %x for sender %x", transfer.Hash(), transfer.Sender())
 
 		// update sender transfers count
-		senderTransferCountKey := append(transferFromPrefix, transfer.Sender...)
+		senderTransferCountKey := append(transferFromPrefix, transfer.Sender()...)
 		batch.Put(blockAddressTransferCountMappingNS, senderTransferCountKey,
 			byteutil.Uint64ToBytes(senderTransferCount+1), "failed to bump transfer count %x for sender %x",
-			transfer.Hash(), transfer.Sender)
+			transfer.Hash(), transfer.Sender())
 
 		// get transfers count for recipient
-		recipientTransferCount, err := dao.getTransferCountByRecipientAddress(transfer.Recipient)
+		recipientTransferCount, err := dao.getTransferCountByRecipientAddress(transfer.Recipient())
 		if err != nil {
-			return errors.Wrapf(err, "for recipient %x", transfer.Recipient)
+			return errors.Wrapf(err, "for recipient %x", transfer.Recipient())
 		}
-		if delta, ok := recipientDelta[transfer.Recipient]; ok {
+		if delta, ok := recipientDelta[transfer.Recipient()]; ok {
 			recipientTransferCount += delta
-			recipientDelta[transfer.Recipient] = recipientDelta[transfer.Recipient] + 1
+			recipientDelta[transfer.Recipient()] = recipientDelta[transfer.Recipient()] + 1
 		} else {
-			recipientDelta[transfer.Recipient] = 1
+			recipientDelta[transfer.Recipient()] = 1
 		}
 
 		// put new transfer to recipient
-		recipientKey := append(transferToPrefix, transfer.Recipient...)
+		recipientKey := append(transferToPrefix, transfer.Recipient()...)
 		recipientKey = append(recipientKey, byteutil.Uint64ToBytes(recipientTransferCount)...)
 		batch.PutIfNotExists(blockAddressTransferMappingNS, recipientKey, transferHash[:],
-			"failed to put transfer hash %x for recipient %x", transfer.Hash(), transfer.Recipient)
+			"failed to put transfer hash %x for recipient %x", transfer.Hash(), transfer.Recipient())
 
 		// update recipient transfers count
-		recipientTransferCountKey := append(transferToPrefix, transfer.Recipient...)
+		recipientTransferCountKey := append(transferToPrefix, transfer.Recipient()...)
 		batch.Put(blockAddressTransferCountMappingNS, recipientTransferCountKey,
 			byteutil.Uint64ToBytes(recipientTransferCount+1), "failed to bump transfer count %x for recipient %x",
-			transfer.Hash(), transfer.Recipient)
+			transfer.Hash(), transfer.Recipient())
 	}
 
 	return nil
@@ -909,8 +909,8 @@ func deleteTransfers(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 	senderCount := make(map[string]uint64)
 	recipientCount := make(map[string]uint64)
 	for _, transfer := range blk.Transfers {
-		senderCount[transfer.Sender]++
-		recipientCount[transfer.Recipient]++
+		senderCount[transfer.Sender()]++
+		recipientCount[transfer.Recipient()]++
 	}
 	// Roll back the status of address -> transferCount mapping to the previous block
 	for sender, count := range senderCount {
@@ -941,31 +941,31 @@ func deleteTransfers(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 	for _, transfer := range blk.Transfers {
 		transferHash := transfer.Hash()
 
-		if delta, ok := senderDelta[transfer.Sender]; ok {
-			senderCount[transfer.Sender] += delta
-			senderDelta[transfer.Sender] = senderDelta[transfer.Sender] + 1
+		if delta, ok := senderDelta[transfer.Sender()]; ok {
+			senderCount[transfer.Sender()] += delta
+			senderDelta[transfer.Sender()] = senderDelta[transfer.Sender()] + 1
 		} else {
-			senderDelta[transfer.Sender] = 1
+			senderDelta[transfer.Sender()] = 1
 		}
 
 		// Delete new transfer from sender
-		senderKey := append(transferFromPrefix, transfer.Sender...)
-		senderKey = append(senderKey, byteutil.Uint64ToBytes(senderCount[transfer.Sender])...)
+		senderKey := append(transferFromPrefix, transfer.Sender()...)
+		senderKey = append(senderKey, byteutil.Uint64ToBytes(senderCount[transfer.Sender()])...)
 		batch.Delete(blockAddressTransferMappingNS, senderKey, "failed to delete transfer hash %x for sender %x",
-			transfer.Hash(), transfer.Sender)
+			transfer.Hash(), transfer.Sender())
 
-		if delta, ok := recipientDelta[transfer.Recipient]; ok {
-			recipientCount[transfer.Recipient] += delta
-			recipientDelta[transfer.Recipient] = recipientDelta[transfer.Recipient] + 1
+		if delta, ok := recipientDelta[transfer.Recipient()]; ok {
+			recipientCount[transfer.Recipient()] += delta
+			recipientDelta[transfer.Recipient()] = recipientDelta[transfer.Recipient()] + 1
 		} else {
-			recipientDelta[transfer.Recipient] = 1
+			recipientDelta[transfer.Recipient()] = 1
 		}
 
 		// Delete new transfer to recipient
-		recipientKey := append(transferToPrefix, transfer.Recipient...)
-		recipientKey = append(recipientKey, byteutil.Uint64ToBytes(recipientCount[transfer.Recipient])...)
+		recipientKey := append(transferToPrefix, transfer.Recipient()...)
+		recipientKey = append(recipientKey, byteutil.Uint64ToBytes(recipientCount[transfer.Recipient()])...)
 		batch.Delete(blockAddressTransferMappingNS, recipientKey, "failed to delete transfer hash %x for recipient %x",
-			transferHash, transfer.Recipient)
+			transferHash, transfer.Recipient())
 	}
 
 	return nil

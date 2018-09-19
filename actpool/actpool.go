@@ -199,7 +199,7 @@ func (ap *actPool) AddTsf(tsf *action.Transfer) error {
 	}
 	// Wrap tsf as an action
 	action := tsf.ConvertToActionPb()
-	return ap.addAction(tsf.Sender, action, hash, tsf.Nonce)
+	return ap.addAction(tsf.Sender(), action, hash, tsf.Nonce())
 }
 
 // AddVote inserts a new vote into account queue if it passes validation
@@ -325,7 +325,7 @@ func (ap *actPool) GetCapacity() uint64 {
 // validateTsf checks whether a tranfer is valid
 func (ap *actPool) validateTsf(tsf *action.Transfer) error {
 	// Reject coinbase transfer
-	if tsf.IsCoinbase {
+	if tsf.IsCoinbase() {
 		logger.Error().Msg("Error when validating whether transfer is coinbase")
 		return errors.Wrapf(ErrTransfer, "coinbase transfer")
 	}
@@ -335,40 +335,40 @@ func (ap *actPool) validateTsf(tsf *action.Transfer) error {
 		return errors.Wrapf(ErrActPool, "oversized data")
 	}
 	// Reject transfer of negative amount
-	if tsf.Amount.Sign() < 0 {
+	if tsf.Amount().Sign() < 0 {
 		logger.Error().Msg("Error when validating transfer's amount")
 		return errors.Wrapf(ErrBalance, "negative value")
 	}
 
 	// check if sender's address is valid
-	if _, err := iotxaddress.GetPubkeyHash(tsf.Sender); err != nil {
+	if _, err := iotxaddress.GetPubkeyHash(tsf.Sender()); err != nil {
 		logger.Error().Msg("Error when validating transfer sender's address")
-		return errors.Wrapf(err, "error when validating sender's address %s", tsf.Sender)
+		return errors.Wrapf(err, "error when validating sender's address %s", tsf.Sender())
 	}
 	// check if recipient's address is valid
-	if _, err := iotxaddress.GetPubkeyHash(tsf.Recipient); err != nil {
+	if _, err := iotxaddress.GetPubkeyHash(tsf.Recipient()); err != nil {
 		logger.Error().Msg("Error when validating transfer recipient's address")
 		return errors.Wrapf(err, "error when validating recipient's address %s", tsf.Recipient)
 	}
 
-	sender, err := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, iotxaddress.ChainID, tsf.SenderPublicKey)
+	sender, err := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, iotxaddress.ChainID, tsf.SenderPublicKey())
 	if err != nil {
 		logger.Error().Err(err).Msg("Error when validating transfer sender's public key")
 		return errors.Wrapf(err, "invalid address")
 	}
 	// Verify transfer using sender's public key
-	if err := tsf.Verify(sender); err != nil {
+	if err := action.Verify(tsf, sender); err != nil {
 		logger.Error().Err(err).Msg("Error when validating transfer's signature")
 		return errors.Wrapf(err, "failed to verify Transfer signature")
 	}
 	// Reject transfer if nonce is too low
-	confirmedNonce, err := ap.bc.Nonce(tsf.Sender)
+	confirmedNonce, err := ap.bc.Nonce(tsf.Sender())
 	if err != nil {
 		logger.Error().Err(err).Msg("Error when validating transfer's nonce")
 		return errors.Wrapf(err, "invalid nonce value")
 	}
 	pendingNonce := confirmedNonce + 1
-	if pendingNonce > tsf.Nonce {
+	if pendingNonce > tsf.Nonce() {
 		logger.Error().Msg("Error when validating transfer's nonce")
 		return errors.Wrapf(ErrNonce, "nonce too low")
 	}
@@ -540,7 +540,7 @@ func (ap *actPool) addAction(sender string, act *iproto.ActionPb, hash hash.Hash
 	if transfer := act.GetTransfer(); transfer != nil {
 		tsf := &action.Transfer{}
 		tsf.ConvertFromActionPb(act)
-		if queue.PendingBalance().Cmp(tsf.Amount) < 0 {
+		if queue.PendingBalance().Cmp(tsf.Amount()) < 0 {
 			// Pending balance is insufficient
 			logger.Warn().
 				Hex("hash", hash[:]).

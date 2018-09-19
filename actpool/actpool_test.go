@@ -67,29 +67,39 @@ func TestActPool_validateTsf(t *testing.T) {
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
 	// Case I: Coinbase transfer
-	coinbaseTsf := action.Transfer{IsCoinbase: true}
-	err = ap.validateTsf(&coinbaseTsf)
+	coinbaseTsf := action.NewCoinBaseTransfer(big.NewInt(1), "1")
+	err = ap.validateTsf(coinbaseTsf)
 	require.Equal(ErrTransfer, errors.Cause(err))
 	// Case II: Oversized data
 	tmpPayload := [32769]byte{}
 	payload := tmpPayload[:]
-	tsf := action.Transfer{Payload: payload}
-	err = ap.validateTsf(&tsf)
+	tsf, err := action.NewTransfer(uint64(1), big.NewInt(1), "1", "2", payload, uint64(0), big.NewInt(0))
+	require.NoError(err)
+	err = ap.validateTsf(tsf)
 	require.Equal(ErrActPool, errors.Cause(err))
 	// Case III: Negative amount
-	tsf = action.Transfer{Amount: big.NewInt(-100)}
-	err = ap.validateTsf(&tsf)
+	tsf, err = action.NewTransfer(uint64(1), big.NewInt(-100), "1", "2", nil, uint64(0), big.NewInt(0))
+	require.NoError(err)
+	err = ap.validateTsf(tsf)
 	require.Equal(ErrBalance, errors.Cause(err))
 	// Case IV: Invalid address
-	tsf = action.Transfer{Sender: addr1.RawAddress, Recipient: "io1qyqsyqcyq5narhapakcsrhksfajfcpl24us3xp38zwvsep", Amount: big.NewInt(1)}
-	err = ap.validateTsf(&tsf)
+	tsf, err = action.NewTransfer(
+		1,
+		big.NewInt(1),
+		addr1.RawAddress,
+		"io1qyqsyqcyq5narhapakcsrhksfajfcpl24us3xp38zwvsep",
+		nil, uint64(0),
+		big.NewInt(0),
+	)
+	require.NoError(err)
+	err = ap.validateTsf(tsf)
 	require.Error(err)
 	require.True(strings.Contains(err.Error(), "error when validating recipient's address"))
 	// Case V: Signature verification fails
 	unsignedTsf, err := action.NewTransfer(uint64(1), big.NewInt(1), addr1.RawAddress, addr1.RawAddress, []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(err)
 	err = ap.validateTsf(unsignedTsf)
-	require.Equal(action.ErrTransferError, errors.Cause(err))
+	require.Equal(action.ErrAction, errors.Cause(err))
 	// Case VI: Nonce is too low
 	prevTsf, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(50), []byte{}, uint64(100000), big.NewInt(10))
 	err = ap.AddTsf(prevTsf)
@@ -257,7 +267,9 @@ func TestActPool_AddActs(t *testing.T) {
 	ap2, ok := Ap2.(*actPool)
 	require.True(ok)
 	for i := uint64(0); i < ap2.cfg.MaxNumActsPerPool; i++ {
-		nTsf := action.Transfer{Amount: big.NewInt(int64(i))}
+		nTsf, err := action.NewTransfer(
+			i, big.NewInt(int64(i)), "1", "2", nil, uint64(0), big.NewInt(0))
+		require.NoError(err)
 		nAction := nTsf.ConvertToActionPb()
 		ap2.allActions[nTsf.Hash()] = nAction
 	}
@@ -958,7 +970,10 @@ func signedTransfer(sender *iotxaddress.Address, recipient *iotxaddress.Address,
 	if err != nil {
 		return nil, err
 	}
-	return transfer.Sign(sender)
+	if err := action.Sign(transfer, sender); err != nil {
+		return nil, err
+	}
+	return transfer, nil
 }
 
 // Helper function to return a signed vote

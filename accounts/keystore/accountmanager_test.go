@@ -85,11 +85,9 @@ func TestAccountManager_SignTransfer(t *testing.T) {
 	require := require.New(t)
 	m := NewMemAccountManager()
 
-	rawTransfer, err := action.NewTransfer(uint64(1), big.NewInt(1), rawAddr1, rawAddr2, []byte{}, uint64(100000), big.NewInt(10))
+	tsf, err := action.NewTransfer(uint64(1), big.NewInt(1), rawAddr1, rawAddr2, []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(err)
-	signedTransfer, err := m.SignTransfer(rawAddr1, rawTransfer)
-	require.Nil(signedTransfer)
-	require.Equal(ErrNotExist, errors.Cause(err))
+	require.Equal(ErrNotExist, errors.Cause(m.SignTransfer(rawAddr1, tsf)))
 
 	key := &Key{PublicKey: pubKey1, PrivateKey: priKey1, RawAddress: rawAddr1}
 	keyBytes, err := json.Marshal(key)
@@ -98,9 +96,7 @@ func TestAccountManager_SignTransfer(t *testing.T) {
 	err = m.Import(keyBytes)
 	require.NoError(err)
 
-	signedTransfer, err = m.SignTransfer(rawAddr1, rawTransfer)
-	require.NoError(err)
-	require.NotNil(signedTransfer.Signature)
+	require.NoError(m.SignTransfer(rawAddr1, tsf))
 }
 
 func TestAccountManager_SignVote(t *testing.T) {

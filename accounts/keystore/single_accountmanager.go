@@ -41,15 +41,15 @@ func NewSingleAccountManager(accountManager *AccountManager) (*SingleAccountMana
 }
 
 // SignTransfer signs a transfer
-func (m *SingleAccountManager) SignTransfer(rawTransfer *action.Transfer) (*action.Transfer, error) {
+func (m *SingleAccountManager) SignTransfer(transfer *action.Transfer) error {
 	accounts, err := m.accountManager.keystore.All()
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to list all accounts")
+		return errors.Wrap(err, "failed to list all accounts")
 	}
 	if len(accounts) != 1 {
-		return nil, errors.Wrap(ErrNumAccounts, "only one account is allowed in keystore")
+		return errors.Wrap(ErrNumAccounts, "only one account is allowed in keystore")
 	}
-	return m.accountManager.SignTransfer(accounts[0], rawTransfer)
+	return m.accountManager.SignTransfer(accounts[0], transfer)
 }
 
 // SignVote signs a vote
