@@ -52,7 +52,9 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	// Add block 1
 	// test --> A, B, C, D, E, F
 	tsf, _ := action.NewTransfer(1, big.NewInt(10), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["charlie"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
-	tsf, _ = tsf.Sign(ta.Addrinfo["producer"])
+	if err := action.Sign(tsf, ta.Addrinfo["producer"]); err != nil {
+		return err
+	}
 	blk, err := bc.MintNewBlock([]*action.Transfer{tsf}, nil, nil, ta.Addrinfo["producer"], "")
 	if err != nil {
 		return err
@@ -64,13 +66,13 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	// Add block 2
 	// Charlie --> A, B, D, E, test
 	tsf1, _ := action.NewTransfer(1, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["alfa"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
-	tsf1, _ = tsf1.Sign(ta.Addrinfo["charlie"])
+	_ = action.Sign(tsf1, ta.Addrinfo["charlie"])
 	tsf2, _ := action.NewTransfer(2, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["bravo"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
-	tsf2, _ = tsf2.Sign(ta.Addrinfo["charlie"])
+	_ = action.Sign(tsf2, ta.Addrinfo["charlie"])
 	tsf3, _ := action.NewTransfer(3, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["delta"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
-	tsf3, _ = tsf3.Sign(ta.Addrinfo["charlie"])
+	_ = action.Sign(tsf3, ta.Addrinfo["charlie"])
 	tsf4, _ := action.NewTransfer(4, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["producer"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
-	tsf4, _ = tsf4.Sign(ta.Addrinfo["charlie"])
+	_ = action.Sign(tsf4, ta.Addrinfo["charlie"])
 	vote1, _ := action.NewVote(5, ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["delta"].RawAddress, uint64(100000), big.NewInt(10))
 	vote1, _ = vote1.Sign(ta.Addrinfo["charlie"])
 	execution1, _ := action.NewExecution(ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["delta"].RawAddress, 6, big.NewInt(1), uint64(1000000), big.NewInt(10), []byte{1})
@@ -110,11 +112,11 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 
 func addActsToActPool(ap actpool.ActPool) error {
 	tsf1, _ := action.NewTransfer(2, big.NewInt(1), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["alfa"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
-	tsf1, _ = tsf1.Sign(ta.Addrinfo["producer"])
+	_ = action.Sign(tsf1, ta.Addrinfo["producer"])
 	vote1, _ := action.NewVote(3, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["producer"].RawAddress, uint64(100000), big.NewInt(10))
 	vote1, _ = vote1.Sign(ta.Addrinfo["producer"])
 	tsf2, _ := action.NewTransfer(4, big.NewInt(1), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
-	tsf2, _ = tsf2.Sign(ta.Addrinfo["producer"])
+	_ = action.Sign(tsf2, ta.Addrinfo["producer"])
 	execution1, _ := action.NewExecution(ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["delta"].RawAddress, 5, big.NewInt(1), uint64(1000000), big.NewInt(10), []byte{1})
 	execution1, _ = execution1.Sign(ta.Addrinfo["producer"])
 	if err := ap.AddTsf(tsf1); err != nil {

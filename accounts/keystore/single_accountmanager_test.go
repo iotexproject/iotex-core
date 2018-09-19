@@ -35,16 +35,12 @@ func TestSingleAccountManager_SignTransfer(t *testing.T) {
 	m, err := NewSingleAccountManager(accountManager)
 	require.NoError(err)
 
-	rawTransfer, err := action.NewTransfer(uint64(1), big.NewInt(1), rawAddr1, rawAddr2, []byte{}, uint64(100000), big.NewInt(10))
+	tsf, err := action.NewTransfer(uint64(1), big.NewInt(1), rawAddr1, rawAddr2, []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(err)
-	signedTransfer, err := m.SignTransfer(rawTransfer)
-	require.NoError(err)
-	require.NotNil(signedTransfer)
+	require.NoError(m.SignTransfer(tsf))
 
 	require.NoError(accountManager.Remove(rawAddr1))
-	signedTransfer, err = m.SignTransfer(rawTransfer)
-	require.Equal(ErrNumAccounts, errors.Cause(err))
-	require.Nil(signedTransfer)
+	require.Equal(ErrNumAccounts, errors.Cause(m.SignTransfer(tsf)))
 }
 
 func TestSingleAccountManager_SignVote(t *testing.T) {

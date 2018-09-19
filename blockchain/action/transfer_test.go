@@ -27,23 +27,15 @@ func TestTransferSignVerify(t *testing.T) {
 
 	tsf, err := NewTransfer(0, big.NewInt(10), sender.RawAddress, recipient.RawAddress, []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(err)
-	require.Nil(tsf.Signature)
-	require.NotNil(tsf.Verify(sender))
+	require.Nil(tsf.signature)
+	require.Error(Verify(tsf, sender))
 
 	// sign the transfer
-	stsf, err := tsf.Sign(sender)
-	require.NoError(err)
-	require.NotNil(stsf)
-	require.Equal(tsf.Hash(), stsf.Hash())
-
-	tsf.SenderPublicKey = sender.PublicKey
-	require.Equal(tsf.Hash(), stsf.Hash())
+	require.NoError(Sign(tsf, sender))
 
 	// verify signature
-	require.NoError(stsf.Verify(sender))
-	require.NotNil(stsf.Verify(recipient))
-	require.NotNil(tsf.Signature)
-	require.NoError(tsf.Verify(sender))
+	require.NoError(Verify(tsf, sender))
+	require.Error(Verify(tsf, recipient))
 }
 
 func TestTransferSerializeDeserialize(t *testing.T) {
@@ -64,10 +56,10 @@ func TestTransferSerializeDeserialize(t *testing.T) {
 	err = newtsf.Deserialize(s)
 	require.NoError(err)
 
-	require.Equal(uint64(0), newtsf.Nonce)
-	require.Equal(uint64(38291), newtsf.Amount.Uint64())
-	require.Equal(sender.RawAddress, newtsf.Sender)
-	require.Equal(recipient.RawAddress, newtsf.Recipient)
+	require.Equal(uint64(0), newtsf.Nonce())
+	require.Equal(uint64(38291), newtsf.amount.Uint64())
+	require.Equal(sender.RawAddress, newtsf.Sender())
+	require.Equal(recipient.RawAddress, newtsf.Recipient())
 
 	require.Equal(tsf.Hash(), newtsf.Hash())
 	require.Equal(tsf.TotalSize(), newtsf.TotalSize())
@@ -91,10 +83,10 @@ func TestTransferToJSONFromJSON(t *testing.T) {
 	require.NoError(err)
 	require.NotNil(newtsf)
 
-	require.Equal(uint64(0), newtsf.Nonce)
-	require.Equal(uint64(38291), newtsf.Amount.Uint64())
-	require.Equal(sender.RawAddress, newtsf.Sender)
-	require.Equal(recipient.RawAddress, newtsf.Recipient)
+	require.Equal(uint64(0), newtsf.Nonce())
+	require.Equal(uint64(38291), newtsf.amount.Uint64())
+	require.Equal(sender.RawAddress, newtsf.Sender())
+	require.Equal(recipient.RawAddress, newtsf.Recipient())
 
 	require.Equal(tsf.Hash(), newtsf.Hash())
 	require.Equal(tsf.TotalSize(), newtsf.TotalSize())
@@ -103,5 +95,5 @@ func TestTransferToJSONFromJSON(t *testing.T) {
 func TestCoinbaseTsf(t *testing.T) {
 	coinbaseTsf := NewCoinBaseTransfer(big.NewInt(int64(5)), ta.Addrinfo["producer"].RawAddress)
 	require.NotNil(t, coinbaseTsf)
-	require.True(t, coinbaseTsf.IsCoinbase)
+	require.True(t, coinbaseTsf.isCoinbase)
 }
