@@ -81,19 +81,15 @@ func TestLocalActPool(t *testing.T) {
 	// Create three invalid actions from "from" to "to"
 	// Existed Vote
 	vote5, _ := signedVote(from, from, uint64(2))
-	// Coinbase Transfer
-	tsf6, _ := signedTransfer(from, to, uint64(6), big.NewInt(5))
-	tsf6.IsCoinbase = true
 	// Unsigned Vote
-	vote7, _ := action.NewVote(uint64(7), from.RawAddress, from.RawAddress, uint64(100000), big.NewInt(10))
+	vote6, _ := action.NewVote(uint64(7), from.RawAddress, from.RawAddress, uint64(100000), big.NewInt(10))
 
 	require.NoError(cli.Broadcast(tsf1.ConvertToActionPb()))
 	require.NoError(cli.Broadcast(vote2.ConvertToActionPb()))
 	require.NoError(cli.Broadcast(tsf3.ConvertToActionPb()))
 	require.NoError(cli.Broadcast(exec4.ConvertToActionPb()))
 	require.NoError(cli.Broadcast(vote5.ConvertToActionPb()))
-	require.NoError(cli.Broadcast(tsf6.ConvertToActionPb()))
-	require.NoError(cli.Broadcast(vote7.ConvertToActionPb()))
+	require.NoError(cli.Broadcast(vote6.ConvertToActionPb()))
 
 	// Wait until server receives all the transfers
 	require.NoError(testutil.WaitUntil(100*time.Millisecond, 5*time.Second, func() (bool, error) {
@@ -165,7 +161,10 @@ func signedTransfer(
 	if err != nil {
 		return nil, err
 	}
-	return transfer.Sign(sender)
+	if err := action.Sign(transfer, sender); err != nil {
+		return nil, err
+	}
+	return transfer, nil
 }
 
 // Helper function to return a signed vote

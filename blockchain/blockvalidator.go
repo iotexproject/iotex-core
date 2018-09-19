@@ -115,32 +115,32 @@ func (v *validator) verifyActions(blk *Block) error {
 		// Verify Signature
 		// Verify Coinbase transfer
 
-		if !tsf.IsCoinbase {
-			if _, err := iotxaddress.GetPubkeyHash(tsf.Sender); err != nil {
-				return errors.Wrapf(err, "failed to validate transfer sender's address %s", tsf.Sender)
+		if !tsf.IsCoinbase() {
+			if _, err := iotxaddress.GetPubkeyHash(tsf.Sender()); err != nil {
+				return errors.Wrapf(err, "failed to validate transfer sender's address %s", tsf.Sender())
 			}
-			if _, err := iotxaddress.GetPubkeyHash(tsf.Recipient); err != nil {
-				return errors.Wrapf(err, "failed to validate transfer recipient's address %s", tsf.Recipient)
+			if _, err := iotxaddress.GetPubkeyHash(tsf.Recipient()); err != nil {
+				return errors.Wrapf(err, "failed to validate transfer recipient's address %s", tsf.Recipient())
 			}
 		}
 
-		if blk.Header.height > 0 && !tsf.IsCoinbase {
+		if blk.Header.height > 0 && !tsf.IsCoinbase() {
 			// Store the nonce of the sender and verify later
-			if _, ok := confirmedNonceMap[tsf.Sender]; !ok {
-				accountNonce, err := v.sf.Nonce(tsf.Sender)
+			if _, ok := confirmedNonceMap[tsf.Sender()]; !ok {
+				accountNonce, err := v.sf.Nonce(tsf.Sender())
 				if err != nil {
 					return errors.Wrap(err, "failed to get the nonce of transfer sender")
 				}
-				confirmedNonceMap[tsf.Sender] = accountNonce
-				accountNonceMap[tsf.Sender] = make([]uint64, 0)
+				confirmedNonceMap[tsf.Sender()] = accountNonce
+				accountNonceMap[tsf.Sender()] = make([]uint64, 0)
 			}
-			accountNonceMap[tsf.Sender] = append(accountNonceMap[tsf.Sender], tsf.Nonce)
+			accountNonceMap[tsf.Sender()] = append(accountNonceMap[tsf.Sender()], tsf.Nonce())
 		}
 
 		go func(tsf *action.Transfer, correctTsf *uint64, correctCoinbase *uint64) {
 			defer wg.Done()
 			// Verify coinbase transfer
-			if tsf.IsCoinbase {
+			if tsf.IsCoinbase() {
 				address, err := iotxaddress.GetAddressByPubkey(
 					iotxaddress.IsTestnet,
 					iotxaddress.ChainID,
@@ -149,7 +149,7 @@ func (v *validator) verifyActions(blk *Block) error {
 				if err != nil {
 					return
 				}
-				if address.RawAddress != tsf.Recipient {
+				if address.RawAddress != tsf.Recipient() {
 					return
 				}
 				atomic.AddUint64(correctCoinbase, uint64(1))
@@ -160,12 +160,12 @@ func (v *validator) verifyActions(blk *Block) error {
 			address, err := iotxaddress.GetAddressByPubkey(
 				iotxaddress.IsTestnet,
 				iotxaddress.ChainID,
-				tsf.SenderPublicKey,
+				tsf.SenderPublicKey(),
 			)
 			if err != nil {
 				return
 			}
-			if err := tsf.Verify(address); err != nil {
+			if err := action.Verify(tsf, address); err != nil {
 				return
 			}
 			atomic.AddUint64(correctTsf, uint64(1))

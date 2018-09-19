@@ -51,7 +51,7 @@ type Execution struct {
 // NewExecution returns a Execution instance
 func NewExecution(executorAddress string, contractAddress string, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) (*Execution, error) {
 	if executorAddress == "" {
-		return nil, errors.Wrap(ErrAddr, "address of the executor is empty")
+		return nil, errors.Wrap(ErrAddress, "address of the executor is empty")
 	}
 
 	return &Execution{

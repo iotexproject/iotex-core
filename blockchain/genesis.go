@@ -123,8 +123,8 @@ func NewGenesisBlock(cfg *config.Config) *Block {
 		if err != nil {
 			logger.Fatal().Err(err).Msg("Fail to create genesis block")
 		}
-		tsf.SenderPublicKey = creatorPK
-		tsf.Signature = signature
+		tsf.SetSenderPublicKey(creatorPK)
+		tsf.SetSignature(signature)
 		transfers = append(transfers, tsf)
 	}
 
