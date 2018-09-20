@@ -176,18 +176,18 @@ func (v *validator) verifyActions(blk *Block) error {
 		// Verify Nonce
 		// Verify Signature
 
-		if _, err := iotxaddress.GetPubkeyHash(vote.GetVote().VoterAddress); err != nil {
-			return errors.Wrapf(err, "failed to validate voter's address %s", vote.GetVote().VoterAddress)
+		if _, err := iotxaddress.GetPubkeyHash(vote.Voter()); err != nil {
+			return errors.Wrapf(err, "failed to validate voter's address %s", vote.Voter())
 		}
-		if vote.GetVote().VoteeAddress != action.EmptyAddress {
-			if _, err := iotxaddress.GetPubkeyHash(vote.GetVote().VoteeAddress); err != nil {
-				return errors.Wrapf(err, "failed to validate votee's address %s", vote.GetVote().VoteeAddress)
+		if vote.Votee() != action.EmptyAddress {
+			if _, err := iotxaddress.GetPubkeyHash(vote.Votee()); err != nil {
+				return errors.Wrapf(err, "failed to validate votee's address %s", vote.Votee())
 			}
 		}
 
 		if blk.Header.height > 0 {
 			// Store the nonce of the voter and verify later
-			voterAddress := vote.GetVote().VoterAddress
+			voterAddress := vote.Voter()
 			if _, ok := confirmedNonceMap[voterAddress]; !ok {
 				accountNonce, err := v.sf.Nonce(voterAddress)
 				if err != nil {
@@ -196,21 +196,17 @@ func (v *validator) verifyActions(blk *Block) error {
 				confirmedNonceMap[voterAddress] = accountNonce
 				accountNonceMap[voterAddress] = make([]uint64, 0)
 			}
-			accountNonceMap[voterAddress] = append(accountNonceMap[voterAddress], vote.Nonce)
+			accountNonceMap[voterAddress] = append(accountNonceMap[voterAddress], vote.Nonce())
 		}
 
 		// Verify signature
 		go func(vote *action.Vote, correctVote *uint64) {
 			defer wg.Done()
-			selfPublicKey, err := vote.SelfPublicKey()
+			address, err := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, iotxaddress.ChainID, vote.VoterPublicKey())
 			if err != nil {
 				return
 			}
-			address, err := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, iotxaddress.ChainID, selfPublicKey)
-			if err != nil {
-				return
-			}
-			if err := vote.Verify(address); err != nil {
+			if err := action.Verify(vote, address); err != nil {
 				return
 			}
 			atomic.AddUint64(correctVote, uint64(1))

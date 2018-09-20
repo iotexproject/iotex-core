@@ -114,13 +114,10 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	_ = action.Sign(tsf6, ta.Addrinfo["echo"])
 	vote1, _ := action.NewVote(6, ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["alfa"].RawAddress, uint64(100000), big.NewInt(10))
 	vote2, _ := action.NewVote(1, ta.Addrinfo["alfa"].RawAddress, ta.Addrinfo["charlie"].RawAddress, uint64(100000), big.NewInt(10))
-	vote1, err = vote1.Sign(ta.Addrinfo["charlie"])
-	if err != nil {
+	if err := action.Sign(vote1, ta.Addrinfo["charlie"]); err != nil {
 		return err
 	}
-
-	vote2, err = vote2.Sign(ta.Addrinfo["alfa"])
-	if err != nil {
+	if err := action.Sign(vote2, ta.Addrinfo["alfa"]); err != nil {
 		return err
 	}
 
@@ -766,7 +763,7 @@ func TestActions(t *testing.T) {
 
 		vote, err := action.NewVote(1, a.RawAddress, a.RawAddress, uint64(100000), big.NewInt(10))
 		require.NoError(err)
-		vote, _ = vote.Sign(a)
+		_ = action.Sign(vote, a)
 		votes = append(votes, vote)
 	}
 	blk, _ := bc.MintNewBlock(tsfs, votes, nil, ta.Addrinfo["producer"], "")
