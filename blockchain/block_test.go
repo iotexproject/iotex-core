@@ -183,8 +183,8 @@ func TestConvertFromBlockPb(t *testing.T) {
 	require.Equal(t, uint64(101), newblk.Transfers[0].Nonce())
 	require.Equal(t, uint64(102), newblk.Transfers[1].Nonce())
 
-	require.Equal(t, uint64(103), newblk.Votes[0].Nonce)
-	require.Equal(t, uint64(104), newblk.Votes[1].Nonce)
+	require.Equal(t, uint64(103), newblk.Votes[0].Nonce())
+	require.Equal(t, uint64(104), newblk.Votes[1].Nonce())
 }
 
 func TestWrongRootHash(t *testing.T) {
@@ -266,8 +266,7 @@ func TestWrongNonce(t *testing.T) {
 
 	vote, err := action.NewVote(1, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress, uint64(100000), big.NewInt(10))
 	require.NoError(err)
-	vote, err = vote.Sign(ta.Addrinfo["producer"])
-	require.NoError(err)
+	require.NoError(action.Sign(vote, ta.Addrinfo["producer"]))
 	hash = tsf1.Hash()
 	blk = NewBlock(1, 3, hash, clock.New(), []*action.Transfer{coinbaseTsf}, []*action.Vote{vote}, nil)
 	err = blk.SignBlock(ta.Addrinfo["producer"])
@@ -293,12 +292,10 @@ func TestWrongNonce(t *testing.T) {
 
 	vote2, err := action.NewVote(2, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress, uint64(100000), big.NewInt(10))
 	require.NoError(err)
-	vote2, err = vote2.Sign(ta.Addrinfo["producer"])
-	require.NoError(err)
+	require.NoError(action.Sign(vote2, ta.Addrinfo["producer"]))
 	vote3, err := action.NewVote(2, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["charlie"].RawAddress, uint64(100000), big.NewInt(10))
 	require.NoError(err)
-	vote3, err = vote3.Sign(ta.Addrinfo["producer"])
-	require.NoError(err)
+	require.NoError(action.Sign(vote3, ta.Addrinfo["producer"]))
 	hash = tsf1.Hash()
 	blk = NewBlock(1, 3, hash, clock.New(), []*action.Transfer{coinbaseTsf}, []*action.Vote{vote2, vote3}, nil)
 	err = blk.SignBlock(ta.Addrinfo["producer"])
@@ -324,12 +321,10 @@ func TestWrongNonce(t *testing.T) {
 
 	vote4, err := action.NewVote(2, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress, uint64(100000), big.NewInt(10))
 	require.NoError(err)
-	vote4, err = vote4.Sign(ta.Addrinfo["producer"])
-	require.NoError(err)
+	require.NoError(action.Sign(vote4, ta.Addrinfo["producer"]))
 	vote5, err := action.NewVote(4, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["charlie"].RawAddress, uint64(100000), big.NewInt(10))
 	require.NoError(err)
-	vote5, err = vote5.Sign(ta.Addrinfo["producer"])
-	require.NoError(err)
+	require.NoError(action.Sign(vote5, ta.Addrinfo["producer"]))
 	hash = tsf1.Hash()
 	blk = NewBlock(1, 3, hash, clock.New(), []*action.Transfer{coinbaseTsf}, []*action.Vote{vote4, vote5}, nil)
 	err = blk.SignBlock(ta.Addrinfo["producer"])

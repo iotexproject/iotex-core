@@ -173,7 +173,10 @@ func signedVote(voter *iotxaddress.Address, votee *iotxaddress.Address, nonce ui
 	if err != nil {
 		return nil, err
 	}
-	return vote.Sign(voter)
+	if err := action.Sign(vote, voter); err != nil {
+		return nil, err
+	}
+	return vote, err
 }
 
 // Helper function to return a signed execution

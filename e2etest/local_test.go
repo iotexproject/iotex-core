@@ -576,8 +576,7 @@ func TestVoteLocalCommit(t *testing.T) {
 	// D self nomination
 	vote6, err := action.NewVote(uint64(5), ta.Addrinfo["delta"].RawAddress, ta.Addrinfo["delta"].RawAddress, uint64(100000), big.NewInt(10))
 	require.NoError(err)
-	vote6, err = vote6.Sign(ta.Addrinfo["delta"])
-	require.Nil(err)
+	require.NoError(action.Sign(vote6, ta.Addrinfo["delta"]))
 	blk3, err := chain.MintNewBlock(nil, []*action.Vote{vote6}, nil, ta.Addrinfo["producer"], "")
 	require.Nil(err)
 	require.Nil(chain.CommitBlock(blk3))
@@ -619,8 +618,7 @@ func TestVoteLocalCommit(t *testing.T) {
 	// Unvote B
 	vote7, err := action.NewVote(uint64(2), ta.Addrinfo["bravo"].RawAddress, "", uint64(100000), big.NewInt(10))
 	require.NoError(err)
-	vote7, err = vote7.Sign(ta.Addrinfo["bravo"])
-	require.Nil(err)
+	require.NoError(action.Sign(vote7, ta.Addrinfo["bravo"]))
 	blk4, err := chain.MintNewBlock(nil, []*action.Vote{vote7}, nil, ta.Addrinfo["producer"], "")
 	require.Nil(err)
 	require.Nil(chain.CommitBlock(blk4))
@@ -792,8 +790,7 @@ func newSignedVote(nonce int, from *iotxaddress.Address, to *iotxaddress.Address
 	if err != nil {
 		return nil, err
 	}
-	vote, err = vote.Sign(from)
-	if err != nil {
+	if err := action.Sign(vote, from); err != nil {
 		return nil, err
 	}
 	return vote, nil

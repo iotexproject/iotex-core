@@ -64,16 +64,12 @@ func TestSingleAccountManager_SignVote(t *testing.T) {
 	require.NoError(err)
 	voteeAddress, err := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, iotxaddress.ChainID, votePubKey)
 	require.NoError(err)
-	rawVote, err := action.NewVote(uint64(1), voterAddress.RawAddress, voteeAddress.RawAddress, uint64(100000), big.NewInt(10))
+	vote, err := action.NewVote(uint64(1), voterAddress.RawAddress, voteeAddress.RawAddress, uint64(100000), big.NewInt(10))
 	require.NoError(err)
-	signedVote, err := m.SignVote(rawVote)
-	require.NoError(err)
-	require.NotNil(signedVote)
+	require.NoError(m.SignVote(vote))
 
 	require.NoError(accountManager.Remove(rawAddr1))
-	signedVote, err = m.SignVote(rawVote)
-	require.Equal(ErrNumAccounts, errors.Cause(err))
-	require.Nil(signedVote)
+	require.Equal(ErrNumAccounts, errors.Cause(m.SignVote(vote)))
 }
 
 func TestSingleAccountManager_SignHash(t *testing.T) {

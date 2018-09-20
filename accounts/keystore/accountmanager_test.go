@@ -111,11 +111,10 @@ func TestAccountManager_SignVote(t *testing.T) {
 	require.NoError(err)
 	voteeAddress, err := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, iotxaddress.ChainID, votePubKey)
 	require.NoError(err)
-	rawVote, err := action.NewVote(uint64(1), voterAddress.RawAddress, voteeAddress.RawAddress, uint64(100000), big.NewInt(10))
+	vote, err := action.NewVote(
+		uint64(1), voterAddress.RawAddress, voteeAddress.RawAddress, uint64(100000), big.NewInt(10))
 	require.NoError(err)
-	signedVote, err := m.SignVote(rawAddr1, rawVote)
-	require.Nil(signedVote)
-	require.Equal(ErrNotExist, errors.Cause(err))
+	require.Equal(ErrNotExist, errors.Cause(m.SignVote(rawAddr1, vote)))
 
 	key := &Key{PublicKey: pubKey1, PrivateKey: priKey1, RawAddress: rawAddr1}
 	keyBytes, err := json.Marshal(key)
@@ -124,9 +123,8 @@ func TestAccountManager_SignVote(t *testing.T) {
 	err = m.Import(keyBytes)
 	require.NoError(err)
 
-	signedVote, err = m.SignVote(rawAddr1, rawVote)
-	require.NoError(err)
-	require.NotNil(signedVote.Signature)
+	require.NoError(m.SignVote(rawAddr1, vote))
+	require.NotNil(vote.Signature)
 }
 
 func TestAccountManager_SignHash(t *testing.T) {
