@@ -129,52 +129,21 @@ func TestActPool_validateVote(t *testing.T) {
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
-	// Case I: Oversized data
-	tmpSelfPubKey := [32769]byte{}
-	selfPubKey := tmpSelfPubKey[:]
-	vote := action.Vote{
-		ActionPb: &iproto.ActionPb{
-			Action: &iproto.ActionPb_Vote{
-				Vote: &iproto.VotePb{
-					SelfPubkey: selfPubKey},
-			},
-		},
-	}
-	err = ap.validateVote(&vote)
-	require.Equal(ErrActPool, errors.Cause(err))
-	// Case II: Invalid voter's public key
-	vote = action.Vote{
-		ActionPb: &iproto.ActionPb{
-			Action: &iproto.ActionPb_Vote{
-				Vote: &iproto.VotePb{},
-			},
-		},
-	}
-	err = ap.validateVote(&vote)
-	require.Error(err)
-	require.True(strings.Contains(err.Error(), "failed to get voter's public key"))
-	// Case III: Invalid address
-	vote = action.Vote{
-		ActionPb: &iproto.ActionPb{
-			Action: &iproto.ActionPb_Vote{
-				Vote: &iproto.VotePb{
-					SelfPubkey:   addr1.PublicKey[:],
-					VoterAddress: addr1.RawAddress,
-					VoteeAddress: "123",
-				},
-			},
-		},
-	}
-	err = ap.validateVote(&vote)
+	// Case I: Invalid address
+	vote, err := action.NewVote(1, addr1.RawAddress, "123", 0, big.NewInt(0))
+	require.NoError(err)
+	vote.SetVoterPublicKey(addr1.PublicKey)
+	err = ap.validateVote(vote)
 	require.Error(err)
 	require.True(strings.Contains(err.Error(), "error when validating votee's address"))
-	// Case IV: Signature verification fails
+	// Case II: Signature verification fails
 	unsignedVote, err := action.NewVote(1, addr1.RawAddress, addr2.RawAddress, uint64(100000), big.NewInt(10))
-	unsignedVote.GetVote().SelfPubkey = addr1.PublicKey[:]
+	require.NoError(err)
+	unsignedVote.SetVoterPublicKey(addr1.PublicKey)
 	require.NoError(err)
 	err = ap.validateVote(unsignedVote)
-	require.Equal(action.ErrVoteError, errors.Cause(err))
-	// Case V: Nonce is too low
+	require.Equal(action.ErrAction, errors.Cause(err))
+	// Case III: Nonce is too low
 	prevTsf, _ := signedTransfer(addr1, addr1, uint64(1), big.NewInt(50), []byte{}, uint64(100000), big.NewInt(10))
 	err = ap.AddTsf(prevTsf)
 	require.NoError(err)
@@ -185,7 +154,7 @@ func TestActPool_validateVote(t *testing.T) {
 	nVote, _ := signedVote(addr1, addr1, uint64(1), uint64(100000), big.NewInt(10))
 	err = ap.validateVote(nVote)
 	require.Equal(ErrNonce, errors.Cause(err))
-	// Case VI: Votee is not a candidate
+	// Case IV: Votee is not a candidate
 	vote2, _ := signedVote(addr1, addr2, uint64(2), uint64(100000), big.NewInt(10))
 	err = ap.validateVote(vote2)
 	require.Equal(ErrVotee, errors.Cause(err))
@@ -285,7 +254,7 @@ func TestActPool_AddActs(t *testing.T) {
 	require.Equal(ErrNonce, errors.Cause(err))
 	replaceVote, err := action.NewVote(4, addr1.RawAddress, "", uint64(100000), big.NewInt(10))
 	require.NoError(err)
-	replaceVote, _ = replaceVote.Sign(addr1)
+	require.NoError(action.Sign(replaceVote, addr1))
 	err = ap.AddVote(replaceVote)
 	require.Equal(ErrNonce, errors.Cause(err))
 	// Case IV: Nonce is too large
@@ -690,11 +659,11 @@ func TestActPool_Reset(t *testing.T) {
 	tsf21, _ := signedTransfer(addr4, addr5, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(10))
 	vote22, _ := signedVote(addr4, addr4, uint64(2), uint64(100000), big.NewInt(10))
 	vote23, _ := action.NewVote(3, addr4.RawAddress, "", uint64(100000), big.NewInt(10))
-	vote23, _ = vote23.Sign(addr4)
+	_ = action.Sign(vote23, addr4)
 	vote24, _ := signedVote(addr5, addr5, uint64(1), uint64(100000), big.NewInt(10))
 	tsf25, _ := signedTransfer(addr5, addr4, uint64(2), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(10))
 	vote26, _ := action.NewVote(3, addr5.RawAddress, "", uint64(100000), big.NewInt(10))
-	vote26, _ = vote26.Sign(addr5)
+	_ = action.Sign(vote26, addr5)
 
 	err = ap1.AddTsf(tsf21)
 	require.NoError(err)
@@ -982,7 +951,10 @@ func signedVote(voter *iotxaddress.Address, votee *iotxaddress.Address, nonce ui
 	if err != nil {
 		return nil, err
 	}
-	return vote.Sign(voter)
+	if err := action.Sign(vote, voter); err != nil {
+		return nil, err
+	}
+	return vote, nil
 }
 
 func getActPoolCfg() config.ActPool {

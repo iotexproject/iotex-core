@@ -7,7 +7,6 @@
 package action
 
 import (
-	"bytes"
 	"encoding/hex"
 	"math/big"
 
@@ -15,9 +14,7 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/blake2b"
 
-	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
-	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
@@ -26,14 +23,9 @@ import (
 	"github.com/iotexproject/iotex-core/proto"
 )
 
-var (
-	// ErrVoteError indicates error for a vote action
-	ErrVoteError = errors.New("vote error")
-)
-
 // Vote defines the struct of account-based vote
 type Vote struct {
-	*iproto.ActionPb
+	action
 }
 
 // NewVote returns a Vote instance
@@ -41,27 +33,36 @@ func NewVote(nonce uint64, voterAddress string, voteeAddress string, gasLimit ui
 	if voterAddress == "" {
 		return nil, errors.Wrap(ErrAddress, "address of the voter is empty")
 	}
-
-	pbVote := &iproto.ActionPb{
-		Action: &iproto.ActionPb_Vote{
-			Vote: &iproto.VotePb{
-				VoterAddress: voterAddress,
-				VoteeAddress: voteeAddress,
-			},
+	return &Vote{
+		action: action{
+			version:  version.ProtocolVersion,
+			nonce:    nonce,
+			srcAddr:  voterAddress,
+			dstAddr:  voteeAddress,
+			gasLimit: gasLimit,
+			gasPrice: gasPrice,
 		},
-		Version:  version.ProtocolVersion,
-		Nonce:    nonce,
-		GasLimit: gasLimit,
-	}
-	if gasPrice != nil {
-		pbVote.GasPrice = gasPrice.Bytes()
-	}
-	return &Vote{pbVote}, nil
+	}, nil
 }
 
-// SelfPublicKey returns the self public key of the vote
-func (v *Vote) SelfPublicKey() (keypair.PublicKey, error) {
-	return keypair.BytesToPublicKey(v.GetVote().SelfPubkey)
+// Voter returns the voter's address
+func (v *Vote) Voter() string {
+	return v.SrcAddr()
+}
+
+// VoterPublicKey returns the voter's public key
+func (v *Vote) VoterPublicKey() keypair.PublicKey {
+	return v.SrcPubkey()
+}
+
+// SetVoterPublicKey sets the voter's public key
+func (v *Vote) SetVoterPublicKey(voterPubkey keypair.PublicKey) {
+	v.SetSrcPubkey(voterPubkey)
+}
+
+// Votee returns the votee's address
+func (v *Vote) Votee() string {
+	return v.DstAddr()
 }
 
 // TotalSize returns the total size of this Vote
@@ -69,60 +70,78 @@ func (v *Vote) TotalSize() uint32 {
 	size := TimestampSizeInBytes
 	size += NonceSizeInBytes
 	size += VersionSizeInBytes
-	pbVote := v.GetVote()
-	size += len(pbVote.SelfPubkey)
-	size += len(pbVote.VoterAddress)
-	size += len(pbVote.VoteeAddress)
+	size += len(v.srcPubkey)
+	size += len(v.srcAddr)
+	size += len(v.dstAddr)
 	size += GasSizeInBytes
-	size += len(v.GasPrice)
-	size += len(v.Signature)
+	if v.gasPrice != nil && len(v.gasPrice.Bytes()) > 0 {
+		size += len(v.gasPrice.Bytes())
+	}
+	size += len(v.signature)
 	return uint32(size)
 }
 
 // ByteStream returns a raw byte stream of this Transfer
 func (v *Vote) ByteStream() []byte {
+	// TODO: remove pbVote.Timestamp from the proto because we never set it
 	stream := make([]byte, TimestampSizeInBytes)
-	pbVote := v.GetVote()
-	enc.MachineEndian.PutUint64(stream, pbVote.Timestamp)
-	stream = append(stream, pbVote.SelfPubkey...)
-	stream = append(stream, pbVote.VoterAddress...)
-	stream = append(stream, pbVote.VoteeAddress...)
+	enc.MachineEndian.PutUint64(stream, uint64(0))
+	stream = append(stream, v.srcPubkey[:]...)
+	stream = append(stream, v.srcAddr...)
+	stream = append(stream, v.dstAddr...)
 	temp := make([]byte, 8)
-	enc.MachineEndian.PutUint64(temp, v.Nonce)
+	enc.MachineEndian.PutUint64(temp, v.nonce)
 	stream = append(stream, temp...)
 	temp = make([]byte, 4)
-	enc.MachineEndian.PutUint32(temp, v.Version)
+	enc.MachineEndian.PutUint32(temp, v.version)
 	stream = append(stream, temp...)
 	temp = make([]byte, GasSizeInBytes)
-	enc.MachineEndian.PutUint64(temp, v.GasLimit)
+	enc.MachineEndian.PutUint64(temp, v.gasLimit)
 	stream = append(stream, temp...)
-	stream = append(stream, v.GasPrice...)
+	if v.gasPrice != nil && len(v.gasPrice.Bytes()) > 0 {
+		stream = append(stream, v.gasPrice.Bytes()...)
+	}
 	// Signature = Sign(hash(ByteStream())), so not included
 	return stream
 }
 
 // ConvertToActionPb converts Vote to protobuf's ActionPb
 func (v *Vote) ConvertToActionPb() *iproto.ActionPb {
-	return v.ActionPb
+	pbVote := &iproto.ActionPb{
+		Action: &iproto.ActionPb_Vote{
+			Vote: &iproto.VotePb{
+				VoterAddress: v.srcAddr,
+				SelfPubkey:   v.srcPubkey[:],
+				VoteeAddress: v.dstAddr,
+			},
+		},
+		Version:   v.version,
+		Nonce:     v.nonce,
+		GasLimit:  v.gasLimit,
+		Signature: v.signature,
+	}
+	if v.gasPrice != nil {
+		pbVote.GasPrice = v.gasPrice.Bytes()
+	}
+	return pbVote
 }
 
 // ToJSON converts Vote to VoteJSON
 func (v *Vote) ToJSON() (*explorer.Vote, error) {
 	// used by account-based model
-	pbVote := v.GetVote()
-	voterPubKey, err := keypair.BytesToPubKeyString(pbVote.SelfPubkey)
+	voterPubKey, err := keypair.BytesToPubKeyString(v.srcPubkey[:])
 	if err != nil {
 		return nil, err
 	}
 	vote := &explorer.Vote{
-		Version:     int64(v.Version),
-		Nonce:       int64(v.Nonce),
+		Version:     int64(v.version),
+		Nonce:       int64(v.nonce),
 		VoterPubKey: voterPubKey,
-		Voter:       pbVote.VoterAddress,
-		Votee:       pbVote.VoteeAddress,
-		GasLimit:    int64(v.GasLimit),
-		GasPrice:    big.NewInt(0).SetBytes(v.GasPrice).Int64(),
-		Signature:   hex.EncodeToString(v.Signature),
+		Voter:       v.srcAddr,
+		Votee:       v.dstAddr,
+		GasLimit:    int64(v.gasLimit),
+		GasPrice:    v.gasPrice.Int64(),
+		Signature:   hex.EncodeToString(v.signature),
 	}
 	return vote, nil
 }
@@ -134,7 +153,22 @@ func (v *Vote) Serialize() ([]byte, error) {
 
 // ConvertFromActionPb converts a protobuf's ActionPb to Vote
 func (v *Vote) ConvertFromActionPb(pbAct *iproto.ActionPb) {
-	v.ActionPb = pbAct
+	v.version = pbAct.Version
+	v.nonce = pbAct.Nonce
+	v.gasLimit = pbAct.GasLimit
+	if v.gasPrice == nil {
+		v.gasPrice = big.NewInt(0)
+	}
+	if len(pbAct.GasPrice) > 0 {
+		v.gasPrice.SetBytes(pbAct.GasPrice)
+	}
+	v.signature = pbAct.Signature
+	pbVote := pbAct.GetVote()
+	if pbVote != nil {
+		v.srcAddr = pbVote.VoterAddress
+		v.dstAddr = pbVote.VoteeAddress
+		copy(v.srcPubkey[:], pbVote.SelfPubkey)
+	}
 }
 
 // NewVoteFromJSON creates a new Vote from VoteJSON
@@ -145,27 +179,25 @@ func NewVoteFromJSON(jsonVote *explorer.Vote) (*Vote, error) {
 		logger.Error().Err(err).Msg("Fail to create a new Vote from VoteJSON")
 		return nil, err
 	}
+	var srcPubkey keypair.PublicKey
+	copy(srcPubkey[:], voterPubKey)
 	signature, err := hex.DecodeString(jsonVote.Signature)
 	if err != nil {
 		logger.Error().Err(err).Msg("Fail to create a new Vote from VoteJSON")
 		return nil, err
 	}
-
-	pbVote := &iproto.ActionPb{
-		Action: &iproto.ActionPb_Vote{
-			Vote: &iproto.VotePb{
-				SelfPubkey:   voterPubKey,
-				VoterAddress: jsonVote.Voter,
-				VoteeAddress: jsonVote.Votee,
-			},
+	return &Vote{
+		action: action{
+			version:   uint32(jsonVote.Version),
+			nonce:     uint64(jsonVote.Nonce),
+			srcAddr:   jsonVote.Voter,
+			dstAddr:   jsonVote.Votee,
+			gasLimit:  uint64(jsonVote.GasLimit),
+			gasPrice:  big.NewInt(jsonVote.GasPrice),
+			srcPubkey: srcPubkey,
+			signature: signature,
 		},
-		Version:   uint32(jsonVote.Version),
-		Nonce:     uint64(jsonVote.Nonce),
-		GasLimit:  uint64(jsonVote.GasLimit),
-		GasPrice:  big.NewInt(jsonVote.GasPrice).Bytes(),
-		Signature: signature,
-	}
-	return &Vote{pbVote}, nil
+	}, nil
 }
 
 // Deserialize parse the byte stream into Vote
@@ -181,49 +213,4 @@ func (v *Vote) Deserialize(buf []byte) error {
 // Hash returns the hash of the Vote
 func (v *Vote) Hash() hash.Hash32B {
 	return blake2b.Sum256(v.ByteStream())
-}
-
-// Sign signs the Vote using sender's private key
-func (v *Vote) Sign(sender *iotxaddress.Address) (*Vote, error) {
-	// check the sender is correct
-	pbVote := v.GetVote()
-	if pbVote.VoterAddress != sender.RawAddress {
-		return nil, errors.Wrapf(ErrVoteError, "signing addr %s does not match with Vote addr %s",
-			pbVote.VoterAddress, sender.RawAddress)
-	}
-	// check the public key is actually owned by sender
-	pkhash, err := iotxaddress.GetPubkeyHash(sender.RawAddress)
-	if err != nil {
-		return nil, errors.Wrap(err, "error when get the pubkey hash")
-	}
-	if !bytes.Equal(pkhash, keypair.HashPubKey(sender.PublicKey)) {
-		return nil, errors.Wrapf(ErrVoteError, "signing addr %s does not own correct public key",
-			sender.RawAddress)
-	}
-	pbVote.SelfPubkey = sender.PublicKey[:]
-	if err := v.sign(sender); err != nil {
-		return nil, err
-	}
-	return v, nil
-}
-
-// Verify verifies the Vote using sender's public key
-func (v *Vote) Verify(sender *iotxaddress.Address) error {
-	hash := v.Hash()
-	if success := crypto.EC283.Verify(sender.PublicKey, hash[:], v.Signature); success {
-		return nil
-	}
-	return errors.Wrapf(ErrVoteError, "Failed to verify Vote signature = %x", v.Signature)
-}
-
-//======================================
-// private functions
-//======================================
-
-func (v *Vote) sign(sender *iotxaddress.Address) error {
-	hash := v.Hash()
-	if v.Signature = crypto.EC283.Sign(sender.PrivateKey, hash[:]); v.Signature != nil {
-		return nil
-	}
-	return errors.Wrapf(ErrVoteError, "Failed to sign Vote hash = %x", hash)
 }

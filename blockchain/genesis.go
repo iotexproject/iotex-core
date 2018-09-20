@@ -104,8 +104,8 @@ func NewGenesisBlock(cfg *config.Config) *Block {
 		if err != nil {
 			logger.Fatal().Err(err).Msg("Fail to create genesis block")
 		}
-		vote.GetVote().SelfPubkey = address.PublicKey[:]
-		vote.Signature = sign
+		vote.SetVoterPublicKey(address.PublicKey)
+		vote.SetSignature(sign)
 		votes = append(votes, vote)
 	}
 

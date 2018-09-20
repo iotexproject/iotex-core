@@ -231,11 +231,10 @@ func (ap *actPool) AddVote(vote *action.Vote) error {
 		return errors.Wrapf(ErrActPool, "insufficient space for vote")
 	}
 
-	selfPublicKey, _ := vote.SelfPublicKey()
-	voter, _ := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, iotxaddress.ChainID, selfPublicKey)
+	voter, _ := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, iotxaddress.ChainID, vote.VoterPublicKey())
 	// Wrap vote as an action
 	action := vote.ConvertToActionPb()
-	return ap.addAction(voter.RawAddress, action, hash, vote.Nonce)
+	return ap.addAction(voter.RawAddress, action, hash, vote.Nonce())
 }
 
 // AddExecution inserts a new execution into account queue if it passes validation
@@ -436,32 +435,27 @@ func (ap *actPool) validateVote(vote *action.Vote) error {
 		logger.Error().Msg("Error when validating vote's data size")
 		return errors.Wrapf(ErrActPool, "oversized data")
 	}
-	selfPublicKey, err := vote.SelfPublicKey()
-	if err != nil {
-		logger.Error().Err(err).Msg("Error when validating voter's public key")
-		return errors.Wrapf(err, "failed to get voter's public key")
-	}
 
 	// check if voter's address is valid
-	if _, err := iotxaddress.GetPubkeyHash(vote.GetVote().VoterAddress); err != nil {
+	if _, err := iotxaddress.GetPubkeyHash(vote.Voter()); err != nil {
 		logger.Error().Err(err).Msg("Error when validating voter's address")
-		return errors.Wrapf(err, "error when validating voter's address %s", vote.GetVote().VoterAddress)
+		return errors.Wrapf(err, "error when validating voter's address %s", vote.Voter())
 	}
 	// check if votee's address is valid
-	if vote.GetVote().VoteeAddress != action.EmptyAddress {
-		if _, err := iotxaddress.GetPubkeyHash(vote.GetVote().VoteeAddress); err != nil {
+	if vote.Votee() != action.EmptyAddress {
+		if _, err := iotxaddress.GetPubkeyHash(vote.Votee()); err != nil {
 			logger.Error().Err(err).Msg("Error when validating votee's address")
-			return errors.Wrapf(err, "error when validating votee's address %s", vote.GetVote().VoteeAddress)
+			return errors.Wrapf(err, "error when validating votee's address %s", vote.Votee())
 		}
 	}
 
-	voter, err := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, iotxaddress.ChainID, selfPublicKey)
+	voter, err := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, iotxaddress.ChainID, vote.VoterPublicKey())
 	if err != nil {
 		logger.Error().Err(err).Msg("Error when validating voter's public key")
 		return errors.Wrapf(err, "invalid address")
 	}
 	// Verify vote using voter's public key
-	if err := vote.Verify(voter); err != nil {
+	if err := action.Verify(vote, voter); err != nil {
 		logger.Error().Err(err).Msg("Error when validating vote's signature")
 		return errors.Wrapf(err, "failed to verify Vote signature")
 	}
@@ -472,26 +466,30 @@ func (ap *actPool) validateVote(vote *action.Vote) error {
 		logger.Error().Err(err).Msg("Error when validating vote's nonce")
 		return errors.Wrapf(err, "invalid nonce value")
 	}
-	pbVote := vote.GetVote()
-	if pbVote.VoteeAddress != "" {
+
+	if vote.Votee() != "" {
 		// Reject vote if votee is not a candidate
-		voteeState, err := ap.bc.StateByAddr(pbVote.VoteeAddress)
+		voteeState, err := ap.bc.StateByAddr(vote.Votee())
 		if err != nil {
-			logger.Error().Err(err).
-				Hex("voter", pbVote.SelfPubkey[:]).Str("votee", pbVote.VoteeAddress).
+			logger.Error().
+				Err(err).
+				Str("voter", vote.Voter()).
+				Str("votee", vote.Votee()).
 				Msg("Error when validating votee's state")
-			return errors.Wrapf(err, "cannot find votee's state: %s", pbVote.VoteeAddress)
+			return errors.Wrapf(err, "cannot find votee's state: %s", vote.Votee())
 		}
-		if voter.RawAddress != pbVote.VoteeAddress && !voteeState.IsCandidate {
-			logger.Error().Err(ErrVotee).
-				Hex("voter", pbVote.SelfPubkey[:]).Str("votee", pbVote.VoteeAddress).
+		if voter.RawAddress != vote.Votee() && !voteeState.IsCandidate {
+			logger.Error().
+				Err(ErrVotee).
+				Str("voter", vote.Voter()).
+				Str("votee", vote.Votee()).
 				Msg("Error when validating votee's state")
-			return errors.Wrapf(ErrVotee, "votee has not self-nominated: %s", pbVote.VoteeAddress)
+			return errors.Wrapf(ErrVotee, "votee has not self-nominated: %s", vote.Votee())
 		}
 	}
 
 	pendingNonce := confirmedNonce + 1
-	if pendingNonce > vote.Nonce {
+	if pendingNonce > vote.Nonce() {
 		logger.Error().Msg("Error when validating vote's nonce")
 		return errors.Wrapf(ErrNonce, "nonce too low")
 	}
