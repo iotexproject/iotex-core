@@ -510,7 +510,7 @@ func injectExecution(
 	logger.Info().Str("Contract", jsonExecution.Contract).Msg(" ")
 	logger.Info().Int64("Gas", jsonExecution.GasLimit).Msg(" ")
 	logger.Info().Int64("Gas Price", jsonExecution.GasPrice).Msg(" ")
-	logger.Info().Str("Data", jsonExecution.Data)
+	logger.Info().Str("data", jsonExecution.Data)
 	logger.Info().Str("Signature", jsonExecution.Signature).Msg(" ")
 
 	if wg != nil {
@@ -605,13 +605,12 @@ func createSignedExecution(
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to decode data %s", data)
 	}
-	rawExecution, err := action.NewExecution(executor.RawAddress, contract, nonce, amount, gasLimit, gasPrice, executionData)
+	execution, err := action.NewExecution(executor.RawAddress, contract, nonce, amount, gasLimit, gasPrice, executionData)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create raw execution")
 	}
-	signedExecution, err := rawExecution.Sign(executor)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to sign execution %v", rawExecution)
+	if err := action.Sign(execution, executor); err != nil {
+		return nil, errors.Wrapf(err, "failed to sign execution %v", execution)
 	}
-	return signedExecution, nil
+	return execution, nil
 }

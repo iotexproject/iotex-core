@@ -722,52 +722,52 @@ func putExecutions(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 		executionHash := execution.Hash()
 
 		// get execution count for executor
-		executorExecutionCount, err := dao.getExecutionCountByExecutorAddress(execution.Executor)
+		executorExecutionCount, err := dao.getExecutionCountByExecutorAddress(execution.Executor())
 		if err != nil {
-			return errors.Wrapf(err, "for executor %x", execution.Executor)
+			return errors.Wrapf(err, "for executor %x", execution.Executor())
 		}
-		if delta, ok := executorDelta[execution.Executor]; ok {
+		if delta, ok := executorDelta[execution.Executor()]; ok {
 			executorExecutionCount += delta
-			executorDelta[execution.Executor] = executorDelta[execution.Executor] + 1
+			executorDelta[execution.Executor()] = executorDelta[execution.Executor()] + 1
 		} else {
-			executorDelta[execution.Executor] = 1
+			executorDelta[execution.Executor()] = 1
 		}
 
 		// put new execution to executor
-		executorKey := append(executionFromPrefix, execution.Executor...)
+		executorKey := append(executionFromPrefix, execution.Executor()...)
 		executorKey = append(executorKey, byteutil.Uint64ToBytes(executorExecutionCount)...)
 		batch.PutIfNotExists(blockAddressExecutionMappingNS, executorKey, executionHash[:],
-			"failed to put execution hash %x for executor %x", execution.Hash(), execution.Executor)
+			"failed to put execution hash %x for executor %x", execution.Hash(), execution.Executor())
 
 		// update executor executions count
-		executorExecutionCountKey := append(executionFromPrefix, execution.Executor...)
+		executorExecutionCountKey := append(executionFromPrefix, execution.Executor()...)
 		batch.Put(blockAddressExecutionCountMappingNS, executorExecutionCountKey,
 			byteutil.Uint64ToBytes(executorExecutionCount+1),
-			"failed to bump execution count %x for executor %x", execution.Hash(), execution.Executor)
+			"failed to bump execution count %x for executor %x", execution.Hash(), execution.Executor())
 
 		// get execution count for contract
-		contractExecutionCount, err := dao.getExecutionCountByContractAddress(execution.Contract)
+		contractExecutionCount, err := dao.getExecutionCountByContractAddress(execution.Contract())
 		if err != nil {
-			return errors.Wrapf(err, "for contract %x", execution.Contract)
+			return errors.Wrapf(err, "for contract %x", execution.Contract())
 		}
-		if delta, ok := contractDelta[execution.Contract]; ok {
+		if delta, ok := contractDelta[execution.Contract()]; ok {
 			contractExecutionCount += delta
-			contractDelta[execution.Contract] = contractDelta[execution.Contract] + 1
+			contractDelta[execution.Contract()] = contractDelta[execution.Contract()] + 1
 		} else {
-			contractDelta[execution.Contract] = 1
+			contractDelta[execution.Contract()] = 1
 		}
 
 		// put new execution to contract
-		contractKey := append(executionToPrefix, execution.Contract...)
+		contractKey := append(executionToPrefix, execution.Contract()...)
 		contractKey = append(contractKey, byteutil.Uint64ToBytes(contractExecutionCount)...)
 		batch.PutIfNotExists(blockAddressExecutionMappingNS, contractKey, executionHash[:],
-			"failed to put execution hash %x for contract %x", execution.Hash(), execution.Contract)
+			"failed to put execution hash %x for contract %x", execution.Hash(), execution.Contract())
 
 		// update contract executions count
-		contractExecutionCountKey := append(executionToPrefix, execution.Contract...)
+		contractExecutionCountKey := append(executionToPrefix, execution.Contract()...)
 		batch.Put(blockAddressExecutionCountMappingNS, contractExecutionCountKey,
 			byteutil.Uint64ToBytes(contractExecutionCount+1), "failed to bump execution count %x for contract %x",
-			execution.Hash(), execution.Contract)
+			execution.Hash(), execution.Contract())
 	}
 	return nil
 }
@@ -1046,8 +1046,8 @@ func deleteExecutions(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 	executorCount := make(map[string]uint64)
 	contractCount := make(map[string]uint64)
 	for _, execution := range blk.Executions {
-		executorCount[execution.Executor]++
-		contractCount[execution.Contract]++
+		executorCount[execution.Executor()]++
+		contractCount[execution.Contract()]++
 	}
 	// Roll back the status of address -> executionCount mapping to the previous block
 	for executor, count := range executorCount {
@@ -1078,31 +1078,31 @@ func deleteExecutions(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 	for _, execution := range blk.Executions {
 		executionHash := execution.Hash()
 
-		if delta, ok := executorDelta[execution.Executor]; ok {
-			executorCount[execution.Executor] += delta
-			executorDelta[execution.Executor] = executorDelta[execution.Executor] + 1
+		if delta, ok := executorDelta[execution.Executor()]; ok {
+			executorCount[execution.Executor()] += delta
+			executorDelta[execution.Executor()] = executorDelta[execution.Executor()] + 1
 		} else {
-			executorDelta[execution.Executor] = 1
+			executorDelta[execution.Executor()] = 1
 		}
 
 		// Delete new execution from executor
-		executorKey := append(executionFromPrefix, execution.Executor...)
-		executorKey = append(executorKey, byteutil.Uint64ToBytes(executorCount[execution.Executor])...)
+		executorKey := append(executionFromPrefix, execution.Executor()...)
+		executorKey = append(executorKey, byteutil.Uint64ToBytes(executorCount[execution.Executor()])...)
 		batch.Delete(blockAddressExecutionMappingNS, executorKey, "failed to delete execution hash %x for executor %x",
-			execution.Hash(), execution.Executor)
+			execution.Hash(), execution.Executor())
 
-		if delta, ok := contractDelta[execution.Contract]; ok {
-			contractCount[execution.Contract] += delta
-			contractDelta[execution.Contract] = contractDelta[execution.Contract] + 1
+		if delta, ok := contractDelta[execution.Contract()]; ok {
+			contractCount[execution.Contract()] += delta
+			contractDelta[execution.Contract()] = contractDelta[execution.Contract()] + 1
 		} else {
-			contractDelta[execution.Contract] = 1
+			contractDelta[execution.Contract()] = 1
 		}
 
 		// Delete new execution to contract
-		contractKey := append(executionToPrefix, execution.Contract...)
-		contractKey = append(contractKey, byteutil.Uint64ToBytes(contractCount[execution.Contract])...)
+		contractKey := append(executionToPrefix, execution.Contract()...)
+		contractKey = append(contractKey, byteutil.Uint64ToBytes(contractCount[execution.Contract()])...)
 		batch.Delete(blockAddressExecutionMappingNS, contractKey, "failed to delete execution hash %x for contract %x",
-			executionHash, execution.Contract)
+			executionHash, execution.Contract())
 	}
 
 	return nil

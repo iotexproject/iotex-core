@@ -7,7 +7,6 @@
 package action
 
 import (
-	"bytes"
 	"encoding/hex"
 	"math/big"
 
@@ -15,9 +14,7 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/blake2b"
 
-	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
-	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
@@ -29,23 +26,11 @@ import (
 // EmptyAddress is the empty string
 const EmptyAddress = ""
 
-var (
-	// ErrExecutionError indicates error for an execution action
-	ErrExecutionError = errors.New("execution error")
-)
-
 // Execution defines the struct of account-based contract execution
 type Execution struct {
-	Version        uint32
-	Nonce          uint64
-	Amount         *big.Int
-	Executor       string
-	Contract       string
-	ExecutorPubKey keypair.PublicKey
-	GasLimit       uint64
-	GasPrice       *big.Int
-	Signature      []byte
-	Data           []byte
+	action
+	amount *big.Int
+	data   []byte
 }
 
 // NewExecution returns a Execution instance
@@ -55,57 +40,89 @@ func NewExecution(executorAddress string, contractAddress string, nonce uint64, 
 	}
 
 	return &Execution{
-		Version:  version.ProtocolVersion,
-		Nonce:    nonce,
-		Data:     data,
-		Amount:   amount,
-		GasLimit: gasLimit,
-		GasPrice: gasPrice,
-		Executor: executorAddress,
-		Contract: contractAddress,
+		action: action{
+			version:  version.ProtocolVersion,
+			nonce:    nonce,
+			srcAddr:  executorAddress,
+			dstAddr:  contractAddress,
+			gasLimit: gasLimit,
+			gasPrice: gasPrice,
+		},
+		amount: amount,
+		data:   data,
 	}, nil
+}
+
+// Executor returns an executor address
+func (ex *Execution) Executor() string {
+	return ex.SrcAddr()
+}
+
+// ExecutorPublicKey returns the executor's public key
+func (ex *Execution) ExecutorPublicKey() keypair.PublicKey {
+	return ex.SrcPubkey()
+}
+
+// SetExecutorPublicKey sets the executor's public key
+func (ex *Execution) SetExecutorPublicKey(executorPubkey keypair.PublicKey) {
+	ex.SetSrcPubkey(executorPubkey)
+}
+
+// Contract returns a contract address
+func (ex *Execution) Contract() string {
+	return ex.DstAddr()
+}
+
+// Amount returns the amount
+func (ex *Execution) Amount() *big.Int {
+	return ex.amount
+}
+
+// Data returns the data bytes
+func (ex *Execution) Data() []byte {
+	return ex.data
 }
 
 // TotalSize returns the total size of this Execution
 func (ex *Execution) TotalSize() uint32 {
 	size := VersionSizeInBytes
 	size += NonceSizeInBytes
-	if ex.Amount != nil && len(ex.Amount.Bytes()) > 0 {
-		size += len(ex.Amount.Bytes())
+	if ex.amount != nil && len(ex.amount.Bytes()) > 0 {
+		size += len(ex.amount.Bytes())
 	}
-	size += len(ex.Executor)
-	size += len(ex.Contract)
-	size += len(ex.ExecutorPubKey)
-	size += len(ex.Signature)
+	size += len(ex.srcAddr)
+	size += len(ex.dstAddr)
+	size += len(ex.srcPubkey)
+	size += len(ex.signature)
 	size += GasSizeInBytes
-	if ex.GasPrice != nil && len(ex.GasPrice.Bytes()) > 0 {
-		size += len(ex.GasPrice.Bytes())
+	if ex.gasPrice != nil && len(ex.gasPrice.Bytes()) > 0 {
+		size += len(ex.gasPrice.Bytes())
 	}
-	size += len(ex.Data)
+	size += len(ex.data)
 	return uint32(size)
 }
 
 // ByteStream returns a raw byte stream of this Transfer
 func (ex *Execution) ByteStream() []byte {
 	stream := make([]byte, VersionSizeInBytes)
-	enc.MachineEndian.PutUint32(stream, ex.Version)
+	enc.MachineEndian.PutUint32(stream, ex.version)
 	temp := make([]byte, NonceSizeInBytes)
-	enc.MachineEndian.PutUint64(temp, ex.Nonce)
+	enc.MachineEndian.PutUint64(temp, ex.nonce)
 	stream = append(stream, temp...)
-	if ex.Amount != nil && len(ex.Amount.Bytes()) > 0 {
-		stream = append(stream, ex.Amount.Bytes()...)
+	if ex.amount != nil && len(ex.amount.Bytes()) > 0 {
+		stream = append(stream, ex.amount.Bytes()...)
 	}
-	stream = append(stream, ex.Executor...)
-	stream = append(stream, ex.Contract...)
-	stream = append(stream, ex.ExecutorPubKey[:]...)
+	stream = append(stream, ex.srcAddr...)
+	stream = append(stream, ex.dstAddr...)
+	stream = append(stream, ex.srcPubkey[:]...)
 	temp = make([]byte, GasSizeInBytes)
-	enc.MachineEndian.PutUint64(temp, ex.GasLimit)
+	enc.MachineEndian.PutUint64(temp, ex.gasLimit)
 	stream = append(stream, temp...)
-	if ex.GasPrice != nil && len(ex.GasPrice.Bytes()) > 0 {
-		stream = append(stream, ex.GasPrice.Bytes()...)
+	if ex.gasPrice != nil && len(ex.gasPrice.Bytes()) > 0 {
+		stream = append(stream, ex.gasPrice.Bytes()...)
 	}
 	// Signature = Sign(hash(ByteStream())), so not included
-	stream = append(stream, ex.Data...)
+	stream = append(stream, ex.data...)
 	return stream
 }
 
@@ -114,22 +131,22 @@ func (ex *Execution) ConvertToActionPb() *iproto.ActionPb {
 	act := &iproto.ActionPb{
 		Action: &iproto.ActionPb_Execution{
 			Execution: &iproto.ExecutionPb{
-				Executor:       ex.Executor,
-				Contract:       ex.Contract,
-				ExecutorPubKey: ex.ExecutorPubKey[:],
-				Data:           ex.Data,
+				Executor:       ex.srcAddr,
+				Contract:       ex.dstAddr,
+				ExecutorPubKey: ex.srcPubkey[:],
+				Data:           ex.data,
 			},
 		},
-		Version:   ex.Version,
-		Nonce:     ex.Nonce,
-		GasLimit:  ex.GasLimit,
-		Signature: ex.Signature,
+		Version:   ex.version,
+		Nonce:     ex.nonce,
+		GasLimit:  ex.gasLimit,
+		Signature: ex.signature,
 	}
-	if ex.Amount != nil && len(ex.Amount.Bytes()) > 0 {
-		act.GetExecution().Amount = ex.Amount.Bytes()
+	if ex.amount != nil && len(ex.amount.Bytes()) > 0 {
+		act.GetExecution().Amount = ex.amount.Bytes()
 	}
-	if ex.GasPrice != nil && len(ex.GasPrice.Bytes()) > 0 {
-		act.GasPrice = ex.GasPrice.Bytes()
+	if ex.gasPrice != nil && len(ex.gasPrice.Bytes()) > 0 {
+		act.GasPrice = ex.gasPrice.Bytes()
 	}
 	return act
 }
@@ -137,20 +154,20 @@ func (ex *Execution) ConvertToActionPb() *iproto.ActionPb {
 // ToJSON converts Execution to ExecutionJSON
 func (ex *Execution) ToJSON() (*explorer.Execution, error) {
 	execution := &explorer.Execution{
-		Version:        int64(ex.Version),
-		Nonce:          int64(ex.Nonce),
-		Executor:       ex.Executor,
-		Contract:       ex.Contract,
-		ExecutorPubKey: keypair.EncodePublicKey(ex.ExecutorPubKey),
-		GasLimit:       int64(ex.GasLimit),
-		Data:           hex.EncodeToString(ex.Data),
-		Signature:      hex.EncodeToString(ex.Signature),
+		Version:        int64(ex.version),
+		Nonce:          int64(ex.nonce),
+		Executor:       ex.srcAddr,
+		Contract:       ex.dstAddr,
+		ExecutorPubKey: keypair.EncodePublicKey(ex.srcPubkey),
+		GasLimit:       int64(ex.gasLimit),
+		Data:           hex.EncodeToString(ex.data),
+		Signature:      hex.EncodeToString(ex.signature),
 	}
-	if ex.Amount != nil && len(ex.Amount.Bytes()) > 0 {
-		execution.Amount = ex.Amount.Int64()
+	if ex.amount != nil && len(ex.amount.Bytes()) > 0 {
+		execution.Amount = ex.amount.Int64()
 	}
-	if ex.GasPrice != nil && len(ex.GasPrice.Bytes()) > 0 {
-		execution.GasPrice = ex.GasPrice.Int64()
+	if ex.gasPrice != nil && len(ex.gasPrice.Bytes()) > 0 {
+		execution.GasPrice = ex.gasPrice.Int64()
 	}
 	return execution, nil
 }
@@ -162,57 +179,59 @@ func (ex *Execution) Serialize() ([]byte, error) {
 
 // ConvertFromActionPb converts a protobuf's ActionPb to Execution
 func (ex *Execution) ConvertFromActionPb(pbAct *iproto.ActionPb) {
-	ex.Version = pbAct.GetVersion()
-	ex.Nonce = pbAct.GetNonce()
-	ex.GasLimit = pbAct.GetGasLimit()
-	ex.Signature = pbAct.GetSignature()
+	ex.version = pbAct.GetVersion()
+	ex.nonce = pbAct.GetNonce()
+	ex.gasLimit = pbAct.GetGasLimit()
+	ex.signature = pbAct.GetSignature()
 	pbExecution := pbAct.GetExecution()
-	ex.Executor = pbExecution.Executor
-	ex.Contract = pbExecution.GetContract()
-	copy(ex.ExecutorPubKey[:], pbExecution.GetExecutorPubKey())
-	ex.Data = pbExecution.GetData()
-	if ex.Amount == nil {
-		ex.Amount = big.NewInt(0)
-	}
-	if len(pbExecution.Amount) > 0 {
-		ex.Amount.SetBytes(pbExecution.GetAmount())
-	}
-	if ex.GasPrice == nil {
-		ex.GasPrice = big.NewInt(0)
-	}
-	if len(pbAct.GasPrice) > 0 {
-		ex.GasPrice.SetBytes(pbAct.GasPrice)
+	if pbExecution != nil {
+		ex.srcAddr = pbExecution.Executor
+		ex.dstAddr = pbExecution.GetContract()
+		copy(ex.srcPubkey[:], pbExecution.GetExecutorPubKey())
+		ex.data = pbExecution.GetData()
+		if ex.amount == nil {
+			ex.amount = big.NewInt(0)
+		}
+		if len(pbExecution.Amount) > 0 {
+			ex.amount.SetBytes(pbExecution.GetAmount())
+		}
+		if ex.gasPrice == nil {
+			ex.gasPrice = big.NewInt(0)
+		}
+		if len(pbAct.GasPrice) > 0 {
+			ex.gasPrice.SetBytes(pbAct.GasPrice)
+		}
 	}
 }
 
 // NewExecutionFromJSON creates a new Execution from ExecutionJSON
 func NewExecutionFromJSON(jsonExecution *explorer.Execution) (*Execution, error) {
 	ex := &Execution{}
-	ex.Version = uint32(jsonExecution.Version)
-	ex.Nonce = uint64(jsonExecution.Nonce)
-	ex.Executor = jsonExecution.Executor
-	ex.Contract = jsonExecution.Contract
-	ex.Amount = big.NewInt(jsonExecution.Amount)
-	ex.GasLimit = uint64(jsonExecution.GasLimit)
-	ex.GasPrice = big.NewInt(jsonExecution.GasPrice)
+	ex.version = uint32(jsonExecution.Version)
+	ex.nonce = uint64(jsonExecution.Nonce)
+	ex.srcAddr = jsonExecution.Executor
+	ex.dstAddr = jsonExecution.Contract
+	ex.amount = big.NewInt(jsonExecution.Amount)
+	ex.gasLimit = uint64(jsonExecution.GasLimit)
+	ex.gasPrice = big.NewInt(jsonExecution.GasPrice)
 	executorPubKey, err := keypair.StringToPubKeyBytes(jsonExecution.ExecutorPubKey)
 	if err != nil {
 		logger.Error().Err(err).Msg("Fail to create a new Execution from ExecutionJSON")
 		return nil, err
 	}
-	copy(ex.ExecutorPubKey[:], executorPubKey)
+	copy(ex.srcPubkey[:], executorPubKey)
 	data, err := hex.DecodeString(jsonExecution.Data)
 	if err != nil {
 		logger.Error().Err(err).Msg("Fail to create a new Execution from ExecutionJSON")
 		return nil, err
 	}
-	ex.Data = data
+	ex.data = data
 	signature, err := hex.DecodeString(jsonExecution.Signature)
 	if err != nil {
 		logger.Error().Err(err).Msg("Fail to create a new Execution from ExecutionJSON")
 		return nil, err
 	}
-	ex.Signature = signature
+	ex.signature = signature
 
 	return ex, nil
 }
@@ -230,48 +249,4 @@ func (ex *Execution) Deserialize(buf []byte) error {
 // Hash returns the hash of the Execution
 func (ex *Execution) Hash() hash.Hash32B {
 	return blake2b.Sum256(ex.ByteStream())
-}
-
-// Sign signs the Execution using executer's private key
-func (ex *Execution) Sign(executor *iotxaddress.Address) (*Execution, error) {
-	// check the sender is correct
-	if ex.Executor != executor.RawAddress {
-		return nil, errors.Wrapf(ErrExecutionError, "signing addr %s does not match with Execution addr %s",
-			ex.Executor, executor.RawAddress)
-	}
-	// check the public key is actually owned by sender
-	pkhash, err := iotxaddress.GetPubkeyHash(executor.RawAddress)
-	if err != nil {
-		return nil, errors.Wrap(err, "error when get the pubkey hash")
-	}
-	if !bytes.Equal(pkhash, keypair.HashPubKey(executor.PublicKey)) {
-		return nil, errors.Wrapf(ErrExecutionError, "signing addr %s does not own correct public key",
-			executor.RawAddress)
-	}
-	ex.ExecutorPubKey = executor.PublicKey
-	if err := ex.sign(executor); err != nil {
-		return nil, err
-	}
-	return ex, nil
-}
-
-// Verify verifies the Execution using sender's public key
-func (ex *Execution) Verify(sender *iotxaddress.Address) error {
-	hash := ex.Hash()
-	if success := crypto.EC283.Verify(sender.PublicKey, hash[:], ex.Signature); success {
-		return nil
-	}
-	return errors.Wrapf(ErrExecutionError, "Failed to verify Execution signature = %x", ex.Signature)
-}
-
-//======================================
-// private functions
-//======================================
-
-func (ex *Execution) sign(sender *iotxaddress.Address) error {
-	hash := ex.Hash()
-	if ex.Signature = crypto.EC283.Sign(sender.PrivateKey, hash[:]); ex.Signature != nil {
-		return nil
-	}
-	return errors.Wrapf(ErrExecutionError, "Failed to sign Execution hash = %x", hash)
 }
