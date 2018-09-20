@@ -658,10 +658,8 @@ func putVotes(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 
 	for _, vote := range blk.Votes {
 		voteHash := vote.Hash()
-
-		pbVote := vote.GetVote()
-		Sender := pbVote.VoterAddress
-		Recipient := pbVote.VoteeAddress
+		Sender := vote.Voter()
+		Recipient := vote.Votee()
 
 		// get votes count for sender
 		senderVoteCount, err := dao.getVoteCountBySenderAddress(Sender)
@@ -977,8 +975,8 @@ func deleteVotes(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 	senderCount := make(map[string]uint64)
 	recipientCount := make(map[string]uint64)
 	for _, vote := range blk.Votes {
-		sender := vote.GetVote().VoterAddress
-		recipient := vote.GetVote().VoteeAddress
+		sender := vote.Voter()
+		recipient := vote.Votee()
 		senderCount[sender]++
 		recipientCount[recipient]++
 	}
@@ -1009,10 +1007,8 @@ func deleteVotes(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 
 	for _, vote := range blk.Votes {
 		voteHash := vote.Hash()
-
-		pbVote := vote.GetVote()
-		Sender := pbVote.VoterAddress
-		Recipient := pbVote.VoteeAddress
+		Sender := vote.Voter()
+		Recipient := vote.Votee()
 
 		if delta, ok := senderDelta[Sender]; ok {
 			senderCount[Sender] += delta

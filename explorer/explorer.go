@@ -20,7 +20,6 @@ import (
 	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/dispatch/dispatcher"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
-	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network"
 	"github.com/iotexproject/iotex-core/pkg/hash"
@@ -1153,14 +1152,6 @@ func getExecution(bc blockchain.Blockchain, ap actpool.ActPool, executionHash ha
 	return explorerExecution, nil
 }
 
-func getAddrFromPubKey(pubKey keypair.PublicKey) (string, error) {
-	Address, err := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, iotxaddress.ChainID, pubKey)
-	if err != nil {
-		return "", errors.Wrapf(err, " to get address for pubkey %x", pubKey)
-	}
-	return Address.RawAddress, nil
-}
-
 func convertTsfToExplorerTsf(transfer *action.Transfer, isPending bool) (explorer.Transfer, error) {
 	if transfer == nil {
 		return explorer.Transfer{}, errors.Wrap(ErrTransfer, "transfer cannot be nil")
@@ -1190,27 +1181,16 @@ func convertVoteToExplorerVote(vote *action.Vote, isPending bool) (explorer.Vote
 		return explorer.Vote{}, errors.Wrap(ErrVote, "vote cannot be nil")
 	}
 	hash := vote.Hash()
-	selfPublicKey, err := vote.SelfPublicKey()
-	if err != nil {
-		return explorer.Vote{}, err
-	}
-	voter, err := getAddrFromPubKey(selfPublicKey)
-	if err != nil {
-		return explorer.Vote{}, err
-	}
-
-	votee := vote.GetVote().VoteeAddress
-	if err != nil {
-		return explorer.Vote{}, err
-	}
+	voterPubkey := vote.VoterPublicKey()
 	explorerVote := explorer.Vote{
-		ID:        hex.EncodeToString(hash[:]),
-		Nonce:     int64(vote.Nonce),
-		Voter:     voter,
-		Votee:     votee,
-		GasLimit:  int64(vote.GasLimit),
-		GasPrice:  big.NewInt(0).SetBytes(vote.GasPrice).Int64(),
-		IsPending: isPending,
+		ID:          hex.EncodeToString(hash[:]),
+		Nonce:       int64(vote.Nonce()),
+		Voter:       vote.Voter(),
+		VoterPubKey: hex.EncodeToString(voterPubkey[:]),
+		Votee:       vote.Votee(),
+		GasLimit:    int64(vote.GasLimit()),
+		GasPrice:    vote.GasPrice().Int64(),
+		IsPending:   isPending,
 	}
 	return explorerVote, nil
 }

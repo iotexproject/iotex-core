@@ -655,20 +655,18 @@ func (sf *factory) handleTsf(tsf []*action.Transfer) error {
 
 func (sf *factory) handleVote(blockHeight uint64, vote []*action.Vote) error {
 	for _, v := range vote {
-		pbVote := v.GetVote()
-		voterAddress := pbVote.VoterAddress
-		voteFrom, err := sf.LoadOrCreateState(voterAddress, 0)
+		voteFrom, err := sf.LoadOrCreateState(v.Voter(), 0)
 		if err != nil {
-			return errors.Wrapf(err, "failed to load or create the state of voter %s", voterAddress)
+			return errors.Wrapf(err, "failed to load or create the state of voter %s", v.Voter())
 		}
 		// save state before modifying
-		sf.saveState(voterAddress, voteFrom)
+		sf.saveState(v.Voter(), voteFrom)
 		// update voteFrom nonce
-		if v.Nonce > voteFrom.Nonce {
-			voteFrom.Nonce = v.Nonce
+		if v.Nonce() > voteFrom.Nonce {
+			voteFrom.Nonce = v.Nonce()
 		}
 		// Update old votee's weight
-		if len(voteFrom.Votee) > 0 && voteFrom.Votee != voterAddress {
+		if len(voteFrom.Votee) > 0 && voteFrom.Votee != v.Voter() {
 			// voter already voted
 			oldVotee, err := sf.LoadOrCreateState(voteFrom.Votee, 0)
 			if err != nil {
@@ -680,36 +678,36 @@ func (sf *factory) handleVote(blockHeight uint64, vote []*action.Vote) error {
 			voteFrom.Votee = ""
 		}
 
-		voteeAddress := pbVote.VoteeAddress
-		if voteeAddress == "" {
+		if v.Votee() == "" {
 			// unvote operation
 			voteFrom.IsCandidate = false
 			continue
 		}
 
-		voteTo, err := sf.LoadOrCreateState(voteeAddress, 0)
+		voteTo, err := sf.LoadOrCreateState(v.Votee(), 0)
 		if err != nil {
-			return errors.Wrapf(err, "failed to load or create the state of votee %s", voteeAddress)
+			return errors.Wrapf(err, "failed to load or create the state of votee %s", v.Votee())
 		}
 		// save state before modifying
-		sf.saveState(voteeAddress, voteTo)
-		if voterAddress != voteeAddress {
+		sf.saveState(v.Votee(), voteTo)
+		if v.Voter() != v.Votee() {
 			// Voter votes to a different person
 			voteTo.VotingWeight.Add(voteTo.VotingWeight, voteFrom.Balance)
-			voteFrom.Votee = voteeAddress
+			voteFrom.Votee = v.Votee()
 		} else {
 			// Vote to self: self-nomination or cancel the previous vote case
-			voteFrom.Votee = voterAddress
+			voteFrom.Votee = v.Voter()
 			voteFrom.IsCandidate = true
-			pkHash, err := iotxaddress.GetPubkeyHash(voterAddress)
+			pkHash, err := iotxaddress.GetPubkeyHash(v.Voter())
 			if err != nil {
 				return errors.Wrap(err, "cannot get the hash of the address")
 			}
 			pkHashAddress := byteutil.BytesTo20B(pkHash)
+			votePubkey := v.VoterPublicKey()
 			if _, ok := sf.cachedCandidates[pkHashAddress]; !ok {
 				sf.cachedCandidates[pkHashAddress] = &Candidate{
-					Address:        voterAddress,
-					PubKey:         pbVote.SelfPubkey[:],
+					Address:        v.Voter(),
+					PubKey:         votePubkey[:],
 					CreationHeight: blockHeight,
 				}
 			}

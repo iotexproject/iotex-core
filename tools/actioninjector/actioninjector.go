@@ -581,15 +581,14 @@ func createSignedVote(
 	gasLimit uint64,
 	gasPrice *big.Int,
 ) (*action.Vote, error) {
-	rawVote, err := action.NewVote(nonce, voter.RawAddress, votee.RawAddress, gasLimit, gasPrice)
+	vote, err := action.NewVote(nonce, voter.RawAddress, votee.RawAddress, gasLimit, gasPrice)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create raw vote")
 	}
-	signedVote, err := rawVote.Sign(voter)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to sign vote %v", rawVote)
+	if err := action.Sign(vote, voter); err != nil {
+		return nil, errors.Wrapf(err, "failed to sign vote %v", vote)
 	}
-	return signedVote, nil
+	return vote, nil
 }
 
 // Helper function to create and sign an execution

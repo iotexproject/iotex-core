@@ -51,14 +51,13 @@ func TestNoncePriorityQueue(t *testing.T) {
 func TestActQueue_Put(t *testing.T) {
 	require := require.New(t)
 	q := NewActQueue().(*actQueue)
-	vote1 := action.Vote{&pb.ActionPb{
-		Action: &pb.ActionPb_Vote{Vote: &pb.VotePb{}},
-		Nonce:  uint64(2)}}
+	vote1, err := action.NewVote(2, "1", "2", 0, big.NewInt(0))
+	require.NoError(err)
 	action1 := vote1.ConvertToActionPb()
-	err := q.Put(action1)
+	err = q.Put(action1)
 	require.NoError(err)
 	require.Equal(uint64(2), q.index[0])
-	require.NotNil(q.items[vote1.Nonce])
+	require.NotNil(q.items[vote1.Nonce()])
 	tsf2, err := action.NewTransfer(uint64(1), big.NewInt(100), "1", "2", nil, uint64(0), big.NewInt(0))
 	require.NoError(err)
 	action2 := tsf2.ConvertToActionPb()
@@ -82,9 +81,8 @@ func TestActQueue_FilterNonce(t *testing.T) {
 	tsf1, err := action.NewTransfer(uint64(1), big.NewInt(1), "1", "2", nil, uint64(0), big.NewInt(0))
 	require.NoError(err)
 	action1 := tsf1.ConvertToActionPb()
-	vote2 := action.Vote{&pb.ActionPb{
-		Action: &pb.ActionPb_Vote{},
-		Nonce:  uint64(2)}}
+	vote2, err := action.NewVote(2, "1", "2", 0, big.NewInt(0))
+	require.NoError(err)
 	action2 := vote2.ConvertToActionPb()
 	tsf3, err := action.NewTransfer(uint64(3), big.NewInt(1000), "1", "2", nil, uint64(0), big.NewInt(0))
 	require.NoError(err)
@@ -116,9 +114,8 @@ func TestActQueue_UpdateNonce(t *testing.T) {
 	tsf4, err := action.NewTransfer(uint64(6), big.NewInt(100000), "1", "2", nil, uint64(0), big.NewInt(0))
 	require.NoError(err)
 	action4 := tsf4.ConvertToActionPb()
-	vote5 := action.Vote{&pb.ActionPb{
-		Action: &pb.ActionPb_Vote{Vote: &pb.VotePb{}},
-		Nonce:  uint64(2)}}
+	vote5, err := action.NewVote(2, "1", "2", 0, big.NewInt(0))
+	require.NoError(err)
 	action5 := vote5.ConvertToActionPb()
 	err = q.Put(action1)
 	require.NoError(err)
@@ -140,9 +137,8 @@ func TestActQueue_UpdateNonce(t *testing.T) {
 func TestActQueue_PendingActs(t *testing.T) {
 	require := require.New(t)
 	q := NewActQueue().(*actQueue)
-	vote1 := action.Vote{&pb.ActionPb{
-		Action: &pb.ActionPb_Vote{Vote: &pb.VotePb{}},
-		Nonce:  uint64(2)}}
+	vote1, err := action.NewVote(2, "1", "2", 0, big.NewInt(0))
+	require.NoError(err)
 	action1 := vote1.ConvertToActionPb()
 	tsf2, err := action.NewTransfer(uint64(3), big.NewInt(100), "1", "2", nil, uint64(0), big.NewInt(0))
 	require.NoError(err)
@@ -175,9 +171,8 @@ func TestActQueue_PendingActs(t *testing.T) {
 func TestActQueue_AllActs(t *testing.T) {
 	require := require.New(t)
 	q := NewActQueue().(*actQueue)
-	vote1 := action.Vote{&pb.ActionPb{
-		Action: &pb.ActionPb_Vote{},
-		Nonce:  uint64(1)}}
+	vote1, err := action.NewVote(1, "1", "2", 0, big.NewInt(0))
+	require.NoError(err)
 	action1 := vote1.ConvertToActionPb()
 	tsf3, err := action.NewTransfer(uint64(3), big.NewInt(1000), "1", "2", nil, uint64(0), big.NewInt(0))
 	require.NoError(err)
@@ -196,9 +191,8 @@ func TestActQueue_removeActs(t *testing.T) {
 	tsf1, err := action.NewTransfer(uint64(1), big.NewInt(100), "1", "2", nil, uint64(0), big.NewInt(0))
 	require.NoError(err)
 	action1 := tsf1.ConvertToActionPb()
-	vote2 := action.Vote{&pb.ActionPb{
-		Action: &pb.ActionPb_Vote{Vote: &pb.VotePb{}},
-		Nonce:  uint64(2)}}
+	vote2, err := action.NewVote(2, "1", "2", 0, big.NewInt(0))
+	require.NoError(err)
 	action2 := vote2.ConvertToActionPb()
 	tsf3, err := action.NewTransfer(uint64(3), big.NewInt(1000), "1", "2", nil, uint64(0), big.NewInt(0))
 	require.NoError(err)
@@ -220,9 +214,8 @@ func TestActQueue_removeActs(t *testing.T) {
 	tsf5, err := action.NewTransfer(uint64(5), big.NewInt(100000), "1", "2", nil, uint64(0), big.NewInt(0))
 	require.NoError(err)
 	action5 := tsf5.ConvertToActionPb()
-	vote6 := action.Vote{&pb.ActionPb{
-		Action: &pb.ActionPb_Vote{Vote: &pb.VotePb{}},
-		Nonce:  uint64(6)}}
+	vote6, err := action.NewVote(6, "1", "2", 0, big.NewInt(0))
+	require.NoError(err)
 	action6 := vote6.ConvertToActionPb()
 	err = q.Put(action4)
 	require.NoError(err)
