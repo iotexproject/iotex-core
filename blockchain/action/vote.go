@@ -23,6 +23,11 @@ import (
 	"github.com/iotexproject/iotex-core/proto"
 )
 
+const (
+	// VoteIntrinsicGas represents the intrinsic gas for vote
+	VoteIntrinsicGas = uint64(10000)
+)
+
 // Vote defines the struct of account-based vote
 type Vote struct {
 	action
@@ -213,4 +218,19 @@ func (v *Vote) Deserialize(buf []byte) error {
 // Hash returns the hash of the Vote
 func (v *Vote) Hash() hash.Hash32B {
 	return blake2b.Sum256(v.ByteStream())
+}
+
+// IntrinsicGas returns the intrinsic gas of a vote
+func (v *Vote) IntrinsicGas() (uint64, error) {
+	return VoteIntrinsicGas, nil
+}
+
+// Cost returns the total cost of a vote
+func (v *Vote) Cost() (*big.Int, error) {
+	intrinsicGas, err := v.IntrinsicGas()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get intrinsic gas for the vote")
+	}
+	voteFee := big.NewInt(0).Mul(v.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas))
+	return voteFee, nil
 }
