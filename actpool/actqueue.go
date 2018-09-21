@@ -129,10 +129,10 @@ func (q *actQueue) UpdateQueue(nonce uint64) []*iproto.ActionPb {
 		if q.items[nonce].GetExecution() != nil {
 			execution := &action.Execution{}
 			execution.ConvertFromActionPb(q.items[nonce])
-			if q.pendingBalance.Cmp(execution.Amount) < 0 {
+			if q.pendingBalance.Cmp(execution.Amount()) < 0 {
 				break
 			}
-			q.pendingBalance.Sub(q.pendingBalance, execution.Amount)
+			q.pendingBalance.Sub(q.pendingBalance, execution.Amount())
 		}
 	}
 	q.pendingNonce = nonce

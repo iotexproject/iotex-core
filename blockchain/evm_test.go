@@ -51,8 +51,7 @@ func TestEVM(t *testing.T) {
 	execution, err := action.NewExecution(
 		ta.Addrinfo["producer"].RawAddress, action.EmptyAddress, 1, big.NewInt(0), uint64(100000), big.NewInt(10), data)
 	require.NoError(err)
-	execution, err = execution.Sign(ta.Addrinfo["producer"])
-	require.NoError(err)
+	require.NoError(action.Sign(execution, ta.Addrinfo["producer"]))
 	blk, err := bc.MintNewBlock(nil, nil, []*action.Execution{execution}, ta.Addrinfo["producer"], "")
 	require.NoError(err)
 	require.Nil(bc.CommitBlock(blk))
@@ -86,9 +85,8 @@ func TestEVM(t *testing.T) {
 	execution, err = action.NewExecution(
 		ta.Addrinfo["producer"].RawAddress, contractAddr, 2, big.NewInt(0), uint64(120000), big.NewInt(10), data)
 	require.NoError(err)
-	execution, err = execution.Sign(ta.Addrinfo["producer"])
+	require.NoError(action.Sign(execution, ta.Addrinfo["producer"]))
 	logger.Info().Msgf("execution %+v", execution)
-	require.NoError(err)
 	blk, err = bc.MintNewBlock(nil, nil, []*action.Execution{execution}, ta.Addrinfo["producer"], "")
 	require.NoError(err)
 	require.Nil(bc.CommitBlock(blk))
@@ -108,9 +106,8 @@ func TestEVM(t *testing.T) {
 	execution, err = action.NewExecution(
 		ta.Addrinfo["producer"].RawAddress, contractAddr, 3, big.NewInt(0), uint64(120000), big.NewInt(10), data)
 	require.NoError(err)
-	execution, err = execution.Sign(ta.Addrinfo["producer"])
+	require.NoError(action.Sign(execution, ta.Addrinfo["producer"]))
 	logger.Info().Msgf("execution %+v", execution)
-	require.NoError(err)
 	blk, err = bc.MintNewBlock(nil, nil, []*action.Execution{execution}, ta.Addrinfo["producer"], "")
 	require.NoError(err)
 	require.Nil(bc.CommitBlock(blk))
@@ -187,8 +184,7 @@ func TestRollDice(t *testing.T) {
 	execution, err := action.NewExecution(
 		ta.Addrinfo["producer"].RawAddress, action.EmptyAddress, 1, big.NewInt(0), uint64(1000000), big.NewInt(10), data)
 	require.NoError(err)
-	execution, err = execution.Sign(ta.Addrinfo["producer"])
-	require.NoError(err)
+	require.NoError(action.Sign(execution, ta.Addrinfo["producer"]))
 	blk, err := bc.MintNewBlock(nil, nil, []*action.Execution{execution}, ta.Addrinfo["producer"], "")
 	require.NoError(err)
 	require.Nil(bc.CommitBlock(blk))
@@ -202,9 +198,8 @@ func TestRollDice(t *testing.T) {
 	execution, err = action.NewExecution(
 		ta.Addrinfo["producer"].RawAddress, contractAddr, 2, big.NewInt(500000000), uint64(120000), big.NewInt(10), data)
 	require.NoError(err)
-	execution, err = execution.Sign(ta.Addrinfo["producer"])
+	require.NoError(action.Sign(execution, ta.Addrinfo["producer"]))
 	logger.Info().Msgf("execution %+v", execution)
-	require.NoError(err)
 	blk, err = bc.MintNewBlock(nil, nil, []*action.Execution{execution}, ta.Addrinfo["producer"], "")
 	require.NoError(err)
 	require.Nil(bc.CommitBlock(blk))
@@ -218,9 +213,8 @@ func TestRollDice(t *testing.T) {
 	execution, err = action.NewExecution(
 		ta.Addrinfo["producer"].RawAddress, contractAddr, 3, big.NewInt(0), uint64(120000), big.NewInt(10), data)
 	require.NoError(err)
-	execution, err = execution.Sign(ta.Addrinfo["producer"])
+	require.NoError(action.Sign(execution, ta.Addrinfo["producer"]))
 	logger.Info().Msgf("execution %+v\n", execution)
-	require.NoError(err)
 	blk, err = bc.MintNewBlock(nil, nil, []*action.Execution{execution}, ta.Addrinfo["producer"], "")
 	require.NoError(err)
 	require.Nil(bc.CommitBlock(blk))
@@ -241,9 +235,8 @@ func TestRollDice(t *testing.T) {
 	execution, err = action.NewExecution(
 		ta.Addrinfo["bravo"].RawAddress, contractAddr, 1, big.NewInt(0), uint64(120000), big.NewInt(10), data)
 	require.NoError(err)
-	execution, err = execution.Sign(ta.Addrinfo["bravo"])
+	require.NoError(action.Sign(execution, ta.Addrinfo["bravo"]))
 	logger.Info().Msgf("execution %+v\n", execution)
-	require.NoError(err)
 	blk, err = bc.MintNewBlock(nil, nil, []*action.Execution{execution}, ta.Addrinfo["producer"], "")
 	require.NoError(err)
 	require.Nil(bc.CommitBlock(blk))
@@ -282,8 +275,7 @@ func TestERC20(t *testing.T) {
 	execution, err := action.NewExecution(
 		ta.Addrinfo["producer"].RawAddress, action.EmptyAddress, 1, big.NewInt(0), uint64(10000000), big.NewInt(10), data)
 	require.NoError(err)
-	execution, err = execution.Sign(ta.Addrinfo["producer"])
-	require.NoError(err)
+	require.NoError(action.Sign(execution, ta.Addrinfo["producer"]))
 	blk, err := bc.MintNewBlock(nil, nil, []*action.Execution{execution}, ta.Addrinfo["producer"], "")
 	require.NoError(err)
 	require.Nil(bc.CommitBlock(blk))
@@ -314,8 +306,7 @@ func TestERC20(t *testing.T) {
 	execution, err = action.NewExecution(
 		ta.Addrinfo["producer"].RawAddress, contract, 2, big.NewInt(0), uint64(10000000), big.NewInt(10), data)
 	require.NoError(err)
-	execution, err = execution.Sign(ta.Addrinfo["producer"])
-	require.NoError(err)
+	require.NoError(action.Sign(execution, ta.Addrinfo["producer"]))
 	// send 20000 token to bravo
 	data, _ = hex.DecodeString("a9059cbb")
 	bravo := hash.ZeroHash32B
@@ -330,8 +321,7 @@ func TestERC20(t *testing.T) {
 	ex2, err := action.NewExecution(
 		ta.Addrinfo["producer"].RawAddress, contract, 3, big.NewInt(0), uint64(10000000), big.NewInt(10), data)
 	require.NoError(err)
-	ex2, err = ex2.Sign(ta.Addrinfo["producer"])
-	require.NoError(err)
+	require.NoError(action.Sign(ex2, ta.Addrinfo["producer"]))
 	blk, err = bc.MintNewBlock(nil, nil, []*action.Execution{execution, ex2}, ta.Addrinfo["producer"], "")
 	require.NoError(err)
 	require.Nil(bc.CommitBlock(blk))
@@ -348,8 +338,7 @@ func TestERC20(t *testing.T) {
 	ex3, err := action.NewExecution(
 		ta.Addrinfo["alfa"].RawAddress, contract, 1, big.NewInt(0), uint64(10000000), big.NewInt(10), data)
 	require.NoError(err)
-	ex3, err = ex3.Sign(ta.Addrinfo["alfa"])
-	require.NoError(err)
+	require.NoError(action.Sign(ex3, ta.Addrinfo["alfa"]))
 	blk, err = bc.MintNewBlock(nil, nil, []*action.Execution{ex3}, ta.Addrinfo["alfa"], "")
 	require.NoError(err)
 	require.Nil(bc.CommitBlock(blk))
@@ -361,8 +350,7 @@ func TestERC20(t *testing.T) {
 	execution, err = action.NewExecution(
 		ta.Addrinfo["producer"].RawAddress, contract, 4, big.NewInt(0), uint64(10000000), big.NewInt(10), data)
 	require.NoError(err)
-	execution, err = execution.Sign(ta.Addrinfo["producer"])
-	require.NoError(err)
+	require.NoError(action.Sign(execution, ta.Addrinfo["producer"]))
 	blk, err = bc.MintNewBlock(nil, nil, []*action.Execution{execution}, ta.Addrinfo["producer"], "")
 	require.NoError(err)
 	require.Nil(bc.CommitBlock(blk))

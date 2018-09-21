@@ -271,9 +271,17 @@ func TestActPool_AddActs(t *testing.T) {
 	err = ap.AddExecution(creationExecution)
 	require.Equal(ErrGasHigherThanLimit, errors.Cause(err))
 	// Case VII: insufficient gas
-	creationExecution.GasLimit = 10
 	tmpData := [1234]byte{}
-	creationExecution.Data = tmpData[:]
+	creationExecution, err = action.NewExecution(
+		addr1.RawAddress,
+		action.EmptyAddress,
+		uint64(5),
+		big.NewInt(int64(0)),
+		10,
+		big.NewInt(10),
+		tmpData[:],
+	)
+	require.NoError(err)
 	err = ap.AddExecution(creationExecution)
 	require.Equal(ErrInsufficientGas, errors.Cause(err))
 }
