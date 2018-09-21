@@ -350,15 +350,15 @@ func (sf *factory) RunActions(
 	}
 	// increase Executor's Nonce for every execution in this block
 	for _, e := range executions {
-		addr, _ := iotxaddress.GetPubkeyHash(e.Executor)
+		addr, _ := iotxaddress.GetPubkeyHash(e.Executor())
 		state, err := sf.cachedState(byteutil.BytesTo20B(addr))
 		if err != nil {
 			return sf.rootHash, errors.Wrap(err, "executor does not exist")
 		}
 		// save state before modifying
-		sf.saveState(e.Executor, state)
-		if e.Nonce > state.Nonce {
-			state.Nonce = e.Nonce
+		sf.saveState(e.Executor(), state)
+		if e.Nonce() > state.Nonce {
+			state.Nonce = e.Nonce()
 		}
 		if err := sf.putState(addr, state); err != nil {
 			return sf.rootHash, errors.Wrap(err, "failed to update pending state changes to trie")

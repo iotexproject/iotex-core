@@ -76,7 +76,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	vote1, _ := action.NewVote(5, ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["delta"].RawAddress, uint64(100000), big.NewInt(10))
 	_ = action.Sign(vote1, ta.Addrinfo["charlie"])
 	execution1, _ := action.NewExecution(ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["delta"].RawAddress, 6, big.NewInt(1), uint64(1000000), big.NewInt(10), []byte{1})
-	execution1, _ = execution1.Sign(ta.Addrinfo["charlie"])
+	_ = action.Sign(execution1, ta.Addrinfo["charlie"])
 	blk, err = bc.MintNewBlock([]*action.Transfer{tsf1, tsf2, tsf3, tsf4}, []*action.Vote{vote1}, []*action.Execution{execution1}, ta.Addrinfo["producer"], "")
 	if err != nil {
 		return err
@@ -101,8 +101,8 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	_ = action.Sign(vote2, ta.Addrinfo["alfa"])
 	execution1, _ = action.NewExecution(ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["delta"].RawAddress, 8, big.NewInt(2), 1000000, big.NewInt(10), []byte{1})
 	execution2, _ := action.NewExecution(ta.Addrinfo["alfa"].RawAddress, ta.Addrinfo["delta"].RawAddress, 2, big.NewInt(1), 1000000, big.NewInt(10), []byte{1})
-	execution1, _ = execution1.Sign(ta.Addrinfo["charlie"])
-	execution2, _ = execution2.Sign(ta.Addrinfo["alfa"])
+	_ = action.Sign(execution1, ta.Addrinfo["charlie"])
+	_ = action.Sign(execution2, ta.Addrinfo["alfa"])
 	blk, err = bc.MintNewBlock(nil, []*action.Vote{vote1, vote2}, []*action.Execution{execution1, execution2}, ta.Addrinfo["producer"], "")
 	if err != nil {
 		return err
@@ -118,7 +118,7 @@ func addActsToActPool(ap actpool.ActPool) error {
 	tsf2, _ := action.NewTransfer(4, big.NewInt(1), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
 	_ = action.Sign(tsf2, ta.Addrinfo["producer"])
 	execution1, _ := action.NewExecution(ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["delta"].RawAddress, 5, big.NewInt(1), uint64(1000000), big.NewInt(10), []byte{1})
-	execution1, _ = execution1.Sign(ta.Addrinfo["producer"])
+	_ = action.Sign(execution1, ta.Addrinfo["producer"])
 	if err := ap.AddTsf(tsf1); err != nil {
 		return err
 	}
@@ -575,11 +575,11 @@ func TestService_SendSmartContract(t *testing.T) {
 	svc := Service{dp: mDp, p2p: p2p}
 
 	execution, _ := action.NewExecution(ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["delta"].RawAddress, 1, big.NewInt(1), 1000000, big.NewInt(10), []byte{1})
-	execution, _ = execution.Sign(ta.Addrinfo["producer"])
+	_ = action.Sign(execution, ta.Addrinfo["producer"])
 	explorerExecution, _ := convertExecutionToExplorerExecution(execution, true)
-	explorerExecution.Version = int64(execution.Version)
-	explorerExecution.ExecutorPubKey = keypair.EncodePublicKey(execution.ExecutorPubKey)
-	explorerExecution.Signature = hex.EncodeToString(execution.Signature)
+	explorerExecution.Version = int64(execution.Version())
+	explorerExecution.ExecutorPubKey = keypair.EncodePublicKey(execution.ExecutorPublicKey())
+	explorerExecution.Signature = hex.EncodeToString(execution.Signature())
 
 	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any()).Times(1)
 	p2p.EXPECT().Broadcast(gomock.Any()).Times(1)
@@ -718,8 +718,7 @@ func TestExplorerGetReceiptByExecutionID(t *testing.T) {
 	execution, err := action.NewExecution(
 		ta.Addrinfo["producer"].RawAddress, action.EmptyAddress, 1, big.NewInt(0), uint64(100000), big.NewInt(10), data)
 	require.NoError(err)
-	execution, err = execution.Sign(ta.Addrinfo["producer"])
-	require.NoError(err)
+	require.NoError(action.Sign(execution, ta.Addrinfo["producer"]))
 	blk, err := bc.MintNewBlock(nil, nil, []*action.Execution{execution}, ta.Addrinfo["producer"], "")
 	require.NoError(err)
 	require.Nil(bc.CommitBlock(blk))
