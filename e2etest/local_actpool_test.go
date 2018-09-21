@@ -185,7 +185,10 @@ func signedExecution(executor *iotxaddress.Address, contractAddr string, nonce u
 	if err != nil {
 		return nil, err
 	}
-	return execution.Sign(executor)
+	if err := action.Sign(execution, executor); err != nil {
+		return nil, err
+	}
+	return execution, nil
 }
 
 func newActPoolConfig() (*config.Config, error) {

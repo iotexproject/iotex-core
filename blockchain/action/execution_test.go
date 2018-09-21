@@ -26,23 +26,17 @@ func TestExecutionSignVerify(t *testing.T) {
 	require.NoError(err)
 	ex, err := NewExecution(executor.RawAddress, contract.RawAddress, 0, big.NewInt(10), uint64(10), big.NewInt(10), data)
 	require.NoError(err)
-	require.Nil(ex.Signature)
-	require.NotNil(ex.Verify(executor))
+	require.Error(Verify(ex, executor))
 
 	// sign the Execution
-	sex, err := ex.Sign(executor)
-	require.NoError(err)
-	require.NotNil(sex)
-	require.Equal(ex.Hash(), sex.Hash())
-
-	ex.ExecutorPubKey = executor.PublicKey
-	require.Equal(ex.Hash(), sex.Hash())
+	require.NoError(Sign(ex, executor))
+	require.NotNil(ex)
+	require.Equal(ex.Hash(), ex.Hash())
 
 	// verify signature
-	require.NoError(sex.Verify(executor))
-	require.NotNil(sex.Verify(contract))
+	require.NoError(Verify(ex, executor))
+	require.Error(Verify(ex, contract))
 	require.NotNil(ex.Signature)
-	require.NoError(ex.Verify(executor))
 }
 
 func TestExecutionSerializeDeserialize(t *testing.T) {
@@ -65,10 +59,10 @@ func TestExecutionSerializeDeserialize(t *testing.T) {
 	err = newex.Deserialize(s)
 	require.NoError(err)
 
-	require.Equal(uint64(0), newex.Nonce)
-	require.Equal(uint64(123), newex.Amount.Uint64())
-	require.Equal(executor.RawAddress, newex.Executor)
-	require.Equal(contract.RawAddress, newex.Contract)
+	require.Equal(uint64(0), newex.Nonce())
+	require.Equal(uint64(123), newex.amount.Uint64())
+	require.Equal(executor.RawAddress, newex.Executor())
+	require.Equal(contract.RawAddress, newex.Contract())
 
 	require.Equal(ex.Hash(), newex.Hash())
 	require.Equal(ex.TotalSize(), newex.TotalSize())
@@ -95,10 +89,10 @@ func TestExecutionToJSONFromJSON(t *testing.T) {
 	require.NoError(err)
 	require.NotNil(newex)
 
-	require.Equal(uint64(0), newex.Nonce)
-	require.Equal(uint64(123), newex.Amount.Uint64())
-	require.Equal(executor.RawAddress, newex.Executor)
-	require.Equal(contract.RawAddress, newex.Contract)
+	require.Equal(uint64(0), newex.Nonce())
+	require.Equal(uint64(123), newex.amount.Uint64())
+	require.Equal(executor.RawAddress, newex.Executor())
+	require.Equal(contract.RawAddress, newex.Contract())
 
 	require.Equal(ex.Hash(), newex.Hash())
 	require.Equal(ex.TotalSize(), newex.TotalSize())

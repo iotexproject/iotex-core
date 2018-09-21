@@ -266,7 +266,7 @@ func (ap *actPool) AddExecution(exec *action.Execution) error {
 	}
 	// Wrap execution as an action
 	action := exec.ConvertToActionPb()
-	return ap.addAction(exec.Executor, action, hash, exec.Nonce)
+	return ap.addAction(exec.Executor(), action, hash, exec.Nonce())
 }
 
 // GetPendingNonce returns pending nonce in pool or confirmed nonce given an account address
@@ -376,41 +376,41 @@ func (ap *actPool) validateTsf(tsf *action.Transfer) error {
 
 func (ap *actPool) validateExecution(exec *action.Execution) error {
 	// Reject oversized transfer
-	if exec.GasLimit > blockchain.GasLimit {
+	if exec.GasLimit() > blockchain.GasLimit {
 		logger.Error().Msg("Rejecting execution due to high gas")
 		return errors.Wrapf(ErrGasHigherThanLimit, "Gas is higher than gas limit")
 	}
-	intrinsicGas, err := blockchain.IntrinsicGas(exec.Data)
-	if intrinsicGas > exec.GasLimit || err != nil {
+	intrinsicGas, err := blockchain.IntrinsicGas(exec.Data())
+	if intrinsicGas > exec.GasLimit() || err != nil {
 		logger.Error().Msg("Rejecting execution due to insufficient gas")
 		return errors.Wrapf(ErrInsufficientGas, "insufficient gas for execution")
 	}
 	// Reject execution of negative amount
-	if exec.Amount.Sign() < 0 {
+	if exec.Amount().Sign() < 0 {
 		logger.Error().Msg("Error when validating execution's amount")
 		return errors.Wrapf(ErrBalance, "negative value")
 	}
 
 	// check if executor's address is valid
-	if _, err := iotxaddress.GetPubkeyHash(exec.Executor); err != nil {
+	if _, err := iotxaddress.GetPubkeyHash(exec.Executor()); err != nil {
 		logger.Error().Msg("Error when validating executor's address")
-		return errors.Wrapf(err, "error when validating executor's address %s", exec.Executor)
+		return errors.Wrapf(err, "error when validating executor's address %s", exec.Executor())
 	}
 	// check if contract's address is valid
-	if exec.Contract != action.EmptyAddress {
-		if _, err := iotxaddress.GetPubkeyHash(exec.Contract); err != nil {
+	if exec.Contract() != action.EmptyAddress {
+		if _, err := iotxaddress.GetPubkeyHash(exec.Contract()); err != nil {
 			logger.Error().Msg("Error when validating contract's address")
 			return errors.Wrapf(err, "error when validating contract's address %s", exec.Contract)
 		}
 	}
 
-	executor, err := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, iotxaddress.ChainID, exec.ExecutorPubKey)
+	executor, err := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, iotxaddress.ChainID, exec.ExecutorPublicKey())
 	if err != nil {
 		logger.Error().Err(err).Msg("Error when validating executor's public key")
 		return errors.Wrapf(err, "invalid address")
 	}
 	// Verify transfer using executor's public key
-	if err := exec.Verify(executor); err != nil {
+	if err := action.Verify(exec, executor); err != nil {
 		logger.Error().Err(err).Msg("Error when validating execution's signature")
 		return errors.Wrapf(err, "failed to verify Execution signature")
 	}
@@ -421,7 +421,7 @@ func (ap *actPool) validateExecution(exec *action.Execution) error {
 		return errors.Wrapf(err, "invalid nonce value")
 	}
 	pendingNonce := confirmedNonce + 1
-	if pendingNonce > exec.Nonce {
+	if pendingNonce > exec.Nonce() {
 		logger.Error().Msg("Error when validating execution's nonce")
 		return errors.Wrapf(ErrNonce, "nonce too low")
 	}
@@ -550,7 +550,7 @@ func (ap *actPool) addAction(sender string, act *iproto.ActionPb, hash hash.Hash
 	if execution := act.GetExecution(); execution != nil {
 		exec := &action.Execution{}
 		exec.ConvertFromActionPb(act)
-		if queue.PendingBalance().Cmp(exec.Amount) < 0 {
+		if queue.PendingBalance().Cmp(exec.Amount()) < 0 {
 			logger.Warn().
 				Hex("hash", hash[:]).
 				Msg("Rejecting execution due to insufficient balance")

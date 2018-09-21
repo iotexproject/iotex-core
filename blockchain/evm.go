@@ -79,7 +79,7 @@ func NewEVMParams(blk *Block, execution *action.Execution, stateDB *EVMStateDBAd
 			beneficiary = *author
 		}
 	*/
-	executorHash, err := iotxaddress.GetPubkeyHash(execution.Executor)
+	executorHash, err := iotxaddress.GetPubkeyHash(execution.Executor())
 	if err != nil {
 		return nil, err
 	}
@@ -89,8 +89,8 @@ func NewEVMParams(blk *Block, execution *action.Execution, stateDB *EVMStateDBAd
 		return nil, err
 	}
 	var contractAddrPointer *common.Address
-	if execution.Contract != action.EmptyAddress {
-		contractHash, err := iotxaddress.GetPubkeyHash(execution.Contract)
+	if execution.Contract() != action.EmptyAddress {
+		contractHash, err := iotxaddress.GetPubkeyHash(execution.Contract())
 		if err != nil {
 			return nil, err
 		}
@@ -109,17 +109,17 @@ func NewEVMParams(blk *Block, execution *action.Execution, stateDB *EVMStateDBAd
 		Time:        new(big.Int).SetInt64(blk.Header.Timestamp().Unix()),
 		Difficulty:  new(big.Int).SetUint64(uint64(50)),
 		GasLimit:    GasLimit,
-		GasPrice:    execution.GasPrice,
+		GasPrice:    execution.GasPrice(),
 	}
 
 	return &EVMParams{
 		context,
-		execution.Nonce,
+		execution.Nonce(),
 		executorIoTXAddress.RawAddress,
-		execution.Amount,
+		execution.Amount(),
 		contractAddrPointer,
-		execution.GasLimit,
-		execution.Data,
+		execution.GasLimit(),
+		execution.Data(),
 	}, nil
 }
 

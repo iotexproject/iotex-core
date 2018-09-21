@@ -1201,19 +1201,19 @@ func convertExecutionToExplorerExecution(execution *action.Execution, isPending 
 	}
 	hash := execution.Hash()
 	explorerExecution := explorer.Execution{
-		Nonce:     int64(execution.Nonce),
+		Nonce:     int64(execution.Nonce()),
 		ID:        hex.EncodeToString(hash[:]),
-		Executor:  execution.Executor,
-		Contract:  execution.Contract,
-		GasLimit:  int64(execution.GasLimit),
-		Data:      hex.EncodeToString(execution.Data),
+		Executor:  execution.Executor(),
+		Contract:  execution.Contract(),
+		GasLimit:  int64(execution.GasLimit()),
+		Data:      hex.EncodeToString(execution.Data()),
 		IsPending: isPending,
 	}
-	if execution.Amount != nil && len(execution.Amount.Bytes()) > 0 {
-		explorerExecution.Amount = execution.Amount.Int64()
+	if execution.Amount() != nil && len(execution.Amount().Bytes()) > 0 {
+		explorerExecution.Amount = execution.Amount().Int64()
 	}
-	if execution.GasPrice != nil && len(execution.GasPrice.Bytes()) > 0 {
-		explorerExecution.GasPrice = execution.GasPrice.Int64()
+	if execution.GasPrice() != nil && len(execution.GasPrice().Bytes()) > 0 {
+		explorerExecution.GasPrice = execution.GasPrice().Int64()
 	}
 	return explorerExecution, nil
 }
