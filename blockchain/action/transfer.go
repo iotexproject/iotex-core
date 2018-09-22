@@ -8,6 +8,7 @@ package action
 
 import (
 	"encoding/hex"
+	"math"
 	"math/big"
 
 	"github.com/golang/protobuf/proto"
@@ -21,6 +22,13 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/proto"
+)
+
+const (
+	// TransferPayloadGas represents the transfer payload gas per uint
+	TransferPayloadGas = uint64(100)
+	// TransferBaseIntrinsicGas represents the base intrinsic gas for transfer
+	TransferBaseIntrinsicGas = uint64(10000)
 )
 
 // Transfer defines the struct of account-based transfer
@@ -286,4 +294,24 @@ func (tsf *Transfer) Deserialize(buf []byte) error {
 // Hash returns the hash of the Transfer
 func (tsf *Transfer) Hash() hash.Hash32B {
 	return blake2b.Sum256(tsf.ByteStream())
+}
+
+// IntrinsicGas returns the intrinsic gas of a transfer
+func (tsf *Transfer) IntrinsicGas() (uint64, error) {
+	payloadSize := uint64(len(tsf.Payload()))
+	if (math.MaxUint64-TransferBaseIntrinsicGas)/TransferPayloadGas < payloadSize {
+		return 0, ErrOutOfGas
+	}
+
+	return payloadSize*TransferPayloadGas + TransferBaseIntrinsicGas, nil
+}
+
+// Cost returns the total cost of a transfer
+func (tsf *Transfer) Cost() (*big.Int, error) {
+	intrinsicGas, err := tsf.IntrinsicGas()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get intrinsic gas for the transfer")
+	}
+	transferFee := big.NewInt(0).Mul(tsf.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas))
+	return big.NewInt(0).Add(tsf.Amount(), transferFee), nil
 }
