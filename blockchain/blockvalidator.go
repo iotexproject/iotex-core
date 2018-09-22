@@ -102,7 +102,7 @@ func (v *validator) Validate(blk *Block, tipHeight uint64, tipHash hash.Hash32B)
 }
 
 func (v *validator) verifyActions(blk *Block) error {
-	// Verify transfers, votes, and executions (balance is checked in CommitStateChanges)
+	// Verify transfers, votes, and executions (balance is checked in RunActions)
 	confirmedNonceMap := make(map[string]uint64)
 	accountNonceMap := make(map[string][]uint64)
 	var wg sync.WaitGroup
@@ -115,32 +115,32 @@ func (v *validator) verifyActions(blk *Block) error {
 		// Verify Signature
 		// Verify Coinbase transfer
 
-		if !tsf.IsCoinbase {
-			if _, err := iotxaddress.GetPubkeyHash(tsf.Sender); err != nil {
-				return errors.Wrapf(err, "failed to validate transfer sender's address %s", tsf.Sender)
+		if !tsf.IsCoinbase() {
+			if _, err := iotxaddress.GetPubkeyHash(tsf.Sender()); err != nil {
+				return errors.Wrapf(err, "failed to validate transfer sender's address %s", tsf.Sender())
 			}
-			if _, err := iotxaddress.GetPubkeyHash(tsf.Recipient); err != nil {
-				return errors.Wrapf(err, "failed to validate transfer recipient's address %s", tsf.Recipient)
+			if _, err := iotxaddress.GetPubkeyHash(tsf.Recipient()); err != nil {
+				return errors.Wrapf(err, "failed to validate transfer recipient's address %s", tsf.Recipient())
 			}
 		}
 
-		if blk.Header.height > 0 && !tsf.IsCoinbase {
+		if blk.Header.height > 0 && !tsf.IsCoinbase() {
 			// Store the nonce of the sender and verify later
-			if _, ok := confirmedNonceMap[tsf.Sender]; !ok {
-				accountNonce, err := v.sf.Nonce(tsf.Sender)
+			if _, ok := confirmedNonceMap[tsf.Sender()]; !ok {
+				accountNonce, err := v.sf.Nonce(tsf.Sender())
 				if err != nil {
 					return errors.Wrap(err, "failed to get the nonce of transfer sender")
 				}
-				confirmedNonceMap[tsf.Sender] = accountNonce
-				accountNonceMap[tsf.Sender] = make([]uint64, 0)
+				confirmedNonceMap[tsf.Sender()] = accountNonce
+				accountNonceMap[tsf.Sender()] = make([]uint64, 0)
 			}
-			accountNonceMap[tsf.Sender] = append(accountNonceMap[tsf.Sender], tsf.Nonce)
+			accountNonceMap[tsf.Sender()] = append(accountNonceMap[tsf.Sender()], tsf.Nonce())
 		}
 
 		go func(tsf *action.Transfer, correctTsf *uint64, correctCoinbase *uint64) {
 			defer wg.Done()
 			// Verify coinbase transfer
-			if tsf.IsCoinbase {
+			if tsf.IsCoinbase() {
 				address, err := iotxaddress.GetAddressByPubkey(
 					iotxaddress.IsTestnet,
 					iotxaddress.ChainID,
@@ -149,7 +149,7 @@ func (v *validator) verifyActions(blk *Block) error {
 				if err != nil {
 					return
 				}
-				if address.RawAddress != tsf.Recipient {
+				if address.RawAddress != tsf.Recipient() {
 					return
 				}
 				atomic.AddUint64(correctCoinbase, uint64(1))
@@ -160,12 +160,12 @@ func (v *validator) verifyActions(blk *Block) error {
 			address, err := iotxaddress.GetAddressByPubkey(
 				iotxaddress.IsTestnet,
 				iotxaddress.ChainID,
-				tsf.SenderPublicKey,
+				tsf.SenderPublicKey(),
 			)
 			if err != nil {
 				return
 			}
-			if err := tsf.Verify(address); err != nil {
+			if err := action.Verify(tsf, address); err != nil {
 				return
 			}
 			atomic.AddUint64(correctTsf, uint64(1))
@@ -176,18 +176,18 @@ func (v *validator) verifyActions(blk *Block) error {
 		// Verify Nonce
 		// Verify Signature
 
-		if _, err := iotxaddress.GetPubkeyHash(vote.GetVote().VoterAddress); err != nil {
-			return errors.Wrapf(err, "failed to validate voter's address %s", vote.GetVote().VoterAddress)
+		if _, err := iotxaddress.GetPubkeyHash(vote.Voter()); err != nil {
+			return errors.Wrapf(err, "failed to validate voter's address %s", vote.Voter())
 		}
-		if vote.GetVote().VoteeAddress != action.EmptyAddress {
-			if _, err := iotxaddress.GetPubkeyHash(vote.GetVote().VoteeAddress); err != nil {
-				return errors.Wrapf(err, "failed to validate votee's address %s", vote.GetVote().VoteeAddress)
+		if vote.Votee() != action.EmptyAddress {
+			if _, err := iotxaddress.GetPubkeyHash(vote.Votee()); err != nil {
+				return errors.Wrapf(err, "failed to validate votee's address %s", vote.Votee())
 			}
 		}
 
 		if blk.Header.height > 0 {
 			// Store the nonce of the voter and verify later
-			voterAddress := vote.GetVote().VoterAddress
+			voterAddress := vote.Voter()
 			if _, ok := confirmedNonceMap[voterAddress]; !ok {
 				accountNonce, err := v.sf.Nonce(voterAddress)
 				if err != nil {
@@ -196,21 +196,17 @@ func (v *validator) verifyActions(blk *Block) error {
 				confirmedNonceMap[voterAddress] = accountNonce
 				accountNonceMap[voterAddress] = make([]uint64, 0)
 			}
-			accountNonceMap[voterAddress] = append(accountNonceMap[voterAddress], vote.Nonce)
+			accountNonceMap[voterAddress] = append(accountNonceMap[voterAddress], vote.Nonce())
 		}
 
 		// Verify signature
 		go func(vote *action.Vote, correctVote *uint64) {
 			defer wg.Done()
-			selfPublicKey, err := vote.SelfPublicKey()
+			address, err := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, iotxaddress.ChainID, vote.VoterPublicKey())
 			if err != nil {
 				return
 			}
-			address, err := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, iotxaddress.ChainID, selfPublicKey)
-			if err != nil {
-				return
-			}
-			if err := vote.Verify(address); err != nil {
+			if err := action.Verify(vote, address); err != nil {
 				return
 			}
 			atomic.AddUint64(correctVote, uint64(1))
@@ -223,18 +219,18 @@ func (v *validator) verifyActions(blk *Block) error {
 		// Verify Gas
 		// Verify Amount
 
-		if _, err := iotxaddress.GetPubkeyHash(execution.Executor); err != nil {
-			return errors.Wrapf(err, "failed to validate executor's address %s", execution.Executor)
+		if _, err := iotxaddress.GetPubkeyHash(execution.Executor()); err != nil {
+			return errors.Wrapf(err, "failed to validate executor's address %s", execution.Executor())
 		}
-		if execution.Contract != action.EmptyAddress {
-			if _, err := iotxaddress.GetPubkeyHash(execution.Contract); err != nil {
-				return errors.Wrapf(err, "failed to validate contract's address %s", execution.Contract)
+		if execution.Contract() != action.EmptyAddress {
+			if _, err := iotxaddress.GetPubkeyHash(execution.Contract()); err != nil {
+				return errors.Wrapf(err, "failed to validate contract's address %s", execution.Contract())
 			}
 		}
 
 		if blk.Header.height > 0 {
 			// Store the nonce of the executor and verify later
-			executor := execution.Executor
+			executor := execution.Executor()
 			if _, ok := confirmedNonceMap[executor]; !ok {
 				accountNonce, err := v.sf.Nonce(executor)
 				if err != nil {
@@ -243,34 +239,34 @@ func (v *validator) verifyActions(blk *Block) error {
 				confirmedNonceMap[executor] = accountNonce
 				accountNonceMap[executor] = make([]uint64, 0)
 			}
-			accountNonceMap[executor] = append(accountNonceMap[executor], execution.Nonce)
+			accountNonceMap[executor] = append(accountNonceMap[executor], execution.Nonce())
 		}
 
 		// Verify signature
 		go func(execution *action.Execution, correctVote *uint64) {
 			defer wg.Done()
-			executorPubKey := execution.ExecutorPubKey
+			executorPubKey := execution.ExecutorPublicKey()
 			address, err := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, iotxaddress.ChainID, executorPubKey)
 			if err != nil {
 				return
 			}
-			if err := execution.Verify(address); err != nil {
+			if err := action.Verify(execution, address); err != nil {
 				return
 			}
 			atomic.AddUint64(correctVote, uint64(1))
 		}(execution, &correctAction)
 
 		// Reject oversized execution
-		if execution.GasLimit > GasLimit {
+		if execution.GasLimit() > action.GasLimit {
 			return errors.Wrapf(ErrGasHigherThanLimit, "gas is higher than gas limit")
 		}
-		intrinsicGas, err := IntrinsicGas(execution.Data)
-		if intrinsicGas > execution.GasLimit || err != nil {
+		intrinsicGas, err := execution.IntrinsicGas()
+		if intrinsicGas > execution.GasLimit() || err != nil {
 			return errors.Wrapf(ErrInsufficientGas, "insufficient gas for execution")
 		}
 
 		// Reject execution of negative amount
-		if execution.Amount.Sign() < 0 {
+		if execution.Amount().Sign() < 0 {
 			return errors.Wrapf(ErrBalance, "negative value")
 		}
 	}

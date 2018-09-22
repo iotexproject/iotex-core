@@ -90,7 +90,7 @@ func TestNewBlockSyncer(t *testing.T) {
 
 	mBc := mock_blockchain.NewMockBlockchain(ctrl)
 	// TipHeight return ERROR
-	mBc.EXPECT().TipHeight().AnyTimes().Return(uint64(0), nil)
+	mBc.EXPECT().TipHeight().AnyTimes().Return(uint64(0))
 	blk := bc.NewBlock(uint32(123), uint64(0), hash.Hash32B{}, clock.New(), nil, nil, nil)
 	mBc.EXPECT().GetBlockByHeight(gomock.Any()).AnyTimes().Return(blk, nil)
 
@@ -162,7 +162,7 @@ func TestBlockSyncerProcessSyncRequest(t *testing.T) {
 	mBc := mock_blockchain.NewMockBlockchain(ctrl)
 	blk := bc.NewBlock(uint32(123), uint64(0), hash.Hash32B{}, clock.New(), nil, nil, nil)
 	mBc.EXPECT().GetBlockByHeight(gomock.Any()).AnyTimes().Return(blk, nil)
-	mBc.EXPECT().TipHeight().AnyTimes().Return(uint64(0), nil)
+	mBc.EXPECT().TipHeight().AnyTimes().Return(uint64(0))
 	cfg, err := newTestConfig()
 	require.Nil(err)
 	ap, err := actpool.NewActPool(mBc, cfg.ActPool)
@@ -243,24 +243,24 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 		testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
 	}()
 
-	h, _ := chain.TipHeight()
+	h := chain.TipHeight()
 	blk, err := chain.MintNewBlock(nil, nil, nil, ta.Addrinfo["producer"], "")
 	require.NotNil(blk)
 	require.NoError(err)
 	bs.(*blockSyncer).ackBlockCommit = false
 	require.Nil(bs.ProcessBlock(blk))
-	h2, _ := chain.TipHeight()
+	h2 := chain.TipHeight()
 	assert.Equal(t, h, h2)
 
 	// commit top
 	bs.(*blockSyncer).ackBlockCommit = true
 	require.Nil(bs.ProcessBlock(blk))
-	h3, _ := chain.TipHeight()
+	h3 := chain.TipHeight()
 	assert.Equal(t, h+1, h3)
 
 	// commit same block again
 	require.Nil(bs.ProcessBlock(blk))
-	h4, _ := chain.TipHeight()
+	h4 := chain.TipHeight()
 	assert.Equal(t, h3, h4)
 }
 
@@ -309,14 +309,14 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	require.NotNil(blk3)
 	require.Nil(err)
 	require.Nil(bs1.ProcessBlock(blk3))
-	h1, _ := chain1.TipHeight()
+	h1 := chain1.TipHeight()
 	assert.Equal(t, uint64(3), h1)
 
 	require.Nil(bs2.ProcessBlock(blk3))
 	require.Nil(bs2.ProcessBlock(blk2))
 	require.Nil(bs2.ProcessBlock(blk2))
 	require.Nil(bs2.ProcessBlock(blk1))
-	h2, _ := chain2.TipHeight()
+	h2 := chain2.TipHeight()
 	assert.Equal(t, h1, h2)
 }
 
@@ -365,13 +365,13 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	require.NotNil(blk3)
 	require.NoError(err)
 	require.Nil(bs1.ProcessBlock(blk3))
-	h1, _ := chain1.TipHeight()
+	h1 := chain1.TipHeight()
 	assert.Equal(t, uint64(3), h1)
 
 	require.Nil(bs2.ProcessBlockSync(blk3))
 	require.Nil(bs2.ProcessBlockSync(blk2))
 	require.Nil(bs2.ProcessBlockSync(blk1))
-	h2, _ := chain2.TipHeight()
+	h2 := chain2.TipHeight()
 	assert.Equal(t, h1, h2)
 }
 

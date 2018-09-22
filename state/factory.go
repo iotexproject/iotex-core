@@ -61,7 +61,9 @@ type (
 		CachedState(string) (*State, error)
 		RootHash() hash.Hash32B
 		Height() (uint64, error)
-		CommitStateChanges(uint64, []*action.Transfer, []*action.Vote, []*action.Execution) error
+		RunActions(uint64, []*action.Transfer, []*action.Vote, []*action.Execution) (hash.Hash32B, error)
+		HasRun() bool
+		Commit() error
 		// Contracts
 		GetCodeHash(hash.AddrHash) (hash.Hash32B, error)
 		GetCode(hash.AddrHash) ([]byte, error)
@@ -81,8 +83,11 @@ type (
 		numCandidates      uint
 		cachedCandidates   map[hash.AddrHash]*Candidate
 		// accounts
+		savedAccount   map[string]*State          // save account state before being modified in this block
 		cachedAccount  map[hash.AddrHash]*State   // accounts being modified in this block
 		cachedContract map[hash.AddrHash]Contract // contracts being modified in this block
+		run            bool                       // indicates that RunActions() has been called
+		rootHash       hash.Hash32B               // new root hash after running executions in this block
 		accountTrie    trie.Trie                  // global state trie
 		dao            db.CachedKVStore           // the underlying DB for account/contract storage
 	}
@@ -156,6 +161,7 @@ func NewFactory(cfg *config.Config, opts ...FactoryOption) (Factory, error) {
 		currentChainHeight: 0,
 		numCandidates:      cfg.Chain.NumCandidates,
 		cachedCandidates:   make(map[hash.AddrHash]*Candidate),
+		savedAccount:       make(map[string]*State),
 		cachedAccount:      make(map[hash.AddrHash]*State),
 		cachedContract:     make(map[hash.AddrHash]Contract),
 	}
@@ -205,6 +211,9 @@ func (sf *factory) LoadOrCreateState(addr string, init uint64) (*State, error) {
 
 // Balance returns balance
 func (sf *factory) Balance(addr string) (*big.Int, error) {
+	if saved, ok := sf.savedAccount[addr]; ok {
+		return saved.Balance, nil
+	}
 	pkHash, err := iotxaddress.GetPubkeyHash(addr)
 	if err != nil {
 		return nil, errors.Wrap(err, "error when getting the pubkey hash")
@@ -218,6 +227,9 @@ func (sf *factory) Balance(addr string) (*big.Int, error) {
 
 // Nonce returns the nonce if the account exists
 func (sf *factory) Nonce(addr string) (uint64, error) {
+	if saved, ok := sf.savedAccount[addr]; ok {
+		return saved.Nonce, nil
+	}
 	pkHash, err := iotxaddress.GetPubkeyHash(addr)
 	if err != nil {
 		return 0, errors.Wrap(err, "error when getting the pubkey hash")
@@ -231,6 +243,9 @@ func (sf *factory) Nonce(addr string) (uint64, error) {
 
 // State returns the confirmed state on the chain
 func (sf *factory) State(addr string) (*State, error) {
+	if saved, ok := sf.savedAccount[addr]; ok {
+		return saved, nil
+	}
 	pkHash, err := iotxaddress.GetPubkeyHash(addr)
 	if err != nil {
 		return nil, errors.Wrap(err, "error when getting the pubkey hash")
@@ -265,31 +280,46 @@ func (sf *factory) Height() (uint64, error) {
 	return byteutil.BytesToUint64(height), nil
 }
 
-// CommitStateChanges updates a State from the given actions
-func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer, vote []*action.Vote, executions []*action.Execution) error {
+// RunActions will be called 2 times in
+// 1. In MintNewBlock(), the block producer runs all executions in new block and get the new trie root hash (which
+// is written in block header), but all changes are not committed to blockchain yet
+// 2. In CommitBlock(), all nodes except block producer will run all execution and verify the trie root hash match
+// what's written in the block header
+func (sf *factory) RunActions(
+	blockHeight uint64,
+	tsf []*action.Transfer,
+	vote []*action.Vote,
+	executions []*action.Execution) (hash.Hash32B, error) {
+	if sf.run {
+		// RunActions() already called in MintNewBlock()
+		return sf.rootHash, nil
+	}
+
+	defer func() {
+		sf.run = true
+	}()
 	// Recover cachedCandidates after restart factory
 	if blockHeight > 0 && len(sf.cachedCandidates) == 0 {
 		candidates, err := sf.getCandidates(blockHeight - 1)
 		if err != nil {
-			return errors.Wrapf(err, "failed to get previous candidates on height %d", blockHeight-1)
+			return sf.rootHash, errors.Wrapf(err, "failed to get previous candidates on height %d", blockHeight-1)
 		}
 		if sf.cachedCandidates, err = CandidatesToMap(candidates); err != nil {
-			return errors.Wrap(err, "failed to convert candidate list to map of cached candidates")
+			return sf.rootHash, errors.Wrap(err, "failed to convert candidate list to map of cached candidates")
 		}
 	}
 
-	defer sf.clearCache()
 	if err := sf.handleTsf(tsf); err != nil {
-		return errors.Wrap(err, "failed to handle transfers")
+		return sf.rootHash, errors.Wrap(err, "failed to handle transfers")
 	}
 	if err := sf.handleVote(blockHeight, vote); err != nil {
-		return errors.Wrap(err, "failed to handle votes")
+		return sf.rootHash, errors.Wrap(err, "failed to handle votes")
 	}
 
 	// update pending state changes to trie
 	for addr, state := range sf.cachedAccount {
-		if err := sf.putState(state, addr[:]); err != nil {
-			return errors.Wrap(err, "failed to update pending state changes to trie")
+		if err := sf.putState(addr[:], state); err != nil {
+			return sf.rootHash, errors.Wrap(err, "failed to update pending state changes to trie")
 		}
 		// Perform vote update operation on candidate and delegate pools
 		if !state.IsCandidate {
@@ -310,55 +340,69 @@ func (sf *factory) CommitStateChanges(blockHeight uint64, tsf []*action.Transfer
 	// update pending contract changes
 	for addr, contract := range sf.cachedContract {
 		if err := contract.Commit(); err != nil {
-			return errors.Wrap(err, "failed to update pending contract changes")
+			return sf.rootHash, errors.Wrap(err, "failed to update pending contract changes")
 		}
 		state := contract.SelfState()
 		// store the account (with new storage trie root) into state trie
-		if err := sf.putState(state, addr[:]); err != nil {
-			return errors.Wrap(err, "failed to update pending contract state changes to trie")
+		if err := sf.putState(addr[:], state); err != nil {
+			return sf.rootHash, errors.Wrap(err, "failed to update pending contract state changes to trie")
 		}
 	}
 	// increase Executor's Nonce for every execution in this block
 	for _, e := range executions {
-		addr, _ := iotxaddress.GetPubkeyHash(e.Executor)
+		addr, _ := iotxaddress.GetPubkeyHash(e.Executor())
 		state, err := sf.cachedState(byteutil.BytesTo20B(addr))
 		if err != nil {
-			return errors.Wrap(err, "executor does not exist")
+			return sf.rootHash, errors.Wrap(err, "executor does not exist")
 		}
-		if e.Nonce > state.Nonce {
-			state.Nonce = e.Nonce
+		// save state before modifying
+		sf.saveState(e.Executor(), state)
+		if e.Nonce() > state.Nonce {
+			state.Nonce = e.Nonce()
 		}
-		if err := sf.putState(state, addr); err != nil {
-			return errors.Wrap(err, "failed to update pending state changes to trie")
+		if err := sf.putState(addr, state); err != nil {
+			return sf.rootHash, errors.Wrap(err, "failed to update pending state changes to trie")
 		}
 	}
 	// Persist accountTrie's root hash
-	accountRootHash := sf.RootHash()
-	if err := sf.dao.Put(trie.AccountKVNameSpace, []byte(AccountTrieRootKey), accountRootHash[:]); err != nil {
-		return errors.Wrap(err, "failed to store accountTrie's root hash")
+	sf.rootHash = sf.RootHash()
+	if err := sf.dao.Put(trie.AccountKVNameSpace, []byte(AccountTrieRootKey), sf.rootHash[:]); err != nil {
+		return sf.rootHash, errors.Wrap(err, "failed to store accountTrie's root hash")
 	}
 	// Persist new list of candidates
 	candidates, err := MapToCandidates(sf.cachedCandidates)
 	if err != nil {
-		return errors.Wrap(err, "failed to convert map of cached candidates to candidate list")
+		return sf.rootHash, errors.Wrap(err, "failed to convert map of cached candidates to candidate list")
 	}
 	sort.Sort(candidates)
 	candidatesBytes, err := Serialize(candidates)
 	if err != nil {
-		return errors.Wrap(err, "failed to serialize candidates")
+		return sf.rootHash, errors.Wrap(err, "failed to serialize candidates")
 	}
 	if err := sf.dao.Put(trie.CandidateKVNameSpace, byteutil.Uint64ToBytes(blockHeight), candidatesBytes); err != nil {
-		return errors.Wrapf(err, "failed to store candidates on height %d", blockHeight)
+		return sf.rootHash, errors.Wrapf(err, "failed to store candidates on height %d", blockHeight)
 	}
 	// Persist current chain height
 	sf.currentChainHeight = blockHeight
 	if err := sf.dao.Put(trie.AccountKVNameSpace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(blockHeight)); err != nil {
-		return errors.Wrap(err, "failed to store accountTrie's current height")
+		return sf.rootHash, errors.Wrap(err, "failed to store accountTrie's current height")
 	}
+	return sf.rootHash, nil
+}
+
+// HasRun return the run status
+func (sf *factory) HasRun() bool {
+	return sf.run
+}
+
+// Commit persists all changes in RunActions() into the DB
+func (sf *factory) Commit() error {
 	// commit all changes in a batch
 	if err := sf.accountTrie.Commit(); err != nil {
 		return errors.Wrap(err, "failed to commit all changes to underlying DB in a batch")
 	}
+	sf.clearCache()
+	sf.run = false
 	return nil
 }
 
@@ -483,7 +527,7 @@ func (sf *factory) cachedState(hash hash.AddrHash) (*State, error) {
 }
 
 // getState stores a State to DB
-func (sf *factory) putState(state *State, addr []byte) error {
+func (sf *factory) putState(addr []byte, state *State) error {
 	ss, err := stateToBytes(state)
 	if err != nil {
 		return errors.Wrapf(err, "failed to convert state %v to bytes", state)
@@ -491,12 +535,17 @@ func (sf *factory) putState(state *State, addr []byte) error {
 	return sf.accountTrie.Upsert(addr, ss)
 }
 
+func (sf *factory) saveState(addr string, state *State) {
+	if _, ok := sf.savedAccount[addr]; !ok {
+		sf.savedAccount[addr] = state.clone()
+	}
+}
+
 func (sf *factory) getContract(addr hash.AddrHash) (Contract, error) {
 	state, err := sf.cachedState(addr)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get the cached state of %x", addr)
 	}
-	logger.Warn().Msgf("promote contract %x", addr)
 	delete(sf.cachedAccount, addr)
 	if state.Root == hash.ZeroHash32B {
 		state.Root = trie.EmptyRoot
@@ -513,8 +562,10 @@ func (sf *factory) getContract(addr hash.AddrHash) (Contract, error) {
 
 // clearCache removes all local changes after committing to trie
 func (sf *factory) clearCache() {
+	sf.savedAccount = nil
 	sf.cachedAccount = nil
 	sf.cachedContract = nil
+	sf.savedAccount = make(map[string]*State)
 	sf.cachedAccount = make(map[hash.AddrHash]*State)
 	sf.cachedContract = make(map[hash.AddrHash]Contract)
 }
@@ -545,50 +596,58 @@ func (sf *factory) handleTsf(tsf []*action.Transfer) error {
 		if tx.IsContract() {
 			continue
 		}
-		if !tx.IsCoinbase {
+		if !tx.IsCoinbase() {
 			// check sender
-			sender, err := sf.LoadOrCreateState(tx.Sender, 0)
+			sender, err := sf.LoadOrCreateState(tx.Sender(), 0)
 			if err != nil {
 				return errors.Wrapf(err, "failed to load or create the state of sender %s", tx.Sender)
 			}
-			if tx.Amount.Cmp(sender.Balance) == 1 {
+			// save state before modifying
+			sf.saveState(tx.Sender(), sender)
+			if tx.Amount().Cmp(sender.Balance) == 1 {
 				return errors.Wrapf(ErrNotEnoughBalance, "failed to verify the balance of sender %s", tx.Sender)
 			}
 			// update sender balance
-			if err := sender.SubBalance(tx.Amount); err != nil {
+			if err := sender.SubBalance(tx.Amount()); err != nil {
 				return errors.Wrapf(err, "failed to update the balance of sender %s", tx.Sender)
 			}
 			// update sender nonce
-			if tx.Nonce > sender.Nonce {
-				sender.Nonce = tx.Nonce
+			if tx.Nonce() > sender.Nonce {
+				sender.Nonce = tx.Nonce()
 			}
 			// Update sender votes
-			if len(sender.Votee) > 0 && sender.Votee != tx.Sender {
+			if len(sender.Votee) > 0 && sender.Votee != tx.Sender() {
 				// sender already voted to a different person
 				voteeOfSender, err := sf.LoadOrCreateState(sender.Votee, 0)
 				if err != nil {
 					return errors.Wrapf(err, "failed to load or create the state of sender's votee %s", sender.Votee)
 				}
-				voteeOfSender.VotingWeight.Sub(voteeOfSender.VotingWeight, tx.Amount)
+				// save state before modifying
+				sf.saveState(sender.Votee, voteeOfSender)
+				voteeOfSender.VotingWeight.Sub(voteeOfSender.VotingWeight, tx.Amount())
 			}
 		}
 		// check recipient
-		recipient, err := sf.LoadOrCreateState(tx.Recipient, 0)
+		recipient, err := sf.LoadOrCreateState(tx.Recipient(), 0)
 		if err != nil {
-			return errors.Wrapf(err, "failed to laod or create the state of recipient %s", tx.Recipient)
+			return errors.Wrapf(err, "failed to laod or create the state of recipient %s", tx.Recipient())
 		}
+		// save state before modifying
+		sf.saveState(tx.Recipient(), recipient)
 		// update recipient balance
-		if err := recipient.AddBalance(tx.Amount); err != nil {
+		if err := recipient.AddBalance(tx.Amount()); err != nil {
 			return errors.Wrapf(err, "failed to update the balance of recipient %s", tx.Recipient)
 		}
 		// Update recipient votes
-		if len(recipient.Votee) > 0 && recipient.Votee != tx.Recipient {
+		if len(recipient.Votee) > 0 && recipient.Votee != tx.Recipient() {
 			// recipient already voted to a different person
 			voteeOfRecipient, err := sf.LoadOrCreateState(recipient.Votee, 0)
 			if err != nil {
 				return errors.Wrapf(err, "failed to load or create the state of recipient's votee %s", recipient.Votee)
 			}
-			voteeOfRecipient.VotingWeight.Add(voteeOfRecipient.VotingWeight, tx.Amount)
+			// save state before modifying
+			sf.saveState(recipient.Votee, voteeOfRecipient)
+			voteeOfRecipient.VotingWeight.Add(voteeOfRecipient.VotingWeight, tx.Amount())
 		}
 	}
 	return nil
@@ -596,57 +655,59 @@ func (sf *factory) handleTsf(tsf []*action.Transfer) error {
 
 func (sf *factory) handleVote(blockHeight uint64, vote []*action.Vote) error {
 	for _, v := range vote {
-		pbVote := v.GetVote()
-		voterAddress := pbVote.VoterAddress
-		voteFrom, err := sf.LoadOrCreateState(voterAddress, 0)
+		voteFrom, err := sf.LoadOrCreateState(v.Voter(), 0)
 		if err != nil {
-			return errors.Wrapf(err, "failed to load or create the state of voter %s", voterAddress)
+			return errors.Wrapf(err, "failed to load or create the state of voter %s", v.Voter())
 		}
-
+		// save state before modifying
+		sf.saveState(v.Voter(), voteFrom)
 		// update voteFrom nonce
-		if v.Nonce > voteFrom.Nonce {
-			voteFrom.Nonce = v.Nonce
+		if v.Nonce() > voteFrom.Nonce {
+			voteFrom.Nonce = v.Nonce()
 		}
 		// Update old votee's weight
-		if len(voteFrom.Votee) > 0 && voteFrom.Votee != voterAddress {
+		if len(voteFrom.Votee) > 0 && voteFrom.Votee != v.Voter() {
 			// voter already voted
 			oldVotee, err := sf.LoadOrCreateState(voteFrom.Votee, 0)
 			if err != nil {
 				return errors.Wrapf(err, "failed to load or create the state of voter's old votee %s", voteFrom.Votee)
 			}
+			// save state before modifying
+			sf.saveState(voteFrom.Votee, oldVotee)
 			oldVotee.VotingWeight.Sub(oldVotee.VotingWeight, voteFrom.Balance)
 			voteFrom.Votee = ""
 		}
 
-		voteeAddress := pbVote.VoteeAddress
-		if voteeAddress == "" {
+		if v.Votee() == "" {
 			// unvote operation
 			voteFrom.IsCandidate = false
 			continue
 		}
 
-		voteTo, err := sf.LoadOrCreateState(voteeAddress, 0)
+		voteTo, err := sf.LoadOrCreateState(v.Votee(), 0)
 		if err != nil {
-			return errors.Wrapf(err, "failed to load or create the state of votee %s", voteeAddress)
+			return errors.Wrapf(err, "failed to load or create the state of votee %s", v.Votee())
 		}
-
-		if voterAddress != voteeAddress {
+		// save state before modifying
+		sf.saveState(v.Votee(), voteTo)
+		if v.Voter() != v.Votee() {
 			// Voter votes to a different person
 			voteTo.VotingWeight.Add(voteTo.VotingWeight, voteFrom.Balance)
-			voteFrom.Votee = voteeAddress
+			voteFrom.Votee = v.Votee()
 		} else {
 			// Vote to self: self-nomination or cancel the previous vote case
-			voteFrom.Votee = voterAddress
+			voteFrom.Votee = v.Voter()
 			voteFrom.IsCandidate = true
-			pkHash, err := iotxaddress.GetPubkeyHash(voterAddress)
+			pkHash, err := iotxaddress.GetPubkeyHash(v.Voter())
 			if err != nil {
 				return errors.Wrap(err, "cannot get the hash of the address")
 			}
 			pkHashAddress := byteutil.BytesTo20B(pkHash)
+			votePubkey := v.VoterPublicKey()
 			if _, ok := sf.cachedCandidates[pkHashAddress]; !ok {
 				sf.cachedCandidates[pkHashAddress] = &Candidate{
-					Address:        voterAddress,
-					PubKey:         pbVote.SelfPubkey[:],
+					Address:        v.Voter(),
+					PubKey:         votePubkey[:],
 					CreationHeight: blockHeight,
 				}
 			}

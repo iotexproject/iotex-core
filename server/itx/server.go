@@ -20,16 +20,18 @@ import (
 	"github.com/iotexproject/iotex-core/explorer"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network"
+	"github.com/pkg/errors"
 )
 
 // Server is the iotex server instance containing all components.
 type Server struct {
+	cfg        *config.Config
 	chain      blockchain.Blockchain
 	actPool    actpool.ActPool
 	p2p        network.Overlay
-	dispatcher dispatcher.Dispatcher
-	cfg        *config.Config
 	consensus  consensus.Consensus
+	blocksync  blocksync.BlockSync
+	dispatcher dispatcher.Dispatcher
 	explorer   *explorer.Server
 }
 
@@ -62,20 +64,22 @@ func NewInMemTestServer(cfg *config.Config) *Server {
 // Start starts the server
 func (s *Server) Start(ctx context.Context) error {
 	if err := s.chain.Start(ctx); err != nil {
-		logger.Panic().Err(err).Msg("error when starting blockchain")
-		return nil
+		return errors.Wrap(err, "error when starting blockchain")
 	}
 	if err := s.dispatcher.Start(ctx); err != nil {
-		logger.Panic().Err(err).Msg("error when starting dispatcher")
-		return nil
+		return errors.Wrap(err, "error when starting dispatcher")
+	}
+	if err := s.consensus.Start(ctx); err != nil {
+		return errors.Wrap(err, "error when starting consensus")
+	}
+	if err := s.blocksync.Start(ctx); err != nil {
+		return errors.Wrap(err, "error when starting blocksync")
 	}
 	if err := s.p2p.Start(ctx); err != nil {
-		logger.Panic().Err(err).Msg("error when starting P2P networks")
-		return nil
+		return errors.Wrap(err, "error when starting P2P networks")
 	}
 	if err := s.explorer.Start(ctx); err != nil {
-		logger.Panic().Err(err).Msg("error when starting explorer")
-		return nil
+		return errors.Wrap(err, "error when starting explorer")
 	}
 	return nil
 }
@@ -83,20 +87,22 @@ func (s *Server) Start(ctx context.Context) error {
 // Stop stops the server
 func (s *Server) Stop(ctx context.Context) error {
 	if err := s.explorer.Stop(ctx); err != nil {
-		logger.Panic().Err(err).Msg("error when stopping explorer")
-		return nil
+		return errors.Wrap(err, "error when stopping explorer")
 	}
 	if err := s.p2p.Stop(ctx); err != nil {
-		logger.Panic().Err(err).Msg("error when stopping P2P networks")
-		return nil
+		return errors.Wrap(err, "error when stopping P2P networks")
+	}
+	if err := s.consensus.Stop(ctx); err != nil {
+		return errors.Wrap(err, "error when stopping consensus")
+	}
+	if err := s.blocksync.Stop(ctx); err != nil {
+		return errors.Wrap(err, "error when stopping blocksync")
 	}
 	if err := s.dispatcher.Stop(ctx); err != nil {
-		logger.Panic().Err(err).Msg("error when stopping dispatcher")
-		return nil
+		return errors.Wrap(err, "error when stopping dispatcher")
 	}
 	if err := s.chain.Stop(ctx); err != nil {
-		logger.Panic().Err(err).Msg("error when stopping blockchain")
-		return nil
+		return errors.Wrap(err, "error when stopping blockchain")
 	}
 	return nil
 }
@@ -126,6 +132,11 @@ func (s *Server) Consensus() consensus.Consensus {
 	return s.consensus
 }
 
+// BlockSync returns the block syncer
+func (s *Server) BlockSync() blocksync.BlockSync {
+	return s.blocksync
+}
+
 // Explorer returns the explorer instance
 func (s *Server) Explorer() *explorer.Server {
 	return s.explorer
@@ -147,14 +158,12 @@ func newServer(cfg *config.Config, chain blockchain.Blockchain) *Server {
 	if consensus == nil {
 		logger.Fatal().Msg("Failed to create Consensus")
 	}
-
 	// create dispatcher instance
 	dispatcher, err := dispatch.NewDispatcher(cfg, actPool, bs, consensus)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Fail to create dispatcher")
 	}
 	p2p.AttachDispatcher(dispatcher)
-
 	var exp *explorer.Server
 	if cfg.Explorer.IsTest || os.Getenv("APP_ENV") == "development" {
 		logger.Warn().Msg("Using test server with fake data...")
@@ -168,8 +177,9 @@ func newServer(cfg *config.Config, chain blockchain.Blockchain) *Server {
 		chain:      chain,
 		actPool:    actPool,
 		p2p:        p2p,
-		dispatcher: dispatcher,
 		consensus:  consensus,
+		blocksync:  bs,
+		dispatcher: dispatcher,
 		explorer:   exp,
 	}
 }

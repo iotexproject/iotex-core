@@ -20,7 +20,6 @@ import (
 	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/dispatch/dispatcher"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
-	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network"
 	"github.com/iotexproject/iotex-core/pkg/hash"
@@ -67,8 +66,8 @@ type Service struct {
 
 // GetBlockchainHeight returns the current blockchain tip height
 func (exp *Service) GetBlockchainHeight() (int64, error) {
-	tip, err := exp.bc.TipHeight()
-	return int64(tip), err
+	tip := exp.bc.TipHeight()
+	return int64(tip), nil
 }
 
 // GetAddressBalance returns the balance of an address
@@ -122,7 +121,7 @@ ChainLoop:
 		}
 
 		for i := len(blk.Transfers) - 1; i >= 0; i-- {
-			if showCoinBase || !blk.Transfers[i].IsCoinbase {
+			if showCoinBase || !blk.Transfers[i].IsCoinbase() {
 				transferCount++
 			}
 
@@ -131,7 +130,7 @@ ChainLoop:
 			}
 
 			// if showCoinBase is true, add coinbase transfers, else only put non-coinbase transfers
-			if showCoinBase || !blk.Transfers[i].IsCoinbase {
+			if showCoinBase || !blk.Transfers[i].IsCoinbase() {
 				if int64(len(res)) >= limit {
 					break ChainLoop
 				}
@@ -621,7 +620,7 @@ func (exp *Service) GetLastBlocksByRange(offset int64, limit int64) ([]explorer.
 		totalAmount := int64(0)
 		totalSize := uint32(0)
 		for _, transfer := range blk.Transfers {
-			totalAmount += transfer.Amount.Int64()
+			totalAmount += transfer.Amount().Int64()
 			totalSize += transfer.TotalSize()
 		}
 
@@ -665,7 +664,7 @@ func (exp *Service) GetBlockByID(blkID string) (explorer.Block, error) {
 	totalAmount := int64(0)
 	totalSize := uint32(0)
 	for _, transfer := range blk.Transfers {
-		totalAmount += transfer.Amount.Int64()
+		totalAmount += transfer.Amount().Int64()
 		totalSize += transfer.TotalSize()
 	}
 
@@ -691,10 +690,7 @@ func (exp *Service) GetBlockByID(blkID string) (explorer.Block, error) {
 func (exp *Service) GetCoinStatistic() (explorer.CoinStatistic, error) {
 	stat := explorer.CoinStatistic{}
 
-	tipHeight, err := exp.bc.TipHeight()
-	if err != nil {
-		return stat, err
-	}
+	tipHeight := exp.bc.TipHeight()
 
 	totalTransfers, err := exp.bc.GetTotalTransfers()
 	if err != nil {
@@ -1156,34 +1152,26 @@ func getExecution(bc blockchain.Blockchain, ap actpool.ActPool, executionHash ha
 	return explorerExecution, nil
 }
 
-func getAddrFromPubKey(pubKey keypair.PublicKey) (string, error) {
-	Address, err := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, iotxaddress.ChainID, pubKey)
-	if err != nil {
-		return "", errors.Wrapf(err, " to get address for pubkey %x", pubKey)
-	}
-	return Address.RawAddress, nil
-}
-
 func convertTsfToExplorerTsf(transfer *action.Transfer, isPending bool) (explorer.Transfer, error) {
 	if transfer == nil {
 		return explorer.Transfer{}, errors.Wrap(ErrTransfer, "transfer cannot be nil")
 	}
 	hash := transfer.Hash()
 	explorerTransfer := explorer.Transfer{
-		Nonce:     int64(transfer.Nonce),
+		Nonce:     int64(transfer.Nonce()),
 		ID:        hex.EncodeToString(hash[:]),
-		Sender:    transfer.Sender,
-		Recipient: transfer.Recipient,
+		Sender:    transfer.Sender(),
+		Recipient: transfer.Recipient(),
 		Fee:       0, // TODO: we need to get the actual fee.
-		Payload:   hex.EncodeToString(transfer.Payload),
-		GasLimit:  int64(transfer.GasLimit),
+		Payload:   hex.EncodeToString(transfer.Payload()),
+		GasLimit:  int64(transfer.GasLimit()),
 		IsPending: isPending,
 	}
-	if transfer.Amount != nil && len(transfer.Amount.Bytes()) > 0 {
-		explorerTransfer.Amount = transfer.Amount.Int64()
+	if transfer.Amount() != nil && len(transfer.Amount().Bytes()) > 0 {
+		explorerTransfer.Amount = transfer.Amount().Int64()
 	}
-	if transfer.GasPrice != nil && len(transfer.GasPrice.Bytes()) > 0 {
-		explorerTransfer.GasPrice = transfer.GasPrice.Int64()
+	if transfer.GasPrice() != nil && len(transfer.GasPrice().Bytes()) > 0 {
+		explorerTransfer.GasPrice = transfer.GasPrice().Int64()
 	}
 	return explorerTransfer, nil
 }
@@ -1193,27 +1181,16 @@ func convertVoteToExplorerVote(vote *action.Vote, isPending bool) (explorer.Vote
 		return explorer.Vote{}, errors.Wrap(ErrVote, "vote cannot be nil")
 	}
 	hash := vote.Hash()
-	selfPublicKey, err := vote.SelfPublicKey()
-	if err != nil {
-		return explorer.Vote{}, err
-	}
-	voter, err := getAddrFromPubKey(selfPublicKey)
-	if err != nil {
-		return explorer.Vote{}, err
-	}
-
-	votee := vote.GetVote().VoteeAddress
-	if err != nil {
-		return explorer.Vote{}, err
-	}
+	voterPubkey := vote.VoterPublicKey()
 	explorerVote := explorer.Vote{
-		ID:        hex.EncodeToString(hash[:]),
-		Nonce:     int64(vote.Nonce),
-		Voter:     voter,
-		Votee:     votee,
-		GasLimit:  int64(vote.GasLimit),
-		GasPrice:  big.NewInt(0).SetBytes(vote.GasPrice).Int64(),
-		IsPending: isPending,
+		ID:          hex.EncodeToString(hash[:]),
+		Nonce:       int64(vote.Nonce()),
+		Voter:       vote.Voter(),
+		VoterPubKey: hex.EncodeToString(voterPubkey[:]),
+		Votee:       vote.Votee(),
+		GasLimit:    int64(vote.GasLimit()),
+		GasPrice:    vote.GasPrice().Int64(),
+		IsPending:   isPending,
 	}
 	return explorerVote, nil
 }
@@ -1224,19 +1201,19 @@ func convertExecutionToExplorerExecution(execution *action.Execution, isPending 
 	}
 	hash := execution.Hash()
 	explorerExecution := explorer.Execution{
-		Nonce:     int64(execution.Nonce),
+		Nonce:     int64(execution.Nonce()),
 		ID:        hex.EncodeToString(hash[:]),
-		Executor:  execution.Executor,
-		Contract:  execution.Contract,
-		GasLimit:  int64(execution.GasLimit),
-		Data:      hex.EncodeToString(execution.Data),
+		Executor:  execution.Executor(),
+		Contract:  execution.Contract(),
+		GasLimit:  int64(execution.GasLimit()),
+		Data:      hex.EncodeToString(execution.Data()),
 		IsPending: isPending,
 	}
-	if execution.Amount != nil && len(execution.Amount.Bytes()) > 0 {
-		explorerExecution.Amount = execution.Amount.Int64()
+	if execution.Amount() != nil && len(execution.Amount().Bytes()) > 0 {
+		explorerExecution.Amount = execution.Amount().Int64()
 	}
-	if execution.GasPrice != nil && len(execution.GasPrice.Bytes()) > 0 {
-		explorerExecution.GasPrice = execution.GasPrice.Int64()
+	if execution.GasPrice() != nil && len(execution.GasPrice().Bytes()) > 0 {
+		explorerExecution.GasPrice = execution.GasPrice().Int64()
 	}
 	return explorerExecution, nil
 }

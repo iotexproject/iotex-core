@@ -397,15 +397,15 @@ func injectTransfer(
 
 	logger.Info().Int64("Version", tsf.Version).Msg(" ")
 	logger.Info().Int64("Nonce", tsf.Nonce).Msg(" ")
-	logger.Info().Int64("Amount", tsf.Amount).Msg(" ")
+	logger.Info().Int64("amount", tsf.Amount).Msg(" ")
 	logger.Info().Str("Sender", tsf.Sender).Msg(" ")
 	logger.Info().Str("Recipient", tsf.Recipient).Msg(" ")
-	logger.Info().Str("Payload", tsf.Payload).Msg(" ")
+	logger.Info().Str("payload", tsf.Payload).Msg(" ")
 	logger.Info().Str("Sender Public Key", tsf.SenderPubKey).Msg(" ")
 	logger.Info().Int64("Gas Limit", tsf.GasLimit).Msg(" ")
 	logger.Info().Int64("Gas Price", tsf.GasPrice).Msg(" ")
 	logger.Info().Str("Signature", tsf.Signature).Msg(" ")
-	logger.Info().Bool("IsCoinbase", tsf.IsCoinbase).Msg(" ")
+	logger.Info().Bool("isCoinbase", tsf.IsCoinbase).Msg(" ")
 
 	if wg != nil {
 		wg.Done()
@@ -505,12 +505,12 @@ func injectExecution(
 
 	logger.Info().Int64("Version", jsonExecution.Version).Msg(" ")
 	logger.Info().Int64("Nonce", jsonExecution.Nonce).Msg(" ")
-	logger.Info().Int64("Amount", jsonExecution.Amount).Msg(" ")
+	logger.Info().Int64("amount", jsonExecution.Amount).Msg(" ")
 	logger.Info().Str("Executor", jsonExecution.Executor).Msg(" ")
 	logger.Info().Str("Contract", jsonExecution.Contract).Msg(" ")
 	logger.Info().Int64("Gas", jsonExecution.GasLimit).Msg(" ")
 	logger.Info().Int64("Gas Price", jsonExecution.GasPrice).Msg(" ")
-	logger.Info().Str("Data", jsonExecution.Data)
+	logger.Info().Str("data", jsonExecution.Data)
 	logger.Info().Str("Signature", jsonExecution.Signature).Msg(" ")
 
 	if wg != nil {
@@ -562,15 +562,15 @@ func createSignedTransfer(
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to decode payload %s", payload)
 	}
-	rawTransfer, err := action.NewTransfer(nonce, amount, sender.RawAddress, recipient.RawAddress, transferPayload, gasLimit, gasPrice)
+	transfer, err := action.NewTransfer(
+		nonce, amount, sender.RawAddress, recipient.RawAddress, transferPayload, gasLimit, gasPrice)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create raw transfer")
 	}
-	signedTransfer, err := rawTransfer.Sign(sender)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to sign transfer %v", rawTransfer)
+	if err := action.Sign(transfer, sender); err != nil {
+		return nil, errors.Wrapf(err, "failed to sign transfer %v", transfer)
 	}
-	return signedTransfer, nil
+	return transfer, nil
 }
 
 // Helper function to create and sign a vote
@@ -581,15 +581,14 @@ func createSignedVote(
 	gasLimit uint64,
 	gasPrice *big.Int,
 ) (*action.Vote, error) {
-	rawVote, err := action.NewVote(nonce, voter.RawAddress, votee.RawAddress, gasLimit, gasPrice)
+	vote, err := action.NewVote(nonce, voter.RawAddress, votee.RawAddress, gasLimit, gasPrice)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create raw vote")
 	}
-	signedVote, err := rawVote.Sign(voter)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to sign vote %v", rawVote)
+	if err := action.Sign(vote, voter); err != nil {
+		return nil, errors.Wrapf(err, "failed to sign vote %v", vote)
 	}
-	return signedVote, nil
+	return vote, nil
 }
 
 // Helper function to create and sign an execution
@@ -606,13 +605,12 @@ func createSignedExecution(
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to decode data %s", data)
 	}
-	rawExecution, err := action.NewExecution(executor.RawAddress, contract, nonce, amount, gasLimit, gasPrice, executionData)
+	execution, err := action.NewExecution(executor.RawAddress, contract, nonce, amount, gasLimit, gasPrice, executionData)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create raw execution")
 	}
-	signedExecution, err := rawExecution.Sign(executor)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to sign execution %v", rawExecution)
+	if err := action.Sign(execution, executor); err != nil {
+		return nil, errors.Wrapf(err, "failed to sign execution %v", execution)
 	}
-	return signedExecution, nil
+	return execution, nil
 }

@@ -87,35 +87,33 @@ func (m *AccountManager) Import(keyBytes []byte) error {
 }
 
 // SignTransfer signs a transfer
-func (m *AccountManager) SignTransfer(rawAddr string, rawTransfer *action.Transfer) (*action.Transfer, error) {
-	if rawTransfer == nil {
-		return nil, errors.Wrap(ErrTransfer, "transfer cannot be nil")
+func (m *AccountManager) SignTransfer(rawAddr string, transfer *action.Transfer) error {
+	if transfer == nil {
+		return errors.Wrap(ErrTransfer, "transfer cannot be nil")
 	}
 	addr, err := m.keystore.Get(rawAddr)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get account %s", rawAddr)
+		return errors.Wrapf(err, "failed to get account %s", rawAddr)
 	}
-	signedTransfer, err := rawTransfer.Sign(addr)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to sign transfer %v", rawTransfer)
+	if err := action.Sign(transfer, addr); err != nil {
+		return errors.Wrapf(err, "failed to sign transfer %v", transfer)
 	}
-	return signedTransfer, nil
+	return nil
 }
 
 // SignVote signs a vote
-func (m *AccountManager) SignVote(rawAddr string, rawVote *action.Vote) (*action.Vote, error) {
-	if rawVote == nil {
-		return nil, errors.Wrap(ErrVote, "vote cannot be nil")
+func (m *AccountManager) SignVote(rawAddr string, vote *action.Vote) error {
+	if vote == nil {
+		return errors.Wrap(ErrVote, "vote cannot be nil")
 	}
 	addr, err := m.keystore.Get(rawAddr)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get account %s", rawAddr)
+		return errors.Wrapf(err, "failed to get account %s", rawAddr)
 	}
-	signedVote, err := rawVote.Sign(addr)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to sign vote %v", rawVote)
+	if err := action.Sign(vote, addr); err != nil {
+		return errors.Wrapf(err, "failed to sign vote %v", vote)
 	}
-	return signedVote, nil
+	return nil
 }
 
 // SignHash signs a hash

@@ -102,18 +102,6 @@ func (mr *MockBlockchainMockRecorder) CreateState(addr, init interface{}) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateState", reflect.TypeOf((*MockBlockchain)(nil).CreateState), addr, init)
 }
 
-// CommitStateChanges mocks base method
-func (m *MockBlockchain) CommitStateChanges(chainHeight uint64, tsf []*action.Transfer, vote []*action.Vote, executions []*action.Execution) error {
-	ret := m.ctrl.Call(m, "CommitStateChanges", chainHeight, tsf, vote, executions)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// CommitStateChanges indicates an expected call of CommitStateChanges
-func (mr *MockBlockchainMockRecorder) CommitStateChanges(chainHeight, tsf, vote, executions interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitStateChanges", reflect.TypeOf((*MockBlockchain)(nil).CommitStateChanges), chainHeight, tsf, vote, executions)
-}
-
 // Candidates mocks base method
 func (m *MockBlockchain) Candidates() (uint64, []*state.Candidate) {
 	ret := m.ctrl.Call(m, "Candidates")
@@ -413,11 +401,10 @@ func (mr *MockBlockchainMockRecorder) GetFactory() *gomock.Call {
 }
 
 // TipHash mocks base method
-func (m *MockBlockchain) TipHash() (hash.Hash32B, error) {
+func (m *MockBlockchain) TipHash() hash.Hash32B {
 	ret := m.ctrl.Call(m, "TipHash")
 	ret0, _ := ret[0].(hash.Hash32B)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return ret0
 }
 
 // TipHash indicates an expected call of TipHash
@@ -426,11 +413,10 @@ func (mr *MockBlockchainMockRecorder) TipHash() *gomock.Call {
 }
 
 // TipHeight mocks base method
-func (m *MockBlockchain) TipHeight() (uint64, error) {
+func (m *MockBlockchain) TipHeight() uint64 {
 	ret := m.ctrl.Call(m, "TipHeight")
 	ret0, _ := ret[0].(uint64)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return ret0
 }
 
 // TipHeight indicates an expected call of TipHeight

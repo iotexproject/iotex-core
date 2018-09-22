@@ -24,10 +24,9 @@ func TestVoteSignVerify(t *testing.T) {
 	v, err := NewVote(0, sender.RawAddress, recipient.RawAddress, uint64(100000), big.NewInt(10))
 	require.NoError(err)
 
-	signedv, err := v.Sign(sender)
-	require.NoError(err)
-	require.NoError(signedv.Verify(sender))
-	require.NotNil(signedv.Verify(recipient))
+	require.NoError(Sign(v, sender))
+	require.NoError(Verify(v, sender))
+	require.Error(Verify(v, recipient))
 }
 
 func TestVoteSerializedDeserialize(t *testing.T) {
@@ -57,10 +56,9 @@ func TestVoteToJSONFromJSON(t *testing.T) {
 
 	v, err := NewVote(0, sender.RawAddress, recipient.RawAddress, uint64(100000), big.NewInt(10))
 	require.NoError(err)
-	signedv, err := v.Sign(sender)
-	require.NoError(err)
+	require.NoError(Sign(v, sender))
 
-	expv, err := signedv.ToJSON()
+	expv, err := v.ToJSON()
 	require.NoError(err)
 	require.NotNil(expv)
 
@@ -68,8 +66,8 @@ func TestVoteToJSONFromJSON(t *testing.T) {
 	require.NoError(err)
 	require.NotNil(newv)
 
-	require.NoError(newv.Verify(sender))
-	require.NotNil(newv.Verify(recipient))
+	require.NoError(Verify(newv, sender))
+	require.Error(Verify(newv, recipient))
 	require.Equal(v.Hash(), newv.Hash())
 	require.Equal(v.TotalSize(), newv.TotalSize())
 }

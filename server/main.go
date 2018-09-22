@@ -46,7 +46,7 @@ func init() {
 func main() {
 	cfg, err := config.New()
 	if err != nil {
-		logger.Fatal().Err(err).Msg("Failed to new config.")
+		logger.Panic().Err(err).Msg("Failed to new config.")
 		return
 	}
 
@@ -57,24 +57,23 @@ func main() {
 	ctx := context.Background()
 	ctxWithValue := context.WithValue(ctx, blockchain.RecoveryHeightKey, uint64(recoveryHeight))
 	if err := svr.Start(ctxWithValue); err != nil {
-		logger.Fatal().Err(err).Msg("Fail to start server.")
+		logger.Fatal().Err(err).Msg("Failed to start server.")
 		return
 	}
 	defer func() {
-		err := svr.Stop(ctx)
-		if err != nil {
-			logger.Error().Err(err)
+		if err := svr.Stop(ctx); err != nil {
+			logger.Panic().Err(err).Msg("Failed to stop server.")
 		}
 	}()
 
 	if cfg.System.HeartbeatInterval > 0 {
 		task := routine.NewRecurringTask(itx.NewHeartbeatHandler(svr).Log, cfg.System.HeartbeatInterval)
 		if err := task.Start(ctx); err != nil {
-			logger.Panic().Err(err)
+			logger.Panic().Err(err).Msg("Failed to start heartbeat routine.")
 		}
 		defer func() {
 			if err := task.Stop(ctx); err != nil {
-				logger.Panic().Err(err)
+				logger.Panic().Err(err).Msg("Failed to stop heartbeat routine.")
 			}
 		}()
 	}
