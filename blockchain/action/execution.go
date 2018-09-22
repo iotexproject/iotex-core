@@ -8,6 +8,7 @@ package action
 
 import (
 	"encoding/hex"
+	"math"
 	"math/big"
 
 	"github.com/golang/protobuf/proto"
@@ -23,8 +24,14 @@ import (
 	"github.com/iotexproject/iotex-core/proto"
 )
 
-// EmptyAddress is the empty string
-const EmptyAddress = ""
+const (
+	// EmptyAddress is the empty string
+	EmptyAddress = ""
+	// ExecutionDataGas represents the execution data gas per uint
+	ExecutionDataGas = uint64(100)
+	// ExecutionBaseIntrinsicGas represents the base intrinsic gas for execution
+	ExecutionBaseIntrinsicGas = uint64(10000)
+)
 
 // Execution defines the struct of account-based contract execution
 type Execution struct {
@@ -249,4 +256,20 @@ func (ex *Execution) Deserialize(buf []byte) error {
 // Hash returns the hash of the Execution
 func (ex *Execution) Hash() hash.Hash32B {
 	return blake2b.Sum256(ex.ByteStream())
+}
+
+// IntrinsicGas returns the intrinsic gas of an execution
+func (ex *Execution) IntrinsicGas() (uint64, error) {
+	dataSize := uint64(len(ex.Data()))
+	if (math.MaxUint64-ExecutionBaseIntrinsicGas)/ExecutionDataGas < dataSize {
+		return 0, ErrOutOfGas
+	}
+
+	return dataSize*ExecutionDataGas + ExecutionBaseIntrinsicGas, nil
+}
+
+// CostLimit returns the costLimit of an execution
+func (ex *Execution) CostLimit() *big.Int {
+	maxExecFee := big.NewInt(0).Mul(ex.GasPrice(), big.NewInt(0).SetUint64(ex.GasLimit()))
+	return big.NewInt(0).Add(ex.Amount(), maxExecFee)
 }

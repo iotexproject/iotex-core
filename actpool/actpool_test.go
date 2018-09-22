@@ -266,7 +266,7 @@ func TestActPool_AddActs(t *testing.T) {
 	err = ap.AddTsf(overBalTsf)
 	require.Equal(ErrBalance, errors.Cause(err))
 	// Case VI: over gas limit
-	creationExecution, err := action.NewExecution(addr1.RawAddress, action.EmptyAddress, uint64(5), big.NewInt(int64(0)), blockchain.GasLimit+100, big.NewInt(10), []byte{})
+	creationExecution, err := action.NewExecution(addr1.RawAddress, action.EmptyAddress, uint64(5), big.NewInt(int64(0)), action.GasLimit+100, big.NewInt(10), []byte{})
 	require.NoError(err)
 	err = ap.AddExecution(creationExecution)
 	require.Equal(ErrGasHigherThanLimit, errors.Cause(err))
