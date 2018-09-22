@@ -39,7 +39,7 @@ var (
 	// ErrActionNonce is the error when the nonce of the action is wrong
 	ErrActionNonce = errors.New("invalid action nonce")
 	// ErrGasHigherThanLimit indicates the error of gas value
-	ErrGasHigherThanLimit = errors.New("invalid gas for execution")
+	ErrGasHigherThanLimit = errors.New("invalid gas for action")
 	// ErrInsufficientGas indicates the error of insufficient gas value for data storage
 	ErrInsufficientGas = errors.New("insufficient intrinsic gas value")
 	// ErrBalance indicates the error of balance
@@ -111,6 +111,7 @@ func (v *validator) verifyActions(blk *Block) error {
 	var coinbaseCount uint64
 	for _, tsf := range blk.Transfers {
 		// Verify Address
+		// Verify Gas
 		// Verify Nonce
 		// Verify Signature
 		// Verify Coinbase transfer
@@ -125,6 +126,14 @@ func (v *validator) verifyActions(blk *Block) error {
 		}
 
 		if blk.Header.height > 0 && !tsf.IsCoinbase() {
+			// Reject over-gassed transfer
+			if tsf.GasLimit() > action.GasLimit {
+				return errors.Wrapf(ErrGasHigherThanLimit, "gas is higher than gas limit")
+			}
+			intrinsicGas, err := tsf.IntrinsicGas()
+			if intrinsicGas > tsf.GasLimit() || err != nil {
+				return errors.Wrapf(ErrInsufficientGas, "insufficient gas for transfer")
+			}
 			// Store the nonce of the sender and verify later
 			if _, ok := confirmedNonceMap[tsf.Sender()]; !ok {
 				accountNonce, err := v.sf.Nonce(tsf.Sender())
@@ -173,6 +182,7 @@ func (v *validator) verifyActions(blk *Block) error {
 	}
 	for _, vote := range blk.Votes {
 		// Verify Address
+		// Verify Gas
 		// Verify Nonce
 		// Verify Signature
 
@@ -186,6 +196,14 @@ func (v *validator) verifyActions(blk *Block) error {
 		}
 
 		if blk.Header.height > 0 {
+			// Reject over-gassed vote
+			if vote.GasLimit() > action.GasLimit {
+				return errors.Wrapf(ErrGasHigherThanLimit, "gas is higher than gas limit")
+			}
+			intrinsicGas, err := vote.IntrinsicGas()
+			if intrinsicGas > vote.GasLimit() || err != nil {
+				return errors.Wrapf(ErrInsufficientGas, "insufficient gas for vote")
+			}
 			// Store the nonce of the voter and verify later
 			voterAddress := vote.Voter()
 			if _, ok := confirmedNonceMap[voterAddress]; !ok {
@@ -256,7 +274,7 @@ func (v *validator) verifyActions(blk *Block) error {
 			atomic.AddUint64(correctVote, uint64(1))
 		}(execution, &correctAction)
 
-		// Reject oversized execution
+		// Reject over-gassed execution
 		if execution.GasLimit() > action.GasLimit {
 			return errors.Wrapf(ErrGasHigherThanLimit, "gas is higher than gas limit")
 		}
