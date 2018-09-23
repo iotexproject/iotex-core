@@ -257,10 +257,10 @@ func (v *validator) verifyActions(blk *Block) error {
 		}(execution, &correctAction)
 
 		// Reject oversized execution
-		if execution.GasLimit() > GasLimit {
+		if execution.GasLimit() > action.GasLimit {
 			return errors.Wrapf(ErrGasHigherThanLimit, "gas is higher than gas limit")
 		}
-		intrinsicGas, err := IntrinsicGas(execution.Data())
+		intrinsicGas, err := execution.IntrinsicGas()
 		if intrinsicGas > execution.GasLimit() || err != nil {
 			return errors.Wrapf(ErrInsufficientGas, "insufficient gas for execution")
 		}

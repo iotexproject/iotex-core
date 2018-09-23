@@ -162,6 +162,7 @@ func TestLocalCommit(t *testing.T) {
 	tsf, _, _ := svr.ActionPool().PickActs()
 	blk1, err := chain.MintNewBlock(tsf, nil, nil, ta.Addrinfo["producer"], "")
 	require.Nil(err)
+	require.Nil(chain.ValidateBlock(blk1))
 	require.Nil(chain.CommitBlock(blk1))
 
 	// transfer 2
@@ -171,6 +172,7 @@ func TestLocalCommit(t *testing.T) {
 	_ = action.Sign(tsf2, ta.Addrinfo["foxtrot"])
 	blk2, err := chain.MintNewBlock([]*action.Transfer{tsf2}, nil, nil, ta.Addrinfo["producer"], "")
 	require.Nil(err)
+	require.Nil(chain.ValidateBlock(blk2))
 	require.Nil(chain.CommitBlock(blk2))
 	// broadcast to P2P
 	act2 := tsf2.ConvertToActionPb()
@@ -190,6 +192,7 @@ func TestLocalCommit(t *testing.T) {
 	_ = action.Sign(tsf3, ta.Addrinfo["bravo"])
 	blk3, err := chain.MintNewBlock([]*action.Transfer{tsf3}, nil, nil, ta.Addrinfo["producer"], "")
 	require.Nil(err)
+	require.Nil(chain.ValidateBlock(blk3))
 	require.Nil(chain.CommitBlock(blk3))
 	// broadcast to P2P
 	act3 := tsf3.ConvertToActionPb()
@@ -209,6 +212,7 @@ func TestLocalCommit(t *testing.T) {
 	_ = action.Sign(tsf4, ta.Addrinfo["producer"])
 	blk4, err := chain.MintNewBlock([]*action.Transfer{tsf4}, nil, nil, ta.Addrinfo["producer"], "")
 	require.Nil(err)
+	require.Nil(chain.ValidateBlock(blk4))
 	require.Nil(chain.CommitBlock(blk4))
 	// broadcast to P2P
 	act4 := tsf4.ConvertToActionPb()
@@ -516,6 +520,7 @@ func TestVoteLocalCommit(t *testing.T) {
 	transfers, votes, executions := svr.ActionPool().PickActs()
 	blk1, err := chain.MintNewBlock(transfers, votes, executions, ta.Addrinfo["producer"], "")
 	require.Nil(err)
+	require.Nil(chain.ValidateBlock(blk1))
 	require.Nil(chain.CommitBlock(blk1))
 
 	require.NoError(p.Broadcast(blk1.ConvertToBlockPb()))
@@ -535,6 +540,7 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.Nil(err)
 	blk2, err := chain.MintNewBlock(nil, []*action.Vote{vote4, vote5}, nil, ta.Addrinfo["producer"], "")
 	require.Nil(err)
+	require.Nil(chain.ValidateBlock(blk2))
 	require.Nil(chain.CommitBlock(blk2))
 	// broadcast to P2P
 	act4 := vote4.ConvertToActionPb()
@@ -579,6 +585,7 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.NoError(action.Sign(vote6, ta.Addrinfo["delta"]))
 	blk3, err := chain.MintNewBlock(nil, []*action.Vote{vote6}, nil, ta.Addrinfo["producer"], "")
 	require.Nil(err)
+	require.Nil(chain.ValidateBlock(blk3))
 	require.Nil(chain.CommitBlock(blk3))
 	// broadcast to P2P
 	act6 := vote6.ConvertToActionPb()
@@ -621,6 +628,7 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.NoError(action.Sign(vote7, ta.Addrinfo["bravo"]))
 	blk4, err := chain.MintNewBlock(nil, []*action.Vote{vote7}, nil, ta.Addrinfo["producer"], "")
 	require.Nil(err)
+	require.Nil(chain.ValidateBlock(blk4))
 	require.Nil(chain.CommitBlock(blk4))
 	// broadcast to P2P
 	act7 := vote7.ConvertToActionPb()
@@ -737,6 +745,7 @@ func TestDummyBlockReplacement(t *testing.T) {
 	hash, err := bc.GetHashByHeight(1)
 	require.Nil(err)
 	require.Equal(hash, blk1.HashBlock())
+	require.Nil(originChain.ValidateBlock(blk1))
 	require.NoError(originChain.CommitBlock(blk1))
 
 	// Wait for actpool to be reset

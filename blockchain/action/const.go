@@ -6,6 +6,8 @@
 
 package action
 
+import "github.com/pkg/errors"
+
 const (
 	// VersionSizeInBytes defines the size of version in byte units
 	VersionSizeInBytes = 4
@@ -17,4 +19,15 @@ const (
 	BooleanSizeInBytes = 1
 	// GasSizeInBytes defines the size of gas in byte uints
 	GasSizeInBytes = 8
+	// GasLimit is the total gas limit to be consumed in a block
+	GasLimit = uint64(1000000000)
+)
+
+var (
+	// ErrHitGasLimit is the error when hit gas limit
+	ErrHitGasLimit = errors.New("Hit Gas Limit")
+	// ErrInsufficientBalanceForGas is the error that the balance in executor account is lower than gas
+	ErrInsufficientBalanceForGas = errors.New("Insufficient balance for gas")
+	// ErrOutOfGas is the error when running out of gas
+	ErrOutOfGas = errors.New("Out of gas")
 )
