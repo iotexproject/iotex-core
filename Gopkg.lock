@@ -22,6 +22,16 @@
   revision = "704ebf0899c0bc8185cd2b7d933845a18f922cda"
 
 [[projects]]
+  name = "github.com/aws/aws-sdk-go"
+  packages = [
+    "aws/awserr",
+    "aws/credentials",
+    "internal/shareddefaults"
+  ]
+  revision = "d8ab6d22cfd270ded73e7d59feba528ffd963edd"
+  version = "v1.15.40"
+
+[[projects]]
   branch = "master"
   name = "github.com/beorn7/perks"
   packages = ["quantile"]
@@ -56,6 +66,18 @@
   name = "github.com/facebookgo/clock"
   packages = ["."]
   revision = "600d898af40aa09a7a93ecb9265d87b0504b6f03"
+
+[[projects]]
+  name = "github.com/go-ini/ini"
+  packages = ["."]
+  revision = "5cf292cae48347c2490ac1a58fe36735fb78df7e"
+  version = "v1.38.2"
+
+[[projects]]
+  name = "github.com/go-sql-driver/mysql"
+  packages = ["."]
+  revision = "d523deb1b23d913de5bdada721a6071e71283618"
+  version = "v1.4.0"
 
 [[projects]]
   name = "github.com/golang/mock"
@@ -265,6 +287,12 @@
   version = "v0.3.0"
 
 [[projects]]
+  name = "google.golang.org/appengine"
+  packages = ["cloudsql"]
+  revision = "ae0ab99deb4dc413a2b4bd6c8bdd0eb67f1e4d06"
+  version = "v1.2.0"
+
+[[projects]]
   branch = "master"
   name = "google.golang.org/genproto"
   packages = ["googleapis/rpc/status"]
@@ -314,6 +342,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "deb4a905391280020e1a86344c1aa16f4f428be22a11dae5f94fef13ee0793f2"
+  inputs-digest = "92e2d456d0846f9b2a90bdd922375b07fe736c8e1cbe8d74fe1dfda3a88f20d4"
   solver-name = "gps-cdcl"
   solver-version = 1
