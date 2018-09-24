@@ -100,14 +100,17 @@ func TestActPool_validateTsf(t *testing.T) {
 	err = ap.validateTsf(unsignedTsf)
 	require.Equal(action.ErrAction, errors.Cause(err))
 	// Case VI: Nonce is too low
-	prevTsf, _ := testutil.SignedTransfer(addr1, addr1, uint64(1), big.NewInt(50), []byte{}, uint64(100000), big.NewInt(10))
+	prevTsf, _ := testutil.SignedTransfer(addr1, addr1, uint64(1), big.NewInt(50),
+		[]byte{}, uint64(100000), big.NewInt(10))
 	err = ap.AddTsf(prevTsf)
 	require.NoError(err)
 	_, err = bc.GetFactory().RunActions(0, []*action.Transfer{prevTsf}, nil, nil)
 	require.NoError(err)
 	require.Nil(bc.GetFactory().Commit())
 	ap.Reset()
-	nTsf, _ := testutil.SignedTransfer(addr1, addr1, uint64(1), big.NewInt(60), []byte{}, uint64(100000), big.NewInt(10))
+	nTsf, err := testutil.SignedTransfer(addr1, addr1, uint64(1), big.NewInt(60),
+		[]byte{}, uint64(100000), big.NewInt(10))
+	require.NoError(err)
 	err = ap.validateTsf(nTsf)
 	require.Equal(ErrNonce, errors.Cause(err))
 }
@@ -143,18 +146,21 @@ func TestActPool_validateVote(t *testing.T) {
 	err = ap.validateVote(unsignedVote)
 	require.Equal(action.ErrAction, errors.Cause(err))
 	// Case III: Nonce is too low
-	prevTsf, _ := testutil.SignedTransfer(addr1, addr1, uint64(1), big.NewInt(50), []byte{}, uint64(100000), big.NewInt(10))
+	prevTsf, _ := testutil.SignedTransfer(addr1, addr1, uint64(1), big.NewInt(50),
+		[]byte{}, uint64(100000), big.NewInt(10))
 	err = ap.AddTsf(prevTsf)
 	require.NoError(err)
 	_, err = bc.GetFactory().RunActions(0, []*action.Transfer{prevTsf}, nil, nil)
 	require.NoError(err)
 	require.Nil(bc.GetFactory().Commit())
 	ap.Reset()
-	nVote, _ := testutil.SignedVote(addr1, addr1, uint64(1), uint64(100000), big.NewInt(10))
+	nVote, err := testutil.SignedVote(addr1, addr1, uint64(1), uint64(100000), big.NewInt(10))
+	require.NoError(err)
 	err = ap.validateVote(nVote)
 	require.Equal(ErrNonce, errors.Cause(err))
 	// Case IV: Votee is not a candidate
-	vote2, _ := testutil.SignedVote(addr1, addr2, uint64(2), uint64(100000), big.NewInt(10))
+	vote2, err := testutil.SignedVote(addr1, addr2, uint64(2), uint64(100000), big.NewInt(10))
+	require.NoError(err)
 	err = ap.validateVote(vote2)
 	require.Equal(ErrVotee, errors.Cause(err))
 }
@@ -248,7 +254,8 @@ func TestActPool_AddActs(t *testing.T) {
 	err = ap2.AddVote(vote4)
 	require.Equal(ErrActPool, errors.Cause(err))
 	// Case III: Nonce already exists
-	replaceTsf, _ := testutil.SignedTransfer(addr1, addr2, uint64(1), big.NewInt(1), []byte{}, uint64(100000), big.NewInt(10))
+	replaceTsf, _ := testutil.SignedTransfer(addr1, addr2, uint64(1), big.NewInt(1),
+		[]byte{}, uint64(100000), big.NewInt(10))
 	err = ap.AddTsf(replaceTsf)
 	require.Equal(ErrNonce, errors.Cause(err))
 	replaceVote, err := action.NewVote(4, addr1.RawAddress, "", uint64(100000), big.NewInt(10))
@@ -257,11 +264,13 @@ func TestActPool_AddActs(t *testing.T) {
 	err = ap.AddVote(replaceVote)
 	require.Equal(ErrNonce, errors.Cause(err))
 	// Case IV: Nonce is too large
-	outOfBoundsTsf, _ := testutil.SignedTransfer(addr1, addr1, ap.cfg.MaxNumActsPerAcct+1, big.NewInt(1), []byte{}, uint64(100000), big.NewInt(10))
+	outOfBoundsTsf, _ := testutil.SignedTransfer(addr1, addr1, ap.cfg.MaxNumActsPerAcct+1, big.NewInt(1),
+		[]byte{}, uint64(100000), big.NewInt(10))
 	err = ap.AddTsf(outOfBoundsTsf)
 	require.Equal(ErrNonce, errors.Cause(err))
 	// Case V: Insufficient balance
-	overBalTsf, _ := testutil.SignedTransfer(addr2, addr2, uint64(4), big.NewInt(20), []byte{}, uint64(100000), big.NewInt(10))
+	overBalTsf, _ := testutil.SignedTransfer(addr2, addr2, uint64(4), big.NewInt(20),
+		[]byte{}, uint64(100000), big.NewInt(10))
 	err = ap.AddTsf(overBalTsf)
 	require.Equal(ErrBalance, errors.Cause(err))
 	// Case VI: over gas limit
