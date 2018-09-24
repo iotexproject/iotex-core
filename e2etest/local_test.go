@@ -147,7 +147,7 @@ func TestLocalCommit(t *testing.T) {
 	// transfer 1
 	// C --> A
 	s, _ = bc.StateByAddr(ta.Addrinfo["charlie"].RawAddress)
-	tsf1, _ := action.NewTransfer(s.Nonce+1, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["alfa"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
+	tsf1, _ := action.NewTransfer(s.Nonce+1, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["alfa"].RawAddress, []byte{}, uint64(100000), big.NewInt(0))
 	_ = action.Sign(tsf1, ta.Addrinfo["charlie"])
 	act1 := tsf1.ConvertToActionPb()
 	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
@@ -168,7 +168,7 @@ func TestLocalCommit(t *testing.T) {
 	// transfer 2
 	// F --> D
 	s, _ = bc.StateByAddr(ta.Addrinfo["foxtrot"].RawAddress)
-	tsf2, _ := action.NewTransfer(s.Nonce+1, big.NewInt(1), ta.Addrinfo["foxtrot"].RawAddress, ta.Addrinfo["delta"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
+	tsf2, _ := action.NewTransfer(s.Nonce+1, big.NewInt(1), ta.Addrinfo["foxtrot"].RawAddress, ta.Addrinfo["delta"].RawAddress, []byte{}, uint64(100000), big.NewInt(0))
 	_ = action.Sign(tsf2, ta.Addrinfo["foxtrot"])
 	blk2, err := chain.MintNewBlock([]*action.Transfer{tsf2}, nil, nil, ta.Addrinfo["producer"], "")
 	require.Nil(err)
@@ -188,7 +188,7 @@ func TestLocalCommit(t *testing.T) {
 	// transfer 3
 	// B --> B
 	s, _ = bc.StateByAddr(ta.Addrinfo["bravo"].RawAddress)
-	tsf3, _ := action.NewTransfer(s.Nonce+1, big.NewInt(1), ta.Addrinfo["bravo"].RawAddress, ta.Addrinfo["bravo"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
+	tsf3, _ := action.NewTransfer(s.Nonce+1, big.NewInt(1), ta.Addrinfo["bravo"].RawAddress, ta.Addrinfo["bravo"].RawAddress, []byte{}, uint64(100000), big.NewInt(0))
 	_ = action.Sign(tsf3, ta.Addrinfo["bravo"])
 	blk3, err := chain.MintNewBlock([]*action.Transfer{tsf3}, nil, nil, ta.Addrinfo["producer"], "")
 	require.Nil(err)
@@ -208,7 +208,7 @@ func TestLocalCommit(t *testing.T) {
 	// transfer 4
 	// test --> E
 	s, _ = bc.StateByAddr(ta.Addrinfo["producer"].RawAddress)
-	tsf4, _ := action.NewTransfer(s.Nonce+1, big.NewInt(1), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["echo"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
+	tsf4, _ := action.NewTransfer(s.Nonce+1, big.NewInt(1), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["echo"].RawAddress, []byte{}, uint64(100000), big.NewInt(0))
 	_ = action.Sign(tsf4, ta.Addrinfo["producer"])
 	blk4, err := chain.MintNewBlock([]*action.Transfer{tsf4}, nil, nil, ta.Addrinfo["producer"], "")
 	require.Nil(err)
@@ -580,7 +580,7 @@ func TestVoteLocalCommit(t *testing.T) {
 
 	// Add block 3
 	// D self nomination
-	vote6, err := action.NewVote(uint64(5), ta.Addrinfo["delta"].RawAddress, ta.Addrinfo["delta"].RawAddress, uint64(100000), big.NewInt(10))
+	vote6, err := action.NewVote(uint64(5), ta.Addrinfo["delta"].RawAddress, ta.Addrinfo["delta"].RawAddress, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	require.NoError(action.Sign(vote6, ta.Addrinfo["delta"]))
 	blk3, err := chain.MintNewBlock(nil, []*action.Vote{vote6}, nil, ta.Addrinfo["producer"], "")
@@ -623,7 +623,7 @@ func TestVoteLocalCommit(t *testing.T) {
 
 	// Add block 4
 	// Unvote B
-	vote7, err := action.NewVote(uint64(2), ta.Addrinfo["bravo"].RawAddress, "", uint64(100000), big.NewInt(10))
+	vote7, err := action.NewVote(uint64(2), ta.Addrinfo["bravo"].RawAddress, "", uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	require.NoError(action.Sign(vote7, ta.Addrinfo["bravo"]))
 	blk4, err := chain.MintNewBlock(nil, []*action.Vote{vote7}, nil, ta.Addrinfo["producer"], "")
@@ -756,7 +756,7 @@ func TestDummyBlockReplacement(t *testing.T) {
 	require.Nil(err)
 
 	// Replace the second dummy block
-	tsf1, err := signedTransfer(ta.Addrinfo["producer"], ta.Addrinfo["alfa"], 1, big.NewInt(1))
+	tsf1, err := signedTransfer(ta.Addrinfo["producer"], ta.Addrinfo["alfa"], 1, big.NewInt(1), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	act2 := tsf1.ConvertToActionPb()
 	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
@@ -829,7 +829,7 @@ func TestBlockchainRecovery(t *testing.T) {
 }
 
 func newSignedVote(nonce int, from *iotxaddress.Address, to *iotxaddress.Address) (*action.Vote, error) {
-	vote, err := action.NewVote(uint64(nonce), from.RawAddress, to.RawAddress, uint64(100000), big.NewInt(10))
+	vote, err := action.NewVote(uint64(nonce), from.RawAddress, to.RawAddress, uint64(100000), big.NewInt(0))
 	if err != nil {
 		return nil, err
 	}

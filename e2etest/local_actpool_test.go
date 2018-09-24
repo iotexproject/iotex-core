@@ -72,15 +72,15 @@ func TestLocalActPool(t *testing.T) {
 	}))
 
 	// Create three valid actions from "from" to "to"
-	tsf1, _ := signedTransfer(from, to, uint64(1), big.NewInt(1))
-	vote2, _ := signedVote(from, from, uint64(2))
-	tsf3, _ := signedTransfer(from, to, uint64(3), big.NewInt(3))
+	tsf1, _ := signedTransfer(from, to, uint64(1), big.NewInt(1), []byte{}, uint64(100000), big.NewInt(0))
+	vote2, _ := signedVote(from, from, uint64(2), uint64(100000), big.NewInt(0))
+	tsf3, _ := signedTransfer(from, to, uint64(3), big.NewInt(3), []byte{}, uint64(100000), big.NewInt(0))
 	// Create contract
 	exec4, _ := signedExecution(from, action.EmptyAddress, uint64(4), big.NewInt(0), uint64(120000), big.NewInt(10), []byte{})
 
 	// Create three invalid actions from "from" to "to"
 	// Existed Vote
-	vote5, _ := signedVote(from, from, uint64(2))
+	vote5, _ := signedVote(from, from, uint64(2), uint64(100000), big.NewInt(0))
 	// Unsigned Vote
 	vote6, _ := action.NewVote(uint64(7), from.RawAddress, from.RawAddress, uint64(100000), big.NewInt(10))
 
@@ -138,7 +138,7 @@ func TestPressureActPool(t *testing.T) {
 
 	require.Nil(err)
 	for i := 1; i <= 1000; i++ {
-		tsf, _ := signedTransfer(from, to, uint64(i), big.NewInt(int64(i)))
+		tsf, _ := signedTransfer(from, to, uint64(i), big.NewInt(int64(i)), []byte{}, uint64(100000), big.NewInt(0))
 		require.NoError(cli.Broadcast(tsf.ConvertToActionPb()))
 	}
 
@@ -156,8 +156,11 @@ func signedTransfer(
 	recipient *iotxaddress.Address,
 	nonce uint64,
 	amount *big.Int,
+	payload []byte,
+	gasLimit uint64,
+	gasPrice *big.Int,
 ) (*action.Transfer, error) {
-	transfer, err := action.NewTransfer(nonce, amount, sender.RawAddress, recipient.RawAddress, []byte{}, uint64(100000), big.NewInt(10))
+	transfer, err := action.NewTransfer(nonce, amount, sender.RawAddress, recipient.RawAddress, payload, gasLimit, gasPrice)
 	if err != nil {
 		return nil, err
 	}
@@ -168,8 +171,8 @@ func signedTransfer(
 }
 
 // Helper function to return a signed vote
-func signedVote(voter *iotxaddress.Address, votee *iotxaddress.Address, nonce uint64) (*action.Vote, error) {
-	vote, err := action.NewVote(nonce, voter.RawAddress, votee.RawAddress, uint64(100000), big.NewInt(10))
+func signedVote(voter *iotxaddress.Address, votee *iotxaddress.Address, nonce uint64, gasLimit uint64, gasPrice *big.Int) (*action.Vote, error) {
+	vote, err := action.NewVote(nonce, voter.RawAddress, votee.RawAddress, gasLimit, gasPrice)
 	if err != nil {
 		return nil, err
 	}

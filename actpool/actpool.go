@@ -26,13 +26,15 @@ const (
 	TransferSizeLimit = 32 * 1024
 	// VoteSizeLimit is the maximum size of vote allowed
 	VoteSizeLimit = 278
+	// ExecutionSizeLimit is the maximum size of execution allowed
+	ExecutionSizeLimit = 32 * 1024
 )
 
 var (
 	// ErrActPool indicates the error of actpool
 	ErrActPool = errors.New("invalid actpool")
 	// ErrGasHigherThanLimit indicates the error of gas value
-	ErrGasHigherThanLimit = errors.New("invalid gas for execution")
+	ErrGasHigherThanLimit = errors.New("invalid gas for action")
 	// ErrInsufficientGas indicates the error of insufficient gas value for data storage
 	ErrInsufficientGas = errors.New("insufficient intrinsic gas value")
 	// ErrTransfer indicates the error of transfer
@@ -199,7 +201,7 @@ func (ap *actPool) AddTsf(tsf *action.Transfer) error {
 	}
 	// Wrap tsf as an action
 	action := tsf.ConvertToActionPb()
-	return ap.addAction(tsf.Sender(), action, hash, tsf.Nonce())
+	return ap.enqueueAction(tsf.Sender(), action, hash, tsf.Nonce())
 }
 
 // AddVote inserts a new vote into account queue if it passes validation
@@ -234,7 +236,7 @@ func (ap *actPool) AddVote(vote *action.Vote) error {
 	voter, _ := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, iotxaddress.ChainID, vote.VoterPublicKey())
 	// Wrap vote as an action
 	action := vote.ConvertToActionPb()
-	return ap.addAction(voter.RawAddress, action, hash, vote.Nonce())
+	return ap.enqueueAction(voter.RawAddress, action, hash, vote.Nonce())
 }
 
 // AddExecution inserts a new execution into account queue if it passes validation
@@ -266,7 +268,7 @@ func (ap *actPool) AddExecution(exec *action.Execution) error {
 	}
 	// Wrap execution as an action
 	action := exec.ConvertToActionPb()
-	return ap.addAction(exec.Executor(), action, hash, exec.Nonce())
+	return ap.enqueueAction(exec.Executor(), action, hash, exec.Nonce())
 }
 
 // GetPendingNonce returns pending nonce in pool or confirmed nonce given an account address
@@ -333,6 +335,17 @@ func (ap *actPool) validateTsf(tsf *action.Transfer) error {
 		logger.Error().Msg("Error when validating transfer's data size")
 		return errors.Wrapf(ErrActPool, "oversized data")
 	}
+	// Reject over-gassed transfer
+	if tsf.GasLimit() > action.GasLimit {
+		logger.Error().Msg("Error when validating transfer's gas limit")
+		return errors.Wrapf(ErrGasHigherThanLimit, "gas is higher than gas limit")
+	}
+	// Reject transfer of insufficient gas limit
+	intrinsicGas, err := tsf.IntrinsicGas()
+	if intrinsicGas > tsf.GasLimit() || err != nil {
+		logger.Error().Msg("Error when validating transfer's gas limit")
+		return errors.Wrapf(ErrInsufficientGas, "insufficient gas for transfer")
+	}
 	// Reject transfer of negative amount
 	if tsf.Amount().Sign() < 0 {
 		logger.Error().Msg("Error when validating transfer's amount")
@@ -375,14 +388,20 @@ func (ap *actPool) validateTsf(tsf *action.Transfer) error {
 }
 
 func (ap *actPool) validateExecution(exec *action.Execution) error {
-	// Reject oversized transfer
-	if exec.GasLimit() > action.GasLimit {
-		logger.Error().Msg("Rejecting execution due to high gas")
-		return errors.Wrapf(ErrGasHigherThanLimit, "Gas is higher than gas limit")
+	// Reject oversized exeuction
+	if exec.TotalSize() > ExecutionSizeLimit {
+		logger.Error().Msg("Error when validating execution's data size")
+		return errors.Wrapf(ErrActPool, "oversized data")
 	}
+	// Reject over-gassed execution
+	if exec.GasLimit() > action.GasLimit {
+		logger.Error().Msg("Error when validating execution's gas limit")
+		return errors.Wrapf(ErrGasHigherThanLimit, "gas is higher than gas limit")
+	}
+	// Reject execution of insufficient gas limit
 	intrinsicGas, err := exec.IntrinsicGas()
 	if intrinsicGas > exec.GasLimit() || err != nil {
-		logger.Error().Msg("Rejecting execution due to insufficient gas")
+		logger.Error().Msg("Error when validating execution's gas limit")
 		return errors.Wrapf(ErrInsufficientGas, "insufficient gas for execution")
 	}
 	// Reject execution of negative amount
@@ -435,7 +454,17 @@ func (ap *actPool) validateVote(vote *action.Vote) error {
 		logger.Error().Msg("Error when validating vote's data size")
 		return errors.Wrapf(ErrActPool, "oversized data")
 	}
-
+	// Reject over-gassed transfer
+	if vote.GasLimit() > action.GasLimit {
+		logger.Error().Msg("Error when validating vote's gas limit")
+		return errors.Wrapf(ErrGasHigherThanLimit, "gas is higher than gas limit")
+	}
+	// Reject transfer of insufficient gas limit
+	intrinsicGas, err := vote.IntrinsicGas()
+	if intrinsicGas > vote.GasLimit() || err != nil {
+		logger.Error().Msg("Error when validating vote's gas limit")
+		return errors.Wrapf(ErrInsufficientGas, "insufficient gas for vote")
+	}
 	// check if voter's address is valid
 	if _, err := iotxaddress.GetPubkeyHash(vote.Voter()); err != nil {
 		logger.Error().Err(err).Msg("Error when validating voter's address")
@@ -457,7 +486,7 @@ func (ap *actPool) validateVote(vote *action.Vote) error {
 	// Verify vote using voter's public key
 	if err := action.Verify(vote, voter); err != nil {
 		logger.Error().Err(err).Msg("Error when validating vote's signature")
-		return errors.Wrapf(err, "failed to verify Vote signature")
+		return errors.Wrapf(err, "failed to verify vote signature")
 	}
 
 	// Reject vote if nonce is too low
@@ -496,7 +525,7 @@ func (ap *actPool) validateVote(vote *action.Vote) error {
 	return nil
 }
 
-func (ap *actPool) addAction(sender string, act *iproto.ActionPb, hash hash.Hash32B, actNonce uint64) error {
+func (ap *actPool) enqueueAction(sender string, act *iproto.ActionPb, hash hash.Hash32B, actNonce uint64) error {
 	queue := ap.accountActs[sender]
 	if queue == nil {
 		queue = NewActQueue()
@@ -535,22 +564,40 @@ func (ap *actPool) addAction(sender string, act *iproto.ActionPb, hash hash.Hash
 		return errors.Wrapf(ErrNonce, "nonce too large")
 	}
 
-	if transfer := act.GetTransfer(); transfer != nil {
-		tsf := &action.Transfer{}
+	switch {
+	case act.GetTransfer() != nil:
+		tsf := action.Transfer{}
 		tsf.ConvertFromActionPb(act)
-		if queue.PendingBalance().Cmp(tsf.Amount()) < 0 {
+		cost, err := tsf.Cost()
+		if err != nil {
+			logger.Error().Err(err).Msg("Error when adding action")
+			return errors.Wrap(err, "failed to get cost of transfer")
+		}
+		if queue.PendingBalance().Cmp(cost) < 0 {
 			// Pending balance is insufficient
 			logger.Warn().
 				Hex("hash", hash[:]).
 				Msg("Rejecting transfer due to insufficient balance")
 			return errors.Wrapf(ErrBalance, "insufficient balance for transfer")
 		}
-	}
-
-	if execution := act.GetExecution(); execution != nil {
-		exec := &action.Execution{}
+	case act.GetVote() != nil:
+		vote := action.Vote{}
+		vote.ConvertFromActionPb(act)
+		cost, err := vote.Cost()
+		if err != nil {
+			logger.Error().Err(err).Msg("Error when adding action")
+			return errors.Wrap(err, "failed to get cost of vote")
+		}
+		if queue.PendingBalance().Cmp(cost) < 0 {
+			logger.Warn().
+				Hex("hash", hash[:]).
+				Msg("Rejecting vote due to insufficient balance")
+			return errors.Wrapf(ErrBalance, "insufficient balance for vote")
+		}
+	case act.GetExecution() != nil:
+		exec := action.Execution{}
 		exec.ConvertFromActionPb(act)
-		if queue.PendingBalance().Cmp(exec.Amount()) < 0 {
+		if queue.PendingBalance().Cmp(exec.CostLimit()) < 0 {
 			logger.Warn().
 				Hex("hash", hash[:]).
 				Msg("Rejecting execution due to insufficient balance")
