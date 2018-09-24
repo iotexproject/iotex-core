@@ -32,8 +32,8 @@ var ErrPeerNotFound = errors.New("Peer not found")
 // Overlay represents the peer-to-peer network
 type Overlay interface {
 	lifecycle.StartStopper
-	Broadcast(proto.Message) error
-	Tell(net.Addr, proto.Message) error
+	Broadcast(uint32, proto.Message) error
+	Tell(uint32, net.Addr, proto.Message) error
 	Self() net.Addr
 	GetPeers() []net.Addr
 }
@@ -113,7 +113,7 @@ func (o *IotxOverlay) addConfigBasedPeerMaintainer() {
 }
 
 // Broadcast lets the caller to broadcast the message to all nodes in the P2P network
-func (o *IotxOverlay) Broadcast(msg proto.Message) error {
+func (o *IotxOverlay) Broadcast(chainID uint32, msg proto.Message) error {
 	msgType, err := iproto.GetTypeFromProtoMsg(msg)
 	if err != nil {
 		return errors.Wrap(err, "failed to convert msg to proto when broadcast")
@@ -127,7 +127,7 @@ func (o *IotxOverlay) Broadcast(msg proto.Message) error {
 	checksumStr := hex.EncodeToString(msgChecksum)
 	o.Gossip.MsgLogs.Store(checksumStr, time.Now())
 	// Kick off the message
-	if err = o.Gossip.relayMsg(msgType, msgBody, msgChecksum, o.Config.TTL); err != nil {
+	if err = o.Gossip.relayMsg(chainID, msgType, msgBody, msgChecksum, o.Config.TTL); err != nil {
 		return errors.Wrap(err, "failed to relay msg when broadcast")
 	}
 	return nil
@@ -144,7 +144,7 @@ func (o *IotxOverlay) GetPeers() []net.Addr {
 }
 
 // Tell tells a given node a proto message
-func (o *IotxOverlay) Tell(node net.Addr, msg proto.Message) error {
+func (o *IotxOverlay) Tell(chainID uint32, node net.Addr, msg proto.Message) error {
 	peer := o.PM.GetOrAddPeer(node.String())
 	if peer == nil {
 		return ErrPeerNotFound
@@ -159,7 +159,7 @@ func (o *IotxOverlay) Tell(node net.Addr, msg proto.Message) error {
 		return errors.Wrap(err, "failed to marshal msg when broadcast")
 	}
 	go func(p *Peer) {
-		_, err := p.Tell(&network.TellReq{Addr: o.RPC.String(), MsgType: msgType, MsgBody: msgBody})
+		_, err := p.Tell(&network.TellReq{ChainId: chainID, Addr: o.RPC.String(), MsgType: msgType, MsgBody: msgBody})
 		if err != nil {
 			logger.Error().
 				Str("dst", p.String()).

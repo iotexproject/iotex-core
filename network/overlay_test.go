@@ -27,6 +27,8 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/dispatch/dispatcher"
+	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/network/node"
 	"github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -77,6 +79,8 @@ func LoadTestConfigWithTLSEnabled(addr string, allowMultiConnsPerHost bool) *con
 type MockDispatcher struct {
 }
 
+func (d *MockDispatcher) AddSubscriber(uint32, dispatcher.Subscriber) {}
+
 func (d *MockDispatcher) Start(_ context.Context) error {
 	return nil
 }
@@ -85,10 +89,10 @@ func (d *MockDispatcher) Stop(_ context.Context) error {
 	return nil
 }
 
-func (d *MockDispatcher) HandleBroadcast(proto.Message, chan bool) {
+func (d *MockDispatcher) HandleBroadcast(uint32, proto.Message, chan bool) {
 }
 
-func (d *MockDispatcher) HandleTell(net.Addr, proto.Message, chan bool) {
+func (d *MockDispatcher) HandleTell(uint32, net.Addr, proto.Message, chan bool) {
 }
 
 type MockDispatcher1 struct {
@@ -96,7 +100,9 @@ type MockDispatcher1 struct {
 	Count uint32
 }
 
-func (d1 *MockDispatcher1) HandleBroadcast(proto.Message, chan bool) {
+func (d1 *MockDispatcher1) AddSubscriber(uint32, dispatcher.Subscriber) {}
+
+func (d1 *MockDispatcher1) HandleBroadcast(uint32, proto.Message, chan bool) {
 	d1.Count++
 }
 
@@ -105,6 +111,7 @@ func TestOverlay(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping the IotxOverlay test in short mode.")
 	}
+	chainID := iotxaddress.MainChainID()
 	size := 10
 	dps := []*MockDispatcher1{}
 	nodes := []*IotxOverlay{}
@@ -138,7 +145,7 @@ func TestOverlay(t *testing.T) {
 		assert.True(t, LenSyncMap(nodes[i].PM.Peers) >= nodes[i].PM.NumPeersLowerBound)
 	}
 
-	err := nodes[0].Broadcast(&iproto.ActionPb{})
+	err := nodes[0].Broadcast(chainID, &iproto.ActionPb{})
 	assert.NoError(t, err)
 	time.Sleep(5 * time.Second)
 	for i, dp := range dps {
@@ -156,7 +163,9 @@ type MockDispatcher2 struct {
 	Count uint32
 }
 
-func (d2 *MockDispatcher2) HandleTell(sender net.Addr, message proto.Message, done chan bool) {
+func (d2 *MockDispatcher2) AddSubscriber(uint32, dispatcher.Subscriber) {}
+
+func (d2 *MockDispatcher2) HandleTell(chainID uint32, sender net.Addr, message proto.Message, done chan bool) {
 	// Handle Tx Msg
 	msgType, err := iproto.GetTypeFromProtoMsg(message)
 	/*
@@ -176,6 +185,7 @@ func (d2 *MockDispatcher2) HandleTell(sender net.Addr, message proto.Message, do
 
 func TestTell(t *testing.T) {
 	ctx := context.Background()
+	chainID := iotxaddress.MainChainID()
 	dp1 := &MockDispatcher2{T: t}
 	addr1 := randomAddress()
 	addr2 := randomAddress()
@@ -197,10 +207,10 @@ func TestTell(t *testing.T) {
 	}()
 
 	// P1 tell Tx Msg
-	err = p1.Tell(&node.Node{Addr: addr2}, &iproto.ActionPb{})
+	err = p1.Tell(chainID, &node.Node{Addr: addr2}, &iproto.ActionPb{})
 	assert.NoError(t, err)
 	// P2 tell Tx Msg
-	err = p2.Tell(&node.Node{Addr: addr1}, &iproto.ActionPb{})
+	err = p2.Tell(chainID, &node.Node{Addr: addr1}, &iproto.ActionPb{})
 	assert.NoError(t, err)
 
 	err = testutil.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
@@ -330,6 +340,7 @@ func TestRandomizePeerList(t *testing.T) {
 		t.Skip("Skipping TestRandomizePeerList in short mode.")
 	}
 
+	chainID := iotxaddress.MainChainID()
 	ctx := context.Background()
 	size := 10
 	var dps []*MockDispatcher1
@@ -356,7 +367,7 @@ func TestRandomizePeerList(t *testing.T) {
 	// Sleep for neighbors to be fully shuffled
 	time.Sleep(5 * time.Second)
 
-	err := nodes[0].Broadcast(&iproto.ActionPb{})
+	err := nodes[0].Broadcast(chainID, &iproto.ActionPb{})
 	require.Nil(t, err)
 	time.Sleep(5 * time.Second)
 	testutil.WaitUntil(100*time.Millisecond, 5*time.Second, func() (bool, error) {
@@ -376,11 +387,11 @@ type MockDispatcher3 struct {
 	C chan bool
 }
 
-func (d3 *MockDispatcher3) HandleTell(net.Addr, proto.Message, chan bool) {
+func (d3 *MockDispatcher3) HandleTell(uint32, net.Addr, proto.Message, chan bool) {
 	d3.C <- true
 }
 
-func (d3 *MockDispatcher3) HandleBroadcast(proto.Message, chan bool) {
+func (d3 *MockDispatcher3) HandleBroadcast(uint32, proto.Message, chan bool) {
 	d3.C <- true
 }
 
@@ -406,6 +417,7 @@ func runBenchmarkOp(tell bool, size int, parallel bool, tls bool, b *testing.B) 
 	p2.AttachDispatcher(d2)
 	err = p2.Start(ctx)
 	assert.NoError(b, err)
+	chainID := iotxaddress.MainChainID()
 
 	defer func() {
 		err := p1.Stop(ctx)
@@ -425,10 +437,10 @@ func runBenchmarkOp(tell bool, size int, parallel bool, tls bool, b *testing.B) 
 		b.RunParallel(func(pb *testing.PB) {
 			for pb.Next() {
 				if tell {
-					err := p1.Tell(&node.Node{Addr: "127.0.0.1:10002"}, &iproto.TestPayload{MsgBody: bytes})
+					err := p1.Tell(chainID, &node.Node{Addr: "127.0.0.1:10002"}, &iproto.TestPayload{MsgBody: bytes})
 					assert.NoError(b, err)
 				} else {
-					err := p1.Broadcast(&iproto.TestPayload{MsgBody: bytes})
+					err := p1.Broadcast(chainID, &iproto.TestPayload{MsgBody: bytes})
 					assert.NoError(b, err)
 				}
 				<-c2
@@ -437,10 +449,10 @@ func runBenchmarkOp(tell bool, size int, parallel bool, tls bool, b *testing.B) 
 	} else {
 		for i := 0; i < b.N; i++ {
 			if tell {
-				err := p1.Tell(&node.Node{Addr: "127.0.0.1:10002"}, &iproto.TestPayload{MsgBody: bytes})
+				err := p1.Tell(chainID, &node.Node{Addr: "127.0.0.1:10002"}, &iproto.TestPayload{MsgBody: bytes})
 				assert.NoError(b, err)
 			} else {
-				err := p1.Broadcast(&iproto.TestPayload{MsgBody: bytes})
+				err := p1.Broadcast(chainID, &iproto.TestPayload{MsgBody: bytes})
 				assert.NoError(b, err)
 			}
 			<-c2

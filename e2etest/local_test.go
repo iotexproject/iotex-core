@@ -40,6 +40,7 @@ func TestLocalCommit(t *testing.T) {
 	testutil.CleanupPath(t, testTriePath)
 	testutil.CleanupPath(t, testDBPath)
 
+	chainID := iotxaddress.MainChainID()
 	blockchain.Gen.BlockReward = uint64(0)
 
 	cfg, err := newTestConfig()
@@ -151,7 +152,7 @@ func TestLocalCommit(t *testing.T) {
 	_ = action.Sign(tsf1, ta.Addrinfo["charlie"])
 	act1 := tsf1.ConvertToActionPb()
 	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
-		if err := p.Broadcast(act1); err != nil {
+		if err := p.Broadcast(chainID, act1); err != nil {
 			return false, err
 		}
 		tsf, _, _ := svr.ActionPool().PickActs()
@@ -177,7 +178,7 @@ func TestLocalCommit(t *testing.T) {
 	// broadcast to P2P
 	act2 := tsf2.ConvertToActionPb()
 	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
-		if err := p.Broadcast(act2); err != nil {
+		if err := p.Broadcast(chainID, act2); err != nil {
 			return false, err
 		}
 		tsf, _, _ := svr.ActionPool().PickActs()
@@ -197,7 +198,7 @@ func TestLocalCommit(t *testing.T) {
 	// broadcast to P2P
 	act3 := tsf3.ConvertToActionPb()
 	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
-		if err := p.Broadcast(act3); err != nil {
+		if err := p.Broadcast(chainID, act3); err != nil {
 			return false, err
 		}
 		tsf, _, _ := svr.ActionPool().PickActs()
@@ -217,7 +218,7 @@ func TestLocalCommit(t *testing.T) {
 	// broadcast to P2P
 	act4 := tsf4.ConvertToActionPb()
 	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
-		if err := p.Broadcast(act4); err != nil {
+		if err := p.Broadcast(chainID, act4); err != nil {
 			return false, err
 		}
 		tsf, _, _ := svr.ActionPool().PickActs()
@@ -225,13 +226,13 @@ func TestLocalCommit(t *testing.T) {
 	})
 	require.Nil(err)
 	// wait 4 blocks being picked and committed
-	err = p.Broadcast(blk2.ConvertToBlockPb())
+	err = p.Broadcast(chainID, blk2.ConvertToBlockPb())
 	require.NoError(err)
-	err = p.Broadcast(blk4.ConvertToBlockPb())
+	err = p.Broadcast(chainID, blk4.ConvertToBlockPb())
 	require.NoError(err)
-	err = p.Broadcast(blk1.ConvertToBlockPb())
+	err = p.Broadcast(chainID, blk1.ConvertToBlockPb())
 	require.NoError(err)
-	err = p.Broadcast(blk3.ConvertToBlockPb())
+	err = p.Broadcast(chainID, blk3.ConvertToBlockPb())
 	require.NoError(err)
 	err = testutil.WaitUntil(10*time.Millisecond, 10*time.Second, func() (bool, error) {
 		height := bc.TipHeight()
@@ -301,6 +302,7 @@ func TestLocalSync(t *testing.T) {
 	testutil.CleanupPath(t, testTriePath2)
 	testutil.CleanupPath(t, testDBPath2)
 
+	chainID := iotxaddress.MainChainID()
 	cfg, err := newTestConfig()
 	require.Nil(err)
 
@@ -358,7 +360,7 @@ func TestLocalSync(t *testing.T) {
 	err = testutil.WaitUntil(time.Millisecond*10, time.Second*5, func() (bool, error) { return len(svr.P2P().GetPeers()) >= 1, nil })
 	require.Nil(err)
 
-	err = svr.P2P().Broadcast(blk.ConvertToBlockPb())
+	err = svr.P2P().Broadcast(chainID, blk.ConvertToBlockPb())
 	require.NoError(err)
 	check := testutil.CheckCondition(func() (bool, error) {
 		blk1, err := cli.Blockchain().GetBlockByHeight(1)
@@ -490,26 +492,27 @@ func TestVoteLocalCommit(t *testing.T) {
 	acttsf3 := tsf3.ConvertToActionPb()
 	acttsf4 := tsf4.ConvertToActionPb()
 
+	chainID := chain.ChainID()
 	err = testutil.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
-		if err := p.Broadcast(act1); err != nil {
+		if err := p.Broadcast(chainID, act1); err != nil {
 			return false, err
 		}
-		if err := p.Broadcast(act2); err != nil {
+		if err := p.Broadcast(chainID, act2); err != nil {
 			return false, err
 		}
-		if err := p.Broadcast(act3); err != nil {
+		if err := p.Broadcast(chainID, act3); err != nil {
 			return false, err
 		}
-		if err := p.Broadcast(acttsf1); err != nil {
+		if err := p.Broadcast(chainID, acttsf1); err != nil {
 			return false, err
 		}
-		if err := p.Broadcast(acttsf2); err != nil {
+		if err := p.Broadcast(chainID, acttsf2); err != nil {
 			return false, err
 		}
-		if err := p.Broadcast(acttsf3); err != nil {
+		if err := p.Broadcast(chainID, acttsf3); err != nil {
 			return false, err
 		}
-		if err := p.Broadcast(acttsf4); err != nil {
+		if err := p.Broadcast(chainID, acttsf4); err != nil {
 			return false, err
 		}
 		transfer, votes, executions := svr.ActionPool().PickActs()
@@ -523,7 +526,7 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.Nil(chain.ValidateBlock(blk1))
 	require.Nil(chain.CommitBlock(blk1))
 
-	require.NoError(p.Broadcast(blk1.ConvertToBlockPb()))
+	require.NoError(p.Broadcast(chainID, blk1.ConvertToBlockPb()))
 	err = testutil.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
 		height := bc.TipHeight()
 		return int(height) == 6, nil
@@ -546,10 +549,10 @@ func TestVoteLocalCommit(t *testing.T) {
 	act4 := vote4.ConvertToActionPb()
 	act5 := vote5.ConvertToActionPb()
 	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
-		if err := p.Broadcast(act4); err != nil {
+		if err := p.Broadcast(chainID, act4); err != nil {
 			return false, err
 		}
-		if err := p.Broadcast(act5); err != nil {
+		if err := p.Broadcast(chainID, act5); err != nil {
 			return false, err
 		}
 		_, votes, _ := svr.ActionPool().PickActs()
@@ -557,7 +560,7 @@ func TestVoteLocalCommit(t *testing.T) {
 	})
 	require.Nil(err)
 
-	require.NoError(p.Broadcast(blk2.ConvertToBlockPb()))
+	require.NoError(p.Broadcast(chainID, blk2.ConvertToBlockPb()))
 	err = testutil.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
 		height := bc.TipHeight()
 		return int(height) == 7, nil
@@ -590,7 +593,7 @@ func TestVoteLocalCommit(t *testing.T) {
 	// broadcast to P2P
 	act6 := vote6.ConvertToActionPb()
 	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
-		if err := p.Broadcast(act6); err != nil {
+		if err := p.Broadcast(chainID, act6); err != nil {
 			return false, err
 		}
 		_, votes, _ := svr.ActionPool().PickActs()
@@ -598,7 +601,7 @@ func TestVoteLocalCommit(t *testing.T) {
 	})
 	require.Nil(err)
 
-	err = p.Broadcast(blk3.ConvertToBlockPb())
+	err = p.Broadcast(chainID, blk3.ConvertToBlockPb())
 	require.NoError(err)
 
 	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
@@ -633,7 +636,7 @@ func TestVoteLocalCommit(t *testing.T) {
 	// broadcast to P2P
 	act7 := vote7.ConvertToActionPb()
 	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
-		if err := p.Broadcast(act7); err != nil {
+		if err := p.Broadcast(chainID, act7); err != nil {
 			return false, err
 		}
 		_, votes, _ := svr.ActionPool().PickActs()
@@ -641,7 +644,7 @@ func TestVoteLocalCommit(t *testing.T) {
 	})
 	require.Nil(err)
 
-	err = p.Broadcast(blk4.ConvertToBlockPb())
+	err = p.Broadcast(chainID, blk4.ConvertToBlockPb())
 	require.NoError(err)
 
 	err = testutil.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
@@ -717,9 +720,10 @@ func TestDummyBlockReplacement(t *testing.T) {
 	tsf0.SetSenderPublicKey(pubk)
 	tsf0.SetSignature(sign)
 
+	chainID := originChain.ChainID()
 	act1 := tsf0.ConvertToActionPb()
 	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
-		if err := p.Broadcast(act1); err != nil {
+		if err := p.Broadcast(chainID, act1); err != nil {
 			return false, err
 		}
 		tsf, _, _ := svr.ActionPool().PickActs()
@@ -731,7 +735,7 @@ func TestDummyBlockReplacement(t *testing.T) {
 	blk1, err := originChain.MintNewBlock(tsf, nil, nil, ta.Addrinfo["producer"], "")
 	require.Nil(err)
 
-	err = p.Broadcast(blk1.ConvertToBlockPb())
+	err = p.Broadcast(chainID, blk1.ConvertToBlockPb())
 	require.NoError(err)
 
 	err = testutil.WaitUntil(10*time.Millisecond, 10*time.Second, func() (bool, error) {
@@ -760,7 +764,7 @@ func TestDummyBlockReplacement(t *testing.T) {
 	require.NoError(err)
 	act2 := tsf1.ConvertToActionPb()
 	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
-		if err := p.Broadcast(act2); err != nil {
+		if err := p.Broadcast(chainID, act2); err != nil {
 			return false, err
 		}
 		tsf, _, _ := svr.ActionPool().PickActs()
@@ -771,7 +775,7 @@ func TestDummyBlockReplacement(t *testing.T) {
 	tsf, _, _ = svr.ActionPool().PickActs()
 	blk2, err := originChain.MintNewBlock(tsf, nil, nil, ta.Addrinfo["producer"], "")
 	require.Nil(err)
-	err = p.Broadcast(blk2.ConvertToBlockPb())
+	err = p.Broadcast(chainID, blk2.ConvertToBlockPb())
 	require.NoError(err)
 
 	err = testutil.WaitUntil(10*time.Millisecond, 10*time.Second, func() (bool, error) {
