@@ -514,8 +514,8 @@ func TestService_SendTransfer(t *testing.T) {
 	require.Equal("", response.Hash)
 	require.NotNil(err)
 
-	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any()).Times(1)
-	p2p.EXPECT().Broadcast(gomock.Any()).Times(1)
+	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
+	p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Times(1)
 
 	r := explorer.SendTransferRequest{
 		Version:      0x1,
@@ -547,8 +547,8 @@ func TestService_SendVote(t *testing.T) {
 	require.Equal("", response.Hash)
 	require.NotNil(err)
 
-	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any()).Times(1)
-	p2p.EXPECT().Broadcast(gomock.Any()).Times(1)
+	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
+	p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Times(1)
 
 	r := explorer.SendVoteRequest{
 		Version:     0x1,
@@ -581,8 +581,8 @@ func TestService_SendSmartContract(t *testing.T) {
 	explorerExecution.ExecutorPubKey = keypair.EncodePublicKey(execution.ExecutorPublicKey())
 	explorerExecution.Signature = hex.EncodeToString(execution.Signature())
 
-	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any()).Times(1)
-	p2p.EXPECT().Broadcast(gomock.Any()).Times(1)
+	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
+	p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Times(1)
 
 	response, err := svc.SendSmartContract(explorerExecution)
 	require.NotNil(response.Hash)

@@ -84,6 +84,8 @@ type Blockchain interface {
 	GetReceiptByExecutionHash(h hash.Hash32B) (*Receipt, error)
 	// GetFactory returns the State Factory
 	GetFactory() state.Factory
+	// GetChainID returns the chain ID
+	ChainID() uint32
 	// TipHash returns tip block's hash
 	TipHash() hash.Hash32B
 	// TipHeight returns tip block's height
@@ -229,6 +231,9 @@ func NewBlockchain(cfg *config.Config, opts ...Option) Blockchain {
 			return nil
 		}
 	}
+	if chain.chainID == 0 {
+		chain.chainID = iotxaddress.MainChainID()
+	}
 	chain.initValidator()
 	if chain.dao != nil {
 		chain.lifecycle.Add(chain.dao)
@@ -240,6 +245,10 @@ func NewBlockchain(cfg *config.Config, opts ...Option) Blockchain {
 }
 
 func (bc *blockchain) initValidator() { bc.validator = &validator{sf: bc.sf} }
+
+func (bc *blockchain) ChainID() uint32 {
+	return bc.chainID
+}
 
 // Start starts the blockchain
 func (bc *blockchain) Start(ctx context.Context) (err error) {
