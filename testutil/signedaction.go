@@ -13,7 +13,7 @@ import (
 	"github.com/iotexproject/iotex-core/iotxaddress"
 )
 
-// Helper function to return a signed transfer
+// SignedTransfer return a signed transfer
 func SignedTransfer(sender *iotxaddress.Address, recipient *iotxaddress.Address, nonce uint64, amount *big.Int, payload []byte, gasLimit uint64, gasPrice *big.Int) (*action.Transfer, error) {
 	transfer, err := action.NewTransfer(nonce, amount, sender.RawAddress, recipient.RawAddress, payload, gasLimit, gasPrice)
 	if err != nil {
@@ -25,7 +25,7 @@ func SignedTransfer(sender *iotxaddress.Address, recipient *iotxaddress.Address,
 	return transfer, nil
 }
 
-// Helper function to return a signed vote
+// SignedVote return a signed vote
 func SignedVote(voter *iotxaddress.Address, votee *iotxaddress.Address, nonce uint64, gasLimit uint64, gasPrice *big.Int) (*action.Vote, error) {
 	vote, err := action.NewVote(nonce, voter.RawAddress, votee.RawAddress, gasLimit, gasPrice)
 	if err != nil {
@@ -37,7 +37,7 @@ func SignedVote(voter *iotxaddress.Address, votee *iotxaddress.Address, nonce ui
 	return vote, nil
 }
 
-// Helper function to return a signed execution
+// SignedExecution return a signed execution
 func SignedExecution(executor *iotxaddress.Address, contractAddr string, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) (*action.Execution, error) {
 	execution, err := action.NewExecution(executor.RawAddress, contractAddr, nonce, amount, gasLimit, gasPrice, data)
 	if err != nil {
