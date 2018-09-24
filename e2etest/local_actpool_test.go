@@ -72,17 +72,25 @@ func TestLocalActPool(t *testing.T) {
 	}))
 
 	// Create three valid actions from "from" to "to"
-	tsf1, _ := testutil.SignedTransfer(from, to, uint64(1), big.NewInt(1), []byte{}, uint64(100000), big.NewInt(10))
-	vote2, _ := testutil.SignedVote(from, from, uint64(2), uint64(100000), big.NewInt(10))
-	tsf3, _ := testutil.SignedTransfer(from, to, uint64(3), big.NewInt(3), []byte{}, uint64(100000), big.NewInt(10))
+	tsf1, err := testutil.SignedTransfer(from, to, uint64(1), big.NewInt(1),
+		[]byte{}, uint64(100000), big.NewInt(10))
+	require.NoError(err)
+	vote2, err := testutil.SignedVote(from, from, uint64(2), uint64(100000), big.NewInt(10))
+	require.NoError(err)
+	tsf3, err := testutil.SignedTransfer(from, to, uint64(3), big.NewInt(3),
+		[]byte{}, uint64(100000), big.NewInt(10))
+	require.NoError(err)
 	// Create contract
-	exec4, _ := testutil.SignedExecution(from, action.EmptyAddress, uint64(4), big.NewInt(0), uint64(120000), big.NewInt(10), []byte{})
-
+	exec4, err := testutil.SignedExecution(from, action.EmptyAddress, uint64(4), big.NewInt(0),
+		uint64(120000), big.NewInt(10), []byte{})
+	require.NoError(err)
 	// Create three invalid actions from "from" to "to"
 	// Existed Vote
-	vote5, _ := testutil.SignedVote(from, from, uint64(2), uint64(100000), big.NewInt(10))
+	vote5, err := testutil.SignedVote(from, from, uint64(2), uint64(100000), big.NewInt(10))
+	require.NoError(err)
 	// Unsigned Vote
-	vote6, _ := action.NewVote(uint64(7), from.RawAddress, from.RawAddress, uint64(100000), big.NewInt(10))
+	vote6, err := action.NewVote(uint64(7), from.RawAddress, from.RawAddress, uint64(100000), big.NewInt(10))
+	require.NoError(err)
 
 	require.NoError(cli.Broadcast(tsf1.ConvertToActionPb()))
 	require.NoError(cli.Broadcast(vote2.ConvertToActionPb()))
@@ -138,7 +146,9 @@ func TestPressureActPool(t *testing.T) {
 
 	require.Nil(err)
 	for i := 1; i <= 1000; i++ {
-		tsf, _ := testutil.SignedTransfer(from, to, uint64(i), big.NewInt(int64(i)), []byte{}, uint64(100000), big.NewInt(10))
+		tsf, err := testutil.SignedTransfer(from, to, uint64(i), big.NewInt(int64(i)),
+			[]byte{}, uint64(100000), big.NewInt(10))
+		require.NoError(err)
 		require.NoError(cli.Broadcast(tsf.ConvertToActionPb()))
 	}
 

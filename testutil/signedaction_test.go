@@ -1,0 +1,78 @@
+// Copyright (c) 2018 IoTeX
+// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
+// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
+// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
+// License 2.0 that can be found in the LICENSE file.
+
+package testutil
+
+import (
+	"github.com/iotexproject/iotex-core/blockchain/action"
+	"math/big"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+)
+
+const (
+	pubkeyA = "2c9ccbeb9ee91271f7e5c2103753be9c9edff847e1a51227df6a6b0765f31a4b424e84027b44a663950f013a88b8fd8cdc53b1eda1d4b73f9d9dc12546c8c87d68ff1435a0f8a006"
+	prikeyA = "b5affb30846a00ef5aa39b57f913d70cd8cf6badd587239863cb67feacf6b9f30c34e800"
+	pubkeyB = "881504d84a0659e14dcba59f24a98e71cda55b139615342668840c64678f1514941bbd053c7492fb9b719e6050cfa972efa491b79e11a1713824dda5f638fc0d9fa1b68be3c0f905"
+	prikeyB = "b89c1ec0fb5b192c8bb8f6fcf9a871e4a67ef462f40d2b8ff426da1d1eaedd9696dc9d00"
+	pubkeyC = "252fc7bc9a993b68dd7b13a00213c9cf4befe80da49940c52220f93c7147771ba2d783045cf0fbf2a86b32a62848befb96c0f38c0487a5ccc806ff28bb06d9faf803b93dda107003"
+	prikeyC = "3e05de562a27fb6e25ac23ff8bcaa1ada0c253fa8ff7c6d15308f65d06b6990f64ee9601"
+	pubkeyD = "29aa28cc21c3ee3cc658d3a322997ceb8d5d352f45d052192d3ab57cd196d3375af558067f5a2cfe5fc65d5249cc07f991bab683468382a3acaa4c8b7af35156b46aeda00620f307"
+	prikeyD = "d4b7b441382751d9a1955152b46a69f3c9f9559c6205757af928f5181ff207060d0dab00"
+	pubkeyE = "64dc2d5f445a78b884527252a3dba1f72f52251c97ec213dda99868882024d4d1442f100c8f1f833d0c687871a959ee97665dea24de1a627cce6c970d9db5859da9e4295bb602e04"
+	prikeyE = "53a827f7c5b4b4040b22ae9b12fcaa234e8362fa022480f50b8643981806ed67c7f77a00"
+)
+
+var (
+	addr1 = ConstructAddress(pubkeyA, prikeyA)
+	addr2 = ConstructAddress(pubkeyB, prikeyB)
+	addr3 = ConstructAddress(pubkeyC, prikeyC)
+	addr4 = ConstructAddress(pubkeyD, prikeyD)
+	addr5 = ConstructAddress(pubkeyE, prikeyE)
+)
+
+func TestSignedTransfer(t *testing.T) {
+	require := require.New(t)
+	tsf, err := SignedTransfer(addr1, addr2, uint64(1), big.NewInt(2),
+		[]byte{}, uint64(100000), big.NewInt(10))
+	require.NoError(err)
+	require.Equal(addr1.RawAddress, tsf.Sender())
+	require.Equal(addr2.RawAddress, tsf.Recipient())
+	require.Equal(uint64(1), tsf.Nonce())
+	require.Equal(big.NewInt(2), tsf.Amount())
+	require.Equal([]byte{}, tsf.Payload())
+	require.Equal(uint64(100000), tsf.GasLimit())
+	require.Equal(big.NewInt(10), tsf.GasPrice())
+	require.NotNil(tsf.Signature())
+}
+
+func TestSignedVote(t *testing.T) {
+	require := require.New(t)
+	vote, err := SignedVote(addr1, addr1, uint64(1), uint64(100000), big.NewInt(10))
+	require.NoError(err)
+	require.Equal(addr1.RawAddress, vote.Voter())
+	require.Equal(addr1.RawAddress, vote.Votee())
+	require.Equal(uint64(1), vote.Nonce())
+	require.Equal(uint64(100000), vote.GasLimit())
+	require.Equal(big.NewInt(10), vote.GasPrice())
+	require.NotNil(vote.Signature())
+}
+
+func TestSignedExecution(t *testing.T) {
+	require := require.New(t)
+	exec, err := SignedExecution(addr1, action.EmptyAddress, uint64(1), big.NewInt(0),
+		uint64(100000), big.NewInt(10), []byte{})
+	require.NoError(err)
+	require.Equal(addr1.RawAddress, exec.Executor())
+	require.Equal(action.EmptyAddress, exec.Contract())
+	require.Equal(uint64(1), exec.Nonce())
+	require.Equal(big.NewInt(0), exec.Amount())
+	require.Equal(uint64(100000), exec.GasLimit())
+	require.Equal(big.NewInt(10), exec.GasPrice())
+	require.Equal([]byte{}, exec.Data())
+	require.NotNil(exec.Signature())
+}

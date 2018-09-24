@@ -756,7 +756,8 @@ func TestDummyBlockReplacement(t *testing.T) {
 	require.Nil(err)
 
 	// Replace the second dummy block
-	tsf1, err := testutil.SignedTransfer(ta.Addrinfo["producer"], ta.Addrinfo["alfa"], 1, big.NewInt(1), []byte{}, uint64(100000), big.NewInt(10))
+	tsf1, err := testutil.SignedTransfer(ta.Addrinfo["producer"], ta.Addrinfo["alfa"], 1, big.NewInt(1),
+		[]byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(err)
 	act2 := tsf1.ConvertToActionPb()
 	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
