@@ -16,12 +16,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/blockchain/action"
-	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/dispatch/dispatcher"
 	"github.com/iotexproject/iotex-core/logger"
 	pb "github.com/iotexproject/iotex-core/proto"
@@ -41,22 +37,37 @@ func init() {
 
 // blockMsg packages a proto block message.
 type blockMsg struct {
+	chainID uint32
 	block   *pb.BlockPb
 	blkType uint32
 	done    chan bool
 }
 
+func (m blockMsg) ChainID() uint32 {
+	return m.chainID
+}
+
 // blockSyncMsg packages a proto block sync message.
 type blockSyncMsg struct {
-	sender string
-	sync   *pb.BlockSync
-	done   chan bool
+	chainID uint32
+	sender  string
+	sync    *pb.BlockSync
+	done    chan bool
+}
+
+func (m blockSyncMsg) ChainID() uint32 {
+	return m.chainID
 }
 
 // actionMsg packages a proto action message.
 type actionMsg struct {
-	action *pb.ActionPb
-	done   chan bool
+	chainID uint32
+	action  *pb.ActionPb
+	done    chan bool
+}
+
+func (m actionMsg) ChainID() uint32 {
+	return m.chainID
 }
 
 // IotxDispatcher is the request and event dispatcher for iotx node.
@@ -69,30 +80,28 @@ type IotxDispatcher struct {
 	wg             sync.WaitGroup
 	quit           chan struct{}
 
-	bs blocksync.BlockSync
-	cs consensus.Consensus
-	ap actpool.ActPool
+	subscribers map[uint32]dispatcher.Subscriber
 }
 
 // NewDispatcher creates a new Dispatcher
 func NewDispatcher(
 	cfg *config.Config,
-	ap actpool.ActPool,
-	bs blocksync.BlockSync,
-	cs consensus.Consensus,
 ) (dispatcher.Dispatcher, error) {
-	if bs == nil {
-		return nil, errors.New("Try to attach to a nil P2P")
-	}
 	d := &IotxDispatcher{
-		eventChan:  make(chan interface{}, cfg.Dispatcher.EventChanSize),
-		eventAudit: make(map[uint32]int),
-		quit:       make(chan struct{}),
-		ap:         ap,
-		bs:         bs,
-		cs:         cs,
+		eventChan:   make(chan interface{}, cfg.Dispatcher.EventChanSize),
+		eventAudit:  make(map[uint32]int),
+		quit:        make(chan struct{}),
+		subscribers: make(map[uint32]dispatcher.Subscriber),
 	}
 	return d, nil
+}
+
+// AddSubscriber adds a subscriber to dispatcher
+func (d *IotxDispatcher) AddSubscriber(
+	chainID uint32,
+	subscriber dispatcher.Subscriber,
+) {
+	d.subscribers[chainID] = subscriber
 }
 
 // Start starts the dispatcher.
@@ -144,7 +153,6 @@ loop:
 			case *actionMsg:
 				d.handleActionMsg(msg)
 			case *blockMsg:
-
 				d.handleBlockMsg(msg)
 			case *blockSyncMsg:
 				d.handleBlockSyncMsg(msg)
@@ -167,27 +175,13 @@ loop:
 // handleActionMsg handles actionMsg from all peers.
 func (d *IotxDispatcher) handleActionMsg(m *actionMsg) {
 	d.updateEventAudit(pb.MsgActionType)
-	if pbTsf := m.action.GetTransfer(); pbTsf != nil {
-		tsf := &action.Transfer{}
-		tsf.ConvertFromActionPb(m.action)
-		if err := d.ap.AddTsf(tsf); err != nil {
-			requestMtc.WithLabelValues("addTsf", "false").Inc()
+	if subscriber, ok := d.subscribers[m.ChainID()]; ok {
+		if err := subscriber.HandleAction(m.action); err != nil {
+			requestMtc.WithLabelValues("AddAction", "false").Inc()
 			logger.Debug().Err(err)
 		}
-	} else if pbVote := m.action.GetVote(); pbVote != nil {
-		vote := &action.Vote{}
-		vote.ConvertFromActionPb(m.action)
-		if err := d.ap.AddVote(vote); err != nil {
-			requestMtc.WithLabelValues("addVote", "false").Inc()
-			logger.Debug().Err(err)
-		}
-	} else if pbExecution := m.action.GetExecution(); pbExecution != nil {
-		execution := &action.Execution{}
-		execution.ConvertFromActionPb(m.action)
-		if err := d.ap.AddExecution(execution); err != nil {
-			requestMtc.WithLabelValues("addExecution", "false").Inc()
-			logger.Debug().Err(err).Msg("Failed to add execution")
-		}
+	} else {
+		logger.Info().Uint32("ChainID", m.ChainID()).Msg("No subscriber specified in the dispatcher")
 	}
 	// signal to let caller know we are done
 	if m.done != nil {
@@ -203,17 +197,22 @@ func (d *IotxDispatcher) handleBlockMsg(m *blockMsg) {
 	logger.Info().
 		Uint64("block", blk.Height()).Hex("hash", hash[:]).Msg("receive blockMsg")
 
-	if m.blkType == pb.MsgBlockProtoMsgType {
-		d.updateEventAudit(pb.MsgBlockProtoMsgType)
-		if err := d.bs.ProcessBlock(blk); err != nil {
-			logger.Error().Err(err).Msg("Fail to process the block")
+	if subscriber, ok := d.subscribers[m.ChainID()]; ok {
+		if m.blkType == pb.MsgBlockProtoMsgType {
+			d.updateEventAudit(pb.MsgBlockProtoMsgType)
+			if err := subscriber.HandleBlock(blk); err != nil {
+				logger.Error().Err(err).Msg("Fail to handle the block")
+			}
+		} else if m.blkType == pb.MsgBlockSyncDataType {
+			d.updateEventAudit(pb.MsgBlockSyncDataType)
+			if err := subscriber.HandleBlockSync(blk); err != nil {
+				logger.Error().Err(err).Msg("Fail to sync the block")
+			}
 		}
-	} else if m.blkType == pb.MsgBlockSyncDataType {
-		d.updateEventAudit(pb.MsgBlockSyncDataType)
-		if err := d.bs.ProcessBlockSync(blk); err != nil {
-			logger.Error().Err(err).Msg("Fail to sync the block")
-		}
+	} else {
+		logger.Info().Uint32("ChainID", m.ChainID()).Msg("No subscriber specified in the dispatcher")
 	}
+
 	// signal to let caller know we are done
 	if m.done != nil {
 		m.done <- true
@@ -229,9 +228,13 @@ func (d *IotxDispatcher) handleBlockSyncMsg(m *blockSyncMsg) {
 		Msg("receive blockSyncMsg")
 
 	d.updateEventAudit(pb.MsgBlockSyncReqType)
-	// dispatch to block sync
-	if err := d.bs.ProcessSyncRequest(m.sender, m.sync); err != nil {
-		logger.Error().Err(err)
+	if subscriber, ok := d.subscribers[m.ChainID()]; ok {
+		// dispatch to block sync
+		if err := subscriber.HandleSyncRequest(m.sender, m.sync); err != nil {
+			logger.Error().Err(err)
+		}
+	} else {
+		logger.Info().Uint32("ChainID", m.ChainID()).Msg("No subscriber specified in the dispatcher")
 	}
 	// signal to let caller know we are done
 	if m.done != nil {
@@ -240,40 +243,40 @@ func (d *IotxDispatcher) handleBlockSyncMsg(m *blockSyncMsg) {
 }
 
 // dispatchAction adds the passed action message to the news handling queue.
-func (d *IotxDispatcher) dispatchAction(msg proto.Message, done chan bool) {
+func (d *IotxDispatcher) dispatchAction(chainID uint32, msg proto.Message, done chan bool) {
 	if atomic.LoadInt32(&d.shutdown) != 0 {
 		if done != nil {
 			close(done)
 		}
 		return
 	}
-	d.enqueueEvent(&actionMsg{(msg).(*pb.ActionPb), done})
+	d.enqueueEvent(&actionMsg{chainID, (msg).(*pb.ActionPb), done})
 }
 
 // dispatchBlockCommit adds the passed block message to the news handling queue.
-func (d *IotxDispatcher) dispatchBlockCommit(msg proto.Message, done chan bool) {
+func (d *IotxDispatcher) dispatchBlockCommit(chainID uint32, msg proto.Message, done chan bool) {
 	if atomic.LoadInt32(&d.shutdown) != 0 {
 		if done != nil {
 			close(done)
 		}
 		return
 	}
-	d.enqueueEvent(&blockMsg{(msg).(*pb.BlockPb), pb.MsgBlockProtoMsgType, done})
+	d.enqueueEvent(&blockMsg{chainID, (msg).(*pb.BlockPb), pb.MsgBlockProtoMsgType, done})
 }
 
 // dispatchBlockSyncReq adds the passed block sync request to the news handling queue.
-func (d *IotxDispatcher) dispatchBlockSyncReq(sender string, msg proto.Message, done chan bool) {
+func (d *IotxDispatcher) dispatchBlockSyncReq(chainID uint32, sender string, msg proto.Message, done chan bool) {
 	if atomic.LoadInt32(&d.shutdown) != 0 {
 		if done != nil {
 			close(done)
 		}
 		return
 	}
-	d.enqueueEvent(&blockSyncMsg{sender, (msg).(*pb.BlockSync), done})
+	d.enqueueEvent(&blockSyncMsg{chainID, sender, (msg).(*pb.BlockSync), done})
 }
 
 // dispatchBlockSyncData handles block sync data
-func (d *IotxDispatcher) dispatchBlockSyncData(msg proto.Message, done chan bool) {
+func (d *IotxDispatcher) dispatchBlockSyncData(chainID uint32, msg proto.Message, done chan bool) {
 	if atomic.LoadInt32(&d.shutdown) != 0 {
 		if done != nil {
 			close(done)
@@ -281,30 +284,38 @@ func (d *IotxDispatcher) dispatchBlockSyncData(msg proto.Message, done chan bool
 		return
 	}
 	data := (msg).(*pb.BlockContainer)
-	d.enqueueEvent(&blockMsg{data.Block, pb.MsgBlockSyncDataType, done})
+	d.enqueueEvent(&blockMsg{chainID, data.Block, pb.MsgBlockSyncDataType, done})
 }
 
 // HandleBroadcast handles incoming broadcast message
-func (d *IotxDispatcher) HandleBroadcast(message proto.Message, done chan bool) {
+func (d *IotxDispatcher) HandleBroadcast(chainID uint32, message proto.Message, done chan bool) {
 	msgType, err := pb.GetTypeFromProtoMsg(message)
 	if err != nil {
 		logger.Warn().
 			Str("error", err.Error()).
 			Msg("unexpected message handled by HandleBroadcast")
 	}
+	subscriber, ok := d.subscribers[chainID]
+	if !ok {
+		logger.Warn().
+			Uint32("chainID", chainID).
+			Msg("chainID has not been registered in dispatcher")
+		return
+	}
 
 	switch msgType {
 	case pb.ViewChangeMsgType:
-		err := d.cs.HandleViewChange(message, done)
+		err := subscriber.HandleViewChange(message)
 		if err != nil {
 			logger.Error().
 				Err(err).
 				Msgf("failed to handle view change")
 		}
+		done <- true
 	case pb.MsgActionType:
-		d.dispatchAction(message, done)
+		d.dispatchAction(chainID, message, done)
 	case pb.MsgBlockProtoMsgType:
-		d.dispatchBlockCommit(message, done)
+		d.dispatchBlockCommit(chainID, message, done)
 	default:
 		logger.Warn().
 			Uint32("msgType", msgType).
@@ -313,26 +324,34 @@ func (d *IotxDispatcher) HandleBroadcast(message proto.Message, done chan bool) 
 }
 
 // HandleTell handles incoming unicast message
-func (d *IotxDispatcher) HandleTell(sender net.Addr, message proto.Message, done chan bool) {
+func (d *IotxDispatcher) HandleTell(chainID uint32, sender net.Addr, message proto.Message, done chan bool) {
 	msgType, err := pb.GetTypeFromProtoMsg(message)
 	if err != nil {
 		logger.Warn().
 			Str("error", err.Error()).
 			Msg("unexpected message handled by HandleTell")
 	}
+	subscriber, ok := d.subscribers[chainID]
+	if !ok {
+		logger.Warn().
+			Uint32("chainID", chainID).
+			Msg("chainID has not been registered in dispatcher")
+		return
+	}
 
 	switch msgType {
 	case pb.MsgBlockSyncReqType:
-		d.dispatchBlockSyncReq(sender.String(), message, done)
+		d.dispatchBlockSyncReq(chainID, sender.String(), message, done)
 	case pb.MsgBlockSyncDataType:
-		d.dispatchBlockSyncData(message, done)
+		d.dispatchBlockSyncData(chainID, message, done)
 	case pb.MsgBlockProtoMsgType:
-		err := d.cs.HandleBlockPropose(message, done)
+		err := subscriber.HandleBlockPropose(message)
 		if err != nil {
 			logger.Error().
 				Err(err).
 				Msgf("failed to handle block propose")
 		}
+		done <- true
 	default:
 		logger.Warn().
 			Uint32("msgType", msgType).

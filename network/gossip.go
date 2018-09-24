@@ -61,7 +61,7 @@ func (g *Gossip) OnReceivingMsg(msg *network.BroadcastReq) error {
 		return nil
 	}
 	// Call dispatch to notify that a new message comes in
-	if err := g.processMsg(msg.MsgType, msg.MsgBody); err != nil {
+	if err := g.processMsg(msg.ChainId, msg.MsgType, msg.MsgBody); err != nil {
 		return err
 	}
 	// If other nodes use a crazy TTL, truncate it to the local configured value
@@ -76,24 +76,24 @@ func (g *Gossip) OnReceivingMsg(msg *network.BroadcastReq) error {
 			Msg("message used up all delivery hops")
 		return nil
 	}
-	if err := g.relayMsg(msg.MsgType, msg.MsgBody, msg.MsgChecksum, msg.Ttl-1); err != nil {
+	if err := g.relayMsg(msg.ChainId, msg.MsgType, msg.MsgBody, msg.MsgChecksum, msg.Ttl-1); err != nil {
 		return nil
 	}
 	return nil
 }
 
-func (g *Gossip) processMsg(msgType uint32, msgBody []byte) error {
+func (g *Gossip) processMsg(chainID uint32, msgType uint32, msgBody []byte) error {
 	protoMsg, err := iproto.TypifyProtoMsg(msgType, msgBody)
 	if err != nil {
 		return err
 	}
 	if g.Dispatcher != nil {
-		g.Dispatcher.HandleBroadcast(protoMsg, nil)
+		g.Dispatcher.HandleBroadcast(chainID, protoMsg, nil)
 	}
 	return nil
 }
 
-func (g *Gossip) relayMsg(msgType uint32, msgBody []byte, msgChecksum []byte, ttl int32) error {
+func (g *Gossip) relayMsg(chainID uint32, msgType uint32, msgBody []byte, msgChecksum []byte, ttl int32) error {
 	// Send the message to all neighbors
 	g.Overlay.PM.Peers.Range(func(_, value interface{}) bool {
 		go func() {
@@ -104,6 +104,7 @@ func (g *Gossip) relayMsg(msgType uint32, msgBody []byte, msgChecksum []byte, tt
 			}
 			_, err := peer.BroadcastMsg(
 				&network.BroadcastReq{
+					ChainId:     chainID,
 					MsgType:     msgType,
 					MsgBody:     msgBody,
 					MsgChecksum: msgChecksum,
