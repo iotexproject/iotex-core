@@ -57,11 +57,11 @@ func TestAddress(t *testing.T) {
 		assertAddr(t, addr3)
 	}
 	t.Run("testnet", func(t *testing.T) {
-		os.Setenv("IOTEX_NETWORK_TYPE", "testnet")
+		require.NoError(t, os.Setenv("IOTEX_NETWORK_TYPE", "testnet"))
 		runTest(t)
 	})
 	t.Run("mainnet", func(t *testing.T) {
-		os.Setenv("IOTEX_NETWORK_TYPE", "mainnet")
+		require.NoError(t, os.Setenv("IOTEX_NETWORK_TYPE", "mainnet"))
 		runTest(t)
 	})
 }

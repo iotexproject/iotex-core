@@ -55,7 +55,7 @@ func BytesToAddress(bytes []byte) (*Address, error) {
 	if len(bytes) != AddressLength {
 		return nil, errors.Wrapf(address.ErrInvalidAddr, "invalid address length in bytes: %d", len(bytes))
 	}
-	if version := uint8(bytes[4]); version != Version {
+	if version := bytes[4]; version != Version {
 		return nil, errors.Wrapf(
 			address.ErrInvalidAddr,
 			"the address represented by the bytes is of version %d",
