@@ -475,6 +475,19 @@ func (mr *MockBlockchainMockRecorder) MintNewDKGBlock(tsf, vote, executions, pro
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MintNewDKGBlock", reflect.TypeOf((*MockBlockchain)(nil).MintNewDKGBlock), tsf, vote, executions, producer, dkgAddress, seed, data)
 }
 
+// MintNewDKGSecretBlock mocks base method
+func (m *MockBlockchain) MintNewDKGSecretBlock(producer *iotxaddress.Address, dkgIDs [][]uint8, dkgSK []uint32) (*blockchain.Block, error) {
+	ret := m.ctrl.Call(m, "MintNewDKGSecretBlock", producer, dkgIDs, dkgSK)
+	ret0, _ := ret[0].(*blockchain.Block)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// MintNewDKGSecretBlock indicates an expected call of MintNewDKGSecretBlock
+func (mr *MockBlockchainMockRecorder) MintNewDKGSecretBlock(producer, dkgIDs, dkgSK interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MintNewDKGSecretBlock", reflect.TypeOf((*MockBlockchain)(nil).MintNewDKGSecretBlock), producer, dkgIDs, dkgSK)
+}
+
 // MintNewDummyBlock mocks base method
 func (m *MockBlockchain) MintNewDummyBlock() *blockchain.Block {
 	ret := m.ctrl.Call(m, "MintNewDummyBlock")
