@@ -73,17 +73,25 @@ func TestLocalActPool(t *testing.T) {
 	}))
 
 	// Create three valid actions from "from" to "to"
-	tsf1, _ := signedTransfer(from, to, uint64(1), big.NewInt(1), []byte{}, uint64(100000), big.NewInt(0))
-	vote2, _ := signedVote(from, from, uint64(2), uint64(100000), big.NewInt(0))
-	tsf3, _ := signedTransfer(from, to, uint64(3), big.NewInt(3), []byte{}, uint64(100000), big.NewInt(0))
+	tsf1, err := testutil.SignedTransfer(from, to, uint64(1), big.NewInt(1),
+		[]byte{}, uint64(100000), big.NewInt(0))
+	require.NoError(err)
+	vote2, err := testutil.SignedVote(from, from, uint64(2), uint64(100000), big.NewInt(0))
+	require.NoError(err)
+	tsf3, err := testutil.SignedTransfer(from, to, uint64(3), big.NewInt(3),
+		[]byte{}, uint64(100000), big.NewInt(0))
+	require.NoError(err)
 	// Create contract
-	exec4, _ := signedExecution(from, action.EmptyAddress, uint64(4), big.NewInt(0), uint64(120000), big.NewInt(10), []byte{})
-
+	exec4, err := testutil.SignedExecution(from, action.EmptyAddress, uint64(4), big.NewInt(0),
+		uint64(120000), big.NewInt(10), []byte{})
+	require.NoError(err)
 	// Create three invalid actions from "from" to "to"
 	// Existed Vote
-	vote5, _ := signedVote(from, from, uint64(2), uint64(100000), big.NewInt(0))
+	vote5, err := testutil.SignedVote(from, from, uint64(2), uint64(100000), big.NewInt(0))
+	require.NoError(err)
 	// Unsigned Vote
-	vote6, _ := action.NewVote(uint64(7), from.RawAddress, from.RawAddress, uint64(100000), big.NewInt(10))
+	vote6, err := action.NewVote(uint64(7), from.RawAddress, from.RawAddress, uint64(100000), big.NewInt(10))
+	require.NoError(err)
 
 	require.NoError(cli.Broadcast(chainID, tsf1.ConvertToActionPb()))
 	require.NoError(cli.Broadcast(chainID, vote2.ConvertToActionPb()))
@@ -140,7 +148,9 @@ func TestPressureActPool(t *testing.T) {
 
 	require.Nil(err)
 	for i := 1; i <= 1000; i++ {
-		tsf, _ := signedTransfer(from, to, uint64(i), big.NewInt(int64(i)), []byte{}, uint64(100000), big.NewInt(0))
+		tsf, err := testutil.SignedTransfer(from, to, uint64(i), big.NewInt(int64(i)),
+			[]byte{}, uint64(100000), big.NewInt(0))
+		require.NoError(err)
 		require.NoError(cli.Broadcast(chainID, tsf.ConvertToActionPb()))
 	}
 
@@ -150,50 +160,6 @@ func TestPressureActPool(t *testing.T) {
 		return len(transfers) == 1000, nil
 	})
 	require.Nil(err)
-}
-
-// Helper function to return a signed transfer
-func signedTransfer(
-	sender *iotxaddress.Address,
-	recipient *iotxaddress.Address,
-	nonce uint64,
-	amount *big.Int,
-	payload []byte,
-	gasLimit uint64,
-	gasPrice *big.Int,
-) (*action.Transfer, error) {
-	transfer, err := action.NewTransfer(nonce, amount, sender.RawAddress, recipient.RawAddress, payload, gasLimit, gasPrice)
-	if err != nil {
-		return nil, err
-	}
-	if err := action.Sign(transfer, sender); err != nil {
-		return nil, err
-	}
-	return transfer, nil
-}
-
-// Helper function to return a signed vote
-func signedVote(voter *iotxaddress.Address, votee *iotxaddress.Address, nonce uint64, gasLimit uint64, gasPrice *big.Int) (*action.Vote, error) {
-	vote, err := action.NewVote(nonce, voter.RawAddress, votee.RawAddress, gasLimit, gasPrice)
-	if err != nil {
-		return nil, err
-	}
-	if err := action.Sign(vote, voter); err != nil {
-		return nil, err
-	}
-	return vote, err
-}
-
-// Helper function to return a signed execution
-func signedExecution(executor *iotxaddress.Address, contractAddr string, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) (*action.Execution, error) {
-	execution, err := action.NewExecution(executor.RawAddress, contractAddr, nonce, amount, gasLimit, gasPrice, data)
-	if err != nil {
-		return nil, err
-	}
-	if err := action.Sign(execution, executor); err != nil {
-		return nil, err
-	}
-	return execution, nil
 }
 
 func newActPoolConfig() (*config.Config, error) {
