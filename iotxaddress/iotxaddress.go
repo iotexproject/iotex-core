@@ -102,7 +102,8 @@ func CreateContractAddress(ownerAddr string, nonce uint64) (string, error) {
 
 // GetAddressByPubkey returns the address given a public key and necessary params.
 func GetAddressByPubkey(isTestnet bool, chainID []byte, pub keypair.PublicKey) (*Address, error) {
-	raddr, err := getRawAddress(isTestnet, chainID, keypair.HashPubKey(pub))
+	pkHash := keypair.HashPubKey(pub)
+	raddr, err := getRawAddress(isTestnet, chainID, pkHash[:])
 	if err != nil {
 		return nil, errors.Wrap(err, "error when getting raw address")
 	}
