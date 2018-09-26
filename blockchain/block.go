@@ -95,7 +95,7 @@ func NewBlock(
 
 // IsDummyBlock checks whether block is a dummy block
 func (b *Block) IsDummyBlock() bool {
-	return b.Header.height > 0 && len(b.Header.blockSig) == 0 && b.Header.Pubkey == keypair.ZeroPublicKey && len(b.Transfers)+len(b.Votes) == 0
+	return b.Header.height > 0 && len(b.Header.blockSig) == 0 && b.Header.Pubkey == keypair.ZeroPublicKey && len(b.Transfers)+len(b.Votes)+len(b.Executions) == 0
 }
 
 // Height returns the height of this block
@@ -296,4 +296,22 @@ func (b *Block) SignBlock(signer *iotxaddress.Address) error {
 	blkHash := b.HashBlock()
 	b.Header.blockSig = crypto.EC283.Sign(signer.PrivateKey, blkHash[:])
 	return nil
+}
+
+// VerifySignature verifies the signature saved in block header
+func (b *Block) VerifySignature() bool {
+	blkHash := b.HashBlock()
+
+	return crypto.EC283.Verify(b.Header.Pubkey, blkHash[:], b.Header.blockSig)
+}
+
+// ProducerAddress returns the address of producer
+func (b *Block) ProducerAddress() string {
+	chainID := make([]byte, 4)
+	enc.MachineEndian.PutUint32(chainID, b.Header.chainID)
+	addr, err := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, chainID, b.Header.Pubkey)
+	if err != nil {
+		return ""
+	}
+	return addr.RawAddress
 }
