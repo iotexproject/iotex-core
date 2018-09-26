@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package v1
+package address
 
 import (
 	"os"
@@ -27,7 +27,7 @@ func TestAddress(t *testing.T) {
 		require.NoError(t, err)
 
 		pkHashSlice := keypair.HashPubKey(pk)
-		var pkHash [hash.PKHashSize]byte
+		var pkHash hash.PKHash
 		copy(pkHash[:], pkHashSlice)
 
 		assertAddr := func(t *testing.T, addr *Address) {

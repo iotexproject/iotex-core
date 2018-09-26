@@ -34,10 +34,18 @@ var (
 
 // Address defines the interface of the blockchain address
 type Address interface {
+	// ChainID returns the version
 	ChainID() uint32
+	// Version returns the version
 	Version() uint8
+	// Payload returns the payload
 	Payload() []byte
+	// Bech32 encodes the whole address into an address string encoded in Bech32 format
 	Bech32() string
+	// Bytes serializes the whole address struct into a byte slice, which is composed of the following parts in order:
+	// 1. uint32: chain ID
+	// 2. uint8: version of address
+	// 3. byte slice: the payload to identify an address within one blockchain
 	Bytes() []byte
 }
 

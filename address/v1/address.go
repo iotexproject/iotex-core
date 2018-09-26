@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package v1
+package address
 
 import (
 	"github.com/pkg/errors"
@@ -24,7 +24,7 @@ const (
 	Version = 1
 )
 
-// Address is the new address format to be used on IoTeX blockchain and subchains. It is composed of parts in the
+// Address is V1 address format to be used on IoTeX blockchain and subchains. It is composed of parts in the
 // following order:
 // 1. uint32: chain ID
 // 2. 20 bytes: hash derived from the the public key
