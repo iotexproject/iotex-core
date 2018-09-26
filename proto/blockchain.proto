@@ -34,11 +34,15 @@ message ExecutionPb {
     bytes data = 5;
 }
 
-message DKGPb {
+message SecretProposalPb {
     string sender = 1;
     string recipient = 2;
     repeated uint32 secret = 3;
-    bytes witness = 4;
+}
+
+message SecretWitnessPb {
+    string sender = 1;
+    repeated bytes witness = 2;
 }
 
 message LogPb {
@@ -70,7 +74,8 @@ message ActionPb {
         TransferPb transfer = 10;
         VotePb vote = 11;
         ExecutionPb execution = 12;
-        DKGPb dkg = 13;
+        SecretProposalPb secretProposal = 13;
+        SecretWitnessPb secretWitness = 14;
     }
 }
 

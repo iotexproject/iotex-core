@@ -14,19 +14,17 @@ import (
 	"github.com/iotexproject/iotex-core/iotxaddress"
 )
 
-func TestDKGSerializedDeserialize(t *testing.T) {
+func TestSecretWitnessSerializedDeserialize(t *testing.T) {
 	require := require.New(t)
 	sender, err := iotxaddress.NewAddress(true, chainid)
 	require.NoError(err)
-	recipient, err := iotxaddress.NewAddress(true, chainid)
+
+	sw, err := NewSecretWitness(0, sender.RawAddress, [][]byte{{1, 2, 3}, {4, 5, 6}})
+	require.NoError(err)
+	raw, err := sw.Serialize()
 	require.NoError(err)
 
-	dkg, err := NewDKG(0, sender.RawAddress, recipient.RawAddress, []uint32{1, 2, 3}, []byte{4,5,6})
-	require.NoError(err)
-	raw, err := dkg.Serialize()
-	require.NoError(err)
-
-	newDKG := &DKG{}
-	require.NoError(newDKG.Deserialize(raw))
-	require.Equal(dkg.Hash(), newDKG.Hash())
+	newSw := &SecretWitness{}
+	require.NoError(newSw.Deserialize(raw))
+	require.Equal(sw.Hash(), newSw.Hash())
 }
