@@ -101,6 +101,8 @@ type Blockchain interface {
 	// MintNewDKGBlock creates a new block with given actions and dkg keys
 	MintNewDKGBlock(tsf []*action.Transfer, vote []*action.Vote, executions []*action.Execution,
 		producer *iotxaddress.Address, dkgAddress *iotxaddress.DKGAddress, seed []byte, data string) (*Block, error)
+	// MintNewDKGSecretBlock creates a new block containing all DKG secrets for other delegates
+	MintNewDKGSecretBlock(producer *iotxaddress.Address, dkgIDs [][]uint8, dkgSK []uint32) (*Block, error)
 	// MintDummyNewBlock creates a new dummy block, used for unreached consensus
 	MintNewDummyBlock() *Block
 	// CommitBlock validates and appends a block to the chain
@@ -648,6 +650,24 @@ func (bc *blockchain) MintNewDKGBlock(tsf []*action.Transfer, vote []*action.Vot
 		return nil, errors.Wrapf(err, "Failed to update state changes in new DKG block %d", blk.Height())
 	}
 	blk.Header.stateRoot = root
+	if err := blk.SignBlock(producer); err != nil {
+		return blk, err
+	}
+	return blk, nil
+}
+
+// MintNewDKGSecretBlock creates a new block containing all DKG secrets for other delegates
+func (bc *blockchain) MintNewDKGSecretBlock(producer *iotxaddress.Address, dkgIDs [][]uint8, dkgSK []uint32) (*Block, error) {
+	bc.mu.RLock()
+	defer bc.mu.RUnlock()
+
+	blk := NewBlock(bc.chainID, bc.tipHeight+1, bc.tipHash, bc.clk, nil, nil, nil)
+	_, dkgSecrets, dkgWitness, err := crypto.DKG.Init(dkgSK, dkgIDs)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to generate DKG secrets")
+	}
+	blk.Header.DKGSecrets = dkgSecrets
+	blk.Header.DKGWitness = dkgWitness
 	if err := blk.SignBlock(producer); err != nil {
 		return blk, err
 	}

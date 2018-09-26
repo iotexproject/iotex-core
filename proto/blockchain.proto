@@ -82,6 +82,8 @@ message BlockHeaderPb {
     bytes dkgID = 12;
     bytes dkgPubkey = 13;
     bytes dkgSignature = 14;
+    repeated DKGSecret dkgSecrets = 15;
+    repeated bytes dkgWitness = 16;
 }
 
 // block consists of header followed by transactions
@@ -134,6 +136,10 @@ message Candidate {
 
 message CandidateList {
     repeated Candidate candidates = 1;
+}
+
+message DKGSecret {
+    repeated uint32 dkgSecret = 1;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
