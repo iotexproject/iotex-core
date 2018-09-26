@@ -16,7 +16,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/crypto"
-	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 )
@@ -26,14 +25,12 @@ func TestAddress(t *testing.T) {
 		pk, _, err := crypto.EC283.NewKeyPair()
 		require.NoError(t, err)
 
-		pkHashSlice := keypair.HashPubKey(pk)
-		var pkHash hash.PKHash
-		copy(pkHash[:], pkHashSlice)
+		pkHash := keypair.HashPubKey(pk)
 
 		assertAddr := func(t *testing.T, addr *Address) {
 			assert.Equal(t, uint32(1024), addr.ChainID())
 			assert.Equal(t, uint8(1), addr.Version())
-			assert.Equal(t, pkHashSlice, addr.Payload())
+			assert.Equal(t, pkHash[:], addr.Payload())
 			assert.Equal(t, pkHash, addr.PublicKeyHash())
 		}
 
@@ -70,10 +67,7 @@ func TestAddressError(t *testing.T) {
 	pk, _, err := crypto.EC283.NewKeyPair()
 	require.NoError(t, err)
 
-	pkHashSlice := keypair.HashPubKey(pk)
-	var pkHash [hash.PKHashSize]byte
-	copy(pkHash[:], pkHashSlice)
-
+	pkHash := keypair.HashPubKey(pk)
 	addr1 := New(1024, pkHash)
 	require.NoError(t, err)
 
