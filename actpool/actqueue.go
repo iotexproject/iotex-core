@@ -113,26 +113,10 @@ func (q *actQueue) FilterNonce(threshold uint64) []*iproto.ActionPb {
 // UpdateQueue updates the pending nonce and balance of the queue
 func (q *actQueue) UpdateQueue(nonce uint64) []*iproto.ActionPb {
 	// First, starting from the current pending nonce, incrementally find the next pending nonce
-	// while updating pending balance if transfers are payable
+	// while updating pending balance if actions are payable
 	for ; q.items[nonce] != nil; nonce++ {
-		if q.items[nonce].GetVote() != nil {
-			continue
-		}
-		if q.items[nonce].GetTransfer() != nil {
-			tsf := &action.Transfer{}
-			tsf.ConvertFromActionPb(q.items[nonce])
-			if q.pendingBalance.Cmp(tsf.Amount()) < 0 {
-				break
-			}
-			q.pendingBalance.Sub(q.pendingBalance, tsf.Amount())
-		}
-		if q.items[nonce].GetExecution() != nil {
-			execution := &action.Execution{}
-			execution.ConvertFromActionPb(q.items[nonce])
-			if q.pendingBalance.Cmp(execution.Amount()) < 0 {
-				break
-			}
-			q.pendingBalance.Sub(q.pendingBalance, execution.Amount())
+		if !q.enoughBalance(q.items[nonce], true) {
+			break
 		}
 	}
 	q.pendingNonce = nonce
@@ -145,24 +129,21 @@ func (q *actQueue) UpdateQueue(nonce uint64) []*iproto.ActionPb {
 			break
 		}
 	}
-	// Case I: An unpayable transfer has been found while updating pending nonce/balance
+	// Case I: An unpayable action has been found while updating pending nonce/balance
 	// Remove all the subsequent actions in the queue starting from the index of new pending nonce
 	if q.items[nonce] != nil {
 		return q.removeActs(i)
 	}
 
-	// Case II: All transfers are payable while updating pending nonce/balance
+	// Case II: All actions are payable while updating pending nonce/balance
 	// Check all the subsequent actions in the queue starting from the index of new pending nonce
-	// Find the nonce index of the first unpayable transfer
+	// Find the nonce index of the first unpayable action
 	// Remove all the subsequent actions in the queue starting from that index
 	for ; i < q.index.Len(); i++ {
 		nonce = q.index[i]
-		if act := q.items[nonce]; act.GetTransfer() != nil {
-			tsf := &action.Transfer{}
-			tsf.ConvertFromActionPb(act)
-			if q.pendingBalance.Cmp(tsf.Amount()) < 0 {
-				break
-			}
+		act := q.items[nonce]
+		if !q.enoughBalance(act, false) {
+			break
 		}
 	}
 	return q.removeActs(i)
@@ -244,4 +225,40 @@ func (q *actQueue) removeActs(idx int) []*iproto.ActionPb {
 	q.index = q.index[:idx]
 	heap.Init(&q.index)
 	return removedFromQueue
+}
+
+// enoughBalance helps check whether queue's pending balance is sufficient for the given action
+func (q *actQueue) enoughBalance(act *iproto.ActionPb, updateBalance bool) bool {
+	switch {
+	case act.GetTransfer() != nil:
+		tsf := action.Transfer{}
+		tsf.ConvertFromActionPb(act)
+		cost, _ := tsf.Cost()
+		if q.pendingBalance.Cmp(cost) < 0 {
+			return false
+		}
+		if updateBalance {
+			q.pendingBalance.Sub(q.pendingBalance, cost)
+		}
+	case act.GetVote() != nil:
+		vote := action.Vote{}
+		vote.ConvertFromActionPb(act)
+		cost, _ := vote.Cost()
+		if q.pendingBalance.Cmp(cost) < 0 {
+			return false
+		}
+		if updateBalance {
+			q.pendingBalance.Sub(q.pendingBalance, cost)
+		}
+	case act.GetExecution() != nil:
+		exec := action.Execution{}
+		exec.ConvertFromActionPb(act)
+		if q.pendingBalance.Cmp(exec.CostLimit()) < 0 {
+			return false
+		}
+		if updateBalance {
+			q.pendingBalance.Sub(q.pendingBalance, exec.CostLimit())
+		}
+	}
+	return true
 }

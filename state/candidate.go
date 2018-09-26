@@ -112,7 +112,7 @@ func Deserialize(buf []byte) (CandidateList, error) {
 }
 
 // MapToCandidates converts a map of cachedCandidates to candidate list
-func MapToCandidates(candidateMap map[hash.AddrHash]*Candidate) (CandidateList, error) {
+func MapToCandidates(candidateMap map[hash.PKHash]*Candidate) (CandidateList, error) {
 	if candidateMap == nil {
 		return nil, errors.Wrap(ErrCandidateMap, "candidate map cannot be nil")
 	}
@@ -124,11 +124,11 @@ func MapToCandidates(candidateMap map[hash.AddrHash]*Candidate) (CandidateList, 
 }
 
 // CandidatesToMap converts a candidate list to map of cachedCandidates
-func CandidatesToMap(candidates CandidateList) (map[hash.AddrHash]*Candidate, error) {
+func CandidatesToMap(candidates CandidateList) (map[hash.PKHash]*Candidate, error) {
 	if candidates == nil {
 		return nil, errors.Wrap(ErrCandidateList, "candidate list cannot be nil")
 	}
-	candidateMap := make(map[hash.AddrHash]*Candidate)
+	candidateMap := make(map[hash.PKHash]*Candidate)
 	for _, candidate := range candidates {
 		if candidate == nil {
 			return nil, errors.Wrap(ErrCandidate, "candidate cannot be nil")

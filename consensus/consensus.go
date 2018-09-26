@@ -27,8 +27,8 @@ import (
 type Consensus interface {
 	lifecycle.StartStopper
 
-	HandleViewChange(proto.Message, chan bool) error
-	HandleBlockPropose(proto.Message, chan bool) error
+	HandleViewChange(proto.Message) error
+	HandleBlockPropose(proto.Message) error
 	Metrics() (scheme.ConsensusMetrics, error)
 }
 
@@ -85,7 +85,7 @@ func NewConsensus(
 
 	broadcastBlockCB := func(blk *blockchain.Block) error {
 		if blkPb := blk.ConvertToBlockPb(); blkPb != nil {
-			return p2p.Broadcast(blkPb)
+			return p2p.Broadcast(bc.ChainID(), blkPb)
 		}
 		return nil
 	}
@@ -159,12 +159,12 @@ func (c *IotxConsensus) Metrics() (scheme.ConsensusMetrics, error) {
 }
 
 // HandleViewChange dispatches the call to different schemes
-func (c *IotxConsensus) HandleViewChange(m proto.Message, done chan bool) error {
+func (c *IotxConsensus) HandleViewChange(m proto.Message) error {
 	return c.scheme.Handle(m)
 }
 
 // HandleBlockPropose handles a proposed block
-func (c *IotxConsensus) HandleBlockPropose(m proto.Message, done chan bool) error {
+func (c *IotxConsensus) HandleBlockPropose(m proto.Message) error {
 	return errcode.ErrNotImplemented
 }
 

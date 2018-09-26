@@ -133,7 +133,7 @@ func TestRPCTell(t *testing.T) {
 	ctx := context.Background()
 	mctrl := gomock.NewController(t)
 	dp := mock_dispatcher.NewMockDispatcher(mctrl)
-	dp.EXPECT().HandleTell(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
+	dp.EXPECT().HandleTell(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
 
 	config := LoadTestConfig("", true)
 	o := &IotxOverlay{Dispatcher: dp, Config: config}
@@ -167,7 +167,7 @@ func TestRateLimit(t *testing.T) {
 	ctx := context.Background()
 	mctrl := gomock.NewController(t)
 	dp := mock_dispatcher.NewMockDispatcher(mctrl)
-	dp.EXPECT().HandleTell(gomock.Any(), gomock.Any(), gomock.Any()).Times(5)
+	dp.EXPECT().HandleTell(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(5)
 
 	config := LoadTestConfig("", true)
 	config.RateLimitEnabled = true

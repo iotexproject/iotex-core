@@ -266,7 +266,7 @@ func TestHandleInitBlockEvt(t *testing.T) {
 		delegates,
 		nil,
 		func(p2p *mock_network.MockOverlay) {
-			p2p.EXPECT().Broadcast(gomock.Any()).Return(nil).Times(1)
+			p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(1)
 		},
 		clock.New(),
 	)
@@ -326,7 +326,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 			delegates,
 			nil,
 			func(p2p *mock_network.MockOverlay) {
-				p2p.EXPECT().Broadcast(gomock.Any()).Return(nil).Times(1)
+				p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(1)
 			},
 			clock.New(),
 		)
@@ -355,7 +355,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 			delegates,
 			nil,
 			func(p2p *mock_network.MockOverlay) {
-				p2p.EXPECT().Broadcast(gomock.Any()).Return(nil).Times(2)
+				p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(2)
 			},
 			clock,
 		)
@@ -399,7 +399,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 				chain.EXPECT().ValidateBlock(gomock.Any()).Return(errors.New("mock error")).Times(1)
 			},
 			func(p2p *mock_network.MockOverlay) {
-				p2p.EXPECT().Broadcast(gomock.Any()).Return(nil).Times(1)
+				p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(1)
 			},
 			clock.New(),
 		)
@@ -429,7 +429,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 				chain.EXPECT().ValidateBlock(gomock.Any()).Times(0)
 			},
 			func(p2p *mock_network.MockOverlay) {
-				p2p.EXPECT().Broadcast(gomock.Any()).Return(nil).Times(1)
+				p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(1)
 			},
 			clock.New(),
 		)
@@ -457,7 +457,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 			delegates,
 			nil,
 			func(p2p *mock_network.MockOverlay) {
-				p2p.EXPECT().Broadcast(gomock.Any()).Return(nil).Times(1)
+				p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(1)
 			},
 			clock.New(),
 		)
@@ -486,7 +486,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 			delegates,
 			nil,
 			func(p2p *mock_network.MockOverlay) {
-				p2p.EXPECT().Broadcast(gomock.Any()).Return(nil).Times(1)
+				p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(1)
 			},
 			clock,
 		)
@@ -519,7 +519,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 				chain.EXPECT().ValidateBlock(gomock.Any()).Times(0)
 			},
 			func(p2p *mock_network.MockOverlay) {
-				p2p.EXPECT().Broadcast(gomock.Any()).Return(nil).Times(0)
+				p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(0)
 			},
 			clock.New(),
 		)
@@ -562,9 +562,11 @@ func TestHandlePrevoteEvt(t *testing.T) {
 			testAddrs[0],
 			ctrl,
 			delegates,
-			nil,
+			func(chain *mock_blockchain.MockBlockchain) {
+				chain.EXPECT().ChainID().AnyTimes().Return(iotxaddress.MainChainID())
+			},
 			func(p2p *mock_network.MockOverlay) {
-				p2p.EXPECT().Broadcast(gomock.Any()).Return(nil).Times(1)
+				p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(1)
 			},
 			clock.New(),
 		)
@@ -609,9 +611,11 @@ func TestHandlePrevoteEvt(t *testing.T) {
 			testAddrs[0],
 			ctrl,
 			delegates,
-			nil,
+			func(chain *mock_blockchain.MockBlockchain) {
+				chain.EXPECT().ChainID().AnyTimes().Return(iotxaddress.MainChainID())
+			},
 			func(p2p *mock_network.MockOverlay) {
-				p2p.EXPECT().Broadcast(gomock.Any()).Return(nil).Times(1)
+				p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(1)
 			},
 			clock.New(),
 		)
@@ -665,9 +669,10 @@ func TestHandleVoteEvt(t *testing.T) {
 			delegates,
 			func(chain *mock_blockchain.MockBlockchain) {
 				chain.EXPECT().CommitBlock(gomock.Any()).Return(nil).Times(1)
+				chain.EXPECT().ChainID().AnyTimes().Return(iotxaddress.MainChainID())
 			},
 			func(p2p *mock_network.MockOverlay) {
-				p2p.EXPECT().Broadcast(gomock.Any()).Return(nil).Times(1)
+				p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(1)
 			},
 			clock.New(),
 		)
@@ -711,9 +716,10 @@ func TestHandleVoteEvt(t *testing.T) {
 				chain.EXPECT().
 					MintNewDummyBlock().
 					Return(blockchain.NewBlock(0, 0, hash.ZeroHash32B, clock.New(), nil, nil, nil)).Times(0)
+				chain.EXPECT().ChainID().AnyTimes().Return(iotxaddress.MainChainID())
 			},
 			func(p2p *mock_network.MockOverlay) {
-				p2p.EXPECT().Broadcast(gomock.Any()).Return(nil).Times(0)
+				p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(0)
 			},
 			clock.New(),
 		)
@@ -741,9 +747,10 @@ func TestHandleVoteEvt(t *testing.T) {
 				chain.EXPECT().
 					MintNewDummyBlock().
 					Return(blockchain.NewBlock(0, 0, hash.ZeroHash32B, clock.New(), nil, nil, nil)).Times(1)
+				chain.EXPECT().ChainID().AnyTimes().Return(iotxaddress.MainChainID())
 			},
 			func(p2p *mock_network.MockOverlay) {
-				p2p.EXPECT().Broadcast(gomock.Any()).Return(nil).Times(1)
+				p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(1)
 			},
 			clock.New(),
 		)
@@ -790,7 +797,9 @@ func TestHandleFinishEpochEvt(t *testing.T) {
 			testAddrs[0],
 			ctrl,
 			delegates,
-			nil,
+			func(chain *mock_blockchain.MockBlockchain) {
+				chain.EXPECT().TipHeight().Return(uint64(1)).Times(2)
+			},
 			nil,
 			clock.New(),
 		)
@@ -810,6 +819,7 @@ func TestHandleFinishEpochEvt(t *testing.T) {
 			delegates,
 			func(chain *mock_blockchain.MockBlockchain) {
 				chain.EXPECT().TipHeight().Return(uint64(4)).Times(1)
+				chain.EXPECT().ChainID().AnyTimes().Return(iotxaddress.MainChainID())
 			},
 			nil,
 			clock.New(),
@@ -869,6 +879,7 @@ func newTestCFSM(
 			EnableDummyBlock: true,
 		},
 		func(blockchain *mock_blockchain.MockBlockchain) {
+			blockchain.EXPECT().ChainID().AnyTimes().Return(iotxaddress.MainChainID())
 			blockchain.EXPECT().GetBlockByHeight(uint64(1)).Return(lastBlk, nil).AnyTimes()
 			blockchain.EXPECT().
 				MintNewBlock(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
@@ -896,7 +907,7 @@ func newTestCFSM(
 		},
 		func(p2p *mock_network.MockOverlay) {
 			if mockP2P == nil {
-				p2p.EXPECT().Broadcast(gomock.Any()).Return(nil).AnyTimes()
+				p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 			} else {
 				mockP2P(p2p)
 			}

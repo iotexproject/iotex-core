@@ -48,6 +48,7 @@ func TestLocalActPool(t *testing.T) {
 	// create server
 	ctx := context.Background()
 	svr := itx.NewServer(cfg)
+	chainID := svr.Blockchain().ChainID()
 	require.NoError(svr.Start(ctx))
 	require.NotNil(svr.ActionPool())
 
@@ -73,12 +74,12 @@ func TestLocalActPool(t *testing.T) {
 
 	// Create three valid actions from "from" to "to"
 	tsf1, err := testutil.SignedTransfer(from, to, uint64(1), big.NewInt(1),
-		[]byte{}, uint64(100000), big.NewInt(10))
+		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	vote2, err := testutil.SignedVote(from, from, uint64(2), uint64(100000), big.NewInt(10))
+	vote2, err := testutil.SignedVote(from, from, uint64(2), uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	tsf3, err := testutil.SignedTransfer(from, to, uint64(3), big.NewInt(3),
-		[]byte{}, uint64(100000), big.NewInt(10))
+		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	// Create contract
 	exec4, err := testutil.SignedExecution(from, action.EmptyAddress, uint64(4), big.NewInt(0),
@@ -86,18 +87,18 @@ func TestLocalActPool(t *testing.T) {
 	require.NoError(err)
 	// Create three invalid actions from "from" to "to"
 	// Existed Vote
-	vote5, err := testutil.SignedVote(from, from, uint64(2), uint64(100000), big.NewInt(10))
+	vote5, err := testutil.SignedVote(from, from, uint64(2), uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	// Unsigned Vote
 	vote6, err := action.NewVote(uint64(7), from.RawAddress, from.RawAddress, uint64(100000), big.NewInt(10))
 	require.NoError(err)
 
-	require.NoError(cli.Broadcast(tsf1.ConvertToActionPb()))
-	require.NoError(cli.Broadcast(vote2.ConvertToActionPb()))
-	require.NoError(cli.Broadcast(tsf3.ConvertToActionPb()))
-	require.NoError(cli.Broadcast(exec4.ConvertToActionPb()))
-	require.NoError(cli.Broadcast(vote5.ConvertToActionPb()))
-	require.NoError(cli.Broadcast(vote6.ConvertToActionPb()))
+	require.NoError(cli.Broadcast(chainID, tsf1.ConvertToActionPb()))
+	require.NoError(cli.Broadcast(chainID, vote2.ConvertToActionPb()))
+	require.NoError(cli.Broadcast(chainID, tsf3.ConvertToActionPb()))
+	require.NoError(cli.Broadcast(chainID, exec4.ConvertToActionPb()))
+	require.NoError(cli.Broadcast(chainID, vote5.ConvertToActionPb()))
+	require.NoError(cli.Broadcast(chainID, vote6.ConvertToActionPb()))
 
 	// Wait until server receives all the transfers
 	require.NoError(testutil.WaitUntil(100*time.Millisecond, 5*time.Second, func() (bool, error) {
@@ -123,6 +124,7 @@ func TestPressureActPool(t *testing.T) {
 	svr := itx.NewServer(cfg)
 	require.Nil(svr.Start(ctx))
 	require.NotNil(svr.ActionPool())
+	chainID := svr.Blockchain().ChainID()
 
 	// create client
 	cfg.Network.BootstrapNodes = []string{svr.P2P().Self().String()}
@@ -147,9 +149,9 @@ func TestPressureActPool(t *testing.T) {
 	require.Nil(err)
 	for i := 1; i <= 1000; i++ {
 		tsf, err := testutil.SignedTransfer(from, to, uint64(i), big.NewInt(int64(i)),
-			[]byte{}, uint64(100000), big.NewInt(10))
+			[]byte{}, uint64(100000), big.NewInt(0))
 		require.NoError(err)
-		require.NoError(cli.Broadcast(tsf.ConvertToActionPb()))
+		require.NoError(cli.Broadcast(chainID, tsf.ConvertToActionPb()))
 	}
 
 	// Wait until committed blocks contain all broadcasted actions
