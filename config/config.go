@@ -27,13 +27,15 @@ import (
 func init() {
 	flag.StringVar(&_overwritePath, "config-path", "", "Config path")
 	flag.StringVar(&_secretPath, "secret-path", "", "Secret path")
+	flag.StringVar(&_subChainPath, "sub-config-path", "", "Sub chain Config path")
 }
 
 var (
 	// overwritePath is the path to the config file which overwrite default values
 	_overwritePath string
 	// secretPath is the path to the  config file store secret values
-	_secretPath string
+	_secretPath   string
+	_subChainPath string
 )
 
 const (
@@ -311,6 +313,40 @@ func New(validates ...Validate) (*Config, error) {
 	if _overwritePath != "" {
 		opts = append(opts, uconfig.File(_overwritePath))
 	}
+	if _secretPath != "" {
+		opts = append(opts, uconfig.File(_secretPath))
+	}
+	yaml, err := uconfig.NewYAML(opts...)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to init config")
+	}
+
+	var cfg Config
+	if err := yaml.Get(uconfig.Root).Populate(&cfg); err != nil {
+		return nil, errors.Wrap(err, "failed to unmarshal YAML config to struct")
+	}
+
+	// By default, the config needs to pass all the validation
+	if len(validates) == 0 {
+		validates = Validates
+	}
+	for _, validate := range validates {
+		if err := validate(&cfg); err != nil {
+			return nil, errors.Wrap(err, "failed to validate config")
+		}
+	}
+	return &cfg, nil
+}
+
+// NewSub create config for sub chain.
+func NewSub(validates ...Validate) (*Config, error) {
+	if _subChainPath == "" {
+		return nil, nil
+	}
+	opts := make([]uconfig.YAMLOption, 0)
+	opts = append(opts, uconfig.Static(Default))
+	opts = append(opts, uconfig.Expand(os.LookupEnv))
+	opts = append(opts, uconfig.File(_subChainPath))
 	if _secretPath != "" {
 		opts = append(opts, uconfig.File(_secretPath))
 	}
