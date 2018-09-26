@@ -873,7 +873,7 @@ func newTestCFSM(
 	require.NoError(t, err)
 	var prevHash hash.Hash32B
 	lastBlk := blockchain.NewBlock(
-		iotxaddress.MainChainID(),
+		config.Default.Chain.ID,
 		1,
 		prevHash,
 		clock,
@@ -882,7 +882,7 @@ func newTestCFSM(
 		make([]*action.Execution, 0),
 	)
 	blkToMint := blockchain.NewBlock(
-		iotxaddress.MainChainID(),
+		config.Default.Chain.ID,
 		2,
 		lastBlk.HashBlock(),
 		clock,

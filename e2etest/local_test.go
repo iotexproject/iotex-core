@@ -847,7 +847,6 @@ func TestBlockchainRecovery(t *testing.T) {
 
 func newTestConfig() (*config.Config, error) {
 	cfg := config.Default
-	cfg.Chain.ID = iotxaddress.MainChainID()
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Consensus.Scheme = config.NOOPScheme
