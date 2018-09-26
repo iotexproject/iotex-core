@@ -16,7 +16,6 @@ import (
 	"google.golang.org/grpc/keepalive"
 
 	"github.com/iotexproject/iotex-core/address"
-	addrv1 "github.com/iotexproject/iotex-core/address/v1"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
@@ -377,7 +376,7 @@ func (cfg *Config) BlockchainAddress() (address.Address, error) {
 		return nil, errors.Wrapf(err, "error when decoding public key %s", cfg.Chain.ProducerPubKey)
 	}
 	pkHash := keypair.HashPubKey(pk)
-	return addrv1.New(cfg.Chain.ID, pkHash), nil
+	return address.New(cfg.Chain.ID, pkHash[:]), nil
 }
 
 // KeyPair returns the decoded public and private key pair
