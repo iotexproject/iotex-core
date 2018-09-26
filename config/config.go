@@ -137,6 +137,10 @@ var (
 			TpsWindow:               10,
 			MaxTransferPayloadBytes: 1024,
 		},
+		IndexService: IndexService{
+			Enabled: false,
+			IsTest:  false,
+		},
 		System: System{
 			HeartbeatInterval: 10 * time.Second,
 			HTTPProfilingPort: 0,
@@ -157,6 +161,7 @@ var (
 		ValidateRollDPoS,
 		ValidateDispatcher,
 		ValidateExplorer,
+		ValidateIndexService,
 		ValidateNetwork,
 		ValidateActPool,
 		ValidateChain,
@@ -259,6 +264,12 @@ type (
 		MaxTransferPayloadBytes uint64 `yaml:"maxTransferPayloadBytes"`
 	}
 
+	// IndexService is the index service config
+	IndexService struct {
+		Enabled bool `yaml:"enabled"`
+		IsTest  bool `yaml:"isTest"`
+	}
+
 	// System is the system config
 	System struct {
 		HeartbeatInterval time.Duration `yaml:"heartbeatInterval"`
@@ -287,16 +298,17 @@ type (
 
 	// Config is the root config struct, each package's config should be put as its sub struct
 	Config struct {
-		NodeType   string     `yaml:"nodeType"`
-		Network    Network    `yaml:"network"`
-		Chain      Chain      `yaml:"chain"`
-		ActPool    ActPool    `yaml:"actPool"`
-		Consensus  Consensus  `yaml:"consensus"`
-		BlockSync  BlockSync  `yaml:"blockSync"`
-		Dispatcher Dispatcher `yaml:"dispatcher"`
-		Explorer   Explorer   `yaml:"explorer"`
-		System     System     `yaml:"system"`
-		DB         DB         `yaml:"db"`
+		NodeType     string       `yaml:"nodeType"`
+		Network      Network      `yaml:"network"`
+		Chain        Chain        `yaml:"chain"`
+		ActPool      ActPool      `yaml:"actPool"`
+		Consensus    Consensus    `yaml:"consensus"`
+		BlockSync    BlockSync    `yaml:"blockSync"`
+		Dispatcher   Dispatcher   `yaml:"dispatcher"`
+		Explorer     Explorer     `yaml:"explorer"`
+		IndexService IndexService `yaml:"indexservice"`
+		System       System       `yaml:"system"`
+		DB           DB           `yaml:"db"`
 	}
 
 	// Validate is the interface of validating the config
@@ -509,6 +521,11 @@ func ValidateExplorer(cfg *Config) error {
 	if cfg.Explorer.Enabled && cfg.Explorer.TpsWindow <= 0 {
 		return errors.Wrap(ErrInvalidCfg, "tps window is not a positive integer when the explorer is enabled")
 	}
+	return nil
+}
+
+// ValidateIndexService validates the indexservice configs
+func ValidateIndexService(cfg *Config) error {
 	return nil
 }
 
