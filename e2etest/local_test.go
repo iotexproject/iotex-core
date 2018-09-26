@@ -40,7 +40,6 @@ func TestLocalCommit(t *testing.T) {
 	testutil.CleanupPath(t, testTriePath)
 	testutil.CleanupPath(t, testDBPath)
 
-	chainID := iotxaddress.MainChainID()
 	blockchain.Gen.BlockReward = uint64(0)
 
 	cfg, err := newTestConfig()
@@ -48,12 +47,14 @@ func TestLocalCommit(t *testing.T) {
 
 	// create server
 	ctx := context.Background()
-	svr := itx.NewServer(cfg)
+	svr, err := itx.NewServer(cfg)
+	require.Nil(err)
 	require.NoError(svr.Start(ctx))
-	bc := svr.Blockchain()
+	chainID := cfg.Chain.ID
+	bc := svr.ChainService(chainID).Blockchain()
 	require.NotNil(bc)
 	require.NoError(addTestingTsfBlocks(bc))
-	require.NotNil(svr.ActionPool())
+	require.NotNil(svr.ChainService(chainID).ActionPool())
 	require.NotNil(svr.P2P())
 
 	// create client
@@ -155,12 +156,12 @@ func TestLocalCommit(t *testing.T) {
 		if err := p.Broadcast(chainID, act1); err != nil {
 			return false, err
 		}
-		tsf, _, _ := svr.ActionPool().PickActs()
+		tsf, _, _ := svr.ChainService(chainID).ActionPool().PickActs()
 		return len(tsf) == 1, nil
 	})
 	require.Nil(err)
 
-	tsf, _, _ := svr.ActionPool().PickActs()
+	tsf, _, _ := svr.ChainService(chainID).ActionPool().PickActs()
 	blk1, err := chain.MintNewBlock(tsf, nil, nil, ta.Addrinfo["producer"], "")
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk1))
@@ -181,7 +182,7 @@ func TestLocalCommit(t *testing.T) {
 		if err := p.Broadcast(chainID, act2); err != nil {
 			return false, err
 		}
-		tsf, _, _ := svr.ActionPool().PickActs()
+		tsf, _, _ := svr.ChainService(chainID).ActionPool().PickActs()
 		return len(tsf) == 2, nil
 	})
 	require.Nil(err)
@@ -201,7 +202,7 @@ func TestLocalCommit(t *testing.T) {
 		if err := p.Broadcast(chainID, act3); err != nil {
 			return false, err
 		}
-		tsf, _, _ := svr.ActionPool().PickActs()
+		tsf, _, _ := svr.ChainService(chainID).ActionPool().PickActs()
 		return len(tsf) == 3, nil
 	})
 	require.Nil(err)
@@ -221,7 +222,7 @@ func TestLocalCommit(t *testing.T) {
 		if err := p.Broadcast(chainID, act4); err != nil {
 			return false, err
 		}
-		tsf, _, _ := svr.ActionPool().PickActs()
+		tsf, _, _ := svr.ChainService(chainID).ActionPool().PickActs()
 		return len(tsf) == 4, nil
 	})
 	require.Nil(err)
@@ -302,15 +303,17 @@ func TestLocalSync(t *testing.T) {
 	testutil.CleanupPath(t, testTriePath2)
 	testutil.CleanupPath(t, testDBPath2)
 
-	chainID := iotxaddress.MainChainID()
 	cfg, err := newTestConfig()
 	require.Nil(err)
 
 	// Create server
 	ctx := context.Background()
-	svr := itx.NewServer(cfg)
+	svr, err := itx.NewServer(cfg)
+	require.Nil(err)
 	require.Nil(svr.Start(ctx))
-	bc := svr.Blockchain()
+
+	chainID := cfg.Chain.ID
+	bc := svr.ChainService(chainID).Blockchain()
 	require.NotNil(bc)
 	require.Nil(addTestingTsfBlocks(bc))
 
@@ -343,9 +346,10 @@ func TestLocalSync(t *testing.T) {
 	cfg.NodeType = config.FullNodeType
 	cfg.Network.BootstrapNodes = []string{svr.P2P().Self().String()}
 	cfg.BlockSync.Interval = 1 * time.Second
-	cli := itx.NewServer(cfg)
+	cli, err := itx.NewServer(cfg)
+	require.Nil(err)
 	require.Nil(cli.Start(ctx))
-	require.NotNil(cli.Blockchain())
+	require.NotNil(cli.ChainService(chainID).Blockchain())
 	require.NotNil(cli.P2P())
 
 	defer func() {
@@ -363,23 +367,23 @@ func TestLocalSync(t *testing.T) {
 	err = svr.P2P().Broadcast(chainID, blk.ConvertToBlockPb())
 	require.NoError(err)
 	check := testutil.CheckCondition(func() (bool, error) {
-		blk1, err := cli.Blockchain().GetBlockByHeight(1)
+		blk1, err := cli.ChainService(chainID).Blockchain().GetBlockByHeight(1)
 		if err != nil {
 			return false, nil
 		}
-		blk2, err := cli.Blockchain().GetBlockByHeight(2)
+		blk2, err := cli.ChainService(chainID).Blockchain().GetBlockByHeight(2)
 		if err != nil {
 			return false, nil
 		}
-		blk3, err := cli.Blockchain().GetBlockByHeight(3)
+		blk3, err := cli.ChainService(chainID).Blockchain().GetBlockByHeight(3)
 		if err != nil {
 			return false, nil
 		}
-		blk4, err := cli.Blockchain().GetBlockByHeight(4)
+		blk4, err := cli.ChainService(chainID).Blockchain().GetBlockByHeight(4)
 		if err != nil {
 			return false, nil
 		}
-		blk5, err := cli.Blockchain().GetBlockByHeight(5)
+		blk5, err := cli.ChainService(chainID).Blockchain().GetBlockByHeight(5)
 		if err != nil {
 			return false, nil
 		}
@@ -393,19 +397,19 @@ func TestLocalSync(t *testing.T) {
 	require.Nil(err)
 
 	// verify 4 received blocks
-	blk, err = cli.Blockchain().GetBlockByHeight(1)
+	blk, err = cli.ChainService(chainID).Blockchain().GetBlockByHeight(1)
 	require.Nil(err)
 	require.Equal(hash1, blk.HashBlock())
-	blk, err = cli.Blockchain().GetBlockByHeight(2)
+	blk, err = cli.ChainService(chainID).Blockchain().GetBlockByHeight(2)
 	require.Nil(err)
 	require.Equal(hash2, blk.HashBlock())
-	blk, err = cli.Blockchain().GetBlockByHeight(3)
+	blk, err = cli.ChainService(chainID).Blockchain().GetBlockByHeight(3)
 	require.Nil(err)
 	require.Equal(hash3, blk.HashBlock())
-	blk, err = cli.Blockchain().GetBlockByHeight(4)
+	blk, err = cli.ChainService(chainID).Blockchain().GetBlockByHeight(4)
 	require.Nil(err)
 	require.Equal(hash4, blk.HashBlock())
-	blk, err = cli.Blockchain().GetBlockByHeight(5)
+	blk, err = cli.ChainService(chainID).Blockchain().GetBlockByHeight(5)
 	require.Nil(err)
 	require.Equal(hash5, blk.HashBlock())
 	t.Log("4 blocks received correctly")
@@ -425,12 +429,15 @@ func TestVoteLocalCommit(t *testing.T) {
 
 	// create node
 	ctx := context.Background()
-	svr := itx.NewServer(cfg)
+	svr, err := itx.NewServer(cfg)
+	require.Nil(err)
 	require.Nil(svr.Start(ctx))
-	bc := svr.Blockchain()
+
+	chainID := cfg.Chain.ID
+	bc := svr.ChainService(chainID).Blockchain()
 	require.NotNil(bc)
 	require.Nil(addTestingTsfBlocks(bc))
-	require.NotNil(svr.ActionPool())
+	require.NotNil(svr.ChainService(chainID).ActionPool())
 
 	cfg.Network.BootstrapNodes = []string{svr.P2P().Self().String()}
 	p := network.NewOverlay(&cfg.Network)
@@ -492,7 +499,6 @@ func TestVoteLocalCommit(t *testing.T) {
 	acttsf3 := tsf3.ConvertToActionPb()
 	acttsf4 := tsf4.ConvertToActionPb()
 
-	chainID := chain.ChainID()
 	err = testutil.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
 		if err := p.Broadcast(chainID, act1); err != nil {
 			return false, err
@@ -515,12 +521,12 @@ func TestVoteLocalCommit(t *testing.T) {
 		if err := p.Broadcast(chainID, acttsf4); err != nil {
 			return false, err
 		}
-		transfer, votes, executions := svr.ActionPool().PickActs()
+		transfer, votes, executions := svr.ChainService(chainID).ActionPool().PickActs()
 		return len(votes)+len(transfer)+len(executions) == 7, nil
 	})
 	require.Nil(err)
 
-	transfers, votes, executions := svr.ActionPool().PickActs()
+	transfers, votes, executions := svr.ChainService(chainID).ActionPool().PickActs()
 	blk1, err := chain.MintNewBlock(transfers, votes, executions, ta.Addrinfo["producer"], "")
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk1))
@@ -555,7 +561,7 @@ func TestVoteLocalCommit(t *testing.T) {
 		if err := p.Broadcast(chainID, act5); err != nil {
 			return false, err
 		}
-		_, votes, _ := svr.ActionPool().PickActs()
+		_, votes, _ := svr.ChainService(chainID).ActionPool().PickActs()
 		return len(votes) == 2, nil
 	})
 	require.Nil(err)
@@ -596,7 +602,7 @@ func TestVoteLocalCommit(t *testing.T) {
 		if err := p.Broadcast(chainID, act6); err != nil {
 			return false, err
 		}
-		_, votes, _ := svr.ActionPool().PickActs()
+		_, votes, _ := svr.ChainService(chainID).ActionPool().PickActs()
 		return len(votes) == 1, nil
 	})
 	require.Nil(err)
@@ -639,7 +645,7 @@ func TestVoteLocalCommit(t *testing.T) {
 		if err := p.Broadcast(chainID, act7); err != nil {
 			return false, err
 		}
-		_, votes, _ := svr.ActionPool().PickActs()
+		_, votes, _ := svr.ChainService(chainID).ActionPool().PickActs()
 		return len(votes) == 1, nil
 	})
 	require.Nil(err)
@@ -681,12 +687,15 @@ func TestDummyBlockReplacement(t *testing.T) {
 
 	// create server
 	ctx := context.Background()
-	svr := itx.NewServer(cfg)
+	svr, err := itx.NewServer(cfg)
+	require.Nil(err)
 	require.NoError(svr.Start(ctx))
-	bc := svr.Blockchain()
+
+	chainID := cfg.Chain.ID
+	bc := svr.ChainService(chainID).Blockchain()
 	require.NotNil(bc)
 	require.NoError(addTestingDummyBlock(bc))
-	require.NotNil(svr.ActionPool())
+	require.NotNil(svr.ChainService(chainID).ActionPool())
 	require.NotNil(svr.P2P())
 
 	// create client
@@ -720,18 +729,17 @@ func TestDummyBlockReplacement(t *testing.T) {
 	tsf0.SetSenderPublicKey(pubk)
 	tsf0.SetSignature(sign)
 
-	chainID := originChain.ChainID()
 	act1 := tsf0.ConvertToActionPb()
 	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		if err := p.Broadcast(chainID, act1); err != nil {
 			return false, err
 		}
-		tsf, _, _ := svr.ActionPool().PickActs()
+		tsf, _, _ := svr.ChainService(chainID).ActionPool().PickActs()
 		return len(tsf) == 1, nil
 	})
 	require.Nil(err)
 
-	tsf, _, _ := svr.ActionPool().PickActs()
+	tsf, _, _ := svr.ChainService(chainID).ActionPool().PickActs()
 	blk1, err := originChain.MintNewBlock(tsf, nil, nil, ta.Addrinfo["producer"], "")
 	require.Nil(err)
 
@@ -754,7 +762,7 @@ func TestDummyBlockReplacement(t *testing.T) {
 
 	// Wait for actpool to be reset
 	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
-		tsf, _, _ := svr.ActionPool().PickActs()
+		tsf, _, _ := svr.ChainService(chainID).ActionPool().PickActs()
 		return len(tsf) == 0, nil
 	})
 	require.Nil(err)
@@ -768,12 +776,12 @@ func TestDummyBlockReplacement(t *testing.T) {
 		if err := p.Broadcast(chainID, act2); err != nil {
 			return false, err
 		}
-		tsf, _, _ := svr.ActionPool().PickActs()
+		tsf, _, _ := svr.ChainService(chainID).ActionPool().PickActs()
 		return len(tsf) == 1, nil
 	})
 	require.Nil(err)
 
-	tsf, _, _ = svr.ActionPool().PickActs()
+	tsf, _, _ = svr.ChainService(chainID).ActionPool().PickActs()
 	blk2, err := originChain.MintNewBlock(tsf, nil, nil, ta.Addrinfo["producer"], "")
 	require.Nil(err)
 	err = p.Broadcast(chainID, blk2.ConvertToBlockPb())
@@ -812,9 +820,12 @@ func TestBlockchainRecovery(t *testing.T) {
 
 	// create server
 	ctx := context.Background()
-	svr := itx.NewServer(cfg)
+	svr, err := itx.NewServer(cfg)
+	require.Nil(err)
 	require.NoError(svr.Start(ctx))
-	bc := svr.Blockchain()
+
+	chainID := cfg.Chain.ID
+	bc := svr.ChainService(chainID).Blockchain()
 	require.NotNil(bc)
 	require.NoError(addTestingTsfBlocks(bc))
 
@@ -829,12 +840,14 @@ func TestBlockchainRecovery(t *testing.T) {
 	testutil.CleanupPath(t, testTriePath)
 
 	// restart server
-	svr = itx.NewServer(cfg)
+	svr, err = itx.NewServer(cfg)
+	require.Nil(err)
 	require.NoError(svr.Start(ctx))
 }
 
 func newTestConfig() (*config.Config, error) {
 	cfg := config.Default
+	cfg.Chain.ID = iotxaddress.MainChainID()
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Consensus.Scheme = config.NOOPScheme
