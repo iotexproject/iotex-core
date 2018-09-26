@@ -40,9 +40,11 @@ func TestActionInjector(t *testing.T) {
 	cfg, err := newConfig()
 	require.NoError(err)
 	ctx := context.Background()
+	chainID := cfg.Chain.ID
 
 	// create server
-	svr := itx.NewServer(cfg)
+	svr, err := itx.NewServer(cfg)
+	require.NoError(err)
 	require.Nil(svr.Start(ctx))
 	defer func() {
 		require.NoError(svr.Stop(ctx))
@@ -51,7 +53,7 @@ func TestActionInjector(t *testing.T) {
 	}()
 
 	// Create Explorer Client
-	client := explorer.NewExplorerProxy(fmt.Sprintf("http://127.0.0.1:%d", svr.Explorer().Port()))
+	client := explorer.NewExplorerProxy(fmt.Sprintf("http://127.0.0.1:%d", svr.ChainService(chainID).Explorer().Port()))
 
 	configPath := "./gentsfaddrs.yaml"
 
@@ -107,11 +109,11 @@ func TestActionInjector(t *testing.T) {
 
 	// Wait until the injected actions in APS Mode gets into the action pool
 	require.NoError(testutil.WaitUntil(100*time.Millisecond, 5*time.Second, func() (bool, error) {
-		transfers, votes, executions := svr.ActionPool().PickActs()
+		transfers, votes, executions := svr.ChainService(chainID).ActionPool().PickActs()
 		return len(transfers)+len(votes)+len(executions) >= 30, nil
 	}))
 
-	transfers, votes, executions := svr.ActionPool().PickActs()
+	transfers, votes, executions := svr.ChainService(chainID).ActionPool().PickActs()
 	numActsBase := len(transfers) + len(votes) + len(executions)
 
 	// Test injectByInterval
@@ -125,7 +127,7 @@ func TestActionInjector(t *testing.T) {
 
 	// Wait until all the injected actions in Interval Mode gets into the action pool
 	err = testutil.WaitUntil(100*time.Millisecond, 5*time.Second, func() (bool, error) {
-		transfers, votes, executions := svr.ActionPool().PickActs()
+		transfers, votes, executions := svr.ChainService(chainID).ActionPool().PickActs()
 		return len(transfers)+len(votes)+len(executions)-numActsBase == 4, nil
 	})
 	require.Nil(err)
@@ -133,6 +135,7 @@ func TestActionInjector(t *testing.T) {
 
 func newConfig() (*config.Config, error) {
 	cfg := config.Default
+	cfg.Chain.ID = iotxaddress.MainChainID()
 	cfg.NodeType = config.DelegateType
 	cfg.Consensus.Scheme = config.NOOPScheme
 	cfg.Chain.ChainDBPath = testChainPath
