@@ -46,14 +46,26 @@ func init() {
 func main() {
 	cfg, err := config.New()
 	if err != nil {
-		logger.Panic().Err(err).Msg("Failed to new config.")
-		return
+		logger.Fatal().Err(err).Msg("Failed to new config.")
 	}
 
 	initLogger(cfg)
 
 	// create and start the node
-	svr := itx.NewServer(cfg)
+	svr, err := itx.NewServer(cfg)
+	if err != nil {
+		logger.Fatal().Err(err).Msg("Failed to create server.")
+	}
+
+	cfgsub, err := config.NewSub()
+	if err != nil {
+		logger.Fatal().Err(err).Msg("Failed to new sub chain config.")
+	}
+
+	if err := svr.NewChainService(cfgsub); err != nil {
+		logger.Fatal().Err(err).Msg("Failed to new sub chain.")
+	}
+
 	ctx := context.Background()
 	ctxWithValue := context.WithValue(ctx, blockchain.RecoveryHeightKey, uint64(recoveryHeight))
 	if err := svr.Start(ctxWithValue); err != nil {

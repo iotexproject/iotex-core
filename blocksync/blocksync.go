@@ -59,7 +59,7 @@ func NewBlockSyncer(
 		ap:     ap,
 		size:   cfg.BlockSync.BufferSize,
 	}
-	w := newSyncWorker(cfg, p2p, buf)
+	w := newSyncWorker(chain.ChainID(), cfg, p2p, buf)
 	return &blockSyncer{
 		ackBlockCommit: cfg.IsDelegate() || cfg.IsFullnode(),
 		ackBlockSync:   cfg.IsDelegate() || cfg.IsFullnode(),
@@ -142,7 +142,7 @@ func (bs *blockSyncer) ProcessSyncRequest(sender string, sync *pb.BlockSync) err
 			return err
 		}
 		// TODO: send back multiple blocks in one shot
-		if err := bs.p2p.Tell(node.NewTCPNode(sender), &pb.BlockContainer{Block: blk.ConvertToBlockPb()}); err != nil {
+		if err := bs.p2p.Tell(bs.bc.ChainID(), node.NewTCPNode(sender), &pb.BlockContainer{Block: blk.ConvertToBlockPb()}); err != nil {
 			logger.Warn().Err(err).Msg("Failed to response to ProcessSyncRequest.")
 		}
 	}

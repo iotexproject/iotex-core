@@ -15,6 +15,7 @@ import (
 	uconfig "go.uber.org/config"
 	"google.golang.org/grpc/keepalive"
 
+	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
@@ -26,13 +27,15 @@ import (
 func init() {
 	flag.StringVar(&_overwritePath, "config-path", "", "Config path")
 	flag.StringVar(&_secretPath, "secret-path", "", "Secret path")
+	flag.StringVar(&_subChainPath, "sub-config-path", "", "Sub chain Config path")
 }
 
 var (
 	// overwritePath is the path to the config file which overwrite default values
 	_overwritePath string
 	// secretPath is the path to the  config file store secret values
-	_secretPath string
+	_secretPath   string
+	_subChainPath string
 )
 
 const (
@@ -87,6 +90,7 @@ var (
 		Chain: Chain{
 			ChainDBPath:             "/tmp/chain.db",
 			TrieDBPath:              "/tmp/trie.db",
+			ID:                      1,
 			ProducerPubKey:          keypair.EncodePublicKey(keypair.ZeroPublicKey),
 			ProducerPrivKey:         keypair.EncodePrivateKey(keypair.ZeroPrivateKey),
 			InMemTest:               false,
@@ -197,6 +201,7 @@ type (
 		ChainDBPath string `yaml:"chainDBPath"`
 		TrieDBPath  string `yaml:"trieDBPath"`
 
+		ID              uint32 `yaml:"id"`
 		ProducerPubKey  string `yaml:"producerPubKey"`
 		ProducerPrivKey string `yaml:"producerPrivKey"`
 
@@ -333,6 +338,40 @@ func New(validates ...Validate) (*Config, error) {
 	return &cfg, nil
 }
 
+// NewSub create config for sub chain.
+func NewSub(validates ...Validate) (*Config, error) {
+	if _subChainPath == "" {
+		return nil, nil
+	}
+	opts := make([]uconfig.YAMLOption, 0)
+	opts = append(opts, uconfig.Static(Default))
+	opts = append(opts, uconfig.Expand(os.LookupEnv))
+	opts = append(opts, uconfig.File(_subChainPath))
+	if _secretPath != "" {
+		opts = append(opts, uconfig.File(_secretPath))
+	}
+	yaml, err := uconfig.NewYAML(opts...)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to init config")
+	}
+
+	var cfg Config
+	if err := yaml.Get(uconfig.Root).Populate(&cfg); err != nil {
+		return nil, errors.Wrap(err, "failed to unmarshal YAML config to struct")
+	}
+
+	// By default, the config needs to pass all the validation
+	if len(validates) == 0 {
+		validates = Validates
+	}
+	for _, validate := range validates {
+		if err := validate(&cfg); err != nil {
+			return nil, errors.Wrap(err, "failed to validate config")
+		}
+	}
+	return &cfg, nil
+}
+
 // IsDelegate returns true if the node type is Delegate
 func (cfg *Config) IsDelegate() bool {
 	return cfg.NodeType == DelegateType
@@ -364,6 +403,33 @@ func (cfg *Config) ProducerAddr() (*iotxaddress.Address, error) {
 	}
 	addr.PrivateKey = priKey
 	return addr, nil
+}
+
+// BlockchainAddress returns the address derived from the configured chain ID and public key
+func (cfg *Config) BlockchainAddress() (address.Address, error) {
+	pk, err := keypair.DecodePublicKey(cfg.Chain.ProducerPubKey)
+	if err != nil {
+		return nil, errors.Wrapf(err, "error when decoding public key %s", cfg.Chain.ProducerPubKey)
+	}
+	pkHash := keypair.HashPubKey(pk)
+	return address.New(cfg.Chain.ID, pkHash[:]), nil
+}
+
+// KeyPair returns the decoded public and private key pair
+func (cfg *Config) KeyPair() (keypair.PublicKey, keypair.PrivateKey, error) {
+	pk, err := keypair.DecodePublicKey(cfg.Chain.ProducerPubKey)
+	if err != nil {
+		return keypair.ZeroPublicKey,
+			keypair.ZeroPrivateKey,
+			errors.Wrapf(err, "error when decoding public key %s", cfg.Chain.ProducerPubKey)
+	}
+	sk, err := keypair.DecodePrivateKey(cfg.Chain.ProducerPrivKey)
+	if err != nil {
+		return keypair.ZeroPublicKey,
+			keypair.ZeroPrivateKey,
+			errors.Wrapf(err, "error when decoding private key %s", cfg.Chain.ProducerPrivKey)
+	}
+	return pk, sk, nil
 }
 
 // ValidateAddr validates the block producer address

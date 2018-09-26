@@ -31,8 +31,8 @@ func BytesToUint64(value []byte) uint64 {
 }
 
 // BytesTo20B converts a byte slice to 20-Byte array
-func BytesTo20B(b []byte) hash.AddrHash {
-	var h hash.AddrHash
+func BytesTo20B(b []byte) hash.PKHash {
+	var h hash.PKHash
 	copy(h[:], b)
 	return h
 }

@@ -85,7 +85,7 @@ func TestRollDelegatesEvt(t *testing.T) {
 		for i := 0; i < 4; i++ {
 			delegates[i] = testAddrs[i].RawAddress
 		}
-		cfsm := newTestCFSM(t, testAddrs[0], ctrl, delegates, nil, nil, clock.New())
+		cfsm := newTestCFSM(t, testAddrs[0], testAddrs[2], ctrl, delegates, nil, nil, clock.New())
 		s, err := cfsm.handleRollDelegatesEvt(cfsm.newCEvt(eRollDelegates))
 		assert.Equal(t, sDKGGeneration, s)
 		assert.NoError(t, err)
@@ -104,7 +104,7 @@ func TestRollDelegatesEvt(t *testing.T) {
 		for i := 0; i < 4; i++ {
 			delegates[i] = testAddrs[i+1].RawAddress
 		}
-		cfsm := newTestCFSM(t, testAddrs[0], ctrl, delegates, nil, nil, clock.New())
+		cfsm := newTestCFSM(t, testAddrs[0], testAddrs[2], ctrl, delegates, nil, nil, clock.New())
 		s, err := cfsm.handleRollDelegatesEvt(cfsm.newCEvt(eRollDelegates))
 		assert.Equal(t, sEpochStart, s)
 		assert.NoError(t, err)
@@ -123,6 +123,7 @@ func TestRollDelegatesEvt(t *testing.T) {
 		cfsm := newTestCFSM(
 			t,
 			testAddrs[0],
+			testAddrs[2],
 			ctrl,
 			delegates,
 			func(mockBlockchain *mock_blockchain.MockBlockchain) {
@@ -150,6 +151,7 @@ func TestRollDelegatesEvt(t *testing.T) {
 		cfsm := newTestCFSM(
 			t,
 			testAddrs[0],
+			testAddrs[2],
 			ctrl,
 			delegates, func(mockBlockchain *mock_blockchain.MockBlockchain) {
 				mockBlockchain.EXPECT().TipHeight().Return(uint64(1)).Times(1)
@@ -178,14 +180,14 @@ func TestGenerateDKGEvt(t *testing.T) {
 		delegates[i] = testAddrs[i].RawAddress
 	}
 	t.Run("no-delay", func(t *testing.T) {
-		cfsm := newTestCFSM(t, testAddrs[2], ctrl, delegates, nil, nil, clock.New())
+		cfsm := newTestCFSM(t, testAddrs[2], testAddrs[2], ctrl, delegates, nil, nil, clock.New())
 		s, err := cfsm.handleGenerateDKGEvt(cfsm.newCEvt(eGenerateDKG))
 		assert.Equal(t, sRoundStart, s)
 		assert.NoError(t, err)
 		assert.Equal(t, eStartRound, (<-cfsm.evtq).Type())
 	})
 	t.Run("delay", func(t *testing.T) {
-		cfsm := newTestCFSM(t, testAddrs[2], ctrl, delegates, nil, nil, clock.New())
+		cfsm := newTestCFSM(t, testAddrs[2], testAddrs[2], ctrl, delegates, nil, nil, clock.New())
 		cfsm.ctx.cfg.ProposerInterval = 2 * time.Second
 		start := time.Now()
 		s, err := cfsm.handleGenerateDKGEvt(cfsm.newCEvt(eGenerateDKG))
@@ -208,7 +210,7 @@ func TestStartRoundEvt(t *testing.T) {
 		for i := 0; i < 4; i++ {
 			delegates[i] = testAddrs[i].RawAddress
 		}
-		cfsm := newTestCFSM(t, testAddrs[2], ctrl, delegates, nil, nil, clock.New())
+		cfsm := newTestCFSM(t, testAddrs[2], testAddrs[2], ctrl, delegates, nil, nil, clock.New())
 		cfsm.ctx.epoch = epochCtx{
 			delegates:    delegates,
 			num:          uint64(1),
@@ -231,7 +233,7 @@ func TestStartRoundEvt(t *testing.T) {
 		for i := 0; i < 4; i++ {
 			delegates[i] = testAddrs[i+1].RawAddress
 		}
-		cfsm := newTestCFSM(t, testAddrs[1], ctrl, delegates, nil, nil, clock.New())
+		cfsm := newTestCFSM(t, testAddrs[1], testAddrs[2], ctrl, delegates, nil, nil, clock.New())
 		cfsm.ctx.epoch = epochCtx{
 			delegates:    delegates,
 			num:          uint64(1),
@@ -262,11 +264,12 @@ func TestHandleInitBlockEvt(t *testing.T) {
 	cfsm := newTestCFSM(
 		t,
 		testAddrs[2],
+		testAddrs[2],
 		ctrl,
 		delegates,
 		nil,
 		func(p2p *mock_network.MockOverlay) {
-			p2p.EXPECT().Broadcast(gomock.Any()).Return(nil).Times(1)
+			p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(1)
 		},
 		clock.New(),
 	)
@@ -322,11 +325,12 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		cfsm := newTestCFSM(
 			t,
 			testAddrs[0],
+			testAddrs[2],
 			ctrl,
 			delegates,
 			nil,
 			func(p2p *mock_network.MockOverlay) {
-				p2p.EXPECT().Broadcast(gomock.Any()).Return(nil).Times(1)
+				p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(1)
 			},
 			clock.New(),
 		)
@@ -335,7 +339,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 
 		blk, err := cfsm.ctx.mintBlock()
 		assert.NoError(t, err)
-		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, delegates[2], cfsm.ctx.clock))
+		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, cfsm.ctx.clock))
 		assert.NoError(t, err)
 		assert.Equal(t, sAcceptPrevote, state)
 		e := <-cfsm.evtq
@@ -351,11 +355,12 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		cfsm := newTestCFSM(
 			t,
 			testAddrs[0],
+			testAddrs[2],
 			ctrl,
 			delegates,
 			nil,
 			func(p2p *mock_network.MockOverlay) {
-				p2p.EXPECT().Broadcast(gomock.Any()).Return(nil).Times(2)
+				p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(2)
 			},
 			clock,
 		)
@@ -367,7 +372,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		clock.Add(11 * time.Second)
 		blk, err := cfsm.ctx.mintBlock()
 		assert.NoError(t, err)
-		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, delegates[2], cfsm.ctx.clock))
+		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, cfsm.ctx.clock))
 		assert.NoError(t, err)
 		assert.Equal(t, sAcceptPrevote, state)
 		e := <-cfsm.evtq
@@ -378,7 +383,9 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		assert.Equal(t, ePrevoteTimeout, (<-cfsm.evtq).Type())
 
 		clock.Add(10 * time.Second)
-		state, err = cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, delegates[3], cfsm.ctx.clock))
+		err = blk.SignBlock(testAddrs[3])
+		assert.NoError(t, err)
+		state, err = cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, cfsm.ctx.clock))
 		assert.NoError(t, err)
 		assert.Equal(t, sAcceptPrevote, state)
 		e = <-cfsm.evtq
@@ -393,13 +400,14 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		cfsm := newTestCFSM(
 			t,
 			testAddrs[0],
+			testAddrs[2],
 			ctrl,
 			delegates,
 			func(chain *mock_blockchain.MockBlockchain) {
 				chain.EXPECT().ValidateBlock(gomock.Any()).Return(errors.New("mock error")).Times(1)
 			},
 			func(p2p *mock_network.MockOverlay) {
-				p2p.EXPECT().Broadcast(gomock.Any()).Return(nil).Times(1)
+				p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(1)
 			},
 			clock.New(),
 		)
@@ -408,7 +416,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 
 		blk, err := cfsm.ctx.mintBlock()
 		assert.NoError(t, err)
-		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, delegates[2], cfsm.ctx.clock))
+		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, cfsm.ctx.clock))
 		assert.NoError(t, err)
 		assert.Equal(t, sAcceptPrevote, state)
 		e := <-cfsm.evtq
@@ -423,13 +431,14 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		cfsm := newTestCFSM(
 			t,
 			testAddrs[2],
+			testAddrs[2],
 			ctrl,
 			delegates,
 			func(chain *mock_blockchain.MockBlockchain) {
 				chain.EXPECT().ValidateBlock(gomock.Any()).Times(0)
 			},
 			func(p2p *mock_network.MockOverlay) {
-				p2p.EXPECT().Broadcast(gomock.Any()).Return(nil).Times(1)
+				p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(1)
 			},
 			clock.New(),
 		)
@@ -438,7 +447,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 
 		blk, err := cfsm.ctx.mintBlock()
 		assert.NoError(t, err)
-		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, delegates[2], cfsm.ctx.clock))
+		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, cfsm.ctx.clock))
 		assert.NoError(t, err)
 		assert.Equal(t, sAcceptPrevote, state)
 		e := <-cfsm.evtq
@@ -453,11 +462,12 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		cfsm := newTestCFSM(
 			t,
 			testAddrs[2],
+			testAddrs[3],
 			ctrl,
 			delegates,
 			nil,
 			func(p2p *mock_network.MockOverlay) {
-				p2p.EXPECT().Broadcast(gomock.Any()).Return(nil).Times(1)
+				p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(1)
 			},
 			clock.New(),
 		)
@@ -466,7 +476,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 
 		blk, err := cfsm.ctx.mintBlock()
 		assert.NoError(t, err)
-		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, delegates[3], cfsm.ctx.clock))
+		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, cfsm.ctx.clock))
 		assert.NoError(t, err)
 		assert.Equal(t, sAcceptPrevote, state)
 		e := <-cfsm.evtq
@@ -482,11 +492,12 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		cfsm := newTestCFSM(
 			t,
 			testAddrs[2],
+			testAddrs[3],
 			ctrl,
 			delegates,
 			nil,
 			func(p2p *mock_network.MockOverlay) {
-				p2p.EXPECT().Broadcast(gomock.Any()).Return(nil).Times(1)
+				p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(1)
 			},
 			clock,
 		)
@@ -498,7 +509,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		clock.Add(11 * time.Second)
 		blk, err := cfsm.ctx.mintBlock()
 		assert.NoError(t, err)
-		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, delegates[3], cfsm.ctx.clock))
+		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, cfsm.ctx.clock))
 		assert.NoError(t, err)
 		assert.Equal(t, sAcceptPrevote, state)
 		e := <-cfsm.evtq
@@ -513,13 +524,14 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		cfsm := newTestCFSM(
 			t,
 			testAddrs[2],
+			testAddrs[2],
 			ctrl,
 			delegates,
 			func(chain *mock_blockchain.MockBlockchain) {
 				chain.EXPECT().ValidateBlock(gomock.Any()).Times(0)
 			},
 			func(p2p *mock_network.MockOverlay) {
-				p2p.EXPECT().Broadcast(gomock.Any()).Return(nil).Times(0)
+				p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(0)
 			},
 			clock.New(),
 		)
@@ -560,11 +572,14 @@ func TestHandlePrevoteEvt(t *testing.T) {
 		cfsm := newTestCFSM(
 			t,
 			testAddrs[0],
+			testAddrs[2],
 			ctrl,
 			delegates,
-			nil,
+			func(chain *mock_blockchain.MockBlockchain) {
+				chain.EXPECT().ChainID().AnyTimes().Return(iotxaddress.MainChainID())
+			},
 			func(p2p *mock_network.MockOverlay) {
-				p2p.EXPECT().Broadcast(gomock.Any()).Return(nil).Times(1)
+				p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(1)
 			},
 			clock.New(),
 		)
@@ -607,11 +622,14 @@ func TestHandlePrevoteEvt(t *testing.T) {
 		cfsm := newTestCFSM(
 			t,
 			testAddrs[0],
+			testAddrs[2],
 			ctrl,
 			delegates,
-			nil,
+			func(chain *mock_blockchain.MockBlockchain) {
+				chain.EXPECT().ChainID().AnyTimes().Return(iotxaddress.MainChainID())
+			},
 			func(p2p *mock_network.MockOverlay) {
-				p2p.EXPECT().Broadcast(gomock.Any()).Return(nil).Times(1)
+				p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(1)
 			},
 			clock.New(),
 		)
@@ -661,13 +679,15 @@ func TestHandleVoteEvt(t *testing.T) {
 		cfsm := newTestCFSM(
 			t,
 			testAddrs[0],
+			testAddrs[2],
 			ctrl,
 			delegates,
 			func(chain *mock_blockchain.MockBlockchain) {
 				chain.EXPECT().CommitBlock(gomock.Any()).Return(nil).Times(1)
+				chain.EXPECT().ChainID().AnyTimes().Return(iotxaddress.MainChainID())
 			},
 			func(p2p *mock_network.MockOverlay) {
-				p2p.EXPECT().Broadcast(gomock.Any()).Return(nil).Times(1)
+				p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(1)
 			},
 			clock.New(),
 		)
@@ -704,6 +724,7 @@ func TestHandleVoteEvt(t *testing.T) {
 		cfsm := newTestCFSM(
 			t,
 			testAddrs[0],
+			testAddrs[2],
 			ctrl,
 			delegates,
 			func(chain *mock_blockchain.MockBlockchain) {
@@ -711,9 +732,10 @@ func TestHandleVoteEvt(t *testing.T) {
 				chain.EXPECT().
 					MintNewDummyBlock().
 					Return(blockchain.NewBlock(0, 0, hash.ZeroHash32B, clock.New(), nil, nil, nil)).Times(0)
+				chain.EXPECT().ChainID().AnyTimes().Return(iotxaddress.MainChainID())
 			},
 			func(p2p *mock_network.MockOverlay) {
-				p2p.EXPECT().Broadcast(gomock.Any()).Return(nil).Times(0)
+				p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(0)
 			},
 			clock.New(),
 		)
@@ -734,6 +756,7 @@ func TestHandleVoteEvt(t *testing.T) {
 		cfsm := newTestCFSM(
 			t,
 			testAddrs[0],
+			testAddrs[2],
 			ctrl,
 			delegates,
 			func(chain *mock_blockchain.MockBlockchain) {
@@ -741,9 +764,10 @@ func TestHandleVoteEvt(t *testing.T) {
 				chain.EXPECT().
 					MintNewDummyBlock().
 					Return(blockchain.NewBlock(0, 0, hash.ZeroHash32B, clock.New(), nil, nil, nil)).Times(1)
+				chain.EXPECT().ChainID().AnyTimes().Return(iotxaddress.MainChainID())
 			},
 			func(p2p *mock_network.MockOverlay) {
-				p2p.EXPECT().Broadcast(gomock.Any()).Return(nil).Times(1)
+				p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(1)
 			},
 			clock.New(),
 		)
@@ -788,9 +812,12 @@ func TestHandleFinishEpochEvt(t *testing.T) {
 		cfsm := newTestCFSM(
 			t,
 			testAddrs[0],
+			testAddrs[2],
 			ctrl,
 			delegates,
-			nil,
+			func(chain *mock_blockchain.MockBlockchain) {
+				chain.EXPECT().TipHeight().Return(uint64(1)).Times(2)
+			},
 			nil,
 			clock.New(),
 		)
@@ -806,10 +833,12 @@ func TestHandleFinishEpochEvt(t *testing.T) {
 		cfsm := newTestCFSM(
 			t,
 			testAddrs[0],
+			testAddrs[2],
 			ctrl,
 			delegates,
 			func(chain *mock_blockchain.MockBlockchain) {
 				chain.EXPECT().TipHeight().Return(uint64(4)).Times(1)
+				chain.EXPECT().ChainID().AnyTimes().Return(iotxaddress.MainChainID())
 			},
 			nil,
 			clock.New(),
@@ -827,6 +856,7 @@ func TestHandleFinishEpochEvt(t *testing.T) {
 func newTestCFSM(
 	t *testing.T,
 	addr *iotxaddress.Address,
+	proposer *iotxaddress.Address,
 	ctrl *gomock.Controller,
 	delegates []string,
 	mockChain func(*mock_blockchain.MockBlockchain),
@@ -843,7 +873,7 @@ func newTestCFSM(
 	require.NoError(t, err)
 	var prevHash hash.Hash32B
 	lastBlk := blockchain.NewBlock(
-		1,
+		iotxaddress.MainChainID(),
 		1,
 		prevHash,
 		clock,
@@ -852,7 +882,7 @@ func newTestCFSM(
 		make([]*action.Execution, 0),
 	)
 	blkToMint := blockchain.NewBlock(
-		1,
+		iotxaddress.MainChainID(),
 		2,
 		lastBlk.HashBlock(),
 		clock,
@@ -860,6 +890,7 @@ func newTestCFSM(
 		[]*action.Vote{vote},
 		nil,
 	)
+	blkToMint.SignBlock(proposer)
 	ctx := makeTestRollDPoSCtx(
 		addr,
 		ctrl,
@@ -869,6 +900,7 @@ func newTestCFSM(
 			EnableDummyBlock: true,
 		},
 		func(blockchain *mock_blockchain.MockBlockchain) {
+			blockchain.EXPECT().ChainID().AnyTimes().Return(iotxaddress.MainChainID())
 			blockchain.EXPECT().GetBlockByHeight(uint64(1)).Return(lastBlk, nil).AnyTimes()
 			blockchain.EXPECT().
 				MintNewBlock(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
@@ -896,7 +928,7 @@ func newTestCFSM(
 		},
 		func(p2p *mock_network.MockOverlay) {
 			if mockP2P == nil {
-				p2p.EXPECT().Broadcast(gomock.Any()).Return(nil).AnyTimes()
+				p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 			} else {
 				mockP2P(p2p)
 			}

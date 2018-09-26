@@ -34,6 +34,17 @@ message ExecutionPb {
     bytes data = 5;
 }
 
+message SecretProposalPb {
+    string sender = 1;
+    string recipient = 2;
+    repeated uint32 secret = 3;
+}
+
+message SecretWitnessPb {
+    string sender = 1;
+    repeated bytes witness = 2;
+}
+
 message LogPb {
     string address = 1;
     repeated bytes topics = 2;
@@ -63,6 +74,8 @@ message ActionPb {
         TransferPb transfer = 10;
         VotePb vote = 11;
         ExecutionPb execution = 12;
+        SecretProposalPb secretProposal = 13;
+        SecretWitnessPb secretWitness = 14;
     }
 }
 

@@ -382,7 +382,7 @@ func (o *directOverlay) Start(_ context.Context) error { return nil }
 
 func (o *directOverlay) Stop(_ context.Context) error { return nil }
 
-func (o *directOverlay) Broadcast(msg proto.Message) error {
+func (o *directOverlay) Broadcast(chainID uint32, msg proto.Message) error {
 	// Only broadcast consensus message
 	if _, ok := msg.(*iproto.ViewChangeMsg); !ok {
 		return nil
@@ -395,7 +395,7 @@ func (o *directOverlay) Broadcast(msg proto.Message) error {
 	return nil
 }
 
-func (o *directOverlay) Tell(net.Addr, proto.Message) error { return nil }
+func (o *directOverlay) Tell(uint32, net.Addr, proto.Message) error { return nil }
 
 func (o *directOverlay) Self() net.Addr { return o.addr }
 
@@ -412,6 +412,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 
 	newConsensusComponents := func(numNodes int) ([]*RollDPoS, []*directOverlay, []blockchain.Blockchain) {
 		cfg := config.Default
+		cfg.Chain.ID = iotxaddress.MainChainID()
 		cfg.Consensus.RollDPoS.Delay = 300 * time.Millisecond
 		cfg.Consensus.RollDPoS.ProposerInterval = time.Second
 		cfg.Consensus.RollDPoS.AcceptProposeTTL = 100 * time.Millisecond

@@ -65,11 +65,11 @@ type (
 		HasRun() bool
 		Commit() error
 		// Contracts
-		GetCodeHash(hash.AddrHash) (hash.Hash32B, error)
-		GetCode(hash.AddrHash) ([]byte, error)
-		SetCode(hash.AddrHash, []byte) error
-		GetContractState(hash.AddrHash, hash.Hash32B) (hash.Hash32B, error)
-		SetContractState(hash.AddrHash, hash.Hash32B, hash.Hash32B) error
+		GetCodeHash(hash.PKHash) (hash.Hash32B, error)
+		GetCode(hash.PKHash) ([]byte, error)
+		SetCode(hash.PKHash, []byte) error
+		GetContractState(hash.PKHash, hash.Hash32B) (hash.Hash32B, error)
+		SetContractState(hash.PKHash, hash.Hash32B, hash.Hash32B) error
 		// Candidate pool
 		Candidates() (uint64, []*Candidate)
 		CandidatesByHeight(uint64) ([]*Candidate, error)
@@ -81,15 +81,15 @@ type (
 		// candidate pool
 		currentChainHeight uint64
 		numCandidates      uint
-		cachedCandidates   map[hash.AddrHash]*Candidate
+		cachedCandidates   map[hash.PKHash]*Candidate
 		// accounts
-		savedAccount   map[string]*State          // save account state before being modified in this block
-		cachedAccount  map[hash.AddrHash]*State   // accounts being modified in this block
-		cachedContract map[hash.AddrHash]Contract // contracts being modified in this block
-		run            bool                       // indicates that RunActions() has been called
-		rootHash       hash.Hash32B               // new root hash after running executions in this block
-		accountTrie    trie.Trie                  // global state trie
-		dao            db.CachedKVStore           // the underlying DB for account/contract storage
+		savedAccount   map[string]*State        // save account state before being modified in this block
+		cachedAccount  map[hash.PKHash]*State   // accounts being modified in this block
+		cachedContract map[hash.PKHash]Contract // contracts being modified in this block
+		run            bool                     // indicates that RunActions() has been called
+		rootHash       hash.Hash32B             // new root hash after running executions in this block
+		accountTrie    trie.Trie                // global state trie
+		dao            db.CachedKVStore         // the underlying DB for account/contract storage
 	}
 )
 
@@ -160,10 +160,10 @@ func NewFactory(cfg *config.Config, opts ...FactoryOption) (Factory, error) {
 	sf := &factory{
 		currentChainHeight: 0,
 		numCandidates:      cfg.Chain.NumCandidates,
-		cachedCandidates:   make(map[hash.AddrHash]*Candidate),
+		cachedCandidates:   make(map[hash.PKHash]*Candidate),
 		savedAccount:       make(map[string]*State),
-		cachedAccount:      make(map[hash.AddrHash]*State),
-		cachedContract:     make(map[hash.AddrHash]Contract),
+		cachedAccount:      make(map[hash.PKHash]*State),
+		cachedContract:     make(map[hash.PKHash]Contract),
 	}
 
 	for _, opt := range opts {
@@ -410,7 +410,7 @@ func (sf *factory) Commit() error {
 // Contract functions
 //======================================
 // GetCodeHash returns contract's code hash
-func (sf *factory) GetCodeHash(addr hash.AddrHash) (hash.Hash32B, error) {
+func (sf *factory) GetCodeHash(addr hash.PKHash) (hash.Hash32B, error) {
 	if contract, ok := sf.cachedContract[addr]; ok {
 		return byteutil.BytesTo32B(contract.SelfState().CodeHash), nil
 	}
@@ -422,7 +422,7 @@ func (sf *factory) GetCodeHash(addr hash.AddrHash) (hash.Hash32B, error) {
 }
 
 // GetCode returns contract's code
-func (sf *factory) GetCode(addr hash.AddrHash) ([]byte, error) {
+func (sf *factory) GetCode(addr hash.PKHash) ([]byte, error) {
 	if contract, ok := sf.cachedContract[addr]; ok {
 		return contract.GetCode()
 	}
@@ -434,7 +434,7 @@ func (sf *factory) GetCode(addr hash.AddrHash) ([]byte, error) {
 }
 
 // SetCode sets contract's code
-func (sf *factory) SetCode(addr hash.AddrHash, code []byte) error {
+func (sf *factory) SetCode(addr hash.PKHash, code []byte) error {
 	if contract, ok := sf.cachedContract[addr]; ok {
 		contract.SetCode(byteutil.BytesTo32B(hash.Hash256b(code)), code)
 		return nil
@@ -448,7 +448,7 @@ func (sf *factory) SetCode(addr hash.AddrHash, code []byte) error {
 }
 
 // GetContractState returns contract's storage value
-func (sf *factory) GetContractState(addr hash.AddrHash, key hash.Hash32B) (hash.Hash32B, error) {
+func (sf *factory) GetContractState(addr hash.PKHash, key hash.Hash32B) (hash.Hash32B, error) {
 	if contract, ok := sf.cachedContract[addr]; ok {
 		v, err := contract.GetState(key)
 		return byteutil.BytesTo32B(v), err
@@ -462,7 +462,7 @@ func (sf *factory) GetContractState(addr hash.AddrHash, key hash.Hash32B) (hash.
 }
 
 // SetContractState writes contract's storage value
-func (sf *factory) SetContractState(addr hash.AddrHash, key, value hash.Hash32B) error {
+func (sf *factory) SetContractState(addr hash.PKHash, key, value hash.Hash32B) error {
 	if contract, ok := sf.cachedContract[addr]; ok {
 		return contract.SetState(key, value[:])
 	}
@@ -503,7 +503,7 @@ func (sf *factory) CandidatesByHeight(height uint64) ([]*Candidate, error) {
 // private state/account functions
 //======================================
 // getState pulls a State from DB
-func (sf *factory) getState(hash hash.AddrHash) (*State, error) {
+func (sf *factory) getState(hash hash.PKHash) (*State, error) {
 	mstate, err := sf.accountTrie.Get(hash[:])
 	if errors.Cause(err) == trie.ErrNotExist {
 		return nil, errors.Wrapf(ErrAccountNotExist, "addrHash = %x", hash[:])
@@ -514,7 +514,7 @@ func (sf *factory) getState(hash hash.AddrHash) (*State, error) {
 	return bytesToState(mstate)
 }
 
-func (sf *factory) cachedState(hash hash.AddrHash) (*State, error) {
+func (sf *factory) cachedState(hash hash.PKHash) (*State, error) {
 	if state, ok := sf.cachedAccount[hash]; ok {
 		return state, nil
 	}
@@ -541,7 +541,7 @@ func (sf *factory) saveState(addr string, state *State) {
 	}
 }
 
-func (sf *factory) getContract(addr hash.AddrHash) (Contract, error) {
+func (sf *factory) getContract(addr hash.PKHash) (Contract, error) {
 	state, err := sf.cachedState(addr)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get the cached state of %x", addr)
@@ -566,14 +566,14 @@ func (sf *factory) clearCache() {
 	sf.cachedAccount = nil
 	sf.cachedContract = nil
 	sf.savedAccount = make(map[string]*State)
-	sf.cachedAccount = make(map[hash.AddrHash]*State)
-	sf.cachedContract = make(map[hash.AddrHash]Contract)
+	sf.cachedAccount = make(map[hash.PKHash]*State)
+	sf.cachedContract = make(map[hash.PKHash]Contract)
 }
 
 //======================================
 // private candidate functions
 //======================================
-func (sf *factory) updateCandidate(pkHash hash.AddrHash, totalWeight *big.Int, blockHeight uint64) {
+func (sf *factory) updateCandidate(pkHash hash.PKHash, totalWeight *big.Int, blockHeight uint64) {
 	// Candidate was added when self-nomination, always exist in cachedCandidates
 	candidate, _ := sf.cachedCandidates[pkHash]
 	candidate.Votes = totalWeight

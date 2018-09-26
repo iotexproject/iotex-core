@@ -25,8 +25,8 @@ var (
 type (
 	// Hash32B is 32-byte hash
 	Hash32B [HashSize]byte
-	// AddrHash for account and smart contract address hash
-	AddrHash [PKHashSize]byte
+	// PKHash for account and smart contract address hash
+	PKHash [PKHashSize]byte
 	// DKGHash for DKG hash
 	DKGHash [DKGHashSize]byte
 )
