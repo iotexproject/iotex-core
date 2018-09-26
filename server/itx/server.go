@@ -26,8 +26,17 @@ type Server struct {
 }
 
 // NewServer creates a new server
-// TODO clean up config
+// TODO clean up config, make root config contains network, dispatch and chainservice
 func NewServer(cfg *config.Config) (*Server, error) {
+	return newServer(cfg, false)
+}
+
+// NewInMemTestServer creates a test server in memory
+func NewInMemTestServer(cfg *config.Config) (*Server, error) {
+	return newServer(cfg, true)
+}
+
+func newServer(cfg *config.Config, testing bool) (*Server, error) {
 	// create P2P network and BlockSync
 	p2p := network.NewOverlay(&cfg.Network)
 
@@ -39,26 +48,25 @@ func NewServer(cfg *config.Config) (*Server, error) {
 	p2p.AttachDispatcher(dispatcher)
 
 	chains := make(map[uint32]*chainservice.ChainService)
-	cs, err := chainservice.New(cfg, p2p, dispatcher)
+
+	var cs *chainservice.ChainService
+
+	if testing {
+		cs, err = chainservice.NewTesting(cfg, p2p, dispatcher)
+	} else {
+		cs, err = chainservice.New(cfg, p2p, dispatcher)
+	}
 	if err != nil {
 		return nil, errors.Wrap(err, "fail to create chain service")
 	}
-	// TODO use cs.ChainID instead
-	chains[cfg.Chain.ID] = cs
-	dispatcher.AddSubscriber(cfg.Chain.ID, cs)
+
+	chains[cs.ChainID()] = cs
+	dispatcher.AddSubscriber(cs.ChainID(), cs)
 	return &Server{
 		p2p:           p2p,
 		dispatcher:    dispatcher,
 		chainservices: chains,
 	}, nil
-}
-
-// NewInMemTestServer creates a test server in memory
-func NewInMemTestServer(cfg *config.Config) *Server {
-	//chain := blockchain.NewBlockchain(cfg, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
-	//return newServer(cfg, chain)
-	// TODO
-	return nil
 }
 
 // Start starts the server
@@ -99,12 +107,23 @@ func (s *Server) NewChainService(cfg *config.Config) error {
 	if err != nil {
 		return err
 	}
-	s.chainservices[cfg.Chain.ID] = cs
-	s.dispatcher.AddSubscriber(cfg.Chain.ID, cs)
+	s.chainservices[cs.ChainID()] = cs
+	s.dispatcher.AddSubscriber(cs.ChainID(), cs)
 	return nil
 }
 
-// StartChain starts the chain service run in the server.
+// NewTestingChainService creates a new testing chain service in this server.
+func (s *Server) NewTestingChainService(cfg *config.Config) error {
+	cs, err := chainservice.NewTesting(cfg, s.p2p, s.dispatcher)
+	if err != nil {
+		return err
+	}
+	s.chainservices[cs.ChainID()] = cs
+	s.dispatcher.AddSubscriber(cs.ChainID(), cs)
+	return nil
+}
+
+// StartChainService starts the chain service run in the server.
 func (s *Server) StartChainService(ctx context.Context, id uint32) error {
 	c, ok := s.chainservices[id]
 	if !ok {

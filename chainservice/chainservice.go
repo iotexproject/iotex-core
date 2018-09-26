@@ -20,6 +20,7 @@ import (
 	pb "github.com/iotexproject/iotex-core/proto"
 )
 
+// ChainService is a blockchain service with all blockchain components.
 type ChainService struct {
 	actpool   actpool.ActPool
 	blocksync blocksync.BlockSync
@@ -28,9 +29,26 @@ type ChainService struct {
 	explorer  *explorer.Server
 }
 
+// New creates a ChainService from config and network.Overlay and dispatcher.Dispatcher.
 func New(cfg *config.Config, p2p network.Overlay, dispatcher dispatcher.Dispatcher) (*ChainService, error) {
+	return newChainService(cfg, p2p, dispatcher, false)
+}
+
+// NewTesting creates a testing ChainService from config and network.Overlay and dispatcher.Dispatcher.
+func NewTesting(cfg *config.Config, p2p network.Overlay, dispatcher dispatcher.Dispatcher) (*ChainService, error) {
+	return newChainService(cfg, p2p, dispatcher, true)
+}
+
+func newChainService(cfg *config.Config, p2p network.Overlay, dispatcher dispatcher.Dispatcher, testing bool) (*ChainService, error) {
+	var chainOpts []blockchain.Option
+	if testing {
+		chainOpts = []blockchain.Option{blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption()}
+	} else {
+		chainOpts = []blockchain.Option{blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption()}
+	}
+
 	// create Blockchain
-	chain := blockchain.NewBlockchain(cfg, blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption())
+	chain := blockchain.NewBlockchain(cfg, chainOpts...)
 	if chain == nil && cfg.Chain.EnableFallBackToFreshDB {
 		logger.Warn().Msg("Chain db and trie db are falling back to fresh ones")
 		if err := os.Rename(cfg.Chain.ChainDBPath, cfg.Chain.ChainDBPath+".old"); err != nil {
@@ -106,6 +124,7 @@ func (cs *ChainService) Stop(ctx context.Context) error {
 	return nil
 }
 
+// HandleAction handles incoming action request.
 func (cs *ChainService) HandleAction(act *pb.ActionPb) error {
 	if pbTsf := act.GetTransfer(); pbTsf != nil {
 		tsf := &action.Transfer{}
@@ -132,26 +151,32 @@ func (cs *ChainService) HandleAction(act *pb.ActionPb) error {
 	return nil
 }
 
+// HandleBlock handles incoming block request.
 func (cs *ChainService) HandleBlock(blk *blockchain.Block) error {
 	return cs.blocksync.ProcessBlock(blk)
 }
 
+// HandleBlockSync handles incoming block sync request.
 func (cs *ChainService) HandleBlockSync(blk *blockchain.Block) error {
 	return cs.blocksync.ProcessBlockSync(blk)
 }
 
+// HandleSyncRequest handles incoming sync request.
 func (cs *ChainService) HandleSyncRequest(sender string, sync *pb.BlockSync) error {
 	return cs.blocksync.ProcessSyncRequest(sender, sync)
 }
 
+// HandleViewChange handles incoming view change request.
 func (cs *ChainService) HandleViewChange(msg proto.Message) error {
 	return cs.consensus.HandleViewChange(msg)
 }
 
+// HandleBlockPropose handles incoming block propose request.
 func (cs *ChainService) HandleBlockPropose(msg proto.Message) error {
 	return cs.consensus.HandleBlockPropose(msg)
 }
 
+// ChainID returns ChainID.
 func (cs *ChainService) ChainID() uint32 { return cs.chain.ChainID() }
 
 // Blockchain returns the Blockchain

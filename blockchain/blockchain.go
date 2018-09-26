@@ -232,7 +232,7 @@ func NewBlockchain(cfg *config.Config, opts ...Option) Blockchain {
 		}
 	}
 
-	// TODO use chainID in config
+	chain.chainID = cfg.Chain.ID
 	if chain.chainID == 0 {
 		chain.chainID = iotxaddress.MainChainID()
 	}
