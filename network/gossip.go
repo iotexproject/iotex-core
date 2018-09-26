@@ -13,7 +13,7 @@ import (
 
 	"encoding/hex"
 
-	"github.com/iotexproject/iotex-core/dispatch/dispatcher"
+	"github.com/iotexproject/iotex-core/dispatcher"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network/proto"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
