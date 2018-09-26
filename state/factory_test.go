@@ -299,8 +299,8 @@ func TestCandidates(t *testing.T) {
 		accountTrie:      accountTr,
 		numCandidates:    uint(2),
 		savedAccount:     make(map[string]*State),
-		cachedCandidates: make(map[hash.AddrHash]*Candidate),
-		cachedAccount:    make(map[hash.AddrHash]*State),
+		cachedCandidates: make(map[hash.PKHash]*Candidate),
+		cachedAccount:    make(map[hash.PKHash]*State),
 	}
 	sf.dao = db.NewCachedKVStore(sf.accountTrie.TrieDB())
 	_, err := sf.LoadOrCreateState(a.RawAddress, uint64(100))
@@ -654,8 +654,8 @@ func TestCandidatesByHeight(t *testing.T) {
 	sf := &factory{
 		accountTrie:      accountTr,
 		numCandidates:    uint(2),
-		cachedCandidates: make(map[hash.AddrHash]*Candidate),
-		cachedAccount:    make(map[hash.AddrHash]*State),
+		cachedCandidates: make(map[hash.PKHash]*Candidate),
+		cachedAccount:    make(map[hash.PKHash]*State),
 	}
 	sf.dao = db.NewCachedKVStore(sf.accountTrie.TrieDB())
 	cand1 := &Candidate{
@@ -718,8 +718,8 @@ func TestUnvote(t *testing.T) {
 		accountTrie:      accountTr,
 		numCandidates:    uint(2),
 		savedAccount:     make(map[string]*State),
-		cachedCandidates: make(map[hash.AddrHash]*Candidate),
-		cachedAccount:    make(map[hash.AddrHash]*State),
+		cachedCandidates: make(map[hash.PKHash]*Candidate),
+		cachedAccount:    make(map[hash.PKHash]*State),
 	}
 	sf.dao = db.NewCachedKVStore(sf.accountTrie.TrieDB())
 	_, err := sf.LoadOrCreateState(a.RawAddress, uint64(100))
