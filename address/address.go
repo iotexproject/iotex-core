@@ -10,6 +10,8 @@ import (
 	"errors"
 	"os"
 	"strings"
+
+	"github.com/iotexproject/iotex-core/pkg/hash"
 )
 
 // init reads IOTEX_NETWORK_TYPE environment variable. If it exists and the value is equal to "testnet" with case
@@ -47,13 +49,21 @@ type Address interface {
 	Bytes() []byte
 }
 
-// IsTestNet returns if the current runtime is a testnet or not
-func IsTestNet() bool {
-	return isTestNet
+// New constructs an address instance
+func New(chainID uint32, payload []byte) Address {
+	var pkHash hash.PKHash
+	copy(pkHash[:], payload)
+	return V1.New(chainID, pkHash)
 }
 
-// Prefix returns the current prefix
-func Prefix() string {
+// Bech32ToAddress decodes an encoded address string into an address struct
+func Bech32ToAddress(encodedAddr string) (Address, error) { return V1.Bech32ToAddress(encodedAddr) }
+
+// BytesToAddress converts a byte array into an address struct
+func BytesToAddress(bytes []byte) (Address, error) { return V1.BytesToAddress(bytes) }
+
+// prefix returns the current prefix
+func prefix() string {
 	prefix := MainnetPrefix
 	if isTestNet {
 		prefix = TestnetPrefix
