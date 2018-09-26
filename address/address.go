@@ -7,10 +7,9 @@
 package address
 
 import (
+	"errors"
 	"os"
 	"strings"
-
-	"github.com/pkg/errors"
 )
 
 // init reads IOTEX_NETWORK_TYPE environment variable. If it exists and the value is equal to "testnet" with case
@@ -26,11 +25,10 @@ const (
 	TestnetPrefix = "it"
 )
 
-var (
-	isTestNet bool
-	// ErrInvalidAddr indicates the invalid address error
-	ErrInvalidAddr = errors.New("Invalid address")
-)
+// ErrInvalidAddr indicates the invalid address error
+var ErrInvalidAddr = errors.New("Invalid address")
+
+var isTestNet bool
 
 // Address defines the interface of the blockchain address
 type Address interface {
