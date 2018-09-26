@@ -126,6 +126,8 @@ func BytesToPriKeyString(priKey []byte) (string, error) {
 }
 
 // HashPubKey returns the hash of public key
-func HashPubKey(pubKey PublicKey) []byte {
-	return hash.Hash160b(pubKey[:])
+func HashPubKey(pubKey PublicKey) hash.PKHash {
+	var pkHash hash.PKHash
+	copy(pkHash[:], hash.Hash160b(pubKey[:]))
+	return pkHash
 }

@@ -15,6 +15,8 @@ import (
 	uconfig "go.uber.org/config"
 	"google.golang.org/grpc/keepalive"
 
+	"github.com/iotexproject/iotex-core/address"
+	addrv1 "github.com/iotexproject/iotex-core/address/v1"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
@@ -87,6 +89,7 @@ var (
 		Chain: Chain{
 			ChainDBPath:             "/tmp/chain.db",
 			TrieDBPath:              "/tmp/trie.db",
+			ID:                      1,
 			ProducerPubKey:          keypair.EncodePublicKey(keypair.ZeroPublicKey),
 			ProducerPrivKey:         keypair.EncodePrivateKey(keypair.ZeroPrivateKey),
 			InMemTest:               false,
@@ -197,6 +200,7 @@ type (
 		ChainDBPath string `yaml:"chainDBPath"`
 		TrieDBPath  string `yaml:"trieDBPath"`
 
+		ID              uint32 `yaml:"id"`
 		ProducerPubKey  string `yaml:"producerPubKey"`
 		ProducerPrivKey string `yaml:"producerPrivKey"`
 
@@ -364,6 +368,33 @@ func (cfg *Config) ProducerAddr() (*iotxaddress.Address, error) {
 	}
 	addr.PrivateKey = priKey
 	return addr, nil
+}
+
+// BlockchainAddress returns the address derived from the configured chain ID and public key
+func (cfg *Config) BlockchainAddress() (address.Address, error) {
+	pk, err := keypair.DecodePublicKey(cfg.Chain.ProducerPubKey)
+	if err != nil {
+		return nil, errors.Wrapf(err, "error when decoding public key %s", cfg.Chain.ProducerPubKey)
+	}
+	pkHash := keypair.HashPubKey(pk)
+	return addrv1.New(cfg.Chain.ID, pkHash), nil
+}
+
+// KeyPair returns the decoded public and private key pair
+func (cfg *Config) KeyPair() (keypair.PublicKey, keypair.PrivateKey, error) {
+	pk, err := keypair.DecodePublicKey(cfg.Chain.ProducerPubKey)
+	if err != nil {
+		return keypair.ZeroPublicKey,
+			keypair.ZeroPrivateKey,
+			errors.Wrapf(err, "error when decoding public key %s", cfg.Chain.ProducerPubKey)
+	}
+	sk, err := keypair.DecodePrivateKey(cfg.Chain.ProducerPrivKey)
+	if err != nil {
+		return keypair.ZeroPublicKey,
+			keypair.ZeroPrivateKey,
+			errors.Wrapf(err, "error when decoding private key %s", cfg.Chain.ProducerPrivKey)
+	}
+	return pk, sk, nil
 }
 
 // ValidateAddr validates the block producer address
