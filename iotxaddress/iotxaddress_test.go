@@ -35,15 +35,17 @@ func TestNewAddress(t *testing.T) {
 	p2pkh := keypair.HashPubKey(addr.PublicKey)
 	p2pkh1, err := GetPubkeyHash(addr.RawAddress)
 	require.NoError(err)
-	require.Equal(p2pkh, p2pkh1)
-	logger.Info().Hex("P2PKH", p2pkh).Msg("NewAddress")
+	require.Equal(p2pkh[:], p2pkh1)
+	logger.Info().Hex("P2PKH", p2pkh[:]).Msg("NewAddress")
 
-	p2pkh, _ = hex.DecodeString("36500e9520e13d02bea26a08e99b6e7145fa6c10")
-	addr1, err := GetAddressByHash(true, []byte{0x00, 0x00, 0x00, 0x01}, p2pkh)
+	p2pkhSlice, err := hex.DecodeString("36500e9520e13d02bea26a08e99b6e7145fa6c10")
+	require.NoError(err)
+	copy(p2pkh[:], p2pkhSlice)
+	addr1, err := GetAddressByHash(true, []byte{0x00, 0x00, 0x00, 0x01}, p2pkhSlice)
 	require.Nil(err)
 	p2pkh1, err = GetPubkeyHash(addr1.RawAddress)
 	require.NoError(err)
-	require.Equal(p2pkh, p2pkh1)
+	require.Equal(p2pkh[:], p2pkh1)
 
 	rmsg := make([]byte, 2048)
 	_, err = rand.Read(rmsg)
@@ -65,7 +67,8 @@ func TestInvalidAddress(t *testing.T) {
 	addr.PrivateKey = pri
 
 	// test invalid prefix
-	payload := append([]byte{version.ProtocolVersion}, append(chainid, keypair.HashPubKey(pub)...)...)
+	pkHash := keypair.HashPubKey(pub)
+	payload := append([]byte{version.ProtocolVersion}, append(chainid, pkHash[:]...)...)
 	grouped, err := bech32.ConvertBits(payload, 8, 5, true)
 	require.Nil(err)
 	wrongPrefix := "ix"
@@ -77,7 +80,7 @@ func TestInvalidAddress(t *testing.T) {
 	require.Error(err)
 
 	// test invalid version
-	payload = append([]byte{0}, append(chainid, keypair.HashPubKey(pub)...)...)
+	payload = append([]byte{0}, append(chainid, pkHash[:]...)...)
 	grouped, err = bech32.ConvertBits(payload, 8, 5, true)
 	require.Nil(err)
 	raddr, err = bech32.Encode(mainnetPrefix, grouped)
