@@ -32,8 +32,8 @@ type (
 	cachedKVStore struct {
 		KVStoreBatch
 		mutex sync.RWMutex
-		cache map[hash.AddrHash][]byte // local cache of batched <k, v> for fast query
-		kv    KVStore                  // underlying KV store
+		cache map[hash.PKHash][]byte // local cache of batched <k, v> for fast query
+		kv    KVStore                // underlying KV store
 	}
 )
 
@@ -41,7 +41,7 @@ type (
 func NewCachedKVStore(kv KVStore) CachedKVStore {
 	c := cachedKVStore{
 		KVStoreBatch: kv.Batch(),
-		cache:        make(map[hash.AddrHash][]byte),
+		cache:        make(map[hash.PKHash][]byte),
 		kv:           kv,
 	}
 	return &c
@@ -120,7 +120,7 @@ func (c *cachedKVStore) KVStore() KVStore {
 //======================================
 // private functions
 //======================================
-func (c *cachedKVStore) hash(namespace string, key []byte) hash.AddrHash {
+func (c *cachedKVStore) hash(namespace string, key []byte) hash.PKHash {
 	stream := []byte(namespace)
 	stream = append(stream, key...)
 	return byteutil.BytesTo20B(hash.Hash160b(stream))
@@ -135,6 +135,6 @@ func (c *cachedKVStore) get(namespace string, key []byte) []byte {
 
 func (c *cachedKVStore) clear() error {
 	c.cache = nil
-	c.cache = make(map[hash.AddrHash][]byte)
+	c.cache = make(map[hash.PKHash][]byte)
 	return nil
 }
