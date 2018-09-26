@@ -85,7 +85,7 @@ func TestRollDelegatesEvt(t *testing.T) {
 		for i := 0; i < 4; i++ {
 			delegates[i] = testAddrs[i].RawAddress
 		}
-		cfsm := newTestCFSM(t, testAddrs[0], ctrl, delegates, nil, nil, clock.New())
+		cfsm := newTestCFSM(t, testAddrs[0], testAddrs[2], ctrl, delegates, nil, nil, clock.New())
 		s, err := cfsm.handleRollDelegatesEvt(cfsm.newCEvt(eRollDelegates))
 		assert.Equal(t, sDKGGeneration, s)
 		assert.NoError(t, err)
@@ -104,7 +104,7 @@ func TestRollDelegatesEvt(t *testing.T) {
 		for i := 0; i < 4; i++ {
 			delegates[i] = testAddrs[i+1].RawAddress
 		}
-		cfsm := newTestCFSM(t, testAddrs[0], ctrl, delegates, nil, nil, clock.New())
+		cfsm := newTestCFSM(t, testAddrs[0], testAddrs[2], ctrl, delegates, nil, nil, clock.New())
 		s, err := cfsm.handleRollDelegatesEvt(cfsm.newCEvt(eRollDelegates))
 		assert.Equal(t, sEpochStart, s)
 		assert.NoError(t, err)
@@ -123,6 +123,7 @@ func TestRollDelegatesEvt(t *testing.T) {
 		cfsm := newTestCFSM(
 			t,
 			testAddrs[0],
+			testAddrs[2],
 			ctrl,
 			delegates,
 			func(mockBlockchain *mock_blockchain.MockBlockchain) {
@@ -150,6 +151,7 @@ func TestRollDelegatesEvt(t *testing.T) {
 		cfsm := newTestCFSM(
 			t,
 			testAddrs[0],
+			testAddrs[2],
 			ctrl,
 			delegates, func(mockBlockchain *mock_blockchain.MockBlockchain) {
 				mockBlockchain.EXPECT().TipHeight().Return(uint64(1)).Times(1)
@@ -178,14 +180,14 @@ func TestGenerateDKGEvt(t *testing.T) {
 		delegates[i] = testAddrs[i].RawAddress
 	}
 	t.Run("no-delay", func(t *testing.T) {
-		cfsm := newTestCFSM(t, testAddrs[2], ctrl, delegates, nil, nil, clock.New())
+		cfsm := newTestCFSM(t, testAddrs[2], testAddrs[2], ctrl, delegates, nil, nil, clock.New())
 		s, err := cfsm.handleGenerateDKGEvt(cfsm.newCEvt(eGenerateDKG))
 		assert.Equal(t, sRoundStart, s)
 		assert.NoError(t, err)
 		assert.Equal(t, eStartRound, (<-cfsm.evtq).Type())
 	})
 	t.Run("delay", func(t *testing.T) {
-		cfsm := newTestCFSM(t, testAddrs[2], ctrl, delegates, nil, nil, clock.New())
+		cfsm := newTestCFSM(t, testAddrs[2], testAddrs[2], ctrl, delegates, nil, nil, clock.New())
 		cfsm.ctx.cfg.ProposerInterval = 2 * time.Second
 		start := time.Now()
 		s, err := cfsm.handleGenerateDKGEvt(cfsm.newCEvt(eGenerateDKG))
@@ -208,7 +210,7 @@ func TestStartRoundEvt(t *testing.T) {
 		for i := 0; i < 4; i++ {
 			delegates[i] = testAddrs[i].RawAddress
 		}
-		cfsm := newTestCFSM(t, testAddrs[2], ctrl, delegates, nil, nil, clock.New())
+		cfsm := newTestCFSM(t, testAddrs[2], testAddrs[2], ctrl, delegates, nil, nil, clock.New())
 		cfsm.ctx.epoch = epochCtx{
 			delegates:    delegates,
 			num:          uint64(1),
@@ -231,7 +233,7 @@ func TestStartRoundEvt(t *testing.T) {
 		for i := 0; i < 4; i++ {
 			delegates[i] = testAddrs[i+1].RawAddress
 		}
-		cfsm := newTestCFSM(t, testAddrs[1], ctrl, delegates, nil, nil, clock.New())
+		cfsm := newTestCFSM(t, testAddrs[1], testAddrs[2], ctrl, delegates, nil, nil, clock.New())
 		cfsm.ctx.epoch = epochCtx{
 			delegates:    delegates,
 			num:          uint64(1),
@@ -261,6 +263,7 @@ func TestHandleInitBlockEvt(t *testing.T) {
 
 	cfsm := newTestCFSM(
 		t,
+		testAddrs[2],
 		testAddrs[2],
 		ctrl,
 		delegates,
@@ -322,6 +325,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		cfsm := newTestCFSM(
 			t,
 			testAddrs[0],
+			testAddrs[2],
 			ctrl,
 			delegates,
 			nil,
@@ -335,7 +339,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 
 		blk, err := cfsm.ctx.mintBlock()
 		assert.NoError(t, err)
-		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, delegates[2], cfsm.ctx.clock))
+		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, cfsm.ctx.clock))
 		assert.NoError(t, err)
 		assert.Equal(t, sAcceptPrevote, state)
 		e := <-cfsm.evtq
@@ -351,6 +355,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		cfsm := newTestCFSM(
 			t,
 			testAddrs[0],
+			testAddrs[2],
 			ctrl,
 			delegates,
 			nil,
@@ -367,7 +372,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		clock.Add(11 * time.Second)
 		blk, err := cfsm.ctx.mintBlock()
 		assert.NoError(t, err)
-		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, delegates[2], cfsm.ctx.clock))
+		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, cfsm.ctx.clock))
 		assert.NoError(t, err)
 		assert.Equal(t, sAcceptPrevote, state)
 		e := <-cfsm.evtq
@@ -378,7 +383,9 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		assert.Equal(t, ePrevoteTimeout, (<-cfsm.evtq).Type())
 
 		clock.Add(10 * time.Second)
-		state, err = cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, delegates[3], cfsm.ctx.clock))
+		err = blk.SignBlock(testAddrs[3])
+		assert.NoError(t, err)
+		state, err = cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, cfsm.ctx.clock))
 		assert.NoError(t, err)
 		assert.Equal(t, sAcceptPrevote, state)
 		e = <-cfsm.evtq
@@ -393,6 +400,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		cfsm := newTestCFSM(
 			t,
 			testAddrs[0],
+			testAddrs[2],
 			ctrl,
 			delegates,
 			func(chain *mock_blockchain.MockBlockchain) {
@@ -408,7 +416,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 
 		blk, err := cfsm.ctx.mintBlock()
 		assert.NoError(t, err)
-		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, delegates[2], cfsm.ctx.clock))
+		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, cfsm.ctx.clock))
 		assert.NoError(t, err)
 		assert.Equal(t, sAcceptPrevote, state)
 		e := <-cfsm.evtq
@@ -422,6 +430,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 	t.Run("skip-validation", func(t *testing.T) {
 		cfsm := newTestCFSM(
 			t,
+			testAddrs[2],
 			testAddrs[2],
 			ctrl,
 			delegates,
@@ -438,7 +447,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 
 		blk, err := cfsm.ctx.mintBlock()
 		assert.NoError(t, err)
-		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, delegates[2], cfsm.ctx.clock))
+		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, cfsm.ctx.clock))
 		assert.NoError(t, err)
 		assert.Equal(t, sAcceptPrevote, state)
 		e := <-cfsm.evtq
@@ -453,6 +462,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		cfsm := newTestCFSM(
 			t,
 			testAddrs[2],
+			testAddrs[3],
 			ctrl,
 			delegates,
 			nil,
@@ -466,7 +476,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 
 		blk, err := cfsm.ctx.mintBlock()
 		assert.NoError(t, err)
-		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, delegates[3], cfsm.ctx.clock))
+		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, cfsm.ctx.clock))
 		assert.NoError(t, err)
 		assert.Equal(t, sAcceptPrevote, state)
 		e := <-cfsm.evtq
@@ -482,6 +492,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		cfsm := newTestCFSM(
 			t,
 			testAddrs[2],
+			testAddrs[3],
 			ctrl,
 			delegates,
 			nil,
@@ -498,7 +509,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		clock.Add(11 * time.Second)
 		blk, err := cfsm.ctx.mintBlock()
 		assert.NoError(t, err)
-		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, delegates[3], cfsm.ctx.clock))
+		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, cfsm.ctx.clock))
 		assert.NoError(t, err)
 		assert.Equal(t, sAcceptPrevote, state)
 		e := <-cfsm.evtq
@@ -512,6 +523,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 	t.Run("timeout", func(t *testing.T) {
 		cfsm := newTestCFSM(
 			t,
+			testAddrs[2],
 			testAddrs[2],
 			ctrl,
 			delegates,
@@ -560,6 +572,7 @@ func TestHandlePrevoteEvt(t *testing.T) {
 		cfsm := newTestCFSM(
 			t,
 			testAddrs[0],
+			testAddrs[2],
 			ctrl,
 			delegates,
 			func(chain *mock_blockchain.MockBlockchain) {
@@ -609,6 +622,7 @@ func TestHandlePrevoteEvt(t *testing.T) {
 		cfsm := newTestCFSM(
 			t,
 			testAddrs[0],
+			testAddrs[2],
 			ctrl,
 			delegates,
 			func(chain *mock_blockchain.MockBlockchain) {
@@ -665,6 +679,7 @@ func TestHandleVoteEvt(t *testing.T) {
 		cfsm := newTestCFSM(
 			t,
 			testAddrs[0],
+			testAddrs[2],
 			ctrl,
 			delegates,
 			func(chain *mock_blockchain.MockBlockchain) {
@@ -709,6 +724,7 @@ func TestHandleVoteEvt(t *testing.T) {
 		cfsm := newTestCFSM(
 			t,
 			testAddrs[0],
+			testAddrs[2],
 			ctrl,
 			delegates,
 			func(chain *mock_blockchain.MockBlockchain) {
@@ -740,6 +756,7 @@ func TestHandleVoteEvt(t *testing.T) {
 		cfsm := newTestCFSM(
 			t,
 			testAddrs[0],
+			testAddrs[2],
 			ctrl,
 			delegates,
 			func(chain *mock_blockchain.MockBlockchain) {
@@ -795,6 +812,7 @@ func TestHandleFinishEpochEvt(t *testing.T) {
 		cfsm := newTestCFSM(
 			t,
 			testAddrs[0],
+			testAddrs[2],
 			ctrl,
 			delegates,
 			func(chain *mock_blockchain.MockBlockchain) {
@@ -815,6 +833,7 @@ func TestHandleFinishEpochEvt(t *testing.T) {
 		cfsm := newTestCFSM(
 			t,
 			testAddrs[0],
+			testAddrs[2],
 			ctrl,
 			delegates,
 			func(chain *mock_blockchain.MockBlockchain) {
@@ -837,6 +856,7 @@ func TestHandleFinishEpochEvt(t *testing.T) {
 func newTestCFSM(
 	t *testing.T,
 	addr *iotxaddress.Address,
+	proposer *iotxaddress.Address,
 	ctrl *gomock.Controller,
 	delegates []string,
 	mockChain func(*mock_blockchain.MockBlockchain),
@@ -853,7 +873,7 @@ func newTestCFSM(
 	require.NoError(t, err)
 	var prevHash hash.Hash32B
 	lastBlk := blockchain.NewBlock(
-		1,
+		iotxaddress.MainChainID(),
 		1,
 		prevHash,
 		clock,
@@ -862,7 +882,7 @@ func newTestCFSM(
 		make([]*action.Execution, 0),
 	)
 	blkToMint := blockchain.NewBlock(
-		1,
+		iotxaddress.MainChainID(),
 		2,
 		lastBlk.HashBlock(),
 		clock,
@@ -870,6 +890,7 @@ func newTestCFSM(
 		[]*action.Vote{vote},
 		nil,
 	)
+	blkToMint.SignBlock(proposer)
 	ctx := makeTestRollDPoSCtx(
 		addr,
 		ctrl,
