@@ -90,8 +90,8 @@ func (h *HeartbeatHandler) Log() {
 		Str("pendingDispatcherEventsAudit", string(dpEvtsAudit)).
 		Msg("node status")
 
-	heartbeatMtc.WithLabelValues("numPeers").Set(float64(numPeers))
-	heartbeatMtc.WithLabelValues("pendingDispatcherEvents").Set(float64(numDPEvts))
+	heartbeatMtc.WithLabelValues("numPeers", "").Set(float64(numPeers))
+	heartbeatMtc.WithLabelValues("pendingDispatcherEvents", "").Set(float64(numDPEvts))
 	// chain service
 	for _, c := range h.s.chainservices {
 		// Consensus metrics
