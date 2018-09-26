@@ -28,7 +28,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/dispatcher"
-	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/network/node"
 	"github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -111,7 +110,6 @@ func TestOverlay(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping the IotxOverlay test in short mode.")
 	}
-	chainID := iotxaddress.MainChainID()
 	size := 10
 	dps := []*MockDispatcher1{}
 	nodes := []*IotxOverlay{}
@@ -145,7 +143,7 @@ func TestOverlay(t *testing.T) {
 		assert.True(t, LenSyncMap(nodes[i].PM.Peers) >= nodes[i].PM.NumPeersLowerBound)
 	}
 
-	err := nodes[0].Broadcast(chainID, &iproto.ActionPb{})
+	err := nodes[0].Broadcast(config.Default.Chain.ID, &iproto.ActionPb{})
 	assert.NoError(t, err)
 	time.Sleep(5 * time.Second)
 	for i, dp := range dps {
@@ -185,7 +183,6 @@ func (d2 *MockDispatcher2) HandleTell(chainID uint32, sender net.Addr, message p
 
 func TestTell(t *testing.T) {
 	ctx := context.Background()
-	chainID := iotxaddress.MainChainID()
 	dp1 := &MockDispatcher2{T: t}
 	addr1 := randomAddress()
 	addr2 := randomAddress()
@@ -207,10 +204,10 @@ func TestTell(t *testing.T) {
 	}()
 
 	// P1 tell Tx Msg
-	err = p1.Tell(chainID, &node.Node{Addr: addr2}, &iproto.ActionPb{})
+	err = p1.Tell(config.Default.Chain.ID, &node.Node{Addr: addr2}, &iproto.ActionPb{})
 	assert.NoError(t, err)
 	// P2 tell Tx Msg
-	err = p2.Tell(chainID, &node.Node{Addr: addr1}, &iproto.ActionPb{})
+	err = p2.Tell(config.Default.Chain.ID, &node.Node{Addr: addr1}, &iproto.ActionPb{})
 	assert.NoError(t, err)
 
 	err = testutil.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
@@ -340,7 +337,6 @@ func TestRandomizePeerList(t *testing.T) {
 		t.Skip("Skipping TestRandomizePeerList in short mode.")
 	}
 
-	chainID := iotxaddress.MainChainID()
 	ctx := context.Background()
 	size := 10
 	var dps []*MockDispatcher1
@@ -367,7 +363,7 @@ func TestRandomizePeerList(t *testing.T) {
 	// Sleep for neighbors to be fully shuffled
 	time.Sleep(5 * time.Second)
 
-	err := nodes[0].Broadcast(chainID, &iproto.ActionPb{})
+	err := nodes[0].Broadcast(config.Default.Chain.ID, &iproto.ActionPb{})
 	require.Nil(t, err)
 	time.Sleep(5 * time.Second)
 	testutil.WaitUntil(100*time.Millisecond, 5*time.Second, func() (bool, error) {
@@ -417,7 +413,7 @@ func runBenchmarkOp(tell bool, size int, parallel bool, tls bool, b *testing.B) 
 	p2.AttachDispatcher(d2)
 	err = p2.Start(ctx)
 	assert.NoError(b, err)
-	chainID := iotxaddress.MainChainID()
+	chainID := config.Default.Chain.ID
 
 	defer func() {
 		err := p1.Stop(ctx)
