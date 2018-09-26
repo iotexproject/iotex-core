@@ -13,7 +13,7 @@ import (
 	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus"
-	"github.com/iotexproject/iotex-core/dispatch/dispatcher"
+	"github.com/iotexproject/iotex-core/dispatcher"
 	"github.com/iotexproject/iotex-core/explorer"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network"
@@ -152,12 +152,16 @@ func (cs *ChainService) HandleAction(act *pb.ActionPb) error {
 }
 
 // HandleBlock handles incoming block request.
-func (cs *ChainService) HandleBlock(blk *blockchain.Block) error {
+func (cs *ChainService) HandleBlock(pbBlock *pb.BlockPb) error {
+	blk := &blockchain.Block{}
+	blk.ConvertFromBlockPb(pbBlock)
 	return cs.blocksync.ProcessBlock(blk)
 }
 
 // HandleBlockSync handles incoming block sync request.
-func (cs *ChainService) HandleBlockSync(blk *blockchain.Block) error {
+func (cs *ChainService) HandleBlockSync(pbBlock *pb.BlockPb) error {
+	blk := &blockchain.Block{}
+	blk.ConvertFromBlockPb(pbBlock)
 	return cs.blocksync.ProcessBlockSync(blk)
 }
 

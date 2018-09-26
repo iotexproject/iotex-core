@@ -16,7 +16,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
-	"github.com/iotexproject/iotex-core/dispatch"
+	"github.com/iotexproject/iotex-core/dispatcher"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network"
 )
@@ -70,7 +70,7 @@ func (h *HeartbeatHandler) Log() {
 	lastInTime := p2p.RPC.LastReqTime()
 
 	// Dispatcher metrics
-	dp, ok := h.s.Dispatcher().(*dispatch.IotxDispatcher)
+	dp, ok := h.s.Dispatcher().(*dispatcher.IotxDispatcher)
 	if !ok {
 		logger.Error().Msg("dispatcher is not the instance of IotxDispatcher")
 		return

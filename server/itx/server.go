@@ -11,8 +11,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/chainservice"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/dispatch"
-	"github.com/iotexproject/iotex-core/dispatch/dispatcher"
+	"github.com/iotexproject/iotex-core/dispatcher"
 	"github.com/iotexproject/iotex-core/network"
 
 	"github.com/pkg/errors"
@@ -41,7 +40,7 @@ func newServer(cfg *config.Config, testing bool) (*Server, error) {
 	p2p := network.NewOverlay(&cfg.Network)
 
 	// create dispatcher instance
-	dispatcher, err := dispatch.NewDispatcher(cfg)
+	dispatcher, err := dispatcher.NewDispatcher(cfg)
 	if err != nil {
 		return nil, errors.Wrap(err, "fail to create dispatcher")
 	}

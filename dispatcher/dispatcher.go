@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package dispatch
+package dispatcher
 
 import (
 	"context"
@@ -16,12 +16,35 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/dispatch/dispatcher"
 	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	pb "github.com/iotexproject/iotex-core/proto"
 )
+
+// Subscriber is the dispatcher subscriber interface
+type Subscriber interface {
+	HandleAction(*pb.ActionPb) error
+	HandleBlock(*pb.BlockPb) error
+	HandleBlockSync(*pb.BlockPb) error
+	HandleSyncRequest(string, *pb.BlockSync) error
+	HandleViewChange(proto.Message) error
+	HandleBlockPropose(proto.Message) error
+}
+
+// Dispatcher is used by peers, handles incoming block and header notifications and relays announcements of new blocks.
+type Dispatcher interface {
+	lifecycle.StartStopper
+
+	// AddSubscriber adds to dispatcher
+	AddSubscriber(uint32, Subscriber)
+	// HandleBroadcast handles the incoming broadcast message. The transportation layer semantics is at least once.
+	// That said, the handler is likely to receive duplicate messages.
+	HandleBroadcast(uint32, proto.Message, chan bool)
+	// HandleTell handles the incoming tell message. The transportation layer semantics is exact once. The sender is
+	// given for the sake of replying the message
+	HandleTell(uint32, net.Addr, proto.Message, chan bool)
+}
 
 var requestMtc = prometheus.NewCounterVec(
 	prometheus.CounterOpts{
@@ -80,18 +103,18 @@ type IotxDispatcher struct {
 	wg             sync.WaitGroup
 	quit           chan struct{}
 
-	subscribers map[uint32]dispatcher.Subscriber
+	subscribers map[uint32]Subscriber
 }
 
 // NewDispatcher creates a new Dispatcher
 func NewDispatcher(
 	cfg *config.Config,
-) (dispatcher.Dispatcher, error) {
+) (Dispatcher, error) {
 	d := &IotxDispatcher{
 		eventChan:   make(chan interface{}, cfg.Dispatcher.EventChanSize),
 		eventAudit:  make(map[uint32]int),
 		quit:        make(chan struct{}),
-		subscribers: make(map[uint32]dispatcher.Subscriber),
+		subscribers: make(map[uint32]Subscriber),
 	}
 	return d, nil
 }
@@ -99,7 +122,7 @@ func NewDispatcher(
 // AddSubscriber adds a subscriber to dispatcher
 func (d *IotxDispatcher) AddSubscriber(
 	chainID uint32,
-	subscriber dispatcher.Subscriber,
+	subscriber Subscriber,
 ) {
 	d.subscribers[chainID] = subscriber
 }
@@ -191,21 +214,15 @@ func (d *IotxDispatcher) handleActionMsg(m *actionMsg) {
 
 // handleBlockMsg handles blockMsg from peers.
 func (d *IotxDispatcher) handleBlockMsg(m *blockMsg) {
-	blk := &blockchain.Block{}
-	blk.ConvertFromBlockPb(m.block)
-	hash := blk.HashBlock()
-	logger.Info().
-		Uint64("block", blk.Height()).Hex("hash", hash[:]).Msg("receive blockMsg")
-
 	if subscriber, ok := d.subscribers[m.ChainID()]; ok {
 		if m.blkType == pb.MsgBlockProtoMsgType {
 			d.updateEventAudit(pb.MsgBlockProtoMsgType)
-			if err := subscriber.HandleBlock(blk); err != nil {
+			if err := subscriber.HandleBlock(m.block); err != nil {
 				logger.Error().Err(err).Msg("Fail to handle the block")
 			}
 		} else if m.blkType == pb.MsgBlockSyncDataType {
 			d.updateEventAudit(pb.MsgBlockSyncDataType)
-			if err := subscriber.HandleBlockSync(blk); err != nil {
+			if err := subscriber.HandleBlockSync(m.block); err != nil {
 				logger.Error().Err(err).Msg("Fail to sync the block")
 			}
 		}
