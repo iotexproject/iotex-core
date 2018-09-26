@@ -101,6 +101,9 @@ type Blockchain interface {
 	// MintNewDKGBlock creates a new block with given actions and dkg keys
 	MintNewDKGBlock(tsf []*action.Transfer, vote []*action.Vote, executions []*action.Execution,
 		producer *iotxaddress.Address, dkgAddress *iotxaddress.DKGAddress, seed []byte, data string) (*Block, error)
+	// MintNewSecretBlock creates a new DKG secret block with given DKG secrets and witness
+	MintNewSecretBlock(secretProposals []*action.SecretProposal, secretWitness *action.SecretWitness,
+		producer *iotxaddress.Address) (*Block, error)
 	// MintDummyNewBlock creates a new dummy block, used for unreached consensus
 	MintNewDummyBlock() *Block
 	// CommitBlock validates and appends a block to the chain
@@ -642,6 +645,28 @@ func (bc *blockchain) MintNewDKGBlock(tsf []*action.Transfer, vote []*action.Vot
 	root, err := bc.runActions(blk, false)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to update state changes in new DKG block %d", blk.Height())
+	}
+	blk.Header.stateRoot = root
+	if err := blk.SignBlock(producer); err != nil {
+		return blk, err
+	}
+	return blk, nil
+}
+
+// MintNewSecretBlock creates a new block with given DKG secrets and witness
+func (bc *blockchain) MintNewSecretBlock(
+	secretProposals []*action.SecretProposal,
+	secretWitness *action.SecretWitness,
+	producer *iotxaddress.Address,
+) (*Block, error) {
+	bc.mu.RLock()
+	defer bc.mu.RUnlock()
+
+	blk := NewSecretBlock(bc.config.Chain.ID, bc.tipHeight+1, bc.tipHash, bc.clk, secretProposals, secretWitness)
+	// run execution and update account trie root hash
+	root, err := bc.runActions(blk, false)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Failed to update state changes in new block %d", blk.Height())
 	}
 	blk.Header.stateRoot = root
 	if err := blk.SignBlock(producer); err != nil {
