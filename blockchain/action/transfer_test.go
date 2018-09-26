@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/iotxaddress"
-	ta "github.com/iotexproject/iotex-core/test/testaddress"
 )
 
 var chainid = []byte{0x00, 0x00, 0x00, 0x01}
@@ -93,7 +92,10 @@ func TestTransferToJSONFromJSON(t *testing.T) {
 }
 
 func TestCoinbaseTsf(t *testing.T) {
-	coinbaseTsf := NewCoinBaseTransfer(big.NewInt(int64(5)), ta.Addrinfo["producer"].RawAddress)
+	require := require.New(t)
+	recipient, err := iotxaddress.NewAddress(true, chainid)
+	require.NoError(err)
+	coinbaseTsf := NewCoinBaseTransfer(big.NewInt(int64(5)), recipient.RawAddress)
 	require.NotNil(t, coinbaseTsf)
-	require.True(t, coinbaseTsf.isCoinbase)
+	require.True(coinbaseTsf.isCoinbase)
 }

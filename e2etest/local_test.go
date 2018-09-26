@@ -478,11 +478,11 @@ func TestVoteLocalCommit(t *testing.T) {
 	tsf4, err := action.NewTransfer(10, big.NewInt(200000000), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["delta"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
 	require.Nil(err)
 	require.NoError(action.Sign(tsf4, ta.Addrinfo["producer"]))
-	vote1, err := newSignedVote(1, ta.Addrinfo["alfa"], ta.Addrinfo["alfa"])
+	vote1, err := testutil.SignedVote(ta.Addrinfo["alfa"], ta.Addrinfo["alfa"], uint64(1), uint64(100000), big.NewInt(0))
 	require.Nil(err)
-	vote2, err := newSignedVote(1, ta.Addrinfo["bravo"], ta.Addrinfo["bravo"])
+	vote2, err := testutil.SignedVote(ta.Addrinfo["bravo"], ta.Addrinfo["bravo"], uint64(1), uint64(100000), big.NewInt(0))
 	require.Nil(err)
-	vote3, err := newSignedVote(6, ta.Addrinfo["charlie"], ta.Addrinfo["charlie"])
+	vote3, err := testutil.SignedVote(ta.Addrinfo["charlie"], ta.Addrinfo["charlie"], uint64(6), uint64(100000), big.NewInt(0))
 	require.Nil(err)
 	act1 := vote1.ConvertToActionPb()
 	act2 := vote2.ConvertToActionPb()
@@ -537,9 +537,9 @@ func TestVoteLocalCommit(t *testing.T) {
 
 	// Add block 2
 	// Vote A -> B, C -> A
-	vote4, err := newSignedVote(2, ta.Addrinfo["alfa"], ta.Addrinfo["bravo"])
+	vote4, err := testutil.SignedVote(ta.Addrinfo["alfa"], ta.Addrinfo["bravo"], uint64(2), uint64(100000), big.NewInt(0))
 	require.Nil(err)
-	vote5, err := newSignedVote(7, ta.Addrinfo["charlie"], ta.Addrinfo["alfa"])
+	vote5, err := testutil.SignedVote(ta.Addrinfo["charlie"], ta.Addrinfo["alfa"], uint64(7), uint64(100000), big.NewInt(0))
 	require.Nil(err)
 	blk2, err := chain.MintNewBlock(nil, []*action.Vote{vote4, vote5}, nil, ta.Addrinfo["producer"], "")
 	require.Nil(err)
@@ -760,7 +760,8 @@ func TestDummyBlockReplacement(t *testing.T) {
 	require.Nil(err)
 
 	// Replace the second dummy block
-	tsf1, err := signedTransfer(ta.Addrinfo["producer"], ta.Addrinfo["alfa"], 1, big.NewInt(1), []byte{}, uint64(100000), big.NewInt(0))
+	tsf1, err := testutil.SignedTransfer(ta.Addrinfo["producer"], ta.Addrinfo["alfa"], 1, big.NewInt(1),
+		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	act2 := tsf1.ConvertToActionPb()
 	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
@@ -830,17 +831,6 @@ func TestBlockchainRecovery(t *testing.T) {
 	// restart server
 	svr = itx.NewServer(cfg)
 	require.NoError(svr.Start(ctx))
-}
-
-func newSignedVote(nonce int, from *iotxaddress.Address, to *iotxaddress.Address) (*action.Vote, error) {
-	vote, err := action.NewVote(uint64(nonce), from.RawAddress, to.RawAddress, uint64(100000), big.NewInt(0))
-	if err != nil {
-		return nil, err
-	}
-	if err := action.Sign(vote, from); err != nil {
-		return nil, err
-	}
-	return vote, nil
 }
 
 func newTestConfig() (*config.Config, error) {
