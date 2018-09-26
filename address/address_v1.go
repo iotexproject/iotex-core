@@ -9,7 +9,6 @@ package address
 import (
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/address/bech32"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
@@ -17,54 +16,51 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/hash"
 )
 
-const (
-	// AddressLength indicates the byte length of an address
-	AddressLength = 25
-	// Version indicates the version number
-	Version = 1
-)
+// V1 is a singleton and defines V1 address metadata
+var V1 = v1{
+	AddressLength: 25,
+	Version:       1,
+}
 
-// Address is V1 address format to be used on IoTeX blockchain and subchains. It is composed of parts in the
-// following order:
-// 1. uint32: chain ID
-// 2. 20 bytes: hash derived from the the public key
-type Address struct {
-	chainID uint32
-	pkHash  hash.PKHash
+type v1 struct {
+	// AddressLength indicates the byte length of an address
+	AddressLength int
+	// Version indicates the version number
+	Version uint8
 }
 
 // New constructs an address struct
-func New(chainID uint32, pkHash hash.PKHash) *Address {
-	return &Address{
+func (v *v1) New(chainID uint32, pkHash hash.PKHash) *AddrV1 {
+	return &AddrV1{
 		chainID: chainID,
 		pkHash:  pkHash,
 	}
 }
 
 // Bech32ToAddress decodes an encoded address string into an address struct
-func Bech32ToAddress(encodedAddr string) (*Address, error) {
-	payload, err := decodeBech32(encodedAddr)
+func (v *v1) Bech32ToAddress(encodedAddr string) (*AddrV1, error) {
+	payload, err := v.decodeBech32(encodedAddr)
 	if err != nil {
 		return nil, err
 	}
-	return BytesToAddress(payload)
+	return v.BytesToAddress(payload)
 }
 
 // BytesToAddress converts a byte array into an address struct
-func BytesToAddress(bytes []byte) (*Address, error) {
-	if len(bytes) != AddressLength {
-		return nil, errors.Wrapf(address.ErrInvalidAddr, "invalid address length in bytes: %d", len(bytes))
+func (v *v1) BytesToAddress(bytes []byte) (*AddrV1, error) {
+	if len(bytes) != v.AddressLength {
+		return nil, errors.Wrapf(ErrInvalidAddr, "invalid address length in bytes: %d", len(bytes))
 	}
-	if version := bytes[4]; version != Version {
+	if version := bytes[4]; version != v.Version {
 		return nil, errors.Wrapf(
-			address.ErrInvalidAddr,
+			ErrInvalidAddr,
 			"the address represented by the bytes is of version %d",
 			version,
 		)
 	}
-	var pkHash [hash.PKHashSize]byte
+	var pkHash hash.PKHash
 	copy(pkHash[:], bytes[5:])
-	return &Address{
+	return &AddrV1{
 		chainID: enc.MachineEndian.Uint32(bytes[:4]),
 		pkHash:  pkHash,
 	}, nil
@@ -72,35 +68,57 @@ func BytesToAddress(bytes []byte) (*Address, error) {
 
 // IotxAddressToAddress converts an old address string into an address struct
 // This method is used for backward compatibility
-func IotxAddressToAddress(iotxRawAddr string) (*Address, error) {
-	payload, err := decodeBech32(iotxRawAddr)
+func (v *v1) IotxAddressToAddress(iotxRawAddr string) (*AddrV1, error) {
+	payload, err := v.decodeBech32(iotxRawAddr)
 	if err != nil {
 		return nil, err
 	}
-	if len(payload) != AddressLength {
-		return nil, errors.Wrapf(address.ErrInvalidAddr, "invalid address length in bytes: %d", len(payload))
+	if len(payload) != v.AddressLength {
+		return nil, errors.Wrapf(ErrInvalidAddr, "invalid address length in bytes: %d", len(payload))
 	}
 	var pkHash [hash.PKHashSize]byte
 	copy(pkHash[:], payload[5:])
-	return &Address{
+	return &AddrV1{
 		chainID: enc.MachineEndian.Uint32(payload[1:5]),
 		pkHash:  pkHash,
 	}, nil
 }
 
+func (v *v1) decodeBech32(encodedAddr string) ([]byte, error) {
+	hrp, grouped, err := bech32.Decode(encodedAddr)
+	if hrp != prefix() {
+		return nil, errors.Wrapf(err, "hrp %s and address prefix %s don't match", hrp, prefix())
+	}
+	// Group the payload into 8 bit groups.
+	payload, err := bech32.ConvertBits(grouped[:], 5, 8, false)
+	if err != nil {
+		return nil, errors.Wrapf(err, "error when converting 5 bit groups into the payload")
+	}
+	return payload, nil
+}
+
+// AddrV1 is V1 address format to be used on IoTeX blockchain and subchains. It is composed of parts in the
+// following order:
+// 1. uint32: chain ID
+// 2. 20 bytes: hash derived from the the public key
+type AddrV1 struct {
+	chainID uint32
+	pkHash  hash.PKHash
+}
+
 // Bech32 encodes an address struct into a a Bech32 encoded address string
 // The encoded address string will start with "io" for mainnet, and with "it" for testnet
-func (addr *Address) Bech32() string {
+func (addr *AddrV1) Bech32() string {
 	var chainIDBytes [4]byte
 	enc.MachineEndian.PutUint32(chainIDBytes[:], addr.chainID)
-	payload := append(chainIDBytes[:], append([]byte{Version}, addr.pkHash[:]...)...)
+	payload := append(chainIDBytes[:], append([]byte{V1.Version}, addr.pkHash[:]...)...)
 	// Group the payload into 5 bit groups.
 	grouped, err := bech32.ConvertBits(payload, 8, 5, true)
 	if err != nil {
 		logger.Error().Err(err).Msg("error when grouping the payload into 5 bit groups")
 		return ""
 	}
-	encodedAddr, err := bech32.Encode(address.Prefix(), grouped)
+	encodedAddr, err := bech32.Encode(prefix(), grouped)
 	if err != nil {
 		logger.Error().Err(err).Msg("error when encoding bytes into a base32 string")
 		return ""
@@ -109,7 +127,7 @@ func (addr *Address) Bech32() string {
 }
 
 // Bytes converts an address struct into a byte array
-func (addr *Address) Bytes() []byte {
+func (addr *AddrV1) Bytes() []byte {
 	var chainIDBytes [4]byte
 	enc.MachineEndian.PutUint32(chainIDBytes[:], addr.chainID)
 	return append(chainIDBytes[:], append([]byte{1}, addr.pkHash[:]...)...)
@@ -117,10 +135,10 @@ func (addr *Address) Bytes() []byte {
 
 // IotxAddress converts an address struct into an old address string
 // This method is used for backward compatibility
-func (addr *Address) IotxAddress() string {
+func (addr *AddrV1) IotxAddress() string {
 	var chainIDBytes [4]byte
 	enc.MachineEndian.PutUint32(chainIDBytes[:], addr.chainID)
-	iotxAddr, err := iotxaddress.GetAddressByHash(address.IsTestNet(), chainIDBytes[:], addr.pkHash[:])
+	iotxAddr, err := iotxaddress.GetAddressByHash(isTestNet, chainIDBytes[:], addr.pkHash[:])
 	if err != nil {
 		logger.Error().Err(err).Msg("error when converting address to the iotex address")
 		return ""
@@ -129,34 +147,21 @@ func (addr *Address) IotxAddress() string {
 }
 
 // ChainID returns the chain ID
-func (addr *Address) ChainID() uint32 {
+func (addr *AddrV1) ChainID() uint32 {
 	return addr.chainID
 }
 
 // Version returns the address version
-func (addr *Address) Version() uint8 {
-	return Version
+func (addr *AddrV1) Version() uint8 {
+	return V1.Version
 }
 
 // Payload returns the payload, which is the public key hash
-func (addr *Address) Payload() []byte {
+func (addr *AddrV1) Payload() []byte {
 	return addr.pkHash[:]
 }
 
 // PublicKeyHash returns the public key hash
-func (addr *Address) PublicKeyHash() hash.PKHash {
+func (addr *AddrV1) PublicKeyHash() hash.PKHash {
 	return addr.pkHash
-}
-
-func decodeBech32(encodedAddr string) ([]byte, error) {
-	hrp, grouped, err := bech32.Decode(encodedAddr)
-	if hrp != address.Prefix() {
-		return nil, errors.Wrapf(err, "hrp %s and address prefix %s don't match", hrp, address.Prefix())
-	}
-	// Group the payload into 8 bit groups.
-	payload, err := bech32.ConvertBits(grouped[:], 5, 8, false)
-	if err != nil {
-		return nil, errors.Wrapf(err, "error when converting 5 bit groups into the payload")
-	}
-	return payload, nil
 }
