@@ -338,6 +338,7 @@ func New(validates ...Validate) (*Config, error) {
 	return &cfg, nil
 }
 
+// NewSub create config for sub chain.
 func NewSub(validates ...Validate) (*Config, error) {
 	if _subChainPath == "" {
 		return nil, nil
