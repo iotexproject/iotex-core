@@ -60,6 +60,11 @@ type DKGAddress struct {
 	ID         []uint8
 }
 
+// MainChainID returns the main chain id
+func MainChainID() uint32 {
+	return enc.MachineEndian.Uint32(ChainID)
+}
+
 // NewAddress returns a newly created public/private key pair together with the address derived.
 func NewAddress(isTestnet bool, chainID []byte) (*Address, error) {
 	pub, pri, err := crypto.EC283.NewKeyPair()

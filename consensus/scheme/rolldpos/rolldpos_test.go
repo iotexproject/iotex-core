@@ -382,7 +382,7 @@ func (o *directOverlay) Start(_ context.Context) error { return nil }
 
 func (o *directOverlay) Stop(_ context.Context) error { return nil }
 
-func (o *directOverlay) Broadcast(msg proto.Message) error {
+func (o *directOverlay) Broadcast(chainID uint32, msg proto.Message) error {
 	// Only broadcast consensus message
 	if _, ok := msg.(*iproto.ViewChangeMsg); !ok {
 		return nil
@@ -395,7 +395,7 @@ func (o *directOverlay) Broadcast(msg proto.Message) error {
 	return nil
 }
 
-func (o *directOverlay) Tell(net.Addr, proto.Message) error { return nil }
+func (o *directOverlay) Tell(uint32, net.Addr, proto.Message) error { return nil }
 
 func (o *directOverlay) Self() net.Addr { return o.addr }
 

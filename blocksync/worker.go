@@ -24,6 +24,7 @@ type syncBlocksInterval struct {
 }
 
 type syncWorker struct {
+	chainID      uint32
 	mu           sync.RWMutex
 	targetHeight uint64
 	p2p          network.Overlay
@@ -32,8 +33,9 @@ type syncWorker struct {
 	task         *routine.RecurringTask
 }
 
-func newSyncWorker(cfg *config.Config, p2p network.Overlay, buf *blockBuffer) *syncWorker {
+func newSyncWorker(chainID uint32, cfg *config.Config, p2p network.Overlay, buf *blockBuffer) *syncWorker {
 	w := &syncWorker{
+		chainID:      chainID,
 		p2p:          p2p,
 		buf:          buf,
 		targetHeight: 0,
@@ -90,7 +92,7 @@ func (w *syncWorker) Sync() {
 }
 
 func (w *syncWorker) sync(p net.Addr, interval syncBlocksInterval) error {
-	return w.p2p.Tell(p, &pb.BlockSync{
+	return w.p2p.Tell(w.chainID, p, &pb.BlockSync{
 		Start: interval.Start, End: interval.End,
 	})
 }

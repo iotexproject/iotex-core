@@ -10,8 +10,10 @@ import (
 	"context"
 	"os"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus"
@@ -20,6 +22,8 @@ import (
 	"github.com/iotexproject/iotex-core/explorer"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network"
+	pb "github.com/iotexproject/iotex-core/proto"
+
 	"github.com/pkg/errors"
 )
 
@@ -33,6 +37,58 @@ type Server struct {
 	blocksync  blocksync.BlockSync
 	dispatcher dispatcher.Dispatcher
 	explorer   *explorer.Server
+}
+
+type bcService struct {
+	ap actpool.ActPool
+	bs blocksync.BlockSync
+	cs consensus.Consensus
+}
+
+func (bcs *bcService) HandleAction(act *pb.ActionPb) error {
+	if pbTsf := act.GetTransfer(); pbTsf != nil {
+		tsf := &action.Transfer{}
+		tsf.ConvertFromActionPb(act)
+		if err := bcs.ap.AddTsf(tsf); err != nil {
+			logger.Debug().Err(err)
+			return err
+		}
+	} else if pbVote := act.GetVote(); pbVote != nil {
+		vote := &action.Vote{}
+		vote.ConvertFromActionPb(act)
+		if err := bcs.ap.AddVote(vote); err != nil {
+			logger.Debug().Err(err)
+			return err
+		}
+	} else if pbExecution := act.GetExecution(); pbExecution != nil {
+		execution := &action.Execution{}
+		execution.ConvertFromActionPb(act)
+		if err := bcs.ap.AddExecution(execution); err != nil {
+			logger.Debug().Err(err).Msg("Failed to add execution")
+			return err
+		}
+	}
+	return nil
+}
+
+func (bcs *bcService) HandleBlock(blk *blockchain.Block) error {
+	return bcs.bs.ProcessBlock(blk)
+}
+
+func (bcs *bcService) HandleBlockSync(blk *blockchain.Block) error {
+	return bcs.bs.ProcessBlockSync(blk)
+}
+
+func (bcs *bcService) HandleSyncRequest(sender string, sync *pb.BlockSync) error {
+	return bcs.bs.ProcessSyncRequest(sender, sync)
+}
+
+func (bcs *bcService) HandleViewChange(msg proto.Message) error {
+	return bcs.cs.HandleViewChange(msg)
+}
+
+func (bcs *bcService) HandleBlockPropose(msg proto.Message) error {
+	return bcs.cs.HandleBlockPropose(msg)
 }
 
 // NewServer creates a new server
@@ -52,6 +108,7 @@ func NewServer(cfg *config.Config) *Server {
 		chain = blockchain.NewBlockchain(cfg, blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption())
 
 	}
+	logger.Error().Uint32("chain id", chain.ChainID()).Msg("Chain ID for new server")
 	return newServer(cfg, chain)
 }
 
@@ -159,10 +216,11 @@ func newServer(cfg *config.Config, chain blockchain.Blockchain) *Server {
 		logger.Fatal().Msg("Failed to create Consensus")
 	}
 	// create dispatcher instance
-	dispatcher, err := dispatch.NewDispatcher(cfg, actPool, bs, consensus)
+	dispatcher, err := dispatch.NewDispatcher(cfg)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Fail to create dispatcher")
 	}
+	dispatcher.AddSubscriber(chain.ChainID(), &bcService{actPool, bs, consensus})
 	p2p.AttachDispatcher(dispatcher)
 	var exp *explorer.Server
 	if cfg.Explorer.IsTest || os.Getenv("APP_ENV") == "development" {

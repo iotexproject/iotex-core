@@ -454,7 +454,7 @@ func (m *cFSM) handleInitBlockEvt(evt fsm.Event) (fsm.State, error) {
 	// Notify itself
 	m.produce(proposeBlkEvt, 0)
 	// Notify other delegates
-	if err := m.ctx.p2p.Broadcast(proposeBlkEvtProto); err != nil {
+	if err := m.ctx.p2p.Broadcast(m.ctx.chain.ChainID(), proposeBlkEvtProto); err != nil {
 		logger.Error().
 			Err(err).
 			Msg("error when broadcasting proposeBlkEvt")
@@ -529,7 +529,7 @@ func (m *cFSM) handleProposeBlockEvt(evt fsm.Event) (fsm.State, error) {
 		// Notify itself
 		m.produce(prevoteEvt, 0)
 		// Notify other delegates
-		if err := m.ctx.p2p.Broadcast(prevoteEvtProto); err != nil {
+		if err := m.ctx.p2p.Broadcast(m.ctx.chain.ChainID(), prevoteEvtProto); err != nil {
 			logger.Error().
 				Err(err).
 				Msg("error when broadcasting prevoteEvtProto")
@@ -584,7 +584,7 @@ func (m *cFSM) handlePrevoteEvt(evt fsm.Event) (fsm.State, error) {
 		// Notify itself
 		m.produce(vEvt, 0)
 		// Notify other delegates
-		if err := m.ctx.p2p.Broadcast(vEvtProto); err != nil {
+		if err := m.ctx.p2p.Broadcast(m.ctx.chain.ChainID(), vEvtProto); err != nil {
 			logger.Error().
 				Err(err).
 				Msg("error when broadcasting voteEvtProto")
@@ -668,7 +668,7 @@ func (m *cFSM) handleVoteEvt(evt fsm.Event) (fsm.State, error) {
 		m.ctx.actPool.Reset()
 		// Broadcast the committed block to the network
 		if blkProto := pendingBlock.ConvertToBlockPb(); blkProto != nil {
-			if err := m.ctx.p2p.Broadcast(blkProto); err != nil {
+			if err := m.ctx.p2p.Broadcast(m.ctx.chain.ChainID(), blkProto); err != nil {
 				logger.Error().
 					Err(err).
 					Uint64("block", pendingBlock.Height()).
