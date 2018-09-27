@@ -38,10 +38,11 @@ message GetPeersRes {
 
 message BroadcastReq {
     uint32 header = 1;
-    uint32 msg_type = 2;
-    bytes msg_body = 3;
-    bytes msg_checksum = 4;
-    int32 ttl = 5; // in terms of the number of hops
+    uint32 chain_id = 2;
+    uint32 msg_type = 3;
+    bytes msg_body = 4;
+    bytes msg_checksum = 5;
+    int32 ttl = 6; // in terms of the number of hops
 }
 
 message BroadcastRes {
@@ -51,8 +52,9 @@ message BroadcastRes {
 message TellReq {
     uint32 header = 1;
     string addr = 2;
-    uint32 msg_type = 3;
-    bytes msg_body = 4;
+    uint32 chain_id = 3;
+    uint32 msg_type = 4;
+    bytes msg_body = 5;
 }
 
 message TellRes {

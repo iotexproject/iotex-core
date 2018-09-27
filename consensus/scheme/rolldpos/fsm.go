@@ -127,15 +127,13 @@ func (e *consensusEvt) fromProtoMsg(pMsg *iproto.ViewChangeMsg) error {
 
 type proposeBlkEvt struct {
 	consensusEvt
-	block    *blockchain.Block
-	proposer string
+	block *blockchain.Block
 }
 
-func newProposeBlkEvt(block *blockchain.Block, proposer string, c clock.Clock) *proposeBlkEvt {
+func newProposeBlkEvt(block *blockchain.Block, c clock.Clock) *proposeBlkEvt {
 	return &proposeBlkEvt{
 		consensusEvt: *newCEvt(eProposeBlock, c),
 		block:        block,
-		proposer:     proposer,
 	}
 }
 
@@ -143,7 +141,7 @@ func (e *proposeBlkEvt) toProtoMsg() (*iproto.ViewChangeMsg, error) {
 	return &iproto.ViewChangeMsg{
 		Vctype:     iproto.ViewChangeMsg_PROPOSE,
 		Block:      e.block.ConvertToBlockPb(),
-		SenderAddr: e.proposer,
+		SenderAddr: e.block.ProducerAddress(),
 	}, nil
 }
 
@@ -155,7 +153,6 @@ func (e *proposeBlkEvt) fromProtoMsg(pMsg *iproto.ViewChangeMsg) error {
 		e.block = &blockchain.Block{}
 		e.block.ConvertFromBlockPb(pMsg.Block)
 	}
-	e.proposer = pMsg.SenderAddr
 	return nil
 }
 
@@ -454,7 +451,7 @@ func (m *cFSM) handleInitBlockEvt(evt fsm.Event) (fsm.State, error) {
 	// Notify itself
 	m.produce(proposeBlkEvt, 0)
 	// Notify other delegates
-	if err := m.ctx.p2p.Broadcast(proposeBlkEvtProto); err != nil {
+	if err := m.ctx.p2p.Broadcast(m.ctx.chain.ChainID(), proposeBlkEvtProto); err != nil {
 		logger.Error().
 			Err(err).
 			Msg("error when broadcasting proposeBlkEvt")
@@ -477,20 +474,30 @@ func (m *cFSM) handleProposeBlockEvt(evt fsm.Event) (fsm.State, error) {
 			return sInvalid, errors.Wrap(err, "error when calculating the proposer")
 		}
 		blkHash := proposeBlkEvt.block.HashBlock()
-		if proposeBlkEvt.proposer != proposer {
+		producer := proposeBlkEvt.block.ProducerAddress()
+		switch {
+		case producer == "" || producer != proposer:
 			logger.Error().
-				Str("proposer", proposeBlkEvt.proposer).
-				Str("actualProposer", proposer).
+				Str("proposer", producer).
+				Str("expectedProposer", proposer).
 				Uint64("block", proposeBlkEvt.block.Height()).
 				Str("hash", hex.EncodeToString(blkHash[:])).
 				Err(err).
 				Msg("error when validating the block proposer")
 			validated = false
-		} else if proposeBlkEvt.proposer != m.ctx.addr.RawAddress {
+		case !proposeBlkEvt.block.VerifySignature():
+			logger.Error().
+				Str("proposer", producer).
+				Uint64("block", proposeBlkEvt.block.Height()).
+				Str("hash", hex.EncodeToString(blkHash[:])).
+				Err(err).
+				Msg("error when validating the block signature")
+			validated = false
+		case producer != m.ctx.addr.RawAddress:
 			// If the block is self proposed, skip validation
 			if err := m.ctx.chain.ValidateBlock(proposeBlkEvt.block); err != nil {
 				logger.Error().
-					Str("proposer", proposeBlkEvt.proposer).
+					Str("proposer", producer).
 					Uint64("block", proposeBlkEvt.block.Height()).
 					Str("hash", hex.EncodeToString(blkHash[:])).
 					Err(err).
@@ -501,7 +508,7 @@ func (m *cFSM) handleProposeBlockEvt(evt fsm.Event) (fsm.State, error) {
 			if len(proposeBlkEvt.block.Header.DKGPubkey) > 0 && len(proposeBlkEvt.block.Header.DKGBlockSig) > 0 {
 				if err := verifyDKGSignature(proposeBlkEvt.block, m.ctx.epoch.seed); err != nil {
 					logger.Error().
-						Str("proposer", proposeBlkEvt.proposer).
+						Str("proposer", producer).
 						Uint64("block", proposeBlkEvt.block.Height()).
 						Str("hash", hex.EncodeToString(blkHash[:])).
 						Err(err).
@@ -529,7 +536,7 @@ func (m *cFSM) handleProposeBlockEvt(evt fsm.Event) (fsm.State, error) {
 		// Notify itself
 		m.produce(prevoteEvt, 0)
 		// Notify other delegates
-		if err := m.ctx.p2p.Broadcast(prevoteEvtProto); err != nil {
+		if err := m.ctx.p2p.Broadcast(m.ctx.chain.ChainID(), prevoteEvtProto); err != nil {
 			logger.Error().
 				Err(err).
 				Msg("error when broadcasting prevoteEvtProto")
@@ -584,7 +591,7 @@ func (m *cFSM) handlePrevoteEvt(evt fsm.Event) (fsm.State, error) {
 		// Notify itself
 		m.produce(vEvt, 0)
 		// Notify other delegates
-		if err := m.ctx.p2p.Broadcast(vEvtProto); err != nil {
+		if err := m.ctx.p2p.Broadcast(m.ctx.chain.ChainID(), vEvtProto); err != nil {
 			logger.Error().
 				Err(err).
 				Msg("error when broadcasting voteEvtProto")
@@ -668,7 +675,7 @@ func (m *cFSM) handleVoteEvt(evt fsm.Event) (fsm.State, error) {
 		m.ctx.actPool.Reset()
 		// Broadcast the committed block to the network
 		if blkProto := pendingBlock.ConvertToBlockPb(); blkProto != nil {
-			if err := m.ctx.p2p.Broadcast(blkProto); err != nil {
+			if err := m.ctx.p2p.Broadcast(m.ctx.chain.ChainID(), blkProto); err != nil {
 				logger.Error().
 					Err(err).
 					Uint64("block", pendingBlock.Height()).
@@ -748,7 +755,7 @@ func (m *cFSM) newCEvt(t fsm.EventType) *consensusEvt {
 }
 
 func (m *cFSM) newProposeBlkEvt(blk *blockchain.Block) *proposeBlkEvt {
-	return newProposeBlkEvt(blk, m.ctx.addr.RawAddress, m.ctx.clock)
+	return newProposeBlkEvt(blk, m.ctx.clock)
 }
 
 func (m *cFSM) newPrevoteEvt(blkHash hash.Hash32B, decision bool) *voteEvt {

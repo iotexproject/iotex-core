@@ -84,7 +84,7 @@ func NewEVMParams(blk *Block, execution *action.Execution, stateDB *EVMStateDBAd
 		contractAddrPointer = &contractAddr
 	}
 	producerHash := keypair.HashPubKey(blk.Header.Pubkey)
-	producer := common.BytesToAddress(producerHash)
+	producer := common.BytesToAddress(producerHash[:])
 	context := vm.Context{
 		CanTransfer: CanTransfer,
 		Transfer:    MakeTransfer,

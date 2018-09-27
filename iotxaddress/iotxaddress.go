@@ -20,8 +20,8 @@ package iotxaddress
 import (
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-core/address/bech32"
 	"github.com/iotexproject/iotex-core/crypto"
-	"github.com/iotexproject/iotex-core/iotxaddress/bech32"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
@@ -97,7 +97,8 @@ func CreateContractAddress(ownerAddr string, nonce uint64) (string, error) {
 
 // GetAddressByPubkey returns the address given a public key and necessary params.
 func GetAddressByPubkey(isTestnet bool, chainID []byte, pub keypair.PublicKey) (*Address, error) {
-	raddr, err := getRawAddress(isTestnet, chainID, keypair.HashPubKey(pub))
+	pkHash := keypair.HashPubKey(pub)
+	raddr, err := getRawAddress(isTestnet, chainID, pkHash[:])
 	if err != nil {
 		return nil, errors.Wrap(err, "error when getting raw address")
 	}
@@ -110,7 +111,7 @@ func GetPubkeyHash(address string) ([]byte, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "error when decoding the address in the form of base32 string")
 	}
-	if !isValidHrp(hrp) {
+	if !IsValidHrp(hrp) {
 		return nil, errors.Wrapf(ErrInvalidHRP, "invalid human readable prefix %s", hrp)
 	}
 
@@ -119,7 +120,7 @@ func GetPubkeyHash(address string) ([]byte, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "error when converting 5 bit groups into the payload")
 	}
-	if !isValidVersion(payload[0]) {
+	if !IsValidVersion(payload[0]) {
 		return nil, errors.Wrapf(ErrInvalidVersion, "invalid address version %d", payload[0])
 	}
 	return payload[5:25], nil
@@ -143,6 +144,8 @@ func getRawAddress(isTestnet bool, chainID, hash []byte) (string, error) {
 	return raddr, nil
 }
 
-func isValidHrp(hrp string) bool { return hrp == mainnetPrefix || hrp == testnetPrefix }
+// IsValidHrp returns if hrp is valid or not
+func IsValidHrp(hrp string) bool { return hrp == mainnetPrefix || hrp == testnetPrefix }
 
-func isValidVersion(version byte) bool { return version >= 0x01 }
+// IsValidVersion returns if version is valid or not
+func IsValidVersion(version byte) bool { return version >= 0x01 }

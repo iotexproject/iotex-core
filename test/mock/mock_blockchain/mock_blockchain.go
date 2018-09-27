@@ -400,6 +400,18 @@ func (mr *MockBlockchainMockRecorder) GetFactory() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFactory", reflect.TypeOf((*MockBlockchain)(nil).GetFactory))
 }
 
+// ChainID mocks base method
+func (m *MockBlockchain) ChainID() uint32 {
+	ret := m.ctrl.Call(m, "ChainID")
+	ret0, _ := ret[0].(uint32)
+	return ret0
+}
+
+// ChainID indicates an expected call of ChainID
+func (mr *MockBlockchainMockRecorder) ChainID() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChainID", reflect.TypeOf((*MockBlockchain)(nil).ChainID))
+}
+
 // TipHash mocks base method
 func (m *MockBlockchain) TipHash() hash.Hash32B {
 	ret := m.ctrl.Call(m, "TipHash")
@@ -461,6 +473,19 @@ func (m *MockBlockchain) MintNewDKGBlock(tsf []*action.Transfer, vote []*action.
 // MintNewDKGBlock indicates an expected call of MintNewDKGBlock
 func (mr *MockBlockchainMockRecorder) MintNewDKGBlock(tsf, vote, executions, producer, dkgAddress, seed, data interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MintNewDKGBlock", reflect.TypeOf((*MockBlockchain)(nil).MintNewDKGBlock), tsf, vote, executions, producer, dkgAddress, seed, data)
+}
+
+// MintNewSecretBlock mocks base method
+func (m *MockBlockchain) MintNewSecretBlock(secretProposals []*action.SecretProposal, secretWitness *action.SecretWitness, producer *iotxaddress.Address) (*blockchain.Block, error) {
+	ret := m.ctrl.Call(m, "MintNewSecretBlock", secretProposals, secretWitness, producer)
+	ret0, _ := ret[0].(*blockchain.Block)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// MintNewSecretBlock indicates an expected call of MintNewSecretBlock
+func (mr *MockBlockchainMockRecorder) MintNewSecretBlock(secretProposals, secretWitness, producer interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MintNewSecretBlock", reflect.TypeOf((*MockBlockchain)(nil).MintNewSecretBlock), secretProposals, secretWitness, producer)
 }
 
 // MintNewDummyBlock mocks base method

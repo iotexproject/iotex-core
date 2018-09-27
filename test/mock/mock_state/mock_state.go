@@ -189,7 +189,7 @@ func (mr *MockFactoryMockRecorder) Commit() *gomock.Call {
 }
 
 // GetCodeHash mocks base method
-func (m *MockFactory) GetCodeHash(arg0 hash.AddrHash) (hash.Hash32B, error) {
+func (m *MockFactory) GetCodeHash(arg0 hash.PKHash) (hash.Hash32B, error) {
 	ret := m.ctrl.Call(m, "GetCodeHash", arg0)
 	ret0, _ := ret[0].(hash.Hash32B)
 	ret1, _ := ret[1].(error)
@@ -202,7 +202,7 @@ func (mr *MockFactoryMockRecorder) GetCodeHash(arg0 interface{}) *gomock.Call {
 }
 
 // GetCode mocks base method
-func (m *MockFactory) GetCode(arg0 hash.AddrHash) ([]byte, error) {
+func (m *MockFactory) GetCode(arg0 hash.PKHash) ([]byte, error) {
 	ret := m.ctrl.Call(m, "GetCode", arg0)
 	ret0, _ := ret[0].([]byte)
 	ret1, _ := ret[1].(error)
@@ -215,7 +215,7 @@ func (mr *MockFactoryMockRecorder) GetCode(arg0 interface{}) *gomock.Call {
 }
 
 // SetCode mocks base method
-func (m *MockFactory) SetCode(arg0 hash.AddrHash, arg1 []byte) error {
+func (m *MockFactory) SetCode(arg0 hash.PKHash, arg1 []byte) error {
 	ret := m.ctrl.Call(m, "SetCode", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -227,7 +227,7 @@ func (mr *MockFactoryMockRecorder) SetCode(arg0, arg1 interface{}) *gomock.Call 
 }
 
 // GetContractState mocks base method
-func (m *MockFactory) GetContractState(arg0 hash.AddrHash, arg1 hash.Hash32B) (hash.Hash32B, error) {
+func (m *MockFactory) GetContractState(arg0 hash.PKHash, arg1 hash.Hash32B) (hash.Hash32B, error) {
 	ret := m.ctrl.Call(m, "GetContractState", arg0, arg1)
 	ret0, _ := ret[0].(hash.Hash32B)
 	ret1, _ := ret[1].(error)
@@ -240,7 +240,7 @@ func (mr *MockFactoryMockRecorder) GetContractState(arg0, arg1 interface{}) *gom
 }
 
 // SetContractState mocks base method
-func (m *MockFactory) SetContractState(arg0 hash.AddrHash, arg1, arg2 hash.Hash32B) error {
+func (m *MockFactory) SetContractState(arg0 hash.PKHash, arg1, arg2 hash.Hash32B) error {
 	ret := m.ctrl.Call(m, "SetContractState", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0

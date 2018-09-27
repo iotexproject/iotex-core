@@ -94,7 +94,8 @@ func Sign(act Action, sender *iotxaddress.Address) error {
 	if err != nil {
 		return errors.Wrap(err, "error when getting the pubkey hash")
 	}
-	if !bytes.Equal(pkhash, keypair.HashPubKey(sender.PublicKey)) {
+	senderPKHash := keypair.HashPubKey(sender.PublicKey)
+	if !bytes.Equal(pkhash, senderPKHash[:]) {
 		return errors.Wrapf(ErrAction, "signing addr %s does not own correct public key",
 			sender.RawAddress)
 	}

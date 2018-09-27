@@ -47,9 +47,13 @@ func TestLocalActPool(t *testing.T) {
 
 	// create server
 	ctx := context.Background()
-	svr := itx.NewServer(cfg)
+	svr, err := itx.NewServer(cfg)
+	require.Nil(err)
+
+	chainID := cfg.Chain.ID
 	require.NoError(svr.Start(ctx))
-	require.NotNil(svr.ActionPool())
+
+	require.NotNil(svr.ChainService(chainID).ActionPool())
 
 	// create client
 	cfg.Network.BootstrapNodes = []string{svr.P2P().Self().String()}
@@ -72,28 +76,36 @@ func TestLocalActPool(t *testing.T) {
 	}))
 
 	// Create three valid actions from "from" to "to"
-	tsf1, _ := signedTransfer(from, to, uint64(1), big.NewInt(1))
-	vote2, _ := signedVote(from, from, uint64(2))
-	tsf3, _ := signedTransfer(from, to, uint64(3), big.NewInt(3))
+	tsf1, err := testutil.SignedTransfer(from, to, uint64(1), big.NewInt(1),
+		[]byte{}, uint64(100000), big.NewInt(0))
+	require.NoError(err)
+	vote2, err := testutil.SignedVote(from, from, uint64(2), uint64(100000), big.NewInt(0))
+	require.NoError(err)
+	tsf3, err := testutil.SignedTransfer(from, to, uint64(3), big.NewInt(3),
+		[]byte{}, uint64(100000), big.NewInt(0))
+	require.NoError(err)
 	// Create contract
-	exec4, _ := signedExecution(from, action.EmptyAddress, uint64(4), big.NewInt(0), uint64(120000), big.NewInt(10), []byte{})
-
+	exec4, err := testutil.SignedExecution(from, action.EmptyAddress, uint64(4), big.NewInt(0),
+		uint64(120000), big.NewInt(10), []byte{})
+	require.NoError(err)
 	// Create three invalid actions from "from" to "to"
 	// Existed Vote
-	vote5, _ := signedVote(from, from, uint64(2))
+	vote5, err := testutil.SignedVote(from, from, uint64(2), uint64(100000), big.NewInt(0))
+	require.NoError(err)
 	// Unsigned Vote
-	vote6, _ := action.NewVote(uint64(7), from.RawAddress, from.RawAddress, uint64(100000), big.NewInt(10))
+	vote6, err := action.NewVote(uint64(7), from.RawAddress, from.RawAddress, uint64(100000), big.NewInt(10))
+	require.NoError(err)
 
-	require.NoError(cli.Broadcast(tsf1.ConvertToActionPb()))
-	require.NoError(cli.Broadcast(vote2.ConvertToActionPb()))
-	require.NoError(cli.Broadcast(tsf3.ConvertToActionPb()))
-	require.NoError(cli.Broadcast(exec4.ConvertToActionPb()))
-	require.NoError(cli.Broadcast(vote5.ConvertToActionPb()))
-	require.NoError(cli.Broadcast(vote6.ConvertToActionPb()))
+	require.NoError(cli.Broadcast(chainID, tsf1.ConvertToActionPb()))
+	require.NoError(cli.Broadcast(chainID, vote2.ConvertToActionPb()))
+	require.NoError(cli.Broadcast(chainID, tsf3.ConvertToActionPb()))
+	require.NoError(cli.Broadcast(chainID, exec4.ConvertToActionPb()))
+	require.NoError(cli.Broadcast(chainID, vote5.ConvertToActionPb()))
+	require.NoError(cli.Broadcast(chainID, vote6.ConvertToActionPb()))
 
 	// Wait until server receives all the transfers
 	require.NoError(testutil.WaitUntil(100*time.Millisecond, 5*time.Second, func() (bool, error) {
-		transfers, votes, executions := svr.ActionPool().PickActs()
+		transfers, votes, executions := svr.ChainService(chainID).ActionPool().PickActs()
 		// 2 valid transfers and 1 valid vote and 1 valid execution
 		return len(transfers) == 2 && len(votes) == 1 && len(executions) == 1, nil
 	}))
@@ -112,9 +124,11 @@ func TestPressureActPool(t *testing.T) {
 
 	// create server
 	ctx := context.Background()
-	svr := itx.NewServer(cfg)
+	svr, err := itx.NewServer(cfg)
+	require.Nil(err)
 	require.Nil(svr.Start(ctx))
-	require.NotNil(svr.ActionPool())
+	chainID := cfg.Chain.ID
+	require.NotNil(svr.ChainService(chainID).ActionPool())
 
 	// create client
 	cfg.Network.BootstrapNodes = []string{svr.P2P().Self().String()}
@@ -138,57 +152,18 @@ func TestPressureActPool(t *testing.T) {
 
 	require.Nil(err)
 	for i := 1; i <= 1000; i++ {
-		tsf, _ := signedTransfer(from, to, uint64(i), big.NewInt(int64(i)))
-		require.NoError(cli.Broadcast(tsf.ConvertToActionPb()))
+		tsf, err := testutil.SignedTransfer(from, to, uint64(i), big.NewInt(int64(i)),
+			[]byte{}, uint64(100000), big.NewInt(0))
+		require.NoError(err)
+		require.NoError(cli.Broadcast(chainID, tsf.ConvertToActionPb()))
 	}
 
 	// Wait until committed blocks contain all broadcasted actions
 	err = testutil.WaitUntil(10*time.Millisecond, 10*time.Second, func() (bool, error) {
-		transfers, _, _ := svr.ActionPool().PickActs()
+		transfers, _, _ := svr.ChainService(chainID).ActionPool().PickActs()
 		return len(transfers) == 1000, nil
 	})
 	require.Nil(err)
-}
-
-// Helper function to return a signed transfer
-func signedTransfer(
-	sender *iotxaddress.Address,
-	recipient *iotxaddress.Address,
-	nonce uint64,
-	amount *big.Int,
-) (*action.Transfer, error) {
-	transfer, err := action.NewTransfer(nonce, amount, sender.RawAddress, recipient.RawAddress, []byte{}, uint64(100000), big.NewInt(10))
-	if err != nil {
-		return nil, err
-	}
-	if err := action.Sign(transfer, sender); err != nil {
-		return nil, err
-	}
-	return transfer, nil
-}
-
-// Helper function to return a signed vote
-func signedVote(voter *iotxaddress.Address, votee *iotxaddress.Address, nonce uint64) (*action.Vote, error) {
-	vote, err := action.NewVote(nonce, voter.RawAddress, votee.RawAddress, uint64(100000), big.NewInt(10))
-	if err != nil {
-		return nil, err
-	}
-	if err := action.Sign(vote, voter); err != nil {
-		return nil, err
-	}
-	return vote, err
-}
-
-// Helper function to return a signed execution
-func signedExecution(executor *iotxaddress.Address, contractAddr string, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) (*action.Execution, error) {
-	execution, err := action.NewExecution(executor.RawAddress, contractAddr, nonce, amount, gasLimit, gasPrice, data)
-	if err != nil {
-		return nil, err
-	}
-	if err := action.Sign(execution, executor); err != nil {
-		return nil, err
-	}
-	return execution, nil
 }
 
 func newActPoolConfig() (*config.Config, error) {

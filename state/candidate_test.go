@@ -46,7 +46,7 @@ func TestCandidate(t *testing.T) {
 	require.NoError(err)
 	cand3Hash := byteutil.BytesTo20B(pkHash)
 
-	candidateMap := make(map[hash.AddrHash]*Candidate)
+	candidateMap := make(map[hash.PKHash]*Candidate)
 	candidateMap[cand1Hash] = cand1
 	candidateMap[cand2Hash] = cand2
 	candidateMap[cand3Hash] = cand3

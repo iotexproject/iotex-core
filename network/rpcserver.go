@@ -149,7 +149,7 @@ func (s *RPCServer) Tell(ctx context.Context, req *pb.TellReq) (*pb.TellRes, err
 		return nil, err
 	}
 	if s.Overlay.Dispatcher != nil {
-		s.Overlay.Dispatcher.HandleTell(node.NewTCPNode(req.Addr), protoMsg, nil)
+		s.Overlay.Dispatcher.HandleTell(req.ChainId, node.NewTCPNode(req.Addr), protoMsg, nil)
 	}
 	return &pb.TellRes{Header: iproto.MagicBroadcastMsgHeader}, nil
 }

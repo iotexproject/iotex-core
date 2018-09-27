@@ -4,21 +4,19 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package dispatch
+package dispatcher
 
 import (
 	"context"
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/dispatch/dispatcher"
 	"github.com/iotexproject/iotex-core/network/node"
-	"github.com/iotexproject/iotex-core/proto"
-	"github.com/iotexproject/iotex-core/test/mock/mock_blocksync"
-	"github.com/iotexproject/iotex-core/test/mock/mock_consensus"
+	pb "github.com/iotexproject/iotex-core/proto"
 )
 
 func TestNewDispatcher(t *testing.T) {
@@ -26,7 +24,7 @@ func TestNewDispatcher(t *testing.T) {
 	defer ctrl.Finish()
 
 	ctx := context.Background()
-	d, _ := createDispatcher(ctrl)
+	d := createDispatcher(config.Default.Chain.ID, ctrl)
 	assert.NotNil(t, d)
 
 	err := d.Start(ctx)
@@ -42,7 +40,7 @@ func TestDispatchBlockMsg(t *testing.T) {
 	defer ctrl.Finish()
 
 	ctx := context.Background()
-	d, bs := createDispatcher(ctrl)
+	d := createDispatcher(config.Default.Chain.ID, ctrl)
 	assert.NotNil(t, d)
 
 	err := d.Start(ctx)
@@ -53,9 +51,8 @@ func TestDispatchBlockMsg(t *testing.T) {
 	}()
 
 	done := make(chan bool, 1000)
-	bs.EXPECT().ProcessBlock(gomock.Any()).Times(1000).Return(nil)
 	for i := 0; i < 1000; i++ {
-		d.HandleBroadcast(&iproto.BlockPb{}, done)
+		d.HandleBroadcast(config.Default.Chain.ID, &pb.BlockPb{}, done)
 	}
 	for i := 0; i < 1000; i++ {
 		<-done
@@ -67,7 +64,7 @@ func TestDispatchBlockSyncReq(t *testing.T) {
 	defer ctrl.Finish()
 
 	ctx := context.Background()
-	d, bs := createDispatcher(ctrl)
+	d := createDispatcher(config.Default.Chain.ID, ctrl)
 	assert.NotNil(t, d)
 
 	err := d.Start(ctx)
@@ -78,9 +75,8 @@ func TestDispatchBlockSyncReq(t *testing.T) {
 	}()
 
 	done := make(chan bool, 1000)
-	bs.EXPECT().ProcessSyncRequest(gomock.Any(), gomock.Any()).Times(1000).Return(nil)
 	for i := 0; i < 1000; i++ {
-		d.HandleTell(node.NewTCPNode("192.168.0.0:10000"), &iproto.BlockSync{}, done)
+		d.HandleTell(config.Default.Chain.ID, node.NewTCPNode("192.168.0.0:10000"), &pb.BlockSync{}, done)
 	}
 	for i := 0; i < 1000; i++ {
 		<-done
@@ -92,7 +88,7 @@ func TestDispatchBlockSyncData(t *testing.T) {
 	defer ctrl.Finish()
 
 	ctx := context.Background()
-	d, bs := createDispatcher(ctrl)
+	d := createDispatcher(config.Default.Chain.ID, ctrl)
 	assert.NotNil(t, d)
 
 	err := d.Start(ctx)
@@ -103,25 +99,55 @@ func TestDispatchBlockSyncData(t *testing.T) {
 	}()
 
 	done := make(chan bool, 1000)
-	bs.EXPECT().ProcessBlockSync(gomock.Any()).Times(1000).Return(nil)
 	for i := 0; i < 1000; i++ {
-		d.HandleTell(node.NewTCPNode("192.168.0.0:10000"), &iproto.BlockContainer{Block: &iproto.BlockPb{}}, done)
+		d.HandleTell(
+			config.Default.Chain.ID,
+			node.NewTCPNode("192.168.0.0:10000"),
+			&pb.BlockContainer{Block: &pb.BlockPb{}},
+			done,
+		)
 	}
 	for i := 0; i < 1000; i++ {
 		<-done
 	}
 }
 
+type DummySubscriber struct {
+}
+
+func (s *DummySubscriber) HandleBlock(*pb.BlockPb) error {
+	return nil
+}
+
+func (s *DummySubscriber) HandleBlockSync(*pb.BlockPb) error {
+	return nil
+}
+
+func (s *DummySubscriber) HandleSyncRequest(string, *pb.BlockSync) error {
+	return nil
+}
+
+func (s *DummySubscriber) HandleAction(*pb.ActionPb) error {
+	return nil
+}
+
+func (s *DummySubscriber) HandleViewChange(proto.Message) error {
+	return nil
+}
+
+func (s *DummySubscriber) HandleBlockPropose(proto.Message) error {
+	return nil
+}
+
 func createDispatcher(
+	chainID uint32,
 	ctrl *gomock.Controller,
-) (dispatcher.Dispatcher, *mock_blocksync.MockBlockSync) {
+) Dispatcher {
 	cfg := &config.Config{
 		Consensus:  config.Consensus{Scheme: config.NOOPScheme},
 		Dispatcher: config.Dispatcher{EventChanSize: 1024},
 	}
-	bs := mock_blocksync.NewMockBlockSync(ctrl)
-	cs := mock_consensus.NewMockConsensus(ctrl)
-	dp, _ := NewDispatcher(cfg, nil, bs, cs)
-
-	return dp, bs
+	dp, _ := NewDispatcher(cfg)
+	dp.AddSubscriber(chainID, &DummySubscriber{})
+	return dp
 }
