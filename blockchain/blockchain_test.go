@@ -222,11 +222,24 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	bc := NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	require.NoError(bc.Start(ctx))
 	require.NotNil(bc)
+
+	var transfers = int(0)
+	testchan := make(chan *Block)
+	bc.SubscribeToBlock(testchan)
+	go func() {
+		for {
+			blk := <-testchan
+			transfers += len(blk.Transfers)
+		}
+	}()
+	require.Equal(0, transfers)
+
 	height := bc.TipHeight()
 	fmt.Printf("Open blockchain pass, height = %d\n", height)
 	require.Nil(addTestingTsfBlocks(bc))
 	err = bc.Stop(ctx)
 	require.NoError(err)
+	require.Equal(25, transfers)
 
 	// Load a blockchain from DB
 	bc = NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())

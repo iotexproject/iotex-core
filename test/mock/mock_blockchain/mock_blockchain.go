@@ -545,3 +545,15 @@ func (m *MockBlockchain) ExecuteContractRead(arg0 *action.Execution) ([]byte, er
 func (mr *MockBlockchainMockRecorder) ExecuteContractRead(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecuteContractRead", reflect.TypeOf((*MockBlockchain)(nil).ExecuteContractRead), arg0)
 }
+
+// SubscribeToBlock mocks base method
+func (m *MockBlockchain) SubscribeToBlock(ch chan *blockchain.Block) error {
+	ret := m.ctrl.Call(m, "SubscribeToBlock", ch)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SubscribeToBlock indicates an expected call of SubscribeToBlock
+func (mr *MockBlockchainMockRecorder) SubscribeToBlock(ch interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubscribeToBlock", reflect.TypeOf((*MockBlockchain)(nil).SubscribeToBlock), ch)
+}

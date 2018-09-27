@@ -9,19 +9,23 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/net/context"
 
+	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/cloudrds"
 	"github.com/iotexproject/iotex-core/config"
 )
 
-// Server is the container of the explorer service
+// Server is the container of the index service
 type Server struct {
-	cfg config.IndexService
-	idx *IndexService
+	cfg     config.IndexService
+	idx     *IndexService
+	bc      blockchain.Blockchain
+	blockCh chan *blockchain.Block
 }
 
-// NewServer instantiates an explorer server
+// NewServer instantiates an index service
 func NewServer(
 	cfg config.IndexService,
+	bc blockchain.Blockchain,
 ) *Server {
 	return &Server{
 		cfg: cfg,
@@ -29,6 +33,7 @@ func NewServer(
 			cfg: cfg,
 			rds: nil,
 		},
+		bc: bc,
 	}
 }
 
@@ -38,6 +43,15 @@ func (s *Server) Start(ctx context.Context) error {
 	if err := s.idx.rds.Start(ctx); err != nil {
 		return errors.Wrap(err, "error when start rds store")
 	}
+
+	s.blockCh = make(chan *blockchain.Block)
+	s.bc.SubscribeToBlock(s.blockCh)
+	go func() {
+		for {
+			blk := <-s.blockCh
+			s.idx.BuildIndex(blk)
+		}
+	}()
 
 	return nil
 }
@@ -49,18 +63,3 @@ func (s *Server) Stop(ctx context.Context) error {
 	}
 	return nil
 }
-
-// logFilter example of Filter implementation
-/*type logFilter struct{}
-
-// PreInvoke implement empty preinvoke
-func (f logFilter) PreInvoke(r *barrister.RequestResponse) bool {
-	logger.Debug().Msgf("logFilter: PreInvoke of method:", r.Method)
-	return true
-}
-
-// PostInvoke implement empty postinvoke
-func (f logFilter) PostInvoke(r *barrister.RequestResponse) bool {
-	logger.Debug().Msgf("logFilter: PostInvoke of method:", r.Method)
-	return true
-}*/

@@ -14,7 +14,7 @@ import (
 
 func TestServer(t *testing.T) {
 	require := require.New(t)
-	svr := NewServer(config.Default.IndexService)
+	svr := NewServer(config.Default.IndexService, nil)
 	svr.Start(nil)
 
 	db := svr.idx.rds.GetDB()
