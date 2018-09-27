@@ -18,6 +18,7 @@ import (
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 )
 
@@ -88,9 +89,10 @@ var (
 			TTL:                                 3,
 		},
 		Chain: Chain{
-			ChainDBPath:             "/tmp/chain.db",
-			TrieDBPath:              "/tmp/trie.db",
-			ID:                      1,
+			ChainDBPath: "/tmp/chain.db",
+			TrieDBPath:  "/tmp/trie.db",
+			// TODO: set default chain ID to 1 after deprecating iotxaddress.ChainID
+			ID:                      enc.MachineEndian.Uint32(iotxaddress.ChainID),
 			ProducerPubKey:          keypair.EncodePublicKey(keypair.ZeroPublicKey),
 			ProducerPrivKey:         keypair.EncodePrivateKey(keypair.ZeroPrivateKey),
 			InMemTest:               false,
