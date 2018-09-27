@@ -412,7 +412,6 @@ func TestRollDPoSConsensus(t *testing.T) {
 
 	newConsensusComponents := func(numNodes int) ([]*RollDPoS, []*directOverlay, []blockchain.Blockchain) {
 		cfg := config.Default
-		cfg.Chain.ID = iotxaddress.MainChainID()
 		cfg.Consensus.RollDPoS.Delay = 300 * time.Millisecond
 		cfg.Consensus.RollDPoS.ProposerInterval = time.Second
 		cfg.Consensus.RollDPoS.AcceptProposeTTL = 100 * time.Millisecond
@@ -705,7 +704,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 				require.NoError(t, chains[i].Stop(ctx))
 			}
 		}()
-		time.Sleep(2 * time.Second)
+		time.Sleep(5 * time.Second)
 		for i, chain := range chains {
 			blk, err := chain.GetBlockByHeight(1)
 			if i == 0 {

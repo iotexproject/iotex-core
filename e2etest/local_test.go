@@ -153,7 +153,7 @@ func TestLocalCommit(t *testing.T) {
 	_ = action.Sign(tsf1, ta.Addrinfo["charlie"])
 	act1 := tsf1.ConvertToActionPb()
 	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
-		if err := p.Broadcast(chainID, act1); err != nil {
+		if err := p.Broadcast(cfg.Chain.ID, act1); err != nil {
 			return false, err
 		}
 		tsf, _, _ := svr.ChainService(chainID).ActionPool().PickActs()
@@ -179,7 +179,7 @@ func TestLocalCommit(t *testing.T) {
 	// broadcast to P2P
 	act2 := tsf2.ConvertToActionPb()
 	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
-		if err := p.Broadcast(chainID, act2); err != nil {
+		if err := p.Broadcast(cfg.Chain.ID, act2); err != nil {
 			return false, err
 		}
 		tsf, _, _ := svr.ChainService(chainID).ActionPool().PickActs()
@@ -199,7 +199,7 @@ func TestLocalCommit(t *testing.T) {
 	// broadcast to P2P
 	act3 := tsf3.ConvertToActionPb()
 	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
-		if err := p.Broadcast(chainID, act3); err != nil {
+		if err := p.Broadcast(cfg.Chain.ID, act3); err != nil {
 			return false, err
 		}
 		tsf, _, _ := svr.ChainService(chainID).ActionPool().PickActs()
@@ -219,7 +219,7 @@ func TestLocalCommit(t *testing.T) {
 	// broadcast to P2P
 	act4 := tsf4.ConvertToActionPb()
 	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
-		if err := p.Broadcast(chainID, act4); err != nil {
+		if err := p.Broadcast(cfg.Chain.ID, act4); err != nil {
 			return false, err
 		}
 		tsf, _, _ := svr.ChainService(chainID).ActionPool().PickActs()
@@ -227,13 +227,13 @@ func TestLocalCommit(t *testing.T) {
 	})
 	require.Nil(err)
 	// wait 4 blocks being picked and committed
-	err = p.Broadcast(chainID, blk2.ConvertToBlockPb())
+	err = p.Broadcast(cfg.Chain.ID, blk2.ConvertToBlockPb())
 	require.NoError(err)
-	err = p.Broadcast(chainID, blk4.ConvertToBlockPb())
+	err = p.Broadcast(cfg.Chain.ID, blk4.ConvertToBlockPb())
 	require.NoError(err)
-	err = p.Broadcast(chainID, blk1.ConvertToBlockPb())
+	err = p.Broadcast(cfg.Chain.ID, blk1.ConvertToBlockPb())
 	require.NoError(err)
-	err = p.Broadcast(chainID, blk3.ConvertToBlockPb())
+	err = p.Broadcast(cfg.Chain.ID, blk3.ConvertToBlockPb())
 	require.NoError(err)
 	err = testutil.WaitUntil(10*time.Millisecond, 10*time.Second, func() (bool, error) {
 		height := bc.TipHeight()
@@ -364,7 +364,7 @@ func TestLocalSync(t *testing.T) {
 	err = testutil.WaitUntil(time.Millisecond*10, time.Second*5, func() (bool, error) { return len(svr.P2P().GetPeers()) >= 1, nil })
 	require.Nil(err)
 
-	err = svr.P2P().Broadcast(chainID, blk.ConvertToBlockPb())
+	err = svr.P2P().Broadcast(cfg.Chain.ID, blk.ConvertToBlockPb())
 	require.NoError(err)
 	check := testutil.CheckCondition(func() (bool, error) {
 		blk1, err := cli.ChainService(chainID).Blockchain().GetBlockByHeight(1)
@@ -847,7 +847,6 @@ func TestBlockchainRecovery(t *testing.T) {
 
 func newTestConfig() (*config.Config, error) {
 	cfg := config.Default
-	cfg.Chain.ID = iotxaddress.MainChainID()
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Consensus.Scheme = config.NOOPScheme

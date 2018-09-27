@@ -168,7 +168,6 @@ func TestPressureActPool(t *testing.T) {
 
 func newActPoolConfig() (*config.Config, error) {
 	cfg := config.Default
-	cfg.Chain.ID = iotxaddress.MainChainID()
 	cfg.NodeType = config.DelegateType
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.InMemTest = false

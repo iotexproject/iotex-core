@@ -63,6 +63,8 @@ func TestAddress(t *testing.T) {
 }
 
 func TestAddressError(t *testing.T) {
+	t.Parallel()
+
 	pk, _, err := crypto.EC283.NewKeyPair()
 	require.NoError(t, err)
 
@@ -79,6 +81,8 @@ func TestAddressError(t *testing.T) {
 }
 
 func TestConvertFromAndToIotxAddress(t *testing.T) {
+	t.Parallel()
+
 	iotxAddr1 := testaddress.Addrinfo["producer"]
 	addr, err := V1.IotxAddressToAddress(iotxAddr1.RawAddress)
 	require.NoError(t, err)
