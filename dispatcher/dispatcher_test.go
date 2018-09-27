@@ -15,7 +15,6 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/network/node"
 	pb "github.com/iotexproject/iotex-core/proto"
 )
@@ -25,8 +24,7 @@ func TestNewDispatcher(t *testing.T) {
 	defer ctrl.Finish()
 
 	ctx := context.Background()
-	chainID := iotxaddress.MainChainID()
-	d := createDispatcher(chainID, ctrl)
+	d := createDispatcher(config.Default.Chain.ID, ctrl)
 	assert.NotNil(t, d)
 
 	err := d.Start(ctx)
@@ -42,8 +40,7 @@ func TestDispatchBlockMsg(t *testing.T) {
 	defer ctrl.Finish()
 
 	ctx := context.Background()
-	chainID := iotxaddress.MainChainID()
-	d := createDispatcher(chainID, ctrl)
+	d := createDispatcher(config.Default.Chain.ID, ctrl)
 	assert.NotNil(t, d)
 
 	err := d.Start(ctx)
@@ -55,7 +52,7 @@ func TestDispatchBlockMsg(t *testing.T) {
 
 	done := make(chan bool, 1000)
 	for i := 0; i < 1000; i++ {
-		d.HandleBroadcast(chainID, &pb.BlockPb{}, done)
+		d.HandleBroadcast(config.Default.Chain.ID, &pb.BlockPb{}, done)
 	}
 	for i := 0; i < 1000; i++ {
 		<-done
@@ -67,8 +64,7 @@ func TestDispatchBlockSyncReq(t *testing.T) {
 	defer ctrl.Finish()
 
 	ctx := context.Background()
-	chainID := iotxaddress.MainChainID()
-	d := createDispatcher(chainID, ctrl)
+	d := createDispatcher(config.Default.Chain.ID, ctrl)
 	assert.NotNil(t, d)
 
 	err := d.Start(ctx)
@@ -80,7 +76,7 @@ func TestDispatchBlockSyncReq(t *testing.T) {
 
 	done := make(chan bool, 1000)
 	for i := 0; i < 1000; i++ {
-		d.HandleTell(chainID, node.NewTCPNode("192.168.0.0:10000"), &pb.BlockSync{}, done)
+		d.HandleTell(config.Default.Chain.ID, node.NewTCPNode("192.168.0.0:10000"), &pb.BlockSync{}, done)
 	}
 	for i := 0; i < 1000; i++ {
 		<-done
@@ -92,8 +88,7 @@ func TestDispatchBlockSyncData(t *testing.T) {
 	defer ctrl.Finish()
 
 	ctx := context.Background()
-	chainID := iotxaddress.MainChainID()
-	d := createDispatcher(chainID, ctrl)
+	d := createDispatcher(config.Default.Chain.ID, ctrl)
 	assert.NotNil(t, d)
 
 	err := d.Start(ctx)
@@ -105,7 +100,12 @@ func TestDispatchBlockSyncData(t *testing.T) {
 
 	done := make(chan bool, 1000)
 	for i := 0; i < 1000; i++ {
-		d.HandleTell(chainID, node.NewTCPNode("192.168.0.0:10000"), &pb.BlockContainer{Block: &pb.BlockPb{}}, done)
+		d.HandleTell(
+			config.Default.Chain.ID,
+			node.NewTCPNode("192.168.0.0:10000"),
+			&pb.BlockContainer{Block: &pb.BlockPb{}},
+			done,
+		)
 	}
 	for i := 0; i < 1000; i++ {
 		<-done

@@ -126,7 +126,6 @@ type blockchain struct {
 	dao       *blockDAO
 	config    *config.Config
 	genesis   *Genesis
-	chainID   uint32
 	tipHeight uint64
 	tipHash   hash.Hash32B
 	validator Validator
@@ -231,11 +230,6 @@ func NewBlockchain(cfg *config.Config, opts ...Option) Blockchain {
 			return nil
 		}
 	}
-
-	chain.chainID = cfg.Chain.ID
-	if chain.chainID == 0 {
-		chain.chainID = iotxaddress.MainChainID()
-	}
 	chain.initValidator()
 	if chain.dao != nil {
 		chain.lifecycle.Add(chain.dao)
@@ -249,7 +243,7 @@ func NewBlockchain(cfg *config.Config, opts ...Option) Blockchain {
 func (bc *blockchain) initValidator() { bc.validator = &validator{sf: bc.sf} }
 
 func (bc *blockchain) ChainID() uint32 {
-	return bc.chainID
+	return bc.config.Chain.ID
 }
 
 // Start starts the blockchain
@@ -607,7 +601,7 @@ func (bc *blockchain) MintNewBlock(tsf []*action.Transfer, vote []*action.Vote, 
 	defer bc.mu.RUnlock()
 
 	tsf = append(tsf, action.NewCoinBaseTransfer(big.NewInt(int64(bc.genesis.BlockReward)), producer.RawAddress))
-	blk := NewBlock(bc.chainID, bc.tipHeight+1, bc.tipHash, bc.clk, tsf, vote, executions)
+	blk := NewBlock(bc.config.Chain.ID, bc.tipHeight+1, bc.tipHash, bc.clk, tsf, vote, executions)
 	blk.Header.DKGID = []byte{}
 	blk.Header.DKGPubkey = []byte{}
 	blk.Header.DKGBlockSig = []byte{}
@@ -632,7 +626,7 @@ func (bc *blockchain) MintNewDKGBlock(tsf []*action.Transfer, vote []*action.Vot
 	defer bc.mu.RUnlock()
 
 	tsf = append(tsf, action.NewCoinBaseTransfer(big.NewInt(int64(bc.genesis.BlockReward)), producer.RawAddress))
-	blk := NewBlock(bc.chainID, bc.tipHeight+1, bc.tipHash, bc.clk, tsf, vote, executions)
+	blk := NewBlock(bc.config.Chain.ID, bc.tipHeight+1, bc.tipHash, bc.clk, tsf, vote, executions)
 	blk.Header.DKGID = []byte{}
 	blk.Header.DKGPubkey = []byte{}
 	blk.Header.DKGBlockSig = []byte{}
@@ -661,7 +655,7 @@ func (bc *blockchain) MintNewDummyBlock() *Block {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
 
-	blk := NewBlock(bc.chainID, bc.tipHeight+1, bc.tipHash, bc.clk, nil, nil, nil)
+	blk := NewBlock(bc.config.Chain.ID, bc.tipHeight+1, bc.tipHash, bc.clk, nil, nil, nil)
 	blk.Header.Pubkey = keypair.ZeroPublicKey
 	blk.Header.blockSig = []byte{}
 

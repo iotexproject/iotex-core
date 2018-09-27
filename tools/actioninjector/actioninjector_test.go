@@ -135,7 +135,6 @@ func TestActionInjector(t *testing.T) {
 
 func newConfig() (*config.Config, error) {
 	cfg := config.Default
-	cfg.Chain.ID = iotxaddress.MainChainID()
 	cfg.NodeType = config.DelegateType
 	cfg.Consensus.Scheme = config.NOOPScheme
 	cfg.Chain.ChainDBPath = testChainPath

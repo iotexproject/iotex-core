@@ -576,7 +576,7 @@ func TestHandlePrevoteEvt(t *testing.T) {
 			ctrl,
 			delegates,
 			func(chain *mock_blockchain.MockBlockchain) {
-				chain.EXPECT().ChainID().AnyTimes().Return(iotxaddress.MainChainID())
+				chain.EXPECT().ChainID().AnyTimes().Return(config.Default.Chain.ID)
 			},
 			func(p2p *mock_network.MockOverlay) {
 				p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(1)
@@ -626,7 +626,7 @@ func TestHandlePrevoteEvt(t *testing.T) {
 			ctrl,
 			delegates,
 			func(chain *mock_blockchain.MockBlockchain) {
-				chain.EXPECT().ChainID().AnyTimes().Return(iotxaddress.MainChainID())
+				chain.EXPECT().ChainID().AnyTimes().Return(config.Default.Chain.ID)
 			},
 			func(p2p *mock_network.MockOverlay) {
 				p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(1)
@@ -684,7 +684,7 @@ func TestHandleVoteEvt(t *testing.T) {
 			delegates,
 			func(chain *mock_blockchain.MockBlockchain) {
 				chain.EXPECT().CommitBlock(gomock.Any()).Return(nil).Times(1)
-				chain.EXPECT().ChainID().AnyTimes().Return(iotxaddress.MainChainID())
+				chain.EXPECT().ChainID().AnyTimes().Return(config.Default.Chain.ID)
 			},
 			func(p2p *mock_network.MockOverlay) {
 				p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(1)
@@ -732,7 +732,7 @@ func TestHandleVoteEvt(t *testing.T) {
 				chain.EXPECT().
 					MintNewDummyBlock().
 					Return(blockchain.NewBlock(0, 0, hash.ZeroHash32B, clock.New(), nil, nil, nil)).Times(0)
-				chain.EXPECT().ChainID().AnyTimes().Return(iotxaddress.MainChainID())
+				chain.EXPECT().ChainID().AnyTimes().Return(config.Default.Chain.ID)
 			},
 			func(p2p *mock_network.MockOverlay) {
 				p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(0)
@@ -764,7 +764,7 @@ func TestHandleVoteEvt(t *testing.T) {
 				chain.EXPECT().
 					MintNewDummyBlock().
 					Return(blockchain.NewBlock(0, 0, hash.ZeroHash32B, clock.New(), nil, nil, nil)).Times(1)
-				chain.EXPECT().ChainID().AnyTimes().Return(iotxaddress.MainChainID())
+				chain.EXPECT().ChainID().AnyTimes().Return(config.Default.Chain.ID)
 			},
 			func(p2p *mock_network.MockOverlay) {
 				p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(1)
@@ -838,7 +838,7 @@ func TestHandleFinishEpochEvt(t *testing.T) {
 			delegates,
 			func(chain *mock_blockchain.MockBlockchain) {
 				chain.EXPECT().TipHeight().Return(uint64(4)).Times(1)
-				chain.EXPECT().ChainID().AnyTimes().Return(iotxaddress.MainChainID())
+				chain.EXPECT().ChainID().AnyTimes().Return(config.Default.Chain.ID)
 			},
 			nil,
 			clock.New(),
@@ -873,7 +873,7 @@ func newTestCFSM(
 	require.NoError(t, err)
 	var prevHash hash.Hash32B
 	lastBlk := blockchain.NewBlock(
-		iotxaddress.MainChainID(),
+		config.Default.Chain.ID,
 		1,
 		prevHash,
 		clock,
@@ -882,7 +882,7 @@ func newTestCFSM(
 		make([]*action.Execution, 0),
 	)
 	blkToMint := blockchain.NewBlock(
-		iotxaddress.MainChainID(),
+		config.Default.Chain.ID,
 		2,
 		lastBlk.HashBlock(),
 		clock,
@@ -900,7 +900,7 @@ func newTestCFSM(
 			EnableDummyBlock: true,
 		},
 		func(blockchain *mock_blockchain.MockBlockchain) {
-			blockchain.EXPECT().ChainID().AnyTimes().Return(iotxaddress.MainChainID())
+			blockchain.EXPECT().ChainID().AnyTimes().Return(config.Default.Chain.ID)
 			blockchain.EXPECT().GetBlockByHeight(uint64(1)).Return(lastBlk, nil).AnyTimes()
 			blockchain.EXPECT().
 				MintNewBlock(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
