@@ -406,9 +406,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 			func(chain *mock_blockchain.MockBlockchain) {
 				chain.EXPECT().ValidateBlock(gomock.Any()).Return(errors.New("mock error")).Times(1)
 			},
-			func(p2p *mock_network.MockOverlay) {
-				p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(1)
-			},
+			nil,
 			clock.New(),
 		)
 		cfsm.ctx.epoch = epoch
@@ -418,13 +416,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		assert.NoError(t, err)
 		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, cfsm.ctx.clock))
 		assert.NoError(t, err)
-		assert.Equal(t, sAcceptPrevote, state)
-		e := <-cfsm.evtq
-		evt, ok := e.(*voteEvt)
-		require.True(t, ok)
-		assert.Equal(t, ePrevote, evt.Type())
-		assert.False(t, evt.decision)
-		assert.Equal(t, ePrevoteTimeout, (<-cfsm.evtq).Type())
+		assert.Equal(t, sAcceptPropose, state)
 	})
 
 	t.Run("skip-validation", func(t *testing.T) {
@@ -466,9 +458,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 			ctrl,
 			delegates,
 			nil,
-			func(p2p *mock_network.MockOverlay) {
-				p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(1)
-			},
+			nil,
 			clock.New(),
 		)
 		cfsm.ctx.epoch = epoch
@@ -478,13 +468,10 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		assert.NoError(t, err)
 		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, cfsm.ctx.clock))
 		assert.NoError(t, err)
+		assert.Equal(t, sAcceptPropose, state)
+		state, err = cfsm.handleProposeBlockEvt(cfsm.newCEvt(eProposeBlockTimeout))
+		assert.NoError(t, err)
 		assert.Equal(t, sAcceptPrevote, state)
-		e := <-cfsm.evtq
-		evt, ok := e.(*voteEvt)
-		require.True(t, ok)
-		assert.Equal(t, ePrevote, evt.Type())
-		assert.False(t, evt.decision)
-		assert.Equal(t, ePrevoteTimeout, (<-cfsm.evtq).Type())
 	})
 
 	t.Run("invalid-proposer-time-rotation", func(t *testing.T) {
@@ -496,9 +483,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 			ctrl,
 			delegates,
 			nil,
-			func(p2p *mock_network.MockOverlay) {
-				p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(1)
-			},
+			nil,
 			clock,
 		)
 		cfsm.ctx.cfg.TimeBasedRotation = true
@@ -511,13 +496,10 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		assert.NoError(t, err)
 		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, cfsm.ctx.clock))
 		assert.NoError(t, err)
+		assert.Equal(t, sAcceptPropose, state)
+		state, err = cfsm.handleProposeBlockEvt(cfsm.newCEvt(eProposeBlockTimeout))
+		assert.NoError(t, err)
 		assert.Equal(t, sAcceptPrevote, state)
-		e := <-cfsm.evtq
-		evt, ok := e.(*voteEvt)
-		require.True(t, ok)
-		assert.Equal(t, ePrevote, evt.Type())
-		assert.False(t, evt.decision)
-		assert.Equal(t, ePrevoteTimeout, (<-cfsm.evtq).Type())
 	})
 
 	t.Run("timeout", func(t *testing.T) {
