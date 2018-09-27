@@ -61,9 +61,10 @@ func main() {
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Failed to new sub chain config.")
 	}
-
-	if err := svr.NewChainService(cfgsub); err != nil {
-		logger.Fatal().Err(err).Msg("Failed to new sub chain.")
+	if cfgsub != nil {
+		if err := svr.NewChainService(cfgsub); err != nil {
+			logger.Fatal().Err(err).Msg("Failed to new sub chain.")
+		}
 	}
 
 	ctx := context.Background()
