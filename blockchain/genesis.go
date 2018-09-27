@@ -13,9 +13,9 @@ import (
 
 	"gopkg.in/yaml.v2"
 
+	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
@@ -27,7 +27,6 @@ const testnetActionPath = "testnet_actions.yaml"
 
 // Genesis defines the Genesis default settings
 type Genesis struct {
-	ChainID             uint32
 	TotalSupply         uint64
 	BlockReward         uint64
 	Timestamp           uint64
@@ -59,7 +58,6 @@ type Transfer struct {
 
 // Gen hardcodes genesis default settings
 var Gen = &Genesis{
-	ChainID:             uint32(1),
 	TotalSupply:         uint64(10000000000),
 	BlockReward:         uint64(5),
 	Timestamp:           uint64(1524676419),
@@ -92,7 +90,8 @@ func NewGenesisBlock(cfg *config.Config) *Block {
 		if err != nil {
 			logger.Fatal().Err(err).Msg("Fail to create genesis block")
 		}
-		address, err := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, iotxaddress.ChainID, pubk)
+		pkHash := keypair.HashPubKey(pubk)
+		address := address.New(cfg.Chain.ID, pkHash[:])
 		if err != nil {
 			logger.Fatal().Err(err).Msg("Fail to create genesis block")
 		}
@@ -100,11 +99,11 @@ func NewGenesisBlock(cfg *config.Config) *Block {
 		if err != nil {
 			logger.Fatal().Err(err).Msg("Fail to create genesis block")
 		}
-		vote, err := action.NewVote(0, address.RawAddress, address.RawAddress, 0, big.NewInt(0))
+		vote, err := action.NewVote(0, address.IotxAddress(), address.IotxAddress(), 0, big.NewInt(0))
 		if err != nil {
 			logger.Fatal().Err(err).Msg("Fail to create genesis block")
 		}
-		vote.SetVoterPublicKey(address.PublicKey)
+		vote.SetVoterPublicKey(pubk)
 		vote.SetSignature(sign)
 		votes = append(votes, vote)
 	}
@@ -131,7 +130,7 @@ func NewGenesisBlock(cfg *config.Config) *Block {
 	block := &Block{
 		Header: &BlockHeader{
 			version:       version.ProtocolVersion,
-			chainID:       Gen.ChainID,
+			chainID:       cfg.Chain.ID,
 			height:        uint64(0),
 			timestamp:     Gen.Timestamp,
 			prevBlockHash: Gen.ParentHash,
