@@ -47,6 +47,9 @@ type Address interface {
 	// 2. uint8: version of address
 	// 3. byte slice: the payload to identify an address within one blockchain
 	Bytes() []byte
+	// IotxAddress converts an address struct into an old address string
+	// This method is used for backward compatibility
+	IotxAddress() string
 }
 
 // New constructs an address instance
@@ -61,6 +64,12 @@ func Bech32ToAddress(encodedAddr string) (Address, error) { return V1.Bech32ToAd
 
 // BytesToAddress converts a byte array into an address struct
 func BytesToAddress(bytes []byte) (Address, error) { return V1.BytesToAddress(bytes) }
+
+// IotxAddressToAddress converts an old address string into an address struct
+// This method is used for backward compatibility
+func IotxAddressToAddress(iotxRawAddr string) (Address, error) {
+	return V1.IotxAddressToAddress(iotxRawAddr)
+}
 
 // prefix returns the current prefix
 func prefix() string {
