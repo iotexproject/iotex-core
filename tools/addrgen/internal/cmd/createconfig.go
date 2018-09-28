@@ -12,7 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/logger"
 )
 
@@ -22,17 +22,17 @@ var createConfigCmd = &cobra.Command{
 	Short: "Creates a yaml config using generated pub/pri key pair.",
 	Long:  `Creates a yaml config using generated pub/pri key pair.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		addr, err := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
+		public, private, err := crypto.EC283.NewKeyPair()
 		if err != nil {
-			logger.Fatal().Err(err).Msg("failed to create address")
+			logger.Fatal().Err(err).Msg("failed to create key pair")
 		}
 		cfgStr := fmt.Sprintf(
 			`chain:
   producerPrivKey: "%x"
   producerPubKey: "%x"
 `,
-			addr.PrivateKey,
-			addr.PublicKey,
+			private,
+			public,
 		)
 		if err := ioutil.WriteFile(_outputFile, []byte(cfgStr), 0666); err != nil {
 			logger.Fatal().Err(err).Msgf("failed to write file")
