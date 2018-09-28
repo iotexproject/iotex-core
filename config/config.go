@@ -154,7 +154,7 @@ var (
 
 	// Validates is the collection config validation functions
 	Validates = []Validate{
-		ValidateAddr,
+		ValidateKeyPair,
 		ValidateConsensusScheme,
 		ValidateRollDPoS,
 		ValidateDispatcher,
@@ -416,8 +416,8 @@ func (cfg *Config) KeyPair() (keypair.PublicKey, keypair.PrivateKey, error) {
 	return pk, sk, nil
 }
 
-// ValidateAddr validates the block producer address
-func ValidateAddr(cfg *Config) error {
+// ValidateKeyPair validates the block producer address
+func ValidateKeyPair(cfg *Config) error {
 	priKey, err := keypair.DecodePrivateKey(cfg.Chain.ProducerPrivKey)
 	if err != nil {
 		return err
