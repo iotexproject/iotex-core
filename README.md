@@ -95,7 +95,7 @@ contact us if you intend to run it in production.
 
 | Components | Version | Description |
 |----------|-------------|-------------|
-|[Golang](https://golang.org) | >= 1.10.2 && < 1.11| The Go Programming Language |
+|[Golang](https://golang.org) | >= 1.10.2 | The Go Programming Language |
 
 ### Setup Dev Environment
 ```

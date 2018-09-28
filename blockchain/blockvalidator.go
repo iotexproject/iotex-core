@@ -80,7 +80,7 @@ func (v *validator) Validate(blk *Block, tipHeight uint64, tipHash hash.Hash32B)
 				ErrInvalidBlock,
 				"failed to verify block's signature with public key: %x",
 				blk.Header.Pubkey,
-				tipHash)
+			)
 		}
 	}
 

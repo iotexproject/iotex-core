@@ -360,7 +360,7 @@ func (ap *actPool) validateTsf(tsf *action.Transfer) error {
 	// check if recipient's address is valid
 	if _, err := iotxaddress.GetPubkeyHash(tsf.Recipient()); err != nil {
 		logger.Error().Msg("Error when validating transfer recipient's address")
-		return errors.Wrapf(err, "error when validating recipient's address %s", tsf.Recipient)
+		return errors.Wrapf(err, "error when validating recipient's address %s", tsf.Recipient())
 	}
 
 	sender, err := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, iotxaddress.ChainID, tsf.SenderPublicKey())
@@ -419,7 +419,7 @@ func (ap *actPool) validateExecution(exec *action.Execution) error {
 	if exec.Contract() != action.EmptyAddress {
 		if _, err := iotxaddress.GetPubkeyHash(exec.Contract()); err != nil {
 			logger.Error().Msg("Error when validating contract's address")
-			return errors.Wrapf(err, "error when validating contract's address %s", exec.Contract)
+			return errors.Wrapf(err, "error when validating contract's address %s", exec.Contract())
 		}
 	}
 

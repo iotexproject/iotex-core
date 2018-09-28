@@ -168,7 +168,7 @@ func NewFactory(cfg *config.Config, opts ...FactoryOption) (Factory, error) {
 
 	for _, opt := range opts {
 		if err := opt(sf, cfg); err != nil {
-			logger.Error().Err(err).Msgf("Failed to create state factory option %s", opt)
+			logger.Error().Err(err).Msgf("Failed to execute state factory creation option %p", opt)
 			return nil, err
 		}
 	}
@@ -600,16 +600,16 @@ func (sf *factory) handleTsf(tsf []*action.Transfer) error {
 			// check sender
 			sender, err := sf.LoadOrCreateState(tx.Sender(), 0)
 			if err != nil {
-				return errors.Wrapf(err, "failed to load or create the state of sender %s", tx.Sender)
+				return errors.Wrapf(err, "failed to load or create the state of sender %s", tx.Sender())
 			}
 			// save state before modifying
 			sf.saveState(tx.Sender(), sender)
 			if tx.Amount().Cmp(sender.Balance) == 1 {
-				return errors.Wrapf(ErrNotEnoughBalance, "failed to verify the balance of sender %s", tx.Sender)
+				return errors.Wrapf(ErrNotEnoughBalance, "failed to verify the balance of sender %s", tx.Sender())
 			}
 			// update sender balance
 			if err := sender.SubBalance(tx.Amount()); err != nil {
-				return errors.Wrapf(err, "failed to update the balance of sender %s", tx.Sender)
+				return errors.Wrapf(err, "failed to update the balance of sender %s", tx.Sender())
 			}
 			// update sender nonce
 			if tx.Nonce() > sender.Nonce {
@@ -636,7 +636,7 @@ func (sf *factory) handleTsf(tsf []*action.Transfer) error {
 		sf.saveState(tx.Recipient(), recipient)
 		// update recipient balance
 		if err := recipient.AddBalance(tx.Amount()); err != nil {
-			return errors.Wrapf(err, "failed to update the balance of recipient %s", tx.Recipient)
+			return errors.Wrapf(err, "failed to update the balance of recipient %s", tx.Recipient())
 		}
 		// Update recipient votes
 		if len(recipient.Votee) > 0 && recipient.Votee != tx.Recipient() {
