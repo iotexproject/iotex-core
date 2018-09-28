@@ -43,6 +43,9 @@ func TestTBLS(t *testing.T) {
 	// Verify all the received secret shares
 	for i := 0; i < numnodes; i++ {
 		for j := 0; j < numnodes; j++ {
+			result, err := DKG.ShareVerify(idList[i], sharesList[j][i], witnessesList[j])
+			require.NoError(err)
+			require.True(result)
 			shares[j] = sharesList[j][i]
 		}
 		sharestatusmatrix[i], err = DKG.SharesCollect(idList[i], shares, witnessesList)
