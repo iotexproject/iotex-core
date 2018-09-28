@@ -246,7 +246,6 @@ func TestStartRoundEvt(t *testing.T) {
 		assert.NotNil(t, cfsm.ctx.round.proposer, delegates[2])
 		assert.NotNil(t, cfsm.ctx.round.proposalEndorses, s)
 		assert.NotNil(t, cfsm.ctx.round.commitEndorses, s)
-		assert.Equal(t, eProposeBlockTimeout, (<-cfsm.evtq).Type())
 	})
 }
 
@@ -350,7 +349,6 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		require.True(t, ok)
 		assert.Equal(t, eEndorseProposal, evt.Type())
 		assert.True(t, evt.endorse.decision)
-		assert.Equal(t, eEndorseProposalTimeout, (<-cfsm.evtq).Type())
 	})
 
 	t.Run("pass-validation-time-rotation", func(t *testing.T) {
@@ -383,7 +381,6 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		require.True(t, ok)
 		assert.Equal(t, eEndorseProposal, evt.Type())
 		assert.True(t, evt.endorse.decision)
-		assert.Equal(t, eEndorseProposalTimeout, (<-cfsm.evtq).Type())
 
 		clock.Add(10 * time.Second)
 		err = blk.SignBlock(testAddrs[3])
@@ -396,7 +393,6 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		require.True(t, ok)
 		assert.Equal(t, eEndorseProposal, evt.Type())
 		assert.True(t, evt.endorse.decision)
-		assert.Equal(t, eEndorseProposalTimeout, (<-cfsm.evtq).Type())
 	})
 
 	t.Run("fail-validation", func(t *testing.T) {
@@ -450,7 +446,6 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		require.True(t, ok)
 		assert.Equal(t, eEndorseProposal, evt.Type())
 		assert.True(t, evt.endorse.decision)
-		assert.Equal(t, eEndorseProposalTimeout, (<-cfsm.evtq).Type())
 	})
 
 	t.Run("invalid-proposer", func(t *testing.T) {
@@ -526,7 +521,6 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		state, err := cfsm.handleProposeBlockTimeout(cfsm.newCEvt(eProposeBlockTimeout))
 		assert.NoError(t, err)
 		assert.Equal(t, sAcceptProposalEndorse, state)
-		assert.Equal(t, eEndorseProposalTimeout, (<-cfsm.evtq).Type())
 	})
 }
 
@@ -560,9 +554,7 @@ func TestHandleProposalEndorseEvt(t *testing.T) {
 			testAddrs[2],
 			ctrl,
 			delegates,
-			func(chain *mock_blockchain.MockBlockchain) {
-				chain.EXPECT().ChainID().AnyTimes().Return(config.Default.Chain.ID)
-			},
+			nil,
 			func(p2p *mock_network.MockOverlay) {
 				p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(1)
 			},
@@ -600,7 +592,6 @@ func TestHandleProposalEndorseEvt(t *testing.T) {
 		require.True(t, ok)
 		assert.Equal(t, eEndorseCommit, evt.Type())
 		assert.True(t, evt.endorse.decision)
-		assert.Equal(t, eEndorseCommitTimeout, (<-cfsm.evtq).Type())
 	})
 
 	t.Run("timeout", func(t *testing.T) {
@@ -626,10 +617,6 @@ func TestHandleProposalEndorseEvt(t *testing.T) {
 		state, err := cfsm.handleEndorseProposalTimeout(cfsm.newCEvt(eEndorseProposalTimeout))
 		assert.NoError(t, err)
 		assert.Equal(t, sAcceptCommitEndorse, state)
-		e := <-cfsm.evtq
-		evt, ok := e.(*timeoutEvt)
-		require.True(t, ok)
-		assert.Equal(t, eEndorseCommitTimeout, evt.Type())
 	})
 }
 
@@ -876,9 +863,14 @@ func newTestCFSM(
 		addr,
 		ctrl,
 		config.RollDPoS{
-			EventChanSize:    2,
-			NumDelegates:     uint(len(delegates)),
-			EnableDummyBlock: true,
+			EventChanSize:            2,
+			NumDelegates:             uint(len(delegates)),
+			EnableDummyBlock:         true,
+			AcceptProposeTTL:         100 * time.Millisecond,
+			AcceptProposalEndorseTTL: 100 * time.Millisecond,
+			AcceptCommitEndorseTTL:   100 * time.Millisecond,
+			UnmatchedEventTTL:        300 * time.Millisecond,
+			UnmatchedEventInterval:   20 * time.Millisecond,
 		},
 		func(blockchain *mock_blockchain.MockBlockchain) {
 			blockchain.EXPECT().ChainID().AnyTimes().Return(config.Default.Chain.ID)

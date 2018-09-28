@@ -69,18 +69,20 @@ var (
 	ErrNotEnoughCandidates = errors.New("Candidate pool does not have enough candidates")
 )
 
+func (ctx *rollDPoSCtx) candidates(height uint64) ([]*state.Candidate, error) {
+	if ctx.candidatesByHeightFunc != nil {
+		// Test only
+		return ctx.candidatesByHeightFunc(height)
+	}
+
+	return ctx.chain.CandidatesByHeight(height)
+}
+
 // rollingDelegates will only allows the delegates chosen for given epoch to enter the epoch
 func (ctx *rollDPoSCtx) rollingDelegates(epochNum uint64) ([]string, error) {
 	numDlgs := ctx.cfg.NumDelegates
 	height := uint64(numDlgs) * uint64(ctx.cfg.NumSubEpochs) * (epochNum - 1)
-	var candidates []*state.Candidate
-	var err error
-	if ctx.candidatesByHeightFunc != nil {
-		// Test only
-		candidates, err = ctx.candidatesByHeightFunc(height)
-	} else {
-		candidates, err = ctx.chain.CandidatesByHeight(height)
-	}
+	candidates, err := ctx.candidates(height)
 	if err != nil {
 		return []string{}, errors.Wrap(err, "error when getting delegates from the candidate pool")
 	}
@@ -302,7 +304,7 @@ func (r *RollDPoS) Metrics() (scheme.ConsensusMetrics, error) {
 		return metrics, errors.Wrap(err, "error when calculating the block producer")
 	}
 	// Get all candidates
-	candidates, err := r.ctx.chain.CandidatesByHeight(height)
+	candidates, err := r.ctx.candidates(height)
 	if err != nil {
 		return metrics, errors.Wrap(err, "error when getting all candidates")
 	}

@@ -412,10 +412,12 @@ func TestRollDPoSConsensus(t *testing.T) {
 	newConsensusComponents := func(numNodes int) ([]*RollDPoS, []*directOverlay, []blockchain.Blockchain) {
 		cfg := config.Default
 		cfg.Consensus.RollDPoS.Delay = 300 * time.Millisecond
-		cfg.Consensus.RollDPoS.ProposerInterval = time.Second
+		cfg.Consensus.RollDPoS.ProposerInterval = 1 * time.Second
 		cfg.Consensus.RollDPoS.AcceptProposeTTL = 100 * time.Millisecond
 		cfg.Consensus.RollDPoS.AcceptProposalEndorseTTL = 100 * time.Millisecond
 		cfg.Consensus.RollDPoS.AcceptCommitEndorseTTL = 100 * time.Millisecond
+		cfg.Consensus.RollDPoS.UnmatchedEventTTL = 300 * time.Millisecond
+		cfg.Consensus.RollDPoS.UnmatchedEventInterval = 20 * time.Millisecond
 		cfg.Consensus.RollDPoS.NumDelegates = uint(numNodes)
 
 		chainAddrs := make([]*iotxaddress.Address, 0, numNodes)
@@ -439,7 +441,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 		candidatesByHeightFunc := func(_ uint64) ([]*state.Candidate, error) {
 			candidates := make([]*state.Candidate, 0, numNodes)
 			for _, addr := range chainAddrs {
-				candidates = append(candidates, &state.Candidate{Address: addr.RawAddress})
+				candidates = append(candidates, &state.Candidate{Address: addr.RawAddress, PubKey: addr.PublicKey[:]})
 			}
 			return candidates, nil
 		}
