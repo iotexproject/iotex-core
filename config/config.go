@@ -154,7 +154,7 @@ var (
 
 	// Validates is the collection config validation functions
 	Validates = []Validate{
-		ValidateAddr,
+		ValidateKeyPair,
 		ValidateConsensusScheme,
 		ValidateRollDPoS,
 		ValidateDispatcher,
@@ -389,24 +389,6 @@ func (cfg *Config) IsLightweight() bool {
 	return cfg.NodeType == LightweightType
 }
 
-// ProducerAddr returns address struct based on the data from producer pub/pri-key in the config
-func (cfg *Config) ProducerAddr() (*iotxaddress.Address, error) {
-	priKey, err := keypair.DecodePrivateKey(cfg.Chain.ProducerPrivKey)
-	if err != nil {
-		return nil, err
-	}
-	pubKey, err := keypair.DecodePublicKey(cfg.Chain.ProducerPubKey)
-	if err != nil {
-		return nil, err
-	}
-	addr, err := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, iotxaddress.ChainID, pubKey)
-	if err != nil {
-		return nil, err
-	}
-	addr.PrivateKey = priKey
-	return addr, nil
-}
-
 // BlockchainAddress returns the address derived from the configured chain ID and public key
 func (cfg *Config) BlockchainAddress() (address.Address, error) {
 	pk, err := keypair.DecodePublicKey(cfg.Chain.ProducerPubKey)
@@ -434,20 +416,20 @@ func (cfg *Config) KeyPair() (keypair.PublicKey, keypair.PrivateKey, error) {
 	return pk, sk, nil
 }
 
-// ValidateAddr validates the block producer address
-func ValidateAddr(cfg *Config) error {
-	addr, err := cfg.ProducerAddr()
+// ValidateKeyPair validates the block producer address
+func ValidateKeyPair(cfg *Config) error {
+	priKey, err := keypair.DecodePrivateKey(cfg.Chain.ProducerPrivKey)
 	if err != nil {
 		return err
 	}
-	// Validate producer's address
-	if _, err := iotxaddress.GetPubkeyHash(addr.RawAddress); err != nil {
-		return errors.Wrap(ErrInvalidCfg, "invalid block producer address")
+	pubKey, err := keypair.DecodePublicKey(cfg.Chain.ProducerPubKey)
+	if err != nil {
+		return err
 	}
 	// Validate producer pubkey and prikey by signing a dummy message and verify it
 	validationMsg := "connecting the physical world block by block"
-	sig := crypto.EC283.Sign(addr.PrivateKey, []byte(validationMsg))
-	if !crypto.EC283.Verify(addr.PublicKey, []byte(validationMsg), sig) {
+	sig := crypto.EC283.Sign(priKey, []byte(validationMsg))
+	if !crypto.EC283.Verify(pubKey, []byte(validationMsg), sig) {
 		return errors.Wrap(ErrInvalidCfg, "block producer has unmatched pubkey and prikey")
 	}
 	return nil
