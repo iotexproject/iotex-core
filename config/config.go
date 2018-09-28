@@ -60,8 +60,8 @@ var (
 	Default = Config{
 		NodeType: FullNodeType,
 		Network: Network{
-			Host: "127.0.0.1",
-			Port: 4689,
+			Host:                                "127.0.0.1",
+			Port:                                4689,
 			MsgLogsCleaningInterval:             2 * time.Second,
 			MsgLogRetention:                     5 * time.Second,
 			HealthCheckInterval:                 time.Second,
