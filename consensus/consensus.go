@@ -168,6 +168,7 @@ func (c *IotxConsensus) Scheme() scheme.Scheme {
 	return c.scheme
 }
 
+// GetAddr returns the iotex address
 func GetAddr(cfg *config.Config) *iotxaddress.Address {
 	addr, err := cfg.BlockchainAddress()
 	if err != nil {
