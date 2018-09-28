@@ -895,6 +895,9 @@ func TestMintDKGBlock(t *testing.T) {
 	// Verify all the received secret shares
 	for i := 0; i < numNodes; i++ {
 		for j := 0; j < numNodes; j++ {
+			result, err := crypto.DKG.ShareVerify(idList[i], sharesList[j][i], witnessesList[j])
+			require.NoError(err)
+			require.True(result)
 			shares[j] = sharesList[j][i]
 		}
 		sharestatusmatrix[i], err = crypto.DKG.SharesCollect(idList[i], shares, witnessesList)
