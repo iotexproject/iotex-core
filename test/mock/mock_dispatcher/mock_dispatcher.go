@@ -85,20 +85,8 @@ func (mr *MockSubscriberMockRecorder) HandleSyncRequest(arg0, arg1 interface{}) 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleSyncRequest", reflect.TypeOf((*MockSubscriber)(nil).HandleSyncRequest), arg0, arg1)
 }
 
-// HandleViewChange mocks base method
-func (m *MockSubscriber) HandleViewChange(arg0 proto.Message) error {
-	ret := m.ctrl.Call(m, "HandleViewChange", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// HandleViewChange indicates an expected call of HandleViewChange
-func (mr *MockSubscriberMockRecorder) HandleViewChange(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleViewChange", reflect.TypeOf((*MockSubscriber)(nil).HandleViewChange), arg0)
-}
-
 // HandleBlockPropose mocks base method
-func (m *MockSubscriber) HandleBlockPropose(arg0 proto.Message) error {
+func (m *MockSubscriber) HandleBlockPropose(arg0 *proto0.ProposePb) error {
 	ret := m.ctrl.Call(m, "HandleBlockPropose", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -107,6 +95,18 @@ func (m *MockSubscriber) HandleBlockPropose(arg0 proto.Message) error {
 // HandleBlockPropose indicates an expected call of HandleBlockPropose
 func (mr *MockSubscriberMockRecorder) HandleBlockPropose(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleBlockPropose", reflect.TypeOf((*MockSubscriber)(nil).HandleBlockPropose), arg0)
+}
+
+// HandleEndorse mocks base method
+func (m *MockSubscriber) HandleEndorse(arg0 *proto0.EndorsePb) error {
+	ret := m.ctrl.Call(m, "HandleEndorse", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// HandleEndorse indicates an expected call of HandleEndorse
+func (mr *MockSubscriberMockRecorder) HandleEndorse(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleEndorse", reflect.TypeOf((*MockSubscriber)(nil).HandleEndorse), arg0)
 }
 
 // MockDispatcher is a mock of Dispatcher interface
