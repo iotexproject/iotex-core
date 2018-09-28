@@ -37,6 +37,19 @@ void dkg_sk_generation(uint32_t *sk);
 uint32_t dkg_init(uint32_t *ms, uint32_t coeffs[DEGREE+1][5], uint8_t ids[NUMNODES][IDLENGTH], uint32_t shares[NUMNODES][5], ec160_point_aff witnesses[DEGREE+1]);
 
 /**
+ * Distributed Key Generation -- Share Verification
+ *
+ * @param id            the peers' identifier
+ * @param share         the received secret share
+ * @param witnesses     the witnesses for id's polynomial coefficients
+ * 
+ * Valid                return 1
+ * Invalid              return 0
+ * 
+ */
+uint8_t dkg_share_verify(const uint8_t *id, uint32_t *share, ec160_point_aff witnesses[DEGREE+1]);
+  
+/**
  * Distributed Key Generation -- Share Collection
  *
  * @param ids           the peers' identifiers
@@ -44,8 +57,7 @@ uint32_t dkg_init(uint32_t *ms, uint32_t coeffs[DEGREE+1][5], uint8_t ids[NUMNOD
  * @param witnesses     the witnesses for id's polynomial coefficients
  * @param sharestatus   the status of secret shares (1 -- valid  0 -- invalid) 
  * 
- */
-
+ */  
 void dkg_shares_collect(uint8_t *id, uint32_t shares[NUMNODES][5], ec160_point_aff witnesses[NUMNODES][DEGREE+1], uint8_t sharestatus[NUMNODES]);
 
 /**
