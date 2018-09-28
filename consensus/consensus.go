@@ -17,9 +17,11 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
+	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network"
 	"github.com/iotexproject/iotex-core/pkg/errcode"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 )
 
@@ -57,11 +59,8 @@ func NewConsensus(
 			Int("votes", len(votes)).
 			Int("Executions", len(executions)).
 			Msg("pick actions")
-		addr, err := cfg.ProducerAddr()
-		if err != nil {
-			return nil, err
-		}
-		blk, err := bc.MintNewBlock(transfers, votes, executions, addr, "")
+
+		blk, err := bc.MintNewBlock(transfers, votes, executions, GetAddr(cfg), "")
 		if err != nil {
 			logger.Error().Msg("Failed to mint a block")
 			return nil, err
@@ -90,15 +89,11 @@ func NewConsensus(
 		return nil
 	}
 
-	addr, err := cfg.ProducerAddr()
-	if err != nil {
-		logger.Panic().Err(err).Msg("Fail to create new consensus")
-	}
-
+	var err error
 	switch cfg.Consensus.Scheme {
 	case config.RollDPoSScheme:
 		cs.scheme, err = rolldpos.NewRollDPoSBuilder().
-			SetAddr(addr).
+			SetAddr(GetAddr(cfg)).
 			SetConfig(cfg.Consensus.RollDPoS).
 			SetBlockchain(bc).
 			SetActPool(ap).
@@ -171,4 +166,25 @@ func (c *IotxConsensus) HandleBlockPropose(m proto.Message) error {
 // Scheme returns the scheme instance
 func (c *IotxConsensus) Scheme() scheme.Scheme {
 	return c.scheme
+}
+
+// GetAddr returns the iotex address
+func GetAddr(cfg *config.Config) *iotxaddress.Address {
+	addr, err := cfg.BlockchainAddress()
+	if err != nil {
+		logger.Panic().Err(err).Msg("Fail to create new consensus")
+	}
+	pk, err := keypair.DecodePublicKey(cfg.Chain.ProducerPubKey)
+	if err != nil {
+		logger.Panic().Err(err).Msg("Fail to create new consensus")
+	}
+	sk, err := keypair.DecodePrivateKey(cfg.Chain.ProducerPrivKey)
+	if err != nil {
+		logger.Panic().Err(err).Msg("Fail to create new consensus")
+	}
+	return &iotxaddress.Address{
+		PublicKey:  pk,
+		PrivateKey: sk,
+		RawAddress: addr.IotxAddress(),
+	}
 }
