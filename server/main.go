@@ -116,7 +116,7 @@ func main() {
 }
 
 func initLogger(cfg *config.Config) {
-	iotxAddr, err := cfg.ProducerAddr()
+	addr, err := cfg.BlockchainAddress()
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Failed to get producer address from pub/kri key.")
 		return
@@ -127,7 +127,7 @@ func initLogger(cfg *config.Config) {
 	} else {
 		logger.SetLogger(
 			l.With().
-				Str("iotexAddr", iotxAddr.RawAddress).
+				Str("iotxAddr", addr.IotxAddress()).
 				Str("networkAddress", fmt.Sprintf("%s:%d", cfg.Network.Host, cfg.Network.Port)).
 				Str("nodeType", cfg.NodeType).Logger(),
 		)

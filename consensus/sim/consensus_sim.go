@@ -18,8 +18,10 @@ import (
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
 	pbsim "github.com/iotexproject/iotex-core/consensus/sim/proto"
+	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/proto"
 )
@@ -106,13 +108,9 @@ func NewSim(
 		}
 	*/
 
-	addr, err := cfg.ProducerAddr()
-	if err != nil {
-		logger.Panic().Err(err).Msg("Fail to create new consensus")
-	}
-
+	var err error
 	cs.scheme, err = rolldpos.NewRollDPoSBuilder().
-		SetAddr(addr).
+		SetAddr(getAddr(cfg)).
 		SetConfig(cfg.Consensus.RollDPoS).
 		SetBlockchain(bc).
 		SetActPool(ap).
@@ -180,13 +178,9 @@ func NewSimByzantine(
 		}
 	*/
 
-	addr, err := cfg.ProducerAddr()
-	if err != nil {
-		logger.Panic().Err(err).Msg("Fail to create new consensus")
-	}
-
+	var err error
 	cs.scheme, err = rolldpos.NewRollDPoSBuilder().
-		SetAddr(addr).
+		SetAddr(getAddr(cfg)).
 		SetConfig(cfg.Consensus.RollDPoS).
 		SetBlockchain(bc).
 		SetActPool(ap).
@@ -299,4 +293,24 @@ func CombineMsg(msgType uint32, msgBody []byte) proto.Message {
 		logger.Error().Msg("Could not combine msgType and msgBody into a proto.Message object")
 	}
 	return protoMsg
+}
+
+func getAddr(cfg *config.Config) *iotxaddress.Address {
+	addr, err := cfg.BlockchainAddress()
+	if err != nil {
+		logger.Panic().Err(err).Msg("Fail to create new consensus")
+	}
+	pk, err := keypair.DecodePublicKey(cfg.Chain.ProducerPubKey)
+	if err != nil {
+		logger.Panic().Err(err).Msg("Fail to create new consensus")
+	}
+	sk, err := keypair.DecodePrivateKey(cfg.Chain.ProducerPrivKey)
+	if err != nil {
+		logger.Panic().Err(err).Msg("Fail to create new consensus")
+	}
+	return &iotxaddress.Address{
+		PublicKey:  pk,
+		PrivateKey: sk,
+		RawAddress: addr.IotxAddress(),
+	}
 }
