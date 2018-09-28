@@ -15,6 +15,7 @@ import (
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
+	consensus "github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
 	pbsim "github.com/iotexproject/iotex-core/consensus/sim/proto"
@@ -106,13 +107,9 @@ func NewSim(
 		}
 	*/
 
-	addr, err := cfg.ProducerAddr()
-	if err != nil {
-		logger.Panic().Err(err).Msg("Fail to create new consensus")
-	}
-
+	var err error
 	cs.scheme, err = rolldpos.NewRollDPoSBuilder().
-		SetAddr(addr).
+		SetAddr(consensus.GetAddr(cfg)).
 		SetConfig(cfg.Consensus.RollDPoS).
 		SetBlockchain(bc).
 		SetActPool(ap).
@@ -180,13 +177,9 @@ func NewSimByzantine(
 		}
 	*/
 
-	addr, err := cfg.ProducerAddr()
-	if err != nil {
-		logger.Panic().Err(err).Msg("Fail to create new consensus")
-	}
-
+	var err error
 	cs.scheme, err = rolldpos.NewRollDPoSBuilder().
-		SetAddr(addr).
+		SetAddr(consensus.GetAddr(cfg)).
 		SetConfig(cfg.Consensus.RollDPoS).
 		SetBlockchain(bc).
 		SetActPool(ap).
