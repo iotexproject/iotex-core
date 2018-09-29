@@ -154,10 +154,9 @@ var (
 		RDS: RDS{
 			AwsRDSEndpoint: "iotex-explorer-db.ctcedgqcwrb5.us-west-1.rds.amazonaws.com",
 			AwsRDSPort:     4086,
-			//AwsRegion:		"us-west-1",
-			AwsRDSUser: "explorer_admin",
-			AwsPass:    "j1cDiH7W7QCB",
-			AwsDBName:  "explorer",
+			AwsRDSUser:     "explorer_admin",
+			AwsPass:        "j1cDiH7W7QCB",
+			AwsDBName:      "explorer",
 		},
 	}
 
@@ -312,8 +311,6 @@ type (
 		AwsRDSEndpoint string `yaml:"awsRDSEndpoint"`
 		// AwsRDSPort is the port of aws rds
 		AwsRDSPort uint64 `yaml:"awsRDSPort"`
-		// AwsRegion is the region of aws rds
-		//AwsRegion      string     `yaml:"awsRegion"`
 		// AwsRDSUser is the user to access aws rds
 		AwsRDSUser string `yaml:"awsRDSUser"`
 		// AwsPass is the pass to access aws rds
