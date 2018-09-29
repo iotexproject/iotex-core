@@ -19,10 +19,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/blake2b"
 
+	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/crypto"
+	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/state"
@@ -411,4 +414,33 @@ func TestWrongAddress(t *testing.T) {
 	err = val.verifyActions(blk3)
 	require.Error(t, err)
 	require.True(t, strings.Contains(err.Error(), "failed to validate contract's address"))
+}
+
+func TestCoinbaseTransferValidation(t *testing.T) {
+	t.Skip("It is skipped because testnet_actions.yaml doesn't match the chain ID")
+	ctx := context.Background()
+	cfg := config.Default
+	cfg.Chain.ID = 1
+	chain := NewBlockchain(&cfg, InMemStateFactoryOption(), InMemDaoOption())
+	require.NotNil(t, chain)
+	require.NoError(t, chain.Start(ctx))
+	defer require.NoError(t, chain.Stop(ctx))
+
+	pk, err := keypair.DecodePublicKey(
+		"1d1727028b1e9dac0cafa693edd8496297f5c3281924ec578c0526e7340f7180bfa5af059084c8b90954bf2802a0060e145bece9580f9021352eb112340186e68dc9bea4f7711707")
+	require.NoError(t, err)
+	sk, err := keypair.DecodePrivateKey(
+		"29cf385adfc5b1a84bd7e778ea2c056b85c977771005d545e54100266e224fc276ed7101")
+	require.NoError(t, err)
+	pkHash := keypair.HashPubKey(pk)
+	addr := address.New(cfg.Chain.ID, pkHash[:])
+	iotxAddr := iotxaddress.Address{
+		PublicKey:  pk,
+		PrivateKey: sk,
+		RawAddress: addr.IotxAddress(),
+	}
+	blk, err := chain.MintNewBlock(nil, nil, nil, &iotxAddr, "")
+	require.NoError(t, err)
+	validator := validator{}
+	require.NoError(t, validator.verifyActions(blk))
 }
