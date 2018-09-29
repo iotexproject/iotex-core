@@ -10,13 +10,13 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/cloudrds"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/db/rds"
 )
 
 // Server is the container of the index service
 type Server struct {
-	cfg     config.IndexService
+	cfg     *config.Config
 	idx     *IndexService
 	bc      blockchain.Blockchain
 	blockCh chan *blockchain.Block
@@ -24,14 +24,15 @@ type Server struct {
 
 // NewServer instantiates an index service
 func NewServer(
-	cfg config.IndexService,
+	cfg *config.Config,
 	bc blockchain.Blockchain,
 ) *Server {
 	return &Server{
 		cfg: cfg,
 		idx: &IndexService{
-			cfg: cfg,
-			rds: nil,
+			cfg:      cfg.IndexService,
+			rds:      nil,
+			nodeAddr: "",
 		},
 		bc: bc,
 	}
@@ -39,7 +40,13 @@ func NewServer(
 
 // Start starts the explorer server
 func (s *Server) Start(ctx context.Context) error {
-	s.idx.rds = cloudrds.NewAwsRDS()
+	addr, err := s.cfg.BlockchainAddress()
+	if err != nil {
+		return errors.Wrap(err, "error when get the blockchain address")
+	}
+	s.idx.nodeAddr = addr.IotxAddress()
+
+	s.idx.rds = rds.NewAwsRDS(&s.cfg.RDS)
 	if err := s.idx.rds.Start(ctx); err != nil {
 		return errors.Wrap(err, "error when start rds store")
 	}

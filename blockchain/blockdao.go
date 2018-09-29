@@ -11,7 +11,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"fmt"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/enc"
@@ -548,13 +547,9 @@ func (dao *blockDAO) putBlock(blk *Block) error {
 		batch.Put(blockNS, topHeightKey, height, "failed to put top height")
 	}
 
-	fmt.Println("---------------------------------------------------------------")
-
 	if !dao.config.Explorer.Enabled {
 		return batch.Commit()
 	}
-
-	fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
 
 	// emit block to all subscribers
 	dao.EmitToSubscribers(blk)

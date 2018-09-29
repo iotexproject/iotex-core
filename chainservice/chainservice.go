@@ -75,7 +75,7 @@ func newChainService(cfg *config.Config, p2p network.Overlay, dispatcher dispatc
 	if consensus == nil {
 		return nil, errors.Wrap(err, "failed to create consensus")
 	}
-	idx := indexservice.NewServer(cfg.IndexService, chain)
+	idx := indexservice.NewServer(cfg, chain)
 	if idx == nil {
 		return nil, errors.Wrap(err, "failed to create index service")
 	}

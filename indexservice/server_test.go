@@ -9,12 +9,17 @@ import (
 	"github.com/stretchr/testify/require"
 	"testing"
 
+	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 )
 
 func TestServer(t *testing.T) {
 	require := require.New(t)
-	svr := NewServer(config.Default.IndexService, nil)
+
+	// create chain
+	bc := blockchain.NewBlockchain(&config.Default, blockchain.InMemDaoOption())
+
+	svr := NewServer(&config.Default, bc)
 	svr.Start(nil)
 
 	db := svr.idx.rds.GetDB()

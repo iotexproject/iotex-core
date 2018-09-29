@@ -332,7 +332,7 @@ type (
 		IndexService IndexService `yaml:"indexservice"`
 		System       System       `yaml:"system"`
 		DB           DB           `yaml:"db"`
-		RDS        	 RDS          `yaml:"rds"`
+		RDS          RDS          `yaml:"rds"`
 	}
 
 	// Validate is the interface of validating the config
