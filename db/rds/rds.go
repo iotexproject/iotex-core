@@ -1,4 +1,4 @@
-package cloudrds
+package rds
 
 import (
 	"context"
@@ -8,16 +8,9 @@ import (
 
 	// we need mysql import because it's called in file, (but compile will complain because there is no display)
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
-)
-
-var (
-	awsRDSEndpoint = "iotex-explorer-db.ctcedgqcwrb5.us-west-1.rds.amazonaws.com"
-	awsRDSPort     = 4086
-	awsRegion      = "us-west-1"
-	awsRDSUser     = "explorer_admin"
-	awsPass        = "j1cDiH7W7QCB"
-	awsDBName      = "explorer"
 )
 
 // RDSStore is the interface of KV store.
@@ -36,13 +29,14 @@ type RDSStore interface {
 
 // rds is RDSStore implementation based aws RDS
 type rds struct {
-	mutex sync.RWMutex
-	db    *sql.DB
+	mutex  sync.RWMutex
+	db     *sql.DB
+	config *config.RDS
 }
 
 // NewAwsRDS instantiates an aws RDS based RDS
-func NewAwsRDS() RDSStore {
-	return &rds{db: nil}
+func NewAwsRDS(cfg *config.RDS) RDSStore {
+	return &rds{db: nil, config: cfg}
 }
 
 // Start opens the RDS (creates new file if not existing yet)
@@ -55,7 +49,7 @@ func (r *rds) Start(_ context.Context) error {
 	}
 
 	connectStr := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s",
-		awsRDSUser, awsPass, awsRDSEndpoint, awsRDSPort, awsDBName,
+		r.config.AwsRDSUser, r.config.AwsPass, r.config.AwsRDSEndpoint, r.config.AwsRDSPort, r.config.AwsDBName,
 	)
 
 	// Use db to perform SQL operations on database
@@ -132,7 +126,7 @@ func (r *rds) Transact(txFunc func(*sql.Tx) error) error {
 	defer func() {
 		if p := recover(); p != nil {
 			tx.Rollback()
-			panic(p) // re-throw panic after Rollback
+			logger.Panic() // re-throw panic after Rollback
 		} else if err != nil {
 			tx.Rollback() // err is non-nil; don't change it
 		} else {
