@@ -113,12 +113,12 @@ type logFilter struct{}
 
 // PreInvoke implement empty preinvoke
 func (f logFilter) PreInvoke(r *barrister.RequestResponse) bool {
-	logger.Debug().Msgf("logFilter: PreInvoke of method:", r.Method)
+	logger.Debug().Msgf("logFilter: PreInvoke of method: %s", r.Method)
 	return true
 }
 
 // PostInvoke implement empty postinvoke
 func (f logFilter) PostInvoke(r *barrister.RequestResponse) bool {
-	logger.Debug().Msgf("logFilter: PostInvoke of method:", r.Method)
+	logger.Debug().Msgf("logFilter: PostInvoke of method: %s", r.Method)
 	return true
 }

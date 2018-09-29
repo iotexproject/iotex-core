@@ -232,7 +232,7 @@ func NewBlockchain(cfg *config.Config, opts ...Option) Blockchain {
 	}
 	for _, opt := range opts {
 		if err := opt(chain, cfg); err != nil {
-			logger.Error().Err(err).Msgf("Failed to create blockchain option %s", opt)
+			logger.Error().Err(err).Msgf("Failed to execute blockchain creation option %p", opt)
 			return nil
 		}
 	}

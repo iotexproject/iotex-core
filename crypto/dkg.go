@@ -143,6 +143,32 @@ func (d *dkg) SharesCollect(id []uint8, shares [][]uint32, witnesses [][][]byte)
 	return result, nil
 }
 
+// ShareVerify verifies the received secret share
+func (d *dkg) ShareVerify(id []uint8, share []uint32, witness [][]byte) (bool, error) {
+	var idSer [idlength]C.uint8_t
+	var shareSer [sigSize]C.uint32_t
+	var witnessSer [Degree + 1]C.ec160_point_aff
+
+	for i := 0; i < sigSize; i++ {
+		shareSer[i] = (C.uint32_t)(share[i])
+	}
+	for i := 0; i < Degree+1; i++ {
+		point, err := pointDeserialization(witness[i])
+		if err != nil {
+			return false, errors.New("failed to deserialize point")
+		}
+		witnessSer[i] = point
+	}
+	for i := 0; i < idlength; i++ {
+		idSer[i] = (C.uint8_t)(id[i])
+	}
+	result := C.dkg_share_verify(&idSer[0], &shareSer[0], &witnessSer[0])
+	if result == 1 {
+		return true, nil
+	}
+	return false, nil
+}
+
 // RndGenerate generates a random byte array of IDLENGTH size
 func RndGenerate() []uint8 {
 	var rnd [idlength]C.uint8_t
