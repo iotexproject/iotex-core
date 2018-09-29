@@ -249,7 +249,7 @@ func newConsensusFSM(ctx *rollDPoSCtx) (*cFSM, error) {
 		AddTransition(sDKGGeneration, eGenerateDKG, cm.handleGenerateDKGEvt, []fsm.State{sRoundStart}).
 		AddTransition(sRoundStart, eStartRound, cm.handleStartRoundEvt, []fsm.State{sInitPropose, sAcceptPropose}).
 		AddTransition(sInitPropose, eInitBlock, cm.handleInitBlockEvt, []fsm.State{sAcceptPropose}).
-		AddTransition(sAcceptPropose, eProposeBlock, cm.handleProposeBlockEvt, []fsm.State{sAcceptPrevote}).
+		AddTransition(sAcceptPropose, eProposeBlock, cm.handleProposeBlockEvt, []fsm.State{sAcceptPropose, sAcceptPrevote}).
 		AddTransition(sAcceptPropose, eProposeBlockTimeout, cm.handleProposeBlockEvt, []fsm.State{sAcceptPrevote}).
 		AddTransition(sAcceptPrevote, ePrevote, cm.handlePrevoteEvt, []fsm.State{sAcceptPrevote, sAcceptVote}).
 		AddTransition(sAcceptPrevote, ePrevoteTimeout, cm.handlePrevoteEvt, []fsm.State{sAcceptVote}).
@@ -459,9 +459,43 @@ func (m *cFSM) handleInitBlockEvt(evt fsm.Event) (fsm.State, error) {
 	return sAcceptPropose, nil
 }
 
+func (m *cFSM) validateProposeBlock(blk *blockchain.Block, expectedProposer string) bool {
+	blkHash := blk.HashBlock()
+	producer := blk.ProducerAddress()
+	errorLog := logger.Error().
+		Str("proposer", producer).
+		Uint64("block", blk.Height()).
+		Str("hash", hex.EncodeToString(blkHash[:]))
+	if producer == "" || producer != expectedProposer {
+		errorLog.Str("expectedProposer", expectedProposer).
+			Msg("error when validating the block proposer")
+		return false
+	}
+	if !blk.VerifySignature() {
+		errorLog.Msg("error when validating the block signature")
+		return false
+	}
+	if producer == m.ctx.addr.RawAddress {
+		// If the block is self proposed, skip validation
+		return true
+	}
+	if err := m.ctx.chain.ValidateBlock(blk); err != nil {
+		errorLog.Err(err).Msg("error when validating the block")
+		return false
+	}
+	if len(blk.Header.DKGPubkey) > 0 && len(blk.Header.DKGBlockSig) > 0 {
+		// TODO failed if no dkg
+		if err := verifyDKGSignature(blk, m.ctx.epoch.seed); err != nil {
+			// Verify dkg signature failed
+			errorLog.Err(err).Msg("Failed to verify the DKG signature")
+			return false
+		}
+	}
+
+	return true
+}
+
 func (m *cFSM) handleProposeBlockEvt(evt fsm.Event) (fsm.State, error) {
-	received := true
-	validated := true
 	m.ctx.round.block = nil
 	switch evt.Type() {
 	case eProposeBlock:
@@ -473,62 +507,11 @@ func (m *cFSM) handleProposeBlockEvt(evt fsm.Event) (fsm.State, error) {
 		if err != nil {
 			return sInvalid, errors.Wrap(err, "error when calculating the proposer")
 		}
-		blkHash := proposeBlkEvt.block.HashBlock()
-		producer := proposeBlkEvt.block.ProducerAddress()
-		switch {
-		case producer == "" || producer != proposer:
-			logger.Error().
-				Str("proposer", producer).
-				Str("expectedProposer", proposer).
-				Uint64("block", proposeBlkEvt.block.Height()).
-				Str("hash", hex.EncodeToString(blkHash[:])).
-				Err(err).
-				Msg("error when validating the block proposer")
-			validated = false
-		case !proposeBlkEvt.block.VerifySignature():
-			logger.Error().
-				Str("proposer", producer).
-				Uint64("block", proposeBlkEvt.block.Height()).
-				Str("hash", hex.EncodeToString(blkHash[:])).
-				Err(err).
-				Msg("error when validating the block signature")
-			validated = false
-		case producer != m.ctx.addr.RawAddress:
-			// If the block is self proposed, skip validation
-			if err := m.ctx.chain.ValidateBlock(proposeBlkEvt.block); err != nil {
-				logger.Error().
-					Str("proposer", producer).
-					Uint64("block", proposeBlkEvt.block.Height()).
-					Str("hash", hex.EncodeToString(blkHash[:])).
-					Err(err).
-					Msg("error when validating the block")
-				validated = false
-			}
-			// Verify dkg signature
-			if len(proposeBlkEvt.block.Header.DKGPubkey) > 0 && len(proposeBlkEvt.block.Header.DKGBlockSig) > 0 {
-				if err := verifyDKGSignature(proposeBlkEvt.block, m.ctx.epoch.seed); err != nil {
-					logger.Error().
-						Str("proposer", producer).
-						Uint64("block", proposeBlkEvt.block.Height()).
-						Str("hash", hex.EncodeToString(blkHash[:])).
-						Err(err).
-						Msg("Failed to verify the DKG signature")
-					validated = false
-				}
-			}
+		if !m.validateProposeBlock(proposeBlkEvt.block, proposer) {
+			return sAcceptPropose, nil
 		}
 		m.ctx.round.block = proposeBlkEvt.block
-	case eProposeBlockTimeout:
-		received = false
-		validated = false
-		logger.Warn().
-			Str("proposer", m.ctx.round.proposer).
-			Uint64("height", m.ctx.round.height).
-			Msg("didn't receive the proposed block before timeout")
-	}
-
-	if received {
-		prevoteEvt := m.newPrevoteEvt(m.ctx.round.block.HashBlock(), validated)
+		prevoteEvt := m.newPrevoteEvt(m.ctx.round.block.HashBlock(), true)
 		prevoteEvtProto, err := prevoteEvt.toProtoMsg()
 		if err != nil {
 			return sInvalid, errors.Wrap(err, "error when converting a prevoteEvt into a proto msg")
@@ -541,7 +524,13 @@ func (m *cFSM) handleProposeBlockEvt(evt fsm.Event) (fsm.State, error) {
 				Err(err).
 				Msg("error when broadcasting prevoteEvtProto")
 		}
+	case eProposeBlockTimeout:
+		logger.Warn().
+			Str("proposer", m.ctx.round.proposer).
+			Uint64("height", m.ctx.round.height).
+			Msg("didn't receive the proposed block before timeout")
 	}
+
 	// Setup timeout for waiting for prevote
 	m.produce(m.newTimeoutEvt(ePrevoteTimeout, m.ctx.round.height), m.ctx.cfg.AcceptPrevoteTTL)
 	return sAcceptPrevote, nil
@@ -619,7 +608,7 @@ func (m *cFSM) handleVoteEvt(evt fsm.Event) (fsm.State, error) {
 		if bytes.Equal(blkHash[:], voteEvt.blkHash[:]) {
 			m.ctx.round.votes[voteEvt.voter] = voteEvt.decision
 		}
-		// if ether yes or no is true, block must exists and blkHash must be a valid one
+		// if either yes or no is true, block must exists and blkHash must be a valid one
 		yes, no := m.ctx.calcQuorum(m.ctx.round.votes)
 		if yes {
 			consensus = true

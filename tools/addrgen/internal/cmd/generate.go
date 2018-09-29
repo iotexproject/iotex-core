@@ -12,7 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/logger"
 )
 
@@ -31,15 +31,14 @@ var _addrNum int
 func generate(args []string) string {
 	items := make([]string, _addrNum)
 	for i := 0; i < _addrNum; i++ {
-		addr, err := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
+		public, private, err := crypto.EC283.NewKeyPair()
 		if err != nil {
-			logger.Fatal().Err(err).Msg("failed to create address")
+			logger.Fatal().Err(err).Msg("failed to create key pair")
 		}
 		items[i] = fmt.Sprintf(
-			"{\"PublicKey\": \"%x\", \"PrivateKey\": \"%x\", \"RawAddress\": \"%s\"}",
-			addr.PublicKey,
-			addr.PrivateKey,
-			addr.RawAddress,
+			"{\"PublicKey\": \"%x\", \"PrivateKey\": \"%x\"}",
+			private,
+			public,
 		)
 	}
 	return "[" + strings.Join(items, ",") + "]"

@@ -165,17 +165,17 @@ chain:
 	require.Equal(t, LightweightType, cfg.NodeType)
 }
 
-func TestValidateAddr(t *testing.T) {
+func TestValidateKeyPair(t *testing.T) {
 	cfg := Default
 	cfg.Chain.ProducerPubKey = "hello world"
 	cfg.Chain.ProducerPrivKey = "world hello"
-	err := ValidateAddr(&cfg)
+	err := ValidateKeyPair(&cfg)
 	assert.NotNil(t, err)
 	assert.True(t, strings.Contains(err.Error(), "encoding/hex:"), err.Error())
 
 	cfg.Chain.ProducerPubKey = keypair.EncodePublicKey(testaddress.Addrinfo["alfa"].PublicKey)
 	cfg.Chain.ProducerPrivKey = keypair.EncodePrivateKey(testaddress.Addrinfo["bravo"].PrivateKey)
-	err = ValidateAddr(&cfg)
+	err = ValidateKeyPair(&cfg)
 	assert.NotNil(t, err)
 	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
 	require.True(
