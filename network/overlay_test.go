@@ -45,8 +45,8 @@ func LoadTestConfig(addr string, allowMultiConnsPerHost bool) *config.Network {
 	config := config.Config{
 		NodeType: config.DelegateType,
 		Network: config.Network{
-			Host:                    host,
-			Port:                    port,
+			Host: host,
+			Port: port,
 			MsgLogsCleaningInterval: 2 * time.Second,
 			MsgLogRetention:         10 * time.Second,
 			HealthCheckInterval:     time.Second,
