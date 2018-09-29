@@ -447,3 +447,61 @@ func TestCoinbaseTransferValidation(t *testing.T) {
 	validator := validator{}
 	require.NoError(t, validator.verifyActions(blk))
 }
+
+func TestValidateSecretBlock(t *testing.T) {
+	cfg := &config.Default
+	testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
+	defer testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
+	testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
+	defer testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
+	require := require.New(t)
+	sf, err := state.NewFactory(cfg, state.DefaultTrieOption())
+	require.NoError(err)
+	require.NoError(sf.Start(context.Background()))
+	_, err = sf.LoadOrCreateState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
+	require.Nil(err)
+	_, err = sf.RunActions(0, nil, nil, nil)
+	require.Nil(err)
+	require.Nil(sf.Commit())
+
+	idList := make([][]uint8, 0)
+	delegates := []string{ta.Addrinfo["producer"].RawAddress}
+	for i := 0; i < 20; i++ {
+		addr, _ := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
+		delegates = append(delegates, addr.RawAddress)
+	}
+
+	for _, delegate := range delegates {
+		idList = append(idList, iotxaddress.CreateID(delegate))
+	}
+	producerSK := crypto.DKG.SkGeneration()
+	_, shares, witness, err := crypto.DKG.Init(producerSK, idList)
+	require.NoError(err)
+
+	secretProposals := make([]*action.SecretProposal, 0)
+	for i, share := range shares {
+		secretProposal, err := action.NewSecretProposal(uint64(i+1), delegates[0], delegates[i], share)
+		require.NoError(err)
+		secretProposals = append(secretProposals, secretProposal)
+	}
+	secretWitness, err := action.NewSecretWitness(uint64(22), delegates[0], witness)
+	require.NoError(err)
+	hash := secretProposals[0].Hash()
+	blk := NewSecretBlock(1, 3, hash, clock.New(), secretProposals, secretWitness)
+	err = blk.SignBlock(ta.Addrinfo["producer"])
+	require.NoError(err)
+
+	val := secretValidator{sf, delegates[1]}
+	require.NoError(val.Validate(blk, 2, hash))
+
+	// Falsify secret proposal
+	dummySecretProposal, err := action.NewSecretProposal(2, delegates[0], delegates[1], []uint32{1, 2, 3, 4, 5})
+	require.NoError(err)
+	secretProposals[1] = dummySecretProposal
+	blk = NewSecretBlock(1, 3, hash, clock.New(), secretProposals, secretWitness)
+	err = blk.SignBlock(ta.Addrinfo["producer"])
+	require.NoError(err)
+	err = val.Validate(blk, 2, hash)
+	require.Error(err)
+	require.Equal(ErrDKGSecretProposal, errors.Cause(err))
+}

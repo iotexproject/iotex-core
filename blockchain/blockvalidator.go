@@ -33,6 +33,11 @@ type validator struct {
 	sf state.Factory
 }
 
+type secretValidator struct {
+	sf            state.Factory
+	validatorAddr string
+}
+
 var (
 	// ErrInvalidTipHeight is the error returned when the block height is not valid
 	ErrInvalidTipHeight = errors.New("invalid tip height")
@@ -46,58 +51,42 @@ var (
 	ErrInsufficientGas = errors.New("insufficient intrinsic gas value")
 	// ErrBalance indicates the error of balance
 	ErrBalance = errors.New("invalid balance")
+	// ErrDKGSecretProposal indicates the error of DKG secret proposal
+	ErrDKGSecretProposal = errors.New("invalid DKG secret proposal")
+	// ErrDKGSecretWitness indicates the error of DKG secret witness
+	ErrDKGSecretWitness = errors.New("invalid DKG secret witness")
 )
 
 // Validate validates the given block's content
 func (v *validator) Validate(blk *Block, tipHeight uint64, tipHash hash.Hash32B) error {
-	if blk == nil {
-		return ErrInvalidBlock
+	if err := verifyHeightAndHash(blk, tipHeight, tipHash); err != nil {
+		return errors.Wrap(err, "failed to verify block's height and hash")
 	}
-	// verify new block has height incremented by 1
-	if blk.Header.height != 0 && blk.Header.height != tipHeight+1 {
-		return errors.Wrapf(
-			ErrInvalidTipHeight,
-			"wrong block height %d, expecting %d",
-			blk.Header.height,
-			tipHeight+1)
-	}
-	// verify new block has correctly linked to current tip
-	if blk.Header.prevBlockHash != tipHash {
-		return errors.Wrapf(
-			ErrInvalidBlock,
-			"wrong prev hash %x, expecting %x",
-			blk.Header.prevBlockHash,
-			tipHash)
-	}
-
 	if blk.IsDummyBlock() {
 		return nil
 	}
-
-	if blk.Header.height > 0 {
-		// verify new block's signature is correct
-		blkHash := blk.HashBlock()
-		if !crypto.EC283.Verify(blk.Header.Pubkey, blkHash[:], blk.Header.blockSig) {
-			return errors.Wrapf(
-				ErrInvalidBlock,
-				"failed to verify block's signature with public key: %x",
-				blk.Header.Pubkey,
-			)
-		}
-	}
-
-	hashExpect := blk.Header.txRoot
-	hashActual := blk.TxRoot()
-	if !bytes.Equal(hashExpect[:], hashActual[:]) {
-		return errors.Wrapf(
-			ErrInvalidBlock,
-			"wrong tx hash %x, expecting %x",
-			hashActual,
-			hashActual)
+	if err := verifySigAndRoot(blk); err != nil {
+		return errors.Wrap(err, "failed to verify block's signature and merkle root")
 	}
 
 	if v.sf != nil {
 		return v.verifyActions(blk)
+	}
+
+	return nil
+}
+
+// Validate validates the given block's content
+func (v *secretValidator) Validate(blk *Block, tipHeight uint64, tipHash hash.Hash32B) error {
+	if err := verifyHeightAndHash(blk, tipHeight, tipHash); err != nil {
+		return errors.Wrap(err, "failed to verify block's height and hash")
+	}
+	if err := verifySigAndRoot(blk); err != nil {
+		return errors.Wrap(err, "failed to verify block's signature and merkle root")
+	}
+
+	if v.sf != nil && v.validatorAddr != "" {
+		return v.verifySecrets(blk)
 	}
 
 	return nil
@@ -290,6 +279,120 @@ func (v *validator) verifyActions(blk *Block) error {
 				}
 			}
 		}
+	}
+	return nil
+}
+
+func (v *secretValidator) verifySecrets(blk *Block) error {
+	confirmedNonceMap := make(map[string]uint64)
+	accountNonceMap := make(map[string][]uint64)
+
+	if blk.SecretWitness == nil {
+		return errors.Wrap(ErrDKGSecretWitness, "secret witness cannot be nil")
+	}
+	// Verify witness sender address
+	if _, err := iotxaddress.GetPubkeyHash(blk.SecretWitness.SrcAddr()); err != nil {
+		return errors.Wrapf(err, "failed to validate witness sender's address %s", blk.SecretWitness.SrcAddr())
+	}
+	// Store the nonce of the witness sender and verify later
+	if _, ok := confirmedNonceMap[blk.SecretWitness.SrcAddr()]; !ok {
+		accountNonce, err := v.sf.Nonce(blk.SecretWitness.SrcAddr())
+		if err != nil {
+			return errors.Wrap(err, "failed to get the nonce of secret sender")
+		}
+		confirmedNonceMap[blk.SecretWitness.SrcAddr()] = accountNonce
+		accountNonceMap[blk.SecretWitness.SrcAddr()] = make([]uint64, 0)
+	}
+	accountNonceMap[blk.SecretWitness.SrcAddr()] = append(accountNonceMap[blk.SecretWitness.SrcAddr()], blk.SecretWitness.Nonce())
+
+	for _, sp := range blk.SecretProposals {
+		// Verify address
+		if _, err := iotxaddress.GetPubkeyHash(sp.SrcAddr()); err != nil {
+			return errors.Wrapf(err, "failed to validate secret sender's address %s", sp.SrcAddr())
+		}
+		if _, err := iotxaddress.GetPubkeyHash(sp.DstAddr()); err != nil {
+			return errors.Wrapf(err, "failed to validate secret recipient's address %s", sp.DstAddr())
+		}
+
+		// Store the nonce of the sender and verify later
+		if _, ok := confirmedNonceMap[sp.SrcAddr()]; !ok {
+			accountNonce, err := v.sf.Nonce(sp.SrcAddr())
+			if err != nil {
+				return errors.Wrap(err, "failed to get the nonce of secret sender")
+			}
+			confirmedNonceMap[sp.SrcAddr()] = accountNonce
+			accountNonceMap[sp.SrcAddr()] = make([]uint64, 0)
+		}
+		accountNonceMap[sp.SrcAddr()] = append(accountNonceMap[sp.SrcAddr()], sp.Nonce())
+
+		// verify secret if the validator is recipient
+		if v.validatorAddr == sp.DstAddr() {
+			validatorID := iotxaddress.CreateID(v.validatorAddr)
+			result, err := crypto.DKG.ShareVerify(validatorID, sp.Secret(), blk.SecretWitness.Witness())
+			if err != nil || !result {
+				return errors.Wrap(ErrDKGSecretProposal, "failed to verify the DKG secret share")
+			}
+		}
+	}
+
+	//Verify each account's Nonce
+	for address := range confirmedNonceMap {
+		// The nonce of each action should be increasing, unique and consecutive
+		confirmedNonce := confirmedNonceMap[address]
+		receivedNonce := accountNonceMap[address]
+		sort.Slice(receivedNonce, func(i, j int) bool { return receivedNonce[i] < receivedNonce[j] })
+		for i, nonce := range receivedNonce {
+			if nonce != confirmedNonce+uint64(i+1) {
+				return errors.Wrap(ErrActionNonce, "the nonce of the action is invalid")
+			}
+		}
+	}
+	return nil
+}
+
+func verifyHeightAndHash(blk *Block, tipHeight uint64, tipHash hash.Hash32B) error {
+	if blk == nil {
+		return ErrInvalidBlock
+	}
+	// verify new block has height incremented by 1
+	if blk.Header.height != 0 && blk.Header.height != tipHeight+1 {
+		return errors.Wrapf(
+			ErrInvalidTipHeight,
+			"wrong block height %d, expecting %d",
+			blk.Header.height,
+			tipHeight+1)
+	}
+	// verify new block has correctly linked to current tip
+	if blk.Header.prevBlockHash != tipHash {
+		return errors.Wrapf(
+			ErrInvalidBlock,
+			"wrong prev hash %x, expecting %x",
+			blk.Header.prevBlockHash,
+			tipHash)
+	}
+	return nil
+}
+
+func verifySigAndRoot(blk *Block) error {
+	if blk.Header.height > 0 {
+		// verify new block's signature is correct
+		blkHash := blk.HashBlock()
+		if !crypto.EC283.Verify(blk.Header.Pubkey, blkHash[:], blk.Header.blockSig) {
+			return errors.Wrapf(
+				ErrInvalidBlock,
+				"failed to verify block's signature with public key: %x",
+				blk.Header.Pubkey)
+		}
+	}
+
+	hashExpect := blk.Header.txRoot
+	hashActual := blk.TxRoot()
+	if !bytes.Equal(hashExpect[:], hashActual[:]) {
+		return errors.Wrapf(
+			ErrInvalidBlock,
+			"wrong tx hash %x, expecting %x",
+			hashActual,
+			hashActual)
 	}
 	return nil
 }

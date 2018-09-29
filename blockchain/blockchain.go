@@ -110,12 +110,18 @@ type Blockchain interface {
 	CommitBlock(blk *Block) error
 	// ValidateBlock validates a new block before adding it to the blockchain
 	ValidateBlock(blk *Block) error
+	// ValidateSecretBlock validates a new secret block before adding it to the blockchain
+	ValidateSecretBlock(blk *Block) error
 
 	// For action operations
 	// Validator returns the current validator object
 	Validator() Validator
 	// SetValidator sets the current validator object
 	SetValidator(val Validator)
+	// SecretValidator returns the current secret validator objedt
+	SecretValidator() Validator
+	// SetSecretValidator sets the current secret validator object
+	SetSecretValidator(val Validator)
 
 	// For smart contract operations
 	// ExecuteContractRead runs a read-only smart contract operation, this is done off the network since it does not
@@ -125,15 +131,16 @@ type Blockchain interface {
 
 // blockchain implements the Blockchain interface
 type blockchain struct {
-	mu        sync.RWMutex // mutex to protect utk, tipHeight and tipHash
-	dao       *blockDAO
-	config    *config.Config
-	genesis   *Genesis
-	tipHeight uint64
-	tipHash   hash.Hash32B
-	validator Validator
-	lifecycle lifecycle.Lifecycle
-	clk       clock.Clock
+	mu              sync.RWMutex // mutex to protect utk, tipHeight and tipHash
+	dao             *blockDAO
+	config          *config.Config
+	genesis         *Genesis
+	tipHeight       uint64
+	tipHash         hash.Hash32B
+	validator       Validator
+	secretValidator Validator
+	lifecycle       lifecycle.Lifecycle
+	clk             clock.Clock
 
 	// used by account-based model
 	sf state.Factory
@@ -595,6 +602,13 @@ func (bc *blockchain) ValidateBlock(blk *Block) error {
 	return bc.validateBlock(blk)
 }
 
+// ValidateSecretBlock validates a new secret block before adding it to the blockchain
+func (bc *blockchain) ValidateSecretBlock(blk *Block) error {
+	bc.mu.RLock()
+	defer bc.mu.RUnlock()
+	return bc.validateSecretBlock(blk)
+}
+
 // MintNewBlock creates a new block with given actions
 // Note: the coinbase transfer will be added to the given transfers
 // when minting a new block
@@ -723,6 +737,16 @@ func (bc *blockchain) Validator() Validator {
 	return bc.validator
 }
 
+// SetSecretValidator sets the current secret validator object
+func (bc *blockchain) SetSecretValidator(val Validator) {
+	bc.secretValidator = val
+}
+
+// SecretValidator gets the current secret validator object
+func (bc *blockchain) SecretValidator() Validator {
+	return bc.secretValidator
+}
+
 // ExecuteContractRead runs a read-only smart contract operation, this is done off the network since it does not
 // cause any state change
 func (bc *blockchain) ExecuteContractRead(ex *action.Execution) ([]byte, error) {
@@ -755,23 +779,9 @@ func (bc *blockchain) validateBlock(blk *Block) error {
 		logger.Panic().Msg("no block validator")
 	}
 
-	tipHeight := bc.tipHeight
-	tipHash := bc.tipHash
-	// replacement logic, used to replace a fake old dummy block
-	if blk.Height() != 0 && blk.Height() <= bc.tipHeight {
-		oldDummyBlock, err := bc.GetBlockByHeight(blk.Height())
-		if err != nil {
-			return errors.Wrapf(err, "The height of the new block is invalid")
-		}
-		if !oldDummyBlock.IsDummyBlock() {
-			return errors.New("The replaced block is not a dummy block")
-		}
-		lastBlock, err := bc.GetBlockByHeight(blk.Height() - 1)
-		if err != nil {
-			return errors.Wrapf(err, "Failed to get the last block when replacing the dummy block")
-		}
-		tipHeight = lastBlock.Height()
-		tipHash = lastBlock.HashBlock()
+	tipHeight, tipHash, err := bc.replaceHeightAndHash(blk)
+	if err != nil {
+		return errors.Wrap(err, "failed to get the tip height and tip hash of blockchain")
 	}
 
 	if err := bc.validator.Validate(blk, tipHeight, tipHash); err != nil {
@@ -781,6 +791,27 @@ func (bc *blockchain) validateBlock(blk *Block) error {
 	// TODO: disable validation before resolve the state root doesn't match issue
 	if _, err := bc.runActions(blk, false); err != nil {
 		logger.Panic().Err(err).Msgf("Failed to update state on height %d", tipHeight)
+	}
+	return nil
+}
+
+func (bc *blockchain) validateSecretBlock(blk *Block) error {
+	if bc.secretValidator == nil {
+		logger.Panic().Msg("no secret block validator")
+	}
+
+	tipHeight, tipHash, err := bc.replaceHeightAndHash(blk)
+	if err != nil {
+		return errors.Wrap(err, "failed to get the tip height and tip hash of blockchain")
+	}
+
+	if err := bc.secretValidator.Validate(blk, tipHeight, tipHash); err != nil {
+		return errors.Wrapf(err, "failed to validate secret block on height %d", tipHeight)
+	}
+	// run actions and update state factory
+	// TODO: disable validation before resolve the state root doesn't match issue
+	if _, err := bc.runActions(blk, false); err != nil {
+		logger.Panic().Err(err).Msgf("failed to update state on height %d", tipHeight)
 	}
 	return nil
 }
@@ -826,4 +857,26 @@ func (bc *blockchain) runActions(blk *Block, verify bool) (root hash.Hash32B, er
 		}
 	}
 	return root, nil
+}
+
+func (bc *blockchain) replaceHeightAndHash(blk *Block) (uint64, hash.Hash32B, error) {
+	tipHeight := bc.tipHeight
+	tipHash := bc.tipHash
+	// replacement logic, used to replace a fake old dummy block
+	if blk.Height() != 0 && blk.Height() <= bc.tipHeight {
+		oldDummyBlock, err := bc.GetBlockByHeight(blk.Height())
+		if err != nil {
+			return 0, hash.ZeroHash32B, errors.Wrapf(err, "The height of the new block is invalid")
+		}
+		if !oldDummyBlock.IsDummyBlock() {
+			return 0, hash.ZeroHash32B, errors.New("The replaced block is not a dummy block")
+		}
+		lastBlock, err := bc.GetBlockByHeight(blk.Height() - 1)
+		if err != nil {
+			return 0, hash.ZeroHash32B, errors.Wrapf(err, "Failed to get the last block when replacing the dummy block")
+		}
+		tipHeight = lastBlock.Height()
+		tipHash = lastBlock.HashBlock()
+	}
+	return tipHeight, tipHash, nil
 }

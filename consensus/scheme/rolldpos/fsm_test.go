@@ -956,7 +956,7 @@ func TestUpdateSeed(t *testing.T) {
 	// Generate 21 identifiers for the delegates
 	for i := 0; i < numNodes; i++ {
 		addresses[i], _ = iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
-		idList[i] = hash.Hash256b([]byte(addresses[i].RawAddress))
+		idList[i] = iotxaddress.CreateID(addresses[i].RawAddress)
 		skList[i] = crypto.DKG.SkGeneration()
 	}
 

@@ -524,6 +524,18 @@ func (mr *MockBlockchainMockRecorder) ValidateBlock(blk interface{}) *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateBlock", reflect.TypeOf((*MockBlockchain)(nil).ValidateBlock), blk)
 }
 
+// ValidateSecretBlock mocks base method
+func (m *MockBlockchain) ValidateSecretBlock(blk *blockchain.Block) error {
+	ret := m.ctrl.Call(m, "ValidateSecretBlock", blk)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ValidateSecretBlock indicates an expected call of ValidateSecretBlock
+func (mr *MockBlockchainMockRecorder) ValidateSecretBlock(blk interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateSecretBlock", reflect.TypeOf((*MockBlockchain)(nil).ValidateSecretBlock), blk)
+}
+
 // Validator mocks base method
 func (m *MockBlockchain) Validator() blockchain.Validator {
 	ret := m.ctrl.Call(m, "Validator")
@@ -544,6 +556,28 @@ func (m *MockBlockchain) SetValidator(val blockchain.Validator) {
 // SetValidator indicates an expected call of SetValidator
 func (mr *MockBlockchainMockRecorder) SetValidator(val interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetValidator", reflect.TypeOf((*MockBlockchain)(nil).SetValidator), val)
+}
+
+// SecretValidator mocks base method
+func (m *MockBlockchain) SecretValidator() blockchain.Validator {
+	ret := m.ctrl.Call(m, "SecretValidator")
+	ret0, _ := ret[0].(blockchain.Validator)
+	return ret0
+}
+
+// SecretValidator indicates an expected call of SecretValidator
+func (mr *MockBlockchainMockRecorder) SecretValidator() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SecretValidator", reflect.TypeOf((*MockBlockchain)(nil).SecretValidator))
+}
+
+// SetSecretValidator mocks base method
+func (m *MockBlockchain) SetSecretValidator(val blockchain.Validator) {
+	m.ctrl.Call(m, "SetSecretValidator", val)
+}
+
+// SetSecretValidator indicates an expected call of SetSecretValidator
+func (mr *MockBlockchainMockRecorder) SetSecretValidator(val interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetSecretValidator", reflect.TypeOf((*MockBlockchain)(nil).SetSecretValidator), val)
 }
 
 // ExecuteContractRead mocks base method
