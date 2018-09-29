@@ -135,10 +135,6 @@ func TestRDSStoreTransaction(t *testing.T) {
 		require.Nil(err)
 		require.Equal(0, len(parsedRows))
 
-		/*require.Equal(node_address, string(parsedRows[0][0]))
-		require.Equal(user_adress1, string(parsedRows[0][1]))
-		require.Equal(string(transfer_hash[:]), string(parsedRows[0][2]))*/
-
 		// insert transaction with fail
 		err = rdsStore.Transact(func(tx *sql.Tx) error {
 			insertQuery := "INSERT transfer_history SET node_address=?,user_address=?,transfer_hash=?"
