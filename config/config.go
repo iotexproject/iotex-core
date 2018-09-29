@@ -60,8 +60,8 @@ var (
 	Default = Config{
 		NodeType: FullNodeType,
 		Network: Network{
-			Host:                                "127.0.0.1",
-			Port:                                4689,
+			Host: "127.0.0.1",
+			Port: 4689,
 			MsgLogsCleaningInterval:             2 * time.Second,
 			MsgLogRetention:                     5 * time.Second,
 			HealthCheckInterval:                 time.Second,
@@ -150,6 +150,14 @@ var (
 		},
 		DB: DB{
 			NumRetries: 3,
+		},
+		RDS: RDS{
+			AwsRDSEndpoint: "iotex-explorer-db.ctcedgqcwrb5.us-west-1.rds.amazonaws.com",
+			AwsRDSPort:     4086,
+			//AwsRegion:		"us-west-1",
+			AwsRDSUser: "explorer_admin",
+			AwsPass:    "j1cDiH7W7QCB",
+			AwsDBName:  "explorer",
 		},
 	}
 
@@ -298,6 +306,22 @@ type (
 		NumRetries uint8 `yaml:"numRetries"`
 	}
 
+	// RDS is the cloud rds config
+	RDS struct {
+		// AwsRDSEndpoint is the endpoint of aws rds
+		AwsRDSEndpoint string `yaml:"awsRDSEndpoint"`
+		// AwsRDSPort is the port of aws rds
+		AwsRDSPort uint64 `yaml:"awsRDSPort"`
+		// AwsRegion is the region of aws rds
+		//AwsRegion      string     `yaml:"awsRegion"`
+		// AwsRDSUser is the user to access aws rds
+		AwsRDSUser string `yaml:"awsRDSUser"`
+		// AwsPass is the pass to access aws rds
+		AwsPass string `yaml:"awsPass"`
+		// AwsDBName is the db name of aws rds
+		AwsDBName string `yaml:"awsDBName"`
+	}
+
 	// Config is the root config struct, each package's config should be put as its sub struct
 	Config struct {
 		NodeType     string       `yaml:"nodeType"`
@@ -311,6 +335,7 @@ type (
 		IndexService IndexService `yaml:"indexservice"`
 		System       System       `yaml:"system"`
 		DB           DB           `yaml:"db"`
+		RDS        	 RDS          `yaml:"rds"`
 	}
 
 	// Validate is the interface of validating the config

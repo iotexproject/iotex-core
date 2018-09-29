@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package cloudrds
+package rds
 
 import (
 	"context"
@@ -16,8 +16,13 @@ import (
 
 	"database/sql"
 	"errors"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/testutil"
+)
+
+var (
+	cfg = &config.Default.RDS
 )
 
 func TestRDSStorePutGet(t *testing.T) {
@@ -90,7 +95,7 @@ func TestRDSStorePutGet(t *testing.T) {
 	t.Run("RDS Store", func(t *testing.T) {
 		testutil.CleanupPath(t, path)
 		defer testutil.CleanupPath(t, path)
-		testRDSStorePutGet(NewAwsRDS(), t)
+		testRDSStorePutGet(NewAwsRDS(cfg), t)
 	})
 }
 
@@ -236,6 +241,6 @@ func TestRDSStoreTransaction(t *testing.T) {
 	t.Run("RDS Store", func(t *testing.T) {
 		testutil.CleanupPath(t, path)
 		defer testutil.CleanupPath(t, path)
-		testRDSStoreTransaction(NewAwsRDS(), t)
+		testRDSStoreTransaction(NewAwsRDS(cfg), t)
 	})
 }
