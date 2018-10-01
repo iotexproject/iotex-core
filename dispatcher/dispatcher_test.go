@@ -77,7 +77,7 @@ func TestHandleTell(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	ctx, d := startDispatcher(t, ctrl)
+	ctx, d := startDispatcher(t)
 	defer stopDispatcher(ctx, d, t)
 
 	done := make(chan bool, 1000)
