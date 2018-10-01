@@ -19,17 +19,7 @@ import (
 	pb "github.com/iotexproject/iotex-core/proto"
 )
 
-var msgs = []proto.Message{
-	&pb.ActionPb{},
-	&pb.ViewChangeMsg{},
-	&pb.BlockPb{},
-	&pb.BlockSync{},
-	&pb.BlockContainer{},
-	&pb.BlockContainer{Block: &pb.BlockPb{}},
-	&pb.TestPayload{},
-}
-
-func createDispatcher(chainID uint32, ctrl *gomock.Controller) Dispatcher {
+func createDispatcher(chainID uint32) Dispatcher {
 	cfg := &config.Config{
 		Consensus:  config.Consensus{Scheme: config.NOOPScheme},
 		Dispatcher: config.Dispatcher{EventChanSize: 1024},
@@ -41,7 +31,7 @@ func createDispatcher(chainID uint32, ctrl *gomock.Controller) Dispatcher {
 
 func startDispatcher(t *testing.T, ctrl *gomock.Controller) (ctx context.Context, d Dispatcher) {
 	ctx = context.Background()
-	d = createDispatcher(config.Default.Chain.ID, ctrl)
+	d = createDispatcher(config.Default.Chain.ID)
 	assert.NotNil(t, d)
 	err := d.Start(ctx)
 	assert.NoError(t, err)
@@ -53,7 +43,20 @@ func stopDispatcher(ctx context.Context, d Dispatcher, t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func setTestCase() []proto.Message {
+	return []proto.Message{
+		&pb.ActionPb{},
+		&pb.ViewChangeMsg{},
+		&pb.BlockPb{},
+		&pb.BlockSync{},
+		&pb.BlockContainer{},
+		&pb.BlockContainer{Block: &pb.BlockPb{}},
+		&pb.TestPayload{},
+	}
+}
+
 func TestHandleBroadcast(t *testing.T) {
+	msgs := setTestCase()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -69,6 +72,7 @@ func TestHandleBroadcast(t *testing.T) {
 }
 
 func TestHandleTell(t *testing.T) {
+	msgs := setTestCase()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
