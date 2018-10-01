@@ -14,10 +14,12 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -150,15 +152,9 @@ func (v *validator) verifyActions(blk *Block) error {
 			defer wg.Done()
 			// Verify coinbase transfer
 			if tsf.IsCoinbase() {
-				address, err := iotxaddress.GetAddressByPubkey(
-					iotxaddress.IsTestnet,
-					iotxaddress.ChainID,
-					blk.Header.Pubkey,
-				)
-				if err != nil {
-					return
-				}
-				if address.RawAddress != tsf.Recipient() {
+				pkHash := keypair.HashPubKey(blk.Header.Pubkey)
+				addr := address.New(blk.Header.chainID, pkHash[:])
+				if addr.IotxAddress() != tsf.Recipient() {
 					return
 				}
 				atomic.AddUint64(correctCoinbase, uint64(1))

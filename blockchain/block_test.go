@@ -19,10 +19,14 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/blake2b"
 
+	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/crypto"
+	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/state"
@@ -239,13 +243,15 @@ func TestWrongNonce(t *testing.T) {
 	require.Nil(err)
 	require.Nil(sf.Commit())
 
+	chainID := enc.MachineEndian.Uint32(iotxaddress.ChainID)
+
 	// correct nonce
 	coinbaseTsf := action.NewCoinBaseTransfer(big.NewInt(int64(Gen.BlockReward)), ta.Addrinfo["producer"].RawAddress)
 	tsf1, err := action.NewTransfer(1, big.NewInt(20), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["alfa"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(err)
 	require.NoError(action.Sign(tsf1, ta.Addrinfo["producer"]))
 	hash := tsf1.Hash()
-	blk := NewBlock(1, 3, hash, clock.New(), []*action.Transfer{coinbaseTsf, tsf1}, nil, nil)
+	blk := NewBlock(chainID, 3, hash, clock.New(), []*action.Transfer{coinbaseTsf, tsf1}, nil, nil)
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.NoError(err)
 	require.Nil(val.Validate(blk, 2, hash))
@@ -258,7 +264,7 @@ func TestWrongNonce(t *testing.T) {
 	require.NoError(err)
 	require.NoError(action.Sign(tsf2, ta.Addrinfo["producer"]))
 	hash = tsf1.Hash()
-	blk = NewBlock(1, 3, hash, clock.New(), []*action.Transfer{coinbaseTsf, tsf1, tsf2}, nil, nil)
+	blk = NewBlock(chainID, 3, hash, clock.New(), []*action.Transfer{coinbaseTsf, tsf1, tsf2}, nil, nil)
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.NoError(err)
 	err = val.Validate(blk, 2, hash)
@@ -268,7 +274,7 @@ func TestWrongNonce(t *testing.T) {
 	require.NoError(err)
 	require.NoError(action.Sign(vote, ta.Addrinfo["producer"]))
 	hash = tsf1.Hash()
-	blk = NewBlock(1, 3, hash, clock.New(), []*action.Transfer{coinbaseTsf}, []*action.Vote{vote}, nil)
+	blk = NewBlock(chainID, 3, hash, clock.New(), []*action.Transfer{coinbaseTsf}, []*action.Vote{vote}, nil)
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.NoError(err)
 	err = val.Validate(blk, 2, hash)
@@ -283,7 +289,7 @@ func TestWrongNonce(t *testing.T) {
 	require.NoError(err)
 	require.NoError(action.Sign(tsf4, ta.Addrinfo["producer"]))
 	hash = tsf1.Hash()
-	blk = NewBlock(1, 3, hash, clock.New(), []*action.Transfer{coinbaseTsf, tsf3, tsf4}, nil, nil)
+	blk = NewBlock(chainID, 3, hash, clock.New(), []*action.Transfer{coinbaseTsf, tsf3, tsf4}, nil, nil)
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.NoError(err)
 	err = val.Validate(blk, 2, hash)
@@ -297,7 +303,7 @@ func TestWrongNonce(t *testing.T) {
 	require.NoError(err)
 	require.NoError(action.Sign(vote3, ta.Addrinfo["producer"]))
 	hash = tsf1.Hash()
-	blk = NewBlock(1, 3, hash, clock.New(), []*action.Transfer{coinbaseTsf}, []*action.Vote{vote2, vote3}, nil)
+	blk = NewBlock(chainID, 3, hash, clock.New(), []*action.Transfer{coinbaseTsf}, []*action.Vote{vote2, vote3}, nil)
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.NoError(err)
 	err = val.Validate(blk, 2, hash)
@@ -312,7 +318,7 @@ func TestWrongNonce(t *testing.T) {
 	require.NoError(err)
 	require.NoError(action.Sign(tsf6, ta.Addrinfo["producer"]))
 	hash = tsf1.Hash()
-	blk = NewBlock(1, 3, hash, clock.New(), []*action.Transfer{coinbaseTsf, tsf5, tsf6}, nil, nil)
+	blk = NewBlock(chainID, 3, hash, clock.New(), []*action.Transfer{coinbaseTsf, tsf5, tsf6}, nil, nil)
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.NoError(err)
 	err = val.Validate(blk, 2, hash)
@@ -326,7 +332,7 @@ func TestWrongNonce(t *testing.T) {
 	require.NoError(err)
 	require.NoError(action.Sign(vote5, ta.Addrinfo["producer"]))
 	hash = tsf1.Hash()
-	blk = NewBlock(1, 3, hash, clock.New(), []*action.Transfer{coinbaseTsf}, []*action.Vote{vote4, vote5}, nil)
+	blk = NewBlock(chainID, 3, hash, clock.New(), []*action.Transfer{coinbaseTsf}, []*action.Vote{vote4, vote5}, nil)
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.NoError(err)
 	err = val.Validate(blk, 2, hash)
@@ -411,4 +417,33 @@ func TestWrongAddress(t *testing.T) {
 	err = val.verifyActions(blk3)
 	require.Error(t, err)
 	require.True(t, strings.Contains(err.Error(), "failed to validate contract's address"))
+}
+
+func TestCoinbaseTransferValidation(t *testing.T) {
+	t.Skip("It is skipped because testnet_actions.yaml doesn't match the chain ID")
+	ctx := context.Background()
+	cfg := config.Default
+	cfg.Chain.ID = 1
+	chain := NewBlockchain(&cfg, InMemStateFactoryOption(), InMemDaoOption())
+	require.NotNil(t, chain)
+	require.NoError(t, chain.Start(ctx))
+	defer require.NoError(t, chain.Stop(ctx))
+
+	pk, err := keypair.DecodePublicKey(
+		"1d1727028b1e9dac0cafa693edd8496297f5c3281924ec578c0526e7340f7180bfa5af059084c8b90954bf2802a0060e145bece9580f9021352eb112340186e68dc9bea4f7711707")
+	require.NoError(t, err)
+	sk, err := keypair.DecodePrivateKey(
+		"29cf385adfc5b1a84bd7e778ea2c056b85c977771005d545e54100266e224fc276ed7101")
+	require.NoError(t, err)
+	pkHash := keypair.HashPubKey(pk)
+	addr := address.New(cfg.Chain.ID, pkHash[:])
+	iotxAddr := iotxaddress.Address{
+		PublicKey:  pk,
+		PrivateKey: sk,
+		RawAddress: addr.IotxAddress(),
+	}
+	blk, err := chain.MintNewBlock(nil, nil, nil, &iotxAddr, "")
+	require.NoError(t, err)
+	validator := validator{}
+	require.NoError(t, validator.verifyActions(blk))
 }
