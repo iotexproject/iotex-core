@@ -15,8 +15,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/crypto"
+	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
-	"github.com/iotexproject/iotex-core/test/testaddress"
 )
 
 func TestAddress(t *testing.T) {
@@ -83,7 +83,8 @@ func TestAddressError(t *testing.T) {
 func TestConvertFromAndToIotxAddress(t *testing.T) {
 	t.Parallel()
 
-	iotxAddr1 := testaddress.Addrinfo["producer"]
+	iotxAddr1, err := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
+	require.NoError(t, err)
 	addr, err := V1.IotxAddressToAddress(iotxAddr1.RawAddress)
 	require.NoError(t, err)
 	iotxAddr2 := addr.IotxAddress()

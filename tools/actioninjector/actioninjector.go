@@ -27,6 +27,7 @@ import (
 	exp "github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
@@ -127,7 +128,7 @@ func main() {
 	// Construct iotex addresses for loaded senders
 	addrs := []*iotxaddress.Address{}
 	for _, pkPair := range addresses.PKPairs {
-		addr := testutil.ConstructAddress(pkPair.PubKey, pkPair.PriKey)
+		addr := testutil.ConstructAddress(enc.MachineEndian.Uint32(iotxaddress.ChainID), pkPair.PubKey, pkPair.PriKey)
 		addrs = append(addrs, addr)
 	}
 	admins := addrs[len(addrs)-adminNumber:]
