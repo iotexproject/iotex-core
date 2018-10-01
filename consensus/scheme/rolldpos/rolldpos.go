@@ -189,7 +189,7 @@ func (ctx *rollDPoSCtx) calcDurationSinceLastBlock() (time.Duration, error) {
 	return ctx.clock.Now().Sub(blk.Header.Timestamp()), nil
 }
 
-// calcQuorum calculates if more than 2/3 vote yes or no
+// calcQuorum calculates if more than 2/3 vote yes or no including self's vote
 func (ctx *rollDPoSCtx) calcQuorum(decisions map[string]bool) (bool, bool) {
 	yes := 0
 	no := 0
@@ -201,7 +201,7 @@ func (ctx *rollDPoSCtx) calcQuorum(decisions map[string]bool) (bool, bool) {
 		}
 	}
 	numDelegates := len(ctx.epoch.delegates)
-	return yes >= numDelegates*2/3+1, no >= numDelegates*2/3+1
+	return yes >= numDelegates*2/3+1, no >= numDelegates*1/3
 }
 
 // isEpochFinished checks the epoch is finished or not
