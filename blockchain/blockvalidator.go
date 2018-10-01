@@ -26,14 +26,10 @@ import (
 // Validator is the interface of validator
 type Validator interface {
 	// Validate validates the given block's content
-	Validate(block *Block, tipHeight uint64, tipHash hash.Hash32B) error
+	Validate(block *Block, tipHeight uint64, tipHash hash.Hash32B, checkCoinbase bool) error
 }
 
 type validator struct {
-	sf state.Factory
-}
-
-type secretValidator struct {
 	sf            state.Factory
 	validatorAddr string
 }
@@ -53,12 +49,10 @@ var (
 	ErrBalance = errors.New("invalid balance")
 	// ErrDKGSecretProposal indicates the error of DKG secret proposal
 	ErrDKGSecretProposal = errors.New("invalid DKG secret proposal")
-	// ErrDKGSecretWitness indicates the error of DKG secret witness
-	ErrDKGSecretWitness = errors.New("invalid DKG secret witness")
 )
 
 // Validate validates the given block's content
-func (v *validator) Validate(blk *Block, tipHeight uint64, tipHash hash.Hash32B) error {
+func (v *validator) Validate(blk *Block, tipHeight uint64, tipHash hash.Hash32B, checkCoinbase bool) error {
 	if err := verifyHeightAndHash(blk, tipHeight, tipHash); err != nil {
 		return errors.Wrap(err, "failed to verify block's height and hash")
 	}
@@ -70,30 +64,14 @@ func (v *validator) Validate(blk *Block, tipHeight uint64, tipHash hash.Hash32B)
 	}
 
 	if v.sf != nil {
-		return v.verifyActions(blk)
+		return v.verifyActions(blk, checkCoinbase)
 	}
 
 	return nil
 }
 
-// Validate validates the given block's content
-func (v *secretValidator) Validate(blk *Block, tipHeight uint64, tipHash hash.Hash32B) error {
-	if err := verifyHeightAndHash(blk, tipHeight, tipHash); err != nil {
-		return errors.Wrap(err, "failed to verify block's height and hash")
-	}
-	if err := verifySigAndRoot(blk); err != nil {
-		return errors.Wrap(err, "failed to verify block's signature and merkle root")
-	}
-
-	if v.sf != nil && v.validatorAddr != "" {
-		return v.verifySecrets(blk)
-	}
-
-	return nil
-}
-
-func (v *validator) verifyActions(blk *Block) error {
-	// Verify transfers, votes, and executions (balance is checked in RunActions)
+func (v *validator) verifyActions(blk *Block, checkCoinbase bool) error {
+	// Verify transfers, votes, executions, witness, and secrets (balance is checked in RunActions)
 	confirmedNonceMap := make(map[string]uint64)
 	accountNonceMap := make(map[string][]uint64)
 	var wg sync.WaitGroup
@@ -256,7 +234,7 @@ func (v *validator) verifyActions(blk *Block) error {
 	}
 	wg.Wait()
 	// Verify coinbase transfer count
-	if (blk.Header.height != 0 && coinbaseCount != 1) || (blk.Header.height == 0 && coinbaseCount != 0) {
+	if checkCoinbase && ((blk.Header.height != 0 && coinbaseCount != 1) || (blk.Header.height == 0 && coinbaseCount != 0)) {
 		return errors.Wrapf(
 			ErrInvalidBlock,
 			"wrong number of coinbase transfers")
@@ -266,45 +244,26 @@ func (v *validator) verifyActions(blk *Block) error {
 			ErrInvalidBlock,
 			"failed to verify actions signature")
 	}
-	if blk.Header.height > 0 {
-		//Verify each account's Nonce
-		for address := range confirmedNonceMap {
-			// The nonce of each action should be increasing, unique and consecutive
-			confirmedNonce := confirmedNonceMap[address]
-			receivedNonce := accountNonceMap[address]
-			sort.Slice(receivedNonce, func(i, j int) bool { return receivedNonce[i] < receivedNonce[j] })
-			for i, nonce := range receivedNonce {
-				if nonce != confirmedNonce+uint64(i+1) {
-					return errors.Wrap(ErrActionNonce, "the nonce of the action is invalid")
-				}
+
+	// Verify Witness
+	if blk.SecretWitness != nil {
+		// Verify witness sender address
+		if _, err := iotxaddress.GetPubkeyHash(blk.SecretWitness.SrcAddr()); err != nil {
+			return errors.Wrapf(err, "failed to validate witness sender's address %s", blk.SecretWitness.SrcAddr())
+		}
+		// Store the nonce of the witness sender and verify later
+		if _, ok := confirmedNonceMap[blk.SecretWitness.SrcAddr()]; !ok {
+			accountNonce, err := v.sf.Nonce(blk.SecretWitness.SrcAddr())
+			if err != nil {
+				return errors.Wrap(err, "failed to get the nonce of secret sender")
 			}
+			confirmedNonceMap[blk.SecretWitness.SrcAddr()] = accountNonce
+			accountNonceMap[blk.SecretWitness.SrcAddr()] = make([]uint64, 0)
 		}
+		accountNonceMap[blk.SecretWitness.SrcAddr()] = append(accountNonceMap[blk.SecretWitness.SrcAddr()], blk.SecretWitness.Nonce())
 	}
-	return nil
-}
 
-func (v *secretValidator) verifySecrets(blk *Block) error {
-	confirmedNonceMap := make(map[string]uint64)
-	accountNonceMap := make(map[string][]uint64)
-
-	if blk.SecretWitness == nil {
-		return errors.Wrap(ErrDKGSecretWitness, "secret witness cannot be nil")
-	}
-	// Verify witness sender address
-	if _, err := iotxaddress.GetPubkeyHash(blk.SecretWitness.SrcAddr()); err != nil {
-		return errors.Wrapf(err, "failed to validate witness sender's address %s", blk.SecretWitness.SrcAddr())
-	}
-	// Store the nonce of the witness sender and verify later
-	if _, ok := confirmedNonceMap[blk.SecretWitness.SrcAddr()]; !ok {
-		accountNonce, err := v.sf.Nonce(blk.SecretWitness.SrcAddr())
-		if err != nil {
-			return errors.Wrap(err, "failed to get the nonce of secret sender")
-		}
-		confirmedNonceMap[blk.SecretWitness.SrcAddr()] = accountNonce
-		accountNonceMap[blk.SecretWitness.SrcAddr()] = make([]uint64, 0)
-	}
-	accountNonceMap[blk.SecretWitness.SrcAddr()] = append(accountNonceMap[blk.SecretWitness.SrcAddr()], blk.SecretWitness.Nonce())
-
+	// Verify Secrets
 	for _, sp := range blk.SecretProposals {
 		// Verify address
 		if _, err := iotxaddress.GetPubkeyHash(sp.SrcAddr()); err != nil {
@@ -329,21 +288,26 @@ func (v *secretValidator) verifySecrets(blk *Block) error {
 		if v.validatorAddr == sp.DstAddr() {
 			validatorID := iotxaddress.CreateID(v.validatorAddr)
 			result, err := crypto.DKG.ShareVerify(validatorID, sp.Secret(), blk.SecretWitness.Witness())
-			if err != nil || !result {
-				return errors.Wrap(ErrDKGSecretProposal, "failed to verify the DKG secret share")
+			if err == nil {
+				err = ErrDKGSecretProposal
+			}
+			if !result {
+				return errors.Wrap(err, "failed to verify the DKG secret share")
 			}
 		}
 	}
 
-	//Verify each account's Nonce
-	for address := range confirmedNonceMap {
-		// The nonce of each action should be increasing, unique and consecutive
-		confirmedNonce := confirmedNonceMap[address]
-		receivedNonce := accountNonceMap[address]
-		sort.Slice(receivedNonce, func(i, j int) bool { return receivedNonce[i] < receivedNonce[j] })
-		for i, nonce := range receivedNonce {
-			if nonce != confirmedNonce+uint64(i+1) {
-				return errors.Wrap(ErrActionNonce, "the nonce of the action is invalid")
+	if blk.Header.height > 0 {
+		//Verify each account's Nonce
+		for address := range confirmedNonceMap {
+			// The nonce of each action should be increasing, unique and consecutive
+			confirmedNonce := confirmedNonceMap[address]
+			receivedNonce := accountNonceMap[address]
+			sort.Slice(receivedNonce, func(i, j int) bool { return receivedNonce[i] < receivedNonce[j] })
+			for i, nonce := range receivedNonce {
+				if nonce != confirmedNonce+uint64(i+1) {
+					return errors.Wrap(ErrActionNonce, "the nonce of the action is invalid")
+				}
 			}
 		}
 	}

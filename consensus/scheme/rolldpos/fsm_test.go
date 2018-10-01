@@ -404,7 +404,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 			ctrl,
 			delegates,
 			func(chain *mock_blockchain.MockBlockchain) {
-				chain.EXPECT().ValidateBlock(gomock.Any()).Return(errors.New("mock error")).Times(1)
+				chain.EXPECT().ValidateBlock(gomock.Any(), gomock.Any()).Return(errors.New("mock error")).Times(1)
 			},
 			nil,
 			clock.New(),
@@ -427,7 +427,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 			ctrl,
 			delegates,
 			func(chain *mock_blockchain.MockBlockchain) {
-				chain.EXPECT().ValidateBlock(gomock.Any()).Times(0)
+				chain.EXPECT().ValidateBlock(gomock.Any(), gomock.Any()).Times(0)
 			},
 			func(p2p *mock_network.MockOverlay) {
 				p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(1)
@@ -510,7 +510,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 			ctrl,
 			delegates,
 			func(chain *mock_blockchain.MockBlockchain) {
-				chain.EXPECT().ValidateBlock(gomock.Any()).Times(0)
+				chain.EXPECT().ValidateBlock(gomock.Any(), gomock.Any()).Times(0)
 			},
 			func(p2p *mock_network.MockOverlay) {
 				p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(0)
@@ -896,7 +896,7 @@ func newTestCFSM(
 					{Address: delegates[3]},
 				}, nil).AnyTimes()
 				blockchain.EXPECT().TipHeight().Return(uint64(1)).AnyTimes()
-				blockchain.EXPECT().ValidateBlock(gomock.Any()).Return(nil).AnyTimes()
+				blockchain.EXPECT().ValidateBlock(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 			} else {
 				mockChain(blockchain)
 			}

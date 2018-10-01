@@ -30,7 +30,7 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	if err != nil {
 		return err
 	}
-	if err := bc.ValidateBlock(blk); err != nil {
+	if err := bc.ValidateBlock(blk, true); err != nil {
 		return err
 	}
 	if err := bc.CommitBlock(blk); err != nil {
@@ -55,7 +55,7 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	if err != nil {
 		return err
 	}
-	if err := bc.ValidateBlock(blk); err != nil {
+	if err := bc.ValidateBlock(blk, true); err != nil {
 		return err
 	}
 	if err := bc.CommitBlock(blk); err != nil {
@@ -78,7 +78,7 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	if err != nil {
 		return err
 	}
-	if err := bc.ValidateBlock(blk); err != nil {
+	if err := bc.ValidateBlock(blk, true); err != nil {
 		return err
 	}
 	if err := bc.CommitBlock(blk); err != nil {
@@ -99,7 +99,7 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	if err != nil {
 		return err
 	}
-	if err := bc.ValidateBlock(blk); err != nil {
+	if err := bc.ValidateBlock(blk, true); err != nil {
 		return err
 	}
 	if err := bc.CommitBlock(blk); err != nil {
@@ -124,7 +124,7 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	if err != nil {
 		return err
 	}
-	if err := bc.ValidateBlock(blk); err != nil {
+	if err := bc.ValidateBlock(blk, true); err != nil {
 		return err
 	}
 	return bc.CommitBlock(blk)
@@ -133,7 +133,7 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 func addTestingDummyBlock(bc blockchain.Blockchain) error {
 	// Add block 1
 	blk := bc.MintNewDummyBlock()
-	if err := bc.ValidateBlock(blk); err != nil {
+	if err := bc.ValidateBlock(blk, true); err != nil {
 		return err
 	}
 	if err := bc.CommitBlock(blk); err != nil {
@@ -141,7 +141,7 @@ func addTestingDummyBlock(bc blockchain.Blockchain) error {
 	}
 	// Add block 2
 	blk = bc.MintNewDummyBlock()
-	if err := bc.ValidateBlock(blk); err != nil {
+	if err := bc.ValidateBlock(blk, true); err != nil {
 		return err
 	}
 	return bc.CommitBlock(blk)

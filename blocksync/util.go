@@ -17,7 +17,7 @@ import (
 )
 
 func commitBlock(bc blockchain.Blockchain, ap actpool.ActPool, blk *blockchain.Block) error {
-	if err := bc.ValidateBlock(blk); err != nil {
+	if err := bc.ValidateBlock(blk, true); err != nil {
 		return err
 	}
 	if err := bc.CommitBlock(blk); err != nil {

@@ -109,19 +109,13 @@ type Blockchain interface {
 	// CommitBlock validates and appends a block to the chain
 	CommitBlock(blk *Block) error
 	// ValidateBlock validates a new block before adding it to the blockchain
-	ValidateBlock(blk *Block) error
-	// ValidateSecretBlock validates a new secret block before adding it to the blockchain
-	ValidateSecretBlock(blk *Block) error
+	ValidateBlock(blk *Block, checkCoinbase bool) error
 
 	// For action operations
 	// Validator returns the current validator object
 	Validator() Validator
 	// SetValidator sets the current validator object
 	SetValidator(val Validator)
-	// SecretValidator returns the current secret validator objedt
-	SecretValidator() Validator
-	// SetSecretValidator sets the current secret validator object
-	SetSecretValidator(val Validator)
 
 	// For smart contract operations
 	// ExecuteContractRead runs a read-only smart contract operation, this is done off the network since it does not
@@ -138,7 +132,6 @@ type blockchain struct {
 	tipHeight       uint64
 	tipHash         hash.Hash32B
 	validator       Validator
-	secretValidator Validator
 	lifecycle       lifecycle.Lifecycle
 	clk             clock.Clock
 
@@ -240,7 +233,19 @@ func NewBlockchain(cfg *config.Config, opts ...Option) Blockchain {
 			return nil
 		}
 	}
-	chain.initValidator()
+	// Set block validator
+	pubKey, _, err := cfg.KeyPair()
+	if err != nil {
+		logger.Error().Err(err).Msg("Failed to get key pair of producer")
+		return nil
+	}
+	address, err := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, iotxaddress.ChainID, pubKey)
+	if err != nil {
+		logger.Error().Err(err).Msg("Failed to get producer's address by public key")
+		return nil
+	}
+	chain.validator = &validator{sf: chain.sf, validatorAddr: address.RawAddress}
+
 	if chain.dao != nil {
 		chain.lifecycle.Add(chain.dao)
 	}
@@ -249,8 +254,6 @@ func NewBlockchain(cfg *config.Config, opts ...Option) Blockchain {
 	}
 	return chain
 }
-
-func (bc *blockchain) initValidator() { bc.validator = &validator{sf: bc.sf} }
 
 func (bc *blockchain) ChainID() uint32 {
 	return bc.config.Chain.ID
@@ -299,7 +302,7 @@ func (bc *blockchain) startEmptyBlockchain() error {
 		return errors.Wrap(err, "failed to update state changes in Genesis block")
 	}
 	genesis.Header.stateRoot = root
-	if err := bc.validateBlock(genesis); err != nil {
+	if err := bc.validateBlock(genesis, false); err != nil {
 		return errors.Wrap(err, "failed to validate Genesis block")
 	}
 	// add Genesis block as very first block
@@ -596,17 +599,10 @@ func (bc *blockchain) TipHeight() uint64 {
 }
 
 // ValidateBlock validates a new block before adding it to the blockchain
-func (bc *blockchain) ValidateBlock(blk *Block) error {
+func (bc *blockchain) ValidateBlock(blk *Block, checkCoinbase bool) error {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
-	return bc.validateBlock(blk)
-}
-
-// ValidateSecretBlock validates a new secret block before adding it to the blockchain
-func (bc *blockchain) ValidateSecretBlock(blk *Block) error {
-	bc.mu.RLock()
-	defer bc.mu.RUnlock()
-	return bc.validateSecretBlock(blk)
+	return bc.validateBlock(blk, checkCoinbase)
 }
 
 // MintNewBlock creates a new block with given actions
@@ -737,16 +733,6 @@ func (bc *blockchain) Validator() Validator {
 	return bc.validator
 }
 
-// SetSecretValidator sets the current secret validator object
-func (bc *blockchain) SetSecretValidator(val Validator) {
-	bc.secretValidator = val
-}
-
-// SecretValidator gets the current secret validator object
-func (bc *blockchain) SecretValidator() Validator {
-	return bc.secretValidator
-}
-
 // ExecuteContractRead runs a read-only smart contract operation, this is done off the network since it does not
 // cause any state change
 func (bc *blockchain) ExecuteContractRead(ex *action.Execution) ([]byte, error) {
@@ -774,7 +760,7 @@ func (bc *blockchain) ExecuteContractRead(ex *action.Execution) ([]byte, error) 
 // private functions
 //=====================================
 
-func (bc *blockchain) validateBlock(blk *Block) error {
+func (bc *blockchain) validateBlock(blk *Block, checkCoinbase bool) error {
 	if bc.validator == nil {
 		logger.Panic().Msg("no block validator")
 	}
@@ -784,34 +770,13 @@ func (bc *blockchain) validateBlock(blk *Block) error {
 		return errors.Wrap(err, "failed to get the tip height and tip hash of blockchain")
 	}
 
-	if err := bc.validator.Validate(blk, tipHeight, tipHash); err != nil {
+	if err := bc.validator.Validate(blk, tipHeight, tipHash, checkCoinbase); err != nil {
 		return errors.Wrapf(err, "Failed to validate block on height %d", tipHeight)
 	}
 	// run actions and update state factory
 	// TODO: disable validation before resolve the state root doesn't match issue
 	if _, err := bc.runActions(blk, false); err != nil {
 		logger.Panic().Err(err).Msgf("Failed to update state on height %d", tipHeight)
-	}
-	return nil
-}
-
-func (bc *blockchain) validateSecretBlock(blk *Block) error {
-	if bc.secretValidator == nil {
-		logger.Panic().Msg("no secret block validator")
-	}
-
-	tipHeight, tipHash, err := bc.replaceHeightAndHash(blk)
-	if err != nil {
-		return errors.Wrap(err, "failed to get the tip height and tip hash of blockchain")
-	}
-
-	if err := bc.secretValidator.Validate(blk, tipHeight, tipHash); err != nil {
-		return errors.Wrapf(err, "failed to validate secret block on height %d", tipHeight)
-	}
-	// run actions and update state factory
-	// TODO: disable validation before resolve the state root doesn't match issue
-	if _, err := bc.runActions(blk, false); err != nil {
-		logger.Panic().Err(err).Msgf("failed to update state on height %d", tipHeight)
 	}
 	return nil
 }
