@@ -131,7 +131,7 @@ func TestRollDPoSCtx(t *testing.T) {
 		candidates[3]: false,
 	})
 	assert.False(t, yes)
-	assert.False(t, no)
+	assert.True(t, no)
 }
 
 func TestIsEpochFinished(t *testing.T) {
