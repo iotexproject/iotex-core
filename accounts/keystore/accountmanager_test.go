@@ -15,9 +15,9 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/action"
-	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -75,7 +75,7 @@ func TestAccountManager_Import(t *testing.T) {
 	err = m.Import(keyBytes)
 	require.NoError(err)
 
-	addr := testutil.ConstructAddress(pubKey1, priKey1)
+	addr := testutil.ConstructAddress(1, pubKey1, priKey1)
 	val, err := m.keystore.Get(rawAddr1)
 	require.NoError(err)
 	require.Equal(addr, val)
@@ -105,14 +105,14 @@ func TestAccountManager_SignVote(t *testing.T) {
 
 	selfPubKey, err := keypair.DecodePublicKey(pubKey1)
 	require.NoError(err)
+	selfPkHash := keypair.HashPubKey(selfPubKey)
 	votePubKey, err := keypair.DecodePublicKey(pubKey2)
 	require.NoError(err)
-	voterAddress, err := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, iotxaddress.ChainID, selfPubKey)
-	require.NoError(err)
-	voteeAddress, err := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, iotxaddress.ChainID, votePubKey)
-	require.NoError(err)
+	votePkHash := keypair.HashPubKey(votePubKey)
+	voterAddress := address.New(1, selfPkHash[:])
+	voteeAddress := address.New(1, votePkHash[:])
 	vote, err := action.NewVote(
-		uint64(1), voterAddress.RawAddress, voteeAddress.RawAddress, uint64(100000), big.NewInt(10))
+		uint64(1), voterAddress.IotxAddress(), voteeAddress.IotxAddress(), uint64(100000), big.NewInt(10))
 	require.NoError(err)
 	require.Equal(ErrNotExist, errors.Cause(m.SignVote(rawAddr1, vote)))
 

@@ -7,13 +7,14 @@
 package testutil
 
 import (
+	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 )
 
 // ConstructAddress constructs an iotex address
-func ConstructAddress(pubkey, prikey string) *iotxaddress.Address {
+func ConstructAddress(chainID uint32, pubkey, prikey string) *iotxaddress.Address {
 	pubk, err := keypair.DecodePublicKey(pubkey)
 	if err != nil {
 		logger.Error().Err(err).Msg("Failed to construct the address")
@@ -22,10 +23,12 @@ func ConstructAddress(pubkey, prikey string) *iotxaddress.Address {
 	if err != nil {
 		logger.Error().Err(err).Msg("Failed to construct the address")
 	}
-	addr, err := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, iotxaddress.ChainID, pubk)
-	if err != nil {
-		logger.Error().Err(err).Msg("Failed to construct the address")
+	pkHash := keypair.HashPubKey(pubk)
+	addr := address.New(chainID, pkHash[:])
+
+	return &iotxaddress.Address{
+		PublicKey:  pubk,
+		PrivateKey: prik,
+		RawAddress: addr.IotxAddress(),
 	}
-	addr.PrivateKey = prik
-	return addr
 }

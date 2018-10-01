@@ -20,10 +20,10 @@ import (
 const (
 	pubKey1  = "336eb60a5741f585a8e81de64e071327a3b96c15af4af5723598a07b6121e8e813bbd0056ba71ae29c0d64252e913f60afaeb11059908b81ff27cbfa327fd371d35f5ec0cbc01705"
 	priKey1  = "925f0c9e4b6f6d92f2961d01aff6204c44d73c0b9d0da188582932d4fcad0d8ee8c66600"
-	rawAddr1 = "io1qyqsyqcy8uhx9jtdc2xp5wx7nxyq3xf4c3jmxknzkuej8y"
+	rawAddr1 = "io1qyqsqqqq8uhx9jtdc2xp5wx7nxyq3xf4c3jmxknzj23d2m"
 	pubKey2  = "f8261681ee6e3261eb4aa61123b0edc10bd95c9bb366c6b54348cfef3a055f2f3a3d800277cb15a2c13ac1a44ff1c05191c5729aa62955cb0303e80eeeb24885c8df033405fc5201"
 	priKey2  = "6bee2200fa46913e8802a594580f26fa42f75d90ae599cab700bfd22bc6d4b52b34e5301"
-	rawAddr2 = "io1qyqsyqcya3nkp636trcg85x2jfq5rhflcut8ge04ws2myr"
+	rawAddr2 = "io1qyqsqqqqa3nkp636trcg85x2jfq5rhflcut8ge042xzyfu"
 )
 
 func TestPlainKeyStore(t *testing.T) {
@@ -38,7 +38,7 @@ func TestPlainKeyStore(t *testing.T) {
 
 	ks, err := NewPlainKeyStore(ksDir)
 	require.NoError(err)
-	addr1 := testutil.ConstructAddress(pubKey1, priKey1)
+	addr1 := testutil.ConstructAddress(1, pubKey1, priKey1)
 	//Test Store
 	err = ks.Store("123", addr1)
 	require.Error(err)
@@ -82,7 +82,7 @@ func TestPlainKeyStore(t *testing.T) {
 	require.Equal(false, exist)
 
 	// Test All
-	addr2 := testutil.ConstructAddress(pubKey2, priKey2)
+	addr2 := testutil.ConstructAddress(1, pubKey2, priKey2)
 	err = ks.Store(rawAddr1, addr1)
 	require.NoError(err)
 	err = ks.Store(rawAddr2, addr2)
@@ -96,7 +96,7 @@ func TestMemKeyStore(t *testing.T) {
 	require := require.New(t)
 
 	ks := NewMemKeyStore()
-	addr1 := testutil.ConstructAddress(pubKey1, priKey1)
+	addr1 := testutil.ConstructAddress(1, pubKey1, priKey1)
 	// Test Store
 	err := ks.Store("123", addr1)
 	require.Error(err)
@@ -140,7 +140,7 @@ func TestMemKeyStore(t *testing.T) {
 	require.Equal(false, exist)
 
 	// Test All
-	addr2 := testutil.ConstructAddress(pubKey2, priKey2)
+	addr2 := testutil.ConstructAddress(1, pubKey2, priKey2)
 	err = ks.Store(rawAddr1, addr1)
 	require.NoError(err)
 	err = ks.Store(rawAddr2, addr2)

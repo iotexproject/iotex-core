@@ -68,8 +68,8 @@ func TestLocalActPool(t *testing.T) {
 		testutil.CleanupPath(t, testDBPath)
 	}()
 
-	from := testutil.ConstructAddress(fromPubKey, fromPrivKey)
-	to := testutil.ConstructAddress(toPubKey, toPrivKey)
+	from := testutil.ConstructAddress(chainID, fromPubKey, fromPrivKey)
+	to := testutil.ConstructAddress(chainID, toPubKey, toPrivKey)
 
 	require.NoError(testutil.WaitUntil(100*time.Millisecond, 5*time.Second, func() (bool, error) {
 		return len(svr.P2P().GetPeers()) == 1 && len(cli.GetPeers()) == 1, nil
@@ -143,8 +143,8 @@ func TestPressureActPool(t *testing.T) {
 		testutil.CleanupPath(t, testDBPath)
 	}()
 
-	from := testutil.ConstructAddress(fromPubKey, fromPrivKey)
-	to := testutil.ConstructAddress(toPubKey, toPrivKey)
+	from := testutil.ConstructAddress(chainID, fromPubKey, fromPrivKey)
+	to := testutil.ConstructAddress(chainID, toPubKey, toPrivKey)
 
 	require.NoError(testutil.WaitUntil(100*time.Millisecond, 5*time.Second, func() (bool, error) {
 		return len(svr.P2P().GetPeers()) == 1 && len(cli.GetPeers()) == 1, nil
