@@ -19,19 +19,20 @@ import (
 	pb "github.com/iotexproject/iotex-core/proto"
 )
 
-func createDispatcher(chainID uint32) Dispatcher {
+func createDispatcher(t *testing.T, chainID uint32) Dispatcher {
 	cfg := &config.Config{
 		Consensus:  config.Consensus{Scheme: config.NOOPScheme},
 		Dispatcher: config.Dispatcher{EventChanSize: 1024},
 	}
-	dp, _ := NewDispatcher(cfg)
+	dp, err := NewDispatcher(cfg)
+	assert.NoError(t, err)
 	dp.AddSubscriber(chainID, &DummySubscriber{})
 	return dp
 }
 
-func startDispatcher(t *testing.T, ctrl *gomock.Controller) (ctx context.Context, d Dispatcher) {
+func startDispatcher(t *testing.T) (ctx context.Context, d Dispatcher) {
 	ctx = context.Background()
-	d = createDispatcher(config.Default.Chain.ID)
+	d = createDispatcher(t, config.Default.Chain.ID)
 	assert.NotNil(t, d)
 	err := d.Start(ctx)
 	assert.NoError(t, err)
@@ -60,7 +61,7 @@ func TestHandleBroadcast(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	ctx, d := startDispatcher(t, ctrl)
+	ctx, d := startDispatcher(t)
 	defer stopDispatcher(ctx, d, t)
 
 	done := make(chan bool, 1000)
