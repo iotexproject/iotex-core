@@ -7,9 +7,10 @@
 package testutil
 
 import (
-	"github.com/iotexproject/iotex-core/blockchain/action"
 	"math/big"
 	"testing"
+
+	"github.com/iotexproject/iotex-core/blockchain/action"
 
 	"github.com/stretchr/testify/require"
 )
@@ -22,8 +23,8 @@ const (
 )
 
 var (
-	addr1 = ConstructAddress(pubkeyA, prikeyA)
-	addr2 = ConstructAddress(pubkeyB, prikeyB)
+	addr1 = ConstructAddress(1, pubkeyA, prikeyA)
+	addr2 = ConstructAddress(1, pubkeyB, prikeyB)
 )
 
 func TestSignedTransfer(t *testing.T) {
