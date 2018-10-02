@@ -3,13 +3,14 @@ package explorer
 
 import (
 	"fmt"
-	"github.com/coopernurse/barrister-go"
 	"reflect"
+
+	"github.com/coopernurse/barrister-go"
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "5bd957cffa724fec63f9d979bf845b7a"
-const BarristerDateGenerated int64 = 1536941047139000000
+const BarristerChecksum string = "97e0f2efe11dee3190b33a6c0cb7fda8"
+const BarristerDateGenerated int64 = 1538418246052000000
 
 type CoinStatistic struct {
 	Height     int64 `json:"height"`
@@ -122,6 +123,7 @@ type AddressDetails struct {
 
 type Candidate struct {
 	Address          string `json:"address"`
+	PubKey           string `json:"pubKey"`
 	TotalVote        int64  `json:"totalVote"`
 	CreationHeight   int64  `json:"creationHeight"`
 	LastUpdateHeight int64  `json:"lastUpdateHeight"`
@@ -219,6 +221,7 @@ type Explorer interface {
 	GetCoinStatistic() (CoinStatistic, error)
 	GetConsensusMetrics() (ConsensusMetrics, error)
 	GetCandidateMetrics() (CandidateMetrics, error)
+	GetCandidateMetricsByHeight(h int64) (CandidateMetrics, error)
 	SendTransfer(request SendTransferRequest) (SendTransferResponse, error)
 	SendVote(request SendVoteRequest) (SendVoteResponse, error)
 	SendSmartContract(request Execution) (SendSmartContractResponse, error)
@@ -644,6 +647,24 @@ func (_p ExplorerProxy) GetCandidateMetrics() (CandidateMetrics, error) {
 		if !_ok {
 			_t := reflect.TypeOf(_res)
 			_msg := fmt.Sprintf("Explorer.getCandidateMetrics returned invalid type: %v", _t)
+			return CandidateMetrics{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
+		}
+		return _cast, nil
+	}
+	return CandidateMetrics{}, _err
+}
+
+func (_p ExplorerProxy) GetCandidateMetricsByHeight(h int64) (CandidateMetrics, error) {
+	_res, _err := _p.client.Call("Explorer.getCandidateMetricsByHeight", h)
+	if _err == nil {
+		_retType := _p.idl.Method("Explorer.getCandidateMetricsByHeight").Returns
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(CandidateMetrics{}), _res, "")
+	}
+	if _err == nil {
+		_cast, _ok := _res.(CandidateMetrics)
+		if !_ok {
+			_t := reflect.TypeOf(_res)
+			_msg := fmt.Sprintf("Explorer.getCandidateMetricsByHeight returned invalid type: %v", _t)
 			return CandidateMetrics{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
 		}
 		return _cast, nil
@@ -1542,6 +1563,13 @@ var IdlJsonRaw = `[
         "fields": [
             {
                 "name": "address",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "pubKey",
                 "type": "string",
                 "optional": false,
                 "is_array": false,
@@ -2601,6 +2629,26 @@ var IdlJsonRaw = `[
                 }
             },
             {
+                "name": "getCandidateMetricsByHeight",
+                "comment": "get candidates metrics at given height",
+                "params": [
+                    {
+                        "name": "h",
+                        "type": "int",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    }
+                ],
+                "returns": {
+                    "name": "",
+                    "type": "CandidateMetrics",
+                    "optional": false,
+                    "is_array": false,
+                    "comment": ""
+                }
+            },
+            {
                 "name": "sendTransfer",
                 "comment": "send transfer",
                 "params": [
@@ -2747,7 +2795,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1536941047139,
-        "checksum": "5bd957cffa724fec63f9d979bf845b7a"
+        "date_generated": 1538418246052,
+        "checksum": "97e0f2efe11dee3190b33a6c0cb7fda8"
     }
 ]`
