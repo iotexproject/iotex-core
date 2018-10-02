@@ -183,7 +183,7 @@ func (exp *MockExplorer) GetCandidateMetrics() (explorer.CandidateMetrics, error
 	}, nil
 }
 
-// GetCandidateMetrics returns the fake delegates metrics
+// GetCandidateMetricsByHeight returns the fake delegates metrics
 func (exp *MockExplorer) GetCandidateMetricsByHeight(h int64) (explorer.CandidateMetrics, error) {
 	candidate := explorer.Candidate{
 		Address:          randString(),
