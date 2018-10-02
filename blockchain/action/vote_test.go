@@ -17,23 +17,22 @@ import (
 
 func TestVoteSignVerify(t *testing.T) {
 	require := require.New(t)
-	sender, err := iotxaddress.NewAddress(true, chainid)
+	sender, err := iotxaddress.NewAddress(iotxaddress.IsTestnet, chainid)
 	require.NoError(err)
-	recipient, err := iotxaddress.NewAddress(true, chainid)
+	recipient, err := iotxaddress.NewAddress(iotxaddress.IsTestnet, chainid)
 	require.NoError(err)
 	v, err := NewVote(0, sender.RawAddress, recipient.RawAddress, uint64(100000), big.NewInt(10))
 	require.NoError(err)
 
-	require.NoError(Sign(v, sender))
-	require.NoError(Verify(v, sender))
-	require.Error(Verify(v, recipient))
+	require.NoError(Sign(v, sender.PrivateKey))
+	require.NoError(Verify(v))
 }
 
 func TestVoteSerializedDeserialize(t *testing.T) {
 	require := require.New(t)
-	sender, err := iotxaddress.NewAddress(true, chainid)
+	sender, err := iotxaddress.NewAddress(iotxaddress.IsTestnet, chainid)
 	require.NoError(err)
-	recipient, err := iotxaddress.NewAddress(true, chainid)
+	recipient, err := iotxaddress.NewAddress(iotxaddress.IsTestnet, chainid)
 	require.NoError(err)
 
 	v, err := NewVote(0, sender.RawAddress, recipient.RawAddress, uint64(100000), big.NewInt(10))
@@ -49,14 +48,14 @@ func TestVoteSerializedDeserialize(t *testing.T) {
 
 func TestVoteToJSONFromJSON(t *testing.T) {
 	require := require.New(t)
-	sender, err := iotxaddress.NewAddress(true, chainid)
+	sender, err := iotxaddress.NewAddress(iotxaddress.IsTestnet, chainid)
 	require.NoError(err)
-	recipient, err := iotxaddress.NewAddress(true, chainid)
+	recipient, err := iotxaddress.NewAddress(iotxaddress.IsTestnet, chainid)
 	require.NoError(err)
 
 	v, err := NewVote(0, sender.RawAddress, recipient.RawAddress, uint64(100000), big.NewInt(10))
 	require.NoError(err)
-	require.NoError(Sign(v, sender))
+	require.NoError(Sign(v, sender.PrivateKey))
 
 	expv, err := v.ToJSON()
 	require.NoError(err)
@@ -66,8 +65,7 @@ func TestVoteToJSONFromJSON(t *testing.T) {
 	require.NoError(err)
 	require.NotNil(newv)
 
-	require.NoError(Verify(newv, sender))
-	require.Error(Verify(newv, recipient))
+	require.NoError(Verify(newv))
 	require.Equal(v.Hash(), newv.Hash())
 	require.Equal(v.TotalSize(), newv.TotalSize())
 }

@@ -95,7 +95,7 @@ func (m *AccountManager) SignTransfer(rawAddr string, transfer *action.Transfer)
 	if err != nil {
 		return errors.Wrapf(err, "failed to get account %s", rawAddr)
 	}
-	if err := action.Sign(transfer, addr); err != nil {
+	if err := action.Sign(transfer, addr.PrivateKey); err != nil {
 		return errors.Wrapf(err, "failed to sign transfer %v", transfer)
 	}
 	return nil
@@ -110,7 +110,7 @@ func (m *AccountManager) SignVote(rawAddr string, vote *action.Vote) error {
 	if err != nil {
 		return errors.Wrapf(err, "failed to get account %s", rawAddr)
 	}
-	if err := action.Sign(vote, addr); err != nil {
+	if err := action.Sign(vote, addr.PrivateKey); err != nil {
 		return errors.Wrapf(err, "failed to sign vote %v", vote)
 	}
 	return nil

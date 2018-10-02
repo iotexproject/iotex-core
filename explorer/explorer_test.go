@@ -52,7 +52,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	// Add block 1
 	// test --> A, B, C, D, E, F
 	tsf, _ := action.NewTransfer(1, big.NewInt(10), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["charlie"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
-	if err := action.Sign(tsf, ta.Addrinfo["producer"]); err != nil {
+	if err := action.Sign(tsf, ta.Addrinfo["producer"].PrivateKey); err != nil {
 		return err
 	}
 	blk, err := bc.MintNewBlock([]*action.Transfer{tsf}, nil, nil, ta.Addrinfo["producer"], "")
@@ -66,17 +66,17 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	// Add block 2
 	// Charlie --> A, B, D, E, test
 	tsf1, _ := action.NewTransfer(1, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["alfa"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
-	_ = action.Sign(tsf1, ta.Addrinfo["charlie"])
+	_ = action.Sign(tsf1, ta.Addrinfo["charlie"].PrivateKey)
 	tsf2, _ := action.NewTransfer(2, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["bravo"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
-	_ = action.Sign(tsf2, ta.Addrinfo["charlie"])
+	_ = action.Sign(tsf2, ta.Addrinfo["charlie"].PrivateKey)
 	tsf3, _ := action.NewTransfer(3, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["delta"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
-	_ = action.Sign(tsf3, ta.Addrinfo["charlie"])
+	_ = action.Sign(tsf3, ta.Addrinfo["charlie"].PrivateKey)
 	tsf4, _ := action.NewTransfer(4, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["producer"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
-	_ = action.Sign(tsf4, ta.Addrinfo["charlie"])
+	_ = action.Sign(tsf4, ta.Addrinfo["charlie"].PrivateKey)
 	vote1, _ := action.NewVote(5, ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["delta"].RawAddress, uint64(100000), big.NewInt(10))
-	_ = action.Sign(vote1, ta.Addrinfo["charlie"])
+	_ = action.Sign(vote1, ta.Addrinfo["charlie"].PrivateKey)
 	execution1, _ := action.NewExecution(ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["delta"].RawAddress, 6, big.NewInt(1), uint64(1000000), big.NewInt(10), []byte{1})
-	_ = action.Sign(execution1, ta.Addrinfo["charlie"])
+	_ = action.Sign(execution1, ta.Addrinfo["charlie"].PrivateKey)
 	blk, err = bc.MintNewBlock([]*action.Transfer{tsf1, tsf2, tsf3, tsf4}, []*action.Vote{vote1}, []*action.Execution{execution1}, ta.Addrinfo["producer"], "")
 	if err != nil {
 		return err
@@ -97,12 +97,12 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	// Add block 4
 	vote1, _ = action.NewVote(7, ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["alfa"].RawAddress, uint64(100000), big.NewInt(10))
 	vote2, _ := action.NewVote(1, ta.Addrinfo["alfa"].RawAddress, ta.Addrinfo["charlie"].RawAddress, uint64(100000), big.NewInt(10))
-	_ = action.Sign(vote1, ta.Addrinfo["charlie"])
-	_ = action.Sign(vote2, ta.Addrinfo["alfa"])
+	_ = action.Sign(vote1, ta.Addrinfo["charlie"].PrivateKey)
+	_ = action.Sign(vote2, ta.Addrinfo["alfa"].PrivateKey)
 	execution1, _ = action.NewExecution(ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["delta"].RawAddress, 8, big.NewInt(2), 1000000, big.NewInt(10), []byte{1})
 	execution2, _ := action.NewExecution(ta.Addrinfo["alfa"].RawAddress, ta.Addrinfo["delta"].RawAddress, 2, big.NewInt(1), 1000000, big.NewInt(10), []byte{1})
-	_ = action.Sign(execution1, ta.Addrinfo["charlie"])
-	_ = action.Sign(execution2, ta.Addrinfo["alfa"])
+	_ = action.Sign(execution1, ta.Addrinfo["charlie"].PrivateKey)
+	_ = action.Sign(execution2, ta.Addrinfo["alfa"].PrivateKey)
 	blk, err = bc.MintNewBlock(nil, []*action.Vote{vote1, vote2}, []*action.Execution{execution1, execution2}, ta.Addrinfo["producer"], "")
 	if err != nil {
 		return err
@@ -112,13 +112,13 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 
 func addActsToActPool(ap actpool.ActPool) error {
 	tsf1, _ := action.NewTransfer(2, big.NewInt(1), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["alfa"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
-	_ = action.Sign(tsf1, ta.Addrinfo["producer"])
+	_ = action.Sign(tsf1, ta.Addrinfo["producer"].PrivateKey)
 	vote1, _ := action.NewVote(3, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["producer"].RawAddress, uint64(100000), big.NewInt(10))
-	_ = action.Sign(vote1, ta.Addrinfo["producer"])
+	_ = action.Sign(vote1, ta.Addrinfo["producer"].PrivateKey)
 	tsf2, _ := action.NewTransfer(4, big.NewInt(1), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
-	_ = action.Sign(tsf2, ta.Addrinfo["producer"])
+	_ = action.Sign(tsf2, ta.Addrinfo["producer"].PrivateKey)
 	execution1, _ := action.NewExecution(ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["delta"].RawAddress, 5, big.NewInt(1), uint64(1000000), big.NewInt(10), []byte{1})
-	_ = action.Sign(execution1, ta.Addrinfo["producer"])
+	_ = action.Sign(execution1, ta.Addrinfo["producer"].PrivateKey)
 	if err := ap.AddTsf(tsf1); err != nil {
 		return err
 	}
@@ -575,7 +575,7 @@ func TestService_SendSmartContract(t *testing.T) {
 	svc := Service{dp: mDp, p2p: p2p}
 
 	execution, _ := action.NewExecution(ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["delta"].RawAddress, 1, big.NewInt(1), 1000000, big.NewInt(10), []byte{1})
-	_ = action.Sign(execution, ta.Addrinfo["producer"])
+	_ = action.Sign(execution, ta.Addrinfo["producer"].PrivateKey)
 	explorerExecution, _ := convertExecutionToExplorerExecution(execution, true)
 	explorerExecution.Version = int64(execution.Version())
 	explorerExecution.ExecutorPubKey = keypair.EncodePublicKey(execution.ExecutorPublicKey())
@@ -718,7 +718,7 @@ func TestExplorerGetReceiptByExecutionID(t *testing.T) {
 	execution, err := action.NewExecution(
 		ta.Addrinfo["producer"].RawAddress, action.EmptyAddress, 1, big.NewInt(0), uint64(100000), big.NewInt(10), data)
 	require.NoError(err)
-	require.NoError(action.Sign(execution, ta.Addrinfo["producer"]))
+	require.NoError(action.Sign(execution, ta.Addrinfo["producer"].PrivateKey))
 	blk, err := bc.MintNewBlock(nil, nil, []*action.Execution{execution}, ta.Addrinfo["producer"], "")
 	require.NoError(err)
 	require.Nil(bc.CommitBlock(blk))

@@ -160,17 +160,7 @@ func (v *validator) verifyActions(blk *Block) error {
 				atomic.AddUint64(correctCoinbase, uint64(1))
 				return
 			}
-
-			// Verify signature
-			address, err := iotxaddress.GetAddressByPubkey(
-				iotxaddress.IsTestnet,
-				iotxaddress.ChainID,
-				tsf.SenderPublicKey(),
-			)
-			if err != nil {
-				return
-			}
-			if err := action.Verify(tsf, address); err != nil {
+			if err := action.Verify(tsf); err != nil {
 				return
 			}
 			atomic.AddUint64(correctTsf, uint64(1))
@@ -216,11 +206,7 @@ func (v *validator) verifyActions(blk *Block) error {
 		// Verify signature
 		go func(vote *action.Vote, correctVote *uint64) {
 			defer wg.Done()
-			address, err := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, iotxaddress.ChainID, vote.VoterPublicKey())
-			if err != nil {
-				return
-			}
-			if err := action.Verify(vote, address); err != nil {
+			if err := action.Verify(vote); err != nil {
 				return
 			}
 			atomic.AddUint64(correctVote, uint64(1))
@@ -259,12 +245,7 @@ func (v *validator) verifyActions(blk *Block) error {
 		// Verify signature
 		go func(execution *action.Execution, correctVote *uint64) {
 			defer wg.Done()
-			executorPubKey := execution.ExecutorPublicKey()
-			address, err := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, iotxaddress.ChainID, executorPubKey)
-			if err != nil {
-				return
-			}
-			if err := action.Verify(execution, address); err != nil {
+			if err := action.Verify(execution); err != nil {
 				return
 			}
 			atomic.AddUint64(correctVote, uint64(1))
