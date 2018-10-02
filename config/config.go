@@ -147,13 +147,6 @@ var (
 		DB: DB{
 			NumRetries: 3,
 		},
-		RDS: RDS{
-			AwsRDSEndpoint: "iotex-explorer-db.ctcedgqcwrb5.us-west-1.rds.amazonaws.com",
-			AwsRDSPort:     4086,
-			AwsRDSUser:     "explorer_admin",
-			AwsPass:        "j1cDiH7W7QCB",
-			AwsDBName:      "explorer",
-		},
 	}
 
 	// ErrInvalidCfg indicates the invalid config value
@@ -292,6 +285,8 @@ type (
 	DB struct {
 		// NumRetries is the number of retries
 		NumRetries uint8 `yaml:"numRetries"`
+		// RDS is the config fot rds
+		RDS RDS `yaml:"RDS"`
 	}
 
 	// RDS is the cloud rds config
@@ -320,7 +315,6 @@ type (
 		Explorer   Explorer   `yaml:"explorer"`
 		System     System     `yaml:"system"`
 		DB         DB         `yaml:"db"`
-		RDS        RDS        `yaml:"rds"`
 	}
 
 	// Validate is the interface of validating the config

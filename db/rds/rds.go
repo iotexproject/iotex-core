@@ -2,9 +2,10 @@ package rds
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"sync"
+
+	"database/sql"
 
 	// we need mysql import because it's called in file, (but compile will complain because there is no display)
 	_ "github.com/go-sql-driver/mysql"
@@ -19,9 +20,6 @@ type RDSStore interface {
 
 	// Get DB instance
 	GetDB() *sql.DB
-
-	// ParseRows parse the returned raw rows
-	ParseRows(rows *sql.Rows) ([][]sql.RawBytes, error)
 
 	// Transact wrap the transaction
 	Transact(txFunc func(*sql.Tx) error) error
@@ -76,49 +74,17 @@ func (r *rds) Stop(_ context.Context) error {
 
 // Stop closes the AWS RDS
 func (r *rds) GetDB() *sql.DB {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+
 	return r.db
-}
-
-// Parse rows
-func (r *rds) ParseRows(rows *sql.Rows) ([][]sql.RawBytes, error) {
-	var parsedRows [][]sql.RawBytes
-
-	// Get column names
-	columns, err := rows.Columns()
-	if err != nil {
-		return nil, err
-	}
-	fmt.Println(columns)
-
-	// Make a slice for the values
-	values := make([]sql.RawBytes, len(columns))
-	fmt.Println(values)
-
-	// rows.Scan wants '[]interface{}' as an argument, so we must copy the
-	// references into such a slice
-	// See http://code.google.com/p/go-wiki/wiki/InterfaceSlice for details
-	scanArgs := make([]interface{}, len(values))
-	for i := range values {
-		scanArgs[i] = &values[i]
-	}
-	fmt.Println(scanArgs)
-
-	// Fetch rows
-	for rows.Next() {
-		// get RawBytes from data
-		err = rows.Scan(scanArgs...)
-		if err != nil {
-			panic(err.Error()) // proper error handling instead of panic in your app
-		}
-
-		parsedRows = append(parsedRows, values)
-	}
-
-	return parsedRows, nil
 }
 
 // Transact wrap the transaction
 func (r *rds) Transact(txFunc func(*sql.Tx) error) error {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+
 	tx, err := r.db.Begin()
 	if err != nil {
 		return err

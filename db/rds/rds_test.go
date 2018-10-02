@@ -12,18 +12,30 @@ import (
 	"strconv"
 	"testing"
 
+	"database/sql"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
-	"database/sql"
-	"errors"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
 var (
-	cfg = &config.Default.RDS
+	cfg = &config.RDS{
+		AwsRDSEndpoint: "iotex-explorer-db.ctcedgqcwrb5.us-west-1.rds.amazonaws.com",
+		AwsRDSPort:     4086,
+		AwsRDSUser:     "explorer_admin",
+		AwsPass:        "j1cDiH7W7QCB",
+		AwsDBName:      "explorer",
+	}
 )
+
+type TransferHistory struct {
+	NodeAddress string
+	UserAddress string
+	TrasferHash string
+}
 
 func TestRDSStorePutGet(t *testing.T) {
 	testRDSStorePutGet := func(rdsStore RDSStore, t *testing.T) {
@@ -61,12 +73,13 @@ func TestRDSStorePutGet(t *testing.T) {
 		rows, err := stmt.Query(nodeAddress)
 		require.Nil(err)
 
-		parsedRows, err := rdsStore.ParseRows(rows)
+		var transferHistory TransferHistory
+		parsedRows, err := ParseRows(rows, &transferHistory)
 		require.Nil(err)
 		require.Equal(1, len(parsedRows))
-		require.Equal(nodeAddress, string(parsedRows[0][0]))
-		require.Equal(userAddress, string(parsedRows[0][1]))
-		require.Equal(string(transferHash[:]), string(parsedRows[0][2]))
+		require.Equal(nodeAddress, parsedRows[0].(*TransferHistory).NodeAddress)
+		require.Equal(userAddress, parsedRows[0].(*TransferHistory).UserAddress)
+		require.Equal(string(transferHash[:]), parsedRows[0].(*TransferHistory).TrasferHash)
 
 		// delete
 		stmt, err = db.Prepare("DELETE FROM transfer_history WHERE node_address=? AND user_address=? AND transfer_hash=?")
@@ -86,7 +99,7 @@ func TestRDSStorePutGet(t *testing.T) {
 		rows, err = stmt.Query(nodeAddress)
 		require.Nil(err)
 
-		parsedRows, err = rdsStore.ParseRows(rows)
+		parsedRows, err = ParseRows(rows, &transferHistory)
 		require.Nil(err)
 		require.Equal(0, len(parsedRows))
 	}
@@ -123,7 +136,8 @@ func TestRDSStoreTransaction(t *testing.T) {
 		require.Nil(err)
 		rows, err := stmt.Query(nodeAddress, userAddress1)
 		require.Nil(err)
-		parsedRows, err := rdsStore.ParseRows(rows)
+		var transferHistory TransferHistory
+		parsedRows, err := ParseRows(rows, &transferHistory)
 		require.Nil(err)
 		require.Equal(0, len(parsedRows))
 
@@ -131,7 +145,7 @@ func TestRDSStoreTransaction(t *testing.T) {
 		require.Nil(err)
 		rows, err = stmt.Query(nodeAddress, userAddress2)
 		require.Nil(err)
-		parsedRows, err = rdsStore.ParseRows(rows)
+		parsedRows, err = ParseRows(rows, &transferHistory)
 		require.Nil(err)
 		require.Equal(0, len(parsedRows))
 
@@ -154,7 +168,7 @@ func TestRDSStoreTransaction(t *testing.T) {
 		require.Nil(err)
 		rows, err = stmt.Query(nodeAddress, userAddress1)
 		require.Nil(err)
-		parsedRows, err = rdsStore.ParseRows(rows)
+		parsedRows, err = ParseRows(rows, &transferHistory)
 		require.Nil(err)
 		require.Equal(0, len(parsedRows))
 
@@ -162,7 +176,7 @@ func TestRDSStoreTransaction(t *testing.T) {
 		require.Nil(err)
 		rows, err = stmt.Query(nodeAddress, userAddress2)
 		require.Nil(err)
-		parsedRows, err = rdsStore.ParseRows(rows)
+		parsedRows, err = ParseRows(rows, &transferHistory)
 		require.Nil(err)
 		require.Equal(0, len(parsedRows))
 
@@ -184,23 +198,23 @@ func TestRDSStoreTransaction(t *testing.T) {
 		require.Nil(err)
 		rows, err = stmt.Query(nodeAddress, userAddress1)
 		require.Nil(err)
-		parsedRows, err = rdsStore.ParseRows(rows)
+		parsedRows, err = ParseRows(rows, &transferHistory)
 		require.Nil(err)
 		require.Equal(1, len(parsedRows))
-		require.Equal(nodeAddress, string(parsedRows[0][0]))
-		require.Equal(userAddress1, string(parsedRows[0][1]))
-		require.Equal(string(transferHash[:]), string(parsedRows[0][2]))
+		require.Equal(nodeAddress, parsedRows[0].(*TransferHistory).NodeAddress)
+		require.Equal(userAddress1, parsedRows[0].(*TransferHistory).UserAddress)
+		require.Equal(string(transferHash[:]), parsedRows[0].(*TransferHistory).TrasferHash)
 
 		stmt, err = db.Prepare("SELECT * FROM transfer_history WHERE node_address=? AND user_address=?")
 		require.Nil(err)
 		rows, err = stmt.Query(nodeAddress, userAddress2)
 		require.Nil(err)
-		parsedRows, err = rdsStore.ParseRows(rows)
+		parsedRows, err = ParseRows(rows, &transferHistory)
 		require.Nil(err)
 		require.Equal(1, len(parsedRows))
-		require.Equal(nodeAddress, string(parsedRows[0][0]))
-		require.Equal(userAddress2, string(parsedRows[0][1]))
-		require.Equal(string(transferHash[:]), string(parsedRows[0][2]))
+		require.Equal(nodeAddress, parsedRows[0].(*TransferHistory).NodeAddress)
+		require.Equal(userAddress2, parsedRows[0].(*TransferHistory).UserAddress)
+		require.Equal(string(transferHash[:]), parsedRows[0].(*TransferHistory).TrasferHash)
 
 		// delete
 		err = rdsStore.Transact(func(tx *sql.Tx) error {
@@ -220,7 +234,7 @@ func TestRDSStoreTransaction(t *testing.T) {
 		require.Nil(err)
 		rows, err = stmt.Query(nodeAddress, userAddress1)
 		require.Nil(err)
-		parsedRows, err = rdsStore.ParseRows(rows)
+		parsedRows, err = ParseRows(rows, &transferHistory)
 		require.Nil(err)
 		require.Equal(0, len(parsedRows))
 
@@ -228,7 +242,7 @@ func TestRDSStoreTransaction(t *testing.T) {
 		require.Nil(err)
 		rows, err = stmt.Query(nodeAddress, userAddress2)
 		require.Nil(err)
-		parsedRows, err = rdsStore.ParseRows(rows)
+		parsedRows, err = ParseRows(rows, &transferHistory)
 		require.Nil(err)
 		require.Equal(0, len(parsedRows))
 	}
