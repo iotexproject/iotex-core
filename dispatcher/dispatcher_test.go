@@ -35,6 +35,30 @@ func TestNewDispatcher(t *testing.T) {
 	}()
 }
 
+func TestDispatchAction(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ctx := context.Background()
+	d := createDispatcher(config.Default.Chain.ID, ctrl)
+	assert.NotNil(t, d)
+
+	err := d.Start(ctx)
+	assert.NoError(t, err)
+	defer func() {
+		err := d.Stop(ctx)
+		assert.NoError(t, err)
+	}()
+
+	done := make(chan bool, 1000)
+	for i := 0; i < 1000; i++ {
+		d.HandleBroadcast(config.Default.Chain.ID, &pb.ActionPb{}, done)
+	}
+	for i := 0; i < 1000; i++ {
+		<-done
+	}
+}
+
 func TestDispatchBlockMsg(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
