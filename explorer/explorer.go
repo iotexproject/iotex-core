@@ -811,6 +811,37 @@ func (exp *Service) GetCandidateMetrics() (explorer.CandidateMetrics, error) {
 	}, nil
 }
 
+// GetCandidateMetricsByHeight returns the candidates metrics for given height.
+func (exp *Service) GetCandidateMetricsByHeight(h int64) (explorer.CandidateMetrics, error) {
+	if h < 0 {
+		return explorer.CandidateMetrics{}, errors.New("Invalid height")
+	}
+	allCandidates, err := exp.bc.CandidatesByHeight(uint64(h))
+	if err != nil {
+		return explorer.CandidateMetrics{}, errors.Wrapf(err,
+			"Failed to get the candidate metrics")
+	}
+	candidates := make([]explorer.Candidate, 0, len(allCandidates))
+	for _, c := range allCandidates {
+		pubKey, err := keypair.BytesToPubKeyString(c.PubKey)
+		if err != nil {
+			return explorer.CandidateMetrics{}, errors.Wrapf(err,
+				"Invalid candidate pub key")
+		}
+		candidates = append(candidates, explorer.Candidate{
+			Address:          c.Address,
+			PubKey:           pubKey,
+			TotalVote:        c.Votes.Int64(),
+			CreationHeight:   int64(c.CreationHeight),
+			LastUpdateHeight: int64(c.LastUpdateHeight),
+		})
+	}
+
+	return explorer.CandidateMetrics{
+		Candidates: candidates,
+	}, nil
+}
+
 // SendTransfer sends a transfer
 func (exp *Service) SendTransfer(tsfJSON explorer.SendTransferRequest) (resp explorer.SendTransferResponse, err error) {
 	logger.Debug().Msg("receive send transfer request")
