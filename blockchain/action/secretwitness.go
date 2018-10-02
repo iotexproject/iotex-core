@@ -42,6 +42,9 @@ func NewSecretWitness(
 	}, nil
 }
 
+// Witness returns the witness
+func (sw *SecretWitness) Witness() [][]byte { return sw.witness }
+
 // ByteStream returns a raw byte stream of this SecretWitness
 func (sw *SecretWitness) ByteStream() []byte {
 	stream := make([]byte, 4)

@@ -49,7 +49,7 @@ type (
 var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
 
 // Validate for the byzantine node uses the actual block validator and returns the opposite
-func (v *byzVal) Validate(blk *blockchain.Block, tipHeight uint64, tipHash hash.Hash32B) error {
+func (v *byzVal) Validate(blk *blockchain.Block, tipHeight uint64, tipHash hash.Hash32B, containCoinbase bool) error {
 	//err := v.val.Validate(blk, tipHeight, tipHash)
 	//if err != nil {
 	//	return nil

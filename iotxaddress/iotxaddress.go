@@ -149,3 +149,8 @@ func IsValidHrp(hrp string) bool { return hrp == mainnetPrefix || hrp == testnet
 
 // IsValidVersion returns if version is valid or not
 func IsValidVersion(version byte) bool { return version >= 0x01 }
+
+// CreateID creates a DKG Address ID given a node's raw address
+func CreateID(rawAddress string) []uint8 {
+	return hash.Hash256b([]byte(rawAddress))
+}
