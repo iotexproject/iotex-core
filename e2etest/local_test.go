@@ -150,7 +150,7 @@ func TestLocalCommit(t *testing.T) {
 	// C --> A
 	s, _ = bc.StateByAddr(ta.Addrinfo["charlie"].RawAddress)
 	tsf1, _ := action.NewTransfer(s.Nonce+1, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["alfa"].RawAddress, []byte{}, uint64(100000), big.NewInt(0))
-	_ = action.Sign(tsf1, ta.Addrinfo["charlie"])
+	_ = action.Sign(tsf1, ta.Addrinfo["charlie"].PrivateKey)
 	act1 := tsf1.ConvertToActionPb()
 	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		if err := p.Broadcast(cfg.Chain.ID, act1); err != nil {
@@ -171,7 +171,7 @@ func TestLocalCommit(t *testing.T) {
 	// F --> D
 	s, _ = bc.StateByAddr(ta.Addrinfo["foxtrot"].RawAddress)
 	tsf2, _ := action.NewTransfer(s.Nonce+1, big.NewInt(1), ta.Addrinfo["foxtrot"].RawAddress, ta.Addrinfo["delta"].RawAddress, []byte{}, uint64(100000), big.NewInt(0))
-	_ = action.Sign(tsf2, ta.Addrinfo["foxtrot"])
+	_ = action.Sign(tsf2, ta.Addrinfo["foxtrot"].PrivateKey)
 	blk2, err := chain.MintNewBlock([]*action.Transfer{tsf2}, nil, nil, ta.Addrinfo["producer"], "")
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk2))
@@ -191,7 +191,7 @@ func TestLocalCommit(t *testing.T) {
 	// B --> B
 	s, _ = bc.StateByAddr(ta.Addrinfo["bravo"].RawAddress)
 	tsf3, _ := action.NewTransfer(s.Nonce+1, big.NewInt(1), ta.Addrinfo["bravo"].RawAddress, ta.Addrinfo["bravo"].RawAddress, []byte{}, uint64(100000), big.NewInt(0))
-	_ = action.Sign(tsf3, ta.Addrinfo["bravo"])
+	_ = action.Sign(tsf3, ta.Addrinfo["bravo"].PrivateKey)
 	blk3, err := chain.MintNewBlock([]*action.Transfer{tsf3}, nil, nil, ta.Addrinfo["producer"], "")
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk3))
@@ -211,7 +211,7 @@ func TestLocalCommit(t *testing.T) {
 	// test --> E
 	s, _ = bc.StateByAddr(ta.Addrinfo["producer"].RawAddress)
 	tsf4, _ := action.NewTransfer(s.Nonce+1, big.NewInt(1), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["echo"].RawAddress, []byte{}, uint64(100000), big.NewInt(0))
-	_ = action.Sign(tsf4, ta.Addrinfo["producer"])
+	_ = action.Sign(tsf4, ta.Addrinfo["producer"].PrivateKey)
 	blk4, err := chain.MintNewBlock([]*action.Transfer{tsf4}, nil, nil, ta.Addrinfo["producer"], "")
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk4))
@@ -475,16 +475,16 @@ func TestVoteLocalCommit(t *testing.T) {
 	// Alfa, Bravo and Charlie selfnomination
 	tsf1, err := action.NewTransfer(7, big.NewInt(200000000), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["alfa"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
 	require.Nil(err)
-	require.NoError(action.Sign(tsf1, ta.Addrinfo["producer"]))
+	require.NoError(action.Sign(tsf1, ta.Addrinfo["producer"].PrivateKey))
 	tsf2, err := action.NewTransfer(8, big.NewInt(200000000), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
 	require.Nil(err)
-	require.NoError(action.Sign(tsf2, ta.Addrinfo["producer"]))
+	require.NoError(action.Sign(tsf2, ta.Addrinfo["producer"].PrivateKey))
 	tsf3, err := action.NewTransfer(9, big.NewInt(200000000), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["charlie"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
 	require.Nil(err)
-	require.NoError(action.Sign(tsf3, ta.Addrinfo["producer"]))
+	require.NoError(action.Sign(tsf3, ta.Addrinfo["producer"].PrivateKey))
 	tsf4, err := action.NewTransfer(10, big.NewInt(200000000), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["delta"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
 	require.Nil(err)
-	require.NoError(action.Sign(tsf4, ta.Addrinfo["producer"]))
+	require.NoError(action.Sign(tsf4, ta.Addrinfo["producer"].PrivateKey))
 	vote1, err := testutil.SignedVote(ta.Addrinfo["alfa"], ta.Addrinfo["alfa"], uint64(1), uint64(100000), big.NewInt(0))
 	require.Nil(err)
 	vote2, err := testutil.SignedVote(ta.Addrinfo["bravo"], ta.Addrinfo["bravo"], uint64(1), uint64(100000), big.NewInt(0))
@@ -591,7 +591,7 @@ func TestVoteLocalCommit(t *testing.T) {
 	// D self nomination
 	vote6, err := action.NewVote(uint64(5), ta.Addrinfo["delta"].RawAddress, ta.Addrinfo["delta"].RawAddress, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	require.NoError(action.Sign(vote6, ta.Addrinfo["delta"]))
+	require.NoError(action.Sign(vote6, ta.Addrinfo["delta"].PrivateKey))
 	blk3, err := chain.MintNewBlock(nil, []*action.Vote{vote6}, nil, ta.Addrinfo["producer"], "")
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk3))
@@ -634,7 +634,7 @@ func TestVoteLocalCommit(t *testing.T) {
 	// Unvote B
 	vote7, err := action.NewVote(uint64(2), ta.Addrinfo["bravo"].RawAddress, "", uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	require.NoError(action.Sign(vote7, ta.Addrinfo["bravo"]))
+	require.NoError(action.Sign(vote7, ta.Addrinfo["bravo"].PrivateKey))
 	blk4, err := chain.MintNewBlock(nil, []*action.Vote{vote7}, nil, ta.Addrinfo["producer"], "")
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk4))

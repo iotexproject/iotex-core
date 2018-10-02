@@ -12,8 +12,8 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/crypto"
-	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 )
@@ -83,35 +83,45 @@ func (act *action) Signature() []byte { return act.signature }
 func (act *action) SetSignature(signature []byte) { act.signature = signature }
 
 // Sign signs the action using sender's private key
-func Sign(act Action, sender *iotxaddress.Address) error {
-	// check the sender is correct
-	if act.SrcAddr() != sender.RawAddress {
-		return errors.Wrapf(ErrAction, "signer addr %s does not match with action addr %s",
-			sender.RawAddress, act.SrcAddr())
-	}
-	// check the public key is actually owned by sender
-	pkhash, err := iotxaddress.GetPubkeyHash(sender.RawAddress)
+func Sign(act Action, sk keypair.PrivateKey) error {
+	// TODO: remove this conversion once we deprecate old address format
+	srcAddr, err := address.IotxAddressToAddress(act.SrcAddr())
 	if err != nil {
-		return errors.Wrap(err, "error when getting the pubkey hash")
+		return errors.Wrapf(err, "error when converting from old address format")
 	}
-	senderPKHash := keypair.HashPubKey(sender.PublicKey)
-	if !bytes.Equal(pkhash, senderPKHash[:]) {
-		return errors.Wrapf(ErrAction, "signing addr %s does not own correct public key",
-			sender.RawAddress)
+	// TODO: we should avoid generate public key from private key in each signature
+	pk, err := crypto.EC283.NewPubKey(sk)
+	if err != nil {
+		return errors.Wrapf(err, "error when deriving public key from private key")
 	}
-	act.SetSrcPubkey(sender.PublicKey)
+	pkHash := keypair.HashPubKey(pk)
+	// TODO: abstract action shouldn't be aware that the playload is the hash of public key
+	if !bytes.Equal(srcAddr.Payload(), pkHash[:]) {
+		return errors.Wrapf(
+			ErrAction,
+			"signer public key hash %x does not match action source address payload %x",
+			pkHash,
+			srcAddr.Payload(),
+		)
+	}
+	act.SetSrcPubkey(pk)
 	hash := act.Hash()
-	if act.SetSignature(crypto.EC283.Sign(sender.PrivateKey, hash[:])); act.Signature() == nil {
-		return errors.Wrapf(ErrAction, "Failed to sign action hash = %x", hash)
+	if act.SetSignature(crypto.EC283.Sign(sk, hash[:])); act.Signature() == nil {
+		return errors.Wrapf(ErrAction, "failed to sign action hash = %x", hash)
 	}
 	return nil
 }
 
 // Verify verifies the action using sender's public key
-func Verify(act Action, sender *iotxaddress.Address) error {
+func Verify(act Action) error {
 	hash := act.Hash()
-	if success := crypto.EC283.Verify(sender.PublicKey, hash[:], act.Signature()); success {
+	if success := crypto.EC283.Verify(act.SrcPubkey(), hash[:], act.Signature()); success {
 		return nil
 	}
-	return errors.Wrapf(ErrAction, "Failed to verify action signature = %x", act.Signature())
+	return errors.Wrapf(
+		ErrAction,
+		"failed to verify action hash = %x and signature = %x",
+		act.Hash(),
+		act.Signature(),
+	)
 }
