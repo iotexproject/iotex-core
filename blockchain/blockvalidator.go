@@ -26,7 +26,7 @@ import (
 // Validator is the interface of validator
 type Validator interface {
 	// Validate validates the given block's content
-	Validate(block *Block, tipHeight uint64, tipHash hash.Hash32B, checkCoinbase bool) error
+	Validate(block *Block, tipHeight uint64, tipHash hash.Hash32B, containCoinbase bool) error
 }
 
 type validator struct {
@@ -52,7 +52,7 @@ var (
 )
 
 // Validate validates the given block's content
-func (v *validator) Validate(blk *Block, tipHeight uint64, tipHash hash.Hash32B, checkCoinbase bool) error {
+func (v *validator) Validate(blk *Block, tipHeight uint64, tipHash hash.Hash32B, containCoinbase bool) error {
 	if err := verifyHeightAndHash(blk, tipHeight, tipHash); err != nil {
 		return errors.Wrap(err, "failed to verify block's height and hash")
 	}
@@ -64,13 +64,13 @@ func (v *validator) Validate(blk *Block, tipHeight uint64, tipHash hash.Hash32B,
 	}
 
 	if v.sf != nil {
-		return v.verifyActions(blk, checkCoinbase)
+		return v.verifyActions(blk, containCoinbase)
 	}
 
 	return nil
 }
 
-func (v *validator) verifyActions(blk *Block, checkCoinbase bool) error {
+func (v *validator) verifyActions(blk *Block, containCoinbase bool) error {
 	// Verify transfers, votes, executions, witness, and secrets (balance is checked in RunActions)
 	confirmedNonceMap := make(map[string]uint64)
 	accountNonceMap := make(map[string][]uint64)
@@ -234,7 +234,7 @@ func (v *validator) verifyActions(blk *Block, checkCoinbase bool) error {
 	}
 	wg.Wait()
 	// Verify coinbase transfer count
-	if checkCoinbase && ((blk.Header.height != 0 && coinbaseCount != 1) || (blk.Header.height == 0 && coinbaseCount != 0)) {
+	if (containCoinbase && coinbaseCount != 1) || (!containCoinbase && coinbaseCount != 0) {
 		return errors.Wrapf(
 			ErrInvalidBlock,
 			"wrong number of coinbase transfers")

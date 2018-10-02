@@ -109,7 +109,7 @@ type Blockchain interface {
 	// CommitBlock validates and appends a block to the chain
 	CommitBlock(blk *Block) error
 	// ValidateBlock validates a new block before adding it to the blockchain
-	ValidateBlock(blk *Block, checkCoinbase bool) error
+	ValidateBlock(blk *Block, containCoinbase bool) error
 
 	// For action operations
 	// Validator returns the current validator object
@@ -125,15 +125,15 @@ type Blockchain interface {
 
 // blockchain implements the Blockchain interface
 type blockchain struct {
-	mu              sync.RWMutex // mutex to protect utk, tipHeight and tipHash
-	dao             *blockDAO
-	config          *config.Config
-	genesis         *Genesis
-	tipHeight       uint64
-	tipHash         hash.Hash32B
-	validator       Validator
-	lifecycle       lifecycle.Lifecycle
-	clk             clock.Clock
+	mu        sync.RWMutex // mutex to protect utk, tipHeight and tipHash
+	dao       *blockDAO
+	config    *config.Config
+	genesis   *Genesis
+	tipHeight uint64
+	tipHash   hash.Hash32B
+	validator Validator
+	lifecycle lifecycle.Lifecycle
+	clk       clock.Clock
 
 	// used by account-based model
 	sf state.Factory
@@ -599,10 +599,10 @@ func (bc *blockchain) TipHeight() uint64 {
 }
 
 // ValidateBlock validates a new block before adding it to the blockchain
-func (bc *blockchain) ValidateBlock(blk *Block, checkCoinbase bool) error {
+func (bc *blockchain) ValidateBlock(blk *Block, containCoinbase bool) error {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
-	return bc.validateBlock(blk, checkCoinbase)
+	return bc.validateBlock(blk, containCoinbase)
 }
 
 // MintNewBlock creates a new block with given actions
@@ -760,7 +760,7 @@ func (bc *blockchain) ExecuteContractRead(ex *action.Execution) ([]byte, error) 
 // private functions
 //=====================================
 
-func (bc *blockchain) validateBlock(blk *Block, checkCoinbase bool) error {
+func (bc *blockchain) validateBlock(blk *Block, containCoinbase bool) error {
 	if bc.validator == nil {
 		logger.Panic().Msg("no block validator")
 	}
@@ -770,7 +770,7 @@ func (bc *blockchain) validateBlock(blk *Block, checkCoinbase bool) error {
 		return errors.Wrap(err, "failed to get the tip height and tip hash of blockchain")
 	}
 
-	if err := bc.validator.Validate(blk, tipHeight, tipHash, checkCoinbase); err != nil {
+	if err := bc.validator.Validate(blk, tipHeight, tipHash, containCoinbase); err != nil {
 		return errors.Wrapf(err, "Failed to validate block on height %d", tipHeight)
 	}
 	// run actions and update state factory
