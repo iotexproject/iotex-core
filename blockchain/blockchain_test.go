@@ -56,7 +56,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	if err != nil {
 		return err
 	}
-	if err := bc.ValidateBlock(blk); err != nil {
+	if err := bc.ValidateBlock(blk, true); err != nil {
 		return err
 	}
 	if err := bc.CommitBlock(blk); err != nil {
@@ -79,7 +79,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	if err != nil {
 		return err
 	}
-	if err := bc.ValidateBlock(blk); err != nil {
+	if err := bc.ValidateBlock(blk, true); err != nil {
 		return err
 	}
 	if err := bc.CommitBlock(blk); err != nil {
@@ -100,7 +100,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	if err != nil {
 		return err
 	}
-	if err := bc.ValidateBlock(blk); err != nil {
+	if err := bc.ValidateBlock(blk, true); err != nil {
 		return err
 	}
 	if err := bc.CommitBlock(blk); err != nil {
@@ -134,7 +134,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	if err != nil {
 		return err
 	}
-	if err := bc.ValidateBlock(blk); err != nil {
+	if err := bc.ValidateBlock(blk, true); err != nil {
 		return err
 	}
 	return bc.CommitBlock(blk)
@@ -308,7 +308,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	cbTsf := action.NewCoinBaseTransfer(big.NewInt(50), ta.Addrinfo["bravo"].RawAddress)
 	require.NotNil(cbTsf)
 	blk = NewBlock(0, h+2, hash, clock.New(), []*action.Transfer{cbTsf}, nil, nil)
-	err = bc.ValidateBlock(blk)
+	err = bc.ValidateBlock(blk, true)
 	require.NotNil(err)
 	fmt.Printf("Cannot validate block %d: %v\n", blk.Height(), err)
 
@@ -316,7 +316,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	cbTsf2 := action.NewCoinBaseTransfer(big.NewInt(50), ta.Addrinfo["bravo"].RawAddress)
 	require.NotNil(cbTsf2)
 	blk = NewBlock(0, h+1, _hash.ZeroHash32B, clock.New(), []*action.Transfer{cbTsf2}, nil, nil)
-	err = bc.ValidateBlock(blk)
+	err = bc.ValidateBlock(blk, true)
 	require.NotNil(err)
 	fmt.Printf("Cannot validate block %d: %v\n", blk.Height(), err)
 
@@ -489,14 +489,14 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	cbTsf := action.NewCoinBaseTransfer(big.NewInt(50), ta.Addrinfo["bravo"].RawAddress)
 	require.NotNil(cbTsf)
 	blk = NewBlock(0, h+2, hash, clock.New(), []*action.Transfer{cbTsf}, nil, nil)
-	err = bc.ValidateBlock(blk)
+	err = bc.ValidateBlock(blk, true)
 	require.NotNil(err)
 	fmt.Printf("Cannot validate block %d: %v\n", blk.Height(), err)
 	// add block with zero prev hash
 	cbTsf2 := action.NewCoinBaseTransfer(big.NewInt(50), ta.Addrinfo["bravo"].RawAddress)
 	require.NotNil(cbTsf2)
 	blk = NewBlock(0, h+1, _hash.ZeroHash32B, clock.New(), []*action.Transfer{cbTsf2}, nil, nil)
-	err = bc.ValidateBlock(blk)
+	err = bc.ValidateBlock(blk, true)
 	require.NotNil(err)
 	fmt.Printf("Cannot validate block %d: %v\n", blk.Height(), err)
 	// cannot add existing block again
@@ -578,7 +578,7 @@ func TestBlockchain_MintNewDummyBlock(t *testing.T) {
 	sf, err := state.NewFactory(cfg, state.DefaultTrieOption())
 	require.NoError(err)
 	require.NoError(sf.Start(context.Background()))
-	val := validator{sf}
+	val := validator{sf, ""}
 
 	ctx := context.Background()
 	bc := NewBlockchain(cfg, InMemDaoOption(), InMemStateFactoryOption())
@@ -592,10 +592,10 @@ func TestBlockchain_MintNewDummyBlock(t *testing.T) {
 	blk := bc.MintNewDummyBlock()
 	require.Equal(uint64(1), blk.Height())
 	tipHash := bc.TipHash()
-	require.NoError(val.Validate(blk, 0, tipHash))
+	require.NoError(val.Validate(blk, 0, tipHash, true))
 	tsf, _ := action.NewTransfer(1, big.NewInt(1), "", "", []byte{}, uint64(100000), big.NewInt(10))
 	blk.Transfers = []*action.Transfer{tsf}
-	err = val.Validate(blk, 0, tipHash)
+	err = val.Validate(blk, 0, tipHash, true)
 	require.Error(err)
 	require.True(
 		strings.Contains(err.Error(), "failed to verify block's signature"),
@@ -666,7 +666,7 @@ func TestCoinbaseTransfer(t *testing.T) {
 	require.Nil(err)
 	b := s.Balance
 	require.True(b.String() == strconv.Itoa(int(Gen.TotalSupply)))
-	require.Nil(bc.ValidateBlock(blk))
+	require.Nil(bc.ValidateBlock(blk, true))
 	require.Nil(bc.CommitBlock(blk))
 	height = bc.TipHeight()
 	require.True(height == 1)
@@ -733,7 +733,7 @@ func TestBlocks(t *testing.T) {
 			tsfs = append(tsfs, tsf)
 		}
 		blk, _ := bc.MintNewBlock(tsfs, nil, nil, ta.Addrinfo["producer"], "")
-		require.Nil(bc.ValidateBlock(blk))
+		require.Nil(bc.ValidateBlock(blk, true))
 		require.Nil(bc.CommitBlock(blk))
 	}
 }
@@ -764,7 +764,7 @@ func TestActions(t *testing.T) {
 	sf.LoadOrCreateState(a.RawAddress, uint64(100000))
 	sf.LoadOrCreateState(c.RawAddress, uint64(100000))
 
-	val := validator{sf}
+	val := validator{sf, ""}
 	tsfs := []*action.Transfer{}
 	votes := []*action.Vote{}
 	for i := 0; i < 5000; i++ {
@@ -779,7 +779,7 @@ func TestActions(t *testing.T) {
 		votes = append(votes, vote)
 	}
 	blk, _ := bc.MintNewBlock(tsfs, votes, nil, ta.Addrinfo["producer"], "")
-	require.Nil(val.Validate(blk, 0, blk.PrevHash()))
+	require.Nil(val.Validate(blk, 0, blk.PrevHash(), true))
 }
 
 func TestDummyReplacement(t *testing.T) {
@@ -802,7 +802,7 @@ func TestDummyReplacement(t *testing.T) {
 	bc := NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	require.NoError(bc.Start(context.Background()))
 	dummy := bc.MintNewDummyBlock()
-	require.Nil(bc.ValidateBlock(dummy))
+	require.Nil(bc.ValidateBlock(dummy, true))
 	require.NoError(bc.CommitBlock(dummy))
 	actualDummyBlock, err := bc.GetBlockByHeight(1)
 	require.NoError(err)
@@ -813,7 +813,7 @@ func TestDummyReplacement(t *testing.T) {
 	realBlock, err := bc.MintNewBlock(nil, nil, nil, ta.Addrinfo["producer"], "")
 	require.NotNil(realBlock)
 	require.NoError(err)
-	require.Nil(bc.ValidateBlock(realBlock))
+	require.Nil(bc.ValidateBlock(realBlock, true))
 	require.NoError(bc.CommitBlock(realBlock))
 	actualRealBlock, err := bc.GetBlockByHeight(1)
 	require.NoError(err)
@@ -821,14 +821,14 @@ func TestDummyReplacement(t *testing.T) {
 
 	block2, err := bc.MintNewBlock(nil, nil, nil, ta.Addrinfo["producer"], "")
 	require.NoError(err)
-	require.Nil(bc.ValidateBlock(block2))
+	require.Nil(bc.ValidateBlock(block2, true))
 	require.NoError(bc.CommitBlock(block2))
 	dummyBlock3 := bc.MintNewDummyBlock()
-	require.Nil(bc.ValidateBlock(dummyBlock3))
+	require.Nil(bc.ValidateBlock(dummyBlock3, true))
 	require.NoError(bc.CommitBlock(dummyBlock3))
 	block4, err := bc.MintNewBlock(nil, nil, nil, ta.Addrinfo["producer"], "")
 	require.NoError(err)
-	require.NoError(bc.ValidateBlock(block4))
+	require.NoError(bc.ValidateBlock(block4, true))
 	require.NoError(bc.CommitBlock(block4))
 	actualDummyBlock3, err := bc.GetBlockByHeight(3)
 	require.NoError(err)
@@ -837,7 +837,7 @@ func TestDummyReplacement(t *testing.T) {
 	block3, err := bc.MintNewBlock(nil, nil, nil, ta.Addrinfo["producer"], "")
 	require.NotNil(block3)
 	require.NoError(err)
-	require.NoError(bc.ValidateBlock(block3))
+	require.NoError(bc.ValidateBlock(block3, true))
 	require.NoError(bc.CommitBlock(block3))
 	actualBlock3, err := bc.GetBlockByHeight(3)
 	require.NoError(err)
@@ -919,14 +919,14 @@ func TestMintDKGBlock(t *testing.T) {
 	// Generate dkg signature for each block
 	require.NoError(err)
 	dummy := chain.MintNewDummyBlock()
-	require.NoError(chain.ValidateBlock(dummy))
+	require.NoError(chain.ValidateBlock(dummy, true))
 	require.NoError(chain.CommitBlock(dummy))
 	for i := 1; i < numNodes; i++ {
 		blk, err := chain.MintNewDKGBlock(nil, nil, nil, addresses[i],
 			&iotxaddress.DKGAddress{PrivateKey: askList[i], PublicKey: pkList[i], ID: idList[i]},
 			lastSeed, "")
 		require.NoError(err)
-		require.NoError(chain.ValidateBlock(blk))
+		require.NoError(chain.ValidateBlock(blk, true))
 		require.NoError(chain.CommitBlock(blk))
 		require.Equal(pkList[i], blk.Header.DKGPubkey)
 		require.Equal(idList[i], blk.Header.DKGID)

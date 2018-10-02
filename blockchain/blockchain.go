@@ -109,7 +109,7 @@ type Blockchain interface {
 	// CommitBlock validates and appends a block to the chain
 	CommitBlock(blk *Block) error
 	// ValidateBlock validates a new block before adding it to the blockchain
-	ValidateBlock(blk *Block) error
+	ValidateBlock(blk *Block, containCoinbase bool) error
 
 	// For action operations
 	// Validator returns the current validator object
@@ -233,7 +233,19 @@ func NewBlockchain(cfg *config.Config, opts ...Option) Blockchain {
 			return nil
 		}
 	}
-	chain.initValidator()
+	// Set block validator
+	pubKey, _, err := cfg.KeyPair()
+	if err != nil {
+		logger.Error().Err(err).Msg("Failed to get key pair of producer")
+		return nil
+	}
+	address, err := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, iotxaddress.ChainID, pubKey)
+	if err != nil {
+		logger.Error().Err(err).Msg("Failed to get producer's address by public key")
+		return nil
+	}
+	chain.validator = &validator{sf: chain.sf, validatorAddr: address.RawAddress}
+
 	if chain.dao != nil {
 		chain.lifecycle.Add(chain.dao)
 	}
@@ -242,8 +254,6 @@ func NewBlockchain(cfg *config.Config, opts ...Option) Blockchain {
 	}
 	return chain
 }
-
-func (bc *blockchain) initValidator() { bc.validator = &validator{sf: bc.sf} }
 
 func (bc *blockchain) ChainID() uint32 {
 	return bc.config.Chain.ID
@@ -292,7 +302,7 @@ func (bc *blockchain) startEmptyBlockchain() error {
 		return errors.Wrap(err, "failed to update state changes in Genesis block")
 	}
 	genesis.Header.stateRoot = root
-	if err := bc.validateBlock(genesis); err != nil {
+	if err := bc.validateBlock(genesis, false); err != nil {
 		return errors.Wrap(err, "failed to validate Genesis block")
 	}
 	// add Genesis block as very first block
@@ -589,10 +599,10 @@ func (bc *blockchain) TipHeight() uint64 {
 }
 
 // ValidateBlock validates a new block before adding it to the blockchain
-func (bc *blockchain) ValidateBlock(blk *Block) error {
+func (bc *blockchain) ValidateBlock(blk *Block, containCoinbase bool) error {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
-	return bc.validateBlock(blk)
+	return bc.validateBlock(blk, containCoinbase)
 }
 
 // MintNewBlock creates a new block with given actions
@@ -750,31 +760,17 @@ func (bc *blockchain) ExecuteContractRead(ex *action.Execution) ([]byte, error) 
 // private functions
 //=====================================
 
-func (bc *blockchain) validateBlock(blk *Block) error {
+func (bc *blockchain) validateBlock(blk *Block, containCoinbase bool) error {
 	if bc.validator == nil {
 		logger.Panic().Msg("no block validator")
 	}
 
-	tipHeight := bc.tipHeight
-	tipHash := bc.tipHash
-	// replacement logic, used to replace a fake old dummy block
-	if blk.Height() != 0 && blk.Height() <= bc.tipHeight {
-		oldDummyBlock, err := bc.GetBlockByHeight(blk.Height())
-		if err != nil {
-			return errors.Wrapf(err, "The height of the new block is invalid")
-		}
-		if !oldDummyBlock.IsDummyBlock() {
-			return errors.New("The replaced block is not a dummy block")
-		}
-		lastBlock, err := bc.GetBlockByHeight(blk.Height() - 1)
-		if err != nil {
-			return errors.Wrapf(err, "Failed to get the last block when replacing the dummy block")
-		}
-		tipHeight = lastBlock.Height()
-		tipHash = lastBlock.HashBlock()
+	tipHeight, tipHash, err := bc.replaceHeightAndHash(blk)
+	if err != nil {
+		return errors.Wrap(err, "failed to get the tip height and tip hash of blockchain")
 	}
 
-	if err := bc.validator.Validate(blk, tipHeight, tipHash); err != nil {
+	if err := bc.validator.Validate(blk, tipHeight, tipHash, containCoinbase); err != nil {
 		return errors.Wrapf(err, "Failed to validate block on height %d", tipHeight)
 	}
 	// run actions and update state factory
@@ -826,4 +822,26 @@ func (bc *blockchain) runActions(blk *Block, verify bool) (root hash.Hash32B, er
 		}
 	}
 	return root, nil
+}
+
+func (bc *blockchain) replaceHeightAndHash(blk *Block) (uint64, hash.Hash32B, error) {
+	tipHeight := bc.tipHeight
+	tipHash := bc.tipHash
+	// replacement logic, used to replace a fake old dummy block
+	if blk.Height() != 0 && blk.Height() <= bc.tipHeight {
+		oldDummyBlock, err := bc.GetBlockByHeight(blk.Height())
+		if err != nil {
+			return 0, hash.ZeroHash32B, errors.Wrapf(err, "The height of the new block is invalid")
+		}
+		if !oldDummyBlock.IsDummyBlock() {
+			return 0, hash.ZeroHash32B, errors.New("The replaced block is not a dummy block")
+		}
+		lastBlock, err := bc.GetBlockByHeight(blk.Height() - 1)
+		if err != nil {
+			return 0, hash.ZeroHash32B, errors.Wrapf(err, "Failed to get the last block when replacing the dummy block")
+		}
+		tipHeight = lastBlock.Height()
+		tipHash = lastBlock.HashBlock()
+	}
+	return tipHeight, tipHash, nil
 }

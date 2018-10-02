@@ -193,7 +193,7 @@ func TestConvertFromBlockPb(t *testing.T) {
 
 func TestWrongRootHash(t *testing.T) {
 	require := require.New(t)
-	val := validator{nil}
+	val := validator{nil, ""}
 	tsf1, err := action.NewTransfer(1, big.NewInt(20), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["alfa"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(err)
 	require.NoError(action.Sign(tsf1, ta.Addrinfo["producer"].PrivateKey))
@@ -205,14 +205,14 @@ func TestWrongRootHash(t *testing.T) {
 	blk.Header.Pubkey = ta.Addrinfo["producer"].PublicKey
 	blkHash := blk.HashBlock()
 	blk.Header.blockSig = crypto.EC283.Sign(ta.Addrinfo["producer"].PrivateKey, blkHash[:])
-	require.Nil(val.Validate(blk, 0, hash))
+	require.Nil(val.Validate(blk, 0, hash, true))
 	blk.Transfers[0], blk.Transfers[1] = blk.Transfers[1], blk.Transfers[0]
-	require.NotNil(val.Validate(blk, 0, hash))
+	require.NotNil(val.Validate(blk, 0, hash, true))
 }
 
 func TestSignBlock(t *testing.T) {
 	require := require.New(t)
-	val := validator{nil}
+	val := validator{nil, ""}
 	tsf1, err := action.NewTransfer(1, big.NewInt(20), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["alfa"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(err)
 	require.NoError(action.Sign(tsf1, ta.Addrinfo["producer"].PrivateKey))
@@ -223,7 +223,7 @@ func TestSignBlock(t *testing.T) {
 	blk := NewBlock(1, 3, hash, clock.New(), []*action.Transfer{tsf1, tsf2}, nil, nil)
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.Nil(err)
-	require.Nil(val.Validate(blk, 2, hash))
+	require.Nil(val.Validate(blk, 2, hash, true))
 }
 
 func TestWrongNonce(t *testing.T) {
@@ -238,7 +238,7 @@ func TestWrongNonce(t *testing.T) {
 	require.NoError(sf.Start(context.Background()))
 	_, err = sf.LoadOrCreateState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
 	require.NoError(err)
-	val := validator{sf}
+	val := validator{sf, ""}
 	_, err = sf.RunActions(0, nil, nil, nil)
 	require.Nil(err)
 	require.Nil(sf.Commit())
@@ -254,7 +254,7 @@ func TestWrongNonce(t *testing.T) {
 	blk := NewBlock(chainID, 3, hash, clock.New(), []*action.Transfer{coinbaseTsf, tsf1}, nil, nil)
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.NoError(err)
-	require.Nil(val.Validate(blk, 2, hash))
+	require.Nil(val.Validate(blk, 2, hash, true))
 	_, err = sf.RunActions(1, []*action.Transfer{tsf1}, nil, nil)
 	require.NoError(err)
 	require.Nil(sf.Commit())
@@ -267,7 +267,7 @@ func TestWrongNonce(t *testing.T) {
 	blk = NewBlock(chainID, 3, hash, clock.New(), []*action.Transfer{coinbaseTsf, tsf1, tsf2}, nil, nil)
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.NoError(err)
-	err = val.Validate(blk, 2, hash)
+	err = val.Validate(blk, 2, hash, true)
 	require.Equal(ErrActionNonce, errors.Cause(err))
 
 	vote, err := action.NewVote(1, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress, uint64(100000), big.NewInt(10))
@@ -277,7 +277,7 @@ func TestWrongNonce(t *testing.T) {
 	blk = NewBlock(chainID, 3, hash, clock.New(), []*action.Transfer{coinbaseTsf}, []*action.Vote{vote}, nil)
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.NoError(err)
-	err = val.Validate(blk, 2, hash)
+	err = val.Validate(blk, 2, hash, true)
 	require.Error(err)
 	require.Equal(ErrActionNonce, errors.Cause(err))
 
@@ -292,7 +292,7 @@ func TestWrongNonce(t *testing.T) {
 	blk = NewBlock(chainID, 3, hash, clock.New(), []*action.Transfer{coinbaseTsf, tsf3, tsf4}, nil, nil)
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.NoError(err)
-	err = val.Validate(blk, 2, hash)
+	err = val.Validate(blk, 2, hash, true)
 	require.Error(err)
 	require.Equal(ErrActionNonce, errors.Cause(err))
 
@@ -306,7 +306,7 @@ func TestWrongNonce(t *testing.T) {
 	blk = NewBlock(chainID, 3, hash, clock.New(), []*action.Transfer{coinbaseTsf}, []*action.Vote{vote2, vote3}, nil)
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.NoError(err)
-	err = val.Validate(blk, 2, hash)
+	err = val.Validate(blk, 2, hash, true)
 	require.Error(err)
 	require.Equal(ErrActionNonce, errors.Cause(err))
 
@@ -321,7 +321,7 @@ func TestWrongNonce(t *testing.T) {
 	blk = NewBlock(chainID, 3, hash, clock.New(), []*action.Transfer{coinbaseTsf, tsf5, tsf6}, nil, nil)
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.NoError(err)
-	err = val.Validate(blk, 2, hash)
+	err = val.Validate(blk, 2, hash, true)
 	require.Error(err)
 	require.Equal(ErrActionNonce, errors.Cause(err))
 
@@ -335,7 +335,7 @@ func TestWrongNonce(t *testing.T) {
 	blk = NewBlock(chainID, 3, hash, clock.New(), []*action.Transfer{coinbaseTsf}, []*action.Vote{vote4, vote5}, nil)
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.NoError(err)
-	err = val.Validate(blk, 2, hash)
+	err = val.Validate(blk, 2, hash, true)
 	require.Error(err)
 	require.Equal(ErrActionNonce, errors.Cause(err))
 }
@@ -352,7 +352,7 @@ func TestWrongCoinbaseTsf(t *testing.T) {
 	require.NoError(sf.Start(context.Background()))
 	_, err = sf.LoadOrCreateState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
 	require.Nil(err)
-	val := validator{sf}
+	val := validator{sf, ""}
 	_, err = sf.RunActions(0, nil, nil, nil)
 	require.Nil(err)
 
@@ -365,7 +365,7 @@ func TestWrongCoinbaseTsf(t *testing.T) {
 	blk := NewBlock(1, 3, hash, clock.New(), []*action.Transfer{tsf1}, nil, nil)
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.NoError(err)
-	err = val.Validate(blk, 2, hash)
+	err = val.Validate(blk, 2, hash, true)
 	require.Error(err)
 	require.True(
 		strings.Contains(err.Error(), "wrong number of coinbase transfers"),
@@ -375,7 +375,7 @@ func TestWrongCoinbaseTsf(t *testing.T) {
 	blk = NewBlock(1, 3, hash, clock.New(), []*action.Transfer{coinbaseTsf, coinbaseTsf, tsf1}, nil, nil)
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.NoError(err)
-	err = val.Validate(blk, 2, hash)
+	err = val.Validate(blk, 2, hash, true)
 	require.Error(err)
 	require.True(
 		strings.Contains(err.Error(), "wrong number of coinbase transfers"),
@@ -385,7 +385,7 @@ func TestWrongCoinbaseTsf(t *testing.T) {
 	blk = NewBlock(1, 3, hash, clock.New(), []*action.Transfer{}, nil, nil)
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.NoError(err)
-	err = val.Validate(blk, 2, hash)
+	err = val.Validate(blk, 2, hash, true)
 	require.Error(err)
 	require.True(
 		strings.Contains(err.Error(), "wrong number of coinbase transfers"),
@@ -398,7 +398,7 @@ func TestWrongAddress(t *testing.T) {
 	tsf, err := action.NewTransfer(1, big.NewInt(1), ta.Addrinfo["producer"].RawAddress, invalidRecipient, []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(t, err)
 	blk1 := NewBlock(1, 3, hash.ZeroHash32B, clock.New(), []*action.Transfer{tsf}, nil, nil)
-	err = val.verifyActions(blk1)
+	err = val.verifyActions(blk1, true)
 	require.Error(t, err)
 	require.True(t, strings.Contains(err.Error(), "failed to validate transfer recipient's address"))
 
@@ -406,7 +406,7 @@ func TestWrongAddress(t *testing.T) {
 	vote, err := action.NewVote(1, ta.Addrinfo["producer"].RawAddress, invalidVotee, uint64(100000), big.NewInt(10))
 	require.NoError(t, err)
 	blk2 := NewBlock(1, 3, hash.ZeroHash32B, clock.New(), nil, []*action.Vote{vote}, nil)
-	err = val.verifyActions(blk2)
+	err = val.verifyActions(blk2, true)
 	require.Error(t, err)
 	require.True(t, strings.Contains(err.Error(), "failed to validate votee's address"))
 
@@ -414,7 +414,7 @@ func TestWrongAddress(t *testing.T) {
 	execution, err := action.NewExecution(ta.Addrinfo["producer"].RawAddress, invalidContract, 1, big.NewInt(1), uint64(100000), big.NewInt(10), []byte{})
 	require.NoError(t, err)
 	blk3 := NewBlock(1, 3, hash.ZeroHash32B, clock.New(), nil, nil, []*action.Execution{execution})
-	err = val.verifyActions(blk3)
+	err = val.verifyActions(blk3, true)
 	require.Error(t, err)
 	require.True(t, strings.Contains(err.Error(), "failed to validate contract's address"))
 }
@@ -445,5 +445,63 @@ func TestCoinbaseTransferValidation(t *testing.T) {
 	blk, err := chain.MintNewBlock(nil, nil, nil, &iotxAddr, "")
 	require.NoError(t, err)
 	validator := validator{}
-	require.NoError(t, validator.verifyActions(blk))
+	require.NoError(t, validator.verifyActions(blk, true))
+}
+
+func TestValidateSecretBlock(t *testing.T) {
+	cfg := &config.Default
+	testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
+	defer testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
+	testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
+	defer testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
+	require := require.New(t)
+	sf, err := state.NewFactory(cfg, state.DefaultTrieOption())
+	require.NoError(err)
+	require.NoError(sf.Start(context.Background()))
+	_, err = sf.LoadOrCreateState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
+	require.Nil(err)
+	_, err = sf.RunActions(0, nil, nil, nil)
+	require.Nil(err)
+	require.Nil(sf.Commit())
+
+	idList := make([][]uint8, 0)
+	delegates := []string{ta.Addrinfo["producer"].RawAddress}
+	for i := 0; i < 20; i++ {
+		addr, _ := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
+		delegates = append(delegates, addr.RawAddress)
+	}
+
+	for _, delegate := range delegates {
+		idList = append(idList, iotxaddress.CreateID(delegate))
+	}
+	producerSK := crypto.DKG.SkGeneration()
+	_, shares, witness, err := crypto.DKG.Init(producerSK, idList)
+	require.NoError(err)
+
+	secretProposals := make([]*action.SecretProposal, 0)
+	for i, share := range shares {
+		secretProposal, err := action.NewSecretProposal(uint64(i+1), delegates[0], delegates[i], share)
+		require.NoError(err)
+		secretProposals = append(secretProposals, secretProposal)
+	}
+	secretWitness, err := action.NewSecretWitness(uint64(22), delegates[0], witness)
+	require.NoError(err)
+	hash := secretProposals[0].Hash()
+	blk := NewSecretBlock(1, 3, hash, clock.New(), secretProposals, secretWitness)
+	err = blk.SignBlock(ta.Addrinfo["producer"])
+	require.NoError(err)
+
+	val := validator{sf, delegates[1]}
+	require.NoError(val.Validate(blk, 2, hash, false))
+
+	// Falsify secret proposal
+	dummySecretProposal, err := action.NewSecretProposal(2, delegates[0], delegates[1], []uint32{1, 2, 3, 4, 5})
+	require.NoError(err)
+	secretProposals[1] = dummySecretProposal
+	blk = NewSecretBlock(1, 3, hash, clock.New(), secretProposals, secretWitness)
+	err = blk.SignBlock(ta.Addrinfo["producer"])
+	require.NoError(err)
+	err = val.Validate(blk, 2, hash, false)
+	require.Error(err)
+	require.Equal(ErrDKGSecretProposal, errors.Cause(err))
 }

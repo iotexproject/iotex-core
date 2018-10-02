@@ -45,6 +45,9 @@ func NewSecretProposal(
 	}, nil
 }
 
+// Secret returns the secret
+func (sp *SecretProposal) Secret() []uint32 { return sp.secret }
+
 // ByteStream returns a raw byte stream of this SecretProposal
 func (sp *SecretProposal) ByteStream() []byte {
 	stream := make([]byte, 4)
