@@ -479,7 +479,7 @@ func (m *cFSM) validateProposeBlock(blk *blockchain.Block, expectedProposer stri
 		// If the block is self proposed, skip validation
 		return true
 	}
-	if err := m.ctx.chain.ValidateBlock(blk); err != nil {
+	if err := m.ctx.chain.ValidateBlock(blk, true); err != nil {
 		errorLog.Err(err).Msg("error when validating the block")
 		return false
 	}
