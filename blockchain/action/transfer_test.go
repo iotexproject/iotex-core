@@ -19,29 +19,28 @@ var chainid = []byte{0x00, 0x00, 0x00, 0x01}
 
 func TestTransferSignVerify(t *testing.T) {
 	require := require.New(t)
-	sender, err := iotxaddress.NewAddress(true, chainid)
+	sender, err := iotxaddress.NewAddress(iotxaddress.IsTestnet, chainid)
 	require.NoError(err)
-	recipient, err := iotxaddress.NewAddress(true, chainid)
+	recipient, err := iotxaddress.NewAddress(iotxaddress.IsTestnet, chainid)
 	require.NoError(err)
 
 	tsf, err := NewTransfer(0, big.NewInt(10), sender.RawAddress, recipient.RawAddress, []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(err)
 	require.Nil(tsf.signature)
-	require.Error(Verify(tsf, sender))
+	require.Error(Verify(tsf))
 
 	// sign the transfer
-	require.NoError(Sign(tsf, sender))
+	require.NoError(Sign(tsf, sender.PrivateKey))
 
 	// verify signature
-	require.NoError(Verify(tsf, sender))
-	require.Error(Verify(tsf, recipient))
+	require.NoError(Verify(tsf))
 }
 
 func TestTransferSerializeDeserialize(t *testing.T) {
 	require := require.New(t)
-	sender, err := iotxaddress.NewAddress(true, chainid)
+	sender, err := iotxaddress.NewAddress(iotxaddress.IsTestnet, chainid)
 	require.NoError(err)
-	recipient, err := iotxaddress.NewAddress(true, chainid)
+	recipient, err := iotxaddress.NewAddress(iotxaddress.IsTestnet, chainid)
 	require.NoError(err)
 
 	tsf, err := NewTransfer(0, big.NewInt(38291), sender.RawAddress, recipient.RawAddress, []byte{}, uint64(100000), big.NewInt(10))
@@ -66,9 +65,9 @@ func TestTransferSerializeDeserialize(t *testing.T) {
 
 func TestTransferToJSONFromJSON(t *testing.T) {
 	require := require.New(t)
-	sender, err := iotxaddress.NewAddress(true, chainid)
+	sender, err := iotxaddress.NewAddress(iotxaddress.IsTestnet, chainid)
 	require.NoError(err)
-	recipient, err := iotxaddress.NewAddress(true, chainid)
+	recipient, err := iotxaddress.NewAddress(iotxaddress.IsTestnet, chainid)
 	require.NoError(err)
 
 	tsf, err := NewTransfer(0, big.NewInt(38291), sender.RawAddress, recipient.RawAddress, []byte{}, uint64(100000), big.NewInt(10))
@@ -93,7 +92,7 @@ func TestTransferToJSONFromJSON(t *testing.T) {
 
 func TestCoinbaseTsf(t *testing.T) {
 	require := require.New(t)
-	recipient, err := iotxaddress.NewAddress(true, chainid)
+	recipient, err := iotxaddress.NewAddress(iotxaddress.IsTestnet, chainid)
 	require.NoError(err)
 	coinbaseTsf := NewCoinBaseTransfer(big.NewInt(int64(5)), recipient.RawAddress)
 	require.NotNil(t, coinbaseTsf)

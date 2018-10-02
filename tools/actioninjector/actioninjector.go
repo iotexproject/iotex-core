@@ -568,7 +568,7 @@ func createSignedTransfer(
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create raw transfer")
 	}
-	if err := action.Sign(transfer, sender); err != nil {
+	if err := action.Sign(transfer, sender.PrivateKey); err != nil {
 		return nil, errors.Wrapf(err, "failed to sign transfer %v", transfer)
 	}
 	return transfer, nil
@@ -586,7 +586,7 @@ func createSignedVote(
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create raw vote")
 	}
-	if err := action.Sign(vote, voter); err != nil {
+	if err := action.Sign(vote, voter.PrivateKey); err != nil {
 		return nil, errors.Wrapf(err, "failed to sign vote %v", vote)
 	}
 	return vote, nil
@@ -610,7 +610,7 @@ func createSignedExecution(
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create raw execution")
 	}
-	if err := action.Sign(execution, executor); err != nil {
+	if err := action.Sign(execution, executor.PrivateKey); err != nil {
 		return nil, errors.Wrapf(err, "failed to sign execution %v", execution)
 	}
 	return execution, nil

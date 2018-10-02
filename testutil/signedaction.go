@@ -19,7 +19,7 @@ func SignedTransfer(sender *iotxaddress.Address, recipient *iotxaddress.Address,
 	if err != nil {
 		return nil, err
 	}
-	if err := action.Sign(transfer, sender); err != nil {
+	if err := action.Sign(transfer, sender.PrivateKey); err != nil {
 		return nil, err
 	}
 	return transfer, nil
@@ -31,7 +31,7 @@ func SignedVote(voter *iotxaddress.Address, votee *iotxaddress.Address, nonce ui
 	if err != nil {
 		return nil, err
 	}
-	if err := action.Sign(vote, voter); err != nil {
+	if err := action.Sign(vote, voter.PrivateKey); err != nil {
 		return nil, err
 	}
 	return vote, nil
@@ -43,7 +43,7 @@ func SignedExecution(executor *iotxaddress.Address, contractAddr string, nonce u
 	if err != nil {
 		return nil, err
 	}
-	if err := action.Sign(execution, executor); err != nil {
+	if err := action.Sign(execution, executor.PrivateKey); err != nil {
 		return nil, err
 	}
 	return execution, nil

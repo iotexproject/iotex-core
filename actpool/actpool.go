@@ -363,13 +363,8 @@ func (ap *actPool) validateTsf(tsf *action.Transfer) error {
 		return errors.Wrapf(err, "error when validating recipient's address %s", tsf.Recipient())
 	}
 
-	sender, err := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, iotxaddress.ChainID, tsf.SenderPublicKey())
-	if err != nil {
-		logger.Error().Err(err).Msg("Error when validating transfer sender's public key")
-		return errors.Wrapf(err, "invalid address")
-	}
 	// Verify transfer using sender's public key
-	if err := action.Verify(tsf, sender); err != nil {
+	if err := action.Verify(tsf); err != nil {
 		logger.Error().Err(err).Msg("Error when validating transfer's signature")
 		return errors.Wrapf(err, "failed to verify Transfer signature")
 	}
@@ -429,7 +424,7 @@ func (ap *actPool) validateExecution(exec *action.Execution) error {
 		return errors.Wrapf(err, "invalid address")
 	}
 	// Verify transfer using executor's public key
-	if err := action.Verify(exec, executor); err != nil {
+	if err := action.Verify(exec); err != nil {
 		logger.Error().Err(err).Msg("Error when validating execution's signature")
 		return errors.Wrapf(err, "failed to verify Execution signature")
 	}
@@ -484,7 +479,7 @@ func (ap *actPool) validateVote(vote *action.Vote) error {
 		return errors.Wrapf(err, "invalid address")
 	}
 	// Verify vote using voter's public key
-	if err := action.Verify(vote, voter); err != nil {
+	if err := action.Verify(vote); err != nil {
 		logger.Error().Err(err).Msg("Error when validating vote's signature")
 		return errors.Wrapf(err, "failed to verify vote signature")
 	}
