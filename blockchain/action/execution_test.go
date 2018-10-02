@@ -18,32 +18,31 @@ import (
 
 func TestExecutionSignVerify(t *testing.T) {
 	require := require.New(t)
-	executor, err := iotxaddress.NewAddress(true, chainid)
+	executor, err := iotxaddress.NewAddress(iotxaddress.IsTestnet, chainid)
 	require.NoError(err)
-	contract, err := iotxaddress.NewAddress(true, chainid)
+	contract, err := iotxaddress.NewAddress(iotxaddress.IsTestnet, chainid)
 	require.NoError(err)
 	data, err := hex.DecodeString("")
 	require.NoError(err)
 	ex, err := NewExecution(executor.RawAddress, contract.RawAddress, 0, big.NewInt(10), uint64(10), big.NewInt(10), data)
 	require.NoError(err)
-	require.Error(Verify(ex, executor))
+	require.Error(Verify(ex))
 
 	// sign the Execution
-	require.NoError(Sign(ex, executor))
+	require.NoError(Sign(ex, executor.PrivateKey))
 	require.NotNil(ex)
 	require.Equal(ex.Hash(), ex.Hash())
 
 	// verify signature
-	require.NoError(Verify(ex, executor))
-	require.Error(Verify(ex, contract))
+	require.NoError(Verify(ex))
 	require.NotNil(ex.Signature)
 }
 
 func TestExecutionSerializeDeserialize(t *testing.T) {
 	require := require.New(t)
-	executor, err := iotxaddress.NewAddress(true, chainid)
+	executor, err := iotxaddress.NewAddress(iotxaddress.IsTestnet, chainid)
 	require.NoError(err)
-	contract, err := iotxaddress.NewAddress(true, chainid)
+	contract, err := iotxaddress.NewAddress(iotxaddress.IsTestnet, chainid)
 	require.NoError(err)
 	data, err := hex.DecodeString("60652403")
 	require.NoError(err)

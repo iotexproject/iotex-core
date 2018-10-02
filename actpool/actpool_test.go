@@ -304,7 +304,7 @@ func TestActPool_AddActs(t *testing.T) {
 	require.Equal(ErrNonce, errors.Cause(err))
 	replaceVote, err := action.NewVote(4, addr1.RawAddress, "", uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	require.NoError(action.Sign(replaceVote, addr1))
+	require.NoError(action.Sign(replaceVote, addr1.PrivateKey))
 	err = ap.AddVote(replaceVote)
 	require.Equal(ErrNonce, errors.Cause(err))
 	// Case IV: Nonce is too large
@@ -791,7 +791,7 @@ func TestActPool_Reset(t *testing.T) {
 	vote23, err := action.NewVote(3, addr4.RawAddress, "",
 		uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	_ = action.Sign(vote23, addr4)
+	_ = action.Sign(vote23, addr4.PrivateKey)
 	vote24, err := testutil.SignedVote(addr5, addr5, uint64(1), uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	tsf25, err := testutil.SignedTransfer(addr5, addr4, uint64(2), big.NewInt(10),
@@ -799,7 +799,7 @@ func TestActPool_Reset(t *testing.T) {
 	require.NoError(err)
 	vote26, err := action.NewVote(3, addr5.RawAddress, "", uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	_ = action.Sign(vote26, addr5)
+	_ = action.Sign(vote26, addr5.PrivateKey)
 
 	err = ap1.AddTsf(tsf21)
 	require.NoError(err)
