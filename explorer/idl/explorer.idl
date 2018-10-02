@@ -126,6 +126,7 @@ struct AddressDetails {
 
 struct Candidate {
     address string
+    pubKey string
     totalVote int
     creationHeight int
     lastUpdateHeight int
@@ -268,6 +269,9 @@ interface Explorer {
 
     // get candidates metrics
     getCandidateMetrics() CandidateMetrics
+
+    // get candidates metrics at given height
+    getCandidateMetricsByHeight(h int) CandidateMetrics
 
     // send transfer
     sendTransfer(request SendTransferRequest) SendTransferResponse
