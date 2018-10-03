@@ -296,7 +296,7 @@ func TestRollDPoS_convertToConsensusEvt(t *testing.T) {
 		1,
 		1,
 		prevHash,
-		clock.New(),
+		testutil.TimestampNow(),
 		[]*action.Transfer{transfer}, []*action.Vote{vote},
 		nil,
 	)

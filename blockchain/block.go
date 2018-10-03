@@ -38,7 +38,7 @@ type BlockHeader struct {
 	version       uint32            // version
 	chainID       uint32            // this chain's ID
 	height        uint64            // block height
-	timestamp     uint64            // unix timestamp
+	timestamp     uint64            // unix now
 	prevBlockHash hash.Hash32B      // hash of previous block
 	txRoot        hash.Hash32B      // merkle root of all transactions
 	stateRoot     hash.Hash32B      // root of state trie
@@ -71,7 +71,7 @@ func NewBlock(
 	chainID uint32,
 	height uint64,
 	prevBlockHash hash.Hash32B,
-	c clock.Clock,
+	timestamp uint64,
 	tsf []*action.Transfer,
 	vote []*action.Vote,
 	executions []*action.Execution) *Block {
@@ -80,7 +80,7 @@ func NewBlock(
 			version:       version.ProtocolVersion,
 			chainID:       chainID,
 			height:        height,
-			timestamp:     uint64(c.Now().Unix()),
+			timestamp:     timestamp,
 			prevBlockHash: prevBlockHash,
 			txRoot:        hash.ZeroHash32B,
 			stateRoot:     hash.ZeroHash32B,

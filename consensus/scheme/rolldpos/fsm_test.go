@@ -713,7 +713,7 @@ func TestHandleVoteEvt(t *testing.T) {
 				chain.EXPECT().CommitBlock(gomock.Any()).Return(nil).Times(0)
 				chain.EXPECT().
 					MintNewDummyBlock().
-					Return(blockchain.NewBlock(0, 0, hash.ZeroHash32B, clock.New(), nil, nil, nil)).Times(0)
+					Return(blockchain.NewBlock(0, 0, hash.ZeroHash32B, testutil.TimestampNow(), nil, nil, nil)).Times(0)
 				chain.EXPECT().ChainID().AnyTimes().Return(config.Default.Chain.ID)
 			},
 			func(p2p *mock_network.MockOverlay) {
@@ -745,7 +745,7 @@ func TestHandleVoteEvt(t *testing.T) {
 				chain.EXPECT().CommitBlock(gomock.Any()).Return(nil).Times(1)
 				chain.EXPECT().
 					MintNewDummyBlock().
-					Return(blockchain.NewBlock(0, 0, hash.ZeroHash32B, clock.New(), nil, nil, nil)).Times(1)
+					Return(blockchain.NewBlock(0, 0, hash.ZeroHash32B, testutil.TimestampNow(), nil, nil, nil)).Times(1)
 				chain.EXPECT().ChainID().AnyTimes().Return(config.Default.Chain.ID)
 			},
 			func(p2p *mock_network.MockOverlay) {

@@ -92,7 +92,7 @@ func TestNewBlockSyncer(t *testing.T) {
 	// TipHeight return ERROR
 	mBc.EXPECT().TipHeight().AnyTimes().Return(uint64(0))
 	mBc.EXPECT().ChainID().AnyTimes().Return(config.Default.Chain.ID)
-	blk := bc.NewBlock(uint32(123), uint64(0), hash.Hash32B{}, clock.New(), nil, nil, nil)
+	blk := bc.NewBlock(uint32(123), uint64(0), hash.Hash32B{}, testutil.TimestampNow(), nil, nil, nil)
 	mBc.EXPECT().GetBlockByHeight(gomock.Any()).AnyTimes().Return(blk, nil)
 
 	cfg, err := newTestConfig()
@@ -162,7 +162,7 @@ func TestBlockSyncerProcessSyncRequest(t *testing.T) {
 
 	mBc := mock_blockchain.NewMockBlockchain(ctrl)
 	mBc.EXPECT().ChainID().AnyTimes().Return(config.Default.Chain.ID)
-	blk := bc.NewBlock(uint32(123), uint64(0), hash.Hash32B{}, clock.New(), nil, nil, nil)
+	blk := bc.NewBlock(uint32(123), uint64(0), hash.Hash32B{}, testutil.TimestampNow(), nil, nil, nil)
 	mBc.EXPECT().GetBlockByHeight(gomock.Any()).AnyTimes().Return(blk, nil)
 	mBc.EXPECT().TipHeight().AnyTimes().Return(uint64(0))
 	cfg, err := newTestConfig()
