@@ -183,6 +183,21 @@ func (exp *MockExplorer) GetCandidateMetrics() (explorer.CandidateMetrics, error
 	}, nil
 }
 
+// GetCandidateMetricsByHeight returns the fake delegates metrics
+func (exp *MockExplorer) GetCandidateMetricsByHeight(h int64) (explorer.CandidateMetrics, error) {
+	candidate := explorer.Candidate{
+		Address:          randString(),
+		TotalVote:        randInt64(),
+		CreationHeight:   randInt64(),
+		LastUpdateHeight: randInt64(),
+		IsDelegate:       false,
+		IsProducer:       false,
+	}
+	return explorer.CandidateMetrics{
+		Candidates: []explorer.Candidate{candidate},
+	}, nil
+}
+
 // SendTransfer sends a fake transfer
 func (exp *MockExplorer) SendTransfer(request explorer.SendTransferRequest) (explorer.SendTransferResponse, error) {
 	return explorer.SendTransferResponse{}, nil

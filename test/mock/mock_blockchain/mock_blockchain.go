@@ -513,15 +513,15 @@ func (mr *MockBlockchainMockRecorder) CommitBlock(blk interface{}) *gomock.Call 
 }
 
 // ValidateBlock mocks base method
-func (m *MockBlockchain) ValidateBlock(blk *blockchain.Block) error {
-	ret := m.ctrl.Call(m, "ValidateBlock", blk)
+func (m *MockBlockchain) ValidateBlock(blk *blockchain.Block, containCoinbase bool) error {
+	ret := m.ctrl.Call(m, "ValidateBlock", blk, containCoinbase)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ValidateBlock indicates an expected call of ValidateBlock
-func (mr *MockBlockchainMockRecorder) ValidateBlock(blk interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateBlock", reflect.TypeOf((*MockBlockchain)(nil).ValidateBlock), blk)
+func (mr *MockBlockchainMockRecorder) ValidateBlock(blk, containCoinbase interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateBlock", reflect.TypeOf((*MockBlockchain)(nil).ValidateBlock), blk, containCoinbase)
 }
 
 // Validator mocks base method
