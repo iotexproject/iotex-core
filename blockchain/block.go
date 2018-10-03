@@ -37,7 +37,7 @@ type BlockHeader struct {
 	version       uint32            // version
 	chainID       uint32            // this chain's ID
 	height        uint64            // block height
-	timestamp     uint64            // unix now
+	timestamp     uint64            // unix timestamp
 	prevBlockHash hash.Hash32B      // hash of previous block
 	txRoot        hash.Hash32B      // merkle root of all transactions
 	stateRoot     hash.Hash32B      // root of state trie
