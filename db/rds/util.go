@@ -6,7 +6,7 @@ import (
 	"database/sql"
 )
 
-// Parse rows
+// ParseRows will parse the row
 func ParseRows(rows *sql.Rows, schema interface{}) ([]interface{}, error) {
 	var parsedRows []interface{}
 	s := reflect.ValueOf(schema).Elem()
