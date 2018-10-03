@@ -19,96 +19,72 @@ import (
 	pb "github.com/iotexproject/iotex-core/proto"
 )
 
-func TestNewDispatcher(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	ctx := context.Background()
-	d := createDispatcher(config.Default.Chain.ID, ctrl)
-	assert.NotNil(t, d)
-
-	err := d.Start(ctx)
+func createDispatcher(t *testing.T, chainID uint32) Dispatcher {
+	cfg := &config.Config{
+		Consensus:  config.Consensus{Scheme: config.NOOPScheme},
+		Dispatcher: config.Dispatcher{EventChanSize: 1024},
+	}
+	dp, err := NewDispatcher(cfg)
 	assert.NoError(t, err)
-	defer func() {
-		err := d.Stop(ctx)
-		assert.NoError(t, err)
-	}()
+	dp.AddSubscriber(chainID, &DummySubscriber{})
+	return dp
 }
 
-func TestDispatchBlockMsg(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	ctx := context.Background()
-	d := createDispatcher(config.Default.Chain.ID, ctrl)
+func startDispatcher(t *testing.T) (ctx context.Context, d Dispatcher) {
+	ctx = context.Background()
+	d = createDispatcher(t, config.Default.Chain.ID)
 	assert.NotNil(t, d)
-
 	err := d.Start(ctx)
 	assert.NoError(t, err)
-	defer func() {
-		err := d.Stop(ctx)
-		assert.NoError(t, err)
-	}()
+	return
+}
 
-	done := make(chan bool, 1000)
-	for i := 0; i < 1000; i++ {
-		d.HandleBroadcast(config.Default.Chain.ID, &pb.BlockPb{}, done)
-	}
-	for i := 0; i < 1000; i++ {
-		<-done
+func stopDispatcher(ctx context.Context, d Dispatcher, t *testing.T) {
+	err := d.Stop(ctx)
+	assert.NoError(t, err)
+}
+
+func setTestCase() []proto.Message {
+	return []proto.Message{
+		&pb.ActionPb{},
+		&pb.ViewChangeMsg{},
+		&pb.BlockPb{},
+		&pb.BlockSync{},
+		&pb.BlockContainer{},
+		&pb.BlockContainer{Block: &pb.BlockPb{}},
+		&pb.TestPayload{},
 	}
 }
 
-func TestDispatchBlockSyncReq(t *testing.T) {
+func TestHandleBroadcast(t *testing.T) {
+	msgs := setTestCase()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	ctx := context.Background()
-	d := createDispatcher(config.Default.Chain.ID, ctrl)
-	assert.NotNil(t, d)
-
-	err := d.Start(ctx)
-	assert.NoError(t, err)
-	defer func() {
-		err := d.Stop(ctx)
-		assert.NoError(t, err)
-	}()
+	ctx, d := startDispatcher(t)
+	defer stopDispatcher(ctx, d, t)
 
 	done := make(chan bool, 1000)
-	for i := 0; i < 1000; i++ {
-		d.HandleTell(config.Default.Chain.ID, node.NewTCPNode("192.168.0.0:10000"), &pb.BlockSync{}, done)
-	}
-	for i := 0; i < 1000; i++ {
-		<-done
+	for i := 0; i < 100; i++ {
+		for _, msg := range msgs {
+			d.HandleBroadcast(config.Default.Chain.ID, msg, done)
+		}
 	}
 }
 
-func TestDispatchBlockSyncData(t *testing.T) {
+func TestHandleTell(t *testing.T) {
+	msgs := setTestCase()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	ctx := context.Background()
-	d := createDispatcher(config.Default.Chain.ID, ctrl)
-	assert.NotNil(t, d)
-
-	err := d.Start(ctx)
-	assert.NoError(t, err)
-	defer func() {
-		err := d.Stop(ctx)
-		assert.NoError(t, err)
-	}()
+	ctx, d := startDispatcher(t)
+	defer stopDispatcher(ctx, d, t)
 
 	done := make(chan bool, 1000)
-	for i := 0; i < 1000; i++ {
-		d.HandleTell(
-			config.Default.Chain.ID,
-			node.NewTCPNode("192.168.0.0:10000"),
-			&pb.BlockContainer{Block: &pb.BlockPb{}},
-			done,
-		)
-	}
-	for i := 0; i < 1000; i++ {
-		<-done
+	for i := 0; i < 100; i++ {
+		for _, msg := range msgs {
+			d.HandleTell(config.Default.Chain.ID, node.NewTCPNode("192.168.0.0:10000"), msg, done)
+		}
 	}
 }
 
@@ -137,17 +113,4 @@ func (s *DummySubscriber) HandleViewChange(proto.Message) error {
 
 func (s *DummySubscriber) HandleBlockPropose(proto.Message) error {
 	return nil
-}
-
-func createDispatcher(
-	chainID uint32,
-	ctrl *gomock.Controller,
-) Dispatcher {
-	cfg := &config.Config{
-		Consensus:  config.Consensus{Scheme: config.NOOPScheme},
-		Dispatcher: config.Dispatcher{EventChanSize: 1024},
-	}
-	dp, _ := NewDispatcher(cfg)
-	dp.AddSubscriber(chainID, &DummySubscriber{})
-	return dp
 }
