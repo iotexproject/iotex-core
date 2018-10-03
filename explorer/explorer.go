@@ -894,11 +894,11 @@ func (exp *Service) SendTransfer(tsfJSON explorer.SendTransferRequest) (resp exp
 		Signature: signature,
 	}
 	// broadcast to the network
-	if err = exp.p2p.Broadcast(config.Default.Chain.ID, actPb); err != nil {
+	if err = exp.p2p.Broadcast(exp.bc.ChainID(), actPb); err != nil {
 		return explorer.SendTransferResponse{}, err
 	}
 	// send to actpool via dispatcher
-	exp.dp.HandleBroadcast(config.Default.Chain.ID, actPb, nil)
+	exp.dp.HandleBroadcast(exp.bc.ChainID(), actPb, nil)
 
 	tsf := &action.Transfer{}
 	tsf.ConvertFromActionPb(actPb)
@@ -941,11 +941,11 @@ func (exp *Service) SendVote(voteJSON explorer.SendVoteRequest) (resp explorer.S
 		Signature: signature,
 	}
 	// broadcast to the network
-	if err = exp.p2p.Broadcast(config.Default.Chain.ID, actPb); err != nil {
+	if err = exp.p2p.Broadcast(exp.bc.ChainID(), actPb); err != nil {
 		return explorer.SendVoteResponse{}, err
 	}
 	// send to actpool via dispatcher
-	exp.dp.HandleBroadcast(config.Default.Chain.ID, actPb, nil)
+	exp.dp.HandleBroadcast(exp.bc.ChainID(), actPb, nil)
 
 	v := &action.Vote{}
 	v.ConvertFromActionPb(actPb)
@@ -1008,11 +1008,11 @@ func (exp *Service) SendSmartContract(execution explorer.Execution) (resp explor
 		Signature: signature,
 	}
 	// broadcast to the network
-	if err = exp.p2p.Broadcast(config.Default.Chain.ID, actPb); err != nil {
+	if err = exp.p2p.Broadcast(exp.bc.ChainID(), actPb); err != nil {
 		return explorer.SendSmartContractResponse{}, err
 	}
 	// send to actpool via dispatcher
-	exp.dp.HandleBroadcast(config.Default.Chain.ID, actPb, nil)
+	exp.dp.HandleBroadcast(exp.bc.ChainID(), actPb, nil)
 
 	sc := &action.Execution{}
 	sc.ConvertFromActionPb(actPb)
