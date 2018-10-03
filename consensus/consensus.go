@@ -129,33 +129,33 @@ func NewConsensus(
 			SetP2P(p2p)
 		if ops.rootChainAPI != nil {
 			bd = bd.SetCandidatesByHeightFunc(func(h uint64) ([]*state.Candidate, error) {
-				var cs []*state.Candidate
+				var rawcs []explorerapi.Candidate
 				for {
 					re, err := ops.rootChainAPI.GetCandidateMetricsByHeight(int64(h))
-					if err != nil {
-						logger.Warn().Err(err).
-							Uint64("height", h).
-							Msg("error when get root chain candidate.")
-						clock.Sleep(5 * time.Second)
-						continue
+					if err == nil {
+						rawcs = re.Candidates
+						break
 					}
-					rawcs := re.Candidates
-					cs = make([]*state.Candidate, 0, len(rawcs))
-					for _, rawc := range rawcs {
-						pubKeyBytes, err := keypair.StringToPubKeyBytes(rawc.PubKey)
-						if err != nil {
-							logger.Panic().Err(err).Msg("error when convert candidate PublicKey")
-						}
-						cs = append(cs, &state.Candidate{
-							Address:          rawc.Address,
-							PubKey:           pubKeyBytes,
-							Votes:            big.NewInt(rawc.TotalVote),
-							CreationHeight:   uint64(rawc.CreationHeight),
-							LastUpdateHeight: uint64(rawc.LastUpdateHeight),
-						})
-					}
-					return cs, nil
+					logger.Warn().Err(err).
+						Uint64("height", h).
+						Msg("error when get root chain candidate.")
+					clock.Sleep(5 * time.Second)
 				}
+				cs := make([]*state.Candidate, 0, len(rawcs))
+				for _, rawc := range rawcs {
+					pubKeyBytes, err := keypair.StringToPubKeyBytes(rawc.PubKey)
+					if err != nil {
+						logger.Panic().Err(err).Msg("error when convert candidate PublicKey")
+					}
+					cs = append(cs, &state.Candidate{
+						Address:          rawc.Address,
+						PubKey:           pubKeyBytes,
+						Votes:            big.NewInt(rawc.TotalVote),
+						CreationHeight:   uint64(rawc.CreationHeight),
+						LastUpdateHeight: uint64(rawc.LastUpdateHeight),
+					})
+				}
+				return cs, nil
 			})
 		}
 		cs.scheme, err = bd.Build()
