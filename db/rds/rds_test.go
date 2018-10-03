@@ -22,13 +22,7 @@ import (
 )
 
 var (
-	cfg = &config.RDS{
-		AwsRDSEndpoint: "iotex-explorer-db.ctcedgqcwrb5.us-west-1.rds.amazonaws.com",
-		AwsRDSPort:     4086,
-		AwsRDSUser:     "explorer_admin",
-		AwsPass:        "j1cDiH7W7QCB",
-		AwsDBName:      "explorer",
-	}
+	cfg = &config.RDS{}
 )
 
 type TransferHistory struct {
@@ -38,7 +32,9 @@ type TransferHistory struct {
 }
 
 func TestRDSStorePutGet(t *testing.T) {
-	testRDSStorePutGet := func(rdsStore RDSStore, t *testing.T) {
+	testRDSStorePutGet := func(rdsStore Store, t *testing.T) {
+		t.Skip("Skipping when RDS credentail not provided.")
+
 		require := require.New(t)
 		ctx := context.Background()
 
@@ -113,7 +109,9 @@ func TestRDSStorePutGet(t *testing.T) {
 }
 
 func TestRDSStoreTransaction(t *testing.T) {
-	testRDSStoreTransaction := func(rdsStore RDSStore, t *testing.T) {
+	testRDSStoreTransaction := func(rdsStore Store, t *testing.T) {
+		t.Skip("Skipping when RDS credentail not provided.")
+
 		require := require.New(t)
 		ctx := context.Background()
 

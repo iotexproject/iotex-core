@@ -10,12 +10,12 @@ import (
 	// we need mysql import because it's called in file, (but compile will complain because there is no display)
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
+	"log"
 )
 
-// RDSStore is the interface of KV store.
-type RDSStore interface {
+// Store is the interface of KV store.
+type Store interface {
 	lifecycle.StartStopper
 
 	// Get DB instance
@@ -33,7 +33,7 @@ type rds struct {
 }
 
 // NewAwsRDS instantiates an aws RDS based RDS
-func NewAwsRDS(cfg *config.RDS) RDSStore {
+func NewAwsRDS(cfg *config.RDS) Store {
 	return &rds{db: nil, config: cfg}
 }
 
@@ -91,12 +91,14 @@ func (r *rds) Transact(txFunc func(*sql.Tx) error) error {
 	}
 	defer func() {
 		if p := recover(); p != nil {
-			tx.Rollback()
-			logger.Panic() // re-throw panic after Rollback
+			err = tx.Rollback()
+			log.Fatal(err) // log err after Rollback
 		} else if err != nil {
-			tx.Rollback() // err is non-nil; don't change it
+			err = tx.Rollback() // err is non-nil; don't change it
+			log.Fatal(err)
 		} else {
 			err = tx.Commit() // err is nil; if Commit returns error update err
+			log.Fatal(err)
 		}
 	}()
 	err = txFunc(tx)
