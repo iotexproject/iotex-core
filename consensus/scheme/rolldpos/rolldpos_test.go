@@ -55,7 +55,7 @@ func TestRollDPoSCtx(t *testing.T) {
 		1,
 		8,
 		prevHash,
-		testutil.TimestampNow(),
+		testutil.TimestampNowFromClock(clock),
 		make([]*action.Transfer, 0),
 		make([]*action.Vote, 0),
 		make([]*action.Execution, 0),
