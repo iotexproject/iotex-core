@@ -7,8 +7,8 @@ package mock_consensus
 import (
 	context "context"
 	gomock "github.com/golang/mock/gomock"
-	proto "github.com/golang/protobuf/proto"
 	scheme "github.com/iotexproject/iotex-core/consensus/scheme"
+	proto "github.com/iotexproject/iotex-core/proto"
 	reflect "reflect"
 )
 
@@ -59,20 +59,8 @@ func (mr *MockConsensusMockRecorder) Stop(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockConsensus)(nil).Stop), arg0)
 }
 
-// HandleViewChange mocks base method
-func (m *MockConsensus) HandleViewChange(arg0 proto.Message) error {
-	ret := m.ctrl.Call(m, "HandleViewChange", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// HandleViewChange indicates an expected call of HandleViewChange
-func (mr *MockConsensusMockRecorder) HandleViewChange(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleViewChange", reflect.TypeOf((*MockConsensus)(nil).HandleViewChange), arg0)
-}
-
 // HandleBlockPropose mocks base method
-func (m *MockConsensus) HandleBlockPropose(arg0 proto.Message) error {
+func (m *MockConsensus) HandleBlockPropose(arg0 *proto.ProposePb) error {
 	ret := m.ctrl.Call(m, "HandleBlockPropose", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -81,6 +69,18 @@ func (m *MockConsensus) HandleBlockPropose(arg0 proto.Message) error {
 // HandleBlockPropose indicates an expected call of HandleBlockPropose
 func (mr *MockConsensusMockRecorder) HandleBlockPropose(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleBlockPropose", reflect.TypeOf((*MockConsensus)(nil).HandleBlockPropose), arg0)
+}
+
+// HandleEndorse mocks base method
+func (m *MockConsensus) HandleEndorse(arg0 *proto.EndorsePb) error {
+	ret := m.ctrl.Call(m, "HandleEndorse", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// HandleEndorse indicates an expected call of HandleEndorse
+func (mr *MockConsensusMockRecorder) HandleEndorse(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleEndorse", reflect.TypeOf((*MockConsensus)(nil).HandleEndorse), arg0)
 }
 
 // Metrics mocks base method

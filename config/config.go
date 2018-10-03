@@ -108,20 +108,20 @@ var (
 		Consensus: Consensus{
 			Scheme: NOOPScheme,
 			RollDPoS: RollDPoS{
-				DelegateInterval:       10 * time.Second,
-				ProposerInterval:       10 * time.Second,
-				UnmatchedEventTTL:      3 * time.Second,
-				UnmatchedEventInterval: 100 * time.Millisecond,
-				RoundStartTTL:          10 * time.Second,
-				AcceptProposeTTL:       time.Second,
-				AcceptPrevoteTTL:       time.Second,
-				AcceptVoteTTL:          time.Second,
-				Delay:                  5 * time.Second,
-				NumSubEpochs:           1,
-				EventChanSize:          10000,
-				NumDelegates:           21,
-				EnableDummyBlock:       true,
-				TimeBasedRotation:      false,
+				DelegateInterval:         10 * time.Second,
+				ProposerInterval:         10 * time.Second,
+				UnmatchedEventTTL:        3 * time.Second,
+				UnmatchedEventInterval:   100 * time.Millisecond,
+				RoundStartTTL:            10 * time.Second,
+				AcceptProposeTTL:         time.Second,
+				AcceptProposalEndorseTTL: time.Second,
+				AcceptCommitEndorseTTL:   time.Second,
+				Delay:             5 * time.Second,
+				NumSubEpochs:      1,
+				EventChanSize:     10000,
+				NumDelegates:      21,
+				EnableDummyBlock:  true,
+				TimeBasedRotation: false,
 			},
 			BlockCreationInterval: 10 * time.Second,
 		},
@@ -230,20 +230,20 @@ type (
 
 	// RollDPoS is the config struct for RollDPoS consensus package
 	RollDPoS struct {
-		DelegateInterval       time.Duration `yaml:"delegateInterval"`
-		ProposerInterval       time.Duration `yaml:"proposerInterval"`
-		UnmatchedEventTTL      time.Duration `yaml:"unmatchedEventTTL"`
-		UnmatchedEventInterval time.Duration `yaml:"unmatchedEventInterval"`
-		RoundStartTTL          time.Duration `yaml:"roundStartTTL"`
-		AcceptProposeTTL       time.Duration `yaml:"acceptProposeTTL"`
-		AcceptPrevoteTTL       time.Duration `yaml:"acceptPrevoteTTL"`
-		AcceptVoteTTL          time.Duration `yaml:"acceptVoteTTL"`
-		Delay                  time.Duration `yaml:"delay"`
-		NumSubEpochs           uint          `yaml:"numSubEpochs"`
-		EventChanSize          uint          `yaml:"eventChanSize"`
-		NumDelegates           uint          `yaml:"numDelegates"`
-		EnableDummyBlock       bool          `yaml:"enableDummyBlock"`
-		TimeBasedRotation      bool          `yaml:"timeBasedRotation"`
+		DelegateInterval         time.Duration `yaml:"delegateInterval"`
+		ProposerInterval         time.Duration `yaml:"proposerInterval"`
+		UnmatchedEventTTL        time.Duration `yaml:"unmatchedEventTTL"`
+		UnmatchedEventInterval   time.Duration `yaml:"unmatchedEventInterval"`
+		RoundStartTTL            time.Duration `yaml:"roundStartTTL"`
+		AcceptProposeTTL         time.Duration `yaml:"acceptProposeTTL"`
+		AcceptProposalEndorseTTL time.Duration `yaml:"acceptProposalEndorseTTL"`
+		AcceptCommitEndorseTTL   time.Duration `yaml:"acceptCommitEndorseTTL"`
+		Delay                    time.Duration `yaml:"delay"`
+		NumSubEpochs             uint          `yaml:"numSubEpochs"`
+		EventChanSize            uint          `yaml:"eventChanSize"`
+		NumDelegates             uint          `yaml:"numDelegates"`
+		EnableDummyBlock         bool          `yaml:"enableDummyBlock"`
+		TimeBasedRotation        bool          `yaml:"timeBasedRotation"`
 	}
 
 	// Dispatcher is the dispatcher config

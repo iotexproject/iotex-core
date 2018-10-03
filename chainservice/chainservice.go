@@ -4,7 +4,6 @@ import (
 	"context"
 	"os"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/actpool"
@@ -170,14 +169,14 @@ func (cs *ChainService) HandleSyncRequest(sender string, sync *pb.BlockSync) err
 	return cs.blocksync.ProcessSyncRequest(sender, sync)
 }
 
-// HandleViewChange handles incoming view change request.
-func (cs *ChainService) HandleViewChange(msg proto.Message) error {
-	return cs.consensus.HandleViewChange(msg)
+// HandleBlockPropose handles incoming block propose request.
+func (cs *ChainService) HandleBlockPropose(propose *pb.ProposePb) error {
+	return cs.consensus.HandleBlockPropose(propose)
 }
 
-// HandleBlockPropose handles incoming block propose request.
-func (cs *ChainService) HandleBlockPropose(msg proto.Message) error {
-	return cs.consensus.HandleBlockPropose(msg)
+// HandleEndorse handles incoming endorse request.
+func (cs *ChainService) HandleEndorse(endorse *pb.EndorsePb) error {
+	return cs.consensus.HandleEndorse(endorse)
 }
 
 // ChainID returns ChainID.
