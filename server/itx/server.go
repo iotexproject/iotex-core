@@ -60,7 +60,6 @@ func newServer(cfg *config.Config, testing bool) (*Server, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "fail to create chain service")
 	}
-	cs.Explorer().Explorer()
 
 	chains[cs.ChainID()] = cs
 	dispatcher.AddSubscriber(cs.ChainID(), cs)
