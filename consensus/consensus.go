@@ -9,7 +9,6 @@ package consensus
 import (
 	"context"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/actpool"
@@ -20,17 +19,17 @@ import (
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network"
-	"github.com/iotexproject/iotex-core/pkg/errcode"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
+	"github.com/iotexproject/iotex-core/proto"
 )
 
 // Consensus is the interface for handling IotxConsensus view change.
 type Consensus interface {
 	lifecycle.StartStopper
 
-	HandleViewChange(proto.Message) error
-	HandleBlockPropose(proto.Message) error
+	HandleBlockPropose(*iproto.ProposePb) error
+	HandleEndorse(*iproto.EndorsePb) error
 	Metrics() (scheme.ConsensusMetrics, error)
 }
 
@@ -153,14 +152,14 @@ func (c *IotxConsensus) Metrics() (scheme.ConsensusMetrics, error) {
 	return c.scheme.Metrics()
 }
 
-// HandleViewChange dispatches the call to different schemes
-func (c *IotxConsensus) HandleViewChange(m proto.Message) error {
-	return c.scheme.Handle(m)
+// HandleBlockPropose handles a proposed block
+func (c *IotxConsensus) HandleBlockPropose(propose *iproto.ProposePb) error {
+	return c.scheme.HandleBlockPropose(propose)
 }
 
-// HandleBlockPropose handles a proposed block
-func (c *IotxConsensus) HandleBlockPropose(m proto.Message) error {
-	return errcode.ErrNotImplemented
+// HandleEndorse handle an endorse
+func (c *IotxConsensus) HandleEndorse(endorse *iproto.EndorsePb) error {
+	return c.scheme.HandleEndorse(endorse)
 }
 
 // Scheme returns the scheme instance

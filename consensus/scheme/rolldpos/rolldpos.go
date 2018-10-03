@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/facebookgo/clock"
-	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/zjshen14/go-fsm"
@@ -231,12 +230,12 @@ type epochCtx struct {
 
 // roundCtx keeps the context data for the current round and block.
 type roundCtx struct {
-	height    uint64
-	timestamp time.Time
-	block     *blockchain.Block
-	prevotes  map[string]bool
-	votes     map[string]bool
-	proposer  string
+	height           uint64
+	timestamp        time.Time
+	block            *blockchain.Block
+	proposalEndorses map[hash.Hash32B]map[string]bool
+	commitEndorses   map[hash.Hash32B]map[string]bool
+	proposer         string
 }
 
 // RollDPoS is Roll-DPoS consensus main entrance
@@ -259,13 +258,23 @@ func (r *RollDPoS) Stop(ctx context.Context) error {
 	return errors.Wrap(r.cfsm.Stop(ctx), "error when stopping the consensus FSM")
 }
 
-// Handle handles RollDPoS events coming from the network from other delegates
-func (r *RollDPoS) Handle(msg proto.Message) error {
-	cEvt, err := r.convertToConsensusEvt(msg)
+// HandleBlockPropose handles incoming block propose
+func (r *RollDPoS) HandleBlockPropose(propose *iproto.ProposePb) error {
+	pbEvt, err := r.cfsm.newProposeBlkEvtFromProposePb(propose)
 	if err != nil {
-		return errors.Wrap(err, "error when converting a proto msg to a consensus event")
+		return errors.Wrap(err, "error when casting a proto msg to proposeBlkEvt")
 	}
-	r.cfsm.produce(cEvt, 0)
+	r.cfsm.produce(pbEvt, 0)
+	return nil
+}
+
+// HandleEndorse handles incoming endorse
+func (r *RollDPoS) HandleEndorse(ePb *iproto.EndorsePb) error {
+	eEvt, err := r.cfsm.newEndorseEvtWithEndorsePb(ePb)
+	if err != nil {
+		return errors.Wrap(err, "error when casting a proto msg to endorse")
+	}
+	r.cfsm.produce(eEvt, 0)
 	return nil
 }
 
@@ -321,39 +330,6 @@ func (r *RollDPoS) NumPendingEvts() int {
 // CurrentState returns the current state
 func (r *RollDPoS) CurrentState() fsm.State {
 	return r.cfsm.fsm.CurrentState()
-}
-
-func (r *RollDPoS) convertToConsensusEvt(msg proto.Message) (iConsensusEvt, error) {
-	vcMsg, ok := msg.(*iproto.ViewChangeMsg)
-	if !ok {
-		return nil, errors.Wrap(ErrEvtCast, "error when casting a proto msg to a ViewChangeMsg")
-	}
-	var cEvt iConsensusEvt
-	switch vcMsg.Vctype {
-	case iproto.ViewChangeMsg_PROPOSE:
-		pbEvt := r.cfsm.newProposeBlkEvt(nil)
-		if err := pbEvt.fromProtoMsg(vcMsg); err != nil {
-			return nil, errors.Wrap(err, "error when casting a proto msg to proposeBlkEvt")
-		}
-		cEvt = pbEvt
-	case iproto.ViewChangeMsg_PREVOTE:
-		var blkHash hash.Hash32B
-		pvEvt := r.cfsm.newPrevoteEvt(blkHash, false)
-		if err := pvEvt.fromProtoMsg(vcMsg); err != nil {
-			return nil, errors.Wrap(err, "error when casting a proto msg to prevoteEvt")
-		}
-		cEvt = pvEvt
-	case iproto.ViewChangeMsg_VOTE:
-		var blkHash hash.Hash32B
-		vEvt := r.cfsm.newVoteEvt(blkHash, false)
-		if err := vEvt.fromProtoMsg(vcMsg); err != nil {
-			return nil, errors.Wrap(err, "error when casting a proto msg to voteEvt")
-		}
-		cEvt = vEvt
-	default:
-		return nil, errors.Wrapf(ErrEvtCast, "unexpected ViewChangeMsg type %d", vcMsg.Vctype)
-	}
-	return cEvt, nil
 }
 
 // Builder is the builder for RollDPoS

@@ -122,18 +122,25 @@ message BlockContainer {
     BlockPb block = 1;
 }
 
-message ViewChangeMsg {
-    enum ViewChangeType {
-        INVALID_VIEW_CHANGE_TYPE = 0;
-        PROPOSE = 1;
-        PREVOTE = 2;
-        VOTE = 3;
+// corresponding to pre-prepare pharse in view change protocol
+message ProposePb {
+    string proposer = 1;
+    BlockPb block = 2;
+}
+
+// corresponding to prepare and pre-prepare phase in view change protocol
+message EndorsePb {
+    enum EndorsementTopic {
+        PROPOSAL = 0;
+        COMMIT = 1;
     }
-    ViewChangeType vctype = 1;
-    BlockPb block  = 2;
-    bytes blockHash = 3;
-    string senderAddr = 4;
-    bool decision = 5;
+    uint64 height = 1;
+    bytes blockHash = 2;
+    EndorsementTopic topic = 3;
+    string endorser = 4;
+    bytes endorserPubKey = 5;
+    bool decision = 6;
+    bytes signature = 7;
 }
 
 // Candidates and list of candidates

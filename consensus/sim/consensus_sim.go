@@ -35,8 +35,8 @@ const (
 type Sim interface {
 	lifecycle.StartStopper
 
-	HandleViewChange(proto.Message, chan bool) error
-	HandleBlockPropose(proto.Message, chan bool) error
+	HandleEndorse(*iproto.EndorsePb, chan bool) error
+	HandleBlockPropose(*iproto.ProposePb, chan bool) error
 	SetStream(*pbsim.Simulator_PingServer)
 	SetDoneStream(chan bool)
 	SendUnsent()
@@ -236,11 +236,22 @@ func (c *sim) Stop(ctx context.Context) error {
 	return nil
 }
 
-// HandleViewChange dispatches the call to different schemes
-func (c *sim) HandleViewChange(m proto.Message, done chan bool) error {
-	err := c.scheme.Handle(m)
+// HandleBlockPropose handles incoming block propose
+func (c *sim) HandleBlockPropose(m *iproto.ProposePb, done chan bool) error {
+	if err := c.scheme.HandleBlockPropose(m); err != nil {
+		return err
+	}
 	c.scheme.SetDoneStream(done)
-	return err
+	return nil
+}
+
+// HandleEndorse handles incoming endorse
+func (c *sim) HandleEndorse(m *iproto.EndorsePb, done chan bool) error {
+	if err := c.scheme.HandleEndorse(m); err != nil {
+		return err
+	}
+	c.scheme.SetDoneStream(done)
+	return nil
 }
 
 // SendUnsent sends all the unsent messages that were not able to send previously
@@ -261,11 +272,6 @@ func (c *sim) SendUnsent() {
 // SetDoneStream takes in a boolean channel which will be filled when the IotxConsensus is done processing
 func (c *sim) SetDoneStream(done chan bool) {
 	c.scheme.SetDoneStream(done)
-}
-
-// HandleBlockPropose handles a proposed block -- not used currently
-func (c *sim) HandleBlockPropose(m proto.Message, done chan bool) error {
-	return nil
 }
 
 // SeparateMsg separates a proto.Message into its msgType and msgBody

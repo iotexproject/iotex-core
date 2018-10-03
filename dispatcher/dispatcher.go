@@ -28,8 +28,8 @@ type Subscriber interface {
 	HandleBlock(*pb.BlockPb) error
 	HandleBlockSync(*pb.BlockPb) error
 	HandleSyncRequest(string, *pb.BlockSync) error
-	HandleViewChange(proto.Message) error
-	HandleBlockPropose(proto.Message) error
+	HandleBlockPropose(*pb.ProposePb) error
+	HandleEndorse(*pb.EndorsePb) error
 }
 
 // Dispatcher is used by peers, handles incoming block and header notifications and relays announcements of new blocks.
@@ -321,14 +321,26 @@ func (d *IotxDispatcher) HandleBroadcast(chainID uint32, message proto.Message, 
 	}
 
 	switch msgType {
-	case pb.ViewChangeMsgType:
-		err := subscriber.HandleViewChange(message)
+	case pb.MsgProposeProtoMsgType:
+		err := subscriber.HandleBlockPropose(message.(*pb.ProposePb))
 		if err != nil {
 			logger.Error().
 				Err(err).
-				Msgf("failed to handle view change")
+				Msg("failed to handle block propose")
 		}
-		done <- true
+		if done != nil {
+			done <- true
+		}
+	case pb.MsgEndorseProtoMsgType:
+		err := subscriber.HandleEndorse(message.(*pb.EndorsePb))
+		if err != nil {
+			logger.Error().
+				Err(err).
+				Msg("failed to handle endorse")
+		}
+		if done != nil {
+			done <- true
+		}
 	case pb.MsgActionType:
 		d.dispatchAction(chainID, message, done)
 	case pb.MsgBlockProtoMsgType:
@@ -348,27 +360,11 @@ func (d *IotxDispatcher) HandleTell(chainID uint32, sender net.Addr, message pro
 			Str("error", err.Error()).
 			Msg("unexpected message handled by HandleTell")
 	}
-	subscriber, ok := d.subscribers[chainID]
-	if !ok {
-		logger.Warn().
-			Uint32("chainID", chainID).
-			Msg("chainID has not been registered in dispatcher")
-		return
-	}
-
 	switch msgType {
 	case pb.MsgBlockSyncReqType:
 		d.dispatchBlockSyncReq(chainID, sender.String(), message, done)
 	case pb.MsgBlockSyncDataType:
 		d.dispatchBlockSyncData(chainID, message, done)
-	case pb.MsgBlockProtoMsgType:
-		err := subscriber.HandleBlockPropose(message)
-		if err != nil {
-			logger.Error().
-				Err(err).
-				Msgf("failed to handle block propose")
-		}
-		done <- true
 	default:
 		logger.Warn().
 			Uint32("msgType", msgType).
