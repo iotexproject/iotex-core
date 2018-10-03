@@ -137,6 +137,7 @@ func NewConsensus(
 							Uint64("height", h).
 							Msg("error when get root chain candidate.")
 						clock.Sleep(5 * time.Second)
+						continue
 					}
 					rawcs := re.Candidates
 					cs = make([]*state.Candidate, 0, len(rawcs))
