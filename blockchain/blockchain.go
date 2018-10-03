@@ -672,7 +672,7 @@ func (bc *blockchain) MintNewSecretBlock(
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
 
-	blk := NewSecretBlock(bc.config.Chain.ID, bc.tipHeight+1, bc.tipHash, bc.clk, secretProposals, secretWitness)
+	blk := NewSecretBlock(bc.config.Chain.ID, bc.tipHeight+1, bc.tipHash, bc.now(), secretProposals, secretWitness)
 	// run execution and update account trie root hash
 	root, err := bc.runActions(blk, false)
 	if err != nil {
@@ -846,6 +846,6 @@ func (bc *blockchain) replaceHeightAndHash(blk *Block) (uint64, hash.Hash32B, er
 	return tipHeight, tipHash, nil
 }
 
-func (bc *blockchain) now() uint64  {
+func (bc *blockchain) now() uint64 {
 	return uint64(bc.clk.Now().Unix())
 }

@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/facebookgo/clock"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -61,8 +60,8 @@ func TestSyncTaskInterval(t *testing.T) {
 
 func generateP2P() network.Overlay {
 	c := &config.Network{
-		Host: "127.0.0.1",
-		Port: 10001,
+		Host:                    "127.0.0.1",
+		Port:                    10001,
 		MsgLogsCleaningInterval: 2 * time.Second,
 		MsgLogRetention:         10 * time.Second,
 		HealthCheckInterval:     time.Second,
