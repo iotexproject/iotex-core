@@ -3,6 +3,7 @@ package rds
 import (
 	"context"
 	"fmt"
+	"log"
 	"sync"
 
 	"database/sql"
@@ -11,7 +12,6 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
-	"log"
 )
 
 // Store is the interface of KV store.
