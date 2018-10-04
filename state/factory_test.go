@@ -285,12 +285,12 @@ func voteForm(height uint64, cs []*Candidate) []string {
 
 func TestCandidates(t *testing.T) {
 	// Create three dummy iotex addresses
-	a, _ := testaddress.Addrinfo["alfa"]
-	b, _ := testaddress.Addrinfo["bravo"]
-	c, _ := testaddress.Addrinfo["charlie"]
-	d, _ := testaddress.Addrinfo["delta"]
-	e, _ := testaddress.Addrinfo["echo"]
-	f, _ := testaddress.Addrinfo["foxtrot"]
+	a := testaddress.Addrinfo["alfa"]
+	b := testaddress.Addrinfo["bravo"]
+	c := testaddress.Addrinfo["charlie"]
+	d := testaddress.Addrinfo["delta"]
+	e := testaddress.Addrinfo["echo"]
+	f := testaddress.Addrinfo["foxtrot"]
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
 
@@ -707,8 +707,8 @@ func TestCandidatesByHeight(t *testing.T) {
 
 func TestUnvote(t *testing.T) {
 	// Create three dummy iotex addresses
-	a, _ := testaddress.Addrinfo["alfa"]
-	b, _ := testaddress.Addrinfo["bravo"]
+	a := testaddress.Addrinfo["alfa"]
+	b := testaddress.Addrinfo["bravo"]
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)

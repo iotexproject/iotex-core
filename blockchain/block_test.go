@@ -68,28 +68,33 @@ func TestMerkle(t *testing.T) {
 	require.NotNil(cbtsf4)
 
 	// verify tx hash
-	hash0, _ := hex.DecodeString("057f3817e6eefc3eadfb14a3bee75aafd7d1913a54798cc339e394b9860c8bcd")
+	hash0, e := hex.DecodeString("057f3817e6eefc3eadfb14a3bee75aafd7d1913a54798cc339e394b9860c8bcd")
+	require.NoError(e)
 	actual := cbtsf0.Hash()
 	require.Equal(hash0, actual[:])
 	t.Logf("actual hash = %x", actual[:])
 
-	hash1, _ := hex.DecodeString("c5363bbfd115ca7457e34883a0af2274334561e4cc4b7f977df9890c918eeb0e")
+	hash1, e := hex.DecodeString("c5363bbfd115ca7457e34883a0af2274334561e4cc4b7f977df9890c918eeb0e")
+	require.NoError(e)
 	actual = cbtsf1.Hash()
 	require.Equal(hash1, actual[:])
 	t.Logf("actual hash = %x", actual[:])
 
-	hash2, _ := hex.DecodeString("a587acce738d152fbf6aee0422ad9d9b69a0c78a8b362fe618a8a5f6b386ea0e")
+	hash2, e := hex.DecodeString("a587acce738d152fbf6aee0422ad9d9b69a0c78a8b362fe618a8a5f6b386ea0e")
+	require.NoError(e)
 	actual = cbtsf2.Hash()
 	require.Equal(hash2, actual[:])
 	//require.Equal(hash2, actual[:])
 	t.Logf("actual hash = %x", actual[:])
 
-	hash3, _ := hex.DecodeString("95326afce0c2b6e86c8bece513675306cd690c86b35ba7c0d41c1bc3611976d1")
+	hash3, e := hex.DecodeString("95326afce0c2b6e86c8bece513675306cd690c86b35ba7c0d41c1bc3611976d1")
+	require.NoError(e)
 	actual = cbtsf3.Hash()
 	require.Equal(hash3, actual[:])
 	t.Logf("actual hash = %x", actual[:])
 
-	hash4, _ := hex.DecodeString("9e2e1f21422978399a5626ee80f53ec30f1c056a5b924275cb408befe2ac0837")
+	hash4, e := hex.DecodeString("9e2e1f21422978399a5626ee80f53ec30f1c056a5b924275cb408befe2ac0837")
+	require.NoError(e)
 	actual = cbtsf4.Hash()
 	require.Equal(hash4, actual[:])
 	t.Logf("actual hash = %x", actual[:])

@@ -689,7 +689,8 @@ func TestBlockchain_StateByAddr(t *testing.T) {
 	require.NoError(bc.Start(context.Background()))
 	require.NotNil(bc)
 
-	s, _ := bc.StateByAddr(Gen.CreatorAddr(cfg.Chain.ID))
+	s, err := bc.StateByAddr(Gen.CreatorAddr(cfg.Chain.ID))
+	require.NoError(err)
 	require.Equal(uint64(0), s.Nonce)
 	require.Equal(big.NewInt(7700000000), s.Balance)
 	require.Equal(hash.ZeroHash32B, s.Root)
@@ -721,8 +722,8 @@ func TestBlocks(t *testing.T) {
 	// Create a blockchain from scratch
 	bc := NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	require.NoError(bc.Start(context.Background()))
-	a, _ := ta.Addrinfo["alfa"]
-	c, _ := ta.Addrinfo["bravo"]
+	a := ta.Addrinfo["alfa"]
+	c := ta.Addrinfo["bravo"]
 	sf.LoadOrCreateState(a.RawAddress, uint64(100000))
 	sf.LoadOrCreateState(c.RawAddress, uint64(100000))
 
@@ -761,8 +762,8 @@ func TestActions(t *testing.T) {
 	// Create a blockchain from scratch
 	bc := NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	require.NoError(bc.Start(context.Background()))
-	a, _ := ta.Addrinfo["alfa"]
-	c, _ := ta.Addrinfo["bravo"]
+	a := ta.Addrinfo["alfa"]
+	c := ta.Addrinfo["bravo"]
 	sf.LoadOrCreateState(a.RawAddress, uint64(100000))
 	sf.LoadOrCreateState(c.RawAddress, uint64(100000))
 

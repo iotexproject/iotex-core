@@ -37,7 +37,7 @@ func TestCreateContract(t *testing.T) {
 	require.Nil(sf.Start(context.Background()))
 
 	code := []byte("test contract creation")
-	addr, _ := testaddress.Addrinfo["alfa"]
+	addr := testaddress.Addrinfo["alfa"]
 	_, err = sf.LoadOrCreateState(addr.RawAddress, 0)
 	require.Nil(err)
 	contractHash, _ := iotxaddress.GetPubkeyHash(addr.RawAddress)
@@ -96,7 +96,7 @@ func TestLoadStoreContract(t *testing.T) {
 	require.Nil(sf.Start(context.Background()))
 
 	code := []byte("test contract creation")
-	addr, _ := testaddress.Addrinfo["alfa"]
+	addr := testaddress.Addrinfo["alfa"]
 	_, err = sf.LoadOrCreateState(addr.RawAddress, 0)
 	require.Nil(err)
 	contractHash, _ := iotxaddress.GetPubkeyHash(addr.RawAddress)
@@ -116,7 +116,7 @@ func TestLoadStoreContract(t *testing.T) {
 	require.Nil(sf.SetContractState(contract, k2, v2))
 
 	code1 := []byte("2nd contract creation")
-	addr1, _ := testaddress.Addrinfo["bravo"]
+	addr1 := testaddress.Addrinfo["bravo"]
 	_, err = sf.LoadOrCreateState(addr1.RawAddress, 0)
 	require.Nil(err)
 	contractHash, err = iotxaddress.GetPubkeyHash(addr1.RawAddress)
