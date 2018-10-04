@@ -7,7 +7,6 @@
 package blockchain
 
 import (
-	"encoding/hex"
 	"io/ioutil"
 	"math/big"
 
@@ -24,6 +23,7 @@ import (
 )
 
 const testnetActionPath = "testnet_actions.yaml"
+const testActionPath = "test_actions.yaml"
 
 // Genesis defines the Genesis default settings
 type Genesis struct {
@@ -44,16 +44,16 @@ type GenesisAction struct {
 
 // Nominator is the Nominator struct for vote struct
 type Nominator struct {
-	PubKey    string `yaml:"pubKey"`
-	Address   string `yaml:"address"`
-	Signature string `yaml:"signature"`
+	PubKey string `yaml:"pubKey"`
+	PriKey string `yaml:"priKey"`
 }
 
 // Transfer is the Transfer struct
 type Transfer struct {
-	Amount    int64  `yaml:"amount"`
-	Recipient string `yaml:"recipient"`
-	Signature string `yaml:"signature"`
+	Amount       int64  `yaml:"amount"`
+	SenderPri    string `yaml:"senderPri"`
+	SenderPub    string `yaml:"senderPub"`
+	RecipientPub string `yaml:"recipientPub"`
 }
 
 // Gen hardcodes genesis default settings
@@ -73,7 +73,7 @@ func NewGenesisBlock(cfg *config.Config) *Block {
 	if cfg != nil && cfg.Chain.GenesisActionsPath != "" {
 		filePath = cfg.Chain.GenesisActionsPath
 	} else {
-		filePath = fileutil.GetFileAbsPath(testnetActionPath)
+		filePath = fileutil.GetFileAbsPath(testActionPath)
 	}
 
 	actionsBytes, err := ioutil.ReadFile(filePath)
@@ -86,44 +86,78 @@ func NewGenesisBlock(cfg *config.Config) *Block {
 	}
 	votes := []*action.Vote{}
 	for _, nominator := range actions.SelfNominators {
+
+		prik, err := keypair.DecodePrivateKey(nominator.PriKey)
+		if err != nil {
+			logger.Fatal().Err(err).Msg("Fail to read private key of nominator")
+		}
+
 		pubk, err := keypair.DecodePublicKey(nominator.PubKey)
 		if err != nil {
-			logger.Fatal().Err(err).Msg("Fail to create genesis block")
+			logger.Fatal().Err(err).Msg("Fail to read public key of nominator")
 		}
 		pkHash := keypair.HashPubKey(pubk)
 		address := address.New(cfg.Chain.ID, pkHash[:])
+
+		vote, err := action.NewVote(
+			0,
+			address.IotxAddress(),
+			address.IotxAddress(),
+			0,
+			big.NewInt(0),
+		)
 		if err != nil {
-			logger.Fatal().Err(err).Msg("Fail to create genesis block")
+			logger.Fatal().Err(err).Msg("Fail to create the new vote action")
 		}
-		sign, err := hex.DecodeString(nominator.Signature)
-		if err != nil {
-			logger.Fatal().Err(err).Msg("Fail to create genesis block")
+
+		if err := action.Sign(vote, prik); err != nil {
+			logger.Fatal().Err(err).Msg("Fail to sign the new vote action")
 		}
-		vote, err := action.NewVote(0, address.IotxAddress(), address.IotxAddress(), 0, big.NewInt(0))
-		if err != nil {
-			logger.Fatal().Err(err).Msg("Fail to create genesis block")
-		}
+
 		vote.SetVoterPublicKey(pubk)
-		vote.SetSignature(sign)
 		votes = append(votes, vote)
 	}
 
 	transfers := []*action.Transfer{}
-	creatorPK, err := keypair.DecodePublicKey(Gen.CreatorPubKey)
-	if err != nil {
-		logger.Fatal().Err(err).Msg("Fail to create genesis block")
-	}
 	for _, transfer := range actions.Transfers {
-		signature, err := hex.DecodeString(transfer.Signature)
+
+		recipientPubk, err := keypair.DecodePublicKey(transfer.RecipientPub)
 		if err != nil {
-			logger.Fatal().Err(err).Msg("Fail to create genesis block")
+			logger.Fatal().Err(err).Msg("Fail to read public key of the recipient")
 		}
-		tsf, err := action.NewTransfer(0, big.NewInt(transfer.Amount), Gen.CreatorAddr, transfer.Recipient, []byte{}, 0, big.NewInt(0))
+		rpkHash := keypair.HashPubKey(recipientPubk)
+		recipientAddr := address.New(cfg.Chain.ID, rpkHash[:])
+
+		senderPrik, err := keypair.DecodePrivateKey(transfer.SenderPri)
 		if err != nil {
-			logger.Fatal().Err(err).Msg("Fail to create genesis block")
+			logger.Fatal().Err(err).Msg("Fail to read private key of the sender")
 		}
-		tsf.SetSenderPublicKey(creatorPK)
-		tsf.SetSignature(signature)
+
+		senderPubk, err := keypair.DecodePublicKey(transfer.SenderPub)
+		if err != nil {
+			logger.Fatal().Err(err).Msg("Fail to read public key of the sender")
+		}
+		spkHash := keypair.HashPubKey(senderPubk)
+		senderAddr := address.New(cfg.Chain.ID, spkHash[:])
+
+		tsf, err := action.NewTransfer(
+			0,
+			big.NewInt(transfer.Amount),
+			senderAddr.IotxAddress(),
+			recipientAddr.IotxAddress(),
+			[]byte{},
+			0,
+			big.NewInt(0),
+		)
+		if err != nil {
+			logger.Fatal().Err(err).Msg("Fail to create the new transfer action")
+		}
+
+		if err := action.Sign(tsf, senderPrik); err != nil {
+			logger.Fatal().Err(err).Msg("Fail to sign the new transfer action")
+		}
+
+		tsf.SetSenderPublicKey(senderPubk)
 		transfers = append(transfers, tsf)
 	}
 
