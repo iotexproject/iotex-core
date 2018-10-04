@@ -15,6 +15,7 @@ import (
 	"github.com/CoderZhi/go-ethereum/params"
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
@@ -70,10 +71,6 @@ func NewEVMParams(blk *Block, execution *action.Execution, stateDB *EVMStateDBAd
 		return nil, err
 	}
 	executorAddr := common.BytesToAddress(executorHash)
-	executorIoTXAddress, err := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, executorHash)
-	if err != nil {
-		return nil, err
-	}
 	var contractAddrPointer *common.Address
 	if execution.Contract() != action.EmptyAddress {
 		contractHash, err := iotxaddress.GetPubkeyHash(execution.Contract())
@@ -101,7 +98,7 @@ func NewEVMParams(blk *Block, execution *action.Execution, stateDB *EVMStateDBAd
 	return &EVMParams{
 		context,
 		execution.Nonce(),
-		executorIoTXAddress.RawAddress,
+		execution.Executor(),
 		execution.Amount(),
 		contractAddrPointer,
 		execution.GasLimit(),
@@ -219,11 +216,8 @@ func executeInEVM(evmParams *EVMParams, stateDB *EVMStateDBAdapter, gasLimit *ui
 		if err != nil {
 			return nil, evmParams.gas, remainingGas, action.EmptyAddress, err
 		}
-		contractAddress, err := iotxaddress.GetAddressByHash(iotxaddress.IsTestnet, iotxaddress.ChainID, evmContractAddress.Bytes())
-		if err != nil {
-			return nil, evmParams.gas, remainingGas, action.EmptyAddress, err
-		}
-		contractRawAddress = contractAddress.RawAddress
+		contractAddress := address.New(stateDB.bc.ChainID(), evmContractAddress.Bytes())
+		contractRawAddress = contractAddress.IotxAddress()
 	} else {
 		// process contract
 		ret, remainingGas, err = evm.Call(executor, *evmParams.contract, evmParams.data, remainingGas, evmParams.amount)

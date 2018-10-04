@@ -7,25 +7,30 @@
 package e2etest
 
 import (
-	"encoding/hex"
 	"math/big"
 
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/action"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 )
 
 func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	// Add block 1
-	tsf0, _ := action.NewTransfer(1, big.NewInt(3000000000), blockchain.Gen.CreatorAddr, ta.Addrinfo["producer"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
-	pubk, _ := keypair.DecodePublicKey(blockchain.Gen.CreatorPubKey)
-	sign, err := hex.DecodeString("944c7ce2ae9fc87b25539fcfe59c95551d5e9bcddf312941fd2f53266502ac6187135b0000b402c31bb375223c3725619711a8290dee9cb3641d709f862a37cfde76c4b444a54100")
+	tsf0, _ := action.NewTransfer(
+		1,
+		big.NewInt(3000000000),
+		blockchain.Gen.CreatorAddr(config.Default.Chain.ID),
+		ta.Addrinfo["producer"].RawAddress,
+		[]byte{}, uint64(100000),
+		big.NewInt(10),
+	)
+	sk, err := keypair.DecodePrivateKey(blockchain.Gen.CreatorPrivKey)
 	if err != nil {
 		return err
 	}
-	tsf0.SetSenderPublicKey(pubk)
-	tsf0.SetSignature(sign)
+	action.Sign(tsf0, sk)
 	blk, err := bc.MintNewBlock([]*action.Transfer{tsf0}, nil, nil, ta.Addrinfo["producer"], "")
 	if err != nil {
 		return err

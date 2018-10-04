@@ -20,6 +20,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/config"
@@ -27,6 +28,7 @@ import (
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/mock/mock_actpool"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
@@ -848,9 +850,9 @@ func newTestCFSM(
 	require.NoError(t, err)
 	selfPubKey := testaddress.Addrinfo["producer"].PublicKey
 	require.NoError(t, err)
-	address, err := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, iotxaddress.ChainID, selfPubKey)
-	require.NoError(t, err)
-	vote, err := action.NewVote(2, address.RawAddress, address.RawAddress, uint64(100000), big.NewInt(10))
+	selfPubKeyHash := keypair.HashPubKey(selfPubKey)
+	address := address.New(config.Default.Chain.ID, selfPubKeyHash[:])
+	vote, err := action.NewVote(2, address.IotxAddress(), address.IotxAddress(), uint64(100000), big.NewInt(10))
 	require.NoError(t, err)
 	var prevHash hash.Hash32B
 	lastBlk := blockchain.NewBlock(
@@ -923,11 +925,18 @@ func newTestCFSM(
 }
 
 func newTestAddr() *iotxaddress.Address {
-	addr, err := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
+	pk, sk, err := crypto.EC283.NewKeyPair()
 	if err != nil {
 		logger.Panic().Err(err).Msg("error when creating test IoTeX address")
 	}
-	return addr
+	pkHash := keypair.HashPubKey(pk)
+	addr := address.New(config.Default.Chain.ID, pkHash[:])
+	iotxAddr := iotxaddress.Address{
+		PublicKey:  pk,
+		PrivateKey: sk,
+		RawAddress: addr.IotxAddress(),
+	}
+	return &iotxAddr
 }
 
 func TestUpdateSeed(t *testing.T) {
@@ -940,7 +949,7 @@ func TestUpdateSeed(t *testing.T) {
 
 	var err error
 	const numNodes = 21
-	addresses := make([]*iotxaddress.Address, numNodes)
+	addresses := make([]string, numNodes)
 	skList := make([][]uint32, numNodes)
 	idList := make([][]uint8, numNodes)
 	coeffsList := make([][][]uint32, numNodes)
@@ -951,11 +960,19 @@ func TestUpdateSeed(t *testing.T) {
 	qsList := make([][]byte, numNodes)
 	pkList := make([][]byte, numNodes)
 	askList := make([][]uint32, numNodes)
+	ec283PKList := make([]keypair.PublicKey, numNodes)
+	ec283SKList := make([]keypair.PrivateKey, numNodes)
 
 	// Generate 21 identifiers for the delegates
 	for i := 0; i < numNodes; i++ {
-		addresses[i], _ = iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
-		idList[i] = iotxaddress.CreateID(addresses[i].RawAddress)
+		var err error
+		ec283PKList[i], ec283SKList[i], err = crypto.EC283.NewKeyPair()
+		if err != nil {
+			require.NoError(err)
+		}
+		pkHash := keypair.HashPubKey(ec283PKList[i])
+		addresses[i] = address.New(chain.ChainID(), pkHash[:]).IotxAddress()
+		idList[i] = iotxaddress.CreateID(addresses[i])
 		skList[i] = crypto.DKG.SkGeneration()
 	}
 
@@ -995,7 +1012,12 @@ func TestUpdateSeed(t *testing.T) {
 	err = chain.CommitBlock(dummy)
 	require.NoError(err)
 	for i := 1; i < numNodes; i++ {
-		blk, err := chain.MintNewDKGBlock(nil, nil, nil, addresses[i],
+		iotxAddr := iotxaddress.Address{
+			PublicKey:  ec283PKList[i],
+			PrivateKey: ec283SKList[i],
+			RawAddress: addresses[i],
+		}
+		blk, err := chain.MintNewDKGBlock(nil, nil, nil, &iotxAddr,
 			&iotxaddress.DKGAddress{PrivateKey: askList[i], PublicKey: pkList[i], ID: idList[i]},
 			lastSeed, "")
 		require.NoError(err)

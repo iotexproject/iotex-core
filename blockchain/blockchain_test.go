@@ -20,12 +20,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	_hash "github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/state"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -687,7 +689,8 @@ func TestBlockchain_StateByAddr(t *testing.T) {
 	require.NoError(bc.Start(context.Background()))
 	require.NotNil(bc)
 
-	s, _ := bc.StateByAddr(Gen.CreatorAddr)
+	s, err := bc.StateByAddr(Gen.CreatorAddr(cfg.Chain.ID))
+	require.NoError(err)
 	require.Equal(uint64(0), s.Nonce)
 	require.Equal(big.NewInt(7700000000), s.Balance)
 	require.Equal(hash.ZeroHash32B, s.Root)
@@ -719,8 +722,8 @@ func TestBlocks(t *testing.T) {
 	// Create a blockchain from scratch
 	bc := NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	require.NoError(bc.Start(context.Background()))
-	a, _ := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
-	c, _ := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
+	a := ta.Addrinfo["alfa"]
+	c := ta.Addrinfo["bravo"]
 	sf.LoadOrCreateState(a.RawAddress, uint64(100000))
 	sf.LoadOrCreateState(c.RawAddress, uint64(100000))
 
@@ -759,8 +762,8 @@ func TestActions(t *testing.T) {
 	// Create a blockchain from scratch
 	bc := NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	require.NoError(bc.Start(context.Background()))
-	a, _ := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
-	c, _ := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
+	a := ta.Addrinfo["alfa"]
+	c := ta.Addrinfo["bravo"]
 	sf.LoadOrCreateState(a.RawAddress, uint64(100000))
 	sf.LoadOrCreateState(c.RawAddress, uint64(100000))
 
@@ -867,7 +870,7 @@ func TestMintDKGBlock(t *testing.T) {
 
 	var err error
 	const numNodes = 21
-	addresses := make([]*iotxaddress.Address, numNodes)
+	addresses := make([]string, numNodes)
 	skList := make([][]uint32, numNodes)
 	idList := make([][]uint8, numNodes)
 	coeffsList := make([][][]uint32, numNodes)
@@ -878,11 +881,17 @@ func TestMintDKGBlock(t *testing.T) {
 	qsList := make([][]byte, numNodes)
 	pkList := make([][]byte, numNodes)
 	askList := make([][]uint32, numNodes)
+	ec283PKList := make([]keypair.PublicKey, numNodes)
+	ec283SKList := make([]keypair.PrivateKey, numNodes)
 
 	// Generate 21 identifiers for the delegates
 	for i := 0; i < numNodes; i++ {
-		addresses[i], _ = iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
-		idList[i] = hash.Hash256b([]byte(addresses[i].RawAddress))
+		var err error
+		ec283PKList[i], ec283SKList[i], err = crypto.EC283.NewKeyPair()
+		require.NoError(err)
+		pkHash := keypair.HashPubKey(ec283PKList[i])
+		addresses[i] = address.New(cfg.Chain.ID, pkHash[:]).IotxAddress()
+		idList[i] = hash.Hash256b([]byte(addresses[i]))
 		skList[i] = crypto.DKG.SkGeneration()
 	}
 
@@ -922,7 +931,12 @@ func TestMintDKGBlock(t *testing.T) {
 	require.NoError(chain.ValidateBlock(dummy, true))
 	require.NoError(chain.CommitBlock(dummy))
 	for i := 1; i < numNodes; i++ {
-		blk, err := chain.MintNewDKGBlock(nil, nil, nil, addresses[i],
+		iotxAddr := iotxaddress.Address{
+			PublicKey:  ec283PKList[i],
+			PrivateKey: ec283SKList[i],
+			RawAddress: addresses[i],
+		}
+		blk, err := chain.MintNewDKGBlock(nil, nil, nil, &iotxAddr,
 			&iotxaddress.DKGAddress{PrivateKey: askList[i], PublicKey: pkList[i], ID: idList[i]},
 			lastSeed, "")
 		require.NoError(err)

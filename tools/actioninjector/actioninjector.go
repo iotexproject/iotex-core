@@ -48,7 +48,7 @@ type PKPair struct {
 func main() {
 	// path of config file containing all the public/private key paris of addresses getting transfers from Creator in genesis block
 	var configPath string
-	// chain ID. Default is 67305985
+	// chain ID. Default is 1
 	var chainID int
 	// target address for jrpc connection. Default is "127.0.0.1:14004"
 	var addr string
@@ -92,7 +92,7 @@ func main() {
 	var resetInterval int
 
 	flag.StringVar(&configPath, "injector-config-path", "./tools/actioninjector/gentsfaddrs.yaml", "path of config file of genesis transfer addresses")
-	flag.IntVar(&chainID, "chain", 67305985, "id of target chain")
+	flag.IntVar(&chainID, "chain", 1, "id of target chain")
 	flag.StringVar(&addr, "addr", "127.0.0.1:14004", "target ip:port for jrpc connection")
 	flag.IntVar(&transferNum, "transfer-num", 50, "number of transfer injections")
 	flag.IntVar(&transferGasLimit, "transfer-gas-limit", 1000000, "transfer gas limit")
@@ -103,7 +103,7 @@ func main() {
 	flag.IntVar(&voteGasPrice, "vote-gas-price", 10, "vote gas price")
 	flag.IntVar(&executionNum, "execution-num", 50, "number of execution injections")
 	flag.StringVar(&contract, "contract", "io1qyqsyqcy3kcd2pyfwus69nzgvkwhg8mk8h336dt86pg6cj", "smart contract address")
-	flag.IntVar(&executionAmount, "execution-amount", 0, "execution amount")
+	flag.IntVar(&executionAmount, "execution-amount", 50, "execution amount")
 	flag.IntVar(&executionGasLimit, "execution-gas-limit", 1200000, "execution gas limit")
 	flag.IntVar(&executionGasPrice, "execution-gas-price", 10, "execution gas price")
 	flag.StringVar(&executionData, "execution-data", "2885ad2c", "execution data")

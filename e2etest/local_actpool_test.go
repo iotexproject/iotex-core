@@ -17,7 +17,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/network"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/server/itx"
@@ -27,11 +27,11 @@ import (
 const (
 	// Make sure the key pairs used here match the genesis block
 	// Sender's public/private key pair
-	fromPubKey  = "3f25b0312791c2c1a4c7f906455622bbafe2406232ec8734f559ce454fbaefd1fade8601c3e8c93a771f621ae8cbd34f6b4036e2a0715a1865fd1a4de5ece105d1579300eacaee01"
-	fromPrivKey = "f1e4ff82b5bb480ebfdc89752e78beaf3a6adb3ffd8a3b5eaa09428839bd2478e4a56201"
+	fromPubKey  = "2726440bc26449be22eb5c0564af4b23dc8c373aa79e8cb0f8df2a9e55b4842dbefcde07d95c1dc1f3d1a367086b4f7742115b53c434e8f5abf116333c2c378c51b0ef6176153602"
+	fromPrivKey = "c5364b1a2d99d127439be22edfd657889981e9ba4d6d18fe8eca489d48485371efcb2400"
 	// Recipient's public/private key pair
-	toPubKey  = "0b19932e0ea8553538ac9c0bec245c1b826f3342a5a79a63a03d637331656f57bde8cb0122bf9b2f0d6a1e4d50b9019b0ef99be21d858a20d7314e780199deb44f8dcc0704f78404"
-	toPrivKey = "c3a6f7a3392a8e4e97d3dc3993b908abc35e7398548fb269a3fb67bc4a37e60270940f01"
+	toPubKey  = "2ba2e72613783656b92af930719d2a13874bcb4999b7a0ae11a5beb469357da441f41303dc1ad5a4e6c0cdde85ceb11516bbcaca68bb82168255de60e3a216f00c18c1285a3d4402"
+	toPrivKey = "ededa5274f44b4075dcabfe4d1aaa4f7f50ca21bc1f4c5a676dd11727d21b344c575a401"
 )
 
 func TestLocalActPool(t *testing.T) {
@@ -177,11 +177,11 @@ func newActPoolConfig() (*config.Config, error) {
 	cfg.Network.PeerMaintainerInterval = 100 * time.Millisecond
 	cfg.Explorer.Port = 0
 
-	addr, err := iotxaddress.NewAddress(true, iotxaddress.ChainID)
+	pk, sk, err := crypto.EC283.NewKeyPair()
 	if err != nil {
 		return nil, err
 	}
-	cfg.Chain.ProducerPubKey = keypair.EncodePublicKey(addr.PublicKey)
-	cfg.Chain.ProducerPrivKey = keypair.EncodePrivateKey(addr.PrivateKey)
+	cfg.Chain.ProducerPubKey = keypair.EncodePublicKey(pk)
+	cfg.Chain.ProducerPrivKey = keypair.EncodePrivateKey(sk)
 	return &cfg, nil
 }

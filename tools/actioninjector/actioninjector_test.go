@@ -19,6 +19,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/explorer"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
@@ -139,12 +140,13 @@ func newConfig() (*config.Config, error) {
 	cfg.Consensus.Scheme = config.NOOPScheme
 	cfg.Chain.ChainDBPath = testChainPath
 	cfg.Chain.TrieDBPath = testTriePath
-	addr, err := iotxaddress.NewAddress(true, iotxaddress.ChainID)
+
+	pk, sk, err := crypto.EC283.NewKeyPair()
 	if err != nil {
 		return nil, err
 	}
-	cfg.Chain.ProducerPubKey = keypair.EncodePublicKey(addr.PublicKey)
-	cfg.Chain.ProducerPrivKey = keypair.EncodePrivateKey(addr.PrivateKey)
+	cfg.Chain.ProducerPubKey = keypair.EncodePublicKey(pk)
+	cfg.Chain.ProducerPrivKey = keypair.EncodePrivateKey(sk)
 	cfg.Network.Port = 0
 	cfg.Network.PeerMaintainerInterval = 100 * time.Millisecond
 	cfg.Explorer.Port = 0
