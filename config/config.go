@@ -285,6 +285,23 @@ type (
 	DB struct {
 		// NumRetries is the number of retries
 		NumRetries uint8 `yaml:"numRetries"`
+
+		// RDS is the config fot rds
+		RDS RDS `yaml:"RDS"`
+	}
+
+	// RDS is the cloud rds config
+	RDS struct {
+		// AwsRDSEndpoint is the endpoint of aws rds
+		AwsRDSEndpoint string `yaml:"awsRDSEndpoint"`
+		// AwsRDSPort is the port of aws rds
+		AwsRDSPort uint64 `yaml:"awsRDSPort"`
+		// AwsRDSUser is the user to access aws rds
+		AwsRDSUser string `yaml:"awsRDSUser"`
+		// AwsPass is the pass to access aws rds
+		AwsPass string `yaml:"awsPass"`
+		// AwsDBName is the db name of aws rds
+		AwsDBName string `yaml:"awsDBName"`
 	}
 
 	// Config is the root config struct, each package's config should be put as its sub struct
