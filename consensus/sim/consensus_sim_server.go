@@ -24,7 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	pb "github.com/iotexproject/iotex-core/consensus/sim/proto"
-	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network"
 	"github.com/iotexproject/iotex-core/pkg/hash"
@@ -84,12 +84,12 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 		cfg.Network.NumPeersUpperBound = 12
 
 		// create public/private key pair and address
-		addr, err := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
+		pk, sk, err := crypto.EC283.NewKeyPair()
 		if err != nil {
-			logger.Error().Err(err).Msg("failed to create public/private key pair together with the address derived.")
+			logger.Error().Err(err).Msg("failed to create public/private key pair together.")
 		}
-		cfg.Chain.ProducerPrivKey = keypair.EncodePrivateKey(addr.PrivateKey)
-		cfg.Chain.ProducerPubKey = keypair.EncodePublicKey(addr.PublicKey)
+		cfg.Chain.ProducerPubKey = keypair.EncodePublicKey(pk)
+		cfg.Chain.ProducerPrivKey = keypair.EncodePrivateKey(sk)
 
 		// set chain database path
 		cfg.Chain.ChainDBPath = "./chain" + strconv.Itoa(i) + ".db"
