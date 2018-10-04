@@ -8,7 +8,6 @@ package e2etest
 
 import (
 	"context"
-	"encoding/hex"
 	"math/big"
 	"sort"
 	"testing"
@@ -19,7 +18,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/network"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/server/itx"
@@ -722,12 +721,18 @@ func TestDummyBlockReplacement(t *testing.T) {
 	require.NoError(originChain.Start(ctx))
 
 	// Replace the first dummy block
-	tsf0, _ := action.NewTransfer(1, big.NewInt(100000000), blockchain.Gen.CreatorAddr, ta.Addrinfo["producer"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
-	pubk, _ := keypair.DecodePublicKey(blockchain.Gen.CreatorPubKey)
-	sign, err := hex.DecodeString("2548233cd4006ecaaa2d223ece8aa9d45730df7cec2f52d9d730a327e239c37587597d01bd2eb23b52efa39a52e19ec6e1152ee4f39811212e960777d76f500f10c46a3da62a4f00")
+	tsf0, _ := action.NewTransfer(
+		1,
+		big.NewInt(100000000),
+		blockchain.Gen.CreatorAddr(chainID),
+		ta.Addrinfo["producer"].RawAddress,
+		[]byte{},
+		uint64(100000),
+		big.NewInt(10),
+	)
+	sk, err := keypair.DecodePrivateKey(blockchain.Gen.CreatorPrivKey)
 	require.NoError(err)
-	tsf0.SetSenderPublicKey(pubk)
-	tsf0.SetSignature(sign)
+	action.Sign(tsf0, sk)
 
 	act1 := tsf0.ConvertToActionPb()
 	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
@@ -852,11 +857,12 @@ func newTestConfig() (*config.Config, error) {
 	cfg.Consensus.Scheme = config.NOOPScheme
 	cfg.Network.Port = 0
 	cfg.Explorer.Port = 0
-	addr, err := iotxaddress.NewAddress(true, iotxaddress.ChainID)
+
+	pk, sk, err := crypto.EC283.NewKeyPair()
 	if err != nil {
 		return nil, err
 	}
-	cfg.Chain.ProducerPubKey = keypair.EncodePublicKey(addr.PublicKey)
-	cfg.Chain.ProducerPrivKey = keypair.EncodePrivateKey(addr.PrivateKey)
+	cfg.Chain.ProducerPubKey = keypair.EncodePublicKey(pk)
+	cfg.Chain.ProducerPrivKey = keypair.EncodePrivateKey(sk)
 	return &cfg, nil
 }

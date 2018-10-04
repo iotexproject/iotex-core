@@ -18,8 +18,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
-	"github.com/iotexproject/iotex-core/test/testaddress"
 )
 
 func TestNewDefaultConfig(t *testing.T) {
@@ -48,6 +48,8 @@ func TestNewConfigWithWrongConfigPath(t *testing.T) {
 }
 
 func TestNewConfigWithOverride(t *testing.T) {
+	pk, sk, err := crypto.EC283.NewKeyPair()
+	require.Nil(t, err)
 	cfgStr := fmt.Sprintf(`
 nodeType: %s
 chain:
@@ -55,11 +57,11 @@ chain:
     producerPubKey: "%s"
 `,
 		DelegateType,
-		keypair.EncodePrivateKey(testaddress.Addrinfo["alfa"].PrivateKey),
-		keypair.EncodePublicKey(testaddress.Addrinfo["alfa"].PublicKey),
+		keypair.EncodePrivateKey(sk),
+		keypair.EncodePublicKey(pk),
 	)
 	_overwritePath = filepath.Join(os.TempDir(), "config.yaml")
-	err := ioutil.WriteFile(_overwritePath, []byte(cfgStr), 0666)
+	err = ioutil.WriteFile(_overwritePath, []byte(cfgStr), 0666)
 	require.NoError(t, err)
 	defer func() {
 		err := os.Remove(_overwritePath)
@@ -71,11 +73,13 @@ chain:
 	require.Nil(t, err)
 	require.NotNil(t, cfg)
 	require.Equal(t, DelegateType, cfg.NodeType)
-	require.Equal(t, keypair.EncodePrivateKey(testaddress.Addrinfo["alfa"].PrivateKey), cfg.Chain.ProducerPrivKey)
-	require.Equal(t, keypair.EncodePublicKey(testaddress.Addrinfo["alfa"].PublicKey), cfg.Chain.ProducerPubKey)
+	require.Equal(t, keypair.EncodePrivateKey(sk), cfg.Chain.ProducerPrivKey)
+	require.Equal(t, keypair.EncodePublicKey(pk), cfg.Chain.ProducerPubKey)
 }
 
 func TestNewConfigWithSecret(t *testing.T) {
+	pk, sk, err := crypto.EC283.NewKeyPair()
+	require.Nil(t, err)
 	cfgStr := fmt.Sprintf(`
 nodeType: %s
 chain:
@@ -83,11 +87,11 @@ chain:
     producerPubKey: "%s"
 `,
 		DelegateType,
-		keypair.EncodePrivateKey(testaddress.Addrinfo["alfa"].PrivateKey),
-		keypair.EncodePublicKey(testaddress.Addrinfo["alfa"].PublicKey),
+		keypair.EncodePrivateKey(sk),
+		keypair.EncodePublicKey(pk),
 	)
 	_overwritePath = filepath.Join(os.TempDir(), "config.yaml")
-	err := ioutil.WriteFile(_overwritePath, []byte(cfgStr), 0666)
+	err = ioutil.WriteFile(_overwritePath, []byte(cfgStr), 0666)
 	require.NoError(t, err)
 	defer func() {
 	}()
@@ -97,8 +101,8 @@ chain:
     producerPrivKey: "%s"
     producerPubKey: "%s"
 `,
-		keypair.EncodePrivateKey(testaddress.Addrinfo["echo"].PrivateKey),
-		keypair.EncodePublicKey(testaddress.Addrinfo["echo"].PublicKey),
+		keypair.EncodePrivateKey(sk),
+		keypair.EncodePublicKey(pk),
 	)
 	_secretPath = filepath.Join(os.TempDir(), "secret.yaml")
 	err = ioutil.WriteFile(_secretPath, []byte(cfgStr), 0666)
@@ -117,13 +121,16 @@ chain:
 	require.Nil(t, err)
 	require.NotNil(t, cfg)
 	require.Equal(t, DelegateType, cfg.NodeType)
-	require.Equal(t, keypair.EncodePrivateKey(testaddress.Addrinfo["echo"].PrivateKey), cfg.Chain.ProducerPrivKey)
-	require.Equal(t, keypair.EncodePublicKey(testaddress.Addrinfo["echo"].PublicKey), cfg.Chain.ProducerPubKey)
+	require.Equal(t, keypair.EncodePrivateKey(sk), cfg.Chain.ProducerPrivKey)
+	require.Equal(t, keypair.EncodePublicKey(pk), cfg.Chain.ProducerPubKey)
 }
 
 func TestNewConfigWithLookupEnv(t *testing.T) {
 	oldEnv, oldExist := os.LookupEnv("IOTEX_TEST_NODE_TYPE")
 	err := os.Setenv("IOTEX_TEST_NODE_TYPE", DelegateType)
+	require.Nil(t, err)
+
+	pk, sk, err := crypto.EC283.NewKeyPair()
 	require.Nil(t, err)
 
 	cfgStr := fmt.Sprintf(`
@@ -132,8 +139,8 @@ chain:
     producerPrivKey: "%s"
     producerPubKey: "%s"
 `,
-		keypair.EncodePrivateKey(testaddress.Addrinfo["alfa"].PrivateKey),
-		keypair.EncodePublicKey(testaddress.Addrinfo["alfa"].PublicKey),
+		keypair.EncodePrivateKey(sk),
+		keypair.EncodePublicKey(pk),
 	)
 	_overwritePath = filepath.Join(os.TempDir(), "config.yaml")
 	err = ioutil.WriteFile(_overwritePath, []byte(cfgStr), 0666)
@@ -173,8 +180,12 @@ func TestValidateKeyPair(t *testing.T) {
 	assert.NotNil(t, err)
 	assert.True(t, strings.Contains(err.Error(), "encoding/hex:"), err.Error())
 
-	cfg.Chain.ProducerPubKey = keypair.EncodePublicKey(testaddress.Addrinfo["alfa"].PublicKey)
-	cfg.Chain.ProducerPrivKey = keypair.EncodePrivateKey(testaddress.Addrinfo["bravo"].PrivateKey)
+	pk, _, err := crypto.EC283.NewKeyPair()
+	require.Nil(t, err)
+	_, sk, err := crypto.EC283.NewKeyPair()
+	require.Nil(t, err)
+	cfg.Chain.ProducerPubKey = keypair.EncodePublicKey(pk)
+	cfg.Chain.ProducerPrivKey = keypair.EncodePrivateKey(sk)
 	err = ValidateKeyPair(&cfg)
 	assert.NotNil(t, err)
 	require.Equal(t, ErrInvalidCfg, errors.Cause(err))

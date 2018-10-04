@@ -26,6 +26,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/test/mock/mock_trie"
+	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 	"github.com/iotexproject/iotex-core/trie"
 )
@@ -284,12 +285,12 @@ func voteForm(height uint64, cs []*Candidate) []string {
 
 func TestCandidates(t *testing.T) {
 	// Create three dummy iotex addresses
-	a, _ := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
-	b, _ := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
-	c, _ := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
-	d, _ := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
-	e, _ := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
-	f, _ := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
+	a, _ := testaddress.Addrinfo["alfa"]
+	b, _ := testaddress.Addrinfo["bravo"]
+	c, _ := testaddress.Addrinfo["charlie"]
+	d, _ := testaddress.Addrinfo["delta"]
+	e, _ := testaddress.Addrinfo["echo"]
+	f, _ := testaddress.Addrinfo["foxtrot"]
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
 
@@ -706,8 +707,8 @@ func TestCandidatesByHeight(t *testing.T) {
 
 func TestUnvote(t *testing.T) {
 	// Create three dummy iotex addresses
-	a, _ := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
-	b, _ := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
+	a, _ := testaddress.Addrinfo["alfa"]
+	b, _ := testaddress.Addrinfo["bravo"]
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
