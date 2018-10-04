@@ -67,7 +67,7 @@ func TestActionInjector(t *testing.T) {
 	// Construct iotex addresses for loaded senders
 	addrs := make([]*iotxaddress.Address, 0)
 	for _, pkPair := range addresses.PKPairs {
-		addr := testutil.ConstructAddress(1, pkPair.PubKey, pkPair.PriKey)
+		addr := testutil.ConstructAddress(chainID, pkPair.PubKey, pkPair.PriKey)
 		addrs = append(addrs, addr)
 	}
 

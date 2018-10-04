@@ -27,7 +27,6 @@ import (
 	exp "github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
-	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
@@ -49,6 +48,8 @@ type PKPair struct {
 func main() {
 	// path of config file containing all the public/private key paris of addresses getting transfers from Creator in genesis block
 	var configPath string
+	// chain ID. Default is 67305985
+	var chainID int
 	// target address for jrpc connection. Default is "127.0.0.1:14004"
 	var addr string
 	// number of transfer injections. Default is 50
@@ -91,6 +92,7 @@ func main() {
 	var resetInterval int
 
 	flag.StringVar(&configPath, "injector-config-path", "./tools/actioninjector/gentsfaddrs.yaml", "path of config file of genesis transfer addresses")
+	flag.IntVar(&chainID, "chain", 67305985, "id of target chain")
 	flag.StringVar(&addr, "addr", "127.0.0.1:14004", "target ip:port for jrpc connection")
 	flag.IntVar(&transferNum, "transfer-num", 50, "number of transfer injections")
 	flag.IntVar(&transferGasLimit, "transfer-gas-limit", 1000000, "transfer gas limit")
@@ -128,7 +130,7 @@ func main() {
 	// Construct iotex addresses for loaded senders
 	addrs := []*iotxaddress.Address{}
 	for _, pkPair := range addresses.PKPairs {
-		addr := testutil.ConstructAddress(enc.MachineEndian.Uint32(iotxaddress.ChainID), pkPair.PubKey, pkPair.PriKey)
+		addr := testutil.ConstructAddress(uint32(chainID), pkPair.PubKey, pkPair.PriKey)
 		addrs = append(addrs, addr)
 	}
 	admins := addrs[len(addrs)-adminNumber:]
