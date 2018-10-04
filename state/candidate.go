@@ -14,6 +14,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/proto"
 )
@@ -33,7 +34,7 @@ var (
 type Candidate struct {
 	Address          string
 	Votes            *big.Int
-	PubKey           []byte
+	PublicKey        keypair.PublicKey
 	CreationHeight   uint64
 	LastUpdateHeight uint64
 }
@@ -55,7 +56,7 @@ func candidateToPb(cand *Candidate) (*iproto.Candidate, error) {
 	}
 	candidatePb := &iproto.Candidate{
 		Address:          cand.Address,
-		PubKey:           cand.PubKey,
+		PubKey:           cand.PublicKey[:],
 		CreationHeight:   cand.CreationHeight,
 		LastUpdateHeight: cand.LastUpdateHeight,
 	}
@@ -70,10 +71,13 @@ func pbToCandidate(candPb *iproto.Candidate) (*Candidate, error) {
 	if candPb == nil {
 		return nil, errors.Wrap(ErrCandidatePb, "protobuf's candidate message cannot be nil")
 	}
+
+	var pk keypair.PublicKey
+	copy(pk[:], candPb.PubKey)
 	candidate := &Candidate{
 		Address:          candPb.Address,
 		Votes:            big.NewInt(0).SetBytes(candPb.Votes),
-		PubKey:           candPb.PubKey,
+		PublicKey:        pk,
 		CreationHeight:   candPb.CreationHeight,
 		LastUpdateHeight: candPb.LastUpdateHeight,
 	}

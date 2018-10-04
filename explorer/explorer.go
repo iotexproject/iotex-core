@@ -823,7 +823,7 @@ func (exp *Service) GetCandidateMetricsByHeight(h int64) (explorer.CandidateMetr
 	}
 	candidates := make([]explorer.Candidate, 0, len(allCandidates))
 	for _, c := range allCandidates {
-		pubKey, err := keypair.BytesToPubKeyString(c.PubKey)
+		pubKey, err := keypair.BytesToPubKeyString(c.PublicKey[:])
 		if err != nil {
 			return explorer.CandidateMetrics{}, errors.Wrapf(err,
 				"Invalid candidate pub key")
