@@ -15,6 +15,7 @@ import (
 	"github.com/iotexproject/iotex-core/dispatcher"
 	"github.com/iotexproject/iotex-core/explorer"
 	explorerapi "github.com/iotexproject/iotex-core/explorer/idl/explorer"
+	"github.com/iotexproject/iotex-core/indexservice"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network"
 	pb "github.com/iotexproject/iotex-core/proto"
@@ -22,11 +23,12 @@ import (
 
 // ChainService is a blockchain service with all blockchain components.
 type ChainService struct {
-	actpool   actpool.ActPool
-	blocksync blocksync.BlockSync
-	consensus consensus.Consensus
-	chain     blockchain.Blockchain
-	explorer  *explorer.Server
+	actpool      actpool.ActPool
+	blocksync    blocksync.BlockSync
+	consensus    consensus.Consensus
+	chain        blockchain.Blockchain
+	explorer     *explorer.Server
+	indexservice *indexservice.Server
 }
 
 type optionParams struct {
@@ -100,6 +102,10 @@ func New(cfg *config.Config, p2p network.Overlay, dispatcher dispatcher.Dispatch
 	if consensus == nil {
 		return nil, errors.Wrap(err, "failed to create consensus")
 	}
+	idx := indexservice.NewServer(cfg, chain)
+	if idx == nil {
+		return nil, errors.Wrap(err, "failed to create index service")
+	}
 
 	var exp *explorer.Server
 	if cfg.Explorer.IsTest || os.Getenv("APP_ENV") == "development" {
@@ -109,11 +115,12 @@ func New(cfg *config.Config, p2p network.Overlay, dispatcher dispatcher.Dispatch
 		exp = explorer.NewServer(cfg.Explorer, chain, consensus, dispatcher, actPool, p2p)
 	}
 	return &ChainService{
-		actpool:   actPool,
-		chain:     chain,
-		blocksync: bs,
-		consensus: consensus,
-		explorer:  exp,
+		actpool:      actPool,
+		chain:        chain,
+		blocksync:    bs,
+		consensus:    consensus,
+		indexservice: idx,
+		explorer:     exp,
 	}, nil
 }
 
@@ -128,6 +135,9 @@ func (cs *ChainService) Start(ctx context.Context) error {
 	if err := cs.blocksync.Start(ctx); err != nil {
 		return errors.Wrap(err, "error when starting blocksync")
 	}
+	if err := cs.indexservice.Start(ctx); err != nil {
+		return errors.Wrap(err, "error when starting indexservice")
+	}
 	if err := cs.explorer.Start(ctx); err != nil {
 		return errors.Wrap(err, "error when starting explorer")
 	}
@@ -138,6 +148,9 @@ func (cs *ChainService) Start(ctx context.Context) error {
 func (cs *ChainService) Stop(ctx context.Context) error {
 	if err := cs.explorer.Stop(ctx); err != nil {
 		return errors.Wrap(err, "error when stopping explorer")
+	}
+	if err := cs.indexservice.Stop(ctx); err != nil {
+		return errors.Wrap(err, "error when stopping indexservice")
 	}
 	if err := cs.consensus.Stop(ctx); err != nil {
 		return errors.Wrap(err, "error when stopping consensus")
@@ -228,6 +241,11 @@ func (cs *ChainService) Consensus() consensus.Consensus {
 // BlockSync returns the block syncer
 func (cs *ChainService) BlockSync() blocksync.BlockSync {
 	return cs.blocksync
+}
+
+// IndexService returns the indexservice instance
+func (cs *ChainService) IndexService() *indexservice.Server {
+	return cs.indexservice
 }
 
 // Explorer returns the explorer instance

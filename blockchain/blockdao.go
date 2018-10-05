@@ -57,9 +57,10 @@ var (
 var _ lifecycle.StartStopper = (*blockDAO)(nil)
 
 type blockDAO struct {
-	config    *config.Config
-	kvstore   db.KVStore
-	lifecycle lifecycle.Lifecycle
+	config        *config.Config
+	kvstore       db.KVStore
+	lifecycle     lifecycle.Lifecycle
+	blocklistener []chan *Block
 }
 
 // newBlockDAO instantiates a block DAO
@@ -106,6 +107,28 @@ func (dao *blockDAO) Start(ctx context.Context) error {
 
 // Stop stops block DAO.
 func (dao *blockDAO) Stop(ctx context.Context) error { return dao.lifecycle.OnStop(ctx) }
+
+func (dao *blockDAO) AddSubscriber(ch chan *Block) error {
+	if dao.blocklistener == nil {
+		dao.blocklistener = []chan *Block{ch}
+	} else {
+		dao.blocklistener = append(dao.blocklistener, ch)
+	}
+	return nil
+}
+
+func (dao *blockDAO) EmitToSubscribers(blk *Block) error {
+	// return if there is no subscribers
+	if dao.blocklistener == nil {
+		return nil
+	}
+	for _, handler := range dao.blocklistener {
+		go func(handler chan *Block) {
+			handler <- blk
+		}(handler)
+	}
+	return nil
+}
 
 // getBlockHash returns the block hash by height
 func (dao *blockDAO) getBlockHash(height uint64) (hash.Hash32B, error) {
@@ -525,6 +548,12 @@ func (dao *blockDAO) putBlock(blk *Block) error {
 
 	if !dao.config.Explorer.Enabled {
 		return batch.Commit()
+	}
+
+	// emit block to all subscribers
+	err = dao.EmitToSubscribers(blk)
+	if err != nil {
+		return errors.Wrap(err, "failed to emit to block subscribers")
 	}
 
 	// only build Tsf/Vote/Execution index if enable explorer

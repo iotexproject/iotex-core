@@ -122,6 +122,9 @@ type Blockchain interface {
 	// ExecuteContractRead runs a read-only smart contract operation, this is done off the network since it does not
 	// cause any state change
 	ExecuteContractRead(*action.Execution) ([]byte, error)
+
+	// SubscribeToBlock make you listen to every single produced block
+	SubscribeToBlock(ch chan *Block) error
 }
 
 // blockchain implements the Blockchain interface
@@ -847,4 +850,8 @@ func (bc *blockchain) replaceHeightAndHash(blk *Block) (uint64, hash.Hash32B, er
 		tipHash = lastBlock.HashBlock()
 	}
 	return tipHeight, tipHash, nil
+}
+
+func (bc *blockchain) SubscribeToBlock(ch chan *Block) error {
+	return bc.dao.AddSubscriber(ch)
 }
