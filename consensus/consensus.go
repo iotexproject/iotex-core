@@ -143,13 +143,13 @@ func NewConsensus(
 				}
 				cs := make([]*state.Candidate, 0, len(rawcs))
 				for _, rawc := range rawcs {
-					pubKeyBytes, err := keypair.StringToPubKeyBytes(rawc.PubKey)
+					pubKey, err := keypair.DecodePublicKey(rawc.PubKey)
 					if err != nil {
 						logger.Panic().Err(err).Msg("error when convert candidate PublicKey")
 					}
 					cs = append(cs, &state.Candidate{
 						Address:          rawc.Address,
-						PubKey:           pubKeyBytes,
+						PublicKey:        pubKey,
 						Votes:            big.NewInt(rawc.TotalVote),
 						CreationHeight:   uint64(rawc.CreationHeight),
 						LastUpdateHeight: uint64(rawc.LastUpdateHeight),
