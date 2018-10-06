@@ -10,13 +10,13 @@ import (
 	"context"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/errcode"
 	"github.com/iotexproject/iotex-core/pkg/routine"
+	"github.com/iotexproject/iotex-core/proto"
 )
 
 // Standalone is the consensus scheme that periodically create blocks
@@ -74,9 +74,15 @@ func (n *Standalone) Stop(ctx context.Context) error {
 	return n.task.Stop(ctx)
 }
 
-// Handle handles incoming requests
-func (n *Standalone) Handle(message proto.Message) error {
-	logger.Warn().Msg("Standalone scheme does not handle incoming requests")
+// HandleBlockPropose handles incoming block propose
+func (n *Standalone) HandleBlockPropose(propose *iproto.ProposePb) error {
+	logger.Warn().Msg("Noop scheme does not handle incoming block propose requests")
+	return nil
+}
+
+// HandleEndorse handles incoming block propose
+func (n *Standalone) HandleEndorse(endorse *iproto.EndorsePb) error {
+	logger.Warn().Msg("Noop scheme does not handle incoming endorse requests")
 	return nil
 }
 

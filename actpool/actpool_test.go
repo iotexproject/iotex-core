@@ -20,8 +20,6 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/iotxaddress"
-	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -46,7 +44,7 @@ const (
 )
 
 var (
-	chainID = enc.MachineEndian.Uint32(iotxaddress.ChainID)
+	chainID = config.Default.Chain.ID
 	addr1   = testutil.ConstructAddress(chainID, pubkeyA, prikeyA)
 	addr2   = testutil.ConstructAddress(chainID, pubkeyB, prikeyB)
 	addr3   = testutil.ConstructAddress(chainID, pubkeyC, prikeyC)

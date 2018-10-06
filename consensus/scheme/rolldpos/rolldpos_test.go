@@ -22,6 +22,7 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/iotexproject/iotex-core/actpool"
+	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/config"
@@ -29,6 +30,7 @@ import (
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/network/node"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/mock/mock_actpool"
@@ -287,9 +289,9 @@ func TestRollDPoS_convertToConsensusEvt(t *testing.T) {
 	transfer, err := action.NewTransfer(1, big.NewInt(100), "src", "dst", []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(t, err)
 	selfPubKey := testaddress.Addrinfo["producer"].PublicKey
-	address, err := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, iotxaddress.ChainID, selfPubKey)
-	require.NoError(t, err)
-	vote, err := action.NewVote(2, address.RawAddress, address.RawAddress, uint64(100000), big.NewInt(10))
+	selfPubKeyHash := keypair.HashPubKey(selfPubKey)
+	address := address.New(config.Default.Chain.ID, selfPubKeyHash[:])
+	vote, err := action.NewVote(2, address.IotxAddress(), address.IotxAddress(), uint64(100000), big.NewInt(10))
 	require.NoError(t, err)
 	var prevHash hash.Hash32B
 	blk := blockchain.NewBlock(
@@ -300,50 +302,44 @@ func TestRollDPoS_convertToConsensusEvt(t *testing.T) {
 		[]*action.Transfer{transfer}, []*action.Vote{vote},
 		nil,
 	)
-	msg := iproto.ViewChangeMsg{
-		Vctype:     iproto.ViewChangeMsg_PROPOSE,
-		Block:      blk.ConvertToBlockPb(),
-		SenderAddr: addr.RawAddress,
+	pMsg := iproto.ProposePb{
+		Block:    blk.ConvertToBlockPb(),
+		Proposer: addr.RawAddress,
 	}
-	evt, err := r.convertToConsensusEvt(&msg)
+	pEvt, err := r.cfsm.newProposeBlkEvtFromProposePb(&pMsg)
 	assert.NoError(t, err)
-	assert.NotNil(t, evt)
-	pbEvt, ok := evt.(*proposeBlkEvt)
-	assert.True(t, ok)
-	assert.NotNil(t, pbEvt.block)
+	assert.NotNil(t, pEvt)
+	assert.NotNil(t, pEvt.block)
 
-	// Test prevote msg
+	// Test proposal endorse msg
 	blkHash := blk.HashBlock()
-	msg = iproto.ViewChangeMsg{
-		Vctype:     iproto.ViewChangeMsg_PREVOTE,
-		BlockHash:  blkHash[:],
-		SenderAddr: addr.RawAddress,
+	en := &endorse{
+		height:   blk.Height(),
+		topic:    endorseProposal,
+		blkHash:  blkHash,
+		decision: true,
 	}
-	evt, err = r.convertToConsensusEvt(&msg)
+	err = en.Sign(addr)
 	assert.NoError(t, err)
-	assert.NotNil(t, evt)
-	_, ok = evt.(*voteEvt)
-	assert.True(t, ok)
+	msg := en.toProtoMsg()
 
-	// Test prevote msg
-	msg = iproto.ViewChangeMsg{
-		Vctype:     iproto.ViewChangeMsg_VOTE,
-		BlockHash:  blkHash[:],
-		SenderAddr: addr.RawAddress,
-	}
-	evt, err = r.convertToConsensusEvt(&msg)
+	eEvt, err := r.cfsm.newEndorseEvtWithEndorsePb(msg)
 	assert.NoError(t, err)
-	assert.NotNil(t, evt)
-	_, ok = evt.(*voteEvt)
-	assert.True(t, ok)
+	assert.NotNil(t, eEvt)
 
-	// Test invalid msg
-	msg = iproto.ViewChangeMsg{
-		Vctype: 100,
+	// Test commit endorse msg
+	en = &endorse{
+		height:   blk.Height(),
+		topic:    endorseCommit,
+		blkHash:  blkHash,
+		decision: true,
 	}
-	evt, err = r.convertToConsensusEvt(&msg)
-	assert.Error(t, err)
-	assert.Nil(t, evt)
+	err = en.Sign(addr)
+	assert.NoError(t, err)
+	msg = en.toProtoMsg()
+	eEvt, err = r.cfsm.newEndorseEvtWithEndorsePb(msg)
+	assert.NoError(t, err)
+	assert.NotNil(t, eEvt)
 }
 
 func makeTestRollDPoSCtx(
@@ -384,12 +380,17 @@ func (o *directOverlay) Stop(_ context.Context) error { return nil }
 
 func (o *directOverlay) Broadcast(chainID uint32, msg proto.Message) error {
 	// Only broadcast consensus message
-	if _, ok := msg.(*iproto.ViewChangeMsg); !ok {
-		return nil
-	}
-	for _, r := range o.peers {
-		if err := r.Handle(msg); err != nil {
-			return errors.Wrap(err, "error when handling the proto msg directly")
+	if propose, ok := msg.(*iproto.ProposePb); ok {
+		for _, r := range o.peers {
+			if err := r.HandleBlockPropose(propose); err != nil {
+				return errors.Wrap(err, "error when handling block propose directly")
+			}
+		}
+	} else if endorse, ok := msg.(*iproto.EndorsePb); ok {
+		for _, r := range o.peers {
+			if err := r.HandleEndorse(endorse); err != nil {
+				return errors.Wrap(err, "error when handling endorse directly")
+			}
 		}
 	}
 	return nil
@@ -415,8 +416,8 @@ func TestRollDPoSConsensus(t *testing.T) {
 		cfg.Consensus.RollDPoS.Delay = 300 * time.Millisecond
 		cfg.Consensus.RollDPoS.ProposerInterval = time.Second
 		cfg.Consensus.RollDPoS.AcceptProposeTTL = 100 * time.Millisecond
-		cfg.Consensus.RollDPoS.AcceptPrevoteTTL = 100 * time.Millisecond
-		cfg.Consensus.RollDPoS.AcceptVoteTTL = 100 * time.Millisecond
+		cfg.Consensus.RollDPoS.AcceptProposalEndorseTTL = 100 * time.Millisecond
+		cfg.Consensus.RollDPoS.AcceptCommitEndorseTTL = 100 * time.Millisecond
 		cfg.Consensus.RollDPoS.NumDelegates = uint(numNodes)
 
 		chainAddrs := make([]*iotxaddress.Address, 0, numNodes)

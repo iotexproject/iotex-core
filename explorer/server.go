@@ -108,6 +108,9 @@ func (s *Server) Port() int {
 	return s.port
 }
 
+// Explorer returns explorer interface.
+func (s *Server) Explorer() explorer.Explorer { return s.exp }
+
 // logFilter example of Filter implementation
 type logFilter struct{}
 

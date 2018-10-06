@@ -12,9 +12,12 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain/action"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 )
 
 var (
@@ -60,14 +63,22 @@ func (m *AccountManager) Remove(rawAddr string) error {
 
 // NewAccount creates a new account
 func (m *AccountManager) NewAccount() (*iotxaddress.Address, error) {
-	addr, err := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
+	pk, sk, err := crypto.EC283.NewKeyPair()
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to generate a new iotxaddress")
+		return nil, errors.Wrap(err, "failed to generate key pair")
 	}
-	if err := m.keystore.Store(addr.RawAddress, addr); err != nil {
-		return nil, errors.Wrapf(err, "failed to store account %s", addr.RawAddress)
+	// TODO: need to fix the chain ID
+	pkHash := keypair.HashPubKey(pk)
+	addr := address.New(config.Default.Chain.ID, pkHash[:])
+	iotxAddr := iotxaddress.Address{
+		PublicKey:  pk,
+		PrivateKey: sk,
+		RawAddress: addr.IotxAddress(),
 	}
-	return addr, nil
+	if err := m.keystore.Store(iotxAddr.RawAddress, &iotxAddr); err != nil {
+		return nil, errors.Wrapf(err, "failed to store account %s", iotxAddr.RawAddress)
+	}
+	return &iotxAddr, nil
 }
 
 // Import imports key bytes and stores it as a new account

@@ -12,6 +12,7 @@ import (
 	"github.com/iotexproject/iotex-core/chainservice"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/dispatcher"
+	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/network"
 
 	"github.com/pkg/errors"
@@ -22,6 +23,7 @@ type Server struct {
 	chainservices map[uint32]*chainservice.ChainService
 	p2p           network.Overlay
 	dispatcher    dispatcher.Dispatcher
+	rootChainAPI  explorer.Explorer
 }
 
 // NewServer creates a new server
@@ -50,11 +52,11 @@ func newServer(cfg *config.Config, testing bool) (*Server, error) {
 
 	var cs *chainservice.ChainService
 
+	var opts []chainservice.Option
 	if testing {
-		cs, err = chainservice.NewTesting(cfg, p2p, dispatcher)
-	} else {
-		cs, err = chainservice.New(cfg, p2p, dispatcher)
+		opts = []chainservice.Option{chainservice.WithTesting()}
 	}
+	cs, err = chainservice.New(cfg, p2p, dispatcher, opts...)
 	if err != nil {
 		return nil, errors.Wrap(err, "fail to create chain service")
 	}
@@ -64,6 +66,7 @@ func newServer(cfg *config.Config, testing bool) (*Server, error) {
 	return &Server{
 		p2p:           p2p,
 		dispatcher:    dispatcher,
+		rootChainAPI:  cs.Explorer().Explorer(),
 		chainservices: chains,
 	}, nil
 }
@@ -102,7 +105,8 @@ func (s *Server) Stop(ctx context.Context) error {
 
 // NewChainService creates a new chain service in this server.
 func (s *Server) NewChainService(cfg *config.Config) error {
-	cs, err := chainservice.New(cfg, s.p2p, s.dispatcher)
+	opts := []chainservice.Option{chainservice.WithRootChainAPI(s.rootChainAPI)}
+	cs, err := chainservice.New(cfg, s.p2p, s.dispatcher, opts...)
 	if err != nil {
 		return err
 	}
@@ -113,7 +117,11 @@ func (s *Server) NewChainService(cfg *config.Config) error {
 
 // NewTestingChainService creates a new testing chain service in this server.
 func (s *Server) NewTestingChainService(cfg *config.Config) error {
-	cs, err := chainservice.NewTesting(cfg, s.p2p, s.dispatcher)
+	opts := []chainservice.Option{
+		chainservice.WithTesting(),
+		chainservice.WithRootChainAPI(s.rootChainAPI),
+	}
+	cs, err := chainservice.New(cfg, s.p2p, s.dispatcher, opts...)
 	if err != nil {
 		return err
 	}

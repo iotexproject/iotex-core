@@ -233,10 +233,7 @@ func (ap *actPool) AddVote(vote *action.Vote) error {
 		return errors.Wrapf(ErrActPool, "insufficient space for vote")
 	}
 
-	voter, _ := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, iotxaddress.ChainID, vote.VoterPublicKey())
-	// Wrap vote as an action
-	action := vote.ConvertToActionPb()
-	return ap.enqueueAction(voter.RawAddress, action, hash, vote.Nonce())
+	return ap.enqueueAction(vote.Voter(), vote.ConvertToActionPb(), hash, vote.Nonce())
 }
 
 // AddExecution inserts a new execution into account queue if it passes validation
@@ -418,18 +415,13 @@ func (ap *actPool) validateExecution(exec *action.Execution) error {
 		}
 	}
 
-	executor, err := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, iotxaddress.ChainID, exec.ExecutorPublicKey())
-	if err != nil {
-		logger.Error().Err(err).Msg("Error when validating executor's public key")
-		return errors.Wrapf(err, "invalid address")
-	}
 	// Verify transfer using executor's public key
 	if err := action.Verify(exec); err != nil {
 		logger.Error().Err(err).Msg("Error when validating execution's signature")
 		return errors.Wrapf(err, "failed to verify Execution signature")
 	}
 	// Reject transfer if nonce is too low
-	confirmedNonce, err := ap.bc.Nonce(executor.RawAddress)
+	confirmedNonce, err := ap.bc.Nonce(exec.Executor())
 	if err != nil {
 		logger.Error().Err(err).Msg("Error when validating execution's nonce")
 		return errors.Wrapf(err, "invalid nonce value")
@@ -473,11 +465,6 @@ func (ap *actPool) validateVote(vote *action.Vote) error {
 		}
 	}
 
-	voter, err := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, iotxaddress.ChainID, vote.VoterPublicKey())
-	if err != nil {
-		logger.Error().Err(err).Msg("Error when validating voter's public key")
-		return errors.Wrapf(err, "invalid address")
-	}
 	// Verify vote using voter's public key
 	if err := action.Verify(vote); err != nil {
 		logger.Error().Err(err).Msg("Error when validating vote's signature")
@@ -485,7 +472,7 @@ func (ap *actPool) validateVote(vote *action.Vote) error {
 	}
 
 	// Reject vote if nonce is too low
-	confirmedNonce, err := ap.bc.Nonce(voter.RawAddress)
+	confirmedNonce, err := ap.bc.Nonce(vote.Voter())
 	if err != nil {
 		logger.Error().Err(err).Msg("Error when validating vote's nonce")
 		return errors.Wrapf(err, "invalid nonce value")
@@ -502,7 +489,7 @@ func (ap *actPool) validateVote(vote *action.Vote) error {
 				Msg("Error when validating votee's state")
 			return errors.Wrapf(err, "cannot find votee's state: %s", vote.Votee())
 		}
-		if voter.RawAddress != vote.Votee() && !voteeState.IsCandidate {
+		if vote.Voter() != vote.Votee() && !voteeState.IsCandidate {
 			logger.Error().
 				Err(ErrVotee).
 				Str("voter", vote.Voter()).

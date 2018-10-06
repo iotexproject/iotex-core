@@ -7,8 +7,8 @@
 package testaddress
 
 import (
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/iotxaddress"
-	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
@@ -37,7 +37,7 @@ var Addrinfo map[string]*iotxaddress.Address
 func init() {
 	Addrinfo = make(map[string]*iotxaddress.Address)
 
-	chainID := enc.MachineEndian.Uint32(iotxaddress.ChainID)
+	chainID := config.Default.Chain.ID
 	Addrinfo["producer"] = testutil.ConstructAddress(chainID, pubkeyProducer, prikeyProducer)
 	Addrinfo["alfa"] = testutil.ConstructAddress(chainID, pubkeyA, prikeyA)
 	Addrinfo["bravo"] = testutil.ConstructAddress(chainID, pubkeyB, prikeyB)

@@ -11,6 +11,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
+	"github.com/iotexproject/iotex-core/proto"
 )
 
 // CreateBlockCB defines the callback to create a new block
@@ -29,7 +30,8 @@ type BroadcastCB func(*blockchain.Block) error
 type Scheme interface {
 	lifecycle.StartStopper
 
-	Handle(msg proto.Message) error
+	HandleBlockPropose(propose *iproto.ProposePb) error
+	HandleEndorse(endorse *iproto.EndorsePb) error
 	SetDoneStream(chan bool)
 	Metrics() (ConsensusMetrics, error)
 }
