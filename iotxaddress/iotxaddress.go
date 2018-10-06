@@ -37,8 +37,6 @@ var (
 	ErrInvalidHRP = errors.New("invalid human readable prefix")
 	// IsTestnet is used to get address
 	IsTestnet = false
-	// ChainID is used to get address
-	ChainID = []byte{0x01, 0x02, 0x03, 0x04}
 )
 
 const (
@@ -86,13 +84,13 @@ func GetAddressByHash(isTestnet bool, chainID, hash []byte) (*Address, error) {
 }
 
 // CreateContractAddress returns the contract address given owner address and nonce
-func CreateContractAddress(ownerAddr string, nonce uint64) (string, error) {
+func CreateContractAddress(ownerAddr string, chainID []byte, nonce uint64) (string, error) {
 	temp := make([]byte, 8)
 	enc.MachineEndian.PutUint64(temp, nonce)
 	// generate contract address from owner addr and nonce
 	// nonce guarantees a different contract addr even if the same code is deployed the second time
 	contractHash := hash.Hash160b(append([]byte(ownerAddr), temp...))
-	return getRawAddress(IsTestnet, ChainID, contractHash)
+	return getRawAddress(IsTestnet, chainID, contractHash)
 }
 
 // GetAddressByPubkey returns the address given a public key and necessary params.

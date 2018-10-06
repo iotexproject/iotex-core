@@ -707,7 +707,7 @@ func (sf *factory) handleVote(blockHeight uint64, vote []*action.Vote) error {
 			if _, ok := sf.cachedCandidates[pkHashAddress]; !ok {
 				sf.cachedCandidates[pkHashAddress] = &Candidate{
 					Address:        v.Voter(),
-					PubKey:         votePubkey[:],
+					PublicKey:      votePubkey,
 					CreationHeight: blockHeight,
 				}
 			}

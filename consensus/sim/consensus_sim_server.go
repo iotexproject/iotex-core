@@ -24,11 +24,12 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	pb "github.com/iotexproject/iotex-core/consensus/sim/proto"
-	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"github.com/iotexproject/iotex-core/proto"
 )
 
 const (
@@ -73,8 +74,8 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 		cfg.Consensus.RollDPoS.UnmatchedEventTTL = 1000 * time.Second
 		cfg.Consensus.RollDPoS.RoundStartTTL = 1000 * time.Second
 		cfg.Consensus.RollDPoS.AcceptProposeTTL = 1000 * time.Second
-		cfg.Consensus.RollDPoS.AcceptPrevoteTTL = 1000 * time.Second
-		cfg.Consensus.RollDPoS.AcceptVoteTTL = 1000 * time.Second
+		cfg.Consensus.RollDPoS.AcceptProposalEndorseTTL = 1000 * time.Second
+		cfg.Consensus.RollDPoS.AcceptCommitEndorseTTL = 1000 * time.Second
 
 		// handle node address, delegate addresses, etc.
 		cfg.Network.Host = "127.0.0.1"
@@ -83,12 +84,12 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 		cfg.Network.NumPeersUpperBound = 12
 
 		// create public/private key pair and address
-		addr, err := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
+		pk, sk, err := crypto.EC283.NewKeyPair()
 		if err != nil {
-			logger.Error().Err(err).Msg("failed to create public/private key pair together with the address derived.")
+			logger.Error().Err(err).Msg("failed to create public/private key pair together.")
 		}
-		cfg.Chain.ProducerPrivKey = keypair.EncodePrivateKey(addr.PrivateKey)
-		cfg.Chain.ProducerPubKey = keypair.EncodePublicKey(addr.PublicKey)
+		cfg.Chain.ProducerPubKey = keypair.EncodePublicKey(pk)
+		cfg.Chain.ProducerPrivKey = keypair.EncodePrivateKey(sk)
 
 		// set chain database path
 		cfg.Chain.ChainDBPath = "./chain" + strconv.Itoa(i) + ".db"
@@ -168,7 +169,12 @@ func (s *server) Ping(in *pb.Request, stream pb.Simulator_PingServer) error {
 	// message type of 1999 means that it's a dummy message to allow the engine to pass back proposed blocks
 	if in.InternalMsgType != dummyMsgType {
 		msg := CombineMsg(in.InternalMsgType, msgValue)
-		err = s.nodes[in.PlayerID].HandleViewChange(msg, done)
+		switch msg.(type) {
+		case *iproto.ProposePb:
+			err = s.nodes[in.PlayerID].HandleBlockPropose(msg.(*iproto.ProposePb), done)
+		case *iproto.EndorsePb:
+			err = s.nodes[in.PlayerID].HandleEndorse(msg.(*iproto.EndorsePb), done)
+		}
 		if err != nil {
 			logger.Error().Err(err).Msg("failed to handle view change")
 		}

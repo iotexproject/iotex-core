@@ -32,8 +32,18 @@ type Genesis struct {
 	Timestamp           uint64
 	ParentHash          hash.Hash32B
 	GenesisCoinbaseData string
-	CreatorAddr         string
 	CreatorPubKey       string
+	CreatorPrivKey      string
+}
+
+// CreatorAddr returns the creator address on a particular chain
+func (g *Genesis) CreatorAddr(chainID uint32) string {
+	pk, err := keypair.DecodePublicKey(g.CreatorPubKey)
+	if err != nil {
+		logger.Panic().Err(err).Msg("Fail to decode creator public keh hex string")
+	}
+	pkHash := keypair.HashPubKey(pk)
+	return address.New(chainID, pkHash[:]).IotxAddress()
 }
 
 // GenesisAction is the root action struct, each package's action should be put as its sub struct
@@ -63,8 +73,9 @@ var Gen = &Genesis{
 	Timestamp:           uint64(1524676419),
 	ParentHash:          hash.Hash32B{},
 	GenesisCoinbaseData: "Connecting the physical world, block by block",
-	CreatorAddr:         "io1qyqsyqcy222ggazmccgf7dsx9m9vfqtadw82ygwhjnxtmx",
 	CreatorPubKey:       "d01164c3afe47406728d3e17861a3251dcff39e62bdc2b93ccb69a02785a175e195b5605517fd647eb7dd095b3d862dffb087f35eacf10c6859d04a100dbfb7358eeca9d5c37c904",
+	// TODO: move this out of production code, which is only used for test
+	CreatorPrivKey: "d2df3528ff384d41cc9688c354cd301a09f91d95582eb8034a6eff140e7539cb17b53401",
 }
 
 // NewGenesisBlock creates a new genesis block
@@ -78,30 +89,30 @@ func NewGenesisBlock(cfg *config.Config) *Block {
 
 	actionsBytes, err := ioutil.ReadFile(filePath)
 	if err != nil {
-		logger.Fatal().Err(err).Msg("Fail to create genesis block")
+		logger.Panic().Err(err).Msg("Fail to create genesis block")
 	}
 	actions := GenesisAction{}
 	if err := yaml.Unmarshal(actionsBytes, &actions); err != nil {
-		logger.Fatal().Err(err).Msg("Fail to create genesis block")
+		logger.Panic().Err(err).Msg("Fail to create genesis block")
 	}
 	votes := []*action.Vote{}
 	for _, nominator := range actions.SelfNominators {
 		pubk, err := keypair.DecodePublicKey(nominator.PubKey)
 		if err != nil {
-			logger.Fatal().Err(err).Msg("Fail to create genesis block")
+			logger.Panic().Err(err).Msg("Fail to create genesis block")
 		}
 		pkHash := keypair.HashPubKey(pubk)
 		address := address.New(cfg.Chain.ID, pkHash[:])
 		if err != nil {
-			logger.Fatal().Err(err).Msg("Fail to create genesis block")
+			logger.Panic().Err(err).Msg("Fail to create genesis block")
 		}
 		sign, err := hex.DecodeString(nominator.Signature)
 		if err != nil {
-			logger.Fatal().Err(err).Msg("Fail to create genesis block")
+			logger.Panic().Err(err).Msg("Fail to create genesis block")
 		}
 		vote, err := action.NewVote(0, address.IotxAddress(), address.IotxAddress(), 0, big.NewInt(0))
 		if err != nil {
-			logger.Fatal().Err(err).Msg("Fail to create genesis block")
+			logger.Panic().Err(err).Msg("Fail to create genesis block")
 		}
 		vote.SetVoterPublicKey(pubk)
 		vote.SetSignature(sign)
@@ -111,16 +122,17 @@ func NewGenesisBlock(cfg *config.Config) *Block {
 	transfers := []*action.Transfer{}
 	creatorPK, err := keypair.DecodePublicKey(Gen.CreatorPubKey)
 	if err != nil {
-		logger.Fatal().Err(err).Msg("Fail to create genesis block")
+		logger.Panic().Err(err).Msg("Fail to create genesis block")
 	}
 	for _, transfer := range actions.Transfers {
 		signature, err := hex.DecodeString(transfer.Signature)
 		if err != nil {
-			logger.Fatal().Err(err).Msg("Fail to create genesis block")
+			logger.Panic().Err(err).Msg("Fail to create genesis block")
 		}
-		tsf, err := action.NewTransfer(0, big.NewInt(transfer.Amount), Gen.CreatorAddr, transfer.Recipient, []byte{}, 0, big.NewInt(0))
+		tsf, err := action.NewTransfer(
+			0, big.NewInt(transfer.Amount), Gen.CreatorAddr(cfg.Chain.ID), transfer.Recipient, []byte{}, 0, big.NewInt(0))
 		if err != nil {
-			logger.Fatal().Err(err).Msg("Fail to create genesis block")
+			logger.Panic().Err(err).Msg("Fail to create genesis block")
 		}
 		tsf.SetSenderPublicKey(creatorPK)
 		tsf.SetSignature(signature)

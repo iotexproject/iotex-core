@@ -17,8 +17,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/crypto"
-	"github.com/iotexproject/iotex-core/iotxaddress"
-	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 )
 
@@ -89,10 +87,9 @@ var (
 			TTL:                                 3,
 		},
 		Chain: Chain{
-			ChainDBPath: "/tmp/chain.db",
-			TrieDBPath:  "/tmp/trie.db",
-			// TODO: set default chain ID to 1 after deprecating iotxaddress.ChainID
-			ID:                      enc.MachineEndian.Uint32(iotxaddress.ChainID),
+			ChainDBPath:             "/tmp/chain.db",
+			TrieDBPath:              "/tmp/trie.db",
+			ID:                      1,
 			ProducerPubKey:          keypair.EncodePublicKey(keypair.ZeroPublicKey),
 			ProducerPrivKey:         keypair.EncodePrivateKey(keypair.ZeroPrivateKey),
 			InMemTest:               false,
@@ -108,20 +105,20 @@ var (
 		Consensus: Consensus{
 			Scheme: NOOPScheme,
 			RollDPoS: RollDPoS{
-				DelegateInterval:       10 * time.Second,
-				ProposerInterval:       10 * time.Second,
-				UnmatchedEventTTL:      3 * time.Second,
-				UnmatchedEventInterval: 100 * time.Millisecond,
-				RoundStartTTL:          10 * time.Second,
-				AcceptProposeTTL:       time.Second,
-				AcceptPrevoteTTL:       time.Second,
-				AcceptVoteTTL:          time.Second,
-				Delay:                  5 * time.Second,
-				NumSubEpochs:           1,
-				EventChanSize:          10000,
-				NumDelegates:           21,
-				EnableDummyBlock:       true,
-				TimeBasedRotation:      false,
+				DelegateInterval:         10 * time.Second,
+				ProposerInterval:         10 * time.Second,
+				UnmatchedEventTTL:        3 * time.Second,
+				UnmatchedEventInterval:   100 * time.Millisecond,
+				RoundStartTTL:            10 * time.Second,
+				AcceptProposeTTL:         time.Second,
+				AcceptProposalEndorseTTL: time.Second,
+				AcceptCommitEndorseTTL:   time.Second,
+				Delay:             5 * time.Second,
+				NumSubEpochs:      1,
+				EventChanSize:     10000,
+				NumDelegates:      21,
+				EnableDummyBlock:  true,
+				TimeBasedRotation: false,
 			},
 			BlockCreationInterval: 10 * time.Second,
 		},
@@ -230,20 +227,20 @@ type (
 
 	// RollDPoS is the config struct for RollDPoS consensus package
 	RollDPoS struct {
-		DelegateInterval       time.Duration `yaml:"delegateInterval"`
-		ProposerInterval       time.Duration `yaml:"proposerInterval"`
-		UnmatchedEventTTL      time.Duration `yaml:"unmatchedEventTTL"`
-		UnmatchedEventInterval time.Duration `yaml:"unmatchedEventInterval"`
-		RoundStartTTL          time.Duration `yaml:"roundStartTTL"`
-		AcceptProposeTTL       time.Duration `yaml:"acceptProposeTTL"`
-		AcceptPrevoteTTL       time.Duration `yaml:"acceptPrevoteTTL"`
-		AcceptVoteTTL          time.Duration `yaml:"acceptVoteTTL"`
-		Delay                  time.Duration `yaml:"delay"`
-		NumSubEpochs           uint          `yaml:"numSubEpochs"`
-		EventChanSize          uint          `yaml:"eventChanSize"`
-		NumDelegates           uint          `yaml:"numDelegates"`
-		EnableDummyBlock       bool          `yaml:"enableDummyBlock"`
-		TimeBasedRotation      bool          `yaml:"timeBasedRotation"`
+		DelegateInterval         time.Duration `yaml:"delegateInterval"`
+		ProposerInterval         time.Duration `yaml:"proposerInterval"`
+		UnmatchedEventTTL        time.Duration `yaml:"unmatchedEventTTL"`
+		UnmatchedEventInterval   time.Duration `yaml:"unmatchedEventInterval"`
+		RoundStartTTL            time.Duration `yaml:"roundStartTTL"`
+		AcceptProposeTTL         time.Duration `yaml:"acceptProposeTTL"`
+		AcceptProposalEndorseTTL time.Duration `yaml:"acceptProposalEndorseTTL"`
+		AcceptCommitEndorseTTL   time.Duration `yaml:"acceptCommitEndorseTTL"`
+		Delay                    time.Duration `yaml:"delay"`
+		NumSubEpochs             uint          `yaml:"numSubEpochs"`
+		EventChanSize            uint          `yaml:"eventChanSize"`
+		NumDelegates             uint          `yaml:"numDelegates"`
+		EnableDummyBlock         bool          `yaml:"enableDummyBlock"`
+		TimeBasedRotation        bool          `yaml:"timeBasedRotation"`
 	}
 
 	// Dispatcher is the dispatcher config
@@ -285,6 +282,23 @@ type (
 	DB struct {
 		// NumRetries is the number of retries
 		NumRetries uint8 `yaml:"numRetries"`
+
+		// RDS is the config fot rds
+		RDS RDS `yaml:"RDS"`
+	}
+
+	// RDS is the cloud rds config
+	RDS struct {
+		// AwsRDSEndpoint is the endpoint of aws rds
+		AwsRDSEndpoint string `yaml:"awsRDSEndpoint"`
+		// AwsRDSPort is the port of aws rds
+		AwsRDSPort uint64 `yaml:"awsRDSPort"`
+		// AwsRDSUser is the user to access aws rds
+		AwsRDSUser string `yaml:"awsRDSUser"`
+		// AwsPass is the pass to access aws rds
+		AwsPass string `yaml:"awsPass"`
+		// AwsDBName is the db name of aws rds
+		AwsDBName string `yaml:"awsDBName"`
 	}
 
 	// Config is the root config struct, each package's config should be put as its sub struct

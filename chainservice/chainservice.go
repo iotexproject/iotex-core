@@ -4,7 +4,6 @@ import (
 	"context"
 	"os"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/actpool"
@@ -15,6 +14,7 @@ import (
 	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/dispatcher"
 	"github.com/iotexproject/iotex-core/explorer"
+	explorerapi "github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network"
 	pb "github.com/iotexproject/iotex-core/proto"
@@ -29,19 +29,41 @@ type ChainService struct {
 	explorer  *explorer.Server
 }
 
+type optionParams struct {
+	rootChainAPI explorerapi.Explorer
+	isTesting    bool
+}
+
+// Option sets ChainService construction parameter.
+type Option func(ops *optionParams) error
+
+// WithRootChainAPI is an option to add a root chain api to ChainService.
+func WithRootChainAPI(exp explorerapi.Explorer) Option {
+	return func(ops *optionParams) error {
+		ops.rootChainAPI = exp
+		return nil
+	}
+}
+
+// WithTesting is an option to create a testing ChainService.
+func WithTesting() Option {
+	return func(ops *optionParams) error {
+		ops.isTesting = true
+		return nil
+	}
+}
+
 // New creates a ChainService from config and network.Overlay and dispatcher.Dispatcher.
-func New(cfg *config.Config, p2p network.Overlay, dispatcher dispatcher.Dispatcher) (*ChainService, error) {
-	return newChainService(cfg, p2p, dispatcher, false)
-}
+func New(cfg *config.Config, p2p network.Overlay, dispatcher dispatcher.Dispatcher, opts ...Option) (*ChainService, error) {
+	var ops optionParams
+	for _, opt := range opts {
+		if err := opt(&ops); err != nil {
+			return nil, err
+		}
+	}
 
-// NewTesting creates a testing ChainService from config and network.Overlay and dispatcher.Dispatcher.
-func NewTesting(cfg *config.Config, p2p network.Overlay, dispatcher dispatcher.Dispatcher) (*ChainService, error) {
-	return newChainService(cfg, p2p, dispatcher, true)
-}
-
-func newChainService(cfg *config.Config, p2p network.Overlay, dispatcher dispatcher.Dispatcher, testing bool) (*ChainService, error) {
 	var chainOpts []blockchain.Option
-	if testing {
+	if ops.isTesting {
 		chainOpts = []blockchain.Option{blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption()}
 	} else {
 		chainOpts = []blockchain.Option{blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption()}
@@ -69,7 +91,12 @@ func newChainService(cfg *config.Config, p2p network.Overlay, dispatcher dispatc
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create blockSyncer")
 	}
-	consensus := consensus.NewConsensus(cfg, chain, actPool, p2p)
+
+	var copts []consensus.Option
+	if ops.rootChainAPI != nil {
+		copts = []consensus.Option{consensus.WithRootChainAPI(ops.rootChainAPI)}
+	}
+	consensus := consensus.NewConsensus(cfg, chain, actPool, p2p, copts...)
 	if consensus == nil {
 		return nil, errors.Wrap(err, "failed to create consensus")
 	}
@@ -170,14 +197,14 @@ func (cs *ChainService) HandleSyncRequest(sender string, sync *pb.BlockSync) err
 	return cs.blocksync.ProcessSyncRequest(sender, sync)
 }
 
-// HandleViewChange handles incoming view change request.
-func (cs *ChainService) HandleViewChange(msg proto.Message) error {
-	return cs.consensus.HandleViewChange(msg)
+// HandleBlockPropose handles incoming block propose request.
+func (cs *ChainService) HandleBlockPropose(propose *pb.ProposePb) error {
+	return cs.consensus.HandleBlockPropose(propose)
 }
 
-// HandleBlockPropose handles incoming block propose request.
-func (cs *ChainService) HandleBlockPropose(msg proto.Message) error {
-	return cs.consensus.HandleBlockPropose(msg)
+// HandleEndorse handles incoming endorse request.
+func (cs *ChainService) HandleEndorse(endorse *pb.EndorsePb) error {
+	return cs.consensus.HandleEndorse(endorse)
 }
 
 // ChainID returns ChainID.
