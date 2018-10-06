@@ -10,7 +10,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"github.com/facebookgo/clock"
 	"math/big"
 	"strings"
 	"testing"
