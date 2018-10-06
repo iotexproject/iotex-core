@@ -8,7 +8,6 @@ package keystore
 
 import (
 	"encoding/json"
-	"github.com/iotexproject/iotex-core/testutil"
 	"math/big"
 	"testing"
 
@@ -20,6 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestSingleAccountManager_SignTransfer(t *testing.T) {

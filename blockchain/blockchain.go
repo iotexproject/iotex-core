@@ -846,6 +846,4 @@ func (bc *blockchain) replaceHeightAndHash(blk *Block) (uint64, hash.Hash32B, er
 	return tipHeight, tipHash, nil
 }
 
-func (bc *blockchain) now() uint64 {
-	return uint64(bc.clk.Now().Unix())
-}
+func (bc *blockchain) now() uint64 { return uint64(bc.clk.Now().Unix()) }
