@@ -13,7 +13,6 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/facebookgo/clock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -55,13 +54,13 @@ func TestBlockDAO(t *testing.T) {
 
 		hash1 := hash.Hash32B{}
 		fnv.New32().Sum(hash1[:])
-		blk1 := NewBlock(0, 1, hash1, clock.New(), []*action.Transfer{cbTsf1}, []*action.Vote{vote1}, []*action.Execution{execution1})
+		blk1 := NewBlock(0, 1, hash1, testutil.TimestampNow(), []*action.Transfer{cbTsf1}, []*action.Vote{vote1}, []*action.Execution{execution1})
 		hash2 := hash.Hash32B{}
 		fnv.New32().Sum(hash2[:])
-		blk2 := NewBlock(0, 2, hash2, clock.New(), []*action.Transfer{cbTsf2}, []*action.Vote{vote2}, []*action.Execution{execution2})
+		blk2 := NewBlock(0, 2, hash2, testutil.TimestampNow(), []*action.Transfer{cbTsf2}, []*action.Vote{vote2}, []*action.Execution{execution2})
 		hash3 := hash.Hash32B{}
 		fnv.New32().Sum(hash3[:])
-		blk3 := NewBlock(0, 3, hash3, clock.New(), []*action.Transfer{cbTsf3}, []*action.Vote{vote3}, []*action.Execution{execution3})
+		blk3 := NewBlock(0, 3, hash3, testutil.TimestampNow(), []*action.Transfer{cbTsf3}, []*action.Vote{vote3}, []*action.Execution{execution3})
 		return []*Block{blk1, blk2, blk3}
 	}
 
