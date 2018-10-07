@@ -56,8 +56,8 @@ type Nominator struct {
 
 // Transfer is the Transfer struct
 type Transfer struct {
-	Amount       int64  `yaml:"amount"`
-	RecipientPub string `yaml:"recipientPub"`
+	Amount      int64  `yaml:"amount"`
+	RecipientPK string `yaml:"recipientPK"`
 }
 
 // Gen hardcodes genesis default settings
@@ -67,31 +67,6 @@ var Gen = &Genesis{
 	Timestamp:           uint64(1524676419),
 	ParentHash:          hash.Hash32B{},
 	GenesisCoinbaseData: "Connecting the physical world, block by block",
-}
-
-// DecodeKey decodes the string keypair
-func decodeKey(pubK string, priK string) (pk keypair.PublicKey, sk keypair.PrivateKey) {
-	if len(pubK) > 0 {
-		publicKey, err := keypair.DecodePublicKey(pubK)
-		if err != nil {
-			logger.Panic().Err(err).Msg("Fail to decode public key")
-		}
-		pk = publicKey
-	}
-	if len(priK) > 0 {
-		privateKey, err := keypair.DecodePrivateKey(priK)
-		if err != nil {
-			logger.Panic().Err(err).Msg("Fail to decode private key")
-		}
-		sk = privateKey
-	}
-	return
-}
-
-// GenerateAddr returns the string address according to public key
-func generateAddr(chainID uint32, pk keypair.PublicKey) string {
-	pkHash := keypair.HashPubKey(pk)
-	return address.New(chainID, pkHash[:]).IotxAddress()
 }
 
 // CreatorAddr returns the creator address on a particular chain
@@ -146,7 +121,7 @@ func NewGenesisBlock(cfg *config.Config) *Block {
 
 	transfers := []*action.Transfer{}
 	for _, transfer := range actions.Transfers {
-		rpk, _ := decodeKey(transfer.RecipientPub, "")
+		rpk, _ := decodeKey(transfer.RecipientPK, "")
 		recipientAddr := generateAddr(cfg.Chain.ID, rpk)
 		tsf, err := action.NewTransfer(
 			0,
@@ -184,4 +159,29 @@ func NewGenesisBlock(cfg *config.Config) *Block {
 
 	block.Header.txRoot = block.TxRoot()
 	return block
+}
+
+// decodeKey decodes the string keypair
+func decodeKey(pubK string, priK string) (pk keypair.PublicKey, sk keypair.PrivateKey) {
+	if len(pubK) > 0 {
+		publicKey, err := keypair.DecodePublicKey(pubK)
+		if err != nil {
+			logger.Panic().Err(err).Msg("Fail to decode public key")
+		}
+		pk = publicKey
+	}
+	if len(priK) > 0 {
+		privateKey, err := keypair.DecodePrivateKey(priK)
+		if err != nil {
+			logger.Panic().Err(err).Msg("Fail to decode private key")
+		}
+		sk = privateKey
+	}
+	return
+}
+
+// generateAddr returns the string address according to public key
+func generateAddr(chainID uint32, pk keypair.PublicKey) string {
+	pkHash := keypair.HashPubKey(pk)
+	return address.New(chainID, pkHash[:]).IotxAddress()
 }
