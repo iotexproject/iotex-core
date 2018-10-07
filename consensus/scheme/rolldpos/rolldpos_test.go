@@ -57,7 +57,7 @@ func TestRollDPoSCtx(t *testing.T) {
 		1,
 		8,
 		prevHash,
-		clock,
+		testutil.TimestampNowFromClock(clock),
 		make([]*action.Transfer, 0),
 		make([]*action.Vote, 0),
 		make([]*action.Execution, 0),
@@ -298,7 +298,7 @@ func TestRollDPoS_convertToConsensusEvt(t *testing.T) {
 		1,
 		1,
 		prevHash,
-		clock.New(),
+		testutil.TimestampNow(),
 		[]*action.Transfer{transfer}, []*action.Vote{vote},
 		nil,
 	)

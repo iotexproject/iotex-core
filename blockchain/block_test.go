@@ -14,7 +14,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/facebookgo/clock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/blake2b"
@@ -129,7 +128,7 @@ func TestMerkle(t *testing.T) {
 		0,
 		0,
 		hash.ZeroHash32B,
-		clock.New(),
+		testutil.TimestampNow(),
 		[]*action.Transfer{cbtsf0, cbtsf1, cbtsf2, cbtsf3, cbtsf4},
 		nil,
 		nil,
@@ -206,7 +205,7 @@ func TestWrongRootHash(t *testing.T) {
 	require.NoError(err)
 	require.NoError(action.Sign(tsf2, ta.Addrinfo["producer"].PrivateKey))
 	hash := tsf1.Hash()
-	blk := NewBlock(1, 1, hash, clock.New(), []*action.Transfer{tsf1, tsf2}, nil, nil)
+	blk := NewBlock(1, 1, hash, testutil.TimestampNow(), []*action.Transfer{tsf1, tsf2}, nil, nil)
 	blk.Header.Pubkey = ta.Addrinfo["producer"].PublicKey
 	blkHash := blk.HashBlock()
 	blk.Header.blockSig = crypto.EC283.Sign(ta.Addrinfo["producer"].PrivateKey, blkHash[:])
@@ -225,7 +224,7 @@ func TestSignBlock(t *testing.T) {
 	require.NoError(err)
 	require.NoError(action.Sign(tsf2, ta.Addrinfo["producer"].PrivateKey))
 	hash := tsf1.Hash()
-	blk := NewBlock(1, 3, hash, clock.New(), []*action.Transfer{tsf1, tsf2}, nil, nil)
+	blk := NewBlock(1, 3, hash, testutil.TimestampNow(), []*action.Transfer{tsf1, tsf2}, nil, nil)
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.Nil(err)
 	require.Nil(val.Validate(blk, 2, hash, true))
@@ -254,7 +253,7 @@ func TestWrongNonce(t *testing.T) {
 	require.NoError(err)
 	require.NoError(action.Sign(tsf1, ta.Addrinfo["producer"].PrivateKey))
 	hash := tsf1.Hash()
-	blk := NewBlock(cfg.Chain.ID, 3, hash, clock.New(), []*action.Transfer{coinbaseTsf, tsf1}, nil, nil)
+	blk := NewBlock(cfg.Chain.ID, 3, hash, testutil.TimestampNow(), []*action.Transfer{coinbaseTsf, tsf1}, nil, nil)
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.NoError(err)
 	require.Nil(val.Validate(blk, 2, hash, true))
@@ -267,7 +266,7 @@ func TestWrongNonce(t *testing.T) {
 	require.NoError(err)
 	require.NoError(action.Sign(tsf2, ta.Addrinfo["producer"].PrivateKey))
 	hash = tsf1.Hash()
-	blk = NewBlock(cfg.Chain.ID, 3, hash, clock.New(), []*action.Transfer{coinbaseTsf, tsf1, tsf2}, nil, nil)
+	blk = NewBlock(cfg.Chain.ID, 3, hash, testutil.TimestampNow(), []*action.Transfer{coinbaseTsf, tsf1, tsf2}, nil, nil)
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.NoError(err)
 	err = val.Validate(blk, 2, hash, true)
@@ -277,7 +276,7 @@ func TestWrongNonce(t *testing.T) {
 	require.NoError(err)
 	require.NoError(action.Sign(vote, ta.Addrinfo["producer"].PrivateKey))
 	hash = tsf1.Hash()
-	blk = NewBlock(cfg.Chain.ID, 3, hash, clock.New(), []*action.Transfer{coinbaseTsf}, []*action.Vote{vote}, nil)
+	blk = NewBlock(cfg.Chain.ID, 3, hash, testutil.TimestampNow(), []*action.Transfer{coinbaseTsf}, []*action.Vote{vote}, nil)
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.NoError(err)
 	err = val.Validate(blk, 2, hash, true)
@@ -292,7 +291,7 @@ func TestWrongNonce(t *testing.T) {
 	require.NoError(err)
 	require.NoError(action.Sign(tsf4, ta.Addrinfo["producer"].PrivateKey))
 	hash = tsf1.Hash()
-	blk = NewBlock(cfg.Chain.ID, 3, hash, clock.New(), []*action.Transfer{coinbaseTsf, tsf3, tsf4}, nil, nil)
+	blk = NewBlock(cfg.Chain.ID, 3, hash, testutil.TimestampNow(), []*action.Transfer{coinbaseTsf, tsf3, tsf4}, nil, nil)
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.NoError(err)
 	err = val.Validate(blk, 2, hash, true)
@@ -306,7 +305,7 @@ func TestWrongNonce(t *testing.T) {
 	require.NoError(err)
 	require.NoError(action.Sign(vote3, ta.Addrinfo["producer"].PrivateKey))
 	hash = tsf1.Hash()
-	blk = NewBlock(cfg.Chain.ID, 3, hash, clock.New(), []*action.Transfer{coinbaseTsf}, []*action.Vote{vote2, vote3}, nil)
+	blk = NewBlock(cfg.Chain.ID, 3, hash, testutil.TimestampNow(), []*action.Transfer{coinbaseTsf}, []*action.Vote{vote2, vote3}, nil)
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.NoError(err)
 	err = val.Validate(blk, 2, hash, true)
@@ -321,7 +320,7 @@ func TestWrongNonce(t *testing.T) {
 	require.NoError(err)
 	require.NoError(action.Sign(tsf6, ta.Addrinfo["producer"].PrivateKey))
 	hash = tsf1.Hash()
-	blk = NewBlock(cfg.Chain.ID, 3, hash, clock.New(), []*action.Transfer{coinbaseTsf, tsf5, tsf6}, nil, nil)
+	blk = NewBlock(cfg.Chain.ID, 3, hash, testutil.TimestampNow(), []*action.Transfer{coinbaseTsf, tsf5, tsf6}, nil, nil)
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.NoError(err)
 	err = val.Validate(blk, 2, hash, true)
@@ -335,7 +334,7 @@ func TestWrongNonce(t *testing.T) {
 	require.NoError(err)
 	require.NoError(action.Sign(vote5, ta.Addrinfo["producer"].PrivateKey))
 	hash = tsf1.Hash()
-	blk = NewBlock(cfg.Chain.ID, 3, hash, clock.New(), []*action.Transfer{coinbaseTsf}, []*action.Vote{vote4, vote5}, nil)
+	blk = NewBlock(cfg.Chain.ID, 3, hash, testutil.TimestampNow(), []*action.Transfer{coinbaseTsf}, []*action.Vote{vote4, vote5}, nil)
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.NoError(err)
 	err = val.Validate(blk, 2, hash, true)
@@ -365,7 +364,7 @@ func TestWrongCoinbaseTsf(t *testing.T) {
 	require.NoError(err)
 	require.NoError(action.Sign(tsf1, ta.Addrinfo["producer"].PrivateKey))
 	hash := tsf1.Hash()
-	blk := NewBlock(1, 3, hash, clock.New(), []*action.Transfer{tsf1}, nil, nil)
+	blk := NewBlock(1, 3, hash, testutil.TimestampNow(), []*action.Transfer{tsf1}, nil, nil)
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.NoError(err)
 	err = val.Validate(blk, 2, hash, true)
@@ -375,7 +374,7 @@ func TestWrongCoinbaseTsf(t *testing.T) {
 	)
 
 	// extra coinbase transfer
-	blk = NewBlock(1, 3, hash, clock.New(), []*action.Transfer{coinbaseTsf, coinbaseTsf, tsf1}, nil, nil)
+	blk = NewBlock(1, 3, hash, testutil.TimestampNow(), []*action.Transfer{coinbaseTsf, coinbaseTsf, tsf1}, nil, nil)
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.NoError(err)
 	err = val.Validate(blk, 2, hash, true)
@@ -385,7 +384,7 @@ func TestWrongCoinbaseTsf(t *testing.T) {
 	)
 
 	// no transfer
-	blk = NewBlock(1, 3, hash, clock.New(), []*action.Transfer{}, nil, nil)
+	blk = NewBlock(1, 3, hash, testutil.TimestampNow(), []*action.Transfer{}, nil, nil)
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.NoError(err)
 	err = val.Validate(blk, 2, hash, true)
@@ -400,7 +399,7 @@ func TestWrongAddress(t *testing.T) {
 	invalidRecipient := "io1qyqsyqcyq5narhapakcsrhksfajfcpl24us3xp38zwvsep"
 	tsf, err := action.NewTransfer(1, big.NewInt(1), ta.Addrinfo["producer"].RawAddress, invalidRecipient, []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(t, err)
-	blk1 := NewBlock(1, 3, hash.ZeroHash32B, clock.New(), []*action.Transfer{tsf}, nil, nil)
+	blk1 := NewBlock(1, 3, hash.ZeroHash32B, testutil.TimestampNow(), []*action.Transfer{tsf}, nil, nil)
 	err = val.verifyActions(blk1, true)
 	require.Error(t, err)
 	require.True(t, strings.Contains(err.Error(), "failed to validate transfer recipient's address"))
@@ -408,7 +407,7 @@ func TestWrongAddress(t *testing.T) {
 	invalidVotee := "ioaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	vote, err := action.NewVote(1, ta.Addrinfo["producer"].RawAddress, invalidVotee, uint64(100000), big.NewInt(10))
 	require.NoError(t, err)
-	blk2 := NewBlock(1, 3, hash.ZeroHash32B, clock.New(), nil, []*action.Vote{vote}, nil)
+	blk2 := NewBlock(1, 3, hash.ZeroHash32B, testutil.TimestampNow(), nil, []*action.Vote{vote}, nil)
 	err = val.verifyActions(blk2, true)
 	require.Error(t, err)
 	require.True(t, strings.Contains(err.Error(), "failed to validate votee's address"))
@@ -416,7 +415,7 @@ func TestWrongAddress(t *testing.T) {
 	invalidContract := "123"
 	execution, err := action.NewExecution(ta.Addrinfo["producer"].RawAddress, invalidContract, 1, big.NewInt(1), uint64(100000), big.NewInt(10), []byte{})
 	require.NoError(t, err)
-	blk3 := NewBlock(1, 3, hash.ZeroHash32B, clock.New(), nil, nil, []*action.Execution{execution})
+	blk3 := NewBlock(1, 3, hash.ZeroHash32B, testutil.TimestampNow(), nil, nil, []*action.Execution{execution})
 	err = val.verifyActions(blk3, true)
 	require.Error(t, err)
 	require.True(t, strings.Contains(err.Error(), "failed to validate contract's address"))
@@ -493,7 +492,7 @@ func TestValidateSecretBlock(t *testing.T) {
 	secretWitness, err := action.NewSecretWitness(uint64(22), delegates[0], witness)
 	require.NoError(err)
 	hash := secretProposals[0].Hash()
-	blk := NewSecretBlock(1, 3, hash, clock.New(), secretProposals, secretWitness)
+	blk := NewSecretBlock(1, 3, hash, testutil.TimestampNow(), secretProposals, secretWitness)
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.NoError(err)
 
@@ -504,7 +503,7 @@ func TestValidateSecretBlock(t *testing.T) {
 	dummySecretProposal, err := action.NewSecretProposal(2, delegates[0], delegates[1], []uint32{1, 2, 3, 4, 5})
 	require.NoError(err)
 	secretProposals[1] = dummySecretProposal
-	blk = NewSecretBlock(1, 3, hash, clock.New(), secretProposals, secretWitness)
+	blk = NewSecretBlock(1, 3, hash, testutil.TimestampNow(), secretProposals, secretWitness)
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.NoError(err)
 	err = val.Validate(blk, 2, hash, false)
