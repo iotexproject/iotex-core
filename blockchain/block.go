@@ -11,7 +11,6 @@ import (
 	"errors"
 	"time"
 
-	"github.com/facebookgo/clock"
 	"github.com/golang/protobuf/proto"
 	"golang.org/x/crypto/blake2b"
 
@@ -71,7 +70,7 @@ func NewBlock(
 	chainID uint32,
 	height uint64,
 	prevBlockHash hash.Hash32B,
-	c clock.Clock,
+	timestamp uint64,
 	tsf []*action.Transfer,
 	vote []*action.Vote,
 	executions []*action.Execution) *Block {
@@ -80,7 +79,7 @@ func NewBlock(
 			version:       version.ProtocolVersion,
 			chainID:       chainID,
 			height:        height,
-			timestamp:     uint64(c.Now().Unix()),
+			timestamp:     timestamp,
 			prevBlockHash: prevBlockHash,
 			txRoot:        hash.ZeroHash32B,
 			stateRoot:     hash.ZeroHash32B,
@@ -100,7 +99,7 @@ func NewSecretBlock(
 	chainID uint32,
 	height uint64,
 	prevBlockHash hash.Hash32B,
-	c clock.Clock,
+	timestamp uint64,
 	secretProposals []*action.SecretProposal,
 	secretWitness *action.SecretWitness,
 ) *Block {
@@ -109,7 +108,7 @@ func NewSecretBlock(
 			version:       version.ProtocolVersion,
 			chainID:       chainID,
 			height:        height,
-			timestamp:     uint64(c.Now().Unix()),
+			timestamp:     timestamp,
 			prevBlockHash: prevBlockHash,
 			txRoot:        hash.ZeroHash32B,
 			stateRoot:     hash.ZeroHash32B,

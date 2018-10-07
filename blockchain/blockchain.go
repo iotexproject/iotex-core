@@ -617,7 +617,7 @@ func (bc *blockchain) MintNewBlock(tsf []*action.Transfer, vote []*action.Vote, 
 	defer bc.mu.RUnlock()
 
 	tsf = append(tsf, action.NewCoinBaseTransfer(big.NewInt(int64(bc.genesis.BlockReward)), producer.RawAddress))
-	blk := NewBlock(bc.config.Chain.ID, bc.tipHeight+1, bc.tipHash, bc.clk, tsf, vote, executions)
+	blk := NewBlock(bc.config.Chain.ID, bc.tipHeight+1, bc.tipHash, bc.now(), tsf, vote, executions)
 	blk.Header.DKGID = []byte{}
 	blk.Header.DKGPubkey = []byte{}
 	blk.Header.DKGBlockSig = []byte{}
@@ -642,7 +642,7 @@ func (bc *blockchain) MintNewDKGBlock(tsf []*action.Transfer, vote []*action.Vot
 	defer bc.mu.RUnlock()
 
 	tsf = append(tsf, action.NewCoinBaseTransfer(big.NewInt(int64(bc.genesis.BlockReward)), producer.RawAddress))
-	blk := NewBlock(bc.config.Chain.ID, bc.tipHeight+1, bc.tipHash, bc.clk, tsf, vote, executions)
+	blk := NewBlock(bc.config.Chain.ID, bc.tipHeight+1, bc.tipHash, bc.now(), tsf, vote, executions)
 	blk.Header.DKGID = []byte{}
 	blk.Header.DKGPubkey = []byte{}
 	blk.Header.DKGBlockSig = []byte{}
@@ -675,7 +675,7 @@ func (bc *blockchain) MintNewSecretBlock(
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
 
-	blk := NewSecretBlock(bc.config.Chain.ID, bc.tipHeight+1, bc.tipHash, bc.clk, secretProposals, secretWitness)
+	blk := NewSecretBlock(bc.config.Chain.ID, bc.tipHeight+1, bc.tipHash, bc.now(), secretProposals, secretWitness)
 	// run execution and update account trie root hash
 	root, err := bc.runActions(blk, false)
 	if err != nil {
@@ -693,7 +693,7 @@ func (bc *blockchain) MintNewDummyBlock() *Block {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
 
-	blk := NewBlock(bc.config.Chain.ID, bc.tipHeight+1, bc.tipHash, bc.clk, nil, nil, nil)
+	blk := NewBlock(bc.config.Chain.ID, bc.tipHeight+1, bc.tipHash, bc.now(), nil, nil, nil)
 	blk.Header.Pubkey = keypair.ZeroPublicKey
 	blk.Header.blockSig = []byte{}
 
@@ -848,3 +848,5 @@ func (bc *blockchain) replaceHeightAndHash(blk *Block) (uint64, hash.Hash32B, er
 	}
 	return tipHeight, tipHash, nil
 }
+
+func (bc *blockchain) now() uint64 { return uint64(bc.clk.Now().Unix()) }

@@ -11,7 +11,6 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/facebookgo/clock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
@@ -20,6 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestSingleAccountManager_SignTransfer(t *testing.T) {
@@ -86,7 +86,7 @@ func TestSingleAccountManager_SignHash(t *testing.T) {
 	m, err := NewSingleAccountManager(accountManager)
 	require.NoError(err)
 
-	blk := blockchain.NewBlock(1, 0, hash.ZeroHash32B, clock.New(), nil, nil, nil)
+	blk := blockchain.NewBlock(1, 0, hash.ZeroHash32B, testutil.TimestampNow(), nil, nil, nil)
 	hash := blk.HashBlock()
 	signature, err := m.SignHash(hash[:])
 	require.NoError(err)
