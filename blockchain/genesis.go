@@ -7,7 +7,6 @@
 package blockchain
 
 import (
-	"encoding/hex"
 	"io/ioutil"
 	"math/big"
 
@@ -36,34 +35,29 @@ type Genesis struct {
 	CreatorPrivKey      string
 }
 
-// CreatorAddr returns the creator address on a particular chain
-func (g *Genesis) CreatorAddr(chainID uint32) string {
-	pk, err := keypair.DecodePublicKey(g.CreatorPubKey)
-	if err != nil {
-		logger.Panic().Err(err).Msg("Fail to decode creator public keh hex string")
-	}
-	pkHash := keypair.HashPubKey(pk)
-	return address.New(chainID, pkHash[:]).IotxAddress()
-}
-
 // GenesisAction is the root action struct, each package's action should be put as its sub struct
 type GenesisAction struct {
+	Creation       Creator     `yaml:"creator"`
 	SelfNominators []Nominator `yaml:"selfNominators"`
 	Transfers      []Transfer  `yaml:"transfers"`
 }
 
+// Creator is the Creator of the genesis block
+type Creator struct {
+	PubKey string `yaml:"pubKey"`
+	PriKey string `yaml:"priKey"`
+}
+
 // Nominator is the Nominator struct for vote struct
 type Nominator struct {
-	PubKey    string `yaml:"pubKey"`
-	Address   string `yaml:"address"`
-	Signature string `yaml:"signature"`
+	PubKey string `yaml:"pubKey"`
+	PriKey string `yaml:"priKey"`
 }
 
 // Transfer is the Transfer struct
 type Transfer struct {
-	Amount    int64  `yaml:"amount"`
-	Recipient string `yaml:"recipient"`
-	Signature string `yaml:"signature"`
+	Amount      int64  `yaml:"amount"`
+	RecipientPK string `yaml:"recipientPK"`
 }
 
 // Gen hardcodes genesis default settings
@@ -73,9 +67,12 @@ var Gen = &Genesis{
 	Timestamp:           uint64(1524676419),
 	ParentHash:          hash.Hash32B{},
 	GenesisCoinbaseData: "Connecting the physical world, block by block",
-	CreatorPubKey:       "d01164c3afe47406728d3e17861a3251dcff39e62bdc2b93ccb69a02785a175e195b5605517fd647eb7dd095b3d862dffb087f35eacf10c6859d04a100dbfb7358eeca9d5c37c904",
-	// TODO: move this out of production code, which is only used for test
-	CreatorPrivKey: "d2df3528ff384d41cc9688c354cd301a09f91d95582eb8034a6eff140e7539cb17b53401",
+}
+
+// CreatorAddr returns the creator address on a particular chain
+func (g *Genesis) CreatorAddr(chainID uint32) string {
+	pk, _ := decodeKey(g.CreatorPubKey, "")
+	return generateAddr(chainID, pk)
 }
 
 // NewGenesisBlock creates a new genesis block
@@ -95,47 +92,53 @@ func NewGenesisBlock(cfg *config.Config) *Block {
 	if err := yaml.Unmarshal(actionsBytes, &actions); err != nil {
 		logger.Panic().Err(err).Msg("Fail to create genesis block")
 	}
+
+	Gen.CreatorPubKey = actions.Creation.PubKey
+	Gen.CreatorPrivKey = actions.Creation.PriKey
+	creatorPubk, creatorPrik := decodeKey(Gen.CreatorPubKey, Gen.CreatorPrivKey)
+	creatorAddr := Gen.CreatorAddr(cfg.Chain.ID)
+
 	votes := []*action.Vote{}
 	for _, nominator := range actions.SelfNominators {
-		pubk, err := keypair.DecodePublicKey(nominator.PubKey)
+		pk, sk := decodeKey(nominator.PubKey, nominator.PriKey)
+		address := generateAddr(cfg.Chain.ID, pk)
+		vote, err := action.NewVote(
+			0,
+			address,
+			address,
+			0,
+			big.NewInt(0),
+		)
 		if err != nil {
-			logger.Panic().Err(err).Msg("Fail to create genesis block")
+			logger.Panic().Err(err).Msg("Fail to create the new vote action")
 		}
-		pkHash := keypair.HashPubKey(pubk)
-		address := address.New(cfg.Chain.ID, pkHash[:])
-		if err != nil {
-			logger.Panic().Err(err).Msg("Fail to create genesis block")
+		if err := action.Sign(vote, sk); err != nil {
+			logger.Panic().Err(err).Msg("Fail to sign the new vote action")
 		}
-		sign, err := hex.DecodeString(nominator.Signature)
-		if err != nil {
-			logger.Panic().Err(err).Msg("Fail to create genesis block")
-		}
-		vote, err := action.NewVote(0, address.IotxAddress(), address.IotxAddress(), 0, big.NewInt(0))
-		if err != nil {
-			logger.Panic().Err(err).Msg("Fail to create genesis block")
-		}
-		vote.SetVoterPublicKey(pubk)
-		vote.SetSignature(sign)
+		vote.SetVoterPublicKey(pk)
 		votes = append(votes, vote)
 	}
 
 	transfers := []*action.Transfer{}
-	creatorPK, err := keypair.DecodePublicKey(Gen.CreatorPubKey)
-	if err != nil {
-		logger.Panic().Err(err).Msg("Fail to create genesis block")
-	}
 	for _, transfer := range actions.Transfers {
-		signature, err := hex.DecodeString(transfer.Signature)
-		if err != nil {
-			logger.Panic().Err(err).Msg("Fail to create genesis block")
-		}
+		rpk, _ := decodeKey(transfer.RecipientPK, "")
+		recipientAddr := generateAddr(cfg.Chain.ID, rpk)
 		tsf, err := action.NewTransfer(
-			0, big.NewInt(transfer.Amount), Gen.CreatorAddr(cfg.Chain.ID), transfer.Recipient, []byte{}, 0, big.NewInt(0))
+			0,
+			big.NewInt(transfer.Amount),
+			creatorAddr,
+			recipientAddr,
+			[]byte{},
+			0,
+			big.NewInt(0),
+		)
 		if err != nil {
-			logger.Panic().Err(err).Msg("Fail to create genesis block")
+			logger.Panic().Err(err).Msg("Fail to create the new transfer action")
 		}
-		tsf.SetSenderPublicKey(creatorPK)
-		tsf.SetSignature(signature)
+		if err := action.Sign(tsf, creatorPrik); err != nil {
+			logger.Panic().Err(err).Msg("Fail to sign the new transfer action")
+		}
+		tsf.SetSenderPublicKey(creatorPubk)
 		transfers = append(transfers, tsf)
 	}
 
@@ -156,4 +159,29 @@ func NewGenesisBlock(cfg *config.Config) *Block {
 
 	block.Header.txRoot = block.TxRoot()
 	return block
+}
+
+// decodeKey decodes the string keypair
+func decodeKey(pubK string, priK string) (pk keypair.PublicKey, sk keypair.PrivateKey) {
+	if len(pubK) > 0 {
+		publicKey, err := keypair.DecodePublicKey(pubK)
+		if err != nil {
+			logger.Panic().Err(err).Msg("Fail to decode public key")
+		}
+		pk = publicKey
+	}
+	if len(priK) > 0 {
+		privateKey, err := keypair.DecodePrivateKey(priK)
+		if err != nil {
+			logger.Panic().Err(err).Msg("Fail to decode private key")
+		}
+		sk = privateKey
+	}
+	return
+}
+
+// generateAddr returns the string address according to public key
+func generateAddr(chainID uint32, pk keypair.PublicKey) string {
+	pkHash := keypair.HashPubKey(pk)
+	return address.New(chainID, pkHash[:]).IotxAddress()
 }
