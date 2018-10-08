@@ -505,15 +505,17 @@ func TestService_SendTransfer(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	chain := mock_blockchain.NewMockBlockchain(ctrl)
 	mDp := mock_dispatcher.NewMockDispatcher(ctrl)
 	p2p := mock_network.NewMockOverlay(ctrl)
-	svc := Service{dp: mDp, p2p: p2p}
+	svc := Service{bc: chain, dp: mDp, p2p: p2p}
 
 	request := explorer.SendTransferRequest{}
 	response, err := svc.SendTransfer(request)
 	require.Equal("", response.Hash)
 	require.NotNil(err)
 
+	chain.EXPECT().ChainID().Return(uint32(1)).Times(2)
 	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
 	p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Times(1)
 
@@ -538,15 +540,17 @@ func TestService_SendVote(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	chain := mock_blockchain.NewMockBlockchain(ctrl)
 	mDp := mock_dispatcher.NewMockDispatcher(ctrl)
 	p2p := mock_network.NewMockOverlay(ctrl)
-	svc := Service{dp: mDp, p2p: p2p}
+	svc := Service{bc: chain, dp: mDp, p2p: p2p}
 
 	request := explorer.SendVoteRequest{}
 	response, err := svc.SendVote(request)
 	require.Equal("", response.Hash)
 	require.NotNil(err)
 
+	chain.EXPECT().ChainID().Return(uint32(1)).Times(2)
 	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
 	p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Times(1)
 
@@ -570,9 +574,10 @@ func TestService_SendSmartContract(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	chain := mock_blockchain.NewMockBlockchain(ctrl)
 	mDp := mock_dispatcher.NewMockDispatcher(ctrl)
 	p2p := mock_network.NewMockOverlay(ctrl)
-	svc := Service{dp: mDp, p2p: p2p}
+	svc := Service{bc: chain, dp: mDp, p2p: p2p}
 
 	execution, _ := action.NewExecution(ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["delta"].RawAddress, 1, big.NewInt(1), 1000000, big.NewInt(10), []byte{1})
 	_ = action.Sign(execution, ta.Addrinfo["producer"].PrivateKey)
@@ -581,6 +586,7 @@ func TestService_SendSmartContract(t *testing.T) {
 	explorerExecution.ExecutorPubKey = keypair.EncodePublicKey(execution.ExecutorPublicKey())
 	explorerExecution.Signature = hex.EncodeToString(execution.Signature())
 
+	chain.EXPECT().ChainID().Return(uint32(1)).Times(2)
 	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
 	p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Times(1)
 

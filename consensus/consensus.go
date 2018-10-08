@@ -9,12 +9,12 @@ package consensus
 import (
 	"context"
 	"math/big"
-	"time"
 
 	"github.com/facebookgo/clock"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/actpool"
+	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
@@ -129,26 +129,25 @@ func NewConsensus(
 			SetP2P(p2p)
 		if ops.rootChainAPI != nil {
 			bd = bd.SetCandidatesByHeightFunc(func(h uint64) ([]*state.Candidate, error) {
-				var rawcs []explorerapi.Candidate
-				for {
-					re, err := ops.rootChainAPI.GetCandidateMetricsByHeight(int64(h))
-					if err == nil {
-						rawcs = re.Candidates
-						break
-					}
-					logger.Warn().Err(err).
-						Uint64("height", h).
-						Msg("error when get root chain candidate.")
-					clock.Sleep(5 * time.Second)
+				rawcs, err := ops.rootChainAPI.GetCandidateMetricsByHeight(int64(h))
+				if err != nil {
+					return nil, errors.Wrapf(err, "error when get root chain candidates at height %d", h)
 				}
-				cs := make([]*state.Candidate, 0, len(rawcs))
-				for _, rawc := range rawcs {
+				cs := make([]*state.Candidate, 0, len(rawcs.Candidates))
+				for _, rawc := range rawcs.Candidates {
+					// TODO: this is a short term walk around. We don't need to convert root chain address to sub chain
+					// address. Instead we should use public key to identify the block producer
+					rootChainAddr, err := address.IotxAddressToAddress(rawc.Address)
+					if err != nil {
+						return nil, errors.Wrapf(err, "error when get converting iotex address to address")
+					}
+					subChainAddr := address.New(cfg.Chain.ID, rootChainAddr.Payload())
 					pubKey, err := keypair.DecodePublicKey(rawc.PubKey)
 					if err != nil {
-						logger.Panic().Err(err).Msg("error when convert candidate PublicKey")
+						logger.Error().Err(err).Msg("error when convert candidate PublicKey")
 					}
 					cs = append(cs, &state.Candidate{
-						Address:          rawc.Address,
+						Address:          subChainAddr.IotxAddress(),
 						PublicKey:        pubKey,
 						Votes:            big.NewInt(rawc.TotalVote),
 						CreationHeight:   uint64(rawc.CreationHeight),
