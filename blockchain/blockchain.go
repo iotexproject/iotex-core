@@ -789,7 +789,9 @@ func (bc *blockchain) commitBlock(blk *Block) error {
 	// write block into DB
 	if err := bc.dao.putBlock(blk); err != nil {
 		if bc.sf != nil {
-			bc.sf.Clear()
+			if err := bc.sf.Clear(); err != nil {
+				return err
+			}
 		}
 		return err
 	}
