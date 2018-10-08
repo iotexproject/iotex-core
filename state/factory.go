@@ -63,7 +63,7 @@ type (
 		Height() (uint64, error)
 		RunActions(uint64, []*action.Transfer, []*action.Vote, []*action.Execution) (hash.Hash32B, error)
 		HasRun() bool
-		Clear()
+		Clear() error
 		Commit() error
 		// Contracts
 		GetCodeHash(hash.PKHash) (hash.Hash32B, error)
@@ -397,9 +397,10 @@ func (sf *factory) HasRun() bool {
 }
 
 // Clear clears all changes in RunActions()
-func (sf *factory) Clear() {
+func (sf *factory) Clear() error {
 	sf.clearCache()
 	sf.run = false
+	return sf.dao.Clear()
 }
 
 // Commit persists all changes in RunActions() into the DB
