@@ -7,6 +7,7 @@
 package rolldpos
 
 import (
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"net"
@@ -70,7 +71,7 @@ func TestRollDPoSCtx(t *testing.T) {
 			NumDelegates: 4,
 		},
 		func(blockchain *mock_blockchain.MockBlockchain) {
-			blockchain.EXPECT().TipHeight().Return(uint64(8)).Times(3)
+			blockchain.EXPECT().TipHeight().Return(uint64(8)).Times(4)
 			blockchain.EXPECT().GetBlockByHeight(uint64(8)).Return(blk, nil).Times(1)
 			blockchain.EXPECT().CandidatesByHeight(gomock.Any()).Return([]*state.Candidate{
 				{Address: candidates[0]},
@@ -89,17 +90,23 @@ func TestRollDPoSCtx(t *testing.T) {
 	assert.Equal(t, uint64(2), epoch)
 	assert.Equal(t, uint64(9), height)
 
+	ctx.epoch.height = height
+
+	subEpoch, err := ctx.calcSubEpochNum()
+	require.NoError(t, err)
+	assert.Equal(t, uint64(0), subEpoch)
+
+	ctx.epoch.seed = crypto.CryptoSeed
 	delegates, err := ctx.rollingDelegates(epoch)
 	require.NoError(t, err)
-	crypto.SortCandidates(candidates, epoch)
+	crypto.SortCandidates(candidates, epoch, crypto.CryptoSeed)
 	assert.Equal(t, candidates, delegates)
 
-	ctx.epoch = epochCtx{
-		num:          epoch,
-		height:       height,
-		numSubEpochs: 1,
-		delegates:    delegates,
-	}
+	ctx.epoch.num = epoch
+	ctx.epoch.height = height
+	ctx.epoch.numSubEpochs = 1
+	ctx.epoch.delegates = delegates
+
 	proposer, height, err := ctx.rotatedProposer()
 	require.NoError(t, err)
 	assert.Equal(t, candidates[1], proposer)
@@ -155,12 +162,16 @@ func TestIsEpochFinished(t *testing.T) {
 				NumSubEpochs: 2,
 			},
 			func(blockchain *mock_blockchain.MockBlockchain) {
-				blockchain.EXPECT().TipHeight().Return(uint64(8)).Times(1)
+				blockchain.EXPECT().TipHeight().Return(uint64(7)).Times(1)
 			},
 			func(_ *mock_actpool.MockActPool) {},
 			func(_ *mock_network.MockOverlay) {},
 			clock.NewMock(),
 		)
+		ctx.epoch.delegates = candidates
+		ctx.epoch.height = 1
+		ctx.epoch.numSubEpochs = 2
+
 		finished, err := ctx.isEpochFinished()
 		require.NoError(t, err)
 		assert.False(t, finished)
@@ -173,16 +184,158 @@ func TestIsEpochFinished(t *testing.T) {
 				NumSubEpochs: 2,
 			},
 			func(blockchain *mock_blockchain.MockBlockchain) {
-				blockchain.EXPECT().TipHeight().Return(uint64(12)).Times(1)
+				blockchain.EXPECT().TipHeight().Return(uint64(8)).Times(1)
 			},
 			func(_ *mock_actpool.MockActPool) {},
 			func(_ *mock_network.MockOverlay) {},
 			clock.NewMock(),
 		)
+		ctx.epoch.delegates = candidates
+		ctx.epoch.height = 1
+		ctx.epoch.numSubEpochs = 2
+
 		finished, err := ctx.isEpochFinished()
+		require.NoError(t, err)
+		assert.True(t, finished)
+	})
+}
+
+func TestIsDKGFinished(t *testing.T) {
+	t.Parallel()
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	candidates := make([]string, 4)
+	for i := 0; i < len(candidates); i++ {
+		candidates[i] = testAddrs[i].RawAddress
+	}
+
+	t.Run("not-finished", func(t *testing.T) {
+		ctx := makeTestRollDPoSCtx(
+			testAddrs[0],
+			ctrl,
+			config.RollDPoS{
+				NumSubEpochs: 2,
+			},
+			func(blockchain *mock_blockchain.MockBlockchain) {
+				blockchain.EXPECT().TipHeight().Return(uint64(3)).Times(1)
+			},
+			func(_ *mock_actpool.MockActPool) {},
+			func(_ *mock_network.MockOverlay) {},
+			clock.NewMock(),
+		)
+		ctx.epoch.delegates = candidates
+		ctx.epoch.height = 1
+		ctx.epoch.numSubEpochs = 2
+
+		finished, err := ctx.isDKGFinished()
 		require.NoError(t, err)
 		assert.False(t, finished)
 	})
+	t.Run("finished", func(t *testing.T) {
+		ctx := makeTestRollDPoSCtx(
+			testAddrs[0],
+			ctrl,
+			config.RollDPoS{
+				NumSubEpochs: 2,
+			},
+			func(blockchain *mock_blockchain.MockBlockchain) {
+				blockchain.EXPECT().TipHeight().Return(uint64(4)).Times(1)
+			},
+			func(_ *mock_actpool.MockActPool) {},
+			func(_ *mock_network.MockOverlay) {},
+			clock.NewMock(),
+		)
+		ctx.epoch.delegates = candidates
+		ctx.epoch.height = 1
+		ctx.epoch.numSubEpochs = 2
+
+		finished, err := ctx.isDKGFinished()
+		require.NoError(t, err)
+		assert.True(t, finished)
+	})
+}
+
+func TestGenerateDKGSecrets(t *testing.T) {
+	t.Parallel()
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	candidates := make([]string, 21)
+	testAddrs := test21Addrs()
+	for i := 0; i < len(candidates); i++ {
+		candidates[i] = testAddrs[i].RawAddress
+	}
+
+	ctx := makeTestRollDPoSCtx(
+		testAddrs[0],
+		ctrl,
+		config.RollDPoS{
+			NumSubEpochs: 2,
+		},
+		func(blockchain *mock_blockchain.MockBlockchain) {},
+		func(_ *mock_actpool.MockActPool) {},
+		func(_ *mock_network.MockOverlay) {},
+		clock.NewMock(),
+	)
+
+	ctx.epoch.delegates = candidates
+
+	secrets, witness, err := ctx.generateDKGSecrets()
+	assert.NoError(t, err)
+	assert.Equal(t, iotxaddress.CreateID(ctx.addr.RawAddress), ctx.epoch.dkgAddress.ID)
+	assert.NotNil(t, secrets)
+	assert.NotNil(t, witness)
+}
+
+func TestGenerateDKGKeyPair(t *testing.T) {
+	t.Parallel()
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	candidates := make([]string, 21)
+	testAddrs := test21Addrs()
+	for i := 0; i < len(candidates); i++ {
+		candidates[i] = testAddrs[i].RawAddress
+	}
+
+	ctx := makeTestRollDPoSCtx(
+		testAddrs[0],
+		ctrl,
+		config.RollDPoS{
+			NumDelegates: 21,
+			NumSubEpochs: 2,
+		},
+		func(blockchain *mock_blockchain.MockBlockchain) {},
+		func(_ *mock_actpool.MockActPool) {},
+		func(_ *mock_network.MockOverlay) {},
+		clock.NewMock(),
+	)
+
+	ctx.epoch.delegates = candidates
+	ctx.epoch.committedSecrets = make(map[string][]uint32)
+
+	idList := make([][]uint8, 0)
+	for _, addr := range ctx.epoch.delegates {
+		dkgID := iotxaddress.CreateID(addr)
+		idList = append(idList, dkgID)
+	}
+	for _, delegate := range ctx.epoch.delegates {
+		_, secrets, _, err := crypto.DKG.Init(crypto.DKG.SkGeneration(), idList)
+		assert.NoError(t, err)
+		assert.NotNil(t, secrets)
+		//if i % 2 == 0 {
+		//	ctx.epoch.committedSecrets[delegate] = secrets[0]
+		//}
+		ctx.epoch.committedSecrets[delegate] = secrets[0]
+	}
+	dkgPubKey, dkgPriKey, err := ctx.generateDKGKeyPair()
+	assert.NoError(t, err)
+	assert.NotNil(t, dkgPubKey)
+	assert.NotNil(t, dkgPriKey)
 }
 
 func TestNewRollDPoS(t *testing.T) {
@@ -262,7 +415,7 @@ func TestRollDPoS_Metrics(t *testing.T) {
 	m, err := r.Metrics()
 	require.NoError(t, err)
 	assert.Equal(t, uint64(3), m.LatestEpoch)
-	crypto.SortCandidates(candidates, m.LatestEpoch)
+	crypto.SortCandidates(candidates, m.LatestEpoch, r.ctx.epoch.seed)
 	assert.Equal(t, candidates[:4], m.LatestDelegates)
 	assert.Equal(t, candidates[1], m.LatestBlockProducer)
 	assert.Equal(t, candidates, m.Candidates)
@@ -342,6 +495,107 @@ func TestRollDPoS_convertToConsensusEvt(t *testing.T) {
 	assert.NotNil(t, eEvt)
 }
 
+func TestUpdateSeed(t *testing.T) {
+	require := require.New(t)
+	lastSeed, _ := hex.DecodeString("9de6306b08158c423330f7a27243a1a5cbe39bfd764f07818437882d21241567")
+	chain := blockchain.NewBlockchain(&config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	require.NoError(chain.Start(context.Background()))
+	ctx := rollDPoSCtx{cfg: config.Default.Consensus.RollDPoS, chain: chain, epoch: epochCtx{seed: lastSeed}}
+	fsm := cFSM{ctx: &ctx}
+
+	var err error
+	const numNodes = 21
+	addresses := make([]string, numNodes)
+	skList := make([][]uint32, numNodes)
+	idList := make([][]uint8, numNodes)
+	coeffsList := make([][][]uint32, numNodes)
+	sharesList := make([][][]uint32, numNodes)
+	shares := make([][]uint32, numNodes)
+	witnessesList := make([][][]byte, numNodes)
+	sharestatusmatrix := make([][numNodes]bool, numNodes)
+	qsList := make([][]byte, numNodes)
+	pkList := make([][]byte, numNodes)
+	askList := make([][]uint32, numNodes)
+	ec283PKList := make([]keypair.PublicKey, numNodes)
+	ec283SKList := make([]keypair.PrivateKey, numNodes)
+
+	// Generate 21 identifiers for the delegates
+	for i := 0; i < numNodes; i++ {
+		var err error
+		ec283PKList[i], ec283SKList[i], err = crypto.EC283.NewKeyPair()
+		if err != nil {
+			require.NoError(err)
+		}
+		pkHash := keypair.HashPubKey(ec283PKList[i])
+		addresses[i] = address.New(chain.ChainID(), pkHash[:]).IotxAddress()
+		idList[i] = iotxaddress.CreateID(addresses[i])
+		skList[i] = crypto.DKG.SkGeneration()
+	}
+
+	// Initialize DKG and generate secret shares
+	for i := 0; i < numNodes; i++ {
+		coeffsList[i], sharesList[i], witnessesList[i], err = crypto.DKG.Init(skList[i], idList)
+		require.NoError(err)
+	}
+
+	// Verify all the received secret shares
+	for i := 0; i < numNodes; i++ {
+		for j := 0; j < numNodes; j++ {
+			result, err := crypto.DKG.ShareVerify(idList[i], sharesList[j][i], witnessesList[j])
+			require.NoError(err)
+			require.True(result)
+			shares[j] = sharesList[j][i]
+		}
+		sharestatusmatrix[i], err = crypto.DKG.SharesCollect(idList[i], shares, witnessesList)
+		require.NoError(err)
+		for _, b := range sharestatusmatrix[i] {
+			require.True(b)
+		}
+	}
+
+	// Generate private and public key shares of a group key
+	for i := 0; i < numNodes; i++ {
+		for j := 0; j < numNodes; j++ {
+			shares[j] = sharesList[j][i]
+		}
+		qsList[i], pkList[i], askList[i], err = crypto.DKG.KeyPairGeneration(shares, sharestatusmatrix)
+		require.NoError(err)
+	}
+
+	// Generate dkg signature for each block
+	require.NoError(err)
+	dummy := chain.MintNewDummyBlock()
+	require.NoError(chain.ValidateBlock(dummy, false))
+	err = chain.CommitBlock(dummy)
+	require.NoError(err)
+	for i := 1; i < numNodes; i++ {
+		iotxAddr := iotxaddress.Address{
+			PublicKey:  ec283PKList[i],
+			PrivateKey: ec283SKList[i],
+			RawAddress: addresses[i],
+		}
+		blk, err := chain.MintNewDKGBlock(nil, nil, nil, &iotxAddr,
+			&iotxaddress.DKGAddress{PrivateKey: askList[i], PublicKey: pkList[i], ID: idList[i]},
+			lastSeed, "")
+		require.NoError(err)
+		require.NoError(verifyDKGSignature(blk, lastSeed))
+		require.NoError(chain.ValidateBlock(blk, true))
+		require.NoError(chain.CommitBlock(blk))
+		require.Equal(pkList[i], blk.Header.DKGPubkey)
+		require.Equal(idList[i], blk.Header.DKGID)
+		require.True(len(blk.Header.DKGBlockSig) > 0)
+	}
+	height := chain.TipHeight()
+	require.Equal(int(height), 21)
+
+	newSeed, err := fsm.ctx.updateSeed()
+	require.NoError(err)
+	require.True(len(newSeed) > 0)
+	require.NotEqual(fsm.ctx.epoch.seed, newSeed)
+	fmt.Println(fsm.ctx.epoch.seed)
+	fmt.Println(newSeed)
+}
+
 func makeTestRollDPoSCtx(
 	addr *iotxaddress.Address,
 	ctrl *gomock.Controller,
@@ -415,10 +669,11 @@ func TestRollDPoSConsensus(t *testing.T) {
 		cfg := config.Default
 		cfg.Consensus.RollDPoS.Delay = 300 * time.Millisecond
 		cfg.Consensus.RollDPoS.ProposerInterval = time.Second
-		cfg.Consensus.RollDPoS.AcceptProposeTTL = 100 * time.Millisecond
-		cfg.Consensus.RollDPoS.AcceptProposalEndorseTTL = 100 * time.Millisecond
-		cfg.Consensus.RollDPoS.AcceptCommitEndorseTTL = 100 * time.Millisecond
+		cfg.Consensus.RollDPoS.AcceptProposeTTL = 300 * time.Millisecond
+		cfg.Consensus.RollDPoS.AcceptProposalEndorseTTL = 300 * time.Millisecond
+		cfg.Consensus.RollDPoS.AcceptCommitEndorseTTL = 300 * time.Millisecond
 		cfg.Consensus.RollDPoS.NumDelegates = uint(numNodes)
+		cfg.Consensus.RollDPoS.NumSubEpochs = 2
 
 		chainAddrs := make([]*iotxaddress.Address, 0, numNodes)
 		networkAddrs := make([]net.Addr, 0, numNodes)
@@ -433,7 +688,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 			chainRawAddrs = append(chainRawAddrs, addr.RawAddress)
 			addressMap[addr.RawAddress] = addr
 		}
-		crypto.SortCandidates(chainRawAddrs, 1)
+		crypto.SortCandidates(chainRawAddrs, 1, crypto.CryptoSeed)
 		for i, rawAddress := range chainRawAddrs {
 			chainAddrs[i] = addressMap[rawAddress]
 		}
@@ -451,6 +706,10 @@ func TestRollDPoSConsensus(t *testing.T) {
 		cs := make([]*RollDPoS, 0, numNodes)
 		for i := 0; i < numNodes; i++ {
 			chain := blockchain.NewBlockchain(&cfg, blockchain.InMemDaoOption(), blockchain.InMemStateFactoryOption())
+			for j := 0; j < numNodes; j++ {
+				_, err := chain.GetFactory().LoadOrCreateState(chainRawAddrs[j], uint64(0))
+				require.NoError(t, err)
+			}
 			chains = append(chains, chain)
 
 			actPool, err := actpool.NewActPool(chain, cfg.ActPool)
@@ -486,16 +745,16 @@ func TestRollDPoSConsensus(t *testing.T) {
 
 	t.Run("1-block", func(t *testing.T) {
 		ctx := context.Background()
-		cs, p2ps, chains := newConsensusComponents(4)
+		cs, p2ps, chains := newConsensusComponents(21)
 
-		for i := 0; i < 4; i++ {
+		for i := 0; i < 21; i++ {
 			require.NoError(t, chains[i].Start(ctx))
 			require.NoError(t, p2ps[i].Start(ctx))
 			require.NoError(t, cs[i].Start(ctx))
 		}
 
 		defer func() {
-			for i := 0; i < 4; i++ {
+			for i := 0; i < 21; i++ {
 				require.NoError(t, cs[i].Stop(ctx))
 				require.NoError(t, p2ps[i].Stop(ctx))
 				require.NoError(t, chains[i].Stop(ctx))
@@ -511,29 +770,29 @@ func TestRollDPoSConsensus(t *testing.T) {
 		}))
 	})
 
-	t.Run("10-epoch", func(t *testing.T) {
+	t.Run("1-epoch", func(t *testing.T) {
 		if testing.Short() {
-			t.Skip("Skip the 10-epoch test in short mode.")
+			t.Skip("Skip the 1-epoch test in short mode.")
 		}
 		ctx := context.Background()
-		cs, p2ps, chains := newConsensusComponents(4)
+		cs, p2ps, chains := newConsensusComponents(21)
 
-		for i := 0; i < 4; i++ {
+		for i := 0; i < 21; i++ {
 			require.NoError(t, chains[i].Start(ctx))
 			require.NoError(t, p2ps[i].Start(ctx))
 			require.NoError(t, cs[i].Start(ctx))
 		}
 
 		defer func() {
-			for i := 0; i < 4; i++ {
+			for i := 0; i < 21; i++ {
 				require.NoError(t, cs[i].Stop(ctx))
 				require.NoError(t, p2ps[i].Stop(ctx))
 				require.NoError(t, chains[i].Stop(ctx))
 			}
 		}()
-		assert.NoError(t, testutil.WaitUntil(100*time.Millisecond, 10*time.Second, func() (bool, error) {
+		assert.NoError(t, testutil.WaitUntil(100*time.Millisecond, 45*time.Second, func() (bool, error) {
 			for _, chain := range chains {
-				if blk, err := chain.GetBlockByHeight(10); blk == nil || err != nil {
+				if blk, err := chain.GetBlockByHeight(42); blk == nil || err != nil {
 					return false, nil
 				}
 			}
@@ -558,7 +817,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 
 	t.Run("proposer-network-partition-dummy-block", func(t *testing.T) {
 		ctx := context.Background()
-		cs, p2ps, chains := newConsensusComponents(4)
+		cs, p2ps, chains := newConsensusComponents(21)
 		// 1 should be the block 1's proposer
 		for i, p2p := range p2ps {
 			if i == 1 {
@@ -568,14 +827,14 @@ func TestRollDPoSConsensus(t *testing.T) {
 			}
 		}
 
-		for i := 0; i < 4; i++ {
+		for i := 0; i < 21; i++ {
 			require.NoError(t, chains[i].Start(ctx))
 			require.NoError(t, p2ps[i].Start(ctx))
 			require.NoError(t, cs[i].Start(ctx))
 		}
 
 		defer func() {
-			for i := 0; i < 4; i++ {
+			for i := 0; i < 21; i++ {
 				require.NoError(t, cs[i].Stop(ctx))
 				require.NoError(t, p2ps[i].Stop(ctx))
 				require.NoError(t, chains[i].Stop(ctx))
@@ -587,7 +846,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 
 	t.Run("non-proposer-network-partition-dummy-block", func(t *testing.T) {
 		ctx := context.Background()
-		cs, p2ps, chains := newConsensusComponents(4)
+		cs, p2ps, chains := newConsensusComponents(21)
 		// 1 should be the block 1's proposer
 		for i, p2p := range p2ps {
 			if i == 0 {
@@ -597,14 +856,14 @@ func TestRollDPoSConsensus(t *testing.T) {
 			}
 		}
 
-		for i := 0; i < 4; i++ {
+		for i := 0; i < 21; i++ {
 			require.NoError(t, chains[i].Start(ctx))
 			require.NoError(t, p2ps[i].Start(ctx))
 			require.NoError(t, cs[i].Start(ctx))
 		}
 
 		defer func() {
-			for i := 0; i < 4; i++ {
+			for i := 0; i < 21; i++ {
 				require.NoError(t, cs[i].Stop(ctx))
 				require.NoError(t, p2ps[i].Stop(ctx))
 				require.NoError(t, chains[i].Stop(ctx))
@@ -616,7 +875,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 
 	t.Run("network-partition-time-rotation", func(t *testing.T) {
 		ctx := context.Background()
-		cs, p2ps, chains := newConsensusComponents(4)
+		cs, p2ps, chains := newConsensusComponents(21)
 		// 1 should be the block 1's proposer
 		for i, p2p := range p2ps {
 			if i == 1 {
@@ -626,7 +885,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 			}
 		}
 
-		for i := 0; i < 4; i++ {
+		for i := 0; i < 21; i++ {
 			cs[i].ctx.cfg.TimeBasedRotation = true
 			cs[i].ctx.cfg.EnableDummyBlock = false
 			require.NoError(t, chains[i].Start(ctx))
@@ -635,7 +894,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 		}
 
 		defer func() {
-			for i := 0; i < 4; i++ {
+			for i := 0; i < 21; i++ {
 				require.NoError(t, cs[i].Stop(ctx))
 				require.NoError(t, p2ps[i].Stop(ctx))
 				require.NoError(t, chains[i].Stop(ctx))
@@ -647,7 +906,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 
 	t.Run("proposer-network-partition-blocking", func(t *testing.T) {
 		ctx := context.Background()
-		cs, p2ps, chains := newConsensusComponents(4)
+		cs, p2ps, chains := newConsensusComponents(21)
 		// 1 should be the block 1's proposer
 		for i, p2p := range p2ps {
 			if i == 1 {
@@ -657,7 +916,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 			}
 		}
 
-		for i := 0; i < 4; i++ {
+		for i := 0; i < 21; i++ {
 			cs[i].ctx.cfg.EnableDummyBlock = false
 			require.NoError(t, chains[i].Start(ctx))
 			require.NoError(t, p2ps[i].Start(ctx))
@@ -665,7 +924,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 		}
 
 		defer func() {
-			for i := 0; i < 4; i++ {
+			for i := 0; i < 21; i++ {
 				require.NoError(t, cs[i].Stop(ctx))
 				require.NoError(t, p2ps[i].Stop(ctx))
 				require.NoError(t, chains[i].Stop(ctx))
@@ -681,7 +940,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 
 	t.Run("non-proposer-network-partition-blocking", func(t *testing.T) {
 		ctx := context.Background()
-		cs, p2ps, chains := newConsensusComponents(4)
+		cs, p2ps, chains := newConsensusComponents(21)
 		// 1 should be the block 1's proposer
 		for i, p2p := range p2ps {
 			if i == 0 {
@@ -691,7 +950,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 			}
 		}
 
-		for i := 0; i < 4; i++ {
+		for i := 0; i < 21; i++ {
 			cs[i].ctx.cfg.EnableDummyBlock = false
 			require.NoError(t, chains[i].Start(ctx))
 			require.NoError(t, p2ps[i].Start(ctx))
@@ -699,7 +958,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 		}
 
 		defer func() {
-			for i := 0; i < 4; i++ {
+			for i := 0; i < 21; i++ {
 				require.NoError(t, cs[i].Stop(ctx))
 				require.NoError(t, p2ps[i].Stop(ctx))
 				require.NoError(t, chains[i].Stop(ctx))
