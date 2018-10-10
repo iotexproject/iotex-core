@@ -138,7 +138,6 @@ var (
 		},
 		Indexer: Indexer{
 			Enabled: false,
-			IsTest:  false,
 		},
 		System: System{
 			HeartbeatInterval: 10 * time.Second,
@@ -272,7 +271,6 @@ type (
 	// Indexer is the index service config
 	Indexer struct {
 		Enabled bool `yaml:"enabled"`
-		IsTest  bool `yaml:"isTest"`
 	}
 
 	// System is the system config

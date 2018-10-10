@@ -32,7 +32,7 @@ func NewServer(
 		idx: &Indexer{
 			cfg:      cfg.Indexer,
 			rds:      nil,
-			nodeAddr: "",
+			nodeAddr: []byte{},
 		},
 		bc: bc,
 	}
@@ -44,7 +44,7 @@ func (s *Server) Start(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "error when get the blockchain address")
 	}
-	s.idx.nodeAddr = addr.IotxAddress()
+	s.idx.nodeAddr = addr.Bytes()
 
 	s.idx.rds = rds.NewAwsRDS(&s.cfg.DB.RDS)
 	if err := s.idx.rds.Start(ctx); err != nil {
@@ -74,5 +74,6 @@ func (s *Server) Stop(ctx context.Context) error {
 	if err := s.bc.UnSubscribeBlockCreation(s.blockCh); err != nil {
 		return errors.Wrap(err, "error when un subscribe block creation")
 	}
+	//close(s.blockCh)
 	return nil
 }

@@ -102,9 +102,15 @@ func New(cfg *config.Config, p2p network.Overlay, dispatcher dispatcher.Dispatch
 	if consensus == nil {
 		return nil, errors.Wrap(err, "failed to create consensus")
 	}
-	idx := indexservice.NewServer(cfg, chain)
-	if idx == nil {
-		return nil, errors.Wrap(err, "failed to create index service")
+
+	var idx *indexservice.Server
+	if cfg.Indexer.Enabled {
+		idx = indexservice.NewServer(cfg, chain)
+		if idx == nil {
+			return nil, errors.Wrap(err, "failed to create index service")
+		}
+	} else {
+		idx = nil
 	}
 
 	var exp *explorer.Server
@@ -135,9 +141,13 @@ func (cs *ChainService) Start(ctx context.Context) error {
 	if err := cs.blocksync.Start(ctx); err != nil {
 		return errors.Wrap(err, "error when starting blocksync")
 	}
-	if err := cs.indexservice.Start(ctx); err != nil {
-		return errors.Wrap(err, "error when starting indexservice")
+
+	if cs.indexservice != nil {
+		if err := cs.indexservice.Start(ctx); err != nil {
+			return errors.Wrap(err, "error when starting indexservice")
+		}
 	}
+
 	if err := cs.explorer.Start(ctx); err != nil {
 		return errors.Wrap(err, "error when starting explorer")
 	}
@@ -149,9 +159,13 @@ func (cs *ChainService) Stop(ctx context.Context) error {
 	if err := cs.explorer.Stop(ctx); err != nil {
 		return errors.Wrap(err, "error when stopping explorer")
 	}
-	if err := cs.indexservice.Stop(ctx); err != nil {
-		return errors.Wrap(err, "error when stopping indexservice")
+
+	if cs.indexservice != nil {
+		if err := cs.indexservice.Stop(ctx); err != nil {
+			return errors.Wrap(err, "error when stopping indexservice")
+		}
 	}
+
 	if err := cs.consensus.Stop(ctx); err != nil {
 		return errors.Wrap(err, "error when stopping consensus")
 	}

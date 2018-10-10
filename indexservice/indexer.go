@@ -3,18 +3,51 @@ package indexservice
 import (
 	"database/sql"
 
+	"github.com/pkg/errors"
+
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db/rds"
-	"github.com/pkg/errors"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 )
+
+type TransferHistory struct {
+	NodeAddress string
+	UserAddress string
+	TrasferHash string
+}
+
+type TransferToBlock struct {
+	NodeAddress string
+	TrasferHash string
+	BlockHash   string
+}
+
+type VoteHistory struct {
+	NodeAddress string
+	UserAddress string
+	VoteHash    string
+}
+
+type ExecutionHistory struct {
+	NodeAddress   string
+	UserAddress   string
+	ExecutionHash string
+}
 
 // Indexer handle the index build for blocks
 type Indexer struct {
 	cfg      config.Indexer
 	rds      rds.Store
-	nodeAddr string
+	nodeAddr []byte
 }
+
+var (
+	// ErrNotExist indicates certain item does not exist in Blockchain database
+	ErrNotExist = errors.New("not exist in DB")
+	// ErrAlreadyExist indicates certain item already exists in Blockchain database
+	ErrAlreadyExist = errors.New("already exist in DB")
+)
 
 // BuildIndex build the index for a block
 func (idx *Indexer) BuildIndex(blk *blockchain.Block) error {
@@ -72,17 +105,77 @@ func (idx *Indexer) UpdateTransferHistory(blk *blockchain.Block, tx *sql.Tx) err
 	return nil
 }
 
+// GetTransferHistory get transfer history
+func (idx *Indexer) GetTransferHistory(userAddr string) ([]hash.Hash32B, error) {
+	getQuery := "SELECT * FROM transfer_history WHERE node_address=? AND user_address=?"
+	db := idx.rds.GetDB()
+
+	stmt, err := db.Prepare(getQuery)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to prepare get query")
+	}
+
+	rows, err := stmt.Query(idx.nodeAddr, userAddr)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to execute get query")
+	}
+
+	var transferHistory TransferHistory
+	parsedRows, err := rds.ParseRows(rows, &transferHistory)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to parse results")
+	}
+
+	var transferHashes []hash.Hash32B
+	for _, parsedRow := range parsedRows {
+		var hash hash.Hash32B
+		copy(hash[:], parsedRow.(*TransferHistory).TrasferHash)
+		transferHashes = append(transferHashes, hash)
+	}
+	return transferHashes, nil
+}
+
 // UpdateTransferToBlock map transfer hash to block hash
 func (idx *Indexer) UpdateTransferToBlock(blk *blockchain.Block, tx *sql.Tx) error {
 	blockHash := blk.HashBlock()
-	insertQuery := "INSERT transfer_to_block SET transfer_hash=?,block_hash=?"
+	insertQuery := "INSERT transfer_to_block SET node_address=?,transfer_hash=?,block_hash=?"
 	for _, transfer := range blk.Transfers {
 		transferHash := transfer.Hash()
-		if _, err := tx.Exec(insertQuery, transferHash[:], blockHash[:]); err != nil {
+		if _, err := tx.Exec(insertQuery, idx.nodeAddr, string(transferHash[:]), blockHash[:]); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// GetBlockByTransfer return block hash by transfer hash
+func (idx *Indexer) GetBlockByTransfer(transferHash hash.Hash32B) (hash.Hash32B, error) {
+	getQuery := "SELECT * FROM transfer_to_block WHERE node_address=? AND transfer_hash=?"
+	db := idx.rds.GetDB()
+
+	stmt, err := db.Prepare(getQuery)
+	if err != nil {
+		return hash.ZeroHash32B, errors.Wrapf(err, "failed to prepare get query")
+	}
+
+	rows, err := stmt.Query(idx.nodeAddr, string(transferHash[:]))
+	if err != nil {
+		return hash.ZeroHash32B, errors.Wrapf(err, "failed to execute get query")
+	}
+
+	var transferToBlock TransferToBlock
+	parsedRows, err := rds.ParseRows(rows, &transferToBlock)
+	if err != nil {
+		return hash.ZeroHash32B, errors.Wrapf(err, "failed to parse results")
+	}
+
+	if len(parsedRows) == 0 {
+		return hash.ZeroHash32B, ErrNotExist
+	}
+
+	var hash hash.Hash32B
+	copy(hash[:], parsedRows[0].(*TransferToBlock).BlockHash)
+	return hash, nil
 }
 
 // UpdateVoteHistory stores vote information into vote history table
@@ -106,13 +199,43 @@ func (idx *Indexer) UpdateVoteHistory(blk *blockchain.Block, tx *sql.Tx) error {
 	return nil
 }
 
+// GetVoteHistory get vote history
+func (idx *Indexer) GetVoteHistory(userAddr string) ([]hash.Hash32B, error) {
+	getQuery := "SELECT * FROM vote_history WHERE node_address=? AND user_address=?"
+	db := idx.rds.GetDB()
+
+	stmt, err := db.Prepare(getQuery)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to prepare get query")
+	}
+
+	rows, err := stmt.Query(idx.nodeAddr, userAddr)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to execute get query")
+	}
+
+	var voteHistory VoteHistory
+	parsedRows, err := rds.ParseRows(rows, &voteHistory)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to parse results")
+	}
+
+	var voteHashes []hash.Hash32B
+	for _, parsedRow := range parsedRows {
+		var hash hash.Hash32B
+		copy(hash[:], parsedRow.(*VoteHistory).VoteHash)
+		voteHashes = append(voteHashes, hash)
+	}
+	return voteHashes, nil
+}
+
 // UpdateVoteToBlock map vote hash to block hash
 func (idx *Indexer) UpdateVoteToBlock(blk *blockchain.Block, tx *sql.Tx) error {
 	blockHash := blk.HashBlock()
-	insertQuery := "INSERT vote_to_block SET vote_hash=?,block_hash=?"
+	insertQuery := "INSERT vote_to_block SET node_address=?,vote_hash=?,block_hash=?"
 	for _, vote := range blk.Votes {
 		voteHash := vote.Hash()
-		if _, err := tx.Exec(insertQuery, voteHash[:], blockHash[:]); err != nil {
+		if _, err := tx.Exec(insertQuery, idx.nodeAddr, voteHash[:], blockHash[:]); err != nil {
 			return err
 		}
 	}
@@ -140,13 +263,43 @@ func (idx *Indexer) UpdateExecutionHistory(blk *blockchain.Block, tx *sql.Tx) er
 	return nil
 }
 
+// GetExecutionHistory get execution history
+func (idx *Indexer) GetExecutionHistory(userAddr string) ([]hash.Hash32B, error) {
+	getQuery := "SELECT * FROM execution_history WHERE node_address=? AND user_address=?"
+	db := idx.rds.GetDB()
+
+	stmt, err := db.Prepare(getQuery)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to prepare get query")
+	}
+
+	rows, err := stmt.Query(idx.nodeAddr, userAddr)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to execute get query")
+	}
+
+	var executionHistory ExecutionHistory
+	parsedRows, err := rds.ParseRows(rows, &executionHistory)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to parse results")
+	}
+
+	var executionHashes []hash.Hash32B
+	for _, parsedRow := range parsedRows {
+		var hash hash.Hash32B
+		copy(hash[:], parsedRow.(*ExecutionHistory).ExecutionHash)
+		executionHashes = append(executionHashes, hash)
+	}
+	return executionHashes, nil
+}
+
 // UpdateExecutionToBlock map execution hash to block hash
 func (idx *Indexer) UpdateExecutionToBlock(blk *blockchain.Block, tx *sql.Tx) error {
 	blockHash := blk.HashBlock()
-	insertQuery := "INSERT execution_to_block SET execution_hash=?,block_hash=?"
+	insertQuery := "INSERT execution_to_block SET node_address=?,execution_hash=?,block_hash=?"
 	for _, execution := range blk.Executions {
 		executionHash := execution.Hash()
-		if _, err := tx.Exec(insertQuery, executionHash[:], blockHash[:]); err != nil {
+		if _, err := tx.Exec(insertQuery, idx.nodeAddr, executionHash[:], blockHash[:]); err != nil {
 			return err
 		}
 	}
