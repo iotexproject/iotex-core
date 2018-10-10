@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-// usage: make nightlybuild
+// usage: make minicluster
 
 package main
 
@@ -73,9 +73,9 @@ func main() {
 	// reset interval indicates the interval to reset nonce counter in seconds. Default is 60
 	var resetInterval int
 
-	flag.StringVar(&injectorConfigPath, "injector-config-path", "./tools/nightlybuild/gentsfaddrs.yaml",
+	flag.StringVar(&injectorConfigPath, "injector-config-path", "./tools/minicluster/gentsfaddrs.yaml",
 		"path of config file of genesis transfer addresses")
-	flag.StringVar(&genesisConfigPath, "genesis-config-path", "./tools/nightlybuild/testnet_actions.yaml",
+	flag.StringVar(&genesisConfigPath, "genesis-config-path", "./tools/minicluster/testnet_actions.yaml",
 		"path of config file of genesis transfers and self-nominations")
 	flag.IntVar(&timeout, "timeout", 300, "duration of running nightly build")
 
