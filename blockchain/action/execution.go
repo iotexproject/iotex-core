@@ -269,7 +269,7 @@ func (ex *Execution) IntrinsicGas() (uint64, error) {
 }
 
 // CostLimit returns the costLimit of an execution
-func (ex *Execution) CostLimit() *big.Int {
+func (ex *Execution) Cost() (*big.Int, error) {
 	maxExecFee := big.NewInt(0).Mul(ex.GasPrice(), big.NewInt(0).SetUint64(ex.GasLimit()))
-	return big.NewInt(0).Add(ex.Amount(), maxExecFee)
+	return big.NewInt(0).Add(ex.Amount(), maxExecFee), nil
 }

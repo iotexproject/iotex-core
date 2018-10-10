@@ -39,6 +39,7 @@ type Action interface {
 	SetSignature(signature []byte)
 	Hash() hash.Hash32B
 	IntrinsicGas() (uint64, error)
+	Cost() (*big.Int, error)
 }
 
 type action struct {
