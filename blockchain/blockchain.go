@@ -795,6 +795,11 @@ func (bc *blockchain) validateBlock(blk *Block, containCoinbase bool) error {
 func (bc *blockchain) commitBlock(blk *Block) error {
 	// write block into DB
 	if err := bc.dao.putBlock(blk); err != nil {
+		if bc.sf != nil {
+			if err := bc.sf.Clear(); err != nil {
+				return err
+			}
+		}
 		return err
 	}
 	// emit block to all block subscribers

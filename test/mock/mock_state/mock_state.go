@@ -176,6 +176,18 @@ func (mr *MockFactoryMockRecorder) HasRun() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasRun", reflect.TypeOf((*MockFactory)(nil).HasRun))
 }
 
+// Clear mocks base method
+func (m *MockFactory) Clear() error {
+	ret := m.ctrl.Call(m, "Clear")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Clear indicates an expected call of Clear
+func (mr *MockFactoryMockRecorder) Clear() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Clear", reflect.TypeOf((*MockFactory)(nil).Clear))
+}
+
 // Commit mocks base method
 func (m *MockFactory) Commit() error {
 	ret := m.ctrl.Call(m, "Commit")
