@@ -243,7 +243,7 @@ func TestWrongNonce(t *testing.T) {
 	_, err = sf.LoadOrCreateState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
 	require.NoError(err)
 	val := validator{sf, ""}
-	_, err = sf.RunActions(0, nil, nil, nil)
+	_, err = sf.RunActions(0, nil, nil, nil, nil)
 	require.Nil(err)
 	require.Nil(sf.Commit())
 
@@ -257,7 +257,7 @@ func TestWrongNonce(t *testing.T) {
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.NoError(err)
 	require.Nil(val.Validate(blk, 2, hash, true))
-	_, err = sf.RunActions(1, []*action.Transfer{tsf1}, nil, nil)
+	_, err = sf.RunActions(1, []*action.Transfer{tsf1}, nil, nil, nil)
 	require.NoError(err)
 	require.Nil(sf.Commit())
 
@@ -355,7 +355,7 @@ func TestWrongCoinbaseTsf(t *testing.T) {
 	_, err = sf.LoadOrCreateState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
 	require.Nil(err)
 	val := validator{sf, ""}
-	_, err = sf.RunActions(0, nil, nil, nil)
+	_, err = sf.RunActions(0, nil, nil, nil, nil)
 	require.Nil(err)
 
 	// no coinbase tsf
@@ -462,7 +462,7 @@ func TestValidateSecretBlock(t *testing.T) {
 	require.NoError(sf.Start(context.Background()))
 	_, err = sf.LoadOrCreateState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
 	require.Nil(err)
-	_, err = sf.RunActions(0, nil, nil, nil)
+	_, err = sf.RunActions(0, nil, nil, nil, nil)
 	require.Nil(err)
 	require.Nil(sf.Commit())
 
