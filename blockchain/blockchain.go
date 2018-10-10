@@ -820,7 +820,7 @@ func (bc *blockchain) runActions(blk *Block, verify bool) (root hash.Hash32B, er
 		ExecuteContracts(blk, bc)
 	}
 	// update state factory
-	if root, err = bc.sf.RunActions(blk.Height(), blk.Transfers, blk.Votes, blk.Executions); err != nil {
+	if root, err = bc.sf.RunActions(blk.Height(), blk.Transfers, blk.Votes, blk.Executions, nil); err != nil {
 		return root, err
 	}
 	if verify {

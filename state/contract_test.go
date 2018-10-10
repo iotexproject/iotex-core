@@ -56,7 +56,7 @@ func TestCreateContract(t *testing.T) {
 	v, err = sf.GetCode(addr1)
 	require.Error(err)
 	require.Equal([]byte(nil), v)
-	_, err = sf.RunActions(0, nil, nil, nil)
+	_, err = sf.RunActions(0, nil, nil, nil, nil)
 	require.Nil(err)
 	// reload same contract
 	contract1, err := sf.LoadOrCreateState(addr.RawAddress, 0)
@@ -134,7 +134,7 @@ func TestLoadStoreContract(t *testing.T) {
 	v4 := byteutil.BytesTo32B(hash.Hash256b([]byte("hen")))
 	require.Nil(sf.SetContractState(contract1, k3, v3))
 	require.Nil(sf.SetContractState(contract1, k4, v4))
-	_, err = sf.RunActions(0, nil, nil, nil)
+	_, err = sf.RunActions(0, nil, nil, nil, nil)
 	require.Nil(err)
 	root := sf.RootHash()
 	require.Nil(sf.Commit())
