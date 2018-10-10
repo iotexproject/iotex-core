@@ -8,20 +8,25 @@ package consensus
 
 import (
 	"context"
+	"math/big"
 
+	"github.com/facebookgo/clock"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/actpool"
+	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
+	explorerapi "github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/state"
 )
 
 // Consensus is the interface for handling IotxConsensus view change.
@@ -39,15 +44,38 @@ type IotxConsensus struct {
 	scheme scheme.Scheme
 }
 
+type optionParams struct {
+	rootChainAPI explorerapi.Explorer
+}
+
+// Option sets Consensus construction parameter.
+type Option func(op *optionParams) error
+
+// WithRootChainAPI is an option to add a root chain api to Consensus.
+func WithRootChainAPI(exp explorerapi.Explorer) Option {
+	return func(ops *optionParams) error {
+		ops.rootChainAPI = exp
+		return nil
+	}
+}
+
 // NewConsensus creates a IotxConsensus struct.
 func NewConsensus(
 	cfg *config.Config,
 	bc blockchain.Blockchain,
 	ap actpool.ActPool,
 	p2p network.Overlay,
+	opts ...Option,
 ) Consensus {
 	if bc == nil || ap == nil || p2p == nil {
 		logger.Panic().Msg("Try to attach to nil blockchain, action pool or p2p interface")
+	}
+
+	var ops optionParams
+	for _, opt := range opts {
+		if err := opt(&ops); err != nil {
+			return nil
+		}
 	}
 
 	cs := &IotxConsensus{cfg: &cfg.Consensus}
@@ -89,15 +117,47 @@ func NewConsensus(
 	}
 
 	var err error
+	clock := clock.New()
 	switch cfg.Consensus.Scheme {
 	case config.RollDPoSScheme:
-		cs.scheme, err = rolldpos.NewRollDPoSBuilder().
+		bd := rolldpos.NewRollDPoSBuilder().
 			SetAddr(GetAddr(cfg)).
 			SetConfig(cfg.Consensus.RollDPoS).
 			SetBlockchain(bc).
 			SetActPool(ap).
-			SetP2P(p2p).
-			Build()
+			SetClock(clock).
+			SetP2P(p2p)
+		if ops.rootChainAPI != nil {
+			bd = bd.SetCandidatesByHeightFunc(func(h uint64) ([]*state.Candidate, error) {
+				rawcs, err := ops.rootChainAPI.GetCandidateMetricsByHeight(int64(h))
+				if err != nil {
+					return nil, errors.Wrapf(err, "error when get root chain candidates at height %d", h)
+				}
+				cs := make([]*state.Candidate, 0, len(rawcs.Candidates))
+				for _, rawc := range rawcs.Candidates {
+					// TODO: this is a short term walk around. We don't need to convert root chain address to sub chain
+					// address. Instead we should use public key to identify the block producer
+					rootChainAddr, err := address.IotxAddressToAddress(rawc.Address)
+					if err != nil {
+						return nil, errors.Wrapf(err, "error when get converting iotex address to address")
+					}
+					subChainAddr := address.New(cfg.Chain.ID, rootChainAddr.Payload())
+					pubKey, err := keypair.DecodePublicKey(rawc.PubKey)
+					if err != nil {
+						logger.Error().Err(err).Msg("error when convert candidate PublicKey")
+					}
+					cs = append(cs, &state.Candidate{
+						Address:          subChainAddr.IotxAddress(),
+						PublicKey:        pubKey,
+						Votes:            big.NewInt(rawc.TotalVote),
+						CreationHeight:   uint64(rawc.CreationHeight),
+						LastUpdateHeight: uint64(rawc.LastUpdateHeight),
+					})
+				}
+				return cs, nil
+			})
+		}
+		cs.scheme, err = bd.Build()
 		if err != nil {
 			logger.Panic().Err(err).Msg("error when constructing RollDPoS")
 		}

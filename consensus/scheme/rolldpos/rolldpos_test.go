@@ -22,6 +22,7 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/iotexproject/iotex-core/actpool"
+	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/config"
@@ -29,6 +30,7 @@ import (
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/network/node"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/mock/mock_actpool"
@@ -55,7 +57,7 @@ func TestRollDPoSCtx(t *testing.T) {
 		1,
 		8,
 		prevHash,
-		clock,
+		testutil.TimestampNowFromClock(clock),
 		make([]*action.Transfer, 0),
 		make([]*action.Vote, 0),
 		make([]*action.Execution, 0),
@@ -287,16 +289,16 @@ func TestRollDPoS_convertToConsensusEvt(t *testing.T) {
 	transfer, err := action.NewTransfer(1, big.NewInt(100), "src", "dst", []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(t, err)
 	selfPubKey := testaddress.Addrinfo["producer"].PublicKey
-	address, err := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, iotxaddress.ChainID, selfPubKey)
-	require.NoError(t, err)
-	vote, err := action.NewVote(2, address.RawAddress, address.RawAddress, uint64(100000), big.NewInt(10))
+	selfPubKeyHash := keypair.HashPubKey(selfPubKey)
+	address := address.New(config.Default.Chain.ID, selfPubKeyHash[:])
+	vote, err := action.NewVote(2, address.IotxAddress(), address.IotxAddress(), uint64(100000), big.NewInt(10))
 	require.NoError(t, err)
 	var prevHash hash.Hash32B
 	blk := blockchain.NewBlock(
 		1,
 		1,
 		prevHash,
-		clock.New(),
+		testutil.TimestampNow(),
 		[]*action.Transfer{transfer}, []*action.Vote{vote},
 		nil,
 	)

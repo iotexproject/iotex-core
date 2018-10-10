@@ -63,6 +63,7 @@ type (
 		Height() (uint64, error)
 		RunActions(uint64, []*action.Transfer, []*action.Vote, []*action.Execution) (hash.Hash32B, error)
 		HasRun() bool
+		Clear() error
 		Commit() error
 		// Contracts
 		GetCodeHash(hash.PKHash) (hash.Hash32B, error)
@@ -395,6 +396,13 @@ func (sf *factory) HasRun() bool {
 	return sf.run
 }
 
+// Clear clears all changes in RunActions()
+func (sf *factory) Clear() error {
+	sf.clearCache()
+	sf.run = false
+	return sf.dao.Clear()
+}
+
 // Commit persists all changes in RunActions() into the DB
 func (sf *factory) Commit() error {
 	// commit all changes in a batch
@@ -707,7 +715,7 @@ func (sf *factory) handleVote(blockHeight uint64, vote []*action.Vote) error {
 			if _, ok := sf.cachedCandidates[pkHashAddress]; !ok {
 				sf.cachedCandidates[pkHashAddress] = &Candidate{
 					Address:        v.Voter(),
-					PubKey:         votePubkey[:],
+					PublicKey:      votePubkey,
 					CreationHeight: blockHeight,
 				}
 			}

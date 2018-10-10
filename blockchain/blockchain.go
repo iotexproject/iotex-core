@@ -15,6 +15,7 @@ import (
 	"github.com/facebookgo/clock"
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/crypto"
@@ -239,12 +240,13 @@ func NewBlockchain(cfg *config.Config, opts ...Option) Blockchain {
 		logger.Error().Err(err).Msg("Failed to get key pair of producer")
 		return nil
 	}
-	address, err := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, iotxaddress.ChainID, pubKey)
+	pkHash := keypair.HashPubKey(pubKey)
+	address := address.New(cfg.Chain.ID, pkHash[:])
 	if err != nil {
 		logger.Error().Err(err).Msg("Failed to get producer's address by public key")
 		return nil
 	}
-	chain.validator = &validator{sf: chain.sf, validatorAddr: address.RawAddress}
+	chain.validator = &validator{sf: chain.sf, validatorAddr: address.IotxAddress()}
 
 	if chain.dao != nil {
 		chain.lifecycle.Add(chain.dao)
@@ -292,7 +294,7 @@ func (bc *blockchain) startEmptyBlockchain() error {
 	}
 	// add producer into Trie
 	if bc.sf != nil {
-		if _, err := bc.sf.LoadOrCreateState(Gen.CreatorAddr, Gen.TotalSupply); err != nil {
+		if _, err := bc.sf.LoadOrCreateState(Gen.CreatorAddr(bc.ChainID()), Gen.TotalSupply); err != nil {
 			return errors.Wrap(err, "failed to add Creator into StateFactory")
 		}
 	}
@@ -326,7 +328,7 @@ func (bc *blockchain) startExistingBlockchain(recoveryHeight uint64) error {
 	}
 	// If restarting factory from fresh db, first create creator's state
 	if startHeight == 0 {
-		if _, err := bc.sf.LoadOrCreateState(Gen.CreatorAddr, Gen.TotalSupply); err != nil {
+		if _, err := bc.sf.LoadOrCreateState(Gen.CreatorAddr(bc.ChainID()), Gen.TotalSupply); err != nil {
 			return err
 		}
 	}
@@ -615,7 +617,7 @@ func (bc *blockchain) MintNewBlock(tsf []*action.Transfer, vote []*action.Vote, 
 	defer bc.mu.RUnlock()
 
 	tsf = append(tsf, action.NewCoinBaseTransfer(big.NewInt(int64(bc.genesis.BlockReward)), producer.RawAddress))
-	blk := NewBlock(bc.config.Chain.ID, bc.tipHeight+1, bc.tipHash, bc.clk, tsf, vote, executions)
+	blk := NewBlock(bc.config.Chain.ID, bc.tipHeight+1, bc.tipHash, bc.now(), tsf, vote, executions)
 	blk.Header.DKGID = []byte{}
 	blk.Header.DKGPubkey = []byte{}
 	blk.Header.DKGBlockSig = []byte{}
@@ -640,7 +642,7 @@ func (bc *blockchain) MintNewDKGBlock(tsf []*action.Transfer, vote []*action.Vot
 	defer bc.mu.RUnlock()
 
 	tsf = append(tsf, action.NewCoinBaseTransfer(big.NewInt(int64(bc.genesis.BlockReward)), producer.RawAddress))
-	blk := NewBlock(bc.config.Chain.ID, bc.tipHeight+1, bc.tipHash, bc.clk, tsf, vote, executions)
+	blk := NewBlock(bc.config.Chain.ID, bc.tipHeight+1, bc.tipHash, bc.now(), tsf, vote, executions)
 	blk.Header.DKGID = []byte{}
 	blk.Header.DKGPubkey = []byte{}
 	blk.Header.DKGBlockSig = []byte{}
@@ -673,7 +675,7 @@ func (bc *blockchain) MintNewSecretBlock(
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
 
-	blk := NewSecretBlock(bc.config.Chain.ID, bc.tipHeight+1, bc.tipHash, bc.clk, secretProposals, secretWitness)
+	blk := NewSecretBlock(bc.config.Chain.ID, bc.tipHeight+1, bc.tipHash, bc.now(), secretProposals, secretWitness)
 	// run execution and update account trie root hash
 	root, err := bc.runActions(blk, false)
 	if err != nil {
@@ -691,7 +693,7 @@ func (bc *blockchain) MintNewDummyBlock() *Block {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
 
-	blk := NewBlock(bc.config.Chain.ID, bc.tipHeight+1, bc.tipHash, bc.clk, nil, nil, nil)
+	blk := NewBlock(bc.config.Chain.ID, bc.tipHeight+1, bc.tipHash, bc.now(), nil, nil, nil)
 	blk.Header.Pubkey = keypair.ZeroPublicKey
 	blk.Header.blockSig = []byte{}
 
@@ -786,6 +788,11 @@ func (bc *blockchain) validateBlock(blk *Block, containCoinbase bool) error {
 func (bc *blockchain) commitBlock(blk *Block) error {
 	// write block into DB
 	if err := bc.dao.putBlock(blk); err != nil {
+		if bc.sf != nil {
+			if err := bc.sf.Clear(); err != nil {
+				return err
+			}
+		}
 		return err
 	}
 	// update tip hash and height
@@ -846,3 +853,5 @@ func (bc *blockchain) replaceHeightAndHash(blk *Block) (uint64, hash.Hash32B, er
 	}
 	return tipHeight, tipHash, nil
 }
+
+func (bc *blockchain) now() uint64 { return uint64(bc.clk.Now().Unix()) }

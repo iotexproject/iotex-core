@@ -26,6 +26,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/test/mock/mock_trie"
+	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 	"github.com/iotexproject/iotex-core/trie"
 )
@@ -181,18 +182,18 @@ func voteForm(height uint64, cs []*Candidate) []string {
 
 // Test configure: candidateSize = 2, candidateBufferSize = 3
 //func TestCandidatePool(t *testing.T) {
-//	c1 := &Candidate{Address: "a1", Votes: big.NewInt(1), PubKey: []byte("p1")}
-//	c2 := &Candidate{Address: "a2", Votes: big.NewInt(2), PubKey: []byte("p2")}
-//	c3 := &Candidate{Address: "a3", Votes: big.NewInt(3), PubKey: []byte("p3")}
-//	c4 := &Candidate{Address: "a4", Votes: big.NewInt(4), PubKey: []byte("p4")}
-//	c5 := &Candidate{Address: "a5", Votes: big.NewInt(5), PubKey: []byte("p5")}
-//	c6 := &Candidate{Address: "a6", Votes: big.NewInt(6), PubKey: []byte("p6")}
-//	c7 := &Candidate{Address: "a7", Votes: big.NewInt(7), PubKey: []byte("p7")}
-//	c8 := &Candidate{Address: "a8", Votes: big.NewInt(8), PubKey: []byte("p8")}
-//	c9 := &Candidate{Address: "a9", Votes: big.NewInt(9), PubKey: []byte("p9")}
-//	c10 := &Candidate{Address: "a10", Votes: big.NewInt(10), PubKey: []byte("p10")}
-//	c11 := &Candidate{Address: "a11", Votes: big.NewInt(11), PubKey: []byte("p11")}
-//	c12 := &Candidate{Address: "a12", Votes: big.NewInt(12), PubKey: []byte("p12")}
+//	c1 := &Candidate{Address: "a1", Votes: big.NewInt(1), PublicKey: []byte("p1")}
+//	c2 := &Candidate{Address: "a2", Votes: big.NewInt(2), PublicKey: []byte("p2")}
+//	c3 := &Candidate{Address: "a3", Votes: big.NewInt(3), PublicKey: []byte("p3")}
+//	c4 := &Candidate{Address: "a4", Votes: big.NewInt(4), PublicKey: []byte("p4")}
+//	c5 := &Candidate{Address: "a5", Votes: big.NewInt(5), PublicKey: []byte("p5")}
+//	c6 := &Candidate{Address: "a6", Votes: big.NewInt(6), PublicKey: []byte("p6")}
+//	c7 := &Candidate{Address: "a7", Votes: big.NewInt(7), PublicKey: []byte("p7")}
+//	c8 := &Candidate{Address: "a8", Votes: big.NewInt(8), PublicKey: []byte("p8")}
+//	c9 := &Candidate{Address: "a9", Votes: big.NewInt(9), PublicKey: []byte("p9")}
+//	c10 := &Candidate{Address: "a10", Votes: big.NewInt(10), PublicKey: []byte("p10")}
+//	c11 := &Candidate{Address: "a11", Votes: big.NewInt(11), PublicKey: []byte("p11")}
+//	c12 := &Candidate{Address: "a12", Votes: big.NewInt(12), PublicKey: []byte("p12")}
 //	tr, _ := trie.NewTrie("trie.test", false)
 //	sf := &stateFactory{
 //		trie:                   tr,
@@ -284,12 +285,12 @@ func voteForm(height uint64, cs []*Candidate) []string {
 
 func TestCandidates(t *testing.T) {
 	// Create three dummy iotex addresses
-	a, _ := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
-	b, _ := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
-	c, _ := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
-	d, _ := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
-	e, _ := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
-	f, _ := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
+	a := testaddress.Addrinfo["alfa"]
+	b := testaddress.Addrinfo["bravo"]
+	c := testaddress.Addrinfo["charlie"]
+	d := testaddress.Addrinfo["delta"]
+	e := testaddress.Addrinfo["echo"]
+	f := testaddress.Addrinfo["foxtrot"]
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
 
@@ -706,8 +707,8 @@ func TestCandidatesByHeight(t *testing.T) {
 
 func TestUnvote(t *testing.T) {
 	// Create three dummy iotex addresses
-	a, _ := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
-	b, _ := iotxaddress.NewAddress(iotxaddress.IsTestnet, iotxaddress.ChainID)
+	a := testaddress.Addrinfo["alfa"]
+	b := testaddress.Addrinfo["bravo"]
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
