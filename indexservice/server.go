@@ -17,7 +17,7 @@ import (
 // Server is the container of the index service
 type Server struct {
 	cfg     *config.Config
-	idx     *IndexService
+	idx     *Indexer
 	bc      blockchain.Blockchain
 	blockCh chan *blockchain.Block
 }
@@ -29,8 +29,8 @@ func NewServer(
 ) *Server {
 	return &Server{
 		cfg: cfg,
-		idx: &IndexService{
-			cfg:      cfg.IndexService,
+		idx: &Indexer{
+			cfg:      cfg.Indexer,
 			rds:      nil,
 			nodeAddr: "",
 		},
@@ -52,7 +52,7 @@ func (s *Server) Start(ctx context.Context) error {
 	}
 
 	s.blockCh = make(chan *blockchain.Block)
-	if err = s.bc.SubscribeToBlock(s.blockCh); err != nil {
+	if err = s.bc.SubscribeBlockCreation(s.blockCh); err != nil {
 		return errors.Wrap(err, "error when subscribe to block")
 	}
 
@@ -70,6 +70,9 @@ func (s *Server) Start(ctx context.Context) error {
 func (s *Server) Stop(ctx context.Context) error {
 	if err := s.idx.rds.Stop(ctx); err != nil {
 		return errors.Wrap(err, "error when shutting down explorer http server")
+	}
+	if err := s.bc.UnSubscribeBlockCreation(s.blockCh); err != nil {
+		return errors.Wrap(err, "error when un subscribe block creation")
 	}
 	return nil
 }

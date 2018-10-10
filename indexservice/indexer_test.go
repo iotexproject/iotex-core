@@ -65,8 +65,8 @@ func TestIndexService(t *testing.T) {
 
 		nodeAddr := "aa"
 		cfg := config.Default
-		idx := IndexService{
-			cfg:      cfg.IndexService,
+		idx := Indexer{
+			cfg:      cfg.Indexer,
 			rds:      rdsStore,
 			nodeAddr: nodeAddr,
 		}

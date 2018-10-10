@@ -136,7 +136,7 @@ var (
 			TpsWindow:               10,
 			MaxTransferPayloadBytes: 1024,
 		},
-		IndexService: IndexService{
+		Indexer: Indexer{
 			Enabled: false,
 			IsTest:  false,
 		},
@@ -147,6 +147,13 @@ var (
 		},
 		DB: DB{
 			NumRetries: 3,
+			RDS: RDS{
+				AwsDBName:      "explorer",
+				AwsRDSEndpoint: "iotex-explorer-db.ctcedgqcwrb5.us-west-1.rds.amazonaws.com",
+				AwsRDSPort:     4086,
+				AwsRDSUser:     "explorer_admin",
+				AwsPass:        "j1cDiH7W7QCB",
+			},
 		},
 	}
 
@@ -160,7 +167,6 @@ var (
 		ValidateRollDPoS,
 		ValidateDispatcher,
 		ValidateExplorer,
-		ValidateIndexService,
 		ValidateNetwork,
 		ValidateActPool,
 		ValidateChain,
@@ -263,8 +269,8 @@ type (
 		MaxTransferPayloadBytes uint64 `yaml:"maxTransferPayloadBytes"`
 	}
 
-	// IndexService is the index service config
-	IndexService struct {
+	// Indexer is the index service config
+	Indexer struct {
 		Enabled bool `yaml:"enabled"`
 		IsTest  bool `yaml:"isTest"`
 	}
@@ -314,17 +320,17 @@ type (
 
 	// Config is the root config struct, each package's config should be put as its sub struct
 	Config struct {
-		NodeType     string       `yaml:"nodeType"`
-		Network      Network      `yaml:"network"`
-		Chain        Chain        `yaml:"chain"`
-		ActPool      ActPool      `yaml:"actPool"`
-		Consensus    Consensus    `yaml:"consensus"`
-		BlockSync    BlockSync    `yaml:"blockSync"`
-		Dispatcher   Dispatcher   `yaml:"dispatcher"`
-		Explorer     Explorer     `yaml:"explorer"`
-		IndexService IndexService `yaml:"indexservice"`
-		System       System       `yaml:"system"`
-		DB           DB           `yaml:"db"`
+		NodeType   string     `yaml:"nodeType"`
+		Network    Network    `yaml:"network"`
+		Chain      Chain      `yaml:"chain"`
+		ActPool    ActPool    `yaml:"actPool"`
+		Consensus  Consensus  `yaml:"consensus"`
+		BlockSync  BlockSync  `yaml:"blockSync"`
+		Dispatcher Dispatcher `yaml:"dispatcher"`
+		Explorer   Explorer   `yaml:"explorer"`
+		Indexer    Indexer    `yaml:"indexer"`
+		System     System     `yaml:"system"`
+		DB         DB         `yaml:"db"`
 	}
 
 	// Validate is the interface of validating the config
@@ -519,11 +525,6 @@ func ValidateExplorer(cfg *Config) error {
 	if cfg.Explorer.Enabled && cfg.Explorer.TpsWindow <= 0 {
 		return errors.Wrap(ErrInvalidCfg, "tps window is not a positive integer when the explorer is enabled")
 	}
-	return nil
-}
-
-// ValidateIndexService validates the indexservice configs
-func ValidateIndexService(cfg *Config) error {
 	return nil
 }
 

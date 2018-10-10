@@ -9,15 +9,15 @@ import (
 	"github.com/pkg/errors"
 )
 
-// IndexService handle the index build for blocks
-type IndexService struct {
-	cfg      config.IndexService
+// Indexer handle the index build for blocks
+type Indexer struct {
+	cfg      config.Indexer
 	rds      rds.Store
 	nodeAddr string
 }
 
 // BuildIndex build the index for a block
-func (idx *IndexService) BuildIndex(blk *blockchain.Block) error {
+func (idx *Indexer) BuildIndex(blk *blockchain.Block) error {
 	idx.rds.Transact(func(tx *sql.Tx) error {
 		// log transfer to transfer history table
 		if err := idx.UpdateTransferHistory(blk, tx); err != nil {
@@ -52,7 +52,7 @@ func (idx *IndexService) BuildIndex(blk *blockchain.Block) error {
 }
 
 // UpdateTransferHistory stores transfer information into transfer history table
-func (idx *IndexService) UpdateTransferHistory(blk *blockchain.Block, tx *sql.Tx) error {
+func (idx *Indexer) UpdateTransferHistory(blk *blockchain.Block, tx *sql.Tx) error {
 	insertQuery := "INSERT transfer_history SET node_address=?,user_address=?,transfer_hash=?"
 	for _, transfer := range blk.Transfers {
 		transferHash := transfer.Hash()
@@ -73,7 +73,7 @@ func (idx *IndexService) UpdateTransferHistory(blk *blockchain.Block, tx *sql.Tx
 }
 
 // UpdateTransferToBlock map transfer hash to block hash
-func (idx *IndexService) UpdateTransferToBlock(blk *blockchain.Block, tx *sql.Tx) error {
+func (idx *Indexer) UpdateTransferToBlock(blk *blockchain.Block, tx *sql.Tx) error {
 	blockHash := blk.HashBlock()
 	insertQuery := "INSERT transfer_to_block SET transfer_hash=?,block_hash=?"
 	for _, transfer := range blk.Transfers {
@@ -86,7 +86,7 @@ func (idx *IndexService) UpdateTransferToBlock(blk *blockchain.Block, tx *sql.Tx
 }
 
 // UpdateVoteHistory stores vote information into vote history table
-func (idx *IndexService) UpdateVoteHistory(blk *blockchain.Block, tx *sql.Tx) error {
+func (idx *Indexer) UpdateVoteHistory(blk *blockchain.Block, tx *sql.Tx) error {
 	insertQuery := "INSERT vote_history SET node_address=?,user_address=?,vote_hash=?"
 	for _, vote := range blk.Votes {
 		voteHash := vote.Hash()
@@ -107,7 +107,7 @@ func (idx *IndexService) UpdateVoteHistory(blk *blockchain.Block, tx *sql.Tx) er
 }
 
 // UpdateVoteToBlock map vote hash to block hash
-func (idx *IndexService) UpdateVoteToBlock(blk *blockchain.Block, tx *sql.Tx) error {
+func (idx *Indexer) UpdateVoteToBlock(blk *blockchain.Block, tx *sql.Tx) error {
 	blockHash := blk.HashBlock()
 	insertQuery := "INSERT vote_to_block SET vote_hash=?,block_hash=?"
 	for _, vote := range blk.Votes {
@@ -120,7 +120,7 @@ func (idx *IndexService) UpdateVoteToBlock(blk *blockchain.Block, tx *sql.Tx) er
 }
 
 // UpdateExecutionHistory stores execution information into execution history table
-func (idx *IndexService) UpdateExecutionHistory(blk *blockchain.Block, tx *sql.Tx) error {
+func (idx *Indexer) UpdateExecutionHistory(blk *blockchain.Block, tx *sql.Tx) error {
 	insertQuery := "INSERT execution_history SET node_address=?,user_address=?,execution_hash=?"
 	for _, execution := range blk.Executions {
 		executionHash := execution.Hash()
@@ -141,7 +141,7 @@ func (idx *IndexService) UpdateExecutionHistory(blk *blockchain.Block, tx *sql.T
 }
 
 // UpdateExecutionToBlock map execution hash to block hash
-func (idx *IndexService) UpdateExecutionToBlock(blk *blockchain.Block, tx *sql.Tx) error {
+func (idx *Indexer) UpdateExecutionToBlock(blk *blockchain.Block, tx *sql.Tx) error {
 	blockHash := blk.HashBlock()
 	insertQuery := "INSERT execution_to_block SET execution_hash=?,block_hash=?"
 	for _, execution := range blk.Executions {

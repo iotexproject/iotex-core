@@ -15,7 +15,7 @@ import (
 
 func TestServer(t *testing.T) {
 	t.Skip("Skipping when RDS credentail not provided.")
-	
+
 	require := require.New(t)
 
 	// create chain
