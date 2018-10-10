@@ -13,19 +13,19 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 )
 
-// Chain represents the state of a sub-chain in the state factory
-type Chain struct {
+// subChain represents the state of a sub-chain in the state factory
+type subChain struct {
 	chainID            uint32
 	securityDeposit    big.Int
 	operationDeposit   big.Int
 	startHeight        uint64
 	parentHeightOffset uint64
 	ownerPublicKey     keypair.PublicKey
-	blocks             map[uint64]*BlockProof
+	blocks             map[uint64]*blockProof
 }
 
-// BlockProof represents the block proof of a sub-chain in the state factory
-type BlockProof struct {
+// blockProof represents the block proof of a sub-chain in the state factory
+type blockProof struct {
 	hash              hash.Hash32B
 	actionRoot        hash.Hash32B
 	stateRoot         hash.Hash32B
