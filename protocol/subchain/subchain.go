@@ -15,13 +15,13 @@ import (
 
 // Chain represents the state of a sub-chain in the state factory
 type Chain struct {
-	chainID          uint32
-	securityDeposit  big.Int
-	operationDeposit big.Int
-	startHeight      uint64
-	hookOffset       uint64
-	ownerPublicKey   keypair.PublicKey
-	blocks           map[uint64]*BlockProof
+	chainID            uint32
+	securityDeposit    big.Int
+	operationDeposit   big.Int
+	startHeight        uint64
+	parentHeightOffset uint64
+	ownerPublicKey     keypair.PublicKey
+	blocks             map[uint64]*BlockProof
 }
 
 // BlockProof represents the block proof of a sub-chain in the state factory

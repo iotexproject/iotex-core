@@ -61,7 +61,7 @@ type (
 		CachedState(string) (*State, error)
 		RootHash() hash.Hash32B
 		Height() (uint64, error)
-		RunActions(uint64, []*action.Transfer, []*action.Vote, []*action.Execution) (hash.Hash32B, error)
+		RunActions(uint64, []*action.Transfer, []*action.Vote, []*action.Execution, []action.Action) (hash.Hash32B, error)
 		HasRun() bool
 		Clear() error
 		Commit() error
@@ -91,6 +91,14 @@ type (
 		rootHash       hash.Hash32B             // new root hash after running executions in this block
 		accountTrie    trie.Trie                // global state trie
 		dao            db.CachedKVStore         // the underlying DB for account/contract storage
+		actionHandlers []ActionHandler          // the handlers to handle actions
+	}
+
+	// ActionHandler is the interface for the action handlers. For each incoming action, the assembled actions will be
+	// called one by one to process it. ActionHandler implementation is supposed to parse the sub-type of the action to
+	// decide if it wants to handle this action or not.
+	ActionHandler interface {
+		handle(action.Action) error
 	}
 )
 
@@ -152,6 +160,14 @@ func InMemTrieOption() FactoryOption {
 			return errors.Wrap(err, "failed to generate accountTrie from config")
 		}
 		sf.accountTrie = tr
+		return nil
+	}
+}
+
+// ActionHandlerOption sets the action handlers for state factory
+func ActionHandlerOption(actionHandlers ...ActionHandler) FactoryOption {
+	return func(sf *factory, cfg *config.Config) error {
+		sf.actionHandlers = actionHandlers
 		return nil
 	}
 }
@@ -290,7 +306,9 @@ func (sf *factory) RunActions(
 	blockHeight uint64,
 	tsf []*action.Transfer,
 	vote []*action.Vote,
-	executions []*action.Execution) (hash.Hash32B, error) {
+	executions []*action.Execution,
+	actions []action.Action,
+) (hash.Hash32B, error) {
 	if sf.run {
 		// RunActions() already called in MintNewBlock()
 		return sf.rootHash, nil
@@ -315,6 +333,13 @@ func (sf *factory) RunActions(
 	}
 	if err := sf.handleVote(blockHeight, vote); err != nil {
 		return sf.rootHash, errors.Wrap(err, "failed to handle votes")
+	}
+	for _, action := range actions {
+		for _, handler := range sf.actionHandlers {
+			if err := handler.handle(action); err != nil {
+				return sf.rootHash, errors.Wrapf(err, "error when handling action %x", action.Hash())
+			}
+		}
 	}
 
 	// update pending state changes to trie
