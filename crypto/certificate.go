@@ -51,7 +51,7 @@ func NewCertificate(signable Signable) (*Certificate, error) {
 	}, nil
 }
 
-// Content returns the signable content to ceritificate
+// Content returns the signable content to the ceritificate
 func (c *Certificate) Content() Signable {
 	return c.signable
 }
