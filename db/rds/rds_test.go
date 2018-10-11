@@ -22,13 +22,7 @@ import (
 )
 
 var (
-	cfg = &config.RDS{
-		AwsDBName:      "explorer",
-		AwsRDSEndpoint: "iotex-explorer-db.ctcedgqcwrb5.us-west-1.rds.amazonaws.com",
-		AwsRDSPort:     4086,
-		AwsRDSUser:     "explorer_admin",
-		AwsPass:        "j1cDiH7W7QCB",
-	}
+	cfg = &config.RDS{}
 )
 
 type TransferHistory struct {

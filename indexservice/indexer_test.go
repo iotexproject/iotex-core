@@ -19,16 +19,6 @@ var (
 	cfg = &config.Default.DB.RDS
 )
 
-type VoteToBlock struct {
-	VoteHash  string
-	BlockHash string
-}
-
-type ExecutionToBlock struct {
-	ExecutionHash string
-	BlockHash     string
-}
-
 func TestIndexService(t *testing.T) {
 	testRDSStorePutGet := func(rdsStore rds.Store, t *testing.T) {
 		t.Skip("Skipping when RDS credentail not provided.")
@@ -48,9 +38,9 @@ func TestIndexService(t *testing.T) {
 		userAddr2 := "cc"
 		cfg := config.Default
 		idx := Indexer{
-			cfg:      cfg.Indexer,
-			rds:      rdsStore,
-			nodeAddr: []byte(nodeAddr),
+			cfg:                cfg.Indexer,
+			rds:                rdsStore,
+			hexEncodedNodeAddr: nodeAddr,
 		}
 
 		blk := blockchain.Block{}
@@ -108,35 +98,19 @@ func TestIndexService(t *testing.T) {
 		require.Equal(execution, executionHashes[0])
 
 		// transfer map to block
-		/*blkHash1, err := idx.GetBlockByTransfer(blk.Transfers[0].Hash())
+		blkHash1, err := idx.GetBlockByTransfer(blk.Transfers[0].Hash())
 		require.Nil(err)
 		require.Equal(blkHash1, blk.HashBlock())
 
 		// vote map to block
-		stmt, err := db.Prepare("SELECT * FROM vote_to_block WHERE vote_hash=?")
+		blkHash2, err := idx.GetBlockByVote(blk.Votes[0].Hash())
 		require.Nil(err)
-		voteHash := blk.Votes[0].Hash()
-		rows, err := stmt.Query(voteHash[:])
-		require.Nil(err)
-		var voteToBlock VoteToBlock
-		parsedRows, err := rds.ParseRows(rows, &voteToBlock)
-		require.Nil(err)
-		require.Equal(1, len(parsedRows))
-		blkHash := blk.HashBlock()
-		require.Equal(string(blkHash[:]), parsedRows[0].(*VoteToBlock).BlockHash)
+		require.Equal(blkHash2, blk.HashBlock())
 
 		// execution map to block
-		stmt, err = db.Prepare("SELECT * FROM execution_to_block WHERE execution_hash=?")
+		blkHash3, err := idx.GetBlockByExecution(blk.Executions[0].Hash())
 		require.Nil(err)
-		executionHash := blk.Executions[0].Hash()
-		rows, err = stmt.Query(executionHash[:])
-		require.Nil(err)
-		var executionToBlock ExecutionToBlock
-		parsedRows, err = rds.ParseRows(rows, &executionToBlock)
-		require.Nil(err)
-		require.Equal(1, len(parsedRows))
-		blkHash = blk.HashBlock()
-		require.Equal(string(blkHash[:]), parsedRows[0].(*ExecutionToBlock).BlockHash)*/
+		require.Equal(blkHash3, blk.HashBlock())
 
 		// delete transfers
 		stmt, err := db.Prepare("DELETE FROM transfer_history WHERE node_address=?")
