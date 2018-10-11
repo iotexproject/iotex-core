@@ -1,29 +1,73 @@
+// Copyright (c) 2018 IoTeX
+// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
+// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
+// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
+// License 2.0 that can be found in the LICENSE file.
+
 package util
 
 import (
 	"encoding/hex"
+	"io/ioutil"
 	"math/big"
 	"math/rand"
 	"sync"
 	"time"
 
 	"github.com/pkg/errors"
+	"gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 // KeyPairs indicate the keypair of accounts getting transfers from Creator in genesis block
 type KeyPairs struct {
-	Pairs []KeyPair `yaml:"pairs"`
+	Pairs []KeyPair `yaml:"pkPairs"`
 }
 
 // KeyPair contains the public and private key of an address
 type KeyPair struct {
-	PK string `yaml:"pk"`
-	SK string `yaml:"sk"`
+	PK string `yaml:"pubKey"`
+	SK string `yaml:"priKey"`
+}
+
+// LoadAddresses loads key pairs from key pair path and construct addresses
+func LoadAddresses(keypairsPath string, chainID uint32) ([]*iotxaddress.Address, error) {
+	// Load Senders' public/private key pairs
+	keyPairBytes, err := ioutil.ReadFile(keypairsPath)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to read key pairs file")
+	}
+	var keypairs KeyPairs
+	if err := yaml.Unmarshal(keyPairBytes, &keypairs); err != nil {
+		return nil, errors.Wrap(err, "failed to unmarshal key pairs bytes")
+	}
+
+	// Construct iotex addresses from loaded key pairs
+	addrs := make([]*iotxaddress.Address, 0)
+	for _, pair := range keypairs.Pairs {
+		addr := testutil.ConstructAddress(chainID, pair.PK, pair.SK)
+		addrs = append(addrs, addr)
+	}
+	return addrs, nil
+}
+
+// InitCounter initializes the map of nonce counter of each address
+func InitCounter(client explorer.Explorer, addrs []*iotxaddress.Address) (map[string]uint64, error) {
+	counter := make(map[string]uint64)
+	for _, addr := range addrs {
+		addrDetails, err := client.GetAddressDetails(addr.RawAddress)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to get address details of %s", addr.RawAddress)
+		}
+		nonce := uint64(addrDetails.PendingNonce)
+		counter[addr.RawAddress] = nonce
+	}
+	return counter, nil
 }
 
 // InjectByAps injects Actions in APS Mode
@@ -52,6 +96,7 @@ func InjectByAps(
 	timeout := time.After(duration)
 	tick := time.Tick(time.Duration(1/float64(aps)*1000) * time.Millisecond)
 	reset := time.Tick(time.Duration(resetInterval) * time.Second)
+	rand.Seed(time.Now().UnixNano())
 loop:
 	for {
 		select {
@@ -120,6 +165,7 @@ func InjectByInterval(
 	retryNum int,
 	retryInterval int,
 ) {
+	rand.Seed(time.Now().UnixNano())
 	for transferNum > 0 && voteNum > 0 && executionNum > 0 {
 		sender, recipient, nonce := createTransferInjection(counter, delegates)
 		injectTransfer(nil, client, sender, recipient, nonce, uint64(transferGasLimit),

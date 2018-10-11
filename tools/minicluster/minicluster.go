@@ -11,16 +11,11 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
-	"math/rand"
 	"sync"
 	"time"
 
-	"gopkg.in/yaml.v2"
-
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/explorer"
-	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/server/itx"
@@ -34,91 +29,29 @@ const (
 )
 
 func main() {
-	// path of config file containing all the public/private key paris of addresses getting transfers
-	// from Creator in genesis block
-	var injectorConfigPath string
-	// path of config file containing all the transfers and self-nominations in genesis block
-	var genesisConfigPath string
 	// timeout indicates the duration of running nightly build in seconds. Default is 300
 	var timeout int
-
-	// target address for jrpc connection. Default is "127.0.0.1:14004"
-	var jrpcAddr string
-	// transfer gas limit. Default is 1000000
-	var transferGasLimit int
-	// transfer gas price. Default is 10
-	var transferGasPrice int
-	// transfer payload. Default is ""
-	var transferPayload string
-	// vote gas limit. Default is 1000000
-	var voteGasLimit int
-	// vote gas price. Default is 10
-	var voteGasPrice int
-	// smart contract address. Default is "io1qyqsyqcy3kcd2pyfwus69nzgvkwhg8mk8h336dt86pg6cj"
-	var contract string
-	// execution amount. Default is 0
-	var executionAmount int
-	// execution gas limit. Default is 1200000
-	var executionGasLimit int
-	// execution gas price. Default is 10
-	var executionGasPrice int
-	// execution data. Default is "2885ad2c"
-	var executionData string
-	// maximum number of rpc retries. Default is 5
-	var retryNum int
-	// sleeping period between two consecutive rpc retries in seconds. Default is 1
-	var retryInterval int
 	// aps indicates how many actions to be injected in one second. Default is 0
 	var aps int
-	// reset interval indicates the interval to reset nonce counter in seconds. Default is 60
-	var resetInterval int
 
-	flag.StringVar(&injectorConfigPath, "injector-config-path", "./tools/minicluster/gentsfaddrs.yaml",
-		"path of config file of genesis transfer addresses")
-	flag.StringVar(&genesisConfigPath, "genesis-config-path", "./tools/minicluster/testnet_actions.yaml",
-		"path of config file of genesis transfers and self-nominations")
+
 	flag.IntVar(&timeout, "timeout", 300, "duration of running nightly build")
-
-	flag.StringVar(&jrpcAddr, "jrpc-addr", "127.0.0.1:14004", "target ip:port for jrpc connection")
-	flag.IntVar(&transferGasLimit, "transfer-gas-limit", 1000000, "transfer gas limit")
-	flag.IntVar(&transferGasPrice, "transfer-gas-price", 10, "transfer gas price")
-	flag.StringVar(&transferPayload, "transfer-payload", "", "transfer payload")
-	flag.IntVar(&voteGasLimit, "vote-gas-limit", 1000000, "vote gas limit")
-	flag.IntVar(&voteGasPrice, "vote-gas-price", 10, "vote gas price")
-	flag.StringVar(&contract, "contract", "io1qyqsyqcy3kcd2pyfwus69nzgvkwhg8mk8h336dt86pg6cj",
-		"smart contract address")
-	flag.IntVar(&executionAmount, "execution-amount", 50, "execution amount")
-	flag.IntVar(&executionGasLimit, "execution-gas-limit", 1200000, "execution gas limit")
-	flag.IntVar(&executionGasPrice, "execution-gas-price", 10, "execution gas price")
-	flag.StringVar(&executionData, "execution-data", "2885ad2c", "execution data")
-	flag.IntVar(&retryNum, "retry-num", 5, "maximum number of rpc retries")
-	flag.IntVar(&retryInterval, "retry-interval", 1,
-		"sleep interval between two consecutive rpc retries in seconds")
 	flag.IntVar(&aps, "aps", 1, "actions to be injected per second")
-	flag.IntVar(&resetInterval, "reset-interval", 60,
-		"time interval to reset nonce counter in seconds")
-
 	flag.Parse()
 
-	// Load nodes' public/private key pairs
-	keyPairBytes, err := ioutil.ReadFile(injectorConfigPath)
+	// path of config file containing all the public/private key paris of addresses getting transfers
+	// from Creator in genesis block
+	injectorConfigPath := "./tools/minicluster/gentsfaddrs.yaml"
+
+	chainAddrs, err := util.LoadAddresses(injectorConfigPath, uint32(1))
 	if err != nil {
-		logger.Fatal().Err(err).Msg("Failed to start injecting actions")
+		logger.Fatal().Err(err).Msg("Failed to load addresses from config path")
 	}
-	var keypairs util.KeyPairs
-	if err := yaml.Unmarshal(keyPairBytes, &keypairs); err != nil {
-		logger.Fatal().Err(err).Msg("Failed to start injecting actions")
-	}
-
-	// Construct iotex addresses for loaded nodes
-	chainAddrs := make([]*iotxaddress.Address, 0)
-	for _, pair := range keypairs.Pairs {
-		addr := testutil.ConstructAddress(uint32(1), pair.PK, pair.SK)
-		chainAddrs = append(chainAddrs, addr)
-	}
-
 	admins := chainAddrs[len(chainAddrs)-numAdmins:]
 	delegates := chainAddrs[:len(chainAddrs)-numAdmins]
+
+	// path of config file containing all the transfers and self-nominations in genesis block
+	genesisConfigPath := "./tools/minicluster/testnet_actions.yaml"
 
 	// Set mini-cluster configurations
 	configs := make([]*config.Config, numNodes)
@@ -145,7 +78,7 @@ func main() {
 	}
 	// Start mini-cluster
 	for i := 0; i < numNodes; i++ {
-		go util.StartNode(svrs[i], configs[i])
+		go itx.StartServer(svrs[i], configs[i])
 	}
 
 	if err := testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
@@ -154,22 +87,43 @@ func main() {
 		logger.Fatal().Err(err).Msg("Failed to start explorer JSON-RPC server")
 	}
 
+	// target address for jrpc connection. Default is "127.0.0.1:14004"
+	jrpcAddr := "127.0.0.1:14004"
 	client := explorer.NewExplorerProxy("http://" + jrpcAddr)
 
-	counter := make(map[string]uint64)
-	for _, addr := range chainAddrs {
-		addrDetails, err := client.GetAddressDetails(addr.RawAddress)
-		if err != nil {
-			logger.Fatal().Err(err).Str("addr", addr.RawAddress).Msg("Failed to get address details")
-		}
-		nonce := uint64(addrDetails.PendingNonce)
-		counter[addr.RawAddress] = nonce
+	counter, err := util.InitCounter(client, chainAddrs)
+	if err != nil {
+		logger.Fatal().Err(err).Msg("Failed to initialize nonce counter")
 	}
-
-	rand.Seed(time.Now().UnixNano())
 
 	// Inject actions to first node
 	if aps > 0 {
+		// transfer gas limit. Default is 1000000
+		transferGasLimit := 1000000
+		// transfer gas price. Default is 10
+		transferGasPrice := 10
+		// transfer payload. Default is ""
+		transferPayload := ""
+		// vote gas limit. Default is 1000000
+		voteGasLimit := 1000000
+		// vote gas price. Default is 10
+		voteGasPrice := 10
+		// smart contract address. Default is "io1qyqsyqcy3kcd2pyfwus69nzgvkwhg8mk8h336dt86pg6cj"
+		contract := "io1qyqsyqcy3kcd2pyfwus69nzgvkwhg8mk8h336dt86pg6cj"
+		// execution amount. Default is 0
+		executionAmount := 0
+		// execution gas limit. Default is 1200000
+		executionGasLimit := 1200000
+		// execution gas price. Default is 10
+		executionGasPrice := 10
+		// execution data. Default is "2885ad2c"
+		executionData := "2885ad2c"
+		// maximum number of rpc retries. Default is 5
+		retryNum := 5
+		// sleeping period between two consecutive rpc retries in seconds. Default is 1
+		retryInterval := 1
+		// reset interval indicates the interval to reset nonce counter in seconds. Default is 60
+		resetInterval := 60
 		d := time.Duration(timeout) * time.Second
 		wg := &sync.WaitGroup{}
 		util.InjectByAps(wg, aps, counter, transferGasLimit, transferGasPrice, transferPayload, voteGasLimit, voteGasPrice,

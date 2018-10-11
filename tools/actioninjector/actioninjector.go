@@ -11,18 +11,13 @@ package main
 
 import (
 	"flag"
-	"io/ioutil"
-	"math/rand"
 	"sync"
 	"time"
 
 	_ "go.uber.org/automaxprocs"
-	"gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/explorer"
-	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
-	"github.com/iotexproject/iotex-core/testutil"
 	"github.com/iotexproject/iotex-core/tools/util"
 )
 
@@ -102,37 +97,17 @@ func main() {
 
 	proxy := explorer.NewExplorerProxy("http://" + addr)
 
-	// Load Senders' public/private key pairs
-	keyPairBytes, err := ioutil.ReadFile(configPath)
+	addrs, err := util.LoadAddresses(configPath, uint32(chainID))
 	if err != nil {
-		logger.Fatal().Err(err).Msg("Failed to start injecting actions")
-	}
-	var keypairs util.KeyPairs
-	if err := yaml.Unmarshal(keyPairBytes, &keypairs); err != nil {
-		logger.Fatal().Err(err).Msg("Failed to start injecting actions")
-	}
-
-	// Construct iotex addresses for loaded senders
-	addrs := make([]*iotxaddress.Address, 0)
-	for _, pair := range keypairs.Pairs {
-		addr := testutil.ConstructAddress(uint32(chainID), pair.PK, pair.SK)
-		addrs = append(addrs, addr)
+		logger.Fatal().Err(err).Msg("Failed to load addresses from config path")
 	}
 	admins := addrs[len(addrs)-adminNumber:]
 	delegates := addrs[:len(addrs)-adminNumber]
 
-	// Initiate the map of nonce counter
-	counter := make(map[string]uint64)
-	for _, addr := range addrs {
-		addrDetails, err := proxy.GetAddressDetails(addr.RawAddress)
-		if err != nil {
-			logger.Fatal().Err(err).Str("addr", addr.RawAddress).Msg("Failed to start injecting actions")
-		}
-		nonce := uint64(addrDetails.PendingNonce)
-		counter[addr.RawAddress] = nonce
+	counter, err := util.InitCounter(proxy, addrs)
+	if err != nil {
+		logger.Fatal().Err(err).Msg("Failed to initialize nonce counter")
 	}
-
-	rand.Seed(time.Now().UnixNano())
 
 	// APS Mode
 	if aps > 0 {

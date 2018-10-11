@@ -14,15 +14,14 @@ package main
 import (
 	"flag"
 	"fmt"
-	_ "net/http/pprof"
 	"os"
 
 	_ "go.uber.org/automaxprocs"
+	_ "net/http/pprof"
 
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/server/itx"
-	"github.com/iotexproject/iotex-core/tools/util"
 )
 
 // recoveryHeight is the blockchain height being recovered to
@@ -63,7 +62,7 @@ func main() {
 		}
 	}
 
-	util.StartNode(svr, cfg)
+	itx.StartServer(svr, cfg)
 }
 
 func initLogger(cfg *config.Config) {
