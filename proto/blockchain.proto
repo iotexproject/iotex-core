@@ -64,6 +64,33 @@ message ReceiptPb {
     repeated LogPb logs = 6;
 }
 
+message StartSubChainPb {
+    // TODO: chainID chould be assigned by system and returned via a receipt
+    uint32 chainID = 1;
+    bytes securityDeposit = 2;
+    bytes operationDeposit = 3;
+    uint64 startHeight = 4;
+    uint64 parentHeightOffset = 5;
+    bytes ownerPublicKey = 6;
+}
+
+message StopSubChainPb {
+    uint32 chainID = 1;
+    uint64 stopHeight = 2;
+    bytes ownerPublicKey = 3;
+}
+
+message PutBlockPb {
+    uint32 chainID = 1;
+    uint64 height = 2;
+    bytes hash = 3;
+    bytes actionRoot = 4;
+    bytes stateRoot = 5;
+    bytes producerPublicKey = 6;
+    repeated bytes endorsorPublicKeys = 7;
+    repeated bytes endorsorSignatures = 8;
+}
+
 message ActionPb {
     uint32 version = 1;
     uint64 nonce = 2;
@@ -76,6 +103,9 @@ message ActionPb {
         ExecutionPb execution = 12;
         SecretProposalPb secretProposal = 13;
         SecretWitnessPb secretWitness = 14;
+        StartSubChainPb startChain = 15;
+        StopSubChainPb stopChain = 16;
+        PutBlockPb putBlock = 17;
     }
 }
 
