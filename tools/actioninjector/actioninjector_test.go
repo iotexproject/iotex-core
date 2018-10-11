@@ -8,23 +8,20 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
-	"math/rand"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/context"
-	"gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/explorer"
-	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/server/itx"
 	"github.com/iotexproject/iotex-core/testutil"
+	"github.com/iotexproject/iotex-core/tools/util"
 )
 
 const (
@@ -58,33 +55,14 @@ func TestActionInjector(t *testing.T) {
 
 	configPath := "./gentsfaddrs.yaml"
 
-	// Load Senders' public/private key pairs
-	addrBytes, err := ioutil.ReadFile(configPath)
+	addrs, err := util.LoadAddresses(configPath, chainID)
 	require.NoError(err)
-	addresses := Addresses{}
-	err = yaml.Unmarshal(addrBytes, &addresses)
-	require.NoError(err)
-
-	// Construct iotex addresses for loaded senders
-	addrs := make([]*iotxaddress.Address, 0)
-	for _, pkPair := range addresses.PKPairs {
-		addr := testutil.ConstructAddress(chainID, pkPair.PubKey, pkPair.PriKey)
-		addrs = append(addrs, addr)
-	}
 
 	admins := addrs[len(addrs)-adminNumber:]
 	delegates := addrs[:len(addrs)-adminNumber]
 
-	// Initiate the map of nonce counter
-	counter := make(map[string]uint64)
-	for _, addr := range addrs {
-		addrDetails, err := client.GetAddressDetails(addr.RawAddress)
-		require.NoError(err)
-		nonce := uint64(addrDetails.PendingNonce)
-		counter[addr.RawAddress] = nonce
-	}
-
-	rand.Seed(time.Now().UnixNano())
+	counter, err := util.InitCounter(client, addrs)
+	require.NoError(err)
 
 	// Test injectByAps
 	aps := 50
@@ -103,7 +81,7 @@ func TestActionInjector(t *testing.T) {
 	executionGasLimit := 1200000
 	executionGasPrice := 10
 	executionData := "2885ad2c"
-	injectByAps(wg, aps, counter, transferGasLimit, transferGasPrice, transferPayload, voteGasLimit, voteGasPrice,
+	util.InjectByAps(wg, aps, counter, transferGasLimit, transferGasPrice, transferPayload, voteGasLimit, voteGasPrice,
 		contract, executionAmount, executionGasLimit, executionGasPrice, executionData, client, admins, delegates, d,
 		retryNum, retryInterval, resetInterval)
 	wg.Wait()
@@ -122,7 +100,7 @@ func TestActionInjector(t *testing.T) {
 	voteNum := 1
 	executionNum := 1
 	interval := 1
-	injectByInterval(transferNum, transferGasLimit, transferGasPrice, transferPayload, voteNum, voteGasLimit,
+	util.InjectByInterval(transferNum, transferGasLimit, transferGasPrice, transferPayload, voteNum, voteGasLimit,
 		voteGasPrice, executionNum, contract, executionAmount, executionGasLimit, executionGasPrice, executionData,
 		interval, counter, client, admins, delegates, retryNum, retryInterval)
 
