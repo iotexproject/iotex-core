@@ -481,8 +481,8 @@ func (m *cFSM) handleRollDelegatesEvt(_ fsm.Event) (fsm.State, error) {
 	}
 	// Update CryptoSort seed
 	// TODO: Consider persist the most recent seed
-	if seed, err := m.ctx.updateSeed(); err == nil {
-		m.ctx.epoch.seed = seed
+	if m.ctx.epoch.seed, err = m.ctx.updateSeed(); err != nil {
+		logger.Error().Err(err).Msg("Failed to generate new seed from last epoch")
 	}
 	delegates, err := m.ctx.rollingDelegates(epochNum)
 	if err != nil {
@@ -495,17 +495,12 @@ func (m *cFSM) handleRollDelegatesEvt(_ fsm.Event) (fsm.State, error) {
 	}
 	// If the current node is the delegate, move to the next state
 	if m.isDelegate(delegates) {
-		// Get the sub-epoch number
-		numSubEpochs := uint(1)
-		if m.ctx.cfg.NumSubEpochs > 0 {
-			numSubEpochs = m.ctx.cfg.NumSubEpochs
-		}
-
 		// The epochStart start height is going to be the next block to generate
 		m.ctx.epoch.num = epochNum
 		m.ctx.epoch.height = epochHeight
 		m.ctx.epoch.delegates = delegates
-		m.ctx.epoch.numSubEpochs = numSubEpochs
+		m.ctx.epoch.numSubEpochs = m.ctx.getNumSubEpochs()
+		m.ctx.epoch.subEpochNum = uint64(0)
 		m.ctx.epoch.committedSecrets = make(map[string][]uint32)
 
 		// Trigger the event to generate DKG
@@ -525,12 +520,18 @@ func (m *cFSM) handleRollDelegatesEvt(_ fsm.Event) (fsm.State, error) {
 }
 
 func (m *cFSM) handleGenerateDKGEvt(_ fsm.Event) (fsm.State, error) {
-	secrets, witness, err := m.ctx.generateDKGSecrets()
-	if err != nil {
-		return sInvalid, err
+	if m.ctx.shouldHandleDKG() {
+		// TODO: numDelegates will be configurable later on
+		if len(m.ctx.epoch.delegates) != 21 {
+			logger.Panic().Msg("Number of delegates is incorrect for DKG generation")
+		}
+		secrets, witness, err := m.ctx.generateDKGSecrets()
+		if err != nil {
+			return sInvalid, err
+		}
+		m.ctx.epoch.secrets = secrets
+		m.ctx.epoch.witness = witness
 	}
-	m.ctx.epoch.secrets = secrets
-	m.ctx.epoch.witness = witness
 	if err := m.produceStartRoundEvt(); err != nil {
 		return sInvalid, errors.Wrapf(err, "error when producing %s", eStartRound)
 	}
@@ -623,14 +624,16 @@ func (m *cFSM) validateProposeBlock(blk *blockchain.Block, expectedProposer stri
 		// If the block is self proposed, skip validation
 		return true
 	}
-	var containCoinbase bool
-	if !m.ctx.shouldHandleDKG() {
-		if err := verifyDKGSignature(blk, m.ctx.epoch.seed); err != nil {
+	containCoinbase := true
+	if m.ctx.cfg.EnableDKG {
+		if m.ctx.shouldHandleDKG() {
+			containCoinbase = false
+		} else if err := verifyDKGSignature(blk, m.ctx.epoch.seed); err != nil {
 			// Verify dkg signature failed
 			errorLog.Err(err).Msg("Failed to verify the DKG signature")
 			return false
 		}
-		containCoinbase = true
+
 	}
 	if err := m.ctx.chain.ValidateBlock(blk, containCoinbase); err != nil {
 		errorLog.Err(err).Msg("error when validating the proposed block")

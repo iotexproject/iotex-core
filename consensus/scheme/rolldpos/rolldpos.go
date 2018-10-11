@@ -124,6 +124,9 @@ func (ctx *rollDPoSCtx) calcSubEpochNum() (uint64, error) {
 
 // shouldHandleDKG indicates whether a node is in DKG stage
 func (ctx *rollDPoSCtx) shouldHandleDKG() bool {
+	if !ctx.cfg.EnableDKG {
+		return false
+	}
 	return ctx.epoch.subEpochNum == 0
 }
 
@@ -177,6 +180,9 @@ func (ctx *rollDPoSCtx) getNumSubEpochs() uint {
 	if ctx.cfg.NumSubEpochs > 0 {
 		num = ctx.cfg.NumSubEpochs
 	}
+	if ctx.cfg.EnableDKG {
+		num++
+	}
 	return num
 }
 
@@ -226,12 +232,10 @@ func (ctx *rollDPoSCtx) mintSecretBlock() (*blockchain.Block, error) {
 	secrets := ctx.epoch.secrets
 	witness := ctx.epoch.witness
 	if len(secrets) != len(ctx.epoch.delegates) {
-		logger.Error().Msg("error when minting a secret block")
 		return nil, errors.New("Number of secrets does not match number of delegates")
 	}
 	confirmedNonce, err := ctx.chain.Nonce(ctx.addr.RawAddress)
 	if err != nil {
-		logger.Error().Err(err).Msg("error when minting a secret block")
 		return nil, errors.Wrap(err, "failed to get the confirmed nonce of secret block producer")
 	}
 	nonce := confirmedNonce + 1
@@ -239,7 +243,6 @@ func (ctx *rollDPoSCtx) mintSecretBlock() (*blockchain.Block, error) {
 	for i, delegate := range ctx.epoch.delegates {
 		secretProposal, err := action.NewSecretProposal(nonce, ctx.addr.RawAddress, delegate, secrets[i])
 		if err != nil {
-			logger.Error().Err(err).Msg("error when minting a secret block")
 			return nil, errors.Wrap(err, "failed to create the secret proposal")
 		}
 		secretProposals = append(secretProposals, secretProposal)
@@ -247,12 +250,10 @@ func (ctx *rollDPoSCtx) mintSecretBlock() (*blockchain.Block, error) {
 	}
 	secretWitness, err := action.NewSecretWitness(nonce, ctx.addr.RawAddress, witness)
 	if err != nil {
-		logger.Error().Err(err).Msg("error when minting a secret block")
 		return nil, errors.Wrap(err, "failed to create the secret witness")
 	}
 	blk, err := ctx.chain.MintNewSecretBlock(secretProposals, secretWitness, ctx.addr)
 	if err != nil {
-		logger.Error().Err(err).Msg("error when minting a secret block")
 		return nil, err
 	}
 	logger.Info().
@@ -272,7 +273,6 @@ func (ctx *rollDPoSCtx) mintCommonBlock() (*blockchain.Block, error) {
 	blk, err := ctx.chain.MintNewDKGBlock(transfers, votes, executions, ctx.addr, &ctx.epoch.dkgAddress,
 		ctx.epoch.seed, "")
 	if err != nil {
-		logger.Error().Msg("error when minting a block")
 		return nil, err
 	}
 	logger.Info().
@@ -330,7 +330,7 @@ func (ctx *rollDPoSCtx) isDKGFinished() bool {
 func (ctx *rollDPoSCtx) updateSeed() ([]byte, error) {
 	epochNum, epochHeight, err := ctx.calcEpochNumAndHeight()
 	if err != nil {
-		return []byte{}, errors.Wrap(err, "Failed to do decode seed")
+		return hash.Hash256b(ctx.epoch.seed), errors.Wrap(err, "Failed to do decode seed")
 	}
 	if epochNum <= 1 {
 		return crypto.CryptoSeed, nil
@@ -351,15 +351,15 @@ func (ctx *rollDPoSCtx) updateSeed() ([]byte, error) {
 	}
 
 	if len(selectedID) <= crypto.Degree {
-		return []byte{}, errors.New("DKG signature/pubic key is not enough to aggregate")
+		return hash.Hash256b(ctx.epoch.seed), errors.New("DKG signature/pubic key is not enough to aggregate")
 	}
 
 	aggregateSig, err := crypto.BLS.SignAggregate(selectedID, selectedSig)
 	if err != nil {
-		return []byte{}, errors.Wrap(err, "Failed to generate aggregate signature to update Seed")
+		return hash.Hash256b(ctx.epoch.seed), errors.Wrap(err, "Failed to generate aggregate signature to update Seed")
 	}
 	if err = crypto.BLS.VerifyAggregate(selectedID, selectedPK, ctx.epoch.seed, aggregateSig); err != nil {
-		return []byte{}, errors.Wrap(err, "Failed to verify aggregate signature to update Seed")
+		return hash.Hash256b(ctx.epoch.seed), errors.Wrap(err, "Failed to verify aggregate signature to update Seed")
 	}
 	return aggregateSig, nil
 }

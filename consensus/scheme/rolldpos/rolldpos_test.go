@@ -67,8 +67,9 @@ func TestRollDPoSCtx(t *testing.T) {
 		testAddrs[0],
 		ctrl,
 		config.RollDPoS{
-			NumSubEpochs: 2,
+			NumSubEpochs: 1,
 			NumDelegates: 4,
+			EnableDKG:    true,
 		},
 		func(blockchain *mock_blockchain.MockBlockchain) {
 			blockchain.EXPECT().TipHeight().Return(uint64(8)).Times(4)
@@ -104,7 +105,7 @@ func TestRollDPoSCtx(t *testing.T) {
 
 	ctx.epoch.num = epoch
 	ctx.epoch.height = height
-	ctx.epoch.numSubEpochs = 1
+	ctx.epoch.numSubEpochs = 2
 	ctx.epoch.delegates = delegates
 
 	proposer, height, err := ctx.rotatedProposer()
@@ -159,7 +160,8 @@ func TestIsEpochFinished(t *testing.T) {
 			testAddrs[0],
 			ctrl,
 			config.RollDPoS{
-				NumSubEpochs: 2,
+				NumSubEpochs: 1,
+				EnableDKG:    true,
 			},
 			func(blockchain *mock_blockchain.MockBlockchain) {
 				blockchain.EXPECT().TipHeight().Return(uint64(7)).Times(1)
@@ -181,7 +183,8 @@ func TestIsEpochFinished(t *testing.T) {
 			testAddrs[0],
 			ctrl,
 			config.RollDPoS{
-				NumSubEpochs: 2,
+				NumSubEpochs: 1,
+				EnableDKG:    true,
 			},
 			func(blockchain *mock_blockchain.MockBlockchain) {
 				blockchain.EXPECT().TipHeight().Return(uint64(8)).Times(1)
@@ -216,7 +219,8 @@ func TestIsDKGFinished(t *testing.T) {
 			testAddrs[0],
 			ctrl,
 			config.RollDPoS{
-				NumSubEpochs: 2,
+				NumSubEpochs: 1,
+				EnableDKG:    true,
 			},
 			func(blockchain *mock_blockchain.MockBlockchain) {
 				blockchain.EXPECT().TipHeight().Return(uint64(3)).Times(1)
@@ -236,7 +240,8 @@ func TestIsDKGFinished(t *testing.T) {
 			testAddrs[0],
 			ctrl,
 			config.RollDPoS{
-				NumSubEpochs: 2,
+				NumSubEpochs: 1,
+				EnableDKG:    true,
 			},
 			func(blockchain *mock_blockchain.MockBlockchain) {
 				blockchain.EXPECT().TipHeight().Return(uint64(4)).Times(1)
@@ -269,7 +274,8 @@ func TestGenerateDKGSecrets(t *testing.T) {
 		testAddrs[0],
 		ctrl,
 		config.RollDPoS{
-			NumSubEpochs: 2,
+			NumSubEpochs: 1,
+			EnableDKG:    true,
 		},
 		func(blockchain *mock_blockchain.MockBlockchain) {},
 		func(_ *mock_actpool.MockActPool) {},
@@ -303,7 +309,8 @@ func TestGenerateDKGKeyPair(t *testing.T) {
 		ctrl,
 		config.RollDPoS{
 			NumDelegates: 21,
-			NumSubEpochs: 2,
+			NumSubEpochs: 1,
+			EnableDKG:    true,
 		},
 		func(blockchain *mock_blockchain.MockBlockchain) {},
 		func(_ *mock_actpool.MockActPool) {},
@@ -665,11 +672,12 @@ func TestRollDPoSConsensus(t *testing.T) {
 		cfg := config.Default
 		cfg.Consensus.RollDPoS.Delay = 300 * time.Millisecond
 		cfg.Consensus.RollDPoS.ProposerInterval = time.Second
-		cfg.Consensus.RollDPoS.AcceptProposeTTL = 300 * time.Millisecond
-		cfg.Consensus.RollDPoS.AcceptProposalEndorseTTL = 300 * time.Millisecond
-		cfg.Consensus.RollDPoS.AcceptCommitEndorseTTL = 300 * time.Millisecond
+		cfg.Consensus.RollDPoS.AcceptProposeTTL = 1000 * time.Millisecond
+		cfg.Consensus.RollDPoS.AcceptProposalEndorseTTL = 1000 * time.Millisecond
+		cfg.Consensus.RollDPoS.AcceptCommitEndorseTTL = 1000 * time.Millisecond
 		cfg.Consensus.RollDPoS.NumDelegates = uint(numNodes)
-		cfg.Consensus.RollDPoS.NumSubEpochs = 2
+		cfg.Consensus.RollDPoS.NumSubEpochs = 1
+		cfg.Consensus.RollDPoS.EnableDKG = true
 
 		chainAddrs := make([]*iotxaddress.Address, 0, numNodes)
 		networkAddrs := make([]net.Addr, 0, numNodes)
@@ -701,11 +709,16 @@ func TestRollDPoSConsensus(t *testing.T) {
 		p2ps := make([]*directOverlay, 0, numNodes)
 		cs := make([]*RollDPoS, 0, numNodes)
 		for i := 0; i < numNodes; i++ {
-			chain := blockchain.NewBlockchain(&cfg, blockchain.InMemDaoOption(), blockchain.InMemStateFactoryOption())
+			sf, err := state.NewFactory(&cfg, state.InMemTrieOption())
+			require.NoError(t, err)
 			for j := 0; j < numNodes; j++ {
-				_, err := chain.GetFactory().LoadOrCreateState(chainRawAddrs[j], uint64(0))
+				_, err := sf.LoadOrCreateState(chainRawAddrs[j], uint64(0))
 				require.NoError(t, err)
+				_, err = sf.RunActions(0, nil, nil, nil, nil)
+				require.NoError(t, err)
+				require.NoError(t, sf.Commit(nil))
 			}
+			chain := blockchain.NewBlockchain(&cfg, blockchain.InMemDaoOption(), blockchain.PrecreatedStateFactoryOption(sf))
 			chains = append(chains, chain)
 
 			actPool, err := actpool.NewActPool(chain, cfg.ActPool)
@@ -797,7 +810,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 	})
 
 	checkChains := func(chains []blockchain.Blockchain, height uint64) {
-		assert.NoError(t, testutil.WaitUntil(100*time.Millisecond, 10*time.Second, func() (bool, error) {
+		assert.NoError(t, testutil.WaitUntil(100*time.Millisecond, 15*time.Second, func() (bool, error) {
 			for _, chain := range chains {
 				blk, err := chain.GetBlockByHeight(height)
 				if blk == nil || err != nil {

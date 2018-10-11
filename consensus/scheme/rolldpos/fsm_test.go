@@ -51,6 +51,7 @@ func TestBackdoorEvt(t *testing.T) {
 		nil,
 		config.RollDPoS{
 			EventChanSize: 1,
+			EnableDKG:     true,
 		},
 		func(_ *mock_blockchain.MockBlockchain) {},
 		func(_ *mock_actpool.MockActPool) {},
@@ -91,7 +92,7 @@ func TestRollDelegatesEvt(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, uint64(1), cfsm.ctx.epoch.height)
 		assert.Equal(t, uint64(1), cfsm.ctx.epoch.num)
-		assert.Equal(t, uint(1), cfsm.ctx.epoch.numSubEpochs)
+		assert.Equal(t, uint(2), cfsm.ctx.epoch.numSubEpochs)
 		crypto.SortCandidates(delegates, cfsm.ctx.epoch.num, crypto.CryptoSeed)
 		assert.Equal(t, delegates, cfsm.ctx.epoch.delegates)
 		assert.Equal(t, eGenerateDKG, (<-cfsm.evtq).Type())
@@ -1026,6 +1027,7 @@ func newTestCFSM(
 			EventChanSize:    2,
 			NumDelegates:     uint(len(delegates)),
 			EnableDummyBlock: true,
+			EnableDKG:        true,
 		},
 		func(blockchain *mock_blockchain.MockBlockchain) {
 			blockchain.EXPECT().ChainID().AnyTimes().Return(config.Default.Chain.ID)
