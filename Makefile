@@ -18,6 +18,7 @@ BUILD_TARGET_SERVER=server
 BUILD_TARGET_ACTINJ=actioninjector
 BUILD_TARGET_ADDRGEN=addrgen
 BUILD_TARGET_IOTC=iotc
+BUILD_TARGET_MINICLUSTER=minicluster
 SKIP_DEP=false
 
 # Pkgs
@@ -50,6 +51,7 @@ build:
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_ACTINJ) -v ./tools/actioninjector
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_ADDRGEN) -v ./tools/addrgen
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_IOTC) -v ./cli/iotc
+	$(GOBUILD) -o ./bin/$(BUILD_TARGET_MINICLUSTER) -v ./tools/minicluster
 
 .PHONY: fmt
 fmt:
@@ -143,3 +145,11 @@ run:
 .PHONY: docker
 docker:
 	$(DOCKERCMD) build -t $(USER)/iotex-core:latest --build-arg SKIP_DEP=$(SKIP_DEP) .
+
+.PHONY: minicluster
+minicluster:
+	$(ECHO_V)rm -f chain*.db
+	$(ECHO_V)rm -f trie*.db
+	$(GOBUILD) -o ./bin/$(BUILD_TARGET_MINICLUSTER) -v ./tools/minicluster
+	export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH):$(PWD)/crypto/lib:$(PWD)/crypto/lib/blslib
+	./bin/$(BUILD_TARGET_MINICLUSTER) -log-colorful=true
