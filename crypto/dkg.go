@@ -11,9 +11,7 @@ package crypto
 //#cgo darwin LDFLAGS: -L${SRCDIR}/lib/blslib -ltblsmnt_macos
 //#cgo linux LDFLAGS: -L${SRCDIR}/lib/blslib -ltblsmnt_ubuntu
 import "C"
-import (
-	"errors"
-)
+import "errors"
 
 // DKG represents a dkg struct singleton that contains the set of cryptography functions
 var DKG dkg

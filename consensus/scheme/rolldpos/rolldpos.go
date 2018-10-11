@@ -105,12 +105,13 @@ func (ctx *rollDPoSCtx) rollingDelegates(epochNum uint64) ([]string, error) {
 func (ctx *rollDPoSCtx) calcEpochNumAndHeight() (uint64, uint64, error) {
 	height := ctx.chain.TipHeight()
 	numDlgs := ctx.cfg.NumDelegates
-	subEpochNum := ctx.getNumSubEpochs()
-	epochNum := height/(uint64(numDlgs)*uint64(subEpochNum)) + 1
-	epochHeight := uint64(numDlgs)*uint64(subEpochNum)*(epochNum-1) + 1
+	numSubEpochs := ctx.getNumSubEpochs()
+	epochNum := height/(uint64(numDlgs)*uint64(numSubEpochs)) + 1
+	epochHeight := uint64(numDlgs)*uint64(numSubEpochs)*(epochNum-1) + 1
 	return epochNum, epochHeight, nil
 }
 
+// calcSubEpochNum calculates the sub-epoch ordinal number
 func (ctx *rollDPoSCtx) calcSubEpochNum() (uint64, error) {
 	height := ctx.chain.TipHeight() + 1
 	if height < ctx.epoch.height {
@@ -119,6 +120,11 @@ func (ctx *rollDPoSCtx) calcSubEpochNum() (uint64, error) {
 	numDlgs := ctx.cfg.NumDelegates
 	subEpochNum := (height - ctx.epoch.height) / uint64(numDlgs)
 	return subEpochNum, nil
+}
+
+// shouldHandleDKG indicates whether a node is in DKG stage
+func (ctx *rollDPoSCtx) shouldHandleDKG() bool {
+	return ctx.epoch.subEpochNum == 0
 }
 
 // generateDKGSecrets generates DKG secrets and witness
@@ -207,7 +213,15 @@ func (ctx *rollDPoSCtx) calcProposer(height uint64, delegates []string) (string,
 	return delegates[(height+uint64(timeSlotIndex))%uint64(numDelegates)], nil
 }
 
-// mintSecretBlock collects DKG secret proposals and witness and creats a block to propose
+// mintBlock mints a new block to propose
+func (ctx *rollDPoSCtx) mintBlock() (*blockchain.Block, error) {
+	if ctx.shouldHandleDKG() {
+		return ctx.mintSecretBlock()
+	}
+	return ctx.mintCommonBlock()
+}
+
+// mintSecretBlock collects DKG secret proposals and witness and creates a block to propose
 func (ctx *rollDPoSCtx) mintSecretBlock() (*blockchain.Block, error) {
 	secrets := ctx.epoch.secrets
 	witness := ctx.epoch.witness
@@ -217,7 +231,7 @@ func (ctx *rollDPoSCtx) mintSecretBlock() (*blockchain.Block, error) {
 	}
 	confirmedNonce, err := ctx.chain.Nonce(ctx.addr.RawAddress)
 	if err != nil {
-		logger.Error().Msg("error when minting a secret block")
+		logger.Error().Err(err).Msg("error when minting a secret block")
 		return nil, errors.Wrap(err, "failed to get the confirmed nonce of secret block producer")
 	}
 	nonce := confirmedNonce + 1
@@ -225,7 +239,7 @@ func (ctx *rollDPoSCtx) mintSecretBlock() (*blockchain.Block, error) {
 	for i, delegate := range ctx.epoch.delegates {
 		secretProposal, err := action.NewSecretProposal(nonce, ctx.addr.RawAddress, delegate, secrets[i])
 		if err != nil {
-			logger.Error().Msg("error when minting a secret block")
+			logger.Error().Err(err).Msg("error when minting a secret block")
 			return nil, errors.Wrap(err, "failed to create the secret proposal")
 		}
 		secretProposals = append(secretProposals, secretProposal)
@@ -233,12 +247,12 @@ func (ctx *rollDPoSCtx) mintSecretBlock() (*blockchain.Block, error) {
 	}
 	secretWitness, err := action.NewSecretWitness(nonce, ctx.addr.RawAddress, witness)
 	if err != nil {
-		logger.Error().Msg("error when minting a secret block")
+		logger.Error().Err(err).Msg("error when minting a secret block")
 		return nil, errors.Wrap(err, "failed to create the secret witness")
 	}
 	blk, err := ctx.chain.MintNewSecretBlock(secretProposals, secretWitness, ctx.addr)
 	if err != nil {
-		logger.Error().Msg("error when minting a secret block")
+		logger.Error().Err(err).Msg("error when minting a secret block")
 		return nil, err
 	}
 	logger.Info().
@@ -248,8 +262,8 @@ func (ctx *rollDPoSCtx) mintSecretBlock() (*blockchain.Block, error) {
 	return blk, nil
 }
 
-// mintBlock picks the actions and creates an block to propose
-func (ctx *rollDPoSCtx) mintBlock() (*blockchain.Block, error) {
+// mintCommonBlock picks the actions and creates a common block to propose
+func (ctx *rollDPoSCtx) mintCommonBlock() (*blockchain.Block, error) {
 	transfers, votes, executions := ctx.actPool.PickActs()
 	logger.Debug().
 		Int("transfer", len(transfers)).
@@ -307,17 +321,13 @@ func (ctx *rollDPoSCtx) isEpochFinished() (bool, error) {
 }
 
 // isDKGFinished checks the DKG sub-epoch is finished or not
-func (ctx *rollDPoSCtx) isDKGFinished() (bool, error) {
+func (ctx *rollDPoSCtx) isDKGFinished() bool {
 	height := ctx.chain.TipHeight()
-	if height >= ctx.epoch.height+uint64(len(ctx.epoch.delegates))-1 {
-		return true, nil
-	}
-	return false, nil
+	return height >= ctx.epoch.height+uint64(len(ctx.epoch.delegates))-1
 }
 
 // updateSeed returns the seed for the next epoch
 func (ctx *rollDPoSCtx) updateSeed() ([]byte, error) {
-	numDlgs := ctx.cfg.NumDelegates
 	epochNum, epochHeight, err := ctx.calcEpochNumAndHeight()
 	if err != nil {
 		return []byte{}, errors.Wrap(err, "Failed to do decode seed")
@@ -328,10 +338,8 @@ func (ctx *rollDPoSCtx) updateSeed() ([]byte, error) {
 	selectedID := make([][]uint8, 0)
 	selectedSig := make([][]byte, 0)
 	selectedPK := make([][]byte, 0)
-	endHeight := epochHeight - 1
-	startHeight := uint64(numDlgs)*uint64(ctx.cfg.NumSubEpochs)*(epochNum-2) + 1
-	for i := startHeight; i <= endHeight && len(selectedID) < crypto.Degree+1; i++ {
-		blk, err := ctx.chain.GetBlockByHeight(i)
+	for h := uint64(ctx.cfg.NumDelegates)*uint64(ctx.cfg.NumSubEpochs)*(epochNum-2) + 1; h < epochHeight && len(selectedID) <= crypto.Degree; h++ {
+		blk, err := ctx.chain.GetBlockByHeight(h)
 		if err != nil {
 			continue
 		}
@@ -342,7 +350,7 @@ func (ctx *rollDPoSCtx) updateSeed() ([]byte, error) {
 		}
 	}
 
-	if len(selectedID) < crypto.Degree+1 {
+	if len(selectedID) <= crypto.Degree {
 		return []byte{}, errors.New("DKG signature/pubic key is not enough to aggregate")
 	}
 

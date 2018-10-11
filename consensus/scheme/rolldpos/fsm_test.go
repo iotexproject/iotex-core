@@ -353,7 +353,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		cfsm.ctx.epoch = epoch
 		cfsm.ctx.round = round
 
-		blk, err := cfsm.ctx.mintBlock()
+		blk, err := cfsm.ctx.mintCommonBlock()
 
 		assert.NoError(t, err)
 		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, cfsm.ctx.clock))
@@ -388,7 +388,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		cfsm.ctx.round = round
 
 		clock.Add(11 * time.Second)
-		blk, err := cfsm.ctx.mintBlock()
+		blk, err := cfsm.ctx.mintCommonBlock()
 		assert.NoError(t, err)
 		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, cfsm.ctx.clock))
 		assert.NoError(t, err)
@@ -430,7 +430,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		cfsm.ctx.epoch = epoch
 		cfsm.ctx.round = round
 
-		blk, err := cfsm.ctx.mintBlock()
+		blk, err := cfsm.ctx.mintCommonBlock()
 		assert.NoError(t, err)
 		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, cfsm.ctx.clock))
 		assert.NoError(t, err)
@@ -455,7 +455,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		cfsm.ctx.epoch = epoch
 		cfsm.ctx.round = round
 
-		blk, err := cfsm.ctx.mintBlock()
+		blk, err := cfsm.ctx.mintCommonBlock()
 		assert.NoError(t, err)
 		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, cfsm.ctx.clock))
 		assert.NoError(t, err)
@@ -482,7 +482,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		cfsm.ctx.epoch = epoch
 		cfsm.ctx.round = round
 
-		blk, err := cfsm.ctx.mintBlock()
+		blk, err := cfsm.ctx.mintCommonBlock()
 		assert.NoError(t, err)
 		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, cfsm.ctx.clock))
 		assert.NoError(t, err)
@@ -510,7 +510,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		cfsm.ctx.round = round
 
 		clock.Add(11 * time.Second)
-		blk, err := cfsm.ctx.mintBlock()
+		blk, err := cfsm.ctx.mintCommonBlock()
 		assert.NoError(t, err)
 		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, cfsm.ctx.clock))
 		assert.NoError(t, err)
@@ -586,7 +586,7 @@ func TestHandleProposalEndorseEvt(t *testing.T) {
 		cfsm.ctx.epoch = epoch
 		cfsm.ctx.round = round
 
-		blk, err := cfsm.ctx.mintBlock()
+		blk, err := cfsm.ctx.mintCommonBlock()
 		assert.NoError(t, err)
 		cfsm.ctx.round.block = blk
 
@@ -634,7 +634,7 @@ func TestHandleProposalEndorseEvt(t *testing.T) {
 		cfsm.ctx.epoch = epoch
 		cfsm.ctx.round = round
 
-		blk, err := cfsm.ctx.mintBlock()
+		blk, err := cfsm.ctx.mintCommonBlock()
 		assert.NoError(t, err)
 		cfsm.ctx.round.block = blk
 
@@ -688,7 +688,7 @@ func TestHandleCommitEndorseEvt(t *testing.T) {
 		cfsm.ctx.epoch.committedSecrets = make(map[string][]uint32)
 		cfsm.ctx.round = round
 
-		blk, err := cfsm.ctx.mintSecretBlock()
+		blk, err := cfsm.ctx.mintBlock()
 		assert.NoError(t, err)
 		cfsm.ctx.round.block = blk
 
@@ -710,7 +710,7 @@ func TestHandleCommitEndorseEvt(t *testing.T) {
 		assert.Equal(t, eFinishEpoch, (<-cfsm.evtq).Type())
 		assert.Equal(t, 1, len(cfsm.ctx.epoch.committedSecrets))
 	})
-	t.Run("gather-commits-normal-block", func(t *testing.T) {
+	t.Run("gather-commits-common-block", func(t *testing.T) {
 		cfsm := newTestCFSM(
 			t,
 			test21Addrs[0],

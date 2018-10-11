@@ -229,9 +229,7 @@ func TestIsDKGFinished(t *testing.T) {
 		ctx.epoch.height = 1
 		ctx.epoch.numSubEpochs = 2
 
-		finished, err := ctx.isDKGFinished()
-		require.NoError(t, err)
-		assert.False(t, finished)
+		assert.False(t, ctx.isDKGFinished())
 	})
 	t.Run("finished", func(t *testing.T) {
 		ctx := makeTestRollDPoSCtx(
@@ -251,9 +249,7 @@ func TestIsDKGFinished(t *testing.T) {
 		ctx.epoch.height = 1
 		ctx.epoch.numSubEpochs = 2
 
-		finished, err := ctx.isDKGFinished()
-		require.NoError(t, err)
-		assert.True(t, finished)
+		assert.True(t, ctx.isDKGFinished())
 	})
 }
 
