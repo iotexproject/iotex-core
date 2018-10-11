@@ -21,6 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"github.com/iotexproject/iotex-core/state"
 )
 
 // ErrInconsistentNonce is the error that the nonce is different from executor's nonce
@@ -137,20 +138,20 @@ func securityDeposit(ps *EVMParams, stateDB vm.StateDB, gasLimit *uint64) error 
 }
 
 // ExecuteContracts process the contracts in a block
-func ExecuteContracts(blk *Block, bc Blockchain) {
+func ExecuteContracts(blk *Block, ws state.WorkingSet, bc Blockchain) {
 	gasLimit := action.GasLimit
 	blk.receipts = make(map[hash.Hash32B]*Receipt)
 	for idx, execution := range blk.Executions {
 		// TODO (zhi) log receipt to stateDB
-		if receipt, _ := executeContract(blk, idx, execution, bc, &gasLimit); receipt != nil {
+		if receipt, _ := executeContract(blk, ws, idx, execution, bc, &gasLimit); receipt != nil {
 			blk.receipts[execution.Hash()] = receipt
 		}
 	}
 }
 
 // executeContract processes a transfer which contains a contract
-func executeContract(blk *Block, idx int, execution *action.Execution, bc Blockchain, gasLimit *uint64) (*Receipt, error) {
-	stateDB := NewEVMStateDBAdapter(bc, blk.Height(), blk.HashBlock(), uint(idx), execution.Hash())
+func executeContract(blk *Block, ws state.WorkingSet, idx int, execution *action.Execution, bc Blockchain, gasLimit *uint64) (*Receipt, error) {
+	stateDB := NewEVMStateDBAdapter(bc, ws, blk.Height(), blk.HashBlock(), uint(idx), execution.Hash())
 	ps, err := NewEVMParams(blk, execution, stateDB)
 	if err != nil {
 		return nil, err

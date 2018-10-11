@@ -62,13 +62,10 @@ func TestCreateContract(t *testing.T) {
 	contract1, err := sf.LoadOrCreateState(addr.RawAddress, 0)
 	require.Nil(err)
 	require.Equal(contract1.CodeHash, codeHash[:])
-	root := sf.RootHash()
-	require.Nil(sf.Commit())
+	require.Nil(sf.Commit(nil))
 	require.Nil(sf.Stop(context.Background()))
 
-	tr, err := trie.NewTrie(db.NewBoltDB(testTriePath, nil), trie.AccountKVNameSpace, root)
-	require.Nil(err)
-	sf, err = NewFactory(&cfg, PrecreatedTrieOption(tr))
+	sf, err = NewFactory(&cfg, PrecreatedTrieDBOption(db.NewBoltDB(testTriePath, nil)))
 	require.Nil(err)
 	require.Nil(sf.Start(context.Background()))
 	// reload same contract
@@ -136,14 +133,11 @@ func TestLoadStoreContract(t *testing.T) {
 	require.Nil(sf.SetContractState(contract1, k4, v4))
 	_, err = sf.RunActions(0, nil, nil, nil, nil)
 	require.Nil(err)
-	root := sf.RootHash()
-	require.Nil(sf.Commit())
+	require.Nil(sf.Commit(nil))
 	require.Nil(sf.Stop(context.Background()))
 
 	// re-open the StateFactory
-	tr, err := trie.NewTrie(db.NewBoltDB(testTriePath, nil), trie.AccountKVNameSpace, root)
-	require.Nil(err)
-	sf, err = NewFactory(&cfg, PrecreatedTrieOption(tr))
+	sf, err = NewFactory(&cfg, PrecreatedTrieDBOption(db.NewBoltDB(testTriePath, nil)))
 	require.Nil(err)
 	require.Nil(sf.Start(context.Background()))
 	// query first contract

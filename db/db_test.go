@@ -309,6 +309,8 @@ func TestCacheKV(t *testing.T) {
 		v, _ := kvc.Get(bucket1, testK1[0])
 		require.Equal(testV1[0], v)
 		require.Nil(kvc.Clear())
+		_, err := kvc.Get(bucket1, testK1[0])
+		require.Error(err)
 		require.Nil(kv.Put(bucket2, testK2[2], testV2[2]))
 		v, _ = kvc.Get(bucket2, testK2[2])
 		require.Equal(testV2[2], v)
@@ -366,4 +368,42 @@ func TestCacheKV(t *testing.T) {
 		}()
 		testFunc(kv, t)
 	})
+}
+
+func TestClone(t *testing.T) {
+	require := require.New(t)
+
+	path := "db.test"
+	testutil.CleanupPath(t, path)
+	defer testutil.CleanupPath(t, path)
+	kv := NewBoltDB(path, cfg)
+	require.Nil(kv.Start(context.Background()))
+	defer func() {
+		require.Nil(kv.Stop(context.Background()))
+	}()
+
+	kvc := NewCachedKVStore(kv)
+	require.Nil(kvc.Put(bucket1, testK1[0], testV1[0]))
+	v, err := kvc.Get(bucket1, testK1[0])
+	require.NoError(err)
+	require.Equal(testV1[0], v)
+	require.NoError(kvc.Commit())
+
+	kvb := NewCachedKVStore(kv)
+	require.Nil(kvb.Put(bucket2, testK2[0], testV2[0]))
+	v, err = kvb.Get(bucket2, testK2[0])
+	require.NoError(err)
+	require.Equal(testV2[0], v)
+	require.NoError(kvb.Commit())
+
+	v, err = kv.Get(bucket1, testK1[0])
+	require.NoError(err)
+	require.Equal(testV1[0], v)
+	v, err = kvb.Get(bucket2, testK2[0])
+	require.NoError(err)
+	require.Equal(testV2[0], v)
+	_, err = kv.Get(bucket1, testK2[0])
+	require.Error(err)
+	_, err = kv.Get(bucket2, testK1[0])
+	require.Error(err)
 }
