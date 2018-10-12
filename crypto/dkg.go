@@ -21,6 +21,9 @@ type dkg struct {
 
 // KeyPairGeneration generates a dkg key pair
 func (d *dkg) KeyPairGeneration(shares [][]uint32, statusMatrix [][numnodes]bool) ([]byte, []byte, []uint32, error) {
+	if len(shares) != numnodes || len(statusMatrix) != numnodes || len(shares[0]) != sigSize {
+		return []byte{}, []byte{}, []uint32{}, errors.New("dimension of shares or statusMatrix is incorrect")
+	}
 	var Qs C.ec160_point_aff
 	var Qt C.ec_point_aff_twist
 	var sharesSer [numnodes][sigSize]C.uint32_t
@@ -67,6 +70,9 @@ func (d *dkg) SkGeneration() []uint32 {
 
 // Init is the share initialization method using shamir secret sharing
 func (d *dkg) Init(ms []uint32, ids [][]uint8) ([][]uint32, [][]uint32, [][]byte, error) {
+	if len(ids) != numnodes {
+		return [][]uint32{}, [][]uint32{}, [][]byte{}, errors.New("dimension of ids is incorrect")
+	}
 	var idsSer [numnodes][idlength]C.uint8_t
 	var msSer [privkeySize]C.uint32_t
 	var shares [numnodes][sigSize]C.uint32_t
@@ -112,6 +118,9 @@ func (d *dkg) Init(ms []uint32, ids [][]uint8) ([][]uint32, [][]uint32, [][]byte
 
 // SharesCollect collects and verifies the received keys
 func (d *dkg) SharesCollect(id []uint8, shares [][]uint32, witnesses [][][]byte) ([numnodes]bool, error) {
+	if len(shares) != numnodes || len(shares[0]) != sigSize || len(witnesses) != numnodes || len(witnesses[0]) != Degree+1 {
+		return [numnodes]bool{}, errors.New("dimension of shares or witnesses is incorrect")
+	}
 	var idSer [idlength]C.uint8_t
 	var sharesSer [numnodes][sigSize]C.uint32_t
 	var witnessList [numnodes][Degree + 1]C.ec160_point_aff
@@ -145,6 +154,9 @@ func (d *dkg) SharesCollect(id []uint8, shares [][]uint32, witnesses [][][]byte)
 
 // ShareVerify verifies the received secret share
 func (d *dkg) ShareVerify(id []uint8, share []uint32, witness [][]byte) (bool, error) {
+	if len(share) != sigSize || len(witness) != Degree+1 {
+		return false, errors.New("dimension of share or witness is incorrect")
+	}
 	var idSer [idlength]C.uint8_t
 	var shareSer [sigSize]C.uint32_t
 	var witnessSer [Degree + 1]C.ec160_point_aff
