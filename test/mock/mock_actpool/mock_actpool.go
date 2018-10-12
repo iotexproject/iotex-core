@@ -8,7 +8,6 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	action "github.com/iotexproject/iotex-core/blockchain/action"
 	hash "github.com/iotexproject/iotex-core/pkg/hash"
-	proto "github.com/iotexproject/iotex-core/proto"
 	reflect "reflect"
 )
 
@@ -109,9 +108,9 @@ func (mr *MockActPoolMockRecorder) GetPendingNonce(addr interface{}) *gomock.Cal
 }
 
 // GetUnconfirmedActs mocks base method
-func (m *MockActPool) GetUnconfirmedActs(addr string) []*proto.ActionPb {
+func (m *MockActPool) GetUnconfirmedActs(addr string) []action.Action {
 	ret := m.ctrl.Call(m, "GetUnconfirmedActs", addr)
-	ret0, _ := ret[0].([]*proto.ActionPb)
+	ret0, _ := ret[0].([]action.Action)
 	return ret0
 }
 
@@ -121,9 +120,9 @@ func (mr *MockActPoolMockRecorder) GetUnconfirmedActs(addr interface{}) *gomock.
 }
 
 // GetActionByHash mocks base method
-func (m *MockActPool) GetActionByHash(hash hash.Hash32B) (*proto.ActionPb, error) {
+func (m *MockActPool) GetActionByHash(hash hash.Hash32B) (action.Action, error) {
 	ret := m.ctrl.Call(m, "GetActionByHash", hash)
-	ret0, _ := ret[0].(*proto.ActionPb)
+	ret0, _ := ret[0].(action.Action)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

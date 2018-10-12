@@ -14,7 +14,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/blockchain/action"
-	"github.com/iotexproject/iotex-core/proto"
 )
 
 type noncePriorityQueue []uint64
@@ -41,26 +40,26 @@ func (h *noncePriorityQueue) Pop() interface{} {
 
 // ActQueue is the interface of actQueue
 type ActQueue interface {
-	Overlaps(*iproto.ActionPb) bool
-	Put(*iproto.ActionPb) error
-	FilterNonce(uint64) []*iproto.ActionPb
+	Overlaps(action.Action) bool
+	Put(action.Action) error
+	FilterNonce(uint64) []action.Action
 	SetStartNonce(uint64)
 	StartNonce() uint64
-	UpdateQueue(uint64) []*iproto.ActionPb
+	UpdateQueue(uint64) []action.Action
 	SetPendingNonce(uint64)
 	PendingNonce() uint64
 	SetPendingBalance(*big.Int)
 	PendingBalance() *big.Int
 	Len() int
 	Empty() bool
-	PendingActs() []*iproto.ActionPb
-	AllActs() []*iproto.ActionPb
+	PendingActs() []action.Action
+	AllActs() []action.Action
 }
 
 // actQueue is a queue of actions from an account
 type actQueue struct {
 	// Map that stores all the actions belonging to an account associated with nonces
-	items map[uint64]*iproto.ActionPb
+	items map[uint64]action.Action
 	// Priority Queue that stores all the nonces belonging to an account. Nonces are used as indices for action map
 	index noncePriorityQueue
 	// Current nonce tracking the first action in queue
@@ -74,7 +73,7 @@ type actQueue struct {
 // NewActQueue create a new action queue
 func NewActQueue() ActQueue {
 	return &actQueue{
-		items:          make(map[uint64]*iproto.ActionPb),
+		items:          make(map[uint64]action.Action),
 		index:          noncePriorityQueue{},
 		startNonce:     uint64(1), // Taking coinbase Action into account, startNonce should start with 1
 		pendingNonce:   uint64(1), // Taking coinbase Action into account, pendingNonce should start with 1
@@ -83,13 +82,13 @@ func NewActQueue() ActQueue {
 }
 
 // Overlap returns whether the current queue contains the given nonce
-func (q *actQueue) Overlaps(act *iproto.ActionPb) bool {
-	return q.items[act.Nonce] != nil
+func (q *actQueue) Overlaps(act action.Action) bool {
+	return q.items[act.Nonce()] != nil
 }
 
 // Put inserts a new action into the map, also updating the queue's nonce index
-func (q *actQueue) Put(act *iproto.ActionPb) error {
-	nonce := act.Nonce
+func (q *actQueue) Put(act action.Action) error {
+	nonce := act.Nonce()
 	if q.items[nonce] != nil {
 		return errors.Wrapf(ErrNonce, "duplicate nonce")
 	}
@@ -99,8 +98,8 @@ func (q *actQueue) Put(act *iproto.ActionPb) error {
 }
 
 // FilterNonce removes all actions from the map with a nonce lower than the given threshold
-func (q *actQueue) FilterNonce(threshold uint64) []*iproto.ActionPb {
-	var removed []*iproto.ActionPb
+func (q *actQueue) FilterNonce(threshold uint64) []action.Action {
+	var removed []action.Action
 	// Pop off priority queue and delete corresponding entries from map until the threshold is reached
 	for q.index.Len() > 0 && (q.index)[0] < threshold {
 		nonce := heap.Pop(&q.index).(uint64)
@@ -111,7 +110,7 @@ func (q *actQueue) FilterNonce(threshold uint64) []*iproto.ActionPb {
 }
 
 // UpdateQueue updates the pending nonce and balance of the queue
-func (q *actQueue) UpdateQueue(nonce uint64) []*iproto.ActionPb {
+func (q *actQueue) UpdateQueue(nonce uint64) []action.Action {
 	// First, starting from the current pending nonce, incrementally find the next pending nonce
 	// while updating pending balance if actions are payable
 	for ; q.items[nonce] != nil; nonce++ {
@@ -190,11 +189,11 @@ func (q *actQueue) Empty() bool {
 }
 
 // PendingActs creates a consecutive nonce-sorted slice of actions
-func (q *actQueue) PendingActs() []*iproto.ActionPb {
+func (q *actQueue) PendingActs() []action.Action {
 	if q.Len() == 0 {
-		return []*iproto.ActionPb{}
+		return []action.Action{}
 	}
-	acts := make([]*iproto.ActionPb, 0, len(q.items))
+	acts := make([]action.Action, 0, len(q.items))
 	nonce := q.startNonce
 	for ; q.items[nonce] != nil; nonce++ {
 		acts = append(acts, q.items[nonce])
@@ -203,8 +202,8 @@ func (q *actQueue) PendingActs() []*iproto.ActionPb {
 }
 
 // AllActs returns all the actions currently in queue
-func (q *actQueue) AllActs() []*iproto.ActionPb {
-	acts := make([]*iproto.ActionPb, 0, len(q.items))
+func (q *actQueue) AllActs() []action.Action {
+	acts := make([]action.Action, 0, len(q.items))
 	if q.Len() == 0 {
 		return acts
 	}
@@ -216,8 +215,8 @@ func (q *actQueue) AllActs() []*iproto.ActionPb {
 }
 
 // removeActs removes all the actions starting at idx from queue
-func (q *actQueue) removeActs(idx int) []*iproto.ActionPb {
-	removedFromQueue := make([]*iproto.ActionPb, 0)
+func (q *actQueue) removeActs(idx int) []action.Action {
+	removedFromQueue := make([]action.Action, 0)
 	for i := idx; i < q.index.Len(); i++ {
 		removedFromQueue = append(removedFromQueue, q.items[q.index[i]])
 		delete(q.items, q.index[i])
@@ -228,37 +227,15 @@ func (q *actQueue) removeActs(idx int) []*iproto.ActionPb {
 }
 
 // enoughBalance helps check whether queue's pending balance is sufficient for the given action
-func (q *actQueue) enoughBalance(act *iproto.ActionPb, updateBalance bool) bool {
-	switch {
-	case act.GetTransfer() != nil:
-		tsf := action.Transfer{}
-		tsf.ConvertFromActionPb(act)
-		cost, _ := tsf.Cost()
-		if q.pendingBalance.Cmp(cost) < 0 {
-			return false
-		}
-		if updateBalance {
-			q.pendingBalance.Sub(q.pendingBalance, cost)
-		}
-	case act.GetVote() != nil:
-		vote := action.Vote{}
-		vote.ConvertFromActionPb(act)
-		cost, _ := vote.Cost()
-		if q.pendingBalance.Cmp(cost) < 0 {
-			return false
-		}
-		if updateBalance {
-			q.pendingBalance.Sub(q.pendingBalance, cost)
-		}
-	case act.GetExecution() != nil:
-		exec := action.Execution{}
-		exec.ConvertFromActionPb(act)
-		if q.pendingBalance.Cmp(exec.CostLimit()) < 0 {
-			return false
-		}
-		if updateBalance {
-			q.pendingBalance.Sub(q.pendingBalance, exec.CostLimit())
-		}
+func (q *actQueue) enoughBalance(act action.Action, updateBalance bool) bool {
+	cost, _ := act.Cost()
+	if q.pendingBalance.Cmp(cost) < 0 {
+		return false
 	}
+
+	if updateBalance {
+		q.pendingBalance.Sub(q.pendingBalance, cost)
+	}
+
 	return true
 }
