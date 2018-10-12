@@ -26,3 +26,38 @@ jobs:
       - run: dep ensure --vendor-only
       - run: ./go.test.sh
       - run: bash <(curl -s https://codecov.io/bash)
+  minicluster:
+    docker:
+      # specify the version
+      - image: iotex/iotex-core-ci:latest
+
+      # Specify service dependencies here if necessary
+      # CircleCI maintains a library of pre-built images
+      # documented at https://circleci.com/docs/2.0/circleci-images/
+      # - image: circleci/postgres:9.4
+
+    #### TEMPLATE_NOTE: go expects specific checkout path representing url
+    #### expecting it in the form of
+    ####   /go/src/github.com/circleci/go-tool
+    ####   /go/src/bitbucket.org/circleci/go-tool
+    working_directory: /go/src/github.com/iotexproject/iotex-core
+    steps:
+      - checkout
+
+      # specify any bash command here prefixed with `run: `
+      - run: make minicluster
+workflows:
+  version: 2
+  commit:
+    jobs:
+      - build
+  nightly:
+    triggers:
+      - schedule:
+          cron: "0 7 * * *"
+          filters:
+            branches:
+              only:
+                - master
+    jobs:
+      - minicluster
