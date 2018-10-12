@@ -25,7 +25,7 @@ import (
 	"github.com/iotexproject/iotex-core/state"
 )
 
-// GasLimit is the total gas limit to be consumed in a block
+// GasLimit is the total gas limit could be consumed in a block
 const GasLimit = uint64(1000000000)
 
 // Payee defines the struct of payee
