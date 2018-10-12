@@ -17,6 +17,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
@@ -38,6 +39,8 @@ var (
 		[]string{},
 	)
 )
+
+const sigSize = 5 // number of uint32s in BLS sig
 
 func init() {
 	prometheus.MustRegister(timeSlotMtc)
@@ -92,7 +95,7 @@ func (ctx *rollDPoSCtx) rollingDelegates(epochNum uint64) ([]string, error) {
 	for _, candidate := range candidates {
 		candidatesAddress = append(candidatesAddress, candidate.Address)
 	}
-	crypto.SortCandidates(candidatesAddress, epochNum)
+	crypto.SortCandidates(candidatesAddress, epochNum, ctx.epoch.seed)
 
 	return candidatesAddress[:numDlgs], nil
 }
@@ -102,17 +105,73 @@ func (ctx *rollDPoSCtx) rollingDelegates(epochNum uint64) ([]string, error) {
 func (ctx *rollDPoSCtx) calcEpochNumAndHeight() (uint64, uint64, error) {
 	height := ctx.chain.TipHeight()
 	numDlgs := ctx.cfg.NumDelegates
-	subEpochNum := ctx.getNumSubEpochs()
-	epochNum := height/(uint64(numDlgs)*uint64(subEpochNum)) + 1
-	epochHeight := uint64(numDlgs)*uint64(subEpochNum)*(epochNum-1) + 1
+	numSubEpochs := ctx.getNumSubEpochs()
+	epochNum := height/(uint64(numDlgs)*uint64(numSubEpochs)) + 1
+	epochHeight := uint64(numDlgs)*uint64(numSubEpochs)*(epochNum-1) + 1
 	return epochNum, epochHeight, nil
 }
 
-// generateDKG generates a pseudo DKG bytes
-func (ctx *rollDPoSCtx) generateDKG() (hash.DKGHash, error) {
-	var dkg hash.DKGHash
-	// TODO: fill the logic to generate DKG
-	return dkg, nil
+// calcSubEpochNum calculates the sub-epoch ordinal number
+func (ctx *rollDPoSCtx) calcSubEpochNum() (uint64, error) {
+	height := ctx.chain.TipHeight() + 1
+	if height < ctx.epoch.height {
+		return 0, errors.New("Tip height cannot be less than epoch height")
+	}
+	numDlgs := ctx.cfg.NumDelegates
+	subEpochNum := (height - ctx.epoch.height) / uint64(numDlgs)
+	return subEpochNum, nil
+}
+
+// shouldHandleDKG indicates whether a node is in DKG stage
+func (ctx *rollDPoSCtx) shouldHandleDKG() bool {
+	if !ctx.cfg.EnableDKG {
+		return false
+	}
+	return ctx.epoch.subEpochNum == 0
+}
+
+// generateDKGSecrets generates DKG secrets and witness
+func (ctx *rollDPoSCtx) generateDKGSecrets() ([][]uint32, [][]byte, error) {
+	idList := make([][]uint8, 0)
+	for _, addr := range ctx.epoch.delegates {
+		dkgID := iotxaddress.CreateID(addr)
+		idList = append(idList, dkgID)
+		if addr == ctx.addr.RawAddress {
+			ctx.epoch.dkgAddress = iotxaddress.DKGAddress{ID: dkgID}
+		}
+	}
+	_, secrets, witness, err := crypto.DKG.Init(crypto.DKG.SkGeneration(), idList)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to generate DKG Secrets and Witness")
+	}
+	return secrets, witness, nil
+}
+
+// TODO: numDlgs should also be configurable in BLS. For test purpose, let's make it 21.
+// generateDKGKeyPair generates DKG key pair
+func (ctx *rollDPoSCtx) generateDKGKeyPair() ([]byte, []uint32, error) {
+	numDlgs := ctx.cfg.NumDelegates
+	if numDlgs != 21 {
+		return nil, nil, errors.New("Number of delegates must be 21 for test purpose")
+	}
+	shares := make([][]uint32, numDlgs)
+	shareStatusMatrix := make([][21]bool, numDlgs)
+	for i := range shares {
+		shares[i] = make([]uint32, sigSize)
+	}
+	for i, delegate := range ctx.epoch.delegates {
+		if secret, ok := ctx.epoch.committedSecrets[delegate]; ok {
+			shares[i] = secret
+			for j := 0; j < int(numDlgs); j++ {
+				shareStatusMatrix[j][i] = true
+			}
+		}
+	}
+	_, dkgPubKey, dkgPriKey, err := crypto.DKG.KeyPairGeneration(shares, shareStatusMatrix)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to generate DKG key pair")
+	}
+	return dkgPubKey, dkgPriKey, nil
 }
 
 // getNumSubEpochs returns max(configured number, 1)
@@ -120,6 +179,9 @@ func (ctx *rollDPoSCtx) getNumSubEpochs() uint {
 	num := uint(1)
 	if ctx.cfg.NumSubEpochs > 0 {
 		num = ctx.cfg.NumSubEpochs
+	}
+	if ctx.cfg.EnableDKG {
+		num++
 	}
 	return num
 }
@@ -157,16 +219,60 @@ func (ctx *rollDPoSCtx) calcProposer(height uint64, delegates []string) (string,
 	return delegates[(height+uint64(timeSlotIndex))%uint64(numDelegates)], nil
 }
 
-// mintBlock picks the actions and creates an block to propose
+// mintBlock mints a new block to propose
 func (ctx *rollDPoSCtx) mintBlock() (*blockchain.Block, error) {
+	if ctx.shouldHandleDKG() {
+		return ctx.mintSecretBlock()
+	}
+	return ctx.mintCommonBlock()
+}
+
+// mintSecretBlock collects DKG secret proposals and witness and creates a block to propose
+func (ctx *rollDPoSCtx) mintSecretBlock() (*blockchain.Block, error) {
+	secrets := ctx.epoch.secrets
+	witness := ctx.epoch.witness
+	if len(secrets) != len(ctx.epoch.delegates) {
+		return nil, errors.New("Number of secrets does not match number of delegates")
+	}
+	confirmedNonce, err := ctx.chain.Nonce(ctx.addr.RawAddress)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get the confirmed nonce of secret block producer")
+	}
+	nonce := confirmedNonce + 1
+	secretProposals := make([]*action.SecretProposal, 0)
+	for i, delegate := range ctx.epoch.delegates {
+		secretProposal, err := action.NewSecretProposal(nonce, ctx.addr.RawAddress, delegate, secrets[i])
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to create the secret proposal")
+		}
+		secretProposals = append(secretProposals, secretProposal)
+		nonce++
+	}
+	secretWitness, err := action.NewSecretWitness(nonce, ctx.addr.RawAddress, witness)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create the secret witness")
+	}
+	blk, err := ctx.chain.MintNewSecretBlock(secretProposals, secretWitness, ctx.addr)
+	if err != nil {
+		return nil, err
+	}
+	logger.Info().
+		Uint64("height", blk.Height()).
+		Int("secretProposals", len(blk.SecretProposals)).
+		Msg("minted a new secret block")
+	return blk, nil
+}
+
+// mintCommonBlock picks the actions and creates a common block to propose
+func (ctx *rollDPoSCtx) mintCommonBlock() (*blockchain.Block, error) {
 	transfers, votes, executions := ctx.actPool.PickActs()
 	logger.Debug().
 		Int("transfer", len(transfers)).
 		Int("votes", len(votes)).
 		Msg("pick actions from the action pool")
-	blk, err := ctx.chain.MintNewBlock(transfers, votes, executions, ctx.addr, "")
+	blk, err := ctx.chain.MintNewDKGBlock(transfers, votes, executions, ctx.addr, &ctx.epoch.dkgAddress,
+		ctx.epoch.seed, "")
 	if err != nil {
-		logger.Error().Msg("error when minting a block")
 		return nil, err
 	}
 	logger.Info().
@@ -214,6 +320,50 @@ func (ctx *rollDPoSCtx) isEpochFinished() (bool, error) {
 	return false, nil
 }
 
+// isDKGFinished checks the DKG sub-epoch is finished or not
+func (ctx *rollDPoSCtx) isDKGFinished() bool {
+	height := ctx.chain.TipHeight()
+	return height >= ctx.epoch.height+uint64(len(ctx.epoch.delegates))-1
+}
+
+// updateSeed returns the seed for the next epoch
+func (ctx *rollDPoSCtx) updateSeed() ([]byte, error) {
+	epochNum, epochHeight, err := ctx.calcEpochNumAndHeight()
+	if err != nil {
+		return hash.Hash256b(ctx.epoch.seed), errors.Wrap(err, "Failed to do decode seed")
+	}
+	if epochNum <= 1 {
+		return crypto.CryptoSeed, nil
+	}
+	selectedID := make([][]uint8, 0)
+	selectedSig := make([][]byte, 0)
+	selectedPK := make([][]byte, 0)
+	for h := uint64(ctx.cfg.NumDelegates)*uint64(ctx.cfg.NumSubEpochs)*(epochNum-2) + 1; h < epochHeight && len(selectedID) <= crypto.Degree; h++ {
+		blk, err := ctx.chain.GetBlockByHeight(h)
+		if err != nil {
+			continue
+		}
+		if len(blk.Header.DKGID) > 0 && len(blk.Header.DKGPubkey) > 0 && len(blk.Header.DKGBlockSig) > 0 {
+			selectedID = append(selectedID, blk.Header.DKGID)
+			selectedSig = append(selectedSig, blk.Header.DKGBlockSig)
+			selectedPK = append(selectedPK, blk.Header.DKGPubkey)
+		}
+	}
+
+	if len(selectedID) <= crypto.Degree {
+		return hash.Hash256b(ctx.epoch.seed), errors.New("DKG signature/pubic key is not enough to aggregate")
+	}
+
+	aggregateSig, err := crypto.BLS.SignAggregate(selectedID, selectedSig)
+	if err != nil {
+		return hash.Hash256b(ctx.epoch.seed), errors.Wrap(err, "Failed to generate aggregate signature to update Seed")
+	}
+	if err = crypto.BLS.VerifyAggregate(selectedID, selectedPK, ctx.epoch.seed, aggregateSig); err != nil {
+		return hash.Hash256b(ctx.epoch.seed), errors.Wrap(err, "Failed to verify aggregate signature to update Seed")
+	}
+	return aggregateSig, nil
+}
+
 // epochCtx keeps the context data for the current epoch
 type epochCtx struct {
 	// num is the ordinal number of an epoch
@@ -222,10 +372,17 @@ type epochCtx struct {
 	height uint64
 	// numSubEpochs defines number of sub-epochs/rotations will happen in an epochStart
 	numSubEpochs uint
-	dkg          hash.DKGHash
-	delegates    []string
-	dkgAddress   iotxaddress.DKGAddress
-	seed         []byte
+	// subEpochNum is the ordinal number of sub-epoch within the current epoch
+	subEpochNum uint64
+	// secrets are the dkg secrets sent from current node to other delegates
+	secrets [][]uint32
+	// witness is the dkg secret witness sent from current node to other delegates
+	witness [][]byte
+	// committedSecrets are the secret shares within the secret blocks committed by current node
+	committedSecrets map[string][]uint32
+	delegates        []string
+	dkgAddress       iotxaddress.DKGAddress
+	seed             []byte
 }
 
 // roundCtx keeps the context data for the current round and block.
@@ -311,7 +468,7 @@ func (r *RollDPoS) Metrics() (scheme.ConsensusMetrics, error) {
 		candidateAddresses[i] = c.Address
 	}
 
-	crypto.SortCandidates(candidateAddresses, epochNum)
+	crypto.SortCandidates(candidateAddresses, epochNum, r.ctx.epoch.seed)
 
 	return scheme.ConsensusMetrics{
 		LatestEpoch:         epochNum,

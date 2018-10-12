@@ -34,7 +34,6 @@ func main() {
 	// aps indicates how many actions to be injected in one second. Default is 0
 	var aps int
 
-
 	flag.IntVar(&timeout, "timeout", 300, "duration of running nightly build")
 	flag.IntVar(&aps, "aps", 1, "actions to be injected per second")
 	flag.Parse()
