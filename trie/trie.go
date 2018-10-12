@@ -178,7 +178,7 @@ func (t *trie) Commit() error {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
-	return t.dao.Commit()
+	return t.dao.Commit(nil)
 }
 
 // RootHash returns the root hash of merkle patricia trie

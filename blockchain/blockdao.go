@@ -497,7 +497,7 @@ func (dao *blockDAO) getReceiptByExecutionHash(h hash.Hash32B) (*Receipt, error)
 
 // putBlock puts a block
 func (dao *blockDAO) putBlock(blk *Block) error {
-	batch := dao.kvstore.Batch()
+	batch := db.NewBatch()
 
 	height := byteutil.Uint64ToBytes(blk.Height())
 
@@ -524,7 +524,7 @@ func (dao *blockDAO) putBlock(blk *Block) error {
 	}
 
 	if !dao.config.Explorer.Enabled {
-		return batch.Commit()
+		return dao.kvstore.Commit(batch)
 	}
 
 	// only build Tsf/Vote/Execution index if enable explorer
@@ -588,7 +588,7 @@ func (dao *blockDAO) putBlock(blk *Block) error {
 		return err
 	}
 
-	return batch.Commit()
+	return dao.kvstore.Commit(batch)
 }
 
 // putTransfers stores transfer information into db
@@ -777,7 +777,7 @@ func (dao *blockDAO) putReceipts(blk *Block) error {
 	if blk.receipts == nil {
 		return nil
 	}
-	batch := dao.kvstore.Batch()
+	batch := db.NewBatch()
 	for _, r := range blk.receipts {
 		v, err := r.Serialize()
 		if err != nil {
@@ -785,12 +785,12 @@ func (dao *blockDAO) putReceipts(blk *Block) error {
 		}
 		batch.Put(blockExecutionReceiptMappingNS, r.Hash[:], v[:], "failed to put receipt for execution %x", r.Hash[:])
 	}
-	return batch.Commit()
+	return dao.kvstore.Commit(batch)
 }
 
 // deleteBlock deletes the tip block
 func (dao *blockDAO) deleteTipBlock() error {
-	batch := dao.kvstore.Batch()
+	batch := db.NewBatch()
 
 	// First obtain tip height from db
 	heightValue, err := dao.kvstore.Get(blockNS, topHeightKey)
@@ -827,7 +827,7 @@ func (dao *blockDAO) deleteTipBlock() error {
 	batch.Put(blockNS, topHeightKey, topHeightValue, "failed to put top height")
 
 	if !dao.config.Explorer.Enabled {
-		return batch.Commit()
+		return dao.kvstore.Commit(batch)
 	}
 
 	// Only delete Tsf/Vote/Execution index if enable explorer
@@ -898,7 +898,7 @@ func (dao *blockDAO) deleteTipBlock() error {
 		return err
 	}
 
-	return batch.Commit()
+	return dao.kvstore.Commit(batch)
 }
 
 // deleteTransfers deletes transfer information from db

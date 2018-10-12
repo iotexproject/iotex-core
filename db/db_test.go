@@ -141,7 +141,7 @@ func TestDBInMemBatchCommit(t *testing.T) {
 
 	ctx := context.Background()
 	kvboltDB := kvStore.(*memKVStore)
-	batch := kvStore.Batch()
+	batch := NewBatch()
 
 	err := kvboltDB.Start(ctx)
 	require.Nil(err)
@@ -172,7 +172,7 @@ func TestDBInMemBatchCommit(t *testing.T) {
 	require.Nil(err)
 	require.Equal(testV2[0], value)
 
-	err = batch.Commit()
+	err = kvboltDB.Commit(batch)
 	require.Nil(err)
 
 	value, err = kvboltDB.Get(bucket1, testK1[0])
@@ -186,7 +186,7 @@ func TestDBBatch(t *testing.T) {
 
 		ctx := context.Background()
 		kvboltDB := kvStore.(*boltDB)
-		batch := NewBoltDBBatch(kvboltDB)
+		batch := NewBatch()
 
 		err := kvboltDB.Start(ctx)
 		require.Nil(err)
@@ -217,7 +217,7 @@ func TestDBBatch(t *testing.T) {
 		require.Nil(err)
 		require.Equal(testV2[0], value)
 
-		err = batch.Commit()
+		err = kvboltDB.Commit(batch)
 		require.Nil(err)
 
 		value, err = kvboltDB.Get(bucket1, testK1[0])
@@ -236,7 +236,7 @@ func TestDBBatch(t *testing.T) {
 		require.Nil(err)
 		err = batch.PutIfNotExists(bucket2, testK2[1], testV2[0], "")
 		require.Nil(err)
-		err = batch.Commit()
+		err = kvboltDB.Commit(batch)
 		require.Equal(err, ErrAlreadyExist)
 		err = batch.Clear()
 		require.Nil(err)
@@ -251,7 +251,7 @@ func TestDBBatch(t *testing.T) {
 
 		err = batch.PutIfNotExists(bucket3, testK2[0], testV2[0], "")
 		require.Nil(err)
-		err = batch.Commit()
+		err = kvboltDB.Commit(batch)
 		require.Nil(err)
 
 		value, err = kvboltDB.Get(bucket3, testK2[0])
@@ -264,7 +264,7 @@ func TestDBBatch(t *testing.T) {
 		// cause transaction rollback
 		err = batch.PutIfNotExists(bucket3, testK2[0], testV2[1], "")
 		require.Nil(err)
-		err = batch.Commit()
+		err = kvboltDB.Commit(batch)
 		require.NotNil(err)
 
 		value, err = kvboltDB.Get(bucket1, testK1[2])
@@ -281,7 +281,7 @@ func TestDBBatch(t *testing.T) {
 		require.Nil(err)
 		err = batch.Delete(bucket2, testK2[1], "")
 		require.Nil(err)
-		err = batch.Commit()
+		err = kvboltDB.Commit(batch)
 		require.Nil(err)
 
 		value, err = kvboltDB.Get(bucket1, testK1[2])
@@ -332,7 +332,7 @@ func TestCacheKV(t *testing.T) {
 		require.Equal(ErrAlreadyExist, errors.Cause(kvc.PutIfNotExists(bucket1, testK1[1], testV1[0])))
 		// same key but diff bucket name is OK
 		require.Nil(kvc.PutIfNotExists(bucket2, testK1[0], testV1[0]))
-		require.Nil(kvc.Commit())
+		require.Nil(kvc.Commit(nil))
 
 		kvc = nil
 		kvc = NewCachedKVStore(kv)
@@ -345,10 +345,11 @@ func TestCacheKV(t *testing.T) {
 		v, _ = kvc.Get(bucket2, testK1[0])
 		require.Equal(testV1[0], v)
 		require.Nil(kvc.PutIfNotExists(bucket2, testK2[0], testV2[0]))
+		require.NoError(kvc.Commit(nil))
 		// entry exists in DB but not in cache, so OK at this point
 		require.Nil(kvc.PutIfNotExists(bucket2, testK1[0], testV1[2]))
 		// but would fail upon commit
-		require.Equal(ErrAlreadyExist, errors.Cause(kvc.Commit()))
+		require.Equal(ErrAlreadyExist, errors.Cause(kvc.Commit(nil)))
 	}
 
 	t.Run("In-memory KV Store", func(t *testing.T) {
@@ -387,14 +388,14 @@ func TestClone(t *testing.T) {
 	v, err := kvc.Get(bucket1, testK1[0])
 	require.NoError(err)
 	require.Equal(testV1[0], v)
-	require.NoError(kvc.Commit())
+	require.NoError(kvc.Commit(nil))
 
 	kvb := NewCachedKVStore(kv)
 	require.Nil(kvb.Put(bucket2, testK2[0], testV2[0]))
 	v, err = kvb.Get(bucket2, testK2[0])
 	require.NoError(err)
 	require.Equal(testV2[0], v)
-	require.NoError(kvb.Commit())
+	require.NoError(kvb.Commit(nil))
 
 	v, err = kv.Get(bucket1, testK1[0])
 	require.NoError(err)
