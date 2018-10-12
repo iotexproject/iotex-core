@@ -1009,6 +1009,7 @@ func TestUpdateSeed(t *testing.T) {
 	// Generate dkg signature for each block
 	require.NoError(err)
 	dummy := chain.MintNewDummyBlock()
+	require.NoError(chain.ValidateBlock(dummy, false))
 	err = chain.CommitBlock(dummy)
 	require.NoError(err)
 	for i := 1; i < numNodes; i++ {
@@ -1021,10 +1022,9 @@ func TestUpdateSeed(t *testing.T) {
 			&iotxaddress.DKGAddress{PrivateKey: askList[i], PublicKey: pkList[i], ID: idList[i]},
 			lastSeed, "")
 		require.NoError(err)
-		err = verifyDKGSignature(blk, lastSeed)
-		require.NoError(err)
-		err = chain.CommitBlock(blk)
-		require.NoError(err)
+		require.NoError(verifyDKGSignature(blk, lastSeed))
+		require.NoError(chain.ValidateBlock(blk, true))
+		require.NoError(chain.CommitBlock(blk))
 		require.Equal(pkList[i], blk.Header.DKGPubkey)
 		require.Equal(idList[i], blk.Header.DKGID)
 		require.True(len(blk.Header.DKGBlockSig) > 0)

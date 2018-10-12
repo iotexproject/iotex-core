@@ -574,12 +574,12 @@ func TestVoteLocalCommit(t *testing.T) {
 	tipheight = bc.TipHeight()
 	require.Equal(7, int(tipheight))
 
-	h, candidates := bc.Candidates()
+	candidates, err := bc.CandidatesByHeight(tipheight)
+	require.NoError(err)
 	candidatesAddr := make([]string, len(candidates))
 	for i, can := range candidates {
 		candidatesAddr[i] = can.Address
 	}
-	require.Equal(7, int(h))
 	require.Equal(2, len(candidates))
 
 	sort.Sort(sort.StringSlice(candidatesAddr))
@@ -617,12 +617,12 @@ func TestVoteLocalCommit(t *testing.T) {
 	tipheight = bc.TipHeight()
 	require.Equal(8, int(tipheight))
 
-	h, candidates = bc.Candidates()
+	candidates, err = bc.CandidatesByHeight(tipheight)
+	require.NoError(err)
 	candidatesAddr = make([]string, len(candidates))
 	for i, can := range candidates {
 		candidatesAddr[i] = can.Address
 	}
-	require.Equal(8, int(h))
 	require.Equal(2, len(candidates))
 
 	sort.Sort(sort.StringSlice(candidatesAddr))
@@ -660,12 +660,12 @@ func TestVoteLocalCommit(t *testing.T) {
 	tipheight = bc.TipHeight()
 	require.Equal(9, int(tipheight))
 
-	h, candidates = bc.Candidates()
+	candidates, err = bc.CandidatesByHeight(tipheight)
+	require.NoError(err)
 	candidatesAddr = make([]string, len(candidates))
 	for i, can := range candidates {
 		candidatesAddr[i] = can.Address
 	}
-	require.Equal(9, int(h))
 	require.Equal(2, len(candidates))
 
 	sort.Sort(sort.StringSlice(candidatesAddr))

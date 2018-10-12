@@ -151,53 +151,42 @@ func (mr *MockFactoryMockRecorder) Height() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Height", reflect.TypeOf((*MockFactory)(nil).Height))
 }
 
+// NewWorkingSet mocks base method
+func (m *MockFactory) NewWorkingSet() (state.WorkingSet, error) {
+	ret := m.ctrl.Call(m, "NewWorkingSet")
+	ret0, _ := ret[0].(state.WorkingSet)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// NewWorkingSet indicates an expected call of NewWorkingSet
+func (mr *MockFactoryMockRecorder) NewWorkingSet() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewWorkingSet", reflect.TypeOf((*MockFactory)(nil).NewWorkingSet))
+}
+
 // RunActions mocks base method
-func (m *MockFactory) RunActions(arg0 uint64, arg1 []*action.Transfer, arg2 []*action.Vote, arg3 []*action.Execution) (hash.Hash32B, error) {
-	ret := m.ctrl.Call(m, "RunActions", arg0, arg1, arg2, arg3)
+func (m *MockFactory) RunActions(arg0 uint64, arg1 []*action.Transfer, arg2 []*action.Vote, arg3 []*action.Execution, arg4 []action.Action) (hash.Hash32B, error) {
+	ret := m.ctrl.Call(m, "RunActions", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(hash.Hash32B)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // RunActions indicates an expected call of RunActions
-func (mr *MockFactoryMockRecorder) RunActions(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunActions", reflect.TypeOf((*MockFactory)(nil).RunActions), arg0, arg1, arg2, arg3)
-}
-
-// HasRun mocks base method
-func (m *MockFactory) HasRun() bool {
-	ret := m.ctrl.Call(m, "HasRun")
-	ret0, _ := ret[0].(bool)
-	return ret0
-}
-
-// HasRun indicates an expected call of HasRun
-func (mr *MockFactoryMockRecorder) HasRun() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasRun", reflect.TypeOf((*MockFactory)(nil).HasRun))
-}
-
-// Clear mocks base method
-func (m *MockFactory) Clear() error {
-	ret := m.ctrl.Call(m, "Clear")
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Clear indicates an expected call of Clear
-func (mr *MockFactoryMockRecorder) Clear() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Clear", reflect.TypeOf((*MockFactory)(nil).Clear))
+func (mr *MockFactoryMockRecorder) RunActions(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunActions", reflect.TypeOf((*MockFactory)(nil).RunActions), arg0, arg1, arg2, arg3, arg4)
 }
 
 // Commit mocks base method
-func (m *MockFactory) Commit() error {
-	ret := m.ctrl.Call(m, "Commit")
+func (m *MockFactory) Commit(arg0 state.WorkingSet) error {
+	ret := m.ctrl.Call(m, "Commit", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Commit indicates an expected call of Commit
-func (mr *MockFactoryMockRecorder) Commit() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockFactory)(nil).Commit))
+func (mr *MockFactoryMockRecorder) Commit(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockFactory)(nil).Commit), arg0)
 }
 
 // GetCodeHash mocks base method
@@ -263,17 +252,17 @@ func (mr *MockFactoryMockRecorder) SetContractState(arg0, arg1, arg2 interface{}
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetContractState", reflect.TypeOf((*MockFactory)(nil).SetContractState), arg0, arg1, arg2)
 }
 
-// Candidates mocks base method
-func (m *MockFactory) Candidates() (uint64, []*state.Candidate) {
-	ret := m.ctrl.Call(m, "Candidates")
+// candidates mocks base method
+func (m *MockFactory) candidates() (uint64, []*state.Candidate) {
+	ret := m.ctrl.Call(m, "candidates")
 	ret0, _ := ret[0].(uint64)
 	ret1, _ := ret[1].([]*state.Candidate)
 	return ret0, ret1
 }
 
-// Candidates indicates an expected call of Candidates
-func (mr *MockFactoryMockRecorder) Candidates() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Candidates", reflect.TypeOf((*MockFactory)(nil).Candidates))
+// candidates indicates an expected call of candidates
+func (mr *MockFactoryMockRecorder) candidates() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "candidates", reflect.TypeOf((*MockFactory)(nil).candidates))
 }
 
 // CandidatesByHeight mocks base method
@@ -287,4 +276,39 @@ func (m *MockFactory) CandidatesByHeight(arg0 uint64) ([]*state.Candidate, error
 // CandidatesByHeight indicates an expected call of CandidatesByHeight
 func (mr *MockFactoryMockRecorder) CandidatesByHeight(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CandidatesByHeight", reflect.TypeOf((*MockFactory)(nil).CandidatesByHeight), arg0)
+}
+
+// MockActionHandler is a mock of ActionHandler interface
+type MockActionHandler struct {
+	ctrl     *gomock.Controller
+	recorder *MockActionHandlerMockRecorder
+}
+
+// MockActionHandlerMockRecorder is the mock recorder for MockActionHandler
+type MockActionHandlerMockRecorder struct {
+	mock *MockActionHandler
+}
+
+// NewMockActionHandler creates a new mock instance
+func NewMockActionHandler(ctrl *gomock.Controller) *MockActionHandler {
+	mock := &MockActionHandler{ctrl: ctrl}
+	mock.recorder = &MockActionHandlerMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use
+func (m *MockActionHandler) EXPECT() *MockActionHandlerMockRecorder {
+	return m.recorder
+}
+
+// handle mocks base method
+func (m *MockActionHandler) handle(arg0 action.Action) error {
+	ret := m.ctrl.Call(m, "handle", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// handle indicates an expected call of handle
+func (mr *MockActionHandlerMockRecorder) handle(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "handle", reflect.TypeOf((*MockActionHandler)(nil).handle), arg0)
 }

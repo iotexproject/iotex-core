@@ -17,7 +17,6 @@ import (
 	"time"
 
 	"github.com/facebookgo/clock"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/address"
@@ -39,6 +38,32 @@ const (
 )
 
 func addTestingTsfBlocks(bc Blockchain) error {
+	// Add block 0
+	tsf0, _ := action.NewTransfer(
+		1,
+		big.NewInt(3000000000),
+		Gen.CreatorAddr(config.Default.Chain.ID),
+		ta.Addrinfo["producer"].RawAddress,
+		[]byte{}, uint64(100000),
+		big.NewInt(10),
+	)
+	sk, err := keypair.DecodePrivateKey(Gen.CreatorPrivKey)
+	if err != nil {
+		return err
+	}
+	if err := action.Sign(tsf0, sk); err != nil {
+		return err
+	}
+	blk, err := bc.MintNewBlock([]*action.Transfer{tsf0}, nil, nil, ta.Addrinfo["producer"], "")
+	if err != nil {
+		return err
+	}
+	if err := bc.ValidateBlock(blk, true); err != nil {
+		return err
+	}
+	if err := bc.CommitBlock(blk); err != nil {
+		return err
+	}
 	// Add block 1
 	// test --> A, B, C, D, E, F
 	tsf1, _ := action.NewTransfer(1, big.NewInt(20), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["alfa"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
@@ -54,7 +79,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	tsf6, _ := action.NewTransfer(6, big.NewInt(50<<20), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["foxtrot"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
 	_ = action.Sign(tsf6, ta.Addrinfo["producer"].PrivateKey)
 
-	blk, err := bc.MintNewBlock([]*action.Transfer{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}, nil, nil, ta.Addrinfo["producer"], "")
+	blk, err = bc.MintNewBlock([]*action.Transfer{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}, nil, nil, ta.Addrinfo["producer"], "")
 	if err != nil {
 		return err
 	}
@@ -143,7 +168,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 }
 
 func TestCreateBlockchain(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 	ctx := context.Background()
 
 	cfg := config.Default
@@ -153,26 +178,26 @@ func TestCreateBlockchain(t *testing.T) {
 	Gen.BlockReward = uint64(0)
 
 	// create chain
-	bc := NewBlockchain(&cfg, InMemDaoOption())
-	require.NoError(t, bc.Start(ctx))
-	assert.NotNil(bc)
+	bc := NewBlockchain(&cfg, InMemStateFactoryOption(), InMemDaoOption())
+	require.NoError(bc.Start(ctx))
+	require.NotNil(bc)
 	height := bc.TipHeight()
-	assert.Equal(0, int(height))
+	require.Equal(0, int(height))
 	fmt.Printf("Create blockchain pass, height = %d\n", height)
 	defer func() {
 		err := bc.Stop(ctx)
-		assert.NoError(err)
+		require.NoError(err)
 	}()
 
 	// verify Genesis block
 	genesis, _ := bc.GetBlockByHeight(0)
-	assert.NotNil(genesis)
+	require.NotNil(genesis)
 	// serialize
 	data, err := genesis.Serialize()
-	assert.Nil(err)
+	require.Nil(err)
 
-	assert.Equal(23, len(genesis.Transfers))
-	assert.Equal(21, len(genesis.Votes))
+	require.Equal(23, len(genesis.Transfers))
+	require.Equal(21, len(genesis.Votes))
 
 	fmt.Printf("Block size match pass\n")
 	fmt.Printf("Marshaling Block pass\n")
@@ -180,21 +205,21 @@ func TestCreateBlockchain(t *testing.T) {
 	// deserialize
 	deserialize := Block{}
 	err = deserialize.Deserialize(data)
-	assert.Nil(err)
+	require.Nil(err)
 	fmt.Printf("Unmarshaling Block pass\n")
 
 	hash := genesis.HashBlock()
-	assert.Equal(hash, deserialize.HashBlock())
+	require.Equal(hash, deserialize.HashBlock())
 	fmt.Printf("Serialize/Deserialize Block hash = %x match\n", hash)
 
 	hash = genesis.TxRoot()
-	assert.Equal(hash, deserialize.TxRoot())
+	require.Equal(hash, deserialize.TxRoot())
 	fmt.Printf("Serialize/Deserialize Block merkle = %x match\n", hash)
 
 	// add 4 sample blocks
-	assert.Nil(addTestingTsfBlocks(bc))
+	require.Nil(addTestingTsfBlocks(bc))
 	height = bc.TipHeight()
-	assert.Equal(4, int(height))
+	require.Equal(5, int(height))
 }
 
 func TestLoadBlockchainfromDB(t *testing.T) {
@@ -290,6 +315,16 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	require.Equal(hash4, blk.HashBlock())
 	fmt.Printf("block 4 hash = %x\n", hash4)
 
+	hash5, err := bc.GetHashByHeight(5)
+	require.Nil(err)
+	height, err = bc.GetHeightByHash(hash5)
+	require.Nil(err)
+	require.Equal(uint64(5), height)
+	blk, err = bc.GetBlockByHash(hash5)
+	require.Nil(err)
+	require.Equal(hash5, blk.HashBlock())
+	fmt.Printf("block 5 hash = %x\n", hash5)
+
 	empblk, err := bc.GetBlockByHash(_hash.ZeroHash32B)
 	require.Nil(empblk)
 	require.NotNil(err.Error())
@@ -331,14 +366,14 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	fmt.Printf("Cannot add block 3 again: %v\n", err)
 
 	// check all Tx from block 4
-	blk, err = bc.GetBlockByHeight(4)
+	blk, err = bc.GetBlockByHeight(5)
 	require.Nil(err)
-	require.Equal(hash4, blk.HashBlock())
+	require.Equal(hash5, blk.HashBlock())
 	for _, transfer := range blk.Transfers {
 		transferHash := transfer.Hash()
 		hash, err := bc.GetBlockHashByTransferHash(transferHash)
 		require.Nil(err)
-		require.Equal(hash, hash4)
+		require.Equal(hash, hash5)
 		transfer1, err := bc.GetTransferByTransferHash(transferHash)
 		require.Nil(err)
 		require.Equal(transfer1.Hash(), transferHash)
@@ -348,7 +383,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		voteHash := vote.Hash()
 		hash, err := bc.GetBlockHashByVoteHash(voteHash)
 		require.Nil(err)
-		require.Equal(hash, hash4)
+		require.Equal(hash, hash5)
 		vote1, err := bc.GetVoteByVoteHash(voteHash)
 		require.Nil(err)
 		require.Equal(vote1.Hash(), voteHash)
@@ -380,7 +415,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 
 	totalTransfers, err := bc.GetTotalTransfers()
 	require.Nil(err)
-	require.Equal(totalTransfers, uint64(48))
+	require.Equal(totalTransfers, uint64(50))
 
 	totalVotes, err := bc.GetTotalVotes()
 	require.Nil(err)
@@ -560,14 +595,14 @@ func TestBlockchain_Validator(t *testing.T) {
 	require.NoError(t, bc.Start(ctx))
 	defer func() {
 		err := bc.Stop(ctx)
-		assert.Nil(t, err)
+		require.Nil(t, err)
 	}()
-	assert.NotNil(t, bc)
+	require.NotNil(t, bc)
 
 	val := bc.Validator()
-	assert.NotNil(t, bc)
+	require.NotNil(t, bc)
 	bc.SetValidator(val)
-	assert.NotNil(t, bc.Validator())
+	require.NotNil(t, bc.Validator())
 }
 
 func TestBlockchain_MintNewDummyBlock(t *testing.T) {
@@ -622,16 +657,15 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 	sf, err := state.NewFactory(&cfg, state.DefaultTrieOption())
 	require.Nil(err)
 	require.NoError(sf.Start(context.Background()))
-
-	height, candidate := sf.Candidates()
-	require.True(height == 0)
-	require.True(len(candidate) == 0)
 	bc := NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	require.NoError(bc.Start(context.Background()))
 	require.NotNil(bc)
 	// TODO: change the value when Candidates size is changed
-	height, candidate = sf.Candidates()
-	require.True(height == 0)
+	height, err := sf.Height()
+	require.NoError(err)
+	require.Equal(uint64(0), height)
+	candidate, err := sf.CandidatesByHeight(height)
+	require.NoError(err)
 	require.True(len(candidate) == 2)
 }
 
@@ -651,7 +685,10 @@ func TestCoinbaseTransfer(t *testing.T) {
 	require.Nil(err)
 	require.NoError(sf.Start(context.Background()))
 	_, err = sf.LoadOrCreateState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
-	assert.NoError(t, err)
+	require.NoError(err)
+	_, err = sf.RunActions(0, nil, nil, nil, nil)
+	require.NoError(err)
+	require.NoError(sf.Commit(nil))
 
 	Gen.BlockReward = uint64(10)
 
@@ -946,7 +983,10 @@ func TestMintDKGBlock(t *testing.T) {
 		require.Equal(idList[i], blk.Header.DKGID)
 		require.True(len(blk.Header.DKGBlockSig) > 0)
 	}
-	height, candidates := chain.Candidates()
-	require.True(21 == height)
-	require.True(21 == len(candidates))
+	height, err := chain.GetFactory().Height()
+	require.NoError(err)
+	require.Equal(uint64(21), height)
+	candidates, err := chain.CandidatesByHeight(height)
+	require.NoError(err)
+	require.Equal(21, len(candidates))
 }
