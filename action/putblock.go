@@ -13,7 +13,7 @@ import (
 
 // PutBlock represents put a sub-chain block message
 type PutBlock struct {
-	action
+	abstractAction
 	chainID            uint32
 	height             uint64
 	hash               hash.Hash32B

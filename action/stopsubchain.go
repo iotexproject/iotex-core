@@ -26,7 +26,7 @@ const (
 
 // StopSubChain defines the action to stop sub chain
 type StopSubChain struct {
-	action
+	abstractAction
 	chainID    uint32
 	stopHeight uint64
 }
@@ -42,7 +42,7 @@ func NewStopSubChain(
 	gasPrice *big.Int,
 ) (*StopSubChain, error) {
 	return &StopSubChain{
-		action: action{
+		abstractAction: abstractAction{
 			version:  version.ProtocolVersion,
 			nonce:    nonce,
 			srcAddr:  senderAddress,
@@ -57,7 +57,7 @@ func NewStopSubChain(
 
 // ChainAddress returns the address of the sub chain
 func (ssc *StopSubChain) ChainAddress() string {
-	return ssc.dstAddr
+	return ssc.DstAddr()
 }
 
 // ChainID returns the id of the sub chain
@@ -72,30 +72,12 @@ func (ssc *StopSubChain) StopHeight() uint64 {
 
 // TotalSize returns the total size of this instance
 func (ssc *StopSubChain) TotalSize() uint32 {
-	size := NonceSizeInBytes
-	size += VersionSizeInBytes
-	size += len(ssc.srcPubkey)
-	size += len(ssc.srcAddr)
-	size += len(ssc.dstAddr)
-	size += GasSizeInBytes
-	if ssc.gasPrice != nil && len(ssc.gasPrice.Bytes()) > 0 {
-		size += len(ssc.gasPrice.Bytes())
-	}
-	size += len(ssc.signature)
-	return uint32(size) + 4 + 8 // chain id size + stop height size
+	return ssc.BasicActionSize() + 4 + 8 // chain id size + stop height size
 }
 
 // ByteStream returns a raw byte stream of this instance
 func (ssc *StopSubChain) ByteStream() []byte {
-	stream := byteutil.Uint32ToBytes(ssc.version)
-	stream = append(stream, byteutil.Uint64ToBytes(ssc.nonce)...)
-	stream = append(stream, byteutil.Uint64ToBytes(ssc.gasLimit)...)
-	stream = append(stream, ssc.srcPubkey[:]...)
-	stream = append(stream, ssc.srcAddr...)
-	stream = append(stream, ssc.dstAddr...)
-	if ssc.gasPrice != nil && len(ssc.gasPrice.Bytes()) > 0 {
-		stream = append(stream, ssc.gasPrice.Bytes()...)
-	}
+	stream := ssc.BasicActionByteStream()
 	stream = append(stream, byteutil.Uint32ToBytes(ssc.chainID)...)
 
 	return append(stream, byteutil.Uint64ToBytes(ssc.stopHeight)...)

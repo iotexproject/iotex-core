@@ -17,7 +17,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/logger"
-	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/version"
@@ -35,7 +34,7 @@ const (
 
 // Execution defines the struct of account-based contract execution
 type Execution struct {
-	action
+	abstractAction
 	amount *big.Int
 	data   []byte
 }
@@ -47,7 +46,7 @@ func NewExecution(executorAddress string, contractAddress string, nonce uint64, 
 	}
 
 	return &Execution{
-		action: action{
+		abstractAction: abstractAction{
 			version:  version.ProtocolVersion,
 			nonce:    nonce,
 			srcAddr:  executorAddress,
@@ -92,45 +91,22 @@ func (ex *Execution) Data() []byte {
 
 // TotalSize returns the total size of this Execution
 func (ex *Execution) TotalSize() uint32 {
-	size := VersionSizeInBytes
-	size += NonceSizeInBytes
+	size := ex.BasicActionSize()
 	if ex.amount != nil && len(ex.amount.Bytes()) > 0 {
-		size += len(ex.amount.Bytes())
+		size += uint32(len(ex.amount.Bytes()))
 	}
-	size += len(ex.srcAddr)
-	size += len(ex.dstAddr)
-	size += len(ex.srcPubkey)
-	size += len(ex.signature)
-	size += GasSizeInBytes
-	if ex.gasPrice != nil && len(ex.gasPrice.Bytes()) > 0 {
-		size += len(ex.gasPrice.Bytes())
-	}
-	size += len(ex.data)
-	return uint32(size)
+
+	return size + uint32(len(ex.data))
 }
 
 // ByteStream returns a raw byte stream of this Transfer
 func (ex *Execution) ByteStream() []byte {
-	stream := make([]byte, VersionSizeInBytes)
-	enc.MachineEndian.PutUint32(stream, ex.version)
-	temp := make([]byte, NonceSizeInBytes)
-	enc.MachineEndian.PutUint64(temp, ex.nonce)
-	stream = append(stream, temp...)
+	stream := ex.BasicActionByteStream()
 	if ex.amount != nil && len(ex.amount.Bytes()) > 0 {
 		stream = append(stream, ex.amount.Bytes()...)
 	}
-	stream = append(stream, ex.srcAddr...)
-	stream = append(stream, ex.dstAddr...)
-	stream = append(stream, ex.srcPubkey[:]...)
-	temp = make([]byte, GasSizeInBytes)
-	enc.MachineEndian.PutUint64(temp, ex.gasLimit)
-	stream = append(stream, temp...)
-	if ex.gasPrice != nil && len(ex.gasPrice.Bytes()) > 0 {
-		stream = append(stream, ex.gasPrice.Bytes()...)
-	}
 	// Signature = Sign(hash(ByteStream())), so not included
-	stream = append(stream, ex.data...)
-	return stream
+	return append(stream, ex.data...)
 }
 
 // Proto converts Execution to protobuf's ActionPb
