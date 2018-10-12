@@ -1,0 +1,52 @@
+// Copyright (c) 2018 IoTeX
+// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
+// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
+// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
+// License 2.0 that can be found in the LICENSE file.
+
+package subchain
+
+import (
+	"math/big"
+	"testing"
+
+	"github.com/iotexproject/iotex-core/pkg/version"
+	"github.com/iotexproject/iotex-core/test/testaddress"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func TestStartSubChain(t *testing.T) {
+	addr := testaddress.Addrinfo["producer"]
+	assertStart := func(start *StartSubChain) {
+		assert.Equal(t, uint32(version.ProtocolVersion), start.version)
+		assert.Equal(t, uint64(1), start.Nonce())
+		assert.Equal(t, uint32(10000), start.ChainID())
+		assert.Equal(t, addr.RawAddress, start.OwnerAddress())
+		assert.Equal(t, big.NewInt(10001), start.SecurityDeposit())
+		assert.Equal(t, big.NewInt(10002), start.OperationDeposit())
+		assert.Equal(t, uint64(10003), start.StartHeight())
+		assert.Equal(t, uint64(10004), start.ParentHeightOffset())
+		assert.Equal(t, uint64(10005), start.GasLimit())
+		assert.Equal(t, big.NewInt(10006), start.GasPrice())
+	}
+	start := NewStartSubChain(
+		1,
+		10000,
+		addr.RawAddress,
+		big.NewInt(10001),
+		big.NewInt(10002),
+		10003,
+		10004,
+		10005,
+		big.NewInt(10006),
+	)
+	require.NotNil(t, start)
+	assertStart(start)
+
+	startPb := start.Proto()
+	require.NotNil(t, startPb)
+	start = NewStartSubChainFromProto(startPb)
+	require.NotNil(t, start)
+	assertStart(start)
+}
