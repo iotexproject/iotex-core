@@ -18,7 +18,6 @@ import (
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/proto"
 )
 
 const (
@@ -64,9 +63,9 @@ type ActPool interface {
 	// GetPendingNonce returns pending nonce in pool given an account address
 	GetPendingNonce(addr string) (uint64, error)
 	// GetUnconfirmedActs returns unconfirmed actions in pool given an account address
-	GetUnconfirmedActs(addr string) []*iproto.ActionPb
+	GetUnconfirmedActs(addr string) []action.Action
 	// GetActionByHash returns the pending action in pool given action's hash
-	GetActionByHash(hash hash.Hash32B) (*iproto.ActionPb, error)
+	GetActionByHash(hash hash.Hash32B) (action.Action, error)
 	// GetSize returns the act pool size
 	GetSize() uint64
 	// GetCapacity returns the act pool capacity
@@ -79,7 +78,7 @@ type actPool struct {
 	cfg         config.ActPool
 	bc          blockchain.Blockchain
 	accountActs map[string]ActQueue
-	allActions  map[hash.Hash32B]*iproto.ActionPb
+	allActions  map[hash.Hash32B]action.Action
 }
 
 // NewActPool constructs a new actpool
@@ -91,7 +90,7 @@ func NewActPool(bc blockchain.Blockchain, cfg config.ActPool) (ActPool, error) {
 		cfg:         cfg,
 		bc:          bc,
 		accountActs: make(map[string]ActQueue),
-		allActions:  make(map[hash.Hash32B]*iproto.ActionPb),
+		allActions:  make(map[hash.Hash32B]action.Action),
 	}
 	return ap, nil
 }
@@ -143,21 +142,15 @@ func (ap *actPool) PickActs() ([]*action.Transfer, []*action.Vote, []*action.Exe
 	executions := make([]*action.Execution, 0)
 	for _, queue := range ap.accountActs {
 		for _, act := range queue.PendingActs() {
-			switch {
-			case act.GetTransfer() != nil:
-				tsf := action.Transfer{}
-				tsf.ConvertFromActionPb(act)
-				transfers = append(transfers, &tsf)
+			switch act.(type) {
+			case *action.Transfer:
+				transfers = append(transfers, act.(*action.Transfer))
 				numActs++
-			case act.GetVote() != nil:
-				vote := action.Vote{}
-				vote.ConvertFromActionPb(act)
-				votes = append(votes, &vote)
+			case *action.Vote:
+				votes = append(votes, act.(*action.Vote))
 				numActs++
-			case act.GetExecution() != nil:
-				execution := action.Execution{}
-				execution.ConvertFromActionPb(act)
-				executions = append(executions, &execution)
+			case *action.Execution:
+				executions = append(executions, act.(*action.Execution))
 				numActs++
 			}
 			if ap.cfg.MaxNumActsToPick > 0 && numActs >= ap.cfg.MaxNumActsToPick {
@@ -199,9 +192,8 @@ func (ap *actPool) AddTsf(tsf *action.Transfer) error {
 			Msg("Rejecting transfer due to insufficient space")
 		return errors.Wrapf(ErrActPool, "insufficient space for transfer")
 	}
-	// Wrap tsf as an action
-	action := tsf.ConvertToActionPb()
-	return ap.enqueueAction(tsf.Sender(), action, hash, tsf.Nonce())
+
+	return ap.enqueueAction(tsf.Sender(), tsf, hash, tsf.Nonce())
 }
 
 // AddVote inserts a new vote into account queue if it passes validation
@@ -233,7 +225,7 @@ func (ap *actPool) AddVote(vote *action.Vote) error {
 		return errors.Wrapf(ErrActPool, "insufficient space for vote")
 	}
 
-	return ap.enqueueAction(vote.Voter(), vote.ConvertToActionPb(), hash, vote.Nonce())
+	return ap.enqueueAction(vote.Voter(), vote, hash, vote.Nonce())
 }
 
 // AddExecution inserts a new execution into account queue if it passes validation
@@ -263,9 +255,8 @@ func (ap *actPool) AddExecution(exec *action.Execution) error {
 			Msg("Rejecting execution due to insufficient space")
 		return errors.Wrapf(ErrActPool, "insufficient space for execution")
 	}
-	// Wrap execution as an action
-	action := exec.ConvertToActionPb()
-	return ap.enqueueAction(exec.Executor(), action, hash, exec.Nonce())
+
+	return ap.enqueueAction(exec.Executor(), exec, hash, exec.Nonce())
 }
 
 // GetPendingNonce returns pending nonce in pool or confirmed nonce given an account address
@@ -282,20 +273,20 @@ func (ap *actPool) GetPendingNonce(addr string) (uint64, error) {
 }
 
 // GetUnconfirmedActs returns unconfirmed actions in pool given an account address
-func (ap *actPool) GetUnconfirmedActs(addr string) []*iproto.ActionPb {
+func (ap *actPool) GetUnconfirmedActs(addr string) []action.Action {
 	ap.mutex.Lock()
 	defer ap.mutex.Unlock()
 
 	if queue, ok := ap.accountActs[addr]; ok {
 		return queue.AllActs()
 	}
-	return make([]*iproto.ActionPb, 0)
+	return make([]action.Action, 0)
 }
 
 // GetActionByHash returns the pending action in pool given action's hash
-func (ap *actPool) GetActionByHash(hash hash.Hash32B) (*iproto.ActionPb, error) {
-	ap.mutex.Lock()
-	defer ap.mutex.Unlock()
+func (ap *actPool) GetActionByHash(hash hash.Hash32B) (action.Action, error) {
+	ap.mutex.RLock()
+	defer ap.mutex.RUnlock()
 
 	action, ok := ap.allActions[hash]
 	if !ok {
@@ -507,7 +498,7 @@ func (ap *actPool) validateVote(vote *action.Vote) error {
 	return nil
 }
 
-func (ap *actPool) enqueueAction(sender string, act *iproto.ActionPb, hash hash.Hash32B, actNonce uint64) error {
+func (ap *actPool) enqueueAction(sender string, act action.Action, hash hash.Hash32B, actNonce uint64) error {
 	queue := ap.accountActs[sender]
 	if queue == nil {
 		queue = NewActQueue()
@@ -546,11 +537,9 @@ func (ap *actPool) enqueueAction(sender string, act *iproto.ActionPb, hash hash.
 		return errors.Wrapf(ErrNonce, "nonce too large")
 	}
 
-	switch {
-	case act.GetTransfer() != nil:
-		tsf := action.Transfer{}
-		tsf.ConvertFromActionPb(act)
-		cost, err := tsf.Cost()
+	switch act.(type) {
+	case *action.Transfer:
+		cost, err := act.Cost()
 		if err != nil {
 			logger.Error().Err(err).Msg("Error when adding action")
 			return errors.Wrap(err, "failed to get cost of transfer")
@@ -562,10 +551,8 @@ func (ap *actPool) enqueueAction(sender string, act *iproto.ActionPb, hash hash.
 				Msg("Rejecting transfer due to insufficient balance")
 			return errors.Wrapf(ErrBalance, "insufficient balance for transfer")
 		}
-	case act.GetVote() != nil:
-		vote := action.Vote{}
-		vote.ConvertFromActionPb(act)
-		cost, err := vote.Cost()
+	case *action.Vote:
+		cost, err := act.Cost()
 		if err != nil {
 			logger.Error().Err(err).Msg("Error when adding action")
 			return errors.Wrap(err, "failed to get cost of vote")
@@ -576,10 +563,9 @@ func (ap *actPool) enqueueAction(sender string, act *iproto.ActionPb, hash hash.
 				Msg("Rejecting vote due to insufficient balance")
 			return errors.Wrapf(ErrBalance, "insufficient balance for vote")
 		}
-	case act.GetExecution() != nil:
-		exec := action.Execution{}
-		exec.ConvertFromActionPb(act)
-		if queue.PendingBalance().Cmp(exec.CostLimit()) < 0 {
+	case *action.Execution:
+		cost, _ := act.Cost()
+		if queue.PendingBalance().Cmp(cost) < 0 {
 			logger.Warn().
 				Hex("hash", hash[:]).
 				Msg("Rejecting execution due to insufficient balance")
@@ -624,23 +610,9 @@ func (ap *actPool) removeConfirmedActs() {
 	}
 }
 
-func (ap *actPool) removeInvalidActs(acts []*iproto.ActionPb) {
+func (ap *actPool) removeInvalidActs(acts []action.Action) {
 	for _, act := range acts {
-		var hash hash.Hash32B
-		switch {
-		case act.GetTransfer() != nil:
-			tsf := &action.Transfer{}
-			tsf.ConvertFromActionPb(act)
-			hash = tsf.Hash()
-		case act.GetVote() != nil:
-			vote := &action.Vote{}
-			vote.ConvertFromActionPb(act)
-			hash = vote.Hash()
-		case act.GetExecution() != nil:
-			execution := &action.Execution{}
-			execution.ConvertFromActionPb(act)
-			hash = execution.Hash()
-		}
+		hash := act.Hash()
 		logger.Debug().
 			Hex("hash", hash[:]).
 			Msg("Removed invalidated action")
