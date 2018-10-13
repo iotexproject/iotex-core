@@ -2,51 +2,53 @@ package indexservice
 
 import (
 	"database/sql"
-
-	"github.com/pkg/errors"
-
 	"encoding/hex"
+
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db/rds"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/pkg/errors"
 )
 
-type TransferHistory struct {
-	NodeAddress string
-	UserAddress string
-	TrasferHash string
-}
-
-type TransferToBlock struct {
-	NodeAddress string
-	TrasferHash string
-	BlockHash   string
-}
-
-type VoteHistory struct {
-	NodeAddress string
-	UserAddress string
-	VoteHash    string
-}
-
-type VoteToBlock struct {
-	NodeAddress string
-	VoteHash    string
-	BlockHash   string
-}
-
-type ExecutionHistory struct {
-	NodeAddress   string
-	UserAddress   string
-	ExecutionHash string
-}
-
-type ExecutionToBlock struct {
-	NodeAddress   string
-	ExecutionHash string
-	BlockHash     string
-}
+type (
+	// TransferHistory defines the schema of "transfer history" table
+	TransferHistory struct {
+		NodeAddress string
+		UserAddress string
+		TrasferHash string
+	}
+	// TransferToBlock defines the schema of "transfer hash to block hash" table
+	TransferToBlock struct {
+		NodeAddress string
+		TrasferHash string
+		BlockHash   string
+	}
+	// VoteHistory defines the schema of "vote history" table
+	VoteHistory struct {
+		NodeAddress string
+		UserAddress string
+		VoteHash    string
+	}
+	// VoteToBlock defines the schema of "vote hash to block hash" table
+	VoteToBlock struct {
+		NodeAddress string
+		VoteHash    string
+		BlockHash   string
+	}
+	// ExecutionHistory defines the schema of "execution history" table
+	ExecutionHistory struct {
+		NodeAddress   string
+		UserAddress   string
+		ExecutionHash string
+	}
+	// ExecutionToBlock defines the schema of "execution hash to block hash" table
+	ExecutionToBlock struct {
+		NodeAddress   string
+		ExecutionHash string
+		BlockHash     string
+	}
+)
 
 // Indexer handle the index build for blocks
 type Indexer struct {

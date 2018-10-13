@@ -909,11 +909,7 @@ func (bc *blockchain) replaceHeightAndHash(blk *Block) (uint64, hash.Hash32B, er
 }
 
 func (bc *blockchain) SubscribeBlockCreation(ch chan *Block) error {
-	if bc.blocklistener == nil {
-		bc.blocklistener = []chan *Block{ch}
-	} else {
-		bc.blocklistener = append(bc.blocklistener, ch)
-	}
+	bc.blocklistener = append(bc.blocklistener, ch)
 	return nil
 }
 
