@@ -77,7 +77,9 @@ message StartSubChainPb {
 message StopSubChainPb {
     uint32 chainID = 1;
     uint64 stopHeight = 2;
-    bytes ownerPublicKey = 3;
+    string owner = 3;
+    bytes ownerPublicKey = 4;
+    string subChainAddress = 5;
 }
 
 message PutBlockPb {
@@ -104,7 +106,7 @@ message ActionPb {
         SecretProposalPb secretProposal = 13;
         SecretWitnessPb secretWitness = 14;
         StartSubChainPb startChain = 15;
-        StopSubChainPb stopChain = 16;
+        StopSubChainPb stopSubChain = 16;
         PutBlockPb putBlock = 17;
     }
 }
