@@ -22,8 +22,6 @@ type (
 		KVStore
 		// Clear clear batch write queue
 		Clear() error
-		// Commit commit queued write to db
-		Commit() error
 		// KVStore returns the underlying KVStore
 		KVStore() KVStore
 	}
@@ -84,7 +82,13 @@ func (c *cachedKVStore) Get(namespace string, key []byte) ([]byte, error) {
 func (c *cachedKVStore) Delete(namespace string, key []byte) error {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
+	delete(c.cache, c.hash(namespace, key))
 	return c.KVStoreBatch.Delete(namespace, key, "failed to delete key = %x", key)
+}
+
+// Batch returns the batch api object
+func (c *cachedKVStore) Batch() KVStoreBatch {
+	return c.KVStoreBatch
 }
 
 // Clear clear write queue
@@ -98,18 +102,13 @@ func (c *cachedKVStore) Clear() error {
 }
 
 // Commit persists pending writes to DB and clears the local cache
-func (c *cachedKVStore) Commit() error {
+func (c *cachedKVStore) Commit(KVStoreBatch) error {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	if err := c.KVStoreBatch.Commit(); err != nil {
 		return err
 	}
 	return c.clear()
-}
-
-// Batch returns the batch api object
-func (c *cachedKVStore) Batch() KVStoreBatch {
-	return c.KVStoreBatch
 }
 
 // KVStore returns the underlying KVStore

@@ -40,6 +40,8 @@ type KVStore interface {
 	Delete(string, []byte) error
 	// Batch return a kv store batch api object
 	Batch() KVStoreBatch
+	// Commit commits a batch
+	Commit(KVStoreBatch) error
 }
 
 const (
@@ -102,6 +104,33 @@ func (m *memKVStore) Delete(namespace string, key []byte) error {
 // Batch return a kv store batch api object
 func (m *memKVStore) Batch() KVStoreBatch {
 	return NewMemKVStoreBatch(m)
+}
+
+// Commit commits a batch
+func (m *memKVStore) Commit(b KVStoreBatch) error {
+	b.Lock()
+	defer b.Unlock()
+	for i := 0; i < b.Size(); i++ {
+		write, err := b.Entry(i)
+		if err != nil {
+			return err
+		}
+		if write.writeType == Put {
+			if err := m.Put(write.namespace, write.key, write.value); err != nil {
+				return err
+			}
+		} else if write.writeType == PutIfNotExists {
+			if err := m.PutIfNotExists(write.namespace, write.key, write.value); err != nil {
+				return err
+			}
+		} else if write.writeType == Delete {
+			if err := m.Delete(write.namespace, write.key); err != nil {
+				return err
+			}
+		}
+	}
+	// clear queues
+	return b.Clear()
 }
 
 const fileMode = 0600
@@ -238,6 +267,60 @@ func (b *boltDB) Delete(namespace string, key []byte) error {
 // Batch return a kv store batch api object
 func (b *boltDB) Batch() KVStoreBatch {
 	return NewBoltDBBatch(b)
+}
+
+// Commit commits a batch
+func (b *boltDB) Commit(batch KVStoreBatch) error {
+	batch.Lock()
+	defer batch.Unlock()
+	var err error
+	numRetries := b.config.NumRetries
+	for c := uint8(0); c < numRetries; c++ {
+		err = b.db.Update(func(tx *bolt.Tx) error {
+			for i := 0; i < batch.Size(); i++ {
+				write, err := batch.Entry(i)
+				if err != nil {
+					return err
+				}
+				if write.writeType == Put {
+					bucket, err := tx.CreateBucketIfNotExists([]byte(write.namespace))
+					if err != nil {
+						return errors.Wrapf(err, write.errorFormat, write.errorArgs)
+					}
+					if err := bucket.Put(write.key, write.value); err != nil {
+						return errors.Wrapf(err, write.errorFormat, write.errorArgs)
+					}
+				} else if write.writeType == PutIfNotExists {
+					bucket, err := tx.CreateBucketIfNotExists([]byte(write.namespace))
+					if err != nil {
+						return errors.Wrapf(err, write.errorFormat, write.errorArgs)
+					}
+					if bucket.Get(write.key) == nil {
+						if err := bucket.Put(write.key, write.value); err != nil {
+							return errors.Wrapf(err, write.errorFormat, write.errorArgs)
+						}
+					} else {
+						return ErrAlreadyExist
+					}
+				} else if write.writeType == Delete {
+					bucket := tx.Bucket([]byte(write.namespace))
+					if bucket == nil {
+						return nil
+					}
+					if err := bucket.Delete(write.key); err != nil {
+						return errors.Wrapf(err, write.errorFormat, write.errorArgs)
+					}
+				}
+			}
+			return nil
+		})
+		if err == nil || err == ErrAlreadyExist {
+			break
+		}
+	}
+	// clear queues
+	batch.Clear()
+	return err
 }
 
 //======================================

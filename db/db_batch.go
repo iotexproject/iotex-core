@@ -7,6 +7,8 @@
 package db
 
 import (
+	"sync"
+
 	"github.com/boltdb/bolt"
 	"github.com/pkg/errors"
 )
@@ -14,12 +16,20 @@ import (
 // KVStoreBatch is the interface of Batch KVStore.
 // It buffers the Put/Delete operations and persist to DB in a single transaction upon Commit()
 type KVStoreBatch interface {
+	// Lock locks the batch
+	Lock()
+	// Unlock unlocks the batch
+	Unlock()
 	// Put insert or update a record identified by (namespace, key)
 	Put(string, []byte, []byte, string, ...interface{}) error
 	// PutIfNotExists puts a record only if (namespace, key) doesn't exist, otherwise return ErrAlreadyExist
 	PutIfNotExists(string, []byte, []byte, string, ...interface{}) error
 	// Delete deletes a record by (namespace, key)
 	Delete(string, []byte, string, ...interface{}) error
+	// Size returns the size of batch
+	Size() int
+	// Entry returns the entry at the index
+	Entry(int) (*writeInfo, error)
 	// Clear clear batch write queue
 	Clear() error
 	// Commit commit queued write to db
@@ -49,11 +59,29 @@ type writeInfo struct {
 
 // baseKVStoreBatch is the base class of KVStoreBatch
 type baseKVStoreBatch struct {
+	mutex      sync.Mutex
 	writeQueue []writeInfo
+}
+
+// NewBatch returns a batch
+func NewBatch() KVStoreBatch {
+	return &baseKVStoreBatch{}
+}
+
+// Lock locks the batch
+func (b *baseKVStoreBatch) Lock() {
+	b.mutex.Lock()
+}
+
+// Unlock unlocks the batch
+func (b *baseKVStoreBatch) Unlock() {
+	b.mutex.Unlock()
 }
 
 // Put inserts a <key, value> record
 func (b *baseKVStoreBatch) Put(namespace string, key, value []byte, errorFormat string, errorArgs ...interface{}) error {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
 	b.writeQueue = append(b.writeQueue, writeInfo{writeType: Put, namespace: namespace,
 		key: key, value: value, errorFormat: errorFormat, errorArgs: errorArgs})
 	return nil
@@ -61,6 +89,8 @@ func (b *baseKVStoreBatch) Put(namespace string, key, value []byte, errorFormat 
 
 // PutIfNotExists inserts a <key, value> record only if it does not exist yet, otherwise return ErrAlreadyExist
 func (b *baseKVStoreBatch) PutIfNotExists(namespace string, key, value []byte, errorFormat string, errorArgs ...interface{}) error {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
 	b.writeQueue = append(b.writeQueue, writeInfo{writeType: PutIfNotExists, namespace: namespace,
 		key: key, value: value, errorFormat: errorFormat, errorArgs: errorArgs})
 	return nil
@@ -68,9 +98,24 @@ func (b *baseKVStoreBatch) PutIfNotExists(namespace string, key, value []byte, e
 
 // Delete deletes a record
 func (b *baseKVStoreBatch) Delete(namespace string, key []byte, errorFormat string, errorArgs ...interface{}) error {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
 	b.writeQueue = append(b.writeQueue, writeInfo{writeType: Delete, namespace: namespace,
 		key: key, errorFormat: errorFormat, errorArgs: errorArgs})
 	return nil
+}
+
+// Size returns the size of batch
+func (b *baseKVStoreBatch) Size() int {
+	return len(b.writeQueue)
+}
+
+// Entry returns the entry at the index
+func (b *baseKVStoreBatch) Entry(index int) (*writeInfo, error) {
+	if index < 0 || index >= len(b.writeQueue) {
+		return nil, errors.Wrap(ErrInvalidDB, "index out of range")
+	}
+	return &b.writeQueue[index], nil
 }
 
 // Clear clear write queue
@@ -81,6 +126,11 @@ func (b *baseKVStoreBatch) Clear() error {
 
 // Commit needs to be implemented by derived class
 func (b *baseKVStoreBatch) Commit() error {
+	panic("not implement")
+}
+
+// KVStore needs to be implemented by derived class
+func (b *baseKVStoreBatch) KVStore() KVStore {
 	panic("not implement")
 }
 
