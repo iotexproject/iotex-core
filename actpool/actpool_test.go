@@ -20,7 +20,6 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -60,7 +59,7 @@ func TestActPool_validateTsf(t *testing.T) {
 	require.NoError(err)
 	_, err = bc.GetFactory().RunActions(0, nil, nil, nil, nil)
 	require.NoError(err)
-	require.Nil(bc.GetFactory().Commit())
+	require.Nil(bc.GetFactory().Commit(nil))
 	apConfig := getActPoolCfg()
 	Ap, err := NewActPool(bc, apConfig)
 	require.NoError(err)
@@ -119,7 +118,7 @@ func TestActPool_validateTsf(t *testing.T) {
 	require.NoError(err)
 	_, err = bc.GetFactory().RunActions(0, []*action.Transfer{prevTsf}, nil, nil, nil)
 	require.NoError(err)
-	require.Nil(bc.GetFactory().Commit())
+	require.Nil(bc.GetFactory().Commit(nil))
 	ap.Reset()
 	nTsf, err := testutil.SignedTransfer(addr1, addr1, uint64(1), big.NewInt(60),
 		[]byte{}, uint64(100000), big.NewInt(0))
@@ -138,7 +137,7 @@ func TestActPool_validateVote(t *testing.T) {
 	require.NoError(err)
 	_, err = bc.GetFactory().RunActions(0, nil, nil, nil, nil)
 	require.NoError(err)
-	require.Nil(bc.GetFactory().Commit())
+	require.Nil(bc.GetFactory().Commit(nil))
 	apConfig := getActPoolCfg()
 	Ap, err := NewActPool(bc, apConfig)
 	require.NoError(err)
@@ -176,7 +175,7 @@ func TestActPool_validateVote(t *testing.T) {
 	require.NoError(err)
 	_, err = bc.GetFactory().RunActions(0, []*action.Transfer{prevTsf}, nil, nil, nil)
 	require.NoError(err)
-	require.Nil(bc.GetFactory().Commit())
+	require.Nil(bc.GetFactory().Commit(nil))
 	ap.Reset()
 	nVote, err := testutil.SignedVote(addr1, addr1, uint64(1), uint64(100000), big.NewInt(0))
 	require.NoError(err)
@@ -201,7 +200,7 @@ func TestActPool_AddActs(t *testing.T) {
 	require.NoError(err)
 	_, err = bc.GetFactory().RunActions(0, nil, nil, nil, nil)
 	require.NoError(err)
-	require.Nil(bc.GetFactory().Commit())
+	require.Nil(bc.GetFactory().Commit(nil))
 	// Create actpool
 	apConfig := getActPoolCfg()
 	Ap, err := NewActPool(bc, apConfig)
@@ -285,8 +284,7 @@ func TestActPool_AddActs(t *testing.T) {
 		nTsf, err := action.NewTransfer(
 			i, big.NewInt(int64(i)), "1", "2", nil, uint64(0), big.NewInt(0))
 		require.NoError(err)
-		nAction := nTsf.ConvertToActionPb()
-		ap2.allActions[nTsf.Hash()] = nAction
+		ap2.allActions[nTsf.Hash()] = nTsf
 	}
 	mockBC.EXPECT().Nonce(gomock.Any()).Times(2).Return(uint64(0), nil)
 	mockBC.EXPECT().StateByAddr(gomock.Any()).Times(1).Return(nil, nil)
@@ -349,7 +347,7 @@ func TestActPool_PickActs(t *testing.T) {
 		require.NoError(err)
 		_, err = bc.GetFactory().RunActions(0, nil, nil, nil, nil)
 		require.NoError(err)
-		require.Nil(bc.GetFactory().Commit())
+		require.Nil(bc.GetFactory().Commit(nil))
 		// Create actpool
 		Ap, err := NewActPool(bc, cfg)
 		require.NoError(err)
@@ -442,7 +440,7 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	require.NoError(err)
 	_, err = bc.GetFactory().RunActions(0, nil, nil, nil, nil)
 	require.NoError(err)
-	require.Nil(bc.GetFactory().Commit())
+	require.Nil(bc.GetFactory().Commit(nil))
 	// Create actpool
 	apConfig := getActPoolCfg()
 	Ap, err := NewActPool(bc, apConfig)
@@ -475,7 +473,7 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	require.NotNil(ap.accountActs[addr1.RawAddress])
 	_, err = bc.GetFactory().RunActions(0, []*action.Transfer{tsf1, tsf2, tsf3}, []*action.Vote{vote4}, []*action.Execution{}, nil)
 	require.NoError(err)
-	require.Nil(bc.GetFactory().Commit())
+	require.Nil(bc.GetFactory().Commit(nil))
 	ap.removeConfirmedActs()
 	require.Equal(0, len(ap.allActions))
 	require.Nil(ap.accountActs[addr1.RawAddress])
@@ -494,7 +492,7 @@ func TestActPool_Reset(t *testing.T) {
 	require.NoError(err)
 	_, err = bc.GetFactory().RunActions(0, nil, nil, nil, nil)
 	require.NoError(err)
-	require.Nil(bc.GetFactory().Commit())
+	require.Nil(bc.GetFactory().Commit(nil))
 
 	apConfig := getActPoolCfg()
 	Ap1, err := NewActPool(bc, apConfig)
@@ -626,7 +624,7 @@ func TestActPool_Reset(t *testing.T) {
 	// ap1 commits update of accounts to trie
 	_, err = bc.GetFactory().RunActions(0, pickedTsfs, pickedVotes, pickedExecutions, nil)
 	require.NoError(err)
-	require.Nil(bc.GetFactory().Commit())
+	require.Nil(bc.GetFactory().Commit(nil))
 	//Reset
 	ap1.Reset()
 	ap2.Reset()
@@ -735,7 +733,7 @@ func TestActPool_Reset(t *testing.T) {
 	// ap2 commits update of accounts to trie
 	_, err = bc.GetFactory().RunActions(0, pickedTsfs, pickedVotes, pickedExecutions, nil)
 	require.NoError(err)
-	require.Nil(bc.GetFactory().Commit())
+	require.Nil(bc.GetFactory().Commit(nil))
 	//Reset
 	ap1.Reset()
 	ap2.Reset()
@@ -780,7 +778,7 @@ func TestActPool_Reset(t *testing.T) {
 	require.NoError(err)
 	_, err = bc.GetFactory().RunActions(1, nil, nil, nil, nil)
 	require.NoError(err)
-	require.Nil(bc.GetFactory().Commit())
+	require.Nil(bc.GetFactory().Commit(nil))
 	tsf21, err := testutil.SignedTransfer(addr4, addr5, uint64(1), big.NewInt(10),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
@@ -828,7 +826,7 @@ func TestActPool_Reset(t *testing.T) {
 	// ap1 commits update of accounts to trie
 	_, err = bc.GetFactory().RunActions(0, pickedTsfs, pickedVotes, pickedExecutions, nil)
 	require.NoError(err)
-	require.Nil(bc.GetFactory().Commit())
+	require.Nil(bc.GetFactory().Commit(nil))
 	//Reset
 	ap1.Reset()
 	// Check confirmed nonce, pending nonce, and pending balance after resetting actpool for each account
@@ -853,7 +851,7 @@ func TestActPool_removeInvalidActs(t *testing.T) {
 	require.NoError(err)
 	_, err = bc.GetFactory().RunActions(0, nil, nil, nil, nil)
 	require.NoError(err)
-	require.Nil(bc.GetFactory().Commit())
+	require.Nil(bc.GetFactory().Commit(nil))
 	// Create actpool
 	apConfig := getActPoolCfg()
 	Ap, err := NewActPool(bc, apConfig)
@@ -883,10 +881,8 @@ func TestActPool_removeInvalidActs(t *testing.T) {
 	require.NoError(err)
 
 	hash1 := tsf1.Hash()
-	action1 := tsf1.ConvertToActionPb()
 	hash2 := vote4.Hash()
-	action2 := vote4.ConvertToActionPb()
-	acts := []*iproto.ActionPb{action1, action2}
+	acts := []action.Action{tsf1, vote4}
 	require.NotNil(ap.allActions[hash1])
 	require.NotNil(ap.allActions[hash2])
 	ap.removeInvalidActs(acts)
@@ -904,7 +900,7 @@ func TestActPool_GetPendingNonce(t *testing.T) {
 	require.NoError(err)
 	_, err = bc.GetFactory().RunActions(0, nil, nil, nil, nil)
 	require.NoError(err)
-	require.Nil(bc.GetFactory().Commit())
+	require.Nil(bc.GetFactory().Commit(nil))
 	// Create actpool
 	apConfig := getActPoolCfg()
 	Ap, err := NewActPool(bc, apConfig)
@@ -947,7 +943,7 @@ func TestActPool_GetUnconfirmedActs(t *testing.T) {
 	require.NoError(err)
 	_, err = bc.GetFactory().RunActions(0, nil, nil, nil, nil)
 	require.NoError(err)
-	require.Nil(bc.GetFactory().Commit())
+	require.Nil(bc.GetFactory().Commit(nil))
 	// Create actpool
 	apConfig := getActPoolCfg()
 	Ap, err := NewActPool(bc, apConfig)
@@ -958,14 +954,11 @@ func TestActPool_GetUnconfirmedActs(t *testing.T) {
 	tsf1, err := testutil.SignedTransfer(addr1, addr1, uint64(1), big.NewInt(10),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	act1 := tsf1.ConvertToActionPb()
 	tsf3, err := testutil.SignedTransfer(addr1, addr1, uint64(3), big.NewInt(30),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	act3 := tsf3.ConvertToActionPb()
 	vote4, err := testutil.SignedVote(addr1, addr1, uint64(4), uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	act4 := vote4.ConvertToActionPb()
 
 	err = ap.AddTsf(tsf1)
 	require.NoError(err)
@@ -975,10 +968,10 @@ func TestActPool_GetUnconfirmedActs(t *testing.T) {
 	require.NoError(err)
 
 	acts := ap.GetUnconfirmedActs(addr2.RawAddress)
-	require.Equal([]*iproto.ActionPb{}, acts)
+	require.Equal([]action.Action{}, acts)
 
 	acts = ap.GetUnconfirmedActs(addr1.RawAddress)
-	require.Equal([]*iproto.ActionPb{act1, act3, act4}, acts)
+	require.Equal([]action.Action{tsf1, tsf3, vote4}, acts)
 }
 
 func TestActPool_GetActionByHash(t *testing.T) {
@@ -1000,24 +993,22 @@ func TestActPool_GetActionByHash(t *testing.T) {
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	hash1 := tsf1.Hash()
-	act1 := tsf1.ConvertToActionPb()
 	vote2, err := testutil.SignedVote(addr1, addr1, uint64(2), uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	hash2 := vote2.Hash()
-	act2 := vote2.ConvertToActionPb()
 
-	ap.allActions[hash1] = act1
+	ap.allActions[hash1] = tsf1
 	act, err := ap.GetActionByHash(hash1)
 	require.NoError(err)
-	require.Equal(act1, act)
+	require.Equal(tsf1, act)
 	act, err = ap.GetActionByHash(hash2)
 	require.Equal(ErrHash, errors.Cause(err))
 	require.Nil(act)
 
-	ap.allActions[hash2] = act2
+	ap.allActions[hash2] = vote2
 	act, err = ap.GetActionByHash(hash2)
 	require.NoError(err)
-	require.Equal(act2, act)
+	require.Equal(vote2, act)
 }
 
 func TestActPool_GetCapacity(t *testing.T) {
@@ -1040,7 +1031,7 @@ func TestActPool_GetSize(t *testing.T) {
 	require.NoError(err)
 	_, err = bc.GetFactory().RunActions(0, nil, nil, nil, nil)
 	require.NoError(err)
-	require.Nil(bc.GetFactory().Commit())
+	require.Nil(bc.GetFactory().Commit(nil))
 	// Create actpool
 	apConfig := getActPoolCfg()
 	Ap, err := NewActPool(bc, apConfig)
@@ -1067,7 +1058,7 @@ func TestActPool_GetSize(t *testing.T) {
 	require.Equal(uint64(4), ap.GetSize())
 	_, err = bc.GetFactory().RunActions(0, []*action.Transfer{tsf1, tsf2, tsf3}, []*action.Vote{vote4}, nil, nil)
 	require.NoError(err)
-	require.Nil(bc.GetFactory().Commit())
+	require.Nil(bc.GetFactory().Commit(nil))
 	ap.removeConfirmedActs()
 	require.Equal(uint64(0), ap.GetSize())
 }

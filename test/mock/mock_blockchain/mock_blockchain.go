@@ -102,19 +102,6 @@ func (mr *MockBlockchainMockRecorder) CreateState(addr, init interface{}) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateState", reflect.TypeOf((*MockBlockchain)(nil).CreateState), addr, init)
 }
 
-// Candidates mocks base method
-func (m *MockBlockchain) Candidates() (uint64, []*state.Candidate) {
-	ret := m.ctrl.Call(m, "Candidates")
-	ret0, _ := ret[0].(uint64)
-	ret1, _ := ret[1].([]*state.Candidate)
-	return ret0, ret1
-}
-
-// Candidates indicates an expected call of Candidates
-func (mr *MockBlockchainMockRecorder) Candidates() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Candidates", reflect.TypeOf((*MockBlockchain)(nil).Candidates))
-}
-
 // CandidatesByHeight mocks base method
 func (m *MockBlockchain) CandidatesByHeight(height uint64) ([]*state.Candidate, error) {
 	ret := m.ctrl.Call(m, "CandidatesByHeight", height)

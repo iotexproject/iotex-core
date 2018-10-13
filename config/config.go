@@ -119,6 +119,7 @@ var (
 				NumDelegates:      21,
 				EnableDummyBlock:  true,
 				TimeBasedRotation: false,
+				EnableDKG:         false,
 			},
 			BlockCreationInterval: 10 * time.Second,
 		},
@@ -244,6 +245,7 @@ type (
 		NumDelegates             uint          `yaml:"numDelegates"`
 		EnableDummyBlock         bool          `yaml:"enableDummyBlock"`
 		TimeBasedRotation        bool          `yaml:"timeBasedRotation"`
+		EnableDKG                bool          `yaml:"enableDKG"`
 	}
 
 	// Dispatcher is the dispatcher config

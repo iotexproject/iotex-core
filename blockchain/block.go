@@ -23,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/state"
 )
 
 // Payee defines the struct of payee
@@ -63,6 +64,7 @@ type Block struct {
 	SecretProposals []*action.SecretProposal
 	SecretWitness   *action.SecretWitness
 	receipts        map[hash.Hash32B]*Receipt
+	workingSet      state.WorkingSet
 }
 
 // NewBlock returns a new block
@@ -260,6 +262,8 @@ func (b *Block) ConvertFromBlockPb(pbBlock *iproto.BlockPb) {
 	b.Transfers = []*action.Transfer{}
 	b.Votes = []*action.Vote{}
 	b.Executions = []*action.Execution{}
+	b.SecretProposals = []*action.SecretProposal{}
+	b.SecretWitness = nil
 
 	for _, act := range pbBlock.Actions {
 		if tfPb := act.GetTransfer(); tfPb != nil {
@@ -296,6 +300,7 @@ func (b *Block) Deserialize(buf []byte) error {
 	}
 
 	b.ConvertFromBlockPb(&pbBlock)
+	b.workingSet = nil
 
 	// verify merkle root can match after deserialize
 	txroot := b.TxRoot()

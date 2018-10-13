@@ -205,7 +205,8 @@ func (exp *Service) GetUnconfirmedTransfersByAddress(address string, offset int6
 	acts := exp.ap.GetUnconfirmedActs(address)
 	tsfIndex := int64(0)
 	for _, act := range acts {
-		if act.GetTransfer() == nil {
+		transfer, ok := act.(*action.Transfer)
+		if !ok {
 			continue
 		}
 
@@ -218,8 +219,6 @@ func (exp *Service) GetUnconfirmedTransfersByAddress(address string, offset int6
 			break
 		}
 
-		transfer := &action.Transfer{}
-		transfer.ConvertFromActionPb(act)
 		explorerTransfer, err := convertTsfToExplorerTsf(transfer, true)
 		if err != nil {
 			return []explorer.Transfer{}, errors.Wrapf(err, "failed to convert transfer %v to explorer's JSON transfer", transfer)
@@ -365,7 +364,8 @@ func (exp *Service) GetUnconfirmedVotesByAddress(address string, offset int64, l
 	acts := exp.ap.GetUnconfirmedActs(address)
 	voteIndex := int64(0)
 	for _, act := range acts {
-		if act.GetVote() == nil {
+		vote, ok := act.(*action.Vote)
+		if !ok {
 			continue
 		}
 
@@ -378,8 +378,6 @@ func (exp *Service) GetUnconfirmedVotesByAddress(address string, offset int64, l
 			break
 		}
 
-		vote := &action.Vote{}
-		vote.ConvertFromActionPb(act)
 		explorerVote, err := convertVoteToExplorerVote(vote, true)
 		if err != nil {
 			return []explorer.Vote{}, errors.Wrapf(err, "failed to convert vote %v to explorer's JSON vote", vote)
@@ -524,7 +522,8 @@ func (exp *Service) GetUnconfirmedExecutionsByAddress(address string, offset int
 	acts := exp.ap.GetUnconfirmedActs(address)
 	executionIndex := int64(0)
 	for _, act := range acts {
-		if act.GetExecution() == nil {
+		execution, ok := act.(*action.Execution)
+		if !ok {
 			continue
 		}
 
@@ -537,8 +536,6 @@ func (exp *Service) GetUnconfirmedExecutionsByAddress(address string, offset int
 			break
 		}
 
-		execution := &action.Execution{}
-		execution.ConvertFromActionPb(act)
 		explorerExecution, err := convertExecutionToExplorerExecution(execution, true)
 		if err != nil {
 			return []explorer.Execution{}, errors.Wrapf(err, "failed to convert execution %v to explorer's JSON execution", execution)
@@ -1087,11 +1084,10 @@ func getTransfer(bc blockchain.Blockchain, ap actpool.ActPool, transferHash hash
 	if err != nil {
 		// Try to fetch pending transfer from actpool
 		act, err := ap.GetActionByHash(transferHash)
-		if err != nil || act.GetTransfer() == nil {
+		if err != nil || act == nil {
 			return explorerTransfer, err
 		}
-		transfer = &action.Transfer{}
-		transfer.ConvertFromActionPb(act)
+		transfer = act.(*action.Transfer)
 		return convertTsfToExplorerTsf(transfer, true)
 	}
 
@@ -1121,11 +1117,10 @@ func getVote(bc blockchain.Blockchain, ap actpool.ActPool, voteHash hash.Hash32B
 	if err != nil {
 		// Try to fetch pending vote from actpool
 		act, err := ap.GetActionByHash(voteHash)
-		if err != nil || act.GetVote() == nil {
+		if err != nil || act == nil {
 			return explorerVote, err
 		}
-		vote = &action.Vote{}
-		vote.ConvertFromActionPb(act)
+		vote = act.(*action.Vote)
 		return convertVoteToExplorerVote(vote, true)
 	}
 
@@ -1155,11 +1150,10 @@ func getExecution(bc blockchain.Blockchain, ap actpool.ActPool, executionHash ha
 	if err != nil {
 		// Try to fetch pending execution from actpool
 		act, err := ap.GetActionByHash(executionHash)
-		if err != nil || act.GetExecution() == nil {
+		if err != nil || act == nil {
 			return explorerExecution, err
 		}
-		execution = &action.Execution{}
-		execution.ConvertFromActionPb(act)
+		execution = act.(*action.Execution)
 		return convertExecutionToExplorerExecution(execution, true)
 	}
 
