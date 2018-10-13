@@ -545,3 +545,27 @@ func (m *MockBlockchain) ExecuteContractRead(arg0 *action.Execution) ([]byte, er
 func (mr *MockBlockchainMockRecorder) ExecuteContractRead(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecuteContractRead", reflect.TypeOf((*MockBlockchain)(nil).ExecuteContractRead), arg0)
 }
+
+// SubscribeBlockCreation mocks base method
+func (m *MockBlockchain) SubscribeBlockCreation(ch chan *blockchain.Block) error {
+	ret := m.ctrl.Call(m, "SubscribeBlockCreation", ch)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SubscribeBlockCreation indicates an expected call of SubscribeBlockCreation
+func (mr *MockBlockchainMockRecorder) SubscribeBlockCreation(ch interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubscribeBlockCreation", reflect.TypeOf((*MockBlockchain)(nil).SubscribeBlockCreation), ch)
+}
+
+// UnSubscribeBlockCreation mocks base method
+func (m *MockBlockchain) UnSubscribeBlockCreation(ch chan *blockchain.Block) error {
+	ret := m.ctrl.Call(m, "UnSubscribeBlockCreation", ch)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UnSubscribeBlockCreation indicates an expected call of UnSubscribeBlockCreation
+func (mr *MockBlockchainMockRecorder) UnSubscribeBlockCreation(ch interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnSubscribeBlockCreation", reflect.TypeOf((*MockBlockchain)(nil).UnSubscribeBlockCreation), ch)
+}

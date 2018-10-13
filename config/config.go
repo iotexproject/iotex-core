@@ -137,6 +137,9 @@ var (
 			TpsWindow:               10,
 			MaxTransferPayloadBytes: 1024,
 		},
+		Indexer: Indexer{
+			Enabled: false,
+		},
 		System: System{
 			HeartbeatInterval: 10 * time.Second,
 			HTTPProfilingPort: 0,
@@ -260,6 +263,11 @@ type (
 		MaxTransferPayloadBytes uint64 `yaml:"maxTransferPayloadBytes"`
 	}
 
+	// Indexer is the index service config
+	Indexer struct {
+		Enabled bool `yaml:"enabled"`
+	}
+
 	// System is the system config
 	System struct {
 		HeartbeatInterval time.Duration `yaml:"heartbeatInterval"`
@@ -313,6 +321,7 @@ type (
 		BlockSync  BlockSync  `yaml:"blockSync"`
 		Dispatcher Dispatcher `yaml:"dispatcher"`
 		Explorer   Explorer   `yaml:"explorer"`
+		Indexer    Indexer    `yaml:"indexer"`
 		System     System     `yaml:"system"`
 		DB         DB         `yaml:"db"`
 	}
