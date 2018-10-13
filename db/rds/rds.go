@@ -92,13 +92,19 @@ func (r *rds) Transact(txFunc func(*sql.Tx) error) error {
 	defer func() {
 		if p := recover(); p != nil {
 			err = tx.Rollback()
-			log.Fatal(err) // log err after Rollback
+			if err != nil {
+				log.Fatal(err) // log err after Rollback
+			}
 		} else if err != nil {
 			err = tx.Rollback() // err is non-nil; don't change it
-			log.Fatal(err)
+			if err != nil {
+				log.Fatal(err)
+			}
 		} else {
 			err = tx.Commit() // err is nil; if Commit returns error update err
-			log.Fatal(err)
+			if err != nil {
+				log.Fatal(err)
+			}
 		}
 	}()
 	err = txFunc(tx)

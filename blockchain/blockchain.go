@@ -120,19 +120,26 @@ type Blockchain interface {
 	// ExecuteContractRead runs a read-only smart contract operation, this is done off the network since it does not
 	// cause any state change
 	ExecuteContractRead(*action.Execution) ([]byte, error)
+
+	// SubscribeBlockCreation make you listen to every single produced block
+	SubscribeBlockCreation(ch chan *Block) error
+
+	// UnSubscribeBlockCreation make you listen to every single produced block
+	UnSubscribeBlockCreation(ch chan *Block) error
 }
 
 // blockchain implements the Blockchain interface
 type blockchain struct {
-	mu        sync.RWMutex // mutex to protect utk, tipHeight and tipHash
-	dao       *blockDAO
-	config    *config.Config
-	genesis   *Genesis
-	tipHeight uint64
-	tipHash   hash.Hash32B
-	validator Validator
-	lifecycle lifecycle.Lifecycle
-	clk       clock.Clock
+	mu            sync.RWMutex // mutex to protect utk, tipHeight and tipHash
+	dao           *blockDAO
+	config        *config.Config
+	genesis       *Genesis
+	tipHeight     uint64
+	tipHash       hash.Hash32B
+	validator     Validator
+	lifecycle     lifecycle.Lifecycle
+	clk           clock.Clock
+	blocklistener []chan *Block
 
 	// used by account-based model
 	sf state.Factory
@@ -838,6 +845,10 @@ func (bc *blockchain) commitBlock(blk *Block) error {
 	if err := bc.dao.putBlock(blk); err != nil {
 		return err
 	}
+	// emit block to all block subscribers
+	if err := bc.EmitToSubscribers(blk); err != nil {
+		return errors.Wrap(err, "failed to emit to block subscribers")
+	}
 	// update tip hash and height
 	bc.tipHeight = blk.Header.height
 	bc.tipHash = blk.HashBlock()
@@ -895,6 +906,34 @@ func (bc *blockchain) replaceHeightAndHash(blk *Block) (uint64, hash.Hash32B, er
 		tipHash = lastBlock.HashBlock()
 	}
 	return tipHeight, tipHash, nil
+}
+
+func (bc *blockchain) SubscribeBlockCreation(ch chan *Block) error {
+	bc.blocklistener = append(bc.blocklistener, ch)
+	return nil
+}
+
+func (bc *blockchain) UnSubscribeBlockCreation(ch chan *Block) error {
+	for i, handler := range bc.blocklistener {
+		if ch == handler {
+			bc.blocklistener = append(bc.blocklistener[:i], bc.blocklistener[i+1:]...)
+		}
+	}
+	return nil
+}
+
+func (bc *blockchain) EmitToSubscribers(blk *Block) error {
+	// return if there is no subscribers
+	if bc.blocklistener == nil {
+		return nil
+	}
+
+	for _, handler := range bc.blocklistener {
+		go func(handler chan *Block) {
+			handler <- blk
+		}(handler)
+	}
+	return nil
 }
 
 func (bc *blockchain) now() uint64 { return uint64(bc.clk.Now().Unix()) }
