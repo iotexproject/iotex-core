@@ -71,7 +71,8 @@ message StartSubChainPb {
     bytes operationDeposit = 3;
     uint64 startHeight = 4;
     uint64 parentHeightOffset = 5;
-    bytes ownerPublicKey = 6;
+    string ownerAddress = 6;
+    bytes ownerPublicKey = 7;
 }
 
 message StopSubChainPb {
@@ -105,7 +106,7 @@ message ActionPb {
         ExecutionPb execution = 12;
         SecretProposalPb secretProposal = 13;
         SecretWitnessPb secretWitness = 14;
-        StartSubChainPb startChain = 15;
+        StartSubChainPb startSubChain = 15;
         StopSubChainPb stopSubChain = 16;
         PutBlockPb putBlock = 17;
     }
