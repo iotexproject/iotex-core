@@ -26,28 +26,28 @@ type (
 	WorkingSet interface {
 		// states and actions
 		LoadOrCreateState(string, uint64) (*State, error)
-		balance(string) (*big.Int, error)
 		Nonce(string) (uint64, error) // Note that Nonce starts with 1.
-		state(string) (*State, error)
 		CachedState(string) (*State, error)
-		rootHash() hash.Hash32B
-		version() uint64
-		height() uint64
 		RunActions(uint64, []*action.Transfer, []*action.Vote, []*action.Execution, []action.Action) (hash.Hash32B, error)
 		commit() error
-		// Contracts
+		// contracts
 		GetCodeHash(hash.PKHash) (hash.Hash32B, error)
 		GetCode(hash.PKHash) ([]byte, error)
 		SetCode(hash.PKHash, []byte) error
 		GetContractState(hash.PKHash, hash.Hash32B) (hash.Hash32B, error)
 		SetContractState(hash.PKHash, hash.Hash32B, hash.Hash32B) error
-		// Candidates
+		// private func
+		balance(string) (*big.Int, error)
+		state(string) (*State, error)
+		rootHash() hash.Hash32B
+		version() uint64
+		height() uint64
 		workingCandidates() map[hash.PKHash]*Candidate
 		getCandidates(height uint64) (CandidateList, error)
 	}
 
-	// workingset implements Workingset interface, tracks pending changes to account/contract in local cache
-	workingset struct {
+	// workingSet implements Workingset interface, tracks pending changes to account/contract in local cache
+	workingSet struct {
 		ver              uint64
 		blkHeight        uint64
 		cachedCandidates map[hash.PKHash]*Candidate
@@ -61,7 +61,7 @@ type (
 
 // NewWorkingSet creates a new working set
 func NewWorkingSet(version uint64, kv db.KVStore, root hash.Hash32B) (WorkingSet, error) {
-	ws := &workingset{
+	ws := &workingSet{
 		ver:              version,
 		cachedCandidates: make(map[hash.PKHash]*Candidate),
 		savedAccount:     make(map[string]*State),
@@ -80,7 +80,7 @@ func NewWorkingSet(version uint64, kv db.KVStore, root hash.Hash32B) (WorkingSet
 	return ws, nil
 }
 
-func (ws *workingset) workingCandidates() map[hash.PKHash]*Candidate {
+func (ws *workingSet) workingCandidates() map[hash.PKHash]*Candidate {
 	return ws.cachedCandidates
 }
 
@@ -89,7 +89,7 @@ func (ws *workingset) workingCandidates() map[hash.PKHash]*Candidate {
 //======================================
 // LoadOrCreateState loads existing or adds a new State with initial balance to the factory
 // addr should be a bech32 properly-encoded string
-func (ws *workingset) LoadOrCreateState(addr string, init uint64) (*State, error) {
+func (ws *workingSet) LoadOrCreateState(addr string, init uint64) (*State, error) {
 	h, err := iotxaddress.GetPubkeyHash(addr)
 	if err != nil {
 		return nil, errors.Wrap(err, "error when getting the pubkey hash")
@@ -112,39 +112,25 @@ func (ws *workingset) LoadOrCreateState(addr string, init uint64) (*State, error
 }
 
 // Balance returns balance
-func (ws *workingset) balance(addr string) (*big.Int, error) {
-	if saved, ok := ws.savedAccount[addr]; ok {
-		return saved.Balance, nil
-	}
-	pkHash, err := iotxaddress.GetPubkeyHash(addr)
+func (ws *workingSet) balance(addr string) (*big.Int, error) {
+	state, err := ws.state(addr)
 	if err != nil {
-		return nil, errors.Wrap(err, "error when getting the pubkey hash")
-	}
-	state, err := ws.getState(byteutil.BytesTo20B(pkHash))
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get state of %x", pkHash)
+		return nil, errors.Wrapf(err, "failed to get state of %s", addr)
 	}
 	return state.Balance, nil
 }
 
 // Nonce returns the Nonce if the account exists
-func (ws *workingset) Nonce(addr string) (uint64, error) {
-	if saved, ok := ws.savedAccount[addr]; ok {
-		return saved.Nonce, nil
-	}
-	pkHash, err := iotxaddress.GetPubkeyHash(addr)
+func (ws *workingSet) Nonce(addr string) (uint64, error) {
+	state, err := ws.state(addr)
 	if err != nil {
-		return 0, errors.Wrap(err, "error when getting the pubkey hash")
-	}
-	state, err := ws.getState(byteutil.BytesTo20B(pkHash))
-	if err != nil {
-		return 0, errors.Wrapf(err, "failed to get state of %x", pkHash)
+		return 0, errors.Wrapf(err, "failed to get state of %s", addr)
 	}
 	return state.Nonce, nil
 }
 
 // State returns the confirmed state on the chain
-func (ws *workingset) state(addr string) (*State, error) {
+func (ws *workingSet) state(addr string) (*State, error) {
 	if saved, ok := ws.savedAccount[addr]; ok {
 		return saved, nil
 	}
@@ -156,7 +142,7 @@ func (ws *workingset) state(addr string) (*State, error) {
 }
 
 // CachedState returns the cached state if the address exists in local cache
-func (ws *workingset) CachedState(addr string) (*State, error) {
+func (ws *workingSet) CachedState(addr string) (*State, error) {
 	h, err := iotxaddress.GetPubkeyHash(addr)
 	if err != nil {
 		return nil, errors.Wrap(err, "error when getting the pubkey hash")
@@ -169,22 +155,22 @@ func (ws *workingset) CachedState(addr string) (*State, error) {
 }
 
 // RootHash returns the hash of the root node of the accountTrie
-func (ws *workingset) rootHash() hash.Hash32B {
+func (ws *workingSet) rootHash() hash.Hash32B {
 	return ws.accountTrie.RootHash()
 }
 
 // version returns the version of this working set
-func (ws *workingset) version() uint64 {
+func (ws *workingSet) version() uint64 {
 	return ws.ver
 }
 
 // Height returns the height of the block being worked on
-func (ws *workingset) height() uint64 {
+func (ws *workingSet) height() uint64 {
 	return ws.blkHeight
 }
 
 // RunActions runs actions in the block and track pending changes in working set
-func (ws *workingset) RunActions(
+func (ws *workingSet) RunActions(
 	blockHeight uint64,
 	tsf []*action.Transfer,
 	vote []*action.Vote,
@@ -283,7 +269,7 @@ func (ws *workingset) RunActions(
 }
 
 // Commit persists all changes in RunActions() into the DB
-func (ws *workingset) commit() error {
+func (ws *workingSet) commit() error {
 	// commit all changes in a batch
 	if err := ws.accountTrie.Commit(); err != nil {
 		return errors.Wrap(err, "failed to commit all changes to underlying DB in a batch")
@@ -296,7 +282,7 @@ func (ws *workingset) commit() error {
 // Contract functions
 //======================================
 // GetCodeHash returns contract's code hash
-func (ws *workingset) GetCodeHash(addr hash.PKHash) (hash.Hash32B, error) {
+func (ws *workingSet) GetCodeHash(addr hash.PKHash) (hash.Hash32B, error) {
 	if contract, ok := ws.cachedContract[addr]; ok {
 		return byteutil.BytesTo32B(contract.SelfState().CodeHash), nil
 	}
@@ -308,7 +294,7 @@ func (ws *workingset) GetCodeHash(addr hash.PKHash) (hash.Hash32B, error) {
 }
 
 // GetCode returns contract's code
-func (ws *workingset) GetCode(addr hash.PKHash) ([]byte, error) {
+func (ws *workingSet) GetCode(addr hash.PKHash) ([]byte, error) {
 	if contract, ok := ws.cachedContract[addr]; ok {
 		return contract.GetCode()
 	}
@@ -320,7 +306,7 @@ func (ws *workingset) GetCode(addr hash.PKHash) ([]byte, error) {
 }
 
 // SetCode sets contract's code
-func (ws *workingset) SetCode(addr hash.PKHash, code []byte) error {
+func (ws *workingSet) SetCode(addr hash.PKHash, code []byte) error {
 	if contract, ok := ws.cachedContract[addr]; ok {
 		contract.SetCode(byteutil.BytesTo32B(hash.Hash256b(code)), code)
 		return nil
@@ -334,7 +320,7 @@ func (ws *workingset) SetCode(addr hash.PKHash, code []byte) error {
 }
 
 // GetContractState returns contract's storage value
-func (ws *workingset) GetContractState(addr hash.PKHash, key hash.Hash32B) (hash.Hash32B, error) {
+func (ws *workingSet) GetContractState(addr hash.PKHash, key hash.Hash32B) (hash.Hash32B, error) {
 	if contract, ok := ws.cachedContract[addr]; ok {
 		v, err := contract.GetState(key)
 		return byteutil.BytesTo32B(v), err
@@ -348,7 +334,7 @@ func (ws *workingset) GetContractState(addr hash.PKHash, key hash.Hash32B) (hash
 }
 
 // SetContractState writes contract's storage value
-func (ws *workingset) SetContractState(addr hash.PKHash, key, value hash.Hash32B) error {
+func (ws *workingSet) SetContractState(addr hash.PKHash, key, value hash.Hash32B) error {
 	if contract, ok := ws.cachedContract[addr]; ok {
 		return contract.SetState(key, value[:])
 	}
@@ -363,7 +349,7 @@ func (ws *workingset) SetContractState(addr hash.PKHash, key, value hash.Hash32B
 // private state/account functions
 //======================================
 // getState pulls a State from DB
-func (ws *workingset) getState(hash hash.PKHash) (*State, error) {
+func (ws *workingSet) getState(hash hash.PKHash) (*State, error) {
 	mstate, err := ws.accountTrie.Get(hash[:])
 	if errors.Cause(err) == trie.ErrNotExist {
 		return nil, errors.Wrapf(ErrAccountNotExist, "addrHash = %x", hash[:])
@@ -374,7 +360,7 @@ func (ws *workingset) getState(hash hash.PKHash) (*State, error) {
 	return bytesToState(mstate)
 }
 
-func (ws *workingset) cachedState(hash hash.PKHash) (*State, error) {
+func (ws *workingSet) cachedState(hash hash.PKHash) (*State, error) {
 	if state, ok := ws.cachedAccount[hash]; ok {
 		return state, nil
 	}
@@ -387,7 +373,7 @@ func (ws *workingset) cachedState(hash hash.PKHash) (*State, error) {
 }
 
 // getState stores a State to DB
-func (ws *workingset) putState(addr []byte, state *State) error {
+func (ws *workingSet) putState(addr []byte, state *State) error {
 	ss, err := stateToBytes(state)
 	if err != nil {
 		return errors.Wrapf(err, "failed to convert state %v to bytes", state)
@@ -395,13 +381,13 @@ func (ws *workingset) putState(addr []byte, state *State) error {
 	return ws.accountTrie.Upsert(addr, ss)
 }
 
-func (ws *workingset) saveState(addr string, state *State) {
+func (ws *workingSet) saveState(addr string, state *State) {
 	if _, ok := ws.savedAccount[addr]; !ok {
 		ws.savedAccount[addr] = state.clone()
 	}
 }
 
-func (ws *workingset) getContract(addr hash.PKHash) (Contract, error) {
+func (ws *workingSet) getContract(addr hash.PKHash) (Contract, error) {
 	state, err := ws.cachedState(addr)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get the cached state of %x", addr)
@@ -421,7 +407,7 @@ func (ws *workingset) getContract(addr hash.PKHash) (Contract, error) {
 }
 
 // clearCache removes all local changes after committing to trie
-func (ws *workingset) clearCache() {
+func (ws *workingSet) clearCache() {
 	ws.savedAccount = nil
 	ws.cachedAccount = nil
 	ws.cachedContract = nil
@@ -433,14 +419,14 @@ func (ws *workingset) clearCache() {
 //======================================
 // private candidate functions
 //======================================
-func (ws *workingset) updateCandidate(pkHash hash.PKHash, totalWeight *big.Int, blockHeight uint64) {
+func (ws *workingSet) updateCandidate(pkHash hash.PKHash, totalWeight *big.Int, blockHeight uint64) {
 	// Candidate was added when self-nomination, always exist in cachedCandidates
 	candidate := ws.cachedCandidates[pkHash]
 	candidate.Votes = totalWeight
 	candidate.LastUpdateHeight = blockHeight
 }
 
-func (ws *workingset) getCandidates(height uint64) (CandidateList, error) {
+func (ws *workingSet) getCandidates(height uint64) (CandidateList, error) {
 	candidatesBytes, err := ws.dao.Get(trie.CandidateKVNameSpace, byteutil.Uint64ToBytes(height))
 	if err != nil {
 		return []*Candidate{}, errors.Wrapf(err, "failed to get candidates on height %d", height)
@@ -451,7 +437,7 @@ func (ws *workingset) getCandidates(height uint64) (CandidateList, error) {
 //======================================
 // private transfer/vote functions
 //======================================
-func (ws *workingset) handleTsf(tsf []*action.Transfer) error {
+func (ws *workingSet) handleTsf(tsf []*action.Transfer) error {
 	for _, tx := range tsf {
 		if tx.IsContract() {
 			continue
@@ -513,7 +499,7 @@ func (ws *workingset) handleTsf(tsf []*action.Transfer) error {
 	return nil
 }
 
-func (ws *workingset) handleVote(blockHeight uint64, vote []*action.Vote) error {
+func (ws *workingSet) handleVote(blockHeight uint64, vote []*action.Vote) error {
 	for _, v := range vote {
 		voteFrom, err := ws.LoadOrCreateState(v.Voter(), 0)
 		if err != nil {
