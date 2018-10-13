@@ -95,11 +95,26 @@ type Blockchain interface {
 	// For block operations
 	// MintNewBlock creates a new block with given actions
 	// Note: the coinbase transfer will be added to the given transfers when minting a new block
-	MintNewBlock(tsf []*action.Transfer, vote []*action.Vote, executions []*action.Execution, address *iotxaddress.Address, data string) (*Block, error)
+	MintNewBlock(
+		tsf []*action.Transfer,
+		vote []*action.Vote,
+		executions []*action.Execution,
+		actions []action.Action,
+		address *iotxaddress.Address,
+		data string,
+	) (*Block, error)
 	// TODO: Merge the MintNewDKGBlock into MintNewBlock
 	// MintNewDKGBlock creates a new block with given actions and dkg keys
-	MintNewDKGBlock(tsf []*action.Transfer, vote []*action.Vote, executions []*action.Execution,
-		producer *iotxaddress.Address, dkgAddress *iotxaddress.DKGAddress, seed []byte, data string) (*Block, error)
+	MintNewDKGBlock(
+		tsf []*action.Transfer,
+		vote []*action.Vote,
+		executions []*action.Execution,
+		actions []action.Action,
+		producer *iotxaddress.Address,
+		dkgAddress *iotxaddress.DKGAddress,
+		seed []byte,
+		data string,
+	) (*Block, error)
 	// MintNewSecretBlock creates a new DKG secret block with given DKG secrets and witness
 	MintNewSecretBlock(secretProposals []*action.SecretProposal, secretWitness *action.SecretWitness,
 		producer *iotxaddress.Address) (*Block, error)
@@ -632,13 +647,19 @@ func (bc *blockchain) ValidateBlock(blk *Block, containCoinbase bool) error {
 // MintNewBlock creates a new block with given actions
 // Note: the coinbase transfer will be added to the given transfers
 // when minting a new block
-func (bc *blockchain) MintNewBlock(tsf []*action.Transfer, vote []*action.Vote, executions []*action.Execution,
-	producer *iotxaddress.Address, data string) (*Block, error) {
+func (bc *blockchain) MintNewBlock(
+	tsf []*action.Transfer,
+	vote []*action.Vote,
+	executions []*action.Execution,
+	actions []action.Action,
+	producer *iotxaddress.Address,
+	data string,
+) (*Block, error) {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
 
 	tsf = append(tsf, action.NewCoinBaseTransfer(big.NewInt(int64(bc.genesis.BlockReward)), producer.RawAddress))
-	blk := NewBlock(bc.config.Chain.ID, bc.tipHeight+1, bc.tipHash, bc.now(), tsf, vote, executions)
+	blk := NewBlock(bc.config.Chain.ID, bc.tipHeight+1, bc.tipHash, bc.now(), tsf, vote, executions, actions)
 	blk.Header.DKGID = []byte{}
 	blk.Header.DKGPubkey = []byte{}
 	blk.Header.DKGBlockSig = []byte{}
@@ -663,13 +684,21 @@ func (bc *blockchain) MintNewBlock(tsf []*action.Transfer, vote []*action.Vote, 
 // MintNewDKGBlock creates a new block with given actions and dkg keys
 // Note: the coinbase transfer will be added to the given transfers
 // when minting a new block
-func (bc *blockchain) MintNewDKGBlock(tsf []*action.Transfer, vote []*action.Vote, executions []*action.Execution,
-	producer *iotxaddress.Address, dkgAddress *iotxaddress.DKGAddress, seed []byte, data string) (*Block, error) {
+func (bc *blockchain) MintNewDKGBlock(
+	tsf []*action.Transfer,
+	vote []*action.Vote,
+	executions []*action.Execution,
+	actions []action.Action,
+	producer *iotxaddress.Address,
+	dkgAddress *iotxaddress.DKGAddress,
+	seed []byte,
+	data string,
+) (*Block, error) {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
 
 	tsf = append(tsf, action.NewCoinBaseTransfer(big.NewInt(int64(bc.genesis.BlockReward)), producer.RawAddress))
-	blk := NewBlock(bc.config.Chain.ID, bc.tipHeight+1, bc.tipHash, bc.now(), tsf, vote, executions)
+	blk := NewBlock(bc.config.Chain.ID, bc.tipHeight+1, bc.tipHash, bc.now(), tsf, vote, executions, actions)
 	blk.Header.DKGID = []byte{}
 	blk.Header.DKGPubkey = []byte{}
 	blk.Header.DKGBlockSig = []byte{}
@@ -732,7 +761,7 @@ func (bc *blockchain) MintNewDummyBlock() *Block {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
 
-	blk := NewBlock(bc.config.Chain.ID, bc.tipHeight+1, bc.tipHash, bc.now(), nil, nil, nil)
+	blk := NewBlock(bc.config.Chain.ID, bc.tipHeight+1, bc.tipHash, bc.now(), nil, nil, nil, nil)
 	blk.Header.Pubkey = keypair.ZeroPublicKey
 	blk.Header.blockSig = []byte{}
 
@@ -874,7 +903,7 @@ func (bc *blockchain) runActions(blk *Block, ws state.WorkingSet, verify bool) (
 		ExecuteContracts(blk, ws, bc)
 	}
 	// update state factory
-	if root, err = ws.RunActions(blk.Height(), blk.Transfers, blk.Votes, blk.Executions, nil); err != nil {
+	if root, err = ws.RunActions(blk.Height(), blk.Transfers, blk.Votes, blk.Executions, blk.Actions); err != nil {
 		return root, err
 	}
 	if verify {

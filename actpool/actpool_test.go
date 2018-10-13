@@ -409,7 +409,7 @@ func TestActPool_PickActs(t *testing.T) {
 	t.Run("no-limit", func(t *testing.T) {
 		apConfig := getActPoolCfg()
 		ap, transfers, votes, executions := createActPool(apConfig)
-		pickedTsfs, pickedVotes, pickedExecutions := ap.PickActs()
+		pickedTsfs, pickedVotes, pickedExecutions, _ := ap.PickActs()
 		require.Equal(t, transfers, pickedTsfs)
 		require.Equal(t, votes, pickedVotes)
 		require.Equal(t, executions, pickedExecutions)
@@ -418,7 +418,7 @@ func TestActPool_PickActs(t *testing.T) {
 		apConfig := getActPoolCfg()
 		apConfig.MaxNumActsToPick = 10
 		ap, transfers, votes, executions := createActPool(apConfig)
-		pickedTsfs, pickedVotes, pickedExecutions := ap.PickActs()
+		pickedTsfs, pickedVotes, pickedExecutions, _ := ap.PickActs()
 		require.Equal(t, transfers, pickedTsfs)
 		require.Equal(t, votes, pickedVotes)
 		require.Equal(t, executions, pickedExecutions)
@@ -427,7 +427,7 @@ func TestActPool_PickActs(t *testing.T) {
 		apConfig := getActPoolCfg()
 		apConfig.MaxNumActsToPick = 3
 		ap, _, _, _ := createActPool(apConfig)
-		pickedTsfs, pickedVotes, pickedExecutions := ap.PickActs()
+		pickedTsfs, pickedVotes, pickedExecutions, _ := ap.PickActs()
 		require.Equal(t, 3, len(pickedTsfs)+len(pickedVotes)+len(pickedExecutions))
 	})
 }
@@ -620,7 +620,7 @@ func TestActPool_Reset(t *testing.T) {
 	ap2PBalance3, _ := ap2.getPendingBalance(addr3.RawAddress)
 	require.Equal(big.NewInt(50).Uint64(), ap2PBalance3.Uint64())
 	// Let ap1 be BP's actpool
-	pickedTsfs, pickedVotes, pickedExecutions := ap1.PickActs()
+	pickedTsfs, pickedVotes, pickedExecutions, _ := ap1.PickActs()
 	// ap1 commits update of accounts to trie
 	_, err = bc.GetFactory().RunActions(0, pickedTsfs, pickedVotes, pickedExecutions, nil)
 	require.NoError(err)
@@ -729,7 +729,7 @@ func TestActPool_Reset(t *testing.T) {
 	ap2PBalance3, _ = ap2.getPendingBalance(addr3.RawAddress)
 	require.Equal(big.NewInt(180).Uint64(), ap2PBalance3.Uint64())
 	// Let ap2 be BP's actpool
-	pickedTsfs, pickedVotes, pickedExecutions = ap2.PickActs()
+	pickedTsfs, pickedVotes, pickedExecutions, _ = ap2.PickActs()
 	// ap2 commits update of accounts to trie
 	_, err = bc.GetFactory().RunActions(0, pickedTsfs, pickedVotes, pickedExecutions, nil)
 	require.NoError(err)
@@ -822,7 +822,7 @@ func TestActPool_Reset(t *testing.T) {
 	ap1PBalance5, _ := ap1.getPendingBalance(addr5.RawAddress)
 	require.Equal(big.NewInt(10).Uint64(), ap1PBalance5.Uint64())
 	// Let ap1 be BP's actpool
-	pickedTsfs, pickedVotes, pickedExecutions = ap1.PickActs()
+	pickedTsfs, pickedVotes, pickedExecutions, _ = ap1.PickActs()
 	// ap1 commits update of accounts to trie
 	_, err = bc.GetFactory().RunActions(0, pickedTsfs, pickedVotes, pickedExecutions, nil)
 	require.NoError(err)
