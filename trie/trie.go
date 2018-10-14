@@ -69,24 +69,25 @@ type (
 		numBranch uint64
 		numExt    uint64
 		numLeaf   uint64
-		dao       db.CachedKVStore
+		cb        db.CachedBatch // cached batch for pending writes
+		dao       db.KVStore     // the underlying storage DB
 	}
 )
 
 // NewTrie creates a trie with DB filename
 func NewTrie(kvStore db.KVStore, name string, root hash.Hash32B) (Trie, error) {
 	if kvStore == nil {
-		return nil, errors.New("Failed to create KV store for Trie")
+		return nil, errors.New("try to create trie with empty KV store")
 	}
 	return newTrie(kvStore, name, root), nil
 }
 
-// NewTrieSharedDB creates a trie with the shared DB instance
-func NewTrieSharedDB(kvStore db.CachedKVStore, name string, root hash.Hash32B) (Trie, error) {
-	if kvStore == nil {
-		return nil, errors.New("Failed to create KV store for Trie")
+// NewTrieSharedBatch creates a trie with a shared batch
+func NewTrieSharedBatch(kvStore db.KVStore, batch db.CachedBatch, name string, root hash.Hash32B) (Trie, error) {
+	if kvStore == nil || batch == nil {
+		return nil, errors.New("try to create trie with empty KV store")
 	}
-	return newTrieSharedDB(kvStore, name, root), nil
+	return newTrieSharedBatch(kvStore, batch, name, root), nil
 }
 
 func (t *trie) Start(ctx context.Context) error {
@@ -98,7 +99,7 @@ func (t *trie) Stop(ctx context.Context) error { return t.lifecycle.OnStop(ctx) 
 
 // TrieDB return the underlying DB instance
 func (t *trie) TrieDB() db.KVStore {
-	return t.dao.KVStore()
+	return t.dao
 }
 
 // Upsert a new entry
@@ -178,7 +179,7 @@ func (t *trie) Commit() error {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
-	return t.dao.Commit(nil)
+	return t.dao.Commit(t.cb)
 }
 
 // RootHash returns the root hash of merkle patricia trie
@@ -194,14 +195,29 @@ func (t *trie) RootHash() hash.Hash32B {
 //======================================
 // newTrie creates a trie
 func newTrie(dao db.KVStore, name string, root hash.Hash32B) *trie {
-	t := &trie{dao: db.NewCachedKVStore(dao), rootHash: root, toRoot: list.New(), bucket: name, numEntry: 1, numBranch: 1}
+	t := &trie{
+		cb:        db.NewCachedBatch(),
+		dao:       dao,
+		rootHash:  root,
+		toRoot:    list.New(),
+		bucket:    name,
+		numEntry:  1,
+		numBranch: 1,
+	}
 	t.lifecycle.Add(dao)
 	return t
 }
 
-// newTrieSharedDB creates a trie with shared DB
-func newTrieSharedDB(dao db.CachedKVStore, name string, root hash.Hash32B) *trie {
-	t := &trie{dao: dao, rootHash: root, toRoot: list.New(), bucket: name, numEntry: 1, numBranch: 1}
+// newTrieSharedBatch creates a trie with shared DB
+func newTrieSharedBatch(dao db.KVStore, batch db.CachedBatch, name string, root hash.Hash32B) *trie {
+	t := &trie{
+		cb:        batch,
+		dao:       dao,
+		rootHash:  root,
+		toRoot:    list.New(),
+		bucket:    name,
+		numEntry:  1,
+		numBranch: 1}
 	t.lifecycle.Add(dao)
 	return t
 }
@@ -457,7 +473,11 @@ func (t *trie) updateDelete(curr patricia, currClps bool, clpsType byte) error {
 //======================================
 // getPatricia retrieves the patricia node from DB according to key
 func (t *trie) getPatricia(key []byte) (patricia, error) {
-	node, err := t.dao.Get(t.bucket, key)
+	// search in cache first
+	node, err := t.cb.Get(t.bucket, key)
+	if err != nil {
+		node, err = t.dao.Get(t.bucket, key)
+	}
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get key %x", key[:8])
 	}
@@ -488,7 +508,7 @@ func (t *trie) putPatricia(ptr patricia) error {
 	}
 	key := ptr.hash()
 	logger.Debug().Hex("key", key[:8]).Msg("put")
-	return t.dao.Put(t.bucket, key[:], value)
+	return t.cb.Put(t.bucket, key[:], value, "failed to put key = %x", key)
 }
 
 // putPatriciaNew stores a new patricia node into DB
@@ -500,14 +520,14 @@ func (t *trie) putPatriciaNew(ptr patricia) error {
 	}
 	key := ptr.hash()
 	logger.Debug().Hex("key", key[:8]).Msg("putnew")
-	return t.dao.PutIfNotExists(t.bucket, key[:], value)
+	return t.cb.PutIfNotExists(t.bucket, key[:], value, "failed to put non-existing key = %x", key)
 }
 
 // delPatricia deletes the patricia node from DB
 func (t *trie) delPatricia(ptr patricia) error {
 	key := ptr.hash()
 	logger.Debug().Hex("key", key[:8]).Msg("del")
-	return t.dao.Delete(t.bucket, key[:])
+	return t.cb.Delete(t.bucket, key[:], "failed to delete key = %x", key)
 }
 
 // getValue returns the actual value stored in patricia node

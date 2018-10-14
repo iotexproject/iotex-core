@@ -38,8 +38,6 @@ type KVStore interface {
 	Get(string, []byte) ([]byte, error)
 	// Delete deletes a record by (namespace, key)
 	Delete(string, []byte) error
-	// Batch return a kv store batch api object
-	Batch() KVStoreBatch
 	// Commit commits a batch
 	Commit(KVStoreBatch) error
 }
@@ -99,11 +97,6 @@ func (m *memKVStore) Get(namespace string, key []byte) ([]byte, error) {
 func (m *memKVStore) Delete(namespace string, key []byte) error {
 	m.data.Delete(namespace + keyDelimiter + string(key))
 	return nil
-}
-
-// Batch return a kv store batch api object
-func (m *memKVStore) Batch() KVStoreBatch {
-	return NewMemKVStoreBatch(m)
 }
 
 // Commit commits a batch
@@ -262,11 +255,6 @@ func (b *boltDB) Delete(namespace string, key []byte) error {
 	}
 
 	return err
-}
-
-// Batch return a kv store batch api object
-func (b *boltDB) Batch() KVStoreBatch {
-	return NewBoltDBBatch(b)
 }
 
 // Commit commits a batch
