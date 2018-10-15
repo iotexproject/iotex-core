@@ -36,7 +36,7 @@ func main() {
 	// aps indicates how many actions to be injected in one second. Default is 0
 	var aps int
 
-	flag.IntVar(&timeout, "timeout", 300, "duration of running nightly build")
+	flag.IntVar(&timeout, "timeout", 100, "duration of running nightly build")
 	flag.IntVar(&aps, "aps", 1, "actions to be injected per second")
 	flag.Parse()
 
@@ -137,10 +137,8 @@ func main() {
 		bcHeights := make([]uint64, numNodes)
 		idealHeight := make([]uint64, numNodes)
 
-		netTimeout := 0
-		if timeout > 50 {
-			netTimeout = timeout - 50
-		}
+		var netTimeout int
+		var minTimeout int
 
 		for i := 0; i < numNodes; i++ {
 			chains[i] = svrs[i].ChainService(configs[i].Chain.ID).Blockchain()
@@ -150,6 +148,11 @@ func main() {
 				logger.Error().Msg(fmt.Sprintf("Node %d: Can not get State height", i))
 			}
 			bcHeights[i] = chains[i].TipHeight()
+			minTimeout = int(configs[i].Consensus.RollDPoS.Delay/time.Second - configs[i].Consensus.RollDPoS.ProposerInterval/time.Second)
+			netTimeout = 0
+			if timeout > minTimeout {
+				netTimeout = timeout - minTimeout
+			}
 			idealHeight[i] = uint64((time.Duration(netTimeout) * time.Second) / configs[i].Consensus.RollDPoS.ProposerInterval)
 
 			logger.Info().Msg(fmt.Sprintf("Node#%d blockchain height: %d", i, bcHeights[i]))
