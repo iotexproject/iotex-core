@@ -135,6 +135,12 @@ func main() {
 		chains := make([]blockchain.Blockchain, numNodes)
 		stateHeights := make([]uint64, numNodes)
 		bcHeights := make([]uint64, numNodes)
+		idealHeight := make([]uint64, numNodes)
+
+		netTimeout := 0
+		if timeout > 50 {
+			netTimeout = timeout - 50
+		}
 
 		for i := 0; i < numNodes; i++ {
 			chains[i] = svrs[i].ChainService(configs[i].Chain.ID).Blockchain()
@@ -144,20 +150,26 @@ func main() {
 				logger.Error().Msg(fmt.Sprintf("Node %d: Can not get State height", i))
 			}
 			bcHeights[i] = chains[i].TipHeight()
+			idealHeight[i] = uint64((time.Duration(netTimeout) * time.Second) / configs[i].Consensus.RollDPoS.ProposerInterval)
+
+			logger.Info().Msg(fmt.Sprintf("Node#%d blockchain height: %d", i, bcHeights[i]))
+			logger.Info().Msg(fmt.Sprintf("Node#%d state      height: %d", i, stateHeights[i]))
+			logger.Info().Msg(fmt.Sprintf("Node#%d ideal      height: %d", i, idealHeight[i]))
 
 			if bcHeights[i] != stateHeights[i] {
-				logger.Error().Msg(fmt.Sprintf("Node %d: State height does not match blockchain height", i))
-			} else {
-				logger.Info().Msg(fmt.Sprintf("Node %d: State height matches blockchain height", i))
+				logger.Error().Msg(fmt.Sprintf("Node#%d: State height does not match blockchain height", i))
+			}
+			if math.Abs(float64(bcHeights[i]-idealHeight[i])) > 1 {
+				logger.Error().Msg(fmt.Sprintf("blockchain in Node#%d is behind the expected height", i))
 			}
 		}
 
 		for i := 0; i < numNodes; i++ {
 			for j := i + 1; j < numNodes; j++ {
-				if math.Abs((float64)(bcHeights[i]-bcHeights[j])) > 1 {
-					logger.Error().Msg(fmt.Sprintf("blockchain in Node %d and blockchain in Node %d are not sync", i, j))
+				if math.Abs(float64(bcHeights[i]-bcHeights[j])) > 1 {
+					logger.Error().Msg(fmt.Sprintf("blockchain in Node#%d and blockchain in Node#%d are not sync", i, j))
 				} else {
-					logger.Info().Msg(fmt.Sprintf("blockchain in Node %d and blockchain in Node %d are sync", i, j))
+					logger.Info().Msg(fmt.Sprintf("blockchain in Node#%d and blockchain in Node#%d are sync", i, j))
 				}
 			}
 		}
