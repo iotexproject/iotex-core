@@ -55,7 +55,8 @@ func TestEVM(t *testing.T) {
 		ta.Addrinfo["producer"].RawAddress, action.EmptyAddress, 1, big.NewInt(0), uint64(100000), big.NewInt(10), data)
 	require.NoError(err)
 	require.NoError(action.Sign(execution, ta.Addrinfo["producer"].PrivateKey))
-	blk, err := bc.MintNewBlock(nil, nil, []*action.Execution{execution}, nil, ta.Addrinfo["producer"], "")
+	blk, err := bc.MintNewBlock(nil, nil, []*action.Execution{execution}, nil, ta.Addrinfo["producer"],
+		nil, nil, "")
 	require.NoError(err)
 	require.NoError(bc.ValidateBlock(blk, true))
 	require.Nil(bc.CommitBlock(blk))
@@ -91,7 +92,8 @@ func TestEVM(t *testing.T) {
 	require.NoError(err)
 	require.NoError(action.Sign(execution, ta.Addrinfo["producer"].PrivateKey))
 	logger.Info().Msgf("execution %+v", execution)
-	blk, err = bc.MintNewBlock(nil, nil, []*action.Execution{execution}, nil, ta.Addrinfo["producer"], "")
+	blk, err = bc.MintNewBlock(nil, nil, []*action.Execution{execution}, nil, ta.Addrinfo["producer"],
+		nil, nil, "")
 	require.NoError(err)
 	require.NoError(bc.ValidateBlock(blk, true))
 	require.Nil(bc.CommitBlock(blk))
@@ -113,7 +115,8 @@ func TestEVM(t *testing.T) {
 	require.NoError(err)
 	require.NoError(action.Sign(execution, ta.Addrinfo["producer"].PrivateKey))
 	logger.Info().Msgf("execution %+v", execution)
-	blk, err = bc.MintNewBlock(nil, nil, []*action.Execution{execution}, nil, ta.Addrinfo["producer"], "")
+	blk, err = bc.MintNewBlock(nil, nil, []*action.Execution{execution}, nil, ta.Addrinfo["producer"],
+		nil, nil, "")
 	require.NoError(err)
 	require.NoError(bc.ValidateBlock(blk, true))
 	require.Nil(bc.CommitBlock(blk))
@@ -194,7 +197,8 @@ func TestRollDice(t *testing.T) {
 		ta.Addrinfo["producer"].RawAddress, action.EmptyAddress, 1, big.NewInt(0), uint64(1000000), big.NewInt(10), data)
 	require.NoError(err)
 	require.NoError(action.Sign(execution, ta.Addrinfo["producer"].PrivateKey))
-	blk, err := bc.MintNewBlock(nil, nil, []*action.Execution{execution}, nil, ta.Addrinfo["producer"], "")
+	blk, err := bc.MintNewBlock(nil, nil, []*action.Execution{execution}, nil, ta.Addrinfo["producer"],
+		nil, nil, "")
 	require.NoError(err)
 	require.NoError(bc.ValidateBlock(blk, true))
 	require.Nil(bc.CommitBlock(blk))
@@ -210,7 +214,8 @@ func TestRollDice(t *testing.T) {
 	require.NoError(err)
 	require.NoError(action.Sign(execution, ta.Addrinfo["producer"].PrivateKey))
 	logger.Info().Msgf("execution %+v", execution)
-	blk, err = bc.MintNewBlock(nil, nil, []*action.Execution{execution}, nil, ta.Addrinfo["producer"], "")
+	blk, err = bc.MintNewBlock(nil, nil, []*action.Execution{execution}, nil, ta.Addrinfo["producer"],
+		nil, nil, "")
 	require.NoError(err)
 	require.NoError(bc.ValidateBlock(blk, true))
 	require.Nil(bc.CommitBlock(blk))
@@ -226,7 +231,8 @@ func TestRollDice(t *testing.T) {
 	require.NoError(err)
 	require.NoError(action.Sign(execution, ta.Addrinfo["producer"].PrivateKey))
 	logger.Info().Msgf("execution %+v\n", execution)
-	blk, err = bc.MintNewBlock(nil, nil, []*action.Execution{execution}, nil, ta.Addrinfo["producer"], "")
+	blk, err = bc.MintNewBlock(nil, nil, []*action.Execution{execution}, nil, ta.Addrinfo["producer"],
+		nil, nil, "")
 	require.NoError(err)
 	require.NoError(bc.ValidateBlock(blk, true))
 	require.Nil(bc.CommitBlock(blk))
@@ -249,7 +255,8 @@ func TestRollDice(t *testing.T) {
 	require.NoError(err)
 	require.NoError(action.Sign(execution, ta.Addrinfo["bravo"].PrivateKey))
 	logger.Info().Msgf("execution %+v\n", execution)
-	blk, err = bc.MintNewBlock(nil, nil, []*action.Execution{execution}, nil, ta.Addrinfo["producer"], "")
+	blk, err = bc.MintNewBlock(nil, nil, []*action.Execution{execution}, nil, ta.Addrinfo["producer"],
+		nil, nil, "")
 	require.NoError(err)
 	require.NoError(bc.ValidateBlock(blk, true))
 	require.Nil(bc.CommitBlock(blk))
@@ -292,7 +299,8 @@ func TestERC20(t *testing.T) {
 		ta.Addrinfo["producer"].RawAddress, action.EmptyAddress, 1, big.NewInt(0), uint64(10000000), big.NewInt(10), data)
 	require.NoError(err)
 	require.NoError(action.Sign(execution, ta.Addrinfo["producer"].PrivateKey))
-	blk, err := bc.MintNewBlock(nil, nil, []*action.Execution{execution}, nil, ta.Addrinfo["producer"], "")
+	blk, err := bc.MintNewBlock(nil, nil, []*action.Execution{execution}, nil, ta.Addrinfo["producer"],
+		nil, nil, "")
 	require.NoError(err)
 	require.NoError(bc.ValidateBlock(blk, true))
 	require.Nil(bc.CommitBlock(blk))
@@ -339,7 +347,8 @@ func TestERC20(t *testing.T) {
 		ta.Addrinfo["producer"].RawAddress, contract, 3, big.NewInt(0), uint64(10000000), big.NewInt(10), data)
 	require.NoError(err)
 	require.NoError(action.Sign(ex2, ta.Addrinfo["producer"].PrivateKey))
-	blk, err = bc.MintNewBlock(nil, nil, []*action.Execution{execution, ex2}, nil, ta.Addrinfo["producer"], "")
+	blk, err = bc.MintNewBlock(nil, nil, []*action.Execution{execution, ex2}, nil,
+		ta.Addrinfo["producer"], nil, nil, "")
 	require.NoError(err)
 	require.NoError(bc.ValidateBlock(blk, true))
 	require.Nil(bc.CommitBlock(blk))
@@ -357,7 +366,8 @@ func TestERC20(t *testing.T) {
 		ta.Addrinfo["alfa"].RawAddress, contract, 1, big.NewInt(0), uint64(10000000), big.NewInt(10), data)
 	require.NoError(err)
 	require.NoError(action.Sign(ex3, ta.Addrinfo["alfa"].PrivateKey))
-	blk, err = bc.MintNewBlock(nil, nil, []*action.Execution{ex3}, nil, ta.Addrinfo["alfa"], "")
+	blk, err = bc.MintNewBlock(nil, nil, []*action.Execution{ex3}, nil, ta.Addrinfo["alfa"],
+		nil, nil, "")
 	require.NoError(err)
 	require.NoError(bc.ValidateBlock(blk, true))
 	require.Nil(bc.CommitBlock(blk))
@@ -370,7 +380,8 @@ func TestERC20(t *testing.T) {
 		ta.Addrinfo["producer"].RawAddress, contract, 4, big.NewInt(0), uint64(10000000), big.NewInt(10), data)
 	require.NoError(err)
 	require.NoError(action.Sign(execution, ta.Addrinfo["producer"].PrivateKey))
-	blk, err = bc.MintNewBlock(nil, nil, []*action.Execution{execution}, nil, ta.Addrinfo["producer"], "")
+	blk, err = bc.MintNewBlock(nil, nil, []*action.Execution{execution}, nil, ta.Addrinfo["producer"],
+		nil, nil, "")
 	require.NoError(err)
 	require.NoError(bc.ValidateBlock(blk, true))
 	require.Nil(bc.CommitBlock(blk))

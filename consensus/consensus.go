@@ -87,7 +87,8 @@ func NewConsensus(
 			Int("Executions", len(executions)).
 			Msg("pick actions")
 
-		blk, err := bc.MintNewBlock(transfers, votes, executions, nil, GetAddr(cfg), "")
+		blk, err := bc.MintNewBlock(transfers, votes, executions, nil, GetAddr(cfg), nil,
+			nil, "")
 		if err != nil {
 			logger.Error().Msg("Failed to mint a block")
 			return nil, err
