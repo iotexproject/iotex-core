@@ -1,0 +1,225 @@
+// Copyright (c) 2018 IoTeX
+// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
+// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
+// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
+// License 2.0 that can be found in the LICENSE file.
+
+// To compile this file:
+// 1. Install the barrister translator (IDL -> JSON)
+// you need to be root (or use sudo)
+// pip install barrister
+
+// 2. Install barrister-go
+// go get github.com/coopernurse/barrister-go
+// go install github.com/coopernurse/barrister-go/idl2go
+
+// 3. barrister explorer.idl | $GOPATH/bin/idl2go -i -p explorer
+
+struct CallArgs {
+	from                string
+	to                  string
+	gas                 int
+	gasPrice            int
+	value               int
+    data                string
+}
+
+struct SendTxArgs {
+    from                string
+	to                  string
+	gas                 int
+	gasPrice            int
+	value               int
+	nonce               int
+	data                string
+	input               string
+}
+
+struct Log {
+	address             string
+	topics              []string
+	Data                string
+	BlockNumber         int
+	TxHash              string
+    TxIndex             int
+	BlockHash           string
+	Index               int
+	Removed             bool
+}
+
+struct Transaction {
+    blockHash           string
+    blockNumber         int
+    from                string
+    gas                 int
+    gasPrice            int
+    hash                string
+    input               string
+    nonce               int
+    to                  string
+    transactionIndex    int
+    value               int
+    v                   int
+    r                   string
+    s                   string
+}
+
+struct TransactionReceipt {
+    blockHash           string
+    blockNumber         int
+    transactionHash     string
+    transactionIndex    int
+    from                string
+    to                  string
+    gasUsed             int
+    cumulativeGasUsed   int
+    contractAddress     string
+    logs                []Log
+    logsBloom           string
+}
+
+struct Block {
+    number              int
+    hash                string
+    parentHash          string
+    nonce               string
+    sha3Uncles          string
+    logsBloom           string
+    transactionsRoot    string
+    stateRoot           string
+    receiptsRoot        string
+    miner               string
+    difficulty          int
+    totalDifficulty     int
+    extraData           string
+    size                int
+    gasLimit            int
+    gasUsed             int
+    timestamp           int
+    transactions        []Transaction
+    uncles              []string
+}
+
+interface Web3API {
+    // ClientVersion returns the current client version
+    ClientVersion() string
+
+    // Sha3 returns Keccak-256 (not the standardized SHA3-256) of the given data
+    Sha3(input string) string
+
+    // NetVersion returns the current net id
+    NetVersion() string
+
+    // NetListening returns whether client is actively listening for network connections
+    NetListening() bool
+
+    // NetPeerCount returns number of peers currently connected to the client
+    NetPeerCount() int
+
+    // ProtocolVersion returns the current iotex protocol version
+    ProtocolVersion() string
+
+    // Syncing returns an object with data about the sync status or false
+    Syncing() string
+
+    // Coinbase returns the client coinbase address
+    Coinbase() string
+
+    // Mining returns true if client is actively mining new blocks
+    Mining() string
+
+    // HashRate returns the number of hashes per second that the node is mining with
+    HashRate() string
+
+    // GasPrice returns the current price per gas
+    GasPrice() int
+
+    // Accounts returns a list of addresses owned by client
+    Accounts() []string
+
+    // BlockNumber returns the number of most recent block
+    BlockNumber() int
+
+    // GetBalance returns the balance of the account of given address
+    // position can be a block number or 'latest', 'earliest' and 'pending'
+    GetBalance(address string, blockNumber int) int
+
+    // GetStorageAt returns the value from a storage position at a given address
+    GetStorageAt(address string, key int, blockNumber int) string
+
+    // GetTransactionCount returns the number of transactions sent from an address
+    GetTransactionCount(address string, blockNumber int) int
+
+    // GetBlockTransactionCountByHash returns the number of transactions in a block from a
+    // block matching the given block hash
+    GetBlockTransactionCountByHash(blockHash string) int
+
+    // GetBlockTransactionCountByNumber returns the number of transactions in a block matching
+    // the given block number
+    GetBlockTransactionCountByNumber(blockNumber int) int
+
+    // GetUncleCountByBlockHash returns the number of uncles in a block from a block matching
+    // the given block hash
+    GetUncleCountByBlockHash(blockHash string) int
+
+    // GetUncleCountByBlockNumber returns the number of uncles in a block from a block matching
+    // the given block number
+    GetUncleCountByBlockNumber(blockNumber int) int
+
+    // GetCode returns code at a given address
+    GetCode(address string, blockNumber int) string
+
+    // Sign returns an Ethereum specific signature with: sign(keccak256("\x19Ethereum Signed
+    // Message:\n" + len(message) + message)))
+    Sign(address string, data string) string
+
+    // SendTransaction creates new message call transaction or a contract creation, if the
+    // data field contains code
+    SendTransaction(args SendTxArgs) string
+
+    // SendRawTransaction creates new message call transaction or a contract creation for
+    // signed transactions
+    SendRawTransaction(encodedTx string) string
+
+    // Call executes a new message call immediately without creating a transaction on the block chain
+    Call(args CallArgs, blockNumber int) string
+
+    // EstimateGas generates and returns an estimate of how much gas is necessary to allow the
+    // transaction to complete. The transaction will not be added to the blockchain. Note that the
+    // estimate may be significantly more than the amount of gas actually used by the transaction,
+    // for a variety of reasons including EVM mechanics and node performance
+    EstimateGas(args CallArgs) int
+
+    // GetBlockByHash returns information about a block by hash
+    GetBlockByHash(blockHash string) Block
+
+    // GetBlockHashByHash returns information about a block hash by hash
+    GetBlockHashByHash(blockHash string) string
+
+    // GetBlockByNumber returns information about a block by block number
+    GetBlockByNumber(blockNumber int) Block
+
+    // GetBlockHashByNumber returns information about a block hash by block number
+    GetBlockHashByNumber(blockNumber int) string
+
+    // GetTransactionByHash returns the information about a transaction requested by transaction hash
+    GetTransactionByHash(hash string) Transaction
+
+    // GetTransactionByBlockHashAndIndex returns information about a transaction by block hash and
+    // transaction index position
+    GetTransactionByBlockHashAndIndex(blockHash string, index int) Transaction
+
+    // GetTransactionByBlockNumberAndIndex returns information about a transaction by block number
+    // and transaction index position
+    GetTransactionByBlockNumberAndIndex(blockNumber int, index int) Transaction
+
+    // GetTransactionReceipt returns the receipt of a transaction by transaction hash
+    GetTransactionReceipt(hash string) TransactionReceipt
+
+    // GetUncleByBlockHashAndIndex returns information about a uncle of a block by hash and uncle index position
+    GetUncleByBlockHashAndIndex(blockHash string, index int) Block
+
+    // GetUncleByBlockNumberAndIndex returns information about a uncle of a block by number and uncle index position
+    GetUncleByBlockNumberAndIndex(blockNumber int, uncleIndex int) Block
+}
+
