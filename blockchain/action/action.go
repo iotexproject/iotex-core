@@ -16,6 +16,7 @@ import (
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"github.com/iotexproject/iotex-core/proto"
 )
 
 var (
@@ -37,9 +38,11 @@ type Action interface {
 	GasPrice() *big.Int
 	Signature() []byte
 	SetSignature(signature []byte)
+	ByteStream() []byte
 	Hash() hash.Hash32B
 	IntrinsicGas() (uint64, error)
 	Cost() (*big.Int, error)
+	ConvertToActionPb() *iproto.ActionPb
 }
 
 type action struct {
@@ -51,6 +54,12 @@ type action struct {
 	gasLimit  uint64
 	gasPrice  *big.Int
 	signature []byte
+}
+
+// NewActionFromProto converts a proto message into a corresponding action struct
+func NewActionFromProto(pbAct *iproto.ActionPb) Action {
+	// TODO: implement the logic
+	return nil
 }
 
 // Version returns the version

@@ -56,11 +56,17 @@ type (
 		cachedContract   map[hash.PKHash]Contract // contracts being modified in this block
 		accountTrie      trie.Trie                // global state trie
 		dao              db.CachedKVStore         // the underlying DB for account/contract storage
+		actionHandlers   []ActionHandler
 	}
 )
 
 // NewWorkingSet creates a new working set
-func NewWorkingSet(version uint64, kv db.KVStore, root hash.Hash32B) (WorkingSet, error) {
+func NewWorkingSet(
+	version uint64,
+	kv db.KVStore,
+	root hash.Hash32B,
+	actionHandlers []ActionHandler,
+) (WorkingSet, error) {
 	ws := &workingSet{
 		ver:              version,
 		cachedCandidates: make(map[hash.PKHash]*Candidate),
@@ -68,6 +74,7 @@ func NewWorkingSet(version uint64, kv db.KVStore, root hash.Hash32B) (WorkingSet
 		cachedAccount:    make(map[hash.PKHash]*State),
 		cachedContract:   make(map[hash.PKHash]Contract),
 		dao:              db.NewCachedKVStore(kv),
+		actionHandlers:   actionHandlers,
 	}
 	tr, err := trie.NewTrieSharedDB(ws.dao, trie.AccountKVNameSpace, root)
 	if err != nil {
@@ -242,6 +249,15 @@ func (ws *workingSet) RunActions(
 			return hash.ZeroHash32B, errors.Wrap(err, "failed to update pending state changes to trie")
 		}
 	}
+
+	for _, act := range actions {
+		for _, actionHandler := range ws.actionHandlers {
+			if err := actionHandler.handle(act); err != nil {
+				return hash.ZeroHash32B, errors.Wrapf(err, "error when action %x mutates states", act.Hash())
+			}
+		}
+	}
+
 	// Persist accountTrie's root hash
 	rootHash := ws.accountTrie.RootHash()
 	if err := ws.dao.Put(trie.AccountKVNameSpace, []byte(AccountTrieRootKey), rootHash[:]); err != nil {

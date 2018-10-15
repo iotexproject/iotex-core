@@ -105,7 +105,7 @@ func TestLocalActPool(t *testing.T) {
 
 	// Wait until server receives all the transfers
 	require.NoError(testutil.WaitUntil(100*time.Millisecond, 5*time.Second, func() (bool, error) {
-		transfers, votes, executions := svr.ChainService(chainID).ActionPool().PickActs()
+		transfers, votes, executions, _ := svr.ChainService(chainID).ActionPool().PickActs()
 		// 2 valid transfers and 1 valid vote and 1 valid execution
 		return len(transfers) == 2 && len(votes) == 1 && len(executions) == 1, nil
 	}))
@@ -160,7 +160,7 @@ func TestPressureActPool(t *testing.T) {
 
 	// Wait until committed blocks contain all broadcasted actions
 	err = testutil.WaitUntil(10*time.Millisecond, 10*time.Second, func() (bool, error) {
-		transfers, _, _ := svr.ChainService(chainID).ActionPool().PickActs()
+		transfers, _, _, _ := svr.ChainService(chainID).ActionPool().PickActs()
 		return len(transfers) == 1000, nil
 	})
 	require.Nil(err)
