@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/coopernurse/barrister-go"
 	"github.com/pkg/errors"
@@ -23,13 +24,19 @@ import (
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network"
+	"github.com/iotexproject/iotex-core/explorer/idl/web3api"
 )
 
 // Server is the container of the explorer service
 type Server struct {
-	cfg     config.Explorer
-	exp     explorer.Explorer
-	jrpcSvr barrister.Server
+	cfg config.Explorer
+
+	expSvc explorer.Explorer
+	expSvr barrister.Server
+
+	web3Svc web3api.Web3API
+	web3Svr barrister.Server
+
 	httpSvr http.Server
 	port    int
 }
@@ -45,7 +52,7 @@ func NewServer(
 ) *Server {
 	return &Server{
 		cfg: cfg,
-		exp: &Service{
+		expSvc: &Service{
 			bc:  chain,
 			c:   consensus,
 			dp:  dispatcher,
@@ -53,14 +60,17 @@ func NewServer(
 			p2p: p2p,
 			cfg: cfg,
 		},
+		web3Svc: &PublicWeb3API{
+			bc: chain,
+		},
 	}
 }
 
-// NewTestSever instantiates an explorer server with mock handler
+// NewTestSever instantiates an explorer server with mock web3Svr
 func NewTestSever(cfg config.Explorer) *Server {
 	return &Server{
-		cfg: cfg,
-		exp: &MockExplorer{},
+		cfg:    cfg,
+		expSvc: &MockExplorer{},
 	}
 }
 
@@ -69,10 +79,17 @@ func (s *Server) Start(_ context.Context) error {
 	portStr := strconv.Itoa(s.cfg.Port)
 	started := make(chan bool)
 	go func(started chan bool) {
-		idl := barrister.MustParseIdlJson([]byte(explorer.IdlJsonRaw))
-		s.jrpcSvr = explorer.NewJSONServer(idl, true, s.exp)
-		s.jrpcSvr.AddFilter(logFilter{})
-		s.httpSvr = http.Server{Handler: &s.jrpcSvr}
+		// explorer
+		expIdl := barrister.MustParseIdlJson([]byte(explorer.IdlJsonRaw))
+		s.expSvr = explorer.NewJSONServer(expIdl, true, s.expSvc)
+		s.expSvr.AddFilter(logFilter{})
+
+		// web3
+		web3Idl := barrister.MustParseIdlJson([]byte(web3api.IdlJsonRaw))
+		s.web3Svr = web3api.NewJSONServer(web3Idl, true, s.web3Svc)
+		s.web3Svr.AddFilter(logFilter{})
+
+		s.httpSvr = http.Server{Handler: adapterHandler{web3Svr: s.web3Svr, expSvr: s.expSvr}}
 		listener, err := net.Listen("tcp", ":"+portStr)
 		if err != nil {
 			logger.Panic().Err(err).Msg("error when creating network listener")
@@ -109,7 +126,7 @@ func (s *Server) Port() int {
 }
 
 // Explorer returns explorer interface.
-func (s *Server) Explorer() explorer.Explorer { return s.exp }
+func (s *Server) Explorer() explorer.Explorer { return s.expSvc }
 
 // logFilter example of Filter implementation
 type logFilter struct{}
@@ -124,4 +141,22 @@ func (f logFilter) PreInvoke(r *barrister.RequestResponse) bool {
 func (f logFilter) PostInvoke(r *barrister.RequestResponse) bool {
 	logger.Debug().Msgf("logFilter: PostInvoke of method: %s", r.Method)
 	return true
+}
+
+type adapterHandler struct {
+	web3Svr barrister.Server
+	expSvr  barrister.Server
+}
+
+func (h adapterHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With")
+
+	if strings.HasPrefix(r.URL.Path, "/web3") {
+		h.web3Svr.ServeHTTP(w, r)
+		return
+	}
+
+	h.expSvr.ServeHTTP(w, r)
 }
