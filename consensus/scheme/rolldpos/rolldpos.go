@@ -265,12 +265,12 @@ func (ctx *rollDPoSCtx) mintSecretBlock() (*blockchain.Block, error) {
 
 // mintCommonBlock picks the actions and creates a common block to propose
 func (ctx *rollDPoSCtx) mintCommonBlock() (*blockchain.Block, error) {
-	transfers, votes, executions := ctx.actPool.PickActs()
+	transfers, votes, executions, actions := ctx.actPool.PickActs()
 	logger.Debug().
 		Int("transfer", len(transfers)).
 		Int("votes", len(votes)).
 		Msg("pick actions from the action pool")
-	blk, err := ctx.chain.MintNewDKGBlock(transfers, votes, executions, ctx.addr, &ctx.epoch.dkgAddress,
+	blk, err := ctx.chain.MintNewDKGBlock(transfers, votes, executions, actions, ctx.addr, &ctx.epoch.dkgAddress,
 		ctx.epoch.seed, "")
 	if err != nil {
 		return nil, err

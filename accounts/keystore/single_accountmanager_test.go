@@ -86,7 +86,7 @@ func TestSingleAccountManager_SignHash(t *testing.T) {
 	m, err := NewSingleAccountManager(accountManager)
 	require.NoError(err)
 
-	blk := blockchain.NewBlock(1, 0, hash.ZeroHash32B, testutil.TimestampNow(), nil, nil, nil)
+	blk := blockchain.NewBlock(1, 0, hash.ZeroHash32B, testutil.TimestampNow(), nil, nil, nil, nil)
 	hash := blk.HashBlock()
 	signature, err := m.SignHash(hash[:])
 	require.NoError(err)

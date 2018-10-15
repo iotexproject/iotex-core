@@ -53,13 +53,15 @@ type ActPool interface {
 	// Reset resets actpool state
 	Reset()
 	// PickActs returns all currently accepted transfers and votes in actpool
-	PickActs() ([]*action.Transfer, []*action.Vote, []*action.Execution)
+	PickActs() ([]*action.Transfer, []*action.Vote, []*action.Execution, []action.Action)
 	// AddTsf adds an transfer into the pool after passing validation
 	AddTsf(tsf *action.Transfer) error
 	// AddVote adds a vote into the pool after passing validation
 	AddVote(vote *action.Vote) error
 	// AddExecution adds an execution into the pool after passing validation
 	AddExecution(execution *action.Execution) error
+	// Add adds an action into the pool after passing validation
+	Add(act action.Action) error
 	// GetPendingNonce returns pending nonce in pool given an account address
 	GetPendingNonce(addr string) (uint64, error)
 	// GetUnconfirmedActs returns unconfirmed actions in pool given an account address
@@ -72,6 +74,11 @@ type ActPool interface {
 	GetCapacity() uint64
 }
 
+// ActionValidator is the interface of validating an action
+type ActionValidator interface {
+	validate(action.Action) (bool, error)
+}
+
 // actPool implements ActPool interface
 type actPool struct {
 	mutex       sync.RWMutex
@@ -79,10 +86,11 @@ type actPool struct {
 	bc          blockchain.Blockchain
 	accountActs map[string]ActQueue
 	allActions  map[hash.Hash32B]action.Action
+	validators  []ActionValidator
 }
 
 // NewActPool constructs a new actpool
-func NewActPool(bc blockchain.Blockchain, cfg config.ActPool) (ActPool, error) {
+func NewActPool(bc blockchain.Blockchain, cfg config.ActPool, validators ...ActionValidator) (ActPool, error) {
 	if bc == nil {
 		return nil, errors.New("Try to attach a nil blockchain")
 	}
@@ -91,6 +99,7 @@ func NewActPool(bc blockchain.Blockchain, cfg config.ActPool) (ActPool, error) {
 		bc:          bc,
 		accountActs: make(map[string]ActQueue),
 		allActions:  make(map[hash.Hash32B]action.Action),
+		validators:  validators,
 	}
 	return ap, nil
 }
@@ -132,7 +141,7 @@ func (ap *actPool) Reset() {
 }
 
 // PickActs returns all currently accepted transfers and votes for all accounts
-func (ap *actPool) PickActs() ([]*action.Transfer, []*action.Vote, []*action.Execution) {
+func (ap *actPool) PickActs() ([]*action.Transfer, []*action.Vote, []*action.Execution, []action.Action) {
 	ap.mutex.Lock()
 	defer ap.mutex.Unlock()
 
@@ -140,28 +149,30 @@ func (ap *actPool) PickActs() ([]*action.Transfer, []*action.Vote, []*action.Exe
 	transfers := make([]*action.Transfer, 0)
 	votes := make([]*action.Vote, 0)
 	executions := make([]*action.Execution, 0)
+	actions := make([]action.Action, 0)
 	for _, queue := range ap.accountActs {
 		for _, act := range queue.PendingActs() {
 			switch act.(type) {
 			case *action.Transfer:
 				transfers = append(transfers, act.(*action.Transfer))
-				numActs++
 			case *action.Vote:
 				votes = append(votes, act.(*action.Vote))
-				numActs++
 			case *action.Execution:
 				executions = append(executions, act.(*action.Execution))
-				numActs++
+
+			default:
+				actions = append(actions, act)
 			}
+			numActs++
 			if ap.cfg.MaxNumActsToPick > 0 && numActs >= ap.cfg.MaxNumActsToPick {
 				logger.Debug().
 					Uint64("limit", ap.cfg.MaxNumActsToPick).
 					Msg("reach the max number of actions to pick")
-				return transfers, votes, executions
+				return transfers, votes, executions, actions
 			}
 		}
 	}
-	return transfers, votes, executions
+	return transfers, votes, executions, actions
 }
 
 // AddTsf inserts a new transfer into account queue if it passes validation
@@ -257,6 +268,31 @@ func (ap *actPool) AddExecution(exec *action.Execution) error {
 	}
 
 	return ap.enqueueAction(exec.Executor(), exec, hash, exec.Nonce())
+}
+
+func (ap *actPool) Add(act action.Action) error {
+	ap.mutex.Lock()
+	defer ap.mutex.Unlock()
+	// Reject action if pool space is full
+	if uint64(len(ap.allActions)) >= ap.cfg.MaxNumActsPerPool {
+		return errors.Wrapf(ErrActPool, "insufficient space for execution")
+	}
+	hash := act.Hash()
+	// Reject action if it already exists in pool
+	if ap.allActions[hash] != nil {
+		return fmt.Errorf("reject existing execution: %x", hash)
+	}
+	// Reject action if it's invalid
+	for _, validator := range ap.validators {
+		ok, err := validator.validate(act)
+		if err != nil {
+			return errors.Wrapf(err, "reject invalid execution: %x", hash)
+		}
+		if !ok {
+			return fmt.Errorf("reject invalid execution: %x", hash)
+		}
+	}
+	return ap.enqueueAction(act.SrcAddr(), act, hash, act.Nonce())
 }
 
 // GetPendingNonce returns pending nonce in pool or confirmed nonce given an account address
