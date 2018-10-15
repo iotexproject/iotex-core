@@ -9,7 +9,7 @@ package keystore
 import (
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core/blockchain/action"
+	"github.com/iotexproject/iotex-core/action"
 )
 
 var (

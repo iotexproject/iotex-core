@@ -14,13 +14,14 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/network"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/server/itx"
+	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
@@ -68,8 +69,8 @@ func TestLocalActPool(t *testing.T) {
 		testutil.CleanupPath(t, testDBPath)
 	}()
 
-	from := testutil.ConstructAddress(chainID, fromPubKey, fromPrivKey)
-	to := testutil.ConstructAddress(chainID, toPubKey, toPrivKey)
+	from := testaddress.ConstructAddress(chainID, fromPubKey, fromPrivKey)
+	to := testaddress.ConstructAddress(chainID, toPubKey, toPrivKey)
 
 	require.NoError(testutil.WaitUntil(100*time.Millisecond, 5*time.Second, func() (bool, error) {
 		return len(svr.P2P().GetPeers()) == 1 && len(cli.GetPeers()) == 1, nil
@@ -143,8 +144,8 @@ func TestPressureActPool(t *testing.T) {
 		testutil.CleanupPath(t, testDBPath)
 	}()
 
-	from := testutil.ConstructAddress(chainID, fromPubKey, fromPrivKey)
-	to := testutil.ConstructAddress(chainID, toPubKey, toPrivKey)
+	from := testaddress.ConstructAddress(chainID, fromPubKey, fromPrivKey)
+	to := testaddress.ConstructAddress(chainID, toPubKey, toPrivKey)
 
 	require.NoError(testutil.WaitUntil(100*time.Millisecond, 5*time.Second, func() (bool, error) {
 		return len(svr.P2P().GetPeers()) == 1 && len(cli.GetPeers()) == 1, nil

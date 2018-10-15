@@ -10,8 +10,9 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/iotexproject/iotex-core/blockchain/action"
+	"github.com/iotexproject/iotex-core/action"
 
+	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/stretchr/testify/require"
 )
 
@@ -23,8 +24,8 @@ const (
 )
 
 var (
-	addr1 = ConstructAddress(1, pubkeyA, prikeyA)
-	addr2 = ConstructAddress(1, pubkeyB, prikeyB)
+	addr1 = testaddress.ConstructAddress(1, pubkeyA, prikeyA)
+	addr2 = testaddress.ConstructAddress(1, pubkeyB, prikeyB)
 )
 
 func TestSignedTransfer(t *testing.T) {

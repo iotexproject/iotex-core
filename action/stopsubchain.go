@@ -19,6 +19,11 @@ import (
 	"github.com/iotexproject/iotex-core/proto"
 )
 
+const (
+	// StopSubChainIntrinsicGas is the instrinsic gas for stop sub chain action
+	StopSubChainIntrinsicGas = uint64(1000)
+)
+
 // StopSubChain defines the action to stop sub chain
 type StopSubChain struct {
 	action
@@ -27,7 +32,15 @@ type StopSubChain struct {
 }
 
 // NewStopSubChain returns a StopSubChain instance
-func NewStopSubChain(senderAddress string, nonce uint64, chainID uint32, chainAddress string, stopHeight uint64, gasLimit uint64, gasPrice *big.Int) (*StopSubChain, error) {
+func NewStopSubChain(
+	senderAddress string,
+	nonce uint64,
+	chainID uint32,
+	chainAddress string,
+	stopHeight uint64,
+	gasLimit uint64,
+	gasPrice *big.Int,
+) (*StopSubChain, error) {
 	return &StopSubChain{
 		action: action{
 			version:  version.ProtocolVersion,
@@ -162,7 +175,7 @@ func (ssc *StopSubChain) IntrinsicGas() (uint64, error) {
 func (ssc *StopSubChain) Cost() (*big.Int, error) {
 	intrinsicGas, err := ssc.IntrinsicGas()
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get intrinsic gas for the StopSubChain action")
+		return nil, errors.Wrap(err, "failed to get intrinsic gas for the stop sub-chain action")
 	}
 	fee := big.NewInt(0).Mul(ssc.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas))
 	return fee, nil
