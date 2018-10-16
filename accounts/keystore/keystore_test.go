@@ -14,7 +14,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/testutil"
+	"github.com/iotexproject/iotex-core/test/testaddress"
 )
 
 const (
@@ -38,7 +38,7 @@ func TestPlainKeyStore(t *testing.T) {
 
 	ks, err := NewPlainKeyStore(ksDir)
 	require.NoError(err)
-	addr1 := testutil.ConstructAddress(1, pubKey1, priKey1)
+	addr1 := testaddress.ConstructAddress(1, pubKey1, priKey1)
 	//Test Store
 	err = ks.Store("123", addr1)
 	require.Error(err)
@@ -82,7 +82,7 @@ func TestPlainKeyStore(t *testing.T) {
 	require.Equal(false, exist)
 
 	// Test All
-	addr2 := testutil.ConstructAddress(1, pubKey2, priKey2)
+	addr2 := testaddress.ConstructAddress(1, pubKey2, priKey2)
 	err = ks.Store(rawAddr1, addr1)
 	require.NoError(err)
 	err = ks.Store(rawAddr2, addr2)
@@ -96,7 +96,7 @@ func TestMemKeyStore(t *testing.T) {
 	require := require.New(t)
 
 	ks := NewMemKeyStore()
-	addr1 := testutil.ConstructAddress(1, pubKey1, priKey1)
+	addr1 := testaddress.ConstructAddress(1, pubKey1, priKey1)
 	// Test Store
 	err := ks.Store("123", addr1)
 	require.Error(err)
@@ -140,7 +140,7 @@ func TestMemKeyStore(t *testing.T) {
 	require.Equal(false, exist)
 
 	// Test All
-	addr2 := testutil.ConstructAddress(1, pubKey2, priKey2)
+	addr2 := testaddress.ConstructAddress(1, pubKey2, priKey2)
 	err = ks.Store(rawAddr1, addr1)
 	require.NoError(err)
 	err = ks.Store(rawAddr2, addr2)

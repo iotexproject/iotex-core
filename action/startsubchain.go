@@ -4,20 +4,25 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package subchain
+package action
 
 import (
 	"math/big"
 	"reflect"
 
+	"github.com/pkg/errors"
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotexproject/iotex-core/pkg/enc"
-	"github.com/iotexproject/iotex-core/pkg/errcode"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/proto"
+)
+
+const (
+	// StartSubChainIntrinsicGas is the instrinsic gas for stop sub chain action
+	StartSubChainIntrinsicGas = uint64(1000)
 )
 
 // StartSubChain represents start sub-chain message
@@ -113,8 +118,8 @@ func (start *StartSubChain) OwnerAddress() string { return start.SrcAddr() }
 // OwnerPublicKey returns the owner public key, which is the wrapper of SrcPubkey
 func (start *StartSubChain) OwnerPublicKey() keypair.PublicKey { return start.SrcPubkey() }
 
-// Hash returns the hash of starting sub-chain message
-func (start *StartSubChain) Hash() hash.Hash32B {
+// ByteStream returns the byte representation of sub-chain action
+func (start *StartSubChain) ByteStream() []byte {
 	stream := []byte(reflect.TypeOf(start).String())
 	temp := make([]byte, 4)
 	enc.MachineEndian.PutUint32(stream, start.version)
@@ -145,7 +150,12 @@ func (start *StartSubChain) Hash() hash.Hash32B {
 	if start.gasPrice != nil && len(start.gasPrice.Bytes()) > 0 {
 		stream = append(stream, start.gasPrice.Bytes()...)
 	}
-	return blake2b.Sum256(stream)
+	return stream
+}
+
+// Hash returns the hash of starting sub-chain message
+func (start *StartSubChain) Hash() hash.Hash32B {
+	return blake2b.Sum256(start.ByteStream())
 }
 
 // Proto converts start sub-chain action into a proto message
@@ -179,82 +189,17 @@ func (start *StartSubChain) Proto() *iproto.ActionPb {
 	return act
 }
 
-// StopSubChain represents stop sub-chain message
-type StopSubChain struct {
-	action
-	chainID    uint32
-	stopHeight uint64
-}
-
-// Hash returns the hash of stopping sub-chain message
-func (stop *StopSubChain) Hash() hash.Hash32B {
-	// TODO: implement hash generation
-	var hash hash.Hash32B
-	return hash
-}
-
-// PutBlock represents put a sub-chain block message
-type PutBlock struct {
-	action
-	chainID            uint32
-	height             uint64
-	hash               hash.Hash32B
-	actionRoot         hash.Hash32B
-	stateRoot          hash.Hash32B
-	endorsorSignatures map[keypair.PublicKey][]byte
-}
-
-// Hash returns the hash of putting a sub-chain block message
-func (put *PutBlock) Hash() hash.Hash32B {
-	// TODO: implement hash generation
-	var hash hash.Hash32B
-	return hash
-}
-
-// TODO: we need to remove this duplicate code of blockchain/action/action.go
-type action struct {
-	version   uint32
-	nonce     uint64
-	srcAddr   string
-	srcPubkey keypair.PublicKey
-	dstAddr   string
-	gasLimit  uint64
-	gasPrice  *big.Int
-	signature []byte
-}
-
-// Version returns the version
-func (act *action) Version() uint32 { return act.version }
-
-// Nonce returns the nonce
-func (act *action) Nonce() uint64 { return act.nonce }
-
-// SrcAddr returns the source address
-func (act *action) SrcAddr() string { return act.srcAddr }
-
-// SrcPubkey returns the source public key
-func (act *action) SrcPubkey() keypair.PublicKey { return act.srcPubkey }
-
-// SetSrcPubkey sets the source public key
-func (act *action) SetSrcPubkey(srcPubkey keypair.PublicKey) { act.srcPubkey = srcPubkey }
-
-// DstAddr returns the destination address
-func (act *action) DstAddr() string { return act.dstAddr }
-
-// GasLimit returns the gas limit
-func (act *action) GasLimit() uint64 { return act.gasLimit }
-
-// GasPrice returns the gas price
-func (act *action) GasPrice() *big.Int { return act.gasPrice }
-
-// Signature returns signature bytes
-func (act *action) Signature() []byte { return act.signature }
-
-// SetSignature sets the signature bytes
-func (act *action) SetSignature(signature []byte) { act.signature = signature }
-
-// IntrinsicGas returns the intrinsic gas of an action
+// IntrinsicGas returns the intrinsic gas of a start sub-chain action
 func (start *StartSubChain) IntrinsicGas() (uint64, error) {
-	// TODO: implement intrinsic gas calculation
-	return 0, errcode.ErrNotImplemented
+	return StartSubChainIntrinsicGas, nil
+}
+
+// Cost returns the total cost of a start sub-chain action
+func (start *StartSubChain) Cost() (*big.Int, error) {
+	intrinsicGas, err := start.IntrinsicGas()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get intrinsic gas for the start-sub chain action")
+	}
+	fee := big.NewInt(0).Mul(start.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas))
+	return fee, nil
 }

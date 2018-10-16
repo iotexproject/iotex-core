@@ -4,16 +4,17 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package subchain
+package action
 
 import (
 	"math/big"
 	"testing"
 
-	"github.com/iotexproject/iotex-core/pkg/version"
-	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotexproject/iotex-core/pkg/version"
+	"github.com/iotexproject/iotex-core/test/testaddress"
 )
 
 func TestStartSubChain(t *testing.T) {

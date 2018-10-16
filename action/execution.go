@@ -133,8 +133,8 @@ func (ex *Execution) ByteStream() []byte {
 	return stream
 }
 
-// ConvertToActionPb converts Execution to protobuf's ActionPb
-func (ex *Execution) ConvertToActionPb() *iproto.ActionPb {
+// Proto converts Execution to protobuf's ActionPb
+func (ex *Execution) Proto() *iproto.ActionPb {
 	act := &iproto.ActionPb{
 		Action: &iproto.ActionPb_Execution{
 			Execution: &iproto.ExecutionPb{
@@ -181,7 +181,7 @@ func (ex *Execution) ToJSON() (*explorer.Execution, error) {
 
 // Serialize returns a serialized byte stream for the Execution
 func (ex *Execution) Serialize() ([]byte, error) {
-	return proto.Marshal(ex.ConvertToActionPb())
+	return proto.Marshal(ex.Proto())
 }
 
 // ConvertFromActionPb converts a protobuf's ActionPb to Execution
