@@ -46,6 +46,7 @@ jobs:
       - checkout
 
       # specify any bash command here prefixed with `run: `
+      - run: dep ensure --vendor-only
       - run: make nightlybuild
 workflows:
   version: 2
