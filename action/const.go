@@ -8,11 +8,6 @@ package action
 
 import "github.com/pkg/errors"
 
-const (
-	// GasLimit is the total gas limit to be consumed in a block
-	GasLimit = uint64(1000000000)
-)
-
 var (
 	// ErrHitGasLimit is the error when hit gas limit
 	ErrHitGasLimit = errors.New("Hit Gas Limit")
