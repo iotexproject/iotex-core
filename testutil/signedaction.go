@@ -9,7 +9,7 @@ package testutil
 import (
 	"math/big"
 
-	"github.com/iotexproject/iotex-core/blockchain/action"
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 )
 

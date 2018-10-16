@@ -110,8 +110,8 @@ func (v *Vote) ByteStream() []byte {
 	return stream
 }
 
-// ConvertToActionPb converts Vote to protobuf's ActionPb
-func (v *Vote) ConvertToActionPb() *iproto.ActionPb {
+// Proto converts Vote to protobuf's ActionPb
+func (v *Vote) Proto() *iproto.ActionPb {
 	pbVote := &iproto.ActionPb{
 		Action: &iproto.ActionPb_Vote{
 			Vote: &iproto.VotePb{
@@ -153,7 +153,7 @@ func (v *Vote) ToJSON() (*explorer.Vote, error) {
 
 // Serialize returns a serialized byte stream for the Transfer
 func (v *Vote) Serialize() ([]byte, error) {
-	return proto.Marshal(v.ConvertToActionPb())
+	return proto.Marshal(v.Proto())
 }
 
 // ConvertFromActionPb converts a protobuf's ActionPb to Vote

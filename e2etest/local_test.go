@@ -15,8 +15,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/network"
@@ -150,7 +150,7 @@ func TestLocalCommit(t *testing.T) {
 	s, _ = bc.StateByAddr(ta.Addrinfo["charlie"].RawAddress)
 	tsf1, _ := action.NewTransfer(s.Nonce+1, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["alfa"].RawAddress, []byte{}, uint64(100000), big.NewInt(0))
 	_ = action.Sign(tsf1, ta.Addrinfo["charlie"].PrivateKey)
-	act1 := tsf1.ConvertToActionPb()
+	act1 := tsf1.Proto()
 	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		if err := p.Broadcast(cfg.Chain.ID, act1); err != nil {
 			return false, err
@@ -176,7 +176,7 @@ func TestLocalCommit(t *testing.T) {
 	require.Nil(chain.ValidateBlock(blk2, true))
 	require.Nil(chain.CommitBlock(blk2))
 	// broadcast to P2P
-	act2 := tsf2.ConvertToActionPb()
+	act2 := tsf2.Proto()
 	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		if err := p.Broadcast(cfg.Chain.ID, act2); err != nil {
 			return false, err
@@ -196,7 +196,7 @@ func TestLocalCommit(t *testing.T) {
 	require.Nil(chain.ValidateBlock(blk3, true))
 	require.Nil(chain.CommitBlock(blk3))
 	// broadcast to P2P
-	act3 := tsf3.ConvertToActionPb()
+	act3 := tsf3.Proto()
 	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		if err := p.Broadcast(cfg.Chain.ID, act3); err != nil {
 			return false, err
@@ -216,7 +216,7 @@ func TestLocalCommit(t *testing.T) {
 	require.Nil(chain.ValidateBlock(blk4, true))
 	require.Nil(chain.CommitBlock(blk4))
 	// broadcast to P2P
-	act4 := tsf4.ConvertToActionPb()
+	act4 := tsf4.Proto()
 	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		if err := p.Broadcast(cfg.Chain.ID, act4); err != nil {
 			return false, err
@@ -490,13 +490,13 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.Nil(err)
 	vote3, err := testutil.SignedVote(ta.Addrinfo["charlie"], ta.Addrinfo["charlie"], uint64(6), uint64(100000), big.NewInt(0))
 	require.Nil(err)
-	act1 := vote1.ConvertToActionPb()
-	act2 := vote2.ConvertToActionPb()
-	act3 := vote3.ConvertToActionPb()
-	acttsf1 := tsf1.ConvertToActionPb()
-	acttsf2 := tsf2.ConvertToActionPb()
-	acttsf3 := tsf3.ConvertToActionPb()
-	acttsf4 := tsf4.ConvertToActionPb()
+	act1 := vote1.Proto()
+	act2 := vote2.Proto()
+	act3 := vote3.Proto()
+	acttsf1 := tsf1.Proto()
+	acttsf2 := tsf2.Proto()
+	acttsf3 := tsf3.Proto()
+	acttsf4 := tsf4.Proto()
 
 	err = testutil.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
 		if err := p.Broadcast(chainID, act1); err != nil {
@@ -551,8 +551,8 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.Nil(chain.ValidateBlock(blk2, true))
 	require.Nil(chain.CommitBlock(blk2))
 	// broadcast to P2P
-	act4 := vote4.ConvertToActionPb()
-	act5 := vote5.ConvertToActionPb()
+	act4 := vote4.Proto()
+	act5 := vote5.Proto()
 	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		if err := p.Broadcast(chainID, act4); err != nil {
 			return false, err
@@ -596,7 +596,7 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.Nil(chain.ValidateBlock(blk3, true))
 	require.Nil(chain.CommitBlock(blk3))
 	// broadcast to P2P
-	act6 := vote6.ConvertToActionPb()
+	act6 := vote6.Proto()
 	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		if err := p.Broadcast(chainID, act6); err != nil {
 			return false, err
@@ -639,7 +639,7 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.Nil(chain.ValidateBlock(blk4, true))
 	require.Nil(chain.CommitBlock(blk4))
 	// broadcast to P2P
-	act7 := vote7.ConvertToActionPb()
+	act7 := vote7.Proto()
 	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		if err := p.Broadcast(chainID, act7); err != nil {
 			return false, err
@@ -734,7 +734,7 @@ func TestDummyBlockReplacement(t *testing.T) {
 	require.NoError(err)
 	action.Sign(tsf0, sk)
 
-	act1 := tsf0.ConvertToActionPb()
+	act1 := tsf0.Proto()
 	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		if err := p.Broadcast(chainID, act1); err != nil {
 			return false, err
@@ -776,7 +776,7 @@ func TestDummyBlockReplacement(t *testing.T) {
 	tsf1, err := testutil.SignedTransfer(ta.Addrinfo["producer"], ta.Addrinfo["alfa"], 1, big.NewInt(1),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	act2 := tsf1.ConvertToActionPb()
+	act2 := tsf1.Proto()
 	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		if err := p.Broadcast(chainID, act2); err != nil {
 			return false, err
