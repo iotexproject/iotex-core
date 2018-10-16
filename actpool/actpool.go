@@ -356,7 +356,7 @@ func (ap *actPool) validateTsf(tsf *action.Transfer) error {
 		return errors.Wrapf(ErrActPool, "oversized data")
 	}
 	// Reject over-gassed transfer
-	if tsf.GasLimit() > action.GasLimit {
+	if tsf.GasLimit() > blockchain.GasLimit {
 		logger.Error().Msg("Error when validating transfer's gas limit")
 		return errors.Wrapf(ErrGasHigherThanLimit, "gas is higher than gas limit")
 	}
@@ -409,7 +409,7 @@ func (ap *actPool) validateExecution(exec *action.Execution) error {
 		return errors.Wrapf(ErrActPool, "oversized data")
 	}
 	// Reject over-gassed execution
-	if exec.GasLimit() > action.GasLimit {
+	if exec.GasLimit() > blockchain.GasLimit {
 		logger.Error().Msg("Error when validating execution's gas limit")
 		return errors.Wrapf(ErrGasHigherThanLimit, "gas is higher than gas limit")
 	}
@@ -465,7 +465,7 @@ func (ap *actPool) validateVote(vote *action.Vote) error {
 		return errors.Wrapf(ErrActPool, "oversized data")
 	}
 	// Reject over-gassed transfer
-	if vote.GasLimit() > action.GasLimit {
+	if vote.GasLimit() > blockchain.GasLimit {
 		logger.Error().Msg("Error when validating vote's gas limit")
 		return errors.Wrapf(ErrGasHigherThanLimit, "gas is higher than gas limit")
 	}

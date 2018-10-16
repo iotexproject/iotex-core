@@ -96,7 +96,7 @@ func (v *validator) verifyActions(blk *Block, containCoinbase bool) error {
 
 		if blk.Header.height > 0 && !tsf.IsCoinbase() {
 			// Reject over-gassed transfer
-			if tsf.GasLimit() > action.GasLimit {
+			if tsf.GasLimit() > GasLimit {
 				return errors.Wrapf(ErrGasHigherThanLimit, "gas is higher than gas limit")
 			}
 			intrinsicGas, err := tsf.IntrinsicGas()
@@ -150,7 +150,7 @@ func (v *validator) verifyActions(blk *Block, containCoinbase bool) error {
 
 		if blk.Header.height > 0 {
 			// Reject over-gassed vote
-			if vote.GasLimit() > action.GasLimit {
+			if vote.GasLimit() > GasLimit {
 				return errors.Wrapf(ErrGasHigherThanLimit, "gas is higher than gas limit")
 			}
 			intrinsicGas, err := vote.IntrinsicGas()
@@ -219,7 +219,7 @@ func (v *validator) verifyActions(blk *Block, containCoinbase bool) error {
 		}(execution, &correctAction)
 
 		// Reject over-gassed execution
-		if execution.GasLimit() > action.GasLimit {
+		if execution.GasLimit() > GasLimit {
 			return errors.Wrapf(ErrGasHigherThanLimit, "gas is higher than gas limit")
 		}
 		intrinsicGas, err := execution.IntrinsicGas()

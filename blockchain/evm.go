@@ -92,7 +92,7 @@ func NewEVMParams(blk *Block, execution *action.Execution, stateDB *EVMStateDBAd
 		BlockNumber: new(big.Int).SetUint64(blk.Height()),
 		Time:        new(big.Int).SetInt64(blk.Header.Timestamp().Unix()),
 		Difficulty:  new(big.Int).SetUint64(uint64(50)),
-		GasLimit:    action.GasLimit,
+		GasLimit:    GasLimit,
 		GasPrice:    execution.GasPrice(),
 	}
 
@@ -139,7 +139,7 @@ func securityDeposit(ps *EVMParams, stateDB vm.StateDB, gasLimit *uint64) error 
 
 // ExecuteContracts process the contracts in a block
 func ExecuteContracts(blk *Block, ws state.WorkingSet, bc Blockchain) {
-	gasLimit := action.GasLimit
+	gasLimit := GasLimit
 	blk.receipts = make(map[hash.Hash32B]*Receipt)
 	for idx, execution := range blk.Executions {
 		// TODO (zhi) log receipt to stateDB
