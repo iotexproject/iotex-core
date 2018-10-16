@@ -481,7 +481,9 @@ func (m *cFSM) handleRollDelegatesEvt(_ fsm.Event) (fsm.State, error) {
 	}
 	// Update CryptoSort seed
 	// TODO: Consider persist the most recent seed
-	if m.ctx.epoch.seed, err = m.ctx.updateSeed(); err != nil {
+	if !m.ctx.cfg.EnableDKG {
+		m.ctx.epoch.seed = crypto.CryptoSeed
+	} else if m.ctx.epoch.seed, err = m.ctx.updateSeed(); err != nil {
 		logger.Error().Err(err).Msg("Failed to generate new seed from last epoch")
 	}
 	delegates, err := m.ctx.rollingDelegates(epochNum)
