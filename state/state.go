@@ -14,8 +14,15 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/hash"
 )
 
-// State is the canonical representation of an account.
-type State struct {
+// State is the interface, which defines the common methods for state struct to be handled by state factory
+type State interface {
+	Serialize() ([]byte, error)
+	Deserialize([]byte) error
+	Clone() State
+}
+
+// AccountState is the canonical representation of an account.
+type AccountState struct {
 	// 0 is reserved from actions in genesis block and coinbase transfers nonces
 	// other actions' nonces start from 1
 	Nonce        uint64
@@ -28,32 +35,33 @@ type State struct {
 	Voters       map[string]*big.Int
 }
 
-func stateToBytes(s *State) ([]byte, error) {
+// Serialize serializes account state into bytes
+func (st *AccountState) Serialize() ([]byte, error) {
 	var ss bytes.Buffer
 	e := gob.NewEncoder(&ss)
-	if err := e.Encode(s); err != nil {
+	if err := e.Encode(st); err != nil {
 		return nil, ErrFailedToMarshalState
 	}
 	return ss.Bytes(), nil
 }
 
-func bytesToState(ss []byte) (*State, error) {
-	var state State
+// Deserialize deserializes bytes into account state
+func (st *AccountState) Deserialize(ss []byte) error {
 	e := gob.NewDecoder(bytes.NewBuffer(ss))
-	if err := e.Decode(&state); err != nil {
-		return nil, ErrFailedToUnmarshalState
+	if err := e.Decode(st); err != nil {
+		return ErrFailedToUnmarshalState
 	}
-	return &state, nil
+	return nil
 }
 
-// AddBalance adds balance for state
-func (st *State) AddBalance(amount *big.Int) error {
+// AddBalance adds Balance for AccountState
+func (st *AccountState) AddBalance(amount *big.Int) error {
 	st.Balance.Add(st.Balance, amount)
 	return nil
 }
 
-// SubBalance subtracts balance for state
-func (st *State) SubBalance(amount *big.Int) error {
+// SubBalance subtracts Balance for AccountState
+func (st *AccountState) SubBalance(amount *big.Int) error {
 	// make sure there's enough fund to spend
 	if amount.Cmp(st.Balance) == 1 {
 		return ErrNotEnoughBalance
@@ -62,10 +70,7 @@ func (st *State) SubBalance(amount *big.Int) error {
 	return nil
 }
 
-//======================================
-// private functions
-//======================================
-func (st *State) clone() *State {
+func (st *AccountState) Clone() State {
 	s := *st
 	s.Balance = nil
 	s.Balance = new(big.Int).Set(st.Balance)

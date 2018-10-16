@@ -84,8 +84,8 @@ func pbToCandidate(candPb *iproto.Candidate) (*Candidate, error) {
 	return candidate, nil
 }
 
-// Serialize serializes a list of Candidates to bytes
-func Serialize(candidates CandidateList) ([]byte, error) {
+// SerializeCandidateList serializes a list of Candidates to bytes
+func SerializeCandidateList(candidates CandidateList) ([]byte, error) {
 	candidatesPb := make([]*iproto.Candidate, 0, len(candidates))
 	for _, cand := range candidates {
 		candPb, err := candidateToPb(cand)
@@ -97,8 +97,8 @@ func Serialize(candidates CandidateList) ([]byte, error) {
 	return proto.Marshal(&iproto.CandidateList{Candidates: candidatesPb})
 }
 
-// Deserialize deserializes bytes to list of Candidates
-func Deserialize(buf []byte) (CandidateList, error) {
+// DeserializeCandidateList deserializes bytes to list of Candidates
+func DeserializeCandidateList(buf []byte) (CandidateList, error) {
 	candList := &iproto.CandidateList{}
 	if err := proto.Unmarshal(buf, candList); err != nil {
 		return nil, errors.Wrap(err, "failed to unmarshal candidate list")

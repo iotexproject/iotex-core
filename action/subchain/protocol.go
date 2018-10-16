@@ -100,12 +100,12 @@ func (p *Protocol) validateStartSubChain(start *action.StartSubChain, ws state.W
 	if _, ok := p.subChains[start.ChainID()]; ok {
 		return fmt.Errorf("%d is used by another sub-chain", start.ChainID())
 	}
-	var state *state.State
+	var state *state.AccountState
 	var err error
 	if ws == nil {
-		state, err = p.sf.LoadOrCreateState(start.OwnerAddress(), 0)
+		state, err = p.sf.LoadOrCreateAccountState(start.OwnerAddress(), 0)
 	} else {
-		state, err = ws.LoadOrCreateState(start.OwnerAddress(), 0)
+		state, err = ws.LoadOrCreateAccountState(start.OwnerAddress(), 0)
 	}
 	if err != nil {
 		return errors.Wrapf(err, "error when getting the state of address %s", start.OwnerAddress())
