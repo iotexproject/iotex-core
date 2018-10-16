@@ -16,6 +16,7 @@ import (
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/proto"
 )
 
@@ -45,7 +46,8 @@ type Action interface {
 	Proto() *iproto.ActionPb
 }
 
-type action struct {
+// abstractAction is an abstract implementation of Action interface
+type abstractAction struct {
 	version   uint32
 	nonce     uint64
 	srcAddr   string
@@ -63,34 +65,61 @@ func NewActionFromProto(pbAct *iproto.ActionPb) Action {
 }
 
 // Version returns the version
-func (act *action) Version() uint32 { return act.version }
+func (act *abstractAction) Version() uint32 { return act.version }
 
 // Nonce returns the nonce
-func (act *action) Nonce() uint64 { return act.nonce }
+func (act *abstractAction) Nonce() uint64 { return act.nonce }
 
 // SrcAddr returns the source address
-func (act *action) SrcAddr() string { return act.srcAddr }
+func (act *abstractAction) SrcAddr() string { return act.srcAddr }
 
 // SrcPubkey returns the source public key
-func (act *action) SrcPubkey() keypair.PublicKey { return act.srcPubkey }
+func (act *abstractAction) SrcPubkey() keypair.PublicKey { return act.srcPubkey }
 
 // SetSrcPubkey sets the source public key
-func (act *action) SetSrcPubkey(srcPubkey keypair.PublicKey) { act.srcPubkey = srcPubkey }
+func (act *abstractAction) SetSrcPubkey(srcPubkey keypair.PublicKey) { act.srcPubkey = srcPubkey }
 
 // DstAddr returns the destination address
-func (act *action) DstAddr() string { return act.dstAddr }
+func (act *abstractAction) DstAddr() string { return act.dstAddr }
 
 // GasLimit returns the gas limit
-func (act *action) GasLimit() uint64 { return act.gasLimit }
+func (act *abstractAction) GasLimit() uint64 { return act.gasLimit }
 
 // GasPrice returns the gas price
-func (act *action) GasPrice() *big.Int { return act.gasPrice }
+func (act *abstractAction) GasPrice() *big.Int { return act.gasPrice }
 
 // Signature returns signature bytes
-func (act *action) Signature() []byte { return act.signature }
+func (act *abstractAction) Signature() []byte { return act.signature }
 
 // SetSignature sets the signature bytes
-func (act *action) SetSignature(signature []byte) { act.signature = signature }
+func (act *abstractAction) SetSignature(signature []byte) { act.signature = signature }
+
+// BasicActionSize returns the basic size of action
+func (act *abstractAction) BasicActionSize() uint32 {
+	// VersionSizeInBytes + NonceSizeInBytes + GasSizeInBytes
+	size := 4 + 8 + 8
+	size += len(act.srcAddr) + len(act.dstAddr) + len(act.srcPubkey) + len(act.signature)
+	if act.gasPrice != nil && len(act.gasPrice.Bytes()) > 0 {
+		size += len(act.gasPrice.Bytes())
+	}
+
+	return uint32(size)
+}
+
+// BasicActionByteStream returns the basic byte stream of action
+func (act *abstractAction) BasicActionByteStream() []byte {
+	stream := byteutil.Uint32ToBytes(act.version)
+	stream = append(stream, byteutil.Uint64ToBytes(act.nonce)...)
+	stream = append(stream, act.srcAddr...)
+	stream = append(stream, act.dstAddr...)
+	stream = append(stream, act.srcPubkey[:]...)
+	stream = append(stream, byteutil.Uint64ToBytes(act.gasLimit)...)
+	if act.gasPrice != nil && len(act.gasPrice.Bytes()) > 0 {
+		stream = append(stream, act.gasPrice.Bytes()...)
+	}
+
+	return stream
+}
 
 // Sign signs the action using sender's private key
 func Sign(act Action, sk keypair.PrivateKey) error {
