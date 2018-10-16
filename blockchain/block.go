@@ -14,7 +14,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"golang.org/x/crypto/blake2b"
 
-	"github.com/iotexproject/iotex-core/blockchain/action"
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/enc"
@@ -223,22 +223,22 @@ func (b *Block) ConvertToBlockHeaderPb() *iproto.BlockHeaderPb {
 func (b *Block) ConvertToBlockPb() *iproto.BlockPb {
 	actions := []*iproto.ActionPb{}
 	for _, tsf := range b.Transfers {
-		actions = append(actions, tsf.ConvertToActionPb())
+		actions = append(actions, tsf.Proto())
 	}
 	for _, vote := range b.Votes {
-		actions = append(actions, vote.ConvertToActionPb())
+		actions = append(actions, vote.Proto())
 	}
 	for _, execution := range b.Executions {
-		actions = append(actions, execution.ConvertToActionPb())
+		actions = append(actions, execution.Proto())
 	}
 	for _, secretProposal := range b.SecretProposals {
-		actions = append(actions, secretProposal.ConvertToActionPb())
+		actions = append(actions, secretProposal.Proto())
 	}
 	if b.SecretWitness != nil {
-		actions = append(actions, b.SecretWitness.ConvertToActionPb())
+		actions = append(actions, b.SecretWitness.Proto())
 	}
 	for _, act := range b.Actions {
-		actions = append(actions, act.ConvertToActionPb())
+		actions = append(actions, act.Proto())
 	}
 	return &iproto.BlockPb{Header: b.ConvertToBlockHeaderPb(), Actions: actions}
 }

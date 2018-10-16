@@ -42,7 +42,7 @@ type Action interface {
 	Hash() hash.Hash32B
 	IntrinsicGas() (uint64, error)
 	Cost() (*big.Int, error)
-	ConvertToActionPb() *iproto.ActionPb
+	Proto() *iproto.ActionPb
 }
 
 type action struct {

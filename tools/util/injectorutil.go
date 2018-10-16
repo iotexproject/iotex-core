@@ -17,11 +17,11 @@ import (
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
 
-	"github.com/iotexproject/iotex-core/blockchain/action"
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
-	"github.com/iotexproject/iotex-core/testutil"
+	"github.com/iotexproject/iotex-core/test/testaddress"
 )
 
 // KeyPairs indicate the keypair of accounts getting transfers from Creator in genesis block
@@ -50,7 +50,7 @@ func LoadAddresses(keypairsPath string, chainID uint32) ([]*iotxaddress.Address,
 	// Construct iotex addresses from loaded key pairs
 	addrs := make([]*iotxaddress.Address, 0)
 	for _, pair := range keypairs.Pairs {
-		addr := testutil.ConstructAddress(chainID, pair.PK, pair.SK)
+		addr := testaddress.ConstructAddress(chainID, pair.PK, pair.SK)
 		addrs = append(addrs, addr)
 	}
 	return addrs, nil

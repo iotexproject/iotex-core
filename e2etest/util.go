@@ -9,8 +9,8 @@ package e2etest
 import (
 	"math/big"
 
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"

@@ -19,8 +19,6 @@ const (
 	BooleanSizeInBytes = 1
 	// GasSizeInBytes defines the size of gas in byte uints
 	GasSizeInBytes = 8
-	// StopSubChainIntrinsicGas is the instrinsic gas for stop sub chain action
-	StopSubChainIntrinsicGas = uint64(1000)
 	// GasLimit is the total gas limit to be consumed in a block
 	GasLimit = uint64(1000000000)
 )
