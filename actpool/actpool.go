@@ -76,7 +76,7 @@ type ActPool interface {
 
 // ActionValidator is the interface of validating an action
 type ActionValidator interface {
-	validate(action.Action) (bool, error)
+	Validate(action.Action) error
 }
 
 // actPool implements ActPool interface
@@ -284,12 +284,8 @@ func (ap *actPool) Add(act action.Action) error {
 	}
 	// Reject action if it's invalid
 	for _, validator := range ap.validators {
-		ok, err := validator.validate(act)
-		if err != nil {
+		if err := validator.Validate(act); err != nil {
 			return errors.Wrapf(err, "reject invalid execution: %x", hash)
-		}
-		if !ok {
-			return fmt.Errorf("reject invalid execution: %x", hash)
 		}
 	}
 	return ap.enqueueAction(act.SrcAddr(), act, hash, act.Nonce())

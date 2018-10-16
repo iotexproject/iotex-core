@@ -71,7 +71,7 @@ type (
 		GetContractState(hash.PKHash, hash.Hash32B) (hash.Hash32B, error)
 		SetContractState(hash.PKHash, hash.Hash32B, hash.Hash32B) error
 		// Candidate pool
-		candidates() (uint64, []*Candidate)
+		Candidates() (uint64, []*Candidate)
 		CandidatesByHeight(uint64) ([]*Candidate, error)
 	}
 
@@ -91,7 +91,7 @@ type (
 	// called one by one to process it. ActionHandler implementation is supposed to parse the sub-type of the action to
 	// decide if it wants to handle this action or not.
 	ActionHandler interface {
-		handle(action.Action) error
+		Handle(action.Action, WorkingSet) error
 	}
 )
 
@@ -337,8 +337,8 @@ func (sf *factory) SetContractState(addr hash.PKHash, key, value hash.Hash32B) e
 //======================================
 // Candidate functions
 //======================================
-// Candidates returns array of candidates in candidate pool
-func (sf *factory) candidates() (uint64, []*Candidate) {
+// Candidates returns array of Candidates in candidate pool
+func (sf *factory) Candidates() (uint64, []*Candidate) {
 	sf.mutex.Lock()
 	defer sf.mutex.Unlock()
 	candidates, err := MapToCandidates(sf.activeWs.workingCandidates())
@@ -352,14 +352,14 @@ func (sf *factory) candidates() (uint64, []*Candidate) {
 	return sf.currentChainHeight, candidates[:sf.numCandidates]
 }
 
-// CandidatesByHeight returns array of candidates in candidate pool of a given height
+// CandidatesByHeight returns array of Candidates in candidate pool of a given height
 func (sf *factory) CandidatesByHeight(height uint64) ([]*Candidate, error) {
 	sf.mutex.Lock()
 	defer sf.mutex.Unlock()
-	// Load candidates on the given height from underlying db
+	// Load Candidates on the given height from underlying db
 	candidates, err := sf.activeWs.getCandidates(height)
 	if err != nil {
-		return []*Candidate{}, errors.Wrapf(err, "failed to get candidates on height %d", height)
+		return []*Candidate{}, errors.Wrapf(err, "failed to get Candidates on height %d", height)
 	}
 	if len(candidates) > int(sf.numCandidates) {
 		candidates = candidates[:sf.numCandidates]

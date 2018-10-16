@@ -159,83 +159,83 @@ func voteForm(height uint64, cs []*Candidate) []string {
 //	}
 //
 //	sf.updateVotes(c1, big.NewInt(1))
-//	assert.True(t, compareStrings(voteForm(sf.candidates()), []string{"a1:1"}))
+//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a1:1"}))
 //	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{}))
 //
 //	sf.updateVotes(c1, big.NewInt(2))
-//	assert.True(t, compareStrings(voteForm(sf.candidates()), []string{"a1:2"}))
+//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a1:2"}))
 //	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{}))
 //
 //	sf.updateVotes(c2, big.NewInt(2))
-//	assert.True(t, compareStrings(voteForm(sf.candidates()), []string{"a1:2", "a2:2"}))
+//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a1:2", "a2:2"}))
 //	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{}))
 //
 //	sf.updateVotes(c3, big.NewInt(3))
-//	assert.True(t, compareStrings(voteForm(sf.candidates()), []string{"a2:2", "a3:3"}))
+//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a2:2", "a3:3"}))
 //	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{"a1:2"}))
 //
 //	sf.updateVotes(c4, big.NewInt(4))
-//	assert.True(t, compareStrings(voteForm(sf.candidates()), []string{"a3:3", "a4:4"}))
+//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a3:3", "a4:4"}))
 //	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{"a1:2", "a2:2"}))
 //
 //	sf.updateVotes(c2, big.NewInt(1))
-//	assert.True(t, compareStrings(voteForm(sf.candidates()), []string{"a3:3", "a4:4"}))
+//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a3:3", "a4:4"}))
 //	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{"a1:2", "a2:1"}))
 //
 //	sf.updateVotes(c5, big.NewInt(5))
-//	assert.True(t, compareStrings(voteForm(sf.candidates()), []string{"a4:4", "a5:5"}))
+//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a4:4", "a5:5"}))
 //	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{"a1:2", "a2:1", "a3:3"}))
 //
 //	sf.updateVotes(c2, big.NewInt(9))
-//	assert.True(t, compareStrings(voteForm(sf.candidates()), []string{"a2:9", "a5:5"}))
+//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a2:9", "a5:5"}))
 //	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{"a1:2", "a3:3", "a4:4"}))
 //
 //	sf.updateVotes(c6, big.NewInt(6))
-//	assert.True(t, compareStrings(voteForm(sf.candidates()), []string{"a2:9", "a6:6"}))
+//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a2:9", "a6:6"}))
 //	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{"a3:3", "a4:4", "a5:5"}))
 //
 //	sf.updateVotes(c1, big.NewInt(10))
-//	assert.True(t, compareStrings(voteForm(sf.candidates()), []string{"a1:10", "a2:9"}))
+//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a1:10", "a2:9"}))
 //	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{"a4:4", "a5:5", "a6:6"}))
 //
 //	sf.updateVotes(c7, big.NewInt(7))
-//	assert.True(t, compareStrings(voteForm(sf.candidates()), []string{"a1:10", "a2:9"}))
+//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a1:10", "a2:9"}))
 //	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{"a5:5", "a6:6", "a7:7"}))
 //
 //	sf.updateVotes(c3, big.NewInt(8))
-//	assert.True(t, compareStrings(voteForm(sf.candidates()), []string{"a1:10", "a2:9"}))
+//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a1:10", "a2:9"}))
 //	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{"a3:8", "a6:6", "a7:7"}))
 //
 //	sf.updateVotes(c8, big.NewInt(12))
-//	assert.True(t, compareStrings(voteForm(sf.candidates()), []string{"a1:10", "a8:12"}))
+//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a1:10", "a8:12"}))
 //	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{"a2:9", "a3:8", "a7:7"}))
 //
 //	sf.updateVotes(c4, big.NewInt(8))
-//	assert.True(t, compareStrings(voteForm(sf.candidates()), []string{"a1:10", "a8:12"}))
+//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a1:10", "a8:12"}))
 //	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{"a2:9", "a3:8", "a4:8"}))
 //
 //	sf.updateVotes(c6, big.NewInt(7))
-//	assert.True(t, compareStrings(voteForm(sf.candidates()), []string{"a1:10", "a8:12"}))
+//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a1:10", "a8:12"}))
 //	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{"a2:9", "a3:8", "a4:8"}))
 //
 //	sf.updateVotes(c1, big.NewInt(1))
-//	assert.True(t, compareStrings(voteForm(sf.candidates()), []string{"a2:9", "a8:12"}))
+//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a2:9", "a8:12"}))
 //	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{"a3:8", "a4:8", "a1:1"}))
 //
 //	sf.updateVotes(c9, big.NewInt(2))
-//	assert.True(t, compareStrings(voteForm(sf.candidates()), []string{"a2:9", "a8:12"}))
+//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a2:9", "a8:12"}))
 //	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{"a3:8", "a4:8", "a9:2"}))
 //
 //	sf.updateVotes(c10, big.NewInt(8))
-//	assert.True(t, compareStrings(voteForm(sf.candidates()), []string{"a2:9", "a8:12"}))
+//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a2:9", "a8:12"}))
 //	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{"a10:8", "a3:8", "a4:8"}))
 //
 //	sf.updateVotes(c11, big.NewInt(3))
-//	assert.True(t, compareStrings(voteForm(sf.candidates()), []string{"a2:9", "a8:12"}))
+//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a2:9", "a8:12"}))
 //	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{"a10:8", "a3:8", "a4:8"}))
 //
 //	sf.updateVotes(c12, big.NewInt(1))
-//	assert.True(t, compareStrings(voteForm(sf.candidates()), []string{"a2:9", "a8:12"}))
+//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a2:9", "a8:12"}))
 //	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{"a10:8", "a3:8", "a4:8"}))
 //}
 
@@ -282,7 +282,7 @@ func TestCandidates(t *testing.T) {
 	balanceC, err := sf.Balance(c.RawAddress)
 	require.Nil(t, err)
 	require.Equal(t, balanceC, big.NewInt(320))
-	require.True(t, compareStrings(voteForm(sf.candidates()), []string{}))
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{}))
 	// a:70 b:210 c:320
 
 	vote, err := action.NewVote(0, a.RawAddress, a.RawAddress, uint64(100000), big.NewInt(10))
@@ -293,7 +293,7 @@ func TestCandidates(t *testing.T) {
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
 	require.Nil(t, sf.Commit(nil))
-	require.True(t, compareStrings(voteForm(sf.candidates()), []string{a.RawAddress + ":70"}))
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":70"}))
 	// a(a):70(+0=70) b:210 c:320
 
 	vote2, err := action.NewVote(0, b.RawAddress, b.RawAddress, uint64(100000), big.NewInt(10))
@@ -304,7 +304,7 @@ func TestCandidates(t *testing.T) {
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
 	require.Nil(t, sf.Commit(nil))
-	require.True(t, compareStrings(voteForm(sf.candidates()), []string{a.RawAddress + ":70", b.RawAddress + ":210"}))
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":70", b.RawAddress + ":210"}))
 	// a(a):70(+0=70) b(b):210(+0=210) !c:320
 
 	vote3, err := action.NewVote(1, a.RawAddress, b.RawAddress, uint64(100000), big.NewInt(10))
@@ -315,7 +315,7 @@ func TestCandidates(t *testing.T) {
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
 	require.Nil(t, sf.Commit(nil))
-	require.True(t, compareStrings(voteForm(sf.candidates()), []string{a.RawAddress + ":0", b.RawAddress + ":280"}))
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":0", b.RawAddress + ":280"}))
 	// a(b):70(0) b(b):210(+70=280) !c:320
 
 	tx3, err := action.NewTransfer(uint64(2), big.NewInt(20), b.RawAddress, a.RawAddress, nil, uint64(0), big.NewInt(0))
@@ -325,7 +325,7 @@ func TestCandidates(t *testing.T) {
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
 	require.Nil(t, sf.Commit(nil))
-	require.True(t, compareStrings(voteForm(sf.candidates()), []string{a.RawAddress + ":0", b.RawAddress + ":280"}))
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":0", b.RawAddress + ":280"}))
 	// a(b):90(0) b(b):190(+90=280) !c:320
 
 	tx4, err := action.NewTransfer(uint64(2), big.NewInt(20), a.RawAddress, b.RawAddress, nil, uint64(0), big.NewInt(0))
@@ -335,7 +335,7 @@ func TestCandidates(t *testing.T) {
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
 	require.Nil(t, sf.Commit(nil))
-	require.True(t, compareStrings(voteForm(sf.candidates()), []string{a.RawAddress + ":0", b.RawAddress + ":280"}))
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":0", b.RawAddress + ":280"}))
 	// a(b):70(0) b(b):210(+70=280) !c:320
 
 	vote4, err := action.NewVote(1, b.RawAddress, a.RawAddress, uint64(100000), big.NewInt(10))
@@ -346,7 +346,7 @@ func TestCandidates(t *testing.T) {
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
 	require.Nil(t, sf.Commit(nil))
-	require.True(t, compareStrings(voteForm(sf.candidates()), []string{a.RawAddress + ":210", b.RawAddress + ":70"}))
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":210", b.RawAddress + ":70"}))
 	// a(b):70(210) b(a):210(70) !c:320
 
 	vote5, err := action.NewVote(2, b.RawAddress, b.RawAddress, uint64(100000), big.NewInt(10))
@@ -357,7 +357,7 @@ func TestCandidates(t *testing.T) {
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
 	require.Nil(t, sf.Commit(nil))
-	require.True(t, compareStrings(voteForm(sf.candidates()), []string{a.RawAddress + ":0", b.RawAddress + ":280"}))
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":0", b.RawAddress + ":280"}))
 	// a(b):70(0) b(b):210(+70=280) !c:320
 
 	vote6, err := action.NewVote(3, b.RawAddress, b.RawAddress, uint64(100000), big.NewInt(10))
@@ -368,7 +368,7 @@ func TestCandidates(t *testing.T) {
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
 	require.Nil(t, sf.Commit(nil))
-	require.True(t, compareStrings(voteForm(sf.candidates()), []string{a.RawAddress + ":0", b.RawAddress + ":280"}))
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":0", b.RawAddress + ":280"}))
 	// a(b):70(0) b(b):210(+70=280) !c:320
 
 	tx5, err := action.NewTransfer(uint64(2), big.NewInt(20), c.RawAddress, a.RawAddress, nil, uint64(0), big.NewInt(0))
@@ -378,7 +378,7 @@ func TestCandidates(t *testing.T) {
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
 	require.Nil(t, sf.Commit(nil))
-	require.True(t, compareStrings(voteForm(sf.candidates()), []string{a.RawAddress + ":0", b.RawAddress + ":300"}))
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":0", b.RawAddress + ":300"}))
 	// a(b):90(0) b(b):210(+90=300) !c:300
 
 	vote7, err := action.NewVote(0, c.RawAddress, a.RawAddress, uint64(100000), big.NewInt(10))
@@ -389,7 +389,7 @@ func TestCandidates(t *testing.T) {
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
 	require.Nil(t, sf.Commit(nil))
-	require.True(t, compareStrings(voteForm(sf.candidates()), []string{a.RawAddress + ":300", b.RawAddress + ":300"}))
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":300", b.RawAddress + ":300"}))
 	// a(b):90(300) b(b):210(+90=300) !c(a):300
 
 	vote8, err := action.NewVote(4, b.RawAddress, c.RawAddress, uint64(100000), big.NewInt(10))
@@ -400,7 +400,7 @@ func TestCandidates(t *testing.T) {
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
 	require.Nil(t, sf.Commit(nil))
-	require.True(t, compareStrings(voteForm(sf.candidates()), []string{a.RawAddress + ":300", b.RawAddress + ":90"}))
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":300", b.RawAddress + ":90"}))
 	// a(b):90(300) b(c):210(90) !c(a):300
 
 	vote9, err := action.NewVote(1, c.RawAddress, c.RawAddress, uint64(100000), big.NewInt(10))
@@ -411,7 +411,7 @@ func TestCandidates(t *testing.T) {
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
 	require.Nil(t, sf.Commit(nil))
-	require.True(t, compareStrings(voteForm(sf.candidates()), []string{c.RawAddress + ":510", b.RawAddress + ":90"}))
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{c.RawAddress + ":510", b.RawAddress + ":90"}))
 	// a(b):90(0) b(c):210(90) c(c):300(+210=510)
 
 	vote10, err := action.NewVote(0, d.RawAddress, e.RawAddress, uint64(100000), big.NewInt(10))
@@ -422,7 +422,7 @@ func TestCandidates(t *testing.T) {
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
 	require.Nil(t, sf.Commit(nil))
-	require.True(t, compareStrings(voteForm(sf.candidates()), []string{c.RawAddress + ":510", b.RawAddress + ":90"}))
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{c.RawAddress + ":510", b.RawAddress + ":90"}))
 	// a(b):90(0) b(c):210(90) c(c):300(+210=510)
 
 	vote11, err := action.NewVote(1, d.RawAddress, d.RawAddress, uint64(100000), big.NewInt(10))
@@ -433,7 +433,7 @@ func TestCandidates(t *testing.T) {
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
 	require.Nil(t, sf.Commit(nil))
-	require.True(t, compareStrings(voteForm(sf.candidates()), []string{c.RawAddress + ":510", d.RawAddress + ":100"}))
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{c.RawAddress + ":510", d.RawAddress + ":100"}))
 	// a(b):90(0) b(c):210(90) c(c):300(+210=510) d(d): 100(100)
 
 	vote12, err := action.NewVote(2, d.RawAddress, a.RawAddress, uint64(100000), big.NewInt(10))
@@ -444,7 +444,7 @@ func TestCandidates(t *testing.T) {
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
 	require.Nil(t, sf.Commit(nil))
-	require.True(t, compareStrings(voteForm(sf.candidates()), []string{c.RawAddress + ":510", a.RawAddress + ":100"}))
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{c.RawAddress + ":510", a.RawAddress + ":100"}))
 	// a(b):90(100) b(c):210(90) c(c):300(+210=510) d(a): 100(0)
 
 	vote13, err := action.NewVote(2, c.RawAddress, d.RawAddress, uint64(100000), big.NewInt(10))
@@ -455,7 +455,7 @@ func TestCandidates(t *testing.T) {
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
 	require.Nil(t, sf.Commit(nil))
-	require.True(t, compareStrings(voteForm(sf.candidates()), []string{c.RawAddress + ":210", d.RawAddress + ":300"}))
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{c.RawAddress + ":210", d.RawAddress + ":300"}))
 	// a(b):90(100) b(c):210(90) c(d):300(210) d(a): 100(300)
 
 	vote14, err := action.NewVote(3, c.RawAddress, c.RawAddress, uint64(100000), big.NewInt(10))
@@ -466,7 +466,7 @@ func TestCandidates(t *testing.T) {
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
 	require.Nil(t, sf.Commit(nil))
-	require.True(t, compareStrings(voteForm(sf.candidates()), []string{c.RawAddress + ":510", a.RawAddress + ":100"}))
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{c.RawAddress + ":510", a.RawAddress + ":100"}))
 	// a(b):90(100) b(c):210(90) c(c):300(+210=510) d(a): 100(0)
 
 	tx6, err := action.NewTransfer(uint64(1), big.NewInt(200), c.RawAddress, e.RawAddress, nil, uint64(0), big.NewInt(0))
@@ -478,7 +478,7 @@ func TestCandidates(t *testing.T) {
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
 	require.Nil(t, sf.Commit(nil))
-	require.True(t, compareStrings(voteForm(sf.candidates()), []string{c.RawAddress + ":110", a.RawAddress + ":100"}))
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{c.RawAddress + ":110", a.RawAddress + ":100"}))
 	// a(b):90(100) b(c):10(90) c(c):100(+10=110) d(a): 100(0) !e:500
 
 	vote15, err := action.NewVote(0, e.RawAddress, e.RawAddress, uint64(100000), big.NewInt(10))
@@ -489,7 +489,7 @@ func TestCandidates(t *testing.T) {
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
 	require.Nil(t, sf.Commit(nil))
-	require.True(t, compareStrings(voteForm(sf.candidates()), []string{c.RawAddress + ":110", e.RawAddress + ":500"}))
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{c.RawAddress + ":110", e.RawAddress + ":500"}))
 	// a(b):90(100) b(c):10(90) c(c):100(+10=110) d(a): 100(0) e(e):500(+0=500)
 
 	vote16, err := action.NewVote(0, f.RawAddress, f.RawAddress, uint64(100000), big.NewInt(10))
@@ -500,7 +500,7 @@ func TestCandidates(t *testing.T) {
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
 	require.Nil(t, sf.Commit(nil))
-	require.True(t, compareStrings(voteForm(sf.candidates()), []string{f.RawAddress + ":300", e.RawAddress + ":500"}))
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{f.RawAddress + ":300", e.RawAddress + ":500"}))
 	// a(b):90(100) b(c):10(90) c(c):100(+10=110) d(a): 100(0) e(e):500(+0=500) f(f):300(+0=300)
 
 	vote17, err := action.NewVote(0, f.RawAddress, d.RawAddress, uint64(100000), big.NewInt(10))
@@ -514,7 +514,7 @@ func TestCandidates(t *testing.T) {
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
 	require.Nil(t, sf.Commit(nil))
-	require.True(t, compareStrings(voteForm(sf.candidates()), []string{d.RawAddress + ":300", e.RawAddress + ":500"}))
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{d.RawAddress + ":300", e.RawAddress + ":500"}))
 	// a(b):90(100) b(c):10(90) c(c):100(+10=110) d(a): 100(300) e(e):500(+0=500) f(d):300(0)
 
 	tx8, err := action.NewTransfer(uint64(1), big.NewInt(200), f.RawAddress, b.RawAddress, nil, uint64(0), big.NewInt(0))
@@ -524,7 +524,7 @@ func TestCandidates(t *testing.T) {
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
 	require.Nil(t, sf.Commit(nil))
-	require.True(t, compareStrings(voteForm(sf.candidates()), []string{c.RawAddress + ":310", e.RawAddress + ":500"}))
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{c.RawAddress + ":310", e.RawAddress + ":500"}))
 	// a(b):90(100) b(c):210(90) c(c):100(+210=310) d(a): 100(100) e(e):500(+0=500) f(d):100(0)
 	//fmt.Printf("%v \n", voteForm(sf.candidatesBuffer()))
 
@@ -535,7 +535,7 @@ func TestCandidates(t *testing.T) {
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
 	require.Nil(t, sf.Commit(nil))
-	require.True(t, compareStrings(voteForm(sf.candidates()), []string{c.RawAddress + ":300", e.RawAddress + ":500"}))
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{c.RawAddress + ":300", e.RawAddress + ":500"}))
 	// a(b):100(100) b(c):200(100) c(c):100(+200=300) d(a): 100(100) e(e):500(+0=500) f(d):100(0)
 
 	tx10, err := action.NewTransfer(uint64(1), big.NewInt(300), e.RawAddress, d.RawAddress, nil, uint64(0), big.NewInt(0))
@@ -549,7 +549,7 @@ func TestCandidates(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, height == 1)
 
-	require.True(t, compareStrings(voteForm(sf.candidates()), []string{c.RawAddress + ":300", a.RawAddress + ":400"}))
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{c.RawAddress + ":300", a.RawAddress + ":400"}))
 	// a(b):100(400) b(c):200(100) c(c):100(+200=300) d(a): 400(100) e(e):200(+0=200) f(d):100(0)
 
 	vote19, err := action.NewVote(0, d.RawAddress, a.RawAddress, uint64(100000), big.NewInt(10))
@@ -563,9 +563,9 @@ func TestCandidates(t *testing.T) {
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
 	require.Nil(t, sf.Commit(nil))
-	height, _ = sf.candidates()
+	height, _ = sf.Candidates()
 	require.True(t, height == 2)
-	require.True(t, compareStrings(voteForm(sf.candidates()), []string{c.RawAddress + ":300", b.RawAddress + ":500"}))
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{c.RawAddress + ":300", b.RawAddress + ":500"}))
 	// a(b):100(0) b(c):200(500) c(c):100(+200=300) d(b): 400(100) e(e):200(+0=200) f(d):100(0)
 
 	vote21, err := action.NewVote(4, c.RawAddress, "", uint64(100000), big.NewInt(10))
@@ -576,9 +576,9 @@ func TestCandidates(t *testing.T) {
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
 	require.Nil(t, sf.Commit(nil))
-	height, _ = sf.candidates()
+	height, _ = sf.Candidates()
 	require.True(t, height == 3)
-	require.True(t, compareStrings(voteForm(sf.candidates()), []string{e.RawAddress + ":200", b.RawAddress + ":500"}))
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{e.RawAddress + ":200", b.RawAddress + ":500"}))
 	// a(b):100(0) b(c):200(500) [c(c):100(+200=300)] d(b): 400(100) e(e):200(+0=200) f(d):100(0)
 
 	vote22, err := action.NewVote(4, f.RawAddress, "", uint64(100000), big.NewInt(10))
@@ -588,9 +588,9 @@ func TestCandidates(t *testing.T) {
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	require.Nil(t, sf.Commit(nil))
-	height, _ = sf.candidates()
+	height, _ = sf.Candidates()
 	require.True(t, height == 3)
-	require.True(t, compareStrings(voteForm(sf.candidates()), []string{e.RawAddress + ":200", b.RawAddress + ":500"}))
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{e.RawAddress + ":200", b.RawAddress + ":500"}))
 	// a(b):100(0) b(c):200(500) [c(c):100(+200=300)] d(b): 400(100) e(e):200(+0=200) f(d):100(0)
 	cachedStateA, err := sf.CachedState(a.RawAddress)
 	require.Nil(t, err)
@@ -678,7 +678,7 @@ func TestUnvote(t *testing.T) {
 	_, err = sf.RunActions(0, []*action.Transfer{}, []*action.Vote{vote1}, []*action.Execution{}, nil)
 	require.Nil(t, err)
 	require.Nil(t, sf.Commit(nil))
-	require.True(t, compareStrings(voteForm(sf.candidates()), []string{}))
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{}))
 
 	vote2, err := action.NewVote(0, a.RawAddress, a.RawAddress, uint64(100000), big.NewInt(10))
 	vote2.SetVoterPublicKey(a.PublicKey)
@@ -686,7 +686,7 @@ func TestUnvote(t *testing.T) {
 	_, err = sf.RunActions(0, []*action.Transfer{}, []*action.Vote{vote2}, []*action.Execution{}, nil)
 	require.Nil(t, err)
 	require.Nil(t, sf.Commit(nil))
-	require.True(t, compareStrings(voteForm(sf.candidates()), []string{a.RawAddress + ":100"}))
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{a.RawAddress + ":100"}))
 
 	vote3, err := action.NewVote(0, a.RawAddress, "", uint64(100000), big.NewInt(10))
 	vote3.SetVoterPublicKey(a.PublicKey)
@@ -694,7 +694,7 @@ func TestUnvote(t *testing.T) {
 	_, err = sf.RunActions(0, []*action.Transfer{}, []*action.Vote{vote3}, []*action.Execution{}, nil)
 	require.Nil(t, err)
 	require.Nil(t, sf.Commit(nil))
-	require.True(t, compareStrings(voteForm(sf.candidates()), []string{}))
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{}))
 
 	vote4, err := action.NewVote(0, b.RawAddress, b.RawAddress, uint64(100000), big.NewInt(10))
 	vote4.SetVoterPublicKey(b.PublicKey)
@@ -708,7 +708,7 @@ func TestUnvote(t *testing.T) {
 	_, err = sf.RunActions(0, []*action.Transfer{}, []*action.Vote{vote4, vote5, vote6}, []*action.Execution{}, nil)
 	require.Nil(t, err)
 	require.Nil(t, sf.Commit(nil))
-	require.True(t, compareStrings(voteForm(sf.candidates()), []string{b.RawAddress + ":200"}))
+	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{b.RawAddress + ":200"}))
 }
 
 func TestLoadStoreHeight(t *testing.T) {
