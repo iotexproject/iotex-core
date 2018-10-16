@@ -270,7 +270,7 @@ func (ctx *rollDPoSCtx) mintCommonBlock() (*blockchain.Block, error) {
 		Int("transfer", len(transfers)).
 		Int("votes", len(votes)).
 		Msg("pick actions from the action pool")
-	blk, err := ctx.chain.MintNewDKGBlock(transfers, votes, executions, actions, ctx.addr, &ctx.epoch.dkgAddress,
+	blk, err := ctx.chain.MintNewBlock(transfers, votes, executions, actions, ctx.addr, &ctx.epoch.dkgAddress,
 		ctx.epoch.seed, "")
 	if err != nil {
 		return nil, err

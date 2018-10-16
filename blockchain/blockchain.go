@@ -93,19 +93,9 @@ type Blockchain interface {
 	StateByAddr(address string) (*state.State, error)
 
 	// For block operations
-	// MintNewBlock creates a new block with given actions
+	// MintNewBlock creates a new block with given actions and dkg keys
 	// Note: the coinbase transfer will be added to the given transfers when minting a new block
 	MintNewBlock(
-		tsf []*action.Transfer,
-		vote []*action.Vote,
-		executions []*action.Execution,
-		actions []action.Action,
-		address *iotxaddress.Address,
-		data string,
-	) (*Block, error)
-	// TODO: Merge the MintNewDKGBlock into MintNewBlock
-	// MintNewDKGBlock creates a new block with given actions and dkg keys
-	MintNewDKGBlock(
 		tsf []*action.Transfer,
 		vote []*action.Vote,
 		executions []*action.Execution,
@@ -644,47 +634,7 @@ func (bc *blockchain) ValidateBlock(blk *Block, containCoinbase bool) error {
 	return bc.validateBlock(blk, containCoinbase)
 }
 
-// MintNewBlock creates a new block with given actions
-// Note: the coinbase transfer will be added to the given transfers
-// when minting a new block
 func (bc *blockchain) MintNewBlock(
-	tsf []*action.Transfer,
-	vote []*action.Vote,
-	executions []*action.Execution,
-	actions []action.Action,
-	producer *iotxaddress.Address,
-	data string,
-) (*Block, error) {
-	bc.mu.RLock()
-	defer bc.mu.RUnlock()
-
-	tsf = append(tsf, action.NewCoinBaseTransfer(big.NewInt(int64(bc.genesis.BlockReward)), producer.RawAddress))
-	blk := NewBlock(bc.config.Chain.ID, bc.tipHeight+1, bc.tipHash, bc.now(), tsf, vote, executions, actions)
-	blk.Header.DKGID = []byte{}
-	blk.Header.DKGPubkey = []byte{}
-	blk.Header.DKGBlockSig = []byte{}
-	// run execution and update state trie root hash
-	ws, err := bc.sf.NewWorkingSet()
-	if err != nil {
-		return nil, errors.Wrap(err, "Failed to obtain working set from state factory")
-	}
-	root, err := bc.runActions(blk, ws, false)
-	if err != nil {
-		return nil, errors.Wrapf(err, "Failed to update state changes in new block %d", blk.Height())
-	}
-	blk.Header.stateRoot = root
-	if err := blk.SignBlock(producer); err != nil {
-		return blk, err
-	}
-	// attach working set to be committed to state factory
-	blk.workingSet = ws
-	return blk, nil
-}
-
-// MintNewDKGBlock creates a new block with given actions and dkg keys
-// Note: the coinbase transfer will be added to the given transfers
-// when minting a new block
-func (bc *blockchain) MintNewDKGBlock(
 	tsf []*action.Transfer,
 	vote []*action.Vote,
 	executions []*action.Execution,
@@ -702,7 +652,7 @@ func (bc *blockchain) MintNewDKGBlock(
 	blk.Header.DKGID = []byte{}
 	blk.Header.DKGPubkey = []byte{}
 	blk.Header.DKGBlockSig = []byte{}
-	if len(dkgAddress.PublicKey) > 0 && len(dkgAddress.PrivateKey) > 0 && len(dkgAddress.ID) > 0 {
+	if dkgAddress != nil && len(dkgAddress.PublicKey) > 0 && len(dkgAddress.PrivateKey) > 0 && len(dkgAddress.ID) > 0 {
 		blk.Header.DKGID = dkgAddress.ID
 		blk.Header.DKGPubkey = dkgAddress.PublicKey
 		var err error

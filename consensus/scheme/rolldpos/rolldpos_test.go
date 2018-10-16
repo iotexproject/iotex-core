@@ -580,7 +580,7 @@ func TestUpdateSeed(t *testing.T) {
 			PrivateKey: ec283SKList[i],
 			RawAddress: addresses[i],
 		}
-		blk, err := chain.MintNewDKGBlock(nil, nil, nil, nil, &iotxAddr,
+		blk, err := chain.MintNewBlock(nil, nil, nil, nil, &iotxAddr,
 			&iotxaddress.DKGAddress{PrivateKey: askList[i], PublicKey: pkList[i], ID: idList[i]},
 			lastSeed, "")
 		require.NoError(err)
