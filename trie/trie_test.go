@@ -130,7 +130,7 @@ func TestInsert(t *testing.T) {
 	require.Equal(0, match)
 	require.NotNil(err)
 	tr.clear()
-	// this splits the root B
+	// this adds one L to root R
 	logger.Info().Msg("Put[cat]")
 	err = tr.Upsert(cat, testV[2])
 	require.Nil(err)
@@ -142,7 +142,10 @@ func TestInsert(t *testing.T) {
 	require.Nil(err)
 	require.Equal(testV[2], b)
 
-	// this splits L --> E + B + 2L
+	// this splits L --> E + B + 2L (cat, rat)
+	/*
+	 *  Root --1--> E --234567--> B --> (cat, rat)
+	 */
 	logger.Info().Msg("Put[rat]")
 	err = tr.Upsert(rat, []byte("rat"))
 	require.Nil(err)
@@ -156,7 +159,10 @@ func TestInsert(t *testing.T) {
 	require.Nil(err)
 	require.Equal([]byte("rat"), b)
 
-	// this adds another L to B
+	// this adds another L to B (car)
+	/*
+	 *  Root --1--> E --234567--> B --> (cat, rat, car)
+	 */
 	logger.Info().Msg("Put[car]")
 	err = tr.Upsert(car, testV[1])
 	require.Nil(err)
@@ -175,7 +181,11 @@ func TestInsert(t *testing.T) {
 	require.Equal(newRoot, ratRoot)
 	root = newRoot
 
-	// this splits E (with match = 3, div = 3)
+	// this splits E --> B1 + E1 + L (match = 3, div = 3)
+	/*
+	 *  Root --1--> E --234--> B1 --5--> E1 --67--> B --> (cat, rat)
+	 *                          | --6--> L --710--> dog
+	 */
 	logger.Info().Msg("Put[dog]")
 	err = tr.Upsert(dog, testV[3])
 	require.Nil(err)
@@ -186,6 +196,10 @@ func TestInsert(t *testing.T) {
 	b, err = tr.Get(dog)
 	require.Nil(err)
 	require.Equal(testV[3], b)
+	// this deletes 'dog' and turns B1 into another E2
+	/*
+	 *  Root --1--> E --234--> E2 --5--> E1 --67--> B --> (cat, rat)
+	 */
 	logger.Info().Msg("Del[dog]")
 	err = tr.Delete(dog)
 	require.Nil(err)
@@ -193,7 +207,11 @@ func TestInsert(t *testing.T) {
 	require.NotEqual(newRoot, root)
 	root = newRoot
 
-	// this splits E (with match = 0, div = 2)
+	// this splits E1 --> B2 + E3 + L (match = 0, div = 2)
+	/*
+	 *  Root --1--> E --234--> E2 --5--> B2 --6--> E3 --7--> B --> (cat, rat)
+	 *                                    | --8--> L --10--> egg
+	 */
 	logger.Info().Msg("Put[egg]")
 	err = tr.Upsert(egg, testV[4])
 	require.Nil(err)
