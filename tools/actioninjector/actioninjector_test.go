@@ -88,11 +88,11 @@ func TestActionInjector(t *testing.T) {
 
 	// Wait until the injected actions in APS Mode gets into the action pool
 	require.NoError(testutil.WaitUntil(100*time.Millisecond, 5*time.Second, func() (bool, error) {
-		transfers, votes, executions := svr.ChainService(chainID).ActionPool().PickActs()
+		transfers, votes, executions, _ := svr.ChainService(chainID).ActionPool().PickActs()
 		return len(transfers)+len(votes)+len(executions) >= 30, nil
 	}))
 
-	transfers, votes, executions := svr.ChainService(chainID).ActionPool().PickActs()
+	transfers, votes, executions, _ := svr.ChainService(chainID).ActionPool().PickActs()
 	numActsBase := len(transfers) + len(votes) + len(executions)
 
 	// Test injectByInterval
@@ -106,7 +106,7 @@ func TestActionInjector(t *testing.T) {
 
 	// Wait until all the injected actions in Interval Mode gets into the action pool
 	err = testutil.WaitUntil(100*time.Millisecond, 5*time.Second, func() (bool, error) {
-		transfers, votes, executions := svr.ChainService(chainID).ActionPool().PickActs()
+		transfers, votes, executions, _ := svr.ChainService(chainID).ActionPool().PickActs()
 		return len(transfers)+len(votes)+len(executions)-numActsBase == 4, nil
 	})
 	require.Nil(err)

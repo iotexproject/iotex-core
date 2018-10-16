@@ -62,6 +62,7 @@ func TestRollDPoSCtx(t *testing.T) {
 		make([]*action.Transfer, 0),
 		make([]*action.Vote, 0),
 		make([]*action.Execution, 0),
+		make([]action.Action, 0),
 	)
 	ctx := makeTestRollDPoSCtx(
 		testAddrs[0],
@@ -455,7 +456,9 @@ func TestRollDPoS_convertToConsensusEvt(t *testing.T) {
 		1,
 		prevHash,
 		testutil.TimestampNow(),
-		[]*action.Transfer{transfer}, []*action.Vote{vote},
+		[]*action.Transfer{transfer},
+		[]*action.Vote{vote},
+		nil,
 		nil,
 	)
 	pMsg := iproto.ProposePb{
@@ -577,7 +580,7 @@ func TestUpdateSeed(t *testing.T) {
 			PrivateKey: ec283SKList[i],
 			RawAddress: addresses[i],
 		}
-		blk, err := chain.MintNewDKGBlock(nil, nil, nil, &iotxAddr,
+		blk, err := chain.MintNewDKGBlock(nil, nil, nil, nil, &iotxAddr,
 			&iotxaddress.DKGAddress{PrivateKey: askList[i], PublicKey: pkList[i], ID: idList[i]},
 			lastSeed, "")
 		require.NoError(err)

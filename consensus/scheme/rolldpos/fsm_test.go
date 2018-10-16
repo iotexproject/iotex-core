@@ -763,7 +763,7 @@ func TestHandleCommitEndorseEvt(t *testing.T) {
 				chain.EXPECT().CommitBlock(gomock.Any()).Return(nil).Times(0)
 				chain.EXPECT().
 					MintNewDummyBlock().
-					Return(blockchain.NewBlock(0, 0, hash.ZeroHash32B, testutil.TimestampNow(), nil, nil, nil)).Times(0)
+					Return(blockchain.NewBlock(0, 0, hash.ZeroHash32B, testutil.TimestampNow(), nil, nil, nil, nil)).Times(0)
 				chain.EXPECT().ChainID().AnyTimes().Return(config.Default.Chain.ID)
 			},
 			func(p2p *mock_network.MockOverlay) {
@@ -793,7 +793,7 @@ func TestHandleCommitEndorseEvt(t *testing.T) {
 				chain.EXPECT().CommitBlock(gomock.Any()).Return(nil).Times(1)
 				chain.EXPECT().
 					MintNewDummyBlock().
-					Return(blockchain.NewBlock(0, 0, hash.ZeroHash32B, testutil.TimestampNow(), nil, nil, nil)).Times(1)
+					Return(blockchain.NewBlock(0, 0, hash.ZeroHash32B, testutil.TimestampNow(), nil, nil, nil, nil)).Times(1)
 				chain.EXPECT().ChainID().AnyTimes().Return(config.Default.Chain.ID)
 			},
 			func(p2p *mock_network.MockOverlay) {
@@ -973,6 +973,7 @@ func newTestCFSM(
 		make([]*action.Transfer, 0),
 		make([]*action.Vote, 0),
 		make([]*action.Execution, 0),
+		make([]action.Action, 0),
 	)
 	blkToMint := blockchain.NewBlock(
 		config.Default.Chain.ID,
@@ -981,6 +982,7 @@ func newTestCFSM(
 		testutil.TimestampNowFromClock(clock),
 		[]*action.Transfer{transfer},
 		[]*action.Vote{vote},
+		nil,
 		nil,
 	)
 	blkToMint.SignBlock(proposer)
@@ -1035,7 +1037,7 @@ func newTestCFSM(
 			blockchain.EXPECT().GetBlockByHeight(uint64(21)).Return(lastBlk, nil).AnyTimes()
 			blockchain.EXPECT().GetBlockByHeight(uint64(22)).Return(lastBlk, nil).AnyTimes()
 			blockchain.EXPECT().
-				MintNewDKGBlock(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+				MintNewDKGBlock(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 				Return(blkToMint, nil).
 				AnyTimes()
 			blockchain.EXPECT().
@@ -1057,7 +1059,7 @@ func newTestCFSM(
 		func(actPool *mock_actpool.MockActPool) {
 			actPool.EXPECT().
 				PickActs().
-				Return([]*action.Transfer{transfer}, []*action.Vote{vote}, []*action.Execution{}).
+				Return([]*action.Transfer{transfer}, []*action.Vote{vote}, []*action.Execution{}, []action.Action{}).
 				AnyTimes()
 			actPool.EXPECT().Reset().AnyTimes()
 		},

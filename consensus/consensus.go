@@ -80,14 +80,14 @@ func NewConsensus(
 
 	cs := &IotxConsensus{cfg: &cfg.Consensus}
 	mintBlockCB := func() (*blockchain.Block, error) {
-		transfers, votes, executions := ap.PickActs()
+		transfers, votes, executions, _ := ap.PickActs()
 		logger.Debug().
 			Int("transfer", len(transfers)).
 			Int("votes", len(votes)).
 			Int("Executions", len(executions)).
 			Msg("pick actions")
 
-		blk, err := bc.MintNewBlock(transfers, votes, executions, GetAddr(cfg), "")
+		blk, err := bc.MintNewBlock(transfers, votes, executions, nil, GetAddr(cfg), "")
 		if err != nil {
 			logger.Error().Msg("Failed to mint a block")
 			return nil, err
