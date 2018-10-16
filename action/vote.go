@@ -16,9 +16,9 @@ import (
 
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/logger"
-	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/proto"
 )
@@ -30,7 +30,7 @@ const (
 
 // Vote defines the struct of account-based vote
 type Vote struct {
-	action
+	abstractAction
 }
 
 // NewVote returns a Vote instance
@@ -39,7 +39,7 @@ func NewVote(nonce uint64, voterAddress string, voteeAddress string, gasLimit ui
 		return nil, errors.Wrap(ErrAddress, "address of the voter is empty")
 	}
 	return &Vote{
-		action: action{
+		abstractAction: abstractAction{
 			version:  version.ProtocolVersion,
 			nonce:    nonce,
 			srcAddr:  voterAddress,
@@ -72,42 +72,15 @@ func (v *Vote) Votee() string {
 
 // TotalSize returns the total size of this Vote
 func (v *Vote) TotalSize() uint32 {
-	size := TimestampSizeInBytes
-	size += NonceSizeInBytes
-	size += VersionSizeInBytes
-	size += len(v.srcPubkey)
-	size += len(v.srcAddr)
-	size += len(v.dstAddr)
-	size += GasSizeInBytes
-	if v.gasPrice != nil && len(v.gasPrice.Bytes()) > 0 {
-		size += len(v.gasPrice.Bytes())
-	}
-	size += len(v.signature)
-	return uint32(size)
+	return v.BasicActionSize() + uint32(8) // TimestampSizeInBytes
 }
 
 // ByteStream returns a raw byte stream of this Transfer
 func (v *Vote) ByteStream() []byte {
 	// TODO: remove pbVote.Timestamp from the proto because we never set it
-	stream := make([]byte, TimestampSizeInBytes)
-	enc.MachineEndian.PutUint64(stream, uint64(0))
-	stream = append(stream, v.srcPubkey[:]...)
-	stream = append(stream, v.srcAddr...)
-	stream = append(stream, v.dstAddr...)
-	temp := make([]byte, 8)
-	enc.MachineEndian.PutUint64(temp, v.nonce)
-	stream = append(stream, temp...)
-	temp = make([]byte, 4)
-	enc.MachineEndian.PutUint32(temp, v.version)
-	stream = append(stream, temp...)
-	temp = make([]byte, GasSizeInBytes)
-	enc.MachineEndian.PutUint64(temp, v.gasLimit)
-	stream = append(stream, temp...)
-	if v.gasPrice != nil && len(v.gasPrice.Bytes()) > 0 {
-		stream = append(stream, v.gasPrice.Bytes()...)
-	}
+	stream := v.BasicActionByteStream()
 	// Signature = Sign(hash(ByteStream())), so not included
-	return stream
+	return append(stream, byteutil.Uint64ToBytes(uint64(0))...)
 }
 
 // Proto converts Vote to protobuf's ActionPb
@@ -192,7 +165,7 @@ func NewVoteFromJSON(jsonVote *explorer.Vote) (*Vote, error) {
 		return nil, err
 	}
 	return &Vote{
-		action: action{
+		abstractAction: abstractAction{
 			version:   uint32(jsonVote.Version),
 			nonce:     uint64(jsonVote.Nonce),
 			srcAddr:   jsonVote.Voter,

@@ -19,7 +19,7 @@ import (
 
 // SecretWitness defines the struct of DKG secret witness
 type SecretWitness struct {
-	action
+	abstractAction
 	witness [][]byte
 }
 
@@ -33,7 +33,7 @@ func NewSecretWitness(
 		return nil, errors.Wrap(ErrAddress, "address of sender is empty")
 	}
 	return &SecretWitness{
-		action: action{
+		abstractAction: abstractAction{
 			version: version.ProtocolVersion,
 			nonce:   nonce,
 			srcAddr: sender,
