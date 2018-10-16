@@ -118,8 +118,8 @@ func (start *StartSubChain) OwnerAddress() string { return start.SrcAddr() }
 // OwnerPublicKey returns the owner public key, which is the wrapper of SrcPubkey
 func (start *StartSubChain) OwnerPublicKey() keypair.PublicKey { return start.SrcPubkey() }
 
-// Hash returns the hash of starting sub-chain message
-func (start *StartSubChain) Hash() hash.Hash32B {
+// ByteStream returns the byte representation of sub-chain action
+func (start *StartSubChain) ByteStream() []byte {
 	stream := []byte(reflect.TypeOf(start).String())
 	temp := make([]byte, 4)
 	enc.MachineEndian.PutUint32(stream, start.version)
@@ -150,7 +150,12 @@ func (start *StartSubChain) Hash() hash.Hash32B {
 	if start.gasPrice != nil && len(start.gasPrice.Bytes()) > 0 {
 		stream = append(stream, start.gasPrice.Bytes()...)
 	}
-	return blake2b.Sum256(stream)
+	return stream
+}
+
+// Hash returns the hash of starting sub-chain message
+func (start *StartSubChain) Hash() hash.Hash32B {
+	return blake2b.Sum256(start.ByteStream())
 }
 
 // Proto converts start sub-chain action into a proto message

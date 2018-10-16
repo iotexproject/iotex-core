@@ -161,8 +161,8 @@ func (tsf *Transfer) ByteStream() []byte {
 	return stream
 }
 
-// ConvertToActionPb converts Transfer to protobuf's ActionPb
-func (tsf *Transfer) ConvertToActionPb() *iproto.ActionPb {
+// Proto converts Transfer to protobuf's ActionPb
+func (tsf *Transfer) Proto() *iproto.ActionPb {
 	// used by account-based model
 	act := &iproto.ActionPb{
 		Action: &iproto.ActionPb_Transfer{
@@ -215,7 +215,7 @@ func (tsf *Transfer) ToJSON() *explorer.Transfer {
 
 // Serialize returns a serialized byte stream for the Transfer
 func (tsf *Transfer) Serialize() ([]byte, error) {
-	return proto.Marshal(tsf.ConvertToActionPb())
+	return proto.Marshal(tsf.Proto())
 }
 
 // ConvertFromActionPb converts a protobuf's ActionPb to Transfer

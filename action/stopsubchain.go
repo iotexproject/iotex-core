@@ -101,8 +101,8 @@ func (ssc *StopSubChain) ByteStream() []byte {
 	return append(stream, byteutil.Uint64ToBytes(ssc.stopHeight)...)
 }
 
-// ConvertToActionPb converts StopSubChain to protobuf's ActionPb
-func (ssc *StopSubChain) ConvertToActionPb() *iproto.ActionPb {
+// Proto converts StopSubChain to protobuf's ActionPb
+func (ssc *StopSubChain) Proto() *iproto.ActionPb {
 	pbSSC := &iproto.ActionPb{
 		Action: &iproto.ActionPb_StopSubChain{
 			StopSubChain: &iproto.StopSubChainPb{
@@ -126,7 +126,7 @@ func (ssc *StopSubChain) ConvertToActionPb() *iproto.ActionPb {
 
 // Serialize returns a serialized byte stream for the StopSubChain
 func (ssc *StopSubChain) Serialize() ([]byte, error) {
-	return proto.Marshal(ssc.ConvertToActionPb())
+	return proto.Marshal(ssc.Proto())
 }
 
 // ConvertFromActionPb converts a protobuf's ActionPb to StopSubChain

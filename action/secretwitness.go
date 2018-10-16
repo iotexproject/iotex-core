@@ -59,8 +59,8 @@ func (sw *SecretWitness) ByteStream() []byte {
 	return stream
 }
 
-// ConvertToActionPb converts SecretWitness to protobuf's ActionPb
-func (sw *SecretWitness) ConvertToActionPb() *iproto.ActionPb {
+// Proto converts SecretWitness to protobuf's ActionPb
+func (sw *SecretWitness) Proto() *iproto.ActionPb {
 	// used by account-based model
 	act := &iproto.ActionPb{
 		Action: &iproto.ActionPb_SecretWitness{
@@ -77,7 +77,7 @@ func (sw *SecretWitness) ConvertToActionPb() *iproto.ActionPb {
 
 // Serialize returns a serialized byte stream for the SecretWitness
 func (sw *SecretWitness) Serialize() ([]byte, error) {
-	return proto.Marshal(sw.ConvertToActionPb())
+	return proto.Marshal(sw.Proto())
 }
 
 // ConvertFromActionPb converts a protobuf's ActionPb to SecretWitness

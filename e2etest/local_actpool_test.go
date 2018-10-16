@@ -97,12 +97,12 @@ func TestLocalActPool(t *testing.T) {
 	vote6, err := action.NewVote(uint64(7), from.RawAddress, from.RawAddress, uint64(100000), big.NewInt(10))
 	require.NoError(err)
 
-	require.NoError(cli.Broadcast(chainID, tsf1.ConvertToActionPb()))
-	require.NoError(cli.Broadcast(chainID, vote2.ConvertToActionPb()))
-	require.NoError(cli.Broadcast(chainID, tsf3.ConvertToActionPb()))
-	require.NoError(cli.Broadcast(chainID, exec4.ConvertToActionPb()))
-	require.NoError(cli.Broadcast(chainID, vote5.ConvertToActionPb()))
-	require.NoError(cli.Broadcast(chainID, vote6.ConvertToActionPb()))
+	require.NoError(cli.Broadcast(chainID, tsf1.Proto()))
+	require.NoError(cli.Broadcast(chainID, vote2.Proto()))
+	require.NoError(cli.Broadcast(chainID, tsf3.Proto()))
+	require.NoError(cli.Broadcast(chainID, exec4.Proto()))
+	require.NoError(cli.Broadcast(chainID, vote5.Proto()))
+	require.NoError(cli.Broadcast(chainID, vote6.Proto()))
 
 	// Wait until server receives all the transfers
 	require.NoError(testutil.WaitUntil(100*time.Millisecond, 5*time.Second, func() (bool, error) {
@@ -156,7 +156,7 @@ func TestPressureActPool(t *testing.T) {
 		tsf, err := testutil.SignedTransfer(from, to, uint64(i), big.NewInt(int64(i)),
 			[]byte{}, uint64(100000), big.NewInt(0))
 		require.NoError(err)
-		require.NoError(cli.Broadcast(chainID, tsf.ConvertToActionPb()))
+		require.NoError(cli.Broadcast(chainID, tsf.Proto()))
 	}
 
 	// Wait until committed blocks contain all broadcasted actions
