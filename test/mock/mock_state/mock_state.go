@@ -253,17 +253,17 @@ func (mr *MockFactoryMockRecorder) SetContractState(arg0, arg1, arg2 interface{}
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetContractState", reflect.TypeOf((*MockFactory)(nil).SetContractState), arg0, arg1, arg2)
 }
 
-// candidates mocks base method
-func (m *MockFactory) candidates() (uint64, []*state.Candidate) {
-	ret := m.ctrl.Call(m, "candidates")
+// Candidates mocks base method
+func (m *MockFactory) Candidates() (uint64, []*state.Candidate) {
+	ret := m.ctrl.Call(m, "Candidates")
 	ret0, _ := ret[0].(uint64)
 	ret1, _ := ret[1].([]*state.Candidate)
 	return ret0, ret1
 }
 
-// candidates indicates an expected call of candidates
-func (mr *MockFactoryMockRecorder) candidates() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "candidates", reflect.TypeOf((*MockFactory)(nil).candidates))
+// Candidates indicates an expected call of Candidates
+func (mr *MockFactoryMockRecorder) Candidates() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Candidates", reflect.TypeOf((*MockFactory)(nil).Candidates))
 }
 
 // CandidatesByHeight mocks base method
@@ -302,14 +302,14 @@ func (m *MockActionHandler) EXPECT() *MockActionHandlerMockRecorder {
 	return m.recorder
 }
 
-// handle mocks base method
-func (m *MockActionHandler) handle(arg0 action.Action) error {
-	ret := m.ctrl.Call(m, "handle", arg0)
+// Handle mocks base method
+func (m *MockActionHandler) Handle(arg0 action.Action, arg1 state.WorkingSet) error {
+	ret := m.ctrl.Call(m, "Handle", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// handle indicates an expected call of handle
-func (mr *MockActionHandlerMockRecorder) handle(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "handle", reflect.TypeOf((*MockActionHandler)(nil).handle), arg0)
+// Handle indicates an expected call of Handle
+func (mr *MockActionHandlerMockRecorder) Handle(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Handle", reflect.TypeOf((*MockActionHandler)(nil).Handle), arg0, arg1)
 }

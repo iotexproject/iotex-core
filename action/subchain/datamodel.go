@@ -16,8 +16,8 @@ import (
 // subChain represents the state of a sub-chain in the state factory
 type subChain struct {
 	chainID            uint32
-	securityDeposit    big.Int
-	operationDeposit   big.Int
+	securityDeposit    *big.Int
+	operationDeposit   *big.Int
 	startHeight        uint64
 	parentHeightOffset uint64
 	ownerPublicKey     keypair.PublicKey
