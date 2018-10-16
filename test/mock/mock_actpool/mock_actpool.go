@@ -193,15 +193,14 @@ func (m *MockActionValidator) EXPECT() *MockActionValidatorMockRecorder {
 	return m.recorder
 }
 
-// validate mocks base method
-func (m *MockActionValidator) validate(arg0 action.Action) (bool, error) {
-	ret := m.ctrl.Call(m, "validate", arg0)
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+// Validate mocks base method
+func (m *MockActionValidator) Validate(arg0 action.Action) error {
+	ret := m.ctrl.Call(m, "Validate", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
-// validate indicates an expected call of validate
-func (mr *MockActionValidatorMockRecorder) validate(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "validate", reflect.TypeOf((*MockActionValidator)(nil).validate), arg0)
+// Validate indicates an expected call of Validate
+func (mr *MockActionValidatorMockRecorder) Validate(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Validate", reflect.TypeOf((*MockActionValidator)(nil).Validate), arg0)
 }

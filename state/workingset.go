@@ -188,10 +188,10 @@ func (ws *workingSet) RunActions(
 	if blockHeight > 0 && len(ws.cachedCandidates) == 0 {
 		candidates, err := ws.getCandidates(blockHeight - 1)
 		if err != nil {
-			return hash.ZeroHash32B, errors.Wrapf(err, "failed to get previous candidates on height %d", blockHeight-1)
+			return hash.ZeroHash32B, errors.Wrapf(err, "failed to get previous Candidates on height %d", blockHeight-1)
 		}
 		if ws.cachedCandidates, err = CandidatesToMap(candidates); err != nil {
-			return hash.ZeroHash32B, errors.Wrap(err, "failed to convert candidate list to map of cached candidates")
+			return hash.ZeroHash32B, errors.Wrap(err, "failed to convert candidate list to map of cached Candidates")
 		}
 	}
 	if err := ws.handleTsf(tsf); err != nil {
@@ -252,7 +252,7 @@ func (ws *workingSet) RunActions(
 
 	for _, act := range actions {
 		for _, actionHandler := range ws.actionHandlers {
-			if err := actionHandler.handle(act); err != nil {
+			if err := actionHandler.Handle(act, ws); err != nil {
 				return hash.ZeroHash32B, errors.Wrapf(err, "error when action %x mutates states", act.Hash())
 			}
 		}
@@ -263,19 +263,19 @@ func (ws *workingSet) RunActions(
 	if err := ws.dao.Put(trie.AccountKVNameSpace, []byte(AccountTrieRootKey), rootHash[:]); err != nil {
 		return hash.ZeroHash32B, errors.Wrap(err, "failed to store accountTrie's root hash")
 	}
-	// Persist new list of candidates
+	// Persist new list of Candidates
 	candidates, err := MapToCandidates(ws.cachedCandidates)
 	if err != nil {
-		return hash.ZeroHash32B, errors.Wrap(err, "failed to convert map of cached candidates to candidate list")
+		return hash.ZeroHash32B, errors.Wrap(err, "failed to convert map of cached Candidates to candidate list")
 	}
 	sort.Sort(candidates)
 	candidatesBytes, err := Serialize(candidates)
 	if err != nil {
-		return hash.ZeroHash32B, errors.Wrap(err, "failed to serialize candidates")
+		return hash.ZeroHash32B, errors.Wrap(err, "failed to serialize Candidates")
 	}
 	h := byteutil.Uint64ToBytes(blockHeight)
 	if err := ws.dao.Put(trie.CandidateKVNameSpace, h, candidatesBytes); err != nil {
-		return hash.ZeroHash32B, errors.Wrapf(err, "failed to store candidates on height %d", blockHeight)
+		return hash.ZeroHash32B, errors.Wrapf(err, "failed to store Candidates on height %d", blockHeight)
 	}
 	// Persist current chain height
 	if err := ws.dao.Put(trie.AccountKVNameSpace, []byte(CurrentHeightKey), h); err != nil {
@@ -445,7 +445,7 @@ func (ws *workingSet) updateCandidate(pkHash hash.PKHash, totalWeight *big.Int, 
 func (ws *workingSet) getCandidates(height uint64) (CandidateList, error) {
 	candidatesBytes, err := ws.dao.Get(trie.CandidateKVNameSpace, byteutil.Uint64ToBytes(height))
 	if err != nil {
-		return []*Candidate{}, errors.Wrapf(err, "failed to get candidates on height %d", height)
+		return []*Candidate{}, errors.Wrapf(err, "failed to get Candidates on height %d", height)
 	}
 	return Deserialize(candidatesBytes)
 }

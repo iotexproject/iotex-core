@@ -39,7 +39,7 @@ type Candidate struct {
 	LastUpdateHeight uint64
 }
 
-// CandidateList indicates the list of candidates which is sortable
+// CandidateList indicates the list of Candidates which is sortable
 type CandidateList []*Candidate
 
 func (l CandidateList) Len() int      { return len(l) }
@@ -84,7 +84,7 @@ func pbToCandidate(candPb *iproto.Candidate) (*Candidate, error) {
 	return candidate, nil
 }
 
-// Serialize serializes a list of candidates to bytes
+// Serialize serializes a list of Candidates to bytes
 func Serialize(candidates CandidateList) ([]byte, error) {
 	candidatesPb := make([]*iproto.Candidate, 0, len(candidates))
 	for _, cand := range candidates {
@@ -97,7 +97,7 @@ func Serialize(candidates CandidateList) ([]byte, error) {
 	return proto.Marshal(&iproto.CandidateList{Candidates: candidatesPb})
 }
 
-// Deserialize deserializes bytes to list of candidates
+// Deserialize deserializes bytes to list of Candidates
 func Deserialize(buf []byte) (CandidateList, error) {
 	candList := &iproto.CandidateList{}
 	if err := proto.Unmarshal(buf, candList); err != nil {
