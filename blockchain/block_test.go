@@ -445,7 +445,8 @@ func TestCoinbaseTransferValidation(t *testing.T) {
 		PrivateKey: sk,
 		RawAddress: addr.IotxAddress(),
 	}
-	blk, err := chain.MintNewBlock(nil, nil, nil, nil, &iotxAddr, "")
+	blk, err := chain.MintNewBlock(nil, nil, nil, nil, &iotxAddr, nil, nil,
+		"")
 	require.NoError(t, err)
 	validator := validator{}
 	require.NoError(t, validator.verifyActions(blk, true))
