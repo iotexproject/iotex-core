@@ -226,7 +226,7 @@ func TestStartRoundEvt(t *testing.T) {
 		assert.Equal(t, uint64(0), cfsm.ctx.epoch.subEpochNum)
 		assert.NotNil(t, cfsm.ctx.round.proposer, delegates[2])
 		assert.NotNil(t, cfsm.ctx.round.proposalEndorses, s)
-		assert.NotNil(t, cfsm.ctx.round.commitEndorses, s)
+		assert.NotNil(t, cfsm.ctx.round.lockEndorses, s)
 		assert.Equal(t, eInitBlock, (<-cfsm.evtq).Type())
 	})
 	t.Run("is-not-proposer", func(t *testing.T) {
@@ -250,7 +250,7 @@ func TestStartRoundEvt(t *testing.T) {
 		assert.Equal(t, uint64(0), cfsm.ctx.epoch.subEpochNum)
 		assert.NotNil(t, cfsm.ctx.round.proposer, delegates[2])
 		assert.NotNil(t, cfsm.ctx.round.proposalEndorses, s)
-		assert.NotNil(t, cfsm.ctx.round.commitEndorses, s)
+		assert.NotNil(t, cfsm.ctx.round.lockEndorses, s)
 		assert.Equal(t, eProposeBlockTimeout, (<-cfsm.evtq).Type())
 	})
 }
@@ -282,7 +282,7 @@ func TestHandleInitBlockEvt(t *testing.T) {
 	cfsm.ctx.epoch.numSubEpochs = uint(2)
 	cfsm.ctx.round = roundCtx{
 		proposalEndorses: make(map[hash.Hash32B]map[string]bool),
-		commitEndorses:   make(map[hash.Hash32B]map[string]bool),
+		lockEndorses:     make(map[hash.Hash32B]map[string]bool),
 		proposer:         delegates[2],
 	}
 
@@ -334,7 +334,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 	round := roundCtx{
 		height:           2,
 		proposalEndorses: make(map[hash.Hash32B]map[string]bool),
-		commitEndorses:   make(map[hash.Hash32B]map[string]bool),
+		lockEndorses:     make(map[hash.Hash32B]map[string]bool),
 		proposer:         delegates[2],
 	}
 
@@ -365,7 +365,6 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		evt, ok := e.(*endorseEvt)
 		require.True(t, ok)
 		assert.Equal(t, eEndorseProposal, evt.Type())
-		assert.True(t, evt.endorse.decision)
 		assert.Equal(t, eEndorseProposalTimeout, (<-cfsm.evtq).Type())
 	})
 
@@ -398,7 +397,6 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		evt, ok := e.(*endorseEvt)
 		require.True(t, ok)
 		assert.Equal(t, eEndorseProposal, evt.Type())
-		assert.True(t, evt.endorse.decision)
 		assert.Equal(t, eEndorseProposalTimeout, (<-cfsm.evtq).Type())
 
 		clock.Add(10 * time.Second)
@@ -411,7 +409,6 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		evt, ok = e.(*endorseEvt)
 		require.True(t, ok)
 		assert.Equal(t, eEndorseProposal, evt.Type())
-		assert.True(t, evt.endorse.decision)
 		assert.Equal(t, eEndorseProposalTimeout, (<-cfsm.evtq).Type())
 	})
 
@@ -465,7 +462,6 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		evt, ok := e.(*endorseEvt)
 		require.True(t, ok)
 		assert.Equal(t, eEndorseProposal, evt.Type())
-		assert.True(t, evt.endorse.decision)
 		assert.Equal(t, eEndorseProposalTimeout, (<-cfsm.evtq).Type())
 	})
 
@@ -565,7 +561,7 @@ func TestHandleProposalEndorseEvt(t *testing.T) {
 	}
 	round := roundCtx{
 		proposalEndorses: make(map[hash.Hash32B]map[string]bool),
-		commitEndorses:   make(map[hash.Hash32B]map[string]bool),
+		lockEndorses:     make(map[hash.Hash32B]map[string]bool),
 		proposer:         delegates[2],
 	}
 
@@ -592,31 +588,30 @@ func TestHandleProposalEndorseEvt(t *testing.T) {
 		cfsm.ctx.round.block = blk
 
 		// First endorse prepare
-		eEvt, err := newEndorseEvt(endorseProposal, blk.HashBlock(), true, round.height, testAddrs[0], cfsm.ctx.clock)
+		eEvt, err := newEndorseEvt(endorseProposal, blk.HashBlock(), round.height, testAddrs[0], cfsm.ctx.clock)
 		assert.NoError(t, err)
 		state, err := cfsm.handleEndorseProposalEvt(eEvt)
 		assert.NoError(t, err)
 		assert.Equal(t, sAcceptProposalEndorse, state)
 
 		// Second endorse prepare
-		eEvt, err = newEndorseEvt(endorseProposal, blk.HashBlock(), true, round.height, testAddrs[1], cfsm.ctx.clock)
+		eEvt, err = newEndorseEvt(endorseProposal, blk.HashBlock(), round.height, testAddrs[1], cfsm.ctx.clock)
 		assert.NoError(t, err)
 		state, err = cfsm.handleEndorseProposalEvt(eEvt)
 		assert.NoError(t, err)
 		assert.Equal(t, sAcceptProposalEndorse, state)
 
 		// Third endorse prepare, could move on
-		eEvt, err = newEndorseEvt(endorseProposal, blk.HashBlock(), true, round.height, testAddrs[2], cfsm.ctx.clock)
+		eEvt, err = newEndorseEvt(endorseProposal, blk.HashBlock(), round.height, testAddrs[2], cfsm.ctx.clock)
 		assert.NoError(t, err)
 		state, err = cfsm.handleEndorseProposalEvt(eEvt)
 		assert.NoError(t, err)
-		assert.Equal(t, sAcceptCommitEndorse, state)
+		assert.Equal(t, sAcceptLockEndorse, state)
 		e := <-cfsm.evtq
 		evt, ok := e.(*endorseEvt)
 		require.True(t, ok)
-		assert.Equal(t, eEndorseCommit, evt.Type())
-		assert.True(t, evt.endorse.decision)
-		assert.Equal(t, eEndorseCommitTimeout, (<-cfsm.evtq).Type())
+		assert.Equal(t, eEndorseLock, evt.Type())
+		assert.Equal(t, eEndorseLockTimeout, (<-cfsm.evtq).Type())
 	})
 
 	t.Run("timeout", func(t *testing.T) {
@@ -641,11 +636,11 @@ func TestHandleProposalEndorseEvt(t *testing.T) {
 
 		state, err := cfsm.handleEndorseProposalTimeout(cfsm.newCEvt(eEndorseProposalTimeout))
 		assert.NoError(t, err)
-		assert.Equal(t, sAcceptCommitEndorse, state)
+		assert.Equal(t, sAcceptLockEndorse, state)
 		e := <-cfsm.evtq
 		evt, ok := e.(*timeoutEvt)
 		require.True(t, ok)
-		assert.Equal(t, eEndorseCommitTimeout, evt.Type())
+		assert.Equal(t, eEndorseLockTimeout, evt.Type())
 	})
 }
 
@@ -663,7 +658,7 @@ func TestHandleCommitEndorseEvt(t *testing.T) {
 
 	round := roundCtx{
 		proposalEndorses: make(map[hash.Hash32B]map[string]bool),
-		commitEndorses:   make(map[hash.Hash32B]map[string]bool),
+		lockEndorses:     make(map[hash.Hash32B]map[string]bool),
 		proposer:         delegates[2],
 	}
 
@@ -694,18 +689,18 @@ func TestHandleCommitEndorseEvt(t *testing.T) {
 		cfsm.ctx.round.block = blk
 
 		for i := 0; i < 14; i++ {
-			eEvt, err := newEndorseEvt(endorseCommit, blk.HashBlock(), true, round.height, test21Addrs[i], cfsm.ctx.clock)
+			eEvt, err := newEndorseEvt(endorseLock, blk.HashBlock(), round.height, test21Addrs[i], cfsm.ctx.clock)
 			assert.NoError(t, err)
-			state, err := cfsm.handleEndorseCommitEvt(eEvt)
+			state, err := cfsm.handleEndorseLockEvt(eEvt)
 			assert.NoError(t, err)
-			assert.Equal(t, sAcceptCommitEndorse, state)
+			assert.Equal(t, sAcceptLockEndorse, state)
 			assert.Equal(t, 0, len(cfsm.ctx.epoch.committedSecrets))
 		}
 
 		// 15th endorse prepare, could move on
-		eEvt, err := newEndorseEvt(endorseCommit, blk.HashBlock(), true, round.height, test21Addrs[14], cfsm.ctx.clock)
+		eEvt, err := newEndorseEvt(endorseLock, blk.HashBlock(), round.height, test21Addrs[14], cfsm.ctx.clock)
 		assert.NoError(t, err)
-		state, err := cfsm.handleEndorseCommitEvt(eEvt)
+		state, err := cfsm.handleEndorseLockEvt(eEvt)
 		assert.NoError(t, err)
 		assert.Equal(t, sRoundStart, state)
 		assert.Equal(t, eFinishEpoch, (<-cfsm.evtq).Type())
@@ -737,17 +732,17 @@ func TestHandleCommitEndorseEvt(t *testing.T) {
 		cfsm.ctx.round.block = blk
 
 		for i := 0; i < 14; i++ {
-			eEvt, err := newEndorseEvt(endorseCommit, blk.HashBlock(), true, round.height, test21Addrs[i], cfsm.ctx.clock)
+			eEvt, err := newEndorseEvt(endorseLock, blk.HashBlock(), round.height, test21Addrs[i], cfsm.ctx.clock)
 			assert.NoError(t, err)
-			state, err := cfsm.handleEndorseCommitEvt(eEvt)
+			state, err := cfsm.handleEndorseLockEvt(eEvt)
 			assert.NoError(t, err)
-			assert.Equal(t, sAcceptCommitEndorse, state)
+			assert.Equal(t, sAcceptLockEndorse, state)
 		}
 
 		// 15th endorse prepare, could move on
-		eEvt, err := newEndorseEvt(endorseCommit, blk.HashBlock(), true, round.height, test21Addrs[14], cfsm.ctx.clock)
+		eEvt, err := newEndorseEvt(endorseLock, blk.HashBlock(), round.height, test21Addrs[14], cfsm.ctx.clock)
 		assert.NoError(t, err)
-		state, err := cfsm.handleEndorseCommitEvt(eEvt)
+		state, err := cfsm.handleEndorseLockEvt(eEvt)
 		assert.NoError(t, err)
 		assert.Equal(t, sRoundStart, state)
 		assert.Equal(t, eFinishEpoch, (<-cfsm.evtq).Type())
@@ -777,7 +772,7 @@ func TestHandleCommitEndorseEvt(t *testing.T) {
 		assert.NoError(t, err)
 		cfsm.ctx.round.block = blk
 
-		state, err := cfsm.handleEndorseCommitTimeout(cfsm.newCEvt(eEndorseCommitTimeout))
+		state, err := cfsm.handleEndorseLockTimeout(cfsm.newCEvt(eEndorseLockTimeout))
 		assert.NoError(t, err)
 		assert.Equal(t, sRoundStart, state)
 		assert.Equal(t, eFinishEpoch, (<-cfsm.evtq).Type())
@@ -806,7 +801,7 @@ func TestHandleCommitEndorseEvt(t *testing.T) {
 		assert.NoError(t, err)
 		cfsm.ctx.round.block = blk
 
-		state, err := cfsm.handleEndorseCommitTimeout(cfsm.newCEvt(eEndorseCommitTimeout))
+		state, err := cfsm.handleEndorseLockTimeout(cfsm.newCEvt(eEndorseLockTimeout))
 		assert.NoError(t, err)
 		assert.Equal(t, sRoundStart, state)
 		assert.Equal(t, eFinishEpoch, (<-cfsm.evtq).Type())
@@ -833,7 +828,7 @@ func TestHandleFinishEpochEvt(t *testing.T) {
 	}
 	round := roundCtx{
 		proposalEndorses: make(map[hash.Hash32B]map[string]bool),
-		commitEndorses:   make(map[hash.Hash32B]map[string]bool),
+		lockEndorses:     make(map[hash.Hash32B]map[string]bool),
 		proposer:         delegates[2],
 	}
 	t.Run("dkg-not-finished", func(t *testing.T) {
