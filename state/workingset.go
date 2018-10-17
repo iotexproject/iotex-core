@@ -466,7 +466,11 @@ func (ws *workingSet) getContract(addr hash.PKHash) (Contract, error) {
 	if err != nil {
 		return nil, err
 	}
-	tr, err := trie.NewTrieSharedDB(ws.dao, trie.ContractKVNameSpace, account.Root)
+	delete(ws.cachedStates, addr)
+	if account.Root == hash.ZeroHash32B {
+		account.Root = trie.EmptyRoot
+	}
+	tr, err := trie.NewTrieSharedBatch(ws.dao, ws.cb, trie.ContractKVNameSpace, account.Root)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create storage trie for new contract %x", addr)
 	}
