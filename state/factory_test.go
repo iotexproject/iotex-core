@@ -625,7 +625,7 @@ func TestCandidatesByHeight(t *testing.T) {
 	candidateList = append(candidateList, cand2)
 	sort.Sort(candidateList)
 
-	candidatesBytes, err := SerializeCandidateList(candidateList)
+	candidatesBytes, err := candidateList.Serialize()
 	require.NoError(t, err)
 
 	require.Nil(t, sf.dao.Put(trie.CandidateKVNameSpace, byteutil.Uint64ToBytes(0), candidatesBytes))
@@ -640,7 +640,7 @@ func TestCandidatesByHeight(t *testing.T) {
 
 	candidateList = append(candidateList, cand3)
 	sort.Sort(candidateList)
-	candidatesBytes, err = SerializeCandidateList(candidateList)
+	candidatesBytes, err = candidateList.Serialize()
 	require.NoError(t, err)
 
 	require.Nil(t, sf.dao.Put(trie.CandidateKVNameSpace, byteutil.Uint64ToBytes(1), candidatesBytes))

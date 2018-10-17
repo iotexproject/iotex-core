@@ -310,7 +310,7 @@ func (ws *workingSet) RunActions(
 		return hash.ZeroHash32B, errors.Wrap(err, "failed to convert map of cached Candidates to candidate list")
 	}
 	sort.Sort(candidates)
-	candidatesBytes, err := SerializeCandidateList(candidates)
+	candidatesBytes, err := candidates.Serialize()
 	if err != nil {
 		return hash.ZeroHash32B, errors.Wrap(err, "failed to serialize Candidates")
 	}
@@ -505,7 +505,7 @@ func (ws *workingSet) GetCandidates(height uint64) (CandidateList, error) {
 	if err != nil {
 		return []*Candidate{}, errors.Wrapf(err, "failed to get Candidates on Height %d", height)
 	}
-	return DeserializeCandidateList(candidatesBytes)
+	return CandidateList{}.Deserialize(candidatesBytes)
 }
 
 //======================================
