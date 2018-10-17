@@ -50,9 +50,9 @@ func (l CandidateList) Less(i, j int) bool {
 }
 
 // Serialize serializes a list of Candidates to bytes
-func (l CandidateList) Serialize() ([]byte, error) {
-	candidatesPb := make([]*iproto.Candidate, 0, len(l))
-	for _, cand := range l {
+func (l *CandidateList) Serialize() ([]byte, error) {
+	candidatesPb := make([]*iproto.Candidate, 0, len(*l))
+	for _, cand := range *l {
 		candPb, err := candidateToPb(cand)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to convert candidate to protobuf's candidate message")
@@ -63,20 +63,22 @@ func (l CandidateList) Serialize() ([]byte, error) {
 }
 
 // Deserialize deserializes bytes to list of Candidates
-func (l CandidateList) Deserialize(buf []byte) (CandidateList, error) {
+func (l *CandidateList) Deserialize(buf []byte) error {
 	candList := &iproto.CandidateList{}
 	if err := proto.Unmarshal(buf, candList); err != nil {
-		return nil, errors.Wrap(err, "failed to unmarshal candidate list")
+		return errors.Wrap(err, "failed to unmarshal candidate list")
 	}
+	candidates := make(CandidateList, 0)
 	candidatesPb := candList.Candidates
 	for _, candPb := range candidatesPb {
 		cand, err := pbToCandidate(candPb)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to convert protobuf's candidate message to candidate")
+			return errors.Wrap(err, "failed to convert protobuf's candidate message to candidate")
 		}
-		l = append(l, cand)
+		candidates = append(candidates, cand)
 	}
-	return l, nil
+	*l = candidates
+	return nil
 }
 
 // candidateToPb converts a candidate to protobuf's candidate message

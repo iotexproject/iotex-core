@@ -468,9 +468,13 @@ func (ws *workingSet) updateCandidate(pkHash hash.PKHash, totalWeight *big.Int, 
 func (ws *workingSet) getCandidates(height uint64) (CandidateList, error) {
 	candidatesBytes, err := ws.dao.Get(trie.CandidateKVNameSpace, byteutil.Uint64ToBytes(height))
 	if err != nil {
-		return []*Candidate{}, errors.Wrapf(err, "failed to get Candidates on Height %d", height)
+		return nil, errors.Wrapf(err, "failed to get Candidates on Height %d", height)
 	}
-	return CandidateList{}.Deserialize(candidatesBytes)
+	var candidates CandidateList
+	if err := candidates.Deserialize(candidatesBytes); err != nil {
+		return nil, err
+	}
+	return candidates, nil
 }
 
 //======================================
