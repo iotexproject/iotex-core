@@ -43,8 +43,7 @@ func (en *endorsement) BinaryMarshaler() []byte {
 	case endorseProposal:
 		stream = append(stream, 0)
 	}
-	stream = append(stream, en.blkHash[:]...)
-	return stream
+	return append(stream, en.blkHash[:]...)
 }
 
 // Hash returns the hash of the endorse for signature
