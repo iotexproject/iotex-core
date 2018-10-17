@@ -62,7 +62,7 @@ func (mr *MockFactoryMockRecorder) Stop(arg0 interface{}) *gomock.Call {
 }
 
 // LoadOrCreateAccountState mocks base method
-func (m *MockFactory) LoadOrCreateAccountState(arg0 string, arg1 uint64) (*state.Account, error) {
+func (m *MockFactory) LoadOrCreateAccountState(arg0 string, arg1 *big.Int) (*state.Account, error) {
 	ret := m.ctrl.Call(m, "LoadOrCreateAccountState", arg0, arg1)
 	ret0, _ := ret[0].(*state.Account)
 	ret1, _ := ret[1].(error)

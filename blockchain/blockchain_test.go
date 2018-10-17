@@ -11,7 +11,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -180,7 +179,7 @@ func TestCreateBlockchain(t *testing.T) {
 	// disable account-based testing
 	cfg.Chain.TrieDBPath = ""
 	// Disable block reward to make bookkeeping easier
-	Gen.BlockReward = uint64(0)
+	Gen.BlockReward = big.NewInt(0)
 
 	// create chain
 	bc := NewBlockchain(&cfg, InMemStateFactoryOption(), InMemDaoOption())
@@ -237,7 +236,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	defer testutil.CleanupPath(t, testDBPath)
 
 	// Disable block reward to make bookkeeping easier
-	Gen.BlockReward = uint64(0)
+	Gen.BlockReward = big.NewInt(0)
 
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
@@ -458,7 +457,7 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	defer testutil.CleanupPath(t, testDBPath)
 	ctx := context.Background()
 	// Disable block reward to make bookkeeping easier
-	Gen.BlockReward = uint64(0)
+	Gen.BlockReward = big.NewInt(0)
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
@@ -692,7 +691,7 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.NumCandidates = 2
 	// Disable block reward to make bookkeeping easier
-	Gen.BlockReward = uint64(0)
+	Gen.BlockReward = big.NewInt(0)
 
 	sf, err := state.NewFactory(&cfg, state.DefaultTrieOption())
 	require.Nil(err)
@@ -730,7 +729,7 @@ func TestCoinbaseTransfer(t *testing.T) {
 	require.NoError(err)
 	require.NoError(sf.Commit(nil))
 
-	Gen.BlockReward = uint64(10)
+	Gen.BlockReward = big.NewInt(0)
 
 	bc := NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	require.NoError(bc.Start(context.Background()))
@@ -745,7 +744,7 @@ func TestCoinbaseTransfer(t *testing.T) {
 	s, err := bc.StateByAddr(ta.Addrinfo["producer"].RawAddress)
 	require.Nil(err)
 	b := s.Balance
-	require.True(b.String() == strconv.Itoa(int(Gen.TotalSupply)))
+	require.True(b.String() == Gen.TotalSupply.String())
 	require.Nil(bc.ValidateBlock(blk, true))
 	require.Nil(bc.CommitBlock(blk))
 	height = bc.TipHeight()
@@ -754,7 +753,9 @@ func TestCoinbaseTransfer(t *testing.T) {
 	s, err = bc.StateByAddr(ta.Addrinfo["producer"].RawAddress)
 	require.Nil(err)
 	b = s.Balance
-	require.True(b.String() == strconv.Itoa(int(Gen.TotalSupply)+int(Gen.BlockReward)))
+	expectedBalance := big.NewInt(0)
+	expectedBalance.Add(Gen.TotalSupply, Gen.BlockReward)
+	require.True(b.String() == expectedBalance.String())
 }
 
 func TestBlockchain_StateByAddr(t *testing.T) {
@@ -770,7 +771,8 @@ func TestBlockchain_StateByAddr(t *testing.T) {
 	s, err := bc.StateByAddr(Gen.CreatorAddr(cfg.Chain.ID))
 	require.NoError(err)
 	require.Equal(uint64(0), s.Nonce)
-	require.Equal(big.NewInt(7700000000), s.Balance)
+	bal := big.NewInt(7700000000)
+	require.Equal(bal.Mul(bal, big.NewInt(1e18)).String(), s.Balance.String())
 	require.Equal(hash.ZeroHash32B, s.Root)
 	require.Equal([]byte(nil), s.CodeHash)
 	require.Equal(false, s.IsCandidate)
@@ -802,8 +804,8 @@ func TestBlocks(t *testing.T) {
 	require.NoError(bc.Start(context.Background()))
 	a := ta.Addrinfo["alfa"]
 	c := ta.Addrinfo["bravo"]
-	sf.LoadOrCreateAccountState(a.RawAddress, uint64(100000))
-	sf.LoadOrCreateAccountState(c.RawAddress, uint64(100000))
+	sf.LoadOrCreateAccountState(a.RawAddress, big.NewInt(100000))
+	sf.LoadOrCreateAccountState(c.RawAddress, big.NewInt(100000))
 
 	for i := 0; i < 10; i++ {
 		tsfs := []*action.Transfer{}
@@ -843,8 +845,8 @@ func TestActions(t *testing.T) {
 	require.NoError(bc.Start(context.Background()))
 	a := ta.Addrinfo["alfa"]
 	c := ta.Addrinfo["bravo"]
-	sf.LoadOrCreateAccountState(a.RawAddress, uint64(100000))
-	sf.LoadOrCreateAccountState(c.RawAddress, uint64(100000))
+	sf.LoadOrCreateAccountState(a.RawAddress, big.NewInt(100000))
+	sf.LoadOrCreateAccountState(c.RawAddress, big.NewInt(100000))
 
 	val := validator{sf, ""}
 	tsfs := []*action.Transfer{}

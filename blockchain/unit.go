@@ -6,6 +6,10 @@
 
 package blockchain
 
+import (
+	"math/big"
+)
+
 const (
 	// Rau is the smallest non-fungible token unit
 	Rau int64 = 1
@@ -22,3 +26,9 @@ const (
 	// Iotx is 1000 Jin, which should be fit into int64
 	Iotx = Jin * 1000
 )
+
+// ConvertIotxToRau converts an Iotx to Rau
+func ConvertIotxToRau(iotx int64) *big.Int {
+	itx := big.NewInt(iotx)
+	return itx.Mul(itx, big.NewInt(1e18))
+}

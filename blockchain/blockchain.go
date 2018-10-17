@@ -37,7 +37,7 @@ type Blockchain interface {
 	// Nonce returns the nonce if the account exists
 	Nonce(addr string) (uint64, error)
 	// CreateState adds a new account with initial balance to the factory
-	CreateState(addr string, init uint64) (*state.Account, error)
+	CreateState(addr string, init *big.Int) (*state.Account, error)
 	// CandidatesByHeight returns the candidate list by a given height
 	CandidatesByHeight(height uint64) ([]*state.Candidate, error)
 	// For exposing blockchain states
@@ -408,7 +408,7 @@ func (bc *blockchain) Nonce(addr string) (uint64, error) {
 }
 
 // CreateState adds a new account with initial balance to the factory
-func (bc *blockchain) CreateState(addr string, init uint64) (*state.Account, error) {
+func (bc *blockchain) CreateState(addr string, init *big.Int) (*state.Account, error) {
 	return bc.sf.LoadOrCreateAccountState(addr, init)
 }
 
@@ -647,7 +647,7 @@ func (bc *blockchain) MintNewBlock(
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
 
-	tsf = append(tsf, action.NewCoinBaseTransfer(big.NewInt(int64(bc.genesis.BlockReward)), producer.RawAddress))
+	tsf = append(tsf, action.NewCoinBaseTransfer(bc.genesis.BlockReward, producer.RawAddress))
 	blk := NewBlock(bc.config.Chain.ID, bc.tipHeight+1, bc.tipHash, bc.now(), tsf, vote, executions, actions)
 	blk.Header.DKGID = []byte{}
 	blk.Header.DKGPubkey = []byte{}
