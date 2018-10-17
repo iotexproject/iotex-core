@@ -361,7 +361,7 @@ func (b *Block) HashBlock() hash.Hash32B {
 // VerifyStateRoot verifies the state root in header
 func (b *Block) VerifyStateRoot(root hash.Hash32B) error {
 	if b.Header.stateRoot != root {
-		return errors.New("State root hash does not match")
+		return errors.New("state root hash does not match")
 	}
 	return nil
 }

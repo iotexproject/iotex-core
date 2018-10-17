@@ -6,13 +6,12 @@ package mock_state
 
 import (
 	context "context"
-	big "math/big"
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	action "github.com/iotexproject/iotex-core/action"
 	hash "github.com/iotexproject/iotex-core/pkg/hash"
 	state "github.com/iotexproject/iotex-core/state"
+	big "math/big"
+	reflect "reflect"
 )
 
 // MockFactory is a mock of Factory interface
@@ -62,17 +61,17 @@ func (mr *MockFactoryMockRecorder) Stop(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockFactory)(nil).Stop), arg0)
 }
 
-// LoadOrCreateState mocks base method
-func (m *MockFactory) LoadOrCreateState(arg0 string, arg1 uint64) (*state.State, error) {
-	ret := m.ctrl.Call(m, "LoadOrCreateState", arg0, arg1)
-	ret0, _ := ret[0].(*state.State)
+// LoadOrCreateAccountState mocks base method
+func (m *MockFactory) LoadOrCreateAccountState(arg0 string, arg1 uint64) (*state.Account, error) {
+	ret := m.ctrl.Call(m, "LoadOrCreateAccountState", arg0, arg1)
+	ret0, _ := ret[0].(*state.Account)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// LoadOrCreateState indicates an expected call of LoadOrCreateState
-func (mr *MockFactoryMockRecorder) LoadOrCreateState(arg0, arg1 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadOrCreateState", reflect.TypeOf((*MockFactory)(nil).LoadOrCreateState), arg0, arg1)
+// LoadOrCreateAccountState indicates an expected call of LoadOrCreateAccountState
+func (mr *MockFactoryMockRecorder) LoadOrCreateAccountState(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadOrCreateAccountState", reflect.TypeOf((*MockFactory)(nil).LoadOrCreateAccountState), arg0, arg1)
 }
 
 // Balance mocks base method
@@ -101,30 +100,30 @@ func (mr *MockFactoryMockRecorder) Nonce(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Nonce", reflect.TypeOf((*MockFactory)(nil).Nonce), arg0)
 }
 
-// State mocks base method
-func (m *MockFactory) State(arg0 string) (*state.State, error) {
-	ret := m.ctrl.Call(m, "State", arg0)
-	ret0, _ := ret[0].(*state.State)
+// AccountState mocks base method
+func (m *MockFactory) AccountState(arg0 string) (*state.Account, error) {
+	ret := m.ctrl.Call(m, "AccountState", arg0)
+	ret0, _ := ret[0].(*state.Account)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// State indicates an expected call of State
-func (mr *MockFactoryMockRecorder) State(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "State", reflect.TypeOf((*MockFactory)(nil).State), arg0)
+// AccountState indicates an expected call of AccountState
+func (mr *MockFactoryMockRecorder) AccountState(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AccountState", reflect.TypeOf((*MockFactory)(nil).AccountState), arg0)
 }
 
-// CachedState mocks base method
-func (m *MockFactory) CachedState(arg0 string) (*state.State, error) {
-	ret := m.ctrl.Call(m, "CachedState", arg0)
-	ret0, _ := ret[0].(*state.State)
+// CachedAccountState mocks base method
+func (m *MockFactory) CachedAccountState(arg0 string) (*state.Account, error) {
+	ret := m.ctrl.Call(m, "CachedAccountState", arg0)
+	ret0, _ := ret[0].(*state.Account)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// CachedState indicates an expected call of CachedState
-func (mr *MockFactoryMockRecorder) CachedState(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CachedState", reflect.TypeOf((*MockFactory)(nil).CachedState), arg0)
+// CachedAccountState indicates an expected call of CachedAccountState
+func (mr *MockFactoryMockRecorder) CachedAccountState(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CachedAccountState", reflect.TypeOf((*MockFactory)(nil).CachedAccountState), arg0)
 }
 
 // RootHash mocks base method

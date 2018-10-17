@@ -35,6 +35,13 @@ mockgen -destination=./test/mock/mock_state/mock_state.go  \
         -package=mock_state \
         Factory
 
+mkdir -p ./test/mock/mock_state
+mockgen -destination=./test/mock/mock_state/mock_workingset.go  \
+        -source=./state/workingset.go \
+        -imports =github.com/iotexproject/iotex-core/state \
+        -package=mock_state \
+        WorkingSet
+
 mkdir -p ./test/mock/mock_consensus
 mockgen -destination=./test/mock/mock_consensus/mock_consensus.go  \
         -source=./consensus/consensus.go \

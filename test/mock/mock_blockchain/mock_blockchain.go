@@ -6,15 +6,14 @@ package mock_blockchain
 
 import (
 	context "context"
-	big "math/big"
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	action "github.com/iotexproject/iotex-core/action"
 	blockchain "github.com/iotexproject/iotex-core/blockchain"
 	iotxaddress "github.com/iotexproject/iotex-core/iotxaddress"
 	hash "github.com/iotexproject/iotex-core/pkg/hash"
 	state "github.com/iotexproject/iotex-core/state"
+	big "math/big"
+	reflect "reflect"
 )
 
 // MockBlockchain is a mock of Blockchain interface
@@ -91,9 +90,9 @@ func (mr *MockBlockchainMockRecorder) Nonce(addr interface{}) *gomock.Call {
 }
 
 // CreateState mocks base method
-func (m *MockBlockchain) CreateState(addr string, init uint64) (*state.State, error) {
+func (m *MockBlockchain) CreateState(addr string, init uint64) (*state.Account, error) {
 	ret := m.ctrl.Call(m, "CreateState", addr, init)
-	ret0, _ := ret[0].(*state.State)
+	ret0, _ := ret[0].(*state.Account)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -425,9 +424,9 @@ func (mr *MockBlockchainMockRecorder) TipHeight() *gomock.Call {
 }
 
 // StateByAddr mocks base method
-func (m *MockBlockchain) StateByAddr(address string) (*state.State, error) {
+func (m *MockBlockchain) StateByAddr(address string) (*state.Account, error) {
 	ret := m.ctrl.Call(m, "StateByAddr", address)
-	ret0, _ := ret[0].(*state.State)
+	ret0, _ := ret[0].(*state.Account)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

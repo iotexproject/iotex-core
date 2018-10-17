@@ -35,45 +35,46 @@ const testTriePath = "trie.test"
 
 func TestEncodeDecode(t *testing.T) {
 	require := require.New(t)
-	ss, err := stateToBytes(
-		&State{
-			Nonce:        0x10,
-			Balance:      big.NewInt(20000000),
-			VotingWeight: big.NewInt(1000000000),
-		})
-	require.Nil(err)
+	s1 := Account{
+		Nonce:        0x10,
+		Balance:      big.NewInt(20000000),
+		VotingWeight: big.NewInt(1000000000),
+	}
+	ss, err := s1.Serialize()
+	require.NoError(err)
 	require.NotEmpty(ss)
 
-	state, _ := bytesToState(ss)
-	require.Equal(big.NewInt(20000000), state.Balance)
-	require.Equal(uint64(0x10), state.Nonce)
-	require.Equal(hash.ZeroHash32B, state.Root)
-	require.Equal([]byte(nil), state.CodeHash)
-	require.Equal(big.NewInt(1000000000), state.VotingWeight)
+	s2 := Account{}
+	require.NoError(s2.Deserialize(ss))
+	require.Equal(big.NewInt(20000000), s2.Balance)
+	require.Equal(uint64(0x10), s2.Nonce)
+	require.Equal(hash.ZeroHash32B, s2.Root)
+	require.Equal([]byte(nil), s2.CodeHash)
+	require.Equal(big.NewInt(1000000000), s2.VotingWeight)
 }
 
 func TestGob(t *testing.T) {
 	require := require.New(t)
 	ss, _ := hex.DecodeString("79ff8103010105537461746501ff8200010801054e6f6e6365010600010742616c616e636501ff84000104526f6f7401ff86000108436f646548617368010a00010b497343616e646964617465010200010c566f74696e6757656967687401ff84000105566f746565010c000106566f7465727301ff880000000aff83050102ff8a00000017ff85010101074861736833324201ff860001060140000024ff87040101136d61705b737472696e675d2a6269672e496e7401ff8800010c01ff8400002cff820202022d0120000000000000000000000000000000000000000000000000000000000000000003010200")
-	state, err := bytesToState(ss)
-	require.Nil(err)
+	s1 := Account{}
+	require.NoError(s1.Deserialize(ss))
 
 	// another serialized byte
 	st, _ := hex.DecodeString("79ff8503010105537461746501ff8600010801054e6f6e6365010600010742616c616e636501ff88000104526f6f7401ff8a000108436f646548617368010a00010b497343616e646964617465010200010c566f74696e6757656967687401ff88000105566f746565010c000106566f7465727301ff8c0000000aff87050102ff8e00000017ff89010101074861736833324201ff8a0001060140000024ff8b040101136d61705b737472696e675d2a6269672e496e7401ff8c00010c01ff8800002cff860202022d0120000000000000000000000000000000000000000000000000000000000000000003010200")
 	require.NotEqual(ss, st)
 
 	// same struct after deserialization
-	tate, err := bytesToState(st)
-	require.Nil(err)
-	require.Equal(state.Nonce, tate.Nonce)
-	require.Equal(state.Balance, tate.Balance)
-	require.Equal(state.Root, tate.Root)
-	require.Equal(state.CodeHash, tate.CodeHash)
-	require.Equal(state.IsCandidate, tate.IsCandidate)
-	require.Equal(state.VotingWeight, tate.VotingWeight)
-	require.Equal(state.Votee, tate.Votee)
-	require.Equal(state.Voters, map[string]*big.Int(nil))
-	require.Equal(tate.Voters, map[string]*big.Int(nil))
+	s2 := Account{}
+	require.NoError(s2.Deserialize(st))
+	require.Equal(s1.Nonce, s2.Nonce)
+	require.Equal(s1.Balance, s2.Balance)
+	require.Equal(s1.Root, s2.Root)
+	require.Equal(s1.CodeHash, s2.CodeHash)
+	require.Equal(s1.IsCandidate, s2.IsCandidate)
+	require.Equal(s1.VotingWeight, s2.VotingWeight)
+	require.Equal(s1.Votee, s2.Votee)
+	require.Equal(s1.Voters, map[string]*big.Int(nil))
+	require.Equal(s2.Voters, map[string]*big.Int(nil))
 }
 
 func TestCreateState(t *testing.T) {
@@ -85,12 +86,12 @@ func TestCreateState(t *testing.T) {
 	require.Equal(trie.EmptyRoot, sf.RootHash())
 	addr, err := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
 	require.Nil(err)
-	state, _ := sf.LoadOrCreateState(addr.RawAddress, 5)
+	state, _ := sf.LoadOrCreateAccountState(addr.RawAddress, 5)
 	_, err = sf.RunActions(0, nil, nil, nil, nil)
 	require.Nil(err)
 	require.Equal(uint64(0x0), state.Nonce)
 	require.Equal(big.NewInt(5), state.Balance)
-	ss, err := sf.State(addr.RawAddress)
+	ss, err := sf.AccountState(addr.RawAddress)
 	require.Nil(err)
 	require.Equal(uint64(0x0), ss.Nonce)
 	require.Equal(big.NewInt(5), ss.Balance)
@@ -101,31 +102,31 @@ func TestBalance(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	state := &State{Balance: big.NewInt(20)}
+	state := &Account{Balance: big.NewInt(20)}
 	// Add 10 to the balance
 	err := state.AddBalance(big.NewInt(10))
 	require.Nil(err)
-	// balance should == 30 now
+	// Balance should == 30 now
 	require.Equal(0, state.Balance.Cmp(big.NewInt(30)))
 }
 
 func TestClone(t *testing.T) {
 	require := require.New(t)
-	ss := &State{
+	ss := &Account{
 		Nonce:        0x10,
 		Balance:      big.NewInt(200),
 		VotingWeight: big.NewInt(1000),
 	}
-	st := ss.clone()
-	require.Equal(big.NewInt(200), st.Balance)
-	require.Equal(big.NewInt(1000), st.VotingWeight)
+	account := ss.clone()
+	require.Equal(big.NewInt(200), account.Balance)
+	require.Equal(big.NewInt(1000), account.VotingWeight)
 
-	require.Nil(st.AddBalance(big.NewInt(100)))
-	st.VotingWeight.Sub(st.VotingWeight, big.NewInt(300))
+	require.Nil(account.AddBalance(big.NewInt(100)))
+	account.VotingWeight.Sub(account.VotingWeight, big.NewInt(300))
 	require.Equal(big.NewInt(200), ss.Balance)
 	require.Equal(big.NewInt(1000), ss.VotingWeight)
-	require.Equal(big.NewInt(200+100), st.Balance)
-	require.Equal(big.NewInt(1000-300), st.VotingWeight)
+	require.Equal(big.NewInt(200+100), account.Balance)
+	require.Equal(big.NewInt(1000-300), account.VotingWeight)
 }
 
 func voteForm(height uint64, cs []*Candidate) []string {
@@ -253,17 +254,17 @@ func TestCandidates(t *testing.T) {
 	cfg.Chain.NumCandidates = 2
 	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(testTriePath, &cfg.DB)))
 	require.NoError(t, err)
-	_, err = sf.LoadOrCreateState(a.RawAddress, uint64(100))
+	_, err = sf.LoadOrCreateAccountState(a.RawAddress, uint64(100))
 	require.NoError(t, err)
-	_, err = sf.LoadOrCreateState(b.RawAddress, uint64(200))
+	_, err = sf.LoadOrCreateAccountState(b.RawAddress, uint64(200))
 	require.NoError(t, err)
-	_, err = sf.LoadOrCreateState(c.RawAddress, uint64(300))
+	_, err = sf.LoadOrCreateAccountState(c.RawAddress, uint64(300))
 	require.NoError(t, err)
-	_, err = sf.LoadOrCreateState(d.RawAddress, uint64(100))
+	_, err = sf.LoadOrCreateAccountState(d.RawAddress, uint64(100))
 	require.NoError(t, err)
-	_, err = sf.LoadOrCreateState(e.RawAddress, uint64(100))
+	_, err = sf.LoadOrCreateAccountState(e.RawAddress, uint64(100))
 	require.NoError(t, err)
-	_, err = sf.LoadOrCreateState(f.RawAddress, uint64(300))
+	_, err = sf.LoadOrCreateAccountState(f.RawAddress, uint64(300))
 	require.NoError(t, err)
 
 	// a:100(0) b:200(0) c:300(0)
@@ -592,7 +593,7 @@ func TestCandidates(t *testing.T) {
 	require.True(t, height == 3)
 	require.True(t, compareStrings(voteForm(sf.Candidates()), []string{e.RawAddress + ":200", b.RawAddress + ":500"}))
 	// a(b):100(0) b(c):200(500) [c(c):100(+200=300)] d(b): 400(100) e(e):200(+0=200) f(d):100(0)
-	cachedStateA, err := sf.CachedState(a.RawAddress)
+	cachedStateA, err := sf.CachedAccountState(a.RawAddress)
 	require.Nil(t, err)
 	require.Equal(t, cachedStateA.Balance, big.NewInt(100))
 }
@@ -624,7 +625,7 @@ func TestCandidatesByHeight(t *testing.T) {
 	candidateList = append(candidateList, cand2)
 	sort.Sort(candidateList)
 
-	candidatesBytes, err := Serialize(candidateList)
+	candidatesBytes, err := candidateList.Serialize()
 	require.NoError(t, err)
 
 	require.Nil(t, sf.dao.Put(trie.CandidateKVNameSpace, byteutil.Uint64ToBytes(0), candidatesBytes))
@@ -639,7 +640,7 @@ func TestCandidatesByHeight(t *testing.T) {
 
 	candidateList = append(candidateList, cand3)
 	sort.Sort(candidateList)
-	candidatesBytes, err = Serialize(candidateList)
+	candidatesBytes, err = candidateList.Serialize()
 	require.NoError(t, err)
 
 	require.Nil(t, sf.dao.Put(trie.CandidateKVNameSpace, byteutil.Uint64ToBytes(1), candidatesBytes))
@@ -667,9 +668,9 @@ func TestUnvote(t *testing.T) {
 	sf, ok := f.(*factory)
 	require.True(t, ok)
 
-	_, err = sf.LoadOrCreateState(a.RawAddress, uint64(100))
+	_, err = sf.LoadOrCreateAccountState(a.RawAddress, uint64(100))
 	require.NoError(t, err)
-	_, err = sf.LoadOrCreateState(b.RawAddress, uint64(200))
+	_, err = sf.LoadOrCreateAccountState(b.RawAddress, uint64(200))
 	require.NoError(t, err)
 
 	vote1, err := action.NewVote(0, a.RawAddress, "", uint64(100000), big.NewInt(10))
