@@ -11,9 +11,11 @@ package main
 import (
 	"flag"
 	"fmt"
+	"math"
 	"sync"
 	"time"
 
+	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/explorer"
 	"github.com/iotexproject/iotex-core/logger"
@@ -34,7 +36,7 @@ func main() {
 	// aps indicates how many actions to be injected in one second. Default is 0
 	var aps int
 
-	flag.IntVar(&timeout, "timeout", 300, "duration of running nightly build")
+	flag.IntVar(&timeout, "timeout", 100, "duration of running nightly build")
 	flag.IntVar(&aps, "aps", 1, "actions to be injected per second")
 	flag.Parse()
 
@@ -129,6 +131,52 @@ func main() {
 			contract, executionAmount, executionGasLimit, executionGasPrice, executionData, client, admins, delegates, d,
 			retryNum, retryInterval, resetInterval)
 		wg.Wait()
+
+		chains := make([]blockchain.Blockchain, numNodes)
+		stateHeights := make([]uint64, numNodes)
+		bcHeights := make([]uint64, numNodes)
+		idealHeight := make([]uint64, numNodes)
+
+		var netTimeout int
+		var minTimeout int
+
+		for i := 0; i < numNodes; i++ {
+			chains[i] = svrs[i].ChainService(configs[i].Chain.ID).Blockchain()
+
+			stateHeights[i], err = chains[i].GetFactory().Height()
+			if err != nil {
+				logger.Error().Msg(fmt.Sprintf("Node %d: Can not get State height", i))
+			}
+			bcHeights[i] = chains[i].TipHeight()
+			minTimeout = int(configs[i].Consensus.RollDPoS.Delay/time.Second - configs[i].Consensus.RollDPoS.ProposerInterval/time.Second)
+			netTimeout = 0
+			if timeout > minTimeout {
+				netTimeout = timeout - minTimeout
+			}
+			idealHeight[i] = uint64((time.Duration(netTimeout) * time.Second) / configs[i].Consensus.RollDPoS.ProposerInterval)
+
+			logger.Info().Msg(fmt.Sprintf("Node#%d blockchain height: %d", i, bcHeights[i]))
+			logger.Info().Msg(fmt.Sprintf("Node#%d state      height: %d", i, stateHeights[i]))
+			logger.Info().Msg(fmt.Sprintf("Node#%d ideal      height: %d", i, idealHeight[i]))
+
+			if bcHeights[i] != stateHeights[i] {
+				logger.Error().Msg(fmt.Sprintf("Node#%d: State height does not match blockchain height", i))
+			}
+			if math.Abs(float64(bcHeights[i]-idealHeight[i])) > 1 {
+				logger.Error().Msg(fmt.Sprintf("blockchain in Node#%d is behind the expected height", i))
+			}
+		}
+
+		for i := 0; i < numNodes; i++ {
+			for j := i + 1; j < numNodes; j++ {
+				if math.Abs(float64(bcHeights[i]-bcHeights[j])) > 1 {
+					logger.Error().Msg(fmt.Sprintf("blockchain in Node#%d and blockchain in Node#%d are not sync", i, j))
+				} else {
+					logger.Info().Msg(fmt.Sprintf("blockchain in Node#%d and blockchain in Node#%d are sync", i, j))
+				}
+			}
+		}
+
 	}
 }
 
