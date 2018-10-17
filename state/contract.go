@@ -22,13 +22,13 @@ type (
 		SetState(hash.Hash32B, []byte) error
 		GetCode() ([]byte, error)
 		SetCode(hash.Hash32B, []byte)
-		SelfState() *AccountState
+		SelfState() *Account
 		Commit() error
 		RootHash() hash.Hash32B
 	}
 
 	contract struct {
-		*AccountState
+		*Account
 		dirtyCode  bool      // contract's code has been set
 		dirtyState bool      // contract's account state has changed
 		code       []byte    // contract byte-code
@@ -56,32 +56,32 @@ func (c *contract) GetCode() ([]byte, error) {
 	if c.code != nil {
 		return c.code, nil
 	}
-	return c.trie.TrieDB().Get(trie.CodeKVNameSpace, c.AccountState.CodeHash[:])
+	return c.trie.TrieDB().Get(trie.CodeKVNameSpace, c.Account.CodeHash[:])
 }
 
 // SetCode sets the contract's byte-code
 func (c *contract) SetCode(hash hash.Hash32B, code []byte) {
-	c.AccountState.CodeHash = hash[:]
+	c.Account.CodeHash = hash[:]
 	c.code = code
 	c.dirtyCode = true
 }
 
-// AccountState returns this contract's AccountState
-func (c *contract) SelfState() *AccountState {
-	return c.AccountState
+// account returns this contract's account
+func (c *contract) SelfState() *Account {
+	return c.Account
 }
 
 // Commit writes the changes into underlying trie
 func (c *contract) Commit() error {
 	if c.dirtyState {
 		// record the new root hash, global account trie will Commit all pending writes to DB
-		c.AccountState.Root = c.trie.RootHash()
+		c.Account.Root = c.trie.RootHash()
 		c.dirtyState = false
 	}
 	if c.dirtyCode {
 		// put the code into storage DB
-		if err := c.trie.TrieDB().Put(trie.CodeKVNameSpace, c.AccountState.CodeHash[:], c.code); err != nil {
-			return errors.Wrapf(err, "Failed to store code for new contract, codeHash %x", c.AccountState.CodeHash[:])
+		if err := c.trie.TrieDB().Put(trie.CodeKVNameSpace, c.Account.CodeHash[:], c.code); err != nil {
+			return errors.Wrapf(err, "Failed to store code for new contract, codeHash %x", c.Account.CodeHash[:])
 		}
 		c.dirtyCode = false
 	}
@@ -90,14 +90,14 @@ func (c *contract) Commit() error {
 
 // RootHash returns storage trie's root hash
 func (c *contract) RootHash() hash.Hash32B {
-	return c.AccountState.Root
+	return c.Account.Root
 }
 
 // newContract returns a Contract instance
-func newContract(state *AccountState, tr trie.Trie) Contract {
+func newContract(state *Account, tr trie.Trie) Contract {
 	c := contract{
-		AccountState: state,
-		trie:         tr,
+		Account: state,
+		trie:    tr,
 	}
 	c.trie.Start(context.Background())
 	return &c

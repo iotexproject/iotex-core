@@ -54,11 +54,11 @@ type (
 	Factory interface {
 		lifecycle.StartStopper
 		// Accounts
-		LoadOrCreateAccountState(string, uint64) (*AccountState, error)
+		LoadOrCreateAccountState(string, uint64) (*Account, error)
 		Balance(string) (*big.Int, error)
 		Nonce(string) (uint64, error) // Note that Nonce starts with 1.
-		AccountState(string) (*AccountState, error)
-		CachedAccountState(string) (*AccountState, error)
+		AccountState(string) (*Account, error)
+		CachedAccountState(string) (*Account, error)
 		RootHash() hash.Hash32B
 		Height() (uint64, error)
 		NewWorkingSet() (WorkingSet, error)
@@ -196,11 +196,11 @@ func (sf *factory) Start(ctx context.Context) error { return sf.lifecycle.OnStar
 func (sf *factory) Stop(ctx context.Context) error { return sf.lifecycle.OnStop(ctx) }
 
 //======================================
-// AccountState functions
+// account functions
 //======================================
 // LoadOrCreateAccountState loads existing or adds a new account with initial balance to the factory
 // addr should be a bech32 properly-encoded string
-func (sf *factory) LoadOrCreateAccountState(addr string, init uint64) (*AccountState, error) {
+func (sf *factory) LoadOrCreateAccountState(addr string, init uint64) (*Account, error) {
 	sf.mutex.Lock()
 	defer sf.mutex.Unlock()
 	return sf.activeWs.LoadOrCreateAccountState(addr, init)
@@ -220,15 +220,15 @@ func (sf *factory) Nonce(addr string) (uint64, error) {
 	return sf.activeWs.Nonce(addr)
 }
 
-// AccountState returns the confirmed account state on the chain
-func (sf *factory) AccountState(addr string) (*AccountState, error) {
+// account returns the confirmed account state on the chain
+func (sf *factory) AccountState(addr string) (*Account, error) {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
 	return sf.activeWs.AccountState(addr)
 }
 
 // CachedAccountState returns the cached account state if the address exists in local cache
-func (sf *factory) CachedAccountState(addr string) (*AccountState, error) {
+func (sf *factory) CachedAccountState(addr string) (*Account, error) {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
 	return sf.activeWs.CachedAccountState(addr)

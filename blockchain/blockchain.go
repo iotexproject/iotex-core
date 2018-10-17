@@ -36,8 +36,8 @@ type Blockchain interface {
 	Balance(addr string) (*big.Int, error)
 	// Nonce returns the nonce if the account exists
 	Nonce(addr string) (uint64, error)
-	// CreateState adds a new account state with initial balance to the factory
-	CreateState(addr string, init uint64) (*state.AccountState, error)
+	// CreateState adds a new account with initial balance to the factory
+	CreateState(addr string, init uint64) (*state.Account, error)
 	// CandidatesByHeight returns the candidate list by a given height
 	CandidatesByHeight(height uint64) ([]*state.Candidate, error)
 	// For exposing blockchain states
@@ -89,8 +89,8 @@ type Blockchain interface {
 	TipHash() hash.Hash32B
 	// TipHeight returns tip block's height
 	TipHeight() uint64
-	// StateByAddr returns account state of a given address
-	StateByAddr(address string) (*state.AccountState, error)
+	// StateByAddr returns account of a given address
+	StateByAddr(address string) (*state.Account, error)
 
 	// For block operations
 	// MintNewBlock creates a new block with given actions and dkg keys
@@ -407,8 +407,8 @@ func (bc *blockchain) Nonce(addr string) (uint64, error) {
 	return bc.sf.Nonce(addr)
 }
 
-// CreateState adds a new account state with initial balance to the factory
-func (bc *blockchain) CreateState(addr string, init uint64) (*state.AccountState, error) {
+// CreateState adds a new account with initial balance to the factory
+func (bc *blockchain) CreateState(addr string, init uint64) (*state.Account, error) {
 	return bc.sf.LoadOrCreateAccountState(addr, init)
 }
 
@@ -737,8 +737,8 @@ func (bc *blockchain) CommitBlock(blk *Block) error {
 	return bc.commitBlock(blk)
 }
 
-// StateByAddr returns the account state of an address
-func (bc *blockchain) StateByAddr(address string) (*state.AccountState, error) {
+// StateByAddr returns the account of an address
+func (bc *blockchain) StateByAddr(address string) (*state.Account, error) {
 	if bc.sf != nil {
 		s, err := bc.sf.AccountState(address)
 		if err != nil {

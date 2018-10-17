@@ -62,9 +62,9 @@ func (mr *MockFactoryMockRecorder) Stop(arg0 interface{}) *gomock.Call {
 }
 
 // LoadOrCreateAccountState mocks base method
-func (m *MockFactory) LoadOrCreateAccountState(arg0 string, arg1 uint64) (*state.AccountState, error) {
+func (m *MockFactory) LoadOrCreateAccountState(arg0 string, arg1 uint64) (*state.Account, error) {
 	ret := m.ctrl.Call(m, "LoadOrCreateAccountState", arg0, arg1)
-	ret0, _ := ret[0].(*state.AccountState)
+	ret0, _ := ret[0].(*state.Account)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -101,9 +101,9 @@ func (mr *MockFactoryMockRecorder) Nonce(arg0 interface{}) *gomock.Call {
 }
 
 // AccountState mocks base method
-func (m *MockFactory) AccountState(arg0 string) (*state.AccountState, error) {
+func (m *MockFactory) AccountState(arg0 string) (*state.Account, error) {
 	ret := m.ctrl.Call(m, "AccountState", arg0)
-	ret0, _ := ret[0].(*state.AccountState)
+	ret0, _ := ret[0].(*state.Account)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -114,9 +114,9 @@ func (mr *MockFactoryMockRecorder) AccountState(arg0 interface{}) *gomock.Call {
 }
 
 // CachedAccountState mocks base method
-func (m *MockFactory) CachedAccountState(arg0 string) (*state.AccountState, error) {
+func (m *MockFactory) CachedAccountState(arg0 string) (*state.Account, error) {
 	ret := m.ctrl.Call(m, "CachedAccountState", arg0)
-	ret0, _ := ret[0].(*state.AccountState)
+	ret0, _ := ret[0].(*state.Account)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

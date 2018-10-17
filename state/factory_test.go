@@ -35,7 +35,7 @@ const testTriePath = "trie.test"
 
 func TestEncodeDecode(t *testing.T) {
 	require := require.New(t)
-	s1 := AccountState{
+	s1 := Account{
 		Nonce:        0x10,
 		Balance:      big.NewInt(20000000),
 		VotingWeight: big.NewInt(1000000000),
@@ -44,7 +44,7 @@ func TestEncodeDecode(t *testing.T) {
 	require.NoError(err)
 	require.NotEmpty(ss)
 
-	s2 := AccountState{}
+	s2 := Account{}
 	require.NoError(s2.Deserialize(ss))
 	require.Equal(big.NewInt(20000000), s2.Balance)
 	require.Equal(uint64(0x10), s2.Nonce)
@@ -56,7 +56,7 @@ func TestEncodeDecode(t *testing.T) {
 func TestGob(t *testing.T) {
 	require := require.New(t)
 	ss, _ := hex.DecodeString("79ff8103010105537461746501ff8200010801054e6f6e6365010600010742616c616e636501ff84000104526f6f7401ff86000108436f646548617368010a00010b497343616e646964617465010200010c566f74696e6757656967687401ff84000105566f746565010c000106566f7465727301ff880000000aff83050102ff8a00000017ff85010101074861736833324201ff860001060140000024ff87040101136d61705b737472696e675d2a6269672e496e7401ff8800010c01ff8400002cff820202022d0120000000000000000000000000000000000000000000000000000000000000000003010200")
-	s1 := AccountState{}
+	s1 := Account{}
 	require.NoError(s1.Deserialize(ss))
 
 	// another serialized byte
@@ -64,7 +64,7 @@ func TestGob(t *testing.T) {
 	require.NotEqual(ss, st)
 
 	// same struct after deserialization
-	s2 := AccountState{}
+	s2 := Account{}
 	require.NoError(s2.Deserialize(st))
 	require.Equal(s1.Nonce, s2.Nonce)
 	require.Equal(s1.Balance, s2.Balance)
@@ -102,7 +102,7 @@ func TestBalance(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	state := &AccountState{Balance: big.NewInt(20)}
+	state := &Account{Balance: big.NewInt(20)}
 	// Add 10 to the balance
 	err := state.AddBalance(big.NewInt(10))
 	require.Nil(err)
@@ -112,23 +112,21 @@ func TestBalance(t *testing.T) {
 
 func TestClone(t *testing.T) {
 	require := require.New(t)
-	ss := &AccountState{
+	ss := &Account{
 		Nonce:        0x10,
 		Balance:      big.NewInt(200),
 		VotingWeight: big.NewInt(1000),
 	}
-	st := ss.Clone()
-	ast, ok := st.(*AccountState)
-	require.True(ok)
-	require.Equal(big.NewInt(200), ast.Balance)
-	require.Equal(big.NewInt(1000), ast.VotingWeight)
+	account := ss.clone()
+	require.Equal(big.NewInt(200), account.Balance)
+	require.Equal(big.NewInt(1000), account.VotingWeight)
 
-	require.Nil(ast.AddBalance(big.NewInt(100)))
-	ast.VotingWeight.Sub(ast.VotingWeight, big.NewInt(300))
+	require.Nil(account.AddBalance(big.NewInt(100)))
+	account.VotingWeight.Sub(account.VotingWeight, big.NewInt(300))
 	require.Equal(big.NewInt(200), ss.Balance)
 	require.Equal(big.NewInt(1000), ss.VotingWeight)
-	require.Equal(big.NewInt(200+100), ast.Balance)
-	require.Equal(big.NewInt(1000-300), ast.VotingWeight)
+	require.Equal(big.NewInt(200+100), account.Balance)
+	require.Equal(big.NewInt(1000-300), account.VotingWeight)
 }
 
 func voteForm(height uint64, cs []*Candidate) []string {

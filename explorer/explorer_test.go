@@ -442,7 +442,7 @@ func TestService_StateByAddr(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	s := state.AccountState{
+	s := state.Account{
 		Balance:      big.NewInt(46),
 		Nonce:        uint64(0),
 		IsCandidate:  false,

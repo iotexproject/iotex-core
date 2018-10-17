@@ -90,9 +90,9 @@ func (mr *MockBlockchainMockRecorder) Nonce(addr interface{}) *gomock.Call {
 }
 
 // CreateState mocks base method
-func (m *MockBlockchain) CreateState(addr string, init uint64) (*state.AccountState, error) {
+func (m *MockBlockchain) CreateState(addr string, init uint64) (*state.Account, error) {
 	ret := m.ctrl.Call(m, "CreateState", addr, init)
-	ret0, _ := ret[0].(*state.AccountState)
+	ret0, _ := ret[0].(*state.Account)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -424,9 +424,9 @@ func (mr *MockBlockchainMockRecorder) TipHeight() *gomock.Call {
 }
 
 // StateByAddr mocks base method
-func (m *MockBlockchain) StateByAddr(address string) (*state.AccountState, error) {
+func (m *MockBlockchain) StateByAddr(address string) (*state.Account, error) {
 	ret := m.ctrl.Call(m, "StateByAddr", address)
-	ret0, _ := ret[0].(*state.AccountState)
+	ret0, _ := ret[0].(*state.Account)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

@@ -230,7 +230,7 @@ func (stateDB *EVMStateDBAdapter) Exist(evmAddr common.Address) bool {
 	addr := address.New(stateDB.bc.ChainID(), evmAddr.Bytes())
 	logger.Debug().Msgf("Check existence of %s", addr.IotxAddress())
 	if state, err := stateDB.ws.CachedAccountState(addr.IotxAddress()); err != nil || state == nil {
-		logger.Debug().Msgf("Account %s does not exist", addr.IotxAddress())
+		logger.Debug().Msgf("account %s does not exist", addr.IotxAddress())
 		return false
 	}
 	return true
