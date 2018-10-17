@@ -9,7 +9,6 @@ package testaddress
 import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/iotxaddress"
-	"github.com/iotexproject/iotex-core/testutil"
 )
 
 const (
@@ -38,12 +37,12 @@ func init() {
 	Addrinfo = make(map[string]*iotxaddress.Address)
 
 	chainID := config.Default.Chain.ID
-	Addrinfo["producer"] = testutil.ConstructAddress(chainID, pubkeyProducer, prikeyProducer)
-	Addrinfo["alfa"] = testutil.ConstructAddress(chainID, pubkeyA, prikeyA)
-	Addrinfo["bravo"] = testutil.ConstructAddress(chainID, pubkeyB, prikeyB)
-	Addrinfo["charlie"] = testutil.ConstructAddress(chainID, pubkeyC, prikeyC)
-	Addrinfo["delta"] = testutil.ConstructAddress(chainID, pubkeyD, prikeyD)
-	Addrinfo["echo"] = testutil.ConstructAddress(chainID, pubkeyE, prikeyE)
-	Addrinfo["foxtrot"] = testutil.ConstructAddress(chainID, pubkeyF, prikeyF)
-	Addrinfo["galilei"] = testutil.ConstructAddress(chainID, pubkeyG, prikeyG)
+	Addrinfo["producer"] = ConstructAddress(chainID, pubkeyProducer, prikeyProducer)
+	Addrinfo["alfa"] = ConstructAddress(chainID, pubkeyA, prikeyA)
+	Addrinfo["bravo"] = ConstructAddress(chainID, pubkeyB, prikeyB)
+	Addrinfo["charlie"] = ConstructAddress(chainID, pubkeyC, prikeyC)
+	Addrinfo["delta"] = ConstructAddress(chainID, pubkeyD, prikeyD)
+	Addrinfo["echo"] = ConstructAddress(chainID, pubkeyE, prikeyE)
+	Addrinfo["foxtrot"] = ConstructAddress(chainID, pubkeyF, prikeyF)
+	Addrinfo["galilei"] = ConstructAddress(chainID, pubkeyG, prikeyG)
 }

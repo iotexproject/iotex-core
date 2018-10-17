@@ -245,7 +245,8 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 	}()
 
 	h := chain.TipHeight()
-	blk, err := chain.MintNewBlock(nil, nil, nil, nil, ta.Addrinfo["producer"], "")
+	blk, err := chain.MintNewBlock(nil, nil, nil, nil, ta.Addrinfo["producer"],
+		nil, nil, "")
 	require.NotNil(blk)
 	require.NoError(err)
 	bs.(*blockSyncer).ackBlockCommit = false
@@ -298,15 +299,18 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	}()
 
 	// commit top
-	blk1, err := chain1.MintNewBlock(nil, nil, nil, nil, ta.Addrinfo["producer"], "")
+	blk1, err := chain1.MintNewBlock(nil, nil, nil, nil, ta.Addrinfo["producer"],
+		nil, nil, "")
 	require.NotNil(blk1)
 	require.Nil(err)
 	require.Nil(bs1.ProcessBlock(blk1))
-	blk2, err := chain1.MintNewBlock(nil, nil, nil, nil, ta.Addrinfo["producer"], "")
+	blk2, err := chain1.MintNewBlock(nil, nil, nil, nil, ta.Addrinfo["producer"],
+		nil, nil, "")
 	require.NotNil(blk2)
 	require.Nil(err)
 	require.Nil(bs1.ProcessBlock(blk2))
-	blk3, err := chain1.MintNewBlock(nil, nil, nil, nil, ta.Addrinfo["producer"], "")
+	blk3, err := chain1.MintNewBlock(nil, nil, nil, nil, ta.Addrinfo["producer"],
+		nil, nil, "")
 	require.NotNil(blk3)
 	require.Nil(err)
 	require.Nil(bs1.ProcessBlock(blk3))
@@ -354,15 +358,18 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	}()
 
 	// commit top
-	blk1, err := chain1.MintNewBlock(nil, nil, nil, nil, ta.Addrinfo["producer"], "")
+	blk1, err := chain1.MintNewBlock(nil, nil, nil, nil, ta.Addrinfo["producer"],
+		nil, nil, "")
 	require.NotNil(blk1)
 	require.NoError(err)
 	require.Nil(bs1.ProcessBlock(blk1))
-	blk2, err := chain1.MintNewBlock(nil, nil, nil, nil, ta.Addrinfo["producer"], "")
+	blk2, err := chain1.MintNewBlock(nil, nil, nil, nil, ta.Addrinfo["producer"],
+		nil, nil, "")
 	require.NotNil(blk2)
 	require.NoError(err)
 	require.Nil(bs1.ProcessBlock(blk2))
-	blk3, err := chain1.MintNewBlock(nil, nil, nil, nil, ta.Addrinfo["producer"], "")
+	blk3, err := chain1.MintNewBlock(nil, nil, nil, nil, ta.Addrinfo["producer"],
+		nil, nil, "")
 	require.NotNil(blk3)
 	require.NoError(err)
 	require.Nil(bs1.ProcessBlock(blk3))
@@ -404,12 +411,14 @@ func TestBlockSyncerSync(t *testing.T) {
 		testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
 	}()
 
-	blk, err := chain.MintNewBlock(nil, nil, nil, nil, ta.Addrinfo["producer"], "")
+	blk, err := chain.MintNewBlock(nil, nil, nil, nil, ta.Addrinfo["producer"],
+		nil, nil, "")
 	require.NotNil(blk)
 	require.NoError(err)
 	require.Nil(bs.ProcessBlock(blk))
 
-	blk, err = chain.MintNewBlock(nil, nil, nil, nil, ta.Addrinfo["producer"], "")
+	blk, err = chain.MintNewBlock(nil, nil, nil, nil, ta.Addrinfo["producer"],
+		nil, nil, "")
 	require.NotNil(blk)
 	require.NoError(err)
 	require.Nil(bs.ProcessBlock(blk))

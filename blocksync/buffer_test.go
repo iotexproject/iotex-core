@@ -50,7 +50,8 @@ func TestBlockBufferFlush(t *testing.T) {
 		confirmedHeight: 0,
 	}
 
-	blk, err := chain.MintNewBlock(nil, nil, nil, nil, ta.Addrinfo["producer"], "")
+	blk, err := chain.MintNewBlock(nil, nil, nil, nil, ta.Addrinfo["producer"],
+		nil, nil, "")
 	require.Nil(err)
 	moved, re := b.Flush(blk)
 	assert.Equal(true, moved)
@@ -136,7 +137,8 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 	assert.Len(b.GetBlocksIntervalsToSync(5), 2)
 	assert.Len(b.GetBlocksIntervalsToSync(1), 1)
 
-	blk, err = chain.MintNewBlock(nil, nil, nil, nil, ta.Addrinfo["producer"], "")
+	blk, err = chain.MintNewBlock(nil, nil, nil, nil, ta.Addrinfo["producer"],
+		nil, nil, "")
 	require.Nil(err)
 	b.Flush(blk)
 	assert.Len(b.GetBlocksIntervalsToSync(0), 0)

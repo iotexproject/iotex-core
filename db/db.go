@@ -38,8 +38,6 @@ type KVStore interface {
 	Get(string, []byte) ([]byte, error)
 	// Delete deletes a record by (namespace, key)
 	Delete(string, []byte) error
-	// Batch return a kv store batch api object
-	Batch() KVStoreBatch
 	// Commit commits a batch
 	Commit(KVStoreBatch) error
 }
@@ -101,11 +99,6 @@ func (m *memKVStore) Delete(namespace string, key []byte) error {
 	return nil
 }
 
-// Batch return a kv store batch api object
-func (m *memKVStore) Batch() KVStoreBatch {
-	return NewMemKVStoreBatch(m)
-}
-
 // Commit commits a batch
 func (m *memKVStore) Commit(b KVStoreBatch) error {
 	b.Lock()
@@ -130,7 +123,7 @@ func (m *memKVStore) Commit(b KVStoreBatch) error {
 		}
 	}
 	// clear queues
-	return b.Clear()
+	return b.clear()
 }
 
 const fileMode = 0600
@@ -264,11 +257,6 @@ func (b *boltDB) Delete(namespace string, key []byte) error {
 	return err
 }
 
-// Batch return a kv store batch api object
-func (b *boltDB) Batch() KVStoreBatch {
-	return NewBoltDBBatch(b)
-}
-
 // Commit commits a batch
 func (b *boltDB) Commit(batch KVStoreBatch) error {
 	batch.Lock()
@@ -319,7 +307,7 @@ func (b *boltDB) Commit(batch KVStoreBatch) error {
 		}
 	}
 	// clear queues
-	batch.Clear()
+	batch.clear()
 	return err
 }
 

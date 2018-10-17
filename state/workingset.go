@@ -13,7 +13,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core/blockchain/action"
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/hash"
@@ -55,7 +55,8 @@ type (
 		cachedAccount    map[hash.PKHash]*State   // accounts being modified in this block
 		cachedContract   map[hash.PKHash]Contract // contracts being modified in this block
 		accountTrie      trie.Trie                // global state trie
-		dao              db.CachedKVStore         // the underlying DB for account/contract storage
+		cb               db.CachedBatch           // cached batch for pending writes
+		dao              db.KVStore               // the underlying DB for account/contract storage
 		actionHandlers   []ActionHandler
 	}
 )
@@ -73,10 +74,11 @@ func NewWorkingSet(
 		savedAccount:     make(map[string]*State),
 		cachedAccount:    make(map[hash.PKHash]*State),
 		cachedContract:   make(map[hash.PKHash]Contract),
-		dao:              db.NewCachedKVStore(kv),
+		cb:               db.NewCachedBatch(),
+		dao:              kv,
 		actionHandlers:   actionHandlers,
 	}
-	tr, err := trie.NewTrieSharedDB(ws.dao, trie.AccountKVNameSpace, root)
+	tr, err := trie.NewTrieSharedBatch(ws.dao, ws.cb, trie.AccountKVNameSpace, root)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to generate state trie from config")
 	}
@@ -188,10 +190,10 @@ func (ws *workingSet) RunActions(
 	if blockHeight > 0 && len(ws.cachedCandidates) == 0 {
 		candidates, err := ws.getCandidates(blockHeight - 1)
 		if err != nil {
-			return hash.ZeroHash32B, errors.Wrapf(err, "failed to get previous candidates on height %d", blockHeight-1)
+			return hash.ZeroHash32B, errors.Wrapf(err, "failed to get previous Candidates on height %d", blockHeight-1)
 		}
 		if ws.cachedCandidates, err = CandidatesToMap(candidates); err != nil {
-			return hash.ZeroHash32B, errors.Wrap(err, "failed to convert candidate list to map of cached candidates")
+			return hash.ZeroHash32B, errors.Wrap(err, "failed to convert candidate list to map of cached Candidates")
 		}
 	}
 	if err := ws.handleTsf(tsf); err != nil {
@@ -252,7 +254,7 @@ func (ws *workingSet) RunActions(
 
 	for _, act := range actions {
 		for _, actionHandler := range ws.actionHandlers {
-			if err := actionHandler.handle(act); err != nil {
+			if err := actionHandler.Handle(act, ws); err != nil {
 				return hash.ZeroHash32B, errors.Wrapf(err, "error when action %x mutates states", act.Hash())
 			}
 		}
@@ -263,19 +265,19 @@ func (ws *workingSet) RunActions(
 	if err := ws.dao.Put(trie.AccountKVNameSpace, []byte(AccountTrieRootKey), rootHash[:]); err != nil {
 		return hash.ZeroHash32B, errors.Wrap(err, "failed to store accountTrie's root hash")
 	}
-	// Persist new list of candidates
+	// Persist new list of Candidates
 	candidates, err := MapToCandidates(ws.cachedCandidates)
 	if err != nil {
-		return hash.ZeroHash32B, errors.Wrap(err, "failed to convert map of cached candidates to candidate list")
+		return hash.ZeroHash32B, errors.Wrap(err, "failed to convert map of cached Candidates to candidate list")
 	}
 	sort.Sort(candidates)
 	candidatesBytes, err := Serialize(candidates)
 	if err != nil {
-		return hash.ZeroHash32B, errors.Wrap(err, "failed to serialize candidates")
+		return hash.ZeroHash32B, errors.Wrap(err, "failed to serialize Candidates")
 	}
 	h := byteutil.Uint64ToBytes(blockHeight)
 	if err := ws.dao.Put(trie.CandidateKVNameSpace, h, candidatesBytes); err != nil {
-		return hash.ZeroHash32B, errors.Wrapf(err, "failed to store candidates on height %d", blockHeight)
+		return hash.ZeroHash32B, errors.Wrapf(err, "failed to store Candidates on height %d", blockHeight)
 	}
 	// Persist current chain height
 	if err := ws.dao.Put(trie.AccountKVNameSpace, []byte(CurrentHeightKey), h); err != nil {
@@ -412,7 +414,7 @@ func (ws *workingSet) getContract(addr hash.PKHash) (Contract, error) {
 	if state.Root == hash.ZeroHash32B {
 		state.Root = trie.EmptyRoot
 	}
-	tr, err := trie.NewTrieSharedDB(ws.dao, trie.ContractKVNameSpace, state.Root)
+	tr, err := trie.NewTrieSharedBatch(ws.dao, ws.cb, trie.ContractKVNameSpace, state.Root)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create storage trie for new contract %x", addr)
 	}
@@ -445,7 +447,7 @@ func (ws *workingSet) updateCandidate(pkHash hash.PKHash, totalWeight *big.Int, 
 func (ws *workingSet) getCandidates(height uint64) (CandidateList, error) {
 	candidatesBytes, err := ws.dao.Get(trie.CandidateKVNameSpace, byteutil.Uint64ToBytes(height))
 	if err != nil {
-		return []*Candidate{}, errors.Wrapf(err, "failed to get candidates on height %d", height)
+		return []*Candidate{}, errors.Wrapf(err, "failed to get Candidates on height %d", height)
 	}
 	return Deserialize(candidatesBytes)
 }

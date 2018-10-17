@@ -12,8 +12,8 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
@@ -76,7 +76,7 @@ type ActPool interface {
 
 // ActionValidator is the interface of validating an action
 type ActionValidator interface {
-	validate(action.Action) (bool, error)
+	Validate(action.Action) error
 }
 
 // actPool implements ActPool interface
@@ -284,12 +284,8 @@ func (ap *actPool) Add(act action.Action) error {
 	}
 	// Reject action if it's invalid
 	for _, validator := range ap.validators {
-		ok, err := validator.validate(act)
-		if err != nil {
+		if err := validator.Validate(act); err != nil {
 			return errors.Wrapf(err, "reject invalid execution: %x", hash)
-		}
-		if !ok {
-			return fmt.Errorf("reject invalid execution: %x", hash)
 		}
 	}
 	return ap.enqueueAction(act.SrcAddr(), act, hash, act.Nonce())
@@ -360,7 +356,7 @@ func (ap *actPool) validateTsf(tsf *action.Transfer) error {
 		return errors.Wrapf(ErrActPool, "oversized data")
 	}
 	// Reject over-gassed transfer
-	if tsf.GasLimit() > action.GasLimit {
+	if tsf.GasLimit() > blockchain.GasLimit {
 		logger.Error().Msg("Error when validating transfer's gas limit")
 		return errors.Wrapf(ErrGasHigherThanLimit, "gas is higher than gas limit")
 	}
@@ -413,7 +409,7 @@ func (ap *actPool) validateExecution(exec *action.Execution) error {
 		return errors.Wrapf(ErrActPool, "oversized data")
 	}
 	// Reject over-gassed execution
-	if exec.GasLimit() > action.GasLimit {
+	if exec.GasLimit() > blockchain.GasLimit {
 		logger.Error().Msg("Error when validating execution's gas limit")
 		return errors.Wrapf(ErrGasHigherThanLimit, "gas is higher than gas limit")
 	}
@@ -469,7 +465,7 @@ func (ap *actPool) validateVote(vote *action.Vote) error {
 		return errors.Wrapf(ErrActPool, "oversized data")
 	}
 	// Reject over-gassed transfer
-	if vote.GasLimit() > action.GasLimit {
+	if vote.GasLimit() > blockchain.GasLimit {
 		logger.Error().Msg("Error when validating vote's gas limit")
 		return errors.Wrapf(ErrGasHigherThanLimit, "gas is higher than gas limit")
 	}

@@ -22,10 +22,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/context"
 
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/iotxaddress"
@@ -580,7 +580,7 @@ func TestUpdateSeed(t *testing.T) {
 			PrivateKey: ec283SKList[i],
 			RawAddress: addresses[i],
 		}
-		blk, err := chain.MintNewDKGBlock(nil, nil, nil, nil, &iotxAddr,
+		blk, err := chain.MintNewBlock(nil, nil, nil, nil, &iotxAddr,
 			&iotxaddress.DKGAddress{PrivateKey: askList[i], PublicKey: pkList[i], ID: idList[i]},
 			lastSeed, "")
 		require.NoError(err)

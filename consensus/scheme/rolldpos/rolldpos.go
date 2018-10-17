@@ -15,9 +15,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/zjshen14/go-fsm"
 
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
@@ -270,7 +270,7 @@ func (ctx *rollDPoSCtx) mintCommonBlock() (*blockchain.Block, error) {
 		Int("transfer", len(transfers)).
 		Int("votes", len(votes)).
 		Msg("pick actions from the action pool")
-	blk, err := ctx.chain.MintNewDKGBlock(transfers, votes, executions, actions, ctx.addr, &ctx.epoch.dkgAddress,
+	blk, err := ctx.chain.MintNewBlock(transfers, votes, executions, actions, ctx.addr, &ctx.epoch.dkgAddress,
 		ctx.epoch.seed, "")
 	if err != nil {
 		return nil, err

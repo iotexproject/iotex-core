@@ -17,10 +17,11 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
+	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
@@ -44,11 +45,11 @@ const (
 
 var (
 	chainID = config.Default.Chain.ID
-	addr1   = testutil.ConstructAddress(chainID, pubkeyA, prikeyA)
-	addr2   = testutil.ConstructAddress(chainID, pubkeyB, prikeyB)
-	addr3   = testutil.ConstructAddress(chainID, pubkeyC, prikeyC)
-	addr4   = testutil.ConstructAddress(chainID, pubkeyD, prikeyD)
-	addr5   = testutil.ConstructAddress(chainID, pubkeyE, prikeyE)
+	addr1   = testaddress.ConstructAddress(chainID, pubkeyA, prikeyA)
+	addr2   = testaddress.ConstructAddress(chainID, pubkeyB, prikeyB)
+	addr3   = testaddress.ConstructAddress(chainID, pubkeyC, prikeyC)
+	addr4   = testaddress.ConstructAddress(chainID, pubkeyD, prikeyD)
+	addr5   = testaddress.ConstructAddress(chainID, pubkeyE, prikeyE)
 )
 
 func TestActPool_validateTsf(t *testing.T) {
@@ -77,7 +78,7 @@ func TestActPool_validateTsf(t *testing.T) {
 	err = ap.validateTsf(tsf)
 	require.Equal(ErrActPool, errors.Cause(err))
 	// Case III: Over-gassed transfer
-	tsf, err = action.NewTransfer(uint64(1), big.NewInt(1), "1", "2", nil, action.GasLimit+1, big.NewInt(0))
+	tsf, err = action.NewTransfer(uint64(1), big.NewInt(1), "1", "2", nil, blockchain.GasLimit+1, big.NewInt(0))
 	require.NoError(err)
 	err = ap.validateTsf(tsf)
 	require.Equal(ErrGasHigherThanLimit, errors.Cause(err))
@@ -144,7 +145,7 @@ func TestActPool_validateVote(t *testing.T) {
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
 	// Case I: Over-gassed vote
-	vote, err := action.NewVote(1, "123", "456", action.GasLimit+1, big.NewInt(0))
+	vote, err := action.NewVote(1, "123", "456", blockchain.GasLimit+1, big.NewInt(0))
 	require.NoError(err)
 	err = ap.validateVote(vote)
 	require.Equal(ErrGasHigherThanLimit, errors.Cause(err))
@@ -316,7 +317,7 @@ func TestActPool_AddActs(t *testing.T) {
 	err = ap.AddTsf(overBalTsf)
 	require.Equal(ErrBalance, errors.Cause(err))
 	// Case VI: over gas limit
-	creationExecution, err := action.NewExecution(addr1.RawAddress, action.EmptyAddress, uint64(5), big.NewInt(int64(0)), action.GasLimit+100, big.NewInt(10), []byte{})
+	creationExecution, err := action.NewExecution(addr1.RawAddress, action.EmptyAddress, uint64(5), big.NewInt(int64(0)), blockchain.GasLimit+100, big.NewInt(10), []byte{})
 	require.NoError(err)
 	err = ap.AddExecution(creationExecution)
 	require.Equal(ErrGasHigherThanLimit, errors.Cause(err))

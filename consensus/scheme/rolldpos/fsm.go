@@ -481,7 +481,9 @@ func (m *cFSM) handleRollDelegatesEvt(_ fsm.Event) (fsm.State, error) {
 	}
 	// Update CryptoSort seed
 	// TODO: Consider persist the most recent seed
-	if m.ctx.epoch.seed, err = m.ctx.updateSeed(); err != nil {
+	if !m.ctx.cfg.EnableDKG {
+		m.ctx.epoch.seed = crypto.CryptoSeed
+	} else if m.ctx.epoch.seed, err = m.ctx.updateSeed(); err != nil {
 		logger.Error().Err(err).Msg("Failed to generate new seed from last epoch")
 	}
 	delegates, err := m.ctx.rollingDelegates(epochNum)
@@ -719,6 +721,14 @@ func (m *cFSM) moveToAcceptCommitEndorse() (fsm.State, error) {
 	return sAcceptCommitEndorse, nil
 }
 
+func (m *cFSM) isProposedBlock(hash []byte) bool {
+	if m.ctx.round.block == nil {
+		return false
+	}
+	blkHash := m.ctx.round.block.HashBlock()
+	return bytes.Equal(hash[:], blkHash[:])
+}
+
 func (m *cFSM) handleEndorseProposalEvt(evt fsm.Event) (fsm.State, error) {
 	if evt.Type() != eEndorseProposal {
 		return sInvalid, errors.Errorf("invalid event type %s", evt.Type())
@@ -728,6 +738,9 @@ func (m *cFSM) handleEndorseProposalEvt(evt fsm.Event) (fsm.State, error) {
 		return sInvalid, errors.Wrap(ErrEvtCast, "the event is not an endorseEvt")
 	}
 	endorse := endorseEvt.endorse
+	if !m.isProposedBlock(endorseEvt.endorse.blkHash[:]) {
+		return sAcceptProposalEndorse, nil
+	}
 	if !m.validateEndorse(endorse, endorseProposal) {
 		return sAcceptProposalEndorse, nil
 	}
@@ -783,6 +796,9 @@ func (m *cFSM) handleEndorseCommitEvt(evt fsm.Event) (fsm.State, error) {
 		return sInvalid, errors.Wrap(ErrEvtCast, "the event is not an endorseEvt")
 	}
 	endorse := endorseEvt.endorse
+	if !m.isProposedBlock(endorse.blkHash[:]) {
+		return sAcceptCommitEndorse, nil
+	}
 	if endorse.topic != endorseCommit {
 		return sAcceptCommitEndorse, nil
 	}
