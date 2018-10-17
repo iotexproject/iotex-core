@@ -55,7 +55,8 @@ type (
 		cachedAccount    map[hash.PKHash]*State   // accounts being modified in this block
 		cachedContract   map[hash.PKHash]Contract // contracts being modified in this block
 		accountTrie      trie.Trie                // global state trie
-		dao              db.CachedKVStore         // the underlying DB for account/contract storage
+		cb               db.CachedBatch           // cached batch for pending writes
+		dao              db.KVStore               // the underlying DB for account/contract storage
 		actionHandlers   []ActionHandler
 	}
 )
@@ -73,10 +74,11 @@ func NewWorkingSet(
 		savedAccount:     make(map[string]*State),
 		cachedAccount:    make(map[hash.PKHash]*State),
 		cachedContract:   make(map[hash.PKHash]Contract),
-		dao:              db.NewCachedKVStore(kv),
+		cb:               db.NewCachedBatch(),
+		dao:              kv,
 		actionHandlers:   actionHandlers,
 	}
-	tr, err := trie.NewTrieSharedDB(ws.dao, trie.AccountKVNameSpace, root)
+	tr, err := trie.NewTrieSharedBatch(ws.dao, ws.cb, trie.AccountKVNameSpace, root)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to generate state trie from config")
 	}
@@ -412,7 +414,7 @@ func (ws *workingSet) getContract(addr hash.PKHash) (Contract, error) {
 	if state.Root == hash.ZeroHash32B {
 		state.Root = trie.EmptyRoot
 	}
-	tr, err := trie.NewTrieSharedDB(ws.dao, trie.ContractKVNameSpace, state.Root)
+	tr, err := trie.NewTrieSharedBatch(ws.dao, ws.cb, trie.ContractKVNameSpace, state.Root)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create storage trie for new contract %x", addr)
 	}
