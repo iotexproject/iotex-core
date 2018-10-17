@@ -1,3 +1,9 @@
+// Copyright (c) 2018 IoTeX
+// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
+// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
+// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
+// License 2.0 that can be found in the LICENSE file.
+
 package rolldpos
 
 import (
@@ -27,8 +33,8 @@ type endorsement struct {
 	signature      []byte
 }
 
-// ByteStream returns a raw byte stream
-func (en *endorsement) ByteStream() []byte {
+// BinaryMarshaler returns a raw byte stream
+func (en *endorsement) BinaryMarshaler() []byte {
 	stream := make([]byte, 8)
 	enc.MachineEndian.PutUint64(stream, en.height)
 	switch en.topic {
@@ -43,7 +49,7 @@ func (en *endorsement) ByteStream() []byte {
 
 // Hash returns the hash of the endorse for signature
 func (en *endorsement) Hash() hash.Hash32B {
-	return blake2b.Sum256(en.ByteStream())
+	return blake2b.Sum256(en.BinaryMarshaler())
 }
 
 // Sign signs with endorser's private key
