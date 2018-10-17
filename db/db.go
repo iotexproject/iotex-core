@@ -123,7 +123,7 @@ func (m *memKVStore) Commit(b KVStoreBatch) error {
 		}
 	}
 	// clear queues
-	return b.Clear()
+	return b.clear()
 }
 
 const fileMode = 0600
@@ -307,7 +307,7 @@ func (b *boltDB) Commit(batch KVStoreBatch) error {
 		}
 	}
 	// clear queues
-	batch.Clear()
+	batch.clear()
 	return err
 }
 
