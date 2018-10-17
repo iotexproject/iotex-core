@@ -304,52 +304,52 @@ func TestCacheKV(t *testing.T) {
 	testFunc := func(kv KVStore, t *testing.T) {
 		require := require.New(t)
 
-		kvc := NewCachedKVStore(kv)
-		require.Nil(kvc.Put(bucket1, testK1[0], testV1[0]))
-		v, _ := kvc.Get(bucket1, testK1[0])
+		cb := NewCachedBatch()
+		require.Nil(cb.Put(bucket1, testK1[0], testV1[0], ""))
+		v, _ := cb.Get(bucket1, testK1[0])
 		require.Equal(testV1[0], v)
-		require.Nil(kvc.Clear())
-		_, err := kvc.Get(bucket1, testK1[0])
+		require.Nil(cb.Clear())
+		_, err := cb.Get(bucket1, testK1[0])
 		require.Error(err)
-		require.Nil(kv.Put(bucket2, testK2[2], testV2[2]))
-		v, _ = kvc.Get(bucket2, testK2[2])
+		require.Nil(cb.Put(bucket2, testK2[2], testV2[2], ""))
+		v, _ = cb.Get(bucket2, testK2[2])
 		require.Equal(testV2[2], v)
 		// <k1[0], v1[0]> is gone
-		require.Nil(kvc.PutIfNotExists(bucket1, testK1[0], testV1[0]))
-		require.Nil(kvc.PutIfNotExists(bucket1, testK1[2], testV1[2]))
-		require.Nil(kvc.PutIfNotExists(bucket1, testK1[1], testV1[1]))
-		v, _ = kvc.Get(bucket1, testK1[0])
+		require.Nil(cb.PutIfNotExists(bucket1, testK1[0], testV1[0], ""))
+		require.Nil(cb.PutIfNotExists(bucket1, testK1[2], testV1[2], ""))
+		require.Nil(cb.PutIfNotExists(bucket1, testK1[1], testV1[1], ""))
+		v, _ = cb.Get(bucket1, testK1[0])
 		require.Equal(testV1[0], v)
-		v, _ = kvc.Get(bucket1, testK1[1])
+		v, _ = cb.Get(bucket1, testK1[1])
 		require.Equal(testV1[1], v)
-		v, _ = kvc.Get(bucket1, testK1[2])
+		v, _ = cb.Get(bucket1, testK1[2])
 		require.Equal(testV1[2], v)
 		// put testK1[1] with a new value
-		require.Nil(kvc.Put(bucket1, testK1[1], testV1[2]))
-		v, _ = kvc.Get(bucket1, testK1[1])
+		require.Nil(cb.Put(bucket1, testK1[1], testV1[2], ""))
+		v, _ = cb.Get(bucket1, testK1[1])
 		require.Equal(testV1[2], v)
 		// cannot put same entry again
-		require.Equal(ErrAlreadyExist, errors.Cause(kvc.PutIfNotExists(bucket1, testK1[1], testV1[0])))
+		require.Equal(ErrAlreadyExist, errors.Cause(cb.PutIfNotExists(bucket1, testK1[1], testV1[0], "")))
 		// same key but diff bucket name is OK
-		require.Nil(kvc.PutIfNotExists(bucket2, testK1[0], testV1[0]))
-		require.Nil(kvc.Commit(nil))
+		require.Nil(cb.PutIfNotExists(bucket2, testK1[0], testV1[0], ""))
+		require.Nil(kv.Commit(cb))
 
-		kvc = nil
-		kvc = NewCachedKVStore(kv)
-		v, _ = kvc.Get(bucket1, testK1[0])
+		cb = nil
+		cb = NewCachedBatch()
+		v, _ = kv.Get(bucket1, testK1[0])
 		require.Equal(testV1[0], v)
-		v, _ = kvc.Get(bucket1, testK1[1])
+		v, _ = kv.Get(bucket1, testK1[1])
 		require.Equal(testV1[2], v)
-		v, _ = kvc.Get(bucket1, testK1[2])
+		v, _ = kv.Get(bucket1, testK1[2])
 		require.Equal(testV1[2], v)
-		v, _ = kvc.Get(bucket2, testK1[0])
+		v, _ = kv.Get(bucket2, testK1[0])
 		require.Equal(testV1[0], v)
-		require.Nil(kvc.PutIfNotExists(bucket2, testK2[0], testV2[0]))
-		require.NoError(kvc.Commit(nil))
+		require.Nil(cb.PutIfNotExists(bucket2, testK2[0], testV2[0], ""))
+		require.NoError(kv.Commit(cb))
 		// entry exists in DB but not in cache, so OK at this point
-		require.Nil(kvc.PutIfNotExists(bucket2, testK1[0], testV1[2]))
+		require.Nil(cb.PutIfNotExists(bucket2, testK1[0], testV1[2], ""))
 		// but would fail upon commit
-		require.Equal(ErrAlreadyExist, errors.Cause(kvc.Commit(nil)))
+		require.Equal(ErrAlreadyExist, errors.Cause(kv.Commit(cb)))
 	}
 
 	t.Run("In-memory KV Store", func(t *testing.T) {
@@ -371,40 +371,36 @@ func TestCacheKV(t *testing.T) {
 	})
 }
 
-func TestClone(t *testing.T) {
+func TestCachedBatch(t *testing.T) {
 	require := require.New(t)
 
-	path := "db.test"
-	testutil.CleanupPath(t, path)
-	defer testutil.CleanupPath(t, path)
-	kv := NewBoltDB(path, cfg)
-	require.Nil(kv.Start(context.Background()))
-	defer func() {
-		require.Nil(kv.Stop(context.Background()))
-	}()
-
-	kvc := NewCachedKVStore(kv)
-	require.Nil(kvc.Put(bucket1, testK1[0], testV1[0]))
-	v, err := kvc.Get(bucket1, testK1[0])
+	cb := NewCachedBatch()
+	require.NoError(cb.Put(bucket1, testK1[0], testV1[0], ""))
+	v, err := cb.Get(bucket1, testK1[0])
 	require.NoError(err)
 	require.Equal(testV1[0], v)
-	require.NoError(kvc.Commit(nil))
+	require.Equal(ErrAlreadyExist, cb.PutIfNotExists(bucket1, testK1[0], testV1[0], ""))
+	v, err = cb.Get(bucket1, testK2[0])
+	require.Equal(ErrNotExist, err)
+	require.Equal([]byte(nil), v)
 
-	kvb := NewCachedKVStore(kv)
-	require.Nil(kvb.Put(bucket2, testK2[0], testV2[0]))
-	v, err = kvb.Get(bucket2, testK2[0])
-	require.NoError(err)
-	require.Equal(testV2[0], v)
-	require.NoError(kvb.Commit(nil))
-
-	v, err = kv.Get(bucket1, testK1[0])
+	require.NoError(cb.Delete(bucket1, testK2[0], ""))
+	require.NoError(cb.Delete(bucket1, testK1[0], ""))
+	require.NoError(cb.PutIfNotExists(bucket1, testK1[0], testV1[0], ""))
+	v, err = cb.Get(bucket1, testK1[0])
 	require.NoError(err)
 	require.Equal(testV1[0], v)
-	v, err = kvb.Get(bucket2, testK2[0])
+
+	w, err := cb.Entry(1)
 	require.NoError(err)
-	require.Equal(testV2[0], v)
-	_, err = kv.Get(bucket1, testK2[0])
-	require.Error(err)
-	_, err = kv.Get(bucket2, testK1[0])
-	require.Error(err)
+	require.Equal(bucket1, w.namespace)
+	require.Equal(testK2[0], w.key)
+	require.Equal([]byte(nil), w.value)
+	require.Equal(Delete, w.writeType)
+
+	w, err = cb.Entry(3)
+	require.Equal(bucket1, w.namespace)
+	require.Equal(testK1[0], w.key)
+	require.Equal(testV1[0], w.value)
+	require.Equal(PutIfNotExists, w.writeType)
 }
