@@ -8,7 +8,9 @@ package state
 
 import (
 	"context"
+	"fmt"
 	"math/big"
+	"reflect"
 	"sort"
 
 	"github.com/pkg/errors"
@@ -25,25 +27,29 @@ type (
 	// WorkingSet defines an interface for working set of states changes
 	WorkingSet interface {
 		// states and actions
-		LoadOrCreateState(string, uint64) (*State, error)
+		LoadOrCreateAccountState(string, uint64) (*Account, error)
 		Nonce(string) (uint64, error) // Note that Nonce starts with 1.
-		CachedState(string) (*State, error)
+		CachedAccountState(string) (*Account, error)
 		RunActions(uint64, []*action.Transfer, []*action.Vote, []*action.Execution, []action.Action) (hash.Hash32B, error)
-		commit() error
+		Commit() error
 		// contracts
 		GetCodeHash(hash.PKHash) (hash.Hash32B, error)
 		GetCode(hash.PKHash) ([]byte, error)
 		SetCode(hash.PKHash, []byte) error
 		GetContractState(hash.PKHash, hash.Hash32B) (hash.Hash32B, error)
 		SetContractState(hash.PKHash, hash.Hash32B, hash.Hash32B) error
-		// private func
-		balance(string) (*big.Int, error)
-		state(string) (*State, error)
-		rootHash() hash.Hash32B
-		version() uint64
-		height() uint64
-		workingCandidates() map[hash.PKHash]*Candidate
-		getCandidates(height uint64) (CandidateList, error)
+		// Accounts
+		Balance(string) (*big.Int, error)
+		AccountState(string) (*Account, error)
+		RootHash() hash.Hash32B
+		Version() uint64
+		Height() uint64
+		WorkingCandidates() map[hash.PKHash]*Candidate
+		GetCandidates(height uint64) (CandidateList, error)
+
+		State(hash.PKHash, State) (State, error)
+		CachedState(hash.PKHash, State) (State, error)
+		PutState(hash.PKHash, State) error
 	}
 
 	// workingSet implements Workingset interface, tracks pending changes to account/contract in local cache
@@ -51,10 +57,10 @@ type (
 		ver              uint64
 		blkHeight        uint64
 		cachedCandidates map[hash.PKHash]*Candidate
-		savedAccount     map[string]*State        // save account state before being modified in this block
-		cachedAccount    map[hash.PKHash]*State   // accounts being modified in this block
+		savedStates      map[hash.PKHash]State    // saved states before being modified in this block
+		cachedStates     map[hash.PKHash]State    // states being modified in this block
 		cachedContract   map[hash.PKHash]Contract // contracts being modified in this block
-		accountTrie      trie.Trie                // global state trie
+		accountTrie      trie.Trie                // global account state trie
 		cb               db.CachedBatch           // cached batch for pending writes
 		dao              db.KVStore               // the underlying DB for account/contract storage
 		actionHandlers   []ActionHandler
@@ -71,8 +77,8 @@ func NewWorkingSet(
 	ws := &workingSet{
 		ver:              version,
 		cachedCandidates: make(map[hash.PKHash]*Candidate),
-		savedAccount:     make(map[string]*State),
-		cachedAccount:    make(map[hash.PKHash]*State),
+		savedStates:      make(map[hash.PKHash]State),
+		cachedStates:     make(map[hash.PKHash]State),
 		cachedContract:   make(map[hash.PKHash]Contract),
 		cb:               db.NewCachedBatch(),
 		dao:              kv,
@@ -89,92 +95,111 @@ func NewWorkingSet(
 	return ws, nil
 }
 
-func (ws *workingSet) workingCandidates() map[hash.PKHash]*Candidate {
+func (ws *workingSet) WorkingCandidates() map[hash.PKHash]*Candidate {
 	return ws.cachedCandidates
 }
 
 //======================================
-// State/Account functions
+// account functions
 //======================================
-// LoadOrCreateState loads existing or adds a new State with initial balance to the factory
+// LoadOrCreateAccountState loads existing or adds a new account state with initial balance to the factory
 // addr should be a bech32 properly-encoded string
-func (ws *workingSet) LoadOrCreateState(addr string, init uint64) (*State, error) {
-	h, err := iotxaddress.GetPubkeyHash(addr)
+func (ws *workingSet) LoadOrCreateAccountState(addr string, init uint64) (*Account, error) {
+	addrHash, err := addressToPKHash(addr)
 	if err != nil {
-		return nil, errors.Wrap(err, "error when getting the pubkey hash")
+		return nil, err
 	}
-	addrHash := byteutil.BytesTo20B(h)
-	state, err := ws.cachedState(addrHash)
+	state, err := ws.CachedState(addrHash, &Account{})
 	switch {
 	case errors.Cause(err) == ErrAccountNotExist:
 		balance := big.NewInt(0)
 		balance.SetUint64(init)
-		state = &State{
+		account := Account{
 			Balance:      balance,
 			VotingWeight: big.NewInt(0),
 		}
-		ws.cachedAccount[addrHash] = state
+		ws.cachedStates[addrHash] = &account
+		return &account, nil
 	case err != nil:
-		return nil, errors.Wrapf(err, "failed to get state of %x from cached state", addrHash)
+		return nil, errors.Wrapf(err, "failed to get account of %x from cached account", addrHash)
 	}
-	return state, nil
+	account, err := stateToAccountState(state)
+	if err != nil {
+		return nil, err
+	}
+	return account, nil
 }
 
 // Balance returns balance
-func (ws *workingSet) balance(addr string) (*big.Int, error) {
-	state, err := ws.state(addr)
+func (ws *workingSet) Balance(addr string) (*big.Int, error) {
+	state, err := ws.AccountState(addr)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get state of %s", addr)
+		return nil, errors.Wrapf(err, "failed to get account state of %s", addr)
 	}
 	return state.Balance, nil
 }
 
 // Nonce returns the Nonce if the account exists
 func (ws *workingSet) Nonce(addr string) (uint64, error) {
-	state, err := ws.state(addr)
+	state, err := ws.AccountState(addr)
 	if err != nil {
-		return 0, errors.Wrapf(err, "failed to get state of %s", addr)
+		return 0, errors.Wrapf(err, "failed to get account state of %s", addr)
 	}
 	return state.Nonce, nil
 }
 
-// State returns the confirmed state on the chain
-func (ws *workingSet) state(addr string) (*State, error) {
-	if saved, ok := ws.savedAccount[addr]; ok {
-		return saved, nil
-	}
-	pkHash, err := iotxaddress.GetPubkeyHash(addr)
+// account returns the confirmed account state on the chain
+func (ws *workingSet) AccountState(addr string) (*Account, error) {
+	addrHash, err := addressToPKHash(addr)
 	if err != nil {
-		return nil, errors.Wrap(err, "error when getting the pubkey hash")
+		return nil, err
 	}
-	return ws.getState(byteutil.BytesTo20B(pkHash))
+	state, ok := ws.savedStates[addrHash]
+	if !ok {
+		state, err = ws.State(addrHash, &Account{})
+		if err != nil {
+			return nil, err
+		}
+	}
+	account, err := stateToAccountState(state)
+	if err != nil {
+		return nil, err
+	}
+	return account, nil
 }
 
-// CachedState returns the cached state if the address exists in local cache
-func (ws *workingSet) CachedState(addr string) (*State, error) {
-	h, err := iotxaddress.GetPubkeyHash(addr)
+// CachedAccountState returns the cached account state if the address exists in local cache
+func (ws *workingSet) CachedAccountState(addr string) (*Account, error) {
+	addrHash, err := addressToPKHash(addr)
 	if err != nil {
-		return nil, errors.Wrap(err, "error when getting the pubkey hash")
+		return nil, err
 	}
-	addrHash := byteutil.BytesTo20B(h)
 	if contract, ok := ws.cachedContract[addrHash]; ok {
 		return contract.SelfState(), nil
 	}
-	return ws.cachedState(addrHash)
+	state, err := ws.CachedState(addrHash, &Account{})
+	if err != nil {
+		return nil, err
+	}
+	account, err := stateToAccountState(state)
+	if err != nil {
+		return nil, err
+	}
+	return account, nil
 }
 
 // RootHash returns the hash of the root node of the accountTrie
-func (ws *workingSet) rootHash() hash.Hash32B {
+func (ws *workingSet) RootHash() hash.Hash32B {
 	return ws.accountTrie.RootHash()
 }
 
-// version returns the version of this working set
-func (ws *workingSet) version() uint64 {
+// Version returns the Version of this working set
+func (ws *workingSet) Version() uint64 {
 	return ws.ver
 }
 
-// Height returns the height of the block being worked on
-func (ws *workingSet) height() uint64 {
+// Height returns the Height of the block being worked on
+func (ws *workingSet) Height() uint64 {
 	return ws.blkHeight
 }
 
@@ -188,9 +213,9 @@ func (ws *workingSet) RunActions(
 	ws.blkHeight = blockHeight
 	// Recover cachedCandidates after restart factory
 	if blockHeight > 0 && len(ws.cachedCandidates) == 0 {
-		candidates, err := ws.getCandidates(blockHeight - 1)
+		candidates, err := ws.GetCandidates(blockHeight - 1)
 		if err != nil {
-			return hash.ZeroHash32B, errors.Wrapf(err, "failed to get previous Candidates on height %d", blockHeight-1)
+			return hash.ZeroHash32B, errors.Wrapf(err, "failed to get previous Candidates on Height %d", blockHeight-1)
 		}
 		if ws.cachedCandidates, err = CandidatesToMap(candidates); err != nil {
 			return hash.ZeroHash32B, errors.Wrap(err, "failed to convert candidate list to map of cached Candidates")
@@ -203,13 +228,17 @@ func (ws *workingSet) RunActions(
 		return hash.ZeroHash32B, errors.Wrap(err, "failed to handle votes")
 	}
 
-	// update pending state changes to trie
-	for addr, state := range ws.cachedAccount {
-		if err := ws.putState(addr[:], state); err != nil {
-			return hash.ZeroHash32B, errors.Wrap(err, "failed to update pending state changes to trie")
+	// update pending account changes to trie
+	for addr, state := range ws.cachedStates {
+		if err := ws.PutState(addr, state); err != nil {
+			return hash.ZeroHash32B, errors.Wrap(err, "failed to update pending account changes to trie")
+		}
+		account, err := stateToAccountState(state)
+		if err != nil {
+			return hash.ZeroHash32B, err
 		}
 		// Perform vote update operation on candidate and delegate pools
-		if !state.IsCandidate {
+		if !account.IsCandidate {
 			// remove the candidate if the person is not a candidate anymore
 			if _, ok := ws.cachedCandidates[addr]; ok {
 				delete(ws.cachedCandidates, addr)
@@ -217,10 +246,13 @@ func (ws *workingSet) RunActions(
 			continue
 		}
 		totalWeight := big.NewInt(0)
-		totalWeight.Add(totalWeight, state.VotingWeight)
-		voteeAddr, _ := iotxaddress.GetPubkeyHash(state.Votee)
-		if addr == byteutil.BytesTo20B(voteeAddr) {
-			totalWeight.Add(totalWeight, state.Balance)
+		totalWeight.Add(totalWeight, account.VotingWeight)
+		voteePKHash, err := addressToPKHash(account.Votee)
+		if err != nil {
+			return hash.ZeroHash32B, err
+		}
+		if addr == voteePKHash {
+			totalWeight.Add(totalWeight, account.Balance)
 		}
 		ws.updateCandidate(addr, totalWeight, blockHeight)
 	}
@@ -230,25 +262,32 @@ func (ws *workingSet) RunActions(
 			return hash.ZeroHash32B, errors.Wrap(err, "failed to update pending contract changes")
 		}
 		state := contract.SelfState()
-		// store the account (with new storage trie root) into state trie
-		if err := ws.putState(addr[:], state); err != nil {
-			return hash.ZeroHash32B, errors.Wrap(err, "failed to update pending contract state changes to trie")
+		// store the account (with new storage trie root) into account trie
+		if err := ws.PutState(addr, state); err != nil {
+			return hash.ZeroHash32B, errors.Wrap(err, "failed to update pending contract account changes to trie")
 		}
 	}
 	// increase Executor's Nonce for every execution in this block
 	for _, e := range executions {
-		addr, _ := iotxaddress.GetPubkeyHash(e.Executor())
-		state, err := ws.cachedState(byteutil.BytesTo20B(addr))
+		executorPKHash, err := addressToPKHash(e.Executor())
+		if err != nil {
+			return hash.ZeroHash32B, err
+		}
+		state, err := ws.CachedState(executorPKHash, &Account{})
 		if err != nil {
 			return hash.ZeroHash32B, errors.Wrap(err, "executor does not exist")
 		}
-		// save state before modifying
-		ws.saveState(e.Executor(), state)
-		if e.Nonce() > state.Nonce {
-			state.Nonce = e.Nonce()
+		account, err := stateToAccountState(state)
+		if err != nil {
+			return hash.ZeroHash32B, err
 		}
-		if err := ws.putState(addr, state); err != nil {
-			return hash.ZeroHash32B, errors.Wrap(err, "failed to update pending state changes to trie")
+		// save account before modifying
+		ws.saveAccount(executorPKHash, account)
+		if e.Nonce() > account.Nonce {
+			account.Nonce = e.Nonce()
+		}
+		if err := ws.PutState(executorPKHash, state); err != nil {
+			return hash.ZeroHash32B, errors.Wrap(err, "failed to update pending account changes to trie")
 		}
 	}
 
@@ -271,26 +310,26 @@ func (ws *workingSet) RunActions(
 		return hash.ZeroHash32B, errors.Wrap(err, "failed to convert map of cached Candidates to candidate list")
 	}
 	sort.Sort(candidates)
-	candidatesBytes, err := Serialize(candidates)
+	candidatesBytes, err := candidates.Serialize()
 	if err != nil {
 		return hash.ZeroHash32B, errors.Wrap(err, "failed to serialize Candidates")
 	}
 	h := byteutil.Uint64ToBytes(blockHeight)
 	if err := ws.dao.Put(trie.CandidateKVNameSpace, h, candidatesBytes); err != nil {
-		return hash.ZeroHash32B, errors.Wrapf(err, "failed to store Candidates on height %d", blockHeight)
+		return hash.ZeroHash32B, errors.Wrapf(err, "failed to store Candidates on Height %d", blockHeight)
 	}
-	// Persist current chain height
+	// Persist current chain Height
 	if err := ws.dao.Put(trie.AccountKVNameSpace, []byte(CurrentHeightKey), h); err != nil {
-		return hash.ZeroHash32B, errors.Wrap(err, "failed to store accountTrie's current height")
+		return hash.ZeroHash32B, errors.Wrap(err, "failed to store accountTrie's current Height")
 	}
-	return ws.rootHash(), nil
+	return ws.RootHash(), nil
 }
 
 // Commit persists all changes in RunActions() into the DB
-func (ws *workingSet) commit() error {
-	// commit all changes in a batch
+func (ws *workingSet) Commit() error {
+	// Commit all changes in a batch
 	if err := ws.accountTrie.Commit(); err != nil {
-		return errors.Wrap(err, "failed to commit all changes to underlying DB in a batch")
+		return errors.Wrap(err, "failed to Commit all changes to underlying DB in a batch")
 	}
 	ws.clearCache()
 	return nil
@@ -304,11 +343,15 @@ func (ws *workingSet) GetCodeHash(addr hash.PKHash) (hash.Hash32B, error) {
 	if contract, ok := ws.cachedContract[addr]; ok {
 		return byteutil.BytesTo32B(contract.SelfState().CodeHash), nil
 	}
-	state, err := ws.cachedState(addr)
+	state, err := ws.CachedState(addr, &Account{})
 	if err != nil {
 		return hash.ZeroHash32B, errors.Wrapf(err, "failed to GetCodeHash for contract %x", addr)
 	}
-	return byteutil.BytesTo32B(state.CodeHash), nil
+	account, err := stateToAccountState(state)
+	if err != nil {
+		return hash.ZeroHash32B, err
+	}
+	return byteutil.BytesTo32B(account.CodeHash), nil
 }
 
 // GetCode returns contract's code
@@ -316,11 +359,15 @@ func (ws *workingSet) GetCode(addr hash.PKHash) ([]byte, error) {
 	if contract, ok := ws.cachedContract[addr]; ok {
 		return contract.GetCode()
 	}
-	state, err := ws.cachedState(addr)
+	state, err := ws.CachedState(addr, &Account{})
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to GetCode for contract %x", addr)
 	}
-	return ws.dao.Get(trie.CodeKVNameSpace, state.CodeHash[:])
+	account, err := stateToAccountState(state)
+	if err != nil {
+		return nil, err
+	}
+	return ws.dao.Get(trie.CodeKVNameSpace, account.CodeHash[:])
 }
 
 // SetCode sets contract's code
@@ -363,74 +410,83 @@ func (ws *workingSet) SetContractState(addr hash.PKHash, key, value hash.Hash32B
 	return contract.SetState(key, value[:])
 }
 
-//======================================
-// private state/account functions
-//======================================
-// getState pulls a State from DB
-func (ws *workingSet) getState(hash hash.PKHash) (*State, error) {
+// State pulls a state from DB
+func (ws *workingSet) State(hash hash.PKHash, s State) (State, error) {
 	mstate, err := ws.accountTrie.Get(hash[:])
 	if errors.Cause(err) == trie.ErrNotExist {
 		return nil, errors.Wrapf(ErrAccountNotExist, "addrHash = %x", hash[:])
 	}
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get state of %x", hash)
+		return nil, errors.Wrapf(err, "failed to get account of %x", hash)
 	}
-	return bytesToState(mstate)
+	if err := s.Deserialize(mstate); err != nil {
+		return nil, err
+	}
+	return s, nil
 }
 
-func (ws *workingSet) cachedState(hash hash.PKHash) (*State, error) {
-	if state, ok := ws.cachedAccount[hash]; ok {
+// CachedState pulls a state from cache first. If missing, it will hit DB
+func (ws *workingSet) CachedState(hash hash.PKHash, s State) (State, error) {
+	if state, ok := ws.cachedStates[hash]; ok {
 		return state, nil
 	}
 	// add to local cache
-	state, err := ws.getState(hash)
+	state, err := ws.State(hash, s)
 	if state != nil {
-		ws.cachedAccount[hash] = state
+		ws.cachedStates[hash] = state
 	}
 	return state, err
 }
 
-// getState stores a State to DB
-func (ws *workingSet) putState(addr []byte, state *State) error {
-	ss, err := stateToBytes(state)
+// PutState put a state into DB
+func (ws *workingSet) PutState(pkHash hash.PKHash, state State) error {
+	ss, err := state.Serialize()
 	if err != nil {
-		return errors.Wrapf(err, "failed to convert state %v to bytes", state)
+		return errors.Wrapf(err, "failed to convert account %v to bytes", state)
 	}
-	return ws.accountTrie.Upsert(addr, ss)
+	return ws.accountTrie.Upsert(pkHash[:], ss)
 }
 
-func (ws *workingSet) saveState(addr string, state *State) {
-	if _, ok := ws.savedAccount[addr]; !ok {
-		ws.savedAccount[addr] = state.clone()
+//======================================
+// private account/account functions
+//======================================
+
+func (ws *workingSet) saveAccount(hash hash.PKHash, account *Account) {
+	if _, ok := ws.savedStates[hash]; !ok {
+		ws.savedStates[hash] = account.clone()
 	}
 }
 
 func (ws *workingSet) getContract(addr hash.PKHash) (Contract, error) {
-	state, err := ws.cachedState(addr)
+	state, err := ws.CachedState(addr, &Account{})
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get the cached state of %x", addr)
+		return nil, errors.Wrapf(err, "failed to get the cached account of %x", addr)
 	}
-	delete(ws.cachedAccount, addr)
-	if state.Root == hash.ZeroHash32B {
-		state.Root = trie.EmptyRoot
+	account, err := stateToAccountState(state)
+	if err != nil {
+		return nil, err
 	}
-	tr, err := trie.NewTrieSharedBatch(ws.dao, ws.cb, trie.ContractKVNameSpace, state.Root)
+	delete(ws.cachedStates, addr)
+	if account.Root == hash.ZeroHash32B {
+		account.Root = trie.EmptyRoot
+	}
+	tr, err := trie.NewTrieSharedBatch(ws.dao, ws.cb, trie.ContractKVNameSpace, account.Root)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create storage trie for new contract %x", addr)
 	}
 	// add to contract cache
-	contract := newContract(state, tr)
+	contract := newContract(account, tr)
 	ws.cachedContract[addr] = contract
 	return contract, nil
 }
 
 // clearCache removes all local changes after committing to trie
 func (ws *workingSet) clearCache() {
-	ws.savedAccount = nil
-	ws.cachedAccount = nil
+	ws.savedStates = nil
+	ws.cachedStates = nil
 	ws.cachedContract = nil
-	ws.savedAccount = make(map[string]*State)
-	ws.cachedAccount = make(map[hash.PKHash]*State)
+	ws.savedStates = make(map[hash.PKHash]State)
+	ws.cachedStates = make(map[hash.PKHash]State)
 	ws.cachedContract = make(map[hash.PKHash]Contract)
 }
 
@@ -444,12 +500,12 @@ func (ws *workingSet) updateCandidate(pkHash hash.PKHash, totalWeight *big.Int, 
 	candidate.LastUpdateHeight = blockHeight
 }
 
-func (ws *workingSet) getCandidates(height uint64) (CandidateList, error) {
+func (ws *workingSet) GetCandidates(height uint64) (CandidateList, error) {
 	candidatesBytes, err := ws.dao.Get(trie.CandidateKVNameSpace, byteutil.Uint64ToBytes(height))
 	if err != nil {
-		return []*Candidate{}, errors.Wrapf(err, "failed to get Candidates on height %d", height)
+		return []*Candidate{}, errors.Wrapf(err, "failed to get Candidates on Height %d", height)
 	}
-	return Deserialize(candidatesBytes)
+	return CandidateList{}.Deserialize(candidatesBytes)
 }
 
 //======================================
@@ -462,18 +518,22 @@ func (ws *workingSet) handleTsf(tsf []*action.Transfer) error {
 		}
 		if !tx.IsCoinbase() {
 			// check sender
-			sender, err := ws.LoadOrCreateState(tx.Sender(), 0)
+			sender, err := ws.LoadOrCreateAccountState(tx.Sender(), 0)
 			if err != nil {
-				return errors.Wrapf(err, "failed to load or create the state of sender %s", tx.Sender())
+				return errors.Wrapf(err, "failed to load or create the account of sender %s", tx.Sender())
 			}
-			// save state before modifying
-			ws.saveState(tx.Sender(), sender)
+			// save account before modifying
+			senderPKHash, err := addressToPKHash(tx.Sender())
+			if err != nil {
+				return err
+			}
+			ws.saveAccount(senderPKHash, sender)
 			if tx.Amount().Cmp(sender.Balance) == 1 {
-				return errors.Wrapf(ErrNotEnoughBalance, "failed to verify the balance of sender %s", tx.Sender())
+				return errors.Wrapf(ErrNotEnoughBalance, "failed to verify the Balance of sender %s", tx.Sender())
 			}
-			// update sender balance
+			// update sender Balance
 			if err := sender.SubBalance(tx.Amount()); err != nil {
-				return errors.Wrapf(err, "failed to update the balance of sender %s", tx.Sender())
+				return errors.Wrapf(err, "failed to update the Balance of sender %s", tx.Sender())
 			}
 			// update sender Nonce
 			if tx.Nonce() > sender.Nonce {
@@ -482,35 +542,47 @@ func (ws *workingSet) handleTsf(tsf []*action.Transfer) error {
 			// Update sender votes
 			if len(sender.Votee) > 0 && sender.Votee != tx.Sender() {
 				// sender already voted to a different person
-				voteeOfSender, err := ws.LoadOrCreateState(sender.Votee, 0)
+				voteeOfSender, err := ws.LoadOrCreateAccountState(sender.Votee, 0)
 				if err != nil {
-					return errors.Wrapf(err, "failed to load or create the state of sender's votee %s", sender.Votee)
+					return errors.Wrapf(err, "failed to load or create the account of sender's votee %s", sender.Votee)
 				}
-				// save state before modifying
-				ws.saveState(sender.Votee, voteeOfSender)
+				// save account before modifying
+				voteePKHash, err := addressToPKHash(sender.Votee)
+				if err != nil {
+					return err
+				}
+				ws.saveAccount(voteePKHash, voteeOfSender)
 				voteeOfSender.VotingWeight.Sub(voteeOfSender.VotingWeight, tx.Amount())
 			}
 		}
 		// check recipient
-		recipient, err := ws.LoadOrCreateState(tx.Recipient(), 0)
+		recipient, err := ws.LoadOrCreateAccountState(tx.Recipient(), 0)
 		if err != nil {
-			return errors.Wrapf(err, "failed to laod or create the state of recipient %s", tx.Recipient())
+			return errors.Wrapf(err, "failed to laod or create the account of recipient %s", tx.Recipient())
 		}
-		// save state before modifying
-		ws.saveState(tx.Recipient(), recipient)
-		// update recipient balance
+		// save account before modifying
+		recipientPKHash, err := addressToPKHash(tx.Recipient())
+		if err != nil {
+			return err
+		}
+		ws.saveAccount(recipientPKHash, recipient)
+		// update recipient Balance
 		if err := recipient.AddBalance(tx.Amount()); err != nil {
-			return errors.Wrapf(err, "failed to update the balance of recipient %s", tx.Recipient())
+			return errors.Wrapf(err, "failed to update the Balance of recipient %s", tx.Recipient())
 		}
 		// Update recipient votes
 		if len(recipient.Votee) > 0 && recipient.Votee != tx.Recipient() {
 			// recipient already voted to a different person
-			voteeOfRecipient, err := ws.LoadOrCreateState(recipient.Votee, 0)
+			voteeOfRecipient, err := ws.LoadOrCreateAccountState(recipient.Votee, 0)
 			if err != nil {
-				return errors.Wrapf(err, "failed to load or create the state of recipient's votee %s", recipient.Votee)
+				return errors.Wrapf(err, "failed to load or create the account of recipient's votee %s", recipient.Votee)
 			}
-			// save state before modifying
-			ws.saveState(recipient.Votee, voteeOfRecipient)
+			// save account before modifying
+			voteePKHash, err := addressToPKHash(recipient.Votee)
+			if err != nil {
+				return err
+			}
+			ws.saveAccount(voteePKHash, voteeOfRecipient)
 			voteeOfRecipient.VotingWeight.Add(voteeOfRecipient.VotingWeight, tx.Amount())
 		}
 	}
@@ -519,12 +591,16 @@ func (ws *workingSet) handleTsf(tsf []*action.Transfer) error {
 
 func (ws *workingSet) handleVote(blockHeight uint64, vote []*action.Vote) error {
 	for _, v := range vote {
-		voteFrom, err := ws.LoadOrCreateState(v.Voter(), 0)
+		voteFrom, err := ws.LoadOrCreateAccountState(v.Voter(), 0)
 		if err != nil {
-			return errors.Wrapf(err, "failed to load or create the state of voter %s", v.Voter())
+			return errors.Wrapf(err, "failed to load or create the account of voter %s", v.Voter())
 		}
-		// save state before modifying
-		ws.saveState(v.Voter(), voteFrom)
+		// save account before modifying
+		voterPKHash, err := addressToPKHash(v.Voter())
+		if err != nil {
+			return err
+		}
+		ws.saveAccount(voterPKHash, voteFrom)
 		// update voteFrom Nonce
 		if v.Nonce() > voteFrom.Nonce {
 			voteFrom.Nonce = v.Nonce()
@@ -532,12 +608,16 @@ func (ws *workingSet) handleVote(blockHeight uint64, vote []*action.Vote) error 
 		// Update old votee's weight
 		if len(voteFrom.Votee) > 0 && voteFrom.Votee != v.Voter() {
 			// voter already voted
-			oldVotee, err := ws.LoadOrCreateState(voteFrom.Votee, 0)
+			oldVotee, err := ws.LoadOrCreateAccountState(voteFrom.Votee, 0)
 			if err != nil {
-				return errors.Wrapf(err, "failed to load or create the state of voter's old votee %s", voteFrom.Votee)
+				return errors.Wrapf(err, "failed to load or create the account of voter's old votee %s", voteFrom.Votee)
 			}
-			// save state before modifying
-			ws.saveState(voteFrom.Votee, oldVotee)
+			// save account before modifying
+			voteePKHash, err := addressToPKHash(voteFrom.Votee)
+			if err != nil {
+				return err
+			}
+			ws.saveAccount(voteePKHash, oldVotee)
 			oldVotee.VotingWeight.Sub(oldVotee.VotingWeight, voteFrom.Balance)
 			voteFrom.Votee = ""
 		}
@@ -548,12 +628,16 @@ func (ws *workingSet) handleVote(blockHeight uint64, vote []*action.Vote) error 
 			continue
 		}
 
-		voteTo, err := ws.LoadOrCreateState(v.Votee(), 0)
+		voteTo, err := ws.LoadOrCreateAccountState(v.Votee(), 0)
 		if err != nil {
-			return errors.Wrapf(err, "failed to load or create the state of votee %s", v.Votee())
+			return errors.Wrapf(err, "failed to load or create the account of votee %s", v.Votee())
 		}
-		// save state before modifying
-		ws.saveState(v.Votee(), voteTo)
+		// save account before modifying
+		voteePKHash, err := addressToPKHash(v.Votee())
+		if err != nil {
+			return err
+		}
+		ws.saveAccount(voteePKHash, voteTo)
 		if v.Voter() != v.Votee() {
 			// Voter votes to a different person
 			voteTo.VotingWeight.Add(voteTo.VotingWeight, voteFrom.Balance)
@@ -562,14 +646,9 @@ func (ws *workingSet) handleVote(blockHeight uint64, vote []*action.Vote) error 
 			// Vote to self: self-nomination or cancel the previous vote case
 			voteFrom.Votee = v.Voter()
 			voteFrom.IsCandidate = true
-			pkHash, err := iotxaddress.GetPubkeyHash(v.Voter())
-			if err != nil {
-				return errors.Wrap(err, "cannot get the hash of the address")
-			}
-			pkHashAddress := byteutil.BytesTo20B(pkHash)
 			votePubkey := v.VoterPublicKey()
-			if _, ok := ws.cachedCandidates[pkHashAddress]; !ok {
-				ws.cachedCandidates[pkHashAddress] = &Candidate{
+			if _, ok := ws.cachedCandidates[voterPKHash]; !ok {
+				ws.cachedCandidates[voterPKHash] = &Candidate{
 					Address:        v.Voter(),
 					PublicKey:      votePubkey,
 					CreationHeight: blockHeight,
@@ -578,4 +657,21 @@ func (ws *workingSet) handleVote(blockHeight uint64, vote []*action.Vote) error 
 		}
 	}
 	return nil
+}
+
+func addressToPKHash(addr string) (hash.PKHash, error) {
+	var pkHash hash.PKHash
+	senderPKHashBytes, err := iotxaddress.GetPubkeyHash(addr)
+	if err != nil {
+		return pkHash, errors.Wrap(err, "cannot get the hash of the address")
+	}
+	return byteutil.BytesTo20B(senderPKHashBytes), nil
+}
+
+func stateToAccountState(state State) (*Account, error) {
+	account, ok := state.(*Account)
+	if !ok {
+		return nil, fmt.Errorf("error when casting state of %s into account state", reflect.TypeOf(state).String())
+	}
+	return account, nil
 }

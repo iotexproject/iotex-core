@@ -241,7 +241,7 @@ func TestWrongNonce(t *testing.T) {
 	sf, err := state.NewFactory(cfg, state.DefaultTrieOption())
 	require.NoError(err)
 	require.NoError(sf.Start(context.Background()))
-	_, err = sf.LoadOrCreateState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
+	_, err = sf.LoadOrCreateAccountState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
 	require.NoError(err)
 	val := validator{sf, ""}
 	_, err = sf.RunActions(0, nil, nil, nil, nil)
@@ -353,7 +353,7 @@ func TestWrongCoinbaseTsf(t *testing.T) {
 	sf, err := state.NewFactory(cfg, state.DefaultTrieOption())
 	require.NoError(err)
 	require.NoError(sf.Start(context.Background()))
-	_, err = sf.LoadOrCreateState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
+	_, err = sf.LoadOrCreateAccountState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
 	require.Nil(err)
 	val := validator{sf, ""}
 	_, err = sf.RunActions(0, nil, nil, nil, nil)
@@ -462,7 +462,7 @@ func TestValidateSecretBlock(t *testing.T) {
 	sf, err := state.NewFactory(cfg, state.DefaultTrieOption())
 	require.NoError(err)
 	require.NoError(sf.Start(context.Background()))
-	_, err = sf.LoadOrCreateState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
+	_, err = sf.LoadOrCreateAccountState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
 	require.Nil(err)
 	_, err = sf.RunActions(0, nil, nil, nil, nil)
 	require.Nil(err)

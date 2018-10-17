@@ -54,11 +54,11 @@ type (
 	Factory interface {
 		lifecycle.StartStopper
 		// Accounts
-		LoadOrCreateState(string, uint64) (*State, error)
+		LoadOrCreateAccountState(string, uint64) (*Account, error)
 		Balance(string) (*big.Int, error)
 		Nonce(string) (uint64, error) // Note that Nonce starts with 1.
-		State(string) (*State, error)
-		CachedState(string) (*State, error)
+		AccountState(string) (*Account, error)
+		CachedAccountState(string) (*Account, error)
 		RootHash() hash.Hash32B
 		Height() (uint64, error)
 		NewWorkingSet() (WorkingSet, error)
@@ -196,21 +196,21 @@ func (sf *factory) Start(ctx context.Context) error { return sf.lifecycle.OnStar
 func (sf *factory) Stop(ctx context.Context) error { return sf.lifecycle.OnStop(ctx) }
 
 //======================================
-// State/Account functions
+// account functions
 //======================================
-// LoadOrCreateState loads existing or adds a new State with initial balance to the factory
+// LoadOrCreateAccountState loads existing or adds a new account with initial balance to the factory
 // addr should be a bech32 properly-encoded string
-func (sf *factory) LoadOrCreateState(addr string, init uint64) (*State, error) {
+func (sf *factory) LoadOrCreateAccountState(addr string, init uint64) (*Account, error) {
 	sf.mutex.Lock()
 	defer sf.mutex.Unlock()
-	return sf.activeWs.LoadOrCreateState(addr, init)
+	return sf.activeWs.LoadOrCreateAccountState(addr, init)
 }
 
 // Balance returns balance
 func (sf *factory) Balance(addr string) (*big.Int, error) {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
-	return sf.activeWs.balance(addr)
+	return sf.activeWs.Balance(addr)
 }
 
 // Nonce returns the Nonce if the account exists
@@ -220,18 +220,18 @@ func (sf *factory) Nonce(addr string) (uint64, error) {
 	return sf.activeWs.Nonce(addr)
 }
 
-// State returns the confirmed state on the chain
-func (sf *factory) State(addr string) (*State, error) {
+// account returns the confirmed account state on the chain
+func (sf *factory) AccountState(addr string) (*Account, error) {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
-	return sf.activeWs.state(addr)
+	return sf.activeWs.AccountState(addr)
 }
 
-// CachedState returns the cached state if the address exists in local cache
-func (sf *factory) CachedState(addr string) (*State, error) {
+// CachedAccountState returns the cached account state if the address exists in local cache
+func (sf *factory) CachedAccountState(addr string) (*Account, error) {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
-	return sf.activeWs.CachedState(addr)
+	return sf.activeWs.CachedAccountState(addr)
 }
 
 // RootHash returns the hash of the root node of the state trie
@@ -280,19 +280,19 @@ func (sf *factory) Commit(ws WorkingSet) error {
 	sf.mutex.Lock()
 	defer sf.mutex.Unlock()
 	if ws != nil {
-		if sf.currentChainHeight != ws.version() {
+		if sf.currentChainHeight != ws.Version() {
 			// another working set with correct version already committed, do nothing
 			return nil
 		}
 		sf.activeWs = nil
 		sf.activeWs = ws
 	}
-	if err := sf.activeWs.commit(); err != nil {
+	if err := sf.activeWs.Commit(); err != nil {
 		return errors.Wrap(err, "failed to commit working set")
 	}
 	// Update chain height and root
-	sf.currentChainHeight = sf.activeWs.height()
-	sf.rootHash = sf.activeWs.rootHash()
+	sf.currentChainHeight = sf.activeWs.Height()
+	sf.rootHash = sf.activeWs.RootHash()
 	return nil
 }
 
@@ -341,7 +341,7 @@ func (sf *factory) SetContractState(addr hash.PKHash, key, value hash.Hash32B) e
 func (sf *factory) Candidates() (uint64, []*Candidate) {
 	sf.mutex.Lock()
 	defer sf.mutex.Unlock()
-	candidates, err := MapToCandidates(sf.activeWs.workingCandidates())
+	candidates, err := MapToCandidates(sf.activeWs.WorkingCandidates())
 	if err != nil {
 		return sf.currentChainHeight, nil
 	}
@@ -357,9 +357,9 @@ func (sf *factory) CandidatesByHeight(height uint64) ([]*Candidate, error) {
 	sf.mutex.Lock()
 	defer sf.mutex.Unlock()
 	// Load Candidates on the given height from underlying db
-	candidates, err := sf.activeWs.getCandidates(height)
+	candidates, err := sf.activeWs.GetCandidates(height)
 	if err != nil {
-		return []*Candidate{}, errors.Wrapf(err, "failed to get Candidates on height %d", height)
+		return []*Candidate{}, errors.Wrapf(err, "failed to get candidates on height %d", height)
 	}
 	if len(candidates) > int(sf.numCandidates) {
 		candidates = candidates[:sf.numCandidates]

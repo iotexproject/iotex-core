@@ -60,9 +60,9 @@ func TestCandidate(t *testing.T) {
 	require.Equal("io1qyqsyqcyl7ge4df3g94rzxvd2acldsfvdtq22kvf2ws722", candidateList[1].Address)
 	require.Equal("io1qyqsyqcy0av2reec8lrrth063uj8xkuugmmtu3tm2pahu9", candidateList[2].Address)
 
-	candidatesBytes, err := Serialize(candidateList)
+	candidatesBytes, err := candidateList.Serialize()
 	require.NoError(err)
-	candidates, err := Deserialize(candidatesBytes)
+	candidates, err := CandidateList{}.Deserialize(candidatesBytes)
 	require.NoError(err)
 	require.Equal(3, len(candidates))
 	require.Equal("io1qyqsyqcyf64rhvaj2y70q66yzkrpkhl52428vm5v88gqah", candidates[0].Address)

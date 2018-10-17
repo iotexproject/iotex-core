@@ -247,7 +247,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	sf, err := state.NewFactory(&cfg, state.DefaultTrieOption())
 	require.Nil(err)
 	require.NoError(sf.Start(context.Background()))
-	_, err = sf.LoadOrCreateState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
+	_, err = sf.LoadOrCreateAccountState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
 	require.NoError(err)
 
 	// Create a blockchain from scratch
@@ -465,7 +465,7 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	sf, err := state.NewFactory(&cfg, state.DefaultTrieOption())
 	require.Nil(err)
 	require.NoError(sf.Start(context.Background()))
-	_, err = sf.LoadOrCreateState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
+	_, err = sf.LoadOrCreateAccountState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
 	require.NoError(err)
 	// Create a blockchain from scratch
 	bc := NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
@@ -724,7 +724,7 @@ func TestCoinbaseTransfer(t *testing.T) {
 	sf, err := state.NewFactory(&cfg, state.DefaultTrieOption())
 	require.Nil(err)
 	require.NoError(sf.Start(context.Background()))
-	_, err = sf.LoadOrCreateState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
+	_, err = sf.LoadOrCreateAccountState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
 	require.NoError(err)
 	_, err = sf.RunActions(0, nil, nil, nil, nil)
 	require.NoError(err)
@@ -795,15 +795,15 @@ func TestBlocks(t *testing.T) {
 
 	sf, _ := state.NewFactory(&cfg, state.InMemTrieOption())
 	require.NoError(sf.Start(context.Background()))
-	sf.LoadOrCreateState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
+	sf.LoadOrCreateAccountState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
 
 	// Create a blockchain from scratch
 	bc := NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	require.NoError(bc.Start(context.Background()))
 	a := ta.Addrinfo["alfa"]
 	c := ta.Addrinfo["bravo"]
-	sf.LoadOrCreateState(a.RawAddress, uint64(100000))
-	sf.LoadOrCreateState(c.RawAddress, uint64(100000))
+	sf.LoadOrCreateAccountState(a.RawAddress, uint64(100000))
+	sf.LoadOrCreateAccountState(c.RawAddress, uint64(100000))
 
 	for i := 0; i < 10; i++ {
 		tsfs := []*action.Transfer{}
@@ -836,15 +836,15 @@ func TestActions(t *testing.T) {
 
 	sf, _ := state.NewFactory(&cfg, state.InMemTrieOption())
 	require.NoError(sf.Start(context.Background()))
-	sf.LoadOrCreateState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
+	sf.LoadOrCreateAccountState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
 
 	// Create a blockchain from scratch
 	bc := NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	require.NoError(bc.Start(context.Background()))
 	a := ta.Addrinfo["alfa"]
 	c := ta.Addrinfo["bravo"]
-	sf.LoadOrCreateState(a.RawAddress, uint64(100000))
-	sf.LoadOrCreateState(c.RawAddress, uint64(100000))
+	sf.LoadOrCreateAccountState(a.RawAddress, uint64(100000))
+	sf.LoadOrCreateAccountState(c.RawAddress, uint64(100000))
 
 	val := validator{sf, ""}
 	tsfs := []*action.Transfer{}
@@ -879,7 +879,7 @@ func TestDummyReplacement(t *testing.T) {
 
 	sf, _ := state.NewFactory(&cfg, state.InMemTrieOption())
 	require.NoError(sf.Start(context.Background()))
-	sf.LoadOrCreateState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
+	sf.LoadOrCreateAccountState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
 
 	// Create a blockchain from scratch
 	bc := NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())

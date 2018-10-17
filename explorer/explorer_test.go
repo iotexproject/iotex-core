@@ -159,7 +159,7 @@ func TestExplorerApi(t *testing.T) {
 	sf, err := state.NewFactory(&cfg, state.InMemTrieOption())
 	require.Nil(err)
 	require.Nil(sf.Start(context.Background()))
-	_, err = sf.LoadOrCreateState(ta.Addrinfo["producer"].RawAddress, blockchain.Gen.TotalSupply)
+	_, err = sf.LoadOrCreateAccountState(ta.Addrinfo["producer"].RawAddress, blockchain.Gen.TotalSupply)
 	require.NoError(err)
 	_, err = sf.RunActions(0, nil, nil, nil, nil)
 	require.NoError(err)
@@ -442,7 +442,7 @@ func TestService_StateByAddr(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	s := state.State{
+	s := state.Account{
 		Balance:      big.NewInt(46),
 		Nonce:        uint64(0),
 		IsCandidate:  false,
@@ -713,7 +713,7 @@ func TestExplorerGetReceiptByExecutionID(t *testing.T) {
 	sf, err := state.NewFactory(&cfg, state.InMemTrieOption())
 	require.Nil(err)
 	require.Nil(sf.Start(context.Background()))
-	_, err = sf.LoadOrCreateState(ta.Addrinfo["producer"].RawAddress, blockchain.Gen.TotalSupply)
+	_, err = sf.LoadOrCreateAccountState(ta.Addrinfo["producer"].RawAddress, blockchain.Gen.TotalSupply)
 	require.NoError(err)
 	_, err = sf.RunActions(0, nil, nil, nil, nil)
 	require.NoError(err)

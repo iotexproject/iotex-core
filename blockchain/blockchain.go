@@ -36,8 +36,8 @@ type Blockchain interface {
 	Balance(addr string) (*big.Int, error)
 	// Nonce returns the nonce if the account exists
 	Nonce(addr string) (uint64, error)
-	// CreateState adds a new State with initial balance to the factory
-	CreateState(addr string, init uint64) (*state.State, error)
+	// CreateState adds a new account with initial balance to the factory
+	CreateState(addr string, init uint64) (*state.Account, error)
 	// CandidatesByHeight returns the candidate list by a given height
 	CandidatesByHeight(height uint64) ([]*state.Candidate, error)
 	// For exposing blockchain states
@@ -81,7 +81,7 @@ type Blockchain interface {
 	GetBlockHashByExecutionHash(h hash.Hash32B) (hash.Hash32B, error)
 	// GetReceiptByExecutionHash returns the receipt by execution hash
 	GetReceiptByExecutionHash(h hash.Hash32B) (*Receipt, error)
-	// GetFactory returns the State Factory
+	// GetFactory returns the state factory
 	GetFactory() state.Factory
 	// GetChainID returns the chain ID
 	ChainID() uint32
@@ -89,8 +89,8 @@ type Blockchain interface {
 	TipHash() hash.Hash32B
 	// TipHeight returns tip block's height
 	TipHeight() uint64
-	// StateByAddr returns state of a given address
-	StateByAddr(address string) (*state.State, error)
+	// StateByAddr returns account of a given address
+	StateByAddr(address string) (*state.Account, error)
 
 	// For block operations
 	// MintNewBlock creates a new block with given actions and dkg keys
@@ -310,7 +310,7 @@ func (bc *blockchain) startEmptyBlockchain() error {
 	if err != nil {
 		return errors.Wrap(err, "Failed to obtain working set from state factory")
 	}
-	if _, err := ws.LoadOrCreateState(Gen.CreatorAddr(bc.ChainID()), Gen.TotalSupply); err != nil {
+	if _, err := ws.LoadOrCreateAccountState(Gen.CreatorAddr(bc.ChainID()), Gen.TotalSupply); err != nil {
 		return errors.Wrap(err, "failed to create Creator into StateFactory")
 	}
 	if _, err := ws.RunActions(0, nil, nil, nil, nil); err != nil {
@@ -353,7 +353,7 @@ func (bc *blockchain) startExistingBlockchain(recoveryHeight uint64) error {
 	}
 	// If restarting factory from fresh db, first create creator's state
 	if startHeight == 0 {
-		if _, err := ws.LoadOrCreateState(Gen.CreatorAddr(bc.ChainID()), Gen.TotalSupply); err != nil {
+		if _, err := ws.LoadOrCreateAccountState(Gen.CreatorAddr(bc.ChainID()), Gen.TotalSupply); err != nil {
 			return err
 		}
 		if _, err := ws.RunActions(0, nil, nil, nil, nil); err != nil {
@@ -407,9 +407,9 @@ func (bc *blockchain) Nonce(addr string) (uint64, error) {
 	return bc.sf.Nonce(addr)
 }
 
-// CreateState adds a new State with initial balance to the factory
-func (bc *blockchain) CreateState(addr string, init uint64) (*state.State, error) {
-	return bc.sf.LoadOrCreateState(addr, init)
+// CreateState adds a new account with initial balance to the factory
+func (bc *blockchain) CreateState(addr string, init uint64) (*state.Account, error) {
+	return bc.sf.LoadOrCreateAccountState(addr, init)
 }
 
 // CandidatesByHeight returns the candidate list by a given height
@@ -608,7 +608,7 @@ func (bc *blockchain) GetReceiptByExecutionHash(h hash.Hash32B) (*Receipt, error
 	return bc.dao.getReceiptByExecutionHash(h)
 }
 
-// GetFactory returns the State Factory
+// GetFactory returns the state factory
 func (bc *blockchain) GetFactory() state.Factory {
 	return bc.sf
 }
@@ -737,10 +737,10 @@ func (bc *blockchain) CommitBlock(blk *Block) error {
 	return bc.commitBlock(blk)
 }
 
-// StateByAddr returns the state of an address
-func (bc *blockchain) StateByAddr(address string) (*state.State, error) {
+// StateByAddr returns the account of an address
+func (bc *blockchain) StateByAddr(address string) (*state.Account, error) {
 	if bc.sf != nil {
-		s, err := bc.sf.State(address)
+		s, err := bc.sf.AccountState(address)
 		if err != nil {
 			logger.Warn().Err(err).Str("Address", address)
 			return nil, errors.New("account does not exist")

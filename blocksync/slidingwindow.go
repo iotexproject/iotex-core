@@ -97,7 +97,7 @@ func (sw *SlidingWindow) updateState() {
 		Msg("blocksync window")
 	logger.Debug().
 		Int("prevState", sw.prevState).
-		Int("State", sw.State).
+		Int("state", sw.State).
 		Msg("blocksync state")
 }
 
@@ -117,14 +117,14 @@ func (sw *SlidingWindow) Update(value uint64) {
 	sw.mu.Unlock()
 }
 
-// TurnClose returns true if State transitions Open --> Closing/Closed
+// TurnClose returns true if state transitions Open --> Closing/Closed
 func (sw *SlidingWindow) TurnClose() bool {
 	sw.mu.Lock()
 	defer sw.mu.Unlock()
 	return sw.prevState == Open && sw.State == Closing
 }
 
-// TurnOpen returns true if State transitions Closing/Closed --> Open
+// TurnOpen returns true if state transitions Closing/Closed --> Open
 func (sw *SlidingWindow) TurnOpen() bool {
 	sw.mu.Lock()
 	defer sw.mu.Unlock()
