@@ -60,7 +60,7 @@ type (
 		savedStates      map[hash.PKHash]State    // saved states before being modified in this block
 		cachedStates     map[hash.PKHash]State    // states being modified in this block
 		cachedContract   map[hash.PKHash]Contract // contracts being modified in this block
-		accountTrie      trie.Trie                // global AccountState trie
+		accountTrie      trie.Trie                // global account state trie
 		cb               db.CachedBatch           // cached batch for pending writes
 		dao              db.KVStore               // the underlying DB for account/contract storage
 		actionHandlers   []ActionHandler
@@ -86,11 +86,11 @@ func NewWorkingSet(
 	}
 	tr, err := trie.NewTrieSharedBatch(ws.dao, ws.cb, trie.AccountKVNameSpace, root)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to generate AccountState trie from config")
+		return nil, errors.Wrap(err, "failed to generate state trie from config")
 	}
 	ws.accountTrie = tr
 	if err := ws.accountTrie.Start(context.Background()); err != nil {
-		return nil, errors.Wrapf(err, "failed to load AccountState trie from root = %x", root)
+		return nil, errors.Wrapf(err, "failed to load state trie from root = %x", root)
 	}
 	return ws, nil
 }
@@ -102,7 +102,7 @@ func (ws *workingSet) WorkingCandidates() map[hash.PKHash]*Candidate {
 //======================================
 // AccountState functions
 //======================================
-// LoadOrCreateAccountState loads existing or adds a new AccountState with initial Balance to the factory
+// LoadOrCreateAccountState loads existing or adds a new account state with initial balance to the factory
 // addr should be a bech32 properly-encoded string
 func (ws *workingSet) LoadOrCreateAccountState(addr string, init uint64) (*AccountState, error) {
 	addrHash, err := addressToPKHash(addr)
@@ -130,11 +130,11 @@ func (ws *workingSet) LoadOrCreateAccountState(addr string, init uint64) (*Accou
 	return accountState, nil
 }
 
-// Balance returns Balance
+// Balance returns balance
 func (ws *workingSet) Balance(addr string) (*big.Int, error) {
 	state, err := ws.AccountState(addr)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get AccountState of %s", addr)
+		return nil, errors.Wrapf(err, "failed to get account state of %s", addr)
 	}
 	return state.Balance, nil
 }
@@ -143,12 +143,12 @@ func (ws *workingSet) Balance(addr string) (*big.Int, error) {
 func (ws *workingSet) Nonce(addr string) (uint64, error) {
 	state, err := ws.AccountState(addr)
 	if err != nil {
-		return 0, errors.Wrapf(err, "failed to get AccountState of %s", addr)
+		return 0, errors.Wrapf(err, "failed to get account state of %s", addr)
 	}
 	return state.Nonce, nil
 }
 
-// AccountState returns the confirmed AccountState on the chain
+// AccountState returns the confirmed account state on the chain
 func (ws *workingSet) AccountState(addr string) (*AccountState, error) {
 	addrHash, err := addressToPKHash(addr)
 	if err != nil {
@@ -168,7 +168,7 @@ func (ws *workingSet) AccountState(addr string) (*AccountState, error) {
 	return accountState, nil
 }
 
-// CachedAccountState returns the cached AccountState if the address exists in local cache
+// CachedAccountState returns the cached account state if the address exists in local cache
 func (ws *workingSet) CachedAccountState(addr string) (*AccountState, error) {
 	addrHash, err := addressToPKHash(addr)
 	if err != nil {

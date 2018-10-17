@@ -54,13 +54,13 @@ func (st *AccountState) Deserialize(ss []byte) error {
 	return nil
 }
 
-// AddBalance adds Balance for AccountState
+// AddBalance adds balance for account state
 func (st *AccountState) AddBalance(amount *big.Int) error {
 	st.Balance.Add(st.Balance, amount)
 	return nil
 }
 
-// SubBalance subtracts Balance for AccountState
+// SubBalance subtracts balance for account state
 func (st *AccountState) SubBalance(amount *big.Int) error {
 	// make sure there's enough fund to spend
 	if amount.Cmp(st.Balance) == 1 {
@@ -70,6 +70,7 @@ func (st *AccountState) SubBalance(amount *big.Int) error {
 	return nil
 }
 
+// Clone clones the account state
 func (st *AccountState) Clone() State {
 	s := *st
 	s.Balance = nil

@@ -26,8 +26,8 @@ import (
 )
 
 var (
-	// ErrNotEnoughBalance is the error that the Balance is not enough
-	ErrNotEnoughBalance = errors.New("not enough Balance")
+	// ErrNotEnoughBalance is the error that the balance is not enough
+	ErrNotEnoughBalance = errors.New("not enough balance")
 
 	// ErrAccountNotExist is the error that the account does not exist
 	ErrAccountNotExist = errors.New("account does not exist")
@@ -35,15 +35,15 @@ var (
 	// ErrAccountCollision is the error that the account already exists
 	ErrAccountCollision = errors.New("account already exists")
 
-	// ErrFailedToMarshalState is the error that the AccountState marshaling is failed
-	ErrFailedToMarshalState = errors.New("failed to marshal AccountState")
+	// ErrFailedToMarshalState is the error that the state marshaling is failed
+	ErrFailedToMarshalState = errors.New("failed to marshal state")
 
-	// ErrFailedToUnmarshalState is the error that the AccountState un-marshaling is failed
-	ErrFailedToUnmarshalState = errors.New("failed to unmarshal AccountState")
+	// ErrFailedToUnmarshalState is the error that the state un-marshaling is failed
+	ErrFailedToUnmarshalState = errors.New("failed to unmarshal state")
 )
 
 const (
-	// CurrentHeightKey indicates the key of current factory Height in underlying DB
+	// CurrentHeightKey indicates the key of current factory height in underlying DB
 	CurrentHeightKey = "currentHeight"
 	// AccountTrieRootKey indicates the key of accountTrie root hash in underlying DB
 	AccountTrieRootKey = "accountTrieRoot"
@@ -98,7 +98,7 @@ type (
 // FactoryOption sets Factory construction parameter
 type FactoryOption func(*factory, *config.Config) error
 
-// PrecreatedTrieDBOption uses pre-created trie DB for AccountState factory
+// PrecreatedTrieDBOption uses pre-created trie DB for state factory
 func PrecreatedTrieDBOption(kv db.KVStore) FactoryOption {
 	return func(sf *factory, cfg *config.Config) error {
 		if kv == nil {
@@ -108,7 +108,7 @@ func PrecreatedTrieDBOption(kv db.KVStore) FactoryOption {
 			return errors.Wrap(err, "failed to start trie db")
 		}
 		sf.dao = kv
-		// get AccountState trie root
+		// get state trie root
 		root, err := sf.getRoot(trie.AccountKVNameSpace, AccountTrieRootKey)
 		if err != nil {
 			return errors.Wrap(err, "failed to get accountTrie's root hash from underlying DB")
@@ -118,7 +118,7 @@ func PrecreatedTrieDBOption(kv db.KVStore) FactoryOption {
 	}
 }
 
-// DefaultTrieOption creates trie from config for AccountState factory
+// DefaultTrieOption creates trie from config for state factory
 func DefaultTrieOption() FactoryOption {
 	return func(sf *factory, cfg *config.Config) error {
 		dbPath := cfg.Chain.TrieDBPath
@@ -130,7 +130,7 @@ func DefaultTrieOption() FactoryOption {
 			return errors.Wrap(err, "failed to start trie db")
 		}
 		sf.dao = trieDB
-		// get AccountState trie root
+		// get state trie root
 		root, err := sf.getRoot(trie.AccountKVNameSpace, AccountTrieRootKey)
 		if err != nil {
 			return errors.Wrap(err, "failed to get accountTrie's root hash from underlying DB")
@@ -140,7 +140,7 @@ func DefaultTrieOption() FactoryOption {
 	}
 }
 
-// InMemTrieOption creates in memory trie for AccountState factory
+// InMemTrieOption creates in memory trie for state factory
 func InMemTrieOption() FactoryOption {
 	return func(sf *factory, cfg *config.Config) error {
 		trieDB := db.NewMemKVStore()
@@ -148,7 +148,7 @@ func InMemTrieOption() FactoryOption {
 			return errors.Wrap(err, "failed to start trie db")
 		}
 		sf.dao = trieDB
-		// get AccountState trie root
+		// get state trie root
 		root, err := sf.getRoot(trie.AccountKVNameSpace, AccountTrieRootKey)
 		if err != nil {
 			return errors.Wrap(err, "failed to get accountTrie's root hash from underlying DB")
@@ -158,7 +158,7 @@ func InMemTrieOption() FactoryOption {
 	}
 }
 
-// ActionHandlerOption sets the action handlers for AccountState factory
+// ActionHandlerOption sets the action handlers for state factory
 func ActionHandlerOption(actionHandlers ...ActionHandler) FactoryOption {
 	return func(sf *factory, cfg *config.Config) error {
 		sf.actionHandlers = actionHandlers
@@ -166,7 +166,7 @@ func ActionHandlerOption(actionHandlers ...ActionHandler) FactoryOption {
 	}
 }
 
-// NewFactory creates a new AccountState factory
+// NewFactory creates a new state factory
 func NewFactory(cfg *config.Config, opts ...FactoryOption) (Factory, error) {
 	sf := &factory{
 		currentChainHeight: 0,
@@ -175,7 +175,7 @@ func NewFactory(cfg *config.Config, opts ...FactoryOption) (Factory, error) {
 
 	for _, opt := range opts {
 		if err := opt(sf, cfg); err != nil {
-			logger.Error().Err(err).Msgf("Failed to execute AccountState factory creation option %p", opt)
+			logger.Error().Err(err).Msgf("Failed to execute state factory creation option %p", opt)
 			return nil, err
 		}
 	}
@@ -196,9 +196,9 @@ func (sf *factory) Start(ctx context.Context) error { return sf.lifecycle.OnStar
 func (sf *factory) Stop(ctx context.Context) error { return sf.lifecycle.OnStop(ctx) }
 
 //======================================
-// AccountState/Account functions
+// AccountState functions
 //======================================
-// LoadOrCreateAccountState loads existing or adds a new AccountState with initial Balance to the factory
+// LoadOrCreateAccountState loads existing or adds a new account with initial balance to the factory
 // addr should be a bech32 properly-encoded string
 func (sf *factory) LoadOrCreateAccountState(addr string, init uint64) (*AccountState, error) {
 	sf.mutex.Lock()
@@ -206,7 +206,7 @@ func (sf *factory) LoadOrCreateAccountState(addr string, init uint64) (*AccountS
 	return sf.activeWs.LoadOrCreateAccountState(addr, init)
 }
 
-// Balance returns Balance
+// Balance returns balance
 func (sf *factory) Balance(addr string) (*big.Int, error) {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
@@ -220,34 +220,34 @@ func (sf *factory) Nonce(addr string) (uint64, error) {
 	return sf.activeWs.Nonce(addr)
 }
 
-// AccountState returns the confirmed AccountState on the chain
+// AccountState returns the confirmed account state on the chain
 func (sf *factory) AccountState(addr string) (*AccountState, error) {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
 	return sf.activeWs.AccountState(addr)
 }
 
-// CachedAccountState returns the cached AccountState if the address exists in local cache
+// CachedAccountState returns the cached account state if the address exists in local cache
 func (sf *factory) CachedAccountState(addr string) (*AccountState, error) {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
 	return sf.activeWs.CachedAccountState(addr)
 }
 
-// RootHash returns the hash of the root node of the AccountState trie
+// RootHash returns the hash of the root node of the state trie
 func (sf *factory) RootHash() hash.Hash32B {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
 	return sf.rootHash
 }
 
-// Height returns factory's Height
+// Height returns factory's height
 func (sf *factory) Height() (uint64, error) {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
 	height, err := sf.dao.Get(trie.AccountKVNameSpace, []byte(CurrentHeightKey))
 	if err != nil {
-		return 0, errors.Wrap(err, "failed to get factory's Height from underlying DB")
+		return 0, errors.Wrap(err, "failed to get factory's height from underlying DB")
 	}
 	return byteutil.BytesToUint64(height), nil
 }
@@ -281,16 +281,16 @@ func (sf *factory) Commit(ws WorkingSet) error {
 	defer sf.mutex.Unlock()
 	if ws != nil {
 		if sf.currentChainHeight != ws.Version() {
-			// another working set with correct Version already committed, do nothing
+			// another working set with correct version already committed, do nothing
 			return nil
 		}
 		sf.activeWs = nil
 		sf.activeWs = ws
 	}
 	if err := sf.activeWs.Commit(); err != nil {
-		return errors.Wrap(err, "failed to Commit working set")
+		return errors.Wrap(err, "failed to commit working set")
 	}
-	// Update chain Height and root
+	// Update chain height and root
 	sf.currentChainHeight = sf.activeWs.Height()
 	sf.rootHash = sf.activeWs.RootHash()
 	return nil
@@ -352,14 +352,14 @@ func (sf *factory) Candidates() (uint64, []*Candidate) {
 	return sf.currentChainHeight, candidates[:sf.numCandidates]
 }
 
-// CandidatesByHeight returns array of Candidates in candidate pool of a given Height
+// CandidatesByHeight returns array of Candidates in candidate pool of a given height
 func (sf *factory) CandidatesByHeight(height uint64) ([]*Candidate, error) {
 	sf.mutex.Lock()
 	defer sf.mutex.Unlock()
-	// Load Candidates on the given Height from underlying db
+	// Load Candidates on the given height from underlying db
 	candidates, err := sf.activeWs.GetCandidates(height)
 	if err != nil {
-		return []*Candidate{}, errors.Wrapf(err, "failed to get Candidates on Height %d", height)
+		return []*Candidate{}, errors.Wrapf(err, "failed to get candidates on height %d", height)
 	}
 	if len(candidates) > int(sf.numCandidates) {
 		candidates = candidates[:sf.numCandidates]

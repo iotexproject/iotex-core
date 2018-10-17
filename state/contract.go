@@ -30,7 +30,7 @@ type (
 	contract struct {
 		*AccountState
 		dirtyCode  bool      // contract's code has been set
-		dirtyState bool      // contract's AccountState has changed
+		dirtyState bool      // contract's account state has changed
 		code       []byte    // contract byte-code
 		trie       trie.Trie // storage trie of the contract
 	}

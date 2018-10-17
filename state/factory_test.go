@@ -103,7 +103,7 @@ func TestBalance(t *testing.T) {
 	defer ctrl.Finish()
 
 	state := &AccountState{Balance: big.NewInt(20)}
-	// Add 10 to the Balance
+	// Add 10 to the balance
 	err := state.AddBalance(big.NewInt(10))
 	require.Nil(err)
 	// Balance should == 30 now

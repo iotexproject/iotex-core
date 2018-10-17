@@ -36,7 +36,7 @@ type Blockchain interface {
 	Balance(addr string) (*big.Int, error)
 	// Nonce returns the nonce if the account exists
 	Nonce(addr string) (uint64, error)
-	// CreateState adds a new AccountState with initial balance to the factory
+	// CreateState adds a new account state with initial balance to the factory
 	CreateState(addr string, init uint64) (*state.AccountState, error)
 	// CandidatesByHeight returns the candidate list by a given height
 	CandidatesByHeight(height uint64) ([]*state.Candidate, error)
@@ -81,7 +81,7 @@ type Blockchain interface {
 	GetBlockHashByExecutionHash(h hash.Hash32B) (hash.Hash32B, error)
 	// GetReceiptByExecutionHash returns the receipt by execution hash
 	GetReceiptByExecutionHash(h hash.Hash32B) (*Receipt, error)
-	// GetFactory returns the AccountState Factory
+	// GetFactory returns the state factory
 	GetFactory() state.Factory
 	// GetChainID returns the chain ID
 	ChainID() uint32
@@ -89,7 +89,7 @@ type Blockchain interface {
 	TipHash() hash.Hash32B
 	// TipHeight returns tip block's height
 	TipHeight() uint64
-	// StateByAddr returns state of a given address
+	// StateByAddr returns account state of a given address
 	StateByAddr(address string) (*state.AccountState, error)
 
 	// For block operations
@@ -407,7 +407,7 @@ func (bc *blockchain) Nonce(addr string) (uint64, error) {
 	return bc.sf.Nonce(addr)
 }
 
-// CreateState adds a new AccountState with initial balance to the factory
+// CreateState adds a new account state with initial balance to the factory
 func (bc *blockchain) CreateState(addr string, init uint64) (*state.AccountState, error) {
 	return bc.sf.LoadOrCreateAccountState(addr, init)
 }
@@ -608,7 +608,7 @@ func (bc *blockchain) GetReceiptByExecutionHash(h hash.Hash32B) (*Receipt, error
 	return bc.dao.getReceiptByExecutionHash(h)
 }
 
-// GetFactory returns the AccountState Factory
+// GetFactory returns the state factory
 func (bc *blockchain) GetFactory() state.Factory {
 	return bc.sf
 }
@@ -737,7 +737,7 @@ func (bc *blockchain) CommitBlock(blk *Block) error {
 	return bc.commitBlock(blk)
 }
 
-// StateByAddr returns the state of an address
+// StateByAddr returns the account state of an address
 func (bc *blockchain) StateByAddr(address string) (*state.AccountState, error) {
 	if bc.sf != nil {
 		s, err := bc.sf.AccountState(address)
