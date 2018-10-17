@@ -58,7 +58,7 @@ func (stateDB *EVMStateDBAdapter) Error() error {
 // CreateAccount creates an account in iotx blockchain
 func (stateDB *EVMStateDBAdapter) CreateAccount(evmAddr common.Address) {
 	addr := address.New(stateDB.bc.ChainID(), evmAddr.Bytes())
-	_, err := stateDB.ws.LoadOrCreateState(addr.IotxAddress(), 0)
+	_, err := stateDB.ws.LoadOrCreateAccountState(addr.IotxAddress(), 0)
 	if err != nil {
 		logger.Error().Err(err).Msg("CreateAccount")
 		// stateDB.logError(err)
@@ -75,7 +75,7 @@ func (stateDB *EVMStateDBAdapter) SubBalance(evmAddr common.Address, amount *big
 	// stateDB.GetBalance(evmAddr)
 	logger.Debug().Msgf("SubBalance %v from %s", amount, evmAddr.Hex())
 	addr := address.New(stateDB.bc.ChainID(), evmAddr.Bytes())
-	state, err := stateDB.ws.CachedState(addr.IotxAddress())
+	state, err := stateDB.ws.CachedAccountState(addr.IotxAddress())
 	if err != nil {
 		logger.Error().Err(err).Msg("SubBalance")
 		stateDB.logError(err)
@@ -94,7 +94,7 @@ func (stateDB *EVMStateDBAdapter) AddBalance(evmAddr common.Address, amount *big
 	logger.Debug().Msgf("AddBalance %v to %s", amount, evmAddr.Hex())
 
 	addr := address.New(stateDB.bc.ChainID(), evmAddr.Bytes())
-	state, err := stateDB.ws.CachedState(addr.IotxAddress())
+	state, err := stateDB.ws.CachedAccountState(addr.IotxAddress())
 	if err != nil {
 		logger.Error().Err(err).Hex("addrHash", evmAddr[:]).Msg("AddBalance")
 		stateDB.logError(err)
@@ -107,7 +107,7 @@ func (stateDB *EVMStateDBAdapter) AddBalance(evmAddr common.Address, amount *big
 // GetBalance gets the balance of account
 func (stateDB *EVMStateDBAdapter) GetBalance(evmAddr common.Address) *big.Int {
 	addr := address.New(stateDB.bc.ChainID(), evmAddr.Bytes())
-	state, err := stateDB.ws.CachedState(addr.IotxAddress())
+	state, err := stateDB.ws.CachedAccountState(addr.IotxAddress())
 	if err != nil {
 		logger.Error().Err(err).Msg("GetBalance")
 		return nil
@@ -229,8 +229,8 @@ func (stateDB *EVMStateDBAdapter) HasSuicided(common.Address) bool {
 func (stateDB *EVMStateDBAdapter) Exist(evmAddr common.Address) bool {
 	addr := address.New(stateDB.bc.ChainID(), evmAddr.Bytes())
 	logger.Debug().Msgf("Check existence of %s", addr.IotxAddress())
-	if state, err := stateDB.ws.CachedState(addr.IotxAddress()); err != nil || state == nil {
-		logger.Debug().Msgf("Account %s does not exist", addr.IotxAddress())
+	if state, err := stateDB.ws.CachedAccountState(addr.IotxAddress()); err != nil || state == nil {
+		logger.Debug().Msgf("account %s does not exist", addr.IotxAddress())
 		return false
 	}
 	return true

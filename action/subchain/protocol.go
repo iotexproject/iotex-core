@@ -100,12 +100,12 @@ func (p *Protocol) validateStartSubChain(start *action.StartSubChain, ws state.W
 	if _, ok := p.subChains[start.ChainID()]; ok {
 		return fmt.Errorf("%d is used by another sub-chain", start.ChainID())
 	}
-	var state *state.State
+	var account *state.Account
 	var err error
 	if ws == nil {
-		state, err = p.sf.LoadOrCreateState(start.OwnerAddress(), 0)
+		account, err = p.sf.LoadOrCreateAccountState(start.OwnerAddress(), 0)
 	} else {
-		state, err = ws.LoadOrCreateState(start.OwnerAddress(), 0)
+		account, err = ws.LoadOrCreateAccountState(start.OwnerAddress(), 0)
 	}
 	if err != nil {
 		return errors.Wrapf(err, "error when getting the state of address %s", start.OwnerAddress())
@@ -113,10 +113,10 @@ func (p *Protocol) validateStartSubChain(start *action.StartSubChain, ws state.W
 	if start.SecurityDeposit().Cmp(MinSecurityDeposit) < 0 {
 		return fmt.Errorf("security deposit is smaller than the minimal requirement %d", MinSecurityDeposit)
 	}
-	if state.Balance.Cmp(start.SecurityDeposit()) < 0 {
+	if account.Balance.Cmp(start.SecurityDeposit()) < 0 {
 		return errors.New("sub-chain owner doesn't have enough balance for security deposit")
 	}
-	if state.Balance.Cmp(big.NewInt(0).Add(start.SecurityDeposit(), start.OperationDeposit())) < 0 {
+	if account.Balance.Cmp(big.NewInt(0).Add(start.SecurityDeposit(), start.OperationDeposit())) < 0 {
 		return errors.New("sub-chain owner doesn't have enough balance for operation deposit")
 	}
 	if start.StartHeight() < p.chain.TipHeight()+MinStartHeightDelay {
