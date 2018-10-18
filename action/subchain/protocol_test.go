@@ -29,12 +29,8 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 	chain := mock_blockchain.NewMockBlockchain(ctrl)
 	chain.EXPECT().TipHeight().Return(uint64(100)).AnyTimes()
 	factory := mock_state.NewMockFactory(ctrl)
-	ws := mock_state.NewMockWorkingSet(ctrl)
-	ws.EXPECT().LoadOrCreateAccountState(gomock.Any(), gomock.Any()).Return(
-		&state.Account{Balance: big.NewInt(2000000000)},
-		nil,
-	).AnyTimes()
-	factory.EXPECT().NewWorkingSet().Return(ws, nil).AnyTimes()
+	factory.EXPECT().AccountState(gomock.Any()).Return(
+		&state.Account{Balance: big.NewInt(2000000000)}, nil).AnyTimes()
 
 	defer ctrl.Finish()
 

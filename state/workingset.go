@@ -42,6 +42,10 @@ type (
 		RootHash() hash.Hash32B
 		Version() uint64
 		Height() uint64
+		// General state
+		State(hash.PKHash, State) (State, error)
+		CachedState(hash.PKHash, State) (State, error)
+		PutState(hash.PKHash, State) error
 	}
 
 	// workingSet implements Workingset interface, tracks pending changes to account/contract in local cache
@@ -95,7 +99,7 @@ func (ws *workingSet) LoadOrCreateAccountState(addr string, init *big.Int) (*Acc
 	if err != nil {
 		return nil, err
 	}
-	state, err := ws.cachedState(addrHash, &Account{})
+	state, err := ws.CachedState(addrHash, &Account{})
 	switch {
 	case errors.Cause(err) == ErrAccountNotExist:
 		account := Account{
@@ -132,7 +136,7 @@ func (ws *workingSet) CachedAccountState(addr string) (*Account, error) {
 	if contract, ok := ws.cachedContract[addrHash]; ok {
 		return contract.SelfState(), nil
 	}
-	state, err := ws.cachedState(addrHash, &Account{})
+	state, err := ws.CachedState(addrHash, &Account{})
 	if err != nil {
 		return nil, err
 	}
@@ -185,7 +189,7 @@ func (ws *workingSet) RunActions(
 
 	// update pending account changes to trie
 	for addr, state := range ws.cachedStates {
-		if err := ws.putState(addr, state); err != nil {
+		if err := ws.PutState(addr, state); err != nil {
 			return hash.ZeroHash32B, errors.Wrap(err, "failed to update pending account changes to trie")
 		}
 		account, err := stateToAccountState(state)
@@ -218,7 +222,7 @@ func (ws *workingSet) RunActions(
 		}
 		state := contract.SelfState()
 		// store the account (with new storage trie root) into account trie
-		if err := ws.putState(addr, state); err != nil {
+		if err := ws.PutState(addr, state); err != nil {
 			return hash.ZeroHash32B, errors.Wrap(err, "failed to update pending contract account changes to trie")
 		}
 	}
@@ -228,7 +232,7 @@ func (ws *workingSet) RunActions(
 		if err != nil {
 			return hash.ZeroHash32B, err
 		}
-		state, err := ws.cachedState(executorPKHash, &Account{})
+		state, err := ws.CachedState(executorPKHash, &Account{})
 		if err != nil {
 			return hash.ZeroHash32B, errors.Wrap(err, "executor does not exist")
 		}
@@ -239,7 +243,7 @@ func (ws *workingSet) RunActions(
 		if e.Nonce() > account.Nonce {
 			account.Nonce = e.Nonce()
 		}
-		if err := ws.putState(executorPKHash, state); err != nil {
+		if err := ws.PutState(executorPKHash, state); err != nil {
 			return hash.ZeroHash32B, errors.Wrap(err, "failed to update pending account changes to trie")
 		}
 	}
@@ -296,7 +300,7 @@ func (ws *workingSet) GetCodeHash(addr hash.PKHash) (hash.Hash32B, error) {
 	if contract, ok := ws.cachedContract[addr]; ok {
 		return byteutil.BytesTo32B(contract.SelfState().CodeHash), nil
 	}
-	state, err := ws.cachedState(addr, &Account{})
+	state, err := ws.CachedState(addr, &Account{})
 	if err != nil {
 		return hash.ZeroHash32B, errors.Wrapf(err, "failed to GetCodeHash for contract %x", addr)
 	}
@@ -312,7 +316,7 @@ func (ws *workingSet) GetCode(addr hash.PKHash) ([]byte, error) {
 	if contract, ok := ws.cachedContract[addr]; ok {
 		return contract.GetCode()
 	}
-	state, err := ws.cachedState(addr, &Account{})
+	state, err := ws.CachedState(addr, &Account{})
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to GetCode for contract %x", addr)
 	}
@@ -367,7 +371,7 @@ func (ws *workingSet) SetContractState(addr hash.PKHash, key, value hash.Hash32B
 // private account/contract functions
 //======================================
 // state pulls a state from DB
-func (ws *workingSet) state(hash hash.PKHash, s State) (State, error) {
+func (ws *workingSet) State(hash hash.PKHash, s State) (State, error) {
 	mstate, err := ws.accountTrie.Get(hash[:])
 	if errors.Cause(err) == trie.ErrNotExist {
 		return nil, errors.Wrapf(ErrAccountNotExist, "addrHash = %x", hash[:])
@@ -387,7 +391,7 @@ func (ws *workingSet) accountState(addr string) (*Account, error) {
 	if err != nil {
 		return nil, err
 	}
-	state, err := ws.state(addrHash, &Account{})
+	state, err := ws.State(addrHash, &Account{})
 	if err != nil {
 		return nil, err
 	}
@@ -399,12 +403,12 @@ func (ws *workingSet) accountState(addr string) (*Account, error) {
 }
 
 // cachedState pulls a state from cache first. If missing, it will hit DB
-func (ws *workingSet) cachedState(hash hash.PKHash, s State) (State, error) {
+func (ws *workingSet) CachedState(hash hash.PKHash, s State) (State, error) {
 	if state, ok := ws.cachedStates[hash]; ok {
 		return state, nil
 	}
 	// add to local cache
-	state, err := ws.state(hash, s)
+	state, err := ws.State(hash, s)
 	if state != nil {
 		ws.cachedStates[hash] = state
 	}
@@ -412,7 +416,7 @@ func (ws *workingSet) cachedState(hash hash.PKHash, s State) (State, error) {
 }
 
 // putState put a state into DB
-func (ws *workingSet) putState(pkHash hash.PKHash, state State) error {
+func (ws *workingSet) PutState(pkHash hash.PKHash, state State) error {
 	ss, err := state.Serialize()
 	if err != nil {
 		return errors.Wrapf(err, "failed to convert account %v to bytes", state)
@@ -421,7 +425,7 @@ func (ws *workingSet) putState(pkHash hash.PKHash, state State) error {
 }
 
 func (ws *workingSet) getContract(addr hash.PKHash) (Contract, error) {
-	state, err := ws.cachedState(addr, &Account{})
+	state, err := ws.CachedState(addr, &Account{})
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get the cached account of %x", addr)
 	}
