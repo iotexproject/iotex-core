@@ -409,7 +409,24 @@ func (bc *blockchain) Nonce(addr string) (uint64, error) {
 
 // CreateState adds a new account with initial balance to the factory
 func (bc *blockchain) CreateState(addr string, init *big.Int) (*state.Account, error) {
-	return bc.sf.LoadOrCreateAccountState(addr, init)
+	if bc.sf == nil {
+		return nil, errors.New("empty state factory")
+	}
+	ws, err := bc.sf.NewWorkingSet()
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to create clean working set")
+	}
+	account, err := ws.LoadOrCreateAccountState(addr, init)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to create new account %s", addr)
+	}
+	if _, err = ws.RunActions(0, nil, nil, nil, nil); err != nil {
+		return nil, errors.Wrap(err, "failed to run the account creation")
+	}
+	if err = bc.sf.Commit(ws); err != nil {
+		return nil, errors.Wrap(err, "failed to commit the account creation")
+	}
+	return account, nil
 }
 
 // CandidatesByHeight returns the candidate list by a given height

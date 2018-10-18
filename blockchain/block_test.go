@@ -241,12 +241,8 @@ func TestWrongNonce(t *testing.T) {
 	sf, err := state.NewFactory(cfg, state.DefaultTrieOption())
 	require.NoError(err)
 	require.NoError(sf.Start(context.Background()))
-	_, err = sf.LoadOrCreateAccountState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
-	require.NoError(err)
+	require.NoError(addCreatorToFactory(sf))
 	val := validator{sf, ""}
-	_, err = sf.RunActions(0, nil, nil, nil, nil)
-	require.Nil(err)
-	require.Nil(sf.Commit(nil))
 
 	// correct nonce
 	coinbaseTsf := action.NewCoinBaseTransfer(Gen.BlockReward, ta.Addrinfo["producer"].RawAddress)
@@ -258,9 +254,11 @@ func TestWrongNonce(t *testing.T) {
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.NoError(err)
 	require.Nil(val.Validate(blk, 2, hash, true))
-	_, err = sf.RunActions(1, []*action.Transfer{tsf1}, nil, nil, nil)
+	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
-	require.Nil(sf.Commit(nil))
+	_, err = ws.RunActions(1, []*action.Transfer{tsf1}, nil, nil, nil)
+	require.NoError(err)
+	require.Nil(sf.Commit(ws))
 
 	// low nonce
 	tsf2, err := action.NewTransfer(1, big.NewInt(30), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
@@ -353,11 +351,8 @@ func TestWrongCoinbaseTsf(t *testing.T) {
 	sf, err := state.NewFactory(cfg, state.DefaultTrieOption())
 	require.NoError(err)
 	require.NoError(sf.Start(context.Background()))
-	_, err = sf.LoadOrCreateAccountState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
-	require.Nil(err)
+	require.NoError(addCreatorToFactory(sf))
 	val := validator{sf, ""}
-	_, err = sf.RunActions(0, nil, nil, nil, nil)
-	require.Nil(err)
 
 	// no coinbase tsf
 	coinbaseTsf := action.NewCoinBaseTransfer(Gen.BlockReward, ta.Addrinfo["producer"].RawAddress)
@@ -462,11 +457,7 @@ func TestValidateSecretBlock(t *testing.T) {
 	sf, err := state.NewFactory(cfg, state.DefaultTrieOption())
 	require.NoError(err)
 	require.NoError(sf.Start(context.Background()))
-	_, err = sf.LoadOrCreateAccountState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
-	require.Nil(err)
-	_, err = sf.RunActions(0, nil, nil, nil, nil)
-	require.Nil(err)
-	require.Nil(sf.Commit(nil))
+	require.Nil(addCreatorToFactory(sf))
 
 	idList := make([][]uint8, 0)
 	delegates := []string{ta.Addrinfo["producer"].RawAddress}
@@ -511,4 +502,21 @@ func TestValidateSecretBlock(t *testing.T) {
 	err = val.Validate(blk, 2, hash, false)
 	require.Error(err)
 	require.Equal(ErrDKGSecretProposal, errors.Cause(err))
+}
+
+func addCreatorToFactory(sf state.Factory) error {
+	ws, err := sf.NewWorkingSet()
+	if err != nil {
+		return err
+	}
+	if _, err = ws.LoadOrCreateAccountState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply); err != nil {
+		return err
+	}
+	if _, err = ws.RunActions(0, nil, nil, nil, nil); err != nil {
+		return err
+	}
+	if err = sf.Commit(ws); err != nil {
+		return err
+	}
+	return nil
 }

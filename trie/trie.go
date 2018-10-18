@@ -53,6 +53,7 @@ type (
 		Delete([]byte) error         // delete an entry
 		Commit() error               // commit the state changes in a batch
 		RootHash() hash.Hash32B      // returns trie's root hash
+		SetRoot(hash.Hash32B) error  // set a new root to trie
 	}
 
 	// trie implements the Trie interface
@@ -188,6 +189,20 @@ func (t *trie) RootHash() hash.Hash32B {
 	defer t.mutex.RUnlock()
 
 	return t.rootHash
+}
+
+// SetRoot sets the root trie
+func (t *trie) SetRoot(rootHash hash.Hash32B) (err error) {
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+
+	var root patricia
+	if root, err = t.getPatricia(rootHash[:]); err != nil {
+		return errors.Wrapf(err, "failed to set root %x", rootHash[:])
+	}
+	t.root = root
+	t.rootHash = rootHash
+	return err
 }
 
 //======================================

@@ -159,11 +159,7 @@ func TestExplorerApi(t *testing.T) {
 	sf, err := state.NewFactory(&cfg, state.InMemTrieOption())
 	require.Nil(err)
 	require.Nil(sf.Start(context.Background()))
-	_, err = sf.LoadOrCreateAccountState(ta.Addrinfo["producer"].RawAddress, blockchain.Gen.TotalSupply)
-	require.NoError(err)
-	_, err = sf.RunActions(0, nil, nil, nil, nil)
-	require.NoError(err)
-	require.NoError(sf.Commit(nil))
+	require.NoError(addCreatorToFactory(sf))
 	// Disable block reward to make bookkeeping easier
 	blockchain.Gen.BlockReward = big.NewInt(0)
 
@@ -713,11 +709,7 @@ func TestExplorerGetReceiptByExecutionID(t *testing.T) {
 	sf, err := state.NewFactory(&cfg, state.InMemTrieOption())
 	require.Nil(err)
 	require.Nil(sf.Start(context.Background()))
-	_, err = sf.LoadOrCreateAccountState(ta.Addrinfo["producer"].RawAddress, blockchain.Gen.TotalSupply)
-	require.NoError(err)
-	_, err = sf.RunActions(0, nil, nil, nil, nil)
-	require.NoError(err)
-	require.NoError(sf.Commit(nil))
+	require.NoError(addCreatorToFactory(sf))
 	// Disable block reward to make bookkeeping easier
 	blockchain.Gen.BlockReward = big.NewInt(0)
 
@@ -754,4 +746,21 @@ func TestExplorerGetReceiptByExecutionID(t *testing.T) {
 	receipt, err := svc.GetReceiptByExecutionID(eHashStr)
 	require.NoError(err)
 	require.Equal(eHashStr, receipt.Hash)
+}
+
+func addCreatorToFactory(sf state.Factory) error {
+	ws, err := sf.NewWorkingSet()
+	if err != nil {
+		return err
+	}
+	if _, err = ws.LoadOrCreateAccountState(ta.Addrinfo["producer"].RawAddress, blockchain.Gen.TotalSupply); err != nil {
+		return err
+	}
+	if _, err = ws.RunActions(0, nil, nil, nil, nil); err != nil {
+		return err
+	}
+	if err = sf.Commit(ws); err != nil {
+		return err
+	}
+	return nil
 }
