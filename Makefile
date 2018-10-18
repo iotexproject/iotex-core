@@ -160,4 +160,4 @@ nightlybuild:
 	$(ECHO_V)rm -f trie*.db
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_MINICLUSTER) -v ./tools/minicluster
 	export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH):$(PWD)/crypto/lib:$(PWD)/crypto/lib/blslib
-	./bin/$(BUILD_TARGET_MINICLUSTER) -log-colorful=true -timeout=25200
+	./bin/$(BUILD_TARGET_MINICLUSTER) -log-colorful=true -timeout=14400
