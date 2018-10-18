@@ -22,6 +22,8 @@ const (
 var (
 	// ZeroHash32B is 32-bytes of all zero
 	ZeroHash32B = Hash32B{}
+	// ZeroPKHash is 20-bytes of all zero
+	ZeroPKHash = PKHash{}
 )
 
 type (
