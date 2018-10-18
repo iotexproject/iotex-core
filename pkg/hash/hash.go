@@ -29,6 +29,8 @@ type (
 	PKHash [PKHashSize]byte
 	// DKGHash for DKG hash
 	DKGHash [DKGHashSize]byte
+	// CacheHash for 20-byte hash used in cache
+	CacheHash PKHash
 )
 
 // Hash160b returns 160-bit (20-byte) hash of input

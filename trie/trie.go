@@ -508,7 +508,8 @@ func (t *trie) putPatricia(ptr patricia) error {
 	}
 	key := ptr.hash()
 	logger.Debug().Hex("key", key[:8]).Msg("put")
-	return t.cb.Put(t.bucket, key[:], value, "failed to put key = %x", key)
+	t.cb.Put(t.bucket, key[:], value, "failed to put key = %x", key)
+	return nil
 }
 
 // putPatriciaNew stores a new patricia node into DB
@@ -527,7 +528,8 @@ func (t *trie) putPatriciaNew(ptr patricia) error {
 func (t *trie) delPatricia(ptr patricia) error {
 	key := ptr.hash()
 	logger.Debug().Hex("key", key[:8]).Msg("del")
-	return t.cb.Delete(t.bucket, key[:], "failed to delete key = %x", key)
+	t.cb.Delete(t.bucket, key[:], "failed to delete key = %x", key)
+	return nil
 }
 
 // getValue returns the actual value stored in patricia node
