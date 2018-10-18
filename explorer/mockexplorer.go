@@ -149,7 +149,7 @@ func (exp *MockExplorer) GetBlockByID(blkID string) (explorer.Block, error) {
 func (exp *MockExplorer) GetCoinStatistic() (explorer.CoinStatistic, error) {
 	return explorer.CoinStatistic{
 		Height: randInt64(),
-		Supply: randInt64(),
+		Supply: randString(),
 	}, nil
 }
 

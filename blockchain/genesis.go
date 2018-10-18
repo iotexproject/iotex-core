@@ -26,8 +26,8 @@ const testnetActionPath = "testnet_actions.yaml"
 
 // Genesis defines the Genesis default settings
 type Genesis struct {
-	TotalSupply         uint64
-	BlockReward         uint64
+	TotalSupply         *big.Int
+	BlockReward         *big.Int
 	Timestamp           uint64
 	ParentHash          hash.Hash32B
 	GenesisCoinbaseData string
@@ -62,8 +62,8 @@ type Transfer struct {
 
 // Gen hardcodes genesis default settings
 var Gen = &Genesis{
-	TotalSupply:         uint64(10000000000),
-	BlockReward:         uint64(5),
+	TotalSupply:         ConvertIotxToRau(10000000000),
+	BlockReward:         ConvertIotxToRau(5),
 	Timestamp:           uint64(1524676419),
 	ParentHash:          hash.Hash32B{},
 	GenesisCoinbaseData: "Connecting the physical world, block by block",
@@ -125,7 +125,7 @@ func NewGenesisBlock(cfg *config.Config) *Block {
 		recipientAddr := generateAddr(cfg.Chain.ID, rpk)
 		tsf, err := action.NewTransfer(
 			0,
-			big.NewInt(transfer.Amount),
+			ConvertIotxToRau(transfer.Amount),
 			creatorAddr,
 			recipientAddr,
 			[]byte{},

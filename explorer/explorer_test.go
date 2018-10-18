@@ -165,7 +165,7 @@ func TestExplorerApi(t *testing.T) {
 	require.NoError(err)
 	require.NoError(sf.Commit(nil))
 	// Disable block reward to make bookkeeping easier
-	blockchain.Gen.BlockReward = uint64(0)
+	blockchain.Gen.BlockReward = big.NewInt(0)
 
 	// create chain
 	ctx := context.Background()
@@ -327,7 +327,7 @@ func TestExplorerApi(t *testing.T) {
 
 	stats, err := svc.GetCoinStatistic()
 	require.Nil(err)
-	require.Equal(int64(blockchain.Gen.TotalSupply), stats.Supply)
+	require.Equal(blockchain.Gen.TotalSupply.String(), stats.Supply)
 	require.Equal(int64(4), stats.Height)
 	require.Equal(int64(32), stats.Transfers)
 	require.Equal(int64(24), stats.Votes)
@@ -719,7 +719,7 @@ func TestExplorerGetReceiptByExecutionID(t *testing.T) {
 	require.NoError(err)
 	require.NoError(sf.Commit(nil))
 	// Disable block reward to make bookkeeping easier
-	blockchain.Gen.BlockReward = uint64(0)
+	blockchain.Gen.BlockReward = big.NewInt(0)
 
 	// create chain
 	ctx := context.Background()

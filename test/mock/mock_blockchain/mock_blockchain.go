@@ -90,7 +90,7 @@ func (mr *MockBlockchainMockRecorder) Nonce(addr interface{}) *gomock.Call {
 }
 
 // CreateState mocks base method
-func (m *MockBlockchain) CreateState(addr string, init uint64) (*state.Account, error) {
+func (m *MockBlockchain) CreateState(addr string, init *big.Int) (*state.Account, error) {
 	ret := m.ctrl.Call(m, "CreateState", addr, init)
 	ret0, _ := ret[0].(*state.Account)
 	ret1, _ := ret[1].(error)

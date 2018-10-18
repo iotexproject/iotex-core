@@ -54,7 +54,7 @@ type (
 	Factory interface {
 		lifecycle.StartStopper
 		// Accounts
-		LoadOrCreateAccountState(string, uint64) (*Account, error)
+		LoadOrCreateAccountState(string, *big.Int) (*Account, error)
 		Balance(string) (*big.Int, error)
 		Nonce(string) (uint64, error) // Note that Nonce starts with 1.
 		AccountState(string) (*Account, error)
@@ -200,7 +200,7 @@ func (sf *factory) Stop(ctx context.Context) error { return sf.lifecycle.OnStop(
 //======================================
 // LoadOrCreateAccountState loads existing or adds a new account with initial balance to the factory
 // addr should be a bech32 properly-encoded string
-func (sf *factory) LoadOrCreateAccountState(addr string, init uint64) (*Account, error) {
+func (sf *factory) LoadOrCreateAccountState(addr string, init *big.Int) (*Account, error) {
 	sf.mutex.Lock()
 	defer sf.mutex.Unlock()
 	return sf.activeWs.LoadOrCreateAccountState(addr, init)
