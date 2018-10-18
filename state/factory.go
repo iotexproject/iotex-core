@@ -14,6 +14,8 @@ import (
 	"github.com/boltdb/bolt"
 	"github.com/pkg/errors"
 
+	"reflect"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
@@ -57,6 +59,8 @@ type (
 		Commit(WorkingSet) error
 		// Candidate pool
 		CandidatesByHeight(uint64) ([]*Candidate, error)
+
+		State(hash.PKHash, State) (State, error)
 	}
 
 	// factory implements StateFactory interface, tracks changes to account/contract and batch-commits to DB
@@ -202,22 +206,17 @@ func (sf *factory) AccountState(addr string) (*Account, error) {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
 
-	pkHash, err := iotxaddress.GetPubkeyHash(addr)
+	pkHash, err := addressToPKHash(addr)
 	if err != nil {
 		return nil, errors.Wrap(err, "error when getting the pubkey hash")
 	}
-	mstate, err := sf.accountTrie.Get(pkHash)
-	if errors.Cause(err) == trie.ErrNotExist {
-		return nil, errors.Wrapf(ErrAccountNotExist, "addrHash = %x", pkHash)
+	var account Account
+	state, err := sf.State(pkHash, &account)
+	accountPtr, ok := state.(*Account)
+	if !ok {
+		return nil, errors.Wrap(err, "error when casting state into account")
 	}
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get account of %x", pkHash)
-	}
-	account := &Account{}
-	if err := account.Deserialize(mstate); err != nil {
-		return nil, err
-	}
-	return account, nil
+	return accountPtr, nil
 }
 
 // RootHash returns the hash of the root node of the state trie
@@ -288,6 +287,23 @@ func (sf *factory) CandidatesByHeight(height uint64) ([]*Candidate, error) {
 	return candidates, nil
 }
 
+// State returns a confirmed state in the state factory
+func (sf *factory) State(addr hash.PKHash, state State) (State, error) {
+	sf.mutex.RLock()
+	defer sf.mutex.RUnlock()
+	data, err := sf.accountTrie.Get(addr[:])
+	if err != nil {
+		if errors.Cause(err) == trie.ErrNotExist {
+			return nil, errors.Wrapf(ErrAccountNotExist, "state of %x doesn't exist", addr)
+		}
+		return nil, errors.Wrapf(err, "error when getting the state of %x", addr)
+	}
+	if err := state.Deserialize(data); err != nil {
+		return nil, errors.Wrapf(err, "error when deserializing state data into %s", reflect.TypeOf(state).String())
+	}
+	return state, nil
+}
+
 //======================================
 // private trie constructor functions
 //======================================
@@ -302,4 +318,13 @@ func (sf *factory) getRoot(nameSpace string, key string) (hash.Hash32B, error) {
 		return hash.ZeroHash32B, err
 	}
 	return trieRoot, nil
+}
+
+func addressToPKHash(addr string) (hash.PKHash, error) {
+	var pkHash hash.PKHash
+	senderPKHashBytes, err := iotxaddress.GetPubkeyHash(addr)
+	if err != nil {
+		return pkHash, errors.Wrap(err, "cannot get the hash of the address")
+	}
+	return byteutil.BytesTo20B(senderPKHashBytes), nil
 }
