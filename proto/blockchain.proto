@@ -165,7 +165,7 @@ message ProposePb {
 message EndorsePb {
     enum EndorsementTopic {
         PROPOSAL = 0;
-        COMMIT = 1;
+        LOCK = 1;
     }
     uint64 height = 1;
     bytes blockHash = 2;
