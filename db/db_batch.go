@@ -225,7 +225,7 @@ func (cb *cachedBatch) Get(namespace string, key []byte) ([]byte, error) {
 // private functions
 //======================================
 func (cb *cachedBatch) hash(namespace string, key []byte) hash.CacheHash {
-	stream := []byte(namespace)
+	stream := hash.Hash160b([]byte(namespace))
 	stream = append(stream, key...)
 	return byteutil.BytesToCacheHash(hash.Hash160b(stream))
 }
