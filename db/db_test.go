@@ -159,8 +159,7 @@ func TestDBInMemBatchCommit(t *testing.T) {
 	err = kvboltDB.Put(bucket1, testK1[2], testV1[0])
 	require.Nil(err)
 
-	err = batch.Put(bucket1, testK1[0], testV1[0], "")
-	require.Nil(err)
+	batch.Put(bucket1, testK1[0], testV1[0], "")
 	err = batch.PutIfNotExists(bucket2, []byte("test"), []byte("test"), "")
 	require.Nil(err)
 
@@ -204,11 +203,8 @@ func TestDBBatch(t *testing.T) {
 		err = kvboltDB.Put(bucket1, testK1[2], testV1[0])
 		require.Nil(err)
 
-		err = batch.Put(bucket1, testK1[0], testV1[0], "")
-		require.Nil(err)
-		err = batch.Put(bucket2, testK2[1], testV2[1], "")
-		require.Nil(err)
-
+		batch.Put(bucket1, testK1[0], testV1[0], "")
+		batch.Put(bucket2, testK2[1], testV2[1], "")
 		value, err := kvboltDB.Get(bucket1, testK1[0])
 		require.Nil(err)
 		require.Equal(testV1[1], value)
@@ -216,9 +212,7 @@ func TestDBBatch(t *testing.T) {
 		value, err = kvboltDB.Get(bucket2, testK2[1])
 		require.Nil(err)
 		require.Equal(testV2[0], value)
-
-		err = kvboltDB.Commit(batch)
-		require.Nil(err)
+		require.Nil(kvboltDB.Commit(batch))
 
 		value, err = kvboltDB.Get(bucket1, testK1[0])
 		require.Nil(err)
@@ -232,14 +226,11 @@ func TestDBBatch(t *testing.T) {
 		require.Nil(err)
 		require.Equal(testV1[0], value)
 
-		err = batch.Put(bucket1, testK1[0], testV1[1], "")
-		require.Nil(err)
+		batch.Put(bucket1, testK1[0], testV1[1], "")
 		err = batch.PutIfNotExists(bucket2, testK2[1], testV2[0], "")
 		require.Nil(err)
 		err = kvboltDB.Commit(batch)
 		require.Equal(err, ErrAlreadyExist)
-		err = batch.Clear()
-		require.Nil(err)
 
 		value, err = kvboltDB.Get(bucket2, testK2[1])
 		require.Nil(err)
@@ -258,14 +249,12 @@ func TestDBBatch(t *testing.T) {
 		require.Nil(err)
 		require.Equal(testV2[0], value)
 
-		err = batch.Put(bucket1, testK1[2], testV1[2], "")
-		require.Nil(err)
+		batch.Put(bucket1, testK1[2], testV1[2], "")
 		// we did not set key in bucket3 yet, so this operation will fail and
 		// cause transaction rollback
 		err = batch.PutIfNotExists(bucket3, testK2[0], testV2[1], "")
 		require.Nil(err)
-		err = kvboltDB.Commit(batch)
-		require.NotNil(err)
+		require.NotNil(kvboltDB.Commit(batch))
 
 		value, err = kvboltDB.Get(bucket1, testK1[2])
 		require.Nil(err)
@@ -275,14 +264,10 @@ func TestDBBatch(t *testing.T) {
 		require.Nil(err)
 		require.Equal(testV2[1], value)
 
-		err = batch.Clear()
-		require.Nil(err)
-		err = batch.Put(bucket1, testK1[2], testV1[2], "")
-		require.Nil(err)
-		err = batch.Delete(bucket2, testK2[1], "")
-		require.Nil(err)
-		err = kvboltDB.Commit(batch)
-		require.Nil(err)
+		batch.Clear()
+		batch.Put(bucket1, testK1[2], testV1[2], "")
+		batch.Delete(bucket2, testK2[1], "")
+		require.Nil(kvboltDB.Commit(batch))
 
 		value, err = kvboltDB.Get(bucket1, testK1[2])
 		require.Nil(err)
@@ -305,13 +290,13 @@ func TestCacheKV(t *testing.T) {
 		require := require.New(t)
 
 		cb := NewCachedBatch()
-		require.Nil(cb.Put(bucket1, testK1[0], testV1[0], ""))
+		cb.Put(bucket1, testK1[0], testV1[0], "")
 		v, _ := cb.Get(bucket1, testK1[0])
 		require.Equal(testV1[0], v)
-		require.Nil(cb.Clear())
+		cb.Clear()
 		_, err := cb.Get(bucket1, testK1[0])
 		require.Error(err)
-		require.Nil(cb.Put(bucket2, testK2[2], testV2[2], ""))
+		cb.Put(bucket2, testK2[2], testV2[2], "")
 		v, _ = cb.Get(bucket2, testK2[2])
 		require.Equal(testV2[2], v)
 		// <k1[0], v1[0]> is gone
@@ -325,13 +310,15 @@ func TestCacheKV(t *testing.T) {
 		v, _ = cb.Get(bucket1, testK1[2])
 		require.Equal(testV1[2], v)
 		// put testK1[1] with a new value
-		require.Nil(cb.Put(bucket1, testK1[1], testV1[2], ""))
+		cb.Put(bucket1, testK1[1], testV1[2], "")
 		v, _ = cb.Get(bucket1, testK1[1])
 		require.Equal(testV1[2], v)
 		// cannot put same entry again
 		require.Equal(ErrAlreadyExist, errors.Cause(cb.PutIfNotExists(bucket1, testK1[1], testV1[0], "")))
 		// same key but diff bucket name is OK
 		require.Nil(cb.PutIfNotExists(bucket2, testK1[0], testV1[0], ""))
+		// delete a non-existing entry is OK
+		cb.Delete(bucket2, []byte("notexist"), "")
 		require.Nil(kv.Commit(cb))
 
 		cb = nil
@@ -375,7 +362,7 @@ func TestCachedBatch(t *testing.T) {
 	require := require.New(t)
 
 	cb := NewCachedBatch()
-	require.NoError(cb.Put(bucket1, testK1[0], testV1[0], ""))
+	cb.Put(bucket1, testK1[0], testV1[0], "")
 	v, err := cb.Get(bucket1, testK1[0])
 	require.NoError(err)
 	require.Equal(testV1[0], v)
@@ -384,8 +371,8 @@ func TestCachedBatch(t *testing.T) {
 	require.Equal(ErrNotExist, err)
 	require.Equal([]byte(nil), v)
 
-	require.NoError(cb.Delete(bucket1, testK2[0], ""))
-	require.NoError(cb.Delete(bucket1, testK1[0], ""))
+	cb.Delete(bucket1, testK2[0], "")
+	cb.Delete(bucket1, testK1[0], "")
 	require.NoError(cb.PutIfNotExists(bucket1, testK1[0], testV1[0], ""))
 	v, err = cb.Get(bucket1, testK1[0])
 	require.NoError(err)

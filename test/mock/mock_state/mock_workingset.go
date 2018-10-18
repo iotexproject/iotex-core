@@ -163,32 +163,6 @@ func (mr *MockWorkingSetMockRecorder) SetContractState(arg0, arg1, arg2 interfac
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetContractState", reflect.TypeOf((*MockWorkingSet)(nil).SetContractState), arg0, arg1, arg2)
 }
 
-// Balance mocks base method
-func (m *MockWorkingSet) Balance(arg0 string) (*big.Int, error) {
-	ret := m.ctrl.Call(m, "Balance", arg0)
-	ret0, _ := ret[0].(*big.Int)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Balance indicates an expected call of Balance
-func (mr *MockWorkingSetMockRecorder) Balance(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Balance", reflect.TypeOf((*MockWorkingSet)(nil).Balance), arg0)
-}
-
-// AccountState mocks base method
-func (m *MockWorkingSet) AccountState(arg0 string) (*state.Account, error) {
-	ret := m.ctrl.Call(m, "AccountState", arg0)
-	ret0, _ := ret[0].(*state.Account)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AccountState indicates an expected call of AccountState
-func (mr *MockWorkingSetMockRecorder) AccountState(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AccountState", reflect.TypeOf((*MockWorkingSet)(nil).AccountState), arg0)
-}
-
 // RootHash mocks base method
 func (m *MockWorkingSet) RootHash() hash.Hash32B {
 	ret := m.ctrl.Call(m, "RootHash")
@@ -223,31 +197,6 @@ func (m *MockWorkingSet) Height() uint64 {
 // Height indicates an expected call of Height
 func (mr *MockWorkingSetMockRecorder) Height() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Height", reflect.TypeOf((*MockWorkingSet)(nil).Height))
-}
-
-// WorkingCandidates mocks base method
-func (m *MockWorkingSet) WorkingCandidates() map[hash.PKHash]*state.Candidate {
-	ret := m.ctrl.Call(m, "WorkingCandidates")
-	ret0, _ := ret[0].(map[hash.PKHash]*state.Candidate)
-	return ret0
-}
-
-// WorkingCandidates indicates an expected call of WorkingCandidates
-func (mr *MockWorkingSetMockRecorder) WorkingCandidates() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WorkingCandidates", reflect.TypeOf((*MockWorkingSet)(nil).WorkingCandidates))
-}
-
-// GetCandidates mocks base method
-func (m *MockWorkingSet) GetCandidates(height uint64) (state.CandidateList, error) {
-	ret := m.ctrl.Call(m, "GetCandidates", height)
-	ret0, _ := ret[0].(state.CandidateList)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetCandidates indicates an expected call of GetCandidates
-func (mr *MockWorkingSetMockRecorder) GetCandidates(height interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCandidates", reflect.TypeOf((*MockWorkingSet)(nil).GetCandidates), height)
 }
 
 // State mocks base method

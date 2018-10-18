@@ -103,7 +103,7 @@ func (p *Protocol) validateStartSubChain(start *action.StartSubChain, ws state.W
 	var account *state.Account
 	var err error
 	if ws == nil {
-		account, err = p.sf.LoadOrCreateAccountState(start.OwnerAddress(), big.NewInt(0))
+		account, err = p.sf.AccountState(start.OwnerAddress())
 	} else {
 		account, err = ws.LoadOrCreateAccountState(start.OwnerAddress(), big.NewInt(0))
 	}

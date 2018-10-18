@@ -131,3 +131,15 @@ func (m *MockTrie) RootHash() hash.Hash32B {
 func (mr *MockTrieMockRecorder) RootHash() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RootHash", reflect.TypeOf((*MockTrie)(nil).RootHash))
 }
+
+// SetRoot mocks base method
+func (m *MockTrie) SetRoot(arg0 hash.Hash32B) error {
+	ret := m.ctrl.Call(m, "SetRoot", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetRoot indicates an expected call of SetRoot
+func (mr *MockTrieMockRecorder) SetRoot(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetRoot", reflect.TypeOf((*MockTrie)(nil).SetRoot), arg0)
+}

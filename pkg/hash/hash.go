@@ -15,6 +15,8 @@ const (
 	PKHashSize = 20
 	// DKGHashSize defines the size of a DKG hash
 	DKGHashSize = 20
+	// CacheHashSize defines the size of local hash key
+	CacheHashSize = 20
 )
 
 var (
@@ -29,6 +31,8 @@ type (
 	PKHash [PKHashSize]byte
 	// DKGHash for DKG hash
 	DKGHash [DKGHashSize]byte
+	// CacheHash for 20-byte hash used in cache
+	CacheHash [CacheHashSize]byte
 )
 
 // Hash160b returns 160-bit (20-byte) hash of input

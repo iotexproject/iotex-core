@@ -713,11 +713,13 @@ func TestRollDPoSConsensus(t *testing.T) {
 			sf, err := state.NewFactory(&cfg, state.InMemTrieOption())
 			require.NoError(t, err)
 			for j := 0; j < numNodes; j++ {
-				_, err := sf.LoadOrCreateAccountState(chainRawAddrs[j], big.NewInt(0))
+				ws, err := sf.NewWorkingSet()
 				require.NoError(t, err)
-				_, err = sf.RunActions(0, nil, nil, nil, nil)
+				_, err = ws.LoadOrCreateAccountState(chainRawAddrs[j], big.NewInt(0))
 				require.NoError(t, err)
-				require.NoError(t, sf.Commit(nil))
+				_, err = ws.RunActions(0, nil, nil, nil, nil)
+				require.NoError(t, err)
+				require.NoError(t, sf.Commit(ws))
 			}
 			chain := blockchain.NewBlockchain(&cfg, blockchain.InMemDaoOption(), blockchain.PrecreatedStateFactoryOption(sf))
 			chains = append(chains, chain)
