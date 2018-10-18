@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package rolldpos
+package endorsement
 
 import (
 	"bytes"
@@ -16,13 +16,15 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 )
 
-type endorsementProof struct {
+// Certificate is a collection of endorsements for block
+type Certificate struct {
 	blkHash      hash.Hash32B
-	endorsements []*endorsement
+	endorsements []*Endorsement
 }
 
-func (l *endorsementProof) addEndorsement(en *endorsement) error {
-	if !bytes.Equal(l.blkHash[:], en.blkHash[:]) {
+// AddEndorsement adds an endorsement with the right block hash and signature
+func (l *Certificate) AddEndorsement(en *Endorsement) error {
+	if !bytes.Equal(en.ConsensusVote().BlkHash[:], l.blkHash[:]) {
 		return errors.New("the endorsement block hash is different from lock")
 	}
 	if !en.VerifySignature() {
@@ -33,12 +35,12 @@ func (l *endorsementProof) addEndorsement(en *endorsement) error {
 	return nil
 }
 
-func (l *endorsementProof) blockHash() hash.Hash32B {
+func (l *Certificate) blockHash() hash.Hash32B {
 	return l.blkHash
 }
 
-func (l *endorsementProof) numOfValidEndorsements(topics []uint8, endorsers []*iotxaddress.Address) uint16 {
-	topicSet := map[uint8]bool{}
+func (l *Certificate) numOfValidEndorsements(topics []ConsensusVoteTopic, endorsers []*iotxaddress.Address) uint16 {
+	topicSet := map[ConsensusVoteTopic]bool{}
 	for _, topic := range topics {
 		topicSet[topic] = true
 	}
@@ -48,7 +50,7 @@ func (l *endorsementProof) numOfValidEndorsements(topics []uint8, endorsers []*i
 	}
 	cnt := uint16(0)
 	for _, endorsement := range l.endorsements {
-		if _, ok := topicSet[endorsement.topic]; !ok {
+		if _, ok := topicSet[endorsement.ConsensusVote().Topic]; !ok {
 			continue
 		}
 		if _, ok := endorserSet[endorsement.endorserPubkey]; !ok {

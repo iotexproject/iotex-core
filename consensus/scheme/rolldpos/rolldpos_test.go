@@ -28,6 +28,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/crypto"
+	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/network/node"
 	"github.com/iotexproject/iotex-core/pkg/hash"
@@ -472,28 +473,32 @@ func TestRollDPoS_convertToConsensusEvt(t *testing.T) {
 
 	// Test proposal endorse msg
 	blkHash := blk.HashBlock()
-	en := &endorsement{
-		height:  blk.Height(),
-		topic:   endorseProposal,
-		blkHash: blkHash,
-	}
-	err = en.Sign(addr)
+	en, err := endorsement.NewEndorsement(
+		endorsement.NewConsensusVote(
+			blkHash,
+			blk.Height(),
+			endorsement.PROPOSAL,
+		),
+		addr,
+	)
 	assert.NoError(t, err)
-	msg := en.toProtoMsg()
+	msg := en.ToProtoMsg()
 
 	eEvt, err := r.cfsm.newEndorseEvtWithEndorsePb(msg)
 	assert.NoError(t, err)
 	assert.NotNil(t, eEvt)
 
 	// Test commit endorse msg
-	en = &endorsement{
-		height:  blk.Height(),
-		topic:   endorseLock,
-		blkHash: blkHash,
-	}
-	err = en.Sign(addr)
+	en, err = endorsement.NewEndorsement(
+		endorsement.NewConsensusVote(
+			blkHash,
+			blk.Height(),
+			endorsement.LOCK,
+		),
+		addr,
+	)
 	assert.NoError(t, err)
-	msg = en.toProtoMsg()
+	msg = en.ToProtoMsg()
 	eEvt, err = r.cfsm.newEndorseEvtWithEndorsePb(msg)
 	assert.NoError(t, err)
 	assert.NotNil(t, eEvt)
