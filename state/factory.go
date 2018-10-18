@@ -34,12 +34,6 @@ var (
 
 	// ErrAccountCollision is the error that the account already exists
 	ErrAccountCollision = errors.New("account already exists")
-
-	// ErrFailedToMarshalState is the error that the state marshaling is failed
-	ErrFailedToMarshalState = errors.New("failed to marshal state")
-
-	// ErrFailedToUnmarshalState is the error that the state un-marshaling is failed
-	ErrFailedToUnmarshalState = errors.New("failed to unmarshal state")
 )
 
 const (
@@ -284,8 +278,8 @@ func (sf *factory) CandidatesByHeight(height uint64) ([]*Candidate, error) {
 	if err != nil {
 		return []*Candidate{}, errors.Wrapf(err, "failed to get candidates on Height %d", height)
 	}
-	candidates, err := CandidateList{}.Deserialize(candidatesBytes)
-	if err != nil {
+	var candidates CandidateList
+	if err := candidates.Deserialize(candidatesBytes); err != nil {
 		return []*Candidate{}, errors.Wrapf(err, "failed to get candidates on height %d", height)
 	}
 	if len(candidates) > int(sf.numCandidates) {

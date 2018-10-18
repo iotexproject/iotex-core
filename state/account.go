@@ -7,8 +7,6 @@
 package state
 
 import (
-	"bytes"
-	"encoding/gob"
 	"math/big"
 
 	"github.com/iotexproject/iotex-core/pkg/hash"
@@ -29,23 +27,10 @@ type Account struct {
 }
 
 // Serialize serializes account state into bytes
-func (st *Account) Serialize() ([]byte, error) {
-	var ss bytes.Buffer
-	e := gob.NewEncoder(&ss)
-	if err := e.Encode(st); err != nil {
-		return nil, ErrFailedToMarshalState
-	}
-	return ss.Bytes(), nil
-}
+func (st *Account) Serialize() ([]byte, error) { return GobBasedSerialize(st) }
 
 // Deserialize deserializes bytes into account state
-func (st *Account) Deserialize(ss []byte) error {
-	e := gob.NewDecoder(bytes.NewBuffer(ss))
-	if err := e.Decode(st); err != nil {
-		return ErrFailedToUnmarshalState
-	}
-	return nil
-}
+func (st *Account) Deserialize(ss []byte) error { return GobBasedDeserialize(st, ss) }
 
 // AddBalance adds balance for account state
 func (st *Account) AddBalance(amount *big.Int) error {
