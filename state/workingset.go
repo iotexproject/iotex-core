@@ -17,7 +17,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/trie"
@@ -587,15 +586,6 @@ func (ws *workingSet) handleVote(blockHeight uint64, vote []*action.Vote) error 
 		}
 	}
 	return nil
-}
-
-func addressToPKHash(addr string) (hash.PKHash, error) {
-	var pkHash hash.PKHash
-	senderPKHashBytes, err := iotxaddress.GetPubkeyHash(addr)
-	if err != nil {
-		return pkHash, errors.Wrap(err, "cannot get the hash of the address")
-	}
-	return byteutil.BytesTo20B(senderPKHashBytes), nil
 }
 
 func stateToAccountState(state State) (*Account, error) {

@@ -163,6 +163,19 @@ func (mr *MockFactoryMockRecorder) CandidatesByHeight(arg0 interface{}) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CandidatesByHeight", reflect.TypeOf((*MockFactory)(nil).CandidatesByHeight), arg0)
 }
 
+// State mocks base method
+func (m *MockFactory) State(arg0 hash.PKHash, arg1 state.State) (state.State, error) {
+	ret := m.ctrl.Call(m, "State", arg0, arg1)
+	ret0, _ := ret[0].(state.State)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// State indicates an expected call of State
+func (mr *MockFactoryMockRecorder) State(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "State", reflect.TypeOf((*MockFactory)(nil).State), arg0, arg1)
+}
+
 // MockActionHandler is a mock of ActionHandler interface
 type MockActionHandler struct {
 	ctrl     *gomock.Controller
