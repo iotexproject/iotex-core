@@ -278,8 +278,8 @@ func (sf *factory) CandidatesByHeight(height uint64) ([]*Candidate, error) {
 	if err != nil {
 		return []*Candidate{}, errors.Wrapf(err, "failed to get candidates on Height %d", height)
 	}
-	candidates, err := CandidateList{}.Deserialize(candidatesBytes)
-	if err != nil {
+	var candidates CandidateList
+	if err := candidates.Deserialize(candidatesBytes); err != nil {
 		return []*Candidate{}, errors.Wrapf(err, "failed to get candidates on height %d", height)
 	}
 	if len(candidates) > int(sf.numCandidates) {
