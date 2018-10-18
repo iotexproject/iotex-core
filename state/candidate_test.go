@@ -62,7 +62,8 @@ func TestCandidate(t *testing.T) {
 
 	candidatesBytes, err := candidateList.Serialize()
 	require.NoError(err)
-	candidates, err := CandidateList{}.Deserialize(candidatesBytes)
+	var candidates CandidateList
+	err = candidates.Deserialize(candidatesBytes)
 	require.NoError(err)
 	require.Equal(3, len(candidates))
 	require.Equal("io1qyqsyqcyf64rhvaj2y70q66yzkrpkhl52428vm5v88gqah", candidates[0].Address)

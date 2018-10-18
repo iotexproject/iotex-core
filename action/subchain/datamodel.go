@@ -11,25 +11,38 @@ import (
 
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"github.com/iotexproject/iotex-core/state"
 )
 
 // subChain represents the state of a sub-chain in the state factory
 type subChain struct {
-	chainID            uint32
-	securityDeposit    *big.Int
-	operationDeposit   *big.Int
-	startHeight        uint64
-	parentHeightOffset uint64
-	ownerPublicKey     keypair.PublicKey
-	blocks             map[uint64]*blockProof
+	ChainID            uint32
+	SecurityDeposit    *big.Int
+	OperationDeposit   *big.Int
+	StartHeight        uint64
+	ParentHeightOffset uint64
+	OwnerPublicKey     keypair.PublicKey
+	CurrentHeight      uint64
 }
+
+// Serialize serialize sub-chain state into bytes
+func (bs *subChain) Serialize() ([]byte, error) { return state.GobBasedSerialize(bs) }
+
+// Deserialize deserialize bytes into sub-chain state
+func (bs *subChain) Deserialize(data []byte) error { return state.GobBasedDeserialize(bs, data) }
 
 // blockProof represents the block proof of a sub-chain in the state factory
 type blockProof struct {
-	hash              hash.Hash32B
-	actionRoot        hash.Hash32B
-	stateRoot         hash.Hash32B
-	producerPublicKey keypair.PublicKey
-	// confirmationHeight refers to the root chain block height where the sub-chain block gets confirmed
-	confirmationHeight uint64
+	Hash              hash.Hash32B
+	ActionRoot        hash.Hash32B
+	StateRoot         hash.Hash32B
+	ProducerPublicKey keypair.PublicKey
+	// ConfirmationHeight refers to the root chain block height where the sub-chain block gets confirmed
+	ConfirmationHeight uint64
 }
+
+// Serialize serialize block proof state into bytes
+func (bp *blockProof) Serialize() ([]byte, error) { return state.GobBasedSerialize(bp) }
+
+// Deserialize deserialize bytes into block proof state
+func (bp *blockProof) Deserialize(data []byte) error { return state.GobBasedDeserialize(bp, data) }
