@@ -8,6 +8,7 @@ package state
 
 import (
 	"context"
+	"math/big"
 	"testing"
 
 	"github.com/pkg/errors"
@@ -38,7 +39,7 @@ func TestCreateContract(t *testing.T) {
 
 	code := []byte("test contract creation")
 	addr := testaddress.Addrinfo["alfa"]
-	_, err = sf.LoadOrCreateAccountState(addr.RawAddress, 0)
+	_, err = sf.LoadOrCreateAccountState(addr.RawAddress, big.NewInt(0))
 	require.Nil(err)
 	contractHash, _ := iotxaddress.GetPubkeyHash(addr.RawAddress)
 	contract := byteutil.BytesTo20B(contractHash)
@@ -59,7 +60,7 @@ func TestCreateContract(t *testing.T) {
 	_, err = sf.RunActions(0, nil, nil, nil, nil)
 	require.Nil(err)
 	// reload same contract
-	contract1, err := sf.LoadOrCreateAccountState(addr.RawAddress, 0)
+	contract1, err := sf.LoadOrCreateAccountState(addr.RawAddress, big.NewInt(0))
 	require.Nil(err)
 	require.Equal(contract1.CodeHash, codeHash[:])
 	require.Nil(sf.Commit(nil))
@@ -69,7 +70,7 @@ func TestCreateContract(t *testing.T) {
 	require.Nil(err)
 	require.Nil(sf.Start(context.Background()))
 	// reload same contract
-	contract1, err = sf.LoadOrCreateAccountState(addr.RawAddress, 0)
+	contract1, err = sf.LoadOrCreateAccountState(addr.RawAddress, big.NewInt(0))
 	require.Nil(err)
 	require.Equal(contract1.CodeHash, codeHash[:])
 	// contract already exist
@@ -94,7 +95,7 @@ func TestLoadStoreContract(t *testing.T) {
 
 	code := []byte("test contract creation")
 	addr := testaddress.Addrinfo["alfa"]
-	_, err = sf.LoadOrCreateAccountState(addr.RawAddress, 0)
+	_, err = sf.LoadOrCreateAccountState(addr.RawAddress, big.NewInt(0))
 	require.Nil(err)
 	contractHash, _ := iotxaddress.GetPubkeyHash(addr.RawAddress)
 	contract := byteutil.BytesTo20B(contractHash)
@@ -114,7 +115,7 @@ func TestLoadStoreContract(t *testing.T) {
 
 	code1 := []byte("2nd contract creation")
 	addr1 := testaddress.Addrinfo["bravo"]
-	_, err = sf.LoadOrCreateAccountState(addr1.RawAddress, 0)
+	_, err = sf.LoadOrCreateAccountState(addr1.RawAddress, big.NewInt(0))
 	require.Nil(err)
 	contractHash, err = iotxaddress.GetPubkeyHash(addr1.RawAddress)
 	require.Nil(err)

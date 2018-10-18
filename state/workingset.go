@@ -27,7 +27,7 @@ type (
 	// WorkingSet defines an interface for working set of states changes
 	WorkingSet interface {
 		// states and actions
-		LoadOrCreateAccountState(string, uint64) (*Account, error)
+		LoadOrCreateAccountState(string, *big.Int) (*Account, error)
 		Nonce(string) (uint64, error) // Note that Nonce starts with 1.
 		CachedAccountState(string) (*Account, error)
 		RunActions(uint64, []*action.Transfer, []*action.Vote, []*action.Execution, []action.Action) (hash.Hash32B, error)
@@ -104,7 +104,7 @@ func (ws *workingSet) WorkingCandidates() map[hash.PKHash]*Candidate {
 //======================================
 // LoadOrCreateAccountState loads existing or adds a new account state with initial balance to the factory
 // addr should be a bech32 properly-encoded string
-func (ws *workingSet) LoadOrCreateAccountState(addr string, init uint64) (*Account, error) {
+func (ws *workingSet) LoadOrCreateAccountState(addr string, init *big.Int) (*Account, error) {
 	addrHash, err := addressToPKHash(addr)
 	if err != nil {
 		return nil, err
@@ -112,10 +112,8 @@ func (ws *workingSet) LoadOrCreateAccountState(addr string, init uint64) (*Accou
 	state, err := ws.CachedState(addrHash, &Account{})
 	switch {
 	case errors.Cause(err) == ErrAccountNotExist:
-		balance := big.NewInt(0)
-		balance.SetUint64(init)
 		account := Account{
-			Balance:      balance,
+			Balance:      init,
 			VotingWeight: big.NewInt(0),
 		}
 		ws.cachedStates[addrHash] = &account
@@ -518,7 +516,7 @@ func (ws *workingSet) handleTsf(tsf []*action.Transfer) error {
 		}
 		if !tx.IsCoinbase() {
 			// check sender
-			sender, err := ws.LoadOrCreateAccountState(tx.Sender(), 0)
+			sender, err := ws.LoadOrCreateAccountState(tx.Sender(), big.NewInt(0))
 			if err != nil {
 				return errors.Wrapf(err, "failed to load or create the account of sender %s", tx.Sender())
 			}
@@ -542,7 +540,7 @@ func (ws *workingSet) handleTsf(tsf []*action.Transfer) error {
 			// Update sender votes
 			if len(sender.Votee) > 0 && sender.Votee != tx.Sender() {
 				// sender already voted to a different person
-				voteeOfSender, err := ws.LoadOrCreateAccountState(sender.Votee, 0)
+				voteeOfSender, err := ws.LoadOrCreateAccountState(sender.Votee, big.NewInt(0))
 				if err != nil {
 					return errors.Wrapf(err, "failed to load or create the account of sender's votee %s", sender.Votee)
 				}
@@ -556,7 +554,7 @@ func (ws *workingSet) handleTsf(tsf []*action.Transfer) error {
 			}
 		}
 		// check recipient
-		recipient, err := ws.LoadOrCreateAccountState(tx.Recipient(), 0)
+		recipient, err := ws.LoadOrCreateAccountState(tx.Recipient(), big.NewInt(0))
 		if err != nil {
 			return errors.Wrapf(err, "failed to laod or create the account of recipient %s", tx.Recipient())
 		}
@@ -573,7 +571,7 @@ func (ws *workingSet) handleTsf(tsf []*action.Transfer) error {
 		// Update recipient votes
 		if len(recipient.Votee) > 0 && recipient.Votee != tx.Recipient() {
 			// recipient already voted to a different person
-			voteeOfRecipient, err := ws.LoadOrCreateAccountState(recipient.Votee, 0)
+			voteeOfRecipient, err := ws.LoadOrCreateAccountState(recipient.Votee, big.NewInt(0))
 			if err != nil {
 				return errors.Wrapf(err, "failed to load or create the account of recipient's votee %s", recipient.Votee)
 			}
@@ -591,7 +589,7 @@ func (ws *workingSet) handleTsf(tsf []*action.Transfer) error {
 
 func (ws *workingSet) handleVote(blockHeight uint64, vote []*action.Vote) error {
 	for _, v := range vote {
-		voteFrom, err := ws.LoadOrCreateAccountState(v.Voter(), 0)
+		voteFrom, err := ws.LoadOrCreateAccountState(v.Voter(), big.NewInt(0))
 		if err != nil {
 			return errors.Wrapf(err, "failed to load or create the account of voter %s", v.Voter())
 		}
@@ -608,7 +606,7 @@ func (ws *workingSet) handleVote(blockHeight uint64, vote []*action.Vote) error 
 		// Update old votee's weight
 		if len(voteFrom.Votee) > 0 && voteFrom.Votee != v.Voter() {
 			// voter already voted
-			oldVotee, err := ws.LoadOrCreateAccountState(voteFrom.Votee, 0)
+			oldVotee, err := ws.LoadOrCreateAccountState(voteFrom.Votee, big.NewInt(0))
 			if err != nil {
 				return errors.Wrapf(err, "failed to load or create the account of voter's old votee %s", voteFrom.Votee)
 			}
@@ -628,7 +626,7 @@ func (ws *workingSet) handleVote(blockHeight uint64, vote []*action.Vote) error 
 			continue
 		}
 
-		voteTo, err := ws.LoadOrCreateAccountState(v.Votee(), 0)
+		voteTo, err := ws.LoadOrCreateAccountState(v.Votee(), big.NewInt(0))
 		if err != nil {
 			return errors.Wrapf(err, "failed to load or create the account of votee %s", v.Votee())
 		}

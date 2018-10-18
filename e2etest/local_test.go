@@ -39,7 +39,7 @@ func TestLocalCommit(t *testing.T) {
 	testutil.CleanupPath(t, testTriePath)
 	testutil.CleanupPath(t, testDBPath)
 
-	blockchain.Gen.BlockReward = uint64(0)
+	blockchain.Gen.BlockReward = big.NewInt(0)
 
 	cfg, err := newTestConfig()
 	require.Nil(err)
@@ -117,7 +117,7 @@ func TestLocalCommit(t *testing.T) {
 	t.Logf("test balance = %d", test)
 	change.Add(change, test)
 
-	require.Equal(uint64(3000000000), change.Uint64())
+	require.Equal(blockchain.ConvertIotxToRau(3000000000).String(), change.String())
 	t.Log("Total balance match")
 
 	if beta.Sign() == 0 || fox.Sign() == 0 || test.Sign() == 0 {
@@ -294,7 +294,7 @@ func TestLocalCommit(t *testing.T) {
 	t.Logf("test balance = %d", test)
 	change.Add(change, test)
 
-	require.Equal(uint64(3000000000), change.Uint64())
+	require.Equal(blockchain.ConvertIotxToRau(3000000000).String(), change.String())
 	t.Log("Total balance match")
 }
 
@@ -428,7 +428,7 @@ func TestVoteLocalCommit(t *testing.T) {
 	cfg.Chain.NumCandidates = 2
 	require.Nil(err)
 
-	blockchain.Gen.BlockReward = uint64(0)
+	blockchain.Gen.BlockReward = big.NewInt(0)
 
 	// create node
 	ctx := context.Background()
@@ -476,16 +476,16 @@ func TestVoteLocalCommit(t *testing.T) {
 
 	// Add block 1
 	// Alfa, Bravo and Charlie selfnomination
-	tsf1, err := action.NewTransfer(7, big.NewInt(200000000), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["alfa"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
+	tsf1, err := action.NewTransfer(7, blockchain.ConvertIotxToRau(200000000), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["alfa"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
 	require.Nil(err)
 	require.NoError(action.Sign(tsf1, ta.Addrinfo["producer"].PrivateKey))
-	tsf2, err := action.NewTransfer(8, big.NewInt(200000000), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
+	tsf2, err := action.NewTransfer(8, blockchain.ConvertIotxToRau(200000000), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
 	require.Nil(err)
 	require.NoError(action.Sign(tsf2, ta.Addrinfo["producer"].PrivateKey))
-	tsf3, err := action.NewTransfer(9, big.NewInt(200000000), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["charlie"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
+	tsf3, err := action.NewTransfer(9, blockchain.ConvertIotxToRau(200000000), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["charlie"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
 	require.Nil(err)
 	require.NoError(action.Sign(tsf3, ta.Addrinfo["producer"].PrivateKey))
-	tsf4, err := action.NewTransfer(10, big.NewInt(200000000), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["delta"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
+	tsf4, err := action.NewTransfer(10, blockchain.ConvertIotxToRau(200000000), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["delta"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
 	require.Nil(err)
 	require.NoError(action.Sign(tsf4, ta.Addrinfo["producer"].PrivateKey))
 	vote1, err := testutil.SignedVote(ta.Addrinfo["alfa"], ta.Addrinfo["alfa"], uint64(1), uint64(100000), big.NewInt(0))
@@ -687,7 +687,7 @@ func TestDummyBlockReplacement(t *testing.T) {
 	testutil.CleanupPath(t, testTriePath)
 	testutil.CleanupPath(t, testDBPath)
 
-	blockchain.Gen.BlockReward = uint64(0)
+	blockchain.Gen.BlockReward = big.NewInt(0)
 
 	cfg, err := newTestConfig()
 	require.Nil(err)
@@ -828,7 +828,7 @@ func TestBlockchainRecovery(t *testing.T) {
 	testutil.CleanupPath(t, testTriePath)
 	testutil.CleanupPath(t, testDBPath)
 
-	blockchain.Gen.BlockReward = uint64(0)
+	blockchain.Gen.BlockReward = big.NewInt(0)
 
 	cfg, err := newTestConfig()
 	require.Nil(err)

@@ -58,7 +58,7 @@ func (stateDB *EVMStateDBAdapter) Error() error {
 // CreateAccount creates an account in iotx blockchain
 func (stateDB *EVMStateDBAdapter) CreateAccount(evmAddr common.Address) {
 	addr := address.New(stateDB.bc.ChainID(), evmAddr.Bytes())
-	_, err := stateDB.ws.LoadOrCreateAccountState(addr.IotxAddress(), 0)
+	_, err := stateDB.ws.LoadOrCreateAccountState(addr.IotxAddress(), big.NewInt(0))
 	if err != nil {
 		logger.Error().Err(err).Msg("CreateAccount")
 		// stateDB.logError(err)

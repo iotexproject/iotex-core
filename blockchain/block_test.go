@@ -249,7 +249,7 @@ func TestWrongNonce(t *testing.T) {
 	require.Nil(sf.Commit(nil))
 
 	// correct nonce
-	coinbaseTsf := action.NewCoinBaseTransfer(big.NewInt(int64(Gen.BlockReward)), ta.Addrinfo["producer"].RawAddress)
+	coinbaseTsf := action.NewCoinBaseTransfer(Gen.BlockReward, ta.Addrinfo["producer"].RawAddress)
 	tsf1, err := action.NewTransfer(1, big.NewInt(20), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["alfa"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(err)
 	require.NoError(action.Sign(tsf1, ta.Addrinfo["producer"].PrivateKey))
@@ -360,7 +360,7 @@ func TestWrongCoinbaseTsf(t *testing.T) {
 	require.Nil(err)
 
 	// no coinbase tsf
-	coinbaseTsf := action.NewCoinBaseTransfer(big.NewInt(int64(Gen.BlockReward)), ta.Addrinfo["producer"].RawAddress)
+	coinbaseTsf := action.NewCoinBaseTransfer(Gen.BlockReward, ta.Addrinfo["producer"].RawAddress)
 	tsf1, err := action.NewTransfer(1, big.NewInt(20), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["alfa"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(err)
 	require.NoError(action.Sign(tsf1, ta.Addrinfo["producer"].PrivateKey))

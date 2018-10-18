@@ -20,7 +20,7 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	// Add block 1
 	tsf0, _ := action.NewTransfer(
 		1,
-		big.NewInt(3000000000),
+		blockchain.ConvertIotxToRau(3000000000),
 		blockchain.Gen.CreatorAddr(config.Default.Chain.ID),
 		ta.Addrinfo["producer"].RawAddress,
 		[]byte{}, uint64(100000),

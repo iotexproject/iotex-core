@@ -715,7 +715,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 			sf, err := state.NewFactory(&cfg, state.InMemTrieOption())
 			require.NoError(t, err)
 			for j := 0; j < numNodes; j++ {
-				_, err := sf.LoadOrCreateAccountState(chainRawAddrs[j], uint64(0))
+				_, err := sf.LoadOrCreateAccountState(chainRawAddrs[j], big.NewInt(0))
 				require.NoError(t, err)
 				_, err = sf.RunActions(0, nil, nil, nil, nil)
 				require.NoError(t, err)

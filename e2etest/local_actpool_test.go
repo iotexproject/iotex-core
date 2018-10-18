@@ -44,7 +44,7 @@ func TestLocalActPool(t *testing.T) {
 	cfg, err := newActPoolConfig()
 	require.NoError(err)
 
-	blockchain.Gen.BlockReward = uint64(0)
+	blockchain.Gen.BlockReward = big.NewInt(0)
 
 	// create server
 	ctx := context.Background()
@@ -121,7 +121,7 @@ func TestPressureActPool(t *testing.T) {
 	cfg, err := newActPoolConfig()
 	require.NoError(err)
 
-	blockchain.Gen.BlockReward = uint64(0)
+	blockchain.Gen.BlockReward = big.NewInt(0)
 
 	// create server
 	ctx := context.Background()
