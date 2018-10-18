@@ -472,11 +472,10 @@ func TestRollDPoS_convertToConsensusEvt(t *testing.T) {
 
 	// Test proposal endorse msg
 	blkHash := blk.HashBlock()
-	en := &endorse{
-		height:   blk.Height(),
-		topic:    endorseProposal,
-		blkHash:  blkHash,
-		decision: true,
+	en := &endorsement{
+		height:  blk.Height(),
+		topic:   endorseProposal,
+		blkHash: blkHash,
 	}
 	err = en.Sign(addr)
 	assert.NoError(t, err)
@@ -487,11 +486,10 @@ func TestRollDPoS_convertToConsensusEvt(t *testing.T) {
 	assert.NotNil(t, eEvt)
 
 	// Test commit endorse msg
-	en = &endorse{
-		height:   blk.Height(),
-		topic:    endorseCommit,
-		blkHash:  blkHash,
-		decision: true,
+	en = &endorsement{
+		height:  blk.Height(),
+		topic:   endorseLock,
+		blkHash: blkHash,
 	}
 	err = en.Sign(addr)
 	assert.NoError(t, err)
