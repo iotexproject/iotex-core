@@ -246,8 +246,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	sf, err := state.NewFactory(&cfg, state.DefaultTrieOption())
 	require.Nil(err)
 	require.NoError(sf.Start(context.Background()))
-	_, err = sf.LoadOrCreateAccountState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
-	require.NoError(err)
+	require.NoError(addCreatorToFactory(sf))
 
 	// Create a blockchain from scratch
 	bc := NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
@@ -464,8 +463,7 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	sf, err := state.NewFactory(&cfg, state.DefaultTrieOption())
 	require.Nil(err)
 	require.NoError(sf.Start(context.Background()))
-	_, err = sf.LoadOrCreateAccountState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
-	require.NoError(err)
+	require.NoError(addCreatorToFactory(sf))
 	// Create a blockchain from scratch
 	bc := NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	require.NoError(bc.Start(ctx))
@@ -723,14 +721,9 @@ func TestCoinbaseTransfer(t *testing.T) {
 	sf, err := state.NewFactory(&cfg, state.DefaultTrieOption())
 	require.Nil(err)
 	require.NoError(sf.Start(context.Background()))
-	_, err = sf.LoadOrCreateAccountState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
-	require.NoError(err)
-	_, err = sf.RunActions(0, nil, nil, nil, nil)
-	require.NoError(err)
-	require.NoError(sf.Commit(nil))
+	require.NoError(addCreatorToFactory(sf))
 
 	Gen.BlockReward = big.NewInt(0)
-
 	bc := NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	require.NoError(bc.Start(context.Background()))
 	require.NotNil(bc)
@@ -797,15 +790,21 @@ func TestBlocks(t *testing.T) {
 
 	sf, _ := state.NewFactory(&cfg, state.InMemTrieOption())
 	require.NoError(sf.Start(context.Background()))
-	sf.LoadOrCreateAccountState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
+	require.NoError(addCreatorToFactory(sf))
 
 	// Create a blockchain from scratch
 	bc := NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	require.NoError(bc.Start(context.Background()))
 	a := ta.Addrinfo["alfa"]
 	c := ta.Addrinfo["bravo"]
-	sf.LoadOrCreateAccountState(a.RawAddress, big.NewInt(100000))
-	sf.LoadOrCreateAccountState(c.RawAddress, big.NewInt(100000))
+	ws, err := sf.NewWorkingSet()
+	_, err = ws.LoadOrCreateAccountState(a.RawAddress, big.NewInt(100000))
+	require.NoError(err)
+	_, err = ws.LoadOrCreateAccountState(c.RawAddress, big.NewInt(100000))
+	require.NoError(err)
+	_, err = ws.RunActions(0, nil, nil, nil, nil)
+	require.NoError(err)
+	require.NoError(sf.Commit(ws))
 
 	for i := 0; i < 10; i++ {
 		tsfs := []*action.Transfer{}
@@ -838,15 +837,21 @@ func TestActions(t *testing.T) {
 
 	sf, _ := state.NewFactory(&cfg, state.InMemTrieOption())
 	require.NoError(sf.Start(context.Background()))
-	sf.LoadOrCreateAccountState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
+	require.NoError(addCreatorToFactory(sf))
 
 	// Create a blockchain from scratch
 	bc := NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	require.NoError(bc.Start(context.Background()))
 	a := ta.Addrinfo["alfa"]
 	c := ta.Addrinfo["bravo"]
-	sf.LoadOrCreateAccountState(a.RawAddress, big.NewInt(100000))
-	sf.LoadOrCreateAccountState(c.RawAddress, big.NewInt(100000))
+	ws, err := sf.NewWorkingSet()
+	_, err = ws.LoadOrCreateAccountState(a.RawAddress, big.NewInt(100000))
+	require.NoError(err)
+	_, err = ws.LoadOrCreateAccountState(c.RawAddress, big.NewInt(100000))
+	require.NoError(err)
+	_, err = ws.RunActions(0, nil, nil, nil, nil)
+	require.NoError(err)
+	require.NoError(sf.Commit(ws))
 
 	val := validator{sf, ""}
 	tsfs := []*action.Transfer{}
@@ -881,7 +886,7 @@ func TestDummyReplacement(t *testing.T) {
 
 	sf, _ := state.NewFactory(&cfg, state.InMemTrieOption())
 	require.NoError(sf.Start(context.Background()))
-	sf.LoadOrCreateAccountState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
+	require.NoError(addCreatorToFactory(sf))
 
 	// Create a blockchain from scratch
 	bc := NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())

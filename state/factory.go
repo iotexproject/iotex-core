@@ -9,7 +9,6 @@ package state
 import (
 	"context"
 	"math/big"
-	"sort"
 	"sync"
 
 	"github.com/boltdb/bolt"
@@ -18,6 +17,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
@@ -54,24 +54,14 @@ type (
 	Factory interface {
 		lifecycle.StartStopper
 		// Accounts
-		LoadOrCreateAccountState(string, *big.Int) (*Account, error)
 		Balance(string) (*big.Int, error)
 		Nonce(string) (uint64, error) // Note that Nonce starts with 1.
 		AccountState(string) (*Account, error)
-		CachedAccountState(string) (*Account, error)
 		RootHash() hash.Hash32B
 		Height() (uint64, error)
 		NewWorkingSet() (WorkingSet, error)
-		RunActions(uint64, []*action.Transfer, []*action.Vote, []*action.Execution, []action.Action) (hash.Hash32B, error)
 		Commit(WorkingSet) error
-		// Contracts
-		GetCodeHash(hash.PKHash) (hash.Hash32B, error)
-		GetCode(hash.PKHash) ([]byte, error)
-		SetCode(hash.PKHash, []byte) error
-		GetContractState(hash.PKHash, hash.Hash32B) (hash.Hash32B, error)
-		SetContractState(hash.PKHash, hash.Hash32B, hash.Hash32B) error
 		// Candidate pool
-		Candidates() (uint64, []*Candidate)
 		CandidatesByHeight(uint64) ([]*Candidate, error)
 	}
 
@@ -81,8 +71,8 @@ type (
 		mutex              sync.RWMutex
 		currentChainHeight uint64
 		numCandidates      uint
-		activeWs           WorkingSet      // active working set
 		rootHash           hash.Hash32B    // new root hash after running executions in this block
+		accountTrie        trie.Trie       // global state trie
 		dao                db.KVStore      // the underlying DB for account/contract storage
 		actionHandlers     []ActionHandler // the handlers to handle actions
 	}
@@ -100,60 +90,63 @@ type FactoryOption func(*factory, *config.Config) error
 
 // PrecreatedTrieDBOption uses pre-created trie DB for state factory
 func PrecreatedTrieDBOption(kv db.KVStore) FactoryOption {
-	return func(sf *factory, cfg *config.Config) error {
+	return func(sf *factory, cfg *config.Config) (err error) {
 		if kv == nil {
 			return errors.New("Invalid empty trie db")
 		}
-		if err := kv.Start(context.Background()); err != nil {
+		if err = kv.Start(context.Background()); err != nil {
 			return errors.Wrap(err, "failed to start trie db")
 		}
 		sf.dao = kv
 		// get state trie root
-		root, err := sf.getRoot(trie.AccountKVNameSpace, AccountTrieRootKey)
-		if err != nil {
+		if sf.rootHash, err = sf.getRoot(trie.AccountKVNameSpace, AccountTrieRootKey); err != nil {
 			return errors.Wrap(err, "failed to get accountTrie's root hash from underlying DB")
 		}
-		sf.rootHash = root
+		if sf.accountTrie, err = trie.NewTrie(sf.dao, trie.AccountKVNameSpace, sf.rootHash); err != nil {
+			return errors.Wrap(err, "failed to generate accountTrie from config")
+		}
 		return nil
 	}
 }
 
 // DefaultTrieOption creates trie from config for state factory
 func DefaultTrieOption() FactoryOption {
-	return func(sf *factory, cfg *config.Config) error {
+	return func(sf *factory, cfg *config.Config) (err error) {
 		dbPath := cfg.Chain.TrieDBPath
 		if len(dbPath) == 0 {
 			return errors.New("Invalid empty trie db path")
 		}
 		trieDB := db.NewBoltDB(dbPath, &cfg.DB)
-		if err := trieDB.Start(context.Background()); err != nil {
+		if err = trieDB.Start(context.Background()); err != nil {
 			return errors.Wrap(err, "failed to start trie db")
 		}
 		sf.dao = trieDB
 		// get state trie root
-		root, err := sf.getRoot(trie.AccountKVNameSpace, AccountTrieRootKey)
-		if err != nil {
+		if sf.rootHash, err = sf.getRoot(trie.AccountKVNameSpace, AccountTrieRootKey); err != nil {
 			return errors.Wrap(err, "failed to get accountTrie's root hash from underlying DB")
 		}
-		sf.rootHash = root
+		if sf.accountTrie, err = trie.NewTrie(sf.dao, trie.AccountKVNameSpace, sf.rootHash); err != nil {
+			return errors.Wrap(err, "failed to generate accountTrie from config")
+		}
 		return nil
 	}
 }
 
 // InMemTrieOption creates in memory trie for state factory
 func InMemTrieOption() FactoryOption {
-	return func(sf *factory, cfg *config.Config) error {
+	return func(sf *factory, cfg *config.Config) (err error) {
 		trieDB := db.NewMemKVStore()
-		if err := trieDB.Start(context.Background()); err != nil {
+		if err = trieDB.Start(context.Background()); err != nil {
 			return errors.Wrap(err, "failed to start trie db")
 		}
 		sf.dao = trieDB
 		// get state trie root
-		root, err := sf.getRoot(trie.AccountKVNameSpace, AccountTrieRootKey)
-		if err != nil {
+		if sf.rootHash, err = sf.getRoot(trie.AccountKVNameSpace, AccountTrieRootKey); err != nil {
 			return errors.Wrap(err, "failed to get accountTrie's root hash from underlying DB")
 		}
-		sf.rootHash = root
+		if sf.accountTrie, err = trie.NewTrie(sf.dao, trie.AccountKVNameSpace, sf.rootHash); err != nil {
+			return errors.Wrap(err, "failed to generate accountTrie from config")
+		}
 		return nil
 	}
 }
@@ -179,14 +172,8 @@ func NewFactory(cfg *config.Config, opts ...FactoryOption) (Factory, error) {
 			return nil, err
 		}
 	}
-	// create default working set
-	ws, err := sf.NewWorkingSet()
-	if err != nil {
-		return nil, err
-	}
-	sf.activeWs = ws
-	if sf.dao != nil {
-		sf.lifecycle.Add(sf.dao)
+	if sf.accountTrie != nil {
+		sf.lifecycle.Add(sf.accountTrie)
 	}
 	return sf, nil
 }
@@ -198,40 +185,45 @@ func (sf *factory) Stop(ctx context.Context) error { return sf.lifecycle.OnStop(
 //======================================
 // account functions
 //======================================
-// LoadOrCreateAccountState loads existing or adds a new account with initial balance to the factory
-// addr should be a bech32 properly-encoded string
-func (sf *factory) LoadOrCreateAccountState(addr string, init *big.Int) (*Account, error) {
-	sf.mutex.Lock()
-	defer sf.mutex.Unlock()
-	return sf.activeWs.LoadOrCreateAccountState(addr, init)
-}
-
 // Balance returns balance
 func (sf *factory) Balance(addr string) (*big.Int, error) {
-	sf.mutex.RLock()
-	defer sf.mutex.RUnlock()
-	return sf.activeWs.Balance(addr)
+	account, err := sf.AccountState(addr)
+	if err != nil {
+		return nil, err
+	}
+	return account.Balance, nil
 }
 
 // Nonce returns the Nonce if the account exists
 func (sf *factory) Nonce(addr string) (uint64, error) {
-	sf.mutex.RLock()
-	defer sf.mutex.RUnlock()
-	return sf.activeWs.Nonce(addr)
+	account, err := sf.AccountState(addr)
+	if err != nil {
+		return 0, err
+	}
+	return account.Nonce, nil
 }
 
 // account returns the confirmed account state on the chain
 func (sf *factory) AccountState(addr string) (*Account, error) {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
-	return sf.activeWs.AccountState(addr)
-}
 
-// CachedAccountState returns the cached account state if the address exists in local cache
-func (sf *factory) CachedAccountState(addr string) (*Account, error) {
-	sf.mutex.RLock()
-	defer sf.mutex.RUnlock()
-	return sf.activeWs.CachedAccountState(addr)
+	pkHash, err := iotxaddress.GetPubkeyHash(addr)
+	if err != nil {
+		return nil, errors.Wrap(err, "error when getting the pubkey hash")
+	}
+	mstate, err := sf.accountTrie.Get(pkHash)
+	if errors.Cause(err) == trie.ErrNotExist {
+		return nil, errors.Wrapf(ErrAccountNotExist, "addrHash = %x", pkHash)
+	}
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get account of %x", pkHash)
+	}
+	account := &Account{}
+	if err := account.Deserialize(mstate); err != nil {
+		return nil, err
+	}
+	return account, nil
 }
 
 // RootHash returns the hash of the root node of the state trie
@@ -258,23 +250,6 @@ func (sf *factory) NewWorkingSet() (WorkingSet, error) {
 	return NewWorkingSet(sf.currentChainHeight, sf.dao, sf.rootHash, sf.actionHandlers)
 }
 
-// RunActions will be called 2 times in
-// 1. In MintNewBlock(), the block producer runs all executions in new block and get the new trie root hash (which
-// is written in block header), but all changes are not committed to blockchain yet
-// 2. In CommitBlock(), all nodes except block producer will run all execution and verify the trie root hash match
-// what's written in the block header
-func (sf *factory) RunActions(
-	blockHeight uint64,
-	tsf []*action.Transfer,
-	vote []*action.Vote,
-	executions []*action.Execution,
-	actions []action.Action) (hash.Hash32B, error) {
-	sf.mutex.Lock()
-	defer sf.mutex.Unlock()
-	// use the default working set to run the actions
-	return sf.activeWs.RunActions(blockHeight, tsf, vote, executions, actions)
-}
-
 // Commit persists all changes in RunActions() into the DB
 func (sf *factory) Commit(ws WorkingSet) error {
 	sf.mutex.Lock()
@@ -284,80 +259,32 @@ func (sf *factory) Commit(ws WorkingSet) error {
 			// another working set with correct version already committed, do nothing
 			return nil
 		}
-		sf.activeWs = nil
-		sf.activeWs = ws
 	}
-	if err := sf.activeWs.Commit(); err != nil {
+	if err := ws.Commit(); err != nil {
 		return errors.Wrap(err, "failed to commit working set")
 	}
 	// Update chain height and root
-	sf.currentChainHeight = sf.activeWs.Height()
-	sf.rootHash = sf.activeWs.RootHash()
+	sf.currentChainHeight = ws.Height()
+	sf.rootHash = ws.RootHash()
+	if err := sf.accountTrie.SetRoot(sf.rootHash); err != nil {
+		return errors.Wrap(err, "failed to commit working set")
+	}
 	return nil
-}
-
-//======================================
-// Contract functions
-//======================================
-// GetCodeHash returns contract's code hash
-func (sf *factory) GetCodeHash(addr hash.PKHash) (hash.Hash32B, error) {
-	sf.mutex.RLock()
-	defer sf.mutex.RUnlock()
-	return sf.activeWs.GetCodeHash(addr)
-}
-
-// GetCode returns contract's code
-func (sf *factory) GetCode(addr hash.PKHash) ([]byte, error) {
-	sf.mutex.RLock()
-	defer sf.mutex.RUnlock()
-	return sf.activeWs.GetCode(addr)
-}
-
-// SetCode sets contract's code
-func (sf *factory) SetCode(addr hash.PKHash, code []byte) error {
-	sf.mutex.Lock()
-	defer sf.mutex.Unlock()
-	return sf.activeWs.SetCode(addr, code)
-}
-
-// GetContractState returns contract's storage value
-func (sf *factory) GetContractState(addr hash.PKHash, key hash.Hash32B) (hash.Hash32B, error) {
-	sf.mutex.RLock()
-	defer sf.mutex.RUnlock()
-	return sf.activeWs.GetContractState(addr, key)
-}
-
-// SetContractState writes contract's storage value
-func (sf *factory) SetContractState(addr hash.PKHash, key, value hash.Hash32B) error {
-	sf.mutex.Lock()
-	defer sf.mutex.Unlock()
-	return sf.activeWs.SetContractState(addr, key, value)
 }
 
 //======================================
 // Candidate functions
 //======================================
-// Candidates returns array of Candidates in candidate pool
-func (sf *factory) Candidates() (uint64, []*Candidate) {
-	sf.mutex.Lock()
-	defer sf.mutex.Unlock()
-	candidates, err := MapToCandidates(sf.activeWs.WorkingCandidates())
-	if err != nil {
-		return sf.currentChainHeight, nil
-	}
-	if len(candidates) <= int(sf.numCandidates) {
-		return sf.currentChainHeight, candidates
-	}
-	sort.Sort(candidates)
-	return sf.currentChainHeight, candidates[:sf.numCandidates]
-}
-
 // CandidatesByHeight returns array of Candidates in candidate pool of a given height
 func (sf *factory) CandidatesByHeight(height uint64) ([]*Candidate, error) {
 	sf.mutex.Lock()
 	defer sf.mutex.Unlock()
 	// Load Candidates on the given height from underlying db
-	candidates, err := sf.activeWs.GetCandidates(height)
+	candidatesBytes, err := sf.dao.Get(trie.CandidateKVNameSpace, byteutil.Uint64ToBytes(height))
+	if err != nil {
+		return []*Candidate{}, errors.Wrapf(err, "failed to get candidates on Height %d", height)
+	}
+	candidates, err := CandidateList{}.Deserialize(candidatesBytes)
 	if err != nil {
 		return []*Candidate{}, errors.Wrapf(err, "failed to get candidates on height %d", height)
 	}
