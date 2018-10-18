@@ -10,7 +10,6 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"reflect"
 	"sort"
 
 	"github.com/pkg/errors"
@@ -591,7 +590,7 @@ func (ws *workingSet) handleVote(blockHeight uint64, vote []*action.Vote) error 
 func stateToAccountState(state State) (*Account, error) {
 	account, ok := state.(*Account)
 	if !ok {
-		return nil, fmt.Errorf("error when casting state of %s into account state", reflect.TypeOf(state).String())
+		return nil, fmt.Errorf("error when casting %T state into account state", state)
 	}
 	return account, nil
 }
