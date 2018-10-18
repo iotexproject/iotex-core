@@ -54,12 +54,11 @@ func NewProtocol(chain blockchain.Blockchain, sf state.Factory) *Protocol {
 func (p *Protocol) Handle(act action.Action, ws state.WorkingSet) error {
 	switch act.(type) {
 	case *action.StartSubChain:
-		return errors.Wrapf(
-			p.handleStartSubChain(act.(*action.StartSubChain), ws),
-			"error when handling start sub-chain action",
-		)
+		if err := p.handleStartSubChain(act.(*action.StartSubChain), ws); err != nil {
+			return errors.Wrapf(err, "error when handling start sub-chain action")
+		}
 	}
-	// The action is not handled by this handler
+	// The action is not handled by this handler or no error
 	return nil
 }
 
@@ -67,10 +66,11 @@ func (p *Protocol) Handle(act action.Action, ws state.WorkingSet) error {
 func (p *Protocol) Validate(act action.Action) error {
 	switch act.(type) {
 	case *action.StartSubChain:
-		_, err := p.validateStartSubChain(act.(*action.StartSubChain), nil)
-		return errors.Wrapf(err, "error when handling start sub-chain action")
+		if _, err := p.validateStartSubChain(act.(*action.StartSubChain), nil); err != nil {
+			return errors.Wrapf(err, "error when handling start sub-chain action")
+		}
 	}
-	// The action is not validated by this handler
+	// The action is not validated by this handler or no error
 	return nil
 }
 
@@ -156,9 +156,6 @@ func createSubChainAddress(ownerAddr string, nonce uint64) (hash.PKHash, error) 
 
 func ownerAddressPKHash(ownerAddr string) (hash.PKHash, error) {
 	addr, err := address.IotxAddressToAddress(ownerAddr)
-	if err != nil {
-		return hash.ZeroPKHash, err
-	}
 	if err != nil {
 		return hash.ZeroPKHash, errors.Wrapf(err, "cannot get the public key hash of address %s", ownerAddr)
 	}
