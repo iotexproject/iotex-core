@@ -111,6 +111,10 @@ Install Go dependency management tool from [golang dep](https://github.com/golan
 
 ```make fmt; make build```
 
+Note: If your Dev Environment is in Ubuntu, you need to export the following Path:
+
+LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$GOPATH/src/github.com/iotexproject/iotex-core/crypto/lib:$GOPATH/src/github.com/iotexproject/iotex-core/crypto/lib/blslib
+
 ~~#### Setup Precommit Hook~~
 
 ~~Install git hook tools from [precommit hook](https://pre-commit.com/) first and then~~
@@ -160,6 +164,33 @@ You will see log message output like:
 2018-08-28T10:03:42-07:00 |INFO| commit a block height=5 iotexAddr=io1qyqsyqcy8uhx9jtdc2xp5wx7nxyq3xf4c3jmxknzkuej8y networkAddress=127.0.0.1:4689 nodeType=delegate
 ```
 
+### Minicluster
+```make minicluster``` runs a cluster of 4 delegate nodes with RollDPoS consensus scheme while actions are automatically injected to one of the nodes.
+
+You will see log message output like:
+```
+2018-10-18T14:23:18-07:00 |INFO| commit a block height=0
+2018-10-18T14:23:18-07:00 |INFO| Starting IotxConsensus scheme scheme=ROLLDPOS
+2018-10-18T14:23:18-07:00 |INFO| commit a block height=0
+2018-10-18T14:23:18-07:00 |INFO| Starting IotxConsensus scheme scheme=ROLLDPOS
+2018-10-18T14:23:18-07:00 |INFO| commit a block height=0
+2018-10-18T14:23:18-07:00 |INFO| Starting IotxConsensus scheme scheme=ROLLDPOS
+2018-10-18T14:23:18-07:00 |INFO| commit a block height=0
+2018-10-18T14:23:18-07:00 |INFO| Starting IotxConsensus scheme scheme=ROLLDPOS
+2018-10-18T14:23:18-07:00 |INFO| Starting Explorer JSON-RPC server on [::]:14004
+2018-10-18T14:23:18-07:00 |INFO| Starting dispatcher
+2018-10-18T14:23:18-07:00 |INFO| Starting Explorer JSON-RPC server on [::]:14006
+2018-10-18T14:23:18-07:00 |INFO| Starting dispatcher
+2018-10-18T14:23:18-07:00 |INFO| Starting Explorer JSON-RPC server on [::]:14005
+2018-10-18T14:23:18-07:00 |INFO| Starting dispatcher
+2018-10-18T14:23:18-07:00 |INFO| start RPC server on 127.0.0.1:4689
+2018-10-18T14:23:18-07:00 |INFO| start RPC server on 127.0.0.1:4691
+2018-10-18T14:23:18-07:00 |INFO| start RPC server on 127.0.0.1:4690
+2018-10-18T14:23:18-07:00 |INFO| Starting Explorer JSON-RPC server on [::]:14007
+2018-10-18T14:23:18-07:00 |INFO| Starting dispatcher
+2018-10-18T14:23:18-07:00 |INFO| start RPC server on 127.0.0.1:4692
+```
+
 # Deploy w/ Docker Image
 
 ```make docker```
@@ -181,6 +212,7 @@ You can use command line flags to customize the injector.
 
 ```
 -injector-config-path=path_of_config_file_of_genesis_transfer_addresses
+-chain=id_of_target_chain
 -addr=target_address_for_jrpc_connection
 -transfer-num=number_of_transfers
 -transfer-gas-limit=transfer_gas_limit
@@ -205,6 +237,7 @@ You can use command line flags to customize the injector.
 
 Default flag values:
 * injector-config-path="./tools/actioninjector/gentsfaddrs.yaml"
+* chain=1
 * addr="127.0.0.1:14004"
 * transfer-num=50
 * transfer-gas-limit=1000000
