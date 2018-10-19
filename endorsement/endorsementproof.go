@@ -16,30 +16,30 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 )
 
-// Certificate is a collection of endorsements for block
-type Certificate struct {
+// Set is a collection of endorsements for block
+type Set struct {
 	blkHash      hash.Hash32B
 	endorsements []*Endorsement
 }
 
 // AddEndorsement adds an endorsement with the right block hash and signature
-func (l *Certificate) AddEndorsement(en *Endorsement) error {
-	if !bytes.Equal(en.ConsensusVote().BlkHash[:], l.blkHash[:]) {
+func (s *Set) AddEndorsement(en *Endorsement) error {
+	if !bytes.Equal(en.ConsensusVote().BlkHash[:], s.blkHash[:]) {
 		return errors.New("the endorsement block hash is different from lock")
 	}
 	if !en.VerifySignature() {
 		return errors.New("invalid signature in endorsement")
 	}
-	l.endorsements = append(l.endorsements, en)
+	s.endorsements = append(s.endorsements, en)
 
 	return nil
 }
 
-func (l *Certificate) blockHash() hash.Hash32B {
-	return l.blkHash
+func (s *Set) blockHash() hash.Hash32B {
+	return s.blkHash
 }
 
-func (l *Certificate) numOfValidEndorsements(topics []ConsensusVoteTopic, endorsers []*iotxaddress.Address) uint16 {
+func (s *Set) numOfValidEndorsements(topics []ConsensusVoteTopic, endorsers []*iotxaddress.Address) uint16 {
 	topicSet := map[ConsensusVoteTopic]bool{}
 	for _, topic := range topics {
 		topicSet[topic] = true
@@ -49,7 +49,7 @@ func (l *Certificate) numOfValidEndorsements(topics []ConsensusVoteTopic, endors
 		endorserSet[endorser.PublicKey] = true
 	}
 	cnt := uint16(0)
-	for _, endorsement := range l.endorsements {
+	for _, endorsement := range s.endorsements {
 		if _, ok := topicSet[endorsement.ConsensusVote().Topic]; !ok {
 			continue
 		}

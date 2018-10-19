@@ -60,8 +60,8 @@ func (bh *BlockHeader) Timestamp() time.Time {
 
 // BlockFooter defines a set of proof of this block
 type BlockFooter struct {
-	// certificate contains COMMIT endorsements from more than 2/3 delegates
-	certificate     *endorsement.Certificate
+	// endorsements contain COMMIT endorsements from more than 2/3 delegates
+	endorsements    *endorsement.Set
 	commitTimestamp uint64
 }
 
