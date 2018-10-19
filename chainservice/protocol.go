@@ -11,7 +11,7 @@ import (
 	"github.com/iotexproject/iotex-core/state"
 )
 
-// Protocol defines the protocl interfaces atop IoTeX blockcahin
+// Protocol defines the protocol interfaces atop IoTeX blockchain
 type Protocol interface {
 	actpool.ActionValidator
 	state.ActionHandler
