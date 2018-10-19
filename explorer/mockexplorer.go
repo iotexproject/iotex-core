@@ -24,15 +24,15 @@ func (exp *MockExplorer) GetBlockchainHeight() (int64, error) {
 }
 
 // GetAddressBalance returns the balance of an address
-func (exp *MockExplorer) GetAddressBalance(address string) (int64, error) {
-	return randInt64(), nil
+func (exp *MockExplorer) GetAddressBalance(address string) (string, error) {
+	return randString(), nil
 }
 
 // GetAddressDetails returns the properties of an address
 func (exp *MockExplorer) GetAddressDetails(address string) (explorer.AddressDetails, error) {
 	return explorer.AddressDetails{
 		Address:      address,
-		TotalBalance: randInt64(),
+		TotalBalance: randString(),
 	}, nil
 }
 
@@ -172,7 +172,7 @@ func (exp *MockExplorer) GetConsensusMetrics() (explorer.ConsensusMetrics, error
 func (exp *MockExplorer) GetCandidateMetrics() (explorer.CandidateMetrics, error) {
 	candidate := explorer.Candidate{
 		Address:          randString(),
-		TotalVote:        randInt64(),
+		TotalVote:        randString(),
 		CreationHeight:   randInt64(),
 		LastUpdateHeight: randInt64(),
 		IsDelegate:       false,
@@ -187,7 +187,7 @@ func (exp *MockExplorer) GetCandidateMetrics() (explorer.CandidateMetrics, error
 func (exp *MockExplorer) GetCandidateMetricsByHeight(h int64) (explorer.CandidateMetrics, error) {
 	candidate := explorer.Candidate{
 		Address:          randString(),
-		TotalVote:        randInt64(),
+		TotalVote:        randString(),
 		CreationHeight:   randInt64(),
 		LastUpdateHeight: randInt64(),
 		IsDelegate:       false,
@@ -246,8 +246,8 @@ func randTransaction() explorer.Transfer {
 		ID:        randString(),
 		Sender:    randString(),
 		Recipient: randString(),
-		Amount:    randInt64(),
-		Fee:       12,
+		Amount:    randString(),
+		Fee:       randString(),
 		Timestamp: randInt64(),
 		BlockID:   randString(),
 	}
@@ -272,9 +272,9 @@ func randExecution() explorer.Execution {
 		Nonce:     randInt64(),
 		Executor:  randString(),
 		Contract:  randString(),
-		Amount:    randInt64(),
+		Amount:    randString(),
 		GasLimit:  randInt64(),
-		GasPrice:  randInt64(),
+		GasPrice:  randString(),
 	}
 }
 
@@ -288,7 +288,7 @@ func randBlock() explorer.Block {
 			Name:    randString(),
 			Address: randString(),
 		},
-		Amount: randInt64(),
+		Amount: randString(),
 		Forged: randInt64(),
 	}
 }
