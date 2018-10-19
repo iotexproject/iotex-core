@@ -321,7 +321,6 @@ func (t *trie) query(key []byte) (patricia, int, error) {
 	for len(key) > 0 {
 		// keep descending the trie
 		hashn, match, err := ptr.descend(key)
-		logger.Debug().Hex("key", hashn).Msg("access")
 		if isBranch(ptr) {
 			// for branch node, need to save first byte of path to traceback to branch[key[0]] later
 			t.toRoot.PushBack(key[0])
@@ -513,7 +512,7 @@ func isExt(ptr patricia) bool {
 func isLeaf(ptr patricia) bool {
 	l, ok := ptr.(*leaf)
 	if ok {
-		return l.Ext == 1
+		return l.Ext > 0
 	}
 	return false
 }

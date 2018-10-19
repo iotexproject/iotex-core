@@ -44,14 +44,24 @@ type (
 	}
 	// key of next patricia node
 	ptrcKey []byte
-	// branch is the full node having 256 hashes for next level patricia node + hash of leaf node
+	// branch is the full node storing 256 hashes of next level node
 	branch struct {
 		Split bool
 		Path  [RADIX]ptrcKey
 	}
-	// leaf is squashed path + actual value (or hash of next patricia node for ext)
+	// there are 2 types of nodes
+	// Leaf is always the final node on the path, storing actual value
+	// Ext stores the squashed path, and hash of next node
+	// for Leaf:
+	// l.Ext  = the length of prefix path leading to this leaf
+	// l.Path = the full path
+	// l.Vaue = the actual value
+	// for Ext:
+	// e.Ext  = 0
+	// e.Path = squashed path from its parent child leading to its child node
+	// e.Vaue = hash of child node
 	leaf struct {
-		Ext   byte // this is an extension node
+		Ext   int
 		Path  ptrcKey
 		Value []byte
 	}
@@ -87,10 +97,12 @@ func (b *branch) insert(k, v []byte, prefix int, stack *list.List) error {
 		return errors.Wrapf(ErrInvalidPatricia, "branch already has path = %d", k[0])
 	}
 	// create a new leaf
-	l := leaf{1, divK[1:], v}
+	fk := make([]byte, len(k))
+	copy(fk, k)
+	l := leaf{prefix + 1, fk, v}
 	stack.PushBack(&l)
 	h := l.hash()
-	logger.Debug().Hex("newL", h[:8]).Msg("splitB")
+	logger.Debug().Hex("newL", h[:8]).Int("prefix", l.Ext).Hex("path", k[l.Ext:]).Msg("splitB")
 	b.Split = true
 	return nil
 }
@@ -173,9 +185,9 @@ func (b *branch) print() {
 // descend returns the key to retrieve next patricia, and length of matching path in bytes
 func (l *leaf) descend(key []byte) ([]byte, int, error) {
 	match := 0
-	for l.Path[match] == key[match] {
+	for l.Path[l.Ext+match] == key[match] {
 		match++
-		if match == len(l.Path) {
+		if l.Ext+match == len(l.Path) {
 			return l.Value, match, nil
 		}
 	}
@@ -196,9 +208,9 @@ func (l *leaf) ascend(key []byte, index byte) error {
 // insert <k, v> at current patricia node
 func (l *leaf) insert(k, v []byte, prefix int, stack *list.List) error {
 	divK := k[prefix:]
-	// get the matching length
+	// get the matching length on diverging path
 	match := 0
-	for l.Path[match] == divK[match] {
+	for l.Path[l.Ext+match] == divK[match] {
 		match++
 	}
 	// insert() gets called b/c path does not totally match so the below should not happen, but check anyway
@@ -206,9 +218,11 @@ func (l *leaf) insert(k, v []byte, prefix int, stack *list.List) error {
 		return errors.Wrapf(ErrInvalidPatricia, "leaf already has total matching path = %x", l.Path)
 	}
 	// add leaf for new <k, v>
-	l1 := leaf{1, divK[match+1:], v}
+	fk := make([]byte, len(k))
+	copy(fk, k)
+	l1 := leaf{prefix + match + 1, fk, v}
 	hashl := l1.hash()
-	logger.Debug().Hex("newL", hashl[:8]).Hex("path", divK[match+1:]).Msg("splitL")
+	logger.Debug().Hex("newL", hashl[:8]).Int("prefix", l1.Ext).Hex("path", k[l1.Ext:]).Msg("splitL")
 	// add 1 branch to link new leaf and current ext
 	b := branch{}
 	b.Path[divK[match]] = hashl[:]
@@ -229,22 +243,22 @@ func (l *leaf) insert(k, v []byte, prefix int, stack *list.List) error {
 			stack.PushBack(&e)
 		}
 	} else {
-		l3 := leaf{1, l.Path[match+1:], l.Value}
-		hashl3 := l3.hash()
-		logger.Debug().Hex("currL", hashl3[:8]).Hex("path", l.Path[match+1:]).Msg("splitL")
-		b.Path[l.Path[match]] = hashl3[:]
-		stack.PushBack(&l3)
+		l2 := leaf{l.Ext + match + 1, l.Path, l.Value}
+		hashl := l2.hash()
+		logger.Debug().Hex("currL", hashl[:8]).Int("prefix", l2.Ext).Hex("path", l2.Path[l2.Ext:]).Msg("splitL")
+		b.Path[l2.Path[l2.Ext-1]] = hashl[:]
+		stack.PushBack(&l2)
 	}
 	stack.PushBack(&l1)
-	hashb := b.hash()
 	stack.PushFront(&b)
+	hashb := b.hash()
 	logger.Debug().Hex("newB", hashb[:8]).Msg("split")
 	// if there's matching part, add 1 ext leading to top of split
 	if match > 0 {
-		e := leaf{0, l.Path[:match], hashb[:]}
+		e := leaf{0, l.Path[l.Ext : l.Ext+match], hashb[:]}
 		stack.PushFront(&e)
 		hashe := e.hash()
-		logger.Debug().Hex("topE", hashe[:8]).Hex("path", l.Path[:match]).Msg("split")
+		logger.Debug().Hex("topE", hashe[:8]).Hex("path", e.Path).Msg("split")
 	}
 	return nil
 }
@@ -307,8 +321,7 @@ func (l *leaf) blob() ([]byte, []byte, error) {
 
 // hash return the hash of this node
 func (l *leaf) hash() hash.Hash32B {
-	stream := append([]byte{l.Ext}, l.Path...)
-	stream = append(stream, l.Value...)
+	stream := append(l.Path, l.Value...)
 	return blake2b.Sum256(stream)
 }
 

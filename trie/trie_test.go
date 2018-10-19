@@ -153,7 +153,7 @@ func TestInsert(t *testing.T) {
 	require.NotEqual(ratRoot, root)
 	root = ratRoot
 	require.Equal(uint64(2), tr.numBranch)
-	require.Equal(uint64(1), tr.numExt)
+	require.Equal(uint64(0), tr.numExt)
 	require.Equal(uint64(3), tr.numLeaf)
 	b, err = tr.Get(rat)
 	require.Nil(err)
@@ -409,6 +409,32 @@ func TestBatchCommit(t *testing.T) {
 	require.Nil(tr.Stop(context.Background()))
 }
 
+func TestCollision(t *testing.T) {
+	require := require.New(t)
+
+	testutil.CleanupPath(t, testTriePath)
+	defer testutil.CleanupPath(t, testTriePath)
+	tr, err := NewTrie(db.NewBoltDB(testTriePath, cfg), "test", EmptyRoot)
+	require.Nil(err)
+	require.Nil(tr.Start(context.Background()))
+	defer require.Nil(tr.Stop(context.Background()))
+
+	// this creates 2 leaf (with same value) on branch '0' and '1'
+	require.NoError(tr.Upsert(br1, testV[0]))
+	require.NoError(tr.Upsert(br2, testV[0]))
+	// this adds another 2 leaf (with same value), which splits the first 2 leaf
+	require.NoError(tr.Upsert(cl1, testV[0]))
+	require.NoError(tr.Upsert(cl2, testV[0]))
+	v, _ := tr.Get(br1)
+	require.Equal(testV[0], v)
+	v, _ = tr.Get(br2)
+	require.Equal(testV[0], v)
+	v, _ = tr.Get(cl1)
+	require.Equal(testV[0], v)
+	v, _ = tr.Get(cl2)
+	require.Equal(testV[0], v)
+}
+
 func Test2kEntries(t *testing.T) {
 	require := require.New(t)
 
@@ -417,6 +443,7 @@ func Test2kEntries(t *testing.T) {
 	tr, err := NewTrie(db.NewBoltDB(testTriePath, cfg), "test", EmptyRoot)
 	require.Nil(err)
 	require.Nil(tr.Start(context.Background()))
+	defer require.Nil(tr.Stop(context.Background()))
 	root := EmptyRoot
 	seed := time.Now().Nanosecond()
 	// insert 2k entries
@@ -469,7 +496,6 @@ func Test2kEntries(t *testing.T) {
 	require.Nil(tr.Commit())
 	// trie should fallback to empty
 	require.Equal(EmptyRoot, tr.RootHash())
-	require.Nil(tr.Stop(context.Background()))
 }
 
 func TestPressure(t *testing.T) {
@@ -482,12 +508,13 @@ func TestPressure(t *testing.T) {
 	tr, err := NewTrie(db.NewMemKVStore(), "test", EmptyRoot)
 	require.Nil(err)
 	require.Nil(tr.Start(context.Background()))
+	defer require.Nil(tr.Stop(context.Background()))
 	root := EmptyRoot
 	seed := time.Now().Nanosecond()
-	// insert 64k entries
+	// insert 128k entries
 	var k [32]byte
 	k[0] = byte(seed)
-	for i := 0; i < 1<<16; i++ {
+	for i := 0; i < 1<<17; i++ {
 		k = blake2b.Sum256(k[:])
 		v := testV[k[0]&7]
 		if _, err := tr.Get(k[:8]); err == nil {
@@ -503,7 +530,7 @@ func TestPressure(t *testing.T) {
 		require.Nil(err)
 		require.Equal(v, b)
 	}
-	// delete 64k entries
+	// delete 128k entries
 	var d [32]byte
 	d[0] = byte(seed)
 	// save the first 3, delete them last
@@ -511,7 +538,7 @@ func TestPressure(t *testing.T) {
 	d2 := blake2b.Sum256(d1[:])
 	d3 := blake2b.Sum256(d2[:])
 	d = d3
-	for i := 0; i < 1<<16-3; i++ {
+	for i := 0; i < 1<<17-3; i++ {
 		d = blake2b.Sum256(d[:])
 		logger.Info().Hex("key", d[:8]).Msg("Del --")
 		require.Nil(tr.Delete(d[:8]))
@@ -527,7 +554,6 @@ func TestPressure(t *testing.T) {
 	require.Nil(tr.Delete(d3[:8]))
 	// trie should fallback to empty
 	require.Equal(EmptyRoot, tr.RootHash())
-	require.Nil(tr.Stop(context.Background()))
 }
 
 func TestQuery(t *testing.T) {
