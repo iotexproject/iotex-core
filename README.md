@@ -18,6 +18,9 @@ IoTeX [whitepaper](https://iotex.io/white-paper) for details.
 Currently, This repo is of alpha-quality with limited features supported and it is subjected to rapid change. Please 
 contact us if you intend to run it in production.
 
+## Developer Support
+Feel free to contact us at our Gitter channel, we'd be happy to help: https://gitter.im/iotex-dev-community/Lobby
+
 ## Minimum requirements
 
 | Components | Version | Description |
