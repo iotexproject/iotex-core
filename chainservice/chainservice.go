@@ -118,8 +118,9 @@ func New(cfg *config.Config, p2p network.Overlay, dispatcher dispatcher.Dispatch
 		logger.Warn().Msg("Using test server with fake data...")
 		exp = explorer.NewTestSever(cfg.Explorer)
 	} else {
-		exp = explorer.NewServer(cfg.Explorer, chain, consensus, dispatcher, actPool, p2p)
+		exp = explorer.NewServer(cfg.Explorer, chain, consensus, dispatcher, actPool, p2p, idx)
 	}
+
 	return &ChainService{
 		actpool:      actPool,
 		chain:        chain,
