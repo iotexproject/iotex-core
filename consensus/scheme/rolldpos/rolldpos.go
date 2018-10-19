@@ -22,6 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/crypto"
+	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network"
@@ -388,7 +389,7 @@ type epochCtx struct {
 // roundCtx keeps the context data for the current round and block.
 type roundCtx struct {
 	height           uint64
-	proofOfLock      *endorsementProof
+	proofOfLock      *endorsement.Set
 	timestamp        time.Time
 	block            *blockchain.Block
 	proposalEndorses map[hash.Hash32B]map[string]bool

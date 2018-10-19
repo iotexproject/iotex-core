@@ -9,7 +9,6 @@ package state
 import (
 	"bytes"
 	"encoding/gob"
-	"reflect"
 
 	"github.com/pkg/errors"
 )
@@ -33,7 +32,7 @@ func GobBasedSerialize(state State) ([]byte, error) {
 	var buf bytes.Buffer
 	e := gob.NewEncoder(&buf)
 	if err := e.Encode(state); err != nil {
-		return nil, errors.Wrapf(ErrStateSerialization, "error when serializing %s state", reflect.TypeOf(state).String())
+		return nil, errors.Wrapf(ErrStateSerialization, "error when serializing %T state", state)
 	}
 	return buf.Bytes(), nil
 }
@@ -43,7 +42,7 @@ func GobBasedDeserialize(state State, data []byte) error {
 	buf := bytes.NewBuffer(data)
 	e := gob.NewDecoder(buf)
 	if err := e.Decode(state); err != nil {
-		return errors.Wrapf(ErrStateDeserialization, "error when deserializing %s state", reflect.TypeOf(state).String())
+		return errors.Wrapf(ErrStateDeserialization, "error when deserializing %T state", state)
 	}
 	return nil
 }

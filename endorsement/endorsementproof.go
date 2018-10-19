@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package rolldpos
+package endorsement
 
 import (
 	"bytes"
@@ -16,29 +16,31 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 )
 
-type endorsementProof struct {
+// Set is a collection of endorsements for block
+type Set struct {
 	blkHash      hash.Hash32B
-	endorsements []*endorsement
+	endorsements []*Endorsement
 }
 
-func (l *endorsementProof) addEndorsement(en *endorsement) error {
-	if !bytes.Equal(l.blkHash[:], en.blkHash[:]) {
+// AddEndorsement adds an endorsement with the right block hash and signature
+func (s *Set) AddEndorsement(en *Endorsement) error {
+	if !bytes.Equal(en.ConsensusVote().BlkHash[:], s.blkHash[:]) {
 		return errors.New("the endorsement block hash is different from lock")
 	}
 	if !en.VerifySignature() {
 		return errors.New("invalid signature in endorsement")
 	}
-	l.endorsements = append(l.endorsements, en)
+	s.endorsements = append(s.endorsements, en)
 
 	return nil
 }
 
-func (l *endorsementProof) blockHash() hash.Hash32B {
-	return l.blkHash
+func (s *Set) blockHash() hash.Hash32B {
+	return s.blkHash
 }
 
-func (l *endorsementProof) numOfValidEndorsements(topics []uint8, endorsers []*iotxaddress.Address) uint16 {
-	topicSet := map[uint8]bool{}
+func (s *Set) numOfValidEndorsements(topics []ConsensusVoteTopic, endorsers []*iotxaddress.Address) uint16 {
+	topicSet := map[ConsensusVoteTopic]bool{}
 	for _, topic := range topics {
 		topicSet[topic] = true
 	}
@@ -47,8 +49,8 @@ func (l *endorsementProof) numOfValidEndorsements(topics []uint8, endorsers []*i
 		endorserSet[endorser.PublicKey] = true
 	}
 	cnt := uint16(0)
-	for _, endorsement := range l.endorsements {
-		if _, ok := topicSet[endorsement.topic]; !ok {
+	for _, endorsement := range s.endorsements {
+		if _, ok := topicSet[endorsement.ConsensusVote().Topic]; !ok {
 			continue
 		}
 		if _, ok := endorserSet[endorsement.endorserPubkey]; !ok {

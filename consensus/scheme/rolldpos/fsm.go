@@ -20,6 +20,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/crypto"
+	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
@@ -147,16 +148,12 @@ func (e *proposeBlkEvt) fromProtoMsg(pMsg *iproto.ProposePb) error {
 
 type endorseEvt struct {
 	consensusEvt
-	endorse *endorsement
+	endorse *endorsement.Endorsement
 }
 
-func newEndorseEvt(topic uint8, blkHash hash.Hash32B, height uint64, endorser *iotxaddress.Address, c clock.Clock) (*endorseEvt, error) {
-	endorse := &endorsement{
-		height:  height,
-		topic:   topic,
-		blkHash: blkHash,
-	}
-	if err := endorse.Sign(endorser); err != nil {
+func newEndorseEvt(topic endorsement.ConsensusVoteTopic, blkHash hash.Hash32B, height uint64, endorser *iotxaddress.Address, c clock.Clock) (*endorseEvt, error) {
+	endorse, err := endorsement.NewEndorsement(endorsement.NewConsensusVote(blkHash, height, topic), endorser)
+	if err != nil {
 		logger.Error().Err(err).Bytes("Block Hash", blkHash[:]).Str("endorser", endorser.RawAddress).Msg("failed to sign endorse for block")
 		return nil, err
 	}
@@ -164,11 +161,13 @@ func newEndorseEvt(topic uint8, blkHash hash.Hash32B, height uint64, endorser *i
 	return newEndorseEvtWithEndorse(endorse, c), nil
 }
 
-func newEndorseEvtWithEndorse(endorse *endorsement, c clock.Clock) *endorseEvt {
+func newEndorseEvtWithEndorse(endorse *endorsement.Endorsement, c clock.Clock) *endorseEvt {
+	vote := endorse.ConsensusVote()
 	var eventType fsm.EventType
-	if endorse.topic == endorseProposal {
+	switch vote.Topic {
+	case endorsement.PROPOSAL:
 		eventType = eEndorseProposal
-	} else {
+	case endorsement.LOCK:
 		eventType = eEndorseLock
 	}
 	return &endorseEvt{
@@ -177,8 +176,8 @@ func newEndorseEvtWithEndorse(endorse *endorsement, c clock.Clock) *endorseEvt {
 	}
 }
 
-func (e *endorseEvt) toProtoMsg() *iproto.EndorsePb {
-	return e.endorse.toProtoMsg()
+func (en *endorseEvt) toProtoMsg() *iproto.EndorsePb {
+	return en.endorse.ToProtoMsg()
 }
 
 type timeoutEvt struct {
@@ -586,17 +585,18 @@ func (m *cFSM) handleProposeBlockTimeout(evt fsm.Event) (fsm.State, error) {
 	return m.moveToAcceptProposalEndorse()
 }
 
-func (m *cFSM) validateEndorse(en *endorsement, expectedEndorseTopic uint8) bool {
+func (m *cFSM) validateEndorse(en *endorsement.Endorsement, expectedEndorseTopic endorsement.ConsensusVoteTopic) bool {
 	errorLog := logger.Error().
 		Uint64("expectedHeight", m.ctx.round.height).
-		Uint8("expectedEndorseTopic", expectedEndorseTopic)
-	if en.topic != expectedEndorseTopic {
-		errorLog.Uint8("endorseTopic", en.topic).
+		Uint8("expectedEndorseTopic", uint8(expectedEndorseTopic))
+	vote := en.ConsensusVote()
+	if vote.Topic != expectedEndorseTopic {
+		errorLog.Uint8("endorseTopic", uint8(vote.Topic)).
 			Msg("error when validating the endorse topic")
 		return false
 	}
-	if en.height != m.ctx.round.height {
-		errorLog.Uint64("height", en.height).
+	if vote.Height != m.ctx.round.height {
+		errorLog.Uint64("height", vote.Height).
 			Msg("error when validating the endorse height")
 		return false
 	}
@@ -627,19 +627,20 @@ func (m *cFSM) handleEndorseProposalEvt(evt fsm.Event) (fsm.State, error) {
 		return sInvalid, errors.Wrap(ErrEvtCast, "the event is not an endorseEvt")
 	}
 	endorse := endorseEvt.endorse
-	if !m.isProposedBlock(endorseEvt.endorse.blkHash[:]) {
+	vote := endorse.ConsensusVote()
+	if !m.isProposedBlock(vote.BlkHash[:]) {
 		return sAcceptProposalEndorse, nil
 	}
-	if !m.validateEndorse(endorse, endorseProposal) {
+	if !m.validateEndorse(endorse, endorsement.PROPOSAL) {
 		return sAcceptProposalEndorse, nil
 	}
-	blkHash := endorse.blkHash
+	blkHash := vote.BlkHash
 	endorses := m.ctx.round.proposalEndorses[blkHash]
 	if endorses == nil {
 		endorses = map[string]bool{}
 		m.ctx.round.proposalEndorses[blkHash] = endorses
 	}
-	endorses[endorse.endorser] = true
+	endorses[endorse.Endorser()] = true
 	// if ether yes or no is true, block must exists and blkHash must be a valid one
 	yes, _ := m.ctx.calcQuorum(m.ctx.round.proposalEndorses[blkHash])
 	if !yes {
@@ -685,20 +686,21 @@ func (m *cFSM) handleEndorseLockEvt(evt fsm.Event) (fsm.State, error) {
 		return sInvalid, errors.Wrap(ErrEvtCast, "the event is not an endorseEvt")
 	}
 	endorse := endorseEvt.endorse
-	if !m.isProposedBlock(endorse.blkHash[:]) {
+	vote := endorse.ConsensusVote()
+	if !m.isProposedBlock(vote.BlkHash[:]) {
 		return sAcceptLockEndorse, nil
 	}
-	if endorse.topic != endorseLock {
+	if vote.Topic != endorsement.LOCK {
 		return sAcceptLockEndorse, nil
 	}
 	// TODO verify that the endorse is one delegate, and verify signature via endorse.VerifySignature() with pub key
-	blkHash := endorse.blkHash
+	blkHash := vote.BlkHash
 	endorses := m.ctx.round.lockEndorses[blkHash]
 	if endorses == nil {
 		endorses = map[string]bool{}
 		m.ctx.round.lockEndorses[blkHash] = endorses
 	}
-	endorses[endorse.endorser] = true
+	endorses[endorse.Endorser()] = true
 	// if either yes or no is true, block must exists and blkHash must be a valid one
 	yes, no := m.ctx.calcQuorum(endorses)
 	if !yes && !no {
@@ -865,19 +867,19 @@ func (m *cFSM) newProposeBlkEvtFromProposePb(pb *iproto.ProposePb) (*proposeBlkE
 }
 
 func (m *cFSM) newEndorseEvtWithEndorsePb(ePb *iproto.EndorsePb) (*endorseEvt, error) {
-	var en endorsement
-	if err := en.fromProtoMsg(ePb); err != nil {
+	en, err := endorsement.FromProtoMsg(ePb)
+	if err != nil {
 		return nil, errors.Wrap(err, "error when casting a proto msg to endorse")
 	}
-	return newEndorseEvtWithEndorse(&en, m.ctx.clock), nil
+	return newEndorseEvtWithEndorse(en, m.ctx.clock), nil
 }
 
 func (m *cFSM) newEndorseProposalEvt(blkHash hash.Hash32B) (*endorseEvt, error) {
-	return newEndorseEvt(endorseProposal, blkHash, m.ctx.round.height, m.ctx.addr, m.ctx.clock)
+	return newEndorseEvt(endorsement.PROPOSAL, blkHash, m.ctx.round.height, m.ctx.addr, m.ctx.clock)
 }
 
 func (m *cFSM) newEndorseLockEvt(blkHash hash.Hash32B) (*endorseEvt, error) {
-	return newEndorseEvt(endorseLock, blkHash, m.ctx.round.height, m.ctx.addr, m.ctx.clock)
+	return newEndorseEvt(endorsement.LOCK, blkHash, m.ctx.round.height, m.ctx.addr, m.ctx.clock)
 }
 
 func (m *cFSM) newTimeoutEvt(t fsm.EventType, height uint64) *timeoutEvt {
