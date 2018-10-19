@@ -133,29 +133,25 @@ func (t *trie) Delete(key []byte) error {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
-	var ptr patricia
-	var size int
-	var err error
-	ptr, size, err = t.query(key)
+	ptr, size, err := t.query(key)
 	if size != len(key) {
 		return errors.Wrapf(ErrNotExist, "key = %x not exist", key)
 	}
 	if err != nil {
 		return errors.Wrap(err, "failed to query")
 	}
-	var index byte
 	if isBranch(ptr) {
 		// for branch, the entry to delete is the leaf matching last byte of path
 		size = len(key)
-		index = key[size-1]
+		index := key[size-1]
 		if ptr, err = t.getPatricia(ptr.(*branch).Path[index]); err != nil {
 			return errors.Wrap(err, "failed to getPatricia")
 		}
 	} else {
-		ptr, index = t.popToRoot()
+		ptr, _ = t.popToRoot()
 	}
 	// delete the entry
-	if t.delPatricia(ptr); err != nil {
+	if err := t.delPatricia(ptr); err != nil {
 		return errors.Wrap(err, "failed to delete")
 	}
 	if t.numEntry == 1 {
@@ -395,8 +391,17 @@ func (t *trie) updateDelete() error {
 			continue
 		}
 		if active == 1 && isBranch(next) {
-			// only 1 active branch, the branch can be replaced by an extension
-			next = &leaf{0, path, hash}
+			// only 1 active branch, the branch can be replaced by an ext or leaf
+			child, err := t.getPatricia(hash)
+			if err != nil {
+				return errors.Wrap(err, "failed to collapse branch")
+			}
+			if isLeaf(child) {
+				l := child.(*leaf)
+				next = &leaf{l.Ext - 1, l.Path, l.Value}
+			} else {
+				next = &leaf{EXTLEAF, path, hash}
+			}
 		}
 		// two ext can combine into one
 		if t.toRoot.Len() > 0 {
@@ -404,7 +409,7 @@ func (t *trie) updateDelete() error {
 			parent, _ := n.Value.(patricia)
 			if isExt(next) && isExt(parent) {
 				ep, _ := parent.(*leaf)
-				next = &leaf{0, append(ep.Path, path...), hash}
+				next = &leaf{EXTLEAF, append(ep.Path, path...), hash}
 				if err := t.delPatricia(parent); err != nil {
 					return errors.Wrap(err, "failed to delete patricia")
 				}
@@ -437,9 +442,9 @@ func (t *trie) getPatricia(key []byte) (patricia, error) {
 	var ptr patricia
 	// first byte of serialized data is type
 	switch node[0] {
-	case 1:
+	case BRANCH:
 		ptr = &branch{}
-	case 0:
+	case EXTLEAF:
 		ptr = &leaf{}
 	default:
 		return nil, errors.Wrapf(ErrInvalidPatricia, "invalid node type = %v", node[0])
@@ -504,7 +509,7 @@ func isBranch(ptr patricia) bool {
 func isExt(ptr patricia) bool {
 	e, ok := ptr.(*leaf)
 	if ok {
-		return e.Ext == 0
+		return e.Ext == EXTLEAF
 	}
 	return false
 }
@@ -512,7 +517,7 @@ func isExt(ptr patricia) bool {
 func isLeaf(ptr patricia) bool {
 	l, ok := ptr.(*leaf)
 	if ok {
-		return l.Ext > 0
+		return l.Ext > EXTLEAF
 	}
 	return false
 }
