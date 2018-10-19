@@ -75,9 +75,13 @@ func NewProtocol(
 
 // Handle handles how to mutate the state db given the sub-chain action
 func (p *Protocol) Handle(act action.Action, ws state.WorkingSet) error {
-	switch act.(type) {
+	switch act := act.(type) {
 	case *action.StartSubChain:
-		if err := p.handleStartSubChain(act.(*action.StartSubChain), ws); err != nil {
+		if err := p.handleStartSubChain(act, ws); err != nil {
+			return errors.Wrapf(err, "error when handling start sub-chain action")
+		}
+	case *action.PutBlock:
+		if err := p.handlePutBlock(act, ws); err != nil {
 			return errors.Wrapf(err, "error when handling start sub-chain action")
 		}
 	}
