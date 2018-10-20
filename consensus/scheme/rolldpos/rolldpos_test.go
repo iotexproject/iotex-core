@@ -462,9 +462,11 @@ func TestRollDPoS_convertToConsensusEvt(t *testing.T) {
 		nil,
 		nil,
 	)
+	roundNum := uint32(0)
 	pMsg := iproto.ProposePb{
 		Block:    blk.ConvertToBlockPb(),
 		Proposer: addr.RawAddress,
+		Round:    roundNum,
 	}
 	pEvt, err := r.cfsm.newProposeBlkEvtFromProposePb(&pMsg)
 	assert.NoError(t, err)
@@ -477,6 +479,7 @@ func TestRollDPoS_convertToConsensusEvt(t *testing.T) {
 		endorsement.NewConsensusVote(
 			blkHash,
 			blk.Height(),
+			roundNum,
 			endorsement.PROPOSAL,
 		),
 		addr,
@@ -493,6 +496,7 @@ func TestRollDPoS_convertToConsensusEvt(t *testing.T) {
 		endorsement.NewConsensusVote(
 			blkHash,
 			blk.Height(),
+			roundNum,
 			endorsement.LOCK,
 		),
 		addr,
