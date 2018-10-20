@@ -9,7 +9,7 @@ import (
 
 const BarristerVersion string = "0.1.6"
 const BarristerChecksum string = "fc65cc5644e81be2fa2132a6448dc10d"
-const BarristerDateGenerated int64 = 1540015918100000000
+const BarristerDateGenerated int64 = 1540055450881000000
 
 type CallArgs struct {
 	From	string	`json:"from"`
@@ -2132,7 +2132,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1540015918100,
+        "date_generated": 1540055450881,
         "checksum": "fc65cc5644e81be2fa2132a6448dc10d"
     }
 ]`
