@@ -83,15 +83,20 @@ message StopSubChainPb {
     string subChainAddress = 5;
 }
 
+message EndorsementPb {
+    bytes endorser = 1;
+    bytes signature = 2;
+}
+
 message PutBlockPb {
     uint32 chainID = 1;
     uint64 height = 2;
     bytes hash = 3;
     bytes actionRoot = 4;
     bytes stateRoot = 5;
-    bytes producerPublicKey = 6;
-    repeated bytes endorsorPublicKeys = 7;
-    repeated bytes endorsorSignatures = 8;
+    string producerAddress = 6;
+    bytes producerPublicKey = 7;
+    repeated EndorsementPb endorsements = 8;
 }
 
 message ActionPb {
