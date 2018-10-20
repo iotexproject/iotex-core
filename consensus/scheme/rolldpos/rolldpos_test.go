@@ -22,12 +22,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/context"
 
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/crypto"
+	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/network/node"
 	"github.com/iotexproject/iotex-core/pkg/hash"
@@ -62,6 +63,7 @@ func TestRollDPoSCtx(t *testing.T) {
 		make([]*action.Transfer, 0),
 		make([]*action.Vote, 0),
 		make([]*action.Execution, 0),
+		make([]action.Action, 0),
 	)
 	ctx := makeTestRollDPoSCtx(
 		testAddrs[0],
@@ -455,12 +457,16 @@ func TestRollDPoS_convertToConsensusEvt(t *testing.T) {
 		1,
 		prevHash,
 		testutil.TimestampNow(),
-		[]*action.Transfer{transfer}, []*action.Vote{vote},
+		[]*action.Transfer{transfer},
+		[]*action.Vote{vote},
+		nil,
 		nil,
 	)
+	roundNum := uint32(0)
 	pMsg := iproto.ProposePb{
 		Block:    blk.ConvertToBlockPb(),
 		Proposer: addr.RawAddress,
+		Round:    roundNum,
 	}
 	pEvt, err := r.cfsm.newProposeBlkEvtFromProposePb(&pMsg)
 	assert.NoError(t, err)
@@ -469,30 +475,34 @@ func TestRollDPoS_convertToConsensusEvt(t *testing.T) {
 
 	// Test proposal endorse msg
 	blkHash := blk.HashBlock()
-	en := &endorse{
-		height:   blk.Height(),
-		topic:    endorseProposal,
-		blkHash:  blkHash,
-		decision: true,
-	}
-	err = en.Sign(addr)
+	en, err := endorsement.NewEndorsement(
+		endorsement.NewConsensusVote(
+			blkHash,
+			blk.Height(),
+			roundNum,
+			endorsement.PROPOSAL,
+		),
+		addr,
+	)
 	assert.NoError(t, err)
-	msg := en.toProtoMsg()
+	msg := en.ToProtoMsg()
 
 	eEvt, err := r.cfsm.newEndorseEvtWithEndorsePb(msg)
 	assert.NoError(t, err)
 	assert.NotNil(t, eEvt)
 
 	// Test commit endorse msg
-	en = &endorse{
-		height:   blk.Height(),
-		topic:    endorseCommit,
-		blkHash:  blkHash,
-		decision: true,
-	}
-	err = en.Sign(addr)
+	en, err = endorsement.NewEndorsement(
+		endorsement.NewConsensusVote(
+			blkHash,
+			blk.Height(),
+			roundNum,
+			endorsement.LOCK,
+		),
+		addr,
+	)
 	assert.NoError(t, err)
-	msg = en.toProtoMsg()
+	msg = en.ToProtoMsg()
 	eEvt, err = r.cfsm.newEndorseEvtWithEndorsePb(msg)
 	assert.NoError(t, err)
 	assert.NotNil(t, eEvt)
@@ -577,7 +587,7 @@ func TestUpdateSeed(t *testing.T) {
 			PrivateKey: ec283SKList[i],
 			RawAddress: addresses[i],
 		}
-		blk, err := chain.MintNewDKGBlock(nil, nil, nil, &iotxAddr,
+		blk, err := chain.MintNewBlock(nil, nil, nil, nil, &iotxAddr,
 			&iotxaddress.DKGAddress{PrivateKey: askList[i], PublicKey: pkList[i], ID: idList[i]},
 			lastSeed, "")
 		require.NoError(err)
@@ -712,11 +722,13 @@ func TestRollDPoSConsensus(t *testing.T) {
 			sf, err := state.NewFactory(&cfg, state.InMemTrieOption())
 			require.NoError(t, err)
 			for j := 0; j < numNodes; j++ {
-				_, err := sf.LoadOrCreateState(chainRawAddrs[j], uint64(0))
+				ws, err := sf.NewWorkingSet()
 				require.NoError(t, err)
-				_, err = sf.RunActions(0, nil, nil, nil, nil)
+				_, err = ws.LoadOrCreateAccountState(chainRawAddrs[j], big.NewInt(0))
 				require.NoError(t, err)
-				require.NoError(t, sf.Commit(nil))
+				_, err = ws.RunActions(0, nil, nil, nil, nil)
+				require.NoError(t, err)
+				require.NoError(t, sf.Commit(ws))
 			}
 			chain := blockchain.NewBlockchain(&cfg, blockchain.InMemDaoOption(), blockchain.PrecreatedStateFactoryOption(sf))
 			chains = append(chains, chain)

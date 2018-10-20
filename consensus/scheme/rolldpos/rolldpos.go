@@ -15,13 +15,14 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/zjshen14/go-fsm"
 
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/crypto"
+	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network"
@@ -265,12 +266,12 @@ func (ctx *rollDPoSCtx) mintSecretBlock() (*blockchain.Block, error) {
 
 // mintCommonBlock picks the actions and creates a common block to propose
 func (ctx *rollDPoSCtx) mintCommonBlock() (*blockchain.Block, error) {
-	transfers, votes, executions := ctx.actPool.PickActs()
+	transfers, votes, executions, actions := ctx.actPool.PickActs()
 	logger.Debug().
 		Int("transfer", len(transfers)).
 		Int("votes", len(votes)).
 		Msg("pick actions from the action pool")
-	blk, err := ctx.chain.MintNewDKGBlock(transfers, votes, executions, ctx.addr, &ctx.epoch.dkgAddress,
+	blk, err := ctx.chain.MintNewBlock(transfers, votes, executions, actions, ctx.addr, &ctx.epoch.dkgAddress,
 		ctx.epoch.seed, "")
 	if err != nil {
 		return nil, err
@@ -388,10 +389,12 @@ type epochCtx struct {
 // roundCtx keeps the context data for the current round and block.
 type roundCtx struct {
 	height           uint64
+	number           uint32
+	proofOfLock      *endorsement.Set
 	timestamp        time.Time
 	block            *blockchain.Block
 	proposalEndorses map[hash.Hash32B]map[string]bool
-	commitEndorses   map[hash.Hash32B]map[string]bool
+	lockEndorses     map[hash.Hash32B]map[string]bool
 	proposer         string
 }
 

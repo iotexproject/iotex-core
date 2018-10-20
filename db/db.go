@@ -38,8 +38,6 @@ type KVStore interface {
 	Get(string, []byte) ([]byte, error)
 	// Delete deletes a record by (namespace, key)
 	Delete(string, []byte) error
-	// Batch return a kv store batch api object
-	Batch() KVStoreBatch
 	// Commit commits a batch
 	Commit(KVStoreBatch) error
 }
@@ -101,15 +99,10 @@ func (m *memKVStore) Delete(namespace string, key []byte) error {
 	return nil
 }
 
-// Batch return a kv store batch api object
-func (m *memKVStore) Batch() KVStoreBatch {
-	return NewMemKVStoreBatch(m)
-}
-
 // Commit commits a batch
 func (m *memKVStore) Commit(b KVStoreBatch) error {
 	b.Lock()
-	defer b.Unlock()
+	defer b.ClearAndUnlock()
 	for i := 0; i < b.Size(); i++ {
 		write, err := b.Entry(i)
 		if err != nil {
@@ -129,8 +122,7 @@ func (m *memKVStore) Commit(b KVStoreBatch) error {
 			}
 		}
 	}
-	// clear queues
-	return b.Clear()
+	return nil
 }
 
 const fileMode = 0600
@@ -264,15 +256,10 @@ func (b *boltDB) Delete(namespace string, key []byte) error {
 	return err
 }
 
-// Batch return a kv store batch api object
-func (b *boltDB) Batch() KVStoreBatch {
-	return NewBoltDBBatch(b)
-}
-
 // Commit commits a batch
 func (b *boltDB) Commit(batch KVStoreBatch) error {
 	batch.Lock()
-	defer batch.Unlock()
+	defer batch.ClearAndUnlock()
 	var err error
 	numRetries := b.config.NumRetries
 	for c := uint8(0); c < numRetries; c++ {
@@ -318,8 +305,6 @@ func (b *boltDB) Commit(batch KVStoreBatch) error {
 			break
 		}
 	}
-	// clear queues
-	batch.Clear()
 	return err
 }
 

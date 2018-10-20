@@ -19,9 +19,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
@@ -55,7 +55,8 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	if err := action.Sign(tsf, ta.Addrinfo["producer"].PrivateKey); err != nil {
 		return err
 	}
-	blk, err := bc.MintNewBlock([]*action.Transfer{tsf}, nil, nil, ta.Addrinfo["producer"], "")
+	blk, err := bc.MintNewBlock([]*action.Transfer{tsf}, nil, nil, nil, ta.Addrinfo["producer"],
+		nil, nil, "")
 	if err != nil {
 		return err
 	}
@@ -80,7 +81,8 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	_ = action.Sign(vote1, ta.Addrinfo["charlie"].PrivateKey)
 	execution1, _ := action.NewExecution(ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["delta"].RawAddress, 6, big.NewInt(1), uint64(1000000), big.NewInt(10), []byte{1})
 	_ = action.Sign(execution1, ta.Addrinfo["charlie"].PrivateKey)
-	if blk, err = bc.MintNewBlock([]*action.Transfer{tsf1, tsf2, tsf3, tsf4}, []*action.Vote{vote1}, []*action.Execution{execution1}, ta.Addrinfo["producer"], ""); err != nil {
+	if blk, err = bc.MintNewBlock([]*action.Transfer{tsf1, tsf2, tsf3, tsf4}, []*action.Vote{vote1},
+		[]*action.Execution{execution1}, nil, ta.Addrinfo["producer"], nil, nil, ""); err != nil {
 		return err
 	}
 	if err := bc.ValidateBlock(blk, true); err != nil {
@@ -91,7 +93,8 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	}
 
 	// Add block 3
-	if blk, err = bc.MintNewBlock(nil, nil, nil, ta.Addrinfo["producer"], ""); err != nil {
+	if blk, err = bc.MintNewBlock(nil, nil, nil, nil, ta.Addrinfo["producer"], nil,
+		nil, ""); err != nil {
 		return err
 	}
 	if err := bc.ValidateBlock(blk, true); err != nil {
@@ -110,7 +113,8 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	execution2, _ := action.NewExecution(ta.Addrinfo["alfa"].RawAddress, ta.Addrinfo["delta"].RawAddress, 2, big.NewInt(1), 1000000, big.NewInt(10), []byte{1})
 	_ = action.Sign(execution1, ta.Addrinfo["charlie"].PrivateKey)
 	_ = action.Sign(execution2, ta.Addrinfo["alfa"].PrivateKey)
-	if blk, err = bc.MintNewBlock(nil, []*action.Vote{vote1, vote2}, []*action.Execution{execution1, execution2}, ta.Addrinfo["producer"], ""); err != nil {
+	if blk, err = bc.MintNewBlock(nil, []*action.Vote{vote1, vote2}, []*action.Execution{execution1, execution2}, nil,
+		ta.Addrinfo["producer"], nil, nil, ""); err != nil {
 		return err
 	}
 	if err := bc.ValidateBlock(blk, true); err != nil {
@@ -155,13 +159,9 @@ func TestExplorerApi(t *testing.T) {
 	sf, err := state.NewFactory(&cfg, state.InMemTrieOption())
 	require.Nil(err)
 	require.Nil(sf.Start(context.Background()))
-	_, err = sf.LoadOrCreateState(ta.Addrinfo["producer"].RawAddress, blockchain.Gen.TotalSupply)
-	require.NoError(err)
-	_, err = sf.RunActions(0, nil, nil, nil, nil)
-	require.NoError(err)
-	require.NoError(sf.Commit(nil))
+	require.NoError(addCreatorToFactory(sf))
 	// Disable block reward to make bookkeeping easier
-	blockchain.Gen.BlockReward = uint64(0)
+	blockchain.Gen.BlockReward = big.NewInt(0)
 
 	// create chain
 	ctx := context.Background()
@@ -323,7 +323,7 @@ func TestExplorerApi(t *testing.T) {
 
 	stats, err := svc.GetCoinStatistic()
 	require.Nil(err)
-	require.Equal(int64(blockchain.Gen.TotalSupply), stats.Supply)
+	require.Equal(blockchain.Gen.TotalSupply.String(), stats.Supply)
 	require.Equal(int64(4), stats.Height)
 	require.Equal(int64(32), stats.Transfers)
 	require.Equal(int64(24), stats.Votes)
@@ -438,7 +438,7 @@ func TestService_StateByAddr(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	s := state.State{
+	s := state.Account{
 		Balance:      big.NewInt(46),
 		Nonce:        uint64(0),
 		IsCandidate:  false,
@@ -709,13 +709,9 @@ func TestExplorerGetReceiptByExecutionID(t *testing.T) {
 	sf, err := state.NewFactory(&cfg, state.InMemTrieOption())
 	require.Nil(err)
 	require.Nil(sf.Start(context.Background()))
-	_, err = sf.LoadOrCreateState(ta.Addrinfo["producer"].RawAddress, blockchain.Gen.TotalSupply)
-	require.NoError(err)
-	_, err = sf.RunActions(0, nil, nil, nil, nil)
-	require.NoError(err)
-	require.NoError(sf.Commit(nil))
+	require.NoError(addCreatorToFactory(sf))
 	// Disable block reward to make bookkeeping easier
-	blockchain.Gen.BlockReward = uint64(0)
+	blockchain.Gen.BlockReward = big.NewInt(0)
 
 	// create chain
 	ctx := context.Background()
@@ -740,7 +736,8 @@ func TestExplorerGetReceiptByExecutionID(t *testing.T) {
 		ta.Addrinfo["producer"].RawAddress, action.EmptyAddress, 1, big.NewInt(0), uint64(100000), big.NewInt(10), data)
 	require.NoError(err)
 	require.NoError(action.Sign(execution, ta.Addrinfo["producer"].PrivateKey))
-	blk, err := bc.MintNewBlock(nil, nil, []*action.Execution{execution}, ta.Addrinfo["producer"], "")
+	blk, err := bc.MintNewBlock(nil, nil, []*action.Execution{execution}, nil, ta.Addrinfo["producer"],
+		nil, nil, "")
 	require.NoError(err)
 	require.Nil(bc.CommitBlock(blk))
 
@@ -749,4 +746,21 @@ func TestExplorerGetReceiptByExecutionID(t *testing.T) {
 	receipt, err := svc.GetReceiptByExecutionID(eHashStr)
 	require.NoError(err)
 	require.Equal(eHashStr, receipt.Hash)
+}
+
+func addCreatorToFactory(sf state.Factory) error {
+	ws, err := sf.NewWorkingSet()
+	if err != nil {
+		return err
+	}
+	if _, err = ws.LoadOrCreateAccountState(ta.Addrinfo["producer"].RawAddress, blockchain.Gen.TotalSupply); err != nil {
+		return err
+	}
+	if _, err = ws.RunActions(0, nil, nil, nil, nil); err != nil {
+		return err
+	}
+	if err = sf.Commit(ws); err != nil {
+		return err
+	}
+	return nil
 }

@@ -6,7 +6,7 @@ package mock_actpool
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	action "github.com/iotexproject/iotex-core/blockchain/action"
+	action "github.com/iotexproject/iotex-core/action"
 	hash "github.com/iotexproject/iotex-core/pkg/hash"
 	reflect "reflect"
 )
@@ -45,12 +45,13 @@ func (mr *MockActPoolMockRecorder) Reset() *gomock.Call {
 }
 
 // PickActs mocks base method
-func (m *MockActPool) PickActs() ([]*action.Transfer, []*action.Vote, []*action.Execution) {
+func (m *MockActPool) PickActs() ([]*action.Transfer, []*action.Vote, []*action.Execution, []action.Action) {
 	ret := m.ctrl.Call(m, "PickActs")
 	ret0, _ := ret[0].([]*action.Transfer)
 	ret1, _ := ret[1].([]*action.Vote)
 	ret2, _ := ret[2].([]*action.Execution)
-	return ret0, ret1, ret2
+	ret3, _ := ret[3].([]action.Action)
+	return ret0, ret1, ret2, ret3
 }
 
 // PickActs indicates an expected call of PickActs
@@ -92,6 +93,18 @@ func (m *MockActPool) AddExecution(execution *action.Execution) error {
 // AddExecution indicates an expected call of AddExecution
 func (mr *MockActPoolMockRecorder) AddExecution(execution interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddExecution", reflect.TypeOf((*MockActPool)(nil).AddExecution), execution)
+}
+
+// Add mocks base method
+func (m *MockActPool) Add(act action.Action) error {
+	ret := m.ctrl.Call(m, "Add", act)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Add indicates an expected call of Add
+func (mr *MockActPoolMockRecorder) Add(act interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Add", reflect.TypeOf((*MockActPool)(nil).Add), act)
 }
 
 // GetPendingNonce mocks base method
@@ -154,4 +167,39 @@ func (m *MockActPool) GetCapacity() uint64 {
 // GetCapacity indicates an expected call of GetCapacity
 func (mr *MockActPoolMockRecorder) GetCapacity() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCapacity", reflect.TypeOf((*MockActPool)(nil).GetCapacity))
+}
+
+// MockActionValidator is a mock of ActionValidator interface
+type MockActionValidator struct {
+	ctrl     *gomock.Controller
+	recorder *MockActionValidatorMockRecorder
+}
+
+// MockActionValidatorMockRecorder is the mock recorder for MockActionValidator
+type MockActionValidatorMockRecorder struct {
+	mock *MockActionValidator
+}
+
+// NewMockActionValidator creates a new mock instance
+func NewMockActionValidator(ctrl *gomock.Controller) *MockActionValidator {
+	mock := &MockActionValidator{ctrl: ctrl}
+	mock.recorder = &MockActionValidatorMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use
+func (m *MockActionValidator) EXPECT() *MockActionValidatorMockRecorder {
+	return m.recorder
+}
+
+// Validate mocks base method
+func (m *MockActionValidator) Validate(arg0 action.Action) error {
+	ret := m.ctrl.Call(m, "Validate", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Validate indicates an expected call of Validate
+func (mr *MockActionValidatorMockRecorder) Validate(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Validate", reflect.TypeOf((*MockActionValidator)(nil).Validate), arg0)
 }

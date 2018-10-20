@@ -13,9 +13,9 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/dispatcher"
@@ -735,7 +735,7 @@ func (exp *Service) GetCoinStatistic() (explorer.CoinStatistic, error) {
 
 	explorerCoinStats := explorer.CoinStatistic{
 		Height:     int64(tipHeight),
-		Supply:     int64(blockchain.Gen.TotalSupply),
+		Supply:     blockchain.Gen.TotalSupply.String(),
 		Transfers:  int64(totalTransfers),
 		Votes:      int64(totalVotes),
 		Executions: int64(totalExecutions),
@@ -851,8 +851,6 @@ func (exp *Service) SendTransfer(tsfJSON explorer.SendTransferRequest) (resp exp
 		requestMtc.WithLabelValues("SendTransfer", succeed).Inc()
 	}()
 
-	amount := big.NewInt(tsfJSON.Amount).Bytes()
-
 	payload, err := hex.DecodeString(tsfJSON.Payload)
 	if err != nil {
 		return explorer.SendTransferResponse{}, err
@@ -876,7 +874,7 @@ func (exp *Service) SendTransfer(tsfJSON explorer.SendTransferRequest) (resp exp
 	actPb := &pb.ActionPb{
 		Action: &pb.ActionPb_Transfer{
 			Transfer: &pb.TransferPb{
-				Amount:       amount,
+				Amount:       big.NewInt(tsfJSON.Amount).Bytes(),
 				Sender:       tsfJSON.Sender,
 				Recipient:    tsfJSON.Recipient,
 				Payload:      payload,

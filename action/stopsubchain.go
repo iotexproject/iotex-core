@@ -19,17 +19,30 @@ import (
 	"github.com/iotexproject/iotex-core/proto"
 )
 
+const (
+	// StopSubChainIntrinsicGas is the instrinsic gas for stop sub chain action
+	StopSubChainIntrinsicGas = uint64(1000)
+)
+
 // StopSubChain defines the action to stop sub chain
 type StopSubChain struct {
-	action
+	abstractAction
 	chainID    uint32
 	stopHeight uint64
 }
 
 // NewStopSubChain returns a StopSubChain instance
-func NewStopSubChain(senderAddress string, nonce uint64, chainID uint32, chainAddress string, stopHeight uint64, gasLimit uint64, gasPrice *big.Int) (*StopSubChain, error) {
+func NewStopSubChain(
+	senderAddress string,
+	nonce uint64,
+	chainID uint32,
+	chainAddress string,
+	stopHeight uint64,
+	gasLimit uint64,
+	gasPrice *big.Int,
+) (*StopSubChain, error) {
 	return &StopSubChain{
-		action: action{
+		abstractAction: abstractAction{
 			version:  version.ProtocolVersion,
 			nonce:    nonce,
 			srcAddr:  senderAddress,
@@ -44,7 +57,7 @@ func NewStopSubChain(senderAddress string, nonce uint64, chainID uint32, chainAd
 
 // ChainAddress returns the address of the sub chain
 func (ssc *StopSubChain) ChainAddress() string {
-	return ssc.dstAddr
+	return ssc.DstAddr()
 }
 
 // ChainID returns the id of the sub chain
@@ -59,37 +72,19 @@ func (ssc *StopSubChain) StopHeight() uint64 {
 
 // TotalSize returns the total size of this instance
 func (ssc *StopSubChain) TotalSize() uint32 {
-	size := NonceSizeInBytes
-	size += VersionSizeInBytes
-	size += len(ssc.srcPubkey)
-	size += len(ssc.srcAddr)
-	size += len(ssc.dstAddr)
-	size += GasSizeInBytes
-	if ssc.gasPrice != nil && len(ssc.gasPrice.Bytes()) > 0 {
-		size += len(ssc.gasPrice.Bytes())
-	}
-	size += len(ssc.signature)
-	return uint32(size) + 4 + 8 // chain id size + stop height size
+	return ssc.BasicActionSize() + 4 + 8 // chain id size + stop height size
 }
 
 // ByteStream returns a raw byte stream of this instance
 func (ssc *StopSubChain) ByteStream() []byte {
-	stream := byteutil.Uint32ToBytes(ssc.version)
-	stream = append(stream, byteutil.Uint64ToBytes(ssc.nonce)...)
-	stream = append(stream, byteutil.Uint64ToBytes(ssc.gasLimit)...)
-	stream = append(stream, ssc.srcPubkey[:]...)
-	stream = append(stream, ssc.srcAddr...)
-	stream = append(stream, ssc.dstAddr...)
-	if ssc.gasPrice != nil && len(ssc.gasPrice.Bytes()) > 0 {
-		stream = append(stream, ssc.gasPrice.Bytes()...)
-	}
+	stream := ssc.BasicActionByteStream()
 	stream = append(stream, byteutil.Uint32ToBytes(ssc.chainID)...)
 
 	return append(stream, byteutil.Uint64ToBytes(ssc.stopHeight)...)
 }
 
-// ConvertToActionPb converts StopSubChain to protobuf's ActionPb
-func (ssc *StopSubChain) ConvertToActionPb() *iproto.ActionPb {
+// Proto converts StopSubChain to protobuf's ActionPb
+func (ssc *StopSubChain) Proto() *iproto.ActionPb {
 	pbSSC := &iproto.ActionPb{
 		Action: &iproto.ActionPb_StopSubChain{
 			StopSubChain: &iproto.StopSubChainPb{
@@ -113,7 +108,7 @@ func (ssc *StopSubChain) ConvertToActionPb() *iproto.ActionPb {
 
 // Serialize returns a serialized byte stream for the StopSubChain
 func (ssc *StopSubChain) Serialize() ([]byte, error) {
-	return proto.Marshal(ssc.ConvertToActionPb())
+	return proto.Marshal(ssc.Proto())
 }
 
 // ConvertFromActionPb converts a protobuf's ActionPb to StopSubChain
@@ -162,7 +157,7 @@ func (ssc *StopSubChain) IntrinsicGas() (uint64, error) {
 func (ssc *StopSubChain) Cost() (*big.Int, error) {
 	intrinsicGas, err := ssc.IntrinsicGas()
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get intrinsic gas for the StopSubChain action")
+		return nil, errors.Wrap(err, "failed to get intrinsic gas for the stop sub-chain action")
 	}
 	fee := big.NewInt(0).Mul(ssc.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas))
 	return fee, nil

@@ -14,11 +14,12 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
@@ -74,7 +75,7 @@ func TestAccountManager_Import(t *testing.T) {
 	err = m.Import(keyBytes)
 	require.NoError(err)
 
-	addr := testutil.ConstructAddress(1, pubKey1, priKey1)
+	addr := testaddress.ConstructAddress(1, pubKey1, priKey1)
 	val, err := m.keystore.Get(rawAddr1)
 	require.NoError(err)
 	require.Equal(addr, val)
@@ -130,7 +131,7 @@ func TestAccountManager_SignHash(t *testing.T) {
 	require := require.New(t)
 	m := NewMemAccountManager()
 
-	blk := blockchain.NewBlock(1, 0, hash.ZeroHash32B, testutil.TimestampNow(), nil, nil, nil)
+	blk := blockchain.NewBlock(1, 0, hash.ZeroHash32B, testutil.TimestampNow(), nil, nil, nil, nil)
 	hash := blk.HashBlock()
 
 	signature, err := m.SignHash(rawAddr1, hash[:])

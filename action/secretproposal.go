@@ -20,7 +20,7 @@ import (
 
 // SecretProposal defines the struct of DKG secret proposal
 type SecretProposal struct {
-	action
+	abstractAction
 	secret []uint32
 }
 
@@ -35,7 +35,7 @@ func NewSecretProposal(
 		return nil, errors.Wrap(ErrAddress, "address of sender or recipient is empty")
 	}
 	return &SecretProposal{
-		action: action{
+		abstractAction: abstractAction{
 			version: version.ProtocolVersion,
 			nonce:   nonce,
 			srcAddr: sender,
@@ -63,8 +63,8 @@ func (sp *SecretProposal) ByteStream() []byte {
 	return stream
 }
 
-// ConvertToActionPb converts SecretProposal to protobuf's ActionPb
-func (sp *SecretProposal) ConvertToActionPb() *iproto.ActionPb {
+// Proto converts SecretProposal to protobuf's ActionPb
+func (sp *SecretProposal) Proto() *iproto.ActionPb {
 	// used by account-based model
 	act := &iproto.ActionPb{
 		Action: &iproto.ActionPb_SecretProposal{
@@ -82,7 +82,7 @@ func (sp *SecretProposal) ConvertToActionPb() *iproto.ActionPb {
 
 // Serialize returns a serialized byte stream for the SecretProposal
 func (sp *SecretProposal) Serialize() ([]byte, error) {
-	return proto.Marshal(sp.ConvertToActionPb())
+	return proto.Marshal(sp.Proto())
 }
 
 // ConvertFromActionPb converts a protobuf's ActionPb to SecretProposal

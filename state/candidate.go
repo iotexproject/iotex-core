@@ -9,9 +9,9 @@ package state
 import (
 	"math/big"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
@@ -39,7 +39,7 @@ type Candidate struct {
 	LastUpdateHeight uint64
 }
 
-// CandidateList indicates the list of candidates which is sortable
+// CandidateList indicates the list of Candidates which is sortable
 type CandidateList []*Candidate
 
 func (l CandidateList) Len() int      { return len(l) }
@@ -47,6 +47,38 @@ func (l CandidateList) Swap(i, j int) { l[i], l[j] = l[j], l[i] }
 func (l CandidateList) Less(i, j int) bool {
 	res := l[i].Votes.Cmp(l[j].Votes)
 	return res == 1
+}
+
+// Serialize serializes a list of Candidates to bytes
+func (l *CandidateList) Serialize() ([]byte, error) {
+	candidatesPb := make([]*iproto.Candidate, 0, len(*l))
+	for _, cand := range *l {
+		candPb, err := candidateToPb(cand)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to convert candidate to protobuf's candidate message")
+		}
+		candidatesPb = append(candidatesPb, candPb)
+	}
+	return proto.Marshal(&iproto.CandidateList{Candidates: candidatesPb})
+}
+
+// Deserialize deserializes bytes to list of Candidates
+func (l *CandidateList) Deserialize(buf []byte) error {
+	candList := &iproto.CandidateList{}
+	if err := proto.Unmarshal(buf, candList); err != nil {
+		return errors.Wrap(err, "failed to unmarshal candidate list")
+	}
+	candidates := make(CandidateList, 0)
+	candidatesPb := candList.Candidates
+	for _, candPb := range candidatesPb {
+		cand, err := pbToCandidate(candPb)
+		if err != nil {
+			return errors.Wrap(err, "failed to convert protobuf's candidate message to candidate")
+		}
+		candidates = append(candidates, cand)
+	}
+	*l = candidates
+	return nil
 }
 
 // candidateToPb converts a candidate to protobuf's candidate message
@@ -82,37 +114,6 @@ func pbToCandidate(candPb *iproto.Candidate) (*Candidate, error) {
 		LastUpdateHeight: candPb.LastUpdateHeight,
 	}
 	return candidate, nil
-}
-
-// Serialize serializes a list of candidates to bytes
-func Serialize(candidates CandidateList) ([]byte, error) {
-	candidatesPb := make([]*iproto.Candidate, 0, len(candidates))
-	for _, cand := range candidates {
-		candPb, err := candidateToPb(cand)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to convert candidate to protobuf's candidate message")
-		}
-		candidatesPb = append(candidatesPb, candPb)
-	}
-	return proto.Marshal(&iproto.CandidateList{Candidates: candidatesPb})
-}
-
-// Deserialize deserializes bytes to list of candidates
-func Deserialize(buf []byte) (CandidateList, error) {
-	candList := &iproto.CandidateList{}
-	if err := proto.Unmarshal(buf, candList); err != nil {
-		return nil, errors.Wrap(err, "failed to unmarshal candidate list")
-	}
-	candidatesPb := candList.Candidates
-	candidates := make(CandidateList, 0, len(candidatesPb))
-	for _, candPb := range candidatesPb {
-		cand, err := pbToCandidate(candPb)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to convert protobuf's candidate message to candidate")
-		}
-		candidates = append(candidates, cand)
-	}
-	return candidates, nil
 }
 
 // MapToCandidates converts a map of cachedCandidates to candidate list

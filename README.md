@@ -18,79 +18,9 @@ IoTeX [whitepaper](https://iotex.io/white-paper) for details.
 Currently, This repo is of alpha-quality with limited features supported and it is subjected to rapid change. Please 
 contact us if you intend to run it in production.
 
-## System Components and Flowchart
-![systemflowchart_account](https://user-images.githubusercontent.com/15241597/44813900-e9717500-ab8f-11e8-8641-535c151c8df2.png)
+## Developer Support
+Feel free to contact us at our Gitter channel, we'd be happy to help: https://gitter.im/iotex-dev-community/Lobby
 
-## Feature List
-### Testnet Beta (codename: Epik)
-1. TBC (Transactions, Block & Chain)
-* Bech32-encoded address
-* Serialization and deserialize of messages on the wire
-* Merkle tree
-* Actions, transfers, votes, blocks and chain
-* Fast and reliable blockchain/state storage via BoltDB and DB transaction support
-* Improved block sync from network peers
-* Basic framework for script and VM
-* Account/state layer built on top of Merkle Patricia tree
-* Voting and unvoting for block producer candidates
-* New account-based action pool
-* Initial implementation of secure keystore of private keys
-* Initial integration with Ethereum Virtual Machine (EVM), smart contracts (Solidity)
-
-2. Network
-* Efficient gossip protocol over TLS
-* Broadcast & unicast semantics
-* Seeding through network config
-* Rate-limit requests per connection
-* Peer discovery
-* Large-scale simulation and load test
-
-3. Consensus
-* Framework for plugable consensus 
-* Standalone and NOOP schemes
-* Full implementation of FSM-based Roll-DPoS
-* Full integration with delegates pool
-* Roll-DPoS simulator
-* Initial implementation of random beacon
-
-4. Clients
-* Full implementation of JSON RPC
-* UI Design and backend implementation of explorer
-* Command line console
-* Basic wallet
-
-5. Crypto
-* libsect283 -- lightweight crypto library, with cgo binding
-* libtblsmnt -- complete BLS signature parameterization and implementation, with cgo binding
-* Implementation of distributed key generation (DKG) with cgo binding
-
-6. Testing \& Integration & Deployment
-* Improved action injection and address generation tools
-* Work-preserving restart
-* Dockerization of IoTeX server
-* Large-scale testnet deployment via Kubernetes
-* Unit test coverage ~70%
-* Thorough integration tests
-* Enhancement of existing features, performance and robustness
-
-### Mainnet Preview
-
-* Cross Chain Communication (CCC)
-* Improving VM and smart contract
-* Lightweight stealth address
-* Fast block sync and checkpointing
-* Full explorer and wallet supporting Hierarchical Deterministic (HD) addresses
-* SPV clients
-* Seeding through IPFS and version negotiation
-* Pluggable transportation framework w/ UDP + TCP support
-* Peer metrics
-* e2e demo among 500-1000 peers
-* Enhancement of existing features
-* Performance and stability improvement
-* And much more ...
-
-
-## Dev Tips
 ## Minimum requirements
 
 | Components | Version | Description |
@@ -110,6 +40,10 @@ Install Go dependency management tool from [golang dep](https://github.com/golan
 ```dep ensure --vendor-only```
 
 ```make fmt; make build```
+
+Note: If your Dev Environment is in Ubuntu, you need to export the following Path:
+
+LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$GOPATH/src/github.com/iotexproject/iotex-core/crypto/lib:$GOPATH/src/github.com/iotexproject/iotex-core/crypto/lib/blslib
 
 ~~#### Setup Precommit Hook~~
 
@@ -160,6 +94,33 @@ You will see log message output like:
 2018-08-28T10:03:42-07:00 |INFO| commit a block height=5 iotexAddr=io1qyqsyqcy8uhx9jtdc2xp5wx7nxyq3xf4c3jmxknzkuej8y networkAddress=127.0.0.1:4689 nodeType=delegate
 ```
 
+### Minicluster
+```make minicluster``` runs a cluster of 4 delegate nodes with RollDPoS consensus scheme while actions are automatically injected to one of the nodes.
+
+You will see log message output like:
+```
+2018-10-18T14:23:18-07:00 |INFO| commit a block height=0
+2018-10-18T14:23:18-07:00 |INFO| Starting IotxConsensus scheme scheme=ROLLDPOS
+2018-10-18T14:23:18-07:00 |INFO| commit a block height=0
+2018-10-18T14:23:18-07:00 |INFO| Starting IotxConsensus scheme scheme=ROLLDPOS
+2018-10-18T14:23:18-07:00 |INFO| commit a block height=0
+2018-10-18T14:23:18-07:00 |INFO| Starting IotxConsensus scheme scheme=ROLLDPOS
+2018-10-18T14:23:18-07:00 |INFO| commit a block height=0
+2018-10-18T14:23:18-07:00 |INFO| Starting IotxConsensus scheme scheme=ROLLDPOS
+2018-10-18T14:23:18-07:00 |INFO| Starting Explorer JSON-RPC server on [::]:14004
+2018-10-18T14:23:18-07:00 |INFO| Starting dispatcher
+2018-10-18T14:23:18-07:00 |INFO| Starting Explorer JSON-RPC server on [::]:14006
+2018-10-18T14:23:18-07:00 |INFO| Starting dispatcher
+2018-10-18T14:23:18-07:00 |INFO| Starting Explorer JSON-RPC server on [::]:14005
+2018-10-18T14:23:18-07:00 |INFO| Starting dispatcher
+2018-10-18T14:23:18-07:00 |INFO| start RPC server on 127.0.0.1:4689
+2018-10-18T14:23:18-07:00 |INFO| start RPC server on 127.0.0.1:4691
+2018-10-18T14:23:18-07:00 |INFO| start RPC server on 127.0.0.1:4690
+2018-10-18T14:23:18-07:00 |INFO| Starting Explorer JSON-RPC server on [::]:14007
+2018-10-18T14:23:18-07:00 |INFO| Starting dispatcher
+2018-10-18T14:23:18-07:00 |INFO| start RPC server on 127.0.0.1:4692
+```
+
 # Deploy w/ Docker Image
 
 ```make docker```
@@ -181,6 +142,7 @@ You can use command line flags to customize the injector.
 
 ```
 -injector-config-path=path_of_config_file_of_genesis_transfer_addresses
+-chain=id_of_target_chain
 -addr=target_address_for_jrpc_connection
 -transfer-num=number_of_transfers
 -transfer-gas-limit=transfer_gas_limit
@@ -205,6 +167,7 @@ You can use command line flags to customize the injector.
 
 Default flag values:
 * injector-config-path="./tools/actioninjector/gentsfaddrs.yaml"
+* chain=1
 * addr="127.0.0.1:14004"
 * transfer-num=50
 * transfer-gas-limit=1000000

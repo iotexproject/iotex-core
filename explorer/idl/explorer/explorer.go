@@ -9,16 +9,16 @@ import (
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "97e0f2efe11dee3190b33a6c0cb7fda8"
-const BarristerDateGenerated int64 = 1538418246052000000
+const BarristerChecksum string = "07829098ad6799699a099ece1307dee9"
+const BarristerDateGenerated int64 = 1539798719996000000
 
 type CoinStatistic struct {
-	Height     int64 `json:"height"`
-	Supply     int64 `json:"supply"`
-	Transfers  int64 `json:"transfers"`
-	Votes      int64 `json:"votes"`
-	Executions int64 `json:"executions"`
-	Aps        int64 `json:"aps"`
+	Height     int64  `json:"height"`
+	Supply     string `json:"supply"`
+	Transfers  int64  `json:"transfers"`
+	Votes      int64  `json:"votes"`
+	Executions int64  `json:"executions"`
+	Aps        int64  `json:"aps"`
 }
 
 type BlockGenerator struct {
@@ -877,7 +877,7 @@ var IdlJsonRaw = `[
             },
             {
                 "name": "supply",
-                "type": "int",
+                "type": "string",
                 "optional": false,
                 "is_array": false,
                 "comment": ""
@@ -2795,7 +2795,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1538418246052,
-        "checksum": "97e0f2efe11dee3190b33a6c0cb7fda8"
+        "date_generated": 1539798719996,
+        "checksum": "07829098ad6799699a099ece1307dee9"
     }
 ]`

@@ -15,8 +15,8 @@ import (
 	"github.com/facebookgo/clock"
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/address"
-	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/db"
@@ -36,8 +36,8 @@ type Blockchain interface {
 	Balance(addr string) (*big.Int, error)
 	// Nonce returns the nonce if the account exists
 	Nonce(addr string) (uint64, error)
-	// CreateState adds a new State with initial balance to the factory
-	CreateState(addr string, init uint64) (*state.State, error)
+	// CreateState adds a new account with initial balance to the factory
+	CreateState(addr string, init *big.Int) (*state.Account, error)
 	// CandidatesByHeight returns the candidate list by a given height
 	CandidatesByHeight(height uint64) ([]*state.Candidate, error)
 	// For exposing blockchain states
@@ -81,7 +81,7 @@ type Blockchain interface {
 	GetBlockHashByExecutionHash(h hash.Hash32B) (hash.Hash32B, error)
 	// GetReceiptByExecutionHash returns the receipt by execution hash
 	GetReceiptByExecutionHash(h hash.Hash32B) (*Receipt, error)
-	// GetFactory returns the State Factory
+	// GetFactory returns the state factory
 	GetFactory() state.Factory
 	// GetChainID returns the chain ID
 	ChainID() uint32
@@ -89,17 +89,22 @@ type Blockchain interface {
 	TipHash() hash.Hash32B
 	// TipHeight returns tip block's height
 	TipHeight() uint64
-	// StateByAddr returns state of a given address
-	StateByAddr(address string) (*state.State, error)
+	// StateByAddr returns account of a given address
+	StateByAddr(address string) (*state.Account, error)
 
 	// For block operations
-	// MintNewBlock creates a new block with given actions
+	// MintNewBlock creates a new block with given actions and dkg keys
 	// Note: the coinbase transfer will be added to the given transfers when minting a new block
-	MintNewBlock(tsf []*action.Transfer, vote []*action.Vote, executions []*action.Execution, address *iotxaddress.Address, data string) (*Block, error)
-	// TODO: Merge the MintNewDKGBlock into MintNewBlock
-	// MintNewDKGBlock creates a new block with given actions and dkg keys
-	MintNewDKGBlock(tsf []*action.Transfer, vote []*action.Vote, executions []*action.Execution,
-		producer *iotxaddress.Address, dkgAddress *iotxaddress.DKGAddress, seed []byte, data string) (*Block, error)
+	MintNewBlock(
+		tsf []*action.Transfer,
+		vote []*action.Vote,
+		executions []*action.Execution,
+		actions []action.Action,
+		producer *iotxaddress.Address,
+		dkgAddress *iotxaddress.DKGAddress,
+		seed []byte,
+		data string,
+	) (*Block, error)
 	// MintNewSecretBlock creates a new DKG secret block with given DKG secrets and witness
 	MintNewSecretBlock(secretProposals []*action.SecretProposal, secretWitness *action.SecretWitness,
 		producer *iotxaddress.Address) (*Block, error)
@@ -305,7 +310,7 @@ func (bc *blockchain) startEmptyBlockchain() error {
 	if err != nil {
 		return errors.Wrap(err, "Failed to obtain working set from state factory")
 	}
-	if _, err := ws.LoadOrCreateState(Gen.CreatorAddr(bc.ChainID()), Gen.TotalSupply); err != nil {
+	if _, err := ws.LoadOrCreateAccountState(Gen.CreatorAddr(bc.ChainID()), Gen.TotalSupply); err != nil {
 		return errors.Wrap(err, "failed to create Creator into StateFactory")
 	}
 	if _, err := ws.RunActions(0, nil, nil, nil, nil); err != nil {
@@ -348,7 +353,7 @@ func (bc *blockchain) startExistingBlockchain(recoveryHeight uint64) error {
 	}
 	// If restarting factory from fresh db, first create creator's state
 	if startHeight == 0 {
-		if _, err := ws.LoadOrCreateState(Gen.CreatorAddr(bc.ChainID()), Gen.TotalSupply); err != nil {
+		if _, err := ws.LoadOrCreateAccountState(Gen.CreatorAddr(bc.ChainID()), Gen.TotalSupply); err != nil {
 			return err
 		}
 		if _, err := ws.RunActions(0, nil, nil, nil, nil); err != nil {
@@ -402,9 +407,26 @@ func (bc *blockchain) Nonce(addr string) (uint64, error) {
 	return bc.sf.Nonce(addr)
 }
 
-// CreateState adds a new State with initial balance to the factory
-func (bc *blockchain) CreateState(addr string, init uint64) (*state.State, error) {
-	return bc.sf.LoadOrCreateState(addr, init)
+// CreateState adds a new account with initial balance to the factory
+func (bc *blockchain) CreateState(addr string, init *big.Int) (*state.Account, error) {
+	if bc.sf == nil {
+		return nil, errors.New("empty state factory")
+	}
+	ws, err := bc.sf.NewWorkingSet()
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to create clean working set")
+	}
+	account, err := ws.LoadOrCreateAccountState(addr, init)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to create new account %s", addr)
+	}
+	if _, err = ws.RunActions(0, nil, nil, nil, nil); err != nil {
+		return nil, errors.Wrap(err, "failed to run the account creation")
+	}
+	if err = bc.sf.Commit(ws); err != nil {
+		return nil, errors.Wrap(err, "failed to commit the account creation")
+	}
+	return account, nil
 }
 
 // CandidatesByHeight returns the candidate list by a given height
@@ -603,7 +625,7 @@ func (bc *blockchain) GetReceiptByExecutionHash(h hash.Hash32B) (*Receipt, error
 	return bc.dao.getReceiptByExecutionHash(h)
 }
 
-// GetFactory returns the State Factory
+// GetFactory returns the state factory
 func (bc *blockchain) GetFactory() state.Factory {
 	return bc.sf
 }
@@ -629,51 +651,25 @@ func (bc *blockchain) ValidateBlock(blk *Block, containCoinbase bool) error {
 	return bc.validateBlock(blk, containCoinbase)
 }
 
-// MintNewBlock creates a new block with given actions
-// Note: the coinbase transfer will be added to the given transfers
-// when minting a new block
-func (bc *blockchain) MintNewBlock(tsf []*action.Transfer, vote []*action.Vote, executions []*action.Execution,
-	producer *iotxaddress.Address, data string) (*Block, error) {
+func (bc *blockchain) MintNewBlock(
+	tsf []*action.Transfer,
+	vote []*action.Vote,
+	executions []*action.Execution,
+	actions []action.Action,
+	producer *iotxaddress.Address,
+	dkgAddress *iotxaddress.DKGAddress,
+	seed []byte,
+	data string,
+) (*Block, error) {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
 
-	tsf = append(tsf, action.NewCoinBaseTransfer(big.NewInt(int64(bc.genesis.BlockReward)), producer.RawAddress))
-	blk := NewBlock(bc.config.Chain.ID, bc.tipHeight+1, bc.tipHash, bc.now(), tsf, vote, executions)
+	tsf = append(tsf, action.NewCoinBaseTransfer(bc.genesis.BlockReward, producer.RawAddress))
+	blk := NewBlock(bc.config.Chain.ID, bc.tipHeight+1, bc.tipHash, bc.now(), tsf, vote, executions, actions)
 	blk.Header.DKGID = []byte{}
 	blk.Header.DKGPubkey = []byte{}
 	blk.Header.DKGBlockSig = []byte{}
-	// run execution and update state trie root hash
-	ws, err := bc.sf.NewWorkingSet()
-	if err != nil {
-		return nil, errors.Wrap(err, "Failed to obtain working set from state factory")
-	}
-	root, err := bc.runActions(blk, ws, false)
-	if err != nil {
-		return nil, errors.Wrapf(err, "Failed to update state changes in new block %d", blk.Height())
-	}
-	blk.Header.stateRoot = root
-	if err := blk.SignBlock(producer); err != nil {
-		return blk, err
-	}
-	// attach working set to be committed to state factory
-	blk.workingSet = ws
-	return blk, nil
-}
-
-// MintNewDKGBlock creates a new block with given actions and dkg keys
-// Note: the coinbase transfer will be added to the given transfers
-// when minting a new block
-func (bc *blockchain) MintNewDKGBlock(tsf []*action.Transfer, vote []*action.Vote, executions []*action.Execution,
-	producer *iotxaddress.Address, dkgAddress *iotxaddress.DKGAddress, seed []byte, data string) (*Block, error) {
-	bc.mu.RLock()
-	defer bc.mu.RUnlock()
-
-	tsf = append(tsf, action.NewCoinBaseTransfer(big.NewInt(int64(bc.genesis.BlockReward)), producer.RawAddress))
-	blk := NewBlock(bc.config.Chain.ID, bc.tipHeight+1, bc.tipHash, bc.now(), tsf, vote, executions)
-	blk.Header.DKGID = []byte{}
-	blk.Header.DKGPubkey = []byte{}
-	blk.Header.DKGBlockSig = []byte{}
-	if len(dkgAddress.PublicKey) > 0 && len(dkgAddress.PrivateKey) > 0 && len(dkgAddress.ID) > 0 {
+	if dkgAddress != nil && len(dkgAddress.PublicKey) > 0 && len(dkgAddress.PrivateKey) > 0 && len(dkgAddress.ID) > 0 {
 		blk.Header.DKGID = dkgAddress.ID
 		blk.Header.DKGPubkey = dkgAddress.PublicKey
 		var err error
@@ -732,7 +728,7 @@ func (bc *blockchain) MintNewDummyBlock() *Block {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
 
-	blk := NewBlock(bc.config.Chain.ID, bc.tipHeight+1, bc.tipHash, bc.now(), nil, nil, nil)
+	blk := NewBlock(bc.config.Chain.ID, bc.tipHeight+1, bc.tipHash, bc.now(), nil, nil, nil, nil)
 	blk.Header.Pubkey = keypair.ZeroPublicKey
 	blk.Header.blockSig = []byte{}
 
@@ -758,10 +754,10 @@ func (bc *blockchain) CommitBlock(blk *Block) error {
 	return bc.commitBlock(blk)
 }
 
-// StateByAddr returns the state of an address
-func (bc *blockchain) StateByAddr(address string) (*state.State, error) {
+// StateByAddr returns the account of an address
+func (bc *blockchain) StateByAddr(address string) (*state.Account, error) {
 	if bc.sf != nil {
-		s, err := bc.sf.State(address)
+		s, err := bc.sf.AccountState(address)
 		if err != nil {
 			logger.Warn().Err(err).Str("Address", address)
 			return nil, errors.New("account does not exist")
@@ -874,7 +870,7 @@ func (bc *blockchain) runActions(blk *Block, ws state.WorkingSet, verify bool) (
 		ExecuteContracts(blk, ws, bc)
 	}
 	// update state factory
-	if root, err = ws.RunActions(blk.Height(), blk.Transfers, blk.Votes, blk.Executions, nil); err != nil {
+	if root, err = ws.RunActions(blk.Height(), blk.Transfers, blk.Votes, blk.Executions, blk.Actions); err != nil {
 		return root, err
 	}
 	if verify {

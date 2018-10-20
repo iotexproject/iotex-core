@@ -8,23 +8,6 @@ package action
 
 import "github.com/pkg/errors"
 
-const (
-	// VersionSizeInBytes defines the size of version in byte units
-	VersionSizeInBytes = 4
-	// NonceSizeInBytes defines the size of nonce in byte units
-	NonceSizeInBytes = 8
-	// TimestampSizeInBytes defines the size of 8-byte timestamp
-	TimestampSizeInBytes = 8
-	// BooleanSizeInBytes defines the size of booleans
-	BooleanSizeInBytes = 1
-	// GasSizeInBytes defines the size of gas in byte uints
-	GasSizeInBytes = 8
-	// StopSubChainIntrinsicGas is the instrinsic gas for stop sub chain action
-	StopSubChainIntrinsicGas = uint64(1000)
-	// GasLimit is the total gas limit to be consumed in a block
-	GasLimit = uint64(1000000000)
-)
-
 var (
 	// ErrHitGasLimit is the error when hit gas limit
 	ErrHitGasLimit = errors.New("Hit Gas Limit")

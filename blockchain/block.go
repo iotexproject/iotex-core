@@ -14,10 +14,10 @@ import (
 	"github.com/golang/protobuf/proto"
 	"golang.org/x/crypto/blake2b"
 
-	"github.com/iotexproject/iotex-core/blockchain/action"
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/crypto"
+	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/iotxaddress"
-	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
@@ -25,6 +25,9 @@ import (
 	"github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/state"
 )
+
+// GasLimit is the total gas limit could be consumed in a block
+const GasLimit = uint64(1000000000)
 
 // Payee defines the struct of payee
 type Payee struct {
@@ -55,16 +58,25 @@ func (bh *BlockHeader) Timestamp() time.Time {
 	return time.Unix(int64(bh.timestamp), 0)
 }
 
+// BlockFooter defines a set of proof of this block
+type BlockFooter struct {
+	// endorsements contain COMMIT endorsements from more than 2/3 delegates
+	endorsements    *endorsement.Set
+	commitTimestamp uint64
+}
+
 // Block defines the struct of block
 type Block struct {
 	Header          *BlockHeader
 	Transfers       []*action.Transfer
 	Votes           []*action.Vote
+	Actions         []action.Action
 	Executions      []*action.Execution
 	SecretProposals []*action.SecretProposal
 	SecretWitness   *action.SecretWitness
 	receipts        map[hash.Hash32B]*Receipt
 	workingSet      state.WorkingSet
+	Footer          *BlockFooter
 }
 
 // NewBlock returns a new block
@@ -75,7 +87,9 @@ func NewBlock(
 	timestamp uint64,
 	tsf []*action.Transfer,
 	vote []*action.Vote,
-	executions []*action.Execution) *Block {
+	executions []*action.Execution,
+	actions []action.Action,
+) *Block {
 	block := &Block{
 		Header: &BlockHeader{
 			version:       version.ProtocolVersion,
@@ -90,6 +104,7 @@ func NewBlock(
 		Transfers:  tsf,
 		Votes:      vote,
 		Executions: executions,
+		Actions:    actions,
 	}
 
 	block.Header.txRoot = block.TxRoot()
@@ -126,7 +141,10 @@ func NewSecretBlock(
 
 // IsDummyBlock checks whether block is a dummy block
 func (b *Block) IsDummyBlock() bool {
-	return b.Header.height > 0 && len(b.Header.blockSig) == 0 && b.Header.Pubkey == keypair.ZeroPublicKey && len(b.Transfers)+len(b.Votes)+len(b.Executions) == 0
+	return b.Header.height > 0 &&
+		len(b.Header.blockSig) == 0 &&
+		b.Header.Pubkey == keypair.ZeroPublicKey &&
+		len(b.Transfers)+len(b.Votes)+len(b.Executions)+len(b.Actions) == 0
 }
 
 // Height returns the height of this block
@@ -187,6 +205,9 @@ func (b *Block) ByteStream() []byte {
 	if b.SecretWitness != nil {
 		stream = append(stream, b.SecretWitness.ByteStream()...)
 	}
+	for _, act := range b.Actions {
+		stream = append(stream, act.ByteStream()...)
+	}
 	return stream
 }
 
@@ -214,19 +235,22 @@ func (b *Block) ConvertToBlockHeaderPb() *iproto.BlockHeaderPb {
 func (b *Block) ConvertToBlockPb() *iproto.BlockPb {
 	actions := []*iproto.ActionPb{}
 	for _, tsf := range b.Transfers {
-		actions = append(actions, tsf.ConvertToActionPb())
+		actions = append(actions, tsf.Proto())
 	}
 	for _, vote := range b.Votes {
-		actions = append(actions, vote.ConvertToActionPb())
+		actions = append(actions, vote.Proto())
 	}
 	for _, execution := range b.Executions {
-		actions = append(actions, execution.ConvertToActionPb())
+		actions = append(actions, execution.Proto())
 	}
 	for _, secretProposal := range b.SecretProposals {
-		actions = append(actions, secretProposal.ConvertToActionPb())
+		actions = append(actions, secretProposal.Proto())
 	}
 	if b.SecretWitness != nil {
-		actions = append(actions, b.SecretWitness.ConvertToActionPb())
+		actions = append(actions, b.SecretWitness.Proto())
+	}
+	for _, act := range b.Actions {
+		actions = append(actions, act.Proto())
 	}
 	return &iproto.BlockPb{Header: b.ConvertToBlockHeaderPb(), Actions: actions}
 }
@@ -265,29 +289,30 @@ func (b *Block) ConvertFromBlockPb(pbBlock *iproto.BlockPb) {
 	b.SecretProposals = []*action.SecretProposal{}
 	b.SecretWitness = nil
 
-	for _, act := range pbBlock.Actions {
-		if tfPb := act.GetTransfer(); tfPb != nil {
+	for _, actPb := range pbBlock.Actions {
+		if tfPb := actPb.GetTransfer(); tfPb != nil {
 			tf := &action.Transfer{}
-			tf.ConvertFromActionPb(act)
+			tf.ConvertFromActionPb(actPb)
 			b.Transfers = append(b.Transfers, tf)
-		} else if votePb := act.GetVote(); votePb != nil {
+		} else if votePb := actPb.GetVote(); votePb != nil {
 			vote := &action.Vote{}
-			vote.ConvertFromActionPb(act)
+			vote.ConvertFromActionPb(actPb)
 			b.Votes = append(b.Votes, vote)
-		} else if executionPb := act.GetExecution(); executionPb != nil {
+		} else if executionPb := actPb.GetExecution(); executionPb != nil {
 			execution := &action.Execution{}
-			execution.ConvertFromActionPb(act)
+			execution.ConvertFromActionPb(actPb)
 			b.Executions = append(b.Executions, execution)
-		} else if secretProposalPb := act.GetSecretProposal(); secretProposalPb != nil {
+		} else if secretProposalPb := actPb.GetSecretProposal(); secretProposalPb != nil {
 			secretProposal := &action.SecretProposal{}
-			secretProposal.ConvertFromActionPb(act)
+			secretProposal.ConvertFromActionPb(actPb)
 			b.SecretProposals = append(b.SecretProposals, secretProposal)
-		} else if secretWitnessPb := act.GetSecretWitness(); secretWitnessPb != nil {
+		} else if secretWitnessPb := actPb.GetSecretWitness(); secretWitnessPb != nil {
 			secretWitness := &action.SecretWitness{}
-			secretWitness.ConvertFromActionPb(act)
+			secretWitness.ConvertFromActionPb(actPb)
 			b.SecretWitness = secretWitness
 		} else {
-			logger.Fatal().Msg("unexpected action")
+			act := action.NewActionFromProto(actPb)
+			b.Actions = append(b.Actions, act)
 		}
 	}
 }
@@ -328,6 +353,9 @@ func (b *Block) TxRoot() hash.Hash32B {
 	if b.SecretWitness != nil {
 		h = append(h, b.SecretWitness.Hash())
 	}
+	for _, act := range b.Actions {
+		h = append(h, act.Hash())
+	}
 	if len(h) == 0 {
 		return hash.ZeroHash32B
 	}
@@ -342,7 +370,7 @@ func (b *Block) HashBlock() hash.Hash32B {
 // VerifyStateRoot verifies the state root in header
 func (b *Block) VerifyStateRoot(root hash.Hash32B) error {
 	if b.Header.stateRoot != root {
-		return errors.New("State root hash does not match")
+		return errors.New("state root hash does not match")
 	}
 	return nil
 }

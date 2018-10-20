@@ -7,8 +7,8 @@ package mock_blockchain
 import (
 	context "context"
 	gomock "github.com/golang/mock/gomock"
+	action "github.com/iotexproject/iotex-core/action"
 	blockchain "github.com/iotexproject/iotex-core/blockchain"
-	action "github.com/iotexproject/iotex-core/blockchain/action"
 	iotxaddress "github.com/iotexproject/iotex-core/iotxaddress"
 	hash "github.com/iotexproject/iotex-core/pkg/hash"
 	state "github.com/iotexproject/iotex-core/state"
@@ -90,9 +90,9 @@ func (mr *MockBlockchainMockRecorder) Nonce(addr interface{}) *gomock.Call {
 }
 
 // CreateState mocks base method
-func (m *MockBlockchain) CreateState(addr string, init uint64) (*state.State, error) {
+func (m *MockBlockchain) CreateState(addr string, init *big.Int) (*state.Account, error) {
 	ret := m.ctrl.Call(m, "CreateState", addr, init)
-	ret0, _ := ret[0].(*state.State)
+	ret0, _ := ret[0].(*state.Account)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -424,9 +424,9 @@ func (mr *MockBlockchainMockRecorder) TipHeight() *gomock.Call {
 }
 
 // StateByAddr mocks base method
-func (m *MockBlockchain) StateByAddr(address string) (*state.State, error) {
+func (m *MockBlockchain) StateByAddr(address string) (*state.Account, error) {
 	ret := m.ctrl.Call(m, "StateByAddr", address)
-	ret0, _ := ret[0].(*state.State)
+	ret0, _ := ret[0].(*state.Account)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -437,29 +437,16 @@ func (mr *MockBlockchainMockRecorder) StateByAddr(address interface{}) *gomock.C
 }
 
 // MintNewBlock mocks base method
-func (m *MockBlockchain) MintNewBlock(tsf []*action.Transfer, vote []*action.Vote, executions []*action.Execution, address *iotxaddress.Address, data string) (*blockchain.Block, error) {
-	ret := m.ctrl.Call(m, "MintNewBlock", tsf, vote, executions, address, data)
+func (m *MockBlockchain) MintNewBlock(tsf []*action.Transfer, vote []*action.Vote, executions []*action.Execution, actions []action.Action, producer *iotxaddress.Address, dkgAddress *iotxaddress.DKGAddress, seed []byte, data string) (*blockchain.Block, error) {
+	ret := m.ctrl.Call(m, "MintNewBlock", tsf, vote, executions, actions, producer, dkgAddress, seed, data)
 	ret0, _ := ret[0].(*blockchain.Block)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // MintNewBlock indicates an expected call of MintNewBlock
-func (mr *MockBlockchainMockRecorder) MintNewBlock(tsf, vote, executions, address, data interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MintNewBlock", reflect.TypeOf((*MockBlockchain)(nil).MintNewBlock), tsf, vote, executions, address, data)
-}
-
-// MintNewDKGBlock mocks base method
-func (m *MockBlockchain) MintNewDKGBlock(tsf []*action.Transfer, vote []*action.Vote, executions []*action.Execution, producer *iotxaddress.Address, dkgAddress *iotxaddress.DKGAddress, seed []byte, data string) (*blockchain.Block, error) {
-	ret := m.ctrl.Call(m, "MintNewDKGBlock", tsf, vote, executions, producer, dkgAddress, seed, data)
-	ret0, _ := ret[0].(*blockchain.Block)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// MintNewDKGBlock indicates an expected call of MintNewDKGBlock
-func (mr *MockBlockchainMockRecorder) MintNewDKGBlock(tsf, vote, executions, producer, dkgAddress, seed, data interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MintNewDKGBlock", reflect.TypeOf((*MockBlockchain)(nil).MintNewDKGBlock), tsf, vote, executions, producer, dkgAddress, seed, data)
+func (mr *MockBlockchainMockRecorder) MintNewBlock(tsf, vote, executions, actions, producer, dkgAddress, seed, data interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MintNewBlock", reflect.TypeOf((*MockBlockchain)(nil).MintNewBlock), tsf, vote, executions, actions, producer, dkgAddress, seed, data)
 }
 
 // MintNewSecretBlock mocks base method

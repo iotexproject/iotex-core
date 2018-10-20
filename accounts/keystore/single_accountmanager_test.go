@@ -14,9 +14,9 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/blockchain/action"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -86,7 +86,7 @@ func TestSingleAccountManager_SignHash(t *testing.T) {
 	m, err := NewSingleAccountManager(accountManager)
 	require.NoError(err)
 
-	blk := blockchain.NewBlock(1, 0, hash.ZeroHash32B, testutil.TimestampNow(), nil, nil, nil)
+	blk := blockchain.NewBlock(1, 0, hash.ZeroHash32B, testutil.TimestampNow(), nil, nil, nil, nil)
 	hash := blk.HashBlock()
 	signature, err := m.SignHash(hash[:])
 	require.NoError(err)

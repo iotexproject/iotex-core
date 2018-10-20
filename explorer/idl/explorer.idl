@@ -17,7 +17,7 @@
 
 struct CoinStatistic {
     height int
-    supply int
+    supply string
     transfers int
     votes int
     executions int

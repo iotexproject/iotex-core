@@ -9,34 +9,71 @@ package db
 import (
 	"sync"
 
-	"github.com/boltdb/bolt"
 	"github.com/pkg/errors"
+
+	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
-// KVStoreBatch is the interface of Batch KVStore.
-// It buffers the Put/Delete operations and persist to DB in a single transaction upon Commit()
-type KVStoreBatch interface {
-	// Lock locks the batch
-	Lock()
-	// Unlock unlocks the batch
-	Unlock()
-	// Put insert or update a record identified by (namespace, key)
-	Put(string, []byte, []byte, string, ...interface{}) error
-	// PutIfNotExists puts a record only if (namespace, key) doesn't exist, otherwise return ErrAlreadyExist
-	PutIfNotExists(string, []byte, []byte, string, ...interface{}) error
-	// Delete deletes a record by (namespace, key)
-	Delete(string, []byte, string, ...interface{}) error
-	// Size returns the size of batch
-	Size() int
-	// Entry returns the entry at the index
-	Entry(int) (*writeInfo, error)
-	// Clear clear batch write queue
-	Clear() error
-	// Commit commit queued write to db
-	Commit() error
-	// KVStore returns the underlying KVStore
-	KVStore() KVStore
-}
+type (
+	// KVStoreBatch defines a batch buffer interface that stages Put/Delete entries in sequential order
+	// To use it, first start a new batch
+	// b := NewBatch()
+	// and keep batching Put/Delete operation into it
+	// b.Put(bucket, k, v)
+	// b.PutIfNotExists(bucket, k, v)
+	// b.Delete(bucket, k, v)
+	// once it's done, call KVStore interface's Commit() to persist to underlying DB
+	// KVStore.Commit(b)
+	KVStoreBatch interface {
+		// Lock locks the batch
+		Lock()
+		// ClearAndUnlock clears the write queue and unlocks the batch
+		ClearAndUnlock()
+		// Put insert or update a record identified by (namespace, key)
+		Put(string, []byte, []byte, string, ...interface{})
+		// PutIfNotExists puts a record only if (namespace, key) doesn't exist, otherwise return ErrAlreadyExist
+		PutIfNotExists(string, []byte, []byte, string, ...interface{}) error
+		// Delete deletes a record by (namespace, key)
+		Delete(string, []byte, string, ...interface{})
+		// Size returns the size of batch
+		Size() int
+		// Entry returns the entry at the index
+		Entry(int) (*writeInfo, error)
+		// Clear clears entries staged in batch
+		Clear()
+	}
+
+	// writeInfo is the struct to store Put/Delete operation info
+	writeInfo struct {
+		writeType   int32
+		namespace   string
+		key         []byte
+		value       []byte
+		errorFormat string
+		errorArgs   interface{}
+	}
+
+	// baseKVStoreBatch is the base implementation of KVStoreBatch
+	baseKVStoreBatch struct {
+		mutex      sync.RWMutex
+		writeQueue []writeInfo
+	}
+
+	// CachedBatch derives from Batch interface
+	// A local cache is added to provide fast retrieval of pending Put/Delete entries
+	CachedBatch interface {
+		KVStoreBatch
+		// Get gets a record by (namespace, key)
+		Get(string, []byte) ([]byte, error)
+	}
+
+	// cachedBatch implements the CachedBatch interface
+	cachedBatch struct {
+		baseKVStoreBatch
+		cache map[hash.CacheHash][]byte // local cache of batched <k, v> for fast query
+	}
+)
 
 const (
 	// Put indicate the type of write operation to be Put
@@ -46,22 +83,6 @@ const (
 	// PutIfNotExists indicate the type of write operation to be PutIfNotExists
 	PutIfNotExists int32 = 2
 )
-
-// writeInfo is the struct to store write operation info
-type writeInfo struct {
-	writeType   int32
-	namespace   string
-	key         []byte
-	value       []byte
-	errorFormat string
-	errorArgs   interface{}
-}
-
-// baseKVStoreBatch is the base class of KVStoreBatch
-type baseKVStoreBatch struct {
-	mutex      sync.Mutex
-	writeQueue []writeInfo
-}
 
 // NewBatch returns a batch
 func NewBatch() KVStoreBatch {
@@ -73,36 +94,32 @@ func (b *baseKVStoreBatch) Lock() {
 	b.mutex.Lock()
 }
 
-// Unlock unlocks the batch
-func (b *baseKVStoreBatch) Unlock() {
-	b.mutex.Unlock()
+// ClearAndUnlock clears the write queue and unlocks the batch
+func (b *baseKVStoreBatch) ClearAndUnlock() {
+	defer b.mutex.Unlock()
+	b.writeQueue = nil
 }
 
 // Put inserts a <key, value> record
-func (b *baseKVStoreBatch) Put(namespace string, key, value []byte, errorFormat string, errorArgs ...interface{}) error {
+func (b *baseKVStoreBatch) Put(namespace string, key, value []byte, errorFormat string, errorArgs ...interface{}) {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
-	b.writeQueue = append(b.writeQueue, writeInfo{writeType: Put, namespace: namespace,
-		key: key, value: value, errorFormat: errorFormat, errorArgs: errorArgs})
-	return nil
+	b.batch(Put, namespace, key, value, errorFormat, errorArgs)
 }
 
 // PutIfNotExists inserts a <key, value> record only if it does not exist yet, otherwise return ErrAlreadyExist
 func (b *baseKVStoreBatch) PutIfNotExists(namespace string, key, value []byte, errorFormat string, errorArgs ...interface{}) error {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
-	b.writeQueue = append(b.writeQueue, writeInfo{writeType: PutIfNotExists, namespace: namespace,
-		key: key, value: value, errorFormat: errorFormat, errorArgs: errorArgs})
+	b.batch(PutIfNotExists, namespace, key, value, errorFormat, errorArgs)
 	return nil
 }
 
 // Delete deletes a record
-func (b *baseKVStoreBatch) Delete(namespace string, key []byte, errorFormat string, errorArgs ...interface{}) error {
+func (b *baseKVStoreBatch) Delete(namespace string, key []byte, errorFormat string, errorArgs ...interface{}) {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
-	b.writeQueue = append(b.writeQueue, writeInfo{writeType: Delete, namespace: namespace,
-		key: key, errorFormat: errorFormat, errorArgs: errorArgs})
-	return nil
+	b.batch(Delete, namespace, key, nil, errorFormat, errorArgs)
 }
 
 // Size returns the size of batch
@@ -119,126 +136,96 @@ func (b *baseKVStoreBatch) Entry(index int) (*writeInfo, error) {
 }
 
 // Clear clear write queue
-func (b *baseKVStoreBatch) Clear() error {
+func (b *baseKVStoreBatch) Clear() {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
 	b.writeQueue = nil
+}
+
+func (b *baseKVStoreBatch) batch(op int32, namespace string, key, value []byte, errorFormat string, errorArgs ...interface{}) {
+	b.writeQueue = append(
+		b.writeQueue,
+		writeInfo{
+			writeType:   op,
+			namespace:   namespace,
+			key:         key,
+			value:       value,
+			errorFormat: errorFormat,
+			errorArgs:   errorArgs,
+		})
+}
+
+//======================================
+// CachedBatch implementation
+//======================================
+
+// NewCachedBatch returns a new cached batch buffer
+func NewCachedBatch() CachedBatch {
+	return &cachedBatch{
+		cache: make(map[hash.CacheHash][]byte),
+	}
+}
+
+// ClearAndUnlock clears the write queue and unlocks the batch
+func (cb *cachedBatch) ClearAndUnlock() {
+	defer cb.mutex.Unlock()
+	cb.cache = nil
+	cb.cache = make(map[hash.CacheHash][]byte)
+	cb.writeQueue = nil
+}
+
+// Put inserts a <key, value> record
+func (cb *cachedBatch) Put(namespace string, key, value []byte, errorFormat string, errorArgs ...interface{}) {
+	cb.mutex.Lock()
+	defer cb.mutex.Unlock()
+	cb.cache[cb.hash(namespace, key)] = value
+	cb.batch(Put, namespace, key, value, errorFormat, errorArgs)
+}
+
+// PutIfNotExists inserts a <key, value> record only if it does not exist yet, otherwise return ErrAlreadyExist
+func (cb *cachedBatch) PutIfNotExists(namespace string, key, value []byte, errorFormat string, errorArgs ...interface{}) error {
+	cb.mutex.Lock()
+	defer cb.mutex.Unlock()
+	if _, ok := cb.cache[cb.hash(namespace, key)]; ok {
+		return ErrAlreadyExist
+	}
+	cb.cache[cb.hash(namespace, key)] = value
+	cb.batch(PutIfNotExists, namespace, key, value, errorFormat, errorArgs)
 	return nil
 }
 
-// Commit needs to be implemented by derived class
-func (b *baseKVStoreBatch) Commit() error {
-	panic("not implement")
+// Delete deletes a record
+func (cb *cachedBatch) Delete(namespace string, key []byte, errorFormat string, errorArgs ...interface{}) {
+	cb.mutex.Lock()
+	defer cb.mutex.Unlock()
+	delete(cb.cache, cb.hash(namespace, key))
+	cb.batch(Delete, namespace, key, nil, errorFormat, errorArgs)
 }
 
-// KVStore needs to be implemented by derived class
-func (b *baseKVStoreBatch) KVStore() KVStore {
-	panic("not implement")
+// Clear clear the cached batch buffer
+func (cb *cachedBatch) Clear() {
+	cb.mutex.Lock()
+	defer cb.mutex.Unlock()
+	cb.cache = nil
+	cb.cache = make(map[hash.CacheHash][]byte)
+	cb.writeQueue = nil
 }
 
-//======================================
-// memKVStoreBatch is the in-memory implementation of KVStoreBatch for testing purpose
-//======================================
-type memKVStoreBatch struct {
-	baseKVStoreBatch
-	kv *memKVStore
-}
-
-// NewMemKVStoreBatch instantiates an in-memory KV store
-func NewMemKVStoreBatch(kv *memKVStore) KVStoreBatch {
-	return &memKVStoreBatch{kv: kv}
-}
-
-// Commit persists pending writes to DB and clears the write queue
-func (m *memKVStoreBatch) Commit() error {
-	for _, write := range m.writeQueue {
-		if write.writeType == Put {
-			if err := m.kv.Put(write.namespace, write.key, write.value); err != nil {
-				return err
-			}
-		} else if write.writeType == PutIfNotExists {
-			if err := m.kv.PutIfNotExists(write.namespace, write.key, write.value); err != nil {
-				return err
-			}
-		} else if write.writeType == Delete {
-			if err := m.kv.Delete(write.namespace, write.key); err != nil {
-				return err
-			}
-		}
+// Get retrieves a record
+func (cb *cachedBatch) Get(namespace string, key []byte) ([]byte, error) {
+	cb.mutex.RLock()
+	defer cb.mutex.RUnlock()
+	if v, ok := cb.cache[cb.hash(namespace, key)]; ok {
+		return v, nil
 	}
-	// clear queues
-	return m.Clear()
-}
-
-// KVStore returns the underlying KVStore
-func (m *memKVStoreBatch) KVStore() KVStore {
-	return m.kv
+	return nil, ErrNotExist
 }
 
 //======================================
-// boltDBBatch is the DB implementation of KVStoreBatch
+// private functions
 //======================================
-type boltDBBatch struct {
-	baseKVStoreBatch
-	bdb *boltDB
-}
-
-// NewBoltDBBatch instantiates a boltdb based KV store
-func NewBoltDBBatch(bdb *boltDB) KVStoreBatch {
-	return &boltDBBatch{bdb: bdb}
-}
-
-// Commit persists pending writes to DB and clears the write queue
-func (b *boltDBBatch) Commit() error {
-	var err error
-	numRetries := b.bdb.config.NumRetries
-	for c := uint8(0); c < numRetries; c++ {
-		err = b.bdb.db.Update(func(tx *bolt.Tx) error {
-			for _, write := range b.writeQueue {
-				if write.writeType == Put {
-					bucket, err := tx.CreateBucketIfNotExists([]byte(write.namespace))
-					if err != nil {
-						return errors.Wrapf(err, write.errorFormat, write.errorArgs)
-					}
-					if err := bucket.Put(write.key, write.value); err != nil {
-						return errors.Wrapf(err, write.errorFormat, write.errorArgs)
-					}
-				} else if write.writeType == PutIfNotExists {
-					bucket, err := tx.CreateBucketIfNotExists([]byte(write.namespace))
-					if err != nil {
-						return errors.Wrapf(err, write.errorFormat, write.errorArgs)
-					}
-					if bucket.Get(write.key) == nil {
-						if err := bucket.Put(write.key, write.value); err != nil {
-							return errors.Wrapf(err, write.errorFormat, write.errorArgs)
-						}
-					} else {
-						return ErrAlreadyExist
-					}
-				} else if write.writeType == Delete {
-					bucket := tx.Bucket([]byte(write.namespace))
-					if bucket == nil {
-						return nil
-					}
-					if err := bucket.Delete(write.key); err != nil {
-						return errors.Wrapf(err, write.errorFormat, write.errorArgs)
-					}
-				}
-			}
-
-			return nil
-		})
-
-		if err == nil || err == ErrAlreadyExist {
-			break
-		}
-	}
-
-	// clear queues
-	b.Clear()
-
-	return err
-}
-
-// KVStore returns the underlying KVStore
-func (b *boltDBBatch) KVStore() KVStore {
-	return b.bdb
+func (cb *cachedBatch) hash(namespace string, key []byte) hash.CacheHash {
+	stream := hash.Hash160b([]byte(namespace))
+	stream = append(stream, key...)
+	return byteutil.BytesToCacheHash(hash.Hash160b(stream))
 }
