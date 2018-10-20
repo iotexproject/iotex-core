@@ -18,8 +18,14 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/hash"
 )
 
-// RADIX specifies the number of unique digits in patricia
-const RADIX = 256
+const (
+	// RADIX equals 2^Nibble, where Nibble is the number of bits to be parsed each time
+	RADIX = 256
+	// BRANCH means the node is a branch
+	BRANCH = 1
+	// EXTLEAF means the node is an ext or leaf
+	EXTLEAF = 0
+)
 
 var (
 	// ErrInvalidPatricia indicates invalid operation
@@ -33,10 +39,10 @@ type (
 	patricia interface {
 		descend([]byte) ([]byte, int, error)
 		ascend([]byte, byte) error
-		insert([]byte, []byte, *list.List) error
+		insert([]byte, []byte, int, *list.List) error
 		increase([]byte) (int, int, int)
-		collapse([]byte, []byte, byte, bool) ([]byte, []byte, bool)
-		set([]byte, byte) error
+		collapse([]byte, byte) ([]byte, []byte, int, error)
+		set([]byte) error
 		blob() ([]byte, []byte, error)
 		hash() hash.Hash32B // hash of this node
 		serialize() ([]byte, error)
@@ -44,15 +50,24 @@ type (
 	}
 	// key of next patricia node
 	ptrcKey []byte
-	// branch is the full node having 256 hashes for next level patricia node + hash of leaf node
+	// branch is the full node storing 256 hashes of next level node
 	branch struct {
 		Split bool
 		Path  [RADIX]ptrcKey
-		Value []byte
 	}
-	// leaf is squashed path + actual value (or hash of next patricia node for extension)
+	// there are 2 types of nodes
+	// Leaf is always the final node on the path, storing actual value
+	// Ext stores the squashed path, and hash of next node
+	// for Leaf:
+	// l.Ext  = the length of prefix path leading to this leaf
+	// l.Path = the full path
+	// l.Vaue = the actual value
+	// for Ext:
+	// e.Ext  = 0
+	// e.Path = squashed path from its parent child leading to its child node
+	// e.Vaue = hash of child node
 	leaf struct {
-		Ext   byte // this is an extension node
+		Ext   int
 		Path  ptrcKey
 		Value []byte
 	}
@@ -75,21 +90,25 @@ func (b *branch) ascend(key []byte, index byte) error {
 	if b.Path[index] != nil || b.Split {
 		b.Split = false
 		b.Path[index] = nil
-		b.Path[index] = make([]byte, hash.HashSize)
+		b.Path[index] = make([]byte, len(key))
 		copy(b.Path[index], key)
 	}
 	return nil
 }
 
 // insert <k, v> at current patricia node
-func (b *branch) insert(k, v []byte, stack *list.List) error {
-	node := b.Path[k[0]]
+func (b *branch) insert(k, v []byte, prefix int, stack *list.List) error {
+	divK := k[prefix:]
+	node := b.Path[divK[0]]
 	if node != nil {
 		return errors.Wrapf(ErrInvalidPatricia, "branch already has path = %d", k[0])
 	}
 	// create a new leaf
-	l := leaf{0, k[1:], v}
+	l := leaf{prefix + 1, make([]byte, len(k)), v}
+	copy(l.Path, k)
 	stack.PushBack(&l)
+	h := l.hash()
+	logger.Debug().Hex("newL", h[:8]).Int("prefix", l.Ext).Hex("path", k[l.Ext:]).Msg("splitB")
 	b.Split = true
 	return nil
 }
@@ -99,48 +118,29 @@ func (b *branch) increase(key []byte) (int, int, int) {
 	return 0, 0, 1
 }
 
-// collapse updates the node, returns the <key, value> if the node can be collapsed
-// value is the hash of only remaining leaf node, another DB access is needed to get the actual value
-func (b *branch) collapse(k, v []byte, index byte, childClps bool) ([]byte, []byte, bool) {
-	// if child cannot collapse, no need to check and return false
-	if !childClps {
-		return k, v, false
-	}
-	// value == nil means no entry exist on the incoming path, trim it
-	if v == nil {
+// collapse updates the node, returns the path and key if the node can be collapsed
+func (b *branch) collapse(key []byte, index byte) ([]byte, []byte, int, error) {
+	if key == nil {
 		b.Path[index] = nil
-	}
-	// count number of remaining path
-	nb := 0
-	var key, value []byte
-	for i := 0; i < RADIX; i++ {
-		if len(b.Path[i]) > 0 {
-			nb++
-			key = []byte{byte(i)}
-			value = b.Path[i]
+		// count number of remaining path
+		nb := 0
+		path := byte(0)
+		for i := 0; i < RADIX; i++ {
+			if len(b.Path[i]) > 0 {
+				nb++
+				key = b.Path[i]
+				path = byte(i)
+			}
 		}
+		logger.Debug().Uint8("branch", index).Msg("trim")
+		return []byte{path}, key, nb, nil
 	}
-	// branch can be collapsed if less than 1 path remaining
-	if nb <= 1 {
-		if v == nil {
-			// incoming path is trimmed, set k to nil and v to value
-			// so it returns the remaining path <key, value> 4 lines below
-			k = nil
-			v = value
-		}
-		return append(key, k...), v, true
-	}
-	return k, v, false
+	return nil, nil, 2, b.ascend(key, index)
 }
 
 // set assigns v to the node
-func (b *branch) set(v []byte, index byte) error {
-	if b.Path[index] != nil {
-		return errors.Wrapf(ErrInvalidPatricia, "branch already has path = %d", index)
-	}
-	b.Path[index] = make([]byte, hash.HashSize)
-	copy(b.Path[index], v)
-	return nil
+func (b *branch) set(v []byte) error {
+	return errors.Wrapf(ErrInvalidPatricia, "set() should not be called on branch")
 }
 
 // blob return the <k, v> stored in the node
@@ -155,7 +155,6 @@ func (b *branch) hash() hash.Hash32B {
 	for i := 0; i < RADIX; i++ {
 		stream = append(stream, b.Path[i]...)
 	}
-	stream = append(stream, b.Value...)
 	return blake2b.Sum256(stream)
 }
 
@@ -166,8 +165,8 @@ func (b *branch) serialize() ([]byte, error) {
 	if err := enc.Encode(b); err != nil {
 		return nil, err
 	}
-	// first byte denotes the type of patricia: 2-branch, 1-extension, 0-leaf
-	return append([]byte{2}, stream.Bytes()...), nil
+	// first byte denotes the type of patricia: 1-branch, 0-ext/leaf
+	return append([]byte{BRANCH}, stream.Bytes()...), nil
 }
 
 // deserialize to branch
@@ -192,9 +191,9 @@ func (b *branch) print() {
 // descend returns the key to retrieve next patricia, and length of matching path in bytes
 func (l *leaf) descend(key []byte) ([]byte, int, error) {
 	match := 0
-	for l.Path[match] == key[match] {
+	for l.Path[l.Ext+match] == key[match] {
 		match++
-		if match == len(l.Path) {
+		if l.Ext+match == len(l.Path) {
 			return l.Value, match, nil
 		}
 	}
@@ -204,73 +203,68 @@ func (l *leaf) descend(key []byte) ([]byte, int, error) {
 // ascend updates the key as a result of child node update
 func (l *leaf) ascend(key []byte, index byte) error {
 	// leaf node will be replaced by newly created node, no need to update hash
-	if l.Ext == 0 {
+	if l.Ext > EXTLEAF {
 		return errors.Wrap(ErrInvalidPatricia, "leaf should not exist on path ascending to root")
 	}
 	l.Value = nil
-	l.Value = make([]byte, hash.HashSize)
+	l.Value = make([]byte, len(key))
 	copy(l.Value, key)
 	return nil
 }
 
 // insert <k, v> at current patricia node
-func (l *leaf) insert(k, v []byte, stack *list.List) error {
-	// get the matching length
+func (l *leaf) insert(k, v []byte, prefix int, stack *list.List) error {
+	divK := k[prefix:]
+	// get the matching length on diverging path
 	match := 0
-	for l.Path[match] == k[match] {
+	for l.Path[l.Ext+match] == divK[match] {
 		match++
 	}
 	// insert() gets called b/c path does not totally match so the below should not happen, but check anyway
 	if match == len(l.Path) {
 		return errors.Wrapf(ErrInvalidPatricia, "leaf already has total matching path = %x", l.Path)
 	}
-	if l.Ext == 1 {
-		// split the current ext
-		logger.Debug().Hex("divKey", k[match:]).Msg("splitE")
-		if err := l.split(match, k[match:], v, stack); err != nil {
-			return err
-		}
-		n := stack.Front()
-		ptr, _ := n.Value.(patricia)
-		hash := ptr.hash()
-		//======================================
-		// the matching part becomes a new ext leading to top of split
-		// new E <P[:match]> -> top of split
-		//======================================
-		if match > 0 {
-			e := leaf{1, l.Path[:match], hash[:]}
-			stack.PushFront(&e)
-			hashe := e.hash()
-			logger.Debug().Hex("topE", hashe[:8]).Hex("path", l.Path[:match]).Msg("splitE")
-		} else {
-			logger.Debug().Hex("topB", hash[:8]).Hex("path", l.Path[:match]).Msg("splitE")
-		}
-		return nil
-	}
-	// add 2 leaf, l1 is current node, l2 for new <key, value>
-	l1 := leaf{0, l.Path[match+1:], l.Value}
-	hashl1 := l1.hash()
-	logger.Debug().Hex("currL", hashl1[:8]).Hex("path", l.Path[match+1:]).Msg("splitL")
-	l2 := leaf{0, k[match+1:], v}
-	hashl2 := l2.hash()
-	logger.Debug().Hex("newL", hashl2[:8]).Hex("path", k[match+1:]).Msg("splitL")
-	// add 1 branch to link 2 new leaf
+	// add leaf for new <k, v>
+	l1 := leaf{prefix + match + 1, make([]byte, len(k)), v}
+	copy(l1.Path, k)
+	hashl := l1.hash()
+	logger.Debug().Hex("newL", hashl[:8]).Int("prefix", l1.Ext).Hex("path", k[l1.Ext:]).Msg("splitL")
+	// add 1 branch to link new leaf and current ext
 	b := branch{}
-	b.Path[l.Path[match]] = hashl1[:]
-	b.Path[k[match]] = hashl2[:]
-	stack.PushBack(&b)
+	b.Path[divK[match]] = hashl[:]
+	if l.Ext == EXTLEAF {
+		// split the current ext
+		divE := l.Path[match:]
+		switch len(divE) {
+		case 1:
+			b.Path[divE[0]] = l.Value
+			logger.Debug().Hex("currL", l.Value[:8]).Hex("path", divE[0:1]).Msg("splitE")
+		default:
+			// add 1 ext to link to current ext
+			e := leaf{EXTLEAF, divE[1:], l.Value}
+			hashe := e.hash()
+			logger.Debug().Hex("currE", hashe[:8]).Hex("k", divE[1:]).Hex("v", l.Value).Msg("splitE")
+			// link new leaf and current ext (which becomes e)
+			b.Path[divE[0]] = hashe[:]
+			stack.PushBack(&e)
+		}
+	} else {
+		l2 := leaf{l.Ext + match + 1, l.Path, l.Value}
+		hashl := l2.hash()
+		logger.Debug().Hex("currL", hashl[:8]).Int("prefix", l2.Ext).Hex("path", l2.Path[l2.Ext:]).Msg("splitL")
+		b.Path[l2.Path[l2.Ext-1]] = hashl[:]
+		stack.PushBack(&l2)
+	}
 	stack.PushBack(&l1)
-	stack.PushBack(&l2)
-	// if there's matching part, add 1 ext leading to new branch
+	stack.PushFront(&b)
+	hashb := b.hash()
+	logger.Debug().Hex("newB", hashb[:8]).Msg("split")
+	// if there's matching part, add 1 ext leading to top of split
 	if match > 0 {
-		hashb := b.hash()
-		e := leaf{1, k[:match], hashb[:]}
+		e := leaf{EXTLEAF, l.Path[l.Ext : l.Ext+match], hashb[:]}
 		stack.PushFront(&e)
 		hashe := e.hash()
-		logger.Debug().Hex("topE", hashe[:8]).Hex("path", l.Path[:match]).Msg("splitL")
-	} else {
-		hashb := b.hash()
-		logger.Debug().Hex("topB", hashb[:8]).Hex("path", l.Path[:match]).Msg("splitL")
+		logger.Debug().Hex("topE", hashe[:8]).Hex("path", e.Path).Msg("split")
 	}
 	return nil
 }
@@ -283,7 +277,7 @@ func (l *leaf) increase(key []byte) (int, int, int) {
 		match++
 	}
 	B, E, L := 1, 0, 0
-	if l.Ext == 1 {
+	if l.Ext == EXTLEAF {
 		L = 1
 		switch len(l.Path[match:]) {
 		case 1:
@@ -302,18 +296,18 @@ func (l *leaf) increase(key []byte) (int, int, int) {
 	return B, E, L
 }
 
-// collapse updates the node, returns the <key, value> if the node can be collapsed
-func (l *leaf) collapse(k, v []byte, index byte, childCollapse bool) ([]byte, []byte, bool) {
-	// if child cannot collapse, no need to check and return false
-	if !childCollapse {
-		return k, v, false
+// collapse updates the node, returns the path and key if the node can be collapsed
+func (l *leaf) collapse(key []byte, index byte) ([]byte, []byte, int, error) {
+	if key == nil {
+		// the child node is removed, so can this ext
+		return nil, nil, 0, nil
 	}
-	return append(l.Path, k...), v, true
+	return l.Path, l.Value, 1, l.ascend(key, index)
 }
 
 // set assigns v to the node
-func (l *leaf) set(v []byte, index byte) error {
-	if l.Ext == 1 {
+func (l *leaf) set(v []byte) error {
+	if l.Ext == EXTLEAF {
 		return errors.Wrap(ErrInvalidPatricia, "ext should not be updated")
 	}
 	l.Value = nil
@@ -324,7 +318,7 @@ func (l *leaf) set(v []byte, index byte) error {
 
 // blob return the <k, v> stored in the node
 func (l *leaf) blob() ([]byte, []byte, error) {
-	if l.Ext == 1 {
+	if l.Ext == EXTLEAF {
 		// ext node stores the hash to next patricia node
 		return nil, nil, errors.Wrap(ErrInvalidPatricia, "ext does not store value")
 	}
@@ -333,7 +327,7 @@ func (l *leaf) blob() ([]byte, []byte, error) {
 
 // hash return the hash of this node
 func (l *leaf) hash() hash.Hash32B {
-	stream := append([]byte{l.Ext}, l.Path...)
+	stream := append([]byte{byte(l.Ext)}, l.Path...)
 	stream = append(stream, l.Value...)
 	return blake2b.Sum256(stream)
 }
@@ -345,8 +339,8 @@ func (l *leaf) serialize() ([]byte, error) {
 	if err := enc.Encode(l); err != nil {
 		return nil, err
 	}
-	// first byte denotes the type of patricia: 2-branch, 1-extension, 0-leaf
-	return append([]byte{l.Ext}, stream.Bytes()...), nil
+	// first byte denotes the type of patricia: 1-branch, 0-leaf
+	return append([]byte{EXTLEAF}, stream.Bytes()...), nil
 }
 
 // deserialize to leaf
@@ -355,47 +349,4 @@ func (l *leaf) deserialize(stream []byte) error {
 	*l = leaf{}
 	dec := gob.NewDecoder(bytes.NewBuffer(stream[1:]))
 	return dec.Decode(l)
-}
-
-// split diverging path
-//======================================
-// len(k) == 1
-// E -> B[P[0]] -> E.value>
-//      B[k[0]] -> Leaf <k[1:], v> this is the <k, v> to be inserted
-// len(k) > 1
-// E -> B[P[0]] -> E <P[1:]], E.value>
-//      B[k[0]] -> Leaf <k[1:], v> this is the <k, v> to be inserted
-//======================================
-func (l *leaf) split(match int, k, v []byte, stack *list.List) error {
-	var node patricia
-	divPath := l.Path[match:]
-	logger.Debug().Hex("curr key", divPath).Msg("diverge")
-	// add leaf for new <k, v>
-	l1 := leaf{0, k[1:], v}
-	hashl := l1.hash()
-	logger.Debug().Hex("newL", hashl[:8]).Hex("path", k[1:]).Msg("splitE")
-	// add 1 branch to link new leaf and current ext (which may split as below)
-	b := branch{}
-	b.Path[k[0]] = hashl[:]
-	switch len(divPath) {
-	case 1:
-		b.Path[divPath[0]] = l.Value
-		logger.Debug().Hex("currL", hashl[:8]).Hex("path", divPath[0:1]).Msg("splitE")
-	default:
-		// add 1 ext to split current ext
-		e := leaf{1, divPath[1:], l.Value}
-		hashe := e.hash()
-		logger.Debug().Hex("currE", hashe[:8]).Hex("k", divPath[1:]).Hex("v", l.Value).Msg("splitE")
-		// link new leaf and current ext (which becomes e)
-		b.Path[divPath[0]] = hashe[:]
-		node = &e
-	}
-	hashb := b.hash()
-	stack.PushBack(&b)
-	logger.Debug().Hex("newB", hashb[:8]).Hex("path", k[0:1]).Msg("splitE")
-	if node != nil {
-		stack.PushBack(node)
-	}
-	stack.PushBack(&l1)
-	return nil
 }
