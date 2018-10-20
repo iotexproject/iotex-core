@@ -26,9 +26,7 @@ import (
 )
 
 /**
- * TODO:
- *  1. Store endorse decisions of follow up status
- *  2. For the nodes received correct proposal, add proposer's proposal endorse without signature, which could be replaced with real signature
+ * TODO: For the nodes received correct proposal, add proposer's proposal endorse without signature, which could be replaced with real signature
  */
 
 var (
