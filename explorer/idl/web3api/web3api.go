@@ -3,98 +3,99 @@ package web3api
 
 import (
 	"fmt"
-	"github.com/coopernurse/barrister-go"
 	"reflect"
+	"github.com/coopernurse/barrister-go"
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "e1af3336c2226b9df7361f9b5183e90b"
-const BarristerDateGenerated int64 = 1539584175743000000
+const BarristerChecksum string = "fc65cc5644e81be2fa2132a6448dc10d"
+const BarristerDateGenerated int64 = 1540015918100000000
 
 type CallArgs struct {
-	From     string `json:"from"`
-	To       string `json:"to"`
-	Gas      int64  `json:"gas"`
-	GasPrice int64  `json:"gasPrice"`
-	Value    int64  `json:"value"`
-	Data     string `json:"data"`
+	From	string	`json:"from"`
+	To	string	`json:"to"`
+	Gas	int64	`json:"gas"`
+	GasPrice	int64	`json:"gasPrice"`
+	Value	int64	`json:"value"`
+	Data	string	`json:"data"`
 }
 
 type SendTxArgs struct {
-	From     string `json:"from"`
-	To       string `json:"to"`
-	Gas      int64  `json:"gas"`
-	GasPrice int64  `json:"gasPrice"`
-	Value    int64  `json:"value"`
-	Nonce    int64  `json:"nonce"`
-	Data     string `json:"data"`
-	Input    string `json:"input"`
+	From	string	`json:"from"`
+	To	string	`json:"to"`
+	Gas	int64	`json:"gas"`
+	GasPrice	int64	`json:"gasPrice"`
+	Value	int64	`json:"value"`
+	Nonce	int64	`json:"nonce"`
+	Data	string	`json:"data"`
+	Input	string	`json:"input"`
 }
 
 type Log struct {
-	Address     string   `json:"address"`
-	Topics      []string `json:"topics"`
-	Data        string   `json:"Data"`
-	BlockNumber int64    `json:"BlockNumber"`
-	TxHash      string   `json:"TxHash"`
-	TxIndex     int64    `json:"TxIndex"`
-	BlockHash   string   `json:"BlockHash"`
-	Index       int64    `json:"Index"`
-	Removed     bool     `json:"Removed"`
+	Address	string	`json:"address"`
+	Topics	[]string	`json:"topics"`
+	Data	string	`json:"Data"`
+	BlockNumber	int64	`json:"BlockNumber"`
+	TxHash	string	`json:"TxHash"`
+	TxIndex	int64	`json:"TxIndex"`
+	BlockHash	string	`json:"BlockHash"`
+	Index	int64	`json:"Index"`
+	Removed	bool	`json:"Removed"`
 }
 
 type Transaction struct {
-	BlockHash        string `json:"blockHash"`
-	BlockNumber      int64  `json:"blockNumber"`
-	From             string `json:"from"`
-	Gas              int64  `json:"gas"`
-	GasPrice         int64  `json:"gasPrice"`
-	Hash             string `json:"hash"`
-	Input            string `json:"input"`
-	Nonce            int64  `json:"nonce"`
-	To               string `json:"to"`
-	TransactionIndex int64  `json:"transactionIndex"`
-	Value            int64  `json:"value"`
-	V                int64  `json:"v"`
-	R                string `json:"r"`
-	S                string `json:"s"`
+	BlockHash	string	`json:"blockHash"`
+	BlockNumber	int64	`json:"blockNumber"`
+	From	string	`json:"from"`
+	Gas	int64	`json:"gas"`
+	GasPrice	int64	`json:"gasPrice"`
+	Hash	string	`json:"hash"`
+	Input	string	`json:"input"`
+	Nonce	int64	`json:"nonce"`
+	To	string	`json:"to"`
+	TransactionIndex	int64	`json:"transactionIndex"`
+	Value	int64	`json:"value"`
+	V	int64	`json:"v"`
+	R	string	`json:"r"`
+	S	string	`json:"s"`
 }
 
 type TransactionReceipt struct {
-	BlockHash         string `json:"blockHash"`
-	BlockNumber       int64  `json:"blockNumber"`
-	TransactionHash   string `json:"transactionHash"`
-	TransactionIndex  int64  `json:"transactionIndex"`
-	From              string `json:"from"`
-	To                string `json:"to"`
-	GasUsed           int64  `json:"gasUsed"`
-	CumulativeGasUsed int64  `json:"cumulativeGasUsed"`
-	ContractAddress   string `json:"contractAddress"`
-	Logs              []Log  `json:"logs"`
-	LogsBloom         string `json:"logsBloom"`
+	BlockHash	string	`json:"blockHash"`
+	BlockNumber	int64	`json:"blockNumber"`
+	TransactionHash	string	`json:"transactionHash"`
+	TransactionIndex	int64	`json:"transactionIndex"`
+	From	string	`json:"from"`
+	To	string	`json:"to"`
+	GasUsed	int64	`json:"gasUsed"`
+	CumulativeGasUsed	int64	`json:"cumulativeGasUsed"`
+	ContractAddress	string	`json:"contractAddress"`
+	Logs	[]Log	`json:"logs"`
+	LogsBloom	string	`json:"logsBloom"`
 }
 
 type Block struct {
-	Number           int64         `json:"number"`
-	Hash             string        `json:"hash"`
-	ParentHash       string        `json:"parentHash"`
-	Nonce            string        `json:"nonce"`
-	Sha3Uncles       string        `json:"sha3Uncles"`
-	LogsBloom        string        `json:"logsBloom"`
-	TransactionsRoot string        `json:"transactionsRoot"`
-	StateRoot        string        `json:"stateRoot"`
-	ReceiptsRoot     string        `json:"receiptsRoot"`
-	Miner            string        `json:"miner"`
-	Difficulty       int64         `json:"difficulty"`
-	TotalDifficulty  int64         `json:"totalDifficulty"`
-	ExtraData        string        `json:"extraData"`
-	Size             int64         `json:"size"`
-	GasLimit         int64         `json:"gasLimit"`
-	GasUsed          int64         `json:"gasUsed"`
-	Timestamp        int64         `json:"timestamp"`
-	Transactions     []Transaction `json:"transactions"`
-	Uncles           []string      `json:"uncles"`
+	Number	int64	`json:"number"`
+	Hash	string	`json:"hash"`
+	ParentHash	string	`json:"parentHash"`
+	Nonce	string	`json:"nonce"`
+	Sha3Uncles	string	`json:"sha3Uncles"`
+	LogsBloom	string	`json:"logsBloom"`
+	TransactionsRoot	string	`json:"transactionsRoot"`
+	StateRoot	string	`json:"stateRoot"`
+	ReceiptsRoot	string	`json:"receiptsRoot"`
+	Miner	string	`json:"miner"`
+	Difficulty	int64	`json:"difficulty"`
+	TotalDifficulty	int64	`json:"totalDifficulty"`
+	ExtraData	string	`json:"extraData"`
+	Size	int64	`json:"size"`
+	GasLimit	int64	`json:"gasLimit"`
+	GasUsed	int64	`json:"gasUsed"`
+	Timestamp	int64	`json:"timestamp"`
+	Transactions	[]Transaction	`json:"transactions"`
+	Uncles	[]string	`json:"uncles"`
 }
+
 
 type Web3API interface {
 	ClientVersion() (string, error)
@@ -110,9 +111,9 @@ type Web3API interface {
 	GasPrice() (int64, error)
 	Accounts() ([]string, error)
 	BlockNumber() (int64, error)
-	GetBalance(address string, blockNumber int64) (int64, error)
-	GetStorageAt(address string, key int64, blockNumber int64) (string, error)
-	GetTransactionCount(address string, blockNumber int64) (int64, error)
+	GetBalance(address string, blockNumber string) (string, error)
+	GetStorageAt(address string, key int64, blockNumber string) (string, error)
+	GetTransactionCount(address string, blockNumber string) (int64, error)
 	GetBlockTransactionCountByHash(blockHash string) (int64, error)
 	GetBlockTransactionCountByNumber(blockNumber int64) (int64, error)
 	GetUncleCountByBlockHash(blockHash string) (int64, error)
@@ -135,9 +136,7 @@ type Web3API interface {
 	GetUncleByBlockNumberAndIndex(blockNumber int64, uncleIndex int64) (Block, error)
 }
 
-func NewWeb3APIProxy(c barrister.Client) Web3API {
-	return Web3APIProxy{c, barrister.MustParseIdlJson([]byte(IdlJsonRaw))}
-}
+func NewWeb3APIProxy(c barrister.Client) Web3API { return Web3APIProxy{c, barrister.MustParseIdlJson([]byte(IdlJsonRaw))} }
 
 type Web3APIProxy struct {
 	client barrister.Client
@@ -145,16 +144,16 @@ type Web3APIProxy struct {
 }
 
 func (_p Web3APIProxy) ClientVersion() (string, error) {
-	_res, _err := _p.client.Call("Web3API.ClientVersion")
+	_res, _err := _p.client.Call("Web3API.clientVersion")
 	if _err == nil {
-		_retType := _p.idl.Method("Web3API.ClientVersion").Returns
+		_retType := _p.idl.Method("Web3API.clientVersion").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(""), _res, "")
 	}
 	if _err == nil {
 		_cast, _ok := _res.(string)
 		if !_ok {
 			_t := reflect.TypeOf(_res)
-			_msg := fmt.Sprintf("Web3API.ClientVersion returned invalid type: %v", _t)
+			_msg := fmt.Sprintf("Web3API.clientVersion returned invalid type: %v", _t)
 			return "", &barrister.JsonRpcError{Code: -32000, Message: _msg}
 		}
 		return _cast, nil
@@ -163,16 +162,16 @@ func (_p Web3APIProxy) ClientVersion() (string, error) {
 }
 
 func (_p Web3APIProxy) Sha3(input string) (string, error) {
-	_res, _err := _p.client.Call("Web3API.Sha3", input)
+	_res, _err := _p.client.Call("Web3API.sha3", input)
 	if _err == nil {
-		_retType := _p.idl.Method("Web3API.Sha3").Returns
+		_retType := _p.idl.Method("Web3API.sha3").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(""), _res, "")
 	}
 	if _err == nil {
 		_cast, _ok := _res.(string)
 		if !_ok {
 			_t := reflect.TypeOf(_res)
-			_msg := fmt.Sprintf("Web3API.Sha3 returned invalid type: %v", _t)
+			_msg := fmt.Sprintf("Web3API.sha3 returned invalid type: %v", _t)
 			return "", &barrister.JsonRpcError{Code: -32000, Message: _msg}
 		}
 		return _cast, nil
@@ -181,16 +180,16 @@ func (_p Web3APIProxy) Sha3(input string) (string, error) {
 }
 
 func (_p Web3APIProxy) NetVersion() (string, error) {
-	_res, _err := _p.client.Call("Web3API.NetVersion")
+	_res, _err := _p.client.Call("Web3API.netVersion")
 	if _err == nil {
-		_retType := _p.idl.Method("Web3API.NetVersion").Returns
+		_retType := _p.idl.Method("Web3API.netVersion").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(""), _res, "")
 	}
 	if _err == nil {
 		_cast, _ok := _res.(string)
 		if !_ok {
 			_t := reflect.TypeOf(_res)
-			_msg := fmt.Sprintf("Web3API.NetVersion returned invalid type: %v", _t)
+			_msg := fmt.Sprintf("Web3API.netVersion returned invalid type: %v", _t)
 			return "", &barrister.JsonRpcError{Code: -32000, Message: _msg}
 		}
 		return _cast, nil
@@ -199,16 +198,16 @@ func (_p Web3APIProxy) NetVersion() (string, error) {
 }
 
 func (_p Web3APIProxy) NetListening() (bool, error) {
-	_res, _err := _p.client.Call("Web3API.NetListening")
+	_res, _err := _p.client.Call("Web3API.netListening")
 	if _err == nil {
-		_retType := _p.idl.Method("Web3API.NetListening").Returns
+		_retType := _p.idl.Method("Web3API.netListening").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(false), _res, "")
 	}
 	if _err == nil {
 		_cast, _ok := _res.(bool)
 		if !_ok {
 			_t := reflect.TypeOf(_res)
-			_msg := fmt.Sprintf("Web3API.NetListening returned invalid type: %v", _t)
+			_msg := fmt.Sprintf("Web3API.netListening returned invalid type: %v", _t)
 			return false, &barrister.JsonRpcError{Code: -32000, Message: _msg}
 		}
 		return _cast, nil
@@ -217,16 +216,16 @@ func (_p Web3APIProxy) NetListening() (bool, error) {
 }
 
 func (_p Web3APIProxy) NetPeerCount() (int64, error) {
-	_res, _err := _p.client.Call("Web3API.NetPeerCount")
+	_res, _err := _p.client.Call("Web3API.netPeerCount")
 	if _err == nil {
-		_retType := _p.idl.Method("Web3API.NetPeerCount").Returns
+		_retType := _p.idl.Method("Web3API.netPeerCount").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(int64(0)), _res, "")
 	}
 	if _err == nil {
 		_cast, _ok := _res.(int64)
 		if !_ok {
 			_t := reflect.TypeOf(_res)
-			_msg := fmt.Sprintf("Web3API.NetPeerCount returned invalid type: %v", _t)
+			_msg := fmt.Sprintf("Web3API.netPeerCount returned invalid type: %v", _t)
 			return int64(0), &barrister.JsonRpcError{Code: -32000, Message: _msg}
 		}
 		return _cast, nil
@@ -235,16 +234,16 @@ func (_p Web3APIProxy) NetPeerCount() (int64, error) {
 }
 
 func (_p Web3APIProxy) ProtocolVersion() (string, error) {
-	_res, _err := _p.client.Call("Web3API.ProtocolVersion")
+	_res, _err := _p.client.Call("Web3API.protocolVersion")
 	if _err == nil {
-		_retType := _p.idl.Method("Web3API.ProtocolVersion").Returns
+		_retType := _p.idl.Method("Web3API.protocolVersion").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(""), _res, "")
 	}
 	if _err == nil {
 		_cast, _ok := _res.(string)
 		if !_ok {
 			_t := reflect.TypeOf(_res)
-			_msg := fmt.Sprintf("Web3API.ProtocolVersion returned invalid type: %v", _t)
+			_msg := fmt.Sprintf("Web3API.protocolVersion returned invalid type: %v", _t)
 			return "", &barrister.JsonRpcError{Code: -32000, Message: _msg}
 		}
 		return _cast, nil
@@ -253,16 +252,16 @@ func (_p Web3APIProxy) ProtocolVersion() (string, error) {
 }
 
 func (_p Web3APIProxy) Syncing() (string, error) {
-	_res, _err := _p.client.Call("Web3API.Syncing")
+	_res, _err := _p.client.Call("Web3API.syncing")
 	if _err == nil {
-		_retType := _p.idl.Method("Web3API.Syncing").Returns
+		_retType := _p.idl.Method("Web3API.syncing").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(""), _res, "")
 	}
 	if _err == nil {
 		_cast, _ok := _res.(string)
 		if !_ok {
 			_t := reflect.TypeOf(_res)
-			_msg := fmt.Sprintf("Web3API.Syncing returned invalid type: %v", _t)
+			_msg := fmt.Sprintf("Web3API.syncing returned invalid type: %v", _t)
 			return "", &barrister.JsonRpcError{Code: -32000, Message: _msg}
 		}
 		return _cast, nil
@@ -271,16 +270,16 @@ func (_p Web3APIProxy) Syncing() (string, error) {
 }
 
 func (_p Web3APIProxy) Coinbase() (string, error) {
-	_res, _err := _p.client.Call("Web3API.Coinbase")
+	_res, _err := _p.client.Call("Web3API.coinbase")
 	if _err == nil {
-		_retType := _p.idl.Method("Web3API.Coinbase").Returns
+		_retType := _p.idl.Method("Web3API.coinbase").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(""), _res, "")
 	}
 	if _err == nil {
 		_cast, _ok := _res.(string)
 		if !_ok {
 			_t := reflect.TypeOf(_res)
-			_msg := fmt.Sprintf("Web3API.Coinbase returned invalid type: %v", _t)
+			_msg := fmt.Sprintf("Web3API.coinbase returned invalid type: %v", _t)
 			return "", &barrister.JsonRpcError{Code: -32000, Message: _msg}
 		}
 		return _cast, nil
@@ -289,16 +288,16 @@ func (_p Web3APIProxy) Coinbase() (string, error) {
 }
 
 func (_p Web3APIProxy) Mining() (string, error) {
-	_res, _err := _p.client.Call("Web3API.Mining")
+	_res, _err := _p.client.Call("Web3API.mining")
 	if _err == nil {
-		_retType := _p.idl.Method("Web3API.Mining").Returns
+		_retType := _p.idl.Method("Web3API.mining").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(""), _res, "")
 	}
 	if _err == nil {
 		_cast, _ok := _res.(string)
 		if !_ok {
 			_t := reflect.TypeOf(_res)
-			_msg := fmt.Sprintf("Web3API.Mining returned invalid type: %v", _t)
+			_msg := fmt.Sprintf("Web3API.mining returned invalid type: %v", _t)
 			return "", &barrister.JsonRpcError{Code: -32000, Message: _msg}
 		}
 		return _cast, nil
@@ -307,16 +306,16 @@ func (_p Web3APIProxy) Mining() (string, error) {
 }
 
 func (_p Web3APIProxy) HashRate() (string, error) {
-	_res, _err := _p.client.Call("Web3API.HashRate")
+	_res, _err := _p.client.Call("Web3API.hashRate")
 	if _err == nil {
-		_retType := _p.idl.Method("Web3API.HashRate").Returns
+		_retType := _p.idl.Method("Web3API.hashRate").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(""), _res, "")
 	}
 	if _err == nil {
 		_cast, _ok := _res.(string)
 		if !_ok {
 			_t := reflect.TypeOf(_res)
-			_msg := fmt.Sprintf("Web3API.HashRate returned invalid type: %v", _t)
+			_msg := fmt.Sprintf("Web3API.hashRate returned invalid type: %v", _t)
 			return "", &barrister.JsonRpcError{Code: -32000, Message: _msg}
 		}
 		return _cast, nil
@@ -325,16 +324,16 @@ func (_p Web3APIProxy) HashRate() (string, error) {
 }
 
 func (_p Web3APIProxy) GasPrice() (int64, error) {
-	_res, _err := _p.client.Call("Web3API.GasPrice")
+	_res, _err := _p.client.Call("Web3API.gasPrice")
 	if _err == nil {
-		_retType := _p.idl.Method("Web3API.GasPrice").Returns
+		_retType := _p.idl.Method("Web3API.gasPrice").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(int64(0)), _res, "")
 	}
 	if _err == nil {
 		_cast, _ok := _res.(int64)
 		if !_ok {
 			_t := reflect.TypeOf(_res)
-			_msg := fmt.Sprintf("Web3API.GasPrice returned invalid type: %v", _t)
+			_msg := fmt.Sprintf("Web3API.gasPrice returned invalid type: %v", _t)
 			return int64(0), &barrister.JsonRpcError{Code: -32000, Message: _msg}
 		}
 		return _cast, nil
@@ -343,16 +342,16 @@ func (_p Web3APIProxy) GasPrice() (int64, error) {
 }
 
 func (_p Web3APIProxy) Accounts() ([]string, error) {
-	_res, _err := _p.client.Call("Web3API.Accounts")
+	_res, _err := _p.client.Call("Web3API.accounts")
 	if _err == nil {
-		_retType := _p.idl.Method("Web3API.Accounts").Returns
+		_retType := _p.idl.Method("Web3API.accounts").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf([]string{}), _res, "")
 	}
 	if _err == nil {
 		_cast, _ok := _res.([]string)
 		if !_ok {
 			_t := reflect.TypeOf(_res)
-			_msg := fmt.Sprintf("Web3API.Accounts returned invalid type: %v", _t)
+			_msg := fmt.Sprintf("Web3API.accounts returned invalid type: %v", _t)
 			return []string{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
 		}
 		return _cast, nil
@@ -361,16 +360,16 @@ func (_p Web3APIProxy) Accounts() ([]string, error) {
 }
 
 func (_p Web3APIProxy) BlockNumber() (int64, error) {
-	_res, _err := _p.client.Call("Web3API.BlockNumber")
+	_res, _err := _p.client.Call("Web3API.blockNumber")
 	if _err == nil {
-		_retType := _p.idl.Method("Web3API.BlockNumber").Returns
+		_retType := _p.idl.Method("Web3API.blockNumber").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(int64(0)), _res, "")
 	}
 	if _err == nil {
 		_cast, _ok := _res.(int64)
 		if !_ok {
 			_t := reflect.TypeOf(_res)
-			_msg := fmt.Sprintf("Web3API.BlockNumber returned invalid type: %v", _t)
+			_msg := fmt.Sprintf("Web3API.blockNumber returned invalid type: %v", _t)
 			return int64(0), &barrister.JsonRpcError{Code: -32000, Message: _msg}
 		}
 		return _cast, nil
@@ -378,35 +377,17 @@ func (_p Web3APIProxy) BlockNumber() (int64, error) {
 	return int64(0), _err
 }
 
-func (_p Web3APIProxy) GetBalance(address string, blockNumber int64) (int64, error) {
-	_res, _err := _p.client.Call("Web3API.GetBalance", address, blockNumber)
+func (_p Web3APIProxy) GetBalance(address string, blockNumber string) (string, error) {
+	_res, _err := _p.client.Call("Web3API.getBalance", address, blockNumber)
 	if _err == nil {
-		_retType := _p.idl.Method("Web3API.GetBalance").Returns
-		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(int64(0)), _res, "")
-	}
-	if _err == nil {
-		_cast, _ok := _res.(int64)
-		if !_ok {
-			_t := reflect.TypeOf(_res)
-			_msg := fmt.Sprintf("Web3API.GetBalance returned invalid type: %v", _t)
-			return int64(0), &barrister.JsonRpcError{Code: -32000, Message: _msg}
-		}
-		return _cast, nil
-	}
-	return int64(0), _err
-}
-
-func (_p Web3APIProxy) GetStorageAt(address string, key int64, blockNumber int64) (string, error) {
-	_res, _err := _p.client.Call("Web3API.GetStorageAt", address, key, blockNumber)
-	if _err == nil {
-		_retType := _p.idl.Method("Web3API.GetStorageAt").Returns
+		_retType := _p.idl.Method("Web3API.getBalance").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(""), _res, "")
 	}
 	if _err == nil {
 		_cast, _ok := _res.(string)
 		if !_ok {
 			_t := reflect.TypeOf(_res)
-			_msg := fmt.Sprintf("Web3API.GetStorageAt returned invalid type: %v", _t)
+			_msg := fmt.Sprintf("Web3API.getBalance returned invalid type: %v", _t)
 			return "", &barrister.JsonRpcError{Code: -32000, Message: _msg}
 		}
 		return _cast, nil
@@ -414,17 +395,35 @@ func (_p Web3APIProxy) GetStorageAt(address string, key int64, blockNumber int64
 	return "", _err
 }
 
-func (_p Web3APIProxy) GetTransactionCount(address string, blockNumber int64) (int64, error) {
-	_res, _err := _p.client.Call("Web3API.GetTransactionCount", address, blockNumber)
+func (_p Web3APIProxy) GetStorageAt(address string, key int64, blockNumber string) (string, error) {
+	_res, _err := _p.client.Call("Web3API.getStorageAt", address, key, blockNumber)
 	if _err == nil {
-		_retType := _p.idl.Method("Web3API.GetTransactionCount").Returns
+		_retType := _p.idl.Method("Web3API.getStorageAt").Returns
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(""), _res, "")
+	}
+	if _err == nil {
+		_cast, _ok := _res.(string)
+		if !_ok {
+			_t := reflect.TypeOf(_res)
+			_msg := fmt.Sprintf("Web3API.getStorageAt returned invalid type: %v", _t)
+			return "", &barrister.JsonRpcError{Code: -32000, Message: _msg}
+		}
+		return _cast, nil
+	}
+	return "", _err
+}
+
+func (_p Web3APIProxy) GetTransactionCount(address string, blockNumber string) (int64, error) {
+	_res, _err := _p.client.Call("Web3API.getTransactionCount", address, blockNumber)
+	if _err == nil {
+		_retType := _p.idl.Method("Web3API.getTransactionCount").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(int64(0)), _res, "")
 	}
 	if _err == nil {
 		_cast, _ok := _res.(int64)
 		if !_ok {
 			_t := reflect.TypeOf(_res)
-			_msg := fmt.Sprintf("Web3API.GetTransactionCount returned invalid type: %v", _t)
+			_msg := fmt.Sprintf("Web3API.getTransactionCount returned invalid type: %v", _t)
 			return int64(0), &barrister.JsonRpcError{Code: -32000, Message: _msg}
 		}
 		return _cast, nil
@@ -433,16 +432,16 @@ func (_p Web3APIProxy) GetTransactionCount(address string, blockNumber int64) (i
 }
 
 func (_p Web3APIProxy) GetBlockTransactionCountByHash(blockHash string) (int64, error) {
-	_res, _err := _p.client.Call("Web3API.GetBlockTransactionCountByHash", blockHash)
+	_res, _err := _p.client.Call("Web3API.getBlockTransactionCountByHash", blockHash)
 	if _err == nil {
-		_retType := _p.idl.Method("Web3API.GetBlockTransactionCountByHash").Returns
+		_retType := _p.idl.Method("Web3API.getBlockTransactionCountByHash").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(int64(0)), _res, "")
 	}
 	if _err == nil {
 		_cast, _ok := _res.(int64)
 		if !_ok {
 			_t := reflect.TypeOf(_res)
-			_msg := fmt.Sprintf("Web3API.GetBlockTransactionCountByHash returned invalid type: %v", _t)
+			_msg := fmt.Sprintf("Web3API.getBlockTransactionCountByHash returned invalid type: %v", _t)
 			return int64(0), &barrister.JsonRpcError{Code: -32000, Message: _msg}
 		}
 		return _cast, nil
@@ -451,16 +450,16 @@ func (_p Web3APIProxy) GetBlockTransactionCountByHash(blockHash string) (int64, 
 }
 
 func (_p Web3APIProxy) GetBlockTransactionCountByNumber(blockNumber int64) (int64, error) {
-	_res, _err := _p.client.Call("Web3API.GetBlockTransactionCountByNumber", blockNumber)
+	_res, _err := _p.client.Call("Web3API.getBlockTransactionCountByNumber", blockNumber)
 	if _err == nil {
-		_retType := _p.idl.Method("Web3API.GetBlockTransactionCountByNumber").Returns
+		_retType := _p.idl.Method("Web3API.getBlockTransactionCountByNumber").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(int64(0)), _res, "")
 	}
 	if _err == nil {
 		_cast, _ok := _res.(int64)
 		if !_ok {
 			_t := reflect.TypeOf(_res)
-			_msg := fmt.Sprintf("Web3API.GetBlockTransactionCountByNumber returned invalid type: %v", _t)
+			_msg := fmt.Sprintf("Web3API.getBlockTransactionCountByNumber returned invalid type: %v", _t)
 			return int64(0), &barrister.JsonRpcError{Code: -32000, Message: _msg}
 		}
 		return _cast, nil
@@ -469,16 +468,16 @@ func (_p Web3APIProxy) GetBlockTransactionCountByNumber(blockNumber int64) (int6
 }
 
 func (_p Web3APIProxy) GetUncleCountByBlockHash(blockHash string) (int64, error) {
-	_res, _err := _p.client.Call("Web3API.GetUncleCountByBlockHash", blockHash)
+	_res, _err := _p.client.Call("Web3API.getUncleCountByBlockHash", blockHash)
 	if _err == nil {
-		_retType := _p.idl.Method("Web3API.GetUncleCountByBlockHash").Returns
+		_retType := _p.idl.Method("Web3API.getUncleCountByBlockHash").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(int64(0)), _res, "")
 	}
 	if _err == nil {
 		_cast, _ok := _res.(int64)
 		if !_ok {
 			_t := reflect.TypeOf(_res)
-			_msg := fmt.Sprintf("Web3API.GetUncleCountByBlockHash returned invalid type: %v", _t)
+			_msg := fmt.Sprintf("Web3API.getUncleCountByBlockHash returned invalid type: %v", _t)
 			return int64(0), &barrister.JsonRpcError{Code: -32000, Message: _msg}
 		}
 		return _cast, nil
@@ -487,16 +486,16 @@ func (_p Web3APIProxy) GetUncleCountByBlockHash(blockHash string) (int64, error)
 }
 
 func (_p Web3APIProxy) GetUncleCountByBlockNumber(blockNumber int64) (int64, error) {
-	_res, _err := _p.client.Call("Web3API.GetUncleCountByBlockNumber", blockNumber)
+	_res, _err := _p.client.Call("Web3API.getUncleCountByBlockNumber", blockNumber)
 	if _err == nil {
-		_retType := _p.idl.Method("Web3API.GetUncleCountByBlockNumber").Returns
+		_retType := _p.idl.Method("Web3API.getUncleCountByBlockNumber").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(int64(0)), _res, "")
 	}
 	if _err == nil {
 		_cast, _ok := _res.(int64)
 		if !_ok {
 			_t := reflect.TypeOf(_res)
-			_msg := fmt.Sprintf("Web3API.GetUncleCountByBlockNumber returned invalid type: %v", _t)
+			_msg := fmt.Sprintf("Web3API.getUncleCountByBlockNumber returned invalid type: %v", _t)
 			return int64(0), &barrister.JsonRpcError{Code: -32000, Message: _msg}
 		}
 		return _cast, nil
@@ -505,16 +504,16 @@ func (_p Web3APIProxy) GetUncleCountByBlockNumber(blockNumber int64) (int64, err
 }
 
 func (_p Web3APIProxy) GetCode(address string, blockNumber int64) (string, error) {
-	_res, _err := _p.client.Call("Web3API.GetCode", address, blockNumber)
+	_res, _err := _p.client.Call("Web3API.getCode", address, blockNumber)
 	if _err == nil {
-		_retType := _p.idl.Method("Web3API.GetCode").Returns
+		_retType := _p.idl.Method("Web3API.getCode").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(""), _res, "")
 	}
 	if _err == nil {
 		_cast, _ok := _res.(string)
 		if !_ok {
 			_t := reflect.TypeOf(_res)
-			_msg := fmt.Sprintf("Web3API.GetCode returned invalid type: %v", _t)
+			_msg := fmt.Sprintf("Web3API.getCode returned invalid type: %v", _t)
 			return "", &barrister.JsonRpcError{Code: -32000, Message: _msg}
 		}
 		return _cast, nil
@@ -523,16 +522,16 @@ func (_p Web3APIProxy) GetCode(address string, blockNumber int64) (string, error
 }
 
 func (_p Web3APIProxy) Sign(address string, data string) (string, error) {
-	_res, _err := _p.client.Call("Web3API.Sign", address, data)
+	_res, _err := _p.client.Call("Web3API.sign", address, data)
 	if _err == nil {
-		_retType := _p.idl.Method("Web3API.Sign").Returns
+		_retType := _p.idl.Method("Web3API.sign").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(""), _res, "")
 	}
 	if _err == nil {
 		_cast, _ok := _res.(string)
 		if !_ok {
 			_t := reflect.TypeOf(_res)
-			_msg := fmt.Sprintf("Web3API.Sign returned invalid type: %v", _t)
+			_msg := fmt.Sprintf("Web3API.sign returned invalid type: %v", _t)
 			return "", &barrister.JsonRpcError{Code: -32000, Message: _msg}
 		}
 		return _cast, nil
@@ -541,16 +540,16 @@ func (_p Web3APIProxy) Sign(address string, data string) (string, error) {
 }
 
 func (_p Web3APIProxy) SendTransaction(args SendTxArgs) (string, error) {
-	_res, _err := _p.client.Call("Web3API.SendTransaction", args)
+	_res, _err := _p.client.Call("Web3API.sendTransaction", args)
 	if _err == nil {
-		_retType := _p.idl.Method("Web3API.SendTransaction").Returns
+		_retType := _p.idl.Method("Web3API.sendTransaction").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(""), _res, "")
 	}
 	if _err == nil {
 		_cast, _ok := _res.(string)
 		if !_ok {
 			_t := reflect.TypeOf(_res)
-			_msg := fmt.Sprintf("Web3API.SendTransaction returned invalid type: %v", _t)
+			_msg := fmt.Sprintf("Web3API.sendTransaction returned invalid type: %v", _t)
 			return "", &barrister.JsonRpcError{Code: -32000, Message: _msg}
 		}
 		return _cast, nil
@@ -559,16 +558,16 @@ func (_p Web3APIProxy) SendTransaction(args SendTxArgs) (string, error) {
 }
 
 func (_p Web3APIProxy) SendRawTransaction(encodedTx string) (string, error) {
-	_res, _err := _p.client.Call("Web3API.SendRawTransaction", encodedTx)
+	_res, _err := _p.client.Call("Web3API.sendRawTransaction", encodedTx)
 	if _err == nil {
-		_retType := _p.idl.Method("Web3API.SendRawTransaction").Returns
+		_retType := _p.idl.Method("Web3API.sendRawTransaction").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(""), _res, "")
 	}
 	if _err == nil {
 		_cast, _ok := _res.(string)
 		if !_ok {
 			_t := reflect.TypeOf(_res)
-			_msg := fmt.Sprintf("Web3API.SendRawTransaction returned invalid type: %v", _t)
+			_msg := fmt.Sprintf("Web3API.sendRawTransaction returned invalid type: %v", _t)
 			return "", &barrister.JsonRpcError{Code: -32000, Message: _msg}
 		}
 		return _cast, nil
@@ -577,16 +576,16 @@ func (_p Web3APIProxy) SendRawTransaction(encodedTx string) (string, error) {
 }
 
 func (_p Web3APIProxy) Call(args CallArgs, blockNumber int64) (string, error) {
-	_res, _err := _p.client.Call("Web3API.Call", args, blockNumber)
+	_res, _err := _p.client.Call("Web3API.call", args, blockNumber)
 	if _err == nil {
-		_retType := _p.idl.Method("Web3API.Call").Returns
+		_retType := _p.idl.Method("Web3API.call").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(""), _res, "")
 	}
 	if _err == nil {
 		_cast, _ok := _res.(string)
 		if !_ok {
 			_t := reflect.TypeOf(_res)
-			_msg := fmt.Sprintf("Web3API.Call returned invalid type: %v", _t)
+			_msg := fmt.Sprintf("Web3API.call returned invalid type: %v", _t)
 			return "", &barrister.JsonRpcError{Code: -32000, Message: _msg}
 		}
 		return _cast, nil
@@ -595,16 +594,16 @@ func (_p Web3APIProxy) Call(args CallArgs, blockNumber int64) (string, error) {
 }
 
 func (_p Web3APIProxy) EstimateGas(args CallArgs) (int64, error) {
-	_res, _err := _p.client.Call("Web3API.EstimateGas", args)
+	_res, _err := _p.client.Call("Web3API.estimateGas", args)
 	if _err == nil {
-		_retType := _p.idl.Method("Web3API.EstimateGas").Returns
+		_retType := _p.idl.Method("Web3API.estimateGas").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(int64(0)), _res, "")
 	}
 	if _err == nil {
 		_cast, _ok := _res.(int64)
 		if !_ok {
 			_t := reflect.TypeOf(_res)
-			_msg := fmt.Sprintf("Web3API.EstimateGas returned invalid type: %v", _t)
+			_msg := fmt.Sprintf("Web3API.estimateGas returned invalid type: %v", _t)
 			return int64(0), &barrister.JsonRpcError{Code: -32000, Message: _msg}
 		}
 		return _cast, nil
@@ -613,16 +612,16 @@ func (_p Web3APIProxy) EstimateGas(args CallArgs) (int64, error) {
 }
 
 func (_p Web3APIProxy) GetBlockByHash(blockHash string) (Block, error) {
-	_res, _err := _p.client.Call("Web3API.GetBlockByHash", blockHash)
+	_res, _err := _p.client.Call("Web3API.getBlockByHash", blockHash)
 	if _err == nil {
-		_retType := _p.idl.Method("Web3API.GetBlockByHash").Returns
+		_retType := _p.idl.Method("Web3API.getBlockByHash").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(Block{}), _res, "")
 	}
 	if _err == nil {
 		_cast, _ok := _res.(Block)
 		if !_ok {
 			_t := reflect.TypeOf(_res)
-			_msg := fmt.Sprintf("Web3API.GetBlockByHash returned invalid type: %v", _t)
+			_msg := fmt.Sprintf("Web3API.getBlockByHash returned invalid type: %v", _t)
 			return Block{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
 		}
 		return _cast, nil
@@ -631,16 +630,16 @@ func (_p Web3APIProxy) GetBlockByHash(blockHash string) (Block, error) {
 }
 
 func (_p Web3APIProxy) GetBlockHashByHash(blockHash string) (string, error) {
-	_res, _err := _p.client.Call("Web3API.GetBlockHashByHash", blockHash)
+	_res, _err := _p.client.Call("Web3API.getBlockHashByHash", blockHash)
 	if _err == nil {
-		_retType := _p.idl.Method("Web3API.GetBlockHashByHash").Returns
+		_retType := _p.idl.Method("Web3API.getBlockHashByHash").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(""), _res, "")
 	}
 	if _err == nil {
 		_cast, _ok := _res.(string)
 		if !_ok {
 			_t := reflect.TypeOf(_res)
-			_msg := fmt.Sprintf("Web3API.GetBlockHashByHash returned invalid type: %v", _t)
+			_msg := fmt.Sprintf("Web3API.getBlockHashByHash returned invalid type: %v", _t)
 			return "", &barrister.JsonRpcError{Code: -32000, Message: _msg}
 		}
 		return _cast, nil
@@ -649,16 +648,16 @@ func (_p Web3APIProxy) GetBlockHashByHash(blockHash string) (string, error) {
 }
 
 func (_p Web3APIProxy) GetBlockByNumber(blockNumber int64) (Block, error) {
-	_res, _err := _p.client.Call("Web3API.GetBlockByNumber", blockNumber)
+	_res, _err := _p.client.Call("Web3API.getBlockByNumber", blockNumber)
 	if _err == nil {
-		_retType := _p.idl.Method("Web3API.GetBlockByNumber").Returns
+		_retType := _p.idl.Method("Web3API.getBlockByNumber").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(Block{}), _res, "")
 	}
 	if _err == nil {
 		_cast, _ok := _res.(Block)
 		if !_ok {
 			_t := reflect.TypeOf(_res)
-			_msg := fmt.Sprintf("Web3API.GetBlockByNumber returned invalid type: %v", _t)
+			_msg := fmt.Sprintf("Web3API.getBlockByNumber returned invalid type: %v", _t)
 			return Block{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
 		}
 		return _cast, nil
@@ -667,16 +666,16 @@ func (_p Web3APIProxy) GetBlockByNumber(blockNumber int64) (Block, error) {
 }
 
 func (_p Web3APIProxy) GetBlockHashByNumber(blockNumber int64) (string, error) {
-	_res, _err := _p.client.Call("Web3API.GetBlockHashByNumber", blockNumber)
+	_res, _err := _p.client.Call("Web3API.getBlockHashByNumber", blockNumber)
 	if _err == nil {
-		_retType := _p.idl.Method("Web3API.GetBlockHashByNumber").Returns
+		_retType := _p.idl.Method("Web3API.getBlockHashByNumber").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(""), _res, "")
 	}
 	if _err == nil {
 		_cast, _ok := _res.(string)
 		if !_ok {
 			_t := reflect.TypeOf(_res)
-			_msg := fmt.Sprintf("Web3API.GetBlockHashByNumber returned invalid type: %v", _t)
+			_msg := fmt.Sprintf("Web3API.getBlockHashByNumber returned invalid type: %v", _t)
 			return "", &barrister.JsonRpcError{Code: -32000, Message: _msg}
 		}
 		return _cast, nil
@@ -685,16 +684,16 @@ func (_p Web3APIProxy) GetBlockHashByNumber(blockNumber int64) (string, error) {
 }
 
 func (_p Web3APIProxy) GetTransactionByHash(hash string) (Transaction, error) {
-	_res, _err := _p.client.Call("Web3API.GetTransactionByHash", hash)
+	_res, _err := _p.client.Call("Web3API.getTransactionByHash", hash)
 	if _err == nil {
-		_retType := _p.idl.Method("Web3API.GetTransactionByHash").Returns
+		_retType := _p.idl.Method("Web3API.getTransactionByHash").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(Transaction{}), _res, "")
 	}
 	if _err == nil {
 		_cast, _ok := _res.(Transaction)
 		if !_ok {
 			_t := reflect.TypeOf(_res)
-			_msg := fmt.Sprintf("Web3API.GetTransactionByHash returned invalid type: %v", _t)
+			_msg := fmt.Sprintf("Web3API.getTransactionByHash returned invalid type: %v", _t)
 			return Transaction{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
 		}
 		return _cast, nil
@@ -703,16 +702,16 @@ func (_p Web3APIProxy) GetTransactionByHash(hash string) (Transaction, error) {
 }
 
 func (_p Web3APIProxy) GetTransactionByBlockHashAndIndex(blockHash string, index int64) (Transaction, error) {
-	_res, _err := _p.client.Call("Web3API.GetTransactionByBlockHashAndIndex", blockHash, index)
+	_res, _err := _p.client.Call("Web3API.getTransactionByBlockHashAndIndex", blockHash, index)
 	if _err == nil {
-		_retType := _p.idl.Method("Web3API.GetTransactionByBlockHashAndIndex").Returns
+		_retType := _p.idl.Method("Web3API.getTransactionByBlockHashAndIndex").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(Transaction{}), _res, "")
 	}
 	if _err == nil {
 		_cast, _ok := _res.(Transaction)
 		if !_ok {
 			_t := reflect.TypeOf(_res)
-			_msg := fmt.Sprintf("Web3API.GetTransactionByBlockHashAndIndex returned invalid type: %v", _t)
+			_msg := fmt.Sprintf("Web3API.getTransactionByBlockHashAndIndex returned invalid type: %v", _t)
 			return Transaction{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
 		}
 		return _cast, nil
@@ -721,16 +720,16 @@ func (_p Web3APIProxy) GetTransactionByBlockHashAndIndex(blockHash string, index
 }
 
 func (_p Web3APIProxy) GetTransactionByBlockNumberAndIndex(blockNumber int64, index int64) (Transaction, error) {
-	_res, _err := _p.client.Call("Web3API.GetTransactionByBlockNumberAndIndex", blockNumber, index)
+	_res, _err := _p.client.Call("Web3API.getTransactionByBlockNumberAndIndex", blockNumber, index)
 	if _err == nil {
-		_retType := _p.idl.Method("Web3API.GetTransactionByBlockNumberAndIndex").Returns
+		_retType := _p.idl.Method("Web3API.getTransactionByBlockNumberAndIndex").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(Transaction{}), _res, "")
 	}
 	if _err == nil {
 		_cast, _ok := _res.(Transaction)
 		if !_ok {
 			_t := reflect.TypeOf(_res)
-			_msg := fmt.Sprintf("Web3API.GetTransactionByBlockNumberAndIndex returned invalid type: %v", _t)
+			_msg := fmt.Sprintf("Web3API.getTransactionByBlockNumberAndIndex returned invalid type: %v", _t)
 			return Transaction{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
 		}
 		return _cast, nil
@@ -739,16 +738,16 @@ func (_p Web3APIProxy) GetTransactionByBlockNumberAndIndex(blockNumber int64, in
 }
 
 func (_p Web3APIProxy) GetTransactionReceipt(hash string) (TransactionReceipt, error) {
-	_res, _err := _p.client.Call("Web3API.GetTransactionReceipt", hash)
+	_res, _err := _p.client.Call("Web3API.getTransactionReceipt", hash)
 	if _err == nil {
-		_retType := _p.idl.Method("Web3API.GetTransactionReceipt").Returns
+		_retType := _p.idl.Method("Web3API.getTransactionReceipt").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(TransactionReceipt{}), _res, "")
 	}
 	if _err == nil {
 		_cast, _ok := _res.(TransactionReceipt)
 		if !_ok {
 			_t := reflect.TypeOf(_res)
-			_msg := fmt.Sprintf("Web3API.GetTransactionReceipt returned invalid type: %v", _t)
+			_msg := fmt.Sprintf("Web3API.getTransactionReceipt returned invalid type: %v", _t)
 			return TransactionReceipt{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
 		}
 		return _cast, nil
@@ -757,16 +756,16 @@ func (_p Web3APIProxy) GetTransactionReceipt(hash string) (TransactionReceipt, e
 }
 
 func (_p Web3APIProxy) GetUncleByBlockHashAndIndex(blockHash string, index int64) (Block, error) {
-	_res, _err := _p.client.Call("Web3API.GetUncleByBlockHashAndIndex", blockHash, index)
+	_res, _err := _p.client.Call("Web3API.getUncleByBlockHashAndIndex", blockHash, index)
 	if _err == nil {
-		_retType := _p.idl.Method("Web3API.GetUncleByBlockHashAndIndex").Returns
+		_retType := _p.idl.Method("Web3API.getUncleByBlockHashAndIndex").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(Block{}), _res, "")
 	}
 	if _err == nil {
 		_cast, _ok := _res.(Block)
 		if !_ok {
 			_t := reflect.TypeOf(_res)
-			_msg := fmt.Sprintf("Web3API.GetUncleByBlockHashAndIndex returned invalid type: %v", _t)
+			_msg := fmt.Sprintf("Web3API.getUncleByBlockHashAndIndex returned invalid type: %v", _t)
 			return Block{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
 		}
 		return _cast, nil
@@ -775,16 +774,16 @@ func (_p Web3APIProxy) GetUncleByBlockHashAndIndex(blockHash string, index int64
 }
 
 func (_p Web3APIProxy) GetUncleByBlockNumberAndIndex(blockNumber int64, uncleIndex int64) (Block, error) {
-	_res, _err := _p.client.Call("Web3API.GetUncleByBlockNumberAndIndex", blockNumber, uncleIndex)
+	_res, _err := _p.client.Call("Web3API.getUncleByBlockNumberAndIndex", blockNumber, uncleIndex)
 	if _err == nil {
-		_retType := _p.idl.Method("Web3API.GetUncleByBlockNumberAndIndex").Returns
+		_retType := _p.idl.Method("Web3API.getUncleByBlockNumberAndIndex").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(Block{}), _res, "")
 	}
 	if _err == nil {
 		_cast, _ok := _res.(Block)
 		if !_ok {
 			_t := reflect.TypeOf(_res)
-			_msg := fmt.Sprintf("Web3API.GetUncleByBlockNumberAndIndex returned invalid type: %v", _t)
+			_msg := fmt.Sprintf("Web3API.getUncleByBlockNumberAndIndex returned invalid type: %v", _t)
 			return Block{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
 		}
 		return _cast, nil
@@ -846,7 +845,7 @@ var IdlJsonRaw = `[
         "type": "comment",
         "name": "",
         "comment": "",
-        "value": "3. barrister explorer.idl | $GOPATH/bin/idl2go -i -p explorer",
+        "value": "3. barrister web3api.idl | $GOPATH/bin/idl2go -i -p web3api",
         "extends": "",
         "fields": null,
         "values": null,
@@ -1418,8 +1417,8 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": [
             {
-                "name": "ClientVersion",
-                "comment": "ClientVersion returns the current client version",
+                "name": "clientVersion",
+                "comment": "clientVersion returns the current client version",
                 "params": [],
                 "returns": {
                     "name": "",
@@ -1430,8 +1429,8 @@ var IdlJsonRaw = `[
                 }
             },
             {
-                "name": "Sha3",
-                "comment": "Sha3 returns Keccak-256 (not the standardized SHA3-256) of the given data",
+                "name": "sha3",
+                "comment": "sha3 returns Keccak-256 (not the standardized SHA3-256) of the given data",
                 "params": [
                     {
                         "name": "input",
@@ -1450,8 +1449,8 @@ var IdlJsonRaw = `[
                 }
             },
             {
-                "name": "NetVersion",
-                "comment": "NetVersion returns the current net id",
+                "name": "netVersion",
+                "comment": "netVersion returns the current net id",
                 "params": [],
                 "returns": {
                     "name": "",
@@ -1462,8 +1461,8 @@ var IdlJsonRaw = `[
                 }
             },
             {
-                "name": "NetListening",
-                "comment": "NetListening returns whether client is actively listening for network connections",
+                "name": "netListening",
+                "comment": "netListening returns whether client is actively listening for network connections",
                 "params": [],
                 "returns": {
                     "name": "",
@@ -1474,8 +1473,8 @@ var IdlJsonRaw = `[
                 }
             },
             {
-                "name": "NetPeerCount",
-                "comment": "NetPeerCount returns number of peers currently connected to the client",
+                "name": "netPeerCount",
+                "comment": "netPeerCount returns number of peers currently connected to the client",
                 "params": [],
                 "returns": {
                     "name": "",
@@ -1486,8 +1485,8 @@ var IdlJsonRaw = `[
                 }
             },
             {
-                "name": "ProtocolVersion",
-                "comment": "ProtocolVersion returns the current iotex protocol version",
+                "name": "protocolVersion",
+                "comment": "protocolVersion returns the current iotex protocol version",
                 "params": [],
                 "returns": {
                     "name": "",
@@ -1498,8 +1497,8 @@ var IdlJsonRaw = `[
                 }
             },
             {
-                "name": "Syncing",
-                "comment": "Syncing returns an object with data about the sync status or false",
+                "name": "syncing",
+                "comment": "syncing returns an object with data about the sync status or false",
                 "params": [],
                 "returns": {
                     "name": "",
@@ -1510,8 +1509,8 @@ var IdlJsonRaw = `[
                 }
             },
             {
-                "name": "Coinbase",
-                "comment": "Coinbase returns the client coinbase address",
+                "name": "coinbase",
+                "comment": "coinbase returns the client coinbase address",
                 "params": [],
                 "returns": {
                     "name": "",
@@ -1522,8 +1521,8 @@ var IdlJsonRaw = `[
                 }
             },
             {
-                "name": "Mining",
-                "comment": "Mining returns true if client is actively mining new blocks",
+                "name": "mining",
+                "comment": "mining returns true if client is actively mining new blocks",
                 "params": [],
                 "returns": {
                     "name": "",
@@ -1534,8 +1533,8 @@ var IdlJsonRaw = `[
                 }
             },
             {
-                "name": "HashRate",
-                "comment": "HashRate returns the number of hashes per second that the node is mining with",
+                "name": "hashRate",
+                "comment": "hashRate returns the number of hashes per second that the node is mining with",
                 "params": [],
                 "returns": {
                     "name": "",
@@ -1546,8 +1545,8 @@ var IdlJsonRaw = `[
                 }
             },
             {
-                "name": "GasPrice",
-                "comment": "GasPrice returns the current price per gas",
+                "name": "gasPrice",
+                "comment": "gasPrice returns the current price per gas",
                 "params": [],
                 "returns": {
                     "name": "",
@@ -1558,8 +1557,8 @@ var IdlJsonRaw = `[
                 }
             },
             {
-                "name": "Accounts",
-                "comment": "Accounts returns a list of addresses owned by client",
+                "name": "accounts",
+                "comment": "accounts returns a list of addresses owned by client",
                 "params": [],
                 "returns": {
                     "name": "",
@@ -1570,8 +1569,8 @@ var IdlJsonRaw = `[
                 }
             },
             {
-                "name": "BlockNumber",
-                "comment": "BlockNumber returns the number of most recent block",
+                "name": "blockNumber",
+                "comment": "blockNumber returns the number of most recent block",
                 "params": [],
                 "returns": {
                     "name": "",
@@ -1582,8 +1581,8 @@ var IdlJsonRaw = `[
                 }
             },
             {
-                "name": "GetBalance",
-                "comment": "GetBalance returns the balance of the account of given address\nposition can be a block number or 'latest', 'earliest' and 'pending'",
+                "name": "getBalance",
+                "comment": "getBalance returns the balance of the account of given address\nposition can be a block number or 'latest', 'earliest' and 'pending'",
                 "params": [
                     {
                         "name": "address",
@@ -1594,7 +1593,7 @@ var IdlJsonRaw = `[
                     },
                     {
                         "name": "blockNumber",
-                        "type": "int",
+                        "type": "string",
                         "optional": false,
                         "is_array": false,
                         "comment": ""
@@ -1602,15 +1601,15 @@ var IdlJsonRaw = `[
                 ],
                 "returns": {
                     "name": "",
-                    "type": "int",
+                    "type": "string",
                     "optional": false,
                     "is_array": false,
                     "comment": ""
                 }
             },
             {
-                "name": "GetStorageAt",
-                "comment": "GetStorageAt returns the value from a storage position at a given address",
+                "name": "getStorageAt",
+                "comment": "getStorageAt returns the value from a storage position at a given address",
                 "params": [
                     {
                         "name": "address",
@@ -1628,7 +1627,7 @@ var IdlJsonRaw = `[
                     },
                     {
                         "name": "blockNumber",
-                        "type": "int",
+                        "type": "string",
                         "optional": false,
                         "is_array": false,
                         "comment": ""
@@ -1643,8 +1642,8 @@ var IdlJsonRaw = `[
                 }
             },
             {
-                "name": "GetTransactionCount",
-                "comment": "GetTransactionCount returns the number of transactions sent from an address",
+                "name": "getTransactionCount",
+                "comment": "getTransactionCount returns the number of transactions sent from an address",
                 "params": [
                     {
                         "name": "address",
@@ -1655,7 +1654,7 @@ var IdlJsonRaw = `[
                     },
                     {
                         "name": "blockNumber",
-                        "type": "int",
+                        "type": "string",
                         "optional": false,
                         "is_array": false,
                         "comment": ""
@@ -1670,8 +1669,8 @@ var IdlJsonRaw = `[
                 }
             },
             {
-                "name": "GetBlockTransactionCountByHash",
-                "comment": "GetBlockTransactionCountByHash returns the number of transactions in a block from a\nblock matching the given block hash",
+                "name": "getBlockTransactionCountByHash",
+                "comment": "getBlockTransactionCountByHash returns the number of transactions in a block from a\nblock matching the given block hash",
                 "params": [
                     {
                         "name": "blockHash",
@@ -1690,8 +1689,8 @@ var IdlJsonRaw = `[
                 }
             },
             {
-                "name": "GetBlockTransactionCountByNumber",
-                "comment": "GetBlockTransactionCountByNumber returns the number of transactions in a block matching\nthe given block number",
+                "name": "getBlockTransactionCountByNumber",
+                "comment": "getBlockTransactionCountByNumber returns the number of transactions in a block matching\nthe given block number",
                 "params": [
                     {
                         "name": "blockNumber",
@@ -1710,8 +1709,8 @@ var IdlJsonRaw = `[
                 }
             },
             {
-                "name": "GetUncleCountByBlockHash",
-                "comment": "GetUncleCountByBlockHash returns the number of uncles in a block from a block matching\nthe given block hash",
+                "name": "getUncleCountByBlockHash",
+                "comment": "getUncleCountByBlockHash returns the number of uncles in a block from a block matching\nthe given block hash",
                 "params": [
                     {
                         "name": "blockHash",
@@ -1730,8 +1729,8 @@ var IdlJsonRaw = `[
                 }
             },
             {
-                "name": "GetUncleCountByBlockNumber",
-                "comment": "GetUncleCountByBlockNumber returns the number of uncles in a block from a block matching\nthe given block number",
+                "name": "getUncleCountByBlockNumber",
+                "comment": "getUncleCountByBlockNumber returns the number of uncles in a block from a block matching\nthe given block number",
                 "params": [
                     {
                         "name": "blockNumber",
@@ -1750,8 +1749,8 @@ var IdlJsonRaw = `[
                 }
             },
             {
-                "name": "GetCode",
-                "comment": "GetCode returns code at a given address",
+                "name": "getCode",
+                "comment": "getCode returns code at a given address",
                 "params": [
                     {
                         "name": "address",
@@ -1777,8 +1776,8 @@ var IdlJsonRaw = `[
                 }
             },
             {
-                "name": "Sign",
-                "comment": "Sign returns an Ethereum specific signature with: sign(keccak256(\"\\x19Ethereum Signed\nMessage:\\n\" + len(message) + message)))",
+                "name": "sign",
+                "comment": "sign returns an Ethereum specific signature with: sign(keccak256(\"\\x19Ethereum Signed\nMessage:\\n\" + len(message) + message)))",
                 "params": [
                     {
                         "name": "address",
@@ -1804,8 +1803,8 @@ var IdlJsonRaw = `[
                 }
             },
             {
-                "name": "SendTransaction",
-                "comment": "SendTransaction creates new message call transaction or a contract creation, if the\ndata field contains code",
+                "name": "sendTransaction",
+                "comment": "sendTransaction creates new message call transaction or a contract creation, if the\ndata field contains code",
                 "params": [
                     {
                         "name": "args",
@@ -1824,8 +1823,8 @@ var IdlJsonRaw = `[
                 }
             },
             {
-                "name": "SendRawTransaction",
-                "comment": "SendRawTransaction creates new message call transaction or a contract creation for\nsigned transactions",
+                "name": "sendRawTransaction",
+                "comment": "sendRawTransaction creates new message call transaction or a contract creation for\nsigned transactions",
                 "params": [
                     {
                         "name": "encodedTx",
@@ -1844,8 +1843,8 @@ var IdlJsonRaw = `[
                 }
             },
             {
-                "name": "Call",
-                "comment": "Call executes a new message call immediately without creating a transaction on the block chain",
+                "name": "call",
+                "comment": "call executes a new message call immediately without creating a transaction on the block chain",
                 "params": [
                     {
                         "name": "args",
@@ -1871,8 +1870,8 @@ var IdlJsonRaw = `[
                 }
             },
             {
-                "name": "EstimateGas",
-                "comment": "EstimateGas generates and returns an estimate of how much gas is necessary to allow the\ntransaction to complete. The transaction will not be added to the blockchain. Note that the\nestimate may be significantly more than the amount of gas actually used by the transaction,\nfor a variety of reasons including EVM mechanics and node performance",
+                "name": "estimateGas",
+                "comment": "estimateGas generates and returns an estimate of how much gas is necessary to allow the\ntransaction to complete. The transaction will not be added to the blockchain. Note that the\nestimate may be significantly more than the amount of gas actually used by the transaction,\nfor a variety of reasons including EVM mechanics and node performance",
                 "params": [
                     {
                         "name": "args",
@@ -1891,8 +1890,8 @@ var IdlJsonRaw = `[
                 }
             },
             {
-                "name": "GetBlockByHash",
-                "comment": "GetBlockByHash returns information about a block by hash",
+                "name": "getBlockByHash",
+                "comment": "getBlockByHash returns information about a block by hash",
                 "params": [
                     {
                         "name": "blockHash",
@@ -1911,8 +1910,8 @@ var IdlJsonRaw = `[
                 }
             },
             {
-                "name": "GetBlockHashByHash",
-                "comment": "GetBlockHashByHash returns information about a block hash by hash",
+                "name": "getBlockHashByHash",
+                "comment": "getBlockHashByHash returns information about a block hash by hash",
                 "params": [
                     {
                         "name": "blockHash",
@@ -1931,8 +1930,8 @@ var IdlJsonRaw = `[
                 }
             },
             {
-                "name": "GetBlockByNumber",
-                "comment": "GetBlockByNumber returns information about a block by block number",
+                "name": "getBlockByNumber",
+                "comment": "getBlockByNumber returns information about a block by block number",
                 "params": [
                     {
                         "name": "blockNumber",
@@ -1951,8 +1950,8 @@ var IdlJsonRaw = `[
                 }
             },
             {
-                "name": "GetBlockHashByNumber",
-                "comment": "GetBlockHashByNumber returns information about a block hash by block number",
+                "name": "getBlockHashByNumber",
+                "comment": "getBlockHashByNumber returns information about a block hash by block number",
                 "params": [
                     {
                         "name": "blockNumber",
@@ -1971,8 +1970,8 @@ var IdlJsonRaw = `[
                 }
             },
             {
-                "name": "GetTransactionByHash",
-                "comment": "GetTransactionByHash returns the information about a transaction requested by transaction hash",
+                "name": "getTransactionByHash",
+                "comment": "getTransactionByHash returns the information about a transaction requested by transaction hash",
                 "params": [
                     {
                         "name": "hash",
@@ -1991,8 +1990,8 @@ var IdlJsonRaw = `[
                 }
             },
             {
-                "name": "GetTransactionByBlockHashAndIndex",
-                "comment": "GetTransactionByBlockHashAndIndex returns information about a transaction by block hash and\ntransaction index position",
+                "name": "getTransactionByBlockHashAndIndex",
+                "comment": "getTransactionByBlockHashAndIndex returns information about a transaction by block hash and\ntransaction index position",
                 "params": [
                     {
                         "name": "blockHash",
@@ -2018,8 +2017,8 @@ var IdlJsonRaw = `[
                 }
             },
             {
-                "name": "GetTransactionByBlockNumberAndIndex",
-                "comment": "GetTransactionByBlockNumberAndIndex returns information about a transaction by block number\nand transaction index position",
+                "name": "getTransactionByBlockNumberAndIndex",
+                "comment": "getTransactionByBlockNumberAndIndex returns information about a transaction by block number\nand transaction index position",
                 "params": [
                     {
                         "name": "blockNumber",
@@ -2045,8 +2044,8 @@ var IdlJsonRaw = `[
                 }
             },
             {
-                "name": "GetTransactionReceipt",
-                "comment": "GetTransactionReceipt returns the receipt of a transaction by transaction hash",
+                "name": "getTransactionReceipt",
+                "comment": "getTransactionReceipt returns the receipt of a transaction by transaction hash",
                 "params": [
                     {
                         "name": "hash",
@@ -2065,8 +2064,8 @@ var IdlJsonRaw = `[
                 }
             },
             {
-                "name": "GetUncleByBlockHashAndIndex",
-                "comment": "GetUncleByBlockHashAndIndex returns information about a uncle of a block by hash and uncle index position",
+                "name": "getUncleByBlockHashAndIndex",
+                "comment": "getUncleByBlockHashAndIndex returns information about a uncle of a block by hash and uncle index position",
                 "params": [
                     {
                         "name": "blockHash",
@@ -2092,8 +2091,8 @@ var IdlJsonRaw = `[
                 }
             },
             {
-                "name": "GetUncleByBlockNumberAndIndex",
-                "comment": "GetUncleByBlockNumberAndIndex returns information about a uncle of a block by number and uncle index position",
+                "name": "getUncleByBlockNumberAndIndex",
+                "comment": "getUncleByBlockNumberAndIndex returns information about a uncle of a block by number and uncle index position",
                 "params": [
                     {
                         "name": "blockNumber",
@@ -2133,7 +2132,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1539584175743,
-        "checksum": "e1af3336c2226b9df7361f9b5183e90b"
+        "date_generated": 1540015918100,
+        "checksum": "fc65cc5644e81be2fa2132a6448dc10d"
     }
 ]`

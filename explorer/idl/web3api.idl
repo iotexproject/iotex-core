@@ -13,7 +13,7 @@
 // go get github.com/coopernurse/barrister-go
 // go install github.com/coopernurse/barrister-go/idl2go
 
-// 3. barrister explorer.idl | $GOPATH/bin/idl2go -i -p explorer
+// 3. barrister web3api.idl | $GOPATH/bin/idl2go -i -p web3api
 
 struct CallArgs {
 	from                string
@@ -101,125 +101,125 @@ struct Block {
 }
 
 interface Web3API {
-    // ClientVersion returns the current client version
-    ClientVersion() string
+    // clientVersion returns the current client version
+    clientVersion() string
 
-    // Sha3 returns Keccak-256 (not the standardized SHA3-256) of the given data
-    Sha3(input string) string
+    // sha3 returns Keccak-256 (not the standardized SHA3-256) of the given data
+    sha3(input string) string
 
-    // NetVersion returns the current net id
-    NetVersion() string
+    // netVersion returns the current net id
+    netVersion() string
 
-    // NetListening returns whether client is actively listening for network connections
-    NetListening() bool
+    // netListening returns whether client is actively listening for network connections
+    netListening() bool
 
-    // NetPeerCount returns number of peers currently connected to the client
-    NetPeerCount() int
+    // netPeerCount returns number of peers currently connected to the client
+    netPeerCount() int
 
-    // ProtocolVersion returns the current iotex protocol version
-    ProtocolVersion() string
+    // protocolVersion returns the current iotex protocol version
+    protocolVersion() string
 
-    // Syncing returns an object with data about the sync status or false
-    Syncing() string
+    // syncing returns an object with data about the sync status or false
+    syncing() string
 
-    // Coinbase returns the client coinbase address
-    Coinbase() string
+    // coinbase returns the client coinbase address
+    coinbase() string
 
-    // Mining returns true if client is actively mining new blocks
-    Mining() string
+    // mining returns true if client is actively mining new blocks
+    mining() string
 
-    // HashRate returns the number of hashes per second that the node is mining with
-    HashRate() string
+    // hashRate returns the number of hashes per second that the node is mining with
+    hashRate() string
 
-    // GasPrice returns the current price per gas
-    GasPrice() int
+    // gasPrice returns the current price per gas
+    gasPrice() int
 
-    // Accounts returns a list of addresses owned by client
-    Accounts() []string
+    // accounts returns a list of addresses owned by client
+    accounts() []string
 
-    // BlockNumber returns the number of most recent block
-    BlockNumber() int
+    // blockNumber returns the number of most recent block
+    blockNumber() int
 
-    // GetBalance returns the balance of the account of given address
+    // getBalance returns the balance of the account of given address
     // position can be a block number or 'latest', 'earliest' and 'pending'
-    GetBalance(address string, blockNumber int) int
+    getBalance(address string, blockNumber string) string
 
-    // GetStorageAt returns the value from a storage position at a given address
-    GetStorageAt(address string, key int, blockNumber int) string
+    // getStorageAt returns the value from a storage position at a given address
+    getStorageAt(address string, key int, blockNumber string) string
 
-    // GetTransactionCount returns the number of transactions sent from an address
-    GetTransactionCount(address string, blockNumber int) int
+    // getTransactionCount returns the number of transactions sent from an address
+    getTransactionCount(address string, blockNumber string) int
 
-    // GetBlockTransactionCountByHash returns the number of transactions in a block from a
+    // getBlockTransactionCountByHash returns the number of transactions in a block from a
     // block matching the given block hash
-    GetBlockTransactionCountByHash(blockHash string) int
+    getBlockTransactionCountByHash(blockHash string) int
 
-    // GetBlockTransactionCountByNumber returns the number of transactions in a block matching
+    // getBlockTransactionCountByNumber returns the number of transactions in a block matching
     // the given block number
-    GetBlockTransactionCountByNumber(blockNumber int) int
+    getBlockTransactionCountByNumber(blockNumber int) int
 
-    // GetUncleCountByBlockHash returns the number of uncles in a block from a block matching
+    // getUncleCountByBlockHash returns the number of uncles in a block from a block matching
     // the given block hash
-    GetUncleCountByBlockHash(blockHash string) int
+    getUncleCountByBlockHash(blockHash string) int
 
-    // GetUncleCountByBlockNumber returns the number of uncles in a block from a block matching
+    // getUncleCountByBlockNumber returns the number of uncles in a block from a block matching
     // the given block number
-    GetUncleCountByBlockNumber(blockNumber int) int
+    getUncleCountByBlockNumber(blockNumber int) int
 
-    // GetCode returns code at a given address
-    GetCode(address string, blockNumber int) string
+    // getCode returns code at a given address
+    getCode(address string, blockNumber int) string
 
-    // Sign returns an Ethereum specific signature with: sign(keccak256("\x19Ethereum Signed
+    // sign returns an Ethereum specific signature with: sign(keccak256("\x19Ethereum Signed
     // Message:\n" + len(message) + message)))
-    Sign(address string, data string) string
+    sign(address string, data string) string
 
-    // SendTransaction creates new message call transaction or a contract creation, if the
+    // sendTransaction creates new message call transaction or a contract creation, if the
     // data field contains code
-    SendTransaction(args SendTxArgs) string
+    sendTransaction(args SendTxArgs) string
 
-    // SendRawTransaction creates new message call transaction or a contract creation for
+    // sendRawTransaction creates new message call transaction or a contract creation for
     // signed transactions
-    SendRawTransaction(encodedTx string) string
+    sendRawTransaction(encodedTx string) string
 
-    // Call executes a new message call immediately without creating a transaction on the block chain
-    Call(args CallArgs, blockNumber int) string
+    // call executes a new message call immediately without creating a transaction on the block chain
+    call(args CallArgs, blockNumber int) string
 
-    // EstimateGas generates and returns an estimate of how much gas is necessary to allow the
+    // estimateGas generates and returns an estimate of how much gas is necessary to allow the
     // transaction to complete. The transaction will not be added to the blockchain. Note that the
     // estimate may be significantly more than the amount of gas actually used by the transaction,
     // for a variety of reasons including EVM mechanics and node performance
-    EstimateGas(args CallArgs) int
+    estimateGas(args CallArgs) int
 
-    // GetBlockByHash returns information about a block by hash
-    GetBlockByHash(blockHash string) Block
+    // getBlockByHash returns information about a block by hash
+    getBlockByHash(blockHash string) Block
 
-    // GetBlockHashByHash returns information about a block hash by hash
-    GetBlockHashByHash(blockHash string) string
+    // getBlockHashByHash returns information about a block hash by hash
+    getBlockHashByHash(blockHash string) string
 
-    // GetBlockByNumber returns information about a block by block number
-    GetBlockByNumber(blockNumber int) Block
+    // getBlockByNumber returns information about a block by block number
+    getBlockByNumber(blockNumber int) Block
 
-    // GetBlockHashByNumber returns information about a block hash by block number
-    GetBlockHashByNumber(blockNumber int) string
+    // getBlockHashByNumber returns information about a block hash by block number
+    getBlockHashByNumber(blockNumber int) string
 
-    // GetTransactionByHash returns the information about a transaction requested by transaction hash
-    GetTransactionByHash(hash string) Transaction
+    // getTransactionByHash returns the information about a transaction requested by transaction hash
+    getTransactionByHash(hash string) Transaction
 
-    // GetTransactionByBlockHashAndIndex returns information about a transaction by block hash and
+    // getTransactionByBlockHashAndIndex returns information about a transaction by block hash and
     // transaction index position
-    GetTransactionByBlockHashAndIndex(blockHash string, index int) Transaction
+    getTransactionByBlockHashAndIndex(blockHash string, index int) Transaction
 
-    // GetTransactionByBlockNumberAndIndex returns information about a transaction by block number
+    // getTransactionByBlockNumberAndIndex returns information about a transaction by block number
     // and transaction index position
-    GetTransactionByBlockNumberAndIndex(blockNumber int, index int) Transaction
+    getTransactionByBlockNumberAndIndex(blockNumber int, index int) Transaction
 
-    // GetTransactionReceipt returns the receipt of a transaction by transaction hash
-    GetTransactionReceipt(hash string) TransactionReceipt
+    // getTransactionReceipt returns the receipt of a transaction by transaction hash
+    getTransactionReceipt(hash string) TransactionReceipt
 
-    // GetUncleByBlockHashAndIndex returns information about a uncle of a block by hash and uncle index position
-    GetUncleByBlockHashAndIndex(blockHash string, index int) Block
+    // getUncleByBlockHashAndIndex returns information about a uncle of a block by hash and uncle index position
+    getUncleByBlockHashAndIndex(blockHash string, index int) Block
 
-    // GetUncleByBlockNumberAndIndex returns information about a uncle of a block by number and uncle index position
-    GetUncleByBlockNumberAndIndex(blockNumber int, uncleIndex int) Block
+    // getUncleByBlockNumberAndIndex returns information about a uncle of a block by number and uncle index position
+    getUncleByBlockNumberAndIndex(blockNumber int, uncleIndex int) Block
 }
 

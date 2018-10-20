@@ -83,17 +83,21 @@ func (w3 *PublicWeb3API) BlockNumber() (int64, error) {
 
 // GetBalance returns the balance of the account of given address
 // position can be a block number or 'latest', 'earliest' and 'pending'
-func (w3 *PublicWeb3API) GetBalance(address string, blockNumber int64) (uint64, error) {
-	panic("did not implement yet")
+func (w3 *PublicWeb3API) GetBalance(address string, blockNumber string) (string, error) {
+	state, err := w3.bc.StateByAddr(address)
+	if err != nil {
+		return "", err
+	}
+	return "0x" + state.Balance.Text(16), nil
 }
 
 // GetStorageAt returns the value from a storage position at a given address
-func (w3 *PublicWeb3API) GetStorageAt(address string, key int64, blockNumber int64) (string, error) {
+func (w3 *PublicWeb3API) GetStorageAt(address string, key int64, blockNumber string) (string, error) {
 	panic("did not implement yet")
 }
 
 // GetTransactionCount returns the number of transactions sent from an address
-func (w3 *PublicWeb3API) GetTransactionCount(address string, blockNumber int64) (int64, error) {
+func (w3 *PublicWeb3API) GetTransactionCount(address string, blockNumber string) (int64, error) {
 	panic("did not implement yet")
 }
 
