@@ -389,6 +389,7 @@ type epochCtx struct {
 // roundCtx keeps the context data for the current round and block.
 type roundCtx struct {
 	height           uint64
+	number           uint32
 	proofOfLock      *endorsement.Set
 	timestamp        time.Time
 	block            *blockchain.Block

@@ -35,14 +35,16 @@ const (
 type ConsensusVote struct {
 	BlkHash hash.Hash32B
 	Height  uint64
+	Round   uint32
 	Topic   ConsensusVoteTopic
 }
 
 // NewConsensusVote creates a consensus vote
-func NewConsensusVote(blkHash hash.Hash32B, height uint64, topic ConsensusVoteTopic) *ConsensusVote {
+func NewConsensusVote(blkHash hash.Hash32B, height uint64, round uint32, topic ConsensusVoteTopic) *ConsensusVote {
 	return &ConsensusVote{
 		blkHash,
 		height,
+		round,
 		topic,
 	}
 }
@@ -51,6 +53,7 @@ func NewConsensusVote(blkHash hash.Hash32B, height uint64, topic ConsensusVoteTo
 func (en *ConsensusVote) Hash() hash.Hash32B {
 	stream := byteutil.Uint64ToBytes(en.Height)
 	stream = append(stream, uint8(en.Topic))
+	stream = append(stream, byteutil.Uint32ToBytes(en.Round)...)
 	stream = append(stream, en.BlkHash[:]...)
 
 	return blake2b.Sum256(stream)
@@ -120,6 +123,7 @@ func (en *Endorsement) ToProtoMsg() *iproto.EndorsePb {
 	pubkey := en.EndorserPublicKey()
 	return &iproto.EndorsePb{
 		Height:         vote.Height,
+		Round:          vote.Round,
 		BlockHash:      vote.BlkHash[:],
 		Topic:          topic,
 		Endorser:       en.Endorser(),
@@ -143,6 +147,7 @@ func FromProtoMsg(endorsePb *iproto.EndorsePb) (*Endorsement, error) {
 	vote := NewConsensusVote(
 		byteutil.BytesTo32B(endorsePb.BlockHash),
 		endorsePb.Height,
+		endorsePb.Round,
 		topic,
 	)
 	pubKey, err := keypair.BytesToPublicKey(endorsePb.EndorserPubKey)

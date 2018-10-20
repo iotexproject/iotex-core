@@ -159,6 +159,7 @@ message BlockContainer {
 message ProposePb {
     string proposer = 1;
     BlockPb block = 2;
+    uint32 round = 3;
 }
 
 // corresponding to prepare and pre-prepare phase in view change protocol
@@ -168,12 +169,13 @@ message EndorsePb {
         LOCK = 1;
     }
     uint64 height = 1;
-    bytes blockHash = 2;
-    EndorsementTopic topic = 3;
-    string endorser = 4;
-    bytes endorserPubKey = 5;
-    bool decision = 6;
-    bytes signature = 7;
+    uint32 round = 2;
+    bytes blockHash = 3;
+    EndorsementTopic topic = 4;
+    string endorser = 5;
+    bytes endorserPubKey = 6;
+    bool decision = 7;
+    bytes signature = 8;
 }
 
 // Candidates and list of candidates
