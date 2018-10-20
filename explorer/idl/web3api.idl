@@ -47,7 +47,7 @@ struct Log {
 	Removed             bool
 }
 
-struct Transaction {
+struct Transfer {
     blockHash           string
     blockNumber         int
     from                string
@@ -96,16 +96,16 @@ struct Block {
     gasLimit            int
     gasUsed             int
     timestamp           int
-    transactions        []Transaction
+    transfers           []Transfer
     uncles              []string
 }
 
 interface Web3API {
-    // clientVersion returns the current client version
-    clientVersion() string
+    // web3ClientVersion returns the current client version
+    web3ClientVersion() string
 
-    // sha3 returns Keccak-256 (not the standardized SHA3-256) of the given data
-    sha3(input string) string
+    // web3Sha3 returns Keccak-256 (not the standardized SHA3-256) of the given data
+    web3Sha3(input string) string
 
     // netVersion returns the current net id
     netVersion() string
@@ -116,110 +116,110 @@ interface Web3API {
     // netPeerCount returns number of peers currently connected to the client
     netPeerCount() int
 
-    // protocolVersion returns the current iotex protocol version
-    protocolVersion() string
+    // iotxProtocolVersion returns the current iotex protocol version
+    iotxProtocolVersion() string
 
-    // syncing returns an object with data about the sync status or false
-    syncing() string
+    // iotxSyncing returns an object with data about the sync status or false
+    iotxSyncing() string
 
-    // coinbase returns the client coinbase address
-    coinbase() string
+    // iotxCoinbase returns the client coinbase address
+    iotxCoinbase() string
 
-    // mining returns true if client is actively mining new blocks
-    mining() string
+    // iotxMining returns true if client is actively mining new blocks
+    iotxMining() string
 
-    // hashRate returns the number of hashes per second that the node is mining with
-    hashRate() string
+    // iotxHashRate returns the number of hashes per second that the node is mining with
+    iotxHashRate() string
 
-    // gasPrice returns the current price per gas
-    gasPrice() int
+    // iotxGasPrice returns the current price per gas
+    iotxGasPrice() int
 
-    // accounts returns a list of addresses owned by client
-    accounts() []string
+    // iotxAccounts returns a list of addresses owned by client
+    iotxAccounts() []string
 
-    // blockNumber returns the number of most recent block
-    blockNumber() int
+    // iotxBlockNumber returns the number of most recent block
+    iotxBlockNumber() int
 
-    // getBalance returns the balance of the account of given address
+    // iotxGetBalance returns the balance of the account of given address
     // position can be a block number or 'latest', 'earliest' and 'pending'
-    getBalance(address string, blockNumber string) string
+    iotxGetBalance(address string, blockNumber int) string
 
-    // getStorageAt returns the value from a storage position at a given address
-    getStorageAt(address string, key int, blockNumber string) string
+    // iotxGetStorageAt returns the value from a storage position at a given address
+    iotxGetStorageAt(address string, key int, blockNumber int) string
 
-    // getTransactionCount returns the number of transactions sent from an address
-    getTransactionCount(address string, blockNumber string) int
+    // iotxGetTransferCount returns the number of transfers sent from an address
+    iotxGetTransferCount(address string, blockNumber int) int
 
-    // getBlockTransactionCountByHash returns the number of transactions in a block from a
+    // iotxGetBlockTransferCountByHash returns the number of transfers in a block from a
     // block matching the given block hash
-    getBlockTransactionCountByHash(blockHash string) int
+    iotxGetBlockTransferCountByHash(blockHash string) int
 
-    // getBlockTransactionCountByNumber returns the number of transactions in a block matching
+    // iotxGetBlockTransferCountByNumber returns the number of transfers in a block matching
     // the given block number
-    getBlockTransactionCountByNumber(blockNumber int) int
+    iotxGetBlockTransferCountByNumber(blockNumber int) int
 
-    // getUncleCountByBlockHash returns the number of uncles in a block from a block matching
+    // iotxGetUncleCountByBlockHash returns the number of uncles in a block from a block matching
     // the given block hash
-    getUncleCountByBlockHash(blockHash string) int
+    iotxGetUncleCountByBlockHash(blockHash string) int
 
-    // getUncleCountByBlockNumber returns the number of uncles in a block from a block matching
+    // iotxGetUncleCountByBlockNumber returns the number of uncles in a block from a block matching
     // the given block number
-    getUncleCountByBlockNumber(blockNumber int) int
+    iotxGetUncleCountByBlockNumber(blockNumber int) int
 
-    // getCode returns code at a given address
-    getCode(address string, blockNumber int) string
+    // iotxGetCode returns code at a given address
+    iotxGetCode(address string, blockNumber int) string
 
-    // sign returns an Ethereum specific signature with: sign(keccak256("\x19Ethereum Signed
+    // iotxSign returns an Ethereum specific signature with: sign(keccak256("\x19Ethereum Signed
     // Message:\n" + len(message) + message)))
-    sign(address string, data string) string
+    iotxSign(address string, data string) string
 
-    // sendTransaction creates new message call transaction or a contract creation, if the
+    // iotxSendTransfer creates new message call transfer or a contract creation, if the
     // data field contains code
-    sendTransaction(args SendTxArgs) string
+    iotxSendTransfer(args SendTxArgs) string
 
-    // sendRawTransaction creates new message call transaction or a contract creation for
+    // iotxSendRawTransaction creates new message call transaction or a contract creation for
     // signed transactions
-    sendRawTransaction(encodedTx string) string
+    iotxSendRawTransfer(encodedTx string) string
 
-    // call executes a new message call immediately without creating a transaction on the block chain
-    call(args CallArgs, blockNumber int) string
+    // iotxCall executes a new message call immediately without creating a transaction on the block chain
+    iotxCall(args CallArgs, blockNumber int) string
 
-    // estimateGas generates and returns an estimate of how much gas is necessary to allow the
+    // iotxEstimateGas generates and returns an estimate of how much gas is necessary to allow the
     // transaction to complete. The transaction will not be added to the blockchain. Note that the
     // estimate may be significantly more than the amount of gas actually used by the transaction,
     // for a variety of reasons including EVM mechanics and node performance
-    estimateGas(args CallArgs) int
+    iotxEstimateGas(args CallArgs) int
 
-    // getBlockByHash returns information about a block by hash
-    getBlockByHash(blockHash string) Block
+    // iotxGetBlockByHash returns information about a block by hash
+    iotxGetBlockByHash(blockHash string) Block
 
-    // getBlockHashByHash returns information about a block hash by hash
-    getBlockHashByHash(blockHash string) string
+    // iotxGetBlockHashByHash returns information about a block hash by hash
+    iotxGetBlockHashByHash(blockHash string) string
 
-    // getBlockByNumber returns information about a block by block number
-    getBlockByNumber(blockNumber int) Block
+    // iotxGetBlockByNumber returns information about a block by block number
+    iotxGetBlockByNumber(blockNumber int) Block
 
-    // getBlockHashByNumber returns information about a block hash by block number
-    getBlockHashByNumber(blockNumber int) string
+    // iotxGetBlockHashByNumber returns information about a block hash by block number
+    iotxGetBlockHashByNumber(blockNumber int) string
 
-    // getTransactionByHash returns the information about a transaction requested by transaction hash
-    getTransactionByHash(hash string) Transaction
+    // iotxGetTransferByHash returns the information about a transfer requested by transfer hash
+    iotxGetTransferByHash(hash string) Transfer
 
-    // getTransactionByBlockHashAndIndex returns information about a transaction by block hash and
-    // transaction index position
-    getTransactionByBlockHashAndIndex(blockHash string, index int) Transaction
+    // iotxGetTransferByBlockHashAndIndex returns information about a transfer by block hash and
+    // transfer index position
+    iotxGetTransferByBlockHashAndIndex(blockHash string, index int) Transfer
 
-    // getTransactionByBlockNumberAndIndex returns information about a transaction by block number
-    // and transaction index position
-    getTransactionByBlockNumberAndIndex(blockNumber int, index int) Transaction
+    // iotxGetTransferByBlockNumberAndIndex returns information about a transfer by block number
+    // and transfer index position
+    iotxGetTransferByBlockNumberAndIndex(blockNumber int, index int) Transfer
 
-    // getTransactionReceipt returns the receipt of a transaction by transaction hash
-    getTransactionReceipt(hash string) TransactionReceipt
+    // iotxGetTransferReceipt returns the receipt of a transfer by transfer hash
+    iotxGetTransferReceipt(hash string) TransactionReceipt
 
-    // getUncleByBlockHashAndIndex returns information about a uncle of a block by hash and uncle index position
-    getUncleByBlockHashAndIndex(blockHash string, index int) Block
+    // iotxGetUncleByBlockHashAndIndex returns information about a uncle of a block by hash and uncle index position
+    iotxGetUncleByBlockHashAndIndex(blockHash string, index int) Block
 
-    // getUncleByBlockNumberAndIndex returns information about a uncle of a block by number and uncle index position
-    getUncleByBlockNumberAndIndex(blockNumber int, uncleIndex int) Block
+    // iotxGetUncleByBlockNumberAndIndex returns information about a uncle of a block by number and uncle index position
+    iotxGetUncleByBlockNumberAndIndex(blockNumber int, uncleIndex int) Block
 }
 

@@ -22,9 +22,9 @@ import (
 	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/dispatcher"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
+	"github.com/iotexproject/iotex-core/explorer/idl/web3api"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network"
-	"github.com/iotexproject/iotex-core/explorer/idl/web3api"
 )
 
 // Server is the container of the explorer service
@@ -61,7 +61,8 @@ func NewServer(
 			cfg: cfg,
 		},
 		web3Svc: &PublicWeb3API{
-			bc: chain,
+			bc:  chain,
+			p2p: p2p,
 		},
 	}
 }
@@ -69,8 +70,9 @@ func NewServer(
 // NewTestSever instantiates an explorer server with mock web3Svr
 func NewTestSever(cfg config.Explorer) *Server {
 	return &Server{
-		cfg:    cfg,
-		expSvc: &MockExplorer{},
+		cfg:     cfg,
+		expSvc:  &MockExplorer{},
+		web3Svc: &PublicWeb3API{},
 	}
 }
 
