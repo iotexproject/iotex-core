@@ -341,6 +341,7 @@ func (m *cFSM) handleStartRoundEvt(_ fsm.Event) (fsm.State, error) {
 		return sEpochStart, err
 	}
 	if m.ctx.round.height == height {
+		// TODO
 		m.ctx.round.number = m.ctx.round.number + 1
 	} else {
 		m.ctx.round = roundCtx{
