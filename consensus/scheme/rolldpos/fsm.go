@@ -114,9 +114,10 @@ func newConsensusFSM(ctx *rollDPoSCtx) (*cFSM, error) {
 		AddStates(sDKGGeneration, sRoundStart, sInitPropose, sAcceptPropose, sAcceptProposalEndorse, sAcceptLockEndorse).
 		AddTransition(sEpochStart, eRollDelegates, cm.handleRollDelegatesEvt, []fsm.State{sEpochStart, sDKGGeneration}).
 		AddTransition(sDKGGeneration, eGenerateDKG, cm.handleGenerateDKGEvt, []fsm.State{sRoundStart}).
-		AddTransition(sRoundStart, eStartRound, cm.handleStartRoundEvt, []fsm.State{sInitPropose, sAcceptPropose}).
+		AddTransition(sRoundStart, eStartRound, cm.handleStartRoundEvt, []fsm.State{sInitPropose}).
 		AddTransition(sRoundStart, eFinishEpoch, cm.handleFinishEpochEvt, []fsm.State{sEpochStart, sRoundStart}).
 		AddTransition(sInitPropose, eInitBlock, cm.handleInitBlockEvt, []fsm.State{sAcceptPropose}).
+		AddTransition(sInitPropose, eProposeBlockTimeout, cm.handleProposeBlockTimeout, []fsm.State{sAcceptProposalEndorse}).
 		AddTransition(
 			sAcceptPropose,
 			eProposeBlock,
@@ -347,33 +348,40 @@ func (m *cFSM) handleStartRoundEvt(_ fsm.Event) (fsm.State, error) {
 		m.ctx.round = roundCtx{
 			height:          height,
 			number:          0,
-			timestamp:       m.ctx.clock.Now(),
 			endorsementSets: make(map[hash.Hash32B]*endorsement.Set),
-			proposer:        proposer,
 		}
 	}
-	if proposer == m.ctx.addr.RawAddress {
-		logger.Info().
-			Str("proposer", proposer).
-			Uint64("height", height).
-			Msg("current node is the proposer")
-		m.produce(m.newCEvt(eInitBlock), 0)
-		// TODO: we may need timeout event for block producer too
-		return sInitPropose, nil
-	}
-	logger.Info().
-		Str("proposer", proposer).
-		Uint64("height", height).
-		Msg("current node is not the proposer")
+	m.ctx.round.proposer = proposer
+	m.ctx.round.timestamp = m.ctx.clock.Now()
+
 	// Setup timeout for waiting for proposed block
+	m.produce(m.newCEvt(eInitBlock), 0)
 	m.produce(m.newTimeoutEvt(eProposeBlockTimeout), m.ctx.cfg.AcceptProposeTTL)
-	return sAcceptPropose, nil
+
+	return sInitPropose, nil
 }
 
 func (m *cFSM) handleInitBlockEvt(evt fsm.Event) (fsm.State, error) {
-	blk, err := m.ctx.mintBlock()
-	if err != nil {
-		return sEpochStart, errors.Wrap(err, "error when minting a block")
+	if m.ctx.round.proposer != m.ctx.addr.RawAddress {
+		logger.Info().
+			Str("proposer", m.ctx.round.proposer).
+			Uint64("height", m.ctx.round.height).
+			Uint32("round", m.ctx.round.number).
+			Msg("current node is not the proposer")
+		return sAcceptPropose, nil
+	}
+	logger.Info().
+		Str("proposer", m.ctx.round.proposer).
+		Uint64("height", m.ctx.round.height).
+		Uint32("round", m.ctx.round.number).
+		Msg("current node is the proposer")
+	blk := m.ctx.round.block
+	if blk == nil {
+		var err error
+		blk, err = m.ctx.mintBlock()
+		if err != nil {
+			return sInvalid, errors.Wrap(err, "error when minting a block")
+		}
 	}
 	proposeBlkEvt := m.newProposeBlkEvt(blk)
 	proposeBlkEvtProto := proposeBlkEvt.toProtoMsg()
@@ -480,6 +488,7 @@ func (m *cFSM) handleProposeBlockTimeout(evt fsm.Event) (fsm.State, error) {
 	logger.Warn().
 		Str("proposer", m.ctx.round.proposer).
 		Uint64("height", m.ctx.round.height).
+		Uint32("round", m.ctx.round.number).
 		Msg("didn't receive the proposed block before timeout")
 
 	return m.moveToAcceptProposalEndorse()
