@@ -16,6 +16,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/crypto"
+	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
@@ -57,6 +58,13 @@ func (bh *BlockHeader) Timestamp() time.Time {
 	return time.Unix(int64(bh.timestamp), 0)
 }
 
+// BlockFooter defines a set of proof of this block
+type BlockFooter struct {
+	// endorsements contain COMMIT endorsements from more than 2/3 delegates
+	endorsements    *endorsement.Set
+	commitTimestamp uint64
+}
+
 // Block defines the struct of block
 type Block struct {
 	Header          *BlockHeader
@@ -68,6 +76,7 @@ type Block struct {
 	SecretWitness   *action.SecretWitness
 	receipts        map[hash.Hash32B]*Receipt
 	workingSet      state.WorkingSet
+	Footer          *BlockFooter
 }
 
 // NewBlock returns a new block

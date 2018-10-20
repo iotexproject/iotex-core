@@ -130,7 +130,7 @@ func TestInsert(t *testing.T) {
 	require.Equal(0, match)
 	require.NotNil(err)
 	tr.clear()
-	// this splits the root B
+	// this adds one L to root R
 	logger.Info().Msg("Put[cat]")
 	err = tr.Upsert(cat, testV[2])
 	require.Nil(err)
@@ -138,11 +138,11 @@ func TestInsert(t *testing.T) {
 	require.NotEqual(catRoot, root)
 	root = catRoot
 	require.Equal(uint64(1), tr.numLeaf)
-	b, err := tr.Get(cat)
-	require.Nil(err)
-	require.Equal(testV[2], b)
 
-	// this splits L --> E + B + 2L
+	// this splits L --> E + B + 2L (cat, rat)
+	/*
+	 *  Root --1--> E --234567--> B --> (cat, rat)
+	 */
 	logger.Info().Msg("Put[rat]")
 	err = tr.Upsert(rat, []byte("rat"))
 	require.Nil(err)
@@ -150,13 +150,20 @@ func TestInsert(t *testing.T) {
 	require.NotEqual(ratRoot, root)
 	root = ratRoot
 	require.Equal(uint64(2), tr.numBranch)
-	require.Equal(uint64(1), tr.numExt)
+	require.Equal(uint64(0), tr.numExt)
 	require.Equal(uint64(3), tr.numLeaf)
+	require.NoError(tr.Commit())
+	b, err := tr.Get(cat)
+	require.Nil(err)
+	require.Equal(testV[2], b)
 	b, err = tr.Get(rat)
 	require.Nil(err)
 	require.Equal([]byte("rat"), b)
 
-	// this adds another L to B
+	// this adds another L to B (car)
+	/*
+	 *  Root --1--> E --234567--> B --> (cat, rat, car)
+	 */
 	logger.Info().Msg("Put[car]")
 	err = tr.Upsert(car, testV[1])
 	require.Nil(err)
@@ -175,17 +182,35 @@ func TestInsert(t *testing.T) {
 	require.Equal(newRoot, ratRoot)
 	root = newRoot
 
-	// this splits E (with match = 3, div = 3)
+	// this splits E --> B1 + E1 + L (match = 3, div = 3)
+	/*
+	 *  Root --1--> E --234--> B1 --5--> E1 --67--> B --> (cat, rat)
+	 *                          | --6--> L --710--> dog
+	 */
 	logger.Info().Msg("Put[dog]")
 	err = tr.Upsert(dog, testV[3])
 	require.Nil(err)
 	newRoot = tr.RootHash()
 	require.NotEqual(newRoot, root)
 	root = newRoot
+	require.NoError(tr.Commit())
 	// Get returns "dog" now
 	b, err = tr.Get(dog)
 	require.Nil(err)
 	require.Equal(testV[3], b)
+	b, err = tr.Get(cat)
+	require.Nil(err)
+	require.Equal(testV[2], b)
+	b, err = tr.Get(rat)
+	require.Nil(err)
+	require.Equal([]byte("rat"), b)
+	_, err = tr.Get(car)
+	require.Equal(ErrNotExist, errors.Cause(err))
+
+	// this deletes 'dog' and turns B1 into another E2
+	/*
+	 *  Root --1--> E --234--> E2 --5--> E1 --67--> B --> (cat, rat)
+	 */
 	logger.Info().Msg("Del[dog]")
 	err = tr.Delete(dog)
 	require.Nil(err)
@@ -193,7 +218,11 @@ func TestInsert(t *testing.T) {
 	require.NotEqual(newRoot, root)
 	root = newRoot
 
-	// this splits E (with match = 0, div = 2)
+	// this splits E1 --> B2 + E3 + L (match = 0, div = 2)
+	/*
+	 *  Root --1--> E --234--> E2 --5--> B2 --6--> E3 --7--> B --> (cat, rat)
+	 *                                    | --8--> L --10--> egg
+	 */
 	logger.Info().Msg("Put[egg]")
 	err = tr.Upsert(egg, testV[4])
 	require.Nil(err)
@@ -229,6 +258,11 @@ func TestInsert(t *testing.T) {
 	require.NotEqual(newRoot, root)
 	require.Equal(newRoot, eggRoot)
 	root = newRoot
+	require.NoError(tr.Commit())
+	_, err = tr.Get(dog)
+	require.Equal(ErrNotExist, errors.Cause(err))
+	_, err = tr.Get(egg)
+	require.Equal(ErrNotExist, errors.Cause(err))
 
 	// insert 'ham' 'fox' 'cow'
 	logger.Info().Msg("Put[ham]")
@@ -259,15 +293,15 @@ func TestInsert(t *testing.T) {
 	require.Nil(err)
 	require.Equal(testV[6], b)
 
-	// delete fox ham cow
+	// delete fox rat cow
 	logger.Info().Msg("Del[fox]")
 	err = tr.Delete(fox)
 	require.Nil(err)
 	newRoot = tr.RootHash()
 	require.NotEqual(newRoot, root)
 	root = newRoot
-	logger.Info().Msg("Del[ham]")
-	err = tr.Delete(ham)
+	logger.Info().Msg("Del[rat]")
+	err = tr.Delete(rat)
 	require.Nil(err)
 	newRoot = tr.RootHash()
 	require.NotEqual(newRoot, root)
@@ -278,6 +312,16 @@ func TestInsert(t *testing.T) {
 	newRoot = tr.RootHash()
 	require.NotEqual(newRoot, root)
 	root = newRoot
+	require.NoError(tr.Commit())
+	_, err = tr.Get(fox)
+	require.Equal(ErrNotExist, errors.Cause(err))
+	_, err = tr.Get(rat)
+	require.Equal(ErrNotExist, errors.Cause(err))
+	_, err = tr.Get(cow)
+	require.Equal(ErrNotExist, errors.Cause(err))
+	b, err = tr.Get(ham)
+	require.Nil(err)
+	require.Equal(testV[0], b)
 
 	// this adds another path to root B
 	logger.Info().Msg("Put[ant]")
@@ -296,15 +340,21 @@ func TestInsert(t *testing.T) {
 	require.NotEqual(newRoot, root)
 	root = newRoot
 
-	// delete "rat"
-	logger.Info().Msg("Del[rat]")
-	err = tr.Delete(rat)
+	// delete "ham"
+	logger.Info().Msg("Del[ham]")
+	err = tr.Delete(ham)
 	require.Nil(err)
 	newRoot = tr.RootHash()
 	require.NotEqual(newRoot, root)
-	b, err = tr.Get(rat)
-	require.NotNil(err)
-	require.Equal([]byte(nil), b)
+	require.NoError(tr.Commit())
+	_, err = tr.Get(ham)
+	require.Equal(ErrNotExist, errors.Cause(err))
+	_, err = tr.Get(ant)
+	require.Equal(ErrNotExist, errors.Cause(err))
+	b, err = tr.Get(cat)
+	require.Nil(err)
+	require.Equal(testV[2], b)
+
 	// delete "cat"
 	logger.Info().Msg("Del[cat]")
 	err = tr.Delete(cat)
@@ -327,6 +377,8 @@ func TestBatchCommit(t *testing.T) {
 	require.Nil(tr.Upsert(car, testV[1]))
 	require.Nil(tr.Upsert(egg, testV[4]))
 	require.Nil(tr.Commit())
+	c, _ := tr.Get(cat)
+	require.Equal(testV[2], c)
 	root := tr.RootHash()
 	// insert another 3 entries
 	require.Nil(tr.Upsert(dog, testV[3]))
@@ -391,6 +443,32 @@ func TestBatchCommit(t *testing.T) {
 	require.Nil(tr.Stop(context.Background()))
 }
 
+func TestCollision(t *testing.T) {
+	require := require.New(t)
+
+	testutil.CleanupPath(t, testTriePath)
+	defer testutil.CleanupPath(t, testTriePath)
+	tr, err := NewTrie(db.NewBoltDB(testTriePath, cfg), "test", EmptyRoot)
+	require.Nil(err)
+	require.Nil(tr.Start(context.Background()))
+	defer require.Nil(tr.Stop(context.Background()))
+
+	// this creates 2 leaf (with same value) on branch '0' and '1'
+	require.NoError(tr.Upsert(br1, testV[0]))
+	require.NoError(tr.Upsert(br2, testV[0]))
+	// this adds another 2 leaf (with same value), which splits the first 2 leaf
+	require.NoError(tr.Upsert(cl1, testV[0]))
+	require.NoError(tr.Upsert(cl2, testV[0]))
+	v, _ := tr.Get(br1)
+	require.Equal(testV[0], v)
+	v, _ = tr.Get(br2)
+	require.Equal(testV[0], v)
+	v, _ = tr.Get(cl1)
+	require.Equal(testV[0], v)
+	v, _ = tr.Get(cl2)
+	require.Equal(testV[0], v)
+}
+
 func Test2kEntries(t *testing.T) {
 	require := require.New(t)
 
@@ -410,7 +488,6 @@ func Test2kEntries(t *testing.T) {
 		if _, err := tr.Get(k[:8]); err == nil {
 			continue
 		}
-		logger.Info().Hex("key", k[:8]).Msg("Put --")
 		require.Nil(tr.Upsert(k[:8], v))
 		newRoot := tr.RootHash()
 		require.NotEqual(newRoot, EmptyRoot)
@@ -425,6 +502,10 @@ func Test2kEntries(t *testing.T) {
 		b, err = tr.Get(k[:8])
 		require.Nil(err)
 		require.Equal(v, b)
+		if i%64 == 0 {
+			logger.Info().Hex("key", k[:8]).Msg("Put --")
+			require.NoError(tr.Commit())
+		}
 	}
 	// delete 2k entries
 	var d [32]byte
@@ -436,7 +517,6 @@ func Test2kEntries(t *testing.T) {
 	d = d3
 	for i := 0; i < 1<<11-3; i++ {
 		d = blake2b.Sum256(d[:])
-		logger.Info().Hex("key", d[:8]).Msg("Del --")
 		require.Nil(tr.Delete(d[:8]))
 		newRoot := tr.RootHash()
 		require.NotEqual(newRoot, EmptyRoot)
@@ -444,6 +524,10 @@ func Test2kEntries(t *testing.T) {
 		root = newRoot
 		_, err := tr.Get(d[:8])
 		require.Equal(ErrNotExist, errors.Cause(err))
+		if i%64 == 0 {
+			logger.Info().Hex("key", d[:8]).Msg("Del --")
+			require.NoError(tr.Commit())
+		}
 	}
 	require.Nil(tr.Delete(d1[:8]))
 	require.Nil(tr.Delete(d2[:8]))
@@ -466,16 +550,15 @@ func TestPressure(t *testing.T) {
 	require.Nil(tr.Start(context.Background()))
 	root := EmptyRoot
 	seed := time.Now().Nanosecond()
-	// insert 64k entries
+	// insert 128k entries
 	var k [32]byte
 	k[0] = byte(seed)
-	for i := 0; i < 1<<16; i++ {
+	for i := 0; i < 1<<17; i++ {
 		k = blake2b.Sum256(k[:])
 		v := testV[k[0]&7]
 		if _, err := tr.Get(k[:8]); err == nil {
 			continue
 		}
-		logger.Info().Hex("key", k[:8]).Msg("Put --")
 		require.Nil(tr.Upsert(k[:8], v))
 		newRoot := tr.RootHash()
 		require.NotEqual(newRoot, EmptyRoot)
@@ -484,8 +567,12 @@ func TestPressure(t *testing.T) {
 		b, err := tr.Get(k[:8])
 		require.Nil(err)
 		require.Equal(v, b)
+		if i%(2<<10) == 0 {
+			logger.Info().Hex("key", k[:8]).Msg("Put --")
+			require.NoError(tr.Commit())
+		}
 	}
-	// delete 64k entries
+	// delete 128k entries
 	var d [32]byte
 	d[0] = byte(seed)
 	// save the first 3, delete them last
@@ -493,9 +580,8 @@ func TestPressure(t *testing.T) {
 	d2 := blake2b.Sum256(d1[:])
 	d3 := blake2b.Sum256(d2[:])
 	d = d3
-	for i := 0; i < 1<<16-3; i++ {
+	for i := 0; i < 1<<17-3; i++ {
 		d = blake2b.Sum256(d[:])
-		logger.Info().Hex("key", d[:8]).Msg("Del --")
 		require.Nil(tr.Delete(d[:8]))
 		newRoot := tr.RootHash()
 		require.NotEqual(newRoot, EmptyRoot)
@@ -503,10 +589,15 @@ func TestPressure(t *testing.T) {
 		root = newRoot
 		_, err := tr.Get(d[:8])
 		require.Equal(ErrNotExist, errors.Cause(err))
+		if i%(2<<10) == 0 {
+			logger.Info().Hex("key", d[:8]).Msg("Del --")
+			require.NoError(tr.Commit())
+		}
 	}
 	require.Nil(tr.Delete(d1[:8]))
 	require.Nil(tr.Delete(d2[:8]))
 	require.Nil(tr.Delete(d3[:8]))
+	require.Nil(tr.Commit())
 	// trie should fallback to empty
 	require.Equal(EmptyRoot, tr.RootHash())
 	require.Nil(tr.Stop(context.Background()))

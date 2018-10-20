@@ -83,15 +83,20 @@ message StopSubChainPb {
     string subChainAddress = 5;
 }
 
+message EndorsementPb {
+    bytes endorser = 1;
+    bytes signature = 2;
+}
+
 message PutBlockPb {
     uint32 chainID = 1;
     uint64 height = 2;
     bytes hash = 3;
     bytes actionRoot = 4;
     bytes stateRoot = 5;
-    bytes producerPublicKey = 6;
-    repeated bytes endorsorPublicKeys = 7;
-    repeated bytes endorsorSignatures = 8;
+    string producerAddress = 6;
+    bytes producerPublicKey = 7;
+    repeated EndorsementPb endorsements = 8;
 }
 
 message ActionPb {
@@ -159,6 +164,7 @@ message BlockContainer {
 message ProposePb {
     string proposer = 1;
     BlockPb block = 2;
+    uint32 round = 3;
 }
 
 // corresponding to prepare and pre-prepare phase in view change protocol
@@ -168,12 +174,13 @@ message EndorsePb {
         LOCK = 1;
     }
     uint64 height = 1;
-    bytes blockHash = 2;
-    EndorsementTopic topic = 3;
-    string endorser = 4;
-    bytes endorserPubKey = 5;
-    bool decision = 6;
-    bytes signature = 7;
+    uint32 round = 2;
+    bytes blockHash = 3;
+    EndorsementTopic topic = 4;
+    string endorser = 5;
+    bytes endorserPubKey = 6;
+    bool decision = 7;
+    bytes signature = 8;
 }
 
 // Candidates and list of candidates

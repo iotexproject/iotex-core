@@ -14,8 +14,6 @@ import (
 	"github.com/boltdb/bolt"
 	"github.com/pkg/errors"
 
-	"reflect"
-
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
@@ -299,7 +297,7 @@ func (sf *factory) State(addr hash.PKHash, state State) (State, error) {
 		return nil, errors.Wrapf(err, "error when getting the state of %x", addr)
 	}
 	if err := state.Deserialize(data); err != nil {
-		return nil, errors.Wrapf(err, "error when deserializing state data into %s", reflect.TypeOf(state).String())
+		return nil, errors.Wrapf(err, "error when deserializing state data into %T", state)
 	}
 	return state, nil
 }
