@@ -133,13 +133,13 @@ var (
 		Explorer: Explorer{
 			Enabled:                 false,
 			IsTest:                  false,
-			UseRDS:					 false,
+			UseRDS:                  false,
 			Port:                    14004,
 			TpsWindow:               10,
 			MaxTransferPayloadBytes: 1024,
 		},
 		Indexer: Indexer{
-			Enabled: false,
+			Enabled:  false,
 			NodeAddr: "",
 		},
 		System: System{
@@ -259,7 +259,7 @@ type (
 	Explorer struct {
 		Enabled   bool `yaml:"enabled"`
 		IsTest    bool `yaml:"isTest"`
-		UseRDS	  bool `yaml:"useRDS"`
+		UseRDS    bool `yaml:"useRDS"`
 		Port      int  `yaml:"addr"`
 		TpsWindow int  `yaml:"tpsWindow"`
 		// MaxTransferPayloadBytes limits how many bytes a playload can contain at most
@@ -268,8 +268,8 @@ type (
 
 	// Indexer is the index service config
 	Indexer struct {
-		Enabled 	bool 	`yaml:"enabled"`
-		NodeAddr	string	`yaml:"nodeAddr"`
+		Enabled  bool   `yaml:"enabled"`
+		NodeAddr string `yaml:"nodeAddr"`
 	}
 
 	// System is the system config
