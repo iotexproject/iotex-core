@@ -9,6 +9,7 @@ package endorsement
 import (
 	"bytes"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/pkg/hash"
@@ -149,4 +150,9 @@ func (s *Set) ToProto() *iproto.EndorsementSet {
 		Round:        s.round,
 		Endorsements: endorsements,
 	}
+}
+
+// Serialize returns a serialized byte stream
+func (s *Set) Serialize() ([]byte, error) {
+	return proto.Marshal(s.ToProto())
 }

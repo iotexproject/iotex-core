@@ -276,8 +276,8 @@ func TestStartRoundEvt(t *testing.T) {
 		evt = <-cfsm.evtq
 		require.Equal(eEndorseProposal, evt.Type())
 		s, err = cfsm.handleEndorseProposalEvt(evt)
+		require.NoError(err)
 		require.Equal(sAcceptProposalEndorse, s)
-		require.NotNil(err)
 		evt = <-cfsm.evtq
 		logger.Error().Msgf("Event: %+v", evt)
 		require.Equal(eEndorseProposalTimeout, evt.Type())
@@ -719,6 +719,7 @@ func TestHandleCommitEndorseEvt(t *testing.T) {
 		blk, err := cfsm.ctx.mintBlock()
 		assert.NoError(t, err)
 		cfsm.ctx.round.block = blk
+		cfsm.ctx.round.lockProof = endorsement.NewSet(blk.HashBlock())
 
 		for i := 0; i < 14; i++ {
 			eEvt := newEndorseEvt(endorsement.LOCK, blk.HashBlock(), round.height, round.number, test21Addrs[i], cfsm.ctx.clock)
@@ -766,6 +767,7 @@ func TestHandleCommitEndorseEvt(t *testing.T) {
 		blk, err := cfsm.ctx.mintBlock()
 		assert.NoError(t, err)
 		cfsm.ctx.round.block = blk
+		cfsm.ctx.round.lockProof = endorsement.NewSet(blk.HashBlock())
 
 		for i := 0; i < 14; i++ {
 			eEvt := newEndorseEvt(endorsement.LOCK, blk.HashBlock(), round.height, round.number, test21Addrs[i], cfsm.ctx.clock)

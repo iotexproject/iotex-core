@@ -21,6 +21,7 @@ import (
 
 const (
 	blockNS                             = "blocks"
+	blockFooterNS                       = "blockFooter"
 	blockHashHeightMappingNS            = "hash<->height"
 	blockTransferBlockMappingNS         = "transfer<->block"
 	blockVoteBlockMappingNS             = "vote<->block"
@@ -39,6 +40,7 @@ const (
 
 var (
 	hashPrefix      = []byte("hash.")
+	footerPrefix    = []byte("footer.")
 	transferPrefix  = []byte("transfer.")
 	votePrefix      = []byte("vote.")
 	executionPrefix = []byte("execution.")
@@ -626,14 +628,14 @@ func (dao *blockDAO) putBlock(blk *Block) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to serialize block")
 	}
-	hash := blk.HashBlock()
-	batch.PutIfNotExists(blockNS, hash[:], serialized, "failed to put block")
+	blkHash := blk.HashBlock()
+	batch.PutIfNotExists(blockNS, blkHash[:], serialized, "failed to put block")
 
-	hashKey := append(hashPrefix, hash[:]...)
+	hashKey := append(hashPrefix, blkHash[:]...)
 	batch.Put(blockHashHeightMappingNS, hashKey, height, "failed to put hash -> height mapping")
 
 	heightKey := append(heightPrefix, height...)
-	batch.Put(blockHashHeightMappingNS, heightKey, hash[:], "failed to put height -> hash mapping")
+	batch.Put(blockHashHeightMappingNS, heightKey, blkHash[:], "failed to put height -> hash mapping")
 
 	value, err := dao.kvstore.Get(blockNS, topHeightKey)
 	if err != nil {
@@ -643,7 +645,15 @@ func (dao *blockDAO) putBlock(blk *Block) error {
 	if blk.Height() > topHeight {
 		batch.Put(blockNS, topHeightKey, height, "failed to put top height")
 	}
-
+	// TODO: throw an error if footer is nil
+	if blk.Footer != nil {
+		serializedFooter, err := blk.Footer.Serialize()
+		if err != nil {
+			return errors.Wrap(err, "failed to serialize block footer")
+		}
+		footerHash := byteutil.BytesTo32B(serializedFooter)
+		batch.Put(blockFooterNS, append(footerPrefix, footerHash[:]...), serializedFooter, "failed to put footer")
+	}
 	if !dao.writeIndex {
 		return dao.kvstore.Commit(batch)
 	}
@@ -690,21 +700,21 @@ func (dao *blockDAO) putBlock(blk *Block) error {
 	for _, transfer := range transfers {
 		transferHash := transfer.Hash()
 		hashKey := append(transferPrefix, transferHash[:]...)
-		batch.Put(blockTransferBlockMappingNS, hashKey, hash[:], "failed to put transfer hash %x", transferHash)
+		batch.Put(blockTransferBlockMappingNS, hashKey, blkHash[:], "failed to put transfer hash %x", transferHash)
 	}
 
 	// map Vote hash to block hash
 	for _, vote := range votes {
 		voteHash := vote.Hash()
 		hashKey := append(votePrefix, voteHash[:]...)
-		batch.Put(blockVoteBlockMappingNS, hashKey, hash[:], "failed to put vote hash %x", voteHash)
+		batch.Put(blockVoteBlockMappingNS, hashKey, blkHash[:], "failed to put vote hash %x", voteHash)
 	}
 
 	// map execution hash to block hash
 	for _, execution := range executions {
 		executionHash := execution.Hash()
 		hashKey := append(executionPrefix, executionHash[:]...)
-		batch.Put(blockExecutionBlockMappingNS, hashKey, hash[:], "failed to put execution hash %x", executionHash)
+		batch.Put(blockExecutionBlockMappingNS, hashKey, blkHash[:], "failed to put execution hash %x", executionHash)
 	}
 
 	for _, act := range blk.Actions {
@@ -719,7 +729,7 @@ func (dao *blockDAO) putBlock(blk *Block) error {
 		}
 		actHash := act.Hash()
 		hashKey := append(actionPrefix, actHash[:]...)
-		batch.Put(blockActionBlockMappingNS, hashKey, hash[:], "failed to put action hash %x", actHash)
+		batch.Put(blockActionBlockMappingNS, hashKey, blkHash[:], "failed to put action hash %x", actHash)
 	}
 
 	if err = putTransfers(dao, blk, batch); err != nil {

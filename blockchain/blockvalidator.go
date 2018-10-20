@@ -53,6 +53,9 @@ var (
 
 // Validate validates the given block's content
 func (v *validator) Validate(blk *Block, tipHeight uint64, tipHash hash.Hash32B, containCoinbase bool) error {
+	if err := v.verifyFooter(blk.Footer); err != nil {
+		return errors.Wrap(err, "failed to verify block's footer")
+	}
 	if err := verifyHeightAndHash(blk, tipHeight, tipHash); err != nil {
 		return errors.Wrap(err, "failed to verify block's height and hash")
 	}
@@ -64,6 +67,11 @@ func (v *validator) Validate(blk *Block, tipHeight uint64, tipHash hash.Hash32B,
 		return v.verifyActions(blk, containCoinbase)
 	}
 
+	return nil
+}
+
+func (v *validator) verifyFooter(footer *BlockFooter) error {
+	// TODO: 1. footer is not nil; 2. more than 2/3 of the delegates signed
 	return nil
 }
 

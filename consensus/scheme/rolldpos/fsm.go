@@ -78,6 +78,10 @@ var (
 	ErrEvtConvert = errors.New("error when converting the event from/to the proto message")
 	// ErrEvtType represents an unexpected event type error
 	ErrEvtType = errors.New("error when check the event type")
+	// ErrEvtBlock indicates that the endorsed block is not the received proposed block
+	ErrEvtBlock = errors.New("the endorsed block was not the proposed block")
+	// ErrNilBlock indicates that the endorsed block is nil
+	ErrNilBlock = errors.New("the endorsed block is nil")
 
 	// consensusStates is a slice consisting of all consensusEvt states
 	consensusStates = []fsm.State{
@@ -556,13 +560,19 @@ func (m *cFSM) validateEndorse(
 	return true
 }
 
-func (m *cFSM) isProposedBlock(hash []byte) bool {
+func (m *cFSM) isProposedBlock(voteHash []byte) error {
+	if bytes.Equal(hash.ZeroHash32B[:], voteHash[:]) {
+		return ErrNilBlock
+	}
 	if m.ctx.round.block == nil {
-		return false
+		return errors.New("Doesn't receive a proposed block")
 	}
 	blkHash := m.ctx.round.block.HashBlock()
+	if !bytes.Equal(voteHash[:], blkHash[:]) {
+		return ErrEvtBlock
+	}
 
-	return bytes.Equal(hash[:], blkHash[:])
+	return nil
 }
 
 func (m *cFSM) processEndorseEvent(
@@ -579,8 +589,12 @@ func (m *cFSM) processEndorseEvent(
 	}
 	endorse := endorseEvt.endorse
 	vote := endorse.ConsensusVote()
-	if !m.isProposedBlock(vote.BlkHash[:]) {
-		return nil, errors.New("the endorsed block was not the proposed block")
+	err := m.isProposedBlock(vote.BlkHash[:])
+	if err != nil {
+		if errors.Cause(err) != ErrNilBlock || expectedEventType != eEndorseProposal {
+			return nil, ErrEvtBlock
+		}
+		// add nil proposal endorsement
 	}
 	if !m.validateEndorse(endorse, expectedConsensusTopics) {
 		return nil, errors.New("invalid endorsement")
@@ -713,32 +727,41 @@ func (m *cFSM) handleEndorseCommitEvt(evt fsm.Event) (fsm.State, error) {
 			}
 		}
 	}
-	// Commit and broadcast the pending block
-	if err := m.ctx.chain.CommitBlock(pendingBlock); err != nil {
+	// TODO: collect 2/3 endorsements and remove non-commit endorsements
+	if err := pendingBlock.SetFooter(m.ctx.round.lockProof, uint64(m.ctx.clock.Now().Unix())); err != nil {
 		logger.Error().
 			Err(err).
-			Uint64("block", pendingBlock.Height()).
-			Msg("error when committing a block")
-	}
-	// Remove transfers in this block from ActPool and reset ActPool state
-	m.ctx.actPool.Reset()
-	// Broadcast the committed block to the network
-	if blkProto := pendingBlock.ConvertToBlockPb(); blkProto != nil {
-		if err := m.ctx.p2p.Broadcast(m.ctx.chain.ChainID(), blkProto); err != nil {
+			Uint64("block", m.ctx.round.height).
+			Uint32("round", m.ctx.round.number).
+			Msg("Failed to set the footer for block")
+	} else {
+		// Commit and broadcast the pending block
+		if err := m.ctx.chain.CommitBlock(pendingBlock); err != nil {
 			logger.Error().
 				Err(err).
 				Uint64("block", pendingBlock.Height()).
-				Msg("error when broadcasting blkProto")
+				Msg("error when committing a block")
 		}
+		// Remove transfers in this block from ActPool and reset ActPool state
+		m.ctx.actPool.Reset()
+		// Broadcast the committed block to the network
+		if blkProto := pendingBlock.ConvertToBlockPb(); blkProto != nil {
+			if err := m.ctx.p2p.Broadcast(m.ctx.chain.ChainID(), blkProto); err != nil {
+				logger.Error().
+					Err(err).
+					Uint64("block", pendingBlock.Height()).
+					Msg("error when broadcasting blkProto")
+			}
 
-		// putblock to parent chain if the current node is proposer and current chain is a sub chain
-		if m.ctx.round.proposer == m.ctx.addr.RawAddress && m.ctx.chain.ChainAddress() != "" {
-			putBlockToParentChain(m.ctx.rootChainAPI, m.ctx.chain.ChainAddress(), m.ctx.addr, pendingBlock)
+			// putblock to parent chain if current chain is a sub chain
+			if m.ctx.round.proposer == m.ctx.addr.RawAddress && m.ctx.chain.ChainAddress() != "" {
+				putBlockToParentChain(m.ctx.rootChainAPI, m.ctx.chain.ChainAddress(), m.ctx.addr, pendingBlock)
+			}
+		} else {
+			logger.Error().
+				Uint64("block", pendingBlock.Height()).
+				Msg("error when converting a block into a proto msg")
 		}
-	} else {
-		logger.Error().
-			Uint64("block", pendingBlock.Height()).
-			Msg("error when converting a block into a proto msg")
 	}
 	m.produce(m.newCEvt(eFinishEpoch), 0)
 	return sRoundStart, nil

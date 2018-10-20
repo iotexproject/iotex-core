@@ -29,6 +29,13 @@ message BlockHeaderPb {
     bytes dkgSignature = 14;
 }
 
+// footer of a block
+message BlockFooterPb {
+    uint64 commitTimestamp = 1;
+    EndorsementSet lockProof = 2;
+    repeated ReceiptPb receipts = 3;
+}
+
 // block consists of header followed by transactions
 // hash of current block can be computed from header hence not stored
 message BlockPb {

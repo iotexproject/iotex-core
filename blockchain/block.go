@@ -59,13 +59,6 @@ func (bh *BlockHeader) Timestamp() time.Time {
 	return time.Unix(int64(bh.timestamp), 0)
 }
 
-// BlockFooter defines a set of proof of this block
-type BlockFooter struct {
-	// endorsements contain COMMIT endorsements from more than 2/3 delegates
-	endorsements    *endorsement.Set
-	commitTimestamp uint64
-}
-
 // Block defines the struct of block
 type Block struct {
 	Header          *BlockHeader
@@ -133,6 +126,25 @@ func NewSecretBlock(
 
 	block.Header.txRoot = block.CalculateTxRoot()
 	return block
+}
+
+// SetFooter sets the footer for the block
+// TODO: add receipts
+func (b *Block) SetFooter(es *endorsement.Set, ts uint64) error {
+	if es == nil {
+		return errors.New("endorsements could not be nil")
+	}
+	esHash := es.BlockHash()
+	blkHash := b.HashBlock()
+	if !bytes.Equal(esHash[:], blkHash[:]) {
+		return errors.New("endrosements are not for the block")
+	}
+	b.Footer = &BlockFooter{
+		endorsements:    es,
+		commitTimestamp: ts,
+	}
+
+	return nil
 }
 
 // Height returns the height of this block
