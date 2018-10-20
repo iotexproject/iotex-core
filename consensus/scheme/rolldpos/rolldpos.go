@@ -394,7 +394,7 @@ type epochCtx struct {
 type roundCtx struct {
 	height          uint64
 	number          uint32
-	proofOfLock     *endorsement.Set
+	lockProof       *endorsement.Set
 	timestamp       time.Time
 	block           *blockchain.Block
 	endorsementSets map[hash.Hash32B]*endorsement.Set

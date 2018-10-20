@@ -274,6 +274,12 @@ func TestStartRoundEvt(t *testing.T) {
 		require.Equal(sAcceptProposalEndorse, s)
 		require.NoError(err)
 		evt = <-cfsm.evtq
+		require.Equal(eEndorseProposal, evt.Type())
+		s, err = cfsm.handleEndorseProposalEvt(evt)
+		require.Equal(sAcceptProposalEndorse, s)
+		require.NotNil(err)
+		evt = <-cfsm.evtq
+		logger.Error().Msgf("Event: %+v", evt)
 		require.Equal(eEndorseProposalTimeout, evt.Type())
 		s, err = cfsm.handleEndorseProposalTimeout(evt)
 		require.NoError(err)
@@ -562,7 +568,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 				chain.EXPECT().ValidateBlock(gomock.Any(), gomock.Any()).Times(0)
 			},
 			func(p2p *mock_network.MockOverlay) {
-				p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(0)
+				p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(1)
 			},
 			clock.New(),
 		)

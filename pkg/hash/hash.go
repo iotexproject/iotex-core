@@ -6,7 +6,11 @@
 
 package hash
 
-import "golang.org/x/crypto/blake2b"
+import (
+	"encoding/hex"
+
+	"golang.org/x/crypto/blake2b"
+)
 
 const (
 	// HashSize defines the size of hash
@@ -36,6 +40,11 @@ type (
 	// CacheHash for 20-byte hash used in cache
 	CacheHash [CacheHashSize]byte
 )
+
+// Hex converts the byte array to hex
+func (h Hash32B) Hex() string {
+	return hex.EncodeToString(h[:])
+}
 
 // Hash160b returns 160-bit (20-byte) hash of input
 func Hash160b(input []byte) []byte {

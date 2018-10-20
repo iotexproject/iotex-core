@@ -50,7 +50,9 @@ func (s *Set) FromProto(sPb *iproto.EndorsementSet) error {
 		if err != nil {
 			return err
 		}
-		s.endorsements = append(s.endorsements, en)
+		if err = s.AddEndorsement(en); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -116,6 +118,23 @@ func (s *Set) NumOfValidEndorsements(topics map[ConsensusVoteTopic]bool, endorse
 	}
 
 	return cnt
+}
+
+// DeleteEndorsements deletes endorsements of the given topics and before round
+func (s *Set) DeleteEndorsements(topics map[ConsensusVoteTopic]bool, round uint32) {
+	newEndorsements := []*Endorsement{}
+	for _, endorsement := range s.endorsements {
+		vote := endorsement.ConsensusVote()
+		if _, ok := topics[vote.Topic]; !ok {
+			newEndorsements = append(newEndorsements, endorsement)
+			continue
+		}
+		if vote.Round >= round {
+			newEndorsements = append(newEndorsements, endorsement)
+			continue
+		}
+	}
+	s.endorsements = newEndorsements
 }
 
 // ToProto convert the endorsement set to protobuf
