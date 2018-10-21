@@ -357,7 +357,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		blk, err := cfsm.ctx.mintCommonBlock()
 
 		assert.NoError(t, err)
-		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, cfsm.ctx.round.number, cfsm.ctx.clock))
+		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, nil, cfsm.ctx.round.number, cfsm.ctx.clock))
 
 		assert.NoError(t, err)
 		assert.Equal(t, sAcceptProposalEndorse, state)
@@ -389,7 +389,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		clock.Add(11 * time.Second)
 		blk, err := cfsm.ctx.mintCommonBlock()
 		assert.NoError(t, err)
-		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, cfsm.ctx.round.number, cfsm.ctx.clock))
+		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, nil, cfsm.ctx.round.number, cfsm.ctx.clock))
 		assert.NoError(t, err)
 		assert.Equal(t, sAcceptProposalEndorse, state)
 		e := <-cfsm.evtq
@@ -400,7 +400,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		clock.Add(10 * time.Second)
 		err = blk.SignBlock(testAddrs[3])
 		assert.NoError(t, err)
-		state, err = cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, cfsm.ctx.round.number, cfsm.ctx.clock))
+		state, err = cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, nil, cfsm.ctx.round.number, cfsm.ctx.clock))
 		assert.NoError(t, err)
 		assert.Equal(t, sAcceptProposalEndorse, state)
 		e = <-cfsm.evtq
@@ -427,7 +427,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 
 		blk, err := cfsm.ctx.mintCommonBlock()
 		assert.NoError(t, err)
-		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, cfsm.ctx.round.number, cfsm.ctx.clock))
+		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, nil, cfsm.ctx.round.number, cfsm.ctx.clock))
 		assert.NoError(t, err)
 		assert.Equal(t, sAcceptPropose, state)
 	})
@@ -452,7 +452,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 
 		blk, err := cfsm.ctx.mintCommonBlock()
 		assert.NoError(t, err)
-		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, cfsm.ctx.round.number, cfsm.ctx.clock))
+		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, nil, cfsm.ctx.round.number, cfsm.ctx.clock))
 		assert.NoError(t, err)
 		assert.Equal(t, sAcceptProposalEndorse, state)
 		e := <-cfsm.evtq
@@ -477,7 +477,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 
 		blk, err := cfsm.ctx.mintCommonBlock()
 		assert.NoError(t, err)
-		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, cfsm.ctx.round.number, cfsm.ctx.clock))
+		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, nil, cfsm.ctx.round.number, cfsm.ctx.clock))
 		assert.NoError(t, err)
 		assert.Equal(t, sAcceptPropose, state)
 		state, err = cfsm.handleProposeBlockTimeout(cfsm.newCEvt(eProposeBlockTimeout))
@@ -505,7 +505,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		clock.Add(11 * time.Second)
 		blk, err := cfsm.ctx.mintCommonBlock()
 		assert.NoError(t, err)
-		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, cfsm.ctx.round.number, cfsm.ctx.clock))
+		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, nil, cfsm.ctx.round.number, cfsm.ctx.clock))
 		assert.NoError(t, err)
 		assert.Equal(t, sAcceptPropose, state)
 		state, err = cfsm.handleProposeBlockTimeout(cfsm.newCEvt(eProposeBlockTimeout))

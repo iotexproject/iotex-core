@@ -157,11 +157,12 @@ message ProposePb {
     string proposer = 1;
     BlockPb block = 2;
     uint32 round = 3;
+    EndorsementSet lockProof = 4;
 }
 
 // corresponding to prepare and pre-prepare phase in view change protocol
 message EndorsePb {
-    enum EndorsementTopic {
+    enum ConsensusVoteTopic {
         PROPOSAL = 0;
         LOCK = 1;
         COMMIT = 2;
@@ -169,11 +170,17 @@ message EndorsePb {
     uint64 height = 1;
     uint32 round = 2;
     bytes blockHash = 3;
-    EndorsementTopic topic = 4;
+    ConsensusVoteTopic topic = 4;
     string endorser = 5;
     bytes endorserPubKey = 6;
     bool decision = 7;
     bytes signature = 8;
+}
+
+message EndorsementSet {
+    bytes blockHash = 1;
+    uint32 round = 2;
+    repeated EndorsePb endorsements = 3;
 }
 
 // Candidates and list of candidates
