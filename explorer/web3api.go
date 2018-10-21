@@ -5,6 +5,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/explorer/idl/web3api"
 	"github.com/iotexproject/iotex-core/network"
@@ -122,8 +123,9 @@ func (w3 *PublicWeb3API) IotxGetTransferCount(address string, blockNumber int64)
 			return 0, err
 		}
 		transferCount += int64(len(transfersToAddress))
+		return transferCount, nil
 	}
-	return transferCount, errors.Errorf("check balance for block number %d is not supported", blockNumber)
+	return transferCount, errors.Errorf("get transfer count for block number %d is not supported", blockNumber)
 }
 
 // IotxGetBlockTransferCountByHash returns the number of transfers in a block from a
@@ -160,6 +162,118 @@ func (w3 *PublicWeb3API) IotxGetBlockTransferCountByNumber(blockNumber int64) (i
 		return 0, err
 	}
 	return int64(len(blk.Transfers)), nil
+}
+
+// iotxGetVoteCount returns the number of votes sent from an address
+func (w3 *PublicWeb3API) IotxGetVoteCount(address string, blockNumber int64) (int64, error) {
+	voteCount := int64(0)
+	if blockNumber == LatestBlockNumber {
+		votesFromAddress, err := w3.bc.GetVotesFromAddress(address)
+		if err != nil {
+			return 0, err
+		}
+		voteCount += int64(len(votesFromAddress))
+
+		votesToAddress, err := w3.bc.GetVotesToAddress(address)
+		if err != nil {
+			return 0, err
+		}
+		voteCount += int64(len(votesToAddress))
+		return voteCount, nil
+	}
+	return voteCount, errors.Errorf("get vote count for block number %d is not supported", blockNumber)
+}
+
+// iotxGetBlockVoteCountByHash returns the number of votes in a block from a
+// block matching the given block hash
+func (w3 *PublicWeb3API) IotxGetBlockVoteCountByHash(blockHash string) (int64, error) {
+	bytes, err := hex.DecodeString(blockHash)
+	if err != nil {
+		return 0, err
+	}
+	var hash hash.Hash32B
+	copy(hash[:], bytes)
+
+	blk, err := w3.bc.GetBlockByHash(hash)
+	if err != nil {
+		return 0, err
+	}
+	return int64(len(blk.Votes)), nil
+}
+
+// iotxGetBlockVoteCountByNumber returns the number of votes in a block matching
+// the given block number
+func (w3 *PublicWeb3API) IotxGetBlockVoteCountByNumber(blockNumber int64) (int64, error) {
+	if blockNumber == PendingBlockNumber {
+		return 0, errors.New("get block vote count for pending block is not supported")
+	}
+
+	height := uint64(blockNumber)
+	if blockNumber == LatestBlockNumber {
+		height = w3.bc.TipHeight()
+	}
+
+	blk, err := w3.bc.GetBlockByHeight(height)
+	if err != nil {
+		return 0, err
+	}
+	return int64(len(blk.Votes)), nil
+}
+
+// iotxGetExecutionCount returns the number of executions sent from an address
+func (w3 *PublicWeb3API) IotxGetExecutionCount(address string, blockNumber int64) (int64, error) {
+	executionCount := int64(0)
+	if blockNumber == LatestBlockNumber {
+		executionsFromAddress, err := w3.bc.GetExecutionsFromAddress(address)
+		if err != nil {
+			return 0, err
+		}
+		executionCount += int64(len(executionsFromAddress))
+
+		executionsToAddress, err := w3.bc.GetExecutionsToAddress(address)
+		if err != nil {
+			return 0, err
+		}
+		executionCount += int64(len(executionsToAddress))
+		return executionCount, nil
+	}
+	return executionCount, errors.Errorf("get vexecution count for block number %d is not supported", blockNumber)
+}
+
+// iotxGetBlockExecutionCountByHash returns the number of executions in a block from a
+// block matching the given block hash
+func (w3 *PublicWeb3API) IotxGetBlockExecutionCountByHash(blockHash string) (int64, error) {
+	bytes, err := hex.DecodeString(blockHash)
+	if err != nil {
+		return 0, err
+	}
+	var hash hash.Hash32B
+	copy(hash[:], bytes)
+
+	blk, err := w3.bc.GetBlockByHash(hash)
+	if err != nil {
+		return 0, err
+	}
+	return int64(len(blk.Executions)), nil
+}
+
+// iotxGetBlockExecutionCountByNumber returns the number of executions in a block matching
+// the given block number
+func (w3 *PublicWeb3API) IotxGetBlockExecutionCountByNumber(blockNumber int64) (int64, error) {
+	if blockNumber == PendingBlockNumber {
+		return 0, errors.New("get block execution count for pending block is not supported")
+	}
+
+	height := uint64(blockNumber)
+	if blockNumber == LatestBlockNumber {
+		height = w3.bc.TipHeight()
+	}
+
+	blk, err := w3.bc.GetBlockByHeight(height)
+	if err != nil {
+		return 0, err
+	}
+	return int64(len(blk.Executions)), nil
 }
 
 // IotxGetUncleCountByBlockHash returns the number of uncles in a block from a block matching
@@ -212,39 +326,130 @@ func (w3 *PublicWeb3API) IotxEstimateGas(args web3api.CallArgs) (int64, error) {
 
 // IotxGetBlockByHash returns information about a block by hash
 func (w3 *PublicWeb3API) IotxGetBlockByHash(blockHash string) (web3api.Block, error) {
-	panic("did not implement yet")
-}
+	bytes, err := hex.DecodeString(blockHash)
+	if err != nil {
+		return web3api.Block{}, err
+	}
+	var hash hash.Hash32B
+	copy(hash[:], bytes)
 
-// IotxGetBlockHashByHash returns information about a block hash by hash
-func (w3 *PublicWeb3API) IotxGetBlockHashByHash(blockHash string) (string, error) {
-	panic("did not implement yet")
+	blk, err := w3.bc.GetBlockByHash(hash)
+	if err != nil {
+		return web3api.Block{}, err
+	}
+	return getWeb3Block(blk), nil
 }
 
 // IotxGetBlockByNumber returns information about a block by block number
 func (w3 *PublicWeb3API) IotxGetBlockByNumber(blockNumber int64) (web3api.Block, error) {
-	panic("did not implement yet")
+	if blockNumber == PendingBlockNumber {
+		return web3api.Block{}, errors.Errorf("get pending block is not supported")
+	}
+	height := uint64(blockNumber)
+	if blockNumber == LatestBlockNumber {
+		height = w3.bc.TipHeight()
+	}
+
+	blk, err := w3.bc.GetBlockByHeight(height)
+	if err != nil {
+		return web3api.Block{}, err
+	}
+	return getWeb3Block(blk), nil
 }
 
 // IotxGetBlockHashByNumber returns information about a block hash by block number
 func (w3 *PublicWeb3API) IotxGetBlockHashByNumber(blockNumber int64) (string, error) {
-	panic("did not implement yet")
+	if blockNumber == PendingBlockNumber {
+		return "", errors.Errorf("get pending block is not supported")
+	}
+	height := uint64(blockNumber)
+	if blockNumber == LatestBlockNumber {
+		height = w3.bc.TipHeight()
+	}
+
+	blk, err := w3.bc.GetBlockByHeight(height)
+	if err != nil {
+		return "", err
+	}
+	blkHash := blk.HashBlock()
+	return hex.EncodeToString(blkHash[:]), nil
 }
 
-// IotxGetTransferByHash returns the information about a transfer requested by transaction hash
-func (w3 *PublicWeb3API) IotxGetTransferByHash(hash string) (web3api.Transfer, error) {
-	panic("did not implement yet")
+// IotxGetTransferByHash returns the information about a transfer requested by transfer hash
+func (w3 *PublicWeb3API) IotxGetTransferByHash(transferHash string) (web3api.Transfer, error) {
+	bytes, err := hex.DecodeString(transferHash)
+	if err != nil {
+		return web3api.Transfer{}, err
+	}
+	var hash hash.Hash32B
+	copy(hash[:], bytes)
+
+	transfer, err := w3.bc.GetTransferByTransferHash(hash)
+	if err != nil {
+		return web3api.Transfer{}, err
+	}
+	blkHash, err := w3.bc.GetBlockHashByTransferHash(hash)
+	if err != nil {
+		return web3api.Transfer{}, err
+	}
+	blk, err := w3.bc.GetBlockByHash(blkHash)
+	if err != nil {
+		return web3api.Transfer{}, err
+	}
+
+	for i, t := range blk.Transfers {
+		if hash == t.Hash() {
+			return getWeb3Transfer(transfer, blk.HashBlock(), int64(blk.Height()), int64(i)), nil
+		}
+	}
+	return web3api.Transfer{}, errors.Errorf("transfer with hash %s did not exist in block height %d", transferHash, blk.Height())
 }
 
 // IotxGetTransferByBlockHashAndIndex returns information about a transfer by block hash and
 // transaction index position
 func (w3 *PublicWeb3API) IotxGetTransferByBlockHashAndIndex(blockHash string, index int64) (web3api.Transfer, error) {
-	panic("did not implement yet")
+	if index < 0 {
+		return web3api.Transfer{}, errors.New("negative index is invalid")
+	}
+
+	bytes, err := hex.DecodeString(blockHash)
+	if err != nil {
+		return web3api.Transfer{}, err
+	}
+	var hash hash.Hash32B
+	copy(hash[:], bytes)
+
+	blk, err := w3.bc.GetBlockByHash(hash)
+	if err != nil {
+		return web3api.Transfer{}, err
+	}
+	if index >= int64(len(blk.Transfers)) {
+		return web3api.Transfer{}, errors.New("transfer index out of range")
+	}
+
+	return getWeb3Transfer(blk.Transfers[index], blk.HashBlock(), int64(blk.Height()), index), nil
 }
 
 // IotxGetTransferByBlockNumberAndIndex returns information about a transfer by block number
 // and transaction index position
 func (w3 *PublicWeb3API) IotxGetTransferByBlockNumberAndIndex(blockNumber int64, index int64) (web3api.Transfer, error) {
-	panic("did not implement yet")
+	if blockNumber == PendingBlockNumber {
+		return web3api.Transfer{}, errors.Errorf("get pending block is not supported")
+	}
+	height := uint64(blockNumber)
+	if blockNumber == LatestBlockNumber {
+		height = w3.bc.TipHeight()
+	}
+
+	blk, err := w3.bc.GetBlockByHeight(height)
+	if err != nil {
+		return web3api.Transfer{}, err
+	}
+	if index >= int64(len(blk.Transfers)) {
+		return web3api.Transfer{}, errors.New("transfer index out of range")
+	}
+
+	return getWeb3Transfer(blk.Transfers[index], blk.HashBlock(), int64(blk.Height()), index), nil
 }
 
 // IotxGetTransferReceipt returns the receipt of a transfer by transfer hash
@@ -260,4 +465,57 @@ func (w3 *PublicWeb3API) IotxGetUncleByBlockHashAndIndex(blockHash string, index
 // IotxGetUncleByBlockNumberAndIndex returns information about a uncle of a block by number and uncle index position
 func (w3 *PublicWeb3API) IotxGetUncleByBlockNumberAndIndex(blockNumber int64, uncleIndex int64) (web3api.Block, error) {
 	panic("did not implement yet")
+}
+
+func getWeb3Transfer(transfer *action.Transfer, blockHash hash.Hash32B, blockNumber int64, transactionIndex int64) web3api.Transfer {
+	transferHash := transfer.Hash()
+	transferPayload := transfer.Payload()
+	return web3api.Transfer{
+		BlockHash:        hex.EncodeToString(blockHash[:]),
+		BlockNumber:      blockNumber,
+		From:             transfer.Sender(),
+		Gas:              0,
+		GasPrice:         0,
+		Hash:             hex.EncodeToString(transferHash[:]),
+		Input:            hex.EncodeToString(transferPayload[:]),
+		Nonce:            int64(transfer.Nonce()),
+		To:               transfer.Recipient(),
+		TransactionIndex: transactionIndex,
+		Value:            transfer.Amount().Int64(),
+		V:                0,
+		R:                "",
+		S:                "",
+	}
+}
+
+func getWeb3Block(blk *blockchain.Block) web3api.Block {
+	var web3Transfers []web3api.Transfer
+	for i, transfer := range blk.Transfers {
+		web3Transfers = append(web3Transfers, getWeb3Transfer(transfer, blk.HashBlock(), int64(blk.Height()), int64(i)))
+	}
+
+	blkHash := blk.HashBlock()
+	prevHash := blk.PrevHash()
+	web3Block := web3api.Block{
+		Number:           int64(blk.Height()),
+		Hash:             hex.EncodeToString(blkHash[:]),
+		ParentHash:       hex.EncodeToString(prevHash[:]),
+		Nonce:            "",
+		Sha3Uncles:       "",
+		LogsBloom:        "",
+		TransactionsRoot: hex.EncodeToString(blk.ConvertToBlockHeaderPb().TxRoot[:]),
+		StateRoot:        hex.EncodeToString(blk.ConvertToBlockHeaderPb().StateRoot[:]),
+		ReceiptsRoot:     hex.EncodeToString(blk.ConvertToBlockHeaderPb().ReceiptRoot[:]),
+		Miner:            "",
+		Difficulty:       0,
+		TotalDifficulty:  0,
+		ExtraData:        "",
+		Size:             0,
+		GasLimit:         0,
+		GasUsed:          0,
+		Timestamp:        int64(blk.ConvertToBlockHeaderPb().Timestamp),
+		Transfers:        web3Transfers,
+		Uncles:           []string{},
+	}
+	return web3Block
 }

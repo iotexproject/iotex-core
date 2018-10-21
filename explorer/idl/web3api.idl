@@ -158,6 +158,28 @@ interface Web3API {
     // the given block number
     iotxGetBlockTransferCountByNumber(blockNumber int) int
 
+    // iotxGetVoteCount returns the number of votes sent from an address
+    iotxGetVoteCount(address string, blockNumber int) int
+
+    // iotxGetBlockVoteCountByHash returns the number of votes in a block from a
+    // block matching the given block hash
+    iotxGetBlockVoteCountByHash(blockHash string) int
+
+    // iotxGetBlockVoteCountByNumber returns the number of votes in a block matching
+    // the given block number
+    iotxGetBlockVoteCountByNumber(blockNumber int) int
+
+    // iotxGetExecutionCount returns the number of executions sent from an address
+    iotxGetExecutionCount(address string, blockNumber int) int
+
+    // iotxGetBlockExecutionCountByHash returns the number of executions in a block from a
+    // block matching the given block hash
+    iotxGetBlockExecutionCountByHash(blockHash string) int
+
+    // iotxGetBlockExecutionCountByNumber returns the number of executions in a block matching
+    // the given block number
+    iotxGetBlockExecutionCountByNumber(blockNumber int) int
+
     // iotxGetUncleCountByBlockHash returns the number of uncles in a block from a block matching
     // the given block hash
     iotxGetUncleCountByBlockHash(blockHash string) int
@@ -193,9 +215,6 @@ interface Web3API {
     // iotxGetBlockByHash returns information about a block by hash
     iotxGetBlockByHash(blockHash string) Block
 
-    // iotxGetBlockHashByHash returns information about a block hash by hash
-    iotxGetBlockHashByHash(blockHash string) string
-
     // iotxGetBlockByNumber returns information about a block by block number
     iotxGetBlockByNumber(blockNumber int) Block
 
@@ -203,7 +222,7 @@ interface Web3API {
     iotxGetBlockHashByNumber(blockNumber int) string
 
     // iotxGetTransferByHash returns the information about a transfer requested by transfer hash
-    iotxGetTransferByHash(hash string) Transfer
+    iotxGetTransferByHash(transferHash string) Transfer
 
     // iotxGetTransferByBlockHashAndIndex returns information about a transfer by block hash and
     // transfer index position

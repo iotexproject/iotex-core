@@ -8,8 +8,8 @@ import (
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "f85f6c28c4a41d949189fd2ddd327510"
-const BarristerDateGenerated int64 = 1540062953024000000
+const BarristerChecksum string = "8d248b23eb7e2bd81a8eb21bc70feea1"
+const BarristerDateGenerated int64 = 1540083980097000000
 
 type CallArgs struct {
 	From     string `json:"from"`
@@ -115,6 +115,12 @@ type Web3API interface {
 	IotxGetTransferCount(address string, blockNumber int64) (int64, error)
 	IotxGetBlockTransferCountByHash(blockHash string) (int64, error)
 	IotxGetBlockTransferCountByNumber(blockNumber int64) (int64, error)
+	IotxGetVoteCount(address string, blockNumber int64) (int64, error)
+	IotxGetBlockVoteCountByHash(blockHash string) (int64, error)
+	IotxGetBlockVoteCountByNumber(blockNumber int64) (int64, error)
+	IotxGetExecutionCount(address string, blockNumber int64) (int64, error)
+	IotxGetBlockExecutionCountByHash(blockHash string) (int64, error)
+	IotxGetBlockExecutionCountByNumber(blockNumber int64) (int64, error)
 	IotxGetUncleCountByBlockHash(blockHash string) (int64, error)
 	IotxGetUncleCountByBlockNumber(blockNumber int64) (int64, error)
 	IotxGetCode(address string, blockNumber int64) (string, error)
@@ -124,10 +130,9 @@ type Web3API interface {
 	IotxCall(args CallArgs, blockNumber int64) (string, error)
 	IotxEstimateGas(args CallArgs) (int64, error)
 	IotxGetBlockByHash(blockHash string) (Block, error)
-	IotxGetBlockHashByHash(blockHash string) (string, error)
 	IotxGetBlockByNumber(blockNumber int64) (Block, error)
 	IotxGetBlockHashByNumber(blockNumber int64) (string, error)
-	IotxGetTransferByHash(hash string) (Transfer, error)
+	IotxGetTransferByHash(transferHash string) (Transfer, error)
 	IotxGetTransferByBlockHashAndIndex(blockHash string, index int64) (Transfer, error)
 	IotxGetTransferByBlockNumberAndIndex(blockNumber int64, index int64) (Transfer, error)
 	IotxGetTransferReceipt(hash string) (TransactionReceipt, error)
@@ -468,6 +473,114 @@ func (_p Web3APIProxy) IotxGetBlockTransferCountByNumber(blockNumber int64) (int
 	return int64(0), _err
 }
 
+func (_p Web3APIProxy) IotxGetVoteCount(address string, blockNumber int64) (int64, error) {
+	_res, _err := _p.client.Call("Web3API.iotxGetVoteCount", address, blockNumber)
+	if _err == nil {
+		_retType := _p.idl.Method("Web3API.iotxGetVoteCount").Returns
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(int64(0)), _res, "")
+	}
+	if _err == nil {
+		_cast, _ok := _res.(int64)
+		if !_ok {
+			_t := reflect.TypeOf(_res)
+			_msg := fmt.Sprintf("Web3API.iotxGetVoteCount returned invalid type: %v", _t)
+			return int64(0), &barrister.JsonRpcError{Code: -32000, Message: _msg}
+		}
+		return _cast, nil
+	}
+	return int64(0), _err
+}
+
+func (_p Web3APIProxy) IotxGetBlockVoteCountByHash(blockHash string) (int64, error) {
+	_res, _err := _p.client.Call("Web3API.iotxGetBlockVoteCountByHash", blockHash)
+	if _err == nil {
+		_retType := _p.idl.Method("Web3API.iotxGetBlockVoteCountByHash").Returns
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(int64(0)), _res, "")
+	}
+	if _err == nil {
+		_cast, _ok := _res.(int64)
+		if !_ok {
+			_t := reflect.TypeOf(_res)
+			_msg := fmt.Sprintf("Web3API.iotxGetBlockVoteCountByHash returned invalid type: %v", _t)
+			return int64(0), &barrister.JsonRpcError{Code: -32000, Message: _msg}
+		}
+		return _cast, nil
+	}
+	return int64(0), _err
+}
+
+func (_p Web3APIProxy) IotxGetBlockVoteCountByNumber(blockNumber int64) (int64, error) {
+	_res, _err := _p.client.Call("Web3API.iotxGetBlockVoteCountByNumber", blockNumber)
+	if _err == nil {
+		_retType := _p.idl.Method("Web3API.iotxGetBlockVoteCountByNumber").Returns
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(int64(0)), _res, "")
+	}
+	if _err == nil {
+		_cast, _ok := _res.(int64)
+		if !_ok {
+			_t := reflect.TypeOf(_res)
+			_msg := fmt.Sprintf("Web3API.iotxGetBlockVoteCountByNumber returned invalid type: %v", _t)
+			return int64(0), &barrister.JsonRpcError{Code: -32000, Message: _msg}
+		}
+		return _cast, nil
+	}
+	return int64(0), _err
+}
+
+func (_p Web3APIProxy) IotxGetExecutionCount(address string, blockNumber int64) (int64, error) {
+	_res, _err := _p.client.Call("Web3API.iotxGetExecutionCount", address, blockNumber)
+	if _err == nil {
+		_retType := _p.idl.Method("Web3API.iotxGetExecutionCount").Returns
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(int64(0)), _res, "")
+	}
+	if _err == nil {
+		_cast, _ok := _res.(int64)
+		if !_ok {
+			_t := reflect.TypeOf(_res)
+			_msg := fmt.Sprintf("Web3API.iotxGetExecutionCount returned invalid type: %v", _t)
+			return int64(0), &barrister.JsonRpcError{Code: -32000, Message: _msg}
+		}
+		return _cast, nil
+	}
+	return int64(0), _err
+}
+
+func (_p Web3APIProxy) IotxGetBlockExecutionCountByHash(blockHash string) (int64, error) {
+	_res, _err := _p.client.Call("Web3API.iotxGetBlockExecutionCountByHash", blockHash)
+	if _err == nil {
+		_retType := _p.idl.Method("Web3API.iotxGetBlockExecutionCountByHash").Returns
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(int64(0)), _res, "")
+	}
+	if _err == nil {
+		_cast, _ok := _res.(int64)
+		if !_ok {
+			_t := reflect.TypeOf(_res)
+			_msg := fmt.Sprintf("Web3API.iotxGetBlockExecutionCountByHash returned invalid type: %v", _t)
+			return int64(0), &barrister.JsonRpcError{Code: -32000, Message: _msg}
+		}
+		return _cast, nil
+	}
+	return int64(0), _err
+}
+
+func (_p Web3APIProxy) IotxGetBlockExecutionCountByNumber(blockNumber int64) (int64, error) {
+	_res, _err := _p.client.Call("Web3API.iotxGetBlockExecutionCountByNumber", blockNumber)
+	if _err == nil {
+		_retType := _p.idl.Method("Web3API.iotxGetBlockExecutionCountByNumber").Returns
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(int64(0)), _res, "")
+	}
+	if _err == nil {
+		_cast, _ok := _res.(int64)
+		if !_ok {
+			_t := reflect.TypeOf(_res)
+			_msg := fmt.Sprintf("Web3API.iotxGetBlockExecutionCountByNumber returned invalid type: %v", _t)
+			return int64(0), &barrister.JsonRpcError{Code: -32000, Message: _msg}
+		}
+		return _cast, nil
+	}
+	return int64(0), _err
+}
+
 func (_p Web3APIProxy) IotxGetUncleCountByBlockHash(blockHash string) (int64, error) {
 	_res, _err := _p.client.Call("Web3API.iotxGetUncleCountByBlockHash", blockHash)
 	if _err == nil {
@@ -630,24 +743,6 @@ func (_p Web3APIProxy) IotxGetBlockByHash(blockHash string) (Block, error) {
 	return Block{}, _err
 }
 
-func (_p Web3APIProxy) IotxGetBlockHashByHash(blockHash string) (string, error) {
-	_res, _err := _p.client.Call("Web3API.iotxGetBlockHashByHash", blockHash)
-	if _err == nil {
-		_retType := _p.idl.Method("Web3API.iotxGetBlockHashByHash").Returns
-		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(""), _res, "")
-	}
-	if _err == nil {
-		_cast, _ok := _res.(string)
-		if !_ok {
-			_t := reflect.TypeOf(_res)
-			_msg := fmt.Sprintf("Web3API.iotxGetBlockHashByHash returned invalid type: %v", _t)
-			return "", &barrister.JsonRpcError{Code: -32000, Message: _msg}
-		}
-		return _cast, nil
-	}
-	return "", _err
-}
-
 func (_p Web3APIProxy) IotxGetBlockByNumber(blockNumber int64) (Block, error) {
 	_res, _err := _p.client.Call("Web3API.iotxGetBlockByNumber", blockNumber)
 	if _err == nil {
@@ -684,8 +779,8 @@ func (_p Web3APIProxy) IotxGetBlockHashByNumber(blockNumber int64) (string, erro
 	return "", _err
 }
 
-func (_p Web3APIProxy) IotxGetTransferByHash(hash string) (Transfer, error) {
-	_res, _err := _p.client.Call("Web3API.iotxGetTransferByHash", hash)
+func (_p Web3APIProxy) IotxGetTransferByHash(transferHash string) (Transfer, error) {
+	_res, _err := _p.client.Call("Web3API.iotxGetTransferByHash", transferHash)
 	if _err == nil {
 		_retType := _p.idl.Method("Web3API.iotxGetTransferByHash").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(Transfer{}), _res, "")
@@ -1710,6 +1805,140 @@ var IdlJsonRaw = `[
                 }
             },
             {
+                "name": "iotxGetVoteCount",
+                "comment": "iotxGetVoteCount returns the number of votes sent from an address",
+                "params": [
+                    {
+                        "name": "address",
+                        "type": "string",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    },
+                    {
+                        "name": "blockNumber",
+                        "type": "int",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    }
+                ],
+                "returns": {
+                    "name": "",
+                    "type": "int",
+                    "optional": false,
+                    "is_array": false,
+                    "comment": ""
+                }
+            },
+            {
+                "name": "iotxGetBlockVoteCountByHash",
+                "comment": "iotxGetBlockVoteCountByHash returns the number of votes in a block from a\nblock matching the given block hash",
+                "params": [
+                    {
+                        "name": "blockHash",
+                        "type": "string",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    }
+                ],
+                "returns": {
+                    "name": "",
+                    "type": "int",
+                    "optional": false,
+                    "is_array": false,
+                    "comment": ""
+                }
+            },
+            {
+                "name": "iotxGetBlockVoteCountByNumber",
+                "comment": "iotxGetBlockVoteCountByNumber returns the number of votes in a block matching\nthe given block number",
+                "params": [
+                    {
+                        "name": "blockNumber",
+                        "type": "int",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    }
+                ],
+                "returns": {
+                    "name": "",
+                    "type": "int",
+                    "optional": false,
+                    "is_array": false,
+                    "comment": ""
+                }
+            },
+            {
+                "name": "iotxGetExecutionCount",
+                "comment": "iotxGetExecutionCount returns the number of executions sent from an address",
+                "params": [
+                    {
+                        "name": "address",
+                        "type": "string",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    },
+                    {
+                        "name": "blockNumber",
+                        "type": "int",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    }
+                ],
+                "returns": {
+                    "name": "",
+                    "type": "int",
+                    "optional": false,
+                    "is_array": false,
+                    "comment": ""
+                }
+            },
+            {
+                "name": "iotxGetBlockExecutionCountByHash",
+                "comment": "iotxGetBlockExecutionCountByHash returns the number of executions in a block from a\nblock matching the given block hash",
+                "params": [
+                    {
+                        "name": "blockHash",
+                        "type": "string",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    }
+                ],
+                "returns": {
+                    "name": "",
+                    "type": "int",
+                    "optional": false,
+                    "is_array": false,
+                    "comment": ""
+                }
+            },
+            {
+                "name": "iotxGetBlockExecutionCountByNumber",
+                "comment": "iotxGetBlockExecutionCountByNumber returns the number of executions in a block matching\nthe given block number",
+                "params": [
+                    {
+                        "name": "blockNumber",
+                        "type": "int",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    }
+                ],
+                "returns": {
+                    "name": "",
+                    "type": "int",
+                    "optional": false,
+                    "is_array": false,
+                    "comment": ""
+                }
+            },
+            {
                 "name": "iotxGetUncleCountByBlockHash",
                 "comment": "iotxGetUncleCountByBlockHash returns the number of uncles in a block from a block matching\nthe given block hash",
                 "params": [
@@ -1911,26 +2140,6 @@ var IdlJsonRaw = `[
                 }
             },
             {
-                "name": "iotxGetBlockHashByHash",
-                "comment": "iotxGetBlockHashByHash returns information about a block hash by hash",
-                "params": [
-                    {
-                        "name": "blockHash",
-                        "type": "string",
-                        "optional": false,
-                        "is_array": false,
-                        "comment": ""
-                    }
-                ],
-                "returns": {
-                    "name": "",
-                    "type": "string",
-                    "optional": false,
-                    "is_array": false,
-                    "comment": ""
-                }
-            },
-            {
                 "name": "iotxGetBlockByNumber",
                 "comment": "iotxGetBlockByNumber returns information about a block by block number",
                 "params": [
@@ -1975,7 +2184,7 @@ var IdlJsonRaw = `[
                 "comment": "iotxGetTransferByHash returns the information about a transfer requested by transfer hash",
                 "params": [
                     {
-                        "name": "hash",
+                        "name": "transferHash",
                         "type": "string",
                         "optional": false,
                         "is_array": false,
@@ -2133,7 +2342,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1540062953024,
-        "checksum": "f85f6c28c4a41d949189fd2ddd327510"
+        "date_generated": 1540083980097,
+        "checksum": "8d248b23eb7e2bd81a8eb21bc70feea1"
     }
 ]`
