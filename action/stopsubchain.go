@@ -111,8 +111,8 @@ func (ssc *StopSubChain) Serialize() ([]byte, error) {
 	return proto.Marshal(ssc.Proto())
 }
 
-// ConvertFromActionPb converts a protobuf's ActionPb to StopSubChain
-func (ssc *StopSubChain) ConvertFromActionPb(pbAct *iproto.ActionPb) {
+// LoadProto converts a protobuf's ActionPb to StopSubChain
+func (ssc *StopSubChain) LoadProto(pbAct *iproto.ActionPb) {
 	ssc.version = pbAct.Version
 	ssc.nonce = pbAct.Nonce
 	ssc.gasLimit = pbAct.GasLimit
@@ -139,7 +139,7 @@ func (ssc *StopSubChain) Deserialize(buf []byte) error {
 	if err := proto.Unmarshal(buf, pbSSC); err != nil {
 		return err
 	}
-	ssc.ConvertFromActionPb(pbSSC)
+	ssc.LoadProto(pbSSC)
 	return nil
 }
 

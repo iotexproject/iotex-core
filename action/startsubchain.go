@@ -63,27 +63,23 @@ func NewStartSubChain(
 	}
 }
 
-// NewStartSubChainFromProto converts a proto message into start sub-chain action
-func NewStartSubChainFromProto(actPb *iproto.ActionPb) *StartSubChain {
+// LoadProto converts a proto message into start sub-chain action
+func (start *StartSubChain) LoadProto(actPb *iproto.ActionPb) {
 	if actPb == nil {
-		return nil
+		return
 	}
 	startPb := actPb.GetStartSubChain()
-	start := StartSubChain{
-		abstractAction: abstractAction{
-			version:   actPb.Version,
-			nonce:     actPb.Nonce,
-			srcAddr:   startPb.OwnerAddress,
-			gasLimit:  actPb.GetGasLimit(),
-			gasPrice:  big.NewInt(0),
-			signature: actPb.Signature,
-		},
-		chainID:            startPb.ChainID,
-		securityDeposit:    big.NewInt(0),
-		operationDeposit:   big.NewInt(0),
-		startHeight:        startPb.StartHeight,
-		parentHeightOffset: startPb.ParentHeightOffset,
-	}
+	start.version = actPb.Version
+	start.nonce = actPb.Nonce
+	start.srcAddr = startPb.OwnerAddress
+	start.gasLimit = actPb.GetGasLimit()
+	start.gasPrice = big.NewInt(0)
+	start.signature = actPb.Signature
+	start.chainID = startPb.ChainID
+	start.securityDeposit = big.NewInt(0)
+	start.operationDeposit = big.NewInt(0)
+	start.startHeight = startPb.StartHeight
+	start.parentHeightOffset = startPb.ParentHeightOffset
 	if len(actPb.GasPrice) > 0 {
 		start.gasPrice.SetBytes(actPb.GasPrice)
 	}
@@ -94,7 +90,6 @@ func NewStartSubChainFromProto(actPb *iproto.ActionPb) *StartSubChain {
 		start.operationDeposit.SetBytes(startPb.OperationDeposit)
 	}
 	copy(start.srcPubkey[:], startPb.OwnerPublicKey)
-	return &start
 }
 
 // ChainID returns chain ID

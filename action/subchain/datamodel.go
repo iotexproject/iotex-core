@@ -14,8 +14,8 @@ import (
 	"github.com/iotexproject/iotex-core/state"
 )
 
-// subChain represents the state of a sub-chain in the state factory
-type subChain struct {
+// SubChain represents the state of a sub-chain in the state factory
+type SubChain struct {
 	ChainID            uint32
 	SecurityDeposit    *big.Int
 	OperationDeposit   *big.Int
@@ -26,10 +26,10 @@ type subChain struct {
 }
 
 // Serialize serialize sub-chain state into bytes
-func (bs *subChain) Serialize() ([]byte, error) { return state.GobBasedSerialize(bs) }
+func (bs *SubChain) Serialize() ([]byte, error) { return state.GobBasedSerialize(bs) }
 
 // Deserialize deserialize bytes into sub-chain state
-func (bs *subChain) Deserialize(data []byte) error { return state.GobBasedDeserialize(bs, data) }
+func (bs *SubChain) Deserialize(data []byte) error { return state.GobBasedDeserialize(bs, data) }
 
 // blockProof represents the block proof of a sub-chain in the state factory
 type blockProof struct {

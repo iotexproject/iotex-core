@@ -85,8 +85,8 @@ func (sp *SecretProposal) Serialize() ([]byte, error) {
 	return proto.Marshal(sp.Proto())
 }
 
-// ConvertFromActionPb converts a protobuf's ActionPb to SecretProposal
-func (sp *SecretProposal) ConvertFromActionPb(pbAct *iproto.ActionPb) {
+// LoadProto converts a protobuf's ActionPb to SecretProposal
+func (sp *SecretProposal) LoadProto(pbAct *iproto.ActionPb) {
 	sp.version = pbAct.GetVersion()
 	// used by account-based model
 	sp.nonce = pbAct.Nonce
@@ -103,7 +103,7 @@ func (sp *SecretProposal) Deserialize(buf []byte) error {
 	if err := proto.Unmarshal(buf, pbAct); err != nil {
 		return err
 	}
-	sp.ConvertFromActionPb(pbAct)
+	sp.LoadProto(pbAct)
 	return nil
 }
 
