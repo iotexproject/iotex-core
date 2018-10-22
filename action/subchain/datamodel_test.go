@@ -17,7 +17,7 @@ import (
 )
 
 func TestSubChainState(t *testing.T) {
-	sc1 := subChain{
+	sc1 := SubChain{
 		ChainID:            2,
 		SecurityDeposit:    big.NewInt(1),
 		OperationDeposit:   big.NewInt(2),
@@ -29,7 +29,7 @@ func TestSubChainState(t *testing.T) {
 	data, err := sc1.Serialize()
 	require.NoError(t, err)
 
-	var sc2 subChain
+	var sc2 SubChain
 	require.NoError(t, sc2.Deserialize(data))
 	require.Equal(t, sc1, sc2)
 }

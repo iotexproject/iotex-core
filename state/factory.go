@@ -59,6 +59,7 @@ type (
 		CandidatesByHeight(uint64) ([]*Candidate, error)
 
 		State(hash.PKHash, State) (State, error)
+		AddActionHandlers(...ActionHandler)
 	}
 
 	// factory implements StateFactory interface, tracks changes to account/contract and batch-commits to DB
@@ -147,14 +148,6 @@ func InMemTrieOption() FactoryOption {
 	}
 }
 
-// ActionHandlerOption sets the action handlers for state factory
-func ActionHandlerOption(actionHandlers ...ActionHandler) FactoryOption {
-	return func(sf *factory, cfg *config.Config) error {
-		sf.actionHandlers = actionHandlers
-		return nil
-	}
-}
-
 // NewFactory creates a new state factory
 func NewFactory(cfg *config.Config, opts ...FactoryOption) (Factory, error) {
 	sf := &factory{
@@ -177,6 +170,11 @@ func NewFactory(cfg *config.Config, opts ...FactoryOption) (Factory, error) {
 func (sf *factory) Start(ctx context.Context) error { return sf.lifecycle.OnStart(ctx) }
 
 func (sf *factory) Stop(ctx context.Context) error { return sf.lifecycle.OnStop(ctx) }
+
+// AddActionHandlers adds action handlers to the state factory
+func (sf *factory) AddActionHandlers(actionHandlers ...ActionHandler) {
+	sf.actionHandlers = append(sf.actionHandlers, actionHandlers...)
+}
 
 //======================================
 // account functions
@@ -210,9 +208,12 @@ func (sf *factory) AccountState(addr string) (*Account, error) {
 	}
 	var account Account
 	state, err := sf.State(pkHash, &account)
+	if err != nil {
+		return nil, errors.Wrapf(err, "error when loading state of %x", pkHash)
+	}
 	accountPtr, ok := state.(*Account)
 	if !ok {
-		return nil, errors.Wrap(err, "error when casting state into account")
+		return nil, errors.New("error when casting state into account")
 	}
 	return accountPtr, nil
 }

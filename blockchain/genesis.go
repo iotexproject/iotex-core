@@ -40,6 +40,7 @@ type GenesisAction struct {
 	Creation       Creator     `yaml:"creator"`
 	SelfNominators []Nominator `yaml:"selfNominators"`
 	Transfers      []Transfer  `yaml:"transfers"`
+	SubChains      []SubChain  `yaml:"subChains"`
 }
 
 // Creator is the Creator of the genesis block
@@ -58,6 +59,15 @@ type Nominator struct {
 type Transfer struct {
 	Amount      int64  `yaml:"amount"`
 	RecipientPK string `yaml:"recipientPK"`
+}
+
+// SubChain is the SubChain struct
+type SubChain struct {
+	ChainID            uint32 `yaml:"chainID"`
+	SecurityDeposit    int64  `yaml:"securityDeposit"`
+	OperationDeposit   int64  `yaml:"operationDeposit"`
+	StartHeight        uint64 `yaml:"startHeight"`
+	ParentHeightOffset uint64 `yaml:"parentHeightOffset"`
 }
 
 // Gen hardcodes genesis default settings
@@ -95,7 +105,7 @@ func NewGenesisBlock(cfg *config.Config) *Block {
 
 	Gen.CreatorPubKey = actions.Creation.PubKey
 	Gen.CreatorPrivKey = actions.Creation.PriKey
-	creatorPubk, creatorPrik := decodeKey(Gen.CreatorPubKey, Gen.CreatorPrivKey)
+	_, creatorPrik := decodeKey(Gen.CreatorPubKey, Gen.CreatorPrivKey)
 	creatorAddr := Gen.CreatorAddr(cfg.Chain.ID)
 
 	votes := []*action.Vote{}
@@ -115,7 +125,6 @@ func NewGenesisBlock(cfg *config.Config) *Block {
 		if err := action.Sign(vote, sk); err != nil {
 			logger.Panic().Err(err).Msg("Fail to sign the new vote action")
 		}
-		vote.SetVoterPublicKey(pk)
 		votes = append(votes, vote)
 	}
 
@@ -138,8 +147,26 @@ func NewGenesisBlock(cfg *config.Config) *Block {
 		if err := action.Sign(tsf, creatorPrik); err != nil {
 			logger.Panic().Err(err).Msg("Fail to sign the new transfer action")
 		}
-		tsf.SetSenderPublicKey(creatorPubk)
 		transfers = append(transfers, tsf)
+	}
+
+	acts := make([]action.Action, 0)
+	for _, sc := range actions.SubChains {
+		start := action.NewStartSubChain(
+			0,
+			sc.ChainID,
+			creatorAddr,
+			ConvertIotxToRau(sc.SecurityDeposit),
+			ConvertIotxToRau(sc.OperationDeposit),
+			sc.StartHeight,
+			sc.ParentHeightOffset,
+			0,
+			big.NewInt(0),
+		)
+		if err := action.Sign(start, creatorPrik); err != nil {
+			logger.Panic().Err(err).Msg("Fail to sign the new start sub-chain action")
+		}
+		acts = append(acts, start)
 	}
 
 	block := &Block{
@@ -155,6 +182,7 @@ func NewGenesisBlock(cfg *config.Config) *Block {
 		},
 		Transfers: transfers,
 		Votes:     votes,
+		Actions:   acts,
 	}
 
 	block.Header.txRoot = block.TxRoot()

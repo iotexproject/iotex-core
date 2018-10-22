@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/subchain"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blocksync"
@@ -29,6 +30,7 @@ type ChainService struct {
 	chain        blockchain.Blockchain
 	explorer     *explorer.Server
 	indexservice *indexservice.Server
+	protocols    []Protocol
 }
 
 type optionParams struct {
@@ -120,6 +122,12 @@ func New(cfg *config.Config, p2p network.Overlay, dispatcher dispatcher.Dispatch
 	} else {
 		exp = explorer.NewServer(cfg.Explorer, chain, consensus, dispatcher, actPool, p2p)
 	}
+
+	// Install protocols
+	var protocols []Protocol
+	subChainProtocol := subchain.NewProtocol(chain.GetFactory())
+	protocols = append(protocols, subChainProtocol)
+
 	return &ChainService{
 		actpool:      actPool,
 		chain:        chain,
@@ -127,6 +135,7 @@ func New(cfg *config.Config, p2p network.Overlay, dispatcher dispatcher.Dispatch
 		consensus:    consensus,
 		indexservice: idx,
 		explorer:     exp,
+		protocols:    protocols,
 	}, nil
 }
 
@@ -182,21 +191,21 @@ func (cs *ChainService) Stop(ctx context.Context) error {
 func (cs *ChainService) HandleAction(act *pb.ActionPb) error {
 	if pbTsf := act.GetTransfer(); pbTsf != nil {
 		tsf := &action.Transfer{}
-		tsf.ConvertFromActionPb(act)
+		tsf.LoadProto(act)
 		if err := cs.actpool.AddTsf(tsf); err != nil {
 			logger.Debug().Err(err)
 			return err
 		}
 	} else if pbVote := act.GetVote(); pbVote != nil {
 		vote := &action.Vote{}
-		vote.ConvertFromActionPb(act)
+		vote.LoadProto(act)
 		if err := cs.actpool.AddVote(vote); err != nil {
 			logger.Debug().Err(err)
 			return err
 		}
 	} else if pbExecution := act.GetExecution(); pbExecution != nil {
 		execution := &action.Execution{}
-		execution.ConvertFromActionPb(act)
+		execution.LoadProto(act)
 		if err := cs.actpool.AddExecution(execution); err != nil {
 			logger.Debug().Err(err).Msg("Failed to add execution")
 			return err
@@ -265,4 +274,9 @@ func (cs *ChainService) IndexService() *indexservice.Server {
 // Explorer returns the explorer instance
 func (cs *ChainService) Explorer() *explorer.Server {
 	return cs.explorer
+}
+
+// Protocols returns the protocols
+func (cs *ChainService) Protocols() []Protocol {
+	return cs.protocols
 }

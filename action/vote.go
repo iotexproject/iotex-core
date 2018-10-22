@@ -129,8 +129,8 @@ func (v *Vote) Serialize() ([]byte, error) {
 	return proto.Marshal(v.Proto())
 }
 
-// ConvertFromActionPb converts a protobuf's ActionPb to Vote
-func (v *Vote) ConvertFromActionPb(pbAct *iproto.ActionPb) {
+// LoadProto converts a protobuf's ActionPb to Vote
+func (v *Vote) LoadProto(pbAct *iproto.ActionPb) {
 	v.version = pbAct.Version
 	v.nonce = pbAct.Nonce
 	v.gasLimit = pbAct.GasLimit
@@ -184,7 +184,7 @@ func (v *Vote) Deserialize(buf []byte) error {
 	if err := proto.Unmarshal(buf, pbVote); err != nil {
 		return err
 	}
-	v.ConvertFromActionPb(pbVote)
+	v.LoadProto(pbVote)
 	return nil
 }
 

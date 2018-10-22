@@ -292,27 +292,28 @@ func (b *Block) ConvertFromBlockPb(pbBlock *iproto.BlockPb) {
 	for _, actPb := range pbBlock.Actions {
 		if tfPb := actPb.GetTransfer(); tfPb != nil {
 			tf := &action.Transfer{}
-			tf.ConvertFromActionPb(actPb)
+			tf.LoadProto(actPb)
 			b.Transfers = append(b.Transfers, tf)
 		} else if votePb := actPb.GetVote(); votePb != nil {
 			vote := &action.Vote{}
-			vote.ConvertFromActionPb(actPb)
+			vote.LoadProto(actPb)
 			b.Votes = append(b.Votes, vote)
 		} else if executionPb := actPb.GetExecution(); executionPb != nil {
 			execution := &action.Execution{}
-			execution.ConvertFromActionPb(actPb)
+			execution.LoadProto(actPb)
 			b.Executions = append(b.Executions, execution)
 		} else if secretProposalPb := actPb.GetSecretProposal(); secretProposalPb != nil {
 			secretProposal := &action.SecretProposal{}
-			secretProposal.ConvertFromActionPb(actPb)
+			secretProposal.LoadProto(actPb)
 			b.SecretProposals = append(b.SecretProposals, secretProposal)
 		} else if secretWitnessPb := actPb.GetSecretWitness(); secretWitnessPb != nil {
 			secretWitness := &action.SecretWitness{}
-			secretWitness.ConvertFromActionPb(actPb)
+			secretWitness.LoadProto(actPb)
 			b.SecretWitness = secretWitness
-		} else {
-			act := action.NewActionFromProto(actPb)
-			b.Actions = append(b.Actions, act)
+		} else if start := actPb.GetStartSubChain(); start != nil {
+			start := &action.StartSubChain{}
+			start.LoadProto(actPb)
+			b.Actions = append(b.Actions, start)
 		}
 	}
 }

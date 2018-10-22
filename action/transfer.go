@@ -194,8 +194,8 @@ func (tsf *Transfer) Serialize() ([]byte, error) {
 	return proto.Marshal(tsf.Proto())
 }
 
-// ConvertFromActionPb converts a protobuf's ActionPb to Transfer
-func (tsf *Transfer) ConvertFromActionPb(pbAct *iproto.ActionPb) {
+// LoadProto converts a protobuf's ActionPb to Transfer
+func (tsf *Transfer) LoadProto(pbAct *iproto.ActionPb) {
 	// set trnx fields
 	tsf.version = pbAct.GetVersion()
 	// used by account-based model
@@ -263,7 +263,7 @@ func (tsf *Transfer) Deserialize(buf []byte) error {
 	if err := proto.Unmarshal(buf, pbAct); err != nil {
 		return err
 	}
-	tsf.ConvertFromActionPb(pbAct)
+	tsf.LoadProto(pbAct)
 	return nil
 }
 
