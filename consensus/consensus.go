@@ -147,10 +147,14 @@ func NewConsensus(
 					if err != nil {
 						logger.Error().Err(err).Msg("error when convert candidate PublicKey")
 					}
+					votes, ok := big.NewInt(0).SetString(rawc.TotalVote, 10)
+					if !ok {
+						logger.Error().Err(err).Msg("error when setting candidate total votes")
+					}
 					cs = append(cs, &state.Candidate{
 						Address:          subChainAddr.IotxAddress(),
 						PublicKey:        pubKey,
-						Votes:            big.NewInt(rawc.TotalVote),
+						Votes:            votes,
 						CreationHeight:   uint64(rawc.CreationHeight),
 						LastUpdateHeight: uint64(rawc.LastUpdateHeight),
 					})

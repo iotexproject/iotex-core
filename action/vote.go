@@ -118,8 +118,10 @@ func (v *Vote) ToJSON() (*explorer.Vote, error) {
 		Voter:       v.srcAddr,
 		Votee:       v.dstAddr,
 		GasLimit:    int64(v.gasLimit),
-		GasPrice:    v.gasPrice.Int64(),
 		Signature:   hex.EncodeToString(v.signature),
+	}
+	if v.gasPrice != nil && len(v.gasPrice.String()) > 0 {
+		vote.GasPrice = v.gasPrice.String()
 	}
 	return vote, nil
 }
@@ -161,8 +163,11 @@ func NewVoteFromJSON(jsonVote *explorer.Vote) (*Vote, error) {
 	copy(srcPubkey[:], voterPubKey)
 	signature, err := hex.DecodeString(jsonVote.Signature)
 	if err != nil {
-		logger.Error().Err(err).Msg("Fail to create a new Vote from VoteJSON")
-		return nil, err
+		return nil, errors.Wrap(err, "failed to decode vote signature")
+	}
+	gasPrice, ok := big.NewInt(0).SetString(jsonVote.GasPrice, 10)
+	if !ok {
+		return nil, errors.New("failed to set gas price of vote")
 	}
 	return &Vote{
 		abstractAction: abstractAction{
@@ -171,7 +176,7 @@ func NewVoteFromJSON(jsonVote *explorer.Vote) (*Vote, error) {
 			srcAddr:   jsonVote.Voter,
 			dstAddr:   jsonVote.Votee,
 			gasLimit:  uint64(jsonVote.GasLimit),
-			gasPrice:  big.NewInt(jsonVote.GasPrice),
+			gasPrice:  gasPrice,
 			srcPubkey: srcPubkey,
 			signature: signature,
 		},

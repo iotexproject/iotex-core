@@ -9,8 +9,8 @@ import (
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "07829098ad6799699a099ece1307dee9"
-const BarristerDateGenerated int64 = 1539798719996000000
+const BarristerChecksum string = "d37c8297b1a4b80f837adb8696a7e046"
+const BarristerDateGenerated int64 = 1539901339136000000
 
 type CoinStatistic struct {
 	Height     int64  `json:"height"`
@@ -34,7 +34,7 @@ type Block struct {
 	Votes      int64          `json:"votes"`
 	Executions int64          `json:"executions"`
 	GenerateBy BlockGenerator `json:"generateBy"`
-	Amount     int64          `json:"amount"`
+	Amount     string         `json:"amount"`
 	Forged     int64          `json:"forged"`
 	Size       int64          `json:"size"`
 }
@@ -45,14 +45,14 @@ type Transfer struct {
 	Nonce        int64  `json:"nonce"`
 	Sender       string `json:"sender"`
 	Recipient    string `json:"recipient"`
-	Amount       int64  `json:"amount"`
+	Amount       string `json:"amount"`
 	SenderPubKey string `json:"senderPubKey"`
 	Signature    string `json:"signature"`
 	Payload      string `json:"payload"`
 	GasLimit     int64  `json:"gasLimit"`
-	GasPrice     int64  `json:"gasPrice"`
+	GasPrice     string `json:"gasPrice"`
 	IsCoinbase   bool   `json:"isCoinbase"`
-	Fee          int64  `json:"fee"`
+	Fee          string `json:"fee"`
 	Timestamp    int64  `json:"timestamp"`
 	BlockID      string `json:"blockID"`
 	IsPending    bool   `json:"isPending"`
@@ -64,11 +64,11 @@ type Execution struct {
 	Nonce          int64  `json:"nonce"`
 	Executor       string `json:"executor"`
 	Contract       string `json:"contract"`
-	Amount         int64  `json:"amount"`
+	Amount         string `json:"amount"`
 	ExecutorPubKey string `json:"executorPubKey"`
 	Signature      string `json:"signature"`
 	GasLimit       int64  `json:"gasLimit"`
-	GasPrice       int64  `json:"gasPrice"`
+	GasPrice       string `json:"gasPrice"`
 	Timestamp      int64  `json:"timestamp"`
 	Data           string `json:"data"`
 	BlockID        string `json:"blockID"`
@@ -107,7 +107,7 @@ type Vote struct {
 	Votee       string `json:"votee"`
 	VoterPubKey string `json:"voterPubKey"`
 	GasLimit    int64  `json:"gasLimit"`
-	GasPrice    int64  `json:"gasPrice"`
+	GasPrice    string `json:"gasPrice"`
 	Signature   string `json:"signature"`
 	BlockID     string `json:"blockID"`
 	IsPending   bool   `json:"isPending"`
@@ -115,7 +115,7 @@ type Vote struct {
 
 type AddressDetails struct {
 	Address      string `json:"address"`
-	TotalBalance int64  `json:"totalBalance"`
+	TotalBalance string `json:"totalBalance"`
 	Nonce        int64  `json:"nonce"`
 	PendingNonce int64  `json:"pendingNonce"`
 	IsCandidate  bool   `json:"isCandidate"`
@@ -124,7 +124,7 @@ type AddressDetails struct {
 type Candidate struct {
 	Address          string `json:"address"`
 	PubKey           string `json:"pubKey"`
-	TotalVote        int64  `json:"totalVote"`
+	TotalVote        string `json:"totalVote"`
 	CreationHeight   int64  `json:"creationHeight"`
 	LastUpdateHeight int64  `json:"lastUpdateHeight"`
 	IsDelegate       bool   `json:"isDelegate"`
@@ -149,12 +149,12 @@ type SendTransferRequest struct {
 	Nonce        int64  `json:"nonce"`
 	Sender       string `json:"sender"`
 	Recipient    string `json:"recipient"`
-	Amount       int64  `json:"amount"`
+	Amount       string `json:"amount"`
 	SenderPubKey string `json:"senderPubKey"`
 	Signature    string `json:"signature"`
 	Payload      string `json:"payload"`
 	GasLimit     int64  `json:"gasLimit"`
-	GasPrice     int64  `json:"gasPrice"`
+	GasPrice     string `json:"gasPrice"`
 	IsCoinbase   bool   `json:"isCoinbase"`
 }
 
@@ -169,7 +169,7 @@ type SendVoteRequest struct {
 	Votee       string `json:"votee"`
 	VoterPubKey string `json:"voterPubKey"`
 	GasLimit    int64  `json:"gasLimit"`
-	GasPrice    int64  `json:"gasPrice"`
+	GasPrice    string `json:"gasPrice"`
 	Signature   string `json:"signature"`
 }
 
@@ -199,7 +199,7 @@ type GetBlkOrActResponse struct {
 
 type Explorer interface {
 	GetBlockchainHeight() (int64, error)
-	GetAddressBalance(address string) (int64, error)
+	GetAddressBalance(address string) (string, error)
 	GetAddressDetails(address string) (AddressDetails, error)
 	GetLastTransfersByRange(startBlockHeight int64, offset int64, limit int64, showCoinBase bool) ([]Transfer, error)
 	GetTransferByID(transferID string) (Transfer, error)
@@ -258,22 +258,22 @@ func (_p ExplorerProxy) GetBlockchainHeight() (int64, error) {
 	return int64(0), _err
 }
 
-func (_p ExplorerProxy) GetAddressBalance(address string) (int64, error) {
+func (_p ExplorerProxy) GetAddressBalance(address string) (string, error) {
 	_res, _err := _p.client.Call("Explorer.getAddressBalance", address)
 	if _err == nil {
 		_retType := _p.idl.Method("Explorer.getAddressBalance").Returns
-		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(int64(0)), _res, "")
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(""), _res, "")
 	}
 	if _err == nil {
-		_cast, _ok := _res.(int64)
+		_cast, _ok := _res.(string)
 		if !_ok {
 			_t := reflect.TypeOf(_res)
 			_msg := fmt.Sprintf("Explorer.getAddressBalance returned invalid type: %v", _t)
-			return int64(0), &barrister.JsonRpcError{Code: -32000, Message: _msg}
+			return "", &barrister.JsonRpcError{Code: -32000, Message: _msg}
 		}
 		return _cast, nil
 	}
-	return int64(0), _err
+	return "", _err
 }
 
 func (_p ExplorerProxy) GetAddressDetails(address string) (AddressDetails, error) {
@@ -1003,7 +1003,7 @@ var IdlJsonRaw = `[
             },
             {
                 "name": "amount",
-                "type": "int",
+                "type": "string",
                 "optional": false,
                 "is_array": false,
                 "comment": ""
@@ -1073,7 +1073,7 @@ var IdlJsonRaw = `[
             },
             {
                 "name": "amount",
-                "type": "int",
+                "type": "string",
                 "optional": false,
                 "is_array": false,
                 "comment": ""
@@ -1108,7 +1108,7 @@ var IdlJsonRaw = `[
             },
             {
                 "name": "gasPrice",
-                "type": "int",
+                "type": "string",
                 "optional": false,
                 "is_array": false,
                 "comment": ""
@@ -1122,7 +1122,7 @@ var IdlJsonRaw = `[
             },
             {
                 "name": "fee",
-                "type": "int",
+                "type": "string",
                 "optional": false,
                 "is_array": false,
                 "comment": ""
@@ -1199,7 +1199,7 @@ var IdlJsonRaw = `[
             },
             {
                 "name": "amount",
-                "type": "int",
+                "type": "string",
                 "optional": false,
                 "is_array": false,
                 "comment": ""
@@ -1227,7 +1227,7 @@ var IdlJsonRaw = `[
             },
             {
                 "name": "gasPrice",
-                "type": "int",
+                "type": "string",
                 "optional": false,
                 "is_array": false,
                 "comment": ""
@@ -1472,7 +1472,7 @@ var IdlJsonRaw = `[
             },
             {
                 "name": "gasPrice",
-                "type": "int",
+                "type": "string",
                 "optional": false,
                 "is_array": false,
                 "comment": ""
@@ -1521,7 +1521,7 @@ var IdlJsonRaw = `[
             },
             {
                 "name": "totalBalance",
-                "type": "int",
+                "type": "string",
                 "optional": false,
                 "is_array": false,
                 "comment": ""
@@ -1577,7 +1577,7 @@ var IdlJsonRaw = `[
             },
             {
                 "name": "totalVote",
-                "type": "int",
+                "type": "string",
                 "optional": false,
                 "is_array": false,
                 "comment": ""
@@ -1731,7 +1731,7 @@ var IdlJsonRaw = `[
             },
             {
                 "name": "amount",
-                "type": "int",
+                "type": "string",
                 "optional": false,
                 "is_array": false,
                 "comment": ""
@@ -1766,7 +1766,7 @@ var IdlJsonRaw = `[
             },
             {
                 "name": "gasPrice",
-                "type": "int",
+                "type": "string",
                 "optional": false,
                 "is_array": false,
                 "comment": ""
@@ -1857,7 +1857,7 @@ var IdlJsonRaw = `[
             },
             {
                 "name": "gasPrice",
-                "type": "int",
+                "type": "string",
                 "optional": false,
                 "is_array": false,
                 "comment": ""
@@ -2044,7 +2044,7 @@ var IdlJsonRaw = `[
                 ],
                 "returns": {
                     "name": "",
-                    "type": "int",
+                    "type": "string",
                     "optional": false,
                     "is_array": false,
                     "comment": ""
@@ -2795,7 +2795,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1539798719996,
-        "checksum": "07829098ad6799699a099ece1307dee9"
+        "date_generated": 1539901339136,
+        "checksum": "d37c8297b1a4b80f837adb8696a7e046"
     }
 ]`
