@@ -160,8 +160,8 @@ func (ex *Execution) Serialize() ([]byte, error) {
 	return proto.Marshal(ex.Proto())
 }
 
-// ConvertFromActionPb converts a protobuf's ActionPb to Execution
-func (ex *Execution) ConvertFromActionPb(pbAct *iproto.ActionPb) {
+// LoadProto converts a protobuf's ActionPb to Execution
+func (ex *Execution) LoadProto(pbAct *iproto.ActionPb) {
 	ex.version = pbAct.GetVersion()
 	ex.nonce = pbAct.GetNonce()
 	ex.gasLimit = pbAct.GetGasLimit()
@@ -225,7 +225,7 @@ func (ex *Execution) Deserialize(buf []byte) error {
 	if err := proto.Unmarshal(buf, pbAction); err != nil {
 		return err
 	}
-	ex.ConvertFromActionPb(pbAction)
+	ex.LoadProto(pbAction)
 	return nil
 }
 

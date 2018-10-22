@@ -896,7 +896,7 @@ func (exp *Service) SendTransfer(tsfJSON explorer.SendTransferRequest) (resp exp
 	exp.dp.HandleBroadcast(exp.bc.ChainID(), actPb, nil)
 
 	tsf := &action.Transfer{}
-	tsf.ConvertFromActionPb(actPb)
+	tsf.LoadProto(actPb)
 	h := tsf.Hash()
 	return explorer.SendTransferResponse{Hash: hex.EncodeToString(h[:])}, nil
 }
@@ -943,7 +943,7 @@ func (exp *Service) SendVote(voteJSON explorer.SendVoteRequest) (resp explorer.S
 	exp.dp.HandleBroadcast(exp.bc.ChainID(), actPb, nil)
 
 	v := &action.Vote{}
-	v.ConvertFromActionPb(actPb)
+	v.LoadProto(actPb)
 	h := v.Hash()
 	return explorer.SendVoteResponse{Hash: hex.EncodeToString(h[:])}, nil
 }
@@ -1010,7 +1010,7 @@ func (exp *Service) SendSmartContract(execution explorer.Execution) (resp explor
 	exp.dp.HandleBroadcast(exp.bc.ChainID(), actPb, nil)
 
 	sc := &action.Execution{}
-	sc.ConvertFromActionPb(actPb)
+	sc.LoadProto(actPb)
 	h := sc.Hash()
 	return explorer.SendSmartContractResponse{Hash: hex.EncodeToString(h[:])}, nil
 }
@@ -1045,7 +1045,7 @@ func (exp *Service) ReadExecutionState(execution explorer.Execution) (string, er
 	}
 
 	sc := &action.Execution{}
-	sc.ConvertFromActionPb(actPb)
+	sc.LoadProto(actPb)
 	res, err := exp.bc.ExecuteContractRead(sc)
 	if err != nil {
 		return "", err

@@ -24,9 +24,6 @@ import (
 const (
 	// MainChainID reserves the ID for main chain
 	MainChainID uint32 = 1
-	// MinStartHeightDelay defines the minimal start height delay from the current blockchain height to kick off
-	// sub-chain first block
-	MinStartHeightDelay = 10
 )
 
 var (
@@ -36,17 +33,15 @@ var (
 
 // Protocol defines the protocol of handling sub-chain actions
 type Protocol struct {
-	chain     blockchain.Blockchain
 	sf        state.Factory
-	subChains map[uint32]*subChain
+	subChains map[uint32]*SubChain
 }
 
 // NewProtocol instantiates the protocol of sub-chain
-func NewProtocol(chain blockchain.Blockchain, sf state.Factory) *Protocol {
+func NewProtocol(sf state.Factory) *Protocol {
 	return &Protocol{
-		chain:     chain,
 		sf:        sf,
-		subChains: make(map[uint32]*subChain),
+		subChains: make(map[uint32]*SubChain),
 	}
 }
 
@@ -74,6 +69,20 @@ func (p *Protocol) Validate(act action.Action) error {
 	return nil
 }
 
+// SubChain returns the confirmed sub-chain state
+func (p *Protocol) SubChain(addr address.Address) (*SubChain, error) {
+	var subChain SubChain
+	state, err := p.sf.State(byteutil.BytesTo20B(addr.Payload()), &subChain)
+	if err != nil {
+		return nil, errors.Wrapf(err, "error when loading state of %x", addr.Payload())
+	}
+	sc, ok := state.(*SubChain)
+	if !ok {
+		return nil, errors.New("error when casting state into sub-chain")
+	}
+	return sc, nil
+}
+
 func (p *Protocol) handleStartSubChain(start *action.StartSubChain, ws state.WorkingSet) error {
 	account, err := p.validateStartSubChain(start, ws)
 	if err != nil {
@@ -83,7 +92,7 @@ func (p *Protocol) handleStartSubChain(start *action.StartSubChain, ws state.Wor
 	if err != nil {
 		return err
 	}
-	sc := subChain{
+	sc := SubChain{
 		ChainID:            start.ChainID(),
 		SecurityDeposit:    start.SecurityDeposit(),
 		OperationDeposit:   start.OperationDeposit(),
@@ -138,16 +147,13 @@ func (p *Protocol) validateStartSubChain(start *action.StartSubChain, ws state.W
 	if account.Balance.Cmp(big.NewInt(0).Add(start.SecurityDeposit(), start.OperationDeposit())) < 0 {
 		return nil, errors.New("sub-chain owner doesn't have enough balance for operation deposit")
 	}
-	if start.StartHeight() < p.chain.TipHeight()+MinStartHeightDelay {
-		return nil, fmt.Errorf("sub-chain could be started no early than %d", p.chain.TipHeight()+MinStartHeightDelay)
-	}
 	return account, nil
 }
 
 func createSubChainAddress(ownerAddr string, nonce uint64) (hash.PKHash, error) {
 	addr, err := address.IotxAddressToAddress(ownerAddr)
 	if err != nil {
-		return hash.ZeroPKHash, err
+		return hash.ZeroPKHash, errors.Wrapf(err, "cannot get the public key hash of address %s", ownerAddr)
 	}
 	bytes := make([]byte, 8)
 	enc.MachineEndian.PutUint64(bytes, nonce)

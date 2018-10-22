@@ -91,3 +91,11 @@ selfNominators:
   priKey: fc9a6da640000069de182732c06fe33eef621f41a8fa4f258cdac03567f39e33ec274500
 - pubKey: 89be1f013287c8b31754528581b33c35f23aa5169a9aa6b60fd3288f582e4be10ee97a03ac49aba3b53cc4bc3b44135b0150a7684195e1882e842508633a5776c2ae50bd53d41301
   priKey: ddc350a621db3319d86d0e679b88b0e2132f54a65066c758c3ae0adae2e4157809afc500
+subChains:
+- chainID: 2
+  securityDeposit: 1000000000
+  operationDeposit: 1000000000
+  startHeight: 100
+  parentHeightOffset: 100
+  parentHeightOffset: 100
+  parentHeightOffset: 100
