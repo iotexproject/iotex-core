@@ -100,9 +100,8 @@ func (m *memKVStore) Delete(namespace string, key []byte) error {
 }
 
 // Commit commits a batch
-func (m *memKVStore) Commit(b KVStoreBatch) error {
+func (m *memKVStore) Commit(b KVStoreBatch) (e error) {
 	b.Lock()
-	defer b.ClearAndUnlock()
 	for i := 0; i < b.Size(); i++ {
 		write, err := b.Entry(i)
 		if err != nil {
@@ -110,18 +109,28 @@ func (m *memKVStore) Commit(b KVStoreBatch) error {
 		}
 		if write.writeType == Put {
 			if err := m.Put(write.namespace, write.key, write.value); err != nil {
-				return err
+				e = err
+				break
 			}
 		} else if write.writeType == PutIfNotExists {
 			if err := m.PutIfNotExists(write.namespace, write.key, write.value); err != nil {
-				return err
+				e = err
+				break
 			}
 		} else if write.writeType == Delete {
 			if err := m.Delete(write.namespace, write.key); err != nil {
-				return err
+				e = err
+				break
 			}
 		}
 	}
+	if e != nil {
+		// if commit fails at KVStore, we do not clear the batch
+		b.Unlock()
+		return e
+	}
+	// clear the batch if commit succeeds
+	b.ClearAndUnlock()
 	return nil
 }
 
@@ -257,10 +266,8 @@ func (b *boltDB) Delete(namespace string, key []byte) error {
 }
 
 // Commit commits a batch
-func (b *boltDB) Commit(batch KVStoreBatch) error {
+func (b *boltDB) Commit(batch KVStoreBatch) (err error) {
 	batch.Lock()
-	defer batch.ClearAndUnlock()
-	var err error
 	numRetries := b.config.NumRetries
 	for c := uint8(0); c < numRetries; c++ {
 		err = b.db.Update(func(tx *bolt.Tx) error {
@@ -292,7 +299,7 @@ func (b *boltDB) Commit(batch KVStoreBatch) error {
 				} else if write.writeType == Delete {
 					bucket := tx.Bucket([]byte(write.namespace))
 					if bucket == nil {
-						return nil
+						continue
 					}
 					if err := bucket.Delete(write.key); err != nil {
 						return errors.Wrapf(err, write.errorFormat, write.errorArgs)
@@ -305,7 +312,14 @@ func (b *boltDB) Commit(batch KVStoreBatch) error {
 			break
 		}
 	}
-	return err
+	if err != nil {
+		// if commit fails at KVStore, we do not clear the batch
+		batch.Unlock()
+		return err
+	}
+	// clear the batch if commit succeeds
+	batch.ClearAndUnlock()
+	return nil
 }
 
 //======================================
