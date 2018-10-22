@@ -37,7 +37,7 @@ func details(args []string) string {
 		return ""
 	}
 	return fmt.Sprintf("Address %s nonce: %d\n", args[0], det.Nonce) +
-		fmt.Sprintf("Address %s balance: %d", args[0], det.TotalBalance)
+		fmt.Sprintf("Address %s balance: %s", args[0], det.TotalBalance)
 }
 
 func init() {

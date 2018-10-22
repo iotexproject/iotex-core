@@ -71,12 +71,12 @@ func (exp *Service) GetBlockchainHeight() (int64, error) {
 }
 
 // GetAddressBalance returns the balance of an address
-func (exp *Service) GetAddressBalance(address string) (int64, error) {
+func (exp *Service) GetAddressBalance(address string) (string, error) {
 	state, err := exp.bc.StateByAddr(address)
 	if err != nil {
-		return int64(0), err
+		return "", err
 	}
-	return state.Balance.Int64(), nil
+	return state.Balance.String(), nil
 }
 
 // GetAddressDetails returns the properties of an address
@@ -91,7 +91,7 @@ func (exp *Service) GetAddressDetails(address string) (explorer.AddressDetails, 
 	}
 	details := explorer.AddressDetails{
 		Address:      address,
-		TotalBalance: (*state).Balance.Int64(),
+		TotalBalance: state.Balance.String(),
 		Nonce:        int64((*state).Nonce),
 		PendingNonce: int64(pendingNonce),
 		IsCandidate:  (*state).IsCandidate,
@@ -614,10 +614,10 @@ func (exp *Service) GetLastBlocksByRange(offset int64, limit int64) ([]explorer.
 			return []explorer.Block{}, err
 		}
 
-		totalAmount := int64(0)
+		totalAmount := big.NewInt(0)
 		totalSize := uint32(0)
 		for _, transfer := range blk.Transfers {
-			totalAmount += transfer.Amount().Int64()
+			totalAmount.Add(totalAmount, transfer.Amount())
 			totalSize += transfer.TotalSize()
 		}
 
@@ -628,7 +628,7 @@ func (exp *Service) GetLastBlocksByRange(offset int64, limit int64) ([]explorer.
 			Transfers:  int64(len(blk.Transfers)),
 			Votes:      int64(len(blk.Votes)),
 			Executions: int64(len(blk.Executions)),
-			Amount:     totalAmount,
+			Amount:     totalAmount.String(),
 			Size:       int64(totalSize),
 			GenerateBy: explorer.BlockGenerator{
 				Name:    "",
@@ -658,10 +658,10 @@ func (exp *Service) GetBlockByID(blkID string) (explorer.Block, error) {
 
 	blkHeaderPb := blk.ConvertToBlockHeaderPb()
 
-	totalAmount := int64(0)
+	totalAmount := big.NewInt(0)
 	totalSize := uint32(0)
 	for _, transfer := range blk.Transfers {
-		totalAmount += transfer.Amount().Int64()
+		totalAmount.Add(totalAmount, transfer.Amount())
 		totalSize += transfer.TotalSize()
 	}
 
@@ -672,7 +672,7 @@ func (exp *Service) GetBlockByID(blkID string) (explorer.Block, error) {
 		Transfers:  int64(len(blk.Transfers)),
 		Votes:      int64(len(blk.Votes)),
 		Executions: int64(len(blk.Executions)),
-		Amount:     totalAmount,
+		Amount:     totalAmount.String(),
 		Size:       int64(totalSize),
 		GenerateBy: explorer.BlockGenerator{
 			Name:    "",
@@ -787,7 +787,7 @@ func (exp *Service) GetCandidateMetrics() (explorer.CandidateMetrics, error) {
 	for i, c := range allCandidates {
 		candidates[i] = explorer.Candidate{
 			Address:          c.Address,
-			TotalVote:        c.Votes.Int64(),
+			TotalVote:        c.Votes.String(),
 			CreationHeight:   int64(c.CreationHeight),
 			LastUpdateHeight: int64(c.LastUpdateHeight),
 			IsDelegate:       false,
@@ -828,7 +828,7 @@ func (exp *Service) GetCandidateMetricsByHeight(h int64) (explorer.CandidateMetr
 		candidates = append(candidates, explorer.Candidate{
 			Address:          c.Address,
 			PubKey:           pubKey,
-			TotalVote:        c.Votes.Int64(),
+			TotalVote:        c.Votes.String(),
 			CreationHeight:   int64(c.CreationHeight),
 			LastUpdateHeight: int64(c.LastUpdateHeight),
 		})
@@ -871,10 +871,18 @@ func (exp *Service) SendTransfer(tsfJSON explorer.SendTransferRequest) (resp exp
 	if err != nil {
 		return explorer.SendTransferResponse{}, err
 	}
+	amount, ok := big.NewInt(0).SetString(tsfJSON.Amount, 10)
+	if !ok {
+		return explorer.SendTransferResponse{}, errors.New("failed to set transfer amount")
+	}
+	gasPrice, ok := big.NewInt(0).SetString(tsfJSON.GasPrice, 10)
+	if !ok {
+		return explorer.SendTransferResponse{}, errors.New("failed to set transfer gas price")
+	}
 	actPb := &pb.ActionPb{
 		Action: &pb.ActionPb_Transfer{
 			Transfer: &pb.TransferPb{
-				Amount:       big.NewInt(tsfJSON.Amount).Bytes(),
+				Amount:       amount.Bytes(),
 				Sender:       tsfJSON.Sender,
 				Recipient:    tsfJSON.Recipient,
 				Payload:      payload,
@@ -885,7 +893,7 @@ func (exp *Service) SendTransfer(tsfJSON explorer.SendTransferRequest) (resp exp
 		Version:   uint32(tsfJSON.Version),
 		Nonce:     uint64(tsfJSON.Nonce),
 		GasLimit:  uint64(tsfJSON.GasLimit),
-		GasPrice:  big.NewInt(tsfJSON.GasPrice).Bytes(),
+		GasPrice:  gasPrice.Bytes(),
 		Signature: signature,
 	}
 	// broadcast to the network
@@ -921,6 +929,10 @@ func (exp *Service) SendVote(voteJSON explorer.SendVoteRequest) (resp explorer.S
 	if err != nil {
 		return explorer.SendVoteResponse{}, err
 	}
+	gasPrice, ok := big.NewInt(0).SetString(voteJSON.GasPrice, 10)
+	if !ok {
+		return explorer.SendVoteResponse{}, errors.New("failed to set vote gas price")
+	}
 	actPb := &pb.ActionPb{
 		Action: &pb.ActionPb_Vote{
 			Vote: &pb.VotePb{
@@ -932,7 +944,7 @@ func (exp *Service) SendVote(voteJSON explorer.SendVoteRequest) (resp explorer.S
 		Version:   uint32(voteJSON.Version),
 		Nonce:     uint64(voteJSON.Nonce),
 		GasLimit:  uint64(voteJSON.GasLimit),
-		GasPrice:  big.NewInt(voteJSON.GasPrice).Bytes(),
+		GasPrice:  gasPrice.Bytes(),
 		Signature: signature,
 	}
 	// broadcast to the network
@@ -986,10 +998,18 @@ func (exp *Service) SendSmartContract(execution explorer.Execution) (resp explor
 	if err != nil {
 		return explorer.SendSmartContractResponse{}, err
 	}
+	amount, ok := big.NewInt(0).SetString(execution.Amount, 10)
+	if !ok {
+		return explorer.SendSmartContractResponse{}, errors.New("failed to set execution amount")
+	}
+	gasPrice, ok := big.NewInt(0).SetString(execution.GasPrice, 10)
+	if !ok {
+		return explorer.SendSmartContractResponse{}, errors.New("failed to set execution gas price")
+	}
 	actPb := &pb.ActionPb{
 		Action: &pb.ActionPb_Execution{
 			Execution: &pb.ExecutionPb{
-				Amount:         big.NewInt(execution.Amount).Bytes(),
+				Amount:         amount.Bytes(),
 				Executor:       execution.Executor,
 				Contract:       execution.Contract,
 				ExecutorPubKey: executorPubKey,
@@ -999,7 +1019,7 @@ func (exp *Service) SendSmartContract(execution explorer.Execution) (resp explor
 		Version:   uint32(execution.Version),
 		Nonce:     uint64(execution.Nonce),
 		GasLimit:  uint64(execution.GasLimit),
-		GasPrice:  big.NewInt(execution.GasPrice).Bytes(),
+		GasPrice:  gasPrice.Bytes(),
 		Signature: signature,
 	}
 	// broadcast to the network
@@ -1027,10 +1047,18 @@ func (exp *Service) ReadExecutionState(execution explorer.Execution) (string, er
 	if err != nil {
 		return "", err
 	}
+	amount, ok := big.NewInt(0).SetString(execution.Amount, 10)
+	if !ok {
+		return "", errors.New("failed to set execution amount")
+	}
+	gasPrice, ok := big.NewInt(0).SetString(execution.GasPrice, 10)
+	if !ok {
+		return "", errors.New("failed to set execution gas price")
+	}
 	actPb := &pb.ActionPb{
 		Action: &pb.ActionPb_Execution{
 			Execution: &pb.ExecutionPb{
-				Amount:         big.NewInt(execution.Amount).Bytes(),
+				Amount:         amount.Bytes(),
 				Executor:       execution.Executor,
 				Contract:       execution.Contract,
 				ExecutorPubKey: nil,
@@ -1040,7 +1068,7 @@ func (exp *Service) ReadExecutionState(execution explorer.Execution) (string, er
 		Version:   uint32(execution.Version),
 		Nonce:     uint64(execution.Nonce),
 		GasLimit:  uint64(execution.GasLimit),
-		GasPrice:  big.NewInt(execution.GasPrice).Bytes(),
+		GasPrice:  gasPrice.Bytes(),
 		Signature: signature,
 	}
 
@@ -1183,16 +1211,16 @@ func convertTsfToExplorerTsf(transfer *action.Transfer, isPending bool) (explore
 		ID:        hex.EncodeToString(hash[:]),
 		Sender:    transfer.Sender(),
 		Recipient: transfer.Recipient(),
-		Fee:       0, // TODO: we need to get the actual fee.
+		Fee:       "", // TODO: we need to get the actual fee.
 		Payload:   hex.EncodeToString(transfer.Payload()),
 		GasLimit:  int64(transfer.GasLimit()),
 		IsPending: isPending,
 	}
-	if transfer.Amount() != nil && len(transfer.Amount().Bytes()) > 0 {
-		explorerTransfer.Amount = transfer.Amount().Int64()
+	if transfer.Amount() != nil && len(transfer.Amount().String()) > 0 {
+		explorerTransfer.Amount = transfer.Amount().String()
 	}
-	if transfer.GasPrice() != nil && len(transfer.GasPrice().Bytes()) > 0 {
-		explorerTransfer.GasPrice = transfer.GasPrice().Int64()
+	if transfer.GasPrice() != nil && len(transfer.GasPrice().String()) > 0 {
+		explorerTransfer.GasPrice = transfer.GasPrice().String()
 	}
 	return explorerTransfer, nil
 }
@@ -1210,7 +1238,7 @@ func convertVoteToExplorerVote(vote *action.Vote, isPending bool) (explorer.Vote
 		VoterPubKey: hex.EncodeToString(voterPubkey[:]),
 		Votee:       vote.Votee(),
 		GasLimit:    int64(vote.GasLimit()),
-		GasPrice:    vote.GasPrice().Int64(),
+		GasPrice:    vote.GasPrice().String(),
 		IsPending:   isPending,
 	}
 	return explorerVote, nil
@@ -1230,11 +1258,11 @@ func convertExecutionToExplorerExecution(execution *action.Execution, isPending 
 		Data:      hex.EncodeToString(execution.Data()),
 		IsPending: isPending,
 	}
-	if execution.Amount() != nil && len(execution.Amount().Bytes()) > 0 {
-		explorerExecution.Amount = execution.Amount().Int64()
+	if execution.Amount() != nil && len(execution.Amount().String()) > 0 {
+		explorerExecution.Amount = execution.Amount().String()
 	}
-	if execution.GasPrice() != nil && len(execution.GasPrice().Bytes()) > 0 {
-		explorerExecution.GasPrice = execution.GasPrice().Int64()
+	if execution.GasPrice() != nil && len(execution.GasPrice().String()) > 0 {
+		explorerExecution.GasPrice = execution.GasPrice().String()
 	}
 	return explorerExecution, nil
 }

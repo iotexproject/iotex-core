@@ -311,13 +311,13 @@ func injectTransfer(
 
 	logger.Info().Int64("Version", tsf.Version).Msg(" ")
 	logger.Info().Int64("Nonce", tsf.Nonce).Msg(" ")
-	logger.Info().Int64("amount", tsf.Amount).Msg(" ")
+	logger.Info().Str("amount", tsf.Amount).Msg(" ")
 	logger.Info().Str("Sender", tsf.Sender).Msg(" ")
 	logger.Info().Str("Recipient", tsf.Recipient).Msg(" ")
 	logger.Info().Str("payload", tsf.Payload).Msg(" ")
 	logger.Info().Str("Sender Public Key", tsf.SenderPubKey).Msg(" ")
 	logger.Info().Int64("Gas Limit", tsf.GasLimit).Msg(" ")
-	logger.Info().Int64("Gas Price", tsf.GasPrice).Msg(" ")
+	logger.Info().Str("Gas Price", tsf.GasPrice).Msg(" ")
 	logger.Info().Str("Signature", tsf.Signature).Msg(" ")
 	logger.Info().Bool("isCoinbase", tsf.IsCoinbase).Msg(" ")
 
@@ -374,7 +374,7 @@ func injectVote(
 	logger.Info().Str("Sender Public Key", jsonVote.VoterPubKey).Msg(" ")
 	logger.Info().Str("Recipient Address", jsonVote.Votee).Msg(" ")
 	logger.Info().Int64("Gas Limit", jsonVote.GasLimit)
-	logger.Info().Int64("Gas Price", jsonVote.GasLimit)
+	logger.Info().Str("Gas Price", jsonVote.GasPrice)
 	logger.Info().Str("Signature", jsonVote.Signature).Msg(" ")
 
 	if wg != nil {
@@ -419,11 +419,11 @@ func injectExecution(
 
 	logger.Info().Int64("Version", jsonExecution.Version).Msg(" ")
 	logger.Info().Int64("Nonce", jsonExecution.Nonce).Msg(" ")
-	logger.Info().Int64("amount", jsonExecution.Amount).Msg(" ")
+	logger.Info().Str("amount", jsonExecution.Amount).Msg(" ")
 	logger.Info().Str("Executor", jsonExecution.Executor).Msg(" ")
 	logger.Info().Str("Contract", jsonExecution.Contract).Msg(" ")
 	logger.Info().Int64("Gas", jsonExecution.GasLimit).Msg(" ")
-	logger.Info().Int64("Gas Price", jsonExecution.GasPrice).Msg(" ")
+	logger.Info().Str("Gas Price", jsonExecution.GasPrice).Msg(" ")
 	logger.Info().Str("data", jsonExecution.Data)
 	logger.Info().Str("Signature", jsonExecution.Signature).Msg(" ")
 
