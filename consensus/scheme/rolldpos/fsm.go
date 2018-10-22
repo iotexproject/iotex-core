@@ -56,10 +56,6 @@ const (
 	sAcceptProposalEndorse fsm.State = "S_ACCEPT_PROPOSAL_ENDROSE"
 	sAcceptLockEndorse     fsm.State = "S_ACCEPT_LOCK_ENDORSE"
 
-	// sInvalid indicates an invalid state. It doesn't matter what dst state to return when there's an error. Transition
-	// to dst state will not happen. However, we should always return to this state to be consistent.
-	sInvalid fsm.State = "S_INVALID"
-
 	// consensusEvt event types
 	eRollDelegates          fsm.EventType = "E_ROLL_DELEGATES"
 	eGenerateDKG            fsm.EventType = "E_GENERATE_DKG"
@@ -363,7 +359,7 @@ func (m *cFSM) handleRollDelegatesEvt(_ fsm.Event) (fsm.State, error) {
 	if err != nil {
 		// Even if error happens, we still need to schedule next check of delegate to tolerate transit error
 		m.produce(m.newCEvt(eRollDelegates), m.ctx.cfg.DelegateInterval)
-		return sInvalid, errors.Wrap(
+		return sEpochStart, errors.Wrap(
 			err,
 			"error when determining the epoch ordinal number and start height offset",
 		)
@@ -379,7 +375,7 @@ func (m *cFSM) handleRollDelegatesEvt(_ fsm.Event) (fsm.State, error) {
 	if err != nil {
 		// Even if error happens, we still need to schedule next check of delegate to tolerate transit error
 		m.produce(m.newCEvt(eRollDelegates), m.ctx.cfg.DelegateInterval)
-		return sInvalid, errors.Wrap(
+		return sEpochStart, errors.Wrap(
 			err,
 			"error when determining if the node will participate into next epoch",
 		)
@@ -418,13 +414,13 @@ func (m *cFSM) handleGenerateDKGEvt(_ fsm.Event) (fsm.State, error) {
 		}
 		secrets, witness, err := m.ctx.generateDKGSecrets()
 		if err != nil {
-			return sInvalid, err
+			return sEpochStart, err
 		}
 		m.ctx.epoch.secrets = secrets
 		m.ctx.epoch.witness = witness
 	}
 	if err := m.produceStartRoundEvt(); err != nil {
-		return sInvalid, errors.Wrapf(err, "error when producing %s", eStartRound)
+		return sEpochStart, errors.Wrapf(err, "error when producing %s", eStartRound)
 	}
 	return sRoundStart, nil
 }
@@ -432,7 +428,7 @@ func (m *cFSM) handleGenerateDKGEvt(_ fsm.Event) (fsm.State, error) {
 func (m *cFSM) handleStartRoundEvt(_ fsm.Event) (fsm.State, error) {
 	subEpochNum, err := m.ctx.calcSubEpochNum()
 	if err != nil {
-		return sInvalid, errors.Wrap(
+		return sEpochStart, errors.Wrap(
 			err,
 			"error when determining the sub-epoch ordinal number",
 		)
@@ -444,7 +440,7 @@ func (m *cFSM) handleStartRoundEvt(_ fsm.Event) (fsm.State, error) {
 		logger.Error().
 			Err(err).
 			Msg("error when getting the proposer")
-		return sInvalid, err
+		return sEpochStart, err
 	}
 	m.ctx.round = roundCtx{
 		height:           height,
@@ -474,7 +470,7 @@ func (m *cFSM) handleStartRoundEvt(_ fsm.Event) (fsm.State, error) {
 func (m *cFSM) handleInitBlockEvt(evt fsm.Event) (fsm.State, error) {
 	blk, err := m.ctx.mintBlock()
 	if err != nil {
-		return sInvalid, errors.Wrap(err, "error when minting a block")
+		return sEpochStart, errors.Wrap(err, "error when minting a block")
 	}
 	proposeBlkEvt := m.newProposeBlkEvt(blk)
 	proposeBlkEvtProto := proposeBlkEvt.toProtoMsg()
@@ -542,16 +538,16 @@ func (m *cFSM) moveToAcceptProposalEndorse() (fsm.State, error) {
 
 func (m *cFSM) handleProposeBlockEvt(evt fsm.Event) (fsm.State, error) {
 	if evt.Type() != eProposeBlock {
-		return sInvalid, errors.Errorf("invalid event type %s", evt.Type())
+		return sEpochStart, errors.Errorf("invalid event type %s", evt.Type())
 	}
 	m.ctx.round.block = nil
 	proposeBlkEvt, ok := evt.(*proposeBlkEvt)
 	if !ok {
-		return sInvalid, errors.Wrap(ErrEvtCast, "the event is not a proposeBlkEvt")
+		return sEpochStart, errors.Wrap(ErrEvtCast, "the event is not a proposeBlkEvt")
 	}
 	proposer, err := m.ctx.calcProposer(proposeBlkEvt.block.Height(), m.ctx.epoch.delegates)
 	if err != nil {
-		return sInvalid, errors.Wrap(err, "error when calculating the proposer")
+		return sEpochStart, errors.Wrap(err, "error when calculating the proposer")
 	}
 	if !m.validateProposeBlock(proposeBlkEvt.block, proposer) {
 		return sAcceptPropose, nil
@@ -559,7 +555,7 @@ func (m *cFSM) handleProposeBlockEvt(evt fsm.Event) (fsm.State, error) {
 	m.ctx.round.block = proposeBlkEvt.block
 	endorseEvt, err := m.newEndorseProposalEvt(m.ctx.round.block.HashBlock())
 	if err != nil {
-		return sInvalid, errors.Wrap(err, "error when generating new endorse proposal event")
+		return sEpochStart, errors.Wrap(err, "error when generating new endorse proposal event")
 	}
 	endorseEvtProto := endorseEvt.toProtoMsg()
 	// Notify itself
@@ -576,7 +572,7 @@ func (m *cFSM) handleProposeBlockEvt(evt fsm.Event) (fsm.State, error) {
 
 func (m *cFSM) handleProposeBlockTimeout(evt fsm.Event) (fsm.State, error) {
 	if evt.Type() != eProposeBlockTimeout {
-		return sInvalid, errors.Errorf("invalid event type %s", evt.Type())
+		return sEpochStart, errors.Errorf("invalid event type %s", evt.Type())
 	}
 	logger.Warn().
 		Str("proposer", m.ctx.round.proposer).
@@ -620,11 +616,11 @@ func (m *cFSM) isProposedBlock(hash []byte) bool {
 
 func (m *cFSM) handleEndorseProposalEvt(evt fsm.Event) (fsm.State, error) {
 	if evt.Type() != eEndorseProposal {
-		return sInvalid, errors.Errorf("invalid event type %s", evt.Type())
+		return sEpochStart, errors.Errorf("invalid event type %s", evt.Type())
 	}
 	endorseEvt, ok := evt.(*endorseEvt)
 	if !ok {
-		return sInvalid, errors.Wrap(ErrEvtCast, "the event is not an endorseEvt")
+		return sEpochStart, errors.Wrap(ErrEvtCast, "the event is not an endorseEvt")
 	}
 	endorse := endorseEvt.endorse
 	if !m.isProposedBlock(endorseEvt.endorse.blkHash[:]) {
@@ -649,7 +645,7 @@ func (m *cFSM) handleEndorseProposalEvt(evt fsm.Event) (fsm.State, error) {
 	// Reached the agreement
 	cEvt, err := m.newEndorseLockEvt(blkHash)
 	if err != nil {
-		return sInvalid, errors.Wrap(err, "failed to generate endorse commit event")
+		return sEpochStart, errors.Wrap(err, "failed to generate endorse commit event")
 	}
 	cEvtProto := cEvt.toProtoMsg()
 	// Notify itself
@@ -666,7 +662,7 @@ func (m *cFSM) handleEndorseProposalEvt(evt fsm.Event) (fsm.State, error) {
 
 func (m *cFSM) handleEndorseProposalTimeout(evt fsm.Event) (fsm.State, error) {
 	if evt.Type() != eEndorseProposalTimeout {
-		return sInvalid, errors.Errorf("invalid event type %s", evt.Type())
+		return sEpochStart, errors.Errorf("invalid event type %s", evt.Type())
 	}
 	logger.Warn().
 		Uint64("height", m.ctx.round.height).
@@ -678,11 +674,11 @@ func (m *cFSM) handleEndorseProposalTimeout(evt fsm.Event) (fsm.State, error) {
 
 func (m *cFSM) handleEndorseLockEvt(evt fsm.Event) (fsm.State, error) {
 	if evt.Type() != eEndorseLock {
-		return sInvalid, errors.Errorf("invalid event type %s", evt.Type())
+		return sEpochStart, errors.Errorf("invalid event type %s", evt.Type())
 	}
 	endorseEvt, ok := evt.(*endorseEvt)
 	if !ok {
-		return sInvalid, errors.Wrap(ErrEvtCast, "the event is not an endorseEvt")
+		return sEpochStart, errors.Wrap(ErrEvtCast, "the event is not an endorseEvt")
 	}
 	endorse := endorseEvt.endorse
 	if !m.isProposedBlock(endorse.blkHash[:]) {
@@ -711,7 +707,7 @@ func (m *cFSM) handleEndorseLockEvt(evt fsm.Event) (fsm.State, error) {
 
 func (m *cFSM) handleEndorseLockTimeout(evt fsm.Event) (fsm.State, error) {
 	if evt.Type() != eEndorseLockTimeout {
-		return sInvalid, errors.Errorf("invalid event type %s", evt.Type())
+		return sEpochStart, errors.Errorf("invalid event type %s", evt.Type())
 	}
 	logger.Warn().
 		Uint64("height", m.ctx.round.height).
@@ -787,7 +783,7 @@ func (m *cFSM) handleFinishEpochEvt(evt fsm.Event) (fsm.State, error) {
 	if m.ctx.shouldHandleDKG() && m.ctx.isDKGFinished() {
 		dkgPubKey, dkgPriKey, err := m.ctx.generateDKGKeyPair()
 		if err != nil {
-			return sInvalid, errors.Wrap(err, "error when generating DKG key pair")
+			return sEpochStart, errors.Wrap(err, "error when generating DKG key pair")
 		}
 		m.ctx.epoch.dkgAddress.PublicKey = dkgPubKey
 		m.ctx.epoch.dkgAddress.PrivateKey = dkgPriKey
@@ -795,14 +791,14 @@ func (m *cFSM) handleFinishEpochEvt(evt fsm.Event) (fsm.State, error) {
 
 	epochFinished, err := m.ctx.isEpochFinished()
 	if err != nil {
-		return sInvalid, errors.Wrap(err, "error when checking if the epoch is finished")
+		return sEpochStart, errors.Wrap(err, "error when checking if the epoch is finished")
 	}
 	if epochFinished {
 		m.produce(m.newCEvt(eRollDelegates), 0)
 		return sEpochStart, nil
 	}
 	if err := m.produceStartRoundEvt(); err != nil {
-		return sInvalid, errors.Wrapf(err, "error when producing %s", eStartRound)
+		return sEpochStart, errors.Wrapf(err, "error when producing %s", eStartRound)
 	}
 	return sRoundStart, nil
 }
@@ -843,7 +839,7 @@ func (m *cFSM) produceStartRoundEvt() error {
 func (m *cFSM) handleBackdoorEvt(evt fsm.Event) (fsm.State, error) {
 	bEvt, ok := evt.(*backdoorEvt)
 	if !ok {
-		return sInvalid, errors.Wrap(ErrEvtCast, "the event is not a backdoorEvt")
+		return sEpochStart, errors.Wrap(ErrEvtCast, "the event is not a backdoorEvt")
 	}
 	return bEvt.dst, nil
 }
