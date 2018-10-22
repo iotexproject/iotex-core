@@ -273,13 +273,13 @@ func (l *leaf) insert(k, v []byte, prefix int, stack *list.List) error {
 func (l *leaf) increase(key []byte) (int, int, int) {
 	// get the matching length
 	match := 0
-	for l.Path[match] == key[match] {
+	for l.Path[l.Ext+match] == key[match] {
 		match++
 	}
 	B, E, L := 1, 0, 0
 	if l.Ext == EXTLEAF {
 		L = 1
-		switch len(l.Path[match:]) {
+		switch len(l.Path[l.Ext+match:]) {
 		case 1:
 		default:
 			E++
