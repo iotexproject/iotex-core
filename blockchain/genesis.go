@@ -63,8 +63,8 @@ type Transfer struct {
 
 // SubChain is the SubChain struct
 type SubChain struct {
-	ChainID            uint32 `yaml:"chainID""`
-	SecurityDeposit    int64  `yaml:"securityDeposit""`
+	ChainID            uint32 `yaml:"chainID"`
+	SecurityDeposit    int64  `yaml:"securityDeposit"`
 	OperationDeposit   int64  `yaml:"operationDeposit"`
 	StartHeight        uint64 `yaml:"startHeight"`
 	ParentHeightOffset uint64 `yaml:"parentHeightOffset"`
@@ -150,7 +150,7 @@ func NewGenesisBlock(cfg *config.Config) *Block {
 		transfers = append(transfers, tsf)
 	}
 
-	var acts []action.Action
+	acts := make([]action.Action, 0)
 	for _, sc := range actions.SubChains {
 		start := action.NewStartSubChain(
 			0,
