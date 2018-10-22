@@ -31,6 +31,11 @@ var (
 	cow = []byte{1, 2, 5, 6, 7, 8, 9, 0}
 	ant = []byte{2, 3, 4, 5, 6, 7, 8, 9}
 
+	br1 = []byte{0, 3, 4, 5, 6, 7, 8, 9}
+	br2 = []byte{1, 3, 4, 5, 6, 7, 8, 9}
+	cl1 = []byte{0, 0, 4, 5, 6, 7, 8, 9}
+	cl2 = []byte{1, 0, 4, 5, 6, 7, 8, 9}
+
 	testV = [8][]byte{[]byte("ham"), []byte("car"), []byte("cat"), []byte("dog"), []byte("egg"), []byte("fox"), []byte("cow"), []byte("ant")}
 )
 
@@ -38,7 +43,6 @@ func TestPatricia(t *testing.T) {
 	assert := assert.New(t)
 
 	b := branch{}
-	b.Value = []byte{1, 6}
 	b.Path[0] = root
 	b.Path[2] = hash1
 	b.Path[11] = hash2
@@ -46,24 +50,22 @@ func TestPatricia(t *testing.T) {
 	stream, err := b.serialize()
 	assert.Nil(err)
 	assert.NotNil(stream)
-	assert.Equal(byte(2), stream[0])
+	assert.Equal(byte(1), stream[0])
 	b1 := branch{}
 	err = b1.deserialize(stream)
 	assert.Nil(err)
 	assert.Equal(0, bytes.Compare(root, b1.Path[0]))
 	assert.Equal(0, bytes.Compare(hash1, b1.Path[2]))
 	assert.Equal(0, bytes.Compare(hash2, b1.Path[11]))
-	assert.Equal(byte(1), b1.Value[0])
-	assert.Equal(byte(6), b1.Value[1])
-	assert.Equal(454, len(stream))
+	assert.Equal(440, len(stream))
 
-	e := leaf{1, nil, make([]byte, hash.HashSize)}
+	e := leaf{0, nil, nil}
 	e.Path = []byte{2, 3, 5, 7}
-	copy(e.Value, hash1)
+	e.Value = hash1
 	stream, err = e.serialize()
 	assert.Nil(err)
 	assert.NotNil(stream)
-	assert.Equal(byte(1), stream[0])
+	assert.Equal(byte(0), stream[0])
 	e1 := leaf{}
 	err = e1.deserialize(stream)
 	assert.Nil(err)
@@ -72,9 +74,9 @@ func TestPatricia(t *testing.T) {
 	assert.Equal(byte(3), e1.Path[1])
 	assert.Equal(byte(5), e1.Path[2])
 	assert.Equal(byte(7), e1.Path[3])
-	assert.Equal(93, len(stream))
+	assert.Equal(91, len(stream))
 
-	l := leaf{Value: make([]byte, hash.HashSize)}
+	l := leaf{1, nil, make([]byte, hash.HashSize)}
 	l.Path = []byte{4, 6, 8, 9}
 	copy(l.Value, hash2)
 	stream, err = l.serialize()
@@ -89,7 +91,7 @@ func TestPatricia(t *testing.T) {
 	assert.Equal(byte(6), l1.Path[1])
 	assert.Equal(byte(8), l1.Path[2])
 	assert.Equal(byte(9), l1.Path[3])
-	assert.Equal(91, len(stream))
+	assert.Equal(93, len(stream))
 }
 
 func TestDescend(t *testing.T) {
@@ -97,7 +99,6 @@ func TestDescend(t *testing.T) {
 
 	// testing branch
 	br := branch{}
-	br.Value = []byte{1, 6}
 	br.Path[0] = root
 	br.Path[2] = hash1
 	br.Path[11] = hash2
@@ -111,7 +112,7 @@ func TestDescend(t *testing.T) {
 	assert.Nil(err)
 
 	// testing ext
-	e := leaf{1, nil, make([]byte, hash.HashSize)}
+	e := leaf{0, nil, make([]byte, hash.HashSize)}
 	e.Path = []byte{1, 2, 3, 5, 6}
 	copy(e.Value, hash1)
 	b, match, err = e.descend(ant)

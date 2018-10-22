@@ -28,22 +28,20 @@ type (
 	KVStoreBatch interface {
 		// Lock locks the batch
 		Lock()
-		// Unlock unlocks the batch
-		Unlock()
+		// ClearAndUnlock clears the write queue and unlocks the batch
+		ClearAndUnlock()
 		// Put insert or update a record identified by (namespace, key)
-		Put(string, []byte, []byte, string, ...interface{}) error
+		Put(string, []byte, []byte, string, ...interface{})
 		// PutIfNotExists puts a record only if (namespace, key) doesn't exist, otherwise return ErrAlreadyExist
 		PutIfNotExists(string, []byte, []byte, string, ...interface{}) error
 		// Delete deletes a record by (namespace, key)
-		Delete(string, []byte, string, ...interface{}) error
+		Delete(string, []byte, string, ...interface{})
 		// Size returns the size of batch
 		Size() int
 		// Entry returns the entry at the index
 		Entry(int) (*writeInfo, error)
 		// Clear clears entries staged in batch
-		Clear() error
-		// internal clear called by Clear()
-		clear() error
+		Clear()
 	}
 
 	// writeInfo is the struct to store Put/Delete operation info
@@ -73,7 +71,7 @@ type (
 	// cachedBatch implements the CachedBatch interface
 	cachedBatch struct {
 		baseKVStoreBatch
-		cache map[hash.PKHash][]byte // local cache of batched <k, v> for fast query
+		cache map[hash.CacheHash][]byte // local cache of batched <k, v> for fast query
 	}
 )
 
@@ -96,32 +94,32 @@ func (b *baseKVStoreBatch) Lock() {
 	b.mutex.Lock()
 }
 
-// Unlock unlocks the batch
-func (b *baseKVStoreBatch) Unlock() {
-	b.mutex.Unlock()
+// ClearAndUnlock clears the write queue and unlocks the batch
+func (b *baseKVStoreBatch) ClearAndUnlock() {
+	defer b.mutex.Unlock()
+	b.writeQueue = nil
 }
 
 // Put inserts a <key, value> record
-func (b *baseKVStoreBatch) Put(namespace string, key, value []byte, errorFormat string, errorArgs ...interface{}) error {
+func (b *baseKVStoreBatch) Put(namespace string, key, value []byte, errorFormat string, errorArgs ...interface{}) {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
-	return b.batch(Put, namespace, key, value, errorFormat, errorArgs)
-	return nil
+	b.batch(Put, namespace, key, value, errorFormat, errorArgs)
 }
 
 // PutIfNotExists inserts a <key, value> record only if it does not exist yet, otherwise return ErrAlreadyExist
 func (b *baseKVStoreBatch) PutIfNotExists(namespace string, key, value []byte, errorFormat string, errorArgs ...interface{}) error {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
-	return b.batch(PutIfNotExists, namespace, key, value, errorFormat, errorArgs)
+	b.batch(PutIfNotExists, namespace, key, value, errorFormat, errorArgs)
 	return nil
 }
 
 // Delete deletes a record
-func (b *baseKVStoreBatch) Delete(namespace string, key []byte, errorFormat string, errorArgs ...interface{}) error {
+func (b *baseKVStoreBatch) Delete(namespace string, key []byte, errorFormat string, errorArgs ...interface{}) {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
-	return b.batch(Delete, namespace, key, nil, errorFormat, errorArgs)
+	b.batch(Delete, namespace, key, nil, errorFormat, errorArgs)
 }
 
 // Size returns the size of batch
@@ -138,13 +136,13 @@ func (b *baseKVStoreBatch) Entry(index int) (*writeInfo, error) {
 }
 
 // Clear clear write queue
-func (b *baseKVStoreBatch) Clear() error {
+func (b *baseKVStoreBatch) Clear() {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
-	return b.clear()
+	b.writeQueue = nil
 }
 
-func (b *baseKVStoreBatch) batch(op int32, namespace string, key, value []byte, errorFormat string, errorArgs ...interface{}) error {
+func (b *baseKVStoreBatch) batch(op int32, namespace string, key, value []byte, errorFormat string, errorArgs ...interface{}) {
 	b.writeQueue = append(
 		b.writeQueue,
 		writeInfo{
@@ -155,12 +153,6 @@ func (b *baseKVStoreBatch) batch(op int32, namespace string, key, value []byte, 
 			errorFormat: errorFormat,
 			errorArgs:   errorArgs,
 		})
-	return nil
-}
-
-func (b *baseKVStoreBatch) clear() error {
-	b.writeQueue = nil
-	return nil
 }
 
 //======================================
@@ -170,16 +162,24 @@ func (b *baseKVStoreBatch) clear() error {
 // NewCachedBatch returns a new cached batch buffer
 func NewCachedBatch() CachedBatch {
 	return &cachedBatch{
-		cache: make(map[hash.PKHash][]byte),
+		cache: make(map[hash.CacheHash][]byte),
 	}
 }
 
+// ClearAndUnlock clears the write queue and unlocks the batch
+func (cb *cachedBatch) ClearAndUnlock() {
+	defer cb.mutex.Unlock()
+	cb.cache = nil
+	cb.cache = make(map[hash.CacheHash][]byte)
+	cb.writeQueue = nil
+}
+
 // Put inserts a <key, value> record
-func (cb *cachedBatch) Put(namespace string, key, value []byte, errorFormat string, errorArgs ...interface{}) error {
+func (cb *cachedBatch) Put(namespace string, key, value []byte, errorFormat string, errorArgs ...interface{}) {
 	cb.mutex.Lock()
 	defer cb.mutex.Unlock()
 	cb.cache[cb.hash(namespace, key)] = value
-	return cb.batch(Put, namespace, key, value, errorFormat, errorArgs)
+	cb.batch(Put, namespace, key, value, errorFormat, errorArgs)
 }
 
 // PutIfNotExists inserts a <key, value> record only if it does not exist yet, otherwise return ErrAlreadyExist
@@ -190,22 +190,25 @@ func (cb *cachedBatch) PutIfNotExists(namespace string, key, value []byte, error
 		return ErrAlreadyExist
 	}
 	cb.cache[cb.hash(namespace, key)] = value
-	return cb.batch(PutIfNotExists, namespace, key, value, errorFormat, errorArgs)
+	cb.batch(PutIfNotExists, namespace, key, value, errorFormat, errorArgs)
+	return nil
 }
 
 // Delete deletes a record
-func (cb *cachedBatch) Delete(namespace string, key []byte, errorFormat string, errorArgs ...interface{}) error {
+func (cb *cachedBatch) Delete(namespace string, key []byte, errorFormat string, errorArgs ...interface{}) {
 	cb.mutex.Lock()
 	defer cb.mutex.Unlock()
 	delete(cb.cache, cb.hash(namespace, key))
-	return cb.batch(Delete, namespace, key, nil, errorFormat, errorArgs)
+	cb.batch(Delete, namespace, key, nil, errorFormat, errorArgs)
 }
 
 // Clear clear the cached batch buffer
-func (cb *cachedBatch) Clear() error {
+func (cb *cachedBatch) Clear() {
 	cb.mutex.Lock()
 	defer cb.mutex.Unlock()
-	return cb.clear()
+	cb.cache = nil
+	cb.cache = make(map[hash.CacheHash][]byte)
+	cb.writeQueue = nil
 }
 
 // Get retrieves a record
@@ -221,14 +224,8 @@ func (cb *cachedBatch) Get(namespace string, key []byte) ([]byte, error) {
 //======================================
 // private functions
 //======================================
-func (cb *cachedBatch) hash(namespace string, key []byte) hash.PKHash {
-	stream := []byte(namespace)
+func (cb *cachedBatch) hash(namespace string, key []byte) hash.CacheHash {
+	stream := hash.Hash160b([]byte(namespace))
 	stream = append(stream, key...)
-	return byteutil.BytesTo20B(hash.Hash160b(stream))
-}
-
-func (cb *cachedBatch) clear() error {
-	cb.cache = nil
-	cb.cache = make(map[hash.PKHash][]byte)
-	return cb.baseKVStoreBatch.clear()
+	return byteutil.BytesToCacheHash(hash.Hash160b(stream))
 }

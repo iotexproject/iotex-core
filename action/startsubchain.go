@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	// StartSubChainIntrinsicGas is the instrinsic gas for stop sub chain action
+	// StartSubChainIntrinsicGas is the intrinsic gas for start sub-chain action
 	StartSubChainIntrinsicGas = uint64(1000)
 )
 
