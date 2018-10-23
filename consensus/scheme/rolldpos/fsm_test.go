@@ -136,7 +136,7 @@ func TestRollDelegatesEvt(t *testing.T) {
 			clock.New(),
 		)
 		s, err := cfsm.handleRollDelegatesEvt(cfsm.newCEvt(eRollDelegates))
-		assert.Equal(t, sInvalid, s)
+		assert.Equal(t, sEpochStart, s)
 		assert.Error(t, err)
 		// epoch ctx not set
 		assert.Equal(t, uint64(0), cfsm.ctx.epoch.height)
@@ -164,7 +164,7 @@ func TestRollDelegatesEvt(t *testing.T) {
 			clock.New(),
 		)
 		s, err := cfsm.handleRollDelegatesEvt(cfsm.newCEvt(eRollDelegates))
-		assert.Equal(t, sInvalid, s)
+		assert.Equal(t, sEpochStart, s)
 		assert.Error(t, err)
 		// epoch ctx not set
 		assert.Equal(t, uint64(0), cfsm.ctx.epoch.height)
