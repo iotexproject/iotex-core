@@ -86,5 +86,5 @@ func (s *Server) Stop(ctx context.Context) error {
 	return nil
 }
 
-// Explorer returns explorer interface.
+// Indexer returns indexer interface.
 func (s *Server) Indexer() *Indexer { return s.idx }
