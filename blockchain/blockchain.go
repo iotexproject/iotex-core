@@ -325,9 +325,13 @@ func (bc *blockchain) startEmptyBlockchain() error {
 		return errors.Wrap(err, "failed to update state changes in Genesis block")
 	}
 	genesis.Header.stateRoot = root
-	if err := bc.validateBlock(genesis, false); err != nil {
-		return errors.Wrap(err, "failed to validate Genesis block")
-	}
+	genesis.workingSet = ws
+	// TODO: validateBlock will call runActions again, which is not supposed to rerun. Disable it now
+	/*
+		if err := bc.validateBlock(genesis, false); err != nil {
+			return errors.Wrap(err, "failed to validate Genesis block")
+		}
+	*/
 	// add Genesis block as very first block
 	if err := bc.commitBlock(genesis); err != nil {
 		return errors.Wrap(err, "failed to commit Genesis block")
