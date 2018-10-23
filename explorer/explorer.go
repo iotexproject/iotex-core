@@ -20,6 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/dispatcher"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
+	"github.com/iotexproject/iotex-core/indexservice"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network"
 	"github.com/iotexproject/iotex-core/pkg/hash"
@@ -62,6 +63,7 @@ type Service struct {
 	ap  actpool.ActPool
 	p2p network.Overlay
 	cfg config.Explorer
+	idx *indexservice.Server
 }
 
 // GetBlockchainHeight returns the current blockchain tip height
@@ -158,24 +160,35 @@ func (exp *Service) GetTransferByID(transferID string) (explorer.Transfer, error
 	var transferHash hash.Hash32B
 	copy(transferHash[:], bytes)
 
-	return getTransfer(exp.bc, exp.ap, transferHash)
+	return getTransfer(exp.bc, exp.ap, transferHash, exp.idx, exp.cfg.UseRDS)
 }
 
 // GetTransfersByAddress returns all transfers associated with an address
 func (exp *Service) GetTransfersByAddress(address string, offset int64, limit int64) ([]explorer.Transfer, error) {
 	var res []explorer.Transfer
-	transfersFromAddress, err := exp.bc.GetTransfersFromAddress(address)
-	if err != nil {
-		return []explorer.Transfer{}, err
+	var transfers []hash.Hash32B
+	if exp.cfg.UseRDS {
+		transferHistory, err := exp.idx.Indexer().GetTransferHistory(address)
+		if err != nil {
+			return []explorer.Transfer{}, err
+		}
+		transfers = append(transfers, transferHistory...)
+	} else {
+		transfersFromAddress, err := exp.bc.GetTransfersFromAddress(address)
+		if err != nil {
+			return []explorer.Transfer{}, err
+		}
+
+		transfersToAddress, err := exp.bc.GetTransfersToAddress(address)
+		if err != nil {
+			return []explorer.Transfer{}, err
+		}
+
+		transfersFromAddress = append(transfersFromAddress, transfersToAddress...)
+		transfers = append(transfers, transfersFromAddress...)
 	}
 
-	transfersToAddress, err := exp.bc.GetTransfersToAddress(address)
-	if err != nil {
-		return []explorer.Transfer{}, err
-	}
-
-	transfersFromAddress = append(transfersFromAddress, transfersToAddress...)
-	for i, transferHash := range transfersFromAddress {
+	for i, transferHash := range transfers {
 		if int64(i) < offset {
 			continue
 		}
@@ -184,7 +197,7 @@ func (exp *Service) GetTransfersByAddress(address string, offset int64, limit in
 			break
 		}
 
-		explorerTransfer, err := getTransfer(exp.bc, exp.ap, transferHash)
+		explorerTransfer, err := getTransfer(exp.bc, exp.ap, transferHash, exp.idx, exp.cfg.UseRDS)
 		if err != nil {
 			return []explorer.Transfer{}, err
 		}
@@ -317,24 +330,35 @@ func (exp *Service) GetVoteByID(voteID string) (explorer.Vote, error) {
 	var voteHash hash.Hash32B
 	copy(voteHash[:], bytes)
 
-	return getVote(exp.bc, exp.ap, voteHash)
+	return getVote(exp.bc, exp.ap, voteHash, exp.idx, exp.cfg.UseRDS)
 }
 
 // GetVotesByAddress returns all votes associated with an address
 func (exp *Service) GetVotesByAddress(address string, offset int64, limit int64) ([]explorer.Vote, error) {
 	var res []explorer.Vote
-	votesFromAddress, err := exp.bc.GetVotesFromAddress(address)
-	if err != nil {
-		return []explorer.Vote{}, err
+	var votes []hash.Hash32B
+	if exp.cfg.UseRDS {
+		voteHistory, err := exp.idx.Indexer().GetVoteHistory(address)
+		if err != nil {
+			return []explorer.Vote{}, err
+		}
+		votes = append(votes, voteHistory...)
+	} else {
+		votesFromAddress, err := exp.bc.GetVotesFromAddress(address)
+		if err != nil {
+			return []explorer.Vote{}, err
+		}
+
+		votesToAddress, err := exp.bc.GetVotesToAddress(address)
+		if err != nil {
+			return []explorer.Vote{}, err
+		}
+
+		votesFromAddress = append(votesFromAddress, votesToAddress...)
+		votes = append(votes, votesFromAddress...)
 	}
 
-	votesToAddress, err := exp.bc.GetVotesToAddress(address)
-	if err != nil {
-		return []explorer.Vote{}, err
-	}
-
-	votesFromAddress = append(votesFromAddress, votesToAddress...)
-	for i, voteHash := range votesFromAddress {
+	for i, voteHash := range votes {
 		if int64(i) < offset {
 			continue
 		}
@@ -343,7 +367,7 @@ func (exp *Service) GetVotesByAddress(address string, offset int64, limit int64)
 			break
 		}
 
-		explorerVote, err := getVote(exp.bc, exp.ap, voteHash)
+		explorerVote, err := getVote(exp.bc, exp.ap, voteHash, exp.idx, exp.cfg.UseRDS)
 		if err != nil {
 			return []explorer.Vote{}, err
 		}
@@ -475,24 +499,35 @@ func (exp *Service) GetExecutionByID(executionID string) (explorer.Execution, er
 	var executionHash hash.Hash32B
 	copy(executionHash[:], bytes)
 
-	return getExecution(exp.bc, exp.ap, executionHash)
+	return getExecution(exp.bc, exp.ap, executionHash, exp.idx, exp.cfg.UseRDS)
 }
 
 // GetExecutionsByAddress returns all executions associated with an address
 func (exp *Service) GetExecutionsByAddress(address string, offset int64, limit int64) ([]explorer.Execution, error) {
 	var res []explorer.Execution
-	executionsFromAddress, err := exp.bc.GetExecutionsFromAddress(address)
-	if err != nil {
-		return []explorer.Execution{}, err
+	var executions []hash.Hash32B
+	if exp.cfg.UseRDS {
+		executionHistory, err := exp.idx.Indexer().GetExecutionHistory(address)
+		if err != nil {
+			return []explorer.Execution{}, err
+		}
+		executions = append(executions, executionHistory...)
+	} else {
+		executionsFromAddress, err := exp.bc.GetExecutionsFromAddress(address)
+		if err != nil {
+			return []explorer.Execution{}, err
+		}
+
+		executionsToAddress, err := exp.bc.GetExecutionsToAddress(address)
+		if err != nil {
+			return []explorer.Execution{}, err
+		}
+
+		executionsFromAddress = append(executionsFromAddress, executionsToAddress...)
+		executions = append(executions, executionsFromAddress...)
 	}
 
-	executionsToAddress, err := exp.bc.GetExecutionsToAddress(address)
-	if err != nil {
-		return []explorer.Execution{}, err
-	}
-
-	executionsFromAddress = append(executionsFromAddress, executionsToAddress...)
-	for i, executionHash := range executionsFromAddress {
+	for i, executionHash := range executions {
 		if int64(i) < offset {
 			continue
 		}
@@ -501,7 +536,7 @@ func (exp *Service) GetExecutionsByAddress(address string, offset int64, limit i
 			break
 		}
 
-		explorerExecution, err := getExecution(exp.bc, exp.ap, executionHash)
+		explorerExecution, err := getExecution(exp.bc, exp.ap, executionHash, exp.idx, exp.cfg.UseRDS)
 		if err != nil {
 			return []explorer.Execution{}, err
 		}
@@ -1103,7 +1138,7 @@ func (exp *Service) GetBlockOrActionByHash(hashStr string) (explorer.GetBlkOrAct
 }
 
 // getTransfer takes in a blockchain and transferHash and returns an Explorer Transfer
-func getTransfer(bc blockchain.Blockchain, ap actpool.ActPool, transferHash hash.Hash32B) (explorer.Transfer, error) {
+func getTransfer(bc blockchain.Blockchain, ap actpool.ActPool, transferHash hash.Hash32B, idx *indexservice.Server, useRDS bool) (explorer.Transfer, error) {
 	explorerTransfer := explorer.Transfer{}
 
 	transfer, err := bc.GetTransferByTransferHash(transferHash)
@@ -1118,10 +1153,21 @@ func getTransfer(bc blockchain.Blockchain, ap actpool.ActPool, transferHash hash
 	}
 
 	// Fetch from block
-	blkHash, err := bc.GetBlockHashByTransferHash(transferHash)
-	if err != nil {
-		return explorerTransfer, err
+	var blkHash hash.Hash32B
+	if useRDS {
+		hash, err := idx.Indexer().GetBlockByTransfer(transferHash)
+		if err != nil {
+			return explorerTransfer, err
+		}
+		blkHash = hash
+	} else {
+		hash, err := bc.GetBlockHashByTransferHash(transferHash)
+		if err != nil {
+			return explorerTransfer, err
+		}
+		blkHash = hash
 	}
+
 	blk, err := bc.GetBlockByHash(blkHash)
 	if err != nil {
 		return explorerTransfer, err
@@ -1136,7 +1182,7 @@ func getTransfer(bc blockchain.Blockchain, ap actpool.ActPool, transferHash hash
 }
 
 // getVote takes in a blockchain and voteHash and returns an Explorer Vote
-func getVote(bc blockchain.Blockchain, ap actpool.ActPool, voteHash hash.Hash32B) (explorer.Vote, error) {
+func getVote(bc blockchain.Blockchain, ap actpool.ActPool, voteHash hash.Hash32B, idx *indexservice.Server, useRDS bool) (explorer.Vote, error) {
 	explorerVote := explorer.Vote{}
 
 	vote, err := bc.GetVoteByVoteHash(voteHash)
@@ -1151,10 +1197,21 @@ func getVote(bc blockchain.Blockchain, ap actpool.ActPool, voteHash hash.Hash32B
 	}
 
 	// Fetch from block
-	blkHash, err := bc.GetBlockHashByVoteHash(voteHash)
-	if err != nil {
-		return explorerVote, err
+	var blkHash hash.Hash32B
+	if useRDS {
+		hash, err := idx.Indexer().GetBlockByVote(voteHash)
+		if err != nil {
+			return explorerVote, err
+		}
+		blkHash = hash
+	} else {
+		hash, err := bc.GetBlockHashByVoteHash(voteHash)
+		if err != nil {
+			return explorerVote, err
+		}
+		blkHash = hash
 	}
+
 	blk, err := bc.GetBlockByHash(blkHash)
 	if err != nil {
 		return explorerVote, err
@@ -1169,7 +1226,7 @@ func getVote(bc blockchain.Blockchain, ap actpool.ActPool, voteHash hash.Hash32B
 }
 
 // getExecution takes in a blockchain and executionHash and returns an Explorer execution
-func getExecution(bc blockchain.Blockchain, ap actpool.ActPool, executionHash hash.Hash32B) (explorer.Execution, error) {
+func getExecution(bc blockchain.Blockchain, ap actpool.ActPool, executionHash hash.Hash32B, idx *indexservice.Server, useRDS bool) (explorer.Execution, error) {
 	explorerExecution := explorer.Execution{}
 
 	execution, err := bc.GetExecutionByExecutionHash(executionHash)
@@ -1184,10 +1241,21 @@ func getExecution(bc blockchain.Blockchain, ap actpool.ActPool, executionHash ha
 	}
 
 	// Fetch from block
-	blkHash, err := bc.GetBlockHashByExecutionHash(executionHash)
-	if err != nil {
-		return explorerExecution, err
+	var blkHash hash.Hash32B
+	if useRDS {
+		hash, err := idx.Indexer().GetBlockByExecution(executionHash)
+		if err != nil {
+			return explorerExecution, err
+		}
+		blkHash = hash
+	} else {
+		hash, err := bc.GetBlockHashByExecutionHash(executionHash)
+		if err != nil {
+			return explorerExecution, err
+		}
+		blkHash = hash
 	}
+
 	blk, err := bc.GetBlockByHash(blkHash)
 	if err != nil {
 		return explorerExecution, err
