@@ -16,7 +16,6 @@ import (
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
-	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/version"
@@ -180,11 +179,11 @@ func (tsf *Transfer) ToJSON() *explorer.Transfer {
 		IsCoinbase:   tsf.isCoinbase,
 	}
 
-	if tsf.amount != nil && len(tsf.amount.Bytes()) > 0 {
-		t.Amount = tsf.amount.Int64()
+	if tsf.amount != nil && len(tsf.amount.String()) > 0 {
+		t.Amount = tsf.amount.String()
 	}
-	if tsf.gasPrice != nil && len(tsf.gasPrice.Bytes()) > 0 {
-		t.GasPrice = tsf.gasPrice.Int64()
+	if tsf.gasPrice != nil && len(tsf.gasPrice.String()) > 0 {
+		t.GasPrice = tsf.gasPrice.String()
 	}
 	return t
 }
@@ -229,27 +228,32 @@ func NewTransferFromJSON(jsonTsf *explorer.Transfer) (*Transfer, error) {
 	tsf.version = uint32(jsonTsf.Version)
 	// used by account-based model
 	tsf.nonce = uint64(jsonTsf.Nonce)
-	tsf.amount = big.NewInt(jsonTsf.Amount)
 	tsf.srcAddr = jsonTsf.Sender
 	tsf.dstAddr = jsonTsf.Recipient
 	tsf.gasLimit = uint64(jsonTsf.GasLimit)
-	tsf.gasPrice = big.NewInt(jsonTsf.GasPrice)
+	amount, ok := big.NewInt(0).SetString(jsonTsf.Amount, 10)
+	if !ok {
+		return nil, errors.New("failed to set amount of transfer")
+	}
+	tsf.amount = amount
+	gasPrice, ok := big.NewInt(0).SetString(jsonTsf.GasPrice, 10)
+	if !ok {
+		return nil, errors.New("failed to set gas price of transfer")
+	}
+	tsf.gasPrice = gasPrice
 	payload, err := hex.DecodeString(jsonTsf.Payload)
 	if err != nil {
-		logger.Error().Err(err).Msg("Fail to create a new Transfer from TransferJSON")
-		return nil, err
+		return nil, errors.Wrap(err, "failed to decode transfer payload")
 	}
 	tsf.payload = payload
 	senderPubKey, err := keypair.StringToPubKeyBytes(jsonTsf.SenderPubKey)
 	if err != nil {
-		logger.Error().Err(err).Msg("Fail to create a new Transfer from TransferJSON")
-		return nil, err
+		return nil, errors.Wrap(err, "failed to decode transfer sender public key")
 	}
 	copy(tsf.srcPubkey[:], senderPubKey)
 	signature, err := hex.DecodeString(jsonTsf.Signature)
 	if err != nil {
-		logger.Error().Err(err).Msg("Fail to create a new Transfer from TransferJSON")
-		return nil, err
+		return nil, errors.Wrap(err, "failed to decode transfer signature")
 	}
 	tsf.signature = signature
 	tsf.isCoinbase = jsonTsf.IsCoinbase

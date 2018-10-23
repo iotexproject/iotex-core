@@ -16,7 +16,6 @@ import (
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
-	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/version"
@@ -146,11 +145,11 @@ func (ex *Execution) ToJSON() (*explorer.Execution, error) {
 		Data:           hex.EncodeToString(ex.data),
 		Signature:      hex.EncodeToString(ex.signature),
 	}
-	if ex.amount != nil && len(ex.amount.Bytes()) > 0 {
-		execution.Amount = ex.amount.Int64()
+	if ex.amount != nil && len(ex.amount.String()) > 0 {
+		execution.Amount = ex.amount.String()
 	}
-	if ex.gasPrice != nil && len(ex.gasPrice.Bytes()) > 0 {
-		execution.GasPrice = ex.gasPrice.Int64()
+	if ex.gasPrice != nil && len(ex.gasPrice.String()) > 0 {
+		execution.GasPrice = ex.gasPrice.String()
 	}
 	return execution, nil
 }
@@ -194,25 +193,30 @@ func NewExecutionFromJSON(jsonExecution *explorer.Execution) (*Execution, error)
 	ex.nonce = uint64(jsonExecution.Nonce)
 	ex.srcAddr = jsonExecution.Executor
 	ex.dstAddr = jsonExecution.Contract
-	ex.amount = big.NewInt(jsonExecution.Amount)
 	ex.gasLimit = uint64(jsonExecution.GasLimit)
-	ex.gasPrice = big.NewInt(jsonExecution.GasPrice)
 	executorPubKey, err := keypair.StringToPubKeyBytes(jsonExecution.ExecutorPubKey)
 	if err != nil {
-		logger.Error().Err(err).Msg("Fail to create a new Execution from ExecutionJSON")
-		return nil, err
+		return nil, errors.Wrap(err, "failed to decode executor public key")
 	}
 	copy(ex.srcPubkey[:], executorPubKey)
+	amount, ok := big.NewInt(0).SetString(jsonExecution.Amount, 10)
+	if !ok {
+		return nil, errors.New("failed to set amount of execution")
+	}
+	ex.amount = amount
 	data, err := hex.DecodeString(jsonExecution.Data)
 	if err != nil {
-		logger.Error().Err(err).Msg("Fail to create a new Execution from ExecutionJSON")
-		return nil, err
+		return nil, errors.Wrap(err, "failed to decode execution data")
 	}
 	ex.data = data
+	gasPrice, ok := big.NewInt(0).SetString(jsonExecution.GasPrice, 10)
+	if !ok {
+		return nil, errors.New("failed to set gas price of execution")
+	}
+	ex.gasPrice = gasPrice
 	signature, err := hex.DecodeString(jsonExecution.Signature)
 	if err != nil {
-		logger.Error().Err(err).Msg("Fail to create a new Execution from ExecutionJSON")
-		return nil, err
+		return nil, errors.Wrap(err, "failed to decode execution signature")
 	}
 	ex.signature = signature
 

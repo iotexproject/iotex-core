@@ -36,7 +36,7 @@ func balance(args []string) string {
 		logger.Error().Err(err).Msgf("cannot get balance for address %s", args[0])
 		return ""
 	}
-	return fmt.Sprintf("Address %s balance: %d", args[0], balance)
+	return fmt.Sprintf("Address %s balance: %s", args[0], balance)
 }
 
 func init() {

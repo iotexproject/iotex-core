@@ -37,7 +37,7 @@ struct Block {
     votes int
     executions int
     generateBy BlockGenerator
-    amount int
+    amount string
     forged int
     size int
 }
@@ -48,14 +48,14 @@ struct Transfer {
     nonce int
     sender string
     recipient string
-    amount int
+    amount string
     senderPubKey string
     signature string
     payload string
     gasLimit int
-    gasPrice int
+    gasPrice string
     isCoinbase bool
-    fee int
+    fee string
     timestamp int
     blockID string
     isPending bool
@@ -67,11 +67,11 @@ struct Execution {
     nonce int
     executor string
     contract string
-    amount int
+    amount string
     executorPubKey string
     signature string
     gasLimit int
-    gasPrice int
+    gasPrice string
     timestamp int
     data string
     blockID string
@@ -110,7 +110,7 @@ struct Vote {
     votee string
     voterPubKey string
     gasLimit int
-    gasPrice int
+    gasPrice string
     signature string
     blockID string
     isPending bool
@@ -118,7 +118,7 @@ struct Vote {
 
 struct AddressDetails {
     address string
-    totalBalance int
+    totalBalance string
     nonce int
     pendingNonce int
     isCandidate bool
@@ -127,7 +127,7 @@ struct AddressDetails {
 struct Candidate {
     address string
     pubKey string
-    totalVote int
+    totalVote string
     creationHeight int
     lastUpdateHeight int
     isDelegate bool
@@ -152,12 +152,12 @@ struct SendTransferRequest {
     nonce int
     sender string
     recipient string
-    amount int
+    amount string
     senderPubKey string
     signature string
     payload string
     gasLimit int
-    gasPrice int
+    gasPrice string
     isCoinbase bool
 }
 
@@ -172,7 +172,7 @@ struct SendVoteRequest {
     votee string
     voterPubKey string
     gasLimit int
-    gasPrice int
+    gasPrice string
     signature string
 }
 
@@ -205,7 +205,7 @@ interface Explorer {
     getBlockchainHeight() int
 
     // get the balance of an address
-    getAddressBalance(address string) int
+    getAddressBalance(address string) string
 
     // get the address detail of an iotex address
     getAddressDetails(address string) AddressDetails
