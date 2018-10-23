@@ -21,6 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/dispatcher"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
+	"github.com/iotexproject/iotex-core/indexservice"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network"
 )
@@ -42,6 +43,7 @@ func NewServer(
 	dispatcher dispatcher.Dispatcher,
 	actPool actpool.ActPool,
 	p2p network.Overlay,
+	idx *indexservice.Server,
 ) *Server {
 	return &Server{
 		cfg: cfg,
@@ -52,6 +54,7 @@ func NewServer(
 			ap:  actPool,
 			p2p: p2p,
 			cfg: cfg,
+			idx: idx,
 		},
 	}
 }

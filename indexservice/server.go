@@ -42,11 +42,15 @@ func NewServer(
 
 // Start starts the explorer server
 func (s *Server) Start(ctx context.Context) error {
-	addr, err := s.cfg.BlockchainAddress()
-	if err != nil {
-		return errors.Wrap(err, "error when get the blockchain address")
+	addr := s.cfg.Indexer.NodeAddr
+	if addr == "" {
+		blockAddr, err := s.cfg.BlockchainAddress()
+		if err != nil {
+			return errors.Wrap(err, "error when get the blockchain address")
+		}
+		addr = hex.EncodeToString(blockAddr.Bytes()[:])
 	}
-	s.idx.hexEncodedNodeAddr = hex.EncodeToString(addr.Bytes()[:])
+	s.idx.hexEncodedNodeAddr = addr
 
 	s.idx.rds = rds.NewAwsRDS(&s.cfg.DB.RDS)
 	if err := s.idx.rds.Start(ctx); err != nil {
@@ -54,7 +58,7 @@ func (s *Server) Start(ctx context.Context) error {
 	}
 
 	s.blockCh = make(chan *blockchain.Block)
-	if err = s.bc.SubscribeBlockCreation(s.blockCh); err != nil {
+	if err := s.bc.SubscribeBlockCreation(s.blockCh); err != nil {
 		return errors.Wrap(err, "error when subscribe to block")
 	}
 
@@ -81,3 +85,6 @@ func (s *Server) Stop(ctx context.Context) error {
 	close(s.blockCh)
 	return nil
 }
+
+// Indexer return indexer interface
+func (s *Server) Indexer() *Indexer { return s.idx }
