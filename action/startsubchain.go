@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	// StartSubChainIntrinsicGas is the instrinsic gas for stop sub chain action
+	// StartSubChainIntrinsicGas is the instrinsic gas for start sub chain action
 	StartSubChainIntrinsicGas = uint64(1000)
 )
 
@@ -117,7 +117,7 @@ func (start *StartSubChain) OwnerPublicKey() keypair.PublicKey { return start.Sr
 func (start *StartSubChain) ByteStream() []byte {
 	stream := []byte(reflect.TypeOf(start).String())
 	temp := make([]byte, 4)
-	enc.MachineEndian.PutUint32(stream, start.version)
+	enc.MachineEndian.PutUint32(temp, start.version)
 	stream = append(stream, temp...)
 	temp = make([]byte, 8)
 	enc.MachineEndian.PutUint64(temp, start.nonce)

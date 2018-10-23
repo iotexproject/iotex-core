@@ -86,12 +86,9 @@ message StopSubChainPb {
 message PutBlockPb {
     uint32 chainID = 1;
     uint64 height = 2;
-    bytes hash = 3;
-    bytes actionRoot = 4;
-    bytes stateRoot = 5;
-    bytes producerPublicKey = 6;
-    repeated bytes endorsorPublicKeys = 7;
-    repeated bytes endorsorSignatures = 8;
+    map<string, bytes> roots = 3;
+    string producerAddress = 4;
+    bytes producerPublicKey = 5;
 }
 
 message ActionPb {

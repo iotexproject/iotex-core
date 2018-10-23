@@ -10,10 +10,9 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotexproject/iotex-core/test/testaddress"
 )
 
 func TestSubChainState(t *testing.T) {
@@ -36,11 +35,7 @@ func TestSubChainState(t *testing.T) {
 
 func TestBlockProofState(t *testing.T) {
 	bp1 := blockProof{
-		Hash:               byteutil.BytesTo32B(hash.Hash256b([]byte{1})),
-		ActionRoot:         byteutil.BytesTo32B(hash.Hash256b([]byte{2})),
-		StateRoot:          byteutil.BytesTo32B(hash.Hash256b([]byte{3})),
-		ProducerPublicKey:  testaddress.Addrinfo["producer"].PublicKey,
-		ConfirmationHeight: 100,
+		ProducerPublicKey: testaddress.Addrinfo["producer"].PublicKey,
 	}
 
 	data, err := bp1.Serialize()
