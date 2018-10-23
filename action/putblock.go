@@ -1,31 +1,34 @@
 // Copyright (c) 2018 IoTeX
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
+// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
 package action
 
 import (
+	"fmt"
 	"math/big"
 
 	"golang.org/x/crypto/blake2b"
 
+	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/proto"
 )
 
-// PutBlock represents put a sub-chain block message
+// PutBlock represents put a sub-chain block message.
 type PutBlock struct {
 	abstractAction
-	chainID uint32
-	height  uint64
-	roots   map[string]hash.Hash32B
+
+	chainID         uint32
+	height          uint64
+	roots           map[string]hash.Hash32B
+	producerAddress string
 }
 
-// NewStartSubChain instantiates a start sub-chain action struct
+// NewPutBlock instantiates a putting sub-chain block action struct.
 func NewPutBlock(
 	nonce uint64,
 	chainID uint32,
@@ -43,13 +46,14 @@ func NewPutBlock(
 			gasLimit: gasLimit,
 			gasPrice: gasPrice,
 		},
-		chainID: chainID,
-		height:  height,
-		roots:   roots,
+		chainID:         chainID,
+		height:          height,
+		roots:           roots,
+		producerAddress: producerAddress,
 	}
 }
 
-// NewPutBlockFromProto converts a proto message into start sub-chain action
+// NewPutBlockFromProto converts a proto message into put block action.
 func NewPutBlockFromProto(actPb *iproto.ActionPb) *PutBlock {
 	if actPb == nil {
 		return nil
@@ -67,48 +71,88 @@ func NewPutBlockFromProto(actPb *iproto.ActionPb) *PutBlock {
 			gasPrice:  big.NewInt(0),
 			signature: actPb.Signature,
 		},
-		chainID: putBlockPb.ChainID,
-		height:  putBlockPb.Height,
+		chainID:         putBlockPb.ChainID,
+		height:          putBlockPb.Height,
+		producerAddress: putBlockPb.ProducerAddress,
 	}
 	pb.roots = make(map[string]hash.Hash32B)
 	for k, v := range putBlockPb.Roots {
 		pb.roots[k] = byteutil.BytesTo32B(v)
 	}
+	if len(actPb.GasPrice) > 0 {
+		pb.gasPrice.SetBytes(actPb.GasPrice)
+	}
 	copy(pb.srcPubkey[:], putBlockPb.ProducerPublicKey)
 	return &pb
 }
 
-// Proto converts start sub-chain action into a proto message
-func (start *StartSubChain) Proto() *iproto.ActionPb {
+// Proto converts put sub-chain block action into a proto message.
+func (pb *PutBlock) Proto() *iproto.ActionPb {
 	// used by account-based model
 	act := &iproto.ActionPb{
-		Action: &iproto.ActionPb_StartSubChain{
-			StartSubChain: &iproto.StartSubChainPb{
-				ChainID:            start.chainID,
-				StartHeight:        start.startHeight,
-				ParentHeightOffset: start.parentHeightOffset,
-				OwnerAddress:       start.srcAddr,
-				OwnerPublicKey:     start.srcPubkey[:],
+		Action: &iproto.ActionPb_PutBlock{
+			PutBlock: &iproto.PutBlockPb{
+				ChainID:           pb.chainID,
+				Height:            pb.height,
+				ProducerAddress:   pb.producerAddress,
+				ProducerPublicKey: pb.srcPubkey[:],
 			},
 		},
-		Version:   start.version,
-		Nonce:     start.nonce,
-		GasLimit:  start.gasLimit,
-		Signature: start.signature,
+		Version:   pb.version,
+		Nonce:     pb.nonce,
+		GasLimit:  pb.gasLimit,
+		Signature: pb.signature,
+	}
+
+	putBlockPb := act.GetPutBlock()
+	putBlockPb.Roots = make(map[string][]byte)
+	for k, v := range pb.roots {
+		putBlockPb.Roots[k] = make([]byte, len(v))
+		copy(putBlockPb.Roots[k], v[:])
+	}
+
+	if pb.gasPrice != nil && len(pb.gasPrice.Bytes()) > 0 {
+		act.GasPrice = pb.gasPrice.Bytes()
 	}
 
 	return act
 }
 
+// ChainID returns chain ID.
 func (pb *PutBlock) ChainID() uint32 { return pb.chainID }
 
+// Height returns put block height.
 func (pb *PutBlock) Height() uint64 { return pb.height }
 
+// Roots return merkel roots put in.
 func (pb *PutBlock) Roots() map[string]hash.Hash32B { return pb.roots }
 
+// ProducerAddress return producer address.
+func (pb *PutBlock) ProducerAddress() string { return pb.producerAddress }
+
+// ByteStream returns the byte representation of put block action.
 func (pb *PutBlock) ByteStream() []byte {
-	stream := []byte(reflect.TypeOF(pb).String())
-	// TODO
+	stream := []byte(fmt.Sprintf("%T", pb))
+	temp := make([]byte, 4)
+	enc.MachineEndian.PutUint32(temp, pb.version)
+	stream = append(stream, temp...)
+	temp = make([]byte, 8)
+	enc.MachineEndian.PutUint64(temp, pb.nonce)
+	stream = append(stream, temp...)
+	temp = make([]byte, 4)
+	enc.MachineEndian.PutUint32(temp, pb.chainID)
+	stream = append(stream, temp...)
+	temp = make([]byte, 8)
+	enc.MachineEndian.PutUint64(temp, pb.height)
+	stream = append(stream, temp...)
+	stream = append(stream, pb.srcAddr...)
+	stream = append(stream, pb.srcPubkey[:]...)
+	temp = make([]byte, 8)
+	enc.MachineEndian.PutUint64(temp, pb.gasLimit)
+	stream = append(stream, temp...)
+	if pb.gasPrice != nil && len(pb.gasPrice.Bytes()) > 0 {
+		stream = append(stream, pb.gasPrice.Bytes()...)
+	}
 	return stream
 }
 
