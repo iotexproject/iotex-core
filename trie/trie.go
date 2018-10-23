@@ -91,7 +91,17 @@ func NewTrieSharedBatch(kvStore db.KVStore, batch db.CachedBatch, name string, r
 
 func (t *trie) Start(ctx context.Context) error {
 	t.lifecycle.OnStart(ctx)
-	return t.loadRoot()
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
+	if t.rootHash != EmptyRoot {
+		var err error
+		t.root, err = t.getPatricia(t.rootHash[:])
+		return err
+	}
+	// initial empty trie
+	t.root = &branch{}
+	return t.putPatricia(t.root)
 }
 
 func (t *trie) Stop(ctx context.Context) error { return t.lifecycle.OnStop(ctx) }
@@ -180,8 +190,8 @@ func (t *trie) RootHash() hash.Hash32B {
 
 // SetRoot sets the root trie
 func (t *trie) SetRoot(rootHash hash.Hash32B) (err error) {
-	t.mutex.RLock()
-	defer t.mutex.RUnlock()
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
 
 	var root patricia
 	if root, err = t.getPatricia(rootHash[:]); err != nil {
@@ -222,21 +232,6 @@ func newTrieSharedBatch(dao db.KVStore, batch db.CachedBatch, name string, root 
 		numBranch: 1}
 	t.lifecycle.Add(dao)
 	return t
-}
-
-// loadRoot loads the root patricia from DB
-func (t *trie) loadRoot() error {
-	t.mutex.RLock()
-	defer t.mutex.RUnlock()
-
-	if t.rootHash != EmptyRoot {
-		var err error
-		t.root, err = t.getPatricia(t.rootHash[:])
-		return err
-	}
-	// initial empty trie
-	t.root = &branch{}
-	return t.putPatricia(t.root)
 }
 
 // upsert a new entry
@@ -317,6 +312,7 @@ func (t *trie) query(key []byte) (patricia, int, error) {
 		return nil, 0, errors.Wrap(ErrNotExist, "failed to load root")
 	}
 	size := 0
+	// TODO (zhi) return the path and get rid of toRoot
 	for len(key) > 0 {
 		// keep descending the trie
 		hashn, match, err := ptr.descend(key)
