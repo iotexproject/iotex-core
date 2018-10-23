@@ -475,7 +475,7 @@ func TestRollDPoS_convertToConsensusEvt(t *testing.T) {
 
 	// Test proposal endorse msg
 	blkHash := blk.HashBlock()
-	en, err := endorsement.NewEndorsement(
+	en := endorsement.NewEndorsement(
 		endorsement.NewConsensusVote(
 			blkHash,
 			blk.Height(),
@@ -484,7 +484,6 @@ func TestRollDPoS_convertToConsensusEvt(t *testing.T) {
 		),
 		addr,
 	)
-	assert.NoError(t, err)
 	msg := en.ToProtoMsg()
 
 	eEvt, err := r.cfsm.newEndorseEvtWithEndorsePb(msg)
@@ -492,7 +491,7 @@ func TestRollDPoS_convertToConsensusEvt(t *testing.T) {
 	assert.NotNil(t, eEvt)
 
 	// Test commit endorse msg
-	en, err = endorsement.NewEndorsement(
+	en = endorsement.NewEndorsement(
 		endorsement.NewConsensusVote(
 			blkHash,
 			blk.Height(),
@@ -501,7 +500,6 @@ func TestRollDPoS_convertToConsensusEvt(t *testing.T) {
 		),
 		addr,
 	)
-	assert.NoError(t, err)
 	msg = en.ToProtoMsg()
 	eEvt, err = r.cfsm.newEndorseEvtWithEndorsePb(msg)
 	assert.NoError(t, err)
