@@ -156,7 +156,6 @@ func (p *Protocol) validateStartSubChain(start *action.StartSubChain, ws state.W
 	return account, nil
 }
 
-<<<<<<< HEAD
 func (p *Protocol) mutateSubChainState(
 	start *action.StartSubChain,
 	account *state.Account,
@@ -238,10 +237,12 @@ func (p *Protocol) startSubChainService(sc *SubChain) error {
 			logger.Error().Err(err).Msg("error when unsubscribing block creation")
 		}
 	}()
-=======
+
+	return nil
+}
+
 func (p *Protocol) handlePutBlock(start *action.PutBlock, ws state.WorkingSet) error {
 	// TODO
->>>>>>> fix build
 	return nil
 }
 
