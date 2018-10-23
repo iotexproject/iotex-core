@@ -7,7 +7,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/subchain"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blocksync"
@@ -123,11 +122,6 @@ func New(cfg *config.Config, p2p network.Overlay, dispatcher dispatcher.Dispatch
 		exp = explorer.NewServer(cfg.Explorer, chain, consensus, dispatcher, actPool, p2p, idx)
 	}
 
-	// Install protocols
-	var protocols []Protocol
-	subChainProtocol := subchain.NewProtocol(chain.GetFactory())
-	protocols = append(protocols, subChainProtocol)
-
 	return &ChainService{
 		actpool:      actPool,
 		chain:        chain,
@@ -135,7 +129,6 @@ func New(cfg *config.Config, p2p network.Overlay, dispatcher dispatcher.Dispatch
 		consensus:    consensus,
 		indexservice: idx,
 		explorer:     exp,
-		protocols:    protocols,
 	}, nil
 }
 
@@ -279,4 +272,12 @@ func (cs *ChainService) Explorer() *explorer.Server {
 // Protocols returns the protocols
 func (cs *ChainService) Protocols() []Protocol {
 	return cs.protocols
+}
+
+// AddProtocols add the protocols
+func (cs *ChainService) AddProtocols(protocols ...Protocol) {
+	cs.protocols = append(cs.protocols, protocols...)
+	for _, protocol := range protocols {
+		cs.chain.GetFactory().AddActionHandlers(protocol)
+	}
 }

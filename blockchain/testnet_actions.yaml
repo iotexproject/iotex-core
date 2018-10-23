@@ -95,7 +95,5 @@ subChains:
 - chainID: 2
   securityDeposit: 1000000000
   operationDeposit: 1000000000
-  startHeight: 100
-  parentHeightOffset: 100
-  parentHeightOffset: 100
-  parentHeightOffset: 100
+  startHeight: 10
+  parentHeightOffset: 10

@@ -325,9 +325,13 @@ func (bc *blockchain) startEmptyBlockchain() error {
 		return errors.Wrap(err, "failed to update state changes in Genesis block")
 	}
 	genesis.Header.stateRoot = root
-	if err := bc.validateBlock(genesis, false); err != nil {
-		return errors.Wrap(err, "failed to validate Genesis block")
-	}
+	genesis.workingSet = ws
+	// TODO: validateBlock will call runActions again, which is not supposed to rerun. Disable it now
+	/*
+		if err := bc.validateBlock(genesis, false); err != nil {
+			return errors.Wrap(err, "failed to validate Genesis block")
+		}
+	*/
 	// add Genesis block as very first block
 	if err := bc.commitBlock(genesis); err != nil {
 		return errors.Wrap(err, "failed to commit Genesis block")
@@ -857,7 +861,11 @@ func (bc *blockchain) commitBlock(blk *Block) error {
 			return errors.Wrapf(err, "failed to put smart contract receipts into DB on height %d", blk.Height())
 		}
 	}
-	logger.Info().Uint64("height", blk.Header.height).Msg("commit a block")
+	hash := blk.HashBlock()
+	logger.Info().
+		Uint64("height", blk.Header.height).
+		Hex("hash", hash[:]).
+		Msg("commit a block")
 	return nil
 }
 

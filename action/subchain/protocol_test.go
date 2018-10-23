@@ -21,6 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_state"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 )
@@ -28,6 +29,7 @@ import (
 func TestProtocolValidateSubChainStart(t *testing.T) {
 	t.Parallel()
 
+	cfg := config.Default
 	ctrl := gomock.NewController(t)
 	factory := mock_state.NewMockFactory(ctrl)
 	factory.EXPECT().AccountState(gomock.Any()).Return(
@@ -39,11 +41,13 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 		&state.Account{Balance: big.NewInt(0).Mul(big.NewInt(1500000000), big.NewInt(blockchain.Iotx))},
 		nil,
 	).AnyTimes()
+	chain := mock_blockchain.NewMockBlockchain(ctrl)
+	chain.EXPECT().GetFactory().Return(factory).AnyTimes()
 
 	defer ctrl.Finish()
 
-	p := NewProtocol(factory)
-	p.subChains[3] = &SubChain{}
+	p := NewProtocol(&cfg, nil, nil, chain, nil)
+	p.usedChainIDs[3] = true
 
 	start := action.NewStartSubChain(
 		1,
@@ -75,7 +79,7 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 	account, err = p.validateStartSubChain(start, nil)
 	assert.Nil(t, account)
 	require.Error(t, err)
-	assert.True(t, strings.Contains(err.Error(), "is the chain ID reserved for main chain"))
+	assert.True(t, strings.Contains(err.Error(), "is used by another chain"))
 
 	// chain ID is used
 	start = action.NewStartSubChain(
@@ -92,7 +96,7 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 	account, err = p.validateStartSubChain(start, nil)
 	assert.Nil(t, account)
 	require.Error(t, err)
-	assert.True(t, strings.Contains(err.Error(), "is used by another sub-chain"))
+	assert.True(t, strings.Contains(err.Error(), "is used by another chain"))
 
 	// security deposit is lower than the minimum
 	start = action.NewStartSubChain(
@@ -169,7 +173,15 @@ func TestHandleStartSubChain(t *testing.T) {
 	sf, err := state.NewFactory(&cfg, state.InMemTrieOption())
 	require.NoError(t, err)
 	require.NoError(t, sf.Start(ctx))
-	defer require.NoError(t, sf.Stop(ctx))
+	ctrl := gomock.NewController(t)
+	chain := mock_blockchain.NewMockBlockchain(ctrl)
+	chain.EXPECT().GetFactory().Return(sf).AnyTimes()
+	chain.EXPECT().SubscribeBlockCreation(gomock.Any()).Return(nil).AnyTimes()
+
+	defer func() {
+		require.NoError(t, sf.Stop(ctx))
+		ctrl.Finish()
+	}()
 
 	// Create an account with 2000000000 iotx
 	ws, err := sf.NewWorkingSet()
@@ -201,7 +213,7 @@ func TestHandleStartSubChain(t *testing.T) {
 	assert.NoError(t, action.Sign(start, testaddress.Addrinfo["producer"].PrivateKey))
 
 	// Handle the action
-	protocol := NewProtocol(sf)
+	protocol := NewProtocol(&cfg, nil, nil, chain, nil)
 	require.NoError(t, protocol.handleStartSubChain(start, ws))
 	require.NoError(t, sf.Commit(ws))
 
@@ -225,15 +237,15 @@ func TestHandleStartSubChain(t *testing.T) {
 	assert.Equal(t, uint64(110), sc.StartHeight)
 	assert.Equal(t, uint64(10), sc.ParentHeightOffset)
 	assert.Equal(t, uint64(0), sc.CurrentHeight)
-
 }
 
 func TestStartSubChainInGenesis(t *testing.T) {
 	cfg := config.Default
+	cfg.Chain.EnableSubChainStartInGenesis = true
 
 	ctx := context.Background()
 	bc := blockchain.NewBlockchain(&cfg, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
-	p := NewProtocol(bc.GetFactory())
+	p := NewProtocol(&cfg, nil, nil, bc, nil)
 	bc.GetFactory().AddActionHandlers(p)
 	require.NoError(t, bc.Start(ctx))
 	defer require.NoError(t, bc.Stop(ctx))
@@ -246,6 +258,15 @@ func TestStartSubChainInGenesis(t *testing.T) {
 	assert.Equal(t, uint32(2), sc.ChainID)
 	assert.Equal(t, blockchain.ConvertIotxToRau(1000000000), sc.SecurityDeposit)
 	assert.Equal(t, blockchain.ConvertIotxToRau(1000000000), sc.OperationDeposit)
-	assert.Equal(t, uint64(100), sc.StartHeight)
-	assert.Equal(t, uint64(100), sc.ParentHeightOffset)
+	assert.Equal(t, uint64(10), sc.StartHeight)
+	assert.Equal(t, uint64(10), sc.ParentHeightOffset)
+}
+
+func TestGetSubChainDBPath(t *testing.T) {
+	t.Parallel()
+
+	chainDBPath := getSubChainDBPath(1, config.Default.Chain.ChainDBPath)
+	trieDBPath := getSubChainDBPath(1, config.Default.Chain.TrieDBPath)
+	assert.Equal(t, "/tmp/chain-1-chain.db", chainDBPath)
+	assert.Equal(t, "/tmp/chain-1-trie.db", trieDBPath)
 }

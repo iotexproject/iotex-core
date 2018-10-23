@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
+	"github.com/iotexproject/iotex-core/action/subchain"
 	"github.com/iotexproject/iotex-core/chainservice"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/dispatcher"
@@ -65,6 +66,10 @@ func newServer(cfg *config.Config, testing bool) (*Server, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "fail to create chain service")
 	}
+
+	// Install protocols
+	subChainProtocol := subchain.NewProtocol(cfg, p2p, dispatcher, cs.Blockchain(), cs.Explorer().Explorer())
+	cs.AddProtocols(subChainProtocol)
 
 	chains[cs.ChainID()] = cs
 	dispatcher.AddSubscriber(cs.ChainID(), cs)

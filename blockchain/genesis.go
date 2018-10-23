@@ -151,22 +151,24 @@ func NewGenesisBlock(cfg *config.Config) *Block {
 	}
 
 	acts := make([]action.Action, 0)
-	for _, sc := range actions.SubChains {
-		start := action.NewStartSubChain(
-			0,
-			sc.ChainID,
-			creatorAddr,
-			ConvertIotxToRau(sc.SecurityDeposit),
-			ConvertIotxToRau(sc.OperationDeposit),
-			sc.StartHeight,
-			sc.ParentHeightOffset,
-			0,
-			big.NewInt(0),
-		)
-		if err := action.Sign(start, creatorPrik); err != nil {
-			logger.Panic().Err(err).Msg("Fail to sign the new start sub-chain action")
+	if cfg.Chain.EnableSubChainStartInGenesis {
+		for _, sc := range actions.SubChains {
+			start := action.NewStartSubChain(
+				0,
+				sc.ChainID,
+				creatorAddr,
+				ConvertIotxToRau(sc.SecurityDeposit),
+				ConvertIotxToRau(sc.OperationDeposit),
+				sc.StartHeight,
+				sc.ParentHeightOffset,
+				0,
+				big.NewInt(0),
+			)
+			if err := action.Sign(start, creatorPrik); err != nil {
+				logger.Panic().Err(err).Msg("Fail to sign the new start sub-chain action")
+			}
+			acts = append(acts, start)
 		}
-		acts = append(acts, start)
 	}
 
 	block := &Block{

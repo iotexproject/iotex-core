@@ -87,15 +87,16 @@ var (
 			TTL:                                 3,
 		},
 		Chain: Chain{
-			ChainDBPath:             "/tmp/chain.db",
-			TrieDBPath:              "/tmp/trie.db",
-			ID:                      1,
-			ProducerPubKey:          keypair.EncodePublicKey(keypair.ZeroPublicKey),
-			ProducerPrivKey:         keypair.EncodePrivateKey(keypair.ZeroPrivateKey),
-			InMemTest:               false,
-			GenesisActionsPath:      "",
-			NumCandidates:           101,
-			EnableFallBackToFreshDB: false,
+			ChainDBPath:                  "/tmp/chain.db",
+			TrieDBPath:                   "/tmp/trie.db",
+			ID:                           1,
+			ProducerPubKey:               keypair.EncodePublicKey(keypair.ZeroPublicKey),
+			ProducerPrivKey:              keypair.EncodePrivateKey(keypair.ZeroPrivateKey),
+			InMemTest:                    false,
+			GenesisActionsPath:           "",
+			NumCandidates:                101,
+			EnableFallBackToFreshDB:      false,
+			EnableSubChainStartInGenesis: false,
 		},
 		ActPool: ActPool{
 			MaxNumActsPerPool: 32000,
@@ -211,10 +212,11 @@ type (
 		ProducerPrivKey string `yaml:"producerPrivKey"`
 
 		// InMemTest creates in-memory DB file for local testing
-		InMemTest               bool   `yaml:"inMemTest"`
-		GenesisActionsPath      string `yaml:"genesisActionsPath"`
-		NumCandidates           uint   `yaml:"numCandidates"`
-		EnableFallBackToFreshDB bool   `yaml:"enablefallbacktofreshdb"`
+		InMemTest                    bool   `yaml:"inMemTest"`
+		GenesisActionsPath           string `yaml:"genesisActionsPath"`
+		NumCandidates                uint   `yaml:"numCandidates"`
+		EnableFallBackToFreshDB      bool   `yaml:"enablefallbacktofreshdb"`
+		EnableSubChainStartInGenesis bool   `yaml:"enableSubChainStartInGenesis"`
 	}
 
 	// Consensus is the config struct for consensus package
