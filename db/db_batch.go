@@ -25,9 +25,13 @@ type (
 	// b.Delete(bucket, k, v)
 	// once it's done, call KVStore interface's Commit() to persist to underlying DB
 	// KVStore.Commit(b)
+	// if commit succeeds, the batch is cleared
+	// otherwise the batch is kept intact (so batch user can figure out what’s wrong and attempt re-commit later)
 	KVStoreBatch interface {
 		// Lock locks the batch
 		Lock()
+		// Unlock unlocks the batch
+		Unlock()
 		// ClearAndUnlock clears the write queue and unlocks the batch
 		ClearAndUnlock()
 		// Put insert or update a record identified by (namespace, key)
@@ -71,6 +75,7 @@ type (
 	// cachedBatch implements the CachedBatch interface
 	cachedBatch struct {
 		baseKVStoreBatch
+		lock  sync.RWMutex
 		cache map[hash.CacheHash][]byte // local cache of batched <k, v> for fast query
 	}
 )
@@ -92,6 +97,11 @@ func NewBatch() KVStoreBatch {
 // Lock locks the batch
 func (b *baseKVStoreBatch) Lock() {
 	b.mutex.Lock()
+}
+
+// Unlock unlocks the batch
+func (b *baseKVStoreBatch) Unlock() {
+	b.mutex.Unlock()
 }
 
 // ClearAndUnlock clears the write queue and unlocks the batch
@@ -166,9 +176,19 @@ func NewCachedBatch() CachedBatch {
 	}
 }
 
+// Lock locks the batch
+func (cb *cachedBatch) Lock() {
+	cb.lock.Lock()
+}
+
+// Unlock unlocks the batch
+func (cb *cachedBatch) Unlock() {
+	cb.lock.Unlock()
+}
+
 // ClearAndUnlock clears the write queue and unlocks the batch
 func (cb *cachedBatch) ClearAndUnlock() {
-	defer cb.mutex.Unlock()
+	defer cb.lock.Unlock()
 	cb.cache = nil
 	cb.cache = make(map[hash.CacheHash][]byte)
 	cb.writeQueue = nil
@@ -176,16 +196,16 @@ func (cb *cachedBatch) ClearAndUnlock() {
 
 // Put inserts a <key, value> record
 func (cb *cachedBatch) Put(namespace string, key, value []byte, errorFormat string, errorArgs ...interface{}) {
-	cb.mutex.Lock()
-	defer cb.mutex.Unlock()
+	cb.lock.Lock()
+	defer cb.lock.Unlock()
 	cb.cache[cb.hash(namespace, key)] = value
 	cb.batch(Put, namespace, key, value, errorFormat, errorArgs)
 }
 
 // PutIfNotExists inserts a <key, value> record only if it does not exist yet, otherwise return ErrAlreadyExist
 func (cb *cachedBatch) PutIfNotExists(namespace string, key, value []byte, errorFormat string, errorArgs ...interface{}) error {
-	cb.mutex.Lock()
-	defer cb.mutex.Unlock()
+	cb.lock.Lock()
+	defer cb.lock.Unlock()
 	if _, ok := cb.cache[cb.hash(namespace, key)]; ok {
 		return ErrAlreadyExist
 	}
@@ -196,16 +216,16 @@ func (cb *cachedBatch) PutIfNotExists(namespace string, key, value []byte, error
 
 // Delete deletes a record
 func (cb *cachedBatch) Delete(namespace string, key []byte, errorFormat string, errorArgs ...interface{}) {
-	cb.mutex.Lock()
-	defer cb.mutex.Unlock()
+	cb.lock.Lock()
+	defer cb.lock.Unlock()
 	delete(cb.cache, cb.hash(namespace, key))
 	cb.batch(Delete, namespace, key, nil, errorFormat, errorArgs)
 }
 
 // Clear clear the cached batch buffer
 func (cb *cachedBatch) Clear() {
-	cb.mutex.Lock()
-	defer cb.mutex.Unlock()
+	cb.lock.Lock()
+	defer cb.lock.Unlock()
 	cb.cache = nil
 	cb.cache = make(map[hash.CacheHash][]byte)
 	cb.writeQueue = nil
@@ -213,8 +233,8 @@ func (cb *cachedBatch) Clear() {
 
 // Get retrieves a record
 func (cb *cachedBatch) Get(namespace string, key []byte) ([]byte, error) {
-	cb.mutex.RLock()
-	defer cb.mutex.RUnlock()
+	cb.lock.RLock()
+	defer cb.lock.RUnlock()
 	if v, ok := cb.cache[cb.hash(namespace, key)]; ok {
 		return v, nil
 	}

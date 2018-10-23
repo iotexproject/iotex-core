@@ -231,6 +231,8 @@ func TestDBBatch(t *testing.T) {
 		require.Nil(err)
 		err = kvboltDB.Commit(batch)
 		require.Equal(err, ErrAlreadyExist)
+		// need to clear the batch in case of commit error
+		batch.Clear()
 
 		value, err = kvboltDB.Get(bucket2, testK2[1])
 		require.Nil(err)
