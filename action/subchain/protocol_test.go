@@ -257,8 +257,8 @@ func TestStartSubChainInGenesis(t *testing.T) {
 	assert.Equal(t, uint32(2), sc.ChainID)
 	assert.Equal(t, blockchain.ConvertIotxToRau(1000000000), sc.SecurityDeposit)
 	assert.Equal(t, blockchain.ConvertIotxToRau(1000000000), sc.OperationDeposit)
-	assert.Equal(t, uint64(100), sc.StartHeight)
-	assert.Equal(t, uint64(100), sc.ParentHeightOffset)
+	assert.Equal(t, uint64(10), sc.StartHeight)
+	assert.Equal(t, uint64(10), sc.ParentHeightOffset)
 }
 
 func TestGetSubChainDBPath(t *testing.T) {
