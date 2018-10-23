@@ -269,8 +269,8 @@ func (sf *factory) Commit(ws WorkingSet) error {
 //======================================
 // CandidatesByHeight returns array of Candidates in candidate pool of a given height
 func (sf *factory) CandidatesByHeight(height uint64) ([]*Candidate, error) {
-	sf.mutex.Lock()
-	defer sf.mutex.Unlock()
+	sf.mutex.RLock()
+	defer sf.mutex.RUnlock()
 	// Load Candidates on the given height from underlying db
 	candidatesBytes, err := sf.dao.Get(trie.CandidateKVNameSpace, byteutil.Uint64ToBytes(height))
 	if err != nil {
