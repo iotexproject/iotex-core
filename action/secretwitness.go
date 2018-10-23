@@ -80,8 +80,8 @@ func (sw *SecretWitness) Serialize() ([]byte, error) {
 	return proto.Marshal(sw.Proto())
 }
 
-// ConvertFromActionPb converts a protobuf's ActionPb to SecretWitness
-func (sw *SecretWitness) ConvertFromActionPb(pbAct *iproto.ActionPb) {
+// LoadProto converts a protobuf's ActionPb to SecretWitness
+func (sw *SecretWitness) LoadProto(pbAct *iproto.ActionPb) {
 	sw.version = pbAct.GetVersion()
 	// used by account-based model
 	sw.nonce = pbAct.Nonce
@@ -97,7 +97,7 @@ func (sw *SecretWitness) Deserialize(buf []byte) error {
 	if err := proto.Unmarshal(buf, pbAct); err != nil {
 		return err
 	}
-	sw.ConvertFromActionPb(pbAct)
+	sw.LoadProto(pbAct)
 	return nil
 }
 

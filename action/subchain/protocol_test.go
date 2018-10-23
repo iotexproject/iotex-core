@@ -17,10 +17,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_state"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 )
@@ -29,8 +29,6 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 	t.Parallel()
 
 	ctrl := gomock.NewController(t)
-	chain := mock_blockchain.NewMockBlockchain(ctrl)
-	chain.EXPECT().TipHeight().Return(uint64(100)).AnyTimes()
 	factory := mock_state.NewMockFactory(ctrl)
 	factory.EXPECT().AccountState(gomock.Any()).Return(
 		&state.Account{Balance: big.NewInt(0).Mul(big.NewInt(2000000000), big.NewInt(blockchain.Iotx))},
@@ -44,8 +42,8 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 
 	defer ctrl.Finish()
 
-	p := NewProtocol(chain, factory)
-	p.subChains[3] = &subChain{}
+	p := NewProtocol(factory)
+	p.subChains[3] = &SubChain{}
 
 	start := action.NewStartSubChain(
 		1,
@@ -146,23 +144,6 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 	assert.Nil(t, account)
 	require.Error(t, err)
 	assert.True(t, strings.Contains(err.Error(), "sub-chain owner doesn't have enough balance for operation deposit"))
-
-	// start height doesn't have enough delay
-	start = action.NewStartSubChain(
-		1,
-		2,
-		testaddress.Addrinfo["producer"].RawAddress,
-		big.NewInt(0).Mul(big.NewInt(1000000000), big.NewInt(blockchain.Iotx)),
-		big.NewInt(0).Mul(big.NewInt(1000000000), big.NewInt(blockchain.Iotx)),
-		109,
-		10,
-		0,
-		big.NewInt(0),
-	)
-	account, err = p.validateStartSubChain(start, nil)
-	assert.Nil(t, account)
-	require.Error(t, err)
-	assert.True(t, strings.Contains(err.Error(), "sub-chain could be started no early than"))
 }
 
 func TestCreateSubChainAddress(t *testing.T) {
@@ -205,10 +186,6 @@ func TestHandleStartSubChain(t *testing.T) {
 	ws, err = sf.NewWorkingSet()
 	require.NoError(t, err)
 
-	ctrl := gomock.NewController(t)
-	chain := mock_blockchain.NewMockBlockchain(ctrl)
-	chain.EXPECT().TipHeight().Return(uint64(0)).AnyTimes()
-
 	// Prepare start sub-chain action
 	start := action.NewStartSubChain(
 		1,
@@ -224,7 +201,7 @@ func TestHandleStartSubChain(t *testing.T) {
 	assert.NoError(t, action.Sign(start, testaddress.Addrinfo["producer"].PrivateKey))
 
 	// Handle the action
-	protocol := NewProtocol(chain, sf)
+	protocol := NewProtocol(sf)
 	require.NoError(t, protocol.handleStartSubChain(start, ws))
 	require.NoError(t, sf.Commit(ws))
 
@@ -237,9 +214,9 @@ func TestHandleStartSubChain(t *testing.T) {
 	// Check the sub-chain state
 	addr, err := createSubChainAddress(testaddress.Addrinfo["producer"].RawAddress, 1)
 	require.NoError(t, err)
-	state, err := sf.State(addr, &subChain{})
+	state, err := sf.State(addr, &SubChain{})
 	require.NoError(t, err)
-	sc, ok := state.(*subChain)
+	sc, ok := state.(*SubChain)
 	require.True(t, ok)
 	assert.Equal(t, uint32(2), sc.ChainID)
 	assert.Equal(t, MinSecurityDeposit, sc.SecurityDeposit)
@@ -249,4 +226,26 @@ func TestHandleStartSubChain(t *testing.T) {
 	assert.Equal(t, uint64(10), sc.ParentHeightOffset)
 	assert.Equal(t, uint64(0), sc.CurrentHeight)
 
+}
+
+func TestStartSubChainInGenesis(t *testing.T) {
+	cfg := config.Default
+
+	ctx := context.Background()
+	bc := blockchain.NewBlockchain(&cfg, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	p := NewProtocol(bc.GetFactory())
+	bc.GetFactory().AddActionHandlers(p)
+	require.NoError(t, bc.Start(ctx))
+	defer require.NoError(t, bc.Stop(ctx))
+
+	scAddr, err := createSubChainAddress(blockchain.Gen.CreatorAddr(1), 0)
+	require.NoError(t, err)
+	addr := address.New(1, scAddr[:])
+	sc, err := p.SubChain(addr)
+	require.NoError(t, err)
+	assert.Equal(t, uint32(2), sc.ChainID)
+	assert.Equal(t, blockchain.ConvertIotxToRau(1000000000), sc.SecurityDeposit)
+	assert.Equal(t, blockchain.ConvertIotxToRau(1000000000), sc.OperationDeposit)
+	assert.Equal(t, uint64(100), sc.StartHeight)
+	assert.Equal(t, uint64(100), sc.ParentHeightOffset)
 }

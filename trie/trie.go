@@ -140,11 +140,11 @@ func (t *trie) Delete(key []byte) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to query")
 	}
-	if isBranch(ptr) {
+	if b, ok := ptr.(*branch); ok {
 		// for branch, the entry to delete is the leaf matching last byte of path
 		size = len(key)
 		index := key[size-1]
-		if ptr, err = t.getPatricia(ptr.(*branch).Path[index]); err != nil {
+		if ptr, err = t.getPatricia(b.Path[index]); err != nil {
 			return errors.Wrap(err, "failed to getPatricia")
 		}
 	} else {
@@ -256,7 +256,7 @@ func (t *trie) upsert(key, value []byte) error {
 			n := addNode.Back()
 			ptr, _ = n.Value.(patricia)
 			// hash of new node should NOT exist in DB
-			if err := t.putPatricia(ptr); err != nil {
+			if err := t.putPatriciaNew(ptr); err != nil {
 				return err
 			}
 			addNode.Remove(n)
@@ -267,7 +267,10 @@ func (t *trie) upsert(key, value []byte) error {
 		t.numEntry++
 		// if the diverging node is leaf, delete it
 		n := t.toRoot.Back()
-		if _, ok := n.Value.(patricia).(*leaf); ok {
+		if l, ok := n.Value.(patricia).(*leaf); ok {
+			if err := t.delPatricia(l); err != nil {
+				return err
+			}
 			logger.Debug().Msg("delete leaf")
 			t.toRoot.Remove(n)
 		}
@@ -280,11 +283,11 @@ func (t *trie) upsert(key, value []byte) error {
 			return err
 		}
 		var index byte
-		if isBranch(ptr) {
+		if b, ok := ptr.(*branch); ok {
 			// for branch, the entry to delete is the leaf matching last byte of path
 			size = len(key)
 			index = key[size-1]
-			if ptr, err = t.getPatricia(ptr.(*branch).Path[index]); err != nil {
+			if ptr, err = t.getPatricia(b.Path[index]); err != nil {
 				return err
 			}
 		} else {
@@ -299,7 +302,7 @@ func (t *trie) upsert(key, value []byte) error {
 		if err != nil {
 			return err
 		}
-		if err := t.putPatricia(ptr); err != nil {
+		if err := t.putPatriciaNew(ptr); err != nil {
 			return err
 		}
 	}
@@ -347,13 +350,17 @@ func (t *trie) updateInsert(curr patricia) error {
 		if next == nil || isLeaf(next) {
 			return errors.Wrap(ErrInvalidPatricia, "patricia pushed on stack is not valid")
 		}
-		// update the patricia node
+		// delete the node along the path to root
+		if err := t.delPatricia(next); err != nil {
+			return err
+		}
+		// update the node
 		hash := curr.hash()
 		if err := next.ascend(hash[:], index); err != nil {
 			return err
 		}
-		// when adding an entry, hash of nodes along the path changes and is expected NOT to exist in DB
-		if err := t.putPatricia(next); err != nil {
+		// adding it back, hash of nodes along the path changes and is expected NOT to exist in DB
+		if err := t.putPatriciaNew(next); err != nil {
 			return err
 		}
 		curr = next
@@ -367,7 +374,6 @@ func (t *trie) updateInsert(curr patricia) error {
 func (t *trie) updateDelete() error {
 	var curr patricia
 	for t.toRoot.Len() > 0 {
-		logger.Debug().Int("stack size", t.toRoot.Len()).Msg("clps")
 		next, index := t.popToRoot()
 		if next == nil || isLeaf(next) {
 			return errors.Wrap(ErrInvalidPatricia, "patricia pushed on stack is not valid")
@@ -399,8 +405,10 @@ func (t *trie) updateDelete() error {
 			if isLeaf(child) {
 				l := child.(*leaf)
 				next = &leaf{l.Ext - 1, l.Path, l.Value}
+				logger.Debug().Msg("clps to leaf")
 			} else {
 				next = &leaf{EXTLEAF, path, hash}
+				logger.Debug().Msg("clps to ext")
 			}
 		}
 		// two ext can combine into one
@@ -414,9 +422,10 @@ func (t *trie) updateDelete() error {
 					return errors.Wrap(err, "failed to delete patricia")
 				}
 				t.toRoot.Remove(n)
+				logger.Debug().Msg("combine 2 ext into 1")
 			}
 		}
-		if err := t.putPatricia(next); err != nil {
+		if err := t.putPatriciaNew(next); err != nil {
 			return errors.Wrap(err, "failed to put patricia")
 		}
 		curr = next

@@ -11,15 +11,21 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 )
 
 // Set is a collection of endorsements for block
 type Set struct {
 	blkHash      hash.Hash32B
 	endorsements []*Endorsement
+}
+
+// NewSet creates an endorsement set
+func NewSet(blkHash hash.Hash32B) *Set {
+	return &Set{
+		blkHash:      blkHash,
+		endorsements: []*Endorsement{},
+	}
 }
 
 // AddEndorsement adds an endorsement with the right block hash and signature
@@ -35,25 +41,23 @@ func (s *Set) AddEndorsement(en *Endorsement) error {
 	return nil
 }
 
-func (s *Set) blockHash() hash.Hash32B {
+// BlockHash returns the hash of the endorsed block
+func (s *Set) BlockHash() hash.Hash32B {
 	return s.blkHash
 }
 
-func (s *Set) numOfValidEndorsements(topics []ConsensusVoteTopic, endorsers []*iotxaddress.Address) uint16 {
-	topicSet := map[ConsensusVoteTopic]bool{}
-	for _, topic := range topics {
-		topicSet[topic] = true
-	}
-	endorserSet := map[keypair.PublicKey]bool{}
+// NumOfValidEndorsements returns the number of endorsements of the given topics and the endorsers
+func (s *Set) NumOfValidEndorsements(topics map[ConsensusVoteTopic]bool, endorsers []string) int {
+	endorserSet := map[string]bool{}
 	for _, endorser := range endorsers {
-		endorserSet[endorser.PublicKey] = true
+		endorserSet[endorser] = true
 	}
-	cnt := uint16(0)
+	cnt := 0
 	for _, endorsement := range s.endorsements {
-		if _, ok := topicSet[endorsement.ConsensusVote().Topic]; !ok {
+		if _, ok := topics[endorsement.ConsensusVote().Topic]; !ok {
 			continue
 		}
-		if _, ok := endorserSet[endorsement.endorserPubkey]; !ok {
+		if _, ok := endorserSet[endorsement.endorser]; !ok {
 			continue
 		}
 		cnt++

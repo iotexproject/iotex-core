@@ -44,6 +44,7 @@ type Action interface {
 	IntrinsicGas() (uint64, error)
 	Cost() (*big.Int, error)
 	Proto() *iproto.ActionPb
+	LoadProto(*iproto.ActionPb)
 }
 
 // abstractAction is an abstract implementation of Action interface
@@ -56,12 +57,6 @@ type abstractAction struct {
 	gasLimit  uint64
 	gasPrice  *big.Int
 	signature []byte
-}
-
-// NewActionFromProto converts a proto message into a corresponding action struct
-func NewActionFromProto(pbAct *iproto.ActionPb) Action {
-	// TODO: implement the logic
-	return nil
 }
 
 // Version returns the version

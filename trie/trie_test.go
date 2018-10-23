@@ -148,9 +148,8 @@ func TestInsert(t *testing.T) {
 	require.Nil(err)
 	ratRoot := tr.RootHash()
 	require.NotEqual(ratRoot, root)
-	root = ratRoot
 	require.Equal(uint64(2), tr.numBranch)
-	require.Equal(uint64(0), tr.numExt)
+	require.Equal(uint64(1), tr.numExt)
 	require.Equal(uint64(3), tr.numLeaf)
 	require.NoError(tr.Commit())
 	b, err := tr.Get(cat)
@@ -159,6 +158,20 @@ func TestInsert(t *testing.T) {
 	b, err = tr.Get(rat)
 	require.Nil(err)
 	require.Equal([]byte("rat"), b)
+
+	// it's OK to upsert a key with same value again
+	require.Nil(tr.Upsert(rat, []byte("rat")))
+	require.Nil(tr.Upsert(cat, testV[2]))
+	require.NoError(tr.Commit())
+	b, err = tr.Get(cat)
+	require.Nil(err)
+	require.Equal(testV[2], b)
+	b, err = tr.Get(rat)
+	require.Nil(err)
+	require.Equal([]byte("rat"), b)
+	root = tr.RootHash()
+	// root should keep the same since the value is same
+	require.Equal(root, ratRoot)
 
 	// this adds another L to B (car)
 	/*
@@ -482,28 +495,30 @@ func Test2kEntries(t *testing.T) {
 	// insert 2k entries
 	var k [32]byte
 	k[0] = byte(seed)
-	for i := 0; i < 1<<11; i++ {
+	c := 0
+	for c = 0; c < 1<<11; c++ {
 		k = blake2b.Sum256(k[:])
 		v := testV[k[0]&7]
-		if _, err := tr.Get(k[:8]); err == nil {
-			continue
+		if _, err := tr.Get(k[:4]); err == nil {
+			logger.Warn().Hex("k", k[:4]).Msg("collision")
+			break
 		}
-		require.Nil(tr.Upsert(k[:8], v))
+		require.Nil(tr.Upsert(k[:4], v))
 		newRoot := tr.RootHash()
 		require.NotEqual(newRoot, EmptyRoot)
 		require.NotEqual(newRoot, root)
 		root = newRoot
-		b, err := tr.Get(k[:8])
+		b, err := tr.Get(k[:4])
 		require.Nil(err)
 		require.Equal(v, b)
 		// update <k, v>
 		v = testV[7-k[0]&7]
-		require.Nil(tr.Upsert(k[:8], v))
-		b, err = tr.Get(k[:8])
+		require.Nil(tr.Upsert(k[:4], v))
+		b, err = tr.Get(k[:4])
 		require.Nil(err)
 		require.Equal(v, b)
-		if i%64 == 0 {
-			logger.Info().Hex("key", k[:8]).Msg("Put --")
+		if c%64 == 0 {
+			logger.Info().Hex("key", k[:4]).Msg("Put --")
 			require.NoError(tr.Commit())
 		}
 	}
@@ -515,23 +530,23 @@ func Test2kEntries(t *testing.T) {
 	d2 := blake2b.Sum256(d1[:])
 	d3 := blake2b.Sum256(d2[:])
 	d = d3
-	for i := 0; i < 1<<11-3; i++ {
+	for i := 0; i < c-3; i++ {
 		d = blake2b.Sum256(d[:])
-		require.Nil(tr.Delete(d[:8]))
+		require.Nil(tr.Delete(d[:4]))
 		newRoot := tr.RootHash()
 		require.NotEqual(newRoot, EmptyRoot)
 		require.NotEqual(newRoot, root)
 		root = newRoot
-		_, err := tr.Get(d[:8])
+		_, err := tr.Get(d[:4])
 		require.Equal(ErrNotExist, errors.Cause(err))
 		if i%64 == 0 {
-			logger.Info().Hex("key", d[:8]).Msg("Del --")
+			logger.Info().Hex("key", d[:4]).Msg("Del --")
 			require.NoError(tr.Commit())
 		}
 	}
-	require.Nil(tr.Delete(d1[:8]))
-	require.Nil(tr.Delete(d2[:8]))
-	require.Nil(tr.Delete(d3[:8]))
+	require.Nil(tr.Delete(d1[:4]))
+	require.Nil(tr.Delete(d2[:4]))
+	require.Nil(tr.Delete(d3[:4]))
 	require.Nil(tr.Commit())
 	// trie should fallback to empty
 	require.Equal(EmptyRoot, tr.RootHash())
@@ -553,22 +568,24 @@ func TestPressure(t *testing.T) {
 	// insert 128k entries
 	var k [32]byte
 	k[0] = byte(seed)
-	for i := 0; i < 1<<17; i++ {
+	c := 0
+	for c = 0; c < 1<<17; c++ {
 		k = blake2b.Sum256(k[:])
 		v := testV[k[0]&7]
-		if _, err := tr.Get(k[:8]); err == nil {
-			continue
+		if _, err := tr.Get(k[:4]); err == nil {
+			logger.Warn().Hex("k", k[:4]).Msg("collision")
+			break
 		}
-		require.Nil(tr.Upsert(k[:8], v))
+		require.Nil(tr.Upsert(k[:4], v))
 		newRoot := tr.RootHash()
 		require.NotEqual(newRoot, EmptyRoot)
 		require.NotEqual(newRoot, root)
 		root = newRoot
-		b, err := tr.Get(k[:8])
+		b, err := tr.Get(k[:4])
 		require.Nil(err)
 		require.Equal(v, b)
-		if i%(2<<10) == 0 {
-			logger.Info().Hex("key", k[:8]).Msg("Put --")
+		if c%(2<<10) == 0 {
+			logger.Info().Hex("key", k[:4]).Msg("Put --")
 			require.NoError(tr.Commit())
 		}
 	}
@@ -580,27 +597,28 @@ func TestPressure(t *testing.T) {
 	d2 := blake2b.Sum256(d1[:])
 	d3 := blake2b.Sum256(d2[:])
 	d = d3
-	for i := 0; i < 1<<17-3; i++ {
+	for i := 0; i < c-3; i++ {
 		d = blake2b.Sum256(d[:])
-		require.Nil(tr.Delete(d[:8]))
+		require.Nil(tr.Delete(d[:4]))
 		newRoot := tr.RootHash()
 		require.NotEqual(newRoot, EmptyRoot)
 		require.NotEqual(newRoot, root)
 		root = newRoot
-		_, err := tr.Get(d[:8])
+		_, err := tr.Get(d[:4])
 		require.Equal(ErrNotExist, errors.Cause(err))
 		if i%(2<<10) == 0 {
-			logger.Info().Hex("key", d[:8]).Msg("Del --")
+			logger.Info().Hex("key", d[:4]).Msg("Del --")
 			require.NoError(tr.Commit())
 		}
 	}
-	require.Nil(tr.Delete(d1[:8]))
-	require.Nil(tr.Delete(d2[:8]))
-	require.Nil(tr.Delete(d3[:8]))
+	require.Nil(tr.Delete(d1[:4]))
+	require.Nil(tr.Delete(d2[:4]))
+	require.Nil(tr.Delete(d3[:4]))
 	require.Nil(tr.Commit())
 	// trie should fallback to empty
 	require.Equal(EmptyRoot, tr.RootHash())
 	require.Nil(tr.Stop(context.Background()))
+	logger.Warn().Int("entries", c).Msg("test")
 }
 
 func TestQuery(t *testing.T) {

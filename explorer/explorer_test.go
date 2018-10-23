@@ -333,7 +333,7 @@ func TestExplorerApi(t *testing.T) {
 	// success
 	balance, err := svc.GetAddressBalance(ta.Addrinfo["charlie"].RawAddress)
 	require.Nil(err)
-	require.Equal(int64(6), balance)
+	require.Equal("6", balance)
 
 	// error
 	_, err = svc.GetAddressBalance("")
@@ -342,7 +342,7 @@ func TestExplorerApi(t *testing.T) {
 	// success
 	addressDetails, err := svc.GetAddressDetails(ta.Addrinfo["charlie"].RawAddress)
 	require.Nil(err)
-	require.Equal(int64(6), addressDetails.TotalBalance)
+	require.Equal("6", addressDetails.TotalBalance)
 	require.Equal(int64(8), addressDetails.Nonce)
 	require.Equal(int64(9), addressDetails.PendingNonce)
 	require.Equal(ta.Addrinfo["charlie"].RawAddress, addressDetails.Address)
@@ -536,7 +536,8 @@ func TestService_SendTransfer(t *testing.T) {
 		Nonce:        1,
 		Sender:       senderRawAddr,
 		Recipient:    recipientRawAddr,
-		Amount:       1,
+		Amount:       big.NewInt(1).String(),
+		GasPrice:     big.NewInt(0).String(),
 		SenderPubKey: senderPubKey,
 		Signature:    "",
 		Payload:      "",
@@ -572,6 +573,7 @@ func TestService_SendVote(t *testing.T) {
 		Voter:       senderRawAddr,
 		Votee:       senderRawAddr,
 		VoterPubKey: senderPubKey,
+		GasPrice:    big.NewInt(0).String(),
 		Signature:   "",
 	}
 

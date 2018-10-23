@@ -176,6 +176,20 @@ func (mr *MockFactoryMockRecorder) State(arg0, arg1 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "State", reflect.TypeOf((*MockFactory)(nil).State), arg0, arg1)
 }
 
+// AddActionHandlers mocks base method
+func (m *MockFactory) AddActionHandlers(arg0 ...state.ActionHandler) {
+	varargs := []interface{}{}
+	for _, a := range arg0 {
+		varargs = append(varargs, a)
+	}
+	m.ctrl.Call(m, "AddActionHandlers", varargs...)
+}
+
+// AddActionHandlers indicates an expected call of AddActionHandlers
+func (mr *MockFactoryMockRecorder) AddActionHandlers(arg0 ...interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddActionHandlers", reflect.TypeOf((*MockFactory)(nil).AddActionHandlers), arg0...)
+}
+
 // MockActionHandler is a mock of ActionHandler interface
 type MockActionHandler struct {
 	ctrl     *gomock.Controller

@@ -226,8 +226,7 @@ func TestStartRoundEvt(t *testing.T) {
 		require.Equal(t, sInitPropose, s)
 		assert.Equal(t, uint64(0), cfsm.ctx.epoch.subEpochNum)
 		assert.NotNil(t, cfsm.ctx.round.proposer, delegates[2])
-		assert.NotNil(t, cfsm.ctx.round.proposalEndorses, s)
-		assert.NotNil(t, cfsm.ctx.round.lockEndorses, s)
+		assert.NotNil(t, cfsm.ctx.round.endorsementSets, s)
 		assert.Equal(t, eInitBlock, (<-cfsm.evtq).Type())
 	})
 	t.Run("is-not-proposer", func(t *testing.T) {
@@ -250,8 +249,7 @@ func TestStartRoundEvt(t *testing.T) {
 		require.Equal(t, sAcceptPropose, s)
 		assert.Equal(t, uint64(0), cfsm.ctx.epoch.subEpochNum)
 		assert.NotNil(t, cfsm.ctx.round.proposer, delegates[2])
-		assert.NotNil(t, cfsm.ctx.round.proposalEndorses, s)
-		assert.NotNil(t, cfsm.ctx.round.lockEndorses, s)
+		assert.NotNil(t, cfsm.ctx.round.endorsementSets, s)
 		assert.Equal(t, eProposeBlockTimeout, (<-cfsm.evtq).Type())
 	})
 }
@@ -282,9 +280,8 @@ func TestHandleInitBlockEvt(t *testing.T) {
 	)
 	cfsm.ctx.epoch.numSubEpochs = uint(2)
 	cfsm.ctx.round = roundCtx{
-		proposalEndorses: make(map[hash.Hash32B]map[string]bool),
-		lockEndorses:     make(map[hash.Hash32B]map[string]bool),
-		proposer:         delegates[2],
+		endorsementSets: make(map[hash.Hash32B]*endorsement.Set),
+		proposer:        delegates[2],
 	}
 
 	t.Run("secret-block", func(t *testing.T) {
@@ -333,11 +330,10 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		numSubEpochs: uint(1),
 	}
 	round := roundCtx{
-		height:           2,
-		number:           0,
-		proposalEndorses: make(map[hash.Hash32B]map[string]bool),
-		lockEndorses:     make(map[hash.Hash32B]map[string]bool),
-		proposer:         delegates[2],
+		height:          2,
+		number:          0,
+		endorsementSets: make(map[hash.Hash32B]*endorsement.Set),
+		proposer:        delegates[2],
 	}
 
 	t.Run("pass-validation", func(t *testing.T) {
@@ -562,9 +558,8 @@ func TestHandleProposalEndorseEvt(t *testing.T) {
 		numSubEpochs: uint(1),
 	}
 	round := roundCtx{
-		proposalEndorses: make(map[hash.Hash32B]map[string]bool),
-		lockEndorses:     make(map[hash.Hash32B]map[string]bool),
-		proposer:         delegates[2],
+		endorsementSets: make(map[hash.Hash32B]*endorsement.Set),
+		proposer:        delegates[2],
 	}
 
 	t.Run("gather-endorses", func(t *testing.T) {
@@ -659,9 +654,8 @@ func TestHandleCommitEndorseEvt(t *testing.T) {
 	}
 
 	round := roundCtx{
-		proposalEndorses: make(map[hash.Hash32B]map[string]bool),
-		lockEndorses:     make(map[hash.Hash32B]map[string]bool),
-		proposer:         delegates[2],
+		endorsementSets: make(map[hash.Hash32B]*endorsement.Set),
+		proposer:        delegates[2],
 	}
 
 	t.Run("gather-commits-secret-block", func(t *testing.T) {
@@ -829,9 +823,8 @@ func TestHandleFinishEpochEvt(t *testing.T) {
 		numSubEpochs: uint(2),
 	}
 	round := roundCtx{
-		proposalEndorses: make(map[hash.Hash32B]map[string]bool),
-		lockEndorses:     make(map[hash.Hash32B]map[string]bool),
-		proposer:         delegates[2],
+		endorsementSets: make(map[hash.Hash32B]*endorsement.Set),
+		proposer:        delegates[2],
 	}
 	t.Run("dkg-not-finished", func(t *testing.T) {
 		cfsm := newTestCFSM(
