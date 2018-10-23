@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"math/big"
 	"net"
+	"sync"
 	"testing"
 	"time"
 
@@ -680,9 +681,9 @@ func TestRollDPoSConsensus(t *testing.T) {
 		cfg := config.Default
 		cfg.Consensus.RollDPoS.Delay = 300 * time.Millisecond
 		cfg.Consensus.RollDPoS.ProposerInterval = time.Second
-		cfg.Consensus.RollDPoS.AcceptProposeTTL = 1000 * time.Millisecond
-		cfg.Consensus.RollDPoS.AcceptProposalEndorseTTL = 1000 * time.Millisecond
-		cfg.Consensus.RollDPoS.AcceptCommitEndorseTTL = 1000 * time.Millisecond
+		cfg.Consensus.RollDPoS.AcceptProposeTTL = 300 * time.Millisecond
+		cfg.Consensus.RollDPoS.AcceptProposalEndorseTTL = 300 * time.Millisecond
+		cfg.Consensus.RollDPoS.AcceptCommitEndorseTTL = 300 * time.Millisecond
 		cfg.Consensus.RollDPoS.NumDelegates = uint(numNodes)
 		cfg.Consensus.RollDPoS.NumSubEpochs = 1
 		cfg.Consensus.RollDPoS.EnableDKG = true
@@ -769,8 +770,17 @@ func TestRollDPoSConsensus(t *testing.T) {
 		for i := 0; i < 21; i++ {
 			require.NoError(t, chains[i].Start(ctx))
 			require.NoError(t, p2ps[i].Start(ctx))
-			require.NoError(t, cs[i].Start(ctx))
 		}
+		wg := sync.WaitGroup{}
+		wg.Add(21)
+		for i := 0; i < 21; i++ {
+			go func(idx int) {
+				defer wg.Done()
+				err := cs[idx].Start(ctx)
+				require.NoError(t, err)
+			}(i)
+		}
+		wg.Wait()
 
 		defer func() {
 			for i := 0; i < 21; i++ {
@@ -779,7 +789,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 				require.NoError(t, chains[i].Stop(ctx))
 			}
 		}()
-		assert.NoError(t, testutil.WaitUntil(100*time.Millisecond, 10*time.Second, func() (bool, error) {
+		assert.NoError(t, testutil.WaitUntil(100*time.Millisecond, 2*time.Second, func() (bool, error) {
 			for _, chain := range chains {
 				if blk, err := chain.GetBlockByHeight(1); blk == nil || err != nil {
 					return false, nil
@@ -799,8 +809,17 @@ func TestRollDPoSConsensus(t *testing.T) {
 		for i := 0; i < 21; i++ {
 			require.NoError(t, chains[i].Start(ctx))
 			require.NoError(t, p2ps[i].Start(ctx))
-			require.NoError(t, cs[i].Start(ctx))
 		}
+		wg := sync.WaitGroup{}
+		wg.Add(21)
+		for i := 0; i < 21; i++ {
+			go func(idx int) {
+				defer wg.Done()
+				err := cs[idx].Start(ctx)
+				require.NoError(t, err)
+			}(i)
+		}
+		wg.Wait()
 
 		defer func() {
 			for i := 0; i < 21; i++ {
@@ -849,8 +868,17 @@ func TestRollDPoSConsensus(t *testing.T) {
 		for i := 0; i < 21; i++ {
 			require.NoError(t, chains[i].Start(ctx))
 			require.NoError(t, p2ps[i].Start(ctx))
-			require.NoError(t, cs[i].Start(ctx))
 		}
+		wg := sync.WaitGroup{}
+		wg.Add(21)
+		for i := 0; i < 21; i++ {
+			go func(idx int) {
+				defer wg.Done()
+				err := cs[idx].Start(ctx)
+				require.NoError(t, err)
+			}(i)
+		}
+		wg.Wait()
 
 		defer func() {
 			for i := 0; i < 21; i++ {
@@ -878,8 +906,17 @@ func TestRollDPoSConsensus(t *testing.T) {
 		for i := 0; i < 21; i++ {
 			require.NoError(t, chains[i].Start(ctx))
 			require.NoError(t, p2ps[i].Start(ctx))
-			require.NoError(t, cs[i].Start(ctx))
 		}
+		wg := sync.WaitGroup{}
+		wg.Add(21)
+		for i := 0; i < 21; i++ {
+			go func(idx int) {
+				defer wg.Done()
+				err := cs[idx].Start(ctx)
+				require.NoError(t, err)
+			}(i)
+		}
+		wg.Wait()
 
 		defer func() {
 			for i := 0; i < 21; i++ {
@@ -905,12 +942,21 @@ func TestRollDPoSConsensus(t *testing.T) {
 		}
 
 		for i := 0; i < 21; i++ {
-			cs[i].ctx.cfg.TimeBasedRotation = true
-			cs[i].ctx.cfg.EnableDummyBlock = false
 			require.NoError(t, chains[i].Start(ctx))
 			require.NoError(t, p2ps[i].Start(ctx))
-			require.NoError(t, cs[i].Start(ctx))
 		}
+		wg := sync.WaitGroup{}
+		wg.Add(21)
+		for i := 0; i < 21; i++ {
+			go func(idx int) {
+				defer wg.Done()
+				cs[idx].ctx.cfg.TimeBasedRotation = true
+				cs[idx].ctx.cfg.EnableDummyBlock = false
+				err := cs[idx].Start(ctx)
+				require.NoError(t, err)
+			}(i)
+		}
+		wg.Wait()
 
 		defer func() {
 			for i := 0; i < 21; i++ {
@@ -936,11 +982,20 @@ func TestRollDPoSConsensus(t *testing.T) {
 		}
 
 		for i := 0; i < 21; i++ {
-			cs[i].ctx.cfg.EnableDummyBlock = false
 			require.NoError(t, chains[i].Start(ctx))
 			require.NoError(t, p2ps[i].Start(ctx))
-			require.NoError(t, cs[i].Start(ctx))
 		}
+		wg := sync.WaitGroup{}
+		wg.Add(21)
+		for i := 0; i < 21; i++ {
+			go func(idx int) {
+				defer wg.Done()
+				cs[idx].ctx.cfg.EnableDummyBlock = false
+				err := cs[idx].Start(ctx)
+				require.NoError(t, err)
+			}(i)
+		}
+		wg.Wait()
 
 		defer func() {
 			for i := 0; i < 21; i++ {
@@ -970,11 +1025,20 @@ func TestRollDPoSConsensus(t *testing.T) {
 		}
 
 		for i := 0; i < 21; i++ {
-			cs[i].ctx.cfg.EnableDummyBlock = false
 			require.NoError(t, chains[i].Start(ctx))
 			require.NoError(t, p2ps[i].Start(ctx))
-			require.NoError(t, cs[i].Start(ctx))
 		}
+		wg := sync.WaitGroup{}
+		wg.Add(21)
+		for i := 0; i < 21; i++ {
+			go func(idx int) {
+				defer wg.Done()
+				cs[idx].ctx.cfg.EnableDummyBlock = false
+				err := cs[idx].Start(ctx)
+				require.NoError(t, err)
+			}(i)
+		}
+		wg.Wait()
 
 		defer func() {
 			for i := 0; i < 21; i++ {
