@@ -68,17 +68,14 @@ type Endorsement struct {
 }
 
 // NewEndorsement creates an Endorsement for an consensus vote
-func NewEndorsement(object *ConsensusVote, endorser *iotxaddress.Address) (*Endorsement, error) {
-	if endorser.PrivateKey == keypair.ZeroPrivateKey {
-		return nil, errors.New("The endorser's private key is empty")
-	}
+func NewEndorsement(object *ConsensusVote, endorser *iotxaddress.Address) *Endorsement {
 	hash := object.Hash()
 	return &Endorsement{
 		object:         object,
 		endorser:       endorser.RawAddress,
 		endorserPubkey: endorser.PublicKey,
 		signature:      crypto.EC283.Sign(endorser.PrivateKey, hash[:]),
-	}, nil
+	}
 }
 
 // ConsensusVote returns the Object of the endorse for signature

@@ -163,11 +163,7 @@ type endorseEvt struct {
 }
 
 func newEndorseEvt(topic endorsement.ConsensusVoteTopic, blkHash hash.Hash32B, height uint64, round uint32, endorser *iotxaddress.Address, c clock.Clock) (*endorseEvt, error) {
-	endorse, err := endorsement.NewEndorsement(endorsement.NewConsensusVote(blkHash, height, round, topic), endorser)
-	if err != nil {
-		logger.Error().Err(err).Bytes("Block Hash", blkHash[:]).Str("endorser", endorser.RawAddress).Msg("failed to sign endorse for block")
-		return nil, err
-	}
+	endorse := endorsement.NewEndorsement(endorsement.NewConsensusVote(blkHash, height, round, topic), endorser)
 
 	return newEndorseEvtWithEndorse(endorse, c), nil
 }
@@ -464,12 +460,11 @@ func (m *cFSM) handleStartRoundEvt(_ fsm.Event) (fsm.State, error) {
 		m.ctx.round.number = m.ctx.round.number + 1
 	} else {
 		m.ctx.round = roundCtx{
-			height:           height,
-			number:           0,
-			timestamp:        m.ctx.clock.Now(),
-			proposalEndorses: make(map[hash.Hash32B]map[string]bool),
-			lockEndorses:     make(map[hash.Hash32B]map[string]bool),
-			proposer:         proposer,
+			height:          height,
+			number:          0,
+			timestamp:       m.ctx.clock.Now(),
+			endorsementSets: make(map[hash.Hash32B]*endorsement.Set),
+			proposer:        proposer,
 		}
 	}
 	if proposer == m.ctx.addr.RawAddress {
@@ -655,16 +650,21 @@ func (m *cFSM) handleEndorseProposalEvt(evt fsm.Event) (fsm.State, error) {
 		return sAcceptProposalEndorse, nil
 	}
 	blkHash := vote.BlkHash
-	endorses := m.ctx.round.proposalEndorses[blkHash]
-	if endorses == nil {
-		endorses = map[string]bool{}
-		m.ctx.round.proposalEndorses[blkHash] = endorses
+	endorsementSet, ok := m.ctx.round.endorsementSets[blkHash]
+	if !ok {
+		endorsementSet = endorsement.NewSet(blkHash)
+		m.ctx.round.endorsementSets[blkHash] = endorsementSet
 	}
-	endorses[endorse.Endorser()] = true
-	// if ether yes or no is true, block must exists and blkHash must be a valid one
-	yes, _ := m.ctx.calcQuorum(m.ctx.round.proposalEndorses[blkHash])
-	if !yes {
-		// Wait for more preCommits to come
+	endorsementSet.AddEndorsement(endorse)
+	validNum := endorsementSet.NumOfValidEndorsements(
+		map[endorsement.ConsensusVoteTopic]bool{
+			endorsement.PROPOSAL: true,
+			endorsement.COMMIT:   true, // commit endorse is counted as one proposal endorse
+		},
+		m.ctx.epoch.delegates,
+	)
+	if validNum <= len(m.ctx.epoch.delegates)*2/3 {
+		// Wait for more lock votes to come
 		return sAcceptProposalEndorse, nil
 	}
 	// Reached the agreement
@@ -691,7 +691,6 @@ func (m *cFSM) handleEndorseProposalTimeout(evt fsm.Event) (fsm.State, error) {
 	}
 	logger.Warn().
 		Uint64("height", m.ctx.round.height).
-		Int("numberOfEndorses", len(m.ctx.round.proposalEndorses)).
 		Msg("didn't collect enough proposal endorses before timeout")
 
 	return m.moveToAcceptLockEndorse()
@@ -715,20 +714,25 @@ func (m *cFSM) handleEndorseLockEvt(evt fsm.Event) (fsm.State, error) {
 	}
 	// TODO verify that the endorse is one delegate, and verify signature via endorse.VerifySignature() with pub key
 	blkHash := vote.BlkHash
-	endorses := m.ctx.round.lockEndorses[blkHash]
-	if endorses == nil {
-		endorses = map[string]bool{}
-		m.ctx.round.lockEndorses[blkHash] = endorses
+	endorsementSet, ok := m.ctx.round.endorsementSets[blkHash]
+	if !ok {
+		endorsementSet = endorsement.NewSet(blkHash)
+		m.ctx.round.endorsementSets[blkHash] = endorsementSet
 	}
-	endorses[endorse.Endorser()] = true
-	// if either yes or no is true, block must exists and blkHash must be a valid one
-	yes, no := m.ctx.calcQuorum(endorses)
-	if !yes && !no {
-		// Wait for more votes to come
+	endorsementSet.AddEndorsement(endorse)
+	validNum := endorsementSet.NumOfValidEndorsements(
+		map[endorsement.ConsensusVoteTopic]bool{
+			endorsement.LOCK:   true,
+			endorsement.COMMIT: true, // commit endorse is counted as one lock endorse
+		},
+		m.ctx.epoch.delegates,
+	)
+	if validNum <= len(m.ctx.epoch.delegates)*2/3 {
+		// Wait for more lock votes to come
 		return sAcceptLockEndorse, nil
 	}
 
-	return m.processEndorseLock(yes && !no)
+	return m.processEndorseLock(true)
 }
 
 func (m *cFSM) handleEndorseLockTimeout(evt fsm.Event) (fsm.State, error) {
@@ -737,7 +741,6 @@ func (m *cFSM) handleEndorseLockTimeout(evt fsm.Event) (fsm.State, error) {
 	}
 	logger.Warn().
 		Uint64("height", m.ctx.round.height).
-		Int("numOfLockEndorses", len(m.ctx.round.lockEndorses)).
 		Msg("didn't collect enough commit endorse before timeout")
 
 	return m.processEndorseLock(false)
