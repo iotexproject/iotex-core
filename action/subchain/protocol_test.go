@@ -241,6 +241,7 @@ func TestHandleStartSubChain(t *testing.T) {
 
 func TestStartSubChainInGenesis(t *testing.T) {
 	cfg := config.Default
+	cfg.Chain.EnableSubChainStartInGenesis = true
 
 	ctx := context.Background()
 	bc := blockchain.NewBlockchain(&cfg, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())

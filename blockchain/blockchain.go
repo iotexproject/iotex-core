@@ -861,7 +861,11 @@ func (bc *blockchain) commitBlock(blk *Block) error {
 			return errors.Wrapf(err, "failed to put smart contract receipts into DB on height %d", blk.Height())
 		}
 	}
-	logger.Info().Uint64("height", blk.Header.height).Msg("commit a block")
+	hash := blk.HashBlock()
+	logger.Info().
+		Uint64("height", blk.Header.height).
+		Hex("hash", hash[:]).
+		Msg("commit a block")
 	return nil
 }
 
