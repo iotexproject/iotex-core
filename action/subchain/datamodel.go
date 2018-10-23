@@ -33,12 +33,9 @@ func (bs *SubChain) Deserialize(data []byte) error { return state.GobBasedDeseri
 
 // blockProof represents the block proof of a sub-chain in the state factory
 type blockProof struct {
-	Hash              hash.Hash32B
-	ActionRoot        hash.Hash32B
-	StateRoot         hash.Hash32B
+	// TODO add all data fields
+	Root              hash.Hash32B
 	ProducerPublicKey keypair.PublicKey
-	// ConfirmationHeight refers to the root chain block height where the sub-chain block gets confirmed
-	ConfirmationHeight uint64
 }
 
 // Serialize serialize block proof state into bytes
