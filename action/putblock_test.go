@@ -19,7 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/test/testaddress"
 )
 
-func TestNewPutBlock(t *testing.T) {
+func TestPutBlock(t *testing.T) {
 	addr := testaddress.Addrinfo["producer"]
 	assertPB := func(pb *PutBlock) {
 		assert.Equal(t, uint32(version.ProtocolVersion), pb.version)
@@ -47,7 +47,30 @@ func TestNewPutBlock(t *testing.T) {
 
 	putBlockPb := pb.Proto()
 	require.NotNil(t, putBlockPb)
-	pb = NewPutBlockFromProto(putBlockPb)
+	pb.LoadProto(putBlockPb)
 	require.NotNil(t, pb)
 	assertPB(pb)
+}
+
+func TestPutBlockByteStream(t *testing.T) {
+	addr := testaddress.Addrinfo["producer"]
+	roots := make(map[string]hash.Hash32B)
+	roots["10002"] = byteutil.BytesTo32B([]byte("10002"))
+	roots["10003"] = byteutil.BytesTo32B([]byte("10003"))
+	roots["10004"] = byteutil.BytesTo32B([]byte("10004"))
+	roots["10005"] = byteutil.BytesTo32B([]byte("10005"))
+	pb := NewPutBlock(
+		1,
+		10000,
+		addr.RawAddress,
+		10001,
+		roots,
+		10003,
+		big.NewInt(10004),
+	)
+	b := pb.ByteStream()
+
+	for i := 0; i < 10; i++ {
+		assert.Equal(t, b, pb.ByteStream())
+	}
 }

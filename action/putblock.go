@@ -8,12 +8,12 @@ package action
 import (
 	"fmt"
 	"math/big"
+	"sort"
 
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/proto"
 )
@@ -54,36 +54,26 @@ func NewPutBlock(
 }
 
 // NewPutBlockFromProto converts a proto message into put block action.
-func NewPutBlockFromProto(actPb *iproto.ActionPb) *PutBlock {
+func (pb *PutBlock) LoadProto(actPb *iproto.ActionPb) {
+	pb = &PutBlock{}
+
 	if actPb == nil {
-		return nil
+		return
 	}
 	putBlockPb := actPb.GetPutBlock()
 	if putBlockPb == nil {
-		return nil
+		return
 	}
-	pb := PutBlock{
-		abstractAction: abstractAction{
-			version:   actPb.Version,
-			nonce:     actPb.Nonce,
-			srcAddr:   putBlockPb.ProducerAddress,
-			gasLimit:  actPb.GasLimit,
-			gasPrice:  big.NewInt(0),
-			signature: actPb.Signature,
-		},
-		chainID:         putBlockPb.ChainID,
-		height:          putBlockPb.Height,
-		producerAddress: putBlockPb.ProducerAddress,
-	}
-	pb.roots = make(map[string]hash.Hash32B)
-	for k, v := range putBlockPb.Roots {
-		pb.roots[k] = byteutil.BytesTo32B(v)
-	}
+
+	pb.version = actPb.Version
+	pb.nonce = actPb.Nonce
+	pb.srcAddr = putBlockPb.ProducerAddress
+	copy(pb.srcPubkey[:], putBlockPb.ProducerPublicKey)
+	pb.gasLimit = actPb.GasLimit
+	pb.gasPrice = big.NewInt(0)
 	if len(actPb.GasPrice) > 0 {
 		pb.gasPrice.SetBytes(actPb.GasPrice)
 	}
-	copy(pb.srcPubkey[:], putBlockPb.ProducerPublicKey)
-	return &pb
 }
 
 // Proto converts put sub-chain block action into a proto message.
@@ -152,6 +142,16 @@ func (pb *PutBlock) ByteStream() []byte {
 	stream = append(stream, temp...)
 	if pb.gasPrice != nil && len(pb.gasPrice.Bytes()) > 0 {
 		stream = append(stream, pb.gasPrice.Bytes()...)
+	}
+	keys := make([]string, len(pb.roots))
+	for k := range pb.roots {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		v := pb.roots[k]
+		stream = append(stream, k...)
+		stream = append(stream, v[:]...)
 	}
 	return stream
 }
