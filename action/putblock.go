@@ -12,11 +12,16 @@ import (
 
 	"golang.org/x/crypto/blake2b"
 
+	"github.com/pkg/errors"
+
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/proto"
 )
+
+// PutBlockIntrinsicGas is the instrinsic gas for put block action.
+const PutBlockIntrinsicGas = uint64(1000)
 
 // PutBlock represents put a sub-chain block message.
 type PutBlock struct {
@@ -53,7 +58,7 @@ func NewPutBlock(
 	}
 }
 
-// NewPutBlockFromProto converts a proto message into put block action.
+// LoadProto converts a proto message into put block action.
 func (pb *PutBlock) LoadProto(actPb *iproto.ActionPb) {
 	pb = &PutBlock{}
 
@@ -158,3 +163,18 @@ func (pb *PutBlock) ByteStream() []byte {
 
 // Hash returns the hash of putting a sub-chain block message
 func (pb *PutBlock) Hash() hash.Hash32B { return blake2b.Sum256(pb.ByteStream()) }
+
+// IntrinsicGas returns the intrinsic gas of a put block action
+func (pb *PutBlock) IntrinsicGas() (uint64, error) {
+	return PutBlockIntrinsicGas, nil
+}
+
+// Cost returns the total cost of a put block action
+func (pb *PutBlock) Cost() (*big.Int, error) {
+	intrinsicGas, err := pb.IntrinsicGas()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get intrinsic gas for the start-sub chain action")
+	}
+	fee := big.NewInt(0).Mul(pb.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas))
+	return fee, nil
+}

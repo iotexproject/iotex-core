@@ -33,6 +33,7 @@ func (bs *SubChain) Deserialize(data []byte) error { return state.GobBasedDeseri
 
 // blockProof represents the block proof of a sub-chain in the state factory
 type blockProof struct {
+	// TODO add all data fields
 	Root              hash.Hash32B
 	ProducerPublicKey keypair.PublicKey
 }
