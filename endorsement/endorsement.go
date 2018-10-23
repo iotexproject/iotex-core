@@ -113,6 +113,8 @@ func (en *Endorsement) ToProtoMsg() *iproto.EndorsePb {
 		topic = iproto.EndorsePb_PROPOSAL
 	case LOCK:
 		topic = iproto.EndorsePb_LOCK
+	case COMMIT:
+		topic = iproto.EndorsePb_COMMIT
 	default:
 		logger.Error().Msgf("Endorsement object is of the wrong topic")
 		return nil
@@ -138,6 +140,8 @@ func FromProtoMsg(endorsePb *iproto.EndorsePb) (*Endorsement, error) {
 		topic = PROPOSAL
 	case iproto.EndorsePb_LOCK:
 		topic = LOCK
+	case iproto.EndorsePb_COMMIT:
+		topic = COMMIT
 	default:
 		return nil, errors.New("Invalid topic")
 	}
