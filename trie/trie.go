@@ -62,9 +62,8 @@ type (
 		mutex     sync.RWMutex
 		root      patricia
 		rootHash  hash.Hash32B
-		toRoot    *list.List // stores the path from root to diverging node
-		bucket    string     // bucket name to store the nodes
-		numEntry  uint64     // number of entries added to the trie
+		bucket    string // bucket name to store the nodes
+		numEntry  uint64 // number of entries added to the trie
 		numBranch uint64
 		numExt    uint64
 		numLeaf   uint64
@@ -121,12 +120,10 @@ func (t *trie) Upsert(key, value []byte) error {
 
 // Get an existing entry
 func (t *trie) Get(key []byte) ([]byte, error) {
-	// Use write lock because t.clear() will mutate toRoot
-	t.mutex.Lock()
-	defer t.mutex.Unlock()
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
 
-	ptr, size, err := t.query(key)
-	t.clear()
+	ptr, _, size, err := t.query(key)
 	if size != len(key) {
 		return nil, errors.Wrapf(ErrNotExist, "key = %x", key)
 	}
@@ -134,7 +131,6 @@ func (t *trie) Get(key []byte) ([]byte, error) {
 		return nil, err
 	}
 	// retrieve the value from terminal patricia node
-	size = len(key)
 	return t.getValue(ptr, key[size-1])
 }
 
@@ -143,7 +139,7 @@ func (t *trie) Delete(key []byte) error {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
-	ptr, size, err := t.query(key)
+	ptr, path, size, err := t.query(key)
 	if size != len(key) {
 		return errors.Wrapf(ErrNotExist, "key = %x not exist", key)
 	}
@@ -158,7 +154,7 @@ func (t *trie) Delete(key []byte) error {
 			return errors.Wrap(err, "failed to getPatricia")
 		}
 	} else {
-		ptr, _ = t.popToRoot()
+		ptr, _ = path.pop()
 	}
 	// delete the entry
 	if err := t.delPatricia(ptr); err != nil {
@@ -169,7 +165,7 @@ func (t *trie) Delete(key []byte) error {
 	}
 	t.numEntry--
 	// update upstream nodes on path ascending to root
-	return t.updateDelete()
+	return t.updateDelete(path)
 }
 
 // Commit local cached <k, v> in a batch
@@ -211,7 +207,6 @@ func newTrie(dao db.KVStore, name string, root hash.Hash32B) *trie {
 		cb:        db.NewCachedBatch(),
 		dao:       dao,
 		rootHash:  root,
-		toRoot:    list.New(),
 		bucket:    name,
 		numEntry:  1,
 		numBranch: 1,
@@ -226,7 +221,6 @@ func newTrieSharedBatch(dao db.KVStore, batch db.CachedBatch, name string, root 
 		cb:        batch,
 		dao:       dao,
 		rootHash:  root,
-		toRoot:    list.New(),
 		bucket:    name,
 		numEntry:  1,
 		numBranch: 1}
@@ -236,7 +230,7 @@ func newTrieSharedBatch(dao db.KVStore, batch db.CachedBatch, name string, root 
 
 // upsert a new entry
 func (t *trie) upsert(key, value []byte) error {
-	ptr, size, err := t.query(key)
+	ptr, path, size, err := t.query(key)
 	if ptr == nil {
 		return errors.Wrapf(err, "failed to parse key %x", key)
 	}
@@ -261,13 +255,13 @@ func (t *trie) upsert(key, value []byte) error {
 		t.numLeaf += uint64(nl)
 		t.numEntry++
 		// if the diverging node is leaf, delete it
-		n := t.toRoot.Back()
+		n := path.Back()
 		if l, ok := n.Value.(patricia).(*leaf); ok {
 			if err := t.delPatricia(l); err != nil {
 				return err
 			}
 			logger.Debug().Msg("delete leaf")
-			t.toRoot.Remove(n)
+			path.Remove(n)
 		}
 	} else {
 		// key already exists, update with new value
@@ -277,16 +271,15 @@ func (t *trie) upsert(key, value []byte) error {
 		if err != nil {
 			return err
 		}
-		var index byte
 		if b, ok := ptr.(*branch); ok {
 			// for branch, the entry to delete is the leaf matching last byte of path
 			size = len(key)
-			index = key[size-1]
+			index := key[size-1]
 			if ptr, err = t.getPatricia(b.Path[index]); err != nil {
 				return err
 			}
 		} else {
-			ptr, index = t.popToRoot()
+			ptr, _ = path.pop()
 		}
 		// delete the entry
 		if err = t.delPatricia(ptr); err != nil {
@@ -302,47 +295,47 @@ func (t *trie) upsert(key, value []byte) error {
 		}
 	}
 	// update upstream nodes on path ascending to root
-	return t.updateInsert(ptr)
+	return t.updateInsert(ptr, path)
 }
 
 // query returns the diverging patricia node, and length of matching path in bytes
-func (t *trie) query(key []byte) (patricia, int, error) {
+func (t *trie) query(key []byte) (patricia, *pathToRoot, int, error) {
 	ptr := t.root
 	if ptr == nil {
-		return nil, 0, errors.Wrap(ErrNotExist, "failed to load root")
+		return nil, nil, 0, errors.Wrap(ErrNotExist, "failed to load root")
 	}
 	size := 0
-	// TODO (zhi) return the path and get rid of toRoot
+	path := newPathToRoot()
 	for len(key) > 0 {
 		// keep descending the trie
 		hashn, match, err := ptr.descend(key)
 		if isBranch(ptr) {
 			// for branch node, need to save first byte of path to traceback to branch[key[0]] later
-			t.toRoot.PushBack(key[0])
+			path.PushBack(key[0])
 		}
-		t.toRoot.PushBack(ptr)
+		path.PushBack(ptr)
 		// path diverges, return the diverging node
 		if err != nil {
 			// patricia.insert() will be called later to insert <key, value> pair into trie
-			return ptr, size, err
+			return ptr, path, size, err
 		}
 		// path matching entire key, return ptr that holds the value
 		if match == len(key) {
-			return ptr, size + match, nil
+			return ptr, path, size + match, nil
 		}
 		if ptr, err = t.getPatricia(hashn); err != nil {
-			return nil, 0, err
+			return nil, path, 0, err
 		}
 		size += match
 		key = key[match:]
 	}
-	return ptr, size, nil
+	return ptr, path, size, nil
 }
 
 // updateInsert rewinds the path back to root and updates nodes along the way
-func (t *trie) updateInsert(curr patricia) error {
-	for t.toRoot.Len() > 0 {
-		next, index := t.popToRoot()
+func (t *trie) updateInsert(curr patricia, path *pathToRoot) error {
+	for path.Len() > 0 {
+		next, index := path.pop()
 		if next == nil || isLeaf(next) {
 			return errors.Wrap(ErrInvalidPatricia, "patricia pushed on stack is not valid")
 		}
@@ -367,10 +360,10 @@ func (t *trie) updateInsert(curr patricia) error {
 }
 
 // updateDelete rewinds the path back to root and updates nodes along the way
-func (t *trie) updateDelete() error {
+func (t *trie) updateDelete(pt *pathToRoot) error {
 	var curr patricia
-	for t.toRoot.Len() > 0 {
-		next, index := t.popToRoot()
+	for pt.Len() > 0 {
+		next, index := pt.pop()
 		if next == nil || isLeaf(next) {
 			return errors.Wrap(ErrInvalidPatricia, "patricia pushed on stack is not valid")
 		}
@@ -408,8 +401,8 @@ func (t *trie) updateDelete() error {
 			}
 		}
 		// two ext can combine into one
-		if t.toRoot.Len() > 0 {
-			n := t.toRoot.Back()
+		if pt.Len() > 0 {
+			n := pt.Back()
 			parent, _ := n.Value.(patricia)
 			if isExt(next) && isExt(parent) {
 				ep, _ := parent.(*leaf)
@@ -417,7 +410,7 @@ func (t *trie) updateDelete() error {
 				if err := t.delPatricia(parent); err != nil {
 					return errors.Wrap(err, "failed to delete patricia")
 				}
-				t.toRoot.Remove(n)
+				pt.Remove(n)
 				logger.Debug().Msg("combine 2 ext into 1")
 			}
 		}
@@ -527,26 +520,28 @@ func isLeaf(ptr patricia) bool {
 	return false
 }
 
-// clear the stack
-func (t *trie) clear() {
-	for t.toRoot.Len() > 0 {
-		n := t.toRoot.Back()
-		t.toRoot.Remove(n)
-	}
+type pathToRoot struct {
+	list.List
 }
 
-// pop the stack
-func (t *trie) popToRoot() (patricia, byte) {
-	if t.toRoot.Len() > 0 {
-		n := t.toRoot.Back()
+func newPathToRoot() *pathToRoot {
+	path := new(pathToRoot)
+	path.Init()
+
+	return path
+}
+
+func (p *pathToRoot) pop() (patricia, byte) {
+	if p.Len() > 0 {
+		n := p.Back()
 		ptr, _ := n.Value.(patricia)
-		t.toRoot.Remove(n)
+		p.Remove(n)
 		var index byte
 		if isBranch(ptr) {
 			// for branch node, the index is pushed onto stack in query()
-			n := t.toRoot.Back()
+			n := p.Back()
 			index, _ = n.Value.(byte)
-			t.toRoot.Remove(n)
+			p.Remove(n)
 		}
 		return ptr, index
 	}

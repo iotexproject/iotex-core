@@ -125,11 +125,11 @@ func TestInsert(t *testing.T) {
 	root := EmptyRoot
 	require.Equal(uint64(1), tr.numBranch)
 	// query non-existing entry
-	ptr, match, err := tr.query(cat)
+	ptr, path, match, err := tr.query(cat)
 	require.NotNil(ptr)
+	require.NotNil(path)
 	require.Equal(0, match)
 	require.NotNil(err)
-	tr.clear()
 	// this adds one L to root R
 	logger.Info().Msg("Put[cat]")
 	err = tr.Upsert(cat, testV[2])
@@ -629,13 +629,16 @@ func TestQuery(t *testing.T) {
 	require.Nil(tr.Start(context.Background()))
 	require.Equal(uint64(1), tr.numBranch)
 	// key length > 0
-	ptr, match, err := tr.query(cat)
+	ptr, path, match, err := tr.query(cat)
 	require.NotNil(ptr)
+	require.NotNil(path)
 	require.Equal(0, match)
 	require.NotNil(err)
 	// key length == 0
-	ptr, match, err = tr.query([]byte{})
+	ptr, path, match, err = tr.query([]byte{})
 	require.Equal(tr.root, ptr)
+	require.NotNil(path)
+	require.Equal(0, path.Len())
 	require.Equal(0, match)
 	require.Nil(err)
 	require.Nil(tr.Stop(context.Background()))
