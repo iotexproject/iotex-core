@@ -58,11 +58,10 @@ func TestUsedChainIDs(t *testing.T) {
 	for i := range input {
 		input[i] = uint32(i + 1)
 	}
-	rand.Shuffle(len(input), func(i, j int) {
-		tmp := input[i]
-		input[i] = input[j]
-		input[j] = tmp
-	})
+	for i := range input {
+		j := rand.Intn(i + 1)
+		input[i], input[j] = input[j], input[i]
+	}
 
 	var usedChainIDs1 UsedChainIDs
 	for _, e := range input {
