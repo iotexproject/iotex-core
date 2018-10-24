@@ -16,6 +16,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/proto"
 )
@@ -60,7 +61,10 @@ func NewPutBlock(
 
 // LoadProto converts a proto message into put block action.
 func (pb *PutBlock) LoadProto(actPb *iproto.ActionPb) {
-	pb = &PutBlock{}
+	if pb == nil {
+		return
+	}
+	*pb = PutBlock{}
 
 	if actPb == nil {
 		return
@@ -78,6 +82,15 @@ func (pb *PutBlock) LoadProto(actPb *iproto.ActionPb) {
 	pb.gasPrice = big.NewInt(0)
 	if len(actPb.GasPrice) > 0 {
 		pb.gasPrice.SetBytes(actPb.GasPrice)
+	}
+
+	pb.chainID = putBlockPb.ChainID
+	pb.height = putBlockPb.Height
+	pb.producerAddress = putBlockPb.ProducerAddress
+
+	pb.roots = make(map[string]hash.Hash32B)
+	for k, v := range putBlockPb.Roots {
+		pb.roots[k] = byteutil.BytesTo32B(v)
 	}
 }
 
