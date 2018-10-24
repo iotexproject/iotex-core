@@ -47,9 +47,10 @@ func TestPutBlock(t *testing.T) {
 
 	putBlockPb := pb.Proto()
 	require.NotNil(t, putBlockPb)
-	pb.LoadProto(putBlockPb)
-	require.NotNil(t, pb)
-	assertPB(pb)
+	npb := &PutBlock{}
+	npb.LoadProto(putBlockPb)
+	require.NotNil(t, npb)
+	assertPB(npb)
 }
 
 func TestPutBlockByteStream(t *testing.T) {
