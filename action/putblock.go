@@ -84,7 +84,7 @@ func (pb *PutBlock) LoadProto(actPb *iproto.ActionPb) {
 		pb.gasPrice.SetBytes(actPb.GasPrice)
 	}
 
-	pb.subChainAddress = putBlockPb.SubChainAddress
+	pb.chainID = putBlockPb.ChainID
 	pb.height = putBlockPb.Height
 	pb.producerAddress = putBlockPb.ProducerAddress
 
