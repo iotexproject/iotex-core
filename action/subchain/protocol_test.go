@@ -36,18 +36,13 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 		&state.Account{Balance: big.NewInt(0).Mul(big.NewInt(2000000000), big.NewInt(blockchain.Iotx))},
 		nil,
 	).AnyTimes()
-	ws := mock_state.NewMockWorkingSet(ctrl)
-	ws.EXPECT().CachedAccountState(gomock.Any()).Return(
-		&state.Account{Balance: big.NewInt(0).Mul(big.NewInt(1500000000), big.NewInt(blockchain.Iotx))},
-		nil,
-	).AnyTimes()
+	factory.EXPECT().State(gomock.Any(), gomock.Any()).Return(&UsedChainIDs{3}, nil).AnyTimes()
 	chain := mock_blockchain.NewMockBlockchain(ctrl)
 	chain.EXPECT().GetFactory().Return(factory).AnyTimes()
 
 	defer ctrl.Finish()
 
 	p := NewProtocol(&cfg, nil, nil, chain, nil)
-	p.usedChainIDs[3] = true
 
 	start := action.NewStartSubChain(
 		1,
@@ -60,8 +55,9 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 		0,
 		big.NewInt(0),
 	)
-	account, err := p.validateStartSubChain(start, nil)
+	account, usedChainIDS, err := p.validateStartSubChain(start, nil)
 	assert.NotNil(t, account)
+	assert.NotNil(t, usedChainIDS)
 	assert.NoError(t, err)
 
 	// chain ID is the main chain ID
@@ -76,10 +72,11 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 		0,
 		big.NewInt(0),
 	)
-	account, err = p.validateStartSubChain(start, nil)
+	account, usedChainIDS, err = p.validateStartSubChain(start, nil)
+	assert.Nil(t, usedChainIDS)
 	assert.Nil(t, account)
 	require.Error(t, err)
-	assert.True(t, strings.Contains(err.Error(), "is used by another chain"))
+	assert.True(t, strings.Contains(err.Error(), "is used by main chain"))
 
 	// chain ID is used
 	start = action.NewStartSubChain(
@@ -93,10 +90,11 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 		0,
 		big.NewInt(0),
 	)
-	account, err = p.validateStartSubChain(start, nil)
+	account, usedChainIDS, err = p.validateStartSubChain(start, nil)
 	assert.Nil(t, account)
+	assert.Nil(t, usedChainIDS)
 	require.Error(t, err)
-	assert.True(t, strings.Contains(err.Error(), "is used by another chain"))
+	assert.True(t, strings.Contains(err.Error(), "is used by another sub-chain"))
 
 	// security deposit is lower than the minimum
 	start = action.NewStartSubChain(
@@ -110,8 +108,9 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 		0,
 		big.NewInt(0),
 	)
-	account, err = p.validateStartSubChain(start, nil)
+	account, usedChainIDS, err = p.validateStartSubChain(start, nil)
 	assert.Nil(t, account)
+	assert.Nil(t, usedChainIDS)
 	require.Error(t, err)
 	assert.True(t, strings.Contains(err.Error(), "security deposit is smaller than the minimal requirement"))
 
@@ -127,8 +126,9 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 		0,
 		big.NewInt(0),
 	)
-	account, err = p.validateStartSubChain(start, nil)
+	account, usedChainIDS, err = p.validateStartSubChain(start, nil)
 	assert.Nil(t, account)
+	assert.Nil(t, usedChainIDS)
 	require.Error(t, err)
 	assert.True(t, strings.Contains(err.Error(), "sub-chain owner doesn't have enough balance for security deposit"))
 
@@ -144,10 +144,43 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 		0,
 		big.NewInt(0),
 	)
-	account, err = p.validateStartSubChain(start, nil)
+	account, usedChainIDS, err = p.validateStartSubChain(start, nil)
 	assert.Nil(t, account)
+	assert.Nil(t, usedChainIDS)
 	require.Error(t, err)
 	assert.True(t, strings.Contains(err.Error(), "sub-chain owner doesn't have enough balance for operation deposit"))
+
+	// operation deposit is more than the owner balance in working set
+	ws := mock_state.NewMockWorkingSet(ctrl)
+	ws.EXPECT().CachedState(gomock.Any(), gomock.Any()).Return(&UsedChainIDs{3}, nil).Times(1)
+	ws.EXPECT().CachedAccountState(gomock.Any()).Return(
+		&state.Account{Balance: big.NewInt(0).Mul(big.NewInt(1500000000), big.NewInt(blockchain.Iotx))},
+		nil,
+	).AnyTimes()
+	start = action.NewStartSubChain(
+		1,
+		2,
+		testaddress.Addrinfo["producer"].RawAddress,
+		MinSecurityDeposit,
+		big.NewInt(0).Mul(big.NewInt(1000000000), big.NewInt(blockchain.Iotx)),
+		110,
+		10,
+		0,
+		big.NewInt(0),
+	)
+	account, usedChainIDS, err = p.validateStartSubChain(start, ws)
+	assert.Nil(t, account)
+	assert.Nil(t, usedChainIDS)
+	require.Error(t, err)
+	assert.True(t, strings.Contains(err.Error(), "sub-chain owner doesn't have enough balance for operation deposit"))
+
+	// chain ID is used in the working set
+	ws.EXPECT().CachedState(gomock.Any(), gomock.Any()).Return(&UsedChainIDs{2, 3}, nil).Times(1)
+	account, usedChainIDS, err = p.validateStartSubChain(start, ws)
+	assert.Nil(t, account)
+	assert.Nil(t, usedChainIDS)
+	require.Error(t, err)
+	assert.True(t, strings.Contains(err.Error(), "is used by another sub-chain"))
 }
 
 func TestCreateSubChainAddress(t *testing.T) {
@@ -239,6 +272,21 @@ func TestHandleStartSubChain(t *testing.T) {
 	assert.Equal(t, uint64(0), sc.CurrentHeight)
 }
 
+func TestNoStartSubChainInGenesis(t *testing.T) {
+	cfg := config.Default
+
+	ctx := context.Background()
+	bc := blockchain.NewBlockchain(&cfg, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	p := NewProtocol(&cfg, nil, nil, bc, nil)
+	bc.GetFactory().AddActionHandlers(p)
+	require.NoError(t, bc.Start(ctx))
+	defer require.NoError(t, bc.Stop(ctx))
+
+	usedChainIDs, err := p.UsedChainIDs()
+	require.NoError(t, err)
+	assert.Equal(t, 0, len(usedChainIDs))
+}
+
 func TestStartSubChainInGenesis(t *testing.T) {
 	cfg := config.Default
 	cfg.Chain.EnableSubChainStartInGenesis = true
@@ -260,6 +308,9 @@ func TestStartSubChainInGenesis(t *testing.T) {
 	assert.Equal(t, blockchain.ConvertIotxToRau(1000000000), sc.OperationDeposit)
 	assert.Equal(t, uint64(10), sc.StartHeight)
 	assert.Equal(t, uint64(10), sc.ParentHeightOffset)
+	usedChainIDs, err := p.UsedChainIDs()
+	require.NoError(t, err)
+	assert.True(t, usedChainIDs.Exist(2))
 }
 
 func TestGetSubChainDBPath(t *testing.T) {

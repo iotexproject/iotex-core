@@ -37,6 +37,8 @@ const (
 var (
 	// MinSecurityDeposit represents the security deposit minimal required for start a sub-chain, which is 1M iotx
 	MinSecurityDeposit = big.NewInt(0).Mul(big.NewInt(1000000000), big.NewInt(blockchain.Iotx))
+	// usedChainIDsKey is to find the used chain IDs in the state factory
+	usedChainIDsKey = byteutil.BytesTo20B(hash.Hash160b([]byte("usedChainIDs")))
 )
 
 // Protocol defines the protocol of handling sub-chain actions
@@ -47,7 +49,6 @@ type Protocol struct {
 	rootChain        blockchain.Blockchain
 	sf               state.Factory
 	rootChainAPI     explorer.Explorer
-	usedChainIDs     map[uint32]bool
 	subChainServices map[uint32]*chainservice.ChainService
 }
 
@@ -59,18 +60,15 @@ func NewProtocol(
 	rootChain blockchain.Blockchain,
 	rootChainAPI explorer.Explorer,
 ) *Protocol {
-	p := Protocol{
+	return &Protocol{
 		cfg:              cfg,
 		p2p:              p2p,
 		dispatcher:       dispatcher,
 		rootChain:        rootChain,
 		sf:               rootChain.GetFactory(),
 		rootChainAPI:     rootChainAPI,
-		usedChainIDs:     make(map[uint32]bool),
 		subChainServices: make(map[uint32]*chainservice.ChainService),
 	}
-	p.usedChainIDs[MainChainID] = true
-	return &p
 }
 
 // Handle handles how to mutate the state db given the sub-chain action
@@ -93,7 +91,7 @@ func (p *Protocol) Handle(act action.Action, ws state.WorkingSet) error {
 func (p *Protocol) Validate(act action.Action) error {
 	switch act.(type) {
 	case *action.StartSubChain:
-		if _, err := p.validateStartSubChain(act.(*action.StartSubChain), nil); err != nil {
+		if _, _, err := p.validateStartSubChain(act.(*action.StartSubChain), nil); err != nil {
 			return errors.Wrapf(err, "error when handling start sub-chain action")
 		}
 	}
@@ -115,12 +113,19 @@ func (p *Protocol) SubChain(addr address.Address) (*SubChain, error) {
 	return sc, nil
 }
 
+// UsedChainIDs returns the used chain IDs
+func (p *Protocol) UsedChainIDs() (UsedChainIDs, error) {
+	var usedChainIDs UsedChainIDs
+	s, err := p.sf.State(usedChainIDsKey, &usedChainIDs)
+	return processState(s, err)
+}
+
 func (p *Protocol) handleStartSubChain(start *action.StartSubChain, ws state.WorkingSet) error {
-	account, err := p.validateStartSubChain(start, ws)
+	account, usedChainIDs, err := p.validateStartSubChain(start, ws)
 	if err != nil {
 		return err
 	}
-	subChain, err := p.mutateSubChainState(start, account, ws)
+	subChain, err := p.mutateSubChainState(start, account, usedChainIDs, ws)
 	if err != nil {
 		return err
 	}
@@ -130,35 +135,54 @@ func (p *Protocol) handleStartSubChain(start *action.StartSubChain, ws state.Wor
 	return nil
 }
 
-func (p *Protocol) validateStartSubChain(start *action.StartSubChain, ws state.WorkingSet) (*state.Account, error) {
-	if _, ok := p.usedChainIDs[start.ChainID()]; ok {
-		return nil, fmt.Errorf("%d is used by another chain", start.ChainID())
+func (p *Protocol) validateStartSubChain(
+	start *action.StartSubChain,
+	ws state.WorkingSet,
+) (*state.Account, UsedChainIDs, error) {
+	if start.ChainID() == MainChainID {
+		return nil, nil, fmt.Errorf("%d is used by main chain", start.ChainID())
+	}
+	var usedChainIDs UsedChainIDs
+	var err error
+	if ws == nil {
+		usedChainIDs, err = p.UsedChainIDs()
+	} else {
+		usedChainIDs, err = cachedUsedChainIDs(ws)
+	}
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "error when getting the state of used chain IDs")
+	}
+	if usedChainIDs.Exist(start.ChainID()) {
+		return nil, nil, fmt.Errorf("%d is used by another sub-chain", start.ChainID())
 	}
 	var account *state.Account
-	var err error
 	if ws == nil {
 		account, err = p.sf.AccountState(start.OwnerAddress())
 	} else {
 		account, err = ws.CachedAccountState(start.OwnerAddress())
 	}
 	if err != nil {
-		return nil, errors.Wrapf(err, "error when getting the state of address %s", start.OwnerAddress())
+		return nil, nil, errors.Wrapf(err, "error when getting the state of address %s", start.OwnerAddress())
 	}
 	if start.SecurityDeposit().Cmp(MinSecurityDeposit) < 0 {
-		return nil, fmt.Errorf("security deposit is smaller than the minimal requirement %d", MinSecurityDeposit)
+		return nil, nil, fmt.Errorf(
+			"security deposit is smaller than the minimal requirement %s",
+			MinSecurityDeposit.String(),
+		)
 	}
 	if account.Balance.Cmp(start.SecurityDeposit()) < 0 {
-		return nil, errors.New("sub-chain owner doesn't have enough balance for security deposit")
+		return nil, nil, errors.New("sub-chain owner doesn't have enough balance for security deposit")
 	}
 	if account.Balance.Cmp(big.NewInt(0).Add(start.SecurityDeposit(), start.OperationDeposit())) < 0 {
-		return nil, errors.New("sub-chain owner doesn't have enough balance for operation deposit")
+		return nil, nil, errors.New("sub-chain owner doesn't have enough balance for operation deposit")
 	}
-	return account, nil
+	return account, usedChainIDs, nil
 }
 
 func (p *Protocol) mutateSubChainState(
 	start *action.StartSubChain,
 	account *state.Account,
+	usedChainIDs UsedChainIDs,
 	ws state.WorkingSet,
 ) (*SubChain, error) {
 	addr, err := createSubChainAddress(start.OwnerAddress(), start.Nonce())
@@ -190,7 +214,10 @@ func (p *Protocol) mutateSubChainState(
 	if err := ws.PutState(ownerPKHash, account); err != nil {
 		return nil, err
 	}
-	p.usedChainIDs[start.ChainID()] = true
+	usedChainIDs = usedChainIDs.Append(start.ChainID())
+	if err := ws.PutState(usedChainIDsKey, &usedChainIDs); err != nil {
+		return nil, err
+	}
 	// TODO: update voting results because of owner account balance change
 	return &sc, nil
 }
@@ -267,4 +294,24 @@ func ownerAddressPKHash(ownerAddr string) (hash.PKHash, error) {
 func getSubChainDBPath(chainID uint32, p string) string {
 	dir, file := path.Split(p)
 	return path.Join(dir, fmt.Sprintf("chain-%d-%s", chainID, file))
+}
+
+func cachedUsedChainIDs(ws state.WorkingSet) (UsedChainIDs, error) {
+	var usedChainIDs UsedChainIDs
+	s, err := ws.CachedState(usedChainIDsKey, &usedChainIDs)
+	return processState(s, err)
+}
+
+func processState(s state.State, err error) (UsedChainIDs, error) {
+	if err != nil {
+		if errors.Cause(err) == state.ErrStateNotExist {
+			return UsedChainIDs{}, nil
+		}
+		return nil, errors.Wrapf(err, "error when loading state of %x", usedChainIDsKey)
+	}
+	uci, ok := s.(*UsedChainIDs)
+	if !ok {
+		return nil, errors.New("error when casting state into used chain IDs")
+	}
+	return *uci, nil
 }
