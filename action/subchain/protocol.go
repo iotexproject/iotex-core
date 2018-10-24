@@ -149,6 +149,9 @@ func (p *Protocol) validateStartSubChain(
 	} else {
 		usedChainIDs, err = cachedUsedChainIDs(ws)
 	}
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "error when getting the state of used chain IDs")
+	}
 	if usedChainIDs.Exist(start.ChainID()) {
 		return nil, nil, fmt.Errorf("%d is used by another sub-chain", start.ChainID())
 	}
@@ -162,7 +165,10 @@ func (p *Protocol) validateStartSubChain(
 		return nil, nil, errors.Wrapf(err, "error when getting the state of address %s", start.OwnerAddress())
 	}
 	if start.SecurityDeposit().Cmp(MinSecurityDeposit) < 0 {
-		return nil, nil, fmt.Errorf("security deposit is smaller than the minimal requirement %d", MinSecurityDeposit)
+		return nil, nil, fmt.Errorf(
+			"security deposit is smaller than the minimal requirement %s",
+			MinSecurityDeposit.String(),
+		)
 	}
 	if account.Balance.Cmp(start.SecurityDeposit()) < 0 {
 		return nil, nil, errors.New("sub-chain owner doesn't have enough balance for security deposit")
