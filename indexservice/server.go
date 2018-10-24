@@ -62,6 +62,13 @@ func (s *Server) Start(ctx context.Context) error {
 		return errors.Wrap(err, "error when subscribe to block")
 	}
 
+	// sync genesis block
+	genesisBlk, err := s.bc.GetBlockByHeight(0)
+	if err != nil {
+		return errors.Wrap(err, "error when get genesis block")
+	}
+	s.idx.BuildIndex(genesisBlk)
+
 	go func() {
 		for {
 			select {
