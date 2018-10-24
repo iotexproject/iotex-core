@@ -34,7 +34,7 @@ func (p *Protocol) getBlockProof(addr string, height uint64) (BlockProof, bool) 
 	if _, err := p.sf.State(blockProofKey(addr, height), &bp); err != nil {
 		return BlockProof{}, false
 	}
-	return bp, false
+	return bp, true
 }
 
 func (p *Protocol) putBlockProof(bp BlockProof, ws state.WorkingSet) error {
