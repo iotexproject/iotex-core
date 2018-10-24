@@ -114,8 +114,8 @@ func (p *Protocol) SubChain(addr address.Address) (*SubChain, error) {
 }
 
 // UsedChainIDs returns the used chain IDs
-func (p *Protocol) UsedChainIDs() (UsedChainIDs, error) {
-	var usedChainIDs UsedChainIDs
+func (p *Protocol) UsedChainIDs() (state.SortedSlice, error) {
+	var usedChainIDs state.SortedSlice
 	s, err := p.sf.State(usedChainIDsKey, &usedChainIDs)
 	return processState(s, err)
 }
@@ -138,11 +138,11 @@ func (p *Protocol) handleStartSubChain(start *action.StartSubChain, ws state.Wor
 func (p *Protocol) validateStartSubChain(
 	start *action.StartSubChain,
 	ws state.WorkingSet,
-) (*state.Account, UsedChainIDs, error) {
+) (*state.Account, state.SortedSlice, error) {
 	if start.ChainID() == MainChainID {
 		return nil, nil, fmt.Errorf("%d is used by main chain", start.ChainID())
 	}
-	var usedChainIDs UsedChainIDs
+	var usedChainIDs state.SortedSlice
 	var err error
 	if ws == nil {
 		usedChainIDs, err = p.UsedChainIDs()
@@ -152,7 +152,7 @@ func (p *Protocol) validateStartSubChain(
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "error when getting the state of used chain IDs")
 	}
-	if usedChainIDs.Exist(start.ChainID()) {
+	if usedChainIDs.Exist(start.ChainID(), CompareChainID) {
 		return nil, nil, fmt.Errorf("%d is used by another sub-chain", start.ChainID())
 	}
 	var account *state.Account
@@ -182,7 +182,7 @@ func (p *Protocol) validateStartSubChain(
 func (p *Protocol) mutateSubChainState(
 	start *action.StartSubChain,
 	account *state.Account,
-	usedChainIDs UsedChainIDs,
+	usedChainIDs state.SortedSlice,
 	ws state.WorkingSet,
 ) (*SubChain, error) {
 	addr, err := createSubChainAddress(start.OwnerAddress(), start.Nonce())
@@ -214,7 +214,7 @@ func (p *Protocol) mutateSubChainState(
 	if err := ws.PutState(ownerPKHash, account); err != nil {
 		return nil, err
 	}
-	usedChainIDs = usedChainIDs.Append(start.ChainID())
+	usedChainIDs = usedChainIDs.Append(start.ChainID(), CompareChainID)
 	if err := ws.PutState(usedChainIDsKey, &usedChainIDs); err != nil {
 		return nil, err
 	}
@@ -296,20 +296,20 @@ func getSubChainDBPath(chainID uint32, p string) string {
 	return path.Join(dir, fmt.Sprintf("chain-%d-%s", chainID, file))
 }
 
-func cachedUsedChainIDs(ws state.WorkingSet) (UsedChainIDs, error) {
-	var usedChainIDs UsedChainIDs
+func cachedUsedChainIDs(ws state.WorkingSet) (state.SortedSlice, error) {
+	var usedChainIDs state.SortedSlice
 	s, err := ws.CachedState(usedChainIDsKey, &usedChainIDs)
 	return processState(s, err)
 }
 
-func processState(s state.State, err error) (UsedChainIDs, error) {
+func processState(s state.State, err error) (state.SortedSlice, error) {
 	if err != nil {
 		if errors.Cause(err) == state.ErrStateNotExist {
-			return UsedChainIDs{}, nil
+			return state.SortedSlice{}, nil
 		}
 		return nil, errors.Wrapf(err, "error when loading state of %x", usedChainIDsKey)
 	}
-	uci, ok := s.(*UsedChainIDs)
+	uci, ok := s.(*state.SortedSlice)
 	if !ok {
 		return nil, errors.New("error when casting state into used chain IDs")
 	}
