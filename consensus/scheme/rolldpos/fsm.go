@@ -79,6 +79,8 @@ var (
 	ErrEvtCast = errors.New("error when casting the event")
 	// ErrEvtConvert indicates the error of converting the event from/to the proto message
 	ErrEvtConvert = errors.New("error when converting the event from/to the proto message")
+	// ErrEvtType represents an unexpected event type error
+	ErrEvtType = errors.New("error when check the event type")
 
 	// consensusStates is a slice consisting of all consensusEvt states
 	consensusStates = []fsm.State{
@@ -482,18 +484,37 @@ func (m *cFSM) handleProposeBlockTimeout(evt fsm.Event) (fsm.State, error) {
 	return m.moveToAcceptProposalEndorse()
 }
 
-func (m *cFSM) validateEndorse(en *endorsement.Endorsement, expectedEndorseTopic endorsement.ConsensusVoteTopic) bool {
-	errorLog := logger.Error().
-		Uint64("expectedHeight", m.ctx.round.height).
-		Uint8("expectedEndorseTopic", uint8(expectedEndorseTopic))
+func (m *cFSM) isDelegateEndorsement(endorser string) bool {
+	for _, delegate := range m.ctx.epoch.delegates {
+		if delegate == endorser {
+			return true
+		}
+	}
+	return false
+}
+
+func (m *cFSM) validateEndorse(
+	en *endorsement.Endorsement,
+	expectedConsensusTopics map[endorsement.ConsensusVoteTopic]bool,
+) bool {
+	if !m.isDelegateEndorsement(en.Endorser()) {
+		logger.Error().
+			Str("endorser", en.Endorser()).
+			Msg("error when validating the endorser's delegation")
+		return false
+	}
 	vote := en.ConsensusVote()
-	if vote.Topic != expectedEndorseTopic {
-		errorLog.Uint8("endorseTopic", uint8(vote.Topic)).
+	if _, ok := expectedConsensusTopics[vote.Topic]; !ok {
+		logger.Error().
+			Interface("expectedConsensusTopics", expectedConsensusTopics).
+			Uint8("consensusTopic", uint8(vote.Topic)).
 			Msg("error when validating the endorse topic")
 		return false
 	}
 	if vote.Height != m.ctx.round.height {
-		errorLog.Uint64("height", vote.Height).
+		logger.Error().
+			Uint64("height", vote.Height).
+			Uint64("expectedHeight", m.ctx.round.height).
 			Msg("error when validating the endorse height")
 		return false
 	}
@@ -515,21 +536,25 @@ func (m *cFSM) isProposedBlock(hash []byte) bool {
 	return bytes.Equal(hash[:], blkHash[:])
 }
 
-func (m *cFSM) handleEndorseProposalEvt(evt fsm.Event) (fsm.State, error) {
-	if evt.Type() != eEndorseProposal {
-		return sEpochStart, errors.Errorf("invalid event type %s", evt.Type())
+func (m *cFSM) processEndorseEvent(
+	evt fsm.Event,
+	expectedEventType fsm.EventType,
+	expectedConsensusTopics map[endorsement.ConsensusVoteTopic]bool,
+) (*endorsement.Set, error) {
+	if evt.Type() != expectedEventType {
+		return nil, errors.Wrapf(ErrEvtType, "invalid endorsement event type %s", evt.Type())
 	}
 	endorseEvt, ok := evt.(*endorseEvt)
 	if !ok {
-		return sEpochStart, errors.Wrap(ErrEvtCast, "the event is not an endorseEvt")
+		return nil, errors.Wrap(ErrEvtCast, "the event is not an endorseEvt")
 	}
 	endorse := endorseEvt.endorse
 	vote := endorse.ConsensusVote()
 	if !m.isProposedBlock(vote.BlkHash[:]) {
-		return sAcceptProposalEndorse, nil
+		return nil, errors.New("the endorsed block was not the proposed block")
 	}
-	if !m.validateEndorse(endorse, endorsement.PROPOSAL) {
-		return sAcceptProposalEndorse, nil
+	if !m.validateEndorse(endorse, expectedConsensusTopics) {
+		return nil, errors.New("invalid endorsement")
 	}
 	blkHash := vote.BlkHash
 	endorsementSet, ok := m.ctx.round.endorsementSets[blkHash]
@@ -539,18 +564,33 @@ func (m *cFSM) handleEndorseProposalEvt(evt fsm.Event) (fsm.State, error) {
 	}
 	endorsementSet.AddEndorsement(endorse)
 	validNum := endorsementSet.NumOfValidEndorsements(
+		expectedConsensusTopics,
+		m.ctx.epoch.delegates,
+	)
+	if validNum <= len(m.ctx.epoch.delegates)*2/3 {
+		return nil, nil
+	}
+	return endorsementSet, nil
+}
+
+func (m *cFSM) handleEndorseProposalEvt(evt fsm.Event) (fsm.State, error) {
+	endorsementSet, err := m.processEndorseEvent(
+		evt,
+		eEndorseProposal,
 		map[endorsement.ConsensusVoteTopic]bool{
 			endorsement.PROPOSAL: true,
 			endorsement.COMMIT:   true, // commit endorse is counted as one proposal endorse
 		},
-		m.ctx.epoch.delegates,
 	)
-	if validNum <= len(m.ctx.epoch.delegates)*2/3 {
-		// Wait for more lock votes to come
-		return sAcceptProposalEndorse, nil
+	if errors.Cause(err) == ErrEvtCast || errors.Cause(err) == ErrEvtType {
+		return sEpochStart, err
 	}
-	// Reached the agreement
-	cEvt, err := m.newEndorseLockEvt(blkHash)
+	if err != nil || endorsementSet == nil {
+		return sAcceptProposalEndorse, err
+	}
+	// Gather enough proposal endorsement
+	m.ctx.round.proofOfLock = endorsementSet
+	cEvt, err := m.newEndorseLockEvt(endorsementSet.BlockHash())
 	if err != nil {
 		return sEpochStart, errors.Wrap(err, "failed to generate endorse commit event")
 	}
@@ -579,39 +619,20 @@ func (m *cFSM) handleEndorseProposalTimeout(evt fsm.Event) (fsm.State, error) {
 }
 
 func (m *cFSM) handleEndorseLockEvt(evt fsm.Event) (fsm.State, error) {
-	if evt.Type() != eEndorseLock {
-		return sEpochStart, errors.Errorf("invalid event type %s", evt.Type())
-	}
-	endorseEvt, ok := evt.(*endorseEvt)
-	if !ok {
-		return sEpochStart, errors.Wrap(ErrEvtCast, "the event is not an endorseEvt")
-	}
-	endorse := endorseEvt.endorse
-	vote := endorse.ConsensusVote()
-	if !m.isProposedBlock(vote.BlkHash[:]) {
-		return sAcceptLockEndorse, nil
-	}
-	if vote.Topic != endorsement.LOCK {
-		return sAcceptLockEndorse, nil
-	}
-	// TODO verify that the endorse is one delegate, and verify signature via endorse.VerifySignature() with pub key
-	blkHash := vote.BlkHash
-	endorsementSet, ok := m.ctx.round.endorsementSets[blkHash]
-	if !ok {
-		endorsementSet = endorsement.NewSet(blkHash)
-		m.ctx.round.endorsementSets[blkHash] = endorsementSet
-	}
-	endorsementSet.AddEndorsement(endorse)
-	validNum := endorsementSet.NumOfValidEndorsements(
+	endorsementSet, err := m.processEndorseEvent(
+		evt,
+		eEndorseLock,
 		map[endorsement.ConsensusVoteTopic]bool{
 			endorsement.LOCK:   true,
 			endorsement.COMMIT: true, // commit endorse is counted as one lock endorse
 		},
-		m.ctx.epoch.delegates,
 	)
-	if validNum <= len(m.ctx.epoch.delegates)*2/3 {
+	if errors.Cause(err) == ErrEvtCast || errors.Cause(err) == ErrEvtType {
+		return sEpochStart, err
+	}
+	if err != nil || endorsementSet == nil {
 		// Wait for more lock votes to come
-		return sAcceptLockEndorse, nil
+		return sAcceptLockEndorse, err
 	}
 
 	return m.processEndorseLock(true)
