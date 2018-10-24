@@ -68,10 +68,7 @@ type BlockFooter struct {
 // Block defines the struct of block
 type Block struct {
 	Header          *BlockHeader
-	Transfers       []*action.Transfer
-	Votes           []*action.Vote
 	Actions         []action.Action
-	Executions      []*action.Execution
 	SecretProposals []*action.SecretProposal
 	SecretWitness   *action.SecretWitness
 	receipts        map[hash.Hash32B]*Receipt
@@ -85,9 +82,6 @@ func NewBlock(
 	height uint64,
 	prevBlockHash hash.Hash32B,
 	timestamp uint64,
-	tsf []*action.Transfer,
-	vote []*action.Vote,
-	executions []*action.Execution,
 	actions []action.Action,
 ) *Block {
 	block := &Block{
@@ -101,10 +95,7 @@ func NewBlock(
 			stateRoot:     hash.ZeroHash32B,
 			receiptRoot:   hash.ZeroHash32B,
 		},
-		Transfers:  tsf,
-		Votes:      vote,
-		Executions: executions,
-		Actions:    actions,
+		Actions: actions,
 	}
 
 	block.Header.txRoot = block.TxRoot()
@@ -144,7 +135,7 @@ func (b *Block) IsDummyBlock() bool {
 	return b.Header.height > 0 &&
 		len(b.Header.blockSig) == 0 &&
 		b.Header.Pubkey == keypair.ZeroPublicKey &&
-		len(b.Transfers)+len(b.Votes)+len(b.Executions)+len(b.Actions) == 0
+		len(b.Actions) == 0
 }
 
 // Height returns the height of this block
@@ -190,15 +181,6 @@ func (b *Block) ByteStream() []byte {
 	stream = append(stream, b.Header.DKGPubkey[:]...)
 	stream = append(stream, b.Header.DKGBlockSig[:]...)
 
-	for _, t := range b.Transfers {
-		stream = append(stream, t.ByteStream()...)
-	}
-	for _, v := range b.Votes {
-		stream = append(stream, v.ByteStream()...)
-	}
-	for _, e := range b.Executions {
-		stream = append(stream, e.ByteStream()...)
-	}
 	for _, sp := range b.SecretProposals {
 		stream = append(stream, sp.ByteStream()...)
 	}
@@ -234,15 +216,6 @@ func (b *Block) ConvertToBlockHeaderPb() *iproto.BlockHeaderPb {
 // ConvertToBlockPb converts Block to BlockPb
 func (b *Block) ConvertToBlockPb() *iproto.BlockPb {
 	actions := []*iproto.ActionPb{}
-	for _, tsf := range b.Transfers {
-		actions = append(actions, tsf.Proto())
-	}
-	for _, vote := range b.Votes {
-		actions = append(actions, vote.Proto())
-	}
-	for _, execution := range b.Executions {
-		actions = append(actions, execution.Proto())
-	}
 	for _, secretProposal := range b.SecretProposals {
 		actions = append(actions, secretProposal.Proto())
 	}
@@ -283,26 +256,12 @@ func (b *Block) ConvertFromBlockHeaderPb(pbBlock *iproto.BlockPb) {
 func (b *Block) ConvertFromBlockPb(pbBlock *iproto.BlockPb) {
 	b.ConvertFromBlockHeaderPb(pbBlock)
 
-	b.Transfers = []*action.Transfer{}
-	b.Votes = []*action.Vote{}
-	b.Executions = []*action.Execution{}
 	b.SecretProposals = []*action.SecretProposal{}
 	b.SecretWitness = nil
+	b.Actions = []action.Action{}
 
 	for _, actPb := range pbBlock.Actions {
-		if tfPb := actPb.GetTransfer(); tfPb != nil {
-			tf := &action.Transfer{}
-			tf.LoadProto(actPb)
-			b.Transfers = append(b.Transfers, tf)
-		} else if votePb := actPb.GetVote(); votePb != nil {
-			vote := &action.Vote{}
-			vote.LoadProto(actPb)
-			b.Votes = append(b.Votes, vote)
-		} else if executionPb := actPb.GetExecution(); executionPb != nil {
-			execution := &action.Execution{}
-			execution.LoadProto(actPb)
-			b.Executions = append(b.Executions, execution)
-		} else if secretProposalPb := actPb.GetSecretProposal(); secretProposalPb != nil {
+		if secretProposalPb := actPb.GetSecretProposal(); secretProposalPb != nil {
 			secretProposal := &action.SecretProposal{}
 			secretProposal.LoadProto(actPb)
 			b.SecretProposals = append(b.SecretProposals, secretProposal)
@@ -310,6 +269,18 @@ func (b *Block) ConvertFromBlockPb(pbBlock *iproto.BlockPb) {
 			secretWitness := &action.SecretWitness{}
 			secretWitness.LoadProto(actPb)
 			b.SecretWitness = secretWitness
+		} else if transferPb := actPb.GetTransfer(); transferPb != nil {
+			transfer := &action.Transfer{}
+			transfer.LoadProto(actPb)
+			b.Actions = append(b.Actions, transfer)
+		} else if votePb := actPb.GetVote(); votePb != nil {
+			vote := &action.Vote{}
+			vote.LoadProto(actPb)
+			b.Actions = append(b.Actions, vote)
+		} else if executionPb := actPb.GetExecution(); executionPb != nil {
+			execution := &action.Execution{}
+			execution.LoadProto(actPb)
+			b.Actions = append(b.Actions, execution)
 		} else if start := actPb.GetStartSubChain(); start != nil {
 			start := &action.StartSubChain{}
 			start.LoadProto(actPb)
@@ -339,15 +310,6 @@ func (b *Block) Deserialize(buf []byte) error {
 // TxRoot returns the Merkle root of all txs and actions in this block.
 func (b *Block) TxRoot() hash.Hash32B {
 	var h []hash.Hash32B
-	for _, t := range b.Transfers {
-		h = append(h, t.Hash())
-	}
-	for _, v := range b.Votes {
-		h = append(h, v.Hash())
-	}
-	for _, e := range b.Executions {
-		h = append(h, e.Hash())
-	}
 	for _, sp := range b.SecretProposals {
 		h = append(h, sp.Hash())
 	}

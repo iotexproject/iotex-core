@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db/rds"
@@ -76,39 +77,41 @@ func TestIndexService(t *testing.T) {
 
 		db := rdsStore.GetDB()
 
+		transfers, votes, executions := action.ClassifyActions(blk.Actions)
+
 		// get transfer
 		transferHashes, err := idx.GetTransferHistory(userAddr1)
 		require.Nil(err)
 		require.Equal(1, len(transferHashes))
-		transfer := blk.Transfers[0].Hash()
+		transfer := transfers[0].Hash()
 		require.Equal(transfer, transferHashes[0])
 
 		// get vote
 		voteHashes, err := idx.GetVoteHistory(userAddr1)
 		require.Nil(err)
 		require.Equal(1, len(voteHashes))
-		vote := blk.Votes[0].Hash()
+		vote := votes[0].Hash()
 		require.Equal(vote, voteHashes[0])
 
 		// get execution
 		executionHashes, err := idx.GetExecutionHistory(userAddr1)
 		require.Nil(err)
 		require.Equal(1, len(executionHashes))
-		execution := blk.Executions[0].Hash()
+		execution := executions[0].Hash()
 		require.Equal(execution, executionHashes[0])
 
 		// transfer map to block
-		blkHash1, err := idx.GetBlockByTransfer(blk.Transfers[0].Hash())
+		blkHash1, err := idx.GetBlockByTransfer(transfers[0].Hash())
 		require.Nil(err)
 		require.Equal(blkHash1, blk.HashBlock())
 
 		// vote map to block
-		blkHash2, err := idx.GetBlockByVote(blk.Votes[0].Hash())
+		blkHash2, err := idx.GetBlockByVote(votes[0].Hash())
 		require.Nil(err)
 		require.Equal(blkHash2, blk.HashBlock())
 
 		// execution map to block
-		blkHash3, err := idx.GetBlockByExecution(blk.Executions[0].Hash())
+		blkHash3, err := idx.GetBlockByExecution(executions[0].Hash())
 		require.Nil(err)
 		require.Equal(blkHash3, blk.HashBlock())
 
