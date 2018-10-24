@@ -8,6 +8,7 @@ package subchain
 
 import (
 	"math/big"
+	"sort"
 
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
@@ -25,10 +26,10 @@ type SubChain struct {
 	CurrentHeight      uint64
 }
 
-// Serialize serialize sub-chain state into bytes
+// Serialize serializes sub-chain state into bytes
 func (bs *SubChain) Serialize() ([]byte, error) { return state.GobBasedSerialize(bs) }
 
-// Deserialize deserialize bytes into sub-chain state
+// Deserialize deserializes bytes into sub-chain state
 func (bs *SubChain) Deserialize(data []byte) error { return state.GobBasedDeserialize(bs, data) }
 
 // blockProof represents the block proof of a sub-chain in the state factory
@@ -43,3 +44,36 @@ func (bp *blockProof) Serialize() ([]byte, error) { return state.GobBasedSeriali
 
 // Deserialize deserialize bytes into block proof state
 func (bp *blockProof) Deserialize(data []byte) error { return state.GobBasedDeserialize(bp, data) }
+
+// UsedChainIDs represents the used chain IDs in the state factory, which is sorted
+type UsedChainIDs []uint32
+
+// Serialize serializes the used chain IDs into bytes
+func (usedChainIDs *UsedChainIDs) Serialize() ([]byte, error) {
+	return state.GobBasedSerialize(usedChainIDs)
+}
+
+// Deserialize deserializes bytes into the used chain IDs
+func (usedChainIDs *UsedChainIDs) Deserialize(data []byte) error {
+	if err := state.GobBasedDeserialize(usedChainIDs, data); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Exist check if a chain ID is used or not
+func (usedChainIDs UsedChainIDs) Exist(chainID uint32) bool {
+	idx := sort.Search(len(usedChainIDs), func(i int) bool {
+		return usedChainIDs[i] >= chainID
+	})
+	return idx < len(usedChainIDs) && usedChainIDs[idx] == chainID
+}
+
+// Append appends a chain ID into the used chain IDs
+func (usedChainIDs UsedChainIDs) Append(chainID uint32) UsedChainIDs {
+	usedChainIDs = append(usedChainIDs, chainID)
+	sort.Slice(usedChainIDs, func(i, j int) bool {
+		return usedChainIDs[i] < usedChainIDs[j]
+	})
+	return usedChainIDs
+}
