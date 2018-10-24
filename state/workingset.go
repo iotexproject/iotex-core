@@ -256,9 +256,7 @@ func (ws *workingSet) RunActions(
 
 	// Persist accountTrie's root hash
 	rootHash := ws.accountTrie.RootHash()
-	if err := ws.dao.Put(trie.AccountKVNameSpace, []byte(AccountTrieRootKey), rootHash[:]); err != nil {
-		return hash.ZeroHash32B, errors.Wrap(err, "failed to store accountTrie's root hash")
-	}
+	ws.cb.Put(trie.AccountKVNameSpace, []byte(AccountTrieRootKey), rootHash[:], "failed to store accountTrie's root hash")
 	// Persist new list of Candidates
 	candidates, err := MapToCandidates(ws.cachedCandidates)
 	if err != nil {
@@ -270,20 +268,17 @@ func (ws *workingSet) RunActions(
 		return hash.ZeroHash32B, errors.Wrap(err, "failed to serialize Candidates")
 	}
 	h := byteutil.Uint64ToBytes(blockHeight)
-	if err := ws.dao.Put(trie.CandidateKVNameSpace, h, candidatesBytes); err != nil {
-		return hash.ZeroHash32B, errors.Wrapf(err, "failed to store Candidates on Height %d", blockHeight)
-	}
+	ws.cb.Put(trie.CandidateKVNameSpace, h, candidatesBytes, "failed to store Candidates on Height %d", blockHeight)
 	// Persist current chain Height
-	if err := ws.dao.Put(trie.AccountKVNameSpace, []byte(CurrentHeightKey), h); err != nil {
-		return hash.ZeroHash32B, errors.Wrap(err, "failed to store accountTrie's current Height")
-	}
+	ws.cb.Put(trie.AccountKVNameSpace, []byte(CurrentHeightKey), h, "failed to store accountTrie's current Height")
+
 	return ws.RootHash(), nil
 }
 
 // Commit persists all changes in RunActions() into the DB
 func (ws *workingSet) Commit() error {
 	// Commit all changes in a batch
-	if err := ws.accountTrie.Commit(); err != nil {
+	if err := ws.dao.Commit(ws.cb); err != nil {
 		return errors.Wrap(err, "failed to Commit all changes to underlying DB in a batch")
 	}
 	ws.clearCache()
