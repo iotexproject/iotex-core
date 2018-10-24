@@ -545,14 +545,14 @@ func (mr *MockBlockchainMockRecorder) SubscribeBlockCreation(ch interface{}) *go
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubscribeBlockCreation", reflect.TypeOf((*MockBlockchain)(nil).SubscribeBlockCreation), ch)
 }
 
-// UnSubscribeBlockCreation mocks base method
-func (m *MockBlockchain) UnSubscribeBlockCreation(ch chan *blockchain.Block) error {
-	ret := m.ctrl.Call(m, "UnSubscribeBlockCreation", ch)
+// UnsubscribeBlockCreation mocks base method
+func (m *MockBlockchain) UnsubscribeBlockCreation(ch chan *blockchain.Block) error {
+	ret := m.ctrl.Call(m, "UnsubscribeBlockCreation", ch)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// UnSubscribeBlockCreation indicates an expected call of UnSubscribeBlockCreation
-func (mr *MockBlockchainMockRecorder) UnSubscribeBlockCreation(ch interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnSubscribeBlockCreation", reflect.TypeOf((*MockBlockchain)(nil).UnSubscribeBlockCreation), ch)
+// UnsubscribeBlockCreation indicates an expected call of UnsubscribeBlockCreation
+func (mr *MockBlockchainMockRecorder) UnsubscribeBlockCreation(ch interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnsubscribeBlockCreation", reflect.TypeOf((*MockBlockchain)(nil).UnsubscribeBlockCreation), ch)
 }
