@@ -29,8 +29,8 @@ var (
 	// ErrNotEnoughBalance is the error that the balance is not enough
 	ErrNotEnoughBalance = errors.New("not enough balance")
 
-	// ErrAccountNotExist is the error that the account does not exist
-	ErrAccountNotExist = errors.New("account does not exist")
+	// ErrStateNotExist is the error that the account does not exist
+	ErrStateNotExist = errors.New("account does not exist")
 
 	// ErrAccountCollision is the error that the account already exists
 	ErrAccountCollision = errors.New("account already exists")
@@ -293,7 +293,7 @@ func (sf *factory) State(addr hash.PKHash, state State) (State, error) {
 	data, err := sf.accountTrie.Get(addr[:])
 	if err != nil {
 		if errors.Cause(err) == trie.ErrNotExist {
-			return nil, errors.Wrapf(ErrAccountNotExist, "state of %x doesn't exist", addr)
+			return nil, errors.Wrapf(ErrStateNotExist, "state of %x doesn't exist", addr)
 		}
 		return nil, errors.Wrapf(err, "error when getting the state of %x", addr)
 	}

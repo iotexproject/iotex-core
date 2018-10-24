@@ -118,9 +118,9 @@ clean:
 	$(ECHO_V)rm -f ./bin/$(BUILD_TARGET_ACTINJ)
 	$(ECHO_V)rm -f ./bin/$(BUILD_TARGET_ADDRGEN)
 	$(ECHO_V)rm -f ./bin/$(BUILD_TARGET_IOTC)
-	$(ECHO_V)rm -f ./e2etest/chain*.db
-	$(ECHO_V)rm -f chain.db
-	$(ECHO_V)rm -f trie.db
+	$(ECHO_V)rm -f ./e2etest/*chain*.db
+	$(ECHO_V)rm -f *chain*.db
+	$(ECHO_V)rm -f *trie*.db
 	$(ECHO_V)rm -f $(COV_REPORT) $(COV_HTML) $(LINT_LOG)
 	$(ECHO_V)find . -name $(COV_OUT) -delete
 	$(ECHO_V)find . -name $(TESTBED_COV_OUT) -delete
@@ -128,16 +128,16 @@ clean:
 
 .PHONY: reboot
 reboot:
-	$(ECHO_V)rm -f chain.db
-	$(ECHO_V)rm -f trie.db
-	$(ECHO_V)rm -f ./e2etest/chain*.db
+	$(ECHO_V)rm -f *chain*.db
+	$(ECHO_V)rm -f *trie*.db
+	$(ECHO_V)rm -f ./e2etest/*chain*.db
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
 	export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH):$(PWD)/crypto/lib:$(PWD)/crypto/lib/blslib
 	./bin/$(BUILD_TARGET_SERVER) -config-path=e2etest/config_local_delegate.yaml -log-colorful=true
 
 .PHONY: run
 run:
-	$(ECHO_V)rm -f ./e2etest/chain*.db
+	$(ECHO_V)rm -f ./e2etest/*chain*.db
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
 	export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH):$(PWD)/crypto/lib:$(PWD)/crypto/lib/blslib
 	./bin/$(BUILD_TARGET_SERVER) -config-path=e2etest/config_local_delegate.yaml -log-colorful=true
@@ -148,16 +148,16 @@ docker:
 
 .PHONY: minicluster
 minicluster:
-	$(ECHO_V)rm -f chain*.db
-	$(ECHO_V)rm -f trie*.db
+	$(ECHO_V)rm -f *chain*.db
+	$(ECHO_V)rm -f *trie*.db
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_MINICLUSTER) -v ./tools/minicluster
 	export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH):$(PWD)/crypto/lib:$(PWD)/crypto/lib/blslib
 	./bin/$(BUILD_TARGET_MINICLUSTER) -log-colorful=true
 
 .PHONY: nightlybuild
 nightlybuild:
-	$(ECHO_V)rm -f chain*.db
-	$(ECHO_V)rm -f trie*.db
+	$(ECHO_V)rm -f *chain*.db
+	$(ECHO_V)rm -f *trie*.db
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_MINICLUSTER) -v ./tools/minicluster
 	export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH):$(PWD)/crypto/lib:$(PWD)/crypto/lib/blslib
 	./bin/$(BUILD_TARGET_MINICLUSTER) -log-colorful=true -timeout=14400
