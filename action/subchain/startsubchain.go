@@ -164,7 +164,7 @@ func (p *Protocol) startSubChainService(addr string, sc *SubChain) error {
 					continue
 				}
 				// TODO: get rid of the hack config modification
-				cfg := p.cfg
+				cfg := *p.cfg
 				cfg.Chain.ID = sc.ChainID
 				cfg.Chain.Address = addr
 				cfg.Chain.ChainDBPath = getSubChainDBPath(sc.ChainID, cfg.Chain.ChainDBPath)
@@ -172,19 +172,19 @@ func (p *Protocol) startSubChainService(addr string, sc *SubChain) error {
 				cfg.Explorer.Port = cfg.Explorer.Port - int(MainChainID) + int(sc.ChainID)
 
 				opts := []chainservice.Option{chainservice.WithRootChainAPI(p.rootChainAPI)}
-				chainService, err := chainservice.New(p.cfg, p.p2p, p.dispatcher, opts...)
+				chainService, err := chainservice.New(&cfg, p.p2p, p.dispatcher, opts...)
 				if err != nil {
-					logger.Error().Err(err).Msgf("error when constructing the sub-chain %d", sc.StartHeight)
+					logger.Error().Err(err).Msgf("error when constructing the sub-chain %d", sc.ChainID)
 					continue
 				}
 				p.subChainServices[sc.ChainID] = chainService
 				p.dispatcher.AddSubscriber(sc.ChainID, chainService)
 				// TODO: inherit ctx from root chain
 				if err := chainService.Start(context.Background()); err != nil {
-					logger.Error().Err(err).Msgf("error when starting the sub-chain %d", sc.StartHeight)
+					logger.Error().Err(err).Msgf("error when starting the sub-chain %d", sc.ChainID)
 					continue
 				}
-				logger.Info().Msgf("started the sub-chain %d", sc.StartHeight)
+				logger.Info().Msgf("started the sub-chain %d", sc.ChainID)
 				// No matter if the start process failed or not
 				started = true
 			}
