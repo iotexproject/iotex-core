@@ -36,7 +36,7 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 		&state.Account{Balance: big.NewInt(0).Mul(big.NewInt(2000000000), big.NewInt(blockchain.Iotx))},
 		nil,
 	).AnyTimes()
-	factory.EXPECT().State(gomock.Any(), gomock.Any()).Return(&UsedChainIDs{3}, nil).AnyTimes()
+	factory.EXPECT().State(gomock.Any(), gomock.Any()).Return(&state.SortedSlice{uint32(3)}, nil).AnyTimes()
 	chain := mock_blockchain.NewMockBlockchain(ctrl)
 	chain.EXPECT().GetFactory().Return(factory).AnyTimes()
 
@@ -152,7 +152,7 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 
 	// operation deposit is more than the owner balance in working set
 	ws := mock_state.NewMockWorkingSet(ctrl)
-	ws.EXPECT().CachedState(gomock.Any(), gomock.Any()).Return(&UsedChainIDs{3}, nil).Times(1)
+	ws.EXPECT().CachedState(gomock.Any(), gomock.Any()).Return(&state.SortedSlice{uint32(3)}, nil).Times(1)
 	ws.EXPECT().CachedAccountState(gomock.Any()).Return(
 		&state.Account{Balance: big.NewInt(0).Mul(big.NewInt(1500000000), big.NewInt(blockchain.Iotx))},
 		nil,
@@ -175,7 +175,7 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 	assert.True(t, strings.Contains(err.Error(), "sub-chain owner doesn't have enough balance for operation deposit"))
 
 	// chain ID is used in the working set
-	ws.EXPECT().CachedState(gomock.Any(), gomock.Any()).Return(&UsedChainIDs{2, 3}, nil).Times(1)
+	ws.EXPECT().CachedState(gomock.Any(), gomock.Any()).Return(&state.SortedSlice{uint32(2), uint32(3)}, nil).Times(1)
 	account, usedChainIDS, err = p.validateStartSubChain(start, ws)
 	assert.Nil(t, account)
 	assert.Nil(t, usedChainIDS)
@@ -310,7 +310,7 @@ func TestStartSubChainInGenesis(t *testing.T) {
 	assert.Equal(t, uint64(10), sc.ParentHeightOffset)
 	usedChainIDs, err := p.UsedChainIDs()
 	require.NoError(t, err)
-	assert.True(t, usedChainIDs.Exist(2))
+	assert.True(t, usedChainIDs.Exist(uint32(2), CompareChainID))
 }
 
 func TestGetSubChainDBPath(t *testing.T) {

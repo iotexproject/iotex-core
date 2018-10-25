@@ -9,6 +9,7 @@ package state
 import (
 	"bytes"
 	"encoding/gob"
+	"sort"
 
 	"github.com/pkg/errors"
 )
@@ -45,4 +46,44 @@ func GobBasedDeserialize(state State, data []byte) error {
 		return errors.Wrapf(ErrStateDeserialization, "error when deserializing %T state", state)
 	}
 	return nil
+}
+
+// SortedSlice represents the state slice in the state factory, which is sorted by the function:
+//
+//   func(i interface{}, j interface{}) int
+//
+// The function is expected to output 3 type of values. 0 means i and j are equal; negative integer means i is smaller
+// i; and positive integer means i is bigger than j.
+//
+// SortedSlice will be ser/des as a whole.
+type SortedSlice []interface{}
+
+// Serialize serializes the state slice into bytes
+func (slice *SortedSlice) Serialize() ([]byte, error) {
+	return GobBasedSerialize(slice)
+}
+
+// Deserialize deserializes bytes into the state slice
+func (slice *SortedSlice) Deserialize(data []byte) error {
+	if err := GobBasedDeserialize(slice, data); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Exist check if a state exists in the slice
+func (slice SortedSlice) Exist(e interface{}, f func(interface{}, interface{}) int) bool {
+	idx := sort.Search(len(slice), func(i int) bool {
+		return f(slice[i], e) >= 0
+	})
+	return idx < len(slice) && slice[idx] == e
+}
+
+// Append appends a state into the state slice
+func (slice SortedSlice) Append(e interface{}, f func(interface{}, interface{}) int) SortedSlice {
+	s := append(slice, e)
+	sort.Slice(s, func(i, j int) bool {
+		return f(s[i], s[j]) < 0
+	})
+	return s
 }
