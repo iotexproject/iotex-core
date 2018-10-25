@@ -482,7 +482,7 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 		}
 	}()
 	require.Equal(0, transfers)
-	err = bc.UnSubscribeBlockCreation(testchan)
+	err = bc.UnsubscribeBlockCreation(testchan)
 	require.Nil(err)
 
 	height := bc.TipHeight()

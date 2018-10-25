@@ -129,8 +129,8 @@ type Blockchain interface {
 	// SubscribeBlockCreation make you listen to every single produced block
 	SubscribeBlockCreation(ch chan *Block) error
 
-	// UnSubscribeBlockCreation make you listen to every single produced block
-	UnSubscribeBlockCreation(ch chan *Block) error
+	// UnsubscribeBlockCreation make you listen to every single produced block
+	UnsubscribeBlockCreation(ch chan *Block) error
 }
 
 // blockchain implements the Blockchain interface
@@ -917,7 +917,7 @@ func (bc *blockchain) SubscribeBlockCreation(ch chan *Block) error {
 	return nil
 }
 
-func (bc *blockchain) UnSubscribeBlockCreation(ch chan *Block) error {
+func (bc *blockchain) UnsubscribeBlockCreation(ch chan *Block) error {
 	for i, handler := range bc.blocklistener {
 		if ch == handler {
 			bc.blocklistener = append(bc.blocklistener[:i], bc.blocklistener[i+1:]...)
