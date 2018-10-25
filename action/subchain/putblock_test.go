@@ -45,7 +45,6 @@ func TestHandlePutBlock(t *testing.T) {
 	require.NoError(t, err)
 
 	p := NewProtocol(&cfg, nil, nil, chain, nil)
-	p.usedChainIDs[3] = true
 
 	roots := make(map[string]hash.Hash32B)
 	roots["10002"] = byteutil.BytesTo32B([]byte("10002"))

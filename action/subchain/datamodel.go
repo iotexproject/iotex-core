@@ -31,6 +31,7 @@ func (bs *SubChain) Serialize() ([]byte, error) { return state.GobBasedSerialize
 // Deserialize deserializes bytes into sub-chain state
 func (bs *SubChain) Deserialize(data []byte) error { return state.GobBasedDeserialize(bs, data) }
 
+// MerkleRoot defines a merkle root in block proof.
 type MerkleRoot struct {
 	Name  string
 	Value hash.Hash32B
