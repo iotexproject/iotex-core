@@ -609,7 +609,7 @@ func TestService_SendSmartContract(t *testing.T) {
 	require.Nil(err)
 }
 
-func TestServicePutBlock(t *testing.T) {
+func TestServicePutSubChainBlock(t *testing.T) {
 	require := require.New(t)
 
 	ctrl := gomock.NewController(t)
@@ -620,8 +620,8 @@ func TestServicePutBlock(t *testing.T) {
 	p2p := mock_network.NewMockOverlay(ctrl)
 	svc := Service{bc: chain, dp: mDp, p2p: p2p}
 
-	request := explorer.PutBlockRequest{}
-	response, err := svc.PutBlock(request)
+	request := explorer.PutSubChainBlockRequest{}
+	response, err := svc.PutSubChainBlock(request)
 	require.Equal("", response.Hash)
 	require.NotNil(err)
 
@@ -629,16 +629,16 @@ func TestServicePutBlock(t *testing.T) {
 	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
 	p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Times(1)
 
-	r := explorer.PutBlockRequest{
-		Version:      0x1,
-		Nonce:        1,
-		Sender:       senderRawAddr,
-		SenderPubKey: senderPubKey,
-		GasPrice:     big.NewInt(0).String(),
-		Signature:    "",
+	r := explorer.PutSubChainBlockRequest{
+		Version:       0x1,
+		Nonce:         1,
+		SenderAddress: senderRawAddr,
+		SenderPubKey:  senderPubKey,
+		GasPrice:      big.NewInt(0).String(),
+		Signature:     "",
 	}
 
-	response, err = svc.PutBlock(r)
+	response, err = svc.PutSubChainBlock(r)
 	require.NotNil(response.Hash)
 	require.Nil(err)
 }

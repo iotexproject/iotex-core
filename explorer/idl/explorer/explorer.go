@@ -3,14 +3,13 @@ package explorer
 
 import (
 	"fmt"
-	"reflect"
-
 	"github.com/coopernurse/barrister-go"
+	"reflect"
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "47b1a8053b5d5744f68508a493a5e954"
-const BarristerDateGenerated int64 = 1540496884971000000
+const BarristerChecksum string = "b2ad5eadd44f9c1bc366f4be9fe21b93"
+const BarristerDateGenerated int64 = 1540501452814000000
 
 type CoinStatistic struct {
 	Height     int64  `json:"height"`
@@ -177,26 +176,26 @@ type SendVoteResponse struct {
 	Hash string `json:"hash"`
 }
 
-type PutBlockMerkelRoot struct {
+type PutSubChainBlockMerkelRoot struct {
 	Name  string `json:"name"`
 	Value string `json:"value"`
 }
 
-type PutBlockRequest struct {
-	Version         int64                `json:"version"`
-	Nonce           int64                `json:"nonce"`
-	Sender          string               `json:"sender"`
-	SubChainAddress string               `json:"subChainAddress"`
-	Height          int64                `json:"height"`
-	Roots           []PutBlockMerkelRoot `json:"roots"`
-	SenderPubKey    string               `json:"senderPubKey"`
-	Signature       string               `json:"signature"`
-	Payload         string               `json:"payload"`
-	GasLimit        int64                `json:"gasLimit"`
-	GasPrice        string               `json:"gasPrice"`
+type PutSubChainBlockRequest struct {
+	Version         int64                        `json:"version"`
+	Nonce           int64                        `json:"nonce"`
+	SenderAddress   string                       `json:"senderAddress"`
+	SubChainAddress string                       `json:"subChainAddress"`
+	Height          int64                        `json:"height"`
+	Roots           []PutSubChainBlockMerkelRoot `json:"roots"`
+	SenderPubKey    string                       `json:"senderPubKey"`
+	Signature       string                       `json:"signature"`
+	Payload         string                       `json:"payload"`
+	GasLimit        int64                        `json:"gasLimit"`
+	GasPrice        string                       `json:"gasPrice"`
 }
 
-type PutBlockResponse struct {
+type PutSubChainBlockResponse struct {
 	Hash string `json:"hash"`
 }
 
@@ -248,7 +247,7 @@ type Explorer interface {
 	SendTransfer(request SendTransferRequest) (SendTransferResponse, error)
 	SendVote(request SendVoteRequest) (SendVoteResponse, error)
 	SendSmartContract(request Execution) (SendSmartContractResponse, error)
-	PutBlock(request PutBlockRequest) (PutBlockResponse, error)
+	PutSubChainBlock(request PutSubChainBlockRequest) (PutSubChainBlockResponse, error)
 	GetPeers() (GetPeersResponse, error)
 	GetReceiptByExecutionID(id string) (Receipt, error)
 	ReadExecutionState(request Execution) (string, error)
@@ -750,22 +749,22 @@ func (_p ExplorerProxy) SendSmartContract(request Execution) (SendSmartContractR
 	return SendSmartContractResponse{}, _err
 }
 
-func (_p ExplorerProxy) PutBlock(request PutBlockRequest) (PutBlockResponse, error) {
-	_res, _err := _p.client.Call("Explorer.putBlock", request)
+func (_p ExplorerProxy) PutSubChainBlock(request PutSubChainBlockRequest) (PutSubChainBlockResponse, error) {
+	_res, _err := _p.client.Call("Explorer.putSubChainBlock", request)
 	if _err == nil {
-		_retType := _p.idl.Method("Explorer.putBlock").Returns
-		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(PutBlockResponse{}), _res, "")
+		_retType := _p.idl.Method("Explorer.putSubChainBlock").Returns
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(PutSubChainBlockResponse{}), _res, "")
 	}
 	if _err == nil {
-		_cast, _ok := _res.(PutBlockResponse)
+		_cast, _ok := _res.(PutSubChainBlockResponse)
 		if !_ok {
 			_t := reflect.TypeOf(_res)
-			_msg := fmt.Sprintf("Explorer.putBlock returned invalid type: %v", _t)
-			return PutBlockResponse{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
+			_msg := fmt.Sprintf("Explorer.putSubChainBlock returned invalid type: %v", _t)
+			return PutSubChainBlockResponse{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
 		}
 		return _cast, nil
 	}
-	return PutBlockResponse{}, _err
+	return PutSubChainBlockResponse{}, _err
 }
 
 func (_p ExplorerProxy) GetPeers() (GetPeersResponse, error) {
@@ -1941,7 +1940,7 @@ var IdlJsonRaw = `[
     },
     {
         "type": "struct",
-        "name": "PutBlockMerkelRoot",
+        "name": "PutSubChainBlockMerkelRoot",
         "comment": "",
         "value": "",
         "extends": "",
@@ -1969,7 +1968,7 @@ var IdlJsonRaw = `[
     },
     {
         "type": "struct",
-        "name": "PutBlockRequest",
+        "name": "PutSubChainBlockRequest",
         "comment": "",
         "value": "",
         "extends": "",
@@ -1989,7 +1988,7 @@ var IdlJsonRaw = `[
                 "comment": ""
             },
             {
-                "name": "sender",
+                "name": "senderAddress",
                 "type": "string",
                 "optional": false,
                 "is_array": false,
@@ -2011,7 +2010,7 @@ var IdlJsonRaw = `[
             },
             {
                 "name": "roots",
-                "type": "PutBlockMerkelRoot",
+                "type": "PutSubChainBlockMerkelRoot",
                 "optional": false,
                 "is_array": true,
                 "comment": ""
@@ -2060,7 +2059,7 @@ var IdlJsonRaw = `[
     },
     {
         "type": "struct",
-        "name": "PutBlockResponse",
+        "name": "PutSubChainBlockResponse",
         "comment": "",
         "value": "",
         "extends": "",
@@ -2891,12 +2890,12 @@ var IdlJsonRaw = `[
                 }
             },
             {
-                "name": "putBlock",
-                "comment": "putBlock",
+                "name": "putSubChainBlock",
+                "comment": "putSubChainBlock",
                 "params": [
                     {
                         "name": "request",
-                        "type": "PutBlockRequest",
+                        "type": "PutSubChainBlockRequest",
                         "optional": false,
                         "is_array": false,
                         "comment": ""
@@ -2904,7 +2903,7 @@ var IdlJsonRaw = `[
                 ],
                 "returns": {
                     "name": "",
-                    "type": "PutBlockResponse",
+                    "type": "PutSubChainBlockResponse",
                     "optional": false,
                     "is_array": false,
                     "comment": ""
@@ -2997,7 +2996,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1540496884971,
-        "checksum": "47b1a8053b5d5744f68508a493a5e954"
+        "date_generated": 1540501452814,
+        "checksum": "b2ad5eadd44f9c1bc366f4be9fe21b93"
     }
 ]`
