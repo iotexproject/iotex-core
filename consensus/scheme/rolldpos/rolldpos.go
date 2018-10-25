@@ -266,21 +266,18 @@ func (ctx *rollDPoSCtx) mintSecretBlock() (*blockchain.Block, error) {
 
 // mintCommonBlock picks the actions and creates a common block to propose
 func (ctx *rollDPoSCtx) mintCommonBlock() (*blockchain.Block, error) {
-	transfers, votes, executions, actions := ctx.actPool.PickActs()
+	actions := ctx.actPool.PickActs()
 	logger.Debug().
-		Int("transfer", len(transfers)).
-		Int("votes", len(votes)).
+		Int("action", len(actions)).
 		Msg("pick actions from the action pool")
-	blk, err := ctx.chain.MintNewBlock(transfers, votes, executions, actions, ctx.addr, &ctx.epoch.dkgAddress,
+	blk, err := ctx.chain.MintNewBlock(actions, ctx.addr, &ctx.epoch.dkgAddress,
 		ctx.epoch.seed, "")
 	if err != nil {
 		return nil, err
 	}
 	logger.Info().
 		Uint64("height", blk.Height()).
-		Int("transfers", len(blk.Transfers)).
-		Int("votes", len(blk.Votes)).
-		Int("executions", len(blk.Executions)).
+		Int("actions", len(blk.Actions)).
 		Msg("minted a new block")
 	return blk, nil
 }
@@ -567,12 +564,12 @@ func (b *Builder) Build() (*RollDPoS, error) {
 		b.clock = clock.New()
 	}
 	ctx := rollDPoSCtx{
-		cfg:     b.cfg,
-		addr:    b.addr,
-		chain:   b.chain,
-		actPool: b.actPool,
-		p2p:     b.p2p,
-		clock:   b.clock,
+		cfg:                    b.cfg,
+		addr:                   b.addr,
+		chain:                  b.chain,
+		actPool:                b.actPool,
+		p2p:                    b.p2p,
+		clock:                  b.clock,
 		candidatesByHeightFunc: b.candidatesByHeightFunc,
 	}
 	cfsm, err := newConsensusFSM(&ctx)

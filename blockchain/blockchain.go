@@ -98,9 +98,6 @@ type Blockchain interface {
 	// MintNewBlock creates a new block with given actions and dkg keys
 	// Note: the coinbase transfer will be added to the given transfers when minting a new block
 	MintNewBlock(
-		tsf []*action.Transfer,
-		vote []*action.Vote,
-		executions []*action.Execution,
 		actions []action.Action,
 		producer *iotxaddress.Address,
 		dkgAddress *iotxaddress.DKGAddress,
@@ -317,7 +314,7 @@ func (bc *blockchain) startEmptyBlockchain() error {
 	if _, err := ws.LoadOrCreateAccountState(Gen.CreatorAddr(bc.ChainID()), Gen.TotalSupply); err != nil {
 		return errors.Wrap(err, "failed to create Creator into StateFactory")
 	}
-	if _, err := ws.RunActions(0, nil, nil, nil, nil); err != nil {
+	if _, err := ws.RunActions(0, nil); err != nil {
 		return errors.Wrap(err, "failed to create Creator into StateFactory")
 	}
 	if err := bc.sf.Commit(ws); err != nil {
@@ -364,7 +361,7 @@ func (bc *blockchain) startExistingBlockchain(recoveryHeight uint64) error {
 		if _, err := ws.LoadOrCreateAccountState(Gen.CreatorAddr(bc.ChainID()), Gen.TotalSupply); err != nil {
 			return err
 		}
-		if _, err := ws.RunActions(0, nil, nil, nil, nil); err != nil {
+		if _, err := ws.RunActions(0, nil); err != nil {
 			return errors.Wrap(err, "failed to create Creator into StateFactory")
 		}
 		if err := bc.sf.Commit(ws); err != nil {
@@ -428,7 +425,7 @@ func (bc *blockchain) CreateState(addr string, init *big.Int) (*state.Account, e
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create new account %s", addr)
 	}
-	if _, err = ws.RunActions(0, nil, nil, nil, nil); err != nil {
+	if _, err = ws.RunActions(0, nil); err != nil {
 		return nil, errors.Wrap(err, "failed to run the account creation")
 	}
 	if err = bc.sf.Commit(ws); err != nil {
@@ -519,7 +516,8 @@ func (bc *blockchain) GetTransferByTransferHash(h hash.Hash32B) (*action.Transfe
 	if err != nil {
 		return nil, err
 	}
-	for _, transfer := range blk.Transfers {
+	transfers, _, _ := action.ClassifyActions(blk.Actions)
+	for _, transfer := range transfers {
 		if transfer.Hash() == h {
 			return transfer, nil
 		}
@@ -564,7 +562,8 @@ func (bc *blockchain) GetVoteByVoteHash(h hash.Hash32B) (*action.Vote, error) {
 	if err != nil {
 		return nil, err
 	}
-	for _, vote := range blk.Votes {
+	_, votes, _ := action.ClassifyActions(blk.Actions)
+	for _, vote := range votes {
 		if vote.Hash() == h {
 			return vote, nil
 		}
@@ -609,7 +608,8 @@ func (bc *blockchain) GetExecutionByExecutionHash(h hash.Hash32B) (*action.Execu
 	if err != nil {
 		return nil, err
 	}
-	for _, execution := range blk.Executions {
+	_, _, executions := action.ClassifyActions(blk.Actions)
+	for _, execution := range executions {
 		if execution.Hash() == h {
 			return execution, nil
 		}
@@ -660,9 +660,6 @@ func (bc *blockchain) ValidateBlock(blk *Block, containCoinbase bool) error {
 }
 
 func (bc *blockchain) MintNewBlock(
-	tsf []*action.Transfer,
-	vote []*action.Vote,
-	executions []*action.Execution,
 	actions []action.Action,
 	producer *iotxaddress.Address,
 	dkgAddress *iotxaddress.DKGAddress,
@@ -672,8 +669,8 @@ func (bc *blockchain) MintNewBlock(
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
 
-	tsf = append(tsf, action.NewCoinBaseTransfer(bc.genesis.BlockReward, producer.RawAddress))
-	blk := NewBlock(bc.config.Chain.ID, bc.tipHeight+1, bc.tipHash, bc.now(), tsf, vote, executions, actions)
+	actions = append(actions, action.NewCoinBaseTransfer(bc.genesis.BlockReward, producer.RawAddress))
+	blk := NewBlock(bc.config.Chain.ID, bc.tipHeight+1, bc.tipHash, bc.now(), actions)
 	blk.Header.DKGID = []byte{}
 	blk.Header.DKGPubkey = []byte{}
 	blk.Header.DKGBlockSig = []byte{}
@@ -736,7 +733,7 @@ func (bc *blockchain) MintNewDummyBlock() *Block {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
 
-	blk := NewBlock(bc.config.Chain.ID, bc.tipHeight+1, bc.tipHash, bc.now(), nil, nil, nil, nil)
+	blk := NewBlock(bc.config.Chain.ID, bc.tipHeight+1, bc.tipHash, bc.now(), nil)
 	blk.Header.Pubkey = keypair.ZeroPublicKey
 	blk.Header.blockSig = []byte{}
 
@@ -795,8 +792,8 @@ func (bc *blockchain) ExecuteContractRead(ex *action.Execution) ([]byte, error) 
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get block in ExecuteContractRead")
 	}
-	blk.Executions = nil
-	blk.Executions = []*action.Execution{ex}
+	blk.Actions = nil
+	blk.Actions = []action.Action{ex}
 	blk.receipts = nil
 	ws, err := bc.sf.NewWorkingSet()
 	if err != nil {
@@ -878,11 +875,11 @@ func (bc *blockchain) runActions(blk *Block, ws state.WorkingSet, verify bool) (
 		return root, nil
 	}
 	// run executions
-	if blk.Executions != nil {
+	if _, _, executions := action.ClassifyActions(blk.Actions); len(executions) > 0 {
 		ExecuteContracts(blk, ws, bc)
 	}
 	// update state factory
-	if root, err = ws.RunActions(blk.Height(), blk.Transfers, blk.Votes, blk.Executions, blk.Actions); err != nil {
+	if root, err = ws.RunActions(blk.Height(), blk.Actions); err != nil {
 		return root, err
 	}
 	if verify {

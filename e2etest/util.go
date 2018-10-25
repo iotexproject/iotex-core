@@ -31,8 +31,7 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 		return err
 	}
 	action.Sign(tsf0, sk)
-	blk, err := bc.MintNewBlock([]*action.Transfer{tsf0}, nil, nil, nil, ta.Addrinfo["producer"],
-		nil, nil, "")
+	blk, err := bc.MintNewBlock([]action.Action{tsf0}, ta.Addrinfo["producer"], nil, nil, "")
 	if err != nil {
 		return err
 	}
@@ -57,8 +56,7 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	tsf6, _ := action.NewTransfer(6, big.NewInt(5<<20), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["foxtrot"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
 	_ = action.Sign(tsf6, ta.Addrinfo["producer"].PrivateKey)
 
-	blk, err = bc.MintNewBlock([]*action.Transfer{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}, nil, nil,
-		nil, ta.Addrinfo["producer"], nil, nil, "")
+	blk, err = bc.MintNewBlock([]action.Action{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}, ta.Addrinfo["producer"], nil, nil, "")
 	if err != nil {
 		return err
 	}
@@ -81,8 +79,7 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	_ = action.Sign(tsf4, ta.Addrinfo["charlie"].PrivateKey)
 	tsf5, _ = action.NewTransfer(5, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["producer"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
 	_ = action.Sign(tsf5, ta.Addrinfo["charlie"].PrivateKey)
-	blk, err = bc.MintNewBlock([]*action.Transfer{tsf1, tsf2, tsf3, tsf4, tsf5}, nil, nil, nil,
-		ta.Addrinfo["producer"], nil, nil, "")
+	blk, err = bc.MintNewBlock([]action.Action{tsf1, tsf2, tsf3, tsf4, tsf5}, ta.Addrinfo["producer"], nil, nil, "")
 	if err != nil {
 		return err
 	}
@@ -103,8 +100,7 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	_ = action.Sign(tsf3, ta.Addrinfo["delta"].PrivateKey)
 	tsf4, _ = action.NewTransfer(4, big.NewInt(1), ta.Addrinfo["delta"].RawAddress, ta.Addrinfo["producer"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
 	_ = action.Sign(tsf4, ta.Addrinfo["delta"].PrivateKey)
-	blk, err = bc.MintNewBlock([]*action.Transfer{tsf1, tsf2, tsf3, tsf4}, nil, nil, nil,
-		ta.Addrinfo["producer"], nil, nil, "")
+	blk, err = bc.MintNewBlock([]action.Action{tsf1, tsf2, tsf3, tsf4}, ta.Addrinfo["producer"], nil, nil, "")
 	if err != nil {
 		return err
 	}
@@ -129,8 +125,7 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	_ = action.Sign(tsf5, ta.Addrinfo["echo"].PrivateKey)
 	tsf6, _ = action.NewTransfer(6, big.NewInt(2), ta.Addrinfo["echo"].RawAddress, ta.Addrinfo["producer"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
 	_ = action.Sign(tsf6, ta.Addrinfo["echo"].PrivateKey)
-	blk, err = bc.MintNewBlock([]*action.Transfer{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}, nil, nil,
-		nil, ta.Addrinfo["producer"], nil, nil, "")
+	blk, err = bc.MintNewBlock([]action.Action{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}, ta.Addrinfo["producer"], nil, nil, "")
 	if err != nil {
 		return err
 	}

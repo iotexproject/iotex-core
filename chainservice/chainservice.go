@@ -181,28 +181,19 @@ func (cs *ChainService) Stop(ctx context.Context) error {
 }
 
 // HandleAction handles incoming action request.
-func (cs *ChainService) HandleAction(act *pb.ActionPb) error {
-	if pbTsf := act.GetTransfer(); pbTsf != nil {
-		tsf := &action.Transfer{}
-		tsf.LoadProto(act)
-		if err := cs.actpool.AddTsf(tsf); err != nil {
-			logger.Debug().Err(err)
-			return err
-		}
-	} else if pbVote := act.GetVote(); pbVote != nil {
-		vote := &action.Vote{}
-		vote.LoadProto(act)
-		if err := cs.actpool.AddVote(vote); err != nil {
-			logger.Debug().Err(err)
-			return err
-		}
-	} else if pbExecution := act.GetExecution(); pbExecution != nil {
-		execution := &action.Execution{}
-		execution.LoadProto(act)
-		if err := cs.actpool.AddExecution(execution); err != nil {
-			logger.Debug().Err(err).Msg("Failed to add execution")
-			return err
-		}
+func (cs *ChainService) HandleAction(actPb *pb.ActionPb) error {
+	var act action.Action
+	if actPb.GetTransfer() != nil {
+		act = &action.Transfer{}
+	} else if actPb.GetVote() != nil {
+		act = &action.Vote{}
+	} else if actPb.GetExecution() != nil {
+		act = &action.Execution{}
+	}
+	act.LoadProto(actPb)
+	if err := cs.actpool.Add(act); err != nil {
+		logger.Debug().Err(err).Msg("Failed to add action")
+		return err
 	}
 	return nil
 }

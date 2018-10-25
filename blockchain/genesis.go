@@ -108,7 +108,7 @@ func NewGenesisBlock(cfg *config.Config) *Block {
 	_, creatorPrik := decodeKey(Gen.CreatorPubKey, Gen.CreatorPrivKey)
 	creatorAddr := Gen.CreatorAddr(cfg.Chain.ID)
 
-	votes := []*action.Vote{}
+	acts := make([]action.Action, 0)
 	for _, nominator := range actions.SelfNominators {
 		pk, sk := decodeKey(nominator.PubKey, nominator.PriKey)
 		address := generateAddr(cfg.Chain.ID, pk)
@@ -125,10 +125,9 @@ func NewGenesisBlock(cfg *config.Config) *Block {
 		if err := action.Sign(vote, sk); err != nil {
 			logger.Panic().Err(err).Msg("Fail to sign the new vote action")
 		}
-		votes = append(votes, vote)
+		acts = append(acts, vote)
 	}
 
-	transfers := []*action.Transfer{}
 	for _, transfer := range actions.Transfers {
 		rpk, _ := decodeKey(transfer.RecipientPK, "")
 		recipientAddr := generateAddr(cfg.Chain.ID, rpk)
@@ -147,10 +146,9 @@ func NewGenesisBlock(cfg *config.Config) *Block {
 		if err := action.Sign(tsf, creatorPrik); err != nil {
 			logger.Panic().Err(err).Msg("Fail to sign the new transfer action")
 		}
-		transfers = append(transfers, tsf)
+		acts = append(acts, tsf)
 	}
 
-	acts := make([]action.Action, 0)
 	if cfg.Chain.EnableSubChainStartInGenesis {
 		for _, sc := range actions.SubChains {
 			start := action.NewStartSubChain(
@@ -182,9 +180,7 @@ func NewGenesisBlock(cfg *config.Config) *Block {
 			stateRoot:     hash.ZeroHash32B,
 			blockSig:      []byte{},
 		},
-		Transfers: transfers,
-		Votes:     votes,
-		Actions:   acts,
+		Actions: acts,
 	}
 
 	block.Header.txRoot = block.TxRoot()
