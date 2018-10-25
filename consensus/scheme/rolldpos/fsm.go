@@ -567,10 +567,12 @@ func (m *cFSM) processEndorseEvent(
 		expectedConsensusTopics,
 		m.ctx.epoch.delegates,
 	)
-	if validNum <= len(m.ctx.epoch.delegates)*2/3 {
-		return nil, nil
+	numDelegates := len(m.ctx.epoch.delegates)
+	if numDelegates >= 4 && validNum > numDelegates*2/3 || numDelegates < 4 && validNum >= numDelegates {
+		return endorsementSet, nil
 	}
-	return endorsementSet, nil
+
+	return nil, nil
 }
 
 func (m *cFSM) handleEndorseProposalEvt(evt fsm.Event) (fsm.State, error) {
