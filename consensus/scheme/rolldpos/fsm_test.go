@@ -398,13 +398,19 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		assert.Equal(t, eEndorseProposal, evt.Type())
 
 		clock.Add(10 * time.Second)
+		state, err = cfsm.handleStartRoundEvt(cfsm.newCEvt(eStartRound))
+		assert.Equal(t, sBlockPropose, state)
+		assert.NoError(t, err)
+		e = <-cfsm.evtq
+		cevt, ok := e.(*consensusEvt)
+		require.True(t, ok)
+		assert.Equal(t, eInitBlockPropose, cevt.Type())
 		err = blk.SignBlock(testAddrs[3])
 		assert.NoError(t, err)
 		state, err = cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, nil, cfsm.ctx.round.number, cfsm.ctx.clock))
 		assert.NoError(t, err)
 		assert.Equal(t, sAcceptProposalEndorse, state)
 		e = <-cfsm.evtq
-		evt, ok = e.(*endorseEvt)
 		require.True(t, ok)
 		assert.Equal(t, eEndorseProposal, evt.Type())
 	})

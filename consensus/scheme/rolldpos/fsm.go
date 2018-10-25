@@ -343,23 +343,21 @@ func (m *cFSM) handleStartRoundEvt(_ fsm.Event) (fsm.State, error) {
 	}
 	m.ctx.epoch.subEpochNum = subEpochNum
 
-	proposer, height, err := m.ctx.rotatedProposer()
+	proposer, height, round, err := m.ctx.rotatedProposer()
 	if err != nil {
 		logger.Error().
 			Err(err).
 			Msg("error when getting the proposer")
 		return sEpochStart, err
 	}
-	if m.ctx.round.height == height {
-		// TODO
-		m.ctx.round.number = m.ctx.round.number + 1
-	} else {
+	if m.ctx.round.height != height {
 		m.ctx.round = roundCtx{
 			height:          height,
-			number:          0,
+			number:          round,
 			endorsementSets: make(map[hash.Hash32B]*endorsement.Set),
 		}
 	}
+	m.ctx.round.number = round
 	m.ctx.round.proposer = proposer
 	m.ctx.round.timestamp = m.ctx.clock.Now()
 
@@ -394,7 +392,7 @@ func (m *cFSM) handleInitBlockProposeEvt(evt fsm.Event) (fsm.State, error) {
 		var err error
 		blk, err = m.ctx.mintBlock()
 		if err != nil {
-			return sInvalid, errors.Wrap(err, "error when minting a block")
+			return sEpochStart, errors.Wrap(err, "error when minting a block")
 		}
 	}
 	proposeBlkEvt := m.newProposeBlkEvt(blk)
@@ -463,11 +461,7 @@ func (m *cFSM) handleProposeBlockEvt(evt fsm.Event) (fsm.State, error) {
 	if !ok {
 		return sEpochStart, errors.Wrap(ErrEvtCast, "the event is not a proposeBlkEvt")
 	}
-	proposer, err := m.ctx.calcProposer(proposeBlkEvt.block.Height(), m.ctx.epoch.delegates)
-	if err != nil {
-		return sEpochStart, errors.Wrap(err, "error when calculating the proposer")
-	}
-	if !m.validateProposeBlock(proposeBlkEvt.block, proposer) {
+	if !m.validateProposeBlock(proposeBlkEvt.block, m.ctx.round.proposer) {
 		return sAcceptPropose, nil
 	}
 	m.ctx.round.block = proposeBlkEvt.block
