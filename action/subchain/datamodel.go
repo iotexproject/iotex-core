@@ -31,18 +31,26 @@ func (bs *SubChain) Serialize() ([]byte, error) { return state.GobBasedSerialize
 // Deserialize deserializes bytes into sub-chain state
 func (bs *SubChain) Deserialize(data []byte) error { return state.GobBasedDeserialize(bs, data) }
 
-// blockProof represents the block proof of a sub-chain in the state factory
-type blockProof struct {
-	// TODO add all data fields
-	Root              hash.Hash32B
+// MerkleRoot defines a merkle root in block proof.
+type MerkleRoot struct {
+	Name  string
+	Value hash.Hash32B
+}
+
+// BlockProof represents the block proof of a sub-chain in the state factory
+type BlockProof struct {
+	SubChainAddress   string
+	Height            uint64
+	Roots             []MerkleRoot
 	ProducerPublicKey keypair.PublicKey
+	ProducerAddress   string
 }
 
 // Serialize serialize block proof state into bytes
-func (bp *blockProof) Serialize() ([]byte, error) { return state.GobBasedSerialize(bp) }
+func (bp *BlockProof) Serialize() ([]byte, error) { return state.GobBasedSerialize(bp) }
 
 // Deserialize deserialize bytes into block proof state
-func (bp *blockProof) Deserialize(data []byte) error { return state.GobBasedDeserialize(bp, data) }
+func (bp *BlockProof) Deserialize(data []byte) error { return state.GobBasedDeserialize(bp, data) }
 
 // CompareChainID compare two chain IDs
 func CompareChainID(x interface{}, y interface{}) int {

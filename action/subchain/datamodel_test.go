@@ -11,10 +11,12 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/test/testaddress"
 )
 
 func TestSubChainState(t *testing.T) {
@@ -40,14 +42,27 @@ func TestSubChainState(t *testing.T) {
 func TestBlockProofState(t *testing.T) {
 	t.Parallel()
 
-	bp1 := blockProof{
+	bp1 := BlockProof{
+		SubChainAddress: "123",
+		Height:          123,
+		ProducerAddress: "123",
+		Roots: []MerkleRoot{
+			MerkleRoot{
+				Name:  "abc",
+				Value: byteutil.BytesTo32B([]byte("10002")),
+			},
+			MerkleRoot{
+				Name:  "abd",
+				Value: byteutil.BytesTo32B([]byte("1000d")),
+			},
+		},
 		ProducerPublicKey: testaddress.Addrinfo["producer"].PublicKey,
 	}
 
 	data, err := bp1.Serialize()
 	require.NoError(t, err)
 
-	var bp2 blockProof
+	var bp2 BlockProof
 	require.NoError(t, bp2.Deserialize(data))
 	require.Equal(t, bp1, bp2)
 }

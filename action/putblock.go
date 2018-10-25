@@ -10,12 +10,12 @@ import (
 	"math/big"
 	"sort"
 
-	"golang.org/x/crypto/blake2b"
-
 	"github.com/pkg/errors"
+	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/proto"
@@ -28,7 +28,7 @@ const PutBlockIntrinsicGas = uint64(1000)
 type PutBlock struct {
 	abstractAction
 
-	chainID         uint32
+	subChainAddress string
 	height          uint64
 	roots           map[string]hash.Hash32B
 	producerAddress string
@@ -37,7 +37,7 @@ type PutBlock struct {
 // NewPutBlock instantiates a putting sub-chain block action struct.
 func NewPutBlock(
 	nonce uint64,
-	chainID uint32,
+	subChainAddress string,
 	producerAddress string,
 	height uint64,
 	roots map[string]hash.Hash32B,
@@ -52,7 +52,7 @@ func NewPutBlock(
 			gasLimit: gasLimit,
 			gasPrice: gasPrice,
 		},
-		chainID:         chainID,
+		subChainAddress: subChainAddress,
 		height:          height,
 		roots:           roots,
 		producerAddress: producerAddress,
@@ -84,7 +84,7 @@ func (pb *PutBlock) LoadProto(actPb *iproto.ActionPb) {
 		pb.gasPrice.SetBytes(actPb.GasPrice)
 	}
 
-	pb.chainID = putBlockPb.ChainID
+	pb.subChainAddress = putBlockPb.SubChainAddress
 	pb.height = putBlockPb.Height
 	pb.producerAddress = putBlockPb.ProducerAddress
 
@@ -100,7 +100,7 @@ func (pb *PutBlock) Proto() *iproto.ActionPb {
 	act := &iproto.ActionPb{
 		Action: &iproto.ActionPb_PutBlock{
 			PutBlock: &iproto.PutBlockPb{
-				ChainID:           pb.chainID,
+				SubChainAddress:   pb.subChainAddress,
 				Height:            pb.height,
 				ProducerAddress:   pb.producerAddress,
 				ProducerPublicKey: pb.srcPubkey[:],
@@ -126,8 +126,8 @@ func (pb *PutBlock) Proto() *iproto.ActionPb {
 	return act
 }
 
-// ChainID returns chain ID.
-func (pb *PutBlock) ChainID() uint32 { return pb.chainID }
+// SubChainAddress returns sub chain address.
+func (pb *PutBlock) SubChainAddress() string { return pb.subChainAddress }
 
 // Height returns put block height.
 func (pb *PutBlock) Height() uint64 { return pb.height }
@@ -138,6 +138,9 @@ func (pb *PutBlock) Roots() map[string]hash.Hash32B { return pb.roots }
 // ProducerAddress return producer address.
 func (pb *PutBlock) ProducerAddress() string { return pb.producerAddress }
 
+// ProducerPublicKey return producer public key.
+func (pb *PutBlock) ProducerPublicKey() keypair.PublicKey { return pb.SrcPubkey() }
+
 // ByteStream returns the byte representation of put block action.
 func (pb *PutBlock) ByteStream() []byte {
 	stream := []byte(fmt.Sprintf("%T", pb))
@@ -147,9 +150,7 @@ func (pb *PutBlock) ByteStream() []byte {
 	temp = make([]byte, 8)
 	enc.MachineEndian.PutUint64(temp, pb.nonce)
 	stream = append(stream, temp...)
-	temp = make([]byte, 4)
-	enc.MachineEndian.PutUint32(temp, pb.chainID)
-	stream = append(stream, temp...)
+	stream = append(stream, pb.subChainAddress...)
 	temp = make([]byte, 8)
 	enc.MachineEndian.PutUint64(temp, pb.height)
 	stream = append(stream, temp...)
@@ -161,7 +162,7 @@ func (pb *PutBlock) ByteStream() []byte {
 	if pb.gasPrice != nil && len(pb.gasPrice.Bytes()) > 0 {
 		stream = append(stream, pb.gasPrice.Bytes()...)
 	}
-	keys := make([]string, len(pb.roots))
+	keys := make([]string, 0, len(pb.roots))
 	for k := range pb.roots {
 		keys = append(keys, k)
 	}
