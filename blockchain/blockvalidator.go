@@ -74,11 +74,14 @@ func (v *validator) verifyActions(blk *Block, containCoinbase bool) error {
 	// Verify transfers, votes, executions, witness, and secrets (balance is checked in RunActions)
 	confirmedNonceMap := make(map[string]uint64)
 	accountNonceMap := make(map[string][]uint64)
+
+	transfers, votes, executions := action.ClassifyActions(blk.Actions)
 	var wg sync.WaitGroup
-	wg.Add(len(blk.Transfers) + len(blk.Votes) + len(blk.Executions))
+	wg.Add(len(transfers) + len(votes) + len(executions))
+
 	var correctAction uint64
 	var coinbaseCount uint64
-	for _, tsf := range blk.Transfers {
+	for _, tsf := range transfers {
 		// Verify Address
 		// Verify Gas
 		// Verify Nonce
@@ -133,7 +136,7 @@ func (v *validator) verifyActions(blk *Block, containCoinbase bool) error {
 			atomic.AddUint64(correctTsf, uint64(1))
 		}(tsf, &correctAction, &coinbaseCount)
 	}
-	for _, vote := range blk.Votes {
+	for _, vote := range votes {
 		// Verify Address
 		// Verify Gas
 		// Verify Nonce
@@ -179,7 +182,7 @@ func (v *validator) verifyActions(blk *Block, containCoinbase bool) error {
 			atomic.AddUint64(correctVote, uint64(1))
 		}(vote, &correctAction)
 	}
-	for _, execution := range blk.Executions {
+	for _, execution := range executions {
 		// Verify Address
 		// Verify Nonce
 		// Verify Signature
@@ -239,7 +242,7 @@ func (v *validator) verifyActions(blk *Block, containCoinbase bool) error {
 			ErrInvalidBlock,
 			"wrong number of coinbase transfers")
 	}
-	if correctAction+coinbaseCount != uint64(len(blk.Transfers)+len(blk.Votes)+len(blk.Executions)) {
+	if correctAction+coinbaseCount != uint64(len(transfers)+len(votes)+len(executions)) {
 		return errors.Wrapf(
 			ErrInvalidBlock,
 			"failed to verify actions signature")

@@ -131,7 +131,7 @@ func TestAccountManager_SignHash(t *testing.T) {
 	require := require.New(t)
 	m := NewMemAccountManager()
 
-	blk := blockchain.NewBlock(1, 0, hash.ZeroHash32B, testutil.TimestampNow(), nil, nil, nil, nil)
+	blk := blockchain.NewBlock(1, 0, hash.ZeroHash32B, testutil.TimestampNow(), nil)
 	hash := blk.HashBlock()
 
 	signature, err := m.SignHash(rawAddr1, hash[:])

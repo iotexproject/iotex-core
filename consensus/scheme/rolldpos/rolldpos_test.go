@@ -61,9 +61,6 @@ func TestRollDPoSCtx(t *testing.T) {
 		8,
 		prevHash,
 		testutil.TimestampNowFromClock(clock),
-		make([]*action.Transfer, 0),
-		make([]*action.Vote, 0),
-		make([]*action.Execution, 0),
 		make([]action.Action, 0),
 	)
 	ctx := makeTestRollDPoSCtx(
@@ -458,10 +455,7 @@ func TestRollDPoS_convertToConsensusEvt(t *testing.T) {
 		1,
 		prevHash,
 		testutil.TimestampNow(),
-		[]*action.Transfer{transfer},
-		[]*action.Vote{vote},
-		nil,
-		nil,
+		[]action.Action{transfer, vote},
 	)
 	roundNum := uint32(0)
 	pMsg := iproto.ProposePb{
@@ -586,7 +580,7 @@ func TestUpdateSeed(t *testing.T) {
 			PrivateKey: ec283SKList[i],
 			RawAddress: addresses[i],
 		}
-		blk, err := chain.MintNewBlock(nil, nil, nil, nil, &iotxAddr,
+		blk, err := chain.MintNewBlock(nil, &iotxAddr,
 			&iotxaddress.DKGAddress{PrivateKey: askList[i], PublicKey: pkList[i], ID: idList[i]},
 			lastSeed, "")
 		require.NoError(err)
@@ -681,9 +675,9 @@ func TestRollDPoSConsensus(t *testing.T) {
 		cfg := config.Default
 		cfg.Consensus.RollDPoS.Delay = 300 * time.Millisecond
 		cfg.Consensus.RollDPoS.ProposerInterval = time.Second
-		cfg.Consensus.RollDPoS.AcceptProposeTTL = 300 * time.Millisecond
-		cfg.Consensus.RollDPoS.AcceptProposalEndorseTTL = 300 * time.Millisecond
-		cfg.Consensus.RollDPoS.AcceptCommitEndorseTTL = 300 * time.Millisecond
+		cfg.Consensus.RollDPoS.AcceptProposeTTL = 2000 * time.Millisecond
+		cfg.Consensus.RollDPoS.AcceptProposalEndorseTTL = 2000 * time.Millisecond
+		cfg.Consensus.RollDPoS.AcceptCommitEndorseTTL = 2000 * time.Millisecond
 		cfg.Consensus.RollDPoS.NumDelegates = uint(numNodes)
 		cfg.Consensus.RollDPoS.NumSubEpochs = 1
 		cfg.Consensus.RollDPoS.EnableDKG = true
@@ -725,7 +719,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 				require.NoError(t, err)
 				_, err = ws.LoadOrCreateAccountState(chainRawAddrs[j], big.NewInt(0))
 				require.NoError(t, err)
-				_, err = ws.RunActions(0, nil, nil, nil, nil)
+				_, err = ws.RunActions(0, nil)
 				require.NoError(t, err)
 				require.NoError(t, sf.Commit(ws))
 			}

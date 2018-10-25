@@ -55,7 +55,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	if err := action.Sign(tsf, ta.Addrinfo["producer"].PrivateKey); err != nil {
 		return err
 	}
-	blk, err := bc.MintNewBlock([]*action.Transfer{tsf}, nil, nil, nil, ta.Addrinfo["producer"],
+	blk, err := bc.MintNewBlock([]action.Action{tsf}, ta.Addrinfo["producer"],
 		nil, nil, "")
 	if err != nil {
 		return err
@@ -81,8 +81,8 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	_ = action.Sign(vote1, ta.Addrinfo["charlie"].PrivateKey)
 	execution1, _ := action.NewExecution(ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["delta"].RawAddress, 6, big.NewInt(1), uint64(1000000), big.NewInt(10), []byte{1})
 	_ = action.Sign(execution1, ta.Addrinfo["charlie"].PrivateKey)
-	if blk, err = bc.MintNewBlock([]*action.Transfer{tsf1, tsf2, tsf3, tsf4}, []*action.Vote{vote1},
-		[]*action.Execution{execution1}, nil, ta.Addrinfo["producer"], nil, nil, ""); err != nil {
+	if blk, err = bc.MintNewBlock([]action.Action{tsf1, tsf2, tsf3, tsf4, vote1, execution1}, ta.Addrinfo["producer"],
+		nil, nil, ""); err != nil {
 		return err
 	}
 	if err := bc.ValidateBlock(blk, true); err != nil {
@@ -93,7 +93,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	}
 
 	// Add block 3
-	if blk, err = bc.MintNewBlock(nil, nil, nil, nil, ta.Addrinfo["producer"], nil,
+	if blk, err = bc.MintNewBlock(nil, ta.Addrinfo["producer"], nil,
 		nil, ""); err != nil {
 		return err
 	}
@@ -113,8 +113,8 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	execution2, _ := action.NewExecution(ta.Addrinfo["alfa"].RawAddress, ta.Addrinfo["delta"].RawAddress, 2, big.NewInt(1), 1000000, big.NewInt(10), []byte{1})
 	_ = action.Sign(execution1, ta.Addrinfo["charlie"].PrivateKey)
 	_ = action.Sign(execution2, ta.Addrinfo["alfa"].PrivateKey)
-	if blk, err = bc.MintNewBlock(nil, []*action.Vote{vote1, vote2}, []*action.Execution{execution1, execution2}, nil,
-		ta.Addrinfo["producer"], nil, nil, ""); err != nil {
+	if blk, err = bc.MintNewBlock([]action.Action{vote1, vote2, execution1, execution2}, ta.Addrinfo["producer"],
+		nil, nil, ""); err != nil {
 		return err
 	}
 	if err := bc.ValidateBlock(blk, true); err != nil {
@@ -132,16 +132,16 @@ func addActsToActPool(ap actpool.ActPool) error {
 	_ = action.Sign(tsf2, ta.Addrinfo["producer"].PrivateKey)
 	execution1, _ := action.NewExecution(ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["delta"].RawAddress, 5, big.NewInt(1), uint64(1000000), big.NewInt(10), []byte{1})
 	_ = action.Sign(execution1, ta.Addrinfo["producer"].PrivateKey)
-	if err := ap.AddTsf(tsf1); err != nil {
+	if err := ap.Add(tsf1); err != nil {
 		return err
 	}
-	if err := ap.AddVote(vote1); err != nil {
+	if err := ap.Add(vote1); err != nil {
 		return err
 	}
-	if err := ap.AddTsf(tsf2); err != nil {
+	if err := ap.Add(tsf2); err != nil {
 		return err
 	}
-	return ap.AddExecution(execution1)
+	return ap.Add(execution1)
 }
 
 func TestExplorerApi(t *testing.T) {
@@ -779,8 +779,7 @@ func TestExplorerGetReceiptByExecutionID(t *testing.T) {
 		ta.Addrinfo["producer"].RawAddress, action.EmptyAddress, 1, big.NewInt(0), uint64(100000), big.NewInt(10), data)
 	require.NoError(err)
 	require.NoError(action.Sign(execution, ta.Addrinfo["producer"].PrivateKey))
-	blk, err := bc.MintNewBlock(nil, nil, []*action.Execution{execution}, nil, ta.Addrinfo["producer"],
-		nil, nil, "")
+	blk, err := bc.MintNewBlock([]action.Action{execution}, ta.Addrinfo["producer"], nil, nil, "")
 	require.NoError(err)
 	require.Nil(bc.CommitBlock(blk))
 
@@ -799,7 +798,7 @@ func addCreatorToFactory(sf state.Factory) error {
 	if _, err = ws.LoadOrCreateAccountState(ta.Addrinfo["producer"].RawAddress, blockchain.Gen.TotalSupply); err != nil {
 		return err
 	}
-	if _, err = ws.RunActions(0, nil, nil, nil, nil); err != nil {
+	if _, err = ws.RunActions(0, nil); err != nil {
 		return err
 	}
 	if err = sf.Commit(ws); err != nil {

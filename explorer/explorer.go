@@ -122,8 +122,10 @@ ChainLoop:
 			return []explorer.Transfer{}, err
 		}
 
-		for i := len(blk.Transfers) - 1; i >= 0; i-- {
-			if showCoinBase || !blk.Transfers[i].IsCoinbase() {
+		transfers, _, _ := action.ClassifyActions(blk.Actions)
+
+		for i := len(transfers) - 1; i >= 0; i-- {
+			if showCoinBase || !transfers[i].IsCoinbase() {
 				transferCount++
 			}
 
@@ -132,14 +134,15 @@ ChainLoop:
 			}
 
 			// if showCoinBase is true, add coinbase transfers, else only put non-coinbase transfers
-			if showCoinBase || !blk.Transfers[i].IsCoinbase() {
+			if showCoinBase || !transfers[i].IsCoinbase() {
 				if int64(len(res)) >= limit {
 					break ChainLoop
 				}
 
-				explorerTransfer, err := convertTsfToExplorerTsf(blk.Transfers[i], false)
+				explorerTransfer, err := convertTsfToExplorerTsf(transfers[i], false)
 				if err != nil {
-					return []explorer.Transfer{}, errors.Wrapf(err, "failed to convert transfer %v to explorer's JSON transfer", blk.Transfers[i])
+					return []explorer.Transfer{}, errors.Wrapf(err,
+						"failed to convert transfer %v to explorer's JSON transfer", transfers[i])
 				}
 				explorerTransfer.Timestamp = int64(blk.ConvertToBlockHeaderPb().Timestamp)
 				explorerTransfer.BlockID = blkID
@@ -258,7 +261,9 @@ func (exp *Service) GetTransfersByBlockID(blkID string, offset int64, limit int6
 		return []explorer.Transfer{}, err
 	}
 
-	for i, transfer := range blk.Transfers {
+	transfers, _, _ := action.ClassifyActions(blk.Actions)
+
+	for i, transfer := range transfers {
 		if int64(i) < offset {
 			continue
 		}
@@ -297,7 +302,9 @@ ChainLoop:
 			return []explorer.Vote{}, err
 		}
 
-		for i := int64(len(blk.Votes) - 1); i >= 0; i-- {
+		_, votes, _ := action.ClassifyActions(blk.Actions)
+
+		for i := int64(len(votes) - 1); i >= 0; i-- {
 			voteCount++
 
 			if voteCount <= uint64(offset) {
@@ -308,9 +315,9 @@ ChainLoop:
 				break ChainLoop
 			}
 
-			explorerVote, err := convertVoteToExplorerVote(blk.Votes[i], false)
+			explorerVote, err := convertVoteToExplorerVote(votes[i], false)
 			if err != nil {
-				return []explorer.Vote{}, errors.Wrapf(err, "failed to convert vote %v to explorer's JSON vote", blk.Votes[i])
+				return []explorer.Vote{}, errors.Wrapf(err, "failed to convert vote %v to explorer's JSON vote", votes[i])
 			}
 			explorerVote.Timestamp = int64(blk.ConvertToBlockHeaderPb().Timestamp)
 			explorerVote.BlockID = blkID
@@ -427,7 +434,9 @@ func (exp *Service) GetVotesByBlockID(blkID string, offset int64, limit int64) (
 		return []explorer.Vote{}, err
 	}
 
-	for i, vote := range blk.Votes {
+	_, votes, _ := action.ClassifyActions(blk.Actions)
+
+	for i, vote := range votes {
 		if int64(i) < offset {
 			continue
 		}
@@ -466,7 +475,9 @@ ChainLoop:
 			return []explorer.Execution{}, err
 		}
 
-		for i := int64(len(blk.Executions) - 1); i >= 0; i-- {
+		_, _, executions := action.ClassifyActions(blk.Actions)
+
+		for i := int64(len(executions) - 1); i >= 0; i-- {
 			executionCount++
 
 			if executionCount <= uint64(offset) {
@@ -477,9 +488,10 @@ ChainLoop:
 				break ChainLoop
 			}
 
-			explorerExecution, err := convertExecutionToExplorerExecution(blk.Executions[i], false)
+			explorerExecution, err := convertExecutionToExplorerExecution(executions[i], false)
 			if err != nil {
-				return []explorer.Execution{}, errors.Wrapf(err, "failed to convert execution %v to explorer's JSON execution", blk.Executions[i])
+				return []explorer.Execution{}, errors.Wrapf(err,
+					"failed to convert execution %v to explorer's JSON execution", executions[i])
 			}
 			explorerExecution.Timestamp = int64(blk.ConvertToBlockHeaderPb().Timestamp)
 			explorerExecution.BlockID = blkID
@@ -597,7 +609,9 @@ func (exp *Service) GetExecutionsByBlockID(blkID string, offset int64, limit int
 		return []explorer.Execution{}, err
 	}
 
-	for i, execution := range blk.Executions {
+	_, _, executions := action.ClassifyActions(blk.Actions)
+
+	for i, execution := range executions {
 		if int64(i) < offset {
 			continue
 		}
@@ -649,9 +663,10 @@ func (exp *Service) GetLastBlocksByRange(offset int64, limit int64) ([]explorer.
 			return []explorer.Block{}, err
 		}
 
+		transfers, votes, executions := action.ClassifyActions(blk.Actions)
 		totalAmount := big.NewInt(0)
 		totalSize := uint32(0)
-		for _, transfer := range blk.Transfers {
+		for _, transfer := range transfers {
 			totalAmount.Add(totalAmount, transfer.Amount())
 			totalSize += transfer.TotalSize()
 		}
@@ -660,9 +675,9 @@ func (exp *Service) GetLastBlocksByRange(offset int64, limit int64) ([]explorer.
 			ID:         hex.EncodeToString(hash[:]),
 			Height:     int64(blockHeaderPb.Height),
 			Timestamp:  int64(blockHeaderPb.Timestamp),
-			Transfers:  int64(len(blk.Transfers)),
-			Votes:      int64(len(blk.Votes)),
-			Executions: int64(len(blk.Executions)),
+			Transfers:  int64(len(transfers)),
+			Votes:      int64(len(votes)),
+			Executions: int64(len(executions)),
 			Amount:     totalAmount.String(),
 			Size:       int64(totalSize),
 			GenerateBy: explorer.BlockGenerator{
@@ -693,9 +708,10 @@ func (exp *Service) GetBlockByID(blkID string) (explorer.Block, error) {
 
 	blkHeaderPb := blk.ConvertToBlockHeaderPb()
 
+	transfers, votes, executions := action.ClassifyActions(blk.Actions)
 	totalAmount := big.NewInt(0)
 	totalSize := uint32(0)
-	for _, transfer := range blk.Transfers {
+	for _, transfer := range transfers {
 		totalAmount.Add(totalAmount, transfer.Amount())
 		totalSize += transfer.TotalSize()
 	}
@@ -704,9 +720,9 @@ func (exp *Service) GetBlockByID(blkID string) (explorer.Block, error) {
 		ID:         blkID,
 		Height:     int64(blkHeaderPb.Height),
 		Timestamp:  int64(blkHeaderPb.Timestamp),
-		Transfers:  int64(len(blk.Transfers)),
-		Votes:      int64(len(blk.Votes)),
-		Executions: int64(len(blk.Executions)),
+		Transfers:  int64(len(transfers)),
+		Votes:      int64(len(votes)),
+		Executions: int64(len(executions)),
 		Amount:     totalAmount.String(),
 		Size:       int64(totalSize),
 		GenerateBy: explorer.BlockGenerator{

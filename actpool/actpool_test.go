@@ -8,7 +8,6 @@ package actpool
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 	"strings"
 	"testing"
@@ -17,6 +16,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
+	"fmt"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
@@ -65,29 +65,29 @@ func TestActPool_validateTsf(t *testing.T) {
 	require.True(ok)
 	// Case I: Coinbase transfer
 	coinbaseTsf := action.NewCoinBaseTransfer(big.NewInt(1), "1")
-	err = ap.validateTsf(coinbaseTsf)
+	err = ap.validators[0].Validate(coinbaseTsf)
 	require.Equal(ErrTransfer, errors.Cause(err))
 	// Case II: Oversized data
 	tmpPayload := [32769]byte{}
 	payload := tmpPayload[:]
 	tsf, err := action.NewTransfer(uint64(1), big.NewInt(1), "1", "2", payload, uint64(0), big.NewInt(0))
 	require.NoError(err)
-	err = ap.validateTsf(tsf)
+	err = ap.validators[0].Validate(tsf)
 	require.Equal(ErrActPool, errors.Cause(err))
 	// Case III: Over-gassed transfer
 	tsf, err = action.NewTransfer(uint64(1), big.NewInt(1), "1", "2", nil, blockchain.GasLimit+1, big.NewInt(0))
 	require.NoError(err)
-	err = ap.validateTsf(tsf)
+	err = ap.validators[0].Validate(tsf)
 	require.Equal(ErrGasHigherThanLimit, errors.Cause(err))
 	// Case IV: Insufficient gas
 	tsf, err = action.NewTransfer(uint64(1), big.NewInt(1), "1", "2", nil, uint64(0), big.NewInt(0))
 	require.NoError(err)
-	err = ap.validateTsf(tsf)
+	err = ap.validators[0].Validate(tsf)
 	require.Equal(ErrInsufficientGas, errors.Cause(err))
 	// Case V: Negative amount
 	tsf, err = action.NewTransfer(uint64(1), big.NewInt(-100), "1", "2", nil, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	err = ap.validateTsf(tsf)
+	err = ap.validators[0].Validate(tsf)
 	require.Equal(ErrBalance, errors.Cause(err))
 	// Case VI: Invalid address
 	tsf, err = action.NewTransfer(
@@ -100,32 +100,32 @@ func TestActPool_validateTsf(t *testing.T) {
 		big.NewInt(0),
 	)
 	require.NoError(err)
-	err = ap.validateTsf(tsf)
+	err = ap.validators[0].Validate(tsf)
 	require.Error(err)
 	require.True(strings.Contains(err.Error(), "error when validating recipient's address"))
 	// Case VII: Signature verification fails
 	unsignedTsf, err := action.NewTransfer(uint64(1), big.NewInt(1), addr1.RawAddress, addr1.RawAddress, []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	err = ap.validateTsf(unsignedTsf)
+	err = ap.validators[0].Validate(unsignedTsf)
 	require.Equal(action.ErrAction, errors.Cause(err))
 	// Case VIII: Nonce is too low
 	prevTsf, err := testutil.SignedTransfer(addr1, addr1, uint64(1), big.NewInt(50),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	err = ap.AddTsf(prevTsf)
+	err = ap.Add(prevTsf)
 	require.NoError(err)
 	sf := bc.GetFactory()
 	require.NotNil(sf)
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
-	_, err = ws.RunActions(0, []*action.Transfer{prevTsf}, nil, nil, nil)
+	_, err = ws.RunActions(0, []action.Action{prevTsf})
 	require.NoError(err)
 	require.Nil(sf.Commit(ws))
 	ap.Reset()
 	nTsf, err := testutil.SignedTransfer(addr1, addr1, uint64(1), big.NewInt(60),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	err = ap.validateTsf(nTsf)
+	err = ap.validators[0].Validate(nTsf)
 	require.Equal(ErrNonce, errors.Cause(err))
 }
 
@@ -145,18 +145,18 @@ func TestActPool_validateVote(t *testing.T) {
 	// Case I: Over-gassed vote
 	vote, err := action.NewVote(1, "123", "456", blockchain.GasLimit+1, big.NewInt(0))
 	require.NoError(err)
-	err = ap.validateVote(vote)
+	err = ap.validators[1].Validate(vote)
 	require.Equal(ErrGasHigherThanLimit, errors.Cause(err))
 	// Case II: Insufficient gas
 	vote, err = action.NewVote(1, "123", "456", uint64(0), big.NewInt(0))
 	require.NoError(err)
-	err = ap.validateVote(vote)
+	err = ap.validators[1].Validate(vote)
 	require.Equal(ErrInsufficientGas, errors.Cause(err))
 	// Case III: Invalid address
 	vote, err = action.NewVote(1, addr1.RawAddress, "123", uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	vote.SetVoterPublicKey(addr1.PublicKey)
-	err = ap.validateVote(vote)
+	err = ap.validators[1].Validate(vote)
 	require.Error(err)
 	require.True(strings.Contains(err.Error(), "error when validating votee's address"))
 	// Case IV: Signature verification fails
@@ -164,30 +164,30 @@ func TestActPool_validateVote(t *testing.T) {
 	require.NoError(err)
 	unsignedVote.SetVoterPublicKey(addr1.PublicKey)
 	require.NoError(err)
-	err = ap.validateVote(unsignedVote)
+	err = ap.validators[1].Validate(unsignedVote)
 	require.Equal(action.ErrAction, errors.Cause(err))
 	// Case V: Nonce is too low
 	prevTsf, err := testutil.SignedTransfer(addr1, addr1, uint64(1), big.NewInt(50),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	err = ap.AddTsf(prevTsf)
+	err = ap.Add(prevTsf)
 	require.NoError(err)
 	sf := bc.GetFactory()
 	require.NotNil(sf)
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
-	_, err = ws.RunActions(0, []*action.Transfer{prevTsf}, nil, nil, nil)
+	_, err = ws.RunActions(0, []action.Action{prevTsf})
 	require.NoError(err)
 	require.Nil(sf.Commit(ws))
 	ap.Reset()
 	nVote, err := testutil.SignedVote(addr1, addr1, uint64(1), uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	err = ap.validateVote(nVote)
+	err = ap.validators[1].Validate(nVote)
 	require.Equal(ErrNonce, errors.Cause(err))
 	// Case VI: Votee is not a candidate
 	vote2, err := testutil.SignedVote(addr1, addr2, uint64(2), uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	err = ap.validateVote(vote2)
+	err = ap.validators[1].Validate(vote2)
 	require.Equal(ErrVotee, errors.Cause(err))
 }
 
@@ -232,21 +232,21 @@ func TestActPool_AddActs(t *testing.T) {
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 
-	err = ap.AddTsf(tsf1)
+	err = ap.Add(tsf1)
 	require.NoError(err)
-	err = ap.AddTsf(tsf2)
+	err = ap.Add(tsf2)
 	require.NoError(err)
-	err = ap.AddTsf(tsf3)
+	err = ap.Add(tsf3)
 	require.NoError(err)
-	err = ap.AddVote(vote4)
+	err = ap.Add(vote4)
 	require.NoError(err)
-	err = ap.AddTsf(tsf5)
+	err = ap.Add(tsf5)
 	require.Equal(ErrBalance, errors.Cause(err))
-	err = ap.AddTsf(tsf6)
+	err = ap.Add(tsf6)
 	require.NoError(err)
-	err = ap.AddTsf(tsf7)
+	err = ap.Add(tsf7)
 	require.NoError(err)
-	err = ap.AddTsf(tsf8)
+	err = ap.Add(tsf8)
 	require.NoError(err)
 
 	pBalance1, _ := ap.getPendingBalance(addr1.RawAddress)
@@ -262,7 +262,7 @@ func TestActPool_AddActs(t *testing.T) {
 	tsf9, err := testutil.SignedTransfer(addr2, addr2, uint64(2), big.NewInt(3),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	err = ap.AddTsf(tsf9)
+	err = ap.Add(tsf9)
 	require.NoError(err)
 	pBalance2, _ = ap.getPendingBalance(addr2.RawAddress)
 	require.Equal(uint64(1), pBalance2.Uint64())
@@ -270,10 +270,10 @@ func TestActPool_AddActs(t *testing.T) {
 	require.Equal(uint64(4), pNonce2)
 	// Error Case Handling
 	// Case I: Action already exists in pool
-	err = ap.AddTsf(tsf1)
-	require.Equal(fmt.Errorf("existed transfer: %x", tsf1.Hash()), err)
-	err = ap.AddVote(vote4)
-	require.Equal(fmt.Errorf("existed vote: %x", vote4.Hash()), err)
+	err = ap.Add(tsf1)
+	require.Equal(fmt.Errorf("reject existed action: %x", tsf1.Hash()), err)
+	err = ap.Add(vote4)
+	require.Equal(fmt.Errorf("reject existed action: %x", vote4.Hash()), err)
 	// Case II: Pool space is full
 	mockBC := mock_blockchain.NewMockBlockchain(ctrl)
 	Ap2, err := NewActPool(mockBC, apConfig)
@@ -286,39 +286,37 @@ func TestActPool_AddActs(t *testing.T) {
 		require.NoError(err)
 		ap2.allActions[nTsf.Hash()] = nTsf
 	}
-	mockBC.EXPECT().Nonce(gomock.Any()).Times(2).Return(uint64(0), nil)
-	mockBC.EXPECT().StateByAddr(gomock.Any()).Times(1).Return(nil, nil)
-	err = ap2.AddTsf(tsf1)
+	err = ap2.Add(tsf1)
 	require.Equal(ErrActPool, errors.Cause(err))
-	err = ap2.AddVote(vote4)
+	err = ap2.Add(vote4)
 	require.Equal(ErrActPool, errors.Cause(err))
 	// Case III: Nonce already exists
 	replaceTsf, err := testutil.SignedTransfer(addr1, addr2, uint64(1), big.NewInt(1),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	err = ap.AddTsf(replaceTsf)
+	err = ap.Add(replaceTsf)
 	require.Equal(ErrNonce, errors.Cause(err))
 	replaceVote, err := action.NewVote(4, addr1.RawAddress, "", uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	require.NoError(action.Sign(replaceVote, addr1.PrivateKey))
-	err = ap.AddVote(replaceVote)
+	err = ap.Add(replaceVote)
 	require.Equal(ErrNonce, errors.Cause(err))
 	// Case IV: Nonce is too large
 	outOfBoundsTsf, err := testutil.SignedTransfer(addr1, addr1, ap.cfg.MaxNumActsPerAcct+1, big.NewInt(1),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	err = ap.AddTsf(outOfBoundsTsf)
+	err = ap.Add(outOfBoundsTsf)
 	require.Equal(ErrNonce, errors.Cause(err))
 	// Case V: Insufficient balance
 	overBalTsf, err := testutil.SignedTransfer(addr2, addr2, uint64(4), big.NewInt(20),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	err = ap.AddTsf(overBalTsf)
+	err = ap.Add(overBalTsf)
 	require.Equal(ErrBalance, errors.Cause(err))
 	// Case VI: over gas limit
 	creationExecution, err := action.NewExecution(addr1.RawAddress, action.EmptyAddress, uint64(5), big.NewInt(int64(0)), blockchain.GasLimit+100, big.NewInt(10), []byte{})
 	require.NoError(err)
-	err = ap.AddExecution(creationExecution)
+	err = ap.Add(creationExecution)
 	require.Equal(ErrGasHigherThanLimit, errors.Cause(err))
 	// Case VII: insufficient gas
 	tmpData := [1234]byte{}
@@ -332,7 +330,7 @@ func TestActPool_AddActs(t *testing.T) {
 		tmpData[:],
 	)
 	require.NoError(err)
-	err = ap.AddExecution(creationExecution)
+	err = ap.Add(creationExecution)
 	require.Equal(ErrInsufficientGas, errors.Cause(err))
 }
 
@@ -380,25 +378,25 @@ func TestActPool_PickActs(t *testing.T) {
 			[]byte{}, uint64(100000), big.NewInt(0))
 		require.NoError(err)
 
-		err = ap.AddTsf(tsf1)
+		err = ap.Add(tsf1)
 		require.NoError(err)
-		err = ap.AddTsf(tsf2)
+		err = ap.Add(tsf2)
 		require.NoError(err)
-		err = ap.AddTsf(tsf3)
+		err = ap.Add(tsf3)
 		require.NoError(err)
-		err = ap.AddTsf(tsf4)
+		err = ap.Add(tsf4)
 		require.NoError(err)
-		err = ap.AddTsf(tsf5)
+		err = ap.Add(tsf5)
 		require.Equal(ErrBalance, errors.Cause(err))
-		err = ap.AddVote(vote6)
+		err = ap.Add(vote6)
 		require.NoError(err)
-		err = ap.AddVote(vote7)
+		err = ap.Add(vote7)
 		require.NoError(err)
-		err = ap.AddTsf(tsf8)
+		err = ap.Add(tsf8)
 		require.NoError(err)
-		err = ap.AddTsf(tsf9)
+		err = ap.Add(tsf9)
 		require.NoError(err)
-		err = ap.AddTsf(tsf10)
+		err = ap.Add(tsf10)
 		require.NoError(err)
 		return ap, []*action.Transfer{tsf1, tsf2, tsf3, tsf4}, []*action.Vote{vote7}, []*action.Execution{}
 	}
@@ -406,26 +404,22 @@ func TestActPool_PickActs(t *testing.T) {
 	t.Run("no-limit", func(t *testing.T) {
 		apConfig := getActPoolCfg()
 		ap, transfers, votes, executions := createActPool(apConfig)
-		pickedTsfs, pickedVotes, pickedExecutions, _ := ap.PickActs()
-		require.Equal(t, transfers, pickedTsfs)
-		require.Equal(t, votes, pickedVotes)
-		require.Equal(t, executions, pickedExecutions)
+		pickedActs := ap.PickActs()
+		require.Equal(t, len(transfers)+len(votes)+len(executions), len(pickedActs))
 	})
 	t.Run("enough-limit", func(t *testing.T) {
 		apConfig := getActPoolCfg()
 		apConfig.MaxNumActsToPick = 10
 		ap, transfers, votes, executions := createActPool(apConfig)
-		pickedTsfs, pickedVotes, pickedExecutions, _ := ap.PickActs()
-		require.Equal(t, transfers, pickedTsfs)
-		require.Equal(t, votes, pickedVotes)
-		require.Equal(t, executions, pickedExecutions)
+		pickedActs := ap.PickActs()
+		require.Equal(t, len(transfers)+len(votes)+len(executions), len(pickedActs))
 	})
 	t.Run("low-limit", func(t *testing.T) {
 		apConfig := getActPoolCfg()
 		apConfig.MaxNumActsToPick = 3
 		ap, _, _, _ := createActPool(apConfig)
-		pickedTsfs, pickedVotes, pickedExecutions, _ := ap.PickActs()
-		require.Equal(t, 3, len(pickedTsfs)+len(pickedVotes)+len(pickedExecutions))
+		pickedActs := ap.PickActs()
+		require.Equal(t, 3, len(pickedActs))
 	})
 }
 
@@ -454,13 +448,13 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	vote4, err := testutil.SignedVote(addr1, addr1, uint64(4), uint64(100000), big.NewInt(0))
 	require.NoError(err)
 
-	err = ap.AddTsf(tsf1)
+	err = ap.Add(tsf1)
 	require.NoError(err)
-	err = ap.AddTsf(tsf2)
+	err = ap.Add(tsf2)
 	require.NoError(err)
-	err = ap.AddTsf(tsf3)
+	err = ap.Add(tsf3)
 	require.NoError(err)
-	err = ap.AddVote(vote4)
+	err = ap.Add(vote4)
 	require.NoError(err)
 
 	require.Equal(4, len(ap.allActions))
@@ -469,7 +463,7 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	require.NotNil(sf)
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
-	_, err = ws.RunActions(0, []*action.Transfer{tsf1, tsf2, tsf3}, []*action.Vote{vote4}, []*action.Execution{}, nil)
+	_, err = ws.RunActions(0, []action.Action{tsf1, tsf2, tsf3, vote4})
 	require.NoError(err)
 	require.Nil(sf.Commit(ws))
 	ap.removeConfirmedActs()
@@ -528,23 +522,23 @@ func TestActPool_Reset(t *testing.T) {
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 
-	err = ap1.AddTsf(tsf1)
+	err = ap1.Add(tsf1)
 	require.NoError(err)
-	err = ap1.AddTsf(tsf2)
+	err = ap1.Add(tsf2)
 	require.NoError(err)
-	err = ap1.AddTsf(tsf3)
+	err = ap1.Add(tsf3)
 	require.Equal(ErrBalance, errors.Cause(err))
-	err = ap1.AddTsf(tsf4)
+	err = ap1.Add(tsf4)
 	require.NoError(err)
-	err = ap1.AddTsf(tsf5)
+	err = ap1.Add(tsf5)
 	require.NoError(err)
-	err = ap1.AddTsf(tsf6)
+	err = ap1.Add(tsf6)
 	require.Equal(ErrBalance, errors.Cause(err))
-	err = ap1.AddTsf(tsf7)
+	err = ap1.Add(tsf7)
 	require.NoError(err)
-	err = ap1.AddTsf(tsf8)
+	err = ap1.Add(tsf8)
 	require.NoError(err)
-	err = ap1.AddTsf(tsf9)
+	err = ap1.Add(tsf9)
 	require.NoError(err)
 	// Tsfs to be added to ap2 only
 	tsf10, err := testutil.SignedTransfer(addr1, addr2, uint64(3), big.NewInt(20),
@@ -563,23 +557,23 @@ func TestActPool_Reset(t *testing.T) {
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 
-	err = ap2.AddTsf(tsf1)
+	err = ap2.Add(tsf1)
 	require.NoError(err)
-	err = ap2.AddTsf(tsf2)
+	err = ap2.Add(tsf2)
 	require.NoError(err)
-	err = ap2.AddTsf(tsf10)
+	err = ap2.Add(tsf10)
 	require.NoError(err)
-	err = ap2.AddTsf(tsf11)
+	err = ap2.Add(tsf11)
 	require.Equal(ErrBalance, errors.Cause(err))
-	err = ap2.AddTsf(tsf4)
+	err = ap2.Add(tsf4)
 	require.NoError(err)
-	err = ap2.AddTsf(tsf12)
+	err = ap2.Add(tsf12)
 	require.NoError(err)
-	err = ap2.AddTsf(tsf13)
+	err = ap2.Add(tsf13)
 	require.NoError(err)
-	err = ap2.AddTsf(tsf14)
+	err = ap2.Add(tsf14)
 	require.NoError(err)
-	err = ap2.AddTsf(tsf9)
+	err = ap2.Add(tsf9)
 	require.Equal(ErrBalance, errors.Cause(err))
 	// Check confirmed nonce, pending nonce, and pending balance after adding Tsfs above for each account
 	// ap1
@@ -615,13 +609,13 @@ func TestActPool_Reset(t *testing.T) {
 	ap2PBalance3, _ := ap2.getPendingBalance(addr3.RawAddress)
 	require.Equal(big.NewInt(50).Uint64(), ap2PBalance3.Uint64())
 	// Let ap1 be BP's actpool
-	pickedTsfs, pickedVotes, pickedExecutions, _ := ap1.PickActs()
+	pickedActs := ap1.PickActs()
 	// ap1 commits update of accounts to trie
 	sf := bc.GetFactory()
 	require.NotNil(sf)
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
-	_, err = ws.RunActions(0, pickedTsfs, pickedVotes, pickedExecutions, nil)
+	_, err = ws.RunActions(0, pickedActs)
 	require.NoError(err)
 	require.Nil(sf.Commit(ws))
 	//Reset
@@ -682,17 +676,17 @@ func TestActPool_Reset(t *testing.T) {
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 
-	err = ap1.AddTsf(tsf15)
+	err = ap1.Add(tsf15)
 	require.NoError(err)
-	err = ap2.AddTsf(tsf16)
+	err = ap2.Add(tsf16)
 	require.NoError(err)
-	err = ap2.AddTsf(tsf17)
+	err = ap2.Add(tsf17)
 	require.NoError(err)
-	err = ap2.AddTsf(tsf18)
+	err = ap2.Add(tsf18)
 	require.NoError(err)
-	err = ap2.AddTsf(tsf19)
+	err = ap2.Add(tsf19)
 	require.Equal(ErrBalance, errors.Cause(err))
-	err = ap2.AddTsf(tsf20)
+	err = ap2.Add(tsf20)
 	require.Equal(ErrBalance, errors.Cause(err))
 	// Check confirmed nonce, pending nonce, and pending balance after adding Tsfs above for each account
 	// ap1
@@ -728,11 +722,11 @@ func TestActPool_Reset(t *testing.T) {
 	ap2PBalance3, _ = ap2.getPendingBalance(addr3.RawAddress)
 	require.Equal(big.NewInt(180).Uint64(), ap2PBalance3.Uint64())
 	// Let ap2 be BP's actpool
-	pickedTsfs, pickedVotes, pickedExecutions, _ = ap2.PickActs()
+	pickedActs = ap2.PickActs()
 	// ap2 commits update of accounts to trie
 	ws, err = sf.NewWorkingSet()
 	require.NoError(err)
-	_, err = ws.RunActions(0, pickedTsfs, pickedVotes, pickedExecutions, nil)
+	_, err = ws.RunActions(0, pickedActs)
 	require.NoError(err)
 	require.Nil(sf.Commit(ws))
 	//Reset
@@ -795,17 +789,17 @@ func TestActPool_Reset(t *testing.T) {
 	require.NoError(err)
 	_ = action.Sign(vote26, addr5.PrivateKey)
 
-	err = ap1.AddTsf(tsf21)
+	err = ap1.Add(tsf21)
 	require.NoError(err)
-	err = ap1.AddVote(vote22)
+	err = ap1.Add(vote22)
 	require.NoError(err)
-	err = ap1.AddVote(vote23)
+	err = ap1.Add(vote23)
 	require.NoError(err)
-	err = ap1.AddVote(vote24)
+	err = ap1.Add(vote24)
 	require.NoError(err)
-	err = ap1.AddTsf(tsf25)
+	err = ap1.Add(tsf25)
 	require.NoError(err)
-	err = ap1.AddVote(vote26)
+	err = ap1.Add(vote26)
 	require.NoError(err)
 	// Check confirmed nonce, pending nonce, and pending balance after adding actions above for account4 and account5
 	// ap1
@@ -820,11 +814,11 @@ func TestActPool_Reset(t *testing.T) {
 	ap1PBalance5, _ := ap1.getPendingBalance(addr5.RawAddress)
 	require.Equal(big.NewInt(10).Uint64(), ap1PBalance5.Uint64())
 	// Let ap1 be BP's actpool
-	pickedTsfs, pickedVotes, pickedExecutions, _ = ap1.PickActs()
+	pickedActs = ap1.PickActs()
 	// ap1 commits update of accounts to trie
 	ws, err = sf.NewWorkingSet()
 	require.NoError(err)
-	_, err = ws.RunActions(0, pickedTsfs, pickedVotes, pickedExecutions, nil)
+	_, err = ws.RunActions(0, pickedActs)
 	require.NoError(err)
 	require.Nil(sf.Commit(ws))
 	//Reset
@@ -868,13 +862,13 @@ func TestActPool_removeInvalidActs(t *testing.T) {
 	vote4, err := testutil.SignedVote(addr1, addr1, uint64(4), uint64(100000), big.NewInt(0))
 	require.NoError(err)
 
-	err = ap.AddTsf(tsf1)
+	err = ap.Add(tsf1)
 	require.NoError(err)
-	err = ap.AddTsf(tsf2)
+	err = ap.Add(tsf2)
 	require.NoError(err)
-	err = ap.AddTsf(tsf3)
+	err = ap.Add(tsf3)
 	require.NoError(err)
-	err = ap.AddVote(vote4)
+	err = ap.Add(vote4)
 	require.NoError(err)
 
 	hash1 := tsf1.Hash()
@@ -911,11 +905,11 @@ func TestActPool_GetPendingNonce(t *testing.T) {
 	vote4, err := testutil.SignedVote(addr1, addr1, uint64(4), uint64(100000), big.NewInt(0))
 	require.NoError(err)
 
-	err = ap.AddTsf(tsf1)
+	err = ap.Add(tsf1)
 	require.NoError(err)
-	err = ap.AddTsf(tsf3)
+	err = ap.Add(tsf3)
 	require.NoError(err)
-	err = ap.AddVote(vote4)
+	err = ap.Add(vote4)
 	require.NoError(err)
 
 	nonce, err := ap.GetPendingNonce(addr2.RawAddress)
@@ -951,11 +945,11 @@ func TestActPool_GetUnconfirmedActs(t *testing.T) {
 	vote4, err := testutil.SignedVote(addr1, addr1, uint64(4), uint64(100000), big.NewInt(0))
 	require.NoError(err)
 
-	err = ap.AddTsf(tsf1)
+	err = ap.Add(tsf1)
 	require.NoError(err)
-	err = ap.AddTsf(tsf3)
+	err = ap.Add(tsf3)
 	require.NoError(err)
-	err = ap.AddVote(vote4)
+	err = ap.Add(vote4)
 	require.NoError(err)
 
 	acts := ap.GetUnconfirmedActs(addr2.RawAddress)
@@ -1039,16 +1033,16 @@ func TestActPool_GetSize(t *testing.T) {
 	require.NoError(err)
 	vote4, err := testutil.SignedVote(addr1, addr1, uint64(4), uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	require.NoError(ap.AddTsf(tsf1))
-	require.NoError(ap.AddTsf(tsf2))
-	require.NoError(ap.AddTsf(tsf3))
-	require.NoError(ap.AddVote(vote4))
+	require.NoError(ap.Add(tsf1))
+	require.NoError(ap.Add(tsf2))
+	require.NoError(ap.Add(tsf3))
+	require.NoError(ap.Add(vote4))
 	require.Equal(uint64(4), ap.GetSize())
 	sf := bc.GetFactory()
 	require.NotNil(sf)
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
-	_, err = ws.RunActions(0, []*action.Transfer{tsf1, tsf2, tsf3}, []*action.Vote{vote4}, nil, nil)
+	_, err = ws.RunActions(0, []action.Action{tsf1, tsf2, tsf3, vote4})
 	require.NoError(err)
 	require.Nil(sf.Commit(ws))
 	ap.removeConfirmedActs()

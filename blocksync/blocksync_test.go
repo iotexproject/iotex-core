@@ -60,8 +60,8 @@ func TestSyncTaskInterval(t *testing.T) {
 
 func generateP2P() network.Overlay {
 	c := &config.Network{
-		Host: "127.0.0.1",
-		Port: 10001,
+		Host:                    "127.0.0.1",
+		Port:                    10001,
 		MsgLogsCleaningInterval: 2 * time.Second,
 		MsgLogRetention:         10 * time.Second,
 		HealthCheckInterval:     time.Second,
@@ -91,7 +91,7 @@ func TestNewBlockSyncer(t *testing.T) {
 	// TipHeight return ERROR
 	mBc.EXPECT().TipHeight().AnyTimes().Return(uint64(0))
 	mBc.EXPECT().ChainID().AnyTimes().Return(config.Default.Chain.ID)
-	blk := bc.NewBlock(uint32(123), uint64(0), hash.Hash32B{}, testutil.TimestampNow(), nil, nil, nil, nil)
+	blk := bc.NewBlock(uint32(123), uint64(0), hash.Hash32B{}, testutil.TimestampNow(), nil)
 	mBc.EXPECT().GetBlockByHeight(gomock.Any()).AnyTimes().Return(blk, nil)
 
 	cfg, err := newTestConfig()
@@ -161,7 +161,7 @@ func TestBlockSyncerProcessSyncRequest(t *testing.T) {
 
 	mBc := mock_blockchain.NewMockBlockchain(ctrl)
 	mBc.EXPECT().ChainID().AnyTimes().Return(config.Default.Chain.ID)
-	blk := bc.NewBlock(uint32(123), uint64(0), hash.Hash32B{}, testutil.TimestampNow(), nil, nil, nil, nil)
+	blk := bc.NewBlock(uint32(123), uint64(0), hash.Hash32B{}, testutil.TimestampNow(), nil)
 	mBc.EXPECT().GetBlockByHeight(gomock.Any()).AnyTimes().Return(blk, nil)
 	mBc.EXPECT().TipHeight().AnyTimes().Return(uint64(0))
 	cfg, err := newTestConfig()
@@ -245,7 +245,7 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 	}()
 
 	h := chain.TipHeight()
-	blk, err := chain.MintNewBlock(nil, nil, nil, nil, ta.Addrinfo["producer"],
+	blk, err := chain.MintNewBlock(nil, ta.Addrinfo["producer"],
 		nil, nil, "")
 	require.NotNil(blk)
 	require.NoError(err)
@@ -299,17 +299,17 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	}()
 
 	// commit top
-	blk1, err := chain1.MintNewBlock(nil, nil, nil, nil, ta.Addrinfo["producer"],
+	blk1, err := chain1.MintNewBlock(nil, ta.Addrinfo["producer"],
 		nil, nil, "")
 	require.NotNil(blk1)
 	require.Nil(err)
 	require.Nil(bs1.ProcessBlock(blk1))
-	blk2, err := chain1.MintNewBlock(nil, nil, nil, nil, ta.Addrinfo["producer"],
+	blk2, err := chain1.MintNewBlock(nil, ta.Addrinfo["producer"],
 		nil, nil, "")
 	require.NotNil(blk2)
 	require.Nil(err)
 	require.Nil(bs1.ProcessBlock(blk2))
-	blk3, err := chain1.MintNewBlock(nil, nil, nil, nil, ta.Addrinfo["producer"],
+	blk3, err := chain1.MintNewBlock(nil, ta.Addrinfo["producer"],
 		nil, nil, "")
 	require.NotNil(blk3)
 	require.Nil(err)
@@ -358,17 +358,17 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	}()
 
 	// commit top
-	blk1, err := chain1.MintNewBlock(nil, nil, nil, nil, ta.Addrinfo["producer"],
+	blk1, err := chain1.MintNewBlock(nil, ta.Addrinfo["producer"],
 		nil, nil, "")
 	require.NotNil(blk1)
 	require.NoError(err)
 	require.Nil(bs1.ProcessBlock(blk1))
-	blk2, err := chain1.MintNewBlock(nil, nil, nil, nil, ta.Addrinfo["producer"],
+	blk2, err := chain1.MintNewBlock(nil, ta.Addrinfo["producer"],
 		nil, nil, "")
 	require.NotNil(blk2)
 	require.NoError(err)
 	require.Nil(bs1.ProcessBlock(blk2))
-	blk3, err := chain1.MintNewBlock(nil, nil, nil, nil, ta.Addrinfo["producer"],
+	blk3, err := chain1.MintNewBlock(nil, ta.Addrinfo["producer"],
 		nil, nil, "")
 	require.NotNil(blk3)
 	require.NoError(err)
@@ -411,13 +411,13 @@ func TestBlockSyncerSync(t *testing.T) {
 		testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
 	}()
 
-	blk, err := chain.MintNewBlock(nil, nil, nil, nil, ta.Addrinfo["producer"],
+	blk, err := chain.MintNewBlock(nil, ta.Addrinfo["producer"],
 		nil, nil, "")
 	require.NotNil(blk)
 	require.NoError(err)
 	require.Nil(bs.ProcessBlock(blk))
 
-	blk, err = chain.MintNewBlock(nil, nil, nil, nil, ta.Addrinfo["producer"],
+	blk, err = chain.MintNewBlock(nil, ta.Addrinfo["producer"],
 		nil, nil, "")
 	require.NotNil(blk)
 	require.NoError(err)

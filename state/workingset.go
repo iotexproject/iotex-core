@@ -28,7 +28,7 @@ type (
 		LoadOrCreateAccountState(string, *big.Int) (*Account, error)
 		Nonce(string) (uint64, error) // Note that Nonce starts with 1.
 		CachedAccountState(string) (*Account, error)
-		RunActions(uint64, []*action.Transfer, []*action.Vote, []*action.Execution, []action.Action) (hash.Hash32B, error)
+		RunActions(uint64, []action.Action) (hash.Hash32B, error)
 		Commit() error
 		// contracts
 		GetCodeHash(hash.PKHash) (hash.Hash32B, error)
@@ -163,9 +163,6 @@ func (ws *workingSet) Height() uint64 {
 // RunActions runs actions in the block and track pending changes in working set
 func (ws *workingSet) RunActions(
 	blockHeight uint64,
-	tsf []*action.Transfer,
-	vote []*action.Vote,
-	executions []*action.Execution,
 	actions []action.Action) (hash.Hash32B, error) {
 	ws.blkHeight = blockHeight
 	// Recover cachedCandidates after restart factory
@@ -178,10 +175,11 @@ func (ws *workingSet) RunActions(
 			return hash.ZeroHash32B, errors.Wrap(err, "failed to convert candidate list to map of cached Candidates")
 		}
 	}
-	if err := ws.handleTsf(tsf); err != nil {
+	tsfs, votes, executions := action.ClassifyActions(actions)
+	if err := ws.handleTsf(tsfs); err != nil {
 		return hash.ZeroHash32B, errors.Wrap(err, "failed to handle transfers")
 	}
-	if err := ws.handleVote(blockHeight, vote); err != nil {
+	if err := ws.handleVote(blockHeight, votes); err != nil {
 		return hash.ZeroHash32B, errors.Wrap(err, "failed to handle votes")
 	}
 
@@ -473,8 +471,8 @@ func (ws *workingSet) getCandidates(height uint64) (CandidateList, error) {
 //======================================
 // private transfer/vote functions
 //======================================
-func (ws *workingSet) handleTsf(tsf []*action.Transfer) error {
-	for _, tx := range tsf {
+func (ws *workingSet) handleTsf(tsfs []*action.Transfer) error {
+	for _, tx := range tsfs {
 		if tx.IsContract() {
 			continue
 		}
@@ -526,8 +524,8 @@ func (ws *workingSet) handleTsf(tsf []*action.Transfer) error {
 	return nil
 }
 
-func (ws *workingSet) handleVote(blockHeight uint64, vote []*action.Vote) error {
-	for _, v := range vote {
+func (ws *workingSet) handleVote(blockHeight uint64, votes []*action.Vote) error {
+	for _, v := range votes {
 		voteFrom, err := ws.LoadOrCreateAccountState(v.Voter(), big.NewInt(0))
 		if err != nil {
 			return errors.Wrapf(err, "failed to load or create the account of voter %s", v.Voter())

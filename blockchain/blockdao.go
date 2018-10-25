@@ -11,6 +11,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/enc"
@@ -528,12 +529,13 @@ func (dao *blockDAO) putBlock(blk *Block) error {
 	}
 
 	// only build Tsf/Vote/Execution index if enable explorer
+	transfers, votes, executions := action.ClassifyActions(blk.Actions)
 	value, err = dao.kvstore.Get(blockNS, totalTransfersKey)
 	if err != nil {
 		return errors.Wrap(err, "failed to get total transfers")
 	}
 	totalTransfers := enc.MachineEndian.Uint64(value)
-	totalTransfers += uint64(len(blk.Transfers))
+	totalTransfers += uint64(len(transfers))
 	totalTransfersBytes := byteutil.Uint64ToBytes(totalTransfers)
 	batch.Put(blockNS, totalTransfersKey, totalTransfersBytes, "failed to put total transfers")
 
@@ -542,7 +544,7 @@ func (dao *blockDAO) putBlock(blk *Block) error {
 		return errors.Wrap(err, "failed to get total votes")
 	}
 	totalVotes := enc.MachineEndian.Uint64(value)
-	totalVotes += uint64(len(blk.Votes))
+	totalVotes += uint64(len(votes))
 	totalVotesBytes := byteutil.Uint64ToBytes(totalVotes)
 	batch.Put(blockNS, totalVotesKey, totalVotesBytes, "failed to put total votes")
 
@@ -551,26 +553,26 @@ func (dao *blockDAO) putBlock(blk *Block) error {
 		return errors.Wrap(err, "failed to get total executions")
 	}
 	totalExecutions := enc.MachineEndian.Uint64(value)
-	totalExecutions += uint64(len(blk.Executions))
+	totalExecutions += uint64(len(executions))
 	totalExecutionsBytes := byteutil.Uint64ToBytes(totalExecutions)
 	batch.Put(blockNS, totalExecutionsKey, totalExecutionsBytes, "failed to put total executions")
 
 	// map Transfer hash to block hash
-	for _, transfer := range blk.Transfers {
+	for _, transfer := range transfers {
 		transferHash := transfer.Hash()
 		hashKey := append(transferPrefix, transferHash[:]...)
 		batch.Put(blockTransferBlockMappingNS, hashKey, hash[:], "failed to put transfer hash %x", transferHash)
 	}
 
 	// map Vote hash to block hash
-	for _, vote := range blk.Votes {
+	for _, vote := range votes {
 		voteHash := vote.Hash()
 		hashKey := append(votePrefix, voteHash[:]...)
 		batch.Put(blockVoteBlockMappingNS, hashKey, hash[:], "failed to put vote hash %x", voteHash)
 	}
 
 	// map execution hash to block hash
-	for _, execution := range blk.Executions {
+	for _, execution := range executions {
 		executionHash := execution.Hash()
 		hashKey := append(executionPrefix, executionHash[:]...)
 		batch.Put(blockExecutionBlockMappingNS, hashKey, hash[:], "failed to put execution hash %x", executionHash)
@@ -596,7 +598,8 @@ func putTransfers(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 	senderDelta := map[string]uint64{}
 	recipientDelta := map[string]uint64{}
 
-	for _, transfer := range blk.Transfers {
+	transfers, _, _ := action.ClassifyActions(blk.Actions)
+	for _, transfer := range transfers {
 		transferHash := transfer.Hash()
 
 		// get transfers count for sender
@@ -656,7 +659,8 @@ func putVotes(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 	senderDelta := map[string]uint64{}
 	recipientDelta := map[string]uint64{}
 
-	for _, vote := range blk.Votes {
+	_, votes, _ := action.ClassifyActions(blk.Actions)
+	for _, vote := range votes {
 		voteHash := vote.Hash()
 		Sender := vote.Voter()
 		Recipient := vote.Votee()
@@ -718,7 +722,8 @@ func putExecutions(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 	executorDelta := map[string]uint64{}
 	contractDelta := map[string]uint64{}
 
-	for _, execution := range blk.Executions {
+	_, _, executions := action.ClassifyActions(blk.Actions)
+	for _, execution := range executions {
 		executionHash := execution.Hash()
 
 		// get execution count for executor
@@ -831,13 +836,14 @@ func (dao *blockDAO) deleteTipBlock() error {
 	}
 
 	// Only delete Tsf/Vote/Execution index if enable explorer
+	transfers, votes, executions := action.ClassifyActions(blk.Actions)
 	// Update total transfer count
 	value, err := dao.kvstore.Get(blockNS, totalTransfersKey)
 	if err != nil {
 		return errors.Wrap(err, "failed to get total transfers")
 	}
 	totalTransfers := enc.MachineEndian.Uint64(value)
-	totalTransfers -= uint64(len(blk.Transfers))
+	totalTransfers -= uint64(len(transfers))
 	totalTransfersBytes := byteutil.Uint64ToBytes(totalTransfers)
 	batch.Put(blockNS, totalTransfersKey, totalTransfersBytes, "failed to put total transfers")
 
@@ -847,7 +853,7 @@ func (dao *blockDAO) deleteTipBlock() error {
 		return errors.Wrap(err, "failed to get total votes")
 	}
 	totalVotes := enc.MachineEndian.Uint64(value)
-	totalVotes -= uint64(len(blk.Votes))
+	totalVotes -= uint64(len(votes))
 	totalVotesBytes := byteutil.Uint64ToBytes(totalVotes)
 	batch.Put(blockNS, totalVotesKey, totalVotesBytes, "failed to put total votes")
 
@@ -857,26 +863,26 @@ func (dao *blockDAO) deleteTipBlock() error {
 		return errors.Wrap(err, "failed to get total executions")
 	}
 	totalExecutions := enc.MachineEndian.Uint64(value)
-	totalExecutions -= uint64(len(blk.Executions))
+	totalExecutions -= uint64(len(executions))
 	totalExecutionsBytes := byteutil.Uint64ToBytes(totalExecutions)
 	batch.Put(blockNS, totalExecutionsKey, totalExecutionsBytes, "failed to put total executions")
 
 	// Delete transfer hash -> block hash mapping
-	for _, transfer := range blk.Transfers {
+	for _, transfer := range transfers {
 		transferHash := transfer.Hash()
 		hashKey := append(transferPrefix, transferHash[:]...)
 		batch.Delete(blockTransferBlockMappingNS, hashKey, "failed to delete transfer hash %x", transferHash)
 	}
 
 	// Delete vote hash -> block hash mapping
-	for _, vote := range blk.Votes {
+	for _, vote := range votes {
 		voteHash := vote.Hash()
 		hashKey := append(votePrefix, voteHash[:]...)
 		batch.Delete(blockVoteBlockMappingNS, hashKey, "failed to delete vote hash %x", voteHash)
 	}
 
 	// Delete execution hash -> block hash mapping
-	for _, execution := range blk.Executions {
+	for _, execution := range executions {
 		executionHash := execution.Hash()
 		hashKey := append(executionPrefix, executionHash[:]...)
 		batch.Delete(blockExecutionBlockMappingNS, hashKey, "failed to delete execution hash %x", executionHash)
@@ -903,10 +909,11 @@ func (dao *blockDAO) deleteTipBlock() error {
 
 // deleteTransfers deletes transfer information from db
 func deleteTransfers(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
+	transfers, _, _ := action.ClassifyActions(blk.Actions)
 	// First get the total count of transfers by sender and recipient respectively in the block
 	senderCount := make(map[string]uint64)
 	recipientCount := make(map[string]uint64)
-	for _, transfer := range blk.Transfers {
+	for _, transfer := range transfers {
 		senderCount[transfer.Sender()]++
 		recipientCount[transfer.Recipient()]++
 	}
@@ -936,7 +943,7 @@ func deleteTransfers(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 	senderDelta := map[string]uint64{}
 	recipientDelta := map[string]uint64{}
 
-	for _, transfer := range blk.Transfers {
+	for _, transfer := range transfers {
 		transferHash := transfer.Hash()
 
 		if delta, ok := senderDelta[transfer.Sender()]; ok {
@@ -971,10 +978,11 @@ func deleteTransfers(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 
 // deleteVotes deletes vote information from db
 func deleteVotes(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
+	_, votes, _ := action.ClassifyActions(blk.Actions)
 	// First get the total count of votes by sender and recipient respectively in the block
 	senderCount := make(map[string]uint64)
 	recipientCount := make(map[string]uint64)
-	for _, vote := range blk.Votes {
+	for _, vote := range votes {
 		sender := vote.Voter()
 		recipient := vote.Votee()
 		senderCount[sender]++
@@ -1005,7 +1013,7 @@ func deleteVotes(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 	senderDelta := map[string]uint64{}
 	recipientDelta := map[string]uint64{}
 
-	for _, vote := range blk.Votes {
+	for _, vote := range votes {
 		voteHash := vote.Hash()
 		Sender := vote.Voter()
 		Recipient := vote.Votee()
@@ -1042,10 +1050,11 @@ func deleteVotes(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 
 // deleteExecutions deletes execution information from db
 func deleteExecutions(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
+	_, _, executions := action.ClassifyActions(blk.Actions)
 	// First get the total count of executions by executor and contract respectively in the block
 	executorCount := make(map[string]uint64)
 	contractCount := make(map[string]uint64)
-	for _, execution := range blk.Executions {
+	for _, execution := range executions {
 		executorCount[execution.Executor()]++
 		contractCount[execution.Contract()]++
 	}
@@ -1075,7 +1084,7 @@ func deleteExecutions(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 	executorDelta := map[string]uint64{}
 	contractDelta := map[string]uint64{}
 
-	for _, execution := range blk.Executions {
+	for _, execution := range executions {
 		executionHash := execution.Hash()
 
 		if delta, ok := executorDelta[execution.Executor()]; ok {
