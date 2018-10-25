@@ -45,11 +45,11 @@ func (p *Protocol) handleStartSubChain(start *action.StartSubChain, ws state.Wor
 	if err != nil {
 		return err
 	}
-	subChain, err := p.mutateSubChainState(start, account, subChainsInOp, ws)
+	subChain, receipt, err := p.mutateSubChainState(start, account, subChainsInOp, ws)
 	if err != nil {
 		return err
 	}
-	if err := p.startSubChainService(subChain); err != nil {
+	if err := p.startSubChainService(receipt.SubChainAddress, subChain); err != nil {
 		return nil
 	}
 	return nil
@@ -104,10 +104,10 @@ func (p *Protocol) mutateSubChainState(
 	account *state.Account,
 	subChainsInOp state.SortedSlice,
 	ws state.WorkingSet,
-) (*SubChain, error) {
+) (*SubChain, StartSubChainReceipt, error) {
 	addr, err := createSubChainAddress(start.OwnerAddress(), start.Nonce())
 	if err != nil {
-		return nil, err
+		return nil, StartSubChainReceipt{}, err
 	}
 	sc := SubChain{
 		ChainID:            start.ChainID(),
@@ -119,7 +119,7 @@ func (p *Protocol) mutateSubChainState(
 		CurrentHeight:      0,
 	}
 	if err := ws.PutState(addr, &sc); err != nil {
-		return nil, errors.Wrap(err, "error when putting sub-chain state")
+		return nil, StartSubChainReceipt{}, errors.Wrap(err, "error when putting sub-chain state")
 	}
 	account.Balance = big.NewInt(0).Sub(account.Balance, start.SecurityDeposit())
 	account.Balance = big.NewInt(0).Sub(account.Balance, start.OperationDeposit())
@@ -129,10 +129,10 @@ func (p *Protocol) mutateSubChainState(
 	}
 	ownerPKHash, err := ownerAddressPKHash(start.OwnerAddress())
 	if err != nil {
-		return nil, err
+		return nil, StartSubChainReceipt{}, err
 	}
 	if err := ws.PutState(ownerPKHash, account); err != nil {
-		return nil, err
+		return nil, StartSubChainReceipt{}, err
 	}
 	subChainsInOp = subChainsInOp.Append(
 		InOperation{
@@ -142,13 +142,15 @@ func (p *Protocol) mutateSubChainState(
 		SortInOperation,
 	)
 	if err := ws.PutState(subChainsInOperationKey, &subChainsInOp); err != nil {
-		return nil, err
+		return nil, StartSubChainReceipt{}, err
 	}
+
+	ioaddr := address.New(sc.ChainID, addr[:])
 	// TODO: update voting results because of owner account balance change
-	return &sc, nil
+	return &sc, StartSubChainReceipt{SubChainAddress: ioaddr.IotxAddress()}, nil
 }
 
-func (p *Protocol) startSubChainService(sc *SubChain) error {
+func (p *Protocol) startSubChainService(addr string, sc *SubChain) error {
 	block := make(chan *blockchain.Block)
 	if err := p.rootChain.SubscribeBlockCreation(block); err != nil {
 		return errors.Wrap(err, "error when subscribing block creation")
@@ -164,6 +166,7 @@ func (p *Protocol) startSubChainService(sc *SubChain) error {
 				// TODO: get rid of the hack config modification
 				cfg := p.cfg
 				cfg.Chain.ID = sc.ChainID
+				cfg.Chain.Address = addr
 				cfg.Chain.ChainDBPath = getSubChainDBPath(sc.ChainID, cfg.Chain.ChainDBPath)
 				cfg.Chain.TrieDBPath = getSubChainDBPath(sc.ChainID, cfg.Chain.TrieDBPath)
 				cfg.Explorer.Port = cfg.Explorer.Port - int(MainChainID) + int(sc.ChainID)

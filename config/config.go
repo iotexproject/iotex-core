@@ -90,6 +90,7 @@ var (
 			ChainDBPath:                  "/tmp/chain.db",
 			TrieDBPath:                   "/tmp/trie.db",
 			ID:                           1,
+			Address:                      "",
 			ProducerPubKey:               keypair.EncodePublicKey(keypair.ZeroPublicKey),
 			ProducerPrivKey:              keypair.EncodePrivateKey(keypair.ZeroPrivateKey),
 			InMemTest:                    false,
@@ -208,6 +209,7 @@ type (
 		TrieDBPath  string `yaml:"trieDBPath"`
 
 		ID              uint32 `yaml:"id"`
+		Address         string `yaml:"address"`
 		ProducerPubKey  string `yaml:"producerPubKey"`
 		ProducerPrivKey string `yaml:"producerPrivKey"`
 

@@ -85,6 +85,8 @@ type Blockchain interface {
 	GetFactory() state.Factory
 	// GetChainID returns the chain ID
 	ChainID() uint32
+	// ChainAddress returns chain address on parent chain, the root chain return empty.
+	ChainAddress() string
 	// TipHash returns tip block's hash
 	TipHash() hash.Hash32B
 	// TipHeight returns tip block's height
@@ -270,6 +272,8 @@ func NewBlockchain(cfg *config.Config, opts ...Option) Blockchain {
 func (bc *blockchain) ChainID() uint32 {
 	return bc.config.Chain.ID
 }
+
+func (bc *blockchain) ChainAddress() string { return bc.config.Chain.Address }
 
 // Start starts the blockchain
 func (bc *blockchain) Start(ctx context.Context) (err error) {
