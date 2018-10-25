@@ -1033,6 +1033,7 @@ func (exp *Service) PutBlock(putBlockJSON explorer.PutBlockRequest) (resp explor
 			PutBlock: &pb.PutBlockPb{
 				SubChainAddress:   putBlockJSON.SubChainAddress,
 				Height:            uint64(putBlockJSON.Height),
+				Roots:             roots,
 				ProducerAddress:   putBlockJSON.Sender,
 				ProducerPublicKey: senderPubKey,
 			},
