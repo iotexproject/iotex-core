@@ -564,12 +564,12 @@ func (b *Builder) Build() (*RollDPoS, error) {
 		b.clock = clock.New()
 	}
 	ctx := rollDPoSCtx{
-		cfg:                    b.cfg,
-		addr:                   b.addr,
-		chain:                  b.chain,
-		actPool:                b.actPool,
-		p2p:                    b.p2p,
-		clock:                  b.clock,
+		cfg:     b.cfg,
+		addr:    b.addr,
+		chain:   b.chain,
+		actPool: b.actPool,
+		p2p:     b.p2p,
+		clock:   b.clock,
 		candidatesByHeightFunc: b.candidatesByHeightFunc,
 	}
 	cfsm, err := newConsensusFSM(&ctx)
