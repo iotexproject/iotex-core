@@ -1020,7 +1020,7 @@ func (exp *Service) PutSubChainBlock(putBlockJSON explorer.PutSubChainBlockReque
 		return explorer.PutSubChainBlockResponse{}, errors.New("failed to set vote gas price")
 	}
 
-	var roots map[string][]byte
+	roots := make(map[string][]byte)
 	for _, mr := range putBlockJSON.Roots {
 		v, err := hex.DecodeString(mr.Value)
 		if err != nil {

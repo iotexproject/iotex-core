@@ -629,6 +629,12 @@ func TestServicePutSubChainBlock(t *testing.T) {
 	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
 	p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Times(1)
 
+	roots := []explorer.PutSubChainBlockMerkelRoot{
+		explorer.PutSubChainBlockMerkelRoot{
+			Name:  "a",
+			Value: hex.EncodeToString([]byte("xddd")),
+		},
+	}
 	r := explorer.PutSubChainBlockRequest{
 		Version:       0x1,
 		Nonce:         1,
@@ -636,6 +642,7 @@ func TestServicePutSubChainBlock(t *testing.T) {
 		SenderPubKey:  senderPubKey,
 		GasPrice:      big.NewInt(0).String(),
 		Signature:     "",
+		Roots:         roots,
 	}
 
 	response, err = svc.PutSubChainBlock(r)
