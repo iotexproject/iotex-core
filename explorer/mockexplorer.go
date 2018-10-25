@@ -208,6 +208,11 @@ func (exp *MockExplorer) SendVote(request explorer.SendVoteRequest) (explorer.Se
 	return explorer.SendVoteResponse{}, nil
 }
 
+// PutBlock makes a fake put block request.
+func (exp *MockExplorer) PutBlock(putBlockJSON explorer.PutBlockRequest) (resp explorer.PutBlockResponse, err error) {
+	return explorer.PutBlockResponse{}, nil
+}
+
 // GetPeers returns a empty GetPeersResponse.
 func (exp *MockExplorer) GetPeers() (explorer.GetPeersResponse, error) {
 	return explorer.GetPeersResponse{}, nil

@@ -609,6 +609,40 @@ func TestService_SendSmartContract(t *testing.T) {
 	require.Nil(err)
 }
 
+func TestServicePutBlock(t *testing.T) {
+	require := require.New(t)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	chain := mock_blockchain.NewMockBlockchain(ctrl)
+	mDp := mock_dispatcher.NewMockDispatcher(ctrl)
+	p2p := mock_network.NewMockOverlay(ctrl)
+	svc := Service{bc: chain, dp: mDp, p2p: p2p}
+
+	request := explorer.PutBlockRequest{}
+	response, err := svc.PutBlock(request)
+	require.Equal("", response.Hash)
+	require.NotNil(err)
+
+	chain.EXPECT().ChainID().Return(uint32(1)).Times(2)
+	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
+	p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Times(1)
+
+	r := explorer.PutBlockRequest{
+		Version:      0x1,
+		Nonce:        1,
+		Sender:       senderRawAddr,
+		SenderPubKey: senderPubKey,
+		GasPrice:     big.NewInt(0).String(),
+		Signature:    "",
+	}
+
+	response, err = svc.PutBlock(r)
+	require.NotNil(response.Hash)
+	require.Nil(err)
+}
+
 func TestServiceGetPeers(t *testing.T) {
 	require := require.New(t)
 

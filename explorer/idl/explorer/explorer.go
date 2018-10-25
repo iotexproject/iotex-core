@@ -9,8 +9,8 @@ import (
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "d37c8297b1a4b80f837adb8696a7e046"
-const BarristerDateGenerated int64 = 1539901339136000000
+const BarristerChecksum string = "47b1a8053b5d5744f68508a493a5e954"
+const BarristerDateGenerated int64 = 1540496884971000000
 
 type CoinStatistic struct {
 	Height     int64  `json:"height"`
@@ -177,6 +177,29 @@ type SendVoteResponse struct {
 	Hash string `json:"hash"`
 }
 
+type PutBlockMerkelRoot struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}
+
+type PutBlockRequest struct {
+	Version         int64                `json:"version"`
+	Nonce           int64                `json:"nonce"`
+	Sender          string               `json:"sender"`
+	SubChainAddress string               `json:"subChainAddress"`
+	Height          int64                `json:"height"`
+	Roots           []PutBlockMerkelRoot `json:"roots"`
+	SenderPubKey    string               `json:"senderPubKey"`
+	Signature       string               `json:"signature"`
+	Payload         string               `json:"payload"`
+	GasLimit        int64                `json:"gasLimit"`
+	GasPrice        string               `json:"gasPrice"`
+}
+
+type PutBlockResponse struct {
+	Hash string `json:"hash"`
+}
+
 type Node struct {
 	Address string `json:"address"`
 }
@@ -225,6 +248,7 @@ type Explorer interface {
 	SendTransfer(request SendTransferRequest) (SendTransferResponse, error)
 	SendVote(request SendVoteRequest) (SendVoteResponse, error)
 	SendSmartContract(request Execution) (SendSmartContractResponse, error)
+	PutBlock(request PutBlockRequest) (PutBlockResponse, error)
 	GetPeers() (GetPeersResponse, error)
 	GetReceiptByExecutionID(id string) (Receipt, error)
 	ReadExecutionState(request Execution) (string, error)
@@ -724,6 +748,24 @@ func (_p ExplorerProxy) SendSmartContract(request Execution) (SendSmartContractR
 		return _cast, nil
 	}
 	return SendSmartContractResponse{}, _err
+}
+
+func (_p ExplorerProxy) PutBlock(request PutBlockRequest) (PutBlockResponse, error) {
+	_res, _err := _p.client.Call("Explorer.putBlock", request)
+	if _err == nil {
+		_retType := _p.idl.Method("Explorer.putBlock").Returns
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(PutBlockResponse{}), _res, "")
+	}
+	if _err == nil {
+		_cast, _ok := _res.(PutBlockResponse)
+		if !_ok {
+			_t := reflect.TypeOf(_res)
+			_msg := fmt.Sprintf("Explorer.putBlock returned invalid type: %v", _t)
+			return PutBlockResponse{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
+		}
+		return _cast, nil
+	}
+	return PutBlockResponse{}, _err
 }
 
 func (_p ExplorerProxy) GetPeers() (GetPeersResponse, error) {
@@ -1899,6 +1941,146 @@ var IdlJsonRaw = `[
     },
     {
         "type": "struct",
+        "name": "PutBlockMerkelRoot",
+        "comment": "",
+        "value": "",
+        "extends": "",
+        "fields": [
+            {
+                "name": "name",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "value",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            }
+        ],
+        "values": null,
+        "functions": null,
+        "barrister_version": "",
+        "date_generated": 0,
+        "checksum": ""
+    },
+    {
+        "type": "struct",
+        "name": "PutBlockRequest",
+        "comment": "",
+        "value": "",
+        "extends": "",
+        "fields": [
+            {
+                "name": "version",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "nonce",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "sender",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "subChainAddress",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "height",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "roots",
+                "type": "PutBlockMerkelRoot",
+                "optional": false,
+                "is_array": true,
+                "comment": ""
+            },
+            {
+                "name": "senderPubKey",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "signature",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "payload",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "gasLimit",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "gasPrice",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            }
+        ],
+        "values": null,
+        "functions": null,
+        "barrister_version": "",
+        "date_generated": 0,
+        "checksum": ""
+    },
+    {
+        "type": "struct",
+        "name": "PutBlockResponse",
+        "comment": "",
+        "value": "",
+        "extends": "",
+        "fields": [
+            {
+                "name": "hash",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            }
+        ],
+        "values": null,
+        "functions": null,
+        "barrister_version": "",
+        "date_generated": 0,
+        "checksum": ""
+    },
+    {
+        "type": "struct",
         "name": "Node",
         "comment": "",
         "value": "",
@@ -2709,6 +2891,26 @@ var IdlJsonRaw = `[
                 }
             },
             {
+                "name": "putBlock",
+                "comment": "putBlock",
+                "params": [
+                    {
+                        "name": "request",
+                        "type": "PutBlockRequest",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    }
+                ],
+                "returns": {
+                    "name": "",
+                    "type": "PutBlockResponse",
+                    "optional": false,
+                    "is_array": false,
+                    "comment": ""
+                }
+            },
+            {
                 "name": "getPeers",
                 "comment": "get list of peers",
                 "params": [],
@@ -2795,7 +2997,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1539901339136,
-        "checksum": "d37c8297b1a4b80f837adb8696a7e046"
+        "date_generated": 1540496884971,
+        "checksum": "47b1a8053b5d5744f68508a493a5e954"
     }
 ]`
