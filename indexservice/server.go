@@ -14,6 +14,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db/rds"
+	"github.com/iotexproject/iotex-core/logger"
 )
 
 // Server is the container of the index service
@@ -29,6 +30,12 @@ func NewServer(
 	cfg *config.Config,
 	bc blockchain.Blockchain,
 ) *Server {
+	blockCh := make(chan *blockchain.Block)
+	if err := bc.SubscribeBlockCreation(blockCh); err != nil {
+		logger.Error().Err(err).Msg("error when subscribe to block")
+		return nil
+	}
+
 	return &Server{
 		cfg: cfg,
 		idx: &Indexer{
@@ -56,18 +63,6 @@ func (s *Server) Start(ctx context.Context) error {
 	if err := s.idx.rds.Start(ctx); err != nil {
 		return errors.Wrap(err, "error when start rds store")
 	}
-
-	s.blockCh = make(chan *blockchain.Block)
-	if err := s.bc.SubscribeBlockCreation(s.blockCh); err != nil {
-		return errors.Wrap(err, "error when subscribe to block")
-	}
-
-	// sync genesis block
-	genesisBlk, err := s.bc.GetBlockByHeight(0)
-	if err != nil {
-		return errors.Wrap(err, "error when get genesis block")
-	}
-	s.idx.BuildIndex(genesisBlk)
 
 	go func() {
 		for {
