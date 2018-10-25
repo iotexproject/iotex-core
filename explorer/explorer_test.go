@@ -609,6 +609,47 @@ func TestService_SendSmartContract(t *testing.T) {
 	require.Nil(err)
 }
 
+func TestServicePutSubChainBlock(t *testing.T) {
+	require := require.New(t)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	chain := mock_blockchain.NewMockBlockchain(ctrl)
+	mDp := mock_dispatcher.NewMockDispatcher(ctrl)
+	p2p := mock_network.NewMockOverlay(ctrl)
+	svc := Service{bc: chain, dp: mDp, p2p: p2p}
+
+	request := explorer.PutSubChainBlockRequest{}
+	response, err := svc.PutSubChainBlock(request)
+	require.Equal("", response.Hash)
+	require.NotNil(err)
+
+	chain.EXPECT().ChainID().Return(uint32(1)).Times(2)
+	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
+	p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Times(1)
+
+	roots := []explorer.PutSubChainBlockMerkelRoot{
+		explorer.PutSubChainBlockMerkelRoot{
+			Name:  "a",
+			Value: hex.EncodeToString([]byte("xddd")),
+		},
+	}
+	r := explorer.PutSubChainBlockRequest{
+		Version:       0x1,
+		Nonce:         1,
+		SenderAddress: senderRawAddr,
+		SenderPubKey:  senderPubKey,
+		GasPrice:      big.NewInt(0).String(),
+		Signature:     "",
+		Roots:         roots,
+	}
+
+	response, err = svc.PutSubChainBlock(r)
+	require.NotNil(response.Hash)
+	require.Nil(err)
+}
+
 func TestServiceGetPeers(t *testing.T) {
 	require := require.New(t)
 

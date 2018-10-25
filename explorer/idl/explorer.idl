@@ -180,6 +180,29 @@ struct SendVoteResponse {
     hash string
 }
 
+struct PutSubChainBlockMerkelRoot {
+    name string
+    value string
+}
+
+struct PutSubChainBlockRequest {
+    version int
+    nonce int
+    senderAddress string
+    subChainAddress string
+    height int
+    roots []PutSubChainBlockMerkelRoot
+    senderPubKey string
+    signature string
+    payload string
+    gasLimit int
+    gasPrice string
+}
+
+struct PutSubChainBlockResponse {
+	hash string
+}
+
 struct Node {
     address string
 }
@@ -281,6 +304,9 @@ interface Explorer {
 
     // sendSmartContract
     sendSmartContract(request Execution) SendSmartContractResponse
+
+    // putSubChainBlock
+    putSubChainBlock(request PutSubChainBlockRequest) PutSubChainBlockResponse
 
     // get list of peers
     getPeers() GetPeersResponse
