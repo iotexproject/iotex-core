@@ -19,9 +19,9 @@ import (
 
 func main() {
 	// start block id of the index build
-	var fromBlockId int64
+	var fromBlockID int64
 	// end block id of the index build
-	var toBlockId int64
+	var toBlockID int64
 	// end point of rds
 	var batchSize int64
 	// retry number
@@ -29,19 +29,19 @@ func main() {
 	// target address for jrpc connection. Default is "127.0.0.1:14004"
 	var explorerAddr string
 
-	flag.Int64Var(&fromBlockId, "from-block-id", 0, "sync from which block id")
-	flag.Int64Var(&toBlockId, "to-block-id", 0, "sync to which block id")
+	flag.Int64Var(&fromBlockID, "from-block-id", 0, "sync from which block id")
+	flag.Int64Var(&toBlockID, "to-block-id", 0, "sync to which block id")
 	flag.Int64Var(&batchSize, "batch-size", 1, "batch size")
 	flag.IntVar(&retryNumber, "retry-number", 3, "retry number")
 	flag.StringVar(&explorerAddr, "explorer-addr", "127.0.0.1:14004", "target ip:port for jrpc connection")
 	flag.Parse()
 
 	proxy := explorer.NewExplorerProxy("http://" + explorerAddr)
-	for i := fromBlockId; i <= toBlockId; i += batchSize {
+	for i := fromBlockID; i <= toBlockID; i += batchSize {
 		startBlock := i
 		endBlock := startBlock + batchSize - 1
-		if endBlock > toBlockId {
-			endBlock = toBlockId
+		if endBlock > toBlockID {
+			endBlock = toBlockID
 		}
 
 		retry := 0
