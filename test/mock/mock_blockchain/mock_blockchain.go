@@ -399,6 +399,18 @@ func (mr *MockBlockchainMockRecorder) ChainID() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChainID", reflect.TypeOf((*MockBlockchain)(nil).ChainID))
 }
 
+// ChainAddress mocks base method
+func (m *MockBlockchain) ChainAddress() string {
+	ret := m.ctrl.Call(m, "ChainAddress")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// ChainAddress indicates an expected call of ChainAddress
+func (mr *MockBlockchainMockRecorder) ChainAddress() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChainAddress", reflect.TypeOf((*MockBlockchain)(nil).ChainAddress))
+}
+
 // TipHash mocks base method
 func (m *MockBlockchain) TipHash() hash.Hash32B {
 	ret := m.ctrl.Call(m, "TipHash")
