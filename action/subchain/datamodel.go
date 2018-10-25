@@ -7,12 +7,17 @@
 package subchain
 
 import (
+	"encoding/gob"
 	"math/big"
 
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/state"
 )
+
+func init() {
+	gob.Register(InOperation{})
+}
 
 // SubChain represents the state of a sub-chain in the state factory
 type SubChain struct {
@@ -52,7 +57,22 @@ func (bp *BlockProof) Serialize() ([]byte, error) { return state.GobBasedSeriali
 // Deserialize deserialize bytes into block proof state
 func (bp *BlockProof) Deserialize(data []byte) error { return state.GobBasedDeserialize(bp, data) }
 
-// CompareChainID compare two chain IDs
-func CompareChainID(x interface{}, y interface{}) int {
-	return int(int64(x.(uint32)) - int64(y.(uint32)))
+// InOperation represents a record of a sub-chain in operation
+type InOperation struct {
+	ID   uint32
+	Addr []byte
+}
+
+// SortInOperation compare two ChainInUse records by their chain IDs. If one of the input's type is not
+// InOperation, it will not be comparable and 0 will be returned.
+func SortInOperation(x interface{}, y interface{}) int {
+	cio1, ok := x.(InOperation)
+	if !ok {
+		return 0
+	}
+	cio2, ok := y.(InOperation)
+	if !ok {
+		return 0
+	}
+	return int(int64(cio1.ID) - int64(cio2.ID))
 }

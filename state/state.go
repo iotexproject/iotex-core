@@ -33,7 +33,7 @@ func GobBasedSerialize(state State) ([]byte, error) {
 	var buf bytes.Buffer
 	e := gob.NewEncoder(&buf)
 	if err := e.Encode(state); err != nil {
-		return nil, errors.Wrapf(ErrStateSerialization, "error when serializing %T state", state)
+		return nil, errors.Wrapf(err, "error when serializing %T state", state)
 	}
 	return buf.Bytes(), nil
 }
@@ -43,7 +43,7 @@ func GobBasedDeserialize(state State, data []byte) error {
 	buf := bytes.NewBuffer(data)
 	e := gob.NewDecoder(buf)
 	if err := e.Decode(state); err != nil {
-		return errors.Wrapf(ErrStateDeserialization, "error when deserializing %T state", state)
+		return errors.Wrapf(err, "error when deserializing %T state", state)
 	}
 	return nil
 }
@@ -76,7 +76,7 @@ func (slice SortedSlice) Exist(e interface{}, f func(interface{}, interface{}) i
 	idx := sort.Search(len(slice), func(i int) bool {
 		return f(slice[i], e) >= 0
 	})
-	return idx < len(slice) && slice[idx] == e
+	return idx < len(slice) && f(slice[idx], e) == 0
 }
 
 // Append appends a state into the state slice

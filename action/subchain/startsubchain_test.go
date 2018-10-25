@@ -36,7 +36,10 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 		&state.Account{Balance: big.NewInt(0).Mul(big.NewInt(2000000000), big.NewInt(blockchain.Iotx))},
 		nil,
 	).AnyTimes()
-	factory.EXPECT().State(gomock.Any(), gomock.Any()).Return(&state.SortedSlice{uint32(3)}, nil).AnyTimes()
+	factory.EXPECT().
+		State(gomock.Any(), gomock.Any()).
+		Return(&state.SortedSlice{InOperation{ID: uint32(3)}}, nil).
+		AnyTimes()
 	chain := mock_blockchain.NewMockBlockchain(ctrl)
 	chain.EXPECT().GetFactory().Return(factory).AnyTimes()
 
@@ -55,9 +58,9 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 		0,
 		big.NewInt(0),
 	)
-	account, usedChainIDS, err := p.validateStartSubChain(start, nil)
+	account, subChainsInOp, err := p.validateStartSubChain(start, nil)
 	assert.NotNil(t, account)
-	assert.NotNil(t, usedChainIDS)
+	assert.NotNil(t, subChainsInOp)
 	assert.NoError(t, err)
 
 	// chain ID is the main chain ID
@@ -72,8 +75,8 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 		0,
 		big.NewInt(0),
 	)
-	account, usedChainIDS, err = p.validateStartSubChain(start, nil)
-	assert.Nil(t, usedChainIDS)
+	account, subChainsInOp, err = p.validateStartSubChain(start, nil)
+	assert.Nil(t, subChainsInOp)
 	assert.Nil(t, account)
 	require.Error(t, err)
 	assert.True(t, strings.Contains(err.Error(), "is used by main chain"))
@@ -90,9 +93,9 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 		0,
 		big.NewInt(0),
 	)
-	account, usedChainIDS, err = p.validateStartSubChain(start, nil)
+	account, subChainsInOp, err = p.validateStartSubChain(start, nil)
 	assert.Nil(t, account)
-	assert.Nil(t, usedChainIDS)
+	assert.Nil(t, subChainsInOp)
 	require.Error(t, err)
 	assert.True(t, strings.Contains(err.Error(), "is used by another sub-chain"))
 
@@ -108,9 +111,9 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 		0,
 		big.NewInt(0),
 	)
-	account, usedChainIDS, err = p.validateStartSubChain(start, nil)
+	account, subChainsInOp, err = p.validateStartSubChain(start, nil)
 	assert.Nil(t, account)
-	assert.Nil(t, usedChainIDS)
+	assert.Nil(t, subChainsInOp)
 	require.Error(t, err)
 	assert.True(t, strings.Contains(err.Error(), "security deposit is smaller than the minimal requirement"))
 
@@ -126,9 +129,9 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 		0,
 		big.NewInt(0),
 	)
-	account, usedChainIDS, err = p.validateStartSubChain(start, nil)
+	account, subChainsInOp, err = p.validateStartSubChain(start, nil)
 	assert.Nil(t, account)
-	assert.Nil(t, usedChainIDS)
+	assert.Nil(t, subChainsInOp)
 	require.Error(t, err)
 	assert.True(t, strings.Contains(err.Error(), "sub-chain owner doesn't have enough balance for security deposit"))
 
@@ -144,15 +147,18 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 		0,
 		big.NewInt(0),
 	)
-	account, usedChainIDS, err = p.validateStartSubChain(start, nil)
+	account, subChainsInOp, err = p.validateStartSubChain(start, nil)
 	assert.Nil(t, account)
-	assert.Nil(t, usedChainIDS)
+	assert.Nil(t, subChainsInOp)
 	require.Error(t, err)
 	assert.True(t, strings.Contains(err.Error(), "sub-chain owner doesn't have enough balance for operation deposit"))
 
 	// operation deposit is more than the owner balance in working set
 	ws := mock_state.NewMockWorkingSet(ctrl)
-	ws.EXPECT().CachedState(gomock.Any(), gomock.Any()).Return(&state.SortedSlice{uint32(3)}, nil).Times(1)
+	ws.EXPECT().
+		CachedState(gomock.Any(), gomock.Any()).
+		Return(&state.SortedSlice{InOperation{ID: uint32(3)}}, nil).
+		Times(1)
 	ws.EXPECT().CachedAccountState(gomock.Any()).Return(
 		&state.Account{Balance: big.NewInt(0).Mul(big.NewInt(1500000000), big.NewInt(blockchain.Iotx))},
 		nil,
@@ -168,17 +174,20 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 		0,
 		big.NewInt(0),
 	)
-	account, usedChainIDS, err = p.validateStartSubChain(start, ws)
+	account, subChainsInOp, err = p.validateStartSubChain(start, ws)
 	assert.Nil(t, account)
-	assert.Nil(t, usedChainIDS)
+	assert.Nil(t, subChainsInOp)
 	require.Error(t, err)
 	assert.True(t, strings.Contains(err.Error(), "sub-chain owner doesn't have enough balance for operation deposit"))
 
 	// chain ID is used in the working set
-	ws.EXPECT().CachedState(gomock.Any(), gomock.Any()).Return(&state.SortedSlice{uint32(2), uint32(3)}, nil).Times(1)
-	account, usedChainIDS, err = p.validateStartSubChain(start, ws)
+	ws.EXPECT().
+		CachedState(gomock.Any(), gomock.Any()).
+		Return(&state.SortedSlice{InOperation{ID: uint32(2)}, InOperation{ID: uint32(3)}}, nil).
+		Times(1)
+	account, subChainsInOp, err = p.validateStartSubChain(start, ws)
 	assert.Nil(t, account)
-	assert.Nil(t, usedChainIDS)
+	assert.Nil(t, subChainsInOp)
 	require.Error(t, err)
 	assert.True(t, strings.Contains(err.Error(), "is used by another sub-chain"))
 }
@@ -208,6 +217,7 @@ func TestHandleStartSubChain(t *testing.T) {
 	require.NoError(t, sf.Start(ctx))
 	ctrl := gomock.NewController(t)
 	chain := mock_blockchain.NewMockBlockchain(ctrl)
+	chain.EXPECT().ChainID().Return(uint32(1)).AnyTimes()
 	chain.EXPECT().GetFactory().Return(sf).AnyTimes()
 	chain.EXPECT().SubscribeBlockCreation(gomock.Any()).Return(nil).AnyTimes()
 
@@ -282,9 +292,9 @@ func TestNoStartSubChainInGenesis(t *testing.T) {
 	require.NoError(t, bc.Start(ctx))
 	defer require.NoError(t, bc.Stop(ctx))
 
-	usedChainIDs, err := p.UsedChainIDs()
+	subChainsInOp, err := p.SubChainsInOperation()
 	require.NoError(t, err)
-	assert.Equal(t, 0, len(usedChainIDs))
+	assert.Equal(t, 0, len(subChainsInOp))
 }
 
 func TestStartSubChainInGenesis(t *testing.T) {
@@ -308,9 +318,9 @@ func TestStartSubChainInGenesis(t *testing.T) {
 	assert.Equal(t, blockchain.ConvertIotxToRau(1000000000), sc.OperationDeposit)
 	assert.Equal(t, uint64(10), sc.StartHeight)
 	assert.Equal(t, uint64(10), sc.ParentHeightOffset)
-	usedChainIDs, err := p.UsedChainIDs()
+	subChainsInOp, err := p.SubChainsInOperation()
 	require.NoError(t, err)
-	assert.True(t, usedChainIDs.Exist(uint32(2), CompareChainID))
+	assert.True(t, subChainsInOp.Exist(InOperation{ID: uint32(2)}, SortInOperation))
 }
 
 func TestGetSubChainDBPath(t *testing.T) {
