@@ -5,96 +5,60 @@
 // License 2.0 that can be found in the LICENSE file.
 
 // This is a testing tool to inject fake actions to the blockchain
-// To use, run "make build" and " ./bin/actioninjector"
+// To use, run "make build" and " ./bin/indexbuilder"
 
 package main
 
 import (
 	"flag"
-	_ "go.uber.org/automaxprocs"
-	"golang.org/x/net/context"
-
 	"fmt"
-	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/db/rds"
-	"github.com/iotexproject/iotex-core/indexservice"
+	_ "go.uber.org/automaxprocs"
+	"github.com/iotexproject/iotex-core/explorer"
 	"github.com/iotexproject/iotex-core/logger"
-	"os"
-)
-
-const (
-	adminNumber = 2
 )
 
 func main() {
-	// node address for this sync
-	var nodeAddress string
 	// start block id of the index build
-	var fromBlockId int
+	var fromBlockId int64
 	// end block id of the index build
-	var toBlockId int
+	var toBlockId int64
 	// end point of rds
-	var awsRDSEndpoint string
-	// port of rds
-	var awsRDSPort uint64
-	// user of rds
-	var awsRDSUser string
-	// pass of rds
-	var awsPass string
-	// db name of rds
-	var awsDBName string
+	var batchSize int64
+	// retry number
+	var retryNumber int
 	// target address for jrpc connection. Default is "127.0.0.1:14004"
 	var explorerAddr string
 
-	flag.StringVar(&nodeAddress, "node-address", "", "node address used in RDS")
-	flag.IntVar(&fromBlockId, "from-block-id", 0, "sync from which block id")
-	flag.IntVar(&toBlockId, "to-block-id", 0, "sync to which block id")
-	flag.StringVar(&awsRDSEndpoint, "aws-rds-endpoint", "", "aws rds endpoint")
-	flag.Uint64Var(&awsRDSPort, "aws-rds-port", 0, "aws rds port")
-	flag.StringVar(&awsRDSUser, "aws-rds-user", "", "aws rds user")
-	flag.StringVar(&awsPass, "aws-pass", "", "aws pass")
-	flag.StringVar(&awsDBName, "aws-db-name", "", "aws db name")
+	flag.Int64Var(&fromBlockId, "from-block-id", 0, "sync from which block id")
+	flag.Int64Var(&toBlockId, "to-block-id", 0, "sync to which block id")
+	flag.Int64Var(&batchSize, "batch-size", 1, "batch size")
+	flag.IntVar(&retryNumber, "retry-number", 3, "retry number")
 	flag.StringVar(&explorerAddr, "explorer-addr", "127.0.0.1:14004", "target ip:port for jrpc connection")
 	flag.Parse()
 
-	cfg := config.Default
-	cfg.Indexer.Enabled = true
+	proxy := explorer.NewExplorerProxy("http://" + explorerAddr)
+	for i := fromBlockId; i <= toBlockId; i += batchSize {
+		startBlock := i
+		endBlock := startBlock + batchSize - 1
+		if endBlock > toBlockId {
+			endBlock = toBlockId
+		}
 
-	cfg.DB.RDS.AwsDBName = awsDBName
-	cfg.DB.RDS.AwsRDSEndpoint = awsRDSEndpoint
-	cfg.DB.RDS.AwsRDSUser = awsRDSUser
-	cfg.DB.RDS.AwsPass = awsPass
-	cfg.DB.RDS.AwsRDSPort = awsRDSPort
-	rds := rds.NewAwsRDS(&cfg.DB.RDS)
-	if err := rds.Start(context.Background()); err != nil {
-		logger.Fatal().Err(err).Msg("error when start rds store")
-	}
+		retry := 0
+		for retry < retryNumber {
+			failedBlock, err := proxy.BuildIndexByRange(startBlock, endBlock)
+			if err != nil {
+				startBlock = failedBlock
+				retry++
 
-	idx := indexservice.Indexer{cfg.Indexer, rds, nodeAddress}
-	var chainOpts []blockchain.Option
-	chainOpts = []blockchain.Option{blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption()}
-	// create Blockchain
-	chain := blockchain.NewBlockchain(&cfg, chainOpts...)
-	if chain == nil && cfg.Chain.EnableFallBackToFreshDB {
-		logger.Warn().Msg("Chain db and trie db are falling back to fresh ones")
-		if err := os.Rename(cfg.Chain.ChainDBPath, cfg.Chain.ChainDBPath+".old"); err != nil {
-			logger.Fatal().Err(err).Msg("failed to rename old chain db")
+				if retry == retryNumber {
+					logger.Fatal().Err(err).Msg(fmt.Sprintf("error when build index for block height <%d>", failedBlock))
+					return
+				}
+			} else {
+				break
+			}
 		}
-		if err := os.Rename(cfg.Chain.TrieDBPath, cfg.Chain.TrieDBPath+".old"); err != nil {
-			logger.Fatal().Err(err).Msg("failed to rename old trie db")
-		}
-		chain = blockchain.NewBlockchain(&cfg, blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption())
-	}
-
-	for i := fromBlockId; i <= toBlockId; i++ {
-		blk, err := chain.GetBlockByHeight(uint64(i))
-		if err != nil {
-			logger.Fatal().Err(err).Msg(fmt.Sprintf("failed to get block height <%s>", i))
-		}
-		err = idx.BuildIndex(blk)
-		if err != nil {
-			logger.Fatal().Err(err).Msg(fmt.Sprintf("failed to build index for block height <%s>", i))
-		}
+		logger.Info().Msgf("finished build index for range <%d, %d>", i, endBlock)
 	}
 }

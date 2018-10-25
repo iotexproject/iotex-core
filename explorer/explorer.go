@@ -1070,6 +1070,36 @@ func (exp *Service) SendSmartContract(execution explorer.Execution) (resp explor
 	return explorer.SendSmartContractResponse{Hash: hex.EncodeToString(h[:])}, nil
 }
 
+// BuildIndexByRange build index for block from height 'from' to 'to', return failed height
+// return -1 for if we finish build for index successfully
+func (exp *Service) BuildIndexByRange(from int64, to int64) (int64, error) {
+	if !exp.cfg.UseRDS {
+		return from, errors.New("RDS is not enabled")
+	}
+	if from > to {
+		return from, errors.Errorf("from height %d is larger than to height %d", from, to)
+	}
+	if from < 0 {
+		return from, errors.Errorf("from height %d is smaller than 0", from)
+	}
+	if uint64(to) > exp.bc.TipHeight() {
+		return from, errors.Errorf("to height %d is larger than tip height %d", to, exp.bc.TipHeight())
+	}
+
+	for i := from; i <= to; i++ {
+		blk, err := exp.bc.GetBlockByHeight(uint64(i))
+		if err != nil {
+			return i, errors.Errorf("failed to get block for height %d", i)
+		}
+
+		if err = exp.idx.Indexer().BuildIndex(blk); err != nil {
+			return i, errors.Errorf("failed to build index for height %d", i)
+		}
+	}
+
+	return -1, nil
+}
+
 // ReadExecutionState reads the state in a contract address specified by the slot
 func (exp *Service) ReadExecutionState(execution explorer.Execution) (string, error) {
 	logger.Debug().Msg("receive read smart contract request")

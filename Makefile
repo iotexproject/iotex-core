@@ -17,6 +17,7 @@ GOGET=$(GOCMD) get
 BUILD_TARGET_SERVER=server
 BUILD_TARGET_ACTINJ=actioninjector
 BUILD_TARGET_ADDRGEN=addrgen
+BUILD_TARGET_INDEXBUILDER=indexbuilder
 BUILD_TARGET_IOTC=iotc
 BUILD_TARGET_MINICLUSTER=minicluster
 SKIP_DEP=false
@@ -50,6 +51,7 @@ build:
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_ACTINJ) -v ./tools/actioninjector
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_ADDRGEN) -v ./tools/addrgen
+	$(GOBUILD) -o ./bin/$(BUILD_TARGET_INDEXBUILDER) -v ./tools/indexbuilder
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_IOTC) -v ./cli/iotc
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_MINICLUSTER) -v ./tools/minicluster
 
@@ -117,6 +119,7 @@ clean:
 	$(ECHO_V)rm -f ./bin/$(BUILD_TARGET_SERVER)
 	$(ECHO_V)rm -f ./bin/$(BUILD_TARGET_ACTINJ)
 	$(ECHO_V)rm -f ./bin/$(BUILD_TARGET_ADDRGEN)
+	$(ECHO_V)rm -f ./bin/$(BUILD_TARGET_INDEXBUILDER)
 	$(ECHO_V)rm -f ./bin/$(BUILD_TARGET_IOTC)
 	$(ECHO_V)rm -f ./e2etest/*chain*.db
 	$(ECHO_V)rm -f *chain*.db

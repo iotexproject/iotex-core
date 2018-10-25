@@ -28,6 +28,8 @@ RUN mkdir -p $GOPATH/src/github.com/CoderZhi/go-ethereum/ && \
     ln -s $GOPATH/src/github.com/iotexproject/iotex-core/bin/server /usr/local/bin/iotex-server  && \
     ln -s $GOPATH/src/github.com/iotexproject/iotex-core/bin/actioninjector /usr/local/bin/iotex-actioninjector && \
     mkdir -p /usr/local/lib/iotex/ && \
+    ln -s $GOPATH/src/github.com/iotexproject/iotex-core/bin/indexbuilder /usr/local/bin/iotex-indexbuilder && \
+        mkdir -p /usr/local/lib/iotex/ &&
     ln -s $GOPATH/src/github.com/iotexproject/iotex-core/bin/addrgen /usr/local/bin/iotex-addrgen && \
     mkdir -p /usr/local/lib/iotex/ && \
     cp $GOPATH/src/github.com/iotexproject/iotex-core/crypto/lib/libsect283k1_ubuntu.so /usr/lib/ && \

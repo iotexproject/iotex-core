@@ -282,6 +282,9 @@ interface Explorer {
     // sendSmartContract
     sendSmartContract(request Execution) SendSmartContractResponse
 
+    // buildIndex by block height range
+    buildIndexByRange(from int, to int) int
+
     // get list of peers
     getPeers() GetPeersResponse
 

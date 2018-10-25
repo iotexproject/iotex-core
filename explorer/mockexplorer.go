@@ -218,6 +218,11 @@ func (exp *MockExplorer) SendSmartContract(request explorer.Execution) (explorer
 	return explorer.SendSmartContractResponse{}, nil
 }
 
+// BuildIndexByRange build index for block from height 'from' to 'to'
+func (exp *MockExplorer) BuildIndexByRange(from int64, to int64) (int64, error) {
+	return -1, nil
+}
+
 // ReadExecutionState sends a smart contract
 func (exp *MockExplorer) ReadExecutionState(request explorer.Execution) (string, error) {
 	return "100", nil
