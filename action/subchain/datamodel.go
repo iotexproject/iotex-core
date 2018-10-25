@@ -76,3 +76,8 @@ func SortInOperation(x interface{}, y interface{}) int {
 	}
 	return int(int64(cio1.ID) - int64(cio2.ID))
 }
+
+// StartSubChainReceipt is the receipt to user after executed start sub chain operation.
+type StartSubChainReceipt struct {
+	SubChainAddress string
+}
