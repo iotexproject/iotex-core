@@ -25,10 +25,10 @@ type SubChain struct {
 	CurrentHeight      uint64
 }
 
-// Serialize serialize sub-chain state into bytes
+// Serialize serializes sub-chain state into bytes
 func (bs *SubChain) Serialize() ([]byte, error) { return state.GobBasedSerialize(bs) }
 
-// Deserialize deserialize bytes into sub-chain state
+// Deserialize deserializes bytes into sub-chain state
 func (bs *SubChain) Deserialize(data []byte) error { return state.GobBasedDeserialize(bs, data) }
 
 // blockProof represents the block proof of a sub-chain in the state factory
@@ -43,3 +43,8 @@ func (bp *blockProof) Serialize() ([]byte, error) { return state.GobBasedSeriali
 
 // Deserialize deserialize bytes into block proof state
 func (bp *blockProof) Deserialize(data []byte) error { return state.GobBasedDeserialize(bp, data) }
+
+// CompareChainID compare two chain IDs
+func CompareChainID(x interface{}, y interface{}) int {
+	return int(int64(x.(uint32)) - int64(y.(uint32)))
+}

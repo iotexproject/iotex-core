@@ -8,14 +8,18 @@ package subchain
 
 import (
 	"math/big"
+	"math/rand"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
+	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/testaddress"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSubChainState(t *testing.T) {
+	t.Parallel()
+
 	sc1 := SubChain{
 		ChainID:            2,
 		SecurityDeposit:    big.NewInt(1),
@@ -34,6 +38,8 @@ func TestSubChainState(t *testing.T) {
 }
 
 func TestBlockProofState(t *testing.T) {
+	t.Parallel()
+
 	bp1 := blockProof{
 		ProducerPublicKey: testaddress.Addrinfo["producer"].PublicKey,
 	}
@@ -44,4 +50,33 @@ func TestBlockProofState(t *testing.T) {
 	var bp2 blockProof
 	require.NoError(t, bp2.Deserialize(data))
 	require.Equal(t, bp1, bp2)
+}
+
+func TestUsedChainIDs(t *testing.T) {
+	t.Parallel()
+
+	input := make([]uint32, 15)
+	for i := range input {
+		input[i] = uint32(i + 1)
+	}
+	for i := range input {
+		j := rand.Intn(i + 1)
+		input[i], input[j] = input[j], input[i]
+	}
+
+	var usedChainIDs1 state.SortedSlice
+	for _, e := range input {
+		usedChainIDs1 = usedChainIDs1.Append(e, CompareChainID)
+	}
+	for _, e := range input {
+		assert.True(t, usedChainIDs1.Exist(e, CompareChainID))
+	}
+	assert.False(t, usedChainIDs1.Exist(uint32(0), CompareChainID))
+	assert.False(t, usedChainIDs1.Exist(uint32(16), CompareChainID))
+
+	data, err := usedChainIDs1.Serialize()
+	require.NoError(t, err)
+	var usedChainIDs2 state.SortedSlice
+	require.NoError(t, usedChainIDs2.Deserialize(data))
+	assert.Equal(t, usedChainIDs1, usedChainIDs2)
 }

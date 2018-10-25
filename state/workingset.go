@@ -99,7 +99,7 @@ func (ws *workingSet) LoadOrCreateAccountState(addr string, init *big.Int) (*Acc
 	}
 	state, err := ws.CachedState(addrHash, &Account{})
 	switch {
-	case errors.Cause(err) == ErrAccountNotExist:
+	case errors.Cause(err) == ErrStateNotExist:
 		account := Account{
 			Balance:      init,
 			VotingWeight: big.NewInt(0),
@@ -367,7 +367,7 @@ func (ws *workingSet) SetContractState(addr hash.PKHash, key, value hash.Hash32B
 func (ws *workingSet) State(hash hash.PKHash, s State) (State, error) {
 	mstate, err := ws.accountTrie.Get(hash[:])
 	if errors.Cause(err) == trie.ErrNotExist {
-		return nil, errors.Wrapf(ErrAccountNotExist, "addrHash = %x", hash[:])
+		return nil, errors.Wrapf(ErrStateNotExist, "addrHash = %x", hash[:])
 	}
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get account of %x", hash)
