@@ -33,19 +33,19 @@ func (p *Protocol) SubChain(addr address.Address) (*SubChain, error) {
 	return sc, nil
 }
 
-// UsedChainIDs returns the used chain IDs
-func (p *Protocol) UsedChainIDs() (state.SortedSlice, error) {
-	var usedChainIDs state.SortedSlice
-	s, err := p.sf.State(usedChainIDsKey, &usedChainIDs)
+// SubChainsInOperation returns the used chain IDs
+func (p *Protocol) SubChainsInOperation() (state.SortedSlice, error) {
+	var subChainsInOp state.SortedSlice
+	s, err := p.sf.State(subChainsInOperationKey, &subChainsInOp)
 	return processState(s, err)
 }
 
 func (p *Protocol) handleStartSubChain(start *action.StartSubChain, ws state.WorkingSet) error {
-	account, usedChainIDs, err := p.validateStartSubChain(start, ws)
+	account, subChainsInOp, err := p.validateStartSubChain(start, ws)
 	if err != nil {
 		return err
 	}
-	subChain, err := p.mutateSubChainState(start, account, usedChainIDs, ws)
+	subChain, err := p.mutateSubChainState(start, account, subChainsInOp, ws)
 	if err != nil {
 		return err
 	}
@@ -62,17 +62,17 @@ func (p *Protocol) validateStartSubChain(
 	if start.ChainID() == MainChainID {
 		return nil, nil, fmt.Errorf("%d is used by main chain", start.ChainID())
 	}
-	var usedChainIDs state.SortedSlice
+	var subChainsInOp state.SortedSlice
 	var err error
 	if ws == nil {
-		usedChainIDs, err = p.UsedChainIDs()
+		subChainsInOp, err = p.SubChainsInOperation()
 	} else {
-		usedChainIDs, err = cachedUsedChainIDs(ws)
+		subChainsInOp, err = cachedSubChainsInOperation(ws)
 	}
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "error when getting the state of used chain IDs")
 	}
-	if usedChainIDs.Exist(start.ChainID(), CompareChainID) {
+	if subChainsInOp.Exist(InOperation{ID: start.ChainID()}, SortInOperation) {
 		return nil, nil, fmt.Errorf("%d is used by another sub-chain", start.ChainID())
 	}
 	var account *state.Account
@@ -96,13 +96,13 @@ func (p *Protocol) validateStartSubChain(
 	if account.Balance.Cmp(big.NewInt(0).Add(start.SecurityDeposit(), start.OperationDeposit())) < 0 {
 		return nil, nil, errors.New("sub-chain owner doesn't have enough balance for operation deposit")
 	}
-	return account, usedChainIDs, nil
+	return account, subChainsInOp, nil
 }
 
 func (p *Protocol) mutateSubChainState(
 	start *action.StartSubChain,
 	account *state.Account,
-	usedChainIDs state.SortedSlice,
+	subChainsInOp state.SortedSlice,
 	ws state.WorkingSet,
 ) (*SubChain, error) {
 	addr, err := createSubChainAddress(start.OwnerAddress(), start.Nonce())
@@ -134,8 +134,14 @@ func (p *Protocol) mutateSubChainState(
 	if err := ws.PutState(ownerPKHash, account); err != nil {
 		return nil, err
 	}
-	usedChainIDs = usedChainIDs.Append(start.ChainID(), CompareChainID)
-	if err := ws.PutState(usedChainIDsKey, &usedChainIDs); err != nil {
+	subChainsInOp = subChainsInOp.Append(
+		InOperation{
+			ID:   start.ChainID(),
+			Addr: address.New(p.rootChain.ChainID(), addr[:]).Bytes(),
+		},
+		SortInOperation,
+	)
+	if err := ws.PutState(subChainsInOperationKey, &subChainsInOp); err != nil {
 		return nil, err
 	}
 	// TODO: update voting results because of owner account balance change
@@ -211,9 +217,9 @@ func getSubChainDBPath(chainID uint32, p string) string {
 	return path.Join(dir, fmt.Sprintf("chain-%d-%s", chainID, file))
 }
 
-func cachedUsedChainIDs(ws state.WorkingSet) (state.SortedSlice, error) {
-	var usedChainIDs state.SortedSlice
-	s, err := ws.CachedState(usedChainIDsKey, &usedChainIDs)
+func cachedSubChainsInOperation(ws state.WorkingSet) (state.SortedSlice, error) {
+	var subChainsInOp state.SortedSlice
+	s, err := ws.CachedState(subChainsInOperationKey, &subChainsInOp)
 	return processState(s, err)
 }
 
@@ -222,7 +228,7 @@ func processState(s state.State, err error) (state.SortedSlice, error) {
 		if errors.Cause(err) == state.ErrStateNotExist {
 			return state.SortedSlice{}, nil
 		}
-		return nil, errors.Wrapf(err, "error when loading state of %x", usedChainIDsKey)
+		return nil, errors.Wrapf(err, "error when loading state of %x", subChainsInOperationKey)
 	}
 	uci, ok := s.(*state.SortedSlice)
 	if !ok {

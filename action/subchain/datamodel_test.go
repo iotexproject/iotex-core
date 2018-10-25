@@ -8,12 +8,13 @@ package subchain
 
 import (
 	"math/big"
-	"math/rand"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/address"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/testaddress"
@@ -67,31 +68,46 @@ func TestBlockProofState(t *testing.T) {
 	require.Equal(t, bp1, bp2)
 }
 
-func TestUsedChainIDs(t *testing.T) {
+func TestSortedInOperationSlice(t *testing.T) {
 	t.Parallel()
 
-	input := make([]uint32, 15)
-	for i := range input {
-		input[i] = uint32(i + 1)
-	}
-	for i := range input {
-		j := rand.Intn(i + 1)
-		input[i], input[j] = input[j], input[i]
-	}
+	var slice1 state.SortedSlice
+	slice1 = slice1.Append(
+		InOperation{
+			ID:   3,
+			Addr: address.New(1, hash.Hash160b([]byte{3})).Bytes(),
+		},
+		SortInOperation,
+	)
+	slice1 = slice1.Append(
+		InOperation{
+			ID:   1,
+			Addr: address.New(1, hash.Hash160b([]byte{1})).Bytes(),
+		},
+		SortInOperation,
+	)
+	slice1 = slice1.Append(
+		InOperation{
+			ID:   2,
+			Addr: address.New(1, hash.Hash160b([]byte{2})).Bytes(),
+		},
+		SortInOperation,
+	)
 
-	var usedChainIDs1 state.SortedSlice
-	for _, e := range input {
-		usedChainIDs1 = usedChainIDs1.Append(e, CompareChainID)
-	}
-	for _, e := range input {
-		assert.True(t, usedChainIDs1.Exist(e, CompareChainID))
-	}
-	assert.False(t, usedChainIDs1.Exist(uint32(0), CompareChainID))
-	assert.False(t, usedChainIDs1.Exist(uint32(16), CompareChainID))
-
-	data, err := usedChainIDs1.Serialize()
+	bytes, err := slice1.Serialize()
 	require.NoError(t, err)
-	var usedChainIDs2 state.SortedSlice
-	require.NoError(t, usedChainIDs2.Deserialize(data))
-	assert.Equal(t, usedChainIDs1, usedChainIDs2)
+	var slice2 state.SortedSlice
+	require.NoError(t, slice2.Deserialize(bytes))
+
+	for i := 1; i <= 3; i++ {
+		assert.True(
+			t,
+			slice2.Exist(
+				InOperation{
+					ID: uint32(i),
+				},
+				SortInOperation,
+			),
+		)
+	}
 }

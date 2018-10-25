@@ -31,8 +31,8 @@ const (
 var (
 	// MinSecurityDeposit represents the security deposit minimal required for start a sub-chain, which is 1M iotx
 	MinSecurityDeposit = big.NewInt(0).Mul(big.NewInt(1000000000), big.NewInt(blockchain.Iotx))
-	// usedChainIDsKey is to find the used chain IDs in the state factory
-	usedChainIDsKey = byteutil.BytesTo20B(hash.Hash160b([]byte("usedChainIDs")))
+	// subChainsInOperationKey is to find the used chain IDs in the state factory
+	subChainsInOperationKey = byteutil.BytesTo20B(hash.Hash160b([]byte("subChainsInOperation")))
 )
 
 // Protocol defines the protocol of handling sub-chain actions
