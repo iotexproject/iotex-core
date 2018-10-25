@@ -995,6 +995,68 @@ func (exp *Service) SendVote(voteJSON explorer.SendVoteRequest) (resp explorer.S
 	return explorer.SendVoteResponse{Hash: hex.EncodeToString(h[:])}, nil
 }
 
+// PutSubChainBlock put block merkel root on root chain.
+func (exp *Service) PutSubChainBlock(putBlockJSON explorer.PutSubChainBlockRequest) (resp explorer.PutSubChainBlockResponse, err error) {
+	logger.Debug().Msg("receive put block request")
+
+	defer func() {
+		succeed := "true"
+		if err != nil {
+			succeed = "false"
+		}
+		requestMtc.WithLabelValues("PutBlock", succeed).Inc()
+	}()
+
+	senderPubKey, err := keypair.StringToPubKeyBytes(putBlockJSON.SenderPubKey)
+	if err != nil {
+		return explorer.PutSubChainBlockResponse{}, err
+	}
+	signature, err := hex.DecodeString(putBlockJSON.Signature)
+	if err != nil {
+		return explorer.PutSubChainBlockResponse{}, err
+	}
+	gasPrice, ok := big.NewInt(0).SetString(putBlockJSON.GasPrice, 10)
+	if !ok {
+		return explorer.PutSubChainBlockResponse{}, errors.New("failed to set vote gas price")
+	}
+
+	roots := make(map[string][]byte)
+	for _, mr := range putBlockJSON.Roots {
+		v, err := hex.DecodeString(mr.Value)
+		if err != nil {
+			return explorer.PutSubChainBlockResponse{}, err
+		}
+		roots[mr.Name] = v
+	}
+	actPb := &pb.ActionPb{
+		Action: &pb.ActionPb_PutBlock{
+			PutBlock: &pb.PutBlockPb{
+				SubChainAddress:   putBlockJSON.SubChainAddress,
+				Height:            uint64(putBlockJSON.Height),
+				Roots:             roots,
+				ProducerAddress:   putBlockJSON.SenderAddress,
+				ProducerPublicKey: senderPubKey,
+			},
+		},
+		Version:   uint32(putBlockJSON.Version),
+		Nonce:     uint64(putBlockJSON.Nonce),
+		GasLimit:  uint64(putBlockJSON.GasLimit),
+		GasPrice:  gasPrice.Bytes(),
+		Signature: signature,
+	}
+	// broadcast to the network
+	if err = exp.p2p.Broadcast(exp.bc.ChainID(), actPb); err != nil {
+		return explorer.PutSubChainBlockResponse{}, err
+	}
+	// send to actpool via dispatcher
+	exp.dp.HandleBroadcast(exp.bc.ChainID(), actPb, nil)
+
+	v := &action.PutBlock{}
+	v.LoadProto(actPb)
+	h := v.Hash()
+	return explorer.PutSubChainBlockResponse{Hash: hex.EncodeToString(h[:])}, nil
+}
+
 // GetPeers return a list of node peers and itself's network addsress info.
 func (exp *Service) GetPeers() (explorer.GetPeersResponse, error) {
 	var peers []explorer.Node
