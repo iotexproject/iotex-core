@@ -131,7 +131,7 @@ func TestMerkle(t *testing.T) {
 		testutil.TimestampNow(),
 		[]action.Action{cbtsf0, cbtsf1, cbtsf2, cbtsf3, cbtsf4},
 	)
-	hash := block.TxRoot()
+	hash := block.CalculateTxRoot()
 	require.Equal(hash07[:], hash[:])
 
 	t.Log("Merkle root match pass\n")
@@ -172,7 +172,7 @@ func TestConvertFromBlockPb(t *testing.T) {
 		},
 	})
 
-	blk.Header.txRoot = blk.TxRoot()
+	blk.Header.txRoot = blk.CalculateTxRoot()
 
 	raw, err := blk.Serialize()
 	require.Nil(t, err)

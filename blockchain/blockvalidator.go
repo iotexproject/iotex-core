@@ -353,7 +353,7 @@ func verifySigAndRoot(blk *Block) error {
 	}
 
 	hashExpect := blk.Header.txRoot
-	hashActual := blk.TxRoot()
+	hashActual := blk.CalculateTxRoot()
 	if !bytes.Equal(hashExpect[:], hashActual[:]) {
 		return errors.Wrapf(
 			ErrInvalidBlock,

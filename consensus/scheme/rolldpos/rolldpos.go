@@ -23,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/endorsement"
+	explorerapi "github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network"
@@ -55,14 +56,15 @@ var (
 )
 
 type rollDPoSCtx struct {
-	cfg     config.RollDPoS
-	addr    *iotxaddress.Address
-	chain   blockchain.Blockchain
-	actPool actpool.ActPool
-	p2p     network.Overlay
-	epoch   epochCtx
-	round   roundCtx
-	clock   clock.Clock
+	cfg          config.RollDPoS
+	addr         *iotxaddress.Address
+	chain        blockchain.Blockchain
+	actPool      actpool.ActPool
+	p2p          network.Overlay
+	epoch        epochCtx
+	round        roundCtx
+	clock        clock.Clock
+	rootChainAPI explorerapi.Explorer
 	// candidatesByHeightFunc is only used for testing purpose
 	candidatesByHeightFunc func(uint64) ([]*state.Candidate, error)
 	sync                   blocksync.BlockSync
@@ -497,6 +499,7 @@ type Builder struct {
 	actPool                actpool.ActPool
 	p2p                    network.Overlay
 	clock                  clock.Clock
+	rootChainAPI           explorerapi.Explorer
 	candidatesByHeightFunc func(uint64) ([]*state.Candidate, error)
 }
 
@@ -541,6 +544,12 @@ func (b *Builder) SetClock(clock clock.Clock) *Builder {
 	return b
 }
 
+// SetRootChainAPI sets root chain API
+func (b *Builder) SetRootChainAPI(api explorerapi.Explorer) *Builder {
+	b.rootChainAPI = api
+	return b
+}
+
 // SetCandidatesByHeightFunc sets candidatesByHeightFunc, which is only used by tests
 func (b *Builder) SetCandidatesByHeightFunc(
 	candidatesByHeightFunc func(uint64) ([]*state.Candidate, error),
@@ -564,12 +573,13 @@ func (b *Builder) Build() (*RollDPoS, error) {
 		b.clock = clock.New()
 	}
 	ctx := rollDPoSCtx{
-		cfg:     b.cfg,
-		addr:    b.addr,
-		chain:   b.chain,
-		actPool: b.actPool,
-		p2p:     b.p2p,
-		clock:   b.clock,
+		cfg:                    b.cfg,
+		addr:                   b.addr,
+		chain:                  b.chain,
+		actPool:                b.actPool,
+		p2p:                    b.p2p,
+		clock:                  b.clock,
+		rootChainAPI:           b.rootChainAPI,
 		candidatesByHeightFunc: b.candidatesByHeightFunc,
 	}
 	cfsm, err := newConsensusFSM(&ctx)
