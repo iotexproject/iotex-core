@@ -246,11 +246,20 @@ func TestStartRoundEvt(t *testing.T) {
 		}
 		s, err := cfsm.handleStartRoundEvt(cfsm.newCEvt(eStartRound))
 		require.NoError(t, err)
-		require.Equal(t, sAcceptPropose, s)
+		require.Equal(t, sInitPropose, s)
 		assert.Equal(t, uint64(0), cfsm.ctx.epoch.subEpochNum)
 		assert.NotNil(t, cfsm.ctx.round.proposer, delegates[2])
 		assert.NotNil(t, cfsm.ctx.round.endorsementSets, s)
-		assert.Equal(t, eProposeBlockTimeout, (<-cfsm.evtq).Type())
+		evt := <-cfsm.evtq
+		assert.Equal(t, eInitBlock, evt.Type())
+		s, err = cfsm.handleInitBlockEvt(evt)
+		assert.Equal(t, sAcceptPropose, s)
+		assert.NoError(t, err)
+		evt = <-cfsm.evtq
+		assert.Equal(t, eProposeBlockTimeout, evt.Type())
+		s, err = cfsm.handleProposeBlockTimeout(evt)
+		assert.Equal(t, sAcceptProposalEndorse, s)
+		assert.NoError(t, err)
 	})
 }
 
