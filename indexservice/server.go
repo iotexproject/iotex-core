@@ -43,7 +43,8 @@ func NewServer(
 			rds:                nil,
 			hexEncodedNodeAddr: "",
 		},
-		bc: bc,
+		bc:      bc,
+		blockCh: blockCh,
 	}
 }
 
