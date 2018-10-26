@@ -38,26 +38,30 @@ func TestEncodeDecode(t *testing.T) {
 	s1 := Account{
 		Nonce:        0x10,
 		Balance:      big.NewInt(20000000),
+		CodeHash:     []byte("testing codehash"),
 		VotingWeight: big.NewInt(1000000000),
+		Votee:        "testing votee",
 	}
 	ss, err := s1.Serialize()
 	require.NoError(err)
 	require.NotEmpty(ss)
+	require.Equal(81, len(ss))
 
 	s2 := Account{}
 	require.NoError(s2.Deserialize(ss))
 	require.Equal(big.NewInt(20000000), s2.Balance)
 	require.Equal(uint64(0x10), s2.Nonce)
 	require.Equal(hash.ZeroHash32B, s2.Root)
-	require.Equal([]byte(nil), s2.CodeHash)
+	require.Equal([]byte("testing codehash"), s2.CodeHash)
 	require.Equal(big.NewInt(1000000000), s2.VotingWeight)
+	require.Equal("testing votee", s2.Votee)
 }
 
 func TestGob(t *testing.T) {
 	require := require.New(t)
 	ss, _ := hex.DecodeString("79ff8103010105537461746501ff8200010801054e6f6e6365010600010742616c616e636501ff84000104526f6f7401ff86000108436f646548617368010a00010b497343616e646964617465010200010c566f74696e6757656967687401ff84000105566f746565010c000106566f7465727301ff880000000aff83050102ff8a00000017ff85010101074861736833324201ff860001060140000024ff87040101136d61705b737472696e675d2a6269672e496e7401ff8800010c01ff8400002cff820202022d0120000000000000000000000000000000000000000000000000000000000000000003010200")
 	s1 := Account{}
-	require.NoError(s1.Deserialize(ss))
+	require.NoError(GobBasedDeserialize(&s1, ss))
 
 	// another serialized byte
 	st, _ := hex.DecodeString("79ff8503010105537461746501ff8600010801054e6f6e6365010600010742616c616e636501ff88000104526f6f7401ff8a000108436f646548617368010a00010b497343616e646964617465010200010c566f74696e6757656967687401ff88000105566f746565010c000106566f7465727301ff8c0000000aff87050102ff8e00000017ff89010101074861736833324201ff8a0001060140000024ff8b040101136d61705b737472696e675d2a6269672e496e7401ff8c00010c01ff8800002cff860202022d0120000000000000000000000000000000000000000000000000000000000000000003010200")
@@ -65,7 +69,7 @@ func TestGob(t *testing.T) {
 
 	// same struct after deserialization
 	s2 := Account{}
-	require.NoError(s2.Deserialize(st))
+	require.NoError(GobBasedDeserialize(&s2, st))
 	require.Equal(s1.Nonce, s2.Nonce)
 	require.Equal(s1.Balance, s2.Balance)
 	require.Equal(s1.Root, s2.Root)
@@ -73,8 +77,6 @@ func TestGob(t *testing.T) {
 	require.Equal(s1.IsCandidate, s2.IsCandidate)
 	require.Equal(s1.VotingWeight, s2.VotingWeight)
 	require.Equal(s1.Votee, s2.Votee)
-	require.Equal(s1.Voters, map[string]*big.Int(nil))
-	require.Equal(s2.Voters, map[string]*big.Int(nil))
 }
 
 func TestCreateState(t *testing.T) {
