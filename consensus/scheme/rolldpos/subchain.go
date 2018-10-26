@@ -8,11 +8,13 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
 	explorerapi "github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 )
 
 func putBlockToParentChain(rootChainAPI explorerapi.Explorer, subChainAddr string, sender *iotxaddress.Address, b *blockchain.Block) {
@@ -27,11 +29,32 @@ func putBlockToParentChain(rootChainAPI explorerapi.Explorer, subChainAddr strin
 }
 
 func putBlockToParentChainTask(rootChainAPI explorerapi.Explorer, subChainAddr string, sender *iotxaddress.Address, b *blockchain.Block) error {
+	req, err := constructPutSubChainBlockRequest(rootChainAPI, subChainAddr, sender, b)
+	if err != nil {
+		return errors.Wrap(err, "fail to construct PutSubChainBlockRequest")
+	}
+
+	if _, err := rootChainAPI.PutSubChainBlock(req); err != nil {
+		return errors.Wrap(err, "fail to call explorerapi to put block")
+	}
+	return nil
+}
+
+func constructPutSubChainBlockRequest(rootChainAPI explorerapi.Explorer, subChainAddr string, sender *iotxaddress.Address, b *blockchain.Block) (explorerapi.PutSubChainBlockRequest, error) {
 	// get current pending nonce
 	addrDetails, err := rootChainAPI.GetAddressDetails(subChainAddr)
 	if err != nil {
-		return errors.Wrap(err, "fail to get address details")
+		return explorerapi.PutSubChainBlockRequest{}, errors.Wrap(err, "fail to get address details")
 	}
+
+	// get sender address on mainchain
+	subChainAddrSt, err := address.IotxAddressToAddress(subChainAddr)
+	if err != nil {
+		return explorerapi.PutSubChainBlockRequest{}, errors.Wrap(err, "fail to convert subChainAddr")
+	}
+	parentChainID := subChainAddrSt.ChainID()
+	senderPKHash := keypair.HashPubKey(sender.PublicKey)
+	senderPCAddr := address.New(parentChainID, senderPKHash[:]).IotxAddress()
 
 	rootm := make(map[string]hash.Hash32B)
 	rootm["state"] = b.StateRoot()
@@ -39,7 +62,7 @@ func putBlockToParentChainTask(rootChainAPI explorerapi.Explorer, subChainAddr s
 	pb := action.NewPutBlock(
 		uint64(addrDetails.PendingNonce),
 		subChainAddr,
-		sender.RawAddress,
+		senderPCAddr,
 		b.Height(),
 		rootm,
 		1000000,        // gas limit
@@ -47,7 +70,7 @@ func putBlockToParentChainTask(rootChainAPI explorerapi.Explorer, subChainAddr s
 	)
 	// sign action
 	if err := action.Sign(pb, sender.PrivateKey); err != nil {
-		return errors.Wrap(err, "fail to sign put block action")
+		return explorerapi.PutSubChainBlockRequest{}, errors.Wrap(err, "fail to sign put block action")
 	}
 
 	req := explorerapi.PutSubChainBlockRequest{
@@ -75,10 +98,5 @@ func putBlockToParentChainTask(rootChainAPI explorerapi.Explorer, subChainAddr s
 			Value: hex.EncodeToString(v[:]),
 		})
 	}
-
-	// submit action
-	if _, err := rootChainAPI.PutSubChainBlock(req); err != nil {
-		return errors.Wrap(err, "fail to call explorerapi to put block")
-	}
-	return nil
+	return req, nil
 }

@@ -21,6 +21,7 @@ func TestPutBlockToParentChain(t *testing.T) {
 	defer ctrl.Finish()
 
 	addr := testaddress.Addrinfo["producer"]
+	subAddr := testaddress.Addrinfo["echo"]
 	blk := blockchain.Block{}
 	blkpb := &iproto.BlockPb{
 		Header: &iproto.BlockHeaderPb{
@@ -69,7 +70,7 @@ func TestPutBlockToParentChain(t *testing.T) {
 		SenderPubKey:    hex.EncodeToString(addr.PublicKey[:]),
 		GasLimit:        1000000,
 		GasPrice:        "10",
-		SubChainAddress: "123",
+		SubChainAddress: subAddr.RawAddress,
 		Height:          123456789,
 		Roots: []explorerapi.PutSubChainBlockMerkelRoot{
 			explorerapi.PutSubChainBlockMerkelRoot{
