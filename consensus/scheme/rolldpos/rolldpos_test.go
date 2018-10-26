@@ -570,10 +570,6 @@ func TestUpdateSeed(t *testing.T) {
 
 	// Generate dkg signature for each block
 	require.NoError(err)
-	dummy := chain.MintNewDummyBlock()
-	require.NoError(chain.ValidateBlock(dummy, false))
-	err = chain.CommitBlock(dummy)
-	require.NoError(err)
 	for i := 1; i < numNodes; i++ {
 		iotxAddr := iotxaddress.Address{
 			PublicKey:  ec283PKList[i],
@@ -592,7 +588,7 @@ func TestUpdateSeed(t *testing.T) {
 		require.True(len(blk.Header.DKGBlockSig) > 0)
 	}
 	height := chain.TipHeight()
-	require.Equal(int(height), 21)
+	require.Equal(int(height), 20)
 
 	newSeed, err := fsm.ctx.updateSeed()
 	require.NoError(err)
@@ -839,89 +835,11 @@ func TestRollDPoSConsensus(t *testing.T) {
 				if blk == nil || err != nil {
 					return false, nil
 				}
-				if !blk.IsDummyBlock() {
-					return true, errors.New("not a dummy block")
-				}
+				break
 			}
 			return true, nil
 		}))
 	}
-
-	t.Run("proposer-network-partition-dummy-block", func(t *testing.T) {
-		ctx := context.Background()
-		cs, p2ps, chains := newConsensusComponents(21)
-		// 1 should be the block 1's proposer
-		for i, p2p := range p2ps {
-			if i == 1 {
-				p2p.peers = make(map[net.Addr]*RollDPoS)
-			} else {
-				delete(p2p.peers, p2ps[1].addr)
-			}
-		}
-
-		for i := 0; i < 21; i++ {
-			require.NoError(t, chains[i].Start(ctx))
-			require.NoError(t, p2ps[i].Start(ctx))
-		}
-		wg := sync.WaitGroup{}
-		wg.Add(21)
-		for i := 0; i < 21; i++ {
-			go func(idx int) {
-				defer wg.Done()
-				err := cs[idx].Start(ctx)
-				require.NoError(t, err)
-			}(i)
-		}
-		wg.Wait()
-
-		defer func() {
-			for i := 0; i < 21; i++ {
-				require.NoError(t, cs[i].Stop(ctx))
-				require.NoError(t, p2ps[i].Stop(ctx))
-				require.NoError(t, chains[i].Stop(ctx))
-			}
-		}()
-
-		checkChains(chains, 1)
-	})
-
-	t.Run("non-proposer-network-partition-dummy-block", func(t *testing.T) {
-		ctx := context.Background()
-		cs, p2ps, chains := newConsensusComponents(21)
-		// 1 should be the block 1's proposer
-		for i, p2p := range p2ps {
-			if i == 0 {
-				p2p.peers = make(map[net.Addr]*RollDPoS)
-			} else {
-				delete(p2p.peers, p2ps[0].addr)
-			}
-		}
-
-		for i := 0; i < 21; i++ {
-			require.NoError(t, chains[i].Start(ctx))
-			require.NoError(t, p2ps[i].Start(ctx))
-		}
-		wg := sync.WaitGroup{}
-		wg.Add(21)
-		for i := 0; i < 21; i++ {
-			go func(idx int) {
-				defer wg.Done()
-				err := cs[idx].Start(ctx)
-				require.NoError(t, err)
-			}(i)
-		}
-		wg.Wait()
-
-		defer func() {
-			for i := 0; i < 21; i++ {
-				require.NoError(t, cs[i].Stop(ctx))
-				require.NoError(t, p2ps[i].Stop(ctx))
-				require.NoError(t, chains[i].Stop(ctx))
-			}
-		}()
-
-		checkChains(chains, 1)
-	})
 
 	t.Run("network-partition-time-rotation", func(t *testing.T) {
 		ctx := context.Background()
@@ -945,7 +863,6 @@ func TestRollDPoSConsensus(t *testing.T) {
 			go func(idx int) {
 				defer wg.Done()
 				cs[idx].ctx.cfg.TimeBasedRotation = true
-				cs[idx].ctx.cfg.EnableDummyBlock = false
 				err := cs[idx].Start(ctx)
 				require.NoError(t, err)
 			}(i)
@@ -984,7 +901,6 @@ func TestRollDPoSConsensus(t *testing.T) {
 		for i := 0; i < 21; i++ {
 			go func(idx int) {
 				defer wg.Done()
-				cs[idx].ctx.cfg.EnableDummyBlock = false
 				err := cs[idx].Start(ctx)
 				require.NoError(t, err)
 			}(i)
@@ -1027,7 +943,6 @@ func TestRollDPoSConsensus(t *testing.T) {
 		for i := 0; i < 21; i++ {
 			go func(idx int) {
 				defer wg.Done()
-				cs[idx].ctx.cfg.EnableDummyBlock = false
 				err := cs[idx].Start(ctx)
 				require.NoError(t, err)
 			}(i)

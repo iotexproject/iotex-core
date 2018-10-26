@@ -220,7 +220,6 @@ func newConfig(
 	cfg.Consensus.RollDPoS.NumSubEpochs = 2
 	cfg.Consensus.RollDPoS.EventChanSize = 100000
 	cfg.Consensus.RollDPoS.NumDelegates = numNodes
-	cfg.Consensus.RollDPoS.EnableDummyBlock = false
 	cfg.Consensus.RollDPoS.TimeBasedRotation = true
 
 	cfg.ActPool.MaxNumActsToPick = 2000

@@ -474,18 +474,6 @@ func (mr *MockBlockchainMockRecorder) MintNewSecretBlock(secretProposals, secret
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MintNewSecretBlock", reflect.TypeOf((*MockBlockchain)(nil).MintNewSecretBlock), secretProposals, secretWitness, producer)
 }
 
-// MintNewDummyBlock mocks base method
-func (m *MockBlockchain) MintNewDummyBlock() *blockchain.Block {
-	ret := m.ctrl.Call(m, "MintNewDummyBlock")
-	ret0, _ := ret[0].(*blockchain.Block)
-	return ret0
-}
-
-// MintNewDummyBlock indicates an expected call of MintNewDummyBlock
-func (mr *MockBlockchainMockRecorder) MintNewDummyBlock() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MintNewDummyBlock", reflect.TypeOf((*MockBlockchain)(nil).MintNewDummyBlock))
-}
-
 // CommitBlock mocks base method
 func (m *MockBlockchain) CommitBlock(blk *blockchain.Block) error {
 	ret := m.ctrl.Call(m, "CommitBlock", blk)

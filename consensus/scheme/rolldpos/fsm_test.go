@@ -762,9 +762,6 @@ func TestHandleCommitEndorseEvt(t *testing.T) {
 			delegates,
 			func(chain *mock_blockchain.MockBlockchain) {
 				chain.EXPECT().CommitBlock(gomock.Any()).Return(nil).Times(0)
-				chain.EXPECT().
-					MintNewDummyBlock().
-					Return(blockchain.NewBlock(0, 0, hash.ZeroHash32B, testutil.TimestampNow(), nil)).Times(0)
 				chain.EXPECT().ChainID().AnyTimes().Return(config.Default.Chain.ID)
 			},
 			func(p2p *mock_network.MockOverlay) {
@@ -772,37 +769,6 @@ func TestHandleCommitEndorseEvt(t *testing.T) {
 			},
 			clock.New(),
 		)
-		cfsm.ctx.cfg.EnableDummyBlock = false
-
-		blk, err := cfsm.ctx.mintBlock()
-		assert.NoError(t, err)
-		cfsm.ctx.round.block = blk
-
-		state, err := cfsm.handleEndorseLockTimeout(cfsm.newCEvt(eEndorseLockTimeout))
-		assert.NoError(t, err)
-		assert.Equal(t, sRoundStart, state)
-		assert.Equal(t, eFinishEpoch, (<-cfsm.evtq).Type())
-	})
-	t.Run("timeout-dummy-block", func(t *testing.T) {
-		cfsm := newTestCFSM(
-			t,
-			test21Addrs[0],
-			test21Addrs[2],
-			ctrl,
-			delegates,
-			func(chain *mock_blockchain.MockBlockchain) {
-				chain.EXPECT().CommitBlock(gomock.Any()).Return(nil).Times(1)
-				chain.EXPECT().
-					MintNewDummyBlock().
-					Return(blockchain.NewBlock(0, 0, hash.ZeroHash32B, testutil.TimestampNow(), nil)).Times(1)
-				chain.EXPECT().ChainID().AnyTimes().Return(config.Default.Chain.ID)
-			},
-			func(p2p *mock_network.MockOverlay) {
-				p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(1)
-			},
-			clock.New(),
-		)
-
 		blk, err := cfsm.ctx.mintBlock()
 		assert.NoError(t, err)
 		cfsm.ctx.round.block = blk
@@ -1020,10 +986,9 @@ func newTestCFSM(
 		addr,
 		ctrl,
 		config.RollDPoS{
-			EventChanSize:    2,
-			NumDelegates:     uint(len(delegates)),
-			EnableDummyBlock: true,
-			EnableDKG:        true,
+			EventChanSize: 2,
+			NumDelegates:  uint(len(delegates)),
+			EnableDKG:     true,
 		},
 		func(blockchain *mock_blockchain.MockBlockchain) {
 			blockchain.EXPECT().ChainID().AnyTimes().Return(config.Default.Chain.ID)

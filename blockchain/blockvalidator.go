@@ -56,9 +56,6 @@ func (v *validator) Validate(blk *Block, tipHeight uint64, tipHash hash.Hash32B,
 	if err := verifyHeightAndHash(blk, tipHeight, tipHash); err != nil {
 		return errors.Wrap(err, "failed to verify block's height and hash")
 	}
-	if blk.IsDummyBlock() {
-		return nil
-	}
 	if err := verifySigAndRoot(blk); err != nil {
 		return errors.Wrap(err, "failed to verify block's signature and merkle root")
 	}

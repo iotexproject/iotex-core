@@ -79,12 +79,10 @@ func (bs *blockSyncer) P2P() network.Overlay {
 // Start starts a block syncer
 func (bs *blockSyncer) Start(ctx context.Context) error {
 	logger.Debug().Msg("Starting block syncer")
-	startHeight, err := findSyncStartHeight(bs.bc)
-	if err != nil {
-		return err
-	}
-	bs.buf.startHeight = startHeight
-	bs.buf.confirmedHeight = startHeight - 1
+	// FIXME this node may still has issue, if it was following the wrong chain, this is actually a general version of 2, but in 3, we need to rollback blockchain first
+	bs.buf.startHeight = bs.bc.TipHeight() + 1
+	bs.buf.confirmedHeight = bs.bc.TipHeight()
+
 	return bs.worker.Start(ctx)
 }
 
