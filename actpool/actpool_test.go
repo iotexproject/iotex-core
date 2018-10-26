@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"fmt"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"

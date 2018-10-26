@@ -65,6 +65,8 @@ type ActPool interface {
 	GetSize() uint64
 	// GetCapacity returns the act pool capacity
 	GetCapacity() uint64
+	// AddActionValidators add validators
+	AddActionValidators(...ActionValidator)
 }
 
 // actPool implements ActPool interface
@@ -91,6 +93,11 @@ func NewActPool(bc blockchain.Blockchain, cfg config.ActPool) (ActPool, error) {
 		validators:  validators,
 	}
 	return ap, nil
+}
+
+// AddActionValidators add validators
+func (ap *actPool) AddActionValidators(validators ...ActionValidator) {
+	ap.validators = append(ap.validators, validators...)
 }
 
 // Reset resets actpool state
