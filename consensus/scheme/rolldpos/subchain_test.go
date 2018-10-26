@@ -85,7 +85,7 @@ func TestPutBlockToParentChain(t *testing.T) {
 	}
 
 	exp := mock_explorer.NewMockExplorer(ctrl)
-	exp.EXPECT().GetAddressDetails(req.SubChainAddress).Return(explorerapi.AddressDetails{PendingNonce: 100}, nil).Times(1)
+	exp.EXPECT().GetAddressDetails(addr.RawAddress).Return(explorerapi.AddressDetails{PendingNonce: 100}, nil).Times(1)
 	exp.EXPECT().PutSubChainBlock(req).Times(1)
 
 	putBlockToParentChain(exp, req.SubChainAddress, addr, &blk)

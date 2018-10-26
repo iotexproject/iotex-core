@@ -41,12 +41,6 @@ func putBlockToParentChainTask(rootChainAPI explorerapi.Explorer, subChainAddr s
 }
 
 func constructPutSubChainBlockRequest(rootChainAPI explorerapi.Explorer, subChainAddr string, sender *iotxaddress.Address, b *blockchain.Block) (explorerapi.PutSubChainBlockRequest, error) {
-	// get current pending nonce
-	addrDetails, err := rootChainAPI.GetAddressDetails(subChainAddr)
-	if err != nil {
-		return explorerapi.PutSubChainBlockRequest{}, errors.Wrap(err, "fail to get address details")
-	}
-
 	// get sender address on mainchain
 	subChainAddrSt, err := address.IotxAddressToAddress(subChainAddr)
 	if err != nil {
@@ -56,11 +50,17 @@ func constructPutSubChainBlockRequest(rootChainAPI explorerapi.Explorer, subChai
 	senderPKHash := keypair.HashPubKey(sender.PublicKey)
 	senderPCAddr := address.New(parentChainID, senderPKHash[:]).IotxAddress()
 
+	// get sender current pending nonce on parent chain
+	senderPCAddrDetails, err := rootChainAPI.GetAddressDetails(senderPCAddr)
+	if err != nil {
+		return explorerapi.PutSubChainBlockRequest{}, errors.Wrap(err, "fail to get address details")
+	}
+
 	rootm := make(map[string]hash.Hash32B)
 	rootm["state"] = b.StateRoot()
 	rootm["tx"] = b.TxRoot()
 	pb := action.NewPutBlock(
-		uint64(addrDetails.PendingNonce),
+		uint64(senderPCAddrDetails.PendingNonce),
 		subChainAddr,
 		senderPCAddr,
 		b.Height(),
