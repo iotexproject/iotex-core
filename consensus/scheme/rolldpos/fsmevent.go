@@ -86,10 +86,17 @@ type endorseEvt struct {
 	endorse *endorsement.Endorsement
 }
 
-func newEndorseEvt(topic endorsement.ConsensusVoteTopic, blkHash hash.Hash32B, height uint64, round uint32, endorser *iotxaddress.Address, c clock.Clock) (*endorseEvt, error) {
+func newEndorseEvt(
+	topic endorsement.ConsensusVoteTopic,
+	blkHash hash.Hash32B,
+	height uint64,
+	round uint32,
+	endorser *iotxaddress.Address,
+	c clock.Clock,
+) *endorseEvt {
 	endorse := endorsement.NewEndorsement(endorsement.NewConsensusVote(blkHash, height, round, topic), endorser)
 
-	return newEndorseEvtWithEndorse(endorse, c), nil
+	return newEndorseEvtWithEndorse(endorse, c)
 }
 
 func newEndorseEvtWithEndorse(endorse *endorsement.Endorsement, c clock.Clock) *endorseEvt {
