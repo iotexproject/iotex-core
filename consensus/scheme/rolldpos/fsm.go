@@ -672,22 +672,9 @@ func (m *cFSM) handleEndorseLockTimeout(evt fsm.Event) (fsm.State, error) {
 		Uint64("height", m.ctx.round.height).
 		Msg("didn't collect enough commit endorse before timeout")
 
-	if m.ctx.cfg.EnableDummyBlock {
-		// TODO: remove dummyblock feature
-		dummyBlock := m.ctx.chain.MintNewDummyBlock()
-		logger.Warn().
-			Uint64("block", dummyBlock.Height()).
-			Msg("dummy block is generated")
-		m.ctx.round.block = dummyBlock
-		m.broadcastConsensusVote(dummyBlock.HashBlock(), endorsement.COMMIT)
-
-		return sAcceptCommitEndorse, nil
-	}
-
 	m.produce(m.newCEvt(eFinishEpoch), 0)
 	return sRoundStart, nil
 }
-
 func (m *cFSM) handleEndorseCommitEvt(evt fsm.Event) (fsm.State, error) {
 	pendingBlock := m.ctx.round.block
 	logger.Info().
@@ -708,7 +695,6 @@ func (m *cFSM) handleEndorseCommitEvt(evt fsm.Event) (fsm.State, error) {
 		logger.Error().
 			Err(err).
 			Uint64("block", pendingBlock.Height()).
-			Bool("dummy", pendingBlock.IsDummyBlock()).
 			Msg("error when committing a block")
 	}
 	// Remove transfers in this block from ActPool and reset ActPool state
@@ -719,7 +705,6 @@ func (m *cFSM) handleEndorseCommitEvt(evt fsm.Event) (fsm.State, error) {
 			logger.Error().
 				Err(err).
 				Uint64("block", pendingBlock.Height()).
-				Bool("dummy", pendingBlock.IsDummyBlock()).
 				Msg("error when broadcasting blkProto")
 		}
 
@@ -730,7 +715,6 @@ func (m *cFSM) handleEndorseCommitEvt(evt fsm.Event) (fsm.State, error) {
 	} else {
 		logger.Error().
 			Uint64("block", pendingBlock.Height()).
-			Bool("dummy", pendingBlock.IsDummyBlock()).
 			Msg("error when converting a block into a proto msg")
 	}
 	m.produce(m.newCEvt(eFinishEpoch), 0)

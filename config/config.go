@@ -119,7 +119,6 @@ var (
 				NumSubEpochs:      1,
 				EventChanSize:     10000,
 				NumDelegates:      21,
-				EnableDummyBlock:  true,
 				TimeBasedRotation: false,
 				EnableDKG:         false,
 			},
@@ -249,7 +248,6 @@ type (
 		NumSubEpochs             uint          `yaml:"numSubEpochs"`
 		EventChanSize            uint          `yaml:"eventChanSize"`
 		NumDelegates             uint          `yaml:"numDelegates"`
-		EnableDummyBlock         bool          `yaml:"enableDummyBlock"`
 		TimeBasedRotation        bool          `yaml:"timeBasedRotation"`
 		EnableDKG                bool          `yaml:"enableDKG"`
 	}
@@ -512,11 +510,6 @@ func ValidateRollDPoS(cfg *Config) error {
 	}
 	if cfg.Consensus.Scheme == RollDPoSScheme && cfg.Consensus.RollDPoS.NumDelegates <= 0 {
 		return errors.Wrap(ErrInvalidCfg, "roll-DPoS event delegate number should be greater than 0")
-	}
-	if cfg.Consensus.Scheme == RollDPoSScheme &&
-		cfg.Consensus.RollDPoS.EnableDummyBlock &&
-		cfg.Consensus.RollDPoS.TimeBasedRotation {
-		return errors.Wrap(ErrInvalidCfg, "roll-DPoS should enable dummy block when doing time based rotation")
 	}
 	return nil
 }

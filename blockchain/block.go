@@ -130,14 +130,6 @@ func NewSecretBlock(
 	return block
 }
 
-// IsDummyBlock checks whether block is a dummy block
-func (b *Block) IsDummyBlock() bool {
-	return b.Header.height > 0 &&
-		len(b.Header.blockSig) == 0 &&
-		b.Header.Pubkey == keypair.ZeroPublicKey &&
-		len(b.Actions) == 0
-}
-
 // Height returns the height of this block
 func (b *Block) Height() uint64 {
 	return b.Header.height
@@ -168,10 +160,7 @@ func (b *Block) ByteStreamHeader() []byte {
 	tmp8B := make([]byte, 8)
 	enc.MachineEndian.PutUint64(tmp8B, b.Header.height)
 	stream = append(stream, tmp8B...)
-	// TODO: exclude timestamp from block hash because dummy block needs to have a consistent hash no matter which
-	// node produces it at a given height. Once we get rid of the dummy block concept, we need to include it into
-	// the hash block hash again
-	//enc.MachineEndian.PutUint64(tmp8B, b.Header.timestamp)
+	enc.MachineEndian.PutUint64(tmp8B, b.Header.timestamp)
 	stream = append(stream, tmp8B...)
 	stream = append(stream, b.Header.prevBlockHash[:]...)
 	stream = append(stream, b.Header.txRoot[:]...)

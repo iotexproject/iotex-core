@@ -79,10 +79,7 @@ func (bs *blockSyncer) P2P() network.Overlay {
 // Start starts a block syncer
 func (bs *blockSyncer) Start(ctx context.Context) error {
 	logger.Debug().Msg("Starting block syncer")
-	startHeight, err := findSyncStartHeight(bs.bc)
-	if err != nil {
-		return err
-	}
+	startHeight := bs.bc.TipHeight() + 1
 	bs.buf.startHeight = startHeight
 	bs.buf.confirmedHeight = startHeight - 1
 	return bs.worker.Start(ctx)
