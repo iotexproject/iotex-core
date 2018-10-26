@@ -199,6 +199,12 @@ func (cs *ChainService) HandleAction(actPb *pb.ActionPb) error {
 		act = &action.Vote{}
 	} else if actPb.GetExecution() != nil {
 		act = &action.Execution{}
+	} else if actPb.GetPutBlock() != nil {
+		act = &action.PutBlock{}
+	} else if actPb.GetStartSubChain() != nil {
+		act = &action.StartSubChain{}
+	} else if actPb.GetStopSubChain() != nil {
+		act = &action.StopSubChain{}
 	}
 	act.LoadProto(actPb)
 	if err := cs.actpool.Add(act); err != nil {

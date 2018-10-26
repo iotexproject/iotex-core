@@ -295,6 +295,14 @@ func (b *Block) ConvertFromBlockPb(pbBlock *iproto.BlockPb) {
 			start := &action.StartSubChain{}
 			start.LoadProto(actPb)
 			b.Actions = append(b.Actions, start)
+		} else if stop := actPb.GetStopSubChain(); stop != nil {
+			stop := &action.StopSubChain{}
+			stop.LoadProto(actPb)
+			b.Actions = append(b.Actions, stop)
+		} else if put := actPb.GetPutBlock(); put != nil {
+			put := &action.PutBlock{}
+			put.LoadProto(actPb)
+			b.Actions = append(b.Actions, put)
 		}
 	}
 }
