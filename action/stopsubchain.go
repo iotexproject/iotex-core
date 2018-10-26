@@ -40,7 +40,7 @@ func NewStopSubChain(
 	stopHeight uint64,
 	gasLimit uint64,
 	gasPrice *big.Int,
-) (*StopSubChain, error) {
+) *StopSubChain {
 	return &StopSubChain{
 		abstractAction: abstractAction{
 			version:  version.ProtocolVersion,
@@ -52,7 +52,7 @@ func NewStopSubChain(
 		},
 		chainID:    chainID,
 		stopHeight: stopHeight,
-	}, nil
+	}
 }
 
 // ChainAddress returns the address of the sub chain

@@ -280,5 +280,6 @@ func (cs *ChainService) AddProtocols(protocols ...Protocol) {
 	cs.protocols = append(cs.protocols, protocols...)
 	for _, protocol := range protocols {
 		cs.chain.GetFactory().AddActionHandlers(protocol)
+		cs.actpool.AddActionValidators(protocol)
 	}
 }
