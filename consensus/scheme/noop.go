@@ -12,7 +12,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/logger"
-	"github.com/iotexproject/iotex-core/pkg/errcode"
 	"github.com/iotexproject/iotex-core/proto"
 )
 
@@ -49,7 +48,7 @@ func (n *Noop) HandleEndorse(endorse *iproto.EndorsePb) error {
 // Metrics is not implemented for standalone scheme
 func (n *Noop) Metrics() (ConsensusMetrics, error) {
 	return ConsensusMetrics{}, errors.Wrapf(
-		errcode.ErrNotImplemented,
+		ErrNotImplemented,
 		"noop scheme does not supported metrics yet",
 	)
 }

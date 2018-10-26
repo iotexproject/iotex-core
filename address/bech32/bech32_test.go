@@ -27,10 +27,10 @@ func TestBech32(t *testing.T) {
 		{"split1checkupstagehandshakeupstreamerranterredcaperred2y9e2w", false},                   // invalid checksum
 		{"s lit1checkupstagehandshakeupstreamerranterredcaperredp8hs2p", false},                   // invalid character (space) in hrp
 		{"spl" + string(127) + "t1checkupstagehandshakeupstreamerranterredcaperred2y9e3w", false}, // invalid character (DEL) in hrp
-		{"split1cheo2y9e2w", false}, // invalid character (o) in data part
-		{"split1a2y9w", false},      // too short data part
-		{"1checkupstagehandshakeupstreamerranterredcaperred2y9e3w", false}, // empty hrp
-		{"li1dgmt3", false}, // Too short checksum
+		{"split1cheo2y9e2w", false},                                                               // invalid character (o) in data part
+		{"split1a2y9w", false},                                                                    // too short data part
+		{"1checkupstagehandshakeupstreamerranterredcaperred2y9e3w", false},                        // empty hrp
+		{"li1dgmt3", false},                                                                       // Too short checksum
 		{"11qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqsqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqc8247j", false}, // overall max length exceeded
 	}
 
