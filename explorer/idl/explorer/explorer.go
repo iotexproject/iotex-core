@@ -8,8 +8,8 @@ import (
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "b2ad5eadd44f9c1bc366f4be9fe21b93"
-const BarristerDateGenerated int64 = 1540501452814000000
+const BarristerChecksum string = "10d1ccb0ca686c1cacc1ee4aa3936c52"
+const BarristerDateGenerated int64 = 1540524650141000000
 
 type CoinStatistic struct {
 	Height	int64	`json:"height"`
@@ -177,26 +177,26 @@ type SendVoteResponse struct {
 }
 
 type PutSubChainBlockMerkelRoot struct {
-	Name  string `json:"name"`
-	Value string `json:"value"`
+	Name	string	`json:"name"`
+	Value	string	`json:"value"`
 }
 
 type PutSubChainBlockRequest struct {
-	Version         int64                        `json:"version"`
-	Nonce           int64                        `json:"nonce"`
-	SenderAddress   string                       `json:"senderAddress"`
-	SubChainAddress string                       `json:"subChainAddress"`
-	Height          int64                        `json:"height"`
-	Roots           []PutSubChainBlockMerkelRoot `json:"roots"`
-	SenderPubKey    string                       `json:"senderPubKey"`
-	Signature       string                       `json:"signature"`
-	Payload         string                       `json:"payload"`
-	GasLimit        int64                        `json:"gasLimit"`
-	GasPrice        string                       `json:"gasPrice"`
+	Version	int64	`json:"version"`
+	Nonce	int64	`json:"nonce"`
+	SenderAddress	string	`json:"senderAddress"`
+	SubChainAddress	string	`json:"subChainAddress"`
+	Height	int64	`json:"height"`
+	Roots	[]PutSubChainBlockMerkelRoot	`json:"roots"`
+	SenderPubKey	string	`json:"senderPubKey"`
+	Signature	string	`json:"signature"`
+	Payload	string	`json:"payload"`
+	GasLimit	int64	`json:"gasLimit"`
+	GasPrice	string	`json:"gasPrice"`
 }
 
 type PutSubChainBlockResponse struct {
-	Hash string `json:"hash"`
+	Hash	string	`json:"hash"`
 }
 
 type Node struct {
@@ -2908,7 +2908,6 @@ var IdlJsonRaw = `[
                 }
             },
             {
-<<<<<<< HEAD
                 "name": "buildIndexByRange",
                 "comment": "buildIndex by block height range",
                 "params": [
@@ -2922,14 +2921,6 @@ var IdlJsonRaw = `[
                     {
                         "name": "to",
                         "type": "int",
-=======
-                "name": "putSubChainBlock",
-                "comment": "putSubChainBlock",
-                "params": [
-                    {
-                        "name": "request",
-                        "type": "PutSubChainBlockRequest",
->>>>>>> 99027b1840c844763d08f653208471806751b539
                         "optional": false,
                         "is_array": false,
                         "comment": ""
@@ -2937,11 +2928,27 @@ var IdlJsonRaw = `[
                 ],
                 "returns": {
                     "name": "",
-<<<<<<< HEAD
                     "type": "int",
-=======
+                    "optional": false,
+                    "is_array": false,
+                    "comment": ""
+                }
+            },
+            {
+                "name": "putSubChainBlock",
+                "comment": "putSubChainBlock",
+                "params": [
+                    {
+                        "name": "request",
+                        "type": "PutSubChainBlockRequest",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    }
+                ],
+                "returns": {
+                    "name": "",
                     "type": "PutSubChainBlockResponse",
->>>>>>> 99027b1840c844763d08f653208471806751b539
                     "optional": false,
                     "is_array": false,
                     "comment": ""
@@ -3034,12 +3041,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-<<<<<<< HEAD
-        "date_generated": 1540450599144,
-        "checksum": "66240f1076f6eed17b2a1f79dd6353b0"
-=======
-        "date_generated": 1540501452814,
-        "checksum": "b2ad5eadd44f9c1bc366f4be9fe21b93"
->>>>>>> 99027b1840c844763d08f653208471806751b539
+        "date_generated": 1540524650141,
+        "checksum": "10d1ccb0ca686c1cacc1ee4aa3936c52"
     }
 ]`

@@ -24,15 +24,15 @@ func main() {
 	var toBlockID int64
 	// end point of rds
 	var batchSize int64
-	// retry number
-	var retryNumber int
+	// retry limit
+	var retryLimit int
 	// target address for jrpc connection. Default is "127.0.0.1:14004"
 	var explorerAddr string
 
 	flag.Int64Var(&fromBlockID, "from-block-id", 0, "sync from which block id")
 	flag.Int64Var(&toBlockID, "to-block-id", 0, "sync to which block id")
 	flag.Int64Var(&batchSize, "batch-size", 1, "batch size")
-	flag.IntVar(&retryNumber, "retry-number", 3, "retry number")
+	flag.IntVar(&retryLimit, "retry-number", 3, "retry number")
 	flag.StringVar(&explorerAddr, "explorer-addr", "127.0.0.1:14004", "target ip:port for jrpc connection")
 	flag.Parse()
 
@@ -45,18 +45,18 @@ func main() {
 		}
 
 		retry := 0
-		for retry < retryNumber {
+		for retry < retryLimit {
 			failedBlock, err := proxy.BuildIndexByRange(startBlock, endBlock)
-			if err != nil {
-				startBlock = failedBlock
-				retry++
-
-				if retry == retryNumber {
-					logger.Fatal().Err(err).Msg(fmt.Sprintf("error when build index for block height <%d>", failedBlock))
-					return
-				}
-			} else {
+			if err == nil {
 				break
+			}
+
+			startBlock = failedBlock
+			retry++
+
+			if retry == retryLimit {
+				logger.Fatal().Err(err).Msg(fmt.Sprintf("error when build index for block height <%d>", failedBlock))
+				return
 			}
 		}
 		logger.Info().Msgf("finished build index for range <%d, %d>", i, endBlock)
