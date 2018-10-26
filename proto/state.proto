@@ -4,17 +4,18 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package chainservice
+// To compile the proto, run:
+//      protoc --go_out=plugins=grpc:. *.proto
+syntax = "proto3";
+package iproto;
 
-import (
-	"github.com/iotexproject/iotex-core/actpool"
-	"github.com/iotexproject/iotex-core/pkg/lifecycle"
-	"github.com/iotexproject/iotex-core/state"
-)
-
-// Protocol defines the protocol interfaces atop IoTeX blockchain
-type Protocol interface {
-	lifecycle.StartStopper
-	actpool.ActionValidator
-	state.ActionHandler
+message AccountPb {
+    // used by state-based model
+    uint64 nonce  = 1;
+    bytes balance  = 2;
+    bytes root  = 3;
+    bytes codeHash  = 4;
+    bool isCandidate = 5;
+    bytes votingWeight  = 6;
+    string votee = 7;
 }
