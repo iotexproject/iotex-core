@@ -98,7 +98,7 @@ func NewBlock(
 		Actions: actions,
 	}
 
-	block.Header.txRoot = block.TxRoot()
+	block.Header.txRoot = block.CalculateTxRoot()
 	return block
 }
 
@@ -126,7 +126,7 @@ func NewSecretBlock(
 		SecretWitness:   secretWitness,
 	}
 
-	block.Header.txRoot = block.TxRoot()
+	block.Header.txRoot = block.CalculateTxRoot()
 	return block
 }
 
@@ -146,6 +146,16 @@ func (b *Block) Height() uint64 {
 // PrevHash returns the hash of prev block
 func (b *Block) PrevHash() hash.Hash32B {
 	return b.Header.prevBlockHash
+}
+
+// TxRoot returns the hash of all actions in this block.
+func (b *Block) TxRoot() hash.Hash32B {
+	return b.Header.txRoot
+}
+
+// StateRoot returns the state root after apply this block.
+func (b *Block) StateRoot() hash.Hash32B {
+	return b.Header.stateRoot
 }
 
 // ByteStreamHeader returns a byte stream of the block header
@@ -300,15 +310,15 @@ func (b *Block) Deserialize(buf []byte) error {
 	b.workingSet = nil
 
 	// verify merkle root can match after deserialize
-	txroot := b.TxRoot()
+	txroot := b.CalculateTxRoot()
 	if !bytes.Equal(b.Header.txRoot[:], txroot[:]) {
 		return errors.New("Failed to match merkle root after deserialize")
 	}
 	return nil
 }
 
-// TxRoot returns the Merkle root of all txs and actions in this block.
-func (b *Block) TxRoot() hash.Hash32B {
+// CalculateTxRoot returns the Merkle root of all txs and actions in this block.
+func (b *Block) CalculateTxRoot() hash.Hash32B {
 	var h []hash.Hash32B
 	for _, sp := range b.SecretProposals {
 		h = append(h, sp.Hash())

@@ -214,8 +214,8 @@ func TestCreateBlockchain(t *testing.T) {
 	require.Equal(hash, deserialize.HashBlock())
 	fmt.Printf("Serialize/Deserialize Block hash = %x match\n", hash)
 
-	hash = genesis.TxRoot()
-	require.Equal(hash, deserialize.TxRoot())
+	hash = genesis.CalculateTxRoot()
+	require.Equal(hash, deserialize.CalculateTxRoot())
 	fmt.Printf("Serialize/Deserialize Block merkle = %x match\n", hash)
 
 	// add 4 sample blocks

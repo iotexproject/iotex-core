@@ -183,7 +183,7 @@ func NewGenesisBlock(cfg *config.Config) *Block {
 		Actions: acts,
 	}
 
-	block.Header.txRoot = block.TxRoot()
+	block.Header.txRoot = block.CalculateTxRoot()
 	return block
 }
 
