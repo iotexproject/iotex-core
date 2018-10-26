@@ -50,29 +50,29 @@ func TestBlockBufferFlush(t *testing.T) {
 		confirmedHeight: 0,
 	}
 
-	blk, err := chain.MintNewBlock(nil, nil, nil, nil, ta.Addrinfo["producer"],
+	blk, err := chain.MintNewBlock(nil, ta.Addrinfo["producer"],
 		nil, nil, "")
 	require.Nil(err)
 	moved, re := b.Flush(blk)
 	assert.Equal(true, moved)
 	assert.Equal(bCheckinValid, re)
 
-	blk = blockchain.NewBlock(uint32(123), uint64(0), hash.Hash32B{}, testutil.TimestampNow(), nil, nil, nil, nil)
+	blk = blockchain.NewBlock(uint32(123), uint64(0), hash.Hash32B{}, testutil.TimestampNow(), nil)
 	moved, re = b.Flush(blk)
 	assert.Equal(false, moved)
 	assert.Equal(bCheckinLower, re)
 
-	blk = blockchain.NewBlock(uint32(123), uint64(5), hash.Hash32B{}, testutil.TimestampNow(), nil, nil, nil, nil)
+	blk = blockchain.NewBlock(uint32(123), uint64(5), hash.Hash32B{}, testutil.TimestampNow(), nil)
 	moved, re = b.Flush(blk)
 	assert.Equal(false, moved)
 	assert.Equal(bCheckinValid, re)
 
-	blk = blockchain.NewBlock(uint32(123), uint64(5), hash.Hash32B{}, testutil.TimestampNow(), nil, nil, nil, nil)
+	blk = blockchain.NewBlock(uint32(123), uint64(5), hash.Hash32B{}, testutil.TimestampNow(), nil)
 	moved, re = b.Flush(blk)
 	assert.Equal(false, moved)
 	assert.Equal(bCheckinExisting, re)
 
-	blk = blockchain.NewBlock(uint32(123), uint64(500), hash.Hash32B{}, testutil.TimestampNow(), nil, nil, nil, nil)
+	blk = blockchain.NewBlock(uint32(123), uint64(500), hash.Hash32B{}, testutil.TimestampNow(), nil)
 	moved, re = b.Flush(blk)
 	assert.Equal(false, moved)
 	assert.Equal(bCheckinHigher, re)
@@ -118,26 +118,26 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 	require.Equal(uint64(1), out[0].Start)
 	require.Equal(uint64(10), out[0].End)
 
-	blk := blockchain.NewBlock(uint32(123), uint64(2), hash.Hash32B{}, testutil.TimestampNow(), nil, nil, nil, nil)
+	blk := blockchain.NewBlock(uint32(123), uint64(2), hash.Hash32B{}, testutil.TimestampNow(), nil)
 	b.Flush(blk)
-	blk = blockchain.NewBlock(uint32(123), uint64(4), hash.Hash32B{}, testutil.TimestampNow(), nil, nil, nil, nil)
+	blk = blockchain.NewBlock(uint32(123), uint64(4), hash.Hash32B{}, testutil.TimestampNow(), nil)
 	b.Flush(blk)
-	blk = blockchain.NewBlock(uint32(123), uint64(5), hash.Hash32B{}, testutil.TimestampNow(), nil, nil, nil, nil)
+	blk = blockchain.NewBlock(uint32(123), uint64(5), hash.Hash32B{}, testutil.TimestampNow(), nil)
 	b.Flush(blk)
-	blk = blockchain.NewBlock(uint32(123), uint64(6), hash.Hash32B{}, testutil.TimestampNow(), nil, nil, nil, nil)
+	blk = blockchain.NewBlock(uint32(123), uint64(6), hash.Hash32B{}, testutil.TimestampNow(), nil)
 	b.Flush(blk)
-	blk = blockchain.NewBlock(uint32(123), uint64(8), hash.Hash32B{}, testutil.TimestampNow(), nil, nil, nil, nil)
+	blk = blockchain.NewBlock(uint32(123), uint64(8), hash.Hash32B{}, testutil.TimestampNow(), nil)
 	b.Flush(blk)
-	blk = blockchain.NewBlock(uint32(123), uint64(14), hash.Hash32B{}, testutil.TimestampNow(), nil, nil, nil, nil)
+	blk = blockchain.NewBlock(uint32(123), uint64(14), hash.Hash32B{}, testutil.TimestampNow(), nil)
 	b.Flush(blk)
-	blk = blockchain.NewBlock(uint32(123), uint64(16), hash.Hash32B{}, testutil.TimestampNow(), nil, nil, nil, nil)
+	blk = blockchain.NewBlock(uint32(123), uint64(16), hash.Hash32B{}, testutil.TimestampNow(), nil)
 	b.Flush(blk)
 	assert.Len(b.GetBlocksIntervalsToSync(32), 5)
 	assert.Len(b.GetBlocksIntervalsToSync(7), 3)
 	assert.Len(b.GetBlocksIntervalsToSync(5), 2)
 	assert.Len(b.GetBlocksIntervalsToSync(1), 1)
 
-	blk, err = chain.MintNewBlock(nil, nil, nil, nil, ta.Addrinfo["producer"],
+	blk, err = chain.MintNewBlock(nil, ta.Addrinfo["producer"],
 		nil, nil, "")
 	require.Nil(err)
 	b.Flush(blk)

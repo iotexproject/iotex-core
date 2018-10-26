@@ -399,6 +399,18 @@ func (mr *MockBlockchainMockRecorder) ChainID() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChainID", reflect.TypeOf((*MockBlockchain)(nil).ChainID))
 }
 
+// ChainAddress mocks base method
+func (m *MockBlockchain) ChainAddress() string {
+	ret := m.ctrl.Call(m, "ChainAddress")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// ChainAddress indicates an expected call of ChainAddress
+func (mr *MockBlockchainMockRecorder) ChainAddress() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChainAddress", reflect.TypeOf((*MockBlockchain)(nil).ChainAddress))
+}
+
 // TipHash mocks base method
 func (m *MockBlockchain) TipHash() hash.Hash32B {
 	ret := m.ctrl.Call(m, "TipHash")
@@ -437,16 +449,16 @@ func (mr *MockBlockchainMockRecorder) StateByAddr(address interface{}) *gomock.C
 }
 
 // MintNewBlock mocks base method
-func (m *MockBlockchain) MintNewBlock(tsf []*action.Transfer, vote []*action.Vote, executions []*action.Execution, actions []action.Action, producer *iotxaddress.Address, dkgAddress *iotxaddress.DKGAddress, seed []byte, data string) (*blockchain.Block, error) {
-	ret := m.ctrl.Call(m, "MintNewBlock", tsf, vote, executions, actions, producer, dkgAddress, seed, data)
+func (m *MockBlockchain) MintNewBlock(actions []action.Action, producer *iotxaddress.Address, dkgAddress *iotxaddress.DKGAddress, seed []byte, data string) (*blockchain.Block, error) {
+	ret := m.ctrl.Call(m, "MintNewBlock", actions, producer, dkgAddress, seed, data)
 	ret0, _ := ret[0].(*blockchain.Block)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // MintNewBlock indicates an expected call of MintNewBlock
-func (mr *MockBlockchainMockRecorder) MintNewBlock(tsf, vote, executions, actions, producer, dkgAddress, seed, data interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MintNewBlock", reflect.TypeOf((*MockBlockchain)(nil).MintNewBlock), tsf, vote, executions, actions, producer, dkgAddress, seed, data)
+func (mr *MockBlockchainMockRecorder) MintNewBlock(actions, producer, dkgAddress, seed, data interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MintNewBlock", reflect.TypeOf((*MockBlockchain)(nil).MintNewBlock), actions, producer, dkgAddress, seed, data)
 }
 
 // MintNewSecretBlock mocks base method
@@ -545,14 +557,14 @@ func (mr *MockBlockchainMockRecorder) SubscribeBlockCreation(ch interface{}) *go
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubscribeBlockCreation", reflect.TypeOf((*MockBlockchain)(nil).SubscribeBlockCreation), ch)
 }
 
-// UnSubscribeBlockCreation mocks base method
-func (m *MockBlockchain) UnSubscribeBlockCreation(ch chan *blockchain.Block) error {
-	ret := m.ctrl.Call(m, "UnSubscribeBlockCreation", ch)
+// UnsubscribeBlockCreation mocks base method
+func (m *MockBlockchain) UnsubscribeBlockCreation(ch chan *blockchain.Block) error {
+	ret := m.ctrl.Call(m, "UnsubscribeBlockCreation", ch)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// UnSubscribeBlockCreation indicates an expected call of UnSubscribeBlockCreation
-func (mr *MockBlockchainMockRecorder) UnSubscribeBlockCreation(ch interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnSubscribeBlockCreation", reflect.TypeOf((*MockBlockchain)(nil).UnSubscribeBlockCreation), ch)
+// UnsubscribeBlockCreation indicates an expected call of UnsubscribeBlockCreation
+func (mr *MockBlockchainMockRecorder) UnsubscribeBlockCreation(ch interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnsubscribeBlockCreation", reflect.TypeOf((*MockBlockchain)(nil).UnsubscribeBlockCreation), ch)
 }

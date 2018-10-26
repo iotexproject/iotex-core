@@ -246,11 +246,20 @@ func TestStartRoundEvt(t *testing.T) {
 		}
 		s, err := cfsm.handleStartRoundEvt(cfsm.newCEvt(eStartRound))
 		require.NoError(t, err)
-		require.Equal(t, sAcceptPropose, s)
+		require.Equal(t, sInitPropose, s)
 		assert.Equal(t, uint64(0), cfsm.ctx.epoch.subEpochNum)
 		assert.NotNil(t, cfsm.ctx.round.proposer, delegates[2])
 		assert.NotNil(t, cfsm.ctx.round.endorsementSets, s)
-		assert.Equal(t, eProposeBlockTimeout, (<-cfsm.evtq).Type())
+		evt := <-cfsm.evtq
+		assert.Equal(t, eInitBlock, evt.Type())
+		s, err = cfsm.handleInitBlockEvt(evt)
+		assert.Equal(t, sAcceptPropose, s)
+		assert.NoError(t, err)
+		evt = <-cfsm.evtq
+		assert.Equal(t, eProposeBlockTimeout, evt.Type())
+		s, err = cfsm.handleProposeBlockTimeout(evt)
+		assert.Equal(t, sAcceptProposalEndorse, s)
+		assert.NoError(t, err)
 	})
 }
 
@@ -307,8 +316,9 @@ func TestHandleInitBlockEvt(t *testing.T) {
 		pbe, ok := e.(*proposeBlkEvt)
 		require.True(t, ok)
 		require.NotNil(t, pbe.block)
-		require.Equal(t, 1, len(pbe.block.Transfers))
-		require.Equal(t, 1, len(pbe.block.Votes))
+		transfers, votes, _ := action.ClassifyActions(pbe.block.Actions)
+		require.Equal(t, 1, len(transfers))
+		require.Equal(t, 1, len(votes))
 	})
 }
 
@@ -754,7 +764,7 @@ func TestHandleCommitEndorseEvt(t *testing.T) {
 				chain.EXPECT().CommitBlock(gomock.Any()).Return(nil).Times(0)
 				chain.EXPECT().
 					MintNewDummyBlock().
-					Return(blockchain.NewBlock(0, 0, hash.ZeroHash32B, testutil.TimestampNow(), nil, nil, nil, nil)).Times(0)
+					Return(blockchain.NewBlock(0, 0, hash.ZeroHash32B, testutil.TimestampNow(), nil)).Times(0)
 				chain.EXPECT().ChainID().AnyTimes().Return(config.Default.Chain.ID)
 			},
 			func(p2p *mock_network.MockOverlay) {
@@ -784,7 +794,7 @@ func TestHandleCommitEndorseEvt(t *testing.T) {
 				chain.EXPECT().CommitBlock(gomock.Any()).Return(nil).Times(1)
 				chain.EXPECT().
 					MintNewDummyBlock().
-					Return(blockchain.NewBlock(0, 0, hash.ZeroHash32B, testutil.TimestampNow(), nil, nil, nil, nil)).Times(1)
+					Return(blockchain.NewBlock(0, 0, hash.ZeroHash32B, testutil.TimestampNow(), nil)).Times(1)
 				chain.EXPECT().ChainID().AnyTimes().Return(config.Default.Chain.ID)
 			},
 			func(p2p *mock_network.MockOverlay) {
@@ -960,9 +970,6 @@ func newTestCFSM(
 		1,
 		prevHash,
 		testutil.TimestampNowFromClock(clock),
-		make([]*action.Transfer, 0),
-		make([]*action.Vote, 0),
-		make([]*action.Execution, 0),
 		make([]action.Action, 0),
 	)
 	blkToMint := blockchain.NewBlock(
@@ -970,10 +977,7 @@ func newTestCFSM(
 		2,
 		lastBlk.HashBlock(),
 		testutil.TimestampNowFromClock(clock),
-		[]*action.Transfer{transfer},
-		[]*action.Vote{vote},
-		nil,
-		nil,
+		[]action.Action{transfer, vote},
 	)
 	blkToMint.SignBlock(proposer)
 
@@ -1027,8 +1031,7 @@ func newTestCFSM(
 			blockchain.EXPECT().GetBlockByHeight(uint64(21)).Return(lastBlk, nil).AnyTimes()
 			blockchain.EXPECT().GetBlockByHeight(uint64(22)).Return(lastBlk, nil).AnyTimes()
 			blockchain.EXPECT().
-				MintNewBlock(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
-					gomock.Any(), gomock.Any()).Return(blkToMint, nil).AnyTimes()
+				MintNewBlock(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(blkToMint, nil).AnyTimes()
 			blockchain.EXPECT().
 				MintNewSecretBlock(gomock.Any(), gomock.Any(), gomock.Any()).Return(secretBlkToMint, nil).AnyTimes()
 			blockchain.EXPECT().
@@ -1048,7 +1051,7 @@ func newTestCFSM(
 		func(actPool *mock_actpool.MockActPool) {
 			actPool.EXPECT().
 				PickActs().
-				Return([]*action.Transfer{transfer}, []*action.Vote{vote}, []*action.Execution{}, []action.Action{}).
+				Return([]action.Action{transfer, vote}).
 				AnyTimes()
 			actPool.EXPECT().Reset().AnyTimes()
 		},

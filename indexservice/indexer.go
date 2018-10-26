@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db/rds"
@@ -102,7 +103,8 @@ func (idx *Indexer) BuildIndex(blk *blockchain.Block) error {
 // UpdateTransferHistory stores transfer information into transfer history table
 func (idx *Indexer) UpdateTransferHistory(blk *blockchain.Block, tx *sql.Tx) error {
 	insertQuery := "INSERT transfer_history SET node_address=?,user_address=?,transfer_hash=?"
-	for _, transfer := range blk.Transfers {
+	transfers, _, _ := action.ClassifyActions(blk.Actions)
+	for _, transfer := range transfers {
 		transferHash := transfer.Hash()
 
 		// put new transfer for sender
@@ -154,7 +156,8 @@ func (idx *Indexer) GetTransferHistory(userAddr string) ([]hash.Hash32B, error) 
 func (idx *Indexer) UpdateTransferToBlock(blk *blockchain.Block, tx *sql.Tx) error {
 	blockHash := blk.HashBlock()
 	insertQuery := "INSERT transfer_to_block SET node_address=?,transfer_hash=?,block_hash=?"
-	for _, transfer := range blk.Transfers {
+	transfers, _, _ := action.ClassifyActions(blk.Actions)
+	for _, transfer := range transfers {
 		transferHash := transfer.Hash()
 		if _, err := tx.Exec(insertQuery, idx.hexEncodedNodeAddr, hex.EncodeToString(transferHash[:]), blockHash[:]); err != nil {
 			return err
@@ -196,7 +199,8 @@ func (idx *Indexer) GetBlockByTransfer(transferHash hash.Hash32B) (hash.Hash32B,
 // UpdateVoteHistory stores vote information into vote history table
 func (idx *Indexer) UpdateVoteHistory(blk *blockchain.Block, tx *sql.Tx) error {
 	insertQuery := "INSERT vote_history SET node_address=?,user_address=?,vote_hash=?"
-	for _, vote := range blk.Votes {
+	_, votes, _ := action.ClassifyActions(blk.Actions)
+	for _, vote := range votes {
 		voteHash := vote.Hash()
 
 		// put new vote for sender
@@ -248,7 +252,8 @@ func (idx *Indexer) GetVoteHistory(userAddr string) ([]hash.Hash32B, error) {
 func (idx *Indexer) UpdateVoteToBlock(blk *blockchain.Block, tx *sql.Tx) error {
 	blockHash := blk.HashBlock()
 	insertQuery := "INSERT vote_to_block SET node_address=?,vote_hash=?,block_hash=?"
-	for _, vote := range blk.Votes {
+	_, votes, _ := action.ClassifyActions(blk.Actions)
+	for _, vote := range votes {
 		voteHash := vote.Hash()
 		if _, err := tx.Exec(insertQuery, idx.hexEncodedNodeAddr, hex.EncodeToString(voteHash[:]), blockHash[:]); err != nil {
 			return err
@@ -290,7 +295,8 @@ func (idx *Indexer) GetBlockByVote(voteHash hash.Hash32B) (hash.Hash32B, error) 
 // UpdateExecutionHistory stores execution information into execution history table
 func (idx *Indexer) UpdateExecutionHistory(blk *blockchain.Block, tx *sql.Tx) error {
 	insertQuery := "INSERT execution_history SET node_address=?,user_address=?,execution_hash=?"
-	for _, execution := range blk.Executions {
+	_, _, executions := action.ClassifyActions(blk.Actions)
+	for _, execution := range executions {
 		executionHash := execution.Hash()
 
 		// put new execution for executor
@@ -342,7 +348,8 @@ func (idx *Indexer) GetExecutionHistory(userAddr string) ([]hash.Hash32B, error)
 func (idx *Indexer) UpdateExecutionToBlock(blk *blockchain.Block, tx *sql.Tx) error {
 	blockHash := blk.HashBlock()
 	insertQuery := "INSERT execution_to_block SET node_address=?,execution_hash=?,block_hash=?"
-	for _, execution := range blk.Executions {
+	_, _, executions := action.ClassifyActions(blk.Actions)
+	for _, execution := range executions {
 		executionHash := execution.Hash()
 		if _, err := tx.Exec(insertQuery, idx.hexEncodedNodeAddr, hex.EncodeToString(executionHash[:]), blockHash[:]); err != nil {
 			return err

@@ -58,8 +58,8 @@ var (
 	Default = Config{
 		NodeType: FullNodeType,
 		Network: Network{
-			Host: "127.0.0.1",
-			Port: 4689,
+			Host:                                "127.0.0.1",
+			Port:                                4689,
 			MsgLogsCleaningInterval:             2 * time.Second,
 			MsgLogRetention:                     5 * time.Second,
 			HealthCheckInterval:                 time.Second,
@@ -90,6 +90,7 @@ var (
 			ChainDBPath:                  "/tmp/chain.db",
 			TrieDBPath:                   "/tmp/trie.db",
 			ID:                           1,
+			Address:                      "",
 			ProducerPubKey:               keypair.EncodePublicKey(keypair.ZeroPublicKey),
 			ProducerPrivKey:              keypair.EncodePrivateKey(keypair.ZeroPrivateKey),
 			InMemTest:                    false,
@@ -114,13 +115,13 @@ var (
 				AcceptProposeTTL:         time.Second,
 				AcceptProposalEndorseTTL: time.Second,
 				AcceptCommitEndorseTTL:   time.Second,
-				Delay:             5 * time.Second,
-				NumSubEpochs:      1,
-				EventChanSize:     10000,
-				NumDelegates:      21,
-				EnableDummyBlock:  true,
-				TimeBasedRotation: false,
-				EnableDKG:         false,
+				Delay:                    5 * time.Second,
+				NumSubEpochs:             1,
+				EventChanSize:            10000,
+				NumDelegates:             21,
+				EnableDummyBlock:         true,
+				TimeBasedRotation:        false,
+				EnableDKG:                false,
 			},
 			BlockCreationInterval: 10 * time.Second,
 		},
@@ -208,6 +209,7 @@ type (
 		TrieDBPath  string `yaml:"trieDBPath"`
 
 		ID              uint32 `yaml:"id"`
+		Address         string `yaml:"address"`
 		ProducerPubKey  string `yaml:"producerPubKey"`
 		ProducerPrivKey string `yaml:"producerPrivKey"`
 

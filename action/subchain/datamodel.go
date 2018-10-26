@@ -7,12 +7,17 @@
 package subchain
 
 import (
+	"encoding/gob"
 	"math/big"
 
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/state"
 )
+
+func init() {
+	gob.Register(InOperation{})
+}
 
 // SubChain represents the state of a sub-chain in the state factory
 type SubChain struct {
@@ -31,20 +36,48 @@ func (bs *SubChain) Serialize() ([]byte, error) { return state.GobBasedSerialize
 // Deserialize deserializes bytes into sub-chain state
 func (bs *SubChain) Deserialize(data []byte) error { return state.GobBasedDeserialize(bs, data) }
 
-// blockProof represents the block proof of a sub-chain in the state factory
-type blockProof struct {
-	// TODO add all data fields
-	Root              hash.Hash32B
+// MerkleRoot defines a merkle root in block proof.
+type MerkleRoot struct {
+	Name  string
+	Value hash.Hash32B
+}
+
+// BlockProof represents the block proof of a sub-chain in the state factory
+type BlockProof struct {
+	SubChainAddress   string
+	Height            uint64
+	Roots             []MerkleRoot
 	ProducerPublicKey keypair.PublicKey
+	ProducerAddress   string
 }
 
 // Serialize serialize block proof state into bytes
-func (bp *blockProof) Serialize() ([]byte, error) { return state.GobBasedSerialize(bp) }
+func (bp *BlockProof) Serialize() ([]byte, error) { return state.GobBasedSerialize(bp) }
 
 // Deserialize deserialize bytes into block proof state
-func (bp *blockProof) Deserialize(data []byte) error { return state.GobBasedDeserialize(bp, data) }
+func (bp *BlockProof) Deserialize(data []byte) error { return state.GobBasedDeserialize(bp, data) }
 
-// CompareChainID compare two chain IDs
-func CompareChainID(x interface{}, y interface{}) int {
-	return int(int64(x.(uint32)) - int64(y.(uint32)))
+// InOperation represents a record of a sub-chain in operation
+type InOperation struct {
+	ID   uint32
+	Addr []byte
+}
+
+// SortInOperation compare two ChainInUse records by their chain IDs. If one of the input's type is not
+// InOperation, it will not be comparable and 0 will be returned.
+func SortInOperation(x interface{}, y interface{}) int {
+	cio1, ok := x.(InOperation)
+	if !ok {
+		return 0
+	}
+	cio2, ok := y.(InOperation)
+	if !ok {
+		return 0
+	}
+	return int(int64(cio1.ID) - int64(cio2.ID))
+}
+
+// StartSubChainReceipt is the receipt to user after executed start sub chain operation.
+type StartSubChainReceipt struct {
+	SubChainAddress string
 }

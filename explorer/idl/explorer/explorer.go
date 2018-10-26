@@ -8,8 +8,8 @@ import (
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "66240f1076f6eed17b2a1f79dd6353b0"
-const BarristerDateGenerated int64 = 1540450599144000000
+const BarristerChecksum string = "b2ad5eadd44f9c1bc366f4be9fe21b93"
+const BarristerDateGenerated int64 = 1540501452814000000
 
 type CoinStatistic struct {
 	Height	int64	`json:"height"`
@@ -176,6 +176,29 @@ type SendVoteResponse struct {
 	Hash	string	`json:"hash"`
 }
 
+type PutSubChainBlockMerkelRoot struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}
+
+type PutSubChainBlockRequest struct {
+	Version         int64                        `json:"version"`
+	Nonce           int64                        `json:"nonce"`
+	SenderAddress   string                       `json:"senderAddress"`
+	SubChainAddress string                       `json:"subChainAddress"`
+	Height          int64                        `json:"height"`
+	Roots           []PutSubChainBlockMerkelRoot `json:"roots"`
+	SenderPubKey    string                       `json:"senderPubKey"`
+	Signature       string                       `json:"signature"`
+	Payload         string                       `json:"payload"`
+	GasLimit        int64                        `json:"gasLimit"`
+	GasPrice        string                       `json:"gasPrice"`
+}
+
+type PutSubChainBlockResponse struct {
+	Hash string `json:"hash"`
+}
+
 type Node struct {
 	Address	string	`json:"address"`
 }
@@ -226,6 +249,7 @@ type Explorer interface {
 	SendVote(request SendVoteRequest) (SendVoteResponse, error)
 	SendSmartContract(request Execution) (SendSmartContractResponse, error)
 	BuildIndexByRange(from int64, to int64) (int64, error)
+	PutSubChainBlock(request PutSubChainBlockRequest) (PutSubChainBlockResponse, error)
 	GetPeers() (GetPeersResponse, error)
 	GetReceiptByExecutionID(id string) (Receipt, error)
 	ReadExecutionState(request Execution) (string, error)
@@ -741,6 +765,24 @@ func (_p ExplorerProxy) BuildIndexByRange(from int64, to int64) (int64, error) {
 		return _cast, nil
 	}
 	return int64(0), _err
+}
+
+func (_p ExplorerProxy) PutSubChainBlock(request PutSubChainBlockRequest) (PutSubChainBlockResponse, error) {
+	_res, _err := _p.client.Call("Explorer.putSubChainBlock", request)
+	if _err == nil {
+		_retType := _p.idl.Method("Explorer.putSubChainBlock").Returns
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(PutSubChainBlockResponse{}), _res, "")
+	}
+	if _err == nil {
+		_cast, _ok := _res.(PutSubChainBlockResponse)
+		if !_ok {
+			_t := reflect.TypeOf(_res)
+			_msg := fmt.Sprintf("Explorer.putSubChainBlock returned invalid type: %v", _t)
+			return PutSubChainBlockResponse{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
+		}
+		return _cast, nil
+	}
+	return PutSubChainBlockResponse{}, _err
 }
 
 func (_p ExplorerProxy) GetPeers() (GetPeersResponse, error) {
@@ -1916,6 +1958,146 @@ var IdlJsonRaw = `[
     },
     {
         "type": "struct",
+        "name": "PutSubChainBlockMerkelRoot",
+        "comment": "",
+        "value": "",
+        "extends": "",
+        "fields": [
+            {
+                "name": "name",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "value",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            }
+        ],
+        "values": null,
+        "functions": null,
+        "barrister_version": "",
+        "date_generated": 0,
+        "checksum": ""
+    },
+    {
+        "type": "struct",
+        "name": "PutSubChainBlockRequest",
+        "comment": "",
+        "value": "",
+        "extends": "",
+        "fields": [
+            {
+                "name": "version",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "nonce",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "senderAddress",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "subChainAddress",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "height",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "roots",
+                "type": "PutSubChainBlockMerkelRoot",
+                "optional": false,
+                "is_array": true,
+                "comment": ""
+            },
+            {
+                "name": "senderPubKey",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "signature",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "payload",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "gasLimit",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "gasPrice",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            }
+        ],
+        "values": null,
+        "functions": null,
+        "barrister_version": "",
+        "date_generated": 0,
+        "checksum": ""
+    },
+    {
+        "type": "struct",
+        "name": "PutSubChainBlockResponse",
+        "comment": "",
+        "value": "",
+        "extends": "",
+        "fields": [
+            {
+                "name": "hash",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            }
+        ],
+        "values": null,
+        "functions": null,
+        "barrister_version": "",
+        "date_generated": 0,
+        "checksum": ""
+    },
+    {
+        "type": "struct",
         "name": "Node",
         "comment": "",
         "value": "",
@@ -2726,6 +2908,7 @@ var IdlJsonRaw = `[
                 }
             },
             {
+<<<<<<< HEAD
                 "name": "buildIndexByRange",
                 "comment": "buildIndex by block height range",
                 "params": [
@@ -2739,6 +2922,14 @@ var IdlJsonRaw = `[
                     {
                         "name": "to",
                         "type": "int",
+=======
+                "name": "putSubChainBlock",
+                "comment": "putSubChainBlock",
+                "params": [
+                    {
+                        "name": "request",
+                        "type": "PutSubChainBlockRequest",
+>>>>>>> 99027b1840c844763d08f653208471806751b539
                         "optional": false,
                         "is_array": false,
                         "comment": ""
@@ -2746,7 +2937,11 @@ var IdlJsonRaw = `[
                 ],
                 "returns": {
                     "name": "",
+<<<<<<< HEAD
                     "type": "int",
+=======
+                    "type": "PutSubChainBlockResponse",
+>>>>>>> 99027b1840c844763d08f653208471806751b539
                     "optional": false,
                     "is_array": false,
                     "comment": ""
@@ -2839,7 +3034,12 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
+<<<<<<< HEAD
         "date_generated": 1540450599144,
         "checksum": "66240f1076f6eed17b2a1f79dd6353b0"
+=======
+        "date_generated": 1540501452814,
+        "checksum": "b2ad5eadd44f9c1bc366f4be9fe21b93"
+>>>>>>> 99027b1840c844763d08f653208471806751b539
     }
 ]`

@@ -7,10 +7,11 @@
 package indexservice
 
 import (
+	"encoding/hex"
+
 	"github.com/pkg/errors"
 	"golang.org/x/net/context"
 
-	"encoding/hex"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db/rds"
@@ -82,7 +83,7 @@ func (s *Server) Stop(ctx context.Context) error {
 	if err := s.idx.rds.Stop(ctx); err != nil {
 		return errors.Wrap(err, "error when shutting down explorer http server")
 	}
-	if err := s.bc.UnSubscribeBlockCreation(s.blockCh); err != nil {
+	if err := s.bc.UnsubscribeBlockCreation(s.blockCh); err != nil {
 		return errors.Wrap(err, "error when un subscribe block creation")
 	}
 	close(s.blockCh)

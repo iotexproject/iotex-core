@@ -45,54 +45,15 @@ func (mr *MockActPoolMockRecorder) Reset() *gomock.Call {
 }
 
 // PickActs mocks base method
-func (m *MockActPool) PickActs() ([]*action.Transfer, []*action.Vote, []*action.Execution, []action.Action) {
+func (m *MockActPool) PickActs() []action.Action {
 	ret := m.ctrl.Call(m, "PickActs")
-	ret0, _ := ret[0].([]*action.Transfer)
-	ret1, _ := ret[1].([]*action.Vote)
-	ret2, _ := ret[2].([]*action.Execution)
-	ret3, _ := ret[3].([]action.Action)
-	return ret0, ret1, ret2, ret3
+	ret0, _ := ret[0].([]action.Action)
+	return ret0
 }
 
 // PickActs indicates an expected call of PickActs
 func (mr *MockActPoolMockRecorder) PickActs() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PickActs", reflect.TypeOf((*MockActPool)(nil).PickActs))
-}
-
-// AddTsf mocks base method
-func (m *MockActPool) AddTsf(tsf *action.Transfer) error {
-	ret := m.ctrl.Call(m, "AddTsf", tsf)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// AddTsf indicates an expected call of AddTsf
-func (mr *MockActPoolMockRecorder) AddTsf(tsf interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddTsf", reflect.TypeOf((*MockActPool)(nil).AddTsf), tsf)
-}
-
-// AddVote mocks base method
-func (m *MockActPool) AddVote(vote *action.Vote) error {
-	ret := m.ctrl.Call(m, "AddVote", vote)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// AddVote indicates an expected call of AddVote
-func (mr *MockActPoolMockRecorder) AddVote(vote interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddVote", reflect.TypeOf((*MockActPool)(nil).AddVote), vote)
-}
-
-// AddExecution mocks base method
-func (m *MockActPool) AddExecution(execution *action.Execution) error {
-	ret := m.ctrl.Call(m, "AddExecution", execution)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// AddExecution indicates an expected call of AddExecution
-func (mr *MockActPoolMockRecorder) AddExecution(execution interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddExecution", reflect.TypeOf((*MockActPool)(nil).AddExecution), execution)
 }
 
 // Add mocks base method
@@ -167,39 +128,4 @@ func (m *MockActPool) GetCapacity() uint64 {
 // GetCapacity indicates an expected call of GetCapacity
 func (mr *MockActPoolMockRecorder) GetCapacity() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCapacity", reflect.TypeOf((*MockActPool)(nil).GetCapacity))
-}
-
-// MockActionValidator is a mock of ActionValidator interface
-type MockActionValidator struct {
-	ctrl     *gomock.Controller
-	recorder *MockActionValidatorMockRecorder
-}
-
-// MockActionValidatorMockRecorder is the mock recorder for MockActionValidator
-type MockActionValidatorMockRecorder struct {
-	mock *MockActionValidator
-}
-
-// NewMockActionValidator creates a new mock instance
-func NewMockActionValidator(ctrl *gomock.Controller) *MockActionValidator {
-	mock := &MockActionValidator{ctrl: ctrl}
-	mock.recorder = &MockActionValidatorMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use
-func (m *MockActionValidator) EXPECT() *MockActionValidatorMockRecorder {
-	return m.recorder
-}
-
-// Validate mocks base method
-func (m *MockActionValidator) Validate(arg0 action.Action) error {
-	ret := m.ctrl.Call(m, "Validate", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Validate indicates an expected call of Validate
-func (mr *MockActionValidatorMockRecorder) Validate(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Validate", reflect.TypeOf((*MockActionValidator)(nil).Validate), arg0)
 }

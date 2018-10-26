@@ -159,3 +159,21 @@ func Verify(act Action) error {
 		act.Signature(),
 	)
 }
+
+// ClassifyActions classfies actions
+func ClassifyActions(actions []Action) ([]*Transfer, []*Vote, []*Execution) {
+	transfers := make([]*Transfer, 0)
+	votes := make([]*Vote, 0)
+	executions := make([]*Execution, 0)
+	for _, act := range actions {
+		switch act.(type) {
+		case *Transfer:
+			transfers = append(transfers, act.(*Transfer))
+		case *Vote:
+			votes = append(votes, act.(*Vote))
+		case *Execution:
+			executions = append(executions, act.(*Execution))
+		}
+	}
+	return transfers, votes, executions
+}
