@@ -159,6 +159,7 @@ func NewConsensus(
 				}
 				return cs, nil
 			})
+			bd = bd.SetRootChainAPI(ops.rootChainAPI)
 		}
 		cs.scheme, err = bd.Build()
 		if err != nil {

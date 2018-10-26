@@ -711,6 +711,11 @@ func (m *cFSM) processEndorseLock(consensus bool) (fsm.State, error) {
 				Bool("dummy", pendingBlock.IsDummyBlock()).
 				Msg("error when converting a block into a proto msg")
 		}
+
+		// putblock to parent chain if current chain is a sub chain
+		if m.ctx.chain.ChainAddress() != "" {
+			putBlockToParentChain(m.ctx.rootChainAPI, m.ctx.chain.ChainAddress(), m.ctx.addr, pendingBlock)
+		}
 	}
 	m.produce(m.newCEvt(eFinishEpoch), 0)
 	return sRoundStart, nil

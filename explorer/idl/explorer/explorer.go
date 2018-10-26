@@ -3,13 +3,14 @@ package explorer
 
 import (
 	"fmt"
-	"github.com/coopernurse/barrister-go"
 	"reflect"
+
+	"github.com/coopernurse/barrister-go"
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "b2ad5eadd44f9c1bc366f4be9fe21b93"
-const BarristerDateGenerated int64 = 1540501452814000000
+const BarristerChecksum string = "b31208a5095f3df5b87062e21a5f1283"
+const BarristerDateGenerated int64 = 1540505259193000000
 
 type CoinStatistic struct {
 	Height     int64  `json:"height"`
@@ -190,7 +191,6 @@ type PutSubChainBlockRequest struct {
 	Roots           []PutSubChainBlockMerkelRoot `json:"roots"`
 	SenderPubKey    string                       `json:"senderPubKey"`
 	Signature       string                       `json:"signature"`
-	Payload         string                       `json:"payload"`
 	GasLimit        int64                        `json:"gasLimit"`
 	GasPrice        string                       `json:"gasPrice"`
 }
@@ -2030,13 +2030,6 @@ var IdlJsonRaw = `[
                 "comment": ""
             },
             {
-                "name": "payload",
-                "type": "string",
-                "optional": false,
-                "is_array": false,
-                "comment": ""
-            },
-            {
                 "name": "gasLimit",
                 "type": "int",
                 "optional": false,
@@ -2996,7 +2989,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1540501452814,
-        "checksum": "b2ad5eadd44f9c1bc366f4be9fe21b93"
+        "date_generated": 1540505259193,
+        "checksum": "b31208a5095f3df5b87062e21a5f1283"
     }
 ]`
