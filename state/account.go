@@ -9,7 +9,10 @@ package state
 import (
 	"math/big"
 
+	"github.com/golang/protobuf/proto"
+
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/proto"
 )
 
 // Account is the canonical representation of an account.
@@ -23,14 +26,62 @@ type Account struct {
 	IsCandidate  bool
 	VotingWeight *big.Int
 	Votee        string
-	Voters       map[string]*big.Int
+}
+
+// ToProto converts to protobuf's AccountPb
+func (st *Account) ToProto() *iproto.AccountPb {
+	acPb := &iproto.AccountPb{}
+	acPb.Nonce = st.Nonce
+	if st.Balance != nil {
+		acPb.Balance = st.Balance.Bytes()
+	}
+	acPb.Root = make([]byte, hash.HashSize)
+	copy(acPb.Root, st.Root[:])
+	acPb.CodeHash = make([]byte, len(st.CodeHash))
+	copy(acPb.CodeHash, st.CodeHash)
+	acPb.IsCandidate = st.IsCandidate
+	if st.VotingWeight != nil {
+		acPb.VotingWeight = st.VotingWeight.Bytes()
+	}
+	acPb.Votee = st.Votee
+	return acPb
 }
 
 // Serialize serializes account state into bytes
-func (st *Account) Serialize() ([]byte, error) { return GobBasedSerialize(st) }
+func (st *Account) Serialize() ([]byte, error) {
+	return proto.Marshal(st.ToProto())
+}
+
+// FromProto converts from protobuf's AccountPb
+func (st *Account) FromProto(acPb *iproto.AccountPb) {
+	st.Nonce = acPb.Nonce
+	st.Balance = big.NewInt(0)
+	if acPb.Balance != nil {
+		st.Balance.SetBytes(acPb.Balance)
+	}
+	copy(st.Root[:], acPb.Root)
+	st.CodeHash = nil
+	if acPb.CodeHash != nil {
+		st.CodeHash = make([]byte, len(acPb.CodeHash))
+		copy(st.CodeHash, acPb.CodeHash)
+	}
+	st.IsCandidate = acPb.IsCandidate
+	st.VotingWeight = big.NewInt(0)
+	if acPb.VotingWeight != nil {
+		st.VotingWeight.SetBytes(acPb.VotingWeight)
+	}
+	st.Votee = acPb.Votee
+}
 
 // Deserialize deserializes bytes into account state
-func (st *Account) Deserialize(ss []byte) error { return GobBasedDeserialize(st, ss) }
+func (st *Account) Deserialize(buf []byte) error {
+	acPb := &iproto.AccountPb{}
+	if err := proto.Unmarshal(buf, acPb); err != nil {
+		return err
+	}
+	st.FromProto(acPb)
+	return nil
+}
 
 // AddBalance adds balance for account state
 func (st *Account) AddBalance(amount *big.Int) error {
@@ -60,7 +111,5 @@ func (st *Account) clone() *Account {
 		s.CodeHash = make([]byte, len(st.CodeHash))
 		copy(s.CodeHash, st.CodeHash)
 	}
-	// Voters won't be used, set to nil for simplicity
-	s.Voters = nil
 	return &s
 }

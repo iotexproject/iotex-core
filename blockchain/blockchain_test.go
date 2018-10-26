@@ -772,7 +772,6 @@ func TestBlockchain_StateByAddr(t *testing.T) {
 	require.Equal(false, s.IsCandidate)
 	require.Equal(big.NewInt(0), s.VotingWeight)
 	require.Equal("", s.Votee)
-	require.Equal(map[string]*big.Int(map[string]*big.Int(nil)), s.Voters)
 }
 
 func TestBlocks(t *testing.T) {
