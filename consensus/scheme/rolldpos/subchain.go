@@ -3,6 +3,7 @@ package rolldpos
 import (
 	"encoding/hex"
 	"math/big"
+	"sort"
 
 	"github.com/pkg/errors"
 
@@ -62,7 +63,13 @@ func putBlockToParentChainTask(rootChainAPI explorerapi.Explorer, subChainAddr s
 	}
 
 	// put merkel roots
-	for k, v := range rootm {
+	keys := make([]string, 0, len(rootm))
+	for k := range rootm {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		v := rootm[k]
 		req.Roots = append(req.Roots, explorerapi.PutSubChainBlockMerkelRoot{
 			Name:  k,
 			Value: hex.EncodeToString(v[:]),

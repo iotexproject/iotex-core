@@ -38,6 +38,7 @@ import (
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/mock/mock_actpool"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
+	"github.com/iotexproject/iotex-core/test/mock/mock_explorer"
 	"github.com/iotexproject/iotex-core/test/mock/mock_network"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -371,6 +372,21 @@ func TestNewRollDPoS(t *testing.T) {
 		assert.NotNil(t, r)
 		_, ok := r.ctx.clock.(*clock.Mock)
 		assert.True(t, ok)
+	})
+
+	t.Run("root chain API", func(t *testing.T) {
+		r, err := NewRollDPoSBuilder().
+			SetConfig(config.RollDPoS{}).
+			SetAddr(newTestAddr()).
+			SetBlockchain(mock_blockchain.NewMockBlockchain(ctrl)).
+			SetActPool(mock_actpool.NewMockActPool(ctrl)).
+			SetP2P(mock_network.NewMockOverlay(ctrl)).
+			SetClock(clock.NewMock()).
+			SetRootChainAPI(mock_explorer.NewMockExplorer(ctrl)).
+			Build()
+		assert.NoError(t, err)
+		assert.NotNil(t, r)
+		assert.NotNil(t, r.ctx.rootChainAPI)
 	})
 	t.Run("missing-dep", func(t *testing.T) {
 		r, err := NewRollDPoSBuilder().

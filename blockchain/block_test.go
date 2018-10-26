@@ -191,6 +191,9 @@ func TestConvertFromBlockPb(t *testing.T) {
 
 	require.Equal(t, uint64(103), newblk.Actions[2].Nonce())
 	require.Equal(t, uint64(104), newblk.Actions[3].Nonce())
+
+	require.Equal(t, blk.Header.txRoot, blk.TxRoot())
+	require.Equal(t, blk.Header.stateRoot, blk.StateRoot())
 }
 
 func TestWrongRootHash(t *testing.T) {
