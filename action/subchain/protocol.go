@@ -7,16 +7,19 @@
 package subchain
 
 import (
+	"context"
 	"math/big"
 
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/chainservice"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/dispatcher"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
+	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -74,7 +77,7 @@ func (p *Protocol) Handle(act action.Action, ws state.WorkingSet) error {
 		}
 	case *action.PutBlock:
 		if err := p.handlePutBlock(act, ws); err != nil {
-			return errors.Wrapf(err, "error when handling start sub-chain action")
+			return errors.Wrapf(err, "error when handling put sub-chain block action")
 		}
 	}
 	// The action is not handled by this handler or no error
@@ -90,5 +93,54 @@ func (p *Protocol) Validate(act action.Action) error {
 		}
 	}
 	// The action is not validated by this handler or no error
+	return nil
+}
+
+// Start starts the sub-chain protocol
+func (p *Protocol) Start(ctx context.Context) error {
+	// This is to prevent the start sub-chain action from causing the starting sub-chain service in both genesis block
+	// processing and the start here
+	if p.rootChain.TipHeight() == 0 {
+		return nil
+	}
+
+	subChainsInOp, err := p.SubChainsInOperation()
+	if err != nil {
+		return errors.Wrap(err, "error when getting the sub-chains in operation slice")
+	}
+	for _, e := range subChainsInOp {
+		subChainsInOp, ok := e.(InOperation)
+		if !ok {
+			logger.Error().Msg("error when casting the element in the sorted slice into InOperation")
+			continue
+		}
+		addr, err := address.BytesToAddress(subChainsInOp.Addr)
+		if err != nil {
+			logger.Error().Err(err).Msg("error when converting bytes to address")
+			continue
+		}
+		subChain, err := p.SubChain(addr)
+		if err != nil {
+			logger.Error().Err(err).
+				Uint32("sub-chain", subChain.ChainID).
+				Msg("error when getting the sub-chain state")
+			continue
+		}
+		if err := p.startSubChainService(addr.IotxAddress(), subChain); err != nil {
+			logger.Error().Err(err).
+				Uint32("sub-chain", subChain.ChainID).
+				Msg("error when starting the sub-chain service")
+		}
+	}
+	return nil
+}
+
+// Stop stops the sub-chain protocol
+func (p *Protocol) Stop(ctx context.Context) error {
+	for chainID, cs := range p.subChainServices {
+		if err := cs.Stop(ctx); err != nil {
+			logger.Error().Err(err).Msgf("error when stopping the service of sub-chain %d", chainID)
+		}
+	}
 	return nil
 }
