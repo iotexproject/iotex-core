@@ -11,9 +11,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
-	"strings"
 	"testing"
-	"time"
 
 	"github.com/facebookgo/clock"
 	"github.com/stretchr/testify/require"
@@ -644,40 +642,6 @@ func TestBlockchain_Validator(t *testing.T) {
 	require.NotNil(t, bc.Validator())
 }
 
-func TestBlockchain_MintNewDummyBlock(t *testing.T) {
-	cfg := &config.Default
-	testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
-	defer testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
-	testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
-	defer testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
-	require := require.New(t)
-	sf, err := state.NewFactory(cfg, state.DefaultTrieOption())
-	require.NoError(err)
-	require.NoError(sf.Start(context.Background()))
-	val := validator{sf, ""}
-
-	ctx := context.Background()
-	bc := NewBlockchain(cfg, InMemDaoOption(), InMemStateFactoryOption())
-	require.NoError(bc.Start(ctx))
-	defer func() {
-		err := bc.Stop(ctx)
-		require.Nil(err)
-	}()
-	require.NotNil(bc)
-
-	blk := bc.MintNewDummyBlock()
-	require.Equal(uint64(1), blk.Height())
-	tipHash := bc.TipHash()
-	require.NoError(val.Validate(blk, 0, tipHash, true))
-	tsf, _ := action.NewTransfer(1, big.NewInt(1), "", "", []byte{}, uint64(100000), big.NewInt(10))
-	blk.Actions = []action.Action{tsf}
-	err = val.Validate(blk, 0, tipHash, true)
-	require.Error(err)
-	require.True(
-		strings.Contains(err.Error(), "failed to verify block's signature"),
-	)
-}
-
 func TestBlockchainInitialCandidate(t *testing.T) {
 	require := require.New(t)
 
@@ -870,85 +834,6 @@ func TestActions(t *testing.T) {
 	require.Nil(val.Validate(blk, 0, blk.PrevHash(), true))
 }
 
-func TestDummyReplacement(t *testing.T) {
-	require := require.New(t)
-	cfg := config.Default
-
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-	defer testutil.CleanupPath(t, testDBPath)
-
-	cfg.Chain.TrieDBPath = testTriePath
-	cfg.Chain.ChainDBPath = testDBPath
-
-	sf, _ := state.NewFactory(&cfg, state.InMemTrieOption())
-	require.NoError(sf.Start(context.Background()))
-	require.NoError(addCreatorToFactory(sf))
-
-	// Create a blockchain from scratch
-	bc := NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
-	require.NoError(bc.Start(context.Background()))
-	dummy := bc.MintNewDummyBlock()
-	require.Nil(bc.ValidateBlock(dummy, true))
-	require.NoError(bc.CommitBlock(dummy))
-	actualDummyBlock, err := bc.GetBlockByHeight(1)
-	require.NoError(err)
-	require.Equal(dummy.HashBlock(), actualDummyBlock.HashBlock())
-
-	chain := bc.(*blockchain)
-	chain.tipHeight = 0
-	realBlock, err := bc.MintNewBlock(nil, ta.Addrinfo["producer"],
-		nil, nil, "")
-	require.NotNil(realBlock)
-	require.NoError(err)
-	require.Nil(bc.ValidateBlock(realBlock, true))
-	require.NoError(bc.CommitBlock(realBlock))
-	actualRealBlock, err := bc.GetBlockByHeight(1)
-	require.NoError(err)
-	require.Equal(realBlock.HashBlock(), actualRealBlock.HashBlock())
-
-	block2, err := bc.MintNewBlock(nil, ta.Addrinfo["producer"],
-		nil, nil, "")
-	require.NoError(err)
-	require.Nil(bc.ValidateBlock(block2, true))
-	require.NoError(bc.CommitBlock(block2))
-	dummyBlock3 := bc.MintNewDummyBlock()
-	require.Nil(bc.ValidateBlock(dummyBlock3, true))
-	require.NoError(bc.CommitBlock(dummyBlock3))
-	block4, err := bc.MintNewBlock(nil, ta.Addrinfo["producer"],
-		nil, nil, "")
-	require.NoError(err)
-	require.NoError(bc.ValidateBlock(block4, true))
-	require.NoError(bc.CommitBlock(block4))
-	actualDummyBlock3, err := bc.GetBlockByHeight(3)
-	require.NoError(err)
-	require.True(actualDummyBlock3.IsDummyBlock())
-	chain.tipHeight = 2
-	block3, err := bc.MintNewBlock(nil, ta.Addrinfo["producer"],
-		nil, nil, "")
-	require.NotNil(block3)
-	require.NoError(err)
-	require.NoError(bc.ValidateBlock(block3, true))
-	require.NoError(bc.CommitBlock(block3))
-	actualBlock3, err := bc.GetBlockByHeight(3)
-	require.NoError(err)
-	require.Equal(block3.HashBlock(), actualBlock3.HashBlock())
-}
-
-func TestMintNewBlock(t *testing.T) {
-	t.Parallel()
-	cfg := config.Default
-	clk := clock.NewMock()
-	chain := NewBlockchain(&cfg, InMemDaoOption(), InMemStateFactoryOption(), ClockOption(clk))
-	require.NoError(t, chain.Start(context.Background()))
-	blk1 := chain.MintNewDummyBlock()
-	clk.Add(2 * time.Second)
-	blk2 := chain.MintNewDummyBlock()
-	require.Equal(t, uint64(2), blk2.Header.timestamp-blk1.Header.timestamp)
-	require.Equal(t, blk1.HashBlock(), blk2.HashBlock())
-}
-
 func TestMintDKGBlock(t *testing.T) {
 	require := require.New(t)
 	lastSeed, _ := hex.DecodeString("9de6306b08158c423330f7a27243a1a5cbe39bfd764f07818437882d21241567")
@@ -1015,10 +900,6 @@ func TestMintDKGBlock(t *testing.T) {
 	}
 
 	// Generate dkg signature for each block
-	require.NoError(err)
-	dummy := chain.MintNewDummyBlock()
-	require.NoError(chain.ValidateBlock(dummy, true))
-	require.NoError(chain.CommitBlock(dummy))
 	for i := 1; i < numNodes; i++ {
 		iotxAddr := iotxaddress.Address{
 			PublicKey:  ec283PKList[i],
@@ -1036,7 +917,7 @@ func TestMintDKGBlock(t *testing.T) {
 	}
 	height, err := chain.GetFactory().Height()
 	require.NoError(err)
-	require.Equal(uint64(21), height)
+	require.Equal(uint64(20), height)
 	candidates, err := chain.CandidatesByHeight(height)
 	require.NoError(err)
 	require.Equal(21, len(candidates))
