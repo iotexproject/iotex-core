@@ -90,7 +90,7 @@ func (q *actQueue) Overlaps(act action.Action) bool {
 func (q *actQueue) Put(act action.Action) error {
 	nonce := act.Nonce()
 	if q.items[nonce] != nil {
-		return errors.Wrapf(ErrNonce, "duplicate nonce")
+		return errors.Wrapf(action.ErrNonce, "duplicate nonce")
 	}
 	heap.Push(&q.index, nonce)
 	q.items[nonce] = act

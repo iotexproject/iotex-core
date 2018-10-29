@@ -13,38 +13,14 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/abstractaction"
+	"github.com/iotexproject/iotex-core/action/execution"
+	"github.com/iotexproject/iotex-core/action/transfer"
+	"github.com/iotexproject/iotex-core/action/vote"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-)
-
-const (
-	// TransferSizeLimit is the maximum size of transfer allowed
-	TransferSizeLimit = 32 * 1024
-	// VoteSizeLimit is the maximum size of vote allowed
-	VoteSizeLimit = 278
-	// ExecutionSizeLimit is the maximum size of execution allowed
-	ExecutionSizeLimit = 32 * 1024
-)
-
-var (
-	// ErrActPool indicates the error of actpool
-	ErrActPool = errors.New("invalid actpool")
-	// ErrGasHigherThanLimit indicates the error of gas value
-	ErrGasHigherThanLimit = errors.New("invalid gas for action")
-	// ErrInsufficientGas indicates the error of insufficient gas value for data storage
-	ErrInsufficientGas = errors.New("insufficient intrinsic gas value")
-	// ErrTransfer indicates the error of transfer
-	ErrTransfer = errors.New("invalid transfer")
-	// ErrNonce indicates the error of nonce
-	ErrNonce = errors.New("invalid nonce")
-	// ErrBalance indicates the error of balance
-	ErrBalance = errors.New("invalid balance")
-	// ErrVotee indicates the error of votee
-	ErrVotee = errors.New("votee is not a candidate")
-	// ErrHash indicates the error of action's hash
-	ErrHash = errors.New("invalid hash")
 )
 
 // ActPool is the interface of actpool
@@ -79,19 +55,24 @@ type actPool struct {
 	validators  []ActionValidator
 }
 
+// ActionValidator is the interface of validating an action
+type ActionValidator interface {
+	Validate(action.Action) error
+}
+
 // NewActPool constructs a new actpool
 func NewActPool(bc blockchain.Blockchain, cfg config.ActPool) (ActPool, error) {
 	if bc == nil {
 		return nil, errors.New("Try to attach a nil blockchain")
 	}
-	validators := []ActionValidator{NewTransferValidator(bc), NewVoteValidator(bc), NewExecValidator(bc)}
 	ap := &actPool{
 		cfg:         cfg,
 		bc:          bc,
 		accountActs: make(map[string]ActQueue),
 		allActions:  make(map[hash.Hash32B]action.Action),
-		validators:  validators,
 	}
+	ap.AddActionValidators(abstractaction.NewProtocol(bc), transfer.NewProtocol(), vote.NewProtocol(bc),
+		execution.NewProtocol())
 	return ap, nil
 }
 
@@ -163,7 +144,7 @@ func (ap *actPool) Add(act action.Action) error {
 	defer ap.mutex.Unlock()
 	// Reject action if pool space is full
 	if uint64(len(ap.allActions)) >= ap.cfg.MaxNumActsPerPool {
-		return errors.Wrapf(ErrActPool, "insufficient space for action")
+		return errors.Wrap(action.ErrActPool, "insufficient space for action")
 	}
 	hash := act.Hash()
 	// Reject action if it already exists in pool
@@ -208,11 +189,11 @@ func (ap *actPool) GetActionByHash(hash hash.Hash32B) (action.Action, error) {
 	ap.mutex.RLock()
 	defer ap.mutex.RUnlock()
 
-	action, ok := ap.allActions[hash]
+	act, ok := ap.allActions[hash]
 	if !ok {
-		return nil, errors.Wrapf(ErrHash, "action hash %x does not exist in pool", hash)
+		return nil, errors.Wrapf(action.ErrHash, "action hash %x does not exist in pool", hash)
 	}
-	return action, nil
+	return act, nil
 }
 
 // GetSize returns the act pool size
@@ -253,7 +234,7 @@ func (ap *actPool) enqueueAction(sender string, act action.Action, hash hash.Has
 	}
 	if queue.Overlaps(act) {
 		// Nonce already exists
-		return errors.Wrapf(ErrNonce, "duplicate nonce for action %x", hash)
+		return errors.Wrapf(action.ErrNonce, "duplicate nonce for action %x", hash)
 	}
 
 	if actNonce-queue.StartNonce() >= ap.cfg.MaxNumActsPerAcct {
@@ -262,7 +243,7 @@ func (ap *actPool) enqueueAction(sender string, act action.Action, hash hash.Has
 			Hex("hash", hash[:]).
 			Uint64("startNonce", queue.StartNonce()).Uint64("actNonce", actNonce).
 			Msg("Rejecting action because nonce is too large")
-		return errors.Wrapf(ErrNonce, "nonce too large")
+		return errors.Wrapf(action.ErrNonce, "nonce too large")
 	}
 
 	cost, err := act.Cost()
@@ -271,7 +252,7 @@ func (ap *actPool) enqueueAction(sender string, act action.Action, hash hash.Has
 	}
 	if queue.PendingBalance().Cmp(cost) < 0 {
 		// Pending balance is insufficient
-		return errors.Wrapf(ErrBalance, "insufficient balance for action %x", hash)
+		return errors.Wrapf(action.ErrBalance, "insufficient balance for action %x", hash)
 	}
 
 	if err := queue.Put(act); err != nil {

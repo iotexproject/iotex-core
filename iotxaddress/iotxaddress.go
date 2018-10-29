@@ -25,6 +25,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
 )
 
@@ -151,4 +152,14 @@ func IsValidVersion(version byte) bool { return version >= 0x01 }
 // CreateID creates a DKG Address ID given a node's raw address
 func CreateID(rawAddress string) []uint8 {
 	return hash.Hash256b([]byte(rawAddress))
+}
+
+// AddressToPKHash returns public key hash from account address
+func AddressToPKHash(addr string) (hash.PKHash, error) {
+	var pkHash hash.PKHash
+	senderPKHashBytes, err := GetPubkeyHash(addr)
+	if err != nil {
+		return pkHash, errors.Wrap(err, "cannot get the hash of the address")
+	}
+	return byteutil.BytesTo20B(senderPKHashBytes), nil
 }
