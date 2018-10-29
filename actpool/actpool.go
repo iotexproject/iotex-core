@@ -13,10 +13,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/abstractaction"
-	"github.com/iotexproject/iotex-core/action/execution"
-	"github.com/iotexproject/iotex-core/action/transfer"
-	"github.com/iotexproject/iotex-core/action/vote"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/logger"
@@ -71,8 +67,6 @@ func NewActPool(bc blockchain.Blockchain, cfg config.ActPool) (ActPool, error) {
 		accountActs: make(map[string]ActQueue),
 		allActions:  make(map[hash.Hash32B]action.Action),
 	}
-	ap.AddActionValidators(abstractaction.NewProtocol(bc), transfer.NewProtocol(), vote.NewProtocol(bc),
-		execution.NewProtocol())
 	return ap, nil
 }
 
