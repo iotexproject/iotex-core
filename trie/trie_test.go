@@ -124,20 +124,13 @@ func TestInsert(t *testing.T) {
 	require.Nil(tr.Start(context.Background()))
 	root := EmptyRoot
 	require.Equal(uint64(1), tr.numBranch)
-	// query non-existing entry
-	ptr, path, match, err := tr.query(cat)
-	require.NotNil(ptr)
-	require.NotNil(path)
-	require.Equal(0, match)
-	require.NotNil(err)
 	// this adds one L to root R
 	logger.Info().Msg("Put[cat]")
-	err = tr.Upsert(cat, testV[2])
+	err := tr.Upsert(cat, testV[2])
 	require.Nil(err)
 	catRoot := tr.RootHash()
 	require.NotEqual(catRoot, root)
 	root = catRoot
-	require.Equal(uint64(1), tr.numLeaf)
 
 	// this splits L --> E + B + 2L (cat, rat)
 	/*
@@ -148,9 +141,6 @@ func TestInsert(t *testing.T) {
 	require.Nil(err)
 	ratRoot := tr.RootHash()
 	require.NotEqual(ratRoot, root)
-	require.Equal(uint64(2), tr.numBranch)
-	require.Equal(uint64(1), tr.numExt)
-	require.Equal(uint64(3), tr.numLeaf)
 	require.NoError(tr.Commit())
 	b, err := tr.Get(cat)
 	require.Nil(err)
@@ -619,27 +609,4 @@ func TestPressure(t *testing.T) {
 	require.Equal(EmptyRoot, tr.RootHash())
 	require.Nil(tr.Stop(context.Background()))
 	logger.Warn().Int("entries", c).Msg("test")
-}
-
-func TestQuery(t *testing.T) {
-	require := require.New(t)
-
-	tr := newTrie(db.NewMemKVStore(), "", EmptyRoot)
-	require.NotNil(tr)
-	require.Nil(tr.Start(context.Background()))
-	require.Equal(uint64(1), tr.numBranch)
-	// key length > 0
-	ptr, path, match, err := tr.query(cat)
-	require.NotNil(ptr)
-	require.NotNil(path)
-	require.Equal(0, match)
-	require.NotNil(err)
-	// key length == 0
-	ptr, path, match, err = tr.query([]byte{})
-	require.Equal(tr.root, ptr)
-	require.NotNil(path)
-	require.Equal(0, path.Len())
-	require.Equal(0, match)
-	require.Nil(err)
-	require.Nil(tr.Stop(context.Background()))
 }

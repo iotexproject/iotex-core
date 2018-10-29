@@ -28,7 +28,7 @@ func TestStopSubChain(t *testing.T) {
 		assert.Equal(t, uint64(10005), stop.GasLimit())
 		assert.Equal(t, big.NewInt(10006), stop.GasPrice())
 	}
-	stop, err := NewStopSubChain(
+	stop := NewStopSubChain(
 		addr.RawAddress,
 		1,
 		10000,
@@ -37,7 +37,6 @@ func TestStopSubChain(t *testing.T) {
 		10005,
 		big.NewInt(10006),
 	)
-	require.Nil(t, err)
 	require.NotNil(t, stop)
 	assertStop(stop)
 

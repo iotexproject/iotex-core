@@ -64,3 +64,9 @@ mockgen -destination=./test/mock/mock_actpool/mock_actpool.go  \
         -source=./actpool/actpool.go \
         -package=mock_actpool \
         ActPool
+
+mkdir -p ./test/mock/mock_explorer
+mockgen -destination=./test/mock/mock_explorer/mock_explorer.go  \
+        -source=./explorer/idl/explorer/explorer.go \
+        -package=mock_explorer \
+        Explorer

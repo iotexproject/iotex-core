@@ -298,17 +298,6 @@ func TestValidateRollDPoS(t *testing.T) {
 		t,
 		strings.Contains(err.Error(), "roll-DPoS event delegate number should be greater than 0"),
 	)
-
-	cfg.Consensus.RollDPoS.NumDelegates = 1
-	cfg.Consensus.RollDPoS.EnableDummyBlock = true
-	cfg.Consensus.RollDPoS.TimeBasedRotation = true
-	err = ValidateRollDPoS(&cfg)
-	require.NotNil(t, err)
-	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
-	require.True(
-		t,
-		strings.Contains(err.Error(), "roll-DPoS should enable dummy block when doing time based rotation"),
-	)
 }
 
 func TestValidateNetwork(t *testing.T) {

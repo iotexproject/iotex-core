@@ -143,6 +143,11 @@ func (cs *ChainService) Start(ctx context.Context) error {
 	if err := cs.blocksync.Start(ctx); err != nil {
 		return errors.Wrap(err, "error when starting blocksync")
 	}
+	for _, p := range cs.protocols {
+		if err := p.Start(ctx); err != nil {
+			return errors.Wrapf(err, "error when starting protocol %T", p)
+		}
+	}
 
 	if cs.indexservice != nil {
 		if err := cs.indexservice.Start(ctx); err != nil {
@@ -168,6 +173,11 @@ func (cs *ChainService) Stop(ctx context.Context) error {
 		}
 	}
 
+	for _, p := range cs.protocols {
+		if err := p.Stop(ctx); err != nil {
+			return errors.Wrapf(err, "error when stopping protocol %T", p)
+		}
+	}
 	if err := cs.consensus.Stop(ctx); err != nil {
 		return errors.Wrap(err, "error when stopping consensus")
 	}
@@ -189,6 +199,12 @@ func (cs *ChainService) HandleAction(actPb *pb.ActionPb) error {
 		act = &action.Vote{}
 	} else if actPb.GetExecution() != nil {
 		act = &action.Execution{}
+	} else if actPb.GetPutBlock() != nil {
+		act = &action.PutBlock{}
+	} else if actPb.GetStartSubChain() != nil {
+		act = &action.StartSubChain{}
+	} else if actPb.GetStopSubChain() != nil {
+		act = &action.StopSubChain{}
 	}
 	act.LoadProto(actPb)
 	if err := cs.actpool.Add(act); err != nil {
@@ -270,5 +286,6 @@ func (cs *ChainService) AddProtocols(protocols ...Protocol) {
 	cs.protocols = append(cs.protocols, protocols...)
 	for _, protocol := range protocols {
 		cs.chain.GetFactory().AddActionHandlers(protocol)
+		cs.actpool.AddActionValidators(protocol)
 	}
 }

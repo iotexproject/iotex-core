@@ -216,11 +216,10 @@ func newConfig(
 	cfg.Consensus.RollDPoS.AcceptProposeTTL = 4 * time.Second
 	cfg.Consensus.RollDPoS.AcceptProposalEndorseTTL = 4 * time.Second
 	cfg.Consensus.RollDPoS.AcceptCommitEndorseTTL = 4 * time.Second
-	cfg.Consensus.RollDPoS.Delay = 60 * time.Second
+	cfg.Consensus.RollDPoS.Delay = 10 * time.Second
 	cfg.Consensus.RollDPoS.NumSubEpochs = 2
 	cfg.Consensus.RollDPoS.EventChanSize = 100000
 	cfg.Consensus.RollDPoS.NumDelegates = numNodes
-	cfg.Consensus.RollDPoS.EnableDummyBlock = false
 	cfg.Consensus.RollDPoS.TimeBasedRotation = true
 
 	cfg.ActPool.MaxNumActsToPick = 2000

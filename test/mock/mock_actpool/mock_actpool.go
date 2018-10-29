@@ -7,6 +7,7 @@ package mock_actpool
 import (
 	gomock "github.com/golang/mock/gomock"
 	action "github.com/iotexproject/iotex-core/action"
+	actpool "github.com/iotexproject/iotex-core/actpool"
 	hash "github.com/iotexproject/iotex-core/pkg/hash"
 	reflect "reflect"
 )
@@ -128,4 +129,18 @@ func (m *MockActPool) GetCapacity() uint64 {
 // GetCapacity indicates an expected call of GetCapacity
 func (mr *MockActPoolMockRecorder) GetCapacity() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCapacity", reflect.TypeOf((*MockActPool)(nil).GetCapacity))
+}
+
+// AddActionValidators mocks base method
+func (m *MockActPool) AddActionValidators(arg0 ...actpool.ActionValidator) {
+	varargs := []interface{}{}
+	for _, a := range arg0 {
+		varargs = append(varargs, a)
+	}
+	m.ctrl.Call(m, "AddActionValidators", varargs...)
+}
+
+// AddActionValidators indicates an expected call of AddActionValidators
+func (mr *MockActPoolMockRecorder) AddActionValidators(arg0 ...interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddActionValidators", reflect.TypeOf((*MockActPool)(nil).AddActionValidators), arg0...)
 }

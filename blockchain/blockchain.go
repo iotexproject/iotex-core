@@ -107,8 +107,6 @@ type Blockchain interface {
 	// MintNewSecretBlock creates a new DKG secret block with given DKG secrets and witness
 	MintNewSecretBlock(secretProposals []*action.SecretProposal, secretWitness *action.SecretWitness,
 		producer *iotxaddress.Address) (*Block, error)
-	// MintDummyNewBlock creates a new dummy block, used for unreached consensus
-	MintNewDummyBlock() *Block
 	// CommitBlock validates and appends a block to the chain
 	CommitBlock(blk *Block) error
 	// ValidateBlock validates a new block before adding it to the blockchain
@@ -728,30 +726,6 @@ func (bc *blockchain) MintNewSecretBlock(
 	return blk, nil
 }
 
-// MintDummyNewBlock creates a new dummy block, used for unreached consensus
-func (bc *blockchain) MintNewDummyBlock() *Block {
-	bc.mu.RLock()
-	defer bc.mu.RUnlock()
-
-	blk := NewBlock(bc.config.Chain.ID, bc.tipHeight+1, bc.tipHash, bc.now(), nil)
-	blk.Header.Pubkey = keypair.ZeroPublicKey
-	blk.Header.blockSig = []byte{}
-
-	// run execution and update state trie root hash
-	ws, err := bc.sf.NewWorkingSet()
-	if err != nil {
-		return nil
-	}
-	root, err := bc.runActions(blk, ws, false)
-	if err != nil {
-		return nil
-	}
-	blk.Header.stateRoot = root
-	// attach working set to be committed to state factory
-	blk.workingSet = ws
-	return blk
-}
-
 //  CommitBlock validates and appends a block to the chain
 func (bc *blockchain) CommitBlock(blk *Block) error {
 	bc.mu.Lock()
@@ -818,13 +792,8 @@ func (bc *blockchain) validateBlock(blk *Block, containCoinbase bool) error {
 		logger.Panic().Msg("no block validator")
 	}
 
-	tipHeight, tipHash, err := bc.replaceHeightAndHash(blk)
-	if err != nil {
-		return errors.Wrap(err, "failed to get the tip height and tip hash of blockchain")
-	}
-
-	if err := bc.validator.Validate(blk, tipHeight, tipHash, containCoinbase); err != nil {
-		return errors.Wrapf(err, "Failed to validate block on height %d", tipHeight)
+	if err := bc.validator.Validate(blk, bc.tipHeight, bc.tipHash, containCoinbase); err != nil {
+		return errors.Wrapf(err, "Failed to validate block on height %d", bc.tipHeight)
 	}
 	// run actions and update state factory
 	ws, err := bc.sf.NewWorkingSet()
@@ -833,7 +802,7 @@ func (bc *blockchain) validateBlock(blk *Block, containCoinbase bool) error {
 	}
 	// TODO: disable validation before resolve the state root doesn't match issue
 	if _, err := bc.runActions(blk, ws, false); err != nil {
-		logger.Panic().Err(err).Msgf("Failed to update state on height %d", tipHeight)
+		logger.Panic().Err(err).Msgf("Failed to update state on height %d", bc.tipHeight)
 	}
 	// attach working set to be committed to state factory
 	blk.workingSet = ws
@@ -889,28 +858,6 @@ func (bc *blockchain) runActions(blk *Block, ws state.WorkingSet, verify bool) (
 		}
 	}
 	return root, nil
-}
-
-func (bc *blockchain) replaceHeightAndHash(blk *Block) (uint64, hash.Hash32B, error) {
-	tipHeight := bc.tipHeight
-	tipHash := bc.tipHash
-	// replacement logic, used to replace a fake old dummy block
-	if blk.Height() != 0 && blk.Height() <= bc.tipHeight {
-		oldDummyBlock, err := bc.GetBlockByHeight(blk.Height())
-		if err != nil {
-			return 0, hash.ZeroHash32B, errors.Wrapf(err, "The height of the new block is invalid")
-		}
-		if !oldDummyBlock.IsDummyBlock() {
-			return 0, hash.ZeroHash32B, errors.New("The replaced block is not a dummy block")
-		}
-		lastBlock, err := bc.GetBlockByHeight(blk.Height() - 1)
-		if err != nil {
-			return 0, hash.ZeroHash32B, errors.Wrapf(err, "Failed to get the last block when replacing the dummy block")
-		}
-		tipHeight = lastBlock.Height()
-		tipHash = lastBlock.HashBlock()
-	}
-	return tipHeight, tipHash, nil
 }
 
 func (bc *blockchain) SubscribeBlockCreation(ch chan *Block) error {

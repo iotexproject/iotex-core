@@ -51,10 +51,6 @@ func (b *blockBuffer) Flush(blk *blockchain.Block) (bool, bCheckinResult) {
 		return moved, bCheckinLower
 	}
 	if h < b.startHeight {
-		// try to replace a dummy block
-		if blk.IsDummyBlock() {
-			return moved, bCheckinLower
-		}
 		if err := commitBlock(b.bc, b.ap, blk); err != nil {
 			return moved, bCheckinLower
 		}
@@ -78,11 +74,8 @@ func (b *blockBuffer) Flush(blk *blockchain.Block) (bool, bCheckinResult) {
 		}
 		if err := commitBlock(b.bc, b.ap, b.blocks[syncHeight]); err == nil {
 			syncedHeight = syncHeight
-			if !b.blocks[syncedHeight].IsDummyBlock() {
-				b.confirmedHeight = syncedHeight
-			}
-			l.Info().Uint64("syncedHeight", syncedHeight).Bool("dummy", b.blocks[syncedHeight].IsDummyBlock()).
-				Msg("Successfully committed block.")
+			b.confirmedHeight = syncedHeight
+			l.Info().Uint64("syncedHeight", syncedHeight).Msg("Successfully committed block.")
 			delete(b.blocks, syncHeight)
 			continue
 		} else {
@@ -94,14 +87,7 @@ func (b *blockBuffer) Flush(blk *blockchain.Block) (bool, bCheckinResult) {
 			if blk.HashBlock() == b.blocks[syncHeight].HashBlock() {
 				// same existing block
 				syncedHeight = syncHeight
-				if !b.blocks[syncedHeight].IsDummyBlock() {
-					b.confirmedHeight = syncedHeight
-				}
-			} else if blk.IsDummyBlock() {
-				// existing dummy but get a bad block
-				l.Error().Uint64("syncHeight", syncHeight).
-					Uint64("syncedHeight", syncedHeight).
-					Msg("Failed to replace dummy block.")
+				b.confirmedHeight = syncedHeight
 			}
 			delete(b.blocks, syncHeight)
 		} else {

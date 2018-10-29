@@ -98,7 +98,7 @@ func NewBlock(
 		Actions: actions,
 	}
 
-	block.Header.txRoot = block.TxRoot()
+	block.Header.txRoot = block.CalculateTxRoot()
 	return block
 }
 
@@ -126,16 +126,8 @@ func NewSecretBlock(
 		SecretWitness:   secretWitness,
 	}
 
-	block.Header.txRoot = block.TxRoot()
+	block.Header.txRoot = block.CalculateTxRoot()
 	return block
-}
-
-// IsDummyBlock checks whether block is a dummy block
-func (b *Block) IsDummyBlock() bool {
-	return b.Header.height > 0 &&
-		len(b.Header.blockSig) == 0 &&
-		b.Header.Pubkey == keypair.ZeroPublicKey &&
-		len(b.Actions) == 0
 }
 
 // Height returns the height of this block
@@ -148,6 +140,16 @@ func (b *Block) PrevHash() hash.Hash32B {
 	return b.Header.prevBlockHash
 }
 
+// TxRoot returns the hash of all actions in this block.
+func (b *Block) TxRoot() hash.Hash32B {
+	return b.Header.txRoot
+}
+
+// StateRoot returns the state root after apply this block.
+func (b *Block) StateRoot() hash.Hash32B {
+	return b.Header.stateRoot
+}
+
 // ByteStreamHeader returns a byte stream of the block header
 func (b *Block) ByteStreamHeader() []byte {
 	stream := make([]byte, 4)
@@ -158,10 +160,7 @@ func (b *Block) ByteStreamHeader() []byte {
 	tmp8B := make([]byte, 8)
 	enc.MachineEndian.PutUint64(tmp8B, b.Header.height)
 	stream = append(stream, tmp8B...)
-	// TODO: exclude timestamp from block hash because dummy block needs to have a consistent hash no matter which
-	// node produces it at a given height. Once we get rid of the dummy block concept, we need to include it into
-	// the hash block hash again
-	//enc.MachineEndian.PutUint64(tmp8B, b.Header.timestamp)
+	enc.MachineEndian.PutUint64(tmp8B, b.Header.timestamp)
 	stream = append(stream, tmp8B...)
 	stream = append(stream, b.Header.prevBlockHash[:]...)
 	stream = append(stream, b.Header.txRoot[:]...)
@@ -285,6 +284,14 @@ func (b *Block) ConvertFromBlockPb(pbBlock *iproto.BlockPb) {
 			start := &action.StartSubChain{}
 			start.LoadProto(actPb)
 			b.Actions = append(b.Actions, start)
+		} else if stop := actPb.GetStopSubChain(); stop != nil {
+			stop := &action.StopSubChain{}
+			stop.LoadProto(actPb)
+			b.Actions = append(b.Actions, stop)
+		} else if put := actPb.GetPutBlock(); put != nil {
+			put := &action.PutBlock{}
+			put.LoadProto(actPb)
+			b.Actions = append(b.Actions, put)
 		}
 	}
 }
@@ -300,15 +307,15 @@ func (b *Block) Deserialize(buf []byte) error {
 	b.workingSet = nil
 
 	// verify merkle root can match after deserialize
-	txroot := b.TxRoot()
+	txroot := b.CalculateTxRoot()
 	if !bytes.Equal(b.Header.txRoot[:], txroot[:]) {
 		return errors.New("Failed to match merkle root after deserialize")
 	}
 	return nil
 }
 
-// TxRoot returns the Merkle root of all txs and actions in this block.
-func (b *Block) TxRoot() hash.Hash32B {
+// CalculateTxRoot returns the Merkle root of all txs and actions in this block.
+func (b *Block) CalculateTxRoot() hash.Hash32B {
 	var h []hash.Hash32B
 	for _, sp := range b.SecretProposals {
 		h = append(h, sp.Hash())
