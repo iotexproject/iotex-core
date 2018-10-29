@@ -7,15 +7,14 @@
 package trie
 
 import (
-	"bytes"
-	"encoding/gob"
-
+	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/proto"
 )
 
 func (b *branch) get(key []byte, prefix int, dao db.KVStore, bucket string, cb db.CachedBatch) ([]byte, error) {
@@ -154,29 +153,42 @@ func (b *branch) hash() hash.Hash32B {
 	return blake2b.Sum256(stream)
 }
 
+func (b *branch) toProto() *iproto.NodePb {
+	nodes := []*iproto.BranchNodePb{}
+	for index := 0; index < RADIX; index++ {
+		if b.Path[index] != nil {
+			nodes = append(nodes, &iproto.BranchNodePb{Index: uint32(index), Path: b.Path[index]})
+		}
+	}
+	return &iproto.NodePb{
+		Node: &iproto.NodePb_Branch{
+			Branch: &iproto.BranchPb{Branches: nodes},
+		},
+	}
+}
+
 // serialize to bytes
 func (b *branch) serialize() ([]byte, error) {
-	var stream bytes.Buffer
-	enc := gob.NewEncoder(&stream)
-	if err := enc.Encode(b); err != nil {
-		return nil, err
+	return proto.Marshal(b.toProto())
+}
+
+func (b *branch) fromProto(pbBranch *iproto.BranchPb) {
+	// reset
+	*b = branch{}
+	for _, node := range pbBranch.Branches {
+		b.Path[node.Index] = node.Path
 	}
-	// first byte denotes the type of patricia: 1-branch, 0-ext/leaf
-	return append([]byte{BRANCH}, stream.Bytes()...), nil
 }
 
 // deserialize to branch
 func (b *branch) deserialize(stream []byte) error {
-	// reset variable
-	*b = branch{}
-	dec := gob.NewDecoder(bytes.NewBuffer(stream[1:]))
-	return dec.Decode(b)
-}
-
-func (b *branch) print() {
-	for i := 0; i < RADIX; i++ {
-		if len(b.Path[i]) > 0 {
-			logger.Info().Int("k", i).Hex("v", b.Path[i]).Msg("branch")
-		}
+	pbNode := iproto.NodePb{}
+	if err := proto.Unmarshal(stream, &pbNode); err != nil {
+		return err
 	}
+	if pbBranch := pbNode.GetBranch(); pbBranch != nil {
+		b.fromProto(pbBranch)
+		return nil
+	}
+	return errors.Wrap(ErrInvalidPatricia, "invalid node type")
 }
