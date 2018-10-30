@@ -208,7 +208,11 @@ func (cs *ChainService) HandleAction(actPb *pb.ActionPb) error {
 	}
 	act.LoadProto(actPb)
 	if err := cs.actpool.Add(act); err != nil {
-		logger.Debug().Err(err).Msg("Failed to add action")
+		logger.Debug().
+			Err(err).
+			Str("src", act.SrcAddr()).
+			Uint64("nonce", act.Nonce()).
+			Msg("Failed to add action")
 		return err
 	}
 	return nil

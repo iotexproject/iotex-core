@@ -247,7 +247,13 @@ func (ws *workingSet) RunActions(
 	for _, act := range actions {
 		for _, actionHandler := range ws.actionHandlers {
 			if err := actionHandler.Handle(act, ws); err != nil {
-				return hash.ZeroHash32B, errors.Wrapf(err, "error when action %x mutates states", act.Hash())
+				return hash.ZeroHash32B, errors.Wrapf(
+					err,
+					"error when action %x (nonce: %d) from %s mutates states",
+					act.Hash(),
+					act.Nonce(),
+					act.SrcAddr(),
+				)
 			}
 		}
 	}
