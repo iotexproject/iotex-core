@@ -28,6 +28,12 @@ const testTriePath = "trie.test"
 func TestEmptyTrie(t *testing.T) {
 	require := require.New(t)
 
+	_, err := NewTrie(nil, "test", EmptyRoot)
+	require.Equal(ErrInvalidTrie, errors.Cause(err))
+
+	_, err = NewTrieSharedBatch(db.NewMemKVStore(), nil, "test", EmptyRoot)
+	require.Equal(ErrInvalidTrie, errors.Cause(err))
+
 	tr, err := NewTrie(db.NewMemKVStore(), "test", EmptyRoot)
 	require.Nil(err)
 	require.Nil(tr.Start(context.Background()))
@@ -96,10 +102,12 @@ func Test2Roots(t *testing.T) {
 	_, err = tr.Get(dog)
 	require.Equal(ErrNotExist, errors.Cause(err))
 
-	// re-create second trie from its root
-	tr2, err := NewTrie(tr.TrieDB(), "test", root1)
-	require.Nil(err)
-	require.Nil(tr2.Start(context.Background()))
+	// create a new one and load second trie's root
+	tr2, err := NewTrie(tr.TrieDB(), "test", EmptyRoot)
+	require.NoError(err)
+	require.NoError(tr2.Start(context.Background()))
+	require.NoError(tr2.SetRoot(root1))
+	require.Equal(root1, tr2.RootHash())
 	v, err = tr2.Get(dog)
 	require.Nil(err)
 	require.Equal(testV[3], v)
@@ -119,14 +127,14 @@ func Test2Roots(t *testing.T) {
 func TestInsert(t *testing.T) {
 	require := require.New(t)
 
-	tr := newTrie(db.NewMemKVStore(), "", EmptyRoot)
+	tr, err := NewTrie(db.NewMemKVStore(), "", EmptyRoot)
 	require.NotNil(tr)
+	require.NoError(err)
 	require.Nil(tr.Start(context.Background()))
 	root := EmptyRoot
-	require.Equal(uint64(1), tr.numBranch)
 	// this adds one L to root R
 	logger.Info().Msg("Put[cat]")
-	err := tr.Upsert(cat, testV[2])
+	err = tr.Upsert(cat, testV[2])
 	require.Nil(err)
 	catRoot := tr.RootHash()
 	require.NotEqual(catRoot, root)
@@ -363,7 +371,6 @@ func TestInsert(t *testing.T) {
 	err = tr.Delete(cat)
 	require.Nil(err)
 	require.Equal(EmptyRoot, tr.RootHash())
-	require.Equal(uint64(1), tr.numEntry)
 	require.Nil(tr.Stop(context.Background()))
 }
 
@@ -472,7 +479,7 @@ func TestCollision(t *testing.T) {
 	require.Equal(testV[0], v)
 }
 
-func Test2kEntries(t *testing.T) {
+func Test4kEntries(t *testing.T) {
 	require := require.New(t)
 
 	testutil.CleanupPath(t, testTriePath)
@@ -482,11 +489,11 @@ func Test2kEntries(t *testing.T) {
 	require.Nil(tr.Start(context.Background()))
 	root := EmptyRoot
 	seed := time.Now().Nanosecond()
-	// insert 2k entries
+	// insert 4k entries
 	var k [32]byte
 	k[0] = byte(seed)
 	c := 0
-	for c = 0; c < 1<<11; c++ {
+	for c = 0; c < 1<<12; c++ {
 		k = blake2b.Sum256(k[:])
 		v := testV[k[0]&7]
 		if _, err := tr.Get(k[:4]); err == nil {
@@ -512,7 +519,7 @@ func Test2kEntries(t *testing.T) {
 			require.NoError(tr.Commit())
 		}
 	}
-	// delete 2k entries
+	// delete 4k entries
 	var d [32]byte
 	d[0] = byte(seed)
 	// save the first 3, delete them last
