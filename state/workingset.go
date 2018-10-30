@@ -448,8 +448,10 @@ func (ws *workingSet) getContract(addr hash.PKHash) (Contract, error) {
 func (ws *workingSet) clearCache() {
 	ws.cachedStates = nil
 	ws.cachedContract = nil
+	ws.cachedCandidates = nil
 	ws.cachedStates = make(map[hash.PKHash]State)
 	ws.cachedContract = make(map[hash.PKHash]Contract)
+	ws.cachedCandidates = make(map[hash.PKHash]*Candidate)
 }
 
 //======================================
