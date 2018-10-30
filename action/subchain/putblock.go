@@ -1,9 +1,8 @@
 package subchain
 
 import (
-	"sort"
-
 	"fmt"
+	"sort"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/pkg/enc"
