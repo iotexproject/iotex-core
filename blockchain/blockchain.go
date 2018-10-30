@@ -687,7 +687,7 @@ func (bc *blockchain) MintNewBlock(
 	}
 	root, err := bc.runActions(blk, ws, false)
 	if err != nil {
-		return nil, errors.Wrapf(err, "Failed to update state changes in new DKG block %d", blk.Height())
+		return nil, errors.Wrapf(err, "Failed to update state changes in new block %d", blk.Height())
 	}
 	blk.Header.stateRoot = root
 	if err := blk.SignBlock(producer); err != nil {

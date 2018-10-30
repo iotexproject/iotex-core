@@ -127,7 +127,7 @@ func (p *Protocol) mutateSubChainState(
 	if start.Nonce() > account.Nonce {
 		account.Nonce = start.Nonce()
 	}
-	ownerPKHash, err := ownerAddressPKHash(start.OwnerAddress())
+	ownerPKHash, err := srcAddressPKHash(start.OwnerAddress())
 	if err != nil {
 		return nil, StartSubChainReceipt{}, err
 	}
@@ -205,14 +205,6 @@ func createSubChainAddress(ownerAddr string, nonce uint64) (hash.PKHash, error) 
 	bytes := make([]byte, 8)
 	enc.MachineEndian.PutUint64(bytes, nonce)
 	return byteutil.BytesTo20B(hash.Hash160b(append(addr.Payload(), bytes...))), nil
-}
-
-func ownerAddressPKHash(ownerAddr string) (hash.PKHash, error) {
-	addr, err := address.IotxAddressToAddress(ownerAddr)
-	if err != nil {
-		return hash.ZeroPKHash, errors.Wrapf(err, "cannot get the public key hash of address %s", ownerAddr)
-	}
-	return byteutil.BytesTo20B(addr.Payload()), nil
 }
 
 func getSubChainDBPath(chainID uint32, p string) string {
