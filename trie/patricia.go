@@ -7,11 +7,13 @@
 package trie
 
 import (
+	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/proto"
 )
 
 const (
@@ -162,20 +164,21 @@ func getPatricia(key []byte, dao db.KVStore, bucket string, cb db.CachedBatch) (
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get key %x", key[:8])
 	}
-	var ptr patricia
-	// first byte of serialized data is type
-	switch node[0] {
-	case BRANCH:
-		ptr = &branch{}
-	case EXTLEAF:
-		ptr = &leaf{}
-	default:
-		return nil, errors.Wrapf(ErrInvalidPatricia, "invalid node type = %v", node[0])
-	}
-	if err := ptr.deserialize(node); err != nil {
+	pbNode := iproto.NodePb{}
+	if err := proto.Unmarshal(node, &pbNode); err != nil {
 		return nil, err
 	}
-	return ptr, nil
+	if pbBranch := pbNode.GetBranch(); pbBranch != nil {
+		b := branch{}
+		b.fromProto(pbBranch)
+		return &b, nil
+	}
+	if pbLeaf := pbNode.GetLeaf(); pbLeaf != nil {
+		l := leaf{}
+		l.fromProto(pbLeaf)
+		return &l, nil
+	}
+	return nil, errors.Wrap(ErrInvalidPatricia, "invalid node type")
 }
 
 // putPatricia stores the patricia node into DB
