@@ -99,7 +99,6 @@ func NewTrieSharedBatch(kvStore db.KVStore, batch db.CachedBatch, name string, r
 		bucket:    name,
 		numEntry:  1,
 		numBranch: 1}
-	t.lifecycle.Add(kvStore)
 	return t, nil
 }
 
