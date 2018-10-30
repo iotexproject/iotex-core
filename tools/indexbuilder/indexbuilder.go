@@ -12,9 +12,9 @@ package main
 import (
 	"flag"
 	"fmt"
-	_ "go.uber.org/automaxprocs"
 	"github.com/iotexproject/iotex-core/explorer"
 	"github.com/iotexproject/iotex-core/logger"
+	_ "go.uber.org/automaxprocs"
 )
 
 func main() {

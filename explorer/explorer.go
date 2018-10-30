@@ -171,6 +171,9 @@ func (exp *Service) GetTransfersByAddress(address string, offset int64, limit in
 	var res []explorer.Transfer
 	var transfers []hash.Hash32B
 	if exp.cfg.UseRDS {
+		if exp.idx == nil {
+			return nil, errors.New("index service did not initiated")
+		}
 		transferHistory, err := exp.idx.Indexer().GetTransferHistory(address)
 		if err != nil {
 			return []explorer.Transfer{}, err
@@ -345,6 +348,9 @@ func (exp *Service) GetVotesByAddress(address string, offset int64, limit int64)
 	var res []explorer.Vote
 	var votes []hash.Hash32B
 	if exp.cfg.UseRDS {
+		if exp.idx == nil {
+			return nil, errors.New("index service did not initiated")
+		}
 		voteHistory, err := exp.idx.Indexer().GetVoteHistory(address)
 		if err != nil {
 			return []explorer.Vote{}, err
@@ -519,6 +525,9 @@ func (exp *Service) GetExecutionsByAddress(address string, offset int64, limit i
 	var res []explorer.Execution
 	var executions []hash.Hash32B
 	if exp.cfg.UseRDS {
+		if exp.idx == nil {
+			return nil, errors.New("index service did not initiated")
+		}
 		executionHistory, err := exp.idx.Indexer().GetExecutionHistory(address)
 		if err != nil {
 			return []explorer.Execution{}, err
@@ -1154,6 +1163,9 @@ func (exp *Service) BuildIndexByRange(from int64, to int64) (int64, error) {
 	if !exp.cfg.UseRDS {
 		return from, errors.New("RDS is not enabled")
 	}
+	if exp.idx == nil {
+		return from, errors.New("index service did not initiated")
+	}
 	if from > to {
 		return from, errors.Errorf("from height %d is larger than to height %d", from, to)
 	}
@@ -1263,6 +1275,9 @@ func getTransfer(bc blockchain.Blockchain, ap actpool.ActPool, transferHash hash
 	// Fetch from block
 	var blkHash hash.Hash32B
 	if useRDS {
+		if idx == nil {
+			return explorerTransfer, errors.New("index service did not initiated")
+		}
 		hash, err := idx.Indexer().GetBlockByTransfer(transferHash)
 		if err != nil {
 			return explorerTransfer, err
@@ -1307,6 +1322,9 @@ func getVote(bc blockchain.Blockchain, ap actpool.ActPool, voteHash hash.Hash32B
 	// Fetch from block
 	var blkHash hash.Hash32B
 	if useRDS {
+		if idx == nil {
+			return explorerVote, errors.New("index service did not initiated")
+		}
 		hash, err := idx.Indexer().GetBlockByVote(voteHash)
 		if err != nil {
 			return explorerVote, err
@@ -1351,6 +1369,9 @@ func getExecution(bc blockchain.Blockchain, ap actpool.ActPool, executionHash ha
 	// Fetch from block
 	var blkHash hash.Hash32B
 	if useRDS {
+		if idx == nil {
+			return explorerExecution, errors.New("index service did not initiated")
+		}
 		hash, err := idx.Indexer().GetBlockByExecution(executionHash)
 		if err != nil {
 			return explorerExecution, err

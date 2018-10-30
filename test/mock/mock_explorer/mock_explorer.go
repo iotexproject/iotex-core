@@ -384,6 +384,19 @@ func (mr *MockExplorerMockRecorder) SendSmartContract(request interface{}) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendSmartContract", reflect.TypeOf((*MockExplorer)(nil).SendSmartContract), request)
 }
 
+// BuildIndexByRange mocks base method
+func (m *MockExplorer) BuildIndexByRange(from int64, to int64) (int64, error) {
+	ret := m.ctrl.Call(m, "BuildIndexByRange", from, to)
+	ret0, _ := ret[0].(int64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// BuildIndexByRange indicates an expected call of BuildIndexByRange
+func (mr *MockExplorerMockRecorder) BuildIndexByRange(request interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BuildIndexByRange", reflect.TypeOf((*MockExplorer)(nil).BuildIndexByRange), request)
+}
+
 // PutSubChainBlock mocks base method
 func (m *MockExplorer) PutSubChainBlock(request explorer.PutSubChainBlockRequest) (explorer.PutSubChainBlockResponse, error) {
 	ret := m.ctrl.Call(m, "PutSubChainBlock", request)
