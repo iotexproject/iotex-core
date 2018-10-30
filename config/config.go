@@ -505,12 +505,21 @@ func ValidateDispatcher(cfg *Config) error {
 
 // ValidateRollDPoS validates the roll-DPoS configs
 func ValidateRollDPoS(cfg *Config) error {
-	if cfg.Consensus.Scheme == RollDPoSScheme && cfg.Consensus.RollDPoS.EventChanSize <= 0 {
+	if cfg.Consensus.Scheme != RollDPoSScheme {
+		return nil
+	}
+	rollDPoS := cfg.Consensus.RollDPoS
+	if rollDPoS.EventChanSize <= 0 {
 		return errors.Wrap(ErrInvalidCfg, "roll-DPoS event chan size should be greater than 0")
 	}
-	if cfg.Consensus.Scheme == RollDPoSScheme && cfg.Consensus.RollDPoS.NumDelegates <= 0 {
+	if rollDPoS.NumDelegates <= 0 {
 		return errors.Wrap(ErrInvalidCfg, "roll-DPoS event delegate number should be greater than 0")
 	}
+	ttl := rollDPoS.AcceptCommitEndorseTTL + rollDPoS.AcceptProposeTTL + rollDPoS.AcceptProposalEndorseTTL
+	if ttl >= rollDPoS.ProposerInterval {
+		return errors.Wrap(ErrInvalidCfg, "roll-DPoS ttl sum is larger than proposer interval")
+	}
+
 	return nil
 }
 

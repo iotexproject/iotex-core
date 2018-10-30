@@ -221,12 +221,21 @@ func TestStartRoundEvt(t *testing.T) {
 			height:       uint64(1),
 			numSubEpochs: uint(1),
 		}
+		require := require.New(t)
 		s, err := cfsm.handleStartRoundEvt(cfsm.newCEvt(eStartRound))
-		require.NoError(t, err)
-		require.Equal(t, sBlockPropose, s)
-		assert.Equal(t, uint64(0), cfsm.ctx.epoch.subEpochNum)
-		assert.NotNil(t, cfsm.ctx.round.proposer, delegates[2])
-		assert.NotNil(t, cfsm.ctx.round.endorsementSets, s)
+		require.NoError(err)
+		require.Equal(sBlockPropose, s)
+		require.Equal(uint64(0), cfsm.ctx.epoch.subEpochNum)
+		require.NotNil(cfsm.ctx.round.proposer, delegates[2])
+		require.NotNil(cfsm.ctx.round.endorsementSets, s)
+		e := <-cfsm.evtq
+		require.Equal(eInitBlockPropose, e.Type())
+		e = <-cfsm.evtq
+		require.Equal(eProposeBlockTimeout, e.Type())
+		e = <-cfsm.evtq
+		require.Equal(eEndorseProposalTimeout, e.Type())
+		e = <-cfsm.evtq
+		require.Equal(eEndorseLockTimeout, e.Type())
 	})
 	t.Run("is-not-proposer", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
@@ -243,22 +252,33 @@ func TestStartRoundEvt(t *testing.T) {
 			height:       uint64(1),
 			numSubEpochs: uint(1),
 		}
+		require := require.New(t)
 		s, err := cfsm.handleStartRoundEvt(cfsm.newCEvt(eStartRound))
-		require.NoError(t, err)
-		require.Equal(t, sBlockPropose, s)
-		assert.Equal(t, uint64(0), cfsm.ctx.epoch.subEpochNum)
-		assert.NotNil(t, cfsm.ctx.round.proposer, delegates[2])
-		assert.NotNil(t, cfsm.ctx.round.endorsementSets, s)
+		require.NoError(err)
+		require.Equal(sBlockPropose, s)
+		require.Equal(uint64(0), cfsm.ctx.epoch.subEpochNum)
+		require.NotNil(cfsm.ctx.round.proposer, delegates[2])
+		require.NotNil(cfsm.ctx.round.endorsementSets, s)
 		evt := <-cfsm.evtq
-		assert.Equal(t, eInitBlockPropose, evt.Type())
+		require.Equal(eInitBlockPropose, evt.Type())
 		s, err = cfsm.handleInitBlockProposeEvt(evt)
-		assert.Equal(t, sAcceptPropose, s)
-		assert.NoError(t, err)
+		require.Equal(sAcceptPropose, s)
+		require.NoError(err)
 		evt = <-cfsm.evtq
-		assert.Equal(t, eProposeBlockTimeout, evt.Type())
+		require.Equal(eProposeBlockTimeout, evt.Type())
 		s, err = cfsm.handleProposeBlockTimeout(evt)
-		assert.Equal(t, sAcceptProposalEndorse, s)
-		assert.NoError(t, err)
+		require.Equal(sAcceptProposalEndorse, s)
+		require.NoError(err)
+		evt = <-cfsm.evtq
+		require.Equal(eEndorseProposalTimeout, evt.Type())
+		s, err = cfsm.handleEndorseProposalTimeout(evt)
+		require.NoError(err)
+		require.Equal(sAcceptLockEndorse, s)
+		evt = <-cfsm.evtq
+		require.Equal(eEndorseLockTimeout, evt.Type())
+		s, err = cfsm.handleEndorseLockTimeout(evt)
+		require.NoError(err)
+		require.Equal(sRoundStart, s)
 	})
 }
 
