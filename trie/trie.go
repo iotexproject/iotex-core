@@ -73,17 +73,33 @@ type (
 // NewTrie creates a trie with DB filename
 func NewTrie(kvStore db.KVStore, name string, root hash.Hash32B) (Trie, error) {
 	if kvStore == nil {
-		return nil, errors.New("try to create trie with empty KV store")
+		return nil, errors.Wrapf(ErrInvalidTrie, "try to create trie with empty KV store")
 	}
-	return newTrie(kvStore, name, root), nil
+	t := &trie{
+		cb:        db.NewCachedBatch(),
+		dao:       kvStore,
+		rootHash:  root,
+		bucket:    name,
+		numEntry:  1,
+		numBranch: 1,
+	}
+	t.lifecycle.Add(kvStore)
+	return t, nil
 }
 
 // NewTrieSharedBatch creates a trie with a shared batch
 func NewTrieSharedBatch(kvStore db.KVStore, batch db.CachedBatch, name string, root hash.Hash32B) (Trie, error) {
 	if kvStore == nil || batch == nil {
-		return nil, errors.New("try to create trie with empty KV store")
+		return nil, errors.Wrapf(ErrInvalidTrie, "try to create trie with empty KV store")
 	}
-	return newTrieSharedBatch(kvStore, batch, name, root), nil
+	t := &trie{
+		cb:        batch,
+		dao:       kvStore,
+		rootHash:  root,
+		bucket:    name,
+		numEntry:  1,
+		numBranch: 1}
+	return t, nil
 }
 
 func (t *trie) Start(ctx context.Context) error {
@@ -169,34 +185,4 @@ func (t *trie) SetRoot(rootHash hash.Hash32B) (err error) {
 	t.root = root
 	t.rootHash = rootHash
 	return err
-}
-
-//======================================
-// private functions
-//======================================
-// newTrie creates a trie
-func newTrie(dao db.KVStore, name string, root hash.Hash32B) *trie {
-	t := &trie{
-		cb:        db.NewCachedBatch(),
-		dao:       dao,
-		rootHash:  root,
-		bucket:    name,
-		numEntry:  1,
-		numBranch: 1,
-	}
-	t.lifecycle.Add(dao)
-	return t
-}
-
-// newTrieSharedBatch creates a trie with shared DB
-func newTrieSharedBatch(dao db.KVStore, batch db.CachedBatch, name string, root hash.Hash32B) *trie {
-	t := &trie{
-		cb:        batch,
-		dao:       dao,
-		rootHash:  root,
-		bucket:    name,
-		numEntry:  1,
-		numBranch: 1}
-	t.lifecycle.Add(dao)
-	return t
 }

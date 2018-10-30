@@ -8,14 +8,15 @@ package trie
 
 import (
 	"bytes"
-	"encoding/gob"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/proto"
 )
 
 func (l *leaf) get(key []byte, prefix int, dao db.KVStore, bucket string, cb db.CachedBatch) ([]byte, error) {
@@ -219,21 +220,38 @@ func (l *leaf) hash() hash.Hash32B {
 	return blake2b.Sum256(stream)
 }
 
+func (l *leaf) toProto() *iproto.NodePb {
+	return &iproto.NodePb{
+		Node: &iproto.NodePb_Leaf{
+			Leaf: &iproto.LeafPb{
+				Ext:   uint32(l.Ext),
+				Path:  l.Path,
+				Value: l.Value,
+			},
+		},
+	}
+}
+
 // serialize to bytes
 func (l *leaf) serialize() ([]byte, error) {
-	stream := bytes.Buffer{}
-	enc := gob.NewEncoder(&stream)
-	if err := enc.Encode(l); err != nil {
-		return nil, err
-	}
-	// first byte denotes the type of patricia: 1-branch, 0-leaf
-	return append([]byte{EXTLEAF}, stream.Bytes()...), nil
+	return proto.Marshal(l.toProto())
+}
+
+func (l *leaf) fromProto(pbLeaf *iproto.LeafPb) {
+	l.Ext = int(pbLeaf.Ext)
+	l.Path = pbLeaf.Path
+	l.Value = pbLeaf.Value
 }
 
 // deserialize to leaf
 func (l *leaf) deserialize(stream []byte) error {
-	// reset variable
-	*l = leaf{}
-	dec := gob.NewDecoder(bytes.NewBuffer(stream[1:]))
-	return dec.Decode(l)
+	pbNode := iproto.NodePb{}
+	if err := proto.Unmarshal(stream, &pbNode); err != nil {
+		return err
+	}
+	if pbLeaf := pbNode.GetLeaf(); pbLeaf != nil {
+		l.fromProto(pbLeaf)
+		return nil
+	}
+	return errors.Wrap(ErrInvalidPatricia, "invalid node type")
 }
