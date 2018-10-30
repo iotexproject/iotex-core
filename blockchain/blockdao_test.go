@@ -54,13 +54,34 @@ func TestBlockDAO(t *testing.T) {
 
 		hash1 := hash.Hash32B{}
 		fnv.New32().Sum(hash1[:])
-		blk1 := NewBlock(0, 1, hash1, testutil.TimestampNow(), []action.Action{cbTsf1, vote1, execution1})
+		blk1 := NewBlock(
+			0,
+			1,
+			hash1,
+			testutil.TimestampNow(),
+			testaddress.Addrinfo["producer"].PublicKey,
+			[]action.Action{cbTsf1, vote1, execution1},
+		)
 		hash2 := hash.Hash32B{}
 		fnv.New32().Sum(hash2[:])
-		blk2 := NewBlock(0, 2, hash2, testutil.TimestampNow(), []action.Action{cbTsf2, vote2, execution2})
+		blk2 := NewBlock(
+			0,
+			2,
+			hash2,
+			testutil.TimestampNow(),
+			testaddress.Addrinfo["producer"].PublicKey,
+			[]action.Action{cbTsf2, vote2, execution2},
+		)
 		hash3 := hash.Hash32B{}
 		fnv.New32().Sum(hash3[:])
-		blk3 := NewBlock(0, 3, hash3, testutil.TimestampNow(), []action.Action{cbTsf3, vote3, execution3})
+		blk3 := NewBlock(
+			0,
+			3,
+			hash3,
+			testutil.TimestampNow(),
+			testaddress.Addrinfo["producer"].PublicKey,
+			[]action.Action{cbTsf3, vote3, execution3},
+		)
 		return []*Block{blk1, blk2, blk3}
 	}
 
