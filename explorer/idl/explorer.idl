@@ -194,7 +194,6 @@ struct PutSubChainBlockRequest {
     roots []PutSubChainBlockMerkelRoot
     senderPubKey string
     signature string
-    payload string
     gasLimit int
     gasPrice string
 }

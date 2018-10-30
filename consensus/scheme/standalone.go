@@ -14,7 +14,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/logger"
-	"github.com/iotexproject/iotex-core/pkg/errcode"
 	"github.com/iotexproject/iotex-core/pkg/routine"
 	"github.com/iotexproject/iotex-core/proto"
 )
@@ -89,7 +88,7 @@ func (n *Standalone) HandleEndorse(endorse *iproto.EndorsePb) error {
 // Metrics is not implemented for standalone scheme
 func (n *Standalone) Metrics() (ConsensusMetrics, error) {
 	return ConsensusMetrics{}, errors.Wrapf(
-		errcode.ErrNotImplemented,
+		ErrNotImplemented,
 		"standalone scheme does not supported metrics yet",
 	)
 }

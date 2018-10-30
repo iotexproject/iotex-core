@@ -8,8 +8,8 @@ import (
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "10d1ccb0ca686c1cacc1ee4aa3936c52"
-const BarristerDateGenerated int64 = 1540524650141000000
+const BarristerChecksum string = "b31208a5095f3df5b87062e21a5f1283"
+const BarristerDateGenerated int64 = 1540505259193000000
 
 type CoinStatistic struct {
 	Height	int64	`json:"height"`
@@ -2048,13 +2048,6 @@ var IdlJsonRaw = `[
                 "comment": ""
             },
             {
-                "name": "payload",
-                "type": "string",
-                "optional": false,
-                "is_array": false,
-                "comment": ""
-            },
-            {
                 "name": "gasLimit",
                 "type": "int",
                 "optional": false,
@@ -3041,7 +3034,12 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
+<<<<<<< HEAD
         "date_generated": 1540524650141,
         "checksum": "10d1ccb0ca686c1cacc1ee4aa3936c52"
+=======
+        "date_generated": 1540505259193,
+        "checksum": "b31208a5095f3df5b87062e21a5f1283"
+>>>>>>> 3a081fe094795fd5533a42dc82f9229d5831602a
     }
 ]`

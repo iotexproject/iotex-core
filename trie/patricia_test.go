@@ -13,6 +13,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 )
 
@@ -57,7 +58,7 @@ func TestPatricia(t *testing.T) {
 	assert.Equal(0, bytes.Compare(root, b1.Path[0]))
 	assert.Equal(0, bytes.Compare(hash1, b1.Path[2]))
 	assert.Equal(0, bytes.Compare(hash2, b1.Path[11]))
-	assert.Equal(440, len(stream))
+	assert.Equal(430, len(stream))
 
 	e := leaf{0, nil, nil}
 	e.Path = []byte{2, 3, 5, 7}
@@ -94,41 +95,48 @@ func TestPatricia(t *testing.T) {
 	assert.Equal(93, len(stream))
 }
 
-func TestDescend(t *testing.T) {
+func TestChild(t *testing.T) {
 	assert := assert.New(t)
+
+	dao := db.NewMemKVStore()
+	cb := db.NewCachedBatch()
+
+	e := leaf{0, egg, egg}
+	he, err := putPatriciaNew(&e, "test", cb)
+	assert.NoError(err)
+	f := leaf{0, fox, fox}
+	hf, err := putPatriciaNew(&f, "test", cb)
+	assert.NoError(err)
 
 	// testing branch
 	br := branch{}
 	br.Path[0] = root
-	br.Path[2] = hash1
-	br.Path[11] = hash2
-	b, match, err := br.descend(cat)
+	br.Path[2] = he
+	b, match, err := br.child(cat, dao, "test", cb)
 	assert.Nil(b)
 	assert.Equal(0, match)
 	assert.NotNil(err)
-	b, match, err = br.descend(ant)
-	assert.Equal(b, hash1)
+	b, match, err = br.child(ant, dao, "test", cb)
 	assert.Equal(1, match)
-	assert.Nil(err)
+	assert.Equal(b.hash(), e.hash())
 
 	// testing ext
-	e := leaf{0, nil, make([]byte, hash.HashSize)}
-	e.Path = []byte{1, 2, 3, 5, 6}
-	copy(e.Value, hash1)
-	b, match, err = e.descend(ant)
+	e = leaf{0, []byte{1, 2, 3, 5, 6}, hf}
+	b, match, err = e.child(ant, dao, "test", cb)
 	assert.Nil(b)
 	assert.Equal(0, match)
 	assert.Equal(ErrPathDiverge, err)
-	b, match, err = e.descend(cow)
+	b, match, err = e.child(cow, dao, "test", cb)
 	assert.Nil(b)
 	assert.Equal(2, match)
 	assert.Equal(ErrPathDiverge, err)
-	b, match, err = e.descend(cat)
+	b, match, err = e.child(cat, dao, "test", cb)
 	assert.Nil(b)
 	assert.Equal(3, match)
 	assert.Equal(ErrPathDiverge, err)
-	b, match, err = e.descend(fox)
-	assert.Equal(hash1, b)
+	b, match, err = e.child(fox, dao, "test", cb)
+	assert.NotNil(b)
 	assert.Equal(5, match)
 	assert.Nil(err)
+	assert.Equal(b.hash(), f.hash())
 }

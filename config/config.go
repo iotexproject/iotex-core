@@ -58,8 +58,8 @@ var (
 	Default = Config{
 		NodeType: FullNodeType,
 		Network: Network{
-			Host:                                "127.0.0.1",
-			Port:                                4689,
+			Host: "127.0.0.1",
+			Port: 4689,
 			MsgLogsCleaningInterval:             2 * time.Second,
 			MsgLogRetention:                     5 * time.Second,
 			HealthCheckInterval:                 time.Second,
@@ -115,13 +115,12 @@ var (
 				AcceptProposeTTL:         time.Second,
 				AcceptProposalEndorseTTL: time.Second,
 				AcceptCommitEndorseTTL:   time.Second,
-				Delay:                    5 * time.Second,
-				NumSubEpochs:             1,
-				EventChanSize:            10000,
-				NumDelegates:             21,
-				EnableDummyBlock:         true,
-				TimeBasedRotation:        false,
-				EnableDKG:                false,
+				Delay:             5 * time.Second,
+				NumSubEpochs:      1,
+				EventChanSize:     10000,
+				NumDelegates:      21,
+				TimeBasedRotation: false,
+				EnableDKG:         false,
 			},
 			BlockCreationInterval: 10 * time.Second,
 		},
@@ -249,7 +248,6 @@ type (
 		NumSubEpochs             uint          `yaml:"numSubEpochs"`
 		EventChanSize            uint          `yaml:"eventChanSize"`
 		NumDelegates             uint          `yaml:"numDelegates"`
-		EnableDummyBlock         bool          `yaml:"enableDummyBlock"`
 		TimeBasedRotation        bool          `yaml:"timeBasedRotation"`
 		EnableDKG                bool          `yaml:"enableDKG"`
 	}
@@ -512,11 +510,6 @@ func ValidateRollDPoS(cfg *Config) error {
 	}
 	if cfg.Consensus.Scheme == RollDPoSScheme && cfg.Consensus.RollDPoS.NumDelegates <= 0 {
 		return errors.Wrap(ErrInvalidCfg, "roll-DPoS event delegate number should be greater than 0")
-	}
-	if cfg.Consensus.Scheme == RollDPoSScheme &&
-		cfg.Consensus.RollDPoS.EnableDummyBlock &&
-		cfg.Consensus.RollDPoS.TimeBasedRotation {
-		return errors.Wrap(ErrInvalidCfg, "roll-DPoS should enable dummy block when doing time based rotation")
 	}
 	return nil
 }

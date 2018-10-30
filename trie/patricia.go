@@ -7,13 +7,9 @@
 package trie
 
 import (
-	"bytes"
-	"container/list"
-	"encoding/gob"
-
 	"github.com/pkg/errors"
-	"golang.org/x/crypto/blake2b"
 
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 )
@@ -37,13 +33,16 @@ var (
 
 type (
 	patricia interface {
-		descend([]byte) ([]byte, int, error)
+		get([]byte, int, db.KVStore, string, db.CachedBatch) ([]byte, error)
+		upsert([]byte, []byte, int, db.KVStore, string, db.CachedBatch) ([]byte, error)
+		delete([]byte, int, db.KVStore, string, db.CachedBatch) ([]byte, error)
+		child([]byte, db.KVStore, string, db.CachedBatch) (patricia, int, error)
 		ascend([]byte, byte) error
-		insert([]byte, []byte, int, *list.List) error
-		increase([]byte) (int, int, int)
-		collapse([]byte, byte) ([]byte, []byte, int, error)
+		insert([]byte, []byte, int, db.KVStore, string, db.CachedBatch) ([]byte, error)
+		collapse(patricia, []byte, int, db.KVStore, string, db.CachedBatch) ([]byte, error)
+		merge([]byte) error
 		set([]byte) error
-		blob() ([]byte, []byte, error)
+		blob([]byte) ([]byte, error)
 		hash() hash.Hash32B // hash of this node
 		serialize() ([]byte, error)
 		deserialize([]byte) error
@@ -52,8 +51,7 @@ type (
 	ptrcKey []byte
 	// branch is the full node storing 256 hashes of next level node
 	branch struct {
-		Split bool
-		Path  [RADIX]ptrcKey
+		Path [RADIX]ptrcKey
 	}
 	// there are 2 types of nodes
 	// Leaf is always the final node on the path, storing actual value
@@ -73,280 +71,141 @@ type (
 	}
 )
 
-//======================================
-// functions for branch
-//======================================
-// descend returns the key to retrieve next patricia, and length of matching path in bytes
-func (b *branch) descend(key []byte) ([]byte, int, error) {
-	node := b.Path[key[0]]
-	if node != nil {
-		return node, 1, nil
+// wrapper func for get()
+// it continues to parse the key and calls child's get() recursively
+func getHelper(
+	node patricia, key []byte, prefix int, dao db.KVStore, bucket string, cb db.CachedBatch) ([]byte, error) {
+	// parse the key and get child node
+	child, match, err := node.child(key[prefix:], dao, bucket, cb)
+	if err != nil {
+		return nil, errors.Wrapf(ErrNotExist, "key = %x", key)
 	}
-	return nil, 0, errors.Wrapf(ErrInvalidPatricia, "branch does not have path = %d", key[0])
-}
-
-// ascend updates the key as a result of child node update
-func (b *branch) ascend(key []byte, index byte) error {
-	if b.Path[index] != nil || b.Split {
-		b.Split = false
-		b.Path[index] = nil
-		b.Path[index] = make([]byte, len(key))
-		copy(b.Path[index], key)
+	if child == nil {
+		// this is the last node on path, return its stored value
+		return node.blob(key)
 	}
-	return nil
+	// continue get() on child node
+	return getHelper(child, key, prefix+match, dao, bucket, cb)
 }
 
-// insert <k, v> at current patricia node
-func (b *branch) insert(k, v []byte, prefix int, stack *list.List) error {
-	divK := k[prefix:]
-	node := b.Path[divK[0]]
-	if node != nil {
-		return errors.Wrapf(ErrInvalidPatricia, "branch already has path = %d", k[0])
+// wrapper func for upsert()
+// it continues to parse the key and calls child's upsert() recursively
+func upsertHelper(
+	node patricia, key, value []byte, prefix int, dao db.KVStore, bucket string, cb db.CachedBatch) ([]byte, error) {
+	// delete node from DB
+	delPatricia(node, bucket, cb)
+	// parse the key and get child node
+	child, match, err := node.child(key[prefix:], dao, bucket, cb)
+	if err != nil {
+		// <k, v> does not exist, insert it
+		return node.insert(key, value, prefix, dao, bucket, cb)
 	}
-	// create a new leaf
-	l := leaf{prefix + 1, make([]byte, len(k)), v}
-	copy(l.Path, k)
-	stack.PushBack(&l)
-	h := l.hash()
-	logger.Debug().Hex("newL", h[:8]).Int("prefix", l.Ext).Hex("path", k[l.Ext:]).Msg("splitB")
-	b.Split = true
-	return nil
-}
-
-// increase returns the number of nodes (B, E, L) being added as a result of insert()
-func (b *branch) increase(key []byte) (int, int, int) {
-	return 0, 0, 1
-}
-
-// collapse updates the node, returns the path and key if the node can be collapsed
-func (b *branch) collapse(key []byte, index byte) ([]byte, []byte, int, error) {
-	if key == nil {
-		b.Path[index] = nil
-		// count number of remaining path
-		nb := 0
-		path := byte(0)
-		for i := 0; i < RADIX; i++ {
-			if len(b.Path[i]) > 0 {
-				nb++
-				key = b.Path[i]
-				path = byte(i)
-			}
+	if child == nil {
+		// this is the last node on path, update it
+		if err := node.set(value); err != nil {
+			return nil, errors.Wrapf(err, "failed to update value for key = %x", key)
 		}
-		logger.Debug().Uint8("branch", index).Msg("trim")
-		return []byte{path}, key, nb, nil
+		// put into DB
+		return putPatriciaNew(node, bucket, cb)
 	}
-	return nil, nil, 2, b.ascend(key, index)
-}
-
-// set assigns v to the node
-func (b *branch) set(v []byte) error {
-	return errors.Wrapf(ErrInvalidPatricia, "set() should not be called on branch")
-}
-
-// blob return the <k, v> stored in the node
-func (b *branch) blob() ([]byte, []byte, error) {
-	// branch node stores the hash to next patricia node
-	return nil, nil, errors.Wrap(ErrInvalidPatricia, "branch does not store value")
-}
-
-// hash return the hash of this node
-func (b *branch) hash() hash.Hash32B {
-	stream := []byte{}
-	for i := 0; i < RADIX; i++ {
-		stream = append(stream, b.Path[i]...)
-	}
-	return blake2b.Sum256(stream)
-}
-
-// serialize to bytes
-func (b *branch) serialize() ([]byte, error) {
-	var stream bytes.Buffer
-	enc := gob.NewEncoder(&stream)
-	if err := enc.Encode(b); err != nil {
+	// continue upsert() on child node
+	hash, err := upsertHelper(child, key, value, prefix+match, dao, bucket, cb)
+	if err != nil {
 		return nil, err
 	}
-	// first byte denotes the type of patricia: 1-branch, 0-ext/leaf
-	return append([]byte{BRANCH}, stream.Bytes()...), nil
-}
-
-// deserialize to branch
-func (b *branch) deserialize(stream []byte) error {
-	// reset variable
-	*b = branch{}
-	dec := gob.NewDecoder(bytes.NewBuffer(stream[1:]))
-	return dec.Decode(b)
-}
-
-func (b *branch) print() {
-	for i := 0; i < RADIX; i++ {
-		if len(b.Path[i]) > 0 {
-			logger.Info().Int("k", i).Hex("v", b.Path[i]).Msg("branch")
-		}
-	}
-}
-
-//======================================
-// functions for leaf
-//======================================
-// descend returns the key to retrieve next patricia, and length of matching path in bytes
-func (l *leaf) descend(key []byte) ([]byte, int, error) {
-	match := 0
-	for l.Path[l.Ext+match] == key[match] {
-		match++
-		if l.Ext+match == len(l.Path) {
-			return l.Value, match, nil
-		}
-	}
-	return nil, match, ErrPathDiverge
-}
-
-// ascend updates the key as a result of child node update
-func (l *leaf) ascend(key []byte, index byte) error {
-	// leaf node will be replaced by newly created node, no need to update hash
-	if l.Ext > EXTLEAF {
-		return errors.Wrap(ErrInvalidPatricia, "leaf should not exist on path ascending to root")
-	}
-	l.Value = nil
-	l.Value = make([]byte, len(key))
-	copy(l.Value, key)
-	return nil
-}
-
-// insert <k, v> at current patricia node
-func (l *leaf) insert(k, v []byte, prefix int, stack *list.List) error {
-	divK := k[prefix:]
-	// get the matching length on diverging path
-	match := 0
-	for l.Path[l.Ext+match] == divK[match] {
-		match++
-	}
-	// insert() gets called b/c path does not totally match so the below should not happen, but check anyway
-	if match == len(l.Path) {
-		return errors.Wrapf(ErrInvalidPatricia, "leaf already has total matching path = %x", l.Path)
-	}
-	// add leaf for new <k, v>
-	l1 := leaf{prefix + match + 1, make([]byte, len(k)), v}
-	copy(l1.Path, k)
-	hashl := l1.hash()
-	logger.Debug().Hex("newL", hashl[:8]).Int("prefix", l1.Ext).Hex("path", k[l1.Ext:]).Msg("splitL")
-	// add 1 branch to link new leaf and current ext
-	b := branch{}
-	b.Path[divK[match]] = hashl[:]
-	if l.Ext == EXTLEAF {
-		// split the current ext
-		divE := l.Path[match:]
-		switch len(divE) {
-		case 1:
-			b.Path[divE[0]] = l.Value
-			logger.Debug().Hex("currL", l.Value[:8]).Hex("path", divE[0:1]).Msg("splitE")
-		default:
-			// add 1 ext to link to current ext
-			e := leaf{EXTLEAF, divE[1:], l.Value}
-			hashe := e.hash()
-			logger.Debug().Hex("currE", hashe[:8]).Hex("k", divE[1:]).Hex("v", l.Value).Msg("splitE")
-			// link new leaf and current ext (which becomes e)
-			b.Path[divE[0]] = hashe[:]
-			stack.PushBack(&e)
-		}
-	} else {
-		l2 := leaf{l.Ext + match + 1, l.Path, l.Value}
-		hashl := l2.hash()
-		logger.Debug().Hex("currL", hashl[:8]).Int("prefix", l2.Ext).Hex("path", l2.Path[l2.Ext:]).Msg("splitL")
-		b.Path[l2.Path[l2.Ext-1]] = hashl[:]
-		stack.PushBack(&l2)
-	}
-	stack.PushBack(&l1)
-	stack.PushFront(&b)
-	hashb := b.hash()
-	logger.Debug().Hex("newB", hashb[:8]).Msg("split")
-	// if there's matching part, add 1 ext leading to top of split
-	if match > 0 {
-		e := leaf{EXTLEAF, l.Path[l.Ext : l.Ext+match], hashb[:]}
-		stack.PushFront(&e)
-		hashe := e.hash()
-		logger.Debug().Hex("topE", hashe[:8]).Hex("path", e.Path).Msg("split")
-	}
-	return nil
-}
-
-// increase returns the number of nodes (B, E, L) being added as a result of insert()
-func (l *leaf) increase(key []byte) (int, int, int) {
-	// get the matching length
-	match := 0
-	for l.Path[l.Ext+match] == key[match] {
-		match++
-	}
-	B, E, L := 1, 0, 0
-	if l.Ext == EXTLEAF {
-		L = 1
-		switch len(l.Path[l.Ext+match:]) {
-		case 1:
-		default:
-			E++
-		}
-		if match > 0 {
-			E++
-		}
-	} else {
-		L = 2
-		if match > 0 {
-			E++
-		}
-	}
-	return B, E, L
-}
-
-// collapse updates the node, returns the path and key if the node can be collapsed
-func (l *leaf) collapse(key []byte, index byte) ([]byte, []byte, int, error) {
-	if key == nil {
-		// the child node is removed, so can this ext
-		return nil, nil, 0, nil
-	}
-	return l.Path, l.Value, 1, l.ascend(key, index)
-}
-
-// set assigns v to the node
-func (l *leaf) set(v []byte) error {
-	if l.Ext == EXTLEAF {
-		return errors.Wrap(ErrInvalidPatricia, "ext should not be updated")
-	}
-	l.Value = nil
-	l.Value = make([]byte, len(v))
-	copy(l.Value, v)
-	return nil
-}
-
-// blob return the <k, v> stored in the node
-func (l *leaf) blob() ([]byte, []byte, error) {
-	if l.Ext == EXTLEAF {
-		// ext node stores the hash to next patricia node
-		return nil, nil, errors.Wrap(ErrInvalidPatricia, "ext does not store value")
-	}
-	return l.Path, l.Value, nil
-}
-
-// hash return the hash of this node
-func (l *leaf) hash() hash.Hash32B {
-	stream := append([]byte{byte(l.Ext)}, l.Path...)
-	stream = append(stream, l.Value...)
-	return blake2b.Sum256(stream)
-}
-
-// serialize to bytes
-func (l *leaf) serialize() ([]byte, error) {
-	stream := bytes.Buffer{}
-	enc := gob.NewEncoder(&stream)
-	if err := enc.Encode(l); err != nil {
+	// update with child's new child
+	if err := node.ascend(hash, key[prefix]); err != nil {
 		return nil, err
 	}
-	// first byte denotes the type of patricia: 1-branch, 0-leaf
-	return append([]byte{EXTLEAF}, stream.Bytes()...), nil
+	// put into DB, hash of node changes as a result of upsert(), and is expected NOT to exist in DB
+	return putPatriciaNew(node, bucket, cb)
 }
 
-// deserialize to leaf
-func (l *leaf) deserialize(stream []byte) error {
-	// reset variable
-	*l = leaf{}
-	dec := gob.NewDecoder(bytes.NewBuffer(stream[1:]))
-	return dec.Decode(l)
+// wrapper func for delete()
+// it continues to parse the key and calls child's delete() recursively
+func deleteHelper(
+	node patricia, key []byte, prefix int, dao db.KVStore, bucket string, cb db.CachedBatch) ([]byte, error) {
+	// delete node from DB
+	delPatricia(node, bucket, cb)
+	// parse the key and get child node
+	child, match, err := node.child(key[prefix:], dao, bucket, cb)
+	if err != nil {
+		return nil, errors.Wrapf(ErrNotExist, "key = %x", key)
+	}
+	if child == nil {
+		// this is the last node on path, return nil so parent can delete itself if possible
+		return nil, nil
+	}
+	// continue delete() on child node
+	hash, err := deleteHelper(child, key, prefix+match, dao, bucket, cb)
+	if err != nil {
+		return nil, err
+	}
+	// update with child's new hash
+	if err := node.ascend(hash, key[prefix]); err != nil {
+		return nil, err
+	}
+	// check if the node can collapse and combine with child
+	return node.collapse(child, hash, prefix, dao, bucket, cb)
+}
+
+//======================================
+// helper functions to operate patricia
+//======================================
+// getPatricia retrieves the patricia node from DB according to key
+func getPatricia(key []byte, dao db.KVStore, bucket string, cb db.CachedBatch) (patricia, error) {
+	// search in cache first
+	node, err := cb.Get(bucket, key)
+	if err != nil {
+		node, err = dao.Get(bucket, key)
+	}
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get key %x", key[:8])
+	}
+	var ptr patricia
+	// first byte of serialized data is type
+	switch node[0] {
+	case BRANCH:
+		ptr = &branch{}
+	case EXTLEAF:
+		ptr = &leaf{}
+	default:
+		return nil, errors.Wrapf(ErrInvalidPatricia, "invalid node type = %v", node[0])
+	}
+	if err := ptr.deserialize(node); err != nil {
+		return nil, err
+	}
+	return ptr, nil
+}
+
+// putPatricia stores the patricia node into DB
+// the node may already exist in DB
+func putPatricia(ptr patricia, bucket string, cb db.CachedBatch) ([]byte, error) {
+	value, err := ptr.serialize()
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to encode patricia node")
+	}
+	key := ptr.hash()
+	logger.Debug().Hex("key", key[:8]).Msg("put")
+	cb.Put(bucket, key[:], value, "failed to put key = %x", key)
+	return key[:], nil
+}
+
+// putPatriciaNew stores a new patricia node into DB
+// it is expected the node does not exist yet, will return error if already exist
+func putPatriciaNew(ptr patricia, bucket string, cb db.CachedBatch) ([]byte, error) {
+	value, err := ptr.serialize()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to encode patricia node")
+	}
+	key := ptr.hash()
+	logger.Debug().Hex("key", key[:8]).Msg("putnew")
+	return key[:], cb.PutIfNotExists(bucket, key[:], value, "failed to put non-existing key = %x", key)
+}
+
+// delPatricia deletes the patricia node from DB
+func delPatricia(ptr patricia, bucket string, cb db.CachedBatch) {
+	key := ptr.hash()
+	logger.Debug().Hex("key", key[:8]).Msg("del")
+	cb.Delete(bucket, key[:], "failed to delete key = %x", key)
 }
