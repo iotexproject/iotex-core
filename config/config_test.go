@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -280,8 +281,21 @@ func TestValidateRollDPoS(t *testing.T) {
 	cfg := Default
 	cfg.NodeType = DelegateType
 	cfg.Consensus.Scheme = RollDPoSScheme
-	cfg.Consensus.RollDPoS.EventChanSize = 0
+
+	cfg.Consensus.RollDPoS.AcceptCommitEndorseTTL = 3 * time.Second
+	cfg.Consensus.RollDPoS.AcceptProposalEndorseTTL = 3 * time.Second
+	cfg.Consensus.RollDPoS.AcceptProposeTTL = 3 * time.Second
+	cfg.Consensus.RollDPoS.ProposerInterval = 8 * time.Second
 	err := ValidateRollDPoS(&cfg)
+	require.NotNil(t, err)
+	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
+	require.True(
+		t,
+		strings.Contains(err.Error(), "roll-DPoS ttl sum is larger than proposer interval"),
+	)
+
+	cfg.Consensus.RollDPoS.EventChanSize = 0
+	err = ValidateRollDPoS(&cfg)
 	require.NotNil(t, err)
 	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
 	require.True(

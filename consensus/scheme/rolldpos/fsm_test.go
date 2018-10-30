@@ -221,13 +221,21 @@ func TestStartRoundEvt(t *testing.T) {
 			height:       uint64(1),
 			numSubEpochs: uint(1),
 		}
+		require := require.New(t)
 		s, err := cfsm.handleStartRoundEvt(cfsm.newCEvt(eStartRound))
-		require.NoError(t, err)
-		require.Equal(t, sInitPropose, s)
-		assert.Equal(t, uint64(0), cfsm.ctx.epoch.subEpochNum)
-		assert.NotNil(t, cfsm.ctx.round.proposer, delegates[2])
-		assert.NotNil(t, cfsm.ctx.round.endorsementSets, s)
-		assert.Equal(t, eInitBlock, (<-cfsm.evtq).Type())
+		require.NoError(err)
+		require.Equal(sBlockPropose, s)
+		require.Equal(uint64(0), cfsm.ctx.epoch.subEpochNum)
+		require.NotNil(cfsm.ctx.round.proposer, delegates[2])
+		require.NotNil(cfsm.ctx.round.endorsementSets, s)
+		e := <-cfsm.evtq
+		require.Equal(eInitBlockPropose, e.Type())
+		e = <-cfsm.evtq
+		require.Equal(eProposeBlockTimeout, e.Type())
+		e = <-cfsm.evtq
+		require.Equal(eEndorseProposalTimeout, e.Type())
+		e = <-cfsm.evtq
+		require.Equal(eEndorseLockTimeout, e.Type())
 	})
 	t.Run("is-not-proposer", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
@@ -244,22 +252,33 @@ func TestStartRoundEvt(t *testing.T) {
 			height:       uint64(1),
 			numSubEpochs: uint(1),
 		}
+		require := require.New(t)
 		s, err := cfsm.handleStartRoundEvt(cfsm.newCEvt(eStartRound))
-		require.NoError(t, err)
-		require.Equal(t, sInitPropose, s)
-		assert.Equal(t, uint64(0), cfsm.ctx.epoch.subEpochNum)
-		assert.NotNil(t, cfsm.ctx.round.proposer, delegates[2])
-		assert.NotNil(t, cfsm.ctx.round.endorsementSets, s)
+		require.NoError(err)
+		require.Equal(sBlockPropose, s)
+		require.Equal(uint64(0), cfsm.ctx.epoch.subEpochNum)
+		require.NotNil(cfsm.ctx.round.proposer, delegates[2])
+		require.NotNil(cfsm.ctx.round.endorsementSets, s)
 		evt := <-cfsm.evtq
-		assert.Equal(t, eInitBlock, evt.Type())
-		s, err = cfsm.handleInitBlockEvt(evt)
-		assert.Equal(t, sAcceptPropose, s)
-		assert.NoError(t, err)
+		require.Equal(eInitBlockPropose, evt.Type())
+		s, err = cfsm.handleInitBlockProposeEvt(evt)
+		require.Equal(sAcceptPropose, s)
+		require.NoError(err)
 		evt = <-cfsm.evtq
-		assert.Equal(t, eProposeBlockTimeout, evt.Type())
+		require.Equal(eProposeBlockTimeout, evt.Type())
 		s, err = cfsm.handleProposeBlockTimeout(evt)
-		assert.Equal(t, sAcceptProposalEndorse, s)
-		assert.NoError(t, err)
+		require.Equal(sAcceptProposalEndorse, s)
+		require.NoError(err)
+		evt = <-cfsm.evtq
+		require.Equal(eEndorseProposalTimeout, evt.Type())
+		s, err = cfsm.handleEndorseProposalTimeout(evt)
+		require.NoError(err)
+		require.Equal(sAcceptLockEndorse, s)
+		evt = <-cfsm.evtq
+		require.Equal(eEndorseLockTimeout, evt.Type())
+		s, err = cfsm.handleEndorseLockTimeout(evt)
+		require.NoError(err)
+		require.Equal(sRoundStart, s)
 	})
 }
 
@@ -295,7 +314,7 @@ func TestHandleInitBlockEvt(t *testing.T) {
 
 	t.Run("secret-block", func(t *testing.T) {
 		cfsm.ctx.epoch.subEpochNum = uint64(0)
-		s, err := cfsm.handleInitBlockEvt(cfsm.newCEvt(eInitBlock))
+		s, err := cfsm.handleInitBlockProposeEvt(cfsm.newCEvt(eInitBlockPropose))
 		require.NoError(t, err)
 		require.Equal(t, sAcceptPropose, s)
 		e := <-cfsm.evtq
@@ -308,7 +327,7 @@ func TestHandleInitBlockEvt(t *testing.T) {
 	})
 	t.Run("normal-block", func(t *testing.T) {
 		cfsm.ctx.epoch.subEpochNum = uint64(1)
-		s, err := cfsm.handleInitBlockEvt(cfsm.newCEvt(eInitBlock))
+		s, err := cfsm.handleInitBlockProposeEvt(cfsm.newCEvt(eInitBlockPropose))
 		require.NoError(t, err)
 		require.Equal(t, sAcceptPropose, s)
 		e := <-cfsm.evtq
@@ -373,7 +392,6 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		evt, ok := e.(*endorseEvt)
 		require.True(t, ok)
 		assert.Equal(t, eEndorseProposal, evt.Type())
-		assert.Equal(t, eEndorseProposalTimeout, (<-cfsm.evtq).Type())
 	})
 
 	t.Run("pass-validation-time-rotation", func(t *testing.T) {
@@ -468,7 +486,6 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		evt, ok := e.(*endorseEvt)
 		require.True(t, ok)
 		assert.Equal(t, eEndorseProposal, evt.Type())
-		assert.Equal(t, eEndorseProposalTimeout, (<-cfsm.evtq).Type())
 	})
 
 	t.Run("invalid-proposer", func(t *testing.T) {
@@ -544,7 +561,6 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		state, err := cfsm.handleProposeBlockTimeout(cfsm.newCEvt(eProposeBlockTimeout))
 		assert.NoError(t, err)
 		assert.Equal(t, sAcceptProposalEndorse, state)
-		assert.Equal(t, eEndorseProposalTimeout, (<-cfsm.evtq).Type())
 	})
 }
 
@@ -614,7 +630,6 @@ func TestHandleProposalEndorseEvt(t *testing.T) {
 		evt, ok := e.(*endorseEvt)
 		require.True(t, ok)
 		assert.Equal(t, eEndorseLock, evt.Type())
-		assert.Equal(t, eEndorseLockTimeout, (<-cfsm.evtq).Type())
 	})
 
 	t.Run("timeout", func(t *testing.T) {
@@ -641,10 +656,6 @@ func TestHandleProposalEndorseEvt(t *testing.T) {
 		state, err := cfsm.handleEndorseProposalTimeout(cfsm.newCEvt(eEndorseProposalTimeout))
 		assert.NoError(t, err)
 		assert.Equal(t, sAcceptLockEndorse, state)
-		e := <-cfsm.evtq
-		evt, ok := e.(*timeoutEvt)
-		require.True(t, ok)
-		assert.Equal(t, eEndorseLockTimeout, evt.Type())
 	})
 }
 
