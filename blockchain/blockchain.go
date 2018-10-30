@@ -668,7 +668,7 @@ func (bc *blockchain) MintNewBlock(
 	defer bc.mu.RUnlock()
 
 	actions = append(actions, action.NewCoinBaseTransfer(bc.genesis.BlockReward, producer.RawAddress))
-	blk := NewBlock(bc.config.Chain.ID, bc.tipHeight+1, bc.tipHash, bc.now(), actions)
+	blk := NewBlock(bc.config.Chain.ID, bc.tipHeight+1, bc.tipHash, bc.now(), producer.PublicKey, actions)
 	blk.Header.DKGID = []byte{}
 	blk.Header.DKGPubkey = []byte{}
 	blk.Header.DKGBlockSig = []byte{}
@@ -707,7 +707,15 @@ func (bc *blockchain) MintNewSecretBlock(
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
 
-	blk := NewSecretBlock(bc.config.Chain.ID, bc.tipHeight+1, bc.tipHash, bc.now(), secretProposals, secretWitness)
+	blk := NewSecretBlock(
+		bc.config.Chain.ID,
+		bc.tipHeight+1,
+		bc.tipHash,
+		bc.now(),
+		producer.PublicKey,
+		secretProposals,
+		secretWitness,
+	)
 	// run execution and update state trie root hash
 	ws, err := bc.sf.NewWorkingSet()
 	if err != nil {

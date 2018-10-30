@@ -62,6 +62,7 @@ func TestRollDPoSCtx(t *testing.T) {
 		8,
 		prevHash,
 		testutil.TimestampNowFromClock(clock),
+		testAddrs[0].PublicKey,
 		make([]action.Action, 0),
 	)
 	ctx := makeTestRollDPoSCtx(
@@ -471,6 +472,7 @@ func TestRollDPoS_convertToConsensusEvt(t *testing.T) {
 		1,
 		prevHash,
 		testutil.TimestampNow(),
+		selfPubKey,
 		[]action.Action{transfer, vote},
 	)
 	roundNum := uint32(0)
