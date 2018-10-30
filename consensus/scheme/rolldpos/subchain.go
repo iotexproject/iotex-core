@@ -24,8 +24,14 @@ func putBlockToParentChain(rootChainAPI explorerapi.Explorer, subChainAddr strin
 			Str("senderAddress", sender.RawAddress).
 			Uint64("height", b.Height()).
 			Err(err).
-			Msg("Failed to put block merkel roots to parent chain.")
+			Msg("Failed to put block merkle roots to parent chain.")
+		return
 	}
+	logger.Info().
+		Str("subChainAddress", subChainAddr).
+		Str("senderAddress", sender.RawAddress).
+		Uint64("height", b.Height()).
+		Msg("Succeeded to put block merkle roots to parent chain.")
 }
 
 func putBlockToParentChainTask(rootChainAPI explorerapi.Explorer, subChainAddr string, sender *iotxaddress.Address, b *blockchain.Block) error {

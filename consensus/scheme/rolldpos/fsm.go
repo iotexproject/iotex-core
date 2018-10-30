@@ -708,8 +708,8 @@ func (m *cFSM) handleEndorseCommitEvt(evt fsm.Event) (fsm.State, error) {
 				Msg("error when broadcasting blkProto")
 		}
 
-		// putblock to parent chain if current chain is a sub chain
-		if m.ctx.chain.ChainAddress() != "" {
+		// putblock to parent chain if the current node is proposer and current chain is a sub chain
+		if m.ctx.round.proposer == m.ctx.addr.RawAddress && m.ctx.chain.ChainAddress() != "" {
 			putBlockToParentChain(m.ctx.rootChainAPI, m.ctx.chain.ChainAddress(), m.ctx.addr, pendingBlock)
 		}
 	} else {

@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -36,20 +37,32 @@ func TestHandlePutBlock(t *testing.T) {
 	chain := mock_blockchain.NewMockBlockchain(ctrl)
 	chain.EXPECT().GetFactory().Return(sf).AnyTimes()
 
+	addr := testaddress.Addrinfo["producer"]
+	addr2 := testaddress.Addrinfo["echo"]
+
+	ws, err := sf.NewWorkingSet()
+	require.NoError(t, err)
+	_, err = ws.LoadOrCreateAccountState(
+		addr.RawAddress,
+		big.NewInt(0).Mul(big.NewInt(2000000000), big.NewInt(blockchain.Iotx)),
+	)
+	require.NoError(t, err)
+	_, err = ws.RunActions(0, nil)
+	require.NoError(t, err)
+	require.NoError(t, sf.Commit(ws))
+
 	defer func() {
 		require.NoError(t, sf.Stop(ctx))
 		ctrl.Finish()
 	}()
 
-	ws, err := sf.NewWorkingSet()
+	ws, err = sf.NewWorkingSet()
 	require.NoError(t, err)
 
 	p := NewProtocol(&cfg, nil, nil, chain, nil)
 
 	roots := make(map[string]hash.Hash32B)
 	roots["10002"] = byteutil.BytesTo32B([]byte("10002"))
-	addr := testaddress.Addrinfo["producer"]
-	addr2 := testaddress.Addrinfo["echo"]
 	pb := action.NewPutBlock(
 		1,
 		addr2.RawAddress,

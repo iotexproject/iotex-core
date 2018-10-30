@@ -89,7 +89,11 @@ func (p *Protocol) Validate(act action.Action) error {
 	switch act := act.(type) {
 	case *action.StartSubChain:
 		if _, _, err := p.validateStartSubChain(act, nil); err != nil {
-			return errors.Wrapf(err, "error when handling start sub-chain action")
+			return errors.Wrapf(err, "error when validating start sub-chain action")
+		}
+	case *action.PutBlock:
+		if err := p.validatePutBlock(act, nil); err != nil {
+			return errors.Wrapf(err, "error when validating put sub-chain block action")
 		}
 	}
 	// The action is not validated by this handler or no error
@@ -143,4 +147,12 @@ func (p *Protocol) Stop(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+func srcAddressPKHash(srcAddr string) (hash.PKHash, error) {
+	addr, err := address.IotxAddressToAddress(srcAddr)
+	if err != nil {
+		return hash.ZeroPKHash, errors.Wrapf(err, "cannot get the public key hash of address %s", srcAddr)
+	}
+	return byteutil.BytesTo20B(addr.Payload()), nil
 }

@@ -1,9 +1,8 @@
 package subchain
 
 import (
+	"fmt"
 	"sort"
-
-	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/pkg/enc"
@@ -16,7 +15,26 @@ func (p *Protocol) handlePutBlock(pb *action.PutBlock, ws state.WorkingSet) erro
 	if err := p.validatePutBlock(pb, ws); err != nil {
 		return err
 	}
-	return p.putBlockProof(putBlockToBlockProof(pb), ws)
+	proof := putBlockToBlockProof(pb)
+	if err := ws.PutState(blockProofKey(proof.SubChainAddress, proof.Height), &proof); err != nil {
+		return err
+	}
+	// Update the block producer's nonce
+	account, err := ws.CachedAccountState(pb.ProducerAddress())
+	if err != nil {
+		return err
+	}
+	if pb.Nonce() > account.Nonce {
+		account.Nonce = pb.Nonce()
+	}
+	producerPKHash, err := srcAddressPKHash(pb.ProducerAddress())
+	if err != nil {
+		return err
+	}
+	if err := ws.PutState(producerPKHash, account); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (p *Protocol) validatePutBlock(pb *action.PutBlock, ws state.WorkingSet) error {
@@ -24,7 +42,7 @@ func (p *Protocol) validatePutBlock(pb *action.PutBlock, ws state.WorkingSet) er
 
 	// can only emit on one height
 	if _, exist := p.getBlockProof(pb.SubChainAddress(), pb.Height()); exist {
-		return errors.New("block already exist")
+		return fmt.Errorf("block %d already exists", pb.Height())
 	}
 	return nil
 }
@@ -35,10 +53,6 @@ func (p *Protocol) getBlockProof(addr string, height uint64) (BlockProof, bool) 
 		return BlockProof{}, false
 	}
 	return bp, true
-}
-
-func (p *Protocol) putBlockProof(bp BlockProof, ws state.WorkingSet) error {
-	return ws.PutState(blockProofKey(bp.SubChainAddress, bp.Height), &bp)
 }
 
 func blockProofKey(addr string, height uint64) hash.PKHash {
