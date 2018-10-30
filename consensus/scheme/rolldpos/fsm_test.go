@@ -425,6 +425,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		assert.Equal(t, eEndorseProposal, evt.Type())
 
 		clock.Add(10 * time.Second)
+		blk.Header.Pubkey = testAddrs[3].PublicKey
 		err = blk.SignBlock(testAddrs[3])
 		assert.NoError(t, err)
 		state, err = cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, cfsm.ctx.round.number, cfsm.ctx.clock))
@@ -965,7 +966,6 @@ func TestThreeDelegates(t *testing.T) {
 	defer ctrl.Finish()
 
 	delegates := []string{testAddrs[0].RawAddress, testAddrs[1].RawAddress, testAddrs[2].RawAddress}
-	logger.Error().Msgf("Delegates: %+v", delegates)
 	epoch := epochCtx{
 		delegates:    delegates,
 		num:          uint64(1),
@@ -1209,6 +1209,7 @@ func newTestCFSM(
 		1,
 		prevHash,
 		testutil.TimestampNowFromClock(clock),
+		proposer.PublicKey,
 		make([]action.Action, 0),
 	)
 	blkToMint := blockchain.NewBlock(
@@ -1216,6 +1217,7 @@ func newTestCFSM(
 		2,
 		lastBlk.HashBlock(),
 		testutil.TimestampNowFromClock(clock),
+		proposer.PublicKey,
 		[]action.Action{transfer, vote},
 	)
 	blkToMint.SignBlock(proposer)
@@ -1249,6 +1251,7 @@ func newTestCFSM(
 			2,
 			lastBlk.HashBlock(),
 			testutil.TimestampNowFromClock(clock),
+			proposer.PublicKey,
 			secretProposals,
 			secretWitness,
 		)
