@@ -3,11 +3,9 @@
 
 package iproto
 
-import (
-	fmt "fmt"
-	proto "github.com/golang/protobuf/proto"
-	math "math"
-)
+import proto "github.com/golang/protobuf/proto"
+import fmt "fmt"
+import math "math"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -38,17 +36,16 @@ func (m *AccountPb) Reset()         { *m = AccountPb{} }
 func (m *AccountPb) String() string { return proto.CompactTextString(m) }
 func (*AccountPb) ProtoMessage()    {}
 func (*AccountPb) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a888679467bb7853, []int{0}
+	return fileDescriptor_state_a653bb860a02224a, []int{0}
 }
-
 func (m *AccountPb) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_AccountPb.Unmarshal(m, b)
 }
 func (m *AccountPb) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_AccountPb.Marshal(b, m, deterministic)
 }
-func (m *AccountPb) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_AccountPb.Merge(m, src)
+func (dst *AccountPb) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_AccountPb.Merge(dst, src)
 }
 func (m *AccountPb) XXX_Size() int {
 	return xxx_messageInfo_AccountPb.Size(m)
@@ -112,9 +109,9 @@ func init() {
 	proto.RegisterType((*AccountPb)(nil), "iproto.AccountPb")
 }
 
-func init() { proto.RegisterFile("state.proto", fileDescriptor_a888679467bb7853) }
+func init() { proto.RegisterFile("state.proto", fileDescriptor_state_a653bb860a02224a) }
 
-var fileDescriptor_a888679467bb7853 = []byte{
+var fileDescriptor_state_a653bb860a02224a = []byte{
 	// 186 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x54, 0xcf, 0xbd, 0x6a, 0xc3, 0x30,
 	0x10, 0xc0, 0x71, 0xd4, 0xfa, 0xf3, 0xec, 0xe9, 0xe8, 0x20, 0x3a, 0x09, 0x4f, 0x9a, 0xba, 0xf4,
