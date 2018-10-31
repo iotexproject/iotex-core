@@ -19,9 +19,9 @@ import (
 	"fmt"
 
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/execution"
-	"github.com/iotexproject/iotex-core/action/transfer"
-	"github.com/iotexproject/iotex-core/action/vote"
+	"github.com/iotexproject/iotex-core/action/protocols/execution"
+	"github.com/iotexproject/iotex-core/action/protocols/transfer"
+	"github.com/iotexproject/iotex-core/action/protocols/vote"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
