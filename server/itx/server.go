@@ -14,7 +14,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
-	"github.com/iotexproject/iotex-core/action/subchain"
+	"github.com/iotexproject/iotex-core/action/protocols/subchain"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/chainservice"
 	"github.com/iotexproject/iotex-core/config"
