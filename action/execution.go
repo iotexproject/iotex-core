@@ -33,7 +33,7 @@ const (
 
 // Execution defines the struct of account-based contract execution
 type Execution struct {
-	abstractAction
+	AbstractAction
 	amount *big.Int
 	data   []byte
 }
@@ -45,7 +45,7 @@ func NewExecution(executorAddress string, contractAddress string, nonce uint64, 
 	}
 
 	return &Execution{
-		abstractAction: abstractAction{
+		AbstractAction: AbstractAction{
 			version:  version.ProtocolVersion,
 			nonce:    nonce,
 			srcAddr:  executorAddress,
