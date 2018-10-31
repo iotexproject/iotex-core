@@ -174,15 +174,15 @@ func (t *trie) RootHash() hash.Hash32B {
 }
 
 // SetRoot sets the root trie
-func (t *trie) SetRoot(rootHash hash.Hash32B) (err error) {
+func (t *trie) SetRoot(rootHash hash.Hash32B) error {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
-	var root patricia
-	if root, err = getPatricia(rootHash[:], t.dao, t.bucket, t.cb); err != nil {
+	root, err := getPatricia(rootHash[:], t.dao, t.bucket, t.cb)
+	if err != nil {
 		return errors.Wrapf(err, "failed to set root %x", rootHash[:])
 	}
 	t.root = root
 	t.rootHash = rootHash
-	return err
+	return nil
 }
