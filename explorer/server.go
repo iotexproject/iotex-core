@@ -75,7 +75,7 @@ func (s *Server) Start(_ context.Context) error {
 		idl := barrister.MustParseIdlJson([]byte(explorer.IdlJsonRaw))
 		s.jrpcSvr = explorer.NewJSONServer(idl, true, s.exp)
 		s.jrpcSvr.AddFilter(logFilter{})
-		s.httpSvr = http.Server{Handler: &s.jrpcSvr}
+		s.httpSvr = http.Server{Handler: &corsAdaptor{expSvr: s.jrpcSvr}}
 		listener, err := net.Listen("tcp", ":"+portStr)
 		if err != nil {
 			logger.Panic().Err(err).Msg("error when creating network listener")
@@ -127,4 +127,19 @@ func (f logFilter) PreInvoke(r *barrister.RequestResponse) bool {
 func (f logFilter) PostInvoke(r *barrister.RequestResponse) bool {
 	logger.Debug().Msgf("logFilter: PostInvoke of method: %s", r.Method)
 	return true
+}
+
+type corsAdaptor struct {
+	expSvr barrister.Server
+}
+
+func (h corsAdaptor) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST")
+	w.Header().Set(
+		"Access-Control-Allow-Headers",
+		"Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With",
+	)
+
+	h.expSvr.ServeHTTP(w, r)
 }
