@@ -397,6 +397,19 @@ func (mr *MockExplorerMockRecorder) PutSubChainBlock(request interface{}) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutSubChainBlock", reflect.TypeOf((*MockExplorer)(nil).PutSubChainBlock), request)
 }
 
+// SendAction mocks base method
+func (m *MockExplorer) SendAction(request explorer.SendActionRequest) (explorer.SendActionResponse, error) {
+	ret := m.ctrl.Call(m, "SendAction", request)
+	ret0, _ := ret[0].(explorer.SendActionResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SendAction indicates an expected call of SendAction
+func (mr *MockExplorerMockRecorder) SendAction(request interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendAction", reflect.TypeOf((*MockExplorer)(nil).SendAction), request)
+}
+
 // GetPeers mocks base method
 func (m *MockExplorer) GetPeers() (explorer.GetPeersResponse, error) {
 	ret := m.ctrl.Call(m, "GetPeers")
