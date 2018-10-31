@@ -15,6 +15,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/proto"
 )
@@ -54,20 +55,34 @@ func (e *consensusEvt) timestamp() time.Time { return e.ts }
 
 type proposeBlkEvt struct {
 	consensusEvt
-	block *blockchain.Block
+	block     *blockchain.Block
+	lockProof *endorsement.Set
 }
 
-func newProposeBlkEvt(block *blockchain.Block, round uint32, c clock.Clock) *proposeBlkEvt {
+func newProposeBlkEvt(
+	block *blockchain.Block,
+	lockProof *endorsement.Set,
+	round uint32,
+	c clock.Clock,
+) *proposeBlkEvt {
 	return &proposeBlkEvt{
 		consensusEvt: *newCEvt(eProposeBlock, block.Height(), round, c),
 		block:        block,
+		lockProof:    lockProof,
 	}
 }
 
 func (e *proposeBlkEvt) toProtoMsg() *iproto.ProposePb {
+	var lockProof *iproto.EndorsementSet
+	if e.lockProof != nil {
+		lockProof = e.lockProof.ToProto()
+	}
+
 	return &iproto.ProposePb{
-		Block:    e.block.ConvertToBlockPb(),
-		Proposer: e.block.ProducerAddress(),
+		Block:     e.block.ConvertToBlockPb(),
+		LockProof: lockProof,
+		Round:     e.r,
+		Proposer:  e.block.ProducerAddress(),
 	}
 }
 
@@ -77,8 +92,17 @@ func newProposeBlkEvtFromProtoMsg(pMsg *iproto.ProposePb, c clock.Clock) *propos
 	}
 	block := &blockchain.Block{}
 	block.ConvertFromBlockPb(pMsg.Block)
+	var lockProof *endorsement.Set
+	if pMsg.LockProof != nil {
+		lockProof = &endorsement.Set{}
+		err := lockProof.FromProto(pMsg.LockProof)
+		if err != nil {
+			logger.Error().Err(err).Msg("failed to generate proposeBlkEvt from protobuf")
+			return nil
+		}
+	}
 
-	return newProposeBlkEvt(block, pMsg.Round, c)
+	return newProposeBlkEvt(block, lockProof, pMsg.Round, c)
 }
 
 type endorseEvt struct {

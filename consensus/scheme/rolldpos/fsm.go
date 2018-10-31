@@ -28,7 +28,6 @@ import (
 /**
  * TODO: For the nodes received correct proposal, add proposer's proposal endorse without signature, which could be replaced with real signature
  */
-
 var (
 	consensusMtc = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
@@ -783,7 +782,7 @@ func (m *cFSM) newCEvt(t fsm.EventType) *consensusEvt {
 }
 
 func (m *cFSM) newProposeBlkEvt(blk *blockchain.Block) *proposeBlkEvt {
-	return newProposeBlkEvt(blk, m.ctx.round.number, m.ctx.clock)
+	return newProposeBlkEvt(blk, m.ctx.round.proofOfLock, m.ctx.round.number, m.ctx.clock)
 }
 
 func (m *cFSM) newProposeBlkEvtFromProposePb(pb *iproto.ProposePb) (*proposeBlkEvt, error) {
