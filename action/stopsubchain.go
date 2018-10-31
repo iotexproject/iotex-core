@@ -26,7 +26,7 @@ const (
 
 // StopSubChain defines the action to stop sub chain
 type StopSubChain struct {
-	abstractAction
+	AbstractAction
 	chainID    uint32
 	stopHeight uint64
 }
@@ -42,7 +42,7 @@ func NewStopSubChain(
 	gasPrice *big.Int,
 ) *StopSubChain {
 	return &StopSubChain{
-		abstractAction: abstractAction{
+		AbstractAction: AbstractAction{
 			version:  version.ProtocolVersion,
 			nonce:    nonce,
 			srcAddr:  senderAddress,

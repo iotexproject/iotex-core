@@ -47,8 +47,8 @@ type Action interface {
 	LoadProto(*iproto.ActionPb)
 }
 
-// abstractAction is an abstract implementation of Action interface
-type abstractAction struct {
+// AbstractAction is an abstract implementation of Action interface
+type AbstractAction struct {
 	version   uint32
 	nonce     uint64
 	srcAddr   string
@@ -60,37 +60,37 @@ type abstractAction struct {
 }
 
 // Version returns the version
-func (act *abstractAction) Version() uint32 { return act.version }
+func (act *AbstractAction) Version() uint32 { return act.version }
 
 // Nonce returns the nonce
-func (act *abstractAction) Nonce() uint64 { return act.nonce }
+func (act *AbstractAction) Nonce() uint64 { return act.nonce }
 
 // SrcAddr returns the source address
-func (act *abstractAction) SrcAddr() string { return act.srcAddr }
+func (act *AbstractAction) SrcAddr() string { return act.srcAddr }
 
 // SrcPubkey returns the source public key
-func (act *abstractAction) SrcPubkey() keypair.PublicKey { return act.srcPubkey }
+func (act *AbstractAction) SrcPubkey() keypair.PublicKey { return act.srcPubkey }
 
 // SetSrcPubkey sets the source public key
-func (act *abstractAction) SetSrcPubkey(srcPubkey keypair.PublicKey) { act.srcPubkey = srcPubkey }
+func (act *AbstractAction) SetSrcPubkey(srcPubkey keypair.PublicKey) { act.srcPubkey = srcPubkey }
 
 // DstAddr returns the destination address
-func (act *abstractAction) DstAddr() string { return act.dstAddr }
+func (act *AbstractAction) DstAddr() string { return act.dstAddr }
 
 // GasLimit returns the gas limit
-func (act *abstractAction) GasLimit() uint64 { return act.gasLimit }
+func (act *AbstractAction) GasLimit() uint64 { return act.gasLimit }
 
 // GasPrice returns the gas price
-func (act *abstractAction) GasPrice() *big.Int { return act.gasPrice }
+func (act *AbstractAction) GasPrice() *big.Int { return act.gasPrice }
 
 // Signature returns signature bytes
-func (act *abstractAction) Signature() []byte { return act.signature }
+func (act *AbstractAction) Signature() []byte { return act.signature }
 
 // SetSignature sets the signature bytes
-func (act *abstractAction) SetSignature(signature []byte) { act.signature = signature }
+func (act *AbstractAction) SetSignature(signature []byte) { act.signature = signature }
 
 // BasicActionSize returns the basic size of action
-func (act *abstractAction) BasicActionSize() uint32 {
+func (act *AbstractAction) BasicActionSize() uint32 {
 	// VersionSizeInBytes + NonceSizeInBytes + GasSizeInBytes
 	size := 4 + 8 + 8
 	size += len(act.srcAddr) + len(act.dstAddr) + len(act.srcPubkey) + len(act.signature)
@@ -102,7 +102,7 @@ func (act *abstractAction) BasicActionSize() uint32 {
 }
 
 // BasicActionByteStream returns the basic byte stream of action
-func (act *abstractAction) BasicActionByteStream() []byte {
+func (act *AbstractAction) BasicActionByteStream() []byte {
 	stream := byteutil.Uint32ToBytes(act.version)
 	stream = append(stream, byteutil.Uint64ToBytes(act.nonce)...)
 	stream = append(stream, act.srcAddr...)

@@ -20,7 +20,7 @@ import (
 
 // SecretProposal defines the struct of DKG secret proposal
 type SecretProposal struct {
-	abstractAction
+	AbstractAction
 	secret []uint32
 }
 
@@ -35,7 +35,7 @@ func NewSecretProposal(
 		return nil, errors.Wrap(ErrAddress, "address of sender or recipient is empty")
 	}
 	return &SecretProposal{
-		abstractAction: abstractAction{
+		AbstractAction: AbstractAction{
 			version: version.ProtocolVersion,
 			nonce:   nonce,
 			srcAddr: sender,
