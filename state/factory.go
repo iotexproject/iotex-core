@@ -202,7 +202,7 @@ func (sf *factory) AccountState(addr string) (*Account, error) {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
 
-	pkHash, err := addressToPKHash(addr)
+	pkHash, err := iotxaddress.AddressToPKHash(addr)
 	if err != nil {
 		return nil, errors.Wrap(err, "error when getting the pubkey hash")
 	}
@@ -317,13 +317,4 @@ func (sf *factory) getRoot(nameSpace string, key string) (hash.Hash32B, error) {
 		return hash.ZeroHash32B, err
 	}
 	return trieRoot, nil
-}
-
-func addressToPKHash(addr string) (hash.PKHash, error) {
-	var pkHash hash.PKHash
-	senderPKHashBytes, err := iotxaddress.GetPubkeyHash(addr)
-	if err != nil {
-		return pkHash, errors.Wrap(err, "cannot get the hash of the address")
-	}
-	return byteutil.BytesTo20B(senderPKHashBytes), nil
 }

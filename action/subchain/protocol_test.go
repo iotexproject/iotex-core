@@ -39,60 +39,52 @@ func TestAddSubChainActions(t *testing.T) {
 	require.NoError(t, err)
 	p := NewProtocol(&cfg, nil, nil, bc, nil)
 	require.NoError(t, p.Start(ctx))
+	ap.AddActionValidators(actpool.NewAbstractValidator(bc))
 	ap.AddActionValidators(p)
 	defer func() {
 		require.NoError(t, p.Stop(ctx))
 		require.NoError(t, bc.Stop(ctx))
 	}()
 
-	require.NoError(
-		t,
-		ap.Add(
-			action.NewStartSubChain(
-				1,
-				2,
-				testaddress.Addrinfo["producer"].RawAddress,
-				MinSecurityDeposit,
-				big.NewInt(0).Mul(big.NewInt(1000000000), big.NewInt(blockchain.Iotx)),
-				110,
-				10,
-				0,
-				big.NewInt(0),
-			),
-		),
+	startSubChain := action.NewStartSubChain(
+		1,
+		2,
+		testaddress.Addrinfo["producer"].RawAddress,
+		MinSecurityDeposit,
+		big.NewInt(0).Mul(big.NewInt(1000000000), big.NewInt(blockchain.Iotx)),
+		110,
+		10,
+		uint64(1000),
+		big.NewInt(0),
 	)
+	require.NoError(t, action.Sign(startSubChain, testaddress.Addrinfo["producer"].PrivateKey))
+	require.NoError(t, ap.Add(startSubChain))
 
 	roots := make(map[string]hash.Hash32B)
 	roots["10002"] = byteutil.BytesTo32B([]byte("10002"))
-	require.NoError(
-		t,
-		ap.Add(
-			action.NewPutBlock(
-				2,
-				testaddress.Addrinfo["alfa"].RawAddress,
-				testaddress.Addrinfo["producer"].RawAddress,
-				10001,
-				roots,
-				10003,
-				big.NewInt(10004),
-			),
-		),
+	putBlock := action.NewPutBlock(
+		2,
+		testaddress.Addrinfo["alfa"].RawAddress,
+		testaddress.Addrinfo["producer"].RawAddress,
+		10001,
+		roots,
+		10003,
+		big.NewInt(10004),
 	)
+	require.NoError(t, action.Sign(putBlock, testaddress.Addrinfo["producer"].PrivateKey))
+	require.NoError(t, ap.Add(putBlock))
 
-	require.NoError(
-		t,
-		ap.Add(
-			action.NewStopSubChain(
-				testaddress.Addrinfo["producer"].RawAddress,
-				3,
-				2,
-				testaddress.Addrinfo["alfa"].RawAddress,
-				10003,
-				10005,
-				big.NewInt(10006),
-			),
-		),
+	stopSubChain := action.NewStopSubChain(
+		testaddress.Addrinfo["producer"].RawAddress,
+		3,
+		2,
+		testaddress.Addrinfo["alfa"].RawAddress,
+		10003,
+		10005,
+		big.NewInt(10006),
 	)
+	require.NoError(t, action.Sign(stopSubChain, testaddress.Addrinfo["producer"].PrivateKey))
+	require.NoError(t, ap.Add(stopSubChain))
 
 	assert.Equal(t, 3, len(ap.PickActs()))
 }
