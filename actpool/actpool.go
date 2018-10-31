@@ -15,6 +15,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 )
@@ -51,6 +52,9 @@ type actPool struct {
 	validators  []ActionValidator
 }
 
+// AbstractValidator is the validator for abstract action verification
+type AbstractValidator struct{ bc blockchain.Blockchain }
+
 // ActionValidator is the interface of validating an action
 type ActionValidator interface {
 	Validate(action.Action) error
@@ -69,6 +73,9 @@ func NewActPool(bc blockchain.Blockchain, cfg config.ActPool) (ActPool, error) {
 	}
 	return ap, nil
 }
+
+// NewAbstractValidator constructs a new abstractValidator
+func NewAbstractValidator(bc blockchain.Blockchain) *AbstractValidator { return &AbstractValidator{bc} }
 
 // AddActionValidators add validators
 func (ap *actPool) AddActionValidators(validators ...ActionValidator) {
@@ -298,9 +305,39 @@ func (ap *actPool) updateAccount(sender string) {
 	if len(acts) > 0 {
 		ap.removeInvalidActs(acts)
 	}
-
 	// Delete the queue entry if it becomes empty
 	if queue.Empty() {
 		delete(ap.accountActs, sender)
 	}
+}
+
+// Validate validates an abstract action
+func (v *AbstractValidator) Validate(act action.Action) error {
+	// Reject over-gassed action
+	if act.GasLimit() > blockchain.GasLimit {
+		return errors.Wrap(action.ErrGasHigherThanLimit, "gas is higher than gas limit")
+	}
+	// Reject action with insufficient gas limit
+	intrinsicGas, err := act.IntrinsicGas()
+	if intrinsicGas > act.GasLimit() || err != nil {
+		return errors.Wrap(action.ErrInsufficientBalanceForGas, "insufficient gas")
+	}
+	// Check if action source address is valid
+	if _, err := iotxaddress.GetPubkeyHash(act.SrcAddr()); err != nil {
+		return errors.Wrapf(err, "error when validating source address %s", act.SrcAddr())
+	}
+	// Verify action using action sender's public key
+	if err := action.Verify(act); err != nil {
+		return errors.Wrap(err, "failed to verify action signature")
+	}
+	// Reject action if nonce is too low
+	confirmedNonce, err := v.bc.Nonce(act.SrcAddr())
+	if err != nil {
+		return errors.Wrapf(err, "invalid nonce value of account %s", act.SrcAddr())
+	}
+	pendingNonce := confirmedNonce + 1
+	if pendingNonce > act.Nonce() {
+		return errors.Wrap(action.ErrNonce, "nonce is too low")
+	}
+	return nil
 }
