@@ -10,10 +10,9 @@ import (
 	"encoding/hex"
 	"math/big"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
-
-	"github.com/golang/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/actpool"
@@ -1087,25 +1086,26 @@ func (exp *Service) SendAction(req explorer.SendActionRequest) (resp explorer.Se
 		requestMtc.WithLabelValues("SendAction", succeed).Inc()
 	}()
 
-	if req.Payload == "" {
-		return explorer.SendActionResponse{}, errors.New("empty request payload")
-	}
-
-	payload, err := hex.DecodeString(req.Payload)
+	raw, err := hex.DecodeString(req.Payload)
 	if err != nil {
 		return explorer.SendActionResponse{}, err
 	}
 
-	var actPb pb.ActionPb
-	if err := proto.Unmarshal(payload, &actPb); err != nil {
+	var payload pb.SendActionRequest
+	if err := proto.Unmarshal(raw, &payload); err != nil {
 		return explorer.SendActionResponse{}, err
 	}
+
+	if payload.GetAction() == nil {
+		return explorer.SendActionResponse{}, errors.New("empty request payload")
+	}
+
 	// broadcast to the network
-	if err = exp.p2p.Broadcast(exp.bc.ChainID(), &actPb); err != nil {
-		return explorer.SendActionResponse{}, err
+	if err = exp.p2p.Broadcast(exp.bc.ChainID(), payload.GetAction()); err != nil {
+		logger.Warn().Err(err).Msg("failed to broadcast SendAction request.")
 	}
 	// send to actpool via dispatcher
-	exp.dp.HandleBroadcast(exp.bc.ChainID(), &actPb, nil)
+	exp.dp.HandleBroadcast(exp.bc.ChainID(), payload.GetAction(), nil)
 
 	return explorer.SendActionResponse{}, nil
 }

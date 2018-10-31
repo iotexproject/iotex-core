@@ -30,6 +30,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_consensus"
@@ -675,7 +676,8 @@ func TestServiceSendAction(t *testing.T) {
 	roots := make(map[string]hash.Hash32B)
 	roots["10002"] = byteutil.BytesTo32B([]byte("10002"))
 	pb := action.NewPutBlock(1, "", senderRawAddr, 100, roots, 10000, big.NewInt(0))
-	d, err := proto.Marshal(pb.Proto())
+	pl := iproto.SendActionRequest{Action: pb.Proto()}
+	d, err := proto.Marshal(&pl)
 	require.NoError(err)
 	request.Payload = hex.EncodeToString(d)
 
