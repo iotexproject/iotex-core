@@ -3,11 +3,9 @@
 
 package iproto
 
-import (
-	fmt "fmt"
-	proto "github.com/golang/protobuf/proto"
-	math "math"
-)
+import proto "github.com/golang/protobuf/proto"
+import fmt "fmt"
+import math "math"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -32,17 +30,16 @@ func (m *BranchNodePb) Reset()         { *m = BranchNodePb{} }
 func (m *BranchNodePb) String() string { return proto.CompactTextString(m) }
 func (*BranchNodePb) ProtoMessage()    {}
 func (*BranchNodePb) Descriptor() ([]byte, []int) {
-	return fileDescriptor_4a69962149106130, []int{0}
+	return fileDescriptor_trie_fa255ddef744a5bc, []int{0}
 }
-
 func (m *BranchNodePb) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_BranchNodePb.Unmarshal(m, b)
 }
 func (m *BranchNodePb) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_BranchNodePb.Marshal(b, m, deterministic)
 }
-func (m *BranchNodePb) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_BranchNodePb.Merge(m, src)
+func (dst *BranchNodePb) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_BranchNodePb.Merge(dst, src)
 }
 func (m *BranchNodePb) XXX_Size() int {
 	return xxx_messageInfo_BranchNodePb.Size(m)
@@ -78,17 +75,16 @@ func (m *BranchPb) Reset()         { *m = BranchPb{} }
 func (m *BranchPb) String() string { return proto.CompactTextString(m) }
 func (*BranchPb) ProtoMessage()    {}
 func (*BranchPb) Descriptor() ([]byte, []int) {
-	return fileDescriptor_4a69962149106130, []int{1}
+	return fileDescriptor_trie_fa255ddef744a5bc, []int{1}
 }
-
 func (m *BranchPb) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_BranchPb.Unmarshal(m, b)
 }
 func (m *BranchPb) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_BranchPb.Marshal(b, m, deterministic)
 }
-func (m *BranchPb) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_BranchPb.Merge(m, src)
+func (dst *BranchPb) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_BranchPb.Merge(dst, src)
 }
 func (m *BranchPb) XXX_Size() int {
 	return xxx_messageInfo_BranchPb.Size(m)
@@ -119,17 +115,16 @@ func (m *LeafPb) Reset()         { *m = LeafPb{} }
 func (m *LeafPb) String() string { return proto.CompactTextString(m) }
 func (*LeafPb) ProtoMessage()    {}
 func (*LeafPb) Descriptor() ([]byte, []int) {
-	return fileDescriptor_4a69962149106130, []int{2}
+	return fileDescriptor_trie_fa255ddef744a5bc, []int{2}
 }
-
 func (m *LeafPb) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LeafPb.Unmarshal(m, b)
 }
 func (m *LeafPb) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_LeafPb.Marshal(b, m, deterministic)
 }
-func (m *LeafPb) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_LeafPb.Merge(m, src)
+func (dst *LeafPb) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_LeafPb.Merge(dst, src)
 }
 func (m *LeafPb) XXX_Size() int {
 	return xxx_messageInfo_LeafPb.Size(m)
@@ -175,17 +170,16 @@ func (m *NodePb) Reset()         { *m = NodePb{} }
 func (m *NodePb) String() string { return proto.CompactTextString(m) }
 func (*NodePb) ProtoMessage()    {}
 func (*NodePb) Descriptor() ([]byte, []int) {
-	return fileDescriptor_4a69962149106130, []int{3}
+	return fileDescriptor_trie_fa255ddef744a5bc, []int{3}
 }
-
 func (m *NodePb) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_NodePb.Unmarshal(m, b)
 }
 func (m *NodePb) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_NodePb.Marshal(b, m, deterministic)
 }
-func (m *NodePb) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_NodePb.Merge(m, src)
+func (dst *NodePb) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_NodePb.Merge(dst, src)
 }
 func (m *NodePb) XXX_Size() int {
 	return xxx_messageInfo_NodePb.Size(m)
@@ -203,14 +197,12 @@ type isNodePb_Node interface {
 type NodePb_Branch struct {
 	Branch *BranchPb `protobuf:"bytes,2,opt,name=branch,proto3,oneof"`
 }
-
 type NodePb_Leaf struct {
 	Leaf *LeafPb `protobuf:"bytes,3,opt,name=leaf,proto3,oneof"`
 }
 
 func (*NodePb_Branch) isNodePb_Node() {}
-
-func (*NodePb_Leaf) isNodePb_Node() {}
+func (*NodePb_Leaf) isNodePb_Node()   {}
 
 func (m *NodePb) GetNode() isNodePb_Node {
 	if m != nil {
@@ -314,9 +306,9 @@ func init() {
 	proto.RegisterType((*NodePb)(nil), "iproto.nodePb")
 }
 
-func init() { proto.RegisterFile("trie.proto", fileDescriptor_4a69962149106130) }
+func init() { proto.RegisterFile("trie.proto", fileDescriptor_trie_fa255ddef744a5bc) }
 
-var fileDescriptor_4a69962149106130 = []byte{
+var fileDescriptor_trie_fa255ddef744a5bc = []byte{
 	// 216 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xe2, 0x2a, 0x29, 0xca, 0x4c,
 	0xd5, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0x62, 0xcb, 0x04, 0xd3, 0x4a, 0x16, 0x5c, 0x3c, 0x49,
