@@ -107,7 +107,7 @@ func (en *Endorsement) VerifySignature() bool {
 // ToProtoMsg converts an endorsement to endorse proto
 func (en *Endorsement) ToProtoMsg() *iproto.EndorsePb {
 	vote := en.ConsensusVote()
-	var topic iproto.EndorsePb_EndorsementTopic
+	var topic iproto.EndorsePb_ConsensusVoteTopic
 	switch vote.Topic {
 	case PROPOSAL:
 		topic = iproto.EndorsePb_PROPOSAL
