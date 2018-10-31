@@ -12,11 +12,14 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/proto"
 )
 
 // Set is a collection of endorsements for block
 type Set struct {
 	blkHash      hash.Hash32B
+	round        uint32 // locked round number
 	endorsements []*Endorsement
 }
 
@@ -26,6 +29,22 @@ func NewSet(blkHash hash.Hash32B) *Set {
 		blkHash:      blkHash,
 		endorsements: []*Endorsement{},
 	}
+}
+
+// FromProto converts protobuf to endorsement set
+func (s *Set) FromProto(sPb *iproto.EndorsementSet) error {
+	s.blkHash = byteutil.BytesTo32B(sPb.BlockHash)
+	s.round = sPb.Round
+	s.endorsements = []*Endorsement{}
+	for _, ePb := range sPb.Endorsements {
+		en, err := FromProtoMsg(ePb)
+		if err != nil {
+			return err
+		}
+		s.endorsements = append(s.endorsements, en)
+	}
+
+	return nil
 }
 
 // AddEndorsement adds an endorsement with the right block hash and signature
@@ -46,6 +65,16 @@ func (s *Set) BlockHash() hash.Hash32B {
 	return s.blkHash
 }
 
+// Round returns the locked round number
+func (s *Set) Round() uint32 {
+	return s.round
+}
+
+// SetRound sets the locked round number
+func (s *Set) SetRound(round uint32) {
+	s.round = round
+}
+
 // NumOfValidEndorsements returns the number of endorsements of the given topics and the endorsers
 func (s *Set) NumOfValidEndorsements(topics map[ConsensusVoteTopic]bool, endorsers []string) int {
 	endorserSet := map[string]bool{}
@@ -64,4 +93,18 @@ func (s *Set) NumOfValidEndorsements(topics map[ConsensusVoteTopic]bool, endorse
 	}
 
 	return cnt
+}
+
+// ToProto convert the endorsement set to protobuf
+func (s *Set) ToProto() *iproto.EndorsementSet {
+	endorsements := make([]*iproto.EndorsePb, 0, len(s.endorsements))
+	for _, en := range s.endorsements {
+		endorsements = append(endorsements, en.ToProtoMsg())
+	}
+
+	return &iproto.EndorsementSet{
+		BlockHash:    s.blkHash[:],
+		Round:        s.round,
+		Endorsements: endorsements,
+	}
 }

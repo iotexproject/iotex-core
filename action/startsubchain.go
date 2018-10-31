@@ -27,7 +27,7 @@ const (
 
 // StartSubChain represents start sub-chain message
 type StartSubChain struct {
-	abstractAction
+	AbstractAction
 	chainID            uint32
 	securityDeposit    *big.Int
 	operationDeposit   *big.Int
@@ -48,7 +48,7 @@ func NewStartSubChain(
 	gasPrice *big.Int,
 ) *StartSubChain {
 	return &StartSubChain{
-		abstractAction: abstractAction{
+		AbstractAction: AbstractAction{
 			version:  version.ProtocolVersion,
 			nonce:    nonce,
 			srcAddr:  ownerAddr,

@@ -1,18 +1,13 @@
 package subchain
 
 import (
-	"context"
 	"fmt"
 	"math/big"
-	"path"
 
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/address"
-	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/chainservice"
-	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -45,12 +40,8 @@ func (p *Protocol) handleStartSubChain(start *action.StartSubChain, ws state.Wor
 	if err != nil {
 		return err
 	}
-	subChain, receipt, err := p.mutateSubChainState(start, account, subChainsInOp, ws)
-	if err != nil {
+	if err := p.mutateSubChainState(start, account, subChainsInOp, ws); err != nil {
 		return err
-	}
-	if err := p.startSubChainService(receipt.SubChainAddress, subChain); err != nil {
-		return nil
 	}
 	return nil
 }
@@ -104,10 +95,10 @@ func (p *Protocol) mutateSubChainState(
 	account *state.Account,
 	subChainsInOp state.SortedSlice,
 	ws state.WorkingSet,
-) (*SubChain, StartSubChainReceipt, error) {
+) error {
 	addr, err := createSubChainAddress(start.OwnerAddress(), start.Nonce())
 	if err != nil {
-		return nil, StartSubChainReceipt{}, err
+		return err
 	}
 	sc := SubChain{
 		ChainID:            start.ChainID(),
@@ -119,7 +110,7 @@ func (p *Protocol) mutateSubChainState(
 		CurrentHeight:      0,
 	}
 	if err := ws.PutState(addr, &sc); err != nil {
-		return nil, StartSubChainReceipt{}, errors.Wrap(err, "error when putting sub-chain state")
+		return errors.Wrap(err, "error when putting sub-chain state")
 	}
 	account.Balance = big.NewInt(0).Sub(account.Balance, start.SecurityDeposit())
 	account.Balance = big.NewInt(0).Sub(account.Balance, start.OperationDeposit())
@@ -129,10 +120,10 @@ func (p *Protocol) mutateSubChainState(
 	}
 	ownerPKHash, err := srcAddressPKHash(start.OwnerAddress())
 	if err != nil {
-		return nil, StartSubChainReceipt{}, err
+		return err
 	}
 	if err := ws.PutState(ownerPKHash, account); err != nil {
-		return nil, StartSubChainReceipt{}, err
+		return err
 	}
 	subChainsInOp = subChainsInOp.Append(
 		InOperation{
@@ -142,58 +133,8 @@ func (p *Protocol) mutateSubChainState(
 		SortInOperation,
 	)
 	if err := ws.PutState(subChainsInOperationKey, &subChainsInOp); err != nil {
-		return nil, StartSubChainReceipt{}, err
+		return err
 	}
-
-	ioaddr := address.New(sc.ChainID, addr[:])
-	// TODO: update voting results because of owner account balance change
-	return &sc, StartSubChainReceipt{SubChainAddress: ioaddr.IotxAddress()}, nil
-}
-
-func (p *Protocol) startSubChainService(addr string, sc *SubChain) error {
-	block := make(chan *blockchain.Block)
-	if err := p.rootChain.SubscribeBlockCreation(block); err != nil {
-		return errors.Wrap(err, "error when subscribing block creation")
-	}
-
-	go func() {
-		for started := false; !started; {
-			select {
-			case blk := <-block:
-				if blk.Height() < sc.StartHeight {
-					continue
-				}
-				// TODO: get rid of the hack config modification
-				cfg := *p.cfg
-				cfg.Chain.ID = sc.ChainID
-				cfg.Chain.Address = addr
-				cfg.Chain.ChainDBPath = getSubChainDBPath(sc.ChainID, cfg.Chain.ChainDBPath)
-				cfg.Chain.TrieDBPath = getSubChainDBPath(sc.ChainID, cfg.Chain.TrieDBPath)
-				cfg.Explorer.Port = cfg.Explorer.Port - int(MainChainID) + int(sc.ChainID)
-
-				opts := []chainservice.Option{chainservice.WithRootChainAPI(p.rootChainAPI)}
-				chainService, err := chainservice.New(&cfg, p.p2p, p.dispatcher, opts...)
-				if err != nil {
-					logger.Error().Err(err).Msgf("error when constructing the sub-chain %d", sc.ChainID)
-					continue
-				}
-				p.subChainServices[sc.ChainID] = chainService
-				p.dispatcher.AddSubscriber(sc.ChainID, chainService)
-				// TODO: inherit ctx from root chain
-				if err := chainService.Start(context.Background()); err != nil {
-					logger.Error().Err(err).Msgf("error when starting the sub-chain %d", sc.ChainID)
-					continue
-				}
-				logger.Info().Msgf("started the sub-chain %d", sc.ChainID)
-				// No matter if the start process failed or not
-				started = true
-			}
-		}
-		if err := p.rootChain.UnsubscribeBlockCreation(block); err != nil {
-			logger.Error().Err(err).Msg("error when unsubscribing block creation")
-		}
-	}()
-
 	return nil
 }
 
@@ -205,11 +146,6 @@ func createSubChainAddress(ownerAddr string, nonce uint64) (hash.PKHash, error) 
 	bytes := make([]byte, 8)
 	enc.MachineEndian.PutUint64(bytes, nonce)
 	return byteutil.BytesTo20B(hash.Hash160b(append(addr.Payload(), bytes...))), nil
-}
-
-func getSubChainDBPath(chainID uint32, p string) string {
-	dir, file := path.Split(p)
-	return path.Join(dir, fmt.Sprintf("chain-%d-%s", chainID, file))
 }
 
 func cachedSubChainsInOperation(ws state.WorkingSet) (state.SortedSlice, error) {

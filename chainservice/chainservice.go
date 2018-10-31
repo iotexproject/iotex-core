@@ -143,18 +143,11 @@ func (cs *ChainService) Start(ctx context.Context) error {
 	if err := cs.blocksync.Start(ctx); err != nil {
 		return errors.Wrap(err, "error when starting blocksync")
 	}
-	for _, p := range cs.protocols {
-		if err := p.Start(ctx); err != nil {
-			return errors.Wrapf(err, "error when starting protocol %T", p)
-		}
-	}
-
 	if cs.indexservice != nil {
 		if err := cs.indexservice.Start(ctx); err != nil {
 			return errors.Wrap(err, "error when starting indexservice")
 		}
 	}
-
 	if err := cs.explorer.Start(ctx); err != nil {
 		return errors.Wrap(err, "error when starting explorer")
 	}
@@ -166,16 +159,9 @@ func (cs *ChainService) Stop(ctx context.Context) error {
 	if err := cs.explorer.Stop(ctx); err != nil {
 		return errors.Wrap(err, "error when stopping explorer")
 	}
-
 	if cs.indexservice != nil {
 		if err := cs.indexservice.Stop(ctx); err != nil {
 			return errors.Wrap(err, "error when stopping indexservice")
-		}
-	}
-
-	for _, p := range cs.protocols {
-		if err := p.Stop(ctx); err != nil {
-			return errors.Wrapf(err, "error when stopping protocol %T", p)
 		}
 	}
 	if err := cs.consensus.Stop(ctx); err != nil {
