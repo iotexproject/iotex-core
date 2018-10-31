@@ -9,8 +9,8 @@ import (
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "b31208a5095f3df5b87062e21a5f1283"
-const BarristerDateGenerated int64 = 1540505259193000000
+const BarristerChecksum string = "b75747ef5792f13d83b50ff566f71a42"
+const BarristerDateGenerated int64 = 1540944254241000000
 
 type CoinStatistic struct {
 	Height     int64  `json:"height"`
@@ -199,6 +199,14 @@ type PutSubChainBlockResponse struct {
 	Hash string `json:"hash"`
 }
 
+type SendActionRequest struct {
+	Payload string `json:"payload"`
+}
+
+type SendActionResponse struct {
+	Payload string `json:"payload"`
+}
+
 type Node struct {
 	Address string `json:"address"`
 }
@@ -248,6 +256,7 @@ type Explorer interface {
 	SendVote(request SendVoteRequest) (SendVoteResponse, error)
 	SendSmartContract(request Execution) (SendSmartContractResponse, error)
 	PutSubChainBlock(request PutSubChainBlockRequest) (PutSubChainBlockResponse, error)
+	SendAction(request SendActionRequest) (SendActionResponse, error)
 	GetPeers() (GetPeersResponse, error)
 	GetReceiptByExecutionID(id string) (Receipt, error)
 	ReadExecutionState(request Execution) (string, error)
@@ -765,6 +774,24 @@ func (_p ExplorerProxy) PutSubChainBlock(request PutSubChainBlockRequest) (PutSu
 		return _cast, nil
 	}
 	return PutSubChainBlockResponse{}, _err
+}
+
+func (_p ExplorerProxy) SendAction(request SendActionRequest) (SendActionResponse, error) {
+	_res, _err := _p.client.Call("Explorer.sendAction", request)
+	if _err == nil {
+		_retType := _p.idl.Method("Explorer.sendAction").Returns
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(SendActionResponse{}), _res, "")
+	}
+	if _err == nil {
+		_cast, _ok := _res.(SendActionResponse)
+		if !_ok {
+			_t := reflect.TypeOf(_res)
+			_msg := fmt.Sprintf("Explorer.sendAction returned invalid type: %v", _t)
+			return SendActionResponse{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
+		}
+		return _cast, nil
+	}
+	return SendActionResponse{}, _err
 }
 
 func (_p ExplorerProxy) GetPeers() (GetPeersResponse, error) {
@@ -2073,6 +2100,48 @@ var IdlJsonRaw = `[
     },
     {
         "type": "struct",
+        "name": "SendActionRequest",
+        "comment": "",
+        "value": "",
+        "extends": "",
+        "fields": [
+            {
+                "name": "payload",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            }
+        ],
+        "values": null,
+        "functions": null,
+        "barrister_version": "",
+        "date_generated": 0,
+        "checksum": ""
+    },
+    {
+        "type": "struct",
+        "name": "SendActionResponse",
+        "comment": "",
+        "value": "",
+        "extends": "",
+        "fields": [
+            {
+                "name": "payload",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            }
+        ],
+        "values": null,
+        "functions": null,
+        "barrister_version": "",
+        "date_generated": 0,
+        "checksum": ""
+    },
+    {
+        "type": "struct",
         "name": "Node",
         "comment": "",
         "value": "",
@@ -2903,6 +2972,26 @@ var IdlJsonRaw = `[
                 }
             },
             {
+                "name": "sendAction",
+                "comment": "sendAction",
+                "params": [
+                    {
+                        "name": "request",
+                        "type": "SendActionRequest",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    }
+                ],
+                "returns": {
+                    "name": "",
+                    "type": "SendActionResponse",
+                    "optional": false,
+                    "is_array": false,
+                    "comment": ""
+                }
+            },
+            {
                 "name": "getPeers",
                 "comment": "get list of peers",
                 "params": [],
@@ -2989,7 +3078,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1540505259193,
-        "checksum": "b31208a5095f3df5b87062e21a5f1283"
+        "date_generated": 1540944254241,
+        "checksum": "b75747ef5792f13d83b50ff566f71a42"
     }
 ]`

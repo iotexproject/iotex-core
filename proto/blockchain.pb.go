@@ -791,6 +791,51 @@ func (m *ActionPb) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_ActionPb proto.InternalMessageInfo
 
+type isActionPb_Action interface {
+	isActionPb_Action()
+}
+
+type ActionPb_Transfer struct {
+	Transfer *TransferPb `protobuf:"bytes,10,opt,name=transfer,proto3,oneof"`
+}
+type ActionPb_Vote struct {
+	Vote *VotePb `protobuf:"bytes,11,opt,name=vote,proto3,oneof"`
+}
+type ActionPb_Execution struct {
+	Execution *ExecutionPb `protobuf:"bytes,12,opt,name=execution,proto3,oneof"`
+}
+type ActionPb_SecretProposal struct {
+	SecretProposal *SecretProposalPb `protobuf:"bytes,13,opt,name=secretProposal,proto3,oneof"`
+}
+type ActionPb_SecretWitness struct {
+	SecretWitness *SecretWitnessPb `protobuf:"bytes,14,opt,name=secretWitness,proto3,oneof"`
+}
+type ActionPb_StartSubChain struct {
+	StartSubChain *StartSubChainPb `protobuf:"bytes,15,opt,name=startSubChain,proto3,oneof"`
+}
+type ActionPb_StopSubChain struct {
+	StopSubChain *StopSubChainPb `protobuf:"bytes,16,opt,name=stopSubChain,proto3,oneof"`
+}
+type ActionPb_PutBlock struct {
+	PutBlock *PutBlockPb `protobuf:"bytes,17,opt,name=putBlock,proto3,oneof"`
+}
+
+func (*ActionPb_Transfer) isActionPb_Action()       {}
+func (*ActionPb_Vote) isActionPb_Action()           {}
+func (*ActionPb_Execution) isActionPb_Action()      {}
+func (*ActionPb_SecretProposal) isActionPb_Action() {}
+func (*ActionPb_SecretWitness) isActionPb_Action()  {}
+func (*ActionPb_StartSubChain) isActionPb_Action()  {}
+func (*ActionPb_StopSubChain) isActionPb_Action()   {}
+func (*ActionPb_PutBlock) isActionPb_Action()       {}
+
+func (m *ActionPb) GetAction() isActionPb_Action {
+	if m != nil {
+		return m.Action
+	}
+	return nil
+}
+
 func (m *ActionPb) GetVersion() uint32 {
 	if m != nil {
 		return m.Version
@@ -822,65 +867,6 @@ func (m *ActionPb) GetGasPrice() []byte {
 func (m *ActionPb) GetSignature() []byte {
 	if m != nil {
 		return m.Signature
-	}
-	return nil
-}
-
-type isActionPb_Action interface {
-	isActionPb_Action()
-}
-
-type ActionPb_Transfer struct {
-	Transfer *TransferPb `protobuf:"bytes,10,opt,name=transfer,proto3,oneof"`
-}
-
-type ActionPb_Vote struct {
-	Vote *VotePb `protobuf:"bytes,11,opt,name=vote,proto3,oneof"`
-}
-
-type ActionPb_Execution struct {
-	Execution *ExecutionPb `protobuf:"bytes,12,opt,name=execution,proto3,oneof"`
-}
-
-type ActionPb_SecretProposal struct {
-	SecretProposal *SecretProposalPb `protobuf:"bytes,13,opt,name=secretProposal,proto3,oneof"`
-}
-
-type ActionPb_SecretWitness struct {
-	SecretWitness *SecretWitnessPb `protobuf:"bytes,14,opt,name=secretWitness,proto3,oneof"`
-}
-
-type ActionPb_StartSubChain struct {
-	StartSubChain *StartSubChainPb `protobuf:"bytes,15,opt,name=startSubChain,proto3,oneof"`
-}
-
-type ActionPb_StopSubChain struct {
-	StopSubChain *StopSubChainPb `protobuf:"bytes,16,opt,name=stopSubChain,proto3,oneof"`
-}
-
-type ActionPb_PutBlock struct {
-	PutBlock *PutBlockPb `protobuf:"bytes,17,opt,name=putBlock,proto3,oneof"`
-}
-
-func (*ActionPb_Transfer) isActionPb_Action() {}
-
-func (*ActionPb_Vote) isActionPb_Action() {}
-
-func (*ActionPb_Execution) isActionPb_Action() {}
-
-func (*ActionPb_SecretProposal) isActionPb_Action() {}
-
-func (*ActionPb_SecretWitness) isActionPb_Action() {}
-
-func (*ActionPb_StartSubChain) isActionPb_Action() {}
-
-func (*ActionPb_StopSubChain) isActionPb_Action() {}
-
-func (*ActionPb_PutBlock) isActionPb_Action() {}
-
-func (m *ActionPb) GetAction() isActionPb_Action {
-	if m != nil {
-		return m.Action
 	}
 	return nil
 }
