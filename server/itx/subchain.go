@@ -13,14 +13,14 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core/action/protocols/subchain"
+	"github.com/iotexproject/iotex-core/action/protocols/multichain/mainchain"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/routine"
 )
 
-func (s *Server) newSubChainStarter(protocol *subchain.Protocol) *routine.RecurringTask {
+func (s *Server) newSubChainStarter(protocol *mainchain.Protocol) *routine.RecurringTask {
 	return routine.NewRecurringTask(
 		func() {
 			subChainsInOp, err := protocol.SubChainsInOperation()
@@ -28,7 +28,7 @@ func (s *Server) newSubChainStarter(protocol *subchain.Protocol) *routine.Recurr
 				logger.Error().Err(err).Msg("error when getting the sub-chains in operation slice")
 			}
 			for _, e := range subChainsInOp {
-				subChainInOp, ok := e.(subchain.InOperation)
+				subChainInOp, ok := e.(mainchain.InOperation)
 				if !ok {
 					logger.Error().Msg("error when casting the element in the sorted slice into InOperation")
 					continue
@@ -60,7 +60,7 @@ func (s *Server) newSubChainStarter(protocol *subchain.Protocol) *routine.Recurr
 	)
 }
 
-func (s *Server) startSubChainService(addr string, sc *subchain.SubChain) error {
+func (s *Server) startSubChainService(addr string, sc *mainchain.SubChain) error {
 	block := make(chan *blockchain.Block)
 	if err := s.rootChainService.Blockchain().SubscribeBlockCreation(block); err != nil {
 		return errors.Wrap(err, "error when subscribing block creation")
@@ -80,7 +80,7 @@ func (s *Server) startSubChainService(addr string, sc *subchain.SubChain) error 
 				cfg.Chain.ChainDBPath = getSubChainDBPath(sc.ChainID, cfg.Chain.ChainDBPath)
 				cfg.Chain.TrieDBPath = getSubChainDBPath(sc.ChainID, cfg.Chain.TrieDBPath)
 				cfg.Chain.EnableSubChainStartInGenesis = false
-				cfg.Explorer.Port = cfg.Explorer.Port - int(subchain.MainChainID) + int(sc.ChainID)
+				cfg.Explorer.Port = cfg.Explorer.Port - int(s.rootChainService.ChainID()) + int(sc.ChainID)
 				if err := s.NewChainService(&cfg); err != nil {
 					logger.Error().Err(err).Msgf("error when constructing the sub-chain %d", sc.ChainID)
 					continue

@@ -1,4 +1,4 @@
-package subchain
+package mainchain
 
 import (
 	"fmt"
@@ -50,7 +50,7 @@ func (p *Protocol) validateStartSubChain(
 	start *action.StartSubChain,
 	ws state.WorkingSet,
 ) (*state.Account, state.SortedSlice, error) {
-	if start.ChainID() == MainChainID {
+	if start.ChainID() == p.rootChain.ChainID() {
 		return nil, nil, fmt.Errorf("%d is used by main chain", start.ChainID())
 	}
 	var subChainsInOp state.SortedSlice
