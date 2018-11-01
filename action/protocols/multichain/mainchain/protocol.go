@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package subchain
+package mainchain
 
 import (
 	"math/big"
@@ -23,11 +23,6 @@ import (
 	"github.com/iotexproject/iotex-core/state"
 )
 
-const (
-	// MainChainID reserves the ID for main chain
-	MainChainID uint32 = 1
-)
-
 var (
 	// MinSecurityDeposit represents the security deposit minimal required for start a sub-chain, which is 1M iotx
 	MinSecurityDeposit = big.NewInt(0).Mul(big.NewInt(1000000000), big.NewInt(blockchain.Iotx))
@@ -35,7 +30,7 @@ var (
 	subChainsInOperationKey = byteutil.BytesTo20B(hash.Hash160b([]byte("subChainsInOperation")))
 )
 
-// Protocol defines the protocol of handling sub-chain actions
+// Protocol defines the protocol of handling multi-chain actions on main-chain
 type Protocol struct {
 	cfg          *config.Config
 	p2p          network.Overlay
@@ -63,7 +58,7 @@ func NewProtocol(
 	}
 }
 
-// Handle handles how to mutate the state db given the sub-chain action
+// Handle handles how to mutate the state db given the multi-chain action
 func (p *Protocol) Handle(act action.Action, ws state.WorkingSet) error {
 	switch act := act.(type) {
 	case *action.StartSubChain:
@@ -79,7 +74,7 @@ func (p *Protocol) Handle(act action.Action, ws state.WorkingSet) error {
 	return nil
 }
 
-// Validate validates the sub-chain action
+// Validate validates the multi-chain action
 func (p *Protocol) Validate(act action.Action) error {
 	switch act := act.(type) {
 	case *action.StartSubChain:

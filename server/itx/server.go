@@ -14,7 +14,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
-	"github.com/iotexproject/iotex-core/action/protocols/subchain"
+	"github.com/iotexproject/iotex-core/action/protocols/multichain/mainchain"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/chainservice"
 	"github.com/iotexproject/iotex-core/config"
@@ -72,8 +72,8 @@ func newServer(cfg *config.Config, testing bool) (*Server, error) {
 	// Add abstract action validator
 	cs.ActionPool().AddActionValidators(actpool.NewAbstractValidator(cs.Blockchain()))
 	// Install protocols
-	subChainProtocol := subchain.NewProtocol(cfg, p2p, dispatcher, cs.Blockchain(), cs.Explorer().Explorer())
-	cs.AddProtocols(subChainProtocol)
+	mainChainProtocol := mainchain.NewProtocol(cfg, p2p, dispatcher, cs.Blockchain(), cs.Explorer().Explorer())
+	cs.AddProtocols(mainChainProtocol)
 
 	chains[cs.ChainID()] = cs
 	dispatcher.AddSubscriber(cs.ChainID(), cs)
@@ -85,7 +85,8 @@ func newServer(cfg *config.Config, testing bool) (*Server, error) {
 		chainservices:    chains,
 	}
 	// Setup sub-chain starter
-	svr.subChainStarter = svr.newSubChainStarter(subChainProtocol)
+	// TODO: sub-chain infra should use main-chain API instead of protocol directly
+	svr.subChainStarter = svr.newSubChainStarter(mainChainProtocol)
 	return &svr, nil
 }
 

@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package subchain
+package mainchain
 
 import (
 	"context"
@@ -42,6 +42,7 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 		AnyTimes()
 	chain := mock_blockchain.NewMockBlockchain(ctrl)
 	chain.EXPECT().GetFactory().Return(factory).AnyTimes()
+	chain.EXPECT().ChainID().Return(uint32(1)).AnyTimes()
 
 	defer ctrl.Finish()
 
