@@ -1,4 +1,4 @@
-package subchain
+package mainchain
 
 import (
 	"fmt"
