@@ -76,16 +76,16 @@ func (mr *MockWorkingSetMockRecorder) CachedAccountState(arg0 interface{}) *gomo
 }
 
 // RunActions mocks base method
-func (m *MockWorkingSet) RunActions(arg0 uint64, arg1 []action.Action) (hash.Hash32B, error) {
-	ret := m.ctrl.Call(m, "RunActions", arg0, arg1)
+func (m *MockWorkingSet) RunActions(arg0 string, arg1 uint64, arg2 []action.Action) (hash.Hash32B, error) {
+	ret := m.ctrl.Call(m, "RunActions", arg0, arg1, arg2)
 	ret0, _ := ret[0].(hash.Hash32B)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // RunActions indicates an expected call of RunActions
-func (mr *MockWorkingSetMockRecorder) RunActions(arg0, arg1 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunActions", reflect.TypeOf((*MockWorkingSet)(nil).RunActions), arg0, arg1)
+func (mr *MockWorkingSetMockRecorder) RunActions(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunActions", reflect.TypeOf((*MockWorkingSet)(nil).RunActions), arg0, arg1, arg2)
 }
 
 // Commit mocks base method

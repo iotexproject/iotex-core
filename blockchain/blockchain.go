@@ -312,7 +312,7 @@ func (bc *blockchain) startEmptyBlockchain() error {
 	if _, err := ws.LoadOrCreateAccountState(Gen.CreatorAddr(bc.ChainID()), Gen.TotalSupply); err != nil {
 		return errors.Wrap(err, "failed to create Creator into StateFactory")
 	}
-	if _, err := ws.RunActions(0, nil); err != nil {
+	if _, err := ws.RunActions(genesis.ProducerAddress(), 0, nil); err != nil {
 		return errors.Wrap(err, "failed to create Creator into StateFactory")
 	}
 	if err := bc.sf.Commit(ws); err != nil {
@@ -359,7 +359,11 @@ func (bc *blockchain) startExistingBlockchain(recoveryHeight uint64) error {
 		if _, err := ws.LoadOrCreateAccountState(Gen.CreatorAddr(bc.ChainID()), Gen.TotalSupply); err != nil {
 			return err
 		}
-		if _, err := ws.RunActions(0, nil); err != nil {
+		genesisBlk, err := bc.GetBlockByHeight(0)
+		if err != nil {
+			return err
+		}
+		if _, err := ws.RunActions(genesisBlk.ProducerAddress(), 0, nil); err != nil {
 			return errors.Wrap(err, "failed to create Creator into StateFactory")
 		}
 		if err := bc.sf.Commit(ws); err != nil {
@@ -423,7 +427,11 @@ func (bc *blockchain) CreateState(addr string, init *big.Int) (*state.Account, e
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create new account %s", addr)
 	}
-	if _, err = ws.RunActions(0, nil); err != nil {
+	genesisBlk, err := bc.GetBlockByHeight(0)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get genesis block")
+	}
+	if _, err = ws.RunActions(genesisBlk.ProducerAddress(), 0, nil); err != nil {
 		return nil, errors.Wrap(err, "failed to run the account creation")
 	}
 	if err = bc.sf.Commit(ws); err != nil {
@@ -848,7 +856,8 @@ func (bc *blockchain) runActions(blk *Block, ws state.WorkingSet, verify bool) (
 		ExecuteContracts(blk, ws, bc)
 	}
 	// update state factory
-	if root, err = ws.RunActions(blk.Height(), blk.Actions); err != nil {
+	//blk.ProducerAddress()
+	if root, err = ws.RunActions(blk.ProducerAddress(), blk.Height(), blk.Actions); err != nil {
 		return root, err
 	}
 	if verify {

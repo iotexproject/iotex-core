@@ -18,6 +18,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
+	"fmt"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
@@ -92,7 +93,7 @@ func TestCreateState(t *testing.T) {
 	require.NoError(err)
 	state, err := ws.LoadOrCreateAccountState(addr.RawAddress, big.NewInt(5))
 	require.NoError(err)
-	_, err = ws.RunActions(0, nil)
+	_, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 0, nil)
 	require.NoError(err)
 	require.NoError(sf.Commit(ws))
 	require.Equal(uint64(0x0), state.Nonce)
@@ -280,7 +281,7 @@ func TestCandidates(t *testing.T) {
 	require.NoError(t, err)
 	tx2, err := action.NewTransfer(uint64(2), big.NewInt(20), a.RawAddress, c.RawAddress, nil, uint64(0), big.NewInt(0))
 	require.NoError(t, err)
-	newRoot, err := ws.RunActions(0, []action.Action{tx1, tx2})
+	newRoot, err := ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 0, []action.Action{tx1, tx2})
 	require.Nil(t, err)
 	root := newRoot
 	require.NotEqual(t, hash.ZeroHash32B, root)
@@ -296,23 +297,25 @@ func TestCandidates(t *testing.T) {
 	require.True(t, compareStrings(voteForm(h, cand), []string{}))
 	// a:70 b:210 c:320
 
-	vote, err := action.NewVote(0, a.RawAddress, a.RawAddress, uint64(100000), big.NewInt(10))
+	//vote, err := action.NewVote(0, a.RawAddress, a.RawAddress, uint64(100000), big.NewInt(10))
+	vote, err := action.NewVote(0, a.RawAddress, a.RawAddress, uint64(100000), big.NewInt(0))
 	vote.SetVoterPublicKey(a.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(0, []action.Action{vote})
+	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 0, []action.Action{vote})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
+	fmt.Println(voteForm(h, cand))
 	require.True(t, compareStrings(voteForm(h, cand), []string{a.RawAddress + ":70"}))
 	// a(a):70(+0=70) b:210 c:320
 
-	vote2, err := action.NewVote(0, b.RawAddress, b.RawAddress, uint64(100000), big.NewInt(10))
+	vote2, err := action.NewVote(0, b.RawAddress, b.RawAddress, uint64(100000), big.NewInt(0))
 	vote2.SetVoterPublicKey(b.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(0, []action.Action{vote2})
+	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 0, []action.Action{vote2})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -322,10 +325,10 @@ func TestCandidates(t *testing.T) {
 	require.True(t, compareStrings(voteForm(h, cand), []string{a.RawAddress + ":70", b.RawAddress + ":210"}))
 	// a(a):70(+0=70) b(b):210(+0=210) !c:320
 
-	vote3, err := action.NewVote(1, a.RawAddress, b.RawAddress, uint64(100000), big.NewInt(10))
+	vote3, err := action.NewVote(1, a.RawAddress, b.RawAddress, uint64(100000), big.NewInt(0))
 	vote3.SetVoterPublicKey(a.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(0, []action.Action{vote3})
+	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 0, []action.Action{vote3})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -337,7 +340,7 @@ func TestCandidates(t *testing.T) {
 
 	tx3, err := action.NewTransfer(uint64(2), big.NewInt(20), b.RawAddress, a.RawAddress, nil, uint64(0), big.NewInt(0))
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(0, []action.Action{tx3})
+	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 0, []action.Action{tx3})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -349,7 +352,7 @@ func TestCandidates(t *testing.T) {
 
 	tx4, err := action.NewTransfer(uint64(2), big.NewInt(20), a.RawAddress, b.RawAddress, nil, uint64(0), big.NewInt(0))
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(0, []action.Action{tx4})
+	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 0, []action.Action{tx4})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -359,10 +362,10 @@ func TestCandidates(t *testing.T) {
 	require.True(t, compareStrings(voteForm(h, cand), []string{a.RawAddress + ":0", b.RawAddress + ":280"}))
 	// a(b):70(0) b(b):210(+70=280) !c:320
 
-	vote4, err := action.NewVote(1, b.RawAddress, a.RawAddress, uint64(100000), big.NewInt(10))
+	vote4, err := action.NewVote(1, b.RawAddress, a.RawAddress, uint64(100000), big.NewInt(0))
 	vote4.SetVoterPublicKey(b.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(0, []action.Action{vote4})
+	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 0, []action.Action{vote4})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -372,10 +375,10 @@ func TestCandidates(t *testing.T) {
 	require.True(t, compareStrings(voteForm(h, cand), []string{a.RawAddress + ":210", b.RawAddress + ":70"}))
 	// a(b):70(210) b(a):210(70) !c:320
 
-	vote5, err := action.NewVote(2, b.RawAddress, b.RawAddress, uint64(100000), big.NewInt(10))
+	vote5, err := action.NewVote(2, b.RawAddress, b.RawAddress, uint64(100000), big.NewInt(0))
 	vote5.SetVoterPublicKey(b.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(0, []action.Action{vote5})
+	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 0, []action.Action{vote5})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -385,10 +388,10 @@ func TestCandidates(t *testing.T) {
 	require.True(t, compareStrings(voteForm(h, cand), []string{a.RawAddress + ":0", b.RawAddress + ":280"}))
 	// a(b):70(0) b(b):210(+70=280) !c:320
 
-	vote6, err := action.NewVote(3, b.RawAddress, b.RawAddress, uint64(100000), big.NewInt(10))
+	vote6, err := action.NewVote(3, b.RawAddress, b.RawAddress, uint64(100000), big.NewInt(0))
 	vote6.SetVoterPublicKey(b.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(0, []action.Action{vote6})
+	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 0, []action.Action{vote6})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -400,7 +403,7 @@ func TestCandidates(t *testing.T) {
 
 	tx5, err := action.NewTransfer(uint64(2), big.NewInt(20), c.RawAddress, a.RawAddress, nil, uint64(0), big.NewInt(0))
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(0, []action.Action{tx5})
+	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 0, []action.Action{tx5})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -410,10 +413,10 @@ func TestCandidates(t *testing.T) {
 	require.True(t, compareStrings(voteForm(h, cand), []string{a.RawAddress + ":0", b.RawAddress + ":300"}))
 	// a(b):90(0) b(b):210(+90=300) !c:300
 
-	vote7, err := action.NewVote(0, c.RawAddress, a.RawAddress, uint64(100000), big.NewInt(10))
+	vote7, err := action.NewVote(0, c.RawAddress, a.RawAddress, uint64(100000), big.NewInt(0))
 	vote7.SetVoterPublicKey(c.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(0, []action.Action{vote7})
+	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 0, []action.Action{vote7})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -423,10 +426,10 @@ func TestCandidates(t *testing.T) {
 	require.True(t, compareStrings(voteForm(h, cand), []string{a.RawAddress + ":300", b.RawAddress + ":300"}))
 	// a(b):90(300) b(b):210(+90=300) !c(a):300
 
-	vote8, err := action.NewVote(4, b.RawAddress, c.RawAddress, uint64(100000), big.NewInt(10))
+	vote8, err := action.NewVote(4, b.RawAddress, c.RawAddress, uint64(100000), big.NewInt(0))
 	vote8.SetVoterPublicKey(b.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(0, []action.Action{vote8})
+	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 0, []action.Action{vote8})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -436,10 +439,10 @@ func TestCandidates(t *testing.T) {
 	require.True(t, compareStrings(voteForm(h, cand), []string{a.RawAddress + ":300", b.RawAddress + ":90"}))
 	// a(b):90(300) b(c):210(90) !c(a):300
 
-	vote9, err := action.NewVote(1, c.RawAddress, c.RawAddress, uint64(100000), big.NewInt(10))
+	vote9, err := action.NewVote(1, c.RawAddress, c.RawAddress, uint64(100000), big.NewInt(0))
 	vote9.SetVoterPublicKey(c.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(0, []action.Action{vote9})
+	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 0, []action.Action{vote9})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -449,10 +452,10 @@ func TestCandidates(t *testing.T) {
 	require.True(t, compareStrings(voteForm(h, cand), []string{c.RawAddress + ":510", b.RawAddress + ":90"}))
 	// a(b):90(0) b(c):210(90) c(c):300(+210=510)
 
-	vote10, err := action.NewVote(0, d.RawAddress, e.RawAddress, uint64(100000), big.NewInt(10))
+	vote10, err := action.NewVote(0, d.RawAddress, e.RawAddress, uint64(100000), big.NewInt(0))
 	vote10.SetVoterPublicKey(d.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(0, []action.Action{vote10})
+	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 0, []action.Action{vote10})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -462,10 +465,10 @@ func TestCandidates(t *testing.T) {
 	require.True(t, compareStrings(voteForm(h, cand), []string{c.RawAddress + ":510", b.RawAddress + ":90"}))
 	// a(b):90(0) b(c):210(90) c(c):300(+210=510)
 
-	vote11, err := action.NewVote(1, d.RawAddress, d.RawAddress, uint64(100000), big.NewInt(10))
+	vote11, err := action.NewVote(1, d.RawAddress, d.RawAddress, uint64(100000), big.NewInt(0))
 	vote11.SetVoterPublicKey(d.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(0, []action.Action{vote11})
+	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 0, []action.Action{vote11})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -475,10 +478,10 @@ func TestCandidates(t *testing.T) {
 	require.True(t, compareStrings(voteForm(h, cand), []string{c.RawAddress + ":510", d.RawAddress + ":100"}))
 	// a(b):90(0) b(c):210(90) c(c):300(+210=510) d(d): 100(100)
 
-	vote12, err := action.NewVote(2, d.RawAddress, a.RawAddress, uint64(100000), big.NewInt(10))
+	vote12, err := action.NewVote(2, d.RawAddress, a.RawAddress, uint64(100000), big.NewInt(0))
 	vote12.SetVoterPublicKey(d.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(0, []action.Action{vote12})
+	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 0, []action.Action{vote12})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -488,10 +491,10 @@ func TestCandidates(t *testing.T) {
 	require.True(t, compareStrings(voteForm(h, cand), []string{c.RawAddress + ":510", a.RawAddress + ":100"}))
 	// a(b):90(100) b(c):210(90) c(c):300(+210=510) d(a): 100(0)
 
-	vote13, err := action.NewVote(2, c.RawAddress, d.RawAddress, uint64(100000), big.NewInt(10))
+	vote13, err := action.NewVote(2, c.RawAddress, d.RawAddress, uint64(100000), big.NewInt(0))
 	vote13.SetVoterPublicKey(c.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(0, []action.Action{vote13})
+	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 0, []action.Action{vote13})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -501,10 +504,10 @@ func TestCandidates(t *testing.T) {
 	require.True(t, compareStrings(voteForm(h, cand), []string{c.RawAddress + ":210", d.RawAddress + ":300"}))
 	// a(b):90(100) b(c):210(90) c(d):300(210) d(a): 100(300)
 
-	vote14, err := action.NewVote(3, c.RawAddress, c.RawAddress, uint64(100000), big.NewInt(10))
+	vote14, err := action.NewVote(3, c.RawAddress, c.RawAddress, uint64(100000), big.NewInt(0))
 	vote14.SetVoterPublicKey(c.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(0, []action.Action{vote14})
+	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 0, []action.Action{vote14})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -518,7 +521,7 @@ func TestCandidates(t *testing.T) {
 	require.NoError(t, err)
 	tx7, err := action.NewTransfer(uint64(2), big.NewInt(200), b.RawAddress, e.RawAddress, nil, uint64(0), big.NewInt(0))
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(0, []action.Action{tx6, tx7})
+	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 0, []action.Action{tx6, tx7})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -528,10 +531,10 @@ func TestCandidates(t *testing.T) {
 	require.True(t, compareStrings(voteForm(h, cand), []string{c.RawAddress + ":110", a.RawAddress + ":100"}))
 	// a(b):90(100) b(c):10(90) c(c):100(+10=110) d(a): 100(0) !e:500
 
-	vote15, err := action.NewVote(0, e.RawAddress, e.RawAddress, uint64(100000), big.NewInt(10))
+	vote15, err := action.NewVote(0, e.RawAddress, e.RawAddress, uint64(100000), big.NewInt(0))
 	vote15.SetVoterPublicKey(e.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(0, []action.Action{vote15})
+	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 0, []action.Action{vote15})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -541,10 +544,10 @@ func TestCandidates(t *testing.T) {
 	require.True(t, compareStrings(voteForm(h, cand), []string{c.RawAddress + ":110", e.RawAddress + ":500"}))
 	// a(b):90(100) b(c):10(90) c(c):100(+10=110) d(a): 100(0) e(e):500(+0=500)
 
-	vote16, err := action.NewVote(0, f.RawAddress, f.RawAddress, uint64(100000), big.NewInt(10))
+	vote16, err := action.NewVote(0, f.RawAddress, f.RawAddress, uint64(100000), big.NewInt(0))
 	vote16.SetVoterPublicKey(f.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(0, []action.Action{vote16})
+	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 0, []action.Action{vote16})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -554,13 +557,13 @@ func TestCandidates(t *testing.T) {
 	require.True(t, compareStrings(voteForm(h, cand), []string{f.RawAddress + ":300", e.RawAddress + ":500"}))
 	// a(b):90(100) b(c):10(90) c(c):100(+10=110) d(a): 100(0) e(e):500(+0=500) f(f):300(+0=300)
 
-	vote17, err := action.NewVote(0, f.RawAddress, d.RawAddress, uint64(100000), big.NewInt(10))
+	vote17, err := action.NewVote(0, f.RawAddress, d.RawAddress, uint64(100000), big.NewInt(0))
 	vote17.SetVoterPublicKey(f.PublicKey)
 	require.NoError(t, err)
-	vote18, err := action.NewVote(1, f.RawAddress, d.RawAddress, uint64(100000), big.NewInt(10))
+	vote18, err := action.NewVote(1, f.RawAddress, d.RawAddress, uint64(100000), big.NewInt(0))
 	vote18.SetVoterPublicKey(f.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(0, []action.Action{vote17, vote18})
+	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 0, []action.Action{vote17, vote18})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -572,7 +575,7 @@ func TestCandidates(t *testing.T) {
 
 	tx8, err := action.NewTransfer(uint64(1), big.NewInt(200), f.RawAddress, b.RawAddress, nil, uint64(0), big.NewInt(0))
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(0, []action.Action{tx8})
+	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 0, []action.Action{tx8})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -585,7 +588,7 @@ func TestCandidates(t *testing.T) {
 
 	tx9, err := action.NewTransfer(uint64(1), big.NewInt(10), b.RawAddress, a.RawAddress, nil, uint64(0), big.NewInt(0))
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(0, []action.Action{tx9})
+	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 0, []action.Action{tx9})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -597,7 +600,7 @@ func TestCandidates(t *testing.T) {
 
 	tx10, err := action.NewTransfer(uint64(1), big.NewInt(300), e.RawAddress, d.RawAddress, nil, uint64(0), big.NewInt(0))
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(1, []action.Action{tx10})
+	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 1, []action.Action{tx10})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -613,13 +616,13 @@ func TestCandidates(t *testing.T) {
 	ws, err = sf.NewWorkingSet()
 	require.NotNil(t, ws)
 	require.NoError(t, err)
-	vote19, err := action.NewVote(0, d.RawAddress, a.RawAddress, uint64(100000), big.NewInt(10))
+	vote19, err := action.NewVote(0, d.RawAddress, a.RawAddress, uint64(100000), big.NewInt(0))
 	vote19.SetVoterPublicKey(d.PublicKey)
 	require.NoError(t, err)
-	vote20, err := action.NewVote(3, d.RawAddress, b.RawAddress, uint64(100000), big.NewInt(10))
+	vote20, err := action.NewVote(3, d.RawAddress, b.RawAddress, uint64(100000), big.NewInt(0))
 	vote20.SetVoterPublicKey(d.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(2, []action.Action{vote19, vote20})
+	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 2, []action.Action{vote19, vote20})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -634,10 +637,10 @@ func TestCandidates(t *testing.T) {
 	ws, err = sf.NewWorkingSet()
 	require.NotNil(t, ws)
 	require.NoError(t, err)
-	vote21, err := action.NewVote(4, c.RawAddress, "", uint64(100000), big.NewInt(10))
+	vote21, err := action.NewVote(4, c.RawAddress, "", uint64(100000), big.NewInt(0))
 	vote21.SetVoterPublicKey(c.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(3, []action.Action{vote21})
+	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 3, []action.Action{vote21})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -649,10 +652,10 @@ func TestCandidates(t *testing.T) {
 	require.True(t, compareStrings(voteForm(h, cand), []string{e.RawAddress + ":200", b.RawAddress + ":500"}))
 	// a(b):100(0) b(c):200(500) [c(c):100(+200=300)] d(b): 400(100) e(e):200(+0=200) f(d):100(0)
 
-	vote22, err := action.NewVote(4, f.RawAddress, "", uint64(100000), big.NewInt(10))
+	vote22, err := action.NewVote(4, f.RawAddress, "", uint64(100000), big.NewInt(0))
 	vote22.SetVoterPublicKey(f.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(3, []action.Action{vote22})
+	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 3, []action.Action{vote22})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	require.Nil(t, sf.Commit(ws))
@@ -744,46 +747,46 @@ func TestUnvote(t *testing.T) {
 	_, err = ws.LoadOrCreateAccountState(b.RawAddress, big.NewInt(200))
 	require.NoError(t, err)
 
-	vote1, err := action.NewVote(0, a.RawAddress, "", uint64(100000), big.NewInt(10))
+	vote1, err := action.NewVote(0, a.RawAddress, "", uint64(100000), big.NewInt(0))
 	vote1.SetVoterPublicKey(a.PublicKey)
 	require.NoError(t, err)
-	_, err = ws.RunActions(0, []action.Action{vote1})
+	_, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 0, []action.Action{vote1})
 	require.Nil(t, err)
 	require.Nil(t, sf.Commit(ws))
 	h, _ := sf.Height()
 	cand, _ := sf.CandidatesByHeight(h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{}))
 
-	vote2, err := action.NewVote(0, a.RawAddress, a.RawAddress, uint64(100000), big.NewInt(10))
+	vote2, err := action.NewVote(0, a.RawAddress, a.RawAddress, uint64(100000), big.NewInt(0))
 	vote2.SetVoterPublicKey(a.PublicKey)
 	require.NoError(t, err)
-	_, err = ws.RunActions(0, []action.Action{vote2})
+	_, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 0, []action.Action{vote2})
 	require.Nil(t, err)
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{a.RawAddress + ":100"}))
 
-	vote3, err := action.NewVote(0, a.RawAddress, "", uint64(100000), big.NewInt(10))
+	vote3, err := action.NewVote(0, a.RawAddress, "", uint64(100000), big.NewInt(0))
 	vote3.SetVoterPublicKey(a.PublicKey)
 	require.NoError(t, err)
-	_, err = ws.RunActions(0, []action.Action{vote3})
+	_, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 0, []action.Action{vote3})
 	require.Nil(t, err)
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{}))
 
-	vote4, err := action.NewVote(0, b.RawAddress, b.RawAddress, uint64(100000), big.NewInt(10))
+	vote4, err := action.NewVote(0, b.RawAddress, b.RawAddress, uint64(100000), big.NewInt(0))
 	vote4.SetVoterPublicKey(b.PublicKey)
 	require.NoError(t, err)
-	vote5, err := action.NewVote(0, a.RawAddress, b.RawAddress, uint64(100000), big.NewInt(10))
+	vote5, err := action.NewVote(0, a.RawAddress, b.RawAddress, uint64(100000), big.NewInt(0))
 	vote5.SetVoterPublicKey(a.PublicKey)
 	require.NoError(t, err)
-	vote6, err := action.NewVote(0, a.RawAddress, "", uint64(100000), big.NewInt(10))
+	vote6, err := action.NewVote(0, a.RawAddress, "", uint64(100000), big.NewInt(0))
 	vote6.SetVoterPublicKey(a.PublicKey)
 	require.NoError(t, err)
-	_, err = ws.RunActions(0, []action.Action{vote4, vote5, vote6})
+	_, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 0, []action.Action{vote4, vote5, vote6})
 	require.Nil(t, err)
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()

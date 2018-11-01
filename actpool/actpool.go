@@ -145,6 +145,7 @@ func (ap *actPool) PickActs() []action.Action {
 	actions := make([]action.Action, 0)
 	for _, queue := range ap.accountActs {
 		for _, act := range queue.PendingActs() {
+			//act.Cost()
 			actions = append(actions, act)
 			numActs++
 			if ap.cfg.MaxNumActsToPick > 0 && numActs >= ap.cfg.MaxNumActsToPick {

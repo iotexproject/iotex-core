@@ -256,7 +256,7 @@ func TestWrongNonce(t *testing.T) {
 	require.Nil(val.Validate(blk, 2, hash, true))
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
-	_, err = ws.RunActions(1, []action.Action{tsf1})
+	_, err = ws.RunActions(ta.Addrinfo["producer"].RawAddress, 1, []action.Action{tsf1})
 	require.NoError(err)
 	require.Nil(sf.Commit(ws))
 
@@ -512,7 +512,7 @@ func addCreatorToFactory(sf state.Factory) error {
 	if _, err = ws.LoadOrCreateAccountState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply); err != nil {
 		return err
 	}
-	if _, err = ws.RunActions(0, nil); err != nil {
+	if _, err = ws.RunActions(ta.Addrinfo["producer"].RawAddress, 0, nil); err != nil {
 		return err
 	}
 	if err = sf.Commit(ws); err != nil {
