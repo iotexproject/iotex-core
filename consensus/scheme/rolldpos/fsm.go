@@ -22,6 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/proto"
 )
 
@@ -198,6 +199,13 @@ func (m *cFSM) Start(c context.Context) error {
 			case <-m.close:
 				running = false
 			case evt := <-m.evtq:
+				if evt.Type() == eProposeBlock {
+					if proposeBlkEvt, ok := evt.(*proposeBlkEvt); ok {
+						src := m.fsm.CurrentState()
+						blockHash := proposeBlkEvt.block.HashBlock()
+						logger.Info().Str("currentState", string(src)).Hex("hash", blockHash[:]).Uint32("round", proposeBlkEvt.r).Msgf("Received a block proposal")
+					}
+				}
 				timeoutEvt, ok := evt.(*timeoutEvt)
 				if ok && timeoutEvt.timestamp().Before(m.ctx.round.timestamp) {
 					logger.Debug().Msg("timeoutEvt is stale")
@@ -348,22 +356,20 @@ func (m *cFSM) handleStartRoundEvt(_ fsm.Event) (fsm.State, error) {
 	}
 	m.ctx.epoch.subEpochNum = subEpochNum
 
-	proposer, height, err := m.ctx.rotatedProposer()
+	proposer, height, round, err := m.ctx.rotatedProposer()
 	if err != nil {
 		logger.Error().
 			Err(err).
 			Msg("error when getting the proposer")
 		return sEpochStart, err
 	}
-	if m.ctx.round.height == height {
-		m.ctx.round.number = m.ctx.round.number + 1
-	} else {
+	if m.ctx.round.height != height {
 		m.ctx.round = roundCtx{
 			height:          height,
-			number:          0,
 			endorsementSets: make(map[hash.Hash32B]*endorsement.Set),
 		}
 	}
+	m.ctx.round.number = round
 	m.ctx.round.proposer = proposer
 	m.ctx.round.timestamp = m.ctx.clock.Now()
 
@@ -402,6 +408,9 @@ func (m *cFSM) handleInitBlockProposeEvt(evt fsm.Event) (fsm.State, error) {
 	// Notify itself
 	m.produce(proposeBlkEvt, 0)
 	// Notify other delegates
+	blkHash := blk.HashBlock()
+	hashedProto := byteutil.BytesTo32B([]byte(proposeBlkEvtProto.String()))
+	logger.Info().Hex("hash", blkHash[:]).Hex("Proto", hashedProto[:]).Uint32("round", m.ctx.round.number).Msgf("Broadcasting a block")
 	if err := m.ctx.p2p.Broadcast(m.ctx.chain.ChainID(), proposeBlkEvtProto); err != nil {
 		logger.Error().
 			Err(err).
@@ -463,11 +472,7 @@ func (m *cFSM) handleProposeBlockEvt(evt fsm.Event) (fsm.State, error) {
 	if !ok {
 		return sEpochStart, errors.Wrap(ErrEvtCast, "the event is not a proposeBlkEvt")
 	}
-	proposer, err := m.ctx.calcProposer(proposeBlkEvt.block.Height(), m.ctx.epoch.delegates)
-	if err != nil {
-		return sEpochStart, errors.Wrap(err, "error when calculating the proposer")
-	}
-	if !m.validateProposeBlock(proposeBlkEvt.block, proposer) {
+	if !m.validateProposeBlock(proposeBlkEvt.block, m.ctx.round.proposer) {
 		return sAcceptPropose, nil
 	}
 	m.ctx.round.block = proposeBlkEvt.block
@@ -760,11 +765,12 @@ func (m *cFSM) produceStartRoundEvt() error {
 	}
 	// If the proposal interval is not set (not zero), the next round will only be started after the configured duration
 	// after last block's creation time, so that we could keep the constant
-	if duration >= m.ctx.cfg.ProposerInterval {
-		m.produce(m.newCEvt(eStartRound), 0)
-	} else {
-		m.produce(m.newCEvt(eStartRound), m.ctx.cfg.ProposerInterval-duration)
+	waitDuration := time.Duration(0)
+	if m.ctx.cfg.ProposerInterval > 0 {
+		waitDuration = (m.ctx.cfg.ProposerInterval - (duration % m.ctx.cfg.ProposerInterval)) % m.ctx.cfg.ProposerInterval
 	}
+	m.produce(m.newCEvt(eStartRound), waitDuration)
+
 	return nil
 }
 
