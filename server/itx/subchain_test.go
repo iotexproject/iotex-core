@@ -4,15 +4,20 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package chainservice
+package itx
 
 import (
-	"github.com/iotexproject/iotex-core/actpool"
-	"github.com/iotexproject/iotex-core/state"
+	"testing"
+
+	"github.com/iotexproject/iotex-core/config"
+	"github.com/stretchr/testify/assert"
 )
 
-// Protocol defines the protocol interfaces atop IoTeX blockchain
-type Protocol interface {
-	actpool.ActionValidator
-	state.ActionHandler
+func TestGetSubChainDBPath(t *testing.T) {
+	t.Parallel()
+
+	chainDBPath := getSubChainDBPath(1, config.Default.Chain.ChainDBPath)
+	trieDBPath := getSubChainDBPath(1, config.Default.Chain.TrieDBPath)
+	assert.Equal(t, "/tmp/chain-1-chain.db", chainDBPath)
+	assert.Equal(t, "/tmp/chain-1-trie.db", trieDBPath)
 }

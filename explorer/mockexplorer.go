@@ -213,6 +213,11 @@ func (exp *MockExplorer) PutSubChainBlock(putBlockJSON explorer.PutSubChainBlock
 	return explorer.PutSubChainBlockResponse{}, nil
 }
 
+// SendAction makes a fake send action request.
+func (exp *MockExplorer) SendAction(req explorer.SendActionRequest) (resp explorer.SendActionResponse, err error) {
+	return explorer.SendActionResponse{}, nil
+}
+
 // GetPeers returns a empty GetPeersResponse.
 func (exp *MockExplorer) GetPeers() (explorer.GetPeersResponse, error) {
 	return explorer.GetPeersResponse{}, nil

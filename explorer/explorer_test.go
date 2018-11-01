@@ -15,6 +15,7 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -26,7 +27,10 @@ import (
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/network/node"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_consensus"
@@ -648,6 +652,41 @@ func TestServicePutSubChainBlock(t *testing.T) {
 	response, err = svc.PutSubChainBlock(r)
 	require.NotNil(response.Hash)
 	require.Nil(err)
+}
+
+func TestServiceSendAction(t *testing.T) {
+	require := require.New(t)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	chain := mock_blockchain.NewMockBlockchain(ctrl)
+	mDp := mock_dispatcher.NewMockDispatcher(ctrl)
+	p2p := mock_network.NewMockOverlay(ctrl)
+	svc := Service{bc: chain, dp: mDp, p2p: p2p}
+
+	request := explorer.SendActionRequest{}
+	_, err := svc.SendAction(request)
+	require.NotNil(err)
+
+	request.Payload = "abc"
+	_, err = svc.SendAction(request)
+	require.NotNil(err)
+
+	roots := make(map[string]hash.Hash32B)
+	roots["10002"] = byteutil.BytesTo32B([]byte("10002"))
+	pb := action.NewPutBlock(1, "", senderRawAddr, 100, roots, 10000, big.NewInt(0))
+	pl := iproto.SendActionRequest{Action: pb.Proto()}
+	d, err := proto.Marshal(&pl)
+	require.NoError(err)
+	request.Payload = hex.EncodeToString(d)
+
+	chain.EXPECT().ChainID().Return(uint32(1)).Times(2)
+	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
+	p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Times(1)
+
+	_, err = svc.SendAction(request)
+	require.NoError(err)
 }
 
 func TestServiceGetPeers(t *testing.T) {

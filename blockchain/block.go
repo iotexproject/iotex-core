@@ -15,6 +15,7 @@ import (
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/iotxaddress"
@@ -82,6 +83,7 @@ func NewBlock(
 	height uint64,
 	prevBlockHash hash.Hash32B,
 	timestamp uint64,
+	producer keypair.PublicKey,
 	actions []action.Action,
 ) *Block {
 	block := &Block{
@@ -91,6 +93,7 @@ func NewBlock(
 			height:        height,
 			timestamp:     timestamp,
 			prevBlockHash: prevBlockHash,
+			Pubkey:        producer,
 			txRoot:        hash.ZeroHash32B,
 			stateRoot:     hash.ZeroHash32B,
 			receiptRoot:   hash.ZeroHash32B,
@@ -108,6 +111,7 @@ func NewSecretBlock(
 	height uint64,
 	prevBlockHash hash.Hash32B,
 	timestamp uint64,
+	producer keypair.PublicKey,
 	secretProposals []*action.SecretProposal,
 	secretWitness *action.SecretWitness,
 ) *Block {
@@ -118,6 +122,7 @@ func NewSecretBlock(
 			height:        height,
 			timestamp:     timestamp,
 			prevBlockHash: prevBlockHash,
+			Pubkey:        producer,
 			txRoot:        hash.ZeroHash32B,
 			stateRoot:     hash.ZeroHash32B,
 			receiptRoot:   hash.ZeroHash32B,
@@ -350,7 +355,9 @@ func (b *Block) SignBlock(signer *iotxaddress.Address) error {
 	if signer.PrivateKey == keypair.ZeroPrivateKey {
 		return errors.New("The private key is empty")
 	}
-	b.Header.Pubkey = signer.PublicKey
+	if signer.PublicKey != b.Header.Pubkey {
+		return errors.New("The public key doesn't match")
+	}
 	blkHash := b.HashBlock()
 	b.Header.blockSig = crypto.EC283.Sign(signer.PrivateKey, blkHash[:])
 	return nil
@@ -365,11 +372,8 @@ func (b *Block) VerifySignature() bool {
 
 // ProducerAddress returns the address of producer
 func (b *Block) ProducerAddress() string {
-	chainID := make([]byte, 4)
-	enc.MachineEndian.PutUint32(chainID, b.Header.chainID)
-	addr, err := iotxaddress.GetAddressByPubkey(iotxaddress.IsTestnet, chainID, b.Header.Pubkey)
-	if err != nil {
-		return ""
-	}
-	return addr.RawAddress
+	pkHash := keypair.HashPubKey(b.Header.Pubkey)
+	addr := address.New(b.Header.chainID, pkHash[:])
+
+	return addr.IotxAddress()
 }

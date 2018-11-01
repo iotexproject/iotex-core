@@ -16,6 +16,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/trie"
@@ -44,6 +45,8 @@ type (
 		State(hash.PKHash, State) (State, error)
 		CachedState(hash.PKHash, State) (State, error)
 		PutState(hash.PKHash, State) error
+		UpdateCachedCandidates(*action.Vote) error
+		UpdateCachedStates(hash.PKHash, *Account)
 	}
 
 	// workingSet implements Workingset interface, tracks pending changes to account/contract in local cache
@@ -93,7 +96,7 @@ func NewWorkingSet(
 // LoadOrCreateAccountState loads existing or adds a new account state with initial balance to the factory
 // addr should be a bech32 properly-encoded string
 func (ws *workingSet) LoadOrCreateAccountState(addr string, init *big.Int) (*Account, error) {
-	addrHash, err := addressToPKHash(addr)
+	addrHash, err := iotxaddress.AddressToPKHash(addr)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +130,7 @@ func (ws *workingSet) Nonce(addr string) (uint64, error) {
 
 // CachedAccountState returns the cached account state if the address exists in local cache
 func (ws *workingSet) CachedAccountState(addr string) (*Account, error) {
-	addrHash, err := addressToPKHash(addr)
+	addrHash, err := iotxaddress.AddressToPKHash(addr)
 	if err != nil {
 		return nil, err
 	}
@@ -208,7 +211,7 @@ func (ws *workingSet) RunActions(
 		}
 		totalWeight := big.NewInt(0)
 		totalWeight.Add(totalWeight, account.VotingWeight)
-		voteePKHash, err := addressToPKHash(account.Votee)
+		voteePKHash, err := iotxaddress.AddressToPKHash(account.Votee)
 		if err != nil {
 			return hash.ZeroHash32B, err
 		}
@@ -230,7 +233,7 @@ func (ws *workingSet) RunActions(
 	}
 	// increase Executor's Nonce for every execution in this block
 	for _, e := range executions {
-		executorPKHash, err := addressToPKHash(e.Executor())
+		executorPKHash, err := iotxaddress.AddressToPKHash(e.Executor())
 		if err != nil {
 			return hash.ZeroHash32B, err
 		}
@@ -277,10 +280,17 @@ func (ws *workingSet) RunActions(
 		}*/
 	}
 
+	// Handle actions
 	for _, act := range actions {
 		for _, actionHandler := range ws.actionHandlers {
 			if err := actionHandler.Handle(act, ws); err != nil {
-				return hash.ZeroHash32B, errors.Wrapf(err, "error when action %x mutates states", act.Hash())
+				return hash.ZeroHash32B, errors.Wrapf(
+					err,
+					"error when action %x (nonce: %d) from %s mutates states",
+					act.Hash(),
+					act.Nonce(),
+					act.SrcAddr(),
+				)
 			}
 		}
 	}
@@ -314,6 +324,28 @@ func (ws *workingSet) Commit() error {
 	}
 	ws.clearCache()
 	return nil
+}
+
+// UpdateCachedCandidates updates cached candidates
+func (ws *workingSet) UpdateCachedCandidates(vote *action.Vote) error {
+	votePubkey := vote.VoterPublicKey()
+	voterPKHash, err := iotxaddress.AddressToPKHash(vote.Voter())
+	if err != nil {
+		return errors.Wrap(err, "failed to get public key hash from account address")
+	}
+	if _, ok := ws.cachedCandidates[voterPKHash]; !ok {
+		ws.cachedCandidates[voterPKHash] = &Candidate{
+			Address:        vote.Voter(),
+			PublicKey:      votePubkey,
+			CreationHeight: ws.blkHeight,
+		}
+	}
+	return nil
+}
+
+// UpdateCachedStates updates cached states
+func (ws *workingSet) UpdateCachedStates(pkHash hash.PKHash, account *Account) {
+	ws.cachedStates[pkHash] = account
 }
 
 //======================================
@@ -411,7 +443,7 @@ func (ws *workingSet) State(hash hash.PKHash, s State) (State, error) {
 
 // accountState returns the confirmed account state on the chain
 func (ws *workingSet) accountState(addr string) (*Account, error) {
-	addrHash, err := addressToPKHash(addr)
+	addrHash, err := iotxaddress.AddressToPKHash(addr)
 	if err != nil {
 		return nil, err
 	}
@@ -475,8 +507,10 @@ func (ws *workingSet) getContract(addr hash.PKHash) (Contract, error) {
 func (ws *workingSet) clearCache() {
 	ws.cachedStates = nil
 	ws.cachedContract = nil
+	ws.cachedCandidates = nil
 	ws.cachedStates = make(map[hash.PKHash]State)
 	ws.cachedContract = make(map[hash.PKHash]Contract)
+	ws.cachedCandidates = make(map[hash.PKHash]*Candidate)
 }
 
 //======================================
@@ -580,7 +614,7 @@ func (ws *workingSet) handleVote(producer *Account, blockHeight uint64, votes []
 		if err != nil {
 			return errors.Wrapf(err, "failed to load or create the account of voter %s", v.Voter())
 		}
-		voterPKHash, err := addressToPKHash(v.Voter())
+		voterPKHash, err := iotxaddress.AddressToPKHash(v.Voter())
 		if err != nil {
 			return err
 		}

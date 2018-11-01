@@ -199,7 +199,15 @@ struct PutSubChainBlockRequest {
 }
 
 struct PutSubChainBlockResponse {
-	hash string
+    hash string
+}
+
+struct SendActionRequest {
+   payload  string
+}
+
+struct SendActionResponse {
+   payload  string
 }
 
 struct Node {
@@ -306,6 +314,9 @@ interface Explorer {
 
     // putSubChainBlock
     putSubChainBlock(request PutSubChainBlockRequest) PutSubChainBlockResponse
+
+    // sendAction
+    sendAction(request SendActionRequest) SendActionResponse
 
     // get list of peers
     getPeers() GetPeersResponse

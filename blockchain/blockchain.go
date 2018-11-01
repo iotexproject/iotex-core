@@ -325,12 +325,6 @@ func (bc *blockchain) startEmptyBlockchain() error {
 	}
 	genesis.Header.stateRoot = root
 	genesis.workingSet = ws
-	// TODO: validateBlock will call runActions again, which is not supposed to rerun. Disable it now
-	/*
-		if err := bc.validateBlock(genesis, false); err != nil {
-			return errors.Wrap(err, "failed to validate Genesis block")
-		}
-	*/
 	// add Genesis block as very first block
 	if err := bc.commitBlock(genesis); err != nil {
 		return errors.Wrap(err, "failed to commit Genesis block")
@@ -383,8 +377,7 @@ func (bc *blockchain) startExistingBlockchain(recoveryHeight uint64) error {
 		if err != nil {
 			return err
 		}
-		// TODO: disable validation before resolve the state root doesn't match issue
-		if _, err := bc.runActions(blk, ws, false); err != nil {
+		if _, err := bc.runActions(blk, ws, true); err != nil {
 			return err
 		}
 		if err := bc.sf.Commit(ws); err != nil {
@@ -676,7 +669,7 @@ func (bc *blockchain) MintNewBlock(
 	defer bc.mu.RUnlock()
 
 	actions = append(actions, action.NewCoinBaseTransfer(bc.genesis.BlockReward, producer.RawAddress))
-	blk := NewBlock(bc.config.Chain.ID, bc.tipHeight+1, bc.tipHash, bc.now(), actions)
+	blk := NewBlock(bc.config.Chain.ID, bc.tipHeight+1, bc.tipHash, bc.now(), producer.PublicKey, actions)
 	blk.Header.DKGID = []byte{}
 	blk.Header.DKGPubkey = []byte{}
 	blk.Header.DKGBlockSig = []byte{}
@@ -695,7 +688,7 @@ func (bc *blockchain) MintNewBlock(
 	}
 	root, err := bc.runActions(blk, ws, false)
 	if err != nil {
-		return nil, errors.Wrapf(err, "Failed to update state changes in new DKG block %d", blk.Height())
+		return nil, errors.Wrapf(err, "Failed to update state changes in new block %d", blk.Height())
 	}
 	blk.Header.stateRoot = root
 	if err := blk.SignBlock(producer); err != nil {
@@ -715,7 +708,15 @@ func (bc *blockchain) MintNewSecretBlock(
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
 
-	blk := NewSecretBlock(bc.config.Chain.ID, bc.tipHeight+1, bc.tipHash, bc.now(), secretProposals, secretWitness)
+	blk := NewSecretBlock(
+		bc.config.Chain.ID,
+		bc.tipHeight+1,
+		bc.tipHash,
+		bc.now(),
+		producer.PublicKey,
+		secretProposals,
+		secretWitness,
+	)
 	// run execution and update state trie root hash
 	ws, err := bc.sf.NewWorkingSet()
 	if err != nil {
@@ -808,8 +809,7 @@ func (bc *blockchain) validateBlock(blk *Block, containCoinbase bool) error {
 	if err != nil {
 		return errors.Wrap(err, "Failed to obtain working set from state factory")
 	}
-	// TODO: disable validation before resolve the state root doesn't match issue
-	if _, err := bc.runActions(blk, ws, false); err != nil {
+	if _, err := bc.runActions(blk, ws, true); err != nil {
 		logger.Panic().Err(err).Msgf("Failed to update state on height %d", bc.tipHeight)
 	}
 	// attach working set to be committed to state factory
@@ -847,17 +847,17 @@ func (bc *blockchain) commitBlock(blk *Block) error {
 	return nil
 }
 
-func (bc *blockchain) runActions(blk *Block, ws state.WorkingSet, verify bool) (root hash.Hash32B, err error) {
+func (bc *blockchain) runActions(blk *Block, ws state.WorkingSet, verify bool) (hash.Hash32B, error) {
 	if bc.sf == nil {
-		return root, nil
+		return hash.ZeroHash32B, errors.New("statefactory cannot be nil")
 	}
 	// run executions
 	if _, _, executions := action.ClassifyActions(blk.Actions); len(executions) > 0 {
 		ExecuteContracts(blk, ws, bc)
 	}
 	// update state factory
-	//blk.ProducerAddress()
-	if root, err = ws.RunActions(blk.ProducerAddress(), blk.Height(), blk.Actions); err != nil {
+	root, err := ws.RunActions(blk.ProducerAddress(), blk.Height(), blk.Actions)
+	if err != nil {
 		return root, err
 	}
 	if verify {

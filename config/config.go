@@ -144,9 +144,10 @@ var (
 			NodeAddr: "",
 		},
 		System: System{
-			HeartbeatInterval: 10 * time.Second,
-			HTTPProfilingPort: 0,
-			HTTPMetricsPort:   8080,
+			HeartbeatInterval:     10 * time.Second,
+			HTTPProfilingPort:     0,
+			HTTPMetricsPort:       8080,
+			StartSubChainInterval: 10 * time.Second,
 		},
 		DB: DB{
 			NumRetries: 3,
@@ -279,8 +280,9 @@ type (
 		HeartbeatInterval time.Duration `yaml:"heartbeatInterval"`
 		// HTTPProfilingPort is the port number to access golang performance profiling data of a blockchain node. It is
 		// 0 by default, meaning performance profiling has been disabled
-		HTTPProfilingPort int `yaml:"httpProfilingPort"`
-		HTTPMetricsPort   int `yaml:"httpMetricsPort"`
+		HTTPProfilingPort     int           `yaml:"httpProfilingPort"`
+		HTTPMetricsPort       int           `yaml:"httpMetricsPort"`
+		StartSubChainInterval time.Duration `yaml:"startSubChainInterval"`
 	}
 
 	// ActPool is the actpool config
@@ -505,12 +507,21 @@ func ValidateDispatcher(cfg *Config) error {
 
 // ValidateRollDPoS validates the roll-DPoS configs
 func ValidateRollDPoS(cfg *Config) error {
-	if cfg.Consensus.Scheme == RollDPoSScheme && cfg.Consensus.RollDPoS.EventChanSize <= 0 {
+	if cfg.Consensus.Scheme != RollDPoSScheme {
+		return nil
+	}
+	rollDPoS := cfg.Consensus.RollDPoS
+	if rollDPoS.EventChanSize <= 0 {
 		return errors.Wrap(ErrInvalidCfg, "roll-DPoS event chan size should be greater than 0")
 	}
-	if cfg.Consensus.Scheme == RollDPoSScheme && cfg.Consensus.RollDPoS.NumDelegates <= 0 {
+	if rollDPoS.NumDelegates <= 0 {
 		return errors.Wrap(ErrInvalidCfg, "roll-DPoS event delegate number should be greater than 0")
 	}
+	ttl := rollDPoS.AcceptCommitEndorseTTL + rollDPoS.AcceptProposeTTL + rollDPoS.AcceptProposalEndorseTTL
+	if ttl >= rollDPoS.ProposerInterval {
+		return errors.Wrap(ErrInvalidCfg, "roll-DPoS ttl sum is larger than proposer interval")
+	}
+
 	return nil
 }
 

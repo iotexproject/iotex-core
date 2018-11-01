@@ -26,7 +26,7 @@ const PutBlockIntrinsicGas = uint64(1000)
 
 // PutBlock represents put a sub-chain block message.
 type PutBlock struct {
-	abstractAction
+	AbstractAction
 
 	subChainAddress string
 	height          uint64
@@ -45,7 +45,7 @@ func NewPutBlock(
 	gasPrice *big.Int,
 ) *PutBlock {
 	return &PutBlock{
-		abstractAction: abstractAction{
+		AbstractAction: AbstractAction{
 			version:  version.ProtocolVersion,
 			nonce:    nonce,
 			srcAddr:  producerAddress,

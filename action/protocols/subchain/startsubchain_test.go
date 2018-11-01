@@ -322,12 +322,3 @@ func TestStartSubChainInGenesis(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, subChainsInOp.Exist(InOperation{ID: uint32(2)}, SortInOperation))
 }
-
-func TestGetSubChainDBPath(t *testing.T) {
-	t.Parallel()
-
-	chainDBPath := getSubChainDBPath(1, config.Default.Chain.ChainDBPath)
-	trieDBPath := getSubChainDBPath(1, config.Default.Chain.TrieDBPath)
-	assert.Equal(t, "/tmp/chain-1-chain.db", chainDBPath)
-	assert.Equal(t, "/tmp/chain-1-trie.db", trieDBPath)
-}

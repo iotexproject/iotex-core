@@ -360,7 +360,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	// add block with wrong height
 	cbTsf := action.NewCoinBaseTransfer(big.NewInt(50), ta.Addrinfo["bravo"].RawAddress)
 	require.NotNil(cbTsf)
-	blk = NewBlock(0, h+2, hash, testutil.TimestampNow(), []action.Action{cbTsf})
+	blk = NewBlock(0, h+2, hash, testutil.TimestampNow(), ta.Addrinfo["bravo"].PublicKey, []action.Action{cbTsf})
 	err = bc.ValidateBlock(blk, true)
 	require.NotNil(err)
 	fmt.Printf("Cannot validate block %d: %v\n", blk.Height(), err)
@@ -368,7 +368,14 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	// add block with zero prev hash
 	cbTsf2 := action.NewCoinBaseTransfer(big.NewInt(50), ta.Addrinfo["bravo"].RawAddress)
 	require.NotNil(cbTsf2)
-	blk = NewBlock(0, h+1, _hash.ZeroHash32B, testutil.TimestampNow(), []action.Action{cbTsf2})
+	blk = NewBlock(
+		0,
+		h+1,
+		_hash.ZeroHash32B,
+		testutil.TimestampNow(),
+		ta.Addrinfo["bravo"].PublicKey,
+		[]action.Action{cbTsf2},
+	)
 	err = bc.ValidateBlock(blk, true)
 	require.NotNil(err)
 	fmt.Printf("Cannot validate block %d: %v\n", blk.Height(), err)
@@ -561,14 +568,21 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	// add block with wrong height
 	cbTsf := action.NewCoinBaseTransfer(big.NewInt(50), ta.Addrinfo["bravo"].RawAddress)
 	require.NotNil(cbTsf)
-	blk = NewBlock(0, h+2, hash, testutil.TimestampNow(), []action.Action{cbTsf})
+	blk = NewBlock(0, h+2, hash, testutil.TimestampNow(), ta.Addrinfo["bravo"].PublicKey, []action.Action{cbTsf})
 	err = bc.ValidateBlock(blk, true)
 	require.NotNil(err)
 	fmt.Printf("Cannot validate block %d: %v\n", blk.Height(), err)
 	// add block with zero prev hash
 	cbTsf2 := action.NewCoinBaseTransfer(big.NewInt(50), ta.Addrinfo["bravo"].RawAddress)
 	require.NotNil(cbTsf2)
-	blk = NewBlock(0, h+1, _hash.ZeroHash32B, testutil.TimestampNow(), []action.Action{cbTsf2})
+	blk = NewBlock(
+		0,
+		h+1,
+		_hash.ZeroHash32B,
+		testutil.TimestampNow(),
+		ta.Addrinfo["bravo"].PublicKey,
+		[]action.Action{cbTsf2},
+	)
 	err = bc.ValidateBlock(blk, true)
 	require.NotNil(err)
 	fmt.Printf("Cannot validate block %d: %v\n", blk.Height(), err)

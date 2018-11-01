@@ -14,11 +14,11 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
-	"github.com/iotexproject/iotex-core/action/subchain"
+	"github.com/iotexproject/iotex-core/action/protocols/subchain"
+	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/chainservice"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/dispatcher"
-	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network"
 	"github.com/iotexproject/iotex-core/pkg/routine"
@@ -26,10 +26,12 @@ import (
 
 // Server is the iotex server instance containing all components.
 type Server struct {
-	chainservices map[uint32]*chainservice.ChainService
-	p2p           network.Overlay
-	dispatcher    dispatcher.Dispatcher
-	rootChainAPI  explorer.Explorer
+	cfg              *config.Config
+	rootChainService *chainservice.ChainService
+	chainservices    map[uint32]*chainservice.ChainService
+	p2p              network.Overlay
+	dispatcher       dispatcher.Dispatcher
+	subChainStarter  *routine.RecurringTask
 }
 
 // NewServer creates a new server
@@ -67,18 +69,24 @@ func newServer(cfg *config.Config, testing bool) (*Server, error) {
 		return nil, errors.Wrap(err, "fail to create chain service")
 	}
 
+	// Add abstract action validator
+	cs.ActionPool().AddActionValidators(actpool.NewAbstractValidator(cs.Blockchain()))
 	// Install protocols
 	subChainProtocol := subchain.NewProtocol(cfg, p2p, dispatcher, cs.Blockchain(), cs.Explorer().Explorer())
 	cs.AddProtocols(subChainProtocol)
 
 	chains[cs.ChainID()] = cs
 	dispatcher.AddSubscriber(cs.ChainID(), cs)
-	return &Server{
-		p2p:           p2p,
-		dispatcher:    dispatcher,
-		rootChainAPI:  cs.Explorer().Explorer(),
-		chainservices: chains,
-	}, nil
+	svr := Server{
+		cfg:              cfg,
+		p2p:              p2p,
+		dispatcher:       dispatcher,
+		rootChainService: cs,
+		chainservices:    chains,
+	}
+	// Setup sub-chain starter
+	svr.subChainStarter = svr.newSubChainStarter(subChainProtocol)
+	return &svr, nil
 }
 
 // Start starts the server
@@ -94,11 +102,17 @@ func (s *Server) Start(ctx context.Context) error {
 	if err := s.p2p.Start(ctx); err != nil {
 		return errors.Wrap(err, "error when starting P2P networks")
 	}
+	if err := s.subChainStarter.Start(ctx); err != nil {
+		return errors.Wrap(err, "error when starting sub-chain starter")
+	}
 	return nil
 }
 
 // Stop stops the server
 func (s *Server) Stop(ctx context.Context) error {
+	if err := s.subChainStarter.Stop(ctx); err != nil {
+		return errors.Wrap(err, "error when stopping sub-chain starter")
+	}
 	if err := s.p2p.Stop(ctx); err != nil {
 		return errors.Wrap(err, "error when stopping P2P networks")
 	}
@@ -115,7 +129,7 @@ func (s *Server) Stop(ctx context.Context) error {
 
 // NewChainService creates a new chain service in this server.
 func (s *Server) NewChainService(cfg *config.Config) error {
-	opts := []chainservice.Option{chainservice.WithRootChainAPI(s.rootChainAPI)}
+	opts := []chainservice.Option{chainservice.WithRootChainAPI(s.rootChainService.Explorer().Explorer())}
 	cs, err := chainservice.New(cfg, s.p2p, s.dispatcher, opts...)
 	if err != nil {
 		return err
@@ -129,7 +143,7 @@ func (s *Server) NewChainService(cfg *config.Config) error {
 func (s *Server) NewTestingChainService(cfg *config.Config) error {
 	opts := []chainservice.Option{
 		chainservice.WithTesting(),
-		chainservice.WithRootChainAPI(s.rootChainAPI),
+		chainservice.WithRootChainAPI(s.rootChainService.Explorer().Explorer()),
 	}
 	cs, err := chainservice.New(cfg, s.p2p, s.dispatcher, opts...)
 	if err != nil {

@@ -10,6 +10,7 @@ import (
 	"encoding/hex"
 	"math/big"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -1071,6 +1072,42 @@ func (exp *Service) PutSubChainBlock(putBlockJSON explorer.PutSubChainBlockReque
 	v.LoadProto(actPb)
 	h := v.Hash()
 	return explorer.PutSubChainBlockResponse{Hash: hex.EncodeToString(h[:])}, nil
+}
+
+// SendAction is the API to send an action to blockchain.
+func (exp *Service) SendAction(req explorer.SendActionRequest) (resp explorer.SendActionResponse, err error) {
+	logger.Debug().Msg("receive send action request")
+
+	defer func() {
+		succeed := "true"
+		if err != nil {
+			succeed = "false"
+		}
+		requestMtc.WithLabelValues("SendAction", succeed).Inc()
+	}()
+
+	raw, err := hex.DecodeString(req.Payload)
+	if err != nil {
+		return explorer.SendActionResponse{}, err
+	}
+
+	var payload pb.SendActionRequest
+	if err := proto.Unmarshal(raw, &payload); err != nil {
+		return explorer.SendActionResponse{}, err
+	}
+
+	if payload.GetAction() == nil {
+		return explorer.SendActionResponse{}, errors.New("empty request payload")
+	}
+
+	// broadcast to the network
+	if err = exp.p2p.Broadcast(exp.bc.ChainID(), payload.GetAction()); err != nil {
+		logger.Warn().Err(err).Msg("failed to broadcast SendAction request.")
+	}
+	// send to actpool via dispatcher
+	exp.dp.HandleBroadcast(exp.bc.ChainID(), payload.GetAction(), nil)
+
+	return explorer.SendActionResponse{}, nil
 }
 
 // GetPeers return a list of node peers and itself's network addsress info.

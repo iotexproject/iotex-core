@@ -30,7 +30,7 @@ const (
 
 // Vote defines the struct of account-based vote
 type Vote struct {
-	abstractAction
+	AbstractAction
 }
 
 // NewVote returns a Vote instance
@@ -39,7 +39,7 @@ func NewVote(nonce uint64, voterAddress string, voteeAddress string, gasLimit ui
 		return nil, errors.Wrap(ErrAddress, "address of the voter is empty")
 	}
 	return &Vote{
-		abstractAction: abstractAction{
+		AbstractAction: AbstractAction{
 			version:  version.ProtocolVersion,
 			nonce:    nonce,
 			srcAddr:  voterAddress,
@@ -170,7 +170,7 @@ func NewVoteFromJSON(jsonVote *explorer.Vote) (*Vote, error) {
 		return nil, errors.New("failed to set gas price of vote")
 	}
 	return &Vote{
-		abstractAction: abstractAction{
+		AbstractAction: AbstractAction{
 			version:   uint32(jsonVote.Version),
 			nonce:     uint64(jsonVote.Nonce),
 			srcAddr:   jsonVote.Voter,
