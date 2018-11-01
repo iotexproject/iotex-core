@@ -19,8 +19,8 @@ import (
 	"fmt"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocols/account"
 	"github.com/iotexproject/iotex-core/action/protocols/execution"
-	"github.com/iotexproject/iotex-core/action/protocols/transfer"
 	"github.com/iotexproject/iotex-core/action/protocols/vote"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
@@ -186,7 +186,7 @@ func TestActPool_AddActs(t *testing.T) {
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
-	ap.AddActionValidators(NewAbstractValidator(bc), transfer.NewProtocol(), vote.NewProtocol(bc),
+	ap.AddActionValidators(NewAbstractValidator(bc), account.NewProtocol(), vote.NewProtocol(bc),
 		execution.NewProtocol())
 	// Test actpool status after adding a sequence of Tsfs/votes: need to check confirmed nonce, pending nonce, and pending balance
 	tsf1, err := testutil.SignedTransfer(addr1, addr1, uint64(1), big.NewInt(10),
@@ -329,7 +329,7 @@ func TestActPool_PickActs(t *testing.T) {
 		require.NoError(err)
 		ap, ok := Ap.(*actPool)
 		require.True(ok)
-		ap.AddActionValidators(NewAbstractValidator(bc), transfer.NewProtocol(), vote.NewProtocol(bc))
+		ap.AddActionValidators(NewAbstractValidator(bc), account.NewProtocol(), vote.NewProtocol(bc))
 
 		tsf1, err := testutil.SignedTransfer(addr1, addr1, uint64(1), big.NewInt(10),
 			[]byte{}, uint64(100000), big.NewInt(0))
@@ -417,7 +417,7 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
-	ap.AddActionValidators(NewAbstractValidator(bc), transfer.NewProtocol(), vote.NewProtocol(bc))
+	ap.AddActionValidators(NewAbstractValidator(bc), account.NewProtocol(), vote.NewProtocol(bc))
 
 	tsf1, err := testutil.SignedTransfer(addr1, addr1, uint64(1), big.NewInt(10),
 		[]byte{}, uint64(100000), big.NewInt(0))
@@ -471,13 +471,13 @@ func TestActPool_Reset(t *testing.T) {
 	require.NoError(err)
 	ap1, ok := Ap1.(*actPool)
 	require.True(ok)
-	ap1.AddActionValidators(NewAbstractValidator(bc), transfer.NewProtocol(), vote.NewProtocol(bc),
+	ap1.AddActionValidators(NewAbstractValidator(bc), account.NewProtocol(), vote.NewProtocol(bc),
 		execution.NewProtocol())
 	Ap2, err := NewActPool(bc, apConfig)
 	require.NoError(err)
 	ap2, ok := Ap2.(*actPool)
 	require.True(ok)
-	ap2.AddActionValidators(NewAbstractValidator(bc), transfer.NewProtocol(), vote.NewProtocol(bc),
+	ap2.AddActionValidators(NewAbstractValidator(bc), account.NewProtocol(), vote.NewProtocol(bc),
 		execution.NewProtocol())
 
 	// Tsfs to be added to ap1
@@ -836,7 +836,7 @@ func TestActPool_removeInvalidActs(t *testing.T) {
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
-	ap.AddActionValidators(NewAbstractValidator(bc), transfer.NewProtocol(), vote.NewProtocol(bc))
+	ap.AddActionValidators(NewAbstractValidator(bc), account.NewProtocol(), vote.NewProtocol(bc))
 
 	tsf1, err := testutil.SignedTransfer(addr1, addr1, uint64(1), big.NewInt(10),
 		[]byte{}, uint64(100000), big.NewInt(0))
@@ -883,7 +883,7 @@ func TestActPool_GetPendingNonce(t *testing.T) {
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
-	ap.AddActionValidators(NewAbstractValidator(bc), transfer.NewProtocol(), vote.NewProtocol(bc))
+	ap.AddActionValidators(NewAbstractValidator(bc), account.NewProtocol(), vote.NewProtocol(bc))
 
 	tsf1, err := testutil.SignedTransfer(addr1, addr1, uint64(1), big.NewInt(10),
 		[]byte{}, uint64(100000), big.NewInt(0))
@@ -924,7 +924,7 @@ func TestActPool_GetUnconfirmedActs(t *testing.T) {
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
-	ap.AddActionValidators(NewAbstractValidator(bc), transfer.NewProtocol(), vote.NewProtocol(bc))
+	ap.AddActionValidators(NewAbstractValidator(bc), account.NewProtocol(), vote.NewProtocol(bc))
 
 	tsf1, err := testutil.SignedTransfer(addr1, addr1, uint64(1), big.NewInt(10),
 		[]byte{}, uint64(100000), big.NewInt(0))
@@ -1010,7 +1010,7 @@ func TestActPool_GetSize(t *testing.T) {
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
-	ap.AddActionValidators(NewAbstractValidator(bc), transfer.NewProtocol(), vote.NewProtocol(bc))
+	ap.AddActionValidators(NewAbstractValidator(bc), account.NewProtocol(), vote.NewProtocol(bc))
 	require.Zero(ap.GetSize())
 
 	tsf1, err := testutil.SignedTransfer(addr1, addr1, uint64(1), big.NewInt(10),
