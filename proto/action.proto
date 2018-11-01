@@ -1,0 +1,91 @@
+// Copyright (c) 2018 IoTeX
+// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
+// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
+// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
+// License 2.0 that can be found in the LICENSE file.
+
+// To compile the proto, run:
+//      protoc --go_out=plugins=grpc:. *.proto
+syntax = "proto3";
+package iproto;
+
+message TransferPb {
+    // used by state-based model
+    bytes amount  = 1;
+    string sender = 2;
+    string recipient = 3;
+    bytes payload  = 4;
+    bytes senderPubKey = 5;
+    bool isCoinbase = 6;
+}
+
+message VotePb {
+    uint64 timestamp = 1;
+    bytes selfPubkey = 2;
+    string voterAddress = 3;  // the address of this node
+    string voteeAddress = 4;  // the address this node is voting for
+}
+
+message ExecutionPb {
+    bytes amount  = 1;
+    string executor = 2;
+    string contract = 3;
+    bytes executorPubKey = 4;
+    bytes data = 5;
+}
+
+message SecretProposalPb {
+    string sender = 1;
+    string recipient = 2;
+    repeated uint32 secret = 3;
+}
+
+message SecretWitnessPb {
+    string sender = 1;
+    repeated bytes witness = 2;
+}
+
+message StartSubChainPb {
+    // TODO: chainID chould be assigned by system and returned via a receipt
+    uint32 chainID = 1;
+    bytes securityDeposit = 2;
+    bytes operationDeposit = 3;
+    uint64 startHeight = 4;
+    uint64 parentHeightOffset = 5;
+    string ownerAddress = 6;
+    bytes ownerPublicKey = 7;
+}
+
+message StopSubChainPb {
+    uint32 chainID = 1;
+    uint64 stopHeight = 2;
+    string owner = 3;
+    bytes ownerPublicKey = 4;
+    string subChainAddress = 5;
+}
+
+message PutBlockPb {
+    string subChainAddress = 1;
+    uint64 height = 2;
+    map<string, bytes> roots = 3;
+    string producerAddress = 4;
+    bytes producerPublicKey = 5;
+}
+
+message ActionPb {
+    uint32 version = 1;
+    uint64 nonce = 2;
+    uint64 gasLimit = 3;
+    bytes gasPrice = 4;
+    bytes signature = 5;
+    oneof action {
+        TransferPb transfer = 10;
+        VotePb vote = 11;
+        ExecutionPb execution = 12;
+        SecretProposalPb secretProposal = 13;
+        SecretWitnessPb secretWitness = 14;
+        StartSubChainPb startSubChain = 15;
+        StopSubChainPb stopSubChain = 16;
+        PutBlockPb putBlock = 17;
+    }
+}
