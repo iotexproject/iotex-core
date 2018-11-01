@@ -11,6 +11,7 @@ import (
 
 	"github.com/CoderZhi/go-ethereum/common"
 	"github.com/CoderZhi/go-ethereum/core/types"
+
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
@@ -94,14 +95,13 @@ func (stateDB *EVMStateDBAdapter) AddBalance(evmAddr common.Address, amount *big
 	logger.Debug().Msgf("AddBalance %v to %s", amount, evmAddr.Hex())
 
 	addr := address.New(stateDB.bc.ChainID(), evmAddr.Bytes())
-	state, err := stateDB.ws.CachedAccountState(addr.IotxAddress())
+	state, err := stateDB.ws.LoadOrCreateAccountState(addr.IotxAddress(), big.NewInt(0))
 	if err != nil {
 		logger.Error().Err(err).Hex("addrHash", evmAddr[:]).Msg("AddBalance")
 		stateDB.logError(err)
 		return
 	}
 	state.AddBalance(amount)
-	// stateDB.GetBalance(evmAddr)
 }
 
 // GetBalance gets the balance of account
