@@ -9,7 +9,7 @@
 syntax = "proto3";
 package iproto;
 
-import "blockchain.proto";
+import "action.proto";
 
 message SendActionRequest {
     ActionPb action = 1;
