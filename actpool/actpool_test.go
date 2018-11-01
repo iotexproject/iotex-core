@@ -67,55 +67,24 @@ func TestActPool_validateTsf(t *testing.T) {
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
-	ap.AddActionValidators(NewAbstractValidator(bc), transfer.NewProtocol())
+	ap.AddActionValidators(NewAbstractValidator(bc))
 	absValidator := ap.validators[0]
-	tsfValidator := ap.validators[1]
-	// Case I: Coinbase transfer
-	coinbaseTsf := action.NewCoinBaseTransfer(big.NewInt(1), "1")
-	err = tsfValidator.Validate(coinbaseTsf)
-	require.Equal(action.ErrTransfer, errors.Cause(err))
-	// Case II: Oversized data
-	tmpPayload := [32769]byte{}
-	payload := tmpPayload[:]
-	tsf, err := action.NewTransfer(uint64(1), big.NewInt(1), "1", "2", payload, uint64(0), big.NewInt(0))
-	require.NoError(err)
-	err = tsfValidator.Validate(tsf)
-	require.Equal(action.ErrActPool, errors.Cause(err))
-	// Case III: Over-gassed transfer
-	tsf, err = action.NewTransfer(uint64(1), big.NewInt(1), "1", "2", nil, blockchain.GasLimit+1, big.NewInt(0))
+	// Case I: Over-gassed transfer
+	tsf, err := action.NewTransfer(uint64(1), big.NewInt(1), "1", "2", nil, blockchain.GasLimit+1, big.NewInt(0))
 	require.NoError(err)
 	err = absValidator.Validate(tsf)
 	require.Equal(action.ErrGasHigherThanLimit, errors.Cause(err))
-	// Case IV: Insufficient gas
+	// Case II: Insufficient gas
 	tsf, err = action.NewTransfer(uint64(1), big.NewInt(1), "1", "2", nil, uint64(0), big.NewInt(0))
 	require.NoError(err)
 	err = absValidator.Validate(tsf)
 	require.Equal(action.ErrInsufficientBalanceForGas, errors.Cause(err))
-	// Case V: Negative amount
-	tsf, err = action.NewTransfer(uint64(1), big.NewInt(-100), "1", "2", nil, uint64(100000), big.NewInt(0))
-	require.NoError(err)
-	err = tsfValidator.Validate(tsf)
-	require.Equal(action.ErrBalance, errors.Cause(err))
-	// Case VI: Invalid address
-	tsf, err = action.NewTransfer(
-		1,
-		big.NewInt(1),
-		addr1.RawAddress,
-		"io1qyqsyqcyq5narhapakcsrhksfajfcpl24us3xp38zwvsep",
-		nil,
-		uint64(100000),
-		big.NewInt(0),
-	)
-	require.NoError(err)
-	err = tsfValidator.Validate(tsf)
-	require.Error(err)
-	require.True(strings.Contains(err.Error(), "error when validating recipient's address"))
-	// Case VII: Signature verification fails
+	// Case III: Signature verification fails
 	unsignedTsf, err := action.NewTransfer(uint64(1), big.NewInt(1), addr1.RawAddress, addr1.RawAddress, []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	err = absValidator.Validate(unsignedTsf)
 	require.Equal(action.ErrAction, errors.Cause(err))
-	// Case VIII: Nonce is too low
+	// Case IV: Nonce is too low
 	prevTsf, err := testutil.SignedTransfer(addr1, addr1, uint64(1), big.NewInt(50),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
