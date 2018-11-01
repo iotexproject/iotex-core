@@ -22,12 +22,10 @@ import (
 const TransferSizeLimit = 32 * 1024
 
 // Protocol defines the protocol of handling transfers
-type Protocol struct {
-	cachedStates map[hash.PKHash]state.State // states being modified in this block
-}
+type Protocol struct{}
 
 // NewProtocol instantiates the protocol of transfer
-func NewProtocol() *Protocol { return &Protocol{make(map[hash.PKHash]state.State)} }
+func NewProtocol() *Protocol { return &Protocol{} }
 
 // Handle handles a transfer
 func (p *Protocol) Handle(act action.Action, ws state.WorkingSet) error {
@@ -40,7 +38,7 @@ func (p *Protocol) Handle(act action.Action, ws state.WorkingSet) error {
 	}
 	if !tsf.IsCoinbase() {
 		// check sender
-		sender, err := p.loadOrCreateAccountState(ws, tsf.Sender(), big.NewInt(0))
+		sender, err := LoadOrCreateAccountState(ws, tsf.Sender(), big.NewInt(0))
 		if err != nil {
 			return errors.Wrapf(err, "failed to load or create the account of sender %s", tsf.Sender())
 		}
@@ -55,40 +53,49 @@ func (p *Protocol) Handle(act action.Action, ws state.WorkingSet) error {
 		if tsf.Nonce() > sender.Nonce {
 			sender.Nonce = tsf.Nonce()
 		}
+		// put updated sender's state to trie
+		if err := StoreState(ws, tsf.Sender(), sender); err != nil {
+			return errors.Wrap(err, "failed to update pending account changes to trie")
+		}
 		// Update sender votes
 		if len(sender.Votee) > 0 && sender.Votee != tsf.Sender() {
 			// sender already voted to a different person
-			voteeOfSender, err := p.loadOrCreateAccountState(ws, sender.Votee, big.NewInt(0))
+			voteeOfSender, err := LoadOrCreateAccountState(ws, sender.Votee, big.NewInt(0))
 			if err != nil {
 				return errors.Wrapf(err, "failed to load or create the account of sender's votee %s", sender.Votee)
 			}
 			voteeOfSender.VotingWeight.Sub(voteeOfSender.VotingWeight, tsf.Amount())
+			// put updated state of sender's votee to trie
+			if err := StoreState(ws, sender.Votee, voteeOfSender); err != nil {
+				return errors.Wrap(err, "failed to update pending account changes to trie")
+			}
 		}
 	}
 	// check recipient
-	recipient, err := p.loadOrCreateAccountState(ws, tsf.Recipient(), big.NewInt(0))
+	recipient, err := LoadOrCreateAccountState(ws, tsf.Recipient(), big.NewInt(0))
 	if err != nil {
 		return errors.Wrapf(err, "failed to load or create the account of recipient %s", tsf.Recipient())
 	}
 	if err := recipient.AddBalance(tsf.Amount()); err != nil {
 		return errors.Wrapf(err, "failed to update the Balance of recipient %s", tsf.Recipient())
 	}
+	// put updated recipient's state to trie
+	if err := StoreState(ws, tsf.Recipient(), recipient); err != nil {
+		return errors.Wrap(err, "failed to update pending account changes to trie")
+	}
 	// Update recipient votes
 	if len(recipient.Votee) > 0 && recipient.Votee != tsf.Recipient() {
 		// recipient already voted to a different person
-		voteeOfRecipient, err := p.loadOrCreateAccountState(ws, recipient.Votee, big.NewInt(0))
+		voteeOfRecipient, err := LoadOrCreateAccountState(ws, recipient.Votee, big.NewInt(0))
 		if err != nil {
 			return errors.Wrapf(err, "failed to load or create the account of recipient's votee %s", recipient.Votee)
 		}
 		voteeOfRecipient.VotingWeight.Add(voteeOfRecipient.VotingWeight, tsf.Amount())
-	}
-	// Put pending state changes into trie
-	for addr, state := range p.cachedStates {
-		if err := ws.PutState(addr, state); err != nil {
+		// put updated state of recipient's votee to trie
+		if err := StoreState(ws, recipient.Votee, voteeOfRecipient); err != nil {
 			return errors.Wrap(err, "failed to update pending account changes to trie")
 		}
 	}
-	p.clearCache()
 	return nil
 }
 
@@ -117,12 +124,13 @@ func (p *Protocol) Validate(act action.Action) error {
 	return nil
 }
 
-func (p *Protocol) loadOrCreateAccountState(ws state.WorkingSet, addr string, init *big.Int) (*state.Account, error) {
+// LoadOrCreateAccountState either loads an account state or creates an account state
+func LoadOrCreateAccountState(ws state.WorkingSet, addr string, init *big.Int) (*state.Account, error) {
 	addrHash, err := iotxaddress.AddressToPKHash(addr)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to convert address to public key hash")
 	}
-	s, err := ws.State(addrHash, &state.Account{})
+	account, err := LoadAccountState(ws, addrHash)
 	switch {
 	case errors.Cause(err) == state.ErrStateNotExist:
 		account := state.Account{
@@ -132,20 +140,31 @@ func (p *Protocol) loadOrCreateAccountState(ws state.WorkingSet, addr string, in
 		if err := ws.PutState(addrHash, &account); err != nil {
 			return nil, errors.Wrapf(err, "failed to put state for account %x", addrHash)
 		}
-		p.cachedStates[addrHash] = &account
 		return &account, nil
 	case err != nil:
 		return nil, errors.Wrapf(err, "failed to get account of %x from account trie", addrHash)
 	}
-	account, ok := s.(*state.Account)
-	if !ok {
-		return nil, fmt.Errorf("error when casting %T state into account state", s)
-	}
-	p.cachedStates[addrHash] = account
 	return account, nil
 }
 
-func (p *Protocol) clearCache() {
-	p.cachedStates = nil
-	p.cachedStates = make(map[hash.PKHash]state.State)
+// LoadAccountState loads an account state
+func LoadAccountState(ws state.WorkingSet, addrHash hash.PKHash) (*state.Account, error) {
+	s, err := ws.State(addrHash, &state.Account{})
+	if err == nil {
+		account, ok := s.(*state.Account)
+		if !ok {
+			return nil, fmt.Errorf("error when casting %T state into account state", s)
+		}
+		return account, nil
+	}
+	return nil, err
+}
+
+// StoreState put updated state to trie
+func StoreState(ws state.WorkingSet, addr string, state state.State) error {
+	addrHash, err := iotxaddress.AddressToPKHash(addr)
+	if err != nil {
+		return errors.Wrap(err, "failed to convert address to public key hash")
+	}
+	return ws.PutState(addrHash, state)
 }
