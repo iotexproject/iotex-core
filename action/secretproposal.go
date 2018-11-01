@@ -69,13 +69,14 @@ func (sp *SecretProposal) Proto() *iproto.ActionPb {
 	act := &iproto.ActionPb{
 		Action: &iproto.ActionPb_SecretProposal{
 			SecretProposal: &iproto.SecretProposalPb{
-				Sender:    sp.srcAddr,
 				Recipient: sp.dstAddr,
 				Secret:    sp.secret,
 			},
 		},
-		Version: sp.version,
-		Nonce:   sp.nonce,
+		Version:      sp.version,
+		Sender:       sp.srcAddr,
+		SenderPubKey: sp.srcPubkey[:],
+		Nonce:        sp.nonce,
 	}
 	return act
 }
@@ -88,11 +89,11 @@ func (sp *SecretProposal) Serialize() ([]byte, error) {
 // LoadProto converts a protobuf's ActionPb to SecretProposal
 func (sp *SecretProposal) LoadProto(pbAct *iproto.ActionPb) {
 	sp.version = pbAct.GetVersion()
-	// used by account-based model
+	sp.srcAddr = pbAct.Sender
+	copy(sp.srcPubkey[:], pbAct.SenderPubKey)
 	sp.nonce = pbAct.Nonce
 
 	pbSecretProposal := pbAct.GetSecretProposal()
-	sp.srcAddr = pbSecretProposal.Sender
 	sp.dstAddr = pbSecretProposal.Recipient
 	sp.secret = pbSecretProposal.Secret
 }

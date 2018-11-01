@@ -90,15 +90,15 @@ func (ssc *StopSubChain) Proto() *iproto.ActionPb {
 			StopSubChain: &iproto.StopSubChainPb{
 				ChainID:         ssc.chainID,
 				StopHeight:      ssc.stopHeight,
-				Owner:           ssc.srcAddr,
-				OwnerPublicKey:  ssc.srcPubkey[:],
 				SubChainAddress: ssc.dstAddr,
 			},
 		},
-		Version:   ssc.version,
-		Nonce:     ssc.nonce,
-		GasLimit:  ssc.gasLimit,
-		Signature: ssc.signature,
+		Version:      ssc.version,
+		Sender:       ssc.srcAddr,
+		SenderPubKey: ssc.srcPubkey[:],
+		Nonce:        ssc.nonce,
+		GasLimit:     ssc.gasLimit,
+		Signature:    ssc.signature,
 	}
 	if ssc.gasPrice != nil {
 		pbSSC.GasPrice = ssc.gasPrice.Bytes()
@@ -114,6 +114,8 @@ func (ssc *StopSubChain) Serialize() ([]byte, error) {
 // LoadProto converts a protobuf's ActionPb to StopSubChain
 func (ssc *StopSubChain) LoadProto(pbAct *iproto.ActionPb) {
 	ssc.version = pbAct.Version
+	ssc.srcAddr = pbAct.Sender
+	copy(ssc.srcPubkey[:], pbAct.SenderPubKey)
 	ssc.nonce = pbAct.Nonce
 	ssc.gasLimit = pbAct.GasLimit
 	if ssc.gasPrice == nil {
@@ -127,8 +129,6 @@ func (ssc *StopSubChain) LoadProto(pbAct *iproto.ActionPb) {
 	if pbSSC != nil {
 		ssc.chainID = pbSSC.ChainID
 		ssc.stopHeight = pbSSC.StopHeight
-		ssc.srcAddr = pbSSC.Owner
-		copy(ssc.srcPubkey[:], pbSSC.OwnerPublicKey)
 		ssc.dstAddr = pbSSC.SubChainAddress
 	}
 }

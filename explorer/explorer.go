@@ -934,19 +934,19 @@ func (exp *Service) SendTransfer(tsfJSON explorer.SendTransferRequest) (resp exp
 	actPb := &pb.ActionPb{
 		Action: &pb.ActionPb_Transfer{
 			Transfer: &pb.TransferPb{
-				Amount:       amount.Bytes(),
-				Sender:       tsfJSON.Sender,
-				Recipient:    tsfJSON.Recipient,
-				Payload:      payload,
-				SenderPubKey: senderPubKey,
-				IsCoinbase:   tsfJSON.IsCoinbase,
+				Amount:     amount.Bytes(),
+				Recipient:  tsfJSON.Recipient,
+				Payload:    payload,
+				IsCoinbase: tsfJSON.IsCoinbase,
 			},
 		},
-		Version:   uint32(tsfJSON.Version),
-		Nonce:     uint64(tsfJSON.Nonce),
-		GasLimit:  uint64(tsfJSON.GasLimit),
-		GasPrice:  gasPrice.Bytes(),
-		Signature: signature,
+		Version:      uint32(tsfJSON.Version),
+		Sender:       tsfJSON.Sender,
+		SenderPubKey: senderPubKey,
+		Nonce:        uint64(tsfJSON.Nonce),
+		GasLimit:     uint64(tsfJSON.GasLimit),
+		GasPrice:     gasPrice.Bytes(),
+		Signature:    signature,
 	}
 	// broadcast to the network
 	if err = exp.p2p.Broadcast(exp.bc.ChainID(), actPb); err != nil {
@@ -988,16 +988,16 @@ func (exp *Service) SendVote(voteJSON explorer.SendVoteRequest) (resp explorer.S
 	actPb := &pb.ActionPb{
 		Action: &pb.ActionPb_Vote{
 			Vote: &pb.VotePb{
-				SelfPubkey:   selfPubKey,
-				VoterAddress: voteJSON.Voter,
 				VoteeAddress: voteJSON.Votee,
 			},
 		},
-		Version:   uint32(voteJSON.Version),
-		Nonce:     uint64(voteJSON.Nonce),
-		GasLimit:  uint64(voteJSON.GasLimit),
-		GasPrice:  gasPrice.Bytes(),
-		Signature: signature,
+		Version:      uint32(voteJSON.Version),
+		Sender:       voteJSON.Voter,
+		SenderPubKey: selfPubKey,
+		Nonce:        uint64(voteJSON.Nonce),
+		GasLimit:     uint64(voteJSON.GasLimit),
+		GasPrice:     gasPrice.Bytes(),
+		Signature:    signature,
 	}
 	// broadcast to the network
 	if err = exp.p2p.Broadcast(exp.bc.ChainID(), actPb); err != nil {
@@ -1048,18 +1048,18 @@ func (exp *Service) PutSubChainBlock(putBlockJSON explorer.PutSubChainBlockReque
 	actPb := &pb.ActionPb{
 		Action: &pb.ActionPb_PutBlock{
 			PutBlock: &pb.PutBlockPb{
-				SubChainAddress:   putBlockJSON.SubChainAddress,
-				Height:            uint64(putBlockJSON.Height),
-				Roots:             roots,
-				ProducerAddress:   putBlockJSON.SenderAddress,
-				ProducerPublicKey: senderPubKey,
+				SubChainAddress: putBlockJSON.SubChainAddress,
+				Height:          uint64(putBlockJSON.Height),
+				Roots:           roots,
 			},
 		},
-		Version:   uint32(putBlockJSON.Version),
-		Nonce:     uint64(putBlockJSON.Nonce),
-		GasLimit:  uint64(putBlockJSON.GasLimit),
-		GasPrice:  gasPrice.Bytes(),
-		Signature: signature,
+		Version:      uint32(putBlockJSON.Version),
+		Sender:       putBlockJSON.SenderAddress,
+		SenderPubKey: senderPubKey,
+		Nonce:        uint64(putBlockJSON.Nonce),
+		GasLimit:     uint64(putBlockJSON.GasLimit),
+		GasPrice:     gasPrice.Bytes(),
+		Signature:    signature,
 	}
 	// broadcast to the network
 	if err = exp.p2p.Broadcast(exp.bc.ChainID(), actPb); err != nil {
@@ -1159,18 +1159,18 @@ func (exp *Service) SendSmartContract(execution explorer.Execution) (resp explor
 	actPb := &pb.ActionPb{
 		Action: &pb.ActionPb_Execution{
 			Execution: &pb.ExecutionPb{
-				Amount:         amount.Bytes(),
-				Executor:       execution.Executor,
-				Contract:       execution.Contract,
-				ExecutorPubKey: executorPubKey,
-				Data:           data,
+				Amount:   amount.Bytes(),
+				Contract: execution.Contract,
+				Data:     data,
 			},
 		},
-		Version:   uint32(execution.Version),
-		Nonce:     uint64(execution.Nonce),
-		GasLimit:  uint64(execution.GasLimit),
-		GasPrice:  gasPrice.Bytes(),
-		Signature: signature,
+		Version:      uint32(execution.Version),
+		Sender:       execution.Executor,
+		SenderPubKey: executorPubKey,
+		Nonce:        uint64(execution.Nonce),
+		GasLimit:     uint64(execution.GasLimit),
+		GasPrice:     gasPrice.Bytes(),
+		Signature:    signature,
 	}
 	// broadcast to the network
 	if err = exp.p2p.Broadcast(exp.bc.ChainID(), actPb); err != nil {
@@ -1208,18 +1208,18 @@ func (exp *Service) ReadExecutionState(execution explorer.Execution) (string, er
 	actPb := &pb.ActionPb{
 		Action: &pb.ActionPb_Execution{
 			Execution: &pb.ExecutionPb{
-				Amount:         amount.Bytes(),
-				Executor:       execution.Executor,
-				Contract:       execution.Contract,
-				ExecutorPubKey: nil,
-				Data:           data,
+				Amount:   amount.Bytes(),
+				Contract: execution.Contract,
+				Data:     data,
 			},
 		},
-		Version:   uint32(execution.Version),
-		Nonce:     uint64(execution.Nonce),
-		GasLimit:  uint64(execution.GasLimit),
-		GasPrice:  gasPrice.Bytes(),
-		Signature: signature,
+		Version:      uint32(execution.Version),
+		Sender:       execution.Executor,
+		SenderPubKey: nil,
+		Nonce:        uint64(execution.Nonce),
+		GasLimit:     uint64(execution.GasLimit),
+		GasPrice:     gasPrice.Bytes(),
+		Signature:    signature,
 	}
 
 	sc := &action.Execution{}
