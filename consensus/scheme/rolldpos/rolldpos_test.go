@@ -732,7 +732,8 @@ func TestRollDPoSConsensus(t *testing.T) {
 				require.NoError(t, err)
 				_, err = ws.LoadOrCreateAccountState(chainRawAddrs[j], big.NewInt(0))
 				require.NoError(t, err)
-				_, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 0, nil)
+				gasLimit := uint64(100000000)
+				_, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 0, nil, &gasLimit)
 				require.NoError(t, err)
 				require.NoError(t, sf.Commit(ws))
 			}

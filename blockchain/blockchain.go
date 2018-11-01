@@ -312,7 +312,9 @@ func (bc *blockchain) startEmptyBlockchain() error {
 	if _, err := ws.LoadOrCreateAccountState(Gen.CreatorAddr(bc.ChainID()), Gen.TotalSupply); err != nil {
 		return errors.Wrap(err, "failed to create Creator into StateFactory")
 	}
-	if _, err := ws.RunActions(genesis.ProducerAddress(), 0, nil); err != nil {
+	gasLimit := GasLimit
+	gasLimitPtr := &gasLimit
+	if _, err := ws.RunActions(genesis.ProducerAddress(), 0, nil, gasLimitPtr); err != nil {
 		return errors.Wrap(err, "failed to create Creator into StateFactory")
 	}
 	if err := bc.sf.Commit(ws); err != nil {
@@ -357,7 +359,9 @@ func (bc *blockchain) startExistingBlockchain(recoveryHeight uint64) error {
 		if err != nil {
 			return err
 		}
-		if _, err := ws.RunActions(genesisBlk.ProducerAddress(), 0, nil); err != nil {
+		gasLimit := GasLimit
+		gasLimitPtr := &gasLimit
+		if _, err := ws.RunActions(genesisBlk.ProducerAddress(), 0, nil, gasLimitPtr); err != nil {
 			return errors.Wrap(err, "failed to create Creator into StateFactory")
 		}
 		if err := bc.sf.Commit(ws); err != nil {
@@ -424,7 +428,9 @@ func (bc *blockchain) CreateState(addr string, init *big.Int) (*state.Account, e
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get genesis block")
 	}
-	if _, err = ws.RunActions(genesisBlk.ProducerAddress(), 0, nil); err != nil {
+	gasLimit := GasLimit
+	gasLimitPtr := &gasLimit
+	if _, err = ws.RunActions(genesisBlk.ProducerAddress(), 0, nil, gasLimitPtr); err != nil {
 		return nil, errors.Wrap(err, "failed to run the account creation")
 	}
 	if err = bc.sf.Commit(ws); err != nil {
@@ -782,7 +788,9 @@ func (bc *blockchain) ExecuteContractRead(ex *action.Execution) ([]byte, error) 
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to obtain working set from state factory")
 	}
-	ExecuteContracts(blk, ws, bc)
+	gasLimit := GasLimit
+	gasLimitPtr := &gasLimit
+	ExecuteContracts(blk, ws, bc, gasLimitPtr)
 	// pull the results from receipt
 	exHash := ex.Hash()
 	receipt, ok := blk.receipts[exHash]
@@ -851,12 +859,14 @@ func (bc *blockchain) runActions(blk *Block, ws state.WorkingSet, verify bool) (
 	if bc.sf == nil {
 		return hash.ZeroHash32B, errors.New("statefactory cannot be nil")
 	}
+	gasLimit := GasLimit
+	gasLimitPtr := &gasLimit
 	// run executions
 	if _, _, executions := action.ClassifyActions(blk.Actions); len(executions) > 0 {
-		ExecuteContracts(blk, ws, bc)
+		ExecuteContracts(blk, ws, bc, gasLimitPtr)
 	}
 	// update state factory
-	root, err := ws.RunActions(blk.ProducerAddress(), blk.Height(), blk.Actions)
+	root, err := ws.RunActions(blk.ProducerAddress(), blk.Height(), blk.Actions, gasLimitPtr)
 	if err != nil {
 		return root, err
 	}

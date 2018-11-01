@@ -47,7 +47,8 @@ func TestHandlePutBlock(t *testing.T) {
 		big.NewInt(0).Mul(big.NewInt(2000000000), big.NewInt(blockchain.Iotx)),
 	)
 	require.NoError(t, err)
-	_, err = ws.RunActions(0, nil)
+	gasLimit := uint64(100000000)
+	_, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 0, nil, &gasLimit)
 	require.NoError(t, err)
 	require.NoError(t, sf.Commit(ws))
 

@@ -83,7 +83,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	_ = action.Sign(tsf4, ta.Addrinfo["charlie"].PrivateKey)
 	vote1, _ := action.NewVote(5, ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["delta"].RawAddress, uint64(100000), big.NewInt(0))
 	_ = action.Sign(vote1, ta.Addrinfo["charlie"].PrivateKey)
-	execution1, _ := action.NewExecution(ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["delta"].RawAddress, 6, big.NewInt(1), uint64(1000000), big.NewInt(0), []byte{1})
+	execution1, _ := action.NewExecution(ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["delta"].RawAddress, 6, big.NewInt(1), uint64(1000000), big.NewInt(10), []byte{1})
 	_ = action.Sign(execution1, ta.Addrinfo["charlie"].PrivateKey)
 	if blk, err = bc.MintNewBlock([]action.Action{tsf1, tsf2, tsf3, tsf4, vote1, execution1}, ta.Addrinfo["producer"],
 		nil, nil, ""); err != nil {
@@ -113,8 +113,8 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	vote2, _ := action.NewVote(1, ta.Addrinfo["alfa"].RawAddress, ta.Addrinfo["charlie"].RawAddress, uint64(100000), big.NewInt(0))
 	_ = action.Sign(vote1, ta.Addrinfo["charlie"].PrivateKey)
 	_ = action.Sign(vote2, ta.Addrinfo["alfa"].PrivateKey)
-	execution1, _ = action.NewExecution(ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["delta"].RawAddress, 8, big.NewInt(2), 1000000, big.NewInt(0), []byte{1})
-	execution2, _ := action.NewExecution(ta.Addrinfo["alfa"].RawAddress, ta.Addrinfo["delta"].RawAddress, 2, big.NewInt(1), 1000000, big.NewInt(0), []byte{1})
+	execution1, _ = action.NewExecution(ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["delta"].RawAddress, 8, big.NewInt(2), 1000000, big.NewInt(10), []byte{1})
+	execution2, _ := action.NewExecution(ta.Addrinfo["alfa"].RawAddress, ta.Addrinfo["delta"].RawAddress, 2, big.NewInt(1), 1000000, big.NewInt(10), []byte{1})
 	_ = action.Sign(execution1, ta.Addrinfo["charlie"].PrivateKey)
 	_ = action.Sign(execution2, ta.Addrinfo["alfa"].PrivateKey)
 	if blk, err = bc.MintNewBlock([]action.Action{vote1, vote2, execution1, execution2}, ta.Addrinfo["producer"],
@@ -134,7 +134,7 @@ func addActsToActPool(ap actpool.ActPool) error {
 	_ = action.Sign(vote1, ta.Addrinfo["producer"].PrivateKey)
 	tsf2, _ := action.NewTransfer(4, big.NewInt(1), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress, []byte{}, uint64(100000), big.NewInt(0))
 	_ = action.Sign(tsf2, ta.Addrinfo["producer"].PrivateKey)
-	execution1, _ := action.NewExecution(ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["delta"].RawAddress, 5, big.NewInt(1), uint64(1000000), big.NewInt(0), []byte{1})
+	execution1, _ := action.NewExecution(ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["delta"].RawAddress, 5, big.NewInt(1), uint64(1000000), big.NewInt(10), []byte{1})
 	_ = action.Sign(execution1, ta.Addrinfo["producer"].PrivateKey)
 	if err := ap.Add(tsf1); err != nil {
 		return err
@@ -837,7 +837,8 @@ func addCreatorToFactory(sf state.Factory) error {
 	if _, err = ws.LoadOrCreateAccountState(ta.Addrinfo["producer"].RawAddress, blockchain.Gen.TotalSupply); err != nil {
 		return err
 	}
-	if _, err = ws.RunActions(ta.Addrinfo["producer"].RawAddress, 0, nil); err != nil {
+	gasLimit := uint64(100000000)
+	if _, err = ws.RunActions(ta.Addrinfo["producer"].RawAddress, 0, nil, &gasLimit); err != nil {
 		return err
 	}
 	if err = sf.Commit(ws); err != nil {

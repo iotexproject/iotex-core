@@ -51,7 +51,8 @@ func TestEVM(t *testing.T) {
 	require.NoError(err)
 	_, err = ws.LoadOrCreateAccountState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
 	require.NoError(err)
-	_, err = ws.RunActions(ta.Addrinfo["producer"].RawAddress, 0, nil)
+	gasLimit := uint64(100000000)
+	_, err = ws.RunActions(ta.Addrinfo["producer"].RawAddress, 0, nil, &gasLimit)
 	require.NoError(err)
 	require.NoError(sf.Commit(ws))
 
@@ -202,7 +203,8 @@ func TestRollDice(t *testing.T) {
 	require.NoError(err)
 	_, err = ws.LoadOrCreateAccountState(ta.Addrinfo["bravo"].RawAddress, big.NewInt(12000000))
 	require.NoError(err)
-	_, err = ws.RunActions(ta.Addrinfo["producer"].RawAddress, 0, nil)
+	gasLimit := uint64(100000000)
+	_, err = ws.RunActions(ta.Addrinfo["producer"].RawAddress, 0, nil, &gasLimit)
 	require.NoError(err)
 	require.NoError(sf.Commit(ws))
 
@@ -265,7 +267,7 @@ func TestRollDice(t *testing.T) {
 	require.NoError(err)
 	data, _ = hex.DecodeString("2885ad2c")
 	execution, err = action.NewExecution(
-		ta.Addrinfo["bravo"].RawAddress, contractAddr, 1, big.NewInt(0), uint64(120000), big.NewInt(0), data)
+		ta.Addrinfo["bravo"].RawAddress, contractAddr, 1, big.NewInt(0), uint64(120000), big.NewInt(10), data)
 	require.NoError(err)
 	require.NoError(action.Sign(execution, ta.Addrinfo["bravo"].PrivateKey))
 	logger.Info().Msgf("execution %+v\n", execution)
@@ -309,7 +311,8 @@ func TestERC20(t *testing.T) {
 	require.NoError(err)
 	_, err = ws.LoadOrCreateAccountState(ta.Addrinfo["bravo"].RawAddress, big.NewInt(0))
 	require.NoError(err)
-	_, err = ws.RunActions(ta.Addrinfo["producer"].RawAddress, 0, nil)
+	gasLimit := uint64(100000000)
+	_, err = ws.RunActions(ta.Addrinfo["producer"].RawAddress, 0, nil, &gasLimit)
 	require.NoError(err)
 	require.NoError(sf.Commit(ws))
 

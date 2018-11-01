@@ -138,13 +138,12 @@ func securityDeposit(ps *EVMParams, stateDB vm.StateDB, gasLimit *uint64) error 
 }
 
 // ExecuteContracts process the contracts in a block
-func ExecuteContracts(blk *Block, ws state.WorkingSet, bc Blockchain) {
-	gasLimit := GasLimit
+func ExecuteContracts(blk *Block, ws state.WorkingSet, bc Blockchain, gasLimit *uint64) {
 	blk.receipts = make(map[hash.Hash32B]*Receipt)
 	_, _, executions := action.ClassifyActions(blk.Actions)
 	for idx, execution := range executions {
 		// TODO (zhi) log receipt to stateDB
-		if receipt, _ := executeContract(blk, ws, idx, execution, bc, &gasLimit); receipt != nil {
+		if receipt, _ := executeContract(blk, ws, idx, execution, bc, gasLimit); receipt != nil {
 			blk.receipts[execution.Hash()] = receipt
 		}
 	}

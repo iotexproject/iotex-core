@@ -780,7 +780,8 @@ func TestBlocks(t *testing.T) {
 	require.NoError(err)
 	_, err = ws.LoadOrCreateAccountState(c.RawAddress, big.NewInt(100000))
 	require.NoError(err)
-	_, err = ws.RunActions(ta.Addrinfo["producer"].RawAddress, 0, nil)
+	gasLimit := uint64(100000000)
+	_, err = ws.RunActions(ta.Addrinfo["producer"].RawAddress, 0, nil, &gasLimit)
 	require.NoError(err)
 	require.NoError(sf.Commit(ws))
 
@@ -826,7 +827,8 @@ func TestActions(t *testing.T) {
 	require.NoError(err)
 	_, err = ws.LoadOrCreateAccountState(c.RawAddress, big.NewInt(100000))
 	require.NoError(err)
-	_, err = ws.RunActions(ta.Addrinfo["producer"].RawAddress, 0, nil)
+	gasLimit := uint64(100000000)
+	_, err = ws.RunActions(ta.Addrinfo["producer"].RawAddress, 0, nil, &gasLimit)
 	require.NoError(err)
 	require.NoError(sf.Commit(ws))
 
