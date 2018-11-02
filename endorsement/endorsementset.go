@@ -16,6 +16,15 @@ import (
 	"github.com/iotexproject/iotex-core/proto"
 )
 
+var (
+	// ErrExpiredEndorsement indicates that the endorsement is from previous rounds
+	ErrExpiredEndorsement = errors.New("the endorsement is from previous round")
+	// ErrInvalidHash indicates that the endorsement hash is different from the set
+	ErrInvalidHash = errors.New("the endorsement hash is different from the set")
+	// ErrInvalidEndorsement indicates that the signature of the endorsement is invalid
+	ErrInvalidEndorsement = errors.New("the endorsement's signature is invalid")
+)
+
 // Set is a collection of endorsements for block
 type Set struct {
 	blkHash      hash.Hash32B
@@ -50,10 +59,23 @@ func (s *Set) FromProto(sPb *iproto.EndorsementSet) error {
 // AddEndorsement adds an endorsement with the right block hash and signature
 func (s *Set) AddEndorsement(en *Endorsement) error {
 	if !bytes.Equal(en.ConsensusVote().BlkHash[:], s.blkHash[:]) {
-		return errors.New("the endorsement block hash is different from lock")
+		return ErrInvalidHash
 	}
 	if !en.VerifySignature() {
-		return errors.New("invalid signature in endorsement")
+		return ErrInvalidEndorsement
+	}
+	for i, e := range s.endorsements {
+		if e.Endorser() != en.Endorser() {
+			continue
+		}
+		if e.ConsensusVote().Topic != en.ConsensusVote().Topic {
+			continue
+		}
+		if e.ConsensusVote().Round < en.ConsensusVote().Round {
+			s.endorsements[i] = en
+			return nil
+		}
+		return ErrExpiredEndorsement
 	}
 	s.endorsements = append(s.endorsements, en)
 
