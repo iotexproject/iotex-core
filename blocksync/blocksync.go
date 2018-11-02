@@ -79,16 +79,13 @@ func (bs *blockSyncer) P2P() network.Overlay {
 // Start starts a block syncer
 func (bs *blockSyncer) Start(ctx context.Context) error {
 	logger.Debug().Msg("Starting block syncer")
-	startHeight := bs.bc.TipHeight() + 1
-	bs.buf.startHeight = startHeight
-	bs.buf.confirmedHeight = startHeight - 1
 	return bs.worker.Start(ctx)
 }
 
 // Stop stops a block syncer
 func (bs *blockSyncer) Stop(ctx context.Context) error {
 	logger.Debug().Msg("Stopping block syncer")
-	return bs.worker.Start(ctx)
+	return bs.worker.Stop(ctx)
 }
 
 // ProcessBlock processes an incoming latest committed block
@@ -109,6 +106,8 @@ func (bs *blockSyncer) ProcessBlock(blk *blockchain.Block) error {
 		needSync = true
 	case bCheckinValid:
 		needSync = !moved
+	case bCheckinSkipNil:
+		needSync = false
 	}
 
 	if needSync {
