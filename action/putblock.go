@@ -31,7 +31,6 @@ type PutBlock struct {
 	subChainAddress string
 	height          uint64
 	roots           map[string]hash.Hash32B
-	producerAddress string
 }
 
 // NewPutBlock instantiates a putting sub-chain block action struct.
@@ -55,7 +54,6 @@ func NewPutBlock(
 		subChainAddress: subChainAddress,
 		height:          height,
 		roots:           roots,
-		producerAddress: producerAddress,
 	}
 }
 
@@ -76,8 +74,8 @@ func (pb *PutBlock) LoadProto(actPb *iproto.ActionPb) {
 
 	pb.version = actPb.Version
 	pb.nonce = actPb.Nonce
-	pb.srcAddr = putBlockPb.ProducerAddress
-	copy(pb.srcPubkey[:], putBlockPb.ProducerPublicKey)
+	pb.srcAddr = actPb.Sender
+	copy(pb.srcPubkey[:], actPb.SenderPubKey)
 	pb.gasLimit = actPb.GasLimit
 	pb.gasPrice = big.NewInt(0)
 	if len(actPb.GasPrice) > 0 {
@@ -86,7 +84,6 @@ func (pb *PutBlock) LoadProto(actPb *iproto.ActionPb) {
 
 	pb.subChainAddress = putBlockPb.SubChainAddress
 	pb.height = putBlockPb.Height
-	pb.producerAddress = putBlockPb.ProducerAddress
 
 	pb.roots = make(map[string]hash.Hash32B)
 	for k, v := range putBlockPb.Roots {
@@ -100,16 +97,16 @@ func (pb *PutBlock) Proto() *iproto.ActionPb {
 	act := &iproto.ActionPb{
 		Action: &iproto.ActionPb_PutBlock{
 			PutBlock: &iproto.PutBlockPb{
-				SubChainAddress:   pb.subChainAddress,
-				Height:            pb.height,
-				ProducerAddress:   pb.producerAddress,
-				ProducerPublicKey: pb.srcPubkey[:],
+				SubChainAddress: pb.subChainAddress,
+				Height:          pb.height,
 			},
 		},
-		Version:   pb.version,
-		Nonce:     pb.nonce,
-		GasLimit:  pb.gasLimit,
-		Signature: pb.signature,
+		Version:      pb.version,
+		Sender:       pb.srcAddr,
+		SenderPubKey: pb.srcPubkey[:],
+		Nonce:        pb.nonce,
+		GasLimit:     pb.gasLimit,
+		Signature:    pb.signature,
 	}
 
 	putBlockPb := act.GetPutBlock()
@@ -136,7 +133,7 @@ func (pb *PutBlock) Height() uint64 { return pb.height }
 func (pb *PutBlock) Roots() map[string]hash.Hash32B { return pb.roots }
 
 // ProducerAddress return producer address.
-func (pb *PutBlock) ProducerAddress() string { return pb.producerAddress }
+func (pb *PutBlock) ProducerAddress() string { return pb.srcAddr }
 
 // ProducerPublicKey return producer public key.
 func (pb *PutBlock) ProducerPublicKey() keypair.PublicKey { return pb.SrcPubkey() }

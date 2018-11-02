@@ -71,7 +71,8 @@ func (start *StartSubChain) LoadProto(actPb *iproto.ActionPb) {
 	startPb := actPb.GetStartSubChain()
 	start.version = actPb.Version
 	start.nonce = actPb.Nonce
-	start.srcAddr = startPb.OwnerAddress
+	start.srcAddr = actPb.Sender
+	copy(start.srcPubkey[:], actPb.SenderPubKey)
 	start.gasLimit = actPb.GetGasLimit()
 	start.gasPrice = big.NewInt(0)
 	start.signature = actPb.Signature
@@ -89,7 +90,6 @@ func (start *StartSubChain) LoadProto(actPb *iproto.ActionPb) {
 	if len(startPb.OperationDeposit) > 0 {
 		start.operationDeposit.SetBytes(startPb.OperationDeposit)
 	}
-	copy(start.srcPubkey[:], startPb.OwnerPublicKey)
 }
 
 // ChainID returns chain ID
@@ -162,14 +162,14 @@ func (start *StartSubChain) Proto() *iproto.ActionPb {
 				ChainID:            start.chainID,
 				StartHeight:        start.startHeight,
 				ParentHeightOffset: start.parentHeightOffset,
-				OwnerAddress:       start.srcAddr,
-				OwnerPublicKey:     start.srcPubkey[:],
 			},
 		},
-		Version:   start.version,
-		Nonce:     start.nonce,
-		GasLimit:  start.gasLimit,
-		Signature: start.signature,
+		Version:      start.version,
+		Sender:       start.srcAddr,
+		SenderPubKey: start.srcPubkey[:],
+		Nonce:        start.nonce,
+		GasLimit:     start.gasLimit,
+		Signature:    start.signature,
 	}
 
 	if start.securityDeposit != nil && len(start.securityDeposit.Bytes()) > 0 {

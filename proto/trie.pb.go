@@ -197,12 +197,14 @@ type isNodePb_Node interface {
 type NodePb_Branch struct {
 	Branch *BranchPb `protobuf:"bytes,2,opt,name=branch,proto3,oneof"`
 }
+
 type NodePb_Leaf struct {
 	Leaf *LeafPb `protobuf:"bytes,3,opt,name=leaf,proto3,oneof"`
 }
 
 func (*NodePb_Branch) isNodePb_Node() {}
-func (*NodePb_Leaf) isNodePb_Node()   {}
+
+func (*NodePb_Leaf) isNodePb_Node() {}
 
 func (m *NodePb) GetNode() isNodePb_Node {
 	if m != nil {
