@@ -65,12 +65,13 @@ func (sw *SecretWitness) Proto() *iproto.ActionPb {
 	act := &iproto.ActionPb{
 		Action: &iproto.ActionPb_SecretWitness{
 			SecretWitness: &iproto.SecretWitnessPb{
-				Sender:  sw.srcAddr,
 				Witness: sw.witness,
 			},
 		},
-		Version: sw.version,
-		Nonce:   sw.nonce,
+		Version:      sw.version,
+		Sender:       sw.srcAddr,
+		SenderPubKey: sw.srcPubkey[:],
+		Nonce:        sw.nonce,
 	}
 	return act
 }
@@ -83,11 +84,11 @@ func (sw *SecretWitness) Serialize() ([]byte, error) {
 // LoadProto converts a protobuf's ActionPb to SecretWitness
 func (sw *SecretWitness) LoadProto(pbAct *iproto.ActionPb) {
 	sw.version = pbAct.GetVersion()
-	// used by account-based model
+	sw.srcAddr = pbAct.Sender
+	copy(sw.srcPubkey[:], pbAct.SenderPubKey)
 	sw.nonce = pbAct.Nonce
 
 	pbSecretWitness := pbAct.GetSecretWitness()
-	sw.srcAddr = pbSecretWitness.Sender
 	sw.witness = pbSecretWitness.Witness
 }
 

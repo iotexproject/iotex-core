@@ -88,15 +88,15 @@ func (v *Vote) Proto() *iproto.ActionPb {
 	pbVote := &iproto.ActionPb{
 		Action: &iproto.ActionPb_Vote{
 			Vote: &iproto.VotePb{
-				VoterAddress: v.srcAddr,
-				SelfPubkey:   v.srcPubkey[:],
 				VoteeAddress: v.dstAddr,
 			},
 		},
-		Version:   v.version,
-		Nonce:     v.nonce,
-		GasLimit:  v.gasLimit,
-		Signature: v.signature,
+		Version:      v.version,
+		Sender:       v.srcAddr,
+		SenderPubKey: v.srcPubkey[:],
+		Nonce:        v.nonce,
+		GasLimit:     v.gasLimit,
+		Signature:    v.signature,
 	}
 	if v.gasPrice != nil {
 		pbVote.GasPrice = v.gasPrice.Bytes()
@@ -134,6 +134,8 @@ func (v *Vote) Serialize() ([]byte, error) {
 // LoadProto converts a protobuf's ActionPb to Vote
 func (v *Vote) LoadProto(pbAct *iproto.ActionPb) {
 	v.version = pbAct.Version
+	v.srcAddr = pbAct.Sender
+	copy(v.srcPubkey[:], pbAct.SenderPubKey)
 	v.nonce = pbAct.Nonce
 	v.gasLimit = pbAct.GasLimit
 	if v.gasPrice == nil {
@@ -145,9 +147,7 @@ func (v *Vote) LoadProto(pbAct *iproto.ActionPb) {
 	v.signature = pbAct.Signature
 	pbVote := pbAct.GetVote()
 	if pbVote != nil {
-		v.srcAddr = pbVote.VoterAddress
 		v.dstAddr = pbVote.VoteeAddress
-		copy(v.srcPubkey[:], pbVote.SelfPubkey)
 	}
 }
 

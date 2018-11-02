@@ -142,17 +142,17 @@ func (tsf *Transfer) Proto() *iproto.ActionPb {
 	act := &iproto.ActionPb{
 		Action: &iproto.ActionPb_Transfer{
 			Transfer: &iproto.TransferPb{
-				Sender:       tsf.srcAddr,
-				Recipient:    tsf.dstAddr,
-				Payload:      tsf.payload,
-				SenderPubKey: tsf.srcPubkey[:],
-				IsCoinbase:   tsf.isCoinbase,
+				Recipient:  tsf.dstAddr,
+				Payload:    tsf.payload,
+				IsCoinbase: tsf.isCoinbase,
 			},
 		},
-		Version:   tsf.version,
-		Nonce:     tsf.nonce,
-		GasLimit:  tsf.gasLimit,
-		Signature: tsf.signature,
+		Version:      tsf.version,
+		Sender:       tsf.srcAddr,
+		SenderPubKey: tsf.srcPubkey[:],
+		Nonce:        tsf.nonce,
+		GasLimit:     tsf.gasLimit,
+		Signature:    tsf.signature,
 	}
 
 	if tsf.amount != nil && len(tsf.amount.Bytes()) > 0 {
@@ -199,6 +199,8 @@ func (tsf *Transfer) LoadProto(pbAct *iproto.ActionPb) {
 	tsf.version = pbAct.GetVersion()
 	// used by account-based model
 	tsf.nonce = pbAct.Nonce
+	tsf.srcAddr = pbAct.Sender
+	copy(tsf.srcPubkey[:], pbAct.SenderPubKey)
 	tsf.gasLimit = pbAct.GasLimit
 	if tsf.gasPrice == nil {
 		tsf.gasPrice = big.NewInt(0)
@@ -214,10 +216,8 @@ func (tsf *Transfer) LoadProto(pbAct *iproto.ActionPb) {
 	if len(pbTsf.Amount) > 0 {
 		tsf.amount.SetBytes(pbTsf.Amount)
 	}
-	tsf.srcAddr = pbTsf.Sender
 	tsf.dstAddr = pbTsf.Recipient
 	tsf.payload = pbTsf.Payload
-	copy(tsf.srcPubkey[:], pbTsf.SenderPubKey)
 	tsf.signature = pbAct.Signature
 	tsf.isCoinbase = pbTsf.IsCoinbase
 }
