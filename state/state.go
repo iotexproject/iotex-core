@@ -71,12 +71,15 @@ func (slice *SortedSlice) Deserialize(data []byte) error {
 	return nil
 }
 
-// Exist check if a state exists in the slice
-func (slice SortedSlice) Exist(e interface{}, f func(interface{}, interface{}) int) bool {
+// Get check if a state exists in the slice
+func (slice SortedSlice) Get(e interface{}, f func(interface{}, interface{}) int) (interface{}, bool) {
 	idx := sort.Search(len(slice), func(i int) bool {
 		return f(slice[i], e) >= 0
 	})
-	return idx < len(slice) && f(slice[idx], e) == 0
+	if idx < len(slice) && f(slice[idx], e) == 0 {
+		return slice[idx], true
+	}
+	return nil, false
 }
 
 // Append appends a state into the state slice

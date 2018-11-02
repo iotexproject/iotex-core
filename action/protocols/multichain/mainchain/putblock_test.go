@@ -59,7 +59,7 @@ func TestHandlePutBlock(t *testing.T) {
 	ws, err = sf.NewWorkingSet()
 	require.NoError(t, err)
 
-	p := NewProtocol(&cfg, nil, nil, chain, nil)
+	p := NewProtocol(&cfg, chain, nil)
 
 	roots := make(map[string]hash.Hash32B)
 	roots["10002"] = byteutil.BytesTo32B([]byte("10002"))

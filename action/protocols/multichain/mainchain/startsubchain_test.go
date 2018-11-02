@@ -46,7 +46,7 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 
 	defer ctrl.Finish()
 
-	p := NewProtocol(&cfg, nil, nil, chain, nil)
+	p := NewProtocol(&cfg, chain, nil)
 
 	start := action.NewStartSubChain(
 		1,
@@ -134,7 +134,7 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 	assert.Nil(t, account)
 	assert.Nil(t, subChainsInOp)
 	require.Error(t, err)
-	assert.True(t, strings.Contains(err.Error(), "sub-chain owner doesn't have enough balance for security deposit"))
+	assert.True(t, strings.Contains(err.Error(), "doesn't have at least required balance"))
 
 	// operation deposit is more than the owner balance
 	start = action.NewStartSubChain(
@@ -152,12 +152,12 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 	assert.Nil(t, account)
 	assert.Nil(t, subChainsInOp)
 	require.Error(t, err)
-	assert.True(t, strings.Contains(err.Error(), "sub-chain owner doesn't have enough balance for operation deposit"))
+	assert.True(t, strings.Contains(err.Error(), "doesn't have at least required balance"))
 
 	// operation deposit is more than the owner balance in working set
 	ws := mock_state.NewMockWorkingSet(ctrl)
 	ws.EXPECT().
-		CachedState(gomock.Any(), gomock.Any()).
+		State(gomock.Any(), gomock.Any()).
 		Return(&state.SortedSlice{InOperation{ID: uint32(3)}}, nil).
 		Times(1)
 	ws.EXPECT().CachedAccountState(gomock.Any()).Return(
@@ -179,11 +179,11 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 	assert.Nil(t, account)
 	assert.Nil(t, subChainsInOp)
 	require.Error(t, err)
-	assert.True(t, strings.Contains(err.Error(), "sub-chain owner doesn't have enough balance for operation deposit"))
+	assert.True(t, strings.Contains(err.Error(), "doesn't have at least required balance"))
 
 	// chain ID is used in the working set
 	ws.EXPECT().
-		CachedState(gomock.Any(), gomock.Any()).
+		State(gomock.Any(), gomock.Any()).
 		Return(&state.SortedSlice{InOperation{ID: uint32(2)}, InOperation{ID: uint32(3)}}, nil).
 		Times(1)
 	account, subChainsInOp, err = p.validateStartSubChain(start, ws)
@@ -257,7 +257,7 @@ func TestHandleStartSubChain(t *testing.T) {
 	assert.NoError(t, action.Sign(start, testaddress.Addrinfo["producer"].PrivateKey))
 
 	// Handle the action
-	protocol := NewProtocol(&cfg, nil, nil, chain, nil)
+	protocol := NewProtocol(&cfg, chain, nil)
 	require.NoError(t, protocol.handleStartSubChain(start, ws))
 	require.NoError(t, sf.Commit(ws))
 
@@ -288,7 +288,7 @@ func TestNoStartSubChainInGenesis(t *testing.T) {
 
 	ctx := context.Background()
 	bc := blockchain.NewBlockchain(&cfg, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
-	p := NewProtocol(&cfg, nil, nil, bc, nil)
+	p := NewProtocol(&cfg, bc, nil)
 	bc.GetFactory().AddActionHandlers(p)
 	require.NoError(t, bc.Start(ctx))
 	defer require.NoError(t, bc.Stop(ctx))
@@ -304,7 +304,7 @@ func TestStartSubChainInGenesis(t *testing.T) {
 
 	ctx := context.Background()
 	bc := blockchain.NewBlockchain(&cfg, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
-	p := NewProtocol(&cfg, nil, nil, bc, nil)
+	p := NewProtocol(&cfg, bc, nil)
 	bc.GetFactory().AddActionHandlers(p)
 	require.NoError(t, bc.Start(ctx))
 	defer require.NoError(t, bc.Stop(ctx))
@@ -321,5 +321,6 @@ func TestStartSubChainInGenesis(t *testing.T) {
 	assert.Equal(t, uint64(10), sc.ParentHeightOffset)
 	subChainsInOp, err := p.SubChainsInOperation()
 	require.NoError(t, err)
-	assert.True(t, subChainsInOp.Exist(InOperation{ID: uint32(2)}, SortInOperation))
+	_, ok := subChainsInOp.Get(InOperation{ID: uint32(2)}, SortInOperation)
+	assert.True(t, ok)
 }

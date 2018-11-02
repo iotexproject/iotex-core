@@ -31,6 +31,7 @@ func TestSubChainState(t *testing.T) {
 		ParentHeightOffset: 10,
 		OwnerPublicKey:     testaddress.Addrinfo["producer"].PublicKey,
 		CurrentHeight:      200,
+		DepositCount:       300,
 	}
 	data, err := sc1.Serialize()
 	require.NoError(t, err)
@@ -100,14 +101,12 @@ func TestSortedInOperationSlice(t *testing.T) {
 	require.NoError(t, slice2.Deserialize(bytes))
 
 	for i := 1; i <= 3; i++ {
-		assert.True(
-			t,
-			slice2.Exist(
-				InOperation{
-					ID: uint32(i),
-				},
-				SortInOperation,
-			),
+		_, ok := slice2.Get(
+			InOperation{
+				ID: uint32(i),
+			},
+			SortInOperation,
 		)
+		assert.True(t, ok)
 	}
 }

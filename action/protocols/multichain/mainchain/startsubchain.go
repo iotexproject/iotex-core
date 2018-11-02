@@ -46,10 +46,7 @@ func (p *Protocol) handleStartSubChain(start *action.StartSubChain, ws state.Wor
 	if err != nil {
 		return err
 	}
-	if err := p.mutateSubChainState(start, account, subChainsInOp, ws); err != nil {
-		return err
-	}
-	return nil
+	return p.mutateSubChainState(start, account, subChainsInOp, ws)
 }
 
 func (p *Protocol) validateStartSubChain(
@@ -59,27 +56,12 @@ func (p *Protocol) validateStartSubChain(
 	if start.ChainID() == p.rootChain.ChainID() {
 		return nil, nil, fmt.Errorf("%d is used by main chain", start.ChainID())
 	}
-	var subChainsInOp state.SortedSlice
-	var err error
-	if ws == nil {
-		subChainsInOp, err = p.SubChainsInOperation()
-	} else {
-		subChainsInOp, err = cachedSubChainsInOperation(ws)
-	}
+	subChainsInOp, err := p.subChainsInOperation(ws)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "error when getting the state of used chain IDs")
+		return nil, nil, err
 	}
-	if subChainsInOp.Exist(InOperation{ID: start.ChainID()}, SortInOperation) {
+	if _, ok := subChainsInOp.Get(InOperation{ID: start.ChainID()}, SortInOperation); ok {
 		return nil, nil, fmt.Errorf("%d is used by another sub-chain", start.ChainID())
-	}
-	var account *state.Account
-	if ws == nil {
-		account, err = p.sf.AccountState(start.OwnerAddress())
-	} else {
-		account, err = ws.CachedAccountState(start.OwnerAddress())
-	}
-	if err != nil {
-		return nil, nil, errors.Wrapf(err, "error when getting the state of address %s", start.OwnerAddress())
 	}
 	if start.SecurityDeposit().Cmp(MinSecurityDeposit) < 0 {
 		return nil, nil, fmt.Errorf(
@@ -87,11 +69,13 @@ func (p *Protocol) validateStartSubChain(
 			MinSecurityDeposit.String(),
 		)
 	}
-	if account.Balance.Cmp(start.SecurityDeposit()) < 0 {
-		return nil, nil, errors.New("sub-chain owner doesn't have enough balance for security deposit")
-	}
-	if account.Balance.Cmp(big.NewInt(0).Add(start.SecurityDeposit(), start.OperationDeposit())) < 0 {
-		return nil, nil, errors.New("sub-chain owner doesn't have enough balance for operation deposit")
+	account, err := p.accountWithEnoughBalance(
+		start.OwnerAddress(),
+		big.NewInt(0).Add(start.SecurityDeposit(), start.OperationDeposit()),
+		ws,
+	)
+	if err != nil {
+		return nil, nil, err
 	}
 	return account, subChainsInOp, nil
 }
@@ -114,6 +98,7 @@ func (p *Protocol) mutateSubChainState(
 		ParentHeightOffset: start.ParentHeightOffset(),
 		OwnerPublicKey:     start.OwnerPublicKey(),
 		CurrentHeight:      0,
+		DepositCount:       0,
 	}
 	if err := ws.PutState(addr, &sc); err != nil {
 		return errors.Wrap(err, "error when putting sub-chain state")
@@ -152,24 +137,4 @@ func createSubChainAddress(ownerAddr string, nonce uint64) (hash.PKHash, error) 
 	bytes := make([]byte, 8)
 	enc.MachineEndian.PutUint64(bytes, nonce)
 	return byteutil.BytesTo20B(hash.Hash160b(append(addr.Payload(), bytes...))), nil
-}
-
-func cachedSubChainsInOperation(ws state.WorkingSet) (state.SortedSlice, error) {
-	var subChainsInOp state.SortedSlice
-	s, err := ws.CachedState(subChainsInOperationKey, &subChainsInOp)
-	return processState(s, err)
-}
-
-func processState(s state.State, err error) (state.SortedSlice, error) {
-	if err != nil {
-		if errors.Cause(err) == state.ErrStateNotExist {
-			return state.SortedSlice{}, nil
-		}
-		return nil, errors.Wrapf(err, "error when loading state of %x", subChainsInOperationKey)
-	}
-	uci, ok := s.(*state.SortedSlice)
-	if !ok {
-		return nil, errors.New("error when casting state into used chain IDs")
-	}
-	return *uci, nil
 }
