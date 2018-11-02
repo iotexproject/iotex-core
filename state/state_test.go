@@ -34,11 +34,15 @@ func TestSortedSlice(t *testing.T) {
 	for _, e := range input {
 		slice1 = slice1.Append(e, compare)
 	}
-	for _, e := range input {
-		assert.True(t, slice1.Exist(e, compare))
+	for i, e := range input {
+		val, ok := slice1.Get(e, compare)
+		assert.True(t, ok)
+		assert.Equal(t, input[i], val.(uint32))
 	}
-	assert.False(t, slice1.Exist(uint32(0), compare))
-	assert.False(t, slice1.Exist(uint32(16), compare))
+	_, ok := slice1.Get(uint32(0), compare)
+	assert.False(t, ok)
+	_, ok = slice1.Get(uint32(16), compare)
+	assert.False(t, ok)
 
 	data, err := slice1.Serialize()
 	require.NoError(t, err)
