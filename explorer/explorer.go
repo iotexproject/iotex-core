@@ -1252,6 +1252,60 @@ func (exp *Service) GetBlockOrActionByHash(hashStr string) (explorer.GetBlkOrAct
 	return explorer.GetBlkOrActResponse{}, nil
 }
 
+// Deposit deposits balance from main-chain to sub-chain
+func (exp *Service) Deposit(req explorer.DepositRequest) (res explorer.DepositResponse, err error) {
+	defer func() {
+		succeed := "true"
+		if err != nil {
+			succeed = "false"
+		}
+		requestMtc.WithLabelValues("deposit", succeed).Inc()
+	}()
+
+	senderPubKey, err := keypair.StringToPubKeyBytes(req.SenderPubKey)
+	if err != nil {
+		return res, err
+	}
+	signature, err := hex.DecodeString(req.Signature)
+	if err != nil {
+		return res, err
+	}
+	amount, ok := big.NewInt(0).SetString(req.Amount, 10)
+	if !ok {
+		return res, errors.New("error when converting amount string into big int type")
+	}
+	gasPrice, ok := big.NewInt(0).SetString(req.GasPrice, 10)
+	if !ok {
+		return res, errors.New("error when converting gas price string into big int type")
+	}
+	actPb := &pb.ActionPb{
+		Action: &pb.ActionPb_Deposit{
+			Deposit: &pb.DepositPb{
+				Amount:    amount.Bytes(),
+				Recipient: req.Recipient,
+			},
+		},
+		Version:      uint32(req.Version),
+		Sender:       req.Sender,
+		SenderPubKey: senderPubKey,
+		Nonce:        uint64(req.Nonce),
+		GasLimit:     uint64(req.GasLimit),
+		GasPrice:     gasPrice.Bytes(),
+		Signature:    signature,
+	}
+	// broadcast to the network
+	if err = exp.p2p.Broadcast(exp.bc.ChainID(), actPb); err != nil {
+		return res, err
+	}
+	// send to actpool via dispatcher
+	exp.dp.HandleBroadcast(exp.bc.ChainID(), actPb, nil)
+
+	deposit := &action.Deposit{}
+	deposit.LoadProto(actPb)
+	h := deposit.Hash()
+	return explorer.DepositResponse{Hash: hex.EncodeToString(h[:])}, nil
+}
+
 // getTransfer takes in a blockchain and transferHash and returns an Explorer Transfer
 func getTransfer(bc blockchain.Blockchain, ap actpool.ActPool, transferHash hash.Hash32B, idx *indexservice.Server, useRDS bool) (explorer.Transfer, error) {
 	explorerTransfer := explorer.Transfer{}

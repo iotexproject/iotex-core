@@ -9,6 +9,7 @@ package explorer
 import (
 	"testing"
 
+	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/stretchr/testify/require"
 )
 
@@ -75,6 +76,9 @@ func TestMockExplorerApi(t *testing.T) {
 	require.Nil(err)
 
 	_, err = svc.GetPeers()
+	require.Nil(err)
+
+	_, err = svc.Deposit(explorer.DepositRequest{})
 	require.Nil(err)
 
 	randInt64 := randInt64()
