@@ -44,7 +44,7 @@ func TestValidateDeposit(t *testing.T) {
 		ctrl.Finish()
 	}()
 
-	p := NewProtocol(&cfg, nil, nil, chain, nil)
+	p := NewProtocol(&cfg, chain, nil)
 
 	addr1 := testaddress.Addrinfo["producer"].RawAddress
 	addr, err := address.IotxAddressToAddress(addr1)
@@ -133,7 +133,7 @@ func TestMutateDeposit(t *testing.T) {
 	))
 	require.NoError(t, sf.Commit(ws))
 
-	p := NewProtocol(&cfg, nil, nil, chain, nil)
+	p := NewProtocol(&cfg, chain, nil)
 	require.NoError(t, p.mutateDeposit(
 		action.NewDeposit(2, big.NewInt(1000), addr1, addr2, testutil.TestGasLimit, big.NewInt(0)),
 		&state.Account{

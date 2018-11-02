@@ -17,9 +17,7 @@ import (
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/dispatcher"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
-	"github.com/iotexproject/iotex-core/network"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
@@ -36,8 +34,6 @@ var (
 // Protocol defines the protocol of handling multi-chain actions on main-chain
 type Protocol struct {
 	cfg          *config.Config
-	p2p          network.Overlay
-	dispatcher   dispatcher.Dispatcher
 	rootChain    blockchain.Blockchain
 	sf           state.Factory
 	rootChainAPI explorer.Explorer
@@ -46,15 +42,11 @@ type Protocol struct {
 // NewProtocol instantiates the protocol of sub-chain
 func NewProtocol(
 	cfg *config.Config,
-	p2p network.Overlay,
-	dispatcher dispatcher.Dispatcher,
 	rootChain blockchain.Blockchain,
 	rootChainAPI explorer.Explorer,
 ) *Protocol {
 	return &Protocol{
 		cfg:          cfg,
-		p2p:          p2p,
-		dispatcher:   dispatcher,
 		rootChain:    rootChain,
 		sf:           rootChain.GetFactory(),
 		rootChainAPI: rootChainAPI,
