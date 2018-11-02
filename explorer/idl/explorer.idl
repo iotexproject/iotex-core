@@ -203,11 +203,11 @@ struct PutSubChainBlockResponse {
 }
 
 struct SendActionRequest {
-   payload  string
+    payload  string
 }
 
 struct SendActionResponse {
-   payload  string
+    payload  string
 }
 
 struct Node {
@@ -228,6 +228,22 @@ struct GetBlkOrActResponse {
     transfer Transfer [optional]
     vote Vote [optional]
     execution Execution [optional]
+}
+
+struct DepositRequest {
+    version int
+    nonce int
+    sender string
+    senderPubKey string
+    recipient string
+    amount string
+    signature string
+    gasLimit int
+    gasPrice string
+}
+
+struct DepositResponse {
+    hash string
 }
 
 interface Explorer {
@@ -329,4 +345,7 @@ interface Explorer {
 
     // get block or action by a hash
     getBlockOrActionByHash(hashStr string) GetBlkOrActResponse
+
+    // deposit balance from main-chain to sub-chain
+    deposit(request DepositRequest) DepositResponse
 }

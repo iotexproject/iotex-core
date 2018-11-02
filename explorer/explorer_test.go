@@ -45,13 +45,6 @@ const (
 	testDBPath   = "db.test"
 )
 
-const (
-	senderRawAddr    = "io1qyqsyqcyy3vtzaghs2z30m8kzux8hqggpf0gmqu8xy959d"
-	recipientRawAddr = "io1qyqsyqcy2a97s6h6lcrzuy7adyhyusnegn780rwcd0ssc2"
-	senderPubKey     = "32d83ff52f2b34b297918a7ea3e032d5a1a3a635300a4fd7451b7c873650dedd2175e20536edc118df678f840820541b23287dd2a011a2b1865d91acfe859574f2c83f7d9542aa01"
-	recipientPubKey  = "ba7aa38cc6f68da81832433a3c4911abea6730c381d9d6bac35ea36504060860d56567058fd96b0a746c3b3792f8a5a2b4295e6565a300ef92f10d5aa50953a1e15398463774c604"
-)
-
 func addTestingBlocks(bc blockchain.Blockchain) error {
 	// Add block 1
 	// test --> A, B, C, D, E, F
@@ -538,11 +531,11 @@ func TestService_SendTransfer(t *testing.T) {
 	r := explorer.SendTransferRequest{
 		Version:      0x1,
 		Nonce:        1,
-		Sender:       senderRawAddr,
-		Recipient:    recipientRawAddr,
+		Sender:       ta.Addrinfo["producer"].RawAddress,
+		Recipient:    ta.Addrinfo["alfa"].RawAddress,
 		Amount:       big.NewInt(1).String(),
 		GasPrice:     big.NewInt(0).String(),
-		SenderPubKey: senderPubKey,
+		SenderPubKey: keypair.EncodePublicKey(ta.Addrinfo["producer"].PublicKey),
 		Signature:    "",
 		Payload:      "",
 	}
@@ -574,9 +567,9 @@ func TestService_SendVote(t *testing.T) {
 	r := explorer.SendVoteRequest{
 		Version:     0x1,
 		Nonce:       1,
-		Voter:       senderRawAddr,
-		Votee:       senderRawAddr,
-		VoterPubKey: senderPubKey,
+		Voter:       ta.Addrinfo["producer"].RawAddress,
+		Votee:       ta.Addrinfo["alfa"].RawAddress,
+		VoterPubKey: keypair.EncodePublicKey(ta.Addrinfo["producer"].PublicKey),
 		GasPrice:    big.NewInt(0).String(),
 		Signature:   "",
 	}
@@ -642,8 +635,8 @@ func TestServicePutSubChainBlock(t *testing.T) {
 	r := explorer.PutSubChainBlockRequest{
 		Version:       0x1,
 		Nonce:         1,
-		SenderAddress: senderRawAddr,
-		SenderPubKey:  senderPubKey,
+		SenderAddress: ta.Addrinfo["producer"].RawAddress,
+		SenderPubKey:  keypair.EncodePublicKey(ta.Addrinfo["producer"].PublicKey),
 		GasPrice:      big.NewInt(0).String(),
 		Signature:     "",
 		Roots:         roots,
@@ -675,7 +668,15 @@ func TestServiceSendAction(t *testing.T) {
 
 	roots := make(map[string]hash.Hash32B)
 	roots["10002"] = byteutil.BytesTo32B([]byte("10002"))
-	pb := action.NewPutBlock(1, "", senderRawAddr, 100, roots, 10000, big.NewInt(0))
+	pb := action.NewPutBlock(
+		1,
+		"",
+		ta.Addrinfo["producer"].RawAddress,
+		100,
+		roots,
+		10000,
+		big.NewInt(0),
+	)
 	pl := iproto.SendActionRequest{Action: pb.Proto()}
 	d, err := proto.Marshal(&pl)
 	require.NoError(err)
@@ -827,6 +828,54 @@ func TestExplorerGetReceiptByExecutionID(t *testing.T) {
 	receipt, err := svc.GetReceiptByExecutionID(eHashStr)
 	require.NoError(err)
 	require.Equal(eHashStr, receipt.Hash)
+}
+
+func TestService_Deposit(t *testing.T) {
+	require := require.New(t)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	cfg := config.Default
+	bc := mock_blockchain.NewMockBlockchain(ctrl)
+	bc.EXPECT().ChainID().Return(uint32(1)).Times(2)
+	dp := mock_dispatcher.NewMockDispatcher(ctrl)
+	dp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
+	p2p := mock_network.NewMockOverlay(ctrl)
+	p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(1)
+
+	svc := Service{
+		cfg: cfg.Explorer,
+		bc:  bc,
+		p2p: p2p,
+		dp:  dp,
+	}
+
+	deposit := action.NewDeposit(
+		10,
+		big.NewInt(10000),
+		ta.Addrinfo["producer"].RawAddress,
+		// Test explorer only, so that it doesn't matter the address is not on sub-chain
+		ta.Addrinfo["alfa"].RawAddress,
+		1000,
+		big.NewInt(100),
+	)
+	require.NoError(action.Sign(deposit, ta.Addrinfo["producer"].PrivateKey))
+
+	res, error := svc.Deposit(explorer.DepositRequest{
+		Version:      int64(deposit.Version()),
+		Nonce:        int64(deposit.Nonce()),
+		Sender:       deposit.Sender(),
+		SenderPubKey: keypair.EncodePublicKey(deposit.SenderPublicKey()),
+		Recipient:    deposit.Recipient(),
+		Amount:       deposit.Amount().String(),
+		Signature:    hex.EncodeToString(deposit.Signature()),
+		GasLimit:     int64(deposit.GasLimit()),
+		GasPrice:     deposit.GasPrice().String(),
+	})
+	require.NoError(error)
+	hash := deposit.Hash()
+	require.Equal(hex.EncodeToString(hash[:]), res.Hash)
 }
 
 func addCreatorToFactory(sf state.Factory) error {
