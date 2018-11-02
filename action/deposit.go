@@ -133,12 +133,12 @@ func (d *Deposit) Hash() hash.Hash32B { return blake2b.Sum256(d.ByteStream()) }
 // IntrinsicGas returns the intrinsic gas of a deposit
 func (d *Deposit) IntrinsicGas() (uint64, error) { return DepositIntrinsicGas, nil }
 
-// Cost returns the total cost of a transfer
+// Cost returns the total cost of a deposit
 func (d *Deposit) Cost() (*big.Int, error) {
 	intrinsicGas, err := d.IntrinsicGas()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get intrinsic gas for the deposit")
 	}
-	transferFee := big.NewInt(0).Mul(d.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas))
-	return big.NewInt(0).Add(d.Amount(), transferFee), nil
+	depositFee := big.NewInt(0).Mul(d.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas))
+	return big.NewInt(0).Add(d.Amount(), depositFee), nil
 }
