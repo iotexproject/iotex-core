@@ -58,6 +58,11 @@ message PutBlockPb {
     map<string, bytes> roots = 3;
 }
 
+message DepositPb {
+    bytes amount  = 1;
+    string recipient = 2;
+}
+
 message ActionPb {
     uint32 version = 1;
     // TODO: we should remove sender address later
@@ -76,5 +81,6 @@ message ActionPb {
         StartSubChainPb startSubChain = 15;
         StopSubChainPb stopSubChain = 16;
         PutBlockPb putBlock = 17;
+        DepositPb deposit = 18;
     }
 }
