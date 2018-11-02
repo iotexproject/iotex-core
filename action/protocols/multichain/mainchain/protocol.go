@@ -7,11 +7,10 @@
 package mainchain
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/pkg/errors"
-
-	"fmt"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/address"
