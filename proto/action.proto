@@ -1,0 +1,86 @@
+// Copyright (c) 2018 IoTeX
+// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
+// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
+// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
+// License 2.0 that can be found in the LICENSE file.
+
+// To compile the proto, run:
+//      protoc --go_out=plugins=grpc:. *.proto
+syntax = "proto3";
+package iproto;
+
+message TransferPb {
+    // used by state-based model
+    bytes amount  = 1;
+    string recipient = 2;
+    bytes payload  = 3;
+    bool isCoinbase = 4;
+}
+
+message VotePb {
+    uint64 timestamp = 1;
+    string voteeAddress = 2;  // the address this node is voting for
+}
+
+message ExecutionPb {
+    bytes amount  = 1;
+    string contract = 2;
+    bytes data = 3;
+}
+
+message SecretProposalPb {
+    string recipient = 1;
+    repeated uint32 secret = 2;
+}
+
+message SecretWitnessPb {
+    repeated bytes witness = 1;
+}
+
+message StartSubChainPb {
+    // TODO: chainID chould be assigned by system and returned via a receipt
+    uint32 chainID = 1;
+    bytes securityDeposit = 2;
+    bytes operationDeposit = 3;
+    uint64 startHeight = 4;
+    uint64 parentHeightOffset = 5;
+}
+
+message StopSubChainPb {
+    uint32 chainID = 1;
+    uint64 stopHeight = 2;
+    string subChainAddress = 3;
+}
+
+message PutBlockPb {
+    string subChainAddress = 1;
+    uint64 height = 2;
+    map<string, bytes> roots = 3;
+}
+
+message DepositPb {
+    bytes amount  = 1;
+    string recipient = 2;
+}
+
+message ActionPb {
+    uint32 version = 1;
+    // TODO: we should remove sender address later
+    string sender = 2;
+    bytes senderPubKey = 3;
+    uint64 nonce = 4;
+    uint64 gasLimit = 5;
+    bytes gasPrice = 6;
+    bytes signature = 7;
+    oneof action {
+        TransferPb transfer = 10;
+        VotePb vote = 11;
+        ExecutionPb execution = 12;
+        SecretProposalPb secretProposal = 13;
+        SecretWitnessPb secretWitness = 14;
+        StartSubChainPb startSubChain = 15;
+        StopSubChainPb stopSubChain = 16;
+        PutBlockPb putBlock = 17;
+        DepositPb deposit = 18;
+    }
+}

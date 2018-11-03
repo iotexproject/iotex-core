@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package subchain
+package mainchain
 
 import (
 	"context"
@@ -60,7 +60,7 @@ func TestHandlePutBlock(t *testing.T) {
 	ws, err = sf.NewWorkingSet()
 	require.NoError(t, err)
 
-	p := NewProtocol(&cfg, nil, nil, chain, nil)
+	p := NewProtocol(&cfg, chain, nil)
 
 	roots := make(map[string]hash.Hash32B)
 	roots["10002"] = byteutil.BytesTo32B([]byte("10002"))

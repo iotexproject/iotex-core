@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package subchain
+package mainchain
 
 import (
 	"encoding/gob"
@@ -28,6 +28,7 @@ type SubChain struct {
 	ParentHeightOffset uint64
 	OwnerPublicKey     keypair.PublicKey
 	CurrentHeight      uint64
+	DepositCount       uint64
 }
 
 // Serialize serializes sub-chain state into bytes
@@ -81,3 +82,16 @@ func SortInOperation(x interface{}, y interface{}) int {
 type StartSubChainReceipt struct {
 	SubChainAddress string
 }
+
+// Deposit represents the state of a deposit
+type Deposit struct {
+	Amount    *big.Int
+	Addr      []byte
+	Confirmed bool
+}
+
+// Serialize serializes deposit state into bytes
+func (bs *Deposit) Serialize() ([]byte, error) { return state.GobBasedSerialize(bs) }
+
+// Deserialize deserializes bytes into deposit state
+func (bs *Deposit) Deserialize(data []byte) error { return state.GobBasedDeserialize(bs, data) }

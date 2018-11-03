@@ -1,4 +1,10 @@
-package transfer
+// Copyright (c) 2018 IoTeX
+// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
+// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
+// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
+// License 2.0 that can be found in the LICENSE file.
+
+package account
 
 import (
 	"math/big"
@@ -13,14 +19,8 @@ import (
 // TransferSizeLimit is the maximum size of transfer allowed
 const TransferSizeLimit = 32 * 1024
 
-// Protocol defines the protocol of handling transfers
-type Protocol struct{}
-
-// NewProtocol instantiates the protocol of transfer
-func NewProtocol() *Protocol { return &Protocol{} }
-
-// Handle handles a transfer
-func (p *Protocol) Handle(act action.Action, ws state.WorkingSet) error {
+// handleTransfer handles a transfer
+func (p *Protocol) handleTransfer(act action.Action, ws state.WorkingSet) error {
 	tsf, ok := act.(*action.Transfer)
 	if !ok {
 		return nil
@@ -30,7 +30,7 @@ func (p *Protocol) Handle(act action.Action, ws state.WorkingSet) error {
 	}
 	if !tsf.IsCoinbase() {
 		// check sender
-		sender, err := ws.LoadOrCreateAccountState(tsf.Sender(), big.NewInt(0))
+		sender, err := LoadOrCreateAccountState(ws, tsf.Sender(), big.NewInt(0))
 		if err != nil {
 			return errors.Wrapf(err, "failed to load or create the account of sender %s", tsf.Sender())
 		}
@@ -42,41 +42,55 @@ func (p *Protocol) Handle(act action.Action, ws state.WorkingSet) error {
 			return errors.Wrapf(err, "failed to update the Balance of sender %s", tsf.Sender())
 		}
 		// update sender Nonce
-		if tsf.Nonce() > sender.Nonce {
-			sender.Nonce = tsf.Nonce()
+		SetNonce(tsf, sender)
+		// put updated sender's state to trie
+		if err := StoreState(ws, tsf.Sender(), sender); err != nil {
+			return errors.Wrap(err, "failed to update pending account changes to trie")
 		}
 		// Update sender votes
 		if len(sender.Votee) > 0 && sender.Votee != tsf.Sender() {
 			// sender already voted to a different person
-			voteeOfSender, err := ws.LoadOrCreateAccountState(sender.Votee, big.NewInt(0))
+			voteeOfSender, err := LoadOrCreateAccountState(ws, sender.Votee, big.NewInt(0))
 			if err != nil {
 				return errors.Wrapf(err, "failed to load or create the account of sender's votee %s", sender.Votee)
 			}
 			voteeOfSender.VotingWeight.Sub(voteeOfSender.VotingWeight, tsf.Amount())
+			// put updated state of sender's votee to trie
+			if err := StoreState(ws, sender.Votee, voteeOfSender); err != nil {
+				return errors.Wrap(err, "failed to update pending account changes to trie")
+			}
 		}
 	}
 	// check recipient
-	recipient, err := ws.LoadOrCreateAccountState(tsf.Recipient(), big.NewInt(0))
+	recipient, err := LoadOrCreateAccountState(ws, tsf.Recipient(), big.NewInt(0))
 	if err != nil {
-		return errors.Wrapf(err, "failed to laod or create the account of recipient %s", tsf.Recipient())
+		return errors.Wrapf(err, "failed to load or create the account of recipient %s", tsf.Recipient())
 	}
 	if err := recipient.AddBalance(tsf.Amount()); err != nil {
 		return errors.Wrapf(err, "failed to update the Balance of recipient %s", tsf.Recipient())
 	}
+	// put updated recipient's state to trie
+	if err := StoreState(ws, tsf.Recipient(), recipient); err != nil {
+		return errors.Wrap(err, "failed to update pending account changes to trie")
+	}
 	// Update recipient votes
 	if len(recipient.Votee) > 0 && recipient.Votee != tsf.Recipient() {
 		// recipient already voted to a different person
-		voteeOfRecipient, err := ws.LoadOrCreateAccountState(recipient.Votee, big.NewInt(0))
+		voteeOfRecipient, err := LoadOrCreateAccountState(ws, recipient.Votee, big.NewInt(0))
 		if err != nil {
 			return errors.Wrapf(err, "failed to load or create the account of recipient's votee %s", recipient.Votee)
 		}
 		voteeOfRecipient.VotingWeight.Add(voteeOfRecipient.VotingWeight, tsf.Amount())
+		// put updated state of recipient's votee to trie
+		if err := StoreState(ws, recipient.Votee, voteeOfRecipient); err != nil {
+			return errors.Wrap(err, "failed to update pending account changes to trie")
+		}
 	}
 	return nil
 }
 
-// Validate validates a transfer
-func (p *Protocol) Validate(act action.Action) error {
+// validateTransfer validates a transfer
+func (p *Protocol) validateTransfer(act action.Action) error {
 	tsf, ok := act.(*action.Transfer)
 	if !ok {
 		return nil

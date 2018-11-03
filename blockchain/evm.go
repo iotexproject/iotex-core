@@ -123,7 +123,8 @@ func securityDeposit(ps *EVMParams, stateDB vm.StateDB, gasLimit *uint64) error 
 	executorNonce := stateDB.GetNonce(ps.context.Origin)
 	if executorNonce > ps.nonce {
 		logger.Error().Msgf("Nonce on %v: %d vs %d", ps.context.Origin, executorNonce, ps.nonce)
-		return ErrInconsistentNonce
+		// TODO ignore inconsistent nonce problem until the actions are executed sequentially
+		// return ErrInconsistentNonce
 	}
 	if *gasLimit < ps.gas {
 		return action.ErrHitGasLimit

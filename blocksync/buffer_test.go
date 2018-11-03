@@ -42,18 +42,19 @@ func TestBlockBufferFlush(t *testing.T) {
 	}()
 
 	b := blockBuffer{
-		bc:              chain,
-		ap:              ap,
-		blocks:          make(map[uint64]*blockchain.Block),
-		size:            16,
-		startHeight:     1,
-		confirmedHeight: 0,
+		bc:     chain,
+		ap:     ap,
+		blocks: make(map[uint64]*blockchain.Block),
+		size:   16,
 	}
+	moved, re := b.Flush(nil)
+	assert.Equal(false, moved)
+	assert.Equal(bCheckinSkipNil, re)
 
 	blk, err := chain.MintNewBlock(nil, ta.Addrinfo["producer"],
 		nil, nil, "")
 	require.Nil(err)
-	moved, re := b.Flush(blk)
+	moved, re = b.Flush(blk)
 	assert.Equal(true, moved)
 	assert.Equal(bCheckinValid, re)
 
@@ -128,12 +129,10 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 	}()
 
 	b := blockBuffer{
-		bc:              chain,
-		ap:              ap,
-		blocks:          make(map[uint64]*blockchain.Block),
-		size:            16,
-		startHeight:     1,
-		confirmedHeight: 0,
+		bc:     chain,
+		ap:     ap,
+		blocks: make(map[uint64]*blockchain.Block),
+		size:   16,
 	}
 
 	out := b.GetBlocksIntervalsToSync(32)
@@ -154,7 +153,9 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		ta.Addrinfo["producer"].PublicKey,
 		nil,
 	)
-	b.Flush(blk)
+	moved, result := b.Flush(blk)
+	require.Equal(false, moved)
+	require.Equal(bCheckinValid, result)
 	blk = blockchain.NewBlock(
 		uint32(123),
 		uint64(4),
@@ -163,7 +164,9 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		ta.Addrinfo["producer"].PublicKey,
 		nil,
 	)
-	b.Flush(blk)
+	moved, result = b.Flush(blk)
+	require.Equal(false, moved)
+	require.Equal(bCheckinValid, result)
 	blk = blockchain.NewBlock(
 		uint32(123),
 		uint64(5),
@@ -172,7 +175,9 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		ta.Addrinfo["producer"].PublicKey,
 		nil,
 	)
-	b.Flush(blk)
+	moved, result = b.Flush(blk)
+	require.Equal(false, moved)
+	require.Equal(bCheckinValid, result)
 	blk = blockchain.NewBlock(
 		uint32(123),
 		uint64(6),
@@ -181,7 +186,9 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		ta.Addrinfo["producer"].PublicKey,
 		nil,
 	)
-	b.Flush(blk)
+	moved, result = b.Flush(blk)
+	require.Equal(false, moved)
+	require.Equal(bCheckinValid, result)
 	blk = blockchain.NewBlock(
 		uint32(123),
 		uint64(8),
@@ -190,7 +197,9 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		ta.Addrinfo["producer"].PublicKey,
 		nil,
 	)
-	b.Flush(blk)
+	moved, result = b.Flush(blk)
+	require.Equal(false, moved)
+	require.Equal(bCheckinValid, result)
 	blk = blockchain.NewBlock(
 		uint32(123),
 		uint64(14),
@@ -199,7 +208,9 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		ta.Addrinfo["producer"].PublicKey,
 		nil,
 	)
-	b.Flush(blk)
+	moved, result = b.Flush(blk)
+	require.Equal(false, moved)
+	require.Equal(bCheckinValid, result)
 	blk = blockchain.NewBlock(
 		uint32(123),
 		uint64(16),
@@ -208,7 +219,9 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		ta.Addrinfo["producer"].PublicKey,
 		nil,
 	)
-	b.Flush(blk)
+	moved, result = b.Flush(blk)
+	require.Equal(false, moved)
+	require.Equal(bCheckinValid, result)
 	assert.Len(b.GetBlocksIntervalsToSync(32), 5)
 	assert.Len(b.GetBlocksIntervalsToSync(7), 3)
 	assert.Len(b.GetBlocksIntervalsToSync(5), 2)

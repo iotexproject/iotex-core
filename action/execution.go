@@ -113,16 +113,16 @@ func (ex *Execution) Proto() *iproto.ActionPb {
 	act := &iproto.ActionPb{
 		Action: &iproto.ActionPb_Execution{
 			Execution: &iproto.ExecutionPb{
-				Executor:       ex.srcAddr,
-				Contract:       ex.dstAddr,
-				ExecutorPubKey: ex.srcPubkey[:],
-				Data:           ex.data,
+				Contract: ex.dstAddr,
+				Data:     ex.data,
 			},
 		},
-		Version:   ex.version,
-		Nonce:     ex.nonce,
-		GasLimit:  ex.gasLimit,
-		Signature: ex.signature,
+		Version:      ex.version,
+		Sender:       ex.srcAddr,
+		SenderPubKey: ex.srcPubkey[:],
+		Nonce:        ex.nonce,
+		GasLimit:     ex.gasLimit,
+		Signature:    ex.signature,
 	}
 	if ex.amount != nil && len(ex.amount.Bytes()) > 0 {
 		act.GetExecution().Amount = ex.amount.Bytes()
@@ -162,14 +162,14 @@ func (ex *Execution) Serialize() ([]byte, error) {
 // LoadProto converts a protobuf's ActionPb to Execution
 func (ex *Execution) LoadProto(pbAct *iproto.ActionPb) {
 	ex.version = pbAct.GetVersion()
+	ex.srcAddr = pbAct.Sender
+	copy(ex.srcPubkey[:], pbAct.SenderPubKey)
 	ex.nonce = pbAct.GetNonce()
 	ex.gasLimit = pbAct.GetGasLimit()
 	ex.signature = pbAct.GetSignature()
 	pbExecution := pbAct.GetExecution()
 	if pbExecution != nil {
-		ex.srcAddr = pbExecution.Executor
 		ex.dstAddr = pbExecution.GetContract()
-		copy(ex.srcPubkey[:], pbExecution.GetExecutorPubKey())
 		ex.data = pbExecution.GetData()
 		if ex.amount == nil {
 			ex.amount = big.NewInt(0)

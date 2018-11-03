@@ -21,98 +21,70 @@ const (
 	bCheckinLower
 	bCheckinExisting
 	bCheckinHigher
+	bCheckinSkipNil
 )
 
 // blockBuffer is used to keep in-coming block in order.
 type blockBuffer struct {
-	mu              sync.RWMutex
-	blocks          map[uint64]*blockchain.Block
-	bc              blockchain.Blockchain
-	ap              actpool.ActPool
-	size            uint64
-	startHeight     uint64
-	confirmedHeight uint64
+	mu     sync.RWMutex
+	blocks map[uint64]*blockchain.Block
+	bc     blockchain.Blockchain
+	ap     actpool.ActPool
+	size   uint64
 }
 
 // Flush tries to put given block into buffer and flush buffer into blockchain.
 func (b *blockBuffer) Flush(blk *blockchain.Block) (bool, bCheckinResult) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	l := logger.With().Uint64("recvHeight", blk.Height()).Uint64("startHeight", b.startHeight).Uint64("confirmedHeight", b.confirmedHeight).Str("source", "blockBuffer").Logger()
-
-	var (
-		syncedHeight uint64
-		moved        bool
-	)
-
+	moved := false
+	if blk == nil {
+		return moved, bCheckinSkipNil
+	}
+	confirmedHeight := b.bc.TipHeight()
 	// check
 	h := blk.Height()
-	if h <= b.confirmedHeight {
+	if h <= confirmedHeight {
 		return moved, bCheckinLower
 	}
-	if h < b.startHeight {
-		if err := commitBlock(b.bc, b.ap, blk); err != nil {
-			return moved, bCheckinLower
-		}
-
-		b.confirmedHeight = h
-		b.startHeight = h + 1
-		l.Info().Uint64("confirmedHeight", b.confirmedHeight).Msg("replace old dummy.")
-		return true, bCheckinValid
-	}
-	if b.blocks[h] != nil {
+	if _, ok := b.blocks[h]; ok {
 		return moved, bCheckinExisting
 	}
-	if b.startHeight+b.size <= h {
+	if h > confirmedHeight+b.size {
 		return moved, bCheckinHigher
 	}
 	b.blocks[h] = blk
-
-	for syncHeight := b.startHeight; syncHeight < b.startHeight+b.size; syncHeight++ {
-		if b.blocks[syncHeight] == nil {
-			continue
+	l := logger.With().
+		Uint64("recvHeight", blk.Height()).
+		Uint64("confirmedHeight", confirmedHeight).
+		Str("source", "blockBuffer").
+		Logger()
+	for b.size > 0 {
+		next := confirmedHeight + 1
+		blk, ok := b.blocks[next]
+		if !ok {
+			break
 		}
-		if err := commitBlock(b.bc, b.ap, b.blocks[syncHeight]); err == nil {
-			syncedHeight = syncHeight
-			b.confirmedHeight = syncedHeight
-			l.Info().Uint64("syncedHeight", syncedHeight).Msg("Successfully committed block.")
-			delete(b.blocks, syncHeight)
-			continue
-		} else {
-			l.Error().Err(err).Msg("Failed to commit the block")
-		}
-
-		// unable to commit, check reason
-		if blk, err := b.bc.GetBlockByHeight(syncHeight); err == nil {
-			if blk.HashBlock() == b.blocks[syncHeight].HashBlock() {
-				// same existing block
-				syncedHeight = syncHeight
-				b.confirmedHeight = syncedHeight
+		delete(b.blocks, next)
+		if err := commitBlock(b.bc, b.ap, blk); err != nil {
+			l.Error().Err(err).Uint64("syncHeight", next).
+				Msg("Failed to commit the block.")
+			// unable to commit, check reason
+			committedBlk, err := b.bc.GetBlockByHeight(next)
+			if err != nil || committedBlk.HashBlock() != blk.HashBlock() {
+				break
 			}
-			delete(b.blocks, syncHeight)
-		} else {
-			th := b.bc.TipHeight()
-			if syncHeight == th+1 {
-				// bad block or forked here
-				l.Error().Uint64("syncHeight", syncHeight).
-					Uint64("syncedHeight", syncedHeight).
-					Uint64("tipHeight", th).
-					Msg("Failed to commit next block.")
-				delete(b.blocks, syncHeight)
-			}
-			// otherwise block is higher than currently height
 		}
-	}
-	if syncedHeight != 0 {
-		b.startHeight = syncedHeight + 1
 		moved = true
+		confirmedHeight = next
+		l.Info().Uint64("syncedHeight", next).Msg("Successfully committed block.")
 	}
 
 	// clean up on memory leak
 	if len(b.blocks) > int(b.size)*2 {
 		l.Warn().Int("bufferSize", len(b.blocks)).Msg("blockBuffer is leaking memory.")
 		for h := range b.blocks {
-			if h < b.startHeight {
+			if h <= confirmedHeight {
 				delete(b.blocks, h)
 			}
 		}
@@ -131,16 +103,17 @@ func (b *blockBuffer) GetBlocksIntervalsToSync(targetHeight uint64) []syncBlocks
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 
-	if b.confirmedHeight >= targetHeight {
+	confirmedHeight := b.bc.TipHeight()
+	if confirmedHeight >= targetHeight {
 		return bi
 	}
 
-	if targetHeight >= b.startHeight+b.size {
-		targetHeight = b.startHeight + b.size - 1
+	if targetHeight > confirmedHeight+b.size {
+		targetHeight = confirmedHeight + b.size
 	}
 
-	for h := b.confirmedHeight + 1; h <= targetHeight; h++ {
-		if b.blocks[h] == nil {
+	for h := confirmedHeight + 1; h <= targetHeight; h++ {
+		if _, ok := b.blocks[h]; !ok {
 			if !startSet {
 				start = h
 				startSet = true
@@ -154,7 +127,7 @@ func (b *blockBuffer) GetBlocksIntervalsToSync(targetHeight uint64) []syncBlocks
 	}
 
 	// handle last block
-	if b.blocks[targetHeight] == nil {
+	if _, ok := b.blocks[targetHeight]; !ok {
 		if !startSet {
 			start = targetHeight
 		}

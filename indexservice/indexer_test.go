@@ -1,3 +1,9 @@
+// Copyright (c) 2018 IoTeX
+// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
+// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
+// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
+// License 2.0 that can be found in the LICENSE file.
+
 package indexservice
 
 import (
@@ -52,21 +58,24 @@ func TestIndexService(t *testing.T) {
 			},
 			Actions: []*iproto.ActionPb{
 				{Action: &iproto.ActionPb_Transfer{
-					Transfer: &iproto.TransferPb{Sender: userAddr1, Recipient: userAddr2},
+					Transfer: &iproto.TransferPb{Recipient: userAddr2},
 				},
 					Version: version.ProtocolVersion,
+					Sender:  userAddr1,
 					Nonce:   101,
 				},
 				{Action: &iproto.ActionPb_Vote{
-					Vote: &iproto.VotePb{VoterAddress: userAddr1, VoteeAddress: userAddr2},
+					Vote: &iproto.VotePb{VoteeAddress: userAddr2},
 				},
 					Version: version.ProtocolVersion,
+					Sender:  userAddr1,
 					Nonce:   103,
 				},
 				{Action: &iproto.ActionPb_Execution{
-					Execution: &iproto.ExecutionPb{Executor: userAddr1, Contract: userAddr2},
+					Execution: &iproto.ExecutionPb{Contract: userAddr2},
 				},
 					Version: version.ProtocolVersion,
+					Sender:  userAddr1,
 					Nonce:   104,
 				},
 			},

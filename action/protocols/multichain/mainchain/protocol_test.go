@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package subchain
+package mainchain
 
 import (
 	"context"
@@ -37,7 +37,7 @@ func TestAddSubChainActions(t *testing.T) {
 	require.NoError(t, err)
 	ap, err := actpool.NewActPool(bc, cfg.ActPool)
 	require.NoError(t, err)
-	p := NewProtocol(&cfg, nil, nil, bc, nil)
+	p := NewProtocol(&cfg, bc, nil)
 	ap.AddActionValidators(actpool.NewAbstractValidator(bc))
 	ap.AddActionValidators(p)
 	defer require.NoError(t, bc.Stop(ctx))

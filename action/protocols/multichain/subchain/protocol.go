@@ -4,13 +4,8 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-// To compile the proto, run:
-//      protoc --go_out=plugins=grpc:. *.proto
-syntax = "proto3";
-package iproto;
+package subchain
 
-import "action.proto";
-
-message SendActionRequest {
-    ActionPb action = 1;
+// Protocol defines the protocol to handle multi-chain actions on side-chain
+type Protocol struct {
 }

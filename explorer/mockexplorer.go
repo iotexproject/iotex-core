@@ -238,6 +238,11 @@ func (exp *MockExplorer) GetBlockOrActionByHash(hash string) (explorer.GetBlkOrA
 	return explorer.GetBlkOrActResponse{}, nil
 }
 
+// Deposit deposits the balance from main-chain to sub-chain
+func (exp *MockExplorer) Deposit(req explorer.DepositRequest) (explorer.DepositResponse, error) {
+	return explorer.DepositResponse{}, nil
+}
+
 func randInt64() int64 {
 	rand.Seed(time.Now().UnixNano())
 	amount := int64(0)

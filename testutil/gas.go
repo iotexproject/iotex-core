@@ -4,13 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-// To compile the proto, run:
-//      protoc --go_out=plugins=grpc:. *.proto
-syntax = "proto3";
-package iproto;
+package testutil
 
-import "action.proto";
-
-message SendActionRequest {
-    ActionPb action = 1;
-}
+// TestGasLimit represents the gas limit used for test actions
+const TestGasLimit uint64 = 100000
