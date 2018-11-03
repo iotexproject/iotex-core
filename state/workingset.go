@@ -45,7 +45,6 @@ type (
 		State(hash.PKHash, State) (State, error)
 		CachedState(hash.PKHash, State) (State, error)
 		PutState(hash.PKHash, State) error
-		UpdateCachedCandidates(*action.Vote) error
 		UpdateCachedStates(hash.PKHash, *Account)
 	}
 
@@ -290,23 +289,6 @@ func (ws *workingSet) Commit() error {
 		return errors.Wrap(err, "failed to Commit all changes to underlying DB in a batch")
 	}
 	ws.clearCache()
-	return nil
-}
-
-// UpdateCachedCandidates updates cached candidates
-func (ws *workingSet) UpdateCachedCandidates(vote *action.Vote) error {
-	votePubkey := vote.VoterPublicKey()
-	voterPKHash, err := iotxaddress.AddressToPKHash(vote.Voter())
-	if err != nil {
-		return errors.Wrap(err, "failed to get public key hash from account address")
-	}
-	if _, ok := ws.cachedCandidates[voterPKHash]; !ok {
-		ws.cachedCandidates[voterPKHash] = &Candidate{
-			Address:        vote.Voter(),
-			PublicKey:      votePubkey,
-			CreationHeight: ws.blkHeight,
-		}
-	}
 	return nil
 }
 
