@@ -14,8 +14,12 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 
+	"fmt"
+
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocols/multichain/mainchain"
 	"github.com/iotexproject/iotex-core/actpool"
+	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus"
@@ -65,7 +69,13 @@ type Service struct {
 	p2p network.Overlay
 	cfg config.Explorer
 	idx *indexservice.Server
+	// TODO: the way to make explorer to access the data model managed by main-chain protocol is hack. We need to
+	// refactor the code later
+	mainChain *mainchain.Protocol
 }
+
+// SetMainChainProtocol sets the main-chain side multi-chain protocol
+func (exp *Service) SetMainChainProtocol(mainChain *mainchain.Protocol) { exp.mainChain = mainChain }
 
 // GetBlockchainHeight returns the current blockchain tip height
 func (exp *Service) GetBlockchainHeight() (int64, error) {
@@ -1304,6 +1314,62 @@ func (exp *Service) Deposit(req explorer.DepositRequest) (res explorer.DepositRe
 	deposit.LoadProto(actPb)
 	h := deposit.Hash()
 	return explorer.DepositResponse{Hash: hex.EncodeToString(h[:])}, nil
+}
+
+// GetDeposits returns the deposits of a sub-chain in the given range in descending order by the index
+func (exp *Service) GetDeposits(subChainID int64, offset int64, limit int64) ([]explorer.Deposit, error) {
+	subChainsInOp, err := exp.mainChain.SubChainsInOperation()
+	if err != nil {
+		return nil, err
+	}
+	var targetSubChain mainchain.InOperation
+	for _, e := range subChainsInOp {
+		subChainInOp, ok := e.(mainchain.InOperation)
+		if !ok {
+			return nil, errors.New("error when casting the element in sorted slice into sub-chain in operation")
+		}
+		if subChainInOp.ID == uint32(subChainID) {
+			targetSubChain = subChainInOp
+		}
+	}
+	if targetSubChain.ID != uint32(subChainID) {
+		return nil, fmt.Errorf("sub-chain %d is not found in operation", subChainID)
+	}
+	subChainAddr, err := address.BytesToAddress(targetSubChain.Addr)
+	if err != nil {
+		return nil, err
+	}
+	subChain, err := exp.mainChain.SubChain(subChainAddr)
+	if err != nil {
+		return nil, err
+	}
+	idx := uint64(offset)
+	// If the last deposit index is lower than the start index, reset it
+	if subChain.DepositCount-1 < idx {
+		idx = subChain.DepositCount - 1
+	}
+	var deposits []explorer.Deposit
+	for count := int64(0); count < limit; count++ {
+		deposit, err := exp.mainChain.Deposit(subChainAddr, idx)
+		if err != nil {
+			return nil, err
+		}
+		recepient, err := address.BytesToAddress(deposit.Addr)
+		if err != nil {
+			return nil, err
+		}
+		deposits = append(deposits, explorer.Deposit{
+			Amount:    deposit.Amount.String(),
+			Address:   recepient.IotxAddress(),
+			Confirmed: deposit.Confirmed,
+		})
+		if idx > 0 {
+			idx--
+		} else {
+			break
+		}
+	}
+	return deposits, nil
 }
 
 // getTransfer takes in a blockchain and transferHash and returns an Explorer Transfer

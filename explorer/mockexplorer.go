@@ -243,6 +243,11 @@ func (exp *MockExplorer) Deposit(req explorer.DepositRequest) (explorer.DepositR
 	return explorer.DepositResponse{}, nil
 }
 
+// GetDeposits returns the deposits of a sub-chain in the given range
+func (exp *MockExplorer) GetDeposits(subChainID int64, offset int64, limit int64) ([]explorer.Deposit, error) {
+	return nil, nil
+}
+
 func randInt64() int64 {
 	rand.Seed(time.Now().UnixNano())
 	amount := int64(0)

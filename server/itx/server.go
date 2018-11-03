@@ -72,8 +72,9 @@ func newServer(cfg *config.Config, testing bool) (*Server, error) {
 	// Add abstract action validator
 	cs.ActionPool().AddActionValidators(actpool.NewAbstractValidator(cs.Blockchain()))
 	// Install protocols
-	mainChainProtocol := mainchain.NewProtocol(cfg, cs.Blockchain(), cs.Explorer().Explorer())
+	mainChainProtocol := mainchain.NewProtocol(cfg, cs.Blockchain())
 	cs.AddProtocols(mainChainProtocol)
+	cs.Explorer().SetMainChainProtocol(mainChainProtocol)
 
 	chains[cs.ChainID()] = cs
 	dispatcher.AddSubscriber(cs.ChainID(), cs)

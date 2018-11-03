@@ -29,8 +29,8 @@ var (
 	// ErrNotEnoughBalance is the error that the balance is not enough
 	ErrNotEnoughBalance = errors.New("not enough balance")
 
-	// ErrStateNotExist is the error that the account does not exist
-	ErrStateNotExist = errors.New("account does not exist")
+	// ErrStateNotExist is the error that the stat does not exist
+	ErrStateNotExist = errors.New("state does not exist")
 
 	// ErrAccountCollision is the error that the account already exists
 	ErrAccountCollision = errors.New("account already exists")
