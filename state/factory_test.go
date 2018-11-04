@@ -94,7 +94,7 @@ func TestCreateState(t *testing.T) {
 	state, err := ws.LoadOrCreateAccountState(addr.RawAddress, big.NewInt(5))
 	require.NoError(err)
 	gasLimit := uint64(100000000)
-	_, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 0, nil, &gasLimit)
+	_, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 0, nil, &gasLimit, testutil.DisableGasCharge)
 	require.NoError(err)
 	require.NoError(sf.Commit(ws))
 	require.Equal(uint64(0x0), state.Nonce)
@@ -283,7 +283,7 @@ func TestCandidates(t *testing.T) {
 	tx2, err := action.NewTransfer(uint64(2), big.NewInt(20), a.RawAddress, c.RawAddress, nil, uint64(0), big.NewInt(0))
 	require.NoError(t, err)
 	gasLimit := uint64(100000000)
-	newRoot, err := ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 0, []action.Action{tx1, tx2}, &gasLimit)
+	newRoot, err := ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 0, []action.Action{tx1, tx2}, &gasLimit, testutil.DisableGasCharge)
 	require.Nil(t, err)
 	root := newRoot
 	require.NotEqual(t, hash.ZeroHash32B, root)
@@ -303,7 +303,7 @@ func TestCandidates(t *testing.T) {
 	vote, err := action.NewVote(0, a.RawAddress, a.RawAddress, uint64(100000), big.NewInt(0))
 	vote.SetVoterPublicKey(a.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 0, []action.Action{vote}, &gasLimit)
+	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 0, []action.Action{vote}, &gasLimit, testutil.DisableGasCharge)
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -317,7 +317,7 @@ func TestCandidates(t *testing.T) {
 	vote2, err := action.NewVote(0, b.RawAddress, b.RawAddress, uint64(100000), big.NewInt(0))
 	vote2.SetVoterPublicKey(b.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 1, []action.Action{vote2}, &gasLimit)
+	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 1, []action.Action{vote2}, &gasLimit, testutil.DisableGasCharge)
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -332,7 +332,7 @@ func TestCandidates(t *testing.T) {
 	vote3, err := action.NewVote(1, a.RawAddress, b.RawAddress, uint64(100000), big.NewInt(0))
 	vote3.SetVoterPublicKey(a.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 2, []action.Action{vote3}, &gasLimit)
+	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 2, []action.Action{vote3}, &gasLimit, testutil.DisableGasCharge)
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -346,7 +346,7 @@ func TestCandidates(t *testing.T) {
 	require.NoError(t, err)
 	tx3, err := action.NewTransfer(uint64(2), big.NewInt(20), b.RawAddress, a.RawAddress, nil, uint64(0), big.NewInt(0))
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 3, []action.Action{tx3}, &gasLimit)
+	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 3, []action.Action{tx3}, &gasLimit, testutil.DisableGasCharge)
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -360,7 +360,7 @@ func TestCandidates(t *testing.T) {
 	require.NoError(t, err)
 	tx4, err := action.NewTransfer(uint64(2), big.NewInt(20), a.RawAddress, b.RawAddress, nil, uint64(0), big.NewInt(0))
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 4, []action.Action{tx4}, &gasLimit)
+	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 4, []action.Action{tx4}, &gasLimit, testutil.DisableGasCharge)
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -375,7 +375,7 @@ func TestCandidates(t *testing.T) {
 	vote4, err := action.NewVote(1, b.RawAddress, a.RawAddress, uint64(100000), big.NewInt(0))
 	vote4.SetVoterPublicKey(b.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 5, []action.Action{vote4}, &gasLimit)
+	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 5, []action.Action{vote4}, &gasLimit, testutil.DisableGasCharge)
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -390,7 +390,7 @@ func TestCandidates(t *testing.T) {
 	vote5, err := action.NewVote(2, b.RawAddress, b.RawAddress, uint64(100000), big.NewInt(0))
 	vote5.SetVoterPublicKey(b.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 6, []action.Action{vote5}, &gasLimit)
+	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 6, []action.Action{vote5}, &gasLimit, testutil.DisableGasCharge)
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -405,7 +405,7 @@ func TestCandidates(t *testing.T) {
 	vote6, err := action.NewVote(3, b.RawAddress, b.RawAddress, uint64(100000), big.NewInt(0))
 	vote6.SetVoterPublicKey(b.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 7, []action.Action{vote6}, &gasLimit)
+	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 7, []action.Action{vote6}, &gasLimit, testutil.DisableGasCharge)
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -419,7 +419,7 @@ func TestCandidates(t *testing.T) {
 	require.NoError(t, err)
 	tx5, err := action.NewTransfer(uint64(2), big.NewInt(20), c.RawAddress, a.RawAddress, nil, uint64(0), big.NewInt(0))
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 8, []action.Action{tx5}, &gasLimit)
+	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 8, []action.Action{tx5}, &gasLimit, testutil.DisableGasCharge)
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -434,7 +434,7 @@ func TestCandidates(t *testing.T) {
 	vote7, err := action.NewVote(0, c.RawAddress, a.RawAddress, uint64(100000), big.NewInt(0))
 	vote7.SetVoterPublicKey(c.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 9, []action.Action{vote7}, &gasLimit)
+	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 9, []action.Action{vote7}, &gasLimit, testutil.DisableGasCharge)
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -449,7 +449,7 @@ func TestCandidates(t *testing.T) {
 	vote8, err := action.NewVote(4, b.RawAddress, c.RawAddress, uint64(100000), big.NewInt(0))
 	vote8.SetVoterPublicKey(b.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 10, []action.Action{vote8}, &gasLimit)
+	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 10, []action.Action{vote8}, &gasLimit, testutil.DisableGasCharge)
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -464,7 +464,7 @@ func TestCandidates(t *testing.T) {
 	vote9, err := action.NewVote(1, c.RawAddress, c.RawAddress, uint64(100000), big.NewInt(0))
 	vote9.SetVoterPublicKey(c.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 11, []action.Action{vote9}, &gasLimit)
+	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 11, []action.Action{vote9}, &gasLimit, testutil.DisableGasCharge)
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -479,7 +479,7 @@ func TestCandidates(t *testing.T) {
 	vote10, err := action.NewVote(0, d.RawAddress, e.RawAddress, uint64(100000), big.NewInt(0))
 	vote10.SetVoterPublicKey(d.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 12, []action.Action{vote10}, &gasLimit)
+	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 12, []action.Action{vote10}, &gasLimit, testutil.DisableGasCharge)
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -494,7 +494,7 @@ func TestCandidates(t *testing.T) {
 	vote11, err := action.NewVote(1, d.RawAddress, d.RawAddress, uint64(100000), big.NewInt(0))
 	vote11.SetVoterPublicKey(d.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 13, []action.Action{vote11}, &gasLimit)
+	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 13, []action.Action{vote11}, &gasLimit, testutil.DisableGasCharge)
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -509,7 +509,7 @@ func TestCandidates(t *testing.T) {
 	vote12, err := action.NewVote(2, d.RawAddress, a.RawAddress, uint64(100000), big.NewInt(0))
 	vote12.SetVoterPublicKey(d.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 14, []action.Action{vote12}, &gasLimit)
+	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 14, []action.Action{vote12}, &gasLimit, testutil.DisableGasCharge)
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -524,7 +524,7 @@ func TestCandidates(t *testing.T) {
 	vote13, err := action.NewVote(2, c.RawAddress, d.RawAddress, uint64(100000), big.NewInt(0))
 	vote13.SetVoterPublicKey(c.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 15, []action.Action{vote13}, &gasLimit)
+	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 15, []action.Action{vote13}, &gasLimit, testutil.DisableGasCharge)
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -539,7 +539,7 @@ func TestCandidates(t *testing.T) {
 	vote14, err := action.NewVote(3, c.RawAddress, c.RawAddress, uint64(100000), big.NewInt(0))
 	vote14.SetVoterPublicKey(c.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 16, []action.Action{vote14}, &gasLimit)
+	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 16, []action.Action{vote14}, &gasLimit, testutil.DisableGasCharge)
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -555,7 +555,7 @@ func TestCandidates(t *testing.T) {
 	require.NoError(t, err)
 	tx7, err := action.NewTransfer(uint64(2), big.NewInt(200), b.RawAddress, e.RawAddress, nil, uint64(0), big.NewInt(0))
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 17, []action.Action{tx6, tx7}, &gasLimit)
+	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 17, []action.Action{tx6, tx7}, &gasLimit, testutil.DisableGasCharge)
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -570,7 +570,7 @@ func TestCandidates(t *testing.T) {
 	vote15, err := action.NewVote(0, e.RawAddress, e.RawAddress, uint64(100000), big.NewInt(0))
 	vote15.SetVoterPublicKey(e.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 18, []action.Action{vote15}, &gasLimit)
+	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 18, []action.Action{vote15}, &gasLimit, testutil.DisableGasCharge)
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -585,7 +585,7 @@ func TestCandidates(t *testing.T) {
 	vote16, err := action.NewVote(0, f.RawAddress, f.RawAddress, uint64(100000), big.NewInt(0))
 	vote16.SetVoterPublicKey(f.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 19, []action.Action{vote16}, &gasLimit)
+	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 19, []action.Action{vote16}, &gasLimit, testutil.DisableGasCharge)
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -603,7 +603,7 @@ func TestCandidates(t *testing.T) {
 	vote18, err := action.NewVote(1, f.RawAddress, d.RawAddress, uint64(100000), big.NewInt(0))
 	vote18.SetVoterPublicKey(f.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 20, []action.Action{vote17, vote18}, &gasLimit)
+	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 20, []action.Action{vote17, vote18}, &gasLimit, testutil.DisableGasCharge)
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -617,7 +617,7 @@ func TestCandidates(t *testing.T) {
 	require.NoError(t, err)
 	tx8, err := action.NewTransfer(uint64(1), big.NewInt(200), f.RawAddress, b.RawAddress, nil, uint64(0), big.NewInt(0))
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 21, []action.Action{tx8}, &gasLimit)
+	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 21, []action.Action{tx8}, &gasLimit, testutil.DisableGasCharge)
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -632,7 +632,7 @@ func TestCandidates(t *testing.T) {
 	require.NoError(t, err)
 	tx9, err := action.NewTransfer(uint64(1), big.NewInt(10), b.RawAddress, a.RawAddress, nil, uint64(0), big.NewInt(0))
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 22, []action.Action{tx9}, &gasLimit)
+	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 22, []action.Action{tx9}, &gasLimit, testutil.DisableGasCharge)
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -646,7 +646,7 @@ func TestCandidates(t *testing.T) {
 	require.NoError(t, err)
 	tx10, err := action.NewTransfer(uint64(1), big.NewInt(300), e.RawAddress, d.RawAddress, nil, uint64(0), big.NewInt(0))
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 23, []action.Action{tx10}, &gasLimit)
+	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 23, []action.Action{tx10}, &gasLimit, testutil.DisableGasCharge)
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -666,7 +666,7 @@ func TestCandidates(t *testing.T) {
 	vote20, err := action.NewVote(3, d.RawAddress, b.RawAddress, uint64(100000), big.NewInt(0))
 	vote20.SetVoterPublicKey(d.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 24, []action.Action{vote19, vote20}, &gasLimit)
+	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 24, []action.Action{vote19, vote20}, &gasLimit, testutil.DisableGasCharge)
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -683,7 +683,7 @@ func TestCandidates(t *testing.T) {
 	vote21, err := action.NewVote(4, c.RawAddress, "", uint64(100000), big.NewInt(0))
 	vote21.SetVoterPublicKey(c.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 25, []action.Action{vote21}, &gasLimit)
+	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 25, []action.Action{vote21}, &gasLimit, testutil.DisableGasCharge)
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -700,7 +700,7 @@ func TestCandidates(t *testing.T) {
 	vote22, err := action.NewVote(4, f.RawAddress, "", uint64(100000), big.NewInt(0))
 	vote22.SetVoterPublicKey(f.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 26, []action.Action{vote22}, &gasLimit)
+	newRoot, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 26, []action.Action{vote22}, &gasLimit, testutil.DisableGasCharge)
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	require.Nil(t, sf.Commit(ws))
@@ -796,7 +796,7 @@ func TestUnvote(t *testing.T) {
 	vote1.SetVoterPublicKey(a.PublicKey)
 	require.NoError(t, err)
 	gasLimit := uint64(1000000000)
-	_, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 0, []action.Action{vote1}, &gasLimit)
+	_, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 0, []action.Action{vote1}, &gasLimit, testutil.DisableGasCharge)
 	require.Nil(t, err)
 	require.Nil(t, sf.Commit(ws))
 	h, _ := sf.Height()
@@ -806,7 +806,7 @@ func TestUnvote(t *testing.T) {
 	vote2, err := action.NewVote(0, a.RawAddress, a.RawAddress, uint64(100000), big.NewInt(0))
 	vote2.SetVoterPublicKey(a.PublicKey)
 	require.NoError(t, err)
-	_, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 0, []action.Action{vote2}, &gasLimit)
+	_, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 0, []action.Action{vote2}, &gasLimit, testutil.DisableGasCharge)
 	require.Nil(t, err)
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
@@ -816,7 +816,7 @@ func TestUnvote(t *testing.T) {
 	vote3, err := action.NewVote(0, a.RawAddress, "", uint64(100000), big.NewInt(0))
 	vote3.SetVoterPublicKey(a.PublicKey)
 	require.NoError(t, err)
-	_, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 0, []action.Action{vote3}, &gasLimit)
+	_, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 0, []action.Action{vote3}, &gasLimit, testutil.DisableGasCharge)
 	require.Nil(t, err)
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
@@ -832,7 +832,7 @@ func TestUnvote(t *testing.T) {
 	vote6, err := action.NewVote(0, a.RawAddress, "", uint64(100000), big.NewInt(0))
 	vote6.SetVoterPublicKey(a.PublicKey)
 	require.NoError(t, err)
-	_, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 0, []action.Action{vote4, vote5, vote6}, &gasLimit)
+	_, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 0, []action.Action{vote4, vote5, vote6}, &gasLimit, testutil.DisableGasCharge)
 	require.Nil(t, err)
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()

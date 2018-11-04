@@ -62,7 +62,8 @@ func TestValidateDeposit(t *testing.T) {
 		big.NewInt(1000),
 	)
 	require.NoError(t, err)
-	_, err = ws.RunActions(0, nil)
+	gasLimit := testutil.TestGasLimit
+	_, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 0, nil, &gasLimit, testutil.DisableGasCharge)
 	require.NoError(t, err)
 	require.NoError(t, sf.Commit(ws))
 

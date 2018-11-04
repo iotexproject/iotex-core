@@ -313,8 +313,7 @@ func (bc *blockchain) startEmptyBlockchain() error {
 		return errors.Wrap(err, "failed to create Creator into StateFactory")
 	}
 	gasLimit := GasLimit
-	gasLimitPtr := &gasLimit
-	if _, err := ws.RunActions(genesis.ProducerAddress(), 0, nil, gasLimitPtr); err != nil {
+	if _, err := ws.RunActions(genesis.ProducerAddress(), 0, nil, &gasLimit, bc.config.Chain.DisableGasCharge); err != nil {
 		return errors.Wrap(err, "failed to create Creator into StateFactory")
 	}
 	if err := bc.sf.Commit(ws); err != nil {
@@ -361,7 +360,7 @@ func (bc *blockchain) startExistingBlockchain(recoveryHeight uint64) error {
 		}
 		gasLimit := GasLimit
 		gasLimitPtr := &gasLimit
-		if _, err := ws.RunActions(genesisBlk.ProducerAddress(), 0, nil, gasLimitPtr); err != nil {
+		if _, err := ws.RunActions(genesisBlk.ProducerAddress(), 0, nil, gasLimitPtr, bc.config.Chain.DisableGasCharge); err != nil {
 			return errors.Wrap(err, "failed to create Creator into StateFactory")
 		}
 		if err := bc.sf.Commit(ws); err != nil {
@@ -430,7 +429,7 @@ func (bc *blockchain) CreateState(addr string, init *big.Int) (*state.Account, e
 	}
 	gasLimit := GasLimit
 	gasLimitPtr := &gasLimit
-	if _, err = ws.RunActions(genesisBlk.ProducerAddress(), 0, nil, gasLimitPtr); err != nil {
+	if _, err = ws.RunActions(genesisBlk.ProducerAddress(), 0, nil, gasLimitPtr, bc.config.Chain.DisableGasCharge); err != nil {
 		return nil, errors.Wrap(err, "failed to run the account creation")
 	}
 	if err = bc.sf.Commit(ws); err != nil {
@@ -866,7 +865,7 @@ func (bc *blockchain) runActions(blk *Block, ws state.WorkingSet, verify bool) (
 		ExecuteContracts(blk, ws, bc, gasLimitPtr)
 	}
 	// update state factory
-	root, err := ws.RunActions(blk.ProducerAddress(), blk.Height(), blk.Actions, gasLimitPtr)
+	root, err := ws.RunActions(blk.ProducerAddress(), blk.Height(), blk.Actions, gasLimitPtr, bc.config.Chain.DisableGasCharge)
 	if err != nil {
 		return root, err
 	}

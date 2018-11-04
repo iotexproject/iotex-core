@@ -157,6 +157,7 @@ func executeContract(blk *Block, ws state.WorkingSet, idx int, execution *action
 	if err != nil {
 		return nil, err
 	}
+
 	retval, depositGas, remainingGas, contractAddress, err := executeInEVM(ps, stateDB, gasLimit)
 	receipt := &Receipt{
 		ReturnValue:     retval,

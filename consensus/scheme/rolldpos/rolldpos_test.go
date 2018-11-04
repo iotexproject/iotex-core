@@ -459,12 +459,12 @@ func TestRollDPoS_convertToConsensusEvt(t *testing.T) {
 
 	// Test propose msg
 	addr := newTestAddr()
-	transfer, err := action.NewTransfer(1, big.NewInt(100), "src", "dst", []byte{}, uint64(100000), big.NewInt(10))
+	transfer, err := action.NewTransfer(1, big.NewInt(100), "src", "dst", []byte{}, testutil.TestGasLimit, big.NewInt(10))
 	require.NoError(t, err)
 	selfPubKey := testaddress.Addrinfo["producer"].PublicKey
 	selfPubKeyHash := keypair.HashPubKey(selfPubKey)
 	address := address.New(config.Default.Chain.ID, selfPubKeyHash[:])
-	vote, err := action.NewVote(2, address.IotxAddress(), address.IotxAddress(), uint64(100000), big.NewInt(10))
+	vote, err := action.NewVote(2, address.IotxAddress(), address.IotxAddress(), testutil.TestGasLimit, big.NewInt(10))
 	require.NoError(t, err)
 	var prevHash hash.Hash32B
 	blk := blockchain.NewBlock(
@@ -732,8 +732,8 @@ func TestRollDPoSConsensus(t *testing.T) {
 				require.NoError(t, err)
 				_, err = ws.LoadOrCreateAccountState(chainRawAddrs[j], big.NewInt(0))
 				require.NoError(t, err)
-				gasLimit := uint64(100000000)
-				_, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 0, nil, &gasLimit)
+				gasLimit := testutil.TestGasLimit
+				_, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 0, nil, &gasLimit, testutil.DisableGasCharge)
 				require.NoError(t, err)
 				require.NoError(t, sf.Commit(ws))
 			}
