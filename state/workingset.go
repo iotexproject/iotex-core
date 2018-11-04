@@ -14,6 +14,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/CoderZhi/go-ethereum/core/vm"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/iotxaddress"
@@ -177,11 +178,8 @@ func (ws *workingSet) Height() uint64 {
 
 // RunActions runs actions in the block and track pending changes in working set
 func (ws *workingSet) RunActions(
-	//producerAddr string,
 	blockHeight uint64,
 	actions []action.Action,
-	//gasLimit *uint64,
-	//disableGasCharge bool,
 	ctx Context) (hash.Hash32B, error) {
 	ws.blkHeight = blockHeight
 	// Recover cachedCandidates after restart factory
@@ -542,6 +540,10 @@ func (ws *workingSet) handleTsf(producer *Account, tsfs []*action.Transfer, gasL
 			if err != nil {
 				return errors.Wrapf(err, "failed to get intrinsic gas for transfer hash %s", tx.Hash())
 			}
+			if *gasLimit < gas {
+				return vm.ErrOutOfGas
+			}
+
 			gasFee := big.NewInt(0).Mul(tx.GasPrice(), big.NewInt(0).SetUint64(gas))
 			if !disableGasCharge {
 				if gasFee.Cmp(sender.Balance) == 1 {
@@ -575,6 +577,7 @@ func (ws *workingSet) handleTsf(producer *Account, tsfs []*action.Transfer, gasL
 				if err := producer.AddBalance(gasFee); err != nil {
 					return errors.Wrapf(err, "failed to compensate gas to producer")
 				}
+				*gasLimit -= gas
 			}
 		}
 		// check recipient
@@ -611,6 +614,9 @@ func (ws *workingSet) handleVote(producer *Account, blockHeight uint64, votes []
 		gas, err := v.IntrinsicGas()
 		if err != nil {
 			return errors.Wrapf(err, "failed to get intrinsic gas for vote hash %s", v.Hash())
+		}
+		if *gasLimit < gas {
+			return vm.ErrOutOfGas
 		}
 		gasFee := big.NewInt(0).Mul(v.GasPrice(), big.NewInt(0).SetUint64(gas))
 		if !disableGasCharge {
@@ -669,6 +675,7 @@ func (ws *workingSet) handleVote(producer *Account, blockHeight uint64, votes []
 			if err := producer.AddBalance(gasFee); err != nil {
 				return errors.Wrapf(err, "failed to compensate gas to producer")
 			}
+			*gasLimit -= gas
 		}
 	}
 	return nil

@@ -305,6 +305,11 @@ func TestCandidates(t *testing.T) {
 	vote, err := action.NewVote(0, a.RawAddress, a.RawAddress, uint64(100000), big.NewInt(0))
 	vote.SetVoterPublicKey(a.PublicKey)
 	require.NoError(t, err)
+	zeroGasLimit := uint64(0)
+	zeroGasCtx := Context{testaddress.Addrinfo["producer"].RawAddress, &zeroGasLimit, testutil.DisableGasCharge}
+	newRoot, err = ws.RunActions(0, []action.Action{vote}, zeroGasCtx)
+	require.NotNil(t, err)
+
 	newRoot, err = ws.RunActions(0, []action.Action{vote}, ctx)
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
