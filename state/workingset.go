@@ -29,7 +29,7 @@ type (
 		LoadOrCreateAccountState(string, *big.Int) (*Account, error)
 		Nonce(string) (uint64, error) // Note that Nonce starts with 1.
 		CachedAccountState(string) (*Account, error)
-		RunActions(string, uint64, []action.Action, *uint64, bool) (hash.Hash32B, error)
+		RunActions(uint64, []action.Action, Context) (hash.Hash32B, error)
 		Commit() error
 		// contracts
 		GetCodeHash(hash.PKHash) (hash.Hash32B, error)
@@ -62,6 +62,18 @@ type (
 		actionHandlers   []ActionHandler
 	}
 )
+
+// Context provides the runactions with auxiliary information.
+type Context struct {
+	// producer who compose those actions
+	ProducerAddr string
+
+	// gas Limit for perform those actions
+	GasLimit *uint64
+
+	// whether disable gas charge
+	DisableGasCharge bool
+}
 
 // NewWorkingSet creates a new working set
 func NewWorkingSet(
@@ -165,11 +177,12 @@ func (ws *workingSet) Height() uint64 {
 
 // RunActions runs actions in the block and track pending changes in working set
 func (ws *workingSet) RunActions(
-	producerAddr string,
+	//producerAddr string,
 	blockHeight uint64,
 	actions []action.Action,
-	gasLimit *uint64,
-	disableGasCharge bool) (hash.Hash32B, error) {
+	//gasLimit *uint64,
+	//disableGasCharge bool,
+	ctx Context) (hash.Hash32B, error) {
 	ws.blkHeight = blockHeight
 	// Recover cachedCandidates after restart factory
 	if blockHeight > 0 && len(ws.cachedCandidates) == 0 {
@@ -182,15 +195,15 @@ func (ws *workingSet) RunActions(
 		}
 	}
 	// check producer
-	producer, err := ws.LoadOrCreateAccountState(producerAddr, big.NewInt(0))
+	producer, err := ws.LoadOrCreateAccountState(ctx.ProducerAddr, big.NewInt(0))
 	if err != nil {
-		return hash.ZeroHash32B, errors.Wrapf(err, "failed to load or create the account of block producer %s", producerAddr)
+		return hash.ZeroHash32B, errors.Wrapf(err, "failed to load or create the account of block producer %s", ctx.ProducerAddr)
 	}
 	tsfs, votes, executions := action.ClassifyActions(actions)
-	if err := ws.handleTsf(producer, tsfs, gasLimit, disableGasCharge); err != nil {
+	if err := ws.handleTsf(producer, tsfs, ctx.GasLimit, ctx.DisableGasCharge); err != nil {
 		return hash.ZeroHash32B, errors.Wrap(err, "failed to handle transfers")
 	}
-	if err := ws.handleVote(producer, blockHeight, votes, gasLimit, disableGasCharge); err != nil {
+	if err := ws.handleVote(producer, blockHeight, votes, ctx.GasLimit, ctx.DisableGasCharge); err != nil {
 		return hash.ZeroHash32B, errors.Wrap(err, "failed to handle votes")
 	}
 

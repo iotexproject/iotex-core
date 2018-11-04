@@ -49,7 +49,8 @@ func TestHandlePutBlock(t *testing.T) {
 	)
 	require.NoError(t, err)
 	gasLimit := testutil.TestGasLimit
-	_, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 0, nil, &gasLimit, testutil.DisableGasCharge)
+	stateContext := state.Context{testaddress.Addrinfo["producer"].RawAddress, &gasLimit, testutil.DisableGasCharge}
+	_, err = ws.RunActions(0, nil, stateContext)
 	require.NoError(t, err)
 	require.NoError(t, sf.Commit(ws))
 

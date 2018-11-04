@@ -60,7 +60,8 @@ func TestCreateContract(t *testing.T) {
 	require.Error(err)
 	require.Equal([]byte(nil), v)
 	gasLimit := testutil.TestGasLimit
-	_, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 0, nil, &gasLimit, testutil.DisableGasCharge)
+	ctx := Context{testaddress.Addrinfo["producer"].RawAddress, &gasLimit, testutil.DisableGasCharge}
+	_, err = ws.RunActions(0, nil, ctx)
 	require.Nil(err)
 	// reload same contract
 	contract1, err := ws.LoadOrCreateAccountState(addr.RawAddress, big.NewInt(0))
@@ -140,7 +141,8 @@ func TestLoadStoreContract(t *testing.T) {
 	require.Nil(ws.SetContractState(contract1, k3, v3))
 	require.Nil(ws.SetContractState(contract1, k4, v4))
 	gasLimit := testutil.TestGasLimit
-	_, err = ws.RunActions(testaddress.Addrinfo["producer"].RawAddress, 0, nil, &gasLimit, testutil.DisableGasCharge)
+	ctx := Context{testaddress.Addrinfo["producer"].RawAddress, &gasLimit, testutil.DisableGasCharge}
+	_, err = ws.RunActions(0, nil, ctx)
 	require.Nil(err)
 	require.Nil(sf.Commit(ws))
 	require.Nil(sf.Stop(context.Background()))

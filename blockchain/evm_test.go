@@ -21,6 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/state"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -51,8 +52,9 @@ func TestEVM(t *testing.T) {
 	require.NoError(err)
 	_, err = ws.LoadOrCreateAccountState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
 	require.NoError(err)
-	gasLimit := uint64(100000000)
-	_, err = ws.RunActions(ta.Addrinfo["producer"].RawAddress, 0, nil, &gasLimit, testutil.DisableGasCharge)
+	gasLimit := testutil.TestGasLimit
+	stateCtx := state.Context{ta.Addrinfo["producer"].RawAddress, &gasLimit, testutil.DisableGasCharge}
+	_, err = ws.RunActions(0, nil, stateCtx)
 	require.NoError(err)
 	require.NoError(sf.Commit(ws))
 
@@ -203,8 +205,9 @@ func TestRollDice(t *testing.T) {
 	require.NoError(err)
 	_, err = ws.LoadOrCreateAccountState(ta.Addrinfo["bravo"].RawAddress, big.NewInt(12000000))
 	require.NoError(err)
-	gasLimit := uint64(100000000)
-	_, err = ws.RunActions(ta.Addrinfo["producer"].RawAddress, 0, nil, &gasLimit, testutil.DisableGasCharge)
+	gasLimit := testutil.TestGasLimit
+	stateCtx := state.Context{ta.Addrinfo["producer"].RawAddress, &gasLimit, testutil.DisableGasCharge}
+	_, err = ws.RunActions(0, nil, stateCtx)
 	require.NoError(err)
 	require.NoError(sf.Commit(ws))
 
@@ -311,8 +314,9 @@ func TestERC20(t *testing.T) {
 	require.NoError(err)
 	_, err = ws.LoadOrCreateAccountState(ta.Addrinfo["bravo"].RawAddress, big.NewInt(0))
 	require.NoError(err)
-	gasLimit := uint64(100000000)
-	_, err = ws.RunActions(ta.Addrinfo["producer"].RawAddress, 0, nil, &gasLimit, testutil.DisableGasCharge)
+	gasLimit := testutil.TestGasLimit
+	stateCtx := state.Context{ta.Addrinfo["producer"].RawAddress, &gasLimit, testutil.DisableGasCharge}
+	_, err = ws.RunActions(0, nil, stateCtx)
 	require.NoError(err)
 	require.NoError(sf.Commit(ws))
 
