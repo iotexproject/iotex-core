@@ -536,19 +536,30 @@ func (ws *workingSet) handleTsf(producer *Account, tsfs []*action.Transfer, gasL
 				return errors.Wrapf(err, "failed to load or create the account of sender %s", tx.Sender())
 			}
 
-			gas, err := tx.IntrinsicGas()
-			if err != nil {
-				return errors.Wrapf(err, "failed to get intrinsic gas for transfer hash %s", tx.Hash())
-			}
-			if *gasLimit < gas {
-				return vm.ErrOutOfGas
-			}
-
-			gasFee := big.NewInt(0).Mul(tx.GasPrice(), big.NewInt(0).SetUint64(gas))
 			if !disableGasCharge {
+				gas, err := tx.IntrinsicGas()
+				if err != nil {
+					return errors.Wrapf(err, "failed to get intrinsic gas for transfer hash %s", tx.Hash())
+				}
+				if *gasLimit < gas {
+					return vm.ErrOutOfGas
+				}
+
+				gasFee := big.NewInt(0).Mul(tx.GasPrice(), big.NewInt(0).SetUint64(gas))
+
 				if gasFee.Cmp(sender.Balance) == 1 {
 					return errors.Wrapf(ErrNotEnoughBalance, "failed to verify the Balance of sender %s", tx.Sender())
 				}
+
+				// charge sender Gas
+				if err := sender.SubBalance(gasFee); err != nil {
+					return errors.Wrapf(err, "failed to charge the gas for sender %s", tx.Sender())
+				}
+				// compensate block producer gas
+				if err := producer.AddBalance(gasFee); err != nil {
+					return errors.Wrapf(err, "failed to compensate gas to producer")
+				}
+				*gasLimit -= gas
 			}
 			// update sender Balance
 			if err := sender.SubBalance(tx.Amount()); err != nil {
@@ -566,18 +577,6 @@ func (ws *workingSet) handleTsf(producer *Account, tsfs []*action.Transfer, gasL
 					return errors.Wrapf(err, "failed to load or create the account of sender's votee %s", sender.Votee)
 				}
 				voteeOfSender.VotingWeight.Sub(voteeOfSender.VotingWeight, tx.Amount())
-			}
-
-			if !disableGasCharge {
-				// charge sender Gas
-				if err := sender.SubBalance(gasFee); err != nil {
-					return errors.Wrapf(err, "failed to charge the gas for sender %s", tx.Sender())
-				}
-				// compensate block producer gas
-				if err := producer.AddBalance(gasFee); err != nil {
-					return errors.Wrapf(err, "failed to compensate gas to producer")
-				}
-				*gasLimit -= gas
 			}
 		}
 		// check recipient
@@ -611,18 +610,30 @@ func (ws *workingSet) handleVote(producer *Account, blockHeight uint64, votes []
 		if err != nil {
 			return err
 		}
-		gas, err := v.IntrinsicGas()
-		if err != nil {
-			return errors.Wrapf(err, "failed to get intrinsic gas for vote hash %s", v.Hash())
-		}
-		if *gasLimit < gas {
-			return vm.ErrOutOfGas
-		}
-		gasFee := big.NewInt(0).Mul(v.GasPrice(), big.NewInt(0).SetUint64(gas))
+
 		if !disableGasCharge {
+			gas, err := v.IntrinsicGas()
+			if err != nil {
+				return errors.Wrapf(err, "failed to get intrinsic gas for vote hash %s", v.Hash())
+			}
+			if *gasLimit < gas {
+				return vm.ErrOutOfGas
+			}
+			gasFee := big.NewInt(0).Mul(v.GasPrice(), big.NewInt(0).SetUint64(gas))
+
 			if gasFee.Cmp(voteFrom.Balance) == 1 {
 				return errors.Wrapf(ErrNotEnoughBalance, "failed to verify the Balance for gas of voter %s, %d, %d", v.Voter(), gas, voteFrom.Balance)
 			}
+
+			// charge voter Gas
+			if err := voteFrom.SubBalance(gasFee); err != nil {
+				return errors.Wrapf(err, "failed to charge the gas for voter %s", v.Voter())
+			}
+			// compensate block producer gas
+			if err := producer.AddBalance(gasFee); err != nil {
+				return errors.Wrapf(err, "failed to compensate gas to producer")
+			}
+			*gasLimit -= gas
 		}
 		// update voteFrom Nonce
 		if v.Nonce() > voteFrom.Nonce {
@@ -665,17 +676,6 @@ func (ws *workingSet) handleVote(producer *Account, blockHeight uint64, votes []
 					CreationHeight: blockHeight,
 				}
 			}
-		}
-		if !disableGasCharge {
-			// charge voter Gas
-			if err := voteFrom.SubBalance(gasFee); err != nil {
-				return errors.Wrapf(err, "failed to charge the gas for voter %s", v.Voter())
-			}
-			// compensate block producer gas
-			if err := producer.AddBalance(gasFee); err != nil {
-				return errors.Wrapf(err, "failed to compensate gas to producer")
-			}
-			*gasLimit -= gas
 		}
 	}
 	return nil
