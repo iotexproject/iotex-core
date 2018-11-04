@@ -137,6 +137,9 @@ var (
 			UseRDS:                  false,
 			Port:                    14004,
 			TpsWindow:               10,
+			SuggestBlockWindow:      20,
+			DefaultGas:              1,
+			Percentile:              60,
 			MaxTransferPayloadBytes: 1024,
 		},
 		Indexer: Indexer{
@@ -260,11 +263,14 @@ type (
 
 	// Explorer is the explorer service config
 	Explorer struct {
-		Enabled   bool `yaml:"enabled"`
-		IsTest    bool `yaml:"isTest"`
-		UseRDS    bool `yaml:"useRDS"`
-		Port      int  `yaml:"addr"`
-		TpsWindow int  `yaml:"tpsWindow"`
+		Enabled            bool `yaml:"enabled"`
+		IsTest             bool `yaml:"isTest"`
+		UseRDS             bool `yaml:"useRDS"`
+		Port               int  `yaml:"addr"`
+		TpsWindow          int  `yaml:"tpsWindow"`
+		SuggestBlockWindow int  `yaml:"suggestBlockWindow"`
+		DefaultGas         int  `yaml:"defaultGas"`
+		Percentile         int  `yaml:"Percentile"`
 		// MaxTransferPayloadBytes limits how many bytes a playload can contain at most
 		MaxTransferPayloadBytes uint64 `yaml:"maxTransferPayloadBytes"`
 	}

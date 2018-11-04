@@ -9,6 +9,7 @@ package explorer
 import (
 	"encoding/hex"
 	"math/big"
+	"sort"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
@@ -1306,6 +1307,61 @@ func (exp *Service) Deposit(req explorer.DepositRequest) (res explorer.DepositRe
 	return explorer.DepositResponse{Hash: hex.EncodeToString(h[:])}, nil
 }
 
+// SuggestGasPrice suggest gas price
+func (exp *Service) SuggestGasPrice() (int64, error) {
+	var smallestPrices []*big.Int
+	tip := exp.bc.TipHeight()
+
+	endBlockHeight := uint64(0)
+	if tip > uint64(exp.cfg.SuggestBlockWindow) {
+		endBlockHeight = tip - uint64(exp.cfg.SuggestBlockWindow)
+	}
+
+	for height := tip; height > endBlockHeight; height-- {
+		blk, err := exp.bc.GetBlockByHeight(height)
+		if err != nil {
+			return int64(exp.cfg.DefaultGas), err
+		}
+		if len(blk.Actions) == 0 {
+			continue
+		}
+
+		smallestPrice := blk.Actions[0].GasPrice()
+		for _, action := range blk.Actions {
+			if smallestPrice.Cmp(action.GasPrice()) == 1 {
+				smallestPrice = action.GasPrice()
+			}
+		}
+		smallestPrices = append(smallestPrices, smallestPrice)
+	}
+
+	if len(smallestPrices) == 0 {
+		// return default price
+		return int64(exp.cfg.DefaultGas), nil
+	}
+	sort.Sort(bigIntArray(smallestPrices))
+	gasPrice := smallestPrices[(len(smallestPrices)-1)*exp.cfg.Percentile/100].Int64()
+	if gasPrice < int64(exp.cfg.DefaultGas) {
+		gasPrice = int64(exp.cfg.DefaultGas)
+	}
+	return gasPrice, nil
+}
+
+// EstimateGasForTransfer estimate gas for transfer
+func (exp *Service) EstimateGasForTransfer(tsfJSON explorer.SendTransferRequest) (int64, error) {
+	return 0, nil
+}
+
+// EstimateGasForVote suggest gas for vote
+func (exp *Service) EstimateGasForVote(voteJSON explorer.SendVoteRequest) (int64, error) {
+	return 0, nil
+}
+
+// EstimateGasForSmartContract suggest gas for smart contract
+func (exp *Service) EstimateGasForSmartContract(execution explorer.Execution) (int64, error) {
+	return 0, nil
+}
+
 // getTransfer takes in a blockchain and transferHash and returns an Explorer Transfer
 func getTransfer(bc blockchain.Blockchain, ap actpool.ActPool, transferHash hash.Hash32B, idx *indexservice.Server, useRDS bool) (explorer.Transfer, error) {
 	explorerTransfer := explorer.Transfer{}
@@ -1534,3 +1590,9 @@ func convertReceiptToExplorerReceipt(receipt *blockchain.Receipt) (explorer.Rece
 		Logs:            logs,
 	}, nil
 }
+
+type bigIntArray []*big.Int
+
+func (s bigIntArray) Len() int           { return len(s) }
+func (s bigIntArray) Less(i, j int) bool { return s[i].Cmp(s[j]) < 0 }
+func (s bigIntArray) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }

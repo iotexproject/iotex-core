@@ -427,6 +427,11 @@ func TestExplorerApi(t *testing.T) {
 	require.Nil(res.Transfer)
 	require.Nil(res.Vote)
 	require.Equal(&executions[0], res.Execution)
+
+	svc.cfg.DefaultGas = 1
+	gasPrice, err := svc.SuggestGasPrice()
+	require.Nil(err)
+	require.Equal(gasPrice, int64(1))
 }
 
 func TestService_StateByAddr(t *testing.T) {

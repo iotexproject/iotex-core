@@ -8,8 +8,8 @@ import (
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "b1f809d903206da9df4d3b21138af7d5"
-const BarristerDateGenerated int64 = 1541194788866000000
+const BarristerChecksum string = "eac730efb23579ba66f016e98eb9083a"
+const BarristerDateGenerated int64 = 1541315951556000000
 
 type CoinStatistic struct {
 	Height     int64  `json:"height"`
@@ -277,6 +277,10 @@ type Explorer interface {
 	ReadExecutionState(request Execution) (string, error)
 	GetBlockOrActionByHash(hashStr string) (GetBlkOrActResponse, error)
 	Deposit(request DepositRequest) (DepositResponse, error)
+	SuggestGasPrice() (int64, error)
+	EstimateGasForTransfer(request SendTransferRequest) (int64, error)
+	EstimateGasForVote(request SendVoteRequest) (int64, error)
+	EstimateGasForSmartContract(request Execution) (int64, error)
 }
 
 func NewExplorerProxy(c barrister.Client) Explorer {
@@ -898,6 +902,78 @@ func (_p ExplorerProxy) Deposit(request DepositRequest) (DepositResponse, error)
 		return _cast, nil
 	}
 	return DepositResponse{}, _err
+}
+
+func (_p ExplorerProxy) SuggestGasPrice() (int64, error) {
+	_res, _err := _p.client.Call("Explorer.suggestGasPrice")
+	if _err == nil {
+		_retType := _p.idl.Method("Explorer.suggestGasPrice").Returns
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(int64(0)), _res, "")
+	}
+	if _err == nil {
+		_cast, _ok := _res.(int64)
+		if !_ok {
+			_t := reflect.TypeOf(_res)
+			_msg := fmt.Sprintf("Explorer.suggestGasPrice returned invalid type: %v", _t)
+			return int64(0), &barrister.JsonRpcError{Code: -32000, Message: _msg}
+		}
+		return _cast, nil
+	}
+	return int64(0), _err
+}
+
+func (_p ExplorerProxy) EstimateGasForTransfer(request SendTransferRequest) (int64, error) {
+	_res, _err := _p.client.Call("Explorer.estimateGasForTransfer", request)
+	if _err == nil {
+		_retType := _p.idl.Method("Explorer.estimateGasForTransfer").Returns
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(int64(0)), _res, "")
+	}
+	if _err == nil {
+		_cast, _ok := _res.(int64)
+		if !_ok {
+			_t := reflect.TypeOf(_res)
+			_msg := fmt.Sprintf("Explorer.estimateGasForTransfer returned invalid type: %v", _t)
+			return int64(0), &barrister.JsonRpcError{Code: -32000, Message: _msg}
+		}
+		return _cast, nil
+	}
+	return int64(0), _err
+}
+
+func (_p ExplorerProxy) EstimateGasForVote(request SendVoteRequest) (int64, error) {
+	_res, _err := _p.client.Call("Explorer.estimateGasForVote", request)
+	if _err == nil {
+		_retType := _p.idl.Method("Explorer.estimateGasForVote").Returns
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(int64(0)), _res, "")
+	}
+	if _err == nil {
+		_cast, _ok := _res.(int64)
+		if !_ok {
+			_t := reflect.TypeOf(_res)
+			_msg := fmt.Sprintf("Explorer.estimateGasForVote returned invalid type: %v", _t)
+			return int64(0), &barrister.JsonRpcError{Code: -32000, Message: _msg}
+		}
+		return _cast, nil
+	}
+	return int64(0), _err
+}
+
+func (_p ExplorerProxy) EstimateGasForSmartContract(request Execution) (int64, error) {
+	_res, _err := _p.client.Call("Explorer.estimateGasForSmartContract", request)
+	if _err == nil {
+		_retType := _p.idl.Method("Explorer.estimateGasForSmartContract").Returns
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(int64(0)), _res, "")
+	}
+	if _err == nil {
+		_cast, _ok := _res.(int64)
+		if !_ok {
+			_t := reflect.TypeOf(_res)
+			_msg := fmt.Sprintf("Explorer.estimateGasForSmartContract returned invalid type: %v", _t)
+			return int64(0), &barrister.JsonRpcError{Code: -32000, Message: _msg}
+		}
+		return _cast, nil
+	}
+	return int64(0), _err
 }
 
 func NewJSONServer(idl *barrister.Idl, forceASCII bool, explorer Explorer) barrister.Server {
@@ -3214,6 +3290,78 @@ var IdlJsonRaw = `[
                     "is_array": false,
                     "comment": ""
                 }
+            },
+            {
+                "name": "suggestGasPrice",
+                "comment": "suggest gas price",
+                "params": [],
+                "returns": {
+                    "name": "",
+                    "type": "int",
+                    "optional": false,
+                    "is_array": false,
+                    "comment": ""
+                }
+            },
+            {
+                "name": "estimateGasForTransfer",
+                "comment": "estimate gas for transfer",
+                "params": [
+                    {
+                        "name": "request",
+                        "type": "SendTransferRequest",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    }
+                ],
+                "returns": {
+                    "name": "",
+                    "type": "int",
+                    "optional": false,
+                    "is_array": false,
+                    "comment": ""
+                }
+            },
+            {
+                "name": "estimateGasForVote",
+                "comment": "estimate gas for vote",
+                "params": [
+                    {
+                        "name": "request",
+                        "type": "SendVoteRequest",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    }
+                ],
+                "returns": {
+                    "name": "",
+                    "type": "int",
+                    "optional": false,
+                    "is_array": false,
+                    "comment": ""
+                }
+            },
+            {
+                "name": "estimateGasForSmartContract",
+                "comment": "estimate gas for smart contract",
+                "params": [
+                    {
+                        "name": "request",
+                        "type": "Execution",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    }
+                ],
+                "returns": {
+                    "name": "",
+                    "type": "int",
+                    "optional": false,
+                    "is_array": false,
+                    "comment": ""
+                }
             }
         ],
         "barrister_version": "",
@@ -3230,7 +3378,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1541194788866,
-        "checksum": "b1f809d903206da9df4d3b21138af7d5"
+        "date_generated": 1541315951556,
+        "checksum": "eac730efb23579ba66f016e98eb9083a"
     }
 ]`

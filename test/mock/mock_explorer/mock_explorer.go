@@ -474,3 +474,55 @@ func (m *MockExplorer) Deposit(request explorer.DepositRequest) (explorer.Deposi
 func (mr *MockExplorerMockRecorder) Deposit(request interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Deposit", reflect.TypeOf((*MockExplorer)(nil).Deposit), request)
 }
+
+// SuggestGasPrice mocks base method
+func (m *MockExplorer) SuggestGasPrice() (int64, error) {
+	ret := m.ctrl.Call(m, "SuggestGasPrice")
+	ret0, _ := ret[0].(int64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SuggestGasPrice indicates an expected call of SuggestGasPrice
+func (mr *MockExplorerMockRecorder) SuggestGasPrice() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SuggestGasPrice", reflect.TypeOf((*MockExplorer)(nil).Deposit))
+}
+
+// EstimateGasForTransfer mocks base method
+func (m *MockExplorer) EstimateGasForTransfer(request explorer.SendTransferRequest) (int64, error) {
+	ret := m.ctrl.Call(m, "EstimateGasForTransfer", request)
+	ret0, _ := ret[0].(int64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// EstimateGasForTransfer indicates an expected call of EstimateGasForTransfer
+func (mr *MockExplorerMockRecorder) EstimateGasForTransfer(request interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EstimateGasForTransfer", reflect.TypeOf((*MockExplorer)(nil).EstimateGasForTransfer), request)
+}
+
+// EstimateGasForVote mocks base method
+func (m *MockExplorer) EstimateGasForVote(request explorer.SendVoteRequest) (int64, error) {
+	ret := m.ctrl.Call(m, "EstimateGasForVote", request)
+	ret0, _ := ret[0].(int64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// EstimateGasForVote indicates an expected call of EstimateGasForVote
+func (mr *MockExplorerMockRecorder) EstimateGasForVote(request interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EstimateGasForVote", reflect.TypeOf((*MockExplorer)(nil).EstimateGasForVote), request)
+}
+
+// EstimateGasForSmartContract mocks base method EstimateGasForSmartContract
+func (m *MockExplorer) EstimateGasForSmartContract(request explorer.Execution) (int64, error) {
+	ret := m.ctrl.Call(m, "EstimateGasForSmartContract", request)
+	ret0, _ := ret[0].(int64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// EstimateGasForSmartContract indicates an expected call of EstimateGasForSmartContract
+func (mr *MockExplorerMockRecorder) EstimateGasForSmartContract(request interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EstimateGasForSmartContract", reflect.TypeOf((*MockExplorer)(nil).EstimateGasForSmartContract), request)
+}

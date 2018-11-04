@@ -243,6 +243,26 @@ func (exp *MockExplorer) Deposit(req explorer.DepositRequest) (explorer.DepositR
 	return explorer.DepositResponse{}, nil
 }
 
+// SuggestGasPrice suggest gas price
+func (exp *MockExplorer) SuggestGasPrice() (int64, error) {
+	return 1, nil
+}
+
+// EstimateGasForTransfer estimate gas for transfer
+func (exp *MockExplorer) EstimateGasForTransfer(tsfJSON explorer.SendTransferRequest) (int64, error) {
+	return 0, nil
+}
+
+// EstimateGasForVote suggest gas for vote
+func (exp *MockExplorer) EstimateGasForVote(voteJSON explorer.SendVoteRequest) (int64, error) {
+	return 0, nil
+}
+
+// EstimateGasForSmartContract suggest gas for smart contract
+func (exp *MockExplorer) EstimateGasForSmartContract(execution explorer.Execution) (int64, error) {
+	return 0, nil
+}
+
 func randInt64() int64 {
 	rand.Seed(time.Now().UnixNano())
 	amount := int64(0)

@@ -348,4 +348,16 @@ interface Explorer {
 
     // deposit balance from main-chain to sub-chain
     deposit(request DepositRequest) DepositResponse
+
+    // suggest gas price
+    suggestGasPrice() int
+
+    // estimate gas for transfer
+    estimateGasForTransfer(request SendTransferRequest) int
+
+    // estimate gas for vote
+    estimateGasForVote(request SendVoteRequest) int
+
+    // estimate gas for smart contract
+    estimateGasForSmartContract(request Execution) int
 }
