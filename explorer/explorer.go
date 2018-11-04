@@ -1349,12 +1349,45 @@ func (exp *Service) SuggestGasPrice() (int64, error) {
 
 // EstimateGasForTransfer estimate gas for transfer
 func (exp *Service) EstimateGasForTransfer(tsfJSON explorer.SendTransferRequest) (int64, error) {
-	return 0, nil
+	payload, err := hex.DecodeString(tsfJSON.Payload)
+	if err != nil {
+		return 0, err
+	}
+	if uint64(len(payload)) > exp.cfg.MaxTransferPayloadBytes {
+		return 0, errors.Wrapf(
+			ErrTransfer,
+			"transfer payload contains %d bytes, and is longer than %d bytes limit",
+			len(payload),
+			exp.cfg.MaxTransferPayloadBytes,
+		)
+	}
+
+	actPb := &pb.ActionPb{
+		Action: &pb.ActionPb_Transfer{
+			Transfer: &pb.TransferPb{
+				Payload: payload,
+			},
+		},
+	}
+	tsf := &action.Transfer{}
+	tsf.LoadProto(actPb)
+	gas, err := tsf.IntrinsicGas()
+	if err != nil {
+		return 0, err
+	}
+	return int64(gas), nil
 }
 
 // EstimateGasForVote suggest gas for vote
 func (exp *Service) EstimateGasForVote(voteJSON explorer.SendVoteRequest) (int64, error) {
-	return 0, nil
+	actPb := &pb.ActionPb{}
+	v := &action.Vote{}
+	v.LoadProto(actPb)
+	gas, err := v.IntrinsicGas()
+	if err != nil {
+		return 0, err
+	}
+	return int64(gas), nil
 }
 
 // EstimateGasForSmartContract suggest gas for smart contract
