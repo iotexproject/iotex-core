@@ -22,7 +22,6 @@ import (
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/proto"
 )
 
@@ -199,13 +198,6 @@ func (m *cFSM) Start(c context.Context) error {
 			case <-m.close:
 				running = false
 			case evt := <-m.evtq:
-				if evt.Type() == eProposeBlock {
-					if proposeBlkEvt, ok := evt.(*proposeBlkEvt); ok {
-						src := m.fsm.CurrentState()
-						blockHash := proposeBlkEvt.block.HashBlock()
-						logger.Info().Str("currentState", string(src)).Hex("hash", blockHash[:]).Uint32("round", proposeBlkEvt.r).Msgf("Received a block proposal")
-					}
-				}
 				timeoutEvt, ok := evt.(*timeoutEvt)
 				if ok && timeoutEvt.timestamp().Before(m.ctx.round.timestamp) {
 					logger.Debug().Msg("timeoutEvt is stale")
@@ -408,9 +400,6 @@ func (m *cFSM) handleInitBlockProposeEvt(evt fsm.Event) (fsm.State, error) {
 	// Notify itself
 	m.produce(proposeBlkEvt, 0)
 	// Notify other delegates
-	blkHash := blk.HashBlock()
-	hashedProto := byteutil.BytesTo32B([]byte(proposeBlkEvtProto.String()))
-	logger.Info().Hex("hash", blkHash[:]).Hex("Proto", hashedProto[:]).Uint32("round", m.ctx.round.number).Msgf("Broadcasting a block")
 	if err := m.ctx.p2p.Broadcast(m.ctx.chain.ChainID(), proposeBlkEvtProto); err != nil {
 		logger.Error().
 			Err(err).
