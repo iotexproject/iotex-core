@@ -59,7 +59,7 @@ func (p *Protocol) Handle(act action.Action, ws state.WorkingSet) error {
 		if err := p.handlePutBlock(act, ws); err != nil {
 			return errors.Wrapf(err, "error when handling put sub-chain block action")
 		}
-	case *action.Deposit:
+	case *action.CreateDeposit:
 		if err := p.handleDeposit(act, ws); err != nil {
 			return errors.Wrapf(err, "error when handling deposit action")
 		}
@@ -79,7 +79,7 @@ func (p *Protocol) Validate(act action.Action) error {
 		if err := p.validatePutBlock(act, nil); err != nil {
 			return errors.Wrapf(err, "error when validating put sub-chain block action")
 		}
-	case *action.Deposit:
+	case *action.CreateDeposit:
 		if _, _, err := p.validateDeposit(act, nil); err != nil {
 			return errors.Wrapf(err, "error when validating deposit action")
 		}

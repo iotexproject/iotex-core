@@ -16,13 +16,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestDeposit(t *testing.T) {
+func TestCreateDeposit(t *testing.T) {
 	t.Parallel()
 
 	addr1 := address.New(1, testaddress.Addrinfo["producer"].PublicKey[:]).Bech32()
 	addr2 := address.New(2, testaddress.Addrinfo["alfa"].PublicKey[:]).Bech32()
 
-	assertDeposit := func(deposit *Deposit) {
+	assertDeposit := func(deposit *CreateDeposit) {
 		require.NotNil(t, deposit)
 		assert.Equal(t, uint64(1), deposit.Nonce())
 		assert.Equal(t, big.NewInt(1000), deposit.Amount())
@@ -32,7 +32,7 @@ func TestDeposit(t *testing.T) {
 		assert.Equal(t, big.NewInt(100), deposit.GasPrice())
 	}
 
-	deposit1 := NewDeposit(
+	deposit1 := NewCreateDeposit(
 		1,
 		big.NewInt(1000),
 		addr1,
@@ -44,7 +44,7 @@ func TestDeposit(t *testing.T) {
 
 	data := deposit1.Proto()
 	require.NotNil(t, data)
-	var deposit2 Deposit
+	var deposit2 CreateDeposit
 	deposit2.LoadProto(data)
 	assertDeposit(&deposit2)
 }

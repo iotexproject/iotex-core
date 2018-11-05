@@ -8,8 +8,8 @@ import (
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "ef9581ad73ca7670f62483e6393ae27d"
-const BarristerDateGenerated int64 = 1541203896564000000
+const BarristerChecksum string = "df81193368c03fb6b7afd1152715bdf2"
+const BarristerDateGenerated int64 = 1541443112231000000
 
 type CoinStatistic struct {
 	Height     int64  `json:"height"`
@@ -226,7 +226,7 @@ type GetBlkOrActResponse struct {
 	Execution *Execution `json:"execution,omitempty"`
 }
 
-type DepositRequest struct {
+type CreateDepositRequest struct {
 	Version      int64  `json:"version"`
 	Nonce        int64  `json:"nonce"`
 	Sender       string `json:"sender"`
@@ -238,7 +238,7 @@ type DepositRequest struct {
 	GasPrice     string `json:"gasPrice"`
 }
 
-type DepositResponse struct {
+type CreateDepositResponse struct {
 	Hash string `json:"hash"`
 }
 
@@ -282,7 +282,7 @@ type Explorer interface {
 	GetReceiptByExecutionID(id string) (Receipt, error)
 	ReadExecutionState(request Execution) (string, error)
 	GetBlockOrActionByHash(hashStr string) (GetBlkOrActResponse, error)
-	Deposit(request DepositRequest) (DepositResponse, error)
+	CreateDeposit(request CreateDepositRequest) (CreateDepositResponse, error)
 	GetDeposits(subChainID int64, offset int64, limit int64) ([]Deposit, error)
 }
 
@@ -889,22 +889,22 @@ func (_p ExplorerProxy) GetBlockOrActionByHash(hashStr string) (GetBlkOrActRespo
 	return GetBlkOrActResponse{}, _err
 }
 
-func (_p ExplorerProxy) Deposit(request DepositRequest) (DepositResponse, error) {
-	_res, _err := _p.client.Call("Explorer.deposit", request)
+func (_p ExplorerProxy) CreateDeposit(request CreateDepositRequest) (CreateDepositResponse, error) {
+	_res, _err := _p.client.Call("Explorer.createDeposit", request)
 	if _err == nil {
-		_retType := _p.idl.Method("Explorer.deposit").Returns
-		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(DepositResponse{}), _res, "")
+		_retType := _p.idl.Method("Explorer.createDeposit").Returns
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(CreateDepositResponse{}), _res, "")
 	}
 	if _err == nil {
-		_cast, _ok := _res.(DepositResponse)
+		_cast, _ok := _res.(CreateDepositResponse)
 		if !_ok {
 			_t := reflect.TypeOf(_res)
-			_msg := fmt.Sprintf("Explorer.deposit returned invalid type: %v", _t)
-			return DepositResponse{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
+			_msg := fmt.Sprintf("Explorer.createDeposit returned invalid type: %v", _t)
+			return CreateDepositResponse{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
 		}
 		return _cast, nil
 	}
-	return DepositResponse{}, _err
+	return CreateDepositResponse{}, _err
 }
 
 func (_p ExplorerProxy) GetDeposits(subChainID int64, offset int64, limit int64) ([]Deposit, error) {
@@ -2313,7 +2313,7 @@ var IdlJsonRaw = `[
     },
     {
         "type": "struct",
-        "name": "DepositRequest",
+        "name": "CreateDepositRequest",
         "comment": "",
         "value": "",
         "extends": "",
@@ -2390,7 +2390,7 @@ var IdlJsonRaw = `[
     },
     {
         "type": "struct",
-        "name": "DepositResponse",
+        "name": "CreateDepositResponse",
         "comment": "",
         "value": "",
         "extends": "",
@@ -3256,12 +3256,12 @@ var IdlJsonRaw = `[
                 }
             },
             {
-                "name": "deposit",
+                "name": "createDeposit",
                 "comment": "deposit balance from main-chain to sub-chain",
                 "params": [
                     {
                         "name": "request",
-                        "type": "DepositRequest",
+                        "type": "CreateDepositRequest",
                         "optional": false,
                         "is_array": false,
                         "comment": ""
@@ -3269,7 +3269,7 @@ var IdlJsonRaw = `[
                 ],
                 "returns": {
                     "name": "",
-                    "type": "DepositResponse",
+                    "type": "CreateDepositResponse",
                     "optional": false,
                     "is_array": false,
                     "comment": ""
@@ -3324,7 +3324,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1541203896564,
-        "checksum": "ef9581ad73ca7670f62483e6393ae27d"
+        "date_generated": 1541443112231,
+        "checksum": "df81193368c03fb6b7afd1152715bdf2"
     }
 ]`
