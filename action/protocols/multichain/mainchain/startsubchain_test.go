@@ -46,7 +46,7 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 
 	defer ctrl.Finish()
 
-	p := NewProtocol(&cfg, chain, nil)
+	p := NewProtocol(&cfg, chain)
 
 	start := action.NewStartSubChain(
 		1,
@@ -257,7 +257,7 @@ func TestHandleStartSubChain(t *testing.T) {
 	assert.NoError(t, action.Sign(start, testaddress.Addrinfo["producer"].PrivateKey))
 
 	// Handle the action
-	protocol := NewProtocol(&cfg, chain, nil)
+	protocol := NewProtocol(&cfg, chain)
 	require.NoError(t, protocol.handleStartSubChain(start, ws))
 	require.NoError(t, sf.Commit(ws))
 
@@ -288,7 +288,7 @@ func TestNoStartSubChainInGenesis(t *testing.T) {
 
 	ctx := context.Background()
 	bc := blockchain.NewBlockchain(&cfg, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
-	p := NewProtocol(&cfg, bc, nil)
+	p := NewProtocol(&cfg, bc)
 	bc.GetFactory().AddActionHandlers(p)
 	require.NoError(t, bc.Start(ctx))
 	defer require.NoError(t, bc.Stop(ctx))
@@ -304,7 +304,7 @@ func TestStartSubChainInGenesis(t *testing.T) {
 
 	ctx := context.Background()
 	bc := blockchain.NewBlockchain(&cfg, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
-	p := NewProtocol(&cfg, bc, nil)
+	p := NewProtocol(&cfg, bc)
 	bc.GetFactory().AddActionHandlers(p)
 	require.NoError(t, bc.Start(ctx))
 	defer require.NoError(t, bc.Stop(ctx))

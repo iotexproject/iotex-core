@@ -37,7 +37,7 @@ func (p *Protocol) SubChain(addr address.Address) (*SubChain, error) {
 // SubChainsInOperation returns the used chain IDs
 func (p *Protocol) SubChainsInOperation() (state.SortedSlice, error) {
 	var subChainsInOp state.SortedSlice
-	s, err := p.sf.State(subChainsInOperationKey, &subChainsInOp)
+	s, err := p.sf.State(SubChainsInOperationKey, &subChainsInOp)
 	return processState(s, err)
 }
 
@@ -123,7 +123,7 @@ func (p *Protocol) mutateSubChainState(
 		},
 		SortInOperation,
 	)
-	if err := ws.PutState(subChainsInOperationKey, &subChainsInOp); err != nil {
+	if err := ws.PutState(SubChainsInOperationKey, &subChainsInOp); err != nil {
 		return err
 	}
 	return nil

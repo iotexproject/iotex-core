@@ -15,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/net/context"
 
+	"github.com/iotexproject/iotex-core/action/protocols/multichain/mainchain"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
@@ -65,6 +66,15 @@ func NewTestSever(cfg config.Explorer) *Server {
 		cfg: cfg,
 		exp: &MockExplorer{},
 	}
+}
+
+// SetMainChainProtocol sets the main-chain side multi-chain protocol
+func (s *Server) SetMainChainProtocol(p *mainchain.Protocol) {
+	svr, ok := s.exp.(*Service)
+	if !ok {
+		return
+	}
+	svr.SetMainChainProtocol(p)
 }
 
 // Start starts the explorer server

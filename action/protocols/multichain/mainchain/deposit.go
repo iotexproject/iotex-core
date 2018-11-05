@@ -20,9 +20,20 @@ import (
 	"github.com/iotexproject/iotex-core/state"
 )
 
+// DepositAddress returns the deposit address (20-byte)
+func DepositAddress(subChainAddr []byte, depositIndex uint64) hash.PKHash {
+	var stream []byte
+	stream = append(stream, subChainAddr...)
+	stream = append(stream, []byte(".deposit.")...)
+	temp := make([]byte, 8)
+	enc.MachineEndian.PutUint64(temp, depositIndex)
+	stream = append(stream, temp...)
+	return byteutil.BytesTo20B(hash.Hash160b(stream))
+}
+
 // Deposit returns the deposit record
-func (p *Protocol) Deposit(address address.Address, depositIndex uint64) (*Deposit, error) {
-	key := depositKey(address.Bytes(), depositIndex)
+func (p *Protocol) Deposit(subChainAddr address.Address, depositIndex uint64) (*Deposit, error) {
+	key := DepositAddress(subChainAddr.Bytes(), depositIndex)
 	var deposit Deposit
 	state, err := p.sf.State(key, &deposit)
 	if err != nil {
@@ -112,7 +123,7 @@ func (p *Protocol) mutateDeposit(
 		return err
 	}
 	if err := ws.PutState(
-		depositKey(subChainInOp.Addr, depositIndex),
+		DepositAddress(subChainInOp.Addr, depositIndex),
 		&Deposit{
 			Amount:    deposit.Amount(),
 			Addr:      recipient.Bytes(),
@@ -122,14 +133,4 @@ func (p *Protocol) mutateDeposit(
 		return err
 	}
 	return nil
-}
-
-func depositKey(addr []byte, depositIndex uint64) hash.PKHash {
-	var stream []byte
-	stream = append(stream, addr...)
-	stream = append(stream, []byte(".deposit.")...)
-	temp := make([]byte, 8)
-	enc.MachineEndian.PutUint64(temp, depositIndex)
-	stream = append(stream, temp...)
-	return byteutil.BytesTo20B(hash.Hash160b(stream))
 }

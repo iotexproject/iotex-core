@@ -474,3 +474,16 @@ func (m *MockExplorer) Deposit(request explorer.DepositRequest) (explorer.Deposi
 func (mr *MockExplorerMockRecorder) Deposit(request interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Deposit", reflect.TypeOf((*MockExplorer)(nil).Deposit), request)
 }
+
+// GetDeposits mocks base method
+func (m *MockExplorer) GetDeposits(subChainID, offset, limit int64) ([]explorer.Deposit, error) {
+	ret := m.ctrl.Call(m, "GetDeposits", subChainID, offset, limit)
+	ret0, _ := ret[0].([]explorer.Deposit)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetDeposits indicates an expected call of GetDeposits
+func (mr *MockExplorerMockRecorder) GetDeposits(subChainID, offset, limit interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDeposits", reflect.TypeOf((*MockExplorer)(nil).GetDeposits), subChainID, offset, limit)
+}
