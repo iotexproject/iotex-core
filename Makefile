@@ -144,7 +144,7 @@ run:
 
 .PHONY: docker
 docker:
-	$(DOCKERCMD) build -t $(USER)/iotex-core:latest --build-arg SKIP_DEP=$(SKIP_DEP) .
+	$(DOCKERCMD) build -t iotex$(USER)/iotex-core:latest --build-arg SKIP_DEP=$(SKIP_DEP) .
 
 .PHONY: minicluster
 minicluster:
