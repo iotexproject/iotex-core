@@ -237,8 +237,8 @@ func (sf *factory) Height() (uint64, error) {
 }
 
 func (sf *factory) NewWorkingSet() (WorkingSet, error) {
-	sf.mutex.Lock()
-	defer sf.mutex.Unlock()
+	sf.mutex.RLock()
+	defer sf.mutex.RUnlock()
 	return NewWorkingSet(sf.currentChainHeight, sf.dao, sf.rootHash, sf.actionHandlers)
 }
 
