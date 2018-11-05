@@ -52,8 +52,8 @@ type actPool struct {
 	validators  []ActionValidator
 }
 
-// AbstractValidator is the validator for abstract action verification
-type AbstractValidator struct{ bc blockchain.Blockchain }
+// GenericValidator is the validator for generic action verification
+type GenericValidator struct{ bc blockchain.Blockchain }
 
 // ActionValidator is the interface of validating an action
 type ActionValidator interface {
@@ -74,8 +74,8 @@ func NewActPool(bc blockchain.Blockchain, cfg config.ActPool) (ActPool, error) {
 	return ap, nil
 }
 
-// NewAbstractValidator constructs a new abstractValidator
-func NewAbstractValidator(bc blockchain.Blockchain) *AbstractValidator { return &AbstractValidator{bc} }
+// NewGenericValidator constructs a new genericValidator
+func NewGenericValidator(bc blockchain.Blockchain) *GenericValidator { return &GenericValidator{bc} }
 
 // AddActionValidators add validators
 func (ap *actPool) AddActionValidators(validators ...ActionValidator) {
@@ -314,8 +314,8 @@ func (ap *actPool) updateAccount(sender string) {
 	}
 }
 
-// Validate validates an abstract action
-func (v *AbstractValidator) Validate(act action.Action) error {
+// Validate validates an generic action
+func (v *GenericValidator) Validate(act action.Action) error {
 	// Reject over-gassed action
 	if act.GasLimit() > blockchain.GasLimit {
 		return errors.Wrap(action.ErrGasHigherThanLimit, "gas is higher than gas limit")
