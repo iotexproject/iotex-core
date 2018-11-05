@@ -20,8 +20,8 @@ import (
 )
 
 const (
-	// DepositIntrinsicGas represents the intrinsic gas for the deposit action
-	DepositIntrinsicGas = uint64(10000)
+	// CreateDepositIntrinsicGas represents the intrinsic gas for the deposit action
+	CreateDepositIntrinsicGas = uint64(10000)
 )
 
 // CreateDeposit represents the action to deposit the token from main-chain to sub-chain. The recipient address must be a
@@ -31,7 +31,7 @@ type CreateDeposit struct {
 	amount *big.Int
 }
 
-// NewCreateDeposit instantiates a deposit to sub-chain action struct
+// NewCreateDeposit instantiates a deposit creation to sub-chain action struct
 func NewCreateDeposit(
 	nonce uint64,
 	amount *big.Int,
@@ -127,17 +127,17 @@ func (d *CreateDeposit) LoadProto(pbAct *iproto.ActionPb) {
 	d.dstAddr = pbDpst.Recipient
 }
 
-// Hash returns the hash of a deposit
+// Hash returns the hash of a create deposit
 func (d *CreateDeposit) Hash() hash.Hash32B { return blake2b.Sum256(d.ByteStream()) }
 
-// IntrinsicGas returns the intrinsic gas of a deposit
-func (d *CreateDeposit) IntrinsicGas() (uint64, error) { return DepositIntrinsicGas, nil }
+// IntrinsicGas returns the intrinsic gas of a create deposit
+func (d *CreateDeposit) IntrinsicGas() (uint64, error) { return CreateDepositIntrinsicGas, nil }
 
-// Cost returns the total cost of a deposit
+// Cost returns the total cost of a create deposit
 func (d *CreateDeposit) Cost() (*big.Int, error) {
 	intrinsicGas, err := d.IntrinsicGas()
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get intrinsic gas for the deposit")
+		return nil, errors.Wrap(err, "failed to get intrinsic gas for the create deposit")
 	}
 	depositFee := big.NewInt(0).Mul(d.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas))
 	return big.NewInt(0).Add(d.Amount(), depositFee), nil
