@@ -1262,8 +1262,8 @@ func (exp *Service) GetBlockOrActionByHash(hashStr string) (explorer.GetBlkOrAct
 	return explorer.GetBlkOrActResponse{}, nil
 }
 
-// Deposit deposits balance from main-chain to sub-chain
-func (exp *Service) Deposit(req explorer.DepositRequest) (res explorer.DepositResponse, err error) {
+// CreateDeposit deposits balance from main-chain to sub-chain
+func (exp *Service) CreateDeposit(req explorer.CreateDepositRequest) (res explorer.CreateDepositResponse, err error) {
 	defer func() {
 		succeed := "true"
 		if err != nil {
@@ -1289,8 +1289,8 @@ func (exp *Service) Deposit(req explorer.DepositRequest) (res explorer.DepositRe
 		return res, errors.New("error when converting gas price string into big int type")
 	}
 	actPb := &pb.ActionPb{
-		Action: &pb.ActionPb_Deposit{
-			Deposit: &pb.DepositPb{
+		Action: &pb.ActionPb_CreateDeposit{
+			CreateDeposit: &pb.CreateDepositPb{
 				Amount:    amount.Bytes(),
 				Recipient: req.Recipient,
 			},
@@ -1310,10 +1310,10 @@ func (exp *Service) Deposit(req explorer.DepositRequest) (res explorer.DepositRe
 	// send to actpool via dispatcher
 	exp.dp.HandleBroadcast(exp.bc.ChainID(), actPb, nil)
 
-	deposit := &action.Deposit{}
+	deposit := &action.CreateDeposit{}
 	deposit.LoadProto(actPb)
 	h := deposit.Hash()
-	return explorer.DepositResponse{Hash: hex.EncodeToString(h[:])}, nil
+	return explorer.CreateDepositResponse{Hash: hex.EncodeToString(h[:])}, nil
 }
 
 // GetDeposits returns the deposits of a sub-chain in the given range in descending order by the index
