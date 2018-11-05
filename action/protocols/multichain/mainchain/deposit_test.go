@@ -44,7 +44,7 @@ func TestValidateDeposit(t *testing.T) {
 		ctrl.Finish()
 	}()
 
-	p := NewProtocol(&cfg, chain, nil)
+	p := NewProtocol(&cfg, chain)
 
 	addr1 := testaddress.Addrinfo["producer"].RawAddress
 	addr, err := address.IotxAddressToAddress(addr1)
@@ -53,7 +53,7 @@ func TestValidateDeposit(t *testing.T) {
 
 	deposit := action.NewDeposit(1, big.NewInt(1000), addr1, addr2, testutil.TestGasLimit, big.NewInt(0))
 	_, _, err = p.validateDeposit(deposit, nil)
-	assert.True(t, strings.Contains(err.Error(), "account does not exist"))
+	assert.True(t, strings.Contains(err.Error(), "state does not exist"))
 
 	ws, err := sf.NewWorkingSet()
 	require.NoError(t, err)
@@ -76,7 +76,7 @@ func TestValidateDeposit(t *testing.T) {
 	subChainAddr, err := createSubChainAddress(addr1, 0)
 	require.NoError(t, err)
 	require.NoError(t, ws.PutState(
-		subChainsInOperationKey,
+		SubChainsInOperationKey,
 		&state.SortedSlice{
 			InOperation{
 				ID:   2,
@@ -133,7 +133,7 @@ func TestMutateDeposit(t *testing.T) {
 	))
 	require.NoError(t, sf.Commit(ws))
 
-	p := NewProtocol(&cfg, chain, nil)
+	p := NewProtocol(&cfg, chain)
 	require.NoError(t, p.mutateDeposit(
 		action.NewDeposit(2, big.NewInt(1000), addr1, addr2, testutil.TestGasLimit, big.NewInt(0)),
 		&state.Account{
