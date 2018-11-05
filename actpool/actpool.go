@@ -120,8 +120,8 @@ func (ap *actPool) Reset() {
 
 // PickActs returns all currently accepted transfers and votes for all accounts
 func (ap *actPool) PickActs() []action.Action {
-	ap.mutex.Lock()
-	defer ap.mutex.Unlock()
+	ap.mutex.RLock()
+	defer ap.mutex.RUnlock()
 
 	numActs := uint64(0)
 	actions := make([]action.Action, 0)
@@ -163,8 +163,8 @@ func (ap *actPool) Add(act action.Action) error {
 
 // GetPendingNonce returns pending nonce in pool or confirmed nonce given an account address
 func (ap *actPool) GetPendingNonce(addr string) (uint64, error) {
-	ap.mutex.Lock()
-	defer ap.mutex.Unlock()
+	ap.mutex.RLock()
+	defer ap.mutex.RUnlock()
 
 	if queue, ok := ap.accountActs[addr]; ok {
 		return queue.PendingNonce(), nil
@@ -176,8 +176,8 @@ func (ap *actPool) GetPendingNonce(addr string) (uint64, error) {
 
 // GetUnconfirmedActs returns unconfirmed actions in pool given an account address
 func (ap *actPool) GetUnconfirmedActs(addr string) []action.Action {
-	ap.mutex.Lock()
-	defer ap.mutex.Unlock()
+	ap.mutex.RLock()
+	defer ap.mutex.RUnlock()
 
 	if queue, ok := ap.accountActs[addr]; ok {
 		return queue.AllActs()
@@ -207,6 +207,9 @@ func (ap *actPool) GetSize() uint64 {
 
 // GetCapacity returns the act pool capacity
 func (ap *actPool) GetCapacity() uint64 {
+	ap.mutex.RLock()
+	defer ap.mutex.RUnlock()
+
 	return ap.cfg.MaxNumActsPerPool
 }
 

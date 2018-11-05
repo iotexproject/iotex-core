@@ -101,7 +101,16 @@ func (m *memKVStore) Delete(namespace string, key []byte) error {
 
 // Commit commits a batch
 func (m *memKVStore) Commit(b KVStoreBatch) (e error) {
+	succeed := false
 	b.Lock()
+	defer func() {
+		if succeed {
+			// clear the batch if commit succeeds
+			b.ClearAndUnlock()
+		} else {
+			b.Unlock()
+		}
+	}()
 	for i := 0; i < b.Size(); i++ {
 		write, err := b.Entry(i)
 		if err != nil {
@@ -124,14 +133,11 @@ func (m *memKVStore) Commit(b KVStoreBatch) (e error) {
 			}
 		}
 	}
-	if e != nil {
-		// if commit fails at KVStore, we do not clear the batch
-		b.Unlock()
-		return e
+	if e == nil {
+		succeed = true
 	}
-	// clear the batch if commit succeeds
-	b.ClearAndUnlock()
-	return nil
+
+	return e
 }
 
 const fileMode = 0600
@@ -181,6 +187,9 @@ func (b *boltDB) Stop(_ context.Context) error {
 
 // Put inserts a <key, value> record
 func (b *boltDB) Put(namespace string, key, value []byte) error {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
+
 	var err error
 	numRetries := b.config.NumRetries
 	for c := uint8(0); c < numRetries; c++ {
@@ -202,6 +211,9 @@ func (b *boltDB) Put(namespace string, key, value []byte) error {
 
 // PutIfNotExists inserts a <key, value> record only if it does not exist yet, otherwise return ErrAlreadyExist
 func (b *boltDB) PutIfNotExists(namespace string, key, value []byte) error {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
+
 	var err error
 	numRetries := b.config.NumRetries
 	for c := uint8(0); c < numRetries; c++ {
@@ -226,6 +238,9 @@ func (b *boltDB) PutIfNotExists(namespace string, key, value []byte) error {
 
 // Get retrieves a record
 func (b *boltDB) Get(namespace string, key []byte) ([]byte, error) {
+	b.mutex.RLock()
+	defer b.mutex.RUnlock()
+
 	var value []byte
 	err := b.db.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte(namespace))
@@ -246,6 +261,9 @@ func (b *boltDB) Get(namespace string, key []byte) ([]byte, error) {
 
 // Delete deletes a record
 func (b *boltDB) Delete(namespace string, key []byte) error {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
+
 	var err error
 	numRetries := b.config.NumRetries
 	for c := uint8(0); c < numRetries; c++ {
@@ -267,7 +285,20 @@ func (b *boltDB) Delete(namespace string, key []byte) error {
 
 // Commit commits a batch
 func (b *boltDB) Commit(batch KVStoreBatch) (err error) {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
+
+	succeed := false
 	batch.Lock()
+	defer func() {
+		if succeed {
+			// clear the batch if commit succeeds
+			batch.ClearAndUnlock()
+		} else {
+			batch.Unlock()
+		}
+
+	}()
 	numRetries := b.config.NumRetries
 	for c := uint8(0); c < numRetries; c++ {
 		err = b.db.Update(func(tx *bolt.Tx) error {
@@ -312,14 +343,11 @@ func (b *boltDB) Commit(batch KVStoreBatch) (err error) {
 			break
 		}
 	}
-	if err != nil {
-		// if commit fails at KVStore, we do not clear the batch
-		batch.Unlock()
-		return err
+	if err == nil {
+		succeed = true
 	}
-	// clear the batch if commit succeeds
-	batch.ClearAndUnlock()
-	return nil
+
+	return err
 }
 
 //======================================
