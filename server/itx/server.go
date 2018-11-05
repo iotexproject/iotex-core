@@ -14,7 +14,10 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
+	"github.com/iotexproject/iotex-core/action/protocols/account"
+	"github.com/iotexproject/iotex-core/action/protocols/execution"
 	"github.com/iotexproject/iotex-core/action/protocols/multichain/mainchain"
+	"github.com/iotexproject/iotex-core/action/protocols/vote"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/chainservice"
 	"github.com/iotexproject/iotex-core/config"
@@ -69,8 +72,10 @@ func newServer(cfg *config.Config, testing bool) (*Server, error) {
 		return nil, errors.Wrap(err, "fail to create chain service")
 	}
 
-	// Add abstract action validator
-	cs.ActionPool().AddActionValidators(actpool.NewAbstractValidator(cs.Blockchain()))
+	// Add action validators
+	// TODO: Type-specific validators will be carried by protocols
+	cs.ActionPool().AddActionValidators(actpool.NewGenericValidator(cs.Blockchain()), account.NewProtocol(),
+		vote.NewProtocol(cs.Blockchain()), execution.NewProtocol())
 	// Install protocols
 	mainChainProtocol := mainchain.NewProtocol(cfg, cs.Blockchain())
 	cs.AddProtocols(mainChainProtocol)
