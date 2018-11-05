@@ -46,7 +46,7 @@ func (p *Protocol) Deposit(subChainAddr address.Address, depositIndex uint64) (*
 	return d, nil
 }
 
-func (p *Protocol) handleDeposit(deposit *action.Deposit, ws state.WorkingSet) error {
+func (p *Protocol) handleDeposit(deposit *action.CreateDeposit, ws state.WorkingSet) error {
 	account, subChainInOp, err := p.validateDeposit(deposit, ws)
 	if err != nil {
 		return err
@@ -54,7 +54,7 @@ func (p *Protocol) handleDeposit(deposit *action.Deposit, ws state.WorkingSet) e
 	return p.mutateDeposit(deposit, account, subChainInOp, ws)
 }
 
-func (p *Protocol) validateDeposit(deposit *action.Deposit, ws state.WorkingSet) (*state.Account, InOperation, error) {
+func (p *Protocol) validateDeposit(deposit *action.CreateDeposit, ws state.WorkingSet) (*state.Account, InOperation, error) {
 	cost, err := deposit.Cost()
 	if err != nil {
 		return nil, InOperation{}, errors.Wrap(err, "error when getting deposit's cost")
@@ -83,7 +83,7 @@ func (p *Protocol) validateDeposit(deposit *action.Deposit, ws state.WorkingSet)
 }
 
 func (p *Protocol) mutateDeposit(
-	deposit *action.Deposit,
+	deposit *action.CreateDeposit,
 	account *state.Account,
 	subChainInOp InOperation,
 	ws state.WorkingSet,

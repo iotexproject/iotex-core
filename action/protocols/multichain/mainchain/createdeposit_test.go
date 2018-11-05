@@ -51,7 +51,7 @@ func TestValidateDeposit(t *testing.T) {
 	require.NoError(t, err)
 	addr2 := address.New(2, addr.Payload()).IotxAddress()
 
-	deposit := action.NewDeposit(1, big.NewInt(1000), addr1, addr2, testutil.TestGasLimit, big.NewInt(0))
+	deposit := action.NewCreateDeposit(1, big.NewInt(1000), addr1, addr2, testutil.TestGasLimit, big.NewInt(0))
 	_, _, err = p.validateDeposit(deposit, nil)
 	assert.True(t, strings.Contains(err.Error(), "state does not exist"))
 
@@ -66,7 +66,7 @@ func TestValidateDeposit(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, sf.Commit(ws))
 
-	deposit1 := action.NewDeposit(1, big.NewInt(2000), addr1, addr2, testutil.TestGasLimit, big.NewInt(0))
+	deposit1 := action.NewCreateDeposit(1, big.NewInt(2000), addr1, addr2, testutil.TestGasLimit, big.NewInt(0))
 	_, _, err = p.validateDeposit(deposit1, nil)
 	assert.True(t, strings.Contains(err.Error(), "doesn't have at least required balance"))
 
@@ -135,7 +135,7 @@ func TestMutateDeposit(t *testing.T) {
 
 	p := NewProtocol(&cfg, chain)
 	require.NoError(t, p.mutateDeposit(
-		action.NewDeposit(2, big.NewInt(1000), addr1, addr2, testutil.TestGasLimit, big.NewInt(0)),
+		action.NewCreateDeposit(2, big.NewInt(1000), addr1, addr2, testutil.TestGasLimit, big.NewInt(0)),
 		&state.Account{
 			Nonce:   1,
 			Balance: big.NewInt(2000),

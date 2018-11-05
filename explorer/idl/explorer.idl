@@ -230,7 +230,7 @@ struct GetBlkOrActResponse {
     execution Execution [optional]
 }
 
-struct DepositRequest {
+struct CreateDepositRequest {
     version int
     nonce int
     sender string
@@ -242,7 +242,7 @@ struct DepositRequest {
     gasPrice string
 }
 
-struct DepositResponse {
+struct CreateDepositResponse {
     hash string
 }
 
@@ -353,7 +353,7 @@ interface Explorer {
     getBlockOrActionByHash(hashStr string) GetBlkOrActResponse
 
     // deposit balance from main-chain to sub-chain
-    deposit(request DepositRequest) DepositResponse
+    createDeposit(request CreateDepositRequest) CreateDepositResponse
 
     // get deposits on a sub-chain
     getDeposits(subChainID int, offset int, limit int) []Deposit

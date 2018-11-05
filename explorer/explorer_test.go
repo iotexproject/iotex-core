@@ -834,7 +834,7 @@ func TestExplorerGetReceiptByExecutionID(t *testing.T) {
 	require.Equal(eHashStr, receipt.Hash)
 }
 
-func TestService_Deposit(t *testing.T) {
+func TestService_CreateDeposit(t *testing.T) {
 	t.Parallel()
 
 	require := require.New(t)
@@ -857,7 +857,7 @@ func TestService_Deposit(t *testing.T) {
 		dp:  dp,
 	}
 
-	deposit := action.NewDeposit(
+	deposit := action.NewCreateDeposit(
 		10,
 		big.NewInt(10000),
 		ta.Addrinfo["producer"].RawAddress,
@@ -868,7 +868,7 @@ func TestService_Deposit(t *testing.T) {
 	)
 	require.NoError(action.Sign(deposit, ta.Addrinfo["producer"].PrivateKey))
 
-	res, error := svc.Deposit(explorer.DepositRequest{
+	res, error := svc.CreateDeposit(explorer.CreateDepositRequest{
 		Version:      int64(deposit.Version()),
 		Nonce:        int64(deposit.Nonce()),
 		Sender:       deposit.Sender(),
