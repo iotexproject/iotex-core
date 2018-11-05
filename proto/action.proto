@@ -63,6 +63,12 @@ message CreateDepositPb {
     string recipient = 2;
 }
 
+message SettleDepositPb {
+    bytes amount  = 1;
+    string recipient = 2;
+    uint64 index = 3;
+}
+
 message ActionPb {
     uint32 version = 1;
     // TODO: we should remove sender address later
@@ -82,5 +88,6 @@ message ActionPb {
         StopSubChainPb stopSubChain = 16;
         PutBlockPb putBlock = 17;
         CreateDepositPb createDeposit = 18;
+        SettleDepositPb settleDeposit = 19;
     }
 }
