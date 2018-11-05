@@ -30,10 +30,13 @@ const (
 )
 
 // Protocol defines the protocol of handling votes
-type Protocol struct{ bc blockchain.Blockchain }
+type Protocol struct {
+	bc               blockchain.Blockchain
+	cachedCandidates map[hash.PKHash]*state.Candidate
+}
 
 // NewProtocol instantiates the protocol of vote
-func NewProtocol(bc blockchain.Blockchain) *Protocol { return &Protocol{bc} }
+func NewProtocol(bc blockchain.Blockchain) *Protocol { return &Protocol{bc: bc} }
 
 // Handle handles a vote
 func (p *Protocol) Handle(act action.Action, ws state.WorkingSet) error {
@@ -53,6 +56,8 @@ func (p *Protocol) Handle(act action.Action, ws state.WorkingSet) error {
 	case err != nil:
 		return errors.Wrapf(err, "failed to get candidates on height %d from trie", ws.Height())
 	}
+
+	p.cachedCandidates = candidateMap
 
 	voteFrom, err := account.LoadOrCreateAccountState(ws, vote.Voter(), big.NewInt(0))
 	if err != nil {
@@ -76,7 +81,7 @@ func (p *Protocol) Handle(act action.Action, ws state.WorkingSet) error {
 	} else if vote.Voter() == vote.Votee() {
 		// Vote to self: self-nomination
 		voteFrom.IsCandidate = true
-		if err := p.addCandidate(candidateMap, vote, ws.Height()); err != nil {
+		if err := p.addCandidate(vote, ws.Height()); err != nil {
 			return errors.Wrap(err, "failed to add candidate to candidate map")
 		}
 	}
@@ -99,7 +104,7 @@ func (p *Protocol) Handle(act action.Action, ws state.WorkingSet) error {
 		}
 		// Update candidate map
 		if oldVotee.IsCandidate {
-			p.updateCandidate(candidateMap, prevVotee, oldVotee.VotingWeight, ws.Height())
+			p.updateCandidate(prevVotee, oldVotee.VotingWeight, ws.Height())
 		}
 	}
 
@@ -117,7 +122,7 @@ func (p *Protocol) Handle(act action.Action, ws state.WorkingSet) error {
 		}
 		// Update candidate map
 		if voteTo.IsCandidate {
-			p.updateCandidate(candidateMap, vote.Votee(), voteTo.VotingWeight, ws.Height())
+			p.updateCandidate(vote.Votee(), voteTo.VotingWeight, ws.Height())
 		}
 	}
 
@@ -131,6 +136,9 @@ func (p *Protocol) Handle(act action.Action, ws state.WorkingSet) error {
 	if err := ws.PutState(candidatesKey, &candidateList); err != nil {
 		return errors.Wrap(err, "failed to put updated candidates to trie")
 	}
+
+	// clear cached candidates
+	p.cachedCandidates = nil
 	return nil
 }
 
@@ -167,10 +175,7 @@ func (p *Protocol) constructKey(height uint64) hash.PKHash {
 	heightInBytes := byteutil.Uint64ToBytes(height)
 	k := []byte(CandidatesPrefix)
 	k = append(k, heightInBytes...)
-	hashedKey := hash.Hash160b(k)
-	var key hash.PKHash
-	copy(key[:], hashedKey)
-	return key
+	return byteutil.BytesTo20B(hash.Hash160b(k))
 }
 
 func (p *Protocol) getCandidateMap(height uint64, ws state.WorkingSet) (map[hash.PKHash]*state.Candidate, error) {
@@ -186,14 +191,14 @@ func (p *Protocol) getCandidateMap(height uint64, ws state.WorkingSet) (map[hash
 	return nil, err
 }
 
-func (p *Protocol) addCandidate(candidateMap map[hash.PKHash]*state.Candidate, vote *action.Vote, height uint64) error {
+func (p *Protocol) addCandidate(vote *action.Vote, height uint64) error {
 	votePubkey := vote.VoterPublicKey()
 	voterPKHash, err := iotxaddress.AddressToPKHash(vote.Voter())
 	if err != nil {
 		return errors.Wrap(err, "failed to get public key hash from account address")
 	}
-	if _, ok := candidateMap[voterPKHash]; !ok {
-		candidateMap[voterPKHash] = &state.Candidate{
+	if _, ok := p.cachedCandidates[voterPKHash]; !ok {
+		p.cachedCandidates[voterPKHash] = &state.Candidate{
 			Address:        vote.Voter(),
 			PublicKey:      votePubkey,
 			CreationHeight: height,
@@ -203,7 +208,6 @@ func (p *Protocol) addCandidate(candidateMap map[hash.PKHash]*state.Candidate, v
 }
 
 func (p *Protocol) updateCandidate(
-	candidateMap map[hash.PKHash]*state.Candidate,
 	addr string,
 	totalWeight *big.Int,
 	blockHeight uint64,
@@ -213,7 +217,7 @@ func (p *Protocol) updateCandidate(
 		return errors.Wrap(err, "failed to convert address to public key hash")
 	}
 	// Candidate was added when self-nomination, always exist in cachedCandidates
-	candidate := candidateMap[pkHash]
+	candidate := p.cachedCandidates[pkHash]
 	candidate.Votes = totalWeight
 	candidate.LastUpdateHeight = blockHeight
 
