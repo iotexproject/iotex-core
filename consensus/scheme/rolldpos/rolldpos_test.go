@@ -110,10 +110,11 @@ func TestRollDPoSCtx(t *testing.T) {
 	ctx.epoch.numSubEpochs = 2
 	ctx.epoch.delegates = delegates
 
-	proposer, height, err := ctx.rotatedProposer()
+	proposer, height, round, err := ctx.rotatedProposer()
 	require.NoError(t, err)
 	assert.Equal(t, candidates[1], proposer)
 	assert.Equal(t, uint64(9), height)
+	assert.Equal(t, uint32(0), round)
 
 	clock.Add(time.Second)
 	duration, err := ctx.calcDurationSinceLastBlock()
