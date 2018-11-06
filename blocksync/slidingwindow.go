@@ -74,8 +74,9 @@ func (sw *SlidingWindow) SetRange(left uint64, right uint64) error {
 
 // Next returns the next close value of the sliding window
 func (sw *SlidingWindow) Next() uint64 {
-	sw.mu.Lock()
-	defer sw.mu.Unlock()
+	sw.mu.RLock()
+	defer sw.mu.RUnlock()
+
 	return sw.close + 1
 }
 
@@ -104,6 +105,7 @@ func (sw *SlidingWindow) updateState() {
 // Update updates the window [close, open]
 func (sw *SlidingWindow) Update(value uint64) {
 	sw.mu.Lock()
+	defer sw.mu.Unlock()
 	switch {
 	case value > sw.open:
 		sw.open = value
@@ -114,19 +116,18 @@ func (sw *SlidingWindow) Update(value uint64) {
 		}
 	}
 	sw.updateState()
-	sw.mu.Unlock()
 }
 
 // TurnClose returns true if state transitions Open --> Closing/Closed
 func (sw *SlidingWindow) TurnClose() bool {
-	sw.mu.Lock()
-	defer sw.mu.Unlock()
+	sw.mu.RLock()
+	defer sw.mu.RUnlock()
 	return sw.prevState == Open && sw.State == Closing
 }
 
 // TurnOpen returns true if state transitions Closing/Closed --> Open
 func (sw *SlidingWindow) TurnOpen() bool {
-	sw.mu.Lock()
-	defer sw.mu.Unlock()
+	sw.mu.RLock()
+	defer sw.mu.RUnlock()
 	return sw.prevState != Open && sw.State == Open
 }

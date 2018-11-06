@@ -237,18 +237,6 @@ func (mr *MockWorkingSetMockRecorder) PutState(arg0, arg1 interface{}) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutState", reflect.TypeOf((*MockWorkingSet)(nil).PutState), arg0, arg1)
 }
 
-// UpdateCachedCandidates mocks base method
-func (m *MockWorkingSet) UpdateCachedCandidates(arg0 *action.Vote) error {
-	ret := m.ctrl.Call(m, "UpdateCachedCandidates", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// UpdateCachedCandidates indicates an expected call of UpdateCachedCandidates
-func (mr *MockWorkingSetMockRecorder) UpdateCachedCandidates(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateCachedCandidates", reflect.TypeOf((*MockWorkingSet)(nil).UpdateCachedCandidates), arg0)
-}
-
 // UpdateCachedStates mocks base method
 func (m *MockWorkingSet) UpdateCachedStates(arg0 hash.PKHash, arg1 *state.Account) {
 	m.ctrl.Call(m, "UpdateCachedStates", arg0, arg1)
