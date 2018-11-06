@@ -8,8 +8,8 @@ import (
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "df81193368c03fb6b7afd1152715bdf2"
-const BarristerDateGenerated int64 = 1541443112231000000
+const BarristerChecksum string = "9e4a35322fdadd0f77586f8ba530a00e"
+const BarristerDateGenerated int64 = 1541541301077000000
 
 type CoinStatistic struct {
 	Height     int64  `json:"height"`
@@ -248,6 +248,23 @@ type Deposit struct {
 	Confirmed bool   `json:"confirmed"`
 }
 
+type SettleDepositRequest struct {
+	Version      int64  `json:"version"`
+	Nonce        int64  `json:"nonce"`
+	Sender       string `json:"sender"`
+	SenderPubKey string `json:"senderPubKey"`
+	Recipient    string `json:"recipient"`
+	Amount       string `json:"amount"`
+	Index        int64  `json:"index"`
+	Signature    string `json:"signature"`
+	GasLimit     int64  `json:"gasLimit"`
+	GasPrice     string `json:"gasPrice"`
+}
+
+type SettleDepositResponse struct {
+	Hash string `json:"hash"`
+}
+
 type Explorer interface {
 	GetBlockchainHeight() (int64, error)
 	GetAddressBalance(address string) (string, error)
@@ -284,6 +301,7 @@ type Explorer interface {
 	GetBlockOrActionByHash(hashStr string) (GetBlkOrActResponse, error)
 	CreateDeposit(request CreateDepositRequest) (CreateDepositResponse, error)
 	GetDeposits(subChainID int64, offset int64, limit int64) ([]Deposit, error)
+	SettleDeposit(request SettleDepositRequest) (SettleDepositResponse, error)
 }
 
 func NewExplorerProxy(c barrister.Client) Explorer {
@@ -923,6 +941,24 @@ func (_p ExplorerProxy) GetDeposits(subChainID int64, offset int64, limit int64)
 		return _cast, nil
 	}
 	return []Deposit{}, _err
+}
+
+func (_p ExplorerProxy) SettleDeposit(request SettleDepositRequest) (SettleDepositResponse, error) {
+	_res, _err := _p.client.Call("Explorer.settleDeposit", request)
+	if _err == nil {
+		_retType := _p.idl.Method("Explorer.settleDeposit").Returns
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(SettleDepositResponse{}), _res, "")
+	}
+	if _err == nil {
+		_cast, _ok := _res.(SettleDepositResponse)
+		if !_ok {
+			_t := reflect.TypeOf(_res)
+			_msg := fmt.Sprintf("Explorer.settleDeposit returned invalid type: %v", _t)
+			return SettleDepositResponse{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
+		}
+		return _cast, nil
+	}
+	return SettleDepositResponse{}, _err
 }
 
 func NewJSONServer(idl *barrister.Idl, forceASCII bool, explorer Explorer) barrister.Server {
@@ -2445,6 +2481,111 @@ var IdlJsonRaw = `[
         "checksum": ""
     },
     {
+        "type": "struct",
+        "name": "SettleDepositRequest",
+        "comment": "",
+        "value": "",
+        "extends": "",
+        "fields": [
+            {
+                "name": "version",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "nonce",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "sender",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "senderPubKey",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "recipient",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "amount",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "index",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "signature",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "gasLimit",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "gasPrice",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            }
+        ],
+        "values": null,
+        "functions": null,
+        "barrister_version": "",
+        "date_generated": 0,
+        "checksum": ""
+    },
+    {
+        "type": "struct",
+        "name": "SettleDepositResponse",
+        "comment": "",
+        "value": "",
+        "extends": "",
+        "fields": [
+            {
+                "name": "hash",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            }
+        ],
+        "values": null,
+        "functions": null,
+        "barrister_version": "",
+        "date_generated": 0,
+        "checksum": ""
+    },
+    {
         "type": "interface",
         "name": "Explorer",
         "comment": "",
@@ -3308,6 +3449,26 @@ var IdlJsonRaw = `[
                     "is_array": true,
                     "comment": ""
                 }
+            },
+            {
+                "name": "settleDeposit",
+                "comment": "settle deposit on sub-chain. This is a sub-chain API",
+                "params": [
+                    {
+                        "name": "request",
+                        "type": "SettleDepositRequest",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    }
+                ],
+                "returns": {
+                    "name": "",
+                    "type": "SettleDepositResponse",
+                    "optional": false,
+                    "is_array": false,
+                    "comment": ""
+                }
             }
         ],
         "barrister_version": "",
@@ -3324,7 +3485,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1541443112231,
-        "checksum": "df81193368c03fb6b7afd1152715bdf2"
+        "date_generated": 1541541301077,
+        "checksum": "9e4a35322fdadd0f77586f8ba530a00e"
     }
 ]`
