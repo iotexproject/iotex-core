@@ -72,7 +72,7 @@ type Block struct {
 	Actions         []action.Action
 	SecretProposals []*action.SecretProposal
 	SecretWitness   *action.SecretWitness
-	receipts        map[hash.Hash32B]*Receipt
+	receipts        map[hash.Hash32B]*action.Receipt
 	workingSet      state.WorkingSet
 	Footer          *BlockFooter
 }

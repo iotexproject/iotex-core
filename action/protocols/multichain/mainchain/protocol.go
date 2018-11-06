@@ -43,23 +43,25 @@ func NewProtocol(rootChain blockchain.Blockchain) *Protocol {
 }
 
 // Handle handles how to mutate the state db given the multi-chain action on main-chain
-func (p *Protocol) Handle(act action.Action, ws state.WorkingSet) error {
+func (p *Protocol) Handle(act action.Action, ws state.WorkingSet) (*action.Receipt, error) {
 	switch act := act.(type) {
 	case *action.StartSubChain:
 		if err := p.handleStartSubChain(act, ws); err != nil {
-			return errors.Wrapf(err, "error when handling start sub-chain action")
+			return nil, errors.Wrapf(err, "error when handling start sub-chain action")
 		}
 	case *action.PutBlock:
 		if err := p.handlePutBlock(act, ws); err != nil {
-			return errors.Wrapf(err, "error when handling put sub-chain block action")
+			return nil, errors.Wrapf(err, "error when handling put sub-chain block action")
 		}
 	case *action.CreateDeposit:
-		if err := p.handleDeposit(act, ws); err != nil {
-			return errors.Wrapf(err, "error when handling deposit creation action")
+		deposit, err := p.handleDeposit(act, ws)
+		if err != nil {
+			return nil, errors.Wrapf(err, "error when handling deposit creation action")
 		}
+		return deposit, nil
 	}
 	// The action is not handled by this handler or no error
-	return nil
+	return nil, nil
 }
 
 // Validate validates the multi-chain action on main-chain

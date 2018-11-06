@@ -780,7 +780,7 @@ func TestBlocks(t *testing.T) {
 	require.NoError(err)
 	_, err = ws.LoadOrCreateAccountState(c.RawAddress, big.NewInt(100000))
 	require.NoError(err)
-	_, err = ws.RunActions(0, nil)
+	_, _, err = ws.RunActions(0, nil)
 	require.NoError(err)
 	require.NoError(sf.Commit(ws))
 
@@ -826,7 +826,7 @@ func TestActions(t *testing.T) {
 	require.NoError(err)
 	_, err = ws.LoadOrCreateAccountState(c.RawAddress, big.NewInt(100000))
 	require.NoError(err)
-	_, err = ws.RunActions(0, nil)
+	_, _, err = ws.RunActions(0, nil)
 	require.NoError(err)
 	require.NoError(sf.Commit(ws))
 
