@@ -944,7 +944,7 @@ func TestService_GetDeposits(t *testing.T) {
 		ctrl.Finish()
 	}()
 
-	p := mainchain.NewProtocol(&cfg, bc)
+	p := mainchain.NewProtocol(bc)
 	svc := Service{
 		mainChain: p,
 	}

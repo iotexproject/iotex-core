@@ -17,6 +17,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocols/account"
 	"github.com/iotexproject/iotex-core/action/protocols/execution"
 	"github.com/iotexproject/iotex-core/action/protocols/multichain/mainchain"
+	"github.com/iotexproject/iotex-core/action/protocols/multichain/subchain"
 	"github.com/iotexproject/iotex-core/action/protocols/vote"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/chainservice"
@@ -77,7 +78,7 @@ func newServer(cfg *config.Config, testing bool) (*Server, error) {
 	cs.ActionPool().AddActionValidators(actpool.NewGenericValidator(cs.Blockchain()), account.NewProtocol(),
 		vote.NewProtocol(cs.Blockchain()), execution.NewProtocol())
 	// Install protocols
-	mainChainProtocol := mainchain.NewProtocol(cfg, cs.Blockchain())
+	mainChainProtocol := mainchain.NewProtocol(cs.Blockchain())
 	cs.AddProtocols(mainChainProtocol)
 	cs.Explorer().SetMainChainProtocol(mainChainProtocol)
 
@@ -141,6 +142,8 @@ func (s *Server) NewChainService(cfg *config.Config) error {
 	if err != nil {
 		return err
 	}
+	subChainProtocol := subchain.NewProtocol(cs.Blockchain(), cs.Explorer().Explorer())
+	cs.AddProtocols(subChainProtocol)
 	s.chainservices[cs.ChainID()] = cs
 	s.dispatcher.AddSubscriber(cs.ChainID(), cs)
 	return nil

@@ -6,6 +6,160 @@
 
 package subchain
 
-// Protocol defines the protocol to handle multi-chain actions on side-chain
+import (
+	"fmt"
+	"math/big"
+
+	"github.com/pkg/errors"
+
+	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/address"
+	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
+	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/state"
+)
+
+// Protocol defines the protocol to handle multi-chain actions on sub-chain
 type Protocol struct {
+	chainID      uint32
+	mainChainAPI explorer.Explorer
+	sf           state.Factory
+}
+
+// NewProtocol constructs a sub-chain protocol on sub-chain
+func NewProtocol(chain blockchain.Blockchain, mainChainAPI explorer.Explorer) *Protocol {
+	return &Protocol{
+		chainID:      chain.ChainID(),
+		mainChainAPI: mainChainAPI,
+		sf:           chain.GetFactory(),
+	}
+}
+
+// Handle handles how to mutate the state db given the multi-chain action on sub-chain
+func (p *Protocol) Handle(act action.Action, ws state.WorkingSet) error {
+	switch act := act.(type) {
+	case *action.SettleDeposit:
+		if err := p.validateDeposit(act, ws); err != nil {
+			return errors.Wrapf(err, "error when handling deposit settlement action")
+		}
+		if err := p.mutateDeposit(act, ws); err != nil {
+			return errors.Wrapf(err, "error when handling deposit settlement action")
+		}
+	}
+	return nil
+}
+
+// Validate validates the multi-chain action on sub-chain
+func (p *Protocol) Validate(act action.Action) error {
+	switch act := act.(type) {
+	case *action.SettleDeposit:
+		if err := p.validateDeposit(act, nil); err != nil {
+			return errors.Wrapf(err, "error when validating deposit settlement action")
+		}
+	}
+	return nil
+}
+
+func (p *Protocol) validateDeposit(deposit *action.SettleDeposit, ws state.WorkingSet) error {
+	// Validate main-chain state
+	// TODO: this may not be the type safe casting if index is greater than 2^63
+	depositsOnMainChain, err := p.mainChainAPI.GetDeposits(int64(p.chainID), int64(deposit.Index()), 1)
+	if err != nil {
+		return err
+	}
+	if len(depositsOnMainChain) != 1 {
+		return fmt.Errorf("%d deposits found instead of 1", len(depositsOnMainChain))
+	}
+	depositOnMainChain := depositsOnMainChain[0]
+	if depositOnMainChain.Confirmed {
+		return fmt.Errorf("deposit %d is already confirmed", deposit.Index())
+	}
+
+	// Validate sub-chain state
+	var depositIndex DepositIndex
+	var val state.State
+	addr := depositAddress(deposit.Index())
+	if ws == nil {
+		val, err = p.sf.State(addr, &depositIndex)
+	} else {
+		val, err = ws.State(addr, &depositIndex)
+	}
+	exist, err := existDepositIndex(addr, val, err)
+	if err != nil {
+		return err
+	}
+	if exist {
+		return fmt.Errorf("deposit %d is already settled", deposit.Index())
+	}
+	return nil
+}
+
+func (p *Protocol) mutateDeposit(deposit *action.SettleDeposit, ws state.WorkingSet) error {
+	// Update the deposit index
+	depositAddr := depositAddress(deposit.Index())
+	var depositIndex DepositIndex
+	if err := ws.PutState(depositAddr, &depositIndex); err != nil {
+		return err
+	}
+
+	// Update the action owner
+	owner, err := ws.LoadOrCreateAccountState(deposit.Sender(), big.NewInt(0))
+	if err != nil {
+		return err
+	}
+	if deposit.Nonce() > owner.Nonce {
+		owner.Nonce = deposit.Nonce()
+	}
+	ownerPKHash, err := srcAddressPKHash(deposit.Sender())
+	if err != nil {
+		return err
+	}
+	if err := ws.PutState(ownerPKHash, owner); err != nil {
+		return err
+	}
+
+	// Update the deposit recipient
+	recipient, err := ws.LoadOrCreateAccountState(deposit.Sender(), big.NewInt(0))
+	if err != nil {
+		return err
+	}
+	if err := recipient.AddBalance(deposit.Amount()); err != nil {
+		return err
+	}
+	recipientPKHash, err := srcAddressPKHash(deposit.Recipient())
+	if err != nil {
+		return err
+	}
+	if err := ws.PutState(recipientPKHash, recipient); err != nil {
+		return err
+	}
+	return nil
+}
+
+func depositAddress(index uint64) hash.PKHash {
+	return byteutil.BytesTo20B(hash.Hash160b([]byte(fmt.Sprintf("depositToSubChain.%d", index))))
+}
+
+func existDepositIndex(addr hash.PKHash, s state.State, err error) (bool, error) {
+	if err != nil {
+		if errors.Cause(err) == state.ErrStateNotExist {
+			return false, nil
+		}
+		return false, errors.Wrapf(err, "error when loading state of %x", addr)
+	}
+	_, ok := s.(*DepositIndex)
+	if !ok {
+		return false, errors.New("error when casting state into used deposit index")
+	}
+	return true, nil
+}
+
+func srcAddressPKHash(srcAddr string) (hash.PKHash, error) {
+	addr, err := address.IotxAddressToAddress(srcAddr)
+	if err != nil {
+		return hash.ZeroPKHash, errors.Wrapf(err, "cannot get the public key hash of address %s", srcAddr)
+	}
+	return byteutil.BytesTo20B(addr.Payload()), nil
 }
