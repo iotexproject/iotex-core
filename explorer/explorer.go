@@ -1625,7 +1625,7 @@ func convertExecutionToExplorerExecution(execution *action.Execution, isPending 
 	return explorerExecution, nil
 }
 
-func convertReceiptToExplorerReceipt(receipt *blockchain.Receipt) (explorer.Receipt, error) {
+func convertReceiptToExplorerReceipt(receipt *action.Receipt) (explorer.Receipt, error) {
 	if receipt == nil {
 		return explorer.Receipt{}, errors.Wrap(ErrReceipt, "receipt cannot be nil")
 	}

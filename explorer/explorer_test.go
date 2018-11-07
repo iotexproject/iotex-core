@@ -996,7 +996,7 @@ func TestService_GetDeposits(t *testing.T) {
 		ctrl.Finish()
 	}()
 
-	p := mainchain.NewProtocol(&cfg, bc)
+	p := mainchain.NewProtocol(bc)
 	svc := Service{
 		mainChain: p,
 	}
@@ -1036,7 +1036,7 @@ func addCreatorToFactory(sf state.Factory) error {
 	if _, err = ws.LoadOrCreateAccountState(ta.Addrinfo["producer"].RawAddress, blockchain.Gen.TotalSupply); err != nil {
 		return err
 	}
-	if _, err = ws.RunActions(0, nil); err != nil {
+	if _, _, err = ws.RunActions(0, nil); err != nil {
 		return err
 	}
 	if err = sf.Commit(ws); err != nil {

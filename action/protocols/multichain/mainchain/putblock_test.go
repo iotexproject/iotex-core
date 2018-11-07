@@ -47,7 +47,7 @@ func TestHandlePutBlock(t *testing.T) {
 		big.NewInt(0).Mul(big.NewInt(2000000000), big.NewInt(blockchain.Iotx)),
 	)
 	require.NoError(t, err)
-	_, err = ws.RunActions(0, nil)
+	_, _, err = ws.RunActions(0, nil)
 	require.NoError(t, err)
 	require.NoError(t, sf.Commit(ws))
 
@@ -59,7 +59,7 @@ func TestHandlePutBlock(t *testing.T) {
 	ws, err = sf.NewWorkingSet()
 	require.NoError(t, err)
 
-	p := NewProtocol(&cfg, chain)
+	p := NewProtocol(chain)
 
 	roots := make(map[string]hash.Hash32B)
 	roots["10002"] = byteutil.BytesTo32B([]byte("10002"))
@@ -74,11 +74,13 @@ func TestHandlePutBlock(t *testing.T) {
 	)
 
 	// first put
-	require.NoError(t, p.Handle(pb, ws))
+	_, err = p.Handle(pb, ws)
+	require.NoError(t, err)
 	require.NoError(t, sf.Commit(ws))
 
 	// alredy exist
-	require.Error(t, p.Handle(pb, ws))
+	_, err = p.Handle(pb, ws)
+	require.Error(t, err)
 
 	// get exist
 	bp, exist := p.getBlockProof(pb.SubChainAddress(), pb.Height())
@@ -99,7 +101,8 @@ func TestHandlePutBlock(t *testing.T) {
 		10003,
 		big.NewInt(10004),
 	)
-	require.NoError(t, p.Handle(pb2, ws))
+	_, err = p.Handle(pb2, ws)
+	require.NoError(t, err)
 	require.NoError(t, sf.Commit(ws))
 
 	// get new one
