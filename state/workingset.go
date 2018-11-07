@@ -541,7 +541,7 @@ func (ws *workingSet) handleTsf(producer *Account, tsfs []*action.Transfer, gasL
 					return errors.Wrapf(ErrNotEnoughBalance, "failed to verify the Balance of sender %s", tx.Sender())
 				}
 
-				// charge sender Gas
+				// charge sender gas
 				if err := sender.SubBalance(gasFee); err != nil {
 					return errors.Wrapf(err, "failed to charge the gas for sender %s", tx.Sender())
 				}
