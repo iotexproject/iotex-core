@@ -15,8 +15,7 @@ message TransferPb {
     string recipient = 2;
     bytes payload  = 3;
     bool isCoinbase = 4;
-}
-
+} 
 message VotePb {
     uint64 timestamp = 1;
     string voteeAddress = 2;  // the address this node is voting for
@@ -57,7 +56,6 @@ message PutBlockPb {
     uint64 height = 2;
     map<string, bytes> roots = 3;
 }
-
 message CreateDepositPb {
     bytes amount  = 1;
     string recipient = 2;
@@ -67,6 +65,70 @@ message SettleDepositPb {
     bytes amount  = 1;
     string recipient = 2;
     uint64 index = 3;
+}
+
+// plum main chain APIs
+message CreatePlumChainPb {
+}
+
+message TerminatePlumChainPb {
+    string subChainAddress = 1;
+}
+
+message PlumPutBlockPb {
+    string subChainAddress = 1;
+    uint64 height = 2;
+    map<string, bytes> roots = 3;
+}
+
+message PlumCreateDepositPb {
+    string subChainAddress = 1;
+    bytes amount = 2;
+    string recipient = 3;
+}
+
+message PlumStartExitPb {
+    string subChainAddress = 1;
+    bytes previousTransfer = 2;
+    bytes previousTransferBlockProof = 3;
+    uint64 previousTransferBlockHeight = 4;
+    bytes exitTransfer = 5;
+    bytes exitTransferBlockProof = 6;
+    uint64 exitTransferBlockHeight = 7;
+}
+
+message PlumChallengeExit {
+    string subChainAddress = 1;
+    uint64 coinID = 2;
+    bytes challengeTransfer = 3;
+    bytes challengeTransferBlockProof = 4;
+    uint64 challengeTransferBlockHeight = 5;
+}
+
+message PlumResponseChallengeExit {
+    string subChainAddress = 1;
+    uint64 coinID = 2;
+    bytes challengeTransfer = 3;
+    bytes responseTransfer = 4;
+    bytes responseTransferBlockProof = 5;
+    uint64 previousTransferBlockHeight = 6;
+}
+
+message PlumFinalizeExit {
+    string subChainAddress = 1;
+    uint64 coinID = 2;
+}
+
+// plum sub chain APIs
+message PlumSettleDepositPb {
+    uint64 coinID = 1;
+}
+
+message PlumTransferPb {
+    uint64 coinID = 1;
+    bytes denomination = 2;
+    string owner = 3;
+    string recipient = 4;
 }
 
 message ActionPb {
@@ -84,10 +146,42 @@ message ActionPb {
         ExecutionPb execution = 12;
         SecretProposalPb secretProposal = 13;
         SecretWitnessPb secretWitness = 14;
+        // FedChain
         StartSubChainPb startSubChain = 15;
         StopSubChainPb stopSubChain = 16;
         PutBlockPb putBlock = 17;
         CreateDepositPb createDeposit = 18;
         SettleDepositPb settleDeposit = 19;
+
+        // PlumChain
+        CreatePlumChainPb createPlumChain = 20;
+        TerminatePlumChainPb terminatePlumChain = 21;
+        PlumPutBlockPb plumPutBlock = 22;
+        PlumCreateDepositPb plumCreateDeposit = 23;
+        PlumStartExitPb plumStartExit = 24;
+        PlumChallengeExit plumChallengeExit = 25;
+        PlumResponseChallengeExit plumResponseChallengeExit = 26;
+        PlumFinalizeExit plumFinalizeExit = 27;
+        PlumSettleDepositPb plumSettleDeposit = 28;
+        PlumTransferPb plumTransfer = 29;
     }
+}
+
+message ReceiptPb {
+    bytes returnValue = 1;
+    uint64 status = 2;
+    bytes hash = 3;
+    uint64 gasConsumed = 4;
+    string contractAddress = 5;
+    repeated LogPb logs = 6;
+}
+
+message LogPb {
+    string address = 1;
+    repeated bytes topics = 2;
+    bytes data = 3;
+    uint64 blockNumber = 4;
+    bytes txnHash = 5;
+    bytes blockHash = 6;
+    uint32 index = 7;
 }
