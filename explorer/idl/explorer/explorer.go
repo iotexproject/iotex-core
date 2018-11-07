@@ -3,8 +3,8 @@ package explorer
 
 import (
 	"fmt"
-	"reflect"
 	"github.com/coopernurse/barrister-go"
+	"reflect"
 )
 
 const BarristerVersion string = "0.1.6"
@@ -12,242 +12,241 @@ const BarristerChecksum string = "df81193368c03fb6b7afd1152715bdf2"
 const BarristerDateGenerated int64 = 1541575040742000000
 
 type CoinStatistic struct {
-	Height	int64	`json:"height"`
-	Supply	string	`json:"supply"`
-	Transfers	int64	`json:"transfers"`
-	Votes	int64	`json:"votes"`
-	Executions	int64	`json:"executions"`
-	Aps	int64	`json:"aps"`
+	Height     int64  `json:"height"`
+	Supply     string `json:"supply"`
+	Transfers  int64  `json:"transfers"`
+	Votes      int64  `json:"votes"`
+	Executions int64  `json:"executions"`
+	Aps        int64  `json:"aps"`
 }
 
 type BlockGenerator struct {
-	Name	string	`json:"name"`
-	Address	string	`json:"address"`
+	Name    string `json:"name"`
+	Address string `json:"address"`
 }
 
 type Block struct {
-	ID	string	`json:"ID"`
-	Height	int64	`json:"height"`
-	Timestamp	int64	`json:"timestamp"`
-	Transfers	int64	`json:"transfers"`
-	Votes	int64	`json:"votes"`
-	Executions	int64	`json:"executions"`
-	GenerateBy	BlockGenerator	`json:"generateBy"`
-	Amount	string	`json:"amount"`
-	Forged	int64	`json:"forged"`
-	Size	int64	`json:"size"`
+	ID         string         `json:"ID"`
+	Height     int64          `json:"height"`
+	Timestamp  int64          `json:"timestamp"`
+	Transfers  int64          `json:"transfers"`
+	Votes      int64          `json:"votes"`
+	Executions int64          `json:"executions"`
+	GenerateBy BlockGenerator `json:"generateBy"`
+	Amount     string         `json:"amount"`
+	Forged     int64          `json:"forged"`
+	Size       int64          `json:"size"`
 }
 
 type Transfer struct {
-	Version	int64	`json:"version"`
-	ID	string	`json:"ID"`
-	Nonce	int64	`json:"nonce"`
-	Sender	string	`json:"sender"`
-	Recipient	string	`json:"recipient"`
-	Amount	string	`json:"amount"`
-	SenderPubKey	string	`json:"senderPubKey"`
-	Signature	string	`json:"signature"`
-	Payload	string	`json:"payload"`
-	GasLimit	int64	`json:"gasLimit"`
-	GasPrice	string	`json:"gasPrice"`
-	IsCoinbase	bool	`json:"isCoinbase"`
-	Fee	string	`json:"fee"`
-	Timestamp	int64	`json:"timestamp"`
-	BlockID	string	`json:"blockID"`
-	IsPending	bool	`json:"isPending"`
+	Version      int64  `json:"version"`
+	ID           string `json:"ID"`
+	Nonce        int64  `json:"nonce"`
+	Sender       string `json:"sender"`
+	Recipient    string `json:"recipient"`
+	Amount       string `json:"amount"`
+	SenderPubKey string `json:"senderPubKey"`
+	Signature    string `json:"signature"`
+	Payload      string `json:"payload"`
+	GasLimit     int64  `json:"gasLimit"`
+	GasPrice     string `json:"gasPrice"`
+	IsCoinbase   bool   `json:"isCoinbase"`
+	Fee          string `json:"fee"`
+	Timestamp    int64  `json:"timestamp"`
+	BlockID      string `json:"blockID"`
+	IsPending    bool   `json:"isPending"`
 }
 
 type Execution struct {
-	Version	int64	`json:"version"`
-	ID	string	`json:"ID"`
-	Nonce	int64	`json:"nonce"`
-	Executor	string	`json:"executor"`
-	Contract	string	`json:"contract"`
-	Amount	string	`json:"amount"`
-	ExecutorPubKey	string	`json:"executorPubKey"`
-	Signature	string	`json:"signature"`
-	GasLimit	int64	`json:"gasLimit"`
-	GasPrice	string	`json:"gasPrice"`
-	Timestamp	int64	`json:"timestamp"`
-	Data	string	`json:"data"`
-	BlockID	string	`json:"blockID"`
-	IsPending	bool	`json:"isPending"`
+	Version        int64  `json:"version"`
+	ID             string `json:"ID"`
+	Nonce          int64  `json:"nonce"`
+	Executor       string `json:"executor"`
+	Contract       string `json:"contract"`
+	Amount         string `json:"amount"`
+	ExecutorPubKey string `json:"executorPubKey"`
+	Signature      string `json:"signature"`
+	GasLimit       int64  `json:"gasLimit"`
+	GasPrice       string `json:"gasPrice"`
+	Timestamp      int64  `json:"timestamp"`
+	Data           string `json:"data"`
+	BlockID        string `json:"blockID"`
+	IsPending      bool   `json:"isPending"`
 }
 
 type Log struct {
-	Address	string	`json:"address"`
-	Topics	[]string	`json:"topics"`
-	Data	string	`json:"data"`
-	BlockNumber	int64	`json:"blockNumber"`
-	TxnHash	string	`json:"txnHash"`
-	BlockHash	string	`json:"blockHash"`
-	Index	int64	`json:"index"`
+	Address     string   `json:"address"`
+	Topics      []string `json:"topics"`
+	Data        string   `json:"data"`
+	BlockNumber int64    `json:"blockNumber"`
+	TxnHash     string   `json:"txnHash"`
+	BlockHash   string   `json:"blockHash"`
+	Index       int64    `json:"index"`
 }
 
 type Receipt struct {
-	ReturnValue	string	`json:"returnValue"`
-	Status	int64	`json:"status"`
-	Hash	string	`json:"hash"`
-	GasConsumed	int64	`json:"gasConsumed"`
-	ContractAddress	string	`json:"contractAddress"`
-	Logs	[]Log	`json:"logs"`
+	ReturnValue     string `json:"returnValue"`
+	Status          int64  `json:"status"`
+	Hash            string `json:"hash"`
+	GasConsumed     int64  `json:"gasConsumed"`
+	ContractAddress string `json:"contractAddress"`
+	Logs            []Log  `json:"logs"`
 }
 
 type SendExecutionResponse struct {
-	Receipt	Receipt	`json:"receipt"`
+	Receipt Receipt `json:"receipt"`
 }
 
 type Vote struct {
-	Version	int64	`json:"version"`
-	ID	string	`json:"ID"`
-	Nonce	int64	`json:"nonce"`
-	Timestamp	int64	`json:"timestamp"`
-	Voter	string	`json:"voter"`
-	Votee	string	`json:"votee"`
-	VoterPubKey	string	`json:"voterPubKey"`
-	GasLimit	int64	`json:"gasLimit"`
-	GasPrice	string	`json:"gasPrice"`
-	Signature	string	`json:"signature"`
-	BlockID	string	`json:"blockID"`
-	IsPending	bool	`json:"isPending"`
+	Version     int64  `json:"version"`
+	ID          string `json:"ID"`
+	Nonce       int64  `json:"nonce"`
+	Timestamp   int64  `json:"timestamp"`
+	Voter       string `json:"voter"`
+	Votee       string `json:"votee"`
+	VoterPubKey string `json:"voterPubKey"`
+	GasLimit    int64  `json:"gasLimit"`
+	GasPrice    string `json:"gasPrice"`
+	Signature   string `json:"signature"`
+	BlockID     string `json:"blockID"`
+	IsPending   bool   `json:"isPending"`
 }
 
 type AddressDetails struct {
-	Address	string	`json:"address"`
-	TotalBalance	string	`json:"totalBalance"`
-	Nonce	int64	`json:"nonce"`
-	PendingNonce	int64	`json:"pendingNonce"`
-	IsCandidate	bool	`json:"isCandidate"`
+	Address      string `json:"address"`
+	TotalBalance string `json:"totalBalance"`
+	Nonce        int64  `json:"nonce"`
+	PendingNonce int64  `json:"pendingNonce"`
+	IsCandidate  bool   `json:"isCandidate"`
 }
 
 type Candidate struct {
-	Address	string	`json:"address"`
-	PubKey	string	`json:"pubKey"`
-	TotalVote	string	`json:"totalVote"`
-	CreationHeight	int64	`json:"creationHeight"`
-	LastUpdateHeight	int64	`json:"lastUpdateHeight"`
-	IsDelegate	bool	`json:"isDelegate"`
-	IsProducer	bool	`json:"isProducer"`
+	Address          string `json:"address"`
+	PubKey           string `json:"pubKey"`
+	TotalVote        string `json:"totalVote"`
+	CreationHeight   int64  `json:"creationHeight"`
+	LastUpdateHeight int64  `json:"lastUpdateHeight"`
+	IsDelegate       bool   `json:"isDelegate"`
+	IsProducer       bool   `json:"isProducer"`
 }
 
 type CandidateMetrics struct {
-	Candidates	[]Candidate	`json:"candidates"`
-	LatestEpoch	int64	`json:"latestEpoch"`
-	LatestHeight	int64	`json:"latestHeight"`
+	Candidates   []Candidate `json:"candidates"`
+	LatestEpoch  int64       `json:"latestEpoch"`
+	LatestHeight int64       `json:"latestHeight"`
 }
 
 type ConsensusMetrics struct {
-	LatestEpoch	int64	`json:"latestEpoch"`
-	LatestDelegates	[]string	`json:"latestDelegates"`
-	LatestBlockProducer	string	`json:"latestBlockProducer"`
-	Candidates	[]string	`json:"candidates"`
+	LatestEpoch         int64    `json:"latestEpoch"`
+	LatestDelegates     []string `json:"latestDelegates"`
+	LatestBlockProducer string   `json:"latestBlockProducer"`
+	Candidates          []string `json:"candidates"`
 }
 
 type SendTransferRequest struct {
-	Version	int64	`json:"version"`
-	Nonce	int64	`json:"nonce"`
-	Sender	string	`json:"sender"`
-	Recipient	string	`json:"recipient"`
-	Amount	string	`json:"amount"`
-	SenderPubKey	string	`json:"senderPubKey"`
-	Signature	string	`json:"signature"`
-	Payload	string	`json:"payload"`
-	GasLimit	int64	`json:"gasLimit"`
-	GasPrice	string	`json:"gasPrice"`
-	IsCoinbase	bool	`json:"isCoinbase"`
+	Version      int64  `json:"version"`
+	Nonce        int64  `json:"nonce"`
+	Sender       string `json:"sender"`
+	Recipient    string `json:"recipient"`
+	Amount       string `json:"amount"`
+	SenderPubKey string `json:"senderPubKey"`
+	Signature    string `json:"signature"`
+	Payload      string `json:"payload"`
+	GasLimit     int64  `json:"gasLimit"`
+	GasPrice     string `json:"gasPrice"`
+	IsCoinbase   bool   `json:"isCoinbase"`
 }
 
 type SendTransferResponse struct {
-	Hash	string	`json:"hash"`
+	Hash string `json:"hash"`
 }
 
 type SendVoteRequest struct {
-	Version	int64	`json:"version"`
-	Nonce	int64	`json:"nonce"`
-	Voter	string	`json:"voter"`
-	Votee	string	`json:"votee"`
-	VoterPubKey	string	`json:"voterPubKey"`
-	GasLimit	int64	`json:"gasLimit"`
-	GasPrice	string	`json:"gasPrice"`
-	Signature	string	`json:"signature"`
+	Version     int64  `json:"version"`
+	Nonce       int64  `json:"nonce"`
+	Voter       string `json:"voter"`
+	Votee       string `json:"votee"`
+	VoterPubKey string `json:"voterPubKey"`
+	GasLimit    int64  `json:"gasLimit"`
+	GasPrice    string `json:"gasPrice"`
+	Signature   string `json:"signature"`
 }
 
 type SendVoteResponse struct {
-	Hash	string	`json:"hash"`
+	Hash string `json:"hash"`
 }
 
 type PutSubChainBlockMerkelRoot struct {
-	Name	string	`json:"name"`
-	Value	string	`json:"value"`
+	Name  string `json:"name"`
+	Value string `json:"value"`
 }
 
 type PutSubChainBlockRequest struct {
-	Version	int64	`json:"version"`
-	Nonce	int64	`json:"nonce"`
-	SenderAddress	string	`json:"senderAddress"`
-	SubChainAddress	string	`json:"subChainAddress"`
-	Height	int64	`json:"height"`
-	Roots	[]PutSubChainBlockMerkelRoot	`json:"roots"`
-	SenderPubKey	string	`json:"senderPubKey"`
-	Signature	string	`json:"signature"`
-	GasLimit	int64	`json:"gasLimit"`
-	GasPrice	string	`json:"gasPrice"`
+	Version         int64                        `json:"version"`
+	Nonce           int64                        `json:"nonce"`
+	SenderAddress   string                       `json:"senderAddress"`
+	SubChainAddress string                       `json:"subChainAddress"`
+	Height          int64                        `json:"height"`
+	Roots           []PutSubChainBlockMerkelRoot `json:"roots"`
+	SenderPubKey    string                       `json:"senderPubKey"`
+	Signature       string                       `json:"signature"`
+	GasLimit        int64                        `json:"gasLimit"`
+	GasPrice        string                       `json:"gasPrice"`
 }
 
 type PutSubChainBlockResponse struct {
-	Hash	string	`json:"hash"`
+	Hash string `json:"hash"`
 }
 
 type SendActionRequest struct {
-	Payload	string	`json:"payload"`
+	Payload string `json:"payload"`
 }
 
 type SendActionResponse struct {
-	Payload	string	`json:"payload"`
+	Payload string `json:"payload"`
 }
 
 type Node struct {
-	Address	string	`json:"address"`
+	Address string `json:"address"`
 }
 
 type GetPeersResponse struct {
-	Self	Node	`json:"Self"`
-	Peers	[]Node	`json:"Peers"`
+	Self  Node   `json:"Self"`
+	Peers []Node `json:"Peers"`
 }
 
 type SendSmartContractResponse struct {
-	Hash	string	`json:"hash"`
+	Hash string `json:"hash"`
 }
 
 type GetBlkOrActResponse struct {
-	Block	*Block	`json:"block,omitempty"`
-	Transfer	*Transfer	`json:"transfer,omitempty"`
-	Vote	*Vote	`json:"vote,omitempty"`
-	Execution	*Execution	`json:"execution,omitempty"`
+	Block     *Block     `json:"block,omitempty"`
+	Transfer  *Transfer  `json:"transfer,omitempty"`
+	Vote      *Vote      `json:"vote,omitempty"`
+	Execution *Execution `json:"execution,omitempty"`
 }
 
 type CreateDepositRequest struct {
-	Version	int64	`json:"version"`
-	Nonce	int64	`json:"nonce"`
-	Sender	string	`json:"sender"`
-	SenderPubKey	string	`json:"senderPubKey"`
-	Recipient	string	`json:"recipient"`
-	Amount	string	`json:"amount"`
-	Signature	string	`json:"signature"`
-	GasLimit	int64	`json:"gasLimit"`
-	GasPrice	string	`json:"gasPrice"`
+	Version      int64  `json:"version"`
+	Nonce        int64  `json:"nonce"`
+	Sender       string `json:"sender"`
+	SenderPubKey string `json:"senderPubKey"`
+	Recipient    string `json:"recipient"`
+	Amount       string `json:"amount"`
+	Signature    string `json:"signature"`
+	GasLimit     int64  `json:"gasLimit"`
+	GasPrice     string `json:"gasPrice"`
 }
 
 type CreateDepositResponse struct {
-	Hash	string	`json:"hash"`
+	Hash string `json:"hash"`
 }
 
 type Deposit struct {
-	Amount	string	`json:"amount"`
-	Address	string	`json:"address"`
-	Confirmed	bool	`json:"confirmed"`
+	Amount    string `json:"amount"`
+	Address   string `json:"address"`
+	Confirmed bool   `json:"confirmed"`
 }
-
 
 type Explorer interface {
 	GetBlockchainHeight() (int64, error)
@@ -287,7 +286,9 @@ type Explorer interface {
 	GetDeposits(subChainID int64, offset int64, limit int64) ([]Deposit, error)
 }
 
-func NewExplorerProxy(c barrister.Client) Explorer { return ExplorerProxy{c, barrister.MustParseIdlJson([]byte(IdlJsonRaw))} }
+func NewExplorerProxy(c barrister.Client) Explorer {
+	return ExplorerProxy{c, barrister.MustParseIdlJson([]byte(IdlJsonRaw))}
+}
 
 type ExplorerProxy struct {
 	client barrister.Client
