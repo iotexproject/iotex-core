@@ -18,6 +18,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
@@ -278,7 +279,8 @@ func injectTransfer(
 		amount = int64(rand.Intn(5))
 	}
 
-	transfer, err := createSignedTransfer(sender, recipient, big.NewInt(amount), nonce, gasLimit, gasPrice, payload)
+	transfer, err := createSignedTransfer(sender, recipient, blockchain.ConvertIotxToRau(amount), nonce, gasLimit,
+		gasPrice, payload)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Failed to inject transfer")
 	}
