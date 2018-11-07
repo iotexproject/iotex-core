@@ -110,10 +110,11 @@ func TestRollDPoSCtx(t *testing.T) {
 	ctx.epoch.numSubEpochs = 2
 	ctx.epoch.delegates = delegates
 
-	proposer, height, err := ctx.rotatedProposer()
+	proposer, height, round, err := ctx.rotatedProposer()
 	require.NoError(t, err)
 	assert.Equal(t, candidates[1], proposer)
 	assert.Equal(t, uint64(9), height)
+	assert.Equal(t, uint32(0), round)
 
 	clock.Add(time.Second)
 	duration, err := ctx.calcDurationSinceLastBlock()
@@ -459,12 +460,12 @@ func TestRollDPoS_convertToConsensusEvt(t *testing.T) {
 
 	// Test propose msg
 	addr := newTestAddr()
-	transfer, err := action.NewTransfer(1, big.NewInt(100), "src", "dst", []byte{}, uint64(100000), big.NewInt(10))
+	transfer, err := action.NewTransfer(1, big.NewInt(100), "src", "dst", []byte{}, testutil.TestGasLimit, big.NewInt(10))
 	require.NoError(t, err)
 	selfPubKey := testaddress.Addrinfo["producer"].PublicKey
 	selfPubKeyHash := keypair.HashPubKey(selfPubKey)
 	address := address.New(config.Default.Chain.ID, selfPubKeyHash[:])
-	vote, err := action.NewVote(2, address.IotxAddress(), address.IotxAddress(), uint64(100000), big.NewInt(10))
+	vote, err := action.NewVote(2, address.IotxAddress(), address.IotxAddress(), testutil.TestGasLimit, big.NewInt(10))
 	require.NoError(t, err)
 	var prevHash hash.Hash32B
 	blk := blockchain.NewBlock(
@@ -732,7 +733,9 @@ func TestRollDPoSConsensus(t *testing.T) {
 				require.NoError(t, err)
 				_, err = ws.LoadOrCreateAccountState(chainRawAddrs[j], big.NewInt(0))
 				require.NoError(t, err)
-				_, err = ws.RunActions(0, nil)
+				gasLimit := testutil.TestGasLimit
+				stateCtx := state.Context{testaddress.Addrinfo["producer"].RawAddress, &gasLimit, testutil.EnableGasCharge}
+				_, _, err = ws.RunActions(0, nil, stateCtx)
 				require.NoError(t, err)
 				require.NoError(t, sf.Commit(ws))
 			}

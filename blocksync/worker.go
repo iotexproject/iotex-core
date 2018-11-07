@@ -76,11 +76,13 @@ func (w *syncWorker) Sync() {
 
 	peers := w.p2p.GetPeers()
 	if len(peers) == 0 {
-		logger.Info().Msg("No peer exist to sync with.")
+		logger.Debug().Msg("No peer exist to sync with.")
 		return
 	}
 	intervals := w.buf.GetBlocksIntervalsToSync(w.targetHeight)
-	logger.Info().Interface("intervals", intervals).Uint64("targetHeight", w.targetHeight).Msg("block sync intervals.")
+	if intervals != nil {
+		logger.Info().Interface("intervals", intervals).Uint64("targetHeight", w.targetHeight).Msg("block sync intervals.")
+	}
 	for _, interval := range intervals {
 		w.rrIdx = w.rrIdx % len(peers)
 		p := peers[w.rrIdx]

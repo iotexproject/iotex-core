@@ -98,6 +98,7 @@ var (
 			NumCandidates:                101,
 			EnableFallBackToFreshDB:      false,
 			EnableSubChainStartInGenesis: false,
+			EnableGasCharge:              false,
 		},
 		ActPool: ActPool{
 			MaxNumActsPerPool: 32000,
@@ -220,8 +221,11 @@ type (
 		InMemTest                    bool   `yaml:"inMemTest"`
 		GenesisActionsPath           string `yaml:"genesisActionsPath"`
 		NumCandidates                uint   `yaml:"numCandidates"`
-		EnableFallBackToFreshDB      bool   `yaml:"enablefallbacktofreshdb"`
+		EnableFallBackToFreshDB      bool   `yaml:"enableFallbackToFreshDb"`
 		EnableSubChainStartInGenesis bool   `yaml:"enableSubChainStartInGenesis"`
+
+		// enable gas charge for block producer
+		EnableGasCharge bool `yaml:"enableGasCharge"`
 	}
 
 	// Consensus is the config struct for consensus package
@@ -266,7 +270,7 @@ type (
 		Enabled            bool `yaml:"enabled"`
 		IsTest             bool `yaml:"isTest"`
 		UseRDS             bool `yaml:"useRDS"`
-		Port               int  `yaml:"addr"`
+		Port               int  `yaml:"port"`
 		TpsWindow          int  `yaml:"tpsWindow"`
 		SuggestBlockWindow int  `yaml:"suggestBlockWindow"`
 		DefaultGas         int  `yaml:"defaultGas"`

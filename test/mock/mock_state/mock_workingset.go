@@ -76,16 +76,17 @@ func (mr *MockWorkingSetMockRecorder) CachedAccountState(arg0 interface{}) *gomo
 }
 
 // RunActions mocks base method
-func (m *MockWorkingSet) RunActions(arg0 uint64, arg1 []action.Action) (hash.Hash32B, error) {
-	ret := m.ctrl.Call(m, "RunActions", arg0, arg1)
+func (m *MockWorkingSet) RunActions(arg0 uint64, arg1 []action.Action, arg2 state.Context) (hash.Hash32B, map[hash.Hash32B]*action.Receipt, error) {
+	ret := m.ctrl.Call(m, "RunActions", arg0, arg1, arg2)
 	ret0, _ := ret[0].(hash.Hash32B)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].(map[hash.Hash32B]*action.Receipt)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // RunActions indicates an expected call of RunActions
-func (mr *MockWorkingSetMockRecorder) RunActions(arg0, arg1 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunActions", reflect.TypeOf((*MockWorkingSet)(nil).RunActions), arg0, arg1)
+func (mr *MockWorkingSetMockRecorder) RunActions(arg0, arg1 interface{}, arg2 state.Context) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunActions", reflect.TypeOf((*MockWorkingSet)(nil).RunActions), arg0, arg1, arg2)
 }
 
 // Commit mocks base method
@@ -235,18 +236,6 @@ func (m *MockWorkingSet) PutState(arg0 hash.PKHash, arg1 state.State) error {
 // PutState indicates an expected call of PutState
 func (mr *MockWorkingSetMockRecorder) PutState(arg0, arg1 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutState", reflect.TypeOf((*MockWorkingSet)(nil).PutState), arg0, arg1)
-}
-
-// UpdateCachedCandidates mocks base method
-func (m *MockWorkingSet) UpdateCachedCandidates(arg0 *action.Vote) error {
-	ret := m.ctrl.Call(m, "UpdateCachedCandidates", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// UpdateCachedCandidates indicates an expected call of UpdateCachedCandidates
-func (mr *MockWorkingSetMockRecorder) UpdateCachedCandidates(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateCachedCandidates", reflect.TypeOf((*MockWorkingSet)(nil).UpdateCachedCandidates), arg0)
 }
 
 // UpdateCachedStates mocks base method

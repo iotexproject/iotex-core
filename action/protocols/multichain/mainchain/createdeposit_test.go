@@ -19,6 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/testaddress"
@@ -44,16 +45,16 @@ func TestValidateDeposit(t *testing.T) {
 		ctrl.Finish()
 	}()
 
-	p := NewProtocol(&cfg, chain, nil)
+	p := NewProtocol(chain)
 
 	addr1 := testaddress.Addrinfo["producer"].RawAddress
 	addr, err := address.IotxAddressToAddress(addr1)
 	require.NoError(t, err)
 	addr2 := address.New(2, addr.Payload()).IotxAddress()
 
-	deposit := action.NewDeposit(1, big.NewInt(1000), addr1, addr2, testutil.TestGasLimit, big.NewInt(0))
+	deposit := action.NewCreateDeposit(1, big.NewInt(1000), addr1, addr2, testutil.TestGasLimit, big.NewInt(0))
 	_, _, err = p.validateDeposit(deposit, nil)
-	assert.True(t, strings.Contains(err.Error(), "account does not exist"))
+	assert.True(t, strings.Contains(err.Error(), "state does not exist"))
 
 	ws, err := sf.NewWorkingSet()
 	require.NoError(t, err)
@@ -62,11 +63,13 @@ func TestValidateDeposit(t *testing.T) {
 		big.NewInt(1000),
 	)
 	require.NoError(t, err)
-	_, err = ws.RunActions(0, nil)
+	gasLimit := testutil.TestGasLimit
+	stateCtx := state.Context{testaddress.Addrinfo["producer"].RawAddress, &gasLimit, testutil.EnableGasCharge}
+	_, _, err = ws.RunActions(0, nil, stateCtx)
 	require.NoError(t, err)
 	require.NoError(t, sf.Commit(ws))
 
-	deposit1 := action.NewDeposit(1, big.NewInt(2000), addr1, addr2, testutil.TestGasLimit, big.NewInt(0))
+	deposit1 := action.NewCreateDeposit(1, big.NewInt(2000), addr1, addr2, testutil.TestGasLimit, big.NewInt(0))
 	_, _, err = p.validateDeposit(deposit1, nil)
 	assert.True(t, strings.Contains(err.Error(), "doesn't have at least required balance"))
 
@@ -76,7 +79,7 @@ func TestValidateDeposit(t *testing.T) {
 	subChainAddr, err := createSubChainAddress(addr1, 0)
 	require.NoError(t, err)
 	require.NoError(t, ws.PutState(
-		subChainsInOperationKey,
+		SubChainsInOperationKey,
 		&state.SortedSlice{
 			InOperation{
 				ID:   2,
@@ -133,9 +136,10 @@ func TestMutateDeposit(t *testing.T) {
 	))
 	require.NoError(t, sf.Commit(ws))
 
-	p := NewProtocol(&cfg, chain, nil)
-	require.NoError(t, p.mutateDeposit(
-		action.NewDeposit(2, big.NewInt(1000), addr1, addr2, testutil.TestGasLimit, big.NewInt(0)),
+	p := NewProtocol(chain)
+	act := action.NewCreateDeposit(2, big.NewInt(1000), addr1, addr2, testutil.TestGasLimit, big.NewInt(0))
+	receipt, err := p.mutateDeposit(
+		act,
 		&state.Account{
 			Nonce:   1,
 			Balance: big.NewInt(2000),
@@ -145,7 +149,8 @@ func TestMutateDeposit(t *testing.T) {
 			Addr: address.New(1, subChainAddr[:]).Bytes(),
 		},
 		ws,
-	))
+	)
+	require.NoError(t, err)
 	require.NoError(t, sf.Commit(ws))
 
 	account, err := sf.AccountState(addr1)
@@ -162,4 +167,13 @@ func TestMutateDeposit(t *testing.T) {
 	assert.Equal(t, address.New(2, addr.Payload()).Bytes(), deposit.Addr)
 	assert.Equal(t, big.NewInt(1000), deposit.Amount)
 	assert.False(t, deposit.Confirmed)
+
+	require.NotNil(t, receipt)
+	assert.Equal(t, uint64(300), enc.MachineEndian.Uint64(receipt.ReturnValue))
+	assert.Equal(t, act.Hash(), receipt.Hash)
+	assert.Equal(t, uint64(0), receipt.Status)
+	gas, err := act.IntrinsicGas()
+	assert.NoError(t, err)
+	assert.Equal(t, gas, receipt.GasConsumed)
+	assert.Equal(t, address.New(1, subChainAddr[:]).IotxAddress(), receipt.ContractAddress)
 }

@@ -80,7 +80,7 @@ type Blockchain interface {
 	// GetBlockHashByExecutionHash returns Block hash by execution hash
 	GetBlockHashByExecutionHash(h hash.Hash32B) (hash.Hash32B, error)
 	// GetReceiptByExecutionHash returns the receipt by execution hash
-	GetReceiptByExecutionHash(h hash.Hash32B) (*Receipt, error)
+	GetReceiptByExecutionHash(h hash.Hash32B) (*action.Receipt, error)
 	// GetFactory returns the state factory
 	GetFactory() state.Factory
 	// GetChainID returns the chain ID
@@ -312,7 +312,9 @@ func (bc *blockchain) startEmptyBlockchain() error {
 	if _, err := ws.LoadOrCreateAccountState(Gen.CreatorAddr(bc.ChainID()), Gen.TotalSupply); err != nil {
 		return errors.Wrap(err, "failed to create Creator into StateFactory")
 	}
-	if _, err := ws.RunActions(0, nil); err != nil {
+	gasLimit := GasLimit
+	ctx := state.Context{genesis.ProducerAddress(), &gasLimit, bc.config.Chain.EnableGasCharge}
+	if _, _, err := ws.RunActions(0, nil, ctx); err != nil {
 		return errors.Wrap(err, "failed to create Creator into StateFactory")
 	}
 	if err := bc.sf.Commit(ws); err != nil {
@@ -353,7 +355,13 @@ func (bc *blockchain) startExistingBlockchain(recoveryHeight uint64) error {
 		if _, err := ws.LoadOrCreateAccountState(Gen.CreatorAddr(bc.ChainID()), Gen.TotalSupply); err != nil {
 			return err
 		}
-		if _, err := ws.RunActions(0, nil); err != nil {
+		genesisBlk, err := bc.GetBlockByHeight(0)
+		if err != nil {
+			return err
+		}
+		gasLimit := GasLimit
+		ctx := state.Context{genesisBlk.ProducerAddress(), &gasLimit, bc.config.Chain.EnableGasCharge}
+		if _, _, err := ws.RunActions(0, nil, ctx); err != nil {
 			return errors.Wrap(err, "failed to create Creator into StateFactory")
 		}
 		if err := bc.sf.Commit(ws); err != nil {
@@ -416,7 +424,13 @@ func (bc *blockchain) CreateState(addr string, init *big.Int) (*state.Account, e
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create new account %s", addr)
 	}
-	if _, err = ws.RunActions(0, nil); err != nil {
+	genesisBlk, err := bc.GetBlockByHeight(0)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get genesis block")
+	}
+	gasLimit := GasLimit
+	ctx := state.Context{genesisBlk.ProducerAddress(), &gasLimit, bc.config.Chain.EnableGasCharge}
+	if _, _, err = ws.RunActions(0, nil, ctx); err != nil {
 		return nil, errors.Wrap(err, "failed to run the account creation")
 	}
 	if err = bc.sf.Commit(ws); err != nil {
@@ -617,7 +631,7 @@ func (bc *blockchain) GetBlockHashByExecutionHash(h hash.Hash32B) (hash.Hash32B,
 }
 
 // GetReceiptByExecutionHash returns the receipt by execution hash
-func (bc *blockchain) GetReceiptByExecutionHash(h hash.Hash32B) (*Receipt, error) {
+func (bc *blockchain) GetReceiptByExecutionHash(h hash.Hash32B) (*action.Receipt, error) {
 	if !bc.config.Explorer.Enabled {
 		return nil, errors.New("explorer not enabled")
 	}
@@ -774,7 +788,9 @@ func (bc *blockchain) ExecuteContractRead(ex *action.Execution) ([]byte, error) 
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to obtain working set from state factory")
 	}
-	ExecuteContracts(blk, ws, bc)
+	gasLimit := GasLimit
+	gasLimitPtr := &gasLimit
+	ExecuteContracts(blk, ws, bc, gasLimitPtr, bc.config.Chain.EnableGasCharge)
 	// pull the results from receipt
 	exHash := ex.Hash()
 	receipt, ok := blk.receipts[exHash]
@@ -843,12 +859,14 @@ func (bc *blockchain) runActions(blk *Block, ws state.WorkingSet, verify bool) (
 	if bc.sf == nil {
 		return hash.ZeroHash32B, errors.New("statefactory cannot be nil")
 	}
+	gasLimit := GasLimit
 	// run executions
 	if _, _, executions := action.ClassifyActions(blk.Actions); len(executions) > 0 {
-		ExecuteContracts(blk, ws, bc)
+		ExecuteContracts(blk, ws, bc, &gasLimit, bc.config.Chain.EnableGasCharge)
 	}
 	// update state factory
-	root, err := ws.RunActions(blk.Height(), blk.Actions)
+	ctx := state.Context{blk.ProducerAddress(), &gasLimit, bc.config.Chain.EnableGasCharge}
+	root, receipts, err := ws.RunActions(blk.Height(), blk.Actions, ctx)
 	if err != nil {
 		return root, err
 	}
@@ -857,6 +875,9 @@ func (bc *blockchain) runActions(blk *Block, ws state.WorkingSet, verify bool) (
 		if err = blk.VerifyStateRoot(root); err != nil {
 			return root, err
 		}
+	}
+	for hash, receipt := range receipts {
+		blk.receipts[hash] = receipt
 	}
 	return root, nil
 }

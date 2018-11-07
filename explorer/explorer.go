@@ -15,8 +15,12 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 
+	"fmt"
+
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocols/multichain/mainchain"
 	"github.com/iotexproject/iotex-core/actpool"
+	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus"
@@ -66,7 +70,13 @@ type Service struct {
 	p2p network.Overlay
 	cfg config.Explorer
 	idx *indexservice.Server
+	// TODO: the way to make explorer to access the data model managed by main-chain protocol is hack. We need to
+	// refactor the code later
+	mainChain *mainchain.Protocol
 }
+
+// SetMainChainProtocol sets the main-chain side multi-chain protocol
+func (exp *Service) SetMainChainProtocol(mainChain *mainchain.Protocol) { exp.mainChain = mainChain }
 
 // GetBlockchainHeight returns the current blockchain tip height
 func (exp *Service) GetBlockchainHeight() (int64, error) {
@@ -1253,14 +1263,14 @@ func (exp *Service) GetBlockOrActionByHash(hashStr string) (explorer.GetBlkOrAct
 	return explorer.GetBlkOrActResponse{}, nil
 }
 
-// Deposit deposits balance from main-chain to sub-chain
-func (exp *Service) Deposit(req explorer.DepositRequest) (res explorer.DepositResponse, err error) {
+// CreateDeposit deposits balance from main-chain to sub-chain
+func (exp *Service) CreateDeposit(req explorer.CreateDepositRequest) (res explorer.CreateDepositResponse, err error) {
 	defer func() {
 		succeed := "true"
 		if err != nil {
 			succeed = "false"
 		}
-		requestMtc.WithLabelValues("deposit", succeed).Inc()
+		requestMtc.WithLabelValues("createDeposit", succeed).Inc()
 	}()
 
 	senderPubKey, err := keypair.StringToPubKeyBytes(req.SenderPubKey)
@@ -1280,8 +1290,8 @@ func (exp *Service) Deposit(req explorer.DepositRequest) (res explorer.DepositRe
 		return res, errors.New("error when converting gas price string into big int type")
 	}
 	actPb := &pb.ActionPb{
-		Action: &pb.ActionPb_Deposit{
-			Deposit: &pb.DepositPb{
+		Action: &pb.ActionPb_CreateDeposit{
+			CreateDeposit: &pb.CreateDepositPb{
 				Amount:    amount.Bytes(),
 				Recipient: req.Recipient,
 			},
@@ -1301,10 +1311,121 @@ func (exp *Service) Deposit(req explorer.DepositRequest) (res explorer.DepositRe
 	// send to actpool via dispatcher
 	exp.dp.HandleBroadcast(exp.bc.ChainID(), actPb, nil)
 
-	deposit := &action.Deposit{}
+	deposit := &action.CreateDeposit{}
 	deposit.LoadProto(actPb)
 	h := deposit.Hash()
-	return explorer.DepositResponse{Hash: hex.EncodeToString(h[:])}, nil
+	return explorer.CreateDepositResponse{Hash: hex.EncodeToString(h[:])}, nil
+}
+
+// GetDeposits returns the deposits of a sub-chain in the given range in descending order by the index
+func (exp *Service) GetDeposits(subChainID int64, offset int64, limit int64) ([]explorer.Deposit, error) {
+	subChainsInOp, err := exp.mainChain.SubChainsInOperation()
+	if err != nil {
+		return nil, err
+	}
+	var targetSubChain mainchain.InOperation
+	for _, e := range subChainsInOp {
+		subChainInOp, ok := e.(mainchain.InOperation)
+		if !ok {
+			return nil, errors.New("error when casting the element in sorted slice into sub-chain in operation")
+		}
+		if subChainInOp.ID == uint32(subChainID) {
+			targetSubChain = subChainInOp
+		}
+	}
+	if targetSubChain.ID != uint32(subChainID) {
+		return nil, fmt.Errorf("sub-chain %d is not found in operation", subChainID)
+	}
+	subChainAddr, err := address.BytesToAddress(targetSubChain.Addr)
+	if err != nil {
+		return nil, err
+	}
+	subChain, err := exp.mainChain.SubChain(subChainAddr)
+	if err != nil {
+		return nil, err
+	}
+	idx := uint64(offset)
+	// If the last deposit index is lower than the start index, reset it
+	if subChain.DepositCount-1 < idx {
+		idx = subChain.DepositCount - 1
+	}
+	var deposits []explorer.Deposit
+	for count := int64(0); count < limit; count++ {
+		deposit, err := exp.mainChain.Deposit(subChainAddr, idx)
+		if err != nil {
+			return nil, err
+		}
+		recepient, err := address.BytesToAddress(deposit.Addr)
+		if err != nil {
+			return nil, err
+		}
+		deposits = append(deposits, explorer.Deposit{
+			Amount:    deposit.Amount.String(),
+			Address:   recepient.IotxAddress(),
+			Confirmed: deposit.Confirmed,
+		})
+		if idx > 0 {
+			idx--
+		} else {
+			break
+		}
+	}
+	return deposits, nil
+}
+
+// SettleDeposit settles deposit on sub-chain
+func (exp *Service) SettleDeposit(req explorer.SettleDepositRequest) (res explorer.SettleDepositResponse, err error) {
+	defer func() {
+		succeed := "true"
+		if err != nil {
+			succeed = "false"
+		}
+		requestMtc.WithLabelValues("settleDeposit", succeed).Inc()
+	}()
+
+	senderPubKey, err := keypair.StringToPubKeyBytes(req.SenderPubKey)
+	if err != nil {
+		return res, err
+	}
+	signature, err := hex.DecodeString(req.Signature)
+	if err != nil {
+		return res, err
+	}
+	amount, ok := big.NewInt(0).SetString(req.Amount, 10)
+	if !ok {
+		return res, errors.New("error when converting amount string into big int type")
+	}
+	gasPrice, ok := big.NewInt(0).SetString(req.GasPrice, 10)
+	if !ok {
+		return res, errors.New("error when converting gas price string into big int type")
+	}
+	actPb := &pb.ActionPb{
+		Action: &pb.ActionPb_SettleDeposit{
+			SettleDeposit: &pb.SettleDepositPb{
+				Amount:    amount.Bytes(),
+				Index:     uint64(req.Index),
+				Recipient: req.Recipient,
+			},
+		},
+		Version:      uint32(req.Version),
+		Sender:       req.Sender,
+		SenderPubKey: senderPubKey,
+		Nonce:        uint64(req.Nonce),
+		GasLimit:     uint64(req.GasLimit),
+		GasPrice:     gasPrice.Bytes(),
+		Signature:    signature,
+	}
+	// broadcast to the network
+	if err = exp.p2p.Broadcast(exp.bc.ChainID(), actPb); err != nil {
+		return res, err
+	}
+	// send to actpool via dispatcher
+	exp.dp.HandleBroadcast(exp.bc.ChainID(), actPb, nil)
+
+	deposit := &action.SettleDeposit{}
+	deposit.LoadProto(actPb)
+	h := deposit.Hash()
+	return explorer.SettleDepositResponse{Hash: hex.EncodeToString(h[:])}, nil
 }
 
 // SuggestGasPrice suggest gas price
@@ -1593,7 +1714,7 @@ func convertExecutionToExplorerExecution(execution *action.Execution, isPending 
 	return explorerExecution, nil
 }
 
-func convertReceiptToExplorerReceipt(receipt *blockchain.Receipt) (explorer.Receipt, error) {
+func convertReceiptToExplorerReceipt(receipt *action.Receipt) (explorer.Receipt, error) {
 	if receipt == nil {
 		return explorer.Receipt{}, errors.Wrap(ErrReceipt, "receipt cannot be nil")
 	}

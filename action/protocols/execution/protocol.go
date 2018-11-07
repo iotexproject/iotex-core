@@ -24,28 +24,28 @@ type Protocol struct{}
 func NewProtocol() *Protocol { return &Protocol{} }
 
 // Handle handles an execution
-func (p *Protocol) Handle(act action.Action, ws state.WorkingSet) error {
+func (p *Protocol) Handle(act action.Action, ws state.WorkingSet) (*action.Receipt, error) {
 	exec, ok := act.(*action.Execution)
 	if !ok {
-		return nil
+		return nil, nil
 	}
 	executorPKHash, err := iotxaddress.AddressToPKHash(exec.Executor())
 	if err != nil {
-		return errors.Wrap(err, "failed to convert address to PK hash")
+		return nil, errors.Wrap(err, "failed to convert address to PK hash")
 	}
 	s, err := ws.CachedState(executorPKHash, &state.Account{})
 	if err != nil {
-		return errors.Wrap(err, "executor does not exist")
+		return nil, errors.Wrap(err, "executor does not exist")
 	}
 	account, ok := s.(*state.Account)
 	if !ok {
-		return errors.Wrap(err, "failed to convert state to account state")
+		return nil, errors.Wrap(err, "failed to convert state to account state")
 	}
 	if exec.Nonce() > account.Nonce {
 		account.Nonce = exec.Nonce()
 		ws.UpdateCachedStates(executorPKHash, account)
 	}
-	return nil
+	return nil, nil
 }
 
 // Validate validates an execution

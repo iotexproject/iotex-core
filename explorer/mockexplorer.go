@@ -238,9 +238,19 @@ func (exp *MockExplorer) GetBlockOrActionByHash(hash string) (explorer.GetBlkOrA
 	return explorer.GetBlkOrActResponse{}, nil
 }
 
-// Deposit deposits the balance from main-chain to sub-chain
-func (exp *MockExplorer) Deposit(req explorer.DepositRequest) (explorer.DepositResponse, error) {
-	return explorer.DepositResponse{}, nil
+// CreateDeposit deposits the balance from main-chain to sub-chain
+func (exp *MockExplorer) CreateDeposit(req explorer.CreateDepositRequest) (explorer.CreateDepositResponse, error) {
+	return explorer.CreateDepositResponse{}, nil
+}
+
+// GetDeposits returns the deposits of a sub-chain in the given range
+func (exp *MockExplorer) GetDeposits(subChainID int64, offset int64, limit int64) ([]explorer.Deposit, error) {
+	return nil, nil
+}
+
+// SettleDeposit settles deposit on sub-chain
+func (exp *MockExplorer) SettleDeposit(req explorer.SettleDepositRequest) (res explorer.SettleDepositResponse, err error) {
+	return explorer.SettleDepositResponse{}, nil
 }
 
 // SuggestGasPrice suggest gas price

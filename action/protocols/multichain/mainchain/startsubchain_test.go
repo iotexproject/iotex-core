@@ -24,12 +24,12 @@ import (
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_state"
 	"github.com/iotexproject/iotex-core/test/testaddress"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestProtocolValidateSubChainStart(t *testing.T) {
 	t.Parallel()
 
-	cfg := config.Default
 	ctrl := gomock.NewController(t)
 	factory := mock_state.NewMockFactory(ctrl)
 	factory.EXPECT().AccountState(gomock.Any()).Return(
@@ -46,7 +46,7 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 
 	defer ctrl.Finish()
 
-	p := NewProtocol(&cfg, chain, nil)
+	p := NewProtocol(chain)
 
 	start := action.NewStartSubChain(
 		1,
@@ -235,7 +235,9 @@ func TestHandleStartSubChain(t *testing.T) {
 		big.NewInt(0).Mul(big.NewInt(2000000000), big.NewInt(blockchain.Iotx)),
 	)
 	require.NoError(t, err)
-	_, err = ws.RunActions(0, nil)
+	gasLimit := testutil.TestGasLimit
+	stateContext := state.Context{testaddress.Addrinfo["producer"].RawAddress, &gasLimit, testutil.EnableGasCharge}
+	_, _, err = ws.RunActions(0, nil, stateContext)
 	require.NoError(t, err)
 	require.NoError(t, sf.Commit(ws))
 
@@ -257,7 +259,7 @@ func TestHandleStartSubChain(t *testing.T) {
 	assert.NoError(t, action.Sign(start, testaddress.Addrinfo["producer"].PrivateKey))
 
 	// Handle the action
-	protocol := NewProtocol(&cfg, chain, nil)
+	protocol := NewProtocol(chain)
 	require.NoError(t, protocol.handleStartSubChain(start, ws))
 	require.NoError(t, sf.Commit(ws))
 
@@ -288,7 +290,7 @@ func TestNoStartSubChainInGenesis(t *testing.T) {
 
 	ctx := context.Background()
 	bc := blockchain.NewBlockchain(&cfg, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
-	p := NewProtocol(&cfg, bc, nil)
+	p := NewProtocol(bc)
 	bc.GetFactory().AddActionHandlers(p)
 	require.NoError(t, bc.Start(ctx))
 	defer require.NoError(t, bc.Stop(ctx))
@@ -304,7 +306,7 @@ func TestStartSubChainInGenesis(t *testing.T) {
 
 	ctx := context.Background()
 	bc := blockchain.NewBlockchain(&cfg, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
-	p := NewProtocol(&cfg, bc, nil)
+	p := NewProtocol(bc)
 	bc.GetFactory().AddActionHandlers(p)
 	require.NoError(t, bc.Start(ctx))
 	defer require.NoError(t, bc.Stop(ctx))

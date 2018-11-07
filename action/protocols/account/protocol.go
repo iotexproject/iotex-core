@@ -25,14 +25,14 @@ type Protocol struct{}
 func NewProtocol() *Protocol { return &Protocol{} }
 
 // Handle handles an account
-func (p *Protocol) Handle(act action.Action, ws state.WorkingSet) error {
+func (p *Protocol) Handle(act action.Action, ws state.WorkingSet) (*action.Receipt, error) {
 	switch act := act.(type) {
 	case *action.Transfer:
 		if err := p.handleTransfer(act, ws); err != nil {
-			return errors.Wrap(err, "error when handling transfer action")
+			return nil, errors.Wrap(err, "error when handling transfer action")
 		}
 	}
-	return nil
+	return nil, nil
 }
 
 // Validate validates an account

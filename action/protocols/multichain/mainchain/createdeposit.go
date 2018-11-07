@@ -20,9 +20,20 @@ import (
 	"github.com/iotexproject/iotex-core/state"
 )
 
+// DepositAddress returns the deposit address (20-byte)
+func DepositAddress(subChainAddr []byte, depositIndex uint64) hash.PKHash {
+	var stream []byte
+	stream = append(stream, subChainAddr...)
+	stream = append(stream, []byte(".deposit.")...)
+	temp := make([]byte, 8)
+	enc.MachineEndian.PutUint64(temp, depositIndex)
+	stream = append(stream, temp...)
+	return byteutil.BytesTo20B(hash.Hash160b(stream))
+}
+
 // Deposit returns the deposit record
-func (p *Protocol) Deposit(address address.Address, depositIndex uint64) (*Deposit, error) {
-	key := depositKey(address.Bytes(), depositIndex)
+func (p *Protocol) Deposit(subChainAddr address.Address, depositIndex uint64) (*Deposit, error) {
+	key := DepositAddress(subChainAddr.Bytes(), depositIndex)
 	var deposit Deposit
 	state, err := p.sf.State(key, &deposit)
 	if err != nil {
@@ -35,15 +46,15 @@ func (p *Protocol) Deposit(address address.Address, depositIndex uint64) (*Depos
 	return d, nil
 }
 
-func (p *Protocol) handleDeposit(deposit *action.Deposit, ws state.WorkingSet) error {
+func (p *Protocol) handleDeposit(deposit *action.CreateDeposit, ws state.WorkingSet) (*action.Receipt, error) {
 	account, subChainInOp, err := p.validateDeposit(deposit, ws)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	return p.mutateDeposit(deposit, account, subChainInOp, ws)
 }
 
-func (p *Protocol) validateDeposit(deposit *action.Deposit, ws state.WorkingSet) (*state.Account, InOperation, error) {
+func (p *Protocol) validateDeposit(deposit *action.CreateDeposit, ws state.WorkingSet) (*state.Account, InOperation, error) {
 	cost, err := deposit.Cost()
 	if err != nil {
 		return nil, InOperation{}, errors.Wrap(err, "error when getting deposit's cost")
@@ -72,11 +83,11 @@ func (p *Protocol) validateDeposit(deposit *action.Deposit, ws state.WorkingSet)
 }
 
 func (p *Protocol) mutateDeposit(
-	deposit *action.Deposit,
+	deposit *action.CreateDeposit,
 	account *state.Account,
 	subChainInOp InOperation,
 	ws state.WorkingSet,
-) error {
+) (*action.Receipt, error) {
 	// Subtract the balance from sender account
 	account.Balance = big.NewInt(0).Sub(account.Balance, deposit.Amount())
 	// TODO: this is not right, but currently the actions in a block is not processed according to the nonce
@@ -85,51 +96,55 @@ func (p *Protocol) mutateDeposit(
 	}
 	ownerPKHash, err := srcAddressPKHash(deposit.Sender())
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if err := ws.PutState(ownerPKHash, account); err != nil {
-		return err
+		return nil, err
 	}
 
 	// Update sub-chain state
 	addr, err := address.BytesToAddress(subChainInOp.Addr)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	subChain, err := p.SubChain(addr)
 	if err != nil {
-		return errors.Wrapf(err, "error when getting the state of sub-chain %d", subChain.ChainID)
+		return nil, errors.Wrapf(err, "error when getting the state of sub-chain %d", subChain.ChainID)
 	}
 	depositIndex := subChain.DepositCount
 	subChain.DepositCount++
 	if err := ws.PutState(byteutil.BytesTo20B(addr.Payload()), subChain); err != nil {
-		return err
+		return nil, err
 	}
 
 	// Insert deposit state
 	recipient, err := address.IotxAddressToAddress(deposit.Recipient())
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if err := ws.PutState(
-		depositKey(subChainInOp.Addr, depositIndex),
+		DepositAddress(subChainInOp.Addr, depositIndex),
 		&Deposit{
 			Amount:    deposit.Amount(),
 			Addr:      recipient.Bytes(),
 			Confirmed: false,
 		},
 	); err != nil {
-		return err
+		return nil, err
 	}
-	return nil
-}
 
-func depositKey(addr []byte, depositIndex uint64) hash.PKHash {
-	var stream []byte
-	stream = append(stream, addr...)
-	stream = append(stream, []byte(".deposit.")...)
-	temp := make([]byte, 8)
-	enc.MachineEndian.PutUint64(temp, depositIndex)
-	stream = append(stream, temp...)
-	return byteutil.BytesTo20B(hash.Hash160b(stream))
+	var value [8]byte
+	enc.MachineEndian.PutUint64(value[:], depositIndex)
+	gas, err := deposit.IntrinsicGas()
+	if err != nil {
+		return nil, err
+	}
+	receipt := action.Receipt{
+		ReturnValue:     value[:],
+		Status:          0,
+		Hash:            deposit.Hash(),
+		GasConsumed:     gas,
+		ContractAddress: addr.IotxAddress(),
+	}
+	return &receipt, nil
 }

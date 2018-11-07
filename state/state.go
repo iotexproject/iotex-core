@@ -71,11 +71,15 @@ func (slice *SortedSlice) Deserialize(data []byte) error {
 	return nil
 }
 
-// Get check if a state exists in the slice
-func (slice SortedSlice) Get(e interface{}, f func(interface{}, interface{}) int) (interface{}, bool) {
-	idx := sort.Search(len(slice), func(i int) bool {
+func (slice SortedSlice) index(e interface{}, f func(interface{}, interface{}) int) int {
+	return sort.Search(len(slice), func(i int) bool {
 		return f(slice[i], e) >= 0
 	})
+}
+
+// Get check if a state exists in the slice
+func (slice SortedSlice) Get(e interface{}, f func(interface{}, interface{}) int) (interface{}, bool) {
+	idx := slice.index(e, f)
 	if idx < len(slice) && f(slice[idx], e) == 0 {
 		return slice[idx], true
 	}
@@ -89,4 +93,18 @@ func (slice SortedSlice) Append(e interface{}, f func(interface{}, interface{}) 
 		return f(s[i], s[j]) < 0
 	})
 	return s
+}
+
+// Delete deletes a state from the state slice
+func (slice SortedSlice) Delete(e interface{}, f func(interface{}, interface{}) int) SortedSlice {
+	idx := slice.index(e, f)
+	if idx >= len(slice) || f(slice[idx], e) != 0 {
+		return slice
+	}
+	last := idx + 1
+	for last < len(slice) && f(slice[last], e) == 0 {
+		last++
+	}
+
+	return append(slice[:idx], slice[last:]...)
 }

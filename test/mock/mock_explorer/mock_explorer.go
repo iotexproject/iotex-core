@@ -462,17 +462,43 @@ func (mr *MockExplorerMockRecorder) GetBlockOrActionByHash(hashStr interface{}) 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockOrActionByHash", reflect.TypeOf((*MockExplorer)(nil).GetBlockOrActionByHash), hashStr)
 }
 
-// Deposit mocks base method
-func (m *MockExplorer) Deposit(request explorer.DepositRequest) (explorer.DepositResponse, error) {
-	ret := m.ctrl.Call(m, "Deposit", request)
-	ret0, _ := ret[0].(explorer.DepositResponse)
+// CreateDeposit mocks base method
+func (m *MockExplorer) CreateDeposit(request explorer.CreateDepositRequest) (explorer.CreateDepositResponse, error) {
+	ret := m.ctrl.Call(m, "CreateDeposit", request)
+	ret0, _ := ret[0].(explorer.CreateDepositResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// Deposit indicates an expected call of Deposit
-func (mr *MockExplorerMockRecorder) Deposit(request interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Deposit", reflect.TypeOf((*MockExplorer)(nil).Deposit), request)
+// CreateDeposit indicates an expected call of CreateDeposit
+func (mr *MockExplorerMockRecorder) CreateDeposit(request interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateDeposit", reflect.TypeOf((*MockExplorer)(nil).CreateDeposit), request)
+}
+
+// GetDeposits mocks base method
+func (m *MockExplorer) GetDeposits(subChainID, offset, limit int64) ([]explorer.Deposit, error) {
+	ret := m.ctrl.Call(m, "GetDeposits", subChainID, offset, limit)
+	ret0, _ := ret[0].([]explorer.Deposit)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetDeposits indicates an expected call of GetDeposits
+func (mr *MockExplorerMockRecorder) GetDeposits(subChainID, offset, limit interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDeposits", reflect.TypeOf((*MockExplorer)(nil).GetDeposits), subChainID, offset, limit)
+}
+
+// SettleDeposit mocks base method
+func (m *MockExplorer) SettleDeposit(request explorer.SettleDepositRequest) (explorer.SettleDepositResponse, error) {
+	ret := m.ctrl.Call(m, "SettleDeposit", request)
+	ret0, _ := ret[0].(explorer.SettleDepositResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SettleDeposit indicates an expected call of SettleDeposit
+func (mr *MockExplorerMockRecorder) SettleDeposit(request interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SettleDeposit", reflect.TypeOf((*MockExplorer)(nil).SettleDeposit), request)
 }
 
 // SuggestGasPrice mocks base method

@@ -120,7 +120,12 @@ func (t *trie) Start(ctx context.Context) error {
 	return t.dao.Commit(t.cb)
 }
 
-func (t *trie) Stop(ctx context.Context) error { return t.lifecycle.OnStop(ctx) }
+func (t *trie) Stop(ctx context.Context) error {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
+	return t.lifecycle.OnStop(ctx)
+}
 
 // TrieDB return the underlying DB instance
 func (t *trie) TrieDB() db.KVStore {

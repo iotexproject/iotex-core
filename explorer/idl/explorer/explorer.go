@@ -3,244 +3,268 @@ package explorer
 
 import (
 	"fmt"
-	"github.com/coopernurse/barrister-go"
 	"reflect"
+	"github.com/coopernurse/barrister-go"
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "eac730efb23579ba66f016e98eb9083a"
-const BarristerDateGenerated int64 = 1541315951556000000
+const BarristerChecksum string = "da94b818edb673cd0adac3b691e39e1b"
+const BarristerDateGenerated int64 = 1541578517883000000
 
 type CoinStatistic struct {
-	Height     int64  `json:"height"`
-	Supply     string `json:"supply"`
-	Transfers  int64  `json:"transfers"`
-	Votes      int64  `json:"votes"`
-	Executions int64  `json:"executions"`
-	Aps        int64  `json:"aps"`
+	Height	int64	`json:"height"`
+	Supply	string	`json:"supply"`
+	Transfers	int64	`json:"transfers"`
+	Votes	int64	`json:"votes"`
+	Executions	int64	`json:"executions"`
+	Aps	int64	`json:"aps"`
 }
 
 type BlockGenerator struct {
-	Name    string `json:"name"`
-	Address string `json:"address"`
+	Name	string	`json:"name"`
+	Address	string	`json:"address"`
 }
 
 type Block struct {
-	ID         string         `json:"ID"`
-	Height     int64          `json:"height"`
-	Timestamp  int64          `json:"timestamp"`
-	Transfers  int64          `json:"transfers"`
-	Votes      int64          `json:"votes"`
-	Executions int64          `json:"executions"`
-	GenerateBy BlockGenerator `json:"generateBy"`
-	Amount     string         `json:"amount"`
-	Forged     int64          `json:"forged"`
-	Size       int64          `json:"size"`
+	ID	string	`json:"ID"`
+	Height	int64	`json:"height"`
+	Timestamp	int64	`json:"timestamp"`
+	Transfers	int64	`json:"transfers"`
+	Votes	int64	`json:"votes"`
+	Executions	int64	`json:"executions"`
+	GenerateBy	BlockGenerator	`json:"generateBy"`
+	Amount	string	`json:"amount"`
+	Forged	int64	`json:"forged"`
+	Size	int64	`json:"size"`
 }
 
 type Transfer struct {
-	Version      int64  `json:"version"`
-	ID           string `json:"ID"`
-	Nonce        int64  `json:"nonce"`
-	Sender       string `json:"sender"`
-	Recipient    string `json:"recipient"`
-	Amount       string `json:"amount"`
-	SenderPubKey string `json:"senderPubKey"`
-	Signature    string `json:"signature"`
-	Payload      string `json:"payload"`
-	GasLimit     int64  `json:"gasLimit"`
-	GasPrice     string `json:"gasPrice"`
-	IsCoinbase   bool   `json:"isCoinbase"`
-	Fee          string `json:"fee"`
-	Timestamp    int64  `json:"timestamp"`
-	BlockID      string `json:"blockID"`
-	IsPending    bool   `json:"isPending"`
+	Version	int64	`json:"version"`
+	ID	string	`json:"ID"`
+	Nonce	int64	`json:"nonce"`
+	Sender	string	`json:"sender"`
+	Recipient	string	`json:"recipient"`
+	Amount	string	`json:"amount"`
+	SenderPubKey	string	`json:"senderPubKey"`
+	Signature	string	`json:"signature"`
+	Payload	string	`json:"payload"`
+	GasLimit	int64	`json:"gasLimit"`
+	GasPrice	string	`json:"gasPrice"`
+	IsCoinbase	bool	`json:"isCoinbase"`
+	Fee	string	`json:"fee"`
+	Timestamp	int64	`json:"timestamp"`
+	BlockID	string	`json:"blockID"`
+	IsPending	bool	`json:"isPending"`
 }
 
 type Execution struct {
-	Version        int64  `json:"version"`
-	ID             string `json:"ID"`
-	Nonce          int64  `json:"nonce"`
-	Executor       string `json:"executor"`
-	Contract       string `json:"contract"`
-	Amount         string `json:"amount"`
-	ExecutorPubKey string `json:"executorPubKey"`
-	Signature      string `json:"signature"`
-	GasLimit       int64  `json:"gasLimit"`
-	GasPrice       string `json:"gasPrice"`
-	Timestamp      int64  `json:"timestamp"`
-	Data           string `json:"data"`
-	BlockID        string `json:"blockID"`
-	IsPending      bool   `json:"isPending"`
+	Version	int64	`json:"version"`
+	ID	string	`json:"ID"`
+	Nonce	int64	`json:"nonce"`
+	Executor	string	`json:"executor"`
+	Contract	string	`json:"contract"`
+	Amount	string	`json:"amount"`
+	ExecutorPubKey	string	`json:"executorPubKey"`
+	Signature	string	`json:"signature"`
+	GasLimit	int64	`json:"gasLimit"`
+	GasPrice	string	`json:"gasPrice"`
+	Timestamp	int64	`json:"timestamp"`
+	Data	string	`json:"data"`
+	BlockID	string	`json:"blockID"`
+	IsPending	bool	`json:"isPending"`
 }
 
 type Log struct {
-	Address     string   `json:"address"`
-	Topics      []string `json:"topics"`
-	Data        string   `json:"data"`
-	BlockNumber int64    `json:"blockNumber"`
-	TxnHash     string   `json:"txnHash"`
-	BlockHash   string   `json:"blockHash"`
-	Index       int64    `json:"index"`
+	Address	string	`json:"address"`
+	Topics	[]string	`json:"topics"`
+	Data	string	`json:"data"`
+	BlockNumber	int64	`json:"blockNumber"`
+	TxnHash	string	`json:"txnHash"`
+	BlockHash	string	`json:"blockHash"`
+	Index	int64	`json:"index"`
 }
 
 type Receipt struct {
-	ReturnValue     string `json:"returnValue"`
-	Status          int64  `json:"status"`
-	Hash            string `json:"hash"`
-	GasConsumed     int64  `json:"gasConsumed"`
-	ContractAddress string `json:"contractAddress"`
-	Logs            []Log  `json:"logs"`
+	ReturnValue	string	`json:"returnValue"`
+	Status	int64	`json:"status"`
+	Hash	string	`json:"hash"`
+	GasConsumed	int64	`json:"gasConsumed"`
+	ContractAddress	string	`json:"contractAddress"`
+	Logs	[]Log	`json:"logs"`
 }
 
 type SendExecutionResponse struct {
-	Receipt Receipt `json:"receipt"`
+	Receipt	Receipt	`json:"receipt"`
 }
 
 type Vote struct {
-	Version     int64  `json:"version"`
-	ID          string `json:"ID"`
-	Nonce       int64  `json:"nonce"`
-	Timestamp   int64  `json:"timestamp"`
-	Voter       string `json:"voter"`
-	Votee       string `json:"votee"`
-	VoterPubKey string `json:"voterPubKey"`
-	GasLimit    int64  `json:"gasLimit"`
-	GasPrice    string `json:"gasPrice"`
-	Signature   string `json:"signature"`
-	BlockID     string `json:"blockID"`
-	IsPending   bool   `json:"isPending"`
+	Version	int64	`json:"version"`
+	ID	string	`json:"ID"`
+	Nonce	int64	`json:"nonce"`
+	Timestamp	int64	`json:"timestamp"`
+	Voter	string	`json:"voter"`
+	Votee	string	`json:"votee"`
+	VoterPubKey	string	`json:"voterPubKey"`
+	GasLimit	int64	`json:"gasLimit"`
+	GasPrice	string	`json:"gasPrice"`
+	Signature	string	`json:"signature"`
+	BlockID	string	`json:"blockID"`
+	IsPending	bool	`json:"isPending"`
 }
 
 type AddressDetails struct {
-	Address      string `json:"address"`
-	TotalBalance string `json:"totalBalance"`
-	Nonce        int64  `json:"nonce"`
-	PendingNonce int64  `json:"pendingNonce"`
-	IsCandidate  bool   `json:"isCandidate"`
+	Address	string	`json:"address"`
+	TotalBalance	string	`json:"totalBalance"`
+	Nonce	int64	`json:"nonce"`
+	PendingNonce	int64	`json:"pendingNonce"`
+	IsCandidate	bool	`json:"isCandidate"`
 }
 
 type Candidate struct {
-	Address          string `json:"address"`
-	PubKey           string `json:"pubKey"`
-	TotalVote        string `json:"totalVote"`
-	CreationHeight   int64  `json:"creationHeight"`
-	LastUpdateHeight int64  `json:"lastUpdateHeight"`
-	IsDelegate       bool   `json:"isDelegate"`
-	IsProducer       bool   `json:"isProducer"`
+	Address	string	`json:"address"`
+	PubKey	string	`json:"pubKey"`
+	TotalVote	string	`json:"totalVote"`
+	CreationHeight	int64	`json:"creationHeight"`
+	LastUpdateHeight	int64	`json:"lastUpdateHeight"`
+	IsDelegate	bool	`json:"isDelegate"`
+	IsProducer	bool	`json:"isProducer"`
 }
 
 type CandidateMetrics struct {
-	Candidates   []Candidate `json:"candidates"`
-	LatestEpoch  int64       `json:"latestEpoch"`
-	LatestHeight int64       `json:"latestHeight"`
+	Candidates	[]Candidate	`json:"candidates"`
+	LatestEpoch	int64	`json:"latestEpoch"`
+	LatestHeight	int64	`json:"latestHeight"`
 }
 
 type ConsensusMetrics struct {
-	LatestEpoch         int64    `json:"latestEpoch"`
-	LatestDelegates     []string `json:"latestDelegates"`
-	LatestBlockProducer string   `json:"latestBlockProducer"`
-	Candidates          []string `json:"candidates"`
+	LatestEpoch	int64	`json:"latestEpoch"`
+	LatestDelegates	[]string	`json:"latestDelegates"`
+	LatestBlockProducer	string	`json:"latestBlockProducer"`
+	Candidates	[]string	`json:"candidates"`
 }
 
 type SendTransferRequest struct {
-	Version      int64  `json:"version"`
-	Nonce        int64  `json:"nonce"`
-	Sender       string `json:"sender"`
-	Recipient    string `json:"recipient"`
-	Amount       string `json:"amount"`
-	SenderPubKey string `json:"senderPubKey"`
-	Signature    string `json:"signature"`
-	Payload      string `json:"payload"`
-	GasLimit     int64  `json:"gasLimit"`
-	GasPrice     string `json:"gasPrice"`
-	IsCoinbase   bool   `json:"isCoinbase"`
+	Version	int64	`json:"version"`
+	Nonce	int64	`json:"nonce"`
+	Sender	string	`json:"sender"`
+	Recipient	string	`json:"recipient"`
+	Amount	string	`json:"amount"`
+	SenderPubKey	string	`json:"senderPubKey"`
+	Signature	string	`json:"signature"`
+	Payload	string	`json:"payload"`
+	GasLimit	int64	`json:"gasLimit"`
+	GasPrice	string	`json:"gasPrice"`
+	IsCoinbase	bool	`json:"isCoinbase"`
 }
 
 type SendTransferResponse struct {
-	Hash string `json:"hash"`
+	Hash	string	`json:"hash"`
 }
 
 type SendVoteRequest struct {
-	Version     int64  `json:"version"`
-	Nonce       int64  `json:"nonce"`
-	Voter       string `json:"voter"`
-	Votee       string `json:"votee"`
-	VoterPubKey string `json:"voterPubKey"`
-	GasLimit    int64  `json:"gasLimit"`
-	GasPrice    string `json:"gasPrice"`
-	Signature   string `json:"signature"`
+	Version	int64	`json:"version"`
+	Nonce	int64	`json:"nonce"`
+	Voter	string	`json:"voter"`
+	Votee	string	`json:"votee"`
+	VoterPubKey	string	`json:"voterPubKey"`
+	GasLimit	int64	`json:"gasLimit"`
+	GasPrice	string	`json:"gasPrice"`
+	Signature	string	`json:"signature"`
 }
 
 type SendVoteResponse struct {
-	Hash string `json:"hash"`
+	Hash	string	`json:"hash"`
 }
 
 type PutSubChainBlockMerkelRoot struct {
-	Name  string `json:"name"`
-	Value string `json:"value"`
+	Name	string	`json:"name"`
+	Value	string	`json:"value"`
 }
 
 type PutSubChainBlockRequest struct {
-	Version         int64                        `json:"version"`
-	Nonce           int64                        `json:"nonce"`
-	SenderAddress   string                       `json:"senderAddress"`
-	SubChainAddress string                       `json:"subChainAddress"`
-	Height          int64                        `json:"height"`
-	Roots           []PutSubChainBlockMerkelRoot `json:"roots"`
-	SenderPubKey    string                       `json:"senderPubKey"`
-	Signature       string                       `json:"signature"`
-	GasLimit        int64                        `json:"gasLimit"`
-	GasPrice        string                       `json:"gasPrice"`
+	Version	int64	`json:"version"`
+	Nonce	int64	`json:"nonce"`
+	SenderAddress	string	`json:"senderAddress"`
+	SubChainAddress	string	`json:"subChainAddress"`
+	Height	int64	`json:"height"`
+	Roots	[]PutSubChainBlockMerkelRoot	`json:"roots"`
+	SenderPubKey	string	`json:"senderPubKey"`
+	Signature	string	`json:"signature"`
+	GasLimit	int64	`json:"gasLimit"`
+	GasPrice	string	`json:"gasPrice"`
 }
 
 type PutSubChainBlockResponse struct {
-	Hash string `json:"hash"`
+	Hash	string	`json:"hash"`
 }
 
 type SendActionRequest struct {
-	Payload string `json:"payload"`
+	Payload	string	`json:"payload"`
 }
 
 type SendActionResponse struct {
-	Payload string `json:"payload"`
+	Payload	string	`json:"payload"`
 }
 
 type Node struct {
-	Address string `json:"address"`
+	Address	string	`json:"address"`
 }
 
 type GetPeersResponse struct {
-	Self  Node   `json:"Self"`
-	Peers []Node `json:"Peers"`
+	Self	Node	`json:"Self"`
+	Peers	[]Node	`json:"Peers"`
 }
 
 type SendSmartContractResponse struct {
-	Hash string `json:"hash"`
+	Hash	string	`json:"hash"`
 }
 
 type GetBlkOrActResponse struct {
-	Block     *Block     `json:"block,omitempty"`
-	Transfer  *Transfer  `json:"transfer,omitempty"`
-	Vote      *Vote      `json:"vote,omitempty"`
-	Execution *Execution `json:"execution,omitempty"`
+	Block	*Block	`json:"block,omitempty"`
+	Transfer	*Transfer	`json:"transfer,omitempty"`
+	Vote	*Vote	`json:"vote,omitempty"`
+	Execution	*Execution	`json:"execution,omitempty"`
 }
 
-type DepositRequest struct {
-	Version      int64  `json:"version"`
-	Nonce        int64  `json:"nonce"`
-	Sender       string `json:"sender"`
-	SenderPubKey string `json:"senderPubKey"`
-	Recipient    string `json:"recipient"`
-	Amount       string `json:"amount"`
-	Signature    string `json:"signature"`
-	GasLimit     int64  `json:"gasLimit"`
-	GasPrice     string `json:"gasPrice"`
+type CreateDepositRequest struct {
+	Version	int64	`json:"version"`
+	Nonce	int64	`json:"nonce"`
+	Sender	string	`json:"sender"`
+	SenderPubKey	string	`json:"senderPubKey"`
+	Recipient	string	`json:"recipient"`
+	Amount	string	`json:"amount"`
+	Signature	string	`json:"signature"`
+	GasLimit	int64	`json:"gasLimit"`
+	GasPrice	string	`json:"gasPrice"`
 }
 
-type DepositResponse struct {
-	Hash string `json:"hash"`
+type CreateDepositResponse struct {
+	Hash	string	`json:"hash"`
 }
+
+type Deposit struct {
+	Amount	string	`json:"amount"`
+	Address	string	`json:"address"`
+	Confirmed	bool	`json:"confirmed"`
+}
+
+type SettleDepositRequest struct {
+	Version	int64	`json:"version"`
+	Nonce	int64	`json:"nonce"`
+	Sender	string	`json:"sender"`
+	SenderPubKey	string	`json:"senderPubKey"`
+	Recipient	string	`json:"recipient"`
+	Amount	string	`json:"amount"`
+	Index	int64	`json:"index"`
+	Signature	string	`json:"signature"`
+	GasLimit	int64	`json:"gasLimit"`
+	GasPrice	string	`json:"gasPrice"`
+}
+
+type SettleDepositResponse struct {
+	Hash	string	`json:"hash"`
+}
+
 
 type Explorer interface {
 	GetBlockchainHeight() (int64, error)
@@ -276,16 +300,15 @@ type Explorer interface {
 	GetReceiptByExecutionID(id string) (Receipt, error)
 	ReadExecutionState(request Execution) (string, error)
 	GetBlockOrActionByHash(hashStr string) (GetBlkOrActResponse, error)
-	Deposit(request DepositRequest) (DepositResponse, error)
+	CreateDeposit(request CreateDepositRequest) (CreateDepositResponse, error)
+	GetDeposits(subChainID int64, offset int64, limit int64) ([]Deposit, error)
+	SettleDeposit(request SettleDepositRequest) (SettleDepositResponse, error)
 	SuggestGasPrice() (int64, error)
 	EstimateGasForTransfer(request SendTransferRequest) (int64, error)
 	EstimateGasForVote(request SendVoteRequest) (int64, error)
-	EstimateGasForSmartContract(request Execution) (int64, error)
 }
 
-func NewExplorerProxy(c barrister.Client) Explorer {
-	return ExplorerProxy{c, barrister.MustParseIdlJson([]byte(IdlJsonRaw))}
-}
+func NewExplorerProxy(c barrister.Client) Explorer { return ExplorerProxy{c, barrister.MustParseIdlJson([]byte(IdlJsonRaw))} }
 
 type ExplorerProxy struct {
 	client barrister.Client
@@ -886,22 +909,58 @@ func (_p ExplorerProxy) GetBlockOrActionByHash(hashStr string) (GetBlkOrActRespo
 	return GetBlkOrActResponse{}, _err
 }
 
-func (_p ExplorerProxy) Deposit(request DepositRequest) (DepositResponse, error) {
-	_res, _err := _p.client.Call("Explorer.deposit", request)
+func (_p ExplorerProxy) CreateDeposit(request CreateDepositRequest) (CreateDepositResponse, error) {
+	_res, _err := _p.client.Call("Explorer.createDeposit", request)
 	if _err == nil {
-		_retType := _p.idl.Method("Explorer.deposit").Returns
-		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(DepositResponse{}), _res, "")
+		_retType := _p.idl.Method("Explorer.createDeposit").Returns
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(CreateDepositResponse{}), _res, "")
 	}
 	if _err == nil {
-		_cast, _ok := _res.(DepositResponse)
+		_cast, _ok := _res.(CreateDepositResponse)
 		if !_ok {
 			_t := reflect.TypeOf(_res)
-			_msg := fmt.Sprintf("Explorer.deposit returned invalid type: %v", _t)
-			return DepositResponse{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
+			_msg := fmt.Sprintf("Explorer.createDeposit returned invalid type: %v", _t)
+			return CreateDepositResponse{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
 		}
 		return _cast, nil
 	}
-	return DepositResponse{}, _err
+	return CreateDepositResponse{}, _err
+}
+
+func (_p ExplorerProxy) GetDeposits(subChainID int64, offset int64, limit int64) ([]Deposit, error) {
+	_res, _err := _p.client.Call("Explorer.getDeposits", subChainID, offset, limit)
+	if _err == nil {
+		_retType := _p.idl.Method("Explorer.getDeposits").Returns
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf([]Deposit{}), _res, "")
+	}
+	if _err == nil {
+		_cast, _ok := _res.([]Deposit)
+		if !_ok {
+			_t := reflect.TypeOf(_res)
+			_msg := fmt.Sprintf("Explorer.getDeposits returned invalid type: %v", _t)
+			return []Deposit{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
+		}
+		return _cast, nil
+	}
+	return []Deposit{}, _err
+}
+
+func (_p ExplorerProxy) SettleDeposit(request SettleDepositRequest) (SettleDepositResponse, error) {
+	_res, _err := _p.client.Call("Explorer.settleDeposit", request)
+	if _err == nil {
+		_retType := _p.idl.Method("Explorer.settleDeposit").Returns
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(SettleDepositResponse{}), _res, "")
+	}
+	if _err == nil {
+		_cast, _ok := _res.(SettleDepositResponse)
+		if !_ok {
+			_t := reflect.TypeOf(_res)
+			_msg := fmt.Sprintf("Explorer.settleDeposit returned invalid type: %v", _t)
+			return SettleDepositResponse{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
+		}
+		return _cast, nil
+	}
+	return SettleDepositResponse{}, _err
 }
 
 func (_p ExplorerProxy) SuggestGasPrice() (int64, error) {
@@ -951,24 +1010,6 @@ func (_p ExplorerProxy) EstimateGasForVote(request SendVoteRequest) (int64, erro
 		if !_ok {
 			_t := reflect.TypeOf(_res)
 			_msg := fmt.Sprintf("Explorer.estimateGasForVote returned invalid type: %v", _t)
-			return int64(0), &barrister.JsonRpcError{Code: -32000, Message: _msg}
-		}
-		return _cast, nil
-	}
-	return int64(0), _err
-}
-
-func (_p ExplorerProxy) EstimateGasForSmartContract(request Execution) (int64, error) {
-	_res, _err := _p.client.Call("Explorer.estimateGasForSmartContract", request)
-	if _err == nil {
-		_retType := _p.idl.Method("Explorer.estimateGasForSmartContract").Returns
-		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(int64(0)), _res, "")
-	}
-	if _err == nil {
-		_cast, _ok := _res.(int64)
-		if !_ok {
-			_t := reflect.TypeOf(_res)
-			_msg := fmt.Sprintf("Explorer.estimateGasForSmartContract returned invalid type: %v", _t)
 			return int64(0), &barrister.JsonRpcError{Code: -32000, Message: _msg}
 		}
 		return _cast, nil
@@ -2364,7 +2405,7 @@ var IdlJsonRaw = `[
     },
     {
         "type": "struct",
-        "name": "DepositRequest",
+        "name": "CreateDepositRequest",
         "comment": "",
         "value": "",
         "extends": "",
@@ -2441,7 +2482,147 @@ var IdlJsonRaw = `[
     },
     {
         "type": "struct",
-        "name": "DepositResponse",
+        "name": "CreateDepositResponse",
+        "comment": "",
+        "value": "",
+        "extends": "",
+        "fields": [
+            {
+                "name": "hash",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            }
+        ],
+        "values": null,
+        "functions": null,
+        "barrister_version": "",
+        "date_generated": 0,
+        "checksum": ""
+    },
+    {
+        "type": "struct",
+        "name": "Deposit",
+        "comment": "",
+        "value": "",
+        "extends": "",
+        "fields": [
+            {
+                "name": "amount",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "address",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "confirmed",
+                "type": "bool",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            }
+        ],
+        "values": null,
+        "functions": null,
+        "barrister_version": "",
+        "date_generated": 0,
+        "checksum": ""
+    },
+    {
+        "type": "struct",
+        "name": "SettleDepositRequest",
+        "comment": "",
+        "value": "",
+        "extends": "",
+        "fields": [
+            {
+                "name": "version",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "nonce",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "sender",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "senderPubKey",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "recipient",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "amount",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "index",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "signature",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "gasLimit",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "gasPrice",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            }
+        ],
+        "values": null,
+        "functions": null,
+        "barrister_version": "",
+        "date_generated": 0,
+        "checksum": ""
+    },
+    {
+        "type": "struct",
+        "name": "SettleDepositResponse",
         "comment": "",
         "value": "",
         "extends": "",
@@ -3272,12 +3453,12 @@ var IdlJsonRaw = `[
                 }
             },
             {
-                "name": "deposit",
+                "name": "createDeposit",
                 "comment": "deposit balance from main-chain to sub-chain",
                 "params": [
                     {
                         "name": "request",
-                        "type": "DepositRequest",
+                        "type": "CreateDepositRequest",
                         "optional": false,
                         "is_array": false,
                         "comment": ""
@@ -3285,7 +3466,61 @@ var IdlJsonRaw = `[
                 ],
                 "returns": {
                     "name": "",
-                    "type": "DepositResponse",
+                    "type": "CreateDepositResponse",
+                    "optional": false,
+                    "is_array": false,
+                    "comment": ""
+                }
+            },
+            {
+                "name": "getDeposits",
+                "comment": "get deposits on a sub-chain",
+                "params": [
+                    {
+                        "name": "subChainID",
+                        "type": "int",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    },
+                    {
+                        "name": "offset",
+                        "type": "int",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    },
+                    {
+                        "name": "limit",
+                        "type": "int",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    }
+                ],
+                "returns": {
+                    "name": "",
+                    "type": "Deposit",
+                    "optional": false,
+                    "is_array": true,
+                    "comment": ""
+                }
+            },
+            {
+                "name": "settleDeposit",
+                "comment": "settle deposit on sub-chain. This is a sub-chain API",
+                "params": [
+                    {
+                        "name": "request",
+                        "type": "SettleDepositRequest",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    }
+                ],
+                "returns": {
+                    "name": "",
+                    "type": "SettleDepositResponse",
                     "optional": false,
                     "is_array": false,
                     "comment": ""
@@ -3342,26 +3577,6 @@ var IdlJsonRaw = `[
                     "is_array": false,
                     "comment": ""
                 }
-            },
-            {
-                "name": "estimateGasForSmartContract",
-                "comment": "estimate gas for smart contract",
-                "params": [
-                    {
-                        "name": "request",
-                        "type": "Execution",
-                        "optional": false,
-                        "is_array": false,
-                        "comment": ""
-                    }
-                ],
-                "returns": {
-                    "name": "",
-                    "type": "int",
-                    "optional": false,
-                    "is_array": false,
-                    "comment": ""
-                }
             }
         ],
         "barrister_version": "",
@@ -3378,7 +3593,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1541315951556,
-        "checksum": "eac730efb23579ba66f016e98eb9083a"
+        "date_generated": 1541578517883,
+        "checksum": "da94b818edb673cd0adac3b691e39e1b"
     }
 ]`

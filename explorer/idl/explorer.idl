@@ -230,7 +230,7 @@ struct GetBlkOrActResponse {
     execution Execution [optional]
 }
 
-struct DepositRequest {
+struct CreateDepositRequest {
     version int
     nonce int
     sender string
@@ -242,7 +242,30 @@ struct DepositRequest {
     gasPrice string
 }
 
-struct DepositResponse {
+struct CreateDepositResponse {
+    hash string
+}
+
+struct Deposit {
+    amount string
+    address string
+    confirmed bool
+}
+
+struct SettleDepositRequest {
+    version int
+    nonce int
+    sender string
+    senderPubKey string
+    recipient string
+    amount string
+    index int
+    signature string
+    gasLimit int
+    gasPrice string
+}
+
+struct SettleDepositResponse {
     hash string
 }
 
@@ -347,7 +370,13 @@ interface Explorer {
     getBlockOrActionByHash(hashStr string) GetBlkOrActResponse
 
     // deposit balance from main-chain to sub-chain
-    deposit(request DepositRequest) DepositResponse
+    createDeposit(request CreateDepositRequest) CreateDepositResponse
+
+    // get deposits on a sub-chain
+    getDeposits(subChainID int, offset int, limit int) []Deposit
+
+    // settle deposit on sub-chain. This is a sub-chain API
+    settleDeposit(request SettleDepositRequest) SettleDepositResponse
 
     // suggest gas price
     suggestGasPrice() int
@@ -357,7 +386,4 @@ interface Explorer {
 
     // estimate gas for vote
     estimateGasForVote(request SendVoteRequest) int
-
-    // estimate gas for smart contract
-    estimateGasForSmartContract(request Execution) int
 }
