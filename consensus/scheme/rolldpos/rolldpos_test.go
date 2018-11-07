@@ -733,7 +733,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 				require.NoError(t, err)
 				_, err = ws.LoadOrCreateAccountState(chainRawAddrs[j], big.NewInt(0))
 				require.NoError(t, err)
-				_, err = ws.RunActions(0, nil)
+				_, _, err = ws.RunActions(0, nil)
 				require.NoError(t, err)
 				require.NoError(t, sf.Commit(ws))
 			}

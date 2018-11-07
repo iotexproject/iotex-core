@@ -51,7 +51,7 @@ func TestEVM(t *testing.T) {
 	require.NoError(err)
 	_, err = ws.LoadOrCreateAccountState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
 	require.NoError(err)
-	_, err = ws.RunActions(0, nil)
+	_, _, err = ws.RunActions(0, nil)
 	require.NoError(err)
 	require.NoError(sf.Commit(ws))
 
@@ -138,7 +138,7 @@ func TestEVM(t *testing.T) {
 
 func TestLogReceipt(t *testing.T) {
 	require := require.New(t)
-	log := Log{Address: "abcde", Data: []byte("12345"), BlockNumber: 5, Index: 6}
+	log := action.Log{Address: "abcde", Data: []byte("12345"), BlockNumber: 5, Index: 6}
 	var topic hash.Hash32B
 	copy(topic[:], hash.Hash256b([]byte("12345")))
 	log.Topics = []hash.Hash32B{topic}
@@ -146,7 +146,7 @@ func TestLogReceipt(t *testing.T) {
 	copy(log.BlockHash[:], hash.Hash256b([]byte("22222")))
 	s, err := log.Serialize()
 	require.NoError(err)
-	actuallog := Log{}
+	actuallog := action.Log{}
 	actuallog.Deserialize(s)
 	require.Equal(log.Address, actuallog.Address)
 	require.Equal(log.Topics[0], actuallog.Topics[0])
@@ -157,11 +157,11 @@ func TestLogReceipt(t *testing.T) {
 	require.Equal(log.BlockHash, actuallog.BlockHash)
 	require.Equal(log.Index, actuallog.Index)
 
-	receipt := Receipt{ReturnValue: []byte("12345"), Status: 5, GasConsumed: 6, ContractAddress: "aaaaa", Logs: []*Log{&log}}
+	receipt := action.Receipt{ReturnValue: []byte("12345"), Status: 5, GasConsumed: 6, ContractAddress: "aaaaa", Logs: []*action.Log{&log}}
 	copy(receipt.Hash[:], hash.Hash256b([]byte("33333")))
 	s, err = receipt.Serialize()
 	require.NoError(err)
-	actualReceipt := Receipt{}
+	actualReceipt := action.Receipt{}
 	actualReceipt.Deserialize(s)
 	require.Equal(receipt.ReturnValue, actualReceipt.ReturnValue)
 	require.Equal(receipt.Status, actualReceipt.Status)
@@ -202,7 +202,7 @@ func TestRollDice(t *testing.T) {
 	require.NoError(err)
 	_, err = ws.LoadOrCreateAccountState(ta.Addrinfo["bravo"].RawAddress, big.NewInt(12000000))
 	require.NoError(err)
-	_, err = ws.RunActions(0, nil)
+	_, _, err = ws.RunActions(0, nil)
 	require.NoError(err)
 	require.NoError(sf.Commit(ws))
 
@@ -309,7 +309,7 @@ func TestERC20(t *testing.T) {
 	require.NoError(err)
 	_, err = ws.LoadOrCreateAccountState(ta.Addrinfo["bravo"].RawAddress, big.NewInt(0))
 	require.NoError(err)
-	_, err = ws.RunActions(0, nil)
+	_, _, err = ws.RunActions(0, nil)
 	require.NoError(err)
 	require.NoError(sf.Commit(ws))
 

@@ -78,7 +78,7 @@ type (
 	// called one by one to process it. ActionHandler implementation is supposed to parse the sub-type of the action to
 	// decide if it wants to handle this action or not.
 	ActionHandler interface {
-		Handle(action.Action, WorkingSet) error
+		Handle(action.Action, WorkingSet) (*action.Receipt, error)
 	}
 )
 

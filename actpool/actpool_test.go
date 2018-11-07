@@ -93,7 +93,7 @@ func TestActPool_validateGenericAction(t *testing.T) {
 	require.NotNil(sf)
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
-	_, err = ws.RunActions(0, []action.Action{prevTsf})
+	_, _, err = ws.RunActions(0, []action.Action{prevTsf})
 	require.NoError(err)
 	require.Nil(sf.Commit(ws))
 	ap.Reset()
@@ -380,7 +380,7 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	require.NotNil(sf)
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
-	_, err = ws.RunActions(0, []action.Action{tsf1, tsf2, tsf3, vote4})
+	_, _, err = ws.RunActions(0, []action.Action{tsf1, tsf2, tsf3, vote4})
 	require.NoError(err)
 	require.Nil(sf.Commit(ws))
 	ap.removeConfirmedActs()
@@ -536,7 +536,7 @@ func TestActPool_Reset(t *testing.T) {
 	require.NotNil(sf)
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
-	_, err = ws.RunActions(0, pickedActs)
+	_, _, err = ws.RunActions(0, pickedActs)
 	require.NoError(err)
 	require.Nil(sf.Commit(ws))
 	//Reset
@@ -647,7 +647,7 @@ func TestActPool_Reset(t *testing.T) {
 	// ap2 commits update of accounts to trie
 	ws, err = sf.NewWorkingSet()
 	require.NoError(err)
-	_, err = ws.RunActions(0, pickedActs)
+	_, _, err = ws.RunActions(0, pickedActs)
 	require.NoError(err)
 	require.Nil(sf.Commit(ws))
 	//Reset
@@ -739,7 +739,7 @@ func TestActPool_Reset(t *testing.T) {
 	// ap1 commits update of accounts to trie
 	ws, err = sf.NewWorkingSet()
 	require.NoError(err)
-	_, err = ws.RunActions(0, pickedActs)
+	_, _, err = ws.RunActions(0, pickedActs)
 	require.NoError(err)
 	require.Nil(sf.Commit(ws))
 	//Reset
@@ -967,7 +967,7 @@ func TestActPool_GetSize(t *testing.T) {
 	require.NotNil(sf)
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
-	_, err = ws.RunActions(0, []action.Action{tsf1, tsf2, tsf3, vote4})
+	_, _, err = ws.RunActions(0, []action.Action{tsf1, tsf2, tsf3, vote4})
 	require.NoError(err)
 	require.Nil(sf.Commit(ws))
 	ap.removeConfirmedActs()

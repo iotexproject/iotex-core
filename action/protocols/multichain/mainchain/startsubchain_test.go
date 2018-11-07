@@ -234,7 +234,7 @@ func TestHandleStartSubChain(t *testing.T) {
 		big.NewInt(0).Mul(big.NewInt(2000000000), big.NewInt(blockchain.Iotx)),
 	)
 	require.NoError(t, err)
-	_, err = ws.RunActions(0, nil)
+	_, _, err = ws.RunActions(0, nil)
 	require.NoError(t, err)
 	require.NoError(t, sf.Commit(ws))
 

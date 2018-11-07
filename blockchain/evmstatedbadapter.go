@@ -12,6 +12,7 @@ import (
 	"github.com/CoderZhi/go-ethereum/common"
 	"github.com/CoderZhi/go-ethereum/core/types"
 
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
@@ -23,7 +24,7 @@ import (
 type EVMStateDBAdapter struct {
 	bc             Blockchain
 	ws             state.WorkingSet
-	logs           []*Log
+	logs           []*action.Log
 	err            error
 	blockHeight    uint64
 	blockHash      hash.Hash32B
@@ -36,7 +37,7 @@ func NewEVMStateDBAdapter(bc Blockchain, ws state.WorkingSet, blockHeight uint64
 	return &EVMStateDBAdapter{
 		bc,
 		ws,
-		[]*Log{},
+		[]*action.Log{},
 		nil,
 		blockHeight,
 		blockHash,
@@ -263,7 +264,7 @@ func (stateDB *EVMStateDBAdapter) AddLog(evmLog *types.Log) {
 		copy(topic[:], evmTopic.Bytes())
 		topics = append(topics, topic)
 	}
-	log := &Log{
+	log := &action.Log{
 		addr.IotxAddress(),
 		topics,
 		evmLog.Data,
@@ -276,7 +277,7 @@ func (stateDB *EVMStateDBAdapter) AddLog(evmLog *types.Log) {
 }
 
 // Logs returns the logs
-func (stateDB *EVMStateDBAdapter) Logs() []*Log {
+func (stateDB *EVMStateDBAdapter) Logs() []*action.Log {
 	return stateDB.logs
 }
 

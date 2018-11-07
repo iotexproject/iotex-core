@@ -363,9 +363,9 @@ func (mr *MockBlockchainMockRecorder) GetBlockHashByExecutionHash(h interface{})
 }
 
 // GetReceiptByExecutionHash mocks base method
-func (m *MockBlockchain) GetReceiptByExecutionHash(h hash.Hash32B) (*blockchain.Receipt, error) {
+func (m *MockBlockchain) GetReceiptByExecutionHash(h hash.Hash32B) (*action.Receipt, error) {
 	ret := m.ctrl.Call(m, "GetReceiptByExecutionHash", h)
-	ret0, _ := ret[0].(*blockchain.Receipt)
+	ret0, _ := ret[0].(*action.Receipt)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
