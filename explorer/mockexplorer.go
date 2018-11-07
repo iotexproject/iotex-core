@@ -248,6 +248,11 @@ func (exp *MockExplorer) GetDeposits(subChainID int64, offset int64, limit int64
 	return nil, nil
 }
 
+// SettleDeposit settles deposit on sub-chain
+func (exp *MockExplorer) SettleDeposit(req explorer.SettleDepositRequest) (res explorer.SettleDepositResponse, err error) {
+	return explorer.SettleDepositResponse{}, nil
+}
+
 func randInt64() int64 {
 	rand.Seed(time.Now().UnixNano())
 	amount := int64(0)
