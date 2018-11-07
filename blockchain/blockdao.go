@@ -484,12 +484,12 @@ func (dao *blockDAO) getTotalExecutions() (uint64, error) {
 }
 
 // getReceiptByExecutionHash returns the receipt by execution hash
-func (dao *blockDAO) getReceiptByExecutionHash(h hash.Hash32B) (*Receipt, error) {
+func (dao *blockDAO) getReceiptByExecutionHash(h hash.Hash32B) (*action.Receipt, error) {
 	value, err := dao.kvstore.Get(blockExecutionReceiptMappingNS, h[:])
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get receipt for execution %x", h[:])
 	}
-	r := Receipt{}
+	r := action.Receipt{}
 	if err := r.Deserialize(value); err != nil {
 		return nil, err
 	}

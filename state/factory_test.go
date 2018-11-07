@@ -92,7 +92,7 @@ func TestCreateState(t *testing.T) {
 	require.NoError(err)
 	state, err := ws.LoadOrCreateAccountState(addr.RawAddress, big.NewInt(5))
 	require.NoError(err)
-	_, err = ws.RunActions(0, nil)
+	_, _, err = ws.RunActions(0, nil)
 	require.NoError(err)
 	require.NoError(sf.Commit(ws))
 	require.Equal(uint64(0x0), state.Nonce)
@@ -280,7 +280,7 @@ func TestCandidates(t *testing.T) {
 	require.NoError(t, err)
 	tx2, err := action.NewTransfer(uint64(2), big.NewInt(20), a.RawAddress, c.RawAddress, nil, uint64(0), big.NewInt(0))
 	require.NoError(t, err)
-	newRoot, err := ws.RunActions(0, []action.Action{tx1, tx2})
+	newRoot, _, err := ws.RunActions(0, []action.Action{tx1, tx2})
 	require.Nil(t, err)
 	root := newRoot
 	require.NotEqual(t, hash.ZeroHash32B, root)
@@ -299,7 +299,7 @@ func TestCandidates(t *testing.T) {
 	vote, err := action.NewVote(0, a.RawAddress, a.RawAddress, uint64(100000), big.NewInt(10))
 	vote.SetVoterPublicKey(a.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(0, []action.Action{vote})
+	newRoot, _, err = ws.RunActions(0, []action.Action{vote})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -312,7 +312,7 @@ func TestCandidates(t *testing.T) {
 	vote2, err := action.NewVote(0, b.RawAddress, b.RawAddress, uint64(100000), big.NewInt(10))
 	vote2.SetVoterPublicKey(b.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(1, []action.Action{vote2})
+	newRoot, _, err = ws.RunActions(1, []action.Action{vote2})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -327,7 +327,7 @@ func TestCandidates(t *testing.T) {
 	vote3, err := action.NewVote(1, a.RawAddress, b.RawAddress, uint64(100000), big.NewInt(10))
 	vote3.SetVoterPublicKey(a.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(2, []action.Action{vote3})
+	newRoot, _, err = ws.RunActions(2, []action.Action{vote3})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -341,7 +341,7 @@ func TestCandidates(t *testing.T) {
 	require.NoError(t, err)
 	tx3, err := action.NewTransfer(uint64(2), big.NewInt(20), b.RawAddress, a.RawAddress, nil, uint64(0), big.NewInt(0))
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(3, []action.Action{tx3})
+	newRoot, _, err = ws.RunActions(3, []action.Action{tx3})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -355,7 +355,7 @@ func TestCandidates(t *testing.T) {
 	require.NoError(t, err)
 	tx4, err := action.NewTransfer(uint64(2), big.NewInt(20), a.RawAddress, b.RawAddress, nil, uint64(0), big.NewInt(0))
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(4, []action.Action{tx4})
+	newRoot, _, err = ws.RunActions(4, []action.Action{tx4})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -370,7 +370,7 @@ func TestCandidates(t *testing.T) {
 	vote4, err := action.NewVote(1, b.RawAddress, a.RawAddress, uint64(100000), big.NewInt(10))
 	vote4.SetVoterPublicKey(b.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(5, []action.Action{vote4})
+	newRoot, _, err = ws.RunActions(5, []action.Action{vote4})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -385,7 +385,7 @@ func TestCandidates(t *testing.T) {
 	vote5, err := action.NewVote(2, b.RawAddress, b.RawAddress, uint64(100000), big.NewInt(10))
 	vote5.SetVoterPublicKey(b.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(6, []action.Action{vote5})
+	newRoot, _, err = ws.RunActions(6, []action.Action{vote5})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -400,7 +400,7 @@ func TestCandidates(t *testing.T) {
 	vote6, err := action.NewVote(3, b.RawAddress, b.RawAddress, uint64(100000), big.NewInt(10))
 	vote6.SetVoterPublicKey(b.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(7, []action.Action{vote6})
+	newRoot, _, err = ws.RunActions(7, []action.Action{vote6})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -414,7 +414,7 @@ func TestCandidates(t *testing.T) {
 	require.NoError(t, err)
 	tx5, err := action.NewTransfer(uint64(2), big.NewInt(20), c.RawAddress, a.RawAddress, nil, uint64(0), big.NewInt(0))
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(8, []action.Action{tx5})
+	newRoot, _, err = ws.RunActions(8, []action.Action{tx5})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -429,7 +429,7 @@ func TestCandidates(t *testing.T) {
 	vote7, err := action.NewVote(0, c.RawAddress, a.RawAddress, uint64(100000), big.NewInt(10))
 	vote7.SetVoterPublicKey(c.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(9, []action.Action{vote7})
+	newRoot, _, err = ws.RunActions(9, []action.Action{vote7})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -444,7 +444,7 @@ func TestCandidates(t *testing.T) {
 	vote8, err := action.NewVote(4, b.RawAddress, c.RawAddress, uint64(100000), big.NewInt(10))
 	vote8.SetVoterPublicKey(b.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(10, []action.Action{vote8})
+	newRoot, _, err = ws.RunActions(10, []action.Action{vote8})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -459,7 +459,7 @@ func TestCandidates(t *testing.T) {
 	vote9, err := action.NewVote(1, c.RawAddress, c.RawAddress, uint64(100000), big.NewInt(10))
 	vote9.SetVoterPublicKey(c.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(11, []action.Action{vote9})
+	newRoot, _, err = ws.RunActions(11, []action.Action{vote9})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -474,7 +474,7 @@ func TestCandidates(t *testing.T) {
 	vote10, err := action.NewVote(0, d.RawAddress, e.RawAddress, uint64(100000), big.NewInt(10))
 	vote10.SetVoterPublicKey(d.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(12, []action.Action{vote10})
+	newRoot, _, err = ws.RunActions(12, []action.Action{vote10})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -489,7 +489,7 @@ func TestCandidates(t *testing.T) {
 	vote11, err := action.NewVote(1, d.RawAddress, d.RawAddress, uint64(100000), big.NewInt(10))
 	vote11.SetVoterPublicKey(d.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(13, []action.Action{vote11})
+	newRoot, _, err = ws.RunActions(13, []action.Action{vote11})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -504,7 +504,7 @@ func TestCandidates(t *testing.T) {
 	vote12, err := action.NewVote(2, d.RawAddress, a.RawAddress, uint64(100000), big.NewInt(10))
 	vote12.SetVoterPublicKey(d.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(14, []action.Action{vote12})
+	newRoot, _, err = ws.RunActions(14, []action.Action{vote12})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -519,7 +519,7 @@ func TestCandidates(t *testing.T) {
 	vote13, err := action.NewVote(2, c.RawAddress, d.RawAddress, uint64(100000), big.NewInt(10))
 	vote13.SetVoterPublicKey(c.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(15, []action.Action{vote13})
+	newRoot, _, err = ws.RunActions(15, []action.Action{vote13})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -534,7 +534,7 @@ func TestCandidates(t *testing.T) {
 	vote14, err := action.NewVote(3, c.RawAddress, c.RawAddress, uint64(100000), big.NewInt(10))
 	vote14.SetVoterPublicKey(c.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(16, []action.Action{vote14})
+	newRoot, _, err = ws.RunActions(16, []action.Action{vote14})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -550,7 +550,7 @@ func TestCandidates(t *testing.T) {
 	require.NoError(t, err)
 	tx7, err := action.NewTransfer(uint64(2), big.NewInt(200), b.RawAddress, e.RawAddress, nil, uint64(0), big.NewInt(0))
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(17, []action.Action{tx6, tx7})
+	newRoot, _, err = ws.RunActions(17, []action.Action{tx6, tx7})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -565,7 +565,7 @@ func TestCandidates(t *testing.T) {
 	vote15, err := action.NewVote(0, e.RawAddress, e.RawAddress, uint64(100000), big.NewInt(10))
 	vote15.SetVoterPublicKey(e.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(18, []action.Action{vote15})
+	newRoot, _, err = ws.RunActions(18, []action.Action{vote15})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -580,7 +580,7 @@ func TestCandidates(t *testing.T) {
 	vote16, err := action.NewVote(0, f.RawAddress, f.RawAddress, uint64(100000), big.NewInt(10))
 	vote16.SetVoterPublicKey(f.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(19, []action.Action{vote16})
+	newRoot, _, err = ws.RunActions(19, []action.Action{vote16})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -598,7 +598,7 @@ func TestCandidates(t *testing.T) {
 	vote18, err := action.NewVote(1, f.RawAddress, d.RawAddress, uint64(100000), big.NewInt(10))
 	vote18.SetVoterPublicKey(f.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(20, []action.Action{vote17, vote18})
+	newRoot, _, err = ws.RunActions(20, []action.Action{vote17, vote18})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -612,7 +612,7 @@ func TestCandidates(t *testing.T) {
 	require.NoError(t, err)
 	tx8, err := action.NewTransfer(uint64(1), big.NewInt(200), f.RawAddress, b.RawAddress, nil, uint64(0), big.NewInt(0))
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(21, []action.Action{tx8})
+	newRoot, _, err = ws.RunActions(21, []action.Action{tx8})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -627,7 +627,7 @@ func TestCandidates(t *testing.T) {
 	require.NoError(t, err)
 	tx9, err := action.NewTransfer(uint64(1), big.NewInt(10), b.RawAddress, a.RawAddress, nil, uint64(0), big.NewInt(0))
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(22, []action.Action{tx9})
+	newRoot, _, err = ws.RunActions(22, []action.Action{tx9})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -641,7 +641,7 @@ func TestCandidates(t *testing.T) {
 	require.NoError(t, err)
 	tx10, err := action.NewTransfer(uint64(1), big.NewInt(300), e.RawAddress, d.RawAddress, nil, uint64(0), big.NewInt(0))
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(23, []action.Action{tx10})
+	newRoot, _, err = ws.RunActions(23, []action.Action{tx10})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -661,7 +661,7 @@ func TestCandidates(t *testing.T) {
 	vote20, err := action.NewVote(3, d.RawAddress, b.RawAddress, uint64(100000), big.NewInt(10))
 	vote20.SetVoterPublicKey(d.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(24, []action.Action{vote19, vote20})
+	newRoot, _, err = ws.RunActions(24, []action.Action{vote19, vote20})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -678,7 +678,7 @@ func TestCandidates(t *testing.T) {
 	vote21, err := action.NewVote(4, c.RawAddress, "", uint64(100000), big.NewInt(10))
 	vote21.SetVoterPublicKey(c.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(25, []action.Action{vote21})
+	newRoot, _, err = ws.RunActions(25, []action.Action{vote21})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
@@ -695,7 +695,7 @@ func TestCandidates(t *testing.T) {
 	vote22, err := action.NewVote(4, f.RawAddress, "", uint64(100000), big.NewInt(10))
 	vote22.SetVoterPublicKey(f.PublicKey)
 	require.NoError(t, err)
-	newRoot, err = ws.RunActions(26, []action.Action{vote22})
+	newRoot, _, err = ws.RunActions(26, []action.Action{vote22})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
 	require.Nil(t, sf.Commit(ws))
@@ -790,7 +790,7 @@ func TestUnvote(t *testing.T) {
 	vote1, err := action.NewVote(0, a.RawAddress, "", uint64(100000), big.NewInt(10))
 	vote1.SetVoterPublicKey(a.PublicKey)
 	require.NoError(t, err)
-	_, err = ws.RunActions(0, []action.Action{vote1})
+	_, _, err = ws.RunActions(0, []action.Action{vote1})
 	require.Nil(t, err)
 	require.Nil(t, sf.Commit(ws))
 	h, _ := sf.Height()
@@ -800,7 +800,7 @@ func TestUnvote(t *testing.T) {
 	vote2, err := action.NewVote(0, a.RawAddress, a.RawAddress, uint64(100000), big.NewInt(10))
 	vote2.SetVoterPublicKey(a.PublicKey)
 	require.NoError(t, err)
-	_, err = ws.RunActions(0, []action.Action{vote2})
+	_, _, err = ws.RunActions(0, []action.Action{vote2})
 	require.Nil(t, err)
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
@@ -810,7 +810,7 @@ func TestUnvote(t *testing.T) {
 	vote3, err := action.NewVote(0, a.RawAddress, "", uint64(100000), big.NewInt(10))
 	vote3.SetVoterPublicKey(a.PublicKey)
 	require.NoError(t, err)
-	_, err = ws.RunActions(0, []action.Action{vote3})
+	_, _, err = ws.RunActions(0, []action.Action{vote3})
 	require.Nil(t, err)
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
@@ -826,7 +826,7 @@ func TestUnvote(t *testing.T) {
 	vote6, err := action.NewVote(0, a.RawAddress, "", uint64(100000), big.NewInt(10))
 	vote6.SetVoterPublicKey(a.PublicKey)
 	require.NoError(t, err)
-	_, err = ws.RunActions(0, []action.Action{vote4, vote5, vote6})
+	_, _, err = ws.RunActions(0, []action.Action{vote4, vote5, vote6})
 	require.Nil(t, err)
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()

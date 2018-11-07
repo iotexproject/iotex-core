@@ -39,10 +39,10 @@ type Protocol struct {
 func NewProtocol(bc blockchain.Blockchain) *Protocol { return &Protocol{bc: bc} }
 
 // Handle handles a vote
-func (p *Protocol) Handle(act action.Action, ws state.WorkingSet) error {
+func (p *Protocol) Handle(act action.Action, ws state.WorkingSet) (*action.Receipt, error) {
 	vote, ok := act.(*action.Vote)
 	if !ok {
-		return nil
+		return nil, nil
 	}
 	// Get candidateList from trie and convert it to candidates map
 	candidateMap, err := p.getCandidateMap(ws.Height(), ws)
@@ -51,17 +51,17 @@ func (p *Protocol) Handle(act action.Action, ws state.WorkingSet) error {
 		if ws.Height() == uint64(0) {
 			candidateMap = make(map[hash.PKHash]*state.Candidate)
 		} else if candidateMap, err = p.getCandidateMap(ws.Height()-1, ws); err != nil {
-			return errors.Wrapf(err, "failed to get candidates on height %d from trie", ws.Height()-1)
+			return nil, errors.Wrapf(err, "failed to get candidates on height %d from trie", ws.Height()-1)
 		}
 	case err != nil:
-		return errors.Wrapf(err, "failed to get candidates on height %d from trie", ws.Height())
+		return nil, errors.Wrapf(err, "failed to get candidates on height %d from trie", ws.Height())
 	}
 
 	p.cachedCandidates = candidateMap
 
 	voteFrom, err := account.LoadOrCreateAccountState(ws, vote.Voter(), big.NewInt(0))
 	if err != nil {
-		return errors.Wrapf(err, "failed to load or create the account of voter %s", vote.Voter())
+		return nil, errors.Wrapf(err, "failed to load or create the account of voter %s", vote.Voter())
 	}
 	// Update voteFrom Nonce
 	account.SetNonce(vote, voteFrom)
@@ -73,7 +73,7 @@ func (p *Protocol) Handle(act action.Action, ws state.WorkingSet) error {
 		// Remove the candidate from candidateMap if the person is not a candidate anymore
 		addrHash, err := iotxaddress.AddressToPKHash(vote.Voter())
 		if err != nil {
-			return errors.Wrap(err, "failed to convert address to public key hash")
+			return nil, errors.Wrap(err, "failed to convert address to public key hash")
 		}
 		if _, ok := candidateMap[addrHash]; ok {
 			delete(candidateMap, addrHash)
@@ -82,12 +82,12 @@ func (p *Protocol) Handle(act action.Action, ws state.WorkingSet) error {
 		// Vote to self: self-nomination
 		voteFrom.IsCandidate = true
 		if err := p.addCandidate(vote, ws.Height()); err != nil {
-			return errors.Wrap(err, "failed to add candidate to candidate map")
+			return nil, errors.Wrap(err, "failed to add candidate to candidate map")
 		}
 	}
 	// Put updated voter's state to trie
 	if err := account.StoreState(ws, vote.Voter(), voteFrom); err != nil {
-		return errors.Wrap(err, "failed to update pending account changes to trie")
+		return nil, errors.Wrap(err, "failed to update pending account changes to trie")
 	}
 
 	// Update old votee's weight
@@ -95,12 +95,12 @@ func (p *Protocol) Handle(act action.Action, ws state.WorkingSet) error {
 		// voter already voted
 		oldVotee, err := account.LoadOrCreateAccountState(ws, prevVotee, big.NewInt(0))
 		if err != nil {
-			return errors.Wrapf(err, "failed to load or create the account of voter's old votee %s", prevVotee)
+			return nil, errors.Wrapf(err, "failed to load or create the account of voter's old votee %s", prevVotee)
 		}
 		oldVotee.VotingWeight.Sub(oldVotee.VotingWeight, voteFrom.Balance)
 		// Put updated state of voter's old votee to trie
 		if err := account.StoreState(ws, prevVotee, oldVotee); err != nil {
-			return errors.Wrap(err, "failed to update pending account changes to trie")
+			return nil, errors.Wrap(err, "failed to update pending account changes to trie")
 		}
 		// Update candidate map
 		if oldVotee.IsCandidate {
@@ -111,14 +111,14 @@ func (p *Protocol) Handle(act action.Action, ws state.WorkingSet) error {
 	if vote.Votee() != "" {
 		voteTo, err := account.LoadOrCreateAccountState(ws, vote.Votee(), big.NewInt(0))
 		if err != nil {
-			return errors.Wrapf(err, "failed to load or create the account of votee %s", vote.Votee())
+			return nil, errors.Wrapf(err, "failed to load or create the account of votee %s", vote.Votee())
 		}
 		// Update new votee's weight
 		voteTo.VotingWeight.Add(voteTo.VotingWeight, voteFrom.Balance)
 
 		// Put updated votee's state to trie
 		if err := account.StoreState(ws, vote.Votee(), voteTo); err != nil {
-			return errors.Wrap(err, "failed to update pending account changes to trie")
+			return nil, errors.Wrap(err, "failed to update pending account changes to trie")
 		}
 		// Update candidate map
 		if voteTo.IsCandidate {
@@ -129,17 +129,17 @@ func (p *Protocol) Handle(act action.Action, ws state.WorkingSet) error {
 	// Put updated candidate map to trie
 	candidateList, err := state.MapToCandidates(candidateMap)
 	if err != nil {
-		return errors.Wrap(err, "failed to convert candidate map to candidate list")
+		return nil, errors.Wrap(err, "failed to convert candidate map to candidate list")
 	}
 	sort.Sort(candidateList)
 	candidatesKey := p.constructKey(ws.Height())
 	if err := ws.PutState(candidatesKey, &candidateList); err != nil {
-		return errors.Wrap(err, "failed to put updated candidates to trie")
+		return nil, errors.Wrap(err, "failed to put updated candidates to trie")
 	}
 
 	// clear cached candidates
 	p.cachedCandidates = nil
-	return nil
+	return nil, nil
 }
 
 // Validate validates a vote

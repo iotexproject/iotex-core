@@ -141,7 +141,7 @@ func securityDeposit(ps *EVMParams, stateDB vm.StateDB, gasLimit *uint64) error 
 // ExecuteContracts process the contracts in a block
 func ExecuteContracts(blk *Block, ws state.WorkingSet, bc Blockchain) {
 	gasLimit := GasLimit
-	blk.receipts = make(map[hash.Hash32B]*Receipt)
+	blk.receipts = make(map[hash.Hash32B]*action.Receipt)
 	_, _, executions := action.ClassifyActions(blk.Actions)
 	for idx, execution := range executions {
 		// TODO (zhi) log receipt to stateDB
@@ -152,14 +152,21 @@ func ExecuteContracts(blk *Block, ws state.WorkingSet, bc Blockchain) {
 }
 
 // executeContract processes a transfer which contains a contract
-func executeContract(blk *Block, ws state.WorkingSet, idx int, execution *action.Execution, bc Blockchain, gasLimit *uint64) (*Receipt, error) {
+func executeContract(
+	blk *Block,
+	ws state.WorkingSet,
+	idx int,
+	execution *action.Execution,
+	bc Blockchain,
+	gasLimit *uint64,
+) (*action.Receipt, error) {
 	stateDB := NewEVMStateDBAdapter(bc, ws, blk.Height(), blk.HashBlock(), uint(idx), execution.Hash())
 	ps, err := NewEVMParams(blk, execution, stateDB)
 	if err != nil {
 		return nil, err
 	}
 	retval, depositGas, remainingGas, contractAddress, err := executeInEVM(ps, stateDB, gasLimit)
-	receipt := &Receipt{
+	receipt := &action.Receipt{
 		ReturnValue:     retval,
 		GasConsumed:     ps.gas - remainingGas,
 		Hash:            execution.Hash(),

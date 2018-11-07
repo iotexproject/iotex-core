@@ -38,17 +38,17 @@ func NewProtocol(chain blockchain.Blockchain, mainChainAPI explorer.Explorer) *P
 }
 
 // Handle handles how to mutate the state db given the multi-chain action on sub-chain
-func (p *Protocol) Handle(act action.Action, ws state.WorkingSet) error {
+func (p *Protocol) Handle(act action.Action, ws state.WorkingSet) (*action.Receipt, error) {
 	switch act := act.(type) {
 	case *action.SettleDeposit:
 		if err := p.validateDeposit(act, ws); err != nil {
-			return errors.Wrapf(err, "error when handling deposit settlement action")
+			return nil, errors.Wrapf(err, "error when handling deposit settlement action")
 		}
 		if err := p.mutateDeposit(act, ws); err != nil {
-			return errors.Wrapf(err, "error when handling deposit settlement action")
+			return nil, errors.Wrapf(err, "error when handling deposit settlement action")
 		}
 	}
-	return nil
+	return nil, nil
 }
 
 // Validate validates the multi-chain action on sub-chain

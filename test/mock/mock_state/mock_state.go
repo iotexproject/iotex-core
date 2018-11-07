@@ -214,10 +214,11 @@ func (m *MockActionHandler) EXPECT() *MockActionHandlerMockRecorder {
 }
 
 // Handle mocks base method
-func (m *MockActionHandler) Handle(arg0 action.Action, arg1 state.WorkingSet) error {
+func (m *MockActionHandler) Handle(arg0 action.Action, arg1 state.WorkingSet) (*action.Receipt, error) {
 	ret := m.ctrl.Call(m, "Handle", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(*action.Receipt)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // Handle indicates an expected call of Handle
