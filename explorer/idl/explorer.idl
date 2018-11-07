@@ -252,6 +252,23 @@ struct Deposit {
     confirmed bool
 }
 
+struct SettleDepositRequest {
+    version int
+    nonce int
+    sender string
+    senderPubKey string
+    recipient string
+    amount string
+    index int
+    signature string
+    gasLimit int
+    gasPrice string
+}
+
+struct SettleDepositResponse {
+    hash string
+}
+
 interface Explorer {
     // get the blockchain tip height
     getBlockchainHeight() int
@@ -357,4 +374,7 @@ interface Explorer {
 
     // get deposits on a sub-chain
     getDeposits(subChainID int, offset int, limit int) []Deposit
+
+    // settle deposit on sub-chain. This is a sub-chain API
+    settleDeposit(request SettleDepositRequest) SettleDepositResponse
 }
