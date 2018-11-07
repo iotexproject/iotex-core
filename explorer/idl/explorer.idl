@@ -386,4 +386,7 @@ interface Explorer {
 
     // estimate gas for vote
     estimateGasForVote(request SendVoteRequest) int
+
+    // estimate gas for smart contract
+    estimateGasForSmartContract(request Execution) int
 }
