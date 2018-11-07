@@ -511,7 +511,7 @@ func (m *MockExplorer) SuggestGasPrice() (int64, error) {
 
 // SuggestGasPrice indicates an expected call of SuggestGasPrice
 func (mr *MockExplorerMockRecorder) SuggestGasPrice() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SuggestGasPrice", reflect.TypeOf((*MockExplorer)(nil).Deposit))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SuggestGasPrice", reflect.TypeOf((*MockExplorer)(nil).SuggestGasPrice))
 }
 
 // EstimateGasForTransfer mocks base method
@@ -538,17 +538,4 @@ func (m *MockExplorer) EstimateGasForVote(request explorer.SendVoteRequest) (int
 // EstimateGasForVote indicates an expected call of EstimateGasForVote
 func (mr *MockExplorerMockRecorder) EstimateGasForVote(request interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EstimateGasForVote", reflect.TypeOf((*MockExplorer)(nil).EstimateGasForVote), request)
-}
-
-// EstimateGasForSmartContract mocks base method EstimateGasForSmartContract
-func (m *MockExplorer) EstimateGasForSmartContract(request explorer.Execution) (int64, error) {
-	ret := m.ctrl.Call(m, "EstimateGasForSmartContract", request)
-	ret0, _ := ret[0].(int64)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// EstimateGasForSmartContract indicates an expected call of EstimateGasForSmartContract
-func (mr *MockExplorerMockRecorder) EstimateGasForSmartContract(request interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EstimateGasForSmartContract", reflect.TypeOf((*MockExplorer)(nil).EstimateGasForSmartContract), request)
 }
