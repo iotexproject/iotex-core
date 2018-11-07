@@ -187,6 +187,7 @@ func TestRollDice(t *testing.T) {
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
+	cfg.Chain.EnableGasCharge = true
 	cfg.Explorer.Enabled = true
 	bc := NewBlockchain(&cfg, DefaultStateFactoryOption(), BoltDBDaoOption())
 	require.NoError(bc.Start(ctx))

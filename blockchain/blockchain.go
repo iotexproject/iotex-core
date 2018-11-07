@@ -790,7 +790,7 @@ func (bc *blockchain) ExecuteContractRead(ex *action.Execution) ([]byte, error) 
 	}
 	gasLimit := GasLimit
 	gasLimitPtr := &gasLimit
-	ExecuteContracts(blk, ws, bc, gasLimitPtr)
+	ExecuteContracts(blk, ws, bc, gasLimitPtr, bc.config.Chain.EnableGasCharge)
 	// pull the results from receipt
 	exHash := ex.Hash()
 	receipt, ok := blk.receipts[exHash]
@@ -862,7 +862,7 @@ func (bc *blockchain) runActions(blk *Block, ws state.WorkingSet, verify bool) (
 	gasLimit := GasLimit
 	// run executions
 	if _, _, executions := action.ClassifyActions(blk.Actions); len(executions) > 0 {
-		ExecuteContracts(blk, ws, bc, &gasLimit)
+		ExecuteContracts(blk, ws, bc, &gasLimit, bc.config.Chain.EnableGasCharge)
 	}
 	// update state factory
 	ctx := state.Context{blk.ProducerAddress(), &gasLimit, bc.config.Chain.EnableGasCharge}
