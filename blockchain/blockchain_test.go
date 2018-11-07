@@ -782,7 +782,7 @@ func TestBlocks(t *testing.T) {
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
 	ctx := state.Context{ta.Addrinfo["producer"].RawAddress, &gasLimit, testutil.EnableGasCharge}
-	_, err = ws.RunActions(0, nil, ctx)
+	_, _, err = ws.RunActions(0, nil, ctx)
 	require.NoError(err)
 	require.NoError(sf.Commit(ws))
 
@@ -830,7 +830,7 @@ func TestActions(t *testing.T) {
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
 	ctx := state.Context{ta.Addrinfo["producer"].RawAddress, &gasLimit, testutil.EnableGasCharge}
-	_, err = ws.RunActions(0, nil, ctx)
+	_, _, err = ws.RunActions(0, nil, ctx)
 	require.NoError(err)
 	require.NoError(sf.Commit(ws))
 

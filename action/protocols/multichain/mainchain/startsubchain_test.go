@@ -237,7 +237,7 @@ func TestHandleStartSubChain(t *testing.T) {
 	require.NoError(t, err)
 	gasLimit := testutil.TestGasLimit
 	stateContext := state.Context{testaddress.Addrinfo["producer"].RawAddress, &gasLimit, testutil.EnableGasCharge}
-	_, err = ws.RunActions(0, nil, stateContext)
+	_, _, err = ws.RunActions(0, nil, stateContext)
 	require.NoError(t, err)
 	require.NoError(t, sf.Commit(ws))
 

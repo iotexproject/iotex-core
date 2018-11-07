@@ -986,7 +986,7 @@ func addCreatorToFactory(sf state.Factory) error {
 	}
 	gasLimit := testutil.TestGasLimit
 	ctx := state.Context{ta.Addrinfo["producer"].RawAddress, &gasLimit, testutil.EnableGasCharge}
-	if _, err = ws.RunActions(0, nil, ctx); err != nil {
+	if _, _, err = ws.RunActions(0, nil, ctx); err != nil {
 		return err
 	}
 	if err = sf.Commit(ws); err != nil {

@@ -735,7 +735,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 				require.NoError(t, err)
 				gasLimit := testutil.TestGasLimit
 				stateCtx := state.Context{testaddress.Addrinfo["producer"].RawAddress, &gasLimit, testutil.EnableGasCharge}
-				_, err = ws.RunActions(0, nil, stateCtx)
+				_, _, err = ws.RunActions(0, nil, stateCtx)
 				require.NoError(t, err)
 				require.NoError(t, sf.Commit(ws))
 			}

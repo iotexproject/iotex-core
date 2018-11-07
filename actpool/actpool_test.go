@@ -96,7 +96,7 @@ func TestActPool_validateGenericAction(t *testing.T) {
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
 	ctx := state.Context{testaddress.Addrinfo["producer"].RawAddress, &gasLimit, testutil.EnableGasCharge}
-	_, err = ws.RunActions(0, []action.Action{prevTsf}, ctx)
+	_, _, err = ws.RunActions(0, []action.Action{prevTsf}, ctx)
 	require.NoError(err)
 	require.Nil(sf.Commit(ws))
 	ap.Reset()
@@ -385,7 +385,7 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
 	ctx := state.Context{testaddress.Addrinfo["producer"].RawAddress, &gasLimit, testutil.EnableGasCharge}
-	_, err = ws.RunActions(0, []action.Action{tsf1, tsf2, tsf3, vote4}, ctx)
+	_, _, err = ws.RunActions(0, []action.Action{tsf1, tsf2, tsf3, vote4}, ctx)
 	require.NoError(err)
 	require.Nil(sf.Commit(ws))
 	ap.removeConfirmedActs()
@@ -543,7 +543,7 @@ func TestActPool_Reset(t *testing.T) {
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
 	ctx := state.Context{testaddress.Addrinfo["producer"].RawAddress, &gasLimit, testutil.EnableGasCharge}
-	_, err = ws.RunActions(0, pickedActs, ctx)
+	_, _, err = ws.RunActions(0, pickedActs, ctx)
 	require.NoError(err)
 	require.Nil(sf.Commit(ws))
 	//Reset
@@ -655,7 +655,7 @@ func TestActPool_Reset(t *testing.T) {
 	ws, err = sf.NewWorkingSet()
 	require.NoError(err)
 	ctx = state.Context{testaddress.Addrinfo["producer"].RawAddress, &gasLimit, testutil.EnableGasCharge}
-	_, err = ws.RunActions(0, pickedActs, ctx)
+	_, _, err = ws.RunActions(0, pickedActs, ctx)
 	require.NoError(err)
 	require.Nil(sf.Commit(ws))
 	//Reset
@@ -748,7 +748,7 @@ func TestActPool_Reset(t *testing.T) {
 	ws, err = sf.NewWorkingSet()
 	require.NoError(err)
 	ctx = state.Context{testaddress.Addrinfo["producer"].RawAddress, &gasLimit, testutil.EnableGasCharge}
-	_, err = ws.RunActions(0, pickedActs, ctx)
+	_, _, err = ws.RunActions(0, pickedActs, ctx)
 	require.NoError(err)
 	require.Nil(sf.Commit(ws))
 	//Reset
@@ -978,7 +978,7 @@ func TestActPool_GetSize(t *testing.T) {
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
 	ctx := state.Context{testaddress.Addrinfo["producer"].RawAddress, &gasLimit, testutil.EnableGasCharge}
-	_, err = ws.RunActions(0, []action.Action{tsf1, tsf2, tsf3, vote4}, ctx)
+	_, _, err = ws.RunActions(0, []action.Action{tsf1, tsf2, tsf3, vote4}, ctx)
 	require.NoError(err)
 	require.Nil(sf.Commit(ws))
 	ap.removeConfirmedActs()

@@ -50,7 +50,7 @@ func TestHandlePutBlock(t *testing.T) {
 	require.NoError(t, err)
 	gasLimit := testutil.TestGasLimit
 	stateContext := state.Context{testaddress.Addrinfo["producer"].RawAddress, &gasLimit, testutil.EnableGasCharge}
-	_, err = ws.RunActions(0, nil, stateContext)
+	_, _, err = ws.RunActions(0, nil, stateContext)
 	require.NoError(t, err)
 	require.NoError(t, sf.Commit(ws))
 
@@ -77,11 +77,13 @@ func TestHandlePutBlock(t *testing.T) {
 	)
 
 	// first put
-	require.NoError(t, p.Handle(pb, ws))
+	_, err = p.Handle(pb, ws)
+	require.NoError(t, err)
 	require.NoError(t, sf.Commit(ws))
 
 	// alredy exist
-	require.Error(t, p.Handle(pb, ws))
+	_, err = p.Handle(pb, ws)
+	require.Error(t, err)
 
 	// get exist
 	bp, exist := p.getBlockProof(pb.SubChainAddress(), pb.Height())
@@ -102,7 +104,8 @@ func TestHandlePutBlock(t *testing.T) {
 		10003,
 		big.NewInt(10004),
 	)
-	require.NoError(t, p.Handle(pb2, ws))
+	_, err = p.Handle(pb2, ws)
+	require.NoError(t, err)
 	require.NoError(t, sf.Commit(ws))
 
 	// get new one

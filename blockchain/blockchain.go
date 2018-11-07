@@ -80,7 +80,7 @@ type Blockchain interface {
 	// GetBlockHashByExecutionHash returns Block hash by execution hash
 	GetBlockHashByExecutionHash(h hash.Hash32B) (hash.Hash32B, error)
 	// GetReceiptByExecutionHash returns the receipt by execution hash
-	GetReceiptByExecutionHash(h hash.Hash32B) (*Receipt, error)
+	GetReceiptByExecutionHash(h hash.Hash32B) (*action.Receipt, error)
 	// GetFactory returns the state factory
 	GetFactory() state.Factory
 	// GetChainID returns the chain ID
@@ -314,7 +314,7 @@ func (bc *blockchain) startEmptyBlockchain() error {
 	}
 	gasLimit := GasLimit
 	ctx := state.Context{genesis.ProducerAddress(), &gasLimit, bc.config.Chain.EnableGasCharge}
-	if _, err := ws.RunActions(0, nil, ctx); err != nil {
+	if _, _, err := ws.RunActions(0, nil, ctx); err != nil {
 		return errors.Wrap(err, "failed to create Creator into StateFactory")
 	}
 	if err := bc.sf.Commit(ws); err != nil {
@@ -361,7 +361,7 @@ func (bc *blockchain) startExistingBlockchain(recoveryHeight uint64) error {
 		}
 		gasLimit := GasLimit
 		ctx := state.Context{genesisBlk.ProducerAddress(), &gasLimit, bc.config.Chain.EnableGasCharge}
-		if _, err := ws.RunActions(0, nil, ctx); err != nil {
+		if _, _, err := ws.RunActions(0, nil, ctx); err != nil {
 			return errors.Wrap(err, "failed to create Creator into StateFactory")
 		}
 		if err := bc.sf.Commit(ws); err != nil {
@@ -430,7 +430,7 @@ func (bc *blockchain) CreateState(addr string, init *big.Int) (*state.Account, e
 	}
 	gasLimit := GasLimit
 	ctx := state.Context{genesisBlk.ProducerAddress(), &gasLimit, bc.config.Chain.EnableGasCharge}
-	if _, err = ws.RunActions(0, nil, ctx); err != nil {
+	if _, _, err = ws.RunActions(0, nil, ctx); err != nil {
 		return nil, errors.Wrap(err, "failed to run the account creation")
 	}
 	if err = bc.sf.Commit(ws); err != nil {
@@ -631,7 +631,7 @@ func (bc *blockchain) GetBlockHashByExecutionHash(h hash.Hash32B) (hash.Hash32B,
 }
 
 // GetReceiptByExecutionHash returns the receipt by execution hash
-func (bc *blockchain) GetReceiptByExecutionHash(h hash.Hash32B) (*Receipt, error) {
+func (bc *blockchain) GetReceiptByExecutionHash(h hash.Hash32B) (*action.Receipt, error) {
 	if !bc.config.Explorer.Enabled {
 		return nil, errors.New("explorer not enabled")
 	}
@@ -866,7 +866,7 @@ func (bc *blockchain) runActions(blk *Block, ws state.WorkingSet, verify bool) (
 	}
 	// update state factory
 	ctx := state.Context{blk.ProducerAddress(), &gasLimit, bc.config.Chain.EnableGasCharge}
-	root, err := ws.RunActions(blk.Height(), blk.Actions, ctx)
+	root, receipts, err := ws.RunActions(blk.Height(), blk.Actions, ctx)
 	if err != nil {
 		return root, err
 	}
@@ -875,6 +875,9 @@ func (bc *blockchain) runActions(blk *Block, ws state.WorkingSet, verify bool) (
 		if err = blk.VerifyStateRoot(root); err != nil {
 			return root, err
 		}
+	}
+	for hash, receipt := range receipts {
+		blk.receipts[hash] = receipt
 	}
 	return root, nil
 }
