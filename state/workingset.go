@@ -15,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/CoderZhi/go-ethereum/core/vm"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/iotxaddress"
@@ -268,7 +269,7 @@ func (ws *workingSet) RunActions(
 	receipts := make(map[hash.Hash32B]*action.Receipt)
 	for _, act := range actions {
 		for _, actionHandler := range ws.actionHandlers {
-			receipt, err := actionHandler.Handle(act, ws)
+			receipt, err := actionHandler.Handle(ctx, act, ws)
 			if err != nil {
 				return hash.ZeroHash32B, nil, errors.Wrapf(
 					err,

@@ -7,6 +7,7 @@
 package subchain
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 
@@ -38,7 +39,7 @@ func NewProtocol(chain blockchain.Blockchain, mainChainAPI explorer.Explorer) *P
 }
 
 // Handle handles how to mutate the state db given the multi-chain action on sub-chain
-func (p *Protocol) Handle(act action.Action, ws state.WorkingSet) (*action.Receipt, error) {
+func (p *Protocol) Handle(_ context.Context, act action.Action, ws state.WorkingSet) (*action.Receipt, error) {
 	switch act := act.(type) {
 	case *action.SettleDeposit:
 		if err := p.validateDeposit(act, ws); err != nil {
@@ -52,7 +53,7 @@ func (p *Protocol) Handle(act action.Action, ws state.WorkingSet) (*action.Recei
 }
 
 // Validate validates the multi-chain action on sub-chain
-func (p *Protocol) Validate(act action.Action) error {
+func (p *Protocol) Validate(_ context.Context, act action.Action) error {
 	switch act := act.(type) {
 	case *action.SettleDeposit:
 		if err := p.validateDeposit(act, nil); err != nil {

@@ -7,6 +7,7 @@
 package vote
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 	"sort"
@@ -39,7 +40,7 @@ type Protocol struct {
 func NewProtocol(bc blockchain.Blockchain) *Protocol { return &Protocol{bc: bc} }
 
 // Handle handles a vote
-func (p *Protocol) Handle(act action.Action, ws state.WorkingSet) (*action.Receipt, error) {
+func (p *Protocol) Handle(_ context.Context, act action.Action, ws state.WorkingSet) (*action.Receipt, error) {
 	vote, ok := act.(*action.Vote)
 	if !ok {
 		return nil, nil
@@ -143,7 +144,7 @@ func (p *Protocol) Handle(act action.Action, ws state.WorkingSet) (*action.Recei
 }
 
 // Validate validates a vote
-func (p *Protocol) Validate(act action.Action) error {
+func (p *Protocol) Validate(_ context.Context, act action.Action) error {
 	vote, ok := act.(*action.Vote)
 	if !ok {
 		return nil

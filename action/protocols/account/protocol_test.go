@@ -64,7 +64,7 @@ func TestProtocol_Handle(t *testing.T) {
 	transfer, err := action.NewTransfer(uint64(1), big.NewInt(2), testaddress.Addrinfo["alfa"].RawAddress,
 		testaddress.Addrinfo["bravo"].RawAddress, []byte{}, uint64(10000), big.NewInt(0))
 	require.NoError(err)
-	_, err = protocol.Handle(transfer, ws)
+	_, err = protocol.Handle(context.Background(), transfer, ws)
 	require.NoError(err)
 	require.NoError(sf.Commit(ws))
 
@@ -89,7 +89,7 @@ func TestProtocol_Validate(t *testing.T) {
 	protocol := NewProtocol()
 	// Case I: Coinbase transfer
 	coinbaseTsf := action.NewCoinBaseTransfer(big.NewInt(1), "1")
-	err := protocol.Validate(coinbaseTsf)
+	err := protocol.Validate(context.Background(), coinbaseTsf)
 	require.Equal(action.ErrTransfer, errors.Cause(err))
 	// Case II: Oversized data
 	tmpPayload := [32769]byte{}
@@ -97,13 +97,13 @@ func TestProtocol_Validate(t *testing.T) {
 	tsf, err := action.NewTransfer(uint64(1), big.NewInt(1), "1", "2", payload, uint64(0),
 		big.NewInt(0))
 	require.NoError(err)
-	err = protocol.Validate(tsf)
+	err = protocol.Validate(context.Background(), tsf)
 	require.Equal(action.ErrActPool, errors.Cause(err))
 	// Case III: Negative amount
 	tsf, err = action.NewTransfer(uint64(1), big.NewInt(-100), "1", "2", nil,
 		uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	err = protocol.Validate(tsf)
+	err = protocol.Validate(context.Background(), tsf)
 	require.Equal(action.ErrBalance, errors.Cause(err))
 	// Case IV: Invalid address
 	tsf, err = action.NewTransfer(
@@ -116,7 +116,7 @@ func TestProtocol_Validate(t *testing.T) {
 		big.NewInt(0),
 	)
 	require.NoError(err)
-	err = protocol.Validate(tsf)
+	err = protocol.Validate(context.Background(), tsf)
 	require.Error(err)
 	require.True(strings.Contains(err.Error(), "error when validating recipient's address"))
 }

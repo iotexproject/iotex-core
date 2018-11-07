@@ -7,6 +7,8 @@
 package execution
 
 import (
+	"context"
+
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -24,7 +26,7 @@ type Protocol struct{}
 func NewProtocol() *Protocol { return &Protocol{} }
 
 // Handle handles an execution
-func (p *Protocol) Handle(act action.Action, ws state.WorkingSet) (*action.Receipt, error) {
+func (p *Protocol) Handle(_ context.Context, act action.Action, ws state.WorkingSet) (*action.Receipt, error) {
 	exec, ok := act.(*action.Execution)
 	if !ok {
 		return nil, nil
@@ -49,7 +51,7 @@ func (p *Protocol) Handle(act action.Action, ws state.WorkingSet) (*action.Recei
 }
 
 // Validate validates an execution
-func (p *Protocol) Validate(act action.Action) error {
+func (p *Protocol) Validate(_ context.Context, act action.Action) error {
 	exec, ok := act.(*action.Execution)
 	if !ok {
 		return nil
