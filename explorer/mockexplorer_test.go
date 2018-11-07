@@ -84,6 +84,9 @@ func TestMockExplorerApi(t *testing.T) {
 	_, err = svc.GetDeposits(3, 2, 1)
 	require.Nil(err)
 
+	_, err = svc.SettleDeposit(explorer.SettleDepositRequest{})
+	require.Nil(err)
+
 	randInt64 := randInt64()
 	require.NotNil(randInt64)
 

@@ -884,6 +884,58 @@ func TestService_CreateDeposit(t *testing.T) {
 	require.Equal(hex.EncodeToString(hash[:]), res.Hash)
 }
 
+func TestService_SettleDeposit(t *testing.T) {
+	t.Parallel()
+
+	require := require.New(t)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	cfg := config.Default
+	bc := mock_blockchain.NewMockBlockchain(ctrl)
+	bc.EXPECT().ChainID().Return(uint32(1)).Times(2)
+	dp := mock_dispatcher.NewMockDispatcher(ctrl)
+	dp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
+	p2p := mock_network.NewMockOverlay(ctrl)
+	p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(1)
+
+	svc := Service{
+		cfg: cfg.Explorer,
+		bc:  bc,
+		p2p: p2p,
+		dp:  dp,
+	}
+
+	deposit := action.NewSettleDeposit(
+		10,
+		big.NewInt(10000),
+		100000,
+		ta.Addrinfo["producer"].RawAddress,
+		// Test explorer only, so that it doesn't matter the address is not on sub-chain
+		ta.Addrinfo["alfa"].RawAddress,
+		1000,
+		big.NewInt(100),
+	)
+	require.NoError(action.Sign(deposit, ta.Addrinfo["producer"].PrivateKey))
+
+	res, error := svc.SettleDeposit(explorer.SettleDepositRequest{
+		Version:      int64(deposit.Version()),
+		Nonce:        int64(deposit.Nonce()),
+		Sender:       deposit.Sender(),
+		SenderPubKey: keypair.EncodePublicKey(deposit.SenderPublicKey()),
+		Recipient:    deposit.Recipient(),
+		Amount:       deposit.Amount().String(),
+		Index:        int64(deposit.Index()),
+		Signature:    hex.EncodeToString(deposit.Signature()),
+		GasLimit:     int64(deposit.GasLimit()),
+		GasPrice:     deposit.GasPrice().String(),
+	})
+	require.NoError(error)
+	hash := deposit.Hash()
+	require.Equal(hex.EncodeToString(hash[:]), res.Hash)
+}
+
 func TestService_GetDeposits(t *testing.T) {
 	t.Parallel()
 

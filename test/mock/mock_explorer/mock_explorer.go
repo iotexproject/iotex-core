@@ -487,3 +487,16 @@ func (m *MockExplorer) GetDeposits(subChainID, offset, limit int64) ([]explorer.
 func (mr *MockExplorerMockRecorder) GetDeposits(subChainID, offset, limit interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDeposits", reflect.TypeOf((*MockExplorer)(nil).GetDeposits), subChainID, offset, limit)
 }
+
+// SettleDeposit mocks base method
+func (m *MockExplorer) SettleDeposit(request explorer.SettleDepositRequest) (explorer.SettleDepositResponse, error) {
+	ret := m.ctrl.Call(m, "SettleDeposit", request)
+	ret0, _ := ret[0].(explorer.SettleDepositResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SettleDeposit indicates an expected call of SettleDeposit
+func (mr *MockExplorerMockRecorder) SettleDeposit(request interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SettleDeposit", reflect.TypeOf((*MockExplorer)(nil).SettleDeposit), request)
+}
