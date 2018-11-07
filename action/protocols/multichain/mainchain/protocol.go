@@ -15,7 +15,6 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
@@ -31,24 +30,19 @@ var (
 
 // Protocol defines the protocol of handling multi-chain actions on main-chain
 type Protocol struct {
-	cfg       *config.Config
 	rootChain blockchain.Blockchain
 	sf        state.Factory
 }
 
 // NewProtocol instantiates the protocol of sub-chain
-func NewProtocol(
-	cfg *config.Config,
-	rootChain blockchain.Blockchain,
-) *Protocol {
+func NewProtocol(rootChain blockchain.Blockchain) *Protocol {
 	return &Protocol{
-		cfg:       cfg,
 		rootChain: rootChain,
 		sf:        rootChain.GetFactory(),
 	}
 }
 
-// Handle handles how to mutate the state db given the multi-chain action
+// Handle handles how to mutate the state db given the multi-chain action on main-chain
 func (p *Protocol) Handle(act action.Action, ws state.WorkingSet) error {
 	switch act := act.(type) {
 	case *action.StartSubChain:
@@ -61,14 +55,14 @@ func (p *Protocol) Handle(act action.Action, ws state.WorkingSet) error {
 		}
 	case *action.CreateDeposit:
 		if err := p.handleDeposit(act, ws); err != nil {
-			return errors.Wrapf(err, "error when handling deposit action")
+			return errors.Wrapf(err, "error when handling deposit creation action")
 		}
 	}
 	// The action is not handled by this handler or no error
 	return nil
 }
 
-// Validate validates the multi-chain action
+// Validate validates the multi-chain action on main-chain
 func (p *Protocol) Validate(act action.Action) error {
 	switch act := act.(type) {
 	case *action.StartSubChain:
@@ -81,7 +75,7 @@ func (p *Protocol) Validate(act action.Action) error {
 		}
 	case *action.CreateDeposit:
 		if _, _, err := p.validateDeposit(act, nil); err != nil {
-			return errors.Wrapf(err, "error when validating deposit action")
+			return errors.Wrapf(err, "error when validating deposit creation action")
 		}
 	}
 	// The action is not validated by this handler or no error
