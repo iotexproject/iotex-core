@@ -165,7 +165,6 @@ func executeContract(
 	if err != nil {
 		return nil, err
 	}
-
 	retval, depositGas, remainingGas, contractAddress, err := executeInEVM(ps, stateDB, gasLimit)
 	if !enableGasCharge {
 		remainingGas = depositGas
