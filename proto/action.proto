@@ -146,11 +146,24 @@ message ActionPb {
         ExecutionPb execution = 12;
         SecretProposalPb secretProposal = 13;
         SecretWitnessPb secretWitness = 14;
+        // FedChain
         StartSubChainPb startSubChain = 15;
         StopSubChainPb stopSubChain = 16;
         PutBlockPb putBlock = 17;
         CreateDepositPb createDeposit = 18;
         SettleDepositPb settleDeposit = 19;
+
+        // PlumChain
+        CreatePlumChainPb createPlumChain = 20;
+        TerminatePlumChainPb terminatePlumChain = 21;
+        PlumPutBlockPb plumPutBlock = 22;
+        PlumCreateDepositPb plumCreateDeposit = 23;
+        PlumStartExitPb plumStartExit = 24;
+        PlumChallengeExit plumChallengeExit = 25;
+        PlumResponseChallengeExit plumResponseChallengeExit = 26;
+        PlumFinalizeExit plumFinalizeExit = 27;
+        PlumSettleDepositPb plumSettleDeposit = 28;
+        PlumTransferPb plumTransfer = 29;
     }
 }
 
