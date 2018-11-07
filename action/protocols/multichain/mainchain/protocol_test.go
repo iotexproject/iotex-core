@@ -37,7 +37,7 @@ func TestAddSubChainActions(t *testing.T) {
 	require.NoError(t, err)
 	ap, err := actpool.NewActPool(bc, cfg.ActPool)
 	require.NoError(t, err)
-	p := NewProtocol(&cfg, bc)
+	p := NewProtocol(bc)
 	ap.AddActionValidators(actpool.NewGenericValidator(bc), p)
 	defer require.NoError(t, bc.Stop(ctx))
 
