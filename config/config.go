@@ -217,7 +217,7 @@ type (
 		InMemTest                    bool   `yaml:"inMemTest"`
 		GenesisActionsPath           string `yaml:"genesisActionsPath"`
 		NumCandidates                uint   `yaml:"numCandidates"`
-		EnableFallBackToFreshDB      bool   `yaml:"enablefallbacktofreshdb"`
+		EnableFallBackToFreshDB      bool   `yaml:"enableFallbackToFreshDb"`
 		EnableSubChainStartInGenesis bool   `yaml:"enableSubChainStartInGenesis"`
 	}
 
@@ -263,7 +263,7 @@ type (
 		Enabled   bool `yaml:"enabled"`
 		IsTest    bool `yaml:"isTest"`
 		UseRDS    bool `yaml:"useRDS"`
-		Port      int  `yaml:"addr"`
+		Port      int  `yaml:"port"`
 		TpsWindow int  `yaml:"tpsWindow"`
 		// MaxTransferPayloadBytes limits how many bytes a playload can contain at most
 		MaxTransferPayloadBytes uint64 `yaml:"maxTransferPayloadBytes"`
