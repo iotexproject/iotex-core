@@ -139,13 +139,12 @@ func securityDeposit(ps *EVMParams, stateDB vm.StateDB, gasLimit *uint64) error 
 }
 
 // ExecuteContracts process the contracts in a block
-func ExecuteContracts(blk *Block, ws state.WorkingSet, bc Blockchain) {
-	gasLimit := GasLimit
+func ExecuteContracts(blk *Block, ws state.WorkingSet, bc Blockchain, gasLimit *uint64, enableGasCharge bool) {
 	blk.receipts = make(map[hash.Hash32B]*action.Receipt)
 	_, _, executions := action.ClassifyActions(blk.Actions)
 	for idx, execution := range executions {
 		// TODO (zhi) log receipt to stateDB
-		if receipt, _ := executeContract(blk, ws, idx, execution, bc, &gasLimit); receipt != nil {
+		if receipt, _ := executeContract(blk, ws, idx, execution, bc, gasLimit, enableGasCharge); receipt != nil {
 			blk.receipts[execution.Hash()] = receipt
 		}
 	}
@@ -159,13 +158,15 @@ func executeContract(
 	execution *action.Execution,
 	bc Blockchain,
 	gasLimit *uint64,
+	enableGasCharge bool,
 ) (*action.Receipt, error) {
 	stateDB := NewEVMStateDBAdapter(bc, ws, blk.Height(), blk.HashBlock(), uint(idx), execution.Hash())
 	ps, err := NewEVMParams(blk, execution, stateDB)
 	if err != nil {
 		return nil, err
 	}
-	retval, depositGas, remainingGas, contractAddress, err := executeInEVM(ps, stateDB, gasLimit)
+
+	retval, depositGas, remainingGas, contractAddress, err := executeInEVM(ps, stateDB, gasLimit, enableGasCharge)
 	receipt := &action.Receipt{
 		ReturnValue:     retval,
 		GasConsumed:     ps.gas - remainingGas,
@@ -182,9 +183,11 @@ func executeContract(
 		remainingValue := new(big.Int).Mul(new(big.Int).SetUint64(remainingGas), ps.context.GasPrice)
 		stateDB.AddBalance(ps.context.Origin, remainingValue)
 	}
-	if depositGas-remainingGas > 0 {
-		gasValue := new(big.Int).Mul(new(big.Int).SetUint64(depositGas-remainingGas), ps.context.GasPrice)
-		stateDB.AddBalance(ps.context.Coinbase, gasValue)
+	if enableGasCharge {
+		if depositGas-remainingGas > 0 {
+			gasValue := new(big.Int).Mul(new(big.Int).SetUint64(depositGas-remainingGas), ps.context.GasPrice)
+			stateDB.AddBalance(ps.context.Coinbase, gasValue)
+		}
 	}
 	receipt.Logs = stateDB.Logs()
 	logger.Debug().Msgf("Receipt: %+v, %v", receipt, err)
@@ -199,7 +202,7 @@ func getChainConfig() *params.ChainConfig {
 	return &chainConfig
 }
 
-func executeInEVM(evmParams *EVMParams, stateDB *EVMStateDBAdapter, gasLimit *uint64) ([]byte, uint64, uint64, string, error) {
+func executeInEVM(evmParams *EVMParams, stateDB *EVMStateDBAdapter, gasLimit *uint64, enableGasCharge bool) ([]byte, uint64, uint64, string, error) {
 	remainingGas := evmParams.gas
 	if err := securityDeposit(evmParams, stateDB, gasLimit); err != nil {
 		return nil, 0, 0, action.EmptyAddress, err
@@ -207,15 +210,18 @@ func executeInEVM(evmParams *EVMParams, stateDB *EVMStateDBAdapter, gasLimit *ui
 	var config vm.Config
 	chainConfig := getChainConfig()
 	evm := vm.NewEVM(evmParams.context, stateDB, chainConfig, config)
-	intriGas, err := intrinsicGas(evmParams.data)
-	if err != nil {
-		return nil, evmParams.gas, remainingGas, action.EmptyAddress, err
-	}
-	if remainingGas < intriGas {
-		return nil, evmParams.gas, remainingGas, action.EmptyAddress, action.ErrOutOfGas
+	var err error
+	if enableGasCharge {
+		intriGas, err := intrinsicGas(evmParams.data)
+		if err != nil {
+			return nil, evmParams.gas, remainingGas, action.EmptyAddress, err
+		}
+		if remainingGas < intriGas {
+			return nil, evmParams.gas, remainingGas, action.EmptyAddress, action.ErrOutOfGas
+		}
+		remainingGas -= intriGas
 	}
 	contractRawAddress := action.EmptyAddress
-	remainingGas -= intriGas
 	executor := vm.AccountRef(evmParams.context.Origin)
 	var ret []byte
 	if evmParams.contract == nil {

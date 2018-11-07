@@ -9,7 +9,7 @@ import (
 
 const BarristerVersion string = "0.1.6"
 const BarristerChecksum string = "9e4a35322fdadd0f77586f8ba530a00e"
-const BarristerDateGenerated int64 = 1541541301077000000
+const BarristerDateGenerated int64 = 1541576332252000000
 
 type CoinStatistic struct {
 	Height     int64  `json:"height"`
@@ -3485,7 +3485,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1541541301077,
+        "date_generated": 1541576332252,
         "checksum": "9e4a35322fdadd0f77586f8ba530a00e"
     }
 ]`
