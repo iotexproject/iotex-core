@@ -27,7 +27,6 @@ const (
 // StopSubChain defines the action to stop sub chain
 type StopSubChain struct {
 	AbstractAction
-	chainID    uint32
 	stopHeight uint64
 }
 
@@ -35,7 +34,6 @@ type StopSubChain struct {
 func NewStopSubChain(
 	senderAddress string,
 	nonce uint64,
-	chainID uint32,
 	chainAddress string,
 	stopHeight uint64,
 	gasLimit uint64,
@@ -50,7 +48,6 @@ func NewStopSubChain(
 			gasLimit: gasLimit,
 			gasPrice: gasPrice,
 		},
-		chainID:    chainID,
 		stopHeight: stopHeight,
 	}
 }
@@ -58,11 +55,6 @@ func NewStopSubChain(
 // ChainAddress returns the address of the sub chain
 func (ssc *StopSubChain) ChainAddress() string {
 	return ssc.DstAddr()
-}
-
-// ChainID returns the id of the sub chain
-func (ssc *StopSubChain) ChainID() uint32 {
-	return ssc.chainID
 }
 
 // StopHeight returns the height to stop the sub chain
@@ -78,7 +70,6 @@ func (ssc *StopSubChain) TotalSize() uint32 {
 // ByteStream returns a raw byte stream of this instance
 func (ssc *StopSubChain) ByteStream() []byte {
 	stream := ssc.BasicActionByteStream()
-	stream = append(stream, byteutil.Uint32ToBytes(ssc.chainID)...)
 
 	return append(stream, byteutil.Uint64ToBytes(ssc.stopHeight)...)
 }
@@ -88,7 +79,6 @@ func (ssc *StopSubChain) Proto() *iproto.ActionPb {
 	pbSSC := &iproto.ActionPb{
 		Action: &iproto.ActionPb_StopSubChain{
 			StopSubChain: &iproto.StopSubChainPb{
-				ChainID:         ssc.chainID,
 				StopHeight:      ssc.stopHeight,
 				SubChainAddress: ssc.dstAddr,
 			},
@@ -127,7 +117,6 @@ func (ssc *StopSubChain) LoadProto(pbAct *iproto.ActionPb) {
 	ssc.signature = pbAct.Signature
 	pbSSC := pbAct.GetStopSubChain()
 	if pbSSC != nil {
-		ssc.chainID = pbSSC.ChainID
 		ssc.stopHeight = pbSSC.StopHeight
 		ssc.dstAddr = pbSSC.SubChainAddress
 	}
