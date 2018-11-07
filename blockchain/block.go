@@ -285,18 +285,26 @@ func (b *Block) ConvertFromBlockPb(pbBlock *iproto.BlockPb) {
 			execution := &action.Execution{}
 			execution.LoadProto(actPb)
 			b.Actions = append(b.Actions, execution)
-		} else if start := actPb.GetStartSubChain(); start != nil {
+		} else if startPb := actPb.GetStartSubChain(); startPb != nil {
 			start := &action.StartSubChain{}
 			start.LoadProto(actPb)
 			b.Actions = append(b.Actions, start)
-		} else if stop := actPb.GetStopSubChain(); stop != nil {
+		} else if stopPb := actPb.GetStopSubChain(); stopPb != nil {
 			stop := &action.StopSubChain{}
 			stop.LoadProto(actPb)
 			b.Actions = append(b.Actions, stop)
-		} else if put := actPb.GetPutBlock(); put != nil {
+		} else if putPb := actPb.GetPutBlock(); putPb != nil {
 			put := &action.PutBlock{}
 			put.LoadProto(actPb)
 			b.Actions = append(b.Actions, put)
+		} else if createDepositPb := actPb.GetCreateDeposit(); createDepositPb != nil {
+			createDeposit := &action.CreateDeposit{}
+			createDeposit.LoadProto(actPb)
+			b.Actions = append(b.Actions, createDeposit)
+		} else if settleDepositPb := actPb.GetCreateDeposit(); settleDepositPb != nil {
+			settleDeposit := &action.SettleDeposit{}
+			settleDeposit.LoadProto(actPb)
+			b.Actions = append(b.Actions, settleDeposit)
 		}
 	}
 }

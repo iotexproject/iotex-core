@@ -137,12 +137,13 @@ func (s *Server) Stop(ctx context.Context) error {
 
 // NewChainService creates a new chain service in this server.
 func (s *Server) NewChainService(cfg *config.Config) error {
-	opts := []chainservice.Option{chainservice.WithRootChainAPI(s.rootChainService.Explorer().Explorer())}
+	mainChainAPI := s.rootChainService.Explorer().Explorer()
+	opts := []chainservice.Option{chainservice.WithRootChainAPI(mainChainAPI)}
 	cs, err := chainservice.New(cfg, s.p2p, s.dispatcher, opts...)
 	if err != nil {
 		return err
 	}
-	subChainProtocol := subchain.NewProtocol(cs.Blockchain(), cs.Explorer().Explorer())
+	subChainProtocol := subchain.NewProtocol(cs.Blockchain(), mainChainAPI)
 	cs.AddProtocols(subChainProtocol)
 	s.chainservices[cs.ChainID()] = cs
 	s.dispatcher.AddSubscriber(cs.ChainID(), cs)
