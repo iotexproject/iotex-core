@@ -58,9 +58,15 @@ message PutBlockPb {
     map<string, bytes> roots = 3;
 }
 
-message DepositPb {
+message CreateDepositPb {
     bytes amount  = 1;
     string recipient = 2;
+}
+
+message SettleDepositPb {
+    bytes amount  = 1;
+    string recipient = 2;
+    uint64 index = 3;
 }
 
 message ActionPb {
@@ -81,6 +87,7 @@ message ActionPb {
         StartSubChainPb startSubChain = 15;
         StopSubChainPb stopSubChain = 16;
         PutBlockPb putBlock = 17;
-        DepositPb deposit = 18;
+        CreateDepositPb createDeposit = 18;
+        SettleDepositPb settleDeposit = 19;
     }
 }

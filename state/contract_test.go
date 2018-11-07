@@ -60,7 +60,7 @@ func TestCreateContract(t *testing.T) {
 	require.Error(err)
 	require.Equal([]byte(nil), v)
 	gasLimit := testutil.TestGasLimit
-	ctx := Context{testaddress.Addrinfo["producer"].RawAddress, &gasLimit, testutil.DisableGasCharge}
+	ctx := Context{testaddress.Addrinfo["producer"].RawAddress, &gasLimit, testutil.EnableGasCharge}
 	_, err = ws.RunActions(0, nil, ctx)
 	require.Nil(err)
 	// reload same contract
@@ -141,7 +141,7 @@ func TestLoadStoreContract(t *testing.T) {
 	require.Nil(ws.SetContractState(contract1, k3, v3))
 	require.Nil(ws.SetContractState(contract1, k4, v4))
 	gasLimit := testutil.TestGasLimit
-	ctx := Context{testaddress.Addrinfo["producer"].RawAddress, &gasLimit, testutil.DisableGasCharge}
+	ctx := Context{testaddress.Addrinfo["producer"].RawAddress, &gasLimit, testutil.EnableGasCharge}
 	_, err = ws.RunActions(0, nil, ctx)
 	require.Nil(err)
 	require.Nil(sf.Commit(ws))

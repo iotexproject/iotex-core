@@ -265,7 +265,7 @@ func TestWrongNonce(t *testing.T) {
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
-	stateCtx := state.Context{ta.Addrinfo["producer"].RawAddress, &gasLimit, testutil.DisableGasCharge}
+	stateCtx := state.Context{ta.Addrinfo["producer"].RawAddress, &gasLimit, testutil.EnableGasCharge}
 	_, err = ws.RunActions(1, []action.Action{tsf1}, stateCtx)
 	require.NoError(err)
 	require.Nil(sf.Commit(ws))
@@ -623,7 +623,7 @@ func addCreatorToFactory(sf state.Factory) error {
 		return err
 	}
 	gasLimit := testutil.TestGasLimit
-	ctx := state.Context{ta.Addrinfo["producer"].RawAddress, &gasLimit, testutil.DisableGasCharge}
+	ctx := state.Context{ta.Addrinfo["producer"].RawAddress, &gasLimit, testutil.EnableGasCharge}
 	if _, err = ws.RunActions(0, nil, ctx); err != nil {
 		return err
 	}

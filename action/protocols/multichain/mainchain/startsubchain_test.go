@@ -30,7 +30,6 @@ import (
 func TestProtocolValidateSubChainStart(t *testing.T) {
 	t.Parallel()
 
-	cfg := config.Default
 	ctrl := gomock.NewController(t)
 	factory := mock_state.NewMockFactory(ctrl)
 	factory.EXPECT().AccountState(gomock.Any()).Return(
@@ -47,7 +46,7 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 
 	defer ctrl.Finish()
 
-	p := NewProtocol(&cfg, chain, nil)
+	p := NewProtocol(chain)
 
 	start := action.NewStartSubChain(
 		1,
@@ -237,7 +236,7 @@ func TestHandleStartSubChain(t *testing.T) {
 	)
 	require.NoError(t, err)
 	gasLimit := testutil.TestGasLimit
-	stateContext := state.Context{testaddress.Addrinfo["producer"].RawAddress, &gasLimit, testutil.DisableGasCharge}
+	stateContext := state.Context{testaddress.Addrinfo["producer"].RawAddress, &gasLimit, testutil.EnableGasCharge}
 	_, err = ws.RunActions(0, nil, stateContext)
 	require.NoError(t, err)
 	require.NoError(t, sf.Commit(ws))
@@ -260,7 +259,7 @@ func TestHandleStartSubChain(t *testing.T) {
 	assert.NoError(t, action.Sign(start, testaddress.Addrinfo["producer"].PrivateKey))
 
 	// Handle the action
-	protocol := NewProtocol(&cfg, chain, nil)
+	protocol := NewProtocol(chain)
 	require.NoError(t, protocol.handleStartSubChain(start, ws))
 	require.NoError(t, sf.Commit(ws))
 
@@ -291,7 +290,7 @@ func TestNoStartSubChainInGenesis(t *testing.T) {
 
 	ctx := context.Background()
 	bc := blockchain.NewBlockchain(&cfg, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
-	p := NewProtocol(&cfg, bc, nil)
+	p := NewProtocol(bc)
 	bc.GetFactory().AddActionHandlers(p)
 	require.NoError(t, bc.Start(ctx))
 	defer require.NoError(t, bc.Stop(ctx))
@@ -307,7 +306,7 @@ func TestStartSubChainInGenesis(t *testing.T) {
 
 	ctx := context.Background()
 	bc := blockchain.NewBlockchain(&cfg, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
-	p := NewProtocol(&cfg, bc, nil)
+	p := NewProtocol(bc)
 	bc.GetFactory().AddActionHandlers(p)
 	require.NoError(t, bc.Start(ctx))
 	defer require.NoError(t, bc.Stop(ctx))

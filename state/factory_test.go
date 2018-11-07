@@ -94,7 +94,7 @@ func TestCreateState(t *testing.T) {
 	state, err := ws.LoadOrCreateAccountState(addr.RawAddress, big.NewInt(5))
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
-	ctx := Context{testaddress.Addrinfo["producer"].RawAddress, &gasLimit, testutil.DisableGasCharge}
+	ctx := Context{testaddress.Addrinfo["producer"].RawAddress, &gasLimit, testutil.EnableGasCharge}
 	_, err = ws.RunActions(0, nil, ctx)
 	require.NoError(err)
 	require.NoError(sf.Commit(ws))
@@ -284,7 +284,7 @@ func TestCandidates(t *testing.T) {
 	tx2, err := action.NewTransfer(uint64(2), big.NewInt(20), a.RawAddress, c.RawAddress, nil, uint64(0), big.NewInt(0))
 	require.NoError(t, err)
 	gasLimit := testutil.TestGasLimit
-	ctx := Context{testaddress.Addrinfo["producer"].RawAddress, &gasLimit, testutil.DisableGasCharge}
+	ctx := Context{testaddress.Addrinfo["producer"].RawAddress, &gasLimit, testutil.EnableGasCharge}
 	newRoot, err := ws.RunActions(0, []action.Action{tx1, tx2}, ctx)
 	require.Nil(t, err)
 	root := newRoot
@@ -306,7 +306,7 @@ func TestCandidates(t *testing.T) {
 	vote.SetVoterPublicKey(a.PublicKey)
 	require.NoError(t, err)
 	zeroGasLimit := uint64(0)
-	zeroGasCtx := Context{testaddress.Addrinfo["producer"].RawAddress, &zeroGasLimit, testutil.DisableGasCharge}
+	zeroGasCtx := Context{testaddress.Addrinfo["producer"].RawAddress, &zeroGasLimit, testutil.EnableGasCharge}
 	newRoot, err = ws.RunActions(0, []action.Action{vote}, zeroGasCtx)
 	require.NotNil(t, err)
 
@@ -803,7 +803,7 @@ func TestUnvote(t *testing.T) {
 	vote1.SetVoterPublicKey(a.PublicKey)
 	require.NoError(t, err)
 	gasLimit := testutil.TestGasLimit
-	ctx := Context{testaddress.Addrinfo["producer"].RawAddress, &gasLimit, testutil.DisableGasCharge}
+	ctx := Context{testaddress.Addrinfo["producer"].RawAddress, &gasLimit, testutil.EnableGasCharge}
 	_, err = ws.RunActions(0, []action.Action{vote1}, ctx)
 	require.Nil(t, err)
 	require.Nil(t, sf.Commit(ws))

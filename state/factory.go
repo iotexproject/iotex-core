@@ -29,8 +29,8 @@ var (
 	// ErrNotEnoughBalance is the error that the balance is not enough
 	ErrNotEnoughBalance = errors.New("not enough balance")
 
-	// ErrStateNotExist is the error that the account does not exist
-	ErrStateNotExist = errors.New("account does not exist")
+	// ErrStateNotExist is the error that the stat does not exist
+	ErrStateNotExist = errors.New("state does not exist")
 
 	// ErrAccountCollision is the error that the account already exists
 	ErrAccountCollision = errors.New("account already exists")
@@ -237,8 +237,8 @@ func (sf *factory) Height() (uint64, error) {
 }
 
 func (sf *factory) NewWorkingSet() (WorkingSet, error) {
-	sf.mutex.Lock()
-	defer sf.mutex.Unlock()
+	sf.mutex.RLock()
+	defer sf.mutex.RUnlock()
 	return NewWorkingSet(sf.currentChainHeight, sf.dao, sf.rootHash, sf.actionHandlers)
 }
 

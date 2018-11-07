@@ -49,7 +49,7 @@ func TestHandlePutBlock(t *testing.T) {
 	)
 	require.NoError(t, err)
 	gasLimit := testutil.TestGasLimit
-	stateContext := state.Context{testaddress.Addrinfo["producer"].RawAddress, &gasLimit, testutil.DisableGasCharge}
+	stateContext := state.Context{testaddress.Addrinfo["producer"].RawAddress, &gasLimit, testutil.EnableGasCharge}
 	_, err = ws.RunActions(0, nil, stateContext)
 	require.NoError(t, err)
 	require.NoError(t, sf.Commit(ws))
@@ -62,7 +62,7 @@ func TestHandlePutBlock(t *testing.T) {
 	ws, err = sf.NewWorkingSet()
 	require.NoError(t, err)
 
-	p := NewProtocol(&cfg, chain, nil)
+	p := NewProtocol(chain)
 
 	roots := make(map[string]hash.Hash32B)
 	roots["10002"] = byteutil.BytesTo32B([]byte("10002"))

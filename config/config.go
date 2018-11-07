@@ -98,7 +98,7 @@ var (
 			NumCandidates:                101,
 			EnableFallBackToFreshDB:      false,
 			EnableSubChainStartInGenesis: false,
-			DisableGasCharge:             false,
+			EnableGasCharge:              false,
 		},
 		ActPool: ActPool{
 			MaxNumActsPerPool: 32000,
@@ -218,11 +218,11 @@ type (
 		InMemTest                    bool   `yaml:"inMemTest"`
 		GenesisActionsPath           string `yaml:"genesisActionsPath"`
 		NumCandidates                uint   `yaml:"numCandidates"`
-		EnableFallBackToFreshDB      bool   `yaml:"enablefallbacktofreshdb"`
+		EnableFallBackToFreshDB      bool   `yaml:"enableFallbackToFreshDb"`
 		EnableSubChainStartInGenesis bool   `yaml:"enableSubChainStartInGenesis"`
 
-		// disable gas charge for block producer
-		DisableGasCharge bool `yaml:"disableGasCharge"`
+		// enable gas charge for block producer
+		EnableGasCharge bool `yaml:"enableGasCharge"`
 	}
 
 	// Consensus is the config struct for consensus package
@@ -267,7 +267,7 @@ type (
 		Enabled   bool `yaml:"enabled"`
 		IsTest    bool `yaml:"isTest"`
 		UseRDS    bool `yaml:"useRDS"`
-		Port      int  `yaml:"addr"`
+		Port      int  `yaml:"port"`
 		TpsWindow int  `yaml:"tpsWindow"`
 		// MaxTransferPayloadBytes limits how many bytes a playload can contain at most
 		MaxTransferPayloadBytes uint64 `yaml:"maxTransferPayloadBytes"`

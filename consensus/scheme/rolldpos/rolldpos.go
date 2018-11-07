@@ -191,35 +191,40 @@ func (ctx *rollDPoSCtx) getNumSubEpochs() uint {
 
 // rotatedProposer will rotate among the delegates to choose the proposer. It is pseudo order based on the position
 // in the delegate list and the block height
-func (ctx *rollDPoSCtx) rotatedProposer() (string, uint64, error) {
-	height := ctx.chain.TipHeight()
+func (ctx *rollDPoSCtx) rotatedProposer() (string, uint64, uint32, error) {
 	// Next block height
-	height++
-	proposer, err := ctx.calcProposer(height, ctx.epoch.delegates)
-	return proposer, height, err
+	height := ctx.chain.TipHeight() + 1
+	round, proposer, err := ctx.calcProposer(height, ctx.epoch.delegates)
+
+	return proposer, height, round, err
 }
 
 // calcProposer calculates the proposer for the block at a given height
-func (ctx *rollDPoSCtx) calcProposer(height uint64, delegates []string) (string, error) {
+func (ctx *rollDPoSCtx) calcProposer(height uint64, delegates []string) (uint32, string, error) {
 	numDelegates := len(delegates)
 	if numDelegates == 0 {
-		return "", ErrZeroDelegate
+		return 0, "", ErrZeroDelegate
+	}
+	timeSlotIndex := uint32(0)
+	if ctx.cfg.ProposerInterval > 0 {
+		duration, err := ctx.calcDurationSinceLastBlock()
+		if err != nil || duration < 0 {
+			if !ctx.cfg.TimeBasedRotation {
+				return 0, delegates[(height)%uint64(numDelegates)], nil
+			}
+			return 0, "", errors.Wrap(err, "error when computing the duration since last block time")
+		}
+		if duration > ctx.cfg.ProposerInterval {
+			timeSlotIndex = uint32(duration/ctx.cfg.ProposerInterval) - 1
+		}
 	}
 	if !ctx.cfg.TimeBasedRotation {
-		return delegates[(height)%uint64(numDelegates)], nil
-	}
-	duration, err := ctx.calcDurationSinceLastBlock()
-	if err != nil {
-		return "", errors.Wrap(err, "error when computing the duration since last block time")
-	}
-	timeSlotIndex := int64(duration/ctx.cfg.ProposerInterval) - 1
-	if timeSlotIndex < 0 {
-		timeSlotIndex = 0
+		return timeSlotIndex, delegates[(height)%uint64(numDelegates)], nil
 	}
 	// TODO: should downgrade to debug level in the future
-	logger.Info().Int64("slot", timeSlotIndex).Msg("calculate time slot offset")
+	logger.Info().Uint32("slot", timeSlotIndex).Msg("calculate time slot offset")
 	timeSlotMtc.WithLabelValues().Set(float64(timeSlotIndex))
-	return delegates[(height+uint64(timeSlotIndex))%uint64(numDelegates)], nil
+	return timeSlotIndex, delegates[(height+uint64(timeSlotIndex))%uint64(numDelegates)], nil
 }
 
 // mintBlock mints a new block to propose
@@ -455,7 +460,7 @@ func (r *RollDPoS) Metrics() (scheme.ConsensusMetrics, error) {
 	// Compute the height
 	height := r.ctx.chain.TipHeight()
 	// Compute block producer
-	producer, err := r.ctx.calcProposer(height+1, delegates)
+	_, producer, err := r.ctx.calcProposer(height+1, delegates)
 	if err != nil {
 		return metrics, errors.Wrap(err, "error when calculating the block producer")
 	}

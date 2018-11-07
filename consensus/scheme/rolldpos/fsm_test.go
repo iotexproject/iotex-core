@@ -425,6 +425,13 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		assert.Equal(t, eEndorseProposal, evt.Type())
 
 		clock.Add(10 * time.Second)
+		state, err = cfsm.handleStartRoundEvt(cfsm.newCEvt(eStartRound))
+		assert.Equal(t, sBlockPropose, state)
+		assert.NoError(t, err)
+		e = <-cfsm.evtq
+		cevt, ok := e.(*consensusEvt)
+		require.True(t, ok)
+		assert.Equal(t, eInitBlockPropose, cevt.Type())
 		blk.Header.Pubkey = testAddrs[3].PublicKey
 		err = blk.SignBlock(testAddrs[3])
 		assert.NoError(t, err)
@@ -432,7 +439,6 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, sAcceptProposalEndorse, state)
 		e = <-cfsm.evtq
-		evt, ok = e.(*endorseEvt)
 		require.True(t, ok)
 		assert.Equal(t, eEndorseProposal, evt.Type())
 	})
@@ -1262,6 +1268,7 @@ func newTestCFSM(
 		addr,
 		ctrl,
 		config.RollDPoS{
+			AcceptProposeTTL:         300 * time.Millisecond,
 			AcceptProposalEndorseTTL: 300 * time.Millisecond,
 			AcceptCommitEndorseTTL:   300 * time.Millisecond,
 			EventChanSize:            2,

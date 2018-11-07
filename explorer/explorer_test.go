@@ -20,8 +20,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"strings"
+
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocols/multichain/mainchain"
 	"github.com/iotexproject/iotex-core/actpool"
+	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
@@ -830,7 +834,9 @@ func TestExplorerGetReceiptByExecutionID(t *testing.T) {
 	require.Equal(eHashStr, receipt.Hash)
 }
 
-func TestService_Deposit(t *testing.T) {
+func TestService_CreateDeposit(t *testing.T) {
+	t.Parallel()
+
 	require := require.New(t)
 
 	ctrl := gomock.NewController(t)
@@ -851,7 +857,7 @@ func TestService_Deposit(t *testing.T) {
 		dp:  dp,
 	}
 
-	deposit := action.NewDeposit(
+	deposit := action.NewCreateDeposit(
 		10,
 		big.NewInt(10000),
 		ta.Addrinfo["producer"].RawAddress,
@@ -862,7 +868,7 @@ func TestService_Deposit(t *testing.T) {
 	)
 	require.NoError(action.Sign(deposit, ta.Addrinfo["producer"].PrivateKey))
 
-	res, error := svc.Deposit(explorer.DepositRequest{
+	res, error := svc.CreateDeposit(explorer.CreateDepositRequest{
 		Version:      int64(deposit.Version()),
 		Nonce:        int64(deposit.Nonce()),
 		Sender:       deposit.Sender(),
@@ -878,6 +884,98 @@ func TestService_Deposit(t *testing.T) {
 	require.Equal(hex.EncodeToString(hash[:]), res.Hash)
 }
 
+func TestService_GetDeposits(t *testing.T) {
+	t.Parallel()
+
+	require := require.New(t)
+	assert := assert.New(t)
+
+	ctrl := gomock.NewController(t)
+	cfg := config.Default
+	ctx := context.Background()
+	bc := mock_blockchain.NewMockBlockchain(ctrl)
+	sf, err := state.NewFactory(&cfg, state.InMemTrieOption())
+	require.NoError(err)
+	require.NoError(sf.Start(ctx))
+	bc.EXPECT().GetFactory().Return(sf).AnyTimes()
+	subChainAddr, err := address.IotxAddressToAddress(ta.Addrinfo["producer"].RawAddress)
+	require.NoError(err)
+	ws, err := sf.NewWorkingSet()
+	require.NoError(err)
+	require.NoError(ws.PutState(
+		mainchain.SubChainsInOperationKey,
+		&state.SortedSlice{
+			mainchain.InOperation{
+				ID:   2,
+				Addr: subChainAddr.Bytes(),
+			},
+		},
+	))
+	require.NoError(ws.PutState(
+		byteutil.BytesTo20B(subChainAddr.Payload()),
+		&mainchain.SubChain{
+			DepositCount: 2,
+		},
+	))
+	depositAddr1, err := address.IotxAddressToAddress(ta.Addrinfo["alfa"].RawAddress)
+	require.NoError(err)
+	require.NoError(ws.PutState(
+		mainchain.DepositAddress(subChainAddr.Bytes(), 0),
+		&mainchain.Deposit{
+			Amount:    big.NewInt(100),
+			Addr:      depositAddr1.Bytes(),
+			Confirmed: false,
+		},
+	))
+	depositAddr2, err := address.IotxAddressToAddress(ta.Addrinfo["bravo"].RawAddress)
+	require.NoError(err)
+	require.NoError(ws.PutState(
+		mainchain.DepositAddress(subChainAddr.Bytes(), 1),
+		&mainchain.Deposit{
+			Amount:    big.NewInt(200),
+			Addr:      depositAddr2.Bytes(),
+			Confirmed: false,
+		},
+	))
+	require.NoError(sf.Commit(ws))
+
+	defer func() {
+		require.NoError(sf.Stop(ctx))
+		ctrl.Finish()
+	}()
+
+	p := mainchain.NewProtocol(bc)
+	svc := Service{
+		mainChain: p,
+	}
+
+	_, err = svc.GetDeposits(3, 0, 1)
+	assert.True(strings.Contains(err.Error(), "is not found in operation"))
+
+	deposits, err := svc.GetDeposits(2, 0, 1)
+	assert.NoError(err)
+	assert.Equal(1, len(deposits))
+	assert.Equal("100", deposits[0].Amount)
+
+	deposits, err = svc.GetDeposits(2, 1, 2)
+	assert.NoError(err)
+	assert.Equal(2, len(deposits))
+	assert.Equal("200", deposits[0].Amount)
+	assert.Equal("100", deposits[1].Amount)
+
+	deposits, err = svc.GetDeposits(2, 1, 3)
+	assert.NoError(err)
+	assert.Equal(2, len(deposits))
+
+	deposits, err = svc.GetDeposits(2, 3, 2)
+	assert.NoError(err)
+	assert.Equal(2, len(deposits))
+
+	deposits, err = svc.GetDeposits(2, 0, 2)
+	assert.NoError(err)
+	assert.Equal(1, len(deposits))
+}
+
 func addCreatorToFactory(sf state.Factory) error {
 	ws, err := sf.NewWorkingSet()
 	if err != nil {
@@ -887,7 +985,7 @@ func addCreatorToFactory(sf state.Factory) error {
 		return err
 	}
 	gasLimit := testutil.TestGasLimit
-	ctx := state.Context{ta.Addrinfo["producer"].RawAddress, &gasLimit, testutil.DisableGasCharge}
+	ctx := state.Context{ta.Addrinfo["producer"].RawAddress, &gasLimit, testutil.EnableGasCharge}
 	if _, err = ws.RunActions(0, nil, ctx); err != nil {
 		return err
 	}

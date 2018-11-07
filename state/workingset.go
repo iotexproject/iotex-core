@@ -46,7 +46,6 @@ type (
 		State(hash.PKHash, State) (State, error)
 		CachedState(hash.PKHash, State) (State, error)
 		PutState(hash.PKHash, State) error
-		UpdateCachedCandidates(*action.Vote) error
 		UpdateCachedStates(hash.PKHash, *Account)
 	}
 
@@ -73,7 +72,7 @@ type Context struct {
 	GasLimit *uint64
 
 	// whether disable gas charge
-	DisableGasCharge bool
+	EnableGasCharge bool
 }
 
 // NewWorkingSet creates a new working set
@@ -180,7 +179,8 @@ func (ws *workingSet) Height() uint64 {
 func (ws *workingSet) RunActions(
 	blockHeight uint64,
 	actions []action.Action,
-	ctx Context) (hash.Hash32B, error) {
+	ctx Context,
+) (hash.Hash32B, error) {
 	ws.blkHeight = blockHeight
 	// Recover cachedCandidates after restart factory
 	if blockHeight > 0 && len(ws.cachedCandidates) == 0 {
@@ -198,10 +198,10 @@ func (ws *workingSet) RunActions(
 		return hash.ZeroHash32B, errors.Wrapf(err, "failed to load or create the account of block producer %s", ctx.ProducerAddr)
 	}
 	tsfs, votes, executions := action.ClassifyActions(actions)
-	if err := ws.handleTsf(producer, tsfs, ctx.GasLimit, ctx.DisableGasCharge); err != nil {
+	if err := ws.handleTsf(producer, tsfs, ctx.GasLimit, ctx.EnableGasCharge); err != nil {
 		return hash.ZeroHash32B, errors.Wrap(err, "failed to handle transfers")
 	}
-	if err := ws.handleVote(producer, blockHeight, votes, ctx.GasLimit, ctx.DisableGasCharge); err != nil {
+	if err := ws.handleVote(producer, blockHeight, votes, ctx.GasLimit, ctx.EnableGasCharge); err != nil {
 		return hash.ZeroHash32B, errors.Wrap(err, "failed to handle votes")
 	}
 
@@ -309,23 +309,6 @@ func (ws *workingSet) Commit() error {
 		return errors.Wrap(err, "failed to Commit all changes to underlying DB in a batch")
 	}
 	ws.clearCache()
-	return nil
-}
-
-// UpdateCachedCandidates updates cached candidates
-func (ws *workingSet) UpdateCachedCandidates(vote *action.Vote) error {
-	votePubkey := vote.VoterPublicKey()
-	voterPKHash, err := iotxaddress.AddressToPKHash(vote.Voter())
-	if err != nil {
-		return errors.Wrap(err, "failed to get public key hash from account address")
-	}
-	if _, ok := ws.cachedCandidates[voterPKHash]; !ok {
-		ws.cachedCandidates[voterPKHash] = &Candidate{
-			Address:        vote.Voter(),
-			PublicKey:      votePubkey,
-			CreationHeight: ws.blkHeight,
-		}
-	}
 	return nil
 }
 
@@ -524,7 +507,7 @@ func (ws *workingSet) getCandidates(height uint64) (CandidateList, error) {
 //======================================
 // private transfer/vote functions
 //======================================
-func (ws *workingSet) handleTsf(producer *Account, tsfs []*action.Transfer, gasLimit *uint64, disableGasCharge bool) error {
+func (ws *workingSet) handleTsf(producer *Account, tsfs []*action.Transfer, gasLimit *uint64, enableGasCharge bool) error {
 	for _, tx := range tsfs {
 		if tx.IsContract() {
 			continue
@@ -536,7 +519,7 @@ func (ws *workingSet) handleTsf(producer *Account, tsfs []*action.Transfer, gasL
 				return errors.Wrapf(err, "failed to load or create the account of sender %s", tx.Sender())
 			}
 
-			if !disableGasCharge {
+			if enableGasCharge {
 				gas, err := tx.IntrinsicGas()
 				if err != nil {
 					return errors.Wrapf(err, "failed to get intrinsic gas for transfer hash %s", tx.Hash())
@@ -546,8 +529,7 @@ func (ws *workingSet) handleTsf(producer *Account, tsfs []*action.Transfer, gasL
 				}
 
 				gasFee := big.NewInt(0).Mul(tx.GasPrice(), big.NewInt(0).SetUint64(gas))
-
-				if gasFee.Cmp(sender.Balance) == 1 {
+				if big.NewInt(0).Add(tx.Amount(), gasFee).Cmp(sender.Balance) == 1 {
 					return errors.Wrapf(ErrNotEnoughBalance, "failed to verify the Balance of sender %s", tx.Sender())
 				}
 
@@ -600,7 +582,7 @@ func (ws *workingSet) handleTsf(producer *Account, tsfs []*action.Transfer, gasL
 	return nil
 }
 
-func (ws *workingSet) handleVote(producer *Account, blockHeight uint64, votes []*action.Vote, gasLimit *uint64, disableGasCharge bool) error {
+func (ws *workingSet) handleVote(producer *Account, blockHeight uint64, votes []*action.Vote, gasLimit *uint64, enableGasCharge bool) error {
 	for _, v := range votes {
 		voteFrom, err := ws.LoadOrCreateAccountState(v.Voter(), big.NewInt(0))
 		if err != nil {
@@ -611,7 +593,7 @@ func (ws *workingSet) handleVote(producer *Account, blockHeight uint64, votes []
 			return err
 		}
 
-		if !disableGasCharge {
+		if enableGasCharge {
 			gas, err := v.IntrinsicGas()
 			if err != nil {
 				return errors.Wrapf(err, "failed to get intrinsic gas for vote hash %s", v.Hash())

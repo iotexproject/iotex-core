@@ -53,7 +53,7 @@ func TestEVM(t *testing.T) {
 	_, err = ws.LoadOrCreateAccountState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
-	stateCtx := state.Context{ta.Addrinfo["producer"].RawAddress, &gasLimit, testutil.DisableGasCharge}
+	stateCtx := state.Context{ta.Addrinfo["producer"].RawAddress, &gasLimit, testutil.EnableGasCharge}
 	_, err = ws.RunActions(0, nil, stateCtx)
 	require.NoError(err)
 	require.NoError(sf.Commit(ws))
@@ -206,7 +206,7 @@ func TestRollDice(t *testing.T) {
 	_, err = ws.LoadOrCreateAccountState(ta.Addrinfo["bravo"].RawAddress, big.NewInt(12000000))
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
-	stateCtx := state.Context{ta.Addrinfo["producer"].RawAddress, &gasLimit, testutil.DisableGasCharge}
+	stateCtx := state.Context{ta.Addrinfo["producer"].RawAddress, &gasLimit, testutil.EnableGasCharge}
 	_, err = ws.RunActions(0, nil, stateCtx)
 	require.NoError(err)
 	require.NoError(sf.Commit(ws))
@@ -315,7 +315,7 @@ func TestERC20(t *testing.T) {
 	_, err = ws.LoadOrCreateAccountState(ta.Addrinfo["bravo"].RawAddress, big.NewInt(0))
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
-	stateCtx := state.Context{ta.Addrinfo["producer"].RawAddress, &gasLimit, testutil.DisableGasCharge}
+	stateCtx := state.Context{ta.Addrinfo["producer"].RawAddress, &gasLimit, testutil.EnableGasCharge}
 	_, err = ws.RunActions(0, nil, stateCtx)
 	require.NoError(err)
 	require.NoError(sf.Commit(ws))
