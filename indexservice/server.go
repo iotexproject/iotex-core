@@ -70,7 +70,9 @@ func (s *Server) Start(ctx context.Context) error {
 		for {
 			select {
 			case blk := <-s.blockCh:
-				s.idx.BuildIndex(blk)
+				if err := s.idx.BuildIndex(blk); err != nil {
+					logger.Error().Err(err).Uint64("height", blk.Height()).Msg("failed to build index for block")
+				}
 			}
 		}
 	}()
@@ -83,10 +85,13 @@ func (s *Server) Stop(ctx context.Context) error {
 	if err := s.idx.rds.Stop(ctx); err != nil {
 		return errors.Wrap(err, "error when shutting down explorer http server")
 	}
+	logger.Info().Msgf("Unsubscribe block creation for chain %d", s.bc.ChainID())
 	if err := s.bc.UnsubscribeBlockCreation(s.blockCh); err != nil {
 		return errors.Wrap(err, "error when un subscribe block creation")
 	}
 	close(s.blockCh)
+	for range s.blockCh {
+	}
 	return nil
 }
 
