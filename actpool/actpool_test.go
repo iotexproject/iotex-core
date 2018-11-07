@@ -23,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocols/vote"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -93,7 +94,9 @@ func TestActPool_validateGenericAction(t *testing.T) {
 	require.NotNil(sf)
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
-	_, _, err = ws.RunActions(0, []action.Action{prevTsf})
+	gasLimit := testutil.TestGasLimit
+	ctx := state.Context{testaddress.Addrinfo["producer"].RawAddress, &gasLimit, testutil.EnableGasCharge}
+	_, _, err = ws.RunActions(0, []action.Action{prevTsf}, ctx)
 	require.NoError(err)
 	require.Nil(sf.Commit(ws))
 	ap.Reset()
@@ -380,7 +383,9 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	require.NotNil(sf)
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
-	_, _, err = ws.RunActions(0, []action.Action{tsf1, tsf2, tsf3, vote4})
+	gasLimit := testutil.TestGasLimit
+	ctx := state.Context{testaddress.Addrinfo["producer"].RawAddress, &gasLimit, testutil.EnableGasCharge}
+	_, _, err = ws.RunActions(0, []action.Action{tsf1, tsf2, tsf3, vote4}, ctx)
 	require.NoError(err)
 	require.Nil(sf.Commit(ws))
 	ap.removeConfirmedActs()
@@ -536,7 +541,9 @@ func TestActPool_Reset(t *testing.T) {
 	require.NotNil(sf)
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
-	_, _, err = ws.RunActions(0, pickedActs)
+	gasLimit := testutil.TestGasLimit
+	ctx := state.Context{testaddress.Addrinfo["producer"].RawAddress, &gasLimit, testutil.EnableGasCharge}
+	_, _, err = ws.RunActions(0, pickedActs, ctx)
 	require.NoError(err)
 	require.Nil(sf.Commit(ws))
 	//Reset
@@ -647,7 +654,8 @@ func TestActPool_Reset(t *testing.T) {
 	// ap2 commits update of accounts to trie
 	ws, err = sf.NewWorkingSet()
 	require.NoError(err)
-	_, _, err = ws.RunActions(0, pickedActs)
+	ctx = state.Context{testaddress.Addrinfo["producer"].RawAddress, &gasLimit, testutil.EnableGasCharge}
+	_, _, err = ws.RunActions(0, pickedActs, ctx)
 	require.NoError(err)
 	require.Nil(sf.Commit(ws))
 	//Reset
@@ -739,7 +747,8 @@ func TestActPool_Reset(t *testing.T) {
 	// ap1 commits update of accounts to trie
 	ws, err = sf.NewWorkingSet()
 	require.NoError(err)
-	_, _, err = ws.RunActions(0, pickedActs)
+	ctx = state.Context{testaddress.Addrinfo["producer"].RawAddress, &gasLimit, testutil.EnableGasCharge}
+	_, _, err = ws.RunActions(0, pickedActs, ctx)
 	require.NoError(err)
 	require.Nil(sf.Commit(ws))
 	//Reset
@@ -967,7 +976,9 @@ func TestActPool_GetSize(t *testing.T) {
 	require.NotNil(sf)
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
-	_, _, err = ws.RunActions(0, []action.Action{tsf1, tsf2, tsf3, vote4})
+	gasLimit := testutil.TestGasLimit
+	ctx := state.Context{testaddress.Addrinfo["producer"].RawAddress, &gasLimit, testutil.EnableGasCharge}
+	_, _, err = ws.RunActions(0, []action.Action{tsf1, tsf2, tsf3, vote4}, ctx)
 	require.NoError(err)
 	require.Nil(sf.Commit(ws))
 	ap.removeConfirmedActs()

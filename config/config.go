@@ -98,6 +98,7 @@ var (
 			NumCandidates:                101,
 			EnableFallBackToFreshDB:      false,
 			EnableSubChainStartInGenesis: false,
+			EnableGasCharge:              false,
 		},
 		ActPool: ActPool{
 			MaxNumActsPerPool: 32000,
@@ -219,6 +220,9 @@ type (
 		NumCandidates                uint   `yaml:"numCandidates"`
 		EnableFallBackToFreshDB      bool   `yaml:"enableFallbackToFreshDb"`
 		EnableSubChainStartInGenesis bool   `yaml:"enableSubChainStartInGenesis"`
+
+		// enable gas charge for block producer
+		EnableGasCharge bool `yaml:"enableGasCharge"`
 	}
 
 	// Consensus is the config struct for consensus package
