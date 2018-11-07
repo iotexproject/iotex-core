@@ -95,8 +95,13 @@ func TestActPool_validateGenericAction(t *testing.T) {
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
-	ctx := state.Context{testaddress.Addrinfo["producer"].RawAddress, &gasLimit, testutil.EnableGasCharge}
-	_, _, err = ws.RunActions(0, []action.Action{prevTsf}, ctx)
+	ctx := state.WithRunActionsCtx(context.Background(),
+		state.RunActionsCtx{
+			ProducerAddr:    testaddress.Addrinfo["producer"].RawAddress,
+			GasLimit:        &gasLimit,
+			EnableGasCharge: testutil.EnableGasCharge,
+		})
+	_, _, err = ws.RunActions(ctx, 0, []action.Action{prevTsf})
 	require.NoError(err)
 	require.Nil(sf.Commit(ws))
 	ap.Reset()
@@ -384,8 +389,13 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
-	ctx := state.Context{testaddress.Addrinfo["producer"].RawAddress, &gasLimit, testutil.EnableGasCharge}
-	_, _, err = ws.RunActions(0, []action.Action{tsf1, tsf2, tsf3, vote4}, ctx)
+	ctx := state.WithRunActionsCtx(context.Background(),
+		state.RunActionsCtx{
+			ProducerAddr:    testaddress.Addrinfo["producer"].RawAddress,
+			GasLimit:        &gasLimit,
+			EnableGasCharge: testutil.EnableGasCharge,
+		})
+	_, _, err = ws.RunActions(ctx, 0, []action.Action{tsf1, tsf2, tsf3, vote4})
 	require.NoError(err)
 	require.Nil(sf.Commit(ws))
 	ap.removeConfirmedActs()
@@ -542,8 +552,13 @@ func TestActPool_Reset(t *testing.T) {
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
-	ctx := state.Context{testaddress.Addrinfo["producer"].RawAddress, &gasLimit, testutil.EnableGasCharge}
-	_, _, err = ws.RunActions(0, pickedActs, ctx)
+	ctx := state.WithRunActionsCtx(context.Background(),
+		state.RunActionsCtx{
+			ProducerAddr:    testaddress.Addrinfo["producer"].RawAddress,
+			GasLimit:        &gasLimit,
+			EnableGasCharge: testutil.EnableGasCharge,
+		})
+	_, _, err = ws.RunActions(ctx, 0, pickedActs)
 	require.NoError(err)
 	require.Nil(sf.Commit(ws))
 	//Reset
@@ -654,8 +669,13 @@ func TestActPool_Reset(t *testing.T) {
 	// ap2 commits update of accounts to trie
 	ws, err = sf.NewWorkingSet()
 	require.NoError(err)
-	ctx = state.Context{testaddress.Addrinfo["producer"].RawAddress, &gasLimit, testutil.EnableGasCharge}
-	_, _, err = ws.RunActions(0, pickedActs, ctx)
+	ctx = state.WithRunActionsCtx(context.Background(),
+		state.RunActionsCtx{
+			ProducerAddr:    testaddress.Addrinfo["producer"].RawAddress,
+			GasLimit:        &gasLimit,
+			EnableGasCharge: testutil.EnableGasCharge,
+		})
+	_, _, err = ws.RunActions(ctx, 0, pickedActs)
 	require.NoError(err)
 	require.Nil(sf.Commit(ws))
 	//Reset
@@ -747,8 +767,14 @@ func TestActPool_Reset(t *testing.T) {
 	// ap1 commits update of accounts to trie
 	ws, err = sf.NewWorkingSet()
 	require.NoError(err)
-	ctx = state.Context{testaddress.Addrinfo["producer"].RawAddress, &gasLimit, testutil.EnableGasCharge}
-	_, _, err = ws.RunActions(0, pickedActs, ctx)
+
+	ctx = state.WithRunActionsCtx(context.Background(),
+		state.RunActionsCtx{
+			ProducerAddr:    testaddress.Addrinfo["producer"].RawAddress,
+			GasLimit:        &gasLimit,
+			EnableGasCharge: testutil.EnableGasCharge,
+		})
+	_, _, err = ws.RunActions(ctx, 0, pickedActs)
 	require.NoError(err)
 	require.Nil(sf.Commit(ws))
 	//Reset
@@ -977,8 +1003,14 @@ func TestActPool_GetSize(t *testing.T) {
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
-	ctx := state.Context{testaddress.Addrinfo["producer"].RawAddress, &gasLimit, testutil.EnableGasCharge}
-	_, _, err = ws.RunActions(0, []action.Action{tsf1, tsf2, tsf3, vote4}, ctx)
+
+	ctx := state.WithRunActionsCtx(context.Background(),
+		state.RunActionsCtx{
+			ProducerAddr:    testaddress.Addrinfo["producer"].RawAddress,
+			GasLimit:        &gasLimit,
+			EnableGasCharge: testutil.EnableGasCharge,
+		})
+	_, _, err = ws.RunActions(ctx, 0, []action.Action{tsf1, tsf2, tsf3, vote4})
 	require.NoError(err)
 	require.Nil(sf.Commit(ws))
 	ap.removeConfirmedActs()
