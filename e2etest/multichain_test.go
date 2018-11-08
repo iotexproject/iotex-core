@@ -64,6 +64,8 @@ func TestTwoChains(t *testing.T) {
 		require.NoError(t, svr.Stop(ctx))
 	}()
 
+	time.Sleep(time.Second)
+
 	mainChainClient := exp.NewExplorerProxy(
 		fmt.Sprintf("http://127.0.0.1:%d", svr.ChainService(cfg.Chain.ID).Explorer().Port()),
 	)
