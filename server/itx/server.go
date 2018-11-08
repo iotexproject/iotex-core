@@ -10,6 +10,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"runtime"
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -225,6 +226,8 @@ func StartServer(svr *Server, cfg *config.Config) {
 
 	if cfg.System.HTTPProfilingPort > 0 {
 		go func() {
+			runtime.SetMutexProfileFraction(1)
+			runtime.SetBlockProfileRate(1)
 			if err := http.ListenAndServe(
 				fmt.Sprintf(":%d", cfg.System.HTTPProfilingPort),
 				nil,
