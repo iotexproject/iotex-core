@@ -786,6 +786,27 @@ func (bc *blockchain) Validator() Validator {
 	return bc.validator
 }
 
+func (bc *blockchain) SubscribeBlockCreation(ch chan *Block) error {
+	bc.mu.Lock()
+	defer bc.mu.Unlock()
+	logger.Info().Msg("Add a subscriber")
+	bc.blocklistener = append(bc.blocklistener, ch)
+	return nil
+}
+
+func (bc *blockchain) UnsubscribeBlockCreation(ch chan *Block) error {
+	bc.mu.Lock()
+	defer bc.mu.Unlock()
+	for i, handler := range bc.blocklistener {
+		if ch == handler {
+			bc.blocklistener = append(bc.blocklistener[:i], bc.blocklistener[i+1:]...)
+			logger.Info().Msg("Successfully unsubscribe block creation")
+			return nil
+		}
+	}
+	return errors.New("cannot find subscription")
+}
+
 // ExecuteContractRead runs a read-only smart contract operation, this is done off the network since it does not
 // cause any state change
 func (bc *blockchain) ExecuteContractRead(ex *action.Execution) ([]byte, error) {
@@ -847,7 +868,7 @@ func (bc *blockchain) commitBlock(blk *Block) error {
 		return err
 	}
 	// emit block to all block subscribers
-	if err := bc.EmitToSubscribers(blk); err != nil {
+	if err := bc.emitToSubscribers(blk); err != nil {
 		return errors.Wrap(err, "failed to emit to block subscribers")
 	}
 	// update tip hash and height
@@ -903,21 +924,7 @@ func (bc *blockchain) runActions(blk *Block, ws state.WorkingSet, verify bool) (
 	return root, nil
 }
 
-func (bc *blockchain) SubscribeBlockCreation(ch chan *Block) error {
-	bc.blocklistener = append(bc.blocklistener, ch)
-	return nil
-}
-
-func (bc *blockchain) UnsubscribeBlockCreation(ch chan *Block) error {
-	for i, handler := range bc.blocklistener {
-		if ch == handler {
-			bc.blocklistener = append(bc.blocklistener[:i], bc.blocklistener[i+1:]...)
-		}
-	}
-	return nil
-}
-
-func (bc *blockchain) EmitToSubscribers(blk *Block) error {
+func (bc *blockchain) emitToSubscribers(blk *Block) error {
 	// return if there is no subscribers
 	if bc.blocklistener == nil {
 		return nil
