@@ -87,21 +87,7 @@ func (g *Genesis) CreatorAddr(chainID uint32) string {
 
 // NewGenesisBlock creates a new genesis block
 func NewGenesisBlock(cfg *config.Config) *Block {
-	var filePath string
-	if cfg != nil && cfg.Chain.GenesisActionsPath != "" {
-		filePath = cfg.Chain.GenesisActionsPath
-	} else {
-		filePath = fileutil.GetFileAbsPath(testnetActionPath)
-	}
-
-	actionsBytes, err := ioutil.ReadFile(filePath)
-	if err != nil {
-		logger.Panic().Err(err).Msg("Fail to create genesis block")
-	}
-	actions := GenesisAction{}
-	if err := yaml.Unmarshal(actionsBytes, &actions); err != nil {
-		logger.Panic().Err(err).Msg("Fail to create genesis block")
-	}
+	actions := loadGenesisData(cfg)
 
 	Gen.CreatorPubKey = actions.Creation.PubKey
 	Gen.CreatorPrivKey = actions.Creation.PriKey
@@ -210,4 +196,24 @@ func decodeKey(pubK string, priK string) (pk keypair.PublicKey, sk keypair.Priva
 func generateAddr(chainID uint32, pk keypair.PublicKey) string {
 	pkHash := keypair.HashPubKey(pk)
 	return address.New(chainID, pkHash[:]).IotxAddress()
+}
+
+// loadGenesisData loads data of creator and actions contained in genesis block
+func loadGenesisData(cfg *config.Config) GenesisAction {
+	var filePath string
+	if cfg != nil && cfg.Chain.GenesisActionsPath != "" {
+		filePath = cfg.Chain.GenesisActionsPath
+	} else {
+		filePath = fileutil.GetFileAbsPath(testnetActionPath)
+	}
+
+	actionsBytes, err := ioutil.ReadFile(filePath)
+	if err != nil {
+		logger.Panic().Err(err).Msg("Fail to load genesis data")
+	}
+	actions := GenesisAction{}
+	if err := yaml.Unmarshal(actionsBytes, &actions); err != nil {
+		logger.Panic().Err(err).Msg("Fail to unmarshal genesis data")
+	}
+	return actions
 }

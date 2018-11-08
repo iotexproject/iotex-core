@@ -353,10 +353,12 @@ func (bc *blockchain) startExistingBlockchain(recoveryHeight uint64) error {
 	}
 	ws, err := bc.sf.NewWorkingSet()
 	if err != nil {
-		return errors.Wrap(err, "Failed to obtain working set from state factory")
+		return errors.Wrap(err, "failed to obtain working set from state factory")
 	}
 	// If restarting factory from fresh db, first create creator's state
 	if startHeight == 0 {
+		actions := loadGenesisData(bc.config)
+		Gen.CreatorPubKey = actions.Creation.PubKey
 		if _, err := ws.LoadOrCreateAccountState(Gen.CreatorAddr(bc.ChainID()), Gen.TotalSupply); err != nil {
 			return err
 		}
@@ -390,6 +392,10 @@ func (bc *blockchain) startExistingBlockchain(recoveryHeight uint64) error {
 		blk, err := bc.GetBlockByHeight(i)
 		if err != nil {
 			return err
+		}
+		ws, err := bc.sf.NewWorkingSet()
+		if err != nil {
+			return errors.Wrap(err, "failed to obtain working set from state factory")
 		}
 		if _, err := bc.runActions(blk, ws, true); err != nil {
 			return err
