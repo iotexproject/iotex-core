@@ -31,12 +31,13 @@ import (
 
 // Server is the iotex server instance containing all components.
 type Server struct {
-	cfg              *config.Config
-	rootChainService *chainservice.ChainService
-	chainservices    map[uint32]*chainservice.ChainService
-	p2p              network.Overlay
-	dispatcher       dispatcher.Dispatcher
-	subChainStarter  *routine.RecurringTask
+	cfg                  *config.Config
+	rootChainService     *chainservice.ChainService
+	chainservices        map[uint32]*chainservice.ChainService
+	p2p                  network.Overlay
+	dispatcher           dispatcher.Dispatcher
+	subChainStarter      *routine.RecurringTask
+	initializedSubChains map[uint32]bool
 }
 
 // NewServer creates a new server
@@ -86,11 +87,12 @@ func newServer(cfg *config.Config, testing bool) (*Server, error) {
 	chains[cs.ChainID()] = cs
 	dispatcher.AddSubscriber(cs.ChainID(), cs)
 	svr := Server{
-		cfg:              cfg,
-		p2p:              p2p,
-		dispatcher:       dispatcher,
-		rootChainService: cs,
-		chainservices:    chains,
+		cfg:                  cfg,
+		p2p:                  p2p,
+		dispatcher:           dispatcher,
+		rootChainService:     cs,
+		chainservices:        chains,
+		initializedSubChains: map[uint32]bool{},
 	}
 	// Setup sub-chain starter
 	// TODO: sub-chain infra should use main-chain API instead of protocol directly
