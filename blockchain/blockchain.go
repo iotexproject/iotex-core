@@ -871,6 +871,7 @@ func (bc *blockchain) commitBlock(blk *Block) error {
 }
 
 func (bc *blockchain) runActions(blk *Block, ws state.WorkingSet, verify bool) (hash.Hash32B, error) {
+	blk.receipts = make(map[hash.Hash32B]*action.Receipt)
 	if bc.sf == nil {
 		return hash.ZeroHash32B, errors.New("statefactory cannot be nil")
 	}
