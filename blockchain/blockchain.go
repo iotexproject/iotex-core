@@ -121,7 +121,7 @@ type Blockchain interface {
 	// For smart contract operations
 	// ExecuteContractRead runs a read-only smart contract operation, this is done off the network since it does not
 	// cause any state change
-	ExecuteContractRead(*action.Execution) ([]byte, error)
+	ExecuteContractRead(ex *action.Execution) (*action.Receipt, error)
 
 	// SubscribeBlockCreation make you listen to every single produced block
 	SubscribeBlockCreation(ch chan *Block) error
@@ -773,7 +773,7 @@ func (bc *blockchain) Validator() Validator {
 
 // ExecuteContractRead runs a read-only smart contract operation, this is done off the network since it does not
 // cause any state change
-func (bc *blockchain) ExecuteContractRead(ex *action.Execution) ([]byte, error) {
+func (bc *blockchain) ExecuteContractRead(ex *action.Execution) (*action.Receipt, error) {
 	// use latest block as carrier to run the offline execution
 	// the block itself is not used
 	h := bc.TipHeight()
@@ -797,7 +797,7 @@ func (bc *blockchain) ExecuteContractRead(ex *action.Execution) ([]byte, error) 
 	if !ok {
 		return nil, errors.Wrap(err, "failed to get receipt in ExecuteContractRead")
 	}
-	return receipt.ReturnValue, nil
+	return receipt, nil
 }
 
 //======================================

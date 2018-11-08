@@ -1200,7 +1200,7 @@ func (exp *Service) SendSmartContract(execution explorer.Execution) (resp explor
 func (exp *Service) ReadExecutionState(execution explorer.Execution) (string, error) {
 	logger.Debug().Msg("receive read smart contract request")
 
-	data, err := hex.DecodeString(execution.Data)
+	/*data, err := hex.DecodeString(execution.Data)
 	if err != nil {
 		return "", err
 	}
@@ -1234,12 +1234,18 @@ func (exp *Service) ReadExecutionState(execution explorer.Execution) (string, er
 	}
 
 	sc := &action.Execution{}
-	sc.LoadProto(actPb)
+	sc.LoadProto(actPb)*/
+
+	sc, err := convertExplorerExecutionToExecution(&execution)
+	if err != nil {
+		return "", err
+	}
+
 	res, err := exp.bc.ExecuteContractRead(sc)
 	if err != nil {
 		return "", err
 	}
-	return hex.EncodeToString(res), nil
+	return hex.EncodeToString(res.ReturnValue), nil
 }
 
 // GetBlockOrActionByHash get block or action by a hash
@@ -1513,7 +1519,15 @@ func (exp *Service) EstimateGasForVote(voteJSON explorer.SendVoteRequest) (int64
 
 // EstimateGasForSmartContract suggest gas for smart contract
 func (exp *Service) EstimateGasForSmartContract(execution explorer.Execution) (int64, error) {
-	return 0, nil
+	sc, err := convertExplorerExecutionToExecution(&execution)
+	if err != nil {
+		return 0, err
+	}
+	receipt, err := exp.bc.ExecuteContractRead(sc)
+	if err != nil {
+		return 0, err
+	}
+	return int64(receipt.GasConsumed), nil
 }
 
 // getTransfer takes in a blockchain and transferHash and returns an Explorer Transfer
@@ -1743,6 +1757,46 @@ func convertReceiptToExplorerReceipt(receipt *action.Receipt) (explorer.Receipt,
 		ContractAddress: receipt.ContractAddress,
 		Logs:            logs,
 	}, nil
+}
+
+func convertExplorerExecutionToExecution(execution *explorer.Execution) (*action.Execution, error) {
+	data, err := hex.DecodeString(execution.Data)
+	if err != nil {
+		return nil, err
+	}
+	signature, err := hex.DecodeString(execution.Signature)
+	if err != nil {
+		return nil, err
+	}
+	amount, ok := big.NewInt(0).SetString(execution.Amount, 10)
+	if !ok {
+		return nil, errors.New("failed to set execution amount")
+	}
+	gasPrice, ok := big.NewInt(0).SetString(execution.GasPrice, 10)
+	if !ok {
+		return nil, errors.New("failed to set execution gas price")
+	}
+	actPb := &pb.ActionPb{
+		Action: &pb.ActionPb_Execution{
+			Execution: &pb.ExecutionPb{
+				Amount:   amount.Bytes(),
+				Contract: execution.Contract,
+				Data:     data,
+			},
+		},
+		Version:      uint32(execution.Version),
+		Sender:       execution.Executor,
+		SenderPubKey: nil,
+		Nonce:        uint64(execution.Nonce),
+		GasLimit:     uint64(execution.GasLimit),
+		GasPrice:     gasPrice.Bytes(),
+		Signature:    signature,
+	}
+
+	sc := &action.Execution{}
+	sc.LoadProto(actPb)
+
+	return sc, nil
 }
 
 type bigIntArray []*big.Int
