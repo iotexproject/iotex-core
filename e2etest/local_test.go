@@ -713,6 +713,11 @@ func TestBlockchainRecovery(t *testing.T) {
 	svr, err = itx.NewServer(cfg)
 	require.Nil(err)
 	require.NoError(svr.Start(ctx))
+
+	blockchainHeight := svr.ChainService(cfg.Chain.ID).Blockchain().TipHeight()
+	factoryHeight, err := svr.ChainService(cfg.Chain.ID).Blockchain().GetFactory().Height()
+	require.NoError(err)
+	require.Equal(blockchainHeight, factoryHeight)
 }
 
 func newTestConfig() (*config.Config, error) {
