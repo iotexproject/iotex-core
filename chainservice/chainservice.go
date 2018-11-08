@@ -197,6 +197,10 @@ func (cs *ChainService) HandleAction(actPb *pb.ActionPb) error {
 		act = &action.StartSubChain{}
 	} else if actPb.GetStopSubChain() != nil {
 		act = &action.StopSubChain{}
+	} else if actPb.GetCreateDeposit() != nil {
+		act = &action.CreateDeposit{}
+	} else if actPb.GetSettleDeposit() != nil {
+		act = &action.SettleDeposit{}
 	}
 	act.LoadProto(actPb)
 	if err := cs.actpool.Add(act); err != nil {
