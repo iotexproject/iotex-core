@@ -111,6 +111,7 @@ func (s *Set) NumOfValidEndorsements(topics map[ConsensusVoteTopic]bool, endorse
 		if _, ok := endorserSet[endorsement.endorser]; !ok {
 			continue
 		}
+		delete(endorserSet, endorsement.endorser)
 		cnt++
 	}
 

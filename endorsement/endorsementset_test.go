@@ -44,4 +44,28 @@ func TestAddEndorsement(t *testing.T) {
 	en = NewEndorsement(cv, testaddress.Addrinfo["producer"])
 	require.Equal(nil, set.AddEndorsement(en))
 	require.Equal(2, len(set.endorsements))
+	// Add an endorsement of an existing endorser
+	cv = NewConsensusVote(hash1, 1, 2, LOCK)
+	en = NewEndorsement(cv, testaddress.Addrinfo["alfa"])
+	require.Equal(nil, set.AddEndorsement(en))
+	require.Equal(3, len(set.endorsements))
+	require.Equal(1, set.NumOfValidEndorsements(map[ConsensusVoteTopic]bool{
+		LOCK: true,
+	}, []string{
+		testaddress.Addrinfo["producer"].RawAddress,
+		testaddress.Addrinfo["alfa"].RawAddress,
+	}))
+	require.Equal(2, set.NumOfValidEndorsements(map[ConsensusVoteTopic]bool{
+		PROPOSAL: true,
+	}, []string{
+		testaddress.Addrinfo["producer"].RawAddress,
+		testaddress.Addrinfo["alfa"].RawAddress,
+	}))
+	require.Equal(2, set.NumOfValidEndorsements(map[ConsensusVoteTopic]bool{
+		LOCK:     true,
+		PROPOSAL: true,
+	}, []string{
+		testaddress.Addrinfo["producer"].RawAddress,
+		testaddress.Addrinfo["alfa"].RawAddress,
+	}))
 }
