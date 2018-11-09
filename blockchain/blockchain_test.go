@@ -776,6 +776,7 @@ func TestBlocks(t *testing.T) {
 	a := ta.Addrinfo["alfa"]
 	c := ta.Addrinfo["bravo"]
 	ws, err := sf.NewWorkingSet()
+	require.NoError(err)
 	_, err = ws.LoadOrCreateAccountState(a.RawAddress, big.NewInt(100000))
 	require.NoError(err)
 	_, err = ws.LoadOrCreateAccountState(c.RawAddress, big.NewInt(100000))
@@ -829,6 +830,7 @@ func TestActions(t *testing.T) {
 	a := ta.Addrinfo["alfa"]
 	c := ta.Addrinfo["bravo"]
 	ws, err := sf.NewWorkingSet()
+	require.NoError(err)
 	_, err = ws.LoadOrCreateAccountState(a.RawAddress, big.NewInt(100000))
 	require.NoError(err)
 	_, err = ws.LoadOrCreateAccountState(c.RawAddress, big.NewInt(100000))
