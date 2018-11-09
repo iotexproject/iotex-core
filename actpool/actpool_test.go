@@ -72,17 +72,17 @@ func TestActPool_validateGenericAction(t *testing.T) {
 	// Case I: Over-gassed transfer
 	tsf, err := action.NewTransfer(uint64(1), big.NewInt(1), "1", "2", nil, blockchain.GasLimit+1, big.NewInt(0))
 	require.NoError(err)
-	err = validator.Validate(tsf)
+	err = validator.Validate(context.Background(), tsf)
 	require.Equal(action.ErrGasHigherThanLimit, errors.Cause(err))
 	// Case II: Insufficient gas
 	tsf, err = action.NewTransfer(uint64(1), big.NewInt(1), "1", "2", nil, uint64(0), big.NewInt(0))
 	require.NoError(err)
-	err = validator.Validate(tsf)
+	err = validator.Validate(context.Background(), tsf)
 	require.Equal(action.ErrInsufficientBalanceForGas, errors.Cause(err))
 	// Case III: Signature verification fails
 	unsignedTsf, err := action.NewTransfer(uint64(1), big.NewInt(1), addr1.RawAddress, addr1.RawAddress, []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	err = validator.Validate(unsignedTsf)
+	err = validator.Validate(context.Background(), unsignedTsf)
 	require.Equal(action.ErrAction, errors.Cause(err))
 	// Case IV: Nonce is too low
 	prevTsf, err := testutil.SignedTransfer(addr1, addr1, uint64(1), big.NewInt(50),
@@ -108,7 +108,7 @@ func TestActPool_validateGenericAction(t *testing.T) {
 	nTsf, err := testutil.SignedTransfer(addr1, addr1, uint64(1), big.NewInt(60),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	err = validator.Validate(nTsf)
+	err = validator.Validate(context.Background(), nTsf)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 }
 
