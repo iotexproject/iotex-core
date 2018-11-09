@@ -5,6 +5,7 @@
 package mock_actpool
 
 import (
+	context "context"
 	gomock "github.com/golang/mock/gomock"
 	action "github.com/iotexproject/iotex-core/action"
 	actpool "github.com/iotexproject/iotex-core/actpool"
@@ -169,13 +170,13 @@ func (m *MockActionValidator) EXPECT() *MockActionValidatorMockRecorder {
 }
 
 // Validate mocks base method
-func (m *MockActionValidator) Validate(arg0 action.Action) error {
-	ret := m.ctrl.Call(m, "Validate", arg0)
+func (m *MockActionValidator) Validate(arg0 context.Context, arg1 action.Action) error {
+	ret := m.ctrl.Call(m, "Validate", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Validate indicates an expected call of Validate
-func (mr *MockActionValidatorMockRecorder) Validate(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Validate", reflect.TypeOf((*MockActionValidator)(nil).Validate), arg0)
+func (mr *MockActionValidatorMockRecorder) Validate(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Validate", reflect.TypeOf((*MockActionValidator)(nil).Validate), arg0, arg1)
 }
