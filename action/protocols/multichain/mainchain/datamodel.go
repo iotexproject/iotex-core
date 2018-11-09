@@ -25,6 +25,7 @@ type SubChain struct {
 	SecurityDeposit    *big.Int
 	OperationDeposit   *big.Int
 	StartHeight        uint64
+	StopHeight         uint64
 	ParentHeightOffset uint64
 	OwnerPublicKey     keypair.PublicKey
 	CurrentHeight      uint64

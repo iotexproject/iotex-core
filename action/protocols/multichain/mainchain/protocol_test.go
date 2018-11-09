@@ -72,7 +72,6 @@ func TestAddSubChainActions(t *testing.T) {
 	stopSubChain := action.NewStopSubChain(
 		testaddress.Addrinfo["producer"].RawAddress,
 		3,
-		2,
 		testaddress.Addrinfo["alfa"].RawAddress,
 		10003,
 		10005,

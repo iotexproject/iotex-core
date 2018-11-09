@@ -60,6 +60,10 @@ func (p *Protocol) Handle(_ context.Context, act action.Action, ws state.Working
 			return nil, errors.Wrapf(err, "error when handling deposit creation action")
 		}
 		return deposit, nil
+	case *action.StopSubChain:
+		if err := p.handleStopSubChain(act, ws); err != nil {
+			return nil, errors.Wrapf(err, "error when handling stop sub-chain action")
+		}
 	}
 	// The action is not handled by this handler or no error
 	return nil, nil
@@ -85,18 +89,20 @@ func (p *Protocol) Validate(_ context.Context, act action.Action) error {
 	return nil
 }
 
+func (p *Protocol) account(sender string, ws state.WorkingSet) (*state.Account, error) {
+	if ws == nil {
+		return p.sf.AccountState(sender)
+	}
+
+	return ws.CachedAccountState(sender)
+}
+
 func (p *Protocol) accountWithEnoughBalance(
 	sender string,
 	balance *big.Int,
 	ws state.WorkingSet,
 ) (*state.Account, error) {
-	var account *state.Account
-	var err error
-	if ws == nil {
-		account, err = p.sf.AccountState(sender)
-	} else {
-		account, err = ws.CachedAccountState(sender)
-	}
+	account, err := p.account(sender, ws)
 	if err != nil {
 		return nil, errors.Wrapf(err, "error when getting the account of address %s", sender)
 	}
@@ -140,4 +146,25 @@ func srcAddressPKHash(srcAddr string) (hash.PKHash, error) {
 		return hash.ZeroPKHash, errors.Wrapf(err, "cannot get the public key hash of address %s", srcAddr)
 	}
 	return byteutil.BytesTo20B(addr.Payload()), nil
+}
+
+// SubChain returns the confirmed sub-chain state
+func (p *Protocol) SubChain(addr address.Address) (*SubChain, error) {
+	var subChain SubChain
+	state, err := p.sf.State(byteutil.BytesTo20B(addr.Payload()), &subChain)
+	if err != nil {
+		return nil, errors.Wrapf(err, "error when loading state of %x", addr.Payload())
+	}
+	sc, ok := state.(*SubChain)
+	if !ok {
+		return nil, errors.New("error when casting state into sub-chain")
+	}
+	return sc, nil
+}
+
+// SubChainsInOperation returns the used chain IDs
+func (p *Protocol) SubChainsInOperation() (state.SortedSlice, error) {
+	var subChainsInOp state.SortedSlice
+	s, err := p.sf.State(SubChainsInOperationKey, &subChainsInOp)
+	return processState(s, err)
 }
