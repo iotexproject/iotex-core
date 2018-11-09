@@ -13,7 +13,7 @@ import (
 	"testing"
 
 	"database/sql"
-	"github.com/pkg/errors"
+
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/config"
@@ -153,7 +153,6 @@ func TestRDSStoreTransaction(t *testing.T) {
 			if _, err := tx.Exec(insertQuery, nodeAddress, userAddress1, transferHash[:]); err != nil {
 				return err
 			}
-			return errors.New("raise error on purpose")
 			if _, err := tx.Exec(insertQuery, nodeAddress, userAddress2, transferHash[:]); err != nil {
 				return err
 			}

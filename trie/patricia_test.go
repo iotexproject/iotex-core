@@ -116,6 +116,7 @@ func TestChild(t *testing.T) {
 	assert.Equal(0, match)
 	assert.NotNil(err)
 	b, match, err = br.child(ant, dao, "test", cb)
+	assert.NoError(err)
 	assert.Equal(1, match)
 	assert.Equal(b.hash(), e.hash())
 

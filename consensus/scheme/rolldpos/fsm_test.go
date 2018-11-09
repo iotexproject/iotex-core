@@ -438,7 +438,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		state, err = cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, nil, cfsm.ctx.round.number, cfsm.ctx.clock))
 		assert.NoError(t, err)
 		assert.Equal(t, sAcceptProposalEndorse, state)
-		e = <-cfsm.evtq
+		<-cfsm.evtq
 		require.True(t, ok)
 		assert.Equal(t, eEndorseProposal, evt.Type())
 	})
@@ -874,6 +874,7 @@ func TestOneDelegate(t *testing.T) {
 	require.Equal(sRoundStart, state)
 	evt = <-cfsm.evtq
 	cEvt, ok := evt.(*consensusEvt)
+	require.True(ok)
 	require.Equal(eFinishEpoch, cEvt.Type())
 	// new round
 	state, err = cfsm.handleFinishEpochEvt(cEvt)

@@ -102,10 +102,7 @@ func (p *Protocol) mutateSubChainState(
 		},
 		SortInOperation,
 	)
-	if err := ws.PutState(SubChainsInOperationKey, &subChainsInOp); err != nil {
-		return err
-	}
-	return nil
+	return ws.PutState(SubChainsInOperationKey, &subChainsInOp)
 }
 
 func createSubChainAddress(ownerAddr string, nonce uint64) (hash.PKHash, error) {
