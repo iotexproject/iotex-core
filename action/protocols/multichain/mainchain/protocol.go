@@ -7,6 +7,7 @@
 package mainchain
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 
@@ -43,7 +44,7 @@ func NewProtocol(rootChain blockchain.Blockchain) *Protocol {
 }
 
 // Handle handles how to mutate the state db given the multi-chain action on main-chain
-func (p *Protocol) Handle(act action.Action, ws state.WorkingSet) (*action.Receipt, error) {
+func (p *Protocol) Handle(_ context.Context, act action.Action, ws state.WorkingSet) (*action.Receipt, error) {
 	switch act := act.(type) {
 	case *action.StartSubChain:
 		if err := p.handleStartSubChain(act, ws); err != nil {
@@ -65,7 +66,7 @@ func (p *Protocol) Handle(act action.Action, ws state.WorkingSet) (*action.Recei
 }
 
 // Validate validates the multi-chain action on main-chain
-func (p *Protocol) Validate(act action.Action) error {
+func (p *Protocol) Validate(_ context.Context, act action.Action) error {
 	switch act := act.(type) {
 	case *action.StartSubChain:
 		if _, _, err := p.validateStartSubChain(act, nil); err != nil {

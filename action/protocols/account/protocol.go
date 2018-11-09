@@ -7,6 +7,7 @@
 package account
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 
@@ -25,7 +26,7 @@ type Protocol struct{}
 func NewProtocol() *Protocol { return &Protocol{} }
 
 // Handle handles an account
-func (p *Protocol) Handle(act action.Action, ws state.WorkingSet) (*action.Receipt, error) {
+func (p *Protocol) Handle(_ context.Context, act action.Action, ws state.WorkingSet) (*action.Receipt, error) {
 	switch act := act.(type) {
 	case *action.Transfer:
 		if err := p.handleTransfer(act, ws); err != nil {
@@ -36,7 +37,7 @@ func (p *Protocol) Handle(act action.Action, ws state.WorkingSet) (*action.Recei
 }
 
 // Validate validates an account
-func (p *Protocol) Validate(act action.Action) error {
+func (p *Protocol) Validate(_ context.Context, act action.Action) error {
 	switch act := act.(type) {
 	case *action.Transfer:
 		if err := p.validateTransfer(act); err != nil {
