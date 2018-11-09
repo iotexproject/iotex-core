@@ -155,9 +155,9 @@ func TestEVM(t *testing.T) {
 	require.NoError(bc.ValidateBlock(blk, true))
 	require.Nil(bc.CommitBlock(blk))
 	require.Equal(1, len(blk.receipts))
-	ws, err = sf.NewWorkingSet()
-	aaccount, err := ws.LoadOrCreateAccountState(ta.Addrinfo["alfa"].RawAddress, Gen.TotalSupply)
-	require.NotEqual(Gen.TotalSupply, aaccount.Balance)
+	ws, _ = sf.NewWorkingSet()
+	alfaAccount, _ := ws.LoadOrCreateAccountState(ta.Addrinfo["alfa"].RawAddress, Gen.TotalSupply)
+	require.NotEqual(Gen.TotalSupply, alfaAccount.Balance)
 }
 
 func TestLogReceipt(t *testing.T) {
