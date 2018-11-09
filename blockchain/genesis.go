@@ -85,6 +85,12 @@ func (g *Genesis) CreatorAddr(chainID uint32) string {
 	return generateAddr(chainID, pk)
 }
 
+// CreatorPKHash returns the creator public key hash
+func (g *Genesis) CreatorPKHash() hash.PKHash {
+	pk, _ := decodeKey(g.CreatorPubKey, "")
+	return keypair.HashPubKey(pk)
+}
+
 // NewGenesisBlock creates a new genesis block
 func NewGenesisBlock(cfg *config.Config) *Block {
 	actions := loadGenesisData(cfg)
