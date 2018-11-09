@@ -19,7 +19,6 @@ import (
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
-	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -140,7 +139,6 @@ func securityDeposit(ps *EVMParams, stateDB vm.StateDB, gasLimit *uint64) error 
 
 // ExecuteContracts process the contracts in a block
 func ExecuteContracts(blk *Block, ws state.WorkingSet, bc Blockchain, gasLimit *uint64, enableGasCharge bool) {
-	blk.receipts = make(map[hash.Hash32B]*action.Receipt)
 	_, _, executions := action.ClassifyActions(blk.Actions)
 	for idx, execution := range executions {
 		// TODO (zhi) log receipt to stateDB

@@ -69,28 +69,28 @@ func TestProtocol_Handle(t *testing.T) {
 
 	vote1, err := action.NewVote(1, addr1, addr1, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	_, err = protocol.Handle(vote1, ws)
+	_, err = protocol.Handle(ctx, vote1, ws)
 	require.NoError(err)
 	account1, _ := account.LoadAccountState(ws, pkHash1)
 	checkSelfNomination(addr1, account1)
 
 	vote2, err := action.NewVote(1, addr2, addr2, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	_, err = protocol.Handle(vote2, ws)
+	_, err = protocol.Handle(ctx, vote2, ws)
 	require.NoError(err)
 	account2, _ := account.LoadAccountState(ws, pkHash2)
 	checkSelfNomination(addr2, account2)
 
 	vote3, err := action.NewVote(1, addr3, addr3, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	_, err = protocol.Handle(vote3, ws)
+	_, err = protocol.Handle(ctx, vote3, ws)
 	require.NoError(err)
 	account3, _ := account.LoadAccountState(ws, pkHash3)
 	checkSelfNomination(addr3, account3)
 
 	unvote1, err := action.NewVote(2, addr1, "", uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	_, err = protocol.Handle(unvote1, ws)
+	_, err = protocol.Handle(ctx, unvote1, ws)
 	require.NoError(err)
 	account1, _ = account.LoadAccountState(ws, pkHash1)
 	require.Equal(uint64(2), account1.Nonce)
@@ -100,7 +100,7 @@ func TestProtocol_Handle(t *testing.T) {
 
 	vote4, err := action.NewVote(2, addr2, addr3, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	_, err = protocol.Handle(vote4, ws)
+	_, err = protocol.Handle(ctx, vote4, ws)
 	require.NoError(err)
 	account2, _ = account.LoadAccountState(ws, pkHash2)
 	account3, _ = account.LoadAccountState(ws, pkHash3)
@@ -112,7 +112,7 @@ func TestProtocol_Handle(t *testing.T) {
 
 	unvote2, err := action.NewVote(3, addr2, "", uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	_, err = protocol.Handle(unvote2, ws)
+	_, err = protocol.Handle(ctx, unvote2, ws)
 	require.NoError(err)
 	account2, _ = account.LoadAccountState(ws, pkHash2)
 	account3, _ = account.LoadAccountState(ws, pkHash3)
@@ -147,19 +147,19 @@ func TestProtocol_Validate(t *testing.T) {
 	require.NoError(err)
 	invalidSig := [1000]byte{}
 	vote.SetSignature(invalidSig[:])
-	err = protocol.Validate(vote)
+	err = protocol.Validate(context.Background(), vote)
 	require.Equal(action.ErrActPool, errors.Cause(err))
 	// Case II: Invalid address
 	vote, err = action.NewVote(1, testaddress.Addrinfo["producer"].RawAddress, "123", uint64(100000),
 		big.NewInt(0))
 	require.NoError(err)
-	err = protocol.Validate(vote)
+	err = protocol.Validate(context.Background(), vote)
 	require.Error(err)
 	require.True(strings.Contains(err.Error(), "error when validating votee's address"))
 	// Case III: Votee is not a candidate
 	vote2, err := action.NewVote(1, testaddress.Addrinfo["producer"].RawAddress,
 		testaddress.Addrinfo["alfa"].RawAddress, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	err = protocol.Validate(vote2)
+	err = protocol.Validate(context.Background(), vote2)
 	require.Equal(action.ErrVotee, errors.Cause(err))
 }

@@ -49,8 +49,13 @@ func TestHandlePutBlock(t *testing.T) {
 	)
 	require.NoError(t, err)
 	gasLimit := testutil.TestGasLimit
-	stateContext := state.Context{testaddress.Addrinfo["producer"].RawAddress, &gasLimit, testutil.EnableGasCharge}
-	_, _, err = ws.RunActions(0, nil, stateContext)
+	ctx = state.WithRunActionsCtx(ctx,
+		state.RunActionsCtx{
+			ProducerAddr:    testaddress.Addrinfo["producer"].RawAddress,
+			GasLimit:        &gasLimit,
+			EnableGasCharge: testutil.EnableGasCharge,
+		})
+	_, _, err = ws.RunActions(ctx, 0, nil)
 	require.NoError(t, err)
 	require.NoError(t, sf.Commit(ws))
 
@@ -77,12 +82,12 @@ func TestHandlePutBlock(t *testing.T) {
 	)
 
 	// first put
-	_, err = p.Handle(pb, ws)
+	_, err = p.Handle(ctx, pb, ws)
 	require.NoError(t, err)
 	require.NoError(t, sf.Commit(ws))
 
 	// alredy exist
-	_, err = p.Handle(pb, ws)
+	_, err = p.Handle(ctx, pb, ws)
 	require.Error(t, err)
 
 	// get exist
@@ -104,7 +109,7 @@ func TestHandlePutBlock(t *testing.T) {
 		10003,
 		big.NewInt(10004),
 	)
-	_, err = p.Handle(pb2, ws)
+	_, err = p.Handle(ctx, pb2, ws)
 	require.NoError(t, err)
 	require.NoError(t, sf.Commit(ws))
 

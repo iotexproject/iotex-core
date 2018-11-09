@@ -7,6 +7,7 @@
 package actpool
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -57,7 +58,7 @@ type GenericValidator struct{ bc blockchain.Blockchain }
 
 // ActionValidator is the interface of validating an action
 type ActionValidator interface {
-	Validate(action.Action) error
+	Validate(context.Context, action.Action) error
 }
 
 // NewActPool constructs a new actpool
@@ -154,7 +155,7 @@ func (ap *actPool) Add(act action.Action) error {
 	}
 	// Reject action if it's invalid
 	for _, validator := range ap.validators {
-		if err := validator.Validate(act); err != nil {
+		if err := validator.Validate(context.Background(), act); err != nil {
 			return errors.Wrapf(err, "reject invalid action: %x", hash)
 		}
 	}
@@ -315,7 +316,7 @@ func (ap *actPool) updateAccount(sender string) {
 }
 
 // Validate validates an generic action
-func (v *GenericValidator) Validate(act action.Action) error {
+func (v *GenericValidator) Validate(_ context.Context, act action.Action) error {
 	// Reject over-gassed action
 	if act.GasLimit() > blockchain.GasLimit {
 		return errors.Wrap(action.ErrGasHigherThanLimit, "gas is higher than gas limit")

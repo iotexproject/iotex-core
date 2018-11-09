@@ -15,9 +15,11 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/CoderZhi/go-ethereum/core/vm"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/trie"
@@ -30,7 +32,7 @@ type (
 		LoadOrCreateAccountState(string, *big.Int) (*Account, error)
 		Nonce(string) (uint64, error) // Note that Nonce starts with 1.
 		CachedAccountState(string) (*Account, error)
-		RunActions(uint64, []action.Action, Context) (hash.Hash32B, map[hash.Hash32B]*action.Receipt, error)
+		RunActions(context.Context, uint64, []action.Action) (hash.Hash32B, map[hash.Hash32B]*action.Receipt, error)
 		Commit() error
 		// contracts
 		GetCodeHash(hash.PKHash) (hash.Hash32B, error)
@@ -62,18 +64,6 @@ type (
 		actionHandlers   []ActionHandler
 	}
 )
-
-// Context provides the runactions with auxiliary information.
-type Context struct {
-	// producer who compose those actions
-	ProducerAddr string
-
-	// gas Limit for perform those actions
-	GasLimit *uint64
-
-	// whether disable gas charge
-	EnableGasCharge bool
-}
 
 // NewWorkingSet creates a new working set
 func NewWorkingSet(
@@ -177,33 +167,40 @@ func (ws *workingSet) Height() uint64 {
 
 // RunActions runs actions in the block and track pending changes in working set
 func (ws *workingSet) RunActions(
+	ctx context.Context,
 	blockHeight uint64,
 	actions []action.Action,
-	ctx Context,
 ) (hash.Hash32B, map[hash.Hash32B]*action.Receipt, error) {
 	ws.blkHeight = blockHeight
 	// Recover cachedCandidates after restart factory
 	if blockHeight > 0 && len(ws.cachedCandidates) == 0 {
 		candidates, err := ws.getCandidates(blockHeight - 1)
 		if err != nil {
-			return hash.ZeroHash32B, nil,
-				errors.Wrapf(err, "failed to get previous Candidates on Height %d", blockHeight-1)
+			logger.Info().Err(err).Msgf("No previous Candidates on Height %d", blockHeight-1)
+			candidates = CandidateList{}
 		}
 		if ws.cachedCandidates, err = CandidatesToMap(candidates); err != nil {
 			return hash.ZeroHash32B, nil,
 				errors.Wrap(err, "failed to convert candidate list to map of cached Candidates")
 		}
 	}
+
+	raCtx, ok := getRunActionsCtx(ctx)
+	if !ok {
+		return hash.ZeroHash32B, nil,
+			errors.New("failed to get RunActionsCtx")
+	}
+
 	// check producer
-	producer, err := ws.LoadOrCreateAccountState(ctx.ProducerAddr, big.NewInt(0))
+	producer, err := ws.LoadOrCreateAccountState(raCtx.ProducerAddr, big.NewInt(0))
 	if err != nil {
-		return hash.ZeroHash32B, nil, errors.Wrapf(err, "failed to load or create the account of block producer %s", ctx.ProducerAddr)
+		return hash.ZeroHash32B, nil, errors.Wrapf(err, "failed to load or create the account of block producer %s", raCtx.ProducerAddr)
 	}
 	tsfs, votes, executions := action.ClassifyActions(actions)
-	if err := ws.handleTsf(producer, tsfs, ctx.GasLimit, ctx.EnableGasCharge); err != nil {
+	if err := ws.handleTsf(producer, tsfs, raCtx.GasLimit, raCtx.EnableGasCharge); err != nil {
 		return hash.ZeroHash32B, nil, errors.Wrap(err, "failed to handle transfers")
 	}
-	if err := ws.handleVote(producer, blockHeight, votes, ctx.GasLimit, ctx.EnableGasCharge); err != nil {
+	if err := ws.handleVote(producer, blockHeight, votes, raCtx.GasLimit, raCtx.EnableGasCharge); err != nil {
 		return hash.ZeroHash32B, nil, errors.Wrap(err, "failed to handle votes")
 	}
 
@@ -273,7 +270,7 @@ func (ws *workingSet) RunActions(
 	receipts := make(map[hash.Hash32B]*action.Receipt)
 	for _, act := range actions {
 		for _, actionHandler := range ws.actionHandlers {
-			receipt, err := actionHandler.Handle(act, ws)
+			receipt, err := actionHandler.Handle(ctx, act, ws)
 			if err != nil {
 				return hash.ZeroHash32B, nil, errors.Wrapf(
 					err,

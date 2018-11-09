@@ -95,6 +95,7 @@ var (
 			ProducerPrivKey:              keypair.EncodePrivateKey(keypair.ZeroPrivateKey),
 			InMemTest:                    false,
 			GenesisActionsPath:           "",
+			EmptyGenesis:                 false,
 			NumCandidates:                101,
 			EnableFallBackToFreshDB:      false,
 			EnableSubChainStartInGenesis: false,
@@ -217,6 +218,7 @@ type (
 		// InMemTest creates in-memory DB file for local testing
 		InMemTest                    bool   `yaml:"inMemTest"`
 		GenesisActionsPath           string `yaml:"genesisActionsPath"`
+		EmptyGenesis                 bool   `yaml:"emptyGenesis"`
 		NumCandidates                uint   `yaml:"numCandidates"`
 		EnableFallBackToFreshDB      bool   `yaml:"enableFallbackToFreshDb"`
 		EnableSubChainStartInGenesis bool   `yaml:"enableSubChainStartInGenesis"`

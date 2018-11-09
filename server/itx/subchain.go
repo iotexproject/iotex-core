@@ -61,6 +61,10 @@ func (s *Server) newSubChainStarter(protocol *mainchain.Protocol) *routine.Recur
 }
 
 func (s *Server) startSubChainService(addr string, sc *mainchain.SubChain) error {
+	if initialized, ok := s.initializedSubChains[sc.ChainID]; initialized && ok {
+		return nil
+	}
+	s.initializedSubChains[sc.ChainID] = true
 	block := make(chan *blockchain.Block)
 	if err := s.rootChainService.Blockchain().SubscribeBlockCreation(block); err != nil {
 		return errors.Wrap(err, "error when subscribing block creation")
@@ -79,7 +83,9 @@ func (s *Server) startSubChainService(addr string, sc *mainchain.SubChain) error
 				cfg.Chain.Address = addr
 				cfg.Chain.ChainDBPath = getSubChainDBPath(sc.ChainID, cfg.Chain.ChainDBPath)
 				cfg.Chain.TrieDBPath = getSubChainDBPath(sc.ChainID, cfg.Chain.TrieDBPath)
+				cfg.Chain.GenesisActionsPath = ""
 				cfg.Chain.EnableSubChainStartInGenesis = false
+				cfg.Chain.EmptyGenesis = true
 				cfg.Explorer.Port = cfg.Explorer.Port - int(s.rootChainService.ChainID()) + int(sc.ChainID)
 				if err := s.NewChainService(&cfg); err != nil {
 					logger.Error().Err(err).Msgf("error when constructing the sub-chain %d", sc.ChainID)
@@ -95,8 +101,13 @@ func (s *Server) startSubChainService(addr string, sc *mainchain.SubChain) error
 				started = true
 			}
 		}
+		logger.Info().Msgf("Unsubscribe block creation for sub-chain %d", sc.ChainID)
 		if err := s.rootChainService.Blockchain().UnsubscribeBlockCreation(block); err != nil {
 			logger.Error().Err(err).Msg("error when unsubscribing block creation")
+		}
+		// TODO support restarting sub-chain
+		close(block)
+		for range block {
 		}
 	}()
 

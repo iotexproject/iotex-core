@@ -118,9 +118,6 @@ func pbToCandidate(candPb *iproto.Candidate) (*Candidate, error) {
 
 // MapToCandidates converts a map of cachedCandidates to candidate list
 func MapToCandidates(candidateMap map[hash.PKHash]*Candidate) (CandidateList, error) {
-	if candidateMap == nil {
-		return nil, errors.Wrap(ErrCandidateMap, "candidate map cannot be nil")
-	}
 	candidates := make(CandidateList, 0, len(candidateMap))
 	for _, cand := range candidateMap {
 		candidates = append(candidates, cand)
@@ -130,9 +127,6 @@ func MapToCandidates(candidateMap map[hash.PKHash]*Candidate) (CandidateList, er
 
 // CandidatesToMap converts a candidate list to map of cachedCandidates
 func CandidatesToMap(candidates CandidateList) (map[hash.PKHash]*Candidate, error) {
-	if candidates == nil {
-		return nil, errors.Wrap(ErrCandidateList, "candidate list cannot be nil")
-	}
 	candidateMap := make(map[hash.PKHash]*Candidate)
 	for _, candidate := range candidates {
 		if candidate == nil {

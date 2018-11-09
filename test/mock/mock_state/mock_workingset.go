@@ -5,6 +5,7 @@
 package mock_state
 
 import (
+	context "context"
 	gomock "github.com/golang/mock/gomock"
 	action "github.com/iotexproject/iotex-core/action"
 	hash "github.com/iotexproject/iotex-core/pkg/hash"
@@ -76,7 +77,7 @@ func (mr *MockWorkingSetMockRecorder) CachedAccountState(arg0 interface{}) *gomo
 }
 
 // RunActions mocks base method
-func (m *MockWorkingSet) RunActions(arg0 uint64, arg1 []action.Action, arg2 state.Context) (hash.Hash32B, map[hash.Hash32B]*action.Receipt, error) {
+func (m *MockWorkingSet) RunActions(arg0 context.Context, arg1 uint64, arg2 []action.Action) (hash.Hash32B, map[hash.Hash32B]*action.Receipt, error) {
 	ret := m.ctrl.Call(m, "RunActions", arg0, arg1, arg2)
 	ret0, _ := ret[0].(hash.Hash32B)
 	ret1, _ := ret[1].(map[hash.Hash32B]*action.Receipt)
@@ -85,7 +86,7 @@ func (m *MockWorkingSet) RunActions(arg0 uint64, arg1 []action.Action, arg2 stat
 }
 
 // RunActions indicates an expected call of RunActions
-func (mr *MockWorkingSetMockRecorder) RunActions(arg0, arg1 interface{}, arg2 state.Context) *gomock.Call {
+func (mr *MockWorkingSetMockRecorder) RunActions(arg0, arg1, arg2 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunActions", reflect.TypeOf((*MockWorkingSet)(nil).RunActions), arg0, arg1, arg2)
 }
 
