@@ -163,8 +163,11 @@ func executeContract(
 	if err != nil {
 		return nil, err
 	}
+	retval, depositGas, remainingGas, contractAddress, err := executeInEVM(ps, stateDB, gasLimit)
+	if !enableGasCharge {
+		remainingGas = depositGas
+	}
 
-	retval, depositGas, remainingGas, contractAddress, err := executeInEVM(ps, stateDB, gasLimit, enableGasCharge)
 	receipt := &action.Receipt{
 		ReturnValue:     retval,
 		GasConsumed:     ps.gas - remainingGas,
@@ -181,11 +184,9 @@ func executeContract(
 		remainingValue := new(big.Int).Mul(new(big.Int).SetUint64(remainingGas), ps.context.GasPrice)
 		stateDB.AddBalance(ps.context.Origin, remainingValue)
 	}
-	if enableGasCharge {
-		if depositGas-remainingGas > 0 {
-			gasValue := new(big.Int).Mul(new(big.Int).SetUint64(depositGas-remainingGas), ps.context.GasPrice)
-			stateDB.AddBalance(ps.context.Coinbase, gasValue)
-		}
+	if depositGas-remainingGas > 0 {
+		gasValue := new(big.Int).Mul(new(big.Int).SetUint64(depositGas-remainingGas), ps.context.GasPrice)
+		stateDB.AddBalance(ps.context.Coinbase, gasValue)
 	}
 	receipt.Logs = stateDB.Logs()
 	logger.Debug().Msgf("Receipt: %+v, %v", receipt, err)
@@ -200,7 +201,7 @@ func getChainConfig() *params.ChainConfig {
 	return &chainConfig
 }
 
-func executeInEVM(evmParams *EVMParams, stateDB *EVMStateDBAdapter, gasLimit *uint64, enableGasCharge bool) ([]byte, uint64, uint64, string, error) {
+func executeInEVM(evmParams *EVMParams, stateDB *EVMStateDBAdapter, gasLimit *uint64) ([]byte, uint64, uint64, string, error) {
 	remainingGas := evmParams.gas
 	if err := securityDeposit(evmParams, stateDB, gasLimit); err != nil {
 		return nil, 0, 0, action.EmptyAddress, err
@@ -208,17 +209,14 @@ func executeInEVM(evmParams *EVMParams, stateDB *EVMStateDBAdapter, gasLimit *ui
 	var config vm.Config
 	chainConfig := getChainConfig()
 	evm := vm.NewEVM(evmParams.context, stateDB, chainConfig, config)
-	var err error
-	if enableGasCharge {
-		intriGas, err := intrinsicGas(evmParams.data)
-		if err != nil {
-			return nil, evmParams.gas, remainingGas, action.EmptyAddress, err
-		}
-		if remainingGas < intriGas {
-			return nil, evmParams.gas, remainingGas, action.EmptyAddress, action.ErrOutOfGas
-		}
-		remainingGas -= intriGas
+	intriGas, err := intrinsicGas(evmParams.data)
+	if err != nil {
+		return nil, evmParams.gas, remainingGas, action.EmptyAddress, err
 	}
+	if remainingGas < intriGas {
+		return nil, evmParams.gas, remainingGas, action.EmptyAddress, action.ErrOutOfGas
+	}
+	remainingGas -= intriGas
 	contractRawAddress := action.EmptyAddress
 	executor := vm.AccountRef(evmParams.context.Origin)
 	var ret []byte
