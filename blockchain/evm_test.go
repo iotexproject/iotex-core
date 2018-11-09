@@ -38,6 +38,7 @@ func TestEVM(t *testing.T) {
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
+	cfg.Chain.EnableGasCharge = true
 	cfg.Explorer.Enabled = true
 	bc := NewBlockchain(&cfg, DefaultStateFactoryOption(), BoltDBDaoOption())
 	require.NoError(bc.Start(ctx))
@@ -142,6 +143,21 @@ func TestEVM(t *testing.T) {
 	eHash = execution.Hash()
 	r, _ = bc.GetReceiptByExecutionHash(eHash)
 	require.Equal(eHash, r.Hash)
+
+	data, _ = hex.DecodeString("608060405234801561001057600080fd5b5060df8061001f6000396000f3006080604052600436106049576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff16806360fe47b114604e5780636d4ce63c146078575b600080fd5b348015605957600080fd5b5060766004803603810190808035906020019092919050505060a0565b005b348015608357600080fd5b50608a60aa565b6040518082815260200191505060405180910390f35b8060008190555050565b600080549050905600a165627a7a7230582002faabbefbbda99b20217cf33cb8ab8100caf1542bf1f48117d72e2c59139aea0029")
+	execution1, err := action.NewExecution(
+		ta.Addrinfo["producer"].RawAddress, action.EmptyAddress, 4, big.NewInt(0), uint64(100000), big.NewInt(10), data)
+	require.NoError(err)
+	require.NoError(action.Sign(execution1, ta.Addrinfo["producer"].PrivateKey))
+	blk, err = bc.MintNewBlock([]action.Action{execution1}, ta.Addrinfo["alfa"],
+		nil, nil, "")
+	require.NoError(err)
+	require.NoError(bc.ValidateBlock(blk, true))
+	require.Nil(bc.CommitBlock(blk))
+	require.Equal(1, len(blk.receipts))
+	ws, _ = sf.NewWorkingSet()
+	alfaAccount, _ := ws.LoadOrCreateAccountState(ta.Addrinfo["alfa"].RawAddress, Gen.TotalSupply)
+	require.NotEqual(Gen.TotalSupply, alfaAccount.Balance)
 }
 
 func TestLogReceipt(t *testing.T) {
