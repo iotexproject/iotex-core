@@ -83,7 +83,9 @@ func (s *Server) startSubChainService(addr string, sc *mainchain.SubChain) error
 				cfg.Chain.Address = addr
 				cfg.Chain.ChainDBPath = getSubChainDBPath(sc.ChainID, cfg.Chain.ChainDBPath)
 				cfg.Chain.TrieDBPath = getSubChainDBPath(sc.ChainID, cfg.Chain.TrieDBPath)
+				cfg.Chain.GenesisActionsPath = ""
 				cfg.Chain.EnableSubChainStartInGenesis = false
+				cfg.Chain.EmptyGenesis = true
 				cfg.Explorer.Port = cfg.Explorer.Port - int(s.rootChainService.ChainID()) + int(sc.ChainID)
 				if err := s.NewChainService(&cfg); err != nil {
 					logger.Error().Err(err).Msgf("error when constructing the sub-chain %d", sc.ChainID)

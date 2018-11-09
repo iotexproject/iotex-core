@@ -19,6 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/trie"
@@ -175,8 +176,8 @@ func (ws *workingSet) RunActions(
 	if blockHeight > 0 && len(ws.cachedCandidates) == 0 {
 		candidates, err := ws.getCandidates(blockHeight - 1)
 		if err != nil {
-			return hash.ZeroHash32B, nil,
-				errors.Wrapf(err, "failed to get previous Candidates on Height %d", blockHeight-1)
+			logger.Info().Err(err).Msgf("No previous Candidates on Height %d", blockHeight-1)
+			candidates = CandidateList{}
 		}
 		if ws.cachedCandidates, err = CandidatesToMap(candidates); err != nil {
 			return hash.ZeroHash32B, nil,

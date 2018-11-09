@@ -293,46 +293,39 @@ func (bc *blockchain) Start(ctx context.Context) (err error) {
 }
 
 func (bc *blockchain) startEmptyBlockchain() error {
-	ctx := context.Background()
-	genesis := NewGenesisBlock(bc.config)
-	if genesis == nil {
-		return errors.New("cannot create genesis block")
-	}
-	// Genesis block has height 0
-	if genesis.Header.height != 0 {
-		return errors.New(fmt.Sprintf("genesis block has height %d but expects 0", genesis.Height()))
-	}
-	if bc.sf == nil {
-		return errors.New("statefactory cannot be nil")
-	}
-	// add producer into Trie
 	ws, err := bc.sf.NewWorkingSet()
 	if err != nil {
 		return errors.Wrap(err, "Failed to obtain working set from state factory")
 	}
-	if _, err := ws.LoadOrCreateAccountState(Gen.CreatorAddr(bc.ChainID()), Gen.TotalSupply); err != nil {
-		return errors.Wrap(err, "failed to create Creator into StateFactory")
+	var genesis *Block
+	if bc.config.Chain.GenesisActionsPath != "" || !bc.config.Chain.EmptyGenesis {
+		genesis = NewGenesisBlock(bc.config)
+		if genesis == nil {
+			return errors.New("cannot create genesis block")
+		}
+		// Genesis block has height 0
+		if genesis.Header.height != 0 {
+			return errors.New(fmt.Sprintf("genesis block has height %d but expects 0", genesis.Height()))
+		}
+		if bc.sf == nil {
+			return errors.New("statefactory cannot be nil")
+		}
+		// add creator into Trie
+		if err := bc.addCreatorIntoAccounts(ws); err != nil {
+			return err
+		}
+		// run execution and update state trie root hash
+		root, err := bc.runActions(genesis, ws, false)
+		if err != nil {
+			return errors.Wrap(err, "failed to update state changes in Genesis block")
+		}
+		genesis.Header.stateRoot = root
+		genesis.workingSet = ws
+		// add Genesis block as very first block
+	} else {
+		genesis = NewBlock(bc.ChainID(), 0, hash.ZeroHash32B, bc.now(), keypair.ZeroPublicKey, nil)
+		genesis.workingSet = ws
 	}
-	gasLimit := GasLimit
-	ctx = state.WithRunActionsCtx(ctx, state.RunActionsCtx{
-		ProducerAddr:    genesis.ProducerAddress(),
-		GasLimit:        &gasLimit,
-		EnableGasCharge: bc.config.Chain.EnableGasCharge,
-	})
-	if _, _, err := ws.RunActions(ctx, 0, nil); err != nil {
-		return errors.Wrap(err, "failed to create Creator into StateFactory")
-	}
-	if err := bc.sf.Commit(ws); err != nil {
-		return errors.Wrap(err, "failed to add Creator into StateFactory")
-	}
-	// run execution and update state trie root hash
-	root, err := bc.runActions(genesis, ws, false)
-	if err != nil {
-		return errors.Wrap(err, "failed to update state changes in Genesis block")
-	}
-	genesis.Header.stateRoot = root
-	genesis.workingSet = ws
-	// add Genesis block as very first block
 	if err := bc.commitBlock(genesis); err != nil {
 		return errors.Wrap(err, "failed to commit Genesis block")
 	}
@@ -945,3 +938,17 @@ func (bc *blockchain) emitToSubscribers(blk *Block) error {
 }
 
 func (bc *blockchain) now() uint64 { return uint64(bc.clk.Now().Unix()) }
+
+func (bc *blockchain) addCreatorIntoAccounts(ws state.WorkingSet) error {
+	account, err := ws.LoadOrCreateAccountState(Gen.CreatorAddr(bc.ChainID()), Gen.TotalSupply)
+	if err != nil {
+		return errors.Wrap(err, "failed to create Creator state into StateFactory")
+	}
+	if err := ws.PutState(Gen.CreatorPKHash(), account); err != nil {
+		return errors.Wrap(err, "failed to put Creator state into StateFactory")
+	}
+	if err := bc.sf.Commit(ws); err != nil {
+		return errors.Wrap(err, "failed to commit Creator state into StateFactory")
+	}
+	return nil
+}
