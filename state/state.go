@@ -71,6 +71,7 @@ func (slice *SortedSlice) Deserialize(data []byte) error {
 	return nil
 }
 
+// index returns the smallest index of state with value e
 func (slice SortedSlice) index(e interface{}, f func(interface{}, interface{}) int) int {
 	return sort.Search(len(slice), func(i int) bool {
 		return f(slice[i], e) >= 0
@@ -96,15 +97,15 @@ func (slice SortedSlice) Append(e interface{}, f func(interface{}, interface{}) 
 }
 
 // Delete deletes a state from the state slice
-func (slice SortedSlice) Delete(e interface{}, f func(interface{}, interface{}) int) SortedSlice {
+func (slice SortedSlice) Delete(e interface{}, f func(interface{}, interface{}) int) (SortedSlice, int) {
 	idx := slice.index(e, f)
 	if idx >= len(slice) || f(slice[idx], e) != 0 {
-		return slice
+		return slice, 0
 	}
 	last := idx + 1
 	for last < len(slice) && f(slice[last], e) == 0 {
 		last++
 	}
 
-	return append(slice[:idx], slice[last:]...)
+	return append(slice[:idx], slice[last:]...), last - idx
 }
