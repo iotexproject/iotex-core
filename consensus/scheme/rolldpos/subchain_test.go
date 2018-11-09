@@ -79,11 +79,11 @@ func TestPutBlockToParentChain(t *testing.T) {
 		SubChainAddress: subAddr.RawAddress,
 		Height:          123456789,
 		Roots: []explorerapi.PutSubChainBlockMerkelRoot{
-			explorerapi.PutSubChainBlockMerkelRoot{
+			{
 				Name:  "state",
 				Value: hex.EncodeToString(stateRoot[:]),
 			},
-			explorerapi.PutSubChainBlockMerkelRoot{
+			{
 				Name:  "tx",
 				Value: hex.EncodeToString(txRoot[:]),
 			},

@@ -637,8 +637,5 @@ func addCreatorToFactory(sf state.Factory) error {
 	if _, _, err = ws.RunActions(ctx, 0, nil); err != nil {
 		return err
 	}
-	if err = sf.Commit(ws); err != nil {
-		return err
-	}
-	return nil
+	return sf.Commit(ws)
 }

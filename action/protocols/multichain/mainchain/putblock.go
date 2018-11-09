@@ -37,10 +37,8 @@ func (p *Protocol) handlePutBlock(pb *action.PutBlock, ws state.WorkingSet) erro
 	if err != nil {
 		return err
 	}
-	if err := ws.PutState(producerPKHash, account); err != nil {
-		return err
-	}
-	return nil
+
+	return ws.PutState(producerPKHash, account)
 }
 
 func (p *Protocol) validatePutBlock(pb *action.PutBlock, ws state.WorkingSet) error {
