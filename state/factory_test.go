@@ -323,7 +323,7 @@ func TestCandidates(t *testing.T) {
 			GasLimit:        &zeroGasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
 		})
-	newRoot, _, err = ws.RunActions(zctx, 0, []action.Action{vote})
+	_, _, err = ws.RunActions(zctx, 0, []action.Action{vote})
 	require.NotNil(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 0, []action.Action{vote})

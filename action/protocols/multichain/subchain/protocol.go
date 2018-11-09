@@ -133,10 +133,7 @@ func (p *Protocol) mutateDeposit(deposit *action.SettleDeposit, ws state.Working
 	if err != nil {
 		return err
 	}
-	if err := ws.PutState(recipientPKHash, recipient); err != nil {
-		return err
-	}
-	return nil
+	return ws.PutState(recipientPKHash, recipient)
 }
 
 func depositAddress(index uint64) hash.PKHash {

@@ -1354,13 +1354,13 @@ func (exp *Service) GetDeposits(subChainID int64, offset int64, limit int64) ([]
 		if err != nil {
 			return nil, err
 		}
-		recepient, err := address.BytesToAddress(deposit.Addr)
+		recipient, err := address.BytesToAddress(deposit.Addr)
 		if err != nil {
 			return nil, err
 		}
 		deposits = append(deposits, explorer.Deposit{
 			Amount:    deposit.Amount.String(),
-			Address:   recepient.IotxAddress(),
+			Address:   recipient.IotxAddress(),
 			Confirmed: deposit.Confirmed,
 		})
 		if idx > 0 {

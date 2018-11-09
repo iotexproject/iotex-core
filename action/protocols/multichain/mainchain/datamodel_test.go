@@ -49,11 +49,11 @@ func TestBlockProofState(t *testing.T) {
 		Height:          123,
 		ProducerAddress: "123",
 		Roots: []MerkleRoot{
-			MerkleRoot{
+			{
 				Name:  "abc",
 				Value: byteutil.BytesTo32B([]byte("10002")),
 			},
-			MerkleRoot{
+			{
 				Name:  "abd",
 				Value: byteutil.BytesTo32B([]byte("1000d")),
 			},

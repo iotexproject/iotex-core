@@ -65,10 +65,7 @@ func (slice *SortedSlice) Serialize() ([]byte, error) {
 
 // Deserialize deserializes bytes into the state slice
 func (slice *SortedSlice) Deserialize(data []byte) error {
-	if err := GobBasedDeserialize(slice, data); err != nil {
-		return err
-	}
-	return nil
+	return GobBasedDeserialize(slice, data)
 }
 
 // index returns the smallest index of state with value e

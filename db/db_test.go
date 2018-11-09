@@ -388,6 +388,7 @@ func TestCachedBatch(t *testing.T) {
 	require.Equal(Delete, w.writeType)
 
 	w, err = cb.Entry(3)
+	require.NoError(err)
 	require.Equal(bucket1, w.namespace)
 	require.Equal(testK1[0], w.key)
 	require.Equal(testV1[0], w.value)
