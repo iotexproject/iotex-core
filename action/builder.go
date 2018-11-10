@@ -55,19 +55,21 @@ func (b *Builder) SetGasLimit(l uint64) *Builder {
 
 // SetGasPrice sets action's gas price.
 func (b *Builder) SetGasPrice(p *big.Int) *Builder {
-	if p != nil {
-		b.act.gasPrice = &big.Int{}
-		b.act.gasPrice.Set(p)
+	if p == nil {
+		return b
 	}
+	b.act.gasPrice = &big.Int{}
+	b.act.gasPrice.Set(p)
 	return b
 }
 
 // SetGasPriceByBytes sets action's gas price from a byte slice source.
 func (b *Builder) SetGasPriceByBytes(buf []byte) *Builder {
-	if len(buf) != 0 {
-		b.act.gasPrice = &big.Int{}
-		b.act.gasPrice.SetBytes(buf)
+	if len(buf) == 0 {
+		return b
 	}
+	b.act.gasPrice = &big.Int{}
+	b.act.gasPrice.SetBytes(buf)
 	return b
 }
 
