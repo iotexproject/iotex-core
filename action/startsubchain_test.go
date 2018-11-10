@@ -48,7 +48,7 @@ func TestStartSubChain(t *testing.T) {
 	startPb := start.Proto()
 	require.NotNil(t, startPb)
 	start = &StartSubChain{}
-	start.LoadProto(startPb)
+	assert.NoError(t, start.LoadProto(startPb))
 	require.NotNil(t, start)
 	assertStart(start)
 }

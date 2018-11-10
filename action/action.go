@@ -44,7 +44,7 @@ type Action interface {
 	IntrinsicGas() (uint64, error)
 	Cost() (*big.Int, error)
 	Proto() *iproto.ActionPb
-	LoadProto(*iproto.ActionPb)
+	LoadProto(*iproto.ActionPb) error
 }
 
 // AbstractAction is an abstract implementation of Action interface

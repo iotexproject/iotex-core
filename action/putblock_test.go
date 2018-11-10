@@ -49,7 +49,7 @@ func TestPutBlock(t *testing.T) {
 	putBlockPb := pb.Proto()
 	require.NotNil(t, putBlockPb)
 	npb := &PutBlock{}
-	npb.LoadProto(putBlockPb)
+	assert.NoError(t, npb.LoadProto(putBlockPb))
 	require.NotNil(t, npb)
 	assertPB(npb)
 }

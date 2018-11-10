@@ -13,6 +13,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/proto"
@@ -87,15 +88,34 @@ func (sp *SecretProposal) Serialize() ([]byte, error) {
 }
 
 // LoadProto converts a protobuf's ActionPb to SecretProposal
-func (sp *SecretProposal) LoadProto(pbAct *iproto.ActionPb) {
-	sp.version = pbAct.GetVersion()
-	sp.srcAddr = pbAct.Sender
-	copy(sp.srcPubkey[:], pbAct.SenderPubKey)
-	sp.nonce = pbAct.Nonce
-
+func (sp *SecretProposal) LoadProto(pbAct *iproto.ActionPb) error {
+	if pbAct == nil {
+		return errors.New("empty action proto to load")
+	}
+	srcPub, err := keypair.BytesToPublicKey(pbAct.SenderPubKey)
+	if err != nil {
+		return err
+	}
+	if sp == nil {
+		return errors.New("nil action to load proto")
+	}
+	*sp = SecretProposal{}
 	pbSecretProposal := pbAct.GetSecretProposal()
-	sp.dstAddr = pbSecretProposal.Recipient
+	if pbSecretProposal == nil {
+		return errors.New("empty SecretProposal action proto to load")
+	}
+
+	ab := &Builder{}
+	act := ab.SetVersion(pbAct.Version).
+		SetNonce(pbAct.Nonce).
+		SetSourceAddress(pbAct.Sender).
+		SetSourcePublicKey(srcPub).
+		SetDestinationAddress(pbSecretProposal.Recipient).
+		Build()
+	act.SetSignature(pbAct.Signature)
+	sp.AbstractAction = act
 	sp.secret = pbSecretProposal.Secret
+	return nil
 }
 
 // Deserialize parses the byte stream into SecretProposal
@@ -104,8 +124,7 @@ func (sp *SecretProposal) Deserialize(buf []byte) error {
 	if err := proto.Unmarshal(buf, pbAct); err != nil {
 		return err
 	}
-	sp.LoadProto(pbAct)
-	return nil
+	return sp.LoadProto(pbAct)
 }
 
 // Hash returns the hash of the SecretProposal

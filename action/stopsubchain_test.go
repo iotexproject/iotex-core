@@ -42,7 +42,7 @@ func TestStopSubChain(t *testing.T) {
 	stopPb := stop.Proto()
 	require.NotNil(t, stopPb)
 	stop = &StopSubChain{}
-	stop.LoadProto(stopPb)
+	assert.NoError(t, stop.LoadProto(stopPb))
 	require.NotNil(t, stop)
 	assertStop(stop)
 }
