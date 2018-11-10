@@ -19,7 +19,7 @@ func TestGenesis(t *testing.T) {
 	t.Logf("The TotalSupply is %d", Gen.TotalSupply)
 
 	cfg := config.Default
-	genesisBlk := NewGenesisBlock(&cfg)
+	genesisBlk := NewGenesisBlock(cfg.Chain)
 
 	t.Log("The Genesis Block has the following header:")
 	t.Logf("Version: %d", genesisBlk.Header.version)

@@ -90,8 +90,7 @@ func TestBlockDAO(t *testing.T) {
 
 	testBlockDao := func(kvstore db.KVStore, t *testing.T) {
 		ctx := context.Background()
-		cfg := config.Default
-		dao := newBlockDAO(&cfg, kvstore)
+		dao := newBlockDAO(kvstore, config.Default.Explorer.Enabled)
 		err := dao.Start(ctx)
 		assert.Nil(t, err)
 		defer func() {
@@ -163,9 +162,7 @@ func TestBlockDAO(t *testing.T) {
 
 	testActionsDao := func(kvstore db.KVStore, t *testing.T) {
 		ctx := context.Background()
-		cfg := config.Default
-		cfg.Explorer.Enabled = true
-		dao := newBlockDAO(&cfg, kvstore)
+		dao := newBlockDAO(kvstore, true)
 		err := dao.Start(ctx)
 		assert.Nil(t, err)
 		defer func() {
@@ -377,9 +374,7 @@ func TestBlockDAO(t *testing.T) {
 		require := require.New(t)
 
 		ctx := context.Background()
-		cfg := config.Default
-		cfg.Explorer.Enabled = true
-		dao := newBlockDAO(&cfg, kvstore)
+		dao := newBlockDAO(kvstore, true)
 		err := dao.Start(ctx)
 		require.NoError(err)
 		defer func() {
@@ -535,7 +530,7 @@ func TestBlockDAO(t *testing.T) {
 	})
 
 	path := "/tmp/test-kv-store-" + string(rand.Int())
-	cfg := &config.Default.DB
+	cfg := config.Default.DB
 	t.Run("Bolt DB for blocks", func(t *testing.T) {
 		testutil.CleanupPath(t, path)
 		defer testutil.CleanupPath(t, path)

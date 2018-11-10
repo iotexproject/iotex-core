@@ -20,7 +20,7 @@ import (
 )
 
 func createDispatcher(t *testing.T, chainID uint32) Dispatcher {
-	cfg := &config.Config{
+	cfg := config.Config{
 		Consensus:  config.Consensus{Scheme: config.NOOPScheme},
 		Dispatcher: config.Dispatcher{EventChanSize: 1024},
 	}

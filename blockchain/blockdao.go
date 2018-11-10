@@ -12,7 +12,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
@@ -58,14 +57,17 @@ var (
 var _ lifecycle.StartStopper = (*blockDAO)(nil)
 
 type blockDAO struct {
-	config    *config.Config
-	kvstore   db.KVStore
-	lifecycle lifecycle.Lifecycle
+	writeIndex bool
+	kvstore    db.KVStore
+	lifecycle  lifecycle.Lifecycle
 }
 
 // newBlockDAO instantiates a block DAO
-func newBlockDAO(cfg *config.Config, kvstore db.KVStore) *blockDAO {
-	blockDAO := &blockDAO{config: cfg, kvstore: kvstore}
+func newBlockDAO(kvstore db.KVStore, writeIndex bool) *blockDAO {
+	blockDAO := &blockDAO{
+		writeIndex: writeIndex,
+		kvstore:    kvstore,
+	}
 	blockDAO.lifecycle.Add(kvstore)
 	return blockDAO
 }
@@ -524,7 +526,7 @@ func (dao *blockDAO) putBlock(blk *Block) error {
 		batch.Put(blockNS, topHeightKey, height, "failed to put top height")
 	}
 
-	if !dao.config.Explorer.Enabled {
+	if !dao.writeIndex {
 		return dao.kvstore.Commit(batch)
 	}
 
@@ -831,7 +833,7 @@ func (dao *blockDAO) deleteTipBlock() error {
 	topHeightValue := byteutil.Uint64ToBytes(topHeight)
 	batch.Put(blockNS, topHeightKey, topHeightValue, "failed to put top height")
 
-	if !dao.config.Explorer.Enabled {
+	if !dao.writeIndex {
 		return dao.kvstore.Commit(batch)
 	}
 

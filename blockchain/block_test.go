@@ -233,7 +233,7 @@ func TestSignBlock(t *testing.T) {
 }
 
 func TestWrongNonce(t *testing.T) {
-	cfg := &config.Default
+	cfg := config.Default
 	testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
 	defer testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
 	testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
@@ -399,7 +399,7 @@ func TestWrongNonce(t *testing.T) {
 }
 
 func TestWrongCoinbaseTsf(t *testing.T) {
-	cfg := &config.Default
+	cfg := config.Default
 	testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
 	defer testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
 	testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
@@ -521,7 +521,7 @@ func TestCoinbaseTransferValidation(t *testing.T) {
 	ctx := context.Background()
 	cfg := config.Default
 	cfg.Chain.ID = 1
-	chain := NewBlockchain(&cfg, InMemStateFactoryOption(), InMemDaoOption())
+	chain := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption())
 	require.NotNil(t, chain)
 	require.NoError(t, chain.Start(ctx))
 	defer require.NoError(t, chain.Stop(ctx))
@@ -547,7 +547,7 @@ func TestCoinbaseTransferValidation(t *testing.T) {
 }
 
 func TestValidateSecretBlock(t *testing.T) {
-	cfg := &config.Default
+	cfg := config.Default
 	testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
 	defer testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
 	testutil.CleanupPath(t, cfg.Chain.ChainDBPath)

@@ -157,7 +157,7 @@ func TestExplorerApi(t *testing.T) {
 	testutil.CleanupPath(t, testDBPath)
 	defer testutil.CleanupPath(t, testDBPath)
 
-	sf, err := state.NewFactory(&cfg, state.InMemTrieOption())
+	sf, err := state.NewFactory(cfg, state.InMemTrieOption())
 	require.Nil(err)
 	require.Nil(sf.Start(context.Background()))
 	require.NoError(addCreatorToFactory(sf))
@@ -166,7 +166,7 @@ func TestExplorerApi(t *testing.T) {
 
 	// create chain
 	ctx := context.Background()
-	bc := blockchain.NewBlockchain(&cfg, blockchain.PrecreatedStateFactoryOption(sf), blockchain.InMemDaoOption())
+	bc := blockchain.NewBlockchain(cfg, blockchain.PrecreatedStateFactoryOption(sf), blockchain.InMemDaoOption())
 	require.NoError(bc.Start(ctx))
 	require.NotNil(bc)
 	ap, err := actpool.NewActPool(bc, cfg.ActPool)
@@ -793,7 +793,7 @@ func TestExplorerGetReceiptByExecutionID(t *testing.T) {
 	testutil.CleanupPath(t, testDBPath)
 	defer testutil.CleanupPath(t, testDBPath)
 
-	sf, err := state.NewFactory(&cfg, state.InMemTrieOption())
+	sf, err := state.NewFactory(cfg, state.InMemTrieOption())
 	require.Nil(err)
 	require.Nil(sf.Start(context.Background()))
 	require.NoError(addCreatorToFactory(sf))
@@ -802,7 +802,7 @@ func TestExplorerGetReceiptByExecutionID(t *testing.T) {
 
 	// create chain
 	ctx := context.Background()
-	bc := blockchain.NewBlockchain(&cfg, blockchain.PrecreatedStateFactoryOption(sf), blockchain.InMemDaoOption())
+	bc := blockchain.NewBlockchain(cfg, blockchain.PrecreatedStateFactoryOption(sf), blockchain.InMemDaoOption())
 	require.NoError(bc.Start(ctx))
 	require.NotNil(bc)
 	require.Nil(err)
@@ -946,7 +946,7 @@ func TestService_GetDeposits(t *testing.T) {
 	cfg := config.Default
 	ctx := context.Background()
 	bc := mock_blockchain.NewMockBlockchain(ctrl)
-	sf, err := state.NewFactory(&cfg, state.InMemTrieOption())
+	sf, err := state.NewFactory(cfg, state.InMemTrieOption())
 	require.NoError(err)
 	require.NoError(sf.Start(ctx))
 	bc.EXPECT().GetFactory().Return(sf).AnyTimes()

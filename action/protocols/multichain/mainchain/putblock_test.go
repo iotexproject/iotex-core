@@ -32,7 +32,7 @@ func TestHandlePutBlock(t *testing.T) {
 	cfg := config.Default
 	ctx := context.Background()
 	ctrl := gomock.NewController(t)
-	sf, err := state.NewFactory(&cfg, state.InMemTrieOption())
+	sf, err := state.NewFactory(cfg, state.InMemTrieOption())
 	require.NoError(t, err)
 	require.NoError(t, sf.Start(ctx))
 	chain := mock_blockchain.NewMockBlockchain(ctrl)

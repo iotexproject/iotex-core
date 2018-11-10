@@ -63,7 +63,7 @@ func WithTesting() Option {
 }
 
 // New creates a ChainService from config and network.Overlay and dispatcher.Dispatcher.
-func New(cfg *config.Config, p2p network.Overlay, dispatcher dispatcher.Dispatcher, opts ...Option) (*ChainService, error) {
+func New(cfg config.Config, p2p network.Overlay, dispatcher dispatcher.Dispatcher, opts ...Option) (*ChainService, error) {
 	var ops optionParams
 	for _, opt := range opts {
 		if err := opt(&ops); err != nil {

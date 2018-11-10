@@ -54,7 +54,7 @@ func TestTwoChains(t *testing.T) {
 	cfg.Chain.EnableSubChainStartInGenesis = true
 	cfg.Explorer.Enabled = true
 
-	svr, err := itx.NewServer(&cfg)
+	svr, err := itx.NewServer(cfg)
 	require.NoError(t, err)
 
 	ctx := context.Background()

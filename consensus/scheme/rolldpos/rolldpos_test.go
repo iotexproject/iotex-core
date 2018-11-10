@@ -523,7 +523,7 @@ func TestRollDPoS_convertToConsensusEvt(t *testing.T) {
 func TestUpdateSeed(t *testing.T) {
 	require := require.New(t)
 	lastSeed, _ := hex.DecodeString("9de6306b08158c423330f7a27243a1a5cbe39bfd764f07818437882d21241567")
-	chain := blockchain.NewBlockchain(&config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	chain := blockchain.NewBlockchain(config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
 	require.NoError(chain.Start(context.Background()))
 	ctx := rollDPoSCtx{cfg: config.Default.Consensus.RollDPoS, chain: chain, epoch: epochCtx{seed: lastSeed}}
 	fsm := cFSM{ctx: &ctx}
@@ -726,7 +726,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 		p2ps := make([]*directOverlay, 0, numNodes)
 		cs := make([]*RollDPoS, 0, numNodes)
 		for i := 0; i < numNodes; i++ {
-			sf, err := state.NewFactory(&cfg, state.InMemTrieOption())
+			sf, err := state.NewFactory(cfg, state.InMemTrieOption())
 			require.NoError(t, err)
 			for j := 0; j < numNodes; j++ {
 				ws, err := sf.NewWorkingSet()
@@ -744,7 +744,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 				require.NoError(t, err)
 				require.NoError(t, sf.Commit(ws))
 			}
-			chain := blockchain.NewBlockchain(&cfg, blockchain.InMemDaoOption(), blockchain.PrecreatedStateFactoryOption(sf))
+			chain := blockchain.NewBlockchain(cfg, blockchain.InMemDaoOption(), blockchain.PrecreatedStateFactoryOption(sf))
 			chains = append(chains, chain)
 
 			actPool, err := actpool.NewActPool(chain, cfg.ActPool)
