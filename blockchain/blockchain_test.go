@@ -221,6 +221,16 @@ func TestCreateBlockchain(t *testing.T) {
 	require.Equal(5, int(height))
 }
 
+type MockSubscriber struct {
+	counter int
+}
+
+func (ms *MockSubscriber) HandleBlock(blk *Block) error {
+	tsfs, _, _ := action.ClassifyActions(blk.Actions)
+	ms.counter += len(tsfs)
+	return nil
+}
+
 func TestLoadBlockchainfromDB(t *testing.T) {
 	require := require.New(t)
 	ctx := context.Background()
@@ -248,27 +258,17 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	require.NoError(bc.Start(ctx))
 	require.NotNil(bc)
 
-	var transfers = int(0)
-	testchan := make(chan *Block)
-	err = bc.SubscribeBlockCreation(testchan)
+	ms := &MockSubscriber{counter: 0}
+	err = bc.AddSubscriber(ms)
 	require.Nil(err)
-	go func() {
-		for {
-			select {
-			case blk := <-testchan:
-				tsfs, _, _ := action.ClassifyActions(blk.Actions)
-				transfers += len(tsfs)
-			}
-		}
-	}()
-	require.Equal(0, transfers)
+	require.Equal(0, ms.counter)
 
 	height := bc.TipHeight()
 	fmt.Printf("Open blockchain pass, height = %d\n", height)
 	require.Nil(addTestingTsfBlocks(bc))
 	err = bc.Stop(ctx)
 	require.NoError(err)
-	require.Equal(27, transfers)
+	require.Equal(27, ms.counter)
 
 	// Load a blockchain from DB
 	bc = NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
@@ -473,21 +473,11 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	require.NoError(bc.Start(ctx))
 	require.NotNil(bc)
 
-	var transfers = int(0)
-	testchan := make(chan *Block)
-	err = bc.SubscribeBlockCreation(testchan)
+	ms := &MockSubscriber{counter: 0}
+	err = bc.AddSubscriber(ms)
 	require.Nil(err)
-	go func() {
-		for {
-			select {
-			case blk := <-testchan:
-				tsfs, _, _ := action.ClassifyActions(blk.Actions)
-				transfers += len(tsfs)
-			}
-		}
-	}()
-	require.Equal(0, transfers)
-	err = bc.UnsubscribeBlockCreation(testchan)
+	require.Equal(0, ms.counter)
+	err = bc.RemoveSubscriber(ms)
 	require.Nil(err)
 
 	height := bc.TipHeight()
@@ -495,7 +485,7 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	require.Nil(addTestingTsfBlocks(bc))
 	err = bc.Stop(ctx)
 	require.NoError(err)
-	require.Equal(0, transfers)
+	require.Equal(0, ms.counter)
 
 	// Load a blockchain from DB
 	bc = NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())

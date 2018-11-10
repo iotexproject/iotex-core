@@ -20,10 +20,9 @@ import (
 
 // Server is the container of the index service
 type Server struct {
-	cfg     config.Config
-	idx     *Indexer
-	bc      blockchain.Blockchain
-	blockCh chan *blockchain.Block
+	cfg config.Config
+	idx *Indexer
+	bc  blockchain.Blockchain
 }
 
 // NewServer instantiates an index service
@@ -31,21 +30,20 @@ func NewServer(
 	cfg config.Config,
 	bc blockchain.Blockchain,
 ) *Server {
-	blockCh := make(chan *blockchain.Block)
-	if err := bc.SubscribeBlockCreation(blockCh); err != nil {
+	indexer := &Indexer{
+		cfg:                cfg.Indexer,
+		rds:                nil,
+		hexEncodedNodeAddr: "",
+	}
+	if err := bc.AddSubscriber(indexer); err != nil {
 		logger.Error().Err(err).Msg("error when subscribe to block")
 		return nil
 	}
 
 	return &Server{
 		cfg: cfg,
-		idx: &Indexer{
-			cfg:                cfg.Indexer,
-			rds:                nil,
-			hexEncodedNodeAddr: "",
-		},
-		bc:      bc,
-		blockCh: blockCh,
+		idx: indexer,
+		bc:  bc,
 	}
 }
 
@@ -66,17 +64,6 @@ func (s *Server) Start(ctx context.Context) error {
 		return errors.Wrap(err, "error when start rds store")
 	}
 
-	go func() {
-		for {
-			select {
-			case blk := <-s.blockCh:
-				if err := s.idx.BuildIndex(blk); err != nil {
-					logger.Error().Err(err).Uint64("height", blk.Height()).Msg("failed to build index for block")
-				}
-			}
-		}
-	}()
-
 	return nil
 }
 
@@ -86,12 +73,10 @@ func (s *Server) Stop(ctx context.Context) error {
 		return errors.Wrap(err, "error when shutting down explorer http server")
 	}
 	logger.Info().Msgf("Unsubscribe block creation for chain %d", s.bc.ChainID())
-	if err := s.bc.UnsubscribeBlockCreation(s.blockCh); err != nil {
-		return errors.Wrap(err, "error when un subscribe block creation")
+	if err := s.bc.RemoveSubscriber(s.idx); err != nil {
+		return errors.Wrap(err, "error when unsubscribe block creation")
 	}
-	close(s.blockCh)
-	for range s.blockCh {
-	}
+
 	return nil
 }
 
