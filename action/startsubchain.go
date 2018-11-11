@@ -64,32 +64,46 @@ func NewStartSubChain(
 }
 
 // LoadProto converts a proto message into start sub-chain action
-func (start *StartSubChain) LoadProto(actPb *iproto.ActionPb) {
+func (start *StartSubChain) LoadProto(actPb *iproto.ActionPb) error {
 	if actPb == nil {
-		return
+		return errors.New("empty action proto to load")
 	}
+	srcPub, err := keypair.BytesToPublicKey(actPb.SenderPubKey)
+	if err != nil {
+		return err
+	}
+	if start == nil {
+		return errors.New("nil action to load proto")
+	}
+	*start = StartSubChain{}
 	startPb := actPb.GetStartSubChain()
-	start.version = actPb.Version
-	start.nonce = actPb.Nonce
-	start.srcAddr = actPb.Sender
-	copy(start.srcPubkey[:], actPb.SenderPubKey)
-	start.gasLimit = actPb.GetGasLimit()
-	start.gasPrice = big.NewInt(0)
-	start.signature = actPb.Signature
+	if startPb == nil {
+		return errors.New("empty StartSubChain action proto to load")
+	}
+
+	ab := &Builder{}
+	act := ab.SetVersion(actPb.Version).
+		SetNonce(actPb.Nonce).
+		SetSourceAddress(actPb.Sender).
+		SetSourcePublicKey(srcPub).
+		SetGasLimit(actPb.GasLimit).
+		SetGasPriceByBytes(actPb.GasPrice).
+		Build()
+	act.SetSignature(actPb.Signature)
+	start.AbstractAction = act
+
 	start.chainID = startPb.ChainID
 	start.securityDeposit = big.NewInt(0)
 	start.operationDeposit = big.NewInt(0)
 	start.startHeight = startPb.StartHeight
 	start.parentHeightOffset = startPb.ParentHeightOffset
-	if len(actPb.GasPrice) > 0 {
-		start.gasPrice.SetBytes(actPb.GasPrice)
-	}
 	if len(startPb.SecurityDeposit) > 0 {
 		start.securityDeposit.SetBytes(startPb.SecurityDeposit)
 	}
 	if len(startPb.OperationDeposit) > 0 {
 		start.operationDeposit.SetBytes(startPb.OperationDeposit)
 	}
+	return nil
 }
 
 // ChainID returns chain ID

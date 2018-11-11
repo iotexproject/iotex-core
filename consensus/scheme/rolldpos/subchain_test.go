@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/blockchain"
 	explorerapi "github.com/iotexproject/iotex-core/explorer/idl/explorer"
@@ -35,38 +36,50 @@ func TestPutBlockToParentChain(t *testing.T) {
 			Height:  123456789,
 		},
 		Actions: []*iproto.ActionPb{
-			{Action: &iproto.ActionPb_Transfer{
-				Transfer: &iproto.TransferPb{},
+			{
+				Action: &iproto.ActionPb_Transfer{
+					Transfer: &iproto.TransferPb{},
+				},
+				Sender:       addr.RawAddress,
+				SenderPubKey: addr.PublicKey[:],
+				Version:      version.ProtocolVersion,
+				Nonce:        101,
 			},
-				Version: version.ProtocolVersion,
-				Nonce:   101,
+			{
+				Action: &iproto.ActionPb_Transfer{
+					Transfer: &iproto.TransferPb{},
+				},
+				Sender:       addr.RawAddress,
+				SenderPubKey: addr.PublicKey[:],
+				Version:      version.ProtocolVersion,
+				Nonce:        102,
 			},
-			{Action: &iproto.ActionPb_Transfer{
-				Transfer: &iproto.TransferPb{},
+			{
+				Action: &iproto.ActionPb_Vote{
+					Vote: &iproto.VotePb{},
+				},
+				Sender:       addr.RawAddress,
+				SenderPubKey: addr.PublicKey[:],
+				Version:      version.ProtocolVersion,
+				Nonce:        103,
 			},
-				Version: version.ProtocolVersion,
-				Nonce:   102,
-			},
-			{Action: &iproto.ActionPb_Vote{
-				Vote: &iproto.VotePb{},
-			},
-				Version: version.ProtocolVersion,
-				Nonce:   103,
-			},
-			{Action: &iproto.ActionPb_Vote{
-				Vote: &iproto.VotePb{},
-			},
-				Version: version.ProtocolVersion,
-				Nonce:   104,
+			{
+				Action: &iproto.ActionPb_Vote{
+					Vote: &iproto.VotePb{},
+				},
+				Sender:       addr.RawAddress,
+				SenderPubKey: addr.PublicKey[:],
+				Version:      version.ProtocolVersion,
+				Nonce:        104,
 			},
 		},
 	}
-	blk.ConvertFromBlockPb(blkpb)
+	require.NoError(t, blk.ConvertFromBlockPb(blkpb))
 	txRoot := blk.CalculateTxRoot()
 	blkpb.Header.TxRoot = txRoot[:]
 	blkpb.Header.StateRoot = []byte("state root")
 	blk = blockchain.Block{}
-	blk.ConvertFromBlockPb(blkpb)
+	require.NoError(t, blk.ConvertFromBlockPb(blkpb))
 	stateRoot := blk.StateRoot()
 
 	req := explorerapi.PutSubChainBlockRequest{

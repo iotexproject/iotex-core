@@ -140,38 +140,51 @@ func TestMerkle(t *testing.T) {
 
 func TestConvertFromBlockPb(t *testing.T) {
 	blk := Block{}
-	blk.ConvertFromBlockPb(&iproto.BlockPb{
+	sender := ta.Addrinfo["producer"]
+	require.NoError(t, blk.ConvertFromBlockPb(&iproto.BlockPb{
 		Header: &iproto.BlockHeaderPb{
 			Version: version.ProtocolVersion,
 			Height:  123456789,
 		},
 		Actions: []*iproto.ActionPb{
-			{Action: &iproto.ActionPb_Transfer{
-				Transfer: &iproto.TransferPb{},
+			{
+				Action: &iproto.ActionPb_Transfer{
+					Transfer: &iproto.TransferPb{},
+				},
+				Sender:       sender.RawAddress,
+				SenderPubKey: sender.PublicKey[:],
+				Version:      version.ProtocolVersion,
+				Nonce:        101,
 			},
-				Version: version.ProtocolVersion,
-				Nonce:   101,
+			{
+				Action: &iproto.ActionPb_Transfer{
+					Transfer: &iproto.TransferPb{},
+				},
+				Sender:       sender.RawAddress,
+				SenderPubKey: sender.PublicKey[:],
+				Version:      version.ProtocolVersion,
+				Nonce:        102,
 			},
-			{Action: &iproto.ActionPb_Transfer{
-				Transfer: &iproto.TransferPb{},
+			{
+				Action: &iproto.ActionPb_Vote{
+					Vote: &iproto.VotePb{},
+				},
+				Sender:       sender.RawAddress,
+				SenderPubKey: sender.PublicKey[:],
+				Version:      version.ProtocolVersion,
+				Nonce:        103,
 			},
-				Version: version.ProtocolVersion,
-				Nonce:   102,
-			},
-			{Action: &iproto.ActionPb_Vote{
-				Vote: &iproto.VotePb{},
-			},
-				Version: version.ProtocolVersion,
-				Nonce:   103,
-			},
-			{Action: &iproto.ActionPb_Vote{
-				Vote: &iproto.VotePb{},
-			},
-				Version: version.ProtocolVersion,
-				Nonce:   104,
+			{
+				Action: &iproto.ActionPb_Vote{
+					Vote: &iproto.VotePb{},
+				},
+				Sender:       sender.RawAddress,
+				SenderPubKey: sender.PublicKey[:],
+				Version:      version.ProtocolVersion,
+				Nonce:        104,
 			},
 		},
-	})
+	}))
 
 	blk.Header.txRoot = blk.CalculateTxRoot()
 

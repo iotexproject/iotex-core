@@ -104,27 +104,40 @@ func (d *CreateDeposit) Proto() *iproto.ActionPb {
 }
 
 // LoadProto converts a protobuf's ActionPb to CreateDeposit
-func (d *CreateDeposit) LoadProto(pbAct *iproto.ActionPb) {
-	d.version = pbAct.Version
-	d.nonce = pbAct.Nonce
-	d.srcAddr = pbAct.Sender
-	copy(d.srcPubkey[:], pbAct.SenderPubKey)
-	d.gasLimit = pbAct.GasLimit
-	if d.gasPrice == nil {
-		d.gasPrice = big.NewInt(0)
+func (d *CreateDeposit) LoadProto(pbAct *iproto.ActionPb) error {
+	if pbAct == nil {
+		return errors.New("empty action proto to load")
 	}
-	if len(pbAct.GasPrice) > 0 {
-		d.gasPrice.SetBytes(pbAct.GasPrice)
+	srcPub, err := keypair.BytesToPublicKey(pbAct.SenderPubKey)
+	if err != nil {
+		return err
 	}
-	if d.amount == nil {
-		d.amount = big.NewInt(0)
+	if d == nil {
+		return errors.New("nil action to load proto")
 	}
-	d.signature = pbAct.Signature
+	*d = CreateDeposit{}
 	pbDpst := pbAct.GetCreateDeposit()
+	if pbDpst == nil {
+		return errors.New("empty CreateDeposit action proto to load")
+	}
+
+	ab := &Builder{}
+	act := ab.SetVersion(pbAct.Version).
+		SetNonce(pbAct.Nonce).
+		SetSourceAddress(pbAct.Sender).
+		SetSourcePublicKey(srcPub).
+		SetGasLimit(pbAct.GasLimit).
+		SetGasPriceByBytes(pbAct.GasPrice).
+		SetDestinationAddress(pbDpst.Recipient).
+		Build()
+	act.SetSignature(pbAct.Signature)
+	d.AbstractAction = act
+
+	d.amount = big.NewInt(0)
 	if len(pbDpst.Amount) > 0 {
 		d.amount.SetBytes(pbDpst.Amount)
 	}
-	d.dstAddr = pbDpst.Recipient
+	return nil
 }
 
 // Hash returns the hash of a create deposit
