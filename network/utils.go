@@ -38,7 +38,7 @@ func stringsAreShuffled(slice []string) {
 	}
 }
 
-func loadCertAndCertPool(config *config.Network) (*tls.Certificate, *x509.CertPool, error) {
+func loadCertAndCertPool(config config.Network) (*tls.Certificate, *x509.CertPool, error) {
 	// Load the certificates from disk
 	cert, err := tls.LoadX509KeyPair(config.PeerCrtPath, config.PeerKeyPath)
 	if err != nil {
@@ -62,7 +62,7 @@ func loadCertAndCertPool(config *config.Network) (*tls.Certificate, *x509.CertPo
 	return &cert, certPool, nil
 }
 
-func generateServerCredentials(config *config.Network) (credentials.TransportCredentials, error) {
+func generateServerCredentials(config config.Network) (credentials.TransportCredentials, error) {
 	cert, certPool, err := loadCertAndCertPool(config)
 	if err != nil {
 		return nil, err
@@ -76,7 +76,7 @@ func generateServerCredentials(config *config.Network) (credentials.TransportCre
 	}), nil
 }
 
-func generateClientCredentials(config *config.Network) (credentials.TransportCredentials, error) {
+func generateClientCredentials(config config.Network) (credentials.TransportCredentials, error) {
 	cert, certPool, err := loadCertAndCertPool(config)
 	if err != nil {
 		return nil, err

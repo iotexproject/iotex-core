@@ -21,7 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
-var cfg = &config.Default.DB
+var cfg = config.Default.DB
 
 const testTriePath = "trie.test"
 

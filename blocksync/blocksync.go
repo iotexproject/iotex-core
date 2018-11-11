@@ -44,12 +44,12 @@ type blockSyncer struct {
 
 // NewBlockSyncer returns a new block syncer instance
 func NewBlockSyncer(
-	cfg *config.Config,
+	cfg config.Config,
 	chain blockchain.Blockchain,
 	ap actpool.ActPool,
 	p2p network.Overlay,
 ) (BlockSync, error) {
-	if cfg == nil || chain == nil || ap == nil || p2p == nil {
+	if chain == nil || ap == nil || p2p == nil {
 		return nil, errors.New("cannot create BlockSync: missing param")
 	}
 

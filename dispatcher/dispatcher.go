@@ -108,7 +108,7 @@ type IotxDispatcher struct {
 
 // NewDispatcher creates a new Dispatcher
 func NewDispatcher(
-	cfg *config.Config,
+	cfg config.Config,
 ) (Dispatcher, error) {
 	d := &IotxDispatcher{
 		eventChan:   make(chan interface{}, cfg.Dispatcher.EventChanSize),

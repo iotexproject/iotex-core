@@ -32,13 +32,13 @@ func TestSyncTaskInterval(t *testing.T) {
 
 	interval := time.Duration(0)
 
-	cfgLightWeight := &config.Config{
+	cfgLightWeight := config.Config{
 		NodeType: config.LightweightType,
 	}
 	lightWeight := syncTaskInterval(cfgLightWeight)
 	assert.Equal(interval, lightWeight)
 
-	cfgDelegate := &config.Config{
+	cfgDelegate := config.Config{
 		NodeType: config.DelegateType,
 		BlockSync: config.BlockSync{
 			Interval: interval,
@@ -47,7 +47,7 @@ func TestSyncTaskInterval(t *testing.T) {
 	delegate := syncTaskInterval(cfgDelegate)
 	assert.Equal(interval, delegate)
 
-	cfgFullNode := &config.Config{
+	cfgFullNode := config.Config{
 		NodeType: config.FullNodeType,
 		BlockSync: config.BlockSync{
 			Interval: interval,
@@ -59,7 +59,7 @@ func TestSyncTaskInterval(t *testing.T) {
 }
 
 func generateP2P() network.Overlay {
-	c := &config.Network{
+	c := config.Network{
 		Host: "127.0.0.1",
 		Port: 10001,
 		MsgLogsCleaningInterval: 2 * time.Second,
@@ -107,7 +107,7 @@ func TestNewBlockSyncer(t *testing.T) {
 	assert.NoError(err)
 
 	// Lightweight
-	cfgLightWeight := &config.Config{
+	cfgLightWeight := config.Config{
 		NodeType: config.LightweightType,
 	}
 
@@ -116,7 +116,7 @@ func TestNewBlockSyncer(t *testing.T) {
 	assert.NotNil(bsLightWeight)
 
 	// Delegate
-	cfgDelegate := &config.Config{
+	cfgDelegate := config.Config{
 		NodeType: config.DelegateType,
 	}
 	cfgDelegate.Network.BootstrapNodes = []string{"123"}
@@ -125,7 +125,7 @@ func TestNewBlockSyncer(t *testing.T) {
 	assert.Nil(err)
 
 	// FullNode
-	cfgFullNode := &config.Config{
+	cfgFullNode := config.Config{
 		NodeType: config.FullNodeType,
 	}
 	cfgFullNode.Network.BootstrapNodes = []string{"123"}
@@ -184,7 +184,7 @@ func TestBlockSyncerProcessSyncRequest(t *testing.T) {
 	assert.NoError(err)
 	p2p := generateP2P()
 
-	cfgFullNode := &config.Config{
+	cfgFullNode := config.Config{
 		NodeType: config.FullNodeType,
 	}
 	cfgFullNode.Network.BootstrapNodes = []string{"123"}
@@ -217,7 +217,7 @@ func TestBlockSyncerProcessSyncRequestError(t *testing.T) {
 	ap, err := actpool.NewActPool(chain, cfg.ActPool)
 	require.NotNil(ap)
 	require.NoError(err)
-	bs, err := NewBlockSyncer(cfg, chain, ap, network.NewOverlay(&cfg.Network))
+	bs, err := NewBlockSyncer(cfg, chain, ap, network.NewOverlay(cfg.Network))
 	require.Nil(err)
 
 	defer func() {
@@ -249,7 +249,7 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 	ap, err := actpool.NewActPool(chain, cfg.ActPool)
 	require.NotNil(ap)
 	require.NoError(err)
-	bs, err := NewBlockSyncer(cfg, chain, ap, network.NewOverlay(&cfg.Network))
+	bs, err := NewBlockSyncer(cfg, chain, ap, network.NewOverlay(cfg.Network))
 	require.Nil(err)
 
 	defer func() {
@@ -294,7 +294,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	ap1, err := actpool.NewActPool(chain1, cfg.ActPool)
 	require.NotNil(ap1)
 	require.NoError(err)
-	bs1, err := NewBlockSyncer(cfg, chain1, ap1, network.NewOverlay(&cfg.Network))
+	bs1, err := NewBlockSyncer(cfg, chain1, ap1, network.NewOverlay(cfg.Network))
 	require.Nil(err)
 	chain2 := bc.NewBlockchain(cfg, bc.InMemStateFactoryOption(), bc.InMemDaoOption())
 	require.NoError(chain2.Start(ctx))
@@ -302,7 +302,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	ap2, err := actpool.NewActPool(chain2, cfg.ActPool)
 	require.NotNil(ap2)
 	require.Nil(err)
-	bs2, err := NewBlockSyncer(cfg, chain2, ap2, network.NewOverlay(&cfg.Network))
+	bs2, err := NewBlockSyncer(cfg, chain2, ap2, network.NewOverlay(cfg.Network))
 	require.Nil(err)
 
 	defer func() {
@@ -353,7 +353,7 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	ap1, err := actpool.NewActPool(chain1, cfg.ActPool)
 	require.NotNil(ap1)
 	require.Nil(err)
-	bs1, err := NewBlockSyncer(cfg, chain1, ap1, network.NewOverlay(&cfg.Network))
+	bs1, err := NewBlockSyncer(cfg, chain1, ap1, network.NewOverlay(cfg.Network))
 	require.Nil(err)
 	chain2 := bc.NewBlockchain(cfg, bc.InMemStateFactoryOption(), bc.InMemDaoOption())
 	require.NoError(chain2.Start(ctx))
@@ -361,7 +361,7 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	ap2, err := actpool.NewActPool(chain2, cfg.ActPool)
 	require.NotNil(ap2)
 	require.Nil(err)
-	bs2, err := NewBlockSyncer(cfg, chain2, ap2, network.NewOverlay(&cfg.Network))
+	bs2, err := NewBlockSyncer(cfg, chain2, ap2, network.NewOverlay(cfg.Network))
 	require.Nil(err)
 
 	defer func() {
@@ -412,7 +412,7 @@ func TestBlockSyncerSync(t *testing.T) {
 	require.NotNil(ap)
 	require.NoError(err)
 
-	bs, err := NewBlockSyncer(cfg, chain, ap, network.NewOverlay(&cfg.Network))
+	bs, err := NewBlockSyncer(cfg, chain, ap, network.NewOverlay(cfg.Network))
 	require.NotNil(bs)
 	require.NoError(err)
 	require.Nil(bs.Start(ctx))
@@ -439,7 +439,7 @@ func TestBlockSyncerSync(t *testing.T) {
 	time.Sleep(time.Millisecond << 7)
 }
 
-func newTestConfig() (*config.Config, error) {
+func newTestConfig() (config.Config, error) {
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = "trie.test"
 	cfg.Chain.ChainDBPath = "db.test"
@@ -448,5 +448,5 @@ func newTestConfig() (*config.Config, error) {
 	cfg.Network.Host = "127.0.0.1"
 	cfg.Network.Port = 10000
 	cfg.Network.BootstrapNodes = []string{"127.0.0.1:10000", "127.0.0.1:4689"}
-	return &cfg, nil
+	return cfg, nil
 }

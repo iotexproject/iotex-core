@@ -30,7 +30,7 @@ func TestValidateDeposit(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	ctx := context.Background()
-	bc := blockchain.NewBlockchain(&config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	bc := blockchain.NewBlockchain(config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
 	require.NoError(t, bc.Start(ctx))
 	exp := mock_explorer.NewMockExplorer(ctrl)
 
@@ -93,7 +93,7 @@ func TestMutateDeposit(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	ctx := context.Background()
-	bc := blockchain.NewBlockchain(&config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	bc := blockchain.NewBlockchain(config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
 	require.NoError(t, bc.Start(ctx))
 	exp := mock_explorer.NewMockExplorer(ctrl)
 

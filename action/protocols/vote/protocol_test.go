@@ -33,7 +33,7 @@ func TestProtocol_Handle(t *testing.T) {
 
 	cfg := config.Default
 	ctx := context.Background()
-	sf, err := state.NewFactory(&cfg, state.InMemTrieOption())
+	sf, err := state.NewFactory(cfg, state.InMemTrieOption())
 	require.NoError(err)
 	require.NoError(sf.Start(ctx))
 	defer func() {
@@ -129,7 +129,7 @@ func TestProtocol_Handle(t *testing.T) {
 
 func TestProtocol_Validate(t *testing.T) {
 	require := require.New(t)
-	bc := blockchain.NewBlockchain(&config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	bc := blockchain.NewBlockchain(config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
 	require.NoError(bc.Start(context.Background()))
 	_, err := bc.CreateState(
 		testaddress.Addrinfo["producer"].RawAddress,

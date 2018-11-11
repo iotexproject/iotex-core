@@ -31,7 +31,7 @@ import (
 
 // Server is the iotex server instance containing all components.
 type Server struct {
-	cfg                  *config.Config
+	cfg                  config.Config
 	rootChainService     *chainservice.ChainService
 	chainservices        map[uint32]*chainservice.ChainService
 	p2p                  network.Overlay
@@ -42,18 +42,18 @@ type Server struct {
 
 // NewServer creates a new server
 // TODO clean up config, make root config contains network, dispatch and chainservice
-func NewServer(cfg *config.Config) (*Server, error) {
+func NewServer(cfg config.Config) (*Server, error) {
 	return newServer(cfg, false)
 }
 
 // NewInMemTestServer creates a test server in memory
-func NewInMemTestServer(cfg *config.Config) (*Server, error) {
+func NewInMemTestServer(cfg config.Config) (*Server, error) {
 	return newServer(cfg, true)
 }
 
-func newServer(cfg *config.Config, testing bool) (*Server, error) {
+func newServer(cfg config.Config, testing bool) (*Server, error) {
 	// create P2P network and BlockSync
-	p2p := network.NewOverlay(&cfg.Network)
+	p2p := network.NewOverlay(cfg.Network)
 
 	// create dispatcher instance
 	dispatcher, err := dispatcher.NewDispatcher(cfg)
@@ -139,7 +139,7 @@ func (s *Server) Stop(ctx context.Context) error {
 }
 
 // NewChainService creates a new chain service in this server.
-func (s *Server) NewChainService(cfg *config.Config) error {
+func (s *Server) NewChainService(cfg config.Config) error {
 	mainChainAPI := s.rootChainService.Explorer().Explorer()
 	opts := []chainservice.Option{chainservice.WithRootChainAPI(mainChainAPI)}
 	cs, err := chainservice.New(cfg, s.p2p, s.dispatcher, opts...)
@@ -154,7 +154,7 @@ func (s *Server) NewChainService(cfg *config.Config) error {
 }
 
 // NewTestingChainService creates a new testing chain service in this server.
-func (s *Server) NewTestingChainService(cfg *config.Config) error {
+func (s *Server) NewTestingChainService(cfg config.Config) error {
 	opts := []chainservice.Option{
 		chainservice.WithTesting(),
 		chainservice.WithRootChainAPI(s.rootChainService.Explorer().Explorer()),
@@ -200,7 +200,7 @@ func (s *Server) Dispatcher() dispatcher.Dispatcher {
 }
 
 // StartServer starts a node server
-func StartServer(svr *Server, cfg *config.Config) {
+func StartServer(svr *Server, cfg config.Config) {
 	ctx := context.Background()
 	if err := svr.Start(ctx); err != nil {
 		logger.Fatal().Err(err).Msg("Failed to start server.")

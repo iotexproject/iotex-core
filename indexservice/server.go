@@ -20,7 +20,7 @@ import (
 
 // Server is the container of the index service
 type Server struct {
-	cfg     *config.Config
+	cfg     config.Config
 	idx     *Indexer
 	bc      blockchain.Blockchain
 	blockCh chan *blockchain.Block
@@ -28,7 +28,7 @@ type Server struct {
 
 // NewServer instantiates an index service
 func NewServer(
-	cfg *config.Config,
+	cfg config.Config,
 	bc blockchain.Blockchain,
 ) *Server {
 	blockCh := make(chan *blockchain.Block)

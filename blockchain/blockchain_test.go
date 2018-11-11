@@ -177,7 +177,7 @@ func TestCreateBlockchain(t *testing.T) {
 	Gen.BlockReward = big.NewInt(0)
 
 	// create chain
-	bc := NewBlockchain(&cfg, InMemStateFactoryOption(), InMemDaoOption())
+	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption())
 	require.NoError(bc.Start(ctx))
 	require.NotNil(bc)
 	height := bc.TipHeight()
@@ -239,13 +239,13 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Explorer.Enabled = true
 
-	sf, err := state.NewFactory(&cfg, state.DefaultTrieOption())
+	sf, err := state.NewFactory(cfg, state.DefaultTrieOption())
 	require.Nil(err)
 	require.NoError(sf.Start(context.Background()))
 	require.NoError(addCreatorToFactory(sf))
 
 	// Create a blockchain from scratch
-	bc := NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
+	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	require.NoError(bc.Start(ctx))
 	require.NotNil(bc)
 
@@ -272,7 +272,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	require.Equal(27, transfers)
 
 	// Load a blockchain from DB
-	bc = NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
+	bc = NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	require.NoError(bc.Start(ctx))
 	defer func() {
 		err := bc.Stop(ctx)
@@ -465,12 +465,12 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
-	sf, err := state.NewFactory(&cfg, state.DefaultTrieOption())
+	sf, err := state.NewFactory(cfg, state.DefaultTrieOption())
 	require.Nil(err)
 	require.NoError(sf.Start(context.Background()))
 	require.NoError(addCreatorToFactory(sf))
 	// Create a blockchain from scratch
-	bc := NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
+	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	require.NoError(bc.Start(ctx))
 	require.NotNil(bc)
 
@@ -499,7 +499,7 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	require.Equal(0, transfers)
 
 	// Load a blockchain from DB
-	bc = NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
+	bc = NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	require.NoError(bc.Start(ctx))
 	defer func() {
 		err := bc.Stop(ctx)
@@ -642,7 +642,7 @@ func TestBlockchain_Validator(t *testing.T) {
 	cfg.Chain.TrieDBPath = ""
 
 	ctx := context.Background()
-	bc := NewBlockchain(&cfg, InMemDaoOption(), InMemStateFactoryOption())
+	bc := NewBlockchain(cfg, InMemDaoOption(), InMemStateFactoryOption())
 	require.NoError(t, bc.Start(ctx))
 	defer func() {
 		err := bc.Stop(ctx)
@@ -671,10 +671,10 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 	// Disable block reward to make bookkeeping easier
 	Gen.BlockReward = big.NewInt(0)
 
-	sf, err := state.NewFactory(&cfg, state.DefaultTrieOption())
+	sf, err := state.NewFactory(cfg, state.DefaultTrieOption())
 	require.Nil(err)
 	require.NoError(sf.Start(context.Background()))
-	bc := NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
+	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	require.NoError(bc.Start(context.Background()))
 	require.NotNil(bc)
 	// TODO: change the value when Candidates size is changed
@@ -698,13 +698,13 @@ func TestCoinbaseTransfer(t *testing.T) {
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 
-	sf, err := state.NewFactory(&cfg, state.DefaultTrieOption())
+	sf, err := state.NewFactory(cfg, state.DefaultTrieOption())
 	require.Nil(err)
 	require.NoError(sf.Start(context.Background()))
 	require.NoError(addCreatorToFactory(sf))
 
 	Gen.BlockReward = big.NewInt(0)
-	bc := NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
+	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	require.NoError(bc.Start(context.Background()))
 	require.NotNil(bc)
 	height := bc.TipHeight()
@@ -736,7 +736,7 @@ func TestBlockchain_StateByAddr(t *testing.T) {
 	cfg := config.Default
 	// disable account-based testing
 	// create chain
-	bc := NewBlockchain(&cfg, InMemDaoOption(), InMemStateFactoryOption())
+	bc := NewBlockchain(cfg, InMemDaoOption(), InMemStateFactoryOption())
 	require.NoError(bc.Start(context.Background()))
 	require.NotNil(bc)
 
@@ -766,12 +766,12 @@ func TestBlocks(t *testing.T) {
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 
-	sf, _ := state.NewFactory(&cfg, state.InMemTrieOption())
+	sf, _ := state.NewFactory(cfg, state.InMemTrieOption())
 	require.NoError(sf.Start(context.Background()))
 	require.NoError(addCreatorToFactory(sf))
 
 	// Create a blockchain from scratch
-	bc := NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
+	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	require.NoError(bc.Start(context.Background()))
 	a := ta.Addrinfo["alfa"]
 	c := ta.Addrinfo["bravo"]
@@ -820,12 +820,12 @@ func TestActions(t *testing.T) {
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 
-	sf, _ := state.NewFactory(&cfg, state.InMemTrieOption())
+	sf, _ := state.NewFactory(cfg, state.InMemTrieOption())
 	require.NoError(sf.Start(context.Background()))
 	require.NoError(addCreatorToFactory(sf))
 
 	// Create a blockchain from scratch
-	bc := NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
+	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	require.NoError(bc.Start(context.Background()))
 	a := ta.Addrinfo["alfa"]
 	c := ta.Addrinfo["bravo"]
@@ -869,7 +869,7 @@ func TestMintDKGBlock(t *testing.T) {
 	lastSeed, _ := hex.DecodeString("9de6306b08158c423330f7a27243a1a5cbe39bfd764f07818437882d21241567")
 	cfg := config.Default
 	clk := clock.NewMock()
-	chain := NewBlockchain(&cfg, InMemDaoOption(), InMemStateFactoryOption(), ClockOption(clk))
+	chain := NewBlockchain(cfg, InMemDaoOption(), InMemStateFactoryOption(), ClockOption(clk))
 	require.NoError(chain.Start(context.Background()))
 
 	var err error

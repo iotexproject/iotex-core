@@ -31,7 +31,7 @@ import (
 	"github.com/iotexproject/iotex-core/trie"
 )
 
-var cfg = &config.Default
+var cfg = config.Default
 
 const testTriePath = "trie.test"
 
@@ -267,7 +267,7 @@ func TestCandidates(t *testing.T) {
 	defer testutil.CleanupPath(t, testTriePath)
 
 	cfg.Chain.NumCandidates = 2
-	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(testTriePath, &cfg.DB)))
+	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(testTriePath, cfg.DB)))
 	require.NoError(t, err)
 	ws, err := sf.NewWorkingSet()
 	require.NoError(t, err)
@@ -743,7 +743,7 @@ func TestCandidatesByHeight(t *testing.T) {
 	defer testutil.CleanupPath(t, testTriePath)
 
 	cfg.Chain.NumCandidates = 2
-	f, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(testTriePath, &cfg.DB)))
+	f, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(testTriePath, cfg.DB)))
 	require.Nil(t, err)
 	sf, ok := f.(*factory)
 	require.True(t, ok)
@@ -803,7 +803,7 @@ func TestUnvote(t *testing.T) {
 	defer testutil.CleanupPath(t, testTriePath)
 
 	cfg.Chain.NumCandidates = 2
-	f, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(testTriePath, &cfg.DB)))
+	f, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(testTriePath, cfg.DB)))
 	require.NoError(t, err)
 	sf, ok := f.(*factory)
 	require.True(t, ok)
@@ -901,7 +901,7 @@ func TestLoadStoreHeightInMem(t *testing.T) {
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
-	statefactory, err := NewFactory(&cfg, InMemTrieOption())
+	statefactory, err := NewFactory(cfg, InMemTrieOption())
 	require.Nil(err)
 	require.Nil(statefactory.Start(context.Background()))
 

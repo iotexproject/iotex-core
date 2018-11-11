@@ -58,7 +58,7 @@ func TestLocalCommit(t *testing.T) {
 
 	// create client
 	cfg.Network.BootstrapNodes = []string{svr.P2P().Self().String()}
-	p := network.NewOverlay(&cfg.Network)
+	p := network.NewOverlay(cfg.Network)
 	require.NotNil(p)
 	require.NoError(p.Start(ctx))
 
@@ -440,7 +440,7 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.NotNil(svr.ChainService(chainID).ActionPool())
 
 	cfg.Network.BootstrapNodes = []string{svr.P2P().Self().String()}
-	p := network.NewOverlay(&cfg.Network)
+	p := network.NewOverlay(cfg.Network)
 	require.NotNil(p)
 	require.NoError(p.Start(ctx))
 
@@ -720,7 +720,7 @@ func TestBlockchainRecovery(t *testing.T) {
 	require.Equal(blockchainHeight, factoryHeight)
 }
 
-func newTestConfig() (*config.Config, error) {
+func newTestConfig() (config.Config, error) {
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
@@ -730,9 +730,9 @@ func newTestConfig() (*config.Config, error) {
 
 	pk, sk, err := crypto.EC283.NewKeyPair()
 	if err != nil {
-		return nil, err
+		return config.Config{}, err
 	}
 	cfg.Chain.ProducerPubKey = keypair.EncodePublicKey(pk)
 	cfg.Chain.ProducerPrivKey = keypair.EncodePrivateKey(sk)
-	return &cfg, nil
+	return cfg, nil
 }
