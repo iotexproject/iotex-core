@@ -201,8 +201,12 @@ func (cs *ChainService) HandleAction(actPb *pb.ActionPb) error {
 		act = &action.CreateDeposit{}
 	} else if actPb.GetSettleDeposit() != nil {
 		act = &action.SettleDeposit{}
+	} else {
+		return errors.New("no appliable action to handle in action proto")
 	}
-	act.LoadProto(actPb)
+	if err := act.LoadProto(actPb); err != nil {
+		return err
+	}
 	if err := cs.actpool.Add(act); err != nil {
 		logger.Debug().
 			Err(err).
@@ -217,14 +221,18 @@ func (cs *ChainService) HandleAction(actPb *pb.ActionPb) error {
 // HandleBlock handles incoming block request.
 func (cs *ChainService) HandleBlock(pbBlock *pb.BlockPb) error {
 	blk := &blockchain.Block{}
-	blk.ConvertFromBlockPb(pbBlock)
+	if err := blk.ConvertFromBlockPb(pbBlock); err != nil {
+		return err
+	}
 	return cs.blocksync.ProcessBlock(blk)
 }
 
 // HandleBlockSync handles incoming block sync request.
 func (cs *ChainService) HandleBlockSync(pbBlock *pb.BlockPb) error {
 	blk := &blockchain.Block{}
-	blk.ConvertFromBlockPb(pbBlock)
+	if err := blk.ConvertFromBlockPb(pbBlock); err != nil {
+		return err
+	}
 	return cs.blocksync.ProcessBlockSync(blk)
 }
 

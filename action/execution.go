@@ -160,30 +160,41 @@ func (ex *Execution) Serialize() ([]byte, error) {
 }
 
 // LoadProto converts a protobuf's ActionPb to Execution
-func (ex *Execution) LoadProto(pbAct *iproto.ActionPb) {
-	ex.version = pbAct.GetVersion()
-	ex.srcAddr = pbAct.Sender
-	copy(ex.srcPubkey[:], pbAct.SenderPubKey)
-	ex.nonce = pbAct.GetNonce()
-	ex.gasLimit = pbAct.GetGasLimit()
-	ex.signature = pbAct.GetSignature()
-	pbExecution := pbAct.GetExecution()
-	if pbExecution != nil {
-		ex.dstAddr = pbExecution.GetContract()
-		ex.data = pbExecution.GetData()
-		if ex.amount == nil {
-			ex.amount = big.NewInt(0)
-		}
-		if len(pbExecution.Amount) > 0 {
-			ex.amount.SetBytes(pbExecution.GetAmount())
-		}
-		if ex.gasPrice == nil {
-			ex.gasPrice = big.NewInt(0)
-		}
-		if len(pbAct.GasPrice) > 0 {
-			ex.gasPrice.SetBytes(pbAct.GasPrice)
-		}
+func (ex *Execution) LoadProto(pbAct *iproto.ActionPb) error {
+	if pbAct == nil {
+		return errors.New("empty action proto to load")
 	}
+	if ex == nil {
+		return errors.New("nil action to load proto")
+	}
+	*ex = Execution{}
+	srcPub, err := keypair.BytesToPublicKey(pbAct.SenderPubKey)
+	if err != nil {
+		return err
+	}
+	pbExecution := pbAct.GetExecution()
+	if pbExecution == nil {
+		return errors.New("empty Execution action proto to load")
+	}
+
+	ab := &Builder{}
+	act := ab.SetVersion(pbAct.Version).
+		SetNonce(pbAct.Nonce).
+		SetSourceAddress(pbAct.Sender).
+		SetSourcePublicKey(srcPub).
+		SetGasLimit(pbAct.GasLimit).
+		SetGasPriceByBytes(pbAct.GasPrice).
+		SetDestinationAddress(pbExecution.Contract).
+		Build()
+	act.SetSignature(pbAct.Signature)
+	ex.AbstractAction = act
+
+	ex.data = pbExecution.GetData()
+	ex.amount = big.NewInt(0)
+	if len(pbExecution.Amount) > 0 {
+		ex.amount.SetBytes(pbExecution.GetAmount())
+	}
+	return nil
 }
 
 // NewExecutionFromJSON creates a new Execution from ExecutionJSON
@@ -229,8 +240,7 @@ func (ex *Execution) Deserialize(buf []byte) error {
 	if err := proto.Unmarshal(buf, pbAction); err != nil {
 		return err
 	}
-	ex.LoadProto(pbAction)
-	return nil
+	return ex.LoadProto(pbAction)
 }
 
 // Hash returns the hash of the Execution

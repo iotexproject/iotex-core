@@ -13,6 +13,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/proto"
 )
@@ -82,14 +83,33 @@ func (sw *SecretWitness) Serialize() ([]byte, error) {
 }
 
 // LoadProto converts a protobuf's ActionPb to SecretWitness
-func (sw *SecretWitness) LoadProto(pbAct *iproto.ActionPb) {
-	sw.version = pbAct.GetVersion()
-	sw.srcAddr = pbAct.Sender
-	copy(sw.srcPubkey[:], pbAct.SenderPubKey)
-	sw.nonce = pbAct.Nonce
-
+func (sw *SecretWitness) LoadProto(pbAct *iproto.ActionPb) error {
+	if pbAct == nil {
+		return errors.New("empty action proto to load")
+	}
+	srcPub, err := keypair.BytesToPublicKey(pbAct.SenderPubKey)
+	if err != nil {
+		return err
+	}
+	if sw == nil {
+		return errors.New("nil action to load proto")
+	}
+	*sw = SecretWitness{}
 	pbSecretWitness := pbAct.GetSecretWitness()
+	if pbSecretWitness == nil {
+		return errors.New("empty CreateDeposit action proto to load")
+	}
+
+	ab := &Builder{}
+	act := ab.SetVersion(pbAct.Version).
+		SetNonce(pbAct.Nonce).
+		SetSourceAddress(pbAct.Sender).
+		SetSourcePublicKey(srcPub).
+		Build()
+	act.SetSignature(pbAct.Signature)
+	sw.AbstractAction = act
 	sw.witness = pbSecretWitness.Witness
+	return nil
 }
 
 // Deserialize parses the byte stream into SecretWitness
@@ -98,8 +118,7 @@ func (sw *SecretWitness) Deserialize(buf []byte) error {
 	if err := proto.Unmarshal(buf, pbAct); err != nil {
 		return err
 	}
-	sw.LoadProto(pbAct)
-	return nil
+	return sw.LoadProto(pbAct)
 }
 
 // Hash returns the hash of the SecretWitness

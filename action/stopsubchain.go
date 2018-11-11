@@ -14,6 +14,7 @@ import (
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/proto"
@@ -102,24 +103,36 @@ func (ssc *StopSubChain) Serialize() ([]byte, error) {
 }
 
 // LoadProto converts a protobuf's ActionPb to StopSubChain
-func (ssc *StopSubChain) LoadProto(pbAct *iproto.ActionPb) {
-	ssc.version = pbAct.Version
-	ssc.srcAddr = pbAct.Sender
-	copy(ssc.srcPubkey[:], pbAct.SenderPubKey)
-	ssc.nonce = pbAct.Nonce
-	ssc.gasLimit = pbAct.GasLimit
-	if ssc.gasPrice == nil {
-		ssc.gasPrice = big.NewInt(0)
+func (ssc *StopSubChain) LoadProto(pbAct *iproto.ActionPb) error {
+	if pbAct == nil {
+		return errors.New("empty action proto to load")
 	}
-	if len(pbAct.GasPrice) > 0 {
-		ssc.gasPrice.SetBytes(pbAct.GasPrice)
+	srcPub, err := keypair.BytesToPublicKey(pbAct.SenderPubKey)
+	if err != nil {
+		return err
 	}
-	ssc.signature = pbAct.Signature
+	if ssc == nil {
+		return errors.New("nil action to load proto")
+	}
+	*ssc = StopSubChain{}
 	pbSSC := pbAct.GetStopSubChain()
-	if pbSSC != nil {
-		ssc.stopHeight = pbSSC.StopHeight
-		ssc.dstAddr = pbSSC.SubChainAddress
+	if pbSSC == nil {
+		return errors.New("empty StopSubChain action proto to load")
 	}
+
+	ab := &Builder{}
+	act := ab.SetVersion(pbAct.Version).
+		SetNonce(pbAct.Nonce).
+		SetSourceAddress(pbAct.Sender).
+		SetSourcePublicKey(srcPub).
+		SetGasLimit(pbAct.GasLimit).
+		SetGasPriceByBytes(pbAct.GasPrice).
+		SetDestinationAddress(pbSSC.SubChainAddress).
+		Build()
+	act.SetSignature(pbAct.Signature)
+	ssc.AbstractAction = act
+	ssc.stopHeight = pbSSC.StopHeight
+	return nil
 }
 
 // Deserialize parse the byte stream into StopSubChain
@@ -128,8 +141,7 @@ func (ssc *StopSubChain) Deserialize(buf []byte) error {
 	if err := proto.Unmarshal(buf, pbSSC); err != nil {
 		return err
 	}
-	ssc.LoadProto(pbSSC)
-	return nil
+	return ssc.LoadProto(pbSSC)
 }
 
 // Hash returns the hash of the StopSubChain
