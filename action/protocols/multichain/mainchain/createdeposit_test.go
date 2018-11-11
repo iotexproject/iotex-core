@@ -31,7 +31,7 @@ func TestValidateDeposit(t *testing.T) {
 
 	cfg := config.Default
 	ctx := context.Background()
-	sf, err := state.NewFactory(&cfg, state.InMemTrieOption())
+	sf, err := state.NewFactory(cfg, state.InMemTrieOption())
 	require.NoError(t, err)
 	require.NoError(t, sf.Start(ctx))
 	ctrl := gomock.NewController(t)
@@ -103,7 +103,7 @@ func TestMutateDeposit(t *testing.T) {
 
 	cfg := config.Default
 	ctx := context.Background()
-	sf, err := state.NewFactory(&cfg, state.InMemTrieOption())
+	sf, err := state.NewFactory(cfg, state.InMemTrieOption())
 	require.NoError(t, err)
 	require.NoError(t, sf.Start(ctx))
 	ctrl := gomock.NewController(t)

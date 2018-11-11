@@ -112,7 +112,7 @@ func TestActionInjector(t *testing.T) {
 	require.Nil(err)
 }
 
-func newConfig() (*config.Config, error) {
+func newConfig() (config.Config, error) {
 	cfg := config.Default
 	cfg.NodeType = config.DelegateType
 	cfg.Consensus.Scheme = config.NOOPScheme
@@ -121,12 +121,12 @@ func newConfig() (*config.Config, error) {
 
 	pk, sk, err := crypto.EC283.NewKeyPair()
 	if err != nil {
-		return nil, err
+		return config.Config{}, err
 	}
 	cfg.Chain.ProducerPubKey = keypair.EncodePublicKey(pk)
 	cfg.Chain.ProducerPrivKey = keypair.EncodePrivateKey(sk)
 	cfg.Network.Port = 0
 	cfg.Network.PeerMaintainerInterval = 100 * time.Millisecond
 	cfg.Explorer.Port = 0
-	return &cfg, nil
+	return cfg, nil
 }

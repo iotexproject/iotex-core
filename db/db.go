@@ -147,11 +147,11 @@ type boltDB struct {
 	mutex  sync.RWMutex
 	db     *bolt.DB
 	path   string
-	config *config.DB
+	config config.DB
 }
 
 // NewBoltDB instantiates a boltdb based KV store
-func NewBoltDB(path string, cfg *config.DB) KVStore {
+func NewBoltDB(path string, cfg config.DB) KVStore {
 	return &boltDB{db: nil, path: path, config: cfg}
 }
 

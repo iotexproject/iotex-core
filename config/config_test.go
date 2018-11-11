@@ -27,7 +27,7 @@ func TestNewDefaultConfig(t *testing.T) {
 	// Default config doesn't have block producer addr setup
 	cfg, err := New()
 	require.NotNil(t, err)
-	require.Nil(t, cfg)
+	require.Equal(t, Config{}, cfg)
 	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
 }
 
@@ -35,7 +35,7 @@ func TestNewConfigWithoutValidation(t *testing.T) {
 	cfg, err := New(DoNotValidate)
 	require.Nil(t, err)
 	require.NotNil(t, cfg)
-	require.Equal(t, Default, *cfg)
+	require.Equal(t, Default, cfg)
 }
 
 func TestNewConfigWithWrongConfigPath(t *testing.T) {
@@ -44,7 +44,7 @@ func TestNewConfigWithWrongConfigPath(t *testing.T) {
 
 	cfg, err := New()
 	require.NotNil(t, err)
-	require.Nil(t, cfg)
+	require.Equal(t, Config{}, cfg)
 	require.Contains(t, err.Error(), "open wrong_path: no such file or directory")
 }
 
@@ -177,7 +177,7 @@ func TestValidateKeyPair(t *testing.T) {
 	cfg := Default
 	cfg.Chain.ProducerPubKey = "hello world"
 	cfg.Chain.ProducerPrivKey = "world hello"
-	err := ValidateKeyPair(&cfg)
+	err := ValidateKeyPair(cfg)
 	assert.NotNil(t, err)
 	assert.True(t, strings.Contains(err.Error(), "encoding/hex:"), err.Error())
 
@@ -187,7 +187,7 @@ func TestValidateKeyPair(t *testing.T) {
 	require.Nil(t, err)
 	cfg.Chain.ProducerPubKey = keypair.EncodePublicKey(pk)
 	cfg.Chain.ProducerPrivKey = keypair.EncodePrivateKey(sk)
-	err = ValidateKeyPair(&cfg)
+	err = ValidateKeyPair(cfg)
 	assert.NotNil(t, err)
 	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
 	require.True(
@@ -200,7 +200,7 @@ func TestValidateExplorer(t *testing.T) {
 	cfg := Default
 	cfg.Explorer.Enabled = true
 	cfg.Explorer.TpsWindow = 0
-	err := ValidateExplorer(&cfg)
+	err := ValidateExplorer(cfg)
 	require.NotNil(t, err)
 	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
 	require.True(
@@ -213,7 +213,7 @@ func TestValidateChain(t *testing.T) {
 	cfg := Default
 	cfg.Chain.NumCandidates = 0
 
-	err := ValidateChain(&cfg)
+	err := ValidateChain(cfg)
 	require.Error(t, err)
 	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
 	require.True(
@@ -225,7 +225,7 @@ func TestValidateChain(t *testing.T) {
 	cfg.Consensus.Scheme = RollDPoSScheme
 	cfg.Consensus.RollDPoS.NumDelegates = 5
 	cfg.Chain.NumCandidates = 3
-	err = ValidateChain(&cfg)
+	err = ValidateChain(cfg)
 	require.Error(t, err)
 	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
 	require.True(
@@ -238,7 +238,7 @@ func TestValidateConsensusScheme(t *testing.T) {
 	cfg := Default
 	cfg.NodeType = FullNodeType
 	cfg.Consensus.Scheme = RollDPoSScheme
-	err := ValidateConsensusScheme(&cfg)
+	err := ValidateConsensusScheme(cfg)
 	require.NotNil(t, err)
 	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
 	require.True(
@@ -247,7 +247,7 @@ func TestValidateConsensusScheme(t *testing.T) {
 	)
 
 	cfg.NodeType = LightweightType
-	err = ValidateConsensusScheme(&cfg)
+	err = ValidateConsensusScheme(cfg)
 	assert.NotNil(t, err)
 	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
 	require.True(
@@ -256,7 +256,7 @@ func TestValidateConsensusScheme(t *testing.T) {
 	)
 
 	cfg.NodeType = "Unknown"
-	err = ValidateConsensusScheme(&cfg)
+	err = ValidateConsensusScheme(cfg)
 	require.NotNil(t, err)
 	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
 	require.True(
@@ -268,7 +268,7 @@ func TestValidateConsensusScheme(t *testing.T) {
 func TestValidateDispatcher(t *testing.T) {
 	cfg := Default
 	cfg.Dispatcher.EventChanSize = 0
-	err := ValidateDispatcher(&cfg)
+	err := ValidateDispatcher(cfg)
 	require.NotNil(t, err)
 	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
 	require.True(
@@ -286,7 +286,7 @@ func TestValidateRollDPoS(t *testing.T) {
 	cfg.Consensus.RollDPoS.AcceptProposalEndorseTTL = 3 * time.Second
 	cfg.Consensus.RollDPoS.AcceptProposeTTL = 3 * time.Second
 	cfg.Consensus.RollDPoS.ProposerInterval = 8 * time.Second
-	err := ValidateRollDPoS(&cfg)
+	err := ValidateRollDPoS(cfg)
 	require.NotNil(t, err)
 	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
 	require.True(
@@ -295,7 +295,7 @@ func TestValidateRollDPoS(t *testing.T) {
 	)
 
 	cfg.Consensus.RollDPoS.EventChanSize = 0
-	err = ValidateRollDPoS(&cfg)
+	err = ValidateRollDPoS(cfg)
 	require.NotNil(t, err)
 	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
 	require.True(
@@ -305,7 +305,7 @@ func TestValidateRollDPoS(t *testing.T) {
 
 	cfg.Consensus.RollDPoS.EventChanSize = 1
 	cfg.Consensus.RollDPoS.NumDelegates = 0
-	err = ValidateRollDPoS(&cfg)
+	err = ValidateRollDPoS(cfg)
 	require.NotNil(t, err)
 	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
 	require.True(
@@ -317,7 +317,7 @@ func TestValidateRollDPoS(t *testing.T) {
 func TestValidateNetwork(t *testing.T) {
 	cfg := Default
 	cfg.Network.PeerDiscovery = false
-	err := ValidateNetwork(&cfg)
+	err := ValidateNetwork(cfg)
 	require.Error(t, err)
 	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
 	require.True(
@@ -329,7 +329,7 @@ func TestValidateNetwork(t *testing.T) {
 func TestValidateActPool(t *testing.T) {
 	cfg := Default
 	cfg.ActPool.MaxNumActsPerAcct = 0
-	err := ValidateActPool(&cfg)
+	err := ValidateActPool(cfg)
 	require.NotNil(t, err)
 	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
 	require.True(
@@ -342,7 +342,7 @@ func TestValidateActPool(t *testing.T) {
 
 	cfg.ActPool.MaxNumActsPerAcct = 100
 	cfg.ActPool.MaxNumActsPerPool = 0
-	err = ValidateActPool(&cfg)
+	err = ValidateActPool(cfg)
 	require.NotNil(t, err)
 	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
 	require.True(
@@ -354,7 +354,7 @@ func TestValidateActPool(t *testing.T) {
 	)
 
 	cfg.ActPool.MaxNumActsPerPool = 99
-	err = ValidateActPool(&cfg)
+	err = ValidateActPool(cfg)
 	require.NotNil(t, err)
 	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
 	require.True(

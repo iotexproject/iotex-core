@@ -83,11 +83,11 @@ type (
 )
 
 // FactoryOption sets Factory construction parameter
-type FactoryOption func(*factory, *config.Config) error
+type FactoryOption func(*factory, config.Config) error
 
 // PrecreatedTrieDBOption uses pre-created trie DB for state factory
 func PrecreatedTrieDBOption(kv db.KVStore) FactoryOption {
-	return func(sf *factory, cfg *config.Config) (err error) {
+	return func(sf *factory, cfg config.Config) (err error) {
 		if kv == nil {
 			return errors.New("Invalid empty trie db")
 		}
@@ -108,12 +108,12 @@ func PrecreatedTrieDBOption(kv db.KVStore) FactoryOption {
 
 // DefaultTrieOption creates trie from config for state factory
 func DefaultTrieOption() FactoryOption {
-	return func(sf *factory, cfg *config.Config) (err error) {
+	return func(sf *factory, cfg config.Config) (err error) {
 		dbPath := cfg.Chain.TrieDBPath
 		if len(dbPath) == 0 {
 			return errors.New("Invalid empty trie db path")
 		}
-		trieDB := db.NewBoltDB(dbPath, &cfg.DB)
+		trieDB := db.NewBoltDB(dbPath, cfg.DB)
 		if err = trieDB.Start(context.Background()); err != nil {
 			return errors.Wrap(err, "failed to start trie db")
 		}
@@ -131,7 +131,7 @@ func DefaultTrieOption() FactoryOption {
 
 // InMemTrieOption creates in memory trie for state factory
 func InMemTrieOption() FactoryOption {
-	return func(sf *factory, cfg *config.Config) (err error) {
+	return func(sf *factory, cfg config.Config) (err error) {
 		trieDB := db.NewMemKVStore()
 		if err = trieDB.Start(context.Background()); err != nil {
 			return errors.Wrap(err, "failed to start trie db")
@@ -149,7 +149,7 @@ func InMemTrieOption() FactoryOption {
 }
 
 // NewFactory creates a new state factory
-func NewFactory(cfg *config.Config, opts ...FactoryOption) (Factory, error) {
+func NewFactory(cfg config.Config, opts ...FactoryOption) (Factory, error) {
 	sf := &factory{
 		currentChainHeight: 0,
 		numCandidates:      cfg.Chain.NumCandidates,

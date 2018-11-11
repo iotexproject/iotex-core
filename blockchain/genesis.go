@@ -92,18 +92,18 @@ func (g *Genesis) CreatorPKHash() hash.PKHash {
 }
 
 // NewGenesisBlock creates a new genesis block
-func NewGenesisBlock(cfg *config.Config) *Block {
-	actions := loadGenesisData(cfg)
+func NewGenesisBlock(chainCfg config.Chain) *Block {
+	actions := loadGenesisData(chainCfg)
 
 	Gen.CreatorPubKey = actions.Creation.PubKey
 	Gen.CreatorPrivKey = actions.Creation.PriKey
 	_, creatorPrik := decodeKey(Gen.CreatorPubKey, Gen.CreatorPrivKey)
-	creatorAddr := Gen.CreatorAddr(cfg.Chain.ID)
+	creatorAddr := Gen.CreatorAddr(chainCfg.ID)
 
 	acts := make([]action.Action, 0)
 	for _, nominator := range actions.SelfNominators {
 		pk, sk := decodeKey(nominator.PubKey, nominator.PriKey)
-		address := generateAddr(cfg.Chain.ID, pk)
+		address := generateAddr(chainCfg.ID, pk)
 		vote, err := action.NewVote(
 			0,
 			address,
@@ -122,7 +122,7 @@ func NewGenesisBlock(cfg *config.Config) *Block {
 
 	for _, transfer := range actions.Transfers {
 		rpk, _ := decodeKey(transfer.RecipientPK, "")
-		recipientAddr := generateAddr(cfg.Chain.ID, rpk)
+		recipientAddr := generateAddr(chainCfg.ID, rpk)
 		tsf, err := action.NewTransfer(
 			0,
 			ConvertIotxToRau(transfer.Amount),
@@ -141,7 +141,7 @@ func NewGenesisBlock(cfg *config.Config) *Block {
 		acts = append(acts, tsf)
 	}
 
-	if cfg.Chain.EnableSubChainStartInGenesis {
+	if chainCfg.EnableSubChainStartInGenesis {
 		for _, sc := range actions.SubChains {
 			start := action.NewStartSubChain(
 				0,
@@ -164,7 +164,7 @@ func NewGenesisBlock(cfg *config.Config) *Block {
 	block := &Block{
 		Header: &BlockHeader{
 			version:       version.ProtocolVersion,
-			chainID:       cfg.Chain.ID,
+			chainID:       chainCfg.ID,
 			height:        uint64(0),
 			timestamp:     Gen.Timestamp,
 			prevBlockHash: Gen.ParentHash,
@@ -205,10 +205,10 @@ func generateAddr(chainID uint32, pk keypair.PublicKey) string {
 }
 
 // loadGenesisData loads data of creator and actions contained in genesis block
-func loadGenesisData(cfg *config.Config) GenesisAction {
+func loadGenesisData(chainCfg config.Chain) GenesisAction {
 	var filePath string
-	if cfg != nil && cfg.Chain.GenesisActionsPath != "" {
-		filePath = cfg.Chain.GenesisActionsPath
+	if chainCfg.GenesisActionsPath != "" {
+		filePath = chainCfg.GenesisActionsPath
 	} else {
 		filePath = fileutil.GetFileAbsPath(testnetActionPath)
 	}

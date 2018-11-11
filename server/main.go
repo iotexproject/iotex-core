@@ -16,8 +16,9 @@ import (
 	"fmt"
 	"os"
 
-	_ "go.uber.org/automaxprocs"
 	_ "net/http/pprof"
+
+	_ "go.uber.org/automaxprocs"
 
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/logger"
@@ -56,7 +57,8 @@ func main() {
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Failed to new sub chain config.")
 	}
-	if cfgsub != nil {
+	// Ifminicluster.go the sub-chain config is not empty
+	if cfgsub.Chain.ID != 0 {
 		if err := svr.NewChainService(cfgsub); err != nil {
 			logger.Fatal().Err(err).Msg("Failed to new sub chain.")
 		}
@@ -65,7 +67,7 @@ func main() {
 	itx.StartServer(svr, cfg)
 }
 
-func initLogger(cfg *config.Config) {
+func initLogger(cfg config.Config) {
 	addr, err := cfg.BlockchainAddress()
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Failed to get producer address from pub/kri key.")

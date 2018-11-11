@@ -44,14 +44,14 @@ type IotxOverlay struct {
 	RPC        *RPCServer
 	Gossip     *Gossip
 	Tasks      []*routine.RecurringTask
-	Config     *config.Network
+	Config     config.Network
 	Dispatcher dispatcher.Dispatcher
 
 	lifecycle lifecycle.Lifecycle
 }
 
 // NewOverlay creates an instance of IotxOverlay
-func NewOverlay(config *config.Network) *IotxOverlay {
+func NewOverlay(config config.Network) *IotxOverlay {
 	o := &IotxOverlay{Config: config}
 	o.RPC = NewRPCServer(o)
 	o.PM = NewPeerManager(o, config.NumPeersLowerBound, config.NumPeersUpperBound)

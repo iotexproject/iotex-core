@@ -55,7 +55,7 @@ func main() {
 	genesisConfigPath := "./tools/minicluster/testnet_actions.yaml"
 
 	// Set mini-cluster configurations
-	configs := make([]*config.Config, numNodes)
+	configs := make([]config.Config, numNodes)
 	for i := 0; i < numNodes; i++ {
 		chainDBPath := fmt.Sprintf("./chain%d.db", i+1)
 		trieDBPath := fmt.Sprintf("./trie%d.db", i+1)
@@ -188,7 +188,7 @@ func newConfig(
 	producerPriKey keypair.PrivateKey,
 	networkPort,
 	explorerPort int,
-) *config.Config {
+) config.Config {
 	cfg := config.Default
 
 	cfg.NodeType = config.DelegateType
@@ -229,7 +229,7 @@ func newConfig(
 	cfg.Explorer.Enabled = true
 	cfg.Explorer.Port = explorerPort
 
-	return &cfg
+	return cfg
 }
 
 func initLogger() {

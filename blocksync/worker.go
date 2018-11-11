@@ -33,7 +33,7 @@ type syncWorker struct {
 	task         *routine.RecurringTask
 }
 
-func newSyncWorker(chainID uint32, cfg *config.Config, p2p network.Overlay, buf *blockBuffer) *syncWorker {
+func newSyncWorker(chainID uint32, cfg config.Config, p2p network.Overlay, buf *blockBuffer) *syncWorker {
 	w := &syncWorker{
 		chainID:      chainID,
 		p2p:          p2p,

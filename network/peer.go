@@ -65,7 +65,7 @@ func NewPeer(n string, addr string) *Peer {
 }
 
 // Connect connects the peer
-func (p *Peer) Connect(config *config.Network) error {
+func (p *Peer) Connect(config config.Network) error {
 	// Set up a connection to the peer.
 	var conn *grpc.ClientConn
 	var err error

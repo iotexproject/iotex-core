@@ -134,7 +134,7 @@ type Blockchain interface {
 type blockchain struct {
 	mu            sync.RWMutex // mutex to protect utk, tipHeight and tipHash
 	dao           *blockDAO
-	config        *config.Config
+	config        config.Config
 	genesis       *Genesis
 	tipHeight     uint64
 	tipHash       hash.Hash32B
@@ -148,7 +148,7 @@ type blockchain struct {
 }
 
 // Option sets blockchain construction parameter
-type Option func(*blockchain, *config.Config) error
+type Option func(*blockchain, config.Config) error
 
 // key specifies the type of recovery height key used by context
 type key string
@@ -158,7 +158,7 @@ const RecoveryHeightKey key = "recoveryHeight"
 
 // DefaultStateFactoryOption sets blockchain's sf from config
 func DefaultStateFactoryOption() Option {
-	return func(bc *blockchain, cfg *config.Config) error {
+	return func(bc *blockchain, cfg config.Config) error {
 		sf, err := state.NewFactory(cfg, state.DefaultTrieOption())
 		if err != nil {
 			return errors.Wrapf(err, "Failed to create state factory")
@@ -171,7 +171,7 @@ func DefaultStateFactoryOption() Option {
 
 // PrecreatedStateFactoryOption sets blockchain's state.Factory to sf
 func PrecreatedStateFactoryOption(sf state.Factory) Option {
-	return func(bc *blockchain, conf *config.Config) error {
+	return func(bc *blockchain, conf config.Config) error {
 		bc.sf = sf
 
 		return nil
@@ -180,7 +180,7 @@ func PrecreatedStateFactoryOption(sf state.Factory) Option {
 
 // InMemStateFactoryOption sets blockchain's state.Factory as in memory sf
 func InMemStateFactoryOption() Option {
-	return func(bc *blockchain, cfg *config.Config) error {
+	return func(bc *blockchain, cfg config.Config) error {
 		sf, err := state.NewFactory(cfg, state.InMemTrieOption())
 		if err != nil {
 			return errors.Wrapf(err, "Failed to create state factory")
@@ -193,7 +193,7 @@ func InMemStateFactoryOption() Option {
 
 // PrecreatedDaoOption sets blockchain's dao
 func PrecreatedDaoOption(dao *blockDAO) Option {
-	return func(bc *blockchain, conf *config.Config) error {
+	return func(bc *blockchain, conf config.Config) error {
 		bc.dao = dao
 
 		return nil
@@ -202,8 +202,8 @@ func PrecreatedDaoOption(dao *blockDAO) Option {
 
 // BoltDBDaoOption sets blockchain's dao with BoltDB from config.Chain.ChainDBPath
 func BoltDBDaoOption() Option {
-	return func(bc *blockchain, cfg *config.Config) error {
-		bc.dao = newBlockDAO(cfg, db.NewBoltDB(cfg.Chain.ChainDBPath, &cfg.DB))
+	return func(bc *blockchain, cfg config.Config) error {
+		bc.dao = newBlockDAO(db.NewBoltDB(cfg.Chain.ChainDBPath, cfg.DB), cfg.Explorer.Enabled)
 
 		return nil
 	}
@@ -211,8 +211,8 @@ func BoltDBDaoOption() Option {
 
 // InMemDaoOption sets blockchain's dao with MemKVStore
 func InMemDaoOption() Option {
-	return func(bc *blockchain, cfg *config.Config) error {
-		bc.dao = newBlockDAO(cfg, db.NewMemKVStore())
+	return func(bc *blockchain, cfg config.Config) error {
+		bc.dao = newBlockDAO(db.NewMemKVStore(), cfg.Explorer.Enabled)
 
 		return nil
 	}
@@ -220,7 +220,7 @@ func InMemDaoOption() Option {
 
 // ClockOption overrides the default clock
 func ClockOption(clk clock.Clock) Option {
-	return func(bc *blockchain, conf *config.Config) error {
+	return func(bc *blockchain, conf config.Config) error {
 		bc.clk = clk
 
 		return nil
@@ -228,7 +228,7 @@ func ClockOption(clk clock.Clock) Option {
 }
 
 // NewBlockchain creates a new blockchain and DB instance
-func NewBlockchain(cfg *config.Config, opts ...Option) Blockchain {
+func NewBlockchain(cfg config.Config, opts ...Option) Blockchain {
 	// create the Blockchain
 	chain := &blockchain{
 		config:  cfg,
@@ -299,7 +299,7 @@ func (bc *blockchain) startEmptyBlockchain() error {
 	}
 	var genesis *Block
 	if bc.config.Chain.GenesisActionsPath != "" || !bc.config.Chain.EmptyGenesis {
-		genesis = NewGenesisBlock(bc.config)
+		genesis = NewGenesisBlock(bc.config.Chain)
 		if genesis == nil {
 			return errors.New("cannot create genesis block")
 		}
@@ -350,7 +350,7 @@ func (bc *blockchain) startExistingBlockchain(recoveryHeight uint64) error {
 	}
 	// If restarting factory from fresh db, first create creator's state
 	if startHeight == 0 {
-		actions := loadGenesisData(bc.config)
+		actions := loadGenesisData(bc.config.Chain)
 		Gen.CreatorPubKey = actions.Creation.PubKey
 		if _, err := ws.LoadOrCreateAccountState(Gen.CreatorAddr(bc.ChainID()), Gen.TotalSupply); err != nil {
 			return err

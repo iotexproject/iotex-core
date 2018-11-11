@@ -40,7 +40,7 @@ type Consensus interface {
 
 // IotxConsensus implements Consensus
 type IotxConsensus struct {
-	cfg    *config.Consensus
+	cfg    config.Consensus
 	scheme scheme.Scheme
 }
 
@@ -61,7 +61,7 @@ func WithRootChainAPI(exp explorerapi.Explorer) Option {
 
 // NewConsensus creates a IotxConsensus struct.
 func NewConsensus(
-	cfg *config.Config,
+	cfg config.Config,
 	bc blockchain.Blockchain,
 	ap actpool.ActPool,
 	p2p network.Overlay,
@@ -78,7 +78,7 @@ func NewConsensus(
 		}
 	}
 
-	cs := &IotxConsensus{cfg: &cfg.Consensus}
+	cs := &IotxConsensus{cfg: cfg.Consensus}
 	mintBlockCB := func() (*blockchain.Block, error) {
 		acts := ap.PickActs()
 		logger.Debug().
@@ -232,7 +232,7 @@ func (c *IotxConsensus) Scheme() scheme.Scheme {
 }
 
 // GetAddr returns the iotex address
-func GetAddr(cfg *config.Config) *iotxaddress.Address {
+func GetAddr(cfg config.Config) *iotxaddress.Address {
 	addr, err := cfg.BlockchainAddress()
 	if err != nil {
 		logger.Panic().Err(err).Msg("Fail to create new consensus")

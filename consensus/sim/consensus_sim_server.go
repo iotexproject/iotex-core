@@ -95,7 +95,7 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 		cfg.Chain.ChainDBPath = "./chain" + strconv.Itoa(i) + ".db"
 		cfg.Chain.TrieDBPath = "./trie" + strconv.Itoa(i) + ".db"
 
-		bc := blockchain.NewBlockchain(&cfg, blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption())
+		bc := blockchain.NewBlockchain(cfg, blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption())
 		if err := bc.Start(ctx); err != nil {
 			logger.Panic().Err(err).Msg("error when starting blockchain")
 		}
@@ -106,7 +106,7 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 			bc.SetValidator(byzVal)
 		}
 
-		overlay := network.NewOverlay(&cfg.Network)
+		overlay := network.NewOverlay(cfg.Network)
 		ap, err := actpool.NewActPool(bc, cfg.ActPool)
 		if err != nil {
 			logger.Fatal().Err(err).Msg("Fail to create actpool")
@@ -114,12 +114,12 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 
 		var node Sim
 		if i < int(in.NHonest) {
-			node = NewSim(&cfg, bc, ap, overlay)
+			node = NewSim(cfg, bc, ap, overlay)
 		} else if i < int(in.NHonest+in.NFS) {
 			s.nodes = append(s.nodes, nil)
 			continue
 		} else {
-			node = NewSimByzantine(&cfg, bc, ap, overlay)
+			node = NewSimByzantine(cfg, bc, ap, overlay)
 		}
 
 		s.nodes = append(s.nodes, node)
