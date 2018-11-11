@@ -48,6 +48,6 @@ func TestSettleDeposit(t *testing.T) {
 	data := deposit1.Proto()
 	require.NotNil(t, data)
 	var deposit2 SettleDeposit
-	deposit2.LoadProto(data)
+	assert.NoError(t, deposit2.LoadProto(data))
 	assertDeposit(&deposit2)
 }

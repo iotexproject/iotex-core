@@ -966,7 +966,9 @@ func (exp *Service) SendTransfer(tsfJSON explorer.SendTransferRequest) (resp exp
 	exp.dp.HandleBroadcast(exp.bc.ChainID(), actPb, nil)
 
 	tsf := &action.Transfer{}
-	tsf.LoadProto(actPb)
+	if err := tsf.LoadProto(actPb); err != nil {
+		return explorer.SendTransferResponse{}, err
+	}
 	h := tsf.Hash()
 	return explorer.SendTransferResponse{Hash: hex.EncodeToString(h[:])}, nil
 }
@@ -1010,14 +1012,16 @@ func (exp *Service) SendVote(voteJSON explorer.SendVoteRequest) (resp explorer.S
 		Signature:    signature,
 	}
 	// broadcast to the network
-	if err = exp.p2p.Broadcast(exp.bc.ChainID(), actPb); err != nil {
+	if err := exp.p2p.Broadcast(exp.bc.ChainID(), actPb); err != nil {
 		return explorer.SendVoteResponse{}, err
 	}
 	// send to actpool via dispatcher
 	exp.dp.HandleBroadcast(exp.bc.ChainID(), actPb, nil)
 
 	v := &action.Vote{}
-	v.LoadProto(actPb)
+	if err := v.LoadProto(actPb); err != nil {
+		return explorer.SendVoteResponse{}, err
+	}
 	h := v.Hash()
 	return explorer.SendVoteResponse{Hash: hex.EncodeToString(h[:])}, nil
 }
@@ -1072,14 +1076,16 @@ func (exp *Service) PutSubChainBlock(putBlockJSON explorer.PutSubChainBlockReque
 		Signature:    signature,
 	}
 	// broadcast to the network
-	if err = exp.p2p.Broadcast(exp.bc.ChainID(), actPb); err != nil {
+	if err := exp.p2p.Broadcast(exp.bc.ChainID(), actPb); err != nil {
 		return explorer.PutSubChainBlockResponse{}, err
 	}
 	// send to actpool via dispatcher
 	exp.dp.HandleBroadcast(exp.bc.ChainID(), actPb, nil)
 
 	v := &action.PutBlock{}
-	v.LoadProto(actPb)
+	if err := v.LoadProto(actPb); err != nil {
+		return explorer.PutSubChainBlockResponse{}, err
+	}
 	h := v.Hash()
 	return explorer.PutSubChainBlockResponse{Hash: hex.EncodeToString(h[:])}, nil
 }
@@ -1183,14 +1189,16 @@ func (exp *Service) SendSmartContract(execution explorer.Execution) (resp explor
 		Signature:    signature,
 	}
 	// broadcast to the network
-	if err = exp.p2p.Broadcast(exp.bc.ChainID(), actPb); err != nil {
+	if err := exp.p2p.Broadcast(exp.bc.ChainID(), actPb); err != nil {
 		return explorer.SendSmartContractResponse{}, err
 	}
 	// send to actpool via dispatcher
 	exp.dp.HandleBroadcast(exp.bc.ChainID(), actPb, nil)
 
 	sc := &action.Execution{}
-	sc.LoadProto(actPb)
+	if err := sc.LoadProto(actPb); err != nil {
+		return explorer.SendSmartContractResponse{}, err
+	}
 	h := sc.Hash()
 	return explorer.SendSmartContractResponse{Hash: hex.EncodeToString(h[:])}, nil
 }
@@ -1233,7 +1241,9 @@ func (exp *Service) ReadExecutionState(execution explorer.Execution) (string, er
 	}
 
 	sc := &action.Execution{}
-	sc.LoadProto(actPb)
+	if err := sc.LoadProto(actPb); err != nil {
+		return "", err
+	}
 	res, err := exp.bc.ExecuteContractRead(sc)
 	if err != nil {
 		return "", err
@@ -1304,14 +1314,16 @@ func (exp *Service) CreateDeposit(req explorer.CreateDepositRequest) (res explor
 		Signature:    signature,
 	}
 	// broadcast to the network
-	if err = exp.p2p.Broadcast(exp.bc.ChainID(), actPb); err != nil {
+	if err := exp.p2p.Broadcast(exp.bc.ChainID(), actPb); err != nil {
 		return res, err
 	}
 	// send to actpool via dispatcher
 	exp.dp.HandleBroadcast(exp.bc.ChainID(), actPb, nil)
 
 	deposit := &action.CreateDeposit{}
-	deposit.LoadProto(actPb)
+	if err := deposit.LoadProto(actPb); err != nil {
+		return res, err
+	}
 	h := deposit.Hash()
 	return explorer.CreateDepositResponse{Hash: hex.EncodeToString(h[:])}, nil
 }
@@ -1415,14 +1427,16 @@ func (exp *Service) SettleDeposit(req explorer.SettleDepositRequest) (res explor
 		Signature:    signature,
 	}
 	// broadcast to the network
-	if err = exp.p2p.Broadcast(exp.bc.ChainID(), actPb); err != nil {
+	if err := exp.p2p.Broadcast(exp.bc.ChainID(), actPb); err != nil {
 		return res, err
 	}
 	// send to actpool via dispatcher
 	exp.dp.HandleBroadcast(exp.bc.ChainID(), actPb, nil)
 
 	deposit := &action.SettleDeposit{}
-	deposit.LoadProto(actPb)
+	if err := deposit.LoadProto(actPb); err != nil {
+		return res, err
+	}
 	h := deposit.Hash()
 	return explorer.SettleDepositResponse{Hash: hex.EncodeToString(h[:])}, nil
 }

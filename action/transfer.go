@@ -194,32 +194,42 @@ func (tsf *Transfer) Serialize() ([]byte, error) {
 }
 
 // LoadProto converts a protobuf's ActionPb to Transfer
-func (tsf *Transfer) LoadProto(pbAct *iproto.ActionPb) {
-	// set trnx fields
-	tsf.version = pbAct.GetVersion()
-	// used by account-based model
-	tsf.nonce = pbAct.Nonce
-	tsf.srcAddr = pbAct.Sender
-	copy(tsf.srcPubkey[:], pbAct.SenderPubKey)
-	tsf.gasLimit = pbAct.GasLimit
-	if tsf.gasPrice == nil {
-		tsf.gasPrice = big.NewInt(0)
+func (tsf *Transfer) LoadProto(pbAct *iproto.ActionPb) error {
+	if pbAct == nil {
+		return errors.New("empty action proto to load")
 	}
-	if len(pbAct.GasPrice) > 0 {
-		tsf.gasPrice.SetBytes(pbAct.GasPrice)
+	if tsf == nil {
+		return errors.New("nil action to load proto")
 	}
-	if tsf.amount == nil {
-		tsf.amount = big.NewInt(0)
+	*tsf = Transfer{}
+	srcPub, err := keypair.BytesToPublicKey(pbAct.SenderPubKey)
+	if err != nil {
+		return err
+	}
+	pbTsf := pbAct.GetTransfer()
+	if pbTsf == nil {
+		return errors.New("empty Transfer action proto to load")
 	}
 
-	pbTsf := pbAct.GetTransfer()
+	ab := &Builder{}
+	act := ab.SetVersion(pbAct.Version).
+		SetNonce(pbAct.Nonce).
+		SetSourceAddress(pbAct.Sender).
+		SetSourcePublicKey(srcPub).
+		SetGasLimit(pbAct.GasLimit).
+		SetGasPriceByBytes(pbAct.GasPrice).
+		SetDestinationAddress(pbTsf.Recipient).
+		Build()
+	act.SetSignature(pbAct.Signature)
+	tsf.AbstractAction = act
+
+	tsf.amount = big.NewInt(0)
 	if len(pbTsf.Amount) > 0 {
 		tsf.amount.SetBytes(pbTsf.Amount)
 	}
-	tsf.dstAddr = pbTsf.Recipient
 	tsf.payload = pbTsf.Payload
-	tsf.signature = pbAct.Signature
 	tsf.isCoinbase = pbTsf.IsCoinbase
+	return nil
 }
 
 // NewTransferFromJSON creates a new Transfer from TransferJSON
@@ -267,8 +277,7 @@ func (tsf *Transfer) Deserialize(buf []byte) error {
 	if err := proto.Unmarshal(buf, pbAct); err != nil {
 		return err
 	}
-	tsf.LoadProto(pbAct)
-	return nil
+	return tsf.LoadProto(pbAct)
 }
 
 // Hash returns the hash of the Transfer

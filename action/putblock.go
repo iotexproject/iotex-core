@@ -58,29 +58,34 @@ func NewPutBlock(
 }
 
 // LoadProto converts a proto message into put block action.
-func (pb *PutBlock) LoadProto(actPb *iproto.ActionPb) {
+func (pb *PutBlock) LoadProto(actPb *iproto.ActionPb) error {
+	if actPb == nil {
+		return errors.New("empty action proto to load")
+	}
+	srcPub, err := keypair.BytesToPublicKey(actPb.SenderPubKey)
+	if err != nil {
+		return err
+	}
 	if pb == nil {
-		return
+		return errors.New("nil action to load proto")
 	}
 	*pb = PutBlock{}
-
-	if actPb == nil {
-		return
-	}
 	putBlockPb := actPb.GetPutBlock()
 	if putBlockPb == nil {
-		return
+		return errors.New("empty PutBlock action proto to load")
 	}
 
-	pb.version = actPb.Version
-	pb.nonce = actPb.Nonce
-	pb.srcAddr = actPb.Sender
-	copy(pb.srcPubkey[:], actPb.SenderPubKey)
-	pb.gasLimit = actPb.GasLimit
-	pb.gasPrice = big.NewInt(0)
-	if len(actPb.GasPrice) > 0 {
-		pb.gasPrice.SetBytes(actPb.GasPrice)
-	}
+	ab := &Builder{}
+	act := ab.SetVersion(actPb.Version).
+		SetNonce(actPb.Nonce).
+		SetSourceAddress(actPb.Sender).
+		SetSourcePublicKey(srcPub).
+		SetGasLimit(actPb.GasLimit).
+		SetGasPriceByBytes(actPb.GasPrice).
+		SetDestinationAddress(putBlockPb.SubChainAddress).
+		Build()
+	act.SetSignature(actPb.Signature)
+	pb.AbstractAction = act
 
 	pb.subChainAddress = putBlockPb.SubChainAddress
 	pb.height = putBlockPb.Height
@@ -89,6 +94,7 @@ func (pb *PutBlock) LoadProto(actPb *iproto.ActionPb) {
 	for k, v := range putBlockPb.Roots {
 		pb.roots[k] = byteutil.BytesTo32B(v)
 	}
+	return nil
 }
 
 // Proto converts put sub-chain block action into a proto message.
