@@ -44,13 +44,11 @@ func addTestingTsfBlocks(bc Blockchain) error {
 		[]byte{}, uint64(100000),
 		big.NewInt(10),
 	)
-	sk, err := keypair.DecodePrivateKey(Gen.CreatorPrivKey)
-	if err != nil {
-		return err
-	}
-	if err := action.Sign(tsf0, sk); err != nil {
-		return err
-	}
+	pk, _ := hex.DecodeString(Gen.CreatorPubKey)
+	pubk, _ := keypair.BytesToPublicKey(pk)
+	sig, _ := hex.DecodeString("ea18385718db2a8b92fa2dcdc158a05aae17fc7e800cc735850bdc99ab7b081f32fce70080888742d7b6bee892034e38298b69ce5fff671c18f0bed827e1e21f9da2ba5d8c434e00")
+	tsf0.SetSrcPubkey(pubk)
+	tsf0.SetSignature(sig)
 	blk, err := bc.MintNewBlock([]action.Action{tsf0}, ta.Addrinfo["producer"],
 		nil, nil, "")
 	if err != nil {
@@ -196,7 +194,7 @@ func TestCreateBlockchain(t *testing.T) {
 	require.Nil(err)
 
 	transfers, votes, _ := action.ClassifyActions(genesis.Actions)
-	require.Equal(23, len(transfers))
+	require.Equal(0, len(transfers))
 	require.Equal(21, len(votes))
 
 	fmt.Printf("Block size match pass\n")
@@ -439,7 +437,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 
 	totalTransfers, err := bc.GetTotalTransfers()
 	require.Nil(err)
-	require.Equal(totalTransfers, uint64(50))
+	require.Equal(totalTransfers, uint64(27))
 
 	totalVotes, err := bc.GetTotalVotes()
 	require.Nil(err)

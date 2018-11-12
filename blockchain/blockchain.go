@@ -806,26 +806,22 @@ func (bc *blockchain) getBlockByHeight(height uint64) (*Block, error) {
 }
 
 func (bc *blockchain) startEmptyBlockchain() error {
-	ws, err := bc.sf.NewWorkingSet()
-	if err != nil {
-		return errors.Wrap(err, "Failed to obtain working set from state factory")
-	}
 	var genesis *Block
 	if bc.config.Chain.GenesisActionsPath != "" || !bc.config.Chain.EmptyGenesis {
-		genesis = NewGenesisBlock(bc.config.Chain)
+		if bc.sf == nil {
+			return errors.New("statefactory cannot be nil")
+		}
+		ws, err := bc.sf.NewWorkingSet()
+		if err != nil {
+			return errors.Wrap(err, "failed to obtain working set from state factory")
+		}
+		genesis = NewGenesisBlock(bc.config.Chain, ws)
 		if genesis == nil {
 			return errors.New("cannot create genesis block")
 		}
 		// Genesis block has height 0
 		if genesis.Header.height != 0 {
 			return errors.New(fmt.Sprintf("genesis block has height %d but expects 0", genesis.Height()))
-		}
-		if bc.sf == nil {
-			return errors.New("statefactory cannot be nil")
-		}
-		// add creator into Trie
-		if err := bc.addCreatorIntoAccounts(ws); err != nil {
-			return err
 		}
 		// run execution and update state trie root hash
 		root, err := bc.runActions(genesis, ws, false)
@@ -834,11 +830,10 @@ func (bc *blockchain) startEmptyBlockchain() error {
 		}
 		genesis.Header.stateRoot = root
 		genesis.workingSet = ws
-		// add Genesis block as very first block
 	} else {
-		genesis = NewBlock(bc.ChainID(), 0, hash.ZeroHash32B, bc.now(), keypair.ZeroPublicKey, nil)
-		genesis.workingSet = ws
+		genesis = NewBlock(bc.ChainID(), 0, hash.ZeroHash32B, Gen.Timestamp, keypair.ZeroPublicKey, nil)
 	}
+	// add Genesis block as very first block
 	if err := bc.commitBlock(genesis); err != nil {
 		return errors.Wrap(err, "failed to commit Genesis block")
 	}
@@ -899,8 +894,7 @@ func (bc *blockchain) startExistingBlockchain(recoveryHeight uint64) error {
 		if err != nil {
 			return err
 		}
-		ws, err := bc.sf.NewWorkingSet()
-		if err != nil {
+		if ws, err = bc.sf.NewWorkingSet(); err != nil {
 			return errors.Wrap(err, "failed to obtain working set from state factory")
 		}
 		if _, err := bc.runActions(blk, ws, true); err != nil {
@@ -1019,17 +1013,3 @@ func (bc *blockchain) emitToSubscribers(blk *Block) error {
 }
 
 func (bc *blockchain) now() uint64 { return uint64(bc.clk.Now().Unix()) }
-
-func (bc *blockchain) addCreatorIntoAccounts(ws state.WorkingSet) error {
-	account, err := ws.LoadOrCreateAccountState(Gen.CreatorAddr(bc.ChainID()), Gen.TotalSupply)
-	if err != nil {
-		return errors.Wrap(err, "failed to create Creator state into StateFactory")
-	}
-	if err := ws.PutState(Gen.CreatorPKHash(), account); err != nil {
-		return errors.Wrap(err, "failed to put Creator state into StateFactory")
-	}
-	if err := bc.sf.Commit(ws); err != nil {
-		return errors.Wrap(err, "failed to commit Creator state into StateFactory")
-	}
-	return nil
-}

@@ -708,6 +708,7 @@ func TestBlockchainRecovery(t *testing.T) {
 	// stop server and delete state db
 	require.NoError(svr.Stop(ctx))
 	testutil.CleanupPath(t, testTriePath)
+	testutil.CleanupPath(t, testDBPath)
 
 	// restart server
 	svr, err = itx.NewServer(cfg)
