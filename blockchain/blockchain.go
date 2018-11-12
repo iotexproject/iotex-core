@@ -55,6 +55,8 @@ type Blockchain interface {
 	GetTotalVotes() (uint64, error)
 	// GetTotalExecutions returns the total number of executions
 	GetTotalExecutions() (uint64, error)
+	// GetTotalActions returns the total number of actions
+	GetTotalActions() (uint64, error)
 	// GetTransfersFromAddress returns transaction from address
 	GetTransfersFromAddress(address string) ([]hash.Hash32B, error)
 	// GetTransfersToAddress returns transaction to address
@@ -81,6 +83,14 @@ type Blockchain interface {
 	GetBlockHashByExecutionHash(h hash.Hash32B) (hash.Hash32B, error)
 	// GetReceiptByExecutionHash returns the receipt by execution hash
 	GetReceiptByExecutionHash(h hash.Hash32B) (*action.Receipt, error)
+	// GetActionsFromAddress returns actions from address
+	GetActionsFromAddress(address string) ([]hash.Hash32B, error)
+	// GetActionsToAddress returns actions to address
+	GetActionsToAddress(address string) ([]hash.Hash32B, error)
+	// GetActionByActionHash returns action by action hash
+	GetActionByActionHash(h hash.Hash32B) (action.Action, error)
+	// GetBlockHashByActionHash returns Block hash by action hash
+	GetBlockHashByActionHash(h hash.Hash32B) (hash.Hash32B, error)
 	// GetFactory returns the state factory
 	GetFactory() state.Factory
 	// GetChainID returns the chain ID
@@ -506,6 +516,14 @@ func (bc *blockchain) GetTotalExecutions() (uint64, error) {
 	return bc.dao.getTotalExecutions()
 }
 
+// GetTotalActions returns the total number of actions
+func (bc *blockchain) GetTotalActions() (uint64, error) {
+	if !bc.config.Explorer.Enabled {
+		return 0, errors.New("explorer not enabled")
+	}
+	return bc.dao.getTotalActions()
+}
+
 // GetTransfersFromAddress returns transfers from address
 func (bc *blockchain) GetTransfersFromAddress(address string) ([]hash.Hash32B, error) {
 	if !bc.config.Explorer.Enabled {
@@ -650,6 +668,51 @@ func (bc *blockchain) GetReceiptByExecutionHash(h hash.Hash32B) (*action.Receipt
 		return nil, errors.New("explorer not enabled")
 	}
 	return bc.dao.getReceiptByExecutionHash(h)
+}
+
+// GetActionsFromAddress returns actions from address
+func (bc *blockchain) GetActionsFromAddress(address string) ([]hash.Hash32B, error) {
+	if !bc.config.Explorer.Enabled {
+		return nil, errors.New("explorer not enabled")
+	}
+	return bc.dao.getActionsBySenderAddress(address)
+}
+
+// GetActionToAddress returns action to address
+func (bc *blockchain) GetActionsToAddress(address string) ([]hash.Hash32B, error) {
+	if !bc.config.Explorer.Enabled {
+		return nil, errors.New("explorer not enabled")
+	}
+	return bc.dao.getActionsByRecipientAddress(address)
+}
+
+// GetActionByActionHash returns action by action hash
+func (bc *blockchain) GetActionByActionHash(h hash.Hash32B) (action.Action, error) {
+	if !bc.config.Explorer.Enabled {
+		return nil, errors.New("explorer not enabled")
+	}
+	blkHash, err := bc.dao.getBlockHashByActionHash(h)
+	if err != nil {
+		return nil, err
+	}
+	blk, err := bc.dao.getBlock(blkHash)
+	if err != nil {
+		return nil, err
+	}
+	for _, act := range blk.Actions {
+		if act.Hash() == h {
+			return act, nil
+		}
+	}
+	return nil, errors.Errorf("block %x does not have transfer %x", blkHash, h)
+}
+
+// GetBlockHashByActionHash returns Block hash by action hash
+func (bc *blockchain) GetBlockHashByActionHash(h hash.Hash32B) (hash.Hash32B, error) {
+	if !bc.config.Explorer.Enabled {
+		return hash.ZeroHash32B, errors.New("explorer not enabled")
+	}
+	return bc.dao.getBlockHashByActionHash(h)
 }
 
 // GetFactory returns the state factory
