@@ -106,7 +106,7 @@ func (ws *workingSet) LoadOrCreateAccountState(addr string, init *big.Int) (*Acc
 	switch {
 	case errors.Cause(err) == ErrStateNotExist:
 		account := Account{
-			Balance:      init,
+			Balance:      big.NewInt(0).SetBytes(init.Bytes()),
 			VotingWeight: big.NewInt(0),
 		}
 		ws.cachedStates[addrHash] = &account
