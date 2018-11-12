@@ -24,6 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/chainservice"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/dispatcher"
+	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network"
 	"github.com/iotexproject/iotex-core/pkg/routine"
@@ -82,7 +83,9 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 	// Install protocols
 	mainChainProtocol := mainchain.NewProtocol(cs.Blockchain())
 	cs.AddProtocols(mainChainProtocol)
-	cs.Explorer().SetMainChainProtocol(mainChainProtocol)
+	if cs.Explorer() != nil {
+		cs.Explorer().SetMainChainProtocol(mainChainProtocol)
+	}
 
 	chains[cs.ChainID()] = cs
 	dispatcher.AddSubscriber(cs.ChainID(), cs)
@@ -140,7 +143,10 @@ func (s *Server) Stop(ctx context.Context) error {
 
 // NewChainService creates a new chain service in this server.
 func (s *Server) NewChainService(cfg config.Config) error {
-	mainChainAPI := s.rootChainService.Explorer().Explorer()
+	var mainChainAPI explorer.Explorer
+	if s.rootChainService.Explorer() != nil {
+		mainChainAPI = s.rootChainService.Explorer().Explorer()
+	}
 	opts := []chainservice.Option{chainservice.WithRootChainAPI(mainChainAPI)}
 	cs, err := chainservice.New(cfg, s.p2p, s.dispatcher, opts...)
 	if err != nil {
@@ -155,9 +161,13 @@ func (s *Server) NewChainService(cfg config.Config) error {
 
 // NewTestingChainService creates a new testing chain service in this server.
 func (s *Server) NewTestingChainService(cfg config.Config) error {
+	var mainChainAPI explorer.Explorer
+	if s.rootChainService.Explorer() != nil {
+		mainChainAPI = s.rootChainService.Explorer().Explorer()
+	}
 	opts := []chainservice.Option{
 		chainservice.WithTesting(),
-		chainservice.WithRootChainAPI(s.rootChainService.Explorer().Explorer()),
+		chainservice.WithRootChainAPI(mainChainAPI),
 	}
 	cs, err := chainservice.New(cfg, s.p2p, s.dispatcher, opts...)
 	if err != nil {
