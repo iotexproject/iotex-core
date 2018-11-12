@@ -831,7 +831,7 @@ func (bc *blockchain) startEmptyBlockchain() error {
 		genesis.Header.stateRoot = root
 		genesis.workingSet = ws
 	} else {
-		genesis = NewBlock(bc.ChainID(), 0, hash.ZeroHash32B, bc.now(), keypair.ZeroPublicKey, nil)
+		genesis = NewBlock(bc.ChainID(), 0, hash.ZeroHash32B, Gen.Timestamp, keypair.ZeroPublicKey, nil)
 	}
 	// add Genesis block as very first block
 	if err := bc.commitBlock(genesis); err != nil {

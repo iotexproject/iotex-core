@@ -75,4 +75,3 @@ subChains:
   operationDeposit: 1000000000
   startHeight: 10
   parentHeightOffset: 10
-  signature: 99b8c00ae08cafc528d5b7889a62d8c2ef22354b6e7f94bac0e4ec97cfd56f15abd0650142dd349b2463cc8f9c914c6800cd7421993d01f9c1ee6d0720d3510c7c4f95b9eeaa2901

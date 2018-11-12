@@ -7,7 +7,6 @@
 package blockchain
 
 import (
-	"encoding/hex"
 	"io/ioutil"
 	"math/big"
 
@@ -48,11 +47,13 @@ type GenesisAction struct {
 // Creator is the Creator of the genesis block
 type Creator struct {
 	PubKey string `yaml:"pubKey"`
+	PriKey string `yaml:"priKey"`
 }
 
 // Nominator is the Nominator struct for vote struct
 type Nominator struct {
 	PubKey string `yaml:"pubKey"`
+	PriKey string `yaml:"priKey"`
 }
 
 // Transfer is the Transfer struct
@@ -68,7 +69,6 @@ type SubChain struct {
 	OperationDeposit   int64  `yaml:"operationDeposit"`
 	StartHeight        uint64 `yaml:"startHeight"`
 	ParentHeightOffset uint64 `yaml:"parentHeightOffset"`
-	Signature          string `yaml:"signature"`
 }
 
 // Gen hardcodes genesis default settings
@@ -141,7 +141,6 @@ func NewGenesisBlock(chainCfg config.Chain, ws state.WorkingSet) *Block {
 
 	// TODO: decouple start sub-chain from genesis block
 	if chainCfg.EnableSubChainStartInGenesis {
-		creatorPk, _ := decodeKey(Gen.CreatorPubKey, "")
 		for _, sc := range actions.SubChains {
 			start := action.NewStartSubChain(
 				0,
@@ -154,9 +153,6 @@ func NewGenesisBlock(chainCfg config.Chain, ws state.WorkingSet) *Block {
 				0,
 				big.NewInt(0),
 			)
-			start.SetSrcPubkey(creatorPk)
-			sig, _ := hex.DecodeString(sc.Signature)
-			start.SetSignature(sig)
 			acts = append(acts, start)
 		}
 	}
