@@ -135,7 +135,6 @@ var (
 		},
 		Explorer: Explorer{
 			Enabled:                 false,
-			IsTest:                  false,
 			UseRDS:                  false,
 			Port:                    14004,
 			TpsWindow:               10,
@@ -267,7 +266,6 @@ type (
 	// Explorer is the explorer service config
 	Explorer struct {
 		Enabled   bool `yaml:"enabled"`
-		IsTest    bool `yaml:"isTest"`
 		UseRDS    bool `yaml:"useRDS"`
 		Port      int  `yaml:"port"`
 		TpsWindow int  `yaml:"tpsWindow"`

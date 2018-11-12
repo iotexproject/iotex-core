@@ -301,7 +301,7 @@ func (b *Block) ConvertFromBlockPb(pbBlock *iproto.BlockPb) {
 			createDeposit := &action.CreateDeposit{}
 			createDeposit.LoadProto(actPb)
 			b.Actions = append(b.Actions, createDeposit)
-		} else if settleDepositPb := actPb.GetCreateDeposit(); settleDepositPb != nil {
+		} else if settleDepositPb := actPb.GetSettleDeposit(); settleDepositPb != nil {
 			settleDeposit := &action.SettleDeposit{}
 			settleDeposit.LoadProto(actPb)
 			b.Actions = append(b.Actions, settleDeposit)
