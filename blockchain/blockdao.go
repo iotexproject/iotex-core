@@ -25,6 +25,7 @@ const (
 	blockTransferBlockMappingNS         = "transfer<->block"
 	blockVoteBlockMappingNS             = "vote<->block"
 	blockExecutionBlockMappingNS        = "execution<->block"
+	blockActionBlockMappingNS           = "action<->block"
 	blockExecutionReceiptMappingNS      = "ex<->receipt"
 	blockAddressTransferMappingNS       = "address<->transfer"
 	blockAddressTransferCountMappingNS  = "address<->transfercount"
@@ -32,6 +33,8 @@ const (
 	blockAddressVoteCountMappingNS      = "address<->votecount"
 	blockAddressExecutionMappingNS      = "address<->execution"
 	blockAddressExecutionCountMappingNS = "address<->executioncount"
+	blockAddressActionMappingNS         = "address<->action"
+	blockAddressActionCountMappingNS    = "address<->actioncount"
 )
 
 var (
@@ -39,6 +42,7 @@ var (
 	transferPrefix  = []byte("transfer.")
 	votePrefix      = []byte("vote.")
 	executionPrefix = []byte("execution.")
+	actionPrefix    = []byte("action.")
 	heightPrefix    = []byte("height.")
 	// mutate this field is not thread safe, pls only mutate it in putBlock!
 	topHeightKey = []byte("top-height")
@@ -46,12 +50,15 @@ var (
 	totalTransfersKey   = []byte("total-transfers")
 	totalVotesKey       = []byte("total-votes")
 	totalExecutionsKey  = []byte("total-executions")
+	totalActionsKey     = []byte("total-actions")
 	transferFromPrefix  = []byte("transfer-from.")
 	transferToPrefix    = []byte("transfer-to.")
 	voteFromPrefix      = []byte("vote-from.")
 	voteToPrefix        = []byte("vote-to.")
 	executionFromPrefix = []byte("execution-from")
 	executionToPrefix   = []byte("execution-to")
+	actionFromPrefix    = []byte("action-from")
+	actionToPrefix      = []byte("action-to")
 )
 
 var _ lifecycle.StartStopper = (*blockDAO)(nil)
@@ -102,6 +109,11 @@ func (dao *blockDAO) Start(ctx context.Context) error {
 	// set init total executions to be 0
 	if err = dao.kvstore.PutIfNotExists(blockNS, totalExecutionsKey, make([]byte, 8)); err != nil {
 		return errors.Wrap(err, "failed to write initial value for total executions")
+	}
+
+	// set init total actions to be 0
+	if err = dao.kvstore.PutIfNotExists(blockNS, totalActionsKey, make([]byte, 8)); err != nil {
+		return errors.Wrap(err, "failed to write initial value for total actions")
 	}
 
 	return nil
@@ -191,6 +203,20 @@ func (dao *blockDAO) getBlockHashByExecutionHash(h hash.Hash32B) (hash.Hash32B, 
 	}
 	if len(value) == 0 {
 		return blkHash, errors.Wrapf(db.ErrNotExist, "execution %x missing", h)
+	}
+	copy(blkHash[:], value)
+	return blkHash, nil
+}
+
+func (dao *blockDAO) getBlockHashByActionHash(h hash.Hash32B) (hash.Hash32B, error) {
+	blkHash := hash.ZeroHash32B
+	key := append(actionPrefix, h[:]...)
+	value, err := dao.kvstore.Get(blockActionBlockMappingNS, key)
+	if err != nil {
+		return blkHash, errors.Wrapf(err, "failed to get action %x", h)
+	}
+	if len(value) == 0 {
+		return blkHash, errors.Wrapf(db.ErrNotExist, "action %x missing", h)
 	}
 	copy(blkHash[:], value)
 	return blkHash, nil
@@ -437,6 +463,86 @@ func (dao *blockDAO) getExecutionCountByContractAddress(address string) (uint64,
 	return enc.MachineEndian.Uint64(value), nil
 }
 
+// getActionCountBySenderAddress returns action count by sender address
+func (dao *blockDAO) getActionCountBySenderAddress(address string) (uint64, error) {
+	senderActionCountKey := append(actionFromPrefix, address...)
+	value, err := dao.kvstore.Get(blockAddressActionCountMappingNS, senderActionCountKey)
+	if err != nil {
+		return 0, nil
+	}
+	if len(value) == 0 {
+		return 0, errors.New("count of actions by sender is broken")
+	}
+	return enc.MachineEndian.Uint64(value), nil
+}
+
+// getActionsBySenderAddress returns actions for sender
+func (dao *blockDAO) getActionsBySenderAddress(address string) ([]hash.Hash32B, error) {
+	// get action count for sender
+	senderActionCount, err := dao.getActionCountBySenderAddress(address)
+	if err != nil {
+		return nil, errors.Wrapf(err, "for sender %x", address)
+	}
+
+	res, err := dao.getActionsByAddress(address, senderActionCount, actionFromPrefix)
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+// getActionsByRecipientAddress returns actions for recipient
+func (dao *blockDAO) getActionsByRecipientAddress(address string) ([]hash.Hash32B, error) {
+	// get action count for recipient
+	recipientActionCount, getCountErr := dao.getActionCountByRecipientAddress(address)
+	if getCountErr != nil {
+		return nil, errors.Wrapf(getCountErr, "for recipient %x", address)
+	}
+
+	res, err := dao.getActionsByAddress(address, recipientActionCount, actionToPrefix)
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+// getActionsByAddress returns actions by address
+func (dao *blockDAO) getActionsByAddress(address string, count uint64, keyPrefix []byte) ([]hash.Hash32B, error) {
+	var res []hash.Hash32B
+
+	for i := uint64(0); i < count; i++ {
+		key := append(keyPrefix, address...)
+		key = append(key, byteutil.Uint64ToBytes(i)...)
+		value, err := dao.kvstore.Get(blockAddressActionMappingNS, key)
+		if err != nil {
+			return res, errors.Wrapf(err, "failed to get action for index %d", i)
+		}
+		if len(value) == 0 {
+			return res, errors.Wrapf(db.ErrNotExist, "action for index %d missing", i)
+		}
+		actHash := hash.ZeroHash32B
+		copy(actHash[:], value)
+		res = append(res, actHash)
+	}
+
+	return res, nil
+}
+
+// getActionCountByRecipientAddress returns action count by recipient address
+func (dao *blockDAO) getActionCountByRecipientAddress(address string) (uint64, error) {
+	recipientActionCountKey := append(actionToPrefix, address...)
+	value, err := dao.kvstore.Get(blockAddressActionCountMappingNS, recipientActionCountKey)
+	if err != nil {
+		return 0, nil
+	}
+	if len(value) == 0 {
+		return 0, errors.New("count of actions by recipient is broken")
+	}
+	return enc.MachineEndian.Uint64(value), nil
+}
+
 // getBlockchainHeight returns the blockchain height
 func (dao *blockDAO) getBlockchainHeight() (uint64, error) {
 	value, err := dao.kvstore.Get(blockNS, topHeightKey)
@@ -481,6 +587,18 @@ func (dao *blockDAO) getTotalExecutions() (uint64, error) {
 	}
 	if len(value) == 0 {
 		return 0, errors.Wrap(db.ErrNotExist, "total executions missing")
+	}
+	return enc.MachineEndian.Uint64(value), nil
+}
+
+// getTotalActions returns the total number of actions
+func (dao *blockDAO) getTotalActions() (uint64, error) {
+	value, err := dao.kvstore.Get(blockNS, totalActionsKey)
+	if err != nil {
+		return 0, errors.Wrap(err, "failed to get total actions")
+	}
+	if len(value) == 0 {
+		return 0, errors.Wrap(db.ErrNotExist, "total actions missing")
 	}
 	return enc.MachineEndian.Uint64(value), nil
 }
@@ -559,6 +677,15 @@ func (dao *blockDAO) putBlock(blk *Block) error {
 	totalExecutionsBytes := byteutil.Uint64ToBytes(totalExecutions)
 	batch.Put(blockNS, totalExecutionsKey, totalExecutionsBytes, "failed to put total executions")
 
+	value, err = dao.kvstore.Get(blockNS, totalActionsKey)
+	if err != nil {
+		return errors.Wrap(err, "failed to get total actions")
+	}
+	totalActions := enc.MachineEndian.Uint64(value)
+	totalActions += uint64(len(blk.Actions) - len(transfers) - len(votes) - len(executions))
+	totalActionsBytes := byteutil.Uint64ToBytes(totalActions)
+	batch.Put(blockNS, totalActionsKey, totalActionsBytes, "failed to put total actions")
+
 	// map Transfer hash to block hash
 	for _, transfer := range transfers {
 		transferHash := transfer.Hash()
@@ -580,6 +707,21 @@ func (dao *blockDAO) putBlock(blk *Block) error {
 		batch.Put(blockExecutionBlockMappingNS, hashKey, hash[:], "failed to put execution hash %x", executionHash)
 	}
 
+	for _, act := range blk.Actions {
+		// TODO: we only process the actions that are not transfer, vote or execution
+		switch act.(type) {
+		case *action.Transfer:
+			continue
+		case *action.Vote:
+			continue
+		case *action.Execution:
+			continue
+		}
+		actHash := act.Hash()
+		hashKey := append(actionPrefix, actHash[:]...)
+		batch.Put(blockActionBlockMappingNS, hashKey, hash[:], "failed to put action hash %x", actHash)
+	}
+
 	if err = putTransfers(dao, blk, batch); err != nil {
 		return err
 	}
@@ -592,6 +734,9 @@ func (dao *blockDAO) putBlock(blk *Block) error {
 		return err
 	}
 
+	if err = putActions(dao, blk, batch); err != nil {
+		return err
+	}
 	return dao.kvstore.Commit(batch)
 }
 
@@ -775,6 +920,73 @@ func putExecutions(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 		batch.Put(blockAddressExecutionCountMappingNS, contractExecutionCountKey,
 			byteutil.Uint64ToBytes(contractExecutionCount+1), "failed to bump execution count %x for contract %x",
 			execution.Hash(), execution.Contract())
+	}
+	return nil
+}
+
+func putActions(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
+	senderDelta := make(map[string]uint64)
+	recipientDelta := make(map[string]uint64)
+
+	for _, act := range blk.Actions {
+		// TODO: we only process the actions that are not transfer, vote or execution
+		switch act.(type) {
+		case *action.Transfer:
+			continue
+		case *action.Vote:
+			continue
+		case *action.Execution:
+			continue
+		}
+		actHash := act.Hash()
+
+		// get action count for sender
+		senderActionCount, err := dao.getActionCountBySenderAddress(act.SrcAddr())
+		if err != nil {
+			return errors.Wrapf(err, "for sender %s", act.SrcAddr())
+		}
+		if delta, ok := senderDelta[act.SrcAddr()]; ok {
+			senderActionCount += delta
+			senderDelta[act.SrcAddr()]++
+		} else {
+			senderDelta[act.SrcAddr()] = 1
+		}
+
+		// put new action to sender
+		senderKey := append(actionFromPrefix, act.SrcAddr()...)
+		senderKey = append(senderKey, byteutil.Uint64ToBytes(senderActionCount)...)
+		batch.PutIfNotExists(blockAddressActionMappingNS, senderKey, actHash[:],
+			"failed to put action hash %x for sender %s", actHash, act.SrcAddr())
+
+		// update sender action count
+		senderActionCountKey := append(actionFromPrefix, act.SrcAddr()...)
+		batch.Put(blockAddressActionCountMappingNS, senderActionCountKey,
+			byteutil.Uint64ToBytes(senderActionCount+1),
+			"failed to bump action count %x for sender %s", actHash, act.SrcAddr())
+
+		// get action count for recipient
+		recipientActionCount, err := dao.getActionCountByRecipientAddress(act.DstAddr())
+		if err != nil {
+			return errors.Wrapf(err, "for recipient %s", act.DstAddr())
+		}
+		if delta, ok := recipientDelta[act.DstAddr()]; ok {
+			recipientActionCount += delta
+			recipientDelta[act.DstAddr()]++
+		} else {
+			recipientDelta[act.DstAddr()] = 1
+		}
+
+		// put new action to recipient
+		recipientKey := append(actionToPrefix, act.DstAddr()...)
+		recipientKey = append(recipientKey, byteutil.Uint64ToBytes(recipientActionCount)...)
+		batch.PutIfNotExists(blockAddressActionMappingNS, recipientKey, actHash[:],
+			"failed to put action hash %x for recipient %s", actHash, act.DstAddr())
+
+		// update recipient action count
+		recipientActionCountKey := append(actionToPrefix, act.DstAddr()...)
+		batch.Put(blockAddressActionCountMappingNS, recipientActionCountKey,
+			byteutil.Uint64ToBytes(recipientActionCount+1), "failed to bump action count %x for recipient %s",
+			actHash, act.DstAddr())
 	}
 	return nil
 }
@@ -1126,3 +1338,5 @@ func deleteReceipts(blk *Block, batch db.KVStoreBatch) error {
 	}
 	return nil
 }
+
+// TODO: delete actions from db

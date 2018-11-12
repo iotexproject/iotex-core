@@ -52,6 +52,32 @@ func TestBlockDAO(t *testing.T) {
 		execution3, err := action.NewExecution(testaddress.Addrinfo["charlie"].RawAddress, testaddress.Addrinfo["delta"].RawAddress, 3, big.NewInt(2), 0, big.NewInt(0), nil)
 		require.NoError(t, err)
 
+		// create testing create deposit actions
+		deposit1 := action.NewCreateDeposit(
+			4,
+			big.NewInt(1),
+			testaddress.Addrinfo["alfa"].RawAddress,
+			testaddress.Addrinfo["delta"].RawAddress,
+			testutil.TestGasLimit,
+			big.NewInt(0),
+		)
+		deposit2 := action.NewCreateDeposit(
+			5,
+			big.NewInt(2),
+			testaddress.Addrinfo["bravo"].RawAddress,
+			testaddress.Addrinfo["delta"].RawAddress,
+			testutil.TestGasLimit,
+			big.NewInt(0),
+		)
+		deposit3 := action.NewCreateDeposit(
+			6,
+			big.NewInt(3),
+			testaddress.Addrinfo["charlie"].RawAddress,
+			testaddress.Addrinfo["delta"].RawAddress,
+			testutil.TestGasLimit,
+			big.NewInt(0),
+		)
+
 		hash1 := hash.Hash32B{}
 		fnv.New32().Sum(hash1[:])
 		blk1 := NewBlock(
@@ -60,7 +86,7 @@ func TestBlockDAO(t *testing.T) {
 			hash1,
 			testutil.TimestampNow(),
 			testaddress.Addrinfo["producer"].PublicKey,
-			[]action.Action{cbTsf1, vote1, execution1},
+			[]action.Action{cbTsf1, vote1, execution1, deposit1},
 		)
 		hash2 := hash.Hash32B{}
 		fnv.New32().Sum(hash2[:])
@@ -70,7 +96,7 @@ func TestBlockDAO(t *testing.T) {
 			hash2,
 			testutil.TimestampNow(),
 			testaddress.Addrinfo["producer"].PublicKey,
-			[]action.Action{cbTsf2, vote2, execution2},
+			[]action.Action{cbTsf2, vote2, execution2, deposit2},
 		)
 		hash3 := hash.Hash32B{}
 		fnv.New32().Sum(hash3[:])
@@ -80,7 +106,7 @@ func TestBlockDAO(t *testing.T) {
 			hash3,
 			testutil.TimestampNow(),
 			testaddress.Addrinfo["producer"].PublicKey,
-			[]action.Action{cbTsf3, vote3, execution3},
+			[]action.Action{cbTsf3, vote3, execution3, deposit3},
 		)
 		return []*Block{blk1, blk2, blk3}
 	}
@@ -189,6 +215,9 @@ func TestBlockDAO(t *testing.T) {
 		executionHash1 := executions1[0].Hash()
 		executionHash2 := executions2[0].Hash()
 		executionHash3 := executions3[0].Hash()
+		depositHash1 := blks[0].Actions[3].Hash()
+		depositHash2 := blks[1].Actions[3].Hash()
+		depositHash3 := blks[2].Actions[3].Hash()
 
 		blkHash1 := blks[0].HashBlock()
 		blkHash2 := blks[1].HashBlock()
@@ -224,6 +253,17 @@ func TestBlockDAO(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, blkHash2, blkHash)
 		blkHash, err = dao.getBlockHashByExecutionHash(executionHash3)
+		require.NoError(t, err)
+		require.Equal(t, blkHash3, blkHash)
+
+		// Test getBlockHashByActionHash
+		blkHash, err = dao.getBlockHashByActionHash(depositHash1)
+		require.NoError(t, err)
+		require.Equal(t, blkHash1, blkHash)
+		blkHash, err = dao.getBlockHashByActionHash(depositHash2)
+		require.NoError(t, err)
+		require.Equal(t, blkHash2, blkHash)
+		blkHash, err = dao.getBlockHashByActionHash(depositHash3)
 		require.NoError(t, err)
 		require.Equal(t, blkHash3, blkHash)
 
@@ -368,6 +408,59 @@ func TestBlockDAO(t *testing.T) {
 		require.Equal(t, executionHash1, contractExecutions[0])
 		require.Equal(t, executionHash2, contractExecutions[1])
 		require.Equal(t, executionHash3, contractExecutions[2])
+
+		// Test get actions
+		senderActionCount, err := dao.getActionCountBySenderAddress(testaddress.Addrinfo["alfa"].RawAddress)
+		require.NoError(t, err)
+		require.Equal(t, uint64(1), senderActionCount)
+		senderActions, err := dao.getActionsBySenderAddress(testaddress.Addrinfo["alfa"].RawAddress)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(senderActions))
+		require.Equal(t, depositHash1, senderActions[0])
+		recipientActionCount, err := dao.getActionCountByRecipientAddress(testaddress.Addrinfo["alfa"].RawAddress)
+		require.NoError(t, err)
+		require.Equal(t, uint64(0), recipientActionCount)
+		recipientActions, err := dao.getActionsByRecipientAddress(testaddress.Addrinfo["alfa"].RawAddress)
+		require.NoError(t, err)
+		require.Equal(t, 0, len(recipientActions))
+
+		senderActionCount, err = dao.getActionCountBySenderAddress(testaddress.Addrinfo["bravo"].RawAddress)
+		require.NoError(t, err)
+		require.Equal(t, uint64(1), senderActionCount)
+		senderActions, err = dao.getActionsBySenderAddress(testaddress.Addrinfo["bravo"].RawAddress)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(senderActions))
+		require.Equal(t, depositHash2, senderActions[0])
+		recipientActionCount, err = dao.getActionCountByRecipientAddress(testaddress.Addrinfo["bravo"].RawAddress)
+		require.NoError(t, err)
+		require.Equal(t, uint64(0), recipientActionCount)
+		recipientActions, err = dao.getActionsByRecipientAddress(testaddress.Addrinfo["bravo"].RawAddress)
+		require.NoError(t, err)
+		require.Equal(t, 0, len(recipientActions))
+
+		senderActionCount, err = dao.getActionCountBySenderAddress(testaddress.Addrinfo["charlie"].RawAddress)
+		require.NoError(t, err)
+		require.Equal(t, uint64(1), senderActionCount)
+		senderActions, err = dao.getActionsBySenderAddress(testaddress.Addrinfo["charlie"].RawAddress)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(senderActions))
+		require.Equal(t, depositHash3, senderActions[0])
+		recipientActionCount, err = dao.getActionCountByRecipientAddress(testaddress.Addrinfo["charlie"].RawAddress)
+		require.NoError(t, err)
+		require.Equal(t, uint64(0), recipientActionCount)
+		recipientActions, err = dao.getActionsByRecipientAddress(testaddress.Addrinfo["charlie"].RawAddress)
+		require.NoError(t, err)
+		require.Equal(t, 0, len(recipientActions))
+
+		recipientActionCount, err = dao.getActionCountByRecipientAddress(testaddress.Addrinfo["delta"].RawAddress)
+		require.NoError(t, err)
+		require.Equal(t, uint64(3), recipientActionCount)
+		recipientActions, err = dao.getActionsByRecipientAddress(testaddress.Addrinfo["delta"].RawAddress)
+		require.NoError(t, err)
+		require.Equal(t, 3, len(recipientActions))
+		require.Equal(t, depositHash1, recipientActions[0])
+		require.Equal(t, depositHash2, recipientActions[1])
+		require.Equal(t, depositHash3, recipientActions[2])
 	}
 
 	testDeleteDao := func(kvstore db.KVStore, t *testing.T) {
