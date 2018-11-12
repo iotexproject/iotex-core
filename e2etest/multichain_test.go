@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -121,11 +122,15 @@ func TestTwoChains(t *testing.T) {
 
 	require.NoError(t, testutil.WaitUntil(time.Second, 10*time.Second, func() (bool, error) {
 		_, err := mainChainClient.GetReceiptByExecutionID(createRes.Hash)
-		if err != nil {
-			return false, err
-		}
-		return true, nil
+		return err == nil, nil
 	}))
+
+	cd1, err := mainChainClient.GetCreateDeposit(createRes.Hash)
+	require.NoError(t, err)
+	cds, err := mainChainClient.GetCreateDepositsByAddress(deposit.Sender(), 0, 1)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(cds))
+	assert.Equal(t, cd1, cds[0])
 
 	receipt, err := mainChainClient.GetReceiptByExecutionID(createRes.Hash)
 	require.NoError(t, err)
@@ -136,7 +141,7 @@ func TestTwoChains(t *testing.T) {
 	subChainClient := exp.NewExplorerProxy(
 		fmt.Sprintf("http://127.0.0.1:%d", svr.ChainService(2).Explorer().Port()),
 	)
-	_, err = subChainClient.SettleDeposit(explorer.SettleDepositRequest{
+	settleRes, err := subChainClient.SettleDeposit(explorer.SettleDepositRequest{
 		Version:      int64(deposit.Version()),
 		Nonce:        int64(deposit.Nonce()),
 		Sender:       deposit.Sender(),
@@ -149,4 +154,16 @@ func TestTwoChains(t *testing.T) {
 		GasPrice:     deposit.GasPrice().String(),
 	})
 	require.NoError(t, err)
+
+	require.NoError(t, testutil.WaitUntil(time.Second, 10*time.Second, func() (bool, error) {
+		sd, err := subChainClient.GetSettleDeposit(settleRes.Hash)
+		return err == nil && sd.IsPending == false, nil
+	}))
+
+	sd1, err := subChainClient.GetSettleDeposit(settleRes.Hash)
+	require.NoError(t, err)
+	sds, err := subChainClient.GetSettleDepositsByAddress(deposit.Recipient(), 0, 1)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(sds))
+	assert.Equal(t, sd1, sds[0])
 }

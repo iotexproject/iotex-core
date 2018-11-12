@@ -44,6 +44,8 @@ var (
 	ErrExecution = errors.New("invalid execution")
 	// ErrReceipt indicates the error of receipt
 	ErrReceipt = errors.New("invalid receipt")
+	// ErrAction indicates the error of action
+	ErrAction = errors.New("invalid action")
 )
 
 var (
@@ -656,6 +658,90 @@ func (exp *Service) GetReceiptByExecutionID(id string) (explorer.Receipt, error)
 	}
 
 	return convertReceiptToExplorerReceipt(receipt)
+}
+
+// GetCreateDeposit gets create deposit by ID
+func (exp *Service) GetCreateDeposit(createDepositID string) (explorer.CreateDeposit, error) {
+	bytes, err := hex.DecodeString(createDepositID)
+	if err != nil {
+		return explorer.CreateDeposit{}, err
+	}
+	var createDepositHash hash.Hash32B
+	copy(createDepositHash[:], bytes)
+	return getCreateDeposit(exp.bc, exp.ap, createDepositHash)
+}
+
+// GetCreateDepositsByAddress gets the relevant create deposits of an address
+func (exp *Service) GetCreateDepositsByAddress(
+	address string,
+	offset int64,
+	limit int64,
+) ([]explorer.CreateDeposit, error) {
+	res := make([]explorer.CreateDeposit, 0)
+
+	depositsFromAddress, err := exp.bc.GetActionsFromAddress(address)
+	if err != nil {
+		return []explorer.CreateDeposit{}, err
+	}
+
+	for i, depositHash := range depositsFromAddress {
+		if int64(i) < offset {
+			continue
+		}
+		if int64(len(res)) >= limit {
+			break
+		}
+		createDeposit, err := getCreateDeposit(exp.bc, exp.ap, depositHash)
+		if err != nil {
+			return []explorer.CreateDeposit{}, err
+		}
+
+		res = append(res, createDeposit)
+	}
+
+	return res, nil
+}
+
+// GetSettleDeposit gets settle deposit by ID
+func (exp *Service) GetSettleDeposit(settleDepositID string) (explorer.SettleDeposit, error) {
+	bytes, err := hex.DecodeString(settleDepositID)
+	if err != nil {
+		return explorer.SettleDeposit{}, err
+	}
+	var settleDepositHash hash.Hash32B
+	copy(settleDepositHash[:], bytes)
+	return getSettleDeposit(exp.bc, exp.ap, settleDepositHash)
+}
+
+// GetSettleDepositsByAddress gets the relevant settle deposits of an address
+func (exp *Service) GetSettleDepositsByAddress(
+	address string,
+	offset int64,
+	limit int64,
+) ([]explorer.SettleDeposit, error) {
+	res := make([]explorer.SettleDeposit, 0)
+
+	depositsToAddress, err := exp.bc.GetActionsToAddress(address)
+	if err != nil {
+		return []explorer.SettleDeposit{}, err
+	}
+
+	for i, depositHash := range depositsToAddress {
+		if int64(i) < offset {
+			continue
+		}
+		if int64(len(res)) >= limit {
+			break
+		}
+		settleDeposit, err := getSettleDeposit(exp.bc, exp.ap, depositHash)
+		if err != nil {
+			return []explorer.SettleDeposit{}, err
+		}
+
+		res = append(res, settleDeposit)
+	}
+
+	return res, nil
 }
 
 // GetLastBlocksByRange get block with height [offset-limit+1, offset]
@@ -1571,6 +1657,137 @@ func getExecution(bc blockchain.Blockchain, ap actpool.ActPool, executionHash ha
 	explorerExecution.Timestamp = int64(blk.ConvertToBlockHeaderPb().Timestamp)
 	explorerExecution.BlockID = hex.EncodeToString(blkHash[:])
 	return explorerExecution, nil
+}
+
+// getCreateDeposit takes in a blockchain and create deposit hash and returns an Explorer create deposit
+func getCreateDeposit(
+	bc blockchain.Blockchain,
+	ap actpool.ActPool,
+	createDepositHash hash.Hash32B,
+) (explorer.CreateDeposit, error) {
+	pending := false
+	var act action.Action
+	var err error
+	act, err = bc.GetActionByActionHash(createDepositHash)
+	if err != nil {
+		// Try to fetch pending create deposit from actpool
+		act, err = ap.GetActionByHash(createDepositHash)
+		if err != nil || act == nil {
+			return explorer.CreateDeposit{}, err
+		}
+		pending = true
+	}
+
+	// Fetch from block
+	blkHash, err := bc.GetBlockHashByActionHash(createDepositHash)
+	if err != nil {
+		return explorer.CreateDeposit{}, err
+	}
+	blk, err := bc.GetBlockByHash(blkHash)
+	if err != nil {
+		return explorer.CreateDeposit{}, err
+	}
+
+	cd, err := castActionToCreateDeposit(act, pending)
+	if err != nil {
+		return explorer.CreateDeposit{}, err
+	}
+	cd.Timestamp = int64(blk.ConvertToBlockHeaderPb().Timestamp)
+	cd.BlockID = hex.EncodeToString(blkHash[:])
+	return cd, nil
+}
+
+func castActionToCreateDeposit(act action.Action, pending bool) (explorer.CreateDeposit, error) {
+	if act == nil {
+		return explorer.CreateDeposit{}, errors.Wrap(ErrAction, "action cannot be nil")
+	}
+	cd, ok := act.(*action.CreateDeposit)
+	if !ok {
+		return explorer.CreateDeposit{}, errors.Wrap(ErrAction, "action type is not create deposit")
+	}
+	hash := cd.Hash()
+	createDeposit := explorer.CreateDeposit{
+		Nonce:     int64(cd.Nonce()),
+		ID:        hex.EncodeToString(hash[:]),
+		Sender:    cd.Sender(),
+		Recipient: cd.Recipient(),
+		Fee:       "", // TODO: we need to get the actual fee.
+		GasLimit:  int64(cd.GasLimit()),
+		IsPending: pending,
+	}
+	if cd.Amount() != nil && len(cd.Amount().String()) > 0 {
+		createDeposit.Amount = cd.Amount().String()
+	}
+	if cd.GasPrice() != nil && len(cd.GasPrice().String()) > 0 {
+		createDeposit.GasPrice = cd.GasPrice().String()
+	}
+	return createDeposit, nil
+}
+
+// getSettleDeposit takes in a blockchain and settle deposit hash and returns an Explorer settle deposit
+func getSettleDeposit(
+	bc blockchain.Blockchain,
+	ap actpool.ActPool,
+	settleDepositHash hash.Hash32B,
+) (explorer.SettleDeposit, error) {
+	pending := false
+	var act action.Action
+	var err error
+	act, err = bc.GetActionByActionHash(settleDepositHash)
+	if err != nil {
+		// Try to fetch pending settle deposit from actpool
+		act, err = ap.GetActionByHash(settleDepositHash)
+		if err != nil || act == nil {
+			return explorer.SettleDeposit{}, err
+		}
+		pending = true
+	}
+
+	// Fetch from block
+	blkHash, err := bc.GetBlockHashByActionHash(settleDepositHash)
+	if err != nil {
+		return explorer.SettleDeposit{}, err
+	}
+	blk, err := bc.GetBlockByHash(blkHash)
+	if err != nil {
+		return explorer.SettleDeposit{}, err
+	}
+
+	sd, err := castActionToSettleDeposit(act, pending)
+	if err != nil {
+		return explorer.SettleDeposit{}, err
+	}
+	sd.Timestamp = int64(blk.ConvertToBlockHeaderPb().Timestamp)
+	sd.BlockID = hex.EncodeToString(blkHash[:])
+	return sd, nil
+}
+
+func castActionToSettleDeposit(act action.Action, pending bool) (explorer.SettleDeposit, error) {
+	if act == nil {
+		return explorer.SettleDeposit{}, errors.Wrap(ErrAction, "action cannot be nil")
+	}
+	sd, ok := act.(*action.SettleDeposit)
+	if !ok {
+		return explorer.SettleDeposit{}, errors.Wrap(ErrAction, "action type is not settle deposit")
+	}
+	hash := sd.Hash()
+	settleDeposit := explorer.SettleDeposit{
+		Nonce:     int64(sd.Nonce()),
+		ID:        hex.EncodeToString(hash[:]),
+		Sender:    sd.Sender(),
+		Recipient: sd.Recipient(),
+		Index:     int64(sd.Index()),
+		Fee:       "", // TODO: we need to get the actual fee.
+		GasLimit:  int64(sd.GasLimit()),
+		IsPending: pending,
+	}
+	if sd.Amount() != nil && len(sd.Amount().String()) > 0 {
+		settleDeposit.Amount = sd.Amount().String()
+	}
+	if sd.GasPrice() != nil && len(sd.GasPrice().String()) > 0 {
+		settleDeposit.GasPrice = sd.GasPrice().String()
+	}
+	return settleDeposit, nil
 }
 
 func convertTsfToExplorerTsf(transfer *action.Transfer, isPending bool) (explorer.Transfer, error) {

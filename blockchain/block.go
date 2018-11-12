@@ -319,7 +319,7 @@ func (b *Block) ConvertFromBlockPb(pbBlock *iproto.BlockPb) error {
 				return err
 			}
 			b.Actions = append(b.Actions, createDeposit)
-		} else if settleDepositPb := actPb.GetCreateDeposit(); settleDepositPb != nil {
+		} else if settleDepositPb := actPb.GetSettleDeposit(); settleDepositPb != nil {
 			settleDeposit := &action.SettleDeposit{}
 			if err := settleDeposit.LoadProto(actPb); err != nil {
 				return err
