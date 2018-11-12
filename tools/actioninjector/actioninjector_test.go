@@ -118,6 +118,7 @@ func newConfig() (config.Config, error) {
 	cfg.Consensus.Scheme = config.NOOPScheme
 	cfg.Chain.ChainDBPath = testChainPath
 	cfg.Chain.TrieDBPath = testTriePath
+	cfg.Explorer.Enabled = true
 
 	pk, sk, err := crypto.EC283.NewKeyPair()
 	if err != nil {

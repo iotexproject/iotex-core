@@ -176,6 +176,7 @@ func newActPoolConfig() (config.Config, error) {
 	cfg.Consensus.Scheme = config.NOOPScheme
 	cfg.Network.Port = 0
 	cfg.Network.PeerMaintainerInterval = 100 * time.Millisecond
+	cfg.Explorer.Enabled = true
 	cfg.Explorer.Port = 0
 
 	pk, sk, err := crypto.EC283.NewKeyPair()

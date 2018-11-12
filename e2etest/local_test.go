@@ -726,6 +726,7 @@ func newTestConfig() (config.Config, error) {
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Consensus.Scheme = config.NOOPScheme
 	cfg.Network.Port = 0
+	cfg.Explorer.Enabled = true
 	cfg.Explorer.Port = 0
 
 	pk, sk, err := crypto.EC283.NewKeyPair()
