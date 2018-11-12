@@ -267,6 +267,58 @@ func (mr *MockExplorerMockRecorder) GetExecutionsByBlockID(blkID, offset, limit 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetExecutionsByBlockID", reflect.TypeOf((*MockExplorer)(nil).GetExecutionsByBlockID), blkID, offset, limit)
 }
 
+// GetCreateDeposit mocks base method
+func (m *MockExplorer) GetCreateDeposit(createDepositID string) (explorer.CreateDeposit, error) {
+	ret := m.ctrl.Call(m, "GetCreateDeposit", createDepositID)
+	ret0, _ := ret[0].(explorer.CreateDeposit)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetCreateDeposit indicates an expected call of GetCreateDeposit
+func (mr *MockExplorerMockRecorder) GetCreateDeposit(createDepositID interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCreateDeposit", reflect.TypeOf((*MockExplorer)(nil).GetCreateDeposit), createDepositID)
+}
+
+// GetCreateDepositsByAddress mocks base method
+func (m *MockExplorer) GetCreateDepositsByAddress(address string, offset, limit int64) ([]explorer.CreateDeposit, error) {
+	ret := m.ctrl.Call(m, "GetCreateDepositsByAddress", address, offset, limit)
+	ret0, _ := ret[0].([]explorer.CreateDeposit)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetCreateDepositsByAddress indicates an expected call of GetCreateDepositsByAddress
+func (mr *MockExplorerMockRecorder) GetCreateDepositsByAddress(address, offset, limit interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCreateDepositsByAddress", reflect.TypeOf((*MockExplorer)(nil).GetCreateDepositsByAddress), address, offset, limit)
+}
+
+// GetSettleDeposit mocks base method
+func (m *MockExplorer) GetSettleDeposit(settleDepositID string) (explorer.SettleDeposit, error) {
+	ret := m.ctrl.Call(m, "GetSettleDeposit", settleDepositID)
+	ret0, _ := ret[0].(explorer.SettleDeposit)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSettleDeposit indicates an expected call of GetSettleDeposit
+func (mr *MockExplorerMockRecorder) GetSettleDeposit(settleDepositID interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSettleDeposit", reflect.TypeOf((*MockExplorer)(nil).GetSettleDeposit), settleDepositID)
+}
+
+// GetSettleDepositsByAddress mocks base method
+func (m *MockExplorer) GetSettleDepositsByAddress(address string, offset, limit int64) ([]explorer.SettleDeposit, error) {
+	ret := m.ctrl.Call(m, "GetSettleDepositsByAddress", address, offset, limit)
+	ret0, _ := ret[0].([]explorer.SettleDeposit)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSettleDepositsByAddress indicates an expected call of GetSettleDepositsByAddress
+func (mr *MockExplorerMockRecorder) GetSettleDepositsByAddress(address, offset, limit interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSettleDepositsByAddress", reflect.TypeOf((*MockExplorer)(nil).GetSettleDepositsByAddress), address, offset, limit)
+}
+
 // GetLastBlocksByRange mocks base method
 func (m *MockExplorer) GetLastBlocksByRange(offset, limit int64) ([]explorer.Block, error) {
 	ret := m.ctrl.Call(m, "GetLastBlocksByRange", offset, limit)

@@ -116,15 +116,10 @@ func New(cfg config.Config, p2p network.Overlay, dispatcher dispatcher.Dispatche
 		if idx == nil {
 			return nil, errors.Wrap(err, "failed to create index service")
 		}
-	} else {
-		idx = nil
 	}
 
 	var exp *explorer.Server
-	if cfg.Explorer.IsTest || os.Getenv("APP_ENV") == "development" {
-		logger.Warn().Msg("Using test server with fake data...")
-		exp = explorer.NewTestSever(cfg.Explorer)
-	} else {
+	if cfg.Explorer.Enabled {
 		exp = explorer.NewServer(cfg.Explorer, chain, consensus, dispatcher, actPool, p2p, idx)
 	}
 
@@ -154,16 +149,20 @@ func (cs *ChainService) Start(ctx context.Context) error {
 			return errors.Wrap(err, "error when starting indexservice")
 		}
 	}
-	if err := cs.explorer.Start(ctx); err != nil {
-		return errors.Wrap(err, "error when starting explorer")
+	if cs.explorer != nil {
+		if err := cs.explorer.Start(ctx); err != nil {
+			return errors.Wrap(err, "error when starting explorer")
+		}
 	}
 	return nil
 }
 
 // Stop stops the server
 func (cs *ChainService) Stop(ctx context.Context) error {
-	if err := cs.explorer.Stop(ctx); err != nil {
-		return errors.Wrap(err, "error when stopping explorer")
+	if cs.explorer != nil {
+		if err := cs.explorer.Stop(ctx); err != nil {
+			return errors.Wrap(err, "error when stopping explorer")
+		}
 	}
 	if cs.indexservice != nil {
 		if err := cs.indexservice.Stop(ctx); err != nil {
