@@ -27,3 +27,6 @@ blockSync:
 system:
     httpProfilingPort: 6060
     httpMetricsPort: 8080
+
+explorer:
+    enabled: true

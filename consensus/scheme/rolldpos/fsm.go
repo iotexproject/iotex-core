@@ -49,7 +49,7 @@ const (
 	sRoundStart            fsm.State = "S_ROUND_START"
 	sBlockPropose          fsm.State = "S_BLOCK_PROPOSE"
 	sAcceptPropose         fsm.State = "S_ACCEPT_PROPOSE"
-	sAcceptProposalEndorse fsm.State = "S_ACCEPT_PROPOSAL_ENDROSE"
+	sAcceptProposalEndorse fsm.State = "S_ACCEPT_PROPOSAL_ENDORSE"
 	sAcceptLockEndorse     fsm.State = "S_ACCEPT_LOCK_ENDORSE"
 	sAcceptCommitEndorse   fsm.State = "S_ACCEPT_COMMIT_ENDORSE"
 

@@ -140,38 +140,51 @@ func TestMerkle(t *testing.T) {
 
 func TestConvertFromBlockPb(t *testing.T) {
 	blk := Block{}
-	blk.ConvertFromBlockPb(&iproto.BlockPb{
+	sender := ta.Addrinfo["producer"]
+	require.NoError(t, blk.ConvertFromBlockPb(&iproto.BlockPb{
 		Header: &iproto.BlockHeaderPb{
 			Version: version.ProtocolVersion,
 			Height:  123456789,
 		},
 		Actions: []*iproto.ActionPb{
-			{Action: &iproto.ActionPb_Transfer{
-				Transfer: &iproto.TransferPb{},
+			{
+				Action: &iproto.ActionPb_Transfer{
+					Transfer: &iproto.TransferPb{},
+				},
+				Sender:       sender.RawAddress,
+				SenderPubKey: sender.PublicKey[:],
+				Version:      version.ProtocolVersion,
+				Nonce:        101,
 			},
-				Version: version.ProtocolVersion,
-				Nonce:   101,
+			{
+				Action: &iproto.ActionPb_Transfer{
+					Transfer: &iproto.TransferPb{},
+				},
+				Sender:       sender.RawAddress,
+				SenderPubKey: sender.PublicKey[:],
+				Version:      version.ProtocolVersion,
+				Nonce:        102,
 			},
-			{Action: &iproto.ActionPb_Transfer{
-				Transfer: &iproto.TransferPb{},
+			{
+				Action: &iproto.ActionPb_Vote{
+					Vote: &iproto.VotePb{},
+				},
+				Sender:       sender.RawAddress,
+				SenderPubKey: sender.PublicKey[:],
+				Version:      version.ProtocolVersion,
+				Nonce:        103,
 			},
-				Version: version.ProtocolVersion,
-				Nonce:   102,
-			},
-			{Action: &iproto.ActionPb_Vote{
-				Vote: &iproto.VotePb{},
-			},
-				Version: version.ProtocolVersion,
-				Nonce:   103,
-			},
-			{Action: &iproto.ActionPb_Vote{
-				Vote: &iproto.VotePb{},
-			},
-				Version: version.ProtocolVersion,
-				Nonce:   104,
+			{
+				Action: &iproto.ActionPb_Vote{
+					Vote: &iproto.VotePb{},
+				},
+				Sender:       sender.RawAddress,
+				SenderPubKey: sender.PublicKey[:],
+				Version:      version.ProtocolVersion,
+				Nonce:        104,
 			},
 		},
-	})
+	}))
 
 	blk.Header.txRoot = blk.CalculateTxRoot()
 
@@ -233,7 +246,7 @@ func TestSignBlock(t *testing.T) {
 }
 
 func TestWrongNonce(t *testing.T) {
-	cfg := &config.Default
+	cfg := config.Default
 	testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
 	defer testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
 	testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
@@ -265,8 +278,13 @@ func TestWrongNonce(t *testing.T) {
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
-	stateCtx := state.Context{ta.Addrinfo["producer"].RawAddress, &gasLimit, testutil.EnableGasCharge}
-	_, _, err = ws.RunActions(1, []action.Action{tsf1}, stateCtx)
+	ctx := state.WithRunActionsCtx(context.Background(),
+		state.RunActionsCtx{
+			ProducerAddr:    ta.Addrinfo["producer"].RawAddress,
+			GasLimit:        &gasLimit,
+			EnableGasCharge: testutil.EnableGasCharge,
+		})
+	_, _, err = ws.RunActions(ctx, 1, []action.Action{tsf1})
 	require.NoError(err)
 	require.Nil(sf.Commit(ws))
 
@@ -394,7 +412,7 @@ func TestWrongNonce(t *testing.T) {
 }
 
 func TestWrongCoinbaseTsf(t *testing.T) {
-	cfg := &config.Default
+	cfg := config.Default
 	testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
 	defer testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
 	testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
@@ -516,7 +534,7 @@ func TestCoinbaseTransferValidation(t *testing.T) {
 	ctx := context.Background()
 	cfg := config.Default
 	cfg.Chain.ID = 1
-	chain := NewBlockchain(&cfg, InMemStateFactoryOption(), InMemDaoOption())
+	chain := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption())
 	require.NotNil(t, chain)
 	require.NoError(t, chain.Start(ctx))
 	defer require.NoError(t, chain.Stop(ctx))
@@ -542,7 +560,7 @@ func TestCoinbaseTransferValidation(t *testing.T) {
 }
 
 func TestValidateSecretBlock(t *testing.T) {
-	cfg := &config.Default
+	cfg := config.Default
 	testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
 	defer testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
 	testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
@@ -623,12 +641,14 @@ func addCreatorToFactory(sf state.Factory) error {
 		return err
 	}
 	gasLimit := testutil.TestGasLimit
-	ctx := state.Context{ta.Addrinfo["producer"].RawAddress, &gasLimit, testutil.EnableGasCharge}
-	if _, _, err = ws.RunActions(0, nil, ctx); err != nil {
+	ctx := state.WithRunActionsCtx(context.Background(),
+		state.RunActionsCtx{
+			ProducerAddr:    ta.Addrinfo["producer"].RawAddress,
+			GasLimit:        &gasLimit,
+			EnableGasCharge: testutil.EnableGasCharge,
+		})
+	if _, _, err = ws.RunActions(ctx, 0, nil); err != nil {
 		return err
 	}
-	if err = sf.Commit(ws); err != nil {
-		return err
-	}
-	return nil
+	return sf.Commit(ws)
 }

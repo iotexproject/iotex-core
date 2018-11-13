@@ -43,7 +43,7 @@ func TestNetSync(t *testing.T) {
 
 	// create node
 	ctx := context.Background()
-	svr, err := itx.NewServer(&cfg)
+	svr, err := itx.NewServer(cfg)
 	require.Nil(t, err)
 	require.NotNil(t, svr)
 	assert.Nil(t, svr.Start(ctx))

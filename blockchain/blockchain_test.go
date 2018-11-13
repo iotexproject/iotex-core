@@ -44,13 +44,11 @@ func addTestingTsfBlocks(bc Blockchain) error {
 		[]byte{}, uint64(100000),
 		big.NewInt(10),
 	)
-	sk, err := keypair.DecodePrivateKey(Gen.CreatorPrivKey)
-	if err != nil {
-		return err
-	}
-	if err := action.Sign(tsf0, sk); err != nil {
-		return err
-	}
+	pk, _ := hex.DecodeString(Gen.CreatorPubKey)
+	pubk, _ := keypair.BytesToPublicKey(pk)
+	sig, _ := hex.DecodeString("ea18385718db2a8b92fa2dcdc158a05aae17fc7e800cc735850bdc99ab7b081f32fce70080888742d7b6bee892034e38298b69ce5fff671c18f0bed827e1e21f9da2ba5d8c434e00")
+	tsf0.SetSrcPubkey(pubk)
+	tsf0.SetSignature(sig)
 	blk, err := bc.MintNewBlock([]action.Action{tsf0}, ta.Addrinfo["producer"],
 		nil, nil, "")
 	if err != nil {
@@ -177,7 +175,7 @@ func TestCreateBlockchain(t *testing.T) {
 	Gen.BlockReward = big.NewInt(0)
 
 	// create chain
-	bc := NewBlockchain(&cfg, InMemStateFactoryOption(), InMemDaoOption())
+	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption())
 	require.NoError(bc.Start(ctx))
 	require.NotNil(bc)
 	height := bc.TipHeight()
@@ -196,7 +194,7 @@ func TestCreateBlockchain(t *testing.T) {
 	require.Nil(err)
 
 	transfers, votes, _ := action.ClassifyActions(genesis.Actions)
-	require.Equal(23, len(transfers))
+	require.Equal(0, len(transfers))
 	require.Equal(21, len(votes))
 
 	fmt.Printf("Block size match pass\n")
@@ -239,13 +237,13 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Explorer.Enabled = true
 
-	sf, err := state.NewFactory(&cfg, state.DefaultTrieOption())
+	sf, err := state.NewFactory(cfg, state.DefaultTrieOption())
 	require.Nil(err)
 	require.NoError(sf.Start(context.Background()))
 	require.NoError(addCreatorToFactory(sf))
 
 	// Create a blockchain from scratch
-	bc := NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
+	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	require.NoError(bc.Start(ctx))
 	require.NotNil(bc)
 
@@ -272,7 +270,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	require.Equal(27, transfers)
 
 	// Load a blockchain from DB
-	bc = NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
+	bc = NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	require.NoError(bc.Start(ctx))
 	defer func() {
 		err := bc.Stop(ctx)
@@ -439,7 +437,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 
 	totalTransfers, err := bc.GetTotalTransfers()
 	require.Nil(err)
-	require.Equal(totalTransfers, uint64(50))
+	require.Equal(totalTransfers, uint64(27))
 
 	totalVotes, err := bc.GetTotalVotes()
 	require.Nil(err)
@@ -465,12 +463,12 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
-	sf, err := state.NewFactory(&cfg, state.DefaultTrieOption())
+	sf, err := state.NewFactory(cfg, state.DefaultTrieOption())
 	require.Nil(err)
 	require.NoError(sf.Start(context.Background()))
 	require.NoError(addCreatorToFactory(sf))
 	// Create a blockchain from scratch
-	bc := NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
+	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	require.NoError(bc.Start(ctx))
 	require.NotNil(bc)
 
@@ -499,7 +497,7 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	require.Equal(0, transfers)
 
 	// Load a blockchain from DB
-	bc = NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
+	bc = NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	require.NoError(bc.Start(ctx))
 	defer func() {
 		err := bc.Stop(ctx)
@@ -642,7 +640,7 @@ func TestBlockchain_Validator(t *testing.T) {
 	cfg.Chain.TrieDBPath = ""
 
 	ctx := context.Background()
-	bc := NewBlockchain(&cfg, InMemDaoOption(), InMemStateFactoryOption())
+	bc := NewBlockchain(cfg, InMemDaoOption(), InMemStateFactoryOption())
 	require.NoError(t, bc.Start(ctx))
 	defer func() {
 		err := bc.Stop(ctx)
@@ -671,10 +669,10 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 	// Disable block reward to make bookkeeping easier
 	Gen.BlockReward = big.NewInt(0)
 
-	sf, err := state.NewFactory(&cfg, state.DefaultTrieOption())
+	sf, err := state.NewFactory(cfg, state.DefaultTrieOption())
 	require.Nil(err)
 	require.NoError(sf.Start(context.Background()))
-	bc := NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
+	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	require.NoError(bc.Start(context.Background()))
 	require.NotNil(bc)
 	// TODO: change the value when Candidates size is changed
@@ -698,13 +696,13 @@ func TestCoinbaseTransfer(t *testing.T) {
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 
-	sf, err := state.NewFactory(&cfg, state.DefaultTrieOption())
+	sf, err := state.NewFactory(cfg, state.DefaultTrieOption())
 	require.Nil(err)
 	require.NoError(sf.Start(context.Background()))
 	require.NoError(addCreatorToFactory(sf))
 
 	Gen.BlockReward = big.NewInt(0)
-	bc := NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
+	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	require.NoError(bc.Start(context.Background()))
 	require.NotNil(bc)
 	height := bc.TipHeight()
@@ -736,7 +734,7 @@ func TestBlockchain_StateByAddr(t *testing.T) {
 	cfg := config.Default
 	// disable account-based testing
 	// create chain
-	bc := NewBlockchain(&cfg, InMemDaoOption(), InMemStateFactoryOption())
+	bc := NewBlockchain(cfg, InMemDaoOption(), InMemStateFactoryOption())
 	require.NoError(bc.Start(context.Background()))
 	require.NotNil(bc)
 
@@ -766,23 +764,29 @@ func TestBlocks(t *testing.T) {
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 
-	sf, _ := state.NewFactory(&cfg, state.InMemTrieOption())
+	sf, _ := state.NewFactory(cfg, state.InMemTrieOption())
 	require.NoError(sf.Start(context.Background()))
 	require.NoError(addCreatorToFactory(sf))
 
 	// Create a blockchain from scratch
-	bc := NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
+	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	require.NoError(bc.Start(context.Background()))
 	a := ta.Addrinfo["alfa"]
 	c := ta.Addrinfo["bravo"]
 	ws, err := sf.NewWorkingSet()
+	require.NoError(err)
 	_, err = ws.LoadOrCreateAccountState(a.RawAddress, big.NewInt(100000))
 	require.NoError(err)
 	_, err = ws.LoadOrCreateAccountState(c.RawAddress, big.NewInt(100000))
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
-	ctx := state.Context{ta.Addrinfo["producer"].RawAddress, &gasLimit, testutil.EnableGasCharge}
-	_, _, err = ws.RunActions(0, nil, ctx)
+	ctx := state.WithRunActionsCtx(context.Background(),
+		state.RunActionsCtx{
+			ProducerAddr:    ta.Addrinfo["producer"].RawAddress,
+			GasLimit:        &gasLimit,
+			EnableGasCharge: testutil.EnableGasCharge,
+		})
+	_, _, err = ws.RunActions(ctx, 0, nil)
 	require.NoError(err)
 	require.NoError(sf.Commit(ws))
 
@@ -814,23 +818,29 @@ func TestActions(t *testing.T) {
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 
-	sf, _ := state.NewFactory(&cfg, state.InMemTrieOption())
+	sf, _ := state.NewFactory(cfg, state.InMemTrieOption())
 	require.NoError(sf.Start(context.Background()))
 	require.NoError(addCreatorToFactory(sf))
 
 	// Create a blockchain from scratch
-	bc := NewBlockchain(&cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
+	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	require.NoError(bc.Start(context.Background()))
 	a := ta.Addrinfo["alfa"]
 	c := ta.Addrinfo["bravo"]
 	ws, err := sf.NewWorkingSet()
+	require.NoError(err)
 	_, err = ws.LoadOrCreateAccountState(a.RawAddress, big.NewInt(100000))
 	require.NoError(err)
 	_, err = ws.LoadOrCreateAccountState(c.RawAddress, big.NewInt(100000))
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
-	ctx := state.Context{ta.Addrinfo["producer"].RawAddress, &gasLimit, testutil.EnableGasCharge}
-	_, _, err = ws.RunActions(0, nil, ctx)
+	ctx := state.WithRunActionsCtx(context.Background(),
+		state.RunActionsCtx{
+			ProducerAddr:    ta.Addrinfo["producer"].RawAddress,
+			GasLimit:        &gasLimit,
+			EnableGasCharge: testutil.EnableGasCharge,
+		})
+	_, _, err = ws.RunActions(ctx, 0, nil)
 	require.NoError(err)
 	require.NoError(sf.Commit(ws))
 
@@ -857,7 +867,7 @@ func TestMintDKGBlock(t *testing.T) {
 	lastSeed, _ := hex.DecodeString("9de6306b08158c423330f7a27243a1a5cbe39bfd764f07818437882d21241567")
 	cfg := config.Default
 	clk := clock.NewMock()
-	chain := NewBlockchain(&cfg, InMemDaoOption(), InMemStateFactoryOption(), ClockOption(clk))
+	chain := NewBlockchain(cfg, InMemDaoOption(), InMemStateFactoryOption(), ClockOption(clk))
 	require.NoError(chain.Start(context.Background()))
 
 	var err error

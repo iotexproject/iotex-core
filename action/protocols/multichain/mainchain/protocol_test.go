@@ -28,7 +28,7 @@ func TestAddSubChainActions(t *testing.T) {
 
 	ctx := context.Background()
 	cfg := config.Default
-	bc := blockchain.NewBlockchain(&config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	bc := blockchain.NewBlockchain(config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
 	require.NoError(t, bc.Start(ctx))
 	_, err := bc.CreateState(
 		testaddress.Addrinfo["producer"].RawAddress,
@@ -72,7 +72,6 @@ func TestAddSubChainActions(t *testing.T) {
 	stopSubChain := action.NewStopSubChain(
 		testaddress.Addrinfo["producer"].RawAddress,
 		3,
-		2,
 		testaddress.Addrinfo["alfa"].RawAddress,
 		10003,
 		10005,

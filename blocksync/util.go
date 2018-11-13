@@ -27,7 +27,7 @@ func commitBlock(bc blockchain.Blockchain, ap actpool.ActPool, blk *blockchain.B
 }
 
 // syncTaskInterval returns the recurring sync task interval, or 0 if this config should not need to run sync task
-func syncTaskInterval(cfg *config.Config) time.Duration {
+func syncTaskInterval(cfg config.Config) time.Duration {
 	if cfg.IsLightweight() {
 		return time.Duration(0)
 	}

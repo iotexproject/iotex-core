@@ -44,7 +44,7 @@ type Action interface {
 	IntrinsicGas() (uint64, error)
 	Cost() (*big.Int, error)
 	Proto() *iproto.ActionPb
-	LoadProto(*iproto.ActionPb)
+	LoadProto(*iproto.ActionPb) error
 }
 
 // AbstractAction is an abstract implementation of Action interface
@@ -81,13 +81,26 @@ func (act *AbstractAction) DstAddr() string { return act.dstAddr }
 func (act *AbstractAction) GasLimit() uint64 { return act.gasLimit }
 
 // GasPrice returns the gas price
-func (act *AbstractAction) GasPrice() *big.Int { return act.gasPrice }
+func (act *AbstractAction) GasPrice() *big.Int {
+	p := &big.Int{}
+	if act.gasPrice == nil {
+		return p
+	}
+	return p.Set(act.gasPrice)
+}
 
 // Signature returns signature bytes
-func (act *AbstractAction) Signature() []byte { return act.signature }
+func (act *AbstractAction) Signature() []byte {
+	sig := make([]byte, len(act.signature))
+	copy(sig, act.signature)
+	return sig
+}
 
 // SetSignature sets the signature bytes
-func (act *AbstractAction) SetSignature(signature []byte) { act.signature = signature }
+func (act *AbstractAction) SetSignature(signature []byte) {
+	act.signature = make([]byte, len(signature))
+	copy(act.signature, signature)
+}
 
 // BasicActionSize returns the basic size of action
 func (act *AbstractAction) BasicActionSize() uint32 {

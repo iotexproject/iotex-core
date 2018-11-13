@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
@@ -19,7 +21,6 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/testutil"
-	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -51,7 +52,7 @@ func TestIndexService(t *testing.T) {
 		}
 
 		blk := blockchain.Block{}
-		blk.ConvertFromBlockPb(&iproto.BlockPb{
+		err = blk.ConvertFromBlockPb(&iproto.BlockPb{
 			Header: &iproto.BlockHeaderPb{
 				Version: version.ProtocolVersion,
 				Height:  123456789,
@@ -80,6 +81,7 @@ func TestIndexService(t *testing.T) {
 				},
 			},
 		})
+		require.NoError(err)
 
 		err = idx.BuildIndex(&blk)
 		require.Nil(err)

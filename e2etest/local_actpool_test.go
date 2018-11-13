@@ -58,7 +58,7 @@ func TestLocalActPool(t *testing.T) {
 
 	// create client
 	cfg.Network.BootstrapNodes = []string{svr.P2P().Self().String()}
-	cli := network.NewOverlay(&cfg.Network)
+	cli := network.NewOverlay(cfg.Network)
 	require.NotNil(cli)
 	require.NoError(cli.Start(ctx))
 
@@ -133,7 +133,7 @@ func TestPressureActPool(t *testing.T) {
 
 	// create client
 	cfg.Network.BootstrapNodes = []string{svr.P2P().Self().String()}
-	cli := network.NewOverlay(&cfg.Network)
+	cli := network.NewOverlay(cfg.Network)
 	require.NotNil(cli)
 	require.Nil(cli.Start(ctx))
 
@@ -167,7 +167,7 @@ func TestPressureActPool(t *testing.T) {
 	require.Nil(err)
 }
 
-func newActPoolConfig() (*config.Config, error) {
+func newActPoolConfig() (config.Config, error) {
 	cfg := config.Default
 	cfg.NodeType = config.DelegateType
 	cfg.Chain.TrieDBPath = testTriePath
@@ -176,13 +176,14 @@ func newActPoolConfig() (*config.Config, error) {
 	cfg.Consensus.Scheme = config.NOOPScheme
 	cfg.Network.Port = 0
 	cfg.Network.PeerMaintainerInterval = 100 * time.Millisecond
+	cfg.Explorer.Enabled = true
 	cfg.Explorer.Port = 0
 
 	pk, sk, err := crypto.EC283.NewKeyPair()
 	if err != nil {
-		return nil, err
+		return config.Config{}, err
 	}
 	cfg.Chain.ProducerPubKey = keypair.EncodePublicKey(pk)
 	cfg.Chain.ProducerPrivKey = keypair.EncodePrivateKey(sk)
-	return &cfg, nil
+	return cfg, nil
 }

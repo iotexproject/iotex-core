@@ -114,28 +114,41 @@ func (sd *SettleDeposit) Proto() *iproto.ActionPb {
 }
 
 // LoadProto converts a protobuf's ActionPb to SettleDeposit
-func (sd *SettleDeposit) LoadProto(pbAct *iproto.ActionPb) {
-	sd.version = pbAct.Version
-	sd.nonce = pbAct.Nonce
-	sd.srcAddr = pbAct.Sender
-	copy(sd.srcPubkey[:], pbAct.SenderPubKey)
-	sd.gasLimit = pbAct.GasLimit
-	if sd.gasPrice == nil {
-		sd.gasPrice = big.NewInt(0)
+func (sd *SettleDeposit) LoadProto(pbAct *iproto.ActionPb) error {
+	if pbAct == nil {
+		return errors.New("empty action proto to load")
 	}
-	if len(pbAct.GasPrice) > 0 {
-		sd.gasPrice.SetBytes(pbAct.GasPrice)
+	srcPub, err := keypair.BytesToPublicKey(pbAct.SenderPubKey)
+	if err != nil {
+		return err
 	}
-	if sd.amount == nil {
-		sd.amount = big.NewInt(0)
+	if sd == nil {
+		return errors.New("nil action to load proto")
 	}
-	sd.signature = pbAct.Signature
+	*sd = SettleDeposit{}
 	pbDpst := pbAct.GetSettleDeposit()
+	if pbDpst == nil {
+		return errors.New("empty SettleDeposit action proto to load")
+	}
+
+	ab := &Builder{}
+	act := ab.SetVersion(pbAct.Version).
+		SetNonce(pbAct.Nonce).
+		SetSourceAddress(pbAct.Sender).
+		SetSourcePublicKey(srcPub).
+		SetGasLimit(pbAct.GasLimit).
+		SetGasPriceByBytes(pbAct.GasPrice).
+		SetDestinationAddress(pbDpst.Recipient).
+		Build()
+	act.SetSignature(pbAct.Signature)
+	sd.AbstractAction = act
+
+	sd.amount = big.NewInt(0)
 	if len(pbDpst.Amount) > 0 {
 		sd.amount.SetBytes(pbDpst.Amount)
 	}
 	sd.index = pbDpst.Index
-	sd.dstAddr = pbDpst.Recipient
+	return nil
 }
 
 // Hash returns the hash of a deposit

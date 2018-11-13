@@ -8,8 +8,8 @@ import (
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "250df989c1211c96189d1f1918c842df"
-const BarristerDateGenerated int64 = 1541618742672000000
+const BarristerChecksum string = "36492a98d3500e3c09b3006762827614"
+const BarristerDateGenerated int64 = 1542012010006000000
 
 type CoinStatistic struct {
 	Height     int64  `json:"height"`
@@ -265,6 +265,41 @@ type SettleDepositResponse struct {
 	Hash string `json:"hash"`
 }
 
+type CreateDeposit struct {
+	Version      int64  `json:"version"`
+	ID           string `json:"ID"`
+	Nonce        int64  `json:"nonce"`
+	Sender       string `json:"sender"`
+	Recipient    string `json:"recipient"`
+	Amount       string `json:"amount"`
+	SenderPubKey string `json:"senderPubKey"`
+	Signature    string `json:"signature"`
+	GasLimit     int64  `json:"gasLimit"`
+	GasPrice     string `json:"gasPrice"`
+	Fee          string `json:"fee"`
+	Timestamp    int64  `json:"timestamp"`
+	BlockID      string `json:"blockID"`
+	IsPending    bool   `json:"isPending"`
+}
+
+type SettleDeposit struct {
+	Version      int64  `json:"version"`
+	ID           string `json:"ID"`
+	Nonce        int64  `json:"nonce"`
+	Sender       string `json:"sender"`
+	Recipient    string `json:"recipient"`
+	Amount       string `json:"amount"`
+	Index        int64  `json:"index"`
+	SenderPubKey string `json:"senderPubKey"`
+	Signature    string `json:"signature"`
+	GasLimit     int64  `json:"gasLimit"`
+	GasPrice     string `json:"gasPrice"`
+	Fee          string `json:"fee"`
+	Timestamp    int64  `json:"timestamp"`
+	BlockID      string `json:"blockID"`
+	IsPending    bool   `json:"isPending"`
+}
+
 type Explorer interface {
 	GetBlockchainHeight() (int64, error)
 	GetAddressBalance(address string) (string, error)
@@ -284,6 +319,10 @@ type Explorer interface {
 	GetExecutionsByAddress(address string, offset int64, limit int64) ([]Execution, error)
 	GetUnconfirmedExecutionsByAddress(address string, offset int64, limit int64) ([]Execution, error)
 	GetExecutionsByBlockID(blkID string, offset int64, limit int64) ([]Execution, error)
+	GetCreateDeposit(createDepositID string) (CreateDeposit, error)
+	GetCreateDepositsByAddress(address string, offset int64, limit int64) ([]CreateDeposit, error)
+	GetSettleDeposit(settleDepositID string) (SettleDeposit, error)
+	GetSettleDepositsByAddress(address string, offset int64, limit int64) ([]SettleDeposit, error)
 	GetLastBlocksByRange(offset int64, limit int64) ([]Block, error)
 	GetBlockByID(blkID string) (Block, error)
 	GetCoinStatistic() (CoinStatistic, error)
@@ -639,6 +678,78 @@ func (_p ExplorerProxy) GetExecutionsByBlockID(blkID string, offset int64, limit
 		return _cast, nil
 	}
 	return []Execution{}, _err
+}
+
+func (_p ExplorerProxy) GetCreateDeposit(createDepositID string) (CreateDeposit, error) {
+	_res, _err := _p.client.Call("Explorer.getCreateDeposit", createDepositID)
+	if _err == nil {
+		_retType := _p.idl.Method("Explorer.getCreateDeposit").Returns
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(CreateDeposit{}), _res, "")
+	}
+	if _err == nil {
+		_cast, _ok := _res.(CreateDeposit)
+		if !_ok {
+			_t := reflect.TypeOf(_res)
+			_msg := fmt.Sprintf("Explorer.getCreateDeposit returned invalid type: %v", _t)
+			return CreateDeposit{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
+		}
+		return _cast, nil
+	}
+	return CreateDeposit{}, _err
+}
+
+func (_p ExplorerProxy) GetCreateDepositsByAddress(address string, offset int64, limit int64) ([]CreateDeposit, error) {
+	_res, _err := _p.client.Call("Explorer.getCreateDepositsByAddress", address, offset, limit)
+	if _err == nil {
+		_retType := _p.idl.Method("Explorer.getCreateDepositsByAddress").Returns
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf([]CreateDeposit{}), _res, "")
+	}
+	if _err == nil {
+		_cast, _ok := _res.([]CreateDeposit)
+		if !_ok {
+			_t := reflect.TypeOf(_res)
+			_msg := fmt.Sprintf("Explorer.getCreateDepositsByAddress returned invalid type: %v", _t)
+			return []CreateDeposit{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
+		}
+		return _cast, nil
+	}
+	return []CreateDeposit{}, _err
+}
+
+func (_p ExplorerProxy) GetSettleDeposit(settleDepositID string) (SettleDeposit, error) {
+	_res, _err := _p.client.Call("Explorer.getSettleDeposit", settleDepositID)
+	if _err == nil {
+		_retType := _p.idl.Method("Explorer.getSettleDeposit").Returns
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(SettleDeposit{}), _res, "")
+	}
+	if _err == nil {
+		_cast, _ok := _res.(SettleDeposit)
+		if !_ok {
+			_t := reflect.TypeOf(_res)
+			_msg := fmt.Sprintf("Explorer.getSettleDeposit returned invalid type: %v", _t)
+			return SettleDeposit{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
+		}
+		return _cast, nil
+	}
+	return SettleDeposit{}, _err
+}
+
+func (_p ExplorerProxy) GetSettleDepositsByAddress(address string, offset int64, limit int64) ([]SettleDeposit, error) {
+	_res, _err := _p.client.Call("Explorer.getSettleDepositsByAddress", address, offset, limit)
+	if _err == nil {
+		_retType := _p.idl.Method("Explorer.getSettleDepositsByAddress").Returns
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf([]SettleDeposit{}), _res, "")
+	}
+	if _err == nil {
+		_cast, _ok := _res.([]SettleDeposit)
+		if !_ok {
+			_t := reflect.TypeOf(_res)
+			_msg := fmt.Sprintf("Explorer.getSettleDepositsByAddress returned invalid type: %v", _t)
+			return []SettleDeposit{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
+		}
+		return _cast, nil
+	}
+	return []SettleDeposit{}, _err
 }
 
 func (_p ExplorerProxy) GetLastBlocksByRange(offset int64, limit int64) ([]Block, error) {
@@ -2662,6 +2773,237 @@ var IdlJsonRaw = `[
         "checksum": ""
     },
     {
+        "type": "struct",
+        "name": "CreateDeposit",
+        "comment": "",
+        "value": "",
+        "extends": "",
+        "fields": [
+            {
+                "name": "version",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "ID",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "nonce",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "sender",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "recipient",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "amount",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "senderPubKey",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "signature",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "gasLimit",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "gasPrice",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "fee",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "timestamp",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "blockID",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "isPending",
+                "type": "bool",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            }
+        ],
+        "values": null,
+        "functions": null,
+        "barrister_version": "",
+        "date_generated": 0,
+        "checksum": ""
+    },
+    {
+        "type": "struct",
+        "name": "SettleDeposit",
+        "comment": "",
+        "value": "",
+        "extends": "",
+        "fields": [
+            {
+                "name": "version",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "ID",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "nonce",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "sender",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "recipient",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "amount",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "index",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "senderPubKey",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "signature",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "gasLimit",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "gasPrice",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "fee",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "timestamp",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "blockID",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "isPending",
+                "type": "bool",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            }
+        ],
+        "values": null,
+        "functions": null,
+        "barrister_version": "",
+        "date_generated": 0,
+        "checksum": ""
+    },
+    {
         "type": "interface",
         "name": "Explorer",
         "comment": "",
@@ -3198,6 +3540,114 @@ var IdlJsonRaw = `[
                 }
             },
             {
+                "name": "getCreateDeposit",
+                "comment": "get create deposit from id",
+                "params": [
+                    {
+                        "name": "createDepositID",
+                        "type": "string",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    }
+                ],
+                "returns": {
+                    "name": "",
+                    "type": "CreateDeposit",
+                    "optional": false,
+                    "is_array": false,
+                    "comment": ""
+                }
+            },
+            {
+                "name": "getCreateDepositsByAddress",
+                "comment": "get list of create deposits belonging to an address",
+                "params": [
+                    {
+                        "name": "address",
+                        "type": "string",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    },
+                    {
+                        "name": "offset",
+                        "type": "int",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    },
+                    {
+                        "name": "limit",
+                        "type": "int",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    }
+                ],
+                "returns": {
+                    "name": "",
+                    "type": "CreateDeposit",
+                    "optional": false,
+                    "is_array": true,
+                    "comment": ""
+                }
+            },
+            {
+                "name": "getSettleDeposit",
+                "comment": "get settle deposit from id",
+                "params": [
+                    {
+                        "name": "settleDepositID",
+                        "type": "string",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    }
+                ],
+                "returns": {
+                    "name": "",
+                    "type": "SettleDeposit",
+                    "optional": false,
+                    "is_array": false,
+                    "comment": ""
+                }
+            },
+            {
+                "name": "getSettleDepositsByAddress",
+                "comment": "get list of settle deposits belonging to an address",
+                "params": [
+                    {
+                        "name": "address",
+                        "type": "string",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    },
+                    {
+                        "name": "offset",
+                        "type": "int",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    },
+                    {
+                        "name": "limit",
+                        "type": "int",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    }
+                ],
+                "returns": {
+                    "name": "",
+                    "type": "SettleDeposit",
+                    "optional": false,
+                    "is_array": true,
+                    "comment": ""
+                }
+            },
+            {
                 "name": "getLastBlocksByRange",
                 "comment": "get list of blocks by block id offset and limit",
                 "params": [
@@ -3633,7 +4083,12 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
+<<<<<<< HEAD
         "date_generated": 1541618742672,
         "checksum": "250df989c1211c96189d1f1918c842df"
+=======
+        "date_generated": 1542012010006,
+        "checksum": "36492a98d3500e3c09b3006762827614"
+>>>>>>> e5c0f2e3df593d328c94e8cc3ac857290ec9b0fb
     }
 ]`

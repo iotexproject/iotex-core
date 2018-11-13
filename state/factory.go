@@ -78,16 +78,16 @@ type (
 	// called one by one to process it. ActionHandler implementation is supposed to parse the sub-type of the action to
 	// decide if it wants to handle this action or not.
 	ActionHandler interface {
-		Handle(action.Action, WorkingSet) (*action.Receipt, error)
+		Handle(context.Context, action.Action, WorkingSet) (*action.Receipt, error)
 	}
 )
 
 // FactoryOption sets Factory construction parameter
-type FactoryOption func(*factory, *config.Config) error
+type FactoryOption func(*factory, config.Config) error
 
 // PrecreatedTrieDBOption uses pre-created trie DB for state factory
 func PrecreatedTrieDBOption(kv db.KVStore) FactoryOption {
-	return func(sf *factory, cfg *config.Config) (err error) {
+	return func(sf *factory, cfg config.Config) (err error) {
 		if kv == nil {
 			return errors.New("Invalid empty trie db")
 		}
@@ -108,12 +108,12 @@ func PrecreatedTrieDBOption(kv db.KVStore) FactoryOption {
 
 // DefaultTrieOption creates trie from config for state factory
 func DefaultTrieOption() FactoryOption {
-	return func(sf *factory, cfg *config.Config) (err error) {
+	return func(sf *factory, cfg config.Config) (err error) {
 		dbPath := cfg.Chain.TrieDBPath
 		if len(dbPath) == 0 {
 			return errors.New("Invalid empty trie db path")
 		}
-		trieDB := db.NewBoltDB(dbPath, &cfg.DB)
+		trieDB := db.NewBoltDB(dbPath, cfg.DB)
 		if err = trieDB.Start(context.Background()); err != nil {
 			return errors.Wrap(err, "failed to start trie db")
 		}
@@ -131,7 +131,7 @@ func DefaultTrieOption() FactoryOption {
 
 // InMemTrieOption creates in memory trie for state factory
 func InMemTrieOption() FactoryOption {
-	return func(sf *factory, cfg *config.Config) (err error) {
+	return func(sf *factory, cfg config.Config) (err error) {
 		trieDB := db.NewMemKVStore()
 		if err = trieDB.Start(context.Background()); err != nil {
 			return errors.Wrap(err, "failed to start trie db")
@@ -149,7 +149,7 @@ func InMemTrieOption() FactoryOption {
 }
 
 // NewFactory creates a new state factory
-func NewFactory(cfg *config.Config, opts ...FactoryOption) (Factory, error) {
+func NewFactory(cfg config.Config, opts ...FactoryOption) (Factory, error) {
 	sf := &factory{
 		currentChainHeight: 0,
 		numCandidates:      cfg.Chain.NumCandidates,
@@ -167,12 +167,25 @@ func NewFactory(cfg *config.Config, opts ...FactoryOption) (Factory, error) {
 	return sf, nil
 }
 
-func (sf *factory) Start(ctx context.Context) error { return sf.lifecycle.OnStart(ctx) }
+func (sf *factory) Start(ctx context.Context) error {
+	sf.mutex.Lock()
+	defer sf.mutex.Unlock()
 
-func (sf *factory) Stop(ctx context.Context) error { return sf.lifecycle.OnStop(ctx) }
+	return sf.lifecycle.OnStart(ctx)
+}
+
+func (sf *factory) Stop(ctx context.Context) error {
+	sf.mutex.Lock()
+	defer sf.mutex.Unlock()
+
+	return sf.lifecycle.OnStop(ctx)
+}
 
 // AddActionHandlers adds action handlers to the state factory
 func (sf *factory) AddActionHandlers(actionHandlers ...ActionHandler) {
+	sf.mutex.Lock()
+	defer sf.mutex.Unlock()
+
 	sf.actionHandlers = append(sf.actionHandlers, actionHandlers...)
 }
 
@@ -181,7 +194,9 @@ func (sf *factory) AddActionHandlers(actionHandlers ...ActionHandler) {
 //======================================
 // Balance returns balance
 func (sf *factory) Balance(addr string) (*big.Int, error) {
-	account, err := sf.AccountState(addr)
+	sf.mutex.RLock()
+	defer sf.mutex.RUnlock()
+	account, err := sf.accountState(addr)
 	if err != nil {
 		return nil, err
 	}
@@ -190,7 +205,9 @@ func (sf *factory) Balance(addr string) (*big.Int, error) {
 
 // Nonce returns the Nonce if the account exists
 func (sf *factory) Nonce(addr string) (uint64, error) {
-	account, err := sf.AccountState(addr)
+	sf.mutex.RLock()
+	defer sf.mutex.RUnlock()
+	account, err := sf.accountState(addr)
 	if err != nil {
 		return 0, err
 	}
@@ -202,20 +219,7 @@ func (sf *factory) AccountState(addr string) (*Account, error) {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
 
-	pkHash, err := iotxaddress.AddressToPKHash(addr)
-	if err != nil {
-		return nil, errors.Wrap(err, "error when getting the pubkey hash")
-	}
-	var account Account
-	state, err := sf.State(pkHash, &account)
-	if err != nil {
-		return nil, errors.Wrapf(err, "error when loading state of %x", pkHash)
-	}
-	accountPtr, ok := state.(*Account)
-	if !ok {
-		return nil, errors.New("error when casting state into account")
-	}
-	return accountPtr, nil
+	return sf.accountState(addr)
 }
 
 // RootHash returns the hash of the root node of the state trie
@@ -244,13 +248,14 @@ func (sf *factory) NewWorkingSet() (WorkingSet, error) {
 
 // Commit persists all changes in RunActions() into the DB
 func (sf *factory) Commit(ws WorkingSet) error {
+	if ws == nil {
+		return nil
+	}
 	sf.mutex.Lock()
 	defer sf.mutex.Unlock()
-	if ws != nil {
-		if sf.currentChainHeight != ws.Version() {
-			// another working set with correct version already committed, do nothing
-			return nil
-		}
+	if sf.currentChainHeight != ws.Version() {
+		// another working set with correct version already committed, do nothing
+		return nil
 	}
 	if err := ws.Commit(); err != nil {
 		return errors.Wrap(err, "failed to commit working set")
@@ -290,17 +295,8 @@ func (sf *factory) CandidatesByHeight(height uint64) ([]*Candidate, error) {
 func (sf *factory) State(addr hash.PKHash, state State) (State, error) {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
-	data, err := sf.accountTrie.Get(addr[:])
-	if err != nil {
-		if errors.Cause(err) == trie.ErrNotExist {
-			return nil, errors.Wrapf(ErrStateNotExist, "state of %x doesn't exist", addr)
-		}
-		return nil, errors.Wrapf(err, "error when getting the state of %x", addr)
-	}
-	if err := state.Deserialize(data); err != nil {
-		return nil, errors.Wrapf(err, "error when deserializing state data into %T", state)
-	}
-	return state, nil
+
+	return sf.state(addr, state)
 }
 
 //======================================
@@ -317,4 +313,35 @@ func (sf *factory) getRoot(nameSpace string, key string) (hash.Hash32B, error) {
 		return hash.ZeroHash32B, err
 	}
 	return trieRoot, nil
+}
+
+func (sf *factory) state(addr hash.PKHash, state State) (State, error) {
+	data, err := sf.accountTrie.Get(addr[:])
+	if err != nil {
+		if errors.Cause(err) == trie.ErrNotExist {
+			return nil, errors.Wrapf(ErrStateNotExist, "state of %x doesn't exist", addr)
+		}
+		return nil, errors.Wrapf(err, "error when getting the state of %x", addr)
+	}
+	if err := state.Deserialize(data); err != nil {
+		return nil, errors.Wrapf(err, "error when deserializing state data into %T", state)
+	}
+	return state, nil
+}
+
+func (sf *factory) accountState(addr string) (*Account, error) {
+	pkHash, err := iotxaddress.AddressToPKHash(addr)
+	if err != nil {
+		return nil, errors.Wrap(err, "error when getting the pubkey hash")
+	}
+	var account Account
+	state, err := sf.state(pkHash, &account)
+	if err != nil {
+		return nil, errors.Wrapf(err, "error when loading state of %x", pkHash)
+	}
+	accountPtr, ok := state.(*Account)
+	if !ok {
+		return nil, errors.New("error when casting state into account")
+	}
+	return accountPtr, nil
 }

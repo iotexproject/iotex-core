@@ -91,7 +91,9 @@ func newProposeBlkEvtFromProtoMsg(pMsg *iproto.ProposePb, c clock.Clock) *propos
 		return nil
 	}
 	block := &blockchain.Block{}
-	block.ConvertFromBlockPb(pMsg.Block)
+	if err := block.ConvertFromBlockPb(pMsg.Block); err != nil {
+		return nil
+	}
 	var lockProof *endorsement.Set
 	if pMsg.LockProof != nil {
 		lockProof = &endorsement.Set{}

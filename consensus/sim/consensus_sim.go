@@ -52,7 +52,7 @@ type sim struct {
 
 // NewSim creates a consensus_sim struct
 func NewSim(
-	cfg *config.Config,
+	cfg config.Config,
 	bc blockchain.Blockchain,
 	ap actpool.ActPool,
 	p2p network.Overlay,
@@ -123,7 +123,7 @@ func NewSim(
 
 // NewSimByzantine creates a byzantine consensus_sim struct
 func NewSimByzantine(
-	cfg *config.Config,
+	cfg config.Config,
 	bc blockchain.Blockchain,
 	ap actpool.ActPool,
 	p2p network.Overlay,

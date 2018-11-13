@@ -28,7 +28,7 @@ var (
 	testV1  = [3][]byte{[]byte("value_1"), []byte("value_2"), []byte("value_3")}
 	testK2  = [3][]byte{[]byte("key_4"), []byte("key_5"), []byte("key_6")}
 	testV2  = [3][]byte{[]byte("value_4"), []byte("value_5"), []byte("value_6")}
-	cfg     = &config.Default.DB
+	cfg     = config.Default.DB
 )
 
 func TestKVStorePutGet(t *testing.T) {
@@ -388,6 +388,7 @@ func TestCachedBatch(t *testing.T) {
 	require.Equal(Delete, w.writeType)
 
 	w, err = cb.Entry(3)
+	require.NoError(err)
 	require.Equal(bucket1, w.namespace)
 	require.Equal(testK1[0], w.key)
 	require.Equal(testV1[0], w.value)

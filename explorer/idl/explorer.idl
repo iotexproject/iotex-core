@@ -269,6 +269,41 @@ struct SettleDepositResponse {
     hash string
 }
 
+struct CreateDeposit {
+    version int
+    ID string
+    nonce int
+    sender string
+    recipient string
+    amount string
+    senderPubKey string
+    signature string
+    gasLimit int
+    gasPrice string
+    fee string
+    timestamp int
+    blockID string
+    isPending bool
+}
+
+struct SettleDeposit {
+    version int
+    ID string
+    nonce int
+    sender string
+    recipient string
+    amount string
+    index int
+    senderPubKey string
+    signature string
+    gasLimit int
+    gasPrice string
+    fee string
+    timestamp int
+    blockID string
+    isPending bool
+}
+
 interface Explorer {
     // get the blockchain tip height
     getBlockchainHeight() int
@@ -323,6 +358,18 @@ interface Explorer {
 
     // get all executions in a block
     getExecutionsByBlockID(blkID string, offset int, limit int) []Execution
+
+    // get create deposit from id
+    getCreateDeposit(createDepositID string) CreateDeposit
+
+    // get list of create deposits belonging to an address
+    getCreateDepositsByAddress(address string, offset int, limit int) []CreateDeposit
+
+    // get settle deposit from id
+    getSettleDeposit(settleDepositID string) SettleDeposit
+
+    // get list of settle deposits belonging to an address
+    getSettleDepositsByAddress(address string, offset int, limit int) []SettleDeposit
 
     // get list of blocks by block id offset and limit
     getLastBlocksByRange(offset int, limit int) []Block

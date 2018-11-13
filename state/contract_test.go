@@ -33,7 +33,7 @@ func TestCreateContract(t *testing.T) {
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
 
-	sf, err := NewFactory(&cfg, DefaultTrieOption())
+	sf, err := NewFactory(cfg, DefaultTrieOption())
 	require.Nil(err)
 	require.Nil(sf.Start(context.Background()))
 
@@ -60,8 +60,13 @@ func TestCreateContract(t *testing.T) {
 	require.Error(err)
 	require.Equal([]byte(nil), v)
 	gasLimit := testutil.TestGasLimit
-	ctx := Context{testaddress.Addrinfo["producer"].RawAddress, &gasLimit, testutil.EnableGasCharge}
-	_, _, err = ws.RunActions(0, nil, ctx)
+	ctx := WithRunActionsCtx(context.Background(),
+		RunActionsCtx{
+			ProducerAddr:    testaddress.Addrinfo["producer"].RawAddress,
+			GasLimit:        &gasLimit,
+			EnableGasCharge: testutil.EnableGasCharge,
+		})
+	_, _, err = ws.RunActions(ctx, 0, nil)
 	require.Nil(err)
 	// reload same contract
 	contract1, err := ws.LoadOrCreateAccountState(addr.RawAddress, big.NewInt(0))
@@ -70,7 +75,7 @@ func TestCreateContract(t *testing.T) {
 	require.Nil(sf.Commit(ws))
 	require.Nil(sf.Stop(context.Background()))
 
-	sf, err = NewFactory(&cfg, PrecreatedTrieDBOption(db.NewBoltDB(testTriePath, nil)))
+	sf, err = NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(testTriePath, config.DB{})))
 	require.Nil(err)
 	require.Nil(sf.Start(context.Background()))
 	// reload same contract
@@ -95,7 +100,7 @@ func TestLoadStoreContract(t *testing.T) {
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
-	sf, err := NewFactory(&cfg, DefaultTrieOption())
+	sf, err := NewFactory(cfg, DefaultTrieOption())
 	require.Nil(err)
 	require.Nil(sf.Start(context.Background()))
 
@@ -141,14 +146,19 @@ func TestLoadStoreContract(t *testing.T) {
 	require.Nil(ws.SetContractState(contract1, k3, v3))
 	require.Nil(ws.SetContractState(contract1, k4, v4))
 	gasLimit := testutil.TestGasLimit
-	ctx := Context{testaddress.Addrinfo["producer"].RawAddress, &gasLimit, testutil.EnableGasCharge}
-	_, _, err = ws.RunActions(0, nil, ctx)
+	ctx := WithRunActionsCtx(context.Background(),
+		RunActionsCtx{
+			ProducerAddr:    testaddress.Addrinfo["producer"].RawAddress,
+			GasLimit:        &gasLimit,
+			EnableGasCharge: testutil.EnableGasCharge,
+		})
+	_, _, err = ws.RunActions(ctx, 0, nil)
 	require.Nil(err)
 	require.Nil(sf.Commit(ws))
 	require.Nil(sf.Stop(context.Background()))
 
 	// re-open the StateFactory
-	sf, err = NewFactory(&cfg, PrecreatedTrieDBOption(db.NewBoltDB(testTriePath, nil)))
+	sf, err = NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(testTriePath, config.DB{})))
 	require.Nil(err)
 	require.Nil(sf.Start(context.Background()))
 	// query first contract

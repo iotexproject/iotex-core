@@ -20,6 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
+	"github.com/iotexproject/iotex-core/state"
 )
 
 const testnetActionPath = "testnet_actions.yaml"
@@ -85,33 +86,46 @@ func (g *Genesis) CreatorAddr(chainID uint32) string {
 	return generateAddr(chainID, pk)
 }
 
+// CreatorPKHash returns the creator public key hash
+func (g *Genesis) CreatorPKHash() hash.PKHash {
+	pk, _ := decodeKey(g.CreatorPubKey, "")
+	return keypair.HashPubKey(pk)
+}
+
 // NewGenesisBlock creates a new genesis block
-func NewGenesisBlock(cfg *config.Config) *Block {
-	var filePath string
-	if cfg != nil && cfg.Chain.GenesisActionsPath != "" {
-		filePath = cfg.Chain.GenesisActionsPath
-	} else {
-		filePath = fileutil.GetFileAbsPath(testnetActionPath)
+func NewGenesisBlock(chainCfg config.Chain, ws state.WorkingSet) *Block {
+	actions := loadGenesisData(chainCfg)
+	// add initial allocation
+	alloc := big.NewInt(0)
+	for _, transfer := range actions.Transfers {
+		rpk, _ := decodeKey(transfer.RecipientPK, "")
+		recipientAddr := generateAddr(chainCfg.ID, rpk)
+		amount := ConvertIotxToRau(transfer.Amount)
+		account, err := ws.LoadOrCreateAccountState(recipientAddr, amount)
+		if err != nil {
+			logger.Panic().Err(err).Msg("failed to add initial allocation")
+		}
+		if err := ws.PutState(keypair.HashPubKey(rpk), account); err != nil {
+			logger.Panic().Err(err).Msg("failed to put initial allocation")
+		}
+		alloc.Add(alloc, amount)
 	}
-
-	actionsBytes, err := ioutil.ReadFile(filePath)
-	if err != nil {
-		logger.Panic().Err(err).Msg("Fail to create genesis block")
-	}
-	actions := GenesisAction{}
-	if err := yaml.Unmarshal(actionsBytes, &actions); err != nil {
-		logger.Panic().Err(err).Msg("Fail to create genesis block")
-	}
-
+	// add creator
 	Gen.CreatorPubKey = actions.Creation.PubKey
-	Gen.CreatorPrivKey = actions.Creation.PriKey
-	_, creatorPrik := decodeKey(Gen.CreatorPubKey, Gen.CreatorPrivKey)
-	creatorAddr := Gen.CreatorAddr(cfg.Chain.ID)
+	creatorAddr := Gen.CreatorAddr(chainCfg.ID)
+	account, err := ws.LoadOrCreateAccountState(creatorAddr, alloc.Sub(Gen.TotalSupply, alloc))
+	if err != nil {
+		logger.Panic().Err(err).Msg("failed to add creator")
+	}
+	if err := ws.PutState(Gen.CreatorPKHash(), account); err != nil {
+		logger.Panic().Err(err).Msg("failed to put creator")
+	}
 
+	// TODO: convert vote to state operation as well
 	acts := make([]action.Action, 0)
 	for _, nominator := range actions.SelfNominators {
-		pk, sk := decodeKey(nominator.PubKey, nominator.PriKey)
-		address := generateAddr(cfg.Chain.ID, pk)
+		pk, _ := decodeKey(nominator.PubKey, "")
+		address := generateAddr(chainCfg.ID, pk)
 		vote, err := action.NewVote(
 			0,
 			address,
@@ -122,34 +136,11 @@ func NewGenesisBlock(cfg *config.Config) *Block {
 		if err != nil {
 			logger.Panic().Err(err).Msg("Fail to create the new vote action")
 		}
-		if err := action.Sign(vote, sk); err != nil {
-			logger.Panic().Err(err).Msg("Fail to sign the new vote action")
-		}
 		acts = append(acts, vote)
 	}
 
-	for _, transfer := range actions.Transfers {
-		rpk, _ := decodeKey(transfer.RecipientPK, "")
-		recipientAddr := generateAddr(cfg.Chain.ID, rpk)
-		tsf, err := action.NewTransfer(
-			0,
-			ConvertIotxToRau(transfer.Amount),
-			creatorAddr,
-			recipientAddr,
-			[]byte{},
-			0,
-			big.NewInt(0),
-		)
-		if err != nil {
-			logger.Panic().Err(err).Msg("Fail to create the new transfer action")
-		}
-		if err := action.Sign(tsf, creatorPrik); err != nil {
-			logger.Panic().Err(err).Msg("Fail to sign the new transfer action")
-		}
-		acts = append(acts, tsf)
-	}
-
-	if cfg.Chain.EnableSubChainStartInGenesis {
+	// TODO: decouple start sub-chain from genesis block
+	if chainCfg.EnableSubChainStartInGenesis {
 		for _, sc := range actions.SubChains {
 			start := action.NewStartSubChain(
 				0,
@@ -162,9 +153,6 @@ func NewGenesisBlock(cfg *config.Config) *Block {
 				0,
 				big.NewInt(0),
 			)
-			if err := action.Sign(start, creatorPrik); err != nil {
-				logger.Panic().Err(err).Msg("Fail to sign the new start sub-chain action")
-			}
 			acts = append(acts, start)
 		}
 	}
@@ -172,7 +160,7 @@ func NewGenesisBlock(cfg *config.Config) *Block {
 	block := &Block{
 		Header: &BlockHeader{
 			version:       version.ProtocolVersion,
-			chainID:       cfg.Chain.ID,
+			chainID:       chainCfg.ID,
 			height:        uint64(0),
 			timestamp:     Gen.Timestamp,
 			prevBlockHash: Gen.ParentHash,
@@ -210,4 +198,24 @@ func decodeKey(pubK string, priK string) (pk keypair.PublicKey, sk keypair.Priva
 func generateAddr(chainID uint32, pk keypair.PublicKey) string {
 	pkHash := keypair.HashPubKey(pk)
 	return address.New(chainID, pkHash[:]).IotxAddress()
+}
+
+// loadGenesisData loads data of creator and actions contained in genesis block
+func loadGenesisData(chainCfg config.Chain) GenesisAction {
+	var filePath string
+	if chainCfg.GenesisActionsPath != "" {
+		filePath = chainCfg.GenesisActionsPath
+	} else {
+		filePath = fileutil.GetFileAbsPath(testnetActionPath)
+	}
+
+	actionsBytes, err := ioutil.ReadFile(filePath)
+	if err != nil {
+		logger.Panic().Err(err).Msg("Fail to load genesis data")
+	}
+	actions := GenesisAction{}
+	if err := yaml.Unmarshal(actionsBytes, &actions); err != nil {
+		logger.Panic().Err(err).Msg("Fail to unmarshal genesis data")
+	}
+	return actions
 }

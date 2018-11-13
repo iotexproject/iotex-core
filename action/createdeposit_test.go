@@ -10,10 +10,11 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/iotexproject/iotex-core/address"
-	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotexproject/iotex-core/address"
+	"github.com/iotexproject/iotex-core/test/testaddress"
 )
 
 func TestCreateDeposit(t *testing.T) {
@@ -45,6 +46,6 @@ func TestCreateDeposit(t *testing.T) {
 	data := deposit1.Proto()
 	require.NotNil(t, data)
 	var deposit2 CreateDeposit
-	deposit2.LoadProto(data)
+	assert.NoError(t, deposit2.LoadProto(data))
 	assertDeposit(&deposit2)
 }

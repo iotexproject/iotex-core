@@ -213,7 +213,7 @@ func TestHandleStartSubChain(t *testing.T) {
 
 	cfg := config.Default
 	ctx := context.Background()
-	sf, err := state.NewFactory(&cfg, state.InMemTrieOption())
+	sf, err := state.NewFactory(cfg, state.InMemTrieOption())
 	require.NoError(t, err)
 	require.NoError(t, sf.Start(ctx))
 	ctrl := gomock.NewController(t)
@@ -236,8 +236,13 @@ func TestHandleStartSubChain(t *testing.T) {
 	)
 	require.NoError(t, err)
 	gasLimit := testutil.TestGasLimit
-	stateContext := state.Context{testaddress.Addrinfo["producer"].RawAddress, &gasLimit, testutil.EnableGasCharge}
-	_, _, err = ws.RunActions(0, nil, stateContext)
+	ctx = state.WithRunActionsCtx(ctx,
+		state.RunActionsCtx{
+			ProducerAddr:    testaddress.Addrinfo["producer"].RawAddress,
+			GasLimit:        &gasLimit,
+			EnableGasCharge: testutil.EnableGasCharge,
+		})
+	_, _, err = ws.RunActions(ctx, 0, nil)
 	require.NoError(t, err)
 	require.NoError(t, sf.Commit(ws))
 
@@ -289,7 +294,7 @@ func TestNoStartSubChainInGenesis(t *testing.T) {
 	cfg := config.Default
 
 	ctx := context.Background()
-	bc := blockchain.NewBlockchain(&cfg, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	bc := blockchain.NewBlockchain(cfg, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
 	p := NewProtocol(bc)
 	bc.GetFactory().AddActionHandlers(p)
 	require.NoError(t, bc.Start(ctx))
@@ -305,7 +310,7 @@ func TestStartSubChainInGenesis(t *testing.T) {
 	cfg.Chain.EnableSubChainStartInGenesis = true
 
 	ctx := context.Background()
-	bc := blockchain.NewBlockchain(&cfg, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	bc := blockchain.NewBlockchain(cfg, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
 	p := NewProtocol(bc)
 	bc.GetFactory().AddActionHandlers(p)
 	require.NoError(t, bc.Start(ctx))

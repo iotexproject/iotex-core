@@ -63,7 +63,7 @@ func WithTesting() Option {
 }
 
 // New creates a ChainService from config and network.Overlay and dispatcher.Dispatcher.
-func New(cfg *config.Config, p2p network.Overlay, dispatcher dispatcher.Dispatcher, opts ...Option) (*ChainService, error) {
+func New(cfg config.Config, p2p network.Overlay, dispatcher dispatcher.Dispatcher, opts ...Option) (*ChainService, error) {
 	var ops optionParams
 	for _, opt := range opts {
 		if err := opt(&ops); err != nil {
@@ -116,15 +116,10 @@ func New(cfg *config.Config, p2p network.Overlay, dispatcher dispatcher.Dispatch
 		if idx == nil {
 			return nil, errors.Wrap(err, "failed to create index service")
 		}
-	} else {
-		idx = nil
 	}
 
 	var exp *explorer.Server
-	if cfg.Explorer.IsTest || os.Getenv("APP_ENV") == "development" {
-		logger.Warn().Msg("Using test server with fake data...")
-		exp = explorer.NewTestSever(cfg.Explorer)
-	} else {
+	if cfg.Explorer.Enabled {
 		exp = explorer.NewServer(cfg.Explorer, chain, consensus, dispatcher, actPool, p2p, idx)
 	}
 
@@ -154,16 +149,20 @@ func (cs *ChainService) Start(ctx context.Context) error {
 			return errors.Wrap(err, "error when starting indexservice")
 		}
 	}
-	if err := cs.explorer.Start(ctx); err != nil {
-		return errors.Wrap(err, "error when starting explorer")
+	if cs.explorer != nil {
+		if err := cs.explorer.Start(ctx); err != nil {
+			return errors.Wrap(err, "error when starting explorer")
+		}
 	}
 	return nil
 }
 
 // Stop stops the server
 func (cs *ChainService) Stop(ctx context.Context) error {
-	if err := cs.explorer.Stop(ctx); err != nil {
-		return errors.Wrap(err, "error when stopping explorer")
+	if cs.explorer != nil {
+		if err := cs.explorer.Stop(ctx); err != nil {
+			return errors.Wrap(err, "error when stopping explorer")
+		}
 	}
 	if cs.indexservice != nil {
 		if err := cs.indexservice.Stop(ctx); err != nil {
@@ -197,8 +196,16 @@ func (cs *ChainService) HandleAction(actPb *pb.ActionPb) error {
 		act = &action.StartSubChain{}
 	} else if actPb.GetStopSubChain() != nil {
 		act = &action.StopSubChain{}
+	} else if actPb.GetCreateDeposit() != nil {
+		act = &action.CreateDeposit{}
+	} else if actPb.GetSettleDeposit() != nil {
+		act = &action.SettleDeposit{}
+	} else {
+		return errors.New("no appliable action to handle in action proto")
 	}
-	act.LoadProto(actPb)
+	if err := act.LoadProto(actPb); err != nil {
+		return err
+	}
 	if err := cs.actpool.Add(act); err != nil {
 		logger.Debug().
 			Err(err).
@@ -213,14 +220,18 @@ func (cs *ChainService) HandleAction(actPb *pb.ActionPb) error {
 // HandleBlock handles incoming block request.
 func (cs *ChainService) HandleBlock(pbBlock *pb.BlockPb) error {
 	blk := &blockchain.Block{}
-	blk.ConvertFromBlockPb(pbBlock)
+	if err := blk.ConvertFromBlockPb(pbBlock); err != nil {
+		return err
+	}
 	return cs.blocksync.ProcessBlock(blk)
 }
 
 // HandleBlockSync handles incoming block sync request.
 func (cs *ChainService) HandleBlockSync(pbBlock *pb.BlockPb) error {
 	blk := &blockchain.Block{}
-	blk.ConvertFromBlockPb(pbBlock)
+	if err := blk.ConvertFromBlockPb(pbBlock); err != nil {
+		return err
+	}
 	return cs.blocksync.ProcessBlockSync(blk)
 }
 

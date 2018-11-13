@@ -19,9 +19,9 @@ func TestServer(t *testing.T) {
 	require := require.New(t)
 
 	// create chain
-	bc := blockchain.NewBlockchain(&config.Default, blockchain.InMemDaoOption())
+	bc := blockchain.NewBlockchain(config.Default, blockchain.InMemDaoOption())
 
-	svr := NewServer(&config.Default, bc)
+	svr := NewServer(config.Default, bc)
 	err := svr.Start(nil)
 	require.Nil(err)
 

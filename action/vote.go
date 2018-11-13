@@ -132,23 +132,35 @@ func (v *Vote) Serialize() ([]byte, error) {
 }
 
 // LoadProto converts a protobuf's ActionPb to Vote
-func (v *Vote) LoadProto(pbAct *iproto.ActionPb) {
-	v.version = pbAct.Version
-	v.srcAddr = pbAct.Sender
-	copy(v.srcPubkey[:], pbAct.SenderPubKey)
-	v.nonce = pbAct.Nonce
-	v.gasLimit = pbAct.GasLimit
-	if v.gasPrice == nil {
-		v.gasPrice = big.NewInt(0)
+func (v *Vote) LoadProto(pbAct *iproto.ActionPb) error {
+	if pbAct == nil {
+		return errors.New("empty action proto to load")
 	}
-	if len(pbAct.GasPrice) > 0 {
-		v.gasPrice.SetBytes(pbAct.GasPrice)
+	if v == nil {
+		return errors.New("nil action to load proto")
 	}
-	v.signature = pbAct.Signature
+	*v = Vote{}
+	srcPub, err := keypair.BytesToPublicKey(pbAct.SenderPubKey)
+	if err != nil {
+		return err
+	}
 	pbVote := pbAct.GetVote()
-	if pbVote != nil {
-		v.dstAddr = pbVote.VoteeAddress
+	if pbVote == nil {
+		return errors.New("empty Vote action proto to load")
 	}
+
+	ab := &Builder{}
+	act := ab.SetVersion(pbAct.Version).
+		SetNonce(pbAct.Nonce).
+		SetSourceAddress(pbAct.Sender).
+		SetSourcePublicKey(srcPub).
+		SetGasLimit(pbAct.GasLimit).
+		SetGasPriceByBytes(pbAct.GasPrice).
+		SetDestinationAddress(pbVote.VoteeAddress).
+		Build()
+	act.SetSignature(pbAct.Signature)
+	v.AbstractAction = act
+	return nil
 }
 
 // NewVoteFromJSON creates a new Vote from VoteJSON
@@ -189,8 +201,7 @@ func (v *Vote) Deserialize(buf []byte) error {
 	if err := proto.Unmarshal(buf, pbVote); err != nil {
 		return err
 	}
-	v.LoadProto(pbVote)
-	return nil
+	return v.LoadProto(pbVote)
 }
 
 // Hash returns the hash of the Vote

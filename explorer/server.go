@@ -60,14 +60,6 @@ func NewServer(
 	}
 }
 
-// NewTestSever instantiates an explorer server with mock handler
-func NewTestSever(cfg config.Explorer) *Server {
-	return &Server{
-		cfg: cfg,
-		exp: &MockExplorer{},
-	}
-}
-
 // SetMainChainProtocol sets the main-chain side multi-chain protocol
 func (s *Server) SetMainChainProtocol(p *mainchain.Protocol) {
 	svr, ok := s.exp.(*Service)

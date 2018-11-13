@@ -58,7 +58,7 @@ var (
 
 func TestActPool_validateGenericAction(t *testing.T) {
 	require := require.New(t)
-	bc := blockchain.NewBlockchain(&config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	bc := blockchain.NewBlockchain(config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
 	require.NoError(bc.Start(context.Background()))
 	_, err := bc.CreateState(addr1.RawAddress, big.NewInt(100))
 	require.NoError(err)
@@ -72,17 +72,17 @@ func TestActPool_validateGenericAction(t *testing.T) {
 	// Case I: Over-gassed transfer
 	tsf, err := action.NewTransfer(uint64(1), big.NewInt(1), "1", "2", nil, blockchain.GasLimit+1, big.NewInt(0))
 	require.NoError(err)
-	err = validator.Validate(tsf)
+	err = validator.Validate(context.Background(), tsf)
 	require.Equal(action.ErrGasHigherThanLimit, errors.Cause(err))
 	// Case II: Insufficient gas
 	tsf, err = action.NewTransfer(uint64(1), big.NewInt(1), "1", "2", nil, uint64(0), big.NewInt(0))
 	require.NoError(err)
-	err = validator.Validate(tsf)
+	err = validator.Validate(context.Background(), tsf)
 	require.Equal(action.ErrInsufficientBalanceForGas, errors.Cause(err))
 	// Case III: Signature verification fails
 	unsignedTsf, err := action.NewTransfer(uint64(1), big.NewInt(1), addr1.RawAddress, addr1.RawAddress, []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	err = validator.Validate(unsignedTsf)
+	err = validator.Validate(context.Background(), unsignedTsf)
 	require.Equal(action.ErrAction, errors.Cause(err))
 	// Case IV: Nonce is too low
 	prevTsf, err := testutil.SignedTransfer(addr1, addr1, uint64(1), big.NewInt(50),
@@ -95,15 +95,20 @@ func TestActPool_validateGenericAction(t *testing.T) {
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
-	ctx := state.Context{testaddress.Addrinfo["producer"].RawAddress, &gasLimit, testutil.EnableGasCharge}
-	_, _, err = ws.RunActions(0, []action.Action{prevTsf}, ctx)
+	ctx := state.WithRunActionsCtx(context.Background(),
+		state.RunActionsCtx{
+			ProducerAddr:    testaddress.Addrinfo["producer"].RawAddress,
+			GasLimit:        &gasLimit,
+			EnableGasCharge: testutil.EnableGasCharge,
+		})
+	_, _, err = ws.RunActions(ctx, 0, []action.Action{prevTsf})
 	require.NoError(err)
 	require.Nil(sf.Commit(ws))
 	ap.Reset()
 	nTsf, err := testutil.SignedTransfer(addr1, addr1, uint64(1), big.NewInt(60),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	err = validator.Validate(nTsf)
+	err = validator.Validate(context.Background(), nTsf)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 }
 
@@ -111,7 +116,7 @@ func TestActPool_AddActs(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	require := require.New(t)
-	bc := blockchain.NewBlockchain(&config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	bc := blockchain.NewBlockchain(config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
 	require.NoError(bc.Start(context.Background()))
 	_, err := bc.CreateState(addr1.RawAddress, big.NewInt(100))
 	require.NoError(err)
@@ -255,7 +260,7 @@ func TestActPool_AddActs(t *testing.T) {
 func TestActPool_PickActs(t *testing.T) {
 	createActPool := func(cfg config.ActPool) (*actPool, []*action.Transfer, []*action.Vote, []*action.Execution) {
 		require := require.New(t)
-		bc := blockchain.NewBlockchain(&config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+		bc := blockchain.NewBlockchain(config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
 		require.NoError(bc.Start(context.Background()))
 		_, err := bc.CreateState(addr1.RawAddress, big.NewInt(100))
 		require.NoError(err)
@@ -344,7 +349,7 @@ func TestActPool_PickActs(t *testing.T) {
 
 func TestActPool_removeConfirmedActs(t *testing.T) {
 	require := require.New(t)
-	bc := blockchain.NewBlockchain(&config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	bc := blockchain.NewBlockchain(config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
 	require.NoError(bc.Start(context.Background()))
 	_, err := bc.CreateState(addr1.RawAddress, big.NewInt(100))
 	require.NoError(err)
@@ -384,8 +389,13 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
-	ctx := state.Context{testaddress.Addrinfo["producer"].RawAddress, &gasLimit, testutil.EnableGasCharge}
-	_, _, err = ws.RunActions(0, []action.Action{tsf1, tsf2, tsf3, vote4}, ctx)
+	ctx := state.WithRunActionsCtx(context.Background(),
+		state.RunActionsCtx{
+			ProducerAddr:    testaddress.Addrinfo["producer"].RawAddress,
+			GasLimit:        &gasLimit,
+			EnableGasCharge: testutil.EnableGasCharge,
+		})
+	_, _, err = ws.RunActions(ctx, 0, []action.Action{tsf1, tsf2, tsf3, vote4})
 	require.NoError(err)
 	require.Nil(sf.Commit(ws))
 	ap.removeConfirmedActs()
@@ -396,7 +406,7 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 func TestActPool_Reset(t *testing.T) {
 	require := require.New(t)
 
-	bc := blockchain.NewBlockchain(&config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	bc := blockchain.NewBlockchain(config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
 	require.NoError(bc.Start(context.Background()))
 	_, err := bc.CreateState(addr1.RawAddress, big.NewInt(100))
 	require.NoError(err)
@@ -542,8 +552,13 @@ func TestActPool_Reset(t *testing.T) {
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
-	ctx := state.Context{testaddress.Addrinfo["producer"].RawAddress, &gasLimit, testutil.EnableGasCharge}
-	_, _, err = ws.RunActions(0, pickedActs, ctx)
+	ctx := state.WithRunActionsCtx(context.Background(),
+		state.RunActionsCtx{
+			ProducerAddr:    testaddress.Addrinfo["producer"].RawAddress,
+			GasLimit:        &gasLimit,
+			EnableGasCharge: testutil.EnableGasCharge,
+		})
+	_, _, err = ws.RunActions(ctx, 0, pickedActs)
 	require.NoError(err)
 	require.Nil(sf.Commit(ws))
 	//Reset
@@ -654,8 +669,13 @@ func TestActPool_Reset(t *testing.T) {
 	// ap2 commits update of accounts to trie
 	ws, err = sf.NewWorkingSet()
 	require.NoError(err)
-	ctx = state.Context{testaddress.Addrinfo["producer"].RawAddress, &gasLimit, testutil.EnableGasCharge}
-	_, _, err = ws.RunActions(0, pickedActs, ctx)
+	ctx = state.WithRunActionsCtx(context.Background(),
+		state.RunActionsCtx{
+			ProducerAddr:    testaddress.Addrinfo["producer"].RawAddress,
+			GasLimit:        &gasLimit,
+			EnableGasCharge: testutil.EnableGasCharge,
+		})
+	_, _, err = ws.RunActions(ctx, 0, pickedActs)
 	require.NoError(err)
 	require.Nil(sf.Commit(ws))
 	//Reset
@@ -747,8 +767,14 @@ func TestActPool_Reset(t *testing.T) {
 	// ap1 commits update of accounts to trie
 	ws, err = sf.NewWorkingSet()
 	require.NoError(err)
-	ctx = state.Context{testaddress.Addrinfo["producer"].RawAddress, &gasLimit, testutil.EnableGasCharge}
-	_, _, err = ws.RunActions(0, pickedActs, ctx)
+
+	ctx = state.WithRunActionsCtx(context.Background(),
+		state.RunActionsCtx{
+			ProducerAddr:    testaddress.Addrinfo["producer"].RawAddress,
+			GasLimit:        &gasLimit,
+			EnableGasCharge: testutil.EnableGasCharge,
+		})
+	_, _, err = ws.RunActions(ctx, 0, pickedActs)
 	require.NoError(err)
 	require.Nil(sf.Commit(ws))
 	//Reset
@@ -769,7 +795,7 @@ func TestActPool_Reset(t *testing.T) {
 
 func TestActPool_removeInvalidActs(t *testing.T) {
 	require := require.New(t)
-	bc := blockchain.NewBlockchain(&config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	bc := blockchain.NewBlockchain(config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
 	require.NoError(bc.Start(context.Background()))
 	_, err := bc.CreateState(addr1.RawAddress, big.NewInt(100))
 	require.NoError(err)
@@ -814,7 +840,7 @@ func TestActPool_removeInvalidActs(t *testing.T) {
 
 func TestActPool_GetPendingNonce(t *testing.T) {
 	require := require.New(t)
-	bc := blockchain.NewBlockchain(&config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	bc := blockchain.NewBlockchain(config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
 	require.NoError(bc.Start(context.Background()))
 	_, err := bc.CreateState(addr1.RawAddress, big.NewInt(100))
 	require.NoError(err)
@@ -855,7 +881,7 @@ func TestActPool_GetPendingNonce(t *testing.T) {
 
 func TestActPool_GetUnconfirmedActs(t *testing.T) {
 	require := require.New(t)
-	bc := blockchain.NewBlockchain(&config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	bc := blockchain.NewBlockchain(config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
 	require.NoError(bc.Start(context.Background()))
 	_, err := bc.CreateState(addr1.RawAddress, big.NewInt(100))
 	require.NoError(err)
@@ -894,7 +920,7 @@ func TestActPool_GetUnconfirmedActs(t *testing.T) {
 
 func TestActPool_GetActionByHash(t *testing.T) {
 	require := require.New(t)
-	bc := blockchain.NewBlockchain(&config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	bc := blockchain.NewBlockchain(config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
 	require.NoError(bc.Start(context.Background()))
 	_, err := bc.CreateState(addr1.RawAddress, big.NewInt(100))
 	require.NoError(err)
@@ -931,7 +957,7 @@ func TestActPool_GetActionByHash(t *testing.T) {
 
 func TestActPool_GetCapacity(t *testing.T) {
 	require := require.New(t)
-	bc := blockchain.NewBlockchain(&config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	bc := blockchain.NewBlockchain(config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
 	// Create actpool
 	apConfig := getActPoolCfg()
 	Ap, err := NewActPool(bc, apConfig)
@@ -943,7 +969,7 @@ func TestActPool_GetCapacity(t *testing.T) {
 
 func TestActPool_GetSize(t *testing.T) {
 	require := require.New(t)
-	bc := blockchain.NewBlockchain(&config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	bc := blockchain.NewBlockchain(config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
 	require.NoError(bc.Start(context.Background()))
 	_, err := bc.CreateState(addr1.RawAddress, big.NewInt(100))
 	require.NoError(err)
@@ -977,8 +1003,14 @@ func TestActPool_GetSize(t *testing.T) {
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
-	ctx := state.Context{testaddress.Addrinfo["producer"].RawAddress, &gasLimit, testutil.EnableGasCharge}
-	_, _, err = ws.RunActions(0, []action.Action{tsf1, tsf2, tsf3, vote4}, ctx)
+
+	ctx := state.WithRunActionsCtx(context.Background(),
+		state.RunActionsCtx{
+			ProducerAddr:    testaddress.Addrinfo["producer"].RawAddress,
+			GasLimit:        &gasLimit,
+			EnableGasCharge: testutil.EnableGasCharge,
+		})
+	_, _, err = ws.RunActions(ctx, 0, []action.Action{tsf1, tsf2, tsf3, vote4})
 	require.NoError(err)
 	require.Nil(sf.Commit(ws))
 	ap.removeConfirmedActs()

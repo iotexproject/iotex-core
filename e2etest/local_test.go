@@ -58,7 +58,7 @@ func TestLocalCommit(t *testing.T) {
 
 	// create client
 	cfg.Network.BootstrapNodes = []string{svr.P2P().Self().String()}
-	p := network.NewOverlay(&cfg.Network)
+	p := network.NewOverlay(cfg.Network)
 	require.NotNil(p)
 	require.NoError(p.Start(ctx))
 
@@ -440,7 +440,7 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.NotNil(svr.ChainService(chainID).ActionPool())
 
 	cfg.Network.BootstrapNodes = []string{svr.P2P().Self().String()}
-	p := network.NewOverlay(&cfg.Network)
+	p := network.NewOverlay(cfg.Network)
 	require.NotNil(p)
 	require.NoError(p.Start(ctx))
 
@@ -708,26 +708,33 @@ func TestBlockchainRecovery(t *testing.T) {
 	// stop server and delete state db
 	require.NoError(svr.Stop(ctx))
 	testutil.CleanupPath(t, testTriePath)
+	testutil.CleanupPath(t, testDBPath)
 
 	// restart server
 	svr, err = itx.NewServer(cfg)
 	require.Nil(err)
 	require.NoError(svr.Start(ctx))
+
+	blockchainHeight := svr.ChainService(cfg.Chain.ID).Blockchain().TipHeight()
+	factoryHeight, err := svr.ChainService(cfg.Chain.ID).Blockchain().GetFactory().Height()
+	require.NoError(err)
+	require.Equal(blockchainHeight, factoryHeight)
 }
 
-func newTestConfig() (*config.Config, error) {
+func newTestConfig() (config.Config, error) {
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Consensus.Scheme = config.NOOPScheme
 	cfg.Network.Port = 0
+	cfg.Explorer.Enabled = true
 	cfg.Explorer.Port = 0
 
 	pk, sk, err := crypto.EC283.NewKeyPair()
 	if err != nil {
-		return nil, err
+		return config.Config{}, err
 	}
 	cfg.Chain.ProducerPubKey = keypair.EncodePublicKey(pk)
 	cfg.Chain.ProducerPrivKey = keypair.EncodePrivateKey(sk)
-	return &cfg, nil
+	return cfg, nil
 }

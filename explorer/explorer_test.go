@@ -157,7 +157,7 @@ func TestExplorerApi(t *testing.T) {
 	testutil.CleanupPath(t, testDBPath)
 	defer testutil.CleanupPath(t, testDBPath)
 
-	sf, err := state.NewFactory(&cfg, state.InMemTrieOption())
+	sf, err := state.NewFactory(cfg, state.InMemTrieOption())
 	require.Nil(err)
 	require.Nil(sf.Start(context.Background()))
 	require.NoError(addCreatorToFactory(sf))
@@ -166,7 +166,7 @@ func TestExplorerApi(t *testing.T) {
 
 	// create chain
 	ctx := context.Background()
-	bc := blockchain.NewBlockchain(&cfg, blockchain.PrecreatedStateFactoryOption(sf), blockchain.InMemDaoOption())
+	bc := blockchain.NewBlockchain(cfg, blockchain.PrecreatedStateFactoryOption(sf), blockchain.InMemDaoOption())
 	require.NoError(bc.Start(ctx))
 	require.NotNil(bc)
 	ap, err := actpool.NewActPool(bc, cfg.ActPool)
@@ -225,7 +225,7 @@ func TestExplorerApi(t *testing.T) {
 	require.Equal(3, len(transfers))
 	require.Nil(err)
 	transfers, err = svc.GetLastTransfersByRange(4, 4, 5, false)
-	require.Equal(5, len(transfers))
+	require.Equal(1, len(transfers))
 	require.Nil(err)
 
 	votes, err = svc.GetLastVotesByRange(4, 0, 10)
@@ -326,7 +326,7 @@ func TestExplorerApi(t *testing.T) {
 	require.Nil(err)
 	require.Equal(blockchain.Gen.TotalSupply.String(), stats.Supply)
 	require.Equal(int64(4), stats.Height)
-	require.Equal(int64(32), stats.Transfers)
+	require.Equal(int64(9), stats.Transfers)
 	require.Equal(int64(24), stats.Votes)
 	require.Equal(int64(3), stats.Executions)
 	require.Equal(int64(15), stats.Aps)
@@ -647,7 +647,7 @@ func TestServicePutSubChainBlock(t *testing.T) {
 	p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Times(1)
 
 	roots := []explorer.PutSubChainBlockMerkelRoot{
-		explorer.PutSubChainBlockMerkelRoot{
+		{
 			Name:  "a",
 			Value: hex.EncodeToString([]byte("xddd")),
 		},
@@ -809,7 +809,7 @@ func TestExplorerGetReceiptByExecutionID(t *testing.T) {
 	testutil.CleanupPath(t, testDBPath)
 	defer testutil.CleanupPath(t, testDBPath)
 
-	sf, err := state.NewFactory(&cfg, state.InMemTrieOption())
+	sf, err := state.NewFactory(cfg, state.InMemTrieOption())
 	require.Nil(err)
 	require.Nil(sf.Start(context.Background()))
 	require.NoError(addCreatorToFactory(sf))
@@ -818,7 +818,7 @@ func TestExplorerGetReceiptByExecutionID(t *testing.T) {
 
 	// create chain
 	ctx := context.Background()
-	bc := blockchain.NewBlockchain(&cfg, blockchain.PrecreatedStateFactoryOption(sf), blockchain.InMemDaoOption())
+	bc := blockchain.NewBlockchain(cfg, blockchain.PrecreatedStateFactoryOption(sf), blockchain.InMemDaoOption())
 	require.NoError(bc.Start(ctx))
 	require.NotNil(bc)
 	require.Nil(err)
@@ -962,7 +962,7 @@ func TestService_GetDeposits(t *testing.T) {
 	cfg := config.Default
 	ctx := context.Background()
 	bc := mock_blockchain.NewMockBlockchain(ctrl)
-	sf, err := state.NewFactory(&cfg, state.InMemTrieOption())
+	sf, err := state.NewFactory(cfg, state.InMemTrieOption())
 	require.NoError(err)
 	require.NoError(sf.Start(ctx))
 	bc.EXPECT().GetFactory().Return(sf).AnyTimes()
@@ -1053,12 +1053,14 @@ func addCreatorToFactory(sf state.Factory) error {
 		return err
 	}
 	gasLimit := testutil.TestGasLimit
-	ctx := state.Context{ta.Addrinfo["producer"].RawAddress, &gasLimit, testutil.EnableGasCharge}
-	if _, _, err = ws.RunActions(0, nil, ctx); err != nil {
+	ctx := state.WithRunActionsCtx(context.Background(),
+		state.RunActionsCtx{
+			ProducerAddr:    ta.Addrinfo["producer"].RawAddress,
+			GasLimit:        &gasLimit,
+			EnableGasCharge: testutil.EnableGasCharge,
+		})
+	if _, _, err = ws.RunActions(ctx, 0, nil); err != nil {
 		return err
 	}
-	if err = sf.Commit(ws); err != nil {
-		return err
-	}
-	return nil
+	return sf.Commit(ws)
 }

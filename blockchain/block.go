@@ -257,7 +257,7 @@ func (b *Block) ConvertFromBlockHeaderPb(pbBlock *iproto.BlockPb) {
 }
 
 // ConvertFromBlockPb converts BlockPb to Block
-func (b *Block) ConvertFromBlockPb(pbBlock *iproto.BlockPb) {
+func (b *Block) ConvertFromBlockPb(pbBlock *iproto.BlockPb) error {
 	b.ConvertFromBlockHeaderPb(pbBlock)
 
 	b.SecretProposals = []*action.SecretProposal{}
@@ -267,38 +267,67 @@ func (b *Block) ConvertFromBlockPb(pbBlock *iproto.BlockPb) {
 	for _, actPb := range pbBlock.Actions {
 		if secretProposalPb := actPb.GetSecretProposal(); secretProposalPb != nil {
 			secretProposal := &action.SecretProposal{}
-			secretProposal.LoadProto(actPb)
+			if err := secretProposal.LoadProto(actPb); err != nil {
+				return err
+			}
 			b.SecretProposals = append(b.SecretProposals, secretProposal)
 		} else if secretWitnessPb := actPb.GetSecretWitness(); secretWitnessPb != nil {
 			secretWitness := &action.SecretWitness{}
-			secretWitness.LoadProto(actPb)
+			if err := secretWitness.LoadProto(actPb); err != nil {
+				return err
+			}
 			b.SecretWitness = secretWitness
 		} else if transferPb := actPb.GetTransfer(); transferPb != nil {
 			transfer := &action.Transfer{}
-			transfer.LoadProto(actPb)
+			if err := transfer.LoadProto(actPb); err != nil {
+				return err
+			}
 			b.Actions = append(b.Actions, transfer)
 		} else if votePb := actPb.GetVote(); votePb != nil {
 			vote := &action.Vote{}
-			vote.LoadProto(actPb)
+			if err := vote.LoadProto(actPb); err != nil {
+				return err
+			}
 			b.Actions = append(b.Actions, vote)
 		} else if executionPb := actPb.GetExecution(); executionPb != nil {
 			execution := &action.Execution{}
-			execution.LoadProto(actPb)
+			if err := execution.LoadProto(actPb); err != nil {
+				return err
+			}
 			b.Actions = append(b.Actions, execution)
-		} else if start := actPb.GetStartSubChain(); start != nil {
+		} else if startPb := actPb.GetStartSubChain(); startPb != nil {
 			start := &action.StartSubChain{}
-			start.LoadProto(actPb)
+			if err := start.LoadProto(actPb); err != nil {
+				return err
+			}
 			b.Actions = append(b.Actions, start)
-		} else if stop := actPb.GetStopSubChain(); stop != nil {
+		} else if stopPb := actPb.GetStopSubChain(); stopPb != nil {
 			stop := &action.StopSubChain{}
-			stop.LoadProto(actPb)
+			if err := stop.LoadProto(actPb); err != nil {
+				return err
+			}
 			b.Actions = append(b.Actions, stop)
-		} else if put := actPb.GetPutBlock(); put != nil {
+		} else if putPb := actPb.GetPutBlock(); putPb != nil {
 			put := &action.PutBlock{}
-			put.LoadProto(actPb)
+			if err := put.LoadProto(actPb); err != nil {
+				return err
+			}
 			b.Actions = append(b.Actions, put)
+		} else if createDepositPb := actPb.GetCreateDeposit(); createDepositPb != nil {
+			createDeposit := &action.CreateDeposit{}
+			if err := createDeposit.LoadProto(actPb); err != nil {
+				return err
+			}
+			b.Actions = append(b.Actions, createDeposit)
+		} else if settleDepositPb := actPb.GetSettleDeposit(); settleDepositPb != nil {
+			settleDeposit := &action.SettleDeposit{}
+			if err := settleDeposit.LoadProto(actPb); err != nil {
+				return err
+			}
+			b.Actions = append(b.Actions, settleDeposit)
 		}
 	}
+	return nil
 }
 
 // Deserialize parses the byte stream into a Block

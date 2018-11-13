@@ -33,7 +33,7 @@ import (
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
-func LoadTestConfig(addr string, allowMultiConnsPerHost bool) *config.Network {
+func LoadTestConfig(addr string, allowMultiConnsPerHost bool) config.Network {
 	host, portStr, err := net.SplitHostPort(addr)
 	if err != nil {
 		host = "127.0.0.1"
@@ -42,31 +42,27 @@ func LoadTestConfig(addr string, allowMultiConnsPerHost bool) *config.Network {
 	if err != nil {
 		port = 0
 	}
-	config := config.Config{
-		NodeType: config.DelegateType,
-		Network: config.Network{
-			Host: host,
-			Port: port,
-			MsgLogsCleaningInterval: 2 * time.Second,
-			MsgLogRetention:         10 * time.Second,
-			HealthCheckInterval:     time.Second,
-			SilentInterval:          5 * time.Second,
-			PeerMaintainerInterval:  time.Second,
-			NumPeersLowerBound:      5,
-			NumPeersUpperBound:      5,
-			AllowMultiConnsPerHost:  allowMultiConnsPerHost,
-			RateLimitEnabled:        false,
-			PingInterval:            time.Second,
-			BootstrapNodes:          []string{"127.0.0.1:10001", "127.0.0.1:10002"},
-			MaxMsgSize:              1024 * 1024 * 10,
-			PeerDiscovery:           true,
-			TTL:                     3,
-		},
+	return config.Network{
+		Host: host,
+		Port: port,
+		MsgLogsCleaningInterval: 2 * time.Second,
+		MsgLogRetention:         10 * time.Second,
+		HealthCheckInterval:     time.Second,
+		SilentInterval:          5 * time.Second,
+		PeerMaintainerInterval:  time.Second,
+		NumPeersLowerBound:      5,
+		NumPeersUpperBound:      5,
+		AllowMultiConnsPerHost:  allowMultiConnsPerHost,
+		RateLimitEnabled:        false,
+		PingInterval:            time.Second,
+		BootstrapNodes:          []string{"127.0.0.1:10001", "127.0.0.1:10002"},
+		MaxMsgSize:              1024 * 1024 * 10,
+		PeerDiscovery:           true,
+		TTL:                     3,
 	}
-	return &config.Network
 }
 
-func LoadTestConfigWithTLSEnabled(addr string, allowMultiConnsPerHost bool) *config.Network {
+func LoadTestConfigWithTLSEnabled(addr string, allowMultiConnsPerHost bool) config.Network {
 	cfg := LoadTestConfig(addr, allowMultiConnsPerHost)
 	cfg.TLSEnabled = true
 	cfg.CACrtPath = "../test/assets/ssl/iotex.io.crt"
@@ -116,7 +112,7 @@ func TestOverlay(t *testing.T) {
 	for i := 0; i < size; i++ {
 		dp := &MockDispatcher1{}
 		dps = append(dps, dp)
-		var config *config.Network
+		var config config.Network
 		if i == 0 {
 			config = LoadTestConfig("127.0.0.1:10001", true)
 		} else if i == 1 {
@@ -393,7 +389,7 @@ func (d3 *MockDispatcher3) HandleBroadcast(uint32, proto.Message, chan bool) {
 
 func runBenchmarkOp(tell bool, size int, parallel bool, tls bool, b *testing.B) {
 	ctx := context.Background()
-	var cfg1, cfg2 *config.Network
+	var cfg1, cfg2 config.Network
 	if tls {
 		cfg1 = LoadTestConfigWithTLSEnabled("127.0.0.1:10001", true)
 		cfg2 = LoadTestConfigWithTLSEnabled("127.0.0.1:10002", true)
