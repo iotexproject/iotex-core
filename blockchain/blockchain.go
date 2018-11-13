@@ -333,7 +333,7 @@ func (bc *blockchain) startEmptyBlockchain() error {
 		genesis.workingSet = ws
 		// add Genesis block as very first block
 	} else {
-		genesis = NewBlock(bc.ChainID(), 0, hash.ZeroHash32B, bc.now(), keypair.ZeroPublicKey, nil)
+		genesis = NewBlock(bc.ChainID(), 0, hash.ZeroHash32B, Gen.Timestamp, keypair.ZeroPublicKey, nil)
 		genesis.workingSet = ws
 	}
 	if err := bc.commitBlock(genesis); err != nil {
