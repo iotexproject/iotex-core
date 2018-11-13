@@ -78,8 +78,11 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 
 	// Add action validators
 	// TODO: Type-specific validators will be carried by protocols
-	cs.ActionPool().AddActionValidators(actpool.NewGenericValidator(cs.Blockchain()), account.NewProtocol(),
-		vote.NewProtocol(cs.Blockchain()), execution.NewProtocol())
+	cs.ActionPool().
+		AddActionValidators(
+			actpool.NewGenericValidator(cs.Blockchain()), account.NewProtocol(),
+			vote.NewProtocol(cs.Blockchain()), execution.NewProtocol(),
+		)
 	// Install protocols
 	mainChainProtocol := mainchain.NewProtocol(cs.Blockchain())
 	cs.AddProtocols(mainChainProtocol)
@@ -152,6 +155,11 @@ func (s *Server) NewChainService(cfg config.Config) error {
 	if err != nil {
 		return err
 	}
+	cs.ActionPool().
+		AddActionValidators(
+			actpool.NewGenericValidator(cs.Blockchain()), account.NewProtocol(),
+			vote.NewProtocol(cs.Blockchain()), execution.NewProtocol(),
+		)
 	subChainProtocol := subchain.NewProtocol(cs.Blockchain(), mainChainAPI)
 	cs.AddProtocols(subChainProtocol)
 	s.chainservices[cs.ChainID()] = cs
@@ -173,6 +181,13 @@ func (s *Server) NewTestingChainService(cfg config.Config) error {
 	if err != nil {
 		return err
 	}
+	cs.ActionPool().
+		AddActionValidators(
+			actpool.NewGenericValidator(cs.Blockchain()), account.NewProtocol(),
+			vote.NewProtocol(cs.Blockchain()), execution.NewProtocol(),
+		)
+	subChainProtocol := subchain.NewProtocol(cs.Blockchain(), mainChainAPI)
+	cs.AddProtocols(subChainProtocol)
 	s.chainservices[cs.ChainID()] = cs
 	s.dispatcher.AddSubscriber(cs.ChainID(), cs)
 	return nil
