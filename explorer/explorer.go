@@ -8,12 +8,10 @@ package explorer
 
 import (
 	"encoding/hex"
-	"math/big"
-	"sort"
-
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
+	"math/big"
 
 	"fmt"
 
@@ -69,6 +67,7 @@ type Service struct {
 	c   consensus.Consensus
 	dp  dispatcher.Dispatcher
 	ap  actpool.ActPool
+	gs  GasStation
 	p2p network.Overlay
 	cfg config.Explorer
 	idx *indexservice.Server
@@ -1000,50 +999,9 @@ func (exp *Service) SendTransfer(tsfJSON explorer.SendTransferRequest) (resp exp
 		requestMtc.WithLabelValues("SendTransfer", succeed).Inc()
 	}()
 
-	payload, err := hex.DecodeString(tsfJSON.Payload)
+	actPb, err := convertExplorerTransferToActionPb(&tsfJSON, exp.cfg.MaxTransferPayloadBytes)
 	if err != nil {
 		return explorer.SendTransferResponse{}, err
-	}
-	if uint64(len(payload)) > exp.cfg.MaxTransferPayloadBytes {
-		return explorer.SendTransferResponse{}, errors.Wrapf(
-			ErrTransfer,
-			"transfer payload contains %d bytes, and is longer than %d bytes limit",
-			len(payload),
-			exp.cfg.MaxTransferPayloadBytes,
-		)
-	}
-	senderPubKey, err := keypair.StringToPubKeyBytes(tsfJSON.SenderPubKey)
-	if err != nil {
-		return explorer.SendTransferResponse{}, err
-	}
-	signature, err := hex.DecodeString(tsfJSON.Signature)
-	if err != nil {
-		return explorer.SendTransferResponse{}, err
-	}
-	amount, ok := big.NewInt(0).SetString(tsfJSON.Amount, 10)
-	if !ok {
-		return explorer.SendTransferResponse{}, errors.New("failed to set transfer amount")
-	}
-	gasPrice, ok := big.NewInt(0).SetString(tsfJSON.GasPrice, 10)
-	if !ok {
-		return explorer.SendTransferResponse{}, errors.New("failed to set transfer gas price")
-	}
-	actPb := &pb.ActionPb{
-		Action: &pb.ActionPb_Transfer{
-			Transfer: &pb.TransferPb{
-				Amount:     amount.Bytes(),
-				Recipient:  tsfJSON.Recipient,
-				Payload:    payload,
-				IsCoinbase: tsfJSON.IsCoinbase,
-			},
-		},
-		Version:      uint32(tsfJSON.Version),
-		Sender:       tsfJSON.Sender,
-		SenderPubKey: senderPubKey,
-		Nonce:        uint64(tsfJSON.Nonce),
-		GasLimit:     uint64(tsfJSON.GasLimit),
-		GasPrice:     gasPrice.Bytes(),
-		Signature:    signature,
 	}
 	// broadcast to the network
 	if err = exp.p2p.Broadcast(exp.bc.ChainID(), actPb); err != nil {
@@ -1294,8 +1252,12 @@ func (exp *Service) SendSmartContract(execution explorer.Execution) (resp explor
 func (exp *Service) ReadExecutionState(execution explorer.Execution) (string, error) {
 	logger.Debug().Msg("receive read smart contract request")
 
-	sc, err := convertExplorerExecutionToExecution(&execution)
+	actPb, err := convertExplorerExecutionToActionPb(&execution)
 	if err != nil {
+		return "", err
+	}
+	sc := &action.Execution{}
+	if err := sc.LoadProto(actPb); err != nil {
 		return "", err
 	}
 
@@ -1498,98 +1460,22 @@ func (exp *Service) SettleDeposit(req explorer.SettleDepositRequest) (res explor
 
 // SuggestGasPrice suggest gas price
 func (exp *Service) SuggestGasPrice() (int64, error) {
-	var smallestPrices []*big.Int
-	tip := exp.bc.TipHeight()
-
-	endBlockHeight := uint64(0)
-	if tip > uint64(exp.cfg.SuggestBlockWindow) {
-		endBlockHeight = tip - uint64(exp.cfg.SuggestBlockWindow)
-	}
-
-	for height := tip; height > endBlockHeight; height-- {
-		blk, err := exp.bc.GetBlockByHeight(height)
-		if err != nil {
-			return int64(exp.cfg.DefaultGas), err
-		}
-		if len(blk.Actions) == 0 {
-			continue
-		}
-
-		smallestPrice := blk.Actions[0].GasPrice()
-		for _, action := range blk.Actions {
-			if smallestPrice.Cmp(action.GasPrice()) == 1 {
-				smallestPrice = action.GasPrice()
-			}
-		}
-		smallestPrices = append(smallestPrices, smallestPrice)
-	}
-
-	if len(smallestPrices) == 0 {
-		// return default price
-		return int64(exp.cfg.DefaultGas), nil
-	}
-	sort.Sort(bigIntArray(smallestPrices))
-	gasPrice := smallestPrices[(len(smallestPrices)-1)*exp.cfg.Percentile/100].Int64()
-	if gasPrice < int64(exp.cfg.DefaultGas) {
-		gasPrice = int64(exp.cfg.DefaultGas)
-	}
-	return gasPrice, nil
+	return exp.gs.suggestGasPrice()
 }
 
 // EstimateGasForTransfer estimate gas for transfer
 func (exp *Service) EstimateGasForTransfer(tsfJSON explorer.SendTransferRequest) (int64, error) {
-	payload, err := hex.DecodeString(tsfJSON.Payload)
-	if err != nil {
-		return 0, err
-	}
-	if uint64(len(payload)) > exp.cfg.MaxTransferPayloadBytes {
-		return 0, errors.Wrapf(
-			ErrTransfer,
-			"transfer payload contains %d bytes, and is longer than %d bytes limit",
-			len(payload),
-			exp.cfg.MaxTransferPayloadBytes,
-		)
-	}
-
-	actPb := &pb.ActionPb{
-		Action: &pb.ActionPb_Transfer{
-			Transfer: &pb.TransferPb{
-				Payload: payload,
-			},
-		},
-	}
-	tsf := &action.Transfer{}
-	tsf.LoadProto(actPb)
-	gas, err := tsf.IntrinsicGas()
-	if err != nil {
-		return 0, err
-	}
-	return int64(gas), nil
+	return exp.gs.estimateGasForTransfer(tsfJSON)
 }
 
 // EstimateGasForVote suggest gas for vote
-func (exp *Service) EstimateGasForVote(voteJSON explorer.SendVoteRequest) (int64, error) {
-	actPb := &pb.ActionPb{}
-	v := &action.Vote{}
-	v.LoadProto(actPb)
-	gas, err := v.IntrinsicGas()
-	if err != nil {
-		return 0, err
-	}
-	return int64(gas), nil
+func (exp *Service) EstimateGasForVote() (int64, error) {
+	return exp.gs.estimateGasForVote()
 }
 
 // EstimateGasForSmartContract suggest gas for smart contract
 func (exp *Service) EstimateGasForSmartContract(execution explorer.Execution) (int64, error) {
-	sc, err := convertExplorerExecutionToExecution(&execution)
-	if err != nil {
-		return 0, err
-	}
-	receipt, err := exp.bc.ExecuteContractRead(sc)
-	if err != nil {
-		return 0, err
-	}
-	return int64(receipt.GasConsumed), nil
+	return exp.gs.estimateGasForSmartContract(execution)
 }
 
 // getTransfer takes in a blockchain and transferHash and returns an Explorer Transfer
@@ -1952,7 +1838,11 @@ func convertReceiptToExplorerReceipt(receipt *action.Receipt) (explorer.Receipt,
 	}, nil
 }
 
-func convertExplorerExecutionToExecution(execution *explorer.Execution) (*action.Execution, error) {
+func convertExplorerExecutionToActionPb(execution *explorer.Execution) (*pb.ActionPb, error) {
+	executorPubKey, err := keypair.StringToPubKeyBytes(execution.ExecutorPubKey)
+	if err != nil {
+		return nil, err
+	}
 	data, err := hex.DecodeString(execution.Data)
 	if err != nil {
 		return nil, err
@@ -1979,19 +1869,62 @@ func convertExplorerExecutionToExecution(execution *explorer.Execution) (*action
 		},
 		Version:      uint32(execution.Version),
 		Sender:       execution.Executor,
-		SenderPubKey: nil,
+		SenderPubKey: executorPubKey,
 		Nonce:        uint64(execution.Nonce),
 		GasLimit:     uint64(execution.GasLimit),
 		GasPrice:     gasPrice.Bytes(),
 		Signature:    signature,
 	}
+	return actPb, nil
+}
 
-	sc := &action.Execution{}
-	if err := sc.LoadProto(actPb); err != nil {
+func convertExplorerTransferToActionPb(tsfJSON *explorer.SendTransferRequest, MaxTransferPayloadBytes uint64) (*pb.ActionPb, error) {
+	payload, err := hex.DecodeString(tsfJSON.Payload)
+	if err != nil {
 		return nil, err
 	}
-
-	return sc, nil
+	if uint64(len(payload)) > MaxTransferPayloadBytes {
+		return nil, errors.Wrapf(
+			ErrTransfer,
+			"transfer payload contains %d bytes, and is longer than %d bytes limit",
+			len(payload),
+			MaxTransferPayloadBytes,
+		)
+	}
+	senderPubKey, err := keypair.StringToPubKeyBytes(tsfJSON.SenderPubKey)
+	if err != nil {
+		return nil, err
+	}
+	signature, err := hex.DecodeString(tsfJSON.Signature)
+	if err != nil {
+		return nil, err
+	}
+	amount, ok := big.NewInt(0).SetString(tsfJSON.Amount, 10)
+	if !ok {
+		return nil, errors.New("failed to set transfer amount")
+	}
+	gasPrice, ok := big.NewInt(0).SetString(tsfJSON.GasPrice, 10)
+	if !ok {
+		return nil, errors.New("failed to set transfer gas price")
+	}
+	actPb := &pb.ActionPb{
+		Action: &pb.ActionPb_Transfer{
+			Transfer: &pb.TransferPb{
+				Amount:     amount.Bytes(),
+				Recipient:  tsfJSON.Recipient,
+				Payload:    payload,
+				IsCoinbase: tsfJSON.IsCoinbase,
+			},
+		},
+		Version:      uint32(tsfJSON.Version),
+		Sender:       tsfJSON.Sender,
+		SenderPubKey: senderPubKey,
+		Nonce:        uint64(tsfJSON.Nonce),
+		GasLimit:     uint64(tsfJSON.GasLimit),
+		GasPrice:     gasPrice.Bytes(),
+		Signature:    signature,
+	}
+	return actPb, nil
 }
 
 type bigIntArray []*big.Int

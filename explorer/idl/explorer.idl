@@ -432,7 +432,7 @@ interface Explorer {
     estimateGasForTransfer(request SendTransferRequest) int
 
     // estimate gas for vote
-    estimateGasForVote(request SendVoteRequest) int
+    estimateGasForVote() int
 
     // estimate gas for smart contract
     estimateGasForSmartContract(request Execution) int

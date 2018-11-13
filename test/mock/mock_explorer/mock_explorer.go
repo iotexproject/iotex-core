@@ -580,16 +580,16 @@ func (mr *MockExplorerMockRecorder) EstimateGasForTransfer(request interface{}) 
 }
 
 // EstimateGasForVote mocks base method
-func (m *MockExplorer) EstimateGasForVote(request explorer.SendVoteRequest) (int64, error) {
-	ret := m.ctrl.Call(m, "EstimateGasForVote", request)
+func (m *MockExplorer) EstimateGasForVote() (int64, error) {
+	ret := m.ctrl.Call(m, "EstimateGasForVote")
 	ret0, _ := ret[0].(int64)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // EstimateGasForVote indicates an expected call of EstimateGasForVote
-func (mr *MockExplorerMockRecorder) EstimateGasForVote(request interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EstimateGasForVote", reflect.TypeOf((*MockExplorer)(nil).EstimateGasForVote), request)
+func (mr *MockExplorerMockRecorder) EstimateGasForVote() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EstimateGasForVote", reflect.TypeOf((*MockExplorer)(nil).EstimateGasForVote))
 }
 
 // EstimateGasForSmartContract mocks base method

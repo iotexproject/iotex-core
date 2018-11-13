@@ -264,7 +264,7 @@ func (exp *MockExplorer) EstimateGasForTransfer(tsfJSON explorer.SendTransferReq
 }
 
 // EstimateGasForVote suggest gas for vote
-func (exp *MockExplorer) EstimateGasForVote(voteJSON explorer.SendVoteRequest) (int64, error) {
+func (exp *MockExplorer) EstimateGasForVote() (int64, error) {
 	return 0, nil
 }
 
