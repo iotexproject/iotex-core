@@ -134,10 +134,15 @@ var (
 			EventChanSize: 10000,
 		},
 		Explorer: Explorer{
-			Enabled:                 false,
-			UseRDS:                  false,
-			Port:                    14004,
-			TpsWindow:               10,
+			Enabled:   false,
+			UseRDS:    false,
+			Port:      14004,
+			TpsWindow: 10,
+			GasStation: GasStation{
+				SuggestBlockWindow: 20,
+				DefaultGas:         1,
+				Percentile:         60,
+			},
 			MaxTransferPayloadBytes: 1024,
 		},
 		Indexer: Indexer{
@@ -265,12 +270,21 @@ type (
 
 	// Explorer is the explorer service config
 	Explorer struct {
-		Enabled   bool `yaml:"enabled"`
-		UseRDS    bool `yaml:"useRDS"`
-		Port      int  `yaml:"port"`
-		TpsWindow int  `yaml:"tpsWindow"`
+		Enabled    bool       `yaml:"enabled"`
+		IsTest     bool       `yaml:"isTest"`
+		UseRDS     bool       `yaml:"useRDS"`
+		Port       int        `yaml:"port"`
+		TpsWindow  int        `yaml:"tpsWindow"`
+		GasStation GasStation `yaml:"gasStation"`
 		// MaxTransferPayloadBytes limits how many bytes a playload can contain at most
 		MaxTransferPayloadBytes uint64 `yaml:"maxTransferPayloadBytes"`
+	}
+
+	// GasStation is the gas station config
+	GasStation struct {
+		SuggestBlockWindow int `yaml:"suggestBlockWindow"`
+		DefaultGas         int `yaml:"defaultGas"`
+		Percentile         int `yaml:"Percentile"`
 	}
 
 	// Indexer is the index service config

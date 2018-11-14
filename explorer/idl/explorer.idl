@@ -424,4 +424,16 @@ interface Explorer {
 
     // settle deposit on sub-chain. This is a sub-chain API
     settleDeposit(request SettleDepositRequest) SettleDepositResponse
+
+    // suggest gas price
+    suggestGasPrice() int
+
+    // estimate gas for transfer
+    estimateGasForTransfer(request SendTransferRequest) int
+
+    // estimate gas for vote
+    estimateGasForVote() int
+
+    // estimate gas for smart contract
+    estimateGasForSmartContract(request Execution) int
 }
