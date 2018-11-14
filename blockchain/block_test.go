@@ -55,48 +55,47 @@ func TestMerkle(t *testing.T) {
 
 	amount := uint64(50 << 22)
 	// create testing transactions
-	cbtsf0 := action.NewCoinBaseTransfer(big.NewInt(int64(amount)), ta.Addrinfo["producer"].RawAddress)
+	cbtsf0 := action.NewCoinBaseTransfer(1, big.NewInt(int64(amount)), ta.Addrinfo["producer"].RawAddress)
 	require.NotNil(cbtsf0)
-	cbtsf1 := action.NewCoinBaseTransfer(big.NewInt(int64(amount)), ta.Addrinfo["alfa"].RawAddress)
+	cbtsf1 := action.NewCoinBaseTransfer(1, big.NewInt(int64(amount)), ta.Addrinfo["alfa"].RawAddress)
 	require.NotNil(cbtsf1)
-	cbtsf2 := action.NewCoinBaseTransfer(big.NewInt(int64(amount)), ta.Addrinfo["bravo"].RawAddress)
+	cbtsf2 := action.NewCoinBaseTransfer(1, big.NewInt(int64(amount)), ta.Addrinfo["bravo"].RawAddress)
 	require.NotNil(cbtsf2)
-	cbtsf3 := action.NewCoinBaseTransfer(big.NewInt(int64(amount)), ta.Addrinfo["charlie"].RawAddress)
+	cbtsf3 := action.NewCoinBaseTransfer(1, big.NewInt(int64(amount)), ta.Addrinfo["charlie"].RawAddress)
 	require.NotNil(cbtsf3)
-	cbtsf4 := action.NewCoinBaseTransfer(big.NewInt(int64(amount)), ta.Addrinfo["echo"].RawAddress)
+	cbtsf4 := action.NewCoinBaseTransfer(1, big.NewInt(int64(amount)), ta.Addrinfo["echo"].RawAddress)
 	require.NotNil(cbtsf4)
 
 	// verify tx hash
-	hash0, e := hex.DecodeString("a6707cec4886bceb8bd7a4e970c1a30133196fea40b7d35c3934f71fafd6139a")
+	hash0, e := hex.DecodeString("78c04c2e332ffb5ccdf7b85bc0e0f02e286cb56afcce578cbde1c451cec0eac4")
 	require.NoError(e)
 	actual := cbtsf0.Hash()
-	require.Equal(hash0, actual[:])
 	t.Logf("actual hash = %x", actual[:])
+	require.Equal(hash0, actual[:])
 
-	hash1, e := hex.DecodeString("59fe0fd0dd0ab4c96a7129f2a0ffee47d2e44a9914e99f64d9a64fad9c020d89")
+	hash1, e := hex.DecodeString("7d40d6455a5793aa488fc8da5f3e9e3799ec90af54311dc0316fd278cd605b2b")
 	require.NoError(e)
 	actual = cbtsf1.Hash()
-	require.Equal(hash1, actual[:])
 	t.Logf("actual hash = %x", actual[:])
+	require.Equal(hash1, actual[:])
 
-	hash2, e := hex.DecodeString("be6aff36dc22cde8bc240fa8fd2ac7fd1c7ddfadde1b8f9111d0028d4446316c")
+	hash2, e := hex.DecodeString("d45228407c49101ba1a9f83e153a6f8014607ae84f4c68d9519304336cb3d30f")
 	require.NoError(e)
 	actual = cbtsf2.Hash()
-	require.Equal(hash2, actual[:])
-	//require.Equal(hash2, actual[:])
 	t.Logf("actual hash = %x", actual[:])
+	require.Equal(hash2, actual[:])
 
-	hash3, e := hex.DecodeString("2816ca41c060572ceb6d217d671528380f3d0d091efd8c967fb73c260db5f778")
+	hash3, e := hex.DecodeString("9294552e7f22722ef89c7f3821f61a4b4b5a85c8a240a473b3ac64b1e331026f")
 	require.NoError(e)
 	actual = cbtsf3.Hash()
-	require.Equal(hash3, actual[:])
 	t.Logf("actual hash = %x", actual[:])
+	require.Equal(hash3, actual[:])
 
-	hash4, e := hex.DecodeString("519fbf378f5f44565fb6de829e37de1e407a4603ab64febb8db39fa4f3971182")
+	hash4, e := hex.DecodeString("aeea782239f6d11743a86cc7789ce4beaab03eb2bbc275787d29ea079f3fca7a")
 	require.NoError(e)
 	actual = cbtsf4.Hash()
-	require.Equal(hash4, actual[:])
 	t.Logf("actual hash = %x", actual[:])
+	require.Equal(hash4, actual[:])
 
 	// manually compute merkle root
 	cat := append(hash0, hash1...)
@@ -259,7 +258,7 @@ func TestWrongNonce(t *testing.T) {
 	val := validator{sf, ""}
 
 	// correct nonce
-	coinbaseTsf := action.NewCoinBaseTransfer(Gen.BlockReward, ta.Addrinfo["producer"].RawAddress)
+	coinbaseTsf := action.NewCoinBaseTransfer(1, Gen.BlockReward, ta.Addrinfo["producer"].RawAddress)
 	tsf1, err := action.NewTransfer(1, big.NewInt(20), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["alfa"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(err)
 	require.NoError(action.Sign(tsf1, ta.Addrinfo["producer"].PrivateKey))
@@ -425,7 +424,7 @@ func TestWrongCoinbaseTsf(t *testing.T) {
 	val := validator{sf, ""}
 
 	// no coinbase tsf
-	coinbaseTsf := action.NewCoinBaseTransfer(Gen.BlockReward, ta.Addrinfo["producer"].RawAddress)
+	coinbaseTsf := action.NewCoinBaseTransfer(1, Gen.BlockReward, ta.Addrinfo["producer"].RawAddress)
 	tsf1, err := action.NewTransfer(1, big.NewInt(20), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["alfa"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(err)
 	require.NoError(action.Sign(tsf1, ta.Addrinfo["producer"].PrivateKey))

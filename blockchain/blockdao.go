@@ -788,6 +788,7 @@ func putTransfers(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 		// put new transfer to recipient
 		recipientKey := append(transferToPrefix, transfer.Recipient()...)
 		recipientKey = append(recipientKey, byteutil.Uint64ToBytes(recipientTransferCount)...)
+
 		batch.PutIfNotExists(blockAddressTransferMappingNS, recipientKey, transferHash[:],
 			"failed to put transfer hash %x for recipient %x", transfer.Hash(), transfer.Recipient())
 

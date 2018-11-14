@@ -69,9 +69,10 @@ func NewTransfer(
 }
 
 // NewCoinBaseTransfer returns a coinbase Transfer
-func NewCoinBaseTransfer(amount *big.Int, recipient string) *Transfer {
+func NewCoinBaseTransfer(nonce uint64, amount *big.Int, recipient string) *Transfer {
 	return &Transfer{
 		AbstractAction: AbstractAction{
+			nonce:   nonce,
 			version: version.ProtocolVersion,
 			dstAddr: recipient,
 		},
