@@ -605,7 +605,8 @@ func (bc *blockchain) MintNewBlock(
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
 
-	actions = append(actions, action.NewCoinBaseTransfer(bc.genesis.BlockReward, producer.RawAddress))
+	// Use block height as the nonce for coinbase transfer
+	actions = append(actions, action.NewCoinBaseTransfer(bc.tipHeight+1, bc.genesis.BlockReward, producer.RawAddress))
 	blk := NewBlock(bc.config.Chain.ID, bc.tipHeight+1, bc.tipHash, bc.now(), producer.PublicKey, actions)
 	blk.Header.DKGID = []byte{}
 	blk.Header.DKGPubkey = []byte{}

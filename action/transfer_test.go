@@ -94,7 +94,7 @@ func TestCoinbaseTsf(t *testing.T) {
 	require := require.New(t)
 	recipient, err := iotxaddress.NewAddress(iotxaddress.IsTestnet, chainid)
 	require.NoError(err)
-	coinbaseTsf := NewCoinBaseTransfer(big.NewInt(int64(5)), recipient.RawAddress)
+	coinbaseTsf := NewCoinBaseTransfer(1, big.NewInt(int64(5)), recipient.RawAddress)
 	require.NotNil(t, coinbaseTsf)
 	require.True(coinbaseTsf.isCoinbase)
 }

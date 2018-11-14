@@ -1796,14 +1796,15 @@ func convertTsfToExplorerTsf(transfer *action.Transfer, isPending bool) (explore
 	}
 	hash := transfer.Hash()
 	explorerTransfer := explorer.Transfer{
-		Nonce:     int64(transfer.Nonce()),
-		ID:        hex.EncodeToString(hash[:]),
-		Sender:    transfer.Sender(),
-		Recipient: transfer.Recipient(),
-		Fee:       "", // TODO: we need to get the actual fee.
-		Payload:   hex.EncodeToString(transfer.Payload()),
-		GasLimit:  int64(transfer.GasLimit()),
-		IsPending: isPending,
+		Nonce:      int64(transfer.Nonce()),
+		ID:         hex.EncodeToString(hash[:]),
+		Sender:     transfer.Sender(),
+		Recipient:  transfer.Recipient(),
+		Fee:        "", // TODO: we need to get the actual fee.
+		Payload:    hex.EncodeToString(transfer.Payload()),
+		GasLimit:   int64(transfer.GasLimit()),
+		IsCoinbase: transfer.IsCoinbase(),
+		IsPending:  isPending,
 	}
 	if transfer.Amount() != nil && len(transfer.Amount().String()) > 0 {
 		explorerTransfer.Amount = transfer.Amount().String()

@@ -88,7 +88,7 @@ func TestProtocol_Validate(t *testing.T) {
 	require := require.New(t)
 	protocol := NewProtocol()
 	// Case I: Coinbase transfer
-	coinbaseTsf := action.NewCoinBaseTransfer(big.NewInt(1), "1")
+	coinbaseTsf := action.NewCoinBaseTransfer(1, big.NewInt(1), "1")
 	err := protocol.Validate(context.Background(), coinbaseTsf)
 	require.Equal(action.ErrTransfer, errors.Cause(err))
 	// Case II: Oversized data
