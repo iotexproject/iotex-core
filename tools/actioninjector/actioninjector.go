@@ -65,7 +65,7 @@ func main() {
 	// sleeping period between two consecutive rpc retries in seconds. Default is 1
 	var retryInterval int
 	// aps indicates how many actions to be injected in one second. Default is 0
-	var aps int
+	var aps float64
 	// duration indicates how long the injection will run in seconds. Default is 60
 	var duration int
 	// reset interval indicates the interval to reset nonce counter in seconds. Default is 10
@@ -90,7 +90,7 @@ func main() {
 	flag.IntVar(&interval, "interval", 5, "sleep interval between two consecutively injected actions in seconds")
 	flag.IntVar(&retryNum, "retry-num", 5, "maximum number of rpc retries")
 	flag.IntVar(&retryInterval, "retry-interval", 1, "sleep interval between two consecutive rpc retries in seconds")
-	flag.IntVar(&aps, "aps", 0, "actions to be injected per second")
+	flag.Float64Var(&aps, "aps", 0, "actions to be injected per second")
 	flag.IntVar(&duration, "duration", 60, "duration when the injection will run in seconds")
 	flag.IntVar(&resetInterval, "reset-interval", 10, "time interval to reset nonce counter in seconds")
 	flag.Parse()

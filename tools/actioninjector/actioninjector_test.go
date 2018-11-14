@@ -65,7 +65,7 @@ func TestActionInjector(t *testing.T) {
 	require.NoError(err)
 
 	// Test injectByAps
-	aps := 50
+	aps := float64(50)
 	d := time.Second
 	resetInterval := 5
 	wg := &sync.WaitGroup{}

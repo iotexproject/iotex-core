@@ -74,7 +74,7 @@ func InitCounter(client explorer.Explorer, addrs []*iotxaddress.Address) (map[st
 // InjectByAps injects Actions in APS Mode
 func InjectByAps(
 	wg *sync.WaitGroup,
-	aps int,
+	aps float64,
 	counter map[string]uint64,
 	transferGasLimit int,
 	transferGasPrice int,
