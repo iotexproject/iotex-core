@@ -203,8 +203,14 @@ func (m *cFSM) Start(c context.Context) error {
 					logger.Debug().Msg("timeoutEvt is stale")
 					continue
 				}
-				if evt.height() < m.ctx.round.height {
-					logger.Debug().Msg("message of a previous round")
+				chainHeight := m.ctx.chain.TipHeight()
+				eventHeight := evt.height()
+				if _, ok := evt.(*proposeBlkEvt); ok && eventHeight <= chainHeight {
+					logger.Debug().Uint64("event height", eventHeight).Uint64("chain height", chainHeight).Msg("skip old proposal")
+					continue
+				}
+				if _, ok := evt.(*endorseEvt); ok && eventHeight <= chainHeight {
+					logger.Debug().Uint64("event height", eventHeight).Uint64("chain height", chainHeight).Msg("skip old endorsement")
 					continue
 				}
 				src := m.fsm.CurrentState()
@@ -398,6 +404,8 @@ func (m *cFSM) handleInitBlockProposeEvt(evt fsm.Event) (fsm.State, error) {
 	proposeBlkEvt := m.newProposeBlkEvt(blk)
 	proposeBlkEvtProto := proposeBlkEvt.toProtoMsg()
 	// Notify itself
+	h := blk.HashBlock()
+	logger.Info().Str("block", hex.EncodeToString(h[:])).Msgf("Broadcast init proposal %+v", blk)
 	m.produce(proposeBlkEvt, 0)
 	// Notify other delegates
 	if err := m.ctx.p2p.Broadcast(m.ctx.chain.ChainID(), proposeBlkEvtProto); err != nil {
@@ -414,18 +422,18 @@ func (m *cFSM) validateProposeBlock(blk *blockchain.Block, expectedProposer stri
 		Uint64("expectedHeight", m.ctx.round.height).
 		Str("expectedProposer", expectedProposer).
 		Str("hash", hex.EncodeToString(blkHash[:]))
-	if blk.Height() != m.ctx.round.height {
-		errorLog.Uint64("blockHeight", blk.Height()).
-			Msg("error when validating the block height")
-		return false
-	}
 	producer := blk.ProducerAddress()
-
 	if producer == "" || producer != expectedProposer {
 		errorLog.Str("proposer", producer).
 			Msg("error when validating the block proposer")
 		return false
 	}
+	if blk.Height() != m.ctx.round.height {
+		errorLog.Uint64("blockHeight", blk.Height()).
+			Msg("error when validating the block height")
+		return false
+	}
+
 	if !blk.VerifySignature() {
 		errorLog.Msg("error when validating the block signature")
 		return false
