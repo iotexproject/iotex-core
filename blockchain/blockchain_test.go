@@ -356,7 +356,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	fmt.Printf("Current tip = %d hash = %x\n", h, hash)
 
 	// add block with wrong height
-	cbTsf := action.NewCoinBaseTransfer(big.NewInt(50), ta.Addrinfo["bravo"].RawAddress)
+	cbTsf := action.NewCoinBaseTransfer(1, big.NewInt(50), ta.Addrinfo["bravo"].RawAddress)
 	require.NotNil(cbTsf)
 	blk = NewBlock(0, h+2, hash, testutil.TimestampNow(), ta.Addrinfo["bravo"].PublicKey, []action.Action{cbTsf})
 	err = bc.ValidateBlock(blk, true)
@@ -364,7 +364,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	fmt.Printf("Cannot validate block %d: %v\n", blk.Height(), err)
 
 	// add block with zero prev hash
-	cbTsf2 := action.NewCoinBaseTransfer(big.NewInt(50), ta.Addrinfo["bravo"].RawAddress)
+	cbTsf2 := action.NewCoinBaseTransfer(1, big.NewInt(50), ta.Addrinfo["bravo"].RawAddress)
 	require.NotNil(cbTsf2)
 	blk = NewBlock(
 		0,
@@ -564,14 +564,14 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	require.Equal(hash, blk.HashBlock())
 	fmt.Printf("Current tip = %d hash = %x\n", h, hash)
 	// add block with wrong height
-	cbTsf := action.NewCoinBaseTransfer(big.NewInt(50), ta.Addrinfo["bravo"].RawAddress)
+	cbTsf := action.NewCoinBaseTransfer(1, big.NewInt(50), ta.Addrinfo["bravo"].RawAddress)
 	require.NotNil(cbTsf)
 	blk = NewBlock(0, h+2, hash, testutil.TimestampNow(), ta.Addrinfo["bravo"].PublicKey, []action.Action{cbTsf})
 	err = bc.ValidateBlock(blk, true)
 	require.NotNil(err)
 	fmt.Printf("Cannot validate block %d: %v\n", blk.Height(), err)
 	// add block with zero prev hash
-	cbTsf2 := action.NewCoinBaseTransfer(big.NewInt(50), ta.Addrinfo["bravo"].RawAddress)
+	cbTsf2 := action.NewCoinBaseTransfer(1, big.NewInt(50), ta.Addrinfo["bravo"].RawAddress)
 	require.NotNil(cbTsf2)
 	blk = NewBlock(
 		0,
