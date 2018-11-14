@@ -176,14 +176,13 @@ func TestExplorerApi(t *testing.T) {
 	require.Nil(addTestingBlocks(bc))
 	err = bc.Stop(ctx)
 	require.NoError(err)
+	explorerCfg := config.Explorer{TpsWindow: 10, MaxTransferPayloadBytes: 1024}
 
 	svc := Service{
-		bc: bc,
-		ap: ap,
-		cfg: config.Explorer{
-			TpsWindow:               10,
-			MaxTransferPayloadBytes: 1024,
-		},
+		bc:  bc,
+		ap:  ap,
+		cfg: explorerCfg,
+		gs:  GasStation{bc, explorerCfg},
 	}
 
 	transfers, err := svc.GetTransfersByAddress(ta.Addrinfo["charlie"].RawAddress, 0, 10)
@@ -431,6 +430,11 @@ func TestExplorerApi(t *testing.T) {
 	require.Nil(res.Transfer)
 	require.Nil(res.Vote)
 	require.Equal(&executions[0], res.Execution)
+
+	svc.gs.cfg.GasStation.DefaultGas = 1
+	gasPrice, err := svc.SuggestGasPrice()
+	require.Nil(err)
+	require.Equal(gasPrice, int64(1))
 }
 
 func TestService_StateByAddr(t *testing.T) {
@@ -523,11 +527,6 @@ func TestService_SendTransfer(t *testing.T) {
 	p2p := mock_network.NewMockOverlay(ctrl)
 	svc := Service{bc: chain, dp: mDp, p2p: p2p}
 
-	request := explorer.SendTransferRequest{}
-	response, err := svc.SendTransfer(request)
-	require.Equal("", response.Hash)
-	require.NotNil(err)
-
 	chain.EXPECT().ChainID().Return(uint32(1)).Times(2)
 	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
 	p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Times(1)
@@ -543,9 +542,12 @@ func TestService_SendTransfer(t *testing.T) {
 		Signature:    "",
 		Payload:      "",
 	}
-	response, err = svc.SendTransfer(r)
+	response, err := svc.SendTransfer(r)
 	require.NotNil(response.Hash)
 	require.Nil(err)
+	gas, err := svc.EstimateGasForTransfer(r)
+	require.Nil(err)
+	require.Equal(gas, int64(10000))
 }
 
 func TestService_SendVote(t *testing.T) {
@@ -558,11 +560,6 @@ func TestService_SendVote(t *testing.T) {
 	mDp := mock_dispatcher.NewMockDispatcher(ctrl)
 	p2p := mock_network.NewMockOverlay(ctrl)
 	svc := Service{bc: chain, dp: mDp, p2p: p2p}
-
-	request := explorer.SendVoteRequest{}
-	response, err := svc.SendVote(request)
-	require.Equal("", response.Hash)
-	require.NotNil(err)
 
 	chain.EXPECT().ChainID().Return(uint32(1)).Times(2)
 	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
@@ -578,9 +575,12 @@ func TestService_SendVote(t *testing.T) {
 		Signature:   "",
 	}
 
-	response, err = svc.SendVote(r)
+	response, err := svc.SendVote(r)
 	require.NotNil(response.Hash)
 	require.Nil(err)
+	gas, err := svc.EstimateGasForVote()
+	require.Nil(err)
+	require.Equal(gas, int64(10000))
 }
 
 func TestService_SendSmartContract(t *testing.T) {
@@ -592,7 +592,7 @@ func TestService_SendSmartContract(t *testing.T) {
 	chain := mock_blockchain.NewMockBlockchain(ctrl)
 	mDp := mock_dispatcher.NewMockDispatcher(ctrl)
 	p2p := mock_network.NewMockOverlay(ctrl)
-	svc := Service{bc: chain, dp: mDp, p2p: p2p}
+	svc := Service{bc: chain, dp: mDp, p2p: p2p, gs: GasStation{chain, config.Explorer{}}}
 
 	execution, _ := action.NewExecution(ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["delta"].RawAddress, 1, big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice), []byte{1})
 	_ = action.Sign(execution, ta.Addrinfo["producer"].PrivateKey)
@@ -600,6 +600,11 @@ func TestService_SendSmartContract(t *testing.T) {
 	explorerExecution.Version = int64(execution.Version())
 	explorerExecution.ExecutorPubKey = keypair.EncodePublicKey(execution.ExecutorPublicKey())
 	explorerExecution.Signature = hex.EncodeToString(execution.Signature())
+	chain.EXPECT().ExecuteContractRead(gomock.Any()).Return(&action.Receipt{GasConsumed: 1000}, nil)
+
+	gas, err := svc.EstimateGasForSmartContract(explorerExecution)
+	require.Nil(err)
+	require.Equal(gas, int64(1000))
 
 	chain.EXPECT().ChainID().Return(uint32(1)).Times(2)
 	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)

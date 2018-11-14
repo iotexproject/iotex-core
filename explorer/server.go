@@ -56,6 +56,7 @@ func NewServer(
 			p2p: p2p,
 			cfg: cfg,
 			idx: idx,
+			gs:  GasStation{bc: chain, cfg: cfg},
 		},
 	}
 }
