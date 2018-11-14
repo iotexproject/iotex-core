@@ -29,11 +29,11 @@ func TestBlockDAO(t *testing.T) {
 	getBlocks := func() []*Block {
 		amount := uint64(50 << 22)
 		// create testing transfers
-		cbTsf1 := action.NewCoinBaseTransfer(big.NewInt(int64((amount))), testaddress.Addrinfo["alfa"].RawAddress)
+		cbTsf1 := action.NewCoinBaseTransfer(1, big.NewInt(int64((amount))), testaddress.Addrinfo["alfa"].RawAddress)
 		assert.NotNil(t, cbTsf1)
-		cbTsf2 := action.NewCoinBaseTransfer(big.NewInt(int64((amount))), testaddress.Addrinfo["bravo"].RawAddress)
+		cbTsf2 := action.NewCoinBaseTransfer(1, big.NewInt(int64((amount))), testaddress.Addrinfo["bravo"].RawAddress)
 		assert.NotNil(t, cbTsf2)
-		cbTsf3 := action.NewCoinBaseTransfer(big.NewInt(int64((amount))), testaddress.Addrinfo["charlie"].RawAddress)
+		cbTsf3 := action.NewCoinBaseTransfer(1, big.NewInt(int64((amount))), testaddress.Addrinfo["charlie"].RawAddress)
 		assert.NotNil(t, cbTsf3)
 
 		// create testing votes
