@@ -561,14 +561,6 @@ func TestService_SendVote(t *testing.T) {
 	p2p := mock_network.NewMockOverlay(ctrl)
 	svc := Service{bc: chain, dp: mDp, p2p: p2p}
 
-	request := explorer.SendVoteRequest{}
-	response, err := svc.SendVote(request)
-	require.Equal("", response.Hash)
-	require.NotNil(err)
-	gas, err := svc.EstimateGasForVote()
-	require.Nil(err)
-	require.Equal(gas, int64(10000))
-
 	chain.EXPECT().ChainID().Return(uint32(1)).Times(2)
 	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
 	p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Times(1)
@@ -583,9 +575,12 @@ func TestService_SendVote(t *testing.T) {
 		Signature:   "",
 	}
 
-	response, err = svc.SendVote(r)
+	response, err := svc.SendVote(r)
 	require.NotNil(response.Hash)
 	require.Nil(err)
+	gas, err := svc.EstimateGasForVote()
+	require.Nil(err)
+	require.Equal(gas, int64(10000))
 }
 
 func TestService_SendSmartContract(t *testing.T) {

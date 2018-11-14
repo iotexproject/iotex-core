@@ -8,10 +8,9 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
-	pb "github.com/iotexproject/iotex-core/proto"
 )
 
-// Service provide api for user to query blockchain data
+// GasStation provide gas related api
 type GasStation struct {
 	bc  blockchain.Blockchain
 	cfg config.Explorer
@@ -64,7 +63,9 @@ func (gs *GasStation) estimateGasForTransfer(tsfJSON explorer.SendTransferReques
 		return 0, err
 	}
 	tsf := &action.Transfer{}
-	tsf.LoadProto(actPb)
+	if err = tsf.LoadProto(actPb); err != nil {
+		return 0, err
+	}
 	gas, err := tsf.IntrinsicGas()
 	if err != nil {
 		return 0, err
@@ -74,9 +75,7 @@ func (gs *GasStation) estimateGasForTransfer(tsfJSON explorer.SendTransferReques
 
 // EstimateGasForVote suggest gas for vote
 func (gs *GasStation) estimateGasForVote() (int64, error) {
-	actPb := &pb.ActionPb{}
 	v := &action.Vote{}
-	v.LoadProto(actPb)
 	gas, err := v.IntrinsicGas()
 	if err != nil {
 		return 0, err
@@ -101,3 +100,9 @@ func (gs *GasStation) estimateGasForSmartContract(execution explorer.Execution) 
 	}
 	return int64(receipt.GasConsumed), nil
 }
+
+type bigIntArray []*big.Int
+
+func (s bigIntArray) Len() int           { return len(s) }
+func (s bigIntArray) Less(i, j int) bool { return s[i].Cmp(s[j]) < 0 }
+func (s bigIntArray) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }

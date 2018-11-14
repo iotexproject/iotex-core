@@ -38,7 +38,8 @@ func (exp *MockExplorer) GetAddressDetails(address string) (explorer.AddressDeta
 
 // GetLastTransfersByRange return transfers in [-(offset+limit-1), -offset] from block
 // with height startBlockHeight
-func (exp *MockExplorer) GetLastTransfersByRange(startBlockHeight int64, offset int64, limit int64, showCoinBase bool) ([]explorer.Transfer, error) {
+func (exp *MockExplorer) GetLastTransfersByRange(startBlockHeight int64,
+	offset int64, limit int64, showCoinBase bool) ([]explorer.Transfer, error) {
 	var txs []explorer.Transfer
 	for i := int64(0); i < limit; i++ {
 		txs = append(txs, randTransaction())
@@ -52,12 +53,14 @@ func (exp *MockExplorer) GetTransferByID(transferID string) (explorer.Transfer, 
 }
 
 // GetTransfersByAddress returns all transfers associate with an address
-func (exp *MockExplorer) GetTransfersByAddress(address string, offset int64, limit int64) ([]explorer.Transfer, error) {
+func (exp *MockExplorer) GetTransfersByAddress(address string, offset int64,
+	limit int64) ([]explorer.Transfer, error) {
 	return exp.GetLastTransfersByRange(0, offset, limit, true)
 }
 
 // GetUnconfirmedTransfersByAddress returns all unconfirmed transfers in actpool associated with an address
-func (exp *MockExplorer) GetUnconfirmedTransfersByAddress(address string, offset int64, limit int64) ([]explorer.Transfer, error) {
+func (exp *MockExplorer) GetUnconfirmedTransfersByAddress(address string,
+	offset int64, limit int64) ([]explorer.Transfer, error) {
 	return exp.GetLastTransfersByRange(0, offset, limit, true)
 }
 
@@ -68,7 +71,8 @@ func (exp *MockExplorer) GetTransfersByBlockID(blockID string, offset int64, lim
 
 // GetLastVotesByRange return votes in [-(offset+limit-1), -offset] from block
 // with height startBlockHeight
-func (exp *MockExplorer) GetLastVotesByRange(startBlockHeight int64, offset int64, limit int64) ([]explorer.Vote, error) {
+func (exp *MockExplorer) GetLastVotesByRange(startBlockHeight int64,
+	offset int64, limit int64) ([]explorer.Vote, error) {
 	var votes []explorer.Vote
 	for i := int64(0); i < limit; i++ {
 		votes = append(votes, randVote())
@@ -87,7 +91,8 @@ func (exp *MockExplorer) GetVotesByAddress(address string, offset int64, limit i
 }
 
 // GetUnconfirmedVotesByAddress returns all unconfirmed votes in actpool associated with an address
-func (exp *MockExplorer) GetUnconfirmedVotesByAddress(address string, offset int64, limit int64) ([]explorer.Vote, error) {
+func (exp *MockExplorer) GetUnconfirmedVotesByAddress(address string,
+	offset int64, limit int64) ([]explorer.Vote, error) {
 	return exp.GetLastVotesByRange(0, offset, limit)
 }
 
@@ -103,7 +108,8 @@ func (exp *MockExplorer) GetReceiptByExecutionID(id string) (explorer.Receipt, e
 
 // GetLastExecutionsByRange return executions in [-(offset+limit-1), -offset] from block
 // with height startBlockHeight
-func (exp *MockExplorer) GetLastExecutionsByRange(startBlockHeight int64, offset int64, limit int64) ([]explorer.Execution, error) {
+func (exp *MockExplorer) GetLastExecutionsByRange(startBlockHeight int64, offset int64,
+	limit int64) ([]explorer.Execution, error) {
 	var executions []explorer.Execution
 	for i := int64(0); i < limit; i++ {
 		executions = append(executions, randExecution())
@@ -117,17 +123,20 @@ func (exp *MockExplorer) GetExecutionByID(executionID string) (explorer.Executio
 }
 
 // GetExecutionsByAddress returns all executions associate with an address
-func (exp *MockExplorer) GetExecutionsByAddress(address string, offset int64, limit int64) ([]explorer.Execution, error) {
+func (exp *MockExplorer) GetExecutionsByAddress(address string,
+	offset int64, limit int64) ([]explorer.Execution, error) {
 	return exp.GetLastExecutionsByRange(0, offset, limit)
 }
 
 // GetUnconfirmedExecutionsByAddress returns all unconfirmed executions in actpool associated with an address
-func (exp *MockExplorer) GetUnconfirmedExecutionsByAddress(address string, offset int64, limit int64) ([]explorer.Execution, error) {
+func (exp *MockExplorer) GetUnconfirmedExecutionsByAddress(address string,
+	offset int64, limit int64) ([]explorer.Execution, error) {
 	return exp.GetLastExecutionsByRange(0, offset, limit)
 }
 
 // GetExecutionsByBlockID returns executions in a block
-func (exp *MockExplorer) GetExecutionsByBlockID(blkID string, offset int64, limit int64) ([]explorer.Execution, error) {
+func (exp *MockExplorer) GetExecutionsByBlockID(blkID string,
+	offset int64, limit int64) ([]explorer.Execution, error) {
 	return exp.GetLastExecutionsByRange(0, offset, limit)
 }
 
@@ -209,7 +218,8 @@ func (exp *MockExplorer) SendVote(request explorer.SendVoteRequest) (explorer.Se
 }
 
 // PutSubChainBlock makes a fake put block request.
-func (exp *MockExplorer) PutSubChainBlock(putBlockJSON explorer.PutSubChainBlockRequest) (resp explorer.PutSubChainBlockResponse, err error) {
+func (exp *MockExplorer) PutSubChainBlock(
+	putBlockJSON explorer.PutSubChainBlockRequest) (resp explorer.PutSubChainBlockResponse, err error) {
 	return explorer.PutSubChainBlockResponse{}, nil
 }
 
@@ -249,7 +259,8 @@ func (exp *MockExplorer) GetDeposits(subChainID int64, offset int64, limit int64
 }
 
 // SettleDeposit settles deposit on sub-chain
-func (exp *MockExplorer) SettleDeposit(req explorer.SettleDepositRequest) (res explorer.SettleDepositResponse, err error) {
+func (exp *MockExplorer) SettleDeposit(
+	req explorer.SettleDepositRequest) (res explorer.SettleDepositResponse, err error) {
 	return explorer.SettleDepositResponse{}, nil
 }
 

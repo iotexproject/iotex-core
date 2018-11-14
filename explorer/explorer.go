@@ -1878,7 +1878,8 @@ func convertExplorerExecutionToActionPb(execution *explorer.Execution) (*pb.Acti
 	return actPb, nil
 }
 
-func convertExplorerTransferToActionPb(tsfJSON *explorer.SendTransferRequest, MaxTransferPayloadBytes uint64) (*pb.ActionPb, error) {
+func convertExplorerTransferToActionPb(tsfJSON *explorer.SendTransferRequest,
+	MaxTransferPayloadBytes uint64) (*pb.ActionPb, error) {
 	payload, err := hex.DecodeString(tsfJSON.Payload)
 	if err != nil {
 		return nil, err
@@ -1926,9 +1927,3 @@ func convertExplorerTransferToActionPb(tsfJSON *explorer.SendTransferRequest, Ma
 	}
 	return actPb, nil
 }
-
-type bigIntArray []*big.Int
-
-func (s bigIntArray) Len() int           { return len(s) }
-func (s bigIntArray) Less(i, j int) bool { return s[i].Cmp(s[j]) < 0 }
-func (s bigIntArray) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
