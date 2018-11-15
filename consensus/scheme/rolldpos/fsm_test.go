@@ -46,15 +46,19 @@ var testAddrs = []*iotxaddress.Address{
 
 func TestBackdoorEvt(t *testing.T) {
 	t.Parallel()
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
 	ctx := makeTestRollDPoSCtx(
 		testAddrs[0],
-		nil,
+		ctrl,
 		config.RollDPoS{
 			EventChanSize: 1,
 			EnableDKG:     true,
 		},
-		func(_ *mock_blockchain.MockBlockchain) {},
+		func(mockBlockchain *mock_blockchain.MockBlockchain) {
+			mockBlockchain.EXPECT().TipHeight().Return(uint64(0)).Times(8)
+		},
 		func(_ *mock_actpool.MockActPool) {},
 		func(_ *mock_network.MockOverlay) {},
 		clock.New(),
