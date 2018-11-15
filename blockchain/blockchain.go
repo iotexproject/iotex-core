@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"math/big"
 	"sync"
+	"sync/atomic"
 
 	"github.com/facebookgo/clock"
 	"github.com/pkg/errors"
@@ -729,9 +730,7 @@ func (bc *blockchain) TipHash() hash.Hash32B {
 
 // TipHeight returns tip block's height
 func (bc *blockchain) TipHeight() uint64 {
-	bc.mu.RLock()
-	defer bc.mu.RUnlock()
-	return bc.tipHeight
+	return atomic.LoadUint64(&bc.tipHeight)
 }
 
 // ValidateBlock validates a new block before adding it to the blockchain
