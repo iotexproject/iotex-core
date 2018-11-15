@@ -122,7 +122,7 @@ func (p *Protocol) mutateDeposit(deposit *action.SettleDeposit, ws state.Working
 	}
 
 	// Update the deposit recipient
-	recipient, err := ws.LoadOrCreateAccountState(deposit.Sender(), big.NewInt(0))
+	recipient, err := ws.LoadOrCreateAccountState(deposit.Recipient(), big.NewInt(0))
 	if err != nil {
 		return err
 	}
