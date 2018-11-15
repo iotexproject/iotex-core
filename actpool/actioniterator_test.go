@@ -1,10 +1,11 @@
 package actpool
 
 import (
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/stretchr/testify/require"
 	"math/big"
 	"testing"
+
+	"github.com/iotexproject/iotex-core/action"
+	"github.com/stretchr/testify/require"
 )
 
 func TestActionIterator(t *testing.T) {
@@ -34,7 +35,7 @@ func TestActionIterator(t *testing.T) {
 	ai.LoadNextAction()
 	act = ai.TopAction()
 	require.Equal(act, vote1)
-	ai.PopAccount()
+	ai.PopAction()
 	act = ai.TopAction()
 	require.Equal(act, tsf2)
 }
