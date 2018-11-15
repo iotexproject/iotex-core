@@ -34,10 +34,10 @@ func main() {
 	// timeout indicates the duration of running nightly build in seconds. Default is 300
 	var timeout int
 	// aps indicates how many actions to be injected in one second. Default is 0
-	var aps int
+	var aps float64
 
 	flag.IntVar(&timeout, "timeout", 100, "duration of running nightly build")
-	flag.IntVar(&aps, "aps", 1, "actions to be injected per second")
+	flag.Float64Var(&aps, "aps", 1, "actions to be injected per second")
 	flag.Parse()
 
 	// path of config file containing all the public/private key paris of addresses getting transfers
