@@ -434,11 +434,11 @@ func (ws *workingSet) CachedState(hash hash.PKHash, s State) (State, error) {
 		return state, nil
 	}
 	// add to local cache
-	err := ws.State(hash, s)
-	if err == nil {
-		ws.cachedStates[hash] = s
+	if err := ws.State(hash, s); err != nil {
+		return s, err
 	}
-	return s, err
+	ws.cachedStates[hash] = s
+	return s, nil
 }
 
 // putState put a state into DB
