@@ -16,9 +16,8 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"fmt"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/config"
@@ -284,6 +283,11 @@ func TestCandidates(t *testing.T) {
 	_, err = ws.LoadOrCreateAccountState(f.RawAddress, big.NewInt(300))
 	require.NoError(t, err)
 
+	addrHash, err := iotxaddress.AddressToPKHash(b.RawAddress)
+	assert.NoError(t, err)
+	var ac Account
+	ws.CachedState(addrHash, &ac)
+	ac.Balance = big.NewInt(20)
 	// a:100(0) b:200(0) c:300(0)
 	tx1, err := action.NewTransfer(uint64(1), big.NewInt(10), a.RawAddress, b.RawAddress, nil, uint64(0), big.NewInt(0))
 	require.NoError(t, err)
@@ -300,6 +304,8 @@ func TestCandidates(t *testing.T) {
 	require.Nil(t, err)
 	root := newRoot
 	require.NotEqual(t, hash.ZeroHash32B, root)
+	var bc Account
+	ws.CachedState(addrHash, &bc)
 	require.Nil(t, sf.Commit(ws))
 	balanceB, err := sf.Balance(b.RawAddress)
 	require.Nil(t, err)
@@ -333,7 +339,6 @@ func TestCandidates(t *testing.T) {
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
-	fmt.Println(voteForm(h, cand))
 	require.True(t, compareStrings(voteForm(h, cand), []string{a.RawAddress + ":70"}))
 	// a(a):70(+0=70) b:210 c:320
 

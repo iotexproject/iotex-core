@@ -118,26 +118,15 @@ func (p *Protocol) subChainsInOperation(ws state.WorkingSet) (state.SortedSlice,
 	if ws == nil {
 		subChainsInOp, err = p.SubChainsInOperation()
 	} else {
-		subChainsInOp, err = processState(ws.State(SubChainsInOperationKey, &subChainsInOp))
+		err = ws.State(SubChainsInOperationKey, &subChainsInOp)
+		if err != nil && errors.Cause(err) == state.ErrStateNotExist {
+			err = nil
+		}
 	}
 	if err != nil {
 		return state.SortedSlice{}, errors.Wrap(err, "error when getting the state of sub-chains in operation")
 	}
 	return subChainsInOp, nil
-}
-
-func processState(s state.State, err error) (state.SortedSlice, error) {
-	if err != nil {
-		if errors.Cause(err) == state.ErrStateNotExist {
-			return state.SortedSlice{}, nil
-		}
-		return nil, errors.Wrapf(err, "error when loading state of %x", SubChainsInOperationKey)
-	}
-	uci, ok := s.(*state.SortedSlice)
-	if !ok {
-		return nil, errors.New("error when casting state into used chain IDs")
-	}
-	return *uci, nil
 }
 
 func srcAddressPKHash(srcAddr string) (hash.PKHash, error) {
@@ -151,20 +140,19 @@ func srcAddressPKHash(srcAddr string) (hash.PKHash, error) {
 // SubChain returns the confirmed sub-chain state
 func (p *Protocol) SubChain(addr address.Address) (*SubChain, error) {
 	var subChain SubChain
-	state, err := p.sf.State(byteutil.BytesTo20B(addr.Payload()), &subChain)
+	_, err := p.sf.State(byteutil.BytesTo20B(addr.Payload()), &subChain)
 	if err != nil {
 		return nil, errors.Wrapf(err, "error when loading state of %x", addr.Payload())
 	}
-	sc, ok := state.(*SubChain)
-	if !ok {
-		return nil, errors.New("error when casting state into sub-chain")
-	}
-	return sc, nil
+	return &subChain, nil
 }
 
 // SubChainsInOperation returns the used chain IDs
 func (p *Protocol) SubChainsInOperation() (state.SortedSlice, error) {
 	var subChainsInOp state.SortedSlice
-	s, err := p.sf.State(SubChainsInOperationKey, &subChainsInOp)
-	return processState(s, err)
+	_, err := p.sf.State(SubChainsInOperationKey, &subChainsInOp)
+	if err != nil && errors.Cause(err) != state.ErrStateNotExist {
+		return nil, err
+	}
+	return subChainsInOp, nil
 }

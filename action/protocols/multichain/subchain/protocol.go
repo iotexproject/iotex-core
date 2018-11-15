@@ -80,21 +80,20 @@ func (p *Protocol) validateDeposit(deposit *action.SettleDeposit, ws state.Worki
 
 	// Validate sub-chain state
 	var depositIndex DepositIndex
-	var val state.State
 	addr := depositAddress(deposit.Index())
 	if ws == nil {
-		val, err = p.sf.State(addr, &depositIndex)
+		_, err = p.sf.State(addr, &depositIndex)
 	} else {
-		val, err = ws.State(addr, &depositIndex)
+		err = ws.State(addr, &depositIndex)
 	}
-	exist, err := existDepositIndex(addr, val, err)
-	if err != nil {
-		return err
-	}
-	if exist {
+	switch errors.Cause(err) {
+	case nil:
 		return fmt.Errorf("deposit %d is already settled", deposit.Index())
+	case state.ErrStateNotExist:
+		return nil
+	default:
+		return errors.Wrapf(err, "error when loading state of %x", addr)
 	}
-	return nil
 }
 
 func (p *Protocol) mutateDeposit(deposit *action.SettleDeposit, ws state.WorkingSet) error {
@@ -138,20 +137,6 @@ func (p *Protocol) mutateDeposit(deposit *action.SettleDeposit, ws state.Working
 
 func depositAddress(index uint64) hash.PKHash {
 	return byteutil.BytesTo20B(hash.Hash160b([]byte(fmt.Sprintf("depositToSubChain.%d", index))))
-}
-
-func existDepositIndex(addr hash.PKHash, s state.State, err error) (bool, error) {
-	if err != nil {
-		if errors.Cause(err) == state.ErrStateNotExist {
-			return false, nil
-		}
-		return false, errors.Wrapf(err, "error when loading state of %x", addr)
-	}
-	_, ok := s.(*DepositIndex)
-	if !ok {
-		return false, errors.New("error when casting state into used deposit index")
-	}
-	return true, nil
 }
 
 func srcAddressPKHash(srcAddr string) (hash.PKHash, error) {
