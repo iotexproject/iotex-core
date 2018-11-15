@@ -57,8 +57,8 @@ func Deserialize(x interface{}, data []byte) error {
 		return s.Deserialize(data)
 	}
 	buf := bytes.NewBuffer(data)
-	e := gob.NewDecoder(buf)
-	if err := e.Decode(x); err != nil {
+	d := gob.NewDecoder(buf)
+	if err := d.Decode(x); err != nil {
 		return errors.Wrapf(err, "error when deserializing %v state to %T", data, x)
 	}
 	return nil

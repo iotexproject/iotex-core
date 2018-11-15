@@ -285,9 +285,6 @@ func TestCandidates(t *testing.T) {
 
 	addrHash, err := iotxaddress.AddressToPKHash(b.RawAddress)
 	assert.NoError(t, err)
-	var ac Account
-	ws.CachedState(addrHash, &ac)
-	ac.Balance = big.NewInt(20)
 	// a:100(0) b:200(0) c:300(0)
 	tx1, err := action.NewTransfer(uint64(1), big.NewInt(10), a.RawAddress, b.RawAddress, nil, uint64(0), big.NewInt(0))
 	require.NoError(t, err)
@@ -304,8 +301,6 @@ func TestCandidates(t *testing.T) {
 	require.Nil(t, err)
 	root := newRoot
 	require.NotEqual(t, hash.ZeroHash32B, root)
-	var bc Account
-	ws.CachedState(addrHash, &bc)
 	require.Nil(t, sf.Commit(ws))
 	balanceB, err := sf.Balance(b.RawAddress)
 	require.Nil(t, err)
