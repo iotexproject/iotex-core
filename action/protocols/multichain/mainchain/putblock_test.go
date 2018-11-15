@@ -18,6 +18,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/factory"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
@@ -32,7 +33,7 @@ func TestHandlePutBlock(t *testing.T) {
 	cfg := config.Default
 	ctx := context.Background()
 	ctrl := gomock.NewController(t)
-	sf, err := state.NewFactory(cfg, state.InMemTrieOption())
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(t, err)
 	require.NoError(t, sf.Start(ctx))
 	chain := mock_blockchain.NewMockBlockchain(ctrl)

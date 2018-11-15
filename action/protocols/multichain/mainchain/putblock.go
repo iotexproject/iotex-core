@@ -11,13 +11,13 @@ import (
 	"sort"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/factory"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-core/state"
 )
 
-func (p *Protocol) handlePutBlock(pb *action.PutBlock, ws state.WorkingSet) error {
+func (p *Protocol) handlePutBlock(pb *action.PutBlock, ws factory.WorkingSet) error {
 	if err := p.validatePutBlock(pb, ws); err != nil {
 		return err
 	}
@@ -41,7 +41,7 @@ func (p *Protocol) handlePutBlock(pb *action.PutBlock, ws state.WorkingSet) erro
 	return ws.PutState(producerPKHash, account)
 }
 
-func (p *Protocol) validatePutBlock(pb *action.PutBlock, ws state.WorkingSet) error {
+func (p *Protocol) validatePutBlock(pb *action.PutBlock, ws factory.WorkingSet) error {
 	// use owner address TODO
 
 	// can only emit on one height

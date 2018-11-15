@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package state
+package factory
 
 import (
 	"context"
@@ -22,6 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/trie"
 )
 
@@ -50,13 +51,13 @@ type (
 		// Accounts
 		Balance(string) (*big.Int, error)
 		Nonce(string) (uint64, error) // Note that Nonce starts with 1.
-		AccountState(string) (*Account, error)
+		AccountState(string) (*state.Account, error)
 		RootHash() hash.Hash32B
 		Height() (uint64, error)
 		NewWorkingSet() (WorkingSet, error)
 		Commit(WorkingSet) error
 		// Candidate pool
-		CandidatesByHeight(uint64) ([]*Candidate, error)
+		CandidatesByHeight(uint64) ([]*state.Candidate, error)
 
 		State(hash.PKHash, interface{}) (interface{}, error)
 		AddActionHandlers(...ActionHandler)
@@ -82,11 +83,11 @@ type (
 	}
 )
 
-// FactoryOption sets Factory construction parameter
-type FactoryOption func(*factory, config.Config) error
+// Option sets Factory construction parameter
+type Option func(*factory, config.Config) error
 
 // PrecreatedTrieDBOption uses pre-created trie DB for state factory
-func PrecreatedTrieDBOption(kv db.KVStore) FactoryOption {
+func PrecreatedTrieDBOption(kv db.KVStore) Option {
 	return func(sf *factory, cfg config.Config) (err error) {
 		if kv == nil {
 			return errors.New("Invalid empty trie db")
@@ -107,7 +108,7 @@ func PrecreatedTrieDBOption(kv db.KVStore) FactoryOption {
 }
 
 // DefaultTrieOption creates trie from config for state factory
-func DefaultTrieOption() FactoryOption {
+func DefaultTrieOption() Option {
 	return func(sf *factory, cfg config.Config) (err error) {
 		dbPath := cfg.Chain.TrieDBPath
 		if len(dbPath) == 0 {
@@ -130,7 +131,7 @@ func DefaultTrieOption() FactoryOption {
 }
 
 // InMemTrieOption creates in memory trie for state factory
-func InMemTrieOption() FactoryOption {
+func InMemTrieOption() Option {
 	return func(sf *factory, cfg config.Config) (err error) {
 		trieDB := db.NewMemKVStore()
 		if err = trieDB.Start(context.Background()); err != nil {
@@ -149,7 +150,7 @@ func InMemTrieOption() FactoryOption {
 }
 
 // NewFactory creates a new state factory
-func NewFactory(cfg config.Config, opts ...FactoryOption) (Factory, error) {
+func NewFactory(cfg config.Config, opts ...Option) (Factory, error) {
 	sf := &factory{
 		currentChainHeight: 0,
 		numCandidates:      cfg.Chain.NumCandidates,
@@ -215,7 +216,7 @@ func (sf *factory) Nonce(addr string) (uint64, error) {
 }
 
 // account returns the confirmed account state on the chain
-func (sf *factory) AccountState(addr string) (*Account, error) {
+func (sf *factory) AccountState(addr string) (*state.Account, error) {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
 
@@ -273,17 +274,17 @@ func (sf *factory) Commit(ws WorkingSet) error {
 // Candidate functions
 //======================================
 // CandidatesByHeight returns array of Candidates in candidate pool of a given height
-func (sf *factory) CandidatesByHeight(height uint64) ([]*Candidate, error) {
+func (sf *factory) CandidatesByHeight(height uint64) ([]*state.Candidate, error) {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
 	// Load Candidates on the given height from underlying db
 	candidatesBytes, err := sf.dao.Get(trie.CandidateKVNameSpace, byteutil.Uint64ToBytes(height))
 	if err != nil {
-		return []*Candidate{}, errors.Wrapf(err, "failed to get candidates on Height %d", height)
+		return []*state.Candidate{}, errors.Wrapf(err, "failed to get candidates on Height %d", height)
 	}
-	var candidates CandidateList
+	var candidates state.CandidateList
 	if err := candidates.Deserialize(candidatesBytes); err != nil {
-		return []*Candidate{}, errors.Wrapf(err, "failed to get candidates on height %d", height)
+		return []*state.Candidate{}, errors.Wrapf(err, "failed to get candidates on height %d", height)
 	}
 	if len(candidates) > int(sf.numCandidates) {
 		candidates = candidates[:sf.numCandidates]
@@ -315,7 +316,7 @@ func (sf *factory) getRoot(nameSpace string, key string) (hash.Hash32B, error) {
 	return trieRoot, nil
 }
 
-func (sf *factory) state(addr hash.PKHash, state interface{}) (interface{}, error) {
+func (sf *factory) state(addr hash.PKHash, s interface{}) (interface{}, error) {
 	data, err := sf.accountTrie.Get(addr[:])
 	if err != nil {
 		if errors.Cause(err) == trie.ErrNotExist {
@@ -323,21 +324,21 @@ func (sf *factory) state(addr hash.PKHash, state interface{}) (interface{}, erro
 		}
 		return nil, errors.Wrapf(err, "error when getting the state of %x", addr)
 	}
-	if err := Deserialize(state, data); err != nil {
-		return nil, errors.Wrapf(err, "error when deserializing state data into %T", state)
+	if err := state.Deserialize(s, data); err != nil {
+		return nil, errors.Wrapf(err, "error when deserializing state data into %T", s)
 	}
-	return state, nil
+	return s, nil
 }
 
-func (sf *factory) accountState(addr string) (*Account, error) {
+func (sf *factory) accountState(addr string) (*state.Account, error) {
 	pkHash, err := iotxaddress.AddressToPKHash(addr)
 	if err != nil {
 		return nil, errors.Wrap(err, "error when getting the pubkey hash")
 	}
-	var account Account
+	var account state.Account
 	if _, err := sf.state(pkHash, &account); err != nil {
 		if errors.Cause(err) == ErrStateNotExist {
-			return &Account{
+			return &state.Account{
 				Balance:      big.NewInt(0),
 				VotingWeight: big.NewInt(0),
 			}, nil

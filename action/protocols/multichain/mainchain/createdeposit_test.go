@@ -19,6 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/factory"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
@@ -31,7 +32,7 @@ func TestValidateDeposit(t *testing.T) {
 
 	cfg := config.Default
 	ctx := context.Background()
-	sf, err := state.NewFactory(cfg, state.InMemTrieOption())
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(t, err)
 	require.NoError(t, sf.Start(ctx))
 	ctrl := gomock.NewController(t)
@@ -103,7 +104,7 @@ func TestMutateDeposit(t *testing.T) {
 
 	cfg := config.Default
 	ctx := context.Background()
-	sf, err := state.NewFactory(cfg, state.InMemTrieOption())
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(t, err)
 	require.NoError(t, sf.Start(ctx))
 	ctrl := gomock.NewController(t)

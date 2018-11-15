@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/factory"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -20,7 +21,7 @@ import (
 const TransferSizeLimit = 32 * 1024
 
 // handleTransfer handles a transfer
-func (p *Protocol) handleTransfer(act action.Action, ws state.WorkingSet) error {
+func (p *Protocol) handleTransfer(act action.Action, ws factory.WorkingSet) error {
 	tsf, ok := act.(*action.Transfer)
 	if !ok {
 		return nil

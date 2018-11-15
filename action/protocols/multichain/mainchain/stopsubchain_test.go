@@ -18,7 +18,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
-	"github.com/iotexproject/iotex-core/test/mock/mock_state"
+	"github.com/iotexproject/iotex-core/test/mock/mock_factory"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 )
 
@@ -28,12 +28,12 @@ func TestHandleStopSubChain(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	sender := testaddress.Addrinfo["producer"]
-	factory := mock_state.NewMockFactory(ctrl)
+	factory := mock_factory.NewMockFactory(ctrl)
 	chain := mock_blockchain.NewMockBlockchain(ctrl)
 	chain.EXPECT().GetFactory().Return(factory).AnyTimes()
 	chain.EXPECT().ChainID().Return(uint32(1)).AnyTimes()
 
-	ws := mock_state.NewMockWorkingSet(ctrl)
+	ws := mock_factory.NewMockWorkingSet(ctrl)
 	ws.EXPECT().State(gomock.Any(), gomock.Any()).
 		Do(func(_ hash.PKHash, s interface{}) error {
 			out := &state.SortedSlice{InOperation{ID: uint32(2)}}

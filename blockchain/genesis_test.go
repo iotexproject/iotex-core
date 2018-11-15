@@ -15,15 +15,15 @@ import (
 
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/factory"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/state"
 )
 
 func TestGenesis(t *testing.T) {
 	assert := assert.New(t)
 
 	cfg := config.Default
-	sf, err := state.NewFactory(cfg, state.PrecreatedTrieDBOption(db.NewMemKVStore()))
+	sf, err := factory.NewFactory(cfg, factory.PrecreatedTrieDBOption(db.NewMemKVStore()))
 	assert.NoError(err)
 	assert.NoError(sf.Start(context.Background()))
 	ws, err := sf.NewWorkingSet()
