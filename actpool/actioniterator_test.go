@@ -29,12 +29,12 @@ func TestActionIterator(t *testing.T) {
 	accMap[tsf3.SrcAddr()] = []action.Action{tsf3}
 
 	ai := NewActionIterator(accMap)
-	act := ai.Top()
+	act := ai.TopAction()
 	require.Equal(act, tsf1)
-	ai.Shift()
-	act = ai.Top()
+	ai.LoadNextAction()
+	act = ai.TopAction()
 	require.Equal(act, vote1)
-	ai.Pop()
-	act = ai.Top()
+	ai.PopAccount()
+	act = ai.TopAction()
 	require.Equal(act, tsf2)
 }

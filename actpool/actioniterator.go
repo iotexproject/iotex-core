@@ -14,6 +14,7 @@ import (
 
 // ActionByPrice implements both the sort and the heap interface, making it useful
 // for all at once sorting as well as individually adding and removing elements.
+// It's essentially a big root heap of actions
 type ActionByPrice []action.Action
 
 func (s ActionByPrice) Len() int           { return len(s) }
@@ -33,9 +34,9 @@ func (s *ActionByPrice) Pop() interface{} {
 }
 
 type ActionIterator interface {
-	Top() action.Action
-	Pop()
-	Shift()
+	TopAction() action.Action
+	PopAccount()
+	LoadNextAction()
 }
 
 type actionIterator struct {
@@ -58,18 +59,18 @@ func NewActionIterator(accountActs map[string][]action.Action) ActionIterator {
 	}
 }
 
-func (ai *actionIterator) Top() action.Action {
+func (ai *actionIterator) TopAction() action.Action {
 	if len(ai.heads) == 0 {
 		return nil
 	}
 	return ai.heads[0]
 }
 
-func (ai *actionIterator) Pop() {
+func (ai *actionIterator) PopAccount() {
 	heap.Pop(&ai.heads)
 }
 
-func (ai *actionIterator) Shift() {
+func (ai *actionIterator) LoadNextAction() {
 	sender := ai.heads[0].SrcAddr()
 	if actions, ok := ai.accountActs[sender]; ok && len(actions) > 0 {
 		ai.heads[0], ai.accountActs[sender] = actions[0], actions[1:]
