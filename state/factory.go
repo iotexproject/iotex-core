@@ -337,6 +337,12 @@ func (sf *factory) accountState(addr string) (*Account, error) {
 	var account Account
 	state, err := sf.state(pkHash, &account)
 	if err != nil {
+		if errors.Cause(err) == ErrStateNotExist {
+			return &Account{
+				Balance:      big.NewInt(0),
+				VotingWeight: big.NewInt(0),
+			}, nil
+		}
 		return nil, errors.Wrapf(err, "error when loading state of %x", pkHash)
 	}
 	accountPtr, ok := state.(*Account)

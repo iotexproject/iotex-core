@@ -163,6 +163,5 @@ func (sd *SettleDeposit) Cost() (*big.Int, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get intrinsic gas for the settle deposit")
 	}
-	depositFee := big.NewInt(0).Mul(sd.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas))
-	return big.NewInt(0).Add(sd.Amount(), depositFee), nil
+	return big.NewInt(0).Mul(sd.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas)), nil
 }
