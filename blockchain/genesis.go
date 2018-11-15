@@ -20,6 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
+	"github.com/iotexproject/iotex-core/state"
 )
 
 const testnetActionPath = "testnet_actions.yaml"
@@ -92,17 +93,38 @@ func (g *Genesis) CreatorPKHash() hash.PKHash {
 }
 
 // NewGenesisBlock creates a new genesis block
-func NewGenesisBlock(cfg *config.Config) *Block {
+func NewGenesisBlock(cfg *config.Config, ws state.WorkingSet) *Block {
 	actions := loadGenesisData(cfg)
-
+	// add initial allocation
+	alloc := big.NewInt(0)
+	for _, transfer := range actions.Transfers {
+		rpk, _ := decodeKey(transfer.RecipientPK, "")
+		recipientAddr := generateAddr(cfg.Chain.ID, rpk)
+		amount := ConvertIotxToRau(transfer.Amount)
+		account, err := ws.LoadOrCreateAccountState(recipientAddr, amount)
+		if err != nil {
+			logger.Panic().Err(err).Msg("failed to add initial allocation")
+		}
+		if err := ws.PutState(keypair.HashPubKey(rpk), account); err != nil {
+			logger.Panic().Err(err).Msg("failed to put initial allocation")
+		}
+		alloc.Add(alloc, amount)
+	}
+	// add creator
 	Gen.CreatorPubKey = actions.Creation.PubKey
-	Gen.CreatorPrivKey = actions.Creation.PriKey
-	_, creatorPrik := decodeKey(Gen.CreatorPubKey, Gen.CreatorPrivKey)
 	creatorAddr := Gen.CreatorAddr(cfg.Chain.ID)
+	account, err := ws.LoadOrCreateAccountState(creatorAddr, alloc.Sub(Gen.TotalSupply, alloc))
+	if err != nil {
+		logger.Panic().Err(err).Msg("failed to add creator")
+	}
+	if err := ws.PutState(Gen.CreatorPKHash(), account); err != nil {
+		logger.Panic().Err(err).Msg("failed to put creator")
+	}
 
+	// TODO: convert vote to state operation as well
 	acts := make([]action.Action, 0)
 	for _, nominator := range actions.SelfNominators {
-		pk, sk := decodeKey(nominator.PubKey, nominator.PriKey)
+		pk, _ := decodeKey(nominator.PubKey, "")
 		address := generateAddr(cfg.Chain.ID, pk)
 		vote, err := action.NewVote(
 			0,
@@ -114,33 +136,10 @@ func NewGenesisBlock(cfg *config.Config) *Block {
 		if err != nil {
 			logger.Panic().Err(err).Msg("Fail to create the new vote action")
 		}
-		if err := action.Sign(vote, sk); err != nil {
-			logger.Panic().Err(err).Msg("Fail to sign the new vote action")
-		}
 		acts = append(acts, vote)
 	}
 
-	for _, transfer := range actions.Transfers {
-		rpk, _ := decodeKey(transfer.RecipientPK, "")
-		recipientAddr := generateAddr(cfg.Chain.ID, rpk)
-		tsf, err := action.NewTransfer(
-			0,
-			ConvertIotxToRau(transfer.Amount),
-			creatorAddr,
-			recipientAddr,
-			[]byte{},
-			0,
-			big.NewInt(0),
-		)
-		if err != nil {
-			logger.Panic().Err(err).Msg("Fail to create the new transfer action")
-		}
-		if err := action.Sign(tsf, creatorPrik); err != nil {
-			logger.Panic().Err(err).Msg("Fail to sign the new transfer action")
-		}
-		acts = append(acts, tsf)
-	}
-
+	// TODO: decouple start sub-chain from genesis block
 	if cfg.Chain.EnableSubChainStartInGenesis {
 		for _, sc := range actions.SubChains {
 			start := action.NewStartSubChain(
@@ -154,9 +153,6 @@ func NewGenesisBlock(cfg *config.Config) *Block {
 				0,
 				big.NewInt(0),
 			)
-			if err := action.Sign(start, creatorPrik); err != nil {
-				logger.Panic().Err(err).Msg("Fail to sign the new start sub-chain action")
-			}
 			acts = append(acts, start)
 		}
 	}

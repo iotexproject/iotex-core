@@ -41,7 +41,7 @@ func (n *Noop) HandleBlockPropose(propose *iproto.ProposePb) error {
 
 // HandleEndorse handles incoming block propose
 func (n *Noop) HandleEndorse(endorse *iproto.EndorsePb) error {
-	logger.Warn().Msg("Noop scheme does not handle incoming endorse requests")
+	logger.Debug().Msg("Noop scheme does not handle incoming endorse requests")
 	return nil
 }
 

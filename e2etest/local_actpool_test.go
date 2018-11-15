@@ -28,11 +28,10 @@ import (
 const (
 	// Make sure the key pairs used here match the genesis block
 	// Sender's public/private key pair
-	fromPubKey  = "2726440bc26449be22eb5c0564af4b23dc8c373aa79e8cb0f8df2a9e55b4842dbefcde07d95c1dc1f3d1a367086b4f7742115b53c434e8f5abf116333c2c378c51b0ef6176153602"
-	fromPrivKey = "c5364b1a2d99d127439be22edfd657889981e9ba4d6d18fe8eca489d48485371efcb2400"
+	fromPubKey  = "d857218c61a15a71f9ac313d954b12f4a0748d88840eb3b6b2cffa727e86f73fe57ade02d65e80df2078b5de771e552a7b264450b3c9daebb42e96c80c5e6e708e8f1105f11bdc03"
+	fromPrivKey = "2a67356f088788959d4fb2754d15e8bd4b30252dede329609c8c604504fda1a7c87d5d00"
 	// Recipient's public/private key pair
-	toPubKey  = "2ba2e72613783656b92af930719d2a13874bcb4999b7a0ae11a5beb469357da441f41303dc1ad5a4e6c0cdde85ceb11516bbcaca68bb82168255de60e3a216f00c18c1285a3d4402"
-	toPrivKey = "ededa5274f44b4075dcabfe4d1aaa4f7f50ca21bc1f4c5a676dd11727d21b344c575a401"
+	toPubKey = "3b09b24c31c27161e35b6dc897a95a1df16fa7d7e2f73ce0d15babe58cb17e6dfab87b000c199e5a6113f5da3fc621ce1145650e921781d57c5b65e8ecefe0238419a8c843557b00"
 )
 
 func TestLocalActPool(t *testing.T) {
@@ -70,7 +69,7 @@ func TestLocalActPool(t *testing.T) {
 	}()
 
 	from := testaddress.ConstructAddress(chainID, fromPubKey, fromPrivKey)
-	to := testaddress.ConstructAddress(chainID, toPubKey, toPrivKey)
+	to := testaddress.ConstructAddress(chainID, toPubKey, "")
 
 	require.NoError(testutil.WaitUntil(100*time.Millisecond, 5*time.Second, func() (bool, error) {
 		return len(svr.P2P().GetPeers()) == 1 && len(cli.GetPeers()) == 1, nil
@@ -145,7 +144,7 @@ func TestPressureActPool(t *testing.T) {
 	}()
 
 	from := testaddress.ConstructAddress(chainID, fromPubKey, fromPrivKey)
-	to := testaddress.ConstructAddress(chainID, toPubKey, toPrivKey)
+	to := testaddress.ConstructAddress(chainID, toPubKey, "")
 
 	require.NoError(testutil.WaitUntil(100*time.Millisecond, 5*time.Second, func() (bool, error) {
 		return len(svr.P2P().GetPeers()) == 1 && len(cli.GetPeers()) == 1, nil

@@ -303,121 +303,6 @@ func (bc *blockchain) Start(ctx context.Context) (err error) {
 	return bc.startExistingBlockchain(recoveryHeight)
 }
 
-func (bc *blockchain) startEmptyBlockchain() error {
-	ws, err := bc.sf.NewWorkingSet()
-	if err != nil {
-		return errors.Wrap(err, "Failed to obtain working set from state factory")
-	}
-	var genesis *Block
-	if bc.config.Chain.GenesisActionsPath != "" || !bc.config.Chain.EmptyGenesis {
-		genesis = NewGenesisBlock(bc.config)
-		if genesis == nil {
-			return errors.New("cannot create genesis block")
-		}
-		// Genesis block has height 0
-		if genesis.Header.height != 0 {
-			return errors.New(fmt.Sprintf("genesis block has height %d but expects 0", genesis.Height()))
-		}
-		if bc.sf == nil {
-			return errors.New("statefactory cannot be nil")
-		}
-		// add creator into Trie
-		if err := bc.addCreatorIntoAccounts(ws); err != nil {
-			return err
-		}
-		// run execution and update state trie root hash
-		root, err := bc.runActions(genesis, ws, false)
-		if err != nil {
-			return errors.Wrap(err, "failed to update state changes in Genesis block")
-		}
-		genesis.Header.stateRoot = root
-		genesis.workingSet = ws
-		// add Genesis block as very first block
-	} else {
-		genesis = NewBlock(bc.ChainID(), 0, hash.ZeroHash32B, Gen.Timestamp, keypair.ZeroPublicKey, nil)
-		genesis.workingSet = ws
-	}
-	if err := bc.commitBlock(genesis); err != nil {
-		return errors.Wrap(err, "failed to commit Genesis block")
-	}
-	return nil
-}
-
-func (bc *blockchain) startExistingBlockchain(recoveryHeight uint64) error {
-	// populate state factory
-	if bc.sf == nil {
-		return errors.New("statefactory cannot be nil")
-	}
-	var startHeight uint64
-	if factoryHeight, err := bc.sf.Height(); err == nil {
-		if factoryHeight > bc.tipHeight {
-			return errors.New("factory is higher than blockchain")
-		}
-		startHeight = factoryHeight + 1
-	}
-	ws, err := bc.sf.NewWorkingSet()
-	if err != nil {
-		return errors.Wrap(err, "failed to obtain working set from state factory")
-	}
-	// If restarting factory from fresh db, first create creator's state
-	if startHeight == 0 {
-		actions := loadGenesisData(bc.config)
-		Gen.CreatorPubKey = actions.Creation.PubKey
-		if _, err := ws.LoadOrCreateAccountState(Gen.CreatorAddr(bc.ChainID()), Gen.TotalSupply); err != nil {
-			return err
-		}
-		genesisBlk, err := bc.GetBlockByHeight(0)
-		if err != nil {
-			return err
-		}
-		gasLimit := GasLimit
-		ctx := state.WithRunActionsCtx(context.Background(),
-			state.RunActionsCtx{
-				ProducerAddr:    genesisBlk.ProducerAddress(),
-				GasLimit:        &gasLimit,
-				EnableGasCharge: bc.config.Chain.EnableGasCharge,
-			})
-		if _, _, err := ws.RunActions(ctx, 0, nil); err != nil {
-			return errors.Wrap(err, "failed to create Creator into StateFactory")
-		}
-		if err := bc.sf.Commit(ws); err != nil {
-			return errors.Wrap(err, "failed to add Creator into StateFactory")
-		}
-	}
-	if recoveryHeight > 0 && startHeight <= recoveryHeight {
-		for bc.tipHeight > recoveryHeight {
-			if err := bc.dao.deleteTipBlock(); err != nil {
-				return err
-			}
-			bc.tipHeight--
-		}
-	}
-	for i := startHeight; i <= bc.tipHeight; i++ {
-		blk, err := bc.GetBlockByHeight(i)
-		if err != nil {
-			return err
-		}
-		ws, err := bc.sf.NewWorkingSet()
-		if err != nil {
-			return errors.Wrap(err, "failed to obtain working set from state factory")
-		}
-		if _, err := bc.runActions(blk, ws, true); err != nil {
-			return err
-		}
-		if err := bc.sf.Commit(ws); err != nil {
-			return err
-		}
-	}
-	factoryHeight, err := bc.sf.Height()
-	if err != nil {
-		return errors.Wrap(err, "failed to get factory's height")
-	}
-	logger.Info().
-		Uint64("blockchain height", bc.tipHeight).Uint64("factory height", factoryHeight).
-		Msg("Restarting blockchain")
-	return nil
-}
-
 // Stop stops the blockchain.
 func (bc *blockchain) Stop(ctx context.Context) error { return bc.lifecycle.OnStop(ctx) }
 
@@ -902,6 +787,123 @@ func (bc *blockchain) ExecuteContractRead(ex *action.Execution) ([]byte, error) 
 // private functions
 //=====================================
 
+func (bc *blockchain) getBlockByHeight(height uint64) (*Block, error) {
+	hash, err := bc.dao.getBlockHash(height)
+	if err != nil {
+		return nil, err
+	}
+	return bc.dao.getBlock(hash)
+}
+
+func (bc *blockchain) startEmptyBlockchain() error {
+	var genesis *Block
+	if bc.config.Chain.GenesisActionsPath != "" || !bc.config.Chain.EmptyGenesis {
+		if bc.sf == nil {
+			return errors.New("statefactory cannot be nil")
+		}
+		ws, err := bc.sf.NewWorkingSet()
+		if err != nil {
+			return errors.Wrap(err, "failed to obtain working set from state factory")
+		}
+		genesis = NewGenesisBlock(bc.config, ws)
+		if genesis == nil {
+			return errors.New("cannot create genesis block")
+		}
+		// Genesis block has height 0
+		if genesis.Header.height != 0 {
+			return errors.New(fmt.Sprintf("genesis block has height %d but expects 0", genesis.Height()))
+		}
+		// run execution and update state trie root hash
+		root, err := bc.runActions(genesis, ws, false)
+		if err != nil {
+			return errors.Wrap(err, "failed to update state changes in Genesis block")
+		}
+		genesis.Header.stateRoot = root
+		genesis.workingSet = ws
+	} else {
+		genesis = NewBlock(bc.ChainID(), 0, hash.ZeroHash32B, Gen.Timestamp, keypair.ZeroPublicKey, nil)
+	}
+	// add Genesis block as very first block
+	if err := bc.commitBlock(genesis); err != nil {
+		return errors.Wrap(err, "failed to commit Genesis block")
+	}
+	return nil
+}
+
+func (bc *blockchain) startExistingBlockchain(recoveryHeight uint64) error {
+	// populate state factory
+	if bc.sf == nil {
+		return errors.New("statefactory cannot be nil")
+	}
+	var startHeight uint64
+	if factoryHeight, err := bc.sf.Height(); err == nil {
+		if factoryHeight > bc.tipHeight {
+			return errors.New("factory is higher than blockchain")
+		}
+		startHeight = factoryHeight + 1
+	}
+	ws, err := bc.sf.NewWorkingSet()
+	if err != nil {
+		return errors.Wrap(err, "failed to obtain working set from state factory")
+	}
+	// If restarting factory from fresh db, first create creator's state
+	if startHeight == 0 {
+		actions := loadGenesisData(bc.config)
+		Gen.CreatorPubKey = actions.Creation.PubKey
+		if _, err := ws.LoadOrCreateAccountState(Gen.CreatorAddr(bc.config.Chain.ID), Gen.TotalSupply); err != nil {
+			return err
+		}
+		genesisBlk, err := bc.getBlockByHeight(0)
+		if err != nil {
+			return err
+		}
+		gasLimit := GasLimit
+		ctx := state.WithRunActionsCtx(context.Background(),
+			state.RunActionsCtx{
+				ProducerAddr:    genesisBlk.ProducerAddress(),
+				GasLimit:        &gasLimit,
+				EnableGasCharge: bc.config.Chain.EnableGasCharge,
+			})
+		if _, _, err := ws.RunActions(ctx, 0, nil); err != nil {
+			return errors.Wrap(err, "failed to create Creator into StateFactory")
+		}
+		if err := bc.sf.Commit(ws); err != nil {
+			return errors.Wrap(err, "failed to add Creator into StateFactory")
+		}
+	}
+	if recoveryHeight > 0 && startHeight <= recoveryHeight {
+		for bc.tipHeight > recoveryHeight {
+			if err := bc.dao.deleteTipBlock(); err != nil {
+				return err
+			}
+			bc.tipHeight--
+		}
+	}
+	for i := startHeight; i <= bc.tipHeight; i++ {
+		blk, err := bc.getBlockByHeight(i)
+		if err != nil {
+			return err
+		}
+		if ws, err = bc.sf.NewWorkingSet(); err != nil {
+			return errors.Wrap(err, "failed to obtain working set from state factory")
+		}
+		if _, err := bc.runActions(blk, ws, true); err != nil {
+			return err
+		}
+		if err := bc.sf.Commit(ws); err != nil {
+			return err
+		}
+	}
+	factoryHeight, err := bc.sf.Height()
+	if err != nil {
+		return errors.Wrap(err, "failed to get factory's height")
+	}
+	logger.Info().
+		Uint64("blockchain height", bc.tipHeight).Uint64("factory height", factoryHeight).
+		Msg("Restarting blockchain")
+	return nil
+}
+
 func (bc *blockchain) validateBlock(blk *Block, containCoinbase bool) error {
 	if bc.validator == nil {
 		logger.Panic().Msg("no block validator")
@@ -1001,17 +1003,3 @@ func (bc *blockchain) emitToSubscribers(blk *Block) error {
 }
 
 func (bc *blockchain) now() uint64 { return uint64(bc.clk.Now().Unix()) }
-
-func (bc *blockchain) addCreatorIntoAccounts(ws state.WorkingSet) error {
-	account, err := ws.LoadOrCreateAccountState(Gen.CreatorAddr(bc.ChainID()), Gen.TotalSupply)
-	if err != nil {
-		return errors.Wrap(err, "failed to create Creator state into StateFactory")
-	}
-	if err := ws.PutState(Gen.CreatorPKHash(), account); err != nil {
-		return errors.Wrap(err, "failed to put Creator state into StateFactory")
-	}
-	if err := bc.sf.Commit(ws); err != nil {
-		return errors.Wrap(err, "failed to commit Creator state into StateFactory")
-	}
-	return nil
-}

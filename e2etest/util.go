@@ -7,6 +7,7 @@
 package e2etest
 
 import (
+	"encoding/hex"
 	"math/big"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -27,11 +28,11 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 		[]byte{}, uint64(100000),
 		big.NewInt(0),
 	)
-	sk, err := keypair.DecodePrivateKey(blockchain.Gen.CreatorPrivKey)
-	if err != nil {
-		return err
-	}
-	action.Sign(tsf0, sk)
+	pk, _ := hex.DecodeString(blockchain.Gen.CreatorPubKey)
+	pubk, _ := keypair.BytesToPublicKey(pk)
+	sig, _ := hex.DecodeString("706af670ba076eef1969b2474c51d32f8ede85d30ad31fbe2f7763afaa39b327f2b9a500e948f170b4c472fb84abe687066d99172c08f9ec36fe8d23d7eb5a98c4f17334ca63f500")
+	tsf0.SetSrcPubkey(pubk)
+	tsf0.SetSignature(sig)
 	blk, err := bc.MintNewBlock([]action.Action{tsf0}, ta.Addrinfo["producer"], nil, nil, "")
 	if err != nil {
 		return err

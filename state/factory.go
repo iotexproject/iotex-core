@@ -248,13 +248,14 @@ func (sf *factory) NewWorkingSet() (WorkingSet, error) {
 
 // Commit persists all changes in RunActions() into the DB
 func (sf *factory) Commit(ws WorkingSet) error {
+	if ws == nil {
+		return nil
+	}
 	sf.mutex.Lock()
 	defer sf.mutex.Unlock()
-	if ws != nil {
-		if sf.currentChainHeight != ws.Version() {
-			// another working set with correct version already committed, do nothing
-			return nil
-		}
+	if sf.currentChainHeight != ws.Version() {
+		// another working set with correct version already committed, do nothing
+		return nil
 	}
 	if err := ws.Commit(); err != nil {
 		return errors.Wrap(err, "failed to commit working set")
