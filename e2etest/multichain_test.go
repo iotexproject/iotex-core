@@ -22,6 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/crypto"
 	exp "github.com/iotexproject/iotex-core/explorer"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/logger"
@@ -67,13 +68,29 @@ func TestTwoChains(t *testing.T) {
 
 	time.Sleep(time.Second)
 
+	sk, err := keypair.DecodePrivateKey("d2df3528ff384d41cc9688c354cd301a09f91d95582eb8034a6eff140e7539cb17b53401")
+	sk1, err := keypair.DecodePrivateKey("574f3b95c1afac4c5541ce705654bd92028e6b06bc07655647dd2637528dd98976f0c401")
+	require.NoError(t, err)
+	pk, err := crypto.EC283.NewPubKey(sk)
+	require.NoError(t, err)
+	pkHash := keypair.HashPubKey(pk)
+
+	pk1, err := crypto.EC283.NewPubKey(sk1)
+	require.NoError(t, err)
+	pkHash1 := keypair.HashPubKey(pk1)
+	addr1 := address.New(1, pkHash[:])
+	addr2 := address.New(2, pkHash1[:])
+
 	mainChainClient := exp.NewExplorerProxy(
 		fmt.Sprintf("http://127.0.0.1:%d", svr.ChainService(cfg.Chain.ID).Explorer().Port()),
 	)
-	producerAddr, err := cfg.BlockchainAddress()
-	require.NoError(t, err)
+
+	require.NoError(t, testutil.WaitUntil(time.Second, 20*time.Second, func() (bool, error) {
+		return svr.ChainService(2) != nil, nil
+	}))
+
 	require.NoError(t, testutil.WaitUntil(time.Second, 10*time.Second, func() (bool, error) {
-		balanceStr, err := mainChainClient.GetAddressBalance(producerAddr.IotxAddress())
+		balanceStr, err := mainChainClient.GetAddressBalance(addr1.IotxAddress())
 		if err != nil {
 			return false, err
 		}
@@ -81,7 +98,7 @@ func TestTwoChains(t *testing.T) {
 		if !ok {
 			return false, errors.New("error when converting balance string to big int")
 		}
-		if balance.Cmp(big.NewInt(0).Mul(big.NewInt(5), big.NewInt(blockchain.Iotx))) < 0 {
+		if balance.Cmp(big.NewInt(0).Mul(big.NewInt(1), big.NewInt(blockchain.Iotx))) < 0 {
 			logger.Info().Str("balance", balance.String()).Msg("balance is not enough yet")
 			return false, nil
 		}
@@ -93,41 +110,39 @@ func TestTwoChains(t *testing.T) {
 		return svr.ChainService(2) != nil, nil
 	}))
 
-	details, err := mainChainClient.GetAddressDetails(producerAddr.IotxAddress())
+	details, err := mainChainClient.GetAddressDetails(addr1.IotxAddress())
 	require.NoError(t, err)
-	deposit := action.NewCreateDeposit(
+	createDeposit := action.NewCreateDeposit(
 		uint64(details.Nonce)+1,
-		big.NewInt(0).Mul(big.NewInt(5), big.NewInt(blockchain.Iotx)),
-		producerAddr.IotxAddress(),
-		address.New(2, producerAddr.Payload()).IotxAddress(),
+		big.NewInt(0).Mul(big.NewInt(1), big.NewInt(blockchain.Iotx)),
+		addr1.IotxAddress(),
+		addr2.IotxAddress(),
 		testutil.TestGasLimit,
 		big.NewInt(0),
 	)
-	_, sk, err := cfg.KeyPair()
-	require.NoError(t, err)
-	require.NoError(t, action.Sign(deposit, sk))
+	require.NoError(t, action.Sign(createDeposit, sk))
 
 	createRes, err := mainChainClient.CreateDeposit(explorer.CreateDepositRequest{
-		Version:      int64(deposit.Version()),
-		Nonce:        int64(deposit.Nonce()),
-		Sender:       deposit.Sender(),
-		SenderPubKey: keypair.EncodePublicKey(deposit.SenderPublicKey()),
-		Recipient:    deposit.Recipient(),
-		Amount:       deposit.Amount().String(),
-		Signature:    hex.EncodeToString(deposit.Signature()),
-		GasLimit:     int64(deposit.GasLimit()),
-		GasPrice:     deposit.GasPrice().String(),
+		Version:      int64(createDeposit.Version()),
+		Nonce:        int64(createDeposit.Nonce()),
+		Sender:       createDeposit.Sender(),
+		SenderPubKey: keypair.EncodePublicKey(createDeposit.SenderPublicKey()),
+		Recipient:    createDeposit.Recipient(),
+		Amount:       createDeposit.Amount().String(),
+		Signature:    hex.EncodeToString(createDeposit.Signature()),
+		GasLimit:     int64(createDeposit.GasLimit()),
+		GasPrice:     createDeposit.GasPrice().String(),
 	})
 	require.NoError(t, err)
 
-	require.NoError(t, testutil.WaitUntil(time.Second, 10*time.Second, func() (bool, error) {
+	require.NoError(t, testutil.WaitUntil(time.Second, 20*time.Second, func() (bool, error) {
 		_, err := mainChainClient.GetReceiptByExecutionID(createRes.Hash)
 		return err == nil, nil
 	}))
 
 	cd1, err := mainChainClient.GetCreateDeposit(createRes.Hash)
 	require.NoError(t, err)
-	cds, err := mainChainClient.GetCreateDepositsByAddress(deposit.Sender(), 0, 1)
+	cds, err := mainChainClient.GetCreateDepositsByAddress(createDeposit.Sender(), 0, 1)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(cds))
 	assert.Equal(t, cd1, cds[0])
@@ -139,30 +154,49 @@ func TestTwoChains(t *testing.T) {
 	index := enc.MachineEndian.Uint64(value)
 
 	subChainClient := exp.NewExplorerProxy(
-		fmt.Sprintf("http://127.0.0.1:%d", svr.ChainService(2).Explorer().Port()),
+		fmt.Sprintf("http://127.0.0.1:%d", svr.ChainService(cfg.Chain.ID).Explorer().Port()+1),
 	)
+
+	details, err = subChainClient.GetAddressDetails(addr2.IotxAddress())
+	var nonce uint64
+	if err != nil {
+		nonce = 1
+	} else {
+		nonce = uint64(details.PendingNonce)
+	}
+	settleDeposit := action.NewSettleDeposit(
+		nonce,
+		big.NewInt(0).Mul(big.NewInt(1), big.NewInt(blockchain.Iotx)),
+		index,
+		addr1.IotxAddress(),
+		addr2.IotxAddress(),
+		testutil.TestGasLimit,
+		big.NewInt(0),
+	)
+	require.NoError(t, action.Sign(settleDeposit, sk))
+
 	settleRes, err := subChainClient.SettleDeposit(explorer.SettleDepositRequest{
-		Version:      int64(deposit.Version()),
-		Nonce:        int64(deposit.Nonce()),
-		Sender:       deposit.Sender(),
-		SenderPubKey: keypair.EncodePublicKey(deposit.SenderPublicKey()),
-		Recipient:    deposit.Recipient(),
-		Amount:       deposit.Amount().String(),
+		Version:      int64(settleDeposit.Version()),
+		Nonce:        int64(settleDeposit.Nonce()),
+		Sender:       settleDeposit.Sender(),
+		SenderPubKey: keypair.EncodePublicKey(settleDeposit.SenderPublicKey()),
+		Recipient:    settleDeposit.Recipient(),
+		Amount:       settleDeposit.Amount().String(),
 		Index:        int64(index),
-		Signature:    hex.EncodeToString(deposit.Signature()),
-		GasLimit:     int64(deposit.GasLimit()),
-		GasPrice:     deposit.GasPrice().String(),
+		Signature:    hex.EncodeToString(settleDeposit.Signature()),
+		GasLimit:     int64(settleDeposit.GasLimit()),
+		GasPrice:     settleDeposit.GasPrice().String(),
 	})
 	require.NoError(t, err)
 
-	require.NoError(t, testutil.WaitUntil(time.Second, 10*time.Second, func() (bool, error) {
+	require.NoError(t, testutil.WaitUntil(time.Second, 20*time.Second, func() (bool, error) {
 		sd, err := subChainClient.GetSettleDeposit(settleRes.Hash)
 		return err == nil && sd.IsPending == false, nil
 	}))
 
 	sd1, err := subChainClient.GetSettleDeposit(settleRes.Hash)
 	require.NoError(t, err)
-	sds, err := subChainClient.GetSettleDepositsByAddress(deposit.Recipient(), 0, 1)
+	sds, err := subChainClient.GetSettleDepositsByAddress(settleDeposit.Recipient(), 0, 1)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(sds))
 	assert.Equal(t, sd1, sds[0])

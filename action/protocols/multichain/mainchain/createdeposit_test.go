@@ -54,7 +54,7 @@ func TestValidateDeposit(t *testing.T) {
 
 	deposit := action.NewCreateDeposit(1, big.NewInt(1000), addr1, addr2, testutil.TestGasLimit, big.NewInt(0))
 	_, _, err = p.validateDeposit(deposit, nil)
-	assert.True(t, strings.Contains(err.Error(), "state does not exist"))
+	assert.True(t, strings.Contains(err.Error(), "doesn't have at least required balance"))
 
 	ws, err := sf.NewWorkingSet()
 	require.NoError(t, err)
