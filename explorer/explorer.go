@@ -693,7 +693,7 @@ func (exp *Service) GetCreateDepositsByAddress(
 		}
 		createDeposit, err := getCreateDeposit(exp.bc, exp.ap, depositHash)
 		if err != nil {
-			return []explorer.CreateDeposit{}, err
+			continue
 		}
 
 		res = append(res, createDeposit)
@@ -735,7 +735,7 @@ func (exp *Service) GetSettleDepositsByAddress(
 		}
 		settleDeposit, err := getSettleDeposit(exp.bc, exp.ap, depositHash)
 		if err != nil {
-			return []explorer.SettleDeposit{}, err
+			continue
 		}
 
 		res = append(res, settleDeposit)
