@@ -15,6 +15,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/address"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_state"
@@ -33,10 +34,15 @@ func TestHandleStopSubChain(t *testing.T) {
 	chain.EXPECT().ChainID().Return(uint32(1)).AnyTimes()
 
 	ws := mock_state.NewMockWorkingSet(ctrl)
-	ws.EXPECT().
-		State(gomock.Any(), gomock.Any()).
-		Return(&state.SortedSlice{InOperation{ID: uint32(2)}}, nil).
-		Times(1)
+	ws.EXPECT().State(gomock.Any(), gomock.Any()).
+		Do(func(_ hash.PKHash, s interface{}) error {
+			out := &state.SortedSlice{InOperation{ID: uint32(2)}}
+			data, err := state.Serialize(out)
+			if err != nil {
+				return err
+			}
+			return state.Deserialize(s, data)
+		}).Times(1)
 	ws.EXPECT().PutState(gomock.Any(), gomock.Any()).Return(nil).Times(6)
 	ws.EXPECT().
 		CachedAccountState(gomock.Any()).
@@ -60,8 +66,13 @@ func TestHandleStopSubChain(t *testing.T) {
 	}
 	factory.EXPECT().
 		State(gomock.Any(), gomock.Any()).
-		Return(&subChain, nil).
-		Times(3)
+		Do(func(_ hash.PKHash, s interface{}) error {
+			data, err := state.Serialize(subChain)
+			if err != nil {
+				return err
+			}
+			return state.Deserialize(s, data)
+		}).Times(3)
 	subChainAddr := address.New(chain.ChainID(), subChainPKHash[:])
 
 	p := NewProtocol(chain)
@@ -100,7 +111,7 @@ func TestHandleStopSubChain(t *testing.T) {
 
 	ws.EXPECT().
 		State(gomock.Any(), gomock.Any()).
-		Return(&state.SortedSlice{}, nil).
+		Return(nil).
 		Times(1)
 	// not sub-chain in operation
 	require.Error(p.handleStopSubChain(stop, ws))

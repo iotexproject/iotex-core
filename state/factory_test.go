@@ -18,8 +18,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
-	"fmt"
-
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
@@ -333,7 +331,6 @@ func TestCandidates(t *testing.T) {
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
-	fmt.Println(voteForm(h, cand))
 	require.True(t, compareStrings(voteForm(h, cand), []string{a.RawAddress + ":70"}))
 	// a(a):70(+0=70) b:210 c:320
 

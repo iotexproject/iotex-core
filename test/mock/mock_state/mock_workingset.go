@@ -202,16 +202,27 @@ func (mr *MockWorkingSetMockRecorder) Height() *gomock.Call {
 }
 
 // State mocks base method
-func (m *MockWorkingSet) State(arg0 hash.PKHash, arg1 state.State) (state.State, error) {
+func (m *MockWorkingSet) State(arg0 hash.PKHash, arg1 interface{}) error {
 	ret := m.ctrl.Call(m, "State", arg0, arg1)
-	ret0, _ := ret[0].(state.State)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // State indicates an expected call of State
 func (mr *MockWorkingSetMockRecorder) State(arg0, arg1 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "State", reflect.TypeOf((*MockWorkingSet)(nil).State), arg0, arg1)
+}
+
+// PutState mocks base method
+func (m *MockWorkingSet) PutState(arg0 hash.PKHash, arg1 interface{}) error {
+	ret := m.ctrl.Call(m, "PutState", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// PutState indicates an expected call of PutState
+func (mr *MockWorkingSetMockRecorder) PutState(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutState", reflect.TypeOf((*MockWorkingSet)(nil).PutState), arg0, arg1)
 }
 
 // CachedState mocks base method
@@ -225,18 +236,6 @@ func (m *MockWorkingSet) CachedState(arg0 hash.PKHash, arg1 state.State) (state.
 // CachedState indicates an expected call of CachedState
 func (mr *MockWorkingSetMockRecorder) CachedState(arg0, arg1 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CachedState", reflect.TypeOf((*MockWorkingSet)(nil).CachedState), arg0, arg1)
-}
-
-// PutState mocks base method
-func (m *MockWorkingSet) PutState(arg0 hash.PKHash, arg1 state.State) error {
-	ret := m.ctrl.Call(m, "PutState", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// PutState indicates an expected call of PutState
-func (mr *MockWorkingSetMockRecorder) PutState(arg0, arg1 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutState", reflect.TypeOf((*MockWorkingSet)(nil).PutState), arg0, arg1)
 }
 
 // UpdateCachedStates mocks base method

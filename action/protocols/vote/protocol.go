@@ -8,7 +8,6 @@ package vote
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 	"sort"
 
@@ -181,15 +180,11 @@ func (p *Protocol) constructKey(height uint64) hash.PKHash {
 
 func (p *Protocol) getCandidateMap(height uint64, ws state.WorkingSet) (map[hash.PKHash]*state.Candidate, error) {
 	candidatesKey := p.constructKey(height)
-	candidateState, err := ws.State(candidatesKey, &state.CandidateList{})
-	if err == nil {
-		candidateList, ok := candidateState.(*state.CandidateList)
-		if !ok {
-			return nil, fmt.Errorf("error when casting %T state into candidateList", candidateState)
-		}
-		return state.CandidatesToMap(*candidateList)
+	var sc state.CandidateList
+	if err := ws.State(candidatesKey, &sc); err != nil {
+		return nil, err
 	}
-	return nil, err
+	return state.CandidatesToMap(sc)
 }
 
 func (p *Protocol) addCandidate(vote *action.Vote, height uint64) error {

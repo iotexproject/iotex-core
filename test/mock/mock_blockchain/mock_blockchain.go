@@ -594,8 +594,8 @@ func (m *MockBlockchain) ExecuteContractRead(ex *action.Execution) (*action.Rece
 }
 
 // ExecuteContractRead indicates an expected call of ExecuteContractRead
-func (mr *MockBlockchainMockRecorder) ExecuteContractRead(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecuteContractRead", reflect.TypeOf((*MockBlockchain)(nil).ExecuteContractRead), arg0)
+func (mr *MockBlockchainMockRecorder) ExecuteContractRead(ex interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecuteContractRead", reflect.TypeOf((*MockBlockchain)(nil).ExecuteContractRead), ex)
 }
 
 // SubscribeBlockCreation mocks base method

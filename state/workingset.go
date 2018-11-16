@@ -45,9 +45,9 @@ type (
 		Version() uint64
 		Height() uint64
 		// General state
-		State(hash.PKHash, State) (State, error)
+		State(hash.PKHash, interface{}) error
+		PutState(hash.PKHash, interface{}) error
 		CachedState(hash.PKHash, State) (State, error)
-		PutState(hash.PKHash, State) error
 		UpdateCachedStates(hash.PKHash, *Account)
 	}
 
@@ -401,18 +401,18 @@ func (ws *workingSet) SetContractState(addr hash.PKHash, key, value hash.Hash32B
 // private account/contract functions
 //======================================
 // state pulls a state from DB
-func (ws *workingSet) State(hash hash.PKHash, s State) (State, error) {
+func (ws *workingSet) State(hash hash.PKHash, s interface{}) error {
 	mstate, err := ws.accountTrie.Get(hash[:])
 	if errors.Cause(err) == trie.ErrNotExist {
-		return nil, errors.Wrapf(ErrStateNotExist, "addrHash = %x", hash[:])
+		return errors.Wrapf(ErrStateNotExist, "addrHash = %x", hash[:])
 	}
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get account of %x", hash)
+		return errors.Wrapf(err, "failed to get account of %x", hash)
 	}
-	if err := s.Deserialize(mstate); err != nil {
-		return nil, err
+	if err := Deserialize(s, mstate); err != nil {
+		return err
 	}
-	return s, nil
+	return nil
 }
 
 // accountState returns the confirmed account state on the chain
@@ -421,15 +421,11 @@ func (ws *workingSet) accountState(addr string) (*Account, error) {
 	if err != nil {
 		return nil, err
 	}
-	state, err := ws.State(addrHash, &Account{})
-	if err != nil {
+	var ac Account
+	if err := ws.State(addrHash, &ac); err != nil {
 		return nil, err
 	}
-	account, err := stateToAccountState(state)
-	if err != nil {
-		return nil, err
-	}
-	return account, nil
+	return &ac, nil
 }
 
 // cachedState pulls a state from cache first. If missing, it will hit DB
@@ -438,16 +434,16 @@ func (ws *workingSet) CachedState(hash hash.PKHash, s State) (State, error) {
 		return state, nil
 	}
 	// add to local cache
-	state, err := ws.State(hash, s)
-	if state != nil {
-		ws.cachedStates[hash] = state
+	if err := ws.State(hash, s); err != nil {
+		return s, err
 	}
-	return state, err
+	ws.cachedStates[hash] = s
+	return s, nil
 }
 
 // putState put a state into DB
-func (ws *workingSet) PutState(pkHash hash.PKHash, state State) error {
-	ss, err := state.Serialize()
+func (ws *workingSet) PutState(pkHash hash.PKHash, state interface{}) error {
+	ss, err := Serialize(state)
 	if err != nil {
 		return errors.Wrapf(err, "failed to convert account %v to bytes", state)
 	}
