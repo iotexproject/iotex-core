@@ -36,20 +36,21 @@ func (s *Server) newOrGetSubChainService(subChainInOp mainchain.InOperation) (
 		return nil, nil, err
 	}
 	cs, ok := s.chainservices[chainID]
-	if !ok {
-		// TODO: get rid of the hack config modification
-		cfg := s.cfg
-		cfg.Chain.ID = chainID
-		cfg.Chain.Address = addr.IotxAddress()
-		cfg.Chain.ChainDBPath = getSubChainDBPath(chainID, cfg.Chain.ChainDBPath)
-		cfg.Chain.TrieDBPath = getSubChainDBPath(chainID, cfg.Chain.TrieDBPath)
-		cfg.Chain.GenesisActionsPath = ""
-		cfg.Chain.EnableSubChainStartInGenesis = false
-		cfg.Chain.EmptyGenesis = true
-		cfg.Explorer.Port = cfg.Explorer.Port - int(s.rootChainService.ChainID()) + int(chainID)
-		if err := s.newSubChainService(cfg); err != nil {
-			return nil, nil, err
-		}
+	if ok {
+		return cs, subChain, nil
+	}
+	// TODO: get rid of the hack config modification
+	cfg := s.cfg
+	cfg.Chain.ID = chainID
+	cfg.Chain.Address = addr.IotxAddress()
+	cfg.Chain.ChainDBPath = getSubChainDBPath(chainID, cfg.Chain.ChainDBPath)
+	cfg.Chain.TrieDBPath = getSubChainDBPath(chainID, cfg.Chain.TrieDBPath)
+	cfg.Chain.GenesisActionsPath = ""
+	cfg.Chain.EnableSubChainStartInGenesis = false
+	cfg.Chain.EmptyGenesis = true
+	cfg.Explorer.Port = cfg.Explorer.Port - int(s.rootChainService.ChainID()) + int(chainID)
+	if err := s.newSubChainService(cfg); err != nil {
+		return nil, nil, err
 	}
 	cs, ok = s.chainservices[chainID]
 	if !ok {

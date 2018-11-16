@@ -101,9 +101,6 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 		mainChainProtocol:    mainChainProtocol,
 		initializedSubChains: map[uint32]bool{},
 	}
-	if err := cs.Blockchain().AddSubscriber(&svr); err != nil {
-		return nil, errors.Wrap(err, "error when starting sub-chain starter")
-	}
 	// Setup sub-chain starter
 	// TODO: sub-chain infra should use main-chain API instead of protocol directly
 	return &svr, nil
@@ -111,6 +108,9 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 
 // Start starts the server
 func (s *Server) Start(ctx context.Context) error {
+	if err := s.rootChainService.Blockchain().AddSubscriber(s); err != nil {
+		return errors.Wrap(err, "error when starting sub-chain starter")
+	}
 	for _, cs := range s.chainservices {
 		if err := cs.Start(ctx); err != nil {
 			return errors.Wrap(err, "error when stopping blockchain")
