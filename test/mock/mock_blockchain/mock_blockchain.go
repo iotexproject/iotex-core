@@ -9,10 +9,10 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	action "github.com/iotexproject/iotex-core/action"
 	blockchain "github.com/iotexproject/iotex-core/blockchain"
-	factory "github.com/iotexproject/iotex-core/factory"
 	iotxaddress "github.com/iotexproject/iotex-core/iotxaddress"
 	hash "github.com/iotexproject/iotex-core/pkg/hash"
 	state "github.com/iotexproject/iotex-core/state"
+	factory "github.com/iotexproject/iotex-core/state/factory"
 	big "math/big"
 	reflect "reflect"
 )

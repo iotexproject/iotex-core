@@ -30,15 +30,15 @@ mockgen -destination=./test/mock/mock_trie/mock_trie.go  \
 
 mkdir -p ./test/mock/mock_factory
 mockgen -destination=./test/mock/mock_factory/mock_factory.go  \
-        -source=./factory/factory.go \
-        -imports =github.com/iotexproject/iotex-core/factory \
+        -source=./state/factory/factory.go \
+        -imports =github.com/iotexproject/iotex-core/state/factory \
         -package=mock_factory \
         Factory
 
 mkdir -p ./test/mock/mock_factory
 mockgen -destination=./test/mock/mock_factory/mock_workingset.go  \
-        -source=./factory/workingset.go \
-        -imports =github.com/iotexproject/iotex-core/factory \
+        -source=./state/factory/workingset.go \
+        -imports =github.com/iotexproject/iotex-core/state/factory \
         -package=mock_factory \
         WorkingSet
 

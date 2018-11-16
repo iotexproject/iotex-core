@@ -8,7 +8,7 @@ package chainservice
 
 import (
 	"github.com/iotexproject/iotex-core/actpool"
-	"github.com/iotexproject/iotex-core/factory"
+	"github.com/iotexproject/iotex-core/state/factory"
 )
 
 // Protocol defines the protocol interfaces atop IoTeX blockchain
