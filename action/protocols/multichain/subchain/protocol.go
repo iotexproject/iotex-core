@@ -82,7 +82,7 @@ func (p *Protocol) validateDeposit(deposit *action.SettleDeposit, ws factory.Wor
 	var depositIndex DepositIndex
 	addr := depositAddress(deposit.Index())
 	if ws == nil {
-		_, err = p.sf.State(addr, &depositIndex)
+		err = p.sf.State(addr, &depositIndex)
 	} else {
 		err = ws.State(addr, &depositIndex)
 	}

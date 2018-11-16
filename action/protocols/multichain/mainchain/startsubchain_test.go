@@ -298,10 +298,9 @@ func TestHandleStartSubChain(t *testing.T) {
 	// Check the sub-chain state
 	addr, err := createSubChainAddress(testaddress.Addrinfo["producer"].RawAddress, 1)
 	require.NoError(t, err)
-	state, err := sf.State(addr, &SubChain{})
+	var sc SubChain
+	err = sf.State(addr, &sc)
 	require.NoError(t, err)
-	sc, ok := state.(*SubChain)
-	require.True(t, ok)
 	assert.Equal(t, uint32(2), sc.ChainID)
 	assert.Equal(t, MinSecurityDeposit, sc.SecurityDeposit)
 	assert.Equal(t, big.NewInt(0).Mul(big.NewInt(1000000000), big.NewInt(blockchain.Iotx)), sc.OperationDeposit)

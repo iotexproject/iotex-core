@@ -69,20 +69,24 @@ func TestProtocol_Handle(t *testing.T) {
 	require.NoError(err)
 	require.NoError(sf.Commit(ws))
 
-	s1, err := sf.State(pubKeyHash1, &state.Account{})
+	var s1 state.Account
+	err = sf.State(pubKeyHash1, &s1)
 	require.NoError(err)
-	s2, err := sf.State(pubKeyHash2, &state.Account{})
+	var s2 state.Account
+	err = sf.State(pubKeyHash2, &s2)
 	require.NoError(err)
-	s3, err := sf.State(pubKeyHash3, &state.Account{})
+	var s3 state.Account
+	err = sf.State(pubKeyHash3, &s3)
 	require.NoError(err)
-	s4, err := sf.State(pubKeyHash4, &state.Account{})
+	var s4 state.Account
+	err = sf.State(pubKeyHash4, &s4)
 	require.NoError(err)
 
-	require.Equal("3", s1.(*state.Account).Balance.String())
-	require.Equal(uint64(1), s1.(*state.Account).Nonce)
-	require.Equal("2", s2.(*state.Account).Balance.String())
-	require.Equal("3", s3.(*state.Account).VotingWeight.String())
-	require.Equal("2", s4.(*state.Account).VotingWeight.String())
+	require.Equal("3", s1.Balance.String())
+	require.Equal(uint64(1), s1.Nonce)
+	require.Equal("2", s2.Balance.String())
+	require.Equal("3", s3.VotingWeight.String())
+	require.Equal("2", s4.VotingWeight.String())
 }
 
 func TestProtocol_Validate(t *testing.T) {

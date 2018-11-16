@@ -126,11 +126,9 @@ func TestMutateDeposit(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, big.NewInt(1000), account2.Balance)
 
-	var depositIndex DepositIndex
-	val, err := bc.GetFactory().State(depositAddress(10000), &depositIndex)
+	var di DepositIndex
+	err = bc.GetFactory().State(depositAddress(10000), &di)
 	require.NoError(t, err)
-	di, ok := val.(*DepositIndex)
-	assert.True(t, ok)
 	var zero DepositIndex
-	assert.Equal(t, zero, *di)
+	assert.Equal(t, zero, di)
 }

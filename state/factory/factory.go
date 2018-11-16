@@ -59,7 +59,7 @@ type (
 		// Candidate pool
 		CandidatesByHeight(uint64) ([]*state.Candidate, error)
 
-		State(hash.PKHash, interface{}) (interface{}, error)
+		State(hash.PKHash, interface{}) error
 		AddActionHandlers(...ActionHandler)
 	}
 
@@ -293,7 +293,7 @@ func (sf *factory) CandidatesByHeight(height uint64) ([]*state.Candidate, error)
 }
 
 // State returns a confirmed state in the state factory
-func (sf *factory) State(addr hash.PKHash, state interface{}) (interface{}, error) {
+func (sf *factory) State(addr hash.PKHash, state interface{}) error {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
 
@@ -316,18 +316,18 @@ func (sf *factory) getRoot(nameSpace string, key string) (hash.Hash32B, error) {
 	return trieRoot, nil
 }
 
-func (sf *factory) state(addr hash.PKHash, s interface{}) (interface{}, error) {
+func (sf *factory) state(addr hash.PKHash, s interface{}) error {
 	data, err := sf.accountTrie.Get(addr[:])
 	if err != nil {
 		if errors.Cause(err) == trie.ErrNotExist {
-			return nil, errors.Wrapf(ErrStateNotExist, "state of %x doesn't exist", addr)
+			return errors.Wrapf(ErrStateNotExist, "state of %x doesn't exist", addr)
 		}
-		return nil, errors.Wrapf(err, "error when getting the state of %x", addr)
+		return errors.Wrapf(err, "error when getting the state of %x", addr)
 	}
 	if err := state.Deserialize(s, data); err != nil {
-		return nil, errors.Wrapf(err, "error when deserializing state data into %T", s)
+		return errors.Wrapf(err, "error when deserializing state data into %T", s)
 	}
-	return s, nil
+	return nil
 }
 
 func (sf *factory) accountState(addr string) (*state.Account, error) {
@@ -336,7 +336,7 @@ func (sf *factory) accountState(addr string) (*state.Account, error) {
 		return nil, errors.Wrap(err, "error when getting the pubkey hash")
 	}
 	var account state.Account
-	if _, err := sf.state(pkHash, &account); err != nil {
+	if err := sf.state(pkHash, &account); err != nil {
 		if errors.Cause(err) == ErrStateNotExist {
 			return &state.Account{
 				Balance:      big.NewInt(0),
