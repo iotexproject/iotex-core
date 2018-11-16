@@ -20,6 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_state"
@@ -38,7 +39,14 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 	).AnyTimes()
 	factory.EXPECT().
 		State(gomock.Any(), gomock.Any()).
-		Return(&state.SortedSlice{InOperation{ID: uint32(3)}}, nil).
+		Do(func(_ hash.PKHash, s interface{}) error {
+			out := &state.SortedSlice{InOperation{ID: uint32(3)}}
+			data, err := state.Serialize(out)
+			if err != nil {
+				return err
+			}
+			return state.Deserialize(s, data)
+		}).
 		AnyTimes()
 	chain := mock_blockchain.NewMockBlockchain(ctrl)
 	chain.EXPECT().GetFactory().Return(factory).AnyTimes()
@@ -61,7 +69,7 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 	)
 	account, subChainsInOp, err := p.validateStartSubChain(start, nil)
 	assert.NotNil(t, account)
-	assert.NotNil(t, subChainsInOp)
+	require.NotNil(t, subChainsInOp)
 	assert.NoError(t, err)
 
 	// chain ID is the main chain ID
@@ -158,8 +166,14 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 	ws := mock_state.NewMockWorkingSet(ctrl)
 	ws.EXPECT().
 		State(gomock.Any(), gomock.Any()).
-		Return(&state.SortedSlice{InOperation{ID: uint32(3)}}, nil).
-		Times(1)
+		Do(func(_ hash.PKHash, s interface{}) error {
+			out := &state.SortedSlice{InOperation{ID: uint32(3)}}
+			data, err := state.Serialize(out)
+			if err != nil {
+				return err
+			}
+			return state.Deserialize(s, data)
+		}).Times(1)
 	ws.EXPECT().CachedAccountState(gomock.Any()).Return(
 		&state.Account{Balance: big.NewInt(0).Mul(big.NewInt(1500000000), big.NewInt(blockchain.Iotx))},
 		nil,
@@ -184,8 +198,14 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 	// chain ID is used in the working set
 	ws.EXPECT().
 		State(gomock.Any(), gomock.Any()).
-		Return(&state.SortedSlice{InOperation{ID: uint32(2)}, InOperation{ID: uint32(3)}}, nil).
-		Times(1)
+		Do(func(_ hash.PKHash, s interface{}) error {
+			out := &state.SortedSlice{InOperation{ID: uint32(2)}, InOperation{ID: uint32(3)}}
+			data, err := state.Serialize(out)
+			if err != nil {
+				return err
+			}
+			return state.Deserialize(s, data)
+		}).Times(1)
 	account, subChainsInOp, err = p.validateStartSubChain(start, ws)
 	assert.Nil(t, account)
 	assert.Nil(t, subChainsInOp)

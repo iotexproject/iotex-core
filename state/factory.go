@@ -58,7 +58,7 @@ type (
 		// Candidate pool
 		CandidatesByHeight(uint64) ([]*Candidate, error)
 
-		State(hash.PKHash, State) (State, error)
+		State(hash.PKHash, interface{}) (interface{}, error)
 		AddActionHandlers(...ActionHandler)
 	}
 
@@ -292,7 +292,7 @@ func (sf *factory) CandidatesByHeight(height uint64) ([]*Candidate, error) {
 }
 
 // State returns a confirmed state in the state factory
-func (sf *factory) State(addr hash.PKHash, state State) (State, error) {
+func (sf *factory) State(addr hash.PKHash, state interface{}) (interface{}, error) {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
 
@@ -315,7 +315,7 @@ func (sf *factory) getRoot(nameSpace string, key string) (hash.Hash32B, error) {
 	return trieRoot, nil
 }
 
-func (sf *factory) state(addr hash.PKHash, state State) (State, error) {
+func (sf *factory) state(addr hash.PKHash, state interface{}) (interface{}, error) {
 	data, err := sf.accountTrie.Get(addr[:])
 	if err != nil {
 		if errors.Cause(err) == trie.ErrNotExist {
@@ -323,7 +323,7 @@ func (sf *factory) state(addr hash.PKHash, state State) (State, error) {
 		}
 		return nil, errors.Wrapf(err, "error when getting the state of %x", addr)
 	}
-	if err := state.Deserialize(data); err != nil {
+	if err := Deserialize(state, data); err != nil {
 		return nil, errors.Wrapf(err, "error when deserializing state data into %T", state)
 	}
 	return state, nil
@@ -335,8 +335,7 @@ func (sf *factory) accountState(addr string) (*Account, error) {
 		return nil, errors.Wrap(err, "error when getting the pubkey hash")
 	}
 	var account Account
-	state, err := sf.state(pkHash, &account)
-	if err != nil {
+	if _, err := sf.state(pkHash, &account); err != nil {
 		if errors.Cause(err) == ErrStateNotExist {
 			return &Account{
 				Balance:      big.NewInt(0),
@@ -345,9 +344,5 @@ func (sf *factory) accountState(addr string) (*Account, error) {
 		}
 		return nil, errors.Wrapf(err, "error when loading state of %x", pkHash)
 	}
-	accountPtr, ok := state.(*Account)
-	if !ok {
-		return nil, errors.New("error when casting state into account")
-	}
-	return accountPtr, nil
+	return &account, nil
 }

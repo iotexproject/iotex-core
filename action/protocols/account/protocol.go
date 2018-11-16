@@ -8,7 +8,6 @@ package account
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 
 	"github.com/pkg/errors"
@@ -72,15 +71,11 @@ func LoadOrCreateAccountState(ws state.WorkingSet, addr string, init *big.Int) (
 
 // LoadAccountState loads an account state
 func LoadAccountState(ws state.WorkingSet, addrHash hash.PKHash) (*state.Account, error) {
-	s, err := ws.State(addrHash, &state.Account{})
-	if err == nil {
-		account, ok := s.(*state.Account)
-		if !ok {
-			return nil, fmt.Errorf("error when casting %T state into account state", s)
-		}
-		return account, nil
+	var s state.Account
+	if err := ws.State(addrHash, &s); err != nil {
+		return nil, err
 	}
-	return nil, err
+	return &s, nil
 }
 
 // StoreState put updated state to trie

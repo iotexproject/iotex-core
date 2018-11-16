@@ -28,6 +28,42 @@ type State interface {
 	Deserialize(data []byte) error
 }
 
+// Serializer has Serialize method to serialize struct to binary data.
+type Serializer interface {
+	Serialize() ([]byte, error)
+}
+
+// Deserializer has Deserialize method to deserialize binary data to struct.
+type Deserializer interface {
+	Deserialize(data []byte) error
+}
+
+// Serialize check if input is Serializer, if it is, use the input's Serialize method, otherwise use Gob.
+func Serialize(d interface{}) ([]byte, error) {
+	if s, ok := d.(Serializer); ok {
+		return s.Serialize()
+	}
+	var buf bytes.Buffer
+	e := gob.NewEncoder(&buf)
+	if err := e.Encode(d); err != nil {
+		return nil, errors.Wrapf(err, "error when serializing %T state", d)
+	}
+	return buf.Bytes(), nil
+}
+
+// Deserialize check if input is Deserializer, if it is, use the input's Deserialize method, otherwise use Gob.
+func Deserialize(x interface{}, data []byte) error {
+	if s, ok := x.(Deserializer); ok {
+		return s.Deserialize(data)
+	}
+	buf := bytes.NewBuffer(data)
+	d := gob.NewDecoder(buf)
+	if err := d.Decode(x); err != nil {
+		return errors.Wrapf(err, "error when deserializing %v state to %T", data, x)
+	}
+	return nil
+}
+
 // GobBasedSerialize serializes a state into bytes via gob
 func GobBasedSerialize(state State) ([]byte, error) {
 	var buf bytes.Buffer
