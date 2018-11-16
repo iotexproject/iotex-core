@@ -209,7 +209,7 @@ func (m *cFSM) Start(c context.Context) error {
 					logger.Debug().Uint64("event height", eventHeight).Uint64("chain height", chainHeight).Msg("skip old proposal")
 					continue
 				}
-				if _, ok := evt.(*endorseEvt); ok && eventHeight <= chainHeight {
+				if eEvt, ok := evt.(*endorseEvt); ok && eventHeight <= chainHeight && eEvt.endorse.Endorser() != m.ctx.addr.RawAddress {
 					logger.Debug().Uint64("event height", eventHeight).Uint64("chain height", chainHeight).Msg("skip old endorsement")
 					continue
 				}
