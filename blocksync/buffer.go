@@ -37,21 +37,20 @@ type blockBuffer struct {
 func (b *blockBuffer) Flush(blk *blockchain.Block) (bool, bCheckinResult) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	moved := false
 	if blk == nil {
-		return moved, bCheckinSkipNil
+		return false, bCheckinSkipNil
 	}
 	confirmedHeight := b.bc.TipHeight()
 	// check
 	h := blk.Height()
 	if h <= confirmedHeight {
-		return moved, bCheckinLower
+		return false, bCheckinLower
 	}
 	if _, ok := b.blocks[h]; ok {
-		return moved, bCheckinExisting
+		return false, bCheckinExisting
 	}
 	if h > confirmedHeight+b.size {
-		return moved, bCheckinHigher
+		return false, bCheckinHigher
 	}
 	b.blocks[h] = blk
 	l := logger.With().
@@ -59,25 +58,24 @@ func (b *blockBuffer) Flush(blk *blockchain.Block) (bool, bCheckinResult) {
 		Uint64("confirmedHeight", confirmedHeight).
 		Str("source", "blockBuffer").
 		Logger()
-	for b.size > 0 {
-		next := confirmedHeight + 1
-		blk, ok := b.blocks[next]
+	syncedHeight := confirmedHeight
+	for confirmedHeight+b.size > syncedHeight {
+		blk, ok := b.blocks[syncedHeight+1]
 		if !ok {
 			break
 		}
-		delete(b.blocks, next)
+		delete(b.blocks, syncedHeight+1)
 		if err := commitBlock(b.bc, b.ap, blk); err != nil {
-			l.Error().Err(err).Uint64("syncHeight", next).
+			l.Error().Err(err).Uint64("syncHeight", syncedHeight+1).
 				Msg("Failed to commit the block.")
 			// unable to commit, check reason
-			committedBlk, err := b.bc.GetBlockByHeight(next)
+			committedBlk, err := b.bc.GetBlockByHeight(syncedHeight + 1)
 			if err != nil || committedBlk.HashBlock() != blk.HashBlock() {
 				break
 			}
 		}
-		moved = true
-		confirmedHeight = next
-		l.Info().Uint64("syncedHeight", next).Msg("Successfully committed block.")
+		syncedHeight++
+		l.Info().Uint64("syncedHeight", syncedHeight).Msg("Successfully committed block.")
 	}
 
 	// clean up on memory leak
@@ -89,7 +87,8 @@ func (b *blockBuffer) Flush(blk *blockchain.Block) (bool, bCheckinResult) {
 			}
 		}
 	}
-	return moved, bCheckinValid
+
+	return syncedHeight >= blk.Height(), bCheckinValid
 }
 
 // GetBlocksIntervalsToSync returns groups of syncBlocksInterval are missing upto targetHeight.
