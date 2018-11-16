@@ -16,7 +16,6 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -283,8 +282,6 @@ func TestCandidates(t *testing.T) {
 	_, err = ws.LoadOrCreateAccountState(f.RawAddress, big.NewInt(300))
 	require.NoError(t, err)
 
-	addrHash, err := iotxaddress.AddressToPKHash(b.RawAddress)
-	assert.NoError(t, err)
 	// a:100(0) b:200(0) c:300(0)
 	tx1, err := action.NewTransfer(uint64(1), big.NewInt(10), a.RawAddress, b.RawAddress, nil, uint64(0), big.NewInt(0))
 	require.NoError(t, err)
