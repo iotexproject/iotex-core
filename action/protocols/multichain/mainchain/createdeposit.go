@@ -18,6 +18,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/state/factory"
 )
 
 // DepositAddress returns the deposit address (20-byte)
@@ -46,7 +47,7 @@ func (p *Protocol) Deposit(subChainAddr address.Address, depositIndex uint64) (*
 	return d, nil
 }
 
-func (p *Protocol) handleDeposit(deposit *action.CreateDeposit, ws state.WorkingSet) (*action.Receipt, error) {
+func (p *Protocol) handleDeposit(deposit *action.CreateDeposit, ws factory.WorkingSet) (*action.Receipt, error) {
 	account, subChainInOp, err := p.validateDeposit(deposit, ws)
 	if err != nil {
 		return nil, err
@@ -54,7 +55,7 @@ func (p *Protocol) handleDeposit(deposit *action.CreateDeposit, ws state.Working
 	return p.mutateDeposit(deposit, account, subChainInOp, ws)
 }
 
-func (p *Protocol) validateDeposit(deposit *action.CreateDeposit, ws state.WorkingSet) (*state.Account, InOperation, error) {
+func (p *Protocol) validateDeposit(deposit *action.CreateDeposit, ws factory.WorkingSet) (*state.Account, InOperation, error) {
 	cost, err := deposit.Cost()
 	if err != nil {
 		return nil, InOperation{}, errors.Wrap(err, "error when getting deposit's cost")
@@ -86,7 +87,7 @@ func (p *Protocol) mutateDeposit(
 	deposit *action.CreateDeposit,
 	account *state.Account,
 	subChainInOp InOperation,
-	ws state.WorkingSet,
+	ws factory.WorkingSet,
 ) (*action.Receipt, error) {
 	// Subtract the balance from sender account
 	account.Balance = big.NewInt(0).Sub(account.Balance, deposit.Amount())

@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package state
+package factory
 
 import (
 	"context"
@@ -24,6 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 	"github.com/iotexproject/iotex-core/trie"
@@ -35,7 +36,7 @@ const testTriePath = "trie.test"
 
 func TestEncodeDecode(t *testing.T) {
 	require := require.New(t)
-	s1 := Account{
+	s1 := state.Account{
 		Nonce:        0x10,
 		Balance:      big.NewInt(20000000),
 		CodeHash:     []byte("testing codehash"),
@@ -47,7 +48,7 @@ func TestEncodeDecode(t *testing.T) {
 	require.NotEmpty(ss)
 	require.Equal(81, len(ss))
 
-	s2 := Account{}
+	s2 := state.Account{}
 	require.NoError(s2.Deserialize(ss))
 	require.Equal(big.NewInt(20000000), s2.Balance)
 	require.Equal(uint64(0x10), s2.Nonce)
@@ -60,16 +61,16 @@ func TestEncodeDecode(t *testing.T) {
 func TestGob(t *testing.T) {
 	require := require.New(t)
 	ss, _ := hex.DecodeString("79ff8103010105537461746501ff8200010801054e6f6e6365010600010742616c616e636501ff84000104526f6f7401ff86000108436f646548617368010a00010b497343616e646964617465010200010c566f74696e6757656967687401ff84000105566f746565010c000106566f7465727301ff880000000aff83050102ff8a00000017ff85010101074861736833324201ff860001060140000024ff87040101136d61705b737472696e675d2a6269672e496e7401ff8800010c01ff8400002cff820202022d0120000000000000000000000000000000000000000000000000000000000000000003010200")
-	s1 := Account{}
-	require.NoError(GobBasedDeserialize(&s1, ss))
+	s1 := state.Account{}
+	require.NoError(state.GobBasedDeserialize(&s1, ss))
 
 	// another serialized byte
 	st, _ := hex.DecodeString("79ff8503010105537461746501ff8600010801054e6f6e6365010600010742616c616e636501ff88000104526f6f7401ff8a000108436f646548617368010a00010b497343616e646964617465010200010c566f74696e6757656967687401ff88000105566f746565010c000106566f7465727301ff8c0000000aff87050102ff8e00000017ff89010101074861736833324201ff8a0001060140000024ff8b040101136d61705b737472696e675d2a6269672e496e7401ff8c00010c01ff8800002cff860202022d0120000000000000000000000000000000000000000000000000000000000000000003010200")
 	require.NotEqual(ss, st)
 
 	// same struct after deserialization
-	s2 := Account{}
-	require.NoError(GobBasedDeserialize(&s2, st))
+	s2 := state.Account{}
+	require.NoError(state.GobBasedDeserialize(&s2, st))
 	require.Equal(s1.Nonce, s2.Nonce)
 	require.Equal(s1.Balance, s2.Balance)
 	require.Equal(s1.Root, s2.Root)
@@ -90,11 +91,11 @@ func TestCreateState(t *testing.T) {
 	require.Nil(err)
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
-	state, err := ws.LoadOrCreateAccountState(addr.RawAddress, big.NewInt(5))
+	s, err := ws.LoadOrCreateAccountState(addr.RawAddress, big.NewInt(5))
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
-	ctx := WithRunActionsCtx(context.Background(),
-		RunActionsCtx{
+	ctx := state.WithRunActionsCtx(context.Background(),
+		state.RunActionsCtx{
 			ProducerAddr:    testaddress.Addrinfo["producer"].RawAddress,
 			GasLimit:        &gasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
@@ -102,8 +103,8 @@ func TestCreateState(t *testing.T) {
 	_, _, err = ws.RunActions(ctx, 0, nil)
 	require.NoError(err)
 	require.NoError(sf.Commit(ws))
-	require.Equal(uint64(0x0), state.Nonce)
-	require.Equal(big.NewInt(5), state.Balance)
+	require.Equal(uint64(0x0), s.Nonce)
+	require.Equal(big.NewInt(5), s.Balance)
 	ss, err := sf.AccountState(addr.RawAddress)
 	require.Nil(err)
 	require.Equal(uint64(0x0), ss.Nonce)
@@ -115,7 +116,7 @@ func TestBalance(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	state := &Account{Balance: big.NewInt(20)}
+	state := &state.Account{Balance: big.NewInt(20)}
 	// Add 10 to the balance
 	err := state.AddBalance(big.NewInt(10))
 	require.Nil(err)
@@ -125,12 +126,12 @@ func TestBalance(t *testing.T) {
 
 func TestClone(t *testing.T) {
 	require := require.New(t)
-	ss := &Account{
+	ss := &state.Account{
 		Nonce:        0x10,
 		Balance:      big.NewInt(200),
 		VotingWeight: big.NewInt(1000),
 	}
-	account := ss.clone()
+	account := ss.Clone()
 	require.Equal(big.NewInt(200), account.Balance)
 	require.Equal(big.NewInt(1000), account.VotingWeight)
 
@@ -142,7 +143,7 @@ func TestClone(t *testing.T) {
 	require.Equal(big.NewInt(1000-300), account.VotingWeight)
 }
 
-func voteForm(height uint64, cs []*Candidate) []string {
+func voteForm(height uint64, cs []*state.Candidate) []string {
 	r := make([]string, len(cs))
 	for i := 0; i < len(cs); i++ {
 		r[i] = (*cs[i]).Address + ":" + strconv.FormatInt((*cs[i]).Votes.Int64(), 10)
@@ -288,8 +289,8 @@ func TestCandidates(t *testing.T) {
 	tx2, err := action.NewTransfer(uint64(2), big.NewInt(20), a.RawAddress, c.RawAddress, nil, uint64(0), big.NewInt(0))
 	require.NoError(t, err)
 	gasLimit := testutil.TestGasLimit
-	ctx := WithRunActionsCtx(context.Background(),
-		RunActionsCtx{
+	ctx := state.WithRunActionsCtx(context.Background(),
+		state.RunActionsCtx{
 			ProducerAddr:    testaddress.Addrinfo["producer"].RawAddress,
 			GasLimit:        &gasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
@@ -315,8 +316,8 @@ func TestCandidates(t *testing.T) {
 	vote.SetVoterPublicKey(a.PublicKey)
 	require.NoError(t, err)
 	zeroGasLimit := uint64(0)
-	zctx := WithRunActionsCtx(context.Background(),
-		RunActionsCtx{
+	zctx := state.WithRunActionsCtx(context.Background(),
+		state.RunActionsCtx{
 			ProducerAddr:    testaddress.Addrinfo["producer"].RawAddress,
 			GasLimit:        &zeroGasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
@@ -745,19 +746,19 @@ func TestCandidatesByHeight(t *testing.T) {
 	sf, ok := f.(*factory)
 	require.True(t, ok)
 
-	cand1 := &Candidate{
+	cand1 := &state.Candidate{
 		Address: "Alpha",
 		Votes:   big.NewInt(1),
 	}
-	cand2 := &Candidate{
+	cand2 := &state.Candidate{
 		Address: "Beta",
 		Votes:   big.NewInt(2),
 	}
-	cand3 := &Candidate{
+	cand3 := &state.Candidate{
 		Address: "Theta",
 		Votes:   big.NewInt(3),
 	}
-	candidateList := make(CandidateList, 0, 3)
+	candidateList := make(state.CandidateList, 0, 3)
 	candidateList = append(candidateList, cand1)
 	candidateList = append(candidateList, cand2)
 	sort.Sort(candidateList)
@@ -816,8 +817,8 @@ func TestUnvote(t *testing.T) {
 	vote1.SetVoterPublicKey(a.PublicKey)
 	require.NoError(t, err)
 	gasLimit := testutil.TestGasLimit
-	ctx := WithRunActionsCtx(context.Background(),
-		RunActionsCtx{
+	ctx := state.WithRunActionsCtx(context.Background(),
+		state.RunActionsCtx{
 			ProducerAddr:    testaddress.Addrinfo["producer"].RawAddress,
 			GasLimit:        &gasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,

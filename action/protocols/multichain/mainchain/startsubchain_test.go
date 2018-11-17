@@ -22,8 +22,9 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
-	"github.com/iotexproject/iotex-core/test/mock/mock_state"
+	"github.com/iotexproject/iotex-core/test/mock/mock_factory"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -32,7 +33,7 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 	t.Parallel()
 
 	ctrl := gomock.NewController(t)
-	factory := mock_state.NewMockFactory(ctrl)
+	factory := mock_factory.NewMockFactory(ctrl)
 	factory.EXPECT().AccountState(gomock.Any()).Return(
 		&state.Account{Balance: big.NewInt(0).Mul(big.NewInt(2000000000), big.NewInt(blockchain.Iotx))},
 		nil,
@@ -163,7 +164,7 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 	assert.True(t, strings.Contains(err.Error(), "doesn't have at least required balance"))
 
 	// operation deposit is more than the owner balance in working set
-	ws := mock_state.NewMockWorkingSet(ctrl)
+	ws := mock_factory.NewMockWorkingSet(ctrl)
 	ws.EXPECT().
 		State(gomock.Any(), gomock.Any()).
 		Do(func(_ hash.PKHash, s interface{}) error {
@@ -233,7 +234,7 @@ func TestHandleStartSubChain(t *testing.T) {
 
 	cfg := config.Default
 	ctx := context.Background()
-	sf, err := state.NewFactory(cfg, state.InMemTrieOption())
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(t, err)
 	require.NoError(t, sf.Start(ctx))
 	ctrl := gomock.NewController(t)

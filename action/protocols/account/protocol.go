@@ -16,6 +16,7 @@ import (
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/state/factory"
 )
 
 // Protocol defines the protocol of handling account
@@ -25,7 +26,7 @@ type Protocol struct{}
 func NewProtocol() *Protocol { return &Protocol{} }
 
 // Handle handles an account
-func (p *Protocol) Handle(_ context.Context, act action.Action, ws state.WorkingSet) (*action.Receipt, error) {
+func (p *Protocol) Handle(_ context.Context, act action.Action, ws factory.WorkingSet) (*action.Receipt, error) {
 	switch act := act.(type) {
 	case *action.Transfer:
 		if err := p.handleTransfer(act, ws); err != nil {
@@ -47,14 +48,14 @@ func (p *Protocol) Validate(_ context.Context, act action.Action) error {
 }
 
 // LoadOrCreateAccountState either loads an account state or creates an account state
-func LoadOrCreateAccountState(ws state.WorkingSet, addr string, init *big.Int) (*state.Account, error) {
+func LoadOrCreateAccountState(ws factory.WorkingSet, addr string, init *big.Int) (*state.Account, error) {
 	addrHash, err := iotxaddress.AddressToPKHash(addr)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to convert address to public key hash")
 	}
 	account, err := LoadAccountState(ws, addrHash)
 	switch {
-	case errors.Cause(err) == state.ErrStateNotExist:
+	case errors.Cause(err) == factory.ErrStateNotExist:
 		account := state.Account{
 			Balance:      init,
 			VotingWeight: big.NewInt(0),
@@ -70,7 +71,7 @@ func LoadOrCreateAccountState(ws state.WorkingSet, addr string, init *big.Int) (
 }
 
 // LoadAccountState loads an account state
-func LoadAccountState(ws state.WorkingSet, addrHash hash.PKHash) (*state.Account, error) {
+func LoadAccountState(ws factory.WorkingSet, addrHash hash.PKHash) (*state.Account, error) {
 	var s state.Account
 	if err := ws.State(addrHash, &s); err != nil {
 		return nil, err
@@ -79,7 +80,7 @@ func LoadAccountState(ws state.WorkingSet, addrHash hash.PKHash) (*state.Account
 }
 
 // StoreState put updated state to trie
-func StoreState(ws state.WorkingSet, addr string, state state.State) error {
+func StoreState(ws factory.WorkingSet, addr string, state state.State) error {
 	addrHash, err := iotxaddress.AddressToPKHash(addr)
 	if err != nil {
 		return errors.Wrap(err, "failed to convert address to public key hash")

@@ -8,11 +8,11 @@ package chainservice
 
 import (
 	"github.com/iotexproject/iotex-core/actpool"
-	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/state/factory"
 )
 
 // Protocol defines the protocol interfaces atop IoTeX blockchain
 type Protocol interface {
 	actpool.ActionValidator
-	state.ActionHandler
+	factory.ActionHandler
 }

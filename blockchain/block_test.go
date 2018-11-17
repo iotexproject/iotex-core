@@ -28,6 +28,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/state/factory"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -251,7 +252,7 @@ func TestWrongNonce(t *testing.T) {
 	testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
 	defer testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
 	require := require.New(t)
-	sf, err := state.NewFactory(cfg, state.DefaultTrieOption())
+	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 	require.NoError(err)
 	require.NoError(sf.Start(context.Background()))
 	require.NoError(addCreatorToFactory(sf))
@@ -417,7 +418,7 @@ func TestWrongCoinbaseTsf(t *testing.T) {
 	testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
 	defer testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
 	require := require.New(t)
-	sf, err := state.NewFactory(cfg, state.DefaultTrieOption())
+	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 	require.NoError(err)
 	require.NoError(sf.Start(context.Background()))
 	require.NoError(addCreatorToFactory(sf))
@@ -565,7 +566,7 @@ func TestValidateSecretBlock(t *testing.T) {
 	testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
 	defer testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
 	require := require.New(t)
-	sf, err := state.NewFactory(cfg, state.DefaultTrieOption())
+	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 	require.NoError(err)
 	require.NoError(sf.Start(context.Background()))
 	require.Nil(addCreatorToFactory(sf))
@@ -631,7 +632,7 @@ func TestValidateSecretBlock(t *testing.T) {
 	require.Equal(ErrDKGSecretProposal, errors.Cause(err))
 }
 
-func addCreatorToFactory(sf state.Factory) error {
+func addCreatorToFactory(sf factory.Factory) error {
 	ws, err := sf.NewWorkingSet()
 	if err != nil {
 		return err

@@ -17,13 +17,13 @@ import (
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/state/factory"
 )
 
 // EVMStateDBAdapter represents the state db adapter for evm to access iotx blockchain
 type EVMStateDBAdapter struct {
 	bc             Blockchain
-	ws             state.WorkingSet
+	ws             factory.WorkingSet
 	logs           []*action.Log
 	err            error
 	blockHeight    uint64
@@ -33,7 +33,7 @@ type EVMStateDBAdapter struct {
 }
 
 // NewEVMStateDBAdapter creates a new state db with iotx blockchain
-func NewEVMStateDBAdapter(bc Blockchain, ws state.WorkingSet, blockHeight uint64, blockHash hash.Hash32B, executionIndex uint, executionHash hash.Hash32B) *EVMStateDBAdapter {
+func NewEVMStateDBAdapter(bc Blockchain, ws factory.WorkingSet, blockHeight uint64, blockHash hash.Hash32B, executionIndex uint, executionHash hash.Hash32B) *EVMStateDBAdapter {
 	return &EVMStateDBAdapter{
 		bc,
 		ws,

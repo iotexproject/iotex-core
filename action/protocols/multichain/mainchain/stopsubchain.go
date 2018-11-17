@@ -17,6 +17,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/state/factory"
 )
 
 func (p *Protocol) subChainToStop(subChainAddr string) (*SubChain, error) {
@@ -30,7 +31,7 @@ func (p *Protocol) subChainToStop(subChainAddr string) (*SubChain, error) {
 func (p *Protocol) validateSubChainOwnership(
 	ownerPKHash hash.PKHash,
 	sender string,
-	ws state.WorkingSet,
+	ws factory.WorkingSet,
 ) (*state.Account, error) {
 	account, err := p.account(sender, ws)
 	if err != nil {
@@ -46,7 +47,7 @@ func (p *Protocol) validateSubChainOwnership(
 	return account, nil
 }
 
-func (p *Protocol) handleStopSubChain(stop *action.StopSubChain, ws state.WorkingSet) error {
+func (p *Protocol) handleStopSubChain(stop *action.StopSubChain, ws factory.WorkingSet) error {
 	stopHeight := stop.StopHeight()
 	if stopHeight <= ws.Height() {
 		return fmt.Errorf("stop height %d should not be lower than chain height %d", stopHeight, ws.Height())

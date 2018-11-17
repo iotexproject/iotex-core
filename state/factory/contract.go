@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package state
+package factory
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/trie"
 )
 
@@ -22,13 +23,13 @@ type (
 		SetState(hash.Hash32B, []byte) error
 		GetCode() ([]byte, error)
 		SetCode(hash.Hash32B, []byte)
-		SelfState() *Account
+		SelfState() *state.Account
 		Commit() error
 		RootHash() hash.Hash32B
 	}
 
 	contract struct {
-		*Account
+		*state.Account
 		dirtyCode  bool      // contract's code has been set
 		dirtyState bool      // contract's account state has changed
 		code       []byte    // contract byte-code
@@ -67,7 +68,7 @@ func (c *contract) SetCode(hash hash.Hash32B, code []byte) {
 }
 
 // account returns this contract's account
-func (c *contract) SelfState() *Account {
+func (c *contract) SelfState() *state.Account {
 	return c.Account
 }
 
@@ -93,8 +94,8 @@ func (c *contract) RootHash() hash.Hash32B {
 	return c.Account.Root
 }
 
-// newContract returns a Contract instance
-func newContract(state *Account, tr trie.Trie) Contract {
+// NewContract returns a Contract instance
+func newContract(state *state.Account, tr trie.Trie) Contract {
 	c := contract{
 		Account: state,
 		trie:    tr,
