@@ -37,7 +37,7 @@ type Server struct {
 	chainservices        map[uint32]*chainservice.ChainService
 	p2p                  network.Overlay
 	dispatcher           dispatcher.Dispatcher
-	subChainStarter      *routine.RecurringTask
+	mainChainProtocol    *mainchain.Protocol
 	initializedSubChains map[uint32]bool
 }
 
@@ -98,16 +98,19 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 		dispatcher:           dispatcher,
 		rootChainService:     cs,
 		chainservices:        chains,
+		mainChainProtocol:    mainChainProtocol,
 		initializedSubChains: map[uint32]bool{},
 	}
 	// Setup sub-chain starter
 	// TODO: sub-chain infra should use main-chain API instead of protocol directly
-	svr.subChainStarter = svr.newSubChainStarter(mainChainProtocol)
 	return &svr, nil
 }
 
 // Start starts the server
 func (s *Server) Start(ctx context.Context) error {
+	if err := s.rootChainService.Blockchain().AddSubscriber(s); err != nil {
+		return errors.Wrap(err, "error when starting sub-chain starter")
+	}
 	for _, cs := range s.chainservices {
 		if err := cs.Start(ctx); err != nil {
 			return errors.Wrap(err, "error when stopping blockchain")
@@ -119,16 +122,14 @@ func (s *Server) Start(ctx context.Context) error {
 	if err := s.p2p.Start(ctx); err != nil {
 		return errors.Wrap(err, "error when starting P2P networks")
 	}
-	if err := s.subChainStarter.Start(ctx); err != nil {
-		return errors.Wrap(err, "error when starting sub-chain starter")
-	}
+
 	return nil
 }
 
 // Stop stops the server
 func (s *Server) Stop(ctx context.Context) error {
-	if err := s.subChainStarter.Stop(ctx); err != nil {
-		return errors.Wrap(err, "error when stopping sub-chain starter")
+	if err := s.rootChainService.Blockchain().RemoveSubscriber(s); err != nil {
+		return errors.Wrap(err, "error when unsubscribing root chain block creation")
 	}
 	if err := s.p2p.Stop(ctx); err != nil {
 		return errors.Wrap(err, "error when stopping P2P networks")
@@ -144,8 +145,12 @@ func (s *Server) Stop(ctx context.Context) error {
 	return nil
 }
 
-// NewChainService creates a new chain service in this server.
-func (s *Server) NewChainService(cfg config.Config) error {
+// NewSubChainService creates a new chain service in this server.
+func (s *Server) NewSubChainService(cfg config.Config) error {
+	return s.newSubChainService(cfg)
+}
+
+func (s *Server) newSubChainService(cfg config.Config) error {
 	var mainChainAPI explorer.Explorer
 	if s.rootChainService.Explorer() != nil {
 		mainChainAPI = s.rootChainService.Explorer().Explorer()
@@ -191,15 +196,6 @@ func (s *Server) NewTestingChainService(cfg config.Config) error {
 	s.chainservices[cs.ChainID()] = cs
 	s.dispatcher.AddSubscriber(cs.ChainID(), cs)
 	return nil
-}
-
-// StartChainService starts the chain service run in the server.
-func (s *Server) StartChainService(ctx context.Context, id uint32) error {
-	c, ok := s.chainservices[id]
-	if !ok {
-		return errors.New("Chain ID does not match any existing chains")
-	}
-	return c.Start(ctx)
 }
 
 // StopChainService stops the chain service run in the server.

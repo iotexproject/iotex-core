@@ -57,9 +57,8 @@ func main() {
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Failed to new sub chain config.")
 	}
-	// Ifminicluster.go the sub-chain config is not empty
 	if cfgsub.Chain.ID != 0 {
-		if err := svr.NewChainService(cfgsub); err != nil {
+		if err := svr.NewSubChainService(cfgsub); err != nil {
 			logger.Fatal().Err(err).Msg("Failed to new sub chain.")
 		}
 	}
