@@ -13,11 +13,11 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-core/state/factory"
 )
 
 func (p *Protocol) subChainToStop(subChainAddr string) (*SubChain, error) {
@@ -31,9 +31,9 @@ func (p *Protocol) subChainToStop(subChainAddr string) (*SubChain, error) {
 func (p *Protocol) validateSubChainOwnership(
 	ownerPKHash hash.PKHash,
 	sender string,
-	ws factory.WorkingSet,
+	sm protocol.StateManager,
 ) (*state.Account, error) {
-	account, err := p.account(sender, ws)
+	account, err := p.account(sender, sm)
 	if err != nil {
 		return nil, err
 	}
@@ -47,10 +47,10 @@ func (p *Protocol) validateSubChainOwnership(
 	return account, nil
 }
 
-func (p *Protocol) handleStopSubChain(stop *action.StopSubChain, ws factory.WorkingSet) error {
+func (p *Protocol) handleStopSubChain(stop *action.StopSubChain, sm protocol.StateManager) error {
 	stopHeight := stop.StopHeight()
-	if stopHeight <= ws.Height() {
-		return fmt.Errorf("stop height %d should not be lower than chain height %d", stopHeight, ws.Height())
+	if stopHeight <= sm.Height() {
+		return fmt.Errorf("stop height %d should not be lower than chain height %d", stopHeight, sm.Height())
 	}
 	subChainAddr := stop.ChainAddress()
 	subChain, err := p.subChainToStop(subChainAddr)
@@ -62,13 +62,13 @@ func (p *Protocol) handleStopSubChain(stop *action.StopSubChain, ws factory.Work
 	if err != nil {
 		return errors.Wrapf(err, "error when generating public key hash for address %s", subChainAddr)
 	}
-	if err := ws.PutState(subChainPKHash, subChain); err != nil {
+	if err := sm.PutState(subChainPKHash, subChain); err != nil {
 		return err
 	}
 	account, err := p.validateSubChainOwnership(
 		keypair.HashPubKey(subChain.OwnerPublicKey),
 		stop.SrcAddr(),
-		ws,
+		sm,
 	)
 	if err != nil {
 		return errors.Wrapf(err, "error when getting the account of sender %s", stop.SrcAddr())
@@ -81,11 +81,11 @@ func (p *Protocol) handleStopSubChain(stop *action.StopSubChain, ws factory.Work
 	if err != nil {
 		return err
 	}
-	if err := ws.PutState(senderPKHash, account); err != nil {
+	if err := sm.PutState(senderPKHash, account); err != nil {
 		return err
 	}
 	// check that subchain is in register
-	subChainsInOp, err := p.subChainsInOperation(ws)
+	subChainsInOp, err := p.subChainsInOperation(sm)
 	if err != nil {
 		return errors.Wrap(err, "error when getting sub-chains in operation")
 	}
@@ -93,7 +93,7 @@ func (p *Protocol) handleStopSubChain(stop *action.StopSubChain, ws factory.Work
 	if deleted <= 0 {
 		return fmt.Errorf("address %s is not on a sub-chain in operation", subChainAddr)
 	}
-	if err := ws.PutState(SubChainsInOperationKey, &subChainsInOp); err != nil {
+	if err := sm.PutState(SubChainsInOperationKey, &subChainsInOp); err != nil {
 		return err
 	}
 

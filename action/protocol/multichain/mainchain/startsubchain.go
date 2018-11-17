@@ -13,30 +13,30 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-core/state/factory"
 )
 
-func (p *Protocol) handleStartSubChain(start *action.StartSubChain, ws factory.WorkingSet) error {
-	account, subChainsInOp, err := p.validateStartSubChain(start, ws)
+func (p *Protocol) handleStartSubChain(start *action.StartSubChain, sm protocol.StateManager) error {
+	account, subChainsInOp, err := p.validateStartSubChain(start, sm)
 	if err != nil {
 		return err
 	}
-	return p.mutateSubChainState(start, account, subChainsInOp, ws)
+	return p.mutateSubChainState(start, account, subChainsInOp, sm)
 }
 
 func (p *Protocol) validateStartSubChain(
 	start *action.StartSubChain,
-	ws factory.WorkingSet,
+	sm protocol.StateManager,
 ) (*state.Account, state.SortedSlice, error) {
 	if start.ChainID() == p.rootChain.ChainID() {
 		return nil, nil, fmt.Errorf("%d is used by main chain", start.ChainID())
 	}
-	subChainsInOp, err := p.subChainsInOperation(ws)
+	subChainsInOp, err := p.subChainsInOperation(sm)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -52,7 +52,7 @@ func (p *Protocol) validateStartSubChain(
 	account, err := p.accountWithEnoughBalance(
 		start.OwnerAddress(),
 		big.NewInt(0).Add(start.SecurityDeposit(), start.OperationDeposit()),
-		ws,
+		sm,
 	)
 	if err != nil {
 		return nil, nil, err
@@ -64,7 +64,7 @@ func (p *Protocol) mutateSubChainState(
 	start *action.StartSubChain,
 	account *state.Account,
 	subChainsInOp state.SortedSlice,
-	ws factory.WorkingSet,
+	sm protocol.StateManager,
 ) error {
 	addr, err := createSubChainAddress(start.OwnerAddress(), start.Nonce())
 	if err != nil {
@@ -80,7 +80,7 @@ func (p *Protocol) mutateSubChainState(
 		CurrentHeight:      0,
 		DepositCount:       0,
 	}
-	if err := ws.PutState(addr, &sc); err != nil {
+	if err := sm.PutState(addr, &sc); err != nil {
 		return errors.Wrap(err, "error when putting sub-chain state")
 	}
 	account.Balance = big.NewInt(0).Sub(account.Balance, start.SecurityDeposit())
@@ -93,7 +93,7 @@ func (p *Protocol) mutateSubChainState(
 	if err != nil {
 		return err
 	}
-	if err := ws.PutState(ownerPKHash, account); err != nil {
+	if err := sm.PutState(ownerPKHash, account); err != nil {
 		return err
 	}
 	subChainsInOp = subChainsInOp.Append(
@@ -103,7 +103,7 @@ func (p *Protocol) mutateSubChainState(
 		},
 		SortInOperation,
 	)
-	return ws.PutState(SubChainsInOperationKey, &subChainsInOp)
+	return sm.PutState(SubChainsInOperationKey, &subChainsInOp)
 }
 
 func createSubChainAddress(ownerAddr string, nonce uint64) (hash.PKHash, error) {

@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"math/big"
 	"net"
+	"strings"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -20,10 +21,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"strings"
-
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocols/multichain/mainchain"
+	"github.com/iotexproject/iotex-core/action/protocol/multichain/mainchain"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"

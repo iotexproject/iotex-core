@@ -13,7 +13,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core/action/protocols/multichain/mainchain"
+	"github.com/iotexproject/iotex-core/action/protocol/multichain/mainchain"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/chainservice"
