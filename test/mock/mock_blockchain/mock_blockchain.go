@@ -12,6 +12,7 @@ import (
 	iotxaddress "github.com/iotexproject/iotex-core/iotxaddress"
 	hash "github.com/iotexproject/iotex-core/pkg/hash"
 	state "github.com/iotexproject/iotex-core/state"
+	factory "github.com/iotexproject/iotex-core/state/factory"
 	big "math/big"
 	reflect "reflect"
 )
@@ -441,9 +442,9 @@ func (mr *MockBlockchainMockRecorder) GetBlockHashByActionHash(h interface{}) *g
 }
 
 // GetFactory mocks base method
-func (m *MockBlockchain) GetFactory() state.Factory {
+func (m *MockBlockchain) GetFactory() factory.Factory {
 	ret := m.ctrl.Call(m, "GetFactory")
-	ret0, _ := ret[0].(state.Factory)
+	ret0, _ := ret[0].(factory.Factory)
 	return ret0
 }
 

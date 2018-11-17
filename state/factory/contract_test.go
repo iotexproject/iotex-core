@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package state
+package factory
 
 import (
 	"context"
@@ -19,6 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 	"github.com/iotexproject/iotex-core/trie"
@@ -60,8 +61,8 @@ func TestCreateContract(t *testing.T) {
 	require.Error(err)
 	require.Equal([]byte(nil), v)
 	gasLimit := testutil.TestGasLimit
-	ctx := WithRunActionsCtx(context.Background(),
-		RunActionsCtx{
+	ctx := state.WithRunActionsCtx(context.Background(),
+		state.RunActionsCtx{
 			ProducerAddr:    testaddress.Addrinfo["producer"].RawAddress,
 			GasLimit:        &gasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
@@ -146,8 +147,8 @@ func TestLoadStoreContract(t *testing.T) {
 	require.Nil(ws.SetContractState(contract1, k3, v3))
 	require.Nil(ws.SetContractState(contract1, k4, v4))
 	gasLimit := testutil.TestGasLimit
-	ctx := WithRunActionsCtx(context.Background(),
-		RunActionsCtx{
+	ctx := state.WithRunActionsCtx(context.Background(),
+		state.RunActionsCtx{
 			ProducerAddr:    testaddress.Addrinfo["producer"].RawAddress,
 			GasLimit:        &gasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,

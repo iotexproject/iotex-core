@@ -20,6 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/state/factory"
 )
 
 const (
@@ -39,7 +40,7 @@ type Protocol struct {
 func NewProtocol(bc blockchain.Blockchain) *Protocol { return &Protocol{bc: bc} }
 
 // Handle handles a vote
-func (p *Protocol) Handle(_ context.Context, act action.Action, ws state.WorkingSet) (*action.Receipt, error) {
+func (p *Protocol) Handle(_ context.Context, act action.Action, ws factory.WorkingSet) (*action.Receipt, error) {
 	vote, ok := act.(*action.Vote)
 	if !ok {
 		return nil, nil
@@ -47,7 +48,7 @@ func (p *Protocol) Handle(_ context.Context, act action.Action, ws state.Working
 	// Get candidateList from trie and convert it to candidates map
 	candidateMap, err := p.getCandidateMap(ws.Height(), ws)
 	switch {
-	case errors.Cause(err) == state.ErrStateNotExist:
+	case errors.Cause(err) == factory.ErrStateNotExist:
 		if ws.Height() == uint64(0) {
 			candidateMap = make(map[hash.PKHash]*state.Candidate)
 		} else if candidateMap, err = p.getCandidateMap(ws.Height()-1, ws); err != nil {
@@ -178,7 +179,7 @@ func (p *Protocol) constructKey(height uint64) hash.PKHash {
 	return byteutil.BytesTo20B(hash.Hash160b(k))
 }
 
-func (p *Protocol) getCandidateMap(height uint64, ws state.WorkingSet) (map[hash.PKHash]*state.Candidate, error) {
+func (p *Protocol) getCandidateMap(height uint64, ws factory.WorkingSet) (map[hash.PKHash]*state.Candidate, error) {
 	candidatesKey := p.constructKey(height)
 	var sc state.CandidateList
 	if err := ws.State(candidatesKey, &sc); err != nil {

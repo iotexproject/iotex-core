@@ -19,14 +19,14 @@ import (
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/state/factory"
 )
 
 // Protocol defines the protocol to handle multi-chain actions on sub-chain
 type Protocol struct {
 	chainID      uint32
 	mainChainAPI explorer.Explorer
-	sf           state.Factory
+	sf           factory.Factory
 }
 
 // NewProtocol constructs a sub-chain protocol on sub-chain
@@ -39,7 +39,7 @@ func NewProtocol(chain blockchain.Blockchain, mainChainAPI explorer.Explorer) *P
 }
 
 // Handle handles how to mutate the state db given the multi-chain action on sub-chain
-func (p *Protocol) Handle(_ context.Context, act action.Action, ws state.WorkingSet) (*action.Receipt, error) {
+func (p *Protocol) Handle(_ context.Context, act action.Action, ws factory.WorkingSet) (*action.Receipt, error) {
 	switch act := act.(type) {
 	case *action.SettleDeposit:
 		if err := p.validateDeposit(act, ws); err != nil {
@@ -63,7 +63,7 @@ func (p *Protocol) Validate(_ context.Context, act action.Action) error {
 	return nil
 }
 
-func (p *Protocol) validateDeposit(deposit *action.SettleDeposit, ws state.WorkingSet) error {
+func (p *Protocol) validateDeposit(deposit *action.SettleDeposit, ws factory.WorkingSet) error {
 	// Validate main-chain state
 	// TODO: this may not be the type safe casting if index is greater than 2^63
 	depositsOnMainChain, err := p.mainChainAPI.GetDeposits(int64(p.chainID), int64(deposit.Index()), 1)
@@ -89,14 +89,14 @@ func (p *Protocol) validateDeposit(deposit *action.SettleDeposit, ws state.Worki
 	switch errors.Cause(err) {
 	case nil:
 		return fmt.Errorf("deposit %d is already settled", deposit.Index())
-	case state.ErrStateNotExist:
+	case factory.ErrStateNotExist:
 		return nil
 	default:
 		return errors.Wrapf(err, "error when loading state of %x", addr)
 	}
 }
 
-func (p *Protocol) mutateDeposit(deposit *action.SettleDeposit, ws state.WorkingSet) error {
+func (p *Protocol) mutateDeposit(deposit *action.SettleDeposit, ws factory.WorkingSet) error {
 	// Update the deposit index
 	depositAddr := depositAddress(deposit.Index())
 	var depositIndex DepositIndex

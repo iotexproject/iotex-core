@@ -19,6 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/state/factory"
 )
 
 var (
@@ -32,7 +33,7 @@ var (
 // Protocol defines the protocol of handling multi-chain actions on main-chain
 type Protocol struct {
 	rootChain blockchain.Blockchain
-	sf        state.Factory
+	sf        factory.Factory
 }
 
 // NewProtocol instantiates the protocol of sub-chain
@@ -44,7 +45,7 @@ func NewProtocol(rootChain blockchain.Blockchain) *Protocol {
 }
 
 // Handle handles how to mutate the state db given the multi-chain action on main-chain
-func (p *Protocol) Handle(_ context.Context, act action.Action, ws state.WorkingSet) (*action.Receipt, error) {
+func (p *Protocol) Handle(_ context.Context, act action.Action, ws factory.WorkingSet) (*action.Receipt, error) {
 	switch act := act.(type) {
 	case *action.StartSubChain:
 		if err := p.handleStartSubChain(act, ws); err != nil {
@@ -89,7 +90,7 @@ func (p *Protocol) Validate(_ context.Context, act action.Action) error {
 	return nil
 }
 
-func (p *Protocol) account(sender string, ws state.WorkingSet) (*state.Account, error) {
+func (p *Protocol) account(sender string, ws factory.WorkingSet) (*state.Account, error) {
 	if ws == nil {
 		return p.sf.AccountState(sender)
 	}
@@ -100,7 +101,7 @@ func (p *Protocol) account(sender string, ws state.WorkingSet) (*state.Account, 
 func (p *Protocol) accountWithEnoughBalance(
 	sender string,
 	balance *big.Int,
-	ws state.WorkingSet,
+	ws factory.WorkingSet,
 ) (*state.Account, error) {
 	account, err := p.account(sender, ws)
 	if err != nil {
@@ -112,14 +113,14 @@ func (p *Protocol) accountWithEnoughBalance(
 	return account, nil
 }
 
-func (p *Protocol) subChainsInOperation(ws state.WorkingSet) (state.SortedSlice, error) {
+func (p *Protocol) subChainsInOperation(ws factory.WorkingSet) (state.SortedSlice, error) {
 	var subChainsInOp state.SortedSlice
 	var err error
 	if ws == nil {
 		subChainsInOp, err = p.SubChainsInOperation()
 	} else {
 		err = ws.State(SubChainsInOperationKey, &subChainsInOp)
-		if err != nil && errors.Cause(err) == state.ErrStateNotExist {
+		if err != nil && errors.Cause(err) == factory.ErrStateNotExist {
 			err = nil
 		}
 	}
@@ -151,7 +152,7 @@ func (p *Protocol) SubChain(addr address.Address) (*SubChain, error) {
 func (p *Protocol) SubChainsInOperation() (state.SortedSlice, error) {
 	var subChainsInOp state.SortedSlice
 	_, err := p.sf.State(SubChainsInOperationKey, &subChainsInOp)
-	if err != nil && errors.Cause(err) != state.ErrStateNotExist {
+	if err != nil && errors.Cause(err) != factory.ErrStateNotExist {
 		return nil, err
 	}
 	return subChainsInOp, nil

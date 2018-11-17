@@ -20,7 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
-	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/state/factory"
 )
 
 // ErrInconsistentNonce is the error that the nonce is different from executor's nonce
@@ -138,7 +138,7 @@ func securityDeposit(ps *EVMParams, stateDB vm.StateDB, gasLimit *uint64) error 
 }
 
 // ExecuteContracts process the contracts in a block
-func ExecuteContracts(blk *Block, ws state.WorkingSet, bc Blockchain, gasLimit *uint64, enableGasCharge bool) {
+func ExecuteContracts(blk *Block, ws factory.WorkingSet, bc Blockchain, gasLimit *uint64, enableGasCharge bool) {
 	_, _, executions := action.ClassifyActions(blk.Actions)
 	for idx, execution := range executions {
 		// TODO (zhi) log receipt to stateDB
@@ -151,7 +151,7 @@ func ExecuteContracts(blk *Block, ws state.WorkingSet, bc Blockchain, gasLimit *
 // executeContract processes a transfer which contains a contract
 func executeContract(
 	blk *Block,
-	ws state.WorkingSet,
+	ws factory.WorkingSet,
 	idx int,
 	execution *action.Execution,
 	bc Blockchain,

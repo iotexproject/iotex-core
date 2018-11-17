@@ -10,10 +10,14 @@ import (
 	"math/big"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/proto"
 )
+
+// ErrNotEnoughBalance is the error that the balance is not enough
+var ErrNotEnoughBalance = errors.New("not enough balance")
 
 // Account is the canonical representation of an account.
 type Account struct {
@@ -99,8 +103,8 @@ func (st *Account) SubBalance(amount *big.Int) error {
 	return nil
 }
 
-// clone clones the account state
-func (st *Account) clone() *Account {
+// Clone clones the account state
+func (st *Account) Clone() *Account {
 	s := *st
 	s.Balance = nil
 	s.Balance = new(big.Int).Set(st.Balance)

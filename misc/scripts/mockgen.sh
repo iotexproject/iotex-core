@@ -28,18 +28,18 @@ mockgen -destination=./test/mock/mock_trie/mock_trie.go  \
         -package=mock_trie \
         Trie
 
-mkdir -p ./test/mock/mock_state
-mockgen -destination=./test/mock/mock_state/mock_state.go  \
-        -source=./state/factory.go \
-        -imports =github.com/iotexproject/iotex-core/state \
-        -package=mock_state \
+mkdir -p ./test/mock/mock_factory
+mockgen -destination=./test/mock/mock_factory/mock_factory.go  \
+        -source=./state/factory/factory.go \
+        -imports =github.com/iotexproject/iotex-core/state/factory \
+        -package=mock_factory \
         Factory
 
-mkdir -p ./test/mock/mock_state
-mockgen -destination=./test/mock/mock_state/mock_workingset.go  \
-        -source=./state/workingset.go \
-        -imports =github.com/iotexproject/iotex-core/state \
-        -package=mock_state \
+mkdir -p ./test/mock/mock_factory
+mockgen -destination=./test/mock/mock_factory/mock_workingset.go  \
+        -source=./state/factory/workingset.go \
+        -imports =github.com/iotexproject/iotex-core/state/factory \
+        -package=mock_factory \
         WorkingSet
 
 mkdir -p ./test/mock/mock_consensus

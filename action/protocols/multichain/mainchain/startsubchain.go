@@ -18,9 +18,10 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/state/factory"
 )
 
-func (p *Protocol) handleStartSubChain(start *action.StartSubChain, ws state.WorkingSet) error {
+func (p *Protocol) handleStartSubChain(start *action.StartSubChain, ws factory.WorkingSet) error {
 	account, subChainsInOp, err := p.validateStartSubChain(start, ws)
 	if err != nil {
 		return err
@@ -30,7 +31,7 @@ func (p *Protocol) handleStartSubChain(start *action.StartSubChain, ws state.Wor
 
 func (p *Protocol) validateStartSubChain(
 	start *action.StartSubChain,
-	ws state.WorkingSet,
+	ws factory.WorkingSet,
 ) (*state.Account, state.SortedSlice, error) {
 	if start.ChainID() == p.rootChain.ChainID() {
 		return nil, nil, fmt.Errorf("%d is used by main chain", start.ChainID())
@@ -63,7 +64,7 @@ func (p *Protocol) mutateSubChainState(
 	start *action.StartSubChain,
 	account *state.Account,
 	subChainsInOp state.SortedSlice,
-	ws state.WorkingSet,
+	ws factory.WorkingSet,
 ) error {
 	addr, err := createSubChainAddress(start.OwnerAddress(), start.Nonce())
 	if err != nil {

@@ -19,6 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 )
 
@@ -27,7 +28,7 @@ func TestProtocol_Handle(t *testing.T) {
 
 	cfg := config.Default
 	ctx := context.Background()
-	sf, err := state.NewFactory(cfg, state.InMemTrieOption())
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(err)
 	require.NoError(sf.Start(ctx))
 	defer func() {

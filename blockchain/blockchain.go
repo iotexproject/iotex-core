@@ -27,6 +27,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/state/factory"
 )
 
 // Blockchain represents the blockchain data structure and hosts the APIs to access it
@@ -93,7 +94,7 @@ type Blockchain interface {
 	// GetBlockHashByActionHash returns Block hash by action hash
 	GetBlockHashByActionHash(h hash.Hash32B) (hash.Hash32B, error)
 	// GetFactory returns the state factory
-	GetFactory() state.Factory
+	GetFactory() factory.Factory
 	// GetChainID returns the chain ID
 	ChainID() uint32
 	// ChainAddress returns chain address on parent chain, the root chain return empty.
@@ -155,7 +156,7 @@ type blockchain struct {
 	blocklistener []chan *Block
 
 	// used by account-based model
-	sf state.Factory
+	sf factory.Factory
 }
 
 // Option sets blockchain construction parameter
@@ -170,7 +171,7 @@ const RecoveryHeightKey key = "recoveryHeight"
 // DefaultStateFactoryOption sets blockchain's sf from config
 func DefaultStateFactoryOption() Option {
 	return func(bc *blockchain, cfg config.Config) error {
-		sf, err := state.NewFactory(cfg, state.DefaultTrieOption())
+		sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 		if err != nil {
 			return errors.Wrapf(err, "Failed to create state factory")
 		}
@@ -181,7 +182,7 @@ func DefaultStateFactoryOption() Option {
 }
 
 // PrecreatedStateFactoryOption sets blockchain's state.Factory to sf
-func PrecreatedStateFactoryOption(sf state.Factory) Option {
+func PrecreatedStateFactoryOption(sf factory.Factory) Option {
 	return func(bc *blockchain, conf config.Config) error {
 		bc.sf = sf
 
@@ -189,10 +190,10 @@ func PrecreatedStateFactoryOption(sf state.Factory) Option {
 	}
 }
 
-// InMemStateFactoryOption sets blockchain's state.Factory as in memory sf
+// InMemStateFactoryOption sets blockchain's factory.Factory as in memory sf
 func InMemStateFactoryOption() Option {
 	return func(bc *blockchain, cfg config.Config) error {
-		sf, err := state.NewFactory(cfg, state.InMemTrieOption())
+		sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 		if err != nil {
 			return errors.Wrapf(err, "Failed to create state factory")
 		}
@@ -572,7 +573,7 @@ func (bc *blockchain) GetBlockHashByActionHash(h hash.Hash32B) (hash.Hash32B, er
 }
 
 // GetFactory returns the state factory
-func (bc *blockchain) GetFactory() state.Factory {
+func (bc *blockchain) GetFactory() factory.Factory {
 	return bc.sf
 }
 
@@ -966,7 +967,7 @@ func (bc *blockchain) commitBlock(blk *Block) error {
 	return nil
 }
 
-func (bc *blockchain) runActions(blk *Block, ws state.WorkingSet, verify bool) (hash.Hash32B, error) {
+func (bc *blockchain) runActions(blk *Block, ws factory.WorkingSet, verify bool) (hash.Hash32B, error) {
 	blk.receipts = make(map[hash.Hash32B]*action.Receipt)
 	if bc.sf == nil {
 		return hash.ZeroHash32B, errors.New("statefactory cannot be nil")

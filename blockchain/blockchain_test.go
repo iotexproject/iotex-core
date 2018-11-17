@@ -25,6 +25,7 @@ import (
 	_hash "github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/state/factory"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -237,7 +238,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Explorer.Enabled = true
 
-	sf, err := state.NewFactory(cfg, state.DefaultTrieOption())
+	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 	require.Nil(err)
 	require.NoError(sf.Start(context.Background()))
 	require.NoError(addCreatorToFactory(sf))
@@ -463,7 +464,7 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
-	sf, err := state.NewFactory(cfg, state.DefaultTrieOption())
+	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 	require.Nil(err)
 	require.NoError(sf.Start(context.Background()))
 	require.NoError(addCreatorToFactory(sf))
@@ -669,7 +670,7 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 	// Disable block reward to make bookkeeping easier
 	Gen.BlockReward = big.NewInt(0)
 
-	sf, err := state.NewFactory(cfg, state.DefaultTrieOption())
+	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 	require.Nil(err)
 	require.NoError(sf.Start(context.Background()))
 	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
@@ -696,7 +697,7 @@ func TestCoinbaseTransfer(t *testing.T) {
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 
-	sf, err := state.NewFactory(cfg, state.DefaultTrieOption())
+	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 	require.Nil(err)
 	require.NoError(sf.Start(context.Background()))
 	require.NoError(addCreatorToFactory(sf))
@@ -764,7 +765,7 @@ func TestBlocks(t *testing.T) {
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 
-	sf, _ := state.NewFactory(cfg, state.InMemTrieOption())
+	sf, _ := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(sf.Start(context.Background()))
 	require.NoError(addCreatorToFactory(sf))
 
@@ -818,7 +819,7 @@ func TestActions(t *testing.T) {
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 
-	sf, _ := state.NewFactory(cfg, state.InMemTrieOption())
+	sf, _ := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(sf.Start(context.Background()))
 	require.NoError(addCreatorToFactory(sf))
 

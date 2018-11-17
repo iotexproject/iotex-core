@@ -36,6 +36,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_consensus"
 	"github.com/iotexproject/iotex-core/test/mock/mock_dispatcher"
@@ -157,7 +158,7 @@ func TestExplorerApi(t *testing.T) {
 	testutil.CleanupPath(t, testDBPath)
 	defer testutil.CleanupPath(t, testDBPath)
 
-	sf, err := state.NewFactory(cfg, state.InMemTrieOption())
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.Nil(err)
 	require.Nil(sf.Start(context.Background()))
 	require.NoError(addCreatorToFactory(sf))
@@ -798,7 +799,7 @@ func TestExplorerGetReceiptByExecutionID(t *testing.T) {
 	testutil.CleanupPath(t, testDBPath)
 	defer testutil.CleanupPath(t, testDBPath)
 
-	sf, err := state.NewFactory(cfg, state.InMemTrieOption())
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.Nil(err)
 	require.Nil(sf.Start(context.Background()))
 	require.NoError(addCreatorToFactory(sf))
@@ -951,7 +952,7 @@ func TestService_GetDeposits(t *testing.T) {
 	cfg := config.Default
 	ctx := context.Background()
 	bc := mock_blockchain.NewMockBlockchain(ctrl)
-	sf, err := state.NewFactory(cfg, state.InMemTrieOption())
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(err)
 	require.NoError(sf.Start(ctx))
 	bc.EXPECT().GetFactory().Return(sf).AnyTimes()
@@ -1033,7 +1034,7 @@ func TestService_GetDeposits(t *testing.T) {
 	assert.Equal(1, len(deposits))
 }
 
-func addCreatorToFactory(sf state.Factory) error {
+func addCreatorToFactory(sf factory.Factory) error {
 	ws, err := sf.NewWorkingSet()
 	if err != nil {
 		return err

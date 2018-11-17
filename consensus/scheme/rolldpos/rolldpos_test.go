@@ -36,6 +36,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/mock/mock_actpool"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_explorer"
@@ -726,7 +727,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 		p2ps := make([]*directOverlay, 0, numNodes)
 		cs := make([]*RollDPoS, 0, numNodes)
 		for i := 0; i < numNodes; i++ {
-			sf, err := state.NewFactory(cfg, state.InMemTrieOption())
+			sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 			require.NoError(t, err)
 			for j := 0; j < numNodes; j++ {
 				ws, err := sf.NewWorkingSet()

@@ -24,7 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/proto"
-	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/state/factory"
 )
 
 // GasLimit is the total gas limit could be consumed in a block
@@ -73,7 +73,7 @@ type Block struct {
 	SecretProposals []*action.SecretProposal
 	SecretWitness   *action.SecretWitness
 	receipts        map[hash.Hash32B]*action.Receipt
-	workingSet      state.WorkingSet
+	workingSet      factory.WorkingSet
 	Footer          *BlockFooter
 }
 

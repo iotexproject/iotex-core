@@ -20,7 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
-	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/state/factory"
 )
 
 // Validator is the interface of validator
@@ -30,7 +30,7 @@ type Validator interface {
 }
 
 type validator struct {
-	sf            state.Factory
+	sf            factory.Factory
 	validatorAddr string
 }
 

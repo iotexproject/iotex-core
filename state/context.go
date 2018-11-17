@@ -27,7 +27,8 @@ func WithRunActionsCtx(ctx context.Context, ra RunActionsCtx) context.Context {
 	return context.WithValue(ctx, runActionsCtxKey{}, ra)
 }
 
-func getRunActionsCtx(ctx context.Context) (RunActionsCtx, bool) {
+// GetRunActionsCtx gets runActionsCtx
+func GetRunActionsCtx(ctx context.Context) (RunActionsCtx, bool) {
 	ra, ok := ctx.Value(runActionsCtxKey{}).(RunActionsCtx)
 	return ra, ok
 }

@@ -20,7 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
-	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/state/factory"
 )
 
 const testnetActionPath = "testnet_actions.yaml"
@@ -93,7 +93,7 @@ func (g *Genesis) CreatorPKHash() hash.PKHash {
 }
 
 // NewGenesisBlock creates a new genesis block
-func NewGenesisBlock(chainCfg config.Chain, ws state.WorkingSet) *Block {
+func NewGenesisBlock(chainCfg config.Chain, ws factory.WorkingSet) *Block {
 	actions := loadGenesisData(chainCfg)
 	// add initial allocation
 	alloc := big.NewInt(0)
