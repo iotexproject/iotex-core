@@ -42,40 +42,39 @@ func (b *blockBuffer) Flush(blk *blockchain.Block) (bool, bCheckinResult) {
 	}
 	confirmedHeight := b.bc.TipHeight()
 	// check
-	h := blk.Height()
-	if h <= confirmedHeight {
+	blkHeight := blk.Height()
+	if blkHeight <= confirmedHeight {
 		return false, bCheckinLower
 	}
-	if _, ok := b.blocks[h]; ok {
+	if _, ok := b.blocks[blkHeight]; ok {
 		return false, bCheckinExisting
 	}
-	if h > confirmedHeight+b.size {
+	if blkHeight > confirmedHeight+b.size {
 		return false, bCheckinHigher
 	}
-	b.blocks[h] = blk
+	b.blocks[blkHeight] = blk
 	l := logger.With().
-		Uint64("recvHeight", blk.Height()).
+		Uint64("recvHeight", blkHeight).
 		Uint64("confirmedHeight", confirmedHeight).
 		Str("source", "blockBuffer").
 		Logger()
-	syncedHeight := confirmedHeight
-	for confirmedHeight+b.size > syncedHeight {
-		blk, ok := b.blocks[syncedHeight+1]
+	var heightToSync uint64
+	for heightToSync = confirmedHeight + 1; heightToSync <= confirmedHeight+b.size; heightToSync++ {
+		blk, ok := b.blocks[heightToSync]
 		if !ok {
 			break
 		}
-		delete(b.blocks, syncedHeight+1)
+		delete(b.blocks, heightToSync)
 		if err := commitBlock(b.bc, b.ap, blk); err != nil {
-			l.Error().Err(err).Uint64("syncHeight", syncedHeight+1).
+			l.Error().Err(err).Uint64("syncHeight", heightToSync).
 				Msg("Failed to commit the block.")
 			// unable to commit, check reason
-			committedBlk, err := b.bc.GetBlockByHeight(syncedHeight + 1)
+			committedBlk, err := b.bc.GetBlockByHeight(heightToSync)
 			if err != nil || committedBlk.HashBlock() != blk.HashBlock() {
 				break
 			}
 		}
-		syncedHeight++
-		l.Info().Uint64("syncedHeight", syncedHeight).Msg("Successfully committed block.")
+		l.Info().Uint64("syncedHeight", heightToSync).Msg("Successfully committed block.")
 	}
 
 	// clean up on memory leak
@@ -88,7 +87,7 @@ func (b *blockBuffer) Flush(blk *blockchain.Block) (bool, bCheckinResult) {
 		}
 	}
 
-	return syncedHeight >= blk.Height(), bCheckinValid
+	return heightToSync > blkHeight, bCheckinValid
 }
 
 // GetBlocksIntervalsToSync returns groups of syncBlocksInterval are missing upto targetHeight.
