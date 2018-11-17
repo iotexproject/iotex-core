@@ -16,101 +16,76 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocols/multichain/mainchain"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/chainservice"
 	"github.com/iotexproject/iotex-core/logger"
-	"github.com/iotexproject/iotex-core/pkg/routine"
 )
 
-func (s *Server) newSubChainStarter(protocol *mainchain.Protocol) *routine.RecurringTask {
-	return routine.NewRecurringTask(
-		func() {
-			subChainsInOp, err := protocol.SubChainsInOperation()
-			if err != nil {
-				logger.Error().Err(err).Msg("error when getting the sub-chains in operation slice")
-			}
-			for _, e := range subChainsInOp {
-				subChainInOp, ok := e.(mainchain.InOperation)
-				if !ok {
-					logger.Error().Msg("error when casting the element in the sorted slice into InOperation")
-					continue
-				}
-				if _, ok := s.chainservices[subChainInOp.ID]; ok {
-					// Sub-chain service is already started
-					continue
-				}
-				addr, err := address.BytesToAddress(subChainInOp.Addr)
-				if err != nil {
-					logger.Error().Err(err).Msg("error when converting bytes to address")
-					continue
-				}
-				subChain, err := protocol.SubChain(addr)
-				if err != nil {
-					logger.Error().Err(err).
-						Uint32("sub-chain", subChain.ChainID).
-						Msg("error when getting the sub-chain state")
-					continue
-				}
-				if err := s.startSubChainService(addr.IotxAddress(), subChain); err != nil {
-					logger.Error().Err(err).
-						Uint32("sub-chain", subChain.ChainID).
-						Msg("error when starting the sub-chain service")
-				}
-			}
-		},
-		s.cfg.System.StartSubChainInterval,
-	)
+func (s *Server) newOrGetSubChainService(subChainInOp mainchain.InOperation) (
+	*chainservice.ChainService,
+	*mainchain.SubChain,
+	error,
+) {
+	chainID := subChainInOp.ID
+	var cs *chainservice.ChainService
+	addr, err := address.BytesToAddress(subChainInOp.Addr)
+	if err != nil {
+		return nil, nil, err
+	}
+	subChain, err := s.mainChainProtocol.SubChain(addr)
+	if err != nil {
+		return nil, nil, err
+	}
+	cs, ok := s.chainservices[chainID]
+	if ok {
+		return cs, subChain, nil
+	}
+	// TODO: get rid of the hack config modification
+	cfg := s.cfg
+	cfg.Chain.ID = chainID
+	cfg.Chain.Address = addr.IotxAddress()
+	cfg.Chain.ChainDBPath = getSubChainDBPath(chainID, cfg.Chain.ChainDBPath)
+	cfg.Chain.TrieDBPath = getSubChainDBPath(chainID, cfg.Chain.TrieDBPath)
+	cfg.Chain.GenesisActionsPath = ""
+	cfg.Chain.EnableSubChainStartInGenesis = false
+	cfg.Chain.EmptyGenesis = true
+	cfg.Explorer.Port = cfg.Explorer.Port - int(s.rootChainService.ChainID()) + int(chainID)
+	if err := s.newSubChainService(cfg); err != nil {
+		return nil, nil, err
+	}
+	cs, ok = s.chainservices[chainID]
+	if !ok {
+		return nil, nil, errors.New("failed to get the chain service")
+	}
+	return cs, subChain, nil
 }
 
-func (s *Server) startSubChainService(addr string, sc *mainchain.SubChain) error {
-	if initialized, ok := s.initializedSubChains[sc.ChainID]; initialized && ok {
-		return nil
+// HandleBlock implements interface BlockCreationSubscriber
+func (s *Server) HandleBlock(blk *blockchain.Block) error {
+	subChainsInOp, err := s.mainChainProtocol.SubChainsInOperation()
+	if err != nil {
+		logger.Error().Err(err).Msg("error when getting the sub-chains in operation slice")
 	}
-	s.initializedSubChains[sc.ChainID] = true
-	block := make(chan *blockchain.Block)
-	if err := s.rootChainService.Blockchain().SubscribeBlockCreation(block); err != nil {
-		return errors.Wrap(err, "error when subscribing block creation")
-	}
-
-	go func() {
-		for started := false; !started; {
-			select {
-			case blk := <-block:
-				if blk.Height() < sc.StartHeight {
-					continue
-				}
-				// TODO: get rid of the hack config modification
-				cfg := s.cfg
-				cfg.Chain.ID = sc.ChainID
-				cfg.Chain.Address = addr
-				cfg.Chain.ChainDBPath = getSubChainDBPath(sc.ChainID, cfg.Chain.ChainDBPath)
-				cfg.Chain.TrieDBPath = getSubChainDBPath(sc.ChainID, cfg.Chain.TrieDBPath)
-				cfg.Chain.GenesisActionsPath = ""
-				cfg.Chain.EnableSubChainStartInGenesis = false
-				cfg.Chain.EmptyGenesis = true
-				cfg.Explorer.Port = cfg.Explorer.Port - int(s.rootChainService.ChainID()) + int(sc.ChainID)
-				if err := s.NewChainService(cfg); err != nil {
-					logger.Error().Err(err).Msgf("error when constructing the sub-chain %d", sc.ChainID)
-					continue
-				}
-				// TODO: inherit ctx from root chain
-				if err := s.StartChainService(context.Background(), sc.ChainID); err != nil {
-					logger.Error().Err(err).Msgf("error when starting the sub-chain %d", sc.ChainID)
-					continue
-				}
-				logger.Info().Msgf("started the sub-chain %d", sc.ChainID)
-				// No matter if the start process failed or not
-				started = true
+	for _, e := range subChainsInOp {
+		subChainInOp, ok := e.(mainchain.InOperation)
+		if !ok {
+			logger.Error().Msg("error when casting the element in the sorted slice into InOperation")
+			continue
+		}
+		cs, subChain, err := s.newOrGetSubChainService(subChainInOp)
+		if err != nil {
+			logger.Error().Err(err).Msg("error when getting sub-chain service")
+			continue
+		}
+		if subChain.StartHeight <= blk.Height() && !cs.IsRunning() {
+			if err := cs.Start(context.Background()); err != nil {
+				logger.Error().Err(err).
+					Uint32("sub-chain", subChain.ChainID).
+					Msg("error when starting the sub-chain")
+				continue
 			}
+			logger.Info().Uint32("sub-chain", subChain.ChainID).Msg("started the sub-chain")
 		}
-		logger.Info().Msgf("Unsubscribe block creation for sub-chain %d", sc.ChainID)
-		if err := s.rootChainService.Blockchain().UnsubscribeBlockCreation(block); err != nil {
-			logger.Error().Err(err).Msg("error when unsubscribing block creation")
-		}
-		// TODO support restarting sub-chain
-		close(block)
-		for range block {
-		}
-	}()
-
+	}
 	return nil
 }
 

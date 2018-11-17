@@ -135,11 +135,11 @@ type Blockchain interface {
 	// cause any state change
 	ExecuteContractRead(ex *action.Execution) (*action.Receipt, error)
 
-	// SubscribeBlockCreation make you listen to every single produced block
-	SubscribeBlockCreation(ch chan *Block) error
+	// AddSubscriber make you listen to every single produced block
+	AddSubscriber(BlockCreationSubscriber) error
 
-	// UnsubscribeBlockCreation make you listen to every single produced block
-	UnsubscribeBlockCreation(ch chan *Block) error
+	// RemoveSubscriber make you listen to every single produced block
+	RemoveSubscriber(BlockCreationSubscriber) error
 }
 
 // blockchain implements the Blockchain interface
@@ -153,7 +153,7 @@ type blockchain struct {
 	validator     Validator
 	lifecycle     lifecycle.Lifecycle
 	clk           clock.Clock
-	blocklistener []chan *Block
+	blocklistener []BlockCreationSubscriber
 
 	// used by account-based model
 	sf factory.Factory
@@ -708,19 +708,19 @@ func (bc *blockchain) Validator() Validator {
 	return bc.validator
 }
 
-func (bc *blockchain) SubscribeBlockCreation(ch chan *Block) error {
+func (bc *blockchain) AddSubscriber(s BlockCreationSubscriber) error {
 	bc.mu.Lock()
 	defer bc.mu.Unlock()
 	logger.Info().Msg("Add a subscriber")
-	bc.blocklistener = append(bc.blocklistener, ch)
+	bc.blocklistener = append(bc.blocklistener, s)
 	return nil
 }
 
-func (bc *blockchain) UnsubscribeBlockCreation(ch chan *Block) error {
+func (bc *blockchain) RemoveSubscriber(s BlockCreationSubscriber) error {
 	bc.mu.Lock()
 	defer bc.mu.Unlock()
-	for i, handler := range bc.blocklistener {
-		if ch == handler {
+	for i, sub := range bc.blocklistener {
+		if sub == s {
 			bc.blocklistener = append(bc.blocklistener[:i], bc.blocklistener[i+1:]...)
 			logger.Info().Msg("Successfully unsubscribe block creation")
 			return nil
@@ -944,9 +944,7 @@ func (bc *blockchain) commitBlock(blk *Block) error {
 		return err
 	}
 	// emit block to all block subscribers
-	if err := bc.emitToSubscribers(blk); err != nil {
-		return errors.Wrap(err, "failed to emit to block subscribers")
-	}
+	bc.emitToSubscribers(blk)
 	// update tip hash and height
 	bc.tipHeight = blk.Header.height
 	bc.tipHash = blk.HashBlock()
@@ -1000,18 +998,17 @@ func (bc *blockchain) runActions(blk *Block, ws factory.WorkingSet, verify bool)
 	return root, nil
 }
 
-func (bc *blockchain) emitToSubscribers(blk *Block) error {
-	// return if there is no subscribers
+func (bc *blockchain) emitToSubscribers(blk *Block) {
 	if bc.blocklistener == nil {
-		return nil
+		return
 	}
-
-	for _, handler := range bc.blocklistener {
-		go func(handler chan *Block) {
-			handler <- blk
-		}(handler)
+	for _, s := range bc.blocklistener {
+		go func(bcs BlockCreationSubscriber, b *Block) {
+			if err := bcs.HandleBlock(b); err != nil {
+				logger.Error().Err(err).Msg("Failed to handle new block")
+			}
+		}(s, blk)
 	}
-	return nil
 }
 
 func (bc *blockchain) now() uint64 { return uint64(bc.clk.Now().Unix()) }

@@ -29,13 +29,14 @@ import (
 
 // ChainService is a blockchain service with all blockchain components.
 type ChainService struct {
-	actpool      actpool.ActPool
-	blocksync    blocksync.BlockSync
-	consensus    consensus.Consensus
-	chain        blockchain.Blockchain
-	explorer     *explorer.Server
-	indexservice *indexservice.Server
-	protocols    []Protocol
+	actpool       actpool.ActPool
+	blocksync     blocksync.BlockSync
+	consensus     consensus.Consensus
+	chain         blockchain.Blockchain
+	explorer      *explorer.Server
+	indexservice  *indexservice.Server
+	protocols     []Protocol
+	runningStatus bool
 }
 
 type optionParams struct {
@@ -124,12 +125,13 @@ func New(cfg config.Config, p2p network.Overlay, dispatcher dispatcher.Dispatche
 	}
 
 	return &ChainService{
-		actpool:      actPool,
-		chain:        chain,
-		blocksync:    bs,
-		consensus:    consensus,
-		indexservice: idx,
-		explorer:     exp,
+		actpool:       actPool,
+		chain:         chain,
+		blocksync:     bs,
+		consensus:     consensus,
+		indexservice:  idx,
+		explorer:      exp,
+		runningStatus: false,
 	}, nil
 }
 
@@ -154,11 +156,15 @@ func (cs *ChainService) Start(ctx context.Context) error {
 			return errors.Wrap(err, "error when starting explorer")
 		}
 	}
+	cs.runningStatus = true
 	return nil
 }
 
 // Stop stops the server
 func (cs *ChainService) Stop(ctx context.Context) error {
+	if !cs.runningStatus {
+		return nil
+	}
 	if cs.explorer != nil {
 		if err := cs.explorer.Stop(ctx); err != nil {
 			return errors.Wrap(err, "error when stopping explorer")
@@ -178,7 +184,13 @@ func (cs *ChainService) Stop(ctx context.Context) error {
 	if err := cs.chain.Stop(ctx); err != nil {
 		return errors.Wrap(err, "error when stopping blockchain")
 	}
+	cs.runningStatus = false
 	return nil
+}
+
+// IsRunning returns whether the chain service is running
+func (cs *ChainService) IsRunning() bool {
+	return cs.runningStatus
 }
 
 // HandleAction handles incoming action request.

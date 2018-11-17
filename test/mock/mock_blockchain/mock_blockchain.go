@@ -599,26 +599,26 @@ func (mr *MockBlockchainMockRecorder) ExecuteContractRead(ex interface{}) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecuteContractRead", reflect.TypeOf((*MockBlockchain)(nil).ExecuteContractRead), ex)
 }
 
-// SubscribeBlockCreation mocks base method
-func (m *MockBlockchain) SubscribeBlockCreation(ch chan *blockchain.Block) error {
-	ret := m.ctrl.Call(m, "SubscribeBlockCreation", ch)
+// AddSubscriber mocks base method
+func (m *MockBlockchain) AddSubscriber(arg0 blockchain.BlockCreationSubscriber) error {
+	ret := m.ctrl.Call(m, "AddSubscriber", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// SubscribeBlockCreation indicates an expected call of SubscribeBlockCreation
-func (mr *MockBlockchainMockRecorder) SubscribeBlockCreation(ch interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubscribeBlockCreation", reflect.TypeOf((*MockBlockchain)(nil).SubscribeBlockCreation), ch)
+// AddSubscriber indicates an expected call of AddSubscriber
+func (mr *MockBlockchainMockRecorder) AddSubscriber(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddSubscriber", reflect.TypeOf((*MockBlockchain)(nil).AddSubscriber), arg0)
 }
 
-// UnsubscribeBlockCreation mocks base method
-func (m *MockBlockchain) UnsubscribeBlockCreation(ch chan *blockchain.Block) error {
-	ret := m.ctrl.Call(m, "UnsubscribeBlockCreation", ch)
+// RemoveSubscriber mocks base method
+func (m *MockBlockchain) RemoveSubscriber(arg0 blockchain.BlockCreationSubscriber) error {
+	ret := m.ctrl.Call(m, "RemoveSubscriber", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// UnsubscribeBlockCreation indicates an expected call of UnsubscribeBlockCreation
-func (mr *MockBlockchainMockRecorder) UnsubscribeBlockCreation(ch interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnsubscribeBlockCreation", reflect.TypeOf((*MockBlockchain)(nil).UnsubscribeBlockCreation), ch)
+// RemoveSubscriber indicates an expected call of RemoveSubscriber
+func (mr *MockBlockchainMockRecorder) RemoveSubscriber(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveSubscriber", reflect.TypeOf((*MockBlockchain)(nil).RemoveSubscriber), arg0)
 }

@@ -71,6 +71,11 @@ var (
 	ErrAlreadyExist = errors.New("already exist in DB")
 )
 
+// HandleBlock is an implementation of interface BlockCreationSubscriber
+func (idx *Indexer) HandleBlock(blk *blockchain.Block) error {
+	return idx.BuildIndex(blk)
+}
+
 // BuildIndex build the index for a block
 func (idx *Indexer) BuildIndex(blk *blockchain.Block) error {
 	idx.rds.Transact(func(tx *sql.Tx) error {
