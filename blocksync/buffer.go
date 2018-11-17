@@ -37,47 +37,44 @@ type blockBuffer struct {
 func (b *blockBuffer) Flush(blk *blockchain.Block) (bool, bCheckinResult) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	moved := false
 	if blk == nil {
-		return moved, bCheckinSkipNil
+		return false, bCheckinSkipNil
 	}
 	confirmedHeight := b.bc.TipHeight()
 	// check
-	h := blk.Height()
-	if h <= confirmedHeight {
-		return moved, bCheckinLower
+	blkHeight := blk.Height()
+	if blkHeight <= confirmedHeight {
+		return false, bCheckinLower
 	}
-	if _, ok := b.blocks[h]; ok {
-		return moved, bCheckinExisting
+	if _, ok := b.blocks[blkHeight]; ok {
+		return false, bCheckinExisting
 	}
-	if h > confirmedHeight+b.size {
-		return moved, bCheckinHigher
+	if blkHeight > confirmedHeight+b.size {
+		return false, bCheckinHigher
 	}
-	b.blocks[h] = blk
+	b.blocks[blkHeight] = blk
 	l := logger.With().
-		Uint64("recvHeight", blk.Height()).
+		Uint64("recvHeight", blkHeight).
 		Uint64("confirmedHeight", confirmedHeight).
 		Str("source", "blockBuffer").
 		Logger()
-	for b.size > 0 {
-		next := confirmedHeight + 1
-		blk, ok := b.blocks[next]
+	var heightToSync uint64
+	for heightToSync = confirmedHeight + 1; heightToSync <= confirmedHeight+b.size; heightToSync++ {
+		blk, ok := b.blocks[heightToSync]
 		if !ok {
 			break
 		}
-		delete(b.blocks, next)
+		delete(b.blocks, heightToSync)
 		if err := commitBlock(b.bc, b.ap, blk); err != nil {
-			l.Error().Err(err).Uint64("syncHeight", next).
+			l.Error().Err(err).Uint64("syncHeight", heightToSync).
 				Msg("Failed to commit the block.")
 			// unable to commit, check reason
-			committedBlk, err := b.bc.GetBlockByHeight(next)
+			committedBlk, err := b.bc.GetBlockByHeight(heightToSync)
 			if err != nil || committedBlk.HashBlock() != blk.HashBlock() {
 				break
 			}
 		}
-		moved = true
-		confirmedHeight = next
-		l.Info().Uint64("syncedHeight", next).Msg("Successfully committed block.")
+		l.Info().Uint64("syncedHeight", heightToSync).Msg("Successfully committed block.")
 	}
 
 	// clean up on memory leak
@@ -89,7 +86,8 @@ func (b *blockBuffer) Flush(blk *blockchain.Block) (bool, bCheckinResult) {
 			}
 		}
 	}
-	return moved, bCheckinValid
+
+	return heightToSync > blkHeight, bCheckinValid
 }
 
 // GetBlocksIntervalsToSync returns groups of syncBlocksInterval are missing upto targetHeight.
