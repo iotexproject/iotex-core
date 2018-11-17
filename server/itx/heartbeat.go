@@ -115,6 +115,7 @@ func (h *HeartbeatHandler) Log() {
 
 		actPoolSize := c.ActionPool().GetSize()
 		actPoolCapacity := c.ActionPool().GetCapacity()
+		targetHeight := c.BlockSync().TargetHeight()
 
 		logger.Info().
 			Int("rolldposEvents", numPendingEvts).
@@ -123,6 +124,7 @@ func (h *HeartbeatHandler) Log() {
 			Uint64("actpoolSize", actPoolSize).
 			Uint64("actpoolCapacity", actPoolCapacity).
 			Uint32("chainID", c.ChainID()).
+			Uint64("targetHeight", targetHeight).
 			Msg("chain service status")
 
 		chainIDStr := strconv.FormatUint(uint64(c.ChainID()), 10)
@@ -130,6 +132,7 @@ func (h *HeartbeatHandler) Log() {
 		heartbeatMtc.WithLabelValues("blockchainHeight", chainIDStr).Set(float64(height))
 		heartbeatMtc.WithLabelValues("actpoolSize", chainIDStr).Set(float64(actPoolSize))
 		heartbeatMtc.WithLabelValues("actpoolCapacity", chainIDStr).Set(float64(actPoolCapacity))
+		heartbeatMtc.WithLabelValues("targetHeight", chainIDStr).Set(float64(targetHeight))
 	}
 
 }
