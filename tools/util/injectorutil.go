@@ -95,7 +95,7 @@ func InjectByAps(
 	resetInterval int,
 ) {
 	timeout := time.After(duration)
-	tick := time.Tick(time.Duration(1/float64(aps)*1000) * time.Millisecond)
+	tick := time.Tick(time.Duration(1/float64(aps)*1000000) * time.Microsecond)
 	reset := time.Tick(time.Duration(resetInterval) * time.Second)
 	rand.Seed(time.Now().UnixNano())
 loop:
