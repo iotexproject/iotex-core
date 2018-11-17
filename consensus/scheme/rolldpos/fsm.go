@@ -753,9 +753,7 @@ func (m *cFSM) produceStartRoundEvt() error {
 		err      error
 	)
 	// If we have the cached last block, we get the timestamp from it
-	if m.ctx.round.block != nil {
-		duration = m.ctx.clock.Now().Sub(m.ctx.round.block.Header.Timestamp())
-	} else if duration, err = m.ctx.calcDurationSinceLastBlock(); err != nil {
+	if duration, err = m.ctx.calcDurationSinceLastBlock(); err != nil {
 		// Otherwise, we read it from blockchain
 		return errors.Wrap(err, "error when computing the duration since last block time")
 
