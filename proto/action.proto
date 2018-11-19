@@ -176,6 +176,10 @@ message ReceiptPb {
     repeated LogPb logs = 6;
 }
 
+message Receipts {
+    repeated ReceiptPb receipts = 1;
+}
+
 message LogPb {
     string address = 1;
     repeated bytes topics = 2;

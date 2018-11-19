@@ -10,6 +10,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"path"
 	"sync"
 	"sync/atomic"
 
@@ -215,7 +216,11 @@ func PrecreatedDaoOption(dao *blockDAO) Option {
 // BoltDBDaoOption sets blockchain's dao with BoltDB from config.Chain.ChainDBPath
 func BoltDBDaoOption() Option {
 	return func(bc *blockchain, cfg config.Config) error {
-		bc.dao = newBlockDAO(db.NewBoltDB(cfg.Chain.ChainDBPath, cfg.DB), cfg.Explorer.Enabled)
+		bc.dao = newBlockDAO(
+			db.NewBoltDB(path.Join(cfg.Chain.ChainDBPath, "chain.db"), cfg.DB),
+			cfg.Explorer.Enabled,
+			db.NewSimpleFileSystem(cfg.Chain.ChainDBPath, "blocks", "receipts"),
+		)
 
 		return nil
 	}
@@ -224,7 +229,7 @@ func BoltDBDaoOption() Option {
 // InMemDaoOption sets blockchain's dao with MemKVStore
 func InMemDaoOption() Option {
 	return func(bc *blockchain, cfg config.Config) error {
-		bc.dao = newBlockDAO(db.NewMemKVStore(), cfg.Explorer.Enabled)
+		bc.dao = newBlockDAO(db.NewMemKVStore(), cfg.Explorer.Enabled, nil)
 
 		return nil
 	}
@@ -712,7 +717,11 @@ func (bc *blockchain) AddSubscriber(s BlockCreationSubscriber) error {
 	bc.mu.Lock()
 	defer bc.mu.Unlock()
 	logger.Info().Msg("Add a subscriber")
+	if s == nil {
+		return errors.New("subscriber could not be nil")
+	}
 	bc.blocklistener = append(bc.blocklistener, s)
+
 	return nil
 }
 
@@ -755,8 +764,14 @@ func (bc *blockchain) ExecuteContractRead(ex *action.Execution) (*action.Receipt
 	ExecuteContracts(blk, ws, bc, gasLimitPtr, bc.config.Chain.EnableGasCharge)
 	// pull the results from receipt
 	exHash := ex.Hash()
-	receipt, ok := blk.receipts[exHash]
-	if !ok {
+	var receipt *action.Receipt
+	for _, r := range blk.receipts {
+		if r.Hash == exHash {
+			receipt = r
+			break
+		}
+	}
+	if receipt == nil {
 		return nil, errors.Wrap(err, "failed to get receipt in ExecuteContractRead")
 	}
 	return receipt, nil
@@ -800,11 +815,7 @@ func (bc *blockchain) CreateState(addr string, init *big.Int) (*state.Account, e
 //=====================================
 
 func (bc *blockchain) getBlockByHeight(height uint64) (*Block, error) {
-	hash, err := bc.dao.getBlockHash(height)
-	if err != nil {
-		return nil, err
-	}
-	return bc.dao.getBlock(hash)
+	return bc.dao.getBlockByHeight(height)
 }
 
 func (bc *blockchain) startEmptyBlockchain() error {
@@ -966,7 +977,7 @@ func (bc *blockchain) commitBlock(blk *Block) error {
 }
 
 func (bc *blockchain) runActions(blk *Block, ws factory.WorkingSet, verify bool) (hash.Hash32B, error) {
-	blk.receipts = make(map[hash.Hash32B]*action.Receipt)
+	blk.receipts = action.Receipts{}
 	if bc.sf == nil {
 		return hash.ZeroHash32B, errors.New("statefactory cannot be nil")
 	}
@@ -992,9 +1003,8 @@ func (bc *blockchain) runActions(blk *Block, ws factory.WorkingSet, verify bool)
 			return root, err
 		}
 	}
-	for hash, receipt := range receipts {
-		blk.receipts[hash] = receipt
-	}
+	blk.receipts = append(blk.receipts, receipts...)
+
 	return root, nil
 }
 

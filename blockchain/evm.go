@@ -143,7 +143,7 @@ func ExecuteContracts(blk *Block, ws factory.WorkingSet, bc Blockchain, gasLimit
 	for idx, execution := range executions {
 		// TODO (zhi) log receipt to stateDB
 		if receipt, _ := executeContract(blk, ws, idx, execution, bc, gasLimit, enableGasCharge); receipt != nil {
-			blk.receipts[execution.Hash()] = receipt
+			blk.receipts = append(blk.receipts, receipt)
 		}
 	}
 }

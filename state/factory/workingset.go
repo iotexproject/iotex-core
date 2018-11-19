@@ -33,7 +33,7 @@ type (
 		LoadOrCreateAccountState(string, *big.Int) (*state.Account, error)
 		Nonce(string) (uint64, error) // Note that Nonce starts with 1.
 		CachedAccountState(string) (*state.Account, error)
-		RunActions(context.Context, uint64, []action.Action) (hash.Hash32B, map[hash.Hash32B]*action.Receipt, error)
+		RunActions(context.Context, uint64, []action.Action) (hash.Hash32B, action.Receipts, error)
 		Commit() error
 		// contracts
 		GetCodeHash(hash.PKHash) (hash.Hash32B, error)
@@ -171,7 +171,7 @@ func (ws *workingSet) RunActions(
 	ctx context.Context,
 	blockHeight uint64,
 	actions []action.Action,
-) (hash.Hash32B, map[hash.Hash32B]*action.Receipt, error) {
+) (hash.Hash32B, action.Receipts, error) {
 	ws.blkHeight = blockHeight
 	// Recover cachedCandidates after restart factory
 	if blockHeight > 0 && len(ws.cachedCandidates) == 0 {
@@ -268,7 +268,7 @@ func (ws *workingSet) RunActions(
 	}
 
 	// Handle actions
-	receipts := make(map[hash.Hash32B]*action.Receipt)
+	receipts := action.Receipts{}
 	for _, act := range actions {
 		for _, actionHandler := range ws.actionHandlers {
 			receipt, err := actionHandler.Handle(ctx, act, ws)
@@ -282,7 +282,7 @@ func (ws *workingSet) RunActions(
 				)
 			}
 			if receipt != nil {
-				receipts[act.Hash()] = receipt
+				receipts = append(receipts, receipt)
 			}
 		}
 	}

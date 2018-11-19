@@ -8,6 +8,9 @@ package blockchain
 
 import (
 	"context"
+	"encoding/binary"
+	"encoding/hex"
+	"path"
 
 	"github.com/pkg/errors"
 
@@ -67,15 +70,20 @@ type blockDAO struct {
 	writeIndex bool
 	kvstore    db.KVStore
 	lifecycle  lifecycle.Lifecycle
+	fs         *db.SimpleFileSystem
 }
 
 // newBlockDAO instantiates a block DAO
-func newBlockDAO(kvstore db.KVStore, writeIndex bool) *blockDAO {
+func newBlockDAO(kvstore db.KVStore, writeIndex bool, fs *db.SimpleFileSystem) *blockDAO {
 	blockDAO := &blockDAO{
+		fs:         fs,
 		writeIndex: writeIndex,
 		kvstore:    kvstore,
 	}
 	blockDAO.lifecycle.Add(kvstore)
+	if fs != nil {
+		blockDAO.lifecycle.Add(fs)
+	}
 	return blockDAO
 }
 
@@ -150,8 +158,41 @@ func (dao *blockDAO) getBlockHeight(hash hash.Hash32B) (uint64, error) {
 	return enc.MachineEndian.Uint64(value), nil
 }
 
+func getPath(domain string, h uint64) string {
+	bytes := make([]byte, 8)
+	binary.BigEndian.PutUint64(bytes, h)
+
+	return path.Join(domain, hex.EncodeToString(bytes[:]))
+}
+
+func (dao *blockDAO) getBlockByHeight(h uint64) (*Block, error) {
+	if dao.fs != nil {
+		data, err := dao.fs.Read(getPath(blockNS, h))
+		if err != nil {
+			return nil, err
+		}
+		blk := Block{}
+		if err = blk.Deserialize(data); err != nil {
+			return nil, errors.Wrap(err, "failed to deserialize block")
+		}
+		return &blk, nil
+	}
+	hash, err := dao.getBlockHash(h)
+	if err != nil {
+		return nil, err
+	}
+	return dao.getBlock(hash)
+}
+
 // getBlock returns a block
 func (dao *blockDAO) getBlock(hash hash.Hash32B) (*Block, error) {
+	if dao.fs != nil {
+		h, err := dao.getBlockHeight(hash)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to get block %x", hash)
+		}
+		return dao.getBlockByHeight(h)
+	}
 	value, err := dao.kvstore.Get(blockNS, hash[:])
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get block %x", hash)
@@ -605,7 +646,33 @@ func (dao *blockDAO) getTotalActions() (uint64, error) {
 
 // getReceiptByExecutionHash returns the receipt by execution hash
 func (dao *blockDAO) getReceiptByExecutionHash(h hash.Hash32B) (*action.Receipt, error) {
-	value, err := dao.kvstore.Get(blockExecutionReceiptMappingNS, h[:])
+	var value []byte
+	var err error
+	if dao.fs != nil {
+		blockHash, err := dao.getBlockHashByExecutionHash(h)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to get block hash for execution %x", h[:])
+		}
+		height, err := dao.getBlockHeight(blockHash)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to get block height for %x", blockHash)
+		}
+		value, err = dao.fs.Read(getPath("receipts", height))
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to get receipts by height %d", height)
+		}
+		receipts := &action.Receipts{}
+		if err := receipts.Deserialize(value); err != nil {
+			return nil, errors.Wrap(err, "failed to deserialize receipts")
+		}
+		for _, r := range *receipts {
+			if r.Hash == h {
+				return r, nil
+			}
+		}
+		return nil, errors.Errorf("failed to get receipt for execution %x", h[:])
+	}
+	value, err = dao.kvstore.Get(blockExecutionReceiptMappingNS, h[:])
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get receipt for execution %x", h[:])
 	}
@@ -619,16 +686,26 @@ func (dao *blockDAO) getReceiptByExecutionHash(h hash.Hash32B) (*action.Receipt,
 // putBlock puts a block
 func (dao *blockDAO) putBlock(blk *Block) error {
 	batch := db.NewBatch()
-
-	height := byteutil.Uint64ToBytes(blk.Height())
-
+	hash := blk.HashBlock()
 	serialized, err := blk.Serialize()
 	if err != nil {
 		return errors.Wrap(err, "failed to serialize block")
 	}
-	hash := blk.HashBlock()
-	batch.PutIfNotExists(blockNS, hash[:], serialized, "failed to put block")
-
+	if dao.fs != nil {
+		if err := dao.fs.Write(getPath(blockNS, blk.Height()), serialized); err != nil {
+			return errors.Wrap(err, "failed to put block")
+		}
+	} else {
+		if err := batch.PutIfNotExists(
+			blockNS,
+			hash[:],
+			serialized,
+			"failed to put block",
+		); err != nil {
+			return errors.Wrap(err, "failed to put block into batch")
+		}
+	}
+	height := byteutil.Uint64ToBytes(blk.Height())
 	hashKey := append(hashPrefix, hash[:]...)
 	batch.Put(blockHashHeightMappingNS, hashKey, height, "failed to put hash -> height mapping")
 
@@ -997,6 +1074,14 @@ func (dao *blockDAO) putReceipts(blk *Block) error {
 	if blk.receipts == nil {
 		return nil
 	}
+	if dao.fs != nil {
+		if serialized, err := blk.receipts.Serialize(); err != nil {
+			return errors.Wrap(err, "failed to serialize receipts")
+		} else if err := dao.fs.Write(getPath("receipts", blk.Height()), serialized); err != nil {
+			return errors.Wrap(err, "failed to put receipts")
+		}
+		return nil
+	}
 	batch := db.NewBatch()
 	for _, r := range blk.receipts {
 		v, err := r.Serialize()
@@ -1031,6 +1116,9 @@ func (dao *blockDAO) deleteTipBlock() error {
 	}
 
 	// Delete hash -> block mapping
+	if dao.fs != nil {
+		return errors.New("delete block file has not been supported yet")
+	}
 	batch.Delete(blockNS, hash[:], "failed to delete block")
 
 	// Delete hash -> height mapping

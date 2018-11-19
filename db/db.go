@@ -8,6 +8,7 @@ package db
 
 import (
 	"context"
+	"path"
 	"sync"
 
 	"github.com/boltdb/bolt"
@@ -162,6 +163,9 @@ func (b *boltDB) Start(_ context.Context) error {
 
 	if b.db != nil {
 		return nil
+	}
+	if err := mkdir(path.Dir(b.path)); err != nil {
+		return err
 	}
 
 	db, err := bolt.Open(b.path, fileMode, nil)

@@ -15,7 +15,10 @@ import (
 
 // CleanupPath detects the existence of test DB file and removes it if found
 func CleanupPath(t *testing.T, path string) {
-	if fileutil.FileExists(path) && os.Remove(path) != nil {
-		t.Error("Fail to remove testDB file")
+	if !fileutil.FileExists(path) {
+		return
+	}
+	if err := os.RemoveAll(path); err != nil {
+		t.Error("Fail to remove testDB file", path, err)
 	}
 }

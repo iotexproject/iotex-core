@@ -13,15 +13,19 @@ import (
 	"github.com/iotexproject/iotex-core/proto"
 )
 
-// Receipt represents the result of a contract
-type Receipt struct {
-	ReturnValue     []byte
-	Status          uint64
-	Hash            hash.Hash32B
-	GasConsumed     uint64
-	ContractAddress string
-	Logs            []*Log
-}
+type (
+	// Receipt represents the result of a contract
+	Receipt struct {
+		ReturnValue     []byte
+		Status          uint64
+		Hash            hash.Hash32B
+		GasConsumed     uint64
+		ContractAddress string
+		Logs            []*Log
+	}
+	// Receipts represents a list of receipts
+	Receipts []*Receipt
+)
 
 // Log stores an evm contract event
 type Log struct {
@@ -76,6 +80,44 @@ func (receipt *Receipt) Deserialize(buf []byte) error {
 		return err
 	}
 	receipt.ConvertFromReceiptPb(pbReceipt)
+	return nil
+}
+
+// Serialize returns a serialized byte stream for the Receipts
+func (rs *Receipts) Serialize() ([]byte, error) {
+	return proto.Marshal(rs.ConvertToPb())
+}
+
+// Deserialize deserializes bytes to list of Receipt
+func (rs *Receipts) Deserialize(buf []byte) error {
+	rsPb := &iproto.Receipts{}
+	if err := proto.Unmarshal(buf, rsPb); err != nil {
+		return err
+	}
+	rs.ConvertFromPb(rsPb)
+
+	return nil
+}
+
+// ConvertToPb converts receipts to protobuf message
+func (rs *Receipts) ConvertToPb() *iproto.Receipts {
+	pbs := []*iproto.ReceiptPb{}
+	for _, r := range *rs {
+		pbs = append(pbs, r.ConvertToReceiptPb())
+	}
+	return &iproto.Receipts{Receipts: pbs}
+}
+
+// ConvertFromPb converts a protobuf receipts message to receipts
+func (rs *Receipts) ConvertFromPb(pb *iproto.Receipts) error {
+	tmp := []*Receipt{}
+	for _, rPb := range pb.Receipts {
+		r := &Receipt{}
+		r.ConvertFromReceiptPb(rPb)
+		tmp = append(tmp, r)
+	}
+	*rs = tmp
+
 	return nil
 }
 
