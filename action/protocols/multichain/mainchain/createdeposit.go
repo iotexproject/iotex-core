@@ -36,15 +36,10 @@ func DepositAddress(subChainAddr []byte, depositIndex uint64) hash.PKHash {
 func (p *Protocol) Deposit(subChainAddr address.Address, depositIndex uint64) (*Deposit, error) {
 	key := DepositAddress(subChainAddr.Bytes(), depositIndex)
 	var deposit Deposit
-	state, err := p.sf.State(key, &deposit)
-	if err != nil {
+	if err := p.sf.State(key, &deposit); err != nil {
 		return nil, errors.Wrapf(err, "error when loading state of %x", key)
 	}
-	d, ok := state.(*Deposit)
-	if !ok {
-		return nil, errors.New("error when casting state into deposit")
-	}
-	return d, nil
+	return &deposit, nil
 }
 
 func (p *Protocol) handleDeposit(deposit *action.CreateDeposit, ws factory.WorkingSet) (*action.Receipt, error) {

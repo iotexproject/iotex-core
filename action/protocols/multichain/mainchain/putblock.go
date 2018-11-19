@@ -53,7 +53,7 @@ func (p *Protocol) validatePutBlock(pb *action.PutBlock, ws factory.WorkingSet) 
 
 func (p *Protocol) getBlockProof(addr string, height uint64) (BlockProof, bool) {
 	var bp BlockProof
-	if _, err := p.sf.State(blockProofKey(addr, height), &bp); err != nil {
+	if err := p.sf.State(blockProofKey(addr, height), &bp); err != nil {
 		return BlockProof{}, false
 	}
 	return bp, true
