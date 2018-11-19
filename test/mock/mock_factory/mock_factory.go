@@ -165,11 +165,10 @@ func (mr *MockFactoryMockRecorder) CandidatesByHeight(arg0 interface{}) *gomock.
 }
 
 // State mocks base method
-func (m *MockFactory) State(arg0 hash.PKHash, arg1 interface{}) (interface{}, error) {
+func (m *MockFactory) State(arg0 hash.PKHash, arg1 interface{}) error {
 	ret := m.ctrl.Call(m, "State", arg0, arg1)
-	ret0, _ := ret[0].(interface{})
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // State indicates an expected call of State
