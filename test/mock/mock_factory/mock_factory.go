@@ -7,7 +7,7 @@ package mock_factory
 import (
 	context "context"
 	gomock "github.com/golang/mock/gomock"
-	action "github.com/iotexproject/iotex-core/action"
+	protocol "github.com/iotexproject/iotex-core/action/protocol"
 	hash "github.com/iotexproject/iotex-core/pkg/hash"
 	state "github.com/iotexproject/iotex-core/state"
 	factory "github.com/iotexproject/iotex-core/state/factory"
@@ -177,7 +177,7 @@ func (mr *MockFactoryMockRecorder) State(arg0, arg1 interface{}) *gomock.Call {
 }
 
 // AddActionHandlers mocks base method
-func (m *MockFactory) AddActionHandlers(arg0 ...factory.ActionHandler) {
+func (m *MockFactory) AddActionHandlers(arg0 ...protocol.ActionHandler) {
 	varargs := []interface{}{}
 	for _, a := range arg0 {
 		varargs = append(varargs, a)
@@ -188,40 +188,4 @@ func (m *MockFactory) AddActionHandlers(arg0 ...factory.ActionHandler) {
 // AddActionHandlers indicates an expected call of AddActionHandlers
 func (mr *MockFactoryMockRecorder) AddActionHandlers(arg0 ...interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddActionHandlers", reflect.TypeOf((*MockFactory)(nil).AddActionHandlers), arg0...)
-}
-
-// MockActionHandler is a mock of ActionHandler interface
-type MockActionHandler struct {
-	ctrl     *gomock.Controller
-	recorder *MockActionHandlerMockRecorder
-}
-
-// MockActionHandlerMockRecorder is the mock recorder for MockActionHandler
-type MockActionHandlerMockRecorder struct {
-	mock *MockActionHandler
-}
-
-// NewMockActionHandler creates a new mock instance
-func NewMockActionHandler(ctrl *gomock.Controller) *MockActionHandler {
-	mock := &MockActionHandler{ctrl: ctrl}
-	mock.recorder = &MockActionHandlerMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use
-func (m *MockActionHandler) EXPECT() *MockActionHandlerMockRecorder {
-	return m.recorder
-}
-
-// Handle mocks base method
-func (m *MockActionHandler) Handle(arg0 context.Context, arg1 action.Action, arg2 factory.WorkingSet) (*action.Receipt, error) {
-	ret := m.ctrl.Call(m, "Handle", arg0, arg1, arg2)
-	ret0, _ := ret[0].(*action.Receipt)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Handle indicates an expected call of Handle
-func (mr *MockActionHandlerMockRecorder) Handle(arg0, arg1, arg2 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Handle", reflect.TypeOf((*MockActionHandler)(nil).Handle), arg0, arg1, arg2)
 }

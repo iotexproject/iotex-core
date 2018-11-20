@@ -20,6 +20,9 @@ var (
 
 	// ErrStateDeserialization is the error that the state un-marshaling is failed
 	ErrStateDeserialization = errors.New("failed to unmarshal state")
+
+	// ErrStateNotExist is the error that the state does not exist
+	ErrStateNotExist = errors.New("state does not exist")
 )
 
 // State is the interface, which defines the common methods for state struct to be handled by state factory

@@ -13,12 +13,12 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-core/state/factory"
 )
 
 // DepositAddress returns the deposit address (20-byte)
@@ -42,24 +42,24 @@ func (p *Protocol) Deposit(subChainAddr address.Address, depositIndex uint64) (*
 	return &deposit, nil
 }
 
-func (p *Protocol) handleDeposit(deposit *action.CreateDeposit, ws factory.WorkingSet) (*action.Receipt, error) {
-	account, subChainInOp, err := p.validateDeposit(deposit, ws)
+func (p *Protocol) handleDeposit(deposit *action.CreateDeposit, sm protocol.StateManager) (*action.Receipt, error) {
+	account, subChainInOp, err := p.validateDeposit(deposit, sm)
 	if err != nil {
 		return nil, err
 	}
-	return p.mutateDeposit(deposit, account, subChainInOp, ws)
+	return p.mutateDeposit(deposit, account, subChainInOp, sm)
 }
 
-func (p *Protocol) validateDeposit(deposit *action.CreateDeposit, ws factory.WorkingSet) (*state.Account, InOperation, error) {
+func (p *Protocol) validateDeposit(deposit *action.CreateDeposit, sm protocol.StateManager) (*state.Account, InOperation, error) {
 	cost, err := deposit.Cost()
 	if err != nil {
 		return nil, InOperation{}, errors.Wrap(err, "error when getting deposit's cost")
 	}
-	account, err := p.accountWithEnoughBalance(deposit.Sender(), cost, ws)
+	account, err := p.accountWithEnoughBalance(deposit.Sender(), cost, sm)
 	if err != nil {
 		return nil, InOperation{}, err
 	}
-	subChainsInOp, err := p.subChainsInOperation(ws)
+	subChainsInOp, err := p.subChainsInOperation(sm)
 	if err != nil {
 		return nil, InOperation{}, err
 	}
@@ -82,7 +82,7 @@ func (p *Protocol) mutateDeposit(
 	deposit *action.CreateDeposit,
 	account *state.Account,
 	subChainInOp InOperation,
-	ws factory.WorkingSet,
+	sm protocol.StateManager,
 ) (*action.Receipt, error) {
 	// Subtract the balance from sender account
 	account.Balance = big.NewInt(0).Sub(account.Balance, deposit.Amount())
@@ -94,7 +94,7 @@ func (p *Protocol) mutateDeposit(
 	if err != nil {
 		return nil, err
 	}
-	if err := ws.PutState(ownerPKHash, account); err != nil {
+	if err := sm.PutState(ownerPKHash, account); err != nil {
 		return nil, err
 	}
 
@@ -109,7 +109,7 @@ func (p *Protocol) mutateDeposit(
 	}
 	depositIndex := subChain.DepositCount
 	subChain.DepositCount++
-	if err := ws.PutState(byteutil.BytesTo20B(addr.Payload()), subChain); err != nil {
+	if err := sm.PutState(byteutil.BytesTo20B(addr.Payload()), subChain); err != nil {
 		return nil, err
 	}
 
@@ -118,7 +118,7 @@ func (p *Protocol) mutateDeposit(
 	if err != nil {
 		return nil, err
 	}
-	if err := ws.PutState(
+	if err := sm.PutState(
 		DepositAddress(subChainInOp.Addr, depositIndex),
 		&Deposit{
 			Amount:    deposit.Amount(),

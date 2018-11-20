@@ -16,7 +16,7 @@ import (
 	"fmt"
 
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocols/multichain/mainchain"
+	"github.com/iotexproject/iotex-core/action/protocol/multichain/mainchain"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"

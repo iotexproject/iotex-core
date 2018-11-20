@@ -14,7 +14,7 @@ import (
 	"github.com/boltdb/bolt"
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/iotxaddress"
@@ -24,17 +24,6 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/trie"
-)
-
-var (
-	// ErrNotEnoughBalance is the error that the balance is not enough
-	ErrNotEnoughBalance = errors.New("not enough balance")
-
-	// ErrStateNotExist is the error that the stat does not exist
-	ErrStateNotExist = errors.New("state does not exist")
-
-	// ErrAccountCollision is the error that the account already exists
-	ErrAccountCollision = errors.New("account already exists")
 )
 
 const (
@@ -60,7 +49,7 @@ type (
 		CandidatesByHeight(uint64) ([]*state.Candidate, error)
 
 		State(hash.PKHash, interface{}) error
-		AddActionHandlers(...ActionHandler)
+		AddActionHandlers(...protocol.ActionHandler)
 	}
 
 	// factory implements StateFactory interface, tracks changes to account/contract and batch-commits to DB
@@ -69,17 +58,10 @@ type (
 		mutex              sync.RWMutex
 		currentChainHeight uint64
 		numCandidates      uint
-		rootHash           hash.Hash32B    // new root hash after running executions in this block
-		accountTrie        trie.Trie       // global state trie
-		dao                db.KVStore      // the underlying DB for account/contract storage
-		actionHandlers     []ActionHandler // the handlers to handle actions
-	}
-
-	// ActionHandler is the interface for the action handlers. For each incoming action, the assembled actions will be
-	// called one by one to process it. ActionHandler implementation is supposed to parse the sub-type of the action to
-	// decide if it wants to handle this action or not.
-	ActionHandler interface {
-		Handle(context.Context, action.Action, WorkingSet) (*action.Receipt, error)
+		rootHash           hash.Hash32B             // new root hash after running executions in this block
+		accountTrie        trie.Trie                // global state trie
+		dao                db.KVStore               // the underlying DB for account/contract storage
+		actionHandlers     []protocol.ActionHandler // the handlers to handle actions
 	}
 )
 
@@ -183,7 +165,7 @@ func (sf *factory) Stop(ctx context.Context) error {
 }
 
 // AddActionHandlers adds action handlers to the state factory
-func (sf *factory) AddActionHandlers(actionHandlers ...ActionHandler) {
+func (sf *factory) AddActionHandlers(actionHandlers ...protocol.ActionHandler) {
 	sf.mutex.Lock()
 	defer sf.mutex.Unlock()
 
@@ -320,7 +302,7 @@ func (sf *factory) state(addr hash.PKHash, s interface{}) error {
 	data, err := sf.accountTrie.Get(addr[:])
 	if err != nil {
 		if errors.Cause(err) == trie.ErrNotExist {
-			return errors.Wrapf(ErrStateNotExist, "state of %x doesn't exist", addr)
+			return errors.Wrapf(state.ErrStateNotExist, "state of %x doesn't exist", addr)
 		}
 		return errors.Wrapf(err, "error when getting the state of %x", addr)
 	}
@@ -337,7 +319,7 @@ func (sf *factory) accountState(addr string) (*state.Account, error) {
 	}
 	var account state.Account
 	if err := sf.state(pkHash, &account); err != nil {
-		if errors.Cause(err) == ErrStateNotExist {
+		if errors.Cause(err) == state.ErrStateNotExist {
 			return &state.Account{
 				Balance:      big.NewInt(0),
 				VotingWeight: big.NewInt(0),
