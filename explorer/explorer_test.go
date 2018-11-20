@@ -16,7 +16,7 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/jsonpb"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -33,7 +33,6 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
@@ -686,10 +685,12 @@ func TestServiceSendAction(t *testing.T) {
 		10000,
 		big.NewInt(0),
 	)
-	pl := iproto.SendActionRequest{Action: pb.Proto()}
-	d, err := proto.Marshal(&pl)
+
+	var marshaler jsonpb.Marshaler
+	payload, err := marshaler.MarshalToString(pb.Proto())
 	require.NoError(err)
-	request.Payload = hex.EncodeToString(d)
+	request.Payload = payload
+	require.NoError(err)
 
 	chain.EXPECT().ChainID().Return(uint32(1)).Times(2)
 	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
