@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/iotxaddress"
@@ -40,7 +41,7 @@ type ActPool interface {
 	// GetCapacity returns the act pool capacity
 	GetCapacity() uint64
 	// AddActionValidators add validators
-	AddActionValidators(...ActionValidator)
+	AddActionValidators(...protocol.ActionValidator)
 }
 
 // actPool implements ActPool interface
@@ -50,16 +51,11 @@ type actPool struct {
 	bc          blockchain.Blockchain
 	accountActs map[string]ActQueue
 	allActions  map[hash.Hash32B]action.Action
-	validators  []ActionValidator
+	validators  []protocol.ActionValidator
 }
 
 // GenericValidator is the validator for generic action verification
 type GenericValidator struct{ bc blockchain.Blockchain }
-
-// ActionValidator is the interface of validating an action
-type ActionValidator interface {
-	Validate(context.Context, action.Action) error
-}
 
 // NewActPool constructs a new actpool
 func NewActPool(bc blockchain.Blockchain, cfg config.ActPool) (ActPool, error) {
@@ -79,7 +75,7 @@ func NewActPool(bc blockchain.Blockchain, cfg config.ActPool) (ActPool, error) {
 func NewGenericValidator(bc blockchain.Blockchain) *GenericValidator { return &GenericValidator{bc} }
 
 // AddActionValidators add validators
-func (ap *actPool) AddActionValidators(validators ...ActionValidator) {
+func (ap *actPool) AddActionValidators(validators ...protocol.ActionValidator) {
 	ap.validators = append(ap.validators, validators...)
 }
 

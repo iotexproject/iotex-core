@@ -16,6 +16,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
@@ -61,7 +62,7 @@ type (
 		accountTrie      trie.Trie                   // global account state trie
 		cb               db.CachedBatch              // cached batch for pending writes
 		dao              db.KVStore                  // the underlying DB for account/contract storage
-		actionHandlers   []ActionHandler
+		actionHandlers   []protocol.ActionHandler
 	}
 )
 
@@ -70,7 +71,7 @@ func NewWorkingSet(
 	version uint64,
 	kv db.KVStore,
 	root hash.Hash32B,
-	actionHandlers []ActionHandler,
+	actionHandlers []protocol.ActionHandler,
 ) (WorkingSet, error) {
 	ws := &workingSet{
 		ver:              version,
@@ -104,7 +105,7 @@ func (ws *workingSet) LoadOrCreateAccountState(addr string, init *big.Int) (*sta
 	}
 	s, err := ws.CachedState(addrHash, &state.Account{})
 	switch {
-	case errors.Cause(err) == ErrStateNotExist:
+	case errors.Cause(err) == state.ErrStateNotExist:
 		account := state.Account{
 			Balance:      big.NewInt(0).SetBytes(init.Bytes()),
 			VotingWeight: big.NewInt(0),
@@ -404,7 +405,7 @@ func (ws *workingSet) SetContractState(addr hash.PKHash, key, value hash.Hash32B
 func (ws *workingSet) State(hash hash.PKHash, s interface{}) error {
 	mstate, err := ws.accountTrie.Get(hash[:])
 	if errors.Cause(err) == trie.ErrNotExist {
-		return errors.Wrapf(ErrStateNotExist, "addrHash = %x", hash[:])
+		return errors.Wrapf(state.ErrStateNotExist, "addrHash = %x", hash[:])
 	}
 	if err != nil {
 		return errors.Wrapf(err, "failed to get account of %x", hash)
@@ -531,7 +532,7 @@ func (ws *workingSet) handleTsf(producer *state.Account, tsfs []*action.Transfer
 
 				gasFee := big.NewInt(0).Mul(tx.GasPrice(), big.NewInt(0).SetUint64(gas))
 				if big.NewInt(0).Add(tx.Amount(), gasFee).Cmp(sender.Balance) == 1 {
-					return errors.Wrapf(ErrNotEnoughBalance, "failed to verify the Balance of sender %s", tx.Sender())
+					return errors.Wrapf(state.ErrNotEnoughBalance, "failed to verify the Balance of sender %s", tx.Sender())
 				}
 
 				// charge sender gas
@@ -605,7 +606,7 @@ func (ws *workingSet) handleVote(producer *state.Account, blockHeight uint64, vo
 			gasFee := big.NewInt(0).Mul(v.GasPrice(), big.NewInt(0).SetUint64(gas))
 
 			if gasFee.Cmp(voteFrom.Balance) == 1 {
-				return errors.Wrapf(ErrNotEnoughBalance, "failed to verify the Balance for gas of voter %s, %d, %d", v.Voter(), gas, voteFrom.Balance)
+				return errors.Wrapf(state.ErrNotEnoughBalance, "failed to verify the Balance for gas of voter %s, %d, %d", v.Voter(), gas, voteFrom.Balance)
 			}
 
 			// charge voter Gas

@@ -11,14 +11,16 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 )
 
@@ -39,13 +41,13 @@ func NewProtocol(chain blockchain.Blockchain, mainChainAPI explorer.Explorer) *P
 }
 
 // Handle handles how to mutate the state db given the multi-chain action on sub-chain
-func (p *Protocol) Handle(_ context.Context, act action.Action, ws factory.WorkingSet) (*action.Receipt, error) {
+func (p *Protocol) Handle(_ context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
 	switch act := act.(type) {
 	case *action.SettleDeposit:
-		if err := p.validateDeposit(act, ws); err != nil {
+		if err := p.validateDeposit(act, sm); err != nil {
 			return nil, errors.Wrapf(err, "error when handling deposit settlement action")
 		}
-		if err := p.mutateDeposit(act, ws); err != nil {
+		if err := p.mutateDeposit(act, sm); err != nil {
 			return nil, errors.Wrapf(err, "error when handling deposit settlement action")
 		}
 	}
@@ -63,7 +65,7 @@ func (p *Protocol) Validate(_ context.Context, act action.Action) error {
 	return nil
 }
 
-func (p *Protocol) validateDeposit(deposit *action.SettleDeposit, ws factory.WorkingSet) error {
+func (p *Protocol) validateDeposit(deposit *action.SettleDeposit, sm protocol.StateManager) error {
 	// Validate main-chain state
 	// TODO: this may not be the type safe casting if index is greater than 2^63
 	depositsOnMainChain, err := p.mainChainAPI.GetDeposits(int64(p.chainID), int64(deposit.Index()), 1)
@@ -81,31 +83,31 @@ func (p *Protocol) validateDeposit(deposit *action.SettleDeposit, ws factory.Wor
 	// Validate sub-chain state
 	var depositIndex DepositIndex
 	addr := depositAddress(deposit.Index())
-	if ws == nil {
+	if sm == nil {
 		err = p.sf.State(addr, &depositIndex)
 	} else {
-		err = ws.State(addr, &depositIndex)
+		err = sm.State(addr, &depositIndex)
 	}
 	switch errors.Cause(err) {
 	case nil:
 		return fmt.Errorf("deposit %d is already settled", deposit.Index())
-	case factory.ErrStateNotExist:
+	case state.ErrStateNotExist:
 		return nil
 	default:
 		return errors.Wrapf(err, "error when loading state of %x", addr)
 	}
 }
 
-func (p *Protocol) mutateDeposit(deposit *action.SettleDeposit, ws factory.WorkingSet) error {
+func (p *Protocol) mutateDeposit(deposit *action.SettleDeposit, sm protocol.StateManager) error {
 	// Update the deposit index
 	depositAddr := depositAddress(deposit.Index())
 	var depositIndex DepositIndex
-	if err := ws.PutState(depositAddr, &depositIndex); err != nil {
+	if err := sm.PutState(depositAddr, &depositIndex); err != nil {
 		return err
 	}
 
 	// Update the action owner
-	owner, err := ws.LoadOrCreateAccountState(deposit.Sender(), big.NewInt(0))
+	owner, err := sm.LoadOrCreateAccountState(deposit.Sender(), big.NewInt(0))
 	if err != nil {
 		return err
 	}
@@ -116,12 +118,12 @@ func (p *Protocol) mutateDeposit(deposit *action.SettleDeposit, ws factory.Worki
 	if err != nil {
 		return err
 	}
-	if err := ws.PutState(ownerPKHash, owner); err != nil {
+	if err := sm.PutState(ownerPKHash, owner); err != nil {
 		return err
 	}
 
 	// Update the deposit recipient
-	recipient, err := ws.LoadOrCreateAccountState(deposit.Recipient(), big.NewInt(0))
+	recipient, err := sm.LoadOrCreateAccountState(deposit.Recipient(), big.NewInt(0))
 	if err != nil {
 		return err
 	}
@@ -132,7 +134,7 @@ func (p *Protocol) mutateDeposit(deposit *action.SettleDeposit, ws factory.Worki
 	if err != nil {
 		return err
 	}
-	return ws.PutState(recipientPKHash, recipient)
+	return sm.PutState(recipientPKHash, recipient)
 }
 
 func depositAddress(index uint64) hash.PKHash {

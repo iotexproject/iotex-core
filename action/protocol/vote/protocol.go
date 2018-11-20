@@ -14,13 +14,13 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocols/account"
+	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-core/state/factory"
 )
 
 const (
@@ -40,27 +40,27 @@ type Protocol struct {
 func NewProtocol(bc blockchain.Blockchain) *Protocol { return &Protocol{bc: bc} }
 
 // Handle handles a vote
-func (p *Protocol) Handle(_ context.Context, act action.Action, ws factory.WorkingSet) (*action.Receipt, error) {
+func (p *Protocol) Handle(_ context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
 	vote, ok := act.(*action.Vote)
 	if !ok {
 		return nil, nil
 	}
 	// Get candidateList from trie and convert it to candidates map
-	candidateMap, err := p.getCandidateMap(ws.Height(), ws)
+	candidateMap, err := p.getCandidateMap(sm.Height(), sm)
 	switch {
-	case errors.Cause(err) == factory.ErrStateNotExist:
-		if ws.Height() == uint64(0) {
+	case errors.Cause(err) == state.ErrStateNotExist:
+		if sm.Height() == uint64(0) {
 			candidateMap = make(map[hash.PKHash]*state.Candidate)
-		} else if candidateMap, err = p.getCandidateMap(ws.Height()-1, ws); err != nil {
-			return nil, errors.Wrapf(err, "failed to get candidates on height %d from trie", ws.Height()-1)
+		} else if candidateMap, err = p.getCandidateMap(sm.Height()-1, sm); err != nil {
+			return nil, errors.Wrapf(err, "failed to get candidates on height %d from trie", sm.Height()-1)
 		}
 	case err != nil:
-		return nil, errors.Wrapf(err, "failed to get candidates on height %d from trie", ws.Height())
+		return nil, errors.Wrapf(err, "failed to get candidates on height %d from trie", sm.Height())
 	}
 
 	p.cachedCandidates = candidateMap
 
-	voteFrom, err := account.LoadOrCreateAccountState(ws, vote.Voter(), big.NewInt(0))
+	voteFrom, err := account.LoadOrCreateAccountState(sm, vote.Voter(), big.NewInt(0))
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to load or create the account of voter %s", vote.Voter())
 	}
@@ -82,35 +82,35 @@ func (p *Protocol) Handle(_ context.Context, act action.Action, ws factory.Worki
 	} else if vote.Voter() == vote.Votee() {
 		// Vote to self: self-nomination
 		voteFrom.IsCandidate = true
-		if err := p.addCandidate(vote, ws.Height()); err != nil {
+		if err := p.addCandidate(vote, sm.Height()); err != nil {
 			return nil, errors.Wrap(err, "failed to add candidate to candidate map")
 		}
 	}
 	// Put updated voter's state to trie
-	if err := account.StoreState(ws, vote.Voter(), voteFrom); err != nil {
+	if err := account.StoreState(sm, vote.Voter(), voteFrom); err != nil {
 		return nil, errors.Wrap(err, "failed to update pending account changes to trie")
 	}
 
 	// Update old votee's weight
 	if len(prevVotee) > 0 {
 		// voter already voted
-		oldVotee, err := account.LoadOrCreateAccountState(ws, prevVotee, big.NewInt(0))
+		oldVotee, err := account.LoadOrCreateAccountState(sm, prevVotee, big.NewInt(0))
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to load or create the account of voter's old votee %s", prevVotee)
 		}
 		oldVotee.VotingWeight.Sub(oldVotee.VotingWeight, voteFrom.Balance)
 		// Put updated state of voter's old votee to trie
-		if err := account.StoreState(ws, prevVotee, oldVotee); err != nil {
+		if err := account.StoreState(sm, prevVotee, oldVotee); err != nil {
 			return nil, errors.Wrap(err, "failed to update pending account changes to trie")
 		}
 		// Update candidate map
 		if oldVotee.IsCandidate {
-			p.updateCandidate(prevVotee, oldVotee.VotingWeight, ws.Height())
+			p.updateCandidate(prevVotee, oldVotee.VotingWeight, sm.Height())
 		}
 	}
 
 	if vote.Votee() != "" {
-		voteTo, err := account.LoadOrCreateAccountState(ws, vote.Votee(), big.NewInt(0))
+		voteTo, err := account.LoadOrCreateAccountState(sm, vote.Votee(), big.NewInt(0))
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to load or create the account of votee %s", vote.Votee())
 		}
@@ -118,12 +118,12 @@ func (p *Protocol) Handle(_ context.Context, act action.Action, ws factory.Worki
 		voteTo.VotingWeight.Add(voteTo.VotingWeight, voteFrom.Balance)
 
 		// Put updated votee's state to trie
-		if err := account.StoreState(ws, vote.Votee(), voteTo); err != nil {
+		if err := account.StoreState(sm, vote.Votee(), voteTo); err != nil {
 			return nil, errors.Wrap(err, "failed to update pending account changes to trie")
 		}
 		// Update candidate map
 		if voteTo.IsCandidate {
-			p.updateCandidate(vote.Votee(), voteTo.VotingWeight, ws.Height())
+			p.updateCandidate(vote.Votee(), voteTo.VotingWeight, sm.Height())
 		}
 	}
 
@@ -133,8 +133,8 @@ func (p *Protocol) Handle(_ context.Context, act action.Action, ws factory.Worki
 		return nil, errors.Wrap(err, "failed to convert candidate map to candidate list")
 	}
 	sort.Sort(candidateList)
-	candidatesKey := p.constructKey(ws.Height())
-	if err := ws.PutState(candidatesKey, &candidateList); err != nil {
+	candidatesKey := p.constructKey(sm.Height())
+	if err := sm.PutState(candidatesKey, &candidateList); err != nil {
 		return nil, errors.Wrap(err, "failed to put updated candidates to trie")
 	}
 
@@ -179,10 +179,10 @@ func (p *Protocol) constructKey(height uint64) hash.PKHash {
 	return byteutil.BytesTo20B(hash.Hash160b(k))
 }
 
-func (p *Protocol) getCandidateMap(height uint64, ws factory.WorkingSet) (map[hash.PKHash]*state.Candidate, error) {
+func (p *Protocol) getCandidateMap(height uint64, sm protocol.StateManager) (map[hash.PKHash]*state.Candidate, error) {
 	candidatesKey := p.constructKey(height)
 	var sc state.CandidateList
-	if err := ws.State(candidatesKey, &sc); err != nil {
+	if err := sm.State(candidatesKey, &sc); err != nil {
 		return nil, err
 	}
 	return state.CandidatesToMap(sc)

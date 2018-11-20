@@ -60,6 +60,18 @@ func (mr *MockBlockSyncMockRecorder) Stop(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockBlockSync)(nil).Stop), arg0)
 }
 
+// TargetHeight mocks base method
+func (m *MockBlockSync) TargetHeight() uint64 {
+	ret := m.ctrl.Call(m, "TargetHeight")
+	ret0, _ := ret[0].(uint64)
+	return ret0
+}
+
+// TargetHeight indicates an expected call of TargetHeight
+func (mr *MockBlockSyncMockRecorder) TargetHeight() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TargetHeight", reflect.TypeOf((*MockBlockSync)(nil).TargetHeight))
+}
+
 // P2P mocks base method
 func (m *MockBlockSync) P2P() network.Overlay {
 	ret := m.ctrl.Call(m, "P2P")

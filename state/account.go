@@ -16,8 +16,12 @@ import (
 	"github.com/iotexproject/iotex-core/proto"
 )
 
-// ErrNotEnoughBalance is the error that the balance is not enough
-var ErrNotEnoughBalance = errors.New("not enough balance")
+var (
+	// ErrNotEnoughBalance is the error that the balance is not enough
+	ErrNotEnoughBalance = errors.New("not enough balance")
+	// ErrAccountCollision is the error that the account already exists
+	ErrAccountCollision = errors.New("account already exists")
+)
 
 // Account is the canonical representation of an account.
 type Account struct {

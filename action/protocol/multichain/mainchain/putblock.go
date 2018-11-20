@@ -11,22 +11,22 @@ import (
 	"sort"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-core/state/factory"
 )
 
-func (p *Protocol) handlePutBlock(pb *action.PutBlock, ws factory.WorkingSet) error {
-	if err := p.validatePutBlock(pb, ws); err != nil {
+func (p *Protocol) handlePutBlock(pb *action.PutBlock, sm protocol.StateManager) error {
+	if err := p.validatePutBlock(pb, sm); err != nil {
 		return err
 	}
 	proof := putBlockToBlockProof(pb)
-	if err := ws.PutState(blockProofKey(proof.SubChainAddress, proof.Height), &proof); err != nil {
+	if err := sm.PutState(blockProofKey(proof.SubChainAddress, proof.Height), &proof); err != nil {
 		return err
 	}
 	// Update the block producer's nonce
-	account, err := ws.CachedAccountState(pb.ProducerAddress())
+	account, err := sm.CachedAccountState(pb.ProducerAddress())
 	if err != nil {
 		return err
 	}
@@ -38,10 +38,10 @@ func (p *Protocol) handlePutBlock(pb *action.PutBlock, ws factory.WorkingSet) er
 		return err
 	}
 
-	return ws.PutState(producerPKHash, account)
+	return sm.PutState(producerPKHash, account)
 }
 
-func (p *Protocol) validatePutBlock(pb *action.PutBlock, ws factory.WorkingSet) error {
+func (p *Protocol) validatePutBlock(pb *action.PutBlock, sm protocol.StateManager) error {
 	// use owner address TODO
 
 	// can only emit on one height

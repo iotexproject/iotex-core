@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blocksync"
@@ -35,7 +36,7 @@ type ChainService struct {
 	chain         blockchain.Blockchain
 	explorer      *explorer.Server
 	indexservice  *indexservice.Server
-	protocols     []Protocol
+	protocols     []protocol.Protocol
 	runningStatus bool
 }
 
@@ -296,12 +297,12 @@ func (cs *ChainService) Explorer() *explorer.Server {
 }
 
 // Protocols returns the protocols
-func (cs *ChainService) Protocols() []Protocol {
+func (cs *ChainService) Protocols() []protocol.Protocol {
 	return cs.protocols
 }
 
 // AddProtocols add the protocols
-func (cs *ChainService) AddProtocols(protocols ...Protocol) {
+func (cs *ChainService) AddProtocols(protocols ...protocol.Protocol) {
 	cs.protocols = append(cs.protocols, protocols...)
 	for _, protocol := range protocols {
 		cs.chain.GetFactory().AddActionHandlers(protocol)
