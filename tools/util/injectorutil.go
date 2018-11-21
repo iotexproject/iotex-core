@@ -307,7 +307,7 @@ func injectTransfer(
 		time.Sleep(time.Duration(retryInterval) * time.Second)
 	}
 	if err != nil {
-		logger.Fatal().Err(err).Msg("Failed to inject transfer")
+		logger.Error().Err(err).Msg("Failed to inject transfer")
 	}
 	logger.Info().Msg("Sent out the signed transfer: ")
 
@@ -367,7 +367,7 @@ func injectVote(
 		time.Sleep(time.Duration(retryInterval) * time.Second)
 	}
 	if err != nil {
-		logger.Fatal().Err(err).Msg("Failed to inject vote")
+		logger.Error().Err(err).Msg("Failed to inject vote")
 	}
 	logger.Info().Msg("Sent out the signed vote: ")
 
@@ -415,7 +415,7 @@ func injectExecution(
 		time.Sleep(time.Duration(retryInterval) * time.Second)
 	}
 	if err != nil {
-		logger.Fatal().Err(err).Msg("Failed to inject execution")
+		logger.Error().Err(err).Msg("Failed to inject execution")
 	}
 	logger.Info().Msg("Sent out the signed execution: ")
 
