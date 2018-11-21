@@ -912,7 +912,7 @@ func TestTwoDelegates(t *testing.T) {
 		func(chain *mock_blockchain.MockBlockchain) {
 			chain.EXPECT().CommitBlock(gomock.Any()).Return(nil).Times(1)
 			chain.EXPECT().ChainID().AnyTimes().Return(config.Default.Chain.ID)
-			chain.EXPECT().TipHeight().Return(uint64(2)).Times(1)
+			chain.EXPECT().TipHeight().Return(uint64(2)).Times(2)
 		},
 		func(p2p *mock_network.MockOverlay) {
 			p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(4)
@@ -997,7 +997,7 @@ func TestThreeDelegates(t *testing.T) {
 		func(chain *mock_blockchain.MockBlockchain) {
 			chain.EXPECT().CommitBlock(gomock.Any()).Return(nil).Times(1)
 			chain.EXPECT().ChainID().AnyTimes().Return(config.Default.Chain.ID)
-			chain.EXPECT().TipHeight().Return(uint64(2)).Times(1)
+			chain.EXPECT().TipHeight().Return(uint64(2)).Times(2)
 		},
 		func(p2p *mock_network.MockOverlay) {
 			p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(3)
@@ -1284,6 +1284,7 @@ func newTestCFSM(
 			blockchain.EXPECT().ChainID().AnyTimes().Return(config.Default.Chain.ID)
 			blockchain.EXPECT().ChainAddress().AnyTimes().Return(config.Default.Chain.Address)
 			blockchain.EXPECT().GetBlockByHeight(uint64(1)).Return(lastBlk, nil).AnyTimes()
+			blockchain.EXPECT().GetBlockByHeight(uint64(2)).Return(lastBlk, nil).AnyTimes()
 			blockchain.EXPECT().GetBlockByHeight(uint64(21)).Return(lastBlk, nil).AnyTimes()
 			blockchain.EXPECT().GetBlockByHeight(uint64(22)).Return(lastBlk, nil).AnyTimes()
 			blockchain.EXPECT().
