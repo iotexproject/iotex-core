@@ -792,6 +792,7 @@ func TestBlocks(t *testing.T) {
 		blk, _ := bc.MintNewBlock(acts, ta.Addrinfo["producer"], nil, nil, "")
 		require.Nil(bc.ValidateBlock(blk, true))
 		require.Nil(bc.CommitBlock(blk))
+		require.Error(bc.CommitBlock(blk))
 	}
 }
 

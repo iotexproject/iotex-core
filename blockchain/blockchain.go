@@ -30,6 +30,9 @@ import (
 	"github.com/iotexproject/iotex-core/state/factory"
 )
 
+// ErrAlreadyExist indicates block already exists in Blockchain
+var ErrAlreadyExist = errors.New("block already exist")
+
 // Blockchain represents the blockchain data structure and hosts the APIs to access it
 type Blockchain interface {
 	lifecycle.StartStopper
@@ -678,6 +681,9 @@ func (bc *blockchain) MintNewSecretBlock(
 func (bc *blockchain) CommitBlock(blk *Block) error {
 	bc.mu.Lock()
 	defer bc.mu.Unlock()
+	if b, _ := bc.GetBlockByHash(blk.HashBlock()); b != nil {
+		return ErrAlreadyExist
+	}
 	return bc.commitBlock(blk)
 }
 

@@ -684,7 +684,7 @@ func (m *cFSM) handleEndorseCommitEvt(evt fsm.Event) (fsm.State, error) {
 		}
 	}
 	// Commit and broadcast the pending block
-	if err := m.ctx.chain.CommitBlock(pendingBlock); err != nil {
+	if err := m.ctx.chain.CommitBlock(pendingBlock); err != nil && err != blockchain.ErrAlreadyExist {
 		logger.Error().
 			Err(err).
 			Uint64("block", pendingBlock.Height()).
