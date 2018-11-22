@@ -216,10 +216,14 @@ func PrecreatedDaoOption(dao *blockDAO) Option {
 // BoltDBDaoOption sets blockchain's dao with BoltDB from config.Chain.ChainDBPath
 func BoltDBDaoOption() Option {
 	return func(bc *blockchain, cfg config.Config) error {
+		var fs *db.SimpleFileSystem
+		if !cfg.Chain.StoreBlockInDB {
+			fs = db.NewSimpleFileSystem(cfg.Chain.ChainDBPath, "blocks", "receipts")
+		}
 		bc.dao = newBlockDAO(
 			db.NewBoltDB(path.Join(cfg.Chain.ChainDBPath, "chain.db"), cfg.DB),
 			cfg.Explorer.Enabled,
-			db.NewSimpleFileSystem(cfg.Chain.ChainDBPath, "blocks", "receipts"),
+			fs,
 		)
 
 		return nil

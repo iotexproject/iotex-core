@@ -211,8 +211,9 @@ type (
 
 	// Chain is the config struct for blockchain package
 	Chain struct {
-		ChainDBPath string `yaml:"chainDBPath"`
-		TrieDBPath  string `yaml:"trieDBPath"`
+		ChainDBPath    string `yaml:"chainDBPath"`
+		TrieDBPath     string `yaml:"trieDBPath"`
+		StoreBlockInDB bool   `yaml:"storeBlockInDB"`
 
 		ID              uint32 `yaml:"id"`
 		Address         string `yaml:"address"`
