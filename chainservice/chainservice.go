@@ -138,6 +138,11 @@ func New(cfg config.Config, p2p network.Overlay, dispatcher dispatcher.Dispatche
 
 // Start starts the server
 func (cs *ChainService) Start(ctx context.Context) error {
+	if cs.indexservice != nil {
+		if err := cs.indexservice.Start(ctx); err != nil {
+			return errors.Wrap(err, "error when starting indexservice")
+		}
+	}
 	if err := cs.chain.Start(ctx); err != nil {
 		return errors.Wrap(err, "error when starting blockchain")
 	}
@@ -146,11 +151,6 @@ func (cs *ChainService) Start(ctx context.Context) error {
 	}
 	if err := cs.blocksync.Start(ctx); err != nil {
 		return errors.Wrap(err, "error when starting blocksync")
-	}
-	if cs.indexservice != nil {
-		if err := cs.indexservice.Start(ctx); err != nil {
-			return errors.Wrap(err, "error when starting indexservice")
-		}
 	}
 	if cs.explorer != nil {
 		if err := cs.explorer.Start(ctx); err != nil {
