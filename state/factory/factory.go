@@ -9,6 +9,7 @@ package factory
 import (
 	"context"
 	"math/big"
+	"strconv"
 	"sync"
 
 	"github.com/boltdb/bolt"
@@ -21,6 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
+	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/trie"
@@ -62,6 +64,7 @@ type (
 		accountTrie        trie.Trie                // global state trie
 		dao                db.KVStore               // the underlying DB for account/contract storage
 		actionHandlers     []protocol.ActionHandler // the handlers to handle actions
+		timerFactory       *prometheustimer.TimerFactory
 	}
 )
 
@@ -147,6 +150,17 @@ func NewFactory(cfg config.Config, opts ...Option) (Factory, error) {
 	if sf.accountTrie != nil {
 		sf.lifecycle.Add(sf.accountTrie)
 	}
+	timerFactory, err := prometheustimer.New(
+		"iotex_statefactory_perf",
+		"Performance of state factory module",
+		[]string{"topic", "chainID"},
+		[]string{"default", strconv.FormatUint(uint64(cfg.Chain.ID), 10)},
+	)
+	if err != nil {
+		logger.Error().Err(err).Msg("Failed to generate prometheus timer factory")
+	}
+	sf.timerFactory = timerFactory
+
 	return sf, nil
 }
 
@@ -236,6 +250,7 @@ func (sf *factory) Commit(ws WorkingSet) error {
 	}
 	sf.mutex.Lock()
 	defer sf.mutex.Unlock()
+	defer sf.timerFactory.NewTimer("Commit").End()
 	if sf.currentChainHeight != ws.Version() {
 		// another working set with correct version already committed, do nothing
 		return nil
