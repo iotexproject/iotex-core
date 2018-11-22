@@ -100,7 +100,12 @@ func DefaultTrieOption() Option {
 		if len(dbPath) == 0 {
 			return errors.New("Invalid empty trie db path")
 		}
-		trieDB := db.NewBadgerDB(dbPath, cfg.DB)
+		var trieDB db.KVStore
+		if cfg.Chain.UseBadgerDB {
+			trieDB = db.NewBadgerDB(dbPath, cfg.DB)
+		} else {
+			trieDB = db.NewBoltDB(dbPath, cfg.DB)
+		}
 		if err = trieDB.Start(context.Background()); err != nil {
 			return errors.Wrap(err, "failed to start trie db")
 		}

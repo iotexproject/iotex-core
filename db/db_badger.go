@@ -70,8 +70,7 @@ func (b *badgerDB) Put(namespace string, key, value []byte) error {
 	var err error
 	for c := uint8(0); c < b.config.NumRetries; c++ {
 		err = b.db.Update(func(txn *badger.Txn) error {
-			k := []byte(namespace)
-			k = append(k, []byte(key)...)
+			k := append([]byte(namespace), key...)
 			// put <k, v>
 			return txn.Set(k, value)
 		})
@@ -91,8 +90,7 @@ func (b *badgerDB) PutIfNotExists(namespace string, key, value []byte) error {
 	for c := uint8(0); c < b.config.NumRetries; c++ {
 		err = b.db.Update(func(txn *badger.Txn) error {
 			// check if already exist
-			k := []byte(namespace)
-			k = append(k, []byte(key)...)
+			k := append([]byte(namespace), key...)
 			_, err := txn.Get(k)
 			if err == nil {
 				return ErrAlreadyExist
@@ -117,8 +115,7 @@ func (b *badgerDB) Get(namespace string, key []byte) ([]byte, error) {
 
 	var value []byte
 	err := b.db.View(func(txn *badger.Txn) error {
-		k := []byte(namespace)
-		k = append(k, []byte(key)...)
+		k := append([]byte(namespace), key...)
 		item, err := txn.Get(k)
 		if err != nil {
 			return errors.Wrapf(err, "failed to get key = %x", k)
@@ -143,8 +140,7 @@ func (b *badgerDB) Delete(namespace string, key []byte) error {
 	var err error
 	for c := uint8(0); c < b.config.NumRetries; c++ {
 		err = b.db.Update(func(txn *badger.Txn) error {
-			k := []byte(namespace)
-			k = append(k, []byte(key)...)
+			k := append([]byte(namespace), key...)
 			return txn.Delete(k)
 		})
 		if err == nil {
@@ -179,8 +175,7 @@ func (b *badgerDB) Commit(batch KVStoreBatch) error {
 				if err != nil {
 					return err
 				}
-				k := []byte(write.namespace)
-				k = append(k, []byte(write.key)...)
+				k := append([]byte(write.namespace), write.key...)
 
 				if write.writeType == Put {
 					if err := txn.Set(k, write.value); err != nil {
