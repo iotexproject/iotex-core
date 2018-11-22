@@ -3,6 +3,14 @@
 
 [[projects]]
   branch = "master"
+  digest = "1:b02e5e3f836f077a3249d1dfe3c57d305e007f71a98f2e69c170a2dd8d2b266c"
+  name = "github.com/AndreasBriese/bbloom"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "343706a395b76e5ca5c7dca46a5d937b48febc74"
+
+[[projects]]
+  branch = "master"
   digest = "1:6e8d9b1e1316b1a4b973e49445e48b416f0f4c3252200887950155381b778ee3"
   name = "github.com/CoderZhi/go-ethereum"
   packages = [
@@ -62,6 +70,29 @@
   pruneopts = "UT"
   revision = "8991bc29aa16c548c550c7ff78260e27b9ab7c73"
   version = "v1.1.1"
+
+[[projects]]
+  digest = "1:5f5090f05382959db941fa45acbeb7f4c5241aa8ac0f8f4393dec696e5953f53"
+  name = "github.com/dgraph-io/badger"
+  packages = [
+    ".",
+    "options",
+    "protos",
+    "skl",
+    "table",
+    "y",
+  ]
+  pruneopts = "UT"
+  revision = "99233d725dbdd26d156c61b2f42ae1671b794656"
+  version = "v1.5.4"
+
+[[projects]]
+  branch = "master"
+  digest = "1:8583eab935e3d99d3a7ac489cd2ee7c8e95eecd7c64ab1fc8382746dacaf8563"
+  name = "github.com/dgryski/go-farm"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "2de33835d10275975374b37b2dcfd22c9020a1f5"
 
 [[projects]]
   branch = "master"
@@ -408,6 +439,7 @@
     "github.com/CoderZhi/go-ethereum/params",
     "github.com/boltdb/bolt",
     "github.com/coopernurse/barrister-go",
+    "github.com/dgraph-io/badger",
     "github.com/facebookgo/clock",
     "github.com/go-sql-driver/mysql",
     "github.com/golang/mock/gomock",
