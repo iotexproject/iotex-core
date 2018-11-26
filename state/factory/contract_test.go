@@ -76,7 +76,7 @@ func TestCreateContract(t *testing.T) {
 	require.Nil(sf.Commit(ws))
 	require.Nil(sf.Stop(context.Background()))
 
-	sf, err = NewFactory(cfg, PrecreatedTrieDBOption(db.NewBadgerDB(testTriePath, config.DB{})))
+	sf, err = NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(testTriePath, config.DB{})))
 	require.Nil(err)
 	require.Nil(sf.Start(context.Background()))
 	// reload same contract
@@ -159,7 +159,7 @@ func TestLoadStoreContract(t *testing.T) {
 	require.Nil(sf.Stop(context.Background()))
 
 	// re-open the StateFactory
-	sf, err = NewFactory(cfg, PrecreatedTrieDBOption(db.NewBadgerDB(testTriePath, config.DB{})))
+	sf, err = NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(testTriePath, config.DB{})))
 	require.Nil(err)
 	require.Nil(sf.Start(context.Background()))
 	// query first contract

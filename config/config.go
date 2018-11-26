@@ -89,7 +89,7 @@ var (
 		Chain: Chain{
 			ChainDBPath:                  "/tmp/chain.db",
 			TrieDBPath:                   "/tmp/trie.db",
-			UseBadgerDB:                  true,
+			UseBadgerDB:                  false,
 			ID:                           1,
 			Address:                      "",
 			ProducerPubKey:               keypair.EncodePublicKey(keypair.ZeroPublicKey),

@@ -47,7 +47,7 @@ func Test2Roots(t *testing.T) {
 	defer testutil.CleanupPath(t, testTriePath)
 
 	// first trie
-	tr, err := NewTrie(db.NewBadgerDB(testTriePath, cfg), "test", EmptyRoot)
+	tr, err := NewTrie(db.NewBoltDB(testTriePath, cfg), "test", EmptyRoot)
 	require.Nil(err)
 	require.Nil(tr.Start(context.Background()))
 	require.Nil(tr.Upsert(cat, testV[2]))
@@ -379,7 +379,7 @@ func TestBatchCommit(t *testing.T) {
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
 
-	tr, err := NewTrie(db.NewBadgerDB(testTriePath, cfg), "test", EmptyRoot)
+	tr, err := NewTrie(db.NewBoltDB(testTriePath, cfg), "test", EmptyRoot)
 	require.Nil(err)
 	require.Nil(tr.Start(context.Background()))
 	// insert 3 entries
@@ -403,7 +403,7 @@ func TestBatchCommit(t *testing.T) {
 	require.NotEqual(root, tr.RootHash())
 	// close w/o commit and reopen
 	require.Nil(tr.Stop(context.Background()))
-	tr, err = NewTrie(db.NewBadgerDB(testTriePath, cfg), "test", root)
+	tr, err = NewTrie(db.NewBoltDB(testTriePath, cfg), "test", root)
 	require.Nil(err)
 	require.Nil(tr.Start(context.Background()))
 	// entries committed exist
@@ -434,7 +434,7 @@ func TestBatchCommit(t *testing.T) {
 	// commit and reopen
 	require.Nil(tr.Commit())
 	require.Nil(tr.Stop(context.Background()))
-	tr, err = NewTrie(db.NewBadgerDB(testTriePath, cfg), "test", root)
+	tr, err = NewTrie(db.NewBoltDB(testTriePath, cfg), "test", root)
 	require.Nil(err)
 	require.Nil(tr.Start(context.Background()))
 	// all entries should exist now
@@ -458,7 +458,7 @@ func TestCollision(t *testing.T) {
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
-	tr, err := NewTrie(db.NewBadgerDB(testTriePath, cfg), "test", EmptyRoot)
+	tr, err := NewTrie(db.NewBoltDB(testTriePath, cfg), "test", EmptyRoot)
 	require.Nil(err)
 	require.Nil(tr.Start(context.Background()))
 	defer require.Nil(tr.Stop(context.Background()))
@@ -484,7 +484,7 @@ func Test4kEntries(t *testing.T) {
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
-	tr, err := NewTrie(db.NewBadgerDB(testTriePath, cfg), "test", EmptyRoot)
+	tr, err := NewTrie(db.NewBoltDB(testTriePath, cfg), "test", EmptyRoot)
 	require.Nil(err)
 	require.Nil(tr.Start(context.Background()))
 	root := EmptyRoot
