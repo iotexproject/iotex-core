@@ -18,6 +18,7 @@ import (
 	"github.com/iotexproject/iotex-core/network"
 	"github.com/iotexproject/iotex-core/network/node"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
+	"github.com/iotexproject/iotex-core/pkg/routine"
 	pb "github.com/iotexproject/iotex-core/proto"
 )
 
@@ -40,6 +41,7 @@ type blockSyncer struct {
 	worker         *syncWorker
 	bc             blockchain.Blockchain
 	p2p            network.Overlay
+	chaser         *routine.RecurringTask
 }
 
 // NewBlockSyncer returns a new block syncer instance
@@ -60,7 +62,7 @@ func NewBlockSyncer(
 		size:   cfg.BlockSync.BufferSize,
 	}
 	w := newSyncWorker(chain.ChainID(), cfg, p2p, buf)
-	return &blockSyncer{
+	bs := &blockSyncer{
 		ackBlockCommit: cfg.IsDelegate() || cfg.IsFullnode(),
 		ackBlockSync:   cfg.IsDelegate() || cfg.IsFullnode(),
 		ackSyncReq:     cfg.IsDelegate() || cfg.IsFullnode(),
@@ -68,7 +70,9 @@ func NewBlockSyncer(
 		buf:            buf,
 		p2p:            p2p,
 		worker:         w,
-	}, nil
+	}
+	bs.chaser = routine.NewRecurringTask(bs.Chase, cfg.BlockSync.Interval*10)
+	return bs, nil
 }
 
 // P2P returns the network overlay object
@@ -79,12 +83,18 @@ func (bs *blockSyncer) P2P() network.Overlay {
 // Start starts a block syncer
 func (bs *blockSyncer) Start(ctx context.Context) error {
 	logger.Debug().Msg("Starting block syncer")
+	if err := bs.chaser.Start(ctx); err != nil {
+		return err
+	}
 	return bs.worker.Start(ctx)
 }
 
 // Stop stops a block syncer
 func (bs *blockSyncer) Stop(ctx context.Context) error {
 	logger.Debug().Msg("Stopping block syncer")
+	if err := bs.chaser.Stop(ctx); err != nil {
+		return err
+	}
 	return bs.worker.Stop(ctx)
 }
 
@@ -143,4 +153,9 @@ func (bs *blockSyncer) ProcessSyncRequest(sender string, sync *pb.BlockSync) err
 		}
 	}
 	return nil
+}
+
+// Chase sets the block sync target height to be blockchain height + 1
+func (bs *blockSyncer) Chase() {
+	bs.worker.SetTargetHeight(bs.bc.TipHeight() + 1)
 }
