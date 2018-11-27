@@ -36,7 +36,7 @@ var (
 	// ErrNotExist indicates entry does not exist
 	ErrNotExist = errors.New("not exist in trie")
 
-	// EmptyRoot is the root hash of an empty trie
+	// EmptyRoot is the root hash of an empty trie, which is the hash of an empty branch node
 	EmptyRoot = hash.Hash32B{0xe, 0x57, 0x51, 0xc0, 0x26, 0xe5, 0x43, 0xb2, 0xe8, 0xab, 0x2e, 0xb0, 0x60, 0x99,
 		0xda, 0xa1, 0xd1, 0xe5, 0xdf, 0x47, 0x77, 0x8f, 0x77, 0x87, 0xfa, 0xab, 0x45, 0xcd, 0xf1, 0x2f, 0xe3, 0xa8}
 )
@@ -117,7 +117,7 @@ func (t *trie) Start(ctx context.Context) error {
 	if _, err := putPatricia(t.root, t.bucket, t.cb); err != nil {
 		return err
 	}
-	return t.dao.Commit(t.cb)
+	return nil
 }
 
 func (t *trie) Stop(ctx context.Context) error {
