@@ -463,7 +463,7 @@ func TestBlockSyncerChaser(t *testing.T) {
 	require.NoError(chain.Start(ctx))
 	ap, err := actpool.NewActPool(chain, cfg.ActPool)
 	require.NoError(err)
-	bs, err := NewBlockSyncer(cfg, chain, ap, network.NewOverlay(cfg.Network))
+	bs, err := NewBlockSyncer(cfg, chain, ap, network.NewOverlay(&cfg.Network))
 	require.NoError(err)
 	require.NoError(bs.Start(ctx))
 

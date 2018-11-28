@@ -26,6 +26,7 @@ import (
 type BlockSync interface {
 	lifecycle.StartStopper
 
+	TargetHeight() uint64
 	P2P() network.Overlay
 	ProcessSyncRequest(sender string, sync *pb.BlockSync) error
 	ProcessBlock(blk *blockchain.Block) error
@@ -73,6 +74,11 @@ func NewBlockSyncer(
 	}
 	bs.chaser = routine.NewRecurringTask(bs.Chase, cfg.BlockSync.Interval*10)
 	return bs, nil
+}
+
+// TargetHeight returns the target height to sync to
+func (bs *blockSyncer) TargetHeight() uint64 {
+	return bs.worker.targetHeight
 }
 
 // P2P returns the network overlay object
