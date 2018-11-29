@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package blockchain
+package evm
 
 import (
 	"context"
@@ -12,15 +12,23 @@ import (
 	"testing"
 
 	"github.com/CoderZhi/go-ethereum/common"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/state/factory"
+	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
+const testDBPath = "db.test"
+
 func TestAddBalance(t *testing.T) {
 	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
 	testutil.CleanupPath(t, testDBPath)
@@ -30,19 +38,20 @@ func TestAddBalance(t *testing.T) {
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Explorer.Enabled = true
-	bc := NewBlockchain(cfg, DefaultStateFactoryOption(), BoltDBDaoOption())
-	require.NoError(bc.Start(ctx))
-	require.NotNil(bc)
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	require.NoError(err)
+	require.NoError(sf.Start(ctx))
 	defer func() {
-		err := bc.Stop(ctx)
-		require.NoError(err)
+		require.NoError(sf.Stop(ctx))
 	}()
-	sf := bc.GetFactory()
-	require.NotNil(sf)
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
+	mcm := mock_chainmanager.NewMockChainManager(ctrl)
+
 	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
-	stateDB := NewEVMStateDBAdapter(bc, ws, 1, hash.ZeroHash32B, uint(0), hash.ZeroHash32B)
+	stateDB := NewStateDBAdapter(mcm, ws, 1, hash.ZeroHash32B, hash.ZeroHash32B)
+
+	mcm.EXPECT().ChainID().Times(4).Return(uint32(1))
 	addAmount := big.NewInt(40000)
 	stateDB.AddBalance(addr, addAmount)
 	amount := stateDB.GetBalance(addr)

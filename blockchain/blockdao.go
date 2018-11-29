@@ -994,11 +994,11 @@ func putActions(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 
 // putReceipts store receipt into db
 func (dao *blockDAO) putReceipts(blk *Block) error {
-	if blk.receipts == nil {
+	if blk.Receipts == nil {
 		return nil
 	}
 	batch := db.NewBatch()
-	for _, r := range blk.receipts {
+	for _, r := range blk.Receipts {
 		v, err := r.Serialize()
 		if err != nil {
 			return errors.Wrapf(err, "failed to serialize receipt %x", r.Hash[:])
@@ -1334,7 +1334,7 @@ func deleteExecutions(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 
 // deleteReceipts deletes receipt information from db
 func deleteReceipts(blk *Block, batch db.KVStoreBatch) error {
-	for _, r := range blk.receipts {
+	for _, r := range blk.Receipts {
 		batch.Delete(blockExecutionReceiptMappingNS, r.Hash[:], "failed to delete receipt for execution %x", r.Hash[:])
 	}
 	return nil

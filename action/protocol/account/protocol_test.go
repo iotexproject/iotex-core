@@ -110,7 +110,7 @@ func TestProtocol_Validate(t *testing.T) {
 	require.NoError(err)
 	err = protocol.Validate(context.Background(), tsf)
 	require.Equal(action.ErrBalance, errors.Cause(err))
-	// Case IV: Invalid address
+	// Case IV: Invalid recipient address
 	tsf, err = action.NewTransfer(
 		1,
 		big.NewInt(1),

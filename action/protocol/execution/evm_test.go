@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package blockchain
+package execution
 
 import (
 	"context"
@@ -15,7 +15,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/CoderZhi/go-ethereum/common"
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol/account"
+	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
+	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
@@ -24,6 +28,11 @@ import (
 	"github.com/iotexproject/iotex-core/state"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
+)
+
+const (
+	testDBPath   = "db.test"
+	testTriePath = "trie.test"
 )
 
 func TestEVM(t *testing.T) {
@@ -40,18 +49,20 @@ func TestEVM(t *testing.T) {
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.EnableGasCharge = true
 	cfg.Explorer.Enabled = true
-	bc := NewBlockchain(cfg, DefaultStateFactoryOption(), BoltDBDaoOption())
+	bc := blockchain.NewBlockchain(cfg, blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption())
+	sf := bc.GetFactory()
+	require.NotNil(sf)
+	sf.AddActionHandlers(NewProtocol(bc))
+
 	require.NoError(bc.Start(ctx))
 	require.NotNil(bc)
 	defer func() {
 		err := bc.Stop(ctx)
 		require.NoError(err)
 	}()
-	sf := bc.GetFactory()
-	require.NotNil(sf)
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
-	_, err = ws.LoadOrCreateAccountState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
+	_, err = account.LoadOrCreateAccountState(ws, ta.Addrinfo["producer"].RawAddress, blockchain.Gen.TotalSupply)
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
 	ctx = state.WithRunActionsCtx(ctx,
@@ -74,7 +85,7 @@ func TestEVM(t *testing.T) {
 	require.NoError(err)
 	require.NoError(bc.ValidateBlock(blk, true))
 	require.Nil(bc.CommitBlock(blk))
-	require.Equal(1, len(blk.receipts))
+	require.Equal(1, len(blk.Receipts))
 
 	eHash := execution.Hash()
 	r, _ := bc.GetReceiptByExecutionHash(eHash)
@@ -83,7 +94,11 @@ func TestEVM(t *testing.T) {
 	contractAddrHash := byteutil.BytesTo20B(h)
 	ws, err = sf.NewWorkingSet()
 	require.NoError(err)
-	code, err := ws.GetCode(contractAddrHash)
+
+	stateDB := evm.NewStateDBAdapter(bc, ws, uint64(0), hash.ZeroHash32B, hash.ZeroHash32B)
+	var evmContractAddrHash common.Address
+	copy(evmContractAddrHash[:], contractAddrHash[:])
+	code := stateDB.GetCode(evmContractAddrHash)
 	require.Nil(err)
 	require.Equal(data[31:], code)
 
@@ -113,12 +128,13 @@ func TestEVM(t *testing.T) {
 	require.NoError(err)
 	require.NoError(bc.ValidateBlock(blk, true))
 	require.Nil(bc.CommitBlock(blk))
-	require.Equal(1, len(blk.receipts))
+	require.Equal(1, len(blk.Receipts))
 
 	ws, err = sf.NewWorkingSet()
 	require.NoError(err)
-	v, err := ws.GetContractState(contractAddrHash, hash.ZeroHash32B)
-	require.Nil(err)
+	stateDB = evm.NewStateDBAdapter(bc, ws, uint64(0), hash.ZeroHash32B, hash.ZeroHash32B)
+	var emptyEVMHash common.Hash
+	v := stateDB.GetState(evmContractAddrHash, emptyEVMHash)
 	require.Equal(byte(15), v[31])
 
 	eHash = execution.Hash()
@@ -138,7 +154,7 @@ func TestEVM(t *testing.T) {
 	require.NoError(err)
 	require.NoError(bc.ValidateBlock(blk, true))
 	require.Nil(bc.CommitBlock(blk))
-	require.Equal(1, len(blk.receipts))
+	require.Equal(1, len(blk.Receipts))
 
 	eHash = execution.Hash()
 	r, _ = bc.GetReceiptByExecutionHash(eHash)
@@ -154,10 +170,10 @@ func TestEVM(t *testing.T) {
 	require.NoError(err)
 	require.NoError(bc.ValidateBlock(blk, true))
 	require.Nil(bc.CommitBlock(blk))
-	require.Equal(1, len(blk.receipts))
+	require.Equal(1, len(blk.Receipts))
 	ws, _ = sf.NewWorkingSet()
-	alfaAccount, _ := ws.LoadOrCreateAccountState(ta.Addrinfo["alfa"].RawAddress, Gen.TotalSupply)
-	require.NotEqual(Gen.TotalSupply, alfaAccount.Balance)
+	alfaAccount, _ := ws.LoadOrCreateAccountState(ta.Addrinfo["alfa"].RawAddress, blockchain.Gen.TotalSupply)
+	require.NotEqual(blockchain.Gen.TotalSupply, alfaAccount.Balance)
 }
 
 func TestLogReceipt(t *testing.T) {
@@ -210,22 +226,23 @@ func TestRollDice(t *testing.T) {
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.EnableGasCharge = true
 	cfg.Explorer.Enabled = true
-	bc := NewBlockchain(cfg, DefaultStateFactoryOption(), BoltDBDaoOption())
+	bc := blockchain.NewBlockchain(cfg, blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption())
+	sf := bc.GetFactory()
+	require.NotNil(sf)
+	sf.AddActionHandlers(NewProtocol(bc))
 	require.NoError(bc.Start(ctx))
 	require.NotNil(bc)
 	defer func() {
 		err := bc.Stop(ctx)
 		require.NoError(err)
 	}()
-	sf := bc.GetFactory()
-	require.NotNil(sf)
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
-	_, err = ws.LoadOrCreateAccountState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
+	_, err = account.LoadOrCreateAccountState(ws, ta.Addrinfo["producer"].RawAddress, blockchain.Gen.TotalSupply)
 	require.NoError(err)
-	_, err = ws.LoadOrCreateAccountState(ta.Addrinfo["alfa"].RawAddress, big.NewInt(0))
+	_, err = account.LoadOrCreateAccountState(ws, ta.Addrinfo["alfa"].RawAddress, big.NewInt(0))
 	require.NoError(err)
-	_, err = ws.LoadOrCreateAccountState(ta.Addrinfo["bravo"].RawAddress, big.NewInt(12000000))
+	_, err = account.LoadOrCreateAccountState(ws, ta.Addrinfo["bravo"].RawAddress, big.NewInt(12000000))
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
 	ctx = state.WithRunActionsCtx(ctx,
@@ -324,7 +341,7 @@ func TestERC20(t *testing.T) {
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Explorer.Enabled = true
-	bc := NewBlockchain(cfg, DefaultStateFactoryOption(), BoltDBDaoOption())
+	bc := blockchain.NewBlockchain(cfg, blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption())
 	require.NoError(bc.Start(ctx))
 	require.NotNil(bc)
 	defer func() {
@@ -333,13 +350,14 @@ func TestERC20(t *testing.T) {
 	}()
 	sf := bc.GetFactory()
 	require.NotNil(sf)
+	sf.AddActionHandlers(NewProtocol(bc))
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
-	_, err = ws.LoadOrCreateAccountState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply)
+	_, err = account.LoadOrCreateAccountState(ws, ta.Addrinfo["producer"].RawAddress, blockchain.Gen.TotalSupply)
 	require.NoError(err)
-	_, err = ws.LoadOrCreateAccountState(ta.Addrinfo["alfa"].RawAddress, big.NewInt(0))
+	_, err = account.LoadOrCreateAccountState(ws, ta.Addrinfo["alfa"].RawAddress, big.NewInt(0))
 	require.NoError(err)
-	_, err = ws.LoadOrCreateAccountState(ta.Addrinfo["bravo"].RawAddress, big.NewInt(0))
+	_, err = account.LoadOrCreateAccountState(ws, ta.Addrinfo["bravo"].RawAddress, big.NewInt(0))
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
 	ctx = state.WithRunActionsCtx(ctx,
@@ -362,7 +380,7 @@ func TestERC20(t *testing.T) {
 	require.NoError(err)
 	require.NoError(bc.ValidateBlock(blk, true))
 	require.Nil(bc.CommitBlock(blk))
-	require.Equal(1, len(blk.receipts))
+	require.Equal(1, len(blk.Receipts))
 
 	eHash := execution.Hash()
 	r, _ := bc.GetReceiptByExecutionHash(eHash)
@@ -372,8 +390,11 @@ func TestERC20(t *testing.T) {
 	contractAddrHash := byteutil.BytesTo20B(h)
 	ws, err = sf.NewWorkingSet()
 	require.NoError(err)
-	code, err := ws.GetCode(contractAddrHash)
-	require.Nil(err)
+
+	stateDB := evm.NewStateDBAdapter(bc, ws, uint64(0), hash.ZeroHash32B, hash.ZeroHash32B)
+	var evmContractAddrHash common.Address
+	copy(evmContractAddrHash[:], contractAddrHash[:])
+	code := stateDB.GetCode(evmContractAddrHash)
 	require.Equal(data[335:len(data)-32], code)
 
 	logger.Warn().Msg("======= Transfer to alfa")
@@ -451,5 +472,5 @@ func TestERC20(t *testing.T) {
 	require.Equal(eHash, r.Hash)
 	h = r.ReturnValue[len(r.ReturnValue)-8:]
 	amount := binary.BigEndian.Uint64(h)
-	require.Equal(uint64(10000), amount)
+	require.Equal(uint64(8000), amount)
 }

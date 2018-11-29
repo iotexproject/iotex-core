@@ -81,11 +81,12 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 	cs.ActionPool().
 		AddActionValidators(
 			actpool.NewGenericValidator(cs.Blockchain()), account.NewProtocol(),
-			vote.NewProtocol(cs.Blockchain()), execution.NewProtocol(),
+			vote.NewProtocol(cs.Blockchain()), execution.NewProtocol(cs.Blockchain()),
 		)
 	// Install protocols
 	mainChainProtocol := mainchain.NewProtocol(cs.Blockchain())
 	cs.AddProtocols(mainChainProtocol)
+	cs.AddProtocols(execution.NewProtocol(cs.Blockchain()))
 	if cs.Explorer() != nil {
 		cs.Explorer().SetMainChainProtocol(mainChainProtocol)
 	}
@@ -163,7 +164,7 @@ func (s *Server) newSubChainService(cfg config.Config) error {
 	cs.ActionPool().
 		AddActionValidators(
 			actpool.NewGenericValidator(cs.Blockchain()), account.NewProtocol(),
-			vote.NewProtocol(cs.Blockchain()), execution.NewProtocol(),
+			vote.NewProtocol(cs.Blockchain()), execution.NewProtocol(cs.Blockchain()),
 		)
 	subChainProtocol := subchain.NewProtocol(cs.Blockchain(), mainChainAPI)
 	cs.AddProtocols(subChainProtocol)
@@ -189,7 +190,7 @@ func (s *Server) NewTestingChainService(cfg config.Config) error {
 	cs.ActionPool().
 		AddActionValidators(
 			actpool.NewGenericValidator(cs.Blockchain()), account.NewProtocol(),
-			vote.NewProtocol(cs.Blockchain()), execution.NewProtocol(),
+			vote.NewProtocol(cs.Blockchain()), execution.NewProtocol(cs.Blockchain()),
 		)
 	subChainProtocol := subchain.NewProtocol(cs.Blockchain(), mainChainAPI)
 	cs.AddProtocols(subChainProtocol)
