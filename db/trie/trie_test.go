@@ -69,7 +69,8 @@ func Test2Roots(t *testing.T) {
 	defer testutil.CleanupPath(t, testTriePath)
 
 	// first trie
-	trieDB := db.NewBoltDB(testTriePath, cfg)
+	cfg.DbPath = testTriePath
+	trieDB := db.NewOnDiskDB(cfg)
 	tr, err := NewTrie(trieDB, "test", KeyLengthOption(8))
 	require.Nil(err)
 	require.Nil(tr.Start(context.Background()))
@@ -402,7 +403,8 @@ func TestBatchCommit(t *testing.T) {
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
 
-	tr, err := NewTrie(db.NewBoltDB(testTriePath, cfg), "test", KeyLengthOption(8))
+	cfg.DbPath = testTriePath
+	tr, err := NewTrie(db.NewOnDiskDB(cfg), "test", KeyLengthOption(8))
 	require.Nil(err)
 	require.Nil(tr.Start(context.Background()))
 	// insert 3 entries
@@ -426,7 +428,7 @@ func TestBatchCommit(t *testing.T) {
 	require.NotEqual(root, tr.RootHash())
 	// close w/o commit and reopen
 	require.Nil(tr.Stop(context.Background()))
-	tr, err = NewTrie(db.NewBoltDB(testTriePath, cfg), "test", RootHashOption(root), KeyLengthOption(8))
+	tr, err = NewTrie(db.NewOnDiskDB(cfg), "test", RootHashOption(root), KeyLengthOption(8))
 	require.Nil(err)
 	require.Nil(tr.Start(context.Background()))
 	// entries committed exist
@@ -457,7 +459,7 @@ func TestBatchCommit(t *testing.T) {
 	// commit and reopen
 	require.Nil(tr.Commit())
 	require.Nil(tr.Stop(context.Background()))
-	tr, err = NewTrie(db.NewBoltDB(testTriePath, cfg), "test", RootHashOption(root), KeyLengthOption(8))
+	tr, err = NewTrie(db.NewOnDiskDB(cfg), "test", RootHashOption(root), KeyLengthOption(8))
 	require.Nil(err)
 	require.Nil(tr.Start(context.Background()))
 	// all entries should exist now
@@ -478,10 +480,11 @@ func TestBatchCommit(t *testing.T) {
 
 func TestCollision(t *testing.T) {
 	require := require.New(t)
-
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
-	tr, err := NewTrie(db.NewBoltDB(testTriePath, cfg), "test", KeyLengthOption(8))
+
+	cfg.DbPath = testTriePath
+	tr, err := NewTrie(db.NewOnDiskDB(cfg), "test", KeyLengthOption(8))
 	require.Nil(err)
 	require.Nil(tr.Start(context.Background()))
 	defer require.Nil(tr.Stop(context.Background()))
@@ -504,10 +507,11 @@ func TestCollision(t *testing.T) {
 
 func Test4kEntries(t *testing.T) {
 	require := require.New(t)
-
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
-	tr, err := NewTrie(db.NewBoltDB(testTriePath, cfg), "test", KeyLengthOption(4))
+
+	cfg.DbPath = testTriePath
+	tr, err := NewTrie(db.NewOnDiskDB(cfg), "test", KeyLengthOption(4))
 	require.Nil(err)
 	require.Nil(tr.Start(context.Background()))
 	root := EmptyBranchNodeHash

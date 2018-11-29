@@ -624,10 +624,11 @@ func TestBlockDAO(t *testing.T) {
 
 	path := "/tmp/test-kv-store-" + string(rand.Int())
 	cfg := config.Default.DB
+	cfg.DbPath = path
 	t.Run("Bolt DB for blocks", func(t *testing.T) {
 		testutil.CleanupPath(t, path)
 		defer testutil.CleanupPath(t, path)
-		testBlockDao(db.NewBoltDB(path, cfg), t)
+		testBlockDao(db.NewOnDiskDB(cfg), t)
 	})
 
 	t.Run("In-memory KV Store for actions", func(t *testing.T) {
@@ -637,7 +638,7 @@ func TestBlockDAO(t *testing.T) {
 	t.Run("Bolt DB for actions", func(t *testing.T) {
 		testutil.CleanupPath(t, path)
 		defer testutil.CleanupPath(t, path)
-		testActionsDao(db.NewBoltDB(path, cfg), t)
+		testActionsDao(db.NewOnDiskDB(cfg), t)
 	})
 
 	t.Run("In-memory KV Store deletions", func(t *testing.T) {
@@ -647,6 +648,6 @@ func TestBlockDAO(t *testing.T) {
 	t.Run("Bolt DB deletions", func(t *testing.T) {
 		testutil.CleanupPath(t, path)
 		defer testutil.CleanupPath(t, path)
-		testDeleteDao(db.NewBoltDB(path, cfg), t)
+		testDeleteDao(db.NewOnDiskDB(cfg), t)
 	})
 }

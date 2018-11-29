@@ -244,7 +244,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	Gen.BlockReward = big.NewInt(0)
 
 	cfg := config.Default
-	cfg.Chain.UseBadgerDB = true // test with badgerDB
+	cfg.DB.UseBadgerDB = true // test with badgerDB
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Explorer.Enabled = true
@@ -463,7 +463,7 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	// Disable block reward to make bookkeeping easier
 	Gen.BlockReward = big.NewInt(0)
 	cfg := config.Default
-	cfg.Chain.UseBadgerDB = false // test with boltDB
+	cfg.DB.UseBadgerDB = false // test with boltDB
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())

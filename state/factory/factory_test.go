@@ -269,7 +269,8 @@ func TestCandidates(t *testing.T) {
 	defer testutil.CleanupPath(t, testTriePath)
 
 	cfg.Chain.NumCandidates = 2
-	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(testTriePath, cfg.DB)))
+	cfg.DB.DbPath = testTriePath
+	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewOnDiskDB(cfg.DB)))
 	require.NoError(t, sf.Start(context.Background()))
 	require.NoError(t, err)
 	require.NoError(t, sf.Start(context.Background()))
@@ -746,7 +747,8 @@ func TestCandidatesByHeight(t *testing.T) {
 	defer testutil.CleanupPath(t, testTriePath)
 
 	cfg.Chain.NumCandidates = 2
-	f, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(testTriePath, cfg.DB)))
+	cfg.DB.DbPath = testTriePath
+	f, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewOnDiskDB(cfg.DB)))
 	require.Nil(t, err)
 	sf, ok := f.(*factory)
 	require.True(t, ok)
@@ -807,7 +809,8 @@ func TestUnvote(t *testing.T) {
 	defer testutil.CleanupPath(t, testTriePath)
 
 	cfg.Chain.NumCandidates = 2
-	f, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(testTriePath, cfg.DB)))
+	cfg.DB.DbPath = testTriePath
+	f, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewOnDiskDB(cfg.DB)))
 	require.NoError(t, err)
 	sf, ok := f.(*factory)
 	require.True(t, ok)

@@ -24,11 +24,6 @@ type badgerDB struct {
 	config config.DB
 }
 
-// NewBadgerDB instantiates a badgerDB based KV store
-func NewBadgerDB(path string, cfg config.DB) KVStore {
-	return &badgerDB{db: nil, path: path, config: cfg}
-}
-
 // Start opens the badgerDB (creates new file if not existing yet)
 func (b *badgerDB) Start(_ context.Context) error {
 	b.mutex.Lock()
