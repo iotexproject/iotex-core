@@ -13,6 +13,7 @@ import (
 	"sync"
 
 	"github.com/boltdb/bolt"
+	"github.com/dgraph-io/badger"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -99,7 +100,12 @@ func DefaultTrieOption() Option {
 		if len(dbPath) == 0 {
 			return errors.New("Invalid empty trie db path")
 		}
-		trieDB := db.NewBoltDB(dbPath, cfg.DB)
+		var trieDB db.KVStore
+		if cfg.Chain.UseBadgerDB {
+			trieDB = db.NewBadgerDB(dbPath, cfg.DB)
+		} else {
+			trieDB = db.NewBoltDB(dbPath, cfg.DB)
+		}
 		if err = trieDB.Start(context.Background()); err != nil {
 			return errors.Wrap(err, "failed to start trie db")
 		}
@@ -306,6 +312,8 @@ func (sf *factory) getRoot(nameSpace string, key string) (hash.Hash32B, error) {
 	case nil:
 		trieRoot = byteutil.BytesTo32B(root)
 	case bolt.ErrBucketNotFound:
+		trieRoot = trie.EmptyRoot
+	case badger.ErrKeyNotFound:
 		trieRoot = trie.EmptyRoot
 	default:
 		return hash.ZeroHash32B, err
