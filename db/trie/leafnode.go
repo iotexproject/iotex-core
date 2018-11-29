@@ -23,16 +23,12 @@ type leafNode struct {
 	ser   []byte
 }
 
-func newLeafNodeAndSave(
-	tc SameKeyLenTrieContext, key keyType,
+func newLeafNode(
+	key keyType,
 	value []byte,
-) (*leafNode, error) {
+) *leafNode {
 	logger.Debug().Hex("key", key).Hex("value", value).Msg("new leaf")
-	l := &leafNode{key: key, value: value}
-	if err := putNodeIntoDB(tc, l); err != nil {
-		return nil, err
-	}
-	return l, nil
+	return &leafNode{key: key, value: value}
 }
 
 func newLeafNodeFromProtoPb(pb *iproto.LeafPb) *leafNode {
@@ -43,12 +39,20 @@ func (l *leafNode) Children(context.Context) ([]Node, error) {
 	return nil, errors.New("leaf node has no child")
 }
 
+func (l *leafNode) Type() NodeType {
+	return LEAF
+}
+
+func (l *leafNode) Value() []byte {
+	return l.value
+}
+
 func (l *leafNode) delete(tc SameKeyLenTrieContext, key keyType, offset uint8) (Node, error) {
 	logger.Debug().Hex("key", key[:]).Uint8("offset", offset).Hex("leaf", l.key[:]).Msg("delete from a leaf")
 	if !bytes.Equal(l.key[offset:], key[offset:]) {
 		return nil, ErrNotExist
 	}
-	if err := deleteNodeFromDB(tc, l); err != nil {
+	if err := tc.DeleteNodeFromDB(l); err != nil {
 		return nil, err
 	}
 	return nil, nil
@@ -60,11 +64,11 @@ func (l *leafNode) upsert(tc SameKeyLenTrieContext, key keyType, offset uint8, v
 	if offset+matched == uint8(len(key)) {
 		return l.updateValue(tc, value)
 	}
-	newl, err := newLeafNodeAndSave(tc, key, value)
+	newl, err := tc.newLeafNodeAndPutIntoDB(key, value)
 	if err != nil {
 		return nil, err
 	}
-	bnode, err := newBranchNodeAndSave(tc, map[byte]Node{
+	bnode, err := tc.newBranchNodeAndPutIntoDB(map[byte]Node{
 		key[offset+matched]:   newl,
 		l.key[offset+matched]: l,
 	})
@@ -75,10 +79,10 @@ func (l *leafNode) upsert(tc SameKeyLenTrieContext, key keyType, offset uint8, v
 		return bnode, nil
 	}
 
-	return newExtensionNodeAndSave(tc, l.key[offset:offset+matched], bnode)
+	return tc.newExtensionNodeAndPutIntoDB(l.key[offset:offset+matched], bnode)
 }
 
-func (l *leafNode) search(tc SameKeyLenTrieContext, key keyType, offset uint8) Node {
+func (l *leafNode) search(_ SameKeyLenTrieContext, key keyType, offset uint8) Node {
 	logger.Debug().Hex("key", key[:]).Uint8("offset", offset).Hex("leaf", l.key[:]).Msg("search in a leaf")
 	if !bytes.Equal(l.key[offset:], key[offset:]) {
 		return nil
@@ -87,40 +91,42 @@ func (l *leafNode) search(tc SameKeyLenTrieContext, key keyType, offset uint8) N
 	return l
 }
 
-func (l *leafNode) serialize() ([]byte, error) {
+func (l *leafNode) serialize() []byte {
 	if l.ser != nil {
-		return l.ser, nil
+		return l.ser
 	}
 	pb := &iproto.NodePb{
 		Node: &iproto.NodePb_Leaf{
 			Leaf: &iproto.LeafPb{
-				Ext:   0,
 				Path:  l.key[:],
 				Value: l.value,
 			},
 		},
 	}
-	var err error
-	l.ser, err = proto.Marshal(pb)
+	ser, err := proto.Marshal(pb)
+	if err != nil {
+		logger.Panic().
+			Err(err).
+			Hex("key", l.key).
+			Hex("value", l.value).
+			Msg("failed to marshal a leaf node")
+	}
+	l.ser = ser
 
-	return l.ser, err
+	return l.ser
 }
 
 func (l *leafNode) updateValue(
 	tc SameKeyLenTrieContext, value []byte,
 ) (*leafNode, error) {
-	if err := deleteNodeFromDB(tc, l); err != nil {
+	if err := tc.DeleteNodeFromDB(l); err != nil {
 		return nil, err
 	}
 	l.value = value
 	l.ser = nil
-	if err := putNodeIntoDB(tc, l); err != nil {
+	if err := tc.PutNodeIntoDB(l); err != nil {
 		return nil, err
 	}
 
 	return l, nil
-}
-
-func (l *leafNode) Value() []byte {
-	return l.value
 }

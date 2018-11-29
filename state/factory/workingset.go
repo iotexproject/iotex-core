@@ -18,12 +18,12 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/db/trie"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-core/trie"
 )
 
 type (
@@ -75,7 +75,7 @@ func NewWorkingSet(
 		dao:              kv,
 		actionHandlers:   actionHandlers,
 	}
-	tr, err := trie.NewTrie(ws.dao, trie.AccountKVNameSpace, root, trie.CachedBatchOption(ws.cb))
+	tr, err := trie.NewTrie(ws.dao, AccountKVNameSpace, trie.RootHashOption(root), trie.CachedBatchOption(ws.cb))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to generate state trie from config")
 	}
@@ -245,7 +245,7 @@ func (ws *workingSet) RunActions(
 
 	// Persist accountTrie's root hash
 	rootHash := ws.accountTrie.RootHash()
-	ws.cb.Put(trie.AccountKVNameSpace, []byte(AccountTrieRootKey), rootHash[:], "failed to store accountTrie's root hash")
+	ws.cb.Put(AccountKVNameSpace, []byte(AccountTrieRootKey), rootHash[:], "failed to store accountTrie's root hash")
 	// Persist new list of Candidates
 	candidates, err := state.MapToCandidates(ws.cachedCandidates)
 	if err != nil {
@@ -257,9 +257,9 @@ func (ws *workingSet) RunActions(
 		return hash.ZeroHash32B, nil, errors.Wrap(err, "failed to serialize Candidates")
 	}
 	h := byteutil.Uint64ToBytes(blockHeight)
-	ws.cb.Put(trie.CandidateKVNameSpace, h, candidatesBytes, "failed to store Candidates on Height %d", blockHeight)
+	ws.cb.Put(CandidateKVNameSpace, h, candidatesBytes, "failed to store Candidates on Height %d", blockHeight)
 	// Persist current chain Height
-	ws.cb.Put(trie.AccountKVNameSpace, []byte(CurrentHeightKey), h, "failed to store accountTrie's current Height")
+	ws.cb.Put(AccountKVNameSpace, []byte(CurrentHeightKey), h, "failed to store accountTrie's current Height")
 
 	return ws.RootHash(), receipts, nil
 }
@@ -356,7 +356,7 @@ func (ws *workingSet) updateCandidate(pkHash hash.PKHash, totalWeight *big.Int, 
 }
 
 func (ws *workingSet) getCandidates(height uint64) (state.CandidateList, error) {
-	candidatesBytes, err := ws.dao.Get(trie.CandidateKVNameSpace, byteutil.Uint64ToBytes(height))
+	candidatesBytes, err := ws.dao.Get(CandidateKVNameSpace, byteutil.Uint64ToBytes(height))
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get Candidates on Height %d", height)
 	}

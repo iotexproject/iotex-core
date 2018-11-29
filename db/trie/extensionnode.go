@@ -18,25 +18,11 @@ import (
 	"github.com/iotexproject/iotex-core/proto"
 )
 
+// extensionNode defines a node with a path and point to a child node
 type extensionNode struct {
 	path      []byte
 	childHash hash.Hash32B
 	ser       []byte
-}
-
-func newExtensionNodeAndSave(
-	tc SameKeyLenTrieContext, path []byte,
-	child Node,
-) (Node, error) {
-	h, err := nodeHash(child)
-	if err != nil {
-		return nil, err
-	}
-	e := &extensionNode{path: path, childHash: h}
-	if err := putNodeIntoDB(tc, e); err != nil {
-		return nil, err
-	}
-	return e, nil
 }
 
 func newExtensionNodeFromProtoPb(pb *iproto.ExtendPb) *extensionNode {
@@ -51,8 +37,20 @@ func (e *extensionNode) Children(ctx context.Context) ([]Node, error) {
 	if !ok {
 		return nil, errors.New("failed to get operation context")
 	}
+	child, err := e.child(tc)
+	if err != nil {
+		return nil, err
+	}
 
-	return []Node{e.child(tc)}, nil
+	return []Node{child}, nil
+}
+
+func (e *extensionNode) Type() NodeType {
+	return EXTENSION
+}
+
+func (e *extensionNode) Value() []byte {
+	return nil
 }
 
 func (e *extensionNode) delete(tc SameKeyLenTrieContext, key keyType, offset uint8) (Node, error) {
@@ -61,22 +59,25 @@ func (e *extensionNode) delete(tc SameKeyLenTrieContext, key keyType, offset uin
 	if matched != uint8(len(e.path)) {
 		return nil, ErrNotExist
 	}
-	newChild, err := e.child(tc).delete(tc, key, offset+matched)
+	child, err := e.child(tc)
+	if err != nil {
+		return nil, err
+	}
+	newChild, err := child.delete(tc, key, offset+matched)
 	if err != nil {
 		return nil, err
 	}
 	if newChild == nil {
-		err := deleteNodeFromDB(tc, e)
-		return nil, err
+		return nil, tc.DeleteNodeFromDB(e)
 	}
 	switch node := newChild.(type) {
 	case *extensionNode:
-		if err := deleteNodeFromDB(tc, e); err != nil {
+		if err := tc.DeleteNodeFromDB(e); err != nil {
 			return nil, err
 		}
 		return node.updatePath(tc, append(e.path, node.path...))
 	case *leafNode:
-		if err := deleteNodeFromDB(tc, e); err != nil {
+		if err := tc.DeleteNodeFromDB(e); err != nil {
 			return nil, err
 		}
 		return node, nil
@@ -89,7 +90,11 @@ func (e *extensionNode) upsert(tc SameKeyLenTrieContext, key keyType, offset uin
 	logger.Debug().Hex("key", key[:]).Uint8("offset", offset).Msg("upsert into an extension")
 	matched := e.commonPrefixLength(key[offset:])
 	if matched == uint8(len(e.path)) {
-		newChild, err := e.child(tc).upsert(tc, key, offset+matched, value)
+		child, err := e.child(tc)
+		if err != nil {
+			return nil, err
+		}
+		newChild, err := child.upsert(tc, key, offset+matched, value)
 		if err != nil {
 			return nil, err
 		}
@@ -100,11 +105,11 @@ func (e *extensionNode) upsert(tc SameKeyLenTrieContext, key keyType, offset uin
 	if err != nil {
 		return nil, err
 	}
-	lnode, err := newLeafNodeAndSave(tc, key, value)
+	lnode, err := tc.newLeafNodeAndPutIntoDB(key, value)
 	if err != nil {
 		return nil, err
 	}
-	bnode, err := newBranchNodeAndSave(tc, map[byte]Node{
+	bnode, err := tc.newBranchNodeAndPutIntoDB(map[byte]Node{
 		eb:                  enode,
 		key[offset+matched]: lnode,
 	})
@@ -114,7 +119,7 @@ func (e *extensionNode) upsert(tc SameKeyLenTrieContext, key keyType, offset uin
 	if matched == 0 {
 		return bnode, nil
 	}
-	return newExtensionNodeAndSave(tc, key[offset:offset+matched], bnode)
+	return tc.newExtensionNodeAndPutIntoDB(key[offset:offset+matched], bnode)
 }
 
 func (e *extensionNode) search(tc SameKeyLenTrieContext, key keyType, offset uint8) Node {
@@ -123,13 +128,17 @@ func (e *extensionNode) search(tc SameKeyLenTrieContext, key keyType, offset uin
 	if matched != uint8(len(e.path)) {
 		return nil
 	}
+	child, err := e.child(tc)
+	if err != nil {
+		return nil
+	}
 
-	return e.child(tc).search(tc, key, offset+matched)
+	return child.search(tc, key, offset+matched)
 }
 
-func (e *extensionNode) serialize() ([]byte, error) {
+func (e *extensionNode) serialize() []byte {
 	if e.ser != nil {
-		return e.ser, nil
+		return e.ser
 	}
 	pb := &iproto.NodePb{
 		Node: &iproto.NodePb_Extend{
@@ -139,19 +148,28 @@ func (e *extensionNode) serialize() ([]byte, error) {
 			},
 		},
 	}
-	var err error
-	e.ser, err = proto.Marshal(pb)
+	ser, err := proto.Marshal(pb)
+	if err != nil {
+		logger.Panic().
+			Err(err).
+			Hex("path", e.path).
+			Hex("value", e.childHash[:]).
+			Msg("failed to marshal an extension node")
+	}
+	e.ser = ser
 
-	return e.ser, err
+	return e.ser
 }
 
-func (e *extensionNode) child(tc SameKeyLenTrieContext) Node {
-	child, err := loadNodeFromDB(tc, e.childHash)
+func (e *extensionNode) child(tc SameKeyLenTrieContext) (Node, error) {
+	child, err := tc.LoadNodeFromDB(e.childHash)
 	if err != nil {
-		// TODO: handle panic error
-		panic(err)
+		logger.Error().
+			Err(err).
+			Msg("failed to get the child of an extension, something went wrong with db")
 	}
-	return child
+
+	return child, err
 }
 
 func (e *extensionNode) commonPrefixLength(key []byte) uint8 {
@@ -161,12 +179,12 @@ func (e *extensionNode) commonPrefixLength(key []byte) uint8 {
 func (e *extensionNode) updatePath(
 	tc SameKeyLenTrieContext, path []byte,
 ) (*extensionNode, error) {
-	if err := deleteNodeFromDB(tc, e); err != nil {
+	if err := tc.DeleteNodeFromDB(e); err != nil {
 		return nil, err
 	}
 	e.path = path
 	e.ser = nil
-	if err := putNodeIntoDB(tc, e); err != nil {
+	if err := tc.PutNodeIntoDB(e); err != nil {
 		return nil, err
 	}
 	return e, nil
@@ -175,16 +193,12 @@ func (e *extensionNode) updatePath(
 func (e *extensionNode) updateChild(
 	tc SameKeyLenTrieContext, newChild Node,
 ) (*extensionNode, error) {
-	childHash, err := nodeHash(newChild)
-	if err != nil {
+	if err := tc.DeleteNodeFromDB(e); err != nil {
 		return nil, err
 	}
-	if err := deleteNodeFromDB(tc, e); err != nil {
-		return nil, err
-	}
-	e.childHash = childHash
+	e.childHash = nodeHash(newChild)
 	e.ser = nil
-	if err := putNodeIntoDB(tc, e); err != nil {
+	if err := tc.PutNodeIntoDB(e); err != nil {
 		return nil, err
 	}
 	return e, nil
