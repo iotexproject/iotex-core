@@ -62,6 +62,7 @@ type (
 		lifecycle lifecycle.Lifecycle
 		mutex     sync.RWMutex
 		root      patricia
+		brTrie    *branchRootTrie
 		rootHash  hash.Hash32B
 		rootKey   string
 		bucket    string // bucket name to store the nodes
@@ -71,11 +72,12 @@ type (
 		numLeaf   uint64
 		cb        db.CachedBatch // cached batch for pending writes
 		dao       db.KVStore     // the underlying storage DB
+		keyLength int            // key length
 	}
 )
 
-// Option defines the trie construction option
-type Option func(tr *trie) error
+// Option sets trie construction parameter
+type Option func(*trie) error
 
 // CachedBatchOption defines an option to set the cached batch
 func CachedBatchOption(batch db.CachedBatch) Option {
@@ -84,6 +86,17 @@ func CachedBatchOption(batch db.CachedBatch) Option {
 			return errors.Wrapf(ErrInvalidTrie, "batch option cannot be nil")
 		}
 		tr.cb = batch
+		return nil
+	}
+}
+
+// KeyLengthOption sets the length of the keys saved in trie
+func KeyLengthOption(len int) Option {
+	return func(tr *trie) error {
+		if len <= 0 || len > 128 {
+			return errors.New("Invalid key length")
+		}
+		tr.keyLength = len
 		return nil
 	}
 }
@@ -125,6 +138,7 @@ func NewTrie(kvStore db.KVStore, name string, root hash.Hash32B, options ...Opti
 		bucket:    name,
 		numEntry:  1,
 		numBranch: 1,
+		keyLength: 20,
 	}
 	for _, opt := range options {
 		if err := opt(t); err != nil {
@@ -166,7 +180,21 @@ func (t *trie) Start(ctx context.Context) error {
 	if _, err := putPatricia(t.root, t.bucket, t.cb); err != nil {
 		return err
 	}
-	return nil
+	return t.dao.Commit(t.cb)
+	/*
+		tc := SameKeyLenTrieContext{
+			DB:        t.dao,
+			CB:        t.cb,
+			Bucket:    t.bucket,
+			KeyLength: t.keyLength,
+		}
+		br, err := newBranchRootTrie(tc, t.rootHash)
+		if err != nil {
+			return err
+		}
+		t.brTrie = br
+		return nil
+	*/
 }
 
 func (t *trie) Stop(ctx context.Context) error {
@@ -185,6 +213,13 @@ func (t *trie) TrieDB() db.KVStore {
 func (t *trie) Upsert(key, value []byte) error {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
+	if t.brTrie != nil {
+		if err := t.brTrie.Upsert(key, value); err != nil {
+			return err
+		}
+		t.rootHash = t.brTrie.RootHash()
+		return nil
+	}
 
 	_, err := t.root.upsert(key, value, 0, t.dao, t.bucket, t.cb)
 	// update root hash
@@ -196,7 +231,9 @@ func (t *trie) Upsert(key, value []byte) error {
 func (t *trie) Get(key []byte) ([]byte, error) {
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
-
+	if t.brTrie != nil {
+		return t.brTrie.Get(key)
+	}
 	return t.root.get(key, 0, t.dao, t.bucket, t.cb)
 }
 
@@ -205,6 +242,13 @@ func (t *trie) Delete(key []byte) error {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
+	if t.brTrie != nil {
+		if err := t.brTrie.Delete(key); err != nil {
+			return err
+		}
+		t.rootHash = t.brTrie.RootHash()
+		return nil
+	}
 	_, err := t.root.delete(key, 0, t.dao, t.bucket, t.cb)
 	// update root hash
 	t.rootHash = t.root.hash()
@@ -223,7 +267,9 @@ func (t *trie) Commit() error {
 func (t *trie) RootHash() hash.Hash32B {
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
-
+	if t.brTrie != nil {
+		return t.brTrie.RootHash()
+	}
 	return t.rootHash
 }
 
@@ -231,7 +277,9 @@ func (t *trie) RootHash() hash.Hash32B {
 func (t *trie) SetRoot(rootHash hash.Hash32B) error {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
-
+	if t.brTrie != nil {
+		return t.brTrie.SetRoot(rootHash)
+	}
 	root, err := getPatricia(rootHash[:], t.dao, t.bucket, t.cb)
 	if err != nil {
 		return errors.Wrapf(err, "failed to set root %x", rootHash[:])

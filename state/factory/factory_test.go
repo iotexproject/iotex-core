@@ -267,6 +267,7 @@ func TestCandidates(t *testing.T) {
 
 	cfg.Chain.NumCandidates = 2
 	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(testTriePath, cfg.DB)))
+	require.NoError(t, sf.Start(context.Background()))
 	require.NoError(t, err)
 	require.NoError(t, sf.Start(context.Background()))
 	ws, err := sf.NewWorkingSet()

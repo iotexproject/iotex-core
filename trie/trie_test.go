@@ -47,7 +47,7 @@ func Test2Roots(t *testing.T) {
 	defer testutil.CleanupPath(t, testTriePath)
 
 	// first trie
-	tr, err := NewTrie(db.NewBoltDB(testTriePath, cfg), "test", EmptyRoot)
+	tr, err := NewTrie(db.NewBoltDB(testTriePath, cfg), "test", EmptyRoot, KeyLengthOption(8))
 	require.Nil(err)
 	require.Nil(tr.Start(context.Background()))
 	require.Nil(tr.Upsert(cat, testV[2]))
@@ -67,7 +67,7 @@ func Test2Roots(t *testing.T) {
 	require.Nil(tr.Stop(context.Background()))
 
 	// second trie
-	tr1, err := NewTrie(tr.TrieDB(), "test", EmptyRoot)
+	tr1, err := NewTrie(tr.TrieDB(), "test", EmptyRoot, KeyLengthOption(8))
 	require.Nil(err)
 	require.Nil(tr1.Start(context.Background()))
 	require.Nil(tr1.Upsert(dog, testV[3]))
@@ -103,7 +103,7 @@ func Test2Roots(t *testing.T) {
 	require.Equal(ErrNotExist, errors.Cause(err))
 
 	// create a new one and load second trie's root
-	tr2, err := NewTrie(tr.TrieDB(), "test", EmptyRoot)
+	tr2, err := NewTrie(tr.TrieDB(), "test", EmptyRoot, KeyLengthOption(8))
 	require.NoError(err)
 	require.NoError(tr2.Start(context.Background()))
 	require.NoError(tr2.SetRoot(root1))
@@ -127,7 +127,7 @@ func Test2Roots(t *testing.T) {
 func TestInsert(t *testing.T) {
 	require := require.New(t)
 
-	tr, err := NewTrie(db.NewMemKVStore(), "", EmptyRoot)
+	tr, err := NewTrie(db.NewMemKVStore(), "", EmptyRoot, KeyLengthOption(8))
 	require.NotNil(tr)
 	require.NoError(err)
 	require.Nil(tr.Start(context.Background()))
@@ -379,7 +379,7 @@ func TestBatchCommit(t *testing.T) {
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
 
-	tr, err := NewTrie(db.NewBoltDB(testTriePath, cfg), "test", EmptyRoot)
+	tr, err := NewTrie(db.NewBoltDB(testTriePath, cfg), "test", EmptyRoot, KeyLengthOption(8))
 	require.Nil(err)
 	require.Nil(tr.Start(context.Background()))
 	// insert 3 entries
@@ -403,7 +403,7 @@ func TestBatchCommit(t *testing.T) {
 	require.NotEqual(root, tr.RootHash())
 	// close w/o commit and reopen
 	require.Nil(tr.Stop(context.Background()))
-	tr, err = NewTrie(db.NewBoltDB(testTriePath, cfg), "test", root)
+	tr, err = NewTrie(db.NewBoltDB(testTriePath, cfg), "test", root, KeyLengthOption(8))
 	require.Nil(err)
 	require.Nil(tr.Start(context.Background()))
 	// entries committed exist
@@ -434,7 +434,7 @@ func TestBatchCommit(t *testing.T) {
 	// commit and reopen
 	require.Nil(tr.Commit())
 	require.Nil(tr.Stop(context.Background()))
-	tr, err = NewTrie(db.NewBoltDB(testTriePath, cfg), "test", root)
+	tr, err = NewTrie(db.NewBoltDB(testTriePath, cfg), "test", root, KeyLengthOption(8))
 	require.Nil(err)
 	require.Nil(tr.Start(context.Background()))
 	// all entries should exist now
@@ -458,7 +458,7 @@ func TestCollision(t *testing.T) {
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
-	tr, err := NewTrie(db.NewBoltDB(testTriePath, cfg), "test", EmptyRoot)
+	tr, err := NewTrie(db.NewBoltDB(testTriePath, cfg), "test", EmptyRoot, KeyLengthOption(8))
 	require.Nil(err)
 	require.Nil(tr.Start(context.Background()))
 	defer require.Nil(tr.Stop(context.Background()))
@@ -484,7 +484,7 @@ func Test4kEntries(t *testing.T) {
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
-	tr, err := NewTrie(db.NewBoltDB(testTriePath, cfg), "test", EmptyRoot)
+	tr, err := NewTrie(db.NewBoltDB(testTriePath, cfg), "test", EmptyRoot, KeyLengthOption(4))
 	require.Nil(err)
 	require.Nil(tr.Start(context.Background()))
 	root := EmptyRoot
@@ -557,7 +557,7 @@ func TestPressure(t *testing.T) {
 
 	require := require.New(t)
 
-	tr, err := NewTrie(db.NewMemKVStore(), "test", EmptyRoot)
+	tr, err := NewTrie(db.NewMemKVStore(), "test", EmptyRoot, KeyLengthOption(4))
 	require.Nil(err)
 	require.Nil(tr.Start(context.Background()))
 	root := EmptyRoot

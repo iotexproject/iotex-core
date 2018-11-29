@@ -7,290 +7,112 @@
 package trie
 
 import (
-	"bytes"
 	"context"
 
-	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/golang/protobuf/proto"
+	"github.com/pkg/errors"
 	"golang.org/x/crypto/blake2b"
+
+	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/proto"
 )
 
-type keyType [20]byte
+type keyType []byte
 
-type trieNode interface {
-	Children(context.Context) []trieNode
-	Search(context.Context, keyType, int) trieNode
+// Node defines the interface of a trie node
+// Note: all the key-value pairs should be of the same length of keys
+type Node interface {
+	Children(ctx context.Context) ([]Node, error)
 
-	Delete(context.Context, keyType, int) (trieNode, error)
-	Upsert(context.Context, keyType, int, []byte) (trieNode, error)
+	search(SameKeyLenTrieContext, keyType, uint8) Node
+	delete(SameKeyLenTrieContext, keyType, uint8) (Node, error)
+	upsert(SameKeyLenTrieContext, keyType, uint8, []byte) (Node, error)
 
-	Serialize() []byte
-	Deserialize([]byte) error
-	Value() []byte
+	serialize() ([]byte, error)
 }
 
-func hashTrieNode(tn trieNode) hash.Hash32B {
-	return blake2b.Sum256(tn.Serialize())
-}
-
-type leafNode struct {
-	key   keyType
-	value []byte
-}
-
-func (l *leafNode) Children(context.Context) []trieNode {
-	return []trieNode{}
-}
-
-func (l *leafNode) Delete(ctx context.Context, key keyType, offset int) (trieNode, error) {
-	if !bytes.Equal(l.key[offset:], key[offset:]) {
-		return nil, ErrNotExist
+func nodeHash(tn Node) (hash.Hash32B, error) {
+	if tn == nil {
+		return hash.ZeroHash32B, errors.New("no hash for nil node")
 	}
-	// delete current node from db
-	return nil, nil
-}
-
-func (l *leafNode) Upsert(ctx context.Context, key keyType, offset int, value []byte) (trieNode, error) {
-	if !bytes.Equal(l.key[offset:], key[offset:]) {
-		// l.split(key)
-		return nil, nil
+	if bn, ok := tn.(*branchNode); ok && bn != nil && len(bn.children) == 0 {
+		// Hack for unit test
+		return EmptyRoot, nil
 	}
-	l.value = value
-	// update current node in db
-
-	return l, nil
-}
-
-func (l *leafNode) Search(ctx context.Context, key keyType, offset int) trieNode {
-	if !bytes.Equal(l.key[offset:], key[offset:]) {
-		return nil
-	}
-
-	return l
-}
-
-func (l *leafNode) Serialize() []byte {
-	return nil
-}
-
-func (l *leafNode) Deserialize(s []byte) error {
-	return nil
-}
-
-func (l *leafNode) Value() []byte {
-	return l.value
-}
-
-type branchNode struct {
-	children [RADIX]hash.Hash32B
-}
-
-func (b *branchNode) Children(ctx context.Context) []trieNode {
-	children := []trieNode{}
-	for idx := 0; idx < RADIX; idx++ {
-		if c := b.child(ctx, idx); c != nil {
-			children = append(children, c)
-		}
-		idx++
-	}
-
-	return children
-}
-
-func (b *branchNode) child(ctx context.Context, key int) trieNode {
-	if b.children[key] == hash.ZeroHash32B {
-		return nil
-	}
-	// load trieNode with ctx
-	return nil
-}
-
-func (b *branchNode) Delete(ctx context.Context, key keyType, offset int) (trieNode, error) {
-	ok := int(key[offset])
-	child := b.child(ctx, ok)
-	if child == nil {
-		return nil, ErrNotExist
-	}
-	newChild, err := child.Delete(ctx, key, offset+1)
+	s, err := tn.serialize()
 	if err != nil {
-		return nil, err
+		return hash.ZeroHash32B, err
 	}
-	if newChild != nil {
-		b.children[ok] = hashTrieNode(newChild)
-		return b, nil
-	}
-	b.children[ok] = hash.ZeroHash32B
-	cnt := 0
-	for _, chash := range b.children {
-		if chash != hash.ZeroHash32B {
-			cnt++
-			if cnt >= 2 {
-				return b, nil
-			}
-		}
-	}
-	if cnt == 0 {
-		panic("branch shouldn't have 0 child after deleting")
-	}
-	switch newChild.(type) {
-	case *extendNode:
-		extendChild := newChild.(*extendNode)
-		// delete current node from db
-		extendChild.path = append(key[offset:offset+1], extendChild.path...)
-		return extendChild, nil
-	case *leafNode:
-		// delete current node from db
-		return newChild, nil
-	default:
-		return &extendNode{
-			path:      key[offset : offset+1],
-			childHash: hashTrieNode(newChild),
-		}, nil
-	}
+
+	return blake2b.Sum256(s), nil
 }
 
-func (b *branchNode) Upsert(ctx context.Context, key keyType, offset int, value []byte) (trieNode, error) {
-	var newChild trieNode
-	var err error
-	ok := int(key[offset])
-	if child := b.child(ctx, ok); child == nil {
-		newChild = &leafNode{
-			key:   key,
-			value: value,
-		}
-		// write into db
-	} else if newChild, err = child.Upsert(ctx, key, offset+1, value); err != nil {
-		return nil, err
-	}
-	b.children[ok] = hashTrieNode(newChild)
-	// update current node in db
-
-	return b, nil
-}
-
-func (b *branchNode) Search(ctx context.Context, key keyType, offset int) trieNode {
-	child := b.child(ctx, int(key[offset]))
-	if child == nil {
-		return nil
-	}
-	return child.Search(ctx, key, offset+1)
-}
-
-func (b *branchNode) Serialize() []byte {
-	return nil
-}
-
-func (b *branchNode) Deserialize(s []byte) error {
-	return nil
-}
-
-func (b *branchNode) Value() []byte {
-	return nil
-}
-
-type extendNode struct {
-	path      []byte
-	childHash hash.Hash32B
-}
-
-func (e *extendNode) Children(context.Context) []trieNode {
-	return []trieNode{e.child()}
-}
-
-func (e *extendNode) child() trieNode {
-	// load child from db
-	return nil
-}
-
-func (e *extendNode) match(key []byte) int {
-	match := 0
-	for match < len(e.path) && e.path[match] == key[match] {
+// key1 should not be longer than key2
+func commonPrefixLength(key1, key2 []byte) uint8 {
+	match := uint8(0)
+	len1 := uint8(len(key1))
+	for match < len1 && key1[match] == key2[match] {
 		match++
 	}
 
 	return match
 }
 
-func (e *extendNode) Delete(ctx context.Context, key keyType, offset int) (trieNode, error) {
-	matched := e.match(key[offset:])
-	if matched != len(e.path) {
-		return nil, ErrNotExist
-	}
-	child := e.child()
-	newChild, err := child.Delete(ctx, key, offset+matched)
+func deleteNodeFromDB(tc SameKeyLenTrieContext, tn Node) error {
+	h, err := nodeHash(tn)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	if newChild == nil {
-		// delete current node from db
-		return nil, nil
-	}
-	switch newChild.(type) {
-	case *extendNode:
-		extendChild := newChild.(*extendNode)
-		extendChild.path = append(e.path, extendChild.path...)
-		// delete current node from db
-		// update extendChild in db
-		return extendChild, nil
-	case *leafNode:
-		// delete current node from db
-		return newChild, nil
-	default:
-		e.childHash = hashTrieNode(newChild)
-		// update current node in db
-		return e, nil
-	}
+	tc.CB.Delete(tc.Bucket, h[:], "failed to delete key = %x", h)
+	return nil
 }
 
-func (e *extendNode) Upsert(ctx context.Context, key keyType, offset int, value []byte) (trieNode, error) {
-	matched := e.match(key[offset:])
-	if matched != len(e.path) {
-		b := &branchNode{}
-		eNode := &extendNode{
-			path:      e.path[matched+1:],
-			childHash: e.childHash,
-		}
-		// put into db
-		lNode := &leafNode{key: key, value: value}
-		// put into db
-		b.children[eNode.path[matched]] = hashTrieNode(eNode)
-		b.children[key[offset+matched]] = hashTrieNode(lNode)
-		// put into db
-		if matched == 0 {
-			return b, nil
-		}
-		e.path = e.path[:matched]
-		e.childHash = hashTrieNode(b)
-		// delete old and update new in db
-		return e, nil
-	}
-	child := e.child()
-	newChild, err := child.Upsert(ctx, key, offset+matched, value)
+func putNodeIntoDB(tc SameKeyLenTrieContext, tn Node) error {
+	h, err := nodeHash(tn)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	e.childHash = hashTrieNode(newChild)
-	// update current node in db
-
-	return e, nil
-}
-
-func (e *extendNode) Search(ctx context.Context, key keyType, offset int) trieNode {
-	matched := e.match(key[offset:])
-	if matched != len(e.path) {
+	if h == hash.ZeroHash32B {
+		return errors.New("zero hash is invalid")
+	}
+	if h == EmptyRoot {
+		// Hack for unit test
 		return nil
 	}
-
-	return e.child().Search(ctx, key, offset+matched)
-}
-
-func (e *extendNode) Serialize() []byte {
+	s, err := tn.serialize()
+	if err != nil {
+		return err
+	}
+	tc.CB.Put(tc.Bucket, h[:], s, "failed to put key = %x", h)
 	return nil
 }
 
-func (e *extendNode) Deserialize(s []byte) error {
-	return nil
-}
-
-func (e *extendNode) Value() []byte {
-	return nil
+func loadNodeFromDB(tc SameKeyLenTrieContext, key hash.Hash32B) (Node, error) {
+	if key == hash.ZeroHash32B {
+		return nil, errors.New("cannot fetch node for zero hash")
+	}
+	// Hack for unit test
+	if key == EmptyRoot {
+		return newEmptyBranchNode(), nil
+	}
+	s, err := tc.CB.Get(tc.Bucket, key[:])
+	if err != nil {
+		if s, err = tc.DB.Get(tc.Bucket, key[:]); err != nil {
+			return nil, errors.Wrapf(err, "failed to get key %x", key[:8])
+		}
+	}
+	pb := iproto.NodePb{}
+	if err := proto.Unmarshal(s, &pb); err != nil {
+		return nil, err
+	}
+	if pbBranch := pb.GetBranch(); pbBranch != nil {
+		return newBranchNodeFromProtoPb(pbBranch), nil
+	}
+	if pbLeaf := pb.GetLeaf(); pbLeaf != nil {
+		return newLeafNodeFromProtoPb(pbLeaf), nil
+	}
+	if pbExtend := pb.GetExtend(); pbExtend != nil {
+		return newExtensionNodeFromProtoPb(pbExtend), nil
+	}
+	return nil, errors.Wrap(ErrInvalidPatricia, "invalid node type")
 }
