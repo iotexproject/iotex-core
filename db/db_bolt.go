@@ -26,11 +26,6 @@ type boltDB struct {
 	config config.DB
 }
 
-// NewBoltDB instantiates a boltdb based KV store
-func NewBoltDB(path string, cfg config.DB) KVStore {
-	return &boltDB{db: nil, path: path, config: cfg}
-}
-
 // Start opens the BoltDB (creates new file if not existing yet)
 func (b *boltDB) Start(_ context.Context) error {
 	b.mutex.Lock()

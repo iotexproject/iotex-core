@@ -94,11 +94,8 @@ func DefaultTrieOption() Option {
 		if len(dbPath) == 0 {
 			return errors.New("Invalid empty trie db path")
 		}
-		if cfg.Chain.UseBadgerDB {
-			sf.dao = db.NewBadgerDB(dbPath, cfg.DB)
-		} else {
-			sf.dao = db.NewBoltDB(dbPath, cfg.DB)
-		}
+		cfg.DB.DbPath = dbPath // TODO: remove this after moving TrieDBPath from cfg.Chain to cfg.DB
+		sf.dao = db.NewOnDiskDB(cfg.DB)
 		sf.lifecycle.Add(sf.dao)
 		return nil
 	}

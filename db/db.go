@@ -13,6 +13,7 @@ import (
 	"github.com/boltdb/bolt"
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 )
 
@@ -139,4 +140,12 @@ func (m *memKVStore) Commit(b KVStoreBatch) (e error) {
 	}
 
 	return e
+}
+
+// NewOnDiskDB instantiates an on-disk KV store
+func NewOnDiskDB(cfg config.DB) KVStore {
+	if cfg.UseBadgerDB {
+		return &badgerDB{db: nil, path: cfg.DbPath, config: cfg}
+	}
+	return &boltDB{db: nil, path: cfg.DbPath, config: cfg}
 }

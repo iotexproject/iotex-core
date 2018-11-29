@@ -219,8 +219,8 @@ func PrecreatedDaoOption(dao *blockDAO) Option {
 // BoltDBDaoOption sets blockchain's dao with BoltDB from config.Chain.ChainDBPath
 func BoltDBDaoOption() Option {
 	return func(bc *blockchain, cfg config.Config) error {
-		bc.dao = newBlockDAO(db.NewBoltDB(cfg.Chain.ChainDBPath, cfg.DB), cfg.Explorer.Enabled)
-
+		cfg.DB.DbPath = cfg.Chain.ChainDBPath // TODO: remove this after moving TrieDBPath from cfg.Chain to cfg.DB
+		bc.dao = newBlockDAO(db.NewOnDiskDB(cfg.DB), cfg.Explorer.Enabled)
 		return nil
 	}
 }

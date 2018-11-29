@@ -67,17 +67,20 @@ func TestKVStorePutGet(t *testing.T) {
 	})
 
 	path := "test-kv-store.bolt"
+	cfg.DbPath = path
 	t.Run("Bolt DB", func(t *testing.T) {
 		testutil.CleanupPath(t, path)
 		defer testutil.CleanupPath(t, path)
-		testKVStorePutGet(NewBoltDB(path, cfg), t)
+		testKVStorePutGet(NewOnDiskDB(cfg), t)
 	})
 
 	path = "test-kv-store.badger"
+	cfg.DbPath = path
+	cfg.UseBadgerDB = true
 	t.Run("Badger DB", func(t *testing.T) {
 		testutil.CleanupPath(t, path)
 		defer testutil.CleanupPath(t, path)
-		testKVStorePutGet(NewBadgerDB(path, cfg), t)
+		testKVStorePutGet(NewOnDiskDB(cfg), t)
 	})
 }
 
@@ -126,17 +129,20 @@ func TestBatchRollback(t *testing.T) {
 	}
 
 	path := "test-batch-rollback.bolt"
+	cfg.DbPath = path
 	t.Run("Bolt DB", func(t *testing.T) {
 		testutil.CleanupPath(t, path)
 		defer testutil.CleanupPath(t, path)
-		testBatchRollback(NewBoltDB(path, cfg), t)
+		testBatchRollback(NewOnDiskDB(cfg), t)
 	})
 
 	path = "test-batch-rollback.badger"
+	cfg.DbPath = path
+	cfg.UseBadgerDB = true
 	t.Run("Badger DB", func(t *testing.T) {
 		testutil.CleanupPath(t, path)
 		defer testutil.CleanupPath(t, path)
-		testBatchRollback(NewBadgerDB(path, cfg), t)
+		testBatchRollback(NewOnDiskDB(cfg), t)
 	})
 }
 
@@ -258,17 +264,20 @@ func TestDBBatch(t *testing.T) {
 	}
 
 	path := "test-batch-commit.bolt"
+	cfg.DbPath = path
 	t.Run("Bolt DB", func(t *testing.T) {
 		testutil.CleanupPath(t, path)
 		defer testutil.CleanupPath(t, path)
-		testBatchRollback(NewBoltDB(path, cfg), t)
+		testBatchRollback(NewOnDiskDB(cfg), t)
 	})
 
 	path = "test-batch-commit.badger"
+	cfg.DbPath = path
+	cfg.UseBadgerDB = true
 	t.Run("Badger DB", func(t *testing.T) {
 		testutil.CleanupPath(t, path)
 		defer testutil.CleanupPath(t, path)
-		testBatchRollback(NewBadgerDB(path, cfg), t)
+		testBatchRollback(NewOnDiskDB(cfg), t)
 	})
 }
 
@@ -338,17 +347,20 @@ func TestCacheKV(t *testing.T) {
 	})
 
 	path := "test-cache-kv.bolt"
+	cfg.DbPath = path
 	t.Run("Bolt DB", func(t *testing.T) {
 		testutil.CleanupPath(t, path)
 		defer testutil.CleanupPath(t, path)
-		testFunc(NewBoltDB(path, cfg), t)
+		testFunc(NewOnDiskDB(cfg), t)
 	})
 
 	path = "test-cache-kv.badger"
+	cfg.DbPath = path
+	cfg.UseBadgerDB = true
 	t.Run("Badger DB", func(t *testing.T) {
 		testutil.CleanupPath(t, path)
 		defer testutil.CleanupPath(t, path)
-		testFunc(NewBadgerDB(path, cfg), t)
+		testFunc(NewOnDiskDB(cfg), t)
 	})
 }
 

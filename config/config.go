@@ -89,12 +89,10 @@ var (
 		Chain: Chain{
 			ChainDBPath:                  "/tmp/chain.db",
 			TrieDBPath:                   "/tmp/trie.db",
-			UseBadgerDB:                  false,
 			ID:                           1,
 			Address:                      "",
 			ProducerPubKey:               keypair.EncodePublicKey(keypair.ZeroPublicKey),
 			ProducerPrivKey:              keypair.EncodePrivateKey(keypair.ZeroPrivateKey),
-			InMemTest:                    false,
 			GenesisActionsPath:           "",
 			EmptyGenesis:                 false,
 			NumCandidates:                101,
@@ -157,7 +155,8 @@ var (
 			StartSubChainInterval: 10 * time.Second,
 		},
 		DB: DB{
-			NumRetries: 3,
+			UseBadgerDB: false,
+			NumRetries:  3,
 		},
 	}
 
@@ -212,17 +211,12 @@ type (
 
 	// Chain is the config struct for blockchain package
 	Chain struct {
-		ChainDBPath string `yaml:"chainDBPath"`
-		TrieDBPath  string `yaml:"trieDBPath"`
-		UseBadgerDB bool   `yaml:"useBadgerDB"`
-
-		ID              uint32 `yaml:"id"`
-		Address         string `yaml:"address"`
-		ProducerPubKey  string `yaml:"producerPubKey"`
-		ProducerPrivKey string `yaml:"producerPrivKey"`
-
-		// InMemTest creates in-memory DB file for local testing
-		InMemTest                    bool   `yaml:"inMemTest"`
+		ChainDBPath                  string `yaml:"chainDBPath"`
+		TrieDBPath                   string `yaml:"trieDBPath"`
+		ID                           uint32 `yaml:"id"`
+		Address                      string `yaml:"address"`
+		ProducerPubKey               string `yaml:"producerPubKey"`
+		ProducerPrivKey              string `yaml:"producerPrivKey"`
 		GenesisActionsPath           string `yaml:"genesisActionsPath"`
 		EmptyGenesis                 bool   `yaml:"emptyGenesis"`
 		NumCandidates                uint   `yaml:"numCandidates"`
@@ -316,12 +310,15 @@ type (
 		MaxNumActsToPick uint64 `yaml:"maxNumActsToPick"`
 	}
 
-	// DB is the blotDB config
+	// DB is the config for database
 	DB struct {
+		DbPath string `yaml:"dbPath"`
+		// Use BadgerDB, otherwise use BoltDB
+		UseBadgerDB bool `yaml:"useBadgerDB"`
 		// NumRetries is the number of retries
 		NumRetries uint8 `yaml:"numRetries"`
 
-		// RDS is the config fot rds
+		// RDS is the config for rds
 		RDS RDS `yaml:"RDS"`
 	}
 
