@@ -727,21 +727,23 @@ func TestRollDPoSConsensus(t *testing.T) {
 		p2ps := make([]*directOverlay, 0, numNodes)
 		cs := make([]*RollDPoS, 0, numNodes)
 		for i := 0; i < numNodes; i++ {
+			ctx := context.Background()
 			sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 			require.NoError(t, err)
+			require.NoError(t, sf.Start(ctx))
 			for j := 0; j < numNodes; j++ {
 				ws, err := sf.NewWorkingSet()
 				require.NoError(t, err)
 				_, err = ws.LoadOrCreateAccountState(chainRawAddrs[j], big.NewInt(0))
 				require.NoError(t, err)
 				gasLimit := testutil.TestGasLimit
-				ctx := state.WithRunActionsCtx(context.Background(),
+				wsctx := state.WithRunActionsCtx(ctx,
 					state.RunActionsCtx{
 						ProducerAddr:    testaddress.Addrinfo["producer"].RawAddress,
 						GasLimit:        &gasLimit,
 						EnableGasCharge: testutil.EnableGasCharge,
 					})
-				_, _, err = ws.RunActions(ctx, 0, nil)
+				_, _, err = ws.RunActions(wsctx, 0, nil)
 				require.NoError(t, err)
 				require.NoError(t, sf.Commit(ws))
 			}

@@ -78,17 +78,8 @@ func PrecreatedTrieDBOption(kv db.KVStore) Option {
 		if kv == nil {
 			return errors.New("Invalid empty trie db")
 		}
-		if err = kv.Start(context.Background()); err != nil {
-			return errors.Wrap(err, "failed to start trie db")
-		}
 		sf.dao = kv
-		// get state trie root
-		if sf.rootHash, err = sf.getRoot(trie.AccountKVNameSpace, AccountTrieRootKey); err != nil {
-			return errors.Wrap(err, "failed to get accountTrie's root hash from underlying DB")
-		}
-		if sf.accountTrie, err = trie.NewTrie(sf.dao, trie.AccountKVNameSpace, sf.rootHash); err != nil {
-			return errors.Wrap(err, "failed to generate accountTrie from config")
-		}
+		sf.lifecycle.Add(sf.dao)
 		return nil
 	}
 }
@@ -100,23 +91,12 @@ func DefaultTrieOption() Option {
 		if len(dbPath) == 0 {
 			return errors.New("Invalid empty trie db path")
 		}
-		var trieDB db.KVStore
 		if cfg.Chain.UseBadgerDB {
-			trieDB = db.NewBadgerDB(dbPath, cfg.DB)
+			sf.dao = db.NewBadgerDB(dbPath, cfg.DB)
 		} else {
-			trieDB = db.NewBoltDB(dbPath, cfg.DB)
+			sf.dao = db.NewBoltDB(dbPath, cfg.DB)
 		}
-		if err = trieDB.Start(context.Background()); err != nil {
-			return errors.Wrap(err, "failed to start trie db")
-		}
-		sf.dao = trieDB
-		// get state trie root
-		if sf.rootHash, err = sf.getRoot(trie.AccountKVNameSpace, AccountTrieRootKey); err != nil {
-			return errors.Wrap(err, "failed to get accountTrie's root hash from underlying DB")
-		}
-		if sf.accountTrie, err = trie.NewTrie(sf.dao, trie.AccountKVNameSpace, sf.rootHash); err != nil {
-			return errors.Wrap(err, "failed to generate accountTrie from config")
-		}
+		sf.lifecycle.Add(sf.dao)
 		return nil
 	}
 }
@@ -124,18 +104,8 @@ func DefaultTrieOption() Option {
 // InMemTrieOption creates in memory trie for state factory
 func InMemTrieOption() Option {
 	return func(sf *factory, cfg config.Config) (err error) {
-		trieDB := db.NewMemKVStore()
-		if err = trieDB.Start(context.Background()); err != nil {
-			return errors.Wrap(err, "failed to start trie db")
-		}
-		sf.dao = trieDB
-		// get state trie root
-		if sf.rootHash, err = sf.getRoot(trie.AccountKVNameSpace, AccountTrieRootKey); err != nil {
-			return errors.Wrap(err, "failed to get accountTrie's root hash from underlying DB")
-		}
-		if sf.accountTrie, err = trie.NewTrie(sf.dao, trie.AccountKVNameSpace, sf.rootHash); err != nil {
-			return errors.Wrap(err, "failed to generate accountTrie from config")
-		}
+		sf.dao = db.NewMemKVStore()
+		sf.lifecycle.Add(sf.dao)
 		return nil
 	}
 }
@@ -173,8 +143,19 @@ func NewFactory(cfg config.Config, opts ...Option) (Factory, error) {
 func (sf *factory) Start(ctx context.Context) error {
 	sf.mutex.Lock()
 	defer sf.mutex.Unlock()
+	var err error
+	if err = sf.lifecycle.OnStart(ctx); err != nil {
+		return err
+	}
+	// get state trie root
+	if sf.rootHash, err = sf.getRoot(trie.AccountKVNameSpace, AccountTrieRootKey); err != nil {
+		return errors.Wrap(err, "failed to get accountTrie's root hash from underlying DB")
+	}
+	if sf.accountTrie, err = trie.NewTrie(sf.dao, trie.AccountKVNameSpace, sf.rootHash); err != nil {
+		return errors.Wrap(err, "failed to generate accountTrie from config")
+	}
 
-	return sf.lifecycle.OnStart(ctx)
+	return sf.accountTrie.Start(ctx)
 }
 
 func (sf *factory) Stop(ctx context.Context) error {
