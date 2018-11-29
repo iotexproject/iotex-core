@@ -31,7 +31,7 @@ func TestEmptyTrie(t *testing.T) {
 	_, err := NewTrie(nil, "test", EmptyRoot)
 	require.Equal(ErrInvalidTrie, errors.Cause(err))
 
-	_, err = NewTrieSharedBatch(db.NewMemKVStore(), nil, "test", EmptyRoot)
+	_, err = NewTrie(db.NewMemKVStore(), "test", EmptyRoot, CachedBatchOption(nil))
 	require.Equal(ErrInvalidTrie, errors.Cause(err))
 
 	tr, err := NewTrie(db.NewMemKVStore(), "test", EmptyRoot)

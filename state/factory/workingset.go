@@ -82,7 +82,7 @@ func NewWorkingSet(
 		dao:              kv,
 		actionHandlers:   actionHandlers,
 	}
-	tr, err := trie.NewTrieSharedBatch(ws.dao, ws.cb, trie.AccountKVNameSpace, root)
+	tr, err := trie.NewTrie(ws.dao, trie.AccountKVNameSpace, root, trie.CachedBatchOption(ws.cb))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to generate state trie from config")
 	}
@@ -464,7 +464,7 @@ func (ws *workingSet) getContract(addr hash.PKHash) (Contract, error) {
 	if account.Root == hash.ZeroHash32B {
 		account.Root = trie.EmptyRoot
 	}
-	tr, err := trie.NewTrieSharedBatch(ws.dao, ws.cb, trie.ContractKVNameSpace, account.Root)
+	tr, err := trie.NewTrie(ws.dao, trie.ContractKVNameSpace, account.Root, trie.CachedBatchOption(ws.cb))
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create storage trie for new contract %x", addr)
 	}

@@ -70,35 +70,41 @@ type (
 	}
 )
 
+// Option defines the trie construction option
+type Option func(tr *trie) error
+
+// CachedBatchOption defines an option to set the cached batch
+func CachedBatchOption(batch db.CachedBatch) Option {
+	return func(tr *trie) error {
+		if batch == nil {
+			return errors.Wrapf(ErrInvalidTrie, "batch option cannot be nil")
+		}
+		tr.cb = batch
+		return nil
+	}
+}
+
 // NewTrie creates a trie with DB filename
-func NewTrie(kvStore db.KVStore, name string, root hash.Hash32B) (Trie, error) {
+func NewTrie(kvStore db.KVStore, name string, root hash.Hash32B, options ...Option) (Trie, error) {
 	if kvStore == nil {
 		return nil, errors.Wrapf(ErrInvalidTrie, "try to create trie with empty KV store")
 	}
 	t := &trie{
-		cb:        db.NewCachedBatch(),
 		dao:       kvStore,
 		rootHash:  root,
 		bucket:    name,
 		numEntry:  1,
 		numBranch: 1,
 	}
-	t.lifecycle.Add(kvStore)
-	return t, nil
-}
-
-// NewTrieSharedBatch creates a trie with a shared batch
-func NewTrieSharedBatch(kvStore db.KVStore, batch db.CachedBatch, name string, root hash.Hash32B) (Trie, error) {
-	if kvStore == nil || batch == nil {
-		return nil, errors.Wrapf(ErrInvalidTrie, "try to create trie with empty KV store")
+	for _, opt := range options {
+		if err := opt(t); err != nil {
+			return nil, err
+		}
 	}
-	t := &trie{
-		cb:        batch,
-		dao:       kvStore,
-		rootHash:  root,
-		bucket:    name,
-		numEntry:  1,
-		numBranch: 1}
+	if t.cb == nil {
+		t.cb = db.NewCachedBatch()
+	}
+	t.lifecycle.Add(kvStore)
 	return t, nil
 }
 
