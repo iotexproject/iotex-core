@@ -7,10 +7,7 @@
 package trie
 
 import (
-	"context"
-
 	"github.com/golang/protobuf/proto"
-	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
@@ -32,25 +29,25 @@ func newExtensionNodeFromProtoPb(pb *iproto.ExtendPb) *extensionNode {
 	}
 }
 
-func (e *extensionNode) Children(ctx context.Context) ([]Node, error) {
-	tc, ok := getSameKeyLenTrieContext(ctx)
-	if !ok {
-		return nil, errors.New("failed to get operation context")
-	}
+func (e *extensionNode) Type() NodeType {
+	return EXTENSION
+}
+
+func (e *extensionNode) Key() []byte {
+	return nil
+}
+
+func (e *extensionNode) Value() []byte {
+	return nil
+}
+
+func (e *extensionNode) children(tc SameKeyLenTrieContext) ([]Node, error) {
 	child, err := e.child(tc)
 	if err != nil {
 		return nil, err
 	}
 
 	return []Node{child}, nil
-}
-
-func (e *extensionNode) Type() NodeType {
-	return EXTENSION
-}
-
-func (e *extensionNode) Value() []byte {
-	return nil
 }
 
 func (e *extensionNode) delete(tc SameKeyLenTrieContext, key keyType, offset uint8) (Node, error) {
