@@ -765,9 +765,6 @@ func (bc *blockchain) ExecuteContractRead(ex *action.Execution) (*action.Receipt
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get block in ExecuteContractRead")
 	}
-	blk.Actions = nil
-	blk.Actions = []action.Action{ex}
-	blk.Receipts = nil
 	ws, err := bc.sf.NewWorkingSet()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to obtain working set from state factory")
@@ -1001,10 +998,6 @@ func (bc *blockchain) runActions(blk *Block, ws factory.WorkingSet, verify bool)
 		return hash.ZeroHash32B, errors.New("statefactory cannot be nil")
 	}
 	gasLimit := GasLimit
-	// run executions
-	//if _, _, executions := action.ClassifyActions(blk.Actions); len(executions) > 0 {
-	//	ExecuteContracts(blk, ws, bc, &gasLimit, bc.config.Chain.EnableGasCharge)
-	//}
 	// update state factory
 	ctx := state.WithRunActionsCtx(context.Background(),
 		state.RunActionsCtx{

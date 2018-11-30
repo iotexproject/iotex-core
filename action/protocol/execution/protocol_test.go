@@ -29,6 +29,11 @@ import (
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
+const (
+	testDBPath   = "db.test"
+	testTriePath = "trie.test"
+)
+
 func TestProtocol_Handle(t *testing.T) {
 	testEVM := func(t *testing.T) {
 		logger.Info().Msgf("Test EVM")

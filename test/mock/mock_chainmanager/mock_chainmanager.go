@@ -319,14 +319,14 @@ func (mr *MockStateManagerMockRecorder) GetDB() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDB", reflect.TypeOf((*MockStateManager)(nil).GetDB))
 }
 
-// GetCB mocks base method
-func (m *MockStateManager) GetCB() db.CachedBatch {
-	ret := m.ctrl.Call(m, "GetCB")
+// GetCachedBatch mocks base method
+func (m *MockStateManager) GetCachedBatch() db.CachedBatch {
+	ret := m.ctrl.Call(m, "GetCachedBatch")
 	ret0, _ := ret[0].(db.CachedBatch)
 	return ret0
 }
 
-// GetCB indicates an expected call of GetCB
-func (mr *MockStateManagerMockRecorder) GetCB() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCB", reflect.TypeOf((*MockStateManager)(nil).GetCB))
+// GetCachedBatch indicates an expected call of GetCachedBatch
+func (mr *MockStateManagerMockRecorder) GetCachedBatch() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCachedBatch", reflect.TypeOf((*MockStateManager)(nil).GetCachedBatch))
 }

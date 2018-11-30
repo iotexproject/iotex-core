@@ -44,7 +44,7 @@ type (
 		PutState(hash.PKHash, interface{}) error
 		CachedState(hash.PKHash, state.State) (state.State, error)
 		GetDB() db.KVStore
-		GetCB() db.CachedBatch
+		GetCachedBatch() db.CachedBatch
 	}
 
 	// workingSet implements Workingset interface, tracks pending changes to account/contract in local cache
@@ -279,8 +279,8 @@ func (ws *workingSet) GetDB() db.KVStore {
 	return ws.dao
 }
 
-// GetCB returns the cached batch for pending writes
-func (ws *workingSet) GetCB() db.CachedBatch {
+// GetCachedBatch returns the cached batch for pending writes
+func (ws *workingSet) GetCachedBatch() db.CachedBatch {
 	return ws.cb
 }
 

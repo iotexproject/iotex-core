@@ -55,7 +55,7 @@ func TestCreateContract(t *testing.T) {
 		sm:             ws,
 		cachedContract: make(map[hash.PKHash]Contract),
 		dao:            ws.GetDB(),
-		cb:             ws.GetCB(),
+		cb:             ws.GetCachedBatch(),
 	}
 	contractHash, _ := iotxaddress.GetPubkeyHash(addr.RawAddress)
 	contract := byteutil.BytesTo20B(contractHash)
@@ -108,7 +108,7 @@ func TestCreateContract(t *testing.T) {
 		sm:             ws,
 		cachedContract: make(map[hash.PKHash]Contract),
 		dao:            ws.GetDB(),
-		cb:             ws.GetCB(),
+		cb:             ws.GetCachedBatch(),
 	}
 	// contract already exist
 	h = stateDB.GetCodeHash(evmContract)
@@ -140,7 +140,7 @@ func TestLoadStoreContract(t *testing.T) {
 		sm:             ws,
 		cachedContract: make(map[hash.PKHash]Contract),
 		dao:            ws.GetDB(),
-		cb:             ws.GetCB(),
+		cb:             ws.GetCachedBatch(),
 	}
 	contractHash, _ := iotxaddress.GetPubkeyHash(addr.RawAddress)
 	contract := byteutil.BytesTo20B(contractHash)
@@ -208,7 +208,7 @@ func TestLoadStoreContract(t *testing.T) {
 		sm:             ws,
 		cachedContract: make(map[hash.PKHash]Contract),
 		dao:            ws.GetDB(),
-		cb:             ws.GetCB(),
+		cb:             ws.GetCachedBatch(),
 	}
 
 	w, err := stateDB.getContractState(contract, k1)

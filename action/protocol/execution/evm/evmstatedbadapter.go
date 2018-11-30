@@ -52,7 +52,7 @@ func NewStateDBAdapter(cm protocol.ChainManager, sm protocol.StateManager, block
 		executionHash:  executionHash,
 		cachedContract: make(map[hash.PKHash]Contract),
 		dao:            sm.GetDB(),
-		cb:             sm.GetCB(),
+		cb:             sm.GetCachedBatch(),
 	}
 }
 
