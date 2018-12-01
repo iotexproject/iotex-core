@@ -55,7 +55,7 @@ type actPool struct {
 }
 
 // GenericValidator is the validator for generic action verification
-type GenericValidator struct{ bc blockchain.Blockchain }
+type GenericValidator struct{ cm protocol.ChainManager }
 
 // NewActPool constructs a new actpool
 func NewActPool(bc blockchain.Blockchain, cfg config.ActPool) (ActPool, error) {
@@ -72,7 +72,7 @@ func NewActPool(bc blockchain.Blockchain, cfg config.ActPool) (ActPool, error) {
 }
 
 // NewGenericValidator constructs a new genericValidator
-func NewGenericValidator(bc blockchain.Blockchain) *GenericValidator { return &GenericValidator{bc} }
+func NewGenericValidator(cm protocol.ChainManager) *GenericValidator { return &GenericValidator{cm} }
 
 // AddActionValidators add validators
 func (ap *actPool) AddActionValidators(validators ...protocol.ActionValidator) {
@@ -331,7 +331,7 @@ func (v *GenericValidator) Validate(_ context.Context, act action.Action) error 
 		return errors.Wrap(err, "failed to verify action signature")
 	}
 	// Reject action if nonce is too low
-	confirmedNonce, err := v.bc.Nonce(act.SrcAddr())
+	confirmedNonce, err := v.cm.Nonce(act.SrcAddr())
 	if err != nil {
 		return errors.Wrapf(err, "invalid nonce value of account %s", act.SrcAddr())
 	}

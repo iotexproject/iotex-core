@@ -18,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/crypto"
@@ -764,23 +765,14 @@ func (bc *blockchain) ExecuteContractRead(ex *action.Execution) (*action.Receipt
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get block in ExecuteContractRead")
 	}
-	blk.Actions = nil
-	blk.Actions = []action.Action{ex}
-	blk.receipts = nil
 	ws, err := bc.sf.NewWorkingSet()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to obtain working set from state factory")
 	}
 	gasLimit := GasLimit
 	gasLimitPtr := &gasLimit
-	ExecuteContracts(blk, ws, bc, gasLimitPtr, bc.config.Chain.EnableGasCharge)
-	// pull the results from receipt
-	exHash := ex.Hash()
-	receipt, ok := blk.receipts[exHash]
-	if !ok {
-		return nil, errors.Wrap(err, "failed to get receipt in ExecuteContractRead")
-	}
-	return receipt, nil
+	return evm.ExecuteContract(blk.Height(), blk.HashBlock(), blk.Header.Pubkey, blk.Header.Timestamp().Unix(), ws, ex, bc,
+		gasLimitPtr, bc.config.Chain.EnableGasCharge)
 }
 
 // CreateState adds a new account with initial balance to the factory
@@ -1001,18 +993,18 @@ func (bc *blockchain) commitBlock(blk *Block) error {
 }
 
 func (bc *blockchain) runActions(blk *Block, ws factory.WorkingSet, verify bool) (hash.Hash32B, error) {
-	blk.receipts = make(map[hash.Hash32B]*action.Receipt)
+	blk.Receipts = make(map[hash.Hash32B]*action.Receipt)
 	if bc.sf == nil {
 		return hash.ZeroHash32B, errors.New("statefactory cannot be nil")
 	}
 	gasLimit := GasLimit
-	// run executions
-	if _, _, executions := action.ClassifyActions(blk.Actions); len(executions) > 0 {
-		ExecuteContracts(blk, ws, bc, &gasLimit, bc.config.Chain.EnableGasCharge)
-	}
 	// update state factory
 	ctx := state.WithRunActionsCtx(context.Background(),
 		state.RunActionsCtx{
+			BlockHeight:     blk.Height(),
+			BlockHash:       blk.HashBlock(),
+			ProducerPubKey:  blk.Header.Pubkey,
+			BlockTimeStamp:  blk.Header.Timestamp().Unix(),
 			ProducerAddr:    blk.ProducerAddress(),
 			GasLimit:        &gasLimit,
 			EnableGasCharge: bc.config.Chain.EnableGasCharge,
@@ -1028,7 +1020,7 @@ func (bc *blockchain) runActions(blk *Block, ws factory.WorkingSet, verify bool)
 		}
 	}
 	for hash, receipt := range receipts {
-		blk.receipts[hash] = receipt
+		blk.Receipts[hash] = receipt
 	}
 	return root, nil
 }

@@ -8,6 +8,7 @@ import (
 	context "context"
 	gomock "github.com/golang/mock/gomock"
 	action "github.com/iotexproject/iotex-core/action"
+	db "github.com/iotexproject/iotex-core/db"
 	hash "github.com/iotexproject/iotex-core/pkg/hash"
 	state "github.com/iotexproject/iotex-core/state"
 	big "math/big"
@@ -102,69 +103,6 @@ func (mr *MockWorkingSetMockRecorder) Commit() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockWorkingSet)(nil).Commit))
 }
 
-// GetCodeHash mocks base method
-func (m *MockWorkingSet) GetCodeHash(arg0 hash.PKHash) (hash.Hash32B, error) {
-	ret := m.ctrl.Call(m, "GetCodeHash", arg0)
-	ret0, _ := ret[0].(hash.Hash32B)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetCodeHash indicates an expected call of GetCodeHash
-func (mr *MockWorkingSetMockRecorder) GetCodeHash(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCodeHash", reflect.TypeOf((*MockWorkingSet)(nil).GetCodeHash), arg0)
-}
-
-// GetCode mocks base method
-func (m *MockWorkingSet) GetCode(arg0 hash.PKHash) ([]byte, error) {
-	ret := m.ctrl.Call(m, "GetCode", arg0)
-	ret0, _ := ret[0].([]byte)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetCode indicates an expected call of GetCode
-func (mr *MockWorkingSetMockRecorder) GetCode(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCode", reflect.TypeOf((*MockWorkingSet)(nil).GetCode), arg0)
-}
-
-// SetCode mocks base method
-func (m *MockWorkingSet) SetCode(arg0 hash.PKHash, arg1 []byte) error {
-	ret := m.ctrl.Call(m, "SetCode", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetCode indicates an expected call of SetCode
-func (mr *MockWorkingSetMockRecorder) SetCode(arg0, arg1 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCode", reflect.TypeOf((*MockWorkingSet)(nil).SetCode), arg0, arg1)
-}
-
-// GetContractState mocks base method
-func (m *MockWorkingSet) GetContractState(arg0 hash.PKHash, arg1 hash.Hash32B) (hash.Hash32B, error) {
-	ret := m.ctrl.Call(m, "GetContractState", arg0, arg1)
-	ret0, _ := ret[0].(hash.Hash32B)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetContractState indicates an expected call of GetContractState
-func (mr *MockWorkingSetMockRecorder) GetContractState(arg0, arg1 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContractState", reflect.TypeOf((*MockWorkingSet)(nil).GetContractState), arg0, arg1)
-}
-
-// SetContractState mocks base method
-func (m *MockWorkingSet) SetContractState(arg0 hash.PKHash, arg1, arg2 hash.Hash32B) error {
-	ret := m.ctrl.Call(m, "SetContractState", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetContractState indicates an expected call of SetContractState
-func (mr *MockWorkingSetMockRecorder) SetContractState(arg0, arg1, arg2 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetContractState", reflect.TypeOf((*MockWorkingSet)(nil).SetContractState), arg0, arg1, arg2)
-}
-
 // RootHash mocks base method
 func (m *MockWorkingSet) RootHash() hash.Hash32B {
 	ret := m.ctrl.Call(m, "RootHash")
@@ -238,12 +176,26 @@ func (mr *MockWorkingSetMockRecorder) CachedState(arg0, arg1 interface{}) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CachedState", reflect.TypeOf((*MockWorkingSet)(nil).CachedState), arg0, arg1)
 }
 
-// UpdateCachedStates mocks base method
-func (m *MockWorkingSet) UpdateCachedStates(arg0 hash.PKHash, arg1 *state.Account) {
-	m.ctrl.Call(m, "UpdateCachedStates", arg0, arg1)
+// GetDB mocks base method
+func (m *MockWorkingSet) GetDB() db.KVStore {
+	ret := m.ctrl.Call(m, "GetDB")
+	ret0, _ := ret[0].(db.KVStore)
+	return ret0
 }
 
-// UpdateCachedStates indicates an expected call of UpdateCachedStates
-func (mr *MockWorkingSetMockRecorder) UpdateCachedStates(arg0, arg1 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateCachedStates", reflect.TypeOf((*MockWorkingSet)(nil).UpdateCachedStates), arg0, arg1)
+// GetDB indicates an expected call of GetDB
+func (mr *MockWorkingSetMockRecorder) GetDB() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDB", reflect.TypeOf((*MockWorkingSet)(nil).GetDB))
+}
+
+// GetCachedBatch mocks base method
+func (m *MockWorkingSet) GetCachedBatch() db.CachedBatch {
+	ret := m.ctrl.Call(m, "GetCachedBatch")
+	ret0, _ := ret[0].(db.CachedBatch)
+	return ret0
+}
+
+// GetCachedBatch indicates an expected call of GetCachedBatch
+func (mr *MockWorkingSetMockRecorder) GetCachedBatch() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCachedBatch", reflect.TypeOf((*MockWorkingSet)(nil).GetCachedBatch))
 }

@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package blockchain
+package evm
 
 import (
 	"math"
@@ -16,12 +16,16 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
-	"github.com/iotexproject/iotex-core/state/factory"
 )
+
+// GasLimit is the total gas limit could be consumed in a block
+const GasLimit = uint64(1000000000)
 
 // ErrInconsistentNonce is the error that the nonce is different from executor's nonce
 var ErrInconsistentNonce = errors.New("Nonce is not identical to executor nonce")
@@ -44,8 +48,8 @@ const (
 	SuccessStatus = uint64(1)
 )
 
-// EVMParams is the context and parameters
-type EVMParams struct {
+// Params is the context and parameters
+type Params struct {
 	context            vm.Context
 	nonce              uint64
 	executorRawAddress string
@@ -55,8 +59,8 @@ type EVMParams struct {
 	data               []byte
 }
 
-// NewEVMParams creates a new context for use in the EVM.
-func NewEVMParams(blk *Block, execution *action.Execution, stateDB *EVMStateDBAdapter) (*EVMParams, error) {
+// NewParams creates a new context for use in the EVM.
+func NewParams(blkHeight uint64, producerPubKey keypair.PublicKey, blkTimeStamp int64, execution *action.Execution, stateDB *StateDBAdapter) (*Params, error) {
 	// If we don't have an explicit author (i.e. not mining), extract from the header
 	/*
 		var beneficiary common.Address
@@ -80,7 +84,7 @@ func NewEVMParams(blk *Block, execution *action.Execution, stateDB *EVMStateDBAd
 		contractAddr := common.BytesToAddress(contractHash)
 		contractAddrPointer = &contractAddr
 	}
-	producerHash := keypair.HashPubKey(blk.Header.Pubkey)
+	producerHash := keypair.HashPubKey(producerPubKey)
 	producer := common.BytesToAddress(producerHash[:])
 	context := vm.Context{
 		CanTransfer: CanTransfer,
@@ -88,14 +92,14 @@ func NewEVMParams(blk *Block, execution *action.Execution, stateDB *EVMStateDBAd
 		GetHash:     GetHashFn(stateDB),
 		Origin:      executorAddr,
 		Coinbase:    producer,
-		BlockNumber: new(big.Int).SetUint64(blk.Height()),
-		Time:        new(big.Int).SetInt64(blk.Header.Timestamp().Unix()),
+		BlockNumber: new(big.Int).SetUint64(blkHeight),
+		Time:        new(big.Int).SetInt64(blkTimeStamp),
 		Difficulty:  new(big.Int).SetUint64(uint64(50)),
 		GasLimit:    GasLimit,
 		GasPrice:    execution.GasPrice(),
 	}
 
-	return &EVMParams{
+	return &Params{
 		context,
 		execution.Nonce(),
 		execution.Executor(),
@@ -107,9 +111,9 @@ func NewEVMParams(blk *Block, execution *action.Execution, stateDB *EVMStateDBAd
 }
 
 // GetHashFn returns a GetHashFunc which retrieves hashes by number
-func GetHashFn(stateDB *EVMStateDBAdapter) func(n uint64) common.Hash {
+func GetHashFn(stateDB *StateDBAdapter) func(n uint64) common.Hash {
 	return func(n uint64) common.Hash {
-		hash, err := stateDB.bc.GetHashByHeight(stateDB.blockHeight - n)
+		hash, err := stateDB.cm.GetHashByHeight(stateDB.blockHeight - n)
 		if err != nil {
 			return common.BytesToHash(hash[:])
 		}
@@ -118,7 +122,7 @@ func GetHashFn(stateDB *EVMStateDBAdapter) func(n uint64) common.Hash {
 	}
 }
 
-func securityDeposit(ps *EVMParams, stateDB vm.StateDB, gasLimit *uint64) error {
+func securityDeposit(ps *Params, stateDB vm.StateDB, gasLimit *uint64) error {
 	executorNonce := stateDB.GetNonce(ps.context.Origin)
 	if executorNonce > ps.nonce {
 		logger.Error().Msgf("Nonce on %v: %d vs %d", ps.context.Origin, executorNonce, ps.nonce)
@@ -137,29 +141,20 @@ func securityDeposit(ps *EVMParams, stateDB vm.StateDB, gasLimit *uint64) error 
 	return nil
 }
 
-// ExecuteContracts process the contracts in a block
-func ExecuteContracts(blk *Block, ws factory.WorkingSet, bc Blockchain, gasLimit *uint64, enableGasCharge bool) {
-	_, _, executions := action.ClassifyActions(blk.Actions)
-	for idx, execution := range executions {
-		// TODO (zhi) log receipt to stateDB
-		if receipt, _ := executeContract(blk, ws, idx, execution, bc, gasLimit, enableGasCharge); receipt != nil {
-			blk.receipts[execution.Hash()] = receipt
-		}
-	}
-}
-
-// executeContract processes a transfer which contains a contract
-func executeContract(
-	blk *Block,
-	ws factory.WorkingSet,
-	idx int,
+// ExecuteContract processes a transfer which contains a contract
+func ExecuteContract(
+	blkHeight uint64,
+	blkHash hash.Hash32B,
+	producerPubKey keypair.PublicKey,
+	blkTimeStamp int64,
+	sm protocol.StateManager,
 	execution *action.Execution,
-	bc Blockchain,
+	cm protocol.ChainManager,
 	gasLimit *uint64,
 	enableGasCharge bool,
 ) (*action.Receipt, error) {
-	stateDB := NewEVMStateDBAdapter(bc, ws, blk.Height(), blk.HashBlock(), uint(idx), execution.Hash())
-	ps, err := NewEVMParams(blk, execution, stateDB)
+	stateDB := NewStateDBAdapter(cm, sm, blkHeight, blkHash, execution.Hash())
+	ps, err := NewParams(blkHeight, producerPubKey, blkTimeStamp, execution, stateDB)
 	if err != nil {
 		return nil, err
 	}
@@ -188,6 +183,11 @@ func executeContract(
 		gasValue := new(big.Int).Mul(new(big.Int).SetUint64(depositGas-remainingGas), ps.context.GasPrice)
 		stateDB.AddBalance(ps.context.Coinbase, gasValue)
 	}
+
+	if err := stateDB.commitContracts(); err != nil {
+		return nil, errors.Wrap(err, "failed to commit contracts to underlying db")
+	}
+	stateDB.clearCachedContracts()
 	receipt.Logs = stateDB.Logs()
 	logger.Debug().Msgf("Receipt: %+v, %v", receipt, err)
 	return receipt, err
@@ -201,7 +201,7 @@ func getChainConfig() *params.ChainConfig {
 	return &chainConfig
 }
 
-func executeInEVM(evmParams *EVMParams, stateDB *EVMStateDBAdapter, gasLimit *uint64) ([]byte, uint64, uint64, string, error) {
+func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, gasLimit *uint64) ([]byte, uint64, uint64, string, error) {
 	remainingGas := evmParams.gas
 	if err := securityDeposit(evmParams, stateDB, gasLimit); err != nil {
 		return nil, 0, 0, action.EmptyAddress, err
@@ -228,7 +228,7 @@ func executeInEVM(evmParams *EVMParams, stateDB *EVMStateDBAdapter, gasLimit *ui
 		if err != nil {
 			return nil, evmParams.gas, remainingGas, action.EmptyAddress, err
 		}
-		contractAddress := address.New(stateDB.bc.ChainID(), evmContractAddress.Bytes())
+		contractAddress := address.New(stateDB.cm.ChainID(), evmContractAddress.Bytes())
 		contractRawAddress = contractAddress.IotxAddress()
 	} else {
 		// process contract
