@@ -10,11 +10,14 @@ import (
 	"context"
 	"sync"
 
+	"github.com/boltdb/bolt"
+	"github.com/dgraph-io/badger"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
 var (
@@ -60,6 +63,7 @@ type (
 		mutex     sync.RWMutex
 		root      patricia
 		rootHash  hash.Hash32B
+		rootKey   string
 		bucket    string // bucket name to store the nodes
 		numEntry  uint64 // number of entries added to the trie
 		numBranch uint64
@@ -84,7 +88,32 @@ func CachedBatchOption(batch db.CachedBatch) Option {
 	}
 }
 
-// NewTrie creates a trie with DB filename
+// NewTrieWithKey creates a trie with DB and root key
+func NewTrieWithKey(kvStore db.KVStore, name string, key string, options ...Option) (Trie, error) {
+	if kvStore == nil {
+		return nil, errors.Wrapf(ErrInvalidTrie, "trie to create trie with empty KV store")
+	}
+	t := &trie{
+		dao:       kvStore,
+		rootHash:  EmptyRoot,
+		rootKey:   key,
+		bucket:    name,
+		numEntry:  1,
+		numBranch: 1,
+	}
+	for _, opt := range options {
+		if err := opt(t); err != nil {
+			return nil, err
+		}
+	}
+	if t.cb == nil {
+		t.cb = db.NewCachedBatch()
+	}
+	t.lifecycle.Add(kvStore)
+	return t, nil
+}
+
+// NewTrie creates a trie with DB and root hash
 func NewTrie(kvStore db.KVStore, name string, root hash.Hash32B, options ...Option) (Trie, error) {
 	if kvStore == nil {
 		return nil, errors.Wrapf(ErrInvalidTrie, "try to create trie with empty KV store")
@@ -92,6 +121,7 @@ func NewTrie(kvStore db.KVStore, name string, root hash.Hash32B, options ...Opti
 	t := &trie{
 		dao:       kvStore,
 		rootHash:  root,
+		rootKey:   "",
 		bucket:    name,
 		numEntry:  1,
 		numBranch: 1,
@@ -109,10 +139,23 @@ func NewTrie(kvStore db.KVStore, name string, root hash.Hash32B, options ...Opti
 }
 
 func (t *trie) Start(ctx context.Context) error {
-	t.lifecycle.OnStart(ctx)
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
-
+	if err := t.lifecycle.OnStart(ctx); err != nil {
+		return err
+	}
+	if t.rootKey != "" {
+		switch root, err := t.dao.Get(t.bucket, []byte(t.rootKey)); errors.Cause(err) {
+		case nil:
+			t.rootHash = byteutil.BytesTo32B(root)
+		case bolt.ErrBucketNotFound:
+			t.rootHash = EmptyRoot
+		case badger.ErrKeyNotFound:
+			t.rootHash = EmptyRoot
+		default:
+			return err
+		}
+	}
 	if t.rootHash != EmptyRoot {
 		var err error
 		t.root, err = getPatricia(t.rootHash[:], t.dao, t.bucket, t.cb)
