@@ -268,6 +268,7 @@ func TestCandidates(t *testing.T) {
 	cfg.Chain.NumCandidates = 2
 	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(testTriePath, cfg.DB)))
 	require.NoError(t, err)
+	require.NoError(t, sf.Start(context.Background()))
 	ws, err := sf.NewWorkingSet()
 	require.NoError(t, err)
 	_, err = ws.LoadOrCreateAccountState(a.RawAddress, big.NewInt(100))
@@ -745,6 +746,7 @@ func TestCandidatesByHeight(t *testing.T) {
 	require.Nil(t, err)
 	sf, ok := f.(*factory)
 	require.True(t, ok)
+	require.NoError(t, sf.Start(context.Background()))
 
 	cand1 := &state.Candidate{
 		Address: "Alpha",
@@ -805,6 +807,7 @@ func TestUnvote(t *testing.T) {
 	require.NoError(t, err)
 	sf, ok := f.(*factory)
 	require.True(t, ok)
+	require.NoError(t, sf.Start(context.Background()))
 
 	ws, err := sf.NewWorkingSet()
 	require.NoError(t, err)
