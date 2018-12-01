@@ -16,7 +16,6 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
-	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -32,12 +31,12 @@ const (
 
 // Protocol defines the protocol of handling votes
 type Protocol struct {
-	bc               blockchain.Blockchain
+	cm               protocol.ChainManager
 	cachedCandidates map[hash.PKHash]*state.Candidate
 }
 
 // NewProtocol instantiates the protocol of vote
-func NewProtocol(bc blockchain.Blockchain) *Protocol { return &Protocol{bc: bc} }
+func NewProtocol(cm protocol.ChainManager) *Protocol { return &Protocol{cm: cm} }
 
 // Handle handles a vote
 func (p *Protocol) Handle(_ context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
@@ -161,7 +160,7 @@ func (p *Protocol) Validate(_ context.Context, act action.Action) error {
 	}
 	if vote.Votee() != "" {
 		// Reject vote if votee is not a candidate
-		voteeState, err := p.bc.StateByAddr(vote.Votee())
+		voteeState, err := p.cm.StateByAddr(vote.Votee())
 		if err != nil {
 			return errors.Wrapf(err, "cannot find votee's state: %s", vote.Votee())
 		}

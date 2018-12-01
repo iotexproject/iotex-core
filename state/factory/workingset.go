@@ -35,12 +35,6 @@ type (
 		CachedAccountState(string) (*state.Account, error)
 		RunActions(context.Context, uint64, []action.Action) (hash.Hash32B, map[hash.Hash32B]*action.Receipt, error)
 		Commit() error
-		// contracts
-		GetCodeHash(hash.PKHash) (hash.Hash32B, error)
-		GetCode(hash.PKHash) ([]byte, error)
-		SetCode(hash.PKHash, []byte) error
-		GetContractState(hash.PKHash, hash.Hash32B) (hash.Hash32B, error)
-		SetContractState(hash.PKHash, hash.Hash32B, hash.Hash32B) error
 		// Accounts
 		RootHash() hash.Hash32B
 		Version() uint64
@@ -49,7 +43,8 @@ type (
 		State(hash.PKHash, interface{}) error
 		PutState(hash.PKHash, interface{}) error
 		CachedState(hash.PKHash, state.State) (state.State, error)
-		UpdateCachedStates(hash.PKHash, *state.Account)
+		GetDB() db.KVStore
+		GetCachedBatch() db.CachedBatch
 	}
 
 	// workingSet implements Workingset interface, tracks pending changes to account/contract in local cache
@@ -58,7 +53,6 @@ type (
 		blkHeight        uint64
 		cachedCandidates map[hash.PKHash]*state.Candidate
 		cachedStates     map[hash.PKHash]state.State // states being modified in this block
-		cachedContract   map[hash.PKHash]Contract    // contracts being modified in this block
 		accountTrie      trie.Trie                   // global account state trie
 		cb               db.CachedBatch              // cached batch for pending writes
 		dao              db.KVStore                  // the underlying DB for account/contract storage
@@ -77,7 +71,6 @@ func NewWorkingSet(
 		ver:              version,
 		cachedCandidates: make(map[hash.PKHash]*state.Candidate),
 		cachedStates:     make(map[hash.PKHash]state.State),
-		cachedContract:   make(map[hash.PKHash]Contract),
 		cb:               db.NewCachedBatch(),
 		dao:              kv,
 		actionHandlers:   actionHandlers,
@@ -137,9 +130,6 @@ func (ws *workingSet) CachedAccountState(addr string) (*state.Account, error) {
 	if err != nil {
 		return nil, err
 	}
-	if contract, ok := ws.cachedContract[addrHash]; ok {
-		return contract.SelfState(), nil
-	}
 	state, err := ws.CachedState(addrHash, &state.Account{})
 	if err != nil {
 		return nil, err
@@ -186,18 +176,17 @@ func (ws *workingSet) RunActions(
 		}
 	}
 
+	tsfs, votes, _ := action.ClassifyActions(actions)
 	raCtx, ok := state.GetRunActionsCtx(ctx)
 	if !ok {
 		return hash.ZeroHash32B, nil,
 			errors.New("failed to get RunActionsCtx")
 	}
-
 	// check producer
 	producer, err := ws.LoadOrCreateAccountState(raCtx.ProducerAddr, big.NewInt(0))
 	if err != nil {
 		return hash.ZeroHash32B, nil, errors.Wrapf(err, "failed to load or create the account of block producer %s", raCtx.ProducerAddr)
 	}
-	tsfs, votes, executions := action.ClassifyActions(actions)
 	if err := ws.handleTsf(producer, tsfs, raCtx.GasLimit, raCtx.EnableGasCharge); err != nil {
 		return hash.ZeroHash32B, nil, errors.Wrap(err, "failed to handle transfers")
 	}
@@ -232,39 +221,6 @@ func (ws *workingSet) RunActions(
 			totalWeight.Add(totalWeight, account.Balance)
 		}
 		ws.updateCandidate(addr, totalWeight, blockHeight)
-	}
-	// update pending contract changes
-	for addr, contract := range ws.cachedContract {
-		if err := contract.Commit(); err != nil {
-			return hash.ZeroHash32B, nil, errors.Wrap(err, "failed to update pending contract changes")
-		}
-		state := contract.SelfState()
-		// store the account (with new storage trie root) into account trie
-		if err := ws.PutState(addr, state); err != nil {
-			return hash.ZeroHash32B, nil,
-				errors.Wrap(err, "failed to update pending contract account changes to trie")
-		}
-	}
-	// increase Executor's Nonce for every execution in this block
-	for _, e := range executions {
-		executorPKHash, err := iotxaddress.AddressToPKHash(e.Executor())
-		if err != nil {
-			return hash.ZeroHash32B, nil, err
-		}
-		state, err := ws.CachedState(executorPKHash, &state.Account{})
-		if err != nil {
-			return hash.ZeroHash32B, nil, errors.Wrap(err, "executor does not exist")
-		}
-		account, err := stateToAccountState(state)
-		if err != nil {
-			return hash.ZeroHash32B, nil, err
-		}
-		if e.Nonce() > account.Nonce {
-			account.Nonce = e.Nonce()
-		}
-		if err := ws.PutState(executorPKHash, state); err != nil {
-			return hash.ZeroHash32B, nil, errors.Wrap(err, "failed to update pending account changes to trie")
-		}
 	}
 
 	// Handle actions
@@ -318,84 +274,14 @@ func (ws *workingSet) Commit() error {
 	return nil
 }
 
-// UpdateCachedStates updates cached states
-func (ws *workingSet) UpdateCachedStates(pkHash hash.PKHash, account *state.Account) {
-	ws.cachedStates[pkHash] = account
+// GetDB returns the underlying DB for account/contract storage
+func (ws *workingSet) GetDB() db.KVStore {
+	return ws.dao
 }
 
-//======================================
-// Contract functions
-//======================================
-// GetCodeHash returns contract's code hash
-func (ws *workingSet) GetCodeHash(addr hash.PKHash) (hash.Hash32B, error) {
-	if contract, ok := ws.cachedContract[addr]; ok {
-		return byteutil.BytesTo32B(contract.SelfState().CodeHash), nil
-	}
-	state, err := ws.CachedState(addr, &state.Account{})
-	if err != nil {
-		return hash.ZeroHash32B, errors.Wrapf(err, "failed to GetCodeHash for contract %x", addr)
-	}
-	account, err := stateToAccountState(state)
-	if err != nil {
-		return hash.ZeroHash32B, err
-	}
-	return byteutil.BytesTo32B(account.CodeHash), nil
-}
-
-// GetCode returns contract's code
-func (ws *workingSet) GetCode(addr hash.PKHash) ([]byte, error) {
-	if contract, ok := ws.cachedContract[addr]; ok {
-		return contract.GetCode()
-	}
-	state, err := ws.CachedState(addr, &state.Account{})
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to GetCode for contract %x", addr)
-	}
-	account, err := stateToAccountState(state)
-	if err != nil {
-		return nil, err
-	}
-	return ws.dao.Get(trie.CodeKVNameSpace, account.CodeHash[:])
-}
-
-// SetCode sets contract's code
-func (ws *workingSet) SetCode(addr hash.PKHash, code []byte) error {
-	if contract, ok := ws.cachedContract[addr]; ok {
-		contract.SetCode(byteutil.BytesTo32B(hash.Hash256b(code)), code)
-		return nil
-	}
-	contract, err := ws.getContract(addr)
-	if err != nil {
-		return errors.Wrapf(err, "failed to SetCode for contract %x", addr)
-	}
-	contract.SetCode(byteutil.BytesTo32B(hash.Hash256b(code)), code)
-	return nil
-}
-
-// GetContractState returns contract's storage value
-func (ws *workingSet) GetContractState(addr hash.PKHash, key hash.Hash32B) (hash.Hash32B, error) {
-	if contract, ok := ws.cachedContract[addr]; ok {
-		v, err := contract.GetState(key)
-		return byteutil.BytesTo32B(v), err
-	}
-	contract, err := ws.getContract(addr)
-	if err != nil {
-		return hash.ZeroHash32B, errors.Wrapf(err, "failed to GetContractState for contract %x", addr)
-	}
-	v, err := contract.GetState(key)
-	return byteutil.BytesTo32B(v), err
-}
-
-// SetContractState writes contract's storage value
-func (ws *workingSet) SetContractState(addr hash.PKHash, key, value hash.Hash32B) error {
-	if contract, ok := ws.cachedContract[addr]; ok {
-		return contract.SetState(key, value[:])
-	}
-	contract, err := ws.getContract(addr)
-	if err != nil {
-		return errors.Wrapf(err, "failed to SetContractState for contract %x", addr)
-	}
-	return contract.SetState(key, value[:])
+// GetCachedBatch returns the cached batch for pending writes
+func (ws *workingSet) GetCachedBatch() db.CachedBatch {
+	return ws.cb
 }
 
 //======================================
@@ -451,36 +337,11 @@ func (ws *workingSet) PutState(pkHash hash.PKHash, s interface{}) error {
 	return ws.accountTrie.Upsert(pkHash[:], ss)
 }
 
-func (ws *workingSet) getContract(addr hash.PKHash) (Contract, error) {
-	s, err := ws.CachedState(addr, &state.Account{})
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get the cached account of %x", addr)
-	}
-	account, err := stateToAccountState(s)
-	if err != nil {
-		return nil, err
-	}
-	delete(ws.cachedStates, addr)
-	if account.Root == hash.ZeroHash32B {
-		account.Root = trie.EmptyRoot
-	}
-	tr, err := trie.NewTrie(ws.dao, trie.ContractKVNameSpace, account.Root, trie.CachedBatchOption(ws.cb))
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to create storage trie for new contract %x", addr)
-	}
-	// add to contract cache
-	contract := newContract(account, tr)
-	ws.cachedContract[addr] = contract
-	return contract, nil
-}
-
 // clearCache removes all local changes after committing to trie
 func (ws *workingSet) clearCache() {
 	ws.cachedStates = nil
-	ws.cachedContract = nil
 	ws.cachedCandidates = nil
 	ws.cachedStates = make(map[hash.PKHash]state.State)
-	ws.cachedContract = make(map[hash.PKHash]Contract)
 	ws.cachedCandidates = make(map[hash.PKHash]*state.Candidate)
 }
 

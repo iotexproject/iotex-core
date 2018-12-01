@@ -150,7 +150,7 @@ func TestProtocol_Validate(t *testing.T) {
 	vote.SetSignature(invalidSig[:])
 	err = protocol.Validate(context.Background(), vote)
 	require.Equal(action.ErrActPool, errors.Cause(err))
-	// Case II: Invalid address
+	// Case II: Invalid votee address
 	vote, err = action.NewVote(1, testaddress.Addrinfo["producer"].RawAddress, "123", uint64(100000),
 		big.NewInt(0))
 	require.NoError(err)

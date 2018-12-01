@@ -129,7 +129,7 @@ func TestActPool_AddActs(t *testing.T) {
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
 	ap.AddActionValidators(NewGenericValidator(bc), account.NewProtocol(), vote.NewProtocol(bc),
-		execution.NewProtocol())
+		execution.NewProtocol(bc))
 	// Test actpool status after adding a sequence of Tsfs/votes: need to check confirmed nonce, pending nonce, and pending balance
 	tsf1, err := testutil.SignedTransfer(addr1, addr1, uint64(1), big.NewInt(10),
 		[]byte{}, uint64(100000), big.NewInt(0))
@@ -421,13 +421,13 @@ func TestActPool_Reset(t *testing.T) {
 	ap1, ok := Ap1.(*actPool)
 	require.True(ok)
 	ap1.AddActionValidators(NewGenericValidator(bc), account.NewProtocol(), vote.NewProtocol(bc),
-		execution.NewProtocol())
+		execution.NewProtocol(bc))
 	Ap2, err := NewActPool(bc, apConfig)
 	require.NoError(err)
 	ap2, ok := Ap2.(*actPool)
 	require.True(ok)
 	ap2.AddActionValidators(NewGenericValidator(bc), account.NewProtocol(), vote.NewProtocol(bc),
-		execution.NewProtocol())
+		execution.NewProtocol(bc))
 
 	// Tsfs to be added to ap1
 	tsf1, err := testutil.SignedTransfer(addr1, addr2, uint64(1), big.NewInt(50),
