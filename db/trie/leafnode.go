@@ -10,9 +10,6 @@ import (
 	"bytes"
 
 	"github.com/golang/protobuf/proto"
-
-	"github.com/iotexproject/iotex-core/logger"
-	"github.com/iotexproject/iotex-core/proto"
 )
 
 type leafNode struct {
@@ -21,15 +18,19 @@ type leafNode struct {
 	ser   []byte
 }
 
-func newLeafNode(
+func newLeafNodeAndPutIntoDB(
+	tr Trie,
 	key keyType,
 	value []byte,
-) *leafNode {
-	logger.Debug().Hex("key", key).Hex("value", value).Msg("new leaf")
-	return &leafNode{key: key, value: value}
+) (*leafNode, error) {
+	l := &leafNode{key: key, value: value}
+	if err := tr.putNodeIntoDB(l); err != nil {
+		return nil, err
+	}
+	return l, nil
 }
 
-func newLeafNodeFromProtoPb(pb *iproto.LeafPb) *leafNode {
+func newLeafNodeFromProtoPb(pb *LeafPb) *leafNode {
 	return &leafNode{key: pb.Path, value: pb.Value}
 }
 
@@ -45,35 +46,36 @@ func (l *leafNode) Value() []byte {
 	return l.value
 }
 
-func (l *leafNode) children(tc SameKeyLenTrieContext) ([]Node, error) {
+func (l *leafNode) children(Trie) ([]Node, error) {
 	return nil, nil
 }
 
-func (l *leafNode) delete(tc SameKeyLenTrieContext, key keyType, offset uint8) (Node, error) {
-	logger.Debug().Hex("key", key[:]).Uint8("offset", offset).Hex("leaf", l.key[:]).Msg("delete from a leaf")
+func (l *leafNode) delete(tr Trie, key keyType, offset uint8) (Node, error) {
 	if !bytes.Equal(l.key[offset:], key[offset:]) {
 		return nil, ErrNotExist
 	}
-	if err := tc.DeleteNodeFromDB(l); err != nil {
+	if err := tr.deleteNodeFromDB(l); err != nil {
 		return nil, err
 	}
 	return nil, nil
 }
 
-func (l *leafNode) upsert(tc SameKeyLenTrieContext, key keyType, offset uint8, value []byte) (Node, error) {
-	logger.Debug().Hex("key", key[:]).Uint8("offset", offset).Hex("leaf", l.key[:]).Msg("upsert into a leaf")
+func (l *leafNode) upsert(tr Trie, key keyType, offset uint8, value []byte) (Node, error) {
 	matched := commonPrefixLength(l.key[offset:], key[offset:])
 	if offset+matched == uint8(len(key)) {
-		return l.updateValue(tc, value)
+		return l.updateValue(tr, value)
 	}
-	newl, err := tc.newLeafNodeAndPutIntoDB(key, value)
+	newl, err := newLeafNodeAndPutIntoDB(tr, key, value)
 	if err != nil {
 		return nil, err
 	}
-	bnode, err := tc.newBranchNodeAndPutIntoDB(map[byte]Node{
-		key[offset+matched]:   newl,
-		l.key[offset+matched]: l,
-	})
+	bnode, err := newBranchNodeAndPutIntoDB(
+		tr,
+		map[byte]Node{
+			key[offset+matched]:   newl,
+			l.key[offset+matched]: l,
+		},
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -81,11 +83,10 @@ func (l *leafNode) upsert(tc SameKeyLenTrieContext, key keyType, offset uint8, v
 		return bnode, nil
 	}
 
-	return tc.newExtensionNodeAndPutIntoDB(l.key[offset:offset+matched], bnode)
+	return newExtensionNodeAndPutIntoDB(tr, l.key[offset:offset+matched], bnode)
 }
 
-func (l *leafNode) search(_ SameKeyLenTrieContext, key keyType, offset uint8) Node {
-	logger.Debug().Hex("key", key[:]).Uint8("offset", offset).Hex("leaf", l.key[:]).Msg("search in a leaf")
+func (l *leafNode) search(_ Trie, key keyType, offset uint8) Node {
 	if !bytes.Equal(l.key[offset:], key[offset:]) {
 		return nil
 	}
@@ -97,9 +98,9 @@ func (l *leafNode) serialize() []byte {
 	if l.ser != nil {
 		return l.ser
 	}
-	pb := &iproto.NodePb{
-		Node: &iproto.NodePb_Leaf{
-			Leaf: &iproto.LeafPb{
+	pb := &NodePb{
+		Node: &NodePb_Leaf{
+			Leaf: &LeafPb{
 				Path:  l.key[:],
 				Value: l.value,
 			},
@@ -107,26 +108,20 @@ func (l *leafNode) serialize() []byte {
 	}
 	ser, err := proto.Marshal(pb)
 	if err != nil {
-		logger.Panic().
-			Err(err).
-			Hex("key", l.key).
-			Hex("value", l.value).
-			Msg("failed to marshal a leaf node")
+		panic("failed to marshal a leaf node")
 	}
 	l.ser = ser
 
 	return l.ser
 }
 
-func (l *leafNode) updateValue(
-	tc SameKeyLenTrieContext, value []byte,
-) (*leafNode, error) {
-	if err := tc.DeleteNodeFromDB(l); err != nil {
+func (l *leafNode) updateValue(tr Trie, value []byte) (*leafNode, error) {
+	if err := tr.deleteNodeFromDB(l); err != nil {
 		return nil, err
 	}
 	l.value = value
 	l.ser = nil
-	if err := tc.PutNodeIntoDB(l); err != nil {
+	if err := tr.putNodeIntoDB(l); err != nil {
 		return nil, err
 	}
 

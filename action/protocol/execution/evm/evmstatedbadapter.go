@@ -18,7 +18,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/db/trie"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
@@ -418,9 +417,6 @@ func (stateDB *StateDBAdapter) getContract(addr hash.PKHash) (Contract, error) {
 	account, err := account.LoadAccount(stateDB.sm, addr)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to load account state for address %x", addr)
-	}
-	if account.Root == hash.ZeroHash32B {
-		account.Root = trie.EmptyBranchNodeHash
 	}
 	// add to contract cache
 	contract, err := newContract(account, stateDB.dao, stateDB.cb)
