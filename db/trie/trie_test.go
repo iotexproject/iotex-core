@@ -21,23 +21,45 @@ import (
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
-var cfg = config.Default.DB
+var (
+	cfg = config.Default.DB
+
+	ham = []byte{1, 2, 3, 4, 2, 3, 4, 5}
+	car = []byte{1, 2, 3, 4, 5, 6, 7, 7}
+	cat = []byte{1, 2, 3, 4, 5, 6, 7, 8}
+	rat = []byte{1, 2, 3, 4, 5, 6, 7, 9}
+	egg = []byte{1, 2, 3, 4, 5, 8, 1, 0}
+	dog = []byte{1, 2, 3, 4, 6, 7, 1, 0}
+	fox = []byte{1, 2, 3, 5, 6, 7, 8, 9}
+	cow = []byte{1, 2, 5, 6, 7, 8, 9, 0}
+	ant = []byte{2, 3, 4, 5, 6, 7, 8, 9}
+
+	br1 = []byte{0, 3, 4, 5, 6, 7, 8, 9}
+	br2 = []byte{1, 3, 4, 5, 6, 7, 8, 9}
+	cl1 = []byte{0, 0, 4, 5, 6, 7, 8, 9}
+	cl2 = []byte{1, 0, 4, 5, 6, 7, 8, 9}
+
+	testV = [8][]byte{
+		[]byte("ham"), []byte("car"), []byte("cat"), []byte("dog"),
+		[]byte("egg"), []byte("fox"), []byte("cow"), []byte("ant"),
+	}
+)
 
 const testTriePath = "trie.test"
 
 func TestEmptyTrie(t *testing.T) {
 	require := require.New(t)
 
-	_, err := NewTrie(nil, "test", EmptyRoot)
+	_, err := NewTrie(nil, "test")
 	require.Equal(ErrInvalidTrie, errors.Cause(err))
 
-	_, err = NewTrie(db.NewMemKVStore(), "test", EmptyRoot, CachedBatchOption(nil))
+	_, err = NewTrie(db.NewMemKVStore(), "test", CachedBatchOption(nil))
 	require.Equal(ErrInvalidTrie, errors.Cause(err))
 
-	tr, err := NewTrie(db.NewMemKVStore(), "test", EmptyRoot)
+	tr, err := NewTrie(db.NewMemKVStore(), "test")
 	require.Nil(err)
 	require.Nil(tr.Start(context.Background()))
-	require.Equal(tr.RootHash(), EmptyRoot)
+	require.Equal(tr.RootHash(), EmptyBranchNodeHash)
 	require.Nil(tr.Stop(context.Background()))
 }
 
@@ -47,7 +69,8 @@ func Test2Roots(t *testing.T) {
 	defer testutil.CleanupPath(t, testTriePath)
 
 	// first trie
-	tr, err := NewTrie(db.NewBoltDB(testTriePath, cfg), "test", EmptyRoot)
+	trieDB := db.NewBoltDB(testTriePath, cfg)
+	tr, err := NewTrie(trieDB, "test", KeyLengthOption(8))
 	require.Nil(err)
 	require.Nil(tr.Start(context.Background()))
 	require.Nil(tr.Upsert(cat, testV[2]))
@@ -67,7 +90,7 @@ func Test2Roots(t *testing.T) {
 	require.Nil(tr.Stop(context.Background()))
 
 	// second trie
-	tr1, err := NewTrie(tr.TrieDB(), "test", EmptyRoot)
+	tr1, err := NewTrie(trieDB, "test", KeyLengthOption(8))
 	require.Nil(err)
 	require.Nil(tr1.Start(context.Background()))
 	require.Nil(tr1.Upsert(dog, testV[3]))
@@ -103,7 +126,7 @@ func Test2Roots(t *testing.T) {
 	require.Equal(ErrNotExist, errors.Cause(err))
 
 	// create a new one and load second trie's root
-	tr2, err := NewTrie(tr.TrieDB(), "test", EmptyRoot)
+	tr2, err := NewTrie(trieDB, "test", KeyLengthOption(8))
 	require.NoError(err)
 	require.NoError(tr2.Start(context.Background()))
 	require.NoError(tr2.SetRoot(root1))
@@ -127,11 +150,11 @@ func Test2Roots(t *testing.T) {
 func TestInsert(t *testing.T) {
 	require := require.New(t)
 
-	tr, err := NewTrie(db.NewMemKVStore(), "", EmptyRoot)
+	tr, err := NewTrie(db.NewMemKVStore(), "", KeyLengthOption(8))
 	require.NotNil(tr)
 	require.NoError(err)
 	require.Nil(tr.Start(context.Background()))
-	root := EmptyRoot
+	root := EmptyBranchNodeHash
 	// this adds one L to root R
 	logger.Info().Msg("Put[cat]")
 	err = tr.Upsert(cat, testV[2])
@@ -370,7 +393,7 @@ func TestInsert(t *testing.T) {
 	logger.Info().Msg("Del[cat]")
 	err = tr.Delete(cat)
 	require.Nil(err)
-	require.Equal(EmptyRoot, tr.RootHash())
+	require.Equal(EmptyBranchNodeHash, tr.RootHash())
 	require.Nil(tr.Stop(context.Background()))
 }
 
@@ -379,7 +402,7 @@ func TestBatchCommit(t *testing.T) {
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
 
-	tr, err := NewTrie(db.NewBoltDB(testTriePath, cfg), "test", EmptyRoot)
+	tr, err := NewTrie(db.NewBoltDB(testTriePath, cfg), "test", KeyLengthOption(8))
 	require.Nil(err)
 	require.Nil(tr.Start(context.Background()))
 	// insert 3 entries
@@ -403,7 +426,7 @@ func TestBatchCommit(t *testing.T) {
 	require.NotEqual(root, tr.RootHash())
 	// close w/o commit and reopen
 	require.Nil(tr.Stop(context.Background()))
-	tr, err = NewTrie(db.NewBoltDB(testTriePath, cfg), "test", root)
+	tr, err = NewTrie(db.NewBoltDB(testTriePath, cfg), "test", RootHashOption(root), KeyLengthOption(8))
 	require.Nil(err)
 	require.Nil(tr.Start(context.Background()))
 	// entries committed exist
@@ -434,7 +457,7 @@ func TestBatchCommit(t *testing.T) {
 	// commit and reopen
 	require.Nil(tr.Commit())
 	require.Nil(tr.Stop(context.Background()))
-	tr, err = NewTrie(db.NewBoltDB(testTriePath, cfg), "test", root)
+	tr, err = NewTrie(db.NewBoltDB(testTriePath, cfg), "test", RootHashOption(root), KeyLengthOption(8))
 	require.Nil(err)
 	require.Nil(tr.Start(context.Background()))
 	// all entries should exist now
@@ -458,7 +481,7 @@ func TestCollision(t *testing.T) {
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
-	tr, err := NewTrie(db.NewBoltDB(testTriePath, cfg), "test", EmptyRoot)
+	tr, err := NewTrie(db.NewBoltDB(testTriePath, cfg), "test", KeyLengthOption(8))
 	require.Nil(err)
 	require.Nil(tr.Start(context.Background()))
 	defer require.Nil(tr.Stop(context.Background()))
@@ -484,10 +507,10 @@ func Test4kEntries(t *testing.T) {
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
-	tr, err := NewTrie(db.NewBoltDB(testTriePath, cfg), "test", EmptyRoot)
+	tr, err := NewTrie(db.NewBoltDB(testTriePath, cfg), "test", KeyLengthOption(4))
 	require.Nil(err)
 	require.Nil(tr.Start(context.Background()))
-	root := EmptyRoot
+	root := EmptyBranchNodeHash
 	seed := time.Now().Nanosecond()
 	// insert 4k entries
 	var k [32]byte
@@ -502,7 +525,7 @@ func Test4kEntries(t *testing.T) {
 		}
 		require.Nil(tr.Upsert(k[:4], v))
 		newRoot := tr.RootHash()
-		require.NotEqual(newRoot, EmptyRoot)
+		require.NotEqual(newRoot, EmptyBranchNodeHash)
 		require.NotEqual(newRoot, root)
 		root = newRoot
 		b, err := tr.Get(k[:4])
@@ -531,7 +554,7 @@ func Test4kEntries(t *testing.T) {
 		d = blake2b.Sum256(d[:])
 		require.Nil(tr.Delete(d[:4]))
 		newRoot := tr.RootHash()
-		require.NotEqual(newRoot, EmptyRoot)
+		require.NotEqual(newRoot, EmptyBranchNodeHash)
 		require.NotEqual(newRoot, root)
 		root = newRoot
 		_, err := tr.Get(d[:4])
@@ -546,7 +569,7 @@ func Test4kEntries(t *testing.T) {
 	require.Nil(tr.Delete(d3[:4]))
 	require.Nil(tr.Commit())
 	// trie should fallback to empty
-	require.Equal(EmptyRoot, tr.RootHash())
+	require.Equal(EmptyBranchNodeHash, tr.RootHash())
 	require.Nil(tr.Stop(context.Background()))
 }
 
@@ -557,10 +580,10 @@ func TestPressure(t *testing.T) {
 
 	require := require.New(t)
 
-	tr, err := NewTrie(db.NewMemKVStore(), "test", EmptyRoot)
+	tr, err := NewTrie(db.NewMemKVStore(), "test", KeyLengthOption(4))
 	require.Nil(err)
 	require.Nil(tr.Start(context.Background()))
-	root := EmptyRoot
+	root := EmptyBranchNodeHash
 	seed := time.Now().Nanosecond()
 	// insert 128k entries
 	var k [32]byte
@@ -575,7 +598,7 @@ func TestPressure(t *testing.T) {
 		}
 		require.Nil(tr.Upsert(k[:4], v))
 		newRoot := tr.RootHash()
-		require.NotEqual(newRoot, EmptyRoot)
+		require.NotEqual(newRoot, EmptyBranchNodeHash)
 		require.NotEqual(newRoot, root)
 		root = newRoot
 		b, err := tr.Get(k[:4])
@@ -598,7 +621,7 @@ func TestPressure(t *testing.T) {
 		d = blake2b.Sum256(d[:])
 		require.Nil(tr.Delete(d[:4]))
 		newRoot := tr.RootHash()
-		require.NotEqual(newRoot, EmptyRoot)
+		require.NotEqual(newRoot, EmptyBranchNodeHash)
 		require.NotEqual(newRoot, root)
 		root = newRoot
 		_, err := tr.Get(d[:4])
@@ -613,7 +636,7 @@ func TestPressure(t *testing.T) {
 	require.Nil(tr.Delete(d3[:4]))
 	require.Nil(tr.Commit())
 	// trie should fallback to empty
-	require.Equal(EmptyRoot, tr.RootHash())
+	require.Equal(EmptyBranchNodeHash, tr.RootHash())
 	require.Nil(tr.Stop(context.Background()))
 	logger.Warn().Int("entries", c).Msg("test")
 }

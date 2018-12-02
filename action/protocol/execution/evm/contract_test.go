@@ -18,6 +18,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/db/trie"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -25,7 +26,6 @@ import (
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
-	"github.com/iotexproject/iotex-core/trie"
 )
 
 const (
@@ -91,7 +91,7 @@ func TestCreateContract(t *testing.T) {
 	// reload same contract
 	contract1, err := account.LoadOrCreateAccountState(ws, addr.RawAddress, big.NewInt(0))
 	require.Nil(err)
-	require.Equal(contract1.CodeHash, codeHash[:])
+	require.Equal(codeHash[:], contract1.CodeHash)
 	require.Nil(sf.Commit(ws))
 	require.Nil(sf.Stop(context.Background()))
 
@@ -103,7 +103,7 @@ func TestCreateContract(t *testing.T) {
 	require.Nil(err)
 	contract1, err = account.LoadOrCreateAccountState(ws, addr.RawAddress, big.NewInt(0))
 	require.Nil(err)
-	require.Equal(contract1.CodeHash, codeHash[:])
+	require.Equal(codeHash[:], contract1.CodeHash)
 	stateDB = StateDBAdapter{
 		sm:             ws,
 		cachedContract: make(map[hash.PKHash]Contract),

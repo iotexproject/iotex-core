@@ -18,12 +18,12 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/db/trie"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-core/trie"
 )
 
 // StateDBAdapter represents the state db adapter for evm to access iotx blockchain
@@ -290,7 +290,7 @@ func (stateDB *StateDBAdapter) GetCode(evmAddr common.Address) []byte {
 		logger.Error().Err(err).Msgf("Failed to load account state for address %x", addr)
 		return nil
 	}
-	code, err := stateDB.dao.Get(trie.CodeKVNameSpace, account.CodeHash[:])
+	code, err := stateDB.dao.Get(CodeKVNameSpace, account.CodeHash[:])
 	if err != nil {
 		logger.Error().Err(err).Msg("Failed to get code from trie")
 		return nil
@@ -344,7 +344,7 @@ func (stateDB *StateDBAdapter) SetState(evmAddr common.Address, k, v common.Hash
 	logger.Debug().Hex("addrHash", evmAddr[:]).Hex("k", k[:]).Hex("v", v[:]).Msg("SetState")
 }
 
-// GetContractState returns contract's storage value
+// getContractState returns contract's storage value
 func (stateDB *StateDBAdapter) getContractState(addr hash.PKHash, key hash.Hash32B) (hash.Hash32B, error) {
 	if contract, ok := stateDB.cachedContract[addr]; ok {
 		v, err := contract.GetState(key)
@@ -358,7 +358,7 @@ func (stateDB *StateDBAdapter) getContractState(addr hash.PKHash, key hash.Hash3
 	return byteutil.BytesTo32B(v), err
 }
 
-// SetContractState writes contract's storage value
+// setContractState writes contract's storage value
 func (stateDB *StateDBAdapter) setContractState(addr hash.PKHash, key, value hash.Hash32B) error {
 	if contract, ok := stateDB.cachedContract[addr]; ok {
 		return contract.SetState(key, value[:])
@@ -391,9 +391,15 @@ func (stateDB *StateDBAdapter) getContract(addr hash.PKHash) (Contract, error) {
 		return nil, errors.Wrapf(err, "failed to load account state for address %x", addr)
 	}
 	if account.Root == hash.ZeroHash32B {
-		account.Root = trie.EmptyRoot
+		account.Root = trie.EmptyBranchNodeHash
 	}
-	tr, err := trie.NewTrie(stateDB.dao, trie.ContractKVNameSpace, account.Root, trie.CachedBatchOption(stateDB.cb))
+	tr, err := trie.NewTrie(
+		stateDB.dao,
+		ContractKVNameSpace,
+		trie.RootHashOption(account.Root),
+		trie.CachedBatchOption(stateDB.cb),
+		trie.KeyLengthOption(32),
+	)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create storage trie for new contract %x", addr)
 	}
