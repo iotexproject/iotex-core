@@ -75,8 +75,9 @@ type (
 	// cachedBatch implements the CachedBatch interface
 	cachedBatch struct {
 		baseKVStoreBatch
-		lock  sync.RWMutex
-		cache map[hash.CacheHash][]byte // local cache of batched <k, v> for fast query
+		lock    sync.RWMutex
+		deleted map[hash.CacheHash]bool
+		cache   map[hash.CacheHash][]byte // local cache of batched <k, v> for fast query
 	}
 )
 
@@ -172,7 +173,8 @@ func (b *baseKVStoreBatch) batch(op int32, namespace string, key, value []byte, 
 // NewCachedBatch returns a new cached batch buffer
 func NewCachedBatch() CachedBatch {
 	return &cachedBatch{
-		cache: make(map[hash.CacheHash][]byte),
+		deleted: make(map[hash.CacheHash]bool),
+		cache:   make(map[hash.CacheHash][]byte),
 	}
 }
 
@@ -191,6 +193,7 @@ func (cb *cachedBatch) ClearAndUnlock() {
 	defer cb.lock.Unlock()
 	cb.cache = nil
 	cb.cache = make(map[hash.CacheHash][]byte)
+	cb.deleted = make(map[hash.CacheHash]bool)
 	cb.writeQueue = nil
 }
 
@@ -198,7 +201,9 @@ func (cb *cachedBatch) ClearAndUnlock() {
 func (cb *cachedBatch) Put(namespace string, key, value []byte, errorFormat string, errorArgs ...interface{}) {
 	cb.lock.Lock()
 	defer cb.lock.Unlock()
-	cb.cache[cb.hash(namespace, key)] = value
+	h := cb.hash(namespace, key)
+	cb.cache[h] = value
+	delete(cb.deleted, h)
 	cb.batch(Put, namespace, key, value, errorFormat, errorArgs)
 }
 
@@ -206,10 +211,13 @@ func (cb *cachedBatch) Put(namespace string, key, value []byte, errorFormat stri
 func (cb *cachedBatch) PutIfNotExists(namespace string, key, value []byte, errorFormat string, errorArgs ...interface{}) error {
 	cb.lock.Lock()
 	defer cb.lock.Unlock()
-	if _, ok := cb.cache[cb.hash(namespace, key)]; ok {
+	// TODO: bug, this is not a valid check whether the instance exists
+	h := cb.hash(namespace, key)
+	if _, ok := cb.cache[h]; ok {
 		return ErrAlreadyExist
 	}
-	cb.cache[cb.hash(namespace, key)] = value
+	cb.cache[h] = value
+	delete(cb.deleted, h)
 	cb.batch(PutIfNotExists, namespace, key, value, errorFormat, errorArgs)
 	return nil
 }
@@ -218,7 +226,9 @@ func (cb *cachedBatch) PutIfNotExists(namespace string, key, value []byte, error
 func (cb *cachedBatch) Delete(namespace string, key []byte, errorFormat string, errorArgs ...interface{}) {
 	cb.lock.Lock()
 	defer cb.lock.Unlock()
-	delete(cb.cache, cb.hash(namespace, key))
+	h := cb.hash(namespace, key)
+	cb.deleted[h] = true
+	delete(cb.cache, h)
 	cb.batch(Delete, namespace, key, nil, errorFormat, errorArgs)
 }
 
@@ -228,6 +238,7 @@ func (cb *cachedBatch) Clear() {
 	defer cb.lock.Unlock()
 	cb.cache = nil
 	cb.cache = make(map[hash.CacheHash][]byte)
+	cb.deleted = make(map[hash.CacheHash]bool)
 	cb.writeQueue = nil
 }
 
@@ -235,8 +246,12 @@ func (cb *cachedBatch) Clear() {
 func (cb *cachedBatch) Get(namespace string, key []byte) ([]byte, error) {
 	cb.lock.RLock()
 	defer cb.lock.RUnlock()
-	if v, ok := cb.cache[cb.hash(namespace, key)]; ok {
+	h := cb.hash(namespace, key)
+	if v, ok := cb.cache[h]; ok {
 		return v, nil
+	}
+	if _, ok := cb.deleted[h]; ok {
+		return nil, ErrAlreadyDeleted
 	}
 	return nil, ErrNotExist
 }

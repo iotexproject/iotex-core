@@ -21,6 +21,8 @@ var (
 	ErrInvalidDB = errors.New("invalid DB operation")
 	// ErrNotExist indicates certain item does not exist in Blockchain database
 	ErrNotExist = errors.New("not exist in DB")
+	// ErrAlreadyDeleted indicates the key has been deleted
+	ErrAlreadyDeleted = errors.New("already deleted from DB")
 	// ErrAlreadyExist indicates certain item already exists in Blockchain database
 	ErrAlreadyExist = errors.New("already exist in DB")
 )
