@@ -11,9 +11,17 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-core/db/trie"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-core/trie"
+)
+
+const (
+	// CodeKVNameSpace is the bucket name for code
+	CodeKVNameSpace = "Code"
+
+	// ContractKVNameSpace is the bucket name for contract data storage
+	ContractKVNameSpace = "Contract"
 )
 
 type (
@@ -57,7 +65,7 @@ func (c *contract) GetCode() ([]byte, error) {
 	if c.code != nil {
 		return c.code, nil
 	}
-	return c.trie.TrieDB().Get(trie.CodeKVNameSpace, c.Account.CodeHash[:])
+	return c.trie.TrieDB().Get(CodeKVNameSpace, c.Account.CodeHash)
 }
 
 // SetCode sets the contract's byte-code
@@ -81,7 +89,7 @@ func (c *contract) Commit() error {
 	}
 	if c.dirtyCode {
 		// put the code into storage DB
-		if err := c.trie.TrieDB().Put(trie.CodeKVNameSpace, c.Account.CodeHash[:], c.code); err != nil {
+		if err := c.trie.TrieDB().Put(CodeKVNameSpace, c.Account.CodeHash, c.code); err != nil {
 			return errors.Wrapf(err, "Failed to store code for new contract, codeHash %x", c.Account.CodeHash[:])
 		}
 		c.dirtyCode = false

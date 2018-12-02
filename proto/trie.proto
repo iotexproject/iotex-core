@@ -24,9 +24,15 @@ message leafPb {
     bytes value = 3;
 }
 
+message extendPb {
+    bytes path = 1;
+    bytes value = 2;
+}
+
 message nodePb {
     oneof node {
         branchPb branch = 2;
         leafPb leaf = 3;
+        extendPb extend = 4;
     }
 }

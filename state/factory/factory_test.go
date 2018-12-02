@@ -21,13 +21,13 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/db/trie"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
-	"github.com/iotexproject/iotex-core/trie"
 )
 
 var cfg = config.Default
@@ -86,7 +86,7 @@ func TestCreateState(t *testing.T) {
 	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewMemKVStore()))
 	require.NoError(err)
 	require.NoError(sf.Start(context.Background()))
-	require.Equal(trie.EmptyRoot, sf.RootHash())
+	require.Equal(trie.EmptyBranchNodeHash, sf.RootHash())
 	addr, err := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
 	require.Nil(err)
 	ws, err := sf.NewWorkingSet()
@@ -267,6 +267,7 @@ func TestCandidates(t *testing.T) {
 
 	cfg.Chain.NumCandidates = 2
 	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(testTriePath, cfg.DB)))
+	require.NoError(t, sf.Start(context.Background()))
 	require.NoError(t, err)
 	require.NoError(t, sf.Start(context.Background()))
 	ws, err := sf.NewWorkingSet()
@@ -768,7 +769,7 @@ func TestCandidatesByHeight(t *testing.T) {
 	candidatesBytes, err := candidateList.Serialize()
 	require.NoError(t, err)
 
-	require.Nil(t, sf.dao.Put(trie.CandidateKVNameSpace, byteutil.Uint64ToBytes(0), candidatesBytes))
+	require.Nil(t, sf.dao.Put(CandidateKVNameSpace, byteutil.Uint64ToBytes(0), candidatesBytes))
 	candidates, err := sf.CandidatesByHeight(0)
 	sort.Slice(candidates, func(i, j int) bool {
 		return strings.Compare(candidates[i].Address, candidates[j].Address) < 0
@@ -783,7 +784,7 @@ func TestCandidatesByHeight(t *testing.T) {
 	candidatesBytes, err = candidateList.Serialize()
 	require.NoError(t, err)
 
-	require.Nil(t, sf.dao.Put(trie.CandidateKVNameSpace, byteutil.Uint64ToBytes(1), candidatesBytes))
+	require.Nil(t, sf.dao.Put(CandidateKVNameSpace, byteutil.Uint64ToBytes(1), candidatesBytes))
 	candidates, err = sf.CandidatesByHeight(1)
 	sort.Slice(candidates, func(i, j int) bool {
 		return strings.Compare(candidates[i].Address, candidates[j].Address) < 0
@@ -883,12 +884,12 @@ func TestLoadStoreHeight(t *testing.T) {
 
 	sf := statefactory.(*factory)
 
-	require.Nil(sf.dao.Put(trie.AccountKVNameSpace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)))
+	require.Nil(sf.dao.Put(AccountKVNameSpace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)))
 	height, err := sf.Height()
 	require.NoError(err)
 	require.Equal(uint64(0), height)
 
-	require.Nil(sf.dao.Put(trie.AccountKVNameSpace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(10)))
+	require.Nil(sf.dao.Put(AccountKVNameSpace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(10)))
 	height, err = sf.Height()
 	require.NoError(err)
 	require.Equal(uint64(10), height)
@@ -908,12 +909,12 @@ func TestLoadStoreHeightInMem(t *testing.T) {
 
 	sf := statefactory.(*factory)
 
-	require.Nil(sf.dao.Put(trie.AccountKVNameSpace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)))
+	require.Nil(sf.dao.Put(AccountKVNameSpace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)))
 	height, err := sf.Height()
 	require.NoError(err)
 	require.Equal(uint64(0), height)
 
-	require.Nil(sf.dao.Put(trie.AccountKVNameSpace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(10)))
+	require.Nil(sf.dao.Put(AccountKVNameSpace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(10)))
 	height, err = sf.Height()
 	require.NoError(err)
 	require.Equal(uint64(10), height)

@@ -17,6 +17,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/db/trie"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
@@ -24,10 +25,15 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-core/trie"
 )
 
 const (
+	// AccountKVNameSpace is the bucket name for account trie
+	AccountKVNameSpace = "Account"
+
+	// CandidateKVNameSpace is the bucket name for candidate data storage
+	CandidateKVNameSpace = "Candidate"
+
 	// CurrentHeightKey indicates the key of current factory height in underlying DB
 	CurrentHeightKey = "currentHeight"
 	// AccountTrieRootKey indicates the key of accountTrie root hash in underlying DB
@@ -120,7 +126,7 @@ func NewFactory(cfg config.Config, opts ...Option) (Factory, error) {
 			return nil, err
 		}
 	}
-	accountTrie, err := trie.NewTrieWithKey(sf.dao, trie.AccountKVNameSpace, AccountTrieRootKey)
+	accountTrie, err := trie.NewTrieWithKey(sf.dao, AccountKVNameSpace, AccountTrieRootKey)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to generate accountTrie from config")
 	}
@@ -206,7 +212,7 @@ func (sf *factory) RootHash() hash.Hash32B {
 func (sf *factory) Height() (uint64, error) {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
-	height, err := sf.dao.Get(trie.AccountKVNameSpace, []byte(CurrentHeightKey))
+	height, err := sf.dao.Get(AccountKVNameSpace, []byte(CurrentHeightKey))
 	if err != nil {
 		return 0, errors.Wrap(err, "failed to get factory's height from underlying DB")
 	}
@@ -250,7 +256,7 @@ func (sf *factory) CandidatesByHeight(height uint64) ([]*state.Candidate, error)
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
 	// Load Candidates on the given height from underlying db
-	candidatesBytes, err := sf.dao.Get(trie.CandidateKVNameSpace, byteutil.Uint64ToBytes(height))
+	candidatesBytes, err := sf.dao.Get(CandidateKVNameSpace, byteutil.Uint64ToBytes(height))
 	if err != nil {
 		return []*state.Candidate{}, errors.Wrapf(err, "failed to get candidates on Height %d", height)
 	}
