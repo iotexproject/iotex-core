@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
+	"github.com/iotexproject/iotex-core/db"
 	"sync"
 	"time"
 
@@ -684,7 +685,7 @@ func (m *cFSM) handleEndorseCommitEvt(evt fsm.Event) (fsm.State, error) {
 		}
 	}
 	// Commit and broadcast the pending block
-	if err := m.ctx.chain.CommitBlock(pendingBlock); err != nil && err != blockchain.ErrAlreadyExist {
+	if err := m.ctx.chain.CommitBlock(pendingBlock); err != nil && err != db.ErrAlreadyExist {
 		logger.Error().
 			Err(err).
 			Uint64("block", pendingBlock.Height()).

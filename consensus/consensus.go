@@ -8,6 +8,7 @@ package consensus
 
 import (
 	"context"
+	"github.com/iotexproject/iotex-core/db"
 	"math/big"
 
 	"github.com/facebookgo/clock"
@@ -100,7 +101,7 @@ func NewConsensus(
 
 	commitBlockCB := func(blk *blockchain.Block) error {
 		err := bc.CommitBlock(blk)
-		if err != nil && err != blockchain.ErrAlreadyExist {
+		if err != nil && err != db.ErrAlreadyExist {
 			logger.Error().Err(err).Int64("Height", int64(blk.Height())).Msg("Failed to commit the block")
 		}
 		// Remove transfers in this block from ActPool and reset ActPool state

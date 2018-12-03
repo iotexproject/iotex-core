@@ -7,6 +7,7 @@
 package blocksync
 
 import (
+	"github.com/iotexproject/iotex-core/db"
 	"sync"
 
 	"github.com/iotexproject/iotex-core/actpool"
@@ -65,7 +66,7 @@ func (b *blockBuffer) Flush(blk *blockchain.Block) (bool, bCheckinResult) {
 			break
 		}
 		delete(b.blocks, heightToSync)
-		if err := commitBlock(b.bc, b.ap, blk); err != nil && err != blockchain.ErrAlreadyExist {
+		if err := commitBlock(b.bc, b.ap, blk); err != nil && err != db.ErrAlreadyExist {
 			l.Error().Err(err).Uint64("syncHeight", heightToSync).
 				Msg("Failed to commit the block.")
 			// unable to commit, check reason
