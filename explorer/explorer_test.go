@@ -22,7 +22,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol/account"
+	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/action/protocol/multichain/mainchain"
+	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
@@ -69,17 +72,23 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 
 	// Add block 2
 	// Charlie --> A, B, D, E, test
-	tsf1, _ := action.NewTransfer(1, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["alfa"].RawAddress, []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	tsf1, _ := action.NewTransfer(1, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress,
+		ta.Addrinfo["alfa"].RawAddress, []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 	_ = action.Sign(tsf1, ta.Addrinfo["charlie"].PrivateKey)
-	tsf2, _ := action.NewTransfer(2, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["bravo"].RawAddress, []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	tsf2, _ := action.NewTransfer(2, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress,
+		ta.Addrinfo["bravo"].RawAddress, []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 	_ = action.Sign(tsf2, ta.Addrinfo["charlie"].PrivateKey)
-	tsf3, _ := action.NewTransfer(3, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["delta"].RawAddress, []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	tsf3, _ := action.NewTransfer(3, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress,
+		ta.Addrinfo["delta"].RawAddress, []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 	_ = action.Sign(tsf3, ta.Addrinfo["charlie"].PrivateKey)
-	tsf4, _ := action.NewTransfer(4, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["producer"].RawAddress, []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	tsf4, _ := action.NewTransfer(4, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress,
+		ta.Addrinfo["producer"].RawAddress, []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 	_ = action.Sign(tsf4, ta.Addrinfo["charlie"].PrivateKey)
-	vote1, _ := action.NewVote(5, ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["delta"].RawAddress, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	vote1, _ := action.NewVote(5, ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["delta"].RawAddress,
+		testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 	_ = action.Sign(vote1, ta.Addrinfo["charlie"].PrivateKey)
-	execution1, _ := action.NewExecution(ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["delta"].RawAddress, 6, big.NewInt(1), testutil.TestGasLimit, big.NewInt(10), []byte{1})
+	execution1, _ := action.NewExecution(ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["delta"].RawAddress, 6,
+		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice), []byte{1})
 	_ = action.Sign(execution1, ta.Addrinfo["charlie"].PrivateKey)
 	if blk, err = bc.MintNewBlock([]action.Action{tsf1, tsf2, tsf3, tsf4, vote1, execution1}, ta.Addrinfo["producer"],
 		nil, nil, ""); err != nil {
@@ -105,12 +114,16 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	}
 
 	// Add block 4
-	vote1, _ = action.NewVote(7, ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["alfa"].RawAddress, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
-	vote2, _ := action.NewVote(1, ta.Addrinfo["alfa"].RawAddress, ta.Addrinfo["charlie"].RawAddress, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	vote1, _ = action.NewVote(7, ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["alfa"].RawAddress,
+		testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	vote2, _ := action.NewVote(1, ta.Addrinfo["alfa"].RawAddress, ta.Addrinfo["charlie"].RawAddress,
+		testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 	_ = action.Sign(vote1, ta.Addrinfo["charlie"].PrivateKey)
 	_ = action.Sign(vote2, ta.Addrinfo["alfa"].PrivateKey)
-	execution1, _ = action.NewExecution(ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["delta"].RawAddress, 8, big.NewInt(2), testutil.TestGasLimit, big.NewInt(10), []byte{1})
-	execution2, _ := action.NewExecution(ta.Addrinfo["alfa"].RawAddress, ta.Addrinfo["delta"].RawAddress, 2, big.NewInt(1), testutil.TestGasLimit, big.NewInt(10), []byte{1})
+	execution1, _ = action.NewExecution(ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["delta"].RawAddress, 8,
+		big.NewInt(2), testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice), []byte{1})
+	execution2, _ := action.NewExecution(ta.Addrinfo["alfa"].RawAddress, ta.Addrinfo["delta"].RawAddress, 2,
+		big.NewInt(0), testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice), []byte{1})
 	_ = action.Sign(execution1, ta.Addrinfo["charlie"].PrivateKey)
 	_ = action.Sign(execution2, ta.Addrinfo["alfa"].PrivateKey)
 	if blk, err = bc.MintNewBlock([]action.Action{vote1, vote2, execution1, execution2}, ta.Addrinfo["producer"],
@@ -166,10 +179,15 @@ func TestExplorerApi(t *testing.T) {
 	// create chain
 	ctx := context.Background()
 	bc := blockchain.NewBlockchain(cfg, blockchain.PrecreatedStateFactoryOption(sf), blockchain.InMemDaoOption())
-	require.NoError(bc.Start(ctx))
 	require.NotNil(bc)
+	require.NoError(bc.Start(ctx))
 	ap, err := actpool.NewActPool(bc, cfg.ActPool)
 	require.Nil(err)
+
+	sf.AddActionHandlers(execution.NewProtocol(bc))
+	ap.AddActionValidators(actpool.NewGenericValidator(bc), account.NewProtocol(), vote.NewProtocol(bc),
+		execution.NewProtocol(bc))
+
 	height := bc.TipHeight()
 	fmt.Printf("Open blockchain pass, height = %d\n", height)
 	require.Nil(addTestingBlocks(bc))
@@ -332,7 +350,7 @@ func TestExplorerApi(t *testing.T) {
 	// success
 	balance, err := svc.GetAddressBalance(ta.Addrinfo["charlie"].RawAddress)
 	require.Nil(err)
-	require.Equal("6", balance)
+	require.Equal("3", balance)
 
 	// error
 	_, err = svc.GetAddressBalance("")
@@ -341,7 +359,7 @@ func TestExplorerApi(t *testing.T) {
 	// success
 	addressDetails, err := svc.GetAddressDetails(ta.Addrinfo["charlie"].RawAddress)
 	require.Nil(err)
-	require.Equal("6", addressDetails.TotalBalance)
+	require.Equal("3", addressDetails.TotalBalance)
 	require.Equal(int64(8), addressDetails.Nonce)
 	require.Equal(int64(9), addressDetails.PendingNonce)
 	require.Equal(ta.Addrinfo["charlie"].RawAddress, addressDetails.Address)
@@ -810,10 +828,12 @@ func TestExplorerGetReceiptByExecutionID(t *testing.T) {
 	ctx := context.Background()
 	bc := blockchain.NewBlockchain(cfg, blockchain.PrecreatedStateFactoryOption(sf), blockchain.InMemDaoOption())
 	require.NoError(bc.Start(ctx))
-	require.NotNil(bc)
-	require.Nil(err)
-	err = bc.Stop(ctx)
-	require.NoError(err)
+
+	sf.AddActionHandlers(execution.NewProtocol(bc))
+
+	defer func() {
+		require.NoError(bc.Stop(ctx))
+	}()
 
 	svc := Service{
 		bc: bc,

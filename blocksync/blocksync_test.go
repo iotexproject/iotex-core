@@ -443,10 +443,36 @@ func newTestConfig() (config.Config, error) {
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = "trie.test"
 	cfg.Chain.ChainDBPath = "db.test"
-	cfg.BlockSync.Interval = time.Millisecond << 4
+	cfg.BlockSync.Interval = 100 * time.Millisecond
 	cfg.Consensus.Scheme = config.NOOPScheme
 	cfg.Network.Host = "127.0.0.1"
 	cfg.Network.Port = 10000
 	cfg.Network.BootstrapNodes = []string{"127.0.0.1:10000", "127.0.0.1:4689"}
 	return cfg, nil
+}
+
+func TestBlockSyncerChaser(t *testing.T) {
+	t.Parallel()
+
+	require := require.New(t)
+	ctx := context.Background()
+	cfg, err := newTestConfig()
+	require.NoError(err)
+
+	chain := bc.NewBlockchain(cfg, bc.InMemStateFactoryOption(), bc.InMemDaoOption())
+	require.NoError(chain.Start(ctx))
+	ap, err := actpool.NewActPool(chain, cfg.ActPool)
+	require.NoError(err)
+	bs, err := NewBlockSyncer(cfg, chain, ap, network.NewOverlay(cfg.Network))
+	require.NoError(err)
+	require.NoError(bs.Start(ctx))
+
+	defer func() {
+		require.NoError(chain.Stop(ctx))
+		require.NoError(bs.Stop(ctx))
+	}()
+
+	require.NoError(testutil.WaitUntil(100*time.Millisecond, 10*time.Second, func() (bool, error) {
+		return bs.TargetHeight() == 1, nil
+	}))
 }

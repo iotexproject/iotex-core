@@ -11,6 +11,7 @@ import (
 	"math/big"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -33,6 +34,18 @@ type ActionHandler interface {
 	Handle(context.Context, action.Action, StateManager) (*action.Receipt, error)
 }
 
+// ChainManager defines the blockchain interface
+type ChainManager interface {
+	// GetChainID returns the chain ID
+	ChainID() uint32
+	// GetHashByHeight returns Block's hash by height
+	GetHashByHeight(height uint64) (hash.Hash32B, error)
+	// StateByAddr returns account of a given address
+	StateByAddr(address string) (*state.Account, error)
+	// Nonce returns the nonce if the account exists
+	Nonce(addr string) (uint64, error)
+}
+
 // StateManager defines the state DB interface atop IoTeX blockchain
 type StateManager interface {
 	// states and actions
@@ -44,5 +57,6 @@ type StateManager interface {
 	State(hash.PKHash, interface{}) error
 	CachedState(hash.PKHash, state.State) (state.State, error)
 	PutState(hash.PKHash, interface{}) error
-	UpdateCachedStates(hash.PKHash, *state.Account)
+	GetDB() db.KVStore
+	GetCachedBatch() db.CachedBatch
 }

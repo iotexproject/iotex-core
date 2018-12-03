@@ -9,24 +9,31 @@ package factory
 import (
 	"context"
 	"math/big"
+	"strconv"
 	"sync"
 
-	"github.com/boltdb/bolt"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/db/trie"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
+	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-core/trie"
 )
 
 const (
+	// AccountKVNameSpace is the bucket name for account trie
+	AccountKVNameSpace = "Account"
+
+	// CandidateKVNameSpace is the bucket name for candidate data storage
+	CandidateKVNameSpace = "Candidate"
+
 	// CurrentHeightKey indicates the key of current factory height in underlying DB
 	CurrentHeightKey = "currentHeight"
 	// AccountTrieRootKey indicates the key of accountTrie root hash in underlying DB
@@ -58,10 +65,10 @@ type (
 		mutex              sync.RWMutex
 		currentChainHeight uint64
 		numCandidates      uint
-		rootHash           hash.Hash32B             // new root hash after running executions in this block
 		accountTrie        trie.Trie                // global state trie
 		dao                db.KVStore               // the underlying DB for account/contract storage
 		actionHandlers     []protocol.ActionHandler // the handlers to handle actions
+		timerFactory       *prometheustimer.TimerFactory
 	}
 )
 
@@ -74,17 +81,8 @@ func PrecreatedTrieDBOption(kv db.KVStore) Option {
 		if kv == nil {
 			return errors.New("Invalid empty trie db")
 		}
-		if err = kv.Start(context.Background()); err != nil {
-			return errors.Wrap(err, "failed to start trie db")
-		}
 		sf.dao = kv
-		// get state trie root
-		if sf.rootHash, err = sf.getRoot(trie.AccountKVNameSpace, AccountTrieRootKey); err != nil {
-			return errors.Wrap(err, "failed to get accountTrie's root hash from underlying DB")
-		}
-		if sf.accountTrie, err = trie.NewTrie(sf.dao, trie.AccountKVNameSpace, sf.rootHash); err != nil {
-			return errors.Wrap(err, "failed to generate accountTrie from config")
-		}
+		sf.lifecycle.Add(sf.dao)
 		return nil
 	}
 }
@@ -96,18 +94,12 @@ func DefaultTrieOption() Option {
 		if len(dbPath) == 0 {
 			return errors.New("Invalid empty trie db path")
 		}
-		trieDB := db.NewBoltDB(dbPath, cfg.DB)
-		if err = trieDB.Start(context.Background()); err != nil {
-			return errors.Wrap(err, "failed to start trie db")
+		if cfg.Chain.UseBadgerDB {
+			sf.dao = db.NewBadgerDB(dbPath, cfg.DB)
+		} else {
+			sf.dao = db.NewBoltDB(dbPath, cfg.DB)
 		}
-		sf.dao = trieDB
-		// get state trie root
-		if sf.rootHash, err = sf.getRoot(trie.AccountKVNameSpace, AccountTrieRootKey); err != nil {
-			return errors.Wrap(err, "failed to get accountTrie's root hash from underlying DB")
-		}
-		if sf.accountTrie, err = trie.NewTrie(sf.dao, trie.AccountKVNameSpace, sf.rootHash); err != nil {
-			return errors.Wrap(err, "failed to generate accountTrie from config")
-		}
+		sf.lifecycle.Add(sf.dao)
 		return nil
 	}
 }
@@ -115,18 +107,8 @@ func DefaultTrieOption() Option {
 // InMemTrieOption creates in memory trie for state factory
 func InMemTrieOption() Option {
 	return func(sf *factory, cfg config.Config) (err error) {
-		trieDB := db.NewMemKVStore()
-		if err = trieDB.Start(context.Background()); err != nil {
-			return errors.Wrap(err, "failed to start trie db")
-		}
-		sf.dao = trieDB
-		// get state trie root
-		if sf.rootHash, err = sf.getRoot(trie.AccountKVNameSpace, AccountTrieRootKey); err != nil {
-			return errors.Wrap(err, "failed to get accountTrie's root hash from underlying DB")
-		}
-		if sf.accountTrie, err = trie.NewTrie(sf.dao, trie.AccountKVNameSpace, sf.rootHash); err != nil {
-			return errors.Wrap(err, "failed to generate accountTrie from config")
-		}
+		sf.dao = db.NewMemKVStore()
+		sf.lifecycle.Add(sf.dao)
 		return nil
 	}
 }
@@ -144,9 +126,23 @@ func NewFactory(cfg config.Config, opts ...Option) (Factory, error) {
 			return nil, err
 		}
 	}
-	if sf.accountTrie != nil {
-		sf.lifecycle.Add(sf.accountTrie)
+	accountTrie, err := trie.NewTrieWithKey(sf.dao, AccountKVNameSpace, AccountTrieRootKey)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to generate accountTrie from config")
 	}
+	sf.accountTrie = accountTrie
+	sf.lifecycle.Add(sf.accountTrie)
+	timerFactory, err := prometheustimer.New(
+		"iotex_statefactory_perf",
+		"Performance of state factory module",
+		[]string{"topic", "chainID"},
+		[]string{"default", strconv.FormatUint(uint64(cfg.Chain.ID), 10)},
+	)
+	if err != nil {
+		logger.Error().Err(err).Msg("Failed to generate prometheus timer factory")
+	}
+	sf.timerFactory = timerFactory
+
 	return sf, nil
 }
 
@@ -209,14 +205,14 @@ func (sf *factory) AccountState(addr string) (*state.Account, error) {
 func (sf *factory) RootHash() hash.Hash32B {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
-	return sf.rootHash
+	return sf.rootHash()
 }
 
 // Height returns factory's height
 func (sf *factory) Height() (uint64, error) {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
-	height, err := sf.dao.Get(trie.AccountKVNameSpace, []byte(CurrentHeightKey))
+	height, err := sf.dao.Get(AccountKVNameSpace, []byte(CurrentHeightKey))
 	if err != nil {
 		return 0, errors.Wrap(err, "failed to get factory's height from underlying DB")
 	}
@@ -226,7 +222,7 @@ func (sf *factory) Height() (uint64, error) {
 func (sf *factory) NewWorkingSet() (WorkingSet, error) {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
-	return NewWorkingSet(sf.currentChainHeight, sf.dao, sf.rootHash, sf.actionHandlers)
+	return NewWorkingSet(sf.currentChainHeight, sf.dao, sf.rootHash(), sf.actionHandlers)
 }
 
 // Commit persists all changes in RunActions() into the DB
@@ -236,6 +232,7 @@ func (sf *factory) Commit(ws WorkingSet) error {
 	}
 	sf.mutex.Lock()
 	defer sf.mutex.Unlock()
+	defer sf.timerFactory.NewTimer("Commit").End()
 	if sf.currentChainHeight != ws.Version() {
 		// another working set with correct version already committed, do nothing
 		return nil
@@ -245,8 +242,7 @@ func (sf *factory) Commit(ws WorkingSet) error {
 	}
 	// Update chain height and root
 	sf.currentChainHeight = ws.Height()
-	sf.rootHash = ws.RootHash()
-	if err := sf.accountTrie.SetRoot(sf.rootHash); err != nil {
+	if err := sf.accountTrie.SetRoot(ws.RootHash()); err != nil {
 		return errors.Wrap(err, "failed to commit working set")
 	}
 	return nil
@@ -260,7 +256,7 @@ func (sf *factory) CandidatesByHeight(height uint64) ([]*state.Candidate, error)
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
 	// Load Candidates on the given height from underlying db
-	candidatesBytes, err := sf.dao.Get(trie.CandidateKVNameSpace, byteutil.Uint64ToBytes(height))
+	candidatesBytes, err := sf.dao.Get(CandidateKVNameSpace, byteutil.Uint64ToBytes(height))
 	if err != nil {
 		return []*state.Candidate{}, errors.Wrapf(err, "failed to get candidates on Height %d", height)
 	}
@@ -285,17 +281,9 @@ func (sf *factory) State(addr hash.PKHash, state interface{}) error {
 //======================================
 // private trie constructor functions
 //======================================
-func (sf *factory) getRoot(nameSpace string, key string) (hash.Hash32B, error) {
-	var trieRoot hash.Hash32B
-	switch root, err := sf.dao.Get(nameSpace, []byte(key)); errors.Cause(err) {
-	case nil:
-		trieRoot = byteutil.BytesTo32B(root)
-	case bolt.ErrBucketNotFound:
-		trieRoot = trie.EmptyRoot
-	default:
-		return hash.ZeroHash32B, err
-	}
-	return trieRoot, nil
+
+func (sf *factory) rootHash() hash.Hash32B {
+	return sf.accountTrie.RootHash()
 }
 
 func (sf *factory) state(addr hash.PKHash, s interface{}) error {

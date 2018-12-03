@@ -13,6 +13,8 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/account"
+	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -21,34 +23,43 @@ import (
 const ExecutionSizeLimit = 32 * 1024
 
 // Protocol defines the protocol of handling executions
-type Protocol struct{}
+type Protocol struct{ cm protocol.ChainManager }
 
 // NewProtocol instantiates the protocol of exeuction
-func NewProtocol() *Protocol { return &Protocol{} }
+func NewProtocol(cm protocol.ChainManager) *Protocol { return &Protocol{cm} }
 
 // Handle handles an execution
-func (p *Protocol) Handle(_ context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
+func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
 	exec, ok := act.(*action.Execution)
 	if !ok {
 		return nil, nil
 	}
+
+	raCtx, ok := state.GetRunActionsCtx(ctx)
+	if !ok {
+		return nil, errors.New("failed to get RunActionsCtx")
+	}
+	receipt, err := evm.ExecuteContract(raCtx.BlockHeight, raCtx.BlockHash, raCtx.ProducerPubKey, raCtx.BlockTimeStamp,
+		sm, exec, p.cm, raCtx.GasLimit, raCtx.EnableGasCharge)
+
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to execute contract")
+	}
+
 	executorPKHash, err := iotxaddress.AddressToPKHash(exec.Executor())
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to convert address to PK hash")
 	}
-	s, err := sm.CachedState(executorPKHash, &state.Account{})
+	acct, err := account.LoadAccountState(sm, executorPKHash)
 	if err != nil {
-		return nil, errors.Wrap(err, "executor does not exist")
+		return nil, errors.Wrapf(err, "failed to load the account of executor %x", executorPKHash)
 	}
-	account, ok := s.(*state.Account)
-	if !ok {
-		return nil, errors.Wrap(err, "failed to convert state to account state")
+	account.SetNonce(exec, acct)
+	if err := account.StoreState(sm, exec.Executor(), acct); err != nil {
+		return nil, errors.Wrapf(err, "failed to update pending account changes to trie")
 	}
-	if exec.Nonce() > account.Nonce {
-		account.Nonce = exec.Nonce()
-		sm.UpdateCachedStates(executorPKHash, account)
-	}
-	return nil, nil
+
+	return receipt, nil
 }
 
 // Validate validates an execution

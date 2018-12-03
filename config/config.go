@@ -89,6 +89,7 @@ var (
 		Chain: Chain{
 			ChainDBPath:                  "/tmp/chain.db",
 			TrieDBPath:                   "/tmp/trie.db",
+			UseBadgerDB:                  false,
 			ID:                           1,
 			Address:                      "",
 			ProducerPubKey:               keypair.EncodePublicKey(keypair.ZeroPublicKey),
@@ -213,6 +214,7 @@ type (
 	Chain struct {
 		ChainDBPath string `yaml:"chainDBPath"`
 		TrieDBPath  string `yaml:"trieDBPath"`
+		UseBadgerDB bool   `yaml:"useBadgerDB"`
 
 		ID              uint32 `yaml:"id"`
 		Address         string `yaml:"address"`

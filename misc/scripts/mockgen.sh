@@ -70,3 +70,9 @@ mockgen -destination=./test/mock/mock_explorer/mock_explorer.go  \
         -source=./explorer/idl/explorer/explorer.go \
         -package=mock_explorer \
         Explorer
+
+mkdir -p ./test/mock/mock_chainmanager
+mockgen -destination=./test/mock/mock_chainmanager/mock_chainmanager.go  \
+        -source=./action/protocol/protocol.go \
+        -package=mock_chainmanager \
+        ChainManager
