@@ -8,7 +8,6 @@ package consensus
 
 import (
 	"context"
-	"github.com/iotexproject/iotex-core/db"
 	"math/big"
 
 	"github.com/facebookgo/clock"
@@ -20,6 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
+	"github.com/iotexproject/iotex-core/db"
 	explorerapi "github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"

@@ -7,11 +7,11 @@
 package blocksync
 
 import (
-	"github.com/iotexproject/iotex-core/db"
 	"sync"
 
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/logger"
 )
 
