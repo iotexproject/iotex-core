@@ -12,6 +12,8 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/account"
+	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -26,19 +28,21 @@ func (p *Protocol) handlePutBlock(pb *action.PutBlock, sm protocol.StateManager)
 		return err
 	}
 	// Update the block producer's nonce
-	account, err := sm.CachedAccountState(pb.ProducerAddress())
+	addrHash, err := iotxaddress.AddressToPKHash(pb.ProducerAddress())
 	if err != nil {
 		return err
 	}
-	if pb.Nonce() > account.Nonce {
-		account.Nonce = pb.Nonce()
+	acct, err := account.LoadAccountState(sm, addrHash)
+	if err != nil {
+		return err
 	}
+	account.SetNonce(pb, acct)
 	producerPKHash, err := srcAddressPKHash(pb.ProducerAddress())
 	if err != nil {
 		return err
 	}
 
-	return sm.PutState(producerPKHash, account)
+	return sm.PutState(producerPKHash, acct)
 }
 
 func (p *Protocol) validatePutBlock(pb *action.PutBlock, sm protocol.StateManager) error {

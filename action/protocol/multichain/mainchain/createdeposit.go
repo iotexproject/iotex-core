@@ -14,6 +14,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
@@ -80,21 +81,19 @@ func (p *Protocol) validateDeposit(deposit *action.CreateDeposit, sm protocol.St
 
 func (p *Protocol) mutateDeposit(
 	deposit *action.CreateDeposit,
-	account *state.Account,
+	acct *state.Account,
 	subChainInOp InOperation,
 	sm protocol.StateManager,
 ) (*action.Receipt, error) {
 	// Subtract the balance from sender account
-	account.Balance = big.NewInt(0).Sub(account.Balance, deposit.Amount())
+	acct.Balance = big.NewInt(0).Sub(acct.Balance, deposit.Amount())
 	// TODO: this is not right, but currently the actions in a block is not processed according to the nonce
-	if deposit.Nonce() > account.Nonce {
-		account.Nonce = deposit.Nonce()
-	}
+	account.SetNonce(deposit, acct)
 	ownerPKHash, err := srcAddressPKHash(deposit.Sender())
 	if err != nil {
 		return nil, err
 	}
-	if err := sm.PutState(ownerPKHash, account); err != nil {
+	if err := sm.PutState(ownerPKHash, acct); err != nil {
 		return nil, err
 	}
 

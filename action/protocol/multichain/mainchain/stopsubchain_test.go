@@ -34,6 +34,16 @@ func TestHandleStopSubChain(t *testing.T) {
 	chain.EXPECT().ChainID().Return(uint32(1)).AnyTimes()
 
 	ws := mock_factory.NewMockWorkingSet(ctrl)
+	ws.EXPECT().PutState(gomock.Any(), gomock.Any()).Return(nil).Times(6)
+	ws.EXPECT().State(gomock.Any(), gomock.Any()).
+		Do(func(_ hash.PKHash, s interface{}) error {
+			out := &state.Account{Nonce: 2, Balance: big.NewInt(400000000)}
+			data, err := state.Serialize(out)
+			if err != nil {
+				return err
+			}
+			return state.Deserialize(s, data)
+		}).Times(2)
 	ws.EXPECT().State(gomock.Any(), gomock.Any()).
 		Do(func(_ hash.PKHash, s interface{}) error {
 			out := &state.SortedSlice{InOperation{ID: uint32(2)}}
@@ -43,14 +53,15 @@ func TestHandleStopSubChain(t *testing.T) {
 			}
 			return state.Deserialize(s, data)
 		}).Times(1)
-	ws.EXPECT().PutState(gomock.Any(), gomock.Any()).Return(nil).Times(6)
-	ws.EXPECT().
-		CachedAccountState(gomock.Any()).
-		Return(&state.Account{
-			Nonce:   2,
-			Balance: big.NewInt(400000000),
-		}, nil).
-		Times(3)
+	ws.EXPECT().State(gomock.Any(), gomock.Any()).
+		Do(func(_ hash.PKHash, s interface{}) error {
+			out := &state.Account{Nonce: 2, Balance: big.NewInt(400000000)}
+			data, err := state.Serialize(out)
+			if err != nil {
+				return err
+			}
+			return state.Deserialize(s, data)
+		}).Times(1)
 	ws.EXPECT().Height().Return(uint64(2)).Times(5)
 	subChainPKHash, err := createSubChainAddress(sender.RawAddress, 2)
 	require.NoError(err)

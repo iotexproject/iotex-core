@@ -8,7 +8,6 @@ package protocol
 
 import (
 	"context"
-	"math/big"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/db"
@@ -48,14 +47,10 @@ type ChainManager interface {
 
 // StateManager defines the state DB interface atop IoTeX blockchain
 type StateManager interface {
-	// states and actions
-	LoadOrCreateAccountState(string, *big.Int) (*state.Account, error)
-	CachedAccountState(string) (*state.Account, error)
 	// Accounts
 	Height() uint64
 	// General state
 	State(hash.PKHash, interface{}) error
-	CachedState(hash.PKHash, state.State) (state.State, error)
 	PutState(hash.PKHash, interface{}) error
 	GetDB() db.KVStore
 	GetCachedBatch() db.CachedBatch

@@ -15,8 +15,10 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
@@ -95,8 +97,11 @@ func (p *Protocol) account(sender string, sm protocol.StateManager) (*state.Acco
 	if sm == nil {
 		return p.sf.AccountState(sender)
 	}
-
-	return sm.CachedAccountState(sender)
+	addrHash, err := iotxaddress.AddressToPKHash(sender)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to convert address to public key hash")
+	}
+	return account.LoadAccountState(sm, addrHash)
 }
 
 func (p *Protocol) accountWithEnoughBalance(
