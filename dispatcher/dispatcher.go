@@ -364,6 +364,7 @@ func (d *IotxDispatcher) HandleTell(chainID uint32, sender net.Addr, message pro
 	case pb.MsgBlockSyncReqType:
 		d.dispatchBlockSyncReq(chainID, sender.String(), message, done)
 	case pb.MsgBlockSyncDataType:
+		logger.Warn().Str("sender", sender.String()).Msg("testnet")
 		d.dispatchBlockSyncData(chainID, message, done)
 	default:
 		logger.Warn().

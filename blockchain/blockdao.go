@@ -14,6 +14,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
@@ -157,6 +158,13 @@ func (dao *blockDAO) getBlock(hash hash.Hash32B) (*Block, error) {
 	if len(value) == 0 {
 		return nil, errors.Wrapf(db.ErrNotExist, "block %x missing", hash)
 	}
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Warn().Hex("hash", hash[:]).Msg("getBlock")
+			logger.Warn().Int("length", len(value)).Hex("bytes", value).Msg("getBlock")
+			panic(r)
+		}
+	}()
 	blk := Block{}
 	if err = blk.Deserialize(value); err != nil {
 		return nil, errors.Wrap(err, "failed to deserialize block")

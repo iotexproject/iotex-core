@@ -34,7 +34,7 @@ var logger = zerolog.New(os.Stderr).Level(zerolog.InfoLevel).With().Timestamp().
 
 func init() {
 	// read config
-	flag.StringVar(&_levelStr, "log-level", zerolog.InfoLevel.String(), "Log level")
+	flag.StringVar(&_levelStr, "log-level", zerolog.WarnLevel.String(), "Log level")
 	flag.StringVar(&_pathStr, "log-path", "", "Log path")
 	flag.BoolVar(&_colorful, "log-colorful", false, "Log use coloful consoleWriter")
 	flag.BoolVar(&_callLine, "log-call-line", false, "Log caller line")

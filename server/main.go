@@ -66,20 +66,21 @@ func main() {
 }
 
 func initLogger(cfg *config.Config) {
-	addr, err := cfg.BlockchainAddress()
+	/*addr, err := cfg.BlockchainAddress()
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Failed to get producer address from pub/kri key.")
 		return
-	}
+	}*/
 	l, err := logger.New()
 	if err != nil {
 		logger.Warn().Err(err).Msg("Cannot config logger, use default one.")
 	} else {
-		logger.SetLogger(
+		logger.SetLogger(l)
+		/*
 			l.With().
 				Str("iotxAddr", addr.IotxAddress()).
 				Str("networkAddress", fmt.Sprintf("%s:%d", cfg.Network.Host, cfg.Network.Port)).
 				Str("nodeType", cfg.NodeType).Logger(),
-		)
+		)*/
 	}
 }
