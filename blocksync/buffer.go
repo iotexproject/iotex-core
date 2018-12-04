@@ -66,7 +66,12 @@ func (b *blockBuffer) Flush(blk *blockchain.Block) (bool, bCheckinResult) {
 			break
 		}
 		delete(b.blocks, heightToSync)
-		if err := commitBlock(b.bc, b.ap, blk); err != nil && err != db.ErrAlreadyExist {
+		if err := commitBlock(b.bc, b.ap, blk); err != nil {
+			if err == db.ErrAlreadyExist {
+				l.Info().Uint64("syncHeight", heightToSync).Msg("Block already exists.")
+				break
+			}
+
 			l.Error().Err(err).Uint64("syncHeight", heightToSync).
 				Msg("Failed to commit the block.")
 			// unable to commit, check reason
