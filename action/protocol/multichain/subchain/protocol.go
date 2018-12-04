@@ -16,6 +16,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
@@ -107,13 +108,11 @@ func (p *Protocol) mutateDeposit(deposit *action.SettleDeposit, sm protocol.Stat
 	}
 
 	// Update the action owner
-	owner, err := sm.LoadOrCreateAccountState(deposit.Sender(), big.NewInt(0))
+	owner, err := account.LoadOrCreateAccountState(sm, deposit.Sender(), big.NewInt(0))
 	if err != nil {
 		return err
 	}
-	if deposit.Nonce() > owner.Nonce {
-		owner.Nonce = deposit.Nonce()
-	}
+	account.SetNonce(deposit, owner)
 	ownerPKHash, err := srcAddressPKHash(deposit.Sender())
 	if err != nil {
 		return err
@@ -123,7 +122,7 @@ func (p *Protocol) mutateDeposit(deposit *action.SettleDeposit, sm protocol.Stat
 	}
 
 	// Update the deposit recipient
-	recipient, err := sm.LoadOrCreateAccountState(deposit.Recipient(), big.NewInt(0))
+	recipient, err := account.LoadOrCreateAccountState(sm, deposit.Recipient(), big.NewInt(0))
 	if err != nil {
 		return err
 	}

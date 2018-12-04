@@ -179,7 +179,7 @@ func (stateDB *StateDBAdapter) HasSuicided(common.Address) bool {
 func (stateDB *StateDBAdapter) Exist(evmAddr common.Address) bool {
 	addr := address.New(stateDB.cm.ChainID(), evmAddr.Bytes())
 	logger.Debug().Msgf("Check existence of %s, %x", addr.IotxAddress(), evmAddr[:])
-	if state, err := stateDB.sm.CachedAccountState(addr.IotxAddress()); err != nil || state == nil {
+	if state, err := stateDB.AccountState(addr.IotxAddress()); err != nil || state == nil {
 		logger.Debug().Msgf("account %s does not exist", addr.IotxAddress())
 		return false
 	}

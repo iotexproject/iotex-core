@@ -14,6 +14,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
@@ -62,7 +63,7 @@ func (p *Protocol) validateStartSubChain(
 
 func (p *Protocol) mutateSubChainState(
 	start *action.StartSubChain,
-	account *state.Account,
+	acct *state.Account,
 	subChainsInOp state.SortedSlice,
 	sm protocol.StateManager,
 ) error {
@@ -83,17 +84,15 @@ func (p *Protocol) mutateSubChainState(
 	if err := sm.PutState(addr, &sc); err != nil {
 		return errors.Wrap(err, "error when putting sub-chain state")
 	}
-	account.Balance = big.NewInt(0).Sub(account.Balance, start.SecurityDeposit())
-	account.Balance = big.NewInt(0).Sub(account.Balance, start.OperationDeposit())
+	acct.Balance = big.NewInt(0).Sub(acct.Balance, start.SecurityDeposit())
+	acct.Balance = big.NewInt(0).Sub(acct.Balance, start.OperationDeposit())
 	// TODO: this is not right, but currently the actions in a block is not processed according to the nonce
-	if start.Nonce() > account.Nonce {
-		account.Nonce = start.Nonce()
-	}
+	account.SetNonce(start, acct)
 	ownerPKHash, err := srcAddressPKHash(start.OwnerAddress())
 	if err != nil {
 		return err
 	}
-	if err := sm.PutState(ownerPKHash, account); err != nil {
+	if err := sm.PutState(ownerPKHash, acct); err != nil {
 		return err
 	}
 	subChainsInOp = subChainsInOp.Append(

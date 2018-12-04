@@ -175,10 +175,16 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 			}
 			return state.Deserialize(s, data)
 		}).Times(1)
-	ws.EXPECT().CachedAccountState(gomock.Any()).Return(
-		&state.Account{Balance: big.NewInt(0).Mul(big.NewInt(1500000000), big.NewInt(blockchain.Iotx))},
-		nil,
-	).AnyTimes()
+	ws.EXPECT().
+		State(gomock.Any(), gomock.Any()).
+		Do(func(_ hash.PKHash, s interface{}) error {
+			out := &state.Account{Balance: big.NewInt(0).Mul(big.NewInt(1500000000), big.NewInt(blockchain.Iotx))}
+			data, err := state.Serialize(out)
+			if err != nil {
+				return err
+			}
+			return state.Deserialize(s, data)
+		}).Times(1)
 	start = action.NewStartSubChain(
 		1,
 		2,
