@@ -119,8 +119,8 @@ func (p *Protocol) accountWithEnoughBalance(
 	return account, nil
 }
 
-func (p *Protocol) subChainsInOperation(sm protocol.StateManager) (state.SortedSlice, error) {
-	var subChainsInOp state.SortedSlice
+func (p *Protocol) subChainsInOperation(sm protocol.StateManager) (SubChainsInOperation, error) {
+	var subChainsInOp SubChainsInOperation
 	var err error
 	if sm == nil {
 		subChainsInOp, err = p.SubChainsInOperation()
@@ -131,7 +131,7 @@ func (p *Protocol) subChainsInOperation(sm protocol.StateManager) (state.SortedS
 		}
 	}
 	if err != nil {
-		return state.SortedSlice{}, errors.Wrap(err, "error when getting the state of sub-chains in operation")
+		return nil, errors.Wrap(err, "error when getting the state of sub-chains in operation")
 	}
 	return subChainsInOp, nil
 }
@@ -154,8 +154,8 @@ func (p *Protocol) SubChain(addr address.Address) (*SubChain, error) {
 }
 
 // SubChainsInOperation returns the used chain IDs
-func (p *Protocol) SubChainsInOperation() (state.SortedSlice, error) {
-	var subChainsInOp state.SortedSlice
+func (p *Protocol) SubChainsInOperation() (SubChainsInOperation, error) {
+	var subChainsInOp SubChainsInOperation
 	err := p.sf.State(SubChainsInOperationKey, &subChainsInOp)
 	if err != nil && errors.Cause(err) != state.ErrStateNotExist {
 		return nil, err

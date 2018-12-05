@@ -33,7 +33,7 @@ func (p *Protocol) handleStartSubChain(start *action.StartSubChain, sm protocol.
 func (p *Protocol) validateStartSubChain(
 	start *action.StartSubChain,
 	sm protocol.StateManager,
-) (*state.Account, state.SortedSlice, error) {
+) (*state.Account, SubChainsInOperation, error) {
 	if start.ChainID() == p.rootChain.ChainID() {
 		return nil, nil, fmt.Errorf("%d is used by main chain", start.ChainID())
 	}
@@ -41,7 +41,7 @@ func (p *Protocol) validateStartSubChain(
 	if err != nil {
 		return nil, nil, err
 	}
-	if _, ok := subChainsInOp.Get(InOperation{ID: start.ChainID()}, SortInOperation); ok {
+	if _, ok := subChainsInOp.Get(start.ChainID()); ok {
 		return nil, nil, fmt.Errorf("%d is used by another sub-chain", start.ChainID())
 	}
 	if start.SecurityDeposit().Cmp(MinSecurityDeposit) < 0 {
@@ -64,7 +64,7 @@ func (p *Protocol) validateStartSubChain(
 func (p *Protocol) mutateSubChainState(
 	start *action.StartSubChain,
 	acct *state.Account,
-	subChainsInOp state.SortedSlice,
+	subChainsInOp SubChainsInOperation,
 	sm protocol.StateManager,
 ) error {
 	addr, err := createSubChainAddress(start.OwnerAddress(), start.Nonce())
@@ -95,13 +95,10 @@ func (p *Protocol) mutateSubChainState(
 	if err := sm.PutState(ownerPKHash, acct); err != nil {
 		return err
 	}
-	subChainsInOp = subChainsInOp.Append(
-		InOperation{
-			ID:   start.ChainID(),
-			Addr: address.New(p.rootChain.ChainID(), addr[:]).Bytes(),
-		},
-		SortInOperation,
-	)
+	subChainsInOp = subChainsInOp.Append(InOperation{
+		ID:   start.ChainID(),
+		Addr: address.New(p.rootChain.ChainID(), addr[:]).Bytes(),
+	})
 	return sm.PutState(SubChainsInOperationKey, &subChainsInOp)
 }
 
