@@ -92,25 +92,18 @@ func NewWorkingSet(
 // LoadOrCreateAccountState loads existing or adds a new account state with initial balance to the factory
 // addr should be a bech32 properly-encoded string
 func (ws *workingSet) LoadOrCreateAccountState(addr string, init *big.Int) (*state.Account, error) {
-	addrHash, err := iotxaddress.AddressToPKHash(addr)
+	account, err := ws.CachedAccountState(addr)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "failed to get account of %s from cached account", addr)
 	}
-	s, err := ws.CachedState(addrHash, &state.Account{})
-	switch {
-	case errors.Cause(err) == state.ErrStateNotExist:
-		account := state.Account{
-			Balance:      big.NewInt(0).SetBytes(init.Bytes()),
+	if account == state.EmptyAccount {
+		account = &state.Account{
+			Balance:      init,
 			VotingWeight: big.NewInt(0),
 		}
-		ws.cachedStates[addrHash] = &account
-		return &account, nil
-	case err != nil:
-		return nil, errors.Wrapf(err, "failed to get account of %x from cached account", addrHash)
-	}
-	account, err := stateToAccountState(s)
-	if err != nil {
-		return nil, err
+		addrHash, _ := iotxaddress.AddressToPKHash(addr)
+		ws.cachedStates[addrHash] = account
+		return account, nil
 	}
 	return account, nil
 }
@@ -130,11 +123,14 @@ func (ws *workingSet) CachedAccountState(addr string) (*state.Account, error) {
 	if err != nil {
 		return nil, err
 	}
-	state, err := ws.CachedState(addrHash, &state.Account{})
+	s, err := ws.CachedState(addrHash, &state.Account{})
 	if err != nil {
+		if errors.Cause(err) == state.ErrStateNotExist {
+			return state.EmptyAccount, nil
+		}
 		return nil, err
 	}
-	account, err := stateToAccountState(state)
+	account, err := stateToAccountState(s)
 	if err != nil {
 		return nil, err
 	}
@@ -310,6 +306,9 @@ func (ws *workingSet) accountState(addr string) (*state.Account, error) {
 	}
 	var ac state.Account
 	if err := ws.State(addrHash, &ac); err != nil {
+		if errors.Cause(err) == state.ErrStateNotExist {
+			return state.EmptyAccount, nil
+		}
 		return nil, err
 	}
 	return &ac, nil
