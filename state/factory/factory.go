@@ -308,10 +308,7 @@ func (sf *factory) accountState(addr string) (*state.Account, error) {
 	var account state.Account
 	if err := sf.state(pkHash, &account); err != nil {
 		if errors.Cause(err) == state.ErrStateNotExist {
-			return &state.Account{
-				Balance:      big.NewInt(0),
-				VotingWeight: big.NewInt(0),
-			}, nil
+			return state.EmptyAccount, nil
 		}
 		return nil, errors.Wrapf(err, "error when loading state of %x", pkHash)
 	}
