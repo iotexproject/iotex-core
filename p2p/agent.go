@@ -9,7 +9,9 @@ package p2p
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"net"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
@@ -23,8 +25,10 @@ import (
 
 const (
 	// TODO: the topic could be fine tuned
-	broadcastTopic = "broadcast"
-	unicastTopic   = "unicast"
+	broadcastTopic    = "broadcast"
+	unicastTopic      = "unicast"
+	numDialRetries    = 8
+	dialRetryInterval = 2 * time.Second
 )
 
 // HandleBroadcast handles broadcast message when agent listens it from the network
@@ -53,10 +57,11 @@ func NewAgent(cfg config.Network, broadcastCB HandleBroadcast, unicastCB HandleU
 // Start connects into P2P network
 func (p *Agent) Start(ctx context.Context) error {
 	p2p.SetLogger(logger.Logger())
-	host, err := p2p.NewHost(ctx, p2p.HostName(p.cfg.Host), p2p.Port(p.cfg.Port), p2p.Gossip())
+	host, err := p2p.NewHost(ctx, p2p.HostName(p.cfg.Host), p2p.Port(p.cfg.Port), p2p.Gossip(), p2p.SecureIO())
 	if err != nil {
 		return errors.Wrap(err, "error when instantiating Agent host")
 	}
+
 	if err := host.AddBroadcastPubSub(broadcastTopic, func(data []byte) error {
 		var broadcast BroadcastMsg
 		if err := proto.Unmarshal(data, &broadcast); err != nil {
@@ -71,6 +76,7 @@ func (p *Agent) Start(ctx context.Context) error {
 	}); err != nil {
 		return errors.Wrap(err, "error when adding broadcast pubsub")
 	}
+
 	if err := host.AddUnicastPubSub(unicastTopic, func(data []byte) error {
 		var unicast UnicastMsg
 		if err := proto.Unmarshal(data, &unicast); err != nil {
@@ -86,9 +92,28 @@ func (p *Agent) Start(ctx context.Context) error {
 	}); err != nil {
 		return errors.Wrap(err, "error when adding unicast pubsub")
 	}
+
+	if len(p.cfg.BootstrapNodes) > 0 {
+		r := rand.New(rand.NewSource(time.Now().UnixNano()))
+		randBootstrapNodeAddr := p.cfg.BootstrapNodes[r.Intn(len(p.cfg.BootstrapNodes))]
+		if randBootstrapNodeAddr != host.Address() {
+			var err error
+			for i := 0; i < numDialRetries; i++ {
+				if err = host.Connect(randBootstrapNodeAddr); err == nil {
+					break
+				}
+				time.Sleep(dialRetryInterval)
+			}
+			if err != nil {
+				return errors.Wrapf(err, "error when connecting bootstrap node %s", randBootstrapNodeAddr)
+			}
+			logger.Info().Str("address", randBootstrapNodeAddr).Msg("Connected bootstrap node")
+		}
+	}
 	if err := host.JoinOverlay(); err != nil {
 		return errors.Wrap(err, "error when joining overlay")
 	}
+	p.host = host
 	return nil
 }
 
@@ -111,7 +136,7 @@ func (p *Agent) Broadcast(ctx context.Context, msg proto.Message) error {
 	}
 	p2pCtx, ok := GetContext(ctx)
 	if !ok {
-		return fmt.Errorf("agent context doesn't exist")
+		return fmt.Errorf("P2P context doesn't exist")
 	}
 	broadcast := BroadcastMsg{ChainId: p2pCtx.ChainID, MsgType: msgType, MsgBody: msgBody}
 	data, err := proto.Marshal(&broadcast)
@@ -132,7 +157,7 @@ func (p *Agent) Unicast(ctx context.Context, addr net.Addr, msg proto.Message) e
 	}
 	p2pCtx, ok := GetContext(ctx)
 	if !ok {
-		return fmt.Errorf("agent context doesn't exist")
+		return fmt.Errorf("P2P context doesn't exist")
 	}
 	unicast := UnicastMsg{ChainId: p2pCtx.ChainID, Addr: p.Self().String(), MsgType: msgType, MsgBody: msgBody}
 	data, err := proto.Marshal(&unicast)
