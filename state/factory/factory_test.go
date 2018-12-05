@@ -91,7 +91,10 @@ func TestCreateState(t *testing.T) {
 	require.Nil(err)
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
-	s, err := ws.LoadOrCreateAccountState(addr.RawAddress, big.NewInt(5))
+	s, err := ws.CachedAccountState(addr.RawAddress)
+	require.NoError(err)
+	require.Equal(s, state.EmptyAccount)
+	s, err = ws.LoadOrCreateAccountState(addr.RawAddress, big.NewInt(5))
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
 	ctx := state.WithRunActionsCtx(context.Background(),

@@ -95,15 +95,13 @@ func (ws *workingSet) LoadOrCreateAccountState(addr string, init *big.Int) (*sta
 	account, err := ws.CachedAccountState(addr)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get account of %s from cached account", addr)
-	} else if account == state.EmptyAccount {
+	}
+	if account == state.EmptyAccount {
 		account = &state.Account{
 			Balance:      init,
 			VotingWeight: big.NewInt(0),
 		}
-		addrHash, err := iotxaddress.AddressToPKHash(addr)
-		if err != nil {
-			return nil, err
-		}
+		addrHash, _ := iotxaddress.AddressToPKHash(addr)
 		ws.cachedStates[addrHash] = account
 		return account, nil
 	}

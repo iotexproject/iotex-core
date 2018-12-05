@@ -56,7 +56,8 @@ func LoadOrCreateAccountState(sm protocol.StateManager, addr string, init *big.I
 	account, err := LoadAccountState(sm, addrHash)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get account of %x from account trie", addrHash)
-	} else if account == state.EmptyAccount {
+	}
+	if account == state.EmptyAccount {
 		account = &state.Account{
 			Balance:      init,
 			VotingWeight: big.NewInt(0),
