@@ -68,7 +68,7 @@ func TestProtocol_Handle(t *testing.T) {
 		}()
 		ws, err := sf.NewWorkingSet()
 		require.NoError(err)
-		_, err = account.LoadOrCreateAccountState(ws, ta.Addrinfo["producer"].RawAddress, blockchain.Gen.TotalSupply)
+		_, err = account.LoadOrCreateAccount(ws, ta.Addrinfo["producer"].RawAddress, blockchain.Gen.TotalSupply)
 		require.NoError(err)
 		gasLimit := testutil.TestGasLimit
 		ctx = state.WithRunActionsCtx(ctx,
@@ -208,11 +208,11 @@ func TestProtocol_Handle(t *testing.T) {
 		}()
 		ws, err := sf.NewWorkingSet()
 		require.NoError(err)
-		_, err = account.LoadOrCreateAccountState(ws, ta.Addrinfo["producer"].RawAddress, blockchain.Gen.TotalSupply)
+		_, err = account.LoadOrCreateAccount(ws, ta.Addrinfo["producer"].RawAddress, blockchain.Gen.TotalSupply)
 		require.NoError(err)
-		_, err = account.LoadOrCreateAccountState(ws, ta.Addrinfo["alfa"].RawAddress, big.NewInt(0))
+		_, err = account.LoadOrCreateAccount(ws, ta.Addrinfo["alfa"].RawAddress, big.NewInt(0))
 		require.NoError(err)
-		_, err = account.LoadOrCreateAccountState(ws, ta.Addrinfo["bravo"].RawAddress, big.NewInt(12000000))
+		_, err = account.LoadOrCreateAccount(ws, ta.Addrinfo["bravo"].RawAddress, big.NewInt(12000000))
 		require.NoError(err)
 		gasLimit := testutil.TestGasLimit
 		ctx = state.WithRunActionsCtx(ctx,
@@ -323,11 +323,11 @@ func TestProtocol_Handle(t *testing.T) {
 		sf.AddActionHandlers(NewProtocol(bc))
 		ws, err := sf.NewWorkingSet()
 		require.NoError(err)
-		_, err = account.LoadOrCreateAccountState(ws, ta.Addrinfo["producer"].RawAddress, blockchain.Gen.TotalSupply)
+		_, err = account.LoadOrCreateAccount(ws, ta.Addrinfo["producer"].RawAddress, blockchain.Gen.TotalSupply)
 		require.NoError(err)
-		_, err = account.LoadOrCreateAccountState(ws, ta.Addrinfo["alfa"].RawAddress, big.NewInt(0))
+		_, err = account.LoadOrCreateAccount(ws, ta.Addrinfo["alfa"].RawAddress, big.NewInt(0))
 		require.NoError(err)
-		_, err = account.LoadOrCreateAccountState(ws, ta.Addrinfo["bravo"].RawAddress, big.NewInt(0))
+		_, err = account.LoadOrCreateAccount(ws, ta.Addrinfo["bravo"].RawAddress, big.NewInt(0))
 		require.NoError(err)
 		gasLimit := testutil.TestGasLimit
 		ctx = state.WithRunActionsCtx(ctx,

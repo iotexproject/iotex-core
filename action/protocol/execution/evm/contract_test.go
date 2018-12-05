@@ -49,7 +49,7 @@ func TestCreateContract(t *testing.T) {
 	addr := testaddress.Addrinfo["alfa"]
 	ws, err := sf.NewWorkingSet()
 	require.Nil(err)
-	_, err = account.LoadOrCreateAccountState(ws, addr.RawAddress, big.NewInt(0))
+	_, err = account.LoadOrCreateAccount(ws, addr.RawAddress, big.NewInt(0))
 	require.Nil(err)
 	stateDB := StateDBAdapter{
 		sm:             ws,
@@ -89,7 +89,7 @@ func TestCreateContract(t *testing.T) {
 	require.Nil(err)
 
 	// reload same contract
-	contract1, err := account.LoadOrCreateAccountState(ws, addr.RawAddress, big.NewInt(0))
+	contract1, err := account.LoadOrCreateAccount(ws, addr.RawAddress, big.NewInt(0))
 	require.Nil(err)
 	require.Equal(codeHash[:], contract1.CodeHash)
 	require.Nil(sf.Commit(ws))
@@ -102,7 +102,7 @@ func TestCreateContract(t *testing.T) {
 	// reload same contract
 	ws, err = sf.NewWorkingSet()
 	require.Nil(err)
-	contract1, err = account.LoadOrCreateAccountState(ws, addr.RawAddress, big.NewInt(0))
+	contract1, err = account.LoadOrCreateAccount(ws, addr.RawAddress, big.NewInt(0))
 	require.Nil(err)
 	require.Equal(codeHash[:], contract1.CodeHash)
 	stateDB = StateDBAdapter{
@@ -135,7 +135,7 @@ func TestLoadStoreContract(t *testing.T) {
 	addr := testaddress.Addrinfo["alfa"]
 	ws, err := sf.NewWorkingSet()
 	require.Nil(err)
-	_, err = account.LoadOrCreateAccountState(ws, addr.RawAddress, big.NewInt(0))
+	_, err = account.LoadOrCreateAccount(ws, addr.RawAddress, big.NewInt(0))
 	require.Nil(err)
 	stateDB := StateDBAdapter{
 		sm:             ws,
@@ -164,7 +164,7 @@ func TestLoadStoreContract(t *testing.T) {
 
 	code1 := []byte("2nd contract creation")
 	addr1 := testaddress.Addrinfo["bravo"]
-	_, err = account.LoadOrCreateAccountState(ws, addr1.RawAddress, big.NewInt(0))
+	_, err = account.LoadOrCreateAccount(ws, addr1.RawAddress, big.NewInt(0))
 	require.Nil(err)
 	contractHash, err = iotxaddress.GetPubkeyHash(addr1.RawAddress)
 	require.Nil(err)

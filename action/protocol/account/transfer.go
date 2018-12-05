@@ -31,7 +31,7 @@ func (p *Protocol) handleTransfer(act action.Action, sm protocol.StateManager) e
 	}
 	if !tsf.IsCoinbase() {
 		// check sender
-		sender, err := LoadOrCreateAccountState(sm, tsf.Sender(), big.NewInt(0))
+		sender, err := LoadOrCreateAccount(sm, tsf.Sender(), big.NewInt(0))
 		if err != nil {
 			return errors.Wrapf(err, "failed to load or create the account of sender %s", tsf.Sender())
 		}
@@ -45,25 +45,25 @@ func (p *Protocol) handleTransfer(act action.Action, sm protocol.StateManager) e
 		// update sender Nonce
 		SetNonce(tsf, sender)
 		// put updated sender's state to trie
-		if err := StoreState(sm, tsf.Sender(), sender); err != nil {
+		if err := StoreAccount(sm, tsf.Sender(), sender); err != nil {
 			return errors.Wrap(err, "failed to update pending account changes to trie")
 		}
 		// Update sender votes
 		if len(sender.Votee) > 0 {
 			// sender already voted to a different person
-			voteeOfSender, err := LoadOrCreateAccountState(sm, sender.Votee, big.NewInt(0))
+			voteeOfSender, err := LoadOrCreateAccount(sm, sender.Votee, big.NewInt(0))
 			if err != nil {
 				return errors.Wrapf(err, "failed to load or create the account of sender's votee %s", sender.Votee)
 			}
 			voteeOfSender.VotingWeight.Sub(voteeOfSender.VotingWeight, tsf.Amount())
 			// put updated state of sender's votee to trie
-			if err := StoreState(sm, sender.Votee, voteeOfSender); err != nil {
+			if err := StoreAccount(sm, sender.Votee, voteeOfSender); err != nil {
 				return errors.Wrap(err, "failed to update pending account changes to trie")
 			}
 		}
 	}
 	// check recipient
-	recipient, err := LoadOrCreateAccountState(sm, tsf.Recipient(), big.NewInt(0))
+	recipient, err := LoadOrCreateAccount(sm, tsf.Recipient(), big.NewInt(0))
 	if err != nil {
 		return errors.Wrapf(err, "failed to load or create the account of recipient %s", tsf.Recipient())
 	}
@@ -71,19 +71,19 @@ func (p *Protocol) handleTransfer(act action.Action, sm protocol.StateManager) e
 		return errors.Wrapf(err, "failed to update the Balance of recipient %s", tsf.Recipient())
 	}
 	// put updated recipient's state to trie
-	if err := StoreState(sm, tsf.Recipient(), recipient); err != nil {
+	if err := StoreAccount(sm, tsf.Recipient(), recipient); err != nil {
 		return errors.Wrap(err, "failed to update pending account changes to trie")
 	}
 	// Update recipient votes
 	if len(recipient.Votee) > 0 {
 		// recipient already voted to a different person
-		voteeOfRecipient, err := LoadOrCreateAccountState(sm, recipient.Votee, big.NewInt(0))
+		voteeOfRecipient, err := LoadOrCreateAccount(sm, recipient.Votee, big.NewInt(0))
 		if err != nil {
 			return errors.Wrapf(err, "failed to load or create the account of recipient's votee %s", recipient.Votee)
 		}
 		voteeOfRecipient.VotingWeight.Add(voteeOfRecipient.VotingWeight, tsf.Amount())
 		// put updated state of recipient's votee to trie
-		if err := StoreState(sm, recipient.Votee, voteeOfRecipient); err != nil {
+		if err := StoreAccount(sm, recipient.Votee, voteeOfRecipient); err != nil {
 			return errors.Wrap(err, "failed to update pending account changes to trie")
 		}
 	}

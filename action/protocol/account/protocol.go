@@ -47,13 +47,13 @@ func (p *Protocol) Validate(_ context.Context, act action.Action) error {
 	return nil
 }
 
-// LoadOrCreateAccountState either loads an account state or creates an account state
-func LoadOrCreateAccountState(sm protocol.StateManager, addr string, init *big.Int) (*state.Account, error) {
+// LoadOrCreateAccount either loads an account state or creates an account state
+func LoadOrCreateAccount(sm protocol.StateManager, addr string, init *big.Int) (*state.Account, error) {
 	addrHash, err := iotxaddress.AddressToPKHash(addr)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to convert address to public key hash")
 	}
-	account, err := LoadAccountState(sm, addrHash)
+	account, err := LoadAccount(sm, addrHash)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get account of %x from account trie", addrHash)
 	}
@@ -69,8 +69,8 @@ func LoadOrCreateAccountState(sm protocol.StateManager, addr string, init *big.I
 	return account, nil
 }
 
-// LoadAccountState loads an account state
-func LoadAccountState(sm protocol.StateManager, addrHash hash.PKHash) (*state.Account, error) {
+// LoadAccount loads an account state
+func LoadAccount(sm protocol.StateManager, addrHash hash.PKHash) (*state.Account, error) {
 	var s state.Account
 	if err := sm.State(addrHash, &s); err != nil {
 		if errors.Cause(err) == state.ErrStateNotExist {
@@ -81,13 +81,13 @@ func LoadAccountState(sm protocol.StateManager, addrHash hash.PKHash) (*state.Ac
 	return &s, nil
 }
 
-// StoreState put updated state to trie
-func StoreState(sm protocol.StateManager, addr string, state state.State) error {
+// StoreAccount puts updated account state to trie
+func StoreAccount(sm protocol.StateManager, addr string, acct *state.Account) error {
 	addrHash, err := iotxaddress.AddressToPKHash(addr)
 	if err != nil {
 		return errors.Wrap(err, "failed to convert address to public key hash")
 	}
-	return sm.PutState(addrHash, state)
+	return sm.PutState(addrHash, acct)
 }
 
 // SetNonce sets nonce for account

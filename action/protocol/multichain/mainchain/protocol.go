@@ -101,7 +101,7 @@ func (p *Protocol) account(sender string, sm protocol.StateManager) (*state.Acco
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to convert address to public key hash")
 	}
-	return account.LoadAccountState(sm, addrHash)
+	return account.LoadAccount(sm, addrHash)
 }
 
 func (p *Protocol) accountWithEnoughBalance(

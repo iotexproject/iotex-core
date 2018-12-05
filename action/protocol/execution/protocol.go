@@ -50,12 +50,12 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to convert address to PK hash")
 	}
-	acct, err := account.LoadAccountState(sm, executorPKHash)
+	acct, err := account.LoadAccount(sm, executorPKHash)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to load the account of executor %x", executorPKHash)
 	}
 	account.SetNonce(exec, acct)
-	if err := account.StoreState(sm, exec.Executor(), acct); err != nil {
+	if err := account.StoreAccount(sm, exec.Executor(), acct); err != nil {
 		return nil, errors.Wrapf(err, "failed to update pending account changes to trie")
 	}
 
