@@ -32,7 +32,7 @@ type SubChain struct {
 }
 
 // Serialize serializes sub-chain state into bytes
-func (bs *SubChain) Serialize() ([]byte, error) {
+func (bs SubChain) Serialize() ([]byte, error) {
 	gen := &protogen.SubChain{
 		ChainID:            bs.ChainID,
 		StartHeight:        bs.StartHeight,
@@ -96,12 +96,15 @@ type BlockProof struct {
 }
 
 // Serialize serialize block proof state into bytes
-func (bp *BlockProof) Serialize() ([]byte, error) {
+func (bp BlockProof) Serialize() ([]byte, error) {
 	r := make([]*protogen.MerkleRoot, len(bp.Roots))
-	for i, v := range bp.Roots {
-		r[i].Name = v.Name
-		r[i].Value = v.Value[:]
+	for i := range bp.Roots {
+		r[i] = &protogen.MerkleRoot{
+			Name:  bp.Roots[i].Name,
+			Value: bp.Roots[i].Value[:],
+		}
 	}
+
 	gen := &protogen.BlockProof{
 		SubChainAddress:   bp.SubChainAddress,
 		Height:            bp.Height,
@@ -125,8 +128,10 @@ func (bp *BlockProof) Deserialize(data []byte) error {
 	}
 	r := make([]MerkleRoot, len(gen.Roots))
 	for i, v := range gen.Roots {
-		r[i].Name = v.Name
-		r[i].Value = byteutil.BytesTo32B(v.Value)
+		r[i] = MerkleRoot{
+			Name:  v.Name,
+			Value: byteutil.BytesTo32B(v.Value),
+		}
 	}
 	*bp = BlockProof{
 		SubChainAddress:   gen.SubChainAddress,
@@ -144,13 +149,22 @@ type InOperation struct {
 	Addr []byte
 }
 
+// SubChainsInOperation is a list of InOperation.
 type SubChainsInOperation []InOperation
 
-func (s SubChainsInOperation) Len() int           { return len(s) }
-func (s SubChainsInOperation) Less(i, j int) bool { return s[i].ID < s[j].ID }
-func (s SubChainsInOperation) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
-func (s SubChainsInOperation) Sort()              { sort.Sort(s) }
+// Len returns length.
+func (s SubChainsInOperation) Len() int { return len(s) }
 
+// Less compares InOperation in list.
+func (s SubChainsInOperation) Less(i, j int) bool { return s[i].ID < s[j].ID }
+
+// Swap swaps elements in list.
+func (s SubChainsInOperation) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
+
+// Sort sorts SubChainsInOperation.
+func (s SubChainsInOperation) Sort() { sort.Sort(s) }
+
+// Get gets an element with given id.
 func (s SubChainsInOperation) Get(id uint32) (InOperation, bool) {
 	for _, io := range s {
 		if io.ID == id {
@@ -160,12 +174,14 @@ func (s SubChainsInOperation) Get(id uint32) (InOperation, bool) {
 	return InOperation{}, false
 }
 
+// Append appends an element and return the new list.
 func (s SubChainsInOperation) Append(in InOperation) SubChainsInOperation {
 	n := append(s, in)
 	n.Sort()
 	return n
 }
 
+// Delete deletes an element and return the new list.
 func (s SubChainsInOperation) Delete(id uint32) (SubChainsInOperation, bool) {
 	for idx, in := range s {
 		if in.ID == id {
@@ -175,25 +191,31 @@ func (s SubChainsInOperation) Delete(id uint32) (SubChainsInOperation, bool) {
 	return append(s[:0:0], s...), false
 }
 
+// Serialize serializes list to binary.
 func (s SubChainsInOperation) Serialize() ([]byte, error) {
 	s.Sort()
 	l := make([]*protogen.InOperation, len(s))
-	for i, io := range s {
-		l[i].Id = io.ID
-		l[i].Address = io.Addr
+	for i := range s {
+		l[i] = &protogen.InOperation{
+			Id:      s[i].ID,
+			Address: s[i].Addr,
+		}
 	}
 	return proto.Marshal(&protogen.SubChainsInOperation{InOp: l})
 }
 
+// Deserialize deserializes list from binary.
 func (s *SubChainsInOperation) Deserialize(data []byte) error {
 	gen := &protogen.SubChainsInOperation{}
 	if err := proto.Unmarshal(data, gen); err != nil {
 		return err
 	}
 	l := make([]InOperation, len(gen.InOp))
-	for i, v := range gen.InOp {
-		l[i].ID = v.Id
-		l[i].Addr = v.Address
+	for i := range gen.InOp {
+		l[i] = InOperation{
+			ID:   gen.InOp[i].Id,
+			Addr: gen.InOp[i].Address,
+		}
 	}
 	*s = l
 	return nil
@@ -212,7 +234,7 @@ type Deposit struct {
 }
 
 // Serialize serializes deposit state into bytes
-func (bs *Deposit) Serialize() ([]byte, error) {
+func (bs Deposit) Serialize() ([]byte, error) {
 	gen := &protogen.Deposit{
 		Address:   bs.Addr,
 		Confirmed: bs.Confirmed,

@@ -65,12 +65,7 @@ func (s *Server) HandleBlock(blk *blockchain.Block) error {
 	if err != nil {
 		logger.Error().Err(err).Msg("error when getting the sub-chains in operation slice")
 	}
-	for _, e := range subChainsInOp {
-		subChainInOp, ok := e.(mainchain.InOperation)
-		if !ok {
-			logger.Error().Msg("error when casting the element in the sorted slice into InOperation")
-			continue
-		}
+	for _, subChainInOp := range subChainsInOp {
 		cs, subChain, err := s.newOrGetSubChainService(subChainInOp)
 		if err != nil {
 			logger.Error().Err(err).Msg("error when getting sub-chain service")

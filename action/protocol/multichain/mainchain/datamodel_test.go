@@ -1,4 +1,4 @@
-// Copyright (c) 2018 IoTeX
+// Copyright (c) 2018 IoTeX,
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -16,7 +16,6 @@ import (
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 )
 
@@ -55,7 +54,7 @@ func TestBlockProofState(t *testing.T) {
 			},
 			{
 				Name:  "abd",
-				Value: byteutil.BytesTo32B([]byte("1000d")),
+				Value: byteutil.BytesTo32B([]byte("1000q")),
 			},
 		},
 		ProducerPublicKey: testaddress.Addrinfo["producer"].PublicKey,
@@ -69,44 +68,36 @@ func TestBlockProofState(t *testing.T) {
 	require.Equal(t, bp1, bp2)
 }
 
-func TestSortedInOperationSlice(t *testing.T) {
+func TestSubChainsInOperation(t *testing.T) {
 	t.Parallel()
 
-	var slice1 state.SortedSlice
-	slice1 = slice1.Append(
+	var sc1 SubChainsInOperation
+	sc1 = sc1.Append(
 		InOperation{
 			ID:   3,
 			Addr: address.New(1, hash.Hash160b([]byte{3})).Bytes(),
 		},
-		SortInOperation,
 	)
-	slice1 = slice1.Append(
+	sc1 = sc1.Append(
 		InOperation{
 			ID:   1,
 			Addr: address.New(1, hash.Hash160b([]byte{1})).Bytes(),
 		},
-		SortInOperation,
 	)
-	slice1 = slice1.Append(
+	sc1 = sc1.Append(
 		InOperation{
 			ID:   2,
 			Addr: address.New(1, hash.Hash160b([]byte{2})).Bytes(),
 		},
-		SortInOperation,
 	)
 
-	bytes, err := slice1.Serialize()
+	bytes, err := sc1.Serialize()
 	require.NoError(t, err)
-	var slice2 state.SortedSlice
-	require.NoError(t, slice2.Deserialize(bytes))
+	var sc2 SubChainsInOperation
+	require.NoError(t, sc2.Deserialize(bytes))
 
 	for i := 1; i <= 3; i++ {
-		_, ok := slice2.Get(
-			InOperation{
-				ID: uint32(i),
-			},
-			SortInOperation,
-		)
+		_, ok := sc2.Get(uint32(i))
 		assert.True(t, ok)
 	}
 }

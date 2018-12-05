@@ -7,6 +7,7 @@
 package mainchain
 
 import (
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -46,7 +47,7 @@ func TestHandleStopSubChain(t *testing.T) {
 		}).Times(2)
 	ws.EXPECT().State(gomock.Any(), gomock.Any()).
 		Do(func(_ hash.PKHash, s interface{}) error {
-			out := &state.SortedSlice{InOperation{ID: uint32(2)}}
+			out := SubChainsInOperation{InOperation{ID: uint32(2)}}
 			data, err := state.Serialize(out)
 			if err != nil {
 				return err
@@ -65,7 +66,7 @@ func TestHandleStopSubChain(t *testing.T) {
 	ws.EXPECT().Height().Return(uint64(2)).Times(5)
 	subChainPKHash, err := createSubChainAddress(sender.RawAddress, 2)
 	require.NoError(err)
-	subChain := SubChain{
+	subChain := &SubChain{
 		ChainID:            2,
 		SecurityDeposit:    big.NewInt(200000),
 		OperationDeposit:   big.NewInt(200000),
@@ -117,6 +118,7 @@ func TestHandleStopSubChain(t *testing.T) {
 		uint64(100000),
 		big.NewInt(0),
 	)
+	fmt.Println("xxxx", sender.RawAddress, testaddress.Addrinfo["alfa"].RawAddress)
 	require.NoError(action.Sign(stop, sender.PrivateKey))
 	require.NoError(p.handleStopSubChain(stop, ws))
 

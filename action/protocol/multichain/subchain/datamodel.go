@@ -18,8 +18,8 @@ import (
 type DepositIndex byte
 
 // Serialize serializes deposit index into bytes
-func (di *DepositIndex) Serialize() ([]byte, error) {
-	return proto.Marshal(&protogen.Deposit{Index: []byte{byte(*di)}})
+func (di DepositIndex) Serialize() ([]byte, error) {
+	return proto.Marshal(&protogen.Deposit{Index: []byte{byte(di)}})
 }
 
 // Deserialize deserializes bytes into deposit index
