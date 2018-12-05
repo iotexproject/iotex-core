@@ -24,7 +24,7 @@ mockgen -destination=./test/mock/mock_blocksync/mock_blocksync.go  \
 
 mkdir -p ./test/mock/mock_trie
 mockgen -destination=./test/mock/mock_trie/mock_trie.go  \
-        -source=./trie/trie.go \
+        -source=./db/trie/trie.go \
         -package=mock_trie \
         Trie
 
@@ -64,6 +64,12 @@ mockgen -destination=./test/mock/mock_actpool/mock_actpool.go  \
         -source=./actpool/actpool.go \
         -package=mock_actpool \
         ActPool
+
+mkdir -p ./test/mock/mock_actioniterator
+mockgen -destination=./test/mock/mock_actioniterator/mock_actioniterator.go  \
+        -source=./actpool/actioniterator/actioniterator.go \
+        -package=mock_actioniterator \
+        ActionIterator
 
 mkdir -p ./test/mock/mock_explorer
 mockgen -destination=./test/mock/mock_explorer/mock_explorer.go  \

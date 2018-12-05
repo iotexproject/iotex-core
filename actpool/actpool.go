@@ -28,6 +28,8 @@ type ActPool interface {
 	Reset()
 	// PickActs returns all currently accepted actions in actpool
 	PickActs() []action.Action
+	// PendingActionMap returns an action map with all accepted actions
+	PendingActionMap() map[string][]action.Action
 	// Add adds an action into the pool after passing validation
 	Add(act action.Action) error
 	// GetPendingNonce returns pending nonce in pool given an account address
@@ -135,6 +137,18 @@ func (ap *actPool) PickActs() []action.Action {
 		}
 	}
 	return actions
+}
+
+// PendingActionIterator returns an action interator with all accepted actions
+func (ap *actPool) PendingActionMap() map[string][]action.Action {
+	ap.mutex.RLock()
+	defer ap.mutex.RUnlock()
+
+	actionMap := make(map[string][]action.Action, 0)
+	for from, queue := range ap.accountActs {
+		actionMap[from] = queue.PendingActs()
+	}
+	return actionMap
 }
 
 func (ap *actPool) Add(act action.Action) error {
