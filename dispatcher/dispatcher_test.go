@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/network/node"
+	"github.com/iotexproject/iotex-core/p2p/node"
 	pb "github.com/iotexproject/iotex-core/proto"
 )
 

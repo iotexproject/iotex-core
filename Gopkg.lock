@@ -29,6 +29,7 @@
 
 [[projects]]
   branch = "master"
+  digest = "1:d6afaeed1502aa28e80a4ed0981d570ad91b2579193404256ce672ed0a609e0d"
   name = "github.com/beorn7/perks"
   packages = ["quantile"]
   revision = "3a771d992973f24aa725d07868b467d1ddfceafb"
@@ -52,6 +53,7 @@
   revision = "efbfefb2c4a3db0b55f74d1d1a985317a24ff7de"
 
 [[projects]]
+  digest = "1:ffe9824d294da03b391f44e1ae8281281b4afc1bdaa9588c9097785e3af10cec"
   name = "github.com/davecgh/go-spew"
   packages = ["spew"]
   revision = "8991bc29aa16c548c550c7ff78260e27b9ab7c73"
@@ -83,12 +85,14 @@
   revision = "600d898af40aa09a7a93ecb9265d87b0504b6f03"
 
 [[projects]]
+  digest = "1:ec6f9bf5e274c833c911923c9193867f3f18788c461f76f05f62bb1510e0ae65"
   name = "github.com/go-sql-driver/mysql"
   packages = ["."]
   revision = "72cd26f257d44c1114970e19afddcd812016007e"
   version = "v1.4.1"
 
 [[projects]]
+  digest = "1:bc38c7c481812e178d85160472e231c5e1c9a7f5845d67e23ee4e706933c10d8"
   name = "github.com/golang/mock"
   packages = ["gomock"]
   revision = "c34cdb4725f4c3844d095133c6e40e448b86589b"
@@ -110,18 +114,21 @@
   version = "v1.2.0"
 
 [[projects]]
+  digest = "1:870d441fe217b8e689d7949fef6e43efbc787e50f200cb1e70dbca9204a1d6be"
   name = "github.com/inconshreveable/mousetrap"
   packages = ["."]
   revision = "76626ae9c91c4f2a10f34cad8ce83ea42c93bb75"
   version = "v1.0"
 
 [[projects]]
+  digest = "1:ff5ebae34cfbf047d505ee150de27e60570e8c394b3b8fdbb720ff6ac71985fc"
   name = "github.com/matttproud/golang_protobuf_extensions"
   packages = ["pbutil"]
   revision = "c12348ce28de40eed0136aa2b644d0ee0650e56c"
   version = "v1.0.1"
 
 [[projects]]
+  digest = "1:40e195917a951a8bf867cd05de2a46aaf1806c50cf92eebf4c16f78cd196f747"
   name = "github.com/pkg/errors"
   packages = ["."]
   revision = "645ef00459ed84a119197bfb8d8205042c6df63d"
@@ -171,12 +178,14 @@
   revision = "185b4288413d2a0dd0806f78c90dde719829e5ae"
 
 [[projects]]
+  digest = "1:3d9fe7fe51d4c4ca2afa26a34300b0de66bd954b1a1765faab467499c4720557"
   name = "github.com/rs/zerolog"
   packages = [
     ".",
     "internal/cbor",
     "internal/json"
   ]
+  pruneopts = "UT"
   revision = "848482bc3dbeed6a47eb8f8cec0d4484795b1314"
   version = "v1.10.3"
 
@@ -202,11 +211,13 @@
   version = "v1.2.2"
 
 [[projects]]
+  digest = "1:9adf8a325fcb0d2185fe93bbb740e011222ae8e8e4ba475924404fe6c1c323f3"
   name = "github.com/zjshen14/go-fsm"
   packages = ["."]
   revision = "4528c8749aae8cb7868a391390ebd15f5ea84618"
 
 [[projects]]
+  digest = "1:3c1a69cdae3501bf75e76d0d86dc6f2b0a7421bc205c0cb7b96b19eed464a34d"
   name = "go.uber.org/atomic"
   packages = ["."]
   revision = "1ea20fb1cbb1cc08cbd0d913a96dead89aa18289"
@@ -241,18 +252,23 @@
 
 [[projects]]
   branch = "master"
+  digest = "1:b28cc7e3faba0b7d339ffa237d676d2436288797ba088a69559d5cb39f149bea"
   name = "golang.org/x/crypto"
   packages = [
     "blake2b",
-    "ripemd160"
+    "ripemd160",
   ]
   revision = "3d3f9f413869b949e48070b5bc593aa22cc2b8f2"
 
 [[projects]]
   branch = "master"
+  digest = "1:6ca51c5d8a610b3da56856df7a8f8f3e075eba8d5f7a4acbadd79b2d2a368054"
   name = "golang.org/x/net"
   packages = [
     "context",
+    "html",
+    "html/atom",
+    "html/charset",
     "http/httpguts",
     "http2",
     "http2/hpack",
@@ -270,24 +286,38 @@
 
 [[projects]]
   branch = "master"
+  digest = "1:48e1b07b9dceeaf83f2ef76da14e563ee7aac89ae2364fc4b97a85092f591d0a"
   name = "golang.org/x/sys"
   packages = [
     "cpu",
-    "unix"
+    "unix",
   ]
   revision = "93218def8b18e66adbdab3eca8ec334700329f1f"
 
 [[projects]]
+  digest = "1:a2ab62866c75542dd18d2b069fec854577a20211d7c0ea6ae746072a1dccdd18"
   name = "golang.org/x/text"
   packages = [
     "collate",
     "collate/build",
+    "encoding",
+    "encoding/charmap",
+    "encoding/htmlindex",
+    "encoding/internal",
+    "encoding/internal/identifier",
+    "encoding/japanese",
+    "encoding/korean",
+    "encoding/simplifiedchinese",
+    "encoding/traditionalchinese",
+    "encoding/unicode",
     "internal/colltab",
     "internal/gen",
     "internal/tag",
     "internal/triegen",
     "internal/ucd",
+    "internal/utf8internal",
     "language",
+    "runes",
     "secure/bidirule",
     "transform",
     "unicode/bidi",
@@ -354,6 +384,40 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "dcb676986e4e4d56cfeb50d9ce61cdb6c49b2d04149ebe52d379c4b9f1cdf239"
+  input-imports = [
+    "github.com/CoderZhi/go-ethereum/common",
+    "github.com/CoderZhi/go-ethereum/core/types",
+    "github.com/CoderZhi/go-ethereum/core/vm",
+    "github.com/CoderZhi/go-ethereum/params",
+    "github.com/boltdb/bolt",
+    "github.com/coopernurse/barrister-go",
+    "github.com/dgraph-io/badger",
+    "github.com/facebookgo/clock",
+    "github.com/go-sql-driver/mysql",
+    "github.com/golang/mock/gomock",
+    "github.com/golang/protobuf/jsonpb",
+    "github.com/golang/protobuf/proto",
+    "github.com/pkg/errors",
+    "github.com/prometheus/client_golang/prometheus",
+    "github.com/prometheus/client_golang/prometheus/promhttp",
+    "github.com/rs/zerolog",
+    "github.com/spf13/cobra",
+    "github.com/stretchr/testify/assert",
+    "github.com/stretchr/testify/require",
+    "github.com/zjshen14/go-fsm",
+    "github.com/zjshen14/go-p2p",
+    "go.uber.org/automaxprocs",
+    "go.uber.org/config",
+    "golang.org/x/crypto/blake2b",
+    "golang.org/x/net/context",
+    "golang.org/x/sync/errgroup",
+    "golang.org/x/sync/syncmap",
+    "google.golang.org/grpc",
+    "google.golang.org/grpc/credentials",
+    "google.golang.org/grpc/keepalive",
+    "google.golang.org/grpc/peer",
+    "google.golang.org/grpc/reflection",
+    "gopkg.in/yaml.v2",
+  ]
   solver-name = "gps-cdcl"
   solver-version = 1

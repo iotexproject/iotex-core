@@ -20,8 +20,8 @@ import (
 	"google.golang.org/grpc/reflection"
 
 	"github.com/iotexproject/iotex-core/logger"
-	"github.com/iotexproject/iotex-core/network/node"
 	pb "github.com/iotexproject/iotex-core/network/proto"
+	"github.com/iotexproject/iotex-core/p2p/node"
 	"github.com/iotexproject/iotex-core/pkg/counter"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/proto"

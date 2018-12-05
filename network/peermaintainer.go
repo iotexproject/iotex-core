@@ -10,8 +10,8 @@ import (
 	"math/rand"
 	"net"
 
-	"github.com/iotexproject/iotex-core/network/node"
 	pb "github.com/iotexproject/iotex-core/network/proto"
+	"github.com/iotexproject/iotex-core/p2p/node"
 )
 
 // PeerMaintainer helps maintain enough connections to other peers in the P2P networks
