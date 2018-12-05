@@ -23,6 +23,12 @@ var (
 	ErrAccountCollision = errors.New("account already exists")
 )
 
+// EmptyAccount indicates an empty account
+var EmptyAccount = &Account{
+	Balance:      big.NewInt(0),
+	VotingWeight: big.NewInt(0),
+}
+
 // Account is the canonical representation of an account.
 type Account struct {
 	// 0 is reserved from actions in genesis block and coinbase transfers nonces
