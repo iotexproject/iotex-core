@@ -7,14 +7,30 @@
 package subchain
 
 import (
-	"github.com/iotexproject/iotex-core/state"
+	"errors"
+
+	"github.com/golang/protobuf/proto"
+
+	"github.com/iotexproject/iotex-core/action/protocol/multichain/subchain/protogen"
 )
 
 // DepositIndex represents the deposit index
 type DepositIndex byte
 
 // Serialize serializes deposit index into bytes
-func (di *DepositIndex) Serialize() ([]byte, error) { return state.GobBasedSerialize(di) }
+func (di DepositIndex) Serialize() ([]byte, error) {
+	return proto.Marshal(&protogen.Deposit{Index: []byte{byte(di)}})
+}
 
 // Deserialize deserializes bytes into deposit index
-func (di *DepositIndex) Deserialize(data []byte) error { return state.GobBasedDeserialize(di, data) }
+func (di *DepositIndex) Deserialize(data []byte) error {
+	gen := &protogen.Deposit{}
+	if err := proto.Unmarshal(data, gen); err != nil {
+		return err
+	}
+	if len(gen.Index) == 0 {
+		return errors.New("nil data")
+	}
+	*di = DepositIndex(gen.Index[0])
+	return nil
+}

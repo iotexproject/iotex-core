@@ -41,7 +41,7 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 	factory.EXPECT().
 		State(gomock.Any(), gomock.Any()).
 		Do(func(_ hash.PKHash, s interface{}) error {
-			out := &state.SortedSlice{InOperation{ID: uint32(3)}}
+			out := &SubChainsInOperation{InOperation{ID: uint32(3)}}
 			data, err := state.Serialize(out)
 			if err != nil {
 				return err
@@ -70,8 +70,8 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 	)
 	account, subChainsInOp, err := p.validateStartSubChain(start, nil)
 	assert.NotNil(t, account)
-	require.NotNil(t, subChainsInOp)
 	assert.NoError(t, err)
+	require.NotNil(t, subChainsInOp)
 
 	// chain ID is the main chain ID
 	start = action.NewStartSubChain(
@@ -168,7 +168,7 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 	ws.EXPECT().
 		State(gomock.Any(), gomock.Any()).
 		Do(func(_ hash.PKHash, s interface{}) error {
-			out := &state.SortedSlice{InOperation{ID: uint32(3)}}
+			out := SubChainsInOperation{InOperation{ID: uint32(3)}}
 			data, err := state.Serialize(out)
 			if err != nil {
 				return err
@@ -206,7 +206,7 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 	ws.EXPECT().
 		State(gomock.Any(), gomock.Any()).
 		Do(func(_ hash.PKHash, s interface{}) error {
-			out := &state.SortedSlice{InOperation{ID: uint32(2)}, InOperation{ID: uint32(3)}}
+			out := SubChainsInOperation{InOperation{ID: uint32(2)}, InOperation{ID: uint32(3)}}
 			data, err := state.Serialize(out)
 			if err != nil {
 				return err
@@ -354,6 +354,6 @@ func TestStartSubChainInGenesis(t *testing.T) {
 	assert.Equal(t, uint64(10), sc.ParentHeightOffset)
 	subChainsInOp, err := p.SubChainsInOperation()
 	require.NoError(t, err)
-	_, ok := subChainsInOp.Get(InOperation{ID: uint32(2)}, SortInOperation)
+	_, ok := subChainsInOp.Get(uint32(2))
 	assert.True(t, ok)
 }

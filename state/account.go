@@ -62,7 +62,7 @@ func (st *Account) ToProto() *iproto.AccountPb {
 }
 
 // Serialize serializes account state into bytes
-func (st *Account) Serialize() ([]byte, error) {
+func (st Account) Serialize() ([]byte, error) {
 	return proto.Marshal(st.ToProto())
 }
 
