@@ -11,6 +11,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/trie"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/state"
@@ -34,6 +35,7 @@ type (
 		SelfState() *state.Account
 		Commit() error
 		RootHash() hash.Hash32B
+		Iterator() (trie.Iterator, error)
 	}
 
 	contract struct {
@@ -44,6 +46,10 @@ type (
 		trie       trie.Trie // storage trie of the contract
 	}
 )
+
+func (c *contract) Iterator() (trie.Iterator, error) {
+	return trie.NewLeafIterator(c.trie), nil
+}
 
 // GetState get the value from contract storage
 func (c *contract) GetState(key hash.Hash32B) ([]byte, error) {
@@ -102,12 +108,22 @@ func (c *contract) RootHash() hash.Hash32B {
 	return c.Account.Root
 }
 
-// newContract returns a Contract instance
-func newContract(state *state.Account, tr trie.Trie) Contract {
-	c := contract{
-		Account: state,
-		trie:    tr,
+// NewContract returns a Contract instance
+func newContract(state *state.Account, dao db.KVStore, batch db.CachedBatch) (Contract, error) {
+	tr, err := trie.NewTrie(
+		dao,
+		ContractKVNameSpace,
+		trie.CachedBatchOption(batch),
+		trie.KeyLengthOption(32),
+		trie.RootHashOption(state.Root),
+	)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to create storage trie for new contract")
 	}
-	c.trie.Start(context.Background())
-	return &c
+	// TODO: review the implementation
+	if err := tr.Start(context.Background()); err != nil {
+		return nil, err
+	}
+
+	return &contract{Account: state, trie: tr}, nil
 }
