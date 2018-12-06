@@ -993,11 +993,11 @@
   revision = "4528c8749aae8cb7868a391390ebd15f5ea84618"
 
 [[projects]]
-  digest = "1:ad937c43b6c36b98c233b9fe2c7aead51d116df93cef8b3bedb938158c654d9c"
+  digest = "1:f9f6d2b51b0ceaaa595a553bc0aed63b9659808e33ac2d42231cbc895fa257df"
   name = "github.com/zjshen14/go-p2p"
   packages = ["."]
   pruneopts = "UT"
-  revision = "b8a8ebc342a1e5a5d71ee8093b8136710d2cc822"
+  revision = "04ae550e82e3b5f4266238f131fe6b614bb28bd6"
 
 [[projects]]
   digest = "1:3c1a69cdae3501bf75e76d0d86dc6f2b0a7421bc205c0cb7b96b19eed464a34d"
