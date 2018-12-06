@@ -1344,11 +1344,7 @@ func (exp *Service) GetDeposits(subChainID int64, offset int64, limit int64) ([]
 		return nil, err
 	}
 	var targetSubChain mainchain.InOperation
-	for _, e := range subChainsInOp {
-		subChainInOp, ok := e.(mainchain.InOperation)
-		if !ok {
-			return nil, errors.New("error when casting the element in sorted slice into sub-chain in operation")
-		}
+	for _, subChainInOp := range subChainsInOp {
 		if subChainInOp.ID == uint32(subChainID) {
 			targetSubChain = subChainInOp
 		}

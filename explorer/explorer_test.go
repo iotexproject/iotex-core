@@ -982,7 +982,7 @@ func TestService_GetDeposits(t *testing.T) {
 	require.NoError(err)
 	require.NoError(ws.PutState(
 		mainchain.SubChainsInOperationKey,
-		&state.SortedSlice{
+		mainchain.SubChainsInOperation{
 			mainchain.InOperation{
 				ID:   2,
 				Addr: subChainAddr.Bytes(),

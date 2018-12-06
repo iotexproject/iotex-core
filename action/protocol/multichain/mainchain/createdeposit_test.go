@@ -86,7 +86,7 @@ func TestValidateDeposit(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, ws.PutState(
 		SubChainsInOperationKey,
-		&state.SortedSlice{
+		SubChainsInOperation{
 			InOperation{
 				ID:   2,
 				Addr: address.New(1, subChainAddr[:]).Bytes(),

@@ -68,13 +68,9 @@ func (p *Protocol) validateDeposit(deposit *action.CreateDeposit, sm protocol.St
 	if err != nil {
 		return nil, InOperation{}, errors.Wrapf(err, "error when processing address %s", deposit.Recipient())
 	}
-	val, ok := subChainsInOp.Get(InOperation{ID: addr.ChainID()}, SortInOperation)
+	inOp, ok := subChainsInOp.Get(addr.ChainID())
 	if !ok {
 		return nil, InOperation{}, fmt.Errorf("address %s is not on a sub-chain in operation", deposit.Recipient())
-	}
-	inOp, ok := val.(InOperation)
-	if !ok {
-		return nil, InOperation{}, errors.New("error when casting the element in SortedSlice into InOperation")
 	}
 	return account, inOp, nil
 }
