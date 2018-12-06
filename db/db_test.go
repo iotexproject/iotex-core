@@ -379,6 +379,8 @@ func TestCachedBatch(t *testing.T) {
 
 	cb.Delete(bucket1, testK2[0], "")
 	cb.Delete(bucket1, testK1[0], "")
+	_, err = cb.Get(bucket1, testK1[0])
+	require.Equal(ErrAlreadyDeleted, errors.Cause(err))
 	require.NoError(cb.PutIfNotExists(bucket1, testK1[0], testV1[0], ""))
 	v, err = cb.Get(bucket1, testK1[0])
 	require.NoError(err)
@@ -397,4 +399,24 @@ func TestCachedBatch(t *testing.T) {
 	require.Equal(testK1[0], w.key)
 	require.Equal(testV1[0], w.value)
 	require.Equal(PutIfNotExists, w.writeType)
+
+	// test clone
+	c := cb.Clone()
+	v, err = c.Get(bucket1, testK1[0])
+	require.NoError(err)
+	require.Equal(testV1[0], v)
+
+	w, err = c.Entry(0)
+	require.NoError(err)
+	require.Equal(bucket1, w.namespace)
+	require.Equal(testK1[0], w.key)
+	require.Equal(testV1[0], w.value)
+	require.Equal(Put, w.writeType)
+
+	w, err = c.Entry(2)
+	require.NoError(err)
+	require.Equal(bucket1, w.namespace)
+	require.Equal(testK1[0], w.key)
+	require.Equal([]byte(nil), w.value)
+	require.Equal(Delete, w.writeType)
 }

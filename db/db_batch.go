@@ -46,6 +46,8 @@ type (
 		Entry(int) (*writeInfo, error)
 		// Clear clears entries staged in batch
 		Clear()
+		// CloneBatch clones the batch
+		CloneBatch() KVStoreBatch
 		// batch puts an entry into the write queue
 		batch(op int32, namespace string, key, value []byte, errorFormat string, errorArgs ...interface{})
 	}
@@ -70,6 +72,8 @@ type (
 	// A local cache is added to provide fast retrieval of pending Put/Delete entries
 	CachedBatch interface {
 		KVStoreBatch
+		// Clone clones the cached batch
+		Clone() CachedBatch
 		// Get gets a record by (namespace, key)
 		Get(string, []byte) ([]byte, error)
 	}
@@ -154,6 +158,21 @@ func (b *baseKVStoreBatch) Clear() {
 	b.writeQueue = nil
 }
 
+// CloneBatch clones the batch
+func (b *baseKVStoreBatch) CloneBatch() KVStoreBatch {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
+
+	c := baseKVStoreBatch{
+		writeQueue: make([]writeInfo, b.Size()),
+	}
+	// clone the writeQueue
+	for i, entry := range b.writeQueue {
+		c.writeQueue[i] = entry
+	}
+	return &c
+}
+
 func (b *baseKVStoreBatch) batch(op int32, namespace string, key, value []byte, errorFormat string, errorArgs ...interface{}) {
 	b.writeQueue = append(
 		b.writeQueue,
@@ -233,6 +252,14 @@ func (cb *cachedBatch) Clear() {
 	defer cb.lock.Unlock()
 	cb.KVStoreCache.Clear()
 	cb.KVStoreBatch.Clear()
+}
+
+// Clone clones the batch
+func (cb *cachedBatch) Clone() CachedBatch {
+	return &cachedBatch{
+		KVStoreBatch: cb.CloneBatch(),
+		KVStoreCache: cb.KVStoreCache.Clone(),
+	}
 }
 
 // Get retrieves a record
