@@ -5,7 +5,7 @@
 // License 2.0 that can be found in the LICENSE file.
 
 // To compile the proto, run:
-// protoc --go_out=plugins=grpc:. p2p/message.proto
+//      protoc --go_out=plugins=grpc:. *.proto
 syntax = "proto3";
 
 package p2p;

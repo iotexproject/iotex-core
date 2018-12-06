@@ -31,11 +31,13 @@ const (
 	dialRetryInterval = 2 * time.Second
 )
 
-// HandleBroadcast handles broadcast message when agent listens it from the network
-type HandleBroadcast func(uint32, proto.Message, chan bool)
+type (
+	// HandleBroadcast handles broadcast message when agent listens it from the network
+	HandleBroadcast func(uint32, proto.Message, chan bool)
 
-// HandleUnicast handles unicast message when agent listens it from the network
-type HandleUnicast func(uint32, net.Addr, proto.Message, chan bool)
+	// HandleUnicast handles unicast message when agent listens it from the network
+	HandleUnicast func(uint32, net.Addr, proto.Message, chan bool)
+)
 
 // Agent is the agent to help the blockchain node connect into the P2P networks and send/receive messages
 type Agent struct {
@@ -130,7 +132,7 @@ func (p *Agent) Stop(ctx context.Context) error {
 
 // Broadcast sends a broadcast message to the whole network
 func (p *Agent) Broadcast(ctx context.Context, msg proto.Message) error {
-	msgType, msgBody, err := covertAppMsg(msg)
+	msgType, msgBody, err := convertAppMsg(msg)
 	if err != nil {
 		return err
 	}
@@ -151,7 +153,7 @@ func (p *Agent) Broadcast(ctx context.Context, msg proto.Message) error {
 
 // Unicast sends a unicast message to the given address
 func (p *Agent) Unicast(ctx context.Context, addr net.Addr, msg proto.Message) error {
-	msgType, msgBody, err := covertAppMsg(msg)
+	msgType, msgBody, err := convertAppMsg(msg)
 	if err != nil {
 		return err
 	}
@@ -190,7 +192,7 @@ func (p *Agent) Neighbors() []net.Addr {
 	return neighbors
 }
 
-func covertAppMsg(msg proto.Message) (uint32, []byte, error) {
+func convertAppMsg(msg proto.Message) (uint32, []byte, error) {
 	msgType, err := iproto.GetTypeFromProtoMsg(msg)
 	if err != nil {
 		return 0, nil, errors.Wrap(err, "error when converting application message to proto")

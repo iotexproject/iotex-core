@@ -8,18 +8,18 @@ package p2p
 
 import (
 	"context"
+	"math/rand"
 	"net"
 	"sync"
 	"testing"
 	"time"
-
-	"github.com/iotexproject/iotex-core/testutil"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestBroadcast(t *testing.T) {
@@ -36,7 +36,7 @@ func TestBroadcast(t *testing.T) {
 	counts := make(map[uint8]int)
 	var mutex sync.Mutex
 	for i := 0; i < n; i++ {
-		cfg := config.Network{Host: "127.0.0.1", Port: 30000 + i}
+		cfg := config.Network{Host: "127.0.0.1", Port: randomPort()}
 		if i > 0 {
 			cfg.BootstrapNodes = []string{agents[0].Self().String()}
 		}
@@ -84,7 +84,7 @@ func TestUnicast(t *testing.T) {
 	counts := make(map[uint8]int)
 	var mutex sync.Mutex
 	for i := 0; i < n; i++ {
-		cfg := config.Network{Host: "127.0.0.1", Port: 40000 + i}
+		cfg := config.Network{Host: "127.0.0.1", Port: randomPort()}
 		if i > 0 {
 			cfg.BootstrapNodes = []string{agents[0].Self().String()}
 		}
@@ -121,4 +121,9 @@ func TestUnicast(t *testing.T) {
 			return counts[uint8(i)] == n-1, nil
 		}))
 	}
+}
+
+func randomPort() int {
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	return r.Intn(20000) + 30000
 }
