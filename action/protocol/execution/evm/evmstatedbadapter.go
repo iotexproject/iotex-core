@@ -235,8 +235,29 @@ func (stateDB *StateDBAdapter) AddPreimage(common.Hash, []byte) {
 }
 
 // ForEachStorage loops each storage
-func (stateDB *StateDBAdapter) ForEachStorage(common.Address, func(common.Hash, common.Hash) bool) {
-	logger.Error().Msg("ForEachStorage is not implemented")
+func (stateDB *StateDBAdapter) ForEachStorage(addr common.Address, cb func(common.Hash, common.Hash) bool) {
+	ctt, err := stateDB.Contract(byteutil.BytesTo20B(addr[:]))
+	if err != nil {
+		// stateDB.err = err
+		return
+	}
+	iter, err := ctt.Iterator()
+	if err != nil {
+		// stateDB.err = err
+		return
+	}
+
+	for {
+		key, value, err := iter.Next()
+		if err != nil {
+			break
+		}
+		ckey := common.Hash{}
+		copy(ckey[:], key[:])
+		cvalue := common.Hash{}
+		copy(cvalue[:], value[:])
+		cb(ckey, cvalue)
+	}
 }
 
 // AccountState returns an account state
@@ -385,6 +406,14 @@ func (stateDB *StateDBAdapter) commitContracts() error {
 	return nil
 }
 
+// Contract returns the contract of addr
+func (stateDB *StateDBAdapter) Contract(addr hash.PKHash) (Contract, error) {
+	if contract, ok := stateDB.cachedContract[addr]; ok {
+		return contract, nil
+	}
+	return stateDB.getContract(addr)
+}
+
 func (stateDB *StateDBAdapter) getContract(addr hash.PKHash) (Contract, error) {
 	account, err := account.LoadAccountState(stateDB.sm, addr)
 	if err != nil {
@@ -393,18 +422,11 @@ func (stateDB *StateDBAdapter) getContract(addr hash.PKHash) (Contract, error) {
 	if account.Root == hash.ZeroHash32B {
 		account.Root = trie.EmptyBranchNodeHash
 	}
-	tr, err := trie.NewTrie(
-		stateDB.dao,
-		ContractKVNameSpace,
-		trie.RootHashOption(account.Root),
-		trie.CachedBatchOption(stateDB.cb),
-		trie.KeyLengthOption(32),
-	)
+	// add to contract cache
+	contract, err := newContract(account, stateDB.dao, stateDB.cb)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create storage trie for new contract %x", addr)
 	}
-	// add to contract cache
-	contract := newContract(account, tr)
 	stateDB.cachedContract[addr] = contract
 	return contract, nil
 }

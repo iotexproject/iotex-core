@@ -7,8 +7,6 @@
 package trie
 
 import (
-	"context"
-
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
@@ -21,29 +19,37 @@ import (
 const radix = 256
 
 type branchNode struct {
-	children map[byte]hash.Hash32B
-	ser      []byte
+	hashes map[byte]hash.Hash32B
+	ser    []byte
 }
 
 func newEmptyBranchNode() *branchNode {
-	return &branchNode{children: map[byte]hash.Hash32B{}}
+	return &branchNode{hashes: map[byte]hash.Hash32B{}}
 }
 
 func newBranchNodeFromProtoPb(pb *iproto.BranchPb) *branchNode {
 	b := newEmptyBranchNode()
 	for _, n := range pb.Branches {
-		b.children[byte(n.Index)] = byteutil.BytesTo32B(n.Path)
+		b.hashes[byte(n.Index)] = byteutil.BytesTo32B(n.Path)
 	}
 	return b
 }
 
-func (b *branchNode) Children(ctx context.Context) ([]Node, error) {
-	tc, ok := getSameKeyLenTrieContext(ctx)
-	if !ok {
-		return nil, errors.New("failed to get operation context")
-	}
+func (b *branchNode) Type() NodeType {
+	return BRANCH
+}
+
+func (b *branchNode) Key() []byte {
+	return nil
+}
+
+func (b *branchNode) Value() []byte {
+	return nil
+}
+
+func (b *branchNode) children(tc SameKeyLenTrieContext) ([]Node, error) {
 	children := []Node{}
-	for i := range b.children {
+	for i := range b.hashes {
 		if c, err := b.child(tc, i); err != nil {
 			return nil, err
 		} else if c != nil {
@@ -52,14 +58,6 @@ func (b *branchNode) Children(ctx context.Context) ([]Node, error) {
 	}
 
 	return children, nil
-}
-
-func (b *branchNode) Type() NodeType {
-	return BRANCH
-}
-
-func (b *branchNode) Value() []byte {
-	return nil
 }
 
 func (b *branchNode) delete(tc SameKeyLenTrieContext, key keyType, offset uint8) (Node, error) {
@@ -76,7 +74,7 @@ func (b *branchNode) delete(tc SameKeyLenTrieContext, key keyType, offset uint8)
 	if newChild != nil {
 		return b.updateChild(tc, offsetKey, newChild)
 	}
-	switch len(b.children) {
+	switch len(b.hashes) {
 	case 1:
 		panic("branch shouldn't have 0 child after deleting")
 	case 2:
@@ -85,7 +83,7 @@ func (b *branchNode) delete(tc SameKeyLenTrieContext, key keyType, offset uint8)
 		}
 		var orphan Node
 		var orphanKey byte
-		for i, h := range b.children {
+		for i, h := range b.hashes {
 			if i != offsetKey {
 				orphanKey = i
 				if orphan, err = tc.LoadNodeFromDB(h); err != nil {
@@ -145,7 +143,7 @@ func (b *branchNode) serialize() []byte {
 	}
 	nodes := []*iproto.BranchNodePb{}
 	for index := 0; index < radix; index++ {
-		if h, ok := b.children[byte(index)]; ok {
+		if h, ok := b.hashes[byte(index)]; ok {
 			nodes = append(nodes, &iproto.BranchNodePb{Index: uint32(index), Path: h[:]})
 		}
 	}
@@ -158,7 +156,7 @@ func (b *branchNode) serialize() []byte {
 	if err != nil {
 		logger.Panic().
 			Err(err).
-			Int("numOfChildren", len(b.children)).
+			Int("numOfChildren", len(b.hashes)).
 			Interface("children", b.children).
 			Msg("failed to marshal a branch node")
 	}
@@ -168,7 +166,7 @@ func (b *branchNode) serialize() []byte {
 }
 
 func (b *branchNode) child(tc SameKeyLenTrieContext, key byte) (Node, error) {
-	h, ok := b.children[key]
+	h, ok := b.hashes[key]
 	if !ok {
 		return nil, ErrNotExist
 	}
@@ -189,9 +187,9 @@ func (b *branchNode) updateChild(
 	}
 	b.ser = nil
 	if child == nil {
-		delete(b.children, key)
+		delete(b.hashes, key)
 	} else {
-		b.children[key] = nodeHash(child)
+		b.hashes[key] = nodeHash(child)
 	}
 	if err := tc.PutNodeIntoDB(b); err != nil {
 		return nil, err

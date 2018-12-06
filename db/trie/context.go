@@ -70,7 +70,7 @@ func (tc *SameKeyLenTrieContext) newBranchNodeAndPutIntoDB(
 		if n == nil {
 			continue
 		}
-		bnode.children[i] = nodeHash(n)
+		bnode.hashes[i] = nodeHash(n)
 	}
 	if err := tc.PutNodeIntoDB(bnode); err != nil {
 		return nil, err

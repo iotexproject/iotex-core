@@ -25,6 +25,8 @@ var (
 // Trie is the interface of Merkle Patricia Trie
 type Trie interface {
 	lifecycle.StartStopper
+	Root() Node
+	ChildrenOf(Node) ([]Node, error)
 	TrieDB() db.KVStore          // return the underlying DB instance
 	Upsert([]byte, []byte) error // insert a new entry
 	Get([]byte) ([]byte, error)  // retrieve an existing entry
