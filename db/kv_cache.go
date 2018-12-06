@@ -23,6 +23,8 @@ type (
 		Evict(hash.CacheHash)
 		// Clear clear the cache
 		Clear()
+		// Clone clones the cache
+		Clone() KVStoreCache
 	}
 
 	// kvCache implements KVStoreCache interface
@@ -80,4 +82,20 @@ func (c *kvCache) Clear() {
 	c.deleted = nil
 	c.cache = make(map[hash.CacheHash][]byte)
 	c.deleted = make(map[hash.CacheHash]struct{})
+}
+
+// Clone clones the cache
+func (c *kvCache) Clone() KVStoreCache {
+	clone := kvCache{
+		cache:   make(map[hash.CacheHash][]byte),
+		deleted: make(map[hash.CacheHash]struct{}),
+	}
+	// clone entries in map
+	for k, v := range c.cache {
+		clone.cache[k] = v
+	}
+	for k, v := range c.deleted {
+		clone.deleted[k] = v
+	}
+	return &clone
 }
