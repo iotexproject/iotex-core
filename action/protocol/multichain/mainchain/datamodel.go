@@ -48,7 +48,6 @@ func (bs SubChain) Serialize() ([]byte, error) {
 	if bs.OperationDeposit != nil {
 		gen.OperationDeposit = bs.OperationDeposit.Bytes()
 	}
-
 	return proto.Marshal(gen)
 }
 
@@ -76,7 +75,6 @@ func (bs *SubChain) Deserialize(data []byte) error {
 	}
 	bs.SecurityDeposit.SetBytes(gen.SecurityDeposit)
 	bs.OperationDeposit.SetBytes(gen.OperationDeposit)
-
 	return nil
 }
 
@@ -112,7 +110,6 @@ func (bp BlockProof) Serialize() ([]byte, error) {
 		ProducerPublicKey: bp.ProducerPublicKey[:],
 		ProducerAddress:   bp.ProducerAddress,
 	}
-
 	return proto.Marshal(gen)
 }
 
@@ -242,7 +239,6 @@ func (bs Deposit) Serialize() ([]byte, error) {
 	if bs.Amount != nil {
 		gen.Amount = bs.Amount.Bytes()
 	}
-
 	return proto.Marshal(gen)
 }
 

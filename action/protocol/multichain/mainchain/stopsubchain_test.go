@@ -7,7 +7,6 @@
 package mainchain
 
 import (
-	"fmt"
 	"math/big"
 	"testing"
 
@@ -118,7 +117,6 @@ func TestHandleStopSubChain(t *testing.T) {
 		uint64(100000),
 		big.NewInt(0),
 	)
-	fmt.Println("xxxx", sender.RawAddress, testaddress.Addrinfo["alfa"].RawAddress)
 	require.NoError(action.Sign(stop, sender.PrivateKey))
 	require.NoError(p.handleStopSubChain(stop, ws))
 
