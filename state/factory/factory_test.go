@@ -16,6 +16,7 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -139,6 +140,67 @@ func voteForm(height uint64, cs []*state.Candidate) []string {
 		r[i] = (*cs[i]).Address + ":" + strconv.FormatInt((*cs[i]).Votes.Int64(), 10)
 	}
 	return r
+}
+
+func TestSnapshot(t *testing.T) {
+	require := require.New(t)
+	testutil.CleanupPath(t, testTriePath)
+	defer testutil.CleanupPath(t, testTriePath)
+
+	cfg.DB.DbPath = testTriePath
+	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewOnDiskDB(cfg.DB)))
+	require.NoError(err)
+	require.NoError(sf.Start(context.Background()))
+	addr, err := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
+	require.Nil(err)
+	ws, err := sf.NewWorkingSet()
+	require.NoError(err)
+	_, err = ws.LoadOrCreateAccountState(addr.RawAddress, big.NewInt(5))
+	require.NoError(err)
+	sHash, err := iotxaddress.AddressToPKHash(addr.RawAddress)
+	require.NoError(err)
+
+	s, err := ws.CachedAccountState(addr.RawAddress)
+	require.NoError(err)
+	require.Equal(big.NewInt(5), s.Balance)
+	require.NoError(ws.PutState(sHash, s))
+	s0 := ws.Snapshot()
+	require.Zero(s0)
+	s.Balance.Add(s.Balance, big.NewInt(5))
+	require.Equal(big.NewInt(10), s.Balance)
+	require.NoError(ws.PutState(sHash, s))
+	s1 := ws.Snapshot()
+	require.Equal(1, s1)
+	s.Balance.Add(s.Balance, big.NewInt(5))
+	require.Equal(big.NewInt(15), s.Balance)
+	require.NoError(ws.PutState(sHash, s))
+	// add another account
+	addr, err = iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
+	require.Nil(err)
+	_, err = ws.LoadOrCreateAccountState(addr.RawAddress, big.NewInt(7))
+	require.NoError(err)
+	tHash, err := iotxaddress.AddressToPKHash(addr.RawAddress)
+	require.NoError(err)
+	s, err = ws.CachedAccountState(addr.RawAddress)
+	require.NoError(err)
+	require.Equal(big.NewInt(7), s.Balance)
+	require.NoError(ws.PutState(tHash, s))
+	s2 := ws.Snapshot()
+	require.Equal(2, s2)
+
+	require.NoError(ws.Revert(s1))
+	require.NoError(ws.State(sHash, s))
+	require.Equal(big.NewInt(10), s.Balance)
+	require.Equal(state.ErrStateNotExist, errors.Cause(ws.State(tHash, s)))
+	require.NoError(ws.Revert(s0))
+	require.NoError(ws.State(sHash, s))
+	require.Equal(big.NewInt(5), s.Balance)
+	require.Equal(state.ErrStateNotExist, errors.Cause(ws.State(tHash, s)))
+	require.NoError(ws.Revert(s2))
+	require.NoError(ws.State(sHash, s))
+	require.Equal(big.NewInt(15), s.Balance)
+	require.NoError(ws.State(tHash, s))
+	require.Equal(big.NewInt(7), s.Balance)
 }
 
 // Test configure: candidateSize = 2, candidateBufferSize = 3
