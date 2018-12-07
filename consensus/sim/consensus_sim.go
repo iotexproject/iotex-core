@@ -6,6 +6,8 @@
 
 package sim
 
+// TODO: not working anymore, need to delete the code
+
 import (
 	"context"
 
@@ -113,7 +115,6 @@ func NewSim(
 		SetConfig(cfg.Consensus.RollDPoS).
 		SetBlockchain(bc).
 		SetActPool(ap).
-		SetP2P(p2p).
 		Build()
 	if err != nil {
 		logger.Panic().Err(err).Msg("error when constructing RollDPoS")
@@ -183,7 +184,6 @@ func NewSimByzantine(
 		SetConfig(cfg.Consensus.RollDPoS).
 		SetBlockchain(bc).
 		SetActPool(ap).
-		SetP2P(p2p).
 		Build()
 	if err != nil {
 		logger.Panic().Err(err).Msg("error when constructing RollDPoS")

@@ -10,6 +10,7 @@ import (
 	"context"
 	"os"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -26,7 +27,7 @@ import (
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network"
 	"github.com/iotexproject/iotex-core/p2p"
-	pb "github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/proto"
 )
 
 // ChainService is a blockchain service with all blockchain components.
@@ -67,7 +68,7 @@ func WithTesting() Option {
 // New creates a ChainService from config and network.Overlay and dispatcher.Dispatcher.
 func New(
 	cfg config.Config,
-	p2p network.Overlay,
+	p2pNetwork network.Overlay,
 	p2pAgent *p2p.Agent,
 	dispatcher dispatcher.Dispatcher,
 	opts ...Option,
@@ -109,11 +110,15 @@ func New(
 		return nil, errors.Wrap(err, "failed to create blockSyncer")
 	}
 
-	var copts []consensus.Option
+	copts := []consensus.Option{
+		consensus.WithBroadcast(func(msg proto.Message) error {
+			return p2pAgent.Broadcast(p2p.WitContext(context.Background(), p2p.Context{ChainID: chain.ChainID()}), msg)
+		}),
+	}
 	if ops.rootChainAPI != nil {
 		copts = []consensus.Option{consensus.WithRootChainAPI(ops.rootChainAPI)}
 	}
-	consensus := consensus.NewConsensus(cfg, chain, actPool, p2p, copts...)
+	consensus := consensus.NewConsensus(cfg, chain, actPool, copts...)
 	if consensus == nil {
 		return nil, errors.Wrap(err, "failed to create consensus")
 	}
@@ -128,7 +133,7 @@ func New(
 
 	var exp *explorer.Server
 	if cfg.Explorer.Enabled {
-		exp = explorer.NewServer(cfg.Explorer, chain, consensus, dispatcher, actPool, p2p, idx)
+		exp = explorer.NewServer(cfg.Explorer, chain, consensus, dispatcher, actPool, p2pNetwork, idx)
 	}
 
 	return &ChainService{
@@ -190,7 +195,7 @@ func (cs *ChainService) Stop(ctx context.Context) error {
 }
 
 // HandleAction handles incoming action request.
-func (cs *ChainService) HandleAction(actPb *pb.ActionPb) error {
+func (cs *ChainService) HandleAction(actPb *iproto.ActionPb) error {
 	var act action.SealedEnvelope
 	if err := act.LoadProto(actPb); err != nil {
 		return err
@@ -207,7 +212,7 @@ func (cs *ChainService) HandleAction(actPb *pb.ActionPb) error {
 }
 
 // HandleBlock handles incoming block request.
-func (cs *ChainService) HandleBlock(pbBlock *pb.BlockPb) error {
+func (cs *ChainService) HandleBlock(pbBlock *iproto.BlockPb) error {
 	blk := &blockchain.Block{}
 	if err := blk.ConvertFromBlockPb(pbBlock); err != nil {
 		return err
@@ -216,7 +221,7 @@ func (cs *ChainService) HandleBlock(pbBlock *pb.BlockPb) error {
 }
 
 // HandleBlockSync handles incoming block sync request.
-func (cs *ChainService) HandleBlockSync(pbBlock *pb.BlockPb) error {
+func (cs *ChainService) HandleBlockSync(pbBlock *iproto.BlockPb) error {
 	blk := &blockchain.Block{}
 	if err := blk.ConvertFromBlockPb(pbBlock); err != nil {
 		return err
@@ -225,17 +230,17 @@ func (cs *ChainService) HandleBlockSync(pbBlock *pb.BlockPb) error {
 }
 
 // HandleSyncRequest handles incoming sync request.
-func (cs *ChainService) HandleSyncRequest(sender string, sync *pb.BlockSync) error {
+func (cs *ChainService) HandleSyncRequest(sender string, sync *iproto.BlockSync) error {
 	return cs.blocksync.ProcessSyncRequest(sender, sync)
 }
 
 // HandleBlockPropose handles incoming block propose request.
-func (cs *ChainService) HandleBlockPropose(propose *pb.ProposePb) error {
+func (cs *ChainService) HandleBlockPropose(propose *iproto.ProposePb) error {
 	return cs.consensus.HandleBlockPropose(propose)
 }
 
 // HandleEndorse handles incoming endorse request.
-func (cs *ChainService) HandleEndorse(endorse *pb.EndorsePb) error {
+func (cs *ChainService) HandleEndorse(endorse *iproto.EndorsePb) error {
 	return cs.consensus.HandleEndorse(endorse)
 }
 
