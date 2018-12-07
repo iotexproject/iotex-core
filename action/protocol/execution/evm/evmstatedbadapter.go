@@ -70,7 +70,7 @@ func (stateDB *StateDBAdapter) Error() error {
 // CreateAccount creates an account in iotx blockchain
 func (stateDB *StateDBAdapter) CreateAccount(evmAddr common.Address) {
 	addr := address.New(stateDB.cm.ChainID(), evmAddr.Bytes())
-	_, err := account.LoadOrCreateAccountState(stateDB.sm, addr.IotxAddress(), big.NewInt(0))
+	_, err := account.LoadOrCreateAccount(stateDB.sm, addr.IotxAddress(), big.NewInt(0))
 	if err != nil {
 		logger.Error().Err(err).Msg("CreateAccount")
 		// stateDB.logError(err)
@@ -94,7 +94,7 @@ func (stateDB *StateDBAdapter) SubBalance(evmAddr common.Address, amount *big.In
 		return
 	}
 	state.SubBalance(amount)
-	if err := account.StoreState(stateDB.sm, addr.IotxAddress(), state); err != nil {
+	if err := account.StoreAccount(stateDB.sm, addr.IotxAddress(), state); err != nil {
 		logger.Error().Err(err).Msg("Failed to update pending account changes to trie")
 	}
 	// stateDB.GetBalance(evmAddr)
@@ -109,14 +109,14 @@ func (stateDB *StateDBAdapter) AddBalance(evmAddr common.Address, amount *big.In
 	logger.Debug().Msgf("AddBalance %v to %s", amount, evmAddr.Hex())
 
 	addr := address.New(stateDB.cm.ChainID(), evmAddr.Bytes())
-	state, err := account.LoadOrCreateAccountState(stateDB.sm, addr.IotxAddress(), big.NewInt(0))
+	state, err := account.LoadOrCreateAccount(stateDB.sm, addr.IotxAddress(), big.NewInt(0))
 	if err != nil {
 		logger.Error().Err(err).Hex("addrHash", evmAddr[:]).Msg("AddBalance")
 		stateDB.logError(err)
 		return
 	}
 	state.AddBalance(amount)
-	if err := account.StoreState(stateDB.sm, addr.IotxAddress(), state); err != nil {
+	if err := account.StoreAccount(stateDB.sm, addr.IotxAddress(), state); err != nil {
 		logger.Error().Err(err).Msg("Failed to update pending account changes to trie")
 	}
 }
@@ -269,7 +269,7 @@ func (stateDB *StateDBAdapter) AccountState(addr string) (*state.Account, error)
 	if contract, ok := stateDB.cachedContract[addrHash]; ok {
 		return contract.SelfState(), nil
 	}
-	return account.LoadAccountState(stateDB.sm, addrHash)
+	return account.LoadAccount(stateDB.sm, addrHash)
 }
 
 //======================================
@@ -284,7 +284,7 @@ func (stateDB *StateDBAdapter) GetCodeHash(evmAddr common.Address) common.Hash {
 		copy(codeHash[:], contract.SelfState().CodeHash)
 		return codeHash
 	}
-	account, err := account.LoadAccountState(stateDB.sm, addr)
+	account, err := account.LoadAccount(stateDB.sm, addr)
 	if err != nil {
 		logger.Error().Err(err).Msg("GetCodeHash")
 		// TODO (zhi) not all err should be logged
@@ -306,7 +306,7 @@ func (stateDB *StateDBAdapter) GetCode(evmAddr common.Address) []byte {
 		}
 		return code
 	}
-	account, err := account.LoadAccountState(stateDB.sm, addr)
+	account, err := account.LoadAccount(stateDB.sm, addr)
 	if err != nil {
 		logger.Error().Err(err).Msgf("Failed to load account state for address %x", addr)
 		return nil
@@ -415,7 +415,7 @@ func (stateDB *StateDBAdapter) Contract(addr hash.PKHash) (Contract, error) {
 }
 
 func (stateDB *StateDBAdapter) getContract(addr hash.PKHash) (Contract, error) {
-	account, err := account.LoadAccountState(stateDB.sm, addr)
+	account, err := account.LoadAccount(stateDB.sm, addr)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to load account state for address %x", addr)
 	}
