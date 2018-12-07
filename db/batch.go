@@ -72,10 +72,18 @@ type (
 	// A local cache is added to provide fast retrieval of pending Put/Delete entries
 	CachedBatch interface {
 		KVStoreBatch
-		// Clone clones the cached batch
-		Clone() CachedBatch
 		// Get gets a record by (namespace, key)
 		Get(string, []byte) ([]byte, error)
+		// Snapshot takes a snapshot of current cached batch
+		Snapshot() int
+		// Revert sets the cached batch to the state at the given snapshot
+		Revert(int) error
+		// clone clones the cached batch
+		clone() CachedBatch
+		// kvBatch returns the embedded KVStoreBatch
+		kvBatch() KVStoreBatch
+		// kvCache returns the embedded KVStoreCache
+		kvCache() KVStoreCache
 	}
 
 	// cachedBatch implements the CachedBatch interface
@@ -83,6 +91,8 @@ type (
 		lock sync.RWMutex
 		KVStoreBatch
 		KVStoreCache
+		tag       int                 // latest snapshot + 1
+		snapshots map[int]CachedBatch // saved snapshots
 	}
 )
 
@@ -167,12 +177,11 @@ func (b *baseKVStoreBatch) CloneBatch() KVStoreBatch {
 		writeQueue: make([]writeInfo, b.Size()),
 	}
 	// clone the writeQueue
-	for i, entry := range b.writeQueue {
-		c.writeQueue[i] = entry
-	}
+	copy(c.writeQueue, b.writeQueue)
 	return &c
 }
 
+// batch puts an entry into the write queue
 func (b *baseKVStoreBatch) batch(op int32, namespace string, key, value []byte, errorFormat string, errorArgs ...interface{}) {
 	b.writeQueue = append(
 		b.writeQueue,
@@ -195,6 +204,7 @@ func NewCachedBatch() CachedBatch {
 	return &cachedBatch{
 		KVStoreBatch: NewBatch(),
 		KVStoreCache: NewKVCache(),
+		snapshots:    make(map[int]CachedBatch),
 	}
 }
 
@@ -213,6 +223,10 @@ func (cb *cachedBatch) ClearAndUnlock() {
 	defer cb.lock.Unlock()
 	cb.KVStoreCache.Clear()
 	cb.KVStoreBatch.Clear()
+	// clear all saved snapshots
+	cb.tag = 0
+	cb.snapshots = nil
+	cb.snapshots = make(map[int]CachedBatch)
 }
 
 // Put inserts a <key, value> record
@@ -252,14 +266,10 @@ func (cb *cachedBatch) Clear() {
 	defer cb.lock.Unlock()
 	cb.KVStoreCache.Clear()
 	cb.KVStoreBatch.Clear()
-}
-
-// Clone clones the batch
-func (cb *cachedBatch) Clone() CachedBatch {
-	return &cachedBatch{
-		KVStoreBatch: cb.CloneBatch(),
-		KVStoreCache: cb.KVStoreCache.Clone(),
-	}
+	// clear all saved snapshots
+	cb.tag = 0
+	cb.snapshots = nil
+	cb.snapshots = make(map[int]CachedBatch)
 }
 
 // Get retrieves a record
@@ -270,6 +280,31 @@ func (cb *cachedBatch) Get(namespace string, key []byte) ([]byte, error) {
 	return cb.Read(h)
 }
 
+// Snapshot takes a snapshot of current cached batch
+func (cb *cachedBatch) Snapshot() int {
+	cb.lock.Lock()
+	defer cb.lock.Unlock()
+	defer func() { cb.tag++ }()
+	// save a clone of current batch/cache
+	cb.snapshots[cb.tag] = cb.clone()
+	return cb.tag
+}
+
+// Revert sets the cached batch to the state at the given snapshot
+func (cb *cachedBatch) Revert(snapshot int) error {
+	cb.lock.Lock()
+	defer cb.lock.Unlock()
+	// throw error if the snapshot number does not exist
+	if _, ok := cb.snapshots[snapshot]; !ok {
+		return errors.Wrapf(ErrInvalidDB, "invalid snapshot number = %d", snapshot)
+	}
+	cb.KVStoreBatch = nil
+	cb.KVStoreCache = nil
+	cb.KVStoreBatch = cb.snapshots[snapshot].kvBatch()
+	cb.KVStoreCache = cb.snapshots[snapshot].kvCache()
+	return nil
+}
+
 //======================================
 // private functions
 //======================================
@@ -277,4 +312,24 @@ func (cb *cachedBatch) hash(namespace string, key []byte) hash.CacheHash {
 	stream := hash.Hash160b([]byte(namespace))
 	stream = append(stream, key...)
 	return byteutil.BytesToCacheHash(hash.Hash160b(stream))
+}
+
+// clone clones the batch
+func (cb *cachedBatch) clone() CachedBatch {
+	// note it only clones the current internal batch and cache, to be used by Revert() later
+	// it does not clone the entire cachedBatch struct itself
+	return &cachedBatch{
+		KVStoreBatch: cb.CloneBatch(),
+		KVStoreCache: cb.KVStoreCache.Clone(),
+	}
+}
+
+// kvBatch returns the embedded KVStoreBatch
+func (cb *cachedBatch) kvBatch() KVStoreBatch {
+	return cb.KVStoreBatch
+}
+
+// kvCache returns the embedded KVStoreCache
+func (cb *cachedBatch) kvCache() KVStoreCache {
+	return cb.KVStoreCache
 }
