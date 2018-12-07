@@ -108,32 +108,24 @@ func (p *Protocol) mutateDeposit(deposit *action.SettleDeposit, sm protocol.Stat
 	}
 
 	// Update the action owner
-	owner, err := account.LoadOrCreateAccountState(sm, deposit.Sender(), big.NewInt(0))
+	owner, err := account.LoadOrCreateAccount(sm, deposit.Sender(), big.NewInt(0))
 	if err != nil {
 		return err
 	}
 	account.SetNonce(deposit, owner)
-	ownerPKHash, err := srcAddressPKHash(deposit.Sender())
-	if err != nil {
-		return err
-	}
-	if err := sm.PutState(ownerPKHash, owner); err != nil {
+	if err := account.StoreAccount(sm, deposit.Sender(), owner); err != nil {
 		return err
 	}
 
 	// Update the deposit recipient
-	recipient, err := account.LoadOrCreateAccountState(sm, deposit.Recipient(), big.NewInt(0))
+	recipient, err := account.LoadOrCreateAccount(sm, deposit.Recipient(), big.NewInt(0))
 	if err != nil {
 		return err
 	}
 	if err := recipient.AddBalance(deposit.Amount()); err != nil {
 		return err
 	}
-	recipientPKHash, err := srcAddressPKHash(deposit.Recipient())
-	if err != nil {
-		return err
-	}
-	return sm.PutState(recipientPKHash, recipient)
+	return account.StoreAccount(sm, deposit.Recipient(), recipient)
 }
 
 func depositAddress(index uint64) hash.PKHash {

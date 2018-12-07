@@ -59,7 +59,7 @@ func (p *Protocol) Handle(_ context.Context, act action.Action, sm protocol.Stat
 
 	p.cachedCandidates = candidateMap
 
-	voteFrom, err := account.LoadOrCreateAccountState(sm, vote.Voter(), big.NewInt(0))
+	voteFrom, err := account.LoadOrCreateAccount(sm, vote.Voter(), big.NewInt(0))
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to load or create the account of voter %s", vote.Voter())
 	}
@@ -86,20 +86,20 @@ func (p *Protocol) Handle(_ context.Context, act action.Action, sm protocol.Stat
 		}
 	}
 	// Put updated voter's state to trie
-	if err := account.StoreState(sm, vote.Voter(), voteFrom); err != nil {
+	if err := account.StoreAccount(sm, vote.Voter(), voteFrom); err != nil {
 		return nil, errors.Wrap(err, "failed to update pending account changes to trie")
 	}
 
 	// Update old votee's weight
 	if len(prevVotee) > 0 {
 		// voter already voted
-		oldVotee, err := account.LoadOrCreateAccountState(sm, prevVotee, big.NewInt(0))
+		oldVotee, err := account.LoadOrCreateAccount(sm, prevVotee, big.NewInt(0))
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to load or create the account of voter's old votee %s", prevVotee)
 		}
 		oldVotee.VotingWeight.Sub(oldVotee.VotingWeight, voteFrom.Balance)
 		// Put updated state of voter's old votee to trie
-		if err := account.StoreState(sm, prevVotee, oldVotee); err != nil {
+		if err := account.StoreAccount(sm, prevVotee, oldVotee); err != nil {
 			return nil, errors.Wrap(err, "failed to update pending account changes to trie")
 		}
 		// Update candidate map
@@ -109,7 +109,7 @@ func (p *Protocol) Handle(_ context.Context, act action.Action, sm protocol.Stat
 	}
 
 	if vote.Votee() != "" {
-		voteTo, err := account.LoadOrCreateAccountState(sm, vote.Votee(), big.NewInt(0))
+		voteTo, err := account.LoadOrCreateAccount(sm, vote.Votee(), big.NewInt(0))
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to load or create the account of votee %s", vote.Votee())
 		}
@@ -117,7 +117,7 @@ func (p *Protocol) Handle(_ context.Context, act action.Action, sm protocol.Stat
 		voteTo.VotingWeight.Add(voteTo.VotingWeight, voteFrom.Balance)
 
 		// Put updated votee's state to trie
-		if err := account.StoreState(sm, vote.Votee(), voteTo); err != nil {
+		if err := account.StoreAccount(sm, vote.Votee(), voteTo); err != nil {
 			return nil, errors.Wrap(err, "failed to update pending account changes to trie")
 		}
 		// Update candidate map

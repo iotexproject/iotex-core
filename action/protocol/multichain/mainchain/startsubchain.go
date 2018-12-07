@@ -88,11 +88,7 @@ func (p *Protocol) mutateSubChainState(
 	acct.Balance = big.NewInt(0).Sub(acct.Balance, start.OperationDeposit())
 	// TODO: this is not right, but currently the actions in a block is not processed according to the nonce
 	account.SetNonce(start, acct)
-	ownerPKHash, err := srcAddressPKHash(start.OwnerAddress())
-	if err != nil {
-		return err
-	}
-	if err := sm.PutState(ownerPKHash, acct); err != nil {
+	if err := account.StoreAccount(sm, start.OwnerAddress(), acct); err != nil {
 		return err
 	}
 	subChainsInOp = subChainsInOp.Append(InOperation{
