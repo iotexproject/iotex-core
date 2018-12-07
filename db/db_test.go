@@ -220,6 +220,7 @@ func TestDBBatch(t *testing.T) {
 		require.Equal(err, ErrAlreadyExist)
 		// need to clear the batch in case of commit error
 		batch.Clear()
+		require.Equal(0, batch.Size())
 
 		value, err = kvStore.Get(bucket2, testK2[1])
 		require.Nil(err)
@@ -296,6 +297,7 @@ func TestCacheKV(t *testing.T) {
 		v, _ := cb.Get(bucket1, testK1[0])
 		require.Equal(testV1[0], v)
 		cb.Clear()
+		require.Equal(0, cb.Size())
 		_, err := cb.Get(bucket1, testK1[0])
 		require.Error(err)
 		cb.Put(bucket2, testK2[2], testV2[2], "")
@@ -362,61 +364,4 @@ func TestCacheKV(t *testing.T) {
 		defer testutil.CleanupPath(t, path)
 		testFunc(NewOnDiskDB(cfg), t)
 	})
-}
-
-func TestCachedBatch(t *testing.T) {
-	require := require.New(t)
-
-	cb := NewCachedBatch()
-	cb.Put(bucket1, testK1[0], testV1[0], "")
-	v, err := cb.Get(bucket1, testK1[0])
-	require.NoError(err)
-	require.Equal(testV1[0], v)
-	require.Equal(ErrAlreadyExist, cb.PutIfNotExists(bucket1, testK1[0], testV1[0], ""))
-	v, err = cb.Get(bucket1, testK2[0])
-	require.Equal(ErrNotExist, err)
-	require.Equal([]byte(nil), v)
-
-	cb.Delete(bucket1, testK2[0], "")
-	cb.Delete(bucket1, testK1[0], "")
-	_, err = cb.Get(bucket1, testK1[0])
-	require.Equal(ErrAlreadyDeleted, errors.Cause(err))
-	require.NoError(cb.PutIfNotExists(bucket1, testK1[0], testV1[0], ""))
-	v, err = cb.Get(bucket1, testK1[0])
-	require.NoError(err)
-	require.Equal(testV1[0], v)
-
-	w, err := cb.Entry(1)
-	require.NoError(err)
-	require.Equal(bucket1, w.namespace)
-	require.Equal(testK2[0], w.key)
-	require.Equal([]byte(nil), w.value)
-	require.Equal(Delete, w.writeType)
-
-	w, err = cb.Entry(3)
-	require.NoError(err)
-	require.Equal(bucket1, w.namespace)
-	require.Equal(testK1[0], w.key)
-	require.Equal(testV1[0], w.value)
-	require.Equal(PutIfNotExists, w.writeType)
-
-	// test clone
-	c := cb.Clone()
-	v, err = c.Get(bucket1, testK1[0])
-	require.NoError(err)
-	require.Equal(testV1[0], v)
-
-	w, err = c.Entry(0)
-	require.NoError(err)
-	require.Equal(bucket1, w.namespace)
-	require.Equal(testK1[0], w.key)
-	require.Equal(testV1[0], w.value)
-	require.Equal(Put, w.writeType)
-
-	w, err = c.Entry(2)
-	require.NoError(err)
-	require.Equal(bucket1, w.namespace)
-	require.Equal(testK1[0], w.key)
-	require.Equal([]byte(nil), w.value)
-	require.Equal(Delete, w.writeType)
 }
