@@ -11,9 +11,10 @@ import (
 	"net"
 	"sync"
 
+	"github.com/iotexproject/iotex-core/p2p"
+
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/logger"
-	"github.com/iotexproject/iotex-core/network"
 	"github.com/iotexproject/iotex-core/pkg/routine"
 	pb "github.com/iotexproject/iotex-core/proto"
 )
@@ -27,13 +28,13 @@ type syncWorker struct {
 	chainID      uint32
 	mu           sync.RWMutex
 	targetHeight uint64
-	p2p          network.Overlay
+	p2p          P2P
 	rrIdx        int
 	buf          *blockBuffer
 	task         *routine.RecurringTask
 }
 
-func newSyncWorker(chainID uint32, cfg config.Config, p2p network.Overlay, buf *blockBuffer) *syncWorker {
+func newSyncWorker(chainID uint32, cfg config.Config, p2p P2P, buf *blockBuffer) *syncWorker {
 	w := &syncWorker{
 		chainID:      chainID,
 		p2p:          p2p,
@@ -74,7 +75,7 @@ func (w *syncWorker) Sync() {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	peers := w.p2p.GetPeers()
+	peers := w.p2p.Neighbors()
 	if len(peers) == 0 {
 		logger.Debug().Msg("No peer exist to sync with.")
 		return
@@ -94,7 +95,8 @@ func (w *syncWorker) Sync() {
 }
 
 func (w *syncWorker) sync(p net.Addr, interval syncBlocksInterval) error {
-	return w.p2p.Tell(w.chainID, p, &pb.BlockSync{
+	ctx := p2p.WitContext(context.Background(), p2p.Context{ChainID: w.chainID})
+	return w.p2p.Unicast(ctx, p, &pb.BlockSync{
 		Start: interval.Start, End: interval.End,
 	})
 }

@@ -8,26 +8,35 @@ package blocksync
 
 import (
 	"context"
+	"net"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/logger"
-	"github.com/iotexproject/iotex-core/network"
+	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/p2p/node"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/routine"
 	pb "github.com/iotexproject/iotex-core/proto"
 )
 
+// P2P represents the P2P interface that blocksync requires to work
+type P2P interface {
+	// Unicast sends a unicast message to the given address
+	Unicast(ctx context.Context, addr net.Addr, msg proto.Message) error
+	// Neighbors returns the neighbors' addresses
+	Neighbors() []net.Addr
+}
+
 // BlockSync defines the interface of blocksyncer
 type BlockSync interface {
 	lifecycle.StartStopper
 
 	TargetHeight() uint64
-	P2P() network.Overlay
 	ProcessSyncRequest(sender string, sync *pb.BlockSync) error
 	ProcessBlock(blk *blockchain.Block) error
 	ProcessBlockSync(blk *blockchain.Block) error
@@ -42,7 +51,7 @@ type blockSyncer struct {
 	buf            *blockBuffer
 	worker         *syncWorker
 	bc             blockchain.Blockchain
-	p2p            network.Overlay
+	p2p            P2P
 	chaser         *routine.RecurringTask
 }
 
@@ -51,7 +60,7 @@ func NewBlockSyncer(
 	cfg config.Config,
 	chain blockchain.Blockchain,
 	ap actpool.ActPool,
-	p2p network.Overlay,
+	p2p P2P,
 ) (BlockSync, error) {
 	if chain == nil || ap == nil || p2p == nil {
 		return nil, errors.New("cannot create BlockSync: missing param")
@@ -86,7 +95,7 @@ func (bs *blockSyncer) TargetHeight() uint64 {
 }
 
 // P2P returns the network overlay object
-func (bs *blockSyncer) P2P() network.Overlay {
+func (bs *blockSyncer) P2P() P2P {
 	return bs.p2p
 }
 
@@ -165,7 +174,8 @@ func (bs *blockSyncer) ProcessSyncRequest(sender string, sync *pb.BlockSync) err
 			return err
 		}
 		// TODO: send back multiple blocks in one shot
-		if err := bs.p2p.Tell(bs.bc.ChainID(), node.NewTCPNode(sender), &pb.BlockContainer{Block: blk.ConvertToBlockPb()}); err != nil {
+		ctx := p2p.WitContext(context.Background(), p2p.Context{ChainID: bs.bc.ChainID()})
+		if err := bs.p2p.Unicast(ctx, node.NewTCPNode(sender), &pb.BlockContainer{Block: blk.ConvertToBlockPb()}); err != nil {
 			logger.Warn().Err(err).Msg("Failed to response to ProcessSyncRequest.")
 		}
 	}

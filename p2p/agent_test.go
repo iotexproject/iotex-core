@@ -8,7 +8,6 @@ package p2p
 
 import (
 	"context"
-	"math/rand"
 	"net"
 	"sync"
 	"testing"
@@ -36,7 +35,7 @@ func TestBroadcast(t *testing.T) {
 	counts := make(map[uint8]int)
 	var mutex sync.Mutex
 	for i := 0; i < n; i++ {
-		cfg := config.Network{Host: "127.0.0.1", Port: randomPort()}
+		cfg := config.Network{Host: "127.0.0.1", Port: testutil.RandomPort()}
 		if i > 0 {
 			cfg.BootstrapNodes = []string{agents[0].Self().String()}
 		}
@@ -84,7 +83,7 @@ func TestUnicast(t *testing.T) {
 	counts := make(map[uint8]int)
 	var mutex sync.Mutex
 	for i := 0; i < n; i++ {
-		cfg := config.Network{Host: "127.0.0.1", Port: randomPort()}
+		cfg := config.Network{Host: "127.0.0.1", Port: testutil.RandomPort()}
 		if i > 0 {
 			cfg.BootstrapNodes = []string{agents[0].Self().String()}
 		}
@@ -121,9 +120,4 @@ func TestUnicast(t *testing.T) {
 			return counts[uint8(i)] == n-1, nil
 		}))
 	}
-}
-
-func randomPort() int {
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	return r.Intn(20000) + 30000
 }

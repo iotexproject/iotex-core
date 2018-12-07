@@ -85,6 +85,7 @@ var (
 			PeerDiscovery:                       true,
 			TopologyPath:                        "",
 			TTL:                                 3,
+			EnableV2:                            false,
 		},
 		Chain: Chain{
 			ChainDBPath:                  "/tmp/chain.db",
@@ -207,6 +208,7 @@ type (
 		PeerDiscovery                       bool                        `yaml:"peerDiscovery"`
 		TopologyPath                        string                      `yaml:"topologyPath"`
 		TTL                                 int32                       `yaml:"ttl"`
+		EnableV2                            bool                        `yaml:"enableV2"`
 	}
 
 	// Chain is the config struct for blockchain package
