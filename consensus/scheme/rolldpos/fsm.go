@@ -408,7 +408,7 @@ func (m *cFSM) handleInitBlockProposeEvt(evt fsm.Event) (fsm.State, error) {
 	logger.Info().Str("block", hex.EncodeToString(h[:])).Msgf("Broadcast init proposal %+v", blk)
 	m.produce(proposeBlkEvt, 0)
 	// Notify other delegates
-	if err := m.ctx.p2p.Broadcast(m.ctx.chain.ChainID(), proposeBlkEvtProto); err != nil {
+	if err := m.ctx.broadcastCB(proposeBlkEvtProto); err != nil {
 		logger.Error().
 			Err(err).
 			Msg("error when broadcasting proposeBlkEvt")
@@ -596,7 +596,7 @@ func (m *cFSM) broadcastConsensusVote(
 	// Notify itself
 	m.produce(cEvt, 0)
 	// Notify other delegates
-	if err := m.ctx.p2p.Broadcast(m.ctx.chain.ChainID(), cEvtProto); err != nil {
+	if err := m.ctx.broadcastCB(cEvtProto); err != nil {
 		logger.Error().
 			Err(err).
 			Msg("error when broadcasting commitEvtProto")
@@ -694,7 +694,7 @@ func (m *cFSM) handleEndorseCommitEvt(evt fsm.Event) (fsm.State, error) {
 	m.ctx.actPool.Reset()
 	// Broadcast the committed block to the network
 	if blkProto := pendingBlock.ConvertToBlockPb(); blkProto != nil {
-		if err := m.ctx.p2p.Broadcast(m.ctx.chain.ChainID(), blkProto); err != nil {
+		if err := m.ctx.broadcastCB(blkProto); err != nil {
 			logger.Error().
 				Err(err).
 				Uint64("block", pendingBlock.Height()).

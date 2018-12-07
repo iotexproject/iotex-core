@@ -26,6 +26,9 @@ type ConsensusDoneCB func(*blockchain.Block) error
 // BroadcastCB defines the callback to publish the consensus result
 type BroadcastCB func(*blockchain.Block) error
 
+// Broadcast sends a broadcast message to the whole network
+type Broadcast func(msg proto.Message) error
+
 // Scheme is the interface that consensus schemes should implement
 type Scheme interface {
 	lifecycle.StartStopper

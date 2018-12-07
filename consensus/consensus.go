@@ -22,7 +22,6 @@ import (
 	explorerapi "github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
-	"github.com/iotexproject/iotex-core/network"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/proto"
@@ -46,6 +45,7 @@ type IotxConsensus struct {
 
 type optionParams struct {
 	rootChainAPI explorerapi.Explorer
+	broadcastCB  scheme.Broadcast
 }
 
 // Option sets Consensus construction parameter.
@@ -59,18 +59,21 @@ func WithRootChainAPI(exp explorerapi.Explorer) Option {
 	}
 }
 
+// WithBroadcast is an option nto add broadcast callback to Consensus
+func WithBroadcast(broadcastCB scheme.Broadcast) Option {
+	return func(ops *optionParams) error {
+		ops.broadcastCB = broadcastCB
+		return nil
+	}
+}
+
 // NewConsensus creates a IotxConsensus struct.
 func NewConsensus(
 	cfg config.Config,
 	bc blockchain.Blockchain,
 	ap actpool.ActPool,
-	p2p network.Overlay,
 	opts ...Option,
 ) Consensus {
-	if bc == nil || ap == nil || p2p == nil {
-		logger.Panic().Msg("Try to attach to nil blockchain, action pool or p2p interface")
-	}
-
 	var ops optionParams
 	for _, opt := range opts {
 		if err := opt(&ops); err != nil {
@@ -110,7 +113,7 @@ func NewConsensus(
 
 	broadcastBlockCB := func(blk *blockchain.Block) error {
 		if blkPb := blk.ConvertToBlockPb(); blkPb != nil {
-			return p2p.Broadcast(bc.ChainID(), blkPb)
+			return ops.broadcastCB(blkPb)
 		}
 		return nil
 	}
@@ -125,7 +128,7 @@ func NewConsensus(
 			SetBlockchain(bc).
 			SetActPool(ap).
 			SetClock(clock).
-			SetP2P(p2p)
+			SetBroadcast(ops.broadcastCB)
 		if ops.rootChainAPI != nil {
 			bd = bd.SetCandidatesByHeightFunc(func(h uint64) ([]*state.Candidate, error) {
 				rawcs, err := ops.rootChainAPI.GetCandidateMetricsByHeight(int64(h))
