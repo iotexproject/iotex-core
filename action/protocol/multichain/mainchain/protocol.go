@@ -15,8 +15,10 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
@@ -95,8 +97,11 @@ func (p *Protocol) account(sender string, sm protocol.StateManager) (*state.Acco
 	if sm == nil {
 		return p.sf.AccountState(sender)
 	}
-
-	return sm.CachedAccountState(sender)
+	addrHash, err := iotxaddress.AddressToPKHash(sender)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to convert address to public key hash")
+	}
+	return account.LoadAccountState(sm, addrHash)
 }
 
 func (p *Protocol) accountWithEnoughBalance(
@@ -114,8 +119,8 @@ func (p *Protocol) accountWithEnoughBalance(
 	return account, nil
 }
 
-func (p *Protocol) subChainsInOperation(sm protocol.StateManager) (state.SortedSlice, error) {
-	var subChainsInOp state.SortedSlice
+func (p *Protocol) subChainsInOperation(sm protocol.StateManager) (SubChainsInOperation, error) {
+	var subChainsInOp SubChainsInOperation
 	var err error
 	if sm == nil {
 		subChainsInOp, err = p.SubChainsInOperation()
@@ -126,7 +131,7 @@ func (p *Protocol) subChainsInOperation(sm protocol.StateManager) (state.SortedS
 		}
 	}
 	if err != nil {
-		return state.SortedSlice{}, errors.Wrap(err, "error when getting the state of sub-chains in operation")
+		return nil, errors.Wrap(err, "error when getting the state of sub-chains in operation")
 	}
 	return subChainsInOp, nil
 }
@@ -149,8 +154,8 @@ func (p *Protocol) SubChain(addr address.Address) (*SubChain, error) {
 }
 
 // SubChainsInOperation returns the used chain IDs
-func (p *Protocol) SubChainsInOperation() (state.SortedSlice, error) {
-	var subChainsInOp state.SortedSlice
+func (p *Protocol) SubChainsInOperation() (SubChainsInOperation, error) {
+	var subChainsInOp SubChainsInOperation
 	err := p.sf.State(SubChainsInOperationKey, &subChainsInOp)
 	if err != nil && errors.Cause(err) != state.ErrStateNotExist {
 		return nil, err

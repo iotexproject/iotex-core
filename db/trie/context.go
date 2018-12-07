@@ -70,7 +70,7 @@ func (tc *SameKeyLenTrieContext) newBranchNodeAndPutIntoDB(
 		if n == nil {
 			continue
 		}
-		bnode.children[i] = nodeHash(n)
+		bnode.hashes[i] = nodeHash(n)
 	}
 	if err := tc.PutNodeIntoDB(bnode); err != nil {
 		return nil, err
@@ -113,7 +113,7 @@ func (tc *SameKeyLenTrieContext) LoadNodeFromDB(key hash.Hash32B) (Node, error) 
 		return newEmptyBranchNode(), nil
 	}
 	s, err := tc.CB.Get(tc.Bucket, key[:])
-	if err != nil {
+	if err != nil && errors.Cause(err) != db.ErrAlreadyDeleted {
 		if s, err = tc.DB.Get(tc.Bucket, key[:]); err != nil {
 			return nil, errors.Wrapf(err, "failed to get key %x", key[:8])
 		}

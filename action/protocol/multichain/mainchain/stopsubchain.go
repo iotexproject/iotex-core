@@ -14,6 +14,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
@@ -65,7 +66,7 @@ func (p *Protocol) handleStopSubChain(stop *action.StopSubChain, sm protocol.Sta
 	if err := sm.PutState(subChainPKHash, subChain); err != nil {
 		return err
 	}
-	account, err := p.validateSubChainOwnership(
+	acct, err := p.validateSubChainOwnership(
 		keypair.HashPubKey(subChain.OwnerPublicKey),
 		stop.SrcAddr(),
 		sm,
@@ -74,14 +75,12 @@ func (p *Protocol) handleStopSubChain(stop *action.StopSubChain, sm protocol.Sta
 		return errors.Wrapf(err, "error when getting the account of sender %s", stop.SrcAddr())
 	}
 	// TODO: this is not right, but currently the actions in a block is not processed according to the nonce
-	if stop.Nonce() > account.Nonce {
-		account.Nonce = stop.Nonce()
-	}
+	account.SetNonce(stop, acct)
 	senderPKHash, err := srcAddressPKHash(stop.SrcAddr())
 	if err != nil {
 		return err
 	}
-	if err := sm.PutState(senderPKHash, account); err != nil {
+	if err := sm.PutState(senderPKHash, acct); err != nil {
 		return err
 	}
 	// check that subchain is in register
@@ -89,11 +88,11 @@ func (p *Protocol) handleStopSubChain(stop *action.StopSubChain, sm protocol.Sta
 	if err != nil {
 		return errors.Wrap(err, "error when getting sub-chains in operation")
 	}
-	subChainsInOp, deleted := subChainsInOp.Delete(InOperation{ID: subChain.ChainID}, SortInOperation)
-	if deleted <= 0 {
+	subChainsInOp, deleted := subChainsInOp.Delete(subChain.ChainID)
+	if !deleted {
 		return fmt.Errorf("address %s is not on a sub-chain in operation", subChainAddr)
 	}
-	if err := sm.PutState(SubChainsInOperationKey, &subChainsInOp); err != nil {
+	if err := sm.PutState(SubChainsInOperationKey, subChainsInOp); err != nil {
 		return err
 	}
 

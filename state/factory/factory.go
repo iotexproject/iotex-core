@@ -94,11 +94,8 @@ func DefaultTrieOption() Option {
 		if len(dbPath) == 0 {
 			return errors.New("Invalid empty trie db path")
 		}
-		if cfg.Chain.UseBadgerDB {
-			sf.dao = db.NewBadgerDB(dbPath, cfg.DB)
-		} else {
-			sf.dao = db.NewBoltDB(dbPath, cfg.DB)
-		}
+		cfg.DB.DbPath = dbPath // TODO: remove this after moving TrieDBPath from cfg.Chain to cfg.DB
+		sf.dao = db.NewOnDiskDB(cfg.DB)
 		sf.lifecycle.Add(sf.dao)
 		return nil
 	}
@@ -308,10 +305,7 @@ func (sf *factory) accountState(addr string) (*state.Account, error) {
 	var account state.Account
 	if err := sf.state(pkHash, &account); err != nil {
 		if errors.Cause(err) == state.ErrStateNotExist {
-			return &state.Account{
-				Balance:      big.NewInt(0),
-				VotingWeight: big.NewInt(0),
-			}, nil
+			return state.EmptyAccount, nil
 		}
 		return nil, errors.Wrapf(err, "error when loading state of %x", pkHash)
 	}

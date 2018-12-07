@@ -7,8 +7,6 @@
 package trie
 
 import (
-	"context"
-
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotexproject/iotex-core/pkg/hash"
@@ -34,13 +32,14 @@ const (
 // Node defines the interface of a trie node
 // Note: all the key-value pairs should be of the same length of keys
 type Node interface {
-	// Children returns all child nodes
-	Children(ctx context.Context) ([]Node, error)
 	// Type returns the type of a node
 	Type() NodeType
+	// Key returns the key of a node, only leaf has key
+	Key() []byte
 	// Value returns the value of a node, only leaf has value
 	Value() []byte
 
+	children(SameKeyLenTrieContext) ([]Node, error)
 	search(SameKeyLenTrieContext, keyType, uint8) Node
 	delete(SameKeyLenTrieContext, keyType, uint8) (Node, error)
 	upsert(SameKeyLenTrieContext, keyType, uint8, []byte) (Node, error)

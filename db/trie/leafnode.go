@@ -8,10 +8,8 @@ package trie
 
 import (
 	"bytes"
-	"context"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/proto"
@@ -35,16 +33,20 @@ func newLeafNodeFromProtoPb(pb *iproto.LeafPb) *leafNode {
 	return &leafNode{key: pb.Path, value: pb.Value}
 }
 
-func (l *leafNode) Children(context.Context) ([]Node, error) {
-	return nil, errors.New("leaf node has no child")
-}
-
 func (l *leafNode) Type() NodeType {
 	return LEAF
 }
 
+func (l *leafNode) Key() []byte {
+	return l.key
+}
+
 func (l *leafNode) Value() []byte {
 	return l.value
+}
+
+func (l *leafNode) children(tc SameKeyLenTrieContext) ([]Node, error) {
+	return nil, nil
 }
 
 func (l *leafNode) delete(tc SameKeyLenTrieContext, key keyType, offset uint8) (Node, error) {

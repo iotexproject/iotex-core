@@ -21,6 +21,12 @@ var (
 	ErrNotEnoughBalance = errors.New("not enough balance")
 	// ErrAccountCollision is the error that the account already exists
 	ErrAccountCollision = errors.New("account already exists")
+	// EmptyAccount indicates an empty account
+	// This is a read-only variable for comparison purpose. Caller should not modify it.
+	EmptyAccount = &Account{
+		Balance:      big.NewInt(0),
+		VotingWeight: big.NewInt(0),
+	}
 )
 
 // Account is the canonical representation of an account.
@@ -56,7 +62,7 @@ func (st *Account) ToProto() *iproto.AccountPb {
 }
 
 // Serialize serializes account state into bytes
-func (st *Account) Serialize() ([]byte, error) {
+func (st Account) Serialize() ([]byte, error) {
 	return proto.Marshal(st.ToProto())
 }
 

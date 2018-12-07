@@ -54,18 +54,17 @@ func LoadOrCreateAccountState(sm protocol.StateManager, addr string, init *big.I
 		return nil, errors.Wrap(err, "failed to convert address to public key hash")
 	}
 	account, err := LoadAccountState(sm, addrHash)
-	switch {
-	case errors.Cause(err) == state.ErrStateNotExist:
-		account := state.Account{
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get account of %x from account trie", addrHash)
+	}
+	if account == state.EmptyAccount {
+		account = &state.Account{
 			Balance:      init,
 			VotingWeight: big.NewInt(0),
 		}
-		if err := sm.PutState(addrHash, &account); err != nil {
+		if err := sm.PutState(addrHash, account); err != nil {
 			return nil, errors.Wrapf(err, "failed to put state for account %x", addrHash)
 		}
-		return &account, nil
-	case err != nil:
-		return nil, errors.Wrapf(err, "failed to get account of %x from account trie", addrHash)
 	}
 	return account, nil
 }
@@ -74,8 +73,10 @@ func LoadOrCreateAccountState(sm protocol.StateManager, addr string, init *big.I
 func LoadAccountState(sm protocol.StateManager, addrHash hash.PKHash) (*state.Account, error) {
 	var s state.Account
 	if err := sm.State(addrHash, &s); err != nil {
+		if errors.Cause(err) == state.ErrStateNotExist {
+			return state.EmptyAccount, nil
+		}
 		return nil, err
-
 	}
 	return &s, nil
 }

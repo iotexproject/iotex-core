@@ -100,6 +100,14 @@ func (tr *branchRootTrie) SetRoot(rootHash hash.Hash32B) error {
 	return nil
 }
 
+func (tr *branchRootTrie) Root() Node {
+	return tr.root
+}
+
+func (tr *branchRootTrie) ChildrenOf(node Node) ([]Node, error) {
+	return node.children(tr.tc)
+}
+
 func (tr *branchRootTrie) Get(key []byte) ([]byte, error) {
 	logger.Debug().Hex("key", key).Msg("Get value by key")
 	kt, err := tr.checkKeyType(key)
