@@ -49,6 +49,8 @@ type ChainManager interface {
 type StateManager interface {
 	// Accounts
 	Height() uint64
+	Snapshot() int
+	Revert(int) error
 	// General state
 	State(hash.PKHash, interface{}) error
 	PutState(hash.PKHash, interface{}) error

@@ -34,6 +34,8 @@ type (
 		Nonce(string) (uint64, error) // Note that Nonce starts with 1.
 		CachedAccountState(string) (*state.Account, error)
 		RunActions(context.Context, uint64, []action.Action) (hash.Hash32B, map[hash.Hash32B]*action.Receipt, error)
+		Snapshot() int
+		Revert(int) error
 		Commit() error
 		// Accounts
 		RootHash() hash.Hash32B
@@ -47,13 +49,14 @@ type (
 		GetCachedBatch() db.CachedBatch
 	}
 
-	// workingSet implements Workingset interface, tracks pending changes to account/contract in local cache
+	// workingSet implements WorkingSet interface, tracks pending changes to account/contract in local cache
 	workingSet struct {
 		ver              uint64
 		blkHeight        uint64
 		cachedCandidates map[hash.PKHash]*state.Candidate
 		cachedStates     map[hash.PKHash]state.State // states being modified in this block
 		accountTrie      trie.Trie                   // global account state trie
+		trieRoots        map[int]hash.Hash32B        // root of trie at time of snapshot
 		cb               db.CachedBatch              // cached batch for pending writes
 		dao              db.KVStore                  // the underlying DB for account/contract storage
 		actionHandlers   []protocol.ActionHandler
@@ -71,6 +74,7 @@ func NewWorkingSet(
 		ver:              version,
 		cachedCandidates: make(map[hash.PKHash]*state.Candidate),
 		cachedStates:     make(map[hash.PKHash]state.State),
+		trieRoots:        make(map[int]hash.Hash32B),
 		cb:               db.NewCachedBatch(),
 		dao:              kv,
 		actionHandlers:   actionHandlers,
@@ -264,6 +268,24 @@ func (ws *workingSet) RunActions(
 	return ws.RootHash(), receipts, nil
 }
 
+func (ws *workingSet) Snapshot() int {
+	s := ws.cb.Snapshot()
+	ws.trieRoots[s] = byteutil.BytesTo32B(ws.accountTrie.RootHash())
+	return s
+}
+
+func (ws *workingSet) Revert(snapshot int) error {
+	if err := ws.cb.Revert(snapshot); err != nil {
+		return err
+	}
+	root, ok := ws.trieRoots[snapshot]
+	if !ok {
+		// this should not happen, b/c we save the trie root on a successful return of Snapshot(), but check anyway
+		return errors.Wrapf(trie.ErrInvalidTrie, "failed to get trie root for snapshot = %d", snapshot)
+	}
+	return ws.accountTrie.SetRootHash(root[:])
+}
+
 // Commit persists all changes in RunActions() into the DB
 func (ws *workingSet) Commit() error {
 	// Commit all changes in a batch
@@ -344,8 +366,10 @@ func (ws *workingSet) PutState(pkHash hash.PKHash, s interface{}) error {
 func (ws *workingSet) clearCache() {
 	ws.cachedStates = nil
 	ws.cachedCandidates = nil
+	ws.trieRoots = nil
 	ws.cachedStates = make(map[hash.PKHash]state.State)
 	ws.cachedCandidates = make(map[hash.PKHash]*state.Candidate)
+	ws.trieRoots = make(map[int]hash.Hash32B)
 }
 
 //======================================

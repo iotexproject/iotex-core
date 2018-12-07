@@ -91,6 +91,30 @@ func (mr *MockWorkingSetMockRecorder) RunActions(arg0, arg1, arg2 interface{}) *
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunActions", reflect.TypeOf((*MockWorkingSet)(nil).RunActions), arg0, arg1, arg2)
 }
 
+// Snapshot mocks base method
+func (m *MockWorkingSet) Snapshot() int {
+	ret := m.ctrl.Call(m, "Snapshot")
+	ret0, _ := ret[0].(int)
+	return ret0
+}
+
+// Snapshot indicates an expected call of Snapshot
+func (mr *MockWorkingSetMockRecorder) Snapshot() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Snapshot", reflect.TypeOf((*MockWorkingSet)(nil).Snapshot))
+}
+
+// Revert mocks base method
+func (m *MockWorkingSet) Revert(arg0 int) error {
+	ret := m.ctrl.Call(m, "Revert", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Revert indicates an expected call of Revert
+func (mr *MockWorkingSetMockRecorder) Revert(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Revert", reflect.TypeOf((*MockWorkingSet)(nil).Revert), arg0)
+}
+
 // Commit mocks base method
 func (m *MockWorkingSet) Commit() error {
 	ret := m.ctrl.Call(m, "Commit")
