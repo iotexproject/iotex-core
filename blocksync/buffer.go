@@ -11,6 +11,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/logger"
 )
 
@@ -66,11 +67,10 @@ func (b *blockBuffer) Flush(blk *blockchain.Block) (bool, bCheckinResult) {
 		}
 		delete(b.blocks, heightToSync)
 		if err := commitBlock(b.bc, b.ap, blk); err != nil {
-			l.Error().Err(err).Uint64("syncHeight", heightToSync).
-				Msg("Failed to commit the block.")
-			// unable to commit, check reason
-			committedBlk, err := b.bc.GetBlockByHeight(heightToSync)
-			if err != nil || committedBlk.HashBlock() != blk.HashBlock() {
+			if err == db.ErrAlreadyExist {
+				l.Info().Uint64("syncHeight", heightToSync).Msg("Block already exists.")
+			} else {
+				l.Error().Err(err).Uint64("syncHeight", heightToSync).Msg("Failed to commit the block.")
 				break
 			}
 		}
