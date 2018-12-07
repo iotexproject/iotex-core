@@ -25,6 +25,7 @@ import (
 	"github.com/iotexproject/iotex-core/indexservice"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/network"
+	"github.com/iotexproject/iotex-core/p2p"
 	pb "github.com/iotexproject/iotex-core/proto"
 )
 
@@ -65,7 +66,13 @@ func WithTesting() Option {
 }
 
 // New creates a ChainService from config and network.Overlay and dispatcher.Dispatcher.
-func New(cfg config.Config, p2p network.Overlay, dispatcher dispatcher.Dispatcher, opts ...Option) (*ChainService, error) {
+func New(
+	cfg config.Config,
+	p2p network.Overlay,
+	p2pAgent *p2p.Agent,
+	dispatcher dispatcher.Dispatcher,
+	opts ...Option,
+) (*ChainService, error) {
 	var ops optionParams
 	for _, opt := range opts {
 		if err := opt(&ops); err != nil {
@@ -98,7 +105,7 @@ func New(cfg config.Config, p2p network.Overlay, dispatcher dispatcher.Dispatche
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create actpool")
 	}
-	bs, err := blocksync.NewBlockSyncer(cfg, chain, actPool, p2p)
+	bs, err := blocksync.NewBlockSyncer(cfg, chain, actPool, p2pAgent)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create blockSyncer")
 	}

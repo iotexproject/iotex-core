@@ -7,11 +7,59 @@ package mock_blocksync
 import (
 	context "context"
 	gomock "github.com/golang/mock/gomock"
+	proto "github.com/golang/protobuf/proto"
 	blockchain "github.com/iotexproject/iotex-core/blockchain"
-	network "github.com/iotexproject/iotex-core/network"
-	proto "github.com/iotexproject/iotex-core/proto"
+	proto0 "github.com/iotexproject/iotex-core/proto"
+	net "net"
 	reflect "reflect"
 )
+
+// MockP2P is a mock of P2P interface
+type MockP2P struct {
+	ctrl     *gomock.Controller
+	recorder *MockP2PMockRecorder
+}
+
+// MockP2PMockRecorder is the mock recorder for MockP2P
+type MockP2PMockRecorder struct {
+	mock *MockP2P
+}
+
+// NewMockP2P creates a new mock instance
+func NewMockP2P(ctrl *gomock.Controller) *MockP2P {
+	mock := &MockP2P{ctrl: ctrl}
+	mock.recorder = &MockP2PMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use
+func (m *MockP2P) EXPECT() *MockP2PMockRecorder {
+	return m.recorder
+}
+
+// Unicast mocks base method
+func (m *MockP2P) Unicast(ctx context.Context, addr net.Addr, msg proto.Message) error {
+	ret := m.ctrl.Call(m, "Unicast", ctx, addr, msg)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Unicast indicates an expected call of Unicast
+func (mr *MockP2PMockRecorder) Unicast(ctx, addr, msg interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unicast", reflect.TypeOf((*MockP2P)(nil).Unicast), ctx, addr, msg)
+}
+
+// Neighbors mocks base method
+func (m *MockP2P) Neighbors() []net.Addr {
+	ret := m.ctrl.Call(m, "Neighbors")
+	ret0, _ := ret[0].([]net.Addr)
+	return ret0
+}
+
+// Neighbors indicates an expected call of Neighbors
+func (mr *MockP2PMockRecorder) Neighbors() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Neighbors", reflect.TypeOf((*MockP2P)(nil).Neighbors))
+}
 
 // MockBlockSync is a mock of BlockSync interface
 type MockBlockSync struct {
@@ -72,20 +120,8 @@ func (mr *MockBlockSyncMockRecorder) TargetHeight() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TargetHeight", reflect.TypeOf((*MockBlockSync)(nil).TargetHeight))
 }
 
-// P2P mocks base method
-func (m *MockBlockSync) P2P() network.Overlay {
-	ret := m.ctrl.Call(m, "P2P")
-	ret0, _ := ret[0].(network.Overlay)
-	return ret0
-}
-
-// P2P indicates an expected call of P2P
-func (mr *MockBlockSyncMockRecorder) P2P() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "P2P", reflect.TypeOf((*MockBlockSync)(nil).P2P))
-}
-
 // ProcessSyncRequest mocks base method
-func (m *MockBlockSync) ProcessSyncRequest(sender string, sync *proto.BlockSync) error {
+func (m *MockBlockSync) ProcessSyncRequest(sender string, sync *proto0.BlockSync) error {
 	ret := m.ctrl.Call(m, "ProcessSyncRequest", sender, sync)
 	ret0, _ := ret[0].(error)
 	return ret0
