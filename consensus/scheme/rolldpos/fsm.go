@@ -687,7 +687,6 @@ func (m *cFSM) handleEndorseCommitEvt(evt fsm.Event) (fsm.State, error) {
 	// Commit and broadcast the pending block
 	if err := m.ctx.chain.CommitBlock(pendingBlock); err != nil {
 		if err == db.ErrAlreadyExist {
-			err = nil
 			logger.Info().Uint64("block", pendingBlock.Height()).Msg("Block already exists.")
 		} else {
 			logger.Error().
