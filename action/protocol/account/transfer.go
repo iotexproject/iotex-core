@@ -13,6 +13,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -60,6 +61,13 @@ func (p *Protocol) handleTransfer(act action.Action, sm protocol.StateManager) e
 			if err := StoreAccount(sm, sender.Votee, voteeOfSender); err != nil {
 				return errors.Wrap(err, "failed to update pending account changes to trie")
 			}
+
+			// Update candidate
+			if voteeOfSender.IsCandidate {
+				if err := p.loadAndUpdateCandidates(sm, sender.Votee, voteeOfSender.VotingWeight); err != nil {
+					return errors.Wrap(err, "failed to load and update candidates")
+				}
+			}
 		}
 	}
 	// check recipient
@@ -85,6 +93,12 @@ func (p *Protocol) handleTransfer(act action.Action, sm protocol.StateManager) e
 		// put updated state of recipient's votee to trie
 		if err := StoreAccount(sm, recipient.Votee, voteeOfRecipient); err != nil {
 			return errors.Wrap(err, "failed to update pending account changes to trie")
+		}
+
+		if voteeOfRecipient.IsCandidate {
+			if err := p.loadAndUpdateCandidates(sm, recipient.Votee, voteeOfRecipient.VotingWeight); err != nil {
+				return errors.Wrap(err, "failed to load and update candidates")
+			}
 		}
 	}
 	return nil
@@ -113,4 +127,15 @@ func (p *Protocol) validateTransfer(act action.Action) error {
 		return errors.Wrapf(err, "error when validating recipient's address %s", tsf.Recipient())
 	}
 	return nil
+}
+
+func (p *Protocol) loadAndUpdateCandidates(sm protocol.StateManager, addr string, votingWeight *big.Int) error {
+	candidateMap, err := candidatesutil.GetMostRecentCandidateMap(sm)
+	if err != nil {
+		return errors.Wrap(err, "failed to get most recent candidates from trie")
+	}
+	if err := candidatesutil.UpdateCandidate(candidateMap, addr, votingWeight, sm.Height()); err != nil {
+		return errors.Wrapf(err, "failed to update candidate %s", addr)
+	}
+	return candidatesutil.StoreCandidates(candidateMap, sm)
 }
