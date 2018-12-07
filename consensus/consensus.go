@@ -101,12 +101,13 @@ func NewConsensus(
 
 	commitBlockCB := func(blk *blockchain.Block) error {
 		err := bc.CommitBlock(blk)
-		if err == db.ErrAlreadyExist {
-			err = nil
-			logger.Info().Int64("Height", int64(blk.Height())).Msg("Block already exists.")
-		}
 		if err != nil {
-			logger.Error().Err(err).Int64("Height", int64(blk.Height())).Msg("Failed to commit the block")
+			if err == db.ErrAlreadyExist {
+				err = nil
+				logger.Info().Int64("Height", int64(blk.Height())).Msg("Block already exists.")
+			} else {
+				logger.Error().Err(err).Int64("Height", int64(blk.Height())).Msg("Failed to commit the block")
+			}
 		}
 		// Remove transfers in this block from ActPool and reset ActPool state
 		ap.Reset()
