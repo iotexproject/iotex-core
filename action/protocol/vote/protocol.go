@@ -38,11 +38,6 @@ func (p *Protocol) Handle(_ context.Context, act action.Action, sm protocol.Stat
 	if !ok {
 		return nil, nil
 	}
-	// Get most recent candidateList from trie and convert it to candidates map
-	candidateMap, err := candidatesutil.GetMostRecentCandidateMap(sm)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get most recent candidates from trie")
-	}
 
 	voteFrom, err := account.LoadOrCreateAccount(sm, vote.Voter(), big.NewInt(0))
 	if err != nil {
@@ -56,18 +51,14 @@ func (p *Protocol) Handle(_ context.Context, act action.Action, sm protocol.Stat
 		// unvote operation
 		voteFrom.IsCandidate = false
 		// Remove the candidate from candidateMap if the person is not a candidate anymore
-		addrHash, err := iotxaddress.AddressToPKHash(vote.Voter())
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to convert address to public key hash")
-		}
-		if _, ok := candidateMap[addrHash]; ok {
-			delete(candidateMap, addrHash)
+		if err := candidatesutil.LoadAndDeleteCandidates(sm, vote.Voter()); err != nil {
+			return nil, errors.Wrap(err, "failed to load and delete candidates")
 		}
 	} else if vote.Voter() == vote.Votee() {
 		// Vote to self: self-nomination
 		voteFrom.IsCandidate = true
-		if err := candidatesutil.AddCandidate(candidateMap, vote, sm.Height()); err != nil {
-			return nil, errors.Wrap(err, "failed to add candidate to candidate map")
+		if err := candidatesutil.LoadAndAddCandidates(sm, vote); err != nil {
+			return nil, errors.Wrap(err, "failed to load and add candidates")
 		}
 	}
 	// Put updated voter's state to trie
@@ -89,7 +80,9 @@ func (p *Protocol) Handle(_ context.Context, act action.Action, sm protocol.Stat
 		}
 		// Update candidate map
 		if oldVotee.IsCandidate {
-			candidatesutil.UpdateCandidate(candidateMap, prevVotee, oldVotee.VotingWeight, sm.Height())
+			if err := candidatesutil.LoadAndUpdateCandidates(sm, prevVotee, oldVotee.VotingWeight); err != nil {
+				return nil, errors.Wrap(err, "failed to load and update candidates")
+			}
 		}
 	}
 
@@ -107,14 +100,12 @@ func (p *Protocol) Handle(_ context.Context, act action.Action, sm protocol.Stat
 		}
 		// Update candidate map
 		if voteTo.IsCandidate {
-			candidatesutil.UpdateCandidate(candidateMap, vote.Votee(), voteTo.VotingWeight, sm.Height())
+			if err := candidatesutil.LoadAndUpdateCandidates(sm, vote.Votee(), voteTo.VotingWeight); err != nil {
+				return nil, errors.Wrap(err, "failed to load and update candidates")
+			}
 		}
 	}
 
-	// Put updated candidate map to trie
-	if err := candidatesutil.StoreCandidates(candidateMap, sm); err != nil {
-		return nil, errors.Wrap(err, "failed to store updated candidates to trie")
-	}
 	return nil, nil
 }
 

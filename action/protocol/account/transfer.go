@@ -64,7 +64,7 @@ func (p *Protocol) handleTransfer(act action.Action, sm protocol.StateManager) e
 
 			// Update candidate
 			if voteeOfSender.IsCandidate {
-				if err := p.loadAndUpdateCandidates(sm, sender.Votee, voteeOfSender.VotingWeight); err != nil {
+				if err := candidatesutil.LoadAndUpdateCandidates(sm, sender.Votee, voteeOfSender.VotingWeight); err != nil {
 					return errors.Wrap(err, "failed to load and update candidates")
 				}
 			}
@@ -96,7 +96,7 @@ func (p *Protocol) handleTransfer(act action.Action, sm protocol.StateManager) e
 		}
 
 		if voteeOfRecipient.IsCandidate {
-			if err := p.loadAndUpdateCandidates(sm, recipient.Votee, voteeOfRecipient.VotingWeight); err != nil {
+			if err := candidatesutil.LoadAndUpdateCandidates(sm, recipient.Votee, voteeOfRecipient.VotingWeight); err != nil {
 				return errors.Wrap(err, "failed to load and update candidates")
 			}
 		}
@@ -127,15 +127,4 @@ func (p *Protocol) validateTransfer(act action.Action) error {
 		return errors.Wrapf(err, "error when validating recipient's address %s", tsf.Recipient())
 	}
 	return nil
-}
-
-func (p *Protocol) loadAndUpdateCandidates(sm protocol.StateManager, addr string, votingWeight *big.Int) error {
-	candidateMap, err := candidatesutil.GetMostRecentCandidateMap(sm)
-	if err != nil {
-		return errors.Wrap(err, "failed to get most recent candidates from trie")
-	}
-	if err := candidatesutil.UpdateCandidate(candidateMap, addr, votingWeight, sm.Height()); err != nil {
-		return errors.Wrapf(err, "failed to update candidate %s", addr)
-	}
-	return candidatesutil.StoreCandidates(candidateMap, sm)
 }
