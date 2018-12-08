@@ -11,25 +11,47 @@ import (
 	"net"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/logger"
-	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/p2p/node"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/routine"
-	pb "github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/proto"
 )
 
-// P2P represents the P2P interface that blocksync requires to work
-type P2P interface {
+type (
 	// Unicast sends a unicast message to the given address
-	Unicast(ctx context.Context, addr net.Addr, msg proto.Message) error
+	Unicast func(addr net.Addr, msg proto.Message) error
 	// Neighbors returns the neighbors' addresses
-	Neighbors() []net.Addr
+	Neighbors func() []net.Addr
+)
+
+// Config represents the config to setup blocksync
+type Config struct {
+	unicastCB   Unicast
+	neighborsCB Neighbors
+}
+
+// Option is the option to override the blocksync config
+type Option func(cfg *Config) error
+
+// WithUnicast is the option to set the unicast callback
+func WithUnicast(unicastCB Unicast) Option {
+	return func(cfg *Config) error {
+		cfg.unicastCB = unicastCB
+		return nil
+	}
+}
+
+// WithNeighbors is the option to set the neighbors callback
+func WithNeighbors(neighborsCB Neighbors) Option {
+	return func(cfg *Config) error {
+		cfg.neighborsCB = neighborsCB
+		return nil
+	}
 }
 
 // BlockSync defines the interface of blocksyncer
@@ -37,7 +59,7 @@ type BlockSync interface {
 	lifecycle.StartStopper
 
 	TargetHeight() uint64
-	ProcessSyncRequest(sender string, sync *pb.BlockSync) error
+	ProcessSyncRequest(sender string, sync *iproto.BlockSync) error
 	ProcessBlock(blk *blockchain.Block) error
 	ProcessBlockSync(blk *blockchain.Block) error
 }
@@ -51,7 +73,8 @@ type blockSyncer struct {
 	buf            *blockBuffer
 	worker         *syncWorker
 	bc             blockchain.Blockchain
-	p2p            P2P
+	unicastCB      Unicast
+	neighborsCB    Neighbors
 	chaser         *routine.RecurringTask
 }
 
@@ -60,11 +83,8 @@ func NewBlockSyncer(
 	cfg config.Config,
 	chain blockchain.Blockchain,
 	ap actpool.ActPool,
-	p2p P2P,
+	opts ...Option,
 ) (BlockSync, error) {
-	if chain == nil || ap == nil || p2p == nil {
-		return nil, errors.New("cannot create BlockSync: missing param")
-	}
 	bufSize := cfg.BlockSync.BufferSize
 	if cfg.IsFullnode() {
 		bufSize <<= 3
@@ -75,15 +95,19 @@ func NewBlockSyncer(
 		ap:     ap,
 		size:   bufSize,
 	}
-	w := newSyncWorker(chain.ChainID(), cfg, p2p, buf)
+	bsCfg := Config{}
+	for _, opt := range opts {
+		opt(&bsCfg)
+	}
 	bs := &blockSyncer{
 		ackBlockCommit: cfg.IsDelegate() || cfg.IsFullnode(),
 		ackBlockSync:   cfg.IsDelegate() || cfg.IsFullnode(),
 		ackSyncReq:     cfg.IsDelegate() || cfg.IsFullnode(),
 		bc:             chain,
 		buf:            buf,
-		p2p:            p2p,
-		worker:         w,
+		unicastCB:      bsCfg.unicastCB,
+		neighborsCB:    bsCfg.neighborsCB,
+		worker:         newSyncWorker(chain.ChainID(), cfg, bsCfg.unicastCB, bsCfg.neighborsCB, buf),
 	}
 	bs.chaser = routine.NewRecurringTask(bs.Chase, cfg.BlockSync.Interval*10)
 	return bs, nil
@@ -92,11 +116,6 @@ func NewBlockSyncer(
 // TargetHeight returns the target height to sync to
 func (bs *blockSyncer) TargetHeight() uint64 {
 	return bs.worker.targetHeight
-}
-
-// P2P returns the network overlay object
-func (bs *blockSyncer) P2P() P2P {
-	return bs.p2p
 }
 
 // Start starts a block syncer
@@ -162,7 +181,7 @@ func (bs *blockSyncer) ProcessBlockSync(blk *blockchain.Block) error {
 }
 
 // ProcessSyncRequest processes a block sync request
-func (bs *blockSyncer) ProcessSyncRequest(sender string, sync *pb.BlockSync) error {
+func (bs *blockSyncer) ProcessSyncRequest(sender string, sync *iproto.BlockSync) error {
 	if !bs.ackSyncReq {
 		// node is not meant to handle sync request, simply exit
 		return nil
@@ -174,8 +193,10 @@ func (bs *blockSyncer) ProcessSyncRequest(sender string, sync *pb.BlockSync) err
 			return err
 		}
 		// TODO: send back multiple blocks in one shot
-		ctx := p2p.WitContext(context.Background(), p2p.Context{ChainID: bs.bc.ChainID()})
-		if err := bs.p2p.Unicast(ctx, node.NewTCPNode(sender), &pb.BlockContainer{Block: blk.ConvertToBlockPb()}); err != nil {
+		if err := bs.unicastCB(
+			node.NewTCPNode(sender),
+			&iproto.BlockContainer{Block: blk.ConvertToBlockPb()},
+		); err != nil {
 			logger.Warn().Err(err).Msg("Failed to response to ProcessSyncRequest.")
 		}
 	}

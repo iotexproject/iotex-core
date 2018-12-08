@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -22,12 +23,21 @@ import (
 	bc "github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	pb "github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blocksync"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
+
+var opts = []Option{
+	WithUnicast(func(_ net.Addr, msg proto.Message) error {
+		return nil
+	}),
+	WithNeighbors(func() []net.Addr {
+		return nil
+	}),
+}
 
 func TestSyncTaskInterval(t *testing.T) {
 	assert := assert.New(t)
@@ -67,7 +77,6 @@ func TestNewBlockSyncer(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	p2p := mock_blocksync.NewMockP2P(ctrl)
 	mBc := mock_blockchain.NewMockBlockchain(ctrl)
 	// TipHeight return ERROR
 	mBc.EXPECT().TipHeight().AnyTimes().Return(uint64(0))
@@ -92,7 +101,7 @@ func TestNewBlockSyncer(t *testing.T) {
 		NodeType: config.LightweightType,
 	}
 
-	bsLightWeight, err := NewBlockSyncer(cfgLightWeight, mBc, ap, p2p)
+	bsLightWeight, err := NewBlockSyncer(cfgLightWeight, mBc, ap, opts...)
 	assert.NoError(err)
 	assert.NotNil(bsLightWeight)
 
@@ -102,7 +111,7 @@ func TestNewBlockSyncer(t *testing.T) {
 	}
 	cfgDelegate.Network.BootstrapNodes = []string{"123"}
 
-	_, err = NewBlockSyncer(cfgDelegate, mBc, ap, p2p)
+	_, err = NewBlockSyncer(cfgDelegate, mBc, ap)
 	assert.Nil(err)
 
 	// FullNode
@@ -111,7 +120,7 @@ func TestNewBlockSyncer(t *testing.T) {
 	}
 	cfgFullNode.Network.BootstrapNodes = []string{"123"}
 
-	bs, err := NewBlockSyncer(cfgFullNode, mBc, ap, p2p)
+	bs, err := NewBlockSyncer(cfgFullNode, mBc, ap, opts...)
 	assert.Nil(err)
 	assert.NotNil(bs)
 }
@@ -147,8 +156,6 @@ func TestBlockSyncerProcessSyncRequest(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	p2p := mock_blocksync.NewMockP2P(ctrl)
-	p2p.EXPECT().Unicast(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	mBc := mock_blockchain.NewMockBlockchain(ctrl)
 	mBc.EXPECT().ChainID().AnyTimes().Return(config.Default.Chain.ID)
 	blk := bc.NewBlock(
@@ -171,10 +178,10 @@ func TestBlockSyncerProcessSyncRequest(t *testing.T) {
 	}
 	cfgFullNode.Network.BootstrapNodes = []string{"123"}
 
-	bs, err := NewBlockSyncer(cfgFullNode, mBc, ap, p2p)
+	bs, err := NewBlockSyncer(cfgFullNode, mBc, ap, opts...)
 	assert.Nil(err)
 
-	pbBs := &pb.BlockSync{
+	pbBs := &iproto.BlockSync{
 		Start: 1,
 		End:   1,
 	}
@@ -188,7 +195,6 @@ func TestBlockSyncerProcessSyncRequest(t *testing.T) {
 func TestBlockSyncerProcessSyncRequestError(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	p2p := mock_blocksync.NewMockP2P(ctrl)
 
 	ctx := context.Background()
 	cfg, err := newTestConfig()
@@ -202,7 +208,7 @@ func TestBlockSyncerProcessSyncRequestError(t *testing.T) {
 	ap, err := actpool.NewActPool(chain, cfg.ActPool)
 	require.NotNil(ap)
 	require.NoError(err)
-	bs, err := NewBlockSyncer(cfg, chain, ap, p2p)
+	bs, err := NewBlockSyncer(cfg, chain, ap, opts...)
 	require.Nil(err)
 
 	defer func() {
@@ -212,7 +218,7 @@ func TestBlockSyncerProcessSyncRequestError(t *testing.T) {
 		ctrl.Finish()
 	}()
 
-	pbBs := &pb.BlockSync{
+	pbBs := &iproto.BlockSync{
 		Start: 1,
 		End:   5,
 	}
@@ -224,7 +230,6 @@ func TestBlockSyncerProcessSyncRequestError(t *testing.T) {
 func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	p2p := mock_blocksync.NewMockP2P(ctrl)
 
 	ctx := context.Background()
 	cfg, err := newTestConfig()
@@ -240,7 +245,7 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 	ap, err := actpool.NewActPool(chain, cfg.ActPool)
 	require.NotNil(ap)
 	require.NoError(err)
-	bs, err := NewBlockSyncer(cfg, chain, ap, p2p)
+	bs, err := NewBlockSyncer(cfg, chain, ap, opts...)
 	require.Nil(err)
 
 	defer func() {
@@ -275,7 +280,6 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	p2p := mock_blocksync.NewMockP2P(ctrl)
 
 	ctx := context.Background()
 	cfg, err := newTestConfig()
@@ -291,7 +295,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	ap1, err := actpool.NewActPool(chain1, cfg.ActPool)
 	require.NotNil(ap1)
 	require.NoError(err)
-	bs1, err := NewBlockSyncer(cfg, chain1, ap1, p2p)
+	bs1, err := NewBlockSyncer(cfg, chain1, ap1, opts...)
 	require.Nil(err)
 	chain2 := bc.NewBlockchain(cfg, bc.InMemStateFactoryOption(), bc.InMemDaoOption())
 	chain2.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain2))
@@ -301,7 +305,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	ap2, err := actpool.NewActPool(chain2, cfg.ActPool)
 	require.NotNil(ap2)
 	require.Nil(err)
-	bs2, err := NewBlockSyncer(cfg, chain2, ap2, p2p)
+	bs2, err := NewBlockSyncer(cfg, chain2, ap2, opts...)
 	require.Nil(err)
 
 	defer func() {
@@ -342,7 +346,6 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	p2p := mock_blocksync.NewMockP2P(ctrl)
 
 	ctx := context.Background()
 	cfg, err := newTestConfig()
@@ -358,7 +361,7 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	ap1, err := actpool.NewActPool(chain1, cfg.ActPool)
 	require.NotNil(ap1)
 	require.Nil(err)
-	bs1, err := NewBlockSyncer(cfg, chain1, ap1, p2p)
+	bs1, err := NewBlockSyncer(cfg, chain1, ap1, opts...)
 	require.Nil(err)
 	chain2 := bc.NewBlockchain(cfg, bc.InMemStateFactoryOption(), bc.InMemDaoOption())
 	chain2.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain2))
@@ -368,7 +371,7 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	ap2, err := actpool.NewActPool(chain2, cfg.ActPool)
 	require.NotNil(ap2)
 	require.Nil(err)
-	bs2, err := NewBlockSyncer(cfg, chain2, ap2, p2p)
+	bs2, err := NewBlockSyncer(cfg, chain2, ap2, opts...)
 	require.Nil(err)
 
 	defer func() {
@@ -408,8 +411,6 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 func TestBlockSyncerSync(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	p2p := mock_blocksync.NewMockP2P(ctrl)
-	p2p.EXPECT().Neighbors().Return([]net.Addr{}).AnyTimes()
 
 	ctx := context.Background()
 	cfg, err := newTestConfig()
@@ -424,7 +425,7 @@ func TestBlockSyncerSync(t *testing.T) {
 	require.NotNil(ap)
 	require.NoError(err)
 
-	bs, err := NewBlockSyncer(cfg, chain, ap, p2p)
+	bs, err := NewBlockSyncer(cfg, chain, ap, opts...)
 	require.NotNil(bs)
 	require.NoError(err)
 	require.Nil(bs.Start(ctx))
@@ -469,8 +470,6 @@ func TestBlockSyncerChaser(t *testing.T) {
 
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
-	p2p := mock_blocksync.NewMockP2P(ctrl)
-	p2p.EXPECT().Neighbors().Return([]net.Addr{}).AnyTimes()
 
 	ctx := context.Background()
 	cfg, err := newTestConfig()
@@ -480,7 +479,7 @@ func TestBlockSyncerChaser(t *testing.T) {
 	require.NoError(chain.Start(ctx))
 	ap, err := actpool.NewActPool(chain, cfg.ActPool)
 	require.NoError(err)
-	bs, err := NewBlockSyncer(cfg, chain, ap, p2p)
+	bs, err := NewBlockSyncer(cfg, chain, ap, opts...)
 	require.NoError(err)
 	require.NoError(bs.Start(ctx))
 

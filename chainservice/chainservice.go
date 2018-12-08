@@ -8,6 +8,7 @@ package chainservice
 
 import (
 	"context"
+	"net"
 	"os"
 
 	"github.com/golang/protobuf/proto"
@@ -105,7 +106,16 @@ func New(
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create actpool")
 	}
-	bs, err := blocksync.NewBlockSyncer(cfg, chain, actPool, p2pAgent)
+	bs, err := blocksync.NewBlockSyncer(
+		cfg,
+		chain,
+		actPool,
+		blocksync.WithUnicast(func(addr net.Addr, msg proto.Message) error {
+			ctx := p2p.WitContext(context.Background(), p2p.Context{ChainID: chain.ChainID()})
+			return p2pAgent.Unicast(ctx, addr, msg)
+		}),
+		blocksync.WithNeighbors(p2pAgent.Neighbors),
+	)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create blockSyncer")
 	}
