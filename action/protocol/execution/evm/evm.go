@@ -32,7 +32,7 @@ var ErrInconsistentNonce = errors.New("Nonce is not identical to executor nonce"
 
 // CanTransfer checks whether the from account has enough balance
 func CanTransfer(db vm.StateDB, fromHash common.Address, balance *big.Int) bool {
-	return db.GetBalance(fromHash).Cmp(balance) > 0
+	return db.GetBalance(fromHash).Cmp(balance) >= 0
 }
 
 // MakeTransfer transfers account
