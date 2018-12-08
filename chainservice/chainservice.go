@@ -8,8 +8,10 @@ package chainservice
 
 import (
 	"context"
+	"net"
 	"os"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -68,7 +70,7 @@ func WithTesting() Option {
 // New creates a ChainService from config and network.Overlay and dispatcher.Dispatcher.
 func New(
 	cfg config.Config,
-	p2p network.Overlay,
+	p2pNetwork network.Overlay,
 	p2pAgent *p2p.Agent,
 	dispatcher dispatcher.Dispatcher,
 	opts ...Option,
@@ -105,7 +107,16 @@ func New(
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create actpool")
 	}
-	bs, err := blocksync.NewBlockSyncer(cfg, chain, actPool, p2pAgent)
+	bs, err := blocksync.NewBlockSyncer(
+		cfg,
+		chain,
+		actPool,
+		blocksync.WithUnicast(func(addr net.Addr, msg proto.Message) error {
+			ctx := p2p.WitContext(context.Background(), p2p.Context{ChainID: chain.ChainID()})
+			return p2pAgent.Unicast(ctx, addr, msg)
+		}),
+		blocksync.WithNeighbors(p2pAgent.Neighbors),
+	)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create blockSyncer")
 	}
@@ -114,7 +125,7 @@ func New(
 	if ops.rootChainAPI != nil {
 		copts = []consensus.Option{consensus.WithRootChainAPI(ops.rootChainAPI)}
 	}
-	consensus := consensus.NewConsensus(cfg, chain, actPool, p2p, copts...)
+	consensus := consensus.NewConsensus(cfg, chain, actPool, p2pNetwork, copts...)
 	if consensus == nil {
 		return nil, errors.Wrap(err, "failed to create consensus")
 	}
@@ -129,7 +140,7 @@ func New(
 
 	var exp *explorer.Server
 	if cfg.Explorer.Enabled {
-		exp = explorer.NewServer(cfg.Explorer, chain, consensus, dispatcher, actPool, p2p, idx)
+		exp = explorer.NewServer(cfg.Explorer, chain, consensus, dispatcher, actPool, p2pNetwork, idx)
 	}
 
 	return &ChainService{

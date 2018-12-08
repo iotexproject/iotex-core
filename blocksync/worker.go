@@ -8,10 +8,7 @@ package blocksync
 
 import (
 	"context"
-	"net"
 	"sync"
-
-	"github.com/iotexproject/iotex-core/p2p"
 
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/logger"
@@ -28,16 +25,24 @@ type syncWorker struct {
 	chainID      uint32
 	mu           sync.RWMutex
 	targetHeight uint64
-	p2p          P2P
+	unicastCB    Unicast
+	neighborsCB  Neighbors
 	rrIdx        int
 	buf          *blockBuffer
 	task         *routine.RecurringTask
 }
 
-func newSyncWorker(chainID uint32, cfg config.Config, p2p P2P, buf *blockBuffer) *syncWorker {
+func newSyncWorker(
+	chainID uint32,
+	cfg config.Config,
+	unicastCB Unicast,
+	neighborsCB Neighbors,
+	buf *blockBuffer,
+) *syncWorker {
 	w := &syncWorker{
 		chainID:      chainID,
-		p2p:          p2p,
+		unicastCB:    unicastCB,
+		neighborsCB:  neighborsCB,
 		buf:          buf,
 		targetHeight: 0,
 		rrIdx:        0,
@@ -75,7 +80,7 @@ func (w *syncWorker) Sync() {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	peers := w.p2p.Neighbors()
+	peers := w.neighborsCB()
 	if len(peers) == 0 {
 		logger.Debug().Msg("No peer exist to sync with.")
 		return
@@ -87,16 +92,11 @@ func (w *syncWorker) Sync() {
 	for _, interval := range intervals {
 		w.rrIdx = w.rrIdx % len(peers)
 		p := peers[w.rrIdx]
-		if err := w.sync(p, interval); err != nil {
+		if err := w.unicastCB(p, &pb.BlockSync{
+			Start: interval.Start, End: interval.End,
+		}); err != nil {
 			logger.Warn().Err(err).Msg("Failed to sync block.")
 		}
 		w.rrIdx++
 	}
-}
-
-func (w *syncWorker) sync(p net.Addr, interval syncBlocksInterval) error {
-	ctx := p2p.WitContext(context.Background(), p2p.Context{ChainID: w.chainID})
-	return w.p2p.Unicast(ctx, p, &pb.BlockSync{
-		Start: interval.Start, End: interval.End,
-	})
 }
