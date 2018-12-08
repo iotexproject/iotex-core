@@ -13,6 +13,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -60,6 +61,13 @@ func (p *Protocol) handleTransfer(act action.Action, sm protocol.StateManager) e
 			if err := StoreAccount(sm, sender.Votee, voteeOfSender); err != nil {
 				return errors.Wrap(err, "failed to update pending account changes to trie")
 			}
+
+			// Update candidate
+			if voteeOfSender.IsCandidate {
+				if err := candidatesutil.LoadAndUpdateCandidates(sm, sender.Votee, voteeOfSender.VotingWeight); err != nil {
+					return errors.Wrap(err, "failed to load and update candidates")
+				}
+			}
 		}
 	}
 	// check recipient
@@ -85,6 +93,12 @@ func (p *Protocol) handleTransfer(act action.Action, sm protocol.StateManager) e
 		// put updated state of recipient's votee to trie
 		if err := StoreAccount(sm, recipient.Votee, voteeOfRecipient); err != nil {
 			return errors.Wrap(err, "failed to update pending account changes to trie")
+		}
+
+		if voteeOfRecipient.IsCandidate {
+			if err := candidatesutil.LoadAndUpdateCandidates(sm, recipient.Votee, voteeOfRecipient.VotingWeight); err != nil {
+				return errors.Wrap(err, "failed to load and update candidates")
+			}
 		}
 	}
 	return nil

@@ -12,25 +12,22 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
+	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
-	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 )
 
 func TestProtocol_Handle(t *testing.T) {
 	require := require.New(t)
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	cfg := config.Default
 	ctx := context.Background()
@@ -43,8 +40,7 @@ func TestProtocol_Handle(t *testing.T) {
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
 
-	mbc := mock_blockchain.NewMockBlockchain(ctrl)
-	protocol := NewProtocol(mbc)
+	protocol := NewProtocol(nil)
 
 	// Create three accounts
 	addr1 := testaddress.Addrinfo["alfa"].RawAddress
@@ -123,7 +119,7 @@ func TestProtocol_Handle(t *testing.T) {
 	require.Equal("0", account2.VotingWeight.String())
 	require.Equal("100", account3.VotingWeight.String())
 
-	canidateMap, err := protocol.getCandidateMap(uint64(0), ws)
+	canidateMap, err := candidatesutil.GetMostRecentCandidateMap(ws)
 	require.NoError(err)
 	require.Equal(1, len(canidateMap))
 }
