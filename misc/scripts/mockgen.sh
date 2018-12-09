@@ -24,7 +24,7 @@ mockgen -destination=./test/mock/mock_blocksync/mock_blocksync.go  \
 
 mkdir -p ./test/mock/mock_trie
 mockgen -destination=./test/mock/mock_trie/mock_trie.go  \
-        -source=./trie/trie.go \
+        -source=./db/trie/trie.go \
         -package=mock_trie \
         Trie
 

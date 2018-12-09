@@ -23,10 +23,15 @@ type LeafIterator struct {
 }
 
 // NewLeafIterator returns a new leaf iterator
-func NewLeafIterator(tr Trie) Iterator {
-	stack := []Node{tr.Root()}
+func NewLeafIterator(tr Trie) (Iterator, error) {
+	rootHash := tr.RootHash()
+	root, err := tr.loadNodeFromDB(rootHash)
+	if err != nil {
+		return nil, err
+	}
+	stack := []Node{root}
 
-	return &LeafIterator{tr: tr, stack: stack}
+	return &LeafIterator{tr: tr, stack: stack}, nil
 }
 
 // Next moves iterator to next node
@@ -41,7 +46,7 @@ func (li *LeafIterator) Next() ([]byte, []byte, error) {
 
 			return append(key[:0:0], key...), append(value, value...), nil
 		}
-		children, err := li.tr.ChildrenOf(node)
+		children, err := node.children(li.tr)
 		if err != nil {
 			return nil, nil, err
 		}

@@ -7,11 +7,10 @@
 package trie
 
 import (
-	"github.com/pkg/errors"
+	"context"
 
-	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/lifecycle"
+	"github.com/pkg/errors"
+	"golang.org/x/crypto/blake2b"
 )
 
 var (
@@ -24,97 +23,128 @@ var (
 
 // Trie is the interface of Merkle Patricia Trie
 type Trie interface {
-	lifecycle.StartStopper
-	Root() Node
-	ChildrenOf(Node) ([]Node, error)
-	TrieDB() db.KVStore          // return the underlying DB instance
-	Upsert([]byte, []byte) error // insert a new entry
-	Get([]byte) ([]byte, error)  // retrieve an existing entry
-	Delete([]byte) error         // delete an entry
-	Commit() error               // commit the state changes in a batch
-	RootHash() hash.Hash32B      // returns trie's root hash
-	SetRoot(hash.Hash32B) error  // set a new root to trie
+	// Start starts the trie and the corresponding dependencies
+	Start(context.Context) error
+	// Stop stops the trie
+	Stop(context.Context) error
+	// Upsert inserts a new entry
+	Upsert([]byte, []byte) error
+	// Get retrieves an existing entry
+	Get([]byte) ([]byte, error)
+	// Delete deletes an entry
+	Delete([]byte) error
+	// RootHash returns trie's root hash
+	RootHash() []byte
+	// SetRootHash sets a new root to trie
+	SetRootHash([]byte) error
+	// DB returns the KVStore storing the node data
+	DB() KVStore
+	// deleteNodeFromDB deletes the data of node from db
+	deleteNodeFromDB(tn Node) error
+	// putNodeIntoDB puts the data of a node into db
+	putNodeIntoDB(tn Node) error
+	// loadNodeFromDB loads a node from db
+	loadNodeFromDB([]byte) (Node, error)
+	// isEmptyRootHash returns whether this is an empty root hash
+	isEmptyRootHash([]byte) bool
+	// emptyRootHash returns hash of an empty root
+	emptyRootHash() []byte
+	// nodeHash returns the hash of a node
+	nodeHash(tn Node) []byte
 }
 
 // Option sets parameters for SameKeyLenTrieContext construction parameter
-type Option func(*SameKeyLenTrieContext) error
-
-// CachedBatchOption defines an option to set the cached batch
-func CachedBatchOption(batch db.CachedBatch) Option {
-	return func(tr *SameKeyLenTrieContext) error {
-		if batch == nil {
-			return errors.Wrapf(ErrInvalidTrie, "batch option cannot be nil")
-		}
-		tr.CB = batch
-		return nil
-	}
-}
+type Option func(Trie) error
 
 // KeyLengthOption sets the length of the keys saved in trie
 func KeyLengthOption(len int) Option {
-	return func(tr *SameKeyLenTrieContext) error {
+	return func(tr Trie) error {
 		if len <= 0 || len > 128 {
-			return errors.New("Invalid key length")
+			return errors.New("invalid key length")
 		}
-		tr.KeyLength = len
+		switch t := tr.(type) {
+		case *branchRootTrie:
+			t.keyLength = len
+		default:
+			return errors.New("invalid trie type")
+		}
 		return nil
 	}
 }
 
 // RootHashOption sets the root hash for the trie
-func RootHashOption(h hash.Hash32B) Option {
-	return func(tr *SameKeyLenTrieContext) error {
-		tr.InitRootHash = h
+func RootHashOption(h []byte) Option {
+	return func(tr Trie) error {
+		switch t := tr.(type) {
+		case *branchRootTrie:
+			t.rootHash = make([]byte, len(h))
+			copy(t.rootHash, h)
+		default:
+			return errors.New("invalid trie type")
+		}
+		return nil
+	}
+}
+
+// RootKeyOption sets the root key for the trie
+func RootKeyOption(key string) Option {
+	return func(tr Trie) error {
+		switch t := tr.(type) {
+		case *branchRootTrie:
+			t.rootKey = key
+		default:
+			return errors.New("invalid trie type")
+		}
+		return nil
+	}
+}
+
+// HashFuncOption sets the hash func for the trie
+func HashFuncOption(hashFunc HashFunc) Option {
+	return func(tr Trie) error {
+		switch t := tr.(type) {
+		case *branchRootTrie:
+			t.hashFunc = hashFunc
+		default:
+			return errors.New("invalid trie type")
+		}
+		return nil
+	}
+}
+
+// KVStoreOption sets the kvstore for the trie
+func KVStoreOption(kvStore KVStore) Option {
+	return func(tr Trie) error {
+		switch t := tr.(type) {
+		case *branchRootTrie:
+			t.kvStore = kvStore
+		default:
+			return errors.New("invalid trie type")
+		}
 		return nil
 	}
 }
 
 // NewTrie creates a trie with DB filename
-func NewTrie(kvStore db.KVStore, name string, options ...Option) (Trie, error) {
-	if kvStore == nil {
-		return nil, errors.Wrapf(ErrInvalidTrie, "try to create trie with empty KV store")
-	}
-	tc := SameKeyLenTrieContext{
-		DB:           kvStore,
-		Bucket:       name,
-		KeyLength:    20,
-		InitRootHash: EmptyBranchNodeHash,
+func NewTrie(options ...Option) (Trie, error) {
+	t := &branchRootTrie{
+		keyLength: 20,
+		hashFunc: func(b []byte) []byte {
+			h := blake2b.Sum256(b)
+			return h[:]
+		},
 	}
 	for _, opt := range options {
-		if err := opt(&tc); err != nil {
+		if err := opt(t); err != nil {
 			return nil, err
 		}
 	}
-	if tc.CB == nil {
-		tc.CB = db.NewCachedBatch()
+	if t.rootHash == nil {
+		t.rootHash = t.emptyRootHash()
 	}
-	t := newBranchRootTrie(tc)
-	t.lc.Add(kvStore)
+	if t.kvStore == nil {
+		t.kvStore = newInMemKVStore()
+	}
 
-	return t, nil
-}
-
-// NewTrieWithKey creates a trie with DB and root key
-func NewTrieWithKey(kvStore db.KVStore, name string, key string, options ...Option) (Trie, error) {
-	if kvStore == nil {
-		return nil, errors.Wrapf(ErrInvalidTrie, "trie to create trie with empty KV store")
-	}
-	tc := SameKeyLenTrieContext{
-		DB:           kvStore,
-		Bucket:       name,
-		KeyLength:    20,
-		InitRootHash: EmptyBranchNodeHash,
-		RootKey:      key,
-	}
-	for _, opt := range options {
-		if err := opt(&tc); err != nil {
-			return nil, err
-		}
-	}
-	if tc.CB == nil {
-		tc.CB = db.NewCachedBatch()
-	}
-	t := newBranchRootTrie(tc)
-	t.lc.Add(kvStore)
 	return t, nil
 }

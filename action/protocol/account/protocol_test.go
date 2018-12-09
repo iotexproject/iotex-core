@@ -15,7 +15,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/db/trie"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
@@ -30,7 +29,6 @@ func TestLoadOrCreateAccountState(t *testing.T) {
 	sf, err := factory.NewFactory(cfg, factory.PrecreatedTrieDBOption(db.NewMemKVStore()))
 	require.NoError(err)
 	require.NoError(sf.Start(context.Background()))
-	require.Equal(trie.EmptyBranchNodeHash, sf.RootHash())
 	addr, err := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
 	require.Nil(err)
 	ws, err := sf.NewWorkingSet()

@@ -82,7 +82,6 @@ func PrecreatedTrieDBOption(kv db.KVStore) Option {
 			return errors.New("Invalid empty trie db")
 		}
 		sf.dao = kv
-		sf.lifecycle.Add(sf.dao)
 		return nil
 	}
 }
@@ -96,7 +95,6 @@ func DefaultTrieOption() Option {
 		}
 		cfg.DB.DbPath = dbPath // TODO: remove this after moving TrieDBPath from cfg.Chain to cfg.DB
 		sf.dao = db.NewOnDiskDB(cfg.DB)
-		sf.lifecycle.Add(sf.dao)
 		return nil
 	}
 }
@@ -105,7 +103,6 @@ func DefaultTrieOption() Option {
 func InMemTrieOption() Option {
 	return func(sf *factory, cfg config.Config) (err error) {
 		sf.dao = db.NewMemKVStore()
-		sf.lifecycle.Add(sf.dao)
 		return nil
 	}
 }
@@ -123,11 +120,16 @@ func NewFactory(cfg config.Config, opts ...Option) (Factory, error) {
 			return nil, err
 		}
 	}
-	accountTrie, err := trie.NewTrieWithKey(sf.dao, AccountKVNameSpace, AccountTrieRootKey)
+	dbForTrie, err := db.NewKVStoreForTrie(AccountKVNameSpace, sf.dao)
 	if err != nil {
+		return nil, errors.Wrap(err, "failed to create db for trie")
+	}
+	if sf.accountTrie, err = trie.NewTrie(
+		trie.KVStoreOption(dbForTrie),
+		trie.RootKeyOption(AccountTrieRootKey),
+	); err != nil {
 		return nil, errors.Wrap(err, "failed to generate accountTrie from config")
 	}
-	sf.accountTrie = accountTrie
 	sf.lifecycle.Add(sf.accountTrie)
 	timerFactory, err := prometheustimer.New(
 		"iotex_statefactory_perf",
@@ -239,7 +241,8 @@ func (sf *factory) Commit(ws WorkingSet) error {
 	}
 	// Update chain height and root
 	sf.currentChainHeight = ws.Height()
-	if err := sf.accountTrie.SetRoot(ws.RootHash()); err != nil {
+	h := ws.RootHash()
+	if err := sf.accountTrie.SetRootHash(h[:]); err != nil {
 		return errors.Wrap(err, "failed to commit working set")
 	}
 	return nil
@@ -280,7 +283,7 @@ func (sf *factory) State(addr hash.PKHash, state interface{}) error {
 //======================================
 
 func (sf *factory) rootHash() hash.Hash32B {
-	return sf.accountTrie.RootHash()
+	return byteutil.BytesTo32B(sf.accountTrie.RootHash())
 }
 
 func (sf *factory) state(addr hash.PKHash, s interface{}) error {
