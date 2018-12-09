@@ -7,114 +7,86 @@
 package trie
 
 import (
+	"bytes"
 	"context"
-	"reflect"
 	"sync"
 
 	"github.com/boltdb/bolt"
 	"github.com/dgraph-io/badger"
+	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
-
-	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/logger"
-	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/lifecycle"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
-type branchRootTrie struct {
-	lc    lifecycle.Lifecycle
-	mutex sync.RWMutex
-	tc    SameKeyLenTrieContext
-	root  *branchNode
-}
-
-func newBranchRootTrie(tc SameKeyLenTrieContext) *branchRootTrie {
-	return &branchRootTrie{tc: tc}
-}
+type (
+	// HashFunc defines a function to generate the hash which will be used as key in db
+	HashFunc       func([]byte) []byte
+	branchRootTrie struct {
+		mutex     sync.RWMutex
+		keyLength int
+		kvStore   KVStore
+		hashFunc  HashFunc
+		root      *branchNode
+		rootHash  []byte
+		rootKey   string
+	}
+)
 
 func (tr *branchRootTrie) Start(ctx context.Context) error {
 	tr.mutex.Lock()
 	defer tr.mutex.Unlock()
-	if err := tr.lc.OnStart(ctx); err != nil {
+	if err := tr.kvStore.Start(ctx); err != nil {
 		return err
 	}
-	if tr.tc.RootKey != "" {
-		switch root, err := tr.tc.DB.Get(tr.tc.Bucket, []byte(tr.tc.RootKey)); errors.Cause(err) {
+	if tr.rootKey != "" {
+		switch root, err := tr.kvStore.Get([]byte(tr.rootKey)); errors.Cause(err) {
 		case nil:
-			tr.tc.InitRootHash = byteutil.BytesTo32B(root)
+			tr.rootHash = root
 		case bolt.ErrBucketNotFound:
-			tr.tc.InitRootHash = EmptyBranchNodeHash
+			fallthrough
 		case badger.ErrKeyNotFound:
-			tr.tc.InitRootHash = EmptyBranchNodeHash
+			tr.rootHash = tr.emptyRootHash()
 		default:
 			return err
 		}
 	}
 
-	return tr.SetRoot(tr.tc.InitRootHash)
+	return tr.SetRootHash(tr.rootHash)
 }
 
 func (tr *branchRootTrie) Stop(ctx context.Context) error {
 	tr.mutex.Lock()
 	defer tr.mutex.Unlock()
 
-	return tr.lc.OnStop(ctx)
+	return tr.kvStore.Stop(ctx)
 }
 
-func (tr *branchRootTrie) RootHash() hash.Hash32B {
-	return tr.tc.InitRootHash
+func (tr *branchRootTrie) RootHash() []byte {
+	return tr.rootHash
 }
 
-func (tr *branchRootTrie) TrieDB() db.KVStore {
-	return tr.tc.DB
-}
-
-func (tr *branchRootTrie) Commit() error {
-	return tr.tc.Commit()
-}
-
-func (tr *branchRootTrie) SetRoot(rootHash hash.Hash32B) error {
-	logger.Debug().Hex("hash", rootHash[:]).Msg("reset root hash")
-	var root *branchNode
-	switch rootHash {
-	case EmptyBranchNodeHash:
-		var err error
-		root, err = tr.tc.newBranchNodeAndPutIntoDB(nil)
-		if err != nil {
-			return err
-		}
-	default:
-		node, err := tr.tc.LoadNodeFromDB(rootHash)
-		if err != nil {
-			return err
-		}
-		bn, ok := node.(*branchNode)
-		if !ok {
-			return errors.Wrapf(ErrInvalidTrie, "root should be a branch")
-		}
-		root = bn
+func (tr *branchRootTrie) SetRootHash(rootHash []byte) error {
+	if len(rootHash) == 0 {
+		rootHash = tr.emptyRootHash()
+	}
+	node, err := tr.loadNodeFromDB(rootHash)
+	if err != nil {
+		return err
+	}
+	root, ok := node.(*branchNode)
+	if !ok {
+		return errors.Wrapf(ErrInvalidTrie, "root should be a branch")
 	}
 	tr.resetRoot(root)
 
 	return nil
 }
 
-func (tr *branchRootTrie) Root() Node {
-	return tr.root
-}
-
-func (tr *branchRootTrie) ChildrenOf(node Node) ([]Node, error) {
-	return node.children(tr.tc)
-}
-
 func (tr *branchRootTrie) Get(key []byte) ([]byte, error) {
-	logger.Debug().Hex("key", key).Msg("Get value by key")
 	kt, err := tr.checkKeyType(key)
 	if err != nil {
 		return nil, err
 	}
-	t := tr.root.search(tr.tc, kt, 0)
+	t := tr.root.search(tr, kt, 0)
 	if t == nil {
 		return nil, ErrNotExist
 	}
@@ -129,15 +101,15 @@ func (tr *branchRootTrie) Delete(key []byte) error {
 	if err != nil {
 		return err
 	}
-	child, err := tr.root.child(tr.tc, kt[0])
+	child, err := tr.root.child(tr, kt[0])
 	if err != nil {
 		return errors.Wrapf(ErrNotExist, "key %x does not exist", kt)
 	}
-	newChild, err := child.delete(tr.tc, kt, 1)
+	newChild, err := child.delete(tr, kt, 1)
 	if err != nil {
 		return err
 	}
-	newRoot, err := tr.root.updateChild(tr.tc, kt[0], newChild)
+	newRoot, err := tr.root.updateChild(tr, kt[0], newChild)
 	if err != nil {
 		return err
 	}
@@ -147,36 +119,92 @@ func (tr *branchRootTrie) Delete(key []byte) error {
 }
 
 func (tr *branchRootTrie) Upsert(key []byte, value []byte) error {
-	logger.Debug().Hex("key", key).Hex("value", value).Msg("Upsert into branch root trie")
 	kt, err := tr.checkKeyType(key)
 	if err != nil {
 		return err
 	}
-	newRoot, err := tr.root.upsert(tr.tc, kt, 0, value)
+	newRoot, err := tr.root.upsert(tr, kt, 0, value)
 	if err != nil {
 		return err
 	}
 	bn, ok := newRoot.(*branchNode)
 	if !ok {
-		logger.Panic().
-			Interface("rootType", reflect.TypeOf(newRoot)).
-			Msg("unexpected new root")
+		panic("unexpected new root")
 	}
 	tr.resetRoot(bn)
 
 	return nil
 }
 
+func (tr *branchRootTrie) DB() KVStore {
+	return tr.kvStore
+}
+
+func (tr *branchRootTrie) deleteNodeFromDB(tn Node) error {
+	h := tr.nodeHash(tn)
+	return tr.kvStore.Delete(h)
+}
+
+func (tr *branchRootTrie) putNodeIntoDB(tn Node) error {
+	h := tr.nodeHash(tn)
+	if tr.isEmptyRootHash(h) {
+		return nil
+	}
+	s := tn.serialize()
+	return tr.kvStore.Put(h, s)
+}
+
+func (tr *branchRootTrie) loadNodeFromDB(key []byte) (Node, error) {
+	if tr.isEmptyRootHash(key) {
+		return newEmptyBranchNode(), nil
+	}
+	s, err := tr.kvStore.Get(key)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get key %x", key)
+	}
+	pb := NodePb{}
+	if err := proto.Unmarshal(s, &pb); err != nil {
+		return nil, err
+	}
+	if pbBranch := pb.GetBranch(); pbBranch != nil {
+		return newBranchNodeFromProtoPb(pbBranch), nil
+	}
+	if pbLeaf := pb.GetLeaf(); pbLeaf != nil {
+		return newLeafNodeFromProtoPb(pbLeaf), nil
+	}
+	if pbExtend := pb.GetExtend(); pbExtend != nil {
+		return newExtensionNodeFromProtoPb(pbExtend), nil
+	}
+	return nil, errors.New("invalid node type")
+}
+
+func (tr *branchRootTrie) isEmptyRootHash(h []byte) bool {
+	return bytes.Equal(h, tr.emptyRootHash())
+}
+
+func (tr *branchRootTrie) emptyRootHash() []byte {
+	return tr.nodeHash(newEmptyBranchNode())
+}
+
+func (tr *branchRootTrie) nodeHash(tn Node) []byte {
+	if tn == nil {
+		panic("unexpected nil node to hash")
+	}
+	return tr.hashFunc(tn.serialize())
+}
+
 func (tr *branchRootTrie) resetRoot(newRoot *branchNode) {
 	tr.root = newRoot
-	tr.tc.InitRootHash = nodeHash(newRoot)
+	h := tr.nodeHash(newRoot)
+	tr.rootHash = make([]byte, len(h))
+	copy(tr.rootHash, h)
 }
 
 func (tr *branchRootTrie) checkKeyType(key []byte) (keyType, error) {
-	if len(key) != tr.tc.KeyLength {
+	if len(key) != tr.keyLength {
 		return nil, errors.Errorf("invalid key length %d", len(key))
 	}
-	kt := make([]byte, tr.tc.KeyLength)
+	kt := make([]byte, tr.keyLength)
 	copy(kt, key)
 
 	return kt, nil
