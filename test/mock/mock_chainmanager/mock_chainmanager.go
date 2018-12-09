@@ -12,7 +12,6 @@ import (
 	db "github.com/iotexproject/iotex-core/db"
 	hash "github.com/iotexproject/iotex-core/pkg/hash"
 	state "github.com/iotexproject/iotex-core/state"
-	big "math/big"
 	reflect "reflect"
 )
 
@@ -232,32 +231,6 @@ func (m *MockStateManager) EXPECT() *MockStateManagerMockRecorder {
 	return m.recorder
 }
 
-// LoadOrCreateAccountState mocks base method
-func (m *MockStateManager) LoadOrCreateAccountState(arg0 string, arg1 *big.Int) (*state.Account, error) {
-	ret := m.ctrl.Call(m, "LoadOrCreateAccountState", arg0, arg1)
-	ret0, _ := ret[0].(*state.Account)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// LoadOrCreateAccountState indicates an expected call of LoadOrCreateAccountState
-func (mr *MockStateManagerMockRecorder) LoadOrCreateAccountState(arg0, arg1 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadOrCreateAccountState", reflect.TypeOf((*MockStateManager)(nil).LoadOrCreateAccountState), arg0, arg1)
-}
-
-// CachedAccountState mocks base method
-func (m *MockStateManager) CachedAccountState(arg0 string) (*state.Account, error) {
-	ret := m.ctrl.Call(m, "CachedAccountState", arg0)
-	ret0, _ := ret[0].(*state.Account)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CachedAccountState indicates an expected call of CachedAccountState
-func (mr *MockStateManagerMockRecorder) CachedAccountState(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CachedAccountState", reflect.TypeOf((*MockStateManager)(nil).CachedAccountState), arg0)
-}
-
 // Height mocks base method
 func (m *MockStateManager) Height() uint64 {
 	ret := m.ctrl.Call(m, "Height")
@@ -280,19 +253,6 @@ func (m *MockStateManager) State(arg0 hash.PKHash, arg1 interface{}) error {
 // State indicates an expected call of State
 func (mr *MockStateManagerMockRecorder) State(arg0, arg1 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "State", reflect.TypeOf((*MockStateManager)(nil).State), arg0, arg1)
-}
-
-// CachedState mocks base method
-func (m *MockStateManager) CachedState(arg0 hash.PKHash, arg1 state.State) (state.State, error) {
-	ret := m.ctrl.Call(m, "CachedState", arg0, arg1)
-	ret0, _ := ret[0].(state.State)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CachedState indicates an expected call of CachedState
-func (mr *MockStateManagerMockRecorder) CachedState(arg0, arg1 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CachedState", reflect.TypeOf((*MockStateManager)(nil).CachedState), arg0, arg1)
 }
 
 // PutState mocks base method

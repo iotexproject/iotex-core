@@ -75,7 +75,11 @@ func NewWorkingSet(
 		dao:              kv,
 		actionHandlers:   actionHandlers,
 	}
-	tr, err := trie.NewTrie(ws.dao, AccountKVNameSpace, trie.RootHashOption(root), trie.CachedBatchOption(ws.cb))
+	dbForTrie, err := db.NewKVStoreForTrie(AccountKVNameSpace, ws.dao, db.CachedBatchOption(ws.cb))
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to generate state tire db")
+	}
+	tr, err := trie.NewTrie(trie.KVStoreOption(dbForTrie), trie.RootHashOption(root[:]))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to generate state trie from config")
 	}
@@ -139,7 +143,7 @@ func (ws *workingSet) CachedAccountState(addr string) (*state.Account, error) {
 
 // RootHash returns the hash of the root node of the accountTrie
 func (ws *workingSet) RootHash() hash.Hash32B {
-	return ws.accountTrie.RootHash()
+	return byteutil.BytesTo32B(ws.accountTrie.RootHash())
 }
 
 // Version returns the Version of this working set
