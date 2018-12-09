@@ -26,10 +26,14 @@ type Protocol struct{}
 func NewProtocol() *Protocol { return &Protocol{} }
 
 // Handle handles an account
-func (p *Protocol) Handle(_ context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
+func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
+	raCtx, ok := state.GetRunActionsCtx(ctx)
+	if !ok {
+		return nil, errors.New("failed to get action context")
+	}
 	switch act := act.(type) {
 	case *action.Transfer:
-		if err := p.handleTransfer(act, sm); err != nil {
+		if err := p.handleTransfer(act, raCtx, sm); err != nil {
 			return nil, errors.Wrap(err, "error when handling transfer action")
 		}
 	}

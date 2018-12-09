@@ -15,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/trie"
@@ -255,15 +256,22 @@ func (sf *factory) Commit(ws WorkingSet) error {
 func (sf *factory) CandidatesByHeight(height uint64) ([]*state.Candidate, error) {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
-	// Load Candidates on the given height from underlying db
-	candidatesBytes, err := sf.dao.Get(CandidateKVNameSpace, byteutil.Uint64ToBytes(height))
-	if err != nil {
-		return []*state.Candidate{}, errors.Wrapf(err, "failed to get candidates on Height %d", height)
-	}
 	var candidates state.CandidateList
-	if err := candidates.Deserialize(candidatesBytes); err != nil {
-		return []*state.Candidate{}, errors.Wrapf(err, "failed to get candidates on height %d", height)
+	for h := int(height); h >= 0; h-- {
+		// Load Candidates on the given height from underlying db
+		candidatesKey := candidatesutil.ConstructKey(uint64(h))
+		var err error
+		if err = sf.State(candidatesKey, &candidates); err == nil {
+			break
+		}
+		if errors.Cause(err) != state.ErrStateNotExist {
+			return nil, errors.Wrap(err, "failed to get most recent state of candidateList")
+		}
 	}
+	if len(candidates) == 0 {
+		return nil, errors.Wrap(state.ErrStateNotExist, "failed to get most recent state of candidateList")
+	}
+
 	if len(candidates) > int(sf.numCandidates) {
 		candidates = candidates[:sf.numCandidates]
 	}

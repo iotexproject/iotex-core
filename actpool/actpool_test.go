@@ -59,6 +59,7 @@ var (
 func TestActPool_validateGenericAction(t *testing.T) {
 	require := require.New(t)
 	bc := blockchain.NewBlockchain(config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	bc.GetFactory().AddActionHandlers(account.NewProtocol())
 	require.NoError(bc.Start(context.Background()))
 	_, err := bc.CreateState(addr1.RawAddress, big.NewInt(100))
 	require.NoError(err)
@@ -350,6 +351,7 @@ func TestActPool_PickActs(t *testing.T) {
 func TestActPool_removeConfirmedActs(t *testing.T) {
 	require := require.New(t)
 	bc := blockchain.NewBlockchain(config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	bc.GetFactory().AddActionHandlers(account.NewProtocol(), vote.NewProtocol(bc))
 	require.NoError(bc.Start(context.Background()))
 	_, err := bc.CreateState(addr1.RawAddress, big.NewInt(100))
 	require.NoError(err)
@@ -407,6 +409,7 @@ func TestActPool_Reset(t *testing.T) {
 	require := require.New(t)
 
 	bc := blockchain.NewBlockchain(config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	bc.GetFactory().AddActionHandlers(account.NewProtocol(), vote.NewProtocol(bc))
 	require.NoError(bc.Start(context.Background()))
 	_, err := bc.CreateState(addr1.RawAddress, big.NewInt(100))
 	require.NoError(err)
@@ -970,6 +973,7 @@ func TestActPool_GetCapacity(t *testing.T) {
 func TestActPool_GetSize(t *testing.T) {
 	require := require.New(t)
 	bc := blockchain.NewBlockchain(config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	bc.GetFactory().AddActionHandlers(account.NewProtocol(), vote.NewProtocol(bc))
 	require.NoError(bc.Start(context.Background()))
 	_, err := bc.CreateState(addr1.RawAddress, big.NewInt(100))
 	require.NoError(err)
