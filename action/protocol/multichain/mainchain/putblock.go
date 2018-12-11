@@ -32,17 +32,12 @@ func (p *Protocol) handlePutBlock(pb *action.PutBlock, sm protocol.StateManager)
 	if err != nil {
 		return err
 	}
-	acct, err := account.LoadAccountState(sm, addrHash)
+	acct, err := account.LoadAccount(sm, addrHash)
 	if err != nil {
 		return err
 	}
 	account.SetNonce(pb, acct)
-	producerPKHash, err := srcAddressPKHash(pb.ProducerAddress())
-	if err != nil {
-		return err
-	}
-
-	return sm.PutState(producerPKHash, acct)
+	return account.StoreAccount(sm, pb.ProducerAddress(), acct)
 }
 
 func (p *Protocol) validatePutBlock(pb *action.PutBlock, sm protocol.StateManager) error {

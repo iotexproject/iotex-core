@@ -12,25 +12,22 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
+	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
-	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 )
 
 func TestProtocol_Handle(t *testing.T) {
 	require := require.New(t)
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	cfg := config.Default
 	ctx := context.Background()
@@ -43,8 +40,7 @@ func TestProtocol_Handle(t *testing.T) {
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
 
-	mbc := mock_blockchain.NewMockBlockchain(ctrl)
-	protocol := NewProtocol(mbc)
+	protocol := NewProtocol(nil)
 
 	// Create three accounts
 	addr1 := testaddress.Addrinfo["alfa"].RawAddress
@@ -54,11 +50,11 @@ func TestProtocol_Handle(t *testing.T) {
 	pkHash2, _ := iotxaddress.AddressToPKHash(addr2)
 	pkHash3, _ := iotxaddress.AddressToPKHash(addr3)
 
-	_, err = account.LoadOrCreateAccountState(ws, addr1, big.NewInt(100))
+	_, err = account.LoadOrCreateAccount(ws, addr1, big.NewInt(100))
 	require.NoError(err)
-	_, err = account.LoadOrCreateAccountState(ws, addr2, big.NewInt(100))
+	_, err = account.LoadOrCreateAccount(ws, addr2, big.NewInt(100))
 	require.NoError(err)
-	_, err = account.LoadOrCreateAccountState(ws, addr3, big.NewInt(100))
+	_, err = account.LoadOrCreateAccount(ws, addr3, big.NewInt(100))
 	require.NoError(err)
 
 	checkSelfNomination := func(address string, account *state.Account) {
@@ -68,32 +64,37 @@ func TestProtocol_Handle(t *testing.T) {
 		require.Equal("100", account.VotingWeight.String())
 	}
 
+	ctx = state.WithRunActionsCtx(context.Background(),
+		state.RunActionsCtx{
+			EnableGasCharge: false,
+		})
+
 	vote1, err := action.NewVote(1, addr1, addr1, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	_, err = protocol.Handle(ctx, vote1, ws)
 	require.NoError(err)
-	account1, _ := account.LoadAccountState(ws, pkHash1)
+	account1, _ := account.LoadAccount(ws, pkHash1)
 	checkSelfNomination(addr1, account1)
 
 	vote2, err := action.NewVote(1, addr2, addr2, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	_, err = protocol.Handle(ctx, vote2, ws)
 	require.NoError(err)
-	account2, _ := account.LoadAccountState(ws, pkHash2)
+	account2, _ := account.LoadAccount(ws, pkHash2)
 	checkSelfNomination(addr2, account2)
 
 	vote3, err := action.NewVote(1, addr3, addr3, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	_, err = protocol.Handle(ctx, vote3, ws)
 	require.NoError(err)
-	account3, _ := account.LoadAccountState(ws, pkHash3)
+	account3, _ := account.LoadAccount(ws, pkHash3)
 	checkSelfNomination(addr3, account3)
 
 	unvote1, err := action.NewVote(2, addr1, "", uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	_, err = protocol.Handle(ctx, unvote1, ws)
 	require.NoError(err)
-	account1, _ = account.LoadAccountState(ws, pkHash1)
+	account1, _ = account.LoadAccount(ws, pkHash1)
 	require.Equal(uint64(2), account1.Nonce)
 	require.False(account1.IsCandidate)
 	require.Equal("", account1.Votee)
@@ -103,8 +104,8 @@ func TestProtocol_Handle(t *testing.T) {
 	require.NoError(err)
 	_, err = protocol.Handle(ctx, vote4, ws)
 	require.NoError(err)
-	account2, _ = account.LoadAccountState(ws, pkHash2)
-	account3, _ = account.LoadAccountState(ws, pkHash3)
+	account2, _ = account.LoadAccount(ws, pkHash2)
+	account3, _ = account.LoadAccount(ws, pkHash3)
 	require.Equal(uint64(2), account2.Nonce)
 	require.True(account2.IsCandidate)
 	require.Equal(addr3, account2.Votee)
@@ -115,15 +116,15 @@ func TestProtocol_Handle(t *testing.T) {
 	require.NoError(err)
 	_, err = protocol.Handle(ctx, unvote2, ws)
 	require.NoError(err)
-	account2, _ = account.LoadAccountState(ws, pkHash2)
-	account3, _ = account.LoadAccountState(ws, pkHash3)
+	account2, _ = account.LoadAccount(ws, pkHash2)
+	account3, _ = account.LoadAccount(ws, pkHash3)
 	require.Equal(uint64(3), account2.Nonce)
 	require.False(account2.IsCandidate)
 	require.Equal("", account2.Votee)
 	require.Equal("0", account2.VotingWeight.String())
 	require.Equal("100", account3.VotingWeight.String())
 
-	canidateMap, err := protocol.getCandidateMap(uint64(0), ws)
+	canidateMap, err := candidatesutil.GetMostRecentCandidateMap(ws)
 	require.NoError(err)
 	require.Equal(1, len(canidateMap))
 }

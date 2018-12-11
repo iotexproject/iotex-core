@@ -7,44 +7,62 @@
 package trie
 
 import (
-	"context"
-
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
-
-	"github.com/iotexproject/iotex-core/logger"
-	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-core/proto"
 )
 
 const radix = 256
 
 type branchNode struct {
-	children map[byte]hash.Hash32B
-	ser      []byte
+	hashes map[byte][]byte
+	ser    []byte
 }
 
 func newEmptyBranchNode() *branchNode {
-	return &branchNode{children: map[byte]hash.Hash32B{}}
+	return &branchNode{hashes: map[byte][]byte{}}
 }
 
-func newBranchNodeFromProtoPb(pb *iproto.BranchPb) *branchNode {
+func newBranchNodeAndPutIntoDB(
+	tr Trie,
+	children map[byte]Node,
+) (*branchNode, error) {
+	bnode := newEmptyBranchNode()
+	for i, n := range children {
+		if n == nil {
+			continue
+		}
+		bnode.hashes[i] = tr.nodeHash(n)
+	}
+	if err := tr.putNodeIntoDB(bnode); err != nil {
+		return nil, err
+	}
+	return bnode, nil
+}
+
+func newBranchNodeFromProtoPb(pb *BranchPb) *branchNode {
 	b := newEmptyBranchNode()
 	for _, n := range pb.Branches {
-		b.children[byte(n.Index)] = byteutil.BytesTo32B(n.Path)
+		b.hashes[byte(n.Index)] = n.Path
 	}
 	return b
 }
 
-func (b *branchNode) Children(ctx context.Context) ([]Node, error) {
-	tc, ok := getSameKeyLenTrieContext(ctx)
-	if !ok {
-		return nil, errors.New("failed to get operation context")
-	}
+func (b *branchNode) Type() NodeType {
+	return BRANCH
+}
+
+func (b *branchNode) Key() []byte {
+	return nil
+}
+
+func (b *branchNode) Value() []byte {
+	return nil
+}
+
+func (b *branchNode) children(tr Trie) ([]Node, error) {
 	children := []Node{}
-	for i := range b.children {
-		if c, err := b.child(tc, i); err != nil {
+	for i := range b.hashes {
+		if c, err := b.child(tr, i); err != nil {
 			return nil, err
 		} else if c != nil {
 			children = append(children, c)
@@ -54,41 +72,32 @@ func (b *branchNode) Children(ctx context.Context) ([]Node, error) {
 	return children, nil
 }
 
-func (b *branchNode) Type() NodeType {
-	return BRANCH
-}
-
-func (b *branchNode) Value() []byte {
-	return nil
-}
-
-func (b *branchNode) delete(tc SameKeyLenTrieContext, key keyType, offset uint8) (Node, error) {
-	logger.Debug().Hex("key", key[:]).Uint8("offset", offset).Msg("delete from a branch")
+func (b *branchNode) delete(tr Trie, key keyType, offset uint8) (Node, error) {
 	offsetKey := key[offset]
-	child, err := b.child(tc, offsetKey)
+	child, err := b.child(tr, offsetKey)
 	if err != nil {
 		return nil, err
 	}
-	newChild, err := child.delete(tc, key, offset+1)
+	newChild, err := child.delete(tr, key, offset+1)
 	if err != nil {
 		return nil, err
 	}
 	if newChild != nil {
-		return b.updateChild(tc, offsetKey, newChild)
+		return b.updateChild(tr, offsetKey, newChild)
 	}
-	switch len(b.children) {
+	switch len(b.hashes) {
 	case 1:
 		panic("branch shouldn't have 0 child after deleting")
 	case 2:
-		if err := tc.DeleteNodeFromDB(b); err != nil {
+		if err := tr.deleteNodeFromDB(b); err != nil {
 			return nil, err
 		}
 		var orphan Node
 		var orphanKey byte
-		for i, h := range b.children {
+		for i, h := range b.hashes {
 			if i != offsetKey {
 				orphanKey = i
-				if orphan, err = tc.LoadNodeFromDB(h); err != nil {
+				if orphan, err = tr.loadNodeFromDB(h); err != nil {
 					return nil, err
 				}
 				break
@@ -100,100 +109,91 @@ func (b *branchNode) delete(tc SameKeyLenTrieContext, key keyType, offset uint8)
 		switch node := orphan.(type) {
 		case *extensionNode:
 			return node.updatePath(
-				tc,
+				tr,
 				append([]byte{orphanKey}, node.path...),
 			)
 		case *leafNode:
 			return node, nil
 		default:
-			return tc.newExtensionNodeAndPutIntoDB([]byte{orphanKey}, node)
+			return newExtensionNodeAndPutIntoDB(tr, []byte{orphanKey}, node)
 		}
 	default:
-		return b.updateChild(tc, offsetKey, newChild)
+		return b.updateChild(tr, offsetKey, newChild)
 	}
 }
 
-func (b *branchNode) upsert(tc SameKeyLenTrieContext, key keyType, offset uint8, value []byte) (Node, error) {
-	logger.Debug().Hex("key", key[:]).Uint8("offset", offset).Msg("upsert into a branch")
+func (b *branchNode) upsert(tr Trie, key keyType, offset uint8, value []byte) (Node, error) {
 	var newChild Node
 	offsetKey := key[offset]
-	child, err := b.child(tc, offsetKey)
+	child, err := b.child(tr, offsetKey)
 	switch errors.Cause(err) {
 	case nil:
-		newChild, err = child.upsert(tc, key, offset+1, value)
+		newChild, err = child.upsert(tr, key, offset+1, value)
 	case ErrNotExist:
-		newChild, err = tc.newLeafNodeAndPutIntoDB(key, value)
-	default:
+		newChild, err = newLeafNodeAndPutIntoDB(tr, key, value)
+	}
+	if err != nil {
 		return nil, err
 	}
 
-	return b.updateChild(tc, offsetKey, newChild)
+	return b.updateChild(tr, offsetKey, newChild)
 }
 
-func (b *branchNode) search(tc SameKeyLenTrieContext, key keyType, offset uint8) Node {
-	logger.Debug().Hex("key", key[:]).Uint8("offset", offset).Msg("search in a branch")
-	child, err := b.child(tc, key[offset])
+func (b *branchNode) search(tr Trie, key keyType, offset uint8) Node {
+	child, err := b.child(tr, key[offset])
 	if errors.Cause(err) == ErrNotExist {
 		return nil
 	}
-	return child.search(tc, key, offset+1)
+	return child.search(tr, key, offset+1)
 }
 
 func (b *branchNode) serialize() []byte {
 	if b.ser != nil {
 		return b.ser
 	}
-	nodes := []*iproto.BranchNodePb{}
+	nodes := []*BranchNodePb{}
 	for index := 0; index < radix; index++ {
-		if h, ok := b.children[byte(index)]; ok {
-			nodes = append(nodes, &iproto.BranchNodePb{Index: uint32(index), Path: h[:]})
+		if h, ok := b.hashes[byte(index)]; ok {
+			nodes = append(nodes, &BranchNodePb{Index: uint32(index), Path: h})
 		}
 	}
-	pb := &iproto.NodePb{
-		Node: &iproto.NodePb_Branch{
-			Branch: &iproto.BranchPb{Branches: nodes},
+	pb := &NodePb{
+		Node: &NodePb_Branch{
+			Branch: &BranchPb{Branches: nodes},
 		},
 	}
 	ser, err := proto.Marshal(pb)
 	if err != nil {
-		logger.Panic().
-			Err(err).
-			Int("numOfChildren", len(b.children)).
-			Interface("children", b.children).
-			Msg("failed to marshal a branch node")
+		panic("failed to marshal a branch node")
 	}
 	b.ser = ser
 
 	return b.ser
 }
 
-func (b *branchNode) child(tc SameKeyLenTrieContext, key byte) (Node, error) {
-	h, ok := b.children[key]
+func (b *branchNode) child(tr Trie, key byte) (Node, error) {
+	h, ok := b.hashes[key]
 	if !ok {
 		return nil, ErrNotExist
 	}
-	child, err := tc.LoadNodeFromDB(h)
+	child, err := tr.loadNodeFromDB(h)
 	if err != nil {
-		return nil, errors.Errorf("failed to fetch node for key %x", h[:])
+		return nil, errors.Errorf("failed to fetch node for key %x", h)
 	}
 	return child, nil
 }
 
-func (b *branchNode) updateChild(
-	tc SameKeyLenTrieContext,
-	key byte,
-	child Node,
-) (*branchNode, error) {
-	if err := tc.DeleteNodeFromDB(b); err != nil {
+func (b *branchNode) updateChild(tr Trie, key byte, child Node) (*branchNode, error) {
+	if err := tr.deleteNodeFromDB(b); err != nil {
 		return nil, err
 	}
 	b.ser = nil
 	if child == nil {
-		delete(b.children, key)
+		delete(b.hashes, key)
 	} else {
-		b.children[key] = nodeHash(child)
+		b.hashes[key] = tr.nodeHash(child)
 	}
-	if err := tc.PutNodeIntoDB(b); err != nil {
+	if err := tr.putNodeIntoDB(b); err != nil {
 		return nil, err
 	}
 	return b, nil

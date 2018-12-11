@@ -18,7 +18,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/db/trie"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
@@ -70,7 +69,7 @@ func (stateDB *StateDBAdapter) Error() error {
 // CreateAccount creates an account in iotx blockchain
 func (stateDB *StateDBAdapter) CreateAccount(evmAddr common.Address) {
 	addr := address.New(stateDB.cm.ChainID(), evmAddr.Bytes())
-	_, err := account.LoadOrCreateAccountState(stateDB.sm, addr.IotxAddress(), big.NewInt(0))
+	_, err := account.LoadOrCreateAccount(stateDB.sm, addr.IotxAddress(), big.NewInt(0))
 	if err != nil {
 		logger.Error().Err(err).Msg("CreateAccount")
 		// stateDB.logError(err)
@@ -94,7 +93,7 @@ func (stateDB *StateDBAdapter) SubBalance(evmAddr common.Address, amount *big.In
 		return
 	}
 	state.SubBalance(amount)
-	if err := account.StoreState(stateDB.sm, addr.IotxAddress(), state); err != nil {
+	if err := account.StoreAccount(stateDB.sm, addr.IotxAddress(), state); err != nil {
 		logger.Error().Err(err).Msg("Failed to update pending account changes to trie")
 	}
 	// stateDB.GetBalance(evmAddr)
@@ -109,14 +108,14 @@ func (stateDB *StateDBAdapter) AddBalance(evmAddr common.Address, amount *big.In
 	logger.Debug().Msgf("AddBalance %v to %s", amount, evmAddr.Hex())
 
 	addr := address.New(stateDB.cm.ChainID(), evmAddr.Bytes())
-	state, err := account.LoadOrCreateAccountState(stateDB.sm, addr.IotxAddress(), big.NewInt(0))
+	state, err := account.LoadOrCreateAccount(stateDB.sm, addr.IotxAddress(), big.NewInt(0))
 	if err != nil {
 		logger.Error().Err(err).Hex("addrHash", evmAddr[:]).Msg("AddBalance")
 		stateDB.logError(err)
 		return
 	}
 	state.AddBalance(amount)
-	if err := account.StoreState(stateDB.sm, addr.IotxAddress(), state); err != nil {
+	if err := account.StoreAccount(stateDB.sm, addr.IotxAddress(), state); err != nil {
 		logger.Error().Err(err).Msg("Failed to update pending account changes to trie")
 	}
 }
@@ -192,15 +191,17 @@ func (stateDB *StateDBAdapter) Empty(common.Address) bool {
 	return false
 }
 
-// RevertToSnapshot reverts the state factory to snapshot
-func (stateDB *StateDBAdapter) RevertToSnapshot(int) {
-	logger.Debug().Msg("RevertToSnapshot is not implemented")
+// RevertToSnapshot reverts the state factory to the state at a given snapshot
+func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
+	if err := stateDB.sm.Revert(snapshot); err != nil {
+		logger.Error().Err(err).Msg("failed to RevertToSnapshot")
+	}
+	return
 }
 
 // Snapshot returns the snapshot id
 func (stateDB *StateDBAdapter) Snapshot() int {
-	logger.Debug().Msg("Snapshot is not implemented")
-	return 0
+	return stateDB.sm.Snapshot()
 }
 
 // AddLog adds log
@@ -235,8 +236,29 @@ func (stateDB *StateDBAdapter) AddPreimage(common.Hash, []byte) {
 }
 
 // ForEachStorage loops each storage
-func (stateDB *StateDBAdapter) ForEachStorage(common.Address, func(common.Hash, common.Hash) bool) {
-	logger.Error().Msg("ForEachStorage is not implemented")
+func (stateDB *StateDBAdapter) ForEachStorage(addr common.Address, cb func(common.Hash, common.Hash) bool) {
+	ctt, err := stateDB.Contract(byteutil.BytesTo20B(addr[:]))
+	if err != nil {
+		// stateDB.err = err
+		return
+	}
+	iter, err := ctt.Iterator()
+	if err != nil {
+		// stateDB.err = err
+		return
+	}
+
+	for {
+		key, value, err := iter.Next()
+		if err != nil {
+			break
+		}
+		ckey := common.Hash{}
+		copy(ckey[:], key[:])
+		cvalue := common.Hash{}
+		copy(cvalue[:], value[:])
+		cb(ckey, cvalue)
+	}
 }
 
 // AccountState returns an account state
@@ -248,7 +270,7 @@ func (stateDB *StateDBAdapter) AccountState(addr string) (*state.Account, error)
 	if contract, ok := stateDB.cachedContract[addrHash]; ok {
 		return contract.SelfState(), nil
 	}
-	return account.LoadAccountState(stateDB.sm, addrHash)
+	return account.LoadAccount(stateDB.sm, addrHash)
 }
 
 //======================================
@@ -263,7 +285,7 @@ func (stateDB *StateDBAdapter) GetCodeHash(evmAddr common.Address) common.Hash {
 		copy(codeHash[:], contract.SelfState().CodeHash)
 		return codeHash
 	}
-	account, err := account.LoadAccountState(stateDB.sm, addr)
+	account, err := account.LoadAccount(stateDB.sm, addr)
 	if err != nil {
 		logger.Error().Err(err).Msg("GetCodeHash")
 		// TODO (zhi) not all err should be logged
@@ -285,7 +307,7 @@ func (stateDB *StateDBAdapter) GetCode(evmAddr common.Address) []byte {
 		}
 		return code
 	}
-	account, err := account.LoadAccountState(stateDB.sm, addr)
+	account, err := account.LoadAccount(stateDB.sm, addr)
 	if err != nil {
 		logger.Error().Err(err).Msgf("Failed to load account state for address %x", addr)
 		return nil
@@ -385,26 +407,24 @@ func (stateDB *StateDBAdapter) commitContracts() error {
 	return nil
 }
 
+// Contract returns the contract of addr
+func (stateDB *StateDBAdapter) Contract(addr hash.PKHash) (Contract, error) {
+	if contract, ok := stateDB.cachedContract[addr]; ok {
+		return contract, nil
+	}
+	return stateDB.getContract(addr)
+}
+
 func (stateDB *StateDBAdapter) getContract(addr hash.PKHash) (Contract, error) {
-	account, err := account.LoadAccountState(stateDB.sm, addr)
+	account, err := account.LoadAccount(stateDB.sm, addr)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to load account state for address %x", addr)
 	}
-	if account.Root == hash.ZeroHash32B {
-		account.Root = trie.EmptyBranchNodeHash
-	}
-	tr, err := trie.NewTrie(
-		stateDB.dao,
-		ContractKVNameSpace,
-		trie.RootHashOption(account.Root),
-		trie.CachedBatchOption(stateDB.cb),
-		trie.KeyLengthOption(32),
-	)
+	// add to contract cache
+	contract, err := newContract(account, stateDB.dao, stateDB.cb)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create storage trie for new contract %x", addr)
 	}
-	// add to contract cache
-	contract := newContract(account, tr)
 	stateDB.cachedContract[addr] = contract
 	return contract, nil
 }

@@ -19,6 +19,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/crypto"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
@@ -685,10 +686,14 @@ func (m *cFSM) handleEndorseCommitEvt(evt fsm.Event) (fsm.State, error) {
 	}
 	// Commit and broadcast the pending block
 	if err := m.ctx.chain.CommitBlock(pendingBlock); err != nil {
-		logger.Error().
-			Err(err).
-			Uint64("block", pendingBlock.Height()).
-			Msg("error when committing a block")
+		if err == db.ErrAlreadyExist {
+			logger.Info().Uint64("block", pendingBlock.Height()).Msg("Block already exists.")
+		} else {
+			logger.Error().
+				Err(err).
+				Uint64("block", pendingBlock.Height()).
+				Msg("error when committing a block")
+		}
 	}
 	// Remove transfers in this block from ActPool and reset ActPool state
 	m.ctx.actPool.Reset()

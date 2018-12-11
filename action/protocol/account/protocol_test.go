@@ -15,7 +15,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/db/trie"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
@@ -30,19 +29,18 @@ func TestLoadOrCreateAccountState(t *testing.T) {
 	sf, err := factory.NewFactory(cfg, factory.PrecreatedTrieDBOption(db.NewMemKVStore()))
 	require.NoError(err)
 	require.NoError(sf.Start(context.Background()))
-	require.Equal(trie.EmptyBranchNodeHash, sf.RootHash())
 	addr, err := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
 	require.Nil(err)
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
 	addrHash, err := iotxaddress.AddressToPKHash(addr.RawAddress)
 	require.NoError(err)
-	s, err := LoadAccountState(ws, addrHash)
+	s, err := LoadAccount(ws, addrHash)
 	require.NoError(err)
 	require.Equal(s, state.EmptyAccount)
-	s, err = LoadOrCreateAccountState(ws, addr.RawAddress, big.NewInt(5))
+	s, err = LoadOrCreateAccount(ws, addr.RawAddress, big.NewInt(5))
 	require.NoError(err)
-	s, err = LoadAccountState(ws, addrHash)
+	s, err = LoadAccount(ws, addrHash)
 	require.NoError(err)
 	require.Equal(uint64(0x0), s.Nonce)
 	require.Equal("5", s.Balance.String())

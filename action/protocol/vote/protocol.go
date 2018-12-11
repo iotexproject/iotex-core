@@ -9,59 +9,79 @@ package vote
 import (
 	"context"
 	"math/big"
-	"sort"
 
+	"github.com/CoderZhi/go-ethereum/core/vm"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
+	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/iotxaddress"
-	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 )
 
 const (
 	// VoteSizeLimit is the maximum size of vote allowed
 	VoteSizeLimit = 278
-	// CandidatesPrefix is the prefix of the key of candidateList
-	CandidatesPrefix = "Candidates."
 )
 
 // Protocol defines the protocol of handling votes
 type Protocol struct {
-	cm               protocol.ChainManager
-	cachedCandidates map[hash.PKHash]*state.Candidate
+	cm protocol.ChainManager
 }
 
 // NewProtocol instantiates the protocol of vote
 func NewProtocol(cm protocol.ChainManager) *Protocol { return &Protocol{cm: cm} }
 
 // Handle handles a vote
-func (p *Protocol) Handle(_ context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
+func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
 	vote, ok := act.(*action.Vote)
 	if !ok {
 		return nil, nil
 	}
-	// Get candidateList from trie and convert it to candidates map
-	candidateMap, err := p.getCandidateMap(sm.Height(), sm)
-	switch {
-	case errors.Cause(err) == state.ErrStateNotExist:
-		if sm.Height() == uint64(0) {
-			candidateMap = make(map[hash.PKHash]*state.Candidate)
-		} else if candidateMap, err = p.getCandidateMap(sm.Height()-1, sm); err != nil {
-			return nil, errors.Wrapf(err, "failed to get candidates on height %d from trie", sm.Height()-1)
-		}
-	case err != nil:
-		return nil, errors.Wrapf(err, "failed to get candidates on height %d from trie", sm.Height())
+
+	raCtx, ok := state.GetRunActionsCtx(ctx)
+	if !ok {
+		return nil, errors.New("failed to get action context")
 	}
 
-	p.cachedCandidates = candidateMap
-
-	voteFrom, err := account.LoadOrCreateAccountState(sm, vote.Voter(), big.NewInt(0))
+	voteFrom, err := account.LoadOrCreateAccount(sm, vote.Voter(), big.NewInt(0))
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to load or create the account of voter %s", vote.Voter())
+	}
+	if raCtx.EnableGasCharge {
+		// Load or create account for producer
+		producer, err := account.LoadOrCreateAccount(sm, raCtx.ProducerAddr, big.NewInt(0))
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to load or create the account of block producer %s", raCtx.ProducerAddr)
+		}
+		gas, err := vote.IntrinsicGas()
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to get intrinsic gas for vote hash %s", vote.Hash())
+		}
+		if *raCtx.GasLimit < gas {
+			return nil, vm.ErrOutOfGas
+		}
+		gasFee := big.NewInt(0).Mul(vote.GasPrice(), big.NewInt(0).SetUint64(gas))
+
+		if gasFee.Cmp(voteFrom.Balance) == 1 {
+			return nil, errors.Wrapf(state.ErrNotEnoughBalance, "failed to verify the Balance for gas of voter %s, %d, %d", vote.Voter(), gas, voteFrom.Balance)
+		}
+
+		// charge voter Gas
+		if err := voteFrom.SubBalance(gasFee); err != nil {
+			return nil, errors.Wrapf(err, "failed to charge the gas for voter %s", vote.Voter())
+		}
+		// compensate block producer gas
+		if err := producer.AddBalance(gasFee); err != nil {
+			return nil, errors.Wrapf(err, "failed to compensate gas to producer")
+		}
+		// Put updated producer's state to trie
+		if err := account.StoreAccount(sm, raCtx.ProducerAddr, producer); err != nil {
+			return nil, errors.Wrap(err, "failed to update pending account changes to trie")
+		}
+		*raCtx.GasLimit -= gas
 	}
 	// Update voteFrom Nonce
 	account.SetNonce(vote, voteFrom)
@@ -71,45 +91,43 @@ func (p *Protocol) Handle(_ context.Context, act action.Action, sm protocol.Stat
 		// unvote operation
 		voteFrom.IsCandidate = false
 		// Remove the candidate from candidateMap if the person is not a candidate anymore
-		addrHash, err := iotxaddress.AddressToPKHash(vote.Voter())
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to convert address to public key hash")
-		}
-		if _, ok := candidateMap[addrHash]; ok {
-			delete(candidateMap, addrHash)
+		if err := candidatesutil.LoadAndDeleteCandidates(sm, vote.Voter()); err != nil {
+			return nil, errors.Wrap(err, "failed to load and delete candidates")
 		}
 	} else if vote.Voter() == vote.Votee() {
 		// Vote to self: self-nomination
 		voteFrom.IsCandidate = true
-		if err := p.addCandidate(vote, sm.Height()); err != nil {
-			return nil, errors.Wrap(err, "failed to add candidate to candidate map")
+		if err := candidatesutil.LoadAndAddCandidates(sm, vote); err != nil {
+			return nil, errors.Wrap(err, "failed to load and add candidates")
 		}
 	}
 	// Put updated voter's state to trie
-	if err := account.StoreState(sm, vote.Voter(), voteFrom); err != nil {
+	if err := account.StoreAccount(sm, vote.Voter(), voteFrom); err != nil {
 		return nil, errors.Wrap(err, "failed to update pending account changes to trie")
 	}
 
 	// Update old votee's weight
 	if len(prevVotee) > 0 {
 		// voter already voted
-		oldVotee, err := account.LoadOrCreateAccountState(sm, prevVotee, big.NewInt(0))
+		oldVotee, err := account.LoadOrCreateAccount(sm, prevVotee, big.NewInt(0))
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to load or create the account of voter's old votee %s", prevVotee)
 		}
 		oldVotee.VotingWeight.Sub(oldVotee.VotingWeight, voteFrom.Balance)
 		// Put updated state of voter's old votee to trie
-		if err := account.StoreState(sm, prevVotee, oldVotee); err != nil {
+		if err := account.StoreAccount(sm, prevVotee, oldVotee); err != nil {
 			return nil, errors.Wrap(err, "failed to update pending account changes to trie")
 		}
 		// Update candidate map
 		if oldVotee.IsCandidate {
-			p.updateCandidate(prevVotee, oldVotee.VotingWeight, sm.Height())
+			if err := candidatesutil.LoadAndUpdateCandidates(sm, prevVotee, oldVotee.VotingWeight); err != nil {
+				return nil, errors.Wrap(err, "failed to load and update candidates")
+			}
 		}
 	}
 
 	if vote.Votee() != "" {
-		voteTo, err := account.LoadOrCreateAccountState(sm, vote.Votee(), big.NewInt(0))
+		voteTo, err := account.LoadOrCreateAccount(sm, vote.Votee(), big.NewInt(0))
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to load or create the account of votee %s", vote.Votee())
 		}
@@ -117,28 +135,17 @@ func (p *Protocol) Handle(_ context.Context, act action.Action, sm protocol.Stat
 		voteTo.VotingWeight.Add(voteTo.VotingWeight, voteFrom.Balance)
 
 		// Put updated votee's state to trie
-		if err := account.StoreState(sm, vote.Votee(), voteTo); err != nil {
+		if err := account.StoreAccount(sm, vote.Votee(), voteTo); err != nil {
 			return nil, errors.Wrap(err, "failed to update pending account changes to trie")
 		}
 		// Update candidate map
 		if voteTo.IsCandidate {
-			p.updateCandidate(vote.Votee(), voteTo.VotingWeight, sm.Height())
+			if err := candidatesutil.LoadAndUpdateCandidates(sm, vote.Votee(), voteTo.VotingWeight); err != nil {
+				return nil, errors.Wrap(err, "failed to load and update candidates")
+			}
 		}
 	}
 
-	// Put updated candidate map to trie
-	candidateList, err := state.MapToCandidates(candidateMap)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to convert candidate map to candidate list")
-	}
-	sort.Sort(candidateList)
-	candidatesKey := p.constructKey(sm.Height())
-	if err := sm.PutState(candidatesKey, &candidateList); err != nil {
-		return nil, errors.Wrap(err, "failed to put updated candidates to trie")
-	}
-
-	// clear cached candidates
-	p.cachedCandidates = nil
 	return nil, nil
 }
 
@@ -168,54 +175,5 @@ func (p *Protocol) Validate(_ context.Context, act action.Action) error {
 			return errors.Wrapf(action.ErrVotee, "votee has not self-nominated: %s", vote.Votee())
 		}
 	}
-	return nil
-}
-
-func (p *Protocol) constructKey(height uint64) hash.PKHash {
-	heightInBytes := byteutil.Uint64ToBytes(height)
-	k := []byte(CandidatesPrefix)
-	k = append(k, heightInBytes...)
-	return byteutil.BytesTo20B(hash.Hash160b(k))
-}
-
-func (p *Protocol) getCandidateMap(height uint64, sm protocol.StateManager) (map[hash.PKHash]*state.Candidate, error) {
-	candidatesKey := p.constructKey(height)
-	var sc state.CandidateList
-	if err := sm.State(candidatesKey, &sc); err != nil {
-		return nil, err
-	}
-	return state.CandidatesToMap(sc)
-}
-
-func (p *Protocol) addCandidate(vote *action.Vote, height uint64) error {
-	votePubkey := vote.VoterPublicKey()
-	voterPKHash, err := iotxaddress.AddressToPKHash(vote.Voter())
-	if err != nil {
-		return errors.Wrap(err, "failed to get public key hash from account address")
-	}
-	if _, ok := p.cachedCandidates[voterPKHash]; !ok {
-		p.cachedCandidates[voterPKHash] = &state.Candidate{
-			Address:        vote.Voter(),
-			PublicKey:      votePubkey,
-			CreationHeight: height,
-		}
-	}
-	return nil
-}
-
-func (p *Protocol) updateCandidate(
-	addr string,
-	totalWeight *big.Int,
-	blockHeight uint64,
-) error {
-	pkHash, err := iotxaddress.AddressToPKHash(addr)
-	if err != nil {
-		return errors.Wrap(err, "failed to convert address to public key hash")
-	}
-	// Candidate was added when self-nomination, always exist in cachedCandidates
-	candidate := p.cachedCandidates[pkHash]
-	candidate.Votes = totalWeight
-	candidate.LastUpdateHeight = blockHeight
-
 	return nil
 }

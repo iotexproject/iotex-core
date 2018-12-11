@@ -68,13 +68,9 @@ func (p *Protocol) validateDeposit(deposit *action.CreateDeposit, sm protocol.St
 	if err != nil {
 		return nil, InOperation{}, errors.Wrapf(err, "error when processing address %s", deposit.Recipient())
 	}
-	val, ok := subChainsInOp.Get(InOperation{ID: addr.ChainID()}, SortInOperation)
+	inOp, ok := subChainsInOp.Get(addr.ChainID())
 	if !ok {
 		return nil, InOperation{}, fmt.Errorf("address %s is not on a sub-chain in operation", deposit.Recipient())
-	}
-	inOp, ok := val.(InOperation)
-	if !ok {
-		return nil, InOperation{}, errors.New("error when casting the element in SortedSlice into InOperation")
 	}
 	return account, inOp, nil
 }
@@ -89,11 +85,7 @@ func (p *Protocol) mutateDeposit(
 	acct.Balance = big.NewInt(0).Sub(acct.Balance, deposit.Amount())
 	// TODO: this is not right, but currently the actions in a block is not processed according to the nonce
 	account.SetNonce(deposit, acct)
-	ownerPKHash, err := srcAddressPKHash(deposit.Sender())
-	if err != nil {
-		return nil, err
-	}
-	if err := sm.PutState(ownerPKHash, acct); err != nil {
+	if err := account.StoreAccount(sm, deposit.Sender(), acct); err != nil {
 		return nil, err
 	}
 

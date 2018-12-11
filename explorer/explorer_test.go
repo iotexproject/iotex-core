@@ -184,7 +184,7 @@ func TestExplorerApi(t *testing.T) {
 	ap, err := actpool.NewActPool(bc, cfg.ActPool)
 	require.Nil(err)
 
-	sf.AddActionHandlers(execution.NewProtocol(bc))
+	sf.AddActionHandlers(account.NewProtocol(), vote.NewProtocol(nil), execution.NewProtocol(bc))
 	ap.AddActionValidators(actpool.NewGenericValidator(bc), account.NewProtocol(), vote.NewProtocol(bc),
 		execution.NewProtocol(bc))
 
@@ -982,7 +982,7 @@ func TestService_GetDeposits(t *testing.T) {
 	require.NoError(err)
 	require.NoError(ws.PutState(
 		mainchain.SubChainsInOperationKey,
-		&state.SortedSlice{
+		mainchain.SubChainsInOperation{
 			mainchain.InOperation{
 				ID:   2,
 				Addr: subChainAddr.Bytes(),
@@ -1059,7 +1059,8 @@ func addCreatorToFactory(sf factory.Factory) error {
 	if err != nil {
 		return err
 	}
-	if _, err = ws.LoadOrCreateAccountState(ta.Addrinfo["producer"].RawAddress, blockchain.Gen.TotalSupply); err != nil {
+	if _, err = account.LoadOrCreateAccount(ws, ta.Addrinfo["producer"].RawAddress,
+		blockchain.Gen.TotalSupply); err != nil {
 		return err
 	}
 	gasLimit := testutil.TestGasLimit

@@ -18,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/actpool/actioniterator"
 	"github.com/iotexproject/iotex-core/address"
@@ -227,8 +228,8 @@ func PrecreatedDaoOption(dao *blockDAO) Option {
 // BoltDBDaoOption sets blockchain's dao with BoltDB from config.Chain.ChainDBPath
 func BoltDBDaoOption() Option {
 	return func(bc *blockchain, cfg config.Config) error {
-		bc.dao = newBlockDAO(db.NewBoltDB(cfg.Chain.ChainDBPath, cfg.DB), cfg.Explorer.Enabled)
-
+		cfg.DB.DbPath = cfg.Chain.ChainDBPath // TODO: remove this after moving TrieDBPath from cfg.Chain to cfg.DB
+		bc.dao = newBlockDAO(db.NewOnDiskDB(cfg.DB), cfg.Explorer.Enabled)
 		return nil
 	}
 }
@@ -835,7 +836,7 @@ func (bc *blockchain) CreateState(addr string, init *big.Int) (*state.Account, e
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create clean working set")
 	}
-	account, err := ws.LoadOrCreateAccountState(addr, init)
+	account, err := account.LoadOrCreateAccount(ws, addr, init)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create new account %s", addr)
 	}
@@ -926,7 +927,7 @@ func (bc *blockchain) startExistingBlockchain(recoveryHeight uint64) error {
 	if startHeight == 0 {
 		actions := loadGenesisData(bc.config.Chain)
 		Gen.CreatorPubKey = actions.Creation.PubKey
-		if _, err := ws.LoadOrCreateAccountState(Gen.CreatorAddr(bc.config.Chain.ID), Gen.TotalSupply); err != nil {
+		if _, err := account.LoadOrCreateAccount(ws, Gen.CreatorAddr(bc.config.Chain.ID), Gen.TotalSupply); err != nil {
 			return err
 		}
 		genesisBlk, err := bc.getBlockByHeight(0)

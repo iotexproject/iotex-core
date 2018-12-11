@@ -16,6 +16,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol/account"
+	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/crypto"
@@ -134,6 +136,7 @@ func TestLocalCommit(t *testing.T) {
 	cfg.Chain.ChainDBPath = testDBPath2
 	chain := blockchain.NewBlockchain(cfg, blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption())
 	require.NotNil(chain)
+	chain.GetFactory().AddActionHandlers(account.NewProtocol(), vote.NewProtocol(chain))
 	require.NoError(chain.Start(ctx))
 	require.Nil(addTestingTsfBlocks(chain))
 	height = chain.TipHeight()
@@ -461,6 +464,7 @@ func TestVoteLocalCommit(t *testing.T) {
 	cfg.Chain.ChainDBPath = testDBPath2
 	chain := blockchain.NewBlockchain(cfg, blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption())
 	require.NotNil(chain)
+	chain.GetFactory().AddActionHandlers(account.NewProtocol(), vote.NewProtocol(chain))
 	require.NoError(chain.Start(ctx))
 	require.Nil(addTestingTsfBlocks(chain))
 	height = chain.TipHeight()

@@ -67,17 +67,20 @@ func TestKVStorePutGet(t *testing.T) {
 	})
 
 	path := "test-kv-store.bolt"
+	cfg.DbPath = path
 	t.Run("Bolt DB", func(t *testing.T) {
 		testutil.CleanupPath(t, path)
 		defer testutil.CleanupPath(t, path)
-		testKVStorePutGet(NewBoltDB(path, cfg), t)
+		testKVStorePutGet(NewOnDiskDB(cfg), t)
 	})
 
 	path = "test-kv-store.badger"
+	cfg.DbPath = path
+	cfg.UseBadgerDB = true
 	t.Run("Badger DB", func(t *testing.T) {
 		testutil.CleanupPath(t, path)
 		defer testutil.CleanupPath(t, path)
-		testKVStorePutGet(NewBadgerDB(path, cfg), t)
+		testKVStorePutGet(NewOnDiskDB(cfg), t)
 	})
 }
 
@@ -126,17 +129,20 @@ func TestBatchRollback(t *testing.T) {
 	}
 
 	path := "test-batch-rollback.bolt"
+	cfg.DbPath = path
 	t.Run("Bolt DB", func(t *testing.T) {
 		testutil.CleanupPath(t, path)
 		defer testutil.CleanupPath(t, path)
-		testBatchRollback(NewBoltDB(path, cfg), t)
+		testBatchRollback(NewOnDiskDB(cfg), t)
 	})
 
 	path = "test-batch-rollback.badger"
+	cfg.DbPath = path
+	cfg.UseBadgerDB = true
 	t.Run("Badger DB", func(t *testing.T) {
 		testutil.CleanupPath(t, path)
 		defer testutil.CleanupPath(t, path)
-		testBatchRollback(NewBadgerDB(path, cfg), t)
+		testBatchRollback(NewOnDiskDB(cfg), t)
 	})
 }
 
@@ -214,6 +220,7 @@ func TestDBBatch(t *testing.T) {
 		require.Equal(err, ErrAlreadyExist)
 		// need to clear the batch in case of commit error
 		batch.Clear()
+		require.Equal(0, batch.Size())
 
 		value, err = kvStore.Get(bucket2, testK2[1])
 		require.Nil(err)
@@ -258,17 +265,20 @@ func TestDBBatch(t *testing.T) {
 	}
 
 	path := "test-batch-commit.bolt"
+	cfg.DbPath = path
 	t.Run("Bolt DB", func(t *testing.T) {
 		testutil.CleanupPath(t, path)
 		defer testutil.CleanupPath(t, path)
-		testBatchRollback(NewBoltDB(path, cfg), t)
+		testBatchRollback(NewOnDiskDB(cfg), t)
 	})
 
 	path = "test-batch-commit.badger"
+	cfg.DbPath = path
+	cfg.UseBadgerDB = true
 	t.Run("Badger DB", func(t *testing.T) {
 		testutil.CleanupPath(t, path)
 		defer testutil.CleanupPath(t, path)
-		testBatchRollback(NewBadgerDB(path, cfg), t)
+		testBatchRollback(NewOnDiskDB(cfg), t)
 	})
 }
 
@@ -287,6 +297,7 @@ func TestCacheKV(t *testing.T) {
 		v, _ := cb.Get(bucket1, testK1[0])
 		require.Equal(testV1[0], v)
 		cb.Clear()
+		require.Equal(0, cb.Size())
 		_, err := cb.Get(bucket1, testK1[0])
 		require.Error(err)
 		cb.Put(bucket2, testK2[2], testV2[2], "")
@@ -338,51 +349,19 @@ func TestCacheKV(t *testing.T) {
 	})
 
 	path := "test-cache-kv.bolt"
+	cfg.DbPath = path
 	t.Run("Bolt DB", func(t *testing.T) {
 		testutil.CleanupPath(t, path)
 		defer testutil.CleanupPath(t, path)
-		testFunc(NewBoltDB(path, cfg), t)
+		testFunc(NewOnDiskDB(cfg), t)
 	})
 
 	path = "test-cache-kv.badger"
+	cfg.DbPath = path
+	cfg.UseBadgerDB = true
 	t.Run("Badger DB", func(t *testing.T) {
 		testutil.CleanupPath(t, path)
 		defer testutil.CleanupPath(t, path)
-		testFunc(NewBadgerDB(path, cfg), t)
+		testFunc(NewOnDiskDB(cfg), t)
 	})
-}
-
-func TestCachedBatch(t *testing.T) {
-	require := require.New(t)
-
-	cb := NewCachedBatch()
-	cb.Put(bucket1, testK1[0], testV1[0], "")
-	v, err := cb.Get(bucket1, testK1[0])
-	require.NoError(err)
-	require.Equal(testV1[0], v)
-	require.Equal(ErrAlreadyExist, cb.PutIfNotExists(bucket1, testK1[0], testV1[0], ""))
-	v, err = cb.Get(bucket1, testK2[0])
-	require.Equal(ErrNotExist, err)
-	require.Equal([]byte(nil), v)
-
-	cb.Delete(bucket1, testK2[0], "")
-	cb.Delete(bucket1, testK1[0], "")
-	require.NoError(cb.PutIfNotExists(bucket1, testK1[0], testV1[0], ""))
-	v, err = cb.Get(bucket1, testK1[0])
-	require.NoError(err)
-	require.Equal(testV1[0], v)
-
-	w, err := cb.Entry(1)
-	require.NoError(err)
-	require.Equal(bucket1, w.namespace)
-	require.Equal(testK2[0], w.key)
-	require.Equal([]byte(nil), w.value)
-	require.Equal(Delete, w.writeType)
-
-	w, err = cb.Entry(3)
-	require.NoError(err)
-	require.Equal(bucket1, w.namespace)
-	require.Equal(testK1[0], w.key)
-	require.Equal(testV1[0], w.value)
-	require.Equal(PutIfNotExists, w.writeType)
 }

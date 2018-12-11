@@ -17,6 +17,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol/account"
+	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/crypto"
@@ -177,6 +179,7 @@ func TestCreateBlockchain(t *testing.T) {
 
 	// create chain
 	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption())
+	bc.GetFactory().AddActionHandlers(account.NewProtocol(), vote.NewProtocol(bc))
 	require.NoError(bc.Start(ctx))
 	require.NotNil(bc)
 	height := bc.TipHeight()
@@ -244,18 +247,20 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	Gen.BlockReward = big.NewInt(0)
 
 	cfg := config.Default
-	cfg.Chain.UseBadgerDB = true // test with badgerDB
+	cfg.DB.UseBadgerDB = true // test with badgerDB
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Explorer.Enabled = true
 
 	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 	require.Nil(err)
+	sf.AddActionHandlers(account.NewProtocol())
 	require.NoError(sf.Start(context.Background()))
 	require.NoError(addCreatorToFactory(sf))
 
 	// Create a blockchain from scratch
 	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
+	sf.AddActionHandlers(vote.NewProtocol(bc))
 	require.NoError(bc.Start(ctx))
 	require.NotNil(bc)
 
@@ -463,15 +468,17 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	// Disable block reward to make bookkeeping easier
 	Gen.BlockReward = big.NewInt(0)
 	cfg := config.Default
-	cfg.Chain.UseBadgerDB = false // test with boltDB
+	cfg.DB.UseBadgerDB = false // test with boltDB
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 	require.Nil(err)
+	sf.AddActionHandlers(account.NewProtocol())
 	require.NoError(sf.Start(context.Background()))
 	require.NoError(addCreatorToFactory(sf))
 	// Create a blockchain from scratch
 	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
+	sf.AddActionHandlers(vote.NewProtocol(bc))
 	require.NoError(bc.Start(ctx))
 	require.NotNil(bc)
 
@@ -664,6 +671,7 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 
 	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 	require.Nil(err)
+	sf.AddActionHandlers(account.NewProtocol(), vote.NewProtocol(nil))
 	require.NoError(sf.Start(context.Background()))
 	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	require.NoError(bc.Start(context.Background()))
@@ -768,9 +776,9 @@ func TestBlocks(t *testing.T) {
 	c := ta.Addrinfo["bravo"]
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
-	_, err = ws.LoadOrCreateAccountState(a.RawAddress, big.NewInt(100000))
+	_, err = account.LoadOrCreateAccount(ws, a.RawAddress, big.NewInt(100000))
 	require.NoError(err)
-	_, err = ws.LoadOrCreateAccountState(c.RawAddress, big.NewInt(100000))
+	_, err = account.LoadOrCreateAccount(ws, c.RawAddress, big.NewInt(100000))
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
 	ctx := state.WithRunActionsCtx(context.Background(),
@@ -822,9 +830,9 @@ func TestActions(t *testing.T) {
 	c := ta.Addrinfo["bravo"]
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
-	_, err = ws.LoadOrCreateAccountState(a.RawAddress, big.NewInt(100000))
+	_, err = account.LoadOrCreateAccount(ws, a.RawAddress, big.NewInt(100000))
 	require.NoError(err)
-	_, err = ws.LoadOrCreateAccountState(c.RawAddress, big.NewInt(100000))
+	_, err = account.LoadOrCreateAccount(ws, c.RawAddress, big.NewInt(100000))
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
 	ctx := state.WithRunActionsCtx(context.Background(),
@@ -861,6 +869,7 @@ func TestMintDKGBlock(t *testing.T) {
 	cfg := config.Default
 	clk := clock.NewMock()
 	chain := NewBlockchain(cfg, InMemDaoOption(), InMemStateFactoryOption(), ClockOption(clk))
+	chain.GetFactory().AddActionHandlers(account.NewProtocol(), vote.NewProtocol(chain))
 	require.NoError(chain.Start(context.Background()))
 
 	var err error

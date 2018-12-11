@@ -9,10 +9,12 @@ package account
 import (
 	"math/big"
 
+	"github.com/CoderZhi/go-ethereum/core/vm"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -21,7 +23,7 @@ import (
 const TransferSizeLimit = 32 * 1024
 
 // handleTransfer handles a transfer
-func (p *Protocol) handleTransfer(act action.Action, sm protocol.StateManager) error {
+func (p *Protocol) handleTransfer(act action.Action, raCtx state.RunActionsCtx, sm protocol.StateManager) error {
 	tsf, ok := act.(*action.Transfer)
 	if !ok {
 		return nil
@@ -31,9 +33,43 @@ func (p *Protocol) handleTransfer(act action.Action, sm protocol.StateManager) e
 	}
 	if !tsf.IsCoinbase() {
 		// check sender
-		sender, err := LoadOrCreateAccountState(sm, tsf.Sender(), big.NewInt(0))
+		sender, err := LoadOrCreateAccount(sm, tsf.Sender(), big.NewInt(0))
 		if err != nil {
 			return errors.Wrapf(err, "failed to load or create the account of sender %s", tsf.Sender())
+		}
+
+		if raCtx.EnableGasCharge {
+			// Load or create account for producer
+			producer, err := LoadOrCreateAccount(sm, raCtx.ProducerAddr, big.NewInt(0))
+			if err != nil {
+				return errors.Wrapf(err, "failed to load or create the account of block producer %s", raCtx.ProducerAddr)
+			}
+			gas, err := tsf.IntrinsicGas()
+			if err != nil {
+				return errors.Wrapf(err, "failed to get intrinsic gas for transfer hash %s", tsf.Hash())
+			}
+			if *raCtx.GasLimit < gas {
+				return vm.ErrOutOfGas
+			}
+
+			gasFee := big.NewInt(0).Mul(tsf.GasPrice(), big.NewInt(0).SetUint64(gas))
+			if big.NewInt(0).Add(tsf.Amount(), gasFee).Cmp(sender.Balance) == 1 {
+				return errors.Wrapf(state.ErrNotEnoughBalance, "failed to verify the Balance of sender %s", tsf.Sender())
+			}
+
+			// charge sender gas
+			if err := sender.SubBalance(gasFee); err != nil {
+				return errors.Wrapf(err, "failed to charge the gas for sender %s", tsf.Sender())
+			}
+			// compensate block producer gas
+			if err := producer.AddBalance(gasFee); err != nil {
+				return errors.Wrapf(err, "failed to compensate gas to producer")
+			}
+			// Put updated producer's state to trie
+			if err := StoreAccount(sm, raCtx.ProducerAddr, producer); err != nil {
+				return errors.Wrap(err, "failed to update pending account changes to trie")
+			}
+			*raCtx.GasLimit -= gas
 		}
 		if tsf.Amount().Cmp(sender.Balance) == 1 {
 			return errors.Wrapf(state.ErrNotEnoughBalance, "failed to verify the Balance of sender %s", tsf.Sender())
@@ -45,25 +81,32 @@ func (p *Protocol) handleTransfer(act action.Action, sm protocol.StateManager) e
 		// update sender Nonce
 		SetNonce(tsf, sender)
 		// put updated sender's state to trie
-		if err := StoreState(sm, tsf.Sender(), sender); err != nil {
+		if err := StoreAccount(sm, tsf.Sender(), sender); err != nil {
 			return errors.Wrap(err, "failed to update pending account changes to trie")
 		}
 		// Update sender votes
 		if len(sender.Votee) > 0 {
 			// sender already voted to a different person
-			voteeOfSender, err := LoadOrCreateAccountState(sm, sender.Votee, big.NewInt(0))
+			voteeOfSender, err := LoadOrCreateAccount(sm, sender.Votee, big.NewInt(0))
 			if err != nil {
 				return errors.Wrapf(err, "failed to load or create the account of sender's votee %s", sender.Votee)
 			}
 			voteeOfSender.VotingWeight.Sub(voteeOfSender.VotingWeight, tsf.Amount())
 			// put updated state of sender's votee to trie
-			if err := StoreState(sm, sender.Votee, voteeOfSender); err != nil {
+			if err := StoreAccount(sm, sender.Votee, voteeOfSender); err != nil {
 				return errors.Wrap(err, "failed to update pending account changes to trie")
+			}
+
+			// Update candidate
+			if voteeOfSender.IsCandidate {
+				if err := candidatesutil.LoadAndUpdateCandidates(sm, sender.Votee, voteeOfSender.VotingWeight); err != nil {
+					return errors.Wrap(err, "failed to load and update candidates")
+				}
 			}
 		}
 	}
 	// check recipient
-	recipient, err := LoadOrCreateAccountState(sm, tsf.Recipient(), big.NewInt(0))
+	recipient, err := LoadOrCreateAccount(sm, tsf.Recipient(), big.NewInt(0))
 	if err != nil {
 		return errors.Wrapf(err, "failed to load or create the account of recipient %s", tsf.Recipient())
 	}
@@ -71,20 +114,26 @@ func (p *Protocol) handleTransfer(act action.Action, sm protocol.StateManager) e
 		return errors.Wrapf(err, "failed to update the Balance of recipient %s", tsf.Recipient())
 	}
 	// put updated recipient's state to trie
-	if err := StoreState(sm, tsf.Recipient(), recipient); err != nil {
+	if err := StoreAccount(sm, tsf.Recipient(), recipient); err != nil {
 		return errors.Wrap(err, "failed to update pending account changes to trie")
 	}
 	// Update recipient votes
 	if len(recipient.Votee) > 0 {
 		// recipient already voted to a different person
-		voteeOfRecipient, err := LoadOrCreateAccountState(sm, recipient.Votee, big.NewInt(0))
+		voteeOfRecipient, err := LoadOrCreateAccount(sm, recipient.Votee, big.NewInt(0))
 		if err != nil {
 			return errors.Wrapf(err, "failed to load or create the account of recipient's votee %s", recipient.Votee)
 		}
 		voteeOfRecipient.VotingWeight.Add(voteeOfRecipient.VotingWeight, tsf.Amount())
 		// put updated state of recipient's votee to trie
-		if err := StoreState(sm, recipient.Votee, voteeOfRecipient); err != nil {
+		if err := StoreAccount(sm, recipient.Votee, voteeOfRecipient); err != nil {
 			return errors.Wrap(err, "failed to update pending account changes to trie")
+		}
+
+		if voteeOfRecipient.IsCandidate {
+			if err := candidatesutil.LoadAndUpdateCandidates(sm, recipient.Votee, voteeOfRecipient.VotingWeight); err != nil {
+				return errors.Wrap(err, "failed to load and update candidates")
+			}
 		}
 	}
 	return nil

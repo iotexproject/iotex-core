@@ -76,11 +76,7 @@ func (p *Protocol) handleStopSubChain(stop *action.StopSubChain, sm protocol.Sta
 	}
 	// TODO: this is not right, but currently the actions in a block is not processed according to the nonce
 	account.SetNonce(stop, acct)
-	senderPKHash, err := srcAddressPKHash(stop.SrcAddr())
-	if err != nil {
-		return err
-	}
-	if err := sm.PutState(senderPKHash, acct); err != nil {
+	if err := account.StoreAccount(sm, stop.SrcAddr(), acct); err != nil {
 		return err
 	}
 	// check that subchain is in register
@@ -88,11 +84,11 @@ func (p *Protocol) handleStopSubChain(stop *action.StopSubChain, sm protocol.Sta
 	if err != nil {
 		return errors.Wrap(err, "error when getting sub-chains in operation")
 	}
-	subChainsInOp, deleted := subChainsInOp.Delete(InOperation{ID: subChain.ChainID}, SortInOperation)
-	if deleted <= 0 {
+	subChainsInOp, deleted := subChainsInOp.Delete(subChain.ChainID)
+	if !deleted {
 		return fmt.Errorf("address %s is not on a sub-chain in operation", subChainAddr)
 	}
-	if err := sm.PutState(SubChainsInOperationKey, &subChainsInOp); err != nil {
+	if err := sm.PutState(SubChainsInOperationKey, subChainsInOp); err != nil {
 		return err
 	}
 

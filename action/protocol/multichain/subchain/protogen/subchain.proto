@@ -7,32 +7,8 @@
 // To compile the proto, run:
 //      protoc --go_out=plugins=grpc:. *.proto
 syntax = "proto3";
-package iproto;
+package protogen;
 
-message branchNodePb {
-    uint32 index = 1;
-    bytes path = 2;
-}
-
-message branchPb {
-    repeated branchNodePb branches = 1;
-}
-
-message leafPb {
-    uint32 ext = 1;
-    bytes path = 2;
-    bytes value = 3;
-}
-
-message extendPb {
-    bytes path = 1;
-    bytes value = 2;
-}
-
-message nodePb {
-    oneof node {
-        branchPb branch = 2;
-        leafPb leaf = 3;
-        extendPb extend = 4;
-    }
+message Deposit {
+    bytes index = 1;
 }

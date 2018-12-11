@@ -8,20 +8,18 @@ package factory
 
 import (
 	"context"
-	"encoding/hex"
 	"math/big"
-	"sort"
 	"strconv"
-	"strings"
 	"testing"
 
-	"github.com/golang/mock/gomock"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol/account"
+	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/db/trie"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -34,124 +32,71 @@ var cfg = config.Default
 
 const testTriePath = "trie.test"
 
-func TestEncodeDecode(t *testing.T) {
-	require := require.New(t)
-	s1 := state.Account{
-		Nonce:        0x10,
-		Balance:      big.NewInt(20000000),
-		CodeHash:     []byte("testing codehash"),
-		VotingWeight: big.NewInt(1000000000),
-		Votee:        "testing votee",
-	}
-	ss, err := s1.Serialize()
-	require.NoError(err)
-	require.NotEmpty(ss)
-	require.Equal(81, len(ss))
-
-	s2 := state.Account{}
-	require.NoError(s2.Deserialize(ss))
-	require.Equal(big.NewInt(20000000), s2.Balance)
-	require.Equal(uint64(0x10), s2.Nonce)
-	require.Equal(hash.ZeroHash32B, s2.Root)
-	require.Equal([]byte("testing codehash"), s2.CodeHash)
-	require.Equal(big.NewInt(1000000000), s2.VotingWeight)
-	require.Equal("testing votee", s2.Votee)
-}
-
-func TestGob(t *testing.T) {
-	require := require.New(t)
-	ss, _ := hex.DecodeString("79ff8103010105537461746501ff8200010801054e6f6e6365010600010742616c616e636501ff84000104526f6f7401ff86000108436f646548617368010a00010b497343616e646964617465010200010c566f74696e6757656967687401ff84000105566f746565010c000106566f7465727301ff880000000aff83050102ff8a00000017ff85010101074861736833324201ff860001060140000024ff87040101136d61705b737472696e675d2a6269672e496e7401ff8800010c01ff8400002cff820202022d0120000000000000000000000000000000000000000000000000000000000000000003010200")
-	s1 := state.Account{}
-	require.NoError(state.GobBasedDeserialize(&s1, ss))
-
-	// another serialized byte
-	st, _ := hex.DecodeString("79ff8503010105537461746501ff8600010801054e6f6e6365010600010742616c616e636501ff88000104526f6f7401ff8a000108436f646548617368010a00010b497343616e646964617465010200010c566f74696e6757656967687401ff88000105566f746565010c000106566f7465727301ff8c0000000aff87050102ff8e00000017ff89010101074861736833324201ff8a0001060140000024ff8b040101136d61705b737472696e675d2a6269672e496e7401ff8c00010c01ff8800002cff860202022d0120000000000000000000000000000000000000000000000000000000000000000003010200")
-	require.NotEqual(ss, st)
-
-	// same struct after deserialization
-	s2 := state.Account{}
-	require.NoError(state.GobBasedDeserialize(&s2, st))
-	require.Equal(s1.Nonce, s2.Nonce)
-	require.Equal(s1.Balance, s2.Balance)
-	require.Equal(s1.Root, s2.Root)
-	require.Equal(s1.CodeHash, s2.CodeHash)
-	require.Equal(s1.IsCandidate, s2.IsCandidate)
-	require.Equal(s1.VotingWeight, s2.VotingWeight)
-	require.Equal(s1.Votee, s2.Votee)
-}
-
-func TestCreateState(t *testing.T) {
-	require := require.New(t)
-
-	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewMemKVStore()))
-	require.NoError(err)
-	require.NoError(sf.Start(context.Background()))
-	require.Equal(trie.EmptyBranchNodeHash, sf.RootHash())
-	addr, err := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
-	require.Nil(err)
-	ws, err := sf.NewWorkingSet()
-	require.NoError(err)
-	s, err := ws.CachedAccountState(addr.RawAddress)
-	require.NoError(err)
-	require.Equal(s, state.EmptyAccount)
-	s, err = ws.LoadOrCreateAccountState(addr.RawAddress, big.NewInt(5))
-	require.NoError(err)
-	gasLimit := testutil.TestGasLimit
-	ctx := state.WithRunActionsCtx(context.Background(),
-		state.RunActionsCtx{
-			ProducerAddr:    testaddress.Addrinfo["producer"].RawAddress,
-			GasLimit:        &gasLimit,
-			EnableGasCharge: testutil.EnableGasCharge,
-		})
-	_, _, err = ws.RunActions(ctx, 0, nil)
-	require.NoError(err)
-	require.NoError(sf.Commit(ws))
-	require.Equal(uint64(0x0), s.Nonce)
-	require.Equal(big.NewInt(5), s.Balance)
-	ss, err := sf.AccountState(addr.RawAddress)
-	require.Nil(err)
-	require.Equal(uint64(0x0), ss.Nonce)
-	require.Equal(big.NewInt(5), ss.Balance)
-}
-
-func TestBalance(t *testing.T) {
-	require := require.New(t)
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	state := &state.Account{Balance: big.NewInt(20)}
-	// Add 10 to the balance
-	err := state.AddBalance(big.NewInt(10))
-	require.Nil(err)
-	// Balance should == 30 now
-	require.Equal(0, state.Balance.Cmp(big.NewInt(30)))
-}
-
-func TestClone(t *testing.T) {
-	require := require.New(t)
-	ss := &state.Account{
-		Nonce:        0x10,
-		Balance:      big.NewInt(200),
-		VotingWeight: big.NewInt(1000),
-	}
-	account := ss.Clone()
-	require.Equal(big.NewInt(200), account.Balance)
-	require.Equal(big.NewInt(1000), account.VotingWeight)
-
-	require.Nil(account.AddBalance(big.NewInt(100)))
-	account.VotingWeight.Sub(account.VotingWeight, big.NewInt(300))
-	require.Equal(big.NewInt(200), ss.Balance)
-	require.Equal(big.NewInt(1000), ss.VotingWeight)
-	require.Equal(big.NewInt(200+100), account.Balance)
-	require.Equal(big.NewInt(1000-300), account.VotingWeight)
-}
-
 func voteForm(height uint64, cs []*state.Candidate) []string {
 	r := make([]string, len(cs))
 	for i := 0; i < len(cs); i++ {
 		r[i] = (*cs[i]).Address + ":" + strconv.FormatInt((*cs[i]).Votes.Int64(), 10)
 	}
 	return r
+}
+
+func TestSnapshot(t *testing.T) {
+	require := require.New(t)
+	testutil.CleanupPath(t, testTriePath)
+	defer testutil.CleanupPath(t, testTriePath)
+
+	cfg.DB.DbPath = testTriePath
+	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewOnDiskDB(cfg.DB)))
+	require.NoError(err)
+	require.NoError(sf.Start(context.Background()))
+	addr, err := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
+	require.Nil(err)
+	ws, err := sf.NewWorkingSet()
+	require.NoError(err)
+	_, err = account.LoadOrCreateAccount(ws, addr.RawAddress, big.NewInt(5))
+	require.NoError(err)
+	sHash, err := iotxaddress.AddressToPKHash(addr.RawAddress)
+	require.NoError(err)
+
+	s, err := account.LoadAccount(ws, sHash)
+	require.NoError(err)
+	require.Equal(big.NewInt(5), s.Balance)
+	s0 := ws.Snapshot()
+	require.Zero(s0)
+	s.Balance.Add(s.Balance, big.NewInt(5))
+	require.Equal(big.NewInt(10), s.Balance)
+	require.NoError(ws.PutState(sHash, s))
+	s1 := ws.Snapshot()
+	require.Equal(1, s1)
+	s.Balance.Add(s.Balance, big.NewInt(5))
+	require.Equal(big.NewInt(15), s.Balance)
+	require.NoError(ws.PutState(sHash, s))
+	// add another account
+	addr, err = iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
+	require.Nil(err)
+	_, err = account.LoadOrCreateAccount(ws, addr.RawAddress, big.NewInt(7))
+	require.NoError(err)
+	tHash, err := iotxaddress.AddressToPKHash(addr.RawAddress)
+	require.NoError(err)
+	s, err = account.LoadAccount(ws, tHash)
+	require.NoError(err)
+	require.Equal(big.NewInt(7), s.Balance)
+	s2 := ws.Snapshot()
+	require.Equal(2, s2)
+
+	require.NoError(ws.Revert(s1))
+	require.NoError(ws.State(sHash, s))
+	require.Equal(big.NewInt(10), s.Balance)
+	require.Equal(state.ErrStateNotExist, errors.Cause(ws.State(tHash, s)))
+	require.NoError(ws.Revert(s0))
+	require.NoError(ws.State(sHash, s))
+	require.Equal(big.NewInt(5), s.Balance)
+	require.Equal(state.ErrStateNotExist, errors.Cause(ws.State(tHash, s)))
+	require.NoError(ws.Revert(s2))
+	require.NoError(ws.State(sHash, s))
+	require.Equal(big.NewInt(15), s.Balance)
+	require.NoError(ws.State(tHash, s))
+	require.Equal(big.NewInt(7), s.Balance)
 }
 
 // Test configure: candidateSize = 2, candidateBufferSize = 3
@@ -269,23 +214,24 @@ func TestCandidates(t *testing.T) {
 	defer testutil.CleanupPath(t, testTriePath)
 
 	cfg.Chain.NumCandidates = 2
-	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(testTriePath, cfg.DB)))
-	require.NoError(t, sf.Start(context.Background()))
+	cfg.DB.DbPath = testTriePath
+	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewOnDiskDB(cfg.DB)))
 	require.NoError(t, err)
+	sf.AddActionHandlers(account.NewProtocol(), vote.NewProtocol(nil))
 	require.NoError(t, sf.Start(context.Background()))
 	ws, err := sf.NewWorkingSet()
 	require.NoError(t, err)
-	_, err = ws.LoadOrCreateAccountState(a.RawAddress, big.NewInt(100))
+	_, err = account.LoadOrCreateAccount(ws, a.RawAddress, big.NewInt(100))
 	require.NoError(t, err)
-	_, err = ws.LoadOrCreateAccountState(b.RawAddress, big.NewInt(200))
+	_, err = account.LoadOrCreateAccount(ws, b.RawAddress, big.NewInt(200))
 	require.NoError(t, err)
-	_, err = ws.LoadOrCreateAccountState(c.RawAddress, big.NewInt(300))
+	_, err = account.LoadOrCreateAccount(ws, c.RawAddress, big.NewInt(300))
 	require.NoError(t, err)
-	_, err = ws.LoadOrCreateAccountState(d.RawAddress, big.NewInt(100))
+	_, err = account.LoadOrCreateAccount(ws, d.RawAddress, big.NewInt(100))
 	require.NoError(t, err)
-	_, err = ws.LoadOrCreateAccountState(e.RawAddress, big.NewInt(100))
+	_, err = account.LoadOrCreateAccount(ws, e.RawAddress, big.NewInt(100))
 	require.NoError(t, err)
-	_, err = ws.LoadOrCreateAccountState(f.RawAddress, big.NewInt(300))
+	_, err = account.LoadOrCreateAccount(ws, f.RawAddress, big.NewInt(300))
 	require.NoError(t, err)
 
 	// a:100(0) b:200(0) c:300(0)
@@ -329,7 +275,6 @@ func TestCandidates(t *testing.T) {
 		})
 	_, _, err = ws.RunActions(zctx, 0, []action.Action{vote})
 	require.NotNil(t, err)
-
 	newRoot, _, err = ws.RunActions(ctx, 0, []action.Action{vote})
 	require.Nil(t, err)
 	require.NotEqual(t, newRoot, root)
@@ -736,66 +681,9 @@ func TestCandidates(t *testing.T) {
 	cand, _ = sf.CandidatesByHeight(h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{e.RawAddress + ":200", b.RawAddress + ":500"}))
 	// a(b):100(0) b(c):200(500) [c(c):100(+200=300)] d(b): 400(100) e(e):200(+0=200) f(d):100(0)
-	cachedStateA, err := ws.CachedAccountState(a.RawAddress)
+	stateA, err := account.LoadOrCreateAccount(ws, a.RawAddress, big.NewInt(0))
 	require.Nil(t, err)
-	require.Equal(t, cachedStateA.Balance, big.NewInt(100))
-}
-
-func TestCandidatesByHeight(t *testing.T) {
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
-
-	cfg.Chain.NumCandidates = 2
-	f, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(testTriePath, cfg.DB)))
-	require.Nil(t, err)
-	sf, ok := f.(*factory)
-	require.True(t, ok)
-	require.NoError(t, sf.Start(context.Background()))
-
-	cand1 := &state.Candidate{
-		Address: "Alpha",
-		Votes:   big.NewInt(1),
-	}
-	cand2 := &state.Candidate{
-		Address: "Beta",
-		Votes:   big.NewInt(2),
-	}
-	cand3 := &state.Candidate{
-		Address: "Theta",
-		Votes:   big.NewInt(3),
-	}
-	candidateList := make(state.CandidateList, 0, 3)
-	candidateList = append(candidateList, cand1)
-	candidateList = append(candidateList, cand2)
-	sort.Sort(candidateList)
-
-	candidatesBytes, err := candidateList.Serialize()
-	require.NoError(t, err)
-
-	require.Nil(t, sf.dao.Put(CandidateKVNameSpace, byteutil.Uint64ToBytes(0), candidatesBytes))
-	candidates, err := sf.CandidatesByHeight(0)
-	sort.Slice(candidates, func(i, j int) bool {
-		return strings.Compare(candidates[i].Address, candidates[j].Address) < 0
-	})
-	require.NoError(t, err)
-	require.Equal(t, 2, len(candidates))
-	require.Equal(t, "Alpha", candidates[0].Address)
-	require.Equal(t, "Beta", candidates[1].Address)
-
-	candidateList = append(candidateList, cand3)
-	sort.Sort(candidateList)
-	candidatesBytes, err = candidateList.Serialize()
-	require.NoError(t, err)
-
-	require.Nil(t, sf.dao.Put(CandidateKVNameSpace, byteutil.Uint64ToBytes(1), candidatesBytes))
-	candidates, err = sf.CandidatesByHeight(1)
-	sort.Slice(candidates, func(i, j int) bool {
-		return strings.Compare(candidates[i].Address, candidates[j].Address) < 0
-	})
-	require.NoError(t, err)
-	require.Equal(t, 2, len(candidates))
-	require.Equal(t, "Beta", candidates[0].Address)
-	require.Equal(t, "Theta", candidates[1].Address)
+	require.Equal(t, stateA.Balance, big.NewInt(100))
 }
 
 func TestUnvote(t *testing.T) {
@@ -807,17 +695,19 @@ func TestUnvote(t *testing.T) {
 	defer testutil.CleanupPath(t, testTriePath)
 
 	cfg.Chain.NumCandidates = 2
-	f, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(testTriePath, cfg.DB)))
+	cfg.DB.DbPath = testTriePath
+	f, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewOnDiskDB(cfg.DB)))
 	require.NoError(t, err)
 	sf, ok := f.(*factory)
 	require.True(t, ok)
+	sf.AddActionHandlers(vote.NewProtocol(nil))
 	require.NoError(t, sf.Start(context.Background()))
 
 	ws, err := sf.NewWorkingSet()
 	require.NoError(t, err)
-	_, err = ws.LoadOrCreateAccountState(a.RawAddress, big.NewInt(100))
+	_, err = account.LoadOrCreateAccount(ws, a.RawAddress, big.NewInt(100))
 	require.NoError(t, err)
-	_, err = ws.LoadOrCreateAccountState(b.RawAddress, big.NewInt(200))
+	_, err = account.LoadOrCreateAccount(ws, b.RawAddress, big.NewInt(200))
 	require.NoError(t, err)
 
 	vote1, err := action.NewVote(0, a.RawAddress, "", uint64(100000), big.NewInt(0))

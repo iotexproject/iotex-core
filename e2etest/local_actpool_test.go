@@ -171,7 +171,6 @@ func newActPoolConfig() (config.Config, error) {
 	cfg := config.Default
 	cfg.NodeType = config.DelegateType
 	cfg.Chain.TrieDBPath = testTriePath
-	cfg.Chain.InMemTest = false
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Consensus.Scheme = config.NOOPScheme
 	cfg.Network.Port = 0

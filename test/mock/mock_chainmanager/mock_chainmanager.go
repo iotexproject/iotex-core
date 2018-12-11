@@ -243,6 +243,30 @@ func (mr *MockStateManagerMockRecorder) Height() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Height", reflect.TypeOf((*MockStateManager)(nil).Height))
 }
 
+// Snapshot mocks base method
+func (m *MockStateManager) Snapshot() int {
+	ret := m.ctrl.Call(m, "Snapshot")
+	ret0, _ := ret[0].(int)
+	return ret0
+}
+
+// Snapshot indicates an expected call of Snapshot
+func (mr *MockStateManagerMockRecorder) Snapshot() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Snapshot", reflect.TypeOf((*MockStateManager)(nil).Snapshot))
+}
+
+// Revert mocks base method
+func (m *MockStateManager) Revert(arg0 int) error {
+	ret := m.ctrl.Call(m, "Revert", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Revert indicates an expected call of Revert
+func (mr *MockStateManagerMockRecorder) Revert(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Revert", reflect.TypeOf((*MockStateManager)(nil).Revert), arg0)
+}
+
 // State mocks base method
 func (m *MockStateManager) State(arg0 hash.PKHash, arg1 interface{}) error {
 	ret := m.ctrl.Call(m, "State", arg0, arg1)
