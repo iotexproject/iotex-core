@@ -82,14 +82,14 @@ func (w *syncWorker) Sync() {
 	intervals := w.buf.GetBlocksIntervalsToSync(w.targetHeight)
 	if intervals != nil {
 		logger.Info().Interface("intervals", intervals).Uint64("targetHeight", w.targetHeight).Msg("block sync intervals.")
-	}
-	for _, interval := range intervals {
-		w.rrIdx = w.rrIdx % len(peers)
-		p := peers[w.rrIdx]
-		if err := w.sync(p, interval); err != nil {
-			logger.Warn().Err(err).Msg("Failed to sync block.")
+		for _, interval := range intervals {
+			w.rrIdx %= len(peers)
+			p := peers[w.rrIdx]
+			if err := w.sync(p, interval); err != nil {
+				logger.Warn().Err(err).Msg("Failed to sync block.")
+			}
+			w.rrIdx++
 		}
-		w.rrIdx++
 	}
 }
 
