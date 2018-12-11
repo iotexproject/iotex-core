@@ -65,7 +65,12 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 	transfer, err := action.NewTransfer(uint64(1), big.NewInt(2), testaddress.Addrinfo["alfa"].RawAddress,
 		testaddress.Addrinfo["bravo"].RawAddress, []byte{}, uint64(10000), big.NewInt(0))
 	require.NoError(err)
-	_, err = protocol.Handle(context.Background(), transfer, ws)
+
+	ctx = state.WithRunActionsCtx(context.Background(),
+		state.RunActionsCtx{
+			EnableGasCharge: false,
+		})
+	_, err = protocol.Handle(ctx, transfer, ws)
 	require.NoError(err)
 	require.NoError(sf.Commit(ws))
 
