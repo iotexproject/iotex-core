@@ -22,6 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 )
 
@@ -279,7 +280,7 @@ func injectTransfer(
 		amount = int64(rand.Intn(5))
 	}
 
-	transfer, err := createSignedTransfer(sender, recipient, blockchain.ConvertIotxToRau(amount), nonce, gasLimit,
+	selp, tsf, err := createSignedTransfer(sender, recipient, blockchain.ConvertIotxToRau(amount), nonce, gasLimit,
 		gasPrice, payload)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Failed to inject transfer")
@@ -287,18 +288,21 @@ func injectTransfer(
 
 	logger.Info().Msg("Created signed transfer")
 
-	tsf := transfer.ToJSON()
 	request := explorer.SendTransferRequest{
-		Version:      tsf.Version,
-		Nonce:        tsf.Nonce,
-		Sender:       tsf.Sender,
-		Recipient:    tsf.Recipient,
-		Amount:       tsf.Amount,
-		SenderPubKey: tsf.SenderPubKey,
-		GasLimit:     tsf.GasLimit,
-		GasPrice:     tsf.GasPrice,
-		Signature:    tsf.Signature,
-		Payload:      tsf.Payload,
+		Version:      int64(selp.Version()),
+		Nonce:        int64(selp.Nonce()),
+		Sender:       selp.SrcAddr(),
+		Recipient:    selp.DstAddr(),
+		SenderPubKey: keypair.EncodePublicKey(selp.SrcPubkey()),
+		GasLimit:     int64(selp.GasLimit()),
+		Signature:    hex.EncodeToString(selp.Signature()),
+		Payload:      hex.EncodeToString(tsf.Payload()),
+	}
+	if selp.GasPrice() != nil {
+		request.GasPrice = selp.GasPrice().String()
+	}
+	if tsf.Amount() != nil {
+		request.Amount = tsf.Amount().String()
 	}
 	for i := 0; i < retryNum; i++ {
 		if _, err = c.SendTransfer(request); err == nil {
@@ -311,17 +315,17 @@ func injectTransfer(
 	}
 	logger.Info().Msg("Sent out the signed transfer: ")
 
-	logger.Info().Int64("Version", tsf.Version).Msg(" ")
-	logger.Info().Int64("Nonce", tsf.Nonce).Msg(" ")
-	logger.Info().Str("amount", tsf.Amount).Msg(" ")
-	logger.Info().Str("Sender", tsf.Sender).Msg(" ")
-	logger.Info().Str("Recipient", tsf.Recipient).Msg(" ")
-	logger.Info().Str("payload", tsf.Payload).Msg(" ")
-	logger.Info().Str("Sender Public Key", tsf.SenderPubKey).Msg(" ")
-	logger.Info().Int64("Gas Limit", tsf.GasLimit).Msg(" ")
-	logger.Info().Str("Gas Price", tsf.GasPrice).Msg(" ")
-	logger.Info().Str("Signature", tsf.Signature).Msg(" ")
-	logger.Info().Bool("isCoinbase", tsf.IsCoinbase).Msg(" ")
+	logger.Info().Int64("Version", request.Version).Msg(" ")
+	logger.Info().Int64("Nonce", request.Nonce).Msg(" ")
+	logger.Info().Str("amount", request.Amount).Msg(" ")
+	logger.Info().Str("Sender", request.Sender).Msg(" ")
+	logger.Info().Str("Recipient", request.Recipient).Msg(" ")
+	logger.Info().Str("payload", request.Payload).Msg(" ")
+	logger.Info().Str("Sender Public Key", request.SenderPubKey).Msg(" ")
+	logger.Info().Int64("Gas Limit", request.GasLimit).Msg(" ")
+	logger.Info().Str("Gas Price", request.GasPrice).Msg(" ")
+	logger.Info().Str("Signature", request.Signature).Msg(" ")
+	logger.Info().Bool("isCoinbase", request.IsCoinbase).Msg(" ")
 
 	if wg != nil {
 		wg.Done()
@@ -339,26 +343,24 @@ func injectVote(
 	retryNum int,
 	retryInterval int,
 ) {
-	vote, err := createSignedVote(sender, recipient, nonce, gasLimit, gasPrice)
+	selp, _, err := createSignedVote(sender, recipient, nonce, gasLimit, gasPrice)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Failed to inject vote")
 	}
 
 	logger.Info().Msg("Created signed vote")
 
-	jsonVote, err := vote.ToJSON()
-	if err != nil {
-		logger.Fatal().Err(err).Msg("Failed to inject vote")
-	}
 	request := explorer.SendVoteRequest{
-		Version:     jsonVote.Version,
-		Nonce:       jsonVote.Nonce,
-		Voter:       jsonVote.Voter,
-		Votee:       jsonVote.Votee,
-		VoterPubKey: jsonVote.VoterPubKey,
-		GasLimit:    jsonVote.GasLimit,
-		GasPrice:    jsonVote.GasPrice,
-		Signature:   jsonVote.Signature,
+		Version:     int64(selp.Version()),
+		Nonce:       int64(selp.Nonce()),
+		Voter:       selp.SrcAddr(),
+		Votee:       selp.DstAddr(),
+		VoterPubKey: keypair.EncodePublicKey(selp.SrcPubkey()),
+		GasLimit:    int64(selp.GasLimit()),
+		Signature:   hex.EncodeToString(selp.Signature()),
+	}
+	if selp.GasPrice() != nil {
+		request.GasPrice = selp.GasPrice().String()
 	}
 	for i := 0; i < retryNum; i++ {
 		if _, err = c.SendVote(request); err == nil {
@@ -371,13 +373,13 @@ func injectVote(
 	}
 	logger.Info().Msg("Sent out the signed vote: ")
 
-	logger.Info().Int64("Version", jsonVote.Version).Msg(" ")
-	logger.Info().Int64("Nonce", jsonVote.Nonce).Msg(" ")
-	logger.Info().Str("Sender Public Key", jsonVote.VoterPubKey).Msg(" ")
-	logger.Info().Str("Recipient Address", jsonVote.Votee).Msg(" ")
-	logger.Info().Int64("Gas Limit", jsonVote.GasLimit)
-	logger.Info().Str("Gas Price", jsonVote.GasPrice)
-	logger.Info().Str("Signature", jsonVote.Signature).Msg(" ")
+	logger.Info().Int64("Version", request.Version).Msg(" ")
+	logger.Info().Int64("Nonce", request.Nonce).Msg(" ")
+	logger.Info().Str("Sender Public Key", request.VoterPubKey).Msg(" ")
+	logger.Info().Str("Recipient Address", request.Votee).Msg(" ")
+	logger.Info().Int64("Gas Limit", request.GasLimit)
+	logger.Info().Str("Gas Price", request.GasPrice)
+	logger.Info().Str("Signature", request.Signature).Msg(" ")
 
 	if wg != nil {
 		wg.Done()
@@ -397,19 +399,31 @@ func injectExecution(
 	retryNum int,
 	retryInterval int,
 ) {
-	execution, err := createSignedExecution(executor, contract, nonce, amount, gasLimit, gasPrice, data)
+	selp, execution, err := createSignedExecution(executor, contract, nonce, amount, gasLimit, gasPrice, data)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Failed to inject execution")
 	}
 
 	logger.Info().Msg("Created signed execution")
 
-	jsonExecution, err := execution.ToJSON()
-	if err != nil {
-		logger.Fatal().Err(err).Msg("Failed to inject execution")
+	request := explorer.Execution{
+		Version:        int64(selp.Version()),
+		Nonce:          int64(selp.Nonce()),
+		Executor:       selp.SrcAddr(),
+		Contract:       selp.DstAddr(),
+		ExecutorPubKey: keypair.EncodePublicKey(selp.SrcPubkey()),
+		GasLimit:       int64(selp.GasLimit()),
+		Data:           hex.EncodeToString(execution.Data()),
+		Signature:      hex.EncodeToString(selp.Signature()),
+	}
+	if execution.Amount() != nil {
+		request.Amount = execution.Amount().String()
+	}
+	if selp.GasPrice() != nil {
+		request.GasPrice = selp.GasPrice().String()
 	}
 	for i := 0; i < retryNum; i++ {
-		if _, err = c.SendSmartContract(*jsonExecution); err == nil {
+		if _, err = c.SendSmartContract(request); err == nil {
 			break
 		}
 		time.Sleep(time.Duration(retryInterval) * time.Second)
@@ -419,15 +433,15 @@ func injectExecution(
 	}
 	logger.Info().Msg("Sent out the signed execution: ")
 
-	logger.Info().Int64("Version", jsonExecution.Version).Msg(" ")
-	logger.Info().Int64("Nonce", jsonExecution.Nonce).Msg(" ")
-	logger.Info().Str("amount", jsonExecution.Amount).Msg(" ")
-	logger.Info().Str("Executor", jsonExecution.Executor).Msg(" ")
-	logger.Info().Str("Contract", jsonExecution.Contract).Msg(" ")
-	logger.Info().Int64("Gas", jsonExecution.GasLimit).Msg(" ")
-	logger.Info().Str("Gas Price", jsonExecution.GasPrice).Msg(" ")
-	logger.Info().Str("data", jsonExecution.Data)
-	logger.Info().Str("Signature", jsonExecution.Signature).Msg(" ")
+	logger.Info().Int64("Version", request.Version).Msg(" ")
+	logger.Info().Int64("Nonce", request.Nonce).Msg(" ")
+	logger.Info().Str("amount", request.Amount).Msg(" ")
+	logger.Info().Str("Executor", request.Executor).Msg(" ")
+	logger.Info().Str("Contract", request.Contract).Msg(" ")
+	logger.Info().Int64("Gas", request.GasLimit).Msg(" ")
+	logger.Info().Str("Gas Price", request.GasPrice).Msg(" ")
+	logger.Info().Str("data", request.Data)
+	logger.Info().Str("Signature", request.Signature).Msg(" ")
 
 	if wg != nil {
 		wg.Done()
@@ -479,20 +493,27 @@ func createSignedTransfer(
 	gasLimit uint64,
 	gasPrice *big.Int,
 	payload string,
-) (*action.Transfer, error) {
+) (action.SealedEnvelope, *action.Transfer, error) {
 	transferPayload, err := hex.DecodeString(payload)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to decode payload %s", payload)
+		return action.SealedEnvelope{}, nil, errors.Wrapf(err, "failed to decode payload %s", payload)
 	}
 	transfer, err := action.NewTransfer(
 		nonce, amount, sender.RawAddress, recipient.RawAddress, transferPayload, gasLimit, gasPrice)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to create raw transfer")
+		return action.SealedEnvelope{}, nil, errors.Wrap(err, "failed to create raw transfer")
 	}
-	if err := action.Sign(transfer, sender.PrivateKey); err != nil {
-		return nil, errors.Wrapf(err, "failed to sign transfer %v", transfer)
+	bd := &action.EnvelopeBuilder{}
+	elp := bd.SetNonce(nonce).
+		SetGasPrice(gasPrice).
+		SetDestinationAddress(recipient.RawAddress).
+		SetGasLimit(gasLimit).
+		SetAction(transfer).Build()
+	selp, err := action.Sign(elp, sender.RawAddress, sender.PrivateKey)
+	if err != nil {
+		return action.SealedEnvelope{}, nil, errors.Wrapf(err, "failed to sign transfer %v", elp)
 	}
-	return transfer, nil
+	return selp, transfer, nil
 }
 
 // Helper function to create and sign a vote
@@ -502,15 +523,22 @@ func createSignedVote(
 	nonce uint64,
 	gasLimit uint64,
 	gasPrice *big.Int,
-) (*action.Vote, error) {
+) (action.SealedEnvelope, *action.Vote, error) {
 	vote, err := action.NewVote(nonce, voter.RawAddress, votee.RawAddress, gasLimit, gasPrice)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to create raw vote")
+		return action.SealedEnvelope{}, nil, errors.Wrap(err, "failed to create raw vote")
 	}
-	if err := action.Sign(vote, voter.PrivateKey); err != nil {
-		return nil, errors.Wrapf(err, "failed to sign vote %v", vote)
+	bd := &action.EnvelopeBuilder{}
+	elp := bd.SetNonce(nonce).
+		SetGasPrice(gasPrice).
+		SetDestinationAddress(votee.RawAddress).
+		SetGasLimit(gasLimit).
+		SetAction(vote).Build()
+	selp, err := action.Sign(elp, voter.RawAddress, voter.PrivateKey)
+	if err != nil {
+		return action.SealedEnvelope{}, nil, errors.Wrapf(err, "failed to sign vote %v", elp)
 	}
-	return vote, nil
+	return selp, vote, nil
 }
 
 // Helper function to create and sign an execution
@@ -522,18 +550,25 @@ func createSignedExecution(
 	gasLimit uint64,
 	gasPrice *big.Int,
 	data string,
-) (*action.Execution, error) {
+) (action.SealedEnvelope, *action.Execution, error) {
 	executionData, err := hex.DecodeString(data)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to decode data %s", data)
+		return action.SealedEnvelope{}, nil, errors.Wrapf(err, "failed to decode data %s", data)
 	}
 	execution, err := action.NewExecution(executor.RawAddress, contract, nonce, amount,
 		gasLimit, gasPrice, executionData)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to create raw execution")
+		return action.SealedEnvelope{}, nil, errors.Wrap(err, "failed to create raw execution")
 	}
-	if err := action.Sign(execution, executor.PrivateKey); err != nil {
-		return nil, errors.Wrapf(err, "failed to sign execution %v", execution)
+	bd := &action.EnvelopeBuilder{}
+	elp := bd.SetNonce(nonce).
+		SetGasPrice(gasPrice).
+		SetDestinationAddress(contract).
+		SetGasLimit(gasLimit).
+		SetAction(execution).Build()
+	selp, err := action.Sign(elp, executor.RawAddress, executor.PrivateKey)
+	if err != nil {
+		return action.SealedEnvelope{}, nil, errors.Wrapf(err, "failed to sign execution %v", elp)
 	}
-	return execution, nil
+	return selp, execution, nil
 }

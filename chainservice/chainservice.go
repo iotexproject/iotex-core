@@ -196,26 +196,7 @@ func (cs *ChainService) IsRunning() bool {
 
 // HandleAction handles incoming action request.
 func (cs *ChainService) HandleAction(actPb *pb.ActionPb) error {
-	var act action.Action
-	if actPb.GetTransfer() != nil {
-		act = &action.Transfer{}
-	} else if actPb.GetVote() != nil {
-		act = &action.Vote{}
-	} else if actPb.GetExecution() != nil {
-		act = &action.Execution{}
-	} else if actPb.GetPutBlock() != nil {
-		act = &action.PutBlock{}
-	} else if actPb.GetStartSubChain() != nil {
-		act = &action.StartSubChain{}
-	} else if actPb.GetStopSubChain() != nil {
-		act = &action.StopSubChain{}
-	} else if actPb.GetCreateDeposit() != nil {
-		act = &action.CreateDeposit{}
-	} else if actPb.GetSettleDeposit() != nil {
-		act = &action.SettleDeposit{}
-	} else {
-		return errors.New("no appliable action to handle in action proto")
-	}
+	var act action.SealedEnvelope
 	if err := act.LoadProto(actPb); err != nil {
 		return err
 	}

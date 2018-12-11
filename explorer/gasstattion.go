@@ -4,6 +4,8 @@ import (
 	"math/big"
 	"sort"
 
+	"github.com/pkg/errors"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
@@ -62,7 +64,7 @@ func (gs *GasStation) estimateGasForTransfer(tsfJSON explorer.SendTransferReques
 	if err != nil {
 		return 0, err
 	}
-	tsf := &action.Transfer{}
+	tsf := &action.SealedEnvelope{}
 	if err = tsf.LoadProto(actPb); err != nil {
 		return 0, err
 	}
@@ -89,9 +91,13 @@ func (gs *GasStation) estimateGasForSmartContract(execution explorer.Execution) 
 	if err != nil {
 		return 0, err
 	}
-	sc := &action.Execution{}
-	if err := sc.LoadProto(actPb); err != nil {
+	selp := &action.SealedEnvelope{}
+	if err := selp.LoadProto(actPb); err != nil {
 		return 0, err
+	}
+	sc, ok := selp.Action().(*action.Execution)
+	if !ok {
+		return 0, errors.New("not execution")
 	}
 
 	receipt, err := gs.bc.ExecuteContractRead(sc)

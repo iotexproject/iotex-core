@@ -686,40 +686,30 @@ func (dao *blockDAO) putBlock(blk *Block) error {
 	totalActionsBytes := byteutil.Uint64ToBytes(totalActions)
 	batch.Put(blockNS, totalActionsKey, totalActionsBytes, "failed to put total actions")
 
-	// map Transfer hash to block hash
-	for _, transfer := range transfers {
-		transferHash := transfer.Hash()
-		hashKey := append(transferPrefix, transferHash[:]...)
-		batch.Put(blockTransferBlockMappingNS, hashKey, hash[:], "failed to put transfer hash %x", transferHash)
-	}
-
-	// map Vote hash to block hash
-	for _, vote := range votes {
-		voteHash := vote.Hash()
-		hashKey := append(votePrefix, voteHash[:]...)
-		batch.Put(blockVoteBlockMappingNS, hashKey, hash[:], "failed to put vote hash %x", voteHash)
-	}
-
-	// map execution hash to block hash
-	for _, execution := range executions {
-		executionHash := execution.Hash()
-		hashKey := append(executionPrefix, executionHash[:]...)
-		batch.Put(blockExecutionBlockMappingNS, hashKey, hash[:], "failed to put execution hash %x", executionHash)
-	}
-
-	for _, act := range blk.Actions {
+	for _, elp := range blk.Actions {
+		var (
+			prefix []byte
+			ns     string
+		)
+		act := elp.Action()
 		// TODO: we only process the actions that are not transfer, vote or execution
 		switch act.(type) {
 		case *action.Transfer:
-			continue
+			prefix = transferPrefix
+			ns = blockTransferBlockMappingNS
 		case *action.Vote:
-			continue
+			prefix = votePrefix
+			ns = blockVoteBlockMappingNS
 		case *action.Execution:
-			continue
+			prefix = executionPrefix
+			ns = blockExecutionBlockMappingNS
+		default:
+			prefix = actionPrefix
+			ns = blockActionBlockMappingNS
 		}
-		actHash := act.Hash()
-		hashKey := append(actionPrefix, actHash[:]...)
-		batch.Put(blockActionBlockMappingNS, hashKey, hash[:], "failed to put action hash %x", actHash)
+		actHash := elp.Hash()
+		hashKey := append(prefix, actHash[:]...)
+		batch.Put(ns, hashKey, hash[:], "failed to put action hash %x", actHash)
 	}
 
 	if err = putTransfers(dao, blk, batch); err != nil {
@@ -807,9 +797,12 @@ func putVotes(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 	senderDelta := map[string]uint64{}
 	recipientDelta := map[string]uint64{}
 
-	_, votes, _ := action.ClassifyActions(blk.Actions)
-	for _, vote := range votes {
-		voteHash := vote.Hash()
+	for _, selp := range blk.Actions {
+		vote, ok := selp.Action().(*action.Vote)
+		if !ok {
+			continue
+		}
+		voteHash := selp.Hash()
 		Sender := vote.Voter()
 		Recipient := vote.Votee()
 
@@ -929,7 +922,8 @@ func putActions(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 	senderDelta := make(map[string]uint64)
 	recipientDelta := make(map[string]uint64)
 
-	for _, act := range blk.Actions {
+	for _, selp := range blk.Actions {
+		act := selp.Action()
 		// TODO: we only process the actions that are not transfer, vote or execution
 		switch act.(type) {
 		case *action.Transfer:
@@ -939,55 +933,55 @@ func putActions(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 		case *action.Execution:
 			continue
 		}
-		actHash := act.Hash()
+		actHash := selp.Hash()
 
 		// get action count for sender
-		senderActionCount, err := dao.getActionCountBySenderAddress(act.SrcAddr())
+		senderActionCount, err := dao.getActionCountBySenderAddress(selp.SrcAddr())
 		if err != nil {
-			return errors.Wrapf(err, "for sender %s", act.SrcAddr())
+			return errors.Wrapf(err, "for sender %s", selp.SrcAddr())
 		}
-		if delta, ok := senderDelta[act.SrcAddr()]; ok {
+		if delta, ok := senderDelta[selp.SrcAddr()]; ok {
 			senderActionCount += delta
-			senderDelta[act.SrcAddr()]++
+			senderDelta[selp.SrcAddr()]++
 		} else {
-			senderDelta[act.SrcAddr()] = 1
+			senderDelta[selp.SrcAddr()] = 1
 		}
 
 		// put new action to sender
-		senderKey := append(actionFromPrefix, act.SrcAddr()...)
+		senderKey := append(actionFromPrefix, selp.SrcAddr()...)
 		senderKey = append(senderKey, byteutil.Uint64ToBytes(senderActionCount)...)
 		batch.PutIfNotExists(blockAddressActionMappingNS, senderKey, actHash[:],
-			"failed to put action hash %x for sender %s", actHash, act.SrcAddr())
+			"failed to put action hash %x for sender %s", actHash, selp.SrcAddr())
 
 		// update sender action count
-		senderActionCountKey := append(actionFromPrefix, act.SrcAddr()...)
+		senderActionCountKey := append(actionFromPrefix, selp.SrcAddr()...)
 		batch.Put(blockAddressActionCountMappingNS, senderActionCountKey,
 			byteutil.Uint64ToBytes(senderActionCount+1),
-			"failed to bump action count %x for sender %s", actHash, act.SrcAddr())
+			"failed to bump action count %x for sender %s", actHash, selp.SrcAddr())
 
 		// get action count for recipient
-		recipientActionCount, err := dao.getActionCountByRecipientAddress(act.DstAddr())
+		recipientActionCount, err := dao.getActionCountByRecipientAddress(selp.DstAddr())
 		if err != nil {
-			return errors.Wrapf(err, "for recipient %s", act.DstAddr())
+			return errors.Wrapf(err, "for recipient %s", selp.DstAddr())
 		}
-		if delta, ok := recipientDelta[act.DstAddr()]; ok {
+		if delta, ok := recipientDelta[selp.DstAddr()]; ok {
 			recipientActionCount += delta
-			recipientDelta[act.DstAddr()]++
+			recipientDelta[selp.DstAddr()]++
 		} else {
-			recipientDelta[act.DstAddr()] = 1
+			recipientDelta[selp.DstAddr()] = 1
 		}
 
 		// put new action to recipient
-		recipientKey := append(actionToPrefix, act.DstAddr()...)
+		recipientKey := append(actionToPrefix, selp.DstAddr()...)
 		recipientKey = append(recipientKey, byteutil.Uint64ToBytes(recipientActionCount)...)
 		batch.PutIfNotExists(blockAddressActionMappingNS, recipientKey, actHash[:],
-			"failed to put action hash %x for recipient %s", actHash, act.DstAddr())
+			"failed to put action hash %x for recipient %s", actHash, selp.DstAddr())
 
 		// update recipient action count
-		recipientActionCountKey := append(actionToPrefix, act.DstAddr()...)
+		recipientActionCountKey := append(actionToPrefix, selp.DstAddr()...)
 		batch.Put(blockAddressActionCountMappingNS, recipientActionCountKey,
 			byteutil.Uint64ToBytes(recipientActionCount+1), "failed to bump action count %x for recipient %s",
-			actHash, act.DstAddr())
+			actHash, selp.DstAddr())
 	}
 	return nil
 }

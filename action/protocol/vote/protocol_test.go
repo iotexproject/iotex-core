@@ -146,10 +146,12 @@ func TestProtocol_Validate(t *testing.T) {
 	protocol := NewProtocol(bc)
 
 	// Caes I: Oversized data
-	vote, err := action.NewVote(1, "src", "dst", uint64(100000), big.NewInt(0))
+	var dst string
+	for i := 0; i < 10000; i++ {
+		dst += "a"
+	}
+	vote, err := action.NewVote(1, "src", dst, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	invalidSig := [1000]byte{}
-	vote.SetSignature(invalidSig[:])
 	err = protocol.Validate(context.Background(), vote)
 	require.Equal(action.ErrActPool, errors.Cause(err))
 	// Case II: Invalid votee address

@@ -31,12 +31,14 @@ type Validator interface {
 	Validate(block *Block, tipHeight uint64, tipHash hash.Hash32B, containCoinbase bool) error
 	// AddActionValidators add validators
 	AddActionValidators(...protocol.ActionValidator)
+	AddActionEnvelopeValidators(...protocol.ActionEnvelopeValidator)
 }
 
 type validator struct {
-	sf               factory.Factory
-	validatorAddr    string
-	actionValidators []protocol.ActionValidator
+	sf                       factory.Factory
+	validatorAddr            string
+	actionEnvelopeValidators []protocol.ActionEnvelopeValidator
+	actionValidators         []protocol.ActionValidator
 }
 
 var (
@@ -77,6 +79,11 @@ func (v *validator) AddActionValidators(validators ...protocol.ActionValidator) 
 	v.actionValidators = append(v.actionValidators, validators...)
 }
 
+// AddActionEnvelopeValidators add action envelope validators
+func (v *validator) AddActionEnvelopeValidators(validators ...protocol.ActionEnvelopeValidator) {
+	v.actionEnvelopeValidators = append(v.actionEnvelopeValidators, validators...)
+}
+
 func (v *validator) verifyActions(blk *Block, containCoinbase bool) error {
 	// Verify transfers, votes, executions, witness, and secrets
 	confirmedNonceMap := make(map[string]uint64)
@@ -89,19 +96,19 @@ func (v *validator) verifyActions(blk *Block, containCoinbase bool) error {
 	var actionError error
 	var wg sync.WaitGroup
 
-	for _, act := range blk.Actions {
+	for _, selp := range blk.Actions {
 		// TODO: Maybe need more strict measurement to validate a coinbase transfer
-		if act.SrcAddr() == "" {
+		if act, ok := selp.Action().(*action.Transfer); ok && act.IsCoinbase() {
 			coinbaseCounter++
 		} else {
 			// Store the nonce of the sender and verify later
-			if _, ok := confirmedNonceMap[act.SrcAddr()]; !ok {
-				accountNonce, err := v.sf.Nonce(act.SrcAddr())
+			if _, ok := confirmedNonceMap[selp.SrcAddr()]; !ok {
+				accountNonce, err := v.sf.Nonce(selp.SrcAddr())
 				if err != nil {
 					return errors.Wrap(err, "failed to get the confirmed nonce of action sender")
 				}
-				confirmedNonceMap[act.SrcAddr()] = accountNonce
-				accountNonceMap[act.SrcAddr()] = make([]uint64, 0)
+				confirmedNonceMap[selp.SrcAddr()] = accountNonce
+				accountNonceMap[selp.SrcAddr()] = make([]uint64, 0)
 			}
 		}
 
@@ -111,6 +118,19 @@ func (v *validator) verifyActions(blk *Block, containCoinbase bool) error {
 				BlockHeight:  blk.Height(),
 				ProducerAddr: producerAddr.IotxAddress(),
 			})
+
+		for _, validator := range v.actionEnvelopeValidators {
+			wg.Add(1)
+			expectedVerifications++
+			go func(validator protocol.ActionEnvelopeValidator, selp action.SealedEnvelope, counter *uint64) {
+				defer wg.Done()
+				if err := validator.Validate(ctx, selp); err != nil {
+					actionError = err
+					return
+				}
+				atomic.AddUint64(counter, uint64(1))
+			}(validator, selp, &correctVerifications)
+		}
 
 		for _, validator := range v.actionValidators {
 			wg.Add(1)
@@ -122,7 +142,7 @@ func (v *validator) verifyActions(blk *Block, containCoinbase bool) error {
 					return
 				}
 				atomic.AddUint64(counter, uint64(1))
-			}(validator, act, &correctVerifications)
+			}(validator, selp.Action(), &correctVerifications)
 		}
 	}
 

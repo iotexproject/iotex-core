@@ -26,31 +26,34 @@ type ActPool interface {
 	// Reset resets actpool state
 	Reset()
 	// PickActs returns all currently accepted actions in actpool
-	PickActs() []action.Action
+	PickActs() []action.SealedEnvelope
 	// Add adds an action into the pool after passing validation
-	Add(act action.Action) error
+	Add(act action.SealedEnvelope) error
 	// GetPendingNonce returns pending nonce in pool given an account address
 	GetPendingNonce(addr string) (uint64, error)
 	// GetUnconfirmedActs returns unconfirmed actions in pool given an account address
-	GetUnconfirmedActs(addr string) []action.Action
+	GetUnconfirmedActs(addr string) []action.SealedEnvelope
 	// GetActionByHash returns the pending action in pool given action's hash
-	GetActionByHash(hash hash.Hash32B) (action.Action, error)
+	GetActionByHash(hash hash.Hash32B) (action.SealedEnvelope, error)
 	// GetSize returns the act pool size
 	GetSize() uint64
 	// GetCapacity returns the act pool capacity
 	GetCapacity() uint64
 	// AddActionValidators add validators
 	AddActionValidators(...protocol.ActionValidator)
+
+	AddActionEnvelopeValidators(...protocol.ActionEnvelopeValidator)
 }
 
 // actPool implements ActPool interface
 type actPool struct {
-	mutex       sync.RWMutex
-	cfg         config.ActPool
-	bc          blockchain.Blockchain
-	accountActs map[string]ActQueue
-	allActions  map[hash.Hash32B]action.Action
-	validators  []protocol.ActionValidator
+	mutex                    sync.RWMutex
+	cfg                      config.ActPool
+	bc                       blockchain.Blockchain
+	accountActs              map[string]ActQueue
+	allActions               map[hash.Hash32B]action.SealedEnvelope
+	actionEnvelopeValidators []protocol.ActionEnvelopeValidator
+	validators               []protocol.ActionValidator
 }
 
 // NewActPool constructs a new actpool
@@ -62,7 +65,7 @@ func NewActPool(bc blockchain.Blockchain, cfg config.ActPool) (ActPool, error) {
 		cfg:         cfg,
 		bc:          bc,
 		accountActs: make(map[string]ActQueue),
-		allActions:  make(map[hash.Hash32B]action.Action),
+		allActions:  make(map[hash.Hash32B]action.SealedEnvelope),
 	}
 	return ap, nil
 }
@@ -70,6 +73,10 @@ func NewActPool(bc blockchain.Blockchain, cfg config.ActPool) (ActPool, error) {
 // AddActionValidators add validators
 func (ap *actPool) AddActionValidators(validators ...protocol.ActionValidator) {
 	ap.validators = append(ap.validators, validators...)
+}
+
+func (ap *actPool) AddActionEnvelopeValidators(fs ...protocol.ActionEnvelopeValidator) {
+	ap.actionEnvelopeValidators = append(ap.actionEnvelopeValidators, fs...)
 }
 
 // Reset resets actpool state
@@ -109,12 +116,12 @@ func (ap *actPool) Reset() {
 }
 
 // PickActs returns all currently accepted transfers and votes for all accounts
-func (ap *actPool) PickActs() []action.Action {
+func (ap *actPool) PickActs() []action.SealedEnvelope {
 	ap.mutex.RLock()
 	defer ap.mutex.RUnlock()
 
 	numActs := uint64(0)
-	actions := make([]action.Action, 0)
+	actions := make([]action.SealedEnvelope, 0)
 	for _, queue := range ap.accountActs {
 		for _, act := range queue.PendingActs() {
 			actions = append(actions, act)
@@ -130,7 +137,7 @@ func (ap *actPool) PickActs() []action.Action {
 	return actions
 }
 
-func (ap *actPool) Add(act action.Action) error {
+func (ap *actPool) Add(act action.SealedEnvelope) error {
 	ap.mutex.Lock()
 	defer ap.mutex.Unlock()
 	// Reject action if pool space is full
@@ -139,12 +146,19 @@ func (ap *actPool) Add(act action.Action) error {
 	}
 	hash := act.Hash()
 	// Reject action if it already exists in pool
-	if ap.allActions[hash] != nil {
+	if _, exist := ap.allActions[hash]; exist {
 		return fmt.Errorf("reject existed action: %x", hash)
+	}
+
+	// envelope validation
+	for _, validator := range ap.actionEnvelopeValidators {
+		if err := validator.Validate(context.Background(), act); err != nil {
+			return errors.Wrapf(err, "reject invalid action: %x", hash)
+		}
 	}
 	// Reject action if it's invalid
 	for _, validator := range ap.validators {
-		if err := validator.Validate(context.Background(), act); err != nil {
+		if err := validator.Validate(context.Background(), act.Action()); err != nil {
 			return errors.Wrapf(err, "reject invalid action: %x", hash)
 		}
 	}
@@ -165,24 +179,24 @@ func (ap *actPool) GetPendingNonce(addr string) (uint64, error) {
 }
 
 // GetUnconfirmedActs returns unconfirmed actions in pool given an account address
-func (ap *actPool) GetUnconfirmedActs(addr string) []action.Action {
+func (ap *actPool) GetUnconfirmedActs(addr string) []action.SealedEnvelope {
 	ap.mutex.RLock()
 	defer ap.mutex.RUnlock()
 
 	if queue, ok := ap.accountActs[addr]; ok {
 		return queue.AllActs()
 	}
-	return make([]action.Action, 0)
+	return make([]action.SealedEnvelope, 0)
 }
 
 // GetActionByHash returns the pending action in pool given action's hash
-func (ap *actPool) GetActionByHash(hash hash.Hash32B) (action.Action, error) {
+func (ap *actPool) GetActionByHash(hash hash.Hash32B) (action.SealedEnvelope, error) {
 	ap.mutex.RLock()
 	defer ap.mutex.RUnlock()
 
 	act, ok := ap.allActions[hash]
 	if !ok {
-		return nil, errors.Wrapf(action.ErrHash, "action hash %x does not exist in pool", hash)
+		return action.SealedEnvelope{}, errors.Wrapf(action.ErrHash, "action hash %x does not exist in pool", hash)
 	}
 	return act, nil
 }
@@ -206,7 +220,7 @@ func (ap *actPool) GetCapacity() uint64 {
 //======================================
 // private functions
 //======================================
-func (ap *actPool) enqueueAction(sender string, act action.Action, hash hash.Hash32B, actNonce uint64) error {
+func (ap *actPool) enqueueAction(sender string, act action.SealedEnvelope, hash hash.Hash32B, actNonce uint64) error {
 	queue := ap.accountActs[sender]
 	if queue == nil {
 		queue = NewActQueue()
@@ -281,7 +295,7 @@ func (ap *actPool) removeConfirmedActs() {
 	}
 }
 
-func (ap *actPool) removeInvalidActs(acts []action.Action) {
+func (ap *actPool) removeInvalidActs(acts []action.SealedEnvelope) {
 	for _, act := range acts {
 		hash := act.Hash()
 		logger.Debug().

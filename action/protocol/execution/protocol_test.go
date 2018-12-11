@@ -10,6 +10,7 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/hex"
+	"fmt"
 	"math/big"
 	"strings"
 	"testing"
@@ -19,6 +20,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/CoderZhi/go-ethereum/common"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
@@ -56,7 +58,8 @@ func TestProtocol_Handle(t *testing.T) {
 		cfg.Chain.EnableGasCharge = true
 		cfg.Explorer.Enabled = true
 		bc := blockchain.NewBlockchain(cfg, blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption())
-		bc.Validator().AddActionValidators(protocol.NewGenericValidator(bc), account.NewProtocol(), NewProtocol(bc))
+		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
+		bc.Validator().AddActionValidators(account.NewProtocol(), NewProtocol(bc))
 		sf := bc.GetFactory()
 		require.NotNil(sf)
 		sf.AddActionHandlers(NewProtocol(bc))
@@ -86,8 +89,16 @@ func TestProtocol_Handle(t *testing.T) {
 		execution, err := action.NewExecution(
 			ta.Addrinfo["producer"].RawAddress, action.EmptyAddress, 1, big.NewInt(0), uint64(100000), big.NewInt(0), data)
 		require.NoError(err)
-		require.NoError(action.Sign(execution, ta.Addrinfo["producer"].PrivateKey))
-		blk, err := bc.MintNewBlock([]action.Action{execution}, ta.Addrinfo["producer"],
+
+		bd := &action.EnvelopeBuilder{}
+		elp := bd.SetAction(execution).
+			SetDestinationAddress(action.EmptyAddress).
+			SetNonce(1).
+			SetGasLimit(100000).Build()
+		selp, err := action.Sign(elp, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["producer"].PrivateKey)
+		require.NoError(err)
+
+		blk, err := bc.MintNewBlock([]action.SealedEnvelope{selp}, ta.Addrinfo["producer"],
 			nil, nil, "")
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk, true))
@@ -128,9 +139,17 @@ func TestProtocol_Handle(t *testing.T) {
 		execution, err = action.NewExecution(
 			ta.Addrinfo["producer"].RawAddress, contractAddr, 2, big.NewInt(0), uint64(120000), big.NewInt(0), data)
 		require.NoError(err)
-		require.NoError(action.Sign(execution, ta.Addrinfo["producer"].PrivateKey))
+
+		bd = &action.EnvelopeBuilder{}
+		elp = bd.SetAction(execution).
+			SetDestinationAddress(contractAddr).
+			SetNonce(2).
+			SetGasLimit(120000).Build()
+		selp, err = action.Sign(elp, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["producer"].PrivateKey)
+		require.NoError(err)
+
 		logger.Info().Msgf("execution %+v", execution)
-		blk, err = bc.MintNewBlock([]action.Action{execution}, ta.Addrinfo["producer"],
+		blk, err = bc.MintNewBlock([]action.SealedEnvelope{selp}, ta.Addrinfo["producer"],
 			nil, nil, "")
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk, true))
@@ -154,9 +173,17 @@ func TestProtocol_Handle(t *testing.T) {
 		execution, err = action.NewExecution(
 			ta.Addrinfo["producer"].RawAddress, contractAddr, 3, big.NewInt(0), uint64(120000), big.NewInt(0), data)
 		require.NoError(err)
-		require.NoError(action.Sign(execution, ta.Addrinfo["producer"].PrivateKey))
+
+		bd = &action.EnvelopeBuilder{}
+		elp = bd.SetAction(execution).
+			SetDestinationAddress(contractAddr).
+			SetNonce(3).
+			SetGasLimit(120000).Build()
+		selp, err = action.Sign(elp, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["producer"].PrivateKey)
+		require.NoError(err)
+
 		logger.Info().Msgf("execution %+v", execution)
-		blk, err = bc.MintNewBlock([]action.Action{execution}, ta.Addrinfo["producer"],
+		blk, err = bc.MintNewBlock([]action.SealedEnvelope{selp}, ta.Addrinfo["producer"],
 			nil, nil, "")
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk, true))
@@ -171,8 +198,16 @@ func TestProtocol_Handle(t *testing.T) {
 		execution1, err := action.NewExecution(
 			ta.Addrinfo["producer"].RawAddress, action.EmptyAddress, 4, big.NewInt(0), uint64(100000), big.NewInt(10), data)
 		require.NoError(err)
-		require.NoError(action.Sign(execution1, ta.Addrinfo["producer"].PrivateKey))
-		blk, err = bc.MintNewBlock([]action.Action{execution1}, ta.Addrinfo["alfa"],
+		bd = &action.EnvelopeBuilder{}
+
+		elp = bd.SetAction(execution1).
+			SetDestinationAddress(action.EmptyAddress).
+			SetNonce(4).
+			SetGasLimit(100000).SetGasPrice(big.NewInt(10)).Build()
+		selp, err = action.Sign(elp, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["producer"].PrivateKey)
+		require.NoError(err)
+
+		blk, err = bc.MintNewBlock([]action.SealedEnvelope{selp}, ta.Addrinfo["alfa"],
 			nil, nil, "")
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk, true))
@@ -198,7 +233,8 @@ func TestProtocol_Handle(t *testing.T) {
 		cfg.Chain.EnableGasCharge = true
 		cfg.Explorer.Enabled = true
 		bc := blockchain.NewBlockchain(cfg, blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption())
-		bc.Validator().AddActionValidators(protocol.NewGenericValidator(bc), account.NewProtocol(), NewProtocol(bc))
+		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
+		bc.Validator().AddActionValidators(account.NewProtocol(), NewProtocol(bc))
 		sf := bc.GetFactory()
 		require.NotNil(sf)
 		sf.AddActionHandlers(NewProtocol(bc))
@@ -231,8 +267,16 @@ func TestProtocol_Handle(t *testing.T) {
 		execution, err := action.NewExecution(
 			ta.Addrinfo["producer"].RawAddress, action.EmptyAddress, 1, big.NewInt(0), uint64(1000000), big.NewInt(0), data)
 		require.NoError(err)
-		require.NoError(action.Sign(execution, ta.Addrinfo["producer"].PrivateKey))
-		blk, err := bc.MintNewBlock([]action.Action{execution}, ta.Addrinfo["producer"],
+
+		bd := &action.EnvelopeBuilder{}
+		elp := bd.SetAction(execution).
+			SetDestinationAddress(action.EmptyAddress).
+			SetNonce(1).
+			SetGasLimit(1000000).Build()
+		selp, err := action.Sign(elp, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["producer"].PrivateKey)
+		require.NoError(err)
+
+		blk, err := bc.MintNewBlock([]action.SealedEnvelope{selp}, ta.Addrinfo["producer"],
 			nil, nil, "")
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk, true))
@@ -247,9 +291,17 @@ func TestProtocol_Handle(t *testing.T) {
 		execution, err = action.NewExecution(
 			ta.Addrinfo["producer"].RawAddress, contractAddr, 2, big.NewInt(500000000), uint64(120000), big.NewInt(0), data)
 		require.NoError(err)
-		require.NoError(action.Sign(execution, ta.Addrinfo["producer"].PrivateKey))
+
+		bd = &action.EnvelopeBuilder{}
+		elp = bd.SetAction(execution).
+			SetDestinationAddress(contractAddr).
+			SetNonce(2).
+			SetGasLimit(120000).Build()
+		selp, err = action.Sign(elp, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["producer"].PrivateKey)
+		require.NoError(err)
 		logger.Info().Msgf("execution %+v", execution)
-		blk, err = bc.MintNewBlock([]action.Action{execution}, ta.Addrinfo["producer"],
+
+		blk, err = bc.MintNewBlock([]action.SealedEnvelope{selp}, ta.Addrinfo["producer"],
 			nil, nil, "")
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk, true))
@@ -264,9 +316,17 @@ func TestProtocol_Handle(t *testing.T) {
 		execution, err = action.NewExecution(
 			ta.Addrinfo["producer"].RawAddress, contractAddr, 3, big.NewInt(0), uint64(120000), big.NewInt(0), data)
 		require.NoError(err)
-		require.NoError(action.Sign(execution, ta.Addrinfo["producer"].PrivateKey))
+
+		bd = &action.EnvelopeBuilder{}
+		elp = bd.SetAction(execution).
+			SetDestinationAddress(contractAddr).
+			SetNonce(3).
+			SetGasLimit(120000).Build()
+		selp, err = action.Sign(elp, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["producer"].PrivateKey)
+		require.NoError(err)
 		logger.Info().Msgf("execution %+v\n", execution)
-		blk, err = bc.MintNewBlock([]action.Action{execution}, ta.Addrinfo["producer"],
+
+		blk, err = bc.MintNewBlock([]action.SealedEnvelope{selp}, ta.Addrinfo["producer"],
 			nil, nil, "")
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk, true))
@@ -288,9 +348,17 @@ func TestProtocol_Handle(t *testing.T) {
 		execution, err = action.NewExecution(
 			ta.Addrinfo["bravo"].RawAddress, contractAddr, 1, big.NewInt(0), uint64(120000), big.NewInt(10), data)
 		require.NoError(err)
-		require.NoError(action.Sign(execution, ta.Addrinfo["bravo"].PrivateKey))
+
+		bd = &action.EnvelopeBuilder{}
+		elp = bd.SetAction(execution).
+			SetDestinationAddress(contractAddr).
+			SetNonce(1).
+			SetGasLimit(120000).SetGasPrice(big.NewInt(10)).Build()
+		selp, err = action.Sign(elp, ta.Addrinfo["bravo"].RawAddress, ta.Addrinfo["bravo"].PrivateKey)
+		require.NoError(err)
 		logger.Info().Msgf("execution %+v\n", execution)
-		blk, err = bc.MintNewBlock([]action.Action{execution}, ta.Addrinfo["producer"],
+
+		blk, err = bc.MintNewBlock([]action.SealedEnvelope{selp}, ta.Addrinfo["producer"],
 			nil, nil, "")
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk, true))
@@ -314,7 +382,8 @@ func TestProtocol_Handle(t *testing.T) {
 		cfg.Chain.ChainDBPath = testDBPath
 		cfg.Explorer.Enabled = true
 		bc := blockchain.NewBlockchain(cfg, blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption())
-		bc.Validator().AddActionValidators(protocol.NewGenericValidator(bc), account.NewProtocol(), NewProtocol(bc))
+		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
+		bc.Validator().AddActionValidators(account.NewProtocol(), NewProtocol(bc))
 		require.NoError(bc.Start(ctx))
 		require.NotNil(bc)
 		defer func() {
@@ -347,10 +416,20 @@ func TestProtocol_Handle(t *testing.T) {
 		execution, err := action.NewExecution(
 			ta.Addrinfo["producer"].RawAddress, action.EmptyAddress, 1, big.NewInt(0), uint64(10000000), big.NewInt(0), data)
 		require.NoError(err)
-		require.NoError(action.Sign(execution, ta.Addrinfo["producer"].PrivateKey))
-		blk, err := bc.MintNewBlock([]action.Action{execution}, ta.Addrinfo["producer"],
+
+		bd := &action.EnvelopeBuilder{}
+		elp := bd.SetAction(execution).
+			SetDestinationAddress(action.EmptyAddress).
+			SetNonce(1).
+			SetGasLimit(10000000).Build()
+		selp, err := action.Sign(elp, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["producer"].PrivateKey)
+		require.NoError(err)
+		fmt.Println("XXXXXX", selp.GasLimit(), selp.Hash())
+
+		blk, err := bc.MintNewBlock([]action.SealedEnvelope{selp}, ta.Addrinfo["producer"],
 			nil, nil, "")
 		require.NoError(err)
+		fmt.Println("MMM", bc.ValidateBlock(blk, true))
 		require.NoError(bc.ValidateBlock(blk, true))
 		require.Nil(bc.CommitBlock(blk))
 		require.Equal(1, len(blk.Receipts))
@@ -385,7 +464,15 @@ func TestProtocol_Handle(t *testing.T) {
 		execution, err = action.NewExecution(
 			ta.Addrinfo["producer"].RawAddress, contract, 2, big.NewInt(0), uint64(10000000), big.NewInt(0), data)
 		require.NoError(err)
-		require.NoError(action.Sign(execution, ta.Addrinfo["producer"].PrivateKey))
+
+		bd = &action.EnvelopeBuilder{}
+		elp = bd.SetAction(execution).
+			SetDestinationAddress(contract).
+			SetNonce(2).
+			SetGasLimit(10000000).Build()
+		selp, err = action.Sign(elp, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["producer"].PrivateKey)
+		require.NoError(err)
+
 		// send 20000 token to bravo
 		data, _ = hex.DecodeString("a9059cbb")
 		bravo := hash.ZeroHash32B
@@ -400,8 +487,16 @@ func TestProtocol_Handle(t *testing.T) {
 		ex2, err := action.NewExecution(
 			ta.Addrinfo["producer"].RawAddress, contract, 3, big.NewInt(0), uint64(10000000), big.NewInt(0), data)
 		require.NoError(err)
-		require.NoError(action.Sign(ex2, ta.Addrinfo["producer"].PrivateKey))
-		blk, err = bc.MintNewBlock([]action.Action{execution, ex2}, ta.Addrinfo["producer"], nil, nil, "")
+
+		bd = &action.EnvelopeBuilder{}
+		elp2 := bd.SetAction(ex2).
+			SetDestinationAddress(contract).
+			SetNonce(3).
+			SetGasLimit(10000000).Build()
+		selp2, err := action.Sign(elp2, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["producer"].PrivateKey)
+		require.NoError(err)
+
+		blk, err = bc.MintNewBlock([]action.SealedEnvelope{selp, selp2}, ta.Addrinfo["producer"], nil, nil, "")
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk, true))
 		require.Nil(bc.CommitBlock(blk))
@@ -418,8 +513,16 @@ func TestProtocol_Handle(t *testing.T) {
 		ex3, err := action.NewExecution(
 			ta.Addrinfo["alfa"].RawAddress, contract, 1, big.NewInt(0), uint64(10000000), big.NewInt(0), data)
 		require.NoError(err)
-		require.NoError(action.Sign(ex3, ta.Addrinfo["alfa"].PrivateKey))
-		blk, err = bc.MintNewBlock([]action.Action{ex3}, ta.Addrinfo["alfa"],
+
+		bd = &action.EnvelopeBuilder{}
+		elp = bd.SetAction(ex3).
+			SetDestinationAddress(contract).
+			SetNonce(1).
+			SetGasLimit(10000000).Build()
+		selp3, err := action.Sign(elp, ta.Addrinfo["alfa"].RawAddress, ta.Addrinfo["alfa"].PrivateKey)
+		require.NoError(err)
+
+		blk, err = bc.MintNewBlock([]action.SealedEnvelope{selp3}, ta.Addrinfo["alfa"],
 			nil, nil, "")
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk, true))
@@ -432,8 +535,15 @@ func TestProtocol_Handle(t *testing.T) {
 		execution, err = action.NewExecution(
 			ta.Addrinfo["producer"].RawAddress, contract, 4, big.NewInt(0), uint64(10000000), big.NewInt(0), data)
 		require.NoError(err)
-		require.NoError(action.Sign(execution, ta.Addrinfo["producer"].PrivateKey))
-		blk, err = bc.MintNewBlock([]action.Action{execution}, ta.Addrinfo["producer"],
+		bd = &action.EnvelopeBuilder{}
+		elp = bd.SetAction(execution).
+			SetDestinationAddress(contract).
+			SetNonce(4).
+			SetGasLimit(10000000).Build()
+		selp, err = action.Sign(elp, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["producer"].PrivateKey)
+		require.NoError(err)
+
+		blk, err = bc.MintNewBlock([]action.SealedEnvelope{selp}, ta.Addrinfo["producer"],
 			nil, nil, "")
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk, true))

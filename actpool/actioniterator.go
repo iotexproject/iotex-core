@@ -15,7 +15,7 @@ import (
 // ActionByPrice implements both the sort and the heap interface, making it useful
 // for all at once sorting as well as individually adding and removing elements.
 // It's essentially a big root heap of actions
-type ActionByPrice []action.Action
+type ActionByPrice []action.SealedEnvelope
 
 func (s ActionByPrice) Len() int           { return len(s) }
 func (s ActionByPrice) Less(i, j int) bool { return s[i].GasPrice().Cmp(s[j].GasPrice()) > 0 }
@@ -23,7 +23,7 @@ func (s ActionByPrice) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 
 // Push define the push function of heap
 func (s *ActionByPrice) Push(x interface{}) {
-	*s = append(*s, x.(action.Action))
+	*s = append(*s, x.(action.SealedEnvelope))
 }
 
 // Pop define the pop function of heap
@@ -37,18 +37,18 @@ func (s *ActionByPrice) Pop() interface{} {
 
 // ActionIterator define the interface of action iterator
 type ActionIterator interface {
-	TopAction() action.Action
+	TopAction() action.SealedEnvelope
 	PopAction()
 	LoadNextAction()
 }
 
 type actionIterator struct {
-	accountActs map[string][]action.Action
+	accountActs map[string][]action.SealedEnvelope
 	heads       ActionByPrice
 }
 
 // NewActionIterator return a new action iterator
-func NewActionIterator(accountActs map[string][]action.Action) ActionIterator {
+func NewActionIterator(accountActs map[string][]action.SealedEnvelope) ActionIterator {
 	heads := make(ActionByPrice, 0, len(accountActs))
 	for sender, accActs := range accountActs {
 		heads = append(heads, accActs[0])
@@ -64,9 +64,9 @@ func NewActionIterator(accountActs map[string][]action.Action) ActionIterator {
 }
 
 // TopAction return the top action(largest price) within the heap
-func (ai *actionIterator) TopAction() action.Action {
+func (ai *actionIterator) TopAction() action.SealedEnvelope {
 	if len(ai.heads) == 0 {
-		return nil
+		return action.SealedEnvelope{}
 	}
 	return ai.heads[0]
 }

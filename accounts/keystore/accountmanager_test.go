@@ -87,7 +87,14 @@ func TestAccountManager_SignTransfer(t *testing.T) {
 
 	tsf, err := action.NewTransfer(uint64(1), big.NewInt(1), rawAddr1, rawAddr2, []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(err)
-	require.Equal(ErrNotExist, errors.Cause(m.SignTransfer(rawAddr1, tsf)))
+	bd := action.EnvelopeBuilder{}
+	elp := bd.SetNonce(1).
+		SetAction(tsf).
+		SetGasLimit(100000).
+		SetDestinationAddress(rawAddr2).
+		SetGasPrice(big.NewInt(10)).Build()
+	_, err = m.SignAction(rawAddr1, elp)
+	require.Equal(ErrNotExist, errors.Cause(err))
 
 	key := &Key{PublicKey: pubKey1, PrivateKey: priKey1, RawAddress: rawAddr1}
 	keyBytes, err := json.Marshal(key)
@@ -95,8 +102,8 @@ func TestAccountManager_SignTransfer(t *testing.T) {
 
 	err = m.Import(keyBytes)
 	require.NoError(err)
-
-	require.NoError(m.SignTransfer(rawAddr1, tsf))
+	_, err = m.SignAction(rawAddr1, elp)
+	require.NoError(err)
 }
 
 func TestAccountManager_SignVote(t *testing.T) {
@@ -114,7 +121,16 @@ func TestAccountManager_SignVote(t *testing.T) {
 	vote, err := action.NewVote(
 		uint64(1), voterAddress.IotxAddress(), voteeAddress.IotxAddress(), uint64(100000), big.NewInt(10))
 	require.NoError(err)
-	require.Equal(ErrNotExist, errors.Cause(m.SignVote(rawAddr1, vote)))
+
+	bd := action.EnvelopeBuilder{}
+	elp := bd.SetNonce(1).
+		SetAction(vote).
+		SetGasLimit(100000).
+		SetDestinationAddress(voteeAddress.IotxAddress()).
+		SetGasPrice(big.NewInt(10)).Build()
+
+	_, err = m.SignAction(rawAddr1, elp)
+	require.Equal(ErrNotExist, errors.Cause(err))
 
 	key := &Key{PublicKey: pubKey1, PrivateKey: priKey1, RawAddress: rawAddr1}
 	keyBytes, err := json.Marshal(key)
@@ -123,8 +139,9 @@ func TestAccountManager_SignVote(t *testing.T) {
 	err = m.Import(keyBytes)
 	require.NoError(err)
 
-	require.NoError(m.SignVote(rawAddr1, vote))
-	require.NotNil(vote.Signature)
+	selp, err := m.SignAction(rawAddr1, elp)
+	require.NoError(err)
+	require.NotNil(selp.Signature())
 }
 
 func TestAccountManager_SignHash(t *testing.T) {

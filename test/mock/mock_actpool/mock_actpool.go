@@ -46,9 +46,9 @@ func (mr *MockActPoolMockRecorder) Reset() *gomock.Call {
 }
 
 // PickActs mocks base method
-func (m *MockActPool) PickActs() []action.Action {
+func (m *MockActPool) PickActs() []action.SealedEnvelope {
 	ret := m.ctrl.Call(m, "PickActs")
-	ret0, _ := ret[0].([]action.Action)
+	ret0, _ := ret[0].([]action.SealedEnvelope)
 	return ret0
 }
 
@@ -58,7 +58,7 @@ func (mr *MockActPoolMockRecorder) PickActs() *gomock.Call {
 }
 
 // Add mocks base method
-func (m *MockActPool) Add(act action.Action) error {
+func (m *MockActPool) Add(act action.SealedEnvelope) error {
 	ret := m.ctrl.Call(m, "Add", act)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -83,9 +83,9 @@ func (mr *MockActPoolMockRecorder) GetPendingNonce(addr interface{}) *gomock.Cal
 }
 
 // GetUnconfirmedActs mocks base method
-func (m *MockActPool) GetUnconfirmedActs(addr string) []action.Action {
+func (m *MockActPool) GetUnconfirmedActs(addr string) []action.SealedEnvelope {
 	ret := m.ctrl.Call(m, "GetUnconfirmedActs", addr)
-	ret0, _ := ret[0].([]action.Action)
+	ret0, _ := ret[0].([]action.SealedEnvelope)
 	return ret0
 }
 
@@ -95,9 +95,9 @@ func (mr *MockActPoolMockRecorder) GetUnconfirmedActs(addr interface{}) *gomock.
 }
 
 // GetActionByHash mocks base method
-func (m *MockActPool) GetActionByHash(hash hash.Hash32B) (action.Action, error) {
+func (m *MockActPool) GetActionByHash(hash hash.Hash32B) (action.SealedEnvelope, error) {
 	ret := m.ctrl.Call(m, "GetActionByHash", hash)
-	ret0, _ := ret[0].(action.Action)
+	ret0, _ := ret[0].(action.SealedEnvelope)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -143,4 +143,18 @@ func (m *MockActPool) AddActionValidators(arg0 ...protocol.ActionValidator) {
 // AddActionValidators indicates an expected call of AddActionValidators
 func (mr *MockActPoolMockRecorder) AddActionValidators(arg0 ...interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddActionValidators", reflect.TypeOf((*MockActPool)(nil).AddActionValidators), arg0...)
+}
+
+// AddActionEnvelopeValidators mocks base method
+func (m *MockActPool) AddActionEnvelopeValidators(arg0 ...protocol.ActionEnvelopeValidator) {
+	varargs := []interface{}{}
+	for _, a := range arg0 {
+		varargs = append(varargs, a)
+	}
+	m.ctrl.Call(m, "AddActionEnvelopeValidators", varargs...)
+}
+
+// AddActionEnvelopeValidators indicates an expected call of AddActionEnvelopeValidators
+func (mr *MockActPoolMockRecorder) AddActionEnvelopeValidators(arg0 ...interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddActionEnvelopeValidators", reflect.TypeOf((*MockActPool)(nil).AddActionEnvelopeValidators), arg0...)
 }

@@ -97,10 +97,3 @@ func StoreAccount(sm protocol.StateManager, addr string, acct *state.Account) er
 	}
 	return sm.PutState(addrHash, acct)
 }
-
-// SetNonce sets nonce for account
-func SetNonce(act action.Action, state *state.Account) {
-	if act.Nonce() > state.Nonce {
-		state.Nonce = act.Nonce()
-	}
-}

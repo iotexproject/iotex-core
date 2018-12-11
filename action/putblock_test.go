@@ -45,7 +45,22 @@ func TestPutBlock(t *testing.T) {
 	)
 	require.NotNil(t, pb)
 	assertPB(pb)
+}
 
+func TestPutBlockProto(t *testing.T) {
+	addr2 := testaddress.Addrinfo["echo"]
+	roots := make(map[string]hash.Hash32B)
+	roots["10002"] = byteutil.BytesTo32B([]byte("10002"))
+	pb := &PutBlock{
+		subChainAddress: addr2.RawAddress,
+		height:          10001,
+		roots:           roots,
+	}
+	assertPB := func(pb *PutBlock) {
+		assert.Equal(t, addr2.RawAddress, pb.SubChainAddress())
+		assert.Equal(t, uint64(10001), pb.Height())
+		assert.Equal(t, byteutil.BytesTo32B([]byte("10002")), pb.Roots()["10002"])
+	}
 	putBlockPb := pb.Proto()
 	require.NotNil(t, putBlockPb)
 	npb := &PutBlock{}

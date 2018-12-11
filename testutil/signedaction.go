@@ -9,42 +9,65 @@ package testutil
 import (
 	"math/big"
 
+	"github.com/pkg/errors"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 )
 
 // SignedTransfer return a signed transfer
-func SignedTransfer(sender *iotxaddress.Address, recipient *iotxaddress.Address, nonce uint64, amount *big.Int, payload []byte, gasLimit uint64, gasPrice *big.Int) (*action.Transfer, error) {
+func SignedTransfer(sender *iotxaddress.Address, recipient *iotxaddress.Address, nonce uint64, amount *big.Int, payload []byte, gasLimit uint64, gasPrice *big.Int) (action.SealedEnvelope, error) {
 	transfer, err := action.NewTransfer(nonce, amount, sender.RawAddress, recipient.RawAddress, payload, gasLimit, gasPrice)
 	if err != nil {
-		return nil, err
+		return action.SealedEnvelope{}, err
 	}
-	if err := action.Sign(transfer, sender.PrivateKey); err != nil {
-		return nil, err
+	bd := &action.EnvelopeBuilder{}
+	elp := bd.SetNonce(nonce).
+		SetGasPrice(gasPrice).
+		SetDestinationAddress(recipient.RawAddress).
+		SetGasLimit(gasLimit).
+		SetAction(transfer).Build()
+	selp, err := action.Sign(elp, sender.RawAddress, sender.PrivateKey)
+	if err != nil {
+		return action.SealedEnvelope{}, errors.Wrapf(err, "failed to sign transfer %v", elp)
 	}
-	return transfer, nil
+	return selp, nil
 }
 
 // SignedVote return a signed vote
-func SignedVote(voter *iotxaddress.Address, votee *iotxaddress.Address, nonce uint64, gasLimit uint64, gasPrice *big.Int) (*action.Vote, error) {
+func SignedVote(voter *iotxaddress.Address, votee *iotxaddress.Address, nonce uint64, gasLimit uint64, gasPrice *big.Int) (action.SealedEnvelope, error) {
 	vote, err := action.NewVote(nonce, voter.RawAddress, votee.RawAddress, gasLimit, gasPrice)
 	if err != nil {
-		return nil, err
+		return action.SealedEnvelope{}, err
 	}
-	if err := action.Sign(vote, voter.PrivateKey); err != nil {
-		return nil, err
+	bd := &action.EnvelopeBuilder{}
+	elp := bd.SetNonce(nonce).
+		SetGasPrice(gasPrice).
+		SetDestinationAddress(votee.RawAddress).
+		SetGasLimit(gasLimit).
+		SetAction(vote).Build()
+	selp, err := action.Sign(elp, voter.RawAddress, voter.PrivateKey)
+	if err != nil {
+		return action.SealedEnvelope{}, errors.Wrapf(err, "failed to sign vote %v", elp)
 	}
-	return vote, nil
+	return selp, nil
 }
 
 // SignedExecution return a signed execution
-func SignedExecution(executor *iotxaddress.Address, contractAddr string, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) (*action.Execution, error) {
+func SignedExecution(executor *iotxaddress.Address, contractAddr string, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) (action.SealedEnvelope, error) {
 	execution, err := action.NewExecution(executor.RawAddress, contractAddr, nonce, amount, gasLimit, gasPrice, data)
 	if err != nil {
-		return nil, err
+		return action.SealedEnvelope{}, err
 	}
-	if err := action.Sign(execution, executor.PrivateKey); err != nil {
-		return nil, err
+	bd := &action.EnvelopeBuilder{}
+	elp := bd.SetNonce(nonce).
+		SetGasPrice(gasPrice).
+		SetDestinationAddress(contractAddr).
+		SetGasLimit(gasLimit).
+		SetAction(execution).Build()
+	selp, err := action.Sign(elp, executor.RawAddress, executor.PrivateKey)
+	if err != nil {
+		return action.SealedEnvelope{}, errors.Wrapf(err, "failed to sign execution %v", elp)
 	}
-	return execution, nil
+	return selp, nil
 }

@@ -93,16 +93,12 @@ func TestLocalActPool(t *testing.T) {
 	// Existed Vote
 	vote5, err := testutil.SignedVote(from, from, uint64(2), uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	// Unsigned Vote
-	vote6, err := action.NewVote(uint64(7), from.RawAddress, from.RawAddress, uint64(100000), big.NewInt(10))
-	require.NoError(err)
 
 	require.NoError(cli.Broadcast(chainID, tsf1.Proto()))
 	require.NoError(cli.Broadcast(chainID, vote2.Proto()))
 	require.NoError(cli.Broadcast(chainID, tsf3.Proto()))
 	require.NoError(cli.Broadcast(chainID, exec4.Proto()))
 	require.NoError(cli.Broadcast(chainID, vote5.Proto()))
-	require.NoError(cli.Broadcast(chainID, vote6.Proto()))
 
 	// Wait until server receives all the transfers
 	require.NoError(testutil.WaitUntil(100*time.Millisecond, 5*time.Second, func() (bool, error) {

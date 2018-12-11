@@ -11,8 +11,9 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/pkg/errors"
+
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -112,7 +113,7 @@ func (p *Protocol) mutateDeposit(deposit *action.SettleDeposit, sm protocol.Stat
 	if err != nil {
 		return err
 	}
-	account.SetNonce(deposit, owner)
+	protocol.SetNonce(deposit, owner)
 	if err := account.StoreAccount(sm, deposit.Sender(), owner); err != nil {
 		return err
 	}

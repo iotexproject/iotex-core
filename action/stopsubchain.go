@@ -11,10 +11,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
-	"golang.org/x/crypto/blake2b"
 
-	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/proto"
@@ -70,83 +67,30 @@ func (ssc *StopSubChain) TotalSize() uint32 {
 
 // ByteStream returns a raw byte stream of this instance
 func (ssc *StopSubChain) ByteStream() []byte {
-	stream := ssc.BasicActionByteStream()
-
-	return append(stream, byteutil.Uint64ToBytes(ssc.stopHeight)...)
+	return byteutil.Must(proto.Marshal(ssc.Proto()))
 }
 
 // Proto converts StopSubChain to protobuf's ActionPb
-func (ssc *StopSubChain) Proto() *iproto.ActionPb {
-	pbSSC := &iproto.ActionPb{
-		Action: &iproto.ActionPb_StopSubChain{
-			StopSubChain: &iproto.StopSubChainPb{
-				StopHeight:      ssc.stopHeight,
-				SubChainAddress: ssc.dstAddr,
-			},
-		},
-		Version:      ssc.version,
-		Sender:       ssc.srcAddr,
-		SenderPubKey: ssc.srcPubkey[:],
-		Nonce:        ssc.nonce,
-		GasLimit:     ssc.gasLimit,
-		Signature:    ssc.signature,
+func (ssc *StopSubChain) Proto() *iproto.StopSubChainPb {
+	return &iproto.StopSubChainPb{
+		StopHeight:      ssc.stopHeight,
+		SubChainAddress: ssc.dstAddr,
 	}
-	if ssc.gasPrice != nil {
-		pbSSC.GasPrice = ssc.gasPrice.Bytes()
-	}
-	return pbSSC
-}
-
-// Serialize returns a serialized byte stream for the StopSubChain
-func (ssc *StopSubChain) Serialize() ([]byte, error) {
-	return proto.Marshal(ssc.Proto())
 }
 
 // LoadProto converts a protobuf's ActionPb to StopSubChain
-func (ssc *StopSubChain) LoadProto(pbAct *iproto.ActionPb) error {
-	if pbAct == nil {
-		return errors.New("empty action proto to load")
-	}
-	srcPub, err := keypair.BytesToPublicKey(pbAct.SenderPubKey)
-	if err != nil {
-		return err
-	}
+func (ssc *StopSubChain) LoadProto(pbSSC *iproto.StopSubChainPb) error {
 	if ssc == nil {
 		return errors.New("nil action to load proto")
 	}
 	*ssc = StopSubChain{}
-	pbSSC := pbAct.GetStopSubChain()
+
 	if pbSSC == nil {
-		return errors.New("empty StopSubChain action proto to load")
+		return errors.New("empty action proto to load")
 	}
 
-	ab := &Builder{}
-	act := ab.SetVersion(pbAct.Version).
-		SetNonce(pbAct.Nonce).
-		SetSourceAddress(pbAct.Sender).
-		SetSourcePublicKey(srcPub).
-		SetGasLimit(pbAct.GasLimit).
-		SetGasPriceByBytes(pbAct.GasPrice).
-		SetDestinationAddress(pbSSC.SubChainAddress).
-		Build()
-	act.SetSignature(pbAct.Signature)
-	ssc.AbstractAction = act
 	ssc.stopHeight = pbSSC.StopHeight
 	return nil
-}
-
-// Deserialize parse the byte stream into StopSubChain
-func (ssc *StopSubChain) Deserialize(buf []byte) error {
-	pbSSC := &iproto.ActionPb{}
-	if err := proto.Unmarshal(buf, pbSSC); err != nil {
-		return err
-	}
-	return ssc.LoadProto(pbSSC)
-}
-
-// Hash returns the hash of the StopSubChain
-func (ssc *StopSubChain) Hash() hash.Hash32B {
-	return blake2b.Sum256(ssc.ByteStream())
 }
 
 // IntrinsicGas returns the intrinsic gas of a StopSubChain

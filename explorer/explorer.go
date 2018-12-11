@@ -121,7 +121,6 @@ func (exp *Service) GetLastTransfersByRange(startBlockHeight int64, offset int64
 	var res []explorer.Transfer
 	transferCount := int64(0)
 
-ChainLoop:
 	for height := startBlockHeight; height >= 0; height-- {
 		var blkID string
 		hash, err := exp.bc.GetHashByHeight(uint64(height))
@@ -135,10 +134,17 @@ ChainLoop:
 			return []explorer.Transfer{}, err
 		}
 
-		transfers, _, _ := action.ClassifyActions(blk.Actions)
+		selps := make([]action.SealedEnvelope, 0)
+		for _, selp := range blk.Actions {
+			act := selp.Action()
+			if _, ok := act.(*action.Transfer); ok {
+				selps = append(selps, selp)
+			}
+		}
 
-		for i := len(transfers) - 1; i >= 0; i-- {
-			if showCoinBase || !transfers[i].IsCoinbase() {
+		for i := len(selps) - 1; i >= 0; i-- {
+			act := selps[i].Action().(*action.Transfer)
+			if showCoinBase || !act.IsCoinbase() {
 				transferCount++
 			}
 
@@ -147,15 +153,15 @@ ChainLoop:
 			}
 
 			// if showCoinBase is true, add coinbase transfers, else only put non-coinbase transfers
-			if showCoinBase || !transfers[i].IsCoinbase() {
+			if showCoinBase || !act.IsCoinbase() {
 				if int64(len(res)) >= limit {
-					break ChainLoop
+					return res, nil
 				}
 
-				explorerTransfer, err := convertTsfToExplorerTsf(transfers[i], false)
+				explorerTransfer, err := convertTsfToExplorerTsf(selps[i], false)
 				if err != nil {
 					return []explorer.Transfer{}, errors.Wrapf(err,
-						"failed to convert transfer %v to explorer's JSON transfer", transfers[i])
+						"failed to convert transfer %v to explorer's JSON transfer", selps[i])
 				}
 				explorerTransfer.Timestamp = int64(blk.ConvertToBlockHeaderPb().Timestamp)
 				explorerTransfer.BlockID = blkID
@@ -231,9 +237,10 @@ func (exp *Service) GetUnconfirmedTransfersByAddress(address string, offset int6
 		return []explorer.Transfer{}, err
 	}
 
-	acts := exp.ap.GetUnconfirmedActs(address)
+	selps := exp.ap.GetUnconfirmedActs(address)
 	tsfIndex := int64(0)
-	for _, act := range acts {
+	for _, selp := range selps {
+		act := selp.Action()
 		transfer, ok := act.(*action.Transfer)
 		if !ok {
 			continue
@@ -248,7 +255,7 @@ func (exp *Service) GetUnconfirmedTransfersByAddress(address string, offset int6
 			break
 		}
 
-		explorerTransfer, err := convertTsfToExplorerTsf(transfer, true)
+		explorerTransfer, err := convertTsfToExplorerTsf(selp, true)
 		if err != nil {
 			return []explorer.Transfer{}, errors.Wrapf(err, "failed to convert transfer %v to explorer's JSON transfer", transfer)
 		}
@@ -274,24 +281,25 @@ func (exp *Service) GetTransfersByBlockID(blkID string, offset int64, limit int6
 		return []explorer.Transfer{}, err
 	}
 
-	transfers, _, _ := action.ClassifyActions(blk.Actions)
-
-	for i, transfer := range transfers {
-		if int64(i) < offset {
+	var num int
+	for _, selp := range blk.Actions {
+		if _, ok := selp.Action().(*action.Transfer); !ok {
 			continue
 		}
-
+		if int64(num) < offset {
+			continue
+		}
 		if int64(len(res)) >= limit {
 			break
 		}
-
-		explorerTransfer, err := convertTsfToExplorerTsf(transfer, false)
+		explorerTransfer, err := convertTsfToExplorerTsf(selp, false)
 		if err != nil {
-			return []explorer.Transfer{}, errors.Wrapf(err, "failed to convert transfer %v to explorer's JSON transfer", transfer)
+			return []explorer.Transfer{}, errors.Wrapf(err, "failed to convert transfer %v to explorer's JSON transfer", selp)
 		}
 		explorerTransfer.Timestamp = int64(blk.ConvertToBlockHeaderPb().Timestamp)
 		explorerTransfer.BlockID = blkID
 		res = append(res, explorerTransfer)
+		num++
 	}
 	return res, nil
 }
@@ -302,7 +310,6 @@ func (exp *Service) GetLastVotesByRange(startBlockHeight int64, offset int64, li
 	var res []explorer.Vote
 	voteCount := uint64(0)
 
-ChainLoop:
 	for height := startBlockHeight; height >= 0; height-- {
 		hash, err := exp.bc.GetHashByHeight(uint64(height))
 		if err != nil {
@@ -315,9 +322,15 @@ ChainLoop:
 			return []explorer.Vote{}, err
 		}
 
-		_, votes, _ := action.ClassifyActions(blk.Actions)
+		selps := make([]action.SealedEnvelope, 0)
+		for _, selp := range blk.Actions {
+			act := selp.Action()
+			if _, ok := act.(*action.Vote); ok {
+				selps = append(selps, selp)
+			}
+		}
 
-		for i := int64(len(votes) - 1); i >= 0; i-- {
+		for i := int64(len(selps) - 1); i >= 0; i-- {
 			voteCount++
 
 			if voteCount <= uint64(offset) {
@@ -325,12 +338,12 @@ ChainLoop:
 			}
 
 			if int64(len(res)) >= limit {
-				break ChainLoop
+				return res, nil
 			}
 
-			explorerVote, err := convertVoteToExplorerVote(votes[i], false)
+			explorerVote, err := convertVoteToExplorerVote(selps[i], false)
 			if err != nil {
-				return []explorer.Vote{}, errors.Wrapf(err, "failed to convert vote %v to explorer's JSON vote", votes[i])
+				return []explorer.Vote{}, errors.Wrapf(err, "failed to convert vote %v to explorer's JSON vote", selps[i])
 			}
 			explorerVote.Timestamp = int64(blk.ConvertToBlockHeaderPb().Timestamp)
 			explorerVote.BlockID = blkID
@@ -405,9 +418,10 @@ func (exp *Service) GetUnconfirmedVotesByAddress(address string, offset int64, l
 		return []explorer.Vote{}, err
 	}
 
-	acts := exp.ap.GetUnconfirmedActs(address)
+	selps := exp.ap.GetUnconfirmedActs(address)
 	voteIndex := int64(0)
-	for _, act := range acts {
+	for _, selp := range selps {
+		act := selp.Action()
 		vote, ok := act.(*action.Vote)
 		if !ok {
 			continue
@@ -422,7 +436,7 @@ func (exp *Service) GetUnconfirmedVotesByAddress(address string, offset int64, l
 			break
 		}
 
-		explorerVote, err := convertVoteToExplorerVote(vote, true)
+		explorerVote, err := convertVoteToExplorerVote(selp, true)
 		if err != nil {
 			return []explorer.Vote{}, errors.Wrapf(err, "failed to convert vote %v to explorer's JSON vote", vote)
 		}
@@ -447,10 +461,12 @@ func (exp *Service) GetVotesByBlockID(blkID string, offset int64, limit int64) (
 		return []explorer.Vote{}, err
 	}
 
-	_, votes, _ := action.ClassifyActions(blk.Actions)
-
-	for i, vote := range votes {
-		if int64(i) < offset {
+	var num int
+	for _, selp := range blk.Actions {
+		if _, ok := selp.Action().(*action.Vote); !ok {
+			continue
+		}
+		if int64(num) < offset {
 			continue
 		}
 
@@ -458,13 +474,14 @@ func (exp *Service) GetVotesByBlockID(blkID string, offset int64, limit int64) (
 			break
 		}
 
-		explorerVote, err := convertVoteToExplorerVote(vote, false)
+		explorerVote, err := convertVoteToExplorerVote(selp, false)
 		if err != nil {
-			return []explorer.Vote{}, errors.Wrapf(err, "failed to convert vote %v to explorer's JSON vote", vote)
+			return []explorer.Vote{}, errors.Wrapf(err, "failed to convert vote %v to explorer's JSON vote", selp)
 		}
 		explorerVote.Timestamp = int64(blk.ConvertToBlockHeaderPb().Timestamp)
 		explorerVote.BlockID = blkID
 		res = append(res, explorerVote)
+		num++
 	}
 	return res, nil
 }
@@ -475,7 +492,6 @@ func (exp *Service) GetLastExecutionsByRange(startBlockHeight int64, offset int6
 	var res []explorer.Execution
 	executionCount := uint64(0)
 
-ChainLoop:
 	for height := startBlockHeight; height >= 0; height-- {
 		hash, err := exp.bc.GetHashByHeight(uint64(height))
 		if err != nil {
@@ -488,9 +504,15 @@ ChainLoop:
 			return []explorer.Execution{}, err
 		}
 
-		_, _, executions := action.ClassifyActions(blk.Actions)
+		selps := make([]action.SealedEnvelope, 0)
+		for _, selp := range blk.Actions {
+			act := selp.Action()
+			if _, ok := act.(*action.Execution); ok {
+				selps = append(selps, selp)
+			}
+		}
 
-		for i := int64(len(executions) - 1); i >= 0; i-- {
+		for i := len(selps) - 1; i >= 0; i-- {
 			executionCount++
 
 			if executionCount <= uint64(offset) {
@@ -498,13 +520,13 @@ ChainLoop:
 			}
 
 			if int64(len(res)) >= limit {
-				break ChainLoop
+				return res, nil
 			}
 
-			explorerExecution, err := convertExecutionToExplorerExecution(executions[i], false)
+			explorerExecution, err := convertExecutionToExplorerExecution(selps[i], false)
 			if err != nil {
 				return []explorer.Execution{}, errors.Wrapf(err,
-					"failed to convert execution %v to explorer's JSON execution", executions[i])
+					"failed to convert execution %v to explorer's JSON execution", selps[i])
 			}
 			explorerExecution.Timestamp = int64(blk.ConvertToBlockHeaderPb().Timestamp)
 			explorerExecution.BlockID = blkID
@@ -579,11 +601,10 @@ func (exp *Service) GetUnconfirmedExecutionsByAddress(address string, offset int
 		return []explorer.Execution{}, err
 	}
 
-	acts := exp.ap.GetUnconfirmedActs(address)
+	selps := exp.ap.GetUnconfirmedActs(address)
 	executionIndex := int64(0)
-	for _, act := range acts {
-		execution, ok := act.(*action.Execution)
-		if !ok {
+	for _, selp := range selps {
+		if _, ok := selp.Action().(*action.Execution); !ok {
 			continue
 		}
 
@@ -596,9 +617,9 @@ func (exp *Service) GetUnconfirmedExecutionsByAddress(address string, offset int
 			break
 		}
 
-		explorerExecution, err := convertExecutionToExplorerExecution(execution, true)
+		explorerExecution, err := convertExecutionToExplorerExecution(selp, true)
 		if err != nil {
-			return []explorer.Execution{}, errors.Wrapf(err, "failed to convert execution %v to explorer's JSON execution", execution)
+			return []explorer.Execution{}, errors.Wrapf(err, "failed to convert execution %v to explorer's JSON execution", selp)
 		}
 		res = append(res, explorerExecution)
 	}
@@ -622,10 +643,12 @@ func (exp *Service) GetExecutionsByBlockID(blkID string, offset int64, limit int
 		return []explorer.Execution{}, err
 	}
 
-	_, _, executions := action.ClassifyActions(blk.Actions)
-
-	for i, execution := range executions {
-		if int64(i) < offset {
+	var num int
+	for _, selp := range blk.Actions {
+		if _, ok := selp.Action().(*action.Execution); !ok {
+			continue
+		}
+		if int64(num) < offset {
 			continue
 		}
 
@@ -633,13 +656,14 @@ func (exp *Service) GetExecutionsByBlockID(blkID string, offset int64, limit int
 			break
 		}
 
-		explorerExecution, err := convertExecutionToExplorerExecution(execution, false)
+		explorerExecution, err := convertExecutionToExplorerExecution(selp, false)
 		if err != nil {
-			return []explorer.Execution{}, errors.Wrapf(err, "failed to convert execution %v to explorer's JSON execution", execution)
+			return []explorer.Execution{}, errors.Wrapf(err, "failed to convert execution %v to explorer's JSON execution", selp)
 		}
 		explorerExecution.Timestamp = int64(blk.ConvertToBlockHeaderPb().Timestamp)
 		explorerExecution.BlockID = blkID
 		res = append(res, explorerExecution)
+		num++
 	}
 	return res, nil
 }
@@ -1010,7 +1034,7 @@ func (exp *Service) SendTransfer(tsfJSON explorer.SendTransferRequest) (resp exp
 	// send to actpool via dispatcher
 	exp.dp.HandleBroadcast(exp.bc.ChainID(), actPb, nil)
 
-	tsf := &action.Transfer{}
+	tsf := &action.SealedEnvelope{}
 	if err := tsf.LoadProto(actPb); err != nil {
 		return explorer.SendTransferResponse{}, err
 	}
@@ -1063,7 +1087,7 @@ func (exp *Service) SendVote(voteJSON explorer.SendVoteRequest) (resp explorer.S
 	// send to actpool via dispatcher
 	exp.dp.HandleBroadcast(exp.bc.ChainID(), actPb, nil)
 
-	v := &action.Vote{}
+	v := &action.SealedEnvelope{}
 	if err := v.LoadProto(actPb); err != nil {
 		return explorer.SendVoteResponse{}, err
 	}
@@ -1096,13 +1120,16 @@ func (exp *Service) PutSubChainBlock(putBlockJSON explorer.PutSubChainBlockReque
 		return explorer.PutSubChainBlockResponse{}, errors.New("failed to set vote gas price")
 	}
 
-	roots := make(map[string][]byte)
+	roots := make([]*pb.MerkleRoot, 0)
 	for _, mr := range putBlockJSON.Roots {
 		v, err := hex.DecodeString(mr.Value)
 		if err != nil {
 			return explorer.PutSubChainBlockResponse{}, err
 		}
-		roots[mr.Name] = v
+		roots = append(roots, &pb.MerkleRoot{
+			Name:  mr.Name,
+			Value: v,
+		})
 	}
 	actPb := &pb.ActionPb{
 		Action: &pb.ActionPb_PutBlock{
@@ -1127,7 +1154,7 @@ func (exp *Service) PutSubChainBlock(putBlockJSON explorer.PutSubChainBlockReque
 	// send to actpool via dispatcher
 	exp.dp.HandleBroadcast(exp.bc.ChainID(), actPb, nil)
 
-	v := &action.PutBlock{}
+	v := &action.SealedEnvelope{}
 	if err := v.LoadProto(actPb); err != nil {
 		return explorer.PutSubChainBlockResponse{}, err
 	}
@@ -1232,7 +1259,7 @@ func (exp *Service) SendSmartContract(execution explorer.Execution) (resp explor
 	// send to actpool via dispatcher
 	exp.dp.HandleBroadcast(exp.bc.ChainID(), actPb, nil)
 
-	sc := &action.Execution{}
+	sc := &action.SealedEnvelope{}
 	if err := sc.LoadProto(actPb); err != nil {
 		return explorer.SendSmartContractResponse{}, err
 	}
@@ -1248,9 +1275,13 @@ func (exp *Service) ReadExecutionState(execution explorer.Execution) (string, er
 	if err != nil {
 		return "", err
 	}
-	sc := &action.Execution{}
-	if err := sc.LoadProto(actPb); err != nil {
+	selp := &action.SealedEnvelope{}
+	if err := selp.LoadProto(actPb); err != nil {
 		return "", err
+	}
+	sc, ok := selp.Action().(*action.Execution)
+	if !ok {
+		return "", errors.New("not execution")
 	}
 
 	res, err := exp.bc.ExecuteContractRead(sc)
@@ -1322,6 +1353,7 @@ func (exp *Service) CreateDeposit(req explorer.CreateDepositRequest) (res explor
 		GasPrice:     gasPrice.Bytes(),
 		Signature:    signature,
 	}
+
 	// broadcast to the network
 	if err := exp.p2p.Broadcast(exp.bc.ChainID(), actPb); err != nil {
 		return res, err
@@ -1329,11 +1361,11 @@ func (exp *Service) CreateDeposit(req explorer.CreateDepositRequest) (res explor
 	// send to actpool via dispatcher
 	exp.dp.HandleBroadcast(exp.bc.ChainID(), actPb, nil)
 
-	deposit := &action.CreateDeposit{}
-	if err := deposit.LoadProto(actPb); err != nil {
+	selp := &action.SealedEnvelope{}
+	if err := selp.LoadProto(actPb); err != nil {
 		return res, err
 	}
-	h := deposit.Hash()
+	h := selp.Hash()
 	return explorer.CreateDepositResponse{Hash: hex.EncodeToString(h[:])}, nil
 }
 
@@ -1438,7 +1470,7 @@ func (exp *Service) SettleDeposit(req explorer.SettleDepositRequest) (res explor
 	// send to actpool via dispatcher
 	exp.dp.HandleBroadcast(exp.bc.ChainID(), actPb, nil)
 
-	deposit := &action.SettleDeposit{}
+	deposit := &action.SealedEnvelope{}
 	if err := deposit.LoadProto(actPb); err != nil {
 		return res, err
 	}
@@ -1470,15 +1502,14 @@ func (exp *Service) EstimateGasForSmartContract(execution explorer.Execution) (i
 func getTransfer(bc blockchain.Blockchain, ap actpool.ActPool, transferHash hash.Hash32B, idx *indexservice.Server, useRDS bool) (explorer.Transfer, error) {
 	explorerTransfer := explorer.Transfer{}
 
-	transfer, err := bc.GetTransferByTransferHash(transferHash)
+	selp, err := bc.GetActionByActionHash(transferHash)
 	if err != nil {
 		// Try to fetch pending transfer from actpool
-		act, err := ap.GetActionByHash(transferHash)
-		if err != nil || act == nil {
+		selp, err := ap.GetActionByHash(transferHash)
+		if err != nil {
 			return explorerTransfer, err
 		}
-		transfer = act.(*action.Transfer)
-		return convertTsfToExplorerTsf(transfer, true)
+		return convertTsfToExplorerTsf(selp, true)
 	}
 
 	// Fetch from block
@@ -1502,8 +1533,8 @@ func getTransfer(bc blockchain.Blockchain, ap actpool.ActPool, transferHash hash
 		return explorerTransfer, err
 	}
 
-	if explorerTransfer, err = convertTsfToExplorerTsf(transfer, false); err != nil {
-		return explorerTransfer, errors.Wrapf(err, "failed to convert transfer %v to explorer's JSON transfer", transfer)
+	if explorerTransfer, err = convertTsfToExplorerTsf(selp, false); err != nil {
+		return explorerTransfer, errors.Wrapf(err, "failed to convert transfer %v to explorer's JSON transfer", selp)
 	}
 	explorerTransfer.Timestamp = int64(blk.ConvertToBlockHeaderPb().Timestamp)
 	explorerTransfer.BlockID = hex.EncodeToString(blkHash[:])
@@ -1514,15 +1545,14 @@ func getTransfer(bc blockchain.Blockchain, ap actpool.ActPool, transferHash hash
 func getVote(bc blockchain.Blockchain, ap actpool.ActPool, voteHash hash.Hash32B, idx *indexservice.Server, useRDS bool) (explorer.Vote, error) {
 	explorerVote := explorer.Vote{}
 
-	vote, err := bc.GetVoteByVoteHash(voteHash)
+	selp, err := bc.GetActionByActionHash(voteHash)
 	if err != nil {
 		// Try to fetch pending vote from actpool
-		act, err := ap.GetActionByHash(voteHash)
-		if err != nil || act == nil {
+		selp, err := ap.GetActionByHash(voteHash)
+		if err != nil {
 			return explorerVote, err
 		}
-		vote = act.(*action.Vote)
-		return convertVoteToExplorerVote(vote, true)
+		return convertVoteToExplorerVote(selp, true)
 	}
 
 	// Fetch from block
@@ -1546,8 +1576,8 @@ func getVote(bc blockchain.Blockchain, ap actpool.ActPool, voteHash hash.Hash32B
 		return explorerVote, err
 	}
 
-	if explorerVote, err = convertVoteToExplorerVote(vote, false); err != nil {
-		return explorerVote, errors.Wrapf(err, "failed to convert vote %v to explorer's JSON vote", vote)
+	if explorerVote, err = convertVoteToExplorerVote(selp, false); err != nil {
+		return explorerVote, errors.Wrapf(err, "failed to convert vote %v to explorer's JSON vote", selp)
 	}
 	explorerVote.Timestamp = int64(blk.ConvertToBlockHeaderPb().Timestamp)
 	explorerVote.BlockID = hex.EncodeToString(blkHash[:])
@@ -1558,15 +1588,14 @@ func getVote(bc blockchain.Blockchain, ap actpool.ActPool, voteHash hash.Hash32B
 func getExecution(bc blockchain.Blockchain, ap actpool.ActPool, executionHash hash.Hash32B, idx *indexservice.Server, useRDS bool) (explorer.Execution, error) {
 	explorerExecution := explorer.Execution{}
 
-	execution, err := bc.GetExecutionByExecutionHash(executionHash)
+	selp, err := bc.GetActionByActionHash(executionHash)
 	if err != nil {
 		// Try to fetch pending execution from actpool
-		act, err := ap.GetActionByHash(executionHash)
-		if err != nil || act == nil {
+		selp, err = ap.GetActionByHash(executionHash)
+		if err != nil {
 			return explorerExecution, err
 		}
-		execution = act.(*action.Execution)
-		return convertExecutionToExplorerExecution(execution, true)
+		return convertExecutionToExplorerExecution(selp, true)
 	}
 
 	// Fetch from block
@@ -1590,8 +1619,8 @@ func getExecution(bc blockchain.Blockchain, ap actpool.ActPool, executionHash ha
 		return explorerExecution, err
 	}
 
-	if explorerExecution, err = convertExecutionToExplorerExecution(execution, false); err != nil {
-		return explorerExecution, errors.Wrapf(err, "failed to convert execution %v to explorer's JSON execution", execution)
+	if explorerExecution, err = convertExecutionToExplorerExecution(selp, false); err != nil {
+		return explorerExecution, errors.Wrapf(err, "failed to convert execution %v to explorer's JSON execution", selp)
 	}
 	explorerExecution.Timestamp = int64(blk.ConvertToBlockHeaderPb().Timestamp)
 	explorerExecution.BlockID = hex.EncodeToString(blkHash[:])
@@ -1605,13 +1634,13 @@ func getCreateDeposit(
 	createDepositHash hash.Hash32B,
 ) (explorer.CreateDeposit, error) {
 	pending := false
-	var act action.Action
+	var selp action.SealedEnvelope
 	var err error
-	act, err = bc.GetActionByActionHash(createDepositHash)
+	selp, err = bc.GetActionByActionHash(createDepositHash)
 	if err != nil {
 		// Try to fetch pending create deposit from actpool
-		act, err = ap.GetActionByHash(createDepositHash)
-		if err != nil || act == nil {
+		selp, err = ap.GetActionByHash(createDepositHash)
+		if err != nil {
 			return explorer.CreateDeposit{}, err
 		}
 		pending = true
@@ -1627,7 +1656,7 @@ func getCreateDeposit(
 		return explorer.CreateDeposit{}, err
 	}
 
-	cd, err := castActionToCreateDeposit(act, pending)
+	cd, err := castActionToCreateDeposit(selp, pending)
 	if err != nil {
 		return explorer.CreateDeposit{}, err
 	}
@@ -1636,29 +1665,26 @@ func getCreateDeposit(
 	return cd, nil
 }
 
-func castActionToCreateDeposit(act action.Action, pending bool) (explorer.CreateDeposit, error) {
-	if act == nil {
-		return explorer.CreateDeposit{}, errors.Wrap(ErrAction, "action cannot be nil")
-	}
-	cd, ok := act.(*action.CreateDeposit)
+func castActionToCreateDeposit(selp action.SealedEnvelope, pending bool) (explorer.CreateDeposit, error) {
+	cd, ok := selp.Action().(*action.CreateDeposit)
 	if !ok {
 		return explorer.CreateDeposit{}, errors.Wrap(ErrAction, "action type is not create deposit")
 	}
-	hash := cd.Hash()
+	hash := selp.Hash()
 	createDeposit := explorer.CreateDeposit{
-		Nonce:     int64(cd.Nonce()),
+		Nonce:     int64(selp.Nonce()),
 		ID:        hex.EncodeToString(hash[:]),
 		Sender:    cd.Sender(),
 		Recipient: cd.Recipient(),
 		Fee:       "", // TODO: we need to get the actual fee.
-		GasLimit:  int64(cd.GasLimit()),
+		GasLimit:  int64(selp.GasLimit()),
 		IsPending: pending,
 	}
 	if cd.Amount() != nil && len(cd.Amount().String()) > 0 {
 		createDeposit.Amount = cd.Amount().String()
 	}
-	if cd.GasPrice() != nil && len(cd.GasPrice().String()) > 0 {
-		createDeposit.GasPrice = cd.GasPrice().String()
+	if selp.GasPrice() != nil && len(selp.GasPrice().String()) > 0 {
+		createDeposit.GasPrice = selp.GasPrice().String()
 	}
 	return createDeposit, nil
 }
@@ -1670,13 +1696,13 @@ func getSettleDeposit(
 	settleDepositHash hash.Hash32B,
 ) (explorer.SettleDeposit, error) {
 	pending := false
-	var act action.Action
+	var selp action.SealedEnvelope
 	var err error
-	act, err = bc.GetActionByActionHash(settleDepositHash)
+	selp, err = bc.GetActionByActionHash(settleDepositHash)
 	if err != nil {
 		// Try to fetch pending settle deposit from actpool
-		act, err = ap.GetActionByHash(settleDepositHash)
-		if err != nil || act == nil {
+		selp, err = ap.GetActionByHash(settleDepositHash)
+		if err != nil {
 			return explorer.SettleDeposit{}, err
 		}
 		pending = true
@@ -1692,7 +1718,7 @@ func getSettleDeposit(
 		return explorer.SettleDeposit{}, err
 	}
 
-	sd, err := castActionToSettleDeposit(act, pending)
+	sd, err := castActionToSettleDeposit(selp, pending)
 	if err != nil {
 		return explorer.SettleDeposit{}, err
 	}
@@ -1701,97 +1727,107 @@ func getSettleDeposit(
 	return sd, nil
 }
 
-func castActionToSettleDeposit(act action.Action, pending bool) (explorer.SettleDeposit, error) {
-	if act == nil {
-		return explorer.SettleDeposit{}, errors.Wrap(ErrAction, "action cannot be nil")
-	}
-	sd, ok := act.(*action.SettleDeposit)
+func castActionToSettleDeposit(selp action.SealedEnvelope, pending bool) (explorer.SettleDeposit, error) {
+	sd, ok := selp.Action().(*action.SettleDeposit)
 	if !ok {
 		return explorer.SettleDeposit{}, errors.Wrap(ErrAction, "action type is not settle deposit")
 	}
-	hash := sd.Hash()
+	hash := selp.Hash()
 	settleDeposit := explorer.SettleDeposit{
-		Nonce:     int64(sd.Nonce()),
+		Nonce:     int64(selp.Nonce()),
 		ID:        hex.EncodeToString(hash[:]),
 		Sender:    sd.Sender(),
 		Recipient: sd.Recipient(),
 		Index:     int64(sd.Index()),
 		Fee:       "", // TODO: we need to get the actual fee.
-		GasLimit:  int64(sd.GasLimit()),
+		GasLimit:  int64(selp.GasLimit()),
 		IsPending: pending,
 	}
 	if sd.Amount() != nil && len(sd.Amount().String()) > 0 {
 		settleDeposit.Amount = sd.Amount().String()
 	}
-	if sd.GasPrice() != nil && len(sd.GasPrice().String()) > 0 {
-		settleDeposit.GasPrice = sd.GasPrice().String()
+	if selp.GasPrice() != nil && len(selp.GasPrice().String()) > 0 {
+		settleDeposit.GasPrice = selp.GasPrice().String()
 	}
 	return settleDeposit, nil
 }
 
-func convertTsfToExplorerTsf(transfer *action.Transfer, isPending bool) (explorer.Transfer, error) {
+func convertTsfToExplorerTsf(selp action.SealedEnvelope, isPending bool) (explorer.Transfer, error) {
+	transfer, ok := selp.Action().(*action.Transfer)
+	if !ok {
+		return explorer.Transfer{}, errors.Wrap(ErrTransfer, "action is not transfer")
+	}
+
 	if transfer == nil {
 		return explorer.Transfer{}, errors.Wrap(ErrTransfer, "transfer cannot be nil")
 	}
-	hash := transfer.Hash()
+	hash := selp.Hash()
 	explorerTransfer := explorer.Transfer{
-		Nonce:      int64(transfer.Nonce()),
+		Nonce:      int64(selp.Nonce()),
 		ID:         hex.EncodeToString(hash[:]),
 		Sender:     transfer.Sender(),
 		Recipient:  transfer.Recipient(),
 		Fee:        "", // TODO: we need to get the actual fee.
 		Payload:    hex.EncodeToString(transfer.Payload()),
-		GasLimit:   int64(transfer.GasLimit()),
+		GasLimit:   int64(selp.GasLimit()),
 		IsCoinbase: transfer.IsCoinbase(),
 		IsPending:  isPending,
 	}
 	if transfer.Amount() != nil && len(transfer.Amount().String()) > 0 {
 		explorerTransfer.Amount = transfer.Amount().String()
 	}
-	if transfer.GasPrice() != nil && len(transfer.GasPrice().String()) > 0 {
-		explorerTransfer.GasPrice = transfer.GasPrice().String()
+	if selp.GasPrice() != nil && len(selp.GasPrice().String()) > 0 {
+		explorerTransfer.GasPrice = selp.GasPrice().String()
 	}
 	return explorerTransfer, nil
 }
 
-func convertVoteToExplorerVote(vote *action.Vote, isPending bool) (explorer.Vote, error) {
+func convertVoteToExplorerVote(selp action.SealedEnvelope, isPending bool) (explorer.Vote, error) {
+	vote, ok := selp.Action().(*action.Vote)
+	if !ok {
+		return explorer.Vote{}, errors.Wrap(ErrTransfer, "action is not vote")
+	}
 	if vote == nil {
 		return explorer.Vote{}, errors.Wrap(ErrVote, "vote cannot be nil")
 	}
-	hash := vote.Hash()
+	hash := selp.Hash()
 	voterPubkey := vote.VoterPublicKey()
 	explorerVote := explorer.Vote{
 		ID:          hex.EncodeToString(hash[:]),
-		Nonce:       int64(vote.Nonce()),
+		Nonce:       int64(selp.Nonce()),
 		Voter:       vote.Voter(),
 		VoterPubKey: hex.EncodeToString(voterPubkey[:]),
 		Votee:       vote.Votee(),
-		GasLimit:    int64(vote.GasLimit()),
-		GasPrice:    vote.GasPrice().String(),
+		GasLimit:    int64(selp.GasLimit()),
+		GasPrice:    selp.GasPrice().String(),
 		IsPending:   isPending,
 	}
 	return explorerVote, nil
 }
 
-func convertExecutionToExplorerExecution(execution *action.Execution, isPending bool) (explorer.Execution, error) {
+func convertExecutionToExplorerExecution(selp action.SealedEnvelope, isPending bool) (explorer.Execution, error) {
+	execution, ok := selp.Action().(*action.Execution)
+	if !ok {
+		return explorer.Execution{}, errors.Wrap(ErrTransfer, "action is not execution")
+	}
 	if execution == nil {
 		return explorer.Execution{}, errors.Wrap(ErrExecution, "execution cannot be nil")
 	}
 	hash := execution.Hash()
 	explorerExecution := explorer.Execution{
-		Nonce:     int64(execution.Nonce()),
+		Nonce:     int64(selp.Nonce()),
 		ID:        hex.EncodeToString(hash[:]),
 		Executor:  execution.Executor(),
 		Contract:  execution.Contract(),
-		GasLimit:  int64(execution.GasLimit()),
+		GasLimit:  int64(selp.GasLimit()),
 		Data:      hex.EncodeToString(execution.Data()),
 		IsPending: isPending,
 	}
 	if execution.Amount() != nil && len(execution.Amount().String()) > 0 {
 		explorerExecution.Amount = execution.Amount().String()
 	}
-	if execution.GasPrice() != nil && len(execution.GasPrice().String()) > 0 {
-		explorerExecution.GasPrice = execution.GasPrice().String()
+	if selp.GasPrice() != nil && len(selp.GasPrice().String()) > 0 {
+		explorerExecution.GasPrice = selp.GasPrice().String()
 	}
 	return explorerExecution, nil
 }

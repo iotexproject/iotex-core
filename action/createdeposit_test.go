@@ -42,6 +42,28 @@ func TestCreateDeposit(t *testing.T) {
 		big.NewInt(100),
 	)
 	assertDeposit(deposit1)
+}
+
+func TestCreateDepositProto(t *testing.T) {
+	t.Parallel()
+
+	addr1 := address.New(1, testaddress.Addrinfo["producer"].PublicKey[:]).Bech32()
+	addr2 := address.New(2, testaddress.Addrinfo["alfa"].PublicKey[:]).Bech32()
+
+	assertDeposit := func(deposit *CreateDeposit) {
+		require.NotNil(t, deposit)
+		assert.Equal(t, big.NewInt(1000), deposit.Amount())
+	}
+
+	deposit1 := NewCreateDeposit(
+		1,
+		big.NewInt(1000),
+		addr1,
+		addr2,
+		10,
+		big.NewInt(100),
+	)
+	assertDeposit(deposit1)
 
 	data := deposit1.Proto()
 	require.NotNil(t, data)
