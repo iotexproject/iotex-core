@@ -7,37 +7,46 @@
 package blockchain
 
 import (
+	"context"
+
+	"github.com/pkg/errors"
+
+	"github.com/CoderZhi/go-ethereum/core/vm"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
-	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/actpool/actioniterator"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/CoderZhi/go-ethereum/core/vm"
+	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/state/factory"
 )
 
 type actionPicker struct {
-	blk      		*Block
-	ws       		factory.WorkingSet
-	bc       		*blockchain
-	gasLimit 		*uint64
-	actionIterator 	actioniterator.ActionIterator
+	ctx            context.Context
+	ws             factory.WorkingSet
+	bc             *blockchain
+	gasLimit       *uint64
+	actionIterator actioniterator.ActionIterator
 }
 
 // newActionPicker return a new action picker
-func newActionPicker(blk *Block, ws factory.WorkingSet, bc *blockchain, gasLimit *uint64, actionIterator actioniterator.ActionIterator) *actionPicker {
+func newActionPicker(ctx context.Context, ws factory.WorkingSet, bc *blockchain, gasLimit *uint64, actionIterator actioniterator.ActionIterator) *actionPicker {
 	return &actionPicker{
-		blk:      		blk,
-		ws:      	 	ws,
-		bc:       		bc,
-		gasLimit: 		gasLimit,
+		ctx:            ctx,
+		ws:             ws,
+		bc:             bc,
+		gasLimit:       gasLimit,
 		actionIterator: actionIterator,
 	}
 }
 
 // Next load next action of account of top action
-func (ap *actionPicker) PickAction(bestAction action.Action) ([]action.Action, map[hash.Hash32B]*action.Receipt) {
+func (ap *actionPicker) PickAction() ([]action.Action, map[hash.Hash32B]*action.Receipt, error) {
 	appliedActionList := make([]action.Action, 0)
 	actionReceipt := make(map[hash.Hash32B]*action.Receipt, 0)
+	raCtx, ok := state.GetRunActionsCtx(ap.ctx)
+	if !ok {
+		return nil, nil, errors.New("failed to get action context")
+	}
 
 	for {
 		nextAction := ap.actionIterator.Next()
@@ -69,13 +78,11 @@ func (ap *actionPicker) PickAction(bestAction action.Action) ([]action.Action, m
 			*(ap.gasLimit) -= gas
 		case *action.Execution:
 			var receipt *action.Receipt
-			receipt, err = evm.ExecuteContract(ap.blk.Height(), ap.blk.HashBlock(), ap.blk.Header.Pubkey, ap.blk.Header.Timestamp().Unix(),
+			receipt, err = evm.ExecuteContract(raCtx.BlockHeight, raCtx.BlockHash, raCtx.ProducerPubKey, raCtx.BlockTimeStamp,
 				ap.ws, nextAction.(*action.Execution), ap.bc, ap.gasLimit, ap.bc.config.Chain.EnableGasCharge)
 			// will hash change after convert action to execution
-			//ap.blk.Receipts[nextAction.Hash()] = receipt
 			actionReceipt[nextAction.Hash()] = receipt
 		}
-
 		if err == nil {
 			appliedActionList = append(appliedActionList, nextAction)
 		}
@@ -89,6 +96,5 @@ func (ap *actionPicker) PickAction(bestAction action.Action) ([]action.Action, m
 		}
 	}
 
-	return appliedActionList, actionReceipt
+	return appliedActionList, actionReceipt, nil
 }
-

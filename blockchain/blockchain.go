@@ -1090,22 +1090,20 @@ func (bc *blockchain) runActionsWithActionIterator(blk *Block, actionMap map[str
 		state.RunActionsCtx{
 			ProducerAddr:    blk.ProducerAddress(),
 			GasLimit:        &gasLimit,
+			BlockHeight:     blk.Height(),
+			BlockHash:       blk.HashBlock(),
+			ProducerPubKey:  blk.Header.Pubkey,
+			BlockTimeStamp:  blk.Header.Timestamp().Unix(),
 			EnableGasCharge: bc.config.Chain.EnableGasCharge,
 		})
-	validator := newActionValidator(blk, ws, bc, &gasLimit)
-	actionIterator := actioniterator.NewActionIterator(actionMap, validator)
-
-
-	appliedActionList := make([]action.Action, 0)
+	actionIterator := actioniterator.NewActionIterator(actionMap)
+	actionPicker := newActionPicker(ctx, ws, bc, &gasLimit, actionIterator)
+	appliedActionList, receiptMap, err := actionPicker.PickAction()
 	appliedActionList = append(appliedActionList, coinbaseTransfer)
-	for {
-		if bestAction := actionIterator.Next(); bestAction != nil {
-			appliedActionList = append(appliedActionList, bestAction)
-		} else {
-			break
-		}
-	}
 	blk.Actions = appliedActionList
+	for k, v := range receiptMap {
+		blk.Receipts[k] = v
+	}
 
 	root, receipts, err := ws.RunActions(ctx, blk.Height(), blk.Actions)
 	if err != nil {

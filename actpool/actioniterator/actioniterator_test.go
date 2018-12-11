@@ -14,15 +14,6 @@ type actionValidator struct {
 	errorActions []action.Action
 }
 
-// newActionValidator return a new action validator
-func newActionValidator(maxAction uint64, errorActions []action.Action) *actionValidator {
-	return &actionValidator{
-		actionCount:  0,
-		maxAction:    maxAction,
-		errorActions: errorActions,
-	}
-}
-
 // Next load next action of account of top action
 func (av *actionValidator) Validate(bestAction action.Action) error {
 	if av.actionCount >= av.maxAction {
@@ -59,8 +50,7 @@ func TestActionIterator(t *testing.T) {
 	accMap1[tsf1.SrcAddr()] = []action.Action{tsf1, tsf2, vote3}
 	accMap1[tsf3.SrcAddr()] = []action.Action{tsf3}
 
-	validator := newActionValidator(6, []action.Action{})
-	ai := NewActionIterator(accMap1, validator)
+	ai := NewActionIterator(accMap1)
 	appliedActionList := make([]action.Action, 0)
 	for {
 		bestAction := ai.Next()
@@ -70,36 +60,4 @@ func TestActionIterator(t *testing.T) {
 		appliedActionList = append(appliedActionList, bestAction)
 	}
 	require.Equal(appliedActionList, []action.Action{tsf1, vote1, vote2, tsf2, vote3, tsf3})
-
-	accMap2 := make(map[string][]action.Action)
-	accMap2[vote1.SrcAddr()] = []action.Action{vote1, vote2}
-	accMap2[tsf1.SrcAddr()] = []action.Action{tsf1, tsf2, vote3}
-	accMap2[tsf3.SrcAddr()] = []action.Action{tsf3}
-	validator = newActionValidator(3, []action.Action{})
-	ai = NewActionIterator(accMap2, validator)
-	appliedActionList = make([]action.Action, 0)
-	for {
-		bestAction := ai.Next()
-		if bestAction == nil {
-			break
-		}
-		appliedActionList = append(appliedActionList, bestAction)
-	}
-	require.Equal(appliedActionList, []action.Action{tsf1, vote1, vote2, tsf2})
-
-	accMap3 := make(map[string][]action.Action)
-	accMap3[vote1.SrcAddr()] = []action.Action{vote1, vote2}
-	accMap3[tsf1.SrcAddr()] = []action.Action{tsf1, tsf2, vote3}
-	accMap3[tsf3.SrcAddr()] = []action.Action{tsf3}
-	validator = newActionValidator(6, []action.Action{vote1, tsf2})
-	ai = NewActionIterator(accMap3, validator)
-	appliedActionList = make([]action.Action, 0)
-	for {
-		bestAction := ai.Next()
-		if bestAction == nil {
-			break
-		}
-		appliedActionList = append(appliedActionList, bestAction)
-	}
-	require.Equal(appliedActionList, []action.Action{tsf1, vote1, tsf2, tsf3})
 }

@@ -21,12 +21,6 @@ func (s ActionByPrice) Len() int           { return len(s) }
 func (s ActionByPrice) Less(i, j int) bool { return s[i].GasPrice().Cmp(s[j].GasPrice()) > 0 }
 func (s ActionByPrice) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 
-// ActionValidator is the interface of validator
-type ActionValidator interface {
-	// Validate validates the given block's content
-	Validate(bestAction action.Action) error
-}
-
 // Push define the push function of heap
 func (s *ActionByPrice) Push(x interface{}) {
 	*s = append(*s, x.(action.Action))
@@ -49,11 +43,10 @@ type ActionIterator interface {
 type actionIterator struct {
 	accountActs map[string][]action.Action
 	heads       ActionByPrice
-	validator   ActionValidator
 }
 
 // NewActionIterator return a new action iterator
-func NewActionIterator(accountActs map[string][]action.Action, validator ActionValidator) ActionIterator {
+func NewActionIterator(accountActs map[string][]action.Action) ActionIterator {
 	heads := make(ActionByPrice, 0, len(accountActs))
 	for sender, accActs := range accountActs {
 		heads = append(heads, accActs[0])
@@ -67,7 +60,6 @@ func NewActionIterator(accountActs map[string][]action.Action, validator ActionV
 	return &actionIterator{
 		accountActs: accountActs,
 		heads:       heads,
-		validator:   validator,
 	}
 }
 
@@ -84,25 +76,11 @@ func (ai *actionIterator) loadNextActionForTopAccount() {
 
 // Next load next action of account of top action
 func (ai *actionIterator) Next() action.Action {
+	if len(ai.heads) <= 0 {
+		return nil
+	}
+
 	headAction := ai.heads[0]
 	ai.loadNextActionForTopAccount()
-	/*for len(ai.heads) > 0 {
-		headAction := ai.heads[0]
-		ai.loadNextActionForTopAccount()
-		err := ai.validator.Validate(headAction)
-
-		switch err {
-		case action.ErrInsufficientBalanceForGas:
-			// pop account
-			heap.Pop(&ai.heads)
-		case action.ErrHitGasLimit, action.ErrOutOfGas, vm.ErrOutOfGas:
-			// pop all
-			ai.heads = make(ActionByPrice, 0)
-		default:
-			ai.loadNextActionForTopAccount()
-		}
-
-		return headAction
-	}*/
 	return headAction
 }
