@@ -10,8 +10,6 @@ import (
 	action "github.com/iotexproject/iotex-core/action"
 	db "github.com/iotexproject/iotex-core/db"
 	hash "github.com/iotexproject/iotex-core/pkg/hash"
-	state "github.com/iotexproject/iotex-core/state"
-	big "math/big"
 	reflect "reflect"
 )
 
@@ -36,45 +34,6 @@ func NewMockWorkingSet(ctrl *gomock.Controller) *MockWorkingSet {
 // EXPECT returns an object that allows the caller to indicate expected use
 func (m *MockWorkingSet) EXPECT() *MockWorkingSetMockRecorder {
 	return m.recorder
-}
-
-// LoadOrCreateAccountState mocks base method
-func (m *MockWorkingSet) LoadOrCreateAccountState(arg0 string, arg1 *big.Int) (*state.Account, error) {
-	ret := m.ctrl.Call(m, "LoadOrCreateAccountState", arg0, arg1)
-	ret0, _ := ret[0].(*state.Account)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// LoadOrCreateAccountState indicates an expected call of LoadOrCreateAccountState
-func (mr *MockWorkingSetMockRecorder) LoadOrCreateAccountState(arg0, arg1 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadOrCreateAccountState", reflect.TypeOf((*MockWorkingSet)(nil).LoadOrCreateAccountState), arg0, arg1)
-}
-
-// Nonce mocks base method
-func (m *MockWorkingSet) Nonce(arg0 string) (uint64, error) {
-	ret := m.ctrl.Call(m, "Nonce", arg0)
-	ret0, _ := ret[0].(uint64)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Nonce indicates an expected call of Nonce
-func (mr *MockWorkingSetMockRecorder) Nonce(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Nonce", reflect.TypeOf((*MockWorkingSet)(nil).Nonce), arg0)
-}
-
-// CachedAccountState mocks base method
-func (m *MockWorkingSet) CachedAccountState(arg0 string) (*state.Account, error) {
-	ret := m.ctrl.Call(m, "CachedAccountState", arg0)
-	ret0, _ := ret[0].(*state.Account)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CachedAccountState indicates an expected call of CachedAccountState
-func (mr *MockWorkingSetMockRecorder) CachedAccountState(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CachedAccountState", reflect.TypeOf((*MockWorkingSet)(nil).CachedAccountState), arg0)
 }
 
 // RunActions mocks base method
@@ -185,19 +144,6 @@ func (m *MockWorkingSet) PutState(arg0 hash.PKHash, arg1 interface{}) error {
 // PutState indicates an expected call of PutState
 func (mr *MockWorkingSetMockRecorder) PutState(arg0, arg1 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutState", reflect.TypeOf((*MockWorkingSet)(nil).PutState), arg0, arg1)
-}
-
-// CachedState mocks base method
-func (m *MockWorkingSet) CachedState(arg0 hash.PKHash, arg1 state.State) (state.State, error) {
-	ret := m.ctrl.Call(m, "CachedState", arg0, arg1)
-	ret0, _ := ret[0].(state.State)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CachedState indicates an expected call of CachedState
-func (mr *MockWorkingSetMockRecorder) CachedState(arg0, arg1 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CachedState", reflect.TypeOf((*MockWorkingSet)(nil).CachedState), arg0, arg1)
 }
 
 // GetDB mocks base method

@@ -9,6 +9,7 @@ package account
 import (
 	"math/big"
 
+	"github.com/CoderZhi/go-ethereum/core/vm"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -22,7 +23,7 @@ import (
 const TransferSizeLimit = 32 * 1024
 
 // handleTransfer handles a transfer
-func (p *Protocol) handleTransfer(act action.Action, sm protocol.StateManager) error {
+func (p *Protocol) handleTransfer(act action.Action, raCtx state.RunActionsCtx, sm protocol.StateManager) error {
 	tsf, ok := act.(*action.Transfer)
 	if !ok {
 		return nil
@@ -35,6 +36,40 @@ func (p *Protocol) handleTransfer(act action.Action, sm protocol.StateManager) e
 		sender, err := LoadOrCreateAccount(sm, tsf.Sender(), big.NewInt(0))
 		if err != nil {
 			return errors.Wrapf(err, "failed to load or create the account of sender %s", tsf.Sender())
+		}
+
+		if raCtx.EnableGasCharge {
+			// Load or create account for producer
+			producer, err := LoadOrCreateAccount(sm, raCtx.ProducerAddr, big.NewInt(0))
+			if err != nil {
+				return errors.Wrapf(err, "failed to load or create the account of block producer %s", raCtx.ProducerAddr)
+			}
+			gas, err := tsf.IntrinsicGas()
+			if err != nil {
+				return errors.Wrapf(err, "failed to get intrinsic gas for transfer hash %s", tsf.Hash())
+			}
+			if *raCtx.GasLimit < gas {
+				return vm.ErrOutOfGas
+			}
+
+			gasFee := big.NewInt(0).Mul(tsf.GasPrice(), big.NewInt(0).SetUint64(gas))
+			if big.NewInt(0).Add(tsf.Amount(), gasFee).Cmp(sender.Balance) == 1 {
+				return errors.Wrapf(state.ErrNotEnoughBalance, "failed to verify the Balance of sender %s", tsf.Sender())
+			}
+
+			// charge sender gas
+			if err := sender.SubBalance(gasFee); err != nil {
+				return errors.Wrapf(err, "failed to charge the gas for sender %s", tsf.Sender())
+			}
+			// compensate block producer gas
+			if err := producer.AddBalance(gasFee); err != nil {
+				return errors.Wrapf(err, "failed to compensate gas to producer")
+			}
+			// Put updated producer's state to trie
+			if err := StoreAccount(sm, raCtx.ProducerAddr, producer); err != nil {
+				return errors.Wrap(err, "failed to update pending account changes to trie")
+			}
+			*raCtx.GasLimit -= gas
 		}
 		if tsf.Amount().Cmp(sender.Balance) == 1 {
 			return errors.Wrapf(state.ErrNotEnoughBalance, "failed to verify the Balance of sender %s", tsf.Sender())

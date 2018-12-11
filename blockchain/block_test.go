@@ -19,6 +19,8 @@ import (
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol/account"
+	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/crypto"
@@ -254,6 +256,7 @@ func TestWrongNonce(t *testing.T) {
 	require := require.New(t)
 	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 	require.NoError(err)
+	sf.AddActionHandlers(account.NewProtocol(), vote.NewProtocol(nil))
 	require.NoError(sf.Start(context.Background()))
 	require.NoError(addCreatorToFactory(sf))
 	val := validator{sf, ""}
@@ -637,7 +640,7 @@ func addCreatorToFactory(sf factory.Factory) error {
 	if err != nil {
 		return err
 	}
-	if _, err = ws.LoadOrCreateAccountState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply); err != nil {
+	if _, err = account.LoadOrCreateAccount(ws, ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply); err != nil {
 		return err
 	}
 	gasLimit := testutil.TestGasLimit

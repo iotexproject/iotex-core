@@ -64,6 +64,11 @@ func TestProtocol_Handle(t *testing.T) {
 		require.Equal("100", account.VotingWeight.String())
 	}
 
+	ctx = state.WithRunActionsCtx(context.Background(),
+		state.RunActionsCtx{
+			EnableGasCharge: false,
+		})
+
 	vote1, err := action.NewVote(1, addr1, addr1, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	_, err = protocol.Handle(ctx, vote1, ws)

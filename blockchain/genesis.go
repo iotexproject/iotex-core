@@ -13,6 +13,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/logger"
@@ -101,24 +102,18 @@ func NewGenesisBlock(chainCfg config.Chain, ws factory.WorkingSet) *Block {
 		rpk, _ := decodeKey(transfer.RecipientPK, "")
 		recipientAddr := generateAddr(chainCfg.ID, rpk)
 		amount := ConvertIotxToRau(transfer.Amount)
-		account, err := ws.LoadOrCreateAccountState(recipientAddr, amount)
+		_, err := account.LoadOrCreateAccount(ws, recipientAddr, amount)
 		if err != nil {
 			logger.Panic().Err(err).Msg("failed to add initial allocation")
-		}
-		if err := ws.PutState(keypair.HashPubKey(rpk), account); err != nil {
-			logger.Panic().Err(err).Msg("failed to put initial allocation")
 		}
 		alloc.Add(alloc, amount)
 	}
 	// add creator
 	Gen.CreatorPubKey = actions.Creation.PubKey
 	creatorAddr := Gen.CreatorAddr(chainCfg.ID)
-	account, err := ws.LoadOrCreateAccountState(creatorAddr, alloc.Sub(Gen.TotalSupply, alloc))
+	_, err := account.LoadOrCreateAccount(ws, creatorAddr, alloc.Sub(Gen.TotalSupply, alloc))
 	if err != nil {
 		logger.Panic().Err(err).Msg("failed to add creator")
-	}
-	if err := ws.PutState(Gen.CreatorPKHash(), account); err != nil {
-		logger.Panic().Err(err).Msg("failed to put creator")
 	}
 
 	// TODO: convert vote to state operation as well

@@ -8,6 +8,7 @@ package state
 
 import (
 	"math/big"
+	"strings"
 
 	"github.com/pkg/errors"
 
@@ -45,8 +46,10 @@ type CandidateList []*Candidate
 func (l CandidateList) Len() int      { return len(l) }
 func (l CandidateList) Swap(i, j int) { l[i], l[j] = l[j], l[i] }
 func (l CandidateList) Less(i, j int) bool {
-	res := l[i].Votes.Cmp(l[j].Votes)
-	return res == 1
+	if res := l[i].Votes.Cmp(l[j].Votes); res != 0 {
+		return res == 1
+	}
+	return strings.Compare(l[i].Address, l[j].Address) == 1
 }
 
 // Serialize serializes a list of Candidates to bytes

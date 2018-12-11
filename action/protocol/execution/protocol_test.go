@@ -178,7 +178,7 @@ func TestProtocol_Handle(t *testing.T) {
 		require.Nil(bc.CommitBlock(blk))
 		require.Equal(1, len(blk.Receipts))
 		ws, _ = sf.NewWorkingSet()
-		alfaAccount, _ := ws.LoadOrCreateAccountState(ta.Addrinfo["alfa"].RawAddress, blockchain.Gen.TotalSupply)
+		alfaAccount, _ := account.LoadOrCreateAccount(ws, ta.Addrinfo["alfa"].RawAddress, blockchain.Gen.TotalSupply)
 		require.NotEqual(blockchain.Gen.TotalSupply, alfaAccount.Balance)
 	}
 
