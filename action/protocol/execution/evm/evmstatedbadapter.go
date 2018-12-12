@@ -7,6 +7,7 @@
 package evm
 
 import (
+	"bytes"
 	"math/big"
 
 	"github.com/CoderZhi/go-ethereum/common"
@@ -212,10 +213,19 @@ func (stateDB *StateDBAdapter) Exist(evmAddr common.Address) bool {
 	return true
 }
 
-// Empty empties the contract
-func (stateDB *StateDBAdapter) Empty(common.Address) bool {
-	logger.Debug().Msg("Empty is not implemented")
-	return false
+// Empty returns true if the the contract is empty
+func (stateDB *StateDBAdapter) Empty(evmAddr common.Address) bool {
+	addr := address.New(stateDB.cm.ChainID(), evmAddr.Bytes())
+	logger.Debug().Msgf("Check whether the contract is empty")
+	s, err := stateDB.AccountState(addr.IotxAddress())
+	logger.Error().Err(err).Msgf("state: ", s)
+	if err != nil || s == state.EmptyAccount {
+		return true
+	}
+	// TODO: delete hash.ZeroHash32B
+	return s.Nonce == 0 &&
+		s.Balance.Sign() == 0 &&
+		(len(s.CodeHash) == 0 || bytes.Equal(s.CodeHash, hash.ZeroHash32B[:]))
 }
 
 // RevertToSnapshot reverts the state factory to the state at a given snapshot

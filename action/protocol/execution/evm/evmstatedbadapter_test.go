@@ -7,6 +7,7 @@
 package evm
 
 import (
+	"bytes"
 	"context"
 	"math/big"
 	"testing"
@@ -54,6 +55,37 @@ func TestAddBalance(t *testing.T) {
 	stateDB.AddBalance(addr, addAmount)
 	amount = stateDB.GetBalance(addr)
 	require.Equal(0, amount.Cmp(big.NewInt(80000)))
+}
+
+func TestEmptyAndCode(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	testutil.CleanupPath(t, testTriePath)
+	defer testutil.CleanupPath(t, testTriePath)
+	ctx := context.Background()
+	cfg := config.Default
+	cfg.Chain.ChainDBPath = testTriePath
+	cfg.Explorer.Enabled = true
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	require.NoError(err)
+	require.NoError(sf.Start(ctx))
+	defer func() {
+		require.NoError(sf.Stop(ctx))
+	}()
+	ws, err := sf.NewWorkingSet()
+	require.NoError(err)
+	mcm := mock_chainmanager.NewMockChainManager(ctrl)
+	mcm.EXPECT().ChainID().Times(4).Return(uint32(1))
+	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
+	stateDB := NewStateDBAdapter(mcm, ws, 1, hash.ZeroHash32B, hash.ZeroHash32B)
+	require.True(stateDB.Empty(addr))
+	stateDB.CreateAccount(addr)
+	require.True(stateDB.Empty(addr))
+	stateDB.SetCode(addr, []byte("0123456789"))
+	require.True(bytes.Equal(stateDB.GetCode(addr), []byte("0123456789")))
+	require.False(stateDB.Empty(addr))
 }
 
 func TestForEachStorage(t *testing.T) {
