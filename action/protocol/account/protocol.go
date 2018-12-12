@@ -27,7 +27,7 @@ func NewProtocol() *Protocol { return &Protocol{} }
 
 // Handle handles an account
 func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	raCtx, ok := state.GetRunActionsCtx(ctx)
+	raCtx, ok := protocol.GetRunActionsCtx(ctx)
 	if !ok {
 		return nil, errors.New("failed to get action context")
 	}
@@ -41,10 +41,10 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 }
 
 // Validate validates an account
-func (p *Protocol) Validate(_ context.Context, act action.Action) error {
+func (p *Protocol) Validate(ctx context.Context, act action.Action) error {
 	switch act := act.(type) {
 	case *action.Transfer:
-		if err := p.validateTransfer(act); err != nil {
+		if err := p.validateTransfer(ctx, act); err != nil {
 			return errors.Wrap(err, "error when validating transfer action")
 		}
 	}

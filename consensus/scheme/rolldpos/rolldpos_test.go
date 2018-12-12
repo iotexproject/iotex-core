@@ -24,6 +24,7 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/address"
@@ -526,6 +527,7 @@ func TestUpdateSeed(t *testing.T) {
 	require := require.New(t)
 	lastSeed, _ := hex.DecodeString("9de6306b08158c423330f7a27243a1a5cbe39bfd764f07818437882d21241567")
 	chain := blockchain.NewBlockchain(config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	chain.Validator().AddActionValidators(protocol.NewGenericValidator(chain), account.NewProtocol())
 	require.NoError(chain.Start(context.Background()))
 	ctx := rollDPoSCtx{cfg: config.Default.Consensus.RollDPoS, chain: chain, epoch: epochCtx{seed: lastSeed}}
 	fsm := cFSM{ctx: &ctx}
@@ -738,8 +740,8 @@ func TestRollDPoSConsensus(t *testing.T) {
 				_, err = account.LoadOrCreateAccount(ws, chainRawAddrs[j], big.NewInt(0))
 				require.NoError(t, err)
 				gasLimit := testutil.TestGasLimit
-				wsctx := state.WithRunActionsCtx(ctx,
-					state.RunActionsCtx{
+				wsctx := protocol.WithRunActionsCtx(ctx,
+					protocol.RunActionsCtx{
 						ProducerAddr:    testaddress.Addrinfo["producer"].RawAddress,
 						GasLimit:        &gasLimit,
 						EnableGasCharge: testutil.EnableGasCharge,
@@ -749,6 +751,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 				require.NoError(t, sf.Commit(ws))
 			}
 			chain := blockchain.NewBlockchain(cfg, blockchain.InMemDaoOption(), blockchain.PrecreatedStateFactoryOption(sf))
+			chain.Validator().AddActionValidators(protocol.NewGenericValidator(chain), account.NewProtocol())
 			chains = append(chains, chain)
 
 			actPool, err := actpool.NewActPool(chain, cfg.ActPool)

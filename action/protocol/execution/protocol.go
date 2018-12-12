@@ -16,7 +16,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/iotxaddress"
-	"github.com/iotexproject/iotex-core/state"
 )
 
 // ExecutionSizeLimit is the maximum size of execution allowed
@@ -35,7 +34,7 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 		return nil, nil
 	}
 
-	raCtx, ok := state.GetRunActionsCtx(ctx)
+	raCtx, ok := protocol.GetRunActionsCtx(ctx)
 	if !ok {
 		return nil, errors.New("failed to get RunActionsCtx")
 	}

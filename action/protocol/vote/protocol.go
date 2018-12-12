@@ -41,7 +41,7 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 		return nil, nil
 	}
 
-	raCtx, ok := state.GetRunActionsCtx(ctx)
+	raCtx, ok := protocol.GetRunActionsCtx(ctx)
 	if !ok {
 		return nil, errors.New("failed to get action context")
 	}

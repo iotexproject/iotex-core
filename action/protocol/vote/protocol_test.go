@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/blockchain"
@@ -40,7 +41,7 @@ func TestProtocol_Handle(t *testing.T) {
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
 
-	protocol := NewProtocol(nil)
+	p := NewProtocol(nil)
 
 	// Create three accounts
 	addr1 := testaddress.Addrinfo["alfa"].RawAddress
@@ -64,35 +65,35 @@ func TestProtocol_Handle(t *testing.T) {
 		require.Equal("100", account.VotingWeight.String())
 	}
 
-	ctx = state.WithRunActionsCtx(context.Background(),
-		state.RunActionsCtx{
+	ctx = protocol.WithRunActionsCtx(context.Background(),
+		protocol.RunActionsCtx{
 			EnableGasCharge: false,
 		})
 
 	vote1, err := action.NewVote(1, addr1, addr1, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	_, err = protocol.Handle(ctx, vote1, ws)
+	_, err = p.Handle(ctx, vote1, ws)
 	require.NoError(err)
 	account1, _ := account.LoadAccount(ws, pkHash1)
 	checkSelfNomination(addr1, account1)
 
 	vote2, err := action.NewVote(1, addr2, addr2, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	_, err = protocol.Handle(ctx, vote2, ws)
+	_, err = p.Handle(ctx, vote2, ws)
 	require.NoError(err)
 	account2, _ := account.LoadAccount(ws, pkHash2)
 	checkSelfNomination(addr2, account2)
 
 	vote3, err := action.NewVote(1, addr3, addr3, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	_, err = protocol.Handle(ctx, vote3, ws)
+	_, err = p.Handle(ctx, vote3, ws)
 	require.NoError(err)
 	account3, _ := account.LoadAccount(ws, pkHash3)
 	checkSelfNomination(addr3, account3)
 
 	unvote1, err := action.NewVote(2, addr1, "", uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	_, err = protocol.Handle(ctx, unvote1, ws)
+	_, err = p.Handle(ctx, unvote1, ws)
 	require.NoError(err)
 	account1, _ = account.LoadAccount(ws, pkHash1)
 	require.Equal(uint64(2), account1.Nonce)
@@ -102,7 +103,7 @@ func TestProtocol_Handle(t *testing.T) {
 
 	vote4, err := action.NewVote(2, addr2, addr3, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	_, err = protocol.Handle(ctx, vote4, ws)
+	_, err = p.Handle(ctx, vote4, ws)
 	require.NoError(err)
 	account2, _ = account.LoadAccount(ws, pkHash2)
 	account3, _ = account.LoadAccount(ws, pkHash3)
@@ -114,7 +115,7 @@ func TestProtocol_Handle(t *testing.T) {
 
 	unvote2, err := action.NewVote(3, addr2, "", uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	_, err = protocol.Handle(ctx, unvote2, ws)
+	_, err = p.Handle(ctx, unvote2, ws)
 	require.NoError(err)
 	account2, _ = account.LoadAccount(ws, pkHash2)
 	account3, _ = account.LoadAccount(ws, pkHash3)
