@@ -15,12 +15,12 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/action/protocol/multichain/mainchain"
 	"github.com/iotexproject/iotex-core/action/protocol/multichain/subchain"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
-	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/chainservice"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/dispatcher"
@@ -79,7 +79,11 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 	// Add action validators
 	cs.ActionPool().
 		AddActionValidators(
-			actpool.NewGenericValidator(cs.Blockchain()),
+			protocol.NewGenericValidator(cs.Blockchain()),
+		)
+	cs.Blockchain().Validator().
+		AddActionValidators(
+			protocol.NewGenericValidator(cs.Blockchain()),
 		)
 	// Install protocols
 	mainChainProtocol := mainchain.NewProtocol(cs.Blockchain())
@@ -163,7 +167,11 @@ func (s *Server) newSubChainService(cfg config.Config) error {
 	}
 	cs.ActionPool().
 		AddActionValidators(
-			actpool.NewGenericValidator(cs.Blockchain()),
+			protocol.NewGenericValidator(cs.Blockchain()),
+		)
+	cs.Blockchain().Validator().
+		AddActionValidators(
+			protocol.NewGenericValidator(cs.Blockchain()),
 		)
 	subChainProtocol := subchain.NewProtocol(cs.Blockchain(), mainChainAPI)
 	accountProtocol := account.NewProtocol()
@@ -191,7 +199,11 @@ func (s *Server) NewTestingChainService(cfg config.Config) error {
 	}
 	cs.ActionPool().
 		AddActionValidators(
-			actpool.NewGenericValidator(cs.Blockchain()),
+			protocol.NewGenericValidator(cs.Blockchain()),
+		)
+	cs.Blockchain().Validator().
+		AddActionValidators(
+			protocol.NewGenericValidator(cs.Blockchain()),
 		)
 	subChainProtocol := subchain.NewProtocol(cs.Blockchain(), mainChainAPI)
 	accountProtocol := account.NewProtocol()

@@ -9,6 +9,7 @@ package vote
 import (
 	"context"
 	"math/big"
+	"sync"
 
 	"github.com/CoderZhi/go-ethereum/core/vm"
 	"github.com/pkg/errors"
@@ -28,6 +29,7 @@ const (
 
 // Protocol defines the protocol of handling votes
 type Protocol struct {
+	mu sync.RWMutex
 	cm protocol.ChainManager
 }
 
@@ -41,7 +43,7 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 		return nil, nil
 	}
 
-	raCtx, ok := state.GetRunActionsCtx(ctx)
+	raCtx, ok := protocol.GetRunActionsCtx(ctx)
 	if !ok {
 		return nil, errors.New("failed to get action context")
 	}
@@ -151,6 +153,9 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 
 // Validate validates a vote
 func (p *Protocol) Validate(_ context.Context, act action.Action) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
 	vote, ok := act.(*action.Vote)
 	if !ok {
 		return nil

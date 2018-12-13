@@ -7,6 +7,7 @@
 package account
 
 import (
+	"context"
 	"math/big"
 
 	"github.com/CoderZhi/go-ethereum/core/vm"
@@ -23,7 +24,7 @@ import (
 const TransferSizeLimit = 32 * 1024
 
 // handleTransfer handles a transfer
-func (p *Protocol) handleTransfer(act action.Action, raCtx state.RunActionsCtx, sm protocol.StateManager) error {
+func (p *Protocol) handleTransfer(act action.Action, raCtx protocol.RunActionsCtx, sm protocol.StateManager) error {
 	tsf, ok := act.(*action.Transfer)
 	if !ok {
 		return nil
@@ -140,14 +141,21 @@ func (p *Protocol) handleTransfer(act action.Action, raCtx state.RunActionsCtx, 
 }
 
 // validateTransfer validates a transfer
-func (p *Protocol) validateTransfer(act action.Action) error {
+func (p *Protocol) validateTransfer(ctx context.Context, act action.Action) error {
 	tsf, ok := act.(*action.Transfer)
 	if !ok {
 		return nil
 	}
-	// Reject coinbase transfer
+	vaCtx, validateInBlock := protocol.GetValidateActionsCtx(ctx)
+
 	if tsf.IsCoinbase() {
-		return errors.Wrap(action.ErrTransfer, "coinbase transfer")
+		if !validateInBlock {
+			return errors.Wrap(action.ErrTransfer, "unexpected coinbase transfer")
+		}
+		if vaCtx.ProducerAddr != tsf.Recipient() {
+			return errors.Wrap(action.ErrTransfer, "wrong coinbase recipient")
+		}
+		return nil
 	}
 	// Reject oversized transfer
 	if tsf.TotalSize() > TransferSizeLimit {
