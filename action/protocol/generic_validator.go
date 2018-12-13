@@ -15,8 +15,8 @@ const GasLimit = uint64(1000000000)
 
 // GenericValidator is the validator for generic action verification
 type GenericValidator struct {
-	cm ChainManager
 	mu sync.RWMutex
+	cm ChainManager
 }
 
 // NewGenericValidator constructs a new genericValidator

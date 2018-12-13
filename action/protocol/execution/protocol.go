@@ -24,8 +24,8 @@ const ExecutionSizeLimit = 32 * 1024
 
 // Protocol defines the protocol of handling executions
 type Protocol struct {
-	cm protocol.ChainManager
 	mu sync.RWMutex
+	cm protocol.ChainManager
 }
 
 // NewProtocol instantiates the protocol of exeuction

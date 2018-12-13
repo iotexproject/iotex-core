@@ -11,6 +11,7 @@ import (
 	"context"
 	"sort"
 	"sync"
+	"sync/atomic"
 
 	"github.com/pkg/errors"
 
@@ -80,14 +81,16 @@ func (v *validator) verifyActions(blk *Block, containCoinbase bool) error {
 	// Verify transfers, votes, executions, witness, and secrets
 	confirmedNonceMap := make(map[string]uint64)
 	accountNonceMap := make(map[string][]uint64)
-
 	producerPKHash := keypair.HashPubKey(blk.Header.Pubkey)
 	producerAddr := address.New(blk.Header.chainID, producerPKHash[:])
 	var coinbaseCounter int
-
-	errs := make(chan error, len(blk.Actions)*len(v.actionValidators))
+	var correctVerifications uint64
+	var expectedVerifications uint64
+	var actionError error
 	var wg sync.WaitGroup
+
 	for _, act := range blk.Actions {
+		// TODO: Maybe need more strict measurement to validate a coinbase transfer
 		if act.SrcAddr() == "" {
 			coinbaseCounter++
 		} else {
@@ -111,19 +114,22 @@ func (v *validator) verifyActions(blk *Block, containCoinbase bool) error {
 
 		for _, validator := range v.actionValidators {
 			wg.Add(1)
-			go func(validator protocol.ActionValidator, act action.Action) {
+			expectedVerifications++
+			go func(validator protocol.ActionValidator, act action.Action, counter *uint64) {
 				defer wg.Done()
-				errs <- validator.Validate(ctx, act)
-			}(validator, act)
+				if err := validator.Validate(ctx, act); err != nil {
+					actionError = err
+					return
+				}
+				atomic.AddUint64(counter, uint64(1))
+			}(validator, act, &correctVerifications)
 		}
 	}
 
 	wg.Wait()
-	close(errs)
-	for err := range errs {
-		if err != nil {
-			return errors.Wrap(err, "failed to validate action")
-		}
+
+	if correctVerifications != expectedVerifications {
+		return errors.Wrap(actionError, "failed to validate action")
 	}
 
 	if containCoinbase && coinbaseCounter != 1 || !containCoinbase && coinbaseCounter != 0 {
