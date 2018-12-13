@@ -18,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/address"
@@ -794,8 +795,8 @@ func (bc *blockchain) CreateState(addr string, init *big.Int) (*state.Account, e
 		return nil, errors.Wrap(err, "failed to get genesis block")
 	}
 	gasLimit := GasLimit
-	ctx := state.WithRunActionsCtx(context.Background(),
-		state.RunActionsCtx{
+	ctx := protocol.WithRunActionsCtx(context.Background(),
+		protocol.RunActionsCtx{
 			ProducerAddr:    genesisBlk.ProducerAddress(),
 			GasLimit:        &gasLimit,
 			EnableGasCharge: bc.config.Chain.EnableGasCharge,
@@ -884,8 +885,8 @@ func (bc *blockchain) startExistingBlockchain(recoveryHeight uint64) error {
 			return err
 		}
 		gasLimit := GasLimit
-		ctx := state.WithRunActionsCtx(context.Background(),
-			state.RunActionsCtx{
+		ctx := protocol.WithRunActionsCtx(context.Background(),
+			protocol.RunActionsCtx{
 				ProducerAddr:    genesisBlk.ProducerAddress(),
 				GasLimit:        &gasLimit,
 				EnableGasCharge: bc.config.Chain.EnableGasCharge,
@@ -1000,8 +1001,8 @@ func (bc *blockchain) runActions(blk *Block, ws factory.WorkingSet, verify bool)
 	}
 	gasLimit := GasLimit
 	// update state factory
-	ctx := state.WithRunActionsCtx(context.Background(),
-		state.RunActionsCtx{
+	ctx := protocol.WithRunActionsCtx(context.Background(),
+		protocol.RunActionsCtx{
 			BlockHeight:     blk.Height(),
 			BlockHash:       blk.HashBlock(),
 			ProducerPubKey:  blk.Header.Pubkey,

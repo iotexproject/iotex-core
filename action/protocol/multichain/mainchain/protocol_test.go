@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
@@ -38,7 +39,7 @@ func TestAddSubChainActions(t *testing.T) {
 	ap, err := actpool.NewActPool(bc, cfg.ActPool)
 	require.NoError(t, err)
 	p := NewProtocol(bc)
-	ap.AddActionValidators(actpool.NewGenericValidator(bc), p)
+	ap.AddActionValidators(protocol.NewGenericValidator(bc), p)
 	defer require.NoError(t, bc.Stop(ctx))
 
 	startSubChain := action.NewStartSubChain(

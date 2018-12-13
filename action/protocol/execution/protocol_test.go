@@ -20,6 +20,7 @@ import (
 
 	"github.com/CoderZhi/go-ethereum/common"
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/blockchain"
@@ -28,7 +29,6 @@ import (
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
@@ -56,6 +56,7 @@ func TestProtocol_Handle(t *testing.T) {
 		cfg.Chain.EnableGasCharge = true
 		cfg.Explorer.Enabled = true
 		bc := blockchain.NewBlockchain(cfg, blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption())
+		bc.Validator().AddActionValidators(protocol.NewGenericValidator(bc), account.NewProtocol(), NewProtocol(bc))
 		sf := bc.GetFactory()
 		require.NotNil(sf)
 		sf.AddActionHandlers(NewProtocol(bc))
@@ -71,8 +72,8 @@ func TestProtocol_Handle(t *testing.T) {
 		_, err = account.LoadOrCreateAccount(ws, ta.Addrinfo["producer"].RawAddress, blockchain.Gen.TotalSupply)
 		require.NoError(err)
 		gasLimit := testutil.TestGasLimit
-		ctx = state.WithRunActionsCtx(ctx,
-			state.RunActionsCtx{
+		ctx = protocol.WithRunActionsCtx(ctx,
+			protocol.RunActionsCtx{
 				ProducerAddr:    ta.Addrinfo["producer"].RawAddress,
 				GasLimit:        &gasLimit,
 				EnableGasCharge: testutil.EnableGasCharge,
@@ -197,6 +198,7 @@ func TestProtocol_Handle(t *testing.T) {
 		cfg.Chain.EnableGasCharge = true
 		cfg.Explorer.Enabled = true
 		bc := blockchain.NewBlockchain(cfg, blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption())
+		bc.Validator().AddActionValidators(protocol.NewGenericValidator(bc), account.NewProtocol(), NewProtocol(bc))
 		sf := bc.GetFactory()
 		require.NotNil(sf)
 		sf.AddActionHandlers(NewProtocol(bc))
@@ -215,8 +217,8 @@ func TestProtocol_Handle(t *testing.T) {
 		_, err = account.LoadOrCreateAccount(ws, ta.Addrinfo["bravo"].RawAddress, big.NewInt(12000000))
 		require.NoError(err)
 		gasLimit := testutil.TestGasLimit
-		ctx = state.WithRunActionsCtx(ctx,
-			state.RunActionsCtx{
+		ctx = protocol.WithRunActionsCtx(ctx,
+			protocol.RunActionsCtx{
 				ProducerAddr:    ta.Addrinfo["producer"].RawAddress,
 				GasLimit:        &gasLimit,
 				EnableGasCharge: testutil.EnableGasCharge,
@@ -312,6 +314,7 @@ func TestProtocol_Handle(t *testing.T) {
 		cfg.Chain.ChainDBPath = testDBPath
 		cfg.Explorer.Enabled = true
 		bc := blockchain.NewBlockchain(cfg, blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption())
+		bc.Validator().AddActionValidators(protocol.NewGenericValidator(bc), account.NewProtocol(), NewProtocol(bc))
 		require.NoError(bc.Start(ctx))
 		require.NotNil(bc)
 		defer func() {
@@ -330,8 +333,8 @@ func TestProtocol_Handle(t *testing.T) {
 		_, err = account.LoadOrCreateAccount(ws, ta.Addrinfo["bravo"].RawAddress, big.NewInt(0))
 		require.NoError(err)
 		gasLimit := testutil.TestGasLimit
-		ctx = state.WithRunActionsCtx(ctx,
-			state.RunActionsCtx{
+		ctx = protocol.WithRunActionsCtx(ctx,
+			protocol.RunActionsCtx{
 				ProducerAddr:    ta.Addrinfo["producer"].RawAddress,
 				GasLimit:        &gasLimit,
 				EnableGasCharge: testutil.EnableGasCharge,

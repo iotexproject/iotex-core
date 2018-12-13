@@ -20,6 +20,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
@@ -58,6 +59,9 @@ func (v *byzVal) Validate(blk *blockchain.Block, tipHeight uint64, tipHash hash.
 	//return errors.New("")
 	return nil
 }
+
+// AddActionValidators add validators
+func (v *byzVal) AddActionValidators(validators ...protocol.ActionValidator) {}
 
 // Ping implements simulator.SimulatorServer
 func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error {

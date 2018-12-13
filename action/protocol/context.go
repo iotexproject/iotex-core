@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package state
+package protocol
 
 import (
 	"context"
@@ -14,6 +14,8 @@ import (
 )
 
 type runActionsCtxKey struct{}
+
+type validateActionsCtxKey struct{}
 
 // RunActionsCtx provides the runactions with auxiliary information.
 type RunActionsCtx struct {
@@ -33,6 +35,16 @@ type RunActionsCtx struct {
 	EnableGasCharge bool
 }
 
+// ValidateActionsCtx provides action validators with auxiliary information.
+type ValidateActionsCtx struct {
+	// nonce tracker of each action's source account
+	NonceTracker map[string][]uint64
+	// height of block containing those actions
+	BlockHeight uint64
+	// public key of producer who compose those actions
+	ProducerAddr string
+}
+
 // WithRunActionsCtx add RunActionsCtx into context.
 func WithRunActionsCtx(ctx context.Context, ra RunActionsCtx) context.Context {
 	return context.WithValue(ctx, runActionsCtxKey{}, ra)
@@ -42,4 +54,15 @@ func WithRunActionsCtx(ctx context.Context, ra RunActionsCtx) context.Context {
 func GetRunActionsCtx(ctx context.Context) (RunActionsCtx, bool) {
 	ra, ok := ctx.Value(runActionsCtxKey{}).(RunActionsCtx)
 	return ra, ok
+}
+
+// WithValidateActionsCtx add ValidateActionsCtx into context.
+func WithValidateActionsCtx(ctx context.Context, va *ValidateActionsCtx) context.Context {
+	return context.WithValue(ctx, validateActionsCtxKey{}, va)
+}
+
+// GetValidateActionsCtx gets validateActions context
+func GetValidateActionsCtx(ctx context.Context) (*ValidateActionsCtx, bool) {
+	va, ok := ctx.Value(validateActionsCtxKey{}).(*ValidateActionsCtx)
+	return va, ok
 }
