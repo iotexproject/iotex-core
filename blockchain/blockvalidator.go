@@ -10,9 +10,11 @@ import (
 	"bytes"
 	"context"
 	"sort"
+	"sync"
 
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/crypto"
@@ -81,35 +83,50 @@ func (v *validator) verifyActions(blk *Block, containCoinbase bool) error {
 
 	producerPKHash := keypair.HashPubKey(blk.Header.Pubkey)
 	producerAddr := address.New(blk.Header.chainID, producerPKHash[:])
-	ctx := protocol.WithValidateActionsCtx(context.Background(),
-		&protocol.ValidateActionsCtx{
-			NonceTracker:    make(map[string]uint64),
-			BlockHeight:     blk.Height(),
-			ProducerAddr:    producerAddr.IotxAddress(),
-			CoinbaseChecked: false,
-		})
+	var coinbaseCounter int
 
+	errs := make(chan error, len(blk.Actions)*len(v.actionValidators))
+	var wg sync.WaitGroup
 	for _, act := range blk.Actions {
-		vaCtx, _ := protocol.GetValidateActionsCtx(ctx)
-		if act.SrcAddr() != "" {
-			if _, ok := vaCtx.NonceTracker[act.SrcAddr()]; !ok {
-				confirmedNonce, err := v.sf.Nonce(act.SrcAddr())
+		if act.SrcAddr() == "" {
+			coinbaseCounter++
+		} else {
+			// Store the nonce of the sender and verify later
+			if _, ok := confirmedNonceMap[act.SrcAddr()]; !ok {
+				accountNonce, err := v.sf.Nonce(act.SrcAddr())
 				if err != nil {
 					return errors.Wrap(err, "failed to get the confirmed nonce of action sender")
 				}
-				vaCtx.NonceTracker[act.SrcAddr()] = confirmedNonce
+				confirmedNonceMap[act.SrcAddr()] = accountNonce
+				accountNonceMap[act.SrcAddr()] = make([]uint64, 0)
 			}
 		}
-		ctx := protocol.WithValidateActionsCtx(context.Background(), vaCtx)
+
+		ctx := protocol.WithValidateActionsCtx(context.Background(),
+			&protocol.ValidateActionsCtx{
+				NonceTracker: accountNonceMap,
+				BlockHeight:  blk.Height(),
+				ProducerAddr: producerAddr.IotxAddress(),
+			})
+
 		for _, validator := range v.actionValidators {
-			if err := validator.Validate(ctx, act); err != nil {
-				return errors.Wrapf(err, "invalid action: %x", act.Hash())
-			}
+			wg.Add(1)
+			go func(validator protocol.ActionValidator, act action.Action) {
+				defer wg.Done()
+				errs <- validator.Validate(ctx, act)
+			}(validator, act)
 		}
 	}
 
-	vaCtx, _ := protocol.GetValidateActionsCtx(ctx)
-	if containCoinbase && !vaCtx.CoinbaseChecked || !containCoinbase && vaCtx.CoinbaseChecked {
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		if err != nil {
+			return errors.Wrap(err, "failed to validate action")
+		}
+	}
+
+	if containCoinbase && coinbaseCounter != 1 || !containCoinbase && coinbaseCounter != 0 {
 		return errors.New("wrong number of coinbase transfers in block")
 	}
 
@@ -174,7 +191,7 @@ func (v *validator) verifyActions(blk *Block, containCoinbase bool) error {
 			sort.Slice(receivedNonce, func(i, j int) bool { return receivedNonce[i] < receivedNonce[j] })
 			for i, nonce := range receivedNonce {
 				if nonce != confirmedNonce+uint64(i+1) {
-					return errors.Wrap(ErrActionNonce, "the nonce of the action is invalid")
+					return errors.Wrap(action.ErrNonce, "action nonce is not continuously increasing")
 				}
 			}
 		}

@@ -9,6 +9,7 @@ package account
 import (
 	"context"
 	"math/big"
+	"sync"
 
 	"github.com/pkg/errors"
 
@@ -20,7 +21,7 @@ import (
 )
 
 // Protocol defines the protocol of handling account
-type Protocol struct{}
+type Protocol struct{ mu sync.RWMutex }
 
 // NewProtocol instantiates the protocol of account
 func NewProtocol() *Protocol { return &Protocol{} }
@@ -42,6 +43,9 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 
 // Validate validates an account
 func (p *Protocol) Validate(ctx context.Context, act action.Action) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
 	switch act := act.(type) {
 	case *action.Transfer:
 		if err := p.validateTransfer(ctx, act); err != nil {

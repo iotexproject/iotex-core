@@ -316,7 +316,8 @@ func TestWrongNonce(t *testing.T) {
 	err = val.Validate(blk, 2, hash, true)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 
-	vote, err := action.NewVote(1, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress, uint64(100000), big.NewInt(10))
+	vote, err := action.NewVote(1, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["producer"].RawAddress,
+		uint64(100000), big.NewInt(10))
 	require.NoError(err)
 	require.NoError(action.Sign(vote, ta.Addrinfo["producer"].PrivateKey))
 	hash = tsf1.Hash()
@@ -480,7 +481,7 @@ func TestWrongCoinbaseTsf(t *testing.T) {
 	err = val.Validate(blk, 2, hash, true)
 	require.Error(err)
 	require.True(
-		strings.Contains(err.Error(), "number of coinbase transfer should not exceed one"),
+		strings.Contains(err.Error(), "wrong number of coinbase transfers in block"),
 	)
 
 	// no transfer

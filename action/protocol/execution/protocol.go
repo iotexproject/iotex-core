@@ -8,6 +8,7 @@ package execution
 
 import (
 	"context"
+	"sync"
 
 	"github.com/pkg/errors"
 
@@ -22,10 +23,13 @@ import (
 const ExecutionSizeLimit = 32 * 1024
 
 // Protocol defines the protocol of handling executions
-type Protocol struct{ cm protocol.ChainManager }
+type Protocol struct {
+	cm protocol.ChainManager
+	mu sync.RWMutex
+}
 
 // NewProtocol instantiates the protocol of exeuction
-func NewProtocol(cm protocol.ChainManager) *Protocol { return &Protocol{cm} }
+func NewProtocol(cm protocol.ChainManager) *Protocol { return &Protocol{cm: cm} }
 
 // Handle handles an execution
 func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
@@ -63,6 +67,9 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 
 // Validate validates an execution
 func (p *Protocol) Validate(_ context.Context, act action.Action) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
 	exec, ok := act.(*action.Execution)
 	if !ok {
 		return nil

@@ -152,14 +152,9 @@ func (p *Protocol) validateTransfer(ctx context.Context, act action.Action) erro
 		if !validateInBlock {
 			return errors.Wrap(action.ErrTransfer, "unexpected coinbase transfer")
 		}
-		if vaCtx.CoinbaseChecked {
-			return errors.Wrap(action.ErrTransfer, "number of coinbase transfer should not exceed one")
-		}
 		if vaCtx.ProducerAddr != tsf.Recipient() {
 			return errors.Wrap(action.ErrTransfer, "wrong coinbase recipient")
 		}
-		vaCtx.CoinbaseChecked = true
-		ctx = protocol.WithValidateActionsCtx(context.Background(), vaCtx)
 		return nil
 	}
 	// Reject oversized transfer

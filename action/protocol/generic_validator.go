@@ -2,6 +2,8 @@ package protocol
 
 import (
 	"context"
+	"sync"
+
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -12,18 +14,23 @@ import (
 const GasLimit = uint64(1000000000)
 
 // GenericValidator is the validator for generic action verification
-type GenericValidator struct{ cm ChainManager }
+type GenericValidator struct {
+	cm ChainManager
+	mu sync.RWMutex
+}
 
 // NewGenericValidator constructs a new genericValidator
-func NewGenericValidator(cm ChainManager) *GenericValidator { return &GenericValidator{cm} }
+func NewGenericValidator(cm ChainManager) *GenericValidator { return &GenericValidator{cm: cm} }
 
 // Validate validates a generic action
 func (v *GenericValidator) Validate(ctx context.Context, act action.Action) error {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+
 	vaCtx, validateInBlock := GetValidateActionsCtx(ctx)
 	if validateInBlock && (vaCtx.BlockHeight == 0 || act.SrcAddr() == "") {
 		return nil
 	}
-
 	// Reject over-gassed action
 	if act.GasLimit() > GasLimit {
 		return errors.Wrap(action.ErrGasHigherThanLimit, "gas is higher than gas limit")
@@ -52,12 +59,7 @@ func (v *GenericValidator) Validate(ctx context.Context, act action.Action) erro
 	}
 	// Check if action's nonce is in correct order
 	if validateInBlock {
-		// action source address must be added to map before validation
-		if vaCtx.NonceTracker[act.SrcAddr()]+1 != act.Nonce() {
-			return errors.Wrap(action.ErrNonce, "action nonce is not continuously increasing")
-		}
-		vaCtx.NonceTracker[act.SrcAddr()]++
-		ctx = WithValidateActionsCtx(context.Background(), vaCtx)
+		vaCtx.NonceTracker[act.SrcAddr()] = append(vaCtx.NonceTracker[act.SrcAddr()], act.Nonce())
 	}
 	return nil
 }

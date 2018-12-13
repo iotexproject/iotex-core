@@ -38,13 +38,11 @@ type RunActionsCtx struct {
 // ValidateActionsCtx provides action validators with auxiliary information.
 type ValidateActionsCtx struct {
 	// nonce tracker of each action's source account
-	NonceTracker map[string]uint64
+	NonceTracker map[string][]uint64
 	// height of block containing those actions
 	BlockHeight uint64
 	// public key of producer who compose those actions
 	ProducerAddr string
-	// whether coinbase transfer has been checked
-	CoinbaseChecked bool
 }
 
 // WithRunActionsCtx add RunActionsCtx into context.
