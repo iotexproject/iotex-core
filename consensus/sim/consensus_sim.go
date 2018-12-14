@@ -36,8 +36,7 @@ const (
 type Sim interface {
 	lifecycle.StartStopper
 
-	HandleEndorse(*iproto.EndorsePb, chan bool) error
-	HandleBlockPropose(*iproto.ProposePb, chan bool) error
+	HandleConsensusMsg(*iproto.ConsensusPb, chan bool) error
 	SetStream(*pbsim.Simulator_PingServer)
 	SetDoneStream(chan bool)
 	SendUnsent()
@@ -225,18 +224,9 @@ func (c *sim) Stop(ctx context.Context) error {
 	return nil
 }
 
-// HandleBlockPropose handles incoming block propose
-func (c *sim) HandleBlockPropose(m *iproto.ProposePb, done chan bool) error {
-	if err := c.scheme.HandleBlockPropose(m); err != nil {
-		return err
-	}
-	c.scheme.SetDoneStream(done)
-	return nil
-}
-
-// HandleEndorse handles incoming endorse
-func (c *sim) HandleEndorse(m *iproto.EndorsePb, done chan bool) error {
-	if err := c.scheme.HandleEndorse(m); err != nil {
+// HandleConsensusMsg handles incoming consensus message
+func (c *sim) HandleConsensusMsg(m *iproto.ConsensusPb, done chan bool) error {
+	if err := c.scheme.HandleConsensusMsg(m); err != nil {
 		return err
 	}
 	c.scheme.SetDoneStream(done)

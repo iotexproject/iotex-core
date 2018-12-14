@@ -172,11 +172,9 @@ func (s *server) Ping(in *pb.Request, stream pb.Simulator_PingServer) error {
 	// message type of 1999 means that it's a dummy message to allow the engine to pass back proposed blocks
 	if in.InternalMsgType != dummyMsgType {
 		msg := CombineMsg(in.InternalMsgType, msgValue)
-		switch msg.(type) {
-		case *iproto.ProposePb:
-			err = s.nodes[in.PlayerID].HandleBlockPropose(msg.(*iproto.ProposePb), done)
-		case *iproto.EndorsePb:
-			err = s.nodes[in.PlayerID].HandleEndorse(msg.(*iproto.EndorsePb), done)
+		switch cMsg := msg.(type) {
+		case *iproto.ConsensusPb:
+			err = s.nodes[in.PlayerID].HandleConsensusMsg(cMsg, done)
 		}
 		if err != nil {
 			logger.Error().Err(err).Msg("failed to handle view change")

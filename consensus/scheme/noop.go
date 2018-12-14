@@ -33,15 +33,9 @@ func (n *Noop) Stop(_ context.Context) error { return nil }
 // SetDoneStream does nothing for Noop (only used in simulator)
 func (n *Noop) SetDoneStream(done chan bool) {}
 
-// HandleBlockPropose handles incoming block propose
-func (n *Noop) HandleBlockPropose(propose *iproto.ProposePb) error {
-	logger.Warn().Msg("Noop scheme does not handle incoming block propose requests")
-	return nil
-}
-
-// HandleEndorse handles incoming block propose
-func (n *Noop) HandleEndorse(endorse *iproto.EndorsePb) error {
-	logger.Warn().Msg("Noop scheme does not handle incoming endorse requests")
+// HandleConsensusMsg handles incoming consensus message
+func (n *Noop) HandleConsensusMsg(msg *iproto.ConsensusPb) error {
+	logger.Warn().Msg("Noop scheme does not handle incoming consensus message")
 	return nil
 }
 

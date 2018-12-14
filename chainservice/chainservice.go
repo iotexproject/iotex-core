@@ -258,14 +258,9 @@ func (cs *ChainService) HandleSyncRequest(sender string, sync *iproto.BlockSync)
 	return cs.blocksync.ProcessSyncRequest(sender, sync)
 }
 
-// HandleBlockPropose handles incoming block propose request.
-func (cs *ChainService) HandleBlockPropose(propose *iproto.ProposePb) error {
-	return cs.consensus.HandleBlockPropose(propose)
-}
-
-// HandleEndorse handles incoming endorse request.
-func (cs *ChainService) HandleEndorse(endorse *iproto.EndorsePb) error {
-	return cs.consensus.HandleEndorse(endorse)
+// HandleConsensusMsg handles incoming consensus message.
+func (cs *ChainService) HandleConsensusMsg(msg *iproto.ConsensusPb) error {
+	return cs.consensus.HandleConsensusMsg(msg)
 }
 
 // ChainID returns ChainID.

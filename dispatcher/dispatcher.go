@@ -28,8 +28,7 @@ type Subscriber interface {
 	HandleBlock(*pb.BlockPb) error
 	HandleBlockSync(*pb.BlockPb) error
 	HandleSyncRequest(string, *pb.BlockSync) error
-	HandleBlockPropose(*pb.ProposePb) error
-	HandleEndorse(*pb.EndorsePb) error
+	HandleConsensusMsg(*pb.ConsensusPb) error
 }
 
 // Dispatcher is used by peers, handles incoming block and header notifications and relays announcements of new blocks.
@@ -321,22 +320,12 @@ func (d *IotxDispatcher) HandleBroadcast(chainID uint32, message proto.Message, 
 	}
 
 	switch msgType {
-	case pb.MsgProposeProtoMsgType:
-		err := subscriber.HandleBlockPropose(message.(*pb.ProposePb))
+	case pb.MsgConsensusType:
+		err := subscriber.HandleConsensusMsg(message.(*pb.ConsensusPb))
 		if err != nil {
 			logger.Error().
 				Err(err).
 				Msg("failed to handle block propose")
-		}
-		if done != nil {
-			done <- true
-		}
-	case pb.MsgEndorseProtoMsgType:
-		err := subscriber.HandleEndorse(message.(*pb.EndorsePb))
-		if err != nil {
-			logger.Error().
-				Err(err).
-				Msg("failed to handle endorse")
 		}
 		if done != nil {
 			done <- true

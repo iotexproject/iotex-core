@@ -85,28 +85,16 @@ func (mr *MockSubscriberMockRecorder) HandleSyncRequest(arg0, arg1 interface{}) 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleSyncRequest", reflect.TypeOf((*MockSubscriber)(nil).HandleSyncRequest), arg0, arg1)
 }
 
-// HandleBlockPropose mocks base method
-func (m *MockSubscriber) HandleBlockPropose(arg0 *proto0.ProposePb) error {
-	ret := m.ctrl.Call(m, "HandleBlockPropose", arg0)
+// HandleConsensusMsg mocks base method
+func (m *MockSubscriber) HandleConsensusMsg(arg0 *proto0.ConsensusPb) error {
+	ret := m.ctrl.Call(m, "HandleConsensusMsg", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// HandleBlockPropose indicates an expected call of HandleBlockPropose
-func (mr *MockSubscriberMockRecorder) HandleBlockPropose(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleBlockPropose", reflect.TypeOf((*MockSubscriber)(nil).HandleBlockPropose), arg0)
-}
-
-// HandleEndorse mocks base method
-func (m *MockSubscriber) HandleEndorse(arg0 *proto0.EndorsePb) error {
-	ret := m.ctrl.Call(m, "HandleEndorse", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// HandleEndorse indicates an expected call of HandleEndorse
-func (mr *MockSubscriberMockRecorder) HandleEndorse(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleEndorse", reflect.TypeOf((*MockSubscriber)(nil).HandleEndorse), arg0)
+// HandleConsensusMsg indicates an expected call of HandleConsensusMsg
+func (mr *MockSubscriberMockRecorder) HandleConsensusMsg(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleConsensusMsg", reflect.TypeOf((*MockSubscriber)(nil).HandleConsensusMsg), arg0)
 }
 
 // MockDispatcher is a mock of Dispatcher interface
