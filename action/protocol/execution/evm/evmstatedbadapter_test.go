@@ -22,22 +22,15 @@ import (
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
-const testDBPath = "db.test"
-
 func TestAddBalance(t *testing.T) {
 	require := require.New(t)
+	testutil.CleanupPath(t, testTriePath)
+	defer testutil.CleanupPath(t, testTriePath)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-	defer testutil.CleanupPath(t, testDBPath)
 	ctx := context.Background()
-	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
-	cfg.Chain.ChainDBPath = testDBPath
-	cfg.Explorer.Enabled = true
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(err)
 	require.NoError(sf.Start(ctx))
@@ -63,18 +56,14 @@ func TestAddBalance(t *testing.T) {
 
 func TestForEachStorage(t *testing.T) {
 	require := require.New(t)
+	testutil.CleanupPath(t, testTriePath)
+	defer testutil.CleanupPath(t, testTriePath)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-	defer testutil.CleanupPath(t, testDBPath)
 	ctx := context.Background()
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
-	cfg.Chain.ChainDBPath = testDBPath
-	cfg.Explorer.Enabled = true
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(err)
 	require.NoError(sf.Start(ctx))

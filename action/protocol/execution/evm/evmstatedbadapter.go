@@ -222,13 +222,46 @@ func (stateDB *StateDBAdapter) Empty(common.Address) bool {
 func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 	if err := stateDB.sm.Revert(snapshot); err != nil {
 		logger.Error().Err(err).Msg("failed to RevertToSnapshot")
+		return
 	}
-	return
+	ds, ok := stateDB.suicideSnapshot[snapshot]
+	if !ok {
+		// this should not happen, b/c we save the suicide accounts on a successful return of Snapshot(), but check anyway
+		logger.Error().Msgf("failed to get snapshot = %d", snapshot)
+		return
+	}
+	// restore the suicide accounts
+	stateDB.suicided = nil
+	stateDB.suicided = ds
+	// restore modified contracts
+	stateDB.cachedContract = nil
+	stateDB.cachedContract = stateDB.contractSnapshot[snapshot]
+	for addr, c := range stateDB.cachedContract {
+		if err := c.LoadRoot(); err != nil {
+			logger.Error().Msgf("failed to load root for contract %x", addr)
+			return
+		}
+	}
 }
 
 // Snapshot returns the snapshot id
 func (stateDB *StateDBAdapter) Snapshot() int {
-	return stateDB.sm.Snapshot()
+	sn := stateDB.sm.Snapshot()
+	if _, ok := stateDB.suicideSnapshot[sn]; !ok {
+		// save a copy of current suicide accounts
+		sa := make(deleteAccount)
+		for k, v := range stateDB.suicided {
+			sa[k] = v
+		}
+		stateDB.suicideSnapshot[sn] = sa
+		// save a copy of modified contracts
+		c := make(contractMap)
+		for k, v := range stateDB.cachedContract {
+			c[k] = v.Snapshot()
+		}
+		stateDB.contractSnapshot[sn] = c
+	}
+	return sn
 }
 
 // AddLog adds log
