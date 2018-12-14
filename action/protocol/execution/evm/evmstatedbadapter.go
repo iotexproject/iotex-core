@@ -25,33 +25,47 @@ import (
 	"github.com/iotexproject/iotex-core/state"
 )
 
-// StateDBAdapter represents the state db adapter for evm to access iotx blockchain
-type StateDBAdapter struct {
-	cm             protocol.ChainManager
-	sm             protocol.StateManager
-	logs           []*action.Log
-	err            error
-	blockHeight    uint64
-	blockHash      hash.Hash32B
-	executionHash  hash.Hash32B
-	cachedContract map[hash.PKHash]Contract
-	dao            db.KVStore
-	cb             db.CachedBatch
-}
+type (
+	// deleteAccount records the account/contract to be deleted
+	deleteAccount map[hash.PKHash]struct{}
+
+	// contractMap records the contracts being changed
+	contractMap map[hash.PKHash]Contract
+
+	// StateDBAdapter represents the state db adapter for evm to access iotx blockchain
+	StateDBAdapter struct {
+		cm               protocol.ChainManager
+		sm               protocol.StateManager
+		logs             []*action.Log
+		err              error
+		blockHeight      uint64
+		blockHash        hash.Hash32B
+		executionHash    hash.Hash32B
+		cachedContract   contractMap
+		contractSnapshot map[int]contractMap   // snapshots of contracts
+		suicided         deleteAccount         // account/contract calling Suicide
+		suicideSnapshot  map[int]deleteAccount // snapshots of suicide accounts
+		dao              db.KVStore
+		cb               db.CachedBatch
+	}
+)
 
 // NewStateDBAdapter creates a new state db with iotex blockchain
 func NewStateDBAdapter(cm protocol.ChainManager, sm protocol.StateManager, blockHeight uint64, blockHash hash.Hash32B, executionHash hash.Hash32B) *StateDBAdapter {
 	return &StateDBAdapter{
-		cm:             cm,
-		sm:             sm,
-		logs:           []*action.Log{},
-		err:            nil,
-		blockHeight:    blockHeight,
-		blockHash:      blockHash,
-		executionHash:  executionHash,
-		cachedContract: make(map[hash.PKHash]Contract),
-		dao:            sm.GetDB(),
-		cb:             sm.GetCachedBatch(),
+		cm:               cm,
+		sm:               sm,
+		logs:             []*action.Log{},
+		err:              nil,
+		blockHeight:      blockHeight,
+		blockHash:        blockHash,
+		executionHash:    executionHash,
+		cachedContract:   make(contractMap),
+		contractSnapshot: make(map[int]contractMap),
+		suicided:         make(deleteAccount),
+		suicideSnapshot:  make(map[int]deleteAccount),
+		dao:              sm.GetDB(),
+		cb:               sm.GetCachedBatch(),
 	}
 }
 
@@ -163,22 +177,35 @@ func (stateDB *StateDBAdapter) GetRefund() uint64 {
 }
 
 // Suicide kills the contract
-func (stateDB *StateDBAdapter) Suicide(common.Address) bool {
-	logger.Error().Msg("Suicide is not implemented")
-	return false
+func (stateDB *StateDBAdapter) Suicide(evmAddr common.Address) bool {
+	addr := address.New(stateDB.cm.ChainID(), evmAddr.Bytes())
+	s, err := stateDB.AccountState(addr.IotxAddress())
+	if err != nil || s == state.EmptyAccount {
+		logger.Debug().Msgf("account %s does not exist", addr.IotxAddress())
+		return false
+	}
+	// clears the account balance
+	s.Balance = nil
+	s.Balance = big.NewInt(0)
+	addrHash := byteutil.BytesTo20B(evmAddr.Bytes())
+	stateDB.sm.PutState(addrHash, s)
+	// mark it as deleted
+	stateDB.suicided[addrHash] = struct{}{}
+	return true
 }
 
 // HasSuicided returns whether the contract has been killed
-func (stateDB *StateDBAdapter) HasSuicided(common.Address) bool {
-	logger.Error().Msg("HasSuicide is not implemented")
-	return false
+func (stateDB *StateDBAdapter) HasSuicided(evmAddr common.Address) bool {
+	addrHash := byteutil.BytesTo20B(evmAddr.Bytes())
+	_, ok := stateDB.suicided[addrHash]
+	return ok
 }
 
 // Exist checks the existence of an address
 func (stateDB *StateDBAdapter) Exist(evmAddr common.Address) bool {
 	addr := address.New(stateDB.cm.ChainID(), evmAddr.Bytes())
 	logger.Debug().Msgf("Check existence of %s, %x", addr.IotxAddress(), evmAddr[:])
-	if state, err := stateDB.AccountState(addr.IotxAddress()); err != nil || state == nil {
+	if s, err := stateDB.AccountState(addr.IotxAddress()); err != nil || s == state.EmptyAccount {
 		logger.Debug().Msgf("account %s does not exist", addr.IotxAddress())
 		return false
 	}
@@ -421,11 +448,18 @@ func (stateDB *StateDBAdapter) getContract(addr hash.PKHash) (Contract, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to load account state for address %x", addr)
 	}
-	// add to contract cache
+	if account == state.EmptyAccount {
+		// emptyAccount is read-only, instantiate a new empty account for contract creation
+		account = &state.Account{
+			Balance:      big.NewInt(0),
+			VotingWeight: big.NewInt(0),
+		}
+	}
 	contract, err := newContract(account, stateDB.dao, stateDB.cb)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create storage trie for new contract %x", addr)
 	}
+	// add to contract cache
 	stateDB.cachedContract[addr] = contract
 	return contract, nil
 }
@@ -433,5 +467,11 @@ func (stateDB *StateDBAdapter) getContract(addr hash.PKHash) (Contract, error) {
 // clear clears local changes
 func (stateDB *StateDBAdapter) clear() {
 	stateDB.cachedContract = nil
-	stateDB.cachedContract = make(map[hash.PKHash]Contract)
+	stateDB.contractSnapshot = nil
+	stateDB.suicided = nil
+	stateDB.suicideSnapshot = nil
+	stateDB.cachedContract = make(contractMap)
+	stateDB.contractSnapshot = make(map[int]contractMap)
+	stateDB.suicided = make(deleteAccount)
+	stateDB.suicideSnapshot = make(map[int]deleteAccount)
 }
