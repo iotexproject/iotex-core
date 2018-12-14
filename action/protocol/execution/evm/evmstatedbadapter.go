@@ -430,8 +430,8 @@ func (stateDB *StateDBAdapter) getContract(addr hash.PKHash) (Contract, error) {
 	return contract, nil
 }
 
-// clearCachedContracts clears cached contracts
-func (stateDB *StateDBAdapter) clearCachedContracts() {
+// clear clears local changes
+func (stateDB *StateDBAdapter) clear() {
 	stateDB.cachedContract = nil
 	stateDB.cachedContract = make(map[hash.PKHash]Contract)
 }
