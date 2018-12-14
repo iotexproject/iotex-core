@@ -33,8 +33,7 @@ type Broadcast func(msg proto.Message) error
 type Scheme interface {
 	lifecycle.StartStopper
 
-	HandleBlockPropose(propose *iproto.ProposePb) error
-	HandleEndorse(endorse *iproto.EndorsePb) error
+	HandleConsensusMsg(msg *iproto.ConsensusPb) error
 	Metrics() (ConsensusMetrics, error)
 }
 

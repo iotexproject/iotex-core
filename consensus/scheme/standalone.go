@@ -70,15 +70,9 @@ func (n *Standalone) Stop(ctx context.Context) error {
 	return n.task.Stop(ctx)
 }
 
-// HandleBlockPropose handles incoming block propose
-func (n *Standalone) HandleBlockPropose(propose *iproto.ProposePb) error {
+// HandleConsensusMsg handles incoming consensus message
+func (n *Standalone) HandleConsensusMsg(msg *iproto.ConsensusPb) error {
 	logger.Warn().Msg("Noop scheme does not handle incoming block propose requests")
-	return nil
-}
-
-// HandleEndorse handles incoming block propose
-func (n *Standalone) HandleEndorse(endorse *iproto.EndorsePb) error {
-	logger.Warn().Msg("Noop scheme does not handle incoming endorse requests")
 	return nil
 }
 

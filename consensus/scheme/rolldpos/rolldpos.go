@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/facebookgo/clock"
+	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/zjshen14/go-fsm"
@@ -73,6 +74,33 @@ var (
 	// ErrNotEnoughCandidates indicates there are not enough candidates from the candidate pool
 	ErrNotEnoughCandidates = errors.New("Candidate pool does not have enough candidates")
 )
+
+func (ctx *rollDPoSCtx) Broadcast(msg proto.Message) error {
+	var t iproto.ConsensusPb_ConsensusMessageType
+	switch msg.(type) {
+	case *iproto.BlockPb:
+		return ctx.broadcastHandler(msg)
+	case *iproto.ProposePb:
+		t = iproto.ConsensusPb_PROPOSAL
+	case *iproto.EndorsePb:
+		t = iproto.ConsensusPb_ENDORSEMENT
+	default:
+		return errors.New("Invalid message type")
+	}
+	data, err := proto.Marshal(msg)
+	if err != nil {
+		return err
+	}
+	consensusMsg := &iproto.ConsensusPb{
+		Height:    ctx.round.height,
+		Round:     ctx.round.number,
+		Type:      t,
+		Data:      data,
+		Timestamp: uint64(ctx.clock.Now().Unix()),
+	}
+
+	return ctx.broadcastHandler(consensusMsg)
+}
 
 // rollingDelegates will only allows the delegates chosen for given epoch to enter the epoch
 func (ctx *rollDPoSCtx) rollingDelegates(epochNum uint64) ([]string, error) {
@@ -420,23 +448,44 @@ func (r *RollDPoS) Stop(ctx context.Context) error {
 	return errors.Wrap(r.cfsm.Stop(ctx), "error when stopping the consensus FSM")
 }
 
-// HandleBlockPropose handles incoming block propose
-func (r *RollDPoS) HandleBlockPropose(propose *iproto.ProposePb) error {
-	pbEvt, err := r.cfsm.newProposeBlkEvtFromProposePb(propose)
-	if err != nil {
-		return errors.Wrap(err, "error when casting a proto msg to proposeBlkEvt")
+// HandleConsensusMsg handles incoming consensus message
+func (r *RollDPoS) HandleConsensusMsg(msg *iproto.ConsensusPb) error {
+	data := msg.Data
+	tipHeight := r.ctx.chain.TipHeight()
+	switch msg.Type {
+	case iproto.ConsensusPb_PROPOSAL:
+		pPb := &iproto.ProposePb{}
+		if err := proto.Unmarshal(data, pPb); err != nil {
+			return err
+		}
+		pbEvt, err := r.cfsm.newProposeBlkEvtFromProposePb(pPb)
+		if err != nil {
+			return errors.Wrap(err, "error when casting a proto msg to proposeBlkEvt")
+		}
+		if pbEvt.height() <= tipHeight {
+			return errors.New("old block proposal")
+		}
+		r.cfsm.produce(pbEvt, 0)
+	case iproto.ConsensusPb_ENDORSEMENT:
+		ePb := &iproto.EndorsePb{}
+		if err := proto.Unmarshal(data, ePb); err != nil {
+			return err
+		}
+		eEvt, err := r.cfsm.newEndorseEvtWithEndorsePb(ePb)
+		if err != nil {
+			return errors.Wrap(err, "error when casting a proto msg to endorse")
+		}
+		if eEvt.height() <= tipHeight && eEvt.endorse.Endorser() != r.ctx.addr.RawAddress {
+			logger.Debug().
+				Uint64("event height", eEvt.height()).
+				Uint64("Chain Height", tipHeight).
+				Msg("ignore old endorsement message")
+			return nil
+		}
+		r.cfsm.produce(eEvt, 0)
+	default:
+		return errors.Errorf("Invalid consensus message type %s", msg.Type)
 	}
-	r.cfsm.produce(pbEvt, 0)
-	return nil
-}
-
-// HandleEndorse handles incoming endorse
-func (r *RollDPoS) HandleEndorse(ePb *iproto.EndorsePb) error {
-	eEvt, err := r.cfsm.newEndorseEvtWithEndorsePb(ePb)
-	if err != nil {
-		return errors.Wrap(err, "error when casting a proto msg to endorse")
-	}
-	r.cfsm.produce(eEvt, 0)
 	return nil
 }
 
