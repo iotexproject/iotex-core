@@ -37,7 +37,7 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 		SetNonce(1).
 		SetGasLimit(100000).
 		SetGasPrice(big.NewInt(10)).Build()
-	selp := action.AssembleSealedEnvelop(elp, blockchain.Gen.CreatorAddr(config.Default.Chain.ID), pubk, sig)
+	selp := action.AssembleSealedEnvelope(elp, blockchain.Gen.CreatorAddr(config.Default.Chain.ID), pubk, sig)
 
 	blk, err := bc.MintNewBlock([]action.SealedEnvelope{selp}, ta.Addrinfo["producer"], nil, nil, "")
 	if err != nil {

@@ -34,7 +34,7 @@ func TestExecutionSignVerify(t *testing.T) {
 		SetGasPrice(big.NewInt(10)).
 		SetAction(ex).Build()
 
-	w := AssembleSealedEnvelop(elp, executor.RawAddress, executor.PublicKey, []byte("lol"))
+	w := AssembleSealedEnvelope(elp, executor.RawAddress, executor.PublicKey, []byte("lol"))
 	require.Error(Verify(w))
 
 	// sign the Execution

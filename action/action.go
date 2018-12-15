@@ -289,9 +289,9 @@ func FakeSeal(act Envelope, addr string, pubk keypair.PublicKey) SealedEnvelope 
 	return sealed
 }
 
-// AssembleSealedEnvelop assembles a SealedEnvelope use Envelope, Sender Address and Signature.
+// AssembleSealedEnvelope assembles a SealedEnvelope use Envelope, Sender Address and Signature.
 // This method should be only used in tests.
-func AssembleSealedEnvelop(act Envelope, addr string, pk keypair.PublicKey, sig []byte) SealedEnvelope {
+func AssembleSealedEnvelope(act Envelope, addr string, pk keypair.PublicKey, sig []byte) SealedEnvelope {
 	sealed := SealedEnvelope{
 		Envelope:  act,
 		srcAddr:   addr,
