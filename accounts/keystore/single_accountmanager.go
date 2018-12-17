@@ -40,28 +40,16 @@ func NewSingleAccountManager(accountManager *AccountManager) (*SingleAccountMana
 	return singleAccountManager, nil
 }
 
-// SignTransfer signs a transfer
-func (m *SingleAccountManager) SignTransfer(transfer *action.Transfer) error {
+// SignAction signs an action envelope.
+func (m *SingleAccountManager) SignAction(elp action.Envelope) (action.SealedEnvelope, error) {
 	accounts, err := m.accountManager.keystore.All()
 	if err != nil {
-		return errors.Wrap(err, "failed to list all accounts")
+		return action.SealedEnvelope{}, errors.Wrap(err, "failed to list all accounts")
 	}
 	if len(accounts) != 1 {
-		return errors.Wrap(ErrNumAccounts, "only one account is allowed in keystore")
+		return action.SealedEnvelope{}, errors.Wrap(ErrNumAccounts, "only one account is allowed in keystore")
 	}
-	return m.accountManager.SignTransfer(accounts[0], transfer)
-}
-
-// SignVote signs a vote
-func (m *SingleAccountManager) SignVote(vote *action.Vote) error {
-	accounts, err := m.accountManager.keystore.All()
-	if err != nil {
-		return errors.Wrap(err, "failed to list all accounts")
-	}
-	if len(accounts) != 1 {
-		return errors.Wrap(ErrNumAccounts, "only one account is allowed in keystore")
-	}
-	return m.accountManager.SignVote(accounts[0], vote)
+	return m.accountManager.SignAction(accounts[0], elp)
 }
 
 // SignHash signs a hash

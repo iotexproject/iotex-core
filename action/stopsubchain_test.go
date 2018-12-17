@@ -38,6 +38,24 @@ func TestStopSubChain(t *testing.T) {
 	)
 	require.NotNil(t, stop)
 	assertStop(stop)
+}
+
+func TestStopSubChainProto(t *testing.T) {
+	addr := testaddress.Addrinfo["producer"]
+	assertStop := func(stop *StopSubChain) {
+		assert.Equal(t, uint64(10003), stop.StopHeight())
+	}
+
+	stop := NewStopSubChain(
+		addr.RawAddress,
+		1,
+		"aaaa",
+		10003,
+		10005,
+		big.NewInt(10006),
+	)
+	require.NotNil(t, stop)
+	assertStop(stop)
 
 	stopPb := stop.Proto()
 	require.NotNil(t, stopPb)

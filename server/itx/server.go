@@ -78,11 +78,11 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 
 	// Add action validators
 	cs.ActionPool().
-		AddActionValidators(
+		AddActionEnvelopeValidators(
 			protocol.NewGenericValidator(cs.Blockchain()),
 		)
 	cs.Blockchain().Validator().
-		AddActionValidators(
+		AddActionEnvelopeValidators(
 			protocol.NewGenericValidator(cs.Blockchain()),
 		)
 	// Install protocols
@@ -166,11 +166,11 @@ func (s *Server) newSubChainService(cfg config.Config) error {
 		return err
 	}
 	cs.ActionPool().
-		AddActionValidators(
+		AddActionEnvelopeValidators(
 			protocol.NewGenericValidator(cs.Blockchain()),
 		)
 	cs.Blockchain().Validator().
-		AddActionValidators(
+		AddActionEnvelopeValidators(
 			protocol.NewGenericValidator(cs.Blockchain()),
 		)
 	subChainProtocol := subchain.NewProtocol(cs.Blockchain(), mainChainAPI)
@@ -198,11 +198,11 @@ func (s *Server) NewTestingChainService(cfg config.Config) error {
 		return err
 	}
 	cs.ActionPool().
-		AddActionValidators(
+		AddActionEnvelopeValidators(
 			protocol.NewGenericValidator(cs.Blockchain()),
 		)
 	cs.Blockchain().Validator().
-		AddActionValidators(
+		AddActionEnvelopeValidators(
 			protocol.NewGenericValidator(cs.Blockchain()),
 		)
 	subChainProtocol := subchain.NewProtocol(cs.Blockchain(), mainChainAPI)

@@ -136,7 +136,8 @@ func TestLocalCommit(t *testing.T) {
 	cfg.Chain.TrieDBPath = testTriePath2
 	cfg.Chain.ChainDBPath = testDBPath2
 	chain := blockchain.NewBlockchain(cfg, blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption())
-	chain.Validator().AddActionValidators(protocol.NewGenericValidator(chain), account.NewProtocol())
+	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain))
+	chain.Validator().AddActionValidators(account.NewProtocol())
 	require.NotNil(chain)
 	chain.GetFactory().AddActionHandlers(account.NewProtocol(), vote.NewProtocol(chain))
 	require.NoError(chain.Start(ctx))
@@ -153,8 +154,9 @@ func TestLocalCommit(t *testing.T) {
 	// transfer 1
 	// C --> A
 	s, _ = bc.StateByAddr(ta.Addrinfo["charlie"].RawAddress)
-	tsf1, _ := action.NewTransfer(s.Nonce+1, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["alfa"].RawAddress, []byte{}, uint64(100000), big.NewInt(0))
-	_ = action.Sign(tsf1, ta.Addrinfo["charlie"].PrivateKey)
+	tsf1, err := testutil.SignedTransfer(ta.Addrinfo["charlie"], ta.Addrinfo["alfa"], s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
+	require.NoError(err)
+
 	act1 := tsf1.Proto()
 	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		if err := p.Broadcast(cfg.Chain.ID, act1); err != nil {
@@ -175,9 +177,10 @@ func TestLocalCommit(t *testing.T) {
 	// transfer 2
 	// F --> D
 	s, _ = bc.StateByAddr(ta.Addrinfo["foxtrot"].RawAddress)
-	tsf2, _ := action.NewTransfer(s.Nonce+1, big.NewInt(1), ta.Addrinfo["foxtrot"].RawAddress, ta.Addrinfo["delta"].RawAddress, []byte{}, uint64(100000), big.NewInt(0))
-	_ = action.Sign(tsf2, ta.Addrinfo["foxtrot"].PrivateKey)
-	blk2, err := chain.MintNewBlock([]action.Action{tsf2}, ta.Addrinfo["producer"], nil, nil, "")
+	tsf2, err := testutil.SignedTransfer(ta.Addrinfo["foxtrot"], ta.Addrinfo["delta"], s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
+	require.NoError(err)
+
+	blk2, err := chain.MintNewBlock([]action.SealedEnvelope{tsf2}, ta.Addrinfo["producer"], nil, nil, "")
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk2, true))
 	require.Nil(chain.CommitBlock(blk2))
@@ -195,9 +198,10 @@ func TestLocalCommit(t *testing.T) {
 	// transfer 3
 	// B --> B
 	s, _ = bc.StateByAddr(ta.Addrinfo["bravo"].RawAddress)
-	tsf3, _ := action.NewTransfer(s.Nonce+1, big.NewInt(1), ta.Addrinfo["bravo"].RawAddress, ta.Addrinfo["bravo"].RawAddress, []byte{}, uint64(100000), big.NewInt(0))
-	_ = action.Sign(tsf3, ta.Addrinfo["bravo"].PrivateKey)
-	blk3, err := chain.MintNewBlock([]action.Action{tsf3}, ta.Addrinfo["producer"], nil, nil, "")
+	tsf3, err := testutil.SignedTransfer(ta.Addrinfo["bravo"], ta.Addrinfo["bravo"], s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
+	require.NoError(err)
+
+	blk3, err := chain.MintNewBlock([]action.SealedEnvelope{tsf3}, ta.Addrinfo["producer"], nil, nil, "")
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk3, true))
 	require.Nil(chain.CommitBlock(blk3))
@@ -215,9 +219,10 @@ func TestLocalCommit(t *testing.T) {
 	// transfer 4
 	// test --> E
 	s, _ = bc.StateByAddr(ta.Addrinfo["producer"].RawAddress)
-	tsf4, _ := action.NewTransfer(s.Nonce+1, big.NewInt(1), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["echo"].RawAddress, []byte{}, uint64(100000), big.NewInt(0))
-	_ = action.Sign(tsf4, ta.Addrinfo["producer"].PrivateKey)
-	blk4, err := chain.MintNewBlock([]action.Action{tsf4}, ta.Addrinfo["producer"], nil, nil, "")
+	tsf4, err := testutil.SignedTransfer(ta.Addrinfo["producer"], ta.Addrinfo["echo"], s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
+	require.NoError(err)
+
+	blk4, err := chain.MintNewBlock([]action.SealedEnvelope{tsf4}, ta.Addrinfo["producer"], nil, nil, "")
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk4, true))
 	require.Nil(chain.CommitBlock(blk4))
@@ -465,7 +470,8 @@ func TestVoteLocalCommit(t *testing.T) {
 	cfg.Chain.TrieDBPath = testTriePath2
 	cfg.Chain.ChainDBPath = testDBPath2
 	chain := blockchain.NewBlockchain(cfg, blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption())
-	chain.Validator().AddActionValidators(protocol.NewGenericValidator(chain), account.NewProtocol(),
+	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain))
+	chain.Validator().AddActionValidators(account.NewProtocol(),
 		vote.NewProtocol(chain))
 	require.NotNil(chain)
 	chain.GetFactory().AddActionHandlers(account.NewProtocol(), vote.NewProtocol(chain))
@@ -481,24 +487,27 @@ func TestVoteLocalCommit(t *testing.T) {
 
 	// Add block 1
 	// Alfa, Bravo and Charlie selfnomination
-	tsf1, err := action.NewTransfer(7, blockchain.ConvertIotxToRau(200000000), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["alfa"].RawAddress, []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
-	require.Nil(err)
-	require.NoError(action.Sign(tsf1, ta.Addrinfo["producer"].PrivateKey))
-	tsf2, err := action.NewTransfer(8, blockchain.ConvertIotxToRau(200000000), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress, []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
-	require.Nil(err)
-	require.NoError(action.Sign(tsf2, ta.Addrinfo["producer"].PrivateKey))
-	tsf3, err := action.NewTransfer(9, blockchain.ConvertIotxToRau(200000000), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["charlie"].RawAddress, []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
-	require.Nil(err)
-	require.NoError(action.Sign(tsf3, ta.Addrinfo["producer"].PrivateKey))
-	tsf4, err := action.NewTransfer(10, blockchain.ConvertIotxToRau(200000000), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["delta"].RawAddress, []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
-	require.Nil(err)
-	require.NoError(action.Sign(tsf4, ta.Addrinfo["producer"].PrivateKey))
-	vote1, err := testutil.SignedVote(ta.Addrinfo["alfa"], ta.Addrinfo["alfa"], uint64(1), uint64(100000), big.NewInt(0))
-	require.Nil(err)
-	vote2, err := testutil.SignedVote(ta.Addrinfo["bravo"], ta.Addrinfo["bravo"], uint64(1), uint64(100000), big.NewInt(0))
-	require.Nil(err)
-	vote3, err := testutil.SignedVote(ta.Addrinfo["charlie"], ta.Addrinfo["charlie"], uint64(6), uint64(100000), big.NewInt(0))
-	require.Nil(err)
+	tsf1, err := testutil.SignedTransfer(ta.Addrinfo["producer"], ta.Addrinfo["alfa"], 7, blockchain.ConvertIotxToRau(200000000), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	require.NoError(err)
+
+	tsf2, err := testutil.SignedTransfer(ta.Addrinfo["producer"], ta.Addrinfo["bravo"], 8, blockchain.ConvertIotxToRau(200000000), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	require.NoError(err)
+
+	tsf3, err := testutil.SignedTransfer(ta.Addrinfo["producer"], ta.Addrinfo["charlie"], 9, blockchain.ConvertIotxToRau(200000000), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	require.NoError(err)
+
+	tsf4, err := testutil.SignedTransfer(ta.Addrinfo["producer"], ta.Addrinfo["delta"], 10, blockchain.ConvertIotxToRau(200000000), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	require.NoError(err)
+
+	vote1, err := testutil.SignedVote(ta.Addrinfo["alfa"], ta.Addrinfo["alfa"], 1, 100000, big.NewInt(0))
+	require.NoError(err)
+
+	vote2, err := testutil.SignedVote(ta.Addrinfo["bravo"], ta.Addrinfo["bravo"], 1, 100000, big.NewInt(0))
+	require.NoError(err)
+
+	vote3, err := testutil.SignedVote(ta.Addrinfo["charlie"], ta.Addrinfo["charlie"], 6, 100000, big.NewInt(0))
+	require.NoError(err)
+
 	act1 := vote1.Proto()
 	act2 := vote2.Proto()
 	act3 := vote3.Proto()
@@ -556,7 +565,7 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.Nil(err)
 	vote5, err := testutil.SignedVote(ta.Addrinfo["charlie"], ta.Addrinfo["alfa"], uint64(7), uint64(100000), big.NewInt(0))
 	require.Nil(err)
-	blk2, err := chain.MintNewBlock([]action.Action{vote4, vote5}, ta.Addrinfo["producer"], nil, nil, "")
+	blk2, err := chain.MintNewBlock([]action.SealedEnvelope{vote4, vote5}, ta.Addrinfo["producer"], nil, nil, "")
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk2, true))
 	require.Nil(chain.CommitBlock(blk2))
@@ -598,10 +607,10 @@ func TestVoteLocalCommit(t *testing.T) {
 
 	// Add block 3
 	// D self nomination
-	vote6, err := action.NewVote(uint64(5), ta.Addrinfo["delta"].RawAddress, ta.Addrinfo["delta"].RawAddress, uint64(100000), big.NewInt(0))
+	vote6, err := testutil.SignedVote(ta.Addrinfo["delta"], ta.Addrinfo["delta"], 5, 100000, big.NewInt(0))
 	require.NoError(err)
-	require.NoError(action.Sign(vote6, ta.Addrinfo["delta"].PrivateKey))
-	blk3, err := chain.MintNewBlock([]action.Action{vote6}, ta.Addrinfo["producer"],
+
+	blk3, err := chain.MintNewBlock([]action.SealedEnvelope{vote6}, ta.Addrinfo["producer"],
 		nil, nil, "")
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk3, true))
@@ -644,14 +653,18 @@ func TestVoteLocalCommit(t *testing.T) {
 	// Unvote B
 	vote7, err := action.NewVote(uint64(2), ta.Addrinfo["bravo"].RawAddress, "", uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	require.NoError(action.Sign(vote7, ta.Addrinfo["bravo"].PrivateKey))
-	blk4, err := chain.MintNewBlock([]action.Action{vote7}, ta.Addrinfo["producer"],
+	bd := &action.EnvelopeBuilder{}
+	elp := bd.SetAction(vote7).SetNonce(2).SetDestinationAddress("").SetGasLimit(100000).SetGasPrice(big.NewInt(0)).Build()
+	selp, err := action.Sign(elp, ta.Addrinfo["bravo"].RawAddress, ta.Addrinfo["bravo"].PrivateKey)
+	require.NoError(err)
+
+	blk4, err := chain.MintNewBlock([]action.SealedEnvelope{selp}, ta.Addrinfo["producer"],
 		nil, nil, "")
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk4, true))
 	require.Nil(chain.CommitBlock(blk4))
 	// broadcast to P2P
-	act7 := vote7.Proto()
+	act7 := selp.Proto()
 	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		if err := p.Broadcast(chainID, act7); err != nil {
 			return false, err

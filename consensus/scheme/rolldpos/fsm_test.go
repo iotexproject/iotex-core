@@ -1206,13 +1206,11 @@ func newTestCFSM(
 	mockP2P func(*mock_network.MockOverlay),
 	clock clock.Clock,
 ) *cFSM {
-	transfer, err := action.NewTransfer(1, big.NewInt(100), "src", "dst", []byte{}, uint64(100000), big.NewInt(10))
+	a := testaddress.Addrinfo["alfa"]
+	b := testaddress.Addrinfo["bravo"]
+	transfer, err := testutil.SignedTransfer(a, b, 1, big.NewInt(100), []byte{}, 100000, big.NewInt(10))
 	require.NoError(t, err)
-	selfPubKey := testaddress.Addrinfo["producer"].PublicKey
-	require.NoError(t, err)
-	selfPubKeyHash := keypair.HashPubKey(selfPubKey)
-	address := address.New(config.Default.Chain.ID, selfPubKeyHash[:])
-	vote, err := action.NewVote(2, address.IotxAddress(), address.IotxAddress(), uint64(100000), big.NewInt(10))
+	vote, err := testutil.SignedVote(a, a, 2, 100000, big.NewInt(10))
 	require.NoError(t, err)
 	var prevHash hash.Hash32B
 	lastBlk := blockchain.NewBlock(
@@ -1221,7 +1219,7 @@ func newTestCFSM(
 		prevHash,
 		testutil.TimestampNowFromClock(clock),
 		proposer.PublicKey,
-		make([]action.Action, 0),
+		make([]action.SealedEnvelope, 0),
 	)
 	blkToMint := blockchain.NewBlock(
 		config.Default.Chain.ID,
@@ -1229,7 +1227,7 @@ func newTestCFSM(
 		lastBlk.HashBlock(),
 		testutil.TimestampNowFromClock(clock),
 		proposer.PublicKey,
-		[]action.Action{transfer, vote},
+		[]action.SealedEnvelope{transfer, vote},
 	)
 	blkToMint.SignBlock(proposer)
 
@@ -1308,7 +1306,7 @@ func newTestCFSM(
 		func(actPool *mock_actpool.MockActPool) {
 			actPool.EXPECT().
 				PickActs().
-				Return([]action.Action{transfer, vote}).
+				Return([]action.SealedEnvelope{transfer, vote}).
 				AnyTimes()
 			actPool.EXPECT().Reset().AnyTimes()
 		},

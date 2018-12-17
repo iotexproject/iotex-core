@@ -97,34 +97,17 @@ func (m *AccountManager) Import(keyBytes []byte) error {
 	return nil
 }
 
-// SignTransfer signs a transfer
-func (m *AccountManager) SignTransfer(rawAddr string, transfer *action.Transfer) error {
-	if transfer == nil {
-		return errors.Wrap(ErrTransfer, "transfer cannot be nil")
-	}
+// SignAction signs an action envelope.
+func (m *AccountManager) SignAction(rawAddr string, elp action.Envelope) (action.SealedEnvelope, error) {
 	addr, err := m.keystore.Get(rawAddr)
 	if err != nil {
-		return errors.Wrapf(err, "failed to get account %s", rawAddr)
+		return action.SealedEnvelope{}, errors.Wrapf(err, "failed to get account %s", rawAddr)
 	}
-	if err := action.Sign(transfer, addr.PrivateKey); err != nil {
-		return errors.Wrapf(err, "failed to sign transfer %v", transfer)
-	}
-	return nil
-}
-
-// SignVote signs a vote
-func (m *AccountManager) SignVote(rawAddr string, vote *action.Vote) error {
-	if vote == nil {
-		return errors.Wrap(ErrVote, "vote cannot be nil")
-	}
-	addr, err := m.keystore.Get(rawAddr)
+	selp, err := action.Sign(elp, addr.RawAddress, addr.PrivateKey)
 	if err != nil {
-		return errors.Wrapf(err, "failed to get account %s", rawAddr)
+		return action.SealedEnvelope{}, errors.Wrapf(err, "failed to sign transfer %v", elp)
 	}
-	if err := action.Sign(vote, addr.PrivateKey); err != nil {
-		return errors.Wrapf(err, "failed to sign vote %v", vote)
-	}
-	return nil
+	return selp, nil
 }
 
 // SignHash signs a hash

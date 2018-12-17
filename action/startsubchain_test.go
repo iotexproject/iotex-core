@@ -44,6 +44,24 @@ func TestStartSubChain(t *testing.T) {
 	)
 	require.NotNil(t, start)
 	assertStart(start)
+}
+
+func TestStartSubChainProto(t *testing.T) {
+	assertStart := func(start *StartSubChain) {
+		assert.Equal(t, uint32(10000), start.ChainID())
+		assert.Equal(t, big.NewInt(10001), start.SecurityDeposit())
+		assert.Equal(t, big.NewInt(10002), start.OperationDeposit())
+		assert.Equal(t, uint64(10003), start.StartHeight())
+		assert.Equal(t, uint64(10004), start.ParentHeightOffset())
+	}
+
+	start := &StartSubChain{
+		chainID:            uint32(10000),
+		securityDeposit:    big.NewInt(10001),
+		operationDeposit:   big.NewInt(10002),
+		startHeight:        uint64(10003),
+		parentHeightOffset: uint64(10004),
+	}
 
 	startPb := start.Proto()
 	require.NotNil(t, startPb)

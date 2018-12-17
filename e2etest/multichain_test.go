@@ -120,7 +120,13 @@ func TestTwoChains(t *testing.T) {
 		testutil.TestGasLimit,
 		big.NewInt(0),
 	)
-	require.NoError(t, action.Sign(createDeposit, sk))
+	bd := &action.EnvelopeBuilder{}
+	elp := bd.SetAction(createDeposit).
+		SetNonce(uint64(details.Nonce) + 1).
+		SetDestinationAddress(addr2.IotxAddress()).
+		SetGasLimit(testutil.TestGasLimit).Build()
+	selp, err := action.Sign(elp, addr1.IotxAddress(), sk)
+	require.NoError(t, err)
 
 	createRes, err := mainChainClient.CreateDeposit(explorer.CreateDepositRequest{
 		Version:      int64(createDeposit.Version()),
@@ -129,7 +135,7 @@ func TestTwoChains(t *testing.T) {
 		SenderPubKey: keypair.EncodePublicKey(createDeposit.SenderPublicKey()),
 		Recipient:    createDeposit.Recipient(),
 		Amount:       createDeposit.Amount().String(),
-		Signature:    hex.EncodeToString(createDeposit.Signature()),
+		Signature:    hex.EncodeToString(selp.Signature()),
 		GasLimit:     int64(createDeposit.GasLimit()),
 		GasPrice:     createDeposit.GasPrice().String(),
 	})
@@ -173,7 +179,13 @@ func TestTwoChains(t *testing.T) {
 		testutil.TestGasLimit,
 		big.NewInt(0),
 	)
-	require.NoError(t, action.Sign(settleDeposit, sk))
+	bd = &action.EnvelopeBuilder{}
+	elp = bd.SetAction(settleDeposit).
+		SetNonce(nonce).
+		SetDestinationAddress(addr2.IotxAddress()).
+		SetGasLimit(testutil.TestGasLimit).Build()
+	selp, err = action.Sign(elp, addr1.IotxAddress(), sk)
+	require.NoError(t, err)
 
 	settleRes, err := subChainClient.SettleDeposit(explorer.SettleDepositRequest{
 		Version:      int64(settleDeposit.Version()),
@@ -183,7 +195,7 @@ func TestTwoChains(t *testing.T) {
 		Recipient:    settleDeposit.Recipient(),
 		Amount:       settleDeposit.Amount().String(),
 		Index:        int64(index),
-		Signature:    hex.EncodeToString(settleDeposit.Signature()),
+		Signature:    hex.EncodeToString(selp.Signature()),
 		GasLimit:     int64(settleDeposit.GasLimit()),
 		GasPrice:     settleDeposit.GasPrice().String(),
 	})

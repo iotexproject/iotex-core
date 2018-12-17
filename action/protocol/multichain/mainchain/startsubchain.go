@@ -87,7 +87,7 @@ func (p *Protocol) mutateSubChainState(
 	acct.Balance = big.NewInt(0).Sub(acct.Balance, start.SecurityDeposit())
 	acct.Balance = big.NewInt(0).Sub(acct.Balance, start.OperationDeposit())
 	// TODO: this is not right, but currently the actions in a block is not processed according to the nonce
-	account.SetNonce(start, acct)
+	protocol.SetNonce(start, acct)
 	if err := account.StoreAccount(sm, start.OwnerAddress(), acct); err != nil {
 		return err
 	}

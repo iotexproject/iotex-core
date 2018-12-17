@@ -98,6 +98,41 @@ func (mr *MockActionValidatorMockRecorder) Validate(arg0, arg1 interface{}) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Validate", reflect.TypeOf((*MockActionValidator)(nil).Validate), arg0, arg1)
 }
 
+// MockActionEnvelopeValidator is a mock of ActionEnvelopeValidator interface
+type MockActionEnvelopeValidator struct {
+	ctrl     *gomock.Controller
+	recorder *MockActionEnvelopeValidatorMockRecorder
+}
+
+// MockActionEnvelopeValidatorMockRecorder is the mock recorder for MockActionEnvelopeValidator
+type MockActionEnvelopeValidatorMockRecorder struct {
+	mock *MockActionEnvelopeValidator
+}
+
+// NewMockActionEnvelopeValidator creates a new mock instance
+func NewMockActionEnvelopeValidator(ctrl *gomock.Controller) *MockActionEnvelopeValidator {
+	mock := &MockActionEnvelopeValidator{ctrl: ctrl}
+	mock.recorder = &MockActionEnvelopeValidatorMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use
+func (m *MockActionEnvelopeValidator) EXPECT() *MockActionEnvelopeValidatorMockRecorder {
+	return m.recorder
+}
+
+// Validate mocks base method
+func (m *MockActionEnvelopeValidator) Validate(arg0 context.Context, arg1 action.SealedEnvelope) error {
+	ret := m.ctrl.Call(m, "Validate", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Validate indicates an expected call of Validate
+func (mr *MockActionEnvelopeValidatorMockRecorder) Validate(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Validate", reflect.TypeOf((*MockActionEnvelopeValidator)(nil).Validate), arg0, arg1)
+}
+
 // MockActionHandler is a mock of ActionHandler interface
 type MockActionHandler struct {
 	ctrl     *gomock.Controller
@@ -313,4 +348,39 @@ func (m *MockStateManager) GetCachedBatch() db.CachedBatch {
 // GetCachedBatch indicates an expected call of GetCachedBatch
 func (mr *MockStateManagerMockRecorder) GetCachedBatch() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCachedBatch", reflect.TypeOf((*MockStateManager)(nil).GetCachedBatch))
+}
+
+// Mocknoncer is a mock of noncer interface
+type Mocknoncer struct {
+	ctrl     *gomock.Controller
+	recorder *MocknoncerMockRecorder
+}
+
+// MocknoncerMockRecorder is the mock recorder for Mocknoncer
+type MocknoncerMockRecorder struct {
+	mock *Mocknoncer
+}
+
+// NewMocknoncer creates a new mock instance
+func NewMocknoncer(ctrl *gomock.Controller) *Mocknoncer {
+	mock := &Mocknoncer{ctrl: ctrl}
+	mock.recorder = &MocknoncerMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use
+func (m *Mocknoncer) EXPECT() *MocknoncerMockRecorder {
+	return m.recorder
+}
+
+// Nonce mocks base method
+func (m *Mocknoncer) Nonce() uint64 {
+	ret := m.ctrl.Call(m, "Nonce")
+	ret0, _ := ret[0].(uint64)
+	return ret0
+}
+
+// Nonce indicates an expected call of Nonce
+func (mr *MocknoncerMockRecorder) Nonce() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Nonce", reflect.TypeOf((*Mocknoncer)(nil).Nonce))
 }

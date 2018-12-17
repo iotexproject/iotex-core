@@ -8,14 +8,12 @@ package action
 
 import (
 	"math/big"
-	"reflect"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
-	"golang.org/x/crypto/blake2b"
 
-	"github.com/iotexproject/iotex-core/pkg/enc"
-	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/proto"
 )
@@ -28,6 +26,7 @@ const (
 // StartSubChain represents start sub-chain message
 type StartSubChain struct {
 	AbstractAction
+
 	chainID            uint32
 	securityDeposit    *big.Int
 	operationDeposit   *big.Int
@@ -64,45 +63,22 @@ func NewStartSubChain(
 }
 
 // LoadProto converts a proto message into start sub-chain action
-func (start *StartSubChain) LoadProto(actPb *iproto.ActionPb) error {
-	if actPb == nil {
+func (start *StartSubChain) LoadProto(startPb *iproto.StartSubChainPb) error {
+	if startPb == nil {
 		return errors.New("empty action proto to load")
-	}
-	srcPub, err := keypair.BytesToPublicKey(actPb.SenderPubKey)
-	if err != nil {
-		return err
 	}
 	if start == nil {
 		return errors.New("nil action to load proto")
 	}
 	*start = StartSubChain{}
-	startPb := actPb.GetStartSubChain()
-	if startPb == nil {
-		return errors.New("empty StartSubChain action proto to load")
-	}
-
-	ab := &Builder{}
-	act := ab.SetVersion(actPb.Version).
-		SetNonce(actPb.Nonce).
-		SetSourceAddress(actPb.Sender).
-		SetSourcePublicKey(srcPub).
-		SetGasLimit(actPb.GasLimit).
-		SetGasPriceByBytes(actPb.GasPrice).
-		Build()
-	act.SetSignature(actPb.Signature)
-	start.AbstractAction = act
 
 	start.chainID = startPb.ChainID
-	start.securityDeposit = big.NewInt(0)
-	start.operationDeposit = big.NewInt(0)
 	start.startHeight = startPb.StartHeight
 	start.parentHeightOffset = startPb.ParentHeightOffset
-	if len(startPb.SecurityDeposit) > 0 {
-		start.securityDeposit.SetBytes(startPb.SecurityDeposit)
-	}
-	if len(startPb.OperationDeposit) > 0 {
-		start.operationDeposit.SetBytes(startPb.OperationDeposit)
-	}
+	start.securityDeposit = big.NewInt(0)
+	start.securityDeposit.SetBytes(startPb.GetSecurityDeposit())
+	start.operationDeposit = big.NewInt(0)
+	start.operationDeposit.SetBytes(startPb.GetOperationDeposit())
 	return nil
 }
 
@@ -129,71 +105,23 @@ func (start *StartSubChain) OwnerPublicKey() keypair.PublicKey { return start.Sr
 
 // ByteStream returns the byte representation of sub-chain action
 func (start *StartSubChain) ByteStream() []byte {
-	stream := []byte(reflect.TypeOf(start).String())
-	temp := make([]byte, 4)
-	enc.MachineEndian.PutUint32(temp, start.version)
-	stream = append(stream, temp...)
-	temp = make([]byte, 8)
-	enc.MachineEndian.PutUint64(temp, start.nonce)
-	stream = append(stream, temp...)
-	temp = make([]byte, 4)
-	enc.MachineEndian.PutUint32(temp, start.chainID)
-	stream = append(stream, temp...)
-	if start.securityDeposit != nil && len(start.securityDeposit.Bytes()) > 0 {
-		stream = append(stream, start.securityDeposit.Bytes()...)
-	}
-	if start.operationDeposit != nil && len(start.operationDeposit.Bytes()) > 0 {
-		stream = append(stream, start.operationDeposit.Bytes()...)
-	}
-	temp = make([]byte, 8)
-	enc.MachineEndian.PutUint64(temp, start.startHeight)
-	stream = append(stream, temp...)
-	temp = make([]byte, 8)
-	enc.MachineEndian.PutUint64(temp, start.parentHeightOffset)
-	stream = append(stream, temp...)
-	stream = append(stream, start.srcAddr...)
-	stream = append(stream, start.srcPubkey[:]...)
-	temp = make([]byte, 8)
-	enc.MachineEndian.PutUint64(temp, start.gasLimit)
-	stream = append(stream, temp...)
-	if start.gasPrice != nil && len(start.gasPrice.Bytes()) > 0 {
-		stream = append(stream, start.gasPrice.Bytes()...)
-	}
-	return stream
-}
-
-// Hash returns the hash of starting sub-chain message
-func (start *StartSubChain) Hash() hash.Hash32B {
-	return blake2b.Sum256(start.ByteStream())
+	return byteutil.Must(proto.Marshal(start.Proto()))
 }
 
 // Proto converts start sub-chain action into a proto message
-func (start *StartSubChain) Proto() *iproto.ActionPb {
+func (start *StartSubChain) Proto() *iproto.StartSubChainPb {
 	// used by account-based model
-	act := &iproto.ActionPb{
-		Action: &iproto.ActionPb_StartSubChain{
-			StartSubChain: &iproto.StartSubChainPb{
-				ChainID:            start.chainID,
-				StartHeight:        start.startHeight,
-				ParentHeightOffset: start.parentHeightOffset,
-			},
-		},
-		Version:      start.version,
-		Sender:       start.srcAddr,
-		SenderPubKey: start.srcPubkey[:],
-		Nonce:        start.nonce,
-		GasLimit:     start.gasLimit,
-		Signature:    start.signature,
+	act := &iproto.StartSubChainPb{
+		ChainID:            start.chainID,
+		StartHeight:        start.startHeight,
+		ParentHeightOffset: start.parentHeightOffset,
 	}
 
 	if start.securityDeposit != nil && len(start.securityDeposit.Bytes()) > 0 {
-		act.GetStartSubChain().SecurityDeposit = start.securityDeposit.Bytes()
+		act.SecurityDeposit = start.securityDeposit.Bytes()
 	}
 	if start.operationDeposit != nil && len(start.operationDeposit.Bytes()) > 0 {
-		act.GetStartSubChain().OperationDeposit = start.operationDeposit.Bytes()
-	}
-	if start.gasPrice != nil && len(start.gasPrice.Bytes()) > 0 {
-		act.GasPrice = start.gasPrice.Bytes()
+		act.OperationDeposit = start.operationDeposit.Bytes()
 	}
 	return act
 }
