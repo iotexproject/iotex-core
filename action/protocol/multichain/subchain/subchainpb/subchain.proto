@@ -7,7 +7,7 @@
 // To compile the proto, run:
 //      protoc --go_out=plugins=grpc:. *.proto
 syntax = "proto3";
-package protogen;
+package subchainpb;
 
 message Deposit {
     bytes index = 1;

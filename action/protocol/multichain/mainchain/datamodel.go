@@ -12,7 +12,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 
-	"github.com/iotexproject/iotex-core/action/protocol/multichain/mainchain/protogen"
+	"github.com/iotexproject/iotex-core/action/protocol/multichain/mainchain/mainchainpb"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -33,7 +33,7 @@ type SubChain struct {
 
 // Serialize serializes sub-chain state into bytes
 func (bs SubChain) Serialize() ([]byte, error) {
-	gen := &protogen.SubChain{
+	gen := &mainchainpb.SubChain{
 		ChainID:            bs.ChainID,
 		StartHeight:        bs.StartHeight,
 		StopHeight:         bs.StopHeight,
@@ -53,7 +53,7 @@ func (bs SubChain) Serialize() ([]byte, error) {
 
 // Deserialize deserializes bytes into sub-chain state
 func (bs *SubChain) Deserialize(data []byte) error {
-	gen := &protogen.SubChain{}
+	gen := &mainchainpb.SubChain{}
 	if err := proto.Unmarshal(data, gen); err != nil {
 		return err
 	}
@@ -95,15 +95,15 @@ type BlockProof struct {
 
 // Serialize serialize block proof state into bytes
 func (bp BlockProof) Serialize() ([]byte, error) {
-	r := make([]*protogen.MerkleRoot, len(bp.Roots))
+	r := make([]*mainchainpb.MerkleRoot, len(bp.Roots))
 	for i := range bp.Roots {
-		r[i] = &protogen.MerkleRoot{
+		r[i] = &mainchainpb.MerkleRoot{
 			Name:  bp.Roots[i].Name,
 			Value: bp.Roots[i].Value[:],
 		}
 	}
 
-	gen := &protogen.BlockProof{
+	gen := &mainchainpb.BlockProof{
 		SubChainAddress:   bp.SubChainAddress,
 		Height:            bp.Height,
 		Roots:             r,
@@ -115,7 +115,7 @@ func (bp BlockProof) Serialize() ([]byte, error) {
 
 // Deserialize deserialize bytes into block proof state
 func (bp *BlockProof) Deserialize(data []byte) error {
-	gen := &protogen.BlockProof{}
+	gen := &mainchainpb.BlockProof{}
 	if err := proto.Unmarshal(data, gen); err != nil {
 		return err
 	}
@@ -191,19 +191,19 @@ func (s SubChainsInOperation) Delete(id uint32) (SubChainsInOperation, bool) {
 // Serialize serializes list to binary.
 func (s SubChainsInOperation) Serialize() ([]byte, error) {
 	s.Sort()
-	l := make([]*protogen.InOperation, len(s))
+	l := make([]*mainchainpb.InOperation, len(s))
 	for i := range s {
-		l[i] = &protogen.InOperation{
+		l[i] = &mainchainpb.InOperation{
 			Id:      s[i].ID,
 			Address: s[i].Addr,
 		}
 	}
-	return proto.Marshal(&protogen.SubChainsInOperation{InOp: l})
+	return proto.Marshal(&mainchainpb.SubChainsInOperation{InOp: l})
 }
 
 // Deserialize deserializes list from binary.
 func (s *SubChainsInOperation) Deserialize(data []byte) error {
-	gen := &protogen.SubChainsInOperation{}
+	gen := &mainchainpb.SubChainsInOperation{}
 	if err := proto.Unmarshal(data, gen); err != nil {
 		return err
 	}
@@ -232,7 +232,7 @@ type Deposit struct {
 
 // Serialize serializes deposit state into bytes
 func (bs Deposit) Serialize() ([]byte, error) {
-	gen := &protogen.Deposit{
+	gen := &mainchainpb.Deposit{
 		Address:   bs.Addr,
 		Confirmed: bs.Confirmed,
 	}
@@ -244,7 +244,7 @@ func (bs Deposit) Serialize() ([]byte, error) {
 
 // Deserialize deserializes bytes into deposit state
 func (bs *Deposit) Deserialize(data []byte) error {
-	gen := &protogen.Deposit{}
+	gen := &mainchainpb.Deposit{}
 
 	if err := proto.Unmarshal(data, gen); err != nil {
 		return err
