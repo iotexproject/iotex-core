@@ -10,7 +10,6 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/hex"
-	"fmt"
 	"math/big"
 	"strings"
 	"testing"
@@ -424,12 +423,10 @@ func TestProtocol_Handle(t *testing.T) {
 			SetGasLimit(10000000).Build()
 		selp, err := action.Sign(elp, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["producer"].PrivateKey)
 		require.NoError(err)
-		fmt.Println("XXXXXX", selp.GasLimit(), selp.Hash())
 
 		blk, err := bc.MintNewBlock([]action.SealedEnvelope{selp}, ta.Addrinfo["producer"],
 			nil, nil, "")
 		require.NoError(err)
-		fmt.Println("MMM", bc.ValidateBlock(blk, true))
 		require.NoError(bc.ValidateBlock(blk, true))
 		require.Nil(bc.CommitBlock(blk))
 		require.Equal(1, len(blk.Receipts))

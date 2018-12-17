@@ -7,13 +7,13 @@
 package action
 
 import (
-	"fmt"
 	"math/big"
 
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotexproject/iotex-core/crypto"
+	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -59,19 +59,19 @@ type SealedEnvelope struct {
 }
 
 // Version returns the version
-func (act Envelope) Version() uint32 { return act.version }
+func (act *Envelope) Version() uint32 { return act.version }
 
 // Nonce returns the nonce
-func (act Envelope) Nonce() uint64 { return act.nonce }
+func (act *Envelope) Nonce() uint64 { return act.nonce }
 
 // DstAddr returns the destination address
-func (act Envelope) DstAddr() string { return act.dstAddr }
+func (act *Envelope) DstAddr() string { return act.dstAddr }
 
 // GasLimit returns the gas limit
-func (act Envelope) GasLimit() uint64 { return act.gasLimit }
+func (act *Envelope) GasLimit() uint64 { return act.gasLimit }
 
 // GasPrice returns the gas price
-func (act Envelope) GasPrice() *big.Int {
+func (act *Envelope) GasPrice() *big.Int {
 	p := &big.Int{}
 	if act.gasPrice == nil {
 		return p
@@ -80,20 +80,20 @@ func (act Envelope) GasPrice() *big.Int {
 }
 
 // Cost returns cost of actions
-func (act Envelope) Cost() (*big.Int, error) {
+func (act *Envelope) Cost() (*big.Int, error) {
 	return act.payload.Cost()
 }
 
 // IntrinsicGas returns intrinsic gas of action.
-func (act Envelope) IntrinsicGas() (uint64, error) {
+func (act *Envelope) IntrinsicGas() (uint64, error) {
 	return act.payload.IntrinsicGas()
 }
 
 // Action returns the action payload.
-func (act Envelope) Action() Action { return act.payload }
+func (act *Envelope) Action() Action { return act.payload }
 
 // ByteStream returns encoded binary.
-func (act Envelope) ByteStream() []byte {
+func (act *Envelope) ByteStream() []byte {
 	stream := byteutil.Uint32ToBytes(act.version)
 	stream = append(stream, byteutil.Uint64ToBytes(act.nonce)...)
 	stream = append(stream, act.dstAddr...)
@@ -107,7 +107,7 @@ func (act Envelope) ByteStream() []byte {
 }
 
 // Hash returns the hash value of SealedEnvelope.
-func (sealed SealedEnvelope) Hash() hash.Hash32B {
+func (sealed *SealedEnvelope) Hash() hash.Hash32B {
 	stream := sealed.Envelope.ByteStream()
 	stream = append(stream, sealed.srcAddr...)
 	stream = append(stream, sealed.srcPubkey[:]...)
@@ -115,10 +115,10 @@ func (sealed SealedEnvelope) Hash() hash.Hash32B {
 }
 
 // SrcAddr returns the source address
-func (sealed SealedEnvelope) SrcAddr() string { return sealed.srcAddr }
+func (sealed *SealedEnvelope) SrcAddr() string { return sealed.srcAddr }
 
 // SrcPubkey returns the source public key
-func (sealed SealedEnvelope) SrcPubkey() keypair.PublicKey { return sealed.srcPubkey }
+func (sealed *SealedEnvelope) SrcPubkey() keypair.PublicKey { return sealed.srcPubkey }
 
 // Signature returns signature bytes
 func (sealed *SealedEnvelope) Signature() []byte {
@@ -162,7 +162,7 @@ func (sealed SealedEnvelope) Proto() *iproto.ActionPb {
 	case *SettleDeposit:
 		actPb.Action = &iproto.ActionPb_SettleDeposit{SettleDeposit: act.Proto()}
 	default:
-		panic(fmt.Sprintf("cannot convert type of action %T \r\n", act))
+		logger.Panic().Msgf("cannot convert type of action %T \r\n", act)
 	}
 	return actPb
 }
