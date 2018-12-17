@@ -27,6 +27,7 @@ const (
 	blockExecutionBlockMappingNS        = "execution<->block"
 	blockActionBlockMappingNS           = "action<->block"
 	blockExecutionReceiptMappingNS      = "ex<->receipt"
+	blockActionReceiptMappingNS         = "action<->receipt"
 	blockAddressTransferMappingNS       = "address<->transfer"
 	blockAddressTransferCountMappingNS  = "address<->transfercount"
 	blockAddressVoteMappingNS           = "address<->vote"
@@ -96,16 +97,19 @@ func (dao *blockDAO) Start(ctx context.Context) error {
 		return errors.Wrap(err, "failed to write initial value for top height")
 	}
 
+	// TODO: To be deprecated
 	// set init total transfer to be 0
 	if err = dao.kvstore.PutIfNotExists(blockNS, totalTransfersKey, make([]byte, 8)); err != nil {
 		return errors.Wrap(err, "failed to write initial value for total transfers")
 	}
 
+	// TODO: To be deprecated
 	// set init total vote to be 0
 	if err = dao.kvstore.PutIfNotExists(blockNS, totalVotesKey, make([]byte, 8)); err != nil {
 		return errors.Wrap(err, "failed to write initial value for total votes")
 	}
 
+	// TODO: To be deprecated
 	// set init total executions to be 0
 	if err = dao.kvstore.PutIfNotExists(blockNS, totalExecutionsKey, make([]byte, 8)); err != nil {
 		return errors.Wrap(err, "failed to write initial value for total executions")
@@ -166,6 +170,7 @@ func (dao *blockDAO) getBlock(hash hash.Hash32B) (*Block, error) {
 	return &blk, nil
 }
 
+// TODO: To be deprecated
 func (dao *blockDAO) getBlockHashByTransferHash(h hash.Hash32B) (hash.Hash32B, error) {
 	blkHash := hash.ZeroHash32B
 	key := append(transferPrefix, h[:]...)
@@ -180,6 +185,7 @@ func (dao *blockDAO) getBlockHashByTransferHash(h hash.Hash32B) (hash.Hash32B, e
 	return blkHash, nil
 }
 
+// TODO: To be deprecated
 func (dao *blockDAO) getBlockHashByVoteHash(h hash.Hash32B) (hash.Hash32B, error) {
 	blkHash := hash.ZeroHash32B
 	key := append(votePrefix, h[:]...)
@@ -194,6 +200,7 @@ func (dao *blockDAO) getBlockHashByVoteHash(h hash.Hash32B) (hash.Hash32B, error
 	return blkHash, nil
 }
 
+// TODO: To be deprecated
 func (dao *blockDAO) getBlockHashByExecutionHash(h hash.Hash32B) (hash.Hash32B, error) {
 	blkHash := hash.ZeroHash32B
 	key := append(executionPrefix, h[:]...)
@@ -222,6 +229,7 @@ func (dao *blockDAO) getBlockHashByActionHash(h hash.Hash32B) (hash.Hash32B, err
 	return blkHash, nil
 }
 
+// TODO: To be deprecated
 // getTransfersBySenderAddress returns transfers for sender
 func (dao *blockDAO) getTransfersBySenderAddress(address string) ([]hash.Hash32B, error) {
 	// get transfers count for sender
@@ -238,6 +246,7 @@ func (dao *blockDAO) getTransfersBySenderAddress(address string) ([]hash.Hash32B
 	return res, nil
 }
 
+// TODO: To be deprecated
 // getTransferCountBySenderAddress returns transfer count by sender address
 func (dao *blockDAO) getTransferCountBySenderAddress(address string) (uint64, error) {
 	senderTransferCountKey := append(transferFromPrefix, address...)
@@ -251,6 +260,7 @@ func (dao *blockDAO) getTransferCountBySenderAddress(address string) (uint64, er
 	return enc.MachineEndian.Uint64(value), nil
 }
 
+// TODO: To be deprecated
 // getTransfersByRecipientAddress returns transfers for recipient
 func (dao *blockDAO) getTransfersByRecipientAddress(address string) ([]hash.Hash32B, error) {
 	// get transfers count for recipient
@@ -267,6 +277,7 @@ func (dao *blockDAO) getTransfersByRecipientAddress(address string) ([]hash.Hash
 	return res, nil
 }
 
+// TODO: To be deprecated
 // getTransfersByAddress returns transfers by address
 func (dao *blockDAO) getTransfersByAddress(address string, count uint64, keyPrefix []byte) ([]hash.Hash32B, error) {
 	var res []hash.Hash32B
@@ -290,6 +301,7 @@ func (dao *blockDAO) getTransfersByAddress(address string, count uint64, keyPref
 	return res, nil
 }
 
+// TODO: To be deprecated
 // getTransferCountByRecipientAddress returns transfer count by recipient address
 func (dao *blockDAO) getTransferCountByRecipientAddress(address string) (uint64, error) {
 	recipientTransferCountKey := append(transferToPrefix, address...)
@@ -303,6 +315,7 @@ func (dao *blockDAO) getTransferCountByRecipientAddress(address string) (uint64,
 	return enc.MachineEndian.Uint64(value), nil
 }
 
+// TODO: To be deprecated
 // getVotesBySenderAddress returns votes for sender
 func (dao *blockDAO) getVotesBySenderAddress(address string) ([]hash.Hash32B, error) {
 	senderVoteCount, err := dao.getVoteCountBySenderAddress(address)
@@ -318,6 +331,7 @@ func (dao *blockDAO) getVotesBySenderAddress(address string) ([]hash.Hash32B, er
 	return res, nil
 }
 
+// TODO: To be deprecated
 // getVoteCountBySenderAddress returns vote count by sender address
 func (dao *blockDAO) getVoteCountBySenderAddress(address string) (uint64, error) {
 	senderVoteCountKey := append(voteFromPrefix, address...)
@@ -331,6 +345,7 @@ func (dao *blockDAO) getVoteCountBySenderAddress(address string) (uint64, error)
 	return enc.MachineEndian.Uint64(value), nil
 }
 
+// TODO: To be deprecated
 // getVotesByRecipientAddress returns votes by recipient address
 func (dao *blockDAO) getVotesByRecipientAddress(address string) ([]hash.Hash32B, error) {
 	recipientVoteCount, err := dao.getVoteCountByRecipientAddress(address)
@@ -346,6 +361,7 @@ func (dao *blockDAO) getVotesByRecipientAddress(address string) ([]hash.Hash32B,
 	return res, nil
 }
 
+// TODO: To be deprecated
 // getVotesByAddress returns votes by address
 func (dao *blockDAO) getVotesByAddress(address string, count uint64, keyPrefix []byte) ([]hash.Hash32B, error) {
 	var res []hash.Hash32B
@@ -369,6 +385,7 @@ func (dao *blockDAO) getVotesByAddress(address string, count uint64, keyPrefix [
 	return res, nil
 }
 
+// TODO: To be deprecated
 // getVoteCountByRecipientAddress returns vote count by recipient address
 func (dao *blockDAO) getVoteCountByRecipientAddress(address string) (uint64, error) {
 	recipientVoteCountKey := append(voteToPrefix, address...)
@@ -382,6 +399,7 @@ func (dao *blockDAO) getVoteCountByRecipientAddress(address string) (uint64, err
 	return enc.MachineEndian.Uint64(value), nil
 }
 
+// TODO: To be deprecated
 // getExecutionsByExecutorAddress returns executions for executor
 func (dao *blockDAO) getExecutionsByExecutorAddress(address string) ([]hash.Hash32B, error) {
 	// get executions count for sender
@@ -398,6 +416,7 @@ func (dao *blockDAO) getExecutionsByExecutorAddress(address string) ([]hash.Hash
 	return res, nil
 }
 
+// TODO: To be deprecated
 // getExecutionCountByExecutorAddress returns execution count by executor address
 func (dao *blockDAO) getExecutionCountByExecutorAddress(address string) (uint64, error) {
 	executorExecutionCountKey := append(executionFromPrefix, address...)
@@ -411,6 +430,7 @@ func (dao *blockDAO) getExecutionCountByExecutorAddress(address string) (uint64,
 	return enc.MachineEndian.Uint64(value), nil
 }
 
+// TODO: To be deprecated
 // getExecutionsByContractAddress returns executions for contract
 func (dao *blockDAO) getExecutionsByContractAddress(address string) ([]hash.Hash32B, error) {
 	// get execution count for contract
@@ -427,6 +447,7 @@ func (dao *blockDAO) getExecutionsByContractAddress(address string) ([]hash.Hash
 	return res, nil
 }
 
+// TODO: To be deprecated
 // getExecutionsByAddress returns executions by address
 func (dao *blockDAO) getExecutionsByAddress(address string, count uint64, keyPrefix []byte) ([]hash.Hash32B, error) {
 	var res []hash.Hash32B
@@ -450,6 +471,7 @@ func (dao *blockDAO) getExecutionsByAddress(address string, count uint64, keyPre
 	return res, nil
 }
 
+// TODO: To be deprecated
 // getExecutionCountByContractAddress returns execution count by contract address
 func (dao *blockDAO) getExecutionCountByContractAddress(address string) (uint64, error) {
 	contractExecutionCountKey := append(executionToPrefix, address...)
@@ -555,6 +577,7 @@ func (dao *blockDAO) getBlockchainHeight() (uint64, error) {
 	return enc.MachineEndian.Uint64(value), nil
 }
 
+// TODO: To be deprecated
 // getTotalTransfers returns the total number of transfers
 func (dao *blockDAO) getTotalTransfers() (uint64, error) {
 	value, err := dao.kvstore.Get(blockNS, totalTransfersKey)
@@ -567,6 +590,7 @@ func (dao *blockDAO) getTotalTransfers() (uint64, error) {
 	return enc.MachineEndian.Uint64(value), nil
 }
 
+// TODO: To be deprecated
 // getTotalVotes returns the total number of votes
 func (dao *blockDAO) getTotalVotes() (uint64, error) {
 	value, err := dao.kvstore.Get(blockNS, totalVotesKey)
@@ -579,6 +603,7 @@ func (dao *blockDAO) getTotalVotes() (uint64, error) {
 	return enc.MachineEndian.Uint64(value), nil
 }
 
+// TODO: To be deprecated
 // getTotalExecutions returns the total number of executions
 func (dao *blockDAO) getTotalExecutions() (uint64, error) {
 	value, err := dao.kvstore.Get(blockNS, totalExecutionsKey)
@@ -603,11 +628,25 @@ func (dao *blockDAO) getTotalActions() (uint64, error) {
 	return enc.MachineEndian.Uint64(value), nil
 }
 
+// TODO: To be deprecated
 // getReceiptByExecutionHash returns the receipt by execution hash
 func (dao *blockDAO) getReceiptByExecutionHash(h hash.Hash32B) (*action.Receipt, error) {
 	value, err := dao.kvstore.Get(blockExecutionReceiptMappingNS, h[:])
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get receipt for execution %x", h[:])
+	}
+	r := action.Receipt{}
+	if err := r.Deserialize(value); err != nil {
+		return nil, err
+	}
+	return &r, nil
+}
+
+// getReceiptByActionHash returns the receipt by execution hash
+func (dao *blockDAO) getReceiptByActionHash(h hash.Hash32B) (*action.Receipt, error) {
+	value, err := dao.kvstore.Get(blockActionReceiptMappingNS, h[:])
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get receipt for action %x", h[:])
 	}
 	r := action.Receipt{}
 	if err := r.Deserialize(value); err != nil {
@@ -648,6 +687,7 @@ func (dao *blockDAO) putBlock(blk *Block) error {
 		return dao.kvstore.Commit(batch)
 	}
 
+	// TODO: To be deprecated
 	// only build Tsf/Vote/Execution index if enable explorer
 	transfers, votes, executions := action.ClassifyActions(blk.Actions)
 	value, err = dao.kvstore.Get(blockNS, totalTransfersKey)
@@ -692,7 +732,7 @@ func (dao *blockDAO) putBlock(blk *Block) error {
 			ns     string
 		)
 		act := elp.Action()
-		// TODO: we only process the actions that are not transfer, vote or execution
+		// TODO: To be deprecated
 		switch act.(type) {
 		case *action.Transfer:
 			prefix = transferPrefix
@@ -703,23 +743,27 @@ func (dao *blockDAO) putBlock(blk *Block) error {
 		case *action.Execution:
 			prefix = executionPrefix
 			ns = blockExecutionBlockMappingNS
-		default:
-			prefix = actionPrefix
-			ns = blockActionBlockMappingNS
 		}
 		actHash := elp.Hash()
-		hashKey := append(prefix, actHash[:]...)
-		batch.Put(ns, hashKey, hash[:], "failed to put action hash %x", actHash)
+		if prefix != nil {
+			hashKey := append(prefix, actHash[:]...)
+			batch.Put(ns, hashKey, hash[:], "failed to put action hash %x", actHash)
+		}
+		actionHashKey := append(actionPrefix, actHash[:]...)
+		batch.Put(blockActionBlockMappingNS, actionHashKey, hash[:], "failed to put action hash %x", actHash)
 	}
 
+	// TODO: To be deprecated
 	if err = putTransfers(dao, blk, batch); err != nil {
 		return err
 	}
 
+	// TODO: To be deprecated
 	if err = putVotes(dao, blk, batch); err != nil {
 		return err
 	}
 
+	// TODO: To be deprecated
 	if err = putExecutions(dao, blk, batch); err != nil {
 		return err
 	}
@@ -730,6 +774,7 @@ func (dao *blockDAO) putBlock(blk *Block) error {
 	return dao.kvstore.Commit(batch)
 }
 
+// TODO: To be deprecated
 // putTransfers stores transfer information into db
 func putTransfers(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 	senderDelta := map[string]uint64{}
@@ -792,6 +837,7 @@ func putTransfers(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 	return nil
 }
 
+// TODO: To be deprecated
 // putVotes stores vote information into db
 func putVotes(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 	senderDelta := map[string]uint64{}
@@ -858,6 +904,7 @@ func putVotes(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 	return nil
 }
 
+// TODO: To be deprecated
 // putExecutions stores execution information into db
 func putExecutions(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 	executorDelta := map[string]uint64{}
@@ -923,16 +970,6 @@ func putActions(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 	recipientDelta := make(map[string]uint64)
 
 	for _, selp := range blk.Actions {
-		act := selp.Action()
-		// TODO: we only process the actions that are not transfer, vote or execution
-		switch act.(type) {
-		case *action.Transfer:
-			continue
-		case *action.Vote:
-			continue
-		case *action.Execution:
-			continue
-		}
 		actHash := selp.Hash()
 
 		// get action count for sender
@@ -997,7 +1034,9 @@ func (dao *blockDAO) putReceipts(blk *Block) error {
 		if err != nil {
 			return errors.Wrapf(err, "failed to serialize receipt %x", r.Hash[:])
 		}
-		batch.Put(blockExecutionReceiptMappingNS, r.Hash[:], v[:], "failed to put receipt for execution %x", r.Hash[:])
+		// TODO: To be deprecated
+		batch.Put(blockExecutionReceiptMappingNS, r.Hash[:], v, "failed to put receipt for execution %x", r.Hash[:])
+		batch.Put(blockActionReceiptMappingNS, r.Hash[:], v, "failed to put receipt for action %x", r.Hash[:])
 	}
 	return dao.kvstore.Commit(batch)
 }
@@ -1044,6 +1083,7 @@ func (dao *blockDAO) deleteTipBlock() error {
 		return dao.kvstore.Commit(batch)
 	}
 
+	// TODO: To be deprecated
 	// Only delete Tsf/Vote/Execution index if enable explorer
 	transfers, votes, executions := action.ClassifyActions(blk.Actions)
 	// Update total transfer count
@@ -1076,6 +1116,17 @@ func (dao *blockDAO) deleteTipBlock() error {
 	totalExecutionsBytes := byteutil.Uint64ToBytes(totalExecutions)
 	batch.Put(blockNS, totalExecutionsKey, totalExecutionsBytes, "failed to put total executions")
 
+	// update total action count
+	value, err = dao.kvstore.Get(blockNS, totalActionsKey)
+	if err != nil {
+		return errors.Wrap(err, "failed to get total actions")
+	}
+	totalActions := enc.MachineEndian.Uint64(value)
+	totalActions -= uint64(len(blk.Actions))
+	totalActionsBytes := byteutil.Uint64ToBytes(totalActions)
+	batch.Put(blockNS, totalActionsKey, totalActionsBytes, "failed to put total actions")
+
+	// TODO: To be deprecated
 	// Delete transfer hash -> block hash mapping
 	for _, transfer := range transfers {
 		transferHash := transfer.Hash()
@@ -1083,6 +1134,7 @@ func (dao *blockDAO) deleteTipBlock() error {
 		batch.Delete(blockTransferBlockMappingNS, hashKey, "failed to delete transfer hash %x", transferHash)
 	}
 
+	// TODO: To be deprecated
 	// Delete vote hash -> block hash mapping
 	for _, vote := range votes {
 		voteHash := vote.Hash()
@@ -1090,6 +1142,7 @@ func (dao *blockDAO) deleteTipBlock() error {
 		batch.Delete(blockVoteBlockMappingNS, hashKey, "failed to delete vote hash %x", voteHash)
 	}
 
+	// TODO: To be deprecated
 	// Delete execution hash -> block hash mapping
 	for _, execution := range executions {
 		executionHash := execution.Hash()
@@ -1097,15 +1150,29 @@ func (dao *blockDAO) deleteTipBlock() error {
 		batch.Delete(blockExecutionBlockMappingNS, hashKey, "failed to delete execution hash %x", executionHash)
 	}
 
+	// Delete action hash -> block hash mapping
+	for _, selp := range blk.Actions {
+		actHash := selp.Hash()
+		hashKey := append(actionPrefix, actHash[:]...)
+		batch.Delete(blockActionBlockMappingNS, hashKey, "failed to delete actions f")
+	}
+
+	// TODO: To be deprecated
 	if err = deleteTransfers(dao, blk, batch); err != nil {
 		return err
 	}
 
+	// TODO: To be deprecated
 	if err = deleteVotes(dao, blk, batch); err != nil {
 		return err
 	}
 
+	// TODO: To be deprecated
 	if err = deleteExecutions(dao, blk, batch); err != nil {
+		return err
+	}
+
+	if err = deleteActions(dao, blk, batch); err != nil {
 		return err
 	}
 
@@ -1116,6 +1183,7 @@ func (dao *blockDAO) deleteTipBlock() error {
 	return dao.kvstore.Commit(batch)
 }
 
+// TODO: To be deprecated
 // deleteTransfers deletes transfer information from db
 func deleteTransfers(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 	transfers, _, _ := action.ClassifyActions(blk.Actions)
@@ -1185,6 +1253,7 @@ func deleteTransfers(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 	return nil
 }
 
+// TODO: To be deprecated
 // deleteVotes deletes vote information from db
 func deleteVotes(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 	_, votes, _ := action.ClassifyActions(blk.Actions)
@@ -1257,6 +1326,7 @@ func deleteVotes(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 	return nil
 }
 
+// TODO: To be deprecated
 // deleteExecutions deletes execution information from db
 func deleteExecutions(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 	_, _, executions := action.ClassifyActions(blk.Actions)
@@ -1329,9 +1399,76 @@ func deleteExecutions(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 // deleteReceipts deletes receipt information from db
 func deleteReceipts(blk *Block, batch db.KVStoreBatch) error {
 	for _, r := range blk.Receipts {
-		batch.Delete(blockExecutionReceiptMappingNS, r.Hash[:], "failed to delete receipt for execution %x", r.Hash[:])
+		batch.Delete(blockActionReceiptMappingNS, r.Hash[:], "failed to delete receipt for action %x", r.Hash[:])
 	}
 	return nil
 }
 
-// TODO: delete actions from db
+// deleteActions deletes action information from db
+func deleteActions(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
+	// Firt get the total count of actions by sender and recipient respectively in the block
+	senderCount := make(map[string]uint64)
+	recipientCount := make(map[string]uint64)
+	for _, selp := range blk.Actions {
+		senderCount[selp.SrcAddr()]++
+		recipientCount[selp.DstAddr()]++
+	}
+	// Roll back the status of address -> actionCount mapping to the preivous block
+	for sender, count := range senderCount {
+		senderActionCount, err := dao.getActionCountBySenderAddress(sender)
+		if err != nil {
+			return errors.Wrapf(err, "for sender %x", sender)
+		}
+		senderActionCountKey := append(actionFromPrefix, sender...)
+		senderCount[sender] = senderActionCount - count
+		batch.Put(blockAddressActionCountMappingNS, senderActionCountKey, byteutil.Uint64ToBytes(senderCount[sender]),
+			"failed to update action count for sender %x", sender)
+	}
+	for recipient, count := range recipientCount {
+		recipientActionCount, err := dao.getActionCountByRecipientAddress(recipient)
+		if err != nil {
+			return errors.Wrapf(err, "for recipient %x", recipient)
+		}
+		recipientActionCountKey := append(actionToPrefix, recipient...)
+		recipientCount[recipient] = recipientActionCount - count
+		batch.Put(blockAddressActionCountMappingNS, recipientActionCountKey,
+			byteutil.Uint64ToBytes(recipientCount[recipient]), "failed to update action count for recipient %x",
+			recipient)
+
+	}
+
+	senderDelta := map[string]uint64{}
+	recipientDelta := map[string]uint64{}
+
+	for _, selp := range blk.Actions {
+		actHash := selp.Hash()
+
+		if delta, ok := senderDelta[selp.SrcAddr()]; ok {
+			senderCount[selp.SrcAddr()] += delta
+			senderDelta[selp.SrcAddr()] = senderDelta[selp.SrcAddr()] + 1
+		} else {
+			senderDelta[selp.SrcAddr()] = 1
+		}
+
+		// Delete new action from sender
+		senderKey := append(actionFromPrefix, selp.SrcAddr()...)
+		senderKey = append(senderKey, byteutil.Uint64ToBytes(senderCount[selp.SrcAddr()])...)
+		batch.Delete(blockAddressActionMappingNS, senderKey, "failed to delete action hash %x for sender %x",
+			actHash, selp.SrcAddr())
+
+		if delta, ok := recipientDelta[selp.DstAddr()]; ok {
+			recipientCount[selp.DstAddr()] += delta
+			recipientDelta[selp.DstAddr()] = recipientDelta[selp.DstAddr()] + 1
+		} else {
+			recipientDelta[selp.DstAddr()] = 1
+		}
+
+		// Delete new action to recipient
+		recipientKey := append(actionToPrefix, selp.DstAddr()...)
+		recipientKey = append(recipientKey, byteutil.Uint64ToBytes(recipientCount[selp.DstAddr()])...)
+		batch.Delete(blockAddressActionMappingNS, recipientKey, "failed to delete action hash %x for recipient %x",
+			actHash, selp.DstAddr())
+	}
+
+	return nil
+}

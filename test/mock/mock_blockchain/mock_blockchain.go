@@ -389,6 +389,19 @@ func (mr *MockBlockchainMockRecorder) GetReceiptByExecutionHash(h interface{}) *
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetReceiptByExecutionHash", reflect.TypeOf((*MockBlockchain)(nil).GetReceiptByExecutionHash), h)
 }
 
+// GetReceiptByActionHash mocks base method
+func (m *MockBlockchain) GetReceiptByActionHash(h hash.Hash32B) (*action.Receipt, error) {
+	ret := m.ctrl.Call(m, "GetReceiptByActionHash", h)
+	ret0, _ := ret[0].(*action.Receipt)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetReceiptByActionHash indicates an expected call of GetReceiptByActionHash
+func (mr *MockBlockchainMockRecorder) GetReceiptByActionHash(h interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetReceiptByActionHash", reflect.TypeOf((*MockBlockchain)(nil).GetReceiptByActionHash), h)
+}
+
 // GetActionsFromAddress mocks base method
 func (m *MockBlockchain) GetActionsFromAddress(address string) ([]hash.Hash32B, error) {
 	ret := m.ctrl.Call(m, "GetActionsFromAddress", address)

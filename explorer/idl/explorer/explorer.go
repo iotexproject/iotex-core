@@ -8,8 +8,8 @@ import (
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "06a39b831ced3f5278b1e3d233c20b7a"
-const BarristerDateGenerated int64 = 1542081143388000000
+const BarristerChecksum string = "a3ce028b4a2de9f843ff6b5bb8234da8"
+const BarristerDateGenerated int64 = 1545331373998000000
 
 type CoinStatistic struct {
 	Height     int64  `json:"height"`
@@ -336,6 +336,7 @@ type Explorer interface {
 	SendAction(request SendActionRequest) (SendActionResponse, error)
 	GetPeers() (GetPeersResponse, error)
 	GetReceiptByExecutionID(id string) (Receipt, error)
+	GetReceiptByActionID(id string) (Receipt, error)
 	ReadExecutionState(request Execution) (string, error)
 	GetBlockOrActionByHash(hashStr string) (GetBlkOrActResponse, error)
 	CreateDeposit(request CreateDepositRequest) (CreateDepositResponse, error)
@@ -979,6 +980,24 @@ func (_p ExplorerProxy) GetReceiptByExecutionID(id string) (Receipt, error) {
 		if !_ok {
 			_t := reflect.TypeOf(_res)
 			_msg := fmt.Sprintf("Explorer.getReceiptByExecutionID returned invalid type: %v", _t)
+			return Receipt{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
+		}
+		return _cast, nil
+	}
+	return Receipt{}, _err
+}
+
+func (_p ExplorerProxy) GetReceiptByActionID(id string) (Receipt, error) {
+	_res, _err := _p.client.Call("Explorer.getReceiptByActionID", id)
+	if _err == nil {
+		_retType := _p.idl.Method("Explorer.getReceiptByActionID").Returns
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(Receipt{}), _res, "")
+	}
+	if _err == nil {
+		_cast, _ok := _res.(Receipt)
+		if !_ok {
+			_t := reflect.TypeOf(_res)
+			_msg := fmt.Sprintf("Explorer.getReceiptByActionID returned invalid type: %v", _t)
 			return Receipt{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
 		}
 		return _cast, nil
@@ -3883,6 +3902,26 @@ var IdlJsonRaw = `[
                 }
             },
             {
+                "name": "getReceiptByActionID",
+                "comment": "get receipt by action id",
+                "params": [
+                    {
+                        "name": "id",
+                        "type": "string",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    }
+                ],
+                "returns": {
+                    "name": "",
+                    "type": "Receipt",
+                    "optional": false,
+                    "is_array": false,
+                    "comment": ""
+                }
+            },
+            {
                 "name": "readExecutionState",
                 "comment": "read execution state",
                 "params": [
@@ -4075,7 +4114,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1542081143388,
-        "checksum": "06a39b831ced3f5278b1e3d233c20b7a"
+        "date_generated": 1545331373998,
+        "checksum": "a3ce028b4a2de9f843ff6b5bb8234da8"
     }
 ]`
