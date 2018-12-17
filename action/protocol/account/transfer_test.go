@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/state"
@@ -37,7 +38,7 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
 
-	protocol := NewProtocol()
+	p := NewProtocol()
 
 	account1 := state.Account{
 		Balance: big.NewInt(5),
@@ -65,7 +66,12 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 	transfer, err := action.NewTransfer(uint64(1), big.NewInt(2), testaddress.Addrinfo["alfa"].RawAddress,
 		testaddress.Addrinfo["bravo"].RawAddress, []byte{}, uint64(10000), big.NewInt(0))
 	require.NoError(err)
-	_, err = protocol.Handle(context.Background(), transfer, ws)
+
+	ctx = protocol.WithRunActionsCtx(context.Background(),
+		protocol.RunActionsCtx{
+			EnableGasCharge: false,
+		})
+	_, err = p.Handle(ctx, transfer, ws)
 	require.NoError(err)
 	require.NoError(sf.Commit(ws))
 

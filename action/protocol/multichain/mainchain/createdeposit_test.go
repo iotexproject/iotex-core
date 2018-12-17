@@ -17,6 +17,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/enc"
@@ -59,14 +61,15 @@ func TestValidateDeposit(t *testing.T) {
 
 	ws, err := sf.NewWorkingSet()
 	require.NoError(t, err)
-	_, err = ws.LoadOrCreateAccountState(
+	_, err = account.LoadOrCreateAccount(
+		ws,
 		testaddress.Addrinfo["producer"].RawAddress,
 		big.NewInt(1000),
 	)
 	require.NoError(t, err)
 	gasLimit := testutil.TestGasLimit
-	ctx = state.WithRunActionsCtx(ctx,
-		state.RunActionsCtx{
+	ctx = protocol.WithRunActionsCtx(ctx,
+		protocol.RunActionsCtx{
 			ProducerAddr:    testaddress.Addrinfo["producer"].RawAddress,
 			GasLimit:        &gasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,

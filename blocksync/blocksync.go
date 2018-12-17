@@ -35,9 +35,10 @@ type BlockSync interface {
 
 // blockSyncer implements BlockSync interface
 type blockSyncer struct {
-	ackBlockCommit bool // acknowledges latest committed block
-	ackBlockSync   bool // acknowledges old block from sync request
-	ackSyncReq     bool // acknowledges incoming Sync request
+	ackBlockCommit bool   // acknowledges latest committed block
+	ackBlockSync   bool   // acknowledges old block from sync request
+	ackSyncReq     bool   // acknowledges incoming Sync request
+	commitHeight   uint64 // last commit block height
 	buf            *blockBuffer
 	worker         *syncWorker
 	bc             blockchain.Blockchain
@@ -55,12 +56,15 @@ func NewBlockSyncer(
 	if chain == nil || ap == nil || p2p == nil {
 		return nil, errors.New("cannot create BlockSync: missing param")
 	}
-
+	bufSize := cfg.BlockSync.BufferSize
+	if cfg.IsFullnode() {
+		bufSize <<= 3
+	}
 	buf := &blockBuffer{
 		blocks: make(map[uint64]*blockchain.Block),
 		bc:     chain,
 		ap:     ap,
-		size:   cfg.BlockSync.BufferSize,
+		size:   bufSize,
 	}
 	w := newSyncWorker(chain.ChainID(), cfg, p2p, buf)
 	bs := &blockSyncer{
@@ -92,7 +96,11 @@ func (bs *blockSyncer) Start(ctx context.Context) error {
 	if err := bs.chaser.Start(ctx); err != nil {
 		return err
 	}
-	return bs.worker.Start(ctx)
+	if err := bs.worker.Start(ctx); err != nil {
+		return err
+	}
+	bs.commitHeight = bs.buf.CommitHeight()
+	return nil
 }
 
 // Stop stops a block syncer
@@ -138,6 +146,9 @@ func (bs *blockSyncer) ProcessBlockSync(blk *blockchain.Block) error {
 		return nil
 	}
 	bs.buf.Flush(blk)
+	if bs.bc.TipHeight() == bs.TargetHeight() {
+		bs.worker.SetTargetHeight(bs.TargetHeight() + bs.buf.bufSize())
+	}
 	return nil
 }
 
@@ -163,5 +174,11 @@ func (bs *blockSyncer) ProcessSyncRequest(sender string, sync *pb.BlockSync) err
 
 // Chase sets the block sync target height to be blockchain height + 1
 func (bs *blockSyncer) Chase() {
+	if bs.commitHeight != bs.buf.CommitHeight() {
+		bs.commitHeight = bs.buf.CommitHeight()
+		return
+	}
+	// commit height hasn't changed since last chase interval
 	bs.worker.SetTargetHeight(bs.bc.TipHeight() + 1)
+	logger.Info().Uint64("stuck", bs.commitHeight).Msg("Chaser")
 }

@@ -9,6 +9,7 @@ package account
 import (
 	"context"
 	"math/big"
+	"sync"
 
 	"github.com/pkg/errors"
 
@@ -20,16 +21,20 @@ import (
 )
 
 // Protocol defines the protocol of handling account
-type Protocol struct{}
+type Protocol struct{ mu sync.RWMutex }
 
 // NewProtocol instantiates the protocol of account
 func NewProtocol() *Protocol { return &Protocol{} }
 
 // Handle handles an account
-func (p *Protocol) Handle(_ context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
+func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
+	raCtx, ok := protocol.GetRunActionsCtx(ctx)
+	if !ok {
+		return nil, errors.New("failed to get action context")
+	}
 	switch act := act.(type) {
 	case *action.Transfer:
-		if err := p.handleTransfer(act, sm); err != nil {
+		if err := p.handleTransfer(act, raCtx, sm); err != nil {
 			return nil, errors.Wrap(err, "error when handling transfer action")
 		}
 	}
@@ -37,10 +42,13 @@ func (p *Protocol) Handle(_ context.Context, act action.Action, sm protocol.Stat
 }
 
 // Validate validates an account
-func (p *Protocol) Validate(_ context.Context, act action.Action) error {
+func (p *Protocol) Validate(ctx context.Context, act action.Action) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
 	switch act := act.(type) {
 	case *action.Transfer:
-		if err := p.validateTransfer(act); err != nil {
+		if err := p.validateTransfer(ctx, act); err != nil {
 			return errors.Wrap(err, "error when validating transfer action")
 		}
 	}

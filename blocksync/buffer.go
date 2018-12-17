@@ -27,11 +27,17 @@ const (
 
 // blockBuffer is used to keep in-coming block in order.
 type blockBuffer struct {
-	mu     sync.RWMutex
-	blocks map[uint64]*blockchain.Block
-	bc     blockchain.Blockchain
-	ap     actpool.ActPool
-	size   uint64
+	mu           sync.RWMutex
+	blocks       map[uint64]*blockchain.Block
+	bc           blockchain.Blockchain
+	ap           actpool.ActPool
+	size         uint64
+	commitHeight uint64 // last commit block height
+}
+
+// CommitHeight return the last commit block height
+func (b *blockBuffer) CommitHeight() uint64 {
+	return b.commitHeight
 }
 
 // Flush tries to put given block into buffer and flush buffer into blockchain.
@@ -74,6 +80,7 @@ func (b *blockBuffer) Flush(blk *blockchain.Block) (bool, bCheckinResult) {
 				break
 			}
 		}
+		b.commitHeight = heightToSync
 		l.Info().Uint64("syncedHeight", heightToSync).Msg("Successfully committed block.")
 	}
 
@@ -132,4 +139,9 @@ func (b *blockBuffer) GetBlocksIntervalsToSync(targetHeight uint64) []syncBlocks
 		bi = append(bi, syncBlocksInterval{Start: start, End: targetHeight})
 	}
 	return bi
+}
+
+// bufSize return the size of buffer
+func (b *blockBuffer) bufSize() uint64 {
+	return b.size
 }

@@ -191,15 +191,17 @@ func (stateDB *StateDBAdapter) Empty(common.Address) bool {
 	return false
 }
 
-// RevertToSnapshot reverts the state factory to snapshot
-func (stateDB *StateDBAdapter) RevertToSnapshot(int) {
-	logger.Debug().Msg("RevertToSnapshot is not implemented")
+// RevertToSnapshot reverts the state factory to the state at a given snapshot
+func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
+	if err := stateDB.sm.Revert(snapshot); err != nil {
+		logger.Error().Err(err).Msg("failed to RevertToSnapshot")
+	}
+	return
 }
 
 // Snapshot returns the snapshot id
 func (stateDB *StateDBAdapter) Snapshot() int {
-	logger.Debug().Msg("Snapshot is not implemented")
-	return 0
+	return stateDB.sm.Snapshot()
 }
 
 // AddLog adds log

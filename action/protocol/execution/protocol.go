@@ -8,6 +8,7 @@ package execution
 
 import (
 	"context"
+	"sync"
 
 	"github.com/pkg/errors"
 
@@ -16,17 +17,19 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/iotxaddress"
-	"github.com/iotexproject/iotex-core/state"
 )
 
 // ExecutionSizeLimit is the maximum size of execution allowed
 const ExecutionSizeLimit = 32 * 1024
 
 // Protocol defines the protocol of handling executions
-type Protocol struct{ cm protocol.ChainManager }
+type Protocol struct {
+	mu sync.RWMutex
+	cm protocol.ChainManager
+}
 
 // NewProtocol instantiates the protocol of exeuction
-func NewProtocol(cm protocol.ChainManager) *Protocol { return &Protocol{cm} }
+func NewProtocol(cm protocol.ChainManager) *Protocol { return &Protocol{cm: cm} }
 
 // Handle handles an execution
 func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
@@ -35,7 +38,7 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 		return nil, nil
 	}
 
-	raCtx, ok := state.GetRunActionsCtx(ctx)
+	raCtx, ok := protocol.GetRunActionsCtx(ctx)
 	if !ok {
 		return nil, errors.New("failed to get RunActionsCtx")
 	}
@@ -64,6 +67,9 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 
 // Validate validates an execution
 func (p *Protocol) Validate(_ context.Context, act action.Action) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
 	exec, ok := act.(*action.Execution)
 	if !ok {
 		return nil

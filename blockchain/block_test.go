@@ -19,6 +19,10 @@ import (
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/account"
+	"github.com/iotexproject/iotex-core/action/protocol/execution"
+	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/crypto"
@@ -27,7 +31,6 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/proto"
-	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -212,7 +215,7 @@ func TestConvertFromBlockPb(t *testing.T) {
 
 func TestWrongRootHash(t *testing.T) {
 	require := require.New(t)
-	val := validator{nil, ""}
+	val := validator{sf: nil, validatorAddr: ""}
 	tsf1, err := action.NewTransfer(1, big.NewInt(20), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["alfa"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(err)
 	require.NoError(action.Sign(tsf1, ta.Addrinfo["producer"].PrivateKey))
@@ -231,7 +234,7 @@ func TestWrongRootHash(t *testing.T) {
 
 func TestSignBlock(t *testing.T) {
 	require := require.New(t)
-	val := validator{nil, ""}
+	val := validator{sf: nil, validatorAddr: ""}
 	tsf1, err := action.NewTransfer(1, big.NewInt(20), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["alfa"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(err)
 	require.NoError(action.Sign(tsf1, ta.Addrinfo["producer"].PrivateKey))
@@ -254,9 +257,16 @@ func TestWrongNonce(t *testing.T) {
 	require := require.New(t)
 	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 	require.NoError(err)
+	sf.AddActionHandlers(account.NewProtocol(), vote.NewProtocol(nil))
 	require.NoError(sf.Start(context.Background()))
 	require.NoError(addCreatorToFactory(sf))
-	val := validator{sf, ""}
+
+	// Create a blockchain from scratch
+	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
+	require.NoError(bc.Start(context.Background()))
+
+	val := validator{sf: sf, validatorAddr: ""}
+	val.AddActionValidators(protocol.NewGenericValidator(bc), account.NewProtocol(), vote.NewProtocol(bc))
 
 	// correct nonce
 	coinbaseTsf := action.NewCoinBaseTransfer(1, Gen.BlockReward, ta.Addrinfo["producer"].RawAddress)
@@ -278,8 +288,8 @@ func TestWrongNonce(t *testing.T) {
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
-	ctx := state.WithRunActionsCtx(context.Background(),
-		state.RunActionsCtx{
+	ctx := protocol.WithRunActionsCtx(context.Background(),
+		protocol.RunActionsCtx{
 			ProducerAddr:    ta.Addrinfo["producer"].RawAddress,
 			GasLimit:        &gasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
@@ -304,9 +314,10 @@ func TestWrongNonce(t *testing.T) {
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.NoError(err)
 	err = val.Validate(blk, 2, hash, true)
-	require.Equal(ErrActionNonce, errors.Cause(err))
+	require.Equal(action.ErrNonce, errors.Cause(err))
 
-	vote, err := action.NewVote(1, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress, uint64(100000), big.NewInt(10))
+	vote, err := action.NewVote(1, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["producer"].RawAddress,
+		uint64(100000), big.NewInt(10))
 	require.NoError(err)
 	require.NoError(action.Sign(vote, ta.Addrinfo["producer"].PrivateKey))
 	hash = tsf1.Hash()
@@ -322,7 +333,7 @@ func TestWrongNonce(t *testing.T) {
 	require.NoError(err)
 	err = val.Validate(blk, 2, hash, true)
 	require.Error(err)
-	require.Equal(ErrActionNonce, errors.Cause(err))
+	require.Equal(action.ErrNonce, errors.Cause(err))
 
 	// duplicate nonce
 	tsf3, err := action.NewTransfer(2, big.NewInt(30), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
@@ -344,12 +355,14 @@ func TestWrongNonce(t *testing.T) {
 	require.NoError(err)
 	err = val.Validate(blk, 2, hash, true)
 	require.Error(err)
-	require.Equal(ErrActionNonce, errors.Cause(err))
+	require.Equal(action.ErrNonce, errors.Cause(err))
 
-	vote2, err := action.NewVote(2, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress, uint64(100000), big.NewInt(10))
+	vote2, err := action.NewVote(2, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["producer"].RawAddress,
+		uint64(100000), big.NewInt(10))
 	require.NoError(err)
 	require.NoError(action.Sign(vote2, ta.Addrinfo["producer"].PrivateKey))
-	vote3, err := action.NewVote(2, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["charlie"].RawAddress, uint64(100000), big.NewInt(10))
+	vote3, err := action.NewVote(2, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["producer"].RawAddress,
+		uint64(100000), big.NewInt(10))
 	require.NoError(err)
 	require.NoError(action.Sign(vote3, ta.Addrinfo["producer"].PrivateKey))
 	hash = tsf1.Hash()
@@ -365,7 +378,7 @@ func TestWrongNonce(t *testing.T) {
 	require.NoError(err)
 	err = val.Validate(blk, 2, hash, true)
 	require.Error(err)
-	require.Equal(ErrActionNonce, errors.Cause(err))
+	require.Equal(action.ErrNonce, errors.Cause(err))
 
 	// non consecutive nonce
 	tsf5, err := action.NewTransfer(2, big.NewInt(30), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
@@ -387,12 +400,14 @@ func TestWrongNonce(t *testing.T) {
 	require.NoError(err)
 	err = val.Validate(blk, 2, hash, true)
 	require.Error(err)
-	require.Equal(ErrActionNonce, errors.Cause(err))
+	require.Equal(action.ErrNonce, errors.Cause(err))
 
-	vote4, err := action.NewVote(2, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress, uint64(100000), big.NewInt(10))
+	vote4, err := action.NewVote(2, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["producer"].RawAddress,
+		uint64(100000), big.NewInt(10))
 	require.NoError(err)
 	require.NoError(action.Sign(vote4, ta.Addrinfo["producer"].PrivateKey))
-	vote5, err := action.NewVote(4, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["charlie"].RawAddress, uint64(100000), big.NewInt(10))
+	vote5, err := action.NewVote(4, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["producer"].RawAddress,
+		uint64(100000), big.NewInt(10))
 	require.NoError(err)
 	require.NoError(action.Sign(vote5, ta.Addrinfo["producer"].PrivateKey))
 	hash = tsf1.Hash()
@@ -408,7 +423,7 @@ func TestWrongNonce(t *testing.T) {
 	require.NoError(err)
 	err = val.Validate(blk, 2, hash, true)
 	require.Error(err)
-	require.Equal(ErrActionNonce, errors.Cause(err))
+	require.Equal(action.ErrNonce, errors.Cause(err))
 }
 
 func TestWrongCoinbaseTsf(t *testing.T) {
@@ -422,7 +437,13 @@ func TestWrongCoinbaseTsf(t *testing.T) {
 	require.NoError(err)
 	require.NoError(sf.Start(context.Background()))
 	require.NoError(addCreatorToFactory(sf))
-	val := validator{sf, ""}
+
+	// Create a blockchain from scratch
+	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
+	require.NoError(bc.Start(context.Background()))
+
+	val := validator{sf: sf, validatorAddr: ""}
+	val.AddActionValidators(protocol.NewGenericValidator(bc), account.NewProtocol())
 
 	// no coinbase tsf
 	coinbaseTsf := action.NewCoinBaseTransfer(1, Gen.BlockReward, ta.Addrinfo["producer"].RawAddress)
@@ -460,7 +481,7 @@ func TestWrongCoinbaseTsf(t *testing.T) {
 	err = val.Validate(blk, 2, hash, true)
 	require.Error(err)
 	require.True(
-		strings.Contains(err.Error(), "wrong number of coinbase transfers"),
+		strings.Contains(err.Error(), "wrong number of coinbase transfers in block"),
 	)
 
 	// no transfer
@@ -482,10 +503,24 @@ func TestWrongCoinbaseTsf(t *testing.T) {
 }
 
 func TestWrongAddress(t *testing.T) {
-	val := validator{}
+	ctx := context.Background()
+	cfg := config.Default
+	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption())
+	bc.GetFactory().AddActionHandlers(account.NewProtocol(), vote.NewProtocol(bc))
+	require.NoError(t, bc.Start(ctx))
+	require.NotNil(t, bc)
+	defer func() {
+		err := bc.Stop(ctx)
+		require.NoError(t, err)
+	}()
+	val := validator{sf: bc.GetFactory(), validatorAddr: ""}
+	val.AddActionValidators(protocol.NewGenericValidator(bc), account.NewProtocol(), vote.NewProtocol(bc),
+		execution.NewProtocol(bc))
+
 	invalidRecipient := "io1qyqsyqcyq5narhapakcsrhksfajfcpl24us3xp38zwvsep"
 	tsf, err := action.NewTransfer(1, big.NewInt(1), ta.Addrinfo["producer"].RawAddress, invalidRecipient, []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(t, err)
+	require.NoError(t, action.Sign(tsf, ta.Addrinfo["producer"].PrivateKey))
 	blk1 := NewBlock(
 		1,
 		3,
@@ -496,11 +531,12 @@ func TestWrongAddress(t *testing.T) {
 	)
 	err = val.verifyActions(blk1, true)
 	require.Error(t, err)
-	require.True(t, strings.Contains(err.Error(), "failed to validate transfer recipient's address"))
+	require.True(t, strings.Contains(err.Error(), "error when validating recipient's address"))
 
 	invalidVotee := "ioaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	vote, err := action.NewVote(1, ta.Addrinfo["producer"].RawAddress, invalidVotee, uint64(100000), big.NewInt(10))
 	require.NoError(t, err)
+	require.NoError(t, action.Sign(vote, ta.Addrinfo["producer"].PrivateKey))
 	blk2 := NewBlock(
 		1,
 		3,
@@ -511,11 +547,12 @@ func TestWrongAddress(t *testing.T) {
 	)
 	err = val.verifyActions(blk2, true)
 	require.Error(t, err)
-	require.True(t, strings.Contains(err.Error(), "failed to validate votee's address"))
+	require.True(t, strings.Contains(err.Error(), "error when validating votee's address"))
 
 	invalidContract := "123"
 	execution, err := action.NewExecution(ta.Addrinfo["producer"].RawAddress, invalidContract, 1, big.NewInt(1), uint64(100000), big.NewInt(10), []byte{})
 	require.NoError(t, err)
+	require.NoError(t, action.Sign(execution, ta.Addrinfo["producer"].PrivateKey))
 	blk3 := NewBlock(
 		1,
 		3,
@@ -526,7 +563,7 @@ func TestWrongAddress(t *testing.T) {
 	)
 	err = val.verifyActions(blk3, true)
 	require.Error(t, err)
-	require.True(t, strings.Contains(err.Error(), "failed to validate contract's address"))
+	require.True(t, strings.Contains(err.Error(), "error when validating contract's address"))
 }
 
 func TestCoinbaseTransferValidation(t *testing.T) {
@@ -609,7 +646,7 @@ func TestValidateSecretBlock(t *testing.T) {
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.NoError(err)
 
-	val := validator{sf, delegates[1]}
+	val := validator{sf: sf, validatorAddr: delegates[1]}
 	require.NoError(val.Validate(blk, 2, hash, false))
 
 	// Falsify secret proposal
@@ -637,12 +674,12 @@ func addCreatorToFactory(sf factory.Factory) error {
 	if err != nil {
 		return err
 	}
-	if _, err = ws.LoadOrCreateAccountState(ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply); err != nil {
+	if _, err = account.LoadOrCreateAccount(ws, ta.Addrinfo["producer"].RawAddress, Gen.TotalSupply); err != nil {
 		return err
 	}
 	gasLimit := testutil.TestGasLimit
-	ctx := state.WithRunActionsCtx(context.Background(),
-		state.RunActionsCtx{
+	ctx := protocol.WithRunActionsCtx(context.Background(),
+		protocol.RunActionsCtx{
 			ProducerAddr:    ta.Addrinfo["producer"].RawAddress,
 			GasLimit:        &gasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,

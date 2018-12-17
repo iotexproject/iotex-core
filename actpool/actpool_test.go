@@ -8,6 +8,7 @@ package actpool
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -15,15 +16,13 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
-	"fmt"
-
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -59,6 +58,7 @@ var (
 func TestActPool_validateGenericAction(t *testing.T) {
 	require := require.New(t)
 	bc := blockchain.NewBlockchain(config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	bc.GetFactory().AddActionHandlers(account.NewProtocol())
 	require.NoError(bc.Start(context.Background()))
 	_, err := bc.CreateState(addr1.RawAddress, big.NewInt(100))
 	require.NoError(err)
@@ -67,7 +67,7 @@ func TestActPool_validateGenericAction(t *testing.T) {
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
-	ap.AddActionValidators(NewGenericValidator(bc))
+	ap.AddActionValidators(protocol.NewGenericValidator(bc))
 	validator := ap.validators[0]
 	// Case I: Over-gassed transfer
 	tsf, err := action.NewTransfer(uint64(1), big.NewInt(1), "1", "2", nil, blockchain.GasLimit+1, big.NewInt(0))
@@ -95,8 +95,8 @@ func TestActPool_validateGenericAction(t *testing.T) {
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
-	ctx := state.WithRunActionsCtx(context.Background(),
-		state.RunActionsCtx{
+	ctx := protocol.WithRunActionsCtx(context.Background(),
+		protocol.RunActionsCtx{
 			ProducerAddr:    testaddress.Addrinfo["producer"].RawAddress,
 			GasLimit:        &gasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
@@ -128,7 +128,7 @@ func TestActPool_AddActs(t *testing.T) {
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
-	ap.AddActionValidators(NewGenericValidator(bc), account.NewProtocol(), vote.NewProtocol(bc),
+	ap.AddActionValidators(protocol.NewGenericValidator(bc), account.NewProtocol(), vote.NewProtocol(bc),
 		execution.NewProtocol(bc))
 	// Test actpool status after adding a sequence of Tsfs/votes: need to check confirmed nonce, pending nonce, and pending balance
 	tsf1, err := testutil.SignedTransfer(addr1, addr1, uint64(1), big.NewInt(10),
@@ -271,7 +271,7 @@ func TestActPool_PickActs(t *testing.T) {
 		require.NoError(err)
 		ap, ok := Ap.(*actPool)
 		require.True(ok)
-		ap.AddActionValidators(NewGenericValidator(bc), account.NewProtocol(), vote.NewProtocol(bc))
+		ap.AddActionValidators(protocol.NewGenericValidator(bc), account.NewProtocol(), vote.NewProtocol(bc))
 
 		tsf1, err := testutil.SignedTransfer(addr1, addr1, uint64(1), big.NewInt(10),
 			[]byte{}, uint64(100000), big.NewInt(0))
@@ -350,6 +350,7 @@ func TestActPool_PickActs(t *testing.T) {
 func TestActPool_removeConfirmedActs(t *testing.T) {
 	require := require.New(t)
 	bc := blockchain.NewBlockchain(config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	bc.GetFactory().AddActionHandlers(account.NewProtocol(), vote.NewProtocol(bc))
 	require.NoError(bc.Start(context.Background()))
 	_, err := bc.CreateState(addr1.RawAddress, big.NewInt(100))
 	require.NoError(err)
@@ -359,7 +360,7 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
-	ap.AddActionValidators(NewGenericValidator(bc), account.NewProtocol(), vote.NewProtocol(bc))
+	ap.AddActionValidators(protocol.NewGenericValidator(bc), account.NewProtocol(), vote.NewProtocol(bc))
 
 	tsf1, err := testutil.SignedTransfer(addr1, addr1, uint64(1), big.NewInt(10),
 		[]byte{}, uint64(100000), big.NewInt(0))
@@ -389,8 +390,8 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
-	ctx := state.WithRunActionsCtx(context.Background(),
-		state.RunActionsCtx{
+	ctx := protocol.WithRunActionsCtx(context.Background(),
+		protocol.RunActionsCtx{
 			ProducerAddr:    testaddress.Addrinfo["producer"].RawAddress,
 			GasLimit:        &gasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
@@ -407,6 +408,7 @@ func TestActPool_Reset(t *testing.T) {
 	require := require.New(t)
 
 	bc := blockchain.NewBlockchain(config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	bc.GetFactory().AddActionHandlers(account.NewProtocol(), vote.NewProtocol(bc))
 	require.NoError(bc.Start(context.Background()))
 	_, err := bc.CreateState(addr1.RawAddress, big.NewInt(100))
 	require.NoError(err)
@@ -420,13 +422,13 @@ func TestActPool_Reset(t *testing.T) {
 	require.NoError(err)
 	ap1, ok := Ap1.(*actPool)
 	require.True(ok)
-	ap1.AddActionValidators(NewGenericValidator(bc), account.NewProtocol(), vote.NewProtocol(bc),
+	ap1.AddActionValidators(protocol.NewGenericValidator(bc), account.NewProtocol(), vote.NewProtocol(bc),
 		execution.NewProtocol(bc))
 	Ap2, err := NewActPool(bc, apConfig)
 	require.NoError(err)
 	ap2, ok := Ap2.(*actPool)
 	require.True(ok)
-	ap2.AddActionValidators(NewGenericValidator(bc), account.NewProtocol(), vote.NewProtocol(bc),
+	ap2.AddActionValidators(protocol.NewGenericValidator(bc), account.NewProtocol(), vote.NewProtocol(bc),
 		execution.NewProtocol(bc))
 
 	// Tsfs to be added to ap1
@@ -552,8 +554,8 @@ func TestActPool_Reset(t *testing.T) {
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
-	ctx := state.WithRunActionsCtx(context.Background(),
-		state.RunActionsCtx{
+	ctx := protocol.WithRunActionsCtx(context.Background(),
+		protocol.RunActionsCtx{
 			ProducerAddr:    testaddress.Addrinfo["producer"].RawAddress,
 			GasLimit:        &gasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
@@ -669,8 +671,8 @@ func TestActPool_Reset(t *testing.T) {
 	// ap2 commits update of accounts to trie
 	ws, err = sf.NewWorkingSet()
 	require.NoError(err)
-	ctx = state.WithRunActionsCtx(context.Background(),
-		state.RunActionsCtx{
+	ctx = protocol.WithRunActionsCtx(context.Background(),
+		protocol.RunActionsCtx{
 			ProducerAddr:    testaddress.Addrinfo["producer"].RawAddress,
 			GasLimit:        &gasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
@@ -768,8 +770,8 @@ func TestActPool_Reset(t *testing.T) {
 	ws, err = sf.NewWorkingSet()
 	require.NoError(err)
 
-	ctx = state.WithRunActionsCtx(context.Background(),
-		state.RunActionsCtx{
+	ctx = protocol.WithRunActionsCtx(context.Background(),
+		protocol.RunActionsCtx{
 			ProducerAddr:    testaddress.Addrinfo["producer"].RawAddress,
 			GasLimit:        &gasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
@@ -805,7 +807,7 @@ func TestActPool_removeInvalidActs(t *testing.T) {
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
-	ap.AddActionValidators(NewGenericValidator(bc), account.NewProtocol(), vote.NewProtocol(bc))
+	ap.AddActionValidators(protocol.NewGenericValidator(bc), account.NewProtocol(), vote.NewProtocol(bc))
 
 	tsf1, err := testutil.SignedTransfer(addr1, addr1, uint64(1), big.NewInt(10),
 		[]byte{}, uint64(100000), big.NewInt(0))
@@ -852,7 +854,7 @@ func TestActPool_GetPendingNonce(t *testing.T) {
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
-	ap.AddActionValidators(NewGenericValidator(bc), account.NewProtocol(), vote.NewProtocol(bc))
+	ap.AddActionValidators(protocol.NewGenericValidator(bc), account.NewProtocol(), vote.NewProtocol(bc))
 
 	tsf1, err := testutil.SignedTransfer(addr1, addr1, uint64(1), big.NewInt(10),
 		[]byte{}, uint64(100000), big.NewInt(0))
@@ -893,7 +895,7 @@ func TestActPool_GetUnconfirmedActs(t *testing.T) {
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
-	ap.AddActionValidators(NewGenericValidator(bc), account.NewProtocol(), vote.NewProtocol(bc))
+	ap.AddActionValidators(protocol.NewGenericValidator(bc), account.NewProtocol(), vote.NewProtocol(bc))
 
 	tsf1, err := testutil.SignedTransfer(addr1, addr1, uint64(1), big.NewInt(10),
 		[]byte{}, uint64(100000), big.NewInt(0))
@@ -970,6 +972,7 @@ func TestActPool_GetCapacity(t *testing.T) {
 func TestActPool_GetSize(t *testing.T) {
 	require := require.New(t)
 	bc := blockchain.NewBlockchain(config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	bc.GetFactory().AddActionHandlers(account.NewProtocol(), vote.NewProtocol(bc))
 	require.NoError(bc.Start(context.Background()))
 	_, err := bc.CreateState(addr1.RawAddress, big.NewInt(100))
 	require.NoError(err)
@@ -979,7 +982,7 @@ func TestActPool_GetSize(t *testing.T) {
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
-	ap.AddActionValidators(NewGenericValidator(bc), account.NewProtocol(), vote.NewProtocol(bc))
+	ap.AddActionValidators(protocol.NewGenericValidator(bc), account.NewProtocol(), vote.NewProtocol(bc))
 	require.Zero(ap.GetSize())
 
 	tsf1, err := testutil.SignedTransfer(addr1, addr1, uint64(1), big.NewInt(10),
@@ -1004,8 +1007,8 @@ func TestActPool_GetSize(t *testing.T) {
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
 
-	ctx := state.WithRunActionsCtx(context.Background(),
-		state.RunActionsCtx{
+	ctx := protocol.WithRunActionsCtx(context.Background(),
+		protocol.RunActionsCtx{
 			ProducerAddr:    testaddress.Addrinfo["producer"].RawAddress,
 			GasLimit:        &gasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
