@@ -10,6 +10,7 @@ import (
 	"math/big"
 
 	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"github.com/iotexproject/iotex-core/pkg/version"
 )
 
 // Builder is used to build an action.
@@ -78,5 +79,74 @@ func (b *Builder) Build() AbstractAction {
 	if b.act.gasPrice == nil {
 		b.act.gasPrice = big.NewInt(0)
 	}
+	if b.act.version == 0 {
+		b.act.version = version.ProtocolVersion
+	}
 	return b.act
+}
+
+// EnvelopeBuilder is the builder to build Envelope.
+type EnvelopeBuilder struct {
+	elp Envelope
+}
+
+// SetVersion sets action's version.
+func (b *EnvelopeBuilder) SetVersion(v uint32) *EnvelopeBuilder {
+	b.elp.version = v
+	return b
+}
+
+// SetNonce sets action's nonce.
+func (b *EnvelopeBuilder) SetNonce(n uint64) *EnvelopeBuilder {
+	b.elp.nonce = n
+	return b
+}
+
+// SetDestinationAddress sets action's destination address.
+func (b *EnvelopeBuilder) SetDestinationAddress(addr string) *EnvelopeBuilder {
+	b.elp.dstAddr = addr
+	return b
+}
+
+// SetGasLimit sets action's gas limit.
+func (b *EnvelopeBuilder) SetGasLimit(l uint64) *EnvelopeBuilder {
+	b.elp.gasLimit = l
+	return b
+}
+
+// SetGasPrice sets action's gas price.
+func (b *EnvelopeBuilder) SetGasPrice(p *big.Int) *EnvelopeBuilder {
+	if p == nil {
+		return b
+	}
+	b.elp.gasPrice = &big.Int{}
+	b.elp.gasPrice.Set(p)
+	return b
+}
+
+// SetGasPriceByBytes sets action's gas price from a byte slice source.
+func (b *EnvelopeBuilder) SetGasPriceByBytes(buf []byte) *EnvelopeBuilder {
+	if len(buf) == 0 {
+		return b
+	}
+	b.elp.gasPrice = &big.Int{}
+	b.elp.gasPrice.SetBytes(buf)
+	return b
+}
+
+// SetAction sets the action payload for the Envelope Builder is building.
+func (b *EnvelopeBuilder) SetAction(action actionPayload) *EnvelopeBuilder {
+	b.elp.payload = action
+	return b
+}
+
+// Build builds a new action.
+func (b *EnvelopeBuilder) Build() Envelope {
+	if b.elp.gasPrice == nil {
+		b.elp.gasPrice = big.NewInt(0)
+	}
+	if b.elp.version == 0 {
+		b.elp.version = version.ProtocolVersion
+	}
+	return b.elp
 }

@@ -57,45 +57,85 @@ func TestBasicHash(t *testing.T) {
 func TestMerkle(t *testing.T) {
 	require := require.New(t)
 
+	producer := ta.Addrinfo["producer"]
 	amount := uint64(50 << 22)
 	// create testing transactions
-	cbtsf0 := action.NewCoinBaseTransfer(1, big.NewInt(int64(amount)), ta.Addrinfo["producer"].RawAddress)
+	cbtsf0 := action.NewCoinBaseTransfer(1, big.NewInt(int64(amount)), producer.RawAddress)
 	require.NotNil(cbtsf0)
+	bd := action.EnvelopeBuilder{}
+	elp := bd.SetNonce(1).
+		SetDestinationAddress(producer.RawAddress).
+		SetGasLimit(protocol.GasLimit).
+		SetAction(cbtsf0).Build()
+	selp0, err := action.Sign(elp, producer.RawAddress, producer.PrivateKey)
+	require.NoError(err)
+
 	cbtsf1 := action.NewCoinBaseTransfer(1, big.NewInt(int64(amount)), ta.Addrinfo["alfa"].RawAddress)
 	require.NotNil(cbtsf1)
+	bd = action.EnvelopeBuilder{}
+	elp = bd.SetNonce(1).
+		SetDestinationAddress(ta.Addrinfo["alfa"].RawAddress).
+		SetGasLimit(protocol.GasLimit).
+		SetAction(cbtsf1).Build()
+	selp1, err := action.Sign(elp, producer.RawAddress, producer.PrivateKey)
+	require.NoError(err)
+
 	cbtsf2 := action.NewCoinBaseTransfer(1, big.NewInt(int64(amount)), ta.Addrinfo["bravo"].RawAddress)
 	require.NotNil(cbtsf2)
+	bd = action.EnvelopeBuilder{}
+	elp = bd.SetNonce(1).
+		SetDestinationAddress(ta.Addrinfo["bravo"].RawAddress).
+		SetGasLimit(protocol.GasLimit).
+		SetAction(cbtsf2).Build()
+	selp2, err := action.Sign(elp, producer.RawAddress, producer.PrivateKey)
+	require.NoError(err)
+
 	cbtsf3 := action.NewCoinBaseTransfer(1, big.NewInt(int64(amount)), ta.Addrinfo["charlie"].RawAddress)
 	require.NotNil(cbtsf3)
+	bd = action.EnvelopeBuilder{}
+	elp = bd.SetNonce(1).
+		SetDestinationAddress(ta.Addrinfo["charlie"].RawAddress).
+		SetGasLimit(protocol.GasLimit).
+		SetAction(cbtsf3).Build()
+	selp3, err := action.Sign(elp, producer.RawAddress, producer.PrivateKey)
+	require.NoError(err)
+
 	cbtsf4 := action.NewCoinBaseTransfer(1, big.NewInt(int64(amount)), ta.Addrinfo["echo"].RawAddress)
 	require.NotNil(cbtsf4)
+	bd = action.EnvelopeBuilder{}
+	elp = bd.SetNonce(1).
+		SetDestinationAddress(ta.Addrinfo["echo"].RawAddress).
+		SetGasLimit(protocol.GasLimit).
+		SetAction(cbtsf4).Build()
+	selp4, err := action.Sign(elp, producer.RawAddress, producer.PrivateKey)
+	require.NoError(err)
 
 	// verify tx hash
-	hash0, e := hex.DecodeString("78c04c2e332ffb5ccdf7b85bc0e0f02e286cb56afcce578cbde1c451cec0eac4")
+	hash0, e := hex.DecodeString("af7b31e8c68328aa07b4dce318690a898b9d065417b17bdf3482347aed06a5e5")
 	require.NoError(e)
 	actual := cbtsf0.Hash()
 	t.Logf("actual hash = %x", actual[:])
 	require.Equal(hash0, actual[:])
 
-	hash1, e := hex.DecodeString("7d40d6455a5793aa488fc8da5f3e9e3799ec90af54311dc0316fd278cd605b2b")
+	hash1, e := hex.DecodeString("228a88945e1ffd3cd5f5733443c07e3818ae3e6a13de76ee395529855a082c6e")
 	require.NoError(e)
 	actual = cbtsf1.Hash()
 	t.Logf("actual hash = %x", actual[:])
 	require.Equal(hash1, actual[:])
 
-	hash2, e := hex.DecodeString("d45228407c49101ba1a9f83e153a6f8014607ae84f4c68d9519304336cb3d30f")
+	hash2, e := hex.DecodeString("ed55b82760b15a11dc3eb91da7f571b2b4ad7fcb8b9239cc5af6e0bc4608854e")
 	require.NoError(e)
 	actual = cbtsf2.Hash()
 	t.Logf("actual hash = %x", actual[:])
 	require.Equal(hash2, actual[:])
 
-	hash3, e := hex.DecodeString("9294552e7f22722ef89c7f3821f61a4b4b5a85c8a240a473b3ac64b1e331026f")
+	hash3, e := hex.DecodeString("4dc973538baf632f14d5e85a84a51ebed191bc229fc3c0e4e1c84a515e09a9c4")
 	require.NoError(e)
 	actual = cbtsf3.Hash()
 	t.Logf("actual hash = %x", actual[:])
 	require.Equal(hash3, actual[:])
 
-	hash4, e := hex.DecodeString("aeea782239f6d11743a86cc7789ce4beaab03eb2bbc275787d29ea079f3fca7a")
+	hash4, e := hex.DecodeString("16f37c7de145e31a8fe00f58b04a9ed05169ec5514fb43eff0390c1dc9b06d98")
 	require.NoError(e)
 	actual = cbtsf4.Hash()
 	t.Logf("actual hash = %x", actual[:])
@@ -133,7 +173,7 @@ func TestMerkle(t *testing.T) {
 		hash.ZeroHash32B,
 		testutil.TimestampNow(),
 		ta.Addrinfo["producer"].PublicKey,
-		[]action.Action{cbtsf0, cbtsf1, cbtsf2, cbtsf3, cbtsf4},
+		[]action.SealedEnvelope{selp0, selp1, selp2, selp3, selp4},
 	)
 	hash := block.CalculateTxRoot()
 	require.Equal(hash07[:], hash[:])
@@ -216,14 +256,15 @@ func TestConvertFromBlockPb(t *testing.T) {
 func TestWrongRootHash(t *testing.T) {
 	require := require.New(t)
 	val := validator{sf: nil, validatorAddr: ""}
-	tsf1, err := action.NewTransfer(1, big.NewInt(20), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["alfa"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
+
+	tsf1, err := testutil.SignedTransfer(ta.Addrinfo["producer"], ta.Addrinfo["alfa"], 1, big.NewInt(20), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
-	require.NoError(action.Sign(tsf1, ta.Addrinfo["producer"].PrivateKey))
-	tsf2, err := action.NewTransfer(1, big.NewInt(30), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
+
+	tsf2, err := testutil.SignedTransfer(ta.Addrinfo["producer"], ta.Addrinfo["bravo"], 1, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
-	require.NoError(action.Sign(tsf2, ta.Addrinfo["producer"].PrivateKey))
+
 	hash := tsf1.Hash()
-	blk := NewBlock(1, 1, hash, testutil.TimestampNow(), ta.Addrinfo["producer"].PublicKey, []action.Action{tsf1, tsf2})
+	blk := NewBlock(1, 1, hash, testutil.TimestampNow(), ta.Addrinfo["producer"].PublicKey, []action.SealedEnvelope{tsf1, tsf2})
 	blk.Header.Pubkey = ta.Addrinfo["producer"].PublicKey
 	blkHash := blk.HashBlock()
 	blk.Header.blockSig = crypto.EC283.Sign(ta.Addrinfo["producer"].PrivateKey, blkHash[:])
@@ -235,14 +276,15 @@ func TestWrongRootHash(t *testing.T) {
 func TestSignBlock(t *testing.T) {
 	require := require.New(t)
 	val := validator{sf: nil, validatorAddr: ""}
-	tsf1, err := action.NewTransfer(1, big.NewInt(20), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["alfa"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
+
+	tsf1, err := testutil.SignedTransfer(ta.Addrinfo["producer"], ta.Addrinfo["alfa"], 1, big.NewInt(20), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
-	require.NoError(action.Sign(tsf1, ta.Addrinfo["producer"].PrivateKey))
-	tsf2, err := action.NewTransfer(1, big.NewInt(30), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
+
+	tsf2, err := testutil.SignedTransfer(ta.Addrinfo["producer"], ta.Addrinfo["bravo"], 1, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
-	require.NoError(action.Sign(tsf2, ta.Addrinfo["producer"].PrivateKey))
+
 	hash := tsf1.Hash()
-	blk := NewBlock(1, 3, hash, testutil.TimestampNow(), ta.Addrinfo["producer"].PublicKey, []action.Action{tsf1, tsf2})
+	blk := NewBlock(1, 3, hash, testutil.TimestampNow(), ta.Addrinfo["producer"].PublicKey, []action.SealedEnvelope{tsf1, tsf2})
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.Nil(err)
 	require.Nil(val.Validate(blk, 2, hash, true))
@@ -266,13 +308,22 @@ func TestWrongNonce(t *testing.T) {
 	require.NoError(bc.Start(context.Background()))
 
 	val := validator{sf: sf, validatorAddr: ""}
-	val.AddActionValidators(protocol.NewGenericValidator(bc), account.NewProtocol(), vote.NewProtocol(bc))
+	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
+	val.AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
 
 	// correct nonce
-	coinbaseTsf := action.NewCoinBaseTransfer(1, Gen.BlockReward, ta.Addrinfo["producer"].RawAddress)
-	tsf1, err := action.NewTransfer(1, big.NewInt(20), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["alfa"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
+	cbTsf := action.NewCoinBaseTransfer(1, Gen.BlockReward, ta.Addrinfo["producer"].RawAddress)
+	bd := action.EnvelopeBuilder{}
+	elp := bd.SetNonce(1).
+		SetDestinationAddress(ta.Addrinfo["producer"].RawAddress).
+		SetGasLimit(protocol.GasLimit).
+		SetAction(cbTsf).Build()
+	cbselp, err := action.Sign(elp, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["producer"].PrivateKey)
 	require.NoError(err)
-	require.NoError(action.Sign(tsf1, ta.Addrinfo["producer"].PrivateKey))
+
+	tsf1, err := testutil.SignedTransfer(ta.Addrinfo["producer"], ta.Addrinfo["alfa"], 1, big.NewInt(20), []byte{}, 100000, big.NewInt(10))
+	require.NoError(err)
+
 	hash := tsf1.Hash()
 	blk := NewBlock(
 		cfg.Chain.ID,
@@ -280,7 +331,7 @@ func TestWrongNonce(t *testing.T) {
 		hash,
 		testutil.TimestampNow(),
 		ta.Addrinfo["producer"].PublicKey,
-		[]action.Action{coinbaseTsf, tsf1},
+		[]action.SealedEnvelope{cbselp, tsf1},
 	)
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.NoError(err)
@@ -294,14 +345,14 @@ func TestWrongNonce(t *testing.T) {
 			GasLimit:        &gasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
 		})
-	_, _, err = ws.RunActions(ctx, 1, []action.Action{tsf1})
+	_, _, err = ws.RunActions(ctx, 1, []action.SealedEnvelope{tsf1})
 	require.NoError(err)
 	require.Nil(sf.Commit(ws))
 
 	// low nonce
-	tsf2, err := action.NewTransfer(1, big.NewInt(30), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
+	tsf2, err := testutil.SignedTransfer(ta.Addrinfo["producer"], ta.Addrinfo["bravo"], 1, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
-	require.NoError(action.Sign(tsf2, ta.Addrinfo["producer"].PrivateKey))
+
 	hash = tsf1.Hash()
 	blk = NewBlock(
 		cfg.Chain.ID,
@@ -309,17 +360,16 @@ func TestWrongNonce(t *testing.T) {
 		hash,
 		testutil.TimestampNow(),
 		ta.Addrinfo["producer"].PublicKey,
-		[]action.Action{coinbaseTsf, tsf1, tsf2},
+		[]action.SealedEnvelope{cbselp, tsf1, tsf2},
 	)
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.NoError(err)
 	err = val.Validate(blk, 2, hash, true)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 
-	vote, err := action.NewVote(1, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["producer"].RawAddress,
-		uint64(100000), big.NewInt(10))
+	vote, err := testutil.SignedVote(ta.Addrinfo["producer"], ta.Addrinfo["producer"], 1, uint64(100000), big.NewInt(10))
 	require.NoError(err)
-	require.NoError(action.Sign(vote, ta.Addrinfo["producer"].PrivateKey))
+
 	hash = tsf1.Hash()
 	blk = NewBlock(
 		cfg.Chain.ID,
@@ -327,7 +377,7 @@ func TestWrongNonce(t *testing.T) {
 		hash,
 		testutil.TimestampNow(),
 		ta.Addrinfo["producer"].PublicKey,
-		[]action.Action{coinbaseTsf, vote},
+		[]action.SealedEnvelope{cbselp, vote},
 	)
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.NoError(err)
@@ -336,12 +386,11 @@ func TestWrongNonce(t *testing.T) {
 	require.Equal(action.ErrNonce, errors.Cause(err))
 
 	// duplicate nonce
-	tsf3, err := action.NewTransfer(2, big.NewInt(30), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
+	tsf3, err := testutil.SignedTransfer(ta.Addrinfo["producer"], ta.Addrinfo["bravo"], 2, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
-	require.NoError(action.Sign(tsf3, ta.Addrinfo["producer"].PrivateKey))
-	tsf4, err := action.NewTransfer(2, big.NewInt(30), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
+
+	tsf4, err := testutil.SignedTransfer(ta.Addrinfo["producer"], ta.Addrinfo["bravo"], 2, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
-	require.NoError(action.Sign(tsf4, ta.Addrinfo["producer"].PrivateKey))
 	hash = tsf1.Hash()
 	blk = NewBlock(
 		cfg.Chain.ID,
@@ -349,7 +398,7 @@ func TestWrongNonce(t *testing.T) {
 		hash,
 		testutil.TimestampNow(),
 		ta.Addrinfo["producer"].PublicKey,
-		[]action.Action{coinbaseTsf, tsf3, tsf4},
+		[]action.SealedEnvelope{cbselp, tsf3, tsf4},
 	)
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.NoError(err)
@@ -357,14 +406,11 @@ func TestWrongNonce(t *testing.T) {
 	require.Error(err)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 
-	vote2, err := action.NewVote(2, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["producer"].RawAddress,
-		uint64(100000), big.NewInt(10))
+	vote2, err := testutil.SignedVote(ta.Addrinfo["producer"], ta.Addrinfo["producer"], 2, uint64(100000), big.NewInt(10))
 	require.NoError(err)
-	require.NoError(action.Sign(vote2, ta.Addrinfo["producer"].PrivateKey))
-	vote3, err := action.NewVote(2, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["producer"].RawAddress,
-		uint64(100000), big.NewInt(10))
+
+	vote3, err := testutil.SignedVote(ta.Addrinfo["producer"], ta.Addrinfo["producer"], 2, uint64(100000), big.NewInt(10))
 	require.NoError(err)
-	require.NoError(action.Sign(vote3, ta.Addrinfo["producer"].PrivateKey))
 	hash = tsf1.Hash()
 	blk = NewBlock(
 		cfg.Chain.ID,
@@ -372,7 +418,7 @@ func TestWrongNonce(t *testing.T) {
 		hash,
 		testutil.TimestampNow(),
 		ta.Addrinfo["producer"].PublicKey,
-		[]action.Action{coinbaseTsf, vote2, vote3},
+		[]action.SealedEnvelope{cbselp, vote2, vote3},
 	)
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.NoError(err)
@@ -381,12 +427,10 @@ func TestWrongNonce(t *testing.T) {
 	require.Equal(action.ErrNonce, errors.Cause(err))
 
 	// non consecutive nonce
-	tsf5, err := action.NewTransfer(2, big.NewInt(30), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
+	tsf5, err := testutil.SignedTransfer(ta.Addrinfo["producer"], ta.Addrinfo["bravo"], 2, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
-	require.NoError(action.Sign(tsf5, ta.Addrinfo["producer"].PrivateKey))
-	tsf6, err := action.NewTransfer(4, big.NewInt(30), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
+	tsf6, err := testutil.SignedTransfer(ta.Addrinfo["producer"], ta.Addrinfo["bravo"], 4, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
-	require.NoError(action.Sign(tsf6, ta.Addrinfo["producer"].PrivateKey))
 	hash = tsf1.Hash()
 	blk = NewBlock(
 		cfg.Chain.ID,
@@ -394,7 +438,7 @@ func TestWrongNonce(t *testing.T) {
 		hash,
 		testutil.TimestampNow(),
 		ta.Addrinfo["producer"].PublicKey,
-		[]action.Action{coinbaseTsf, tsf5, tsf6},
+		[]action.SealedEnvelope{cbselp, tsf5, tsf6},
 	)
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.NoError(err)
@@ -402,14 +446,11 @@ func TestWrongNonce(t *testing.T) {
 	require.Error(err)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 
-	vote4, err := action.NewVote(2, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["producer"].RawAddress,
-		uint64(100000), big.NewInt(10))
+	vote4, err := testutil.SignedVote(ta.Addrinfo["producer"], ta.Addrinfo["producer"], 2, uint64(100000), big.NewInt(10))
 	require.NoError(err)
-	require.NoError(action.Sign(vote4, ta.Addrinfo["producer"].PrivateKey))
-	vote5, err := action.NewVote(4, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["producer"].RawAddress,
-		uint64(100000), big.NewInt(10))
+	vote5, err := testutil.SignedVote(ta.Addrinfo["producer"], ta.Addrinfo["producer"], 4, uint64(100000), big.NewInt(10))
 	require.NoError(err)
-	require.NoError(action.Sign(vote5, ta.Addrinfo["producer"].PrivateKey))
+
 	hash = tsf1.Hash()
 	blk = NewBlock(
 		cfg.Chain.ID,
@@ -417,7 +458,7 @@ func TestWrongNonce(t *testing.T) {
 		hash,
 		testutil.TimestampNow(),
 		ta.Addrinfo["producer"].PublicKey,
-		[]action.Action{coinbaseTsf, vote4, vote5},
+		[]action.SealedEnvelope{cbselp, vote4, vote5},
 	)
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.NoError(err)
@@ -443,13 +484,21 @@ func TestWrongCoinbaseTsf(t *testing.T) {
 	require.NoError(bc.Start(context.Background()))
 
 	val := validator{sf: sf, validatorAddr: ""}
-	val.AddActionValidators(protocol.NewGenericValidator(bc), account.NewProtocol())
+	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
+	val.AddActionValidators(account.NewProtocol())
 
 	// no coinbase tsf
 	coinbaseTsf := action.NewCoinBaseTransfer(1, Gen.BlockReward, ta.Addrinfo["producer"].RawAddress)
-	tsf1, err := action.NewTransfer(1, big.NewInt(20), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["alfa"].RawAddress, []byte{}, uint64(100000), big.NewInt(10))
+	bd := action.EnvelopeBuilder{}
+	elp := bd.SetNonce(1).
+		SetDestinationAddress(ta.Addrinfo["producer"].RawAddress).
+		SetGasLimit(protocol.GasLimit).
+		SetAction(coinbaseTsf).Build()
+	cb, err := action.Sign(elp, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["producer"].PrivateKey)
 	require.NoError(err)
-	require.NoError(action.Sign(tsf1, ta.Addrinfo["producer"].PrivateKey))
+
+	tsf1, err := testutil.SignedTransfer(ta.Addrinfo["producer"], ta.Addrinfo["alfa"], 1, big.NewInt(20), []byte{}, 100000, big.NewInt(10))
+	require.NoError(err)
 	hash := tsf1.Hash()
 	blk := NewBlock(
 		1,
@@ -457,7 +506,7 @@ func TestWrongCoinbaseTsf(t *testing.T) {
 		hash,
 		testutil.TimestampNow(),
 		ta.Addrinfo["producer"].PublicKey,
-		[]action.Action{tsf1},
+		[]action.SealedEnvelope{tsf1},
 	)
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.NoError(err)
@@ -474,7 +523,7 @@ func TestWrongCoinbaseTsf(t *testing.T) {
 		hash,
 		testutil.TimestampNow(),
 		ta.Addrinfo["producer"].PublicKey,
-		[]action.Action{coinbaseTsf, coinbaseTsf, tsf1},
+		[]action.SealedEnvelope{cb, cb, tsf1},
 	)
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.NoError(err)
@@ -491,7 +540,7 @@ func TestWrongCoinbaseTsf(t *testing.T) {
 		hash,
 		testutil.TimestampNow(),
 		ta.Addrinfo["producer"].PublicKey,
-		[]action.Action{},
+		[]action.SealedEnvelope{},
 	)
 	err = blk.SignBlock(ta.Addrinfo["producer"])
 	require.NoError(err)
@@ -514,20 +563,26 @@ func TestWrongAddress(t *testing.T) {
 		require.NoError(t, err)
 	}()
 	val := validator{sf: bc.GetFactory(), validatorAddr: ""}
-	val.AddActionValidators(protocol.NewGenericValidator(bc), account.NewProtocol(), vote.NewProtocol(bc),
+	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
+	val.AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc),
 		execution.NewProtocol(bc))
 
 	invalidRecipient := "io1qyqsyqcyq5narhapakcsrhksfajfcpl24us3xp38zwvsep"
 	tsf, err := action.NewTransfer(1, big.NewInt(1), ta.Addrinfo["producer"].RawAddress, invalidRecipient, []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(t, err)
-	require.NoError(t, action.Sign(tsf, ta.Addrinfo["producer"].PrivateKey))
+	bd := &action.EnvelopeBuilder{}
+	elp := bd.SetAction(tsf).SetGasLimit(100000).
+		SetGasPrice(big.NewInt(10)).
+		SetNonce(1).SetDestinationAddress(invalidRecipient).Build()
+	selp, err := action.Sign(elp, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["producer"].PrivateKey)
+	require.NoError(t, err)
 	blk1 := NewBlock(
 		1,
 		3,
 		hash.ZeroHash32B,
 		testutil.TimestampNow(),
 		ta.Addrinfo["producer"].PublicKey,
-		[]action.Action{tsf},
+		[]action.SealedEnvelope{selp},
 	)
 	err = val.verifyActions(blk1, true)
 	require.Error(t, err)
@@ -536,14 +591,19 @@ func TestWrongAddress(t *testing.T) {
 	invalidVotee := "ioaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	vote, err := action.NewVote(1, ta.Addrinfo["producer"].RawAddress, invalidVotee, uint64(100000), big.NewInt(10))
 	require.NoError(t, err)
-	require.NoError(t, action.Sign(vote, ta.Addrinfo["producer"].PrivateKey))
+	bd = &action.EnvelopeBuilder{}
+	elp = bd.SetAction(vote).SetGasLimit(100000).
+		SetGasPrice(big.NewInt(10)).
+		SetNonce(1).SetDestinationAddress(invalidVotee).Build()
+	selp, err = action.Sign(elp, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["producer"].PrivateKey)
+	require.NoError(t, err)
 	blk2 := NewBlock(
 		1,
 		3,
 		hash.ZeroHash32B,
 		testutil.TimestampNow(),
 		ta.Addrinfo["producer"].PublicKey,
-		[]action.Action{vote},
+		[]action.SealedEnvelope{selp},
 	)
 	err = val.verifyActions(blk2, true)
 	require.Error(t, err)
@@ -552,14 +612,19 @@ func TestWrongAddress(t *testing.T) {
 	invalidContract := "123"
 	execution, err := action.NewExecution(ta.Addrinfo["producer"].RawAddress, invalidContract, 1, big.NewInt(1), uint64(100000), big.NewInt(10), []byte{})
 	require.NoError(t, err)
-	require.NoError(t, action.Sign(execution, ta.Addrinfo["producer"].PrivateKey))
+	bd = &action.EnvelopeBuilder{}
+	elp = bd.SetAction(execution).SetGasLimit(100000).
+		SetGasPrice(big.NewInt(10)).
+		SetNonce(1).SetDestinationAddress(invalidContract).Build()
+	selp, err = action.Sign(elp, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["producer"].PrivateKey)
+	require.NoError(t, err)
 	blk3 := NewBlock(
 		1,
 		3,
 		hash.ZeroHash32B,
 		testutil.TimestampNow(),
 		ta.Addrinfo["producer"].PublicKey,
-		[]action.Action{execution},
+		[]action.SealedEnvelope{selp},
 	)
 	err = val.verifyActions(blk3, true)
 	require.Error(t, err)

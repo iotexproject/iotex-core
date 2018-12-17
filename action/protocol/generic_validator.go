@@ -1,3 +1,9 @@
+// Copyright (c) 2018 IoTeX
+// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
+// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
+// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
+// License 2.0 that can be found in the LICENSE file.
+
 package protocol
 
 import (
@@ -23,13 +29,19 @@ type GenericValidator struct {
 func NewGenericValidator(cm ChainManager) *GenericValidator { return &GenericValidator{cm: cm} }
 
 // Validate validates a generic action
-func (v *GenericValidator) Validate(ctx context.Context, act action.Action) error {
+func (v *GenericValidator) Validate(ctx context.Context, act action.SealedEnvelope) error {
 	v.mu.Lock()
 	defer v.mu.Unlock()
 
-	vaCtx, validateInBlock := GetValidateActionsCtx(ctx)
-	if validateInBlock && (vaCtx.BlockHeight == 0 || act.SrcAddr() == "") {
+	// TODO skip coinbase transfer for now because nonce is wrong.
+	if a, ok := act.Action().(*action.Transfer); ok && a.IsCoinbase() {
 		return nil
+	}
+	vaCtx, validateInBlock := GetValidateActionsCtx(ctx)
+	if validateInBlock {
+		if vaCtx.BlockHeight == 0 {
+			return nil
+		}
 	}
 	// Reject over-gassed action
 	if act.GasLimit() > GasLimit {

@@ -55,11 +55,12 @@ const (
 func addTestingBlocks(bc blockchain.Blockchain) error {
 	// Add block 1
 	// test --> A, B, C, D, E, F
-	tsf, _ := action.NewTransfer(1, big.NewInt(10), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["charlie"].RawAddress, []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
-	if err := action.Sign(tsf, ta.Addrinfo["producer"].PrivateKey); err != nil {
+	tsf, err := testutil.SignedTransfer(ta.Addrinfo["producer"], ta.Addrinfo["charlie"], 1, big.NewInt(10), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	if err != nil {
 		return err
 	}
-	blk, err := bc.MintNewBlock([]action.Action{tsf}, ta.Addrinfo["producer"],
+
+	blk, err := bc.MintNewBlock([]action.SealedEnvelope{tsf}, ta.Addrinfo["producer"],
 		nil, nil, "")
 	if err != nil {
 		return err
@@ -73,25 +74,32 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 
 	// Add block 2
 	// Charlie --> A, B, D, E, test
-	tsf1, _ := action.NewTransfer(1, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress,
-		ta.Addrinfo["alfa"].RawAddress, []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
-	_ = action.Sign(tsf1, ta.Addrinfo["charlie"].PrivateKey)
-	tsf2, _ := action.NewTransfer(2, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress,
-		ta.Addrinfo["bravo"].RawAddress, []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
-	_ = action.Sign(tsf2, ta.Addrinfo["charlie"].PrivateKey)
-	tsf3, _ := action.NewTransfer(3, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress,
-		ta.Addrinfo["delta"].RawAddress, []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
-	_ = action.Sign(tsf3, ta.Addrinfo["charlie"].PrivateKey)
-	tsf4, _ := action.NewTransfer(4, big.NewInt(1), ta.Addrinfo["charlie"].RawAddress,
-		ta.Addrinfo["producer"].RawAddress, []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
-	_ = action.Sign(tsf4, ta.Addrinfo["charlie"].PrivateKey)
-	vote1, _ := action.NewVote(5, ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["charlie"].RawAddress,
-		testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
-	_ = action.Sign(vote1, ta.Addrinfo["charlie"].PrivateKey)
-	execution1, _ := action.NewExecution(ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["delta"].RawAddress, 6,
+	tsf1, err := testutil.SignedTransfer(ta.Addrinfo["charlie"], ta.Addrinfo["alfa"], 1, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	if err != nil {
+		return err
+	}
+	tsf2, err := testutil.SignedTransfer(ta.Addrinfo["charlie"], ta.Addrinfo["bravo"], 2, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	if err != nil {
+		return err
+	}
+	tsf3, err := testutil.SignedTransfer(ta.Addrinfo["charlie"], ta.Addrinfo["delta"], 3, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	if err != nil {
+		return err
+	}
+	tsf4, err := testutil.SignedTransfer(ta.Addrinfo["charlie"], ta.Addrinfo["producer"], 4, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	if err != nil {
+		return err
+	}
+	vote1, err := testutil.SignedVote(ta.Addrinfo["charlie"], ta.Addrinfo["charlie"], 5, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	if err != nil {
+		return err
+	}
+	execution1, err := testutil.SignedExecution(ta.Addrinfo["charlie"], ta.Addrinfo["delta"].RawAddress, 6,
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice), []byte{1})
-	_ = action.Sign(execution1, ta.Addrinfo["charlie"].PrivateKey)
-	if blk, err = bc.MintNewBlock([]action.Action{tsf1, tsf2, tsf3, tsf4, vote1, execution1}, ta.Addrinfo["producer"],
+	if err != nil {
+		return err
+	}
+	if blk, err = bc.MintNewBlock([]action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, vote1, execution1}, ta.Addrinfo["producer"],
 		nil, nil, ""); err != nil {
 		return err
 	}
@@ -115,19 +123,25 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	}
 
 	// Add block 4
-	vote1, _ = action.NewVote(7, ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["charlie"].RawAddress,
-		testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
-	vote2, _ := action.NewVote(1, ta.Addrinfo["alfa"].RawAddress, ta.Addrinfo["alfa"].RawAddress,
-		testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
-	_ = action.Sign(vote1, ta.Addrinfo["charlie"].PrivateKey)
-	_ = action.Sign(vote2, ta.Addrinfo["alfa"].PrivateKey)
-	execution1, _ = action.NewExecution(ta.Addrinfo["charlie"].RawAddress, ta.Addrinfo["delta"].RawAddress, 8,
+	vote1, err = testutil.SignedVote(ta.Addrinfo["charlie"], ta.Addrinfo["charlie"], 7, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	if err != nil {
+		return err
+	}
+	vote2, err := testutil.SignedVote(ta.Addrinfo["alfa"], ta.Addrinfo["alfa"], 1, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	if err != nil {
+		return err
+	}
+	execution1, err = testutil.SignedExecution(ta.Addrinfo["charlie"], ta.Addrinfo["delta"].RawAddress, 8,
 		big.NewInt(2), testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice), []byte{1})
-	execution2, _ := action.NewExecution(ta.Addrinfo["alfa"].RawAddress, ta.Addrinfo["delta"].RawAddress, 2,
-		big.NewInt(0), testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice), []byte{1})
-	_ = action.Sign(execution1, ta.Addrinfo["charlie"].PrivateKey)
-	_ = action.Sign(execution2, ta.Addrinfo["alfa"].PrivateKey)
-	if blk, err = bc.MintNewBlock([]action.Action{vote1, vote2, execution1, execution2}, ta.Addrinfo["producer"],
+	if err != nil {
+		return err
+	}
+	execution2, err := testutil.SignedExecution(ta.Addrinfo["alfa"], ta.Addrinfo["delta"].RawAddress, 2,
+		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice), []byte{1})
+	if err != nil {
+		return err
+	}
+	if blk, err = bc.MintNewBlock([]action.SealedEnvelope{vote1, vote2, execution1, execution2}, ta.Addrinfo["producer"],
 		nil, nil, ""); err != nil {
 		return err
 	}
@@ -138,14 +152,23 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 }
 
 func addActsToActPool(ap actpool.ActPool) error {
-	tsf1, _ := action.NewTransfer(2, big.NewInt(1), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["alfa"].RawAddress, []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
-	_ = action.Sign(tsf1, ta.Addrinfo["producer"].PrivateKey)
-	vote1, _ := action.NewVote(3, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["producer"].RawAddress, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
-	_ = action.Sign(vote1, ta.Addrinfo["producer"].PrivateKey)
-	tsf2, _ := action.NewTransfer(4, big.NewInt(1), ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["bravo"].RawAddress, []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
-	_ = action.Sign(tsf2, ta.Addrinfo["producer"].PrivateKey)
-	execution1, _ := action.NewExecution(ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["delta"].RawAddress, 5, big.NewInt(1), testutil.TestGasLimit, big.NewInt(10), []byte{1})
-	_ = action.Sign(execution1, ta.Addrinfo["producer"].PrivateKey)
+	tsf1, err := testutil.SignedTransfer(ta.Addrinfo["producer"], ta.Addrinfo["alfa"], 2, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	if err != nil {
+		return err
+	}
+	vote1, err := testutil.SignedVote(ta.Addrinfo["producer"], ta.Addrinfo["producer"], 3, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	if err != nil {
+		return err
+	}
+	tsf2, err := testutil.SignedTransfer(ta.Addrinfo["producer"], ta.Addrinfo["bravo"], 4, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	if err != nil {
+		return err
+	}
+	execution1, err := testutil.SignedExecution(ta.Addrinfo["producer"], ta.Addrinfo["delta"].RawAddress, 5,
+		big.NewInt(1), testutil.TestGasLimit, big.NewInt(10), []byte{1})
+	if err != nil {
+		return err
+	}
 	if err := ap.Add(tsf1); err != nil {
 		return err
 	}
@@ -184,9 +207,11 @@ func TestExplorerApi(t *testing.T) {
 	ap, err := actpool.NewActPool(bc, cfg.ActPool)
 	require.Nil(err)
 	sf.AddActionHandlers(account.NewProtocol(), vote.NewProtocol(nil), execution.NewProtocol(bc))
-	ap.AddActionValidators(protocol.NewGenericValidator(bc), account.NewProtocol(), vote.NewProtocol(bc),
+	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
+	ap.AddActionValidators(vote.NewProtocol(bc),
 		execution.NewProtocol(bc))
-	bc.Validator().AddActionValidators(protocol.NewGenericValidator(bc), account.NewProtocol(), vote.NewProtocol(bc),
+	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
+	bc.Validator().AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc),
 		execution.NewProtocol(bc))
 	require.NoError(bc.Start(ctx))
 
@@ -613,11 +638,14 @@ func TestService_SendSmartContract(t *testing.T) {
 	p2p := mock_network.NewMockOverlay(ctrl)
 	svc := Service{bc: chain, dp: mDp, p2p: p2p, gs: GasStation{chain, config.Explorer{}}}
 
-	execution, _ := action.NewExecution(ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["delta"].RawAddress, 1, big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice), []byte{1})
-	_ = action.Sign(execution, ta.Addrinfo["producer"].PrivateKey)
+	execution, err := testutil.SignedExecution(ta.Addrinfo["producer"], ta.Addrinfo["delta"].RawAddress, 1,
+		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice), []byte{1})
+	require.NoError(err)
 	explorerExecution, _ := convertExecutionToExplorerExecution(execution, true)
 	explorerExecution.Version = int64(execution.Version())
-	explorerExecution.ExecutorPubKey = keypair.EncodePublicKey(execution.ExecutorPublicKey())
+
+	exe := execution.Action().(*action.Execution)
+	explorerExecution.ExecutorPubKey = keypair.EncodePublicKey(exe.ExecutorPublicKey())
 	explorerExecution.Signature = hex.EncodeToString(execution.Signature())
 	chain.EXPECT().ExecuteContractRead(gomock.Any()).Return(&action.Receipt{GasConsumed: 1000}, nil)
 
@@ -705,9 +733,15 @@ func TestServiceSendAction(t *testing.T) {
 		10000,
 		big.NewInt(0),
 	)
+	bd := &action.EnvelopeBuilder{}
+	elp := bd.SetAction(pb).
+		SetDestinationAddress("").
+		SetGasLimit(10000).SetNonce(1).Build()
+	selp, err := action.Sign(elp, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["producer"].PrivateKey)
+	require.NoError(err)
 
 	var marshaler jsonpb.Marshaler
-	payload, err := marshaler.MarshalToString(pb.Proto())
+	payload, err := marshaler.MarshalToString(selp.Proto())
 	require.NoError(err)
 	request.Payload = payload
 	require.NoError(err)
@@ -847,11 +881,11 @@ func TestExplorerGetReceiptByExecutionID(t *testing.T) {
 
 	data, _ := hex.DecodeString("608060405234801561001057600080fd5b5060df8061001f6000396000f3006080604052600436106049576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff16806360fe47b114604e5780636d4ce63c146078575b600080fd5b348015605957600080fd5b5060766004803603810190808035906020019092919050505060a0565b005b348015608357600080fd5b50608a60aa565b6040518082815260200191505060405180910390f35b8060008190555050565b600080549050905600a165627a7a7230582002faabbefbbda99b20217cf33cb8ab8100caf1542bf1f48117d72e2c59139aea0029")
 	// data, _ := hex.DecodeString("6060604052600436106100565763ffffffff7c010000000000000000000000000000000000000000000000000000000060003504166341c0e1b581146100585780637bf786f81461006b578063fbf788d61461009c575b005b341561006357600080fd5b6100566100ca565b341561007657600080fd5b61008a600160a060020a03600435166100f1565b60405190815260200160405180910390f35b34156100a757600080fd5b610056600160a060020a036004351660243560ff60443516606435608435610103565b60005433600160a060020a03908116911614156100ef57600054600160a060020a0316ff5b565b60016020526000908152604090205481565b600160a060020a0385166000908152600160205260408120548190861161012957600080fd5b3087876040516c01000000000000000000000000600160a060020a03948516810282529290931690910260148301526028820152604801604051809103902091506001828686866040516000815260200160405260006040516020015260405193845260ff90921660208085019190915260408085019290925260608401929092526080909201915160208103908084039060008661646e5a03f115156101cf57600080fd5b505060206040510351600054600160a060020a039081169116146101f257600080fd5b50600160a060020a03808716600090815260016020526040902054860390301631811161026257600160a060020a0387166000818152600160205260409081902088905582156108fc0290839051600060405180830381858888f19350505050151561025d57600080fd5b6102b7565b6000547f2250e2993c15843b32621c89447cc589ee7a9f049c026986e545d3c2c0c6f97890600160a060020a0316604051600160a060020a03909116815260200160405180910390a186600160a060020a0316ff5b505050505050505600a165627a7a72305820533e856fc37e3d64d1706bcc7dfb6b1d490c8d566ea498d9d01ec08965a896ca0029")
-	execution, err := action.NewExecution(
-		ta.Addrinfo["producer"].RawAddress, action.EmptyAddress, 1, big.NewInt(0), testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice), data)
+
+	execution, err := testutil.SignedExecution(ta.Addrinfo["producer"], action.EmptyAddress, 1,
+		big.NewInt(0), testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice), data)
 	require.NoError(err)
-	require.NoError(action.Sign(execution, ta.Addrinfo["producer"].PrivateKey))
-	blk, err := bc.MintNewBlock([]action.Action{execution}, ta.Addrinfo["producer"], nil, nil, "")
+	blk, err := bc.MintNewBlock([]action.SealedEnvelope{execution}, ta.Addrinfo["producer"], nil, nil, "")
 	require.NoError(err)
 	require.Nil(bc.CommitBlock(blk))
 
@@ -894,7 +928,13 @@ func TestService_CreateDeposit(t *testing.T) {
 		1000,
 		big.NewInt(100),
 	)
-	require.NoError(action.Sign(deposit, ta.Addrinfo["producer"].PrivateKey))
+	bd := &action.EnvelopeBuilder{}
+	elp := bd.SetAction(deposit).
+		SetGasLimit(1000).
+		SetGasPrice(big.NewInt(100)).SetDestinationAddress(ta.Addrinfo["alfa"].RawAddress).
+		SetNonce(10).Build()
+	selp, err := action.Sign(elp, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["producer"].PrivateKey)
+	require.NoError(err)
 
 	res, error := svc.CreateDeposit(explorer.CreateDepositRequest{
 		Version:      int64(deposit.Version()),
@@ -903,7 +943,7 @@ func TestService_CreateDeposit(t *testing.T) {
 		SenderPubKey: keypair.EncodePublicKey(deposit.SenderPublicKey()),
 		Recipient:    deposit.Recipient(),
 		Amount:       deposit.Amount().String(),
-		Signature:    hex.EncodeToString(deposit.Signature()),
+		Signature:    hex.EncodeToString(selp.Signature()),
 		GasLimit:     int64(deposit.GasLimit()),
 		GasPrice:     deposit.GasPrice().String(),
 	})
@@ -945,7 +985,13 @@ func TestService_SettleDeposit(t *testing.T) {
 		1000,
 		big.NewInt(100),
 	)
-	require.NoError(action.Sign(deposit, ta.Addrinfo["producer"].PrivateKey))
+	bd := &action.EnvelopeBuilder{}
+	elp := bd.SetAction(deposit).
+		SetGasLimit(1000).
+		SetGasPrice(big.NewInt(100)).SetDestinationAddress(ta.Addrinfo["alfa"].RawAddress).
+		SetNonce(10).Build()
+	selp, err := action.Sign(elp, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["producer"].PrivateKey)
+	require.NoError(err)
 
 	res, error := svc.SettleDeposit(explorer.SettleDepositRequest{
 		Version:      int64(deposit.Version()),
@@ -955,7 +1001,7 @@ func TestService_SettleDeposit(t *testing.T) {
 		Recipient:    deposit.Recipient(),
 		Amount:       deposit.Amount().String(),
 		Index:        int64(deposit.Index()),
-		Signature:    hex.EncodeToString(deposit.Signature()),
+		Signature:    hex.EncodeToString(selp.Signature()),
 		GasLimit:     int64(deposit.GasLimit()),
 		GasPrice:     deposit.GasPrice().String(),
 	})

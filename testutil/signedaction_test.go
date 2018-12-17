@@ -12,8 +12,9 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 
-	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotexproject/iotex-core/test/testaddress"
 )
 
 const (
@@ -30,9 +31,11 @@ var (
 
 func TestSignedTransfer(t *testing.T) {
 	require := require.New(t)
-	tsf, err := SignedTransfer(addr1, addr2, uint64(1), big.NewInt(2),
+	selp, err := SignedTransfer(addr1, addr2, uint64(1), big.NewInt(2),
 		[]byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(err)
+
+	tsf := selp.Action().(*action.Transfer)
 	require.Equal(addr1.RawAddress, tsf.Sender())
 	require.Equal(addr2.RawAddress, tsf.Recipient())
 	require.Equal(uint64(1), tsf.Nonce())
@@ -40,26 +43,30 @@ func TestSignedTransfer(t *testing.T) {
 	require.Equal([]byte{}, tsf.Payload())
 	require.Equal(uint64(100000), tsf.GasLimit())
 	require.Equal(big.NewInt(10), tsf.GasPrice())
-	require.NotNil(tsf.Signature())
+	require.NotNil(selp.Signature())
 }
 
 func TestSignedVote(t *testing.T) {
 	require := require.New(t)
-	vote, err := SignedVote(addr1, addr1, uint64(1), uint64(100000), big.NewInt(10))
+	selp, err := SignedVote(addr1, addr1, uint64(1), uint64(100000), big.NewInt(10))
 	require.NoError(err)
+
+	vote := selp.Action().(*action.Vote)
 	require.Equal(addr1.RawAddress, vote.Voter())
 	require.Equal(addr1.RawAddress, vote.Votee())
 	require.Equal(uint64(1), vote.Nonce())
 	require.Equal(uint64(100000), vote.GasLimit())
 	require.Equal(big.NewInt(10), vote.GasPrice())
-	require.NotNil(vote.Signature())
+	require.NotNil(selp.Signature())
 }
 
 func TestSignedExecution(t *testing.T) {
 	require := require.New(t)
-	exec, err := SignedExecution(addr1, action.EmptyAddress, uint64(1), big.NewInt(0),
+	selp, err := SignedExecution(addr1, action.EmptyAddress, uint64(1), big.NewInt(0),
 		uint64(100000), big.NewInt(10), []byte{})
 	require.NoError(err)
+
+	exec := selp.Action().(*action.Execution)
 	require.Equal(addr1.RawAddress, exec.Executor())
 	require.Equal(action.EmptyAddress, exec.Contract())
 	require.Equal(uint64(1), exec.Nonce())
@@ -67,5 +74,5 @@ func TestSignedExecution(t *testing.T) {
 	require.Equal(uint64(100000), exec.GasLimit())
 	require.Equal(big.NewInt(10), exec.GasPrice())
 	require.Equal([]byte{}, exec.Data())
-	require.NotNil(exec.Signature())
+	require.NotNil(selp.Signature())
 }

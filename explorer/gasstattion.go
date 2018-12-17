@@ -1,8 +1,16 @@
+// Copyright (c) 2018 IoTeX
+// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
+// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
+// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
+// License 2.0 that can be found in the LICENSE file.
+
 package explorer
 
 import (
 	"math/big"
 	"sort"
+
+	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain"
@@ -62,7 +70,7 @@ func (gs *GasStation) estimateGasForTransfer(tsfJSON explorer.SendTransferReques
 	if err != nil {
 		return 0, err
 	}
-	tsf := &action.Transfer{}
+	tsf := &action.SealedEnvelope{}
 	if err = tsf.LoadProto(actPb); err != nil {
 		return 0, err
 	}
@@ -89,9 +97,13 @@ func (gs *GasStation) estimateGasForSmartContract(execution explorer.Execution) 
 	if err != nil {
 		return 0, err
 	}
-	sc := &action.Execution{}
-	if err := sc.LoadProto(actPb); err != nil {
+	selp := &action.SealedEnvelope{}
+	if err := selp.LoadProto(actPb); err != nil {
 		return 0, err
+	}
+	sc, ok := selp.Action().(*action.Execution)
+	if !ok {
+		return 0, errors.New("not execution")
 	}
 
 	receipt, err := gs.bc.ExecuteContractRead(sc)

@@ -50,3 +50,11 @@ func BytesTo32B(b []byte) hash.Hash32B {
 	copy(h[:], b)
 	return h
 }
+
+// Must is a helper wraps a call to a function returing ([]byte, error) and panics if the error is not nil.
+func Must(d []byte, err error) []byte {
+	if err != nil {
+		panic(err)
+	}
+	return d
+}

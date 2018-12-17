@@ -7,13 +7,13 @@
 package action
 
 import (
-	"bytes"
 	"math/big"
 
 	"github.com/pkg/errors"
+	"golang.org/x/crypto/blake2b"
 
-	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/crypto"
+	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -27,61 +27,51 @@ var (
 	ErrAddress = errors.New("address error")
 )
 
-// Action is the generic interface of all types of actions, and defines the common methods of them
+// Action is the action can be Executed in protocols. The method is added to avoid mistakenly used empty interface as action.
 type Action interface {
-	Version() uint32
-	Nonce() uint64
-	SrcAddr() string
-	SrcPubkey() keypair.PublicKey
-	SetSrcPubkey(srcPubkey keypair.PublicKey)
-	DstAddr() string
-	GasLimit() uint64
-	GasPrice() *big.Int
-	Signature() []byte
-	SetSignature(signature []byte)
-	ByteStream() []byte
-	Hash() hash.Hash32B
-	IntrinsicGas() (uint64, error)
-	Cost() (*big.Int, error)
-	Proto() *iproto.ActionPb
-	LoadProto(*iproto.ActionPb) error
+	SetEnvelopeContext(SealedEnvelope)
 }
 
-// AbstractAction is an abstract implementation of Action interface
-type AbstractAction struct {
-	version   uint32
-	nonce     uint64
+type actionPayload interface {
+	ByteStream() []byte
+	Cost() (*big.Int, error)
+	IntrinsicGas() (uint64, error)
+	SetEnvelopeContext(SealedEnvelope)
+}
+
+// Envelope defines an envelope wrapped on action with some envelope metadata.
+type Envelope struct {
+	version  uint32
+	nonce    uint64
+	dstAddr  string
+	gasLimit uint64
+	payload  actionPayload
+	gasPrice *big.Int
+}
+
+// SealedEnvelope is a signed action envelope.
+type SealedEnvelope struct {
+	Envelope
+
 	srcAddr   string
 	srcPubkey keypair.PublicKey
-	dstAddr   string
-	gasLimit  uint64
-	gasPrice  *big.Int
 	signature []byte
 }
 
 // Version returns the version
-func (act *AbstractAction) Version() uint32 { return act.version }
+func (act *Envelope) Version() uint32 { return act.version }
 
 // Nonce returns the nonce
-func (act *AbstractAction) Nonce() uint64 { return act.nonce }
-
-// SrcAddr returns the source address
-func (act *AbstractAction) SrcAddr() string { return act.srcAddr }
-
-// SrcPubkey returns the source public key
-func (act *AbstractAction) SrcPubkey() keypair.PublicKey { return act.srcPubkey }
-
-// SetSrcPubkey sets the source public key
-func (act *AbstractAction) SetSrcPubkey(srcPubkey keypair.PublicKey) { act.srcPubkey = srcPubkey }
+func (act *Envelope) Nonce() uint64 { return act.nonce }
 
 // DstAddr returns the destination address
-func (act *AbstractAction) DstAddr() string { return act.dstAddr }
+func (act *Envelope) DstAddr() string { return act.dstAddr }
 
 // GasLimit returns the gas limit
-func (act *AbstractAction) GasLimit() uint64 { return act.gasLimit }
+func (act *Envelope) GasLimit() uint64 { return act.gasLimit }
 
 // GasPrice returns the gas price
-func (act *AbstractAction) GasPrice() *big.Int {
+func (act *Envelope) GasPrice() *big.Int {
 	p := &big.Int{}
 	if act.gasPrice == nil {
 		return p
@@ -89,104 +79,258 @@ func (act *AbstractAction) GasPrice() *big.Int {
 	return p.Set(act.gasPrice)
 }
 
-// Signature returns signature bytes
-func (act *AbstractAction) Signature() []byte {
-	sig := make([]byte, len(act.signature))
-	copy(sig, act.signature)
-	return sig
+// Cost returns cost of actions
+func (act *Envelope) Cost() (*big.Int, error) {
+	return act.payload.Cost()
 }
 
-// SetSignature sets the signature bytes
-func (act *AbstractAction) SetSignature(signature []byte) {
-	act.signature = make([]byte, len(signature))
-	copy(act.signature, signature)
+// IntrinsicGas returns intrinsic gas of action.
+func (act *Envelope) IntrinsicGas() (uint64, error) {
+	return act.payload.IntrinsicGas()
 }
 
-// BasicActionSize returns the basic size of action
-func (act *AbstractAction) BasicActionSize() uint32 {
-	// VersionSizeInBytes + NonceSizeInBytes + GasSizeInBytes
-	size := 4 + 8 + 8
-	size += len(act.srcAddr) + len(act.dstAddr) + len(act.srcPubkey) + len(act.signature)
-	if act.gasPrice != nil && len(act.gasPrice.Bytes()) > 0 {
-		size += len(act.gasPrice.Bytes())
-	}
+// Action returns the action payload.
+func (act *Envelope) Action() Action { return act.payload }
 
-	return uint32(size)
-}
-
-// BasicActionByteStream returns the basic byte stream of action
-func (act *AbstractAction) BasicActionByteStream() []byte {
+// ByteStream returns encoded binary.
+func (act *Envelope) ByteStream() []byte {
 	stream := byteutil.Uint32ToBytes(act.version)
 	stream = append(stream, byteutil.Uint64ToBytes(act.nonce)...)
-	stream = append(stream, act.srcAddr...)
 	stream = append(stream, act.dstAddr...)
-	stream = append(stream, act.srcPubkey[:]...)
 	stream = append(stream, byteutil.Uint64ToBytes(act.gasLimit)...)
-	if act.gasPrice != nil && len(act.gasPrice.Bytes()) > 0 {
+	if act.gasPrice != nil {
 		stream = append(stream, act.gasPrice.Bytes()...)
 	}
-
+	payload := act.payload.ByteStream()
+	stream = append(stream, payload...)
 	return stream
 }
 
-// Sign signs the action using sender's private key
-func Sign(act Action, sk keypair.PrivateKey) error {
-	// TODO: remove this conversion once we deprecate old address format
-	srcAddr, err := address.IotxAddressToAddress(act.SrcAddr())
+// Hash returns the hash value of SealedEnvelope.
+func (sealed *SealedEnvelope) Hash() hash.Hash32B {
+	stream := sealed.Envelope.ByteStream()
+	stream = append(stream, sealed.srcAddr...)
+	stream = append(stream, sealed.srcPubkey[:]...)
+	return blake2b.Sum256(stream)
+}
+
+// SrcAddr returns the source address
+func (sealed *SealedEnvelope) SrcAddr() string { return sealed.srcAddr }
+
+// SrcPubkey returns the source public key
+func (sealed *SealedEnvelope) SrcPubkey() keypair.PublicKey { return sealed.srcPubkey }
+
+// Signature returns signature bytes
+func (sealed *SealedEnvelope) Signature() []byte {
+	sig := make([]byte, len(sealed.signature))
+	copy(sig, sealed.signature)
+	return sig
+}
+
+// Proto converts it to it's proto scheme.
+func (sealed SealedEnvelope) Proto() *iproto.ActionPb {
+	elp := sealed.Envelope
+	actPb := &iproto.ActionPb{
+		Version:      elp.version,
+		Nonce:        elp.nonce,
+		GasLimit:     elp.gasLimit,
+		Sender:       sealed.srcAddr,
+		SenderPubKey: sealed.srcPubkey[:],
+		Signature:    sealed.signature,
+	}
+	if elp.gasPrice != nil {
+		actPb.GasPrice = elp.gasPrice.Bytes()
+	}
+
+	// TODO assert each action
+	act := sealed.Action()
+	switch act := act.(type) {
+	case *Transfer:
+		actPb.Action = &iproto.ActionPb_Transfer{Transfer: act.Proto()}
+	case *Vote:
+		actPb.Action = &iproto.ActionPb_Vote{Vote: act.Proto()}
+	case *Execution:
+		actPb.Action = &iproto.ActionPb_Execution{Execution: act.Proto()}
+	case *PutBlock:
+		actPb.Action = &iproto.ActionPb_PutBlock{PutBlock: act.Proto()}
+	case *StartSubChain:
+		actPb.Action = &iproto.ActionPb_StartSubChain{StartSubChain: act.Proto()}
+	case *StopSubChain:
+		actPb.Action = &iproto.ActionPb_StopSubChain{StopSubChain: act.Proto()}
+	case *CreateDeposit:
+		actPb.Action = &iproto.ActionPb_CreateDeposit{CreateDeposit: act.Proto()}
+	case *SettleDeposit:
+		actPb.Action = &iproto.ActionPb_SettleDeposit{SettleDeposit: act.Proto()}
+	default:
+		logger.Panic().Msgf("cannot convert type of action %T \r\n", act)
+	}
+	return actPb
+}
+
+// LoadProto loads from proto scheme.
+func (sealed *SealedEnvelope) LoadProto(pbAct *iproto.ActionPb) error {
+	if pbAct == nil {
+		return errors.New("empty action proto to load")
+	}
+	srcPub, err := keypair.BytesToPublicKey(pbAct.SenderPubKey)
 	if err != nil {
-		return errors.Wrapf(err, "error when converting from old address format")
+		return err
 	}
-	// TODO: we should avoid generate public key from private key in each signature
-	pk, err := crypto.EC283.NewPubKey(sk)
-	if err != nil {
-		return errors.Wrapf(err, "error when deriving public key from private key")
+	if sealed == nil {
+		return errors.New("nil action to load proto")
 	}
-	pkHash := keypair.HashPubKey(pk)
-	// TODO: abstract action shouldn't be aware that the playload is the hash of public key
-	if !bytes.Equal(srcAddr.Payload(), pkHash[:]) {
-		return errors.Wrapf(
-			ErrAction,
-			"signer public key hash %x does not match action source address payload %x",
-			pkHash,
-			srcAddr.Payload(),
-		)
+	*sealed = SealedEnvelope{}
+
+	sealed.srcAddr = pbAct.Sender
+	sealed.srcPubkey = srcPub
+	sealed.signature = make([]byte, len(pbAct.Signature))
+	copy(sealed.signature, pbAct.Signature)
+	sealed.version = pbAct.Version
+	sealed.nonce = pbAct.Nonce
+	sealed.gasLimit = pbAct.GasLimit
+	sealed.gasPrice = &big.Int{}
+	sealed.gasPrice.SetBytes(pbAct.GetGasPrice())
+
+	if pbAct.GetTransfer() != nil {
+		sealed.dstAddr = pbAct.GetTransfer().Recipient
+		act := &Transfer{}
+		if err := act.LoadProto(pbAct.GetTransfer()); err != nil {
+			return err
+		}
+		sealed.payload = act
+	} else if pbAct.GetVote() != nil {
+		sealed.dstAddr = pbAct.GetVote().VoteeAddress
+		act := &Vote{}
+		if err := act.LoadProto(pbAct.GetVote()); err != nil {
+			return err
+		}
+		sealed.payload = act
+	} else if pbAct.GetExecution() != nil {
+		sealed.dstAddr = pbAct.GetExecution().Contract
+		act := &Execution{}
+		if err := act.LoadProto(pbAct.GetExecution()); err != nil {
+			return err
+		}
+		sealed.payload = act
+	} else if pbAct.GetPutBlock() != nil {
+		sealed.dstAddr = pbAct.GetPutBlock().SubChainAddress
+		act := &PutBlock{}
+		if err := act.LoadProto(pbAct.GetPutBlock()); err != nil {
+			return err
+		}
+		sealed.payload = act
+	} else if pbAct.GetStartSubChain() != nil {
+		act := &StartSubChain{}
+		if err := act.LoadProto(pbAct.GetStartSubChain()); err != nil {
+			return err
+		}
+		sealed.payload = act
+	} else if pbAct.GetStopSubChain() != nil {
+		sealed.dstAddr = pbAct.GetStopSubChain().SubChainAddress
+		act := &StopSubChain{}
+		if err := act.LoadProto(pbAct.GetStopSubChain()); err != nil {
+			return err
+		}
+		sealed.payload = act
+	} else if pbAct.GetCreateDeposit() != nil {
+		sealed.dstAddr = pbAct.GetCreateDeposit().Recipient
+		act := &CreateDeposit{}
+		if err := act.LoadProto(pbAct.GetCreateDeposit()); err != nil {
+			return err
+		}
+		sealed.payload = act
+	} else if pbAct.GetSettleDeposit() != nil {
+		sealed.dstAddr = pbAct.GetSettleDeposit().Recipient
+		act := &SettleDeposit{}
+		if err := act.LoadProto(pbAct.GetSettleDeposit()); err != nil {
+			return err
+		}
+		sealed.payload = act
+	} else {
+		return errors.New("no appliable action to handle in action proto")
 	}
-	act.SetSrcPubkey(pk)
-	hash := act.Hash()
-	if act.SetSignature(crypto.EC283.Sign(sk, hash[:])); act.Signature() == nil {
-		return errors.Wrapf(ErrAction, "failed to sign action hash = %x", hash)
-	}
+	sealed.payload.SetEnvelopeContext(*sealed)
 	return nil
 }
 
+// Sign signs the action using sender's private key
+func Sign(act Envelope, addr string, sk keypair.PrivateKey) (SealedEnvelope, error) {
+	sealed := SealedEnvelope{Envelope: act}
+
+	// TODO: we should avoid generate public key from private key in each signature
+	pk, err := crypto.EC283.NewPubKey(sk)
+	if err != nil {
+		return sealed, errors.Wrapf(err, "error when deriving public key from private key")
+	}
+
+	sealed.srcAddr = addr
+	sealed.srcPubkey = pk
+	// the reason to set context here is because some actions use envelope information in their proto define. for example transfer use des addr as Receipt. This will change hash value.
+	sealed.payload.SetEnvelopeContext(sealed)
+
+	hash := sealed.Hash()
+	sig := crypto.EC283.Sign(sk, hash[:])
+	if len(sig) == 0 {
+		return sealed, errors.Wrapf(ErrAction, "failed to sign action hash = %x", hash)
+	}
+	sealed.signature = sig
+	return sealed, nil
+}
+
+// FakeSeal creates a SealedActionEnvelope without signature.
+// This method should be only used in tests.
+func FakeSeal(act Envelope, addr string, pubk keypair.PublicKey) SealedEnvelope {
+	sealed := SealedEnvelope{
+		Envelope:  act,
+		srcAddr:   addr,
+		srcPubkey: pubk,
+	}
+	sealed.payload.SetEnvelopeContext(sealed)
+	return sealed
+}
+
+// AssembleSealedEnvelope assembles a SealedEnvelope use Envelope, Sender Address and Signature.
+// This method should be only used in tests.
+func AssembleSealedEnvelope(act Envelope, addr string, pk keypair.PublicKey, sig []byte) SealedEnvelope {
+	sealed := SealedEnvelope{
+		Envelope:  act,
+		srcAddr:   addr,
+		srcPubkey: pk,
+		signature: sig,
+	}
+	sealed.payload.SetEnvelopeContext(sealed)
+	return sealed
+}
+
 // Verify verifies the action using sender's public key
-func Verify(act Action) error {
-	hash := act.Hash()
-	if success := crypto.EC283.Verify(act.SrcPubkey(), hash[:], act.Signature()); success {
+func Verify(sealed SealedEnvelope) error {
+	hash := sealed.Hash()
+	if success := crypto.EC283.Verify(sealed.SrcPubkey(), hash[:], sealed.Signature()); success {
 		return nil
 	}
 	return errors.Wrapf(
 		ErrAction,
 		"failed to verify action hash = %x and signature = %x",
-		act.Hash(),
-		act.Signature(),
+		hash,
+		sealed.Signature(),
 	)
 }
 
 // ClassifyActions classfies actions
-func ClassifyActions(actions []Action) ([]*Transfer, []*Vote, []*Execution) {
-	transfers := make([]*Transfer, 0)
+func ClassifyActions(actions []SealedEnvelope) ([]*Transfer, []*Vote, []*Execution) {
+	tsfs := make([]*Transfer, 0)
 	votes := make([]*Vote, 0)
-	executions := make([]*Execution, 0)
-	for _, act := range actions {
-		switch act.(type) {
+	exes := make([]*Execution, 0)
+	for _, elp := range actions {
+		act := elp.Action()
+		switch act := act.(type) {
 		case *Transfer:
-			transfers = append(transfers, act.(*Transfer))
+			tsfs = append(tsfs, act)
 		case *Vote:
-			votes = append(votes, act.(*Vote))
+			votes = append(votes, act)
 		case *Execution:
-			executions = append(executions, act.(*Execution))
+			exes = append(exes, act)
 		}
 	}
-	return transfers, votes, executions
+	return tsfs, votes, exes
 }

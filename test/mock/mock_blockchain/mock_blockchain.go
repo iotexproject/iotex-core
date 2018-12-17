@@ -416,9 +416,9 @@ func (mr *MockBlockchainMockRecorder) GetActionsToAddress(address interface{}) *
 }
 
 // GetActionByActionHash mocks base method
-func (m *MockBlockchain) GetActionByActionHash(h hash.Hash32B) (action.Action, error) {
+func (m *MockBlockchain) GetActionByActionHash(h hash.Hash32B) (action.SealedEnvelope, error) {
 	ret := m.ctrl.Call(m, "GetActionByActionHash", h)
-	ret0, _ := ret[0].(action.Action)
+	ret0, _ := ret[0].(action.SealedEnvelope)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -515,7 +515,7 @@ func (mr *MockBlockchainMockRecorder) StateByAddr(address interface{}) *gomock.C
 }
 
 // MintNewBlock mocks base method
-func (m *MockBlockchain) MintNewBlock(actions []action.Action, producer *iotxaddress.Address, dkgAddress *iotxaddress.DKGAddress, seed []byte, data string) (*blockchain.Block, error) {
+func (m *MockBlockchain) MintNewBlock(actions []action.SealedEnvelope, producer *iotxaddress.Address, dkgAddress *iotxaddress.DKGAddress, seed []byte, data string) (*blockchain.Block, error) {
 	ret := m.ctrl.Call(m, "MintNewBlock", actions, producer, dkgAddress, seed, data)
 	ret0, _ := ret[0].(*blockchain.Block)
 	ret1, _ := ret[1].(error)

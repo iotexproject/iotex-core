@@ -7,6 +7,8 @@
 package action
 
 import (
+	"fmt"
+	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -14,19 +16,29 @@ import (
 	"github.com/iotexproject/iotex-core/iotxaddress"
 )
 
-func TestSecretProposalSerializedDeserialize(t *testing.T) {
+func TestActionProto(t *testing.T) {
 	require := require.New(t)
-	sender, err := iotxaddress.NewAddress(true, chainid)
+	sender, err := iotxaddress.NewAddress(iotxaddress.IsTestnet, chainid)
 	require.NoError(err)
-	recipient, err := iotxaddress.NewAddress(true, chainid)
+	recipient, err := iotxaddress.NewAddress(iotxaddress.IsTestnet, chainid)
+	require.NoError(err)
+	v, err := NewVote(0, sender.RawAddress, recipient.RawAddress, uint64(100000), big.NewInt(10))
+	require.NoError(err)
+	fmt.Println(v)
+
+	bd := &EnvelopeBuilder{}
+	elp := bd.SetDestinationAddress(recipient.RawAddress).
+		SetGasPrice(big.NewInt(10)).
+		SetGasLimit(uint64(100000)).
+		SetAction(v).Build()
+
+	selp, err := Sign(elp, sender.RawAddress, sender.PrivateKey)
 	require.NoError(err)
 
-	sp, err := NewSecretProposal(0, sender.RawAddress, recipient.RawAddress, []uint32{1, 2, 3})
-	require.NoError(err)
-	raw, err := sp.Serialize()
-	require.NoError(err)
+	require.NoError(Verify(selp))
 
-	newSp := &SecretProposal{}
-	require.NoError(newSp.Deserialize(raw))
-	require.Equal(sp.Hash(), newSp.Hash())
+	nselp := &SealedEnvelope{}
+	nselp.LoadProto(selp.Proto())
+
+	require.Equal(selp.Hash(), nselp.Hash())
 }

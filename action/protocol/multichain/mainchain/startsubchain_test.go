@@ -291,7 +291,10 @@ func TestHandleStartSubChain(t *testing.T) {
 		0,
 		big.NewInt(0),
 	)
-	assert.NoError(t, action.Sign(start, testaddress.Addrinfo["producer"].PrivateKey))
+	bd := &action.EnvelopeBuilder{}
+	elp := bd.SetNonce(1).SetGasLimit(10).SetAction(start).Build()
+	_, err = action.Sign(elp, testaddress.Addrinfo["producer"].RawAddress, testaddress.Addrinfo["producer"].PrivateKey)
+	require.NoError(t, err)
 
 	// Handle the action
 	protocol := NewProtocol(chain)

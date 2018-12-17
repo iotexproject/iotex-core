@@ -40,26 +40,26 @@ func (h *noncePriorityQueue) Pop() interface{} {
 
 // ActQueue is the interface of actQueue
 type ActQueue interface {
-	Overlaps(action.Action) bool
-	Put(action.Action) error
-	FilterNonce(uint64) []action.Action
+	Overlaps(action.SealedEnvelope) bool
+	Put(action.SealedEnvelope) error
+	FilterNonce(uint64) []action.SealedEnvelope
 	SetStartNonce(uint64)
 	StartNonce() uint64
-	UpdateQueue(uint64) []action.Action
+	UpdateQueue(uint64) []action.SealedEnvelope
 	SetPendingNonce(uint64)
 	PendingNonce() uint64
 	SetPendingBalance(*big.Int)
 	PendingBalance() *big.Int
 	Len() int
 	Empty() bool
-	PendingActs() []action.Action
-	AllActs() []action.Action
+	PendingActs() []action.SealedEnvelope
+	AllActs() []action.SealedEnvelope
 }
 
 // actQueue is a queue of actions from an account
 type actQueue struct {
 	// Map that stores all the actions belonging to an account associated with nonces
-	items map[uint64]action.Action
+	items map[uint64]action.SealedEnvelope
 	// Priority Queue that stores all the nonces belonging to an account. Nonces are used as indices for action map
 	index noncePriorityQueue
 	// Current nonce tracking the first action in queue
@@ -73,7 +73,7 @@ type actQueue struct {
 // NewActQueue create a new action queue
 func NewActQueue() ActQueue {
 	return &actQueue{
-		items:          make(map[uint64]action.Action),
+		items:          make(map[uint64]action.SealedEnvelope),
 		index:          noncePriorityQueue{},
 		startNonce:     uint64(1), // Taking coinbase Action into account, startNonce should start with 1
 		pendingNonce:   uint64(1), // Taking coinbase Action into account, pendingNonce should start with 1
@@ -82,14 +82,15 @@ func NewActQueue() ActQueue {
 }
 
 // Overlap returns whether the current queue contains the given nonce
-func (q *actQueue) Overlaps(act action.Action) bool {
-	return q.items[act.Nonce()] != nil
+func (q *actQueue) Overlaps(act action.SealedEnvelope) bool {
+	_, exist := q.items[act.Nonce()]
+	return exist
 }
 
 // Put inserts a new action into the map, also updating the queue's nonce index
-func (q *actQueue) Put(act action.Action) error {
+func (q *actQueue) Put(act action.SealedEnvelope) error {
 	nonce := act.Nonce()
-	if q.items[nonce] != nil {
+	if _, exist := q.items[nonce]; exist {
 		return errors.Wrapf(action.ErrNonce, "duplicate nonce")
 	}
 	heap.Push(&q.index, nonce)
@@ -98,8 +99,8 @@ func (q *actQueue) Put(act action.Action) error {
 }
 
 // FilterNonce removes all actions from the map with a nonce lower than the given threshold
-func (q *actQueue) FilterNonce(threshold uint64) []action.Action {
-	var removed []action.Action
+func (q *actQueue) FilterNonce(threshold uint64) []action.SealedEnvelope {
+	var removed []action.SealedEnvelope
 	// Pop off priority queue and delete corresponding entries from map until the threshold is reached
 	for q.index.Len() > 0 && (q.index)[0] < threshold {
 		nonce := heap.Pop(&q.index).(uint64)
@@ -110,10 +111,14 @@ func (q *actQueue) FilterNonce(threshold uint64) []action.Action {
 }
 
 // UpdateQueue updates the pending nonce and balance of the queue
-func (q *actQueue) UpdateQueue(nonce uint64) []action.Action {
+func (q *actQueue) UpdateQueue(nonce uint64) []action.SealedEnvelope {
 	// First, starting from the current pending nonce, incrementally find the next pending nonce
 	// while updating pending balance if actions are payable
-	for ; q.items[nonce] != nil; nonce++ {
+	for ; ; nonce++ {
+		_, exist := q.items[nonce]
+		if !exist {
+			break
+		}
 		if !q.enoughBalance(q.items[nonce], true) {
 			break
 		}
@@ -130,7 +135,7 @@ func (q *actQueue) UpdateQueue(nonce uint64) []action.Action {
 	}
 	// Case I: An unpayable action has been found while updating pending nonce/balance
 	// Remove all the subsequent actions in the queue starting from the index of new pending nonce
-	if q.items[nonce] != nil {
+	if _, exist := q.items[nonce]; exist {
 		return q.removeActs(i)
 	}
 
@@ -189,21 +194,24 @@ func (q *actQueue) Empty() bool {
 }
 
 // PendingActs creates a consecutive nonce-sorted slice of actions
-func (q *actQueue) PendingActs() []action.Action {
+func (q *actQueue) PendingActs() []action.SealedEnvelope {
 	if q.Len() == 0 {
-		return []action.Action{}
+		return []action.SealedEnvelope{}
 	}
-	acts := make([]action.Action, 0, len(q.items))
+	acts := make([]action.SealedEnvelope, 0, len(q.items))
 	nonce := q.startNonce
-	for ; q.items[nonce] != nil; nonce++ {
+	for ; ; nonce++ {
+		if _, exist := q.items[nonce]; !exist {
+			break
+		}
 		acts = append(acts, q.items[nonce])
 	}
 	return acts
 }
 
 // AllActs returns all the actions currently in queue
-func (q *actQueue) AllActs() []action.Action {
-	acts := make([]action.Action, 0, len(q.items))
+func (q *actQueue) AllActs() []action.SealedEnvelope {
+	acts := make([]action.SealedEnvelope, 0, len(q.items))
 	if q.Len() == 0 {
 		return acts
 	}
@@ -215,8 +223,8 @@ func (q *actQueue) AllActs() []action.Action {
 }
 
 // removeActs removes all the actions starting at idx from queue
-func (q *actQueue) removeActs(idx int) []action.Action {
-	removedFromQueue := make([]action.Action, 0)
+func (q *actQueue) removeActs(idx int) []action.SealedEnvelope {
+	removedFromQueue := make([]action.SealedEnvelope, 0)
 	for i := idx; i < q.index.Len(); i++ {
 		removedFromQueue = append(removedFromQueue, q.items[q.index[i]])
 		delete(q.items, q.index[i])
@@ -227,7 +235,7 @@ func (q *actQueue) removeActs(idx int) []action.Action {
 }
 
 // enoughBalance helps check whether queue's pending balance is sufficient for the given action
-func (q *actQueue) enoughBalance(act action.Action, updateBalance bool) bool {
+func (q *actQueue) enoughBalance(act action.SealedEnvelope, updateBalance bool) bool {
 	cost, _ := act.Cost()
 	if q.pendingBalance.Cmp(cost) < 0 {
 		return false

@@ -24,7 +24,7 @@ type (
 	// WorkingSet defines an interface for working set of states changes
 	WorkingSet interface {
 		// states and actions
-		RunActions(context.Context, uint64, []action.Action) (hash.Hash32B, map[hash.Hash32B]*action.Receipt, error)
+		RunActions(context.Context, uint64, []action.SealedEnvelope) (hash.Hash32B, map[hash.Hash32B]*action.Receipt, error)
 		Snapshot() int
 		Revert(int) error
 		Commit() error
@@ -98,26 +98,25 @@ func (ws *workingSet) Height() uint64 {
 func (ws *workingSet) RunActions(
 	ctx context.Context,
 	blockHeight uint64,
-	actions []action.Action,
+	elps []action.SealedEnvelope,
 ) (hash.Hash32B, map[hash.Hash32B]*action.Receipt, error) {
 	ws.blkHeight = blockHeight
-
 	// Handle actions
 	receipts := make(map[hash.Hash32B]*action.Receipt)
-	for _, act := range actions {
+	for _, elp := range elps {
 		for _, actionHandler := range ws.actionHandlers {
-			receipt, err := actionHandler.Handle(ctx, act, ws)
+			receipt, err := actionHandler.Handle(ctx, elp.Action(), ws)
 			if err != nil {
 				return hash.ZeroHash32B, nil, errors.Wrapf(
 					err,
 					"error when action %x (nonce: %d) from %s mutates states",
-					act.Hash(),
-					act.Nonce(),
-					act.SrcAddr(),
+					elp.Hash(),
+					elp.Nonce(),
+					elp.SrcAddr(),
 				)
 			}
 			if receipt != nil {
-				receipts[act.Hash()] = receipt
+				receipts[elp.Hash()] = receipt
 			}
 		}
 	}

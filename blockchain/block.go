@@ -69,7 +69,7 @@ type BlockFooter struct {
 // Block defines the struct of block
 type Block struct {
 	Header          *BlockHeader
-	Actions         []action.Action
+	Actions         []action.SealedEnvelope
 	SecretProposals []*action.SecretProposal
 	SecretWitness   *action.SecretWitness
 	Receipts        map[hash.Hash32B]*action.Receipt
@@ -84,7 +84,7 @@ func NewBlock(
 	prevBlockHash hash.Hash32B,
 	timestamp uint64,
 	producer keypair.PublicKey,
-	actions []action.Action,
+	actions []action.SealedEnvelope,
 ) *Block {
 	block := &Block{
 		Header: &BlockHeader{
@@ -185,12 +185,6 @@ func (b *Block) ByteStream() []byte {
 	stream = append(stream, b.Header.DKGPubkey[:]...)
 	stream = append(stream, b.Header.DKGBlockSig[:]...)
 
-	for _, sp := range b.SecretProposals {
-		stream = append(stream, sp.ByteStream()...)
-	}
-	if b.SecretWitness != nil {
-		stream = append(stream, b.SecretWitness.ByteStream()...)
-	}
 	for _, act := range b.Actions {
 		stream = append(stream, act.ByteStream()...)
 	}
@@ -220,12 +214,6 @@ func (b *Block) ConvertToBlockHeaderPb() *iproto.BlockHeaderPb {
 // ConvertToBlockPb converts Block to BlockPb
 func (b *Block) ConvertToBlockPb() *iproto.BlockPb {
 	actions := []*iproto.ActionPb{}
-	for _, secretProposal := range b.SecretProposals {
-		actions = append(actions, secretProposal.Proto())
-	}
-	if b.SecretWitness != nil {
-		actions = append(actions, b.SecretWitness.Proto())
-	}
 	for _, act := range b.Actions {
 		actions = append(actions, act.Proto())
 	}
@@ -260,72 +248,13 @@ func (b *Block) ConvertFromBlockHeaderPb(pbBlock *iproto.BlockPb) {
 func (b *Block) ConvertFromBlockPb(pbBlock *iproto.BlockPb) error {
 	b.ConvertFromBlockHeaderPb(pbBlock)
 
-	b.SecretProposals = []*action.SecretProposal{}
-	b.SecretWitness = nil
-	b.Actions = []action.Action{}
+	b.Actions = []action.SealedEnvelope{}
 
 	for _, actPb := range pbBlock.Actions {
-		if secretProposalPb := actPb.GetSecretProposal(); secretProposalPb != nil {
-			secretProposal := &action.SecretProposal{}
-			if err := secretProposal.LoadProto(actPb); err != nil {
-				return err
-			}
-			b.SecretProposals = append(b.SecretProposals, secretProposal)
-		} else if secretWitnessPb := actPb.GetSecretWitness(); secretWitnessPb != nil {
-			secretWitness := &action.SecretWitness{}
-			if err := secretWitness.LoadProto(actPb); err != nil {
-				return err
-			}
-			b.SecretWitness = secretWitness
-		} else if transferPb := actPb.GetTransfer(); transferPb != nil {
-			transfer := &action.Transfer{}
-			if err := transfer.LoadProto(actPb); err != nil {
-				return err
-			}
-			b.Actions = append(b.Actions, transfer)
-		} else if votePb := actPb.GetVote(); votePb != nil {
-			vote := &action.Vote{}
-			if err := vote.LoadProto(actPb); err != nil {
-				return err
-			}
-			b.Actions = append(b.Actions, vote)
-		} else if executionPb := actPb.GetExecution(); executionPb != nil {
-			execution := &action.Execution{}
-			if err := execution.LoadProto(actPb); err != nil {
-				return err
-			}
-			b.Actions = append(b.Actions, execution)
-		} else if startPb := actPb.GetStartSubChain(); startPb != nil {
-			start := &action.StartSubChain{}
-			if err := start.LoadProto(actPb); err != nil {
-				return err
-			}
-			b.Actions = append(b.Actions, start)
-		} else if stopPb := actPb.GetStopSubChain(); stopPb != nil {
-			stop := &action.StopSubChain{}
-			if err := stop.LoadProto(actPb); err != nil {
-				return err
-			}
-			b.Actions = append(b.Actions, stop)
-		} else if putPb := actPb.GetPutBlock(); putPb != nil {
-			put := &action.PutBlock{}
-			if err := put.LoadProto(actPb); err != nil {
-				return err
-			}
-			b.Actions = append(b.Actions, put)
-		} else if createDepositPb := actPb.GetCreateDeposit(); createDepositPb != nil {
-			createDeposit := &action.CreateDeposit{}
-			if err := createDeposit.LoadProto(actPb); err != nil {
-				return err
-			}
-			b.Actions = append(b.Actions, createDeposit)
-		} else if settleDepositPb := actPb.GetSettleDeposit(); settleDepositPb != nil {
-			settleDeposit := &action.SettleDeposit{}
-			if err := settleDeposit.LoadProto(actPb); err != nil {
-				return err
-			}
-			b.Actions = append(b.Actions, settleDeposit)
-		}
+		act := action.SealedEnvelope{}
+		act.LoadProto(actPb)
+		b.Actions = append(b.Actions, act)
+		// TODO handle SecretProposal and SecretWitness
 	}
 	return nil
 }
@@ -351,12 +280,6 @@ func (b *Block) Deserialize(buf []byte) error {
 // CalculateTxRoot returns the Merkle root of all txs and actions in this block.
 func (b *Block) CalculateTxRoot() hash.Hash32B {
 	var h []hash.Hash32B
-	for _, sp := range b.SecretProposals {
-		h = append(h, sp.Hash())
-	}
-	if b.SecretWitness != nil {
-		h = append(h, b.SecretWitness.Hash())
-	}
 	for _, act := range b.Actions {
 		h = append(h, act.Hash())
 	}

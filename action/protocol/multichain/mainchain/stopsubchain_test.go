@@ -95,7 +95,6 @@ func TestHandleStopSubChain(t *testing.T) {
 		uint64(100000),
 		big.NewInt(0),
 	)
-	require.NoError(action.Sign(stop, testaddress.Addrinfo["alfa"].PrivateKey))
 	// wrong owner
 	require.Error(p.handleStopSubChain(stop, ws))
 	stop = action.NewStopSubChain(
@@ -106,7 +105,6 @@ func TestHandleStopSubChain(t *testing.T) {
 		uint64(100000),
 		big.NewInt(0),
 	)
-	require.NoError(action.Sign(stop, sender.PrivateKey))
 	// wrong stop height
 	require.Error(p.handleStopSubChain(stop, ws))
 	stop = action.NewStopSubChain(
@@ -117,7 +115,6 @@ func TestHandleStopSubChain(t *testing.T) {
 		uint64(100000),
 		big.NewInt(0),
 	)
-	require.NoError(action.Sign(stop, sender.PrivateKey))
 	require.NoError(p.handleStopSubChain(stop, ws))
 
 	ws.EXPECT().

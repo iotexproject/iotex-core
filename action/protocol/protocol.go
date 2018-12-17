@@ -26,6 +26,11 @@ type ActionValidator interface {
 	Validate(context.Context, action.Action) error
 }
 
+// ActionEnvelopeValidator is the interface of validating an action
+type ActionEnvelopeValidator interface {
+	Validate(context.Context, action.SealedEnvelope) error
+}
+
 // ActionHandler is the interface for the action handlers. For each incoming action, the assembled actions will be
 // called one by one to process it. ActionHandler implementation is supposed to parse the sub-type of the action to
 // decide if it wants to handle this action or not.
@@ -56,4 +61,15 @@ type StateManager interface {
 	PutState(hash.PKHash, interface{}) error
 	GetDB() db.KVStore
 	GetCachedBatch() db.CachedBatch
+}
+
+type noncer interface {
+	Nonce() uint64
+}
+
+// SetNonce sets nonce for account
+func SetNonce(i noncer, state *state.Account) {
+	if i.Nonce() > state.Nonce {
+		state.Nonce = i.Nonce()
+	}
 }

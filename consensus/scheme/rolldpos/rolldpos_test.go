@@ -66,7 +66,7 @@ func TestRollDPoSCtx(t *testing.T) {
 		prevHash,
 		testutil.TimestampNowFromClock(clock),
 		testAddrs[0].PublicKey,
-		make([]action.Action, 0),
+		make([]action.SealedEnvelope, 0),
 	)
 	ctx := makeTestRollDPoSCtx(
 		testAddrs[0],
@@ -463,12 +463,12 @@ func TestRollDPoS_convertToConsensusEvt(t *testing.T) {
 
 	// Test propose msg
 	addr := newTestAddr()
-	transfer, err := action.NewTransfer(1, big.NewInt(100), "src", "dst", []byte{}, testutil.TestGasLimit, big.NewInt(10))
+	a := testaddress.Addrinfo["alfa"]
+	b := testaddress.Addrinfo["bravo"]
+	transfer, err := testutil.SignedTransfer(a, b, 1, big.NewInt(100), []byte{}, testutil.TestGasLimit, big.NewInt(10))
 	require.NoError(t, err)
 	selfPubKey := testaddress.Addrinfo["producer"].PublicKey
-	selfPubKeyHash := keypair.HashPubKey(selfPubKey)
-	address := address.New(config.Default.Chain.ID, selfPubKeyHash[:])
-	vote, err := action.NewVote(2, address.IotxAddress(), address.IotxAddress(), testutil.TestGasLimit, big.NewInt(10))
+	vote, err := testutil.SignedVote(addr, addr, 2, testutil.TestGasLimit, big.NewInt(10))
 	require.NoError(t, err)
 	var prevHash hash.Hash32B
 	blk := blockchain.NewBlock(
@@ -477,7 +477,7 @@ func TestRollDPoS_convertToConsensusEvt(t *testing.T) {
 		prevHash,
 		testutil.TimestampNow(),
 		selfPubKey,
-		[]action.Action{transfer, vote},
+		[]action.SealedEnvelope{transfer, vote},
 	)
 	roundNum := uint32(0)
 	pMsg := iproto.ProposePb{
@@ -527,7 +527,8 @@ func TestUpdateSeed(t *testing.T) {
 	require := require.New(t)
 	lastSeed, _ := hex.DecodeString("9de6306b08158c423330f7a27243a1a5cbe39bfd764f07818437882d21241567")
 	chain := blockchain.NewBlockchain(config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
-	chain.Validator().AddActionValidators(protocol.NewGenericValidator(chain), account.NewProtocol())
+	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain))
+	chain.Validator().AddActionValidators(account.NewProtocol())
 	require.NoError(chain.Start(context.Background()))
 	ctx := rollDPoSCtx{cfg: config.Default.Consensus.RollDPoS, chain: chain, epoch: epochCtx{seed: lastSeed}}
 	fsm := cFSM{ctx: &ctx}
@@ -751,7 +752,8 @@ func TestRollDPoSConsensus(t *testing.T) {
 				require.NoError(t, sf.Commit(ws))
 			}
 			chain := blockchain.NewBlockchain(cfg, blockchain.InMemDaoOption(), blockchain.PrecreatedStateFactoryOption(sf))
-			chain.Validator().AddActionValidators(protocol.NewGenericValidator(chain), account.NewProtocol())
+			chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain))
+			chain.Validator().AddActionValidators(account.NewProtocol())
 			chains = append(chains, chain)
 
 			actPool, err := actpool.NewActPool(chain, cfg.ActPool)

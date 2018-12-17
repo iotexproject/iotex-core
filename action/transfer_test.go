@@ -26,68 +26,23 @@ func TestTransferSignVerify(t *testing.T) {
 
 	tsf, err := NewTransfer(0, big.NewInt(10), sender.RawAddress, recipient.RawAddress, []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(err)
-	require.Nil(tsf.signature)
-	require.Error(Verify(tsf))
+
+	bd := &EnvelopeBuilder{}
+	elp := bd.SetDestinationAddress(recipient.RawAddress).
+		SetGasLimit(uint64(100000)).
+		SetGasPrice(big.NewInt(10)).
+		SetAction(tsf).Build()
+
+	w := AssembleSealedEnvelope(elp, sender.RawAddress, sender.PublicKey, []byte("lol"))
+	require.Error(Verify(w))
 
 	// sign the transfer
-	require.NoError(Sign(tsf, sender.PrivateKey))
+	selp, err := Sign(elp, sender.RawAddress, sender.PrivateKey)
+	require.NoError(err)
+	require.NotNil(selp)
 
 	// verify signature
-	require.NoError(Verify(tsf))
-}
-
-func TestTransferSerializeDeserialize(t *testing.T) {
-	require := require.New(t)
-	sender, err := iotxaddress.NewAddress(iotxaddress.IsTestnet, chainid)
-	require.NoError(err)
-	recipient, err := iotxaddress.NewAddress(iotxaddress.IsTestnet, chainid)
-	require.NoError(err)
-
-	tsf, err := NewTransfer(0, big.NewInt(38291), sender.RawAddress, recipient.RawAddress, []byte{}, uint64(100000), big.NewInt(10))
-	require.NoError(err)
-	require.NotNil(tsf)
-
-	s, err := tsf.Serialize()
-	require.NoError(err)
-
-	newtsf := &Transfer{}
-	err = newtsf.Deserialize(s)
-	require.NoError(err)
-
-	require.Equal(uint64(0), newtsf.Nonce())
-	require.Equal(uint64(38291), newtsf.amount.Uint64())
-	require.Equal(sender.RawAddress, newtsf.Sender())
-	require.Equal(recipient.RawAddress, newtsf.Recipient())
-
-	require.Equal(tsf.Hash(), newtsf.Hash())
-	require.Equal(tsf.TotalSize(), newtsf.TotalSize())
-}
-
-func TestTransferToJSONFromJSON(t *testing.T) {
-	require := require.New(t)
-	sender, err := iotxaddress.NewAddress(iotxaddress.IsTestnet, chainid)
-	require.NoError(err)
-	recipient, err := iotxaddress.NewAddress(iotxaddress.IsTestnet, chainid)
-	require.NoError(err)
-
-	tsf, err := NewTransfer(0, big.NewInt(38291), sender.RawAddress, recipient.RawAddress, []byte{}, uint64(100000), big.NewInt(10))
-	require.NoError(err)
-	require.NotNil(tsf)
-
-	exptsf := tsf.ToJSON()
-	require.NotNil(exptsf)
-
-	newtsf, err := NewTransferFromJSON(exptsf)
-	require.NoError(err)
-	require.NotNil(newtsf)
-
-	require.Equal(uint64(0), newtsf.Nonce())
-	require.Equal(uint64(38291), newtsf.amount.Uint64())
-	require.Equal(sender.RawAddress, newtsf.Sender())
-	require.Equal(recipient.RawAddress, newtsf.Recipient())
-
-	require.Equal(tsf.Hash(), newtsf.Hash())
-	require.Equal(tsf.TotalSize(), newtsf.TotalSize())
+	require.NoError(Verify(selp))
 }
 
 func TestCoinbaseTsf(t *testing.T) {

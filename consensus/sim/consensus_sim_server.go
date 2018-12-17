@@ -63,6 +63,9 @@ func (v *byzVal) Validate(blk *blockchain.Block, tipHeight uint64, tipHash hash.
 // AddActionValidators add validators
 func (v *byzVal) AddActionValidators(validators ...protocol.ActionValidator) {}
 
+// AddActionEnvelopeValidators add validators
+func (v *byzVal) AddActionEnvelopeValidators(validators ...protocol.ActionEnvelopeValidator) {}
+
 // Ping implements simulator.SimulatorServer
 func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error {
 	nPlayers := in.NBF + in.NFS + in.NHonest
