@@ -1,5 +1,6 @@
 # iotex-core
 
+[![Join the chat at https://gitter.im/iotex-dev-community/Lobby](https://badges.gitter.im/iotex-dev-community/Lobby.svg)](https://gitter.im/iotex-dev-community/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 [![Go version](https://img.shields.io/badge/go-1.10.2-blue.svg)](https://github.com/moovweb/gvm)
 [![CircleCI](https://circleci.com/gh/iotexproject/iotex-core.svg?style=svg&circle-token=fe0817d127f251a34b8bdd3336a808c7537e5ec0)](https://circleci.com/gh/iotexproject/iotex-core)
 [![Go Report Card](https://goreportcard.com/badge/github.com/iotexproject/iotex-core)](https://goreportcard.com/report/github.com/iotexproject/iotex-core)
@@ -13,13 +14,10 @@
 
 Welcome to the official Go implementation of IoTeX protocol! IoTeX is building the next generation of the decentralized 
 network for IoT powered by scalability- and privacy-centric blockchains. Please refer to 
-IoTeX [whitepaper](https://iotex.io/white-paper) for details.
+IoTeX [whitepaper](https://iotex.io/academics) for details.
 
 Currently, This repo is of alpha-quality with limited features supported and it is subjected to rapid change. Please 
 contact us if you intend to run it in production.
-
-## Developer Support
-Feel free to contact us at our Gitter channel, we'd be happy to help: https://gitter.im/iotex-dev-community/Lobby
 
 ## Minimum requirements
 
