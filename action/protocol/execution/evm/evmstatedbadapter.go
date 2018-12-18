@@ -314,7 +314,8 @@ func (stateDB *StateDBAdapter) GetCode(evmAddr common.Address) []byte {
 	}
 	code, err := stateDB.dao.Get(CodeKVNameSpace, account.CodeHash[:])
 	if err != nil {
-		logger.Error().Err(err).Msg("Failed to get code from trie")
+		// TODO: Suppress the as it's too much now
+		// logger.Error().Err(err).Msg("Failed to get code from trie")
 		return nil
 	}
 	return code
