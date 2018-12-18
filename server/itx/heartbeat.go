@@ -9,7 +9,6 @@ package itx
 import (
 	"encoding/json"
 	"strconv"
-	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/zjshen14/go-fsm"
@@ -18,7 +17,6 @@ import (
 	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
 	"github.com/iotexproject/iotex-core/dispatcher"
 	"github.com/iotexproject/iotex-core/logger"
-	"github.com/iotexproject/iotex-core/network"
 )
 
 // TODO: HeartbeatHandler opens encapsulation of a few structs to inspect the internal status, we need to find a better
@@ -49,25 +47,7 @@ func NewHeartbeatHandler(s *Server) *HeartbeatHandler {
 // Log executes the logging logic
 func (h *HeartbeatHandler) Log() {
 	// Network metrics
-	p2p, ok := h.s.P2P().(*network.IotxOverlay)
-	if !ok {
-		logger.Error().Msg("value is not the instance of IotxOverlay")
-		return
-	}
-	numPeers := network.LenSyncMap(p2p.PM.Peers)
-	lastOutTime := time.Unix(0, 0)
-	p2p.PM.Peers.Range(func(_, value interface{}) bool {
-		p, ok := value.(*network.Peer)
-		if !ok {
-			logger.Error().Msg("value is not the instance of Peer")
-			return true
-		}
-		if p.LastResTime.After(lastOutTime) {
-			lastOutTime = p.LastResTime
-		}
-		return true
-	})
-	lastInTime := p2p.RPC.LastReqTime()
+	p2pAgent := h.s.P2PAgent()
 
 	// Dispatcher metrics
 	dp, ok := h.s.Dispatcher().(*dispatcher.IotxDispatcher)
@@ -82,10 +62,9 @@ func (h *HeartbeatHandler) Log() {
 		return
 	}
 
+	numPeers := len(p2pAgent.Neighbors())
 	logger.Info().
-		Uint("numPeers", numPeers).
-		Time("lastOut", lastOutTime).
-		Time("lastIn", lastInTime).
+		Int("numPeers", numPeers).
 		Int("pendingDispatcherEvents", numDPEvts).
 		Str("pendingDispatcherEventsAudit", string(dpEvtsAudit)).
 		Msg("node status")

@@ -119,7 +119,6 @@ func newConfig() (config.Config, error) {
 	cfg.Chain.ChainDBPath = testChainPath
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Explorer.Enabled = true
-	cfg.Network.EnableV2 = true
 
 	pk, sk, err := crypto.EC283.NewKeyPair()
 	if err != nil {

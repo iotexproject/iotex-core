@@ -27,7 +27,6 @@ import (
 	"github.com/iotexproject/iotex-core/dispatcher"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/logger"
-	"github.com/iotexproject/iotex-core/network"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/routine"
 )
@@ -37,7 +36,6 @@ type Server struct {
 	cfg                  config.Config
 	rootChainService     *chainservice.ChainService
 	chainservices        map[uint32]*chainservice.ChainService
-	p2p                  network.Overlay
 	p2pAgent             *p2p.Agent
 	dispatcher           dispatcher.Dispatcher
 	mainChainProtocol    *mainchain.Protocol
@@ -57,31 +55,19 @@ func NewInMemTestServer(cfg config.Config) (*Server, error) {
 }
 
 func newServer(cfg config.Config, testing bool) (*Server, error) {
-
 	// create dispatcher instance
 	dispatcher, err := dispatcher.NewDispatcher(cfg)
 	if err != nil {
 		return nil, errors.Wrap(err, "fail to create dispatcher")
 	}
-
-	var p2pNetwork *network.IotxOverlay
-	var p2pAgent *p2p.Agent
-	if cfg.Network.EnableV2 {
-		p2pAgent = p2p.NewAgent(cfg.Network, dispatcher.HandleBroadcast, dispatcher.HandleTell)
-	} else {
-		p2pNetwork = network.NewOverlay(cfg.Network)
-		p2pNetwork.AttachDispatcher(dispatcher)
-	}
-
+	p2pAgent := p2p.NewAgent(cfg.Network, dispatcher.HandleBroadcast, dispatcher.HandleTell)
 	chains := make(map[uint32]*chainservice.ChainService)
-
 	var cs *chainservice.ChainService
-
 	var opts []chainservice.Option
 	if testing {
 		opts = []chainservice.Option{chainservice.WithTesting()}
 	}
-	cs, err = chainservice.New(cfg, p2pNetwork, p2pAgent, dispatcher, opts...)
+	cs, err = chainservice.New(cfg, p2pAgent, dispatcher, opts...)
 	if err != nil {
 		return nil, errors.Wrap(err, "fail to create chain service")
 	}
@@ -109,7 +95,6 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 	dispatcher.AddSubscriber(cs.ChainID(), cs)
 	svr := Server{
 		cfg:                  cfg,
-		p2p:                  p2pNetwork,
 		p2pAgent:             p2pAgent,
 		dispatcher:           dispatcher,
 		rootChainService:     cs,
@@ -124,14 +109,8 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 
 // Start starts the server
 func (s *Server) Start(ctx context.Context) error {
-	if s.cfg.Network.EnableV2 {
-		if err := s.p2pAgent.Start(ctx); err != nil {
-			return errors.Wrap(err, "error when starting P2P agent")
-		}
-	} else {
-		if err := s.p2p.Start(ctx); err != nil {
-			return errors.Wrap(err, "error when starting P2P networks")
-		}
+	if err := s.p2pAgent.Start(ctx); err != nil {
+		return errors.Wrap(err, "error when starting P2P agent")
 	}
 	if err := s.rootChainService.Blockchain().AddSubscriber(s); err != nil {
 		return errors.Wrap(err, "error when starting sub-chain starter")
@@ -161,14 +140,8 @@ func (s *Server) Stop(ctx context.Context) error {
 			return errors.Wrap(err, "error when stopping blockchain")
 		}
 	}
-	if s.cfg.Network.EnableV2 {
-		if err := s.p2pAgent.Stop(ctx); err != nil {
-			return errors.Wrap(err, "error when stopping P2P agent")
-		}
-	} else {
-		if err := s.p2p.Stop(ctx); err != nil {
-			return errors.Wrap(err, "error when stopping P2P networks")
-		}
+	if err := s.p2pAgent.Stop(ctx); err != nil {
+		return errors.Wrap(err, "error when stopping P2P agent")
 	}
 	return nil
 }
@@ -184,7 +157,7 @@ func (s *Server) newSubChainService(cfg config.Config) error {
 		mainChainAPI = s.rootChainService.Explorer().Explorer()
 	}
 	opts := []chainservice.Option{chainservice.WithRootChainAPI(mainChainAPI)}
-	cs, err := chainservice.New(cfg, s.p2p, s.p2pAgent, s.dispatcher, opts...)
+	cs, err := chainservice.New(cfg, s.p2pAgent, s.dispatcher, opts...)
 	if err != nil {
 		return err
 	}
@@ -215,7 +188,7 @@ func (s *Server) NewTestingChainService(cfg config.Config) error {
 		chainservice.WithTesting(),
 		chainservice.WithRootChainAPI(mainChainAPI),
 	}
-	cs, err := chainservice.New(cfg, s.p2p, s.p2pAgent, s.dispatcher, opts...)
+	cs, err := chainservice.New(cfg, s.p2pAgent, s.dispatcher, opts...)
 	if err != nil {
 		return err
 	}
@@ -243,11 +216,6 @@ func (s *Server) StopChainService(ctx context.Context, id uint32) error {
 		return errors.New("Chain ID does not match any existing chains")
 	}
 	return c.Stop(ctx)
-}
-
-// P2P returns the P2P network
-func (s *Server) P2P() network.Overlay {
-	return s.p2p
 }
 
 // P2PAgent returns the P2P agent

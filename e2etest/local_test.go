@@ -777,7 +777,6 @@ func newTestConfig() (config.Config, error) {
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Consensus.Scheme = config.NOOPScheme
-	cfg.Network.EnableV2 = true
 	cfg.Network.Port = testutil.RandomPort()
 	cfg.Explorer.Enabled = true
 	cfg.Explorer.Port = 0

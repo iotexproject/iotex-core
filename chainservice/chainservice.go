@@ -26,7 +26,6 @@ import (
 	explorerapi "github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/indexservice"
 	"github.com/iotexproject/iotex-core/logger"
-	"github.com/iotexproject/iotex-core/network"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/proto"
 )
@@ -69,7 +68,6 @@ func WithTesting() Option {
 // New creates a ChainService from config and network.Overlay and dispatcher.Dispatcher.
 func New(
 	cfg config.Config,
-	p2pNetwork network.Overlay,
 	p2pAgent *p2p.Agent,
 	dispatcher dispatcher.Dispatcher,
 	opts ...Option,
