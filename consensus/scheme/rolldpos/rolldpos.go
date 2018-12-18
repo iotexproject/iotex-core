@@ -23,7 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/endorsement"
-	explorerapi "github.com/iotexproject/iotex-core/explorer/idl/explorer"
+	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
@@ -63,7 +63,7 @@ type rollDPoSCtx struct {
 	epoch        epochCtx
 	round        roundCtx
 	clock        clock.Clock
-	rootChainAPI explorerapi.Explorer
+	rootChainAPI explorer.Explorer
 	// candidatesByHeightFunc is only used for testing purpose
 	candidatesByHeightFunc func(uint64) ([]*state.Candidate, error)
 	sync                   blocksync.BlockSync
@@ -503,7 +503,7 @@ type Builder struct {
 	actPool                actpool.ActPool
 	broadcastCB            scheme.Broadcast
 	clock                  clock.Clock
-	rootChainAPI           explorerapi.Explorer
+	rootChainAPI           explorer.Explorer
 	candidatesByHeightFunc func(uint64) ([]*state.Candidate, error)
 }
 
@@ -549,7 +549,7 @@ func (b *Builder) SetClock(clock clock.Clock) *Builder {
 }
 
 // SetRootChainAPI sets root chain API
-func (b *Builder) SetRootChainAPI(api explorerapi.Explorer) *Builder {
+func (b *Builder) SetRootChainAPI(api explorer.Explorer) *Builder {
 	b.rootChainAPI = api
 	return b
 }

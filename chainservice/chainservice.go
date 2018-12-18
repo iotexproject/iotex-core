@@ -143,7 +143,20 @@ func New(
 
 	var exp *explorer.Server
 	if cfg.Explorer.Enabled {
-		exp = explorer.NewServer(cfg.Explorer, chain, consensus, dispatcher, actPool, p2pNetwork, idx)
+		exp = explorer.NewServer(
+			cfg.Explorer,
+			chain,
+			consensus,
+			dispatcher,
+			actPool,
+			idx,
+			explorer.WithBroadcast(func(chainID uint32, msg proto.Message) error {
+				ctx := p2p.WitContext(context.Background(), p2p.Context{ChainID: chainID})
+				return p2pAgent.Broadcast(ctx, msg)
+			}),
+			explorer.WithNeighbors(p2pAgent.Neighbors),
+			explorer.WithSelf(p2pAgent.Self),
+		)
 	}
 
 	return &ChainService{
