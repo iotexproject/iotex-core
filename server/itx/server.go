@@ -96,6 +96,7 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 	}
 
 	chains[cs.ChainID()] = cs
+	dispatcher.AddSubscriber(cs.ChainID(), cs)
 	svr := Server{
 		cfg:                  cfg,
 		p2p:                  p2p,
