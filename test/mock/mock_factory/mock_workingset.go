@@ -146,6 +146,18 @@ func (mr *MockWorkingSetMockRecorder) PutState(arg0, arg1 interface{}) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutState", reflect.TypeOf((*MockWorkingSet)(nil).PutState), arg0, arg1)
 }
 
+// DelState mocks base method
+func (m *MockWorkingSet) DelState(pkHash hash.PKHash) error {
+	ret := m.ctrl.Call(m, "DelState", pkHash)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DelState indicates an expected call of DelState
+func (mr *MockWorkingSetMockRecorder) DelState(pkHash interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DelState", reflect.TypeOf((*MockWorkingSet)(nil).DelState), pkHash)
+}
+
 // GetDB mocks base method
 func (m *MockWorkingSet) GetDB() db.KVStore {
 	ret := m.ctrl.Call(m, "GetDB")

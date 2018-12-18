@@ -221,7 +221,9 @@ func (stateDB *StateDBAdapter) Empty(common.Address) bool {
 // RevertToSnapshot reverts the state factory to the state at a given snapshot
 func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 	if err := stateDB.sm.Revert(snapshot); err != nil {
+		err := errors.New("unexpected error: state manager's Revert() failed")
 		logger.Error().Err(err).Msg("failed to RevertToSnapshot")
+		// stateDB.err = err
 		return
 	}
 	ds, ok := stateDB.suicideSnapshot[snapshot]
@@ -247,20 +249,24 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 // Snapshot returns the snapshot id
 func (stateDB *StateDBAdapter) Snapshot() int {
 	sn := stateDB.sm.Snapshot()
-	if _, ok := stateDB.suicideSnapshot[sn]; !ok {
-		// save a copy of current suicide accounts
-		sa := make(deleteAccount)
-		for k, v := range stateDB.suicided {
-			sa[k] = v
-		}
-		stateDB.suicideSnapshot[sn] = sa
-		// save a copy of modified contracts
-		c := make(contractMap)
-		for k, v := range stateDB.cachedContract {
-			c[k] = v.Snapshot()
-		}
-		stateDB.contractSnapshot[sn] = c
+	if _, ok := stateDB.suicideSnapshot[sn]; ok {
+		err := errors.New("unexpected error: duplicate snapshot version")
+		logger.Error().Err(err).Msg("failed to Snapshot")
+		// stateDB.err = err
+		return sn
 	}
+	// save a copy of current suicide accounts
+	sa := make(deleteAccount)
+	for k, v := range stateDB.suicided {
+		sa[k] = v
+	}
+	stateDB.suicideSnapshot[sn] = sa
+	// save a copy of modified contracts
+	c := make(contractMap)
+	for k, v := range stateDB.cachedContract {
+		c[k] = v.Snapshot()
+	}
+	stateDB.contractSnapshot[sn] = c
 	return sn
 }
 
@@ -456,6 +462,10 @@ func (stateDB *StateDBAdapter) setContractState(addr hash.PKHash, key, value has
 // commitContracts commits contract code to db and update pending contract account changes to trie
 func (stateDB *StateDBAdapter) commitContracts() error {
 	for addr, contract := range stateDB.cachedContract {
+		if _, ok := stateDB.suicided[addr]; ok {
+			// no need to update a suicide account/contract
+			continue
+		}
 		if err := contract.Commit(); err != nil {
 			return errors.Wrap(err, "failed to commit contract")
 		}
@@ -463,6 +473,12 @@ func (stateDB *StateDBAdapter) commitContracts() error {
 		// store the account (with new storage trie root) into account trie
 		if err := stateDB.sm.PutState(addr, state); err != nil {
 			return errors.Wrap(err, "failed to update pending account changes to trie")
+		}
+	}
+	// delete suicided accounts/contract
+	for addr := range stateDB.suicided {
+		if err := stateDB.sm.DelState(addr); err != nil {
+			return errors.Wrapf(err, "failed to delete suicide account/contract %x", addr[:])
 		}
 	}
 	return nil
