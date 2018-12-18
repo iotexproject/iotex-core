@@ -78,6 +78,8 @@ func (s *Server) HandleBlock(blk *blockchain.Block) error {
 					Msg("error when starting the sub-chain")
 				continue
 			}
+			// TODO we may also need to unsubscribing this before stop subcahin
+			s.dispatcher.AddSubscriber(cs.ChainID(), cs)
 			logger.Info().Uint32("sub-chain", subChain.ChainID).Msg("started the sub-chain")
 		}
 	}
