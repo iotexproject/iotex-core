@@ -59,6 +59,7 @@ type StateManager interface {
 	// General state
 	State(hash.PKHash, interface{}) error
 	PutState(hash.PKHash, interface{}) error
+	DelState(pkHash hash.PKHash) error
 	GetDB() db.KVStore
 	GetCachedBatch() db.CachedBatch
 }

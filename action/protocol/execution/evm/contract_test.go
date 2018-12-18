@@ -33,13 +33,12 @@ const (
 	testTriePath = "trie.test"
 )
 
-var cfg = config.Default
-
 func TestCreateContract(t *testing.T) {
 	require := require.New(t)
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
 
+	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
 	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 	require.Nil(err)
@@ -123,6 +122,7 @@ func TestLoadStoreContract(t *testing.T) {
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
 
+	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
 	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 	require.Nil(err)

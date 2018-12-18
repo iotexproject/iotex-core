@@ -34,6 +34,7 @@ type (
 		// General state
 		State(hash.PKHash, interface{}) error
 		PutState(hash.PKHash, interface{}) error
+		DelState(pkHash hash.PKHash) error
 		GetDB() db.KVStore
 		GetCachedBatch() db.CachedBatch
 	}
@@ -169,7 +170,7 @@ func (ws *workingSet) GetCachedBatch() db.CachedBatch {
 	return ws.cb
 }
 
-// state pulls a state from DB
+// State pulls a state from DB
 func (ws *workingSet) State(hash hash.PKHash, s interface{}) error {
 	mstate, err := ws.accountTrie.Get(hash[:])
 	if errors.Cause(err) == trie.ErrNotExist {
@@ -184,13 +185,18 @@ func (ws *workingSet) State(hash hash.PKHash, s interface{}) error {
 	return nil
 }
 
-// putState put a state into DB
+// PutState puts a state into DB
 func (ws *workingSet) PutState(pkHash hash.PKHash, s interface{}) error {
 	ss, err := state.Serialize(s)
 	if err != nil {
 		return errors.Wrapf(err, "failed to convert account %v to bytes", s)
 	}
 	return ws.accountTrie.Upsert(pkHash[:], ss)
+}
+
+// DelState deletes a state from DB
+func (ws *workingSet) DelState(pkHash hash.PKHash) error {
+	return ws.accountTrie.Delete(pkHash[:])
 }
 
 // clearCache removes all local changes after committing to trie
