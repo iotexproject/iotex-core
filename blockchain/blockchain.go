@@ -767,6 +767,7 @@ func (bc *blockchain) ExecuteContractRead(ex *action.Execution) ([]byte, error) 
 	blk.Actions = nil
 	blk.Actions = []action.Action{ex}
 	blk.receipts = nil
+	blk.receipts = make(map[hash.Hash32B]*action.Receipt)
 	ws, err := bc.sf.NewWorkingSet()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to obtain working set from state factory")
