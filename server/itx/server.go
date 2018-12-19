@@ -179,7 +179,6 @@ func (s *Server) newSubChainService(cfg config.Config) error {
 	executionProtocol := execution.NewProtocol(cs.Blockchain())
 	cs.AddProtocols(subChainProtocol, accountProtocol, voteProtocol, executionProtocol)
 	s.chainservices[cs.ChainID()] = cs
-	s.dispatcher.AddSubscriber(cs.ChainID(), cs)
 	return nil
 }
 
@@ -211,7 +210,6 @@ func (s *Server) NewTestingChainService(cfg config.Config) error {
 	executionProtocol := execution.NewProtocol(cs.Blockchain())
 	cs.AddProtocols(subChainProtocol, accountProtocol, voteProtocol, executionProtocol)
 	s.chainservices[cs.ChainID()] = cs
-	s.dispatcher.AddSubscriber(cs.ChainID(), cs)
 	return nil
 }
 
