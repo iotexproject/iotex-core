@@ -8,6 +8,7 @@ package consensus
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 
 	"github.com/facebookgo/clock"
@@ -60,7 +61,7 @@ func WithRootChainAPI(exp explorerapi.Explorer) Option {
 	}
 }
 
-// WithBroadcast is an option nto add broadcast callback to Consensus
+// WithBroadcast is an option to add broadcast callback to Consensus
 func WithBroadcast(broadcastCB scheme.Broadcast) Option {
 	return func(ops *optionParams) error {
 		ops.broadcastCB = broadcastCB
@@ -74,11 +75,11 @@ func NewConsensus(
 	bc blockchain.Blockchain,
 	ap actpool.ActPool,
 	opts ...Option,
-) Consensus {
+) (Consensus, error) {
 	var ops optionParams
 	for _, opt := range opts {
 		if err := opt(&ops); err != nil {
-			return nil
+			return nil, err
 		}
 	}
 
@@ -185,13 +186,10 @@ func NewConsensus(
 			cfg.Consensus.BlockCreationInterval,
 		)
 	default:
-		logger.Error().
-			Str("scheme", cfg.Consensus.Scheme).
-			Msg("Unexpected IotxConsensus scheme")
-		return nil
+		return nil, fmt.Errorf("unexpected IotxConsensus scheme %s", cfg.Consensus.Scheme)
 	}
 
-	return cs
+	return cs, nil
 }
 
 // Start starts running the consensus algorithm

@@ -97,7 +97,9 @@ func NewBlockSyncer(
 	}
 	bsCfg := Config{}
 	for _, opt := range opts {
-		opt(&bsCfg)
+		if err := opt(&bsCfg); err != nil {
+			return nil, err
+		}
 	}
 	bs := &blockSyncer{
 		ackBlockCommit: cfg.IsDelegate() || cfg.IsFullnode(),

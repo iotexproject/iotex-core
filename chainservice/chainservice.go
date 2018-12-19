@@ -126,8 +126,8 @@ func New(
 	if ops.rootChainAPI != nil {
 		copts = []consensus.Option{consensus.WithRootChainAPI(ops.rootChainAPI)}
 	}
-	consensus := consensus.NewConsensus(cfg, chain, actPool, copts...)
-	if consensus == nil {
+	consensus, err := consensus.NewConsensus(cfg, chain, actPool, copts...)
+	if err != nil {
 		return nil, errors.Wrap(err, "failed to create consensus")
 	}
 
@@ -141,7 +141,7 @@ func New(
 
 	var exp *explorer.Server
 	if cfg.Explorer.Enabled {
-		exp = explorer.NewServer(
+		exp, err = explorer.NewServer(
 			cfg.Explorer,
 			chain,
 			consensus,
@@ -155,6 +155,9 @@ func New(
 			explorer.WithNeighbors(p2pAgent.Neighbors),
 			explorer.WithSelf(p2pAgent.Self),
 		)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return &ChainService{

@@ -78,10 +78,12 @@ func NewServer(
 	actPool actpool.ActPool,
 	idx *indexservice.Server,
 	opts ...Option,
-) *Server {
+) (*Server, error) {
 	expCfg := Config{}
 	for _, opt := range opts {
-		opt(&expCfg)
+		if err := opt(&expCfg); err != nil {
+			return nil, err
+		}
 	}
 	return &Server{
 		cfg: cfg,
@@ -97,7 +99,7 @@ func NewServer(
 			idx:         idx,
 			gs:          GasStation{bc: chain, cfg: cfg},
 		},
-	}
+	}, nil
 }
 
 // SetMainChainProtocol sets the main-chain side multi-chain protocol
