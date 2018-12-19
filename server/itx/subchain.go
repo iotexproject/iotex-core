@@ -16,71 +16,86 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/multichain/mainchain"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/chainservice"
 	"github.com/iotexproject/iotex-core/logger"
 )
 
-func (s *Server) newOrGetSubChainService(subChainInOp mainchain.InOperation) (
-	*chainservice.ChainService,
-	*mainchain.SubChain,
-	error,
-) {
-	chainID := subChainInOp.ID
-	var cs *chainservice.ChainService
-	addr, err := address.BytesToAddress(subChainInOp.Addr)
-	if err != nil {
-		return nil, nil, err
-	}
-	subChain, err := s.mainChainProtocol.SubChain(addr)
-	if err != nil {
-		return nil, nil, err
-	}
-	cs, ok := s.chainservices[chainID]
+func (s *Server) runSubChain(addr address.Address, subChain *mainchain.SubChain) error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	_, ok := s.chainservices[subChain.ChainID]
 	if ok {
-		return cs, subChain, nil
+		return nil
 	}
 	// TODO: get rid of the hack config modification
 	cfg := s.cfg
-	cfg.Chain.ID = chainID
+	cfg.Chain.ID = subChain.ChainID
 	cfg.Chain.Address = addr.IotxAddress()
-	cfg.Chain.ChainDBPath = getSubChainDBPath(chainID, cfg.Chain.ChainDBPath)
-	cfg.Chain.TrieDBPath = getSubChainDBPath(chainID, cfg.Chain.TrieDBPath)
+	cfg.Chain.ChainDBPath = getSubChainDBPath(subChain.ChainID, cfg.Chain.ChainDBPath)
+	cfg.Chain.TrieDBPath = getSubChainDBPath(subChain.ChainID, cfg.Chain.TrieDBPath)
 	cfg.Chain.GenesisActionsPath = ""
 	cfg.Chain.EnableSubChainStartInGenesis = false
 	cfg.Chain.EmptyGenesis = true
-	cfg.Explorer.Port = cfg.Explorer.Port - int(s.rootChainService.ChainID()) + int(chainID)
+	cfg.Explorer.Port = cfg.Explorer.Port - int(s.rootChainService.ChainID()) + int(subChain.ChainID)
 	if err := s.newSubChainService(cfg); err != nil {
-		return nil, nil, err
+		return err
 	}
-	cs, ok = s.chainservices[chainID]
+	cs, ok := s.chainservices[subChain.ChainID]
 	if !ok {
-		return nil, nil, errors.New("failed to get the chain service")
+		return errors.New("failed to get the newly created chain service")
 	}
-	return cs, subChain, nil
+	// TODO: pass in the parent context instead
+	if err := cs.Start(context.Background()); err != nil {
+		return err
+	}
+	// TODO: we may also need to unsubscribe this before stopping sub-cahin
+	s.dispatcher.AddSubscriber(cs.ChainID(), cs)
+	return nil
+}
+
+func (s *Server) isSubChainRunning(chainID uint32) bool {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	_, ok := s.chainservices[chainID]
+	return ok
 }
 
 // HandleBlock implements interface BlockCreationSubscriber
 func (s *Server) HandleBlock(blk *blockchain.Block) error {
-	subChainsInOp, err := s.mainChainProtocol.SubChainsInOperation()
+	runnableSubChains, err := s.mainChainProtocol.SubChainsInOperation()
 	if err != nil {
 		logger.Error().Err(err).Msg("error when getting the sub-chains in operation slice")
 	}
-	for _, subChainInOp := range subChainsInOp {
-		cs, subChain, err := s.newOrGetSubChainService(subChainInOp)
-		if err != nil {
-			logger.Error().Err(err).Msg("error when getting sub-chain service")
+	for _, runnableSubChain := range runnableSubChains {
+		if s.isSubChainRunning(runnableSubChain.ID) {
 			continue
 		}
-		if subChain.StartHeight <= blk.Height() && !cs.IsRunning() {
-			if err := cs.Start(context.Background()); err != nil {
-				logger.Error().Err(err).
-					Uint32("sub-chain", subChain.ChainID).
-					Msg("error when starting the sub-chain")
+		addr, err := address.BytesToAddress(runnableSubChain.Addr)
+		if err != nil {
+			logger.Error().
+				Err(err).
+				Uint32("chainID", runnableSubChain.ID).
+				Msg("error when getting the sub-chain address")
+			continue
+		}
+		subChain, err := s.mainChainProtocol.SubChain(addr)
+		if err != nil {
+			logger.Error().
+				Err(err).
+				Uint32("chainID", subChain.ChainID).
+				Msg("error when getting the sub-chain state")
+			continue
+		}
+		if subChain.StartHeight <= blk.Height() {
+			if err := s.runSubChain(addr, subChain); err != nil {
+				logger.Error().
+					Err(err).
+					Uint32("chainID", subChain.ChainID).
+					Msg("error when put sub-chain service in operation")
 				continue
 			}
-			// TODO we may also need to unsubscribing this before stop subcahin
-			s.dispatcher.AddSubscriber(cs.ChainID(), cs)
-			logger.Info().Uint32("sub-chain", subChain.ChainID).Msg("started the sub-chain")
+			logger.Info().
+				Uint32("chainID", subChain.ChainID).
+				Msg("started the sub-chain")
 		}
 	}
 	return nil

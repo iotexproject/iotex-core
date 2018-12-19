@@ -1079,6 +1079,7 @@ func (bc *blockchain) commitBlock(blk *Block) error {
 	}
 	logger.Info().
 		Uint64("height", blk.Header.height).
+		Uint32("chainID", bc.ChainID()).
 		Hex("hash", bc.tipHash[:]).
 		Msg("commit a block")
 	return nil
