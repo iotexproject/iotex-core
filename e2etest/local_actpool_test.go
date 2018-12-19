@@ -201,7 +201,6 @@ func newActPoolConfig() (config.Config, error) {
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Consensus.Scheme = config.NOOPScheme
 	cfg.Network.Port = testutil.RandomPort()
-	cfg.Network.PeerMaintainerInterval = 100 * time.Millisecond
 	cfg.Explorer.Enabled = true
 	cfg.Explorer.Port = 0
 

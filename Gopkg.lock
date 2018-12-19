@@ -993,11 +993,11 @@
   revision = "4528c8749aae8cb7868a391390ebd15f5ea84618"
 
 [[projects]]
-  digest = "1:f9f6d2b51b0ceaaa595a553bc0aed63b9659808e33ac2d42231cbc895fa257df"
+  digest = "1:c7ba4f4ce303a589144192042bb7f4578c1a37bfd36b5a413a5c248bd82b9227"
   name = "github.com/zjshen14/go-p2p"
   packages = ["."]
   pruneopts = "UT"
-  revision = "04ae550e82e3b5f4266238f131fe6b614bb28bd6"
+  revision = "e1072949cb96618ec1dbc98fa0cb7c1d0acfd5ed"
 
 [[projects]]
   digest = "1:3c1a69cdae3501bf75e76d0d86dc6f2b0a7421bc205c0cb7b96b19eed464a34d"
@@ -1224,9 +1224,6 @@
     "golang.org/x/sync/errgroup",
     "golang.org/x/sync/syncmap",
     "google.golang.org/grpc",
-    "google.golang.org/grpc/credentials",
-    "google.golang.org/grpc/keepalive",
-    "google.golang.org/grpc/peer",
     "google.golang.org/grpc/reflection",
     "gopkg.in/yaml.v2",
   ]

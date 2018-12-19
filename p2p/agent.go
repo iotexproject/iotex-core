@@ -69,6 +69,10 @@ func (p *Agent) Start(ctx context.Context) error {
 		if err := proto.Unmarshal(data, &broadcast); err != nil {
 			return errors.Wrap(err, "error when marshaling broadcast message")
 		}
+		// Skip the broadcast message if it's from the node itself
+		if p.Self().String() == broadcast.Addr {
+			return nil
+		}
 		msg, err := iproto.TypifyProtoMsg(broadcast.MsgType, broadcast.MsgBody)
 		if err != nil {
 			return errors.Wrap(err, "error when typifying broadcast message")
@@ -99,14 +103,13 @@ func (p *Agent) Start(ctx context.Context) error {
 		r := rand.New(rand.NewSource(time.Now().UnixNano()))
 		randBootstrapNodeAddr := p.cfg.BootstrapNodes[r.Intn(len(p.cfg.BootstrapNodes))]
 		if randBootstrapNodeAddr != host.Address() {
-			var err error
-			for i := 0; i < numDialRetries; i++ {
-				if err = host.Connect(randBootstrapNodeAddr); err == nil {
-					break
-				}
-				time.Sleep(dialRetryInterval)
-			}
-			if err != nil {
+			if exponentialRetry(
+				func() error {
+					return host.Connect(randBootstrapNodeAddr)
+				},
+				dialRetryInterval,
+				numDialRetries,
+			); err != nil {
 				return errors.Wrapf(err, "error when connecting bootstrap node %s", randBootstrapNodeAddr)
 			}
 			logger.Info().Str("address", randBootstrapNodeAddr).Msg("Connected bootstrap node")
@@ -202,4 +205,16 @@ func convertAppMsg(msg proto.Message) (uint32, []byte, error) {
 		return 0, nil, errors.Wrap(err, "error when marshaling application message")
 	}
 	return msgType, msgBody, nil
+}
+
+func exponentialRetry(f func() error, retryInterval time.Duration, numRetries int) (err error) {
+	for i := 0; i < numRetries; i++ {
+		err = f()
+		if err = f(); err == nil {
+			return
+		}
+		time.Sleep(retryInterval)
+		retryInterval *= 2
+	}
+	return
 }

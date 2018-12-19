@@ -12,13 +12,14 @@ package p2p;
 
 message BroadcastMsg {
     uint32 chain_id = 1;
-    uint32 msg_type = 2;
-    bytes msg_body = 3;
+    string addr = 2;
+    uint32 msg_type = 3;
+    bytes msg_body = 4;
 }
 
 message UnicastMsg {
-    string addr = 1;
-    uint32 chain_id = 2;
+    uint32 chain_id = 1;
+    string addr = 2;
     uint32 msg_type = 3;
     bytes msg_body = 4;
 }

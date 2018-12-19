@@ -35,10 +35,6 @@
   version = "^1.2.0"
 
 [[constraint]]
-  name = "google.golang.org/grpc"
-  version = "^1.10.0"
-
-[[constraint]]
   name = "gopkg.in/yaml.v2"
   version = "^2.1.1"
 
@@ -48,7 +44,7 @@
 
 [[constraint]]
   name = "github.com/zjshen14/go-p2p"
-  revision = "04ae550e82e3b5f4266238f131fe6b614bb28bd6"
+  revision = "e1072949cb96618ec1dbc98fa0cb7c1d0acfd5ed"
 
 [[constraint]]
   name = "go.uber.org/config"
