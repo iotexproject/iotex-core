@@ -14,6 +14,8 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/boltdb/bolt"
+	"github.com/dgraph-io/badger"
 	"github.com/facebookgo/clock"
 	"github.com/pkg/errors"
 
@@ -312,7 +314,14 @@ func (bc *blockchain) Start(ctx context.Context) (err error) {
 		return err
 	}
 	if bc.tipHeight == 0 {
-		return bc.startEmptyBlockchain()
+		_, err = bc.getBlockByHeight(0)
+		// TODO: Need to unify the NotFound error no matter which db is used
+		if errors.Cause(err) == bolt.ErrBucketNotFound || errors.Cause(err) == badger.ErrKeyNotFound {
+			return bc.startEmptyBlockchain()
+		}
+		if err != nil {
+			return err
+		}
 	}
 	// get blockchain tip hash
 	if bc.tipHash, err = bc.dao.getBlockHash(bc.tipHeight); err != nil {
