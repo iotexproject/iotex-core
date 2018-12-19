@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"net/http"
 	"runtime"
+	"sync"
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -39,6 +40,7 @@ type Server struct {
 	dispatcher           dispatcher.Dispatcher
 	mainChainProtocol    *mainchain.Protocol
 	initializedSubChains map[uint32]bool
+	mutex                sync.RWMutex
 }
 
 // NewServer creates a new server
