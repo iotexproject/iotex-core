@@ -65,12 +65,6 @@ mockgen -destination=./test/mock/mock_actpool/mock_actpool.go  \
         -package=mock_actpool \
         ActPool
 
-mkdir -p ./test/mock/mock_actioniterator
-mockgen -destination=./test/mock/mock_actioniterator/mock_actioniterator.go  \
-        -source=./actpool/actioniterator/actioniterator.go \
-        -package=mock_actioniterator \
-        ActionIterator
-
 mkdir -p ./test/mock/mock_explorer
 mockgen -destination=./test/mock/mock_explorer/mock_explorer.go  \
         -source=./explorer/idl/explorer/explorer.go \
