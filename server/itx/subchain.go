@@ -22,7 +22,7 @@ import (
 func (s *Server) runSubChain(addr address.Address, subChain *mainchain.SubChain) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	cs, ok := s.chainservices[subChain.ChainID]
+	_, ok := s.chainservices[subChain.ChainID]
 	if ok {
 		return nil
 	}
@@ -39,7 +39,7 @@ func (s *Server) runSubChain(addr address.Address, subChain *mainchain.SubChain)
 	if err := s.newSubChainService(cfg); err != nil {
 		return err
 	}
-	cs, ok = s.chainservices[subChain.ChainID]
+	cs, ok := s.chainservices[subChain.ChainID]
 	if !ok {
 		return errors.New("failed to get the newly created chain service")
 	}
