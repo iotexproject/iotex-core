@@ -36,7 +36,9 @@ type (
 		SelfState() *state.Account
 		Commit() error
 		RootHash() hash.Hash32B
+		LoadRoot() error
 		Iterator() (trie.Iterator, error)
+		Snapshot() Contract
 	}
 
 	contract struct {
@@ -44,6 +46,7 @@ type (
 		dirtyCode  bool   // contract's code has been set
 		dirtyState bool   // contract's account state has changed
 		code       []byte // contract byte-code
+		root       hash.Hash32B
 		dao        db.KVStore
 		trie       trie.Trie // storage trie of the contract
 	}
@@ -65,7 +68,9 @@ func (c *contract) GetState(key hash.Hash32B) ([]byte, error) {
 // SetState set the value into contract storage
 func (c *contract) SetState(key hash.Hash32B, value []byte) error {
 	c.dirtyState = true
-	return c.trie.Upsert(key[:], value)
+	err := c.trie.Upsert(key[:], value)
+	c.Account.Root = byteutil.BytesTo32B(c.trie.RootHash())
+	return err
 }
 
 // GetCode gets the contract's byte-code
@@ -110,6 +115,26 @@ func (c *contract) RootHash() hash.Hash32B {
 	return c.Account.Root
 }
 
+// LoadRoot loads storage trie's root
+func (c *contract) LoadRoot() error {
+	return c.trie.SetRootHash(c.Account.Root[:])
+}
+
+// Snapshot takes a snapshot of the contract object
+func (c *contract) Snapshot() Contract {
+	return &contract{
+		Account:    c.Account.Clone(),
+		dirtyCode:  c.dirtyCode,
+		dirtyState: c.dirtyState,
+		code:       c.code,
+		root:       c.Account.Root,
+		dao:        c.dao,
+		// note we simply save the trie (which is an interface/pointer)
+		// later Revert() call needs to reset the saved trie root
+		trie: c.trie,
+	}
+}
+
 // NewContract returns a Contract instance
 func newContract(state *state.Account, dao db.KVStore, batch db.CachedBatch) (Contract, error) {
 	dbForTrie, err := db.NewKVStoreForTrie(ContractKVNameSpace, dao, db.CachedBatchOption(batch))
@@ -118,7 +143,7 @@ func newContract(state *state.Account, dao db.KVStore, batch db.CachedBatch) (Co
 	}
 	options := []trie.Option{
 		trie.KVStoreOption(dbForTrie),
-		trie.KeyLengthOption(32),
+		trie.KeyLengthOption(hash.HashSize),
 	}
 	if state.Root != hash.ZeroHash32B {
 		options = append(options, trie.RootHashOption(state.Root[:]))
@@ -132,5 +157,10 @@ func newContract(state *state.Account, dao db.KVStore, batch db.CachedBatch) (Co
 		return nil, err
 	}
 
-	return &contract{Account: state, dao: dao, trie: tr}, nil
+	return &contract{
+		Account: state,
+		root:    state.Root,
+		dao:     dao,
+		trie:    tr,
+	}, nil
 }

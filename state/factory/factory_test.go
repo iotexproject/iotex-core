@@ -29,8 +29,6 @@ import (
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
-var cfg = config.Default
-
 const testTriePath = "trie.test"
 
 func voteForm(height uint64, cs []*state.Candidate) []string {
@@ -46,6 +44,7 @@ func TestSnapshot(t *testing.T) {
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
 
+	cfg := config.Default
 	cfg.DB.DbPath = testTriePath
 	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewOnDiskDB(cfg.DB)))
 	require.NoError(err)
@@ -214,6 +213,7 @@ func TestCandidates(t *testing.T) {
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
 
+	cfg := config.Default
 	cfg.Chain.NumCandidates = 2
 	cfg.DB.DbPath = testTriePath
 	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewOnDiskDB(cfg.DB)))
@@ -892,6 +892,7 @@ func TestUnvote(t *testing.T) {
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
 
+	cfg := config.Default
 	cfg.Chain.NumCandidates = 2
 	cfg.DB.DbPath = testTriePath
 	f, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewOnDiskDB(cfg.DB)))
@@ -1000,11 +1001,11 @@ func TestUnvote(t *testing.T) {
 
 func TestLoadStoreHeight(t *testing.T) {
 	require := require.New(t)
-
-	cfg.Chain.TrieDBPath = testTriePath
-
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
+
+	cfg := config.Default
+	cfg.Chain.TrieDBPath = testTriePath
 	statefactory, err := NewFactory(cfg, DefaultTrieOption())
 	require.Nil(err)
 	require.Nil(statefactory.Start(context.Background()))

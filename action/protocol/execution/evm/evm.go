@@ -187,7 +187,7 @@ func ExecuteContract(
 	if err := stateDB.commitContracts(); err != nil {
 		return nil, errors.Wrap(err, "failed to commit contracts to underlying db")
 	}
-	stateDB.clearCachedContracts()
+	stateDB.clear()
 	receipt.Logs = stateDB.Logs()
 	logger.Debug().Msgf("Receipt: %+v, %v", receipt, err)
 	return receipt, err

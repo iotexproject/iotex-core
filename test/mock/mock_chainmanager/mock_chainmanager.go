@@ -326,6 +326,18 @@ func (mr *MockStateManagerMockRecorder) PutState(arg0, arg1 interface{}) *gomock
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutState", reflect.TypeOf((*MockStateManager)(nil).PutState), arg0, arg1)
 }
 
+// DelState mocks base method
+func (m *MockStateManager) DelState(pkHash hash.PKHash) error {
+	ret := m.ctrl.Call(m, "DelState", pkHash)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DelState indicates an expected call of DelState
+func (mr *MockStateManagerMockRecorder) DelState(pkHash interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DelState", reflect.TypeOf((*MockStateManager)(nil).DelState), pkHash)
+}
+
 // GetDB mocks base method
 func (m *MockStateManager) GetDB() db.KVStore {
 	ret := m.ctrl.Call(m, "GetDB")
