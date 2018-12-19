@@ -4,15 +4,16 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package actioniterator
+package actpool
 
 import (
 	"math/big"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/test/testaddress"
-	"github.com/stretchr/testify/require"
 )
 
 func TestActionIterator(t *testing.T) {
@@ -22,6 +23,7 @@ func TestActionIterator(t *testing.T) {
 	b := testaddress.Addrinfo["bravo"]
 	c := testaddress.Addrinfo["charlie"]
 	accMap := make(map[string][]action.SealedEnvelope)
+
 	vote1, err := action.NewVote(1, a.RawAddress, b.RawAddress, 0, big.NewInt(13))
 	require.Nil(err)
 	bd := &action.EnvelopeBuilder{}
@@ -89,13 +91,12 @@ func TestActionIterator(t *testing.T) {
 	accMap[tsf3.SrcAddr()] = []action.SealedEnvelope{selp6}
 
 	ai := NewActionIterator(accMap)
-	appliedActionList := make([]action.SealedEnvelope, 0)
-	for {
-		bestAction, ok := ai.Next()
-		if !ok {
-			break
-		}
-		appliedActionList = append(appliedActionList, bestAction)
-	}
-	require.Equal(appliedActionList, []action.SealedEnvelope{selp3, selp1, selp2, selp4, selp5, selp6})
+	act := ai.TopAction()
+	require.Equal(act, selp3) // tsf1
+	ai.LoadNextAction()
+	act = ai.TopAction()
+	require.Equal(act, selp1) // vote1
+	ai.PopAction()
+	act = ai.TopAction()
+	require.Equal(act, selp4) //tsf2
 }
