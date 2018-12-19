@@ -273,11 +273,11 @@ func (ctx *rollDPoSCtx) mintSecretBlock() (*blockchain.Block, error) {
 
 // mintCommonBlock picks the actions and creates a common block to propose
 func (ctx *rollDPoSCtx) mintCommonBlock() (*blockchain.Block, error) {
-	actionMap := ctx.actPool.PendingActionMap()
+	actions := ctx.actPool.PickActs()
 	logger.Debug().
-		Int("action", len(actionMap)).
+		Int("action", len(actions)).
 		Msg("pick actions from the action pool")
-	blk, err := ctx.chain.MintNewBlockWithActionIterator(actionMap, ctx.addr, &ctx.epoch.dkgAddress,
+	blk, err := ctx.chain.MintNewBlock(actions, ctx.addr, &ctx.epoch.dkgAddress,
 		ctx.epoch.seed, "")
 	if err != nil {
 		return nil, err
