@@ -6,14 +6,12 @@
 package action
 
 import (
-	"fmt"
 	"math/big"
 	"sort"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
-	"golang.org/x/crypto/blake2b"
 
-	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -58,72 +56,48 @@ func NewPutBlock(
 }
 
 // LoadProto converts a proto message into put block action.
-func (pb *PutBlock) LoadProto(actPb *iproto.ActionPb) error {
-	if actPb == nil {
+func (pb *PutBlock) LoadProto(putBlockPb *iproto.PutBlockPb) error {
+	if putBlockPb == nil {
 		return errors.New("empty action proto to load")
-	}
-	srcPub, err := keypair.BytesToPublicKey(actPb.SenderPubKey)
-	if err != nil {
-		return err
 	}
 	if pb == nil {
 		return errors.New("nil action to load proto")
 	}
 	*pb = PutBlock{}
-	putBlockPb := actPb.GetPutBlock()
-	if putBlockPb == nil {
-		return errors.New("empty PutBlock action proto to load")
-	}
-
-	ab := &Builder{}
-	act := ab.SetVersion(actPb.Version).
-		SetNonce(actPb.Nonce).
-		SetSourceAddress(actPb.Sender).
-		SetSourcePublicKey(srcPub).
-		SetGasLimit(actPb.GasLimit).
-		SetGasPriceByBytes(actPb.GasPrice).
-		SetDestinationAddress(putBlockPb.SubChainAddress).
-		Build()
-	act.SetSignature(actPb.Signature)
-	pb.AbstractAction = act
 
 	pb.subChainAddress = putBlockPb.SubChainAddress
 	pb.height = putBlockPb.Height
 
 	pb.roots = make(map[string]hash.Hash32B)
-	for k, v := range putBlockPb.Roots {
-		pb.roots[k] = byteutil.BytesTo32B(v)
+	for _, r := range putBlockPb.Roots {
+		pb.roots[r.Name] = byteutil.BytesTo32B(r.Value)
 	}
 	return nil
 }
 
 // Proto converts put sub-chain block action into a proto message.
-func (pb *PutBlock) Proto() *iproto.ActionPb {
-	// used by account-based model
-	act := &iproto.ActionPb{
-		Action: &iproto.ActionPb_PutBlock{
-			PutBlock: &iproto.PutBlockPb{
-				SubChainAddress: pb.subChainAddress,
-				Height:          pb.height,
-			},
-		},
-		Version:      pb.version,
-		Sender:       pb.srcAddr,
-		SenderPubKey: pb.srcPubkey[:],
-		Nonce:        pb.nonce,
-		GasLimit:     pb.gasLimit,
-		Signature:    pb.signature,
+func (pb *PutBlock) Proto() *iproto.PutBlockPb {
+	act := &iproto.PutBlockPb{
+		SubChainAddress: pb.subChainAddress,
+		Height:          pb.height,
 	}
 
-	putBlockPb := act.GetPutBlock()
-	putBlockPb.Roots = make(map[string][]byte)
-	for k, v := range pb.roots {
-		putBlockPb.Roots[k] = make([]byte, len(v))
-		copy(putBlockPb.Roots[k], v[:])
+	keys := make([]string, 0, len(pb.roots))
+	for k := range pb.roots {
+		keys = append(keys, k)
 	}
+	sort.Strings(keys)
 
-	if pb.gasPrice != nil && len(pb.gasPrice.Bytes()) > 0 {
-		act.GasPrice = pb.gasPrice.Bytes()
+	act.Roots = make([]*iproto.MerkleRoot, 0, len(pb.roots))
+	for _, k := range keys {
+		v := pb.roots[k]
+		nv := make([]byte, len(v))
+		copy(nv, v[:])
+
+		act.Roots = append(act.Roots, &iproto.MerkleRoot{
+			Name:  k,
+			Value: nv[:],
+		})
 	}
 
 	return act
@@ -146,40 +120,8 @@ func (pb *PutBlock) ProducerPublicKey() keypair.PublicKey { return pb.SrcPubkey(
 
 // ByteStream returns the byte representation of put block action.
 func (pb *PutBlock) ByteStream() []byte {
-	stream := []byte(fmt.Sprintf("%T", pb))
-	temp := make([]byte, 4)
-	enc.MachineEndian.PutUint32(temp, pb.version)
-	stream = append(stream, temp...)
-	temp = make([]byte, 8)
-	enc.MachineEndian.PutUint64(temp, pb.nonce)
-	stream = append(stream, temp...)
-	stream = append(stream, pb.subChainAddress...)
-	temp = make([]byte, 8)
-	enc.MachineEndian.PutUint64(temp, pb.height)
-	stream = append(stream, temp...)
-	stream = append(stream, pb.srcAddr...)
-	stream = append(stream, pb.srcPubkey[:]...)
-	temp = make([]byte, 8)
-	enc.MachineEndian.PutUint64(temp, pb.gasLimit)
-	stream = append(stream, temp...)
-	if pb.gasPrice != nil && len(pb.gasPrice.Bytes()) > 0 {
-		stream = append(stream, pb.gasPrice.Bytes()...)
-	}
-	keys := make([]string, 0, len(pb.roots))
-	for k := range pb.roots {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	for _, k := range keys {
-		v := pb.roots[k]
-		stream = append(stream, k...)
-		stream = append(stream, v[:]...)
-	}
-	return stream
+	return byteutil.Must(proto.Marshal(pb.Proto()))
 }
-
-// Hash returns the hash of putting a sub-chain block message
-func (pb *PutBlock) Hash() hash.Hash32B { return blake2b.Sum256(pb.ByteStream()) }
 
 // IntrinsicGas returns the intrinsic gas of a put block action
 func (pb *PutBlock) IntrinsicGas() (uint64, error) {

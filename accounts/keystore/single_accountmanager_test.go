@@ -37,10 +37,20 @@ func TestSingleAccountManager_SignTransfer(t *testing.T) {
 
 	tsf, err := action.NewTransfer(uint64(1), big.NewInt(1), rawAddr1, rawAddr2, []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(err)
-	require.NoError(m.SignTransfer(tsf))
+
+	bd := action.EnvelopeBuilder{}
+	elp := bd.SetNonce(1).
+		SetAction(tsf).
+		SetGasLimit(100000).
+		SetDestinationAddress(rawAddr2).
+		SetGasPrice(big.NewInt(10)).Build()
+
+	_, err = m.SignAction(elp)
+	require.NoError(err)
 
 	require.NoError(accountManager.Remove(rawAddr1))
-	require.Equal(ErrNumAccounts, errors.Cause(m.SignTransfer(tsf)))
+	_, err = m.SignAction(elp)
+	require.Equal(ErrNumAccounts, errors.Cause(err))
 }
 
 func TestSingleAccountManager_SignVote(t *testing.T) {
@@ -67,10 +77,20 @@ func TestSingleAccountManager_SignVote(t *testing.T) {
 	vote, err := action.NewVote(
 		uint64(1), voterAddress.IotxAddress(), voteeAddress.IotxAddress(), uint64(100000), big.NewInt(10))
 	require.NoError(err)
-	require.NoError(m.SignVote(vote))
+
+	bd := action.EnvelopeBuilder{}
+	elp := bd.SetNonce(1).
+		SetAction(vote).
+		SetGasLimit(100000).
+		SetDestinationAddress(voteeAddress.IotxAddress()).
+		SetGasPrice(big.NewInt(10)).Build()
+
+	_, err = m.SignAction(elp)
+	require.NoError(err)
 
 	require.NoError(accountManager.Remove(rawAddr1))
-	require.Equal(ErrNumAccounts, errors.Cause(m.SignVote(vote)))
+	_, err = m.SignAction(elp)
+	require.Equal(ErrNumAccounts, errors.Cause(err))
 }
 
 func TestSingleAccountManager_SignHash(t *testing.T) {

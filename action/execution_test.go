@@ -26,73 +26,22 @@ func TestExecutionSignVerify(t *testing.T) {
 	require.NoError(err)
 	ex, err := NewExecution(executor.RawAddress, contract.RawAddress, 0, big.NewInt(10), uint64(10), big.NewInt(10), data)
 	require.NoError(err)
-	require.Error(Verify(ex))
+
+	bd := &EnvelopeBuilder{}
+	elp := bd.SetNonce(0).
+		SetGasLimit(uint64(10)).
+		SetDestinationAddress(contract.RawAddress).
+		SetGasPrice(big.NewInt(10)).
+		SetAction(ex).Build()
+
+	w := AssembleSealedEnvelope(elp, executor.RawAddress, executor.PublicKey, []byte("lol"))
+	require.Error(Verify(w))
 
 	// sign the Execution
-	require.NoError(Sign(ex, executor.PrivateKey))
-	require.NotNil(ex)
-	require.Equal(ex.Hash(), ex.Hash())
+	selp, err := Sign(elp, executor.RawAddress, executor.PrivateKey)
+	require.NoError(err)
+	require.NotNil(selp)
 
 	// verify signature
-	require.NoError(Verify(ex))
-	require.NotNil(ex.Signature)
-}
-
-func TestExecutionSerializeDeserialize(t *testing.T) {
-	require := require.New(t)
-	executor, err := iotxaddress.NewAddress(iotxaddress.IsTestnet, chainid)
-	require.NoError(err)
-	contract, err := iotxaddress.NewAddress(iotxaddress.IsTestnet, chainid)
-	require.NoError(err)
-	data, err := hex.DecodeString("60652403")
-	require.NoError(err)
-
-	ex, err := NewExecution(executor.RawAddress, contract.RawAddress, 0, big.NewInt(123), uint64(1234), big.NewInt(10), data)
-	require.NoError(err)
-	require.NotNil(ex)
-
-	s, err := ex.Serialize()
-	require.NoError(err)
-
-	newex := &Execution{}
-	err = newex.Deserialize(s)
-	require.NoError(err)
-
-	require.Equal(uint64(0), newex.Nonce())
-	require.Equal(uint64(123), newex.amount.Uint64())
-	require.Equal(executor.RawAddress, newex.Executor())
-	require.Equal(contract.RawAddress, newex.Contract())
-
-	require.Equal(ex.Hash(), newex.Hash())
-	require.Equal(ex.TotalSize(), newex.TotalSize())
-}
-
-func TestExecutionToJSONFromJSON(t *testing.T) {
-	require := require.New(t)
-	executor, err := iotxaddress.NewAddress(true, chainid)
-	require.NoError(err)
-	contract, err := iotxaddress.NewAddress(true, chainid)
-	require.NoError(err)
-	data, err := hex.DecodeString("60652403")
-	require.NoError(err)
-
-	ex, err := NewExecution(executor.RawAddress, contract.RawAddress, 0, big.NewInt(123), uint64(1234), big.NewInt(10), data)
-	require.NoError(err)
-	require.NotNil(ex)
-
-	expex, err := ex.ToJSON()
-	require.NoError(err)
-	require.NotNil(expex)
-
-	newex, err := NewExecutionFromJSON(expex)
-	require.NoError(err)
-	require.NotNil(newex)
-
-	require.Equal(uint64(0), newex.Nonce())
-	require.Equal(uint64(123), newex.amount.Uint64())
-	require.Equal(executor.RawAddress, newex.Executor())
-	require.Equal(contract.RawAddress, newex.Contract())
-
-	require.Equal(ex.Hash(), newex.Hash())
-	require.Equal(ex.TotalSize(), newex.TotalSize())
+	require.NoError(Verify(selp))
 }

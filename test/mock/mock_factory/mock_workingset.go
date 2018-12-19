@@ -37,7 +37,7 @@ func (m *MockWorkingSet) EXPECT() *MockWorkingSetMockRecorder {
 }
 
 // RunActions mocks base method
-func (m *MockWorkingSet) RunActions(arg0 context.Context, arg1 uint64, arg2 []action.Action) (hash.Hash32B, map[hash.Hash32B]*action.Receipt, error) {
+func (m *MockWorkingSet) RunActions(arg0 context.Context, arg1 uint64, arg2 []action.SealedEnvelope) (hash.Hash32B, map[hash.Hash32B]*action.Receipt, error) {
 	ret := m.ctrl.Call(m, "RunActions", arg0, arg1, arg2)
 	ret0, _ := ret[0].(hash.Hash32B)
 	ret1, _ := ret[1].(map[hash.Hash32B]*action.Receipt)

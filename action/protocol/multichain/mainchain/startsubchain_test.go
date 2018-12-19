@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
@@ -265,8 +266,8 @@ func TestHandleStartSubChain(t *testing.T) {
 	)
 	require.NoError(t, err)
 	gasLimit := testutil.TestGasLimit
-	ctx = state.WithRunActionsCtx(ctx,
-		state.RunActionsCtx{
+	ctx = protocol.WithRunActionsCtx(ctx,
+		protocol.RunActionsCtx{
 			ProducerAddr:    testaddress.Addrinfo["producer"].RawAddress,
 			GasLimit:        &gasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
@@ -290,7 +291,10 @@ func TestHandleStartSubChain(t *testing.T) {
 		0,
 		big.NewInt(0),
 	)
-	assert.NoError(t, action.Sign(start, testaddress.Addrinfo["producer"].PrivateKey))
+	bd := &action.EnvelopeBuilder{}
+	elp := bd.SetNonce(1).SetGasLimit(10).SetAction(start).Build()
+	_, err = action.Sign(elp, testaddress.Addrinfo["producer"].RawAddress, testaddress.Addrinfo["producer"].PrivateKey)
+	require.NoError(t, err)
 
 	// Handle the action
 	protocol := NewProtocol(chain)

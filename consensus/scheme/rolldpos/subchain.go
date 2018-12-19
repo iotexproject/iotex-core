@@ -80,21 +80,31 @@ func constructPutSubChainBlockRequest(rootChainAPI explorerapi.Explorer, subChai
 		1000000,        // gas limit
 		big.NewInt(10), //gas price
 	)
+
+	bd := &action.EnvelopeBuilder{}
+	elp := bd.SetNonce(uint64(senderPCAddrDetails.PendingNonce)).
+		SetDestinationAddress(subChainAddr).
+		SetGasPrice(big.NewInt(10)).
+		SetGasLimit(1000000).
+		SetAction(pb).Build()
+
 	// sign action
-	if err := action.Sign(pb, sender.PrivateKey); err != nil {
+	selp, err := action.Sign(elp, senderPCAddr, sender.PrivateKey)
+	if err != nil {
 		return explorerapi.PutSubChainBlockRequest{}, errors.Wrap(err, "fail to sign put block action")
 	}
 
 	req := explorerapi.PutSubChainBlockRequest{
-		Version:         int64(pb.Version()),
-		Nonce:           int64(pb.Nonce()),
-		SenderAddress:   pb.SrcAddr(),
+		Version:         int64(selp.Version()),
+		Nonce:           int64(selp.Nonce()),
+		SenderAddress:   selp.SrcAddr(),
 		SenderPubKey:    hex.EncodeToString(sender.PublicKey[:]),
-		GasLimit:        int64(pb.GasLimit()),
-		GasPrice:        pb.GasPrice().String(),
+		GasLimit:        int64(selp.GasLimit()),
+		GasPrice:        selp.GasPrice().String(),
 		SubChainAddress: pb.SubChainAddress(),
 		Height:          int64(pb.Height()),
 		Roots:           make([]explorerapi.PutSubChainBlockMerkelRoot, 0, 2),
+		Signature:       hex.EncodeToString(selp.Signature()),
 	}
 
 	// put merkel roots

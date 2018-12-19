@@ -117,7 +117,7 @@ func NewGenesisBlock(chainCfg config.Chain, ws factory.WorkingSet) *Block {
 	}
 
 	// TODO: convert vote to state operation as well
-	acts := make([]action.Action, 0)
+	acts := make([]action.SealedEnvelope, 0)
 	for _, nominator := range actions.SelfNominators {
 		pk, _ := decodeKey(nominator.PubKey, "")
 		address := generateAddr(chainCfg.ID, pk)
@@ -131,7 +131,11 @@ func NewGenesisBlock(chainCfg config.Chain, ws factory.WorkingSet) *Block {
 		if err != nil {
 			logger.Panic().Err(err).Msg("Fail to create the new vote action")
 		}
-		acts = append(acts, vote)
+		bd := action.EnvelopeBuilder{}
+		elp := bd.SetDestinationAddress(address).
+			SetAction(vote).Build()
+		selp := action.FakeSeal(elp, address, pk)
+		acts = append(acts, selp)
 	}
 
 	// TODO: decouple start sub-chain from genesis block
@@ -148,7 +152,11 @@ func NewGenesisBlock(chainCfg config.Chain, ws factory.WorkingSet) *Block {
 				0,
 				big.NewInt(0),
 			)
-			acts = append(acts, start)
+			bd := action.EnvelopeBuilder{}
+			elp := bd.SetAction(start).Build()
+			pk, _ := decodeKey(Gen.CreatorPubKey, "")
+			selp := action.FakeSeal(elp, creatorAddr, pk)
+			acts = append(acts, selp)
 		}
 	}
 

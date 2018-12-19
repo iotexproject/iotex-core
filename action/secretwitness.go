@@ -9,11 +9,8 @@ package action
 import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
-	"golang.org/x/crypto/blake2b"
 
-	"github.com/iotexproject/iotex-core/pkg/enc"
-	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/proto"
 )
@@ -48,82 +45,28 @@ func (sw *SecretWitness) Witness() [][]byte { return sw.witness }
 
 // ByteStream returns a raw byte stream of this SecretWitness
 func (sw *SecretWitness) ByteStream() []byte {
-	stream := make([]byte, 4)
-	enc.MachineEndian.PutUint32(stream, sw.version)
-	temp := make([]byte, 8)
-	enc.MachineEndian.PutUint64(temp, sw.nonce)
-	stream = append(stream, temp...)
-	stream = append(stream, sw.srcAddr...)
-	for _, w := range sw.witness {
-		stream = append(stream, w...)
-	}
-	return stream
+	return byteutil.Must(proto.Marshal(sw.Proto()))
 }
 
 // Proto converts SecretWitness to protobuf's ActionPb
-func (sw *SecretWitness) Proto() *iproto.ActionPb {
+func (sw *SecretWitness) Proto() *iproto.SecretWitnessPb {
 	// used by account-based model
-	act := &iproto.ActionPb{
-		Action: &iproto.ActionPb_SecretWitness{
-			SecretWitness: &iproto.SecretWitnessPb{
-				Witness: sw.witness,
-			},
-		},
-		Version:      sw.version,
-		Sender:       sw.srcAddr,
-		SenderPubKey: sw.srcPubkey[:],
-		Nonce:        sw.nonce,
+	return &iproto.SecretWitnessPb{
+		Witness: sw.witness,
 	}
-	return act
-}
-
-// Serialize returns a serialized byte stream for the SecretWitness
-func (sw *SecretWitness) Serialize() ([]byte, error) {
-	return proto.Marshal(sw.Proto())
 }
 
 // LoadProto converts a protobuf's ActionPb to SecretWitness
-func (sw *SecretWitness) LoadProto(pbAct *iproto.ActionPb) error {
-	if pbAct == nil {
+func (sw *SecretWitness) LoadProto(pbSw *iproto.SecretWitnessPb) error {
+	if pbSw == nil {
 		return errors.New("empty action proto to load")
-	}
-	srcPub, err := keypair.BytesToPublicKey(pbAct.SenderPubKey)
-	if err != nil {
-		return err
 	}
 	if sw == nil {
 		return errors.New("nil action to load proto")
 	}
 	*sw = SecretWitness{}
-	pbSecretWitness := pbAct.GetSecretWitness()
-	if pbSecretWitness == nil {
-		return errors.New("empty CreateDeposit action proto to load")
-	}
-
-	ab := &Builder{}
-	act := ab.SetVersion(pbAct.Version).
-		SetNonce(pbAct.Nonce).
-		SetSourceAddress(pbAct.Sender).
-		SetSourcePublicKey(srcPub).
-		Build()
-	act.SetSignature(pbAct.Signature)
-	sw.AbstractAction = act
-	sw.witness = pbSecretWitness.Witness
+	sw.witness = pbSw.Witness
 	return nil
-}
-
-// Deserialize parses the byte stream into SecretWitness
-func (sw *SecretWitness) Deserialize(buf []byte) error {
-	pbAct := &iproto.ActionPb{}
-	if err := proto.Unmarshal(buf, pbAct); err != nil {
-		return err
-	}
-	return sw.LoadProto(pbAct)
-}
-
-// Hash returns the hash of the SecretWitness
-func (sw *SecretWitness) Hash() hash.Hash32B {
-	return blake2b.Sum256(sw.ByteStream())
 }
 
 // IntrinsicGas returns the intrinsic gas of a secret witness

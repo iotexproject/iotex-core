@@ -15,6 +15,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/actpool"
 	bc "github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
@@ -244,6 +246,8 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 	testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
 
 	chain := bc.NewBlockchain(cfg, bc.InMemStateFactoryOption(), bc.InMemDaoOption())
+	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain))
+	chain.Validator().AddActionValidators(account.NewProtocol())
 	require.NoError(chain.Start(ctx))
 	require.NotNil(chain)
 	ap, err := actpool.NewActPool(chain, cfg.ActPool)
@@ -289,6 +293,8 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
 
 	chain1 := bc.NewBlockchain(cfg, bc.InMemStateFactoryOption(), bc.InMemDaoOption())
+	chain1.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain1))
+	chain1.Validator().AddActionValidators(account.NewProtocol())
 	require.NoError(chain1.Start(ctx))
 	require.NotNil(chain1)
 	ap1, err := actpool.NewActPool(chain1, cfg.ActPool)
@@ -297,6 +303,8 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	bs1, err := NewBlockSyncer(cfg, chain1, ap1, network.NewOverlay(cfg.Network))
 	require.Nil(err)
 	chain2 := bc.NewBlockchain(cfg, bc.InMemStateFactoryOption(), bc.InMemDaoOption())
+	chain2.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain2))
+	chain2.Validator().AddActionValidators(account.NewProtocol())
 	require.NoError(chain2.Start(ctx))
 	require.NotNil(chain2)
 	ap2, err := actpool.NewActPool(chain2, cfg.ActPool)
@@ -348,6 +356,8 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
 
 	chain1 := bc.NewBlockchain(cfg, bc.InMemStateFactoryOption(), bc.InMemDaoOption())
+	chain1.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain1))
+	chain1.Validator().AddActionValidators(account.NewProtocol())
 	require.NoError(chain1.Start(ctx))
 	require.NotNil(chain1)
 	ap1, err := actpool.NewActPool(chain1, cfg.ActPool)
@@ -356,6 +366,8 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	bs1, err := NewBlockSyncer(cfg, chain1, ap1, network.NewOverlay(cfg.Network))
 	require.Nil(err)
 	chain2 := bc.NewBlockchain(cfg, bc.InMemStateFactoryOption(), bc.InMemDaoOption())
+	chain2.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain2))
+	chain2.Validator().AddActionValidators(account.NewProtocol())
 	require.NoError(chain2.Start(ctx))
 	require.NotNil(chain2)
 	ap2, err := actpool.NewActPool(chain2, cfg.ActPool)

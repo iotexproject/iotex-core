@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/hash"
@@ -31,25 +32,49 @@ func TestBlockDAO(t *testing.T) {
 		// create testing transfers
 		cbTsf1 := action.NewCoinBaseTransfer(1, big.NewInt(int64((amount))), testaddress.Addrinfo["alfa"].RawAddress)
 		assert.NotNil(t, cbTsf1)
+		bd := &action.EnvelopeBuilder{}
+		elp := bd.SetNonce(1).
+			SetDestinationAddress(testaddress.Addrinfo["alfa"].RawAddress).
+			SetGasLimit(protocol.GasLimit).
+			SetAction(cbTsf1).Build()
+		scbTsf1, err := action.Sign(elp, testaddress.Addrinfo["alfa"].RawAddress, testaddress.Addrinfo["alfa"].PrivateKey)
+		require.NoError(t, err)
+
 		cbTsf2 := action.NewCoinBaseTransfer(1, big.NewInt(int64((amount))), testaddress.Addrinfo["bravo"].RawAddress)
 		assert.NotNil(t, cbTsf2)
+		bd = &action.EnvelopeBuilder{}
+		elp = bd.SetNonce(1).
+			SetDestinationAddress(testaddress.Addrinfo["bravo"].RawAddress).
+			SetGasLimit(protocol.GasLimit).
+			SetAction(cbTsf2).Build()
+		scbTsf2, err := action.Sign(elp, testaddress.Addrinfo["bravo"].RawAddress, testaddress.Addrinfo["bravo"].PrivateKey)
+		require.NoError(t, err)
+
+		require.NoError(t, err)
 		cbTsf3 := action.NewCoinBaseTransfer(1, big.NewInt(int64((amount))), testaddress.Addrinfo["charlie"].RawAddress)
 		assert.NotNil(t, cbTsf3)
+		bd = &action.EnvelopeBuilder{}
+		elp = bd.SetNonce(1).
+			SetDestinationAddress(testaddress.Addrinfo["charlie"].RawAddress).
+			SetGasLimit(protocol.GasLimit).
+			SetAction(cbTsf3).Build()
+		scbTsf3, err := action.Sign(elp, testaddress.Addrinfo["charlie"].RawAddress, testaddress.Addrinfo["charlie"].PrivateKey)
+		require.NoError(t, err)
 
 		// create testing votes
-		vote1, err := action.NewVote(1, testaddress.Addrinfo["alfa"].RawAddress, testaddress.Addrinfo["alfa"].RawAddress, uint64(100000), big.NewInt(10))
+		vote1, err := testutil.SignedVote(testaddress.Addrinfo["alfa"], testaddress.Addrinfo["alfa"], 1, 100000, big.NewInt(10))
 		require.NoError(t, err)
-		vote2, err := action.NewVote(1, testaddress.Addrinfo["bravo"].RawAddress, testaddress.Addrinfo["bravo"].RawAddress, uint64(100000), big.NewInt(10))
+		vote2, err := testutil.SignedVote(testaddress.Addrinfo["bravo"], testaddress.Addrinfo["bravo"], 1, 100000, big.NewInt(10))
 		require.NoError(t, err)
-		vote3, err := action.NewVote(1, testaddress.Addrinfo["charlie"].RawAddress, testaddress.Addrinfo["charlie"].RawAddress, uint64(100000), big.NewInt(10))
+		vote3, err := testutil.SignedVote(testaddress.Addrinfo["charlie"], testaddress.Addrinfo["charlie"], 1, 100000, big.NewInt(10))
 		require.NoError(t, err)
 
 		// create testing executions
-		execution1, err := action.NewExecution(testaddress.Addrinfo["alfa"].RawAddress, testaddress.Addrinfo["delta"].RawAddress, 1, big.NewInt(1), 0, big.NewInt(0), nil)
+		execution1, err := testutil.SignedExecution(testaddress.Addrinfo["alfa"], testaddress.Addrinfo["delta"].RawAddress, 1, big.NewInt(1), 0, big.NewInt(0), nil)
 		require.NoError(t, err)
-		execution2, err := action.NewExecution(testaddress.Addrinfo["bravo"].RawAddress, testaddress.Addrinfo["delta"].RawAddress, 2, big.NewInt(0), 0, big.NewInt(0), nil)
+		execution2, err := testutil.SignedExecution(testaddress.Addrinfo["bravo"], testaddress.Addrinfo["delta"].RawAddress, 2, big.NewInt(0), 0, big.NewInt(0), nil)
 		require.NoError(t, err)
-		execution3, err := action.NewExecution(testaddress.Addrinfo["charlie"].RawAddress, testaddress.Addrinfo["delta"].RawAddress, 3, big.NewInt(2), 0, big.NewInt(0), nil)
+		execution3, err := testutil.SignedExecution(testaddress.Addrinfo["charlie"], testaddress.Addrinfo["delta"].RawAddress, 3, big.NewInt(2), 0, big.NewInt(0), nil)
 		require.NoError(t, err)
 
 		// create testing create deposit actions
@@ -61,6 +86,14 @@ func TestBlockDAO(t *testing.T) {
 			testutil.TestGasLimit,
 			big.NewInt(0),
 		)
+		bd = &action.EnvelopeBuilder{}
+		elp = bd.SetNonce(4).
+			SetDestinationAddress(testaddress.Addrinfo["delta"].RawAddress).
+			SetGasLimit(testutil.TestGasLimit).
+			SetAction(deposit1).Build()
+		sdeposit1, err := action.Sign(elp, testaddress.Addrinfo["alfa"].RawAddress, testaddress.Addrinfo["alfa"].PrivateKey)
+		require.NoError(t, err)
+
 		deposit2 := action.NewCreateDeposit(
 			5,
 			big.NewInt(2),
@@ -69,6 +102,14 @@ func TestBlockDAO(t *testing.T) {
 			testutil.TestGasLimit,
 			big.NewInt(0),
 		)
+		bd = &action.EnvelopeBuilder{}
+		elp = bd.SetNonce(5).
+			SetDestinationAddress(testaddress.Addrinfo["delta"].RawAddress).
+			SetGasLimit(testutil.TestGasLimit).
+			SetAction(deposit2).Build()
+		sdeposit2, err := action.Sign(elp, testaddress.Addrinfo["bravo"].RawAddress, testaddress.Addrinfo["bravo"].PrivateKey)
+		require.NoError(t, err)
+
 		deposit3 := action.NewCreateDeposit(
 			6,
 			big.NewInt(3),
@@ -77,6 +118,13 @@ func TestBlockDAO(t *testing.T) {
 			testutil.TestGasLimit,
 			big.NewInt(0),
 		)
+		bd = &action.EnvelopeBuilder{}
+		elp = bd.SetNonce(6).
+			SetDestinationAddress(testaddress.Addrinfo["delta"].RawAddress).
+			SetGasLimit(testutil.TestGasLimit).
+			SetAction(deposit3).Build()
+		sdeposit3, err := action.Sign(elp, testaddress.Addrinfo["charlie"].RawAddress, testaddress.Addrinfo["charlie"].PrivateKey)
+		require.NoError(t, err)
 
 		hash1 := hash.Hash32B{}
 		fnv.New32().Sum(hash1[:])
@@ -86,7 +134,7 @@ func TestBlockDAO(t *testing.T) {
 			hash1,
 			testutil.TimestampNow(),
 			testaddress.Addrinfo["producer"].PublicKey,
-			[]action.Action{cbTsf1, vote1, execution1, deposit1},
+			[]action.SealedEnvelope{scbTsf1, vote1, execution1, sdeposit1},
 		)
 		hash2 := hash.Hash32B{}
 		fnv.New32().Sum(hash2[:])
@@ -96,7 +144,7 @@ func TestBlockDAO(t *testing.T) {
 			hash2,
 			testutil.TimestampNow(),
 			testaddress.Addrinfo["producer"].PublicKey,
-			[]action.Action{cbTsf2, vote2, execution2, deposit2},
+			[]action.SealedEnvelope{scbTsf2, vote2, execution2, sdeposit2},
 		)
 		hash3 := hash.Hash32B{}
 		fnv.New32().Sum(hash3[:])
@@ -106,7 +154,7 @@ func TestBlockDAO(t *testing.T) {
 			hash3,
 			testutil.TimestampNow(),
 			testaddress.Addrinfo["producer"].PublicKey,
-			[]action.Action{cbTsf3, vote3, execution3, deposit3},
+			[]action.SealedEnvelope{scbTsf3, vote3, execution3, sdeposit3},
 		)
 		return []*Block{blk1, blk2, blk3}
 	}
@@ -270,10 +318,10 @@ func TestBlockDAO(t *testing.T) {
 		// Test get transfers
 		senderTransferCount, err := dao.getTransferCountBySenderAddress(testaddress.Addrinfo["alfa"].RawAddress)
 		require.NoError(t, err)
-		require.Equal(t, uint64(0), senderTransferCount)
+		require.Equal(t, uint64(1), senderTransferCount)
 		senderTransfers, err := dao.getTransfersBySenderAddress(testaddress.Addrinfo["alfa"].RawAddress)
 		require.NoError(t, err)
-		require.Equal(t, 0, len(senderTransfers))
+		require.Equal(t, 1, len(senderTransfers))
 		recipientTransferCount, err := dao.getTransferCountByRecipientAddress(testaddress.Addrinfo["alfa"].RawAddress)
 		require.NoError(t, err)
 		require.Equal(t, uint64(1), recipientTransferCount)
@@ -284,10 +332,10 @@ func TestBlockDAO(t *testing.T) {
 
 		senderTransferCount, err = dao.getTransferCountBySenderAddress(testaddress.Addrinfo["bravo"].RawAddress)
 		require.NoError(t, err)
-		require.Equal(t, uint64(0), senderTransferCount)
+		require.Equal(t, uint64(1), senderTransferCount)
 		senderTransfers, err = dao.getTransfersBySenderAddress(testaddress.Addrinfo["bravo"].RawAddress)
 		require.NoError(t, err)
-		require.Equal(t, 0, len(senderTransfers))
+		require.Equal(t, 1, len(senderTransfers))
 		recipientTransferCount, err = dao.getTransferCountByRecipientAddress(testaddress.Addrinfo["bravo"].RawAddress)
 		require.NoError(t, err)
 		require.Equal(t, uint64(1), recipientTransferCount)
@@ -298,10 +346,10 @@ func TestBlockDAO(t *testing.T) {
 
 		senderTransferCount, err = dao.getTransferCountBySenderAddress(testaddress.Addrinfo["charlie"].RawAddress)
 		require.NoError(t, err)
-		require.Equal(t, uint64(0), senderTransferCount)
+		require.Equal(t, uint64(1), senderTransferCount)
 		senderTransfers, err = dao.getTransfersBySenderAddress(testaddress.Addrinfo["charlie"].RawAddress)
 		require.NoError(t, err)
-		require.Equal(t, 0, len(senderTransfers))
+		require.Equal(t, 1, len(senderTransfers))
 		recipientTransferCount, err = dao.getTransferCountByRecipientAddress(testaddress.Addrinfo["charlie"].RawAddress)
 		require.NoError(t, err)
 		require.Equal(t, uint64(1), recipientTransferCount)
@@ -517,11 +565,11 @@ func TestBlockDAO(t *testing.T) {
 		deltaAddr := testaddress.Addrinfo["delta"].RawAddress
 
 		transfersFromCharlie, _ := dao.getTransfersBySenderAddress(charlieAddr)
-		require.Equal(0, len(transfersFromCharlie))
+		require.Equal(1, len(transfersFromCharlie))
 		transfersToCharlie, _ := dao.getTransfersByRecipientAddress(charlieAddr)
 		require.Equal(1, len(transfersToCharlie))
 		transferFromCharlieCount, _ := dao.getTransferCountBySenderAddress(charlieAddr)
-		require.Equal(uint64(0), transferFromCharlieCount)
+		require.Equal(uint64(1), transferFromCharlieCount)
 		transferToCharlieCount, _ := dao.getTransferCountByRecipientAddress(charlieAddr)
 		require.Equal(uint64(1), transferToCharlieCount)
 
@@ -551,6 +599,9 @@ func TestBlockDAO(t *testing.T) {
 		require.Equal(uint64(0), execFromDeltaCount)
 		execToDeltaCount, _ := dao.getExecutionCountByContractAddress(deltaAddr)
 		require.Equal(uint64(3), execToDeltaCount)
+
+		tipHeight, err = dao.getBlockchainHeight()
+		require.NoError(err)
 
 		// Delete tip block
 		err = dao.deleteTipBlock()

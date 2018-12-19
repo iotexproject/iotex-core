@@ -10,8 +10,7 @@ import (
 	"errors"
 
 	"github.com/golang/protobuf/proto"
-
-	"github.com/iotexproject/iotex-core/action/protocol/multichain/subchain/protogen"
+	"github.com/iotexproject/iotex-core/action/protocol/multichain/subchain/subchainpb"
 )
 
 // DepositIndex represents the deposit index
@@ -19,12 +18,12 @@ type DepositIndex byte
 
 // Serialize serializes deposit index into bytes
 func (di DepositIndex) Serialize() ([]byte, error) {
-	return proto.Marshal(&protogen.Deposit{Index: []byte{byte(di)}})
+	return proto.Marshal(&subchainpb.Deposit{Index: []byte{byte(di)}})
 }
 
 // Deserialize deserializes bytes into deposit index
 func (di *DepositIndex) Deserialize(data []byte) error {
-	gen := &protogen.Deposit{}
+	gen := &subchainpb.Deposit{}
 	if err := proto.Unmarshal(data, gen); err != nil {
 		return err
 	}

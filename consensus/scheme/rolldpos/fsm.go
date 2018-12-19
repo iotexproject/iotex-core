@@ -406,7 +406,7 @@ func (m *cFSM) handleInitBlockProposeEvt(evt fsm.Event) (fsm.State, error) {
 	proposeBlkEvtProto := proposeBlkEvt.toProtoMsg()
 	// Notify itself
 	h := blk.HashBlock()
-	logger.Info().Str("block", hex.EncodeToString(h[:])).Msgf("Broadcast init proposal %+v", blk)
+	logger.Info().Str("blockHash", hex.EncodeToString(h[:])).Msg("Broadcast init proposal.")
 	m.produce(proposeBlkEvt, 0)
 	// Notify other delegates
 	if err := m.ctx.p2p.Broadcast(m.ctx.chain.ChainID(), proposeBlkEvtProto); err != nil {

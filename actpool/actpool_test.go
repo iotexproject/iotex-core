@@ -8,6 +8,7 @@ package actpool
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -15,15 +16,13 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
-	"fmt"
-
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -58,6 +57,7 @@ var (
 
 func TestActPool_validateGenericAction(t *testing.T) {
 	require := require.New(t)
+
 	bc := blockchain.NewBlockchain(config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
 	bc.GetFactory().AddActionHandlers(account.NewProtocol())
 	require.NoError(bc.Start(context.Background()))
@@ -68,22 +68,30 @@ func TestActPool_validateGenericAction(t *testing.T) {
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
-	ap.AddActionValidators(NewGenericValidator(bc))
-	validator := ap.validators[0]
+	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
+	validator := ap.actionEnvelopeValidators[0]
 	// Case I: Over-gassed transfer
-	tsf, err := action.NewTransfer(uint64(1), big.NewInt(1), "1", "2", nil, blockchain.GasLimit+1, big.NewInt(0))
+	tsf, err := testutil.SignedTransfer(addr1, addr1, 1, big.NewInt(1), nil, blockchain.GasLimit+1, big.NewInt(0))
 	require.NoError(err)
+
 	err = validator.Validate(context.Background(), tsf)
 	require.Equal(action.ErrGasHigherThanLimit, errors.Cause(err))
 	// Case II: Insufficient gas
-	tsf, err = action.NewTransfer(uint64(1), big.NewInt(1), "1", "2", nil, uint64(0), big.NewInt(0))
+	tsf, err = testutil.SignedTransfer(addr1, addr1, 1, big.NewInt(1), nil, 0, big.NewInt(0))
 	require.NoError(err)
 	err = validator.Validate(context.Background(), tsf)
 	require.Equal(action.ErrInsufficientBalanceForGas, errors.Cause(err))
 	// Case III: Signature verification fails
 	unsignedTsf, err := action.NewTransfer(uint64(1), big.NewInt(1), addr1.RawAddress, addr1.RawAddress, []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	err = validator.Validate(context.Background(), unsignedTsf)
+
+	bd := &action.EnvelopeBuilder{}
+	elp := bd.SetNonce(1).
+		SetAction(unsignedTsf).
+		SetGasLimit(100000).
+		SetDestinationAddress(addr1.RawAddress).Build()
+	selp := action.FakeSeal(elp, addr1.RawAddress, addr1.PublicKey)
+	err = validator.Validate(context.Background(), selp)
 	require.Equal(action.ErrAction, errors.Cause(err))
 	// Case IV: Nonce is too low
 	prevTsf, err := testutil.SignedTransfer(addr1, addr1, uint64(1), big.NewInt(50),
@@ -96,13 +104,13 @@ func TestActPool_validateGenericAction(t *testing.T) {
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
-	ctx := state.WithRunActionsCtx(context.Background(),
-		state.RunActionsCtx{
+	ctx := protocol.WithRunActionsCtx(context.Background(),
+		protocol.RunActionsCtx{
 			ProducerAddr:    testaddress.Addrinfo["producer"].RawAddress,
 			GasLimit:        &gasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
 		})
-	_, _, err = ws.RunActions(ctx, 0, []action.Action{prevTsf})
+	_, _, err = ws.RunActions(ctx, 0, []action.SealedEnvelope{prevTsf})
 	require.NoError(err)
 	require.Nil(sf.Commit(ws))
 	ap.Reset()
@@ -129,7 +137,8 @@ func TestActPool_AddActs(t *testing.T) {
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
-	ap.AddActionValidators(NewGenericValidator(bc), account.NewProtocol(), vote.NewProtocol(bc),
+	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
+	ap.AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc),
 		execution.NewProtocol(bc))
 	// Test actpool status after adding a sequence of Tsfs/votes: need to check confirmed nonce, pending nonce, and pending balance
 	tsf1, err := testutil.SignedTransfer(addr1, addr1, uint64(1), big.NewInt(10),
@@ -205,9 +214,9 @@ func TestActPool_AddActs(t *testing.T) {
 	ap2, ok := Ap2.(*actPool)
 	require.True(ok)
 	for i := uint64(0); i < ap2.cfg.MaxNumActsPerPool; i++ {
-		nTsf, err := action.NewTransfer(
-			i, big.NewInt(int64(i)), "1", "2", nil, uint64(0), big.NewInt(0))
+		nTsf, err := testutil.SignedTransfer(addr1, addr2, uint64(i), big.NewInt(50), nil, uint64(0), big.NewInt(0))
 		require.NoError(err)
+
 		ap2.allActions[nTsf.Hash()] = nTsf
 	}
 	err = ap2.Add(tsf1)
@@ -222,8 +231,17 @@ func TestActPool_AddActs(t *testing.T) {
 	require.Equal(action.ErrNonce, errors.Cause(err))
 	replaceVote, err := action.NewVote(4, addr1.RawAddress, "", uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	require.NoError(action.Sign(replaceVote, addr1.PrivateKey))
-	err = ap.Add(replaceVote)
+
+	bd := &action.EnvelopeBuilder{}
+	elp := bd.SetNonce(4).
+		SetAction(replaceVote).
+		SetGasLimit(100000).
+		SetDestinationAddress("").Build()
+	selp, err := action.Sign(elp, addr1.RawAddress, addr1.PrivateKey)
+
+	require.NoError(err)
+
+	err = ap.Add(selp)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 	// Case IV: Nonce is too large
 	outOfBoundsTsf, err := testutil.SignedTransfer(addr1, addr1, ap.cfg.MaxNumActsPerAcct+1, big.NewInt(1),
@@ -240,7 +258,17 @@ func TestActPool_AddActs(t *testing.T) {
 	// Case VI: over gas limit
 	creationExecution, err := action.NewExecution(addr1.RawAddress, action.EmptyAddress, uint64(5), big.NewInt(int64(0)), blockchain.GasLimit+100, big.NewInt(10), []byte{})
 	require.NoError(err)
-	err = ap.Add(creationExecution)
+
+	bd = &action.EnvelopeBuilder{}
+	elp = bd.SetNonce(5).
+		SetGasPrice(big.NewInt(10)).
+		SetGasLimit(blockchain.GasLimit + 100).
+		SetAction(creationExecution).
+		SetDestinationAddress(action.EmptyAddress).Build()
+	selp, err = action.Sign(elp, addr1.RawAddress, addr1.PrivateKey)
+	require.NoError(err)
+
+	err = ap.Add(selp)
 	require.Equal(action.ErrGasHigherThanLimit, errors.Cause(err))
 	// Case VII: insufficient gas
 	tmpData := [1234]byte{}
@@ -254,12 +282,22 @@ func TestActPool_AddActs(t *testing.T) {
 		tmpData[:],
 	)
 	require.NoError(err)
-	err = ap.Add(creationExecution)
+
+	bd = &action.EnvelopeBuilder{}
+	elp = bd.SetNonce(5).
+		SetGasPrice(big.NewInt(10)).
+		SetGasLimit(10).
+		SetAction(creationExecution).
+		SetDestinationAddress(action.EmptyAddress).Build()
+	selp, err = action.Sign(elp, addr1.RawAddress, addr1.PrivateKey)
+	require.NoError(err)
+
+	err = ap.Add(selp)
 	require.Equal(action.ErrInsufficientBalanceForGas, errors.Cause(err))
 }
 
 func TestActPool_PickActs(t *testing.T) {
-	createActPool := func(cfg config.ActPool) (*actPool, []*action.Transfer, []*action.Vote, []*action.Execution) {
+	createActPool := func(cfg config.ActPool) (*actPool, []action.SealedEnvelope, []action.SealedEnvelope, []action.SealedEnvelope) {
 		require := require.New(t)
 		bc := blockchain.NewBlockchain(config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
 		require.NoError(bc.Start(context.Background()))
@@ -272,7 +310,8 @@ func TestActPool_PickActs(t *testing.T) {
 		require.NoError(err)
 		ap, ok := Ap.(*actPool)
 		require.True(ok)
-		ap.AddActionValidators(NewGenericValidator(bc), account.NewProtocol(), vote.NewProtocol(bc))
+		ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
+		ap.AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
 
 		tsf1, err := testutil.SignedTransfer(addr1, addr1, uint64(1), big.NewInt(10),
 			[]byte{}, uint64(100000), big.NewInt(0))
@@ -323,7 +362,7 @@ func TestActPool_PickActs(t *testing.T) {
 		require.NoError(err)
 		err = ap.Add(tsf10)
 		require.NoError(err)
-		return ap, []*action.Transfer{tsf1, tsf2, tsf3, tsf4}, []*action.Vote{vote7}, []*action.Execution{}
+		return ap, []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4}, []action.SealedEnvelope{vote7}, []action.SealedEnvelope{}
 	}
 
 	t.Run("no-limit", func(t *testing.T) {
@@ -361,7 +400,8 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
-	ap.AddActionValidators(NewGenericValidator(bc), account.NewProtocol(), vote.NewProtocol(bc))
+	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
+	ap.AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
 
 	tsf1, err := testutil.SignedTransfer(addr1, addr1, uint64(1), big.NewInt(10),
 		[]byte{}, uint64(100000), big.NewInt(0))
@@ -391,13 +431,13 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
-	ctx := state.WithRunActionsCtx(context.Background(),
-		state.RunActionsCtx{
+	ctx := protocol.WithRunActionsCtx(context.Background(),
+		protocol.RunActionsCtx{
 			ProducerAddr:    testaddress.Addrinfo["producer"].RawAddress,
 			GasLimit:        &gasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
 		})
-	_, _, err = ws.RunActions(ctx, 0, []action.Action{tsf1, tsf2, tsf3, vote4})
+	_, _, err = ws.RunActions(ctx, 0, []action.SealedEnvelope{tsf1, tsf2, tsf3, vote4})
 	require.NoError(err)
 	require.Nil(sf.Commit(ws))
 	ap.removeConfirmedActs()
@@ -423,13 +463,15 @@ func TestActPool_Reset(t *testing.T) {
 	require.NoError(err)
 	ap1, ok := Ap1.(*actPool)
 	require.True(ok)
-	ap1.AddActionValidators(NewGenericValidator(bc), account.NewProtocol(), vote.NewProtocol(bc),
+	ap1.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
+	ap1.AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc),
 		execution.NewProtocol(bc))
 	Ap2, err := NewActPool(bc, apConfig)
 	require.NoError(err)
 	ap2, ok := Ap2.(*actPool)
 	require.True(ok)
-	ap2.AddActionValidators(NewGenericValidator(bc), account.NewProtocol(), vote.NewProtocol(bc),
+	ap2.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
+	ap2.AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc),
 		execution.NewProtocol(bc))
 
 	// Tsfs to be added to ap1
@@ -555,8 +597,8 @@ func TestActPool_Reset(t *testing.T) {
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
-	ctx := state.WithRunActionsCtx(context.Background(),
-		state.RunActionsCtx{
+	ctx := protocol.WithRunActionsCtx(context.Background(),
+		protocol.RunActionsCtx{
 			ProducerAddr:    testaddress.Addrinfo["producer"].RawAddress,
 			GasLimit:        &gasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
@@ -672,8 +714,8 @@ func TestActPool_Reset(t *testing.T) {
 	// ap2 commits update of accounts to trie
 	ws, err = sf.NewWorkingSet()
 	require.NoError(err)
-	ctx = state.WithRunActionsCtx(context.Background(),
-		state.RunActionsCtx{
+	ctx = protocol.WithRunActionsCtx(context.Background(),
+		protocol.RunActionsCtx{
 			ProducerAddr:    testaddress.Addrinfo["producer"].RawAddress,
 			GasLimit:        &gasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
@@ -731,7 +773,15 @@ func TestActPool_Reset(t *testing.T) {
 	vote23, err := action.NewVote(3, addr4.RawAddress, "",
 		uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	_ = action.Sign(vote23, addr4.PrivateKey)
+
+	bd := &action.EnvelopeBuilder{}
+	elp := bd.SetNonce(3).
+		SetGasLimit(100000).
+		SetAction(vote23).
+		SetDestinationAddress("").Build()
+	selp23, err := action.Sign(elp, addr4.RawAddress, addr4.PrivateKey)
+	require.NoError(err)
+
 	vote24, err := testutil.SignedVote(addr5, addr5, uint64(1), uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	tsf25, err := testutil.SignedTransfer(addr5, addr4, uint64(2), big.NewInt(10),
@@ -739,19 +789,26 @@ func TestActPool_Reset(t *testing.T) {
 	require.NoError(err)
 	vote26, err := action.NewVote(3, addr5.RawAddress, "", uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	_ = action.Sign(vote26, addr5.PrivateKey)
+
+	bd = &action.EnvelopeBuilder{}
+	elp = bd.SetNonce(3).
+		SetGasLimit(100000).
+		SetAction(vote26).
+		SetDestinationAddress("").Build()
+	selp26, err := action.Sign(elp, addr5.RawAddress, addr5.PrivateKey)
+	require.NoError(err)
 
 	err = ap1.Add(tsf21)
 	require.NoError(err)
 	err = ap1.Add(vote22)
 	require.NoError(err)
-	err = ap1.Add(vote23)
+	err = ap1.Add(selp23)
 	require.NoError(err)
 	err = ap1.Add(vote24)
 	require.NoError(err)
 	err = ap1.Add(tsf25)
 	require.NoError(err)
-	err = ap1.Add(vote26)
+	err = ap1.Add(selp26)
 	require.NoError(err)
 	// Check confirmed nonce, pending nonce, and pending balance after adding actions above for account4 and account5
 	// ap1
@@ -771,8 +828,8 @@ func TestActPool_Reset(t *testing.T) {
 	ws, err = sf.NewWorkingSet()
 	require.NoError(err)
 
-	ctx = state.WithRunActionsCtx(context.Background(),
-		state.RunActionsCtx{
+	ctx = protocol.WithRunActionsCtx(context.Background(),
+		protocol.RunActionsCtx{
 			ProducerAddr:    testaddress.Addrinfo["producer"].RawAddress,
 			GasLimit:        &gasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
@@ -808,7 +865,8 @@ func TestActPool_removeInvalidActs(t *testing.T) {
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
-	ap.AddActionValidators(NewGenericValidator(bc), account.NewProtocol(), vote.NewProtocol(bc))
+	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
+	ap.AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
 
 	tsf1, err := testutil.SignedTransfer(addr1, addr1, uint64(1), big.NewInt(10),
 		[]byte{}, uint64(100000), big.NewInt(0))
@@ -833,12 +891,12 @@ func TestActPool_removeInvalidActs(t *testing.T) {
 
 	hash1 := tsf1.Hash()
 	hash2 := vote4.Hash()
-	acts := []action.Action{tsf1, vote4}
+	acts := []action.SealedEnvelope{tsf1, vote4}
 	require.NotNil(ap.allActions[hash1])
 	require.NotNil(ap.allActions[hash2])
 	ap.removeInvalidActs(acts)
-	require.Nil(ap.allActions[hash1])
-	require.Nil(ap.allActions[hash2])
+	require.Equal(action.SealedEnvelope{}, ap.allActions[hash1])
+	require.Equal(action.SealedEnvelope{}, ap.allActions[hash2])
 }
 
 func TestActPool_GetPendingNonce(t *testing.T) {
@@ -855,7 +913,8 @@ func TestActPool_GetPendingNonce(t *testing.T) {
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
-	ap.AddActionValidators(NewGenericValidator(bc), account.NewProtocol(), vote.NewProtocol(bc))
+	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
+	ap.AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
 
 	tsf1, err := testutil.SignedTransfer(addr1, addr1, uint64(1), big.NewInt(10),
 		[]byte{}, uint64(100000), big.NewInt(0))
@@ -896,7 +955,8 @@ func TestActPool_GetUnconfirmedActs(t *testing.T) {
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
-	ap.AddActionValidators(NewGenericValidator(bc), account.NewProtocol(), vote.NewProtocol(bc))
+	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
+	ap.AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
 
 	tsf1, err := testutil.SignedTransfer(addr1, addr1, uint64(1), big.NewInt(10),
 		[]byte{}, uint64(100000), big.NewInt(0))
@@ -915,10 +975,10 @@ func TestActPool_GetUnconfirmedActs(t *testing.T) {
 	require.NoError(err)
 
 	acts := ap.GetUnconfirmedActs(addr2.RawAddress)
-	require.Equal([]action.Action{}, acts)
+	require.Equal([]action.SealedEnvelope{}, acts)
 
 	acts = ap.GetUnconfirmedActs(addr1.RawAddress)
-	require.Equal([]action.Action{tsf1, tsf3, vote4}, acts)
+	require.Equal([]action.SealedEnvelope{tsf1, tsf3, vote4}, acts)
 }
 
 func TestActPool_GetActionByHash(t *testing.T) {
@@ -950,7 +1010,7 @@ func TestActPool_GetActionByHash(t *testing.T) {
 	require.Equal(tsf1, act)
 	act, err = ap.GetActionByHash(hash2)
 	require.Equal(action.ErrHash, errors.Cause(err))
-	require.Nil(act)
+	require.Equal(action.SealedEnvelope{}, act)
 
 	ap.allActions[hash2] = vote2
 	act, err = ap.GetActionByHash(hash2)
@@ -983,7 +1043,8 @@ func TestActPool_GetSize(t *testing.T) {
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
-	ap.AddActionValidators(NewGenericValidator(bc), account.NewProtocol(), vote.NewProtocol(bc))
+	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
+	ap.AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
 	require.Zero(ap.GetSize())
 
 	tsf1, err := testutil.SignedTransfer(addr1, addr1, uint64(1), big.NewInt(10),
@@ -1008,13 +1069,13 @@ func TestActPool_GetSize(t *testing.T) {
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
 
-	ctx := state.WithRunActionsCtx(context.Background(),
-		state.RunActionsCtx{
+	ctx := protocol.WithRunActionsCtx(context.Background(),
+		protocol.RunActionsCtx{
 			ProducerAddr:    testaddress.Addrinfo["producer"].RawAddress,
 			GasLimit:        &gasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
 		})
-	_, _, err = ws.RunActions(ctx, 0, []action.Action{tsf1, tsf2, tsf3, vote4})
+	_, _, err = ws.RunActions(ctx, 0, []action.SealedEnvelope{tsf1, tsf2, tsf3, vote4})
 	require.NoError(err)
 	require.Nil(sf.Commit(ws))
 	ap.removeConfirmedActs()

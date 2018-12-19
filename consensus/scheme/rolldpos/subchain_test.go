@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/blockchain"
@@ -101,11 +102,14 @@ func TestPutBlockToParentChain(t *testing.T) {
 				Value: hex.EncodeToString(txRoot[:]),
 			},
 		},
+		Signature: "fe36ae0659698fe0c5a59cbd4fb29f69cb156a7956d6e9be85896ed6e8f2fcf13575750040aa18c437d0baf949964a7cea1574b4ee927074f29ccf6eb705cfbdce49244f9de72a00",
 	}
 
 	exp := mock_explorer.NewMockExplorer(ctrl)
 	exp.EXPECT().GetAddressDetails(addr.RawAddress).Return(explorerapi.AddressDetails{PendingNonce: 100}, nil).Times(1)
-	exp.EXPECT().PutSubChainBlock(req).Times(1)
+	exp.EXPECT().PutSubChainBlock(gomock.Any()).Times(1).Do(func(in explorerapi.PutSubChainBlockRequest) {
+		assert.Equal(t, in.Height, req.Height)
+	})
 
 	putBlockToParentChain(exp, req.SubChainAddress, addr, &blk)
 }

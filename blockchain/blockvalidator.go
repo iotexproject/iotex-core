@@ -8,6 +8,7 @@ package blockchain
 
 import (
 	"bytes"
+	"context"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -15,6 +16,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/iotxaddress"
@@ -27,11 +29,16 @@ import (
 type Validator interface {
 	// Validate validates the given block's content
 	Validate(block *Block, tipHeight uint64, tipHash hash.Hash32B, containCoinbase bool) error
+	// AddActionValidators add validators
+	AddActionValidators(...protocol.ActionValidator)
+	AddActionEnvelopeValidators(...protocol.ActionEnvelopeValidator)
 }
 
 type validator struct {
-	sf            factory.Factory
-	validatorAddr string
+	sf                       factory.Factory
+	validatorAddr            string
+	actionEnvelopeValidators []protocol.ActionEnvelopeValidator
+	actionValidators         []protocol.ActionValidator
 }
 
 var (
@@ -67,154 +74,86 @@ func (v *validator) Validate(blk *Block, tipHeight uint64, tipHash hash.Hash32B,
 	return nil
 }
 
+// AddActionValidators add validators
+func (v *validator) AddActionValidators(validators ...protocol.ActionValidator) {
+	v.actionValidators = append(v.actionValidators, validators...)
+}
+
+// AddActionEnvelopeValidators add action envelope validators
+func (v *validator) AddActionEnvelopeValidators(validators ...protocol.ActionEnvelopeValidator) {
+	v.actionEnvelopeValidators = append(v.actionEnvelopeValidators, validators...)
+}
+
 func (v *validator) verifyActions(blk *Block, containCoinbase bool) error {
-	// Verify transfers, votes, executions, witness, and secrets (balance is checked in RunActions)
+	// Verify transfers, votes, executions, witness, and secrets
 	confirmedNonceMap := make(map[string]uint64)
 	accountNonceMap := make(map[string][]uint64)
+	producerPKHash := keypair.HashPubKey(blk.Header.Pubkey)
+	producerAddr := address.New(blk.Header.chainID, producerPKHash[:])
+	var coinbaseCounter int
+	var correctVerifications uint64
+	var expectedVerifications uint64
+	var actionError error
 	var wg sync.WaitGroup
-	var expectedVerifiedActions uint64
-	var correctAction uint64
-	var coinbaseCount uint64
-	for _, act := range blk.Actions {
-		verifyNonce := blk.Header.height > 0
-		verifyAction := false
-		switch act.(type) {
-		case *action.Transfer:
-			tsf := act.(*action.Transfer)
-			// Verify Address
-			// Verify Gas
-			// Verify Nonce
-			// Verify Signature
-			// Verify Coinbase transfer
 
-			if !tsf.IsCoinbase() {
-				if _, err := iotxaddress.GetPubkeyHash(tsf.Sender()); err != nil {
-					return errors.Wrapf(err, "failed to validate transfer sender's address %s", tsf.Sender())
+	for _, selp := range blk.Actions {
+		// TODO: Maybe need more strict measurement to validate a coinbase transfer
+		if act, ok := selp.Action().(*action.Transfer); ok && act.IsCoinbase() {
+			coinbaseCounter++
+		} else {
+			// Store the nonce of the sender and verify later
+			if _, ok := confirmedNonceMap[selp.SrcAddr()]; !ok {
+				accountNonce, err := v.sf.Nonce(selp.SrcAddr())
+				if err != nil {
+					return errors.Wrap(err, "failed to get the confirmed nonce of action sender")
 				}
-				if _, err := iotxaddress.GetPubkeyHash(tsf.Recipient()); err != nil {
-					return errors.Wrapf(err, "failed to validate transfer recipient's address %s", tsf.Recipient())
-				}
-				if blk.Header.height > 0 {
-					// Reject over-gassed transfer
-					if tsf.GasLimit() > GasLimit {
-						return errors.Wrapf(ErrGasHigherThanLimit, "gas is higher than gas limit")
-					}
-					intrinsicGas, err := tsf.IntrinsicGas()
-					if intrinsicGas > tsf.GasLimit() || err != nil {
-						return errors.Wrapf(ErrInsufficientGas, "insufficient gas for transfer")
-					}
-				}
-				verifyAction = true
-			} else {
-				verifyNonce = false
-				wg.Add(1)
-				expectedVerifiedActions++
-				go func(tsf *action.Transfer, correctCoinbase *uint64) {
-					defer wg.Done()
-					pkHash := keypair.HashPubKey(blk.Header.Pubkey)
-					addr := address.New(blk.Header.chainID, pkHash[:])
-					if addr.IotxAddress() != tsf.Recipient() {
-						return
-					}
-					atomic.AddUint64(correctCoinbase, uint64(1))
-				}(tsf, &coinbaseCount)
-			}
-		case *action.Vote:
-			verifyAction = true
-			vote := act.(*action.Vote)
-			// Verify Address
-			// Verify Gas
-			// Verify Nonce
-			// Verify Signature
-
-			if _, err := iotxaddress.GetPubkeyHash(vote.Voter()); err != nil {
-				return errors.Wrapf(err, "failed to validate voter's address %s", vote.Voter())
-			}
-			if vote.Votee() != action.EmptyAddress {
-				if _, err := iotxaddress.GetPubkeyHash(vote.Votee()); err != nil {
-					return errors.Wrapf(err, "failed to validate votee's address %s", vote.Votee())
-				}
-			}
-			if blk.Header.height > 0 {
-				// Reject over-gassed vote
-				if vote.GasLimit() > GasLimit {
-					return errors.Wrapf(ErrGasHigherThanLimit, "gas is higher than gas limit")
-				}
-				intrinsicGas, err := vote.IntrinsicGas()
-				if intrinsicGas > vote.GasLimit() || err != nil {
-					return errors.Wrapf(ErrInsufficientGas, "insufficient gas for vote")
-				}
-			}
-		case *action.Execution:
-			verifyAction = true
-			execution := act.(*action.Execution)
-			// Verify Address
-			// Verify Nonce
-			// Verify Signature
-			// Verify Gas
-			// Verify Amount
-
-			if _, err := iotxaddress.GetPubkeyHash(execution.Executor()); err != nil {
-				return errors.Wrapf(err, "failed to validate executor's address %s", execution.Executor())
-			}
-			if execution.Contract() != action.EmptyAddress {
-				if _, err := iotxaddress.GetPubkeyHash(execution.Contract()); err != nil {
-					return errors.Wrapf(err, "failed to validate contract's address %s", execution.Contract())
-				}
-			}
-			// Reject over-gassed execution
-			if execution.GasLimit() > GasLimit {
-				return errors.Wrapf(ErrGasHigherThanLimit, "gas is higher than gas limit")
-			}
-			intrinsicGas, err := execution.IntrinsicGas()
-			if intrinsicGas > execution.GasLimit() || err != nil {
-				return errors.Wrapf(ErrInsufficientGas, "insufficient gas for execution")
-			}
-
-			// Reject execution of negative amount
-			if execution.Amount().Sign() < 0 {
-				return errors.Wrapf(ErrBalance, "negative value")
+				confirmedNonceMap[selp.SrcAddr()] = accountNonce
+				accountNonceMap[selp.SrcAddr()] = make([]uint64, 0)
 			}
 		}
 
-		// Verify signature
-		if verifyAction {
+		ctx := protocol.WithValidateActionsCtx(context.Background(),
+			&protocol.ValidateActionsCtx{
+				NonceTracker: accountNonceMap,
+				BlockHeight:  blk.Height(),
+				ProducerAddr: producerAddr.IotxAddress(),
+			})
+
+		for _, validator := range v.actionEnvelopeValidators {
 			wg.Add(1)
-			expectedVerifiedActions++
-			go func(a action.Action, counter *uint64) {
+			expectedVerifications++
+			go func(validator protocol.ActionEnvelopeValidator, selp action.SealedEnvelope, counter *uint64) {
 				defer wg.Done()
-				if err := action.Verify(a); err != nil {
+				if err := validator.Validate(ctx, selp); err != nil {
+					actionError = err
 					return
 				}
 				atomic.AddUint64(counter, uint64(1))
-			}(act, &correctAction)
+			}(validator, selp, &correctVerifications)
 		}
-		if verifyNonce {
-			sender := act.SrcAddr()
-			// Store the nonce of the sender and verify later
-			if _, ok := confirmedNonceMap[sender]; !ok {
-				accountNonce, err := v.sf.Nonce(sender)
-				if err != nil {
-					return errors.Wrap(err, "failed to get the nonce of transfer sender")
+
+		for _, validator := range v.actionValidators {
+			wg.Add(1)
+			expectedVerifications++
+			go func(validator protocol.ActionValidator, act action.Action, counter *uint64) {
+				defer wg.Done()
+				if err := validator.Validate(ctx, act); err != nil {
+					actionError = err
+					return
 				}
-				confirmedNonceMap[sender] = accountNonce
-				accountNonceMap[sender] = make([]uint64, 0)
-			}
-			accountNonceMap[sender] = append(accountNonceMap[sender], act.Nonce())
+				atomic.AddUint64(counter, uint64(1))
+			}(validator, selp.Action(), &correctVerifications)
 		}
 	}
 
 	wg.Wait()
-	// Verify coinbase transfer count
-	if (containCoinbase && coinbaseCount != 1) || (!containCoinbase && coinbaseCount != 0) {
-		return errors.Wrapf(
-			ErrInvalidBlock,
-			"wrong number of coinbase transfers")
+
+	if correctVerifications != expectedVerifications {
+		return errors.Wrap(actionError, "failed to validate action")
 	}
-	if correctAction+coinbaseCount != expectedVerifiedActions {
-		return errors.Wrapf(
-			ErrInvalidBlock,
-			"failed to verify actions signature")
+
+	if containCoinbase && coinbaseCounter != 1 || !containCoinbase && coinbaseCounter != 0 {
+		return errors.New("wrong number of coinbase transfers in block")
 	}
 
 	// Verify Witness
@@ -278,7 +217,7 @@ func (v *validator) verifyActions(blk *Block, containCoinbase bool) error {
 			sort.Slice(receivedNonce, func(i, j int) bool { return receivedNonce[i] < receivedNonce[j] })
 			for i, nonce := range receivedNonce {
 				if nonce != confirmedNonce+uint64(i+1) {
-					return errors.Wrap(ErrActionNonce, "the nonce of the action is invalid")
+					return errors.Wrap(action.ErrNonce, "action nonce is not continuously increasing")
 				}
 			}
 		}

@@ -51,11 +51,17 @@ message StopSubChainPb {
     string subChainAddress = 3;
 }
 
+message MerkleRoot {
+    string name = 1;
+    bytes value = 2;
+}
+
 message PutBlockPb {
     string subChainAddress = 1;
     uint64 height = 2;
-    map<string, bytes> roots = 3;
+    repeated MerkleRoot roots = 3;
 }
+
 message CreateDepositPb {
     bytes amount  = 1;
     string recipient = 2;

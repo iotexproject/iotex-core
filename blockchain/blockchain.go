@@ -18,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/actpool/actioniterator"
@@ -95,7 +96,7 @@ type Blockchain interface {
 	// GetActionsToAddress returns actions to address
 	GetActionsToAddress(address string) ([]hash.Hash32B, error)
 	// GetActionByActionHash returns action by action hash
-	GetActionByActionHash(h hash.Hash32B) (action.Action, error)
+	GetActionByActionHash(h hash.Hash32B) (action.SealedEnvelope, error)
 	// GetBlockHashByActionHash returns Block hash by action hash
 	GetBlockHashByActionHash(h hash.Hash32B) (hash.Hash32B, error)
 	// GetFactory returns the state factory
@@ -115,14 +116,14 @@ type Blockchain interface {
 	// MintNewBlock creates a new block with given actions and dkg keys
 	// Note: the coinbase transfer will be added to the given transfers when minting a new block
 	MintNewBlock(
-		actions []action.Action,
+		actions []action.SealedEnvelope,
 		producer *iotxaddress.Address,
 		dkgAddress *iotxaddress.DKGAddress,
 		seed []byte,
 		data string,
 	) (*Block, error)
 	MintNewBlockWithActionIterator(
-		actionMap map[string][]action.Action,
+		actionMap map[string][]action.SealedEnvelope,
 		producer *iotxaddress.Address,
 		dkgAddress *iotxaddress.DKGAddress,
 		seed []byte,
@@ -479,10 +480,12 @@ func (bc *blockchain) GetVoteByVoteHash(h hash.Hash32B) (*action.Vote, error) {
 	if err != nil {
 		return nil, err
 	}
-	_, votes, _ := action.ClassifyActions(blk.Actions)
-	for _, vote := range votes {
-		if vote.Hash() == h {
-			return vote, nil
+
+	for _, selp := range blk.Actions {
+		if v, ok := selp.Action().(*action.Vote); ok {
+			if selp.Hash() == h {
+				return v, nil
+			}
 		}
 	}
 	return nil, errors.Errorf("block %x does not have vote %x", blkHash, h)
@@ -566,25 +569,43 @@ func (bc *blockchain) GetActionsToAddress(address string) ([]hash.Hash32B, error
 	return bc.dao.getActionsByRecipientAddress(address)
 }
 
+func (bc *blockchain) getActionByActionHashHelper(h hash.Hash32B) (hash.Hash32B, error) {
+	blkHash, err := bc.dao.getBlockHashByTransferHash(h)
+	if err == nil {
+		return blkHash, nil
+	}
+	blkHash, err = bc.dao.getBlockHashByVoteHash(h)
+	if err == nil {
+		return blkHash, nil
+	}
+	blkHash, err = bc.dao.getBlockHashByExecutionHash(h)
+	if err == nil {
+		return blkHash, nil
+	}
+	return bc.dao.getBlockHashByActionHash(h)
+}
+
 // GetActionByActionHash returns action by action hash
-func (bc *blockchain) GetActionByActionHash(h hash.Hash32B) (action.Action, error) {
+func (bc *blockchain) GetActionByActionHash(h hash.Hash32B) (action.SealedEnvelope, error) {
 	if !bc.config.Explorer.Enabled {
-		return nil, errors.New("explorer not enabled")
+		return action.SealedEnvelope{}, errors.New("explorer not enabled")
 	}
-	blkHash, err := bc.dao.getBlockHashByActionHash(h)
+
+	blkHash, err := bc.getActionByActionHashHelper(h)
 	if err != nil {
-		return nil, err
+		return action.SealedEnvelope{}, err
 	}
+
 	blk, err := bc.dao.getBlock(blkHash)
 	if err != nil {
-		return nil, err
+		return action.SealedEnvelope{}, err
 	}
 	for _, act := range blk.Actions {
 		if act.Hash() == h {
 			return act, nil
 		}
 	}
-	return nil, errors.Errorf("block %x does not have transfer %x", blkHash, h)
+	return action.SealedEnvelope{}, errors.Errorf("block %x does not have transfer %x", blkHash, h)
 }
 
 // GetBlockHashByActionHash returns Block hash by action hash
@@ -621,7 +642,7 @@ func (bc *blockchain) ValidateBlock(blk *Block, containCoinbase bool) error {
 }
 
 func (bc *blockchain) MintNewBlock(
-	actions []action.Action,
+	actions []action.SealedEnvelope,
 	producer *iotxaddress.Address,
 	dkgAddress *iotxaddress.DKGAddress,
 	seed []byte,
@@ -632,7 +653,18 @@ func (bc *blockchain) MintNewBlock(
 	defer bc.timerFactory.NewTimer("MintNewBlock").End()
 
 	// Use block height as the nonce for coinbase transfer
-	actions = append(actions, action.NewCoinBaseTransfer(bc.tipHeight+1, bc.genesis.BlockReward, producer.RawAddress))
+	cb := action.NewCoinBaseTransfer(bc.tipHeight+1, bc.genesis.BlockReward, producer.RawAddress)
+	bd := action.EnvelopeBuilder{}
+	// TODO the nonce is wrong, if bd also submit actions
+	elp := bd.SetNonce(bc.tipHeight + 1).
+		SetDestinationAddress(producer.RawAddress).
+		SetGasLimit(protocol.GasLimit).
+		SetAction(cb).Build()
+	selp, err := action.Sign(elp, producer.RawAddress, producer.PrivateKey)
+	if err != nil {
+		return nil, err
+	}
+	actions = append(actions, selp)
 	blk := NewBlock(bc.config.Chain.ID, bc.tipHeight+1, bc.tipHash, bc.now(), producer.PublicKey, actions)
 	blk.Header.DKGID = []byte{}
 	blk.Header.DKGPubkey = []byte{}
@@ -664,7 +696,7 @@ func (bc *blockchain) MintNewBlock(
 }
 
 func (bc *blockchain) MintNewBlockWithActionIterator(
-	actionMap map[string][]action.Action,
+	actionMap map[string][]action.SealedEnvelope,
 	producer *iotxaddress.Address,
 	dkgAddress *iotxaddress.DKGAddress,
 	seed []byte,
@@ -674,9 +706,17 @@ func (bc *blockchain) MintNewBlockWithActionIterator(
 	defer bc.mu.RUnlock()
 
 	// Use block height as the nonce for coinbase transfer
-	coinbaseTransfer := action.NewCoinBaseTransfer(bc.tipHeight+1, bc.genesis.BlockReward, producer.RawAddress)
+	cb := action.NewCoinBaseTransfer(bc.tipHeight+1, bc.genesis.BlockReward, producer.RawAddress)
+	bd := action.EnvelopeBuilder{}
+	// TODO the nonce is wrong, if bd also submit actions
+	elp := bd.SetNonce(bc.tipHeight + 1).
+		SetDestinationAddress(producer.RawAddress).
+		SetGasLimit(protocol.GasLimit).
+		SetAction(cb).Build()
+	selp, err := action.Sign(elp, producer.RawAddress, producer.PrivateKey)
 	// initial a block with empty actions
-	blk := NewBlock(bc.config.Chain.ID, bc.tipHeight+1, bc.tipHash, bc.now(), producer.PublicKey, make([]action.Action, 0))
+	blk := NewBlock(bc.config.Chain.ID, bc.tipHeight+1, bc.tipHash, bc.now(),
+		producer.PublicKey, make([]action.SealedEnvelope, 0))
 	blk.Header.DKGID = []byte{}
 	blk.Header.DKGPubkey = []byte{}
 	blk.Header.DKGBlockSig = []byte{}
@@ -693,7 +733,7 @@ func (bc *blockchain) MintNewBlockWithActionIterator(
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to obtain working set from state factory")
 	}
-	root, err := bc.runActionsWithActionIterator(blk, actionMap, coinbaseTransfer, ws, false)
+	root, err := bc.runActionsWithActionIterator(blk, actionMap, selp, ws, false)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to update state changes in new block %d", blk.Height())
 	}
@@ -845,8 +885,8 @@ func (bc *blockchain) CreateState(addr string, init *big.Int) (*state.Account, e
 		return nil, errors.Wrap(err, "failed to get genesis block")
 	}
 	gasLimit := GasLimit
-	ctx := state.WithRunActionsCtx(context.Background(),
-		state.RunActionsCtx{
+	ctx := protocol.WithRunActionsCtx(context.Background(),
+		protocol.RunActionsCtx{
 			ProducerAddr:    genesisBlk.ProducerAddress(),
 			GasLimit:        &gasLimit,
 			EnableGasCharge: bc.config.Chain.EnableGasCharge,
@@ -935,8 +975,8 @@ func (bc *blockchain) startExistingBlockchain(recoveryHeight uint64) error {
 			return err
 		}
 		gasLimit := GasLimit
-		ctx := state.WithRunActionsCtx(context.Background(),
-			state.RunActionsCtx{
+		ctx := protocol.WithRunActionsCtx(context.Background(),
+			protocol.RunActionsCtx{
 				ProducerAddr:    genesisBlk.ProducerAddress(),
 				GasLimit:        &gasLimit,
 				EnableGasCharge: bc.config.Chain.EnableGasCharge,
@@ -1051,8 +1091,8 @@ func (bc *blockchain) runActions(blk *Block, ws factory.WorkingSet, verify bool)
 	}
 	gasLimit := GasLimit
 	// update state factory
-	ctx := state.WithRunActionsCtx(context.Background(),
-		state.RunActionsCtx{
+	ctx := protocol.WithRunActionsCtx(context.Background(),
+		protocol.RunActionsCtx{
 			BlockHeight:     blk.Height(),
 			BlockHash:       blk.HashBlock(),
 			ProducerPubKey:  blk.Header.Pubkey,
@@ -1077,8 +1117,8 @@ func (bc *blockchain) runActions(blk *Block, ws factory.WorkingSet, verify bool)
 	return root, nil
 }
 
-func (bc *blockchain) runActionsWithActionIterator(blk *Block, actionMap map[string][]action.Action,
-	coinbaseTransfer action.Action, ws factory.WorkingSet, verify bool) (hash.Hash32B, error) {
+func (bc *blockchain) runActionsWithActionIterator(blk *Block, actionMap map[string][]action.SealedEnvelope,
+	coinbaseTransfer action.SealedEnvelope, ws factory.WorkingSet, verify bool) (hash.Hash32B, error) {
 	blk.Receipts = make(map[hash.Hash32B]*action.Receipt)
 	if bc.sf == nil {
 		return hash.ZeroHash32B, errors.New("statefactory cannot be nil")
@@ -1086,19 +1126,18 @@ func (bc *blockchain) runActionsWithActionIterator(blk *Block, actionMap map[str
 	gasLimit := GasLimit
 
 	// update state factory
-	ctx := state.WithRunActionsCtx(context.Background(),
-		state.RunActionsCtx{
-			ProducerAddr:    blk.ProducerAddress(),
-			GasLimit:        &gasLimit,
+	ctx := protocol.WithRunActionsCtx(context.Background(),
+		protocol.RunActionsCtx{
 			BlockHeight:     blk.Height(),
 			BlockHash:       blk.HashBlock(),
 			ProducerPubKey:  blk.Header.Pubkey,
 			BlockTimeStamp:  blk.Header.Timestamp().Unix(),
+			ProducerAddr:    blk.ProducerAddress(),
+			GasLimit:        &gasLimit,
 			EnableGasCharge: bc.config.Chain.EnableGasCharge,
 		})
 	actionIterator := actioniterator.NewActionIterator(actionMap)
-	actionPicker := newActionPicker(ctx, ws, bc, &gasLimit, actionIterator)
-	appliedActionList, receiptMap, err := actionPicker.PickAction()
+	appliedActionList, receiptMap, err := PickAction(ctx, ws, bc, &gasLimit, actionIterator)
 	appliedActionList = append(appliedActionList, coinbaseTransfer)
 	blk.Actions = appliedActionList
 	for k, v := range receiptMap {
