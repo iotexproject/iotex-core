@@ -527,6 +527,19 @@ func (mr *MockBlockchainMockRecorder) MintNewBlock(actions, producer, dkgAddress
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MintNewBlock", reflect.TypeOf((*MockBlockchain)(nil).MintNewBlock), actions, producer, dkgAddress, seed, data)
 }
 
+// MintNewBlockWithActionIterator mocks base method
+func (m *MockBlockchain) MintNewBlockWithActionIterator(actionMap map[string][]action.SealedEnvelope, producer *iotxaddress.Address, dkgAddress *iotxaddress.DKGAddress, seed []byte, data string) (*blockchain.Block, error) {
+	ret := m.ctrl.Call(m, "MintNewBlockWithActionIterator", actionMap, producer, dkgAddress, seed, data)
+	ret0, _ := ret[0].(*blockchain.Block)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// MintNewBlockWithActionIterator indicates an expected call of MintNewBlockWithActionIterator
+func (mr *MockBlockchainMockRecorder) MintNewBlockWithActionIterator(actionMap, producer, dkgAddress, seed, data interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MintNewBlockWithActionIterator", reflect.TypeOf((*MockBlockchain)(nil).MintNewBlockWithActionIterator), actionMap, producer, dkgAddress, seed, data)
+}
+
 // MintNewSecretBlock mocks base method
 func (m *MockBlockchain) MintNewSecretBlock(secretProposals []*action.SecretProposal, secretWitness *action.SecretWitness, producer *iotxaddress.Address) (*blockchain.Block, error) {
 	ret := m.ctrl.Call(m, "MintNewSecretBlock", secretProposals, secretWitness, producer)
