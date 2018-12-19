@@ -59,6 +59,8 @@ var (
 		Network: Network{
 			Host:           "127.0.0.1",
 			Port:           4689,
+			ExternalHost:   "",
+			ExternalPort:   4689,
 			BootstrapNodes: make([]string, 0),
 		},
 		Chain: Chain{
@@ -155,6 +157,8 @@ type (
 	Network struct {
 		Host           string   `yaml:"host"`
 		Port           int      `yaml:"port"`
+		ExternalHost   string   `yaml:"externalHost"`
+		ExternalPort   int      `yaml:"externalPort"`
 		BootstrapNodes []string `yaml:"bootstrapNodes"`
 	}
 

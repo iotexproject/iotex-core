@@ -59,7 +59,17 @@ func NewAgent(cfg config.Network, broadcastCB HandleBroadcast, unicastCB HandleU
 // Start connects into P2P network
 func (p *Agent) Start(ctx context.Context) error {
 	p2p.SetLogger(logger.Logger())
-	host, err := p2p.NewHost(ctx, p2p.HostName(p.cfg.Host), p2p.Port(p.cfg.Port), p2p.Gossip(), p2p.SecureIO())
+	opts := []p2p.Option{
+		p2p.HostName(p.cfg.Host),
+		p2p.Port(p.cfg.Port),
+		p2p.Gossip(),
+		p2p.SecureIO(),
+	}
+	if p.cfg.ExternalHost != "" {
+		opts = append(opts, p2p.ExternalHostName(p.cfg.ExternalHost))
+		opts = append(opts, p2p.ExternalPort(p.cfg.ExternalPort))
+	}
+	host, err := p2p.NewHost(ctx, opts...)
 	if err != nil {
 		return errors.Wrap(err, "error when instantiating Agent host")
 	}
