@@ -112,7 +112,8 @@ func (p *Agent) Start(ctx context.Context) error {
 	if len(p.cfg.BootstrapNodes) > 0 {
 		r := rand.New(rand.NewSource(time.Now().UnixNano()))
 		randBootstrapNodeAddr := p.cfg.BootstrapNodes[r.Intn(len(p.cfg.BootstrapNodes))]
-		if randBootstrapNodeAddr != host.Address() {
+		if randBootstrapNodeAddr != host.Address() &&
+			randBootstrapNodeAddr != fmt.Sprintf("%s:%d", p.cfg.ExternalHost, p.cfg.ExternalPort) {
 			if exponentialRetry(
 				func() error {
 					return host.Connect(randBootstrapNodeAddr)
@@ -223,6 +224,7 @@ func exponentialRetry(f func() error, retryInterval time.Duration, numRetries in
 		if err = f(); err == nil {
 			return
 		}
+		logger.Error().Err(err).Msg("Error happens, will retry")
 		time.Sleep(retryInterval)
 		retryInterval *= 2
 	}
