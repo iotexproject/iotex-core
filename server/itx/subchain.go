@@ -19,7 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/logger"
 )
 
-func (s *Server) putSubChainInOperation(addr address.Address, subChain *mainchain.SubChain) error {
+func (s *Server) runSubChain(addr address.Address, subChain *mainchain.SubChain) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	cs, ok := s.chainservices[subChain.ChainID]
@@ -52,7 +52,7 @@ func (s *Server) putSubChainInOperation(addr address.Address, subChain *mainchai
 	return nil
 }
 
-func (s *Server) isSubChainInOperation(chainID uint32) bool {
+func (s *Server) isSubChainRunning(chainID uint32) bool {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	_, ok := s.chainservices[chainID]
@@ -61,19 +61,19 @@ func (s *Server) isSubChainInOperation(chainID uint32) bool {
 
 // HandleBlock implements interface BlockCreationSubscriber
 func (s *Server) HandleBlock(blk *blockchain.Block) error {
-	subChainsInOp, err := s.mainChainProtocol.SubChainsInOperation()
+	runnableSubChains, err := s.mainChainProtocol.SubChainsInOperation()
 	if err != nil {
 		logger.Error().Err(err).Msg("error when getting the sub-chains in operation slice")
 	}
-	for _, subChainInOp := range subChainsInOp {
-		if s.isSubChainInOperation(subChainInOp.ID) {
+	for _, runnableSubChain := range runnableSubChains {
+		if s.isSubChainRunning(runnableSubChain.ID) {
 			continue
 		}
-		addr, err := address.BytesToAddress(subChainInOp.Addr)
+		addr, err := address.BytesToAddress(runnableSubChain.Addr)
 		if err != nil {
 			logger.Error().
 				Err(err).
-				Uint32("chainID", subChainInOp.ID).
+				Uint32("chainID", runnableSubChain.ID).
 				Msg("error when getting the sub-chain address")
 			continue
 		}
@@ -86,7 +86,7 @@ func (s *Server) HandleBlock(blk *blockchain.Block) error {
 			continue
 		}
 		if subChain.StartHeight <= blk.Height() {
-			if err := s.putSubChainInOperation(addr, subChain); err != nil {
+			if err := s.runSubChain(addr, subChain); err != nil {
 				logger.Error().
 					Err(err).
 					Uint32("chainID", subChain.ChainID).
