@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/boltdb/bolt"
 	"github.com/dgraph-io/badger"
@@ -36,7 +37,6 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
-	"time"
 )
 
 // Blockchain represents the blockchain data structure and hosts the APIs to access it
@@ -754,11 +754,6 @@ func (bc *blockchain) MintNewBlockWithActionIterator(
 	appliedActionList, receiptMap, err := PickAction(ctx, ws, bc, &gasLimit, actionIterator)
 	// include coinbase transfer
 	appliedActionList = append(appliedActionList, selp)
-	a := make([]action.Action, len(appliedActionList))
-	for _, b := range appliedActionList {
-		a = append(a, b.Action())
-	}
-	fmt.Println(a)
 
 	// initial a block with empty actions
 	blk := NewBlock(bc.config.Chain.ID, blkHeight, blkHash, blkTimestamp,
@@ -1166,32 +1161,12 @@ func (bc *blockchain) runActions(blk *Block, ws factory.WorkingSet, verify bool)
 	return root, nil
 }
 
-func (bc *blockchain) runActionsWithActionIterator(ctx context.Context, blk *Block, ws factory.WorkingSet, verify bool) (hash.Hash32B, error) {
-	blk.Receipts = make(map[hash.Hash32B]*action.Receipt)
-	if bc.sf == nil {
-		return hash.ZeroHash32B, errors.New("statefactory cannot be nil")
-	}
-	//gasLimit := GasLimit
-
-	// update state factory
-	/*ctx := protocol.WithRunActionsCtx(context.Background(),
-		protocol.RunActionsCtx{
-			BlockHeight:     blk.Height(),
-			BlockHash:       blk.HashBlock(),
-			ProducerPubKey:  blk.Header.Pubkey,
-			BlockTimeStamp:  blk.Header.Timestamp().Unix(),
-			ProducerAddr:    blk.ProducerAddress(),
-			GasLimit:        &gasLimit,
-			EnableGasCharge: bc.config.Chain.EnableGasCharge,
-		})
-	actionIterator := actioniterator.NewActionIterator(actionMap)
-	appliedActionList, receiptMap, err := PickAction(ctx, ws, bc, &gasLimit, actionIterator)
-	appliedActionList = append(appliedActionList, coinbaseTransfer)
-	blk.Actions = appliedActionList
-	for k, v := range receiptMap {
-		blk.Receipts[k] = v
-	}*/
-
+func (bc *blockchain) runActionsWithActionIterator(
+	ctx context.Context,
+	blk *Block,
+	ws factory.WorkingSet,
+	verify bool,
+) (hash.Hash32B, error) {
 	root, receipts, err := ws.RunActions(ctx, blk.Height(), blk.Actions)
 	if err != nil {
 		return root, err

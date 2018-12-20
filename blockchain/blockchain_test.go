@@ -225,8 +225,6 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	if err := bc.ValidateBlock(blk, true); err != nil {
 		return err
 	}
-	fmt.Println(blk.TxRoot())
-	fmt.Println(blk.CalculateTxRoot())
 	if blk.TxRoot() != blk.CalculateTxRoot() {
 		return err
 	}
