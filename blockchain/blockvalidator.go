@@ -267,7 +267,7 @@ func verifySigAndRoot(blk *Block) error {
 			ErrInvalidBlock,
 			"wrong tx hash %x, expecting %x",
 			hashActual,
-			hashActual)
+			hashExpect)
 	}
 	return nil
 }
