@@ -92,6 +92,8 @@ type Blockchain interface {
 	GetBlockHashByExecutionHash(h hash.Hash32B) (hash.Hash32B, error)
 	// GetReceiptByExecutionHash returns the receipt by execution hash
 	GetReceiptByExecutionHash(h hash.Hash32B) (*action.Receipt, error)
+	// GetReceiptByActionHash returns the receipt by action hash
+	GetReceiptByActionHash(h hash.Hash32B) (*action.Receipt, error)
 	// GetActionsFromAddress returns actions from address
 	GetActionsFromAddress(address string) ([]hash.Hash32B, error)
 	// GetActionsToAddress returns actions to address
@@ -374,6 +376,7 @@ func (bc *blockchain) GetBlockByHash(h hash.Hash32B) (*Block, error) {
 	return bc.dao.getBlock(h)
 }
 
+// TODO: To be deprecated
 // GetTotalTransfers returns the total number of transfers
 func (bc *blockchain) GetTotalTransfers() (uint64, error) {
 	if !bc.config.Explorer.Enabled {
@@ -382,6 +385,7 @@ func (bc *blockchain) GetTotalTransfers() (uint64, error) {
 	return bc.dao.getTotalTransfers()
 }
 
+// TODO: To be deprecated
 // GetTotalVotes returns the total number of votes
 func (bc *blockchain) GetTotalVotes() (uint64, error) {
 	if !bc.config.Explorer.Enabled {
@@ -390,6 +394,7 @@ func (bc *blockchain) GetTotalVotes() (uint64, error) {
 	return bc.dao.getTotalVotes()
 }
 
+// TODO: To be deprecated
 // GetTotalExecutions returns the total number of executions
 func (bc *blockchain) GetTotalExecutions() (uint64, error) {
 	if !bc.config.Explorer.Enabled {
@@ -406,6 +411,7 @@ func (bc *blockchain) GetTotalActions() (uint64, error) {
 	return bc.dao.getTotalActions()
 }
 
+// TODO: To be deprecated
 // GetTransfersFromAddress returns transfers from address
 func (bc *blockchain) GetTransfersFromAddress(address string) ([]hash.Hash32B, error) {
 	if !bc.config.Explorer.Enabled {
@@ -414,6 +420,7 @@ func (bc *blockchain) GetTransfersFromAddress(address string) ([]hash.Hash32B, e
 	return bc.dao.getTransfersBySenderAddress(address)
 }
 
+// TODO: To be deprecated
 // GetTransfersToAddress returns transfers to address
 func (bc *blockchain) GetTransfersToAddress(address string) ([]hash.Hash32B, error) {
 	if !bc.config.Explorer.Enabled {
@@ -422,6 +429,7 @@ func (bc *blockchain) GetTransfersToAddress(address string) ([]hash.Hash32B, err
 	return bc.dao.getTransfersByRecipientAddress(address)
 }
 
+// TODO: To be deprecated
 // GetTransferByTransferHash returns transfer by transfer hash
 func (bc *blockchain) GetTransferByTransferHash(h hash.Hash32B) (*action.Transfer, error) {
 	if !bc.config.Explorer.Enabled {
@@ -444,6 +452,7 @@ func (bc *blockchain) GetTransferByTransferHash(h hash.Hash32B) (*action.Transfe
 	return nil, errors.Errorf("block %x does not have transfer %x", blkHash, h)
 }
 
+// TODO: To be deprecated
 // GetBlockHashByTxHash returns Block hash by transfer hash
 func (bc *blockchain) GetBlockHashByTransferHash(h hash.Hash32B) (hash.Hash32B, error) {
 	if !bc.config.Explorer.Enabled {
@@ -452,6 +461,7 @@ func (bc *blockchain) GetBlockHashByTransferHash(h hash.Hash32B) (hash.Hash32B, 
 	return bc.dao.getBlockHashByTransferHash(h)
 }
 
+// TODO: To be deprecated
 // GetVoteFromAddress returns votes from address
 func (bc *blockchain) GetVotesFromAddress(address string) ([]hash.Hash32B, error) {
 	if !bc.config.Explorer.Enabled {
@@ -460,6 +470,7 @@ func (bc *blockchain) GetVotesFromAddress(address string) ([]hash.Hash32B, error
 	return bc.dao.getVotesBySenderAddress(address)
 }
 
+// TODO: To be deprecated
 // GetVoteToAddress returns votes to address
 func (bc *blockchain) GetVotesToAddress(address string) ([]hash.Hash32B, error) {
 	if !bc.config.Explorer.Enabled {
@@ -468,6 +479,7 @@ func (bc *blockchain) GetVotesToAddress(address string) ([]hash.Hash32B, error) 
 	return bc.dao.getVotesByRecipientAddress(address)
 }
 
+// TODO: To be deprecated
 // GetVotesByVoteHash returns vote by vote hash
 func (bc *blockchain) GetVoteByVoteHash(h hash.Hash32B) (*action.Vote, error) {
 	if !bc.config.Explorer.Enabled {
@@ -492,6 +504,7 @@ func (bc *blockchain) GetVoteByVoteHash(h hash.Hash32B) (*action.Vote, error) {
 	return nil, errors.Errorf("block %x does not have vote %x", blkHash, h)
 }
 
+// TODO: To be deprecated
 // GetBlockHashByVoteHash returns Block hash by vote hash
 func (bc *blockchain) GetBlockHashByVoteHash(h hash.Hash32B) (hash.Hash32B, error) {
 	if !bc.config.Explorer.Enabled {
@@ -500,6 +513,7 @@ func (bc *blockchain) GetBlockHashByVoteHash(h hash.Hash32B) (hash.Hash32B, erro
 	return bc.dao.getBlockHashByVoteHash(h)
 }
 
+// TODO: To be deprecated
 // GetExecutionsFromAddress returns executions from address
 func (bc *blockchain) GetExecutionsFromAddress(address string) ([]hash.Hash32B, error) {
 	if !bc.config.Explorer.Enabled {
@@ -508,6 +522,7 @@ func (bc *blockchain) GetExecutionsFromAddress(address string) ([]hash.Hash32B, 
 	return bc.dao.getExecutionsByExecutorAddress(address)
 }
 
+// TODO: To be deprecated
 // GetExecutionsToAddress returns executions to address
 func (bc *blockchain) GetExecutionsToAddress(address string) ([]hash.Hash32B, error) {
 	if !bc.config.Explorer.Enabled {
@@ -516,6 +531,7 @@ func (bc *blockchain) GetExecutionsToAddress(address string) ([]hash.Hash32B, er
 	return bc.dao.getExecutionsByContractAddress(address)
 }
 
+// TODO: To be deprecated
 // GetExecutionByExecutionHash returns execution by execution hash
 func (bc *blockchain) GetExecutionByExecutionHash(h hash.Hash32B) (*action.Execution, error) {
 	if !bc.config.Explorer.Enabled {
@@ -538,6 +554,7 @@ func (bc *blockchain) GetExecutionByExecutionHash(h hash.Hash32B) (*action.Execu
 	return nil, errors.Errorf("block %x does not have execution %x", blkHash, h)
 }
 
+// TODO: To be deprecated
 // GetBlockHashByExecutionHash returns Block hash by execution hash
 func (bc *blockchain) GetBlockHashByExecutionHash(h hash.Hash32B) (hash.Hash32B, error) {
 	if !bc.config.Explorer.Enabled {
@@ -546,12 +563,21 @@ func (bc *blockchain) GetBlockHashByExecutionHash(h hash.Hash32B) (hash.Hash32B,
 	return bc.dao.getBlockHashByExecutionHash(h)
 }
 
+// TODO: To be deprecated
 // GetReceiptByExecutionHash returns the receipt by execution hash
 func (bc *blockchain) GetReceiptByExecutionHash(h hash.Hash32B) (*action.Receipt, error) {
 	if !bc.config.Explorer.Enabled {
 		return nil, errors.New("explorer not enabled")
 	}
 	return bc.dao.getReceiptByExecutionHash(h)
+}
+
+// GetReceiptByActionHash returns the receipt by action hash
+func (bc *blockchain) GetReceiptByActionHash(h hash.Hash32B) (*action.Receipt, error) {
+	if !bc.config.Explorer.Enabled {
+		return nil, errors.New("explorer not enabled")
+	}
+	return bc.dao.getReceiptByActionHash(h)
 }
 
 // GetActionsFromAddress returns actions from address

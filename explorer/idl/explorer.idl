@@ -410,6 +410,9 @@ interface Explorer {
     // get receipt by execution id
     getReceiptByExecutionID(id string) Receipt
 
+    // get receipt by action id
+    getReceiptByActionID(id string) Receipt
+
     // read execution state
     readExecutionState(request Execution) string
 

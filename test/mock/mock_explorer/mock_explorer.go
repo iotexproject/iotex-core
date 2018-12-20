@@ -488,6 +488,19 @@ func (mr *MockExplorerMockRecorder) GetReceiptByExecutionID(id interface{}) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetReceiptByExecutionID", reflect.TypeOf((*MockExplorer)(nil).GetReceiptByExecutionID), id)
 }
 
+// GetReceiptByActionID mocks base method
+func (m *MockExplorer) GetReceiptByActionID(id string) (explorer.Receipt, error) {
+	ret := m.ctrl.Call(m, "GetReceiptByActionID", id)
+	ret0, _ := ret[0].(explorer.Receipt)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetReceiptByActionID indicates an expected call of GetReceiptByActionID
+func (mr *MockExplorerMockRecorder) GetReceiptByActionID(id interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetReceiptByActionID", reflect.TypeOf((*MockExplorer)(nil).GetReceiptByActionID), id)
+}
+
 // ReadExecutionState mocks base method
 func (m *MockExplorer) ReadExecutionState(request explorer.Execution) (string, error) {
 	ret := m.ctrl.Call(m, "ReadExecutionState", request)
