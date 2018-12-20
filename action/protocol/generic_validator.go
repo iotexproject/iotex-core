@@ -71,7 +71,12 @@ func (v *GenericValidator) Validate(ctx context.Context, act action.SealedEnvelo
 	}
 	// Check if action's nonce is in correct order
 	if validateInBlock {
-		vaCtx.NonceTracker[act.SrcAddr()] = append(vaCtx.NonceTracker[act.SrcAddr()], act.Nonce())
+		value, _ := vaCtx.NonceTracker.Load(act.SrcAddr())
+		nonceList, ok := value.([]uint64)
+		if !ok {
+			return errors.Errorf("failed to load received nonces for account %s", act.SrcAddr())
+		}
+		vaCtx.NonceTracker.Store(act.SrcAddr(), append(nonceList, act.Nonce()))
 	}
 	return nil
 }
