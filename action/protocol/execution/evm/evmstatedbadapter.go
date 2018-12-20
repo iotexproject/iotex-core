@@ -220,6 +220,10 @@ func (stateDB *StateDBAdapter) Empty(common.Address) bool {
 
 // RevertToSnapshot reverts the state factory to the state at a given snapshot
 func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
+	// TODO: temp disable until we solve the memory thrash/leak issue
+	logger.Debug().Msg("RevertToSnapshot is not implemented")
+	return
+
 	if err := stateDB.sm.Revert(snapshot); err != nil {
 		err := errors.New("unexpected error: state manager's Revert() failed")
 		logger.Error().Err(err).Msg("failed to RevertToSnapshot")
@@ -248,6 +252,10 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 
 // Snapshot returns the snapshot id
 func (stateDB *StateDBAdapter) Snapshot() int {
+	// TODO: temp disable until we solve the memory thrash/leak issue
+	logger.Debug().Msg("Snapshot is not implemented")
+	return 0
+
 	sn := stateDB.sm.Snapshot()
 	if _, ok := stateDB.suicideSnapshot[sn]; ok {
 		err := errors.New("unexpected error: duplicate snapshot version")
