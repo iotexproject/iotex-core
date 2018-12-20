@@ -23,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
+	"github.com/iotexproject/iotex-core/actpool/actioniterator"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/crypto"
@@ -35,6 +36,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
+	"time"
 )
 
 // Blockchain represents the blockchain data structure and hosts the APIs to access it
@@ -118,6 +120,13 @@ type Blockchain interface {
 	// Note: the coinbase transfer will be added to the given transfers when minting a new block
 	MintNewBlock(
 		actions []action.SealedEnvelope,
+		producer *iotxaddress.Address,
+		dkgAddress *iotxaddress.DKGAddress,
+		seed []byte,
+		data string,
+	) (*Block, error)
+	MintNewBlockWithActionIterator(
+		actionMap map[string][]action.SealedEnvelope,
 		producer *iotxaddress.Address,
 		dkgAddress *iotxaddress.DKGAddress,
 		seed []byte,
@@ -696,6 +705,95 @@ func (bc *blockchain) MintNewBlock(
 	return blk, nil
 }
 
+func (bc *blockchain) MintNewBlockWithActionIterator(
+	actionMap map[string][]action.SealedEnvelope,
+	producer *iotxaddress.Address,
+	dkgAddress *iotxaddress.DKGAddress,
+	seed []byte,
+	data string,
+) (*Block, error) {
+	bc.mu.RLock()
+	defer bc.mu.RUnlock()
+
+	// Use block height as the nonce for coinbase transfer
+	cb := action.NewCoinBaseTransfer(bc.tipHeight+1, bc.genesis.BlockReward, producer.RawAddress)
+	bd := action.EnvelopeBuilder{}
+	// TODO the nonce is wrong, if bd also submit actions
+	elp := bd.SetNonce(bc.tipHeight + 1).
+		SetDestinationAddress(producer.RawAddress).
+		SetGasLimit(protocol.GasLimit).
+		SetAction(cb).Build()
+	selp, err := action.Sign(elp, producer.RawAddress, producer.PrivateKey)
+
+	// run execution and update state trie root hash
+	ws, err := bc.sf.NewWorkingSet()
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to obtain working set from state factory")
+	}
+	blkHeight := bc.tipHeight + 1
+	blkHash := bc.tipHash
+	producerPubKey := producer.PublicKey
+	blkTimestamp := bc.now()
+	pkHash := keypair.HashPubKey(producerPubKey)
+	addr := address.New(bc.config.Chain.ID, pkHash[:])
+	producerAddr := addr.IotxAddress()
+	gasLimit := GasLimit
+
+	// update state factory
+	ctx := protocol.WithRunActionsCtx(context.Background(),
+		protocol.RunActionsCtx{
+			BlockHeight:     blkHeight,
+			BlockHash:       blkHash,
+			ProducerPubKey:  producerPubKey,
+			BlockTimeStamp:  time.Unix(int64(blkTimestamp), 0).Unix(),
+			ProducerAddr:    producerAddr,
+			GasLimit:        &gasLimit,
+			EnableGasCharge: bc.config.Chain.EnableGasCharge,
+		})
+	actionIterator := actioniterator.NewActionIterator(actionMap)
+	appliedActionList, receiptMap, err := PickAction(ctx, ws, bc, &gasLimit, actionIterator)
+	// include coinbase transfer
+	appliedActionList = append(appliedActionList, selp)
+	a := make([]action.Action, len(appliedActionList))
+	for _, b := range appliedActionList {
+		a = append(a, b.Action())
+	}
+	fmt.Println(a)
+
+	// initial a block with empty actions
+	blk := NewBlock(bc.config.Chain.ID, blkHeight, blkHash, blkTimestamp,
+		producerPubKey, appliedActionList)
+	blk.Header.DKGID = []byte{}
+	blk.Header.DKGPubkey = []byte{}
+	blk.Header.DKGBlockSig = []byte{}
+	if dkgAddress != nil && len(dkgAddress.PublicKey) > 0 && len(dkgAddress.PrivateKey) > 0 && len(dkgAddress.ID) > 0 {
+		blk.Header.DKGID = dkgAddress.ID
+		blk.Header.DKGPubkey = dkgAddress.PublicKey
+		var err error
+		if _, blk.Header.DKGBlockSig, err = crypto.BLS.SignShare(dkgAddress.PrivateKey, seed); err != nil {
+			return nil, errors.Wrap(err, "Failed to do DKG sign")
+		}
+	}
+	blk.Receipts = make(map[hash.Hash32B]*action.Receipt)
+	if bc.sf == nil {
+		return nil, errors.New("statefactory cannot be nil")
+	}
+	for k, v := range receiptMap {
+		blk.Receipts[k] = v
+	}
+	root, err := bc.runActionsWithActionIterator(ctx, blk, ws, false)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Failed to update state changes in new block %d", blk.Height())
+	}
+	blk.Header.stateRoot = root
+	if err := blk.SignBlock(producer); err != nil {
+		return blk, err
+	}
+	// attach working set to be committed to state factory
+	blk.workingSet = ws
+	return blk, nil
+}
+
 // MintNewSecretBlock creates a new block with given DKG secrets and witness
 func (bc *blockchain) MintNewSecretBlock(
 	secretProposals []*action.SecretProposal,
@@ -1052,6 +1150,48 @@ func (bc *blockchain) runActions(blk *Block, ws factory.WorkingSet, verify bool)
 			GasLimit:        &gasLimit,
 			EnableGasCharge: bc.config.Chain.EnableGasCharge,
 		})
+	root, receipts, err := ws.RunActions(ctx, blk.Height(), blk.Actions)
+	if err != nil {
+		return root, err
+	}
+	if verify {
+		// verify state root hash match
+		if err = blk.VerifyStateRoot(root); err != nil {
+			return root, err
+		}
+	}
+	for hash, receipt := range receipts {
+		blk.Receipts[hash] = receipt
+	}
+	return root, nil
+}
+
+func (bc *blockchain) runActionsWithActionIterator(ctx context.Context, blk *Block, ws factory.WorkingSet, verify bool) (hash.Hash32B, error) {
+	blk.Receipts = make(map[hash.Hash32B]*action.Receipt)
+	if bc.sf == nil {
+		return hash.ZeroHash32B, errors.New("statefactory cannot be nil")
+	}
+	//gasLimit := GasLimit
+
+	// update state factory
+	/*ctx := protocol.WithRunActionsCtx(context.Background(),
+		protocol.RunActionsCtx{
+			BlockHeight:     blk.Height(),
+			BlockHash:       blk.HashBlock(),
+			ProducerPubKey:  blk.Header.Pubkey,
+			BlockTimeStamp:  blk.Header.Timestamp().Unix(),
+			ProducerAddr:    blk.ProducerAddress(),
+			GasLimit:        &gasLimit,
+			EnableGasCharge: bc.config.Chain.EnableGasCharge,
+		})
+	actionIterator := actioniterator.NewActionIterator(actionMap)
+	appliedActionList, receiptMap, err := PickAction(ctx, ws, bc, &gasLimit, actionIterator)
+	appliedActionList = append(appliedActionList, coinbaseTransfer)
+	blk.Actions = appliedActionList
+	for k, v := range receiptMap {
+		blk.Receipts[k] = v
+	}*/
+
 	root, receipts, err := ws.RunActions(ctx, blk.Height(), blk.Actions)
 	if err != nil {
 		return root, err
