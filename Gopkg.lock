@@ -328,9 +328,12 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:b521f10a2d8fa85c04a8ef4e62f2d1e14d303599a55d64dabf9f5a02f84d35eb"
+  digest = "1:ac22b804b20a46ece20592447a2c675efccbcfb1bec61afee17ab1cd47dd227f"
   name = "golang.org/x/sync"
-  packages = ["errgroup"]
+  packages = [
+    "errgroup",
+    "syncmap",
+  ]
   pruneopts = "UT"
   revision = "42b317875d0fa942474b76e1b46a6060d720ae6e"
 
@@ -458,6 +461,7 @@
     "golang.org/x/crypto/blake2b",
     "golang.org/x/net/context",
     "golang.org/x/sync/errgroup",
+    "golang.org/x/sync/syncmap",
     "google.golang.org/grpc",
     "google.golang.org/grpc/credentials",
     "google.golang.org/grpc/keepalive",
