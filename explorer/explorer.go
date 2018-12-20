@@ -684,6 +684,22 @@ func (exp *Service) GetReceiptByExecutionID(id string) (explorer.Receipt, error)
 	return convertReceiptToExplorerReceipt(receipt)
 }
 
+// GetReceiptByActionID gets receipt with corresponding action id
+func (exp *Service) GetReceiptByActionID(id string) (explorer.Receipt, error) {
+	bytes, err := hex.DecodeString(id)
+	if err != nil {
+		return explorer.Receipt{}, err
+	}
+	var actionHash hash.Hash32B
+	copy(actionHash[:], bytes)
+	receipt, err := exp.bc.GetReceiptByActionHash(actionHash)
+	if err != nil {
+		return explorer.Receipt{}, err
+	}
+
+	return convertReceiptToExplorerReceipt(receipt)
+}
+
 // GetCreateDeposit gets create deposit by ID
 func (exp *Service) GetCreateDeposit(createDepositID string) (explorer.CreateDeposit, error) {
 	bytes, err := hex.DecodeString(createDepositID)
