@@ -165,11 +165,32 @@ func TestSnapshotAndSuicide(t *testing.T) {
 	require.True(stateDB.Exist(addr1))
 	require.Equal(2, stateDB.Snapshot())
 
-	stateDB.RevertToSnapshot(1)
+	stateDB.RevertToSnapshot(2)
 	// cntr1 killed, but still exists before commit
 	require.True(stateDB.HasSuicided(cntr1))
 	require.True(stateDB.Exist(cntr1))
 	w, _ := stateDB.getContractState(byteutil.BytesTo20B(cntr1[:]), k1)
+	require.Equal(v3, w)
+	w, _ = stateDB.getContractState(byteutil.BytesTo20B(cntr1[:]), k2)
+	require.Equal(v4, w)
+	// cntr2 still normal
+	require.False(stateDB.HasSuicided(cntr2))
+	require.True(stateDB.Exist(cntr2))
+	w, _ = stateDB.getContractState(byteutil.BytesTo20B(cntr2[:]), k3)
+	require.Equal(v1, w)
+	w, _ = stateDB.getContractState(byteutil.BytesTo20B(cntr2[:]), k4)
+	require.Equal(v2, w)
+	// addr1 also killed
+	require.True(stateDB.HasSuicided(addr1))
+	require.True(stateDB.Exist(addr1))
+	amount := stateDB.GetBalance(addr1)
+	require.Equal(0, amount.Cmp(big.NewInt(0)))
+
+	stateDB.RevertToSnapshot(1)
+	// cntr1 killed, but still exists before commit
+	require.True(stateDB.HasSuicided(cntr1))
+	require.True(stateDB.Exist(cntr1))
+	w, _ = stateDB.getContractState(byteutil.BytesTo20B(cntr1[:]), k1)
 	require.Equal(v3, w)
 	w, _ = stateDB.getContractState(byteutil.BytesTo20B(cntr1[:]), k2)
 	require.Equal(v4, w)
@@ -183,7 +204,7 @@ func TestSnapshotAndSuicide(t *testing.T) {
 	// addr1 has balance 80000
 	require.False(stateDB.HasSuicided(addr1))
 	require.True(stateDB.Exist(addr1))
-	amount := stateDB.GetBalance(addr1)
+	amount = stateDB.GetBalance(addr1)
 	require.Equal(0, amount.Cmp(big.NewInt(80000)))
 
 	stateDB.RevertToSnapshot(0)
@@ -202,30 +223,9 @@ func TestSnapshotAndSuicide(t *testing.T) {
 	amount = stateDB.GetBalance(addr1)
 	require.Equal(0, amount.Cmp(addAmount))
 
-	stateDB.RevertToSnapshot(2)
-	// cntr1 killed, but still exists before commit
-	require.True(stateDB.HasSuicided(cntr1))
-	require.True(stateDB.Exist(cntr1))
-	w, _ = stateDB.getContractState(byteutil.BytesTo20B(cntr1[:]), k1)
-	require.Equal(v3, w)
-	w, _ = stateDB.getContractState(byteutil.BytesTo20B(cntr1[:]), k2)
-	require.Equal(v4, w)
-	// cntr2 still normal
-	require.False(stateDB.HasSuicided(cntr2))
-	require.True(stateDB.Exist(cntr2))
-	w, _ = stateDB.getContractState(byteutil.BytesTo20B(cntr2[:]), k3)
-	require.Equal(v1, w)
-	w, _ = stateDB.getContractState(byteutil.BytesTo20B(cntr2[:]), k4)
-	require.Equal(v2, w)
-	// addr1 also killed
-	require.True(stateDB.HasSuicided(addr1))
-	require.True(stateDB.Exist(addr1))
-	amount = stateDB.GetBalance(addr1)
-	require.Equal(0, amount.Cmp(big.NewInt(0)))
-
 	require.NoError(stateDB.commitContracts())
 	stateDB.clear()
-	require.False(stateDB.Exist(addr1))
-	require.False(stateDB.Exist(cntr1))
-	require.True(stateDB.Exist(cntr2))
+	require.True(stateDB.Exist(addr1))
+	require.True(stateDB.Exist(cntr1))
+	require.False(stateDB.Exist(cntr2))
 }

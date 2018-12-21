@@ -83,7 +83,15 @@ func TestSnapshot(t *testing.T) {
 	require.Equal(big.NewInt(7), s.Balance)
 	s2 := ws.Snapshot()
 	require.Equal(2, s2)
+	require.NoError(s.AddBalance(big.NewInt(6)))
+	require.Equal(big.NewInt(13), s.Balance)
+	require.NoError(ws.PutState(tHash, s))
 
+	require.NoError(ws.Revert(s2))
+	require.NoError(ws.State(sHash, s))
+	require.Equal(big.NewInt(15), s.Balance)
+	require.NoError(ws.State(tHash, s))
+	require.Equal(big.NewInt(7), s.Balance)
 	require.NoError(ws.Revert(s1))
 	require.NoError(ws.State(sHash, s))
 	require.Equal(big.NewInt(10), s.Balance)
@@ -92,11 +100,6 @@ func TestSnapshot(t *testing.T) {
 	require.NoError(ws.State(sHash, s))
 	require.Equal(big.NewInt(5), s.Balance)
 	require.Equal(state.ErrStateNotExist, errors.Cause(ws.State(tHash, s)))
-	require.NoError(ws.Revert(s2))
-	require.NoError(ws.State(sHash, s))
-	require.Equal(big.NewInt(15), s.Balance)
-	require.NoError(ws.State(tHash, s))
-	require.Equal(big.NewInt(7), s.Balance)
 }
 
 // Test configure: candidateSize = 2, candidateBufferSize = 3
