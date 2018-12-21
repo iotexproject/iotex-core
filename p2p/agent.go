@@ -15,6 +15,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/zjshen14/go-p2p"
 
 	"github.com/iotexproject/iotex-core/config"
@@ -22,6 +23,20 @@ import (
 	"github.com/iotexproject/iotex-core/p2p/node"
 	"github.com/iotexproject/iotex-core/proto"
 )
+
+var (
+	p2pMsgCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "iotex_p2p_message_counter",
+			Help: "P2P message stats",
+		},
+		[]string{"type", "direction", "status"},
+	)
+)
+
+func init() {
+	prometheus.MustRegister(p2pMsgCounter)
+}
 
 const (
 	// TODO: the topic could be fine tuned
@@ -74,37 +89,54 @@ func (p *Agent) Start(ctx context.Context) error {
 		return errors.Wrap(err, "error when instantiating Agent host")
 	}
 
-	if err := host.AddBroadcastPubSub(broadcastTopic, func(data []byte) error {
+	if err := host.AddBroadcastPubSub(broadcastTopic, func(data []byte) (err error) {
 		var broadcast BroadcastMsg
-		if err := proto.Unmarshal(data, &broadcast); err != nil {
-			return errors.Wrap(err, "error when marshaling broadcast message")
+		defer func() {
+			status := "success"
+			if err != nil {
+				status = "failure"
+			}
+			p2pMsgCounter.WithLabelValues("broadcast", "in", status).Inc()
+		}()
+		if err = proto.Unmarshal(data, &broadcast); err != nil {
+			err = errors.Wrap(err, "error when marshaling broadcast message")
+			return
 		}
 		// Skip the broadcast message if it's from the node itself
 		if p.Self().String() == broadcast.Addr {
-			return nil
+			return
 		}
 		msg, err := iproto.TypifyProtoMsg(broadcast.MsgType, broadcast.MsgBody)
 		if err != nil {
-			return errors.Wrap(err, "error when typifying broadcast message")
+			err = errors.Wrap(err, "error when typifying broadcast message")
+			return
 		}
 		p.broadcastCB(broadcast.ChainId, msg, nil)
-		return nil
+		return
 	}); err != nil {
 		return errors.Wrap(err, "error when adding broadcast pubsub")
 	}
 
-	if err := host.AddUnicastPubSub(unicastTopic, func(data []byte) error {
+	if err := host.AddUnicastPubSub(unicastTopic, func(data []byte) (err error) {
+		defer func() {
+			status := "success"
+			if err != nil {
+				status = "failure"
+			}
+			p2pMsgCounter.WithLabelValues("unicast", "in", status).Inc()
+		}()
 		var unicast UnicastMsg
-		if err := proto.Unmarshal(data, &unicast); err != nil {
-			return errors.Wrap(err, "error when marshaling unicast message")
+		if err = proto.Unmarshal(data, &unicast); err != nil {
+			err = errors.Wrap(err, "error when marshaling unicast message")
+			return
 		}
 		msg, err := iproto.TypifyProtoMsg(unicast.MsgType, unicast.MsgBody)
 		if err != nil {
-			return errors.Wrap(err, "error when typifying unicast message")
+			err = errors.Wrap(err, "error when typifying unicast message")
+			return
 		}
 		p.unicastCB(unicast.ChainId, node.NewTCPNode(unicast.Addr), msg, nil)
-		return nil
-
+		return
 	}); err != nil {
 		return errors.Wrap(err, "error when adding unicast pubsub")
 	}
@@ -145,45 +177,65 @@ func (p *Agent) Stop(ctx context.Context) error {
 }
 
 // Broadcast sends a broadcast message to the whole network
-func (p *Agent) Broadcast(ctx context.Context, msg proto.Message) error {
+func (p *Agent) Broadcast(ctx context.Context, msg proto.Message) (err error) {
+	defer func() {
+		status := "success"
+		if err != nil {
+			status = "failure"
+		}
+		p2pMsgCounter.WithLabelValues("broadcast", "out", status).Inc()
+	}()
 	msgType, msgBody, err := convertAppMsg(msg)
 	if err != nil {
-		return err
+		return
 	}
 	p2pCtx, ok := GetContext(ctx)
 	if !ok {
-		return fmt.Errorf("P2P context doesn't exist")
+		err = fmt.Errorf("P2P context doesn't exist")
+		return
 	}
 	broadcast := BroadcastMsg{ChainId: p2pCtx.ChainID, MsgType: msgType, MsgBody: msgBody}
 	data, err := proto.Marshal(&broadcast)
 	if err != nil {
-		return errors.Wrap(err, "error when marshaling broadcast message")
+		err = errors.Wrap(err, "error when marshaling broadcast message")
+		return
 	}
-	if err := p.host.Broadcast(broadcastTopic, data); err != nil {
-		return errors.Wrap(err, "error when sending broadcast message")
+	if err = p.host.Broadcast(broadcastTopic, data); err != nil {
+		err = errors.Wrap(err, "error when sending broadcast message")
+		return
 	}
-	return nil
+	return
 }
 
 // Unicast sends a unicast message to the given address
-func (p *Agent) Unicast(ctx context.Context, addr net.Addr, msg proto.Message) error {
+func (p *Agent) Unicast(ctx context.Context, addr net.Addr, msg proto.Message) (err error) {
+	defer func() {
+		status := "success"
+		if err != nil {
+			status = "failure"
+		}
+		p2pMsgCounter.WithLabelValues("unicast", "out", status).Inc()
+	}()
 	msgType, msgBody, err := convertAppMsg(msg)
 	if err != nil {
-		return err
+		return
 	}
 	p2pCtx, ok := GetContext(ctx)
 	if !ok {
-		return fmt.Errorf("P2P context doesn't exist")
+		err = fmt.Errorf("P2P context doesn't exist")
+		return
 	}
 	unicast := UnicastMsg{ChainId: p2pCtx.ChainID, Addr: p.Self().String(), MsgType: msgType, MsgBody: msgBody}
 	data, err := proto.Marshal(&unicast)
 	if err != nil {
-		return errors.Wrap(err, "error when marshaling unicast message")
+		err = errors.Wrap(err, "error when marshaling unicast message")
+		return
 	}
-	if err := p.host.Unicast(addr.String(), unicastTopic, data); err != nil {
-		return errors.Wrap(err, "error when sending unicast message")
+	if err = p.host.Unicast(addr.String(), unicastTopic, data); err != nil {
+		err = errors.Wrap(err, "error when sending unicast message")
+		return
 	}
-	return err
+	return
 }
 
 // Self returns the self network address
