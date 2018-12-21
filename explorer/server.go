@@ -28,34 +28,34 @@ import (
 
 // Config represents the config to setup explorer
 type Config struct {
-	broadcastCB Broadcast
-	neighborsCB Neighbors
-	selfCB      Self
+	broadcastHandler Broadcast
+	neighborsHandler Neighbors
+	selfHandler      Self
 }
 
 // Option is the option to override the explorer config
 type Option func(cfg *Config) error
 
 // WithBroadcast is the option to set the broadcast callback
-func WithBroadcast(broadcastCB Broadcast) Option {
+func WithBroadcast(broadcastHandler Broadcast) Option {
 	return func(cfg *Config) error {
-		cfg.broadcastCB = broadcastCB
+		cfg.broadcastHandler = broadcastHandler
 		return nil
 	}
 }
 
 // WithNeighbors is the option to set the neighbors callback
-func WithNeighbors(neighborsCB Neighbors) Option {
+func WithNeighbors(neighborsHandler Neighbors) Option {
 	return func(cfg *Config) error {
-		cfg.neighborsCB = neighborsCB
+		cfg.neighborsHandler = neighborsHandler
 		return nil
 	}
 }
 
 // WithSelf is the option to set the self callback
-func WithSelf(selfCB Self) Option {
+func WithSelf(selfHandler Self) Option {
 	return func(cfg *Config) error {
-		cfg.selfCB = selfCB
+		cfg.selfHandler = selfHandler
 		return nil
 	}
 }
@@ -88,16 +88,16 @@ func NewServer(
 	return &Server{
 		cfg: cfg,
 		exp: &Service{
-			bc:          chain,
-			c:           consensus,
-			dp:          dispatcher,
-			ap:          actPool,
-			broadcastCB: expCfg.broadcastCB,
-			neighborsCB: expCfg.neighborsCB,
-			selfCB:      expCfg.selfCB,
-			cfg:         cfg,
-			idx:         idx,
-			gs:          GasStation{bc: chain, cfg: cfg},
+			bc:               chain,
+			c:                consensus,
+			dp:               dispatcher,
+			ap:               actPool,
+			broadcastHandler: expCfg.broadcastHandler,
+			neighborsHandler: expCfg.neighborsHandler,
+			selfHandler:      expCfg.selfHandler,
+			cfg:              cfg,
+			idx:              idx,
+			gs:               GasStation{bc: chain, cfg: cfg},
 		},
 	}, nil
 }

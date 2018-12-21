@@ -8,7 +8,7 @@
 //      protoc --go_out=plugins=grpc:. *.proto
 syntax = "proto3";
 
-package p2p;
+package p2ppb;
 
 message BroadcastMsg {
     uint32 chain_id = 1;

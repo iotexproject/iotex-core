@@ -31,25 +31,25 @@ type (
 
 // Config represents the config to setup blocksync
 type Config struct {
-	unicastCB   Unicast
-	neighborsCB Neighbors
+	unicastHandler   Unicast
+	neighborsHandler Neighbors
 }
 
 // Option is the option to override the blocksync config
 type Option func(cfg *Config) error
 
 // WithUnicast is the option to set the unicast callback
-func WithUnicast(unicastCB Unicast) Option {
+func WithUnicast(unicastHandler Unicast) Option {
 	return func(cfg *Config) error {
-		cfg.unicastCB = unicastCB
+		cfg.unicastHandler = unicastHandler
 		return nil
 	}
 }
 
 // WithNeighbors is the option to set the neighbors callback
-func WithNeighbors(neighborsCB Neighbors) Option {
+func WithNeighbors(neighborsHandler Neighbors) Option {
 	return func(cfg *Config) error {
-		cfg.neighborsCB = neighborsCB
+		cfg.neighborsHandler = neighborsHandler
 		return nil
 	}
 }
@@ -66,16 +66,16 @@ type BlockSync interface {
 
 // blockSyncer implements BlockSync interface
 type blockSyncer struct {
-	ackBlockCommit bool   // acknowledges latest committed block
-	ackBlockSync   bool   // acknowledges old block from sync request
-	ackSyncReq     bool   // acknowledges incoming Sync request
-	commitHeight   uint64 // last commit block height
-	buf            *blockBuffer
-	worker         *syncWorker
-	bc             blockchain.Blockchain
-	unicastCB      Unicast
-	neighborsCB    Neighbors
-	chaser         *routine.RecurringTask
+	ackBlockCommit   bool   // acknowledges latest committed block
+	ackBlockSync     bool   // acknowledges old block from sync request
+	ackSyncReq       bool   // acknowledges incoming Sync request
+	commitHeight     uint64 // last commit block height
+	buf              *blockBuffer
+	worker           *syncWorker
+	bc               blockchain.Blockchain
+	unicastHandler   Unicast
+	neighborsHandler Neighbors
+	chaser           *routine.RecurringTask
 }
 
 // NewBlockSyncer returns a new block syncer instance
@@ -102,14 +102,14 @@ func NewBlockSyncer(
 		}
 	}
 	bs := &blockSyncer{
-		ackBlockCommit: cfg.IsDelegate() || cfg.IsFullnode(),
-		ackBlockSync:   cfg.IsDelegate() || cfg.IsFullnode(),
-		ackSyncReq:     cfg.IsDelegate() || cfg.IsFullnode(),
-		bc:             chain,
-		buf:            buf,
-		unicastCB:      bsCfg.unicastCB,
-		neighborsCB:    bsCfg.neighborsCB,
-		worker:         newSyncWorker(chain.ChainID(), cfg, bsCfg.unicastCB, bsCfg.neighborsCB, buf),
+		ackBlockCommit:   cfg.IsDelegate() || cfg.IsFullnode(),
+		ackBlockSync:     cfg.IsDelegate() || cfg.IsFullnode(),
+		ackSyncReq:       cfg.IsDelegate() || cfg.IsFullnode(),
+		bc:               chain,
+		buf:              buf,
+		unicastHandler:   bsCfg.unicastHandler,
+		neighborsHandler: bsCfg.neighborsHandler,
+		worker:           newSyncWorker(chain.ChainID(), cfg, bsCfg.unicastHandler, bsCfg.neighborsHandler, buf),
 	}
 	bs.chaser = routine.NewRecurringTask(bs.Chase, cfg.BlockSync.Interval*10)
 	return bs, nil
@@ -195,7 +195,7 @@ func (bs *blockSyncer) ProcessSyncRequest(sender string, sync *iproto.BlockSync)
 			return err
 		}
 		// TODO: send back multiple blocks in one shot
-		if err := bs.unicastCB(
+		if err := bs.unicastHandler(
 			node.NewTCPNode(sender),
 			&iproto.BlockContainer{Block: blk.ConvertToBlockPb()},
 		); err != nil {

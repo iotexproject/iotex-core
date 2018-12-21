@@ -651,12 +651,12 @@ func makeTestRollDPoSCtx(
 		}
 	}
 	return &rollDPoSCtx{
-		cfg:         cfg,
-		addr:        addr,
-		chain:       chain,
-		actPool:     actPool,
-		broadcastCB: broadcastCB,
-		clock:       clock,
+		cfg:              cfg,
+		addr:             addr,
+		chain:            chain,
+		actPool:          actPool,
+		broadcastHandler: broadcastCB,
+		clock:            clock,
 	}
 }
 

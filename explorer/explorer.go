@@ -73,16 +73,16 @@ type (
 
 // Service provide api for user to query blockchain data
 type Service struct {
-	bc          blockchain.Blockchain
-	c           consensus.Consensus
-	dp          dispatcher.Dispatcher
-	ap          actpool.ActPool
-	gs          GasStation
-	broadcastCB Broadcast
-	neighborsCB Neighbors
-	selfCB      Self
-	cfg         config.Explorer
-	idx         *indexservice.Server
+	bc               blockchain.Blockchain
+	c                consensus.Consensus
+	dp               dispatcher.Dispatcher
+	ap               actpool.ActPool
+	gs               GasStation
+	broadcastHandler Broadcast
+	neighborsHandler Neighbors
+	selfHandler      Self
+	cfg              config.Explorer
+	idx              *indexservice.Server
 	// TODO: the way to make explorer to access the data model managed by main-chain protocol is hack. We need to
 	// refactor the code later
 	mainChain *mainchain.Protocol
@@ -1056,7 +1056,7 @@ func (exp *Service) SendTransfer(tsfJSON explorer.SendTransferRequest) (resp exp
 		return explorer.SendTransferResponse{}, err
 	}
 	// broadcast to the network
-	if err = exp.broadcastCB(exp.bc.ChainID(), actPb); err != nil {
+	if err = exp.broadcastHandler(exp.bc.ChainID(), actPb); err != nil {
 		return explorer.SendTransferResponse{}, err
 	}
 	// send to actpool via dispatcher
@@ -1109,7 +1109,7 @@ func (exp *Service) SendVote(voteJSON explorer.SendVoteRequest) (resp explorer.S
 		Signature:    signature,
 	}
 	// broadcast to the network
-	if err := exp.broadcastCB(exp.bc.ChainID(), actPb); err != nil {
+	if err := exp.broadcastHandler(exp.bc.ChainID(), actPb); err != nil {
 		return explorer.SendVoteResponse{}, err
 	}
 	// send to actpool via dispatcher
@@ -1176,7 +1176,7 @@ func (exp *Service) PutSubChainBlock(putBlockJSON explorer.PutSubChainBlockReque
 		Signature:    signature,
 	}
 	// broadcast to the network
-	if err := exp.broadcastCB(exp.bc.ChainID(), actPb); err != nil {
+	if err := exp.broadcastHandler(exp.bc.ChainID(), actPb); err != nil {
 		return explorer.PutSubChainBlockResponse{}, err
 	}
 	// send to actpool via dispatcher
@@ -1208,7 +1208,7 @@ func (exp *Service) SendAction(req explorer.SendActionRequest) (resp explorer.Se
 	}
 
 	// broadcast to the network
-	if err = exp.broadcastCB(exp.bc.ChainID(), &action); err != nil {
+	if err = exp.broadcastHandler(exp.bc.ChainID(), &action); err != nil {
 		logger.Warn().Err(err).Msg("failed to broadcast SendAction request.")
 	}
 	// send to actpool via dispatcher
@@ -1221,13 +1221,13 @@ func (exp *Service) SendAction(req explorer.SendActionRequest) (resp explorer.Se
 // GetPeers return a list of node peers and itself's network addsress info.
 func (exp *Service) GetPeers() (explorer.GetPeersResponse, error) {
 	var peers []explorer.Node
-	for _, p := range exp.neighborsCB() {
+	for _, p := range exp.neighborsHandler() {
 		peers = append(peers, explorer.Node{
 			Address: p.String(),
 		})
 	}
 	return explorer.GetPeersResponse{
-		Self:  explorer.Node{Address: exp.selfCB().String()},
+		Self:  explorer.Node{Address: exp.selfHandler().String()},
 		Peers: peers,
 	}, nil
 }
@@ -1281,7 +1281,7 @@ func (exp *Service) SendSmartContract(execution explorer.Execution) (resp explor
 		Signature:    signature,
 	}
 	// broadcast to the network
-	if err := exp.broadcastCB(exp.bc.ChainID(), actPb); err != nil {
+	if err := exp.broadcastHandler(exp.bc.ChainID(), actPb); err != nil {
 		return explorer.SendSmartContractResponse{}, err
 	}
 	// send to actpool via dispatcher
@@ -1383,7 +1383,7 @@ func (exp *Service) CreateDeposit(req explorer.CreateDepositRequest) (res explor
 	}
 
 	// broadcast to the network
-	if err := exp.broadcastCB(exp.bc.ChainID(), actPb); err != nil {
+	if err := exp.broadcastHandler(exp.bc.ChainID(), actPb); err != nil {
 		return res, err
 	}
 	// send to actpool via dispatcher
@@ -1492,7 +1492,7 @@ func (exp *Service) SettleDeposit(req explorer.SettleDepositRequest) (res explor
 		Signature:    signature,
 	}
 	// broadcast to the network
-	if err := exp.broadcastCB(exp.bc.ChainID(), actPb); err != nil {
+	if err := exp.broadcastHandler(exp.bc.ChainID(), actPb); err != nil {
 		return res, err
 	}
 	// send to actpool via dispatcher

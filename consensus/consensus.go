@@ -46,8 +46,8 @@ type IotxConsensus struct {
 }
 
 type optionParams struct {
-	rootChainAPI explorerapi.Explorer
-	broadcastCB  scheme.Broadcast
+	rootChainAPI     explorerapi.Explorer
+	broadcastHandler scheme.Broadcast
 }
 
 // Option sets Consensus construction parameter.
@@ -62,9 +62,9 @@ func WithRootChainAPI(exp explorerapi.Explorer) Option {
 }
 
 // WithBroadcast is an option to add broadcast callback to Consensus
-func WithBroadcast(broadcastCB scheme.Broadcast) Option {
+func WithBroadcast(broadcastHandler scheme.Broadcast) Option {
 	return func(ops *optionParams) error {
-		ops.broadcastCB = broadcastCB
+		ops.broadcastHandler = broadcastHandler
 		return nil
 	}
 }
@@ -120,7 +120,7 @@ func NewConsensus(
 
 	broadcastBlockCB := func(blk *blockchain.Block) error {
 		if blkPb := blk.ConvertToBlockPb(); blkPb != nil {
-			return ops.broadcastCB(blkPb)
+			return ops.broadcastHandler(blkPb)
 		}
 		return nil
 	}
@@ -135,7 +135,7 @@ func NewConsensus(
 			SetBlockchain(bc).
 			SetActPool(ap).
 			SetClock(clock).
-			SetBroadcast(ops.broadcastCB)
+			SetBroadcast(ops.broadcastHandler)
 		if ops.rootChainAPI != nil {
 			bd = bd.SetCandidatesByHeightFunc(func(h uint64) ([]*state.Candidate, error) {
 				rawcs, err := ops.rootChainAPI.GetCandidateMetricsByHeight(int64(h))

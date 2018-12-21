@@ -569,9 +569,9 @@ func TestService_SendTransfer(t *testing.T) {
 
 	chain := mock_blockchain.NewMockBlockchain(ctrl)
 	mDp := mock_dispatcher.NewMockDispatcher(ctrl)
-	broadcastCBCount := 0
-	svc := Service{bc: chain, dp: mDp, broadcastCB: func(_ uint32, _ proto.Message) error {
-		broadcastCBCount++
+	broadcastHandlerCount := 0
+	svc := Service{bc: chain, dp: mDp, broadcastHandler: func(_ uint32, _ proto.Message) error {
+		broadcastHandlerCount++
 		return nil
 	}}
 
@@ -595,7 +595,7 @@ func TestService_SendTransfer(t *testing.T) {
 	gas, err := svc.EstimateGasForTransfer(r)
 	require.Nil(err)
 	require.Equal(gas, int64(10000))
-	assert.Equal(t, 1, broadcastCBCount)
+	assert.Equal(t, 1, broadcastHandlerCount)
 }
 
 func TestService_SendVote(t *testing.T) {
@@ -606,9 +606,9 @@ func TestService_SendVote(t *testing.T) {
 
 	chain := mock_blockchain.NewMockBlockchain(ctrl)
 	mDp := mock_dispatcher.NewMockDispatcher(ctrl)
-	broadcastCBCount := 0
-	svc := Service{bc: chain, dp: mDp, broadcastCB: func(_ uint32, _ proto.Message) error {
-		broadcastCBCount++
+	broadcastHandlerCount := 0
+	svc := Service{bc: chain, dp: mDp, broadcastHandler: func(_ uint32, _ proto.Message) error {
+		broadcastHandlerCount++
 		return nil
 	}}
 
@@ -631,7 +631,7 @@ func TestService_SendVote(t *testing.T) {
 	gas, err := svc.EstimateGasForVote()
 	require.Nil(err)
 	require.Equal(gas, int64(10000))
-	assert.Equal(t, 1, broadcastCBCount)
+	assert.Equal(t, 1, broadcastHandlerCount)
 }
 
 func TestService_SendSmartContract(t *testing.T) {
@@ -642,9 +642,9 @@ func TestService_SendSmartContract(t *testing.T) {
 
 	chain := mock_blockchain.NewMockBlockchain(ctrl)
 	mDp := mock_dispatcher.NewMockDispatcher(ctrl)
-	broadcastCBCount := 0
-	svc := Service{bc: chain, dp: mDp, broadcastCB: func(_ uint32, _ proto.Message) error {
-		broadcastCBCount++
+	broadcastHandlerCount := 0
+	svc := Service{bc: chain, dp: mDp, broadcastHandler: func(_ uint32, _ proto.Message) error {
+		broadcastHandlerCount++
 		return nil
 	}, gs: GasStation{chain, config.Explorer{}}}
 
@@ -669,7 +669,7 @@ func TestService_SendSmartContract(t *testing.T) {
 	response, err := svc.SendSmartContract(explorerExecution)
 	require.NotNil(response.Hash)
 	require.Nil(err)
-	assert.Equal(t, 1, broadcastCBCount)
+	assert.Equal(t, 1, broadcastHandlerCount)
 }
 
 func TestServicePutSubChainBlock(t *testing.T) {
@@ -680,9 +680,9 @@ func TestServicePutSubChainBlock(t *testing.T) {
 
 	chain := mock_blockchain.NewMockBlockchain(ctrl)
 	mDp := mock_dispatcher.NewMockDispatcher(ctrl)
-	broadcastCBCount := 0
-	svc := Service{bc: chain, dp: mDp, broadcastCB: func(_ uint32, _ proto.Message) error {
-		broadcastCBCount++
+	broadcastHandlerCount := 0
+	svc := Service{bc: chain, dp: mDp, broadcastHandler: func(_ uint32, _ proto.Message) error {
+		broadcastHandlerCount++
 		return nil
 	}}
 
@@ -713,7 +713,7 @@ func TestServicePutSubChainBlock(t *testing.T) {
 	response, err = svc.PutSubChainBlock(r)
 	require.NotNil(response.Hash)
 	require.Nil(err)
-	assert.Equal(t, 1, broadcastCBCount)
+	assert.Equal(t, 1, broadcastHandlerCount)
 }
 
 func TestServiceSendAction(t *testing.T) {
@@ -724,9 +724,9 @@ func TestServiceSendAction(t *testing.T) {
 
 	chain := mock_blockchain.NewMockBlockchain(ctrl)
 	mDp := mock_dispatcher.NewMockDispatcher(ctrl)
-	broadcastCBCount := 0
-	svc := Service{bc: chain, dp: mDp, broadcastCB: func(_ uint32, _ proto.Message) error {
-		broadcastCBCount++
+	broadcastHandlerCount := 0
+	svc := Service{bc: chain, dp: mDp, broadcastHandler: func(_ uint32, _ proto.Message) error {
+		broadcastHandlerCount++
 		return nil
 	}}
 
@@ -767,7 +767,7 @@ func TestServiceSendAction(t *testing.T) {
 
 	_, err = svc.SendAction(request)
 	require.NoError(err)
-	assert.Equal(t, 1, broadcastCBCount)
+	assert.Equal(t, 1, broadcastHandlerCount)
 }
 
 func TestServiceGetPeers(t *testing.T) {
@@ -779,7 +779,7 @@ func TestServiceGetPeers(t *testing.T) {
 	mDp := mock_dispatcher.NewMockDispatcher(ctrl)
 	svc := Service{
 		dp: mDp,
-		neighborsCB: func() []net.Addr {
+		neighborsHandler: func() []net.Addr {
 
 			return []net.Addr{
 				&node.Node{Addr: "127.0.0.1:10002"},
@@ -787,7 +787,7 @@ func TestServiceGetPeers(t *testing.T) {
 				&node.Node{Addr: "127.0.0.1:10004"},
 			}
 		},
-		selfCB: func() net.Addr {
+		selfHandler: func() net.Addr {
 			return node.NewTCPNode("127.0.0.1:10001")
 		},
 	}
@@ -930,12 +930,12 @@ func TestService_CreateDeposit(t *testing.T) {
 	dp := mock_dispatcher.NewMockDispatcher(ctrl)
 	dp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
 
-	broadcastCBCount := 0
+	broadcastHandlerCount := 0
 	svc := Service{
 		cfg: cfg.Explorer,
 		bc:  bc,
-		broadcastCB: func(_ uint32, _ proto.Message) error {
-			broadcastCBCount++
+		broadcastHandler: func(_ uint32, _ proto.Message) error {
+			broadcastHandlerCount++
 			return nil
 		},
 		dp: dp,
@@ -972,7 +972,7 @@ func TestService_CreateDeposit(t *testing.T) {
 	require.NoError(error)
 	hash := deposit.Hash()
 	require.Equal(hex.EncodeToString(hash[:]), res.Hash)
-	assert.Equal(t, 1, broadcastCBCount)
+	assert.Equal(t, 1, broadcastHandlerCount)
 }
 
 func TestService_SettleDeposit(t *testing.T) {
@@ -989,12 +989,12 @@ func TestService_SettleDeposit(t *testing.T) {
 	dp := mock_dispatcher.NewMockDispatcher(ctrl)
 	dp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
 
-	broadcastCBCount := 0
+	broadcastHandlerCount := 0
 	svc := Service{
 		cfg: cfg.Explorer,
 		bc:  bc,
-		broadcastCB: func(_ uint32, _ proto.Message) error {
-			broadcastCBCount++
+		broadcastHandler: func(_ uint32, _ proto.Message) error {
+			broadcastHandlerCount++
 			return nil
 		},
 		dp: dp,
@@ -1033,7 +1033,7 @@ func TestService_SettleDeposit(t *testing.T) {
 	require.NoError(error)
 	hash := deposit.Hash()
 	require.Equal(hex.EncodeToString(hash[:]), res.Hash)
-	assert.Equal(t, 1, broadcastCBCount)
+	assert.Equal(t, 1, broadcastHandlerCount)
 }
 
 func TestService_GetDeposits(t *testing.T) {

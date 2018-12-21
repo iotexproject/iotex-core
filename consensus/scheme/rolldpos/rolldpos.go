@@ -55,15 +55,15 @@ var (
 )
 
 type rollDPoSCtx struct {
-	cfg          config.RollDPoS
-	addr         *iotxaddress.Address
-	chain        blockchain.Blockchain
-	actPool      actpool.ActPool
-	broadcastCB  scheme.Broadcast
-	epoch        epochCtx
-	round        roundCtx
-	clock        clock.Clock
-	rootChainAPI explorer.Explorer
+	cfg              config.RollDPoS
+	addr             *iotxaddress.Address
+	chain            blockchain.Blockchain
+	actPool          actpool.ActPool
+	broadcastHandler scheme.Broadcast
+	epoch            epochCtx
+	round            roundCtx
+	clock            clock.Clock
+	rootChainAPI     explorer.Explorer
 	// candidatesByHeightFunc is only used for testing purpose
 	candidatesByHeightFunc func(uint64) ([]*state.Candidate, error)
 	sync                   blocksync.BlockSync
@@ -501,7 +501,7 @@ type Builder struct {
 	addr                   *iotxaddress.Address
 	chain                  blockchain.Blockchain
 	actPool                actpool.ActPool
-	broadcastCB            scheme.Broadcast
+	broadcastHandler       scheme.Broadcast
 	clock                  clock.Clock
 	rootChainAPI           explorer.Explorer
 	candidatesByHeightFunc func(uint64) ([]*state.Candidate, error)
@@ -537,8 +537,8 @@ func (b *Builder) SetActPool(actPool actpool.ActPool) *Builder {
 }
 
 // SetBroadcast sets the broadcast callback
-func (b *Builder) SetBroadcast(broadcastCB scheme.Broadcast) *Builder {
-	b.broadcastCB = broadcastCB
+func (b *Builder) SetBroadcast(broadcastHandler scheme.Broadcast) *Builder {
+	b.broadcastHandler = broadcastHandler
 	return b
 }
 
@@ -570,7 +570,7 @@ func (b *Builder) Build() (*RollDPoS, error) {
 	if b.actPool == nil {
 		return nil, errors.Wrap(ErrNewRollDPoS, "action pool APIs is nil")
 	}
-	if b.broadcastCB == nil {
+	if b.broadcastHandler == nil {
 		return nil, errors.Wrap(ErrNewRollDPoS, "broadcast callback is nil")
 	}
 	if b.clock == nil {
@@ -581,7 +581,7 @@ func (b *Builder) Build() (*RollDPoS, error) {
 		addr:                   b.addr,
 		chain:                  b.chain,
 		actPool:                b.actPool,
-		broadcastCB:            b.broadcastCB,
+		broadcastHandler:       b.broadcastHandler,
 		clock:                  b.clock,
 		rootChainAPI:           b.rootChainAPI,
 		candidatesByHeightFunc: b.candidatesByHeightFunc,

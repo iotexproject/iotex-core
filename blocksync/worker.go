@@ -22,30 +22,30 @@ type syncBlocksInterval struct {
 }
 
 type syncWorker struct {
-	chainID      uint32
-	mu           sync.RWMutex
-	targetHeight uint64
-	unicastCB    Unicast
-	neighborsCB  Neighbors
-	rrIdx        int
-	buf          *blockBuffer
-	task         *routine.RecurringTask
+	chainID          uint32
+	mu               sync.RWMutex
+	targetHeight     uint64
+	unicastHandler   Unicast
+	neighborsHandler Neighbors
+	rrIdx            int
+	buf              *blockBuffer
+	task             *routine.RecurringTask
 }
 
 func newSyncWorker(
 	chainID uint32,
 	cfg config.Config,
-	unicastCB Unicast,
-	neighborsCB Neighbors,
+	unicastHandler Unicast,
+	neighborsHandler Neighbors,
 	buf *blockBuffer,
 ) *syncWorker {
 	w := &syncWorker{
-		chainID:      chainID,
-		unicastCB:    unicastCB,
-		neighborsCB:  neighborsCB,
-		buf:          buf,
-		targetHeight: 0,
-		rrIdx:        0,
+		chainID:          chainID,
+		unicastHandler:   unicastHandler,
+		neighborsHandler: neighborsHandler,
+		buf:              buf,
+		targetHeight:     0,
+		rrIdx:            0,
 	}
 	if interval := syncTaskInterval(cfg); interval != 0 {
 		w.task = routine.NewRecurringTask(w.Sync, cfg.BlockSync.Interval)
@@ -80,7 +80,7 @@ func (w *syncWorker) Sync() {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	peers := w.neighborsCB()
+	peers := w.neighborsHandler()
 	if len(peers) == 0 {
 		logger.Debug().Msg("No peer exist to sync with.")
 		return
@@ -92,7 +92,7 @@ func (w *syncWorker) Sync() {
 	for _, interval := range intervals {
 		w.rrIdx %= len(peers)
 		p := peers[w.rrIdx]
-		if err := w.unicastCB(p, &pb.BlockSync{
+		if err := w.unicastHandler(p, &pb.BlockSync{
 			Start: interval.Start, End: interval.End,
 		}); err != nil {
 			logger.Warn().Err(err).Msg("Failed to sync block.")

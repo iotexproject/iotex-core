@@ -21,6 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/p2p/node"
+	"github.com/iotexproject/iotex-core/p2p/pb"
 	"github.com/iotexproject/iotex-core/proto"
 )
 
@@ -56,18 +57,18 @@ type (
 
 // Agent is the agent to help the blockchain node connect into the P2P networks and send/receive messages
 type Agent struct {
-	cfg         config.Network
-	broadcastCB HandleBroadcast
-	unicastCB   HandleUnicast
-	host        *p2p.Host
+	cfg              config.Network
+	broadcastHandler HandleBroadcast
+	unicastHandler   HandleUnicast
+	host             *p2p.Host
 }
 
 // NewAgent instantiates a local P2P agent instance
-func NewAgent(cfg config.Network, broadcastCB HandleBroadcast, unicastCB HandleUnicast) *Agent {
+func NewAgent(cfg config.Network, broadcastHandler HandleBroadcast, unicastHandler HandleUnicast) *Agent {
 	return &Agent{
-		cfg:         cfg,
-		broadcastCB: broadcastCB,
-		unicastCB:   unicastCB,
+		cfg:              cfg,
+		broadcastHandler: broadcastHandler,
+		unicastHandler:   unicastHandler,
 	}
 }
 
@@ -90,7 +91,7 @@ func (p *Agent) Start(ctx context.Context) error {
 	}
 
 	if err := host.AddBroadcastPubSub(broadcastTopic, func(data []byte) (err error) {
-		var broadcast BroadcastMsg
+		var broadcast p2ppb.BroadcastMsg
 		defer func() {
 			status := "success"
 			if err != nil {
@@ -111,7 +112,7 @@ func (p *Agent) Start(ctx context.Context) error {
 			err = errors.Wrap(err, "error when typifying broadcast message")
 			return
 		}
-		p.broadcastCB(broadcast.ChainId, msg, nil)
+		p.broadcastHandler(broadcast.ChainId, msg, nil)
 		return
 	}); err != nil {
 		return errors.Wrap(err, "error when adding broadcast pubsub")
@@ -125,7 +126,7 @@ func (p *Agent) Start(ctx context.Context) error {
 			}
 			p2pMsgCounter.WithLabelValues("unicast", "in", status).Inc()
 		}()
-		var unicast UnicastMsg
+		var unicast p2ppb.UnicastMsg
 		if err = proto.Unmarshal(data, &unicast); err != nil {
 			err = errors.Wrap(err, "error when marshaling unicast message")
 			return
@@ -135,7 +136,7 @@ func (p *Agent) Start(ctx context.Context) error {
 			err = errors.Wrap(err, "error when typifying unicast message")
 			return
 		}
-		p.unicastCB(unicast.ChainId, node.NewTCPNode(unicast.Addr), msg, nil)
+		p.unicastHandler(unicast.ChainId, node.NewTCPNode(unicast.Addr), msg, nil)
 		return
 	}); err != nil {
 		return errors.Wrap(err, "error when adding unicast pubsub")
@@ -146,7 +147,7 @@ func (p *Agent) Start(ctx context.Context) error {
 		randBootstrapNodeAddr := p.cfg.BootstrapNodes[r.Intn(len(p.cfg.BootstrapNodes))]
 		if randBootstrapNodeAddr != host.Address() &&
 			randBootstrapNodeAddr != fmt.Sprintf("%s:%d", p.cfg.ExternalHost, p.cfg.ExternalPort) {
-			if exponentialRetry(
+			if err := exponentialRetry(
 				func() error {
 					return host.Connect(randBootstrapNodeAddr)
 				},
@@ -194,7 +195,7 @@ func (p *Agent) Broadcast(ctx context.Context, msg proto.Message) (err error) {
 		err = fmt.Errorf("P2P context doesn't exist")
 		return
 	}
-	broadcast := BroadcastMsg{ChainId: p2pCtx.ChainID, MsgType: msgType, MsgBody: msgBody}
+	broadcast := p2ppb.BroadcastMsg{ChainId: p2pCtx.ChainID, MsgType: msgType, MsgBody: msgBody}
 	data, err := proto.Marshal(&broadcast)
 	if err != nil {
 		err = errors.Wrap(err, "error when marshaling broadcast message")
@@ -225,7 +226,7 @@ func (p *Agent) Unicast(ctx context.Context, addr net.Addr, msg proto.Message) (
 		err = fmt.Errorf("P2P context doesn't exist")
 		return
 	}
-	unicast := UnicastMsg{ChainId: p2pCtx.ChainID, Addr: p.Self().String(), MsgType: msgType, MsgBody: msgBody}
+	unicast := p2ppb.UnicastMsg{ChainId: p2pCtx.ChainID, Addr: p.Self().String(), MsgType: msgType, MsgBody: msgBody}
 	data, err := proto.Marshal(&unicast)
 	if err != nil {
 		err = errors.Wrap(err, "error when marshaling unicast message")
@@ -272,7 +273,6 @@ func convertAppMsg(msg proto.Message) (uint32, []byte, error) {
 
 func exponentialRetry(f func() error, retryInterval time.Duration, numRetries int) (err error) {
 	for i := 0; i < numRetries; i++ {
-		err = f()
 		if err = f(); err == nil {
 			return
 		}
