@@ -27,7 +27,6 @@ import (
 	pb "github.com/iotexproject/iotex-core/consensus/sim/proto"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/logger"
-	"github.com/iotexproject/iotex-core/network"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/proto"
@@ -87,8 +86,6 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 		// handle node address, delegate addresses, etc.
 		cfg.Network.Host = "127.0.0.1"
 		cfg.Network.Port = 10000
-		cfg.Network.NumPeersLowerBound = 6
-		cfg.Network.NumPeersUpperBound = 12
 
 		// create public/private key pair and address
 		pk, sk, err := crypto.EC283.NewKeyPair()
@@ -113,7 +110,6 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 			bc.SetValidator(byzVal)
 		}
 
-		overlay := network.NewOverlay(cfg.Network)
 		ap, err := actpool.NewActPool(bc, cfg.ActPool)
 		if err != nil {
 			logger.Fatal().Err(err).Msg("Fail to create actpool")
@@ -121,12 +117,12 @@ func (s *server) Init(in *pb.InitRequest, stream pb.Simulator_InitServer) error 
 
 		var node Sim
 		if i < int(in.NHonest) {
-			node = NewSim(cfg, bc, ap, overlay)
+			node = NewSim(cfg, bc, ap)
 		} else if i < int(in.NHonest+in.NFS) {
 			s.nodes = append(s.nodes, nil)
 			continue
 		} else {
-			node = NewSimByzantine(cfg, bc, ap, overlay)
+			node = NewSimByzantine(cfg, bc, ap)
 		}
 
 		s.nodes = append(s.nodes, node)

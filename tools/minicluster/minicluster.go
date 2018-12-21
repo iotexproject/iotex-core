@@ -193,12 +193,8 @@ func newConfig(
 
 	cfg.NodeType = config.DelegateType
 
-	cfg.Network.AllowMultiConnsPerHost = true
 	cfg.Network.Port = networkPort
 	cfg.Network.BootstrapNodes = []string{"127.0.0.1:4689"}
-	cfg.Network.NumPeersUpperBound = numNodes
-	cfg.Network.NumPeersLowerBound = numNodes
-	cfg.Network.TTL = 1
 
 	cfg.Chain.ID = 1
 	cfg.Chain.GenesisActionsPath = genesisConfigPath

@@ -33,7 +33,7 @@ import (
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/iotxaddress"
-	"github.com/iotexproject/iotex-core/network/node"
+	"github.com/iotexproject/iotex-core/p2p/node"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/proto"
@@ -42,7 +42,6 @@ import (
 	"github.com/iotexproject/iotex-core/test/mock/mock_actpool"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_explorer"
-	"github.com/iotexproject/iotex-core/test/mock/mock_network"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -87,7 +86,7 @@ func TestRollDPoSCtx(t *testing.T) {
 			}, nil).Times(1)
 		},
 		func(_ *mock_actpool.MockActPool) {},
-		func(_ *mock_network.MockOverlay) {},
+		nil,
 		clock,
 	)
 
@@ -173,7 +172,7 @@ func TestIsEpochFinished(t *testing.T) {
 				blockchain.EXPECT().TipHeight().Return(uint64(7)).Times(1)
 			},
 			func(_ *mock_actpool.MockActPool) {},
-			func(_ *mock_network.MockOverlay) {},
+			nil,
 			clock.NewMock(),
 		)
 		ctx.epoch.delegates = candidates
@@ -196,7 +195,7 @@ func TestIsEpochFinished(t *testing.T) {
 				blockchain.EXPECT().TipHeight().Return(uint64(8)).Times(1)
 			},
 			func(_ *mock_actpool.MockActPool) {},
-			func(_ *mock_network.MockOverlay) {},
+			nil,
 			clock.NewMock(),
 		)
 		ctx.epoch.delegates = candidates
@@ -232,7 +231,7 @@ func TestIsDKGFinished(t *testing.T) {
 				blockchain.EXPECT().TipHeight().Return(uint64(3)).Times(1)
 			},
 			func(_ *mock_actpool.MockActPool) {},
-			func(_ *mock_network.MockOverlay) {},
+			nil,
 			clock.NewMock(),
 		)
 		ctx.epoch.delegates = candidates
@@ -253,7 +252,7 @@ func TestIsDKGFinished(t *testing.T) {
 				blockchain.EXPECT().TipHeight().Return(uint64(4)).Times(1)
 			},
 			func(_ *mock_actpool.MockActPool) {},
-			func(_ *mock_network.MockOverlay) {},
+			nil,
 			clock.NewMock(),
 		)
 		ctx.epoch.delegates = candidates
@@ -285,7 +284,7 @@ func TestGenerateDKGSecrets(t *testing.T) {
 		},
 		func(blockchain *mock_blockchain.MockBlockchain) {},
 		func(_ *mock_actpool.MockActPool) {},
-		func(_ *mock_network.MockOverlay) {},
+		nil,
 		clock.NewMock(),
 	)
 
@@ -320,7 +319,7 @@ func TestGenerateDKGKeyPair(t *testing.T) {
 		},
 		func(blockchain *mock_blockchain.MockBlockchain) {},
 		func(_ *mock_actpool.MockActPool) {},
-		func(_ *mock_network.MockOverlay) {},
+		nil,
 		clock.NewMock(),
 	)
 
@@ -359,7 +358,9 @@ func TestNewRollDPoS(t *testing.T) {
 			SetAddr(newTestAddr()).
 			SetBlockchain(mock_blockchain.NewMockBlockchain(ctrl)).
 			SetActPool(mock_actpool.NewMockActPool(ctrl)).
-			SetP2P(mock_network.NewMockOverlay(ctrl)).
+			SetBroadcast(func(_ proto.Message) error {
+				return nil
+			}).
 			Build()
 		assert.NoError(t, err)
 		assert.NotNil(t, r)
@@ -370,7 +371,9 @@ func TestNewRollDPoS(t *testing.T) {
 			SetAddr(newTestAddr()).
 			SetBlockchain(mock_blockchain.NewMockBlockchain(ctrl)).
 			SetActPool(mock_actpool.NewMockActPool(ctrl)).
-			SetP2P(mock_network.NewMockOverlay(ctrl)).
+			SetBroadcast(func(_ proto.Message) error {
+				return nil
+			}).
 			SetClock(clock.NewMock()).
 			Build()
 		assert.NoError(t, err)
@@ -385,7 +388,9 @@ func TestNewRollDPoS(t *testing.T) {
 			SetAddr(newTestAddr()).
 			SetBlockchain(mock_blockchain.NewMockBlockchain(ctrl)).
 			SetActPool(mock_actpool.NewMockActPool(ctrl)).
-			SetP2P(mock_network.NewMockOverlay(ctrl)).
+			SetBroadcast(func(_ proto.Message) error {
+				return nil
+			}).
 			SetClock(clock.NewMock()).
 			SetRootChainAPI(mock_explorer.NewMockExplorer(ctrl)).
 			Build()
@@ -398,7 +403,9 @@ func TestNewRollDPoS(t *testing.T) {
 			SetConfig(config.RollDPoS{}).
 			SetAddr(newTestAddr()).
 			SetActPool(mock_actpool.NewMockActPool(ctrl)).
-			SetP2P(mock_network.NewMockOverlay(ctrl)).
+			SetBroadcast(func(_ proto.Message) error {
+				return nil
+			}).
 			Build()
 		assert.Error(t, err)
 		assert.Nil(t, r)
@@ -431,7 +438,9 @@ func TestRollDPoS_Metrics(t *testing.T) {
 		SetAddr(newTestAddr()).
 		SetBlockchain(blockchain).
 		SetActPool(mock_actpool.NewMockActPool(ctrl)).
-		SetP2P(mock_network.NewMockOverlay(ctrl)).
+		SetBroadcast(func(_ proto.Message) error {
+			return nil
+		}).
 		Build()
 	require.NoError(t, err)
 	require.NotNil(t, r)
@@ -456,7 +465,9 @@ func TestRollDPoS_convertToConsensusEvt(t *testing.T) {
 		SetAddr(newTestAddr()).
 		SetBlockchain(mock_blockchain.NewMockBlockchain(ctrl)).
 		SetActPool(mock_actpool.NewMockActPool(ctrl)).
-		SetP2P(mock_network.NewMockOverlay(ctrl)).
+		SetBroadcast(func(_ proto.Message) error {
+			return nil
+		}).
 		Build()
 	assert.NoError(t, err)
 	assert.NotNil(t, r)
@@ -627,22 +638,25 @@ func makeTestRollDPoSCtx(
 	cfg config.RollDPoS,
 	mockChain func(*mock_blockchain.MockBlockchain),
 	mockActPool func(*mock_actpool.MockActPool),
-	mockP2P func(overlay *mock_network.MockOverlay),
+	broadcastCB func(proto.Message) error,
 	clock clock.Clock,
 ) *rollDPoSCtx {
 	chain := mock_blockchain.NewMockBlockchain(ctrl)
 	mockChain(chain)
 	actPool := mock_actpool.NewMockActPool(ctrl)
 	mockActPool(actPool)
-	p2p := mock_network.NewMockOverlay(ctrl)
-	mockP2P(p2p)
+	if broadcastCB == nil {
+		broadcastCB = func(proto.Message) error {
+			return nil
+		}
+	}
 	return &rollDPoSCtx{
-		cfg:     cfg,
-		addr:    addr,
-		chain:   chain,
-		actPool: actPool,
-		p2p:     p2p,
-		clock:   clock,
+		cfg:              cfg,
+		addr:             addr,
+		chain:            chain,
+		actPool:          actPool,
+		broadcastHandler: broadcastCB,
+		clock:            clock,
 	}
 }
 
@@ -657,7 +671,7 @@ func (o *directOverlay) Start(_ context.Context) error { return nil }
 
 func (o *directOverlay) Stop(_ context.Context) error { return nil }
 
-func (o *directOverlay) Broadcast(chainID uint32, msg proto.Message) error {
+func (o *directOverlay) Broadcast(msg proto.Message) error {
 	// Only broadcast consensus message
 	if propose, ok := msg.(*iproto.ProposePb); ok {
 		for _, r := range o.peers {
@@ -770,7 +784,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 				SetConfig(cfg.Consensus.RollDPoS).
 				SetBlockchain(chain).
 				SetActPool(actPool).
-				SetP2P(p2p).
+				SetBroadcast(p2p.Broadcast).
 				SetCandidatesByHeightFunc(candidatesByHeightFunc).
 				Build()
 			require.NoError(t, err)

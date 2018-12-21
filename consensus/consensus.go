@@ -8,6 +8,7 @@ package consensus
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 
 	"github.com/facebookgo/clock"
@@ -23,7 +24,6 @@ import (
 	explorerapi "github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
-	"github.com/iotexproject/iotex-core/network"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/proto"
@@ -46,7 +46,8 @@ type IotxConsensus struct {
 }
 
 type optionParams struct {
-	rootChainAPI explorerapi.Explorer
+	rootChainAPI     explorerapi.Explorer
+	broadcastHandler scheme.Broadcast
 }
 
 // Option sets Consensus construction parameter.
@@ -60,22 +61,25 @@ func WithRootChainAPI(exp explorerapi.Explorer) Option {
 	}
 }
 
+// WithBroadcast is an option to add broadcast callback to Consensus
+func WithBroadcast(broadcastHandler scheme.Broadcast) Option {
+	return func(ops *optionParams) error {
+		ops.broadcastHandler = broadcastHandler
+		return nil
+	}
+}
+
 // NewConsensus creates a IotxConsensus struct.
 func NewConsensus(
 	cfg config.Config,
 	bc blockchain.Blockchain,
 	ap actpool.ActPool,
-	p2p network.Overlay,
 	opts ...Option,
-) Consensus {
-	if bc == nil || ap == nil || p2p == nil {
-		logger.Panic().Msg("Try to attach to nil blockchain, action pool or p2p interface")
-	}
-
+) (Consensus, error) {
 	var ops optionParams
 	for _, opt := range opts {
 		if err := opt(&ops); err != nil {
-			return nil
+			return nil, err
 		}
 	}
 
@@ -116,7 +120,7 @@ func NewConsensus(
 
 	broadcastBlockCB := func(blk *blockchain.Block) error {
 		if blkPb := blk.ConvertToBlockPb(); blkPb != nil {
-			return p2p.Broadcast(bc.ChainID(), blkPb)
+			return ops.broadcastHandler(blkPb)
 		}
 		return nil
 	}
@@ -131,7 +135,7 @@ func NewConsensus(
 			SetBlockchain(bc).
 			SetActPool(ap).
 			SetClock(clock).
-			SetP2P(p2p)
+			SetBroadcast(ops.broadcastHandler)
 		if ops.rootChainAPI != nil {
 			bd = bd.SetCandidatesByHeightFunc(func(h uint64) ([]*state.Candidate, error) {
 				rawcs, err := ops.rootChainAPI.GetCandidateMetricsByHeight(int64(h))
@@ -182,13 +186,10 @@ func NewConsensus(
 			cfg.Consensus.BlockCreationInterval,
 		)
 	default:
-		logger.Error().
-			Str("scheme", cfg.Consensus.Scheme).
-			Msg("Unexpected IotxConsensus scheme")
-		return nil
+		return nil, fmt.Errorf("unexpected IotxConsensus scheme %s", cfg.Consensus.Scheme)
 	}
 
-	return cs
+	return cs, nil
 }
 
 // Start starts running the consensus algorithm

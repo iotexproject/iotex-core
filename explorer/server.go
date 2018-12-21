@@ -24,8 +24,41 @@ import (
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/indexservice"
 	"github.com/iotexproject/iotex-core/logger"
-	"github.com/iotexproject/iotex-core/network"
 )
+
+// Config represents the config to setup explorer
+type Config struct {
+	broadcastHandler Broadcast
+	neighborsHandler Neighbors
+	selfHandler      Self
+}
+
+// Option is the option to override the explorer config
+type Option func(cfg *Config) error
+
+// WithBroadcast is the option to set the broadcast callback
+func WithBroadcast(broadcastHandler Broadcast) Option {
+	return func(cfg *Config) error {
+		cfg.broadcastHandler = broadcastHandler
+		return nil
+	}
+}
+
+// WithNeighbors is the option to set the neighbors callback
+func WithNeighbors(neighborsHandler Neighbors) Option {
+	return func(cfg *Config) error {
+		cfg.neighborsHandler = neighborsHandler
+		return nil
+	}
+}
+
+// WithSelf is the option to set the self callback
+func WithSelf(selfHandler Self) Option {
+	return func(cfg *Config) error {
+		cfg.selfHandler = selfHandler
+		return nil
+	}
+}
 
 // Server is the container of the explorer service
 type Server struct {
@@ -43,22 +76,30 @@ func NewServer(
 	consensus consensus.Consensus,
 	dispatcher dispatcher.Dispatcher,
 	actPool actpool.ActPool,
-	p2p network.Overlay,
 	idx *indexservice.Server,
-) *Server {
+	opts ...Option,
+) (*Server, error) {
+	expCfg := Config{}
+	for _, opt := range opts {
+		if err := opt(&expCfg); err != nil {
+			return nil, err
+		}
+	}
 	return &Server{
 		cfg: cfg,
 		exp: &Service{
-			bc:  chain,
-			c:   consensus,
-			dp:  dispatcher,
-			ap:  actPool,
-			p2p: p2p,
-			cfg: cfg,
-			idx: idx,
-			gs:  GasStation{bc: chain, cfg: cfg},
+			bc:               chain,
+			c:                consensus,
+			dp:               dispatcher,
+			ap:               actPool,
+			broadcastHandler: expCfg.broadcastHandler,
+			neighborsHandler: expCfg.neighborsHandler,
+			selfHandler:      expCfg.selfHandler,
+			cfg:              cfg,
+			idx:              idx,
+			gs:               GasStation{bc: chain, cfg: cfg},
 		},
-	}
+	}, nil
 }
 
 // SetMainChainProtocol sets the main-chain side multi-chain protocol
