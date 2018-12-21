@@ -9,10 +9,12 @@ package e2etest
 import (
 	"context"
 	"math/big"
+	"net"
 	"sort"
 	"testing"
 	"time"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -22,7 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/crypto"
-	"github.com/iotexproject/iotex-core/network"
+	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/server/itx"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
@@ -57,11 +59,21 @@ func TestLocalCommit(t *testing.T) {
 	require.NotNil(bc)
 	require.NoError(addTestingTsfBlocks(bc))
 	require.NotNil(svr.ChainService(chainID).ActionPool())
-	require.NotNil(svr.P2P())
+	require.NotNil(svr.P2PAgent())
 
 	// create client
-	cfg.Network.BootstrapNodes = []string{svr.P2P().Self().String()}
-	p := network.NewOverlay(cfg.Network)
+	cfg, err = newTestConfig()
+	require.Nil(err)
+	cfg.Network.BootstrapNodes = []string{svr.P2PAgent().Self().String()}
+	p := p2p.NewAgent(
+		cfg.Network,
+		func(_ uint32, _ proto.Message, _ chan bool) {
+
+		},
+		func(_ uint32, _ net.Addr, _ proto.Message, _ chan bool) {
+
+		},
+	)
 	require.NotNil(p)
 	require.NoError(p.Start(ctx))
 
@@ -151,6 +163,7 @@ func TestLocalCommit(t *testing.T) {
 		testutil.CleanupPath(t, testDBPath2)
 	}()
 
+	p2pCtx := p2p.WitContext(ctx, p2p.Context{ChainID: cfg.Chain.ID})
 	// transfer 1
 	// C --> A
 	s, _ = bc.StateByAddr(ta.Addrinfo["charlie"].RawAddress)
@@ -159,7 +172,7 @@ func TestLocalCommit(t *testing.T) {
 
 	act1 := tsf1.Proto()
 	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
-		if err := p.Broadcast(cfg.Chain.ID, act1); err != nil {
+		if err := p.Broadcast(p2pCtx, act1); err != nil {
 			return false, err
 		}
 		acts := svr.ChainService(chainID).ActionPool().PickActs()
@@ -186,8 +199,8 @@ func TestLocalCommit(t *testing.T) {
 	require.Nil(chain.CommitBlock(blk2))
 	// broadcast to P2P
 	act2 := tsf2.Proto()
-	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
-		if err := p.Broadcast(cfg.Chain.ID, act2); err != nil {
+	err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
+		if err := p.Broadcast(p2pCtx, act2); err != nil {
 			return false, err
 		}
 		acts := svr.ChainService(chainID).ActionPool().PickActs()
@@ -207,8 +220,8 @@ func TestLocalCommit(t *testing.T) {
 	require.Nil(chain.CommitBlock(blk3))
 	// broadcast to P2P
 	act3 := tsf3.Proto()
-	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
-		if err := p.Broadcast(cfg.Chain.ID, act3); err != nil {
+	err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
+		if err := p.Broadcast(p2pCtx, act3); err != nil {
 			return false, err
 		}
 		acts := svr.ChainService(chainID).ActionPool().PickActs()
@@ -228,8 +241,8 @@ func TestLocalCommit(t *testing.T) {
 	require.Nil(chain.CommitBlock(blk4))
 	// broadcast to P2P
 	act4 := tsf4.Proto()
-	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
-		if err := p.Broadcast(cfg.Chain.ID, act4); err != nil {
+	err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
+		if err := p.Broadcast(p2pCtx, act4); err != nil {
 			return false, err
 		}
 		acts := svr.ChainService(chainID).ActionPool().PickActs()
@@ -237,15 +250,15 @@ func TestLocalCommit(t *testing.T) {
 	})
 	require.Nil(err)
 	// wait 4 blocks being picked and committed
-	err = p.Broadcast(cfg.Chain.ID, blk2.ConvertToBlockPb())
+	err = p.Broadcast(p2pCtx, blk2.ConvertToBlockPb())
 	require.NoError(err)
-	err = p.Broadcast(cfg.Chain.ID, blk4.ConvertToBlockPb())
+	err = p.Broadcast(p2pCtx, blk4.ConvertToBlockPb())
 	require.NoError(err)
-	err = p.Broadcast(cfg.Chain.ID, blk1.ConvertToBlockPb())
+	err = p.Broadcast(p2pCtx, blk1.ConvertToBlockPb())
 	require.NoError(err)
-	err = p.Broadcast(cfg.Chain.ID, blk3.ConvertToBlockPb())
+	err = p.Broadcast(p2pCtx, blk3.ConvertToBlockPb())
 	require.NoError(err)
-	err = testutil.WaitUntil(10*time.Millisecond, 10*time.Second, func() (bool, error) {
+	err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
 		height := bc.TipHeight()
 		return int(height) == 9, nil
 	})
@@ -325,6 +338,7 @@ func TestLocalSync(t *testing.T) {
 	chainID := cfg.Chain.ID
 	bc := svr.ChainService(chainID).Blockchain()
 	require.NotNil(bc)
+	require.NotNil(svr.P2PAgent())
 	require.Nil(addTestingTsfBlocks(bc))
 
 	blk, err := bc.GetBlockByHeight(1)
@@ -342,25 +356,25 @@ func TestLocalSync(t *testing.T) {
 	blk, err = bc.GetBlockByHeight(5)
 	require.Nil(err)
 	hash5 := blk.HashBlock()
-
-	p2 := svr.P2P()
-	require.NotNil(p2)
+	require.NotNil(svr.P2PAgent())
 
 	testutil.CleanupPath(t, testTriePath2)
 	testutil.CleanupPath(t, testDBPath2)
 
+	cfg, err = newTestConfig()
+	require.Nil(err)
 	cfg.Chain.TrieDBPath = testTriePath2
 	cfg.Chain.ChainDBPath = testDBPath2
 
 	// Create client
 	cfg.NodeType = config.FullNodeType
-	cfg.Network.BootstrapNodes = []string{svr.P2P().Self().String()}
+	cfg.Network.BootstrapNodes = []string{svr.P2PAgent().Self().String()}
 	cfg.BlockSync.Interval = 1 * time.Second
 	cli, err := itx.NewServer(cfg)
 	require.Nil(err)
 	require.Nil(cli.Start(ctx))
 	require.NotNil(cli.ChainService(chainID).Blockchain())
-	require.NotNil(cli.P2P())
+	require.NotNil(cli.P2PAgent())
 
 	defer func() {
 		require.Nil(cli.Stop(ctx))
@@ -371,10 +385,15 @@ func TestLocalSync(t *testing.T) {
 		testutil.CleanupPath(t, testDBPath2)
 	}()
 
-	err = testutil.WaitUntil(time.Millisecond*10, time.Second*5, func() (bool, error) { return len(svr.P2P().GetPeers()) >= 1, nil })
+	err = testutil.WaitUntil(time.Millisecond*100, time.Second*60, func() (bool, error) {
+		return len(svr.P2PAgent().Neighbors()) >= 1, nil
+	})
 	require.Nil(err)
 
-	err = svr.P2P().Broadcast(cfg.Chain.ID, blk.ConvertToBlockPb())
+	err = svr.P2PAgent().Broadcast(
+		p2p.WitContext(ctx, p2p.Context{ChainID: cfg.Chain.ID}),
+		blk.ConvertToBlockPb(),
+	)
 	require.NoError(err)
 	check := testutil.CheckCondition(func() (bool, error) {
 		blk1, err := cli.ChainService(chainID).Blockchain().GetBlockByHeight(1)
@@ -403,7 +422,7 @@ func TestLocalSync(t *testing.T) {
 			hash4 == blk4.HashBlock() &&
 			hash5 == blk5.HashBlock(), nil
 	})
-	err = testutil.WaitUntil(time.Millisecond*10, time.Second*5, check)
+	err = testutil.WaitUntil(time.Millisecond*100, time.Second*60, check)
 	require.Nil(err)
 
 	// verify 4 received blocks
@@ -449,8 +468,18 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.Nil(addTestingTsfBlocks(bc))
 	require.NotNil(svr.ChainService(chainID).ActionPool())
 
-	cfg.Network.BootstrapNodes = []string{svr.P2P().Self().String()}
-	p := network.NewOverlay(cfg.Network)
+	cfg, err = newTestConfig()
+	require.NoError(err)
+	cfg.Network.BootstrapNodes = []string{svr.P2PAgent().Self().String()}
+	p := p2p.NewAgent(
+		cfg.Network,
+		func(_ uint32, _ proto.Message, _ chan bool) {
+
+		},
+		func(_ uint32, addr net.Addr, _ proto.Message, _ chan bool) {
+
+		},
+	)
 	require.NotNil(p)
 	require.NoError(p.Start(ctx))
 
@@ -516,26 +545,27 @@ func TestVoteLocalCommit(t *testing.T) {
 	acttsf3 := tsf3.Proto()
 	acttsf4 := tsf4.Proto()
 
-	err = testutil.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
-		if err := p.Broadcast(chainID, act1); err != nil {
+	p2pCtx := p2p.WitContext(ctx, p2p.Context{ChainID: cfg.Chain.ID})
+	err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
+		if err := p.Broadcast(p2pCtx, act1); err != nil {
 			return false, err
 		}
-		if err := p.Broadcast(chainID, act2); err != nil {
+		if err := p.Broadcast(p2pCtx, act2); err != nil {
 			return false, err
 		}
-		if err := p.Broadcast(chainID, act3); err != nil {
+		if err := p.Broadcast(p2pCtx, act3); err != nil {
 			return false, err
 		}
-		if err := p.Broadcast(chainID, acttsf1); err != nil {
+		if err := p.Broadcast(p2pCtx, acttsf1); err != nil {
 			return false, err
 		}
-		if err := p.Broadcast(chainID, acttsf2); err != nil {
+		if err := p.Broadcast(p2pCtx, acttsf2); err != nil {
 			return false, err
 		}
-		if err := p.Broadcast(chainID, acttsf3); err != nil {
+		if err := p.Broadcast(p2pCtx, acttsf3); err != nil {
 			return false, err
 		}
-		if err := p.Broadcast(chainID, acttsf4); err != nil {
+		if err := p.Broadcast(p2pCtx, acttsf4); err != nil {
 			return false, err
 		}
 		acts := svr.ChainService(chainID).ActionPool().PickActs()
@@ -550,8 +580,8 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.Nil(chain.ValidateBlock(blk1, true))
 	require.Nil(chain.CommitBlock(blk1))
 
-	require.NoError(p.Broadcast(chainID, blk1.ConvertToBlockPb()))
-	err = testutil.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+	require.NoError(p.Broadcast(p2pCtx, blk1.ConvertToBlockPb()))
+	err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
 		height := bc.TipHeight()
 		return int(height) == 6, nil
 	})
@@ -572,11 +602,11 @@ func TestVoteLocalCommit(t *testing.T) {
 	// broadcast to P2P
 	act4 := vote4.Proto()
 	act5 := vote5.Proto()
-	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
-		if err := p.Broadcast(chainID, act4); err != nil {
+	err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
+		if err := p.Broadcast(p2pCtx, act4); err != nil {
 			return false, err
 		}
-		if err := p.Broadcast(chainID, act5); err != nil {
+		if err := p.Broadcast(p2pCtx, act5); err != nil {
 			return false, err
 		}
 		acts := svr.ChainService(chainID).ActionPool().PickActs()
@@ -584,8 +614,8 @@ func TestVoteLocalCommit(t *testing.T) {
 	})
 	require.Nil(err)
 
-	require.NoError(p.Broadcast(chainID, blk2.ConvertToBlockPb()))
-	err = testutil.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+	require.NoError(p.Broadcast(p2pCtx, blk2.ConvertToBlockPb()))
+	err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
 		height := bc.TipHeight()
 		return int(height) == 7, nil
 	})
@@ -617,8 +647,8 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.Nil(chain.CommitBlock(blk3))
 	// broadcast to P2P
 	act6 := vote6.Proto()
-	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
-		if err := p.Broadcast(chainID, act6); err != nil {
+	err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
+		if err := p.Broadcast(p2pCtx, act6); err != nil {
 			return false, err
 		}
 		acts := svr.ChainService(chainID).ActionPool().PickActs()
@@ -626,10 +656,10 @@ func TestVoteLocalCommit(t *testing.T) {
 	})
 	require.Nil(err)
 
-	err = p.Broadcast(chainID, blk3.ConvertToBlockPb())
+	err = p.Broadcast(p2pCtx, blk3.ConvertToBlockPb())
 	require.NoError(err)
 
-	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
+	err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
 		height := bc.TipHeight()
 		return int(height) == 8, nil
 	})
@@ -665,8 +695,8 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.Nil(chain.CommitBlock(blk4))
 	// broadcast to P2P
 	act7 := selp.Proto()
-	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
-		if err := p.Broadcast(chainID, act7); err != nil {
+	err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
+		if err := p.Broadcast(p2pCtx, act7); err != nil {
 			return false, err
 		}
 		acts := svr.ChainService(chainID).ActionPool().PickActs()
@@ -674,10 +704,10 @@ func TestVoteLocalCommit(t *testing.T) {
 	})
 	require.Nil(err)
 
-	err = p.Broadcast(chainID, blk4.ConvertToBlockPb())
+	err = p.Broadcast(p2pCtx, blk4.ConvertToBlockPb())
 	require.NoError(err)
 
-	err = testutil.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+	err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
 		height := bc.TipHeight()
 		return int(height) == 9, nil
 	})
@@ -747,7 +777,7 @@ func newTestConfig() (config.Config, error) {
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Consensus.Scheme = config.NOOPScheme
-	cfg.Network.Port = 0
+	cfg.Network.Port = testutil.RandomPort()
 	cfg.Explorer.Enabled = true
 	cfg.Explorer.Port = 0
 

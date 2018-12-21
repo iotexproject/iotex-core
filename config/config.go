@@ -13,7 +13,6 @@ import (
 
 	"github.com/pkg/errors"
 	uconfig "go.uber.org/config"
-	"google.golang.org/grpc/keepalive"
 
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/crypto"
@@ -58,33 +57,11 @@ var (
 	Default = Config{
 		NodeType: FullNodeType,
 		Network: Network{
-			Host: "127.0.0.1",
-			Port: 4689,
-			MsgLogsCleaningInterval:             2 * time.Second,
-			MsgLogRetention:                     5 * time.Second,
-			HealthCheckInterval:                 time.Second,
-			SilentInterval:                      5 * time.Second,
-			PeerMaintainerInterval:              time.Second,
-			PeerForceDisconnectionRoundInterval: 0,
-			AllowMultiConnsPerHost:              false,
-			NumPeersLowerBound:                  5,
-			NumPeersUpperBound:                  5,
-			PingInterval:                        time.Second,
-			RateLimitEnabled:                    false,
-			RateLimitPerSec:                     10000,
-			RateLimitWindowSize:                 60 * time.Second,
-			BootstrapNodes:                      make([]string, 0),
-			TLSEnabled:                          false,
-			CACrtPath:                           "",
-			PeerCrtPath:                         "",
-			PeerKeyPath:                         "",
-			KLClientParams:                      keepalive.ClientParameters{},
-			KLServerParams:                      keepalive.ServerParameters{},
-			KLPolicy:                            keepalive.EnforcementPolicy{},
-			MaxMsgSize:                          10485760,
-			PeerDiscovery:                       true,
-			TopologyPath:                        "",
-			TTL:                                 3,
+			Host:           "127.0.0.1",
+			Port:           4689,
+			ExternalHost:   "",
+			ExternalPort:   4689,
+			BootstrapNodes: make([]string, 0),
 		},
 		Chain: Chain{
 			ChainDBPath:                  "/tmp/chain.db",
@@ -170,7 +147,6 @@ var (
 		ValidateRollDPoS,
 		ValidateDispatcher,
 		ValidateExplorer,
-		ValidateNetwork,
 		ValidateActPool,
 		ValidateChain,
 	}
@@ -179,34 +155,11 @@ var (
 // Network is the config struct for network package
 type (
 	Network struct {
-		Host                    string        `yaml:"host"`
-		Port                    int           `yaml:"port"`
-		MsgLogsCleaningInterval time.Duration `yaml:"msgLogsCleaningInterval"`
-		MsgLogRetention         time.Duration `yaml:"msgLogRetention"`
-		HealthCheckInterval     time.Duration `yaml:"healthCheckInterval"`
-		SilentInterval          time.Duration `yaml:"silentInterval"`
-		PeerMaintainerInterval  time.Duration `yaml:"peerMaintainerInterval"`
-		// Force disconnecting a random peer every given number of peer maintenance round
-		PeerForceDisconnectionRoundInterval int                         `yaml:"peerForceDisconnectionRoundInterval"`
-		AllowMultiConnsPerHost              bool                        `yaml:"allowMultiConnsPerHost"`
-		NumPeersLowerBound                  uint                        `yaml:"numPeersLowerBound"`
-		NumPeersUpperBound                  uint                        `yaml:"numPeersUpperBound"`
-		PingInterval                        time.Duration               `yaml:"pingInterval"`
-		RateLimitEnabled                    bool                        `yaml:"rateLimitEnabled"`
-		RateLimitPerSec                     uint64                      `yaml:"rateLimitPerSec"`
-		RateLimitWindowSize                 time.Duration               `yaml:"rateLimitWindowSize"`
-		BootstrapNodes                      []string                    `yaml:"bootstrapNodes"`
-		TLSEnabled                          bool                        `yaml:"tlsEnabled"`
-		CACrtPath                           string                      `yaml:"caCrtPath"`
-		PeerCrtPath                         string                      `yaml:"peerCrtPath"`
-		PeerKeyPath                         string                      `yaml:"peerKeyPath"`
-		KLClientParams                      keepalive.ClientParameters  `yaml:"klClientParams"`
-		KLServerParams                      keepalive.ServerParameters  `yaml:"klServerParams"`
-		KLPolicy                            keepalive.EnforcementPolicy `yaml:"klPolicy"`
-		MaxMsgSize                          int                         `yaml:"maxMsgSize"`
-		PeerDiscovery                       bool                        `yaml:"peerDiscovery"`
-		TopologyPath                        string                      `yaml:"topologyPath"`
-		TTL                                 int32                       `yaml:"ttl"`
+		Host           string   `yaml:"host"`
+		Port           int      `yaml:"port"`
+		ExternalHost   string   `yaml:"externalHost"`
+		ExternalPort   int      `yaml:"externalPort"`
+		BootstrapNodes []string `yaml:"bootstrapNodes"`
 	}
 
 	// Chain is the config struct for blockchain package
@@ -546,14 +499,6 @@ func ValidateRollDPoS(cfg Config) error {
 func ValidateExplorer(cfg Config) error {
 	if cfg.Explorer.Enabled && cfg.Explorer.TpsWindow <= 0 {
 		return errors.Wrap(ErrInvalidCfg, "tps window is not a positive integer when the explorer is enabled")
-	}
-	return nil
-}
-
-// ValidateNetwork validates the network configs
-func ValidateNetwork(cfg Config) error {
-	if !cfg.Network.PeerDiscovery && cfg.Network.TopologyPath == "" {
-		return errors.Wrap(ErrInvalidCfg, "either peer discover should be enabled or a topology should be given")
 	}
 	return nil
 }

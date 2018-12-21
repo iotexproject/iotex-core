@@ -8,10 +8,12 @@ package blocksync
 
 import (
 	"context"
+	"net"
 	"testing"
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -20,14 +22,22 @@ import (
 	"github.com/iotexproject/iotex-core/actpool"
 	bc "github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/network"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	pb "github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blocksync"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
+
+var opts = []Option{
+	WithUnicast(func(_ net.Addr, msg proto.Message) error {
+		return nil
+	}),
+	WithNeighbors(func() []net.Addr {
+		return nil
+	}),
+}
 
 func TestSyncTaskInterval(t *testing.T) {
 	assert := assert.New(t)
@@ -60,32 +70,10 @@ func TestSyncTaskInterval(t *testing.T) {
 	assert.Equal(interval, fullNode)
 }
 
-func generateP2P() network.Overlay {
-	c := config.Network{
-		Host: "127.0.0.1",
-		Port: 10001,
-		MsgLogsCleaningInterval: 2 * time.Second,
-		MsgLogRetention:         10 * time.Second,
-		HealthCheckInterval:     time.Second,
-		SilentInterval:          5 * time.Second,
-		PeerMaintainerInterval:  time.Second,
-		NumPeersLowerBound:      5,
-		NumPeersUpperBound:      5,
-		AllowMultiConnsPerHost:  true,
-		RateLimitEnabled:        false,
-		PingInterval:            time.Second,
-		BootstrapNodes:          []string{"127.0.0.1:10001", "127.0.0.1:10002"},
-		MaxMsgSize:              1024 * 1024 * 10,
-		PeerDiscovery:           true,
-	}
-	return network.NewOverlay(c)
-}
-
 func TestNewBlockSyncer(t *testing.T) {
 	assert := assert.New(t)
 	require := require.New(t)
 
-	p2p := generateP2P()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -113,7 +101,7 @@ func TestNewBlockSyncer(t *testing.T) {
 		NodeType: config.LightweightType,
 	}
 
-	bsLightWeight, err := NewBlockSyncer(cfgLightWeight, mBc, ap, p2p)
+	bsLightWeight, err := NewBlockSyncer(cfgLightWeight, mBc, ap, opts...)
 	assert.NoError(err)
 	assert.NotNil(bsLightWeight)
 
@@ -123,7 +111,7 @@ func TestNewBlockSyncer(t *testing.T) {
 	}
 	cfgDelegate.Network.BootstrapNodes = []string{"123"}
 
-	_, err = NewBlockSyncer(cfgDelegate, mBc, ap, p2p)
+	_, err = NewBlockSyncer(cfgDelegate, mBc, ap)
 	assert.Nil(err)
 
 	// FullNode
@@ -132,9 +120,9 @@ func TestNewBlockSyncer(t *testing.T) {
 	}
 	cfgFullNode.Network.BootstrapNodes = []string{"123"}
 
-	bs, err := NewBlockSyncer(cfgFullNode, mBc, ap, p2p)
+	bs, err := NewBlockSyncer(cfgFullNode, mBc, ap, opts...)
 	assert.Nil(err)
-	assert.Equal(p2p, bs.P2P())
+	assert.NotNil(bs)
 }
 
 func TestBlockSyncerStart(t *testing.T) {
@@ -184,17 +172,16 @@ func TestBlockSyncerProcessSyncRequest(t *testing.T) {
 	require.Nil(err)
 	ap, err := actpool.NewActPool(mBc, cfg.ActPool)
 	assert.NoError(err)
-	p2p := generateP2P()
 
 	cfgFullNode := config.Config{
 		NodeType: config.FullNodeType,
 	}
 	cfgFullNode.Network.BootstrapNodes = []string{"123"}
 
-	bs, err := NewBlockSyncer(cfgFullNode, mBc, ap, p2p)
+	bs, err := NewBlockSyncer(cfgFullNode, mBc, ap, opts...)
 	assert.Nil(err)
 
-	pbBs := &pb.BlockSync{
+	pbBs := &iproto.BlockSync{
 		Start: 1,
 		End:   1,
 	}
@@ -207,6 +194,8 @@ func TestBlockSyncerProcessSyncRequest(t *testing.T) {
 
 func TestBlockSyncerProcessSyncRequestError(t *testing.T) {
 	require := require.New(t)
+	ctrl := gomock.NewController(t)
+
 	ctx := context.Background()
 	cfg, err := newTestConfig()
 	require.Nil(err)
@@ -219,16 +208,17 @@ func TestBlockSyncerProcessSyncRequestError(t *testing.T) {
 	ap, err := actpool.NewActPool(chain, cfg.ActPool)
 	require.NotNil(ap)
 	require.NoError(err)
-	bs, err := NewBlockSyncer(cfg, chain, ap, network.NewOverlay(cfg.Network))
+	bs, err := NewBlockSyncer(cfg, chain, ap, opts...)
 	require.Nil(err)
 
 	defer func() {
 		require.Nil(chain.Stop(ctx))
 		testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
 		testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
+		ctrl.Finish()
 	}()
 
-	pbBs := &pb.BlockSync{
+	pbBs := &iproto.BlockSync{
 		Start: 1,
 		End:   5,
 	}
@@ -239,6 +229,8 @@ func TestBlockSyncerProcessSyncRequestError(t *testing.T) {
 
 func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 	require := require.New(t)
+	ctrl := gomock.NewController(t)
+
 	ctx := context.Background()
 	cfg, err := newTestConfig()
 	require.Nil(err)
@@ -253,13 +245,14 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 	ap, err := actpool.NewActPool(chain, cfg.ActPool)
 	require.NotNil(ap)
 	require.NoError(err)
-	bs, err := NewBlockSyncer(cfg, chain, ap, network.NewOverlay(cfg.Network))
+	bs, err := NewBlockSyncer(cfg, chain, ap, opts...)
 	require.Nil(err)
 
 	defer func() {
 		require.Nil(chain.Stop(ctx))
 		testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
 		testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
+		ctrl.Finish()
 	}()
 
 	h := chain.TipHeight()
@@ -286,6 +279,8 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 
 func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	require := require.New(t)
+	ctrl := gomock.NewController(t)
+
 	ctx := context.Background()
 	cfg, err := newTestConfig()
 	require.Nil(err)
@@ -300,7 +295,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	ap1, err := actpool.NewActPool(chain1, cfg.ActPool)
 	require.NotNil(ap1)
 	require.NoError(err)
-	bs1, err := NewBlockSyncer(cfg, chain1, ap1, network.NewOverlay(cfg.Network))
+	bs1, err := NewBlockSyncer(cfg, chain1, ap1, opts...)
 	require.Nil(err)
 	chain2 := bc.NewBlockchain(cfg, bc.InMemStateFactoryOption(), bc.InMemDaoOption())
 	chain2.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain2))
@@ -310,7 +305,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	ap2, err := actpool.NewActPool(chain2, cfg.ActPool)
 	require.NotNil(ap2)
 	require.Nil(err)
-	bs2, err := NewBlockSyncer(cfg, chain2, ap2, network.NewOverlay(cfg.Network))
+	bs2, err := NewBlockSyncer(cfg, chain2, ap2, opts...)
 	require.Nil(err)
 
 	defer func() {
@@ -318,6 +313,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 		require.Nil(chain2.Stop(ctx))
 		testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
 		testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
+		ctrl.Finish()
 	}()
 
 	// commit top
@@ -349,6 +345,8 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 
 func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	require := require.New(t)
+	ctrl := gomock.NewController(t)
+
 	ctx := context.Background()
 	cfg, err := newTestConfig()
 	require.Nil(err)
@@ -363,7 +361,7 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	ap1, err := actpool.NewActPool(chain1, cfg.ActPool)
 	require.NotNil(ap1)
 	require.Nil(err)
-	bs1, err := NewBlockSyncer(cfg, chain1, ap1, network.NewOverlay(cfg.Network))
+	bs1, err := NewBlockSyncer(cfg, chain1, ap1, opts...)
 	require.Nil(err)
 	chain2 := bc.NewBlockchain(cfg, bc.InMemStateFactoryOption(), bc.InMemDaoOption())
 	chain2.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain2))
@@ -373,7 +371,7 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	ap2, err := actpool.NewActPool(chain2, cfg.ActPool)
 	require.NotNil(ap2)
 	require.Nil(err)
-	bs2, err := NewBlockSyncer(cfg, chain2, ap2, network.NewOverlay(cfg.Network))
+	bs2, err := NewBlockSyncer(cfg, chain2, ap2, opts...)
 	require.Nil(err)
 
 	defer func() {
@@ -381,6 +379,7 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 		require.Nil(chain2.Stop(ctx))
 		testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
 		testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
+		ctrl.Finish()
 	}()
 
 	// commit top
@@ -411,6 +410,8 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 
 func TestBlockSyncerSync(t *testing.T) {
 	require := require.New(t)
+	ctrl := gomock.NewController(t)
+
 	ctx := context.Background()
 	cfg, err := newTestConfig()
 	require.Nil(err)
@@ -424,7 +425,7 @@ func TestBlockSyncerSync(t *testing.T) {
 	require.NotNil(ap)
 	require.NoError(err)
 
-	bs, err := NewBlockSyncer(cfg, chain, ap, network.NewOverlay(cfg.Network))
+	bs, err := NewBlockSyncer(cfg, chain, ap, opts...)
 	require.NotNil(bs)
 	require.NoError(err)
 	require.Nil(bs.Start(ctx))
@@ -435,6 +436,7 @@ func TestBlockSyncerSync(t *testing.T) {
 		require.Nil(chain.Stop(ctx))
 		testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
 		testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
+		ctrl.Finish()
 	}()
 
 	blk, err := chain.MintNewBlock(nil, ta.Addrinfo["producer"],
@@ -467,6 +469,8 @@ func TestBlockSyncerChaser(t *testing.T) {
 	t.Parallel()
 
 	require := require.New(t)
+	ctrl := gomock.NewController(t)
+
 	ctx := context.Background()
 	cfg, err := newTestConfig()
 	require.NoError(err)
@@ -475,13 +479,14 @@ func TestBlockSyncerChaser(t *testing.T) {
 	require.NoError(chain.Start(ctx))
 	ap, err := actpool.NewActPool(chain, cfg.ActPool)
 	require.NoError(err)
-	bs, err := NewBlockSyncer(cfg, chain, ap, network.NewOverlay(cfg.Network))
+	bs, err := NewBlockSyncer(cfg, chain, ap, opts...)
 	require.NoError(err)
 	require.NoError(bs.Start(ctx))
 
 	defer func() {
 		require.NoError(chain.Stop(ctx))
 		require.NoError(bs.Stop(ctx))
+		ctrl.Finish()
 	}()
 
 	require.NoError(testutil.WaitUntil(100*time.Millisecond, 10*time.Second, func() (bool, error) {

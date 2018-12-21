@@ -23,10 +23,9 @@ import (
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/endorsement"
-	explorerapi "github.com/iotexproject/iotex-core/explorer/idl/explorer"
+	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
-	"github.com/iotexproject/iotex-core/network"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/state"
@@ -56,15 +55,15 @@ var (
 )
 
 type rollDPoSCtx struct {
-	cfg          config.RollDPoS
-	addr         *iotxaddress.Address
-	chain        blockchain.Blockchain
-	actPool      actpool.ActPool
-	p2p          network.Overlay
-	epoch        epochCtx
-	round        roundCtx
-	clock        clock.Clock
-	rootChainAPI explorerapi.Explorer
+	cfg              config.RollDPoS
+	addr             *iotxaddress.Address
+	chain            blockchain.Blockchain
+	actPool          actpool.ActPool
+	broadcastHandler scheme.Broadcast
+	epoch            epochCtx
+	round            roundCtx
+	clock            clock.Clock
+	rootChainAPI     explorer.Explorer
 	// candidatesByHeightFunc is only used for testing purpose
 	candidatesByHeightFunc func(uint64) ([]*state.Candidate, error)
 	sync                   blocksync.BlockSync
@@ -502,9 +501,9 @@ type Builder struct {
 	addr                   *iotxaddress.Address
 	chain                  blockchain.Blockchain
 	actPool                actpool.ActPool
-	p2p                    network.Overlay
+	broadcastHandler       scheme.Broadcast
 	clock                  clock.Clock
-	rootChainAPI           explorerapi.Explorer
+	rootChainAPI           explorer.Explorer
 	candidatesByHeightFunc func(uint64) ([]*state.Candidate, error)
 }
 
@@ -537,9 +536,9 @@ func (b *Builder) SetActPool(actPool actpool.ActPool) *Builder {
 	return b
 }
 
-// SetP2P sets the P2P APIs
-func (b *Builder) SetP2P(p2p network.Overlay) *Builder {
-	b.p2p = p2p
+// SetBroadcast sets the broadcast callback
+func (b *Builder) SetBroadcast(broadcastHandler scheme.Broadcast) *Builder {
+	b.broadcastHandler = broadcastHandler
 	return b
 }
 
@@ -550,7 +549,7 @@ func (b *Builder) SetClock(clock clock.Clock) *Builder {
 }
 
 // SetRootChainAPI sets root chain API
-func (b *Builder) SetRootChainAPI(api explorerapi.Explorer) *Builder {
+func (b *Builder) SetRootChainAPI(api explorer.Explorer) *Builder {
 	b.rootChainAPI = api
 	return b
 }
@@ -571,8 +570,8 @@ func (b *Builder) Build() (*RollDPoS, error) {
 	if b.actPool == nil {
 		return nil, errors.Wrap(ErrNewRollDPoS, "action pool APIs is nil")
 	}
-	if b.p2p == nil {
-		return nil, errors.Wrap(ErrNewRollDPoS, "p2p APIs is nil")
+	if b.broadcastHandler == nil {
+		return nil, errors.Wrap(ErrNewRollDPoS, "broadcast callback is nil")
 	}
 	if b.clock == nil {
 		b.clock = clock.New()
@@ -582,7 +581,7 @@ func (b *Builder) Build() (*RollDPoS, error) {
 		addr:                   b.addr,
 		chain:                  b.chain,
 		actPool:                b.actPool,
-		p2p:                    b.p2p,
+		broadcastHandler:       b.broadcastHandler,
 		clock:                  b.clock,
 		rootChainAPI:           b.rootChainAPI,
 		candidatesByHeightFunc: b.candidatesByHeightFunc,

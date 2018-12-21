@@ -127,7 +127,6 @@ func newConfig() (config.Config, error) {
 	cfg.Chain.ProducerPubKey = keypair.EncodePublicKey(pk)
 	cfg.Chain.ProducerPrivKey = keypair.EncodePrivateKey(sk)
 	cfg.Network.Port = 0
-	cfg.Network.PeerMaintainerInterval = 100 * time.Millisecond
 	cfg.Explorer.Port = 0
 	return cfg, nil
 }

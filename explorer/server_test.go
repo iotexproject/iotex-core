@@ -19,7 +19,8 @@ import (
 
 func TestServer(t *testing.T) {
 	require := require.New(t)
-	svr := NewServer(config.Default.Explorer, nil, nil, nil, nil, nil, nil)
+	svr, err := NewServer(config.Default.Explorer, nil, nil, nil, nil, nil)
+	require.NoError(err)
 	svr.Start(nil)
 
 	timeout := time.Duration(20 * time.Second)

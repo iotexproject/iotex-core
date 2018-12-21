@@ -10,8 +10,10 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"net"
 
 	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -26,10 +28,9 @@ import (
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/indexservice"
 	"github.com/iotexproject/iotex-core/logger"
-	"github.com/iotexproject/iotex-core/network"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
-	pb "github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/proto"
 )
 
 var (
@@ -61,16 +62,27 @@ func init() {
 	prometheus.MustRegister(requestMtc)
 }
 
+type (
+	// Broadcast sends a broadcast message to the whole network
+	Broadcast func(chainID uint32, msg proto.Message) error
+	// Neighbors returns the neighbors' addresses
+	Neighbors func() []net.Addr
+	// Self returns the self network address
+	Self func() net.Addr
+)
+
 // Service provide api for user to query blockchain data
 type Service struct {
-	bc  blockchain.Blockchain
-	c   consensus.Consensus
-	dp  dispatcher.Dispatcher
-	ap  actpool.ActPool
-	gs  GasStation
-	p2p network.Overlay
-	cfg config.Explorer
-	idx *indexservice.Server
+	bc               blockchain.Blockchain
+	c                consensus.Consensus
+	dp               dispatcher.Dispatcher
+	ap               actpool.ActPool
+	gs               GasStation
+	broadcastHandler Broadcast
+	neighborsHandler Neighbors
+	selfHandler      Self
+	cfg              config.Explorer
+	idx              *indexservice.Server
 	// TODO: the way to make explorer to access the data model managed by main-chain protocol is hack. We need to
 	// refactor the code later
 	mainChain *mainchain.Protocol
@@ -1044,7 +1056,7 @@ func (exp *Service) SendTransfer(tsfJSON explorer.SendTransferRequest) (resp exp
 		return explorer.SendTransferResponse{}, err
 	}
 	// broadcast to the network
-	if err = exp.p2p.Broadcast(exp.bc.ChainID(), actPb); err != nil {
+	if err = exp.broadcastHandler(exp.bc.ChainID(), actPb); err != nil {
 		return explorer.SendTransferResponse{}, err
 	}
 	// send to actpool via dispatcher
@@ -1082,9 +1094,9 @@ func (exp *Service) SendVote(voteJSON explorer.SendVoteRequest) (resp explorer.S
 	if !ok {
 		return explorer.SendVoteResponse{}, errors.New("failed to set vote gas price")
 	}
-	actPb := &pb.ActionPb{
-		Action: &pb.ActionPb_Vote{
-			Vote: &pb.VotePb{
+	actPb := &iproto.ActionPb{
+		Action: &iproto.ActionPb_Vote{
+			Vote: &iproto.VotePb{
 				VoteeAddress: voteJSON.Votee,
 			},
 		},
@@ -1097,7 +1109,7 @@ func (exp *Service) SendVote(voteJSON explorer.SendVoteRequest) (resp explorer.S
 		Signature:    signature,
 	}
 	// broadcast to the network
-	if err := exp.p2p.Broadcast(exp.bc.ChainID(), actPb); err != nil {
+	if err := exp.broadcastHandler(exp.bc.ChainID(), actPb); err != nil {
 		return explorer.SendVoteResponse{}, err
 	}
 	// send to actpool via dispatcher
@@ -1136,20 +1148,20 @@ func (exp *Service) PutSubChainBlock(putBlockJSON explorer.PutSubChainBlockReque
 		return explorer.PutSubChainBlockResponse{}, errors.New("failed to set vote gas price")
 	}
 
-	roots := make([]*pb.MerkleRoot, 0)
+	roots := make([]*iproto.MerkleRoot, 0)
 	for _, mr := range putBlockJSON.Roots {
 		v, err := hex.DecodeString(mr.Value)
 		if err != nil {
 			return explorer.PutSubChainBlockResponse{}, err
 		}
-		roots = append(roots, &pb.MerkleRoot{
+		roots = append(roots, &iproto.MerkleRoot{
 			Name:  mr.Name,
 			Value: v,
 		})
 	}
-	actPb := &pb.ActionPb{
-		Action: &pb.ActionPb_PutBlock{
-			PutBlock: &pb.PutBlockPb{
+	actPb := &iproto.ActionPb{
+		Action: &iproto.ActionPb_PutBlock{
+			PutBlock: &iproto.PutBlockPb{
 				SubChainAddress: putBlockJSON.SubChainAddress,
 				Height:          uint64(putBlockJSON.Height),
 				Roots:           roots,
@@ -1164,7 +1176,7 @@ func (exp *Service) PutSubChainBlock(putBlockJSON explorer.PutSubChainBlockReque
 		Signature:    signature,
 	}
 	// broadcast to the network
-	if err := exp.p2p.Broadcast(exp.bc.ChainID(), actPb); err != nil {
+	if err := exp.broadcastHandler(exp.bc.ChainID(), actPb); err != nil {
 		return explorer.PutSubChainBlockResponse{}, err
 	}
 	// send to actpool via dispatcher
@@ -1189,14 +1201,14 @@ func (exp *Service) SendAction(req explorer.SendActionRequest) (resp explorer.Se
 		}
 		requestMtc.WithLabelValues("SendAction", succeed).Inc()
 	}()
-	var action pb.ActionPb
+	var action iproto.ActionPb
 
 	if err := jsonpb.UnmarshalString(req.Payload, &action); err != nil {
 		return explorer.SendActionResponse{}, err
 	}
 
 	// broadcast to the network
-	if err = exp.p2p.Broadcast(exp.bc.ChainID(), &action); err != nil {
+	if err = exp.broadcastHandler(exp.bc.ChainID(), &action); err != nil {
 		logger.Warn().Err(err).Msg("failed to broadcast SendAction request.")
 	}
 	// send to actpool via dispatcher
@@ -1209,13 +1221,13 @@ func (exp *Service) SendAction(req explorer.SendActionRequest) (resp explorer.Se
 // GetPeers return a list of node peers and itself's network addsress info.
 func (exp *Service) GetPeers() (explorer.GetPeersResponse, error) {
 	var peers []explorer.Node
-	for _, p := range exp.p2p.GetPeers() {
+	for _, p := range exp.neighborsHandler() {
 		peers = append(peers, explorer.Node{
 			Address: p.String(),
 		})
 	}
 	return explorer.GetPeersResponse{
-		Self:  explorer.Node{Address: exp.p2p.Self().String()},
+		Self:  explorer.Node{Address: exp.selfHandler().String()},
 		Peers: peers,
 	}, nil
 }
@@ -1252,9 +1264,9 @@ func (exp *Service) SendSmartContract(execution explorer.Execution) (resp explor
 	if !ok {
 		return explorer.SendSmartContractResponse{}, errors.New("failed to set execution gas price")
 	}
-	actPb := &pb.ActionPb{
-		Action: &pb.ActionPb_Execution{
-			Execution: &pb.ExecutionPb{
+	actPb := &iproto.ActionPb{
+		Action: &iproto.ActionPb_Execution{
+			Execution: &iproto.ExecutionPb{
 				Amount:   amount.Bytes(),
 				Contract: execution.Contract,
 				Data:     data,
@@ -1269,7 +1281,7 @@ func (exp *Service) SendSmartContract(execution explorer.Execution) (resp explor
 		Signature:    signature,
 	}
 	// broadcast to the network
-	if err := exp.p2p.Broadcast(exp.bc.ChainID(), actPb); err != nil {
+	if err := exp.broadcastHandler(exp.bc.ChainID(), actPb); err != nil {
 		return explorer.SendSmartContractResponse{}, err
 	}
 	// send to actpool via dispatcher
@@ -1354,9 +1366,9 @@ func (exp *Service) CreateDeposit(req explorer.CreateDepositRequest) (res explor
 	if !ok {
 		return res, errors.New("error when converting gas price string into big int type")
 	}
-	actPb := &pb.ActionPb{
-		Action: &pb.ActionPb_CreateDeposit{
-			CreateDeposit: &pb.CreateDepositPb{
+	actPb := &iproto.ActionPb{
+		Action: &iproto.ActionPb_CreateDeposit{
+			CreateDeposit: &iproto.CreateDepositPb{
 				Amount:    amount.Bytes(),
 				Recipient: req.Recipient,
 			},
@@ -1371,7 +1383,7 @@ func (exp *Service) CreateDeposit(req explorer.CreateDepositRequest) (res explor
 	}
 
 	// broadcast to the network
-	if err := exp.p2p.Broadcast(exp.bc.ChainID(), actPb); err != nil {
+	if err := exp.broadcastHandler(exp.bc.ChainID(), actPb); err != nil {
 		return res, err
 	}
 	// send to actpool via dispatcher
@@ -1463,9 +1475,9 @@ func (exp *Service) SettleDeposit(req explorer.SettleDepositRequest) (res explor
 	if !ok {
 		return res, errors.New("error when converting gas price string into big int type")
 	}
-	actPb := &pb.ActionPb{
-		Action: &pb.ActionPb_SettleDeposit{
-			SettleDeposit: &pb.SettleDepositPb{
+	actPb := &iproto.ActionPb{
+		Action: &iproto.ActionPb_SettleDeposit{
+			SettleDeposit: &iproto.SettleDepositPb{
 				Amount:    amount.Bytes(),
 				Index:     uint64(req.Index),
 				Recipient: req.Recipient,
@@ -1480,7 +1492,7 @@ func (exp *Service) SettleDeposit(req explorer.SettleDepositRequest) (res explor
 		Signature:    signature,
 	}
 	// broadcast to the network
-	if err := exp.p2p.Broadcast(exp.bc.ChainID(), actPb); err != nil {
+	if err := exp.broadcastHandler(exp.bc.ChainID(), actPb); err != nil {
 		return res, err
 	}
 	// send to actpool via dispatcher
@@ -1879,7 +1891,7 @@ func convertReceiptToExplorerReceipt(receipt *action.Receipt) (explorer.Receipt,
 	}, nil
 }
 
-func convertExplorerExecutionToActionPb(execution *explorer.Execution) (*pb.ActionPb, error) {
+func convertExplorerExecutionToActionPb(execution *explorer.Execution) (*iproto.ActionPb, error) {
 	executorPubKey, err := keypair.StringToPubKeyBytes(execution.ExecutorPubKey)
 	if err != nil {
 		return nil, err
@@ -1900,9 +1912,9 @@ func convertExplorerExecutionToActionPb(execution *explorer.Execution) (*pb.Acti
 	if !ok {
 		return nil, errors.New("failed to set execution gas price")
 	}
-	actPb := &pb.ActionPb{
-		Action: &pb.ActionPb_Execution{
-			Execution: &pb.ExecutionPb{
+	actPb := &iproto.ActionPb{
+		Action: &iproto.ActionPb_Execution{
+			Execution: &iproto.ExecutionPb{
 				Amount:   amount.Bytes(),
 				Contract: execution.Contract,
 				Data:     data,
@@ -1920,7 +1932,7 @@ func convertExplorerExecutionToActionPb(execution *explorer.Execution) (*pb.Acti
 }
 
 func convertExplorerTransferToActionPb(tsfJSON *explorer.SendTransferRequest,
-	MaxTransferPayloadBytes uint64) (*pb.ActionPb, error) {
+	MaxTransferPayloadBytes uint64) (*iproto.ActionPb, error) {
 	payload, err := hex.DecodeString(tsfJSON.Payload)
 	if err != nil {
 		return nil, err
@@ -1949,9 +1961,9 @@ func convertExplorerTransferToActionPb(tsfJSON *explorer.SendTransferRequest,
 	if !ok {
 		return nil, errors.New("failed to set transfer gas price")
 	}
-	actPb := &pb.ActionPb{
-		Action: &pb.ActionPb_Transfer{
-			Transfer: &pb.TransferPb{
+	actPb := &iproto.ActionPb{
+		Action: &iproto.ActionPb_Transfer{
+			Transfer: &iproto.TransferPb{
 				Amount:     amount.Bytes(),
 				Recipient:  tsfJSON.Recipient,
 				Payload:    payload,

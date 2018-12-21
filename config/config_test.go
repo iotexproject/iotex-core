@@ -314,18 +314,6 @@ func TestValidateRollDPoS(t *testing.T) {
 	)
 }
 
-func TestValidateNetwork(t *testing.T) {
-	cfg := Default
-	cfg.Network.PeerDiscovery = false
-	err := ValidateNetwork(cfg)
-	require.Error(t, err)
-	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
-	require.True(
-		t,
-		strings.Contains(err.Error(), "either peer discover should be enabled or a topology should be given"),
-	)
-}
-
 func TestValidateActPool(t *testing.T) {
 	cfg := Default
 	cfg.ActPool.MaxNumActsPerAcct = 0

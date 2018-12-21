@@ -15,6 +15,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/golang/protobuf/proto"
+
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/pkg/errors"
@@ -33,7 +35,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
-	"github.com/iotexproject/iotex-core/network/node"
+	"github.com/iotexproject/iotex-core/p2p/node"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -42,7 +44,6 @@ import (
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_consensus"
 	"github.com/iotexproject/iotex-core/test/mock/mock_dispatcher"
-	"github.com/iotexproject/iotex-core/test/mock/mock_network"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -568,12 +569,14 @@ func TestService_SendTransfer(t *testing.T) {
 
 	chain := mock_blockchain.NewMockBlockchain(ctrl)
 	mDp := mock_dispatcher.NewMockDispatcher(ctrl)
-	p2p := mock_network.NewMockOverlay(ctrl)
-	svc := Service{bc: chain, dp: mDp, p2p: p2p}
+	broadcastHandlerCount := 0
+	svc := Service{bc: chain, dp: mDp, broadcastHandler: func(_ uint32, _ proto.Message) error {
+		broadcastHandlerCount++
+		return nil
+	}}
 
 	chain.EXPECT().ChainID().Return(uint32(1)).Times(2)
 	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
-	p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Times(1)
 
 	r := explorer.SendTransferRequest{
 		Version:      0x1,
@@ -592,6 +595,7 @@ func TestService_SendTransfer(t *testing.T) {
 	gas, err := svc.EstimateGasForTransfer(r)
 	require.Nil(err)
 	require.Equal(gas, int64(10000))
+	assert.Equal(t, 1, broadcastHandlerCount)
 }
 
 func TestService_SendVote(t *testing.T) {
@@ -602,12 +606,14 @@ func TestService_SendVote(t *testing.T) {
 
 	chain := mock_blockchain.NewMockBlockchain(ctrl)
 	mDp := mock_dispatcher.NewMockDispatcher(ctrl)
-	p2p := mock_network.NewMockOverlay(ctrl)
-	svc := Service{bc: chain, dp: mDp, p2p: p2p}
+	broadcastHandlerCount := 0
+	svc := Service{bc: chain, dp: mDp, broadcastHandler: func(_ uint32, _ proto.Message) error {
+		broadcastHandlerCount++
+		return nil
+	}}
 
 	chain.EXPECT().ChainID().Return(uint32(1)).Times(2)
 	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
-	p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Times(1)
 
 	r := explorer.SendVoteRequest{
 		Version:     0x1,
@@ -625,6 +631,7 @@ func TestService_SendVote(t *testing.T) {
 	gas, err := svc.EstimateGasForVote()
 	require.Nil(err)
 	require.Equal(gas, int64(10000))
+	assert.Equal(t, 1, broadcastHandlerCount)
 }
 
 func TestService_SendSmartContract(t *testing.T) {
@@ -635,8 +642,11 @@ func TestService_SendSmartContract(t *testing.T) {
 
 	chain := mock_blockchain.NewMockBlockchain(ctrl)
 	mDp := mock_dispatcher.NewMockDispatcher(ctrl)
-	p2p := mock_network.NewMockOverlay(ctrl)
-	svc := Service{bc: chain, dp: mDp, p2p: p2p, gs: GasStation{chain, config.Explorer{}}}
+	broadcastHandlerCount := 0
+	svc := Service{bc: chain, dp: mDp, broadcastHandler: func(_ uint32, _ proto.Message) error {
+		broadcastHandlerCount++
+		return nil
+	}, gs: GasStation{chain, config.Explorer{}}}
 
 	execution, err := testutil.SignedExecution(ta.Addrinfo["producer"], ta.Addrinfo["delta"].RawAddress, 1,
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice), []byte{1})
@@ -655,11 +665,11 @@ func TestService_SendSmartContract(t *testing.T) {
 
 	chain.EXPECT().ChainID().Return(uint32(1)).Times(2)
 	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
-	p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Times(1)
 
 	response, err := svc.SendSmartContract(explorerExecution)
 	require.NotNil(response.Hash)
 	require.Nil(err)
+	assert.Equal(t, 1, broadcastHandlerCount)
 }
 
 func TestServicePutSubChainBlock(t *testing.T) {
@@ -670,8 +680,11 @@ func TestServicePutSubChainBlock(t *testing.T) {
 
 	chain := mock_blockchain.NewMockBlockchain(ctrl)
 	mDp := mock_dispatcher.NewMockDispatcher(ctrl)
-	p2p := mock_network.NewMockOverlay(ctrl)
-	svc := Service{bc: chain, dp: mDp, p2p: p2p}
+	broadcastHandlerCount := 0
+	svc := Service{bc: chain, dp: mDp, broadcastHandler: func(_ uint32, _ proto.Message) error {
+		broadcastHandlerCount++
+		return nil
+	}}
 
 	request := explorer.PutSubChainBlockRequest{}
 	response, err := svc.PutSubChainBlock(request)
@@ -680,7 +693,6 @@ func TestServicePutSubChainBlock(t *testing.T) {
 
 	chain.EXPECT().ChainID().Return(uint32(1)).Times(2)
 	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
-	p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Times(1)
 
 	roots := []explorer.PutSubChainBlockMerkelRoot{
 		{
@@ -701,6 +713,7 @@ func TestServicePutSubChainBlock(t *testing.T) {
 	response, err = svc.PutSubChainBlock(r)
 	require.NotNil(response.Hash)
 	require.Nil(err)
+	assert.Equal(t, 1, broadcastHandlerCount)
 }
 
 func TestServiceSendAction(t *testing.T) {
@@ -711,8 +724,11 @@ func TestServiceSendAction(t *testing.T) {
 
 	chain := mock_blockchain.NewMockBlockchain(ctrl)
 	mDp := mock_dispatcher.NewMockDispatcher(ctrl)
-	p2p := mock_network.NewMockOverlay(ctrl)
-	svc := Service{bc: chain, dp: mDp, p2p: p2p}
+	broadcastHandlerCount := 0
+	svc := Service{bc: chain, dp: mDp, broadcastHandler: func(_ uint32, _ proto.Message) error {
+		broadcastHandlerCount++
+		return nil
+	}}
 
 	request := explorer.SendActionRequest{}
 	_, err := svc.SendAction(request)
@@ -748,10 +764,10 @@ func TestServiceSendAction(t *testing.T) {
 
 	chain.EXPECT().ChainID().Return(uint32(1)).Times(2)
 	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
-	p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Times(1)
 
 	_, err = svc.SendAction(request)
 	require.NoError(err)
+	assert.Equal(t, 1, broadcastHandlerCount)
 }
 
 func TestServiceGetPeers(t *testing.T) {
@@ -761,15 +777,20 @@ func TestServiceGetPeers(t *testing.T) {
 	defer ctrl.Finish()
 
 	mDp := mock_dispatcher.NewMockDispatcher(ctrl)
-	p2p := mock_network.NewMockOverlay(ctrl)
-	svc := Service{dp: mDp, p2p: p2p}
+	svc := Service{
+		dp: mDp,
+		neighborsHandler: func() []net.Addr {
 
-	p2p.EXPECT().GetPeers().Return([]net.Addr{
-		&node.Node{Addr: "127.0.0.1:10002"},
-		&node.Node{Addr: "127.0.0.1:10003"},
-		&node.Node{Addr: "127.0.0.1:10004"},
-	})
-	p2p.EXPECT().Self().Return(&node.Node{Addr: "127.0.0.1:10001"})
+			return []net.Addr{
+				&node.Node{Addr: "127.0.0.1:10002"},
+				&node.Node{Addr: "127.0.0.1:10003"},
+				&node.Node{Addr: "127.0.0.1:10004"},
+			}
+		},
+		selfHandler: func() net.Addr {
+			return node.NewTCPNode("127.0.0.1:10001")
+		},
+	}
 
 	response, err := svc.GetPeers()
 	require.Nil(err)
@@ -783,8 +804,7 @@ func TestTransferPayloadBytesLimit(t *testing.T) {
 	defer ctrl.Finish()
 
 	mDp := mock_dispatcher.NewMockDispatcher(ctrl)
-	p2p := mock_network.NewMockOverlay(ctrl)
-	svc := Service{cfg: config.Explorer{MaxTransferPayloadBytes: 8}, dp: mDp, p2p: p2p}
+	svc := Service{cfg: config.Explorer{MaxTransferPayloadBytes: 8}, dp: mDp}
 	var payload [9]byte
 	req := explorer.SendTransferRequest{
 		Payload: hex.EncodeToString(payload[:]),
@@ -909,14 +929,16 @@ func TestService_CreateDeposit(t *testing.T) {
 	bc.EXPECT().ChainID().Return(uint32(1)).Times(2)
 	dp := mock_dispatcher.NewMockDispatcher(ctrl)
 	dp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
-	p2p := mock_network.NewMockOverlay(ctrl)
-	p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(1)
 
+	broadcastHandlerCount := 0
 	svc := Service{
 		cfg: cfg.Explorer,
 		bc:  bc,
-		p2p: p2p,
-		dp:  dp,
+		broadcastHandler: func(_ uint32, _ proto.Message) error {
+			broadcastHandlerCount++
+			return nil
+		},
+		dp: dp,
 	}
 
 	deposit := action.NewCreateDeposit(
@@ -950,6 +972,7 @@ func TestService_CreateDeposit(t *testing.T) {
 	require.NoError(error)
 	hash := deposit.Hash()
 	require.Equal(hex.EncodeToString(hash[:]), res.Hash)
+	assert.Equal(t, 1, broadcastHandlerCount)
 }
 
 func TestService_SettleDeposit(t *testing.T) {
@@ -965,14 +988,16 @@ func TestService_SettleDeposit(t *testing.T) {
 	bc.EXPECT().ChainID().Return(uint32(1)).Times(2)
 	dp := mock_dispatcher.NewMockDispatcher(ctrl)
 	dp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
-	p2p := mock_network.NewMockOverlay(ctrl)
-	p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(1)
 
+	broadcastHandlerCount := 0
 	svc := Service{
 		cfg: cfg.Explorer,
 		bc:  bc,
-		p2p: p2p,
-		dp:  dp,
+		broadcastHandler: func(_ uint32, _ proto.Message) error {
+			broadcastHandlerCount++
+			return nil
+		},
+		dp: dp,
 	}
 
 	deposit := action.NewSettleDeposit(
@@ -1008,6 +1033,7 @@ func TestService_SettleDeposit(t *testing.T) {
 	require.NoError(error)
 	hash := deposit.Hash()
 	require.Equal(hex.EncodeToString(hash[:]), res.Hash)
+	assert.Equal(t, 1, broadcastHandlerCount)
 }
 
 func TestService_GetDeposits(t *testing.T) {

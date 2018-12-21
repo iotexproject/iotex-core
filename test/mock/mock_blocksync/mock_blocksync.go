@@ -8,7 +8,6 @@ import (
 	context "context"
 	gomock "github.com/golang/mock/gomock"
 	blockchain "github.com/iotexproject/iotex-core/blockchain"
-	network "github.com/iotexproject/iotex-core/network"
 	proto "github.com/iotexproject/iotex-core/proto"
 	reflect "reflect"
 )
@@ -70,18 +69,6 @@ func (m *MockBlockSync) TargetHeight() uint64 {
 // TargetHeight indicates an expected call of TargetHeight
 func (mr *MockBlockSyncMockRecorder) TargetHeight() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TargetHeight", reflect.TypeOf((*MockBlockSync)(nil).TargetHeight))
-}
-
-// P2P mocks base method
-func (m *MockBlockSync) P2P() network.Overlay {
-	ret := m.ctrl.Call(m, "P2P")
-	ret0, _ := ret[0].(network.Overlay)
-	return ret0
-}
-
-// P2P indicates an expected call of P2P
-func (mr *MockBlockSyncMockRecorder) P2P() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "P2P", reflect.TypeOf((*MockBlockSync)(nil).P2P))
 }
 
 // ProcessSyncRequest mocks base method
