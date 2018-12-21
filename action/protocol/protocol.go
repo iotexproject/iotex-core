@@ -63,14 +63,3 @@ type StateManager interface {
 	GetDB() db.KVStore
 	GetCachedBatch() db.CachedBatch
 }
-
-type noncer interface {
-	Nonce() uint64
-}
-
-// SetNonce sets nonce for account
-func SetNonce(i noncer, state *state.Account) {
-	if i.Nonce() > state.Nonce {
-		state.Nonce = i.Nonce()
-	}
-}

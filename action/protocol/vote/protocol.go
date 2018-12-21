@@ -86,7 +86,7 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 		*raCtx.GasLimit -= gas
 	}
 	// Update voteFrom Nonce
-	protocol.SetNonce(vote, voteFrom)
+	account.SetNonce(vote, voteFrom)
 	prevVotee := voteFrom.Votee
 	voteFrom.Votee = vote.Votee()
 	if vote.Votee() == "" {

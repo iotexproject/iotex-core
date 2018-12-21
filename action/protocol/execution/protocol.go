@@ -57,7 +57,7 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to load the account of executor %x", executorPKHash)
 	}
-	protocol.SetNonce(exec, acct)
+	account.SetNonce(exec, acct)
 	if err := account.StoreAccount(sm, exec.Executor(), acct); err != nil {
 		return nil, errors.Wrapf(err, "failed to update pending account changes to trie")
 	}

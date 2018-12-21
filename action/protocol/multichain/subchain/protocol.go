@@ -112,7 +112,7 @@ func (p *Protocol) mutateDeposit(deposit *action.SettleDeposit, sm protocol.Stat
 	if err != nil {
 		return err
 	}
-	protocol.SetNonce(deposit, owner)
+	account.SetNonce(deposit, owner)
 	if err := account.StoreAccount(sm, deposit.Sender(), owner); err != nil {
 		return err
 	}

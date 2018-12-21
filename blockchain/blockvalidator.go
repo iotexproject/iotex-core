@@ -14,7 +14,6 @@ import (
 	"sync/atomic"
 
 	"github.com/pkg/errors"
-	"golang.org/x/sync/syncmap"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -88,7 +87,7 @@ func (v *validator) AddActionEnvelopeValidators(validators ...protocol.ActionEnv
 func (v *validator) verifyActions(blk *Block, containCoinbase bool) error {
 	// Verify transfers, votes, executions, witness, and secrets
 	confirmedNonceMap := make(map[string]uint64)
-	accountNonceMap := &syncmap.Map{}
+	accountNonceMap := &sync.Map{}
 	producerPKHash := keypair.HashPubKey(blk.Header.Pubkey)
 	producerAddr := address.New(blk.Header.chainID, producerPKHash[:])
 	var coinbaseCounter int

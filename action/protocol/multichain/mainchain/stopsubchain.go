@@ -75,7 +75,7 @@ func (p *Protocol) handleStopSubChain(stop *action.StopSubChain, sm protocol.Sta
 		return errors.Wrapf(err, "error when getting the account of sender %s", stop.SrcAddr())
 	}
 	// TODO: this is not right, but currently the actions in a block is not processed according to the nonce
-	protocol.SetNonce(stop, acct)
+	account.SetNonce(stop, acct)
 	if err := account.StoreAccount(sm, stop.SrcAddr(), acct); err != nil {
 		return err
 	}
