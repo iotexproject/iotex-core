@@ -37,7 +37,7 @@ func (p *Protocol) handlePutBlock(pb *action.PutBlock, sm protocol.StateManager)
 		return err
 	}
 
-	protocol.SetNonce(pb, acct)
+	account.SetNonce(pb, acct)
 	return account.StoreAccount(sm, pb.ProducerAddress(), acct)
 }
 

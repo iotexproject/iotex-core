@@ -84,7 +84,7 @@ func (p *Protocol) mutateDeposit(
 	// Subtract the balance from sender account
 	acct.Balance = big.NewInt(0).Sub(acct.Balance, deposit.Amount())
 	// TODO: this is not right, but currently the actions in a block is not processed according to the nonce
-	protocol.SetNonce(deposit, acct)
+	account.SetNonce(deposit, acct)
 	if err := account.StoreAccount(sm, deposit.Sender(), acct); err != nil {
 		return nil, err
 	}
