@@ -491,8 +491,13 @@ func TestRollDPoS_convertToConsensusEvt(t *testing.T) {
 		[]action.SealedEnvelope{transfer, vote},
 	)
 	roundNum := uint32(0)
+	blkHash := blk.HashBlock()
+	data, err := blk.Serialize()
+	require.NoError(t, err)
 	pMsg := iproto.ProposePb{
-		Block:    blk.ConvertToBlockPb(),
+		Hash:     blkHash[:],
+		Block:    data,
+		Height:   blk.Height(),
 		Proposer: addr.RawAddress,
 		Round:    roundNum,
 	}
@@ -502,10 +507,9 @@ func TestRollDPoS_convertToConsensusEvt(t *testing.T) {
 	assert.NotNil(t, pEvt.block)
 
 	// Test proposal endorse msg
-	blkHash := blk.HashBlock()
 	en := endorsement.NewEndorsement(
 		endorsement.NewConsensusVote(
-			blkHash,
+			blkHash[:],
 			blk.Height(),
 			roundNum,
 			endorsement.PROPOSAL,
@@ -521,7 +525,7 @@ func TestRollDPoS_convertToConsensusEvt(t *testing.T) {
 	// Test commit endorse msg
 	en = endorsement.NewEndorsement(
 		endorsement.NewConsensusVote(
-			blkHash,
+			blkHash[:],
 			blk.Height(),
 			roundNum,
 			endorsement.LOCK,

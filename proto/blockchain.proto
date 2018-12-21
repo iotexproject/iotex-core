@@ -70,9 +70,11 @@ message ConsensusPb {
 // corresponding to pre-prepare pharse in view change protocol
 message ProposePb {
     string proposer = 1;
-    BlockPb block = 2;
+    uint64 height = 2;
     uint32 round = 3;
-    EndorsementSet lockProof = 4;
+    bytes hash = 4;
+    bytes block = 5;
+    EndorsementSet lockProof = 6;
 }
 
 // corresponding to prepare and pre-prepare phase in view change protocol

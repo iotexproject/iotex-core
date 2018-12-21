@@ -16,7 +16,6 @@ import (
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
-	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/proto"
 )
 
@@ -55,12 +54,12 @@ func (e *consensusEvt) timestamp() time.Time { return e.ts }
 
 type proposeBlkEvt struct {
 	consensusEvt
-	block     *blockchain.Block
+	block     Block
 	lockProof *endorsement.Set
 }
 
 func newProposeBlkEvt(
-	block *blockchain.Block,
+	block Block,
 	lockProof *endorsement.Set,
 	round uint32,
 	c clock.Clock,
@@ -77,12 +76,15 @@ func (e *proposeBlkEvt) toProtoMsg() *iproto.ProposePb {
 	if e.lockProof != nil {
 		lockProof = e.lockProof.ToProto()
 	}
+	data, _ := e.block.Serialize()
 
 	return &iproto.ProposePb{
-		Block:     e.block.ConvertToBlockPb(),
+		Height:    e.block.Height(),
+		Hash:      e.block.Hash(),
+		Block:     data,
 		LockProof: lockProof,
 		Round:     e.r,
-		Proposer:  e.block.ProducerAddress(),
+		Proposer:  e.block.Proposer(),
 	}
 }
 
@@ -91,7 +93,8 @@ func newProposeBlkEvtFromProtoMsg(pMsg *iproto.ProposePb, c clock.Clock) *propos
 		return nil
 	}
 	block := &blockchain.Block{}
-	if err := block.ConvertFromBlockPb(pMsg.Block); err != nil {
+	if err := block.Deserialize(pMsg.Block); err != nil {
+		logger.Error().Err(err).Msg("failed to deserialize block")
 		return nil
 	}
 	var lockProof *endorsement.Set
@@ -104,7 +107,7 @@ func newProposeBlkEvtFromProtoMsg(pMsg *iproto.ProposePb, c clock.Clock) *propos
 		}
 	}
 
-	return newProposeBlkEvt(block, lockProof, pMsg.Round, c)
+	return newProposeBlkEvt(&blockWrapper{block, pMsg.Round}, lockProof, pMsg.Round, c)
 }
 
 type endorseEvt struct {
@@ -114,7 +117,7 @@ type endorseEvt struct {
 
 func newEndorseEvt(
 	topic endorsement.ConsensusVoteTopic,
-	blkHash hash.Hash32B,
+	blkHash []byte,
 	height uint64,
 	round uint32,
 	endorser *iotxaddress.Address,
