@@ -57,6 +57,33 @@ func TestAddBalance(t *testing.T) {
 	require.Equal(0, amount.Cmp(big.NewInt(80000)))
 }
 
+func TestRefundAPIs(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	testutil.CleanupPath(t, testTriePath)
+	defer testutil.CleanupPath(t, testTriePath)
+	ctx := context.Background()
+	cfg := config.Default
+	cfg.Chain.ChainDBPath = testTriePath
+	cfg.Explorer.Enabled = true
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	require.NoError(err)
+	require.NoError(sf.Start(ctx))
+	defer func() {
+		require.NoError(sf.Stop(ctx))
+	}()
+	ws, err := sf.NewWorkingSet()
+	require.NoError(err)
+	mcm := mock_chainmanager.NewMockChainManager(ctrl)
+	stateDB := NewStateDBAdapter(mcm, ws, 1, hash.ZeroHash32B, hash.ZeroHash32B)
+	require.Zero(stateDB.GetRefund())
+	refund := uint64(1024)
+	stateDB.AddRefund(refund)
+	require.Equal(refund, stateDB.GetRefund())
+}
+
 func TestEmptyAndCode(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)

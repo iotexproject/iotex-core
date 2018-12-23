@@ -240,9 +240,14 @@ func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, gasLimit *uint64) 
 	if err == vm.ErrInsufficientBalance {
 		return nil, evmParams.gas, remainingGas, action.EmptyAddress, err
 	}
+	refund := (evmParams.gas - remainingGas) / 2
+	if refund > stateDB.GetRefund() {
+		refund = stateDB.GetRefund()
+	}
+	remainingGas += refund
 	if err != nil {
 		// TODO (zhi) should we refund if any error
-		return nil, evmParams.gas, 0, contractRawAddress, err
+		// return nil, evmParams.gas, 0, contractRawAddress, err
 	}
 	// TODO (zhi) figure out what the following function does
 	// stateDB.Finalise(true)
