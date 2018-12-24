@@ -54,18 +54,17 @@ func LoadOrCreateAccountState(ws state.WorkingSet, addr string, init *big.Int) (
 		return nil, errors.Wrap(err, "failed to convert address to public key hash")
 	}
 	account, err := LoadAccountState(ws, addrHash)
-	switch {
-	case errors.Cause(err) == state.ErrStateNotExist:
-		account := state.Account{
-			Balance:      init,
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get account of %x from account trie", addrHash)
+	}
+	if account == state.EmptyAccount {
+		account = &state.Account{
+			Balance:      big.NewInt(0).SetBytes(init.Bytes()),
 			VotingWeight: big.NewInt(0),
 		}
-		if err := ws.PutState(addrHash, &account); err != nil {
+		if err := ws.PutState(addrHash, account); err != nil {
 			return nil, errors.Wrapf(err, "failed to put state for account %x", addrHash)
 		}
-		return &account, nil
-	case err != nil:
-		return nil, errors.Wrapf(err, "failed to get account of %x from account trie", addrHash)
 	}
 	return account, nil
 }
@@ -73,14 +72,17 @@ func LoadOrCreateAccountState(ws state.WorkingSet, addr string, init *big.Int) (
 // LoadAccountState loads an account state
 func LoadAccountState(ws state.WorkingSet, addrHash hash.PKHash) (*state.Account, error) {
 	s, err := ws.State(addrHash, &state.Account{})
-	if err == nil {
-		account, ok := s.(*state.Account)
-		if !ok {
-			return nil, fmt.Errorf("error when casting %T state into account state", s)
+	if err != nil {
+		if errors.Cause(err) == state.ErrStateNotExist {
+			return state.EmptyAccount, nil
 		}
-		return account, nil
+		return nil, err
 	}
-	return nil, err
+	account, ok := s.(*state.Account)
+	if !ok {
+		return nil, fmt.Errorf("error when casting %T state into account state", s)
+	}
+	return account, nil
 }
 
 // StoreState put updated state to trie

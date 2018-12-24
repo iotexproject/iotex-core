@@ -34,6 +34,13 @@ var (
 
 	// ErrAccountCollision is the error that the account already exists
 	ErrAccountCollision = errors.New("account already exists")
+
+	// EmptyAccount indicates an empty account
+	// This is a read-only variable for comparison purpose. Caller should not modify it.
+	EmptyAccount = &Account{
+		Balance:      big.NewInt(0),
+		VotingWeight: big.NewInt(0),
+	}
 )
 
 const (
@@ -338,10 +345,7 @@ func (sf *factory) accountState(addr string) (*Account, error) {
 	state, err := sf.state(pkHash, &account)
 	if err != nil {
 		if errors.Cause(err) == ErrStateNotExist {
-			return &Account{
-				Balance:      big.NewInt(0),
-				VotingWeight: big.NewInt(0),
-			}, nil
+			return EmptyAccount, nil
 		}
 		return nil, errors.Wrapf(err, "error when loading state of %x", pkHash)
 	}

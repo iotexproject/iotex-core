@@ -949,7 +949,7 @@ func (bc *blockchain) commitBlock(blk *Block) error {
 		}
 	}
 	hash := blk.HashBlock()
-	logger.Info().
+	logger.Warn().
 		Uint64("height", blk.Header.height).
 		Hex("hash", hash[:]).
 		Msg("commit a block")

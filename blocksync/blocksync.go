@@ -180,5 +180,5 @@ func (bs *blockSyncer) Chase() {
 	}
 	// commit height hasn't changed since last chase interval
 	bs.worker.SetTargetHeight(bs.bc.TipHeight() + 1)
-	logger.Warn().Uint64("stuck", bs.commitHeight).Msg("testnet")
+	logger.Info().Uint64("stuck", bs.commitHeight).Msg("testnet")
 }
