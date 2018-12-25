@@ -172,9 +172,6 @@ func TestNonce(t *testing.T) {
 }
 
 func TestSnapshotAndRevert(t *testing.T) {
-	// TODO: temp disable until we solve the memory thrash/leak issue
-	return
-
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
