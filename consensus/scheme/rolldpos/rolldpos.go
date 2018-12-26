@@ -440,9 +440,6 @@ func (r *RollDPoS) HandleEndorse(ePb *iproto.EndorsePb) error {
 	return nil
 }
 
-// SetDoneStream does nothing for Noop (only used in simulator)
-func (r *RollDPoS) SetDoneStream(simMsgReady chan bool) {}
-
 // Metrics returns RollDPoS consensus metrics
 func (r *RollDPoS) Metrics() (scheme.ConsensusMetrics, error) {
 	var metrics scheme.ConsensusMetrics

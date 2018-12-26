@@ -35,7 +35,6 @@ type Scheme interface {
 
 	HandleBlockPropose(propose *iproto.ProposePb) error
 	HandleEndorse(endorse *iproto.EndorsePb) error
-	SetDoneStream(chan bool)
 	Metrics() (ConsensusMetrics, error)
 }
 
