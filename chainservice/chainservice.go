@@ -124,7 +124,7 @@ func New(
 		}),
 	}
 	if ops.rootChainAPI != nil {
-		copts = []consensus.Option{consensus.WithRootChainAPI(ops.rootChainAPI)}
+		copts = append(copts, consensus.WithRootChainAPI(ops.rootChainAPI))
 	}
 	consensus, err := consensus.NewConsensus(cfg, chain, actPool, copts...)
 	if err != nil {
