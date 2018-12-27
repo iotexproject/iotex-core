@@ -42,6 +42,7 @@ type (
 		blockHeight      uint64
 		blockHash        hash.Hash32B
 		executionHash    hash.Hash32B
+		refund           uint64
 		cachedContract   contractMap
 		contractSnapshot map[int]contractMap   // snapshots of contracts
 		suicided         deleteAccount         // account/contract calling Suicide
@@ -167,14 +168,16 @@ func (stateDB *StateDBAdapter) SetNonce(common.Address, uint64) {
 }
 
 // AddRefund adds refund
-func (stateDB *StateDBAdapter) AddRefund(uint64) {
-	logger.Error().Msg("AddRefund is not implemented")
+func (stateDB *StateDBAdapter) AddRefund(gas uint64) {
+	logger.Debug().Uint64("gas", gas).Msg("AddRefund")
+	// stateDB.journal.append(refundChange{prev: self.refund})
+	stateDB.refund += gas
 }
 
 // GetRefund gets refund
 func (stateDB *StateDBAdapter) GetRefund() uint64 {
-	logger.Error().Msg("GetRefund is not implemented")
-	return 0
+	logger.Debug().Msg("GetRefund")
+	return stateDB.refund
 }
 
 // Suicide kills the contract
@@ -218,7 +221,6 @@ func (stateDB *StateDBAdapter) Empty(evmAddr common.Address) bool {
 	addr := address.New(stateDB.cm.ChainID(), evmAddr.Bytes())
 	logger.Debug().Msgf("Check whether the contract is empty")
 	s, err := stateDB.AccountState(addr.IotxAddress())
-	logger.Error().Err(err).Msgf("state: ", s)
 	if err != nil || s == state.EmptyAccount {
 		return true
 	}
