@@ -221,7 +221,6 @@ func (stateDB *StateDBAdapter) Empty(evmAddr common.Address) bool {
 	addr := address.New(stateDB.cm.ChainID(), evmAddr.Bytes())
 	logger.Debug().Msgf("Check whether the contract is empty")
 	s, err := stateDB.AccountState(addr.IotxAddress())
-	logger.Error().Err(err).Msgf("state: ", s)
 	if err != nil || s == state.EmptyAccount {
 		return true
 	}
