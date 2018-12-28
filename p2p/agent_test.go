@@ -41,7 +41,7 @@ func TestBroadcast(t *testing.T) {
 		}
 		agent := NewAgent(
 			cfg,
-			func(_ uint32, msg proto.Message, _ chan bool) {
+			func(_ uint32, msg proto.Message) {
 				mutex.Lock()
 				defer mutex.Unlock()
 				testMsg, ok := msg.(*iproto.TestPayload)
@@ -53,7 +53,7 @@ func TestBroadcast(t *testing.T) {
 					counts[idx] = 1
 				}
 			},
-			func(_ uint32, _ net.Addr, _ proto.Message, _ chan bool) {},
+			func(_ uint32, _ net.Addr, _ proto.Message) {},
 		)
 		agents = append(agents, agent)
 		require.NoError(t, agents[i].Start(ctx))
@@ -89,14 +89,14 @@ func TestUnicast(t *testing.T) {
 		}
 		agent := NewAgent(
 			cfg,
-			func(_ uint32, _ proto.Message, _ chan bool) {
+			func(_ uint32, _ proto.Message) {
 			},
-			func(_ uint32, _ net.Addr, msg proto.Message, _ chan bool) {
+			func(_ uint32, _ net.Addr, msg proto.Message) {
 				mutex.Lock()
 				defer mutex.Unlock()
 				testMsg, ok := msg.(*iproto.TestPayload)
 				require.True(t, ok)
-				var idx uint8 = testMsg.MsgBody[0]
+				idx := testMsg.MsgBody[0]
 				if _, ok = counts[idx]; ok {
 					counts[idx]++
 				} else {

@@ -64,10 +64,10 @@ func TestLocalActPool(t *testing.T) {
 	cfg.Network.BootstrapNodes = []string{svr.P2PAgent().Self().String()}
 	cli := p2p.NewAgent(
 		cfg.Network,
-		func(_ uint32, _ proto.Message, _ chan bool) {
+		func(_ uint32, _ proto.Message) {
 
 		},
-		func(_ uint32, _ net.Addr, _ proto.Message, _ chan bool) {
+		func(_ uint32, _ net.Addr, _ proto.Message) {
 
 		},
 	)
@@ -148,10 +148,10 @@ func TestPressureActPool(t *testing.T) {
 	cfg.Network.BootstrapNodes = []string{svr.P2PAgent().Self().String()}
 	cli := p2p.NewAgent(
 		cfg.Network,
-		func(_ uint32, _ proto.Message, _ chan bool) {
+		func(_ uint32, _ proto.Message) {
 
 		},
-		func(_ uint32, _ net.Addr, _ proto.Message, _ chan bool) {
+		func(_ uint32, _ net.Addr, _ proto.Message) {
 
 		},
 	)
