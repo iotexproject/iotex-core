@@ -127,10 +127,9 @@ func (p *Protocol) mutateDeposit(
 		return nil, err
 	}
 	receipt := action.Receipt{
-		ReturnValue: value[:],
-		Status:      0,
-		// TODO
-		//Hash:            deposit.Hash(),
+		ReturnValue:     value[:],
+		Status:          0,
+		Hash:            deposit.Hash(),
 		GasConsumed:     gas,
 		ContractAddress: addr.IotxAddress(),
 	}
