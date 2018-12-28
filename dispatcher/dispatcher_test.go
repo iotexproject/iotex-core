@@ -65,10 +65,9 @@ func TestHandleBroadcast(t *testing.T) {
 	ctx, d := startDispatcher(t)
 	defer stopDispatcher(ctx, d, t)
 
-	done := make(chan bool, 1000)
 	for i := 0; i < 100; i++ {
 		for _, msg := range msgs {
-			d.HandleBroadcast(config.Default.Chain.ID, msg, done)
+			d.HandleBroadcast(config.Default.Chain.ID, msg)
 		}
 	}
 }
@@ -81,10 +80,9 @@ func TestHandleTell(t *testing.T) {
 	ctx, d := startDispatcher(t)
 	defer stopDispatcher(ctx, d, t)
 
-	done := make(chan bool, 1000)
 	for i := 0; i < 100; i++ {
 		for _, msg := range msgs {
-			d.HandleTell(config.Default.Chain.ID, node.NewTCPNode("192.168.0.0:10000"), msg, done)
+			d.HandleTell(config.Default.Chain.ID, node.NewTCPNode("192.168.0.0:10000"), msg)
 		}
 	}
 }

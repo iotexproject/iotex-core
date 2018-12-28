@@ -1060,7 +1060,7 @@ func (exp *Service) SendTransfer(tsfJSON explorer.SendTransferRequest) (resp exp
 		return explorer.SendTransferResponse{}, err
 	}
 	// send to actpool via dispatcher
-	exp.dp.HandleBroadcast(exp.bc.ChainID(), actPb, nil)
+	exp.dp.HandleBroadcast(exp.bc.ChainID(), actPb)
 
 	tsf := &action.SealedEnvelope{}
 	if err := tsf.LoadProto(actPb); err != nil {
@@ -1113,7 +1113,7 @@ func (exp *Service) SendVote(voteJSON explorer.SendVoteRequest) (resp explorer.S
 		return explorer.SendVoteResponse{}, err
 	}
 	// send to actpool via dispatcher
-	exp.dp.HandleBroadcast(exp.bc.ChainID(), actPb, nil)
+	exp.dp.HandleBroadcast(exp.bc.ChainID(), actPb)
 
 	v := &action.SealedEnvelope{}
 	if err := v.LoadProto(actPb); err != nil {
@@ -1180,7 +1180,7 @@ func (exp *Service) PutSubChainBlock(putBlockJSON explorer.PutSubChainBlockReque
 		return explorer.PutSubChainBlockResponse{}, err
 	}
 	// send to actpool via dispatcher
-	exp.dp.HandleBroadcast(exp.bc.ChainID(), actPb, nil)
+	exp.dp.HandleBroadcast(exp.bc.ChainID(), actPb)
 
 	v := &action.SealedEnvelope{}
 	if err := v.LoadProto(actPb); err != nil {
@@ -1212,7 +1212,7 @@ func (exp *Service) SendAction(req explorer.SendActionRequest) (resp explorer.Se
 		logger.Warn().Err(err).Msg("failed to broadcast SendAction request.")
 	}
 	// send to actpool via dispatcher
-	exp.dp.HandleBroadcast(exp.bc.ChainID(), &action, nil)
+	exp.dp.HandleBroadcast(exp.bc.ChainID(), &action)
 
 	// TODO: include action hash
 	return explorer.SendActionResponse{}, nil
@@ -1285,7 +1285,7 @@ func (exp *Service) SendSmartContract(execution explorer.Execution) (resp explor
 		return explorer.SendSmartContractResponse{}, err
 	}
 	// send to actpool via dispatcher
-	exp.dp.HandleBroadcast(exp.bc.ChainID(), actPb, nil)
+	exp.dp.HandleBroadcast(exp.bc.ChainID(), actPb)
 
 	sc := &action.SealedEnvelope{}
 	if err := sc.LoadProto(actPb); err != nil {
@@ -1387,7 +1387,7 @@ func (exp *Service) CreateDeposit(req explorer.CreateDepositRequest) (res explor
 		return res, err
 	}
 	// send to actpool via dispatcher
-	exp.dp.HandleBroadcast(exp.bc.ChainID(), actPb, nil)
+	exp.dp.HandleBroadcast(exp.bc.ChainID(), actPb)
 
 	selp := &action.SealedEnvelope{}
 	if err := selp.LoadProto(actPb); err != nil {
@@ -1496,7 +1496,7 @@ func (exp *Service) SettleDeposit(req explorer.SettleDepositRequest) (res explor
 		return res, err
 	}
 	// send to actpool via dispatcher
-	exp.dp.HandleBroadcast(exp.bc.ChainID(), actPb, nil)
+	exp.dp.HandleBroadcast(exp.bc.ChainID(), actPb)
 
 	deposit := &action.SealedEnvelope{}
 	if err := deposit.LoadProto(actPb); err != nil {

@@ -65,9 +65,6 @@ func (n *Standalone) Start(ctx context.Context) error {
 	return n.task.Start(ctx)
 }
 
-// SetDoneStream does nothing in Standalone (only used in simulator)
-func (n *Standalone) SetDoneStream(done chan bool) {}
-
 // Stop stops the service for a standalone
 func (n *Standalone) Stop(ctx context.Context) error {
 	return n.task.Stop(ctx)
