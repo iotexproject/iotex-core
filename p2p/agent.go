@@ -49,10 +49,10 @@ const (
 
 type (
 	// HandleBroadcast handles broadcast message when agent listens it from the network
-	HandleBroadcast func(uint32, proto.Message, chan bool)
+	HandleBroadcast func(uint32, proto.Message)
 
 	// HandleUnicast handles unicast message when agent listens it from the network
-	HandleUnicast func(uint32, net.Addr, proto.Message, chan bool)
+	HandleUnicast func(uint32, net.Addr, proto.Message)
 )
 
 // Agent is the agent to help the blockchain node connect into the P2P networks and send/receive messages
@@ -112,7 +112,7 @@ func (p *Agent) Start(ctx context.Context) error {
 			err = errors.Wrap(err, "error when typifying broadcast message")
 			return
 		}
-		p.broadcastHandler(broadcast.ChainId, msg, nil)
+		p.broadcastHandler(broadcast.ChainId, msg)
 		return
 	}); err != nil {
 		return errors.Wrap(err, "error when adding broadcast pubsub")
@@ -136,7 +136,7 @@ func (p *Agent) Start(ctx context.Context) error {
 			err = errors.Wrap(err, "error when typifying unicast message")
 			return
 		}
-		p.unicastHandler(unicast.ChainId, node.NewTCPNode(unicast.Addr), msg, nil)
+		p.unicastHandler(unicast.ChainId, node.NewTCPNode(unicast.Addr), msg)
 		return
 	}); err != nil {
 		return errors.Wrap(err, "error when adding unicast pubsub")

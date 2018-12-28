@@ -30,9 +30,6 @@ func (n *Noop) Start(_ context.Context) error { return nil }
 // Stop does nothing here
 func (n *Noop) Stop(_ context.Context) error { return nil }
 
-// SetDoneStream does nothing for Noop (only used in simulator)
-func (n *Noop) SetDoneStream(done chan bool) {}
-
 // HandleBlockPropose handles incoming block propose
 func (n *Noop) HandleBlockPropose(propose *iproto.ProposePb) error {
 	logger.Warn().Msg("Noop scheme does not handle incoming block propose requests")

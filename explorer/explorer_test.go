@@ -576,7 +576,7 @@ func TestService_SendTransfer(t *testing.T) {
 	}}
 
 	chain.EXPECT().ChainID().Return(uint32(1)).Times(2)
-	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
+	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any()).Times(1)
 
 	r := explorer.SendTransferRequest{
 		Version:      0x1,
@@ -613,7 +613,7 @@ func TestService_SendVote(t *testing.T) {
 	}}
 
 	chain.EXPECT().ChainID().Return(uint32(1)).Times(2)
-	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
+	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any()).Times(1)
 
 	r := explorer.SendVoteRequest{
 		Version:     0x1,
@@ -664,7 +664,7 @@ func TestService_SendSmartContract(t *testing.T) {
 	require.Equal(gas, int64(1000))
 
 	chain.EXPECT().ChainID().Return(uint32(1)).Times(2)
-	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
+	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any()).Times(1)
 
 	response, err := svc.SendSmartContract(explorerExecution)
 	require.NotNil(response.Hash)
@@ -692,7 +692,7 @@ func TestServicePutSubChainBlock(t *testing.T) {
 	require.NotNil(err)
 
 	chain.EXPECT().ChainID().Return(uint32(1)).Times(2)
-	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
+	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any()).Times(1)
 
 	roots := []explorer.PutSubChainBlockMerkelRoot{
 		{
@@ -763,7 +763,7 @@ func TestServiceSendAction(t *testing.T) {
 	require.NoError(err)
 
 	chain.EXPECT().ChainID().Return(uint32(1)).Times(2)
-	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
+	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any()).Times(1)
 
 	_, err = svc.SendAction(request)
 	require.NoError(err)
@@ -928,7 +928,7 @@ func TestService_CreateDeposit(t *testing.T) {
 	bc := mock_blockchain.NewMockBlockchain(ctrl)
 	bc.EXPECT().ChainID().Return(uint32(1)).Times(2)
 	dp := mock_dispatcher.NewMockDispatcher(ctrl)
-	dp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
+	dp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any()).Times(1)
 
 	broadcastHandlerCount := 0
 	svc := Service{
@@ -987,7 +987,7 @@ func TestService_SettleDeposit(t *testing.T) {
 	bc := mock_blockchain.NewMockBlockchain(ctrl)
 	bc.EXPECT().ChainID().Return(uint32(1)).Times(2)
 	dp := mock_dispatcher.NewMockDispatcher(ctrl)
-	dp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
+	dp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any()).Times(1)
 
 	broadcastHandlerCount := 0
 	svc := Service{
