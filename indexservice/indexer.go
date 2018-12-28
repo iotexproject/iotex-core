@@ -10,12 +10,13 @@ import (
 	"database/sql"
 	"encoding/hex"
 
+	"github.com/pkg/errors"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db/rds"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/pkg/errors"
 )
 
 type (
@@ -54,6 +55,20 @@ type (
 		NodeAddress   string
 		ExecutionHash string
 		BlockHash     string
+	}
+
+	// ActionHistory defines the schema of "action history" table
+	ActionHistory struct {
+		NodeAddress string
+		UserAddress string
+		ActionHash  string
+	}
+
+	// ActionToBlock defines the schema of "action hash to block hash" table
+	ActionToBlock struct {
+		NodeAddress string
+		ActionHash  string
+		BlockHash   string
 	}
 )
 
@@ -104,6 +119,15 @@ func (idx *Indexer) BuildIndex(blk *blockchain.Block) error {
 		// map execution to block
 		if err := idx.UpdateExecutionToBlock(blk, tx); err != nil {
 			return errors.Wrapf(err, "failed to update execution to block")
+		}
+
+		// log action to action history table
+		if err := idx.UpdateActionHistory(blk, tx); err != nil {
+			return errors.Wrapf(err, "failed to update action to action history table")
+		}
+		// map action to block
+		if err := idx.UpdateActionToBlock(blk, tx); err != nil {
+			return errors.Wrap(err, "failed to update action to block")
 		}
 
 		return nil
@@ -396,5 +420,99 @@ func (idx *Indexer) GetBlockByExecution(executionHash hash.Hash32B) (hash.Hash32
 
 	var hash hash.Hash32B
 	copy(hash[:], parsedRows[0].(*ExecutionToBlock).BlockHash)
+	return hash, nil
+}
+
+// UpdateActionHistory stores action information into action history table
+func (idx *Indexer) UpdateActionHistory(blk *blockchain.Block, tx *sql.Tx) error {
+	insertQuery := "INSERT action_history SET node_address=?,user_address=?,action_hash=?"
+	for _, selp := range blk.Actions {
+		actionHash := selp.Hash()
+
+		// put new action for sender
+		senderAddr := selp.SrcAddr()
+		if _, err := tx.Exec(insertQuery, idx.hexEncodedNodeAddr, senderAddr, actionHash[:]); err != nil {
+			return err
+		}
+
+		// put new transfer for recipient
+		receiverAddr := selp.DstAddr()
+		if _, err := tx.Exec(insertQuery, idx.hexEncodedNodeAddr, receiverAddr, actionHash[:]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// GetActionHistory gets action history
+func (idx *Indexer) GetActionHistory(userAddr string) ([]hash.Hash32B, error) {
+	getQuery := "SELECT * FROM action_history WHERE node_address=? AND user_address=?"
+	db := idx.rds.GetDB()
+
+	stmt, err := db.Prepare(getQuery)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to prepare get query")
+	}
+
+	rows, err := stmt.Query(idx.hexEncodedNodeAddr, userAddr)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to execute get query")
+	}
+
+	var actionHistory ActionHistory
+	parsedRows, err := rds.ParseRows(rows, &actionHistory)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to parse results")
+	}
+
+	var actionHashes []hash.Hash32B
+	for _, parsedRow := range parsedRows {
+		var hash hash.Hash32B
+		copy(hash[:], parsedRow.(*ActionHistory).ActionHash)
+		actionHashes = append(actionHashes, hash)
+	}
+	return actionHashes, nil
+}
+
+// UpdateActionToBlock maps action hash to block hash
+func (idx *Indexer) UpdateActionToBlock(blk *blockchain.Block, tx *sql.Tx) error {
+	blockHash := blk.HashBlock()
+	insertQuery := "INSERT action_to_block SET node_address=?,action_hash=?,block_hash=?"
+	for _, selp := range blk.Actions {
+		actionHash := selp.Hash()
+		if _, err := tx.Exec(insertQuery, idx.hexEncodedNodeAddr, hex.EncodeToString(actionHash[:]), blockHash[:]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// GetBlockByAction return block hash by action hash
+func (idx *Indexer) GetBlockByAction(actionHash hash.Hash32B) (hash.Hash32B, error) {
+	getQuery := "SELECT * FROM action_to_block WHERE node_address=? AND action_hash=?"
+	db := idx.rds.GetDB()
+
+	stmt, err := db.Prepare(getQuery)
+	if err != nil {
+		return hash.ZeroHash32B, errors.Wrapf(err, "failed to prepare get query")
+	}
+
+	rows, err := stmt.Query(idx.hexEncodedNodeAddr, hex.EncodeToString(actionHash[:]))
+	if err != nil {
+		return hash.ZeroHash32B, errors.Wrapf(err, "failed to execute get query")
+	}
+
+	var actionToBlock ActionToBlock
+	parsedRows, err := rds.ParseRows(rows, &actionToBlock)
+	if err != nil {
+		return hash.ZeroHash32B, errors.Wrapf(err, "failed to parse results")
+	}
+
+	if len(parsedRows) == 0 {
+		return hash.ZeroHash32B, ErrNotExist
+	}
+
+	var hash hash.Hash32B
+	copy(hash[:], parsedRows[0].(*ActionToBlock).BlockHash)
 	return hash, nil
 }
