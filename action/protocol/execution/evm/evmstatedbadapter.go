@@ -142,7 +142,7 @@ func (stateDB *StateDBAdapter) GetBalance(evmAddr common.Address) *big.Int {
 	state, err := stateDB.AccountState(addr.IotxAddress())
 	if err != nil {
 		logger.Error().Err(err).Msg("GetBalance")
-		return nil
+		return big.NewInt(0)
 	}
 	logger.Debug().Msgf("Balance of %s is %v", evmAddr.Hex(), state.Balance)
 
