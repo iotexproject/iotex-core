@@ -158,13 +158,25 @@ func (stateDB *StateDBAdapter) GetNonce(evmAddr common.Address) uint64 {
 		// stateDB.logError(err)
 		return 0
 	}
-	logger.Debug().Uint64("nonce", state.Nonce).Msg("GetNonce")
+	logger.Debug().Uint64("nonce", state.Nonce).Str("address", addr.IotxAddress()).Msg("GetNonce")
 	return state.Nonce
 }
 
 // SetNonce sets the nonce of account
-func (stateDB *StateDBAdapter) SetNonce(common.Address, uint64) {
-	logger.Error().Msg("SetNonce is not implemented")
+func (stateDB *StateDBAdapter) SetNonce(evmAddr common.Address, nonce uint64) {
+	addr := address.New(stateDB.cm.ChainID(), evmAddr.Bytes())
+	s, err := stateDB.AccountState(addr.IotxAddress())
+	if err != nil {
+		logger.Error().Err(err).Msg("GetNonce")
+		// stateDB.logError(err)
+		return
+	}
+	logger.Debug().Uint64("nonce", nonce).Str("address", addr.IotxAddress()).Msg("SetNonce")
+	s.Nonce = nonce
+	if err := account.StoreAccount(stateDB.sm, addr.IotxAddress(), s); err != nil {
+		logger.Error().Err(err).Msg("failed to set nonce")
+		// stateDB.logError(err)
+	}
 }
 
 // AddRefund adds refund

@@ -14,7 +14,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 )
@@ -47,19 +46,6 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to execute contract")
-	}
-
-	executorPKHash, err := iotxaddress.AddressToPKHash(exec.Executor())
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to convert address to PK hash")
-	}
-	acct, err := account.LoadAccount(sm, executorPKHash)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to load the account of executor %x", executorPKHash)
-	}
-	account.SetNonce(exec, acct)
-	if err := account.StoreAccount(sm, exec.Executor(), acct); err != nil {
-		return nil, errors.Wrapf(err, "failed to update pending account changes to trie")
 	}
 
 	return receipt, nil

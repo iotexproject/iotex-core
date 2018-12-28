@@ -21,19 +21,15 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
-	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestAddBalance(t *testing.T) {
 	require := require.New(t)
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	ctx := context.Background()
 	cfg := config.Default
-	cfg.Chain.TrieDBPath = testTriePath
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(err)
 	require.NoError(sf.Start(ctx))
@@ -62,11 +58,8 @@ func TestRefundAPIs(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
 	ctx := context.Background()
 	cfg := config.Default
-	cfg.Chain.ChainDBPath = testTriePath
 	cfg.Explorer.Enabled = true
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(err)
@@ -89,11 +82,8 @@ func TestEmptyAndCode(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
 	ctx := context.Background()
 	cfg := config.Default
-	cfg.Chain.ChainDBPath = testTriePath
 	cfg.Explorer.Enabled = true
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(err)
@@ -117,14 +107,11 @@ func TestEmptyAndCode(t *testing.T) {
 
 func TestForEachStorage(t *testing.T) {
 	require := require.New(t)
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	ctx := context.Background()
 	cfg := config.Default
-	cfg.Chain.TrieDBPath = testTriePath
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(err)
 	require.NoError(sf.Start(ctx))
@@ -156,19 +143,41 @@ func TestForEachStorage(t *testing.T) {
 	require.Equal(0, len(kvs))
 }
 
-func TestSnapshotAndSuicide(t *testing.T) {
-	// TODO: temp disable until we solve the memory thrash/leak issue
-	return
-
+func TestNonce(t *testing.T) {
 	require := require.New(t)
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	ctx := context.Background()
 	cfg := config.Default
-	cfg.Chain.TrieDBPath = testTriePath
+	cfg.Explorer.Enabled = true
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	require.NoError(err)
+	require.NoError(sf.Start(ctx))
+	defer func() {
+		require.NoError(sf.Stop(ctx))
+	}()
+	ws, err := sf.NewWorkingSet()
+	require.NoError(err)
+	mcm := mock_chainmanager.NewMockChainManager(ctrl)
+	mcm.EXPECT().ChainID().Times(3).Return(uint32(1))
+	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
+	stateDB := NewStateDBAdapter(mcm, ws, 1, hash.ZeroHash32B, hash.ZeroHash32B)
+	require.Equal(uint64(0), stateDB.GetNonce(addr))
+	stateDB.SetNonce(addr, 1)
+	require.Equal(uint64(1), stateDB.GetNonce(addr))
+}
+
+func TestSnapshotAndSuicide(t *testing.T) {
+	// TODO: temp disable until we solve the memory thrash/leak issue
+	return
+
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ctx := context.Background()
+	cfg := config.Default
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(err)
 	require.NoError(sf.Start(ctx))

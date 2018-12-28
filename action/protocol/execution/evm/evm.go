@@ -231,6 +231,7 @@ func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, gasLimit *uint64) 
 		contractAddress := address.New(stateDB.cm.ChainID(), evmContractAddress.Bytes())
 		contractRawAddress = contractAddress.IotxAddress()
 	} else {
+		stateDB.SetNonce(evmParams.context.Origin, stateDB.GetNonce(evmParams.context.Origin)+1)
 		// process contract
 		ret, remainingGas, err = evm.Call(executor, *evmParams.contract, evmParams.data, remainingGas, evmParams.amount)
 	}
