@@ -361,38 +361,3 @@ func (m *MockStateManager) GetCachedBatch() db.CachedBatch {
 func (mr *MockStateManagerMockRecorder) GetCachedBatch() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCachedBatch", reflect.TypeOf((*MockStateManager)(nil).GetCachedBatch))
 }
-
-// Mocknoncer is a mock of noncer interface
-type Mocknoncer struct {
-	ctrl     *gomock.Controller
-	recorder *MocknoncerMockRecorder
-}
-
-// MocknoncerMockRecorder is the mock recorder for Mocknoncer
-type MocknoncerMockRecorder struct {
-	mock *Mocknoncer
-}
-
-// NewMocknoncer creates a new mock instance
-func NewMocknoncer(ctrl *gomock.Controller) *Mocknoncer {
-	mock := &Mocknoncer{ctrl: ctrl}
-	mock.recorder = &MocknoncerMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use
-func (m *Mocknoncer) EXPECT() *MocknoncerMockRecorder {
-	return m.recorder
-}
-
-// Nonce mocks base method
-func (m *Mocknoncer) Nonce() uint64 {
-	ret := m.ctrl.Call(m, "Nonce")
-	ret0, _ := ret[0].(uint64)
-	return ret0
-}
-
-// Nonce indicates an expected call of Nonce
-func (mr *MocknoncerMockRecorder) Nonce() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Nonce", reflect.TypeOf((*Mocknoncer)(nil).Nonce))
-}
