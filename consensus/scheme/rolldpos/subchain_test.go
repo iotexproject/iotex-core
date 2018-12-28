@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	explorerapi "github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/proto"
@@ -30,7 +30,7 @@ func TestPutBlockToParentChain(t *testing.T) {
 
 	addr := testaddress.Addrinfo["producer"]
 	subAddr := testaddress.Addrinfo["echo"]
-	blk := blockchain.Block{}
+	blk := block.Block{}
 	blkpb := &iproto.BlockPb{
 		Header: &iproto.BlockHeaderPb{
 			Version: version.ProtocolVersion,
@@ -79,7 +79,7 @@ func TestPutBlockToParentChain(t *testing.T) {
 	txRoot := blk.CalculateTxRoot()
 	blkpb.Header.TxRoot = txRoot[:]
 	blkpb.Header.StateRoot = []byte("state root")
-	blk = blockchain.Block{}
+	blk = block.Block{}
 	require.NoError(t, blk.ConvertFromBlockPb(blkpb))
 	stateRoot := blk.StateRoot()
 

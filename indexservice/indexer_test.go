@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db/rds"
 	"github.com/iotexproject/iotex-core/pkg/version"
@@ -51,7 +51,7 @@ func TestIndexService(t *testing.T) {
 			hexEncodedNodeAddr: nodeAddr,
 		}
 
-		blk := blockchain.Block{}
+		blk := block.Block{}
 		err = blk.ConvertFromBlockPb(&iproto.BlockPb{
 			Header: &iproto.BlockHeaderPb{
 				Version: version.ProtocolVersion,

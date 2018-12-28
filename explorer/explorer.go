@@ -831,7 +831,7 @@ func (exp *Service) GetLastBlocksByRange(offset int64, limit int64) ([]explorer.
 			Size:       int64(totalSize),
 			GenerateBy: explorer.BlockGenerator{
 				Name:    "",
-				Address: keypair.EncodePublicKey(blk.Header.Pubkey),
+				Address: keypair.EncodePublicKey(blk.PublicKey()),
 			},
 		}
 
@@ -876,7 +876,7 @@ func (exp *Service) GetBlockByID(blkID string) (explorer.Block, error) {
 		Size:       int64(totalSize),
 		GenerateBy: explorer.BlockGenerator{
 			Name:    "",
-			Address: keypair.EncodePublicKey(blk.Header.Pubkey),
+			Address: keypair.EncodePublicKey(blk.PublicKey()),
 		},
 	}
 

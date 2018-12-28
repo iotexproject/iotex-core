@@ -20,6 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
@@ -122,7 +123,8 @@ func (ctx *rollDPoSCtx) OnConsensusReached() error {
 }
 
 type blockWrapper struct {
-	*blockchain.Block
+	*block.Block
+
 	round uint32
 }
 
@@ -201,8 +203,8 @@ func (ctx *rollDPoSCtx) validateProposeBlock(blk Block, expectedProposer string)
 	return true
 }
 
-func verifyDKGSignature(blk *blockchain.Block, seedByte []byte) error {
-	return crypto.BLS.Verify(blk.Header.DKGPubkey, seedByte, blk.Header.DKGBlockSig)
+func verifyDKGSignature(blk *block.Block, seedByte []byte) error {
+	return crypto.BLS.Verify(blk.DKGPubkey(), seedByte, blk.DKGSignature())
 }
 
 func (ctx *rollDPoSCtx) Broadcast(msg proto.Message) error {
@@ -385,7 +387,7 @@ func (ctx *rollDPoSCtx) calcProposer(height uint64, delegates []string) (uint32,
 }
 
 // mintBlock mints a new block to propose
-func (ctx *rollDPoSCtx) mintBlock() (*blockchain.Block, error) {
+func (ctx *rollDPoSCtx) mintBlock() (*block.Block, error) {
 	if ctx.shouldHandleDKG() {
 		return ctx.mintSecretBlock()
 	}
@@ -393,7 +395,7 @@ func (ctx *rollDPoSCtx) mintBlock() (*blockchain.Block, error) {
 }
 
 // mintSecretBlock collects DKG secret proposals and witness and creates a block to propose
-func (ctx *rollDPoSCtx) mintSecretBlock() (*blockchain.Block, error) {
+func (ctx *rollDPoSCtx) mintSecretBlock() (*block.Block, error) {
 	secrets := ctx.epoch.secrets
 	witness := ctx.epoch.witness
 	if len(secrets) != len(ctx.epoch.delegates) {
@@ -429,7 +431,7 @@ func (ctx *rollDPoSCtx) mintSecretBlock() (*blockchain.Block, error) {
 }
 
 // mintCommonBlock picks the actions and creates a common block to propose
-func (ctx *rollDPoSCtx) mintCommonBlock() (*blockchain.Block, error) {
+func (ctx *rollDPoSCtx) mintCommonBlock() (*block.Block, error) {
 	actions := ctx.actPool.PickActs()
 	logger.Debug().
 		Int("action", len(actions)).
@@ -505,10 +507,10 @@ func (ctx *rollDPoSCtx) updateSeed() ([]byte, error) {
 		if err != nil {
 			continue
 		}
-		if len(blk.Header.DKGID) > 0 && len(blk.Header.DKGPubkey) > 0 && len(blk.Header.DKGBlockSig) > 0 {
-			selectedID = append(selectedID, blk.Header.DKGID)
-			selectedSig = append(selectedSig, blk.Header.DKGBlockSig)
-			selectedPK = append(selectedPK, blk.Header.DKGPubkey)
+		if len(blk.DKGID()) > 0 && len(blk.DKGPubkey()) > 0 && len(blk.DKGSignature()) > 0 {
+			selectedID = append(selectedID, blk.DKGID())
+			selectedSig = append(selectedSig, blk.DKGSignature())
+			selectedPK = append(selectedPK, blk.DKGPubkey())
 		}
 	}
 
