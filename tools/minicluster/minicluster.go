@@ -139,7 +139,7 @@ func main() {
 		}
 		// Wait until the smart contract is successfully deployed
 		var receipt *action.Receipt
-		if err := testutil.WaitUntil(10*time.Millisecond, 20*time.Second, func() (bool, error) {
+		if err := testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
 			receipt, err = svrs[0].ChainService(uint32(1)).Blockchain().GetReceiptByExecutionHash(eHash)
 			return receipt != nil, nil
 		}); err != nil {
