@@ -231,7 +231,14 @@ func (v *validator) verifyActions(blk *Block, containCoinbase bool) error {
 			sort.Slice(receivedNonces, func(i, j int) bool { return receivedNonces[i] < receivedNonces[j] })
 			for i, nonce := range receivedNonces {
 				if nonce != confirmedNonce+uint64(i+1) {
-					return errors.Wrap(action.ErrNonce, "action nonce is not continuously increasing")
+					return errors.Wrapf(
+						action.ErrNonce,
+						"the %d nonce %d of address %s (confirmed nonce %d) is not continuously increasing",
+						i,
+						nonce,
+						address,
+						confirmedNonce,
+					)
 				}
 			}
 		}
