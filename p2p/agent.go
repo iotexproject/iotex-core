@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
+	"strconv"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -31,7 +32,7 @@ var (
 			Name: "iotex_p2p_message_counter",
 			Help: "P2P message stats",
 		},
-		[]string{"type", "direction", "status"},
+		[]string{"protocol", "message", "direction", "status"},
 	)
 )
 
@@ -97,7 +98,7 @@ func (p *Agent) Start(ctx context.Context) error {
 			if err != nil {
 				status = "failure"
 			}
-			p2pMsgCounter.WithLabelValues("broadcast", "in", status).Inc()
+			p2pMsgCounter.WithLabelValues("broadcast", strconv.Itoa(int(broadcast.MsgType)), "in", status).Inc()
 		}()
 		if err = proto.Unmarshal(data, &broadcast); err != nil {
 			err = errors.Wrap(err, "error when marshaling broadcast message")
@@ -119,14 +120,14 @@ func (p *Agent) Start(ctx context.Context) error {
 	}
 
 	if err := host.AddUnicastPubSub(unicastTopic, func(data []byte) (err error) {
+		var unicast p2ppb.UnicastMsg
 		defer func() {
 			status := "success"
 			if err != nil {
 				status = "failure"
 			}
-			p2pMsgCounter.WithLabelValues("unicast", "in", status).Inc()
+			p2pMsgCounter.WithLabelValues("unicast", strconv.Itoa(int(unicast.MsgType)), "in", status).Inc()
 		}()
-		var unicast p2ppb.UnicastMsg
 		if err = proto.Unmarshal(data, &unicast); err != nil {
 			err = errors.Wrap(err, "error when marshaling unicast message")
 			return
@@ -179,14 +180,16 @@ func (p *Agent) Stop(ctx context.Context) error {
 
 // Broadcast sends a broadcast message to the whole network
 func (p *Agent) Broadcast(ctx context.Context, msg proto.Message) (err error) {
+	var msgType uint32
+	var msgBody []byte
 	defer func() {
 		status := "success"
 		if err != nil {
 			status = "failure"
 		}
-		p2pMsgCounter.WithLabelValues("broadcast", "out", status).Inc()
+		p2pMsgCounter.WithLabelValues("broadcast", strconv.Itoa(int(msgType)), "out", status).Inc()
 	}()
-	msgType, msgBody, err := convertAppMsg(msg)
+	msgType, msgBody, err = convertAppMsg(msg)
 	if err != nil {
 		return
 	}
@@ -210,14 +213,16 @@ func (p *Agent) Broadcast(ctx context.Context, msg proto.Message) (err error) {
 
 // Unicast sends a unicast message to the given address
 func (p *Agent) Unicast(ctx context.Context, addr net.Addr, msg proto.Message) (err error) {
+	var msgType uint32
+	var msgBody []byte
 	defer func() {
 		status := "success"
 		if err != nil {
 			status = "failure"
 		}
-		p2pMsgCounter.WithLabelValues("unicast", "out", status).Inc()
+		p2pMsgCounter.WithLabelValues("unicast", strconv.Itoa(int(msgType)), "out", status).Inc()
 	}()
-	msgType, msgBody, err := convertAppMsg(msg)
+	msgType, msgBody, err = convertAppMsg(msg)
 	if err != nil {
 		return
 	}

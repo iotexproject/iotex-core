@@ -630,8 +630,23 @@ func (m *cFSM) handleEndorseProposalTimeout(evt fsm.Event) (fsm.State, error) {
 	if evt.Type() != eEndorseProposalTimeout {
 		return sEpochStart, errors.Errorf("invalid event type %s", evt.Type())
 	}
+	numProposalEndorsements := 0
+	if m.ctx.round.block != nil {
+		endorsementSet := m.ctx.round.endorsementSets[m.ctx.round.block.HashBlock()]
+		if endorsementSet != nil {
+			numProposalEndorsements = endorsementSet.NumOfValidEndorsements(
+				map[endorsement.ConsensusVoteTopic]bool{
+					endorsement.PROPOSAL: true,
+					endorsement.COMMIT:   false,
+				},
+				m.ctx.epoch.delegates,
+			)
+		}
+	}
+
 	logger.Warn().
 		Uint64("height", m.ctx.round.height).
+		Int("numProposalEndorsements", numProposalEndorsements).
 		Msg("didn't collect enough proposal endorses before timeout")
 
 	return sAcceptLockEndorse, nil
@@ -662,8 +677,22 @@ func (m *cFSM) handleEndorseLockTimeout(evt fsm.Event) (fsm.State, error) {
 	if evt.Type() != eEndorseLockTimeout {
 		return sEpochStart, errors.Errorf("invalid event type %s", evt.Type())
 	}
+	numCommitEndorsements := 0
+	if m.ctx.round.block != nil {
+		endorsementSet := m.ctx.round.endorsementSets[m.ctx.round.block.HashBlock()]
+		if endorsementSet != nil {
+			numCommitEndorsements = endorsementSet.NumOfValidEndorsements(
+				map[endorsement.ConsensusVoteTopic]bool{
+					endorsement.PROPOSAL: false,
+					endorsement.COMMIT:   true,
+				},
+				m.ctx.epoch.delegates,
+			)
+		}
+	}
 	logger.Warn().
 		Uint64("height", m.ctx.round.height).
+		Int("numCommitEndorsements", numCommitEndorsements).
 		Msg("didn't collect enough commit endorse before timeout")
 
 	m.produce(m.newCEvt(eFinishEpoch), 0)
