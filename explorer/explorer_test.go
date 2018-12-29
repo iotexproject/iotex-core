@@ -15,10 +15,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
-
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -198,8 +197,6 @@ func TestExplorerApi(t *testing.T) {
 	require.Nil(err)
 	require.Nil(sf.Start(context.Background()))
 	require.NoError(addCreatorToFactory(sf))
-	// Disable block reward to make bookkeeping easier
-	blockchain.Gen.BlockReward = big.NewInt(0)
 
 	// create chain
 	ctx := context.Background()
@@ -877,8 +874,6 @@ func TestExplorerGetReceiptByExecutionID(t *testing.T) {
 	require.Nil(err)
 	require.Nil(sf.Start(context.Background()))
 	require.NoError(addCreatorToFactory(sf))
-	// Disable block reward to make bookkeeping easier
-	blockchain.Gen.BlockReward = big.NewInt(0)
 
 	// create chain
 	ctx := context.Background()
