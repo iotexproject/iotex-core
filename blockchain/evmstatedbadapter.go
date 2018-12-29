@@ -111,7 +111,7 @@ func (stateDB *EVMStateDBAdapter) GetBalance(evmAddr common.Address) *big.Int {
 	state, err := stateDB.ws.CachedAccountState(addr.IotxAddress())
 	if err != nil {
 		logger.Error().Err(err).Msg("GetBalance")
-		return nil
+		return big.NewInt(0)
 	}
 	logger.Debug().Msgf("Balance of %s is %v", evmAddr.Hex(), state.Balance)
 
