@@ -14,11 +14,14 @@ import (
 
 	"github.com/CoderZhi/go-ethereum/common"
 	"github.com/golang/mock/gomock"
+	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
 )
@@ -296,4 +299,27 @@ func TestSnapshotAndSuicide(t *testing.T) {
 	require.True(stateDB.Exist(addr1))
 	require.True(stateDB.Exist(cntr1))
 	require.False(stateDB.Exist(cntr2))
+}
+
+func TestGetBalanceOnError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	sm := mock_chainmanager.NewMockStateManager(ctrl)
+	sm.EXPECT().GetDB().Return(nil).AnyTimes()
+	sm.EXPECT().GetCachedBatch().Return(nil).AnyTimes()
+	mcm := mock_chainmanager.NewMockChainManager(ctrl)
+	mcm.EXPECT().ChainID().Return(uint32(1)).AnyTimes()
+
+	errs := []error{
+		state.ErrStateNotExist,
+		errors.New("other error"),
+	}
+	for _, err := range errs {
+		sm.EXPECT().State(gomock.Any(), gomock.Any()).Return(err).Times(1)
+		addr := common.HexToAddress("test address")
+		stateDB := NewStateDBAdapter(mcm, sm, 1, hash.ZeroHash32B, hash.ZeroHash32B)
+		amount := stateDB.GetBalance(addr)
+		assert.Equal(t, big.NewInt(0), amount)
+	}
 }
