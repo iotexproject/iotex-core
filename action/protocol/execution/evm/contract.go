@@ -24,6 +24,9 @@ const (
 
 	// ContractKVNameSpace is the bucket name for contract data storage
 	ContractKVNameSpace = "Contract"
+
+	// PreimageKVNameSpace is the bucket name for preimage data storage
+	PreimageKVNameSpace = "Preimage"
 )
 
 type (

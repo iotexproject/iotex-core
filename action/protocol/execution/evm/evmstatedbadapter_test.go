@@ -323,3 +323,48 @@ func TestGetBalanceOnError(t *testing.T) {
 		assert.Equal(t, big.NewInt(0), amount)
 	}
 }
+
+func TestPreimage(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ctx := context.Background()
+	cfg := config.Default
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	require.NoError(err)
+	require.NoError(sf.Start(ctx))
+	defer func() {
+		require.NoError(sf.Stop(ctx))
+	}()
+	ws, err := sf.NewWorkingSet()
+	require.NoError(err)
+	mcm := mock_chainmanager.NewMockChainManager(ctrl)
+	mcm.EXPECT().ChainID().AnyTimes().Return(uint32(1))
+	stateDB := NewStateDBAdapter(mcm, ws, 1, hash.ZeroHash32B, hash.ZeroHash32B)
+
+	v1 := hash.Hash256b([]byte("cat"))
+	v2 := hash.Hash256b([]byte("dog"))
+	v3 := hash.Hash256b([]byte("hen"))
+	stateDB.AddPreimage(common.BytesToHash(v1), []byte("cat"))
+	stateDB.AddPreimage(common.BytesToHash(v2), []byte("dog"))
+	stateDB.AddPreimage(common.BytesToHash(v3), []byte("hen"))
+	// this won't overwrite preimage of v1
+	stateDB.AddPreimage(common.BytesToHash(v1), []byte("fox"))
+	require.NoError(stateDB.commitContracts())
+	stateDB.clear()
+	k, _ := stateDB.cb.Get(PreimageKVNameSpace, v1)
+	require.Equal([]byte("cat"), k)
+	k, _ = stateDB.cb.Get(PreimageKVNameSpace, v2)
+	require.Equal([]byte("dog"), k)
+	k, _ = stateDB.cb.Get(PreimageKVNameSpace, v3)
+	require.Equal([]byte("hen"), k)
+
+	require.NoError(stateDB.dao.Commit(stateDB.cb))
+	k, _ = stateDB.dao.Get(PreimageKVNameSpace, v1)
+	require.Equal([]byte("cat"), k)
+	k, _ = stateDB.dao.Get(PreimageKVNameSpace, v2)
+	require.Equal([]byte("dog"), k)
+	k, _ = stateDB.dao.Get(PreimageKVNameSpace, v3)
+	require.Equal([]byte("hen"), k)
+}
