@@ -33,6 +33,9 @@ type (
 	// contractMap records the contracts being changed
 	contractMap map[hash.PKHash]Contract
 
+	// preimageMap records the preimage of hash reported by VM
+	preimageMap map[common.Hash][]byte
+
 	// StateDBAdapter represents the state db adapter for evm to access iotx blockchain
 	StateDBAdapter struct {
 		cm               protocol.ChainManager
@@ -47,6 +50,8 @@ type (
 		contractSnapshot map[int]contractMap   // snapshots of contracts
 		suicided         deleteAccount         // account/contract calling Suicide
 		suicideSnapshot  map[int]deleteAccount // snapshots of suicide accounts
+		preimages        preimageMap
+		preimageSnapshot map[int]preimageMap
 		dao              db.KVStore
 		cb               db.CachedBatch
 	}
@@ -66,6 +71,8 @@ func NewStateDBAdapter(cm protocol.ChainManager, sm protocol.StateManager, block
 		contractSnapshot: make(map[int]contractMap),
 		suicided:         make(deleteAccount),
 		suicideSnapshot:  make(map[int]deleteAccount),
+		preimages:        make(preimageMap),
+		preimageSnapshot: make(map[int]preimageMap),
 		dao:              sm.GetDB(),
 		cb:               sm.GetCachedBatch(),
 	}
@@ -272,6 +279,9 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 			return
 		}
 	}
+	// restore preimages
+	stateDB.preimages = nil
+	stateDB.preimages = stateDB.preimageSnapshot[snapshot]
 }
 
 // Snapshot returns the snapshot id
@@ -299,6 +309,12 @@ func (stateDB *StateDBAdapter) Snapshot() int {
 		c[k] = v.Snapshot()
 	}
 	stateDB.contractSnapshot[sn] = c
+	// save a copy of preimages
+	p := make(preimageMap)
+	for k, v := range stateDB.preimages {
+		p[k] = v
+	}
+	stateDB.preimageSnapshot[sn] = p
 	return sn
 }
 
@@ -328,9 +344,13 @@ func (stateDB *StateDBAdapter) Logs() []*action.Log {
 	return stateDB.logs
 }
 
-// AddPreimage adds the preimage
-func (stateDB *StateDBAdapter) AddPreimage(common.Hash, []byte) {
-	logger.Error().Msg("AddPreimage is not implemented")
+// AddPreimage adds the preimage of a hash
+func (stateDB *StateDBAdapter) AddPreimage(hash common.Hash, preimage []byte) {
+	if _, ok := stateDB.preimages[hash]; !ok {
+		b := make([]byte, len(preimage))
+		copy(b, preimage)
+		stateDB.preimages[hash] = b
+	}
 }
 
 // ForEachStorage loops each storage
@@ -513,6 +533,12 @@ func (stateDB *StateDBAdapter) commitContracts() error {
 			return errors.Wrapf(err, "failed to delete suicide account/contract %x", addr[:])
 		}
 	}
+	// write preimages to DB
+	for k, v := range stateDB.preimages {
+		h := make([]byte, len(k))
+		copy(h, k[:])
+		stateDB.cb.Put(PreimageKVNameSpace, h, v, "failed to put hash %x preimage %x", k, v)
+	}
 	return nil
 }
 
@@ -551,8 +577,12 @@ func (stateDB *StateDBAdapter) clear() {
 	stateDB.contractSnapshot = nil
 	stateDB.suicided = nil
 	stateDB.suicideSnapshot = nil
+	stateDB.preimages = nil
+	stateDB.preimageSnapshot = nil
 	stateDB.cachedContract = make(contractMap)
 	stateDB.contractSnapshot = make(map[int]contractMap)
 	stateDB.suicided = make(deleteAccount)
 	stateDB.suicideSnapshot = make(map[int]deleteAccount)
+	stateDB.preimages = make(preimageMap)
+	stateDB.preimageSnapshot = make(map[int]preimageMap)
 }
