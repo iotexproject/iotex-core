@@ -171,7 +171,7 @@ func TestNonce(t *testing.T) {
 	require.Equal(uint64(1), stateDB.GetNonce(addr))
 }
 
-func TestSnapshotAndSuicide(t *testing.T) {
+func TestSnapshotAndRevert(t *testing.T) {
 	// TODO: temp disable until we solve the memory thrash/leak issue
 	return
 
@@ -196,7 +196,9 @@ func TestSnapshotAndSuicide(t *testing.T) {
 	code := []byte("test contract creation")
 	addr1 := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
 	cntr1 := common.HexToAddress("01fc246633470cf62ae2a956d21e8d481c3a69e1")
+	cntr3 := common.HexToAddress("956d21e8d481c3a6901fc246633470cf62ae2ae1")
 	cntr2 := common.HexToAddress("3470cf62ae2a956d38d481c3a69e121e01fc2466")
+	cntr4 := common.HexToAddress("121e01fc24663470cf62ae2a956d38d481c3a69e")
 	k1 := byteutil.BytesTo32B(hash.Hash160b([]byte("cat")))
 	v1 := byteutil.BytesTo32B(hash.Hash256b([]byte("cat")))
 	k2 := byteutil.BytesTo32B(hash.Hash160b([]byte("dog")))
@@ -213,8 +215,13 @@ func TestSnapshotAndSuicide(t *testing.T) {
 	require.Equal(code, v)
 	require.NoError(stateDB.setContractState(byteutil.BytesTo20B(cntr1[:]), k1, v1))
 	require.NoError(stateDB.setContractState(byteutil.BytesTo20B(cntr1[:]), k2, v2))
+	require.NoError(stateDB.setContractState(byteutil.BytesTo20B(cntr3[:]), k3, v4))
 	require.False(stateDB.Suicide(cntr2))
 	require.False(stateDB.Exist(cntr2))
+	require.False(stateDB.Suicide(cntr4))
+	require.False(stateDB.Exist(cntr4))
+	stateDB.AddPreimage(common.BytesToHash(v1[:]), []byte("cat"))
+	stateDB.AddPreimage(common.BytesToHash(v2[:]), []byte("dog"))
 	require.Equal(0, stateDB.Snapshot())
 
 	stateDB.AddBalance(addr1, addAmount)
@@ -225,21 +232,27 @@ func TestSnapshotAndSuicide(t *testing.T) {
 	require.Equal(code, v)
 	require.NoError(stateDB.setContractState(byteutil.BytesTo20B(cntr2[:]), k3, v3))
 	require.NoError(stateDB.setContractState(byteutil.BytesTo20B(cntr2[:]), k4, v4))
-	// kill contract 1
+	// kill contract 1 and 3
 	require.True(stateDB.Suicide(cntr1))
 	require.True(stateDB.Exist(cntr1))
+	require.True(stateDB.Suicide(cntr3))
+	require.True(stateDB.Exist(cntr3))
+	stateDB.AddPreimage(common.BytesToHash(v3[:]), []byte("hen"))
 	require.Equal(1, stateDB.Snapshot())
 
 	require.NoError(stateDB.setContractState(byteutil.BytesTo20B(cntr2[:]), k3, v1))
 	require.NoError(stateDB.setContractState(byteutil.BytesTo20B(cntr2[:]), k4, v2))
 	require.True(stateDB.Suicide(addr1))
 	require.True(stateDB.Exist(addr1))
+	stateDB.AddPreimage(common.BytesToHash(v4[:]), []byte("fox"))
 	require.Equal(2, stateDB.Snapshot())
 
 	stateDB.RevertToSnapshot(2)
-	// cntr1 killed, but still exists before commit
+	// cntr1 and 3 killed, but still exists before commit
 	require.True(stateDB.HasSuicided(cntr1))
 	require.True(stateDB.Exist(cntr1))
+	require.True(stateDB.HasSuicided(cntr3))
+	require.True(stateDB.Exist(cntr3))
 	w, _ := stateDB.getContractState(byteutil.BytesTo20B(cntr1[:]), k1)
 	require.Equal(v3, w)
 	w, _ = stateDB.getContractState(byteutil.BytesTo20B(cntr1[:]), k2)
@@ -256,11 +269,21 @@ func TestSnapshotAndSuicide(t *testing.T) {
 	require.True(stateDB.Exist(addr1))
 	amount := stateDB.GetBalance(addr1)
 	require.Equal(0, amount.Cmp(big.NewInt(0)))
+	v, _ = stateDB.preimages[common.BytesToHash(v1[:])]
+	require.Equal([]byte("cat"), v)
+	v, _ = stateDB.preimages[common.BytesToHash(v2[:])]
+	require.Equal([]byte("dog"), v)
+	v, _ = stateDB.preimages[common.BytesToHash(v3[:])]
+	require.Equal([]byte("hen"), v)
+	v, _ = stateDB.preimages[common.BytesToHash(v4[:])]
+	require.Equal([]byte("fox"), v)
 
 	stateDB.RevertToSnapshot(1)
-	// cntr1 killed, but still exists before commit
+	// cntr1 and 3 killed, but still exists before commit
 	require.True(stateDB.HasSuicided(cntr1))
 	require.True(stateDB.Exist(cntr1))
+	require.True(stateDB.HasSuicided(cntr3))
+	require.True(stateDB.Exist(cntr3))
 	w, _ = stateDB.getContractState(byteutil.BytesTo20B(cntr1[:]), k1)
 	require.Equal(v3, w)
 	w, _ = stateDB.getContractState(byteutil.BytesTo20B(cntr1[:]), k2)
@@ -277,28 +300,48 @@ func TestSnapshotAndSuicide(t *testing.T) {
 	require.True(stateDB.Exist(addr1))
 	amount = stateDB.GetBalance(addr1)
 	require.Equal(0, amount.Cmp(big.NewInt(80000)))
+	v, _ = stateDB.preimages[common.BytesToHash(v1[:])]
+	require.Equal([]byte("cat"), v)
+	v, _ = stateDB.preimages[common.BytesToHash(v2[:])]
+	require.Equal([]byte("dog"), v)
+	v, _ = stateDB.preimages[common.BytesToHash(v3[:])]
+	require.Equal([]byte("hen"), v)
+	_, ok := stateDB.preimages[common.BytesToHash(v4[:])]
+	require.False(ok)
 
 	stateDB.RevertToSnapshot(0)
-	// cntr1 is normal
+	// cntr1 and 3 is normal
 	require.False(stateDB.HasSuicided(cntr1))
 	require.True(stateDB.Exist(cntr1))
+	require.False(stateDB.HasSuicided(cntr3))
+	require.True(stateDB.Exist(cntr3))
 	w, _ = stateDB.getContractState(byteutil.BytesTo20B(cntr1[:]), k1)
 	require.Equal(v1, w)
 	w, _ = stateDB.getContractState(byteutil.BytesTo20B(cntr1[:]), k2)
 	require.Equal(v2, w)
-	// cntr2 does not exist
+	// cntr2 and 4 does not exist
 	require.False(stateDB.Exist(cntr2))
+	require.False(stateDB.Exist(cntr4))
 	// addr1 has balance 40000
 	require.False(stateDB.HasSuicided(addr1))
 	require.True(stateDB.Exist(addr1))
 	amount = stateDB.GetBalance(addr1)
 	require.Equal(0, amount.Cmp(addAmount))
+	v, _ = stateDB.preimages[common.BytesToHash(v1[:])]
+	require.Equal([]byte("cat"), v)
+	v, _ = stateDB.preimages[common.BytesToHash(v2[:])]
+	require.Equal([]byte("dog"), v)
+	_, ok = stateDB.preimages[common.BytesToHash(v3[:])]
+	require.False(ok)
+	_, ok = stateDB.preimages[common.BytesToHash(v4[:])]
+	require.False(ok)
 
 	require.NoError(stateDB.commitContracts())
 	stateDB.clear()
 	require.True(stateDB.Exist(addr1))
 	require.True(stateDB.Exist(cntr1))
 	require.False(stateDB.Exist(cntr2))
+	require.False(stateDB.Exist(cntr4))
 }
 
 func TestGetBalanceOnError(t *testing.T) {
