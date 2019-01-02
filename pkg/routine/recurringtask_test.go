@@ -8,6 +8,7 @@ package routine_test
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -19,10 +20,13 @@ import (
 
 type MockHandler struct {
 	Count uint
+	mu    sync.RWMutex
 }
 
 func (h *MockHandler) Do() {
+	h.mu.Lock()
 	h.Count++
+	h.mu.Unlock()
 }
 
 func TestRecurringTask(t *testing.T) {
@@ -31,10 +35,9 @@ func TestRecurringTask(t *testing.T) {
 	ck := clock.NewMock()
 	task := routine.NewRecurringTask(h.Do, 100*time.Millisecond, routine.WithClock(ck))
 	task.Start(ctx)
-	defer func() {
-		task.Stop(ctx)
-	}()
-
 	ck.Add(600 * time.Millisecond)
+	task.Stop(ctx)
+	h.mu.RLock()
 	assert.True(t, h.Count >= 5)
+	h.mu.RUnlock()
 }
