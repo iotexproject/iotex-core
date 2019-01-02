@@ -1036,7 +1036,7 @@ func (bc *blockchain) commitBlock(blk *Block) error {
 	// emit block to all block subscribers
 	bc.emitToSubscribers(blk)
 	// update tip hash and height
-	atomic.SwapUint64(&bc.tipHeight, blk.Header.height)
+	atomic.StoreUint64(&bc.tipHeight, blk.Header.height)
 	bc.tipHash = blk.HashBlock()
 	if bc.sf != nil {
 		sfTimer := bc.timerFactory.NewTimer("sf.Commit")
