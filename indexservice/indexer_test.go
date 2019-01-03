@@ -111,6 +111,13 @@ func TestIndexService(t *testing.T) {
 		execution := executions[0].Hash()
 		require.Equal(execution, executionHashes[0])
 
+		// get action
+		actionHashes, err := idx.GetActionHistory(userAddr1)
+		require.Nil(err)
+		require.Equal(3, len(actionHashes))
+		action := blk.Actions[0].Hash()
+		require.Equal(action, actionHashes[0])
+
 		// transfer map to block
 		blkHash1, err := idx.GetBlockByTransfer(transfers[0].Hash())
 		require.Nil(err)
@@ -125,6 +132,11 @@ func TestIndexService(t *testing.T) {
 		blkHash3, err := idx.GetBlockByExecution(executions[0].Hash())
 		require.Nil(err)
 		require.Equal(blkHash3, blk.HashBlock())
+
+		// action map to block
+		blkHash4, err := idx.GetBlockByAction(blk.Actions[0].Hash())
+		require.Nil(err)
+		require.Equal(blkHash4, blk.HashBlock())
 
 		// delete transfers
 		stmt, err := db.Prepare("DELETE FROM transfer_history WHERE node_address=?")
@@ -152,6 +164,16 @@ func TestIndexService(t *testing.T) {
 		_, err = stmt.Exec(nodeAddr)
 		require.Nil(err)
 		stmt, err = db.Prepare("DELETE FROM execution_to_block WHERE node_address=?")
+		require.Nil(err)
+		_, err = stmt.Exec(nodeAddr)
+		require.Nil(err)
+
+		// delete actions
+		stmt, err = db.Prepare("DELETE FROM action_history WHERE node_address=?")
+		require.Nil(err)
+		_, err = stmt.Exec(nodeAddr)
+		require.Nil(err)
+		stmt, err = db.Prepare("DELETE FROM action_to_block WHERE node_address=?")
 		require.Nil(err)
 		_, err = stmt.Exec(nodeAddr)
 		require.Nil(err)
