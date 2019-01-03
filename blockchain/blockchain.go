@@ -1058,10 +1058,16 @@ func (bc *blockchain) commitBlock(blk *Block) error {
 		}
 	}
 	logger.Info().
+		Uint32("version", blk.Header.version).
+		Uint32("chainID", blk.Header.chainID).
 		Uint64("height", blk.Header.height).
-		Uint32("chainID", bc.ChainID()).
-		Hex("hash", bc.tipHash[:]).
-		Msg("commit a block")
+		Uint64("timeStamp", blk.Header.timestamp).
+		Hex("prevBlockHash", blk.Header.prevBlockHash[:]).
+		Hex("txRoot", blk.Header.txRoot[:]).
+		Hex("stateRoot", blk.Header.stateRoot[:]).
+		Hex("receiptRoot", blk.Header.receiptRoot[:]).
+		Hex("pubKey", blk.Header.Pubkey[:]).
+		Hex("hash", bc.tipHash[:]).Msg("commit a block")
 	return nil
 }
 

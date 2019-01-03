@@ -20,6 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/state/factory"
@@ -260,6 +261,17 @@ func verifyHeightAndHash(blk *Block, tipHeight uint64, tipHash hash.Hash32B) err
 	}
 	// verify new block has correctly linked to current tip
 	if blk.Header.prevBlockHash != tipHash {
+		logger.Error().
+			Uint32("version", blk.Header.version).
+			Uint32("chainID", blk.Header.chainID).
+			Uint64("height", blk.Header.height).
+			Uint64("timeStamp", blk.Header.timestamp).
+			Hex("prevBlockHash", blk.Header.prevBlockHash[:]).
+			Hex("txRoot", blk.Header.txRoot[:]).
+			Hex("stateRoot", blk.Header.stateRoot[:]).
+			Hex("receiptRoot", blk.Header.receiptRoot[:]).
+			Hex("pubKey", blk.Header.Pubkey[:]).
+			Hex("expectedBlockHash", tipHash[:]).Msg("Block hash doesn't match.")
 		return errors.Wrapf(
 			ErrInvalidBlock,
 			"wrong prev hash %x, expecting %x",
