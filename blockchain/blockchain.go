@@ -368,7 +368,21 @@ func (bc *blockchain) GetHashByHeight(height uint64) (hash.Hash32B, error) {
 
 // GetBlockByHeight returns block from the blockchain hash by height
 func (bc *blockchain) GetBlockByHeight(height uint64) (*Block, error) {
-	return bc.getBlockByHeight(height)
+	blk, err := bc.getBlockByHeight(height)
+	if blk == nil || err != nil {
+		return blk, err
+	}
+	logger.Info().
+		Uint32("version", blk.Header.version).
+		Uint32("chainID", blk.Header.chainID).
+		Uint64("height", blk.Header.height).
+		Uint64("timeStamp", blk.Header.timestamp).
+		Hex("prevBlockHash", blk.Header.prevBlockHash[:]).
+		Hex("txRoot", blk.Header.txRoot[:]).
+		Hex("stateRoot", blk.Header.stateRoot[:]).
+		Hex("receiptRoot", blk.Header.receiptRoot[:]).
+		Hex("pubKey", blk.Header.Pubkey[:]).Msg("get a block")
+	return blk, err
 }
 
 // GetBlockByHash returns block from the blockchain hash by hash
@@ -1058,10 +1072,16 @@ func (bc *blockchain) commitBlock(blk *Block) error {
 		}
 	}
 	logger.Info().
+		Uint32("version", blk.Header.version).
+		Uint32("chainID", blk.Header.chainID).
 		Uint64("height", blk.Header.height).
-		Uint32("chainID", bc.ChainID()).
-		Hex("hash", bc.tipHash[:]).
-		Msg("commit a block")
+		Uint64("timeStamp", blk.Header.timestamp).
+		Hex("prevBlockHash", blk.Header.prevBlockHash[:]).
+		Hex("txRoot", blk.Header.txRoot[:]).
+		Hex("stateRoot", blk.Header.stateRoot[:]).
+		Hex("receiptRoot", blk.Header.receiptRoot[:]).
+		Hex("pubKey", blk.Header.Pubkey[:]).
+		Hex("hash", bc.tipHash[:]).Msg("commit a block")
 	return nil
 }
 
