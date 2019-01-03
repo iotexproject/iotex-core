@@ -72,7 +72,7 @@ type (
 	}
 )
 
-// Indexer handle the index build for blocks
+// Indexer handles the index build for blocks
 type Indexer struct {
 	cfg                config.Indexer
 	rds                rds.Store
@@ -91,7 +91,7 @@ func (idx *Indexer) HandleBlock(blk *blockchain.Block) error {
 	return idx.BuildIndex(blk)
 }
 
-// BuildIndex build the index for a block
+// BuildIndex builds the index for a block
 func (idx *Indexer) BuildIndex(blk *blockchain.Block) error {
 	idx.rds.Transact(func(tx *sql.Tx) error {
 		// log transfer to transfer history table
@@ -157,7 +157,7 @@ func (idx *Indexer) UpdateTransferHistory(blk *blockchain.Block, tx *sql.Tx) err
 	return nil
 }
 
-// GetTransferHistory get transfer history
+// GetTransferHistory gets transfer history
 func (idx *Indexer) GetTransferHistory(userAddr string) ([]hash.Hash32B, error) {
 	getQuery := "SELECT * FROM transfer_history WHERE node_address=? AND user_address=?"
 	db := idx.rds.GetDB()
@@ -187,7 +187,7 @@ func (idx *Indexer) GetTransferHistory(userAddr string) ([]hash.Hash32B, error) 
 	return transferHashes, nil
 }
 
-// UpdateTransferToBlock map transfer hash to block hash
+// UpdateTransferToBlock maps transfer hash to block hash
 func (idx *Indexer) UpdateTransferToBlock(blk *blockchain.Block, tx *sql.Tx) error {
 	blockHash := blk.HashBlock()
 	insertQuery := "INSERT transfer_to_block SET node_address=?,transfer_hash=?,block_hash=?"
@@ -201,7 +201,7 @@ func (idx *Indexer) UpdateTransferToBlock(blk *blockchain.Block, tx *sql.Tx) err
 	return nil
 }
 
-// GetBlockByTransfer return block hash by transfer hash
+// GetBlockByTransfer returns block hash by transfer hash
 func (idx *Indexer) GetBlockByTransfer(transferHash hash.Hash32B) (hash.Hash32B, error) {
 	getQuery := "SELECT * FROM transfer_to_block WHERE node_address=? AND transfer_hash=?"
 	db := idx.rds.GetDB()
@@ -253,7 +253,7 @@ func (idx *Indexer) UpdateVoteHistory(blk *blockchain.Block, tx *sql.Tx) error {
 	return nil
 }
 
-// GetVoteHistory get vote history
+// GetVoteHistory gets vote history
 func (idx *Indexer) GetVoteHistory(userAddr string) ([]hash.Hash32B, error) {
 	getQuery := "SELECT * FROM vote_history WHERE node_address=? AND user_address=?"
 	db := idx.rds.GetDB()
@@ -283,7 +283,7 @@ func (idx *Indexer) GetVoteHistory(userAddr string) ([]hash.Hash32B, error) {
 	return voteHashes, nil
 }
 
-// UpdateVoteToBlock map vote hash to block hash
+// UpdateVoteToBlock maps vote hash to block hash
 func (idx *Indexer) UpdateVoteToBlock(blk *blockchain.Block, tx *sql.Tx) error {
 	blockHash := blk.HashBlock()
 	insertQuery := "INSERT vote_to_block SET node_address=?,vote_hash=?,block_hash=?"
@@ -297,7 +297,7 @@ func (idx *Indexer) UpdateVoteToBlock(blk *blockchain.Block, tx *sql.Tx) error {
 	return nil
 }
 
-// GetBlockByVote return block hash by vote hash
+// GetBlockByVote returns block hash by vote hash
 func (idx *Indexer) GetBlockByVote(voteHash hash.Hash32B) (hash.Hash32B, error) {
 	getQuery := "SELECT * FROM vote_to_block WHERE node_address=? AND vote_hash=?"
 	db := idx.rds.GetDB()
@@ -349,7 +349,7 @@ func (idx *Indexer) UpdateExecutionHistory(blk *blockchain.Block, tx *sql.Tx) er
 	return nil
 }
 
-// GetExecutionHistory get execution history
+// GetExecutionHistory gets execution history
 func (idx *Indexer) GetExecutionHistory(userAddr string) ([]hash.Hash32B, error) {
 	getQuery := "SELECT * FROM execution_history WHERE node_address=? AND user_address=?"
 	db := idx.rds.GetDB()
@@ -379,7 +379,7 @@ func (idx *Indexer) GetExecutionHistory(userAddr string) ([]hash.Hash32B, error)
 	return executionHashes, nil
 }
 
-// UpdateExecutionToBlock map execution hash to block hash
+// UpdateExecutionToBlock maps execution hash to block hash
 func (idx *Indexer) UpdateExecutionToBlock(blk *blockchain.Block, tx *sql.Tx) error {
 	blockHash := blk.HashBlock()
 	insertQuery := "INSERT execution_to_block SET node_address=?,execution_hash=?,block_hash=?"
@@ -393,7 +393,7 @@ func (idx *Indexer) UpdateExecutionToBlock(blk *blockchain.Block, tx *sql.Tx) er
 	return nil
 }
 
-// GetBlockByExecution return block hash by execution hash
+// GetBlockByExecution returns block hash by execution hash
 func (idx *Indexer) GetBlockByExecution(executionHash hash.Hash32B) (hash.Hash32B, error) {
 	getQuery := "SELECT * FROM execution_to_block WHERE node_address=? AND execution_hash=?"
 	db := idx.rds.GetDB()
@@ -487,7 +487,7 @@ func (idx *Indexer) UpdateActionToBlock(blk *blockchain.Block, tx *sql.Tx) error
 	return nil
 }
 
-// GetBlockByAction return block hash by action hash
+// GetBlockByAction returns block hash by action hash
 func (idx *Indexer) GetBlockByAction(actionHash hash.Hash32B) (hash.Hash32B, error) {
 	getQuery := "SELECT * FROM action_to_block WHERE node_address=? AND action_hash=?"
 	db := idx.rds.GetDB()
