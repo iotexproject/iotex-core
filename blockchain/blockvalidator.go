@@ -95,7 +95,8 @@ func (v *validator) verifyActions(blk *block.Block, containCoinbase bool) error 
 	var coinbaseCounter int
 	var correctVerifications uint64
 	var expectedVerifications uint64
-	var actionError error
+	errChan := make(chan error, len(blk.Actions))
+	defer close(errChan)
 	var wg sync.WaitGroup
 
 	for _, selp := range blk.Actions {
@@ -127,7 +128,7 @@ func (v *validator) verifyActions(blk *block.Block, containCoinbase bool) error 
 			go func(validator protocol.ActionEnvelopeValidator, selp action.SealedEnvelope, counter *uint64) {
 				defer wg.Done()
 				if err := validator.Validate(ctx, selp); err != nil {
-					actionError = err
+					errChan <- err
 					return
 				}
 				atomic.AddUint64(counter, uint64(1))
@@ -140,7 +141,7 @@ func (v *validator) verifyActions(blk *block.Block, containCoinbase bool) error 
 			go func(validator protocol.ActionValidator, act action.Action, counter *uint64) {
 				defer wg.Done()
 				if err := validator.Validate(ctx, act); err != nil {
-					actionError = err
+					errChan <- err
 					return
 				}
 				atomic.AddUint64(counter, uint64(1))
@@ -151,7 +152,7 @@ func (v *validator) verifyActions(blk *block.Block, containCoinbase bool) error 
 	wg.Wait()
 
 	if correctVerifications != expectedVerifications {
-		return errors.Wrap(actionError, "failed to validate action")
+		return errors.Wrap(<-errChan, "failed to validate action")
 	}
 
 	if containCoinbase && coinbaseCounter != 1 || !containCoinbase && coinbaseCounter != 0 {
