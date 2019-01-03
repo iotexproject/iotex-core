@@ -9,6 +9,9 @@ package e2etest
 import (
 	"encoding/hex"
 	"math/big"
+	"io/ioutil"
+
+	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain"
@@ -183,4 +186,15 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 		return err
 	}
 	return bc.CommitBlock(blk)
+}
+
+func copyDB(srcDB, dstDB string) error {
+	input, err := ioutil.ReadFile(srcDB)
+	if err != nil {
+		return errors.Wrap(err, "failed to read source db file")
+	}
+	if err := ioutil.WriteFile(dstDB, input, 0644); err != nil {
+		return errors.Wrap(err, "failed to copy db file")
+	}
+	return nil
 }
