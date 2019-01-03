@@ -9,6 +9,7 @@ package blockchain
 import (
 	"context"
 
+	"github.com/boltdb/bolt"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -89,7 +90,8 @@ func (dao *blockDAO) Start(ctx context.Context) error {
 	}
 
 	// set init height value
-	if _, err := dao.kvstore.Get(blockNS, topHeightKey); err != nil {
+	// TODO: not working with badger, we shouldn't expose detailed db error (e.g., bolt.ErrBucketExists) to application
+	if _, err = dao.kvstore.Get(blockNS, topHeightKey); err != nil && (errors.Cause(err) == db.ErrNotExist || errors.Cause(err) == bolt.ErrBucketNotFound) {
 		if err := dao.kvstore.Put(blockNS, topHeightKey, make([]byte, 8)); err != nil {
 			return errors.Wrap(err, "failed to write initial value for top height")
 		}
@@ -97,7 +99,7 @@ func (dao *blockDAO) Start(ctx context.Context) error {
 
 	// TODO: To be deprecated
 	// set init total transfer to be 0
-	if _, err := dao.kvstore.Get(blockNS, totalTransfersKey); err != nil {
+	if _, err := dao.kvstore.Get(blockNS, totalTransfersKey); err != nil && (errors.Cause(err) == db.ErrNotExist || errors.Cause(err) == bolt.ErrBucketNotFound) {
 		if err = dao.kvstore.Put(blockNS, totalTransfersKey, make([]byte, 8)); err != nil {
 			return errors.Wrap(err, "failed to write initial value for total transfers")
 		}
@@ -105,7 +107,7 @@ func (dao *blockDAO) Start(ctx context.Context) error {
 
 	// TODO: To be deprecated
 	// set init total vote to be 0
-	if _, err := dao.kvstore.Get(blockNS, totalVotesKey); err != nil {
+	if _, err := dao.kvstore.Get(blockNS, totalVotesKey); err != nil && (errors.Cause(err) == db.ErrNotExist || errors.Cause(err) == bolt.ErrBucketNotFound) {
 		if err = dao.kvstore.Put(blockNS, totalVotesKey, make([]byte, 8)); err != nil {
 			return errors.Wrap(err, "failed to write initial value for total votes")
 		}
@@ -113,14 +115,14 @@ func (dao *blockDAO) Start(ctx context.Context) error {
 
 	// TODO: To be deprecated
 	// set init total executions to be 0
-	if _, err := dao.kvstore.Get(blockNS, totalExecutionsKey); err != nil {
+	if _, err := dao.kvstore.Get(blockNS, totalExecutionsKey); err != nil && (errors.Cause(err) == db.ErrNotExist || errors.Cause(err) == bolt.ErrBucketNotFound) {
 		if err = dao.kvstore.Put(blockNS, totalExecutionsKey, make([]byte, 8)); err != nil {
 			return errors.Wrap(err, "failed to write initial value for total executions")
 		}
 	}
 
 	// set init total actions to be 0
-	if _, err := dao.kvstore.Get(blockNS, totalActionsKey); err != nil {
+	if _, err := dao.kvstore.Get(blockNS, totalActionsKey); err != nil && (errors.Cause(err) == db.ErrNotExist || errors.Cause(err) == bolt.ErrBucketNotFound) {
 		if err = dao.kvstore.Put(blockNS, totalActionsKey, make([]byte, 8)); err != nil {
 			return errors.Wrap(err, "failed to write initial value for total actions")
 		}

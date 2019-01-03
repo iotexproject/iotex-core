@@ -303,7 +303,6 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	defer testutil.CleanupPath(t, testDBPath)
 
 	cfg := config.Default
-	cfg.DB.UseBadgerDB = true // test with badgerDB
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Explorer.Enabled = true
