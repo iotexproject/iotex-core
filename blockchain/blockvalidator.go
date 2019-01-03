@@ -18,6 +18,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/address"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
@@ -29,7 +30,7 @@ import (
 // Validator is the interface of validator
 type Validator interface {
 	// Validate validates the given block's content
-	Validate(block *Block, tipHeight uint64, tipHash hash.Hash32B, containCoinbase bool) error
+	Validate(block *block.Block, tipHeight uint64, tipHash hash.Hash32B, containCoinbase bool) error
 	// AddActionValidators add validators
 	AddActionValidators(...protocol.ActionValidator)
 	AddActionEnvelopeValidators(...protocol.ActionEnvelopeValidator)
@@ -60,7 +61,7 @@ var (
 )
 
 // Validate validates the given block's content
-func (v *validator) Validate(blk *Block, tipHeight uint64, tipHash hash.Hash32B, containCoinbase bool) error {
+func (v *validator) Validate(blk *block.Block, tipHeight uint64, tipHash hash.Hash32B, containCoinbase bool) error {
 	if err := verifyHeightAndHash(blk, tipHeight, tipHash); err != nil {
 		return errors.Wrap(err, "failed to verify block's height and hash")
 	}
@@ -85,12 +86,12 @@ func (v *validator) AddActionEnvelopeValidators(validators ...protocol.ActionEnv
 	v.actionEnvelopeValidators = append(v.actionEnvelopeValidators, validators...)
 }
 
-func (v *validator) verifyActions(blk *Block, containCoinbase bool) error {
+func (v *validator) verifyActions(blk *block.Block, containCoinbase bool) error {
 	// Verify transfers, votes, executions, witness, and secrets
 	confirmedNonceMap := make(map[string]uint64)
 	accountNonceMap := &sync.Map{}
-	producerPKHash := keypair.HashPubKey(blk.Header.Pubkey)
-	producerAddr := address.New(blk.Header.chainID, producerPKHash[:])
+	producerPKHash := keypair.HashPubKey(blk.PublicKey())
+	producerAddr := address.New(blk.ChainID(), producerPKHash[:])
 	var coinbaseCounter int
 	var correctVerifications uint64
 	var expectedVerifications uint64
@@ -219,7 +220,7 @@ func (v *validator) verifyActions(blk *Block, containCoinbase bool) error {
 		}
 	}
 
-	if blk.Header.height > 0 {
+	if blk.Height() > 0 {
 		//Verify each account's Nonce
 		for address := range confirmedNonceMap {
 			// The nonce of each action should be increasing, unique and consecutive
@@ -247,53 +248,44 @@ func (v *validator) verifyActions(blk *Block, containCoinbase bool) error {
 	return nil
 }
 
-func verifyHeightAndHash(blk *Block, tipHeight uint64, tipHash hash.Hash32B) error {
+func verifyHeightAndHash(blk *block.Block, tipHeight uint64, tipHash hash.Hash32B) error {
 	if blk == nil {
 		return ErrInvalidBlock
 	}
 	// verify new block has height incremented by 1
-	if blk.Header.height != 0 && blk.Header.height != tipHeight+1 {
+	if blk.Height() != 0 && blk.Height() != tipHeight+1 {
 		return errors.Wrapf(
 			ErrInvalidTipHeight,
 			"wrong block height %d, expecting %d",
-			blk.Header.height,
+			blk.Height(),
 			tipHeight+1)
 	}
 	// verify new block has correctly linked to current tip
-	if blk.Header.prevBlockHash != tipHash {
-		logger.Error().
-			Uint32("version", blk.Header.version).
-			Uint32("chainID", blk.Header.chainID).
-			Uint64("height", blk.Header.height).
-			Uint64("timeStamp", blk.Header.timestamp).
-			Hex("prevBlockHash", blk.Header.prevBlockHash[:]).
-			Hex("txRoot", blk.Header.txRoot[:]).
-			Hex("stateRoot", blk.Header.stateRoot[:]).
-			Hex("receiptRoot", blk.Header.receiptRoot[:]).
-			Hex("pubKey", blk.Header.Pubkey[:]).
-			Hex("expectedBlockHash", tipHash[:]).Msg("Block hash doesn't match.")
+	if blk.PrevHash() != tipHash {
+		blk.HeaderLogger(logger.Logger()).Error().
+			Hex("expectedBlockHash", tipHash[:]).
+			Msg("Previous block hash doesn't match.")
 		return errors.Wrapf(
 			ErrInvalidBlock,
 			"wrong prev hash %x, expecting %x",
-			blk.Header.prevBlockHash,
+			blk.PrevHash(),
 			tipHash)
 	}
 	return nil
 }
 
-func verifySigAndRoot(blk *Block) error {
-	if blk.Header.height > 0 {
+func verifySigAndRoot(blk *block.Block) error {
+	if blk.Height() > 0 {
 		// verify new block's signature is correct
-		blkHash := blk.HashBlock()
-		if !crypto.EC283.Verify(blk.Header.Pubkey, blkHash[:], blk.Header.blockSig) {
+		if !blk.VerifySignature() {
 			return errors.Wrapf(
 				ErrInvalidBlock,
 				"failed to verify block's signature with public key: %x",
-				blk.Header.Pubkey)
+				blk.PublicKey())
 		}
 	}
 
-	hashExpect := blk.Header.txRoot
+	hashExpect := blk.TxRoot()
 	hashActual := blk.CalculateTxRoot()
 	if !bytes.Equal(hashExpect[:], hashActual[:]) {
 		return errors.Wrapf(

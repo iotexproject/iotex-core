@@ -16,7 +16,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/address"
-	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/test/testaddress"
@@ -150,7 +150,7 @@ func TestAccountManager_SignHash(t *testing.T) {
 
 	pk, err := keypair.DecodePublicKey(pubKey1)
 	require.NoError(err)
-	blk := blockchain.NewBlock(1, 0, hash.ZeroHash32B, testutil.TimestampNow(), pk, nil)
+	blk := block.NewBlockDeprecated(1, 0, hash.ZeroHash32B, testutil.TimestampNow(), pk, nil)
 	hash := blk.HashBlock()
 
 	signature, err := m.SignHash(rawAddr1, hash[:])

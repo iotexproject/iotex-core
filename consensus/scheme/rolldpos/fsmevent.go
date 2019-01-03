@@ -12,7 +12,7 @@ import (
 	"github.com/facebookgo/clock"
 	fsm "github.com/zjshen14/go-fsm"
 
-	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
@@ -54,6 +54,7 @@ func (e *consensusEvt) timestamp() time.Time { return e.ts }
 
 type proposeBlkEvt struct {
 	consensusEvt
+
 	block     Block
 	lockProof *endorsement.Set
 }
@@ -92,7 +93,7 @@ func newProposeBlkEvtFromProtoMsg(pMsg *iproto.ProposePb, c clock.Clock) *propos
 	if pMsg.Block == nil {
 		return nil
 	}
-	block := &blockchain.Block{}
+	block := &block.Block{}
 	if err := block.Deserialize(pMsg.Block); err != nil {
 		logger.Error().Err(err).Msg("failed to deserialize block")
 		return nil

@@ -19,6 +19,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/hash"
@@ -27,7 +28,7 @@ import (
 )
 
 func TestBlockDAO(t *testing.T) {
-	getBlocks := func() []*Block {
+	getBlocks := func() []*block.Block {
 		amount := uint64(50 << 22)
 		// create testing transfers
 		cbTsf1 := action.NewCoinBaseTransfer(1, big.NewInt(int64((amount))), testaddress.Addrinfo["alfa"].RawAddress)
@@ -128,35 +129,34 @@ func TestBlockDAO(t *testing.T) {
 
 		hash1 := hash.Hash32B{}
 		fnv.New32().Sum(hash1[:])
-		blk1 := NewBlock(
-			0,
-			1,
-			hash1,
-			testutil.TimestampNow(),
-			testaddress.Addrinfo["producer"].PublicKey,
-			[]action.SealedEnvelope{scbTsf1, vote1, execution1, sdeposit1},
-		)
+		blk1, err := block.NewTestingBuilder().
+			SetHeight(1).
+			SetPrevBlockHash(hash1).
+			SetTimeStamp(testutil.TimestampNow()).
+			AddActions(scbTsf1, vote1, execution1, sdeposit1).
+			SignAndBuild(testaddress.Addrinfo["producer"])
+		require.NoError(t, err)
+
 		hash2 := hash.Hash32B{}
 		fnv.New32().Sum(hash2[:])
-		blk2 := NewBlock(
-			0,
-			2,
-			hash2,
-			testutil.TimestampNow(),
-			testaddress.Addrinfo["producer"].PublicKey,
-			[]action.SealedEnvelope{scbTsf2, vote2, execution2, sdeposit2},
-		)
+		blk2, err := block.NewTestingBuilder().
+			SetHeight(2).
+			SetPrevBlockHash(hash2).
+			SetTimeStamp(testutil.TimestampNow()).
+			AddActions(scbTsf2, vote2, execution2, sdeposit2).
+			SignAndBuild(testaddress.Addrinfo["producer"])
+		require.NoError(t, err)
+
 		hash3 := hash.Hash32B{}
 		fnv.New32().Sum(hash3[:])
-		blk3 := NewBlock(
-			0,
-			3,
-			hash3,
-			testutil.TimestampNow(),
-			testaddress.Addrinfo["producer"].PublicKey,
-			[]action.SealedEnvelope{scbTsf3, vote3, execution3, sdeposit3},
-		)
-		return []*Block{blk1, blk2, blk3}
+		blk3, err := block.NewTestingBuilder().
+			SetHeight(3).
+			SetPrevBlockHash(hash3).
+			SetTimeStamp(testutil.TimestampNow()).
+			AddActions(scbTsf3, vote3, execution3, sdeposit3).
+			SignAndBuild(testaddress.Addrinfo["producer"])
+		require.NoError(t, err)
+		return []*block.Block{&blk1, &blk2, &blk3}
 	}
 
 	blks := getBlocks()

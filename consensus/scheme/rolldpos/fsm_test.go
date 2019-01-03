@@ -22,7 +22,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/address"
-	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/endorsement"
@@ -488,20 +488,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		cevt, ok := e.(*consensusEvt)
 		require.True(t, ok)
 		assert.Equal(t, eInitBlockPropose, cevt.Type())
-		blk.Header.Pubkey = testAddrs[3].PublicKey
-		err = blk.SignBlock(testAddrs[3])
-		assert.NoError(t, err)
-		block = &blockWrapper{
-			blk,
-			cfsm.ctx.round.number,
-		}
-		state, err = cfsm.handleProposeBlockEvt(newProposeBlkEvt(block, nil, cfsm.ctx.round.number, cfsm.ctx.clock))
-		assert.NoError(t, err)
-		assert.Equal(t, sAcceptProposalEndorse, state)
-		<-cfsm.evtq
-		require.True(t, ok)
-		assert.Equal(t, eEndorseProposal, evt.Type())
-		assert.Equal(t, 2, broadcastCount)
+		assert.Equal(t, delegates[3], cfsm.ctx.round.proposer)
 	})
 
 	t.Run("fail-validation", func(t *testing.T) {
@@ -1339,7 +1326,7 @@ func newTestCFSM(
 	vote, err := testutil.SignedVote(a, a, 2, 100000, big.NewInt(10))
 	require.NoError(t, err)
 	var prevHash hash.Hash32B
-	lastBlk := blockchain.NewBlock(
+	lastBlk := block.NewBlockDeprecated(
 		config.Default.Chain.ID,
 		1,
 		prevHash,
@@ -1347,17 +1334,16 @@ func newTestCFSM(
 		proposer.PublicKey,
 		make([]action.SealedEnvelope, 0),
 	)
-	blkToMint := blockchain.NewBlock(
-		config.Default.Chain.ID,
-		2,
-		lastBlk.HashBlock(),
-		testutil.TimestampNowFromClock(clock),
-		proposer.PublicKey,
-		[]action.SealedEnvelope{transfer, vote},
-	)
-	blkToMint.SignBlock(proposer)
+	blkToMint, err := block.NewTestingBuilder().
+		SetChainID(config.Default.Chain.ID).
+		SetHeight(2).
+		SetPrevBlockHash(lastBlk.HashBlock()).
+		SetTimeStamp(testutil.TimestampNowFromClock(clock)).
+		AddActions(transfer, vote).
+		SignAndBuild(proposer)
+	require.NoError(t, err)
 
-	var secretBlkToMint *blockchain.Block
+	var secretBlkToMint block.Block
 	var proposerSecrets [][]uint32
 	var proposerWitness [][]byte
 	if len(delegates) == 21 {
@@ -1381,16 +1367,15 @@ func newTestCFSM(
 		secretWitness, err := action.NewSecretWitness(nonce, proposer.RawAddress, witness)
 		require.NoError(t, err)
 
-		secretBlkToMint = blockchain.NewSecretBlock(
-			config.Default.Chain.ID,
-			2,
-			lastBlk.HashBlock(),
-			testutil.TimestampNowFromClock(clock),
-			proposer.PublicKey,
-			secretProposals,
-			secretWitness,
-		)
-		secretBlkToMint.SignBlock(proposer)
+		secretBlkToMint, err = block.NewTestingBuilder().
+			SetChainID(config.Default.Chain.ID).
+			SetHeight(2).
+			SetPrevBlockHash(lastBlk.HashBlock()).
+			SetTimeStamp(testutil.TimestampNowFromClock(clock)).
+			SetSecretProposals(secretProposals).
+			SetSecretWitness(secretWitness).
+			SignAndBuild(proposer)
+		require.NoError(t, err)
 	}
 
 	ctx := makeTestRollDPoSCtx(
@@ -1412,9 +1397,9 @@ func newTestCFSM(
 			blockchain.EXPECT().GetBlockByHeight(uint64(21)).Return(lastBlk, nil).AnyTimes()
 			blockchain.EXPECT().GetBlockByHeight(uint64(22)).Return(lastBlk, nil).AnyTimes()
 			blockchain.EXPECT().
-				MintNewBlock(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(blkToMint, nil).AnyTimes()
+				MintNewBlock(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&blkToMint, nil).AnyTimes()
 			blockchain.EXPECT().
-				MintNewSecretBlock(gomock.Any(), gomock.Any(), gomock.Any()).Return(secretBlkToMint, nil).AnyTimes()
+				MintNewSecretBlock(gomock.Any(), gomock.Any(), gomock.Any()).Return(&secretBlkToMint, nil).AnyTimes()
 			blockchain.EXPECT().
 				Nonce(gomock.Any()).Return(uint64(0), nil).AnyTimes()
 			if mockChain == nil {
