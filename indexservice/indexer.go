@@ -12,7 +12,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core-internal/blockchain"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
@@ -425,7 +424,7 @@ func (idx *Indexer) GetBlockByExecution(executionHash hash.Hash32B) (hash.Hash32
 }
 
 // UpdateActionHistory stores action information into action history table
-func (idx *Indexer) UpdateActionHistory(blk *blockchain.Block, tx *sql.Tx) error {
+func (idx *Indexer) UpdateActionHistory(blk *block.Block, tx *sql.Tx) error {
 	insertQuery := "INSERT action_history SET node_address=?,user_address=?,action_hash=?"
 	for _, selp := range blk.Actions {
 		actionHash := selp.Hash()
@@ -476,7 +475,7 @@ func (idx *Indexer) GetActionHistory(userAddr string) ([]hash.Hash32B, error) {
 }
 
 // UpdateActionToBlock maps action hash to block hash
-func (idx *Indexer) UpdateActionToBlock(blk *blockchain.Block, tx *sql.Tx) error {
+func (idx *Indexer) UpdateActionToBlock(blk *block.Block, tx *sql.Tx) error {
 	blockHash := blk.HashBlock()
 	insertQuery := "INSERT action_to_block SET node_address=?,action_hash=?,block_hash=?"
 	for _, selp := range blk.Actions {
