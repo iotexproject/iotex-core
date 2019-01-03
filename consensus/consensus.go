@@ -34,8 +34,7 @@ import (
 type Consensus interface {
 	lifecycle.StartStopper
 
-	HandleBlockPropose(*iproto.ProposePb) error
-	HandleEndorse(*iproto.EndorsePb) error
+	HandleConsensusMsg(*iproto.ConsensusPb) error
 	Metrics() (scheme.ConsensusMetrics, error)
 }
 
@@ -223,14 +222,9 @@ func (c *IotxConsensus) Metrics() (scheme.ConsensusMetrics, error) {
 	return c.scheme.Metrics()
 }
 
-// HandleBlockPropose handles a proposed block
-func (c *IotxConsensus) HandleBlockPropose(propose *iproto.ProposePb) error {
-	return c.scheme.HandleBlockPropose(propose)
-}
-
-// HandleEndorse handle an endorse
-func (c *IotxConsensus) HandleEndorse(endorse *iproto.EndorsePb) error {
-	return c.scheme.HandleEndorse(endorse)
+// HandleConsensusMsg handles consensus messages
+func (c *IotxConsensus) HandleConsensusMsg(propose *iproto.ConsensusPb) error {
+	return c.scheme.HandleConsensusMsg(propose)
 }
 
 // Scheme returns the scheme instance
