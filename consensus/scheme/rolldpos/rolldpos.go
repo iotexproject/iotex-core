@@ -25,7 +25,6 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/crypto"
-	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/iotxaddress"
@@ -91,14 +90,10 @@ func (ctx *rollDPoSCtx) OnConsensusReached() error {
 	}
 	// Commit and broadcast the pending block
 	if err := ctx.chain.CommitBlock(pendingBlock.Block); err != nil {
-		if err == db.ErrAlreadyExist {
-			logger.Info().Uint64("block", pendingBlock.Height()).Msg("Block already exists.")
-		} else {
-			logger.Error().
-				Err(err).
-				Uint64("block", pendingBlock.Height()).
-				Msg("error when committing a block")
-		}
+		logger.Error().
+			Err(err).
+			Uint64("block", pendingBlock.Height()).
+			Msg("error when committing a block")
 	}
 	// Remove transfers in this block from ActPool and reset ActPool state
 	ctx.actPool.Reset()
