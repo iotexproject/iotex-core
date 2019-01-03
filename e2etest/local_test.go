@@ -145,9 +145,7 @@ func TestLocalCommit(t *testing.T) {
 	if beta.Sign() == 0 || fox.Sign() == 0 || test.Sign() == 0 {
 		return
 	}
-	height := bc.TipHeight()
-	require.Nil(err)
-	require.True(height == 5)
+	require.True(5 == bc.TipHeight())
 
 	// create local chain
 	testutil.CleanupPath(t, testTriePath2)
@@ -162,9 +160,7 @@ func TestLocalCommit(t *testing.T) {
 	require.NotNil(chain)
 	chain.GetFactory().AddActionHandlers(account.NewProtocol(), vote.NewProtocol(chain))
 	require.NoError(chain.Start(ctx))
-	height = chain.TipHeight()
-	require.Nil(err)
-	require.True(height == 5)
+	require.True(5 == bc.TipHeight())
 	defer func() {
 		require.NoError(chain.Stop(ctx))
 		testutil.CleanupPath(t, testTriePath2)
@@ -271,8 +267,7 @@ func TestLocalCommit(t *testing.T) {
 		return int(height) == 9, nil
 	})
 	require.Nil(err)
-	height = bc.TipHeight()
-	require.Equal(9, int(height))
+	require.True(9 == bc.TipHeight())
 
 	// check balance
 	s, err = bc.StateByAddr(ta.Addrinfo["alfa"].RawAddress)
@@ -504,9 +499,7 @@ func TestVoteLocalCommit(t *testing.T) {
 		testutil.CleanupPath(t, testTriePath)
 		testutil.CleanupPath(t, testDBPath)
 	}()
-
-	height := bc.TipHeight()
-	require.True(height == 5)
+	require.True(5 == bc.TipHeight())
 
 	// create local chain
 	testutil.CleanupPath(t, testTriePath2)
@@ -522,8 +515,7 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.NotNil(chain)
 	chain.GetFactory().AddActionHandlers(account.NewProtocol(), vote.NewProtocol(chain))
 	require.NoError(chain.Start(ctx))
-	height = chain.TipHeight()
-	require.True(height == 5)
+	require.True(5 == bc.TipHeight())
 	defer func() {
 		require.NoError(chain.Stop(ctx))
 		testutil.CleanupPath(t, testTriePath2)
@@ -773,17 +765,18 @@ func TestBlockchainRecovery(t *testing.T) {
 	// stop server and delete state db
 	require.NoError(svr.Stop(ctx))
 	testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
 
 	// restart server
 	svr, err = itx.NewServer(cfg)
 	require.Nil(err)
 	require.NoError(svr.Start(ctx))
 
-	blockchainHeight := svr.ChainService(cfg.Chain.ID).Blockchain().TipHeight()
-	factoryHeight, err := svr.ChainService(cfg.Chain.ID).Blockchain().GetFactory().Height()
-	require.NoError(err)
+	bc = svr.ChainService(chainID).Blockchain()
+	require.NotNil(bc)
+	blockchainHeight := bc.TipHeight()
+	factoryHeight, _ := bc.GetFactory().Height()
 	require.Equal(blockchainHeight, factoryHeight)
+	require.True(5 == blockchainHeight)
 }
 
 func newTestConfig() (config.Config, error) {
