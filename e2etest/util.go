@@ -8,8 +8,8 @@ package e2etest
 
 import (
 	"encoding/hex"
-	"math/big"
 	"io/ioutil"
+	"math/big"
 
 	"github.com/pkg/errors"
 

@@ -1056,6 +1056,70 @@ func TestMintDKGBlock(t *testing.T) {
 	require.Equal(21, len(candidates))
 }
 
+func TestStartExistingBlockchain(t *testing.T) {
+	require := require.New(t)
+	ctx := context.Background()
+
+	testutil.CleanupPath(t, testTriePath)
+	testutil.CleanupPath(t, testDBPath)
+
+	// Disable block reward to make bookkeeping easier
+	Gen.BlockReward = big.NewInt(0)
+	cfg := config.Default
+	cfg.Chain.TrieDBPath = testTriePath
+	cfg.Chain.ChainDBPath = testDBPath
+
+	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
+	require.NoError(err)
+	require.NoError(sf.Start(context.Background()))
+	sf.AddActionHandlers(account.NewProtocol())
+
+	// Create a blockchain from scratch
+	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
+	require.NotNil(bc)
+	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
+	bc.Validator().AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
+	sf.AddActionHandlers(vote.NewProtocol(bc))
+	require.NoError(bc.Start(ctx))
+
+	defer func() {
+		require.NoError(sf.Stop(ctx))
+		require.NoError(bc.Stop(ctx))
+		testutil.CleanupPath(t, testTriePath)
+		testutil.CleanupPath(t, testDBPath)
+	}()
+
+	require.NoError(addTestingTsfBlocks(bc))
+	require.True(5 == bc.TipHeight())
+
+	// delete state db and recover to tip
+	testutil.CleanupPath(t, testTriePath)
+	sf, err = factory.NewFactory(cfg, factory.DefaultTrieOption())
+	require.NoError(err)
+	require.NoError(sf.Start(context.Background()))
+	sf.AddActionHandlers(account.NewProtocol())
+	sf.AddActionHandlers(vote.NewProtocol(bc))
+	chain, ok := bc.(*blockchain)
+	require.True(ok)
+	chain.sf = sf
+	require.NoError(chain.startExistingBlockchain(0))
+	height, _ := chain.sf.Height()
+	require.Equal(bc.TipHeight(), height)
+
+	// recover to height 3
+	testutil.CleanupPath(t, testTriePath)
+	sf, err = factory.NewFactory(cfg, factory.DefaultTrieOption())
+	require.NoError(err)
+	require.NoError(sf.Start(context.Background()))
+	sf.AddActionHandlers(account.NewProtocol())
+	sf.AddActionHandlers(vote.NewProtocol(bc))
+	chain.sf = sf
+	require.NoError(chain.startExistingBlockchain(3))
+	height, _ = chain.sf.Height()
+	require.Equal(bc.TipHeight(), height)
+	require.True(3 == height)
+}
+
 func addCreatorToFactory(sf factory.Factory) error {
 	ws, err := sf.NewWorkingSet()
 	if err != nil {

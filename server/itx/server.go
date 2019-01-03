@@ -117,7 +117,7 @@ func (s *Server) Start(ctx context.Context) error {
 	}
 	for _, cs := range s.chainservices {
 		if err := cs.Start(ctx); err != nil {
-			return errors.Wrap(err, "error when stopping blockchain")
+			return errors.Wrap(err, "error when starting blockchain")
 		}
 	}
 	if err := s.dispatcher.Start(ctx); err != nil {
