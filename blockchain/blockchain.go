@@ -370,7 +370,22 @@ func (bc *blockchain) GetBlockByHeight(height uint64) (*Block, error) {
 	if err != nil {
 		return nil, err
 	}
-	return bc.GetBlockByHash(hash)
+
+	blk, err := bc.GetBlockByHash(hash)
+	if blk == nil || err != nil {
+		return blk, err
+	}
+	logger.Info().
+		Uint32("version", blk.Header.version).
+		Uint32("chainID", blk.Header.chainID).
+		Uint64("height", blk.Header.height).
+		Uint64("timeStamp", blk.Header.timestamp).
+		Hex("prevBlockHash", blk.Header.prevBlockHash[:]).
+		Hex("txRoot", blk.Header.txRoot[:]).
+		Hex("stateRoot", blk.Header.stateRoot[:]).
+		Hex("receiptRoot", blk.Header.receiptRoot[:]).
+		Hex("pubKey", blk.Header.Pubkey[:]).Msg("get a block")
+	return blk, err
 }
 
 // GetBlockByHash returns block from the blockchain hash by hash
@@ -948,11 +963,18 @@ func (bc *blockchain) commitBlock(blk *Block) error {
 			return errors.Wrapf(err, "failed to put smart contract receipts into DB on height %d", blk.Height())
 		}
 	}
-	hash := blk.HashBlock()
-	logger.Warn().
+
+	logger.Info().
+		Uint32("version", blk.Header.version).
+		Uint32("chainID", blk.Header.chainID).
 		Uint64("height", blk.Header.height).
-		Hex("hash", hash[:]).
-		Msg("commit a block")
+		Uint64("timeStamp", blk.Header.timestamp).
+		Hex("prevBlockHash", blk.Header.prevBlockHash[:]).
+		Hex("txRoot", blk.Header.txRoot[:]).
+		Hex("stateRoot", blk.Header.stateRoot[:]).
+		Hex("receiptRoot", blk.Header.receiptRoot[:]).
+		Hex("pubKey", blk.Header.Pubkey[:]).
+		Hex("hash", bc.tipHash[:]).Msg("commit a block")
 	return nil
 }
 
