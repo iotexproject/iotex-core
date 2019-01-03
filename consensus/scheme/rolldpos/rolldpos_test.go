@@ -491,8 +491,13 @@ func TestRollDPoS_convertToConsensusEvt(t *testing.T) {
 		[]action.SealedEnvelope{transfer, vote},
 	)
 	roundNum := uint32(0)
+	blkHash := blk.HashBlock()
+	data, err := blk.Serialize()
+	require.NoError(t, err)
 	pMsg := iproto.ProposePb{
-		Block:    blk.ConvertToBlockPb(),
+		Hash:     blkHash[:],
+		Block:    data,
+		Height:   blk.Height(),
 		Proposer: addr.RawAddress,
 		Round:    roundNum,
 	}
@@ -502,10 +507,9 @@ func TestRollDPoS_convertToConsensusEvt(t *testing.T) {
 	assert.NotNil(t, pEvt.block)
 
 	// Test proposal endorse msg
-	blkHash := blk.HashBlock()
 	en := endorsement.NewEndorsement(
 		endorsement.NewConsensusVote(
-			blkHash,
+			blkHash[:],
 			blk.Height(),
 			roundNum,
 			endorsement.PROPOSAL,
@@ -521,7 +525,7 @@ func TestRollDPoS_convertToConsensusEvt(t *testing.T) {
 	// Test commit endorse msg
 	en = endorsement.NewEndorsement(
 		endorsement.NewConsensusVote(
-			blkHash,
+			blkHash[:],
 			blk.Height(),
 			roundNum,
 			endorsement.LOCK,
@@ -673,16 +677,10 @@ func (o *directOverlay) Stop(_ context.Context) error { return nil }
 
 func (o *directOverlay) Broadcast(msg proto.Message) error {
 	// Only broadcast consensus message
-	if propose, ok := msg.(*iproto.ProposePb); ok {
+	if cMsg, ok := msg.(*iproto.ConsensusPb); ok {
 		for _, r := range o.peers {
-			if err := r.HandleBlockPropose(propose); err != nil {
+			if err := r.HandleConsensusMsg(cMsg); err != nil {
 				return errors.Wrap(err, "error when handling block propose directly")
-			}
-		}
-	} else if endorse, ok := msg.(*iproto.EndorsePb); ok {
-		for _, r := range o.peers {
-			if err := r.HandleEndorse(endorse); err != nil {
-				return errors.Wrap(err, "error when handling endorse directly")
 			}
 		}
 	}
@@ -713,7 +711,8 @@ func TestRollDPoSConsensus(t *testing.T) {
 		cfg.Consensus.RollDPoS.AcceptCommitEndorseTTL = 2000 * time.Millisecond
 		cfg.Consensus.RollDPoS.NumDelegates = uint(numNodes)
 		cfg.Consensus.RollDPoS.NumSubEpochs = 1
-		cfg.Consensus.RollDPoS.EnableDKG = true
+		// TODO: re-enable DKG
+		cfg.Consensus.RollDPoS.EnableDKG = false
 
 		chainAddrs := make([]*iotxaddress.Address, 0, numNodes)
 		networkAddrs := make([]net.Addr, 0, numNodes)

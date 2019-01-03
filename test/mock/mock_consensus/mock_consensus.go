@@ -59,28 +59,16 @@ func (mr *MockConsensusMockRecorder) Stop(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockConsensus)(nil).Stop), arg0)
 }
 
-// HandleBlockPropose mocks base method
-func (m *MockConsensus) HandleBlockPropose(arg0 *proto.ProposePb) error {
-	ret := m.ctrl.Call(m, "HandleBlockPropose", arg0)
+// HandleConsensusMsg mocks base method
+func (m *MockConsensus) HandleConsensusMsg(arg0 *proto.ConsensusPb) error {
+	ret := m.ctrl.Call(m, "HandleConsensusMsg", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// HandleBlockPropose indicates an expected call of HandleBlockPropose
-func (mr *MockConsensusMockRecorder) HandleBlockPropose(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleBlockPropose", reflect.TypeOf((*MockConsensus)(nil).HandleBlockPropose), arg0)
-}
-
-// HandleEndorse mocks base method
-func (m *MockConsensus) HandleEndorse(arg0 *proto.EndorsePb) error {
-	ret := m.ctrl.Call(m, "HandleEndorse", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// HandleEndorse indicates an expected call of HandleEndorse
-func (mr *MockConsensusMockRecorder) HandleEndorse(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleEndorse", reflect.TypeOf((*MockConsensus)(nil).HandleEndorse), arg0)
+// HandleConsensusMsg indicates an expected call of HandleConsensusMsg
+func (mr *MockConsensusMockRecorder) HandleConsensusMsg(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleConsensusMsg", reflect.TypeOf((*MockConsensus)(nil).HandleConsensusMsg), arg0)
 }
 
 // Metrics mocks base method

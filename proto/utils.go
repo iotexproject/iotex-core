@@ -30,10 +30,8 @@ const (
 	MsgBlockSyncDataType uint32 = 4
 	// MsgActionType is the action message
 	MsgActionType uint32 = 5
-	// MsgProposeProtoMsgType is for consensus block propose
-	MsgProposeProtoMsgType uint32 = 6
-	// MsgEndorseProtoMsgType is for consensus endorse
-	MsgEndorseProtoMsgType uint32 = 7
+	// MsgConsensusType is for consensus message
+	MsgConsensusType uint32 = 6
 	// TestPayloadType is a test payload message type
 	TestPayloadType uint32 = 10001
 )
@@ -51,10 +49,8 @@ func GetTypeFromProtoMsg(msg proto.Message) (uint32, error) {
 		return MsgActionType, nil
 	case *TestPayload:
 		return TestPayloadType, nil
-	case *ProposePb:
-		return MsgProposeProtoMsgType, nil
-	case *EndorsePb:
-		return MsgEndorseProtoMsgType, nil
+	case *ConsensusPb:
+		return MsgConsensusType, nil
 	default:
 		return UnknownProtoMsgType, errors.New("UnknownProtoMsgType proto message type")
 	}
@@ -66,10 +62,8 @@ func TypifyProtoMsg(tp uint32, msg []byte) (proto.Message, error) {
 	switch tp {
 	case MsgBlockProtoMsgType:
 		m = &BlockPb{}
-	case MsgProposeProtoMsgType:
-		m = &ProposePb{}
-	case MsgEndorseProtoMsgType:
-		m = &EndorsePb{}
+	case MsgConsensusType:
+		m = &ConsensusPb{}
 	case MsgBlockSyncReqType:
 		m = &BlockSync{}
 	case MsgBlockSyncDataType:

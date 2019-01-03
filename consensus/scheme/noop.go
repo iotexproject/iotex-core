@@ -30,15 +30,9 @@ func (n *Noop) Start(_ context.Context) error { return nil }
 // Stop does nothing here
 func (n *Noop) Stop(_ context.Context) error { return nil }
 
-// HandleBlockPropose handles incoming block propose
-func (n *Noop) HandleBlockPropose(propose *iproto.ProposePb) error {
-	logger.Warn().Msg("Noop scheme does not handle incoming block propose requests")
-	return nil
-}
-
-// HandleEndorse handles incoming block propose
-func (n *Noop) HandleEndorse(endorse *iproto.EndorsePb) error {
-	logger.Warn().Msg("Noop scheme does not handle incoming endorse requests")
+// HandleConsensusMsg handles incoming consensus message
+func (n *Noop) HandleConsensusMsg(msg *iproto.ConsensusPb) error {
+	logger.Warn().Msg("Noop scheme does not handle incoming consensus message")
 	return nil
 }
 

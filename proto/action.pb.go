@@ -1208,99 +1208,6 @@ func (m *ActionPb) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_ActionPb proto.InternalMessageInfo
 
-type isActionPb_Action interface {
-	isActionPb_Action()
-}
-
-type ActionPb_Transfer struct {
-	Transfer *TransferPb `protobuf:"bytes,10,opt,name=transfer,proto3,oneof"`
-}
-type ActionPb_Vote struct {
-	Vote *VotePb `protobuf:"bytes,11,opt,name=vote,proto3,oneof"`
-}
-type ActionPb_Execution struct {
-	Execution *ExecutionPb `protobuf:"bytes,12,opt,name=execution,proto3,oneof"`
-}
-type ActionPb_SecretProposal struct {
-	SecretProposal *SecretProposalPb `protobuf:"bytes,13,opt,name=secretProposal,proto3,oneof"`
-}
-type ActionPb_SecretWitness struct {
-	SecretWitness *SecretWitnessPb `protobuf:"bytes,14,opt,name=secretWitness,proto3,oneof"`
-}
-type ActionPb_StartSubChain struct {
-	StartSubChain *StartSubChainPb `protobuf:"bytes,15,opt,name=startSubChain,proto3,oneof"`
-}
-type ActionPb_StopSubChain struct {
-	StopSubChain *StopSubChainPb `protobuf:"bytes,16,opt,name=stopSubChain,proto3,oneof"`
-}
-type ActionPb_PutBlock struct {
-	PutBlock *PutBlockPb `protobuf:"bytes,17,opt,name=putBlock,proto3,oneof"`
-}
-type ActionPb_CreateDeposit struct {
-	CreateDeposit *CreateDepositPb `protobuf:"bytes,18,opt,name=createDeposit,proto3,oneof"`
-}
-type ActionPb_SettleDeposit struct {
-	SettleDeposit *SettleDepositPb `protobuf:"bytes,19,opt,name=settleDeposit,proto3,oneof"`
-}
-type ActionPb_CreatePlumChain struct {
-	CreatePlumChain *CreatePlumChainPb `protobuf:"bytes,20,opt,name=createPlumChain,proto3,oneof"`
-}
-type ActionPb_TerminatePlumChain struct {
-	TerminatePlumChain *TerminatePlumChainPb `protobuf:"bytes,21,opt,name=terminatePlumChain,proto3,oneof"`
-}
-type ActionPb_PlumPutBlock struct {
-	PlumPutBlock *PlumPutBlockPb `protobuf:"bytes,22,opt,name=plumPutBlock,proto3,oneof"`
-}
-type ActionPb_PlumCreateDeposit struct {
-	PlumCreateDeposit *PlumCreateDepositPb `protobuf:"bytes,23,opt,name=plumCreateDeposit,proto3,oneof"`
-}
-type ActionPb_PlumStartExit struct {
-	PlumStartExit *PlumStartExitPb `protobuf:"bytes,24,opt,name=plumStartExit,proto3,oneof"`
-}
-type ActionPb_PlumChallengeExit struct {
-	PlumChallengeExit *PlumChallengeExit `protobuf:"bytes,25,opt,name=plumChallengeExit,proto3,oneof"`
-}
-type ActionPb_PlumResponseChallengeExit struct {
-	PlumResponseChallengeExit *PlumResponseChallengeExit `protobuf:"bytes,26,opt,name=plumResponseChallengeExit,proto3,oneof"`
-}
-type ActionPb_PlumFinalizeExit struct {
-	PlumFinalizeExit *PlumFinalizeExit `protobuf:"bytes,27,opt,name=plumFinalizeExit,proto3,oneof"`
-}
-type ActionPb_PlumSettleDeposit struct {
-	PlumSettleDeposit *PlumSettleDepositPb `protobuf:"bytes,28,opt,name=plumSettleDeposit,proto3,oneof"`
-}
-type ActionPb_PlumTransfer struct {
-	PlumTransfer *PlumTransferPb `protobuf:"bytes,29,opt,name=plumTransfer,proto3,oneof"`
-}
-
-func (*ActionPb_Transfer) isActionPb_Action()                  {}
-func (*ActionPb_Vote) isActionPb_Action()                      {}
-func (*ActionPb_Execution) isActionPb_Action()                 {}
-func (*ActionPb_SecretProposal) isActionPb_Action()            {}
-func (*ActionPb_SecretWitness) isActionPb_Action()             {}
-func (*ActionPb_StartSubChain) isActionPb_Action()             {}
-func (*ActionPb_StopSubChain) isActionPb_Action()              {}
-func (*ActionPb_PutBlock) isActionPb_Action()                  {}
-func (*ActionPb_CreateDeposit) isActionPb_Action()             {}
-func (*ActionPb_SettleDeposit) isActionPb_Action()             {}
-func (*ActionPb_CreatePlumChain) isActionPb_Action()           {}
-func (*ActionPb_TerminatePlumChain) isActionPb_Action()        {}
-func (*ActionPb_PlumPutBlock) isActionPb_Action()              {}
-func (*ActionPb_PlumCreateDeposit) isActionPb_Action()         {}
-func (*ActionPb_PlumStartExit) isActionPb_Action()             {}
-func (*ActionPb_PlumChallengeExit) isActionPb_Action()         {}
-func (*ActionPb_PlumResponseChallengeExit) isActionPb_Action() {}
-func (*ActionPb_PlumFinalizeExit) isActionPb_Action()          {}
-func (*ActionPb_PlumSettleDeposit) isActionPb_Action()         {}
-func (*ActionPb_PlumTransfer) isActionPb_Action()              {}
-
-func (m *ActionPb) GetAction() isActionPb_Action {
-	if m != nil {
-		return m.Action
-	}
-	return nil
-}
-
 func (m *ActionPb) GetVersion() uint32 {
 	if m != nil {
 		return m.Version
@@ -1346,6 +1253,137 @@ func (m *ActionPb) GetGasPrice() []byte {
 func (m *ActionPb) GetSignature() []byte {
 	if m != nil {
 		return m.Signature
+	}
+	return nil
+}
+
+type isActionPb_Action interface {
+	isActionPb_Action()
+}
+
+type ActionPb_Transfer struct {
+	Transfer *TransferPb `protobuf:"bytes,10,opt,name=transfer,proto3,oneof"`
+}
+
+type ActionPb_Vote struct {
+	Vote *VotePb `protobuf:"bytes,11,opt,name=vote,proto3,oneof"`
+}
+
+type ActionPb_Execution struct {
+	Execution *ExecutionPb `protobuf:"bytes,12,opt,name=execution,proto3,oneof"`
+}
+
+type ActionPb_SecretProposal struct {
+	SecretProposal *SecretProposalPb `protobuf:"bytes,13,opt,name=secretProposal,proto3,oneof"`
+}
+
+type ActionPb_SecretWitness struct {
+	SecretWitness *SecretWitnessPb `protobuf:"bytes,14,opt,name=secretWitness,proto3,oneof"`
+}
+
+type ActionPb_StartSubChain struct {
+	StartSubChain *StartSubChainPb `protobuf:"bytes,15,opt,name=startSubChain,proto3,oneof"`
+}
+
+type ActionPb_StopSubChain struct {
+	StopSubChain *StopSubChainPb `protobuf:"bytes,16,opt,name=stopSubChain,proto3,oneof"`
+}
+
+type ActionPb_PutBlock struct {
+	PutBlock *PutBlockPb `protobuf:"bytes,17,opt,name=putBlock,proto3,oneof"`
+}
+
+type ActionPb_CreateDeposit struct {
+	CreateDeposit *CreateDepositPb `protobuf:"bytes,18,opt,name=createDeposit,proto3,oneof"`
+}
+
+type ActionPb_SettleDeposit struct {
+	SettleDeposit *SettleDepositPb `protobuf:"bytes,19,opt,name=settleDeposit,proto3,oneof"`
+}
+
+type ActionPb_CreatePlumChain struct {
+	CreatePlumChain *CreatePlumChainPb `protobuf:"bytes,20,opt,name=createPlumChain,proto3,oneof"`
+}
+
+type ActionPb_TerminatePlumChain struct {
+	TerminatePlumChain *TerminatePlumChainPb `protobuf:"bytes,21,opt,name=terminatePlumChain,proto3,oneof"`
+}
+
+type ActionPb_PlumPutBlock struct {
+	PlumPutBlock *PlumPutBlockPb `protobuf:"bytes,22,opt,name=plumPutBlock,proto3,oneof"`
+}
+
+type ActionPb_PlumCreateDeposit struct {
+	PlumCreateDeposit *PlumCreateDepositPb `protobuf:"bytes,23,opt,name=plumCreateDeposit,proto3,oneof"`
+}
+
+type ActionPb_PlumStartExit struct {
+	PlumStartExit *PlumStartExitPb `protobuf:"bytes,24,opt,name=plumStartExit,proto3,oneof"`
+}
+
+type ActionPb_PlumChallengeExit struct {
+	PlumChallengeExit *PlumChallengeExit `protobuf:"bytes,25,opt,name=plumChallengeExit,proto3,oneof"`
+}
+
+type ActionPb_PlumResponseChallengeExit struct {
+	PlumResponseChallengeExit *PlumResponseChallengeExit `protobuf:"bytes,26,opt,name=plumResponseChallengeExit,proto3,oneof"`
+}
+
+type ActionPb_PlumFinalizeExit struct {
+	PlumFinalizeExit *PlumFinalizeExit `protobuf:"bytes,27,opt,name=plumFinalizeExit,proto3,oneof"`
+}
+
+type ActionPb_PlumSettleDeposit struct {
+	PlumSettleDeposit *PlumSettleDepositPb `protobuf:"bytes,28,opt,name=plumSettleDeposit,proto3,oneof"`
+}
+
+type ActionPb_PlumTransfer struct {
+	PlumTransfer *PlumTransferPb `protobuf:"bytes,29,opt,name=plumTransfer,proto3,oneof"`
+}
+
+func (*ActionPb_Transfer) isActionPb_Action() {}
+
+func (*ActionPb_Vote) isActionPb_Action() {}
+
+func (*ActionPb_Execution) isActionPb_Action() {}
+
+func (*ActionPb_SecretProposal) isActionPb_Action() {}
+
+func (*ActionPb_SecretWitness) isActionPb_Action() {}
+
+func (*ActionPb_StartSubChain) isActionPb_Action() {}
+
+func (*ActionPb_StopSubChain) isActionPb_Action() {}
+
+func (*ActionPb_PutBlock) isActionPb_Action() {}
+
+func (*ActionPb_CreateDeposit) isActionPb_Action() {}
+
+func (*ActionPb_SettleDeposit) isActionPb_Action() {}
+
+func (*ActionPb_CreatePlumChain) isActionPb_Action() {}
+
+func (*ActionPb_TerminatePlumChain) isActionPb_Action() {}
+
+func (*ActionPb_PlumPutBlock) isActionPb_Action() {}
+
+func (*ActionPb_PlumCreateDeposit) isActionPb_Action() {}
+
+func (*ActionPb_PlumStartExit) isActionPb_Action() {}
+
+func (*ActionPb_PlumChallengeExit) isActionPb_Action() {}
+
+func (*ActionPb_PlumResponseChallengeExit) isActionPb_Action() {}
+
+func (*ActionPb_PlumFinalizeExit) isActionPb_Action() {}
+
+func (*ActionPb_PlumSettleDeposit) isActionPb_Action() {}
+
+func (*ActionPb_PlumTransfer) isActionPb_Action() {}
+
+func (m *ActionPb) GetAction() isActionPb_Action {
+	if m != nil {
+		return m.Action
 	}
 	return nil
 }
