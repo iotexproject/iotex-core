@@ -21,6 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/actpool"
 	bc "github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/proto"
@@ -81,7 +82,7 @@ func TestNewBlockSyncer(t *testing.T) {
 	// TipHeight return ERROR
 	mBc.EXPECT().TipHeight().AnyTimes().Return(uint64(0))
 	mBc.EXPECT().ChainID().AnyTimes().Return(config.Default.Chain.ID)
-	blk := bc.NewBlock(
+	blk := block.NewBlockDeprecated(
 		uint32(123),
 		uint64(0),
 		hash.Hash32B{},
@@ -158,7 +159,7 @@ func TestBlockSyncerProcessSyncRequest(t *testing.T) {
 
 	mBc := mock_blockchain.NewMockBlockchain(ctrl)
 	mBc.EXPECT().ChainID().AnyTimes().Return(config.Default.Chain.ID)
-	blk := bc.NewBlock(
+	blk := block.NewBlockDeprecated(
 		uint32(123),
 		uint64(0),
 		hash.Hash32B{},

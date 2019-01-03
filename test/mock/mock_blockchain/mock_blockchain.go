@@ -9,6 +9,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	action "github.com/iotexproject/iotex-core/action"
 	blockchain "github.com/iotexproject/iotex-core/blockchain"
+	block "github.com/iotexproject/iotex-core/blockchain/block"
 	iotxaddress "github.com/iotexproject/iotex-core/iotxaddress"
 	hash "github.com/iotexproject/iotex-core/pkg/hash"
 	state "github.com/iotexproject/iotex-core/state"
@@ -143,9 +144,9 @@ func (mr *MockBlockchainMockRecorder) GetHashByHeight(height interface{}) *gomoc
 }
 
 // GetBlockByHeight mocks base method
-func (m *MockBlockchain) GetBlockByHeight(height uint64) (*blockchain.Block, error) {
+func (m *MockBlockchain) GetBlockByHeight(height uint64) (*block.Block, error) {
 	ret := m.ctrl.Call(m, "GetBlockByHeight", height)
-	ret0, _ := ret[0].(*blockchain.Block)
+	ret0, _ := ret[0].(*block.Block)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -156,9 +157,9 @@ func (mr *MockBlockchainMockRecorder) GetBlockByHeight(height interface{}) *gomo
 }
 
 // GetBlockByHash mocks base method
-func (m *MockBlockchain) GetBlockByHash(h hash.Hash32B) (*blockchain.Block, error) {
+func (m *MockBlockchain) GetBlockByHash(h hash.Hash32B) (*block.Block, error) {
 	ret := m.ctrl.Call(m, "GetBlockByHash", h)
-	ret0, _ := ret[0].(*blockchain.Block)
+	ret0, _ := ret[0].(*block.Block)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -528,9 +529,9 @@ func (mr *MockBlockchainMockRecorder) StateByAddr(address interface{}) *gomock.C
 }
 
 // MintNewBlock mocks base method
-func (m *MockBlockchain) MintNewBlock(actions []action.SealedEnvelope, producer *iotxaddress.Address, dkgAddress *iotxaddress.DKGAddress, seed []byte, data string) (*blockchain.Block, error) {
+func (m *MockBlockchain) MintNewBlock(actions []action.SealedEnvelope, producer *iotxaddress.Address, dkgAddress *iotxaddress.DKGAddress, seed []byte, data string) (*block.Block, error) {
 	ret := m.ctrl.Call(m, "MintNewBlock", actions, producer, dkgAddress, seed, data)
-	ret0, _ := ret[0].(*blockchain.Block)
+	ret0, _ := ret[0].(*block.Block)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -541,9 +542,9 @@ func (mr *MockBlockchainMockRecorder) MintNewBlock(actions, producer, dkgAddress
 }
 
 // MintNewSecretBlock mocks base method
-func (m *MockBlockchain) MintNewSecretBlock(secretProposals []*action.SecretProposal, secretWitness *action.SecretWitness, producer *iotxaddress.Address) (*blockchain.Block, error) {
+func (m *MockBlockchain) MintNewSecretBlock(secretProposals []*action.SecretProposal, secretWitness *action.SecretWitness, producer *iotxaddress.Address) (*block.Block, error) {
 	ret := m.ctrl.Call(m, "MintNewSecretBlock", secretProposals, secretWitness, producer)
-	ret0, _ := ret[0].(*blockchain.Block)
+	ret0, _ := ret[0].(*block.Block)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -554,7 +555,7 @@ func (mr *MockBlockchainMockRecorder) MintNewSecretBlock(secretProposals, secret
 }
 
 // CommitBlock mocks base method
-func (m *MockBlockchain) CommitBlock(blk *blockchain.Block) error {
+func (m *MockBlockchain) CommitBlock(blk *block.Block) error {
 	ret := m.ctrl.Call(m, "CommitBlock", blk)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -566,7 +567,7 @@ func (mr *MockBlockchainMockRecorder) CommitBlock(blk interface{}) *gomock.Call 
 }
 
 // ValidateBlock mocks base method
-func (m *MockBlockchain) ValidateBlock(blk *blockchain.Block, containCoinbase bool) error {
+func (m *MockBlockchain) ValidateBlock(blk *block.Block, containCoinbase bool) error {
 	ret := m.ctrl.Call(m, "ValidateBlock", blk, containCoinbase)
 	ret0, _ := ret[0].(error)
 	return ret0

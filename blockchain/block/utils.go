@@ -4,11 +4,21 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package blockchain
+package block
 
-import "github.com/iotexproject/iotex-core/blockchain/block"
+import (
+	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/crypto"
+	"github.com/iotexproject/iotex-core/pkg/hash"
+)
 
-// BlockCreationSubscriber is an interface which will get notified when a block is created
-type BlockCreationSubscriber interface {
-	HandleBlock(*block.Block) error
+func calculateTxRoot(acts []action.SealedEnvelope) hash.Hash32B {
+	var h []hash.Hash32B
+	for _, act := range acts {
+		h = append(h, act.Hash())
+	}
+	if len(h) == 0 {
+		return hash.ZeroHash32B
+	}
+	return crypto.NewMerkleTree(h).HashTree()
 }

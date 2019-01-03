@@ -8,7 +8,6 @@ package blockchain
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 	"strconv"
 	"sync"
@@ -24,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/address"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/db"
@@ -36,6 +36,9 @@ import (
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 )
+
+// GasLimit is the total gas limit could be consumed in a block
+const GasLimit = uint64(1000000000)
 
 // Blockchain represents the blockchain data structure and hosts the APIs to access it
 type Blockchain interface {
@@ -55,9 +58,9 @@ type Blockchain interface {
 	// GetHashByHeight returns Block's hash by height
 	GetHashByHeight(height uint64) (hash.Hash32B, error)
 	// GetBlockByHeight returns Block by height
-	GetBlockByHeight(height uint64) (*Block, error)
+	GetBlockByHeight(height uint64) (*block.Block, error)
 	// GetBlockByHash returns Block by hash
-	GetBlockByHash(h hash.Hash32B) (*Block, error)
+	GetBlockByHash(h hash.Hash32B) (*block.Block, error)
 	// GetTotalTransfers returns the total number of transfers
 	GetTotalTransfers() (uint64, error)
 	// GetTotalVotes returns the total number of votes
@@ -124,14 +127,14 @@ type Blockchain interface {
 		dkgAddress *iotxaddress.DKGAddress,
 		seed []byte,
 		data string,
-	) (*Block, error)
+	) (*block.Block, error)
 	// MintNewSecretBlock creates a new DKG secret block with given DKG secrets and witness
 	MintNewSecretBlock(secretProposals []*action.SecretProposal, secretWitness *action.SecretWitness,
-		producer *iotxaddress.Address) (*Block, error)
+		producer *iotxaddress.Address) (*block.Block, error)
 	// CommitBlock validates and appends a block to the chain
-	CommitBlock(blk *Block) error
+	CommitBlock(blk *block.Block) error
 	// ValidateBlock validates a new block before adding it to the blockchain
-	ValidateBlock(blk *Block, containCoinbase bool) error
+	ValidateBlock(blk *block.Block, containCoinbase bool) error
 
 	// For action operations
 	// Validator returns the current validator object
@@ -367,26 +370,17 @@ func (bc *blockchain) GetHashByHeight(height uint64) (hash.Hash32B, error) {
 }
 
 // GetBlockByHeight returns block from the blockchain hash by height
-func (bc *blockchain) GetBlockByHeight(height uint64) (*Block, error) {
+func (bc *blockchain) GetBlockByHeight(height uint64) (*block.Block, error) {
 	blk, err := bc.getBlockByHeight(height)
 	if blk == nil || err != nil {
 		return blk, err
 	}
-	logger.Info().
-		Uint32("version", blk.Header.version).
-		Uint32("chainID", blk.Header.chainID).
-		Uint64("height", blk.Header.height).
-		Uint64("timeStamp", blk.Header.timestamp).
-		Hex("prevBlockHash", blk.Header.prevBlockHash[:]).
-		Hex("txRoot", blk.Header.txRoot[:]).
-		Hex("stateRoot", blk.Header.stateRoot[:]).
-		Hex("receiptRoot", blk.Header.receiptRoot[:]).
-		Hex("pubKey", blk.Header.Pubkey[:]).Msg("get a block")
+	blk.HeaderLogger(logger.Logger()).Info().Msg("get a block")
 	return blk, err
 }
 
 // GetBlockByHash returns block from the blockchain hash by hash
-func (bc *blockchain) GetBlockByHash(h hash.Hash32B) (*Block, error) {
+func (bc *blockchain) GetBlockByHash(h hash.Hash32B) (*block.Block, error) {
 	return bc.dao.getBlock(h)
 }
 
@@ -675,7 +669,7 @@ func (bc *blockchain) TipHeight() uint64 {
 }
 
 // ValidateBlock validates a new block before adding it to the blockchain
-func (bc *blockchain) ValidateBlock(blk *Block, containCoinbase bool) error {
+func (bc *blockchain) ValidateBlock(blk *block.Block, containCoinbase bool) error {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
 	defer bc.timerFactory.NewTimer("ValidateBlock").End()
@@ -688,7 +682,7 @@ func (bc *blockchain) MintNewBlock(
 	dkgAddress *iotxaddress.DKGAddress,
 	seed []byte,
 	data string,
-) (*Block, error) {
+) (*block.Block, error) {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
 	defer bc.timerFactory.NewTimer("MintNewBlock").End()
@@ -706,34 +700,44 @@ func (bc *blockchain) MintNewBlock(
 		return nil, err
 	}
 	actions = append(actions, selp)
-	blk := NewBlock(bc.config.Chain.ID, bc.tipHeight+1, bc.tipHash, bc.now(), producer.PublicKey, actions)
-	blk.Header.DKGID = []byte{}
-	blk.Header.DKGPubkey = []byte{}
-	blk.Header.DKGBlockSig = []byte{}
-	if dkgAddress != nil && len(dkgAddress.PublicKey) > 0 && len(dkgAddress.PrivateKey) > 0 && len(dkgAddress.ID) > 0 {
-		blk.Header.DKGID = dkgAddress.ID
-		blk.Header.DKGPubkey = dkgAddress.PublicKey
-		var err error
-		if _, blk.Header.DKGBlockSig, err = crypto.BLS.SignShare(dkgAddress.PrivateKey, seed); err != nil {
-			return nil, errors.Wrap(err, "Failed to do DKG sign")
-		}
-	}
+
+	ra := block.NewRunnableActionsBuilder().
+		SetHeight(bc.tipHeight + 1).
+		SetTimeStamp(bc.now()).
+		AddActions(actions...).
+		Build(producer)
+
 	// run execution and update state trie root hash
 	ws, err := bc.sf.NewWorkingSet()
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to obtain working set from state factory")
 	}
-	root, err := bc.runActions(blk, ws, false)
+	root, rc, err := bc.runActions(ra, ws, false)
 	if err != nil {
-		return nil, errors.Wrapf(err, "Failed to update state changes in new block %d", blk.Height())
+		return nil, errors.Wrapf(err, "Failed to update state changes in new block %d", bc.tipHeight+1)
 	}
-	blk.Header.stateRoot = root
-	if err := blk.SignBlock(producer); err != nil {
-		return blk, err
+
+	blkbd := block.NewBuilder(ra).
+		SetChainID(bc.config.Chain.ID).
+		SetPrevBlockHash(bc.tipHash)
+
+	if dkgAddress != nil && len(dkgAddress.PublicKey) > 0 && len(dkgAddress.PrivateKey) > 0 && len(dkgAddress.ID) > 0 {
+		_, sig, err := crypto.BLS.SignShare(dkgAddress.PrivateKey, seed)
+		if err != nil {
+			return nil, errors.Wrap(err, "Failed to do DKG sign")
+		}
+		blkbd.SetDKG(dkgAddress.ID, dkgAddress.PublicKey, sig)
 	}
-	// attach working set to be committed to state factory
-	blk.workingSet = ws
-	return blk, nil
+
+	blk, err := blkbd.SetStateRoot(root).
+		SetReceipts(rc).
+		SignAndBuild(producer)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Failed to create block")
+	}
+	blk.WorkingSet = ws
+
+	return &blk, nil
 }
 
 // MintNewSecretBlock creates a new block with given DKG secrets and witness
@@ -741,39 +745,43 @@ func (bc *blockchain) MintNewSecretBlock(
 	secretProposals []*action.SecretProposal,
 	secretWitness *action.SecretWitness,
 	producer *iotxaddress.Address,
-) (*Block, error) {
+) (*block.Block, error) {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
 
-	blk := NewSecretBlock(
-		bc.config.Chain.ID,
-		bc.tipHeight+1,
-		bc.tipHash,
-		bc.now(),
-		producer.PublicKey,
-		secretProposals,
-		secretWitness,
-	)
+	ra := block.NewRunnableActionsBuilder().
+		SetHeight(bc.tipHeight + 1).
+		SetTimeStamp(bc.now()).
+		Build(producer)
+
 	// run execution and update state trie root hash
 	ws, err := bc.sf.NewWorkingSet()
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to obtain working set from state factory")
 	}
-	root, err := bc.runActions(blk, ws, false)
+	root, receipts, err := bc.runActions(ra, ws, false)
 	if err != nil {
-		return nil, errors.Wrapf(err, "Failed to update state changes in new block %d", blk.Height())
+		return nil, errors.Wrapf(err, "Failed to update state changes in new block %d", bc.tipHeight+1)
 	}
-	blk.Header.stateRoot = root
-	if err := blk.SignBlock(producer); err != nil {
-		return blk, err
+
+	blk, err := block.NewBuilder(ra).
+		SetChainID(bc.config.Chain.ID).
+		SetPrevBlockHash(bc.tipHash).
+		SetSecretWitness(secretWitness).
+		SetSecretProposals(secretProposals).
+		SetReceipts(receipts).
+		SetStateRoot(root).
+		SignAndBuild(producer)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Failed to create block")
 	}
-	// attach working set to be committed to state factory
-	blk.workingSet = ws
-	return blk, nil
+	blk.WorkingSet = ws
+
+	return &blk, nil
 }
 
 //  CommitBlock validates and appends a block to the chain
-func (bc *blockchain) CommitBlock(blk *Block) error {
+func (bc *blockchain) CommitBlock(blk *block.Block) error {
 	bc.mu.Lock()
 	defer bc.mu.Unlock()
 	defer bc.timerFactory.NewTimer("CommitBlock").End()
@@ -853,7 +861,7 @@ func (bc *blockchain) ExecuteContractRead(ex *action.Execution) (*action.Receipt
 	}
 	gasLimit := GasLimit
 	gasLimitPtr := &gasLimit
-	return evm.ExecuteContract(blk.Height(), blk.HashBlock(), blk.Header.Pubkey, blk.Header.Timestamp().Unix(), ws, ex, bc,
+	return evm.ExecuteContract(blk.Height(), blk.HashBlock(), blk.PublicKey(), blk.Header.Timestamp().Unix(), ws, ex, bc,
 		gasLimitPtr, bc.config.Chain.EnableGasCharge)
 }
 
@@ -894,7 +902,7 @@ func (bc *blockchain) CreateState(addr string, init *big.Int) (*state.Account, e
 // private functions
 //=====================================
 
-func (bc *blockchain) getBlockByHeight(height uint64) (*Block, error) {
+func (bc *blockchain) getBlockByHeight(height uint64) (*block.Block, error) {
 	hash, err := bc.dao.getBlockHash(height)
 	if err != nil {
 		return nil, err
@@ -903,35 +911,62 @@ func (bc *blockchain) getBlockByHeight(height uint64) (*Block, error) {
 }
 
 func (bc *blockchain) startEmptyBlockchain() error {
-	var genesis *Block
+	var (
+		genesis block.Block
+		ws      factory.WorkingSet
+		err     error
+	)
+	addr := address.New(bc.ChainID(), keypair.ZeroPublicKey[:])
+	iaddr := &iotxaddress.Address{
+		PrivateKey: keypair.ZeroPrivateKey,
+		PublicKey:  keypair.ZeroPublicKey,
+		RawAddress: addr.IotxAddress(),
+	}
 	if bc.config.Chain.GenesisActionsPath != "" || !bc.config.Chain.EmptyGenesis {
 		if bc.sf == nil {
 			return errors.New("statefactory cannot be nil")
 		}
-		ws, err := bc.sf.NewWorkingSet()
+		ws, err = bc.sf.NewWorkingSet()
 		if err != nil {
 			return errors.Wrap(err, "failed to obtain working set from state factory")
 		}
-		genesis = NewGenesisBlock(bc.config.Chain, ws)
-		if genesis == nil {
-			return errors.New("cannot create genesis block")
-		}
-		// Genesis block has height 0
-		if genesis.Header.height != 0 {
-			return errors.New(fmt.Sprintf("genesis block has height %d but expects 0", genesis.Height()))
-		}
+		acts := NewGenesisActions(bc.config.Chain, ws)
+		racts := block.NewRunnableActionsBuilder().
+			SetHeight(0).
+			SetTimeStamp(Gen.Timestamp).
+			AddActions(acts...).
+			Build(iaddr)
 		// run execution and update state trie root hash
-		root, err := bc.runActions(genesis, ws, false)
+		root, receipts, err := bc.runActions(racts, ws, false)
 		if err != nil {
 			return errors.Wrap(err, "failed to update state changes in Genesis block")
 		}
-		genesis.Header.stateRoot = root
-		genesis.workingSet = ws
+
+		genesis, err = block.NewBuilder(racts).
+			SetChainID(bc.ChainID()).
+			SetPrevBlockHash(Gen.ParentHash).
+			SetReceipts(receipts).
+			SetStateRoot(root).
+			SignAndBuild(iaddr)
+		if err != nil {
+			return errors.Wrapf(err, "Failed to create block")
+		}
 	} else {
-		genesis = NewBlock(bc.ChainID(), 0, hash.ZeroHash32B, Gen.Timestamp, keypair.ZeroPublicKey, nil)
+		racts := block.NewRunnableActionsBuilder().
+			SetHeight(0).
+			SetTimeStamp(Gen.Timestamp).
+			Build(iaddr)
+		genesis, err = block.NewBuilder(racts).
+			SetChainID(bc.ChainID()).
+			SetPrevBlockHash(hash.ZeroHash32B).
+			SignAndBuild(iaddr)
+		if err != nil {
+			return errors.Wrapf(err, "Failed to create block")
+		}
 	}
 	// add Genesis block as very first block
-	if err := bc.commitBlock(genesis); err != nil {
+	genesis.WorkingSet = ws
+	if err := bc.commitBlock(&genesis); err != nil {
 		return errors.Wrap(err, "failed to commit Genesis block")
 	}
 	return nil
@@ -994,7 +1029,7 @@ func (bc *blockchain) startExistingBlockchain(recoveryHeight uint64) error {
 		if ws, err = bc.sf.NewWorkingSet(); err != nil {
 			return errors.Wrap(err, "failed to obtain working set from state factory")
 		}
-		if _, err := bc.runActions(blk, ws, true); err != nil {
+		if _, _, err := bc.runActions(blk.RunnableActions(), ws, true); err != nil {
 			return err
 		}
 		if err := bc.sf.Commit(ws); err != nil {
@@ -1011,7 +1046,7 @@ func (bc *blockchain) startExistingBlockchain(recoveryHeight uint64) error {
 	return nil
 }
 
-func (bc *blockchain) validateBlock(blk *Block, containCoinbase bool) error {
+func (bc *blockchain) validateBlock(blk *block.Block, containCoinbase bool) error {
 	if bc.validator == nil {
 		logger.Panic().Msg("no block validator")
 	}
@@ -1028,18 +1063,23 @@ func (bc *blockchain) validateBlock(blk *Block, containCoinbase bool) error {
 		return errors.Wrap(err, "Failed to obtain working set from state factory")
 	}
 	runTimer := bc.timerFactory.NewTimer("runActions")
-	_, err = bc.runActions(blk, ws, true)
+	root, _, err := bc.runActions(blk.RunnableActions(), ws, true)
 	runTimer.End()
 	if err != nil {
 		logger.Panic().Err(err).Msgf("Failed to update state on height %d", bc.tipHeight)
 	}
+
+	if err = blk.VerifyStateRoot(root); err != nil {
+		return errors.Wrap(err, "Failed to verify state root")
+	}
+
 	// attach working set to be committed to state factory
-	blk.workingSet = ws
+	blk.WorkingSet = ws
 	return nil
 }
 
 // commitBlock commits a block to the chain
-func (bc *blockchain) commitBlock(blk *Block) error {
+func (bc *blockchain) commitBlock(blk *block.Block) error {
 	// write block into DB
 	putTimer := bc.timerFactory.NewTimer("putBlock")
 	err := bc.dao.putBlock(blk)
@@ -1051,18 +1091,19 @@ func (bc *blockchain) commitBlock(blk *Block) error {
 	bc.emitToSubscribers(blk)
 
 	// update tip hash and height
-	atomic.StoreUint64(&bc.tipHeight, blk.Header.height)
+	atomic.StoreUint64(&bc.tipHeight, blk.Height())
 	bc.tipHash = blk.HashBlock()
 
 	if bc.sf != nil {
 		sfTimer := bc.timerFactory.NewTimer("sf.Commit")
-		err := bc.sf.Commit(blk.workingSet)
+		err := bc.sf.Commit(blk.WorkingSet)
 		sfTimer.End()
 		// detach working set so it can be freed by GC
-		blk.workingSet = nil
+		blk.WorkingSet = nil
 		if err != nil {
 			return err
 		}
+
 		// write smart contract receipt into DB
 		receiptTimer := bc.timerFactory.NewTimer("putReceipt")
 		err = bc.dao.putReceipts(blk)
@@ -1071,59 +1112,36 @@ func (bc *blockchain) commitBlock(blk *Block) error {
 			return errors.Wrapf(err, "failed to put smart contract receipts into DB on height %d", blk.Height())
 		}
 	}
-	logger.Info().
-		Uint32("version", blk.Header.version).
-		Uint32("chainID", blk.Header.chainID).
-		Uint64("height", blk.Header.height).
-		Uint64("timeStamp", blk.Header.timestamp).
-		Hex("prevBlockHash", blk.Header.prevBlockHash[:]).
-		Hex("txRoot", blk.Header.txRoot[:]).
-		Hex("stateRoot", blk.Header.stateRoot[:]).
-		Hex("receiptRoot", blk.Header.receiptRoot[:]).
-		Hex("pubKey", blk.Header.Pubkey[:]).
-		Hex("hash", bc.tipHash[:]).Msg("commit a block")
+	blk.HeaderLogger(logger.Logger()).Info().
+		Hex("tipHash", bc.tipHash[:]).Msg("Committed a block.")
 	return nil
 }
 
-func (bc *blockchain) runActions(blk *Block, ws factory.WorkingSet, verify bool) (hash.Hash32B, error) {
-	blk.Receipts = make(map[hash.Hash32B]*action.Receipt)
+func (bc *blockchain) runActions(acts block.RunnableActions, ws factory.WorkingSet, verify bool) (hash.Hash32B, map[hash.Hash32B]*action.Receipt, error) {
 	if bc.sf == nil {
-		return hash.ZeroHash32B, errors.New("statefactory cannot be nil")
+		return hash.ZeroHash32B, nil, errors.New("statefactory cannot be nil")
 	}
 	gasLimit := GasLimit
 	// update state factory
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			BlockHeight:     blk.Height(),
-			BlockHash:       blk.HashBlock(),
-			ProducerPubKey:  blk.Header.Pubkey,
-			BlockTimeStamp:  blk.Header.Timestamp().Unix(),
-			ProducerAddr:    blk.ProducerAddress(),
+			BlockHeight:     acts.BlockHeight(),
+			BlockHash:       acts.TxHash(),
+			ProducerPubKey:  acts.BlockProducerPubKey(),
+			BlockTimeStamp:  int64(acts.BlockTimeStamp()),
+			ProducerAddr:    acts.BlockProducerAddr(),
 			GasLimit:        &gasLimit,
 			EnableGasCharge: bc.config.Chain.EnableGasCharge,
 		})
-	root, receipts, err := ws.RunActions(ctx, blk.Height(), blk.Actions)
-	if err != nil {
-		return root, err
-	}
-	if verify {
-		// verify state root hash match
-		if err = blk.VerifyStateRoot(root); err != nil {
-			return root, err
-		}
-	}
-	for hash, receipt := range receipts {
-		blk.Receipts[hash] = receipt
-	}
-	return root, nil
+	return ws.RunActions(ctx, acts.BlockHeight(), acts.Actions())
 }
 
-func (bc *blockchain) emitToSubscribers(blk *Block) {
+func (bc *blockchain) emitToSubscribers(blk *block.Block) {
 	if bc.blocklistener == nil {
 		return
 	}
 	for _, s := range bc.blocklistener {
-		go func(bcs BlockCreationSubscriber, b *Block) {
+		go func(bcs BlockCreationSubscriber, b *block.Block) {
 			if err := bcs.HandleBlock(b); err != nil {
 				logger.Error().Err(err).Msg("Failed to handle new block")
 			}

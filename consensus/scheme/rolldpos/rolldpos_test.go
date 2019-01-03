@@ -29,6 +29,7 @@ import (
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/endorsement"
@@ -59,7 +60,7 @@ func TestRollDPoSCtx(t *testing.T) {
 
 	clock := clock.NewMock()
 	var prevHash hash.Hash32B
-	blk := blockchain.NewBlock(
+	blk := block.NewBlockDeprecated(
 		1,
 		8,
 		prevHash,
@@ -482,7 +483,7 @@ func TestRollDPoS_convertToConsensusEvt(t *testing.T) {
 	vote, err := testutil.SignedVote(addr, addr, 2, testutil.TestGasLimit, big.NewInt(10))
 	require.NoError(t, err)
 	var prevHash hash.Hash32B
-	blk := blockchain.NewBlock(
+	blk := block.NewBlockDeprecated(
 		1,
 		1,
 		prevHash,
@@ -621,9 +622,9 @@ func TestUpdateSeed(t *testing.T) {
 		require.NoError(verifyDKGSignature(blk, lastSeed))
 		require.NoError(chain.ValidateBlock(blk, true))
 		require.NoError(chain.CommitBlock(blk))
-		require.Equal(pkList[i], blk.Header.DKGPubkey)
-		require.Equal(idList[i], blk.Header.DKGID)
-		require.True(len(blk.Header.DKGBlockSig) > 0)
+		require.Equal(pkList[i], blk.DKGPubkey())
+		require.Equal(idList[i], blk.DKGID())
+		require.True(len(blk.DKGSignature()) > 0)
 	}
 	height := chain.TipHeight()
 	require.Equal(int(height), 20)

@@ -14,6 +14,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/p2p/node"
@@ -60,8 +61,8 @@ type BlockSync interface {
 
 	TargetHeight() uint64
 	ProcessSyncRequest(sender string, sync *iproto.BlockSync) error
-	ProcessBlock(blk *blockchain.Block) error
-	ProcessBlockSync(blk *blockchain.Block) error
+	ProcessBlock(blk *block.Block) error
+	ProcessBlockSync(blk *block.Block) error
 }
 
 // blockSyncer implements BlockSync interface
@@ -90,7 +91,7 @@ func NewBlockSyncer(
 		bufSize <<= 3
 	}
 	buf := &blockBuffer{
-		blocks: make(map[uint64]*blockchain.Block),
+		blocks: make(map[uint64]*block.Block),
 		bc:     chain,
 		ap:     ap,
 		size:   bufSize,
@@ -143,7 +144,7 @@ func (bs *blockSyncer) Stop(ctx context.Context) error {
 }
 
 // ProcessBlock processes an incoming latest committed block
-func (bs *blockSyncer) ProcessBlock(blk *blockchain.Block) error {
+func (bs *blockSyncer) ProcessBlock(blk *block.Block) error {
 	if !bs.ackBlockCommit {
 		// node is not meant to handle latest committed block, simply exit
 		return nil
@@ -170,7 +171,7 @@ func (bs *blockSyncer) ProcessBlock(blk *blockchain.Block) error {
 	return nil
 }
 
-func (bs *blockSyncer) ProcessBlockSync(blk *blockchain.Block) error {
+func (bs *blockSyncer) ProcessBlockSync(blk *block.Block) error {
 	if !bs.ackBlockSync {
 		// node is not meant to handle sync block, simply exit
 		return nil
