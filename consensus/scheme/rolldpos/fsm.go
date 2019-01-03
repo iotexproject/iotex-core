@@ -17,12 +17,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/zjshen14/go-fsm"
 
-	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/crypto"
-	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/logger"
-	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/proto"
 )
 
@@ -365,7 +362,7 @@ func (m *cFSM) handleStartRoundEvt(_ fsm.Event) (fsm.State, error) {
 	if m.ctx.round.height != height {
 		m.ctx.round = roundCtx{
 			height:          height,
-			endorsementSets: make(map[hash.Hash32B]*endorsement.Set),
+			endorsementSets: make(map[string]*endorsement.Set),
 		}
 	}
 	m.ctx.round.number = round
@@ -394,72 +391,23 @@ func (m *cFSM) handleInitBlockProposeEvt(evt fsm.Event) (fsm.State, error) {
 		return sAcceptPropose, nil
 	}
 	log.Msg("current node is the proposer")
-	blk := m.ctx.round.block
-	if blk == nil {
-		var err error
-		blk, err = m.ctx.mintBlock()
-		if err != nil {
-			return sEpochStart, errors.Wrap(err, "error when minting a block")
-		}
+	blk, err := m.ctx.MintBlock()
+	if err != nil {
+		return sEpochStart, errors.Wrap(err, "error when minting a block")
 	}
 	proposeBlkEvt := m.newProposeBlkEvt(blk)
 	proposeBlkEvtProto := proposeBlkEvt.toProtoMsg()
 	// Notify itself
-	h := blk.HashBlock()
+	h := blk.Hash()
 	logger.Info().Str("blockHash", hex.EncodeToString(h[:])).Msg("Broadcast init proposal.")
 	m.produce(proposeBlkEvt, 0)
 	// Notify other delegates
-	if err := m.ctx.broadcastHandler(proposeBlkEvtProto); err != nil {
+	if err := m.ctx.Broadcast(proposeBlkEvtProto); err != nil {
 		logger.Error().
 			Err(err).
 			Msg("error when broadcasting proposeBlkEvt")
 	}
 	return sAcceptPropose, nil
-}
-
-func (m *cFSM) validateProposeBlock(blk *blockchain.Block, expectedProposer string) bool {
-	blkHash := blk.HashBlock()
-	errorLog := logger.Error().
-		Uint64("expectedHeight", m.ctx.round.height).
-		Str("expectedProposer", expectedProposer).
-		Str("hash", hex.EncodeToString(blkHash[:]))
-	if blk.Height() != m.ctx.round.height {
-		errorLog.Uint64("blockHeight", blk.Height()).
-			Msg("error when validating the block height")
-		return false
-	}
-	producer := blk.ProducerAddress()
-
-	if producer == "" || producer != expectedProposer {
-		errorLog.Str("proposer", producer).
-			Msg("error when validating the block proposer")
-		return false
-	}
-	if !blk.VerifySignature() {
-		errorLog.Msg("error when validating the block signature")
-		return false
-	}
-	if producer == m.ctx.addr.RawAddress {
-		// If the block is self proposed, skip validation
-		return true
-	}
-	containCoinbase := true
-	if m.ctx.cfg.EnableDKG {
-		if m.ctx.shouldHandleDKG() {
-			containCoinbase = false
-		} else if err := verifyDKGSignature(blk, m.ctx.epoch.seed); err != nil {
-			// Verify dkg signature failed
-			errorLog.Err(err).Msg("Failed to verify the DKG signature")
-			return false
-		}
-
-	}
-	if err := m.ctx.chain.ValidateBlock(blk, containCoinbase); err != nil {
-		errorLog.Err(err).Msg("error when validating the proposed block")
-		return false
-	}
-
-	return true
 }
 
 func (m *cFSM) handleProposeBlockEvt(evt fsm.Event) (fsm.State, error) {
@@ -470,11 +418,11 @@ func (m *cFSM) handleProposeBlockEvt(evt fsm.Event) (fsm.State, error) {
 	if !ok {
 		return sEpochStart, errors.Wrap(ErrEvtCast, "the event is not a proposeBlkEvt")
 	}
-	if !m.validateProposeBlock(proposeBlkEvt.block, m.ctx.round.proposer) {
+	if !m.ctx.validateProposeBlock(proposeBlkEvt.block, m.ctx.round.proposer) {
 		return sAcceptPropose, nil
 	}
 	m.ctx.round.block = proposeBlkEvt.block
-	m.broadcastConsensusVote(m.ctx.round.block.HashBlock(), endorsement.PROPOSAL)
+	m.broadcastConsensusVote(m.ctx.round.block.Hash(), endorsement.PROPOSAL)
 
 	return sAcceptProposalEndorse, nil
 }
@@ -534,7 +482,7 @@ func (m *cFSM) isProposedBlock(hash []byte) bool {
 	if m.ctx.round.block == nil {
 		return false
 	}
-	blkHash := m.ctx.round.block.HashBlock()
+	blkHash := m.ctx.round.block.Hash()
 
 	return bytes.Equal(hash[:], blkHash[:])
 }
@@ -568,10 +516,11 @@ func (m *cFSM) addEndorsement(
 	expectedConsensusTopics map[endorsement.ConsensusVoteTopic]bool,
 ) (*endorsement.Set, error) {
 	blkHash := en.ConsensusVote().BlkHash
-	endorsementSet, ok := m.ctx.round.endorsementSets[blkHash]
+	blkHashHex := hex.EncodeToString(blkHash)
+	endorsementSet, ok := m.ctx.round.endorsementSets[blkHashHex]
 	if !ok {
 		endorsementSet = endorsement.NewSet(blkHash)
-		m.ctx.round.endorsementSets[blkHash] = endorsementSet
+		m.ctx.round.endorsementSets[blkHashHex] = endorsementSet
 	}
 	if err := endorsementSet.AddEndorsement(en); err != nil {
 		return nil, err
@@ -589,7 +538,7 @@ func (m *cFSM) addEndorsement(
 }
 
 func (m *cFSM) broadcastConsensusVote(
-	blkHash hash.Hash32B,
+	blkHash []byte,
 	topic endorsement.ConsensusVoteTopic,
 ) {
 	cEvt := m.newEndorseEvt(blkHash, topic)
@@ -597,7 +546,7 @@ func (m *cFSM) broadcastConsensusVote(
 	// Notify itself
 	m.produce(cEvt, 0)
 	// Notify other delegates
-	if err := m.ctx.broadcastHandler(cEvtProto); err != nil {
+	if err := m.ctx.Broadcast(cEvtProto); err != nil {
 		logger.Error().
 			Err(err).
 			Msg("error when broadcasting commitEvtProto")
@@ -632,7 +581,8 @@ func (m *cFSM) handleEndorseProposalTimeout(evt fsm.Event) (fsm.State, error) {
 	}
 	numProposalEndorsements := 0
 	if m.ctx.round.block != nil {
-		endorsementSet := m.ctx.round.endorsementSets[m.ctx.round.block.HashBlock()]
+		blkHashHex := hex.EncodeToString(m.ctx.round.block.Hash())
+		endorsementSet := m.ctx.round.endorsementSets[blkHashHex]
 		if endorsementSet != nil {
 			numProposalEndorsements = endorsementSet.NumOfValidEndorsements(
 				map[endorsement.ConsensusVoteTopic]bool{
@@ -679,7 +629,8 @@ func (m *cFSM) handleEndorseLockTimeout(evt fsm.Event) (fsm.State, error) {
 	}
 	numCommitEndorsements := 0
 	if m.ctx.round.block != nil {
-		endorsementSet := m.ctx.round.endorsementSets[m.ctx.round.block.HashBlock()]
+		blkHashHex := hex.EncodeToString(m.ctx.round.block.Hash())
+		endorsementSet := m.ctx.round.endorsementSets[blkHashHex]
 		if endorsementSet != nil {
 			numCommitEndorsements = endorsementSet.NumOfValidEndorsements(
 				map[endorsement.ConsensusVoteTopic]bool{
@@ -698,51 +649,14 @@ func (m *cFSM) handleEndorseLockTimeout(evt fsm.Event) (fsm.State, error) {
 	m.produce(m.newCEvt(eFinishEpoch), 0)
 	return sRoundStart, nil
 }
+
 func (m *cFSM) handleEndorseCommitEvt(evt fsm.Event) (fsm.State, error) {
-	pendingBlock := m.ctx.round.block
+	consensusMtc.WithLabelValues("true").Inc()
 	logger.Info().
 		Uint64("block", m.ctx.round.height).
 		Msg("consensus reached")
-	consensusMtc.WithLabelValues("true").Inc()
-	// If the pending block is a secret block, record the secret share generated by producer
-	if m.ctx.shouldHandleDKG() {
-		for _, secretProposal := range pendingBlock.SecretProposals {
-			if secretProposal.DstAddr() == m.ctx.addr.RawAddress {
-				m.ctx.epoch.committedSecrets[secretProposal.SrcAddr()] = secretProposal.Secret()
-				break
-			}
-		}
-	}
-	// Commit and broadcast the pending block
-	if err := m.ctx.chain.CommitBlock(pendingBlock); err != nil {
-		if err == db.ErrAlreadyExist {
-			logger.Info().Uint64("block", pendingBlock.Height()).Msg("Block already exists.")
-		} else {
-			logger.Error().
-				Err(err).
-				Uint64("block", pendingBlock.Height()).
-				Msg("error when committing a block")
-		}
-	}
-	// Remove transfers in this block from ActPool and reset ActPool state
-	m.ctx.actPool.Reset()
-	// Broadcast the committed block to the network
-	if blkProto := pendingBlock.ConvertToBlockPb(); blkProto != nil {
-		if err := m.ctx.broadcastHandler(blkProto); err != nil {
-			logger.Error().
-				Err(err).
-				Uint64("block", pendingBlock.Height()).
-				Msg("error when broadcasting blkProto")
-		}
-
-		// putblock to parent chain if the current node is proposer and current chain is a sub chain
-		if m.ctx.round.proposer == m.ctx.addr.RawAddress && m.ctx.chain.ChainAddress() != "" {
-			putBlockToParentChain(m.ctx.rootChainAPI, m.ctx.chain.ChainAddress(), m.ctx.addr, pendingBlock)
-		}
-	} else {
-		logger.Error().
-			Uint64("block", pendingBlock.Height()).
-			Msg("error when converting a block into a proto msg")
+	if err := m.ctx.OnConsensusReached(); err != nil {
+		logger.Error().Err(err).Msg("failed to commit block on consensus reached")
 	}
 	m.produce(m.newCEvt(eFinishEpoch), 0)
 	return sRoundStart, nil
@@ -816,7 +730,7 @@ func (m *cFSM) newCEvt(t fsm.EventType) *consensusEvt {
 	return newCEvt(t, m.ctx.round.height, m.ctx.round.number, m.ctx.clock)
 }
 
-func (m *cFSM) newProposeBlkEvt(blk *blockchain.Block) *proposeBlkEvt {
+func (m *cFSM) newProposeBlkEvt(blk Block) *proposeBlkEvt {
 	return newProposeBlkEvt(blk, m.ctx.round.proofOfLock, m.ctx.round.number, m.ctx.clock)
 }
 
@@ -837,7 +751,7 @@ func (m *cFSM) newEndorseEvtWithEndorsePb(ePb *iproto.EndorsePb) (*endorseEvt, e
 	return newEndorseEvtWithEndorse(en, m.ctx.clock), nil
 }
 
-func (m *cFSM) newEndorseEvt(blkHash hash.Hash32B, topic endorsement.ConsensusVoteTopic) *endorseEvt {
+func (m *cFSM) newEndorseEvt(blkHash []byte, topic endorsement.ConsensusVoteTopic) *endorseEvt {
 	return newEndorseEvt(topic, blkHash, m.ctx.round.height, m.ctx.round.number, m.ctx.addr, m.ctx.clock)
 }
 
@@ -847,8 +761,4 @@ func (m *cFSM) newTimeoutEvt(t fsm.EventType) *timeoutEvt {
 
 func (m *cFSM) newBackdoorEvt(dst fsm.State) *backdoorEvt {
 	return newBackdoorEvt(dst, m.ctx.round.height, m.ctx.round.number, m.ctx.clock)
-}
-
-func verifyDKGSignature(blk *blockchain.Block, seedByte []byte) error {
-	return crypto.BLS.Verify(blk.Header.DKGPubkey, seedByte, blk.Header.DKGBlockSig)
 }

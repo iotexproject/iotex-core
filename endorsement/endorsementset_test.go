@@ -9,15 +9,14 @@ package endorsement
 import (
 	"testing"
 
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/stretchr/testify/require"
 )
 
 func TestAddEndorsement(t *testing.T) {
 	require := require.New(t)
-	hash1 := byteutil.BytesTo32B([]byte{'2', '1'})
-	hash2 := byteutil.BytesTo32B([]byte{'1', '2'})
+	hash1 := []byte{'2', '1'}
+	hash2 := []byte{'1', '2'}
 	set := NewSet(hash1)
 	// Successfully add an endorsement
 	cv := NewConsensusVote(hash1, 1, 2, PROPOSAL)

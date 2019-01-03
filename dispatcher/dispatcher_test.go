@@ -47,8 +47,7 @@ func stopDispatcher(ctx context.Context, d Dispatcher, t *testing.T) {
 func setTestCase() []proto.Message {
 	return []proto.Message{
 		&pb.ActionPb{},
-		&pb.ProposePb{},
-		&pb.EndorsePb{},
+		&pb.ConsensusPb{},
 		&pb.BlockPb{},
 		&pb.BlockSync{},
 		&pb.BlockContainer{},
@@ -106,10 +105,6 @@ func (s *DummySubscriber) HandleAction(*pb.ActionPb) error {
 	return nil
 }
 
-func (s *DummySubscriber) HandleBlockPropose(*pb.ProposePb) error {
-	return nil
-}
-
-func (s *DummySubscriber) HandleEndorse(*pb.EndorsePb) error {
+func (s *DummySubscriber) HandleConsensusMsg(*pb.ConsensusPb) error {
 	return nil
 }

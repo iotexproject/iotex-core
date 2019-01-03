@@ -54,12 +54,27 @@ message BlockContainer {
     BlockPb block = 1;
 }
 
+message ConsensusPb {
+    enum ConsensusMessageType {
+        PROPOSAL = 0;
+        ENDORSEMENT = 1;
+        // TODO: Unify ConsensusVoteTopic and ConsensusMessageType
+    }
+    uint64 height = 1;
+    uint32 round = 2;
+    ConsensusMessageType type = 3;
+    uint64 timestamp = 4;
+    bytes data = 5;
+}
+
 // corresponding to pre-prepare pharse in view change protocol
 message ProposePb {
     string proposer = 1;
-    BlockPb block = 2;
+    uint64 height = 2;
     uint32 round = 3;
-    EndorsementSet lockProof = 4;
+    bytes hash = 4;
+    bytes block = 5;
+    EndorsementSet lockProof = 6;
 }
 
 // corresponding to prepare and pre-prepare phase in view change protocol

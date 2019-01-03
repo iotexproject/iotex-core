@@ -33,14 +33,14 @@ const (
 
 // ConsensusVote is a vote on a given topic for a block on a specific height
 type ConsensusVote struct {
-	BlkHash hash.Hash32B
+	BlkHash []byte
 	Height  uint64
 	Round   uint32
 	Topic   ConsensusVoteTopic
 }
 
 // NewConsensusVote creates a consensus vote
-func NewConsensusVote(blkHash hash.Hash32B, height uint64, round uint32, topic ConsensusVoteTopic) *ConsensusVote {
+func NewConsensusVote(blkHash []byte, height uint64, round uint32, topic ConsensusVoteTopic) *ConsensusVote {
 	return &ConsensusVote{
 		blkHash,
 		height,
@@ -146,7 +146,7 @@ func FromProtoMsg(endorsePb *iproto.EndorsePb) (*Endorsement, error) {
 		return nil, errors.New("Invalid topic")
 	}
 	vote := NewConsensusVote(
-		byteutil.BytesTo32B(endorsePb.BlockHash),
+		endorsePb.BlockHash,
 		endorsePb.Height,
 		endorsePb.Round,
 		topic,
