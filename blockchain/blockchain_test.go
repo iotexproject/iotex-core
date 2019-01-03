@@ -223,8 +223,6 @@ func TestCreateBlockchain(t *testing.T) {
 	cfg := config.Default
 	// disable account-based testing
 	cfg.Chain.TrieDBPath = ""
-	// Disable block reward to make bookkeeping easier
-	Gen.BlockReward = big.NewInt(0)
 
 	// create chain
 	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption())
@@ -293,9 +291,6 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	defer testutil.CleanupPath(t, testTriePath)
 	testutil.CleanupPath(t, testDBPath)
 	defer testutil.CleanupPath(t, testDBPath)
-
-	// Disable block reward to make bookkeeping easier
-	Gen.BlockReward = big.NewInt(0)
 
 	cfg := config.Default
 	cfg.DB.UseBadgerDB = true // test with badgerDB
@@ -536,8 +531,6 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	testutil.CleanupPath(t, testDBPath)
 	defer testutil.CleanupPath(t, testDBPath)
 	ctx := context.Background()
-	// Disable block reward to make bookkeeping easier
-	Gen.BlockReward = big.NewInt(0)
 	cfg := config.Default
 	cfg.DB.UseBadgerDB = false // test with boltDB
 	cfg.Chain.TrieDBPath = testTriePath
@@ -758,8 +751,6 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.NumCandidates = 2
-	// Disable block reward to make bookkeeping easier
-	Gen.BlockReward = big.NewInt(0)
 
 	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 	require.Nil(err)
@@ -790,11 +781,11 @@ func TestCoinbaseTransfer(t *testing.T) {
 	cfg.Chain.ChainDBPath = testDBPath
 
 	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
+	sf.AddActionHandlers(account.NewProtocol())
 	require.Nil(err)
 	require.NoError(sf.Start(context.Background()))
 	require.NoError(addCreatorToFactory(sf))
 
-	Gen.BlockReward = big.NewInt(0)
 	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	bc.Validator().AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
@@ -803,24 +794,19 @@ func TestCoinbaseTransfer(t *testing.T) {
 	height := bc.TipHeight()
 	require.Equal(0, int(height))
 
-	actions := []action.SealedEnvelope{}
-	blk, err := bc.MintNewBlock(actions, ta.Addrinfo["producer"], nil, nil, "")
+	blk, err := bc.MintNewBlock([]action.SealedEnvelope{}, ta.Addrinfo["alfa"], nil, nil, "")
 	require.Nil(err)
-	s, err := bc.StateByAddr(ta.Addrinfo["producer"].RawAddress)
+	s, err := bc.StateByAddr(ta.Addrinfo["alfa"].RawAddress)
 	require.Nil(err)
-	b := s.Balance
-	require.True(b.String() == Gen.TotalSupply.String())
+	require.Equal(big.NewInt(0), s.Balance)
 	require.Nil(bc.ValidateBlock(blk, true))
 	require.Nil(bc.CommitBlock(blk))
 	height = bc.TipHeight()
 	require.True(height == 1)
 	require.True(len(blk.Actions) == 1)
-	s, err = bc.StateByAddr(ta.Addrinfo["producer"].RawAddress)
+	s, err = bc.StateByAddr(ta.Addrinfo["alfa"].RawAddress)
 	require.Nil(err)
-	b = s.Balance
-	expectedBalance := big.NewInt(0)
-	expectedBalance.Add(Gen.TotalSupply, Gen.BlockReward)
-	require.True(b.String() == expectedBalance.String())
+	require.Equal(Gen.BlockReward, s.Balance)
 }
 
 func TestBlockchain_StateByAddr(t *testing.T) {

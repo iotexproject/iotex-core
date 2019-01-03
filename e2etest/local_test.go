@@ -44,8 +44,6 @@ func TestLocalCommit(t *testing.T) {
 	testutil.CleanupPath(t, testTriePath)
 	testutil.CleanupPath(t, testDBPath)
 
-	blockchain.Gen.BlockReward = big.NewInt(0)
-
 	cfg, err := newTestConfig()
 	require.Nil(err)
 
@@ -132,7 +130,16 @@ func TestLocalCommit(t *testing.T) {
 	t.Logf("test balance = %d", test)
 	change.Add(change, test)
 
-	require.Equal(blockchain.ConvertIotxToRau(3000000000).String(), change.String())
+	require.Equal(
+		big.NewInt(0).Add(
+			blockchain.ConvertIotxToRau(3000000000),
+			big.NewInt(0).Mul(
+				blockchain.Gen.BlockReward,
+				big.NewInt(int64(bc.TipHeight())),
+			),
+		),
+		change,
+	)
 	t.Log("Total balance match")
 
 	if beta.Sign() == 0 || fox.Sign() == 0 || test.Sign() == 0 {
@@ -314,7 +321,16 @@ func TestLocalCommit(t *testing.T) {
 	t.Logf("test balance = %d", test)
 	change.Add(change, test)
 
-	require.Equal(blockchain.ConvertIotxToRau(3000000000).String(), change.String())
+	require.Equal(
+		big.NewInt(0).Add(
+			blockchain.ConvertIotxToRau(3000000000),
+			big.NewInt(0).Mul(
+				blockchain.Gen.BlockReward,
+				big.NewInt(int64(bc.TipHeight())),
+			),
+		),
+		change,
+	)
 	t.Log("Total balance match")
 }
 
@@ -453,8 +469,6 @@ func TestVoteLocalCommit(t *testing.T) {
 	cfg, err := newTestConfig()
 	cfg.Chain.NumCandidates = 2
 	require.Nil(err)
-
-	blockchain.Gen.BlockReward = big.NewInt(0)
 
 	// create node
 	ctx := context.Background()
@@ -733,8 +747,6 @@ func TestBlockchainRecovery(t *testing.T) {
 
 	testutil.CleanupPath(t, testTriePath)
 	testutil.CleanupPath(t, testDBPath)
-
-	blockchain.Gen.BlockReward = big.NewInt(0)
 
 	cfg, err := newTestConfig()
 	require.Nil(err)
