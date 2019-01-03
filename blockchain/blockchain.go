@@ -375,7 +375,7 @@ func (bc *blockchain) GetBlockByHeight(height uint64) (*block.Block, error) {
 	if blk == nil || err != nil {
 		return blk, err
 	}
-	blk.HeaderLogContext(logger.Logger()).Info().Msg("get a block")
+	blk.HeaderLogger(logger.Logger()).Info().Msg("get a block")
 	return blk, err
 }
 
@@ -1112,7 +1112,7 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 			return errors.Wrapf(err, "failed to put smart contract receipts into DB on height %d", blk.Height())
 		}
 	}
-	blk.HeaderLogContext(logger.Logger()).Info().
+	blk.HeaderLogger(logger.Logger()).Info().
 		Hex("tipHash", bc.tipHash[:]).Msg("Committed a block.")
 	return nil
 }

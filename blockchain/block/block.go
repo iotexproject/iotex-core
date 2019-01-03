@@ -135,7 +135,8 @@ func (b *Block) DKGSignature() []byte {
 	return sig
 }
 
-func (b *Block) HeaderLogContext(l *zerolog.Logger) *zerolog.Logger {
+// HeaderLogger returns a new logger with block header fields' value.
+func (b *Block) HeaderLogger(l *zerolog.Logger) *zerolog.Logger {
 	ctxl := l.With().
 		Uint32("version", b.Header.version).
 		Uint32("chainID", b.Header.chainID).

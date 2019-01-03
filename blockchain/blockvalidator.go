@@ -262,7 +262,7 @@ func verifyHeightAndHash(blk *block.Block, tipHeight uint64, tipHash hash.Hash32
 	}
 	// verify new block has correctly linked to current tip
 	if blk.PrevHash() != tipHash {
-		blk.HeaderLogContext(logger.Logger()).Error().
+		blk.HeaderLogger(logger.Logger()).Error().
 			Hex("expectedBlockHash", tipHash[:]).
 			Msg("Previous block hash doesn't match.")
 		return errors.Wrapf(
