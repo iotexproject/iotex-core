@@ -17,7 +17,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/p2p"
@@ -45,8 +44,6 @@ func TestLocalActPool(t *testing.T) {
 
 	cfg, err := newActPoolConfig()
 	require.NoError(err)
-
-	blockchain.Gen.BlockReward = big.NewInt(0)
 
 	// create server
 	ctx := context.Background()
@@ -131,8 +128,6 @@ func TestPressureActPool(t *testing.T) {
 
 	cfg, err := newActPoolConfig()
 	require.NoError(err)
-
-	blockchain.Gen.BlockReward = big.NewInt(0)
 
 	// create server
 	ctx := context.Background()

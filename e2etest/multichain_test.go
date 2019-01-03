@@ -35,10 +35,6 @@ import (
 )
 
 func TestTwoChains(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping TestTwoChains in short mode.")
-	}
-
 	dir := os.TempDir()
 	cleanDB := func() {
 		testutil.CleanupPath(t, path.Join(dir, "./trie.db"))
