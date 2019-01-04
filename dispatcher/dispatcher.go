@@ -99,7 +99,8 @@ type IotxDispatcher struct {
 	wg             sync.WaitGroup
 	quit           chan struct{}
 
-	subscribers map[uint32]Subscriber
+	subscribers   map[uint32]Subscriber
+	subscribersMU sync.RWMutex
 }
 
 // NewDispatcher creates a new Dispatcher
@@ -120,7 +121,9 @@ func (d *IotxDispatcher) AddSubscriber(
 	chainID uint32,
 	subscriber Subscriber,
 ) {
+	d.subscribersMU.Lock()
 	d.subscribers[chainID] = subscriber
+	d.subscribersMU.Unlock()
 }
 
 // Start starts the dispatcher.
@@ -206,6 +209,8 @@ func (d *IotxDispatcher) handleActionMsg(m *actionMsg) {
 
 // handleBlockMsg handles blockMsg from peers.
 func (d *IotxDispatcher) handleBlockMsg(m *blockMsg) {
+	d.subscribersMU.RLock()
+	defer d.subscribersMU.RUnlock()
 	if subscriber, ok := d.subscribers[m.ChainID()]; ok {
 		if m.blkType == pb.MsgBlockProtoMsgType {
 			d.updateEventAudit(pb.MsgBlockProtoMsgType)

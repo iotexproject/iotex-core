@@ -118,19 +118,21 @@ func NewBlockSyncer(
 
 // TargetHeight returns the target height to sync to
 func (bs *blockSyncer) TargetHeight() uint64 {
+	bs.worker.mu.RLock()
+	defer bs.worker.mu.RUnlock()
 	return bs.worker.targetHeight
 }
 
 // Start starts a block syncer
 func (bs *blockSyncer) Start(ctx context.Context) error {
 	logger.Debug().Msg("Starting block syncer")
+	bs.commitHeight = bs.buf.CommitHeight()
 	if err := bs.chaser.Start(ctx); err != nil {
 		return err
 	}
 	if err := bs.worker.Start(ctx); err != nil {
 		return err
 	}
-	bs.commitHeight = bs.buf.CommitHeight()
 	return nil
 }
 
