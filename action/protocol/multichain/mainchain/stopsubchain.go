@@ -88,9 +88,5 @@ func (p *Protocol) handleStopSubChain(stop *action.StopSubChain, sm protocol.Sta
 	if !deleted {
 		return fmt.Errorf("address %s is not on a sub-chain in operation", subChainAddr)
 	}
-	if err := sm.PutState(SubChainsInOperationKey, subChainsInOp); err != nil {
-		return err
-	}
-
-	return nil
+	return sm.PutState(SubChainsInOperationKey, subChainsInOp)
 }

@@ -471,7 +471,7 @@ func Test4kEntries(t *testing.T) {
 		k = blake2b.Sum256(k[:])
 		v := testV[k[0]&7]
 		if _, err := tr.Get(k[:4]); err == nil {
-			t.Logf("Warning: collission on k %x", k[:4])
+			t.Logf("Warning: collision on k %x", k[:4])
 			break
 		}
 		require.Nil(tr.Upsert(k[:4], v))
