@@ -9,6 +9,7 @@ package blockchain
 import (
 	"context"
 
+	"github.com/boltdb/bolt"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -89,36 +90,47 @@ func (dao *blockDAO) Start(ctx context.Context) error {
 	}
 
 	// set init height value
-	if err := dao.kvstore.PutIfNotExists(blockNS, topHeightKey, make([]byte, 8)); err != nil {
-		// ok on none-fresh db
-		if err == db.ErrAlreadyExist {
-			return nil
+	// TODO: not working with badger, we shouldn't expose detailed db error (e.g., bolt.ErrBucketExists) to application
+	if _, err = dao.kvstore.Get(blockNS, topHeightKey); err != nil &&
+		(errors.Cause(err) == db.ErrNotExist || errors.Cause(err) == bolt.ErrBucketNotFound) {
+		if err := dao.kvstore.Put(blockNS, topHeightKey, make([]byte, 8)); err != nil {
+			return errors.Wrap(err, "failed to write initial value for top height")
 		}
-
-		return errors.Wrap(err, "failed to write initial value for top height")
 	}
 
 	// TODO: To be deprecated
 	// set init total transfer to be 0
-	if err = dao.kvstore.PutIfNotExists(blockNS, totalTransfersKey, make([]byte, 8)); err != nil {
-		return errors.Wrap(err, "failed to write initial value for total transfers")
+	if _, err := dao.kvstore.Get(blockNS, totalTransfersKey); err != nil &&
+		(errors.Cause(err) == db.ErrNotExist || errors.Cause(err) == bolt.ErrBucketNotFound) {
+		if err = dao.kvstore.Put(blockNS, totalTransfersKey, make([]byte, 8)); err != nil {
+			return errors.Wrap(err, "failed to write initial value for total transfers")
+		}
 	}
 
 	// TODO: To be deprecated
 	// set init total vote to be 0
-	if err = dao.kvstore.PutIfNotExists(blockNS, totalVotesKey, make([]byte, 8)); err != nil {
-		return errors.Wrap(err, "failed to write initial value for total votes")
+	if _, err := dao.kvstore.Get(blockNS, totalVotesKey); err != nil &&
+		(errors.Cause(err) == db.ErrNotExist || errors.Cause(err) == bolt.ErrBucketNotFound) {
+		if err = dao.kvstore.Put(blockNS, totalVotesKey, make([]byte, 8)); err != nil {
+			return errors.Wrap(err, "failed to write initial value for total votes")
+		}
 	}
 
 	// TODO: To be deprecated
 	// set init total executions to be 0
-	if err = dao.kvstore.PutIfNotExists(blockNS, totalExecutionsKey, make([]byte, 8)); err != nil {
-		return errors.Wrap(err, "failed to write initial value for total executions")
+	if _, err := dao.kvstore.Get(blockNS, totalExecutionsKey); err != nil &&
+		(errors.Cause(err) == db.ErrNotExist || errors.Cause(err) == bolt.ErrBucketNotFound) {
+		if err = dao.kvstore.Put(blockNS, totalExecutionsKey, make([]byte, 8)); err != nil {
+			return errors.Wrap(err, "failed to write initial value for total executions")
+		}
 	}
 
 	// set init total actions to be 0
-	if err = dao.kvstore.PutIfNotExists(blockNS, totalActionsKey, make([]byte, 8)); err != nil {
-		return errors.Wrap(err, "failed to write initial value for total actions")
+	if _, err := dao.kvstore.Get(blockNS, totalActionsKey); err != nil &&
+		(errors.Cause(err) == db.ErrNotExist || errors.Cause(err) == bolt.ErrBucketNotFound) {
+		if err = dao.kvstore.Put(blockNS, totalActionsKey, make([]byte, 8)); err != nil {
+			return errors.Wrap(err, "failed to write initial value for total actions")
+		}
 	}
 
 	return nil
@@ -667,7 +679,7 @@ func (dao *blockDAO) putBlock(blk *block.Block) error {
 		return errors.Wrap(err, "failed to serialize block")
 	}
 	hash := blk.HashBlock()
-	batch.PutIfNotExists(blockNS, hash[:], serialized, "failed to put block")
+	batch.Put(blockNS, hash[:], serialized, "failed to put block")
 
 	hashKey := append(hashPrefix, hash[:]...)
 	batch.Put(blockHashHeightMappingNS, hashKey, height, "failed to put hash -> height mapping")
@@ -800,7 +812,7 @@ func putTransfers(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) error 
 		// put new transfer to sender
 		senderKey := append(transferFromPrefix, transfer.Sender()...)
 		senderKey = append(senderKey, byteutil.Uint64ToBytes(senderTransferCount)...)
-		batch.PutIfNotExists(blockAddressTransferMappingNS, senderKey, transferHash[:],
+		batch.Put(blockAddressTransferMappingNS, senderKey, transferHash[:],
 			"failed to put transfer hash %x for sender %x", transfer.Hash(), transfer.Sender())
 
 		// update sender transfers count
@@ -825,7 +837,7 @@ func putTransfers(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) error 
 		recipientKey := append(transferToPrefix, transfer.Recipient()...)
 		recipientKey = append(recipientKey, byteutil.Uint64ToBytes(recipientTransferCount)...)
 
-		batch.PutIfNotExists(blockAddressTransferMappingNS, recipientKey, transferHash[:],
+		batch.Put(blockAddressTransferMappingNS, recipientKey, transferHash[:],
 			"failed to put transfer hash %x for recipient %x", transfer.Hash(), transfer.Recipient())
 
 		// update recipient transfers count
@@ -868,7 +880,7 @@ func putVotes(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) error {
 		// put new vote to sender
 		senderKey := append(voteFromPrefix, Sender...)
 		senderKey = append(senderKey, byteutil.Uint64ToBytes(senderVoteCount)...)
-		batch.PutIfNotExists(blockAddressVoteMappingNS, senderKey, voteHash[:],
+		batch.Put(blockAddressVoteMappingNS, senderKey, voteHash[:],
 			"failed to put vote hash %x for sender %x", voteHash, Sender)
 
 		// update sender votes count
@@ -892,7 +904,7 @@ func putVotes(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) error {
 		// put new vote to recipient
 		recipientKey := append(voteToPrefix, Recipient...)
 		recipientKey = append(recipientKey, byteutil.Uint64ToBytes(recipientVoteCount)...)
-		batch.PutIfNotExists(blockAddressVoteMappingNS, recipientKey, voteHash[:],
+		batch.Put(blockAddressVoteMappingNS, recipientKey, voteHash[:],
 			"failed to put vote hash %x for recipient %x", voteHash, Recipient)
 
 		// update recipient votes count
@@ -930,7 +942,7 @@ func putExecutions(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) error
 		// put new execution to executor
 		executorKey := append(executionFromPrefix, execution.Executor()...)
 		executorKey = append(executorKey, byteutil.Uint64ToBytes(executorExecutionCount)...)
-		batch.PutIfNotExists(blockAddressExecutionMappingNS, executorKey, executionHash[:],
+		batch.Put(blockAddressExecutionMappingNS, executorKey, executionHash[:],
 			"failed to put execution hash %x for executor %x", execution.Hash(), execution.Executor())
 
 		// update executor executions count
@@ -954,7 +966,7 @@ func putExecutions(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) error
 		// put new execution to contract
 		contractKey := append(executionToPrefix, execution.Contract()...)
 		contractKey = append(contractKey, byteutil.Uint64ToBytes(contractExecutionCount)...)
-		batch.PutIfNotExists(blockAddressExecutionMappingNS, contractKey, executionHash[:],
+		batch.Put(blockAddressExecutionMappingNS, contractKey, executionHash[:],
 			"failed to put execution hash %x for contract %x", execution.Hash(), execution.Contract())
 
 		// update contract executions count
@@ -988,7 +1000,7 @@ func putActions(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) error {
 		// put new action to sender
 		senderKey := append(actionFromPrefix, selp.SrcAddr()...)
 		senderKey = append(senderKey, byteutil.Uint64ToBytes(senderActionCount)...)
-		batch.PutIfNotExists(blockAddressActionMappingNS, senderKey, actHash[:],
+		batch.Put(blockAddressActionMappingNS, senderKey, actHash[:],
 			"failed to put action hash %x for sender %s", actHash, selp.SrcAddr())
 
 		// update sender action count
@@ -1012,7 +1024,7 @@ func putActions(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) error {
 		// put new action to recipient
 		recipientKey := append(actionToPrefix, selp.DstAddr()...)
 		recipientKey = append(recipientKey, byteutil.Uint64ToBytes(recipientActionCount)...)
-		batch.PutIfNotExists(blockAddressActionMappingNS, recipientKey, actHash[:],
+		batch.Put(blockAddressActionMappingNS, recipientKey, actHash[:],
 			"failed to put action hash %x for recipient %s", actHash, selp.DstAddr())
 
 		// update recipient action count

@@ -21,7 +21,6 @@ func TestCachedBatch(t *testing.T) {
 	v, err := cb.Get(bucket1, testK1[0])
 	require.NoError(err)
 	require.Equal(testV1[0], v)
-	require.Equal(ErrAlreadyExist, cb.PutIfNotExists(bucket1, testK1[0], testV1[0], ""))
 	v, err = cb.Get(bucket1, testK2[0])
 	require.Equal(ErrNotExist, err)
 	require.Equal([]byte(nil), v)
@@ -30,10 +29,6 @@ func TestCachedBatch(t *testing.T) {
 	cb.Delete(bucket1, testK1[0], "")
 	_, err = cb.Get(bucket1, testK1[0])
 	require.Equal(ErrAlreadyDeleted, errors.Cause(err))
-	require.NoError(cb.PutIfNotExists(bucket1, testK1[0], testV1[0], ""))
-	v, err = cb.Get(bucket1, testK1[0])
-	require.NoError(err)
-	require.Equal(testV1[0], v)
 
 	w, err := cb.Entry(1)
 	require.NoError(err)
@@ -42,18 +37,17 @@ func TestCachedBatch(t *testing.T) {
 	require.Equal([]byte(nil), w.value)
 	require.Equal(Delete, w.writeType)
 
-	w, err = cb.Entry(3)
+	w, err = cb.Entry(2)
 	require.NoError(err)
 	require.Equal(bucket1, w.namespace)
 	require.Equal(testK1[0], w.key)
-	require.Equal(testV1[0], w.value)
-	require.Equal(PutIfNotExists, w.writeType)
+	require.Equal([]byte(nil), w.value)
+	require.Equal(Delete, w.writeType)
 
 	// test clone
 	c := cb.clone()
-	v, err = c.Get(bucket1, testK1[0])
-	require.NoError(err)
-	require.Equal(testV1[0], v)
+	_, err = c.Get(bucket1, testK1[0])
+	require.Equal(ErrAlreadyDeleted, errors.Cause(err))
 
 	w, err = c.Entry(0)
 	require.NoError(err)
@@ -92,13 +86,12 @@ func TestSnapshot(t *testing.T) {
 
 	cb.Put(bucket1, testK1[2], testV1[2], "")
 	cb.Put(bucket1, testK2[2], testV2[2], "")
-	require.NoError(cb.PutIfNotExists(bucket1, testK1[0], testV1[0], ""))
 	cb.Delete(bucket1, testK2[0], "")
 	_, err = cb.Get(bucket1, testK2[0])
 	require.Equal(ErrAlreadyDeleted, err)
 	s2 := cb.Snapshot()
 	require.Equal(2, s2)
-	require.Equal(9, cb.Size())
+	require.Equal(8, cb.Size())
 
 	// snapshot 2
 	require.Error(cb.Revert(3))
@@ -106,9 +99,6 @@ func TestSnapshot(t *testing.T) {
 	require.NoError(cb.Revert(2))
 	_, err = cb.Get(bucket1, testK2[0])
 	require.Equal(ErrAlreadyDeleted, err)
-	v, err = cb.Get(bucket1, testK1[0])
-	require.NoError(err)
-	require.Equal(testV1[0], v)
 	v, err = cb.Get(bucket1, testK1[1])
 	require.NoError(err)
 	require.Equal(testV1[1], v)

@@ -76,33 +76,6 @@ func (b *badgerDB) Put(namespace string, key, value []byte) error {
 	return err
 }
 
-// PutIfNotExists inserts a <key, value> record only if it does not exist yet, otherwise return ErrAlreadyExist
-func (b *badgerDB) PutIfNotExists(namespace string, key, value []byte) error {
-	b.mutex.Lock()
-	defer b.mutex.Unlock()
-
-	var err error
-	for c := uint8(0); c < b.config.NumRetries; c++ {
-		err = b.db.Update(func(txn *badger.Txn) error {
-			// check if already exist
-			k := append([]byte(namespace), key...)
-			_, err := txn.Get(k)
-			if err == nil {
-				return ErrAlreadyExist
-			}
-			if err != badger.ErrKeyNotFound {
-				return err
-			}
-			// put <k, v>
-			return txn.Set(k, value)
-		})
-		if err == nil {
-			break
-		}
-	}
-	return err
-}
-
 // Get retrieves a record
 func (b *badgerDB) Get(namespace string, key []byte) ([]byte, error) {
 	b.mutex.Lock()
@@ -173,18 +146,6 @@ func (b *badgerDB) Commit(batch KVStoreBatch) error {
 				k := append([]byte(write.namespace), write.key...)
 
 				if write.writeType == Put {
-					if err := txn.Set(k, write.value); err != nil {
-						return errors.Wrapf(err, write.errorFormat, write.errorArgs)
-					}
-				} else if write.writeType == PutIfNotExists {
-					_, err := txn.Get(k)
-					if err == nil {
-						return ErrAlreadyExist
-					}
-					if err != badger.ErrKeyNotFound {
-						return errors.Wrapf(err, write.errorFormat, write.errorArgs)
-					}
-					// put <k, v>
 					if err := txn.Set(k, write.value); err != nil {
 						return errors.Wrapf(err, write.errorFormat, write.errorArgs)
 					}
