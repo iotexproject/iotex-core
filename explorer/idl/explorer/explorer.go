@@ -8,8 +8,8 @@ import (
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "a3ce028b4a2de9f843ff6b5bb8234da8"
-const BarristerDateGenerated int64 = 1545331373998000000
+const BarristerChecksum string = "28e3e4647ba0a2e4a57cd17c9d907fae"
+const BarristerDateGenerated int64 = 1546551471062000000
 
 type CoinStatistic struct {
 	Height     int64  `json:"height"`
@@ -346,6 +346,7 @@ type Explorer interface {
 	EstimateGasForTransfer(request SendTransferRequest) (int64, error)
 	EstimateGasForVote() (int64, error)
 	EstimateGasForSmartContract(request Execution) (int64, error)
+	GetStateRootHash(blockHeight int64) (string, error)
 }
 
 func NewExplorerProxy(c barrister.Client) Explorer {
@@ -1165,6 +1166,24 @@ func (_p ExplorerProxy) EstimateGasForSmartContract(request Execution) (int64, e
 		return _cast, nil
 	}
 	return int64(0), _err
+}
+
+func (_p ExplorerProxy) GetStateRootHash(blockHeight int64) (string, error) {
+	_res, _err := _p.client.Call("Explorer.getStateRootHash", blockHeight)
+	if _err == nil {
+		_retType := _p.idl.Method("Explorer.getStateRootHash").Returns
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(""), _res, "")
+	}
+	if _err == nil {
+		_cast, _ok := _res.(string)
+		if !_ok {
+			_t := reflect.TypeOf(_res)
+			_msg := fmt.Sprintf("Explorer.getStateRootHash returned invalid type: %v", _t)
+			return "", &barrister.JsonRpcError{Code: -32000, Message: _msg}
+		}
+		return _cast, nil
+	}
+	return "", _err
 }
 
 func NewJSONServer(idl *barrister.Idl, forceASCII bool, explorer Explorer) barrister.Server {
@@ -4098,6 +4117,26 @@ var IdlJsonRaw = `[
                     "is_array": false,
                     "comment": ""
                 }
+            },
+            {
+                "name": "getStateRootHash",
+                "comment": "get the state root hash of a given block height",
+                "params": [
+                    {
+                        "name": "blockHeight",
+                        "type": "int",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    }
+                ],
+                "returns": {
+                    "name": "",
+                    "type": "string",
+                    "optional": false,
+                    "is_array": false,
+                    "comment": ""
+                }
             }
         ],
         "barrister_version": "",
@@ -4114,7 +4153,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1545331373998,
-        "checksum": "a3ce028b4a2de9f843ff6b5bb8234da8"
+        "date_generated": 1546551471062,
+        "checksum": "28e3e4647ba0a2e4a57cd17c9d907fae"
     }
 ]`

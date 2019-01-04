@@ -43,6 +43,7 @@ import (
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_consensus"
 	"github.com/iotexproject/iotex-core/test/mock/mock_dispatcher"
+	"github.com/iotexproject/iotex-core/test/mock/mock_factory"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -1121,6 +1122,22 @@ func TestService_GetDeposits(t *testing.T) {
 	deposits, err = svc.GetDeposits(2, 0, 2)
 	assert.NoError(err)
 	assert.Equal(1, len(deposits))
+}
+
+func TestService_GetStateRootHash(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	bc := mock_blockchain.NewMockBlockchain(ctrl)
+	sf := mock_factory.NewMockFactory(ctrl)
+	bc.EXPECT().GetFactory().Return(sf).AnyTimes()
+	rootHash := byteutil.BytesTo32B(hash.Hash256b([]byte("test")))
+	sf.EXPECT().RootHashByHeight(gomock.Any()).Return(rootHash, nil).Times(1)
+
+	defer ctrl.Finish()
+
+	svc := Service{bc: bc}
+	rootHashStr, err := svc.GetStateRootHash(1)
+	assert.NoError(t, err)
+	assert.Equal(t, hex.EncodeToString(rootHash[:]), rootHashStr)
 }
 
 func addCreatorToFactory(sf factory.Factory) error {

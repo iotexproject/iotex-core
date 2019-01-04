@@ -1526,6 +1526,15 @@ func (exp *Service) EstimateGasForSmartContract(execution explorer.Execution) (i
 	return exp.gs.estimateGasForSmartContract(execution)
 }
 
+// GetStateRootHash gets the state root hash of a given block height
+func (exp *Service) GetStateRootHash(blockHeight int64) (string, error) {
+	rootHash, err := exp.bc.GetFactory().RootHashByHeight(uint64(blockHeight))
+	if err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(rootHash[:]), nil
+}
+
 // getTransfer takes in a blockchain and transferHash and returns an Explorer Transfer
 func getTransfer(bc blockchain.Blockchain, ap actpool.ActPool, transferHash hash.Hash32B, idx *indexservice.Server, useRDS bool) (explorer.Transfer, error) {
 	explorerTransfer := explorer.Transfer{}

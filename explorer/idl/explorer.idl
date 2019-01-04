@@ -439,4 +439,7 @@ interface Explorer {
 
     // estimate gas for smart contract
     estimateGasForSmartContract(request Execution) int
+
+    // get the state root hash of a given block height
+    getStateRootHash(blockHeight int) string
 }
