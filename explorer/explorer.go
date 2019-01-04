@@ -820,6 +820,8 @@ func (exp *Service) GetLastBlocksByRange(offset int64, limit int64) ([]explorer.
 			totalSize += transfer.TotalSize()
 		}
 
+		txRoot := blk.TxRoot()
+		stateRoot := blk.StateRoot()
 		explorerBlock := explorer.Block{
 			ID:         hex.EncodeToString(hash[:]),
 			Height:     int64(blockHeaderPb.Height),
@@ -833,6 +835,8 @@ func (exp *Service) GetLastBlocksByRange(offset int64, limit int64) ([]explorer.
 				Name:    "",
 				Address: keypair.EncodePublicKey(blk.PublicKey()),
 			},
+			TxRoot:    hex.EncodeToString(txRoot[:]),
+			StateRoot: hex.EncodeToString(stateRoot[:]),
 		}
 
 		res = append(res, explorerBlock)
@@ -865,6 +869,8 @@ func (exp *Service) GetBlockByID(blkID string) (explorer.Block, error) {
 		totalSize += transfer.TotalSize()
 	}
 
+	txRoot := blk.TxRoot()
+	stateRoot := blk.StateRoot()
 	explorerBlock := explorer.Block{
 		ID:         blkID,
 		Height:     int64(blkHeaderPb.Height),
@@ -878,6 +884,8 @@ func (exp *Service) GetBlockByID(blkID string) (explorer.Block, error) {
 			Name:    "",
 			Address: keypair.EncodePublicKey(blk.PublicKey()),
 		},
+		TxRoot:    hex.EncodeToString(txRoot[:]),
+		StateRoot: hex.EncodeToString(stateRoot[:]),
 	}
 
 	return explorerBlock, nil

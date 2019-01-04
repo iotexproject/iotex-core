@@ -40,6 +40,8 @@ struct Block {
     amount string
     forged int
     size int
+    txRoot string
+    stateRoot string
 }
 
 struct Transfer {

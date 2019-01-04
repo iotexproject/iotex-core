@@ -8,8 +8,8 @@ import (
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "28e3e4647ba0a2e4a57cd17c9d907fae"
-const BarristerDateGenerated int64 = 1546551471062000000
+const BarristerChecksum string = "930ad8ed4154e09b1263a8f435f6934d"
+const BarristerDateGenerated int64 = 1546625898440000000
 
 type CoinStatistic struct {
 	Height     int64  `json:"height"`
@@ -36,6 +36,8 @@ type Block struct {
 	Amount     string         `json:"amount"`
 	Forged     int64          `json:"forged"`
 	Size       int64          `json:"size"`
+	TxRoot     string         `json:"txRoot"`
+	StateRoot  string         `json:"stateRoot"`
 }
 
 type Transfer struct {
@@ -1406,6 +1408,20 @@ var IdlJsonRaw = `[
             {
                 "name": "size",
                 "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "txRoot",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "stateRoot",
+                "type": "string",
                 "optional": false,
                 "is_array": false,
                 "comment": ""
@@ -4153,7 +4169,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1546551471062,
-        "checksum": "28e3e4647ba0a2e4a57cd17c9d907fae"
+        "date_generated": 1546625898440,
+        "checksum": "930ad8ed4154e09b1263a8f435f6934d"
     }
 ]`
