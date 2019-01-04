@@ -29,7 +29,7 @@ const testnetActionPath = "testnet_actions.yaml"
 type Genesis struct {
 	TotalSupply         *big.Int
 	BlockReward         *big.Int
-	Timestamp           uint64
+	Timestamp           int64
 	ParentHash          hash.Hash32B
 	GenesisCoinbaseData string
 	CreatorPubKey       string
@@ -75,7 +75,7 @@ type SubChain struct {
 var Gen = &Genesis{
 	TotalSupply:         ConvertIotxToRau(10000000000),
 	BlockReward:         ConvertIotxToRau(5),
-	Timestamp:           uint64(1524676419),
+	Timestamp:           1524676419,
 	ParentHash:          hash.Hash32B{},
 	GenesisCoinbaseData: "Connecting the physical world, block by block",
 }

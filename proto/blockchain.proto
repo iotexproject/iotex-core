@@ -16,7 +16,7 @@ message BlockHeaderPb {
     uint32 version = 1;
     uint32 chainID = 2;
     uint64 height = 3;
-    uint64 timestamp = 4;
+    int64 timestamp = 4;
     bytes prevBlockHash = 5;
     bytes txRoot = 6;
     bytes stateRoot = 7;
