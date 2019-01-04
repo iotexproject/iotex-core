@@ -21,7 +21,6 @@ type (
 	// b := NewBatch()
 	// and keep batching Put/Delete operation into it
 	// b.Put(bucket, k, v)
-	// b.PutIfNotExists(bucket, k, v)
 	// b.Delete(bucket, k, v)
 	// once it's done, call KVStore interface's Commit() to persist to underlying DB
 	// KVStore.Commit(b)
@@ -36,8 +35,6 @@ type (
 		ClearAndUnlock()
 		// Put insert or update a record identified by (namespace, key)
 		Put(string, []byte, []byte, string, ...interface{})
-		// PutIfNotExists puts a record only if (namespace, key) doesn't exist, otherwise return ErrAlreadyExist
-		PutIfNotExists(string, []byte, []byte, string, ...interface{}) error
 		// Delete deletes a record by (namespace, key)
 		Delete(string, []byte, string, ...interface{})
 		// Size returns the size of batch
@@ -100,8 +97,6 @@ const (
 	Put int32 = iota
 	// Delete indicate the type of write operation to be Delete
 	Delete int32 = 1
-	// PutIfNotExists indicate the type of write operation to be PutIfNotExists
-	PutIfNotExists int32 = 2
 )
 
 // NewBatch returns a batch
@@ -130,14 +125,6 @@ func (b *baseKVStoreBatch) Put(namespace string, key, value []byte, errorFormat 
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 	b.batch(Put, namespace, key, value, errorFormat, errorArgs)
-}
-
-// PutIfNotExists inserts a <key, value> record only if it does not exist yet, otherwise return ErrAlreadyExist
-func (b *baseKVStoreBatch) PutIfNotExists(namespace string, key, value []byte, errorFormat string, errorArgs ...interface{}) error {
-	b.mutex.Lock()
-	defer b.mutex.Unlock()
-	b.batch(PutIfNotExists, namespace, key, value, errorFormat, errorArgs)
-	return nil
 }
 
 // Delete deletes a record
@@ -243,19 +230,6 @@ func (cb *cachedBatch) Put(namespace string, key, value []byte, errorFormat stri
 	h := cb.hash(namespace, key)
 	cb.Write(h, value)
 	cb.batch(Put, namespace, key, value, errorFormat, errorArgs)
-}
-
-// PutIfNotExists inserts a <key, value> record only if it does not exist yet, otherwise return ErrAlreadyExist
-func (cb *cachedBatch) PutIfNotExists(namespace string, key, value []byte, errorFormat string, errorArgs ...interface{}) error {
-	cb.lock.Lock()
-	defer cb.lock.Unlock()
-	// TODO: bug, this is not a valid check whether the instance exists
-	h := cb.hash(namespace, key)
-	if err := cb.WriteIfNotExist(h, value); err != nil {
-		return err
-	}
-	cb.batch(PutIfNotExists, namespace, key, value, errorFormat, errorArgs)
-	return nil
 }
 
 // Delete deletes a record

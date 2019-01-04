@@ -303,7 +303,6 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	defer testutil.CleanupPath(t, testDBPath)
 
 	cfg := config.Default
-	cfg.DB.UseBadgerDB = true // test with badgerDB
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Explorer.Enabled = true
@@ -467,12 +466,11 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	require.NotNil(err)
 	fmt.Printf("Cannot validate block %d: %v\n", blk.Height(), err)
 
-	// cannot add existing block again
+	// add existing block again will have no effect
 	blk, err = bc.GetBlockByHeight(3)
 	require.NotNil(blk)
 	require.Nil(err)
-	err = bc.(*blockchain).commitBlock(blk)
-	require.NotNil(err)
+	require.NoError(bc.(*blockchain).commitBlock(blk))
 	fmt.Printf("Cannot add block 3 again: %v\n", err)
 
 	// check all Tx from block 4
@@ -691,12 +689,11 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	err = bc.ValidateBlock(&nblk, true)
 	require.NotNil(err)
 	fmt.Printf("Cannot validate block %d: %v\n", blk.Height(), err)
-	// cannot add existing block again
+	// add existing block again will have no effect
 	blk, err = bc.GetBlockByHeight(3)
 	require.NotNil(blk)
 	require.Nil(err)
-	err = bc.(*blockchain).commitBlock(blk)
-	require.NotNil(err)
+	require.NoError(bc.(*blockchain).commitBlock(blk))
 	fmt.Printf("Cannot add block 3 again: %v\n", err)
 	// check all Tx from block 4
 	blk, err = bc.GetBlockByHeight(4)
