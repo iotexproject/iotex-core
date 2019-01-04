@@ -22,7 +22,7 @@ func TestTestingBuilder(t *testing.T) {
 		SetHeight(1).
 		SetPrevBlockHash(hash.ZeroHash32B).
 		SetTimeStamp(testutil.TimestampNow()).
-		SignAndBuild(ta.Addrinfo["bravo"])
+		SignAndBuild(ta.IotxAddrinfo["bravo"])
 	require.NoError(t, err)
 
 	require.True(t, nblk.VerifySignature())
