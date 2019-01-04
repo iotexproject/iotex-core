@@ -52,6 +52,7 @@ const (
 type memKVStore struct {
 	data   *sync.Map
 	bucket map[string]struct{}
+	mu     sync.RWMutex
 }
 
 // NewMemKVStore instantiates an in-memory KV store
@@ -68,6 +69,8 @@ func (m *memKVStore) Stop(_ context.Context) error { return nil }
 
 // Put inserts a <key, value> record
 func (m *memKVStore) Put(namespace string, key, value []byte) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.bucket[namespace] = struct{}{}
 	m.data.Store(namespace+keyDelimiter+string(key), value)
 	return nil
@@ -75,6 +78,8 @@ func (m *memKVStore) Put(namespace string, key, value []byte) error {
 
 // PutIfNotExists inserts a <key, value> record only if it does not exist yet, otherwise return ErrAlreadyExist
 func (m *memKVStore) PutIfNotExists(namespace string, key, value []byte) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.bucket[namespace] = struct{}{}
 	_, loaded := m.data.LoadOrStore(namespace+keyDelimiter+string(key), value)
 	if loaded {
@@ -85,6 +90,8 @@ func (m *memKVStore) PutIfNotExists(namespace string, key, value []byte) error {
 
 // Get retrieves a record
 func (m *memKVStore) Get(namespace string, key []byte) ([]byte, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	if _, ok := m.bucket[namespace]; !ok {
 		return nil, errors.Wrapf(bolt.ErrBucketNotFound, "bucket = %s", namespace)
 	}

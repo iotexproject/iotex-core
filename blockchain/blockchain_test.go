@@ -11,6 +11,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"sync"
 	"testing"
 
 	"github.com/facebookgo/clock"
@@ -275,12 +276,21 @@ func TestCreateBlockchain(t *testing.T) {
 
 type MockSubscriber struct {
 	counter int
+	mu      sync.RWMutex
 }
 
 func (ms *MockSubscriber) HandleBlock(blk *block.Block) error {
+	ms.mu.Lock()
 	tsfs, _, _ := action.ClassifyActions(blk.Actions)
 	ms.counter += len(tsfs)
+	ms.mu.Unlock()
 	return nil
+}
+
+func (ms *MockSubscriber) Counter() int {
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
+	return ms.counter
 }
 
 func TestLoadBlockchainfromDB(t *testing.T) {
@@ -315,14 +325,14 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	ms := &MockSubscriber{counter: 0}
 	err = bc.AddSubscriber(ms)
 	require.Nil(err)
-	require.Equal(0, ms.counter)
+	require.Equal(0, ms.Counter())
 
 	height := bc.TipHeight()
 	fmt.Printf("Open blockchain pass, height = %d\n", height)
 	require.Nil(addTestingTsfBlocks(bc))
 	err = bc.Stop(ctx)
 	require.NoError(err)
-	require.Equal(27, ms.counter)
+	require.Equal(27, ms.Counter())
 
 	// Load a blockchain from DB
 	bc = NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())

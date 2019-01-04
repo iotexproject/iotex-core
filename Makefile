@@ -69,7 +69,7 @@ lint-rich:
 
 .PHONY: test
 test: fmt
-	$(GOTEST) -short ./...
+	$(GOTEST) -short -race ./...
 
 .PHONY: test-rich
 test-rich:
