@@ -130,10 +130,7 @@ func (bs *blockSyncer) Start(ctx context.Context) error {
 	if err := bs.chaser.Start(ctx); err != nil {
 		return err
 	}
-	if err := bs.worker.Start(ctx); err != nil {
-		return err
-	}
-	return nil
+	return bs.worker.Start(ctx)
 }
 
 // Stop stops a block syncer
