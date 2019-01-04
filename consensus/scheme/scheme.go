@@ -9,22 +9,22 @@ package scheme
 import (
 	"github.com/golang/protobuf/proto"
 
-	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/proto"
 )
 
 // CreateBlockCB defines the callback to create a new block
-type CreateBlockCB func() (*blockchain.Block, error)
+type CreateBlockCB func() (*block.Block, error)
 
 // TellPeerCB defines the callback to tell (which is a unicast) message to peers on P2P network
 type TellPeerCB func(proto.Message) error
 
 // ConsensusDoneCB defines the callback when consensus is reached
-type ConsensusDoneCB func(*blockchain.Block) error
+type ConsensusDoneCB func(*block.Block) error
 
 // BroadcastCB defines the callback to publish the consensus result
-type BroadcastCB func(*blockchain.Block) error
+type BroadcastCB func(*block.Block) error
 
 // Broadcast sends a broadcast message to the whole network
 type Broadcast func(msg proto.Message) error

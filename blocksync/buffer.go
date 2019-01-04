@@ -11,6 +11,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/logger"
 )
@@ -28,7 +29,7 @@ const (
 // blockBuffer is used to keep in-coming block in order.
 type blockBuffer struct {
 	mu           sync.RWMutex
-	blocks       map[uint64]*blockchain.Block
+	blocks       map[uint64]*block.Block
 	bc           blockchain.Blockchain
 	ap           actpool.ActPool
 	size         uint64
@@ -41,7 +42,7 @@ func (b *blockBuffer) CommitHeight() uint64 {
 }
 
 // Flush tries to put given block into buffer and flush buffer into blockchain.
-func (b *blockBuffer) Flush(blk *blockchain.Block) (bool, bCheckinResult) {
+func (b *blockBuffer) Flush(blk *block.Block) (bool, bCheckinResult) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	if blk == nil {

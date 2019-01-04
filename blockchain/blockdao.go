@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
@@ -155,7 +156,7 @@ func (dao *blockDAO) getBlockHeight(hash hash.Hash32B) (uint64, error) {
 }
 
 // getBlock returns a block
-func (dao *blockDAO) getBlock(hash hash.Hash32B) (*Block, error) {
+func (dao *blockDAO) getBlock(hash hash.Hash32B) (*block.Block, error) {
 	value, err := dao.kvstore.Get(blockNS, hash[:])
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get block %x", hash)
@@ -163,7 +164,7 @@ func (dao *blockDAO) getBlock(hash hash.Hash32B) (*Block, error) {
 	if len(value) == 0 {
 		return nil, errors.Wrapf(db.ErrNotExist, "block %x missing", hash)
 	}
-	blk := Block{}
+	blk := block.Block{}
 	if err = blk.Deserialize(value); err != nil {
 		return nil, errors.Wrap(err, "failed to deserialize block")
 	}
@@ -656,7 +657,7 @@ func (dao *blockDAO) getReceiptByActionHash(h hash.Hash32B) (*action.Receipt, er
 }
 
 // putBlock puts a block
-func (dao *blockDAO) putBlock(blk *Block) error {
+func (dao *blockDAO) putBlock(blk *block.Block) error {
 	batch := db.NewBatch()
 
 	height := byteutil.Uint64ToBytes(blk.Height())
@@ -776,7 +777,7 @@ func (dao *blockDAO) putBlock(blk *Block) error {
 
 // TODO: To be deprecated
 // putTransfers stores transfer information into db
-func putTransfers(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
+func putTransfers(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) error {
 	senderDelta := map[string]uint64{}
 	recipientDelta := map[string]uint64{}
 
@@ -839,7 +840,7 @@ func putTransfers(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 
 // TODO: To be deprecated
 // putVotes stores vote information into db
-func putVotes(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
+func putVotes(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) error {
 	senderDelta := map[string]uint64{}
 	recipientDelta := map[string]uint64{}
 
@@ -906,7 +907,7 @@ func putVotes(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 
 // TODO: To be deprecated
 // putExecutions stores execution information into db
-func putExecutions(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
+func putExecutions(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) error {
 	executorDelta := map[string]uint64{}
 	contractDelta := map[string]uint64{}
 
@@ -965,7 +966,7 @@ func putExecutions(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 	return nil
 }
 
-func putActions(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
+func putActions(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) error {
 	senderDelta := make(map[string]uint64)
 	recipientDelta := make(map[string]uint64)
 
@@ -1024,7 +1025,7 @@ func putActions(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 }
 
 // putReceipts store receipt into db
-func (dao *blockDAO) putReceipts(blk *Block) error {
+func (dao *blockDAO) putReceipts(blk *block.Block) error {
 	if blk.Receipts == nil {
 		return nil
 	}
@@ -1185,7 +1186,7 @@ func (dao *blockDAO) deleteTipBlock() error {
 
 // TODO: To be deprecated
 // deleteTransfers deletes transfer information from db
-func deleteTransfers(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
+func deleteTransfers(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) error {
 	transfers, _, _ := action.ClassifyActions(blk.Actions)
 	// First get the total count of transfers by sender and recipient respectively in the block
 	senderCount := make(map[string]uint64)
@@ -1255,7 +1256,7 @@ func deleteTransfers(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 
 // TODO: To be deprecated
 // deleteVotes deletes vote information from db
-func deleteVotes(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
+func deleteVotes(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) error {
 	_, votes, _ := action.ClassifyActions(blk.Actions)
 	// First get the total count of votes by sender and recipient respectively in the block
 	senderCount := make(map[string]uint64)
@@ -1328,7 +1329,7 @@ func deleteVotes(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 
 // TODO: To be deprecated
 // deleteExecutions deletes execution information from db
-func deleteExecutions(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
+func deleteExecutions(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) error {
 	_, _, executions := action.ClassifyActions(blk.Actions)
 	// First get the total count of executions by executor and contract respectively in the block
 	executorCount := make(map[string]uint64)
@@ -1397,7 +1398,7 @@ func deleteExecutions(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
 }
 
 // deleteReceipts deletes receipt information from db
-func deleteReceipts(blk *Block, batch db.KVStoreBatch) error {
+func deleteReceipts(blk *block.Block, batch db.KVStoreBatch) error {
 	for _, r := range blk.Receipts {
 		batch.Delete(blockActionReceiptMappingNS, r.Hash[:], "failed to delete receipt for action %x", r.Hash[:])
 	}
@@ -1405,7 +1406,7 @@ func deleteReceipts(blk *Block, batch db.KVStoreBatch) error {
 }
 
 // deleteActions deletes action information from db
-func deleteActions(dao *blockDAO, blk *Block, batch db.KVStoreBatch) error {
+func deleteActions(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) error {
 	// Firt get the total count of actions by sender and recipient respectively in the block
 	senderCount := make(map[string]uint64)
 	recipientCount := make(map[string]uint64)

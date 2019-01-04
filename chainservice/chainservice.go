@@ -18,6 +18,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus"
@@ -237,7 +238,7 @@ func (cs *ChainService) HandleAction(actPb *iproto.ActionPb) error {
 
 // HandleBlock handles incoming block request.
 func (cs *ChainService) HandleBlock(pbBlock *iproto.BlockPb) error {
-	blk := &blockchain.Block{}
+	blk := &block.Block{}
 	if err := blk.ConvertFromBlockPb(pbBlock); err != nil {
 		return err
 	}
@@ -246,7 +247,7 @@ func (cs *ChainService) HandleBlock(pbBlock *iproto.BlockPb) error {
 
 // HandleBlockSync handles incoming block sync request.
 func (cs *ChainService) HandleBlockSync(pbBlock *iproto.BlockPb) error {
-	blk := &blockchain.Block{}
+	blk := &block.Block{}
 	if err := blk.ConvertFromBlockPb(pbBlock); err != nil {
 		return err
 	}

@@ -11,10 +11,11 @@ import (
 
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
 )
 
-func commitBlock(bc blockchain.Blockchain, ap actpool.ActPool, blk *blockchain.Block) error {
+func commitBlock(bc blockchain.Blockchain, ap actpool.ActPool, blk *block.Block) error {
 	if err := bc.ValidateBlock(blk, true); err != nil {
 		return err
 	}

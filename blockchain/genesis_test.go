@@ -13,10 +13,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/state/factory"
+	"github.com/iotexproject/iotex-core/test/testaddress"
 )
 
 func TestGenesis(t *testing.T) {
@@ -28,22 +30,32 @@ func TestGenesis(t *testing.T) {
 	assert.NoError(sf.Start(context.Background()))
 	ws, err := sf.NewWorkingSet()
 	assert.NoError(err)
-	genesisBlk := NewGenesisBlock(cfg.Chain, ws)
-	assert.NotNil(genesisBlk)
+	acts := NewGenesisActions(cfg.Chain, ws)
+	racts := block.NewRunnableActionsBuilder().
+		SetHeight(0).
+		SetTimeStamp(Gen.Timestamp).
+		AddActions(acts...).
+		Build(testaddress.Addrinfo["producer"])
+
+	genesisBlk, err := block.NewBuilder(racts).
+		SetChainID(cfg.Chain.ID).
+		SetPrevBlockHash(Gen.ParentHash).
+		SignAndBuild(testaddress.Addrinfo["producer"])
+	assert.NoError(err)
 
 	t.Log("The Genesis Block has the following header:")
-	t.Logf("Version: %d", genesisBlk.Header.version)
-	t.Logf("ChainID: %d", genesisBlk.Header.chainID)
-	t.Logf("Height: %d", genesisBlk.Header.height)
-	t.Logf("Timestamp: %d", genesisBlk.Header.timestamp)
-	t.Logf("PrevBlockHash: %x", genesisBlk.Header.prevBlockHash)
+	t.Logf("Version: %d", genesisBlk.Version())
+	t.Logf("ChainID: %d", genesisBlk.ChainID())
+	t.Logf("Height: %d", genesisBlk.Height())
+	t.Logf("Timestamp: %d", genesisBlk.Timestamp())
+	t.Logf("PrevBlockHash: %x", genesisBlk.PrevHash())
 
-	assert.Equal(uint32(1), genesisBlk.Header.version)
-	assert.Equal(cfg.Chain.ID, genesisBlk.Header.chainID)
-	assert.Equal(uint64(0), genesisBlk.Header.height)
-	assert.Equal(uint64(1524676419), genesisBlk.Header.timestamp)
-	assert.Equal(hash.ZeroHash32B, genesisBlk.Header.prevBlockHash)
-	genesisHash, _ := hex.DecodeString("237eab11367eaaf2c0b1916f5009e87da4298d579c0c8697e96b9f557d23d877")
+	assert.Equal(uint32(1), genesisBlk.Version())
+	assert.Equal(cfg.Chain.ID, genesisBlk.ChainID())
+	assert.Equal(uint64(0), genesisBlk.Height())
+	assert.Equal(uint64(1524676419), genesisBlk.Timestamp())
+	assert.Equal(hash.ZeroHash32B, genesisBlk.PrevHash())
+	genesisHash, _ := hex.DecodeString("3cddf6292ff06aee68aee10ce387dc145d2a475a7b4d4edd6e35de8dc44d2323")
 	h := genesisBlk.HashBlock()
 	assert.Equal(genesisHash, h[:])
 }

@@ -15,7 +15,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/address"
-	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	explorerapi "github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
@@ -23,7 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 )
 
-func putBlockToParentChain(rootChainAPI explorerapi.Explorer, subChainAddr string, sender *iotxaddress.Address, b *blockchain.Block) {
+func putBlockToParentChain(rootChainAPI explorerapi.Explorer, subChainAddr string, sender *iotxaddress.Address, b *block.Block) {
 	if err := putBlockToParentChainTask(rootChainAPI, subChainAddr, sender, b); err != nil {
 		logger.Error().
 			Str("subChainAddress", subChainAddr).
@@ -40,7 +40,7 @@ func putBlockToParentChain(rootChainAPI explorerapi.Explorer, subChainAddr strin
 		Msg("Succeeded to put block merkle roots to parent chain.")
 }
 
-func putBlockToParentChainTask(rootChainAPI explorerapi.Explorer, subChainAddr string, sender *iotxaddress.Address, b *blockchain.Block) error {
+func putBlockToParentChainTask(rootChainAPI explorerapi.Explorer, subChainAddr string, sender *iotxaddress.Address, b *block.Block) error {
 	req, err := constructPutSubChainBlockRequest(rootChainAPI, subChainAddr, sender, b)
 	if err != nil {
 		return errors.Wrap(err, "fail to construct PutSubChainBlockRequest")
@@ -52,7 +52,7 @@ func putBlockToParentChainTask(rootChainAPI explorerapi.Explorer, subChainAddr s
 	return nil
 }
 
-func constructPutSubChainBlockRequest(rootChainAPI explorerapi.Explorer, subChainAddr string, sender *iotxaddress.Address, b *blockchain.Block) (explorerapi.PutSubChainBlockRequest, error) {
+func constructPutSubChainBlockRequest(rootChainAPI explorerapi.Explorer, subChainAddr string, sender *iotxaddress.Address, b *block.Block) (explorerapi.PutSubChainBlockRequest, error) {
 	// get sender address on mainchain
 	subChainAddrSt, err := address.IotxAddressToAddress(subChainAddr)
 	if err != nil {

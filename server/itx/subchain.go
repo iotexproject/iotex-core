@@ -15,7 +15,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action/protocol/multichain/mainchain"
 	"github.com/iotexproject/iotex-core/address"
-	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/logger"
 )
 
@@ -60,7 +60,7 @@ func (s *Server) isSubChainRunning(chainID uint32) bool {
 }
 
 // HandleBlock implements interface BlockCreationSubscriber
-func (s *Server) HandleBlock(blk *blockchain.Block) error {
+func (s *Server) HandleBlock(blk *block.Block) error {
 	runnableSubChains, err := s.mainChainProtocol.SubChainsInOperation()
 	if err != nil {
 		logger.Error().Err(err).Msg("error when getting the sub-chains in operation slice")

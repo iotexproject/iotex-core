@@ -7,7 +7,7 @@ package mock_blocksync
 import (
 	context "context"
 	gomock "github.com/golang/mock/gomock"
-	blockchain "github.com/iotexproject/iotex-core/blockchain"
+	block "github.com/iotexproject/iotex-core/blockchain/block"
 	proto "github.com/iotexproject/iotex-core/proto"
 	reflect "reflect"
 )
@@ -84,7 +84,7 @@ func (mr *MockBlockSyncMockRecorder) ProcessSyncRequest(sender, sync interface{}
 }
 
 // ProcessBlock mocks base method
-func (m *MockBlockSync) ProcessBlock(blk *blockchain.Block) error {
+func (m *MockBlockSync) ProcessBlock(blk *block.Block) error {
 	ret := m.ctrl.Call(m, "ProcessBlock", blk)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -96,7 +96,7 @@ func (mr *MockBlockSyncMockRecorder) ProcessBlock(blk interface{}) *gomock.Call 
 }
 
 // ProcessBlockSync mocks base method
-func (m *MockBlockSync) ProcessBlockSync(blk *blockchain.Block) error {
+func (m *MockBlockSync) ProcessBlockSync(blk *block.Block) error {
 	ret := m.ctrl.Call(m, "ProcessBlockSync", blk)
 	ret0, _ := ret[0].(error)
 	return ret0
