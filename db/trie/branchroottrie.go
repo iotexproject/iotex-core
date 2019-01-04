@@ -15,6 +15,8 @@ import (
 	"github.com/dgraph-io/badger"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
+
+	"github.com/iotexproject/iotex-core/db/trie/triepb"
 )
 
 type (
@@ -162,7 +164,7 @@ func (tr *branchRootTrie) loadNodeFromDB(key []byte) (Node, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get key %x", key)
 	}
-	pb := NodePb{}
+	pb := triepb.NodePb{}
 	if err := proto.Unmarshal(s, &pb); err != nil {
 		return nil, err
 	}
