@@ -600,7 +600,7 @@ func TestBlockDAO(t *testing.T) {
 		execToDeltaCount, _ := dao.getExecutionCountByContractAddress(deltaAddr)
 		require.Equal(uint64(3), execToDeltaCount)
 
-		tipHeight, err = dao.getBlockchainHeight()
+		_, err = dao.getBlockchainHeight()
 		require.NoError(err)
 
 		// Delete tip block

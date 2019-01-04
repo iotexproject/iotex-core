@@ -179,10 +179,7 @@ func (ws *workingSet) State(hash hash.PKHash, s interface{}) error {
 	if err != nil {
 		return errors.Wrapf(err, "failed to get account of %x", hash)
 	}
-	if err := state.Deserialize(s, mstate); err != nil {
-		return err
-	}
-	return nil
+	return state.Deserialize(s, mstate)
 }
 
 // PutState puts a state into DB

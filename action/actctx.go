@@ -52,7 +52,7 @@ func (act *AbstractAction) GasPrice() *big.Int {
 	return p.Set(act.gasPrice)
 }
 
-// Hash returns the hash value of refered SealedActionEnvelope hash.
+// Hash returns the hash value of referred SealedActionEnvelope hash.
 func (act *AbstractAction) Hash() hash.Hash32B { return act.hash }
 
 // BasicActionSize returns the basic size of action
