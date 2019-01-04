@@ -154,13 +154,14 @@ func TestLocalCommit(t *testing.T) {
 	testutil.CleanupPath(t, testDBPath2)
 	cfg.Chain.TrieDBPath = testTriePath2
 	cfg.Chain.ChainDBPath = testDBPath2
+	require.NoError(copyDB(testTriePath, testTriePath2))
+	require.NoError(copyDB(testDBPath, testDBPath2))
 	chain := blockchain.NewBlockchain(cfg, blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption())
 	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain))
 	chain.Validator().AddActionValidators(account.NewProtocol())
 	require.NotNil(chain)
 	chain.GetFactory().AddActionHandlers(account.NewProtocol(), vote.NewProtocol(chain))
 	require.NoError(chain.Start(ctx))
-	require.Nil(addTestingTsfBlocks(chain))
 	height = chain.TipHeight()
 	require.Nil(err)
 	require.True(height == 5)
@@ -512,6 +513,8 @@ func TestVoteLocalCommit(t *testing.T) {
 	testutil.CleanupPath(t, testDBPath2)
 	cfg.Chain.TrieDBPath = testTriePath2
 	cfg.Chain.ChainDBPath = testDBPath2
+	require.NoError(copyDB(testTriePath, testTriePath2))
+	require.NoError(copyDB(testDBPath, testDBPath2))
 	chain := blockchain.NewBlockchain(cfg, blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption())
 	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain))
 	chain.Validator().AddActionValidators(account.NewProtocol(),
@@ -519,7 +522,6 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.NotNil(chain)
 	chain.GetFactory().AddActionHandlers(account.NewProtocol(), vote.NewProtocol(chain))
 	require.NoError(chain.Start(ctx))
-	require.Nil(addTestingTsfBlocks(chain))
 	height = chain.TipHeight()
 	require.True(height == 5)
 	defer func() {
