@@ -1076,9 +1076,19 @@ func (bc *blockchain) validateBlock(blk *block.Block, containCoinbase bool) erro
 
 // commitBlock commits a block to the chain
 func (bc *blockchain) commitBlock(blk *block.Block) error {
+	// Check if it is already exists, and return earlier
+	blkHash, err := bc.dao.getBlockHash(blk.Height())
+	if blkHash != hash.ZeroHash32B {
+		logger.Debug().Uint64("height", blk.Height()).Msg("Block already exists")
+		return nil
+	}
+	// If it's a ready db io error, return earlier with the error
+	if errors.Cause(err) != db.ErrNotExist && errors.Cause(err) != bolt.ErrBucketNotFound {
+		return err
+	}
 	// write block into DB
 	putTimer := bc.timerFactory.NewTimer("putBlock")
-	err := bc.dao.putBlock(blk)
+	err = bc.dao.putBlock(blk)
 	putTimer.End()
 	if err != nil {
 		return err
