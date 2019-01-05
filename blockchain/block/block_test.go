@@ -16,7 +16,6 @@ import (
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/proto"
@@ -53,7 +52,7 @@ func TestMerkle(t *testing.T) {
 	bd := action.EnvelopeBuilder{}
 	elp := bd.SetNonce(1).
 		SetDestinationAddress(producer.RawAddress).
-		SetGasLimit(genesis.BlockGasLimit).
+		SetGasLimit(100).
 		SetAction(cbtsf0).Build()
 	selp0, err := action.Sign(elp, producer.RawAddress, producer.PrivateKey)
 	require.NoError(err)
@@ -63,7 +62,7 @@ func TestMerkle(t *testing.T) {
 	bd = action.EnvelopeBuilder{}
 	elp = bd.SetNonce(1).
 		SetDestinationAddress(ta.IotxAddrinfo["alfa"].RawAddress).
-		SetGasLimit(genesis.BlockGasLimit).
+		SetGasLimit(100).
 		SetAction(cbtsf1).Build()
 	selp1, err := action.Sign(elp, producer.RawAddress, producer.PrivateKey)
 	require.NoError(err)
@@ -73,7 +72,7 @@ func TestMerkle(t *testing.T) {
 	bd = action.EnvelopeBuilder{}
 	elp = bd.SetNonce(1).
 		SetDestinationAddress(ta.IotxAddrinfo["bravo"].RawAddress).
-		SetGasLimit(genesis.BlockGasLimit).
+		SetGasLimit(100).
 		SetAction(cbtsf2).Build()
 	selp2, err := action.Sign(elp, producer.RawAddress, producer.PrivateKey)
 	require.NoError(err)
@@ -83,7 +82,7 @@ func TestMerkle(t *testing.T) {
 	bd = action.EnvelopeBuilder{}
 	elp = bd.SetNonce(1).
 		SetDestinationAddress(ta.IotxAddrinfo["charlie"].RawAddress).
-		SetGasLimit(genesis.BlockGasLimit).
+		SetGasLimit(100).
 		SetAction(cbtsf3).Build()
 	selp3, err := action.Sign(elp, producer.RawAddress, producer.PrivateKey)
 	require.NoError(err)
@@ -93,37 +92,37 @@ func TestMerkle(t *testing.T) {
 	bd = action.EnvelopeBuilder{}
 	elp = bd.SetNonce(1).
 		SetDestinationAddress(ta.IotxAddrinfo["echo"].RawAddress).
-		SetGasLimit(genesis.BlockGasLimit).
+		SetGasLimit(100).
 		SetAction(cbtsf4).Build()
 	selp4, err := action.Sign(elp, producer.RawAddress, producer.PrivateKey)
 	require.NoError(err)
 
 	// verify tx hash
-	hash0, e := hex.DecodeString("4bb84e64187171c75aa5f2268d57a60414a538d04d3a846f84ec14b804cea01d")
+	hash0, e := hex.DecodeString("4ef861f8ed4d99377a149ca2a114bd7b224ea93f8e9258a9691f0c6a30ac5c4e")
 	require.NoError(e)
 	actual := cbtsf0.Hash()
 	t.Logf("actual hash = %x", actual[:])
 	require.Equal(hash0, actual[:])
 
-	hash1, e := hex.DecodeString("7ddac7b23814d7671e3203f7d66c3978c081d8c3e4f5dca3562c2819e4cbb841")
+	hash1, e := hex.DecodeString("201990668742dd16825ce64446f2002f2b52814ee40242fba767edeca0b9d311")
 	require.NoError(e)
 	actual = cbtsf1.Hash()
 	t.Logf("actual hash = %x", actual[:])
 	require.Equal(hash1, actual[:])
 
-	hash2, e := hex.DecodeString("0de1b9753b9d2eec3b419cd91e7ef79f72434386c6ded6bc2a281062e82c730c")
+	hash2, e := hex.DecodeString("c3c94823d6f60ac5743c9524405c6353b3d6b7b7fd95a7b9e6b48cdfa9f8c6b2")
 	require.NoError(e)
 	actual = cbtsf2.Hash()
 	t.Logf("actual hash = %x", actual[:])
 	require.Equal(hash2, actual[:])
 
-	hash3, e := hex.DecodeString("aa267f5321444e038e88e60bfa7d382648888bced0c1f0ef26c03d445f278248")
+	hash3, e := hex.DecodeString("ba12ca7a859da93df536a3a1748294b3b29e96c1dc2a214db41d312391fdbed0")
 	require.NoError(e)
 	actual = cbtsf3.Hash()
 	t.Logf("actual hash = %x", actual[:])
 	require.Equal(hash3, actual[:])
 
-	hash4, e := hex.DecodeString("e2f5d1343f787200f7745703452ba9a3b8a2210d78abac3cd3cbc955ab8e0b2b")
+	hash4, e := hex.DecodeString("53cacd3e5d5f907c6b8463fb5a191c35c0267b61814f216f3d6a97b6c375c5d9")
 	require.NoError(e)
 	actual = cbtsf4.Hash()
 	t.Logf("actual hash = %x", actual[:])
