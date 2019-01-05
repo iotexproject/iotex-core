@@ -66,7 +66,7 @@ func newProposeBlkEvt(
 	c clock.Clock,
 ) *proposeBlkEvt {
 	return &proposeBlkEvt{
-		consensusEvt: *newCEvt(eProposeBlock, block.Height(), round, c),
+		consensusEvt: *newCEvt(eReceiveBlock, block.Height(), round, c),
 		block:        block,
 		lockProof:    lockProof,
 	}
@@ -134,11 +134,11 @@ func newEndorseEvtWithEndorse(endorse *endorsement.Endorsement, c clock.Clock) *
 	var eventType fsm.EventType
 	switch vote.Topic {
 	case endorsement.PROPOSAL:
-		eventType = eEndorseProposal
+		eventType = eReceiveProposalEndorsement
 	case endorsement.LOCK:
-		eventType = eEndorseLock
+		eventType = eReceiveLockEndorsement
 	case endorsement.COMMIT:
-		eventType = eEndorseCommit
+		eventType = eReceiveCommitEndorsement
 	}
 	return &endorseEvt{
 		consensusEvt: *newCEvt(eventType, vote.Height, vote.Round, c),
