@@ -101,6 +101,7 @@ func runExecution(
 		testaddress.Keyinfo["producer"].PubKey,
 		testaddress.Keyinfo["producer"].PriKey,
 		testaddress.Addrinfo["producer"].Bech32(),
+		0,
 	)
 	if err != nil {
 		return nil, err
@@ -265,6 +266,7 @@ func TestProtocol_Handle(t *testing.T) {
 			testaddress.Keyinfo["producer"].PubKey,
 			testaddress.Keyinfo["producer"].PriKey,
 			testaddress.Addrinfo["producer"].Bech32(),
+			0,
 		)
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk, true))
@@ -323,6 +325,7 @@ func TestProtocol_Handle(t *testing.T) {
 			testaddress.Keyinfo["producer"].PubKey,
 			testaddress.Keyinfo["producer"].PriKey,
 			testaddress.Addrinfo["producer"].Bech32(),
+			0,
 		)
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk, true))
@@ -363,6 +366,7 @@ func TestProtocol_Handle(t *testing.T) {
 			testaddress.Keyinfo["producer"].PubKey,
 			testaddress.Keyinfo["producer"].PriKey,
 			testaddress.Addrinfo["producer"].Bech32(),
+			0,
 		)
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk, true))
@@ -393,6 +397,7 @@ func TestProtocol_Handle(t *testing.T) {
 			testaddress.Keyinfo["alfa"].PubKey,
 			testaddress.Keyinfo["alfa"].PriKey,
 			testaddress.Addrinfo["alfa"].Bech32(),
+			0,
 		)
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk, true))
@@ -468,6 +473,7 @@ func TestProtocol_Handle(t *testing.T) {
 			testaddress.Keyinfo["producer"].PubKey,
 			testaddress.Keyinfo["producer"].PriKey,
 			testaddress.Addrinfo["producer"].Bech32(),
+			0,
 		)
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk, true))
@@ -499,6 +505,7 @@ func TestProtocol_Handle(t *testing.T) {
 			testaddress.Keyinfo["producer"].PubKey,
 			testaddress.Keyinfo["producer"].PriKey,
 			testaddress.Addrinfo["producer"].Bech32(),
+			0,
 		)
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk, true))
@@ -530,6 +537,7 @@ func TestProtocol_Handle(t *testing.T) {
 			testaddress.Keyinfo["producer"].PubKey,
 			testaddress.Keyinfo["producer"].PriKey,
 			testaddress.Addrinfo["producer"].Bech32(),
+			0,
 		)
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk, true))
@@ -568,6 +576,7 @@ func TestProtocol_Handle(t *testing.T) {
 			testaddress.Keyinfo["producer"].PubKey,
 			testaddress.Keyinfo["producer"].PriKey,
 			testaddress.Addrinfo["producer"].Bech32(),
+			0,
 		)
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk, true))
@@ -641,6 +650,7 @@ func TestProtocol_Handle(t *testing.T) {
 			testaddress.Keyinfo["producer"].PubKey,
 			testaddress.Keyinfo["producer"].PriKey,
 			testaddress.Addrinfo["producer"].Bech32(),
+			0,
 		)
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk, true))
@@ -720,6 +730,7 @@ func TestProtocol_Handle(t *testing.T) {
 			testaddress.Keyinfo["producer"].PubKey,
 			testaddress.Keyinfo["producer"].PriKey,
 			testaddress.Addrinfo["producer"].Bech32(),
+			0,
 		)
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk, true))
@@ -753,6 +764,7 @@ func TestProtocol_Handle(t *testing.T) {
 			testaddress.Keyinfo["alfa"].PubKey,
 			testaddress.Keyinfo["alfa"].PriKey,
 			testaddress.Addrinfo["alfa"].Bech32(),
+			0,
 		)
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk, true))
@@ -780,6 +792,7 @@ func TestProtocol_Handle(t *testing.T) {
 			testaddress.Keyinfo["producer"].PubKey,
 			testaddress.Keyinfo["producer"].PriKey,
 			testaddress.Addrinfo["producer"].Bech32(),
+			0,
 		)
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk, true))

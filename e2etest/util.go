@@ -48,6 +48,7 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		0,
 	)
 	if err != nil {
 		return err
@@ -104,6 +105,7 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		0,
 	)
 	if err != nil {
 		return err
@@ -145,6 +147,7 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		0,
 	)
 	if err != nil {
 		return err
@@ -182,6 +185,7 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		0,
 	)
 	if err != nil {
 		return err
@@ -227,6 +231,7 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		0,
 	)
 	if err != nil {
 		return err

@@ -12,7 +12,6 @@ import (
 
 	"github.com/facebookgo/clock"
 	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -37,11 +36,12 @@ func TestRollDPoSCtx(t *testing.T) {
 		candidates[i] = testAddrs[i].encodedAddr
 	}
 
+	blockHeight := uint64(8)
 	clock := clock.NewMock()
 	var prevHash hash.Hash32B
 	blk := block.NewBlockDeprecated(
 		1,
-		8,
+		blockHeight,
 		prevHash,
 		testutil.TimestampNowFromClock(clock),
 		testAddrs[0].pubKey,
@@ -55,8 +55,7 @@ func TestRollDPoSCtx(t *testing.T) {
 			NumDelegates: 4,
 		},
 		func(blockchain *mock_blockchain.MockBlockchain) {
-			blockchain.EXPECT().TipHeight().Return(uint64(8)).Times(3)
-			blockchain.EXPECT().GetBlockByHeight(uint64(8)).Return(blk, nil).Times(1)
+			blockchain.EXPECT().GetBlockByHeight(blockHeight).Return(blk, nil).Times(4)
 			blockchain.EXPECT().CandidatesByHeight(gomock.Any()).Return([]*state.Candidate{
 				{Address: candidates[0]},
 				{Address: candidates[1]},
@@ -68,30 +67,41 @@ func TestRollDPoSCtx(t *testing.T) {
 		nil,
 		clock,
 	)
+	ctx.round = &roundCtx{height: blockHeight + 1}
+	ctx.cfg.FSM.ProposerInterval = 10 * time.Second
+	ctx.cfg.FSM.AcceptBlockTTL = 4 * time.Second
+	ctx.cfg.FSM.AcceptProposalEndorsementTTL = 2 * time.Second
+	ctx.cfg.FSM.AcceptLockEndorsementTTL = 2 * time.Second
+	ctx.cfg.ToleratedOvertime = 2 * time.Second
 
-	epoch, err := ctx.epochCtxByHeight(uint64(8 + 1))
-	assert.NoError(t, err)
-	assert.Equal(t, uint64(3), epoch.num)
-	assert.Equal(t, uint64(0), epoch.subEpochNum)
-	assert.Equal(t, uint64(9), epoch.height)
+	epoch, err := ctx.epochCtxByHeight(blockHeight + 1)
+	require.NoError(t, err)
+	require.Equal(t, uint64(3), epoch.num)
+	require.Equal(t, uint64(0), epoch.subEpochNum)
+	require.Equal(t, uint64(9), epoch.height)
 
 	crypto.SortCandidates(candidates, epoch.num, crypto.CryptoSeed)
 
-	assert.Equal(t, candidates, epoch.delegates)
+	require.Equal(t, candidates, epoch.delegates)
 	ctx.epoch = epoch
 
-	subEpoch, err := ctx.calcSubEpochNum()
-	require.NoError(t, err)
-	assert.Equal(t, uint64(0), subEpoch)
+	require.NoError(t, ctx.updateSubEpochNum(blockHeight+1))
+	require.Equal(t, uint64(0), ctx.epoch.subEpochNum)
 
-	proposer, height, round, err := ctx.rotatedProposer(time.Duration(0))
+	clock.Add(9 * time.Second)
+	err = ctx.updateRound(blockHeight + 1)
 	require.NoError(t, err)
-	assert.Equal(t, candidates[1], proposer)
-	assert.Equal(t, uint64(9), height)
-	assert.Equal(t, uint32(0), round)
-
-	clock.Add(time.Second)
-	duration, err := ctx.calcDurationSinceLastBlock()
-	require.NoError(t, err)
-	assert.Equal(t, time.Second, duration)
+	require.Equal(t, uint32(0), ctx.round.number)
+	clock.Add(1 * time.Second)
+	require.NoError(t, ctx.updateRound(blockHeight+1))
+	require.Equal(t, uint32(0), ctx.round.number)
+	clock.Add(1 * time.Second)
+	require.NoError(t, ctx.updateRound(blockHeight+1))
+	require.Equal(t, uint32(0), ctx.round.number)
+	clock.Add(12 * time.Second)
+	require.NoError(t, ctx.updateRound(blockHeight+1))
+	require.Equal(t, uint32(2), ctx.round.number)
+	require.Equal(t, candidates[1], ctx.round.proposer)
+	require.Equal(t, clock.Now().Add(7*time.Second), ctx.round.timestamp)
+	require.Equal(t, uint64(9), ctx.round.height)
 }

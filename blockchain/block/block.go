@@ -216,7 +216,7 @@ func (b *Block) RunnableActions() RunnableActions {
 }
 
 // Finalize creates a footer for the block
-func (b *Block) Finalize(set *endorsement.Set, round uint32, ts time.Time) error {
+func (b *Block) Finalize(set *endorsement.Set, ts time.Time) error {
 	if b.endorsements != nil {
 		return errors.New("the block has been finalized")
 	}
@@ -227,7 +227,6 @@ func (b *Block) Finalize(set *endorsement.Set, round uint32, ts time.Time) error
 	if err != nil {
 		return err
 	}
-	b.round = round
 	b.endorsements = commitEndorsements
 	b.commitTimestamp = ts.Unix()
 
