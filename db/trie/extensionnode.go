@@ -8,6 +8,8 @@ package trie
 
 import (
 	"github.com/golang/protobuf/proto"
+
+	"github.com/iotexproject/iotex-core/db/trie/pb"
 )
 
 // extensionNode defines a node with a path and point to a child node
@@ -29,7 +31,7 @@ func newExtensionNodeAndPutIntoDB(
 	return e, nil
 }
 
-func newExtensionNodeFromProtoPb(pb *ExtendPb) *extensionNode {
+func newExtensionNodeFromProtoPb(pb *trie_pb.ExtendPb) *extensionNode {
 	return &extensionNode{path: pb.Path, childHash: pb.Value}
 }
 
@@ -141,9 +143,9 @@ func (e *extensionNode) serialize() []byte {
 	if e.ser != nil {
 		return e.ser
 	}
-	pb := &NodePb{
-		Node: &NodePb_Extend{
-			Extend: &ExtendPb{
+	pb := &trie_pb.NodePb{
+		Node: &trie_pb.NodePb_Extend{
+			Extend: &trie_pb.ExtendPb{
 				Path:  e.path,
 				Value: e.childHash[:],
 			},

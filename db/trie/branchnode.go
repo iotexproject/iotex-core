@@ -9,6 +9,8 @@ package trie
 import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
+
+	"github.com/iotexproject/iotex-core/db/trie/pb"
 )
 
 const radix = 256
@@ -39,7 +41,7 @@ func newBranchNodeAndPutIntoDB(
 	return bnode, nil
 }
 
-func newBranchNodeFromProtoPb(pb *BranchPb) *branchNode {
+func newBranchNodeFromProtoPb(pb *trie_pb.BranchPb) *branchNode {
 	b := newEmptyBranchNode()
 	for _, n := range pb.Branches {
 		b.hashes[byte(n.Index)] = n.Path
@@ -151,15 +153,15 @@ func (b *branchNode) serialize() []byte {
 	if b.ser != nil {
 		return b.ser
 	}
-	nodes := []*BranchNodePb{}
+	nodes := []*trie_pb.BranchNodePb{}
 	for index := 0; index < radix; index++ {
 		if h, ok := b.hashes[byte(index)]; ok {
-			nodes = append(nodes, &BranchNodePb{Index: uint32(index), Path: h})
+			nodes = append(nodes, &trie_pb.BranchNodePb{Index: uint32(index), Path: h})
 		}
 	}
-	pb := &NodePb{
-		Node: &NodePb_Branch{
-			Branch: &BranchPb{Branches: nodes},
+	pb := &trie_pb.NodePb{
+		Node: &trie_pb.NodePb_Branch{
+			Branch: &trie_pb.BranchPb{Branches: nodes},
 		},
 	}
 	ser, err := proto.Marshal(pb)
