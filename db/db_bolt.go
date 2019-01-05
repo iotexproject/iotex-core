@@ -78,31 +78,6 @@ func (b *boltDB) Put(namespace string, key, value []byte) error {
 	return err
 }
 
-// PutIfNotExists inserts a <key, value> record only if it does not exist yet, otherwise return ErrAlreadyExist
-func (b *boltDB) PutIfNotExists(namespace string, key, value []byte) error {
-	b.mutex.Lock()
-	defer b.mutex.Unlock()
-
-	var err error
-	numRetries := b.config.NumRetries
-	for c := uint8(0); c < numRetries; c++ {
-		err = b.db.Update(func(tx *bolt.Tx) error {
-			bucket, err := tx.CreateBucketIfNotExists([]byte(namespace))
-			if err != nil {
-				return err
-			}
-			if bucket.Get(key) == nil {
-				return bucket.Put(key, value)
-			}
-			return ErrAlreadyExist
-		})
-		if err == nil || err == ErrAlreadyExist {
-			break
-		}
-	}
-	return err
-}
-
 // Get retrieves a record
 func (b *boltDB) Get(namespace string, key []byte) ([]byte, error) {
 	b.mutex.RLock()
@@ -181,18 +156,6 @@ func (b *boltDB) Commit(batch KVStoreBatch) error {
 					}
 					if err := bucket.Put(write.key, write.value); err != nil {
 						return errors.Wrapf(err, write.errorFormat, write.errorArgs)
-					}
-				} else if write.writeType == PutIfNotExists {
-					bucket, err := tx.CreateBucketIfNotExists([]byte(write.namespace))
-					if err != nil {
-						return errors.Wrapf(err, write.errorFormat, write.errorArgs)
-					}
-					if bucket.Get(write.key) == nil {
-						if err := bucket.Put(write.key, write.value); err != nil {
-							return errors.Wrapf(err, write.errorFormat, write.errorArgs)
-						}
-					} else {
-						return ErrAlreadyExist
 					}
 				} else if write.writeType == Delete {
 					bucket := tx.Bucket([]byte(write.namespace))
