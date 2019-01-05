@@ -113,7 +113,7 @@ func TestRollDPoSCtx(t *testing.T) {
 	ctx.epoch.numSubEpochs = 2
 	ctx.epoch.delegates = delegates
 
-	proposer, height, round, err := ctx.rotatedProposer()
+	proposer, height, round, err := ctx.rotatedProposer(time.Duration(0))
 	require.NoError(t, err)
 	assert.Equal(t, candidates[1], proposer)
 	assert.Equal(t, uint64(9), height)
@@ -502,7 +502,7 @@ func TestRollDPoS_convertToConsensusEvt(t *testing.T) {
 		Proposer: addr.RawAddress,
 		Round:    roundNum,
 	}
-	pEvt, err := r.cfsm.newProposeBlkEvtFromProposePb(&pMsg)
+	pEvt, err := r.ctx.newProposeBlkEvtFromProposePb(&pMsg)
 	assert.NoError(t, err)
 	assert.NotNil(t, pEvt)
 	assert.NotNil(t, pEvt.block)
@@ -519,7 +519,7 @@ func TestRollDPoS_convertToConsensusEvt(t *testing.T) {
 	)
 	msg := en.ToProtoMsg()
 
-	eEvt, err := r.cfsm.newEndorseEvtWithEndorsePb(msg)
+	eEvt, err := r.ctx.newEndorseEvtWithEndorsePb(msg)
 	assert.NoError(t, err)
 	assert.NotNil(t, eEvt)
 
@@ -534,7 +534,7 @@ func TestRollDPoS_convertToConsensusEvt(t *testing.T) {
 		addr,
 	)
 	msg = en.ToProtoMsg()
-	eEvt, err = r.cfsm.newEndorseEvtWithEndorsePb(msg)
+	eEvt, err = r.ctx.newEndorseEvtWithEndorsePb(msg)
 	assert.NoError(t, err)
 	assert.NotNil(t, eEvt)
 }

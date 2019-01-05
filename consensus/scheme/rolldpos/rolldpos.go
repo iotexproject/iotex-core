@@ -8,7 +8,6 @@ package rolldpos
 
 import (
 	"context"
-	"encoding/hex"
 	"time"
 
 	"github.com/facebookgo/clock"
@@ -152,50 +151,82 @@ func (ctx *rollDPoSCtx) MintBlock() (Block, error) {
 	}, nil
 }
 
-func (ctx *rollDPoSCtx) validateProposeBlock(blk Block, expectedProposer string) bool {
-	blkHash := blk.Hash()
-	errorLog := logger.Error().
-		Uint64("expectedHeight", ctx.round.height).
-		Str("expectedProposer", expectedProposer).
-		Str("hash", hex.EncodeToString(blkHash[:]))
+func (ctx *rollDPoSCtx) newEndorseEvt(blkHash []byte, topic endorsement.ConsensusVoteTopic) *endorseEvt {
+	return newEndorseEvt(topic, blkHash, ctx.round.height, ctx.round.number, ctx.addr, ctx.clock)
+}
+
+func (ctx *rollDPoSCtx) newProposeBlkEvtFromProposePb(pb *iproto.ProposePb) (*proposeBlkEvt, error) {
+	evt := newProposeBlkEvtFromProtoMsg(pb, ctx.clock)
+	if evt == nil {
+		return nil, errors.New("error when casting a proto msg to proposeBlkEvt")
+	}
+
+	return evt, nil
+}
+
+func (ctx *rollDPoSCtx) newEndorseEvtWithEndorsePb(ePb *iproto.EndorsePb) (*endorseEvt, error) {
+	en, err := endorsement.FromProtoMsg(ePb)
+	if err != nil {
+		return nil, errors.Wrap(err, "error when casting a proto msg to endorse")
+	}
+	return newEndorseEvtWithEndorse(en, ctx.clock), nil
+}
+
+func (ctx *rollDPoSCtx) calcWaitDuration() (time.Duration, error) {
+	// If the proposal interval is not set (not zero), the next round will only be started after the configured duration
+	// after last block's creation time, so that we could keep the constant
+	waitDuration := time.Duration(0)
+	// If we have the cached last block, we get the timestamp from it
+	duration, err := ctx.calcDurationSinceLastBlock()
+	if err != nil {
+		return waitDuration, err
+	}
+	if ctx.cfg.ProposerInterval > 0 {
+		waitDuration = (ctx.cfg.ProposerInterval - (duration % ctx.cfg.ProposerInterval)) % ctx.cfg.ProposerInterval
+	}
+
+	return waitDuration, nil
+}
+
+func (ctx *rollDPoSCtx) ProcessProposeBlock(blk Block) error {
 	if blk.Height() != ctx.round.height {
-		errorLog.Uint64("blockHeight", blk.Height()).
-			Msg("error when validating the block height")
-		return false
+		return errors.Errorf(
+			"unexpected block height %d, %d expected",
+			blk.Height(),
+			ctx.round.height,
+		)
 	}
 	producer := blk.Proposer()
-
+	expectedProposer := ctx.round.proposer
 	if producer == "" || producer != expectedProposer {
-		errorLog.Str("proposer", producer).
-			Msg("error when validating the block proposer")
-		return false
+		return errors.Errorf(
+			"unexpected block proposer %s, %s expected",
+			producer,
+			ctx.round.proposer,
+		)
 	}
 	block := blk.(*blockWrapper)
 	if !block.VerifySignature() {
-		errorLog.Msg("error when validating the block signature")
-		return false
+		return errors.Errorf("invalid block signature")
 	}
-	if producer == ctx.addr.RawAddress {
+	if producer != ctx.addr.RawAddress {
 		// If the block is self proposed, skip validation
-		return true
-	}
-	containCoinbase := true
-	if ctx.cfg.EnableDKG {
-		if ctx.shouldHandleDKG() {
-			containCoinbase = false
-		} else if err := verifyDKGSignature(block.Block, ctx.epoch.seed); err != nil {
-			// Verify dkg signature failed
-			errorLog.Err(err).Msg("Failed to verify the DKG signature")
-			return false
+		containCoinbase := true
+		if ctx.cfg.EnableDKG {
+			if ctx.shouldHandleDKG() {
+				containCoinbase = false
+			} else if err := verifyDKGSignature(block.Block, ctx.epoch.seed); err != nil {
+				// Verify dkg signature failed
+				return errors.Wrapf(err, "failed to verify the DKG signature")
+			}
 		}
-
+		if err := ctx.chain.ValidateBlock(block.Block, containCoinbase); err != nil {
+			return errors.Wrapf(err, "error when validating the proposed block")
+		}
 	}
-	if err := ctx.chain.ValidateBlock(block.Block, containCoinbase); err != nil {
-		errorLog.Err(err).Msg("error when validating the proposed block")
-		return false
-	}
+	ctx.round.block = blk
 
-	return true
+	return nil
 }
 
 func verifyDKGSignature(blk *block.Block, seedByte []byte) error {
@@ -227,6 +258,20 @@ func (ctx *rollDPoSCtx) Broadcast(msg proto.Message) error {
 	}
 
 	return ctx.broadcastHandler(consensusMsg)
+}
+
+// RollingDelegates will update seed and rolling delegates
+func (ctx *rollDPoSCtx) RollingDelegates(epochNum uint64) ([]string, error) {
+	// Update CryptoSort seed
+	// TODO: Consider persist the most recent seed
+	var err error
+	if !ctx.cfg.EnableDKG {
+		ctx.epoch.seed = crypto.CryptoSeed
+	} else if ctx.epoch.seed, err = ctx.updateSeed(); err != nil {
+		logger.Error().Err(err).Msg("Failed to generate new seed from last epoch")
+	}
+
+	return ctx.rollingDelegates(epochNum)
 }
 
 // rollingDelegates will only allows the delegates chosen for given epoch to enter the epoch
@@ -343,18 +388,127 @@ func (ctx *rollDPoSCtx) getNumSubEpochs() uint {
 	return num
 }
 
+func (ctx *rollDPoSCtx) IsProposer() bool {
+	log := logger.Info().
+		Str("proposer", ctx.round.proposer).
+		Uint64("height", ctx.round.height).
+		Uint32("round", ctx.round.number)
+	if ctx.round.proposer != ctx.addr.RawAddress {
+		log.Msg("current node is not the proposer")
+		return false
+	}
+	log.Msg("current node is the proposer")
+	return true
+}
+
+func (ctx *rollDPoSCtx) PrepareNextRound() (time.Duration, bool, error) {
+	if ctx.shouldHandleDKG() && ctx.isDKGFinished() {
+		dkgPubKey, dkgPriKey, err := ctx.generateDKGKeyPair()
+		if err != nil {
+			return time.Duration(0), true, errors.Wrap(err, "error when generating DKG key pair")
+		}
+		ctx.epoch.dkgAddress.PublicKey = dkgPubKey
+		ctx.epoch.dkgAddress.PrivateKey = dkgPriKey
+	}
+	epochNum, epochHeight, err := ctx.calcEpochNumAndHeight()
+	if err != nil {
+		// Even if error happens, we still need to schedule next check of delegate to tolerate transit error
+		return ctx.cfg.DelegateInterval, true, errors.Wrap(
+			err,
+			"error when determining the epoch ordinal number and start height offset",
+		)
+	}
+	if epochNum != ctx.epoch.num {
+		delegates, err := ctx.RollingDelegates(epochNum)
+		if err != nil {
+			// Even if error happens, we still need to schedule next check of delegate to tolerate transit error
+			return ctx.cfg.DelegateInterval, true, errors.Wrap(
+				err,
+				"error when determining if the node will participate into next epoch",
+			)
+		}
+		// The epochStart start height is going to be the next block to generate
+		ctx.epoch.num = epochNum
+		ctx.epoch.height = epochHeight
+		ctx.epoch.delegates = delegates
+		ctx.epoch.numSubEpochs = ctx.getNumSubEpochs()
+		ctx.epoch.subEpochNum = uint64(0)
+		ctx.epoch.committedSecrets = make(map[string][]uint32)
+	}
+	// If the current node is the delegate, move to the next state
+	isDelegate := false
+	for _, d := range ctx.epoch.delegates {
+		if ctx.addr.RawAddress == d {
+			isDelegate = true
+			break
+		}
+	}
+	if !isDelegate {
+		return ctx.cfg.DelegateInterval, false, nil
+	}
+	logger.Info().
+		Uint64("epoch", epochNum).
+		Msg("current node is the delegate")
+	if ctx.shouldHandleDKG() {
+		// TODO: numDelegates will be configurable later on
+		if len(ctx.epoch.delegates) != 21 {
+			logger.Panic().Msg("Number of delegates is incorrect for DKG generation")
+		}
+		secrets, witness, err := ctx.generateDKGSecrets()
+		if err != nil {
+			return time.Duration(0), true, err
+		}
+		ctx.epoch.secrets = secrets
+		ctx.epoch.witness = witness
+	}
+	waitDuration, err := ctx.calcWaitDuration()
+	if err != nil {
+		return waitDuration, true, err
+	}
+	subEpochNum, err := ctx.calcSubEpochNum()
+	if err != nil {
+		return waitDuration, true, err
+	}
+	ctx.epoch.subEpochNum = subEpochNum
+
+	proposer, height, round, err := ctx.rotatedProposer(waitDuration)
+	if err != nil {
+		return waitDuration, true, err
+	}
+	if ctx.round.height != height {
+		ctx.round = roundCtx{
+			height:          height,
+			endorsementSets: make(map[string]*endorsement.Set),
+		}
+	}
+	ctx.round.number = round
+	ctx.round.proposer = proposer
+	ctx.round.timestamp = ctx.clock.Now()
+
+	return waitDuration, true, nil
+}
+
 // rotatedProposer will rotate among the delegates to choose the proposer. It is pseudo order based on the position
 // in the delegate list and the block height
-func (ctx *rollDPoSCtx) rotatedProposer() (string, uint64, uint32, error) {
+func (ctx *rollDPoSCtx) rotatedProposer(offsetDuration time.Duration) (
+	proposer string,
+	height uint64,
+	round uint32,
+	err error,
+) {
 	// Next block height
-	height := ctx.chain.TipHeight() + 1
-	round, proposer, err := ctx.calcProposer(height, ctx.epoch.delegates)
+	height = ctx.chain.TipHeight() + 1
+	round, proposer, err = ctx.calcProposer(height, ctx.epoch.delegates, offsetDuration)
 
 	return proposer, height, round, err
 }
 
 // calcProposer calculates the proposer for the block at a given height
-func (ctx *rollDPoSCtx) calcProposer(height uint64, delegates []string) (uint32, string, error) {
+func (ctx *rollDPoSCtx) calcProposer(
+	height uint64,
+	delegates []string,
+	offsetDuration time.Duration,
+) (uint32, string, error) {
 	numDelegates := len(delegates)
 	if numDelegates == 0 {
 		return 0, "", ErrZeroDelegate
@@ -368,6 +522,7 @@ func (ctx *rollDPoSCtx) calcProposer(height uint64, delegates []string) (uint32,
 			}
 			return 0, "", errors.Wrap(err, "error when computing the duration since last block time")
 		}
+		duration += offsetDuration
 		if duration > ctx.cfg.ProposerInterval {
 			timeSlotIndex = uint32(duration/ctx.cfg.ProposerInterval) - 1
 		}
@@ -566,7 +721,7 @@ func (r *RollDPoS) Start(ctx context.Context) error {
 	if err := r.cfsm.Start(ctx); err != nil {
 		return errors.Wrap(err, "error when starting the consensus FSM")
 	}
-	r.cfsm.produce(r.cfsm.newCEvt(eRollDelegates), r.ctx.cfg.Delay)
+	r.cfsm.produce(r.cfsm.newCEvt(ePrepare), r.ctx.cfg.Delay)
 	return nil
 }
 
@@ -585,7 +740,7 @@ func (r *RollDPoS) HandleConsensusMsg(msg *iproto.ConsensusPb) error {
 		if err := proto.Unmarshal(data, pPb); err != nil {
 			return err
 		}
-		pbEvt, err := r.cfsm.newProposeBlkEvtFromProposePb(pPb)
+		pbEvt, err := r.ctx.newProposeBlkEvtFromProposePb(pPb)
 		if err != nil {
 			return errors.Wrap(err, "error when casting a proto msg to proposeBlkEvt")
 		}
@@ -598,7 +753,7 @@ func (r *RollDPoS) HandleConsensusMsg(msg *iproto.ConsensusPb) error {
 		if err := proto.Unmarshal(data, ePb); err != nil {
 			return err
 		}
-		eEvt, err := r.cfsm.newEndorseEvtWithEndorsePb(ePb)
+		eEvt, err := r.ctx.newEndorseEvtWithEndorsePb(ePb)
 		if err != nil {
 			return errors.Wrap(err, "error when casting a proto msg to endorse")
 		}
@@ -632,7 +787,7 @@ func (r *RollDPoS) Metrics() (scheme.ConsensusMetrics, error) {
 	// Compute the height
 	height := r.ctx.chain.TipHeight()
 	// Compute block producer
-	_, producer, err := r.ctx.calcProposer(height+1, delegates)
+	_, producer, err := r.ctx.calcProposer(height+1, delegates, time.Duration(0))
 	if err != nil {
 		return metrics, errors.Wrap(err, "error when calculating the block producer")
 	}
