@@ -16,7 +16,7 @@ import (
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/proto"
@@ -53,7 +53,7 @@ func TestMerkle(t *testing.T) {
 	bd := action.EnvelopeBuilder{}
 	elp := bd.SetNonce(1).
 		SetDestinationAddress(producer.RawAddress).
-		SetGasLimit(protocol.GasLimit).
+		SetGasLimit(genesis.BlockGasLimit).
 		SetAction(cbtsf0).Build()
 	selp0, err := action.Sign(elp, producer.RawAddress, producer.PrivateKey)
 	require.NoError(err)
@@ -63,7 +63,7 @@ func TestMerkle(t *testing.T) {
 	bd = action.EnvelopeBuilder{}
 	elp = bd.SetNonce(1).
 		SetDestinationAddress(ta.IotxAddrinfo["alfa"].RawAddress).
-		SetGasLimit(protocol.GasLimit).
+		SetGasLimit(genesis.BlockGasLimit).
 		SetAction(cbtsf1).Build()
 	selp1, err := action.Sign(elp, producer.RawAddress, producer.PrivateKey)
 	require.NoError(err)
@@ -73,7 +73,7 @@ func TestMerkle(t *testing.T) {
 	bd = action.EnvelopeBuilder{}
 	elp = bd.SetNonce(1).
 		SetDestinationAddress(ta.IotxAddrinfo["bravo"].RawAddress).
-		SetGasLimit(protocol.GasLimit).
+		SetGasLimit(genesis.BlockGasLimit).
 		SetAction(cbtsf2).Build()
 	selp2, err := action.Sign(elp, producer.RawAddress, producer.PrivateKey)
 	require.NoError(err)
@@ -83,7 +83,7 @@ func TestMerkle(t *testing.T) {
 	bd = action.EnvelopeBuilder{}
 	elp = bd.SetNonce(1).
 		SetDestinationAddress(ta.IotxAddrinfo["charlie"].RawAddress).
-		SetGasLimit(protocol.GasLimit).
+		SetGasLimit(genesis.BlockGasLimit).
 		SetAction(cbtsf3).Build()
 	selp3, err := action.Sign(elp, producer.RawAddress, producer.PrivateKey)
 	require.NoError(err)
@@ -93,37 +93,37 @@ func TestMerkle(t *testing.T) {
 	bd = action.EnvelopeBuilder{}
 	elp = bd.SetNonce(1).
 		SetDestinationAddress(ta.IotxAddrinfo["echo"].RawAddress).
-		SetGasLimit(protocol.GasLimit).
+		SetGasLimit(genesis.BlockGasLimit).
 		SetAction(cbtsf4).Build()
 	selp4, err := action.Sign(elp, producer.RawAddress, producer.PrivateKey)
 	require.NoError(err)
 
 	// verify tx hash
-	hash0, e := hex.DecodeString("af7b31e8c68328aa07b4dce318690a898b9d065417b17bdf3482347aed06a5e5")
+	hash0, e := hex.DecodeString("4bb84e64187171c75aa5f2268d57a60414a538d04d3a846f84ec14b804cea01d")
 	require.NoError(e)
 	actual := cbtsf0.Hash()
 	t.Logf("actual hash = %x", actual[:])
 	require.Equal(hash0, actual[:])
 
-	hash1, e := hex.DecodeString("228a88945e1ffd3cd5f5733443c07e3818ae3e6a13de76ee395529855a082c6e")
+	hash1, e := hex.DecodeString("7ddac7b23814d7671e3203f7d66c3978c081d8c3e4f5dca3562c2819e4cbb841")
 	require.NoError(e)
 	actual = cbtsf1.Hash()
 	t.Logf("actual hash = %x", actual[:])
 	require.Equal(hash1, actual[:])
 
-	hash2, e := hex.DecodeString("ed55b82760b15a11dc3eb91da7f571b2b4ad7fcb8b9239cc5af6e0bc4608854e")
+	hash2, e := hex.DecodeString("0de1b9753b9d2eec3b419cd91e7ef79f72434386c6ded6bc2a281062e82c730c")
 	require.NoError(e)
 	actual = cbtsf2.Hash()
 	t.Logf("actual hash = %x", actual[:])
 	require.Equal(hash2, actual[:])
 
-	hash3, e := hex.DecodeString("4dc973538baf632f14d5e85a84a51ebed191bc229fc3c0e4e1c84a515e09a9c4")
+	hash3, e := hex.DecodeString("aa267f5321444e038e88e60bfa7d382648888bced0c1f0ef26c03d445f278248")
 	require.NoError(e)
 	actual = cbtsf3.Hash()
 	t.Logf("actual hash = %x", actual[:])
 	require.Equal(hash3, actual[:])
 
-	hash4, e := hex.DecodeString("16f37c7de145e31a8fe00f58b04a9ed05169ec5514fb43eff0390c1dc9b06d98")
+	hash4, e := hex.DecodeString("e2f5d1343f787200f7745703452ba9a3b8a2210d78abac3cd3cbc955ab8e0b2b")
 	require.NoError(e)
 	actual = cbtsf4.Hash()
 	t.Logf("actual hash = %x", actual[:])
