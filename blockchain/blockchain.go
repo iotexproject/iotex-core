@@ -691,7 +691,7 @@ func (bc *blockchain) MintNewBlock(
 	// TODO the nonce is wrong, if bd also submit actions
 	elp := bd.SetNonce(bc.tipHeight + 1).
 		SetDestinationAddress(producer.RawAddress).
-		SetGasLimit(genesis.BlockGasLimit).
+		SetGasLimit(cb.GasLimit()).
 		SetAction(cb).Build()
 	selp, err := action.Sign(elp, producer.RawAddress, producer.PrivateKey)
 	if err != nil {
