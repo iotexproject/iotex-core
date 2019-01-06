@@ -217,7 +217,7 @@ func (sf *factory) RootHashByHeight(blockHeight uint64) (hash.Hash32B, error) {
 
 	data, err := sf.dao.Get(AccountKVNameSpace, []byte(fmt.Sprintf("%s-%d", AccountTrieRootKey, blockHeight)))
 	if err != nil {
-		return hash.ZeroHash32B, nil
+		return hash.ZeroHash32B, err
 	}
 	var rootHash hash.Hash32B
 	copy(rootHash[:], data)
