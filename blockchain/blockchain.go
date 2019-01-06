@@ -922,13 +922,13 @@ func (bc *blockchain) startEmptyBlockchain() error {
 		PublicKey:  keypair.ZeroPublicKey,
 		RawAddress: addr.IotxAddress(),
 	}
+	if bc.sf == nil {
+		return errors.New("statefactory cannot be nil")
+	}
+	if ws, err = bc.sf.NewWorkingSet(); err != nil {
+		return errors.Wrap(err, "failed to obtain working set from state factory")
+	}
 	if bc.config.Chain.GenesisActionsPath != "" || !bc.config.Chain.EmptyGenesis {
-		if bc.sf == nil {
-			return errors.New("statefactory cannot be nil")
-		}
-		if ws, err = bc.sf.NewWorkingSet(); err != nil {
-			return errors.Wrap(err, "failed to obtain working set from state factory")
-		}
 		acts := NewGenesisActions(bc.config.Chain, ws)
 		racts := block.NewRunnableActionsBuilder().
 			SetHeight(0).
@@ -950,7 +950,6 @@ func (bc *blockchain) startEmptyBlockchain() error {
 		if err != nil {
 			return errors.Wrapf(err, "Failed to create block")
 		}
-		genesis.WorkingSet = ws
 	} else {
 		racts := block.NewRunnableActionsBuilder().
 			SetHeight(0).
@@ -964,6 +963,7 @@ func (bc *blockchain) startEmptyBlockchain() error {
 			return errors.Wrapf(err, "Failed to create block")
 		}
 	}
+	genesis.WorkingSet = ws
 	// add Genesis block as very first block
 	if err := bc.commitBlock(&genesis); err != nil {
 		return errors.Wrap(err, "failed to commit Genesis block")
@@ -1107,7 +1107,7 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 		// detach working set so it can be freed by GC
 		blk.WorkingSet = nil
 		if err != nil {
-			return err
+			logger.Panic().Err(err).Msg("Error when commiting states")
 		}
 
 		// write smart contract receipt into DB
