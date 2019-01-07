@@ -205,7 +205,7 @@ func (m *cFSM) Start(c context.Context) error {
 					}
 				} else {
 					dst := m.fsm.CurrentState()
-					m.ctx.Logger().Info().
+					m.ctx.Logger().Debug().
 						Str("src", string(src)).
 						Str("dst", string(dst)).
 						Str("evt", string(evt.Type())).
