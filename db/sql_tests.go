@@ -17,12 +17,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// ActionHistory define the schema for action history
 type ActionHistory struct {
 	NodeAddress string
 	UserAddress string
 	ActionHash  string
 }
 
+// TestStorePutGet define the common test cases for put and get
 func TestStorePutGet(sqlStore Store, t *testing.T) {
 	require := require.New(t)
 	ctx := context.Background()
@@ -94,6 +96,7 @@ func TestStorePutGet(sqlStore Store, t *testing.T) {
 	require.Equal(0, len(parsedRows))
 }
 
+// TestStoreTransaction define the common test cases for transaction
 func TestStoreTransaction(sqlStore Store, t *testing.T) {
 	require := require.New(t)
 	ctx := context.Background()
