@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package sqlite3
+package db
 
 import (
 	"reflect"
@@ -12,8 +12,8 @@ import (
 	"database/sql"
 )
 
-// ParseRows will parse the row
-func ParseRows(rows *sql.Rows, schema interface{}) ([]interface{}, error) {
+// ParseSQLRows will parse the row
+func ParseSQLRows(rows *sql.Rows, schema interface{}) ([]interface{}, error) {
 	var parsedRows []interface{}
 	s := reflect.ValueOf(schema).Elem()
 

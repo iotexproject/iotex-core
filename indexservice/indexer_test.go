@@ -17,6 +17,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/rds"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/proto"
@@ -28,7 +29,7 @@ var (
 )
 
 func TestIndexService(t *testing.T) {
-	testRDSStorePutGet := func(rdsStore rds.Store, t *testing.T) {
+	testRDSStorePutGet := func(rdsStore db.Store, t *testing.T) {
 		t.Skip("Skipping when RDS credentail not provided.")
 
 		require := require.New(t)

@@ -135,7 +135,7 @@ var (
 			UseBadgerDB: false,
 			NumRetries:  3,
 			SQLITE3: SQLITE3{
-				SQLite3File:	"./explorer.db",
+				SQLite3File: "./explorer.db",
 			},
 		},
 	}
