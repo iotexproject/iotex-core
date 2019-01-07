@@ -78,6 +78,7 @@ func TestAddSubChainActions(t *testing.T) {
 		SetAction(putBlock).
 		SetGasLimit(10003).Build()
 	pbselp, err := action.Sign(pbelp, testaddress.Addrinfo["producer"].RawAddress, testaddress.Addrinfo["producer"].PrivateKey)
+	require.NoError(t, err)
 	require.NoError(t, ap.Add(pbselp))
 
 	stopSubChain := action.NewStopSubChain(
@@ -95,6 +96,7 @@ func TestAddSubChainActions(t *testing.T) {
 		SetAction(stopSubChain).
 		SetGasLimit(10005).Build()
 	sscselp, err := action.Sign(sscelp, testaddress.Addrinfo["producer"].RawAddress, testaddress.Addrinfo["producer"].PrivateKey)
+	require.NoError(t, err)
 	require.NoError(t, ap.Add(sscselp))
 
 	assert.Equal(t, 3, len(ap.PickActs()))

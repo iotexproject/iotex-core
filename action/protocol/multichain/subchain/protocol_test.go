@@ -26,8 +26,6 @@ import (
 )
 
 func TestValidateDeposit(t *testing.T) {
-	t.Parallel()
-
 	ctrl := gomock.NewController(t)
 	ctx := context.Background()
 	bc := blockchain.NewBlockchain(config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
@@ -89,8 +87,6 @@ func TestValidateDeposit(t *testing.T) {
 }
 
 func TestMutateDeposit(t *testing.T) {
-	t.Parallel()
-
 	ctrl := gomock.NewController(t)
 	ctx := context.Background()
 	bc := blockchain.NewBlockchain(config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())

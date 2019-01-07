@@ -33,7 +33,7 @@ func TestBroadcast(t *testing.T) {
 		require.NoError(t, err)
 	}()
 	counts := make(map[uint8]int)
-	var mutex sync.Mutex
+	var mutex sync.RWMutex
 	for i := 0; i < n; i++ {
 		cfg := config.Network{Host: "127.0.0.1", Port: testutil.RandomPort()}
 		if i > 0 {
@@ -64,6 +64,8 @@ func TestBroadcast(t *testing.T) {
 			MsgBody: []byte{uint8(i)},
 		}))
 		require.NoError(t, testutil.WaitUntil(100*time.Millisecond, 10*time.Second, func() (bool, error) {
+			mutex.RLock()
+			defer mutex.RUnlock()
 			return counts[uint8(i)] == n, nil
 		}))
 	}
@@ -81,7 +83,7 @@ func TestUnicast(t *testing.T) {
 		require.NoError(t, err)
 	}()
 	counts := make(map[uint8]int)
-	var mutex sync.Mutex
+	var mutex sync.RWMutex
 	for i := 0; i < n; i++ {
 		cfg := config.Network{Host: "127.0.0.1", Port: testutil.RandomPort()}
 		if i > 0 {
@@ -117,6 +119,8 @@ func TestUnicast(t *testing.T) {
 			}))
 		}
 		require.NoError(t, testutil.WaitUntil(100*time.Millisecond, 10*time.Second, func() (bool, error) {
+			mutex.RLock()
+			defer mutex.RUnlock()
 			return counts[uint8(i)] == n-1, nil
 		}))
 	}

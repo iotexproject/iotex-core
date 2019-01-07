@@ -11,6 +11,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"sync"
 	"testing"
 
 	"github.com/facebookgo/clock"
@@ -275,12 +276,21 @@ func TestCreateBlockchain(t *testing.T) {
 
 type MockSubscriber struct {
 	counter int
+	mu      sync.RWMutex
 }
 
 func (ms *MockSubscriber) HandleBlock(blk *block.Block) error {
+	ms.mu.Lock()
 	tsfs, _, _ := action.ClassifyActions(blk.Actions)
 	ms.counter += len(tsfs)
+	ms.mu.Unlock()
 	return nil
+}
+
+func (ms *MockSubscriber) Counter() int {
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
+	return ms.counter
 }
 
 func TestLoadBlockchainfromDB(t *testing.T) {
@@ -293,7 +303,6 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	defer testutil.CleanupPath(t, testDBPath)
 
 	cfg := config.Default
-	cfg.DB.UseBadgerDB = true // test with badgerDB
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Explorer.Enabled = true
@@ -315,14 +324,14 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	ms := &MockSubscriber{counter: 0}
 	err = bc.AddSubscriber(ms)
 	require.Nil(err)
-	require.Equal(0, ms.counter)
+	require.Equal(0, ms.Counter())
 
 	height := bc.TipHeight()
 	fmt.Printf("Open blockchain pass, height = %d\n", height)
 	require.Nil(addTestingTsfBlocks(bc))
 	err = bc.Stop(ctx)
 	require.NoError(err)
-	require.Equal(27, ms.counter)
+	require.Equal(27, ms.Counter())
 
 	// Load a blockchain from DB
 	bc = NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
@@ -457,12 +466,11 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	require.NotNil(err)
 	fmt.Printf("Cannot validate block %d: %v\n", blk.Height(), err)
 
-	// cannot add existing block again
+	// add existing block again will have no effect
 	blk, err = bc.GetBlockByHeight(3)
 	require.NotNil(blk)
 	require.Nil(err)
-	err = bc.(*blockchain).commitBlock(blk)
-	require.NotNil(err)
+	require.NoError(bc.(*blockchain).commitBlock(blk))
 	fmt.Printf("Cannot add block 3 again: %v\n", err)
 
 	// check all Tx from block 4
@@ -681,12 +689,11 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	err = bc.ValidateBlock(&nblk, true)
 	require.NotNil(err)
 	fmt.Printf("Cannot validate block %d: %v\n", blk.Height(), err)
-	// cannot add existing block again
+	// add existing block again will have no effect
 	blk, err = bc.GetBlockByHeight(3)
 	require.NotNil(blk)
 	require.Nil(err)
-	err = bc.(*blockchain).commitBlock(blk)
-	require.NotNil(err)
+	require.NoError(bc.(*blockchain).commitBlock(blk))
 	fmt.Printf("Cannot add block 3 again: %v\n", err)
 	// check all Tx from block 4
 	blk, err = bc.GetBlockByHeight(4)
@@ -1044,6 +1051,70 @@ func TestMintDKGBlock(t *testing.T) {
 	candidates, err := chain.CandidatesByHeight(height)
 	require.NoError(err)
 	require.Equal(21, len(candidates))
+}
+
+func TestStartExistingBlockchain(t *testing.T) {
+	require := require.New(t)
+	ctx := context.Background()
+
+	testutil.CleanupPath(t, testTriePath)
+	testutil.CleanupPath(t, testDBPath)
+
+	// Disable block reward to make bookkeeping easier
+	Gen.BlockReward = big.NewInt(0)
+	cfg := config.Default
+	cfg.Chain.TrieDBPath = testTriePath
+	cfg.Chain.ChainDBPath = testDBPath
+
+	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
+	require.NoError(err)
+	require.NoError(sf.Start(context.Background()))
+	sf.AddActionHandlers(account.NewProtocol())
+
+	// Create a blockchain from scratch
+	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
+	require.NotNil(bc)
+	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
+	bc.Validator().AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
+	sf.AddActionHandlers(vote.NewProtocol(bc))
+	require.NoError(bc.Start(ctx))
+
+	defer func() {
+		require.NoError(sf.Stop(ctx))
+		require.NoError(bc.Stop(ctx))
+		testutil.CleanupPath(t, testTriePath)
+		testutil.CleanupPath(t, testDBPath)
+	}()
+
+	require.NoError(addTestingTsfBlocks(bc))
+	require.True(5 == bc.TipHeight())
+
+	// delete state db and recover to tip
+	testutil.CleanupPath(t, testTriePath)
+	sf, err = factory.NewFactory(cfg, factory.DefaultTrieOption())
+	require.NoError(err)
+	require.NoError(sf.Start(context.Background()))
+	sf.AddActionHandlers(account.NewProtocol())
+	sf.AddActionHandlers(vote.NewProtocol(bc))
+	chain, ok := bc.(*blockchain)
+	require.True(ok)
+	chain.sf = sf
+	require.NoError(chain.startExistingBlockchain(0))
+	height, _ := chain.sf.Height()
+	require.Equal(bc.TipHeight(), height)
+
+	// recover to height 3
+	testutil.CleanupPath(t, testTriePath)
+	sf, err = factory.NewFactory(cfg, factory.DefaultTrieOption())
+	require.NoError(err)
+	require.NoError(sf.Start(context.Background()))
+	sf.AddActionHandlers(account.NewProtocol())
+	sf.AddActionHandlers(vote.NewProtocol(bc))
+	chain.sf = sf
+	require.NoError(chain.startExistingBlockchain(3))
+	height, _ = chain.sf.Height()
+	require.Equal(bc.TipHeight(), height)
+	require.True(3 == height)
 }
 
 func addCreatorToFactory(sf factory.Factory) error {

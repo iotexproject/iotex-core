@@ -53,7 +53,7 @@
   branch = "master"
   name = "github.com/btcsuite/btcd"
   packages = ["btcec"]
-  revision = "67e573d211ace594f1366b4ce9d39726c4b19bd0"
+  revision = "7d2daa5bfef28c5e282571bc06416516936115ee"
 
 [[projects]]
   branch = "master"
@@ -90,7 +90,7 @@
   branch = "master"
   name = "github.com/dgryski/go-farm"
   packages = ["."]
-  revision = "2de33835d10275975374b37b2dcfd22c9020a1f5"
+  revision = "3adb47b1fb0f6d9efcc5051a6c62e2e413ac85a9"
 
 [[projects]]
   branch = "master"
@@ -116,14 +116,14 @@
     "io",
     "proto"
   ]
-  revision = "636bf0302bc95575d69441b25a2603156ffdddf1"
-  version = "v1.1.1"
+  revision = "4cbf7e384e768b4e01799441fdf2a706a5635ae7"
+  version = "v1.2.0"
 
 [[projects]]
   name = "github.com/golang/mock"
   packages = ["gomock"]
-  revision = "c34cdb4725f4c3844d095133c6e40e448b86589b"
-  version = "v1.1.1"
+  revision = "51421b967af1f557f93a59e0057aaf15ca02e29c"
+  version = "v1.2.0"
 
 [[projects]]
   name = "github.com/golang/protobuf"
@@ -146,18 +146,6 @@
   packages = ["."]
   revision = "66b9c49e59c6c48f0ffce28c2d8b8a5678502c6d"
   version = "v1.4.0"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/gxed/GoEndian"
-  packages = ["."]
-  revision = "0f5c6873267e5abf306ffcdfcfa4bf77517ef4a7"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/gxed/eventfd"
-  packages = ["."]
-  revision = "80a92cca79a8041496ccc9dd773fcb52a57ec6f9"
 
 [[projects]]
   branch = "master"
@@ -308,12 +296,23 @@
     ".",
     "config",
     "p2p/host/basic",
+    "p2p/host/relay",
+    "p2p/host/routed",
     "p2p/protocol/identify",
     "p2p/protocol/identify/pb",
     "p2p/protocol/ping"
   ]
-  revision = "9356373d00ab1aef3e20c8202b682f93799acf78"
-  version = "v6.0.23"
+  revision = "1a0c9bc9f4ef2a3213c4b6e0161bac35f3de15f9"
+  version = "v6.0.29"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/libp2p/go-libp2p-autonat"
+  packages = [
+    ".",
+    "pb"
+  ]
+  revision = "93b1787f76de807b9ab3a7c7edd45cf906139bdb"
 
 [[projects]]
   name = "github.com/libp2p/go-libp2p-circuit"
@@ -332,6 +331,12 @@
   ]
   revision = "274de1bb6c27780863df6b230c91324ab481dab2"
   version = "v2.0.1"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/libp2p/go-libp2p-discovery"
+  packages = ["."]
+  revision = "cc4105e21706452e5b0f7e05390f987017188d31"
 
 [[projects]]
   name = "github.com/libp2p/go-libp2p-host"
@@ -496,25 +501,15 @@
 
 [[projects]]
   name = "github.com/libp2p/go-reuseport"
-  packages = [
-    ".",
-    "poll",
-    "singlepoll"
-  ]
-  revision = "dd0c37d7767bc38280bd9813145b65f8bd560629"
-  version = "v0.1.18"
+  packages = ["."]
+  revision = "b3fd01f43ca522cd465bc82eb8a6d00be6b3039b"
+  version = "v0.2.0"
 
 [[projects]]
   name = "github.com/libp2p/go-reuseport-transport"
   packages = ["."]
   revision = "58ea7103ffb4b5eb248c4421e60fdb30e9a56dad"
   version = "v0.1.11"
-
-[[projects]]
-  name = "github.com/libp2p/go-sockaddr"
-  packages = ["net"]
-  revision = "5c3ac7e71ec1941a0c2ed4271535d9427feb829c"
-  version = "v1.0.3"
 
 [[projects]]
   name = "github.com/libp2p/go-stream-muxer"
@@ -550,7 +545,7 @@
   branch = "master"
   name = "github.com/mattn/go-sqlite3"
   packages = ["."]
-  revision = "87ac1cb49789a0ef6b0d7be6b7aa458a9b90d7ae"
+  revision = "3fa1c550ffa69b74dc4bfd5109b4e218f32c87cf"
 
 [[projects]]
   name = "github.com/matttproud/golang_protobuf_extensions"
@@ -568,7 +563,7 @@
   branch = "master"
   name = "github.com/minio/sha256-simd"
   packages = ["."]
-  revision = "51976451ce1942acbb55707a983ed232fa027110"
+  revision = "66352e71c5e1cd598fa97be77a56fe3973730042"
 
 [[projects]]
   name = "github.com/mr-tron/base58"
@@ -579,8 +574,8 @@
 [[projects]]
   name = "github.com/multiformats/go-multiaddr"
   packages = ["."]
-  revision = "2b4e098f3e0aa2c8bc960f0e4bdc3247efc3749c"
-  version = "v1.3.0"
+  revision = "8c3eb5dc1c12c5723d5b1d7de82abfa0e6f719d7"
+  version = "v1.4.0"
 
 [[projects]]
   name = "github.com/multiformats/go-multiaddr-dns"
@@ -591,8 +586,8 @@
 [[projects]]
   name = "github.com/multiformats/go-multiaddr-net"
   packages = ["."]
-  revision = "cba4f9fea8613343eb7ecc4ddadd8e7298a00c39"
-  version = "v1.6.3"
+  revision = "c75d1cac17a0d84dbf8b2c53c61f0ebf0575183a"
+  version = "v1.7.1"
 
 [[projects]]
   name = "github.com/multiformats/go-multibase"
@@ -625,8 +620,8 @@
 [[projects]]
   name = "github.com/pkg/errors"
   packages = ["."]
-  revision = "645ef00459ed84a119197bfb8d8205042c6df63d"
-  version = "v0.8.0"
+  revision = "ba968bfe8b2f7e042a574c888954fccecfa385b4"
+  version = "v0.8.1"
 
 [[projects]]
   name = "github.com/pmezard/go-difflib"
@@ -641,8 +636,8 @@
     "prometheus/internal",
     "prometheus/promhttp"
   ]
-  revision = "abad2d1bd44235a26707c172eab6bca5bf2dbad3"
-  version = "v0.9.1"
+  revision = "505eaef017263e299324067d40ca2c48f6a2cf50"
+  version = "v0.9.2"
 
 [[projects]]
   branch = "master"
@@ -658,7 +653,7 @@
     "internal/bitbucket.org/ww/goautoneg",
     "model"
   ]
-  revision = "1f2c4f3cd6db5fd6f68f36af6b6d5d936fd93c4e"
+  revision = "b1c43a6df3aedba268353d940b5974f05037ed5c"
 
 [[projects]]
   branch = "master"
@@ -669,7 +664,7 @@
     "nfs",
     "xfs"
   ]
-  revision = "185b4288413d2a0dd0806f78c90dde719829e5ae"
+  revision = "b1a0a9a36d7453ba0f62578b99712f3a6c5f82d1"
 
 [[projects]]
   name = "github.com/rs/zerolog"
@@ -705,8 +700,8 @@
     "assert",
     "require"
   ]
-  revision = "f35b8ab0b5a2cef36673838d662e249dd9c94686"
-  version = "v1.2.2"
+  revision = "ffdc059bfe9ce6a4e144ba849dbedead332c6053"
+  version = "v1.3.0"
 
 [[projects]]
   branch = "master"
@@ -782,7 +777,7 @@
 [[projects]]
   name = "github.com/zjshen14/go-p2p"
   packages = ["."]
-  revision = "e1072949cb96618ec1dbc98fa0cb7c1d0acfd5ed"
+  revision = "95672e2c3e848397cfe4fa4eeade05e6f85c2a56"
 
 [[projects]]
   name = "go.uber.org/atomic"
@@ -827,7 +822,7 @@
     "ripemd160",
     "sha3"
   ]
-  revision = "3d3f9f413869b949e48070b5bc593aa22cc2b8f2"
+  revision = "ff983b9c42bc9fbf91556e191cc8efb585c16908"
 
 [[projects]]
   branch = "master"
@@ -840,13 +835,13 @@
     "internal/timeseries",
     "trace"
   ]
-  revision = "adae6a3d119ae4890b46832a2e88a95adc62b8e7"
+  revision = "927f97764cc334a6575f4b7a1584a147864d5723"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/sync"
   packages = ["errgroup"]
-  revision = "42b317875d0fa942474b76e1b46a6060d720ae6e"
+  revision = "37e7f081c4d4c64e13b10787722085407fe5d15f"
 
 [[projects]]
   branch = "master"
@@ -856,7 +851,7 @@
     "unix",
     "windows"
   ]
-  revision = "93218def8b18e66adbdab3eca8ec334700329f1f"
+  revision = "1775db3f06b568179d273425900dd09125831dd5"
 
 [[projects]]
   name = "golang.org/x/text"
@@ -885,18 +880,18 @@
 [[projects]]
   name = "google.golang.org/appengine"
   packages = ["cloudsql"]
-  revision = "4a4468ece617fc8205e99368fa2200e9d1fad421"
-  version = "v1.3.0"
+  revision = "e9657d882bb81064595ca3b56cbe2546bbabf7b1"
+  version = "v1.4.0"
 
 [[projects]]
   name = "gopkg.in/yaml.v2"
   packages = ["."]
-  revision = "5420a8b6744d3b0345ab293f6fcba19c978f1183"
-  version = "v2.2.1"
+  revision = "51d6538a90f86fe93ac480b35f37b2be17fef232"
+  version = "v2.2.2"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "27cdbdbb20f9d87ad1076fc8ed8f3c2a4cc681fa57c224f9f4467adabb9e18db"
+  inputs-digest = "fdcc3cbe8d90c4148c4e58bfada1a6d723876d7bc23375429e668b65ef7daedf"
   solver-name = "gps-cdcl"
   solver-version = 1

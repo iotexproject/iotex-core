@@ -21,7 +21,6 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
-	"github.com/iotexproject/iotex-core/db"
 	explorerapi "github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
@@ -106,12 +105,7 @@ func NewConsensus(
 	commitBlockCB := func(blk *block.Block) error {
 		err := bc.CommitBlock(blk)
 		if err != nil {
-			if err == db.ErrAlreadyExist {
-				err = nil
-				logger.Info().Int64("Height", int64(blk.Height())).Msg("Block already exists.")
-			} else {
-				logger.Error().Err(err).Int64("Height", int64(blk.Height())).Msg("Failed to commit the block")
-			}
+			logger.Error().Err(err).Int64("Height", int64(blk.Height())).Msg("Failed to commit the block")
 		}
 		// Remove transfers in this block from ActPool and reset ActPool state
 		ap.Reset()

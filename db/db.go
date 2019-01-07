@@ -34,8 +34,6 @@ type KVStore interface {
 
 	// Put insert or update a record identified by (namespace, key)
 	Put(string, []byte, []byte) error
-	// Put puts a record only if (namespace, key) doesn't exist, otherwise return ErrAlreadyExist
-	PutIfNotExists(string, []byte, []byte) error
 	// Get gets a record by (namespace, key)
 	Get(string, []byte) ([]byte, error)
 	// Delete deletes a record by (namespace, key)
@@ -52,6 +50,7 @@ const (
 type memKVStore struct {
 	data   *sync.Map
 	bucket map[string]struct{}
+	mu     sync.RWMutex
 }
 
 // NewMemKVStore instantiates an in-memory KV store
@@ -68,23 +67,17 @@ func (m *memKVStore) Stop(_ context.Context) error { return nil }
 
 // Put inserts a <key, value> record
 func (m *memKVStore) Put(namespace string, key, value []byte) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.bucket[namespace] = struct{}{}
 	m.data.Store(namespace+keyDelimiter+string(key), value)
 	return nil
 }
 
-// PutIfNotExists inserts a <key, value> record only if it does not exist yet, otherwise return ErrAlreadyExist
-func (m *memKVStore) PutIfNotExists(namespace string, key, value []byte) error {
-	m.bucket[namespace] = struct{}{}
-	_, loaded := m.data.LoadOrStore(namespace+keyDelimiter+string(key), value)
-	if loaded {
-		return ErrAlreadyExist
-	}
-	return nil
-}
-
 // Get retrieves a record
 func (m *memKVStore) Get(namespace string, key []byte) ([]byte, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	if _, ok := m.bucket[namespace]; !ok {
 		return nil, errors.Wrapf(bolt.ErrBucketNotFound, "bucket = %s", namespace)
 	}
@@ -120,11 +113,6 @@ func (m *memKVStore) Commit(b KVStoreBatch) (e error) {
 		}
 		if write.writeType == Put {
 			if err := m.Put(write.namespace, write.key, write.value); err != nil {
-				e = err
-				break
-			}
-		} else if write.writeType == PutIfNotExists {
-			if err := m.PutIfNotExists(write.namespace, write.key, write.value); err != nil {
 				e = err
 				break
 			}

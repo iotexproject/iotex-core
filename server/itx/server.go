@@ -117,7 +117,7 @@ func (s *Server) Start(ctx context.Context) error {
 	}
 	for _, cs := range s.chainservices {
 		if err := cs.Start(ctx); err != nil {
-			return errors.Wrap(err, "error when stopping blockchain")
+			return errors.Wrap(err, "error when starting blockchain")
 		}
 	}
 	if err := s.dispatcher.Start(ctx); err != nil {
@@ -148,6 +148,8 @@ func (s *Server) Stop(ctx context.Context) error {
 
 // NewSubChainService creates a new chain service in this server.
 func (s *Server) NewSubChainService(cfg config.Config) error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 	return s.newSubChainService(cfg)
 }
 
@@ -211,6 +213,8 @@ func (s *Server) NewTestingChainService(cfg config.Config) error {
 
 // StopChainService stops the chain service run in the server.
 func (s *Server) StopChainService(ctx context.Context, id uint32) error {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
 	c, ok := s.chainservices[id]
 	if !ok {
 		return errors.New("Chain ID does not match any existing chains")
@@ -224,7 +228,11 @@ func (s *Server) P2PAgent() *p2p.Agent {
 }
 
 // ChainService returns the chainservice hold in Server with given id.
-func (s *Server) ChainService(id uint32) *chainservice.ChainService { return s.chainservices[id] }
+func (s *Server) ChainService(id uint32) *chainservice.ChainService {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	return s.chainservices[id]
+}
 
 // Dispatcher returns the Dispatcher
 func (s *Server) Dispatcher() dispatcher.Dispatcher {

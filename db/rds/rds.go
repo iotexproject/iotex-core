@@ -9,10 +9,10 @@ package rds
 import (
 	"fmt"
 
+	// we need mysql import because it's called in file, (but compile will complain because there is no display)
+	_ "github.com/go-sql-driver/mysql"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
-	// this is required for sqlite3 usage
-	_ "github.com/mattn/go-sqlite3"
 )
 
 // NewAwsRDS instantiates an aws rds

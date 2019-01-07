@@ -926,8 +926,7 @@ func (bc *blockchain) startEmptyBlockchain() error {
 		if bc.sf == nil {
 			return errors.New("statefactory cannot be nil")
 		}
-		ws, err = bc.sf.NewWorkingSet()
-		if err != nil {
+		if ws, err = bc.sf.NewWorkingSet(); err != nil {
 			return errors.Wrap(err, "failed to obtain working set from state factory")
 		}
 		acts := NewGenesisActions(bc.config.Chain, ws)
@@ -951,6 +950,7 @@ func (bc *blockchain) startEmptyBlockchain() error {
 		if err != nil {
 			return errors.Wrapf(err, "Failed to create block")
 		}
+		genesis.WorkingSet = ws
 	} else {
 		racts := block.NewRunnableActionsBuilder().
 			SetHeight(0).
@@ -965,7 +965,6 @@ func (bc *blockchain) startEmptyBlockchain() error {
 		}
 	}
 	// add Genesis block as very first block
-	genesis.WorkingSet = ws
 	if err := bc.commitBlock(&genesis); err != nil {
 		return errors.Wrap(err, "failed to commit Genesis block")
 	}
@@ -973,7 +972,6 @@ func (bc *blockchain) startEmptyBlockchain() error {
 }
 
 func (bc *blockchain) startExistingBlockchain(recoveryHeight uint64) error {
-	// populate state factory
 	if bc.sf == nil {
 		return errors.New("statefactory cannot be nil")
 	}
@@ -988,30 +986,28 @@ func (bc *blockchain) startExistingBlockchain(recoveryHeight uint64) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to obtain working set from state factory")
 	}
-	// If restarting factory from fresh db, first create creator's state
+	// If restarting factory from fresh db, first update state changes in Genesis block
 	if startHeight == 0 {
-		actions := loadGenesisData(bc.config.Chain)
-		Gen.CreatorPubKey = actions.Creation.PubKey
-		if _, err := account.LoadOrCreateAccount(ws, Gen.CreatorAddr(bc.config.Chain.ID), Gen.TotalSupply); err != nil {
-			return err
+		addr := address.New(bc.ChainID(), keypair.ZeroPublicKey[:])
+		iaddr := &iotxaddress.Address{
+			PrivateKey: keypair.ZeroPrivateKey,
+			PublicKey:  keypair.ZeroPublicKey,
+			RawAddress: addr.IotxAddress(),
 		}
-		genesisBlk, err := bc.getBlockByHeight(0)
-		if err != nil {
-			return err
-		}
-		gasLimit := GasLimit
-		ctx := protocol.WithRunActionsCtx(context.Background(),
-			protocol.RunActionsCtx{
-				ProducerAddr:    genesisBlk.ProducerAddress(),
-				GasLimit:        &gasLimit,
-				EnableGasCharge: bc.config.Chain.EnableGasCharge,
-			})
-		if _, _, err := ws.RunActions(ctx, 0, nil); err != nil {
-			return errors.Wrap(err, "failed to create Creator into StateFactory")
+		acts := NewGenesisActions(bc.config.Chain, ws)
+		racts := block.NewRunnableActionsBuilder().
+			SetHeight(0).
+			SetTimeStamp(Gen.Timestamp).
+			AddActions(acts...).
+			Build(iaddr)
+		// run execution and update state trie root hash
+		if _, _, err := bc.runActions(racts, ws, false); err != nil {
+			return errors.Wrap(err, "failed to update state changes in Genesis block")
 		}
 		if err := bc.sf.Commit(ws); err != nil {
-			return errors.Wrap(err, "failed to add Creator into StateFactory")
+			return errors.Wrap(err, "failed to update state changes in Genesis block")
 		}
+		startHeight = 1
 	}
 	if recoveryHeight > 0 && startHeight <= recoveryHeight {
 		for bc.tipHeight > recoveryHeight {
@@ -1080,9 +1076,19 @@ func (bc *blockchain) validateBlock(blk *block.Block, containCoinbase bool) erro
 
 // commitBlock commits a block to the chain
 func (bc *blockchain) commitBlock(blk *block.Block) error {
+	// Check if it is already exists, and return earlier
+	blkHash, err := bc.dao.getBlockHash(blk.Height())
+	if blkHash != hash.ZeroHash32B {
+		logger.Debug().Uint64("height", blk.Height()).Msg("Block already exists")
+		return nil
+	}
+	// If it's a ready db io error, return earlier with the error
+	if errors.Cause(err) != db.ErrNotExist && errors.Cause(err) != bolt.ErrBucketNotFound {
+		return err
+	}
 	// write block into DB
 	putTimer := bc.timerFactory.NewTimer("putBlock")
-	err := bc.dao.putBlock(blk)
+	err = bc.dao.putBlock(blk)
 	putTimer.End()
 	if err != nil {
 		return err
