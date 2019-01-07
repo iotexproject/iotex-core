@@ -31,100 +31,100 @@ func TestBlockDAO(t *testing.T) {
 	getBlocks := func() []*block.Block {
 		amount := uint64(50 << 22)
 		// create testing transfers
-		cbTsf1 := action.NewCoinBaseTransfer(1, big.NewInt(int64((amount))), testaddress.Addrinfo["alfa"].RawAddress)
+		cbTsf1 := action.NewCoinBaseTransfer(1, big.NewInt(int64((amount))), testaddress.IotxAddrinfo["alfa"].RawAddress)
 		assert.NotNil(t, cbTsf1)
 		bd := &action.EnvelopeBuilder{}
 		elp := bd.SetNonce(1).
-			SetDestinationAddress(testaddress.Addrinfo["alfa"].RawAddress).
+			SetDestinationAddress(testaddress.IotxAddrinfo["alfa"].RawAddress).
 			SetGasLimit(protocol.GasLimit).
 			SetAction(cbTsf1).Build()
-		scbTsf1, err := action.Sign(elp, testaddress.Addrinfo["alfa"].RawAddress, testaddress.Addrinfo["alfa"].PrivateKey)
+		scbTsf1, err := action.Sign(elp, testaddress.IotxAddrinfo["alfa"].RawAddress, testaddress.IotxAddrinfo["alfa"].PrivateKey)
 		require.NoError(t, err)
 
-		cbTsf2 := action.NewCoinBaseTransfer(1, big.NewInt(int64((amount))), testaddress.Addrinfo["bravo"].RawAddress)
+		cbTsf2 := action.NewCoinBaseTransfer(1, big.NewInt(int64((amount))), testaddress.IotxAddrinfo["bravo"].RawAddress)
 		assert.NotNil(t, cbTsf2)
 		bd = &action.EnvelopeBuilder{}
 		elp = bd.SetNonce(1).
-			SetDestinationAddress(testaddress.Addrinfo["bravo"].RawAddress).
+			SetDestinationAddress(testaddress.IotxAddrinfo["bravo"].RawAddress).
 			SetGasLimit(protocol.GasLimit).
 			SetAction(cbTsf2).Build()
-		scbTsf2, err := action.Sign(elp, testaddress.Addrinfo["bravo"].RawAddress, testaddress.Addrinfo["bravo"].PrivateKey)
+		scbTsf2, err := action.Sign(elp, testaddress.IotxAddrinfo["bravo"].RawAddress, testaddress.IotxAddrinfo["bravo"].PrivateKey)
 		require.NoError(t, err)
 
 		require.NoError(t, err)
-		cbTsf3 := action.NewCoinBaseTransfer(1, big.NewInt(int64((amount))), testaddress.Addrinfo["charlie"].RawAddress)
+		cbTsf3 := action.NewCoinBaseTransfer(1, big.NewInt(int64((amount))), testaddress.IotxAddrinfo["charlie"].RawAddress)
 		assert.NotNil(t, cbTsf3)
 		bd = &action.EnvelopeBuilder{}
 		elp = bd.SetNonce(1).
-			SetDestinationAddress(testaddress.Addrinfo["charlie"].RawAddress).
+			SetDestinationAddress(testaddress.IotxAddrinfo["charlie"].RawAddress).
 			SetGasLimit(protocol.GasLimit).
 			SetAction(cbTsf3).Build()
-		scbTsf3, err := action.Sign(elp, testaddress.Addrinfo["charlie"].RawAddress, testaddress.Addrinfo["charlie"].PrivateKey)
+		scbTsf3, err := action.Sign(elp, testaddress.IotxAddrinfo["charlie"].RawAddress, testaddress.IotxAddrinfo["charlie"].PrivateKey)
 		require.NoError(t, err)
 
 		// create testing votes
-		vote1, err := testutil.SignedVote(testaddress.Addrinfo["alfa"], testaddress.Addrinfo["alfa"], 1, 100000, big.NewInt(10))
+		vote1, err := testutil.SignedVote(testaddress.IotxAddrinfo["alfa"], testaddress.IotxAddrinfo["alfa"], 1, 100000, big.NewInt(10))
 		require.NoError(t, err)
-		vote2, err := testutil.SignedVote(testaddress.Addrinfo["bravo"], testaddress.Addrinfo["bravo"], 1, 100000, big.NewInt(10))
+		vote2, err := testutil.SignedVote(testaddress.IotxAddrinfo["bravo"], testaddress.IotxAddrinfo["bravo"], 1, 100000, big.NewInt(10))
 		require.NoError(t, err)
-		vote3, err := testutil.SignedVote(testaddress.Addrinfo["charlie"], testaddress.Addrinfo["charlie"], 1, 100000, big.NewInt(10))
+		vote3, err := testutil.SignedVote(testaddress.IotxAddrinfo["charlie"], testaddress.IotxAddrinfo["charlie"], 1, 100000, big.NewInt(10))
 		require.NoError(t, err)
 
 		// create testing executions
-		execution1, err := testutil.SignedExecution(testaddress.Addrinfo["alfa"], testaddress.Addrinfo["delta"].RawAddress, 1, big.NewInt(1), 0, big.NewInt(0), nil)
+		execution1, err := testutil.SignedExecution(testaddress.IotxAddrinfo["alfa"], testaddress.IotxAddrinfo["delta"].RawAddress, 1, big.NewInt(1), 0, big.NewInt(0), nil)
 		require.NoError(t, err)
-		execution2, err := testutil.SignedExecution(testaddress.Addrinfo["bravo"], testaddress.Addrinfo["delta"].RawAddress, 2, big.NewInt(0), 0, big.NewInt(0), nil)
+		execution2, err := testutil.SignedExecution(testaddress.IotxAddrinfo["bravo"], testaddress.IotxAddrinfo["delta"].RawAddress, 2, big.NewInt(0), 0, big.NewInt(0), nil)
 		require.NoError(t, err)
-		execution3, err := testutil.SignedExecution(testaddress.Addrinfo["charlie"], testaddress.Addrinfo["delta"].RawAddress, 3, big.NewInt(2), 0, big.NewInt(0), nil)
+		execution3, err := testutil.SignedExecution(testaddress.IotxAddrinfo["charlie"], testaddress.IotxAddrinfo["delta"].RawAddress, 3, big.NewInt(2), 0, big.NewInt(0), nil)
 		require.NoError(t, err)
 
 		// create testing create deposit actions
 		deposit1 := action.NewCreateDeposit(
 			4,
 			big.NewInt(1),
-			testaddress.Addrinfo["alfa"].RawAddress,
-			testaddress.Addrinfo["delta"].RawAddress,
+			testaddress.IotxAddrinfo["alfa"].RawAddress,
+			testaddress.IotxAddrinfo["delta"].RawAddress,
 			testutil.TestGasLimit,
 			big.NewInt(0),
 		)
 		bd = &action.EnvelopeBuilder{}
 		elp = bd.SetNonce(4).
-			SetDestinationAddress(testaddress.Addrinfo["delta"].RawAddress).
+			SetDestinationAddress(testaddress.IotxAddrinfo["delta"].RawAddress).
 			SetGasLimit(testutil.TestGasLimit).
 			SetAction(deposit1).Build()
-		sdeposit1, err := action.Sign(elp, testaddress.Addrinfo["alfa"].RawAddress, testaddress.Addrinfo["alfa"].PrivateKey)
+		sdeposit1, err := action.Sign(elp, testaddress.IotxAddrinfo["alfa"].RawAddress, testaddress.IotxAddrinfo["alfa"].PrivateKey)
 		require.NoError(t, err)
 
 		deposit2 := action.NewCreateDeposit(
 			5,
 			big.NewInt(2),
-			testaddress.Addrinfo["bravo"].RawAddress,
-			testaddress.Addrinfo["delta"].RawAddress,
+			testaddress.IotxAddrinfo["bravo"].RawAddress,
+			testaddress.IotxAddrinfo["delta"].RawAddress,
 			testutil.TestGasLimit,
 			big.NewInt(0),
 		)
 		bd = &action.EnvelopeBuilder{}
 		elp = bd.SetNonce(5).
-			SetDestinationAddress(testaddress.Addrinfo["delta"].RawAddress).
+			SetDestinationAddress(testaddress.IotxAddrinfo["delta"].RawAddress).
 			SetGasLimit(testutil.TestGasLimit).
 			SetAction(deposit2).Build()
-		sdeposit2, err := action.Sign(elp, testaddress.Addrinfo["bravo"].RawAddress, testaddress.Addrinfo["bravo"].PrivateKey)
+		sdeposit2, err := action.Sign(elp, testaddress.IotxAddrinfo["bravo"].RawAddress, testaddress.IotxAddrinfo["bravo"].PrivateKey)
 		require.NoError(t, err)
 
 		deposit3 := action.NewCreateDeposit(
 			6,
 			big.NewInt(3),
-			testaddress.Addrinfo["charlie"].RawAddress,
-			testaddress.Addrinfo["delta"].RawAddress,
+			testaddress.IotxAddrinfo["charlie"].RawAddress,
+			testaddress.IotxAddrinfo["delta"].RawAddress,
 			testutil.TestGasLimit,
 			big.NewInt(0),
 		)
 		bd = &action.EnvelopeBuilder{}
 		elp = bd.SetNonce(6).
-			SetDestinationAddress(testaddress.Addrinfo["delta"].RawAddress).
+			SetDestinationAddress(testaddress.IotxAddrinfo["delta"].RawAddress).
 			SetGasLimit(testutil.TestGasLimit).
 			SetAction(deposit3).Build()
-		sdeposit3, err := action.Sign(elp, testaddress.Addrinfo["charlie"].RawAddress, testaddress.Addrinfo["charlie"].PrivateKey)
+		sdeposit3, err := action.Sign(elp, testaddress.IotxAddrinfo["charlie"].RawAddress, testaddress.IotxAddrinfo["charlie"].PrivateKey)
 		require.NoError(t, err)
 
 		hash1 := hash.Hash32B{}
@@ -134,7 +134,7 @@ func TestBlockDAO(t *testing.T) {
 			SetPrevBlockHash(hash1).
 			SetTimeStamp(testutil.TimestampNow()).
 			AddActions(scbTsf1, vote1, execution1, sdeposit1).
-			SignAndBuild(testaddress.Addrinfo["producer"])
+			SignAndBuild(testaddress.IotxAddrinfo["producer"])
 		require.NoError(t, err)
 
 		hash2 := hash.Hash32B{}
@@ -144,7 +144,7 @@ func TestBlockDAO(t *testing.T) {
 			SetPrevBlockHash(hash2).
 			SetTimeStamp(testutil.TimestampNow()).
 			AddActions(scbTsf2, vote2, execution2, sdeposit2).
-			SignAndBuild(testaddress.Addrinfo["producer"])
+			SignAndBuild(testaddress.IotxAddrinfo["producer"])
 		require.NoError(t, err)
 
 		hash3 := hash.Hash32B{}
@@ -154,7 +154,7 @@ func TestBlockDAO(t *testing.T) {
 			SetPrevBlockHash(hash3).
 			SetTimeStamp(testutil.TimestampNow()).
 			AddActions(scbTsf3, vote3, execution3, sdeposit3).
-			SignAndBuild(testaddress.Addrinfo["producer"])
+			SignAndBuild(testaddress.IotxAddrinfo["producer"])
 		require.NoError(t, err)
 		return []*block.Block{&blk1, &blk2, &blk3}
 	}
@@ -316,141 +316,141 @@ func TestBlockDAO(t *testing.T) {
 		require.Equal(t, blkHash3, blkHash)
 
 		// Test get transfers
-		senderTransferCount, err := dao.getTransferCountBySenderAddress(testaddress.Addrinfo["alfa"].RawAddress)
+		senderTransferCount, err := dao.getTransferCountBySenderAddress(testaddress.IotxAddrinfo["alfa"].RawAddress)
 		require.NoError(t, err)
 		require.Equal(t, uint64(1), senderTransferCount)
-		senderTransfers, err := dao.getTransfersBySenderAddress(testaddress.Addrinfo["alfa"].RawAddress)
+		senderTransfers, err := dao.getTransfersBySenderAddress(testaddress.IotxAddrinfo["alfa"].RawAddress)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(senderTransfers))
-		recipientTransferCount, err := dao.getTransferCountByRecipientAddress(testaddress.Addrinfo["alfa"].RawAddress)
+		recipientTransferCount, err := dao.getTransferCountByRecipientAddress(testaddress.IotxAddrinfo["alfa"].RawAddress)
 		require.NoError(t, err)
 		require.Equal(t, uint64(1), recipientTransferCount)
-		recipientTransfers, err := dao.getTransfersByRecipientAddress(testaddress.Addrinfo["alfa"].RawAddress)
+		recipientTransfers, err := dao.getTransfersByRecipientAddress(testaddress.IotxAddrinfo["alfa"].RawAddress)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(recipientTransfers))
 		require.Equal(t, transferHash1, recipientTransfers[0])
 
-		senderTransferCount, err = dao.getTransferCountBySenderAddress(testaddress.Addrinfo["bravo"].RawAddress)
+		senderTransferCount, err = dao.getTransferCountBySenderAddress(testaddress.IotxAddrinfo["bravo"].RawAddress)
 		require.NoError(t, err)
 		require.Equal(t, uint64(1), senderTransferCount)
-		senderTransfers, err = dao.getTransfersBySenderAddress(testaddress.Addrinfo["bravo"].RawAddress)
+		senderTransfers, err = dao.getTransfersBySenderAddress(testaddress.IotxAddrinfo["bravo"].RawAddress)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(senderTransfers))
-		recipientTransferCount, err = dao.getTransferCountByRecipientAddress(testaddress.Addrinfo["bravo"].RawAddress)
+		recipientTransferCount, err = dao.getTransferCountByRecipientAddress(testaddress.IotxAddrinfo["bravo"].RawAddress)
 		require.NoError(t, err)
 		require.Equal(t, uint64(1), recipientTransferCount)
-		recipientTransfers, err = dao.getTransfersByRecipientAddress(testaddress.Addrinfo["bravo"].RawAddress)
+		recipientTransfers, err = dao.getTransfersByRecipientAddress(testaddress.IotxAddrinfo["bravo"].RawAddress)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(recipientTransfers))
 		require.Equal(t, transferHash2, recipientTransfers[0])
 
-		senderTransferCount, err = dao.getTransferCountBySenderAddress(testaddress.Addrinfo["charlie"].RawAddress)
+		senderTransferCount, err = dao.getTransferCountBySenderAddress(testaddress.IotxAddrinfo["charlie"].RawAddress)
 		require.NoError(t, err)
 		require.Equal(t, uint64(1), senderTransferCount)
-		senderTransfers, err = dao.getTransfersBySenderAddress(testaddress.Addrinfo["charlie"].RawAddress)
+		senderTransfers, err = dao.getTransfersBySenderAddress(testaddress.IotxAddrinfo["charlie"].RawAddress)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(senderTransfers))
-		recipientTransferCount, err = dao.getTransferCountByRecipientAddress(testaddress.Addrinfo["charlie"].RawAddress)
+		recipientTransferCount, err = dao.getTransferCountByRecipientAddress(testaddress.IotxAddrinfo["charlie"].RawAddress)
 		require.NoError(t, err)
 		require.Equal(t, uint64(1), recipientTransferCount)
-		recipientTransfers, err = dao.getTransfersByRecipientAddress(testaddress.Addrinfo["charlie"].RawAddress)
+		recipientTransfers, err = dao.getTransfersByRecipientAddress(testaddress.IotxAddrinfo["charlie"].RawAddress)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(recipientTransfers))
 		require.Equal(t, transferHash3, recipientTransfers[0])
 
 		// Test get votes
-		senderVoteCount, err := dao.getVoteCountBySenderAddress(testaddress.Addrinfo["alfa"].RawAddress)
+		senderVoteCount, err := dao.getVoteCountBySenderAddress(testaddress.IotxAddrinfo["alfa"].RawAddress)
 		require.NoError(t, err)
 		require.Equal(t, uint64(1), senderVoteCount)
-		senderVotes, err := dao.getVotesBySenderAddress(testaddress.Addrinfo["alfa"].RawAddress)
+		senderVotes, err := dao.getVotesBySenderAddress(testaddress.IotxAddrinfo["alfa"].RawAddress)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(senderVotes))
 		require.Equal(t, voteHash1, senderVotes[0])
-		recipientVoteCount, err := dao.getVoteCountByRecipientAddress(testaddress.Addrinfo["alfa"].RawAddress)
+		recipientVoteCount, err := dao.getVoteCountByRecipientAddress(testaddress.IotxAddrinfo["alfa"].RawAddress)
 		require.NoError(t, err)
 		require.Equal(t, uint64(1), recipientVoteCount)
-		recipientVotes, err := dao.getVotesByRecipientAddress(testaddress.Addrinfo["alfa"].RawAddress)
+		recipientVotes, err := dao.getVotesByRecipientAddress(testaddress.IotxAddrinfo["alfa"].RawAddress)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(recipientTransfers))
 		require.Equal(t, voteHash1, recipientVotes[0])
 
-		senderVoteCount, err = dao.getVoteCountBySenderAddress(testaddress.Addrinfo["bravo"].RawAddress)
+		senderVoteCount, err = dao.getVoteCountBySenderAddress(testaddress.IotxAddrinfo["bravo"].RawAddress)
 		require.NoError(t, err)
 		require.Equal(t, uint64(1), senderVoteCount)
-		senderVotes, err = dao.getVotesBySenderAddress(testaddress.Addrinfo["bravo"].RawAddress)
+		senderVotes, err = dao.getVotesBySenderAddress(testaddress.IotxAddrinfo["bravo"].RawAddress)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(senderVotes))
 		require.Equal(t, voteHash2, senderVotes[0])
-		recipientVoteCount, err = dao.getVoteCountByRecipientAddress(testaddress.Addrinfo["bravo"].RawAddress)
+		recipientVoteCount, err = dao.getVoteCountByRecipientAddress(testaddress.IotxAddrinfo["bravo"].RawAddress)
 		require.NoError(t, err)
 		require.Equal(t, uint64(1), recipientVoteCount)
-		recipientVotes, err = dao.getVotesByRecipientAddress(testaddress.Addrinfo["bravo"].RawAddress)
+		recipientVotes, err = dao.getVotesByRecipientAddress(testaddress.IotxAddrinfo["bravo"].RawAddress)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(recipientTransfers))
 		require.Equal(t, voteHash2, recipientVotes[0])
 
-		senderVoteCount, err = dao.getVoteCountBySenderAddress(testaddress.Addrinfo["charlie"].RawAddress)
+		senderVoteCount, err = dao.getVoteCountBySenderAddress(testaddress.IotxAddrinfo["charlie"].RawAddress)
 		require.NoError(t, err)
 		require.Equal(t, uint64(1), senderVoteCount)
-		senderVotes, err = dao.getVotesBySenderAddress(testaddress.Addrinfo["charlie"].RawAddress)
+		senderVotes, err = dao.getVotesBySenderAddress(testaddress.IotxAddrinfo["charlie"].RawAddress)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(senderVotes))
 		require.Equal(t, voteHash3, senderVotes[0])
-		recipientVoteCount, err = dao.getVoteCountByRecipientAddress(testaddress.Addrinfo["charlie"].RawAddress)
+		recipientVoteCount, err = dao.getVoteCountByRecipientAddress(testaddress.IotxAddrinfo["charlie"].RawAddress)
 		require.NoError(t, err)
 		require.Equal(t, uint64(1), recipientVoteCount)
-		recipientVotes, err = dao.getVotesByRecipientAddress(testaddress.Addrinfo["charlie"].RawAddress)
+		recipientVotes, err = dao.getVotesByRecipientAddress(testaddress.IotxAddrinfo["charlie"].RawAddress)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(recipientTransfers))
 		require.Equal(t, voteHash3, recipientVotes[0])
 
 		// Test get executions
-		executorExecutionCount, err := dao.getExecutionCountByExecutorAddress(testaddress.Addrinfo["alfa"].RawAddress)
+		executorExecutionCount, err := dao.getExecutionCountByExecutorAddress(testaddress.IotxAddrinfo["alfa"].RawAddress)
 		require.NoError(t, err)
 		require.Equal(t, uint64(1), executorExecutionCount)
-		executorExecutions, err := dao.getExecutionsByExecutorAddress(testaddress.Addrinfo["alfa"].RawAddress)
+		executorExecutions, err := dao.getExecutionsByExecutorAddress(testaddress.IotxAddrinfo["alfa"].RawAddress)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(executorExecutions))
 		require.Equal(t, executionHash1, executorExecutions[0])
-		contractExecutionCount, err := dao.getExecutionCountByContractAddress(testaddress.Addrinfo["alfa"].RawAddress)
+		contractExecutionCount, err := dao.getExecutionCountByContractAddress(testaddress.IotxAddrinfo["alfa"].RawAddress)
 		require.NoError(t, err)
 		require.Equal(t, uint64(0), contractExecutionCount)
-		contractExecutions, err := dao.getExecutionsByContractAddress(testaddress.Addrinfo["alfa"].RawAddress)
+		contractExecutions, err := dao.getExecutionsByContractAddress(testaddress.IotxAddrinfo["alfa"].RawAddress)
 		require.NoError(t, err)
 		require.Equal(t, 0, len(contractExecutions))
 
-		executorExecutionCount, err = dao.getExecutionCountByExecutorAddress(testaddress.Addrinfo["bravo"].RawAddress)
+		executorExecutionCount, err = dao.getExecutionCountByExecutorAddress(testaddress.IotxAddrinfo["bravo"].RawAddress)
 		require.NoError(t, err)
 		require.Equal(t, uint64(1), executorExecutionCount)
-		executorExecutions, err = dao.getExecutionsByExecutorAddress(testaddress.Addrinfo["bravo"].RawAddress)
+		executorExecutions, err = dao.getExecutionsByExecutorAddress(testaddress.IotxAddrinfo["bravo"].RawAddress)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(executorExecutions))
 		require.Equal(t, executionHash2, executorExecutions[0])
-		contractExecutionCount, err = dao.getExecutionCountByContractAddress(testaddress.Addrinfo["bravo"].RawAddress)
+		contractExecutionCount, err = dao.getExecutionCountByContractAddress(testaddress.IotxAddrinfo["bravo"].RawAddress)
 		require.NoError(t, err)
 		require.Equal(t, uint64(0), contractExecutionCount)
-		contractExecutions, err = dao.getExecutionsByContractAddress(testaddress.Addrinfo["bravo"].RawAddress)
+		contractExecutions, err = dao.getExecutionsByContractAddress(testaddress.IotxAddrinfo["bravo"].RawAddress)
 		require.NoError(t, err)
 		require.Equal(t, 0, len(contractExecutions))
 
-		executorExecutionCount, err = dao.getExecutionCountByExecutorAddress(testaddress.Addrinfo["charlie"].RawAddress)
+		executorExecutionCount, err = dao.getExecutionCountByExecutorAddress(testaddress.IotxAddrinfo["charlie"].RawAddress)
 		require.NoError(t, err)
 		require.Equal(t, uint64(1), executorExecutionCount)
-		executorExecutions, err = dao.getExecutionsByExecutorAddress(testaddress.Addrinfo["charlie"].RawAddress)
+		executorExecutions, err = dao.getExecutionsByExecutorAddress(testaddress.IotxAddrinfo["charlie"].RawAddress)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(executorExecutions))
 		require.Equal(t, executionHash3, executorExecutions[0])
-		contractExecutionCount, err = dao.getExecutionCountByContractAddress(testaddress.Addrinfo["charlie"].RawAddress)
+		contractExecutionCount, err = dao.getExecutionCountByContractAddress(testaddress.IotxAddrinfo["charlie"].RawAddress)
 		require.NoError(t, err)
 		require.Equal(t, uint64(0), contractExecutionCount)
-		contractExecutions, err = dao.getExecutionsByContractAddress(testaddress.Addrinfo["charlie"].RawAddress)
+		contractExecutions, err = dao.getExecutionsByContractAddress(testaddress.IotxAddrinfo["charlie"].RawAddress)
 		require.NoError(t, err)
 		require.Equal(t, 0, len(contractExecutions))
 
-		contractExecutionCount, err = dao.getExecutionCountByContractAddress(testaddress.Addrinfo["delta"].RawAddress)
+		contractExecutionCount, err = dao.getExecutionCountByContractAddress(testaddress.IotxAddrinfo["delta"].RawAddress)
 		require.NoError(t, err)
 		require.Equal(t, uint64(3), contractExecutionCount)
-		contractExecutions, err = dao.getExecutionsByContractAddress(testaddress.Addrinfo["delta"].RawAddress)
+		contractExecutions, err = dao.getExecutionsByContractAddress(testaddress.IotxAddrinfo["delta"].RawAddress)
 		require.NoError(t, err)
 		require.Equal(t, 3, len(contractExecutions))
 		require.Equal(t, executionHash1, contractExecutions[0])
@@ -458,52 +458,52 @@ func TestBlockDAO(t *testing.T) {
 		require.Equal(t, executionHash3, contractExecutions[2])
 
 		// Test get actions
-		senderActionCount, err := dao.getActionCountBySenderAddress(testaddress.Addrinfo["alfa"].RawAddress)
+		senderActionCount, err := dao.getActionCountBySenderAddress(testaddress.IotxAddrinfo["alfa"].RawAddress)
 		require.NoError(t, err)
 		require.Equal(t, uint64(4), senderActionCount)
-		senderActions, err := dao.getActionsBySenderAddress(testaddress.Addrinfo["alfa"].RawAddress)
+		senderActions, err := dao.getActionsBySenderAddress(testaddress.IotxAddrinfo["alfa"].RawAddress)
 		require.NoError(t, err)
 		require.Equal(t, 4, len(senderActions))
 		require.Equal(t, depositHash1, senderActions[3])
-		recipientActionCount, err := dao.getActionCountByRecipientAddress(testaddress.Addrinfo["alfa"].RawAddress)
+		recipientActionCount, err := dao.getActionCountByRecipientAddress(testaddress.IotxAddrinfo["alfa"].RawAddress)
 		require.NoError(t, err)
 		require.Equal(t, uint64(2), recipientActionCount)
-		recipientActions, err := dao.getActionsByRecipientAddress(testaddress.Addrinfo["alfa"].RawAddress)
+		recipientActions, err := dao.getActionsByRecipientAddress(testaddress.IotxAddrinfo["alfa"].RawAddress)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(recipientActions))
 
-		senderActionCount, err = dao.getActionCountBySenderAddress(testaddress.Addrinfo["bravo"].RawAddress)
+		senderActionCount, err = dao.getActionCountBySenderAddress(testaddress.IotxAddrinfo["bravo"].RawAddress)
 		require.NoError(t, err)
 		require.Equal(t, uint64(4), senderActionCount)
-		senderActions, err = dao.getActionsBySenderAddress(testaddress.Addrinfo["bravo"].RawAddress)
+		senderActions, err = dao.getActionsBySenderAddress(testaddress.IotxAddrinfo["bravo"].RawAddress)
 		require.NoError(t, err)
 		require.Equal(t, 4, len(senderActions))
 		require.Equal(t, depositHash2, senderActions[3])
-		recipientActionCount, err = dao.getActionCountByRecipientAddress(testaddress.Addrinfo["bravo"].RawAddress)
+		recipientActionCount, err = dao.getActionCountByRecipientAddress(testaddress.IotxAddrinfo["bravo"].RawAddress)
 		require.NoError(t, err)
 		require.Equal(t, uint64(2), recipientActionCount)
-		recipientActions, err = dao.getActionsByRecipientAddress(testaddress.Addrinfo["bravo"].RawAddress)
+		recipientActions, err = dao.getActionsByRecipientAddress(testaddress.IotxAddrinfo["bravo"].RawAddress)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(recipientActions))
 
-		senderActionCount, err = dao.getActionCountBySenderAddress(testaddress.Addrinfo["charlie"].RawAddress)
+		senderActionCount, err = dao.getActionCountBySenderAddress(testaddress.IotxAddrinfo["charlie"].RawAddress)
 		require.NoError(t, err)
 		require.Equal(t, uint64(4), senderActionCount)
-		senderActions, err = dao.getActionsBySenderAddress(testaddress.Addrinfo["charlie"].RawAddress)
+		senderActions, err = dao.getActionsBySenderAddress(testaddress.IotxAddrinfo["charlie"].RawAddress)
 		require.NoError(t, err)
 		require.Equal(t, 4, len(senderActions))
 		require.Equal(t, depositHash3, senderActions[3])
-		recipientActionCount, err = dao.getActionCountByRecipientAddress(testaddress.Addrinfo["charlie"].RawAddress)
+		recipientActionCount, err = dao.getActionCountByRecipientAddress(testaddress.IotxAddrinfo["charlie"].RawAddress)
 		require.NoError(t, err)
 		require.Equal(t, uint64(2), recipientActionCount)
-		recipientActions, err = dao.getActionsByRecipientAddress(testaddress.Addrinfo["charlie"].RawAddress)
+		recipientActions, err = dao.getActionsByRecipientAddress(testaddress.IotxAddrinfo["charlie"].RawAddress)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(recipientActions))
 
-		recipientActionCount, err = dao.getActionCountByRecipientAddress(testaddress.Addrinfo["delta"].RawAddress)
+		recipientActionCount, err = dao.getActionCountByRecipientAddress(testaddress.IotxAddrinfo["delta"].RawAddress)
 		require.NoError(t, err)
 		require.Equal(t, uint64(6), recipientActionCount)
-		recipientActions, err = dao.getActionsByRecipientAddress(testaddress.Addrinfo["delta"].RawAddress)
+		recipientActions, err = dao.getActionsByRecipientAddress(testaddress.IotxAddrinfo["delta"].RawAddress)
 		require.NoError(t, err)
 		require.Equal(t, 6, len(recipientActions))
 		require.Equal(t, depositHash1, recipientActions[1])
@@ -561,8 +561,8 @@ func TestBlockDAO(t *testing.T) {
 		require.NoError(err)
 		require.Equal(blks[2].HashBlock(), blkHash)
 
-		charlieAddr := testaddress.Addrinfo["charlie"].RawAddress
-		deltaAddr := testaddress.Addrinfo["delta"].RawAddress
+		charlieAddr := testaddress.IotxAddrinfo["charlie"].RawAddress
+		deltaAddr := testaddress.IotxAddrinfo["delta"].RawAddress
 
 		transfersFromCharlie, _ := dao.getTransfersBySenderAddress(charlieAddr)
 		require.Equal(1, len(transfersFromCharlie))

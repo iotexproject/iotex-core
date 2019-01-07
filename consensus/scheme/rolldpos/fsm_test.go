@@ -1319,8 +1319,8 @@ func newTestCFSM(
 	broadcastCB func(proto.Message) error,
 	clock clock.Clock,
 ) *cFSM {
-	a := testaddress.Addrinfo["alfa"]
-	b := testaddress.Addrinfo["bravo"]
+	a := testaddress.IotxAddrinfo["alfa"]
+	b := testaddress.IotxAddrinfo["bravo"]
 	transfer, err := testutil.SignedTransfer(a, b, 1, big.NewInt(100), []byte{}, 100000, big.NewInt(10))
 	require.NoError(t, err)
 	vote, err := testutil.SignedVote(a, a, 2, 100000, big.NewInt(10))

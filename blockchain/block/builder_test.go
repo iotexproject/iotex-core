@@ -20,12 +20,12 @@ func TestBuilder(t *testing.T) {
 	ra := NewRunnableActionsBuilder().
 		SetHeight(1).
 		SetTimeStamp(testutil.TimestampNow()).
-		Build(ta.Addrinfo["bravo"])
+		Build(ta.IotxAddrinfo["bravo"])
 
 	nblk, err := NewBuilder(ra).
 		SetChainID(0).
 		SetPrevBlockHash(hash.ZeroHash32B).
-		SignAndBuild(ta.Addrinfo["bravo"])
+		SignAndBuild(ta.IotxAddrinfo["bravo"])
 	require.NoError(t, err)
 
 	require.True(t, nblk.VerifySignature())
