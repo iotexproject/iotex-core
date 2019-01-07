@@ -175,8 +175,8 @@ func (ctx *rollDPoSCtx) validateProposeBlock(blk Block, expectedProposer string)
 		errorLog.Msg("error when validating the block signature")
 		return false
 	}
-	if producer == ctx.addr.RawAddress {
-		// If the block is self proposed, skip validation
+	if producer == ctx.addr.RawAddress && block.WorkingSet != nil {
+		// If the block is self proposed and working set is not nil (meaning not obtained from wire), skip validation
 		return true
 	}
 	containCoinbase := true
