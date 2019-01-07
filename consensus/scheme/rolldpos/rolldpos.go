@@ -7,7 +7,9 @@
 package rolldpos
 
 import (
+	"bytes"
 	"context"
+	"encoding/hex"
 	"time"
 
 	"github.com/facebookgo/clock"
@@ -15,7 +17,8 @@ import (
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
-	fsm "github.com/zjshen14/go-fsm"
+	"github.com/rs/zerolog"
+	"github.com/zjshen14/go-fsm"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -156,8 +159,25 @@ func (bw *blockWrapper) Round() uint32 {
 	return bw.round
 }
 
+type endorsementWrapper struct {
+	*endorsement.Endorsement
+}
+
+func (ew endorsementWrapper) Hash() []byte {
+	return ew.ConsensusVote().BlkHash[:]
+}
+
+func (ew *endorsementWrapper) Height() uint64 {
+	return ew.ConsensusVote().Height
+}
+
+func (ew endorsementWrapper) Round() uint32 {
+	return ew.ConsensusVote().Round
+}
+
 func (ctx *rollDPoSCtx) MintBlock() (Block, error) {
 	if blk := ctx.round.block; blk != nil {
+		blk.(*blockWrapper).round = ctx.round.number
 		return blk, nil
 	}
 	blk, err := ctx.mintBlock()
@@ -208,9 +228,14 @@ func (ctx *rollDPoSCtx) calcWaitDuration() (time.Duration, error) {
 	return waitDuration, nil
 }
 
-func (ctx *rollDPoSCtx) ProcessProposeBlock(blk Block) error {
+func (ctx *rollDPoSCtx) Logger() *zerolog.Logger {
+	return logger.Logger()
+}
+
+func (ctx *rollDPoSCtx) ProcessProposeBlock(blk Block) (iConsensusEvt, error) {
+	// TODO: delete the following check
 	if blk.Height() != ctx.round.height {
-		return errors.Errorf(
+		return nil, errors.Errorf(
 			"unexpected block height %d, %d expected",
 			blk.Height(),
 			ctx.round.height,
@@ -219,7 +244,7 @@ func (ctx *rollDPoSCtx) ProcessProposeBlock(blk Block) error {
 	producer := blk.Proposer()
 	expectedProposer := ctx.round.proposer
 	if producer == "" || producer != expectedProposer {
-		return errors.Errorf(
+		return nil, errors.Errorf(
 			"unexpected block proposer %s, %s expected",
 			producer,
 			ctx.round.proposer,
@@ -227,7 +252,7 @@ func (ctx *rollDPoSCtx) ProcessProposeBlock(blk Block) error {
 	}
 	block := blk.(*blockWrapper)
 	if !block.VerifySignature() {
-		return errors.Errorf("invalid block signature")
+		return nil, errors.Errorf("invalid block signature")
 	}
 	// TODO: in long term, block in process and after process should be represented differently
 	if producer != ctx.addr.RawAddress || block.WorkingSet == nil {
@@ -238,20 +263,189 @@ func (ctx *rollDPoSCtx) ProcessProposeBlock(blk Block) error {
 				containCoinbase = false
 			} else if err := verifyDKGSignature(block.Block, ctx.epoch.seed); err != nil {
 				// Verify dkg signature failed
-				return errors.Wrapf(err, "failed to verify the DKG signature")
+				return nil, errors.Wrapf(err, "failed to verify the DKG signature")
 			}
 		}
 		if err := ctx.chain.ValidateBlock(block.Block, containCoinbase); err != nil {
-			return errors.Wrapf(err, "error when validating the proposed block")
+			return nil, errors.Wrapf(err, "error when validating the proposed block")
 		}
 	}
-	ctx.round.block = blk
+	ctx.round.block = block
 
-	return nil
+	return ctx.broadcastConsensusVote(endorsement.PROPOSAL)
 }
 
 func verifyDKGSignature(blk *block.Block, seedByte []byte) error {
 	return crypto.BLS.Verify(blk.DKGPubkey(), seedByte, blk.DKGSignature())
+}
+
+func (ctx *rollDPoSCtx) LogProposalEndorsementStats() {
+	numProposalEndorsements := 0
+	if ctx.round.block != nil {
+		blkHashHex := hex.EncodeToString(ctx.round.block.Hash())
+		endorsementSet := ctx.round.endorsementSets[blkHashHex]
+		if endorsementSet != nil {
+			numProposalEndorsements = endorsementSet.NumOfValidEndorsements(
+				map[endorsement.ConsensusVoteTopic]bool{
+					endorsement.PROPOSAL: true,
+					endorsement.COMMIT:   false,
+				},
+				ctx.epoch.delegates,
+			)
+		}
+	}
+
+	logger.Warn().
+		Uint64("height", ctx.round.height).
+		Int("numProposalEndorsements", numProposalEndorsements).
+		Msg("didn't collect enough proposal endorses before timeout")
+}
+
+func (ctx *rollDPoSCtx) LogLockEndorsementStats() {
+	numCommitEndorsements := 0
+	if ctx.round.block != nil {
+		blkHashHex := hex.EncodeToString(ctx.round.block.Hash())
+		endorsementSet := ctx.round.endorsementSets[blkHashHex]
+		if endorsementSet != nil {
+			numCommitEndorsements = endorsementSet.NumOfValidEndorsements(
+				map[endorsement.ConsensusVoteTopic]bool{
+					endorsement.PROPOSAL: false,
+					endorsement.COMMIT:   true,
+				},
+				ctx.epoch.delegates,
+			)
+		}
+	}
+	logger.Warn().
+		Uint64("height", ctx.round.height).
+		Int("numCommitEndorsements", numCommitEndorsements).
+		Msg("didn't collect enough commit endorse before timeout")
+}
+
+func (ctx *rollDPoSCtx) isProposedBlock(hash []byte) bool {
+	if ctx.round.block == nil {
+		logger.Error().Msg("block is nil")
+		return false
+	}
+	blkHash := ctx.round.block.Hash()
+
+	return bytes.Equal(hash[:], blkHash[:])
+}
+
+func (ctx *rollDPoSCtx) isDelegateEndorsement(endorser string) bool {
+	for _, delegate := range ctx.epoch.delegates {
+		if delegate == endorser {
+			return true
+		}
+	}
+	return false
+}
+
+func (ctx *rollDPoSCtx) ProcessProposalEndorsement(en Endorsement) (bool, iConsensusEvt, error) {
+	enough, err := ctx.processEndorsement(
+		en,
+		map[endorsement.ConsensusVoteTopic]bool{
+			endorsement.PROPOSAL: true,
+			endorsement.COMMIT:   true, // commit endorse is counted as one proposal endorse
+		},
+	)
+	if err != nil || !enough {
+		return false, nil, err
+	}
+	ctx.round.proofOfLock = ctx.round.endorsementSets[hex.EncodeToString(ctx.round.block.Hash())]
+	cEvt, err := ctx.broadcastConsensusVote(endorsement.LOCK)
+
+	return true, cEvt, err
+}
+
+func (ctx *rollDPoSCtx) ProcessLockEndorsement(en Endorsement) (bool, error) {
+	return ctx.processEndorsement(
+		en,
+		map[endorsement.ConsensusVoteTopic]bool{
+			endorsement.LOCK:   true,
+			endorsement.COMMIT: true, // commit endorse is counted as one proposal endorse
+		},
+	)
+}
+
+func (ctx *rollDPoSCtx) LockBlock() (iConsensusEvt, error) {
+	ctx.round.proofOfLock = ctx.round.endorsementSets[hex.EncodeToString(ctx.round.block.Hash())]
+
+	return ctx.broadcastConsensusVote(endorsement.LOCK)
+}
+
+func (ctx *rollDPoSCtx) PreCommitBlock() (iConsensusEvt, error) {
+	return ctx.broadcastConsensusVote(endorsement.COMMIT)
+}
+
+func (ctx *rollDPoSCtx) broadcastConsensusVote(
+	topic endorsement.ConsensusVoteTopic,
+) (iConsensusEvt, error) {
+	cEvt := ctx.newEndorseEvt(ctx.round.block.Hash(), topic)
+	cEvtProto := cEvt.toProtoMsg()
+	if err := ctx.Broadcast(cEvtProto); err != nil {
+		logger.Error().
+			Err(err).
+			Msg("error when broadcasting commitEvtProto")
+	}
+
+	return cEvt, nil
+}
+
+func (ctx *rollDPoSCtx) processEndorsement(
+	en Endorsement,
+	expectedTopics map[endorsement.ConsensusVoteTopic]bool,
+) (bool, error) {
+	endorse, ok := en.(*endorsementWrapper)
+	if !ok {
+		return false, errors.New("invalid endorsement")
+	}
+	vote := endorse.ConsensusVote()
+	if !ctx.isProposedBlock(vote.BlkHash[:]) {
+		logger.Error().Msgf("Not the proposed block %+v\n%+v", vote, ctx.round)
+		return false, errors.New("the endorsed block was not the proposed block")
+	}
+	if !ctx.isDelegateEndorsement(endorse.Endorser()) {
+		return false, errors.Errorf("invalid endorser %s", endorse.Endorser())
+	}
+	if _, ok := expectedTopics[vote.Topic]; !ok {
+		return false, errors.Errorf("invalid consensus topic %s", vote.Topic)
+	}
+	if vote.Height != ctx.round.height {
+		return false, errors.Errorf(
+			"invalid endorsement height %d, %d expected",
+			vote.Height,
+			ctx.round.height,
+		)
+	}
+
+	return ctx.addEndorsement(endorse.Endorsement, expectedTopics)
+}
+
+func (ctx *rollDPoSCtx) addEndorsement(
+	en *endorsement.Endorsement,
+	expectedConsensusTopics map[endorsement.ConsensusVoteTopic]bool,
+) (bool, error) {
+	blkHash := en.ConsensusVote().BlkHash
+	blkHashHex := hex.EncodeToString(blkHash)
+	endorsementSet, ok := ctx.round.endorsementSets[blkHashHex]
+	if !ok {
+		endorsementSet = endorsement.NewSet(blkHash)
+		ctx.round.endorsementSets[blkHashHex] = endorsementSet
+	}
+	if err := endorsementSet.AddEndorsement(en); err != nil {
+		return false, err
+	}
+	validNum := endorsementSet.NumOfValidEndorsements(
+		expectedConsensusTopics,
+		ctx.epoch.delegates,
+	)
+	numDelegates := len(ctx.epoch.delegates)
+	if numDelegates >= 4 && validNum > numDelegates*2/3 || numDelegates < 4 && validNum >= numDelegates {
+		return true, nil
+	}
+
+	return false, nil
 }
 
 func (ctx *rollDPoSCtx) Broadcast(msg proto.Message) error {
@@ -411,24 +605,81 @@ func (ctx *rollDPoSCtx) getNumSubEpochs() uint {
 	return num
 }
 
-func (ctx *rollDPoSCtx) IsProposer() bool {
-	log := logger.Info().
-		Str("proposer", ctx.round.proposer).
-		Uint64("height", ctx.round.height).
-		Uint32("round", ctx.round.number)
-	if ctx.round.proposer != ctx.addr.RawAddress {
-		log.Msg("current node is not the proposer")
-		return false
+func (ctx *rollDPoSCtx) IsStaleEvent(evt iConsensusEvt) bool {
+	switch castedEvt := evt.(type) {
+	case *timeoutEvt:
+		if castedEvt.timestamp().Before(ctx.round.timestamp) {
+			return true
+		}
+	case *endorseEvt:
+		if castedEvt.h < ctx.round.height {
+			return true
+		}
+		if castedEvt.h == ctx.round.height && castedEvt.r < ctx.round.number {
+			return true
+		}
+	case *proposeBlkEvt:
+		if castedEvt.h < ctx.round.height {
+			return true
+		}
+		if castedEvt.h == ctx.round.height && castedEvt.r < ctx.round.number {
+			return true
+		}
+	default:
+		if evt.Type() != ePrepare {
+			logger.Warn().Msgf("Unknown event type %s", evt.Type())
+		}
 	}
-	log.Msg("current node is the proposer")
-	return true
+
+	return false
 }
 
-func (ctx *rollDPoSCtx) PrepareNextRound() (time.Duration, bool, error) {
+func (ctx *rollDPoSCtx) IsFutureEvent(evt iConsensusEvt) bool {
+	switch castedEvt := evt.(type) {
+	case *timeoutEvt:
+		break
+	case *endorseEvt:
+		if castedEvt.h > ctx.round.height {
+			return true
+		}
+		if castedEvt.h == ctx.round.height && castedEvt.r > ctx.round.number {
+			return true
+		}
+	case *proposeBlkEvt:
+		if castedEvt.h > ctx.round.height {
+			return true
+		}
+		if castedEvt.h == ctx.round.height && castedEvt.r > ctx.round.number {
+			return true
+		}
+	default:
+		if evt.Type() != ePrepare {
+			logger.Warn().Msgf("Unknown event type %s", evt.Type())
+		}
+	}
+
+	return false
+}
+
+func (ctx *rollDPoSCtx) IsStaleUnmatchedEvent(evt iConsensusEvt) bool {
+	return ctx.clock.Now().Sub(evt.timestamp()) > ctx.cfg.UnmatchedEventTTL
+}
+
+func (ctx *rollDPoSCtx) PrepareNextRound() (
+	delay time.Duration,
+	isDelegate bool,
+	isProposer bool,
+	err error,
+) {
+	isDelegate = false
+	isProposer = false
 	if ctx.shouldHandleDKG() && ctx.isDKGFinished() {
 		dkgPubKey, dkgPriKey, err := ctx.generateDKGKeyPair()
 		if err != nil {
-			return time.Duration(0), true, errors.Wrap(err, "error when generating DKG key pair")
+			return time.Duration(0), isDelegate, isProposer, errors.Wrap(
+				err,
+				"error when generating DKG key pair",
+			)
 		}
 		ctx.epoch.dkgAddress.PublicKey = dkgPubKey
 		ctx.epoch.dkgAddress.PrivateKey = dkgPriKey
@@ -436,7 +687,7 @@ func (ctx *rollDPoSCtx) PrepareNextRound() (time.Duration, bool, error) {
 	epochNum, epochHeight, err := ctx.calcEpochNumAndHeight()
 	if err != nil {
 		// Even if error happens, we still need to schedule next check of delegate to tolerate transit error
-		return ctx.cfg.DelegateInterval, true, errors.Wrap(
+		return ctx.cfg.DelegateInterval, isDelegate, isProposer, errors.Wrap(
 			err,
 			"error when determining the epoch ordinal number and start height offset",
 		)
@@ -445,7 +696,7 @@ func (ctx *rollDPoSCtx) PrepareNextRound() (time.Duration, bool, error) {
 		delegates, err := ctx.RollingDelegates(epochNum)
 		if err != nil {
 			// Even if error happens, we still need to schedule next check of delegate to tolerate transit error
-			return ctx.cfg.DelegateInterval, true, errors.Wrap(
+			return ctx.cfg.DelegateInterval, isDelegate, isProposer, errors.Wrap(
 				err,
 				"error when determining if the node will participate into next epoch",
 			)
@@ -459,7 +710,7 @@ func (ctx *rollDPoSCtx) PrepareNextRound() (time.Duration, bool, error) {
 		ctx.epoch.committedSecrets = make(map[string][]uint32)
 	}
 	// If the current node is the delegate, move to the next state
-	isDelegate := false
+	isDelegate = false
 	for _, d := range ctx.epoch.delegates {
 		if ctx.addr.RawAddress == d {
 			isDelegate = true
@@ -467,7 +718,7 @@ func (ctx *rollDPoSCtx) PrepareNextRound() (time.Duration, bool, error) {
 		}
 	}
 	if !isDelegate {
-		return ctx.cfg.DelegateInterval, false, nil
+		return ctx.cfg.DelegateInterval, isDelegate, isProposer, nil
 	}
 	logger.Info().
 		Uint64("epoch", epochNum).
@@ -479,24 +730,24 @@ func (ctx *rollDPoSCtx) PrepareNextRound() (time.Duration, bool, error) {
 		}
 		secrets, witness, err := ctx.generateDKGSecrets()
 		if err != nil {
-			return time.Duration(0), true, err
+			return time.Duration(0), isDelegate, isProposer, err
 		}
 		ctx.epoch.secrets = secrets
 		ctx.epoch.witness = witness
 	}
 	waitDuration, err := ctx.calcWaitDuration()
 	if err != nil {
-		return waitDuration, true, err
+		return waitDuration, isDelegate, isProposer, err
 	}
 	subEpochNum, err := ctx.calcSubEpochNum()
 	if err != nil {
-		return waitDuration, true, err
+		return waitDuration, isDelegate, isProposer, err
 	}
 	ctx.epoch.subEpochNum = subEpochNum
 
 	proposer, height, round, err := ctx.rotatedProposer(waitDuration)
 	if err != nil {
-		return waitDuration, true, err
+		return waitDuration, isDelegate, isProposer, err
 	}
 	if ctx.round.height != height {
 		ctx.round = roundCtx{
@@ -507,8 +758,18 @@ func (ctx *rollDPoSCtx) PrepareNextRound() (time.Duration, bool, error) {
 	ctx.round.number = round
 	ctx.round.proposer = proposer
 	ctx.round.timestamp = ctx.clock.Now()
+	isProposer = proposer == ctx.addr.RawAddress
 
-	return waitDuration, true, nil
+	log := logger.Info().
+		Str("proposer", ctx.round.proposer).
+		Uint64("height", ctx.round.height).
+		Uint32("round", ctx.round.number)
+	if isProposer {
+		log.Msg("current node is the proposer")
+	} else {
+		log.Msg("current node is not the proposer")
+	}
+	return waitDuration, true, isProposer, nil
 }
 
 // rotatedProposer will rotate among the delegates to choose the proposer. It is pseudo order based on the position
@@ -833,7 +1094,11 @@ func (r *RollDPoS) Metrics() (scheme.ConsensusMetrics, error) {
 
 // NumPendingEvts returns the number of pending events
 func (r *RollDPoS) NumPendingEvts() int {
-	return len(r.cfsm.evtq)
+	num := len(r.cfsm.evtq)
+	if num > 100 {
+		logger.Error().Msgf("Pending events: %+v", r.cfsm.evtq)
+	}
+	return num
 }
 
 // CurrentState returns the current state

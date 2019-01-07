@@ -97,17 +97,27 @@ func TestRollDelegatesEvt(t *testing.T) {
 		for i := 0; i < 4; i++ {
 			delegates[i] = testAddrs[i].encodedAddr
 		}
-		cfsm := newTestCFSM(t, testAddrs[0], testAddrs[2], ctrl, delegates, nil, nil, clock.New())
+		epochNum := uint64(1)
+		crypto.SortCandidates(delegates, epochNum, crypto.CryptoSeed)
+		delegateAddrs := make([]*iotxaddress.Address, 4)
+		for i := 0; i < 4; i++ {
+			for j := 0; j < 4; j++ {
+				if delegates[i] == testAddrs[j].RawAddress {
+					delegateAddrs[i] = testAddrs[j]
+					break
+				}
+			}
+		}
+		cfsm := newTestCFSM(t, delegateAddrs[0], delegateAddrs[2], ctrl, delegates, nil, nil, clock.New())
 		cfsm.ctx.cfg.EnableDKG = false
 		s, err := cfsm.prepare(cfsm.newCEvt(ePrepare))
-		assert.Equal(t, sBlockPropose, s)
+		assert.Equal(t, sAcceptPropose, s)
 		assert.NoError(t, err)
 		assert.Equal(t, uint64(1), cfsm.ctx.epoch.height)
 		assert.Equal(t, uint64(1), cfsm.ctx.epoch.num)
 		assert.Equal(t, uint(1), cfsm.ctx.epoch.numSubEpochs)
 		crypto.SortCandidates(delegates, cfsm.ctx.epoch.num, crypto.CryptoSeed)
 		assert.Equal(t, delegates, cfsm.ctx.epoch.delegates)
-		assert.Equal(t, eInitBlockPropose, (<-cfsm.evtq).Type())
 	})
 	t.Run("is-not-delegate", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
@@ -223,12 +233,12 @@ func TestStartRoundEvt(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		epochNum := uint64(1)
+		epochNum := uint64(0)
 		delegates := make([]string, 4)
 		for i := 0; i < 4; i++ {
 			delegates[i] = testAddrs[i].encodedAddr
 		}
-		crypto.SortCandidates(delegates, epochNum, crypto.CryptoSeed)
+		crypto.SortCandidates(delegates, epochNum+1, crypto.CryptoSeed)
 		proposerIdx := 0
 		for i := 0; i < 4; i++ {
 			if delegates[2] == testAddrs[i].RawAddress {
@@ -247,29 +257,23 @@ func TestStartRoundEvt(t *testing.T) {
 		require := require.New(t)
 		s, err := cfsm.prepare(cfsm.newCEvt(ePrepare))
 		require.NoError(err)
-		require.Equal(sBlockPropose, s)
+		require.Equal(sAcceptPropose, s)
 		require.Equal(uint64(0), cfsm.ctx.epoch.subEpochNum)
 		require.Equal(cfsm.ctx.round.proposer, testAddrs[proposerIdx].RawAddress)
 		require.NotNil(cfsm.ctx.round.endorsementSets)
 		e := <-cfsm.evtq
-		require.Equal(eInitBlockPropose, e.Type())
-		e = <-cfsm.evtq
-		require.Equal(eFailedToReceiveBlock, e.Type())
-		e = <-cfsm.evtq
-		require.Equal(eNotEnoughProposalEndorsement, e.Type())
-		e = <-cfsm.evtq
-		require.Equal(eNotEnoughLockEndorsement, e.Type())
+		require.Equal(eReceiveBlock, e.Type())
 	})
 	t.Run("is-not-proposer", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		epochNum := uint64(1)
+		epochNum := uint64(0)
 		delegates := make([]string, 4)
 		for i := 0; i < 4; i++ {
 			delegates[i] = testAddrs[i+1].encodedAddr
 		}
-		crypto.SortCandidates(delegates, epochNum, crypto.CryptoSeed)
+		crypto.SortCandidates(delegates, epochNum+1, crypto.CryptoSeed)
 		proposerIdx := 0
 		for i := 0; i < 4; i++ {
 			if delegates[2] == testAddrs[i].RawAddress {
@@ -292,16 +296,11 @@ func TestStartRoundEvt(t *testing.T) {
 		require := require.New(t)
 		s, err := cfsm.prepare(cfsm.newCEvt(ePrepare))
 		require.NoError(err)
-		require.Equal(sBlockPropose, s)
+		require.Equal(sAcceptPropose, s)
 		require.Equal(uint64(0), cfsm.ctx.epoch.subEpochNum)
 		require.Equal(cfsm.ctx.round.proposer, testAddrs[proposerIdx].RawAddress)
 		require.NotNil(cfsm.ctx.round.endorsementSets)
 		evt := <-cfsm.evtq
-		require.Equal(eInitBlockPropose, evt.Type())
-		s, err = cfsm.handleInitBlockProposeEvt(evt)
-		require.Equal(sAcceptPropose, s)
-		require.NoError(err)
-		evt = <-cfsm.evtq
 		require.Equal(eFailedToReceiveBlock, evt.Type())
 		s, err = cfsm.handleProposeBlockTimeout(evt)
 		require.Equal(sAcceptProposalEndorse, s)
@@ -330,7 +329,17 @@ func TestHandleInitBlockEvt(t *testing.T) {
 	for i, addr := range test21Addrs {
 		delegates[i] = addr.encodedAddr
 	}
-
+	epochNum := uint64(1)
+	crypto.SortCandidates(delegates, epochNum, crypto.CryptoSeed)
+	delegateAddrs := make([]*iotxaddress.Address, 21)
+	for i := 0; i < 21; i++ {
+		for j := 0; j < 21; j++ {
+			if delegates[i] == test21Addrs[j].RawAddress {
+				delegateAddrs[i] = test21Addrs[j]
+				break
+			}
+		}
+	}
 	/*
 		t.Run("secret-block", func(t *testing.T) {
 			broadcastCount := 0
@@ -375,8 +384,8 @@ func TestHandleInitBlockEvt(t *testing.T) {
 		var broadcastMutex sync.Mutex
 		cfsm := newTestCFSM(
 			t,
-			test21Addrs[2],
-			test21Addrs[2],
+			delegateAddrs[2],
+			delegateAddrs[2],
 			ctrl,
 			delegates,
 			nil,
@@ -388,22 +397,20 @@ func TestHandleInitBlockEvt(t *testing.T) {
 			},
 			clock.New(),
 		)
+		cfsm.ctx.cfg.EnableDKG = false
 		cfsm.ctx.epoch.numSubEpochs = uint(2)
 		cfsm.ctx.round = roundCtx{
 			endorsementSets: make(map[string]*endorsement.Set),
 			proposer:        delegates[2],
 		}
 		cfsm.ctx.epoch.subEpochNum = uint64(1)
-		s, err := cfsm.handleInitBlockProposeEvt(cfsm.newCEvt(eInitBlockPropose))
+		s, err := cfsm.prepare(cfsm.newCEvt(ePrepare))
 		require.NoError(t, err)
 		require.Equal(t, sAcceptPropose, s)
 		e := <-cfsm.evtq
-		require.Equal(t, eReceiveBlock, e.Type())
-		pbe, ok := e.(*proposeBlkEvt)
+		pEvt, ok := e.(*proposeBlkEvt)
 		require.True(t, ok)
-		require.NotNil(t, pbe.block)
-		blk := pbe.block.(*blockWrapper)
-		require.NotNil(t, blk)
+		blk := pEvt.block.(*blockWrapper)
 		transfers, votes, _ := action.ClassifyActions(blk.Actions)
 		require.Equal(t, 1, len(transfers))
 		require.Equal(t, 1, len(votes))
@@ -471,7 +478,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		blk, err := cfsm.ctx.MintBlock()
 		assert.NoError(t, err)
 		assert.NotNil(t, blk)
-		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, nil, cfsm.ctx.round.number, cfsm.ctx.clock))
+		state, err := cfsm.onReceiveBlock(newProposeBlkEvt(blk, nil, cfsm.ctx.round.number, cfsm.ctx.clock))
 
 		assert.NoError(t, err)
 		assert.Equal(t, sAcceptProposalEndorse, state)
@@ -515,7 +522,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 			blk,
 			cfsm.ctx.round.number,
 		}
-		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(block, nil, cfsm.ctx.round.number, cfsm.ctx.clock))
+		state, err := cfsm.onReceiveBlock(newProposeBlkEvt(block, nil, cfsm.ctx.round.number, cfsm.ctx.clock))
 		assert.NoError(t, err)
 		assert.Equal(t, sAcceptProposalEndorse, state)
 		e := <-cfsm.evtq
@@ -525,14 +532,10 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 
 		clock.Add(10 * time.Second)
 		state, err = cfsm.prepare(cfsm.newCEvt(ePrepare))
-		assert.Equal(t, sBlockPropose, state)
+		assert.NoError(t, err)
+		assert.Equal(t, sAcceptPropose, state)
 		time.Sleep(1 * time.Second)
 		clock.Add(10 * time.Second)
-		assert.NoError(t, err)
-		e = <-cfsm.evtq
-		cevt, ok := e.(*consensusEvt)
-		require.True(t, ok)
-		assert.Equal(t, eInitBlockPropose, cevt.Type())
 		assert.Equal(t, delegates[0], cfsm.ctx.round.proposer)
 	})
 
@@ -556,7 +559,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		blk, err := cfsm.ctx.MintBlock()
 		assert.NoError(t, err)
 		cfsm.ctx.round.block = blk
-		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, nil, cfsm.ctx.round.number, cfsm.ctx.clock))
+		state, err := cfsm.onReceiveBlock(newProposeBlkEvt(blk, nil, cfsm.ctx.round.number, cfsm.ctx.clock))
 		assert.Error(t, err)
 		assert.Equal(t, sAcceptPropose, state)
 	})
@@ -589,13 +592,13 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		blk, err := cfsm.ctx.MintBlock()
 		assert.NoError(t, err)
 		blk.(*blockWrapper).WorkingSet = mock_factory.NewMockWorkingSet(ctrl)
-		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, nil, cfsm.ctx.round.number, cfsm.ctx.clock))
+		state, err := cfsm.onReceiveBlock(newProposeBlkEvt(blk, nil, cfsm.ctx.round.number, cfsm.ctx.clock))
 		assert.NoError(t, err)
 		assert.Equal(t, sAcceptProposalEndorse, state)
 		e := <-cfsm.evtq
 		evt, ok := e.(*endorseEvt)
 		require.True(t, ok)
-		assert.Equal(t, eEndorseProposal, evt.Type())
+		assert.Equal(t, eReceiveProposalEndorsement, evt.Type())
 		assert.Equal(t, 1, broadcastCount)
 	})
 
@@ -605,8 +608,8 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 
 		cfsm := newTestCFSM(
 			t,
-			testAddrs[2],
-			testAddrs[2],
+			delegateAddrs[2],
+			delegateAddrs[2],
 			ctrl,
 			delegates,
 			func(chain *mock_blockchain.MockBlockchain) {
@@ -628,7 +631,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		assert.NoError(t, err)
 		// The block's working set is nil though the blocker's producer is the current node
 		blk.(*blockWrapper).WorkingSet = nil
-		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, nil, cfsm.ctx.round.number, cfsm.ctx.clock))
+		state, err := cfsm.onReceiveBlock(newProposeBlkEvt(blk, nil, cfsm.ctx.round.number, cfsm.ctx.clock))
 		assert.NoError(t, err)
 		assert.Equal(t, sAcceptProposalEndorse, state)
 		e := <-cfsm.evtq
@@ -655,7 +658,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 
 		blk, err := cfsm.ctx.MintBlock()
 		assert.NoError(t, err)
-		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, nil, cfsm.ctx.round.number, cfsm.ctx.clock))
+		state, err := cfsm.onReceiveBlock(newProposeBlkEvt(blk, nil, cfsm.ctx.round.number, cfsm.ctx.clock))
 		assert.Error(t, err)
 		assert.Equal(t, sAcceptPropose, state)
 		state, err = cfsm.handleProposeBlockTimeout(cfsm.newCEvt(eFailedToReceiveBlock))
@@ -684,7 +687,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		clock.Add(11 * time.Second)
 		blk, err := cfsm.ctx.MintBlock()
 		assert.NoError(t, err)
-		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, nil, cfsm.ctx.round.number, cfsm.ctx.clock))
+		state, err := cfsm.onReceiveBlock(newProposeBlkEvt(blk, nil, cfsm.ctx.round.number, cfsm.ctx.clock))
 		assert.Error(t, err)
 		assert.Equal(t, sAcceptPropose, state)
 		state, err = cfsm.handleProposeBlockTimeout(cfsm.newCEvt(eFailedToReceiveBlock))
@@ -789,19 +792,19 @@ func TestHandleProposalEndorseEvt(t *testing.T) {
 
 		// First endorse prepare
 		eEvt := newEndorseEvt(endorsement.PROPOSAL, blkHash, round.height, round.number, delegateAddrs[0], cfsm.ctx.clock)
-		state, err := cfsm.handleEndorseProposalEvt(eEvt)
+		state, err := cfsm.onReceiveProposalEndorsement(eEvt)
 		assert.NoError(t, err)
 		assert.Equal(t, sAcceptProposalEndorse, state)
 
 		// Second endorse prepare
 		eEvt = newEndorseEvt(endorsement.PROPOSAL, blkHash, round.height, round.number, delegateAddrs[1], cfsm.ctx.clock)
-		state, err = cfsm.handleEndorseProposalEvt(eEvt)
+		state, err = cfsm.onReceiveProposalEndorsement(eEvt)
 		assert.NoError(t, err)
 		assert.Equal(t, sAcceptProposalEndorse, state)
 
 		// Third endorse prepare, could move on
 		eEvt = newEndorseEvt(endorsement.PROPOSAL, blkHash, round.height, round.number, delegateAddrs[2], cfsm.ctx.clock)
-		state, err = cfsm.handleEndorseProposalEvt(eEvt)
+		state, err = cfsm.onReceiveProposalEndorsement(eEvt)
 		assert.NoError(t, err)
 		assert.Equal(t, sAcceptLockEndorse, state)
 		e := <-cfsm.evtq
@@ -956,14 +959,14 @@ func TestHandleCommitEndorseEvt(t *testing.T) {
 
 		for i := 0; i < 14; i++ {
 			eEvt := newEndorseEvt(endorsement.LOCK, blkHash, round.height, round.number, delegateAddrs[i], cfsm.ctx.clock)
-			state, err := cfsm.handleEndorseLockEvt(eEvt)
+			state, err := cfsm.onReceiveLockEndorsement(eEvt)
 			assert.NoError(t, err)
 			assert.Equal(t, sAcceptLockEndorse, state)
 		}
 
 		// 15th endorse prepare, could move on
 		eEvt := newEndorseEvt(endorsement.LOCK, blkHash, round.height, round.number, delegateAddrs[14], cfsm.ctx.clock)
-		state, err := cfsm.handleEndorseLockEvt(eEvt)
+		state, err := cfsm.onReceiveLockEndorsement(eEvt)
 		assert.NoError(t, err)
 		assert.Equal(t, sAcceptCommitEndorse, state)
 		evt := <-cfsm.evtq
@@ -1060,7 +1063,7 @@ func TestOneDelegate(t *testing.T) {
 	blk, err := cfsm.ctx.MintBlock()
 	require.NoError(err)
 	blk.(*blockWrapper).WorkingSet = mock_factory.NewMockWorkingSet(ctrl)
-	state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, nil, cfsm.ctx.round.number, cfsm.ctx.clock))
+	state, err := cfsm.onReceiveBlock(newProposeBlkEvt(blk, nil, cfsm.ctx.round.number, cfsm.ctx.clock))
 	require.Equal(sAcceptProposalEndorse, state)
 	require.NoError(err)
 	evt := <-cfsm.evtq
@@ -1068,7 +1071,7 @@ func TestOneDelegate(t *testing.T) {
 	require.True(ok)
 	require.Equal(eReceiveProposalEndorsement, eEvt.Type())
 	// endorse proposal
-	state, err = cfsm.handleEndorseProposalEvt(eEvt)
+	state, err = cfsm.onReceiveProposalEndorsement(eEvt)
 	require.Equal(sAcceptLockEndorse, state)
 	require.NoError(err)
 	evt = <-cfsm.evtq
@@ -1076,7 +1079,7 @@ func TestOneDelegate(t *testing.T) {
 	require.True(ok)
 	require.Equal(eReceiveLockEndorsement, eEvt.Type())
 	// endorse lock
-	state, err = cfsm.handleEndorseLockEvt(eEvt)
+	state, err = cfsm.onReceiveLockEndorsement(eEvt)
 	require.NoError(err)
 	require.Equal(sAcceptCommitEndorse, state)
 	evt = <-cfsm.evtq
@@ -1093,9 +1096,9 @@ func TestOneDelegate(t *testing.T) {
 	require.Equal(ePrepare, cEvt.Type())
 	// new round
 	state, err = cfsm.prepare(cEvt)
-	require.Equal(sBlockPropose, state)
+	require.Equal(sAcceptPropose, state)
 	require.NoError(err)
-	assert.Equal(t, 4, broadcastCount)
+	assert.Equal(t, 5, broadcastCount)
 }
 
 func TestTwoDelegates(t *testing.T) {
@@ -1104,29 +1107,35 @@ func TestTwoDelegates(t *testing.T) {
 	defer ctrl.Finish()
 
 	delegates := []string{testAddrs[0].encodedAddr, testAddrs[1].encodedAddr}
+	epochNum := uint64(0)
+	crypto.SortCandidates(delegates, epochNum+1, crypto.CryptoSeed)
+	delegateAddrs := make([]*addrKeyPair, 2)
+	for i := 0; i < 2; i++ {
+		for j := 0; j < 2; j++ {
+			if delegates[i] == testAddrs[j].encodedAddr {
+				delegateAddrs[i] = testAddrs[j]
+				break
+			}
+		}
+	}
 	epoch := epochCtx{
 		delegates:    delegates,
-		num:          uint64(1),
+		num:          epochNum,
 		height:       uint64(1),
-		numSubEpochs: uint(2),
-	}
-	round := roundCtx{
-		height:          2,
-		endorsementSets: make(map[string]*endorsement.Set),
-		proposer:        delegates[0],
+		numSubEpochs: uint(1),
 	}
 	broadcastCount := 0
 	var broadcastMutex sync.Mutex
 	cfsm := newTestCFSM(
 		t,
-		testAddrs[0],
-		testAddrs[0],
+		delegateAddrs[0],
+		delegateAddrs[0],
 		ctrl,
 		delegates,
 		func(chain *mock_blockchain.MockBlockchain) {
 			chain.EXPECT().CommitBlock(gomock.Any()).Return(nil).Times(1)
 			chain.EXPECT().ChainID().AnyTimes().Return(config.Default.Chain.ID)
-			chain.EXPECT().TipHeight().Return(uint64(2)).Times(4)
+			chain.EXPECT().TipHeight().Return(uint64(1)).Times(8)
 			candidates := make([]*state.Candidate, 0)
 			for _, delegate := range delegates {
 				candidates = append(candidates, &state.Candidate{Address: delegate})
@@ -1142,26 +1151,35 @@ func TestTwoDelegates(t *testing.T) {
 		clock.New(),
 	)
 	cfsm.ctx.epoch = epoch
-	cfsm.ctx.round = round
+	//cfsm.ctx.round = round
 	cfsm.ctx.cfg.EnableDKG = false
 
-	// propose block
-	blk, err := cfsm.ctx.MintBlock()
+	state, err := cfsm.prepare(cfsm.newCEvt(ePrepare))
 	require.NoError(err)
-	blk.(*blockWrapper).WorkingSet = mock_factory.NewMockWorkingSet(ctrl)
-	state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, nil, cfsm.ctx.round.number, cfsm.ctx.clock))
-	require.Equal(sAcceptProposalEndorse, state)
-	require.NoError(err)
+	require.Equal(sAcceptPropose, state)
 	evt := <-cfsm.evtq
+	pEvt, ok := evt.(*proposeBlkEvt)
+	require.True(ok)
+	blk := pEvt.block
+	blk.(*blockWrapper).WorkingSet = mock_factory.NewMockWorkingSet(ctrl)
+	state, err = cfsm.onReceiveBlock(pEvt)
+	require.NoError(err)
+	require.Equal(sAcceptProposalEndorse, state)
+	evt = <-cfsm.evtq
 	eEvt, ok := evt.(*endorseEvt)
 	require.True(ok)
 	require.Equal(eReceiveProposalEndorsement, eEvt.Type())
 	// endorse proposal
-	state, err = cfsm.handleEndorseProposalEvt(eEvt)
-	require.Equal(sAcceptProposalEndorse, state)
+	state, err = cfsm.onReceiveProposalEndorsement(eEvt)
 	require.NoError(err)
+<<<<<<< HEAD
 	eEvt = newEndorseEvt(endorsement.PROPOSAL, blk.Hash(), round.height, round.number, testAddrs[1].pubKey, testAddrs[1].priKey, testAddrs[1].encodedAddr, cfsm.ctx.clock)
 	state, err = cfsm.handleEndorseProposalEvt(eEvt)
+=======
+	require.Equal(sAcceptProposalEndorse, state)
+	eEvt = newEndorseEvt(endorsement.PROPOSAL, blk.Hash(), cfsm.ctx.round.height, cfsm.ctx.round.number, delegateAddrs[1], cfsm.ctx.clock)
+	state, err = cfsm.onReceiveProposalEndorsement(eEvt)
+>>>>>>> Reduce number of consensus states
 	require.Equal(sAcceptLockEndorse, state)
 	require.NoError(err)
 	evt = <-cfsm.evtq
@@ -1169,11 +1187,16 @@ func TestTwoDelegates(t *testing.T) {
 	require.True(ok)
 	require.Equal(eReceiveLockEndorsement, eEvt.Type())
 	// endorse lock
-	state, err = cfsm.handleEndorseLockEvt(eEvt)
+	state, err = cfsm.onReceiveLockEndorsement(eEvt)
 	require.Equal(sAcceptLockEndorse, state)
 	require.NoError(err)
+<<<<<<< HEAD
 	eEvt = newEndorseEvt(endorsement.LOCK, blk.Hash(), round.height, round.number, testAddrs[1].pubKey, testAddrs[1].priKey, testAddrs[1].encodedAddr, cfsm.ctx.clock)
 	state, err = cfsm.handleEndorseLockEvt(eEvt)
+=======
+	eEvt = newEndorseEvt(endorsement.LOCK, blk.Hash(), cfsm.ctx.round.height, cfsm.ctx.round.number, delegateAddrs[1], cfsm.ctx.clock)
+	state, err = cfsm.onReceiveLockEndorsement(eEvt)
+>>>>>>> Reduce number of consensus states
 	require.Equal(sAcceptCommitEndorse, state)
 	require.NoError(err)
 	evt = <-cfsm.evtq
@@ -1190,9 +1213,9 @@ func TestTwoDelegates(t *testing.T) {
 	require.Equal(ePrepare, cEvt.Type())
 	// new round
 	state, err = cfsm.prepare(cEvt)
-	require.Equal(sBlockPropose, state)
 	require.NoError(err)
-	assert.Equal(t, 4, broadcastCount)
+	require.Equal(sAcceptPropose, state)
+	assert.Equal(t, 6, broadcastCount)
 }
 
 func TestThreeDelegates(t *testing.T) {
@@ -1200,30 +1223,45 @@ func TestThreeDelegates(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+<<<<<<< HEAD
 	delegates := []string{testAddrs[0].encodedAddr, testAddrs[1].encodedAddr, testAddrs[2].encodedAddr}
+=======
+	delegates := []string{testAddrs[0].RawAddress, testAddrs[1].RawAddress, testAddrs[2].RawAddress}
+	epochNum := uint64(0)
+	crypto.SortCandidates(delegates, epochNum+1, crypto.CryptoSeed)
+	delegateAddrs := make([]*iotxaddress.Address, 3)
+	for i := 0; i < 3; i++ {
+		for j := 0; j < 3; j++ {
+			if delegates[i] == testAddrs[j].RawAddress {
+				delegateAddrs[i] = testAddrs[j]
+				break
+			}
+		}
+	}
+>>>>>>> Reduce number of consensus states
 	epoch := epochCtx{
 		delegates:    delegates,
-		num:          uint64(1),
+		num:          epochNum,
 		height:       uint64(1),
-		numSubEpochs: uint(3),
-	}
-	round := roundCtx{
-		height:          2,
-		endorsementSets: make(map[string]*endorsement.Set),
-		proposer:        delegates[2],
+		numSubEpochs: uint(1),
 	}
 	broadcastCount := 0
 	var broadcastMutex sync.Mutex
 	cfsm := newTestCFSM(
 		t,
-		testAddrs[0],
-		testAddrs[2],
+		delegateAddrs[2],
+		delegateAddrs[2],
 		ctrl,
 		delegates,
 		func(chain *mock_blockchain.MockBlockchain) {
 			chain.EXPECT().CommitBlock(gomock.Any()).Return(nil).Times(1)
 			chain.EXPECT().ChainID().AnyTimes().Return(config.Default.Chain.ID)
-			chain.EXPECT().TipHeight().Return(uint64(2)).Times(4)
+			chain.EXPECT().TipHeight().Return(uint64(1)).Times(8)
+			candidates := make([]*state.Candidate, 0)
+			for _, delegate := range delegates {
+				candidates = append(candidates, &state.Candidate{Address: delegate})
+			}
+			chain.EXPECT().CandidatesByHeight(gomock.Any()).Return(candidates, nil).Times(1)
 		},
 		func(_ proto.Message) error {
 			broadcastMutex.Lock()
@@ -1234,14 +1272,26 @@ func TestThreeDelegates(t *testing.T) {
 		clock.New(),
 	)
 	cfsm.ctx.epoch = epoch
-	cfsm.ctx.round = round
 	cfsm.ctx.cfg.EnableDKG = false
 
-	blk, err := cfsm.ctx.MintBlock()
+	state, err := cfsm.prepare(cfsm.newCEvt(ePrepare))
 	require.NoError(err)
-	cfsm.ctx.round.block = blk
+	require.Equal(sAcceptPropose, state)
+	evt := <-cfsm.evtq
+	pEvt, ok := evt.(*proposeBlkEvt)
+	require.True(ok)
+	blk := pEvt.block
+	blk.(*blockWrapper).WorkingSet = mock_factory.NewMockWorkingSet(ctrl)
+	state, err = cfsm.onReceiveBlock(pEvt)
+	require.NoError(err)
+	require.Equal(sAcceptProposalEndorse, state)
+	evt = <-cfsm.evtq
+	eEvt, ok := evt.(*endorseEvt)
+	require.True(ok)
+	require.Equal(eReceiveProposalEndorsement, eEvt.Type())
 	// endorse proposal
 	// handle self endorsement
+<<<<<<< HEAD
 	eEvt := newEndorseEvt(endorsement.PROPOSAL, blk.Hash(), round.height, round.number, testAddrs[0].pubKey, testAddrs[0].priKey, testAddrs[0].encodedAddr, cfsm.ctx.clock)
 	state, err := cfsm.handleEndorseProposalEvt(eEvt)
 	require.Equal(sAcceptProposalEndorse, state)
@@ -1254,18 +1304,32 @@ func TestThreeDelegates(t *testing.T) {
 	// handle delegate 2's endorsement
 	eEvt = newEndorseEvt(endorsement.PROPOSAL, blk.Hash(), round.height, round.number, testAddrs[2].pubKey, testAddrs[2].priKey, testAddrs[2].encodedAddr, cfsm.ctx.clock)
 	state, err = cfsm.handleEndorseProposalEvt(eEvt)
+=======
+	state, err = cfsm.onReceiveProposalEndorsement(eEvt)
+	require.Equal(sAcceptProposalEndorse, state)
+	require.NoError(err)
+	// handle delegate 1's endorsement
+	eEvt = newEndorseEvt(endorsement.PROPOSAL, blk.Hash(), cfsm.ctx.round.height, cfsm.ctx.round.number, delegateAddrs[1], cfsm.ctx.clock)
+	state, err = cfsm.onReceiveProposalEndorsement(eEvt)
+	require.Equal(sAcceptProposalEndorse, state)
+	require.NoError(err)
+	// handle delegate 2's endorsement
+	eEvt = newEndorseEvt(endorsement.PROPOSAL, blk.Hash(), cfsm.ctx.round.height, cfsm.ctx.round.number, delegateAddrs[0], cfsm.ctx.clock)
+	state, err = cfsm.onReceiveProposalEndorsement(eEvt)
+>>>>>>> Reduce number of consensus states
 	require.Equal(sAcceptLockEndorse, state)
 	require.NoError(err)
-	evt := <-cfsm.evtq
-	eEvt, ok := evt.(*endorseEvt)
+	evt = <-cfsm.evtq
+	eEvt, ok = evt.(*endorseEvt)
 	require.True(ok)
 	require.Equal(eReceiveLockEndorsement, eEvt.Type())
 	// endorse lock
 	// handle self endorsement
-	state, err = cfsm.handleEndorseLockEvt(eEvt)
+	state, err = cfsm.onReceiveLockEndorsement(eEvt)
 	require.Equal(sAcceptLockEndorse, state)
 	require.NoError(err)
 	// handle delegate 1's endorsement
+<<<<<<< HEAD
 	eEvt = newEndorseEvt(endorsement.LOCK, blk.Hash(), round.height, round.number, testAddrs[1].pubKey, testAddrs[1].priKey, testAddrs[1].encodedAddr, cfsm.ctx.clock)
 	state, err = cfsm.handleEndorseLockEvt(eEvt)
 	require.Equal(sAcceptLockEndorse, state)
@@ -1273,6 +1337,15 @@ func TestThreeDelegates(t *testing.T) {
 	// handle delegate 2's endorsement
 	eEvt = newEndorseEvt(endorsement.LOCK, blk.Hash(), round.height, round.number, testAddrs[2].pubKey, testAddrs[2].priKey, testAddrs[2].encodedAddr, cfsm.ctx.clock)
 	state, err = cfsm.handleEndorseLockEvt(eEvt)
+=======
+	eEvt = newEndorseEvt(endorsement.LOCK, blk.Hash(), cfsm.ctx.round.height, cfsm.ctx.round.number, delegateAddrs[1], cfsm.ctx.clock)
+	state, err = cfsm.onReceiveLockEndorsement(eEvt)
+	require.Equal(sAcceptLockEndorse, state)
+	require.NoError(err)
+	// handle delegate 2's endorsement
+	eEvt = newEndorseEvt(endorsement.LOCK, blk.Hash(), cfsm.ctx.round.height, cfsm.ctx.round.number, delegateAddrs[0], cfsm.ctx.clock)
+	state, err = cfsm.onReceiveLockEndorsement(eEvt)
+>>>>>>> Reduce number of consensus states
 	require.NoError(err)
 	require.Equal(sAcceptCommitEndorse, state)
 	evt = <-cfsm.evtq
@@ -1288,9 +1361,9 @@ func TestThreeDelegates(t *testing.T) {
 	require.Equal(ePrepare, cEvt.Type())
 	// new round
 	state, err = cfsm.prepare(cEvt)
-	require.Equal(sBlockPropose, state)
+	require.Equal(sAcceptPropose, state)
 	require.NoError(err)
-	assert.Equal(t, 3, broadcastCount)
+	assert.Equal(t, 6, broadcastCount)
 }
 
 func TestHandleFinishEpochEvt(t *testing.T) {
@@ -1405,8 +1478,8 @@ func TestHandleFinishEpochEvt(t *testing.T) {
 
 		state, err := cfsm.prepare(cfsm.newCEvt(ePrepare))
 		assert.NoError(t, err)
-		assert.Equal(t, sBlockPropose, state)
-		assert.Equal(t, eInitBlockPropose, (<-cfsm.evtq).Type())
+		assert.Equal(t, sAcceptPropose, state)
+		assert.Equal(t, eFailedToReceiveBlock, (<-cfsm.evtq).Type())
 	})
 	t.Run("epoch-finished", func(t *testing.T) {
 		cfsm := newTestCFSM(
@@ -1435,7 +1508,7 @@ func TestHandleFinishEpochEvt(t *testing.T) {
 
 		state, err := cfsm.prepare(cfsm.newCEvt(ePrepare))
 		assert.NoError(t, err)
-		assert.Equal(t, sBlockPropose, state)
+		assert.Equal(t, sAcceptPropose, state)
 	})
 }
 
