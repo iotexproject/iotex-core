@@ -87,7 +87,7 @@ func TestNewBlockSyncer(t *testing.T) {
 		uint64(0),
 		hash.Hash32B{},
 		testutil.TimestampNow(),
-		ta.Addrinfo["producer"].PublicKey,
+		ta.IotxAddrinfo["producer"].PublicKey,
 		nil,
 	)
 	mBc.EXPECT().GetBlockByHeight(gomock.Any()).AnyTimes().Return(blk, nil)
@@ -164,7 +164,7 @@ func TestBlockSyncerProcessSyncRequest(t *testing.T) {
 		uint64(0),
 		hash.Hash32B{},
 		testutil.TimestampNow(),
-		ta.Addrinfo["producer"].PublicKey,
+		ta.IotxAddrinfo["producer"].PublicKey,
 		nil,
 	)
 	mBc.EXPECT().GetBlockByHeight(gomock.Any()).AnyTimes().Return(blk, nil)
@@ -257,7 +257,7 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 	}()
 
 	h := chain.TipHeight()
-	blk, err := chain.MintNewBlock(nil, ta.Addrinfo["producer"],
+	blk, err := chain.MintNewBlock(nil, ta.IotxAddrinfo["producer"],
 		nil, nil, "")
 	require.NotNil(blk)
 	require.NoError(err)
@@ -318,17 +318,17 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	}()
 
 	// commit top
-	blk1, err := chain1.MintNewBlock(nil, ta.Addrinfo["producer"],
+	blk1, err := chain1.MintNewBlock(nil, ta.IotxAddrinfo["producer"],
 		nil, nil, "")
 	require.NotNil(blk1)
 	require.Nil(err)
 	require.Nil(bs1.ProcessBlock(blk1))
-	blk2, err := chain1.MintNewBlock(nil, ta.Addrinfo["producer"],
+	blk2, err := chain1.MintNewBlock(nil, ta.IotxAddrinfo["producer"],
 		nil, nil, "")
 	require.NotNil(blk2)
 	require.Nil(err)
 	require.Nil(bs1.ProcessBlock(blk2))
-	blk3, err := chain1.MintNewBlock(nil, ta.Addrinfo["producer"],
+	blk3, err := chain1.MintNewBlock(nil, ta.IotxAddrinfo["producer"],
 		nil, nil, "")
 	require.NotNil(blk3)
 	require.Nil(err)
@@ -384,17 +384,17 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	}()
 
 	// commit top
-	blk1, err := chain1.MintNewBlock(nil, ta.Addrinfo["producer"],
+	blk1, err := chain1.MintNewBlock(nil, ta.IotxAddrinfo["producer"],
 		nil, nil, "")
 	require.NotNil(blk1)
 	require.NoError(err)
 	require.Nil(bs1.ProcessBlock(blk1))
-	blk2, err := chain1.MintNewBlock(nil, ta.Addrinfo["producer"],
+	blk2, err := chain1.MintNewBlock(nil, ta.IotxAddrinfo["producer"],
 		nil, nil, "")
 	require.NotNil(blk2)
 	require.NoError(err)
 	require.Nil(bs1.ProcessBlock(blk2))
-	blk3, err := chain1.MintNewBlock(nil, ta.Addrinfo["producer"],
+	blk3, err := chain1.MintNewBlock(nil, ta.IotxAddrinfo["producer"],
 		nil, nil, "")
 	require.NotNil(blk3)
 	require.NoError(err)
@@ -440,13 +440,13 @@ func TestBlockSyncerSync(t *testing.T) {
 		ctrl.Finish()
 	}()
 
-	blk, err := chain.MintNewBlock(nil, ta.Addrinfo["producer"],
+	blk, err := chain.MintNewBlock(nil, ta.IotxAddrinfo["producer"],
 		nil, nil, "")
 	require.NotNil(blk)
 	require.NoError(err)
 	require.Nil(bs.ProcessBlock(blk))
 
-	blk, err = chain.MintNewBlock(nil, ta.Addrinfo["producer"],
+	blk, err = chain.MintNewBlock(nil, ta.IotxAddrinfo["producer"],
 		nil, nil, "")
 	require.NotNil(blk)
 	require.NoError(err)

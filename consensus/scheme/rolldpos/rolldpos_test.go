@@ -475,11 +475,11 @@ func TestRollDPoS_convertToConsensusEvt(t *testing.T) {
 
 	// Test propose msg
 	addr := newTestAddr()
-	a := testaddress.Addrinfo["alfa"]
-	b := testaddress.Addrinfo["bravo"]
+	a := testaddress.IotxAddrinfo["alfa"]
+	b := testaddress.IotxAddrinfo["bravo"]
 	transfer, err := testutil.SignedTransfer(a, b, 1, big.NewInt(100), []byte{}, testutil.TestGasLimit, big.NewInt(10))
 	require.NoError(t, err)
-	selfPubKey := testaddress.Addrinfo["producer"].PublicKey
+	selfPubKey := testaddress.IotxAddrinfo["producer"].PublicKey
 	vote, err := testutil.SignedVote(addr, addr, 2, testutil.TestGasLimit, big.NewInt(10))
 	require.NoError(t, err)
 	var prevHash hash.Hash32B
@@ -757,7 +757,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 				gasLimit := testutil.TestGasLimit
 				wsctx := protocol.WithRunActionsCtx(ctx,
 					protocol.RunActionsCtx{
-						ProducerAddr:    testaddress.Addrinfo["producer"].RawAddress,
+						ProducerAddr:    testaddress.IotxAddrinfo["producer"].RawAddress,
 						GasLimit:        &gasLimit,
 						EnableGasCharge: testutil.EnableGasCharge,
 					})

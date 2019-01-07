@@ -18,7 +18,7 @@ import (
 )
 
 func TestStartSubChain(t *testing.T) {
-	addr := testaddress.Addrinfo["producer"]
+	addr := testaddress.IotxAddrinfo["producer"]
 	assertStart := func(start *StartSubChain) {
 		assert.Equal(t, uint32(version.ProtocolVersion), start.version)
 		assert.Equal(t, uint64(1), start.Nonce())
