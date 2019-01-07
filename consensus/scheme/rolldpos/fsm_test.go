@@ -582,6 +582,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 
 		blk, err := cfsm.ctx.MintBlock()
 		assert.NoError(t, err)
+		// The block's working set is nil though the blocker's producer is the current node
 		blk.(*blockWrapper).WorkingSet = nil
 		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, nil, cfsm.ctx.round.number, cfsm.ctx.clock))
 		assert.NoError(t, err)
