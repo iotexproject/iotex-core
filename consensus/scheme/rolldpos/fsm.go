@@ -206,10 +206,11 @@ func (m *cFSM) Start(c context.Context) error {
 					}
 				} else {
 					dst := m.fsm.CurrentState()
-					log.L().Debug("consensusEvt state transition happens",
-						zap.String("src", string(src)),
-						zap.String("dst", string(dst)),
-						zap.String("evt", string(evt.Type())))
+					m.ctx.Logger().Debug().
+						Str("src", string(src)).
+						Str("dst", string(dst)).
+						Str("evt", string(evt.Type())).
+						Msg("consensusEvt state transition happens")
 				}
 			}
 		}
