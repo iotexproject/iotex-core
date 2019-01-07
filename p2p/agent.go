@@ -75,6 +75,7 @@ func NewAgent(cfg config.Network, broadcastHandler HandleBroadcast, unicastHandl
 
 // Start connects into P2P network
 func (p *Agent) Start(ctx context.Context) error {
+	ready := make(chan interface{})
 	p2p.SetLogger(logger.Logger())
 	opts := []p2p.Option{
 		p2p.HostName(p.cfg.Host),
@@ -92,8 +93,15 @@ func (p *Agent) Start(ctx context.Context) error {
 	}
 
 	if err := host.AddBroadcastPubSub(broadcastTopic, func(data []byte) (err error) {
+		// Blocking handling the broadcast message until the agent is started
+		<-ready
 		var broadcast p2ppb.BroadcastMsg
+		skip := false
 		defer func() {
+			// Skip accounting if the broadcast message is not handled
+			if skip {
+				return
+			}
 			status := "success"
 			if err != nil {
 				status = "failure"
@@ -106,6 +114,7 @@ func (p *Agent) Start(ctx context.Context) error {
 		}
 		// Skip the broadcast message if it's from the node itself
 		if p.Self().String() == broadcast.Addr {
+			skip = true
 			return
 		}
 		msg, err := iproto.TypifyProtoMsg(broadcast.MsgType, broadcast.MsgBody)
@@ -120,6 +129,8 @@ func (p *Agent) Start(ctx context.Context) error {
 	}
 
 	if err := host.AddUnicastPubSub(unicastTopic, func(data []byte) (err error) {
+		// Blocking handling the unicast message until the agent is started
+		<-ready
 		var unicast p2ppb.UnicastMsg
 		defer func() {
 			status := "success"
@@ -164,6 +175,7 @@ func (p *Agent) Start(ctx context.Context) error {
 		return errors.Wrap(err, "error when joining overlay")
 	}
 	p.host = host
+	close(ready)
 	return nil
 }
 
@@ -198,7 +210,7 @@ func (p *Agent) Broadcast(ctx context.Context, msg proto.Message) (err error) {
 		err = fmt.Errorf("P2P context doesn't exist")
 		return
 	}
-	broadcast := p2ppb.BroadcastMsg{ChainId: p2pCtx.ChainID, MsgType: msgType, MsgBody: msgBody}
+	broadcast := p2ppb.BroadcastMsg{ChainId: p2pCtx.ChainID, Addr: p.Self().String(), MsgType: msgType, MsgBody: msgBody}
 	data, err := proto.Marshal(&broadcast)
 	if err != nil {
 		err = errors.Wrap(err, "error when marshaling broadcast message")
