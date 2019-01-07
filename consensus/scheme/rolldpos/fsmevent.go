@@ -113,7 +113,7 @@ func newProposeBlkEvtFromProtoMsg(pMsg *iproto.ProposePb, c clock.Clock) *propos
 
 type endorseEvt struct {
 	consensusEvt
-	endorse *endorsement.Endorsement
+	endorse Endorsement
 }
 
 func newEndorseEvt(
@@ -142,12 +142,14 @@ func newEndorseEvtWithEndorse(endorse *endorsement.Endorsement, c clock.Clock) *
 	}
 	return &endorseEvt{
 		consensusEvt: *newCEvt(eventType, vote.Height, vote.Round, c),
-		endorse:      endorse,
+		endorse:      &endorsementWrapper{endorse},
 	}
 }
 
 func (en *endorseEvt) toProtoMsg() *iproto.EndorsePb {
-	return en.endorse.ToProtoMsg()
+	endorsement := en.endorse.(*endorsementWrapper)
+
+	return endorsement.ToProtoMsg()
 }
 
 type timeoutEvt struct {
