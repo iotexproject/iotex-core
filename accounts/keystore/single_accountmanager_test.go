@@ -7,7 +7,6 @@
 package keystore
 
 import (
-	"encoding/json"
 	"math/big"
 	"testing"
 
@@ -15,40 +14,40 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/testutil"
+	"github.com/iotexproject/iotex-core/test/testaddress"
 )
 
 func TestSingleAccountManager_SignTransfer(t *testing.T) {
 	require := require.New(t)
 
-	key := &Key{PublicKey: pubKey1, PrivateKey: priKey1, RawAddress: rawAddr1}
-	keyBytes, err := json.Marshal(key)
+	key, err := keypair.DecodePrivateKey(prikeyProducer)
 	require.NoError(err)
 
 	accountManager := NewMemAccountManager()
-	accountManager.Import(keyBytes)
+	require.NoError(accountManager.Import(key[:]))
 
 	m, err := NewSingleAccountManager(accountManager)
 	require.NoError(err)
 
-	tsf, err := action.NewTransfer(uint64(1), big.NewInt(1), rawAddr1, rawAddr2, []byte{}, uint64(100000), big.NewInt(10))
+	tsf, err := action.NewTransfer(uint64(1), big.NewInt(1), testaddress.Addrinfo["producer"].Bech32(),
+		testaddress.Addrinfo["alfa"].Bech32(), []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(err)
 
 	bd := action.EnvelopeBuilder{}
 	elp := bd.SetNonce(1).
 		SetAction(tsf).
 		SetGasLimit(100000).
-		SetDestinationAddress(rawAddr2).
+		SetDestinationAddress(testaddress.Addrinfo["alfa"].Bech32()).
 		SetGasPrice(big.NewInt(10)).Build()
 
 	_, err = m.SignAction(elp)
 	require.NoError(err)
 
-	require.NoError(accountManager.Remove(rawAddr1))
+	require.NoError(accountManager.Remove(testaddress.Addrinfo["producer"].Bech32()))
 	_, err = m.SignAction(elp)
 	require.Equal(ErrNumAccounts, errors.Cause(err))
 }
@@ -56,39 +55,31 @@ func TestSingleAccountManager_SignTransfer(t *testing.T) {
 func TestSingleAccountManager_SignVote(t *testing.T) {
 	require := require.New(t)
 
-	key := &Key{PublicKey: pubKey1, PrivateKey: priKey1, RawAddress: rawAddr1}
-	keyBytes, err := json.Marshal(key)
+	key, err := keypair.DecodePrivateKey(prikeyProducer)
 	require.NoError(err)
 
 	accountManager := NewMemAccountManager()
-	accountManager.Import(keyBytes)
+	require.NoError(accountManager.Import(key[:]))
 
 	m, err := NewSingleAccountManager(accountManager)
 	require.NoError(err)
 
-	selfPubKey, err := keypair.DecodePublicKey(pubKey1)
-	require.NoError(err)
-	selfPkHash := keypair.HashPubKey(selfPubKey)
-	votePubKey, err := keypair.DecodePublicKey(pubKey2)
-	require.NoError(err)
-	votePkHash := keypair.HashPubKey(votePubKey)
-	voterAddress := address.New(1, selfPkHash[:])
-	voteeAddress := address.New(1, votePkHash[:])
 	vote, err := action.NewVote(
-		uint64(1), voterAddress.IotxAddress(), voteeAddress.IotxAddress(), uint64(100000), big.NewInt(10))
+		uint64(1), testaddress.Addrinfo["producer"].Bech32(), testaddress.Addrinfo["alfa"].Bech32(),
+		uint64(100000), big.NewInt(10))
 	require.NoError(err)
 
 	bd := action.EnvelopeBuilder{}
 	elp := bd.SetNonce(1).
 		SetAction(vote).
 		SetGasLimit(100000).
-		SetDestinationAddress(voteeAddress.IotxAddress()).
+		SetDestinationAddress(testaddress.Addrinfo["alfa"].Bech32()).
 		SetGasPrice(big.NewInt(10)).Build()
 
 	_, err = m.SignAction(elp)
 	require.NoError(err)
 
-	require.NoError(accountManager.Remove(rawAddr1))
+	require.NoError(accountManager.Remove(testaddress.Addrinfo["producer"].Bech32()))
 	_, err = m.SignAction(elp)
 	require.Equal(ErrNumAccounts, errors.Cause(err))
 }
@@ -96,17 +87,16 @@ func TestSingleAccountManager_SignVote(t *testing.T) {
 func TestSingleAccountManager_SignHash(t *testing.T) {
 	require := require.New(t)
 
-	key := &Key{PublicKey: pubKey1, PrivateKey: priKey1, RawAddress: rawAddr1}
-	keyBytes, err := json.Marshal(key)
+	key, err := keypair.DecodePrivateKey(prikeyProducer)
 	require.NoError(err)
 
 	accountManager := NewMemAccountManager()
-	accountManager.Import(keyBytes)
+	require.NoError(accountManager.Import(key[:]))
 
 	m, err := NewSingleAccountManager(accountManager)
 	require.NoError(err)
 
-	pk, err := keypair.DecodePublicKey(pubKey1)
+	pk, err := keypair.DecodePublicKey(pubkeyProducer)
 	require.NoError(err)
 	blk := block.NewBlockDeprecated(1, 0, hash.ZeroHash32B, testutil.TimestampNow(), pk, nil)
 	hash := blk.HashBlock()
@@ -114,7 +104,7 @@ func TestSingleAccountManager_SignHash(t *testing.T) {
 	require.NoError(err)
 	require.NotNil(signature)
 
-	require.NoError(accountManager.Remove(rawAddr1))
+	require.NoError(accountManager.Remove(testaddress.Addrinfo["producer"].Bech32()))
 	signature, err = m.SignHash(hash[:])
 	require.Equal(ErrNumAccounts, errors.Cause(err))
 	require.Nil(signature)
