@@ -7,15 +7,13 @@
 package keystore
 
 import (
-	"bytes"
-	"encoding/json"
-	"io"
 	"os"
 	"path/filepath"
+	"io/ioutil"
 
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 )
 
@@ -28,18 +26,11 @@ var (
 	ErrNotExist = errors.New("key does not exist")
 )
 
-// Key defines the struct to be stored in keystore object
-type Key struct {
-	PublicKey  string
-	PrivateKey string
-	RawAddress string
-}
-
 // KeyStore defines an interface that supports operations on keystore object
 type KeyStore interface {
 	Has(string) (bool, error)
-	Get(string) (*iotxaddress.Address, error)
-	Store(string, *iotxaddress.Address) error
+	Get(string) (keypair.PrivateKey, error)
+	Store(string, keypair.PrivateKey) error
 	Remove(string) error
 	All() ([]string, error)
 }
@@ -51,7 +42,7 @@ type plainKeyStore struct {
 
 // MemKeyStore is an in-memory keystore which implements KeyStore interface
 type memKeyStore struct {
-	accounts map[string]*iotxaddress.Address
+	accounts map[string]keypair.PrivateKey
 }
 
 // NewPlainKeyStore returns a new instance of plain keystore
@@ -67,12 +58,12 @@ func NewPlainKeyStore(dir string) (KeyStore, error) {
 	return &plainKeyStore{directory: dir}, nil
 }
 
-// Has returns whether the raw address already exists in keystore filesystem
-func (ks *plainKeyStore) Has(rawAddr string) (bool, error) {
-	if err := validateAddress(rawAddr); err != nil {
+// Has returns whether the encoded address already exists in keystore filesystem
+func (ks *plainKeyStore) Has(encodedAddr string) (bool, error) {
+	if err := validateAddress(encodedAddr); err != nil {
 		return false, err
 	}
-	filePath := filepath.Join(ks.directory, rawAddr)
+	filePath := filepath.Join(ks.directory, encodedAddr)
 	if _, err := os.Stat(filePath); err != nil {
 		if os.IsNotExist(err) {
 			return false, nil
@@ -82,73 +73,57 @@ func (ks *plainKeyStore) Has(rawAddr string) (bool, error) {
 	return true, nil
 }
 
-// Get returns iotxaddress from keystore filesystem given raw address
-func (ks *plainKeyStore) Get(rawAddr string) (*iotxaddress.Address, error) {
-	if err := validateAddress(rawAddr); err != nil {
-		return nil, err
+// Get returns private key from keystore filesystem given encoded address
+func (ks *plainKeyStore) Get(encodedAddr string) (keypair.PrivateKey, error) {
+	if err := validateAddress(encodedAddr); err != nil {
+		return keypair.ZeroPrivateKey, err
 	}
-	filePath := filepath.Join(ks.directory, rawAddr)
-	fd, err := os.Open(filePath)
+	filePath := filepath.Join(ks.directory, encodedAddr)
+	_, err := os.Stat(filePath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, errors.Wrapf(ErrNotExist, "raw address = %s", rawAddr)
+			return keypair.ZeroPrivateKey, errors.Wrapf(ErrNotExist, "encoded address = %s", encodedAddr)
 		}
-		return nil, errors.Wrapf(err, "failed to open file %s", filePath)
+		return keypair.ZeroPrivateKey, errors.Wrapf(err, "failed to open file %s", filePath)
 	}
-	defer fd.Close()
-	key := &Key{}
-	if err := json.NewDecoder(fd).Decode(key); err != nil {
-		return nil, errors.Wrap(err, "failed to decode json file to key")
+	keyBytes, err := ioutil.ReadFile(filePath)
+	if err != nil {
+		return keypair.ZeroPrivateKey, errors.Wrapf(err, "failed to read file %s", filePath)
 	}
-	return keyToAddr(key)
+	return keypair.BytesToPrivateKey(keyBytes)
 }
 
-// Store stores iotxaddress in keystore filesystem
-func (ks *plainKeyStore) Store(rawAddr string, address *iotxaddress.Address) error {
-	if err := validateAddress(rawAddr); err != nil {
+// Store stores private key in keystore filesystem
+func (ks *plainKeyStore) Store(encodedAddr string, key keypair.PrivateKey) error {
+	if err := validateAddress(encodedAddr); err != nil {
 		return err
 	}
-	filePath := filepath.Join(ks.directory, rawAddr)
+	filePath := filepath.Join(ks.directory, encodedAddr)
 
 	_, err := os.Stat(filePath)
 	if err == nil {
-		return errors.Wrapf(ErrExist, "raw address = %s", rawAddr)
+		return errors.Wrapf(ErrExist, "encoded address = %s", encodedAddr)
 	}
 	if !os.IsNotExist(err) {
 		return errors.Wrapf(err, "failed to get the status of file %s", filePath)
 	}
-
-	f, err := os.Create(filePath)
-	if err != nil {
-		return errors.Wrapf(err, "failed to create file %s", filePath)
-	}
-	defer f.Close()
-
-	publicKey := keypair.EncodePublicKey(address.PublicKey)
-	privateKey := keypair.EncodePrivateKey(address.PrivateKey)
-	key := &Key{PublicKey: publicKey, PrivateKey: privateKey, RawAddress: address.RawAddress}
-	sKey, err := json.Marshal(key)
-	if err != nil {
-		return errors.Wrap(err, "failed to marshal key")
-	}
-	_, err = io.Copy(f, bytes.NewReader(sKey))
-	return err
+	return ioutil.WriteFile(filePath, key[:], 0644)
 }
 
-// Remove removes the iotxaddress from keystore filesystem given raw address
-func (ks *plainKeyStore) Remove(rawAddr string) error {
-	if err := validateAddress(rawAddr); err != nil {
+// Remove removes the private key from keystore filesystem given encoded address
+func (ks *plainKeyStore) Remove(encodedAddr string) error {
+	if err := validateAddress(encodedAddr); err != nil {
 		return err
 	}
-	filePath := filepath.Join(ks.directory, rawAddr)
+	filePath := filepath.Join(ks.directory, encodedAddr)
 	err := os.Remove(filePath)
 	if os.IsNotExist(err) {
-		return errors.Wrapf(ErrNotExist, "raw address = %s", rawAddr)
+		return errors.Wrapf(ErrNotExist, "encoded address = %s", encodedAddr)
 	}
 	return err
 }
 
-// All returns a list of raw addresses currently stored in keystore filesystem
+// All returns a list of encoded addresses currently stored in keystore filesystem
 func (ks *plainKeyStore) All() ([]string, error) {
 	fd, err := os.Open(ks.directory)
 	if err != nil {
@@ -158,106 +133,89 @@ func (ks *plainKeyStore) All() ([]string, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to read directory names")
 	}
-	rawAddrs := make([]string, 0, len(names))
-	for _, rawAddr := range names {
-		_, err := iotxaddress.GetPubkeyHash(rawAddr)
-		if err != nil {
+	encodedAddrs := make([]string, 0, len(names))
+	for _, encodedAddr := range names {
+		if err := validateAddress(encodedAddr); err != nil {
 			return nil, err
 		}
-		rawAddrs = append(rawAddrs, rawAddr)
+		encodedAddrs = append(encodedAddrs, encodedAddr)
 	}
-	return rawAddrs, nil
+	return encodedAddrs, nil
 }
 
 // NewMemKeyStore creates a new instance of MemKeyStore
 func NewMemKeyStore() KeyStore {
 	return &memKeyStore{
-		accounts: make(map[string]*iotxaddress.Address),
+		accounts: make(map[string]keypair.PrivateKey),
 	}
 }
 
-// Has returns whether the given raw address already exists in map
-func (ks *memKeyStore) Has(rawAddr string) (bool, error) {
-	if err := validateAddress(rawAddr); err != nil {
+// Has returns whether the given encoded address already exists in map
+func (ks *memKeyStore) Has(encodedAddr string) (bool, error) {
+	if err := validateAddress(encodedAddr); err != nil {
 		return false, err
 	}
-	_, ok := ks.accounts[rawAddr]
+	_, ok := ks.accounts[encodedAddr]
 	return ok, nil
 }
 
-// Get returns iotxaddress stored in map given raw address of the account
-func (ks *memKeyStore) Get(rawAddr string) (*iotxaddress.Address, error) {
-	if err := validateAddress(rawAddr); err != nil {
-		return nil, err
+// Get returns address stored in map given encoded address of the account
+func (ks *memKeyStore) Get(encodedAddr string) (keypair.PrivateKey, error) {
+	if err := validateAddress(encodedAddr); err != nil {
+		return keypair.ZeroPrivateKey, err
 	}
-	addr, ok := ks.accounts[rawAddr]
+	key, ok := ks.accounts[encodedAddr]
 	if !ok {
-		return nil, errors.Wrapf(ErrNotExist, "raw address = %s", rawAddr)
+		return keypair.ZeroPrivateKey, errors.Wrapf(ErrNotExist, "encoded address = %s", encodedAddr)
 	}
-	return addr, nil
+	return key, nil
 }
 
-// Store stores iotxaddress in map
-func (ks *memKeyStore) Store(rawAddr string, addr *iotxaddress.Address) error {
-	if err := validateAddress(rawAddr); err != nil {
+// Store stores address in map
+func (ks *memKeyStore) Store(encodedAddr string, key keypair.PrivateKey) error {
+	if err := validateAddress(encodedAddr); err != nil {
 		return err
 	}
 	// check if the key already exists in map
-	if _, ok := ks.accounts[rawAddr]; ok {
-		return errors.Wrapf(ErrExist, "raw address = %s", rawAddr)
+	if _, ok := ks.accounts[encodedAddr]; ok {
+		return errors.Wrapf(ErrExist, "encoded address = %s", encodedAddr)
 	}
 
-	ks.accounts[rawAddr] = addr
+	ks.accounts[encodedAddr] = key
 	return nil
 }
 
-// Remove removes the entry corresponding to the given raw address from map if exists
-func (ks *memKeyStore) Remove(rawAddr string) error {
-	if err := validateAddress(rawAddr); err != nil {
+// Remove removes the entry corresponding to the given encoded address from map if exists
+func (ks *memKeyStore) Remove(encodedAddr string) error {
+	if err := validateAddress(encodedAddr); err != nil {
 		return err
 	}
-	_, ok := ks.accounts[rawAddr]
+	_, ok := ks.accounts[encodedAddr]
 	if !ok {
-		return errors.Wrapf(ErrNotExist, "raw address = %s", rawAddr)
+		return errors.Wrapf(ErrNotExist, "encoded address = %s", encodedAddr)
 	}
-	delete(ks.accounts, rawAddr)
+	delete(ks.accounts, encodedAddr)
 	return nil
 }
 
-// All returns returns a list of raw addresses currently stored in map
+// All returns returns a list of encoded addresses currently stored in map
 func (ks *memKeyStore) All() ([]string, error) {
-	rawAddrs := make([]string, 0, len(ks.accounts))
-	for rawAddr := range ks.accounts {
-		_, err := iotxaddress.GetPubkeyHash(rawAddr)
-		if err != nil {
+	encodedAddrs := make([]string, 0, len(ks.accounts))
+	for encodedAddr := range ks.accounts {
+		if err := validateAddress(encodedAddr); err != nil {
 			return nil, err
 		}
-		rawAddrs = append(rawAddrs, rawAddr)
+		encodedAddrs = append(encodedAddrs, encodedAddr)
 	}
-	return rawAddrs, nil
+	return encodedAddrs, nil
 }
 
 //======================================
 // private functions
 //======================================
-func keyToAddr(key *Key) (*iotxaddress.Address, error) {
-	if key == nil {
-		return nil, errors.Wrapf(ErrKey, "key must not be nil")
-	}
-	publicKey, err := keypair.DecodePublicKey(key.PublicKey)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to decode public key")
-	}
-	privateKey, err := keypair.DecodePrivateKey(key.PrivateKey)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to decode private key")
-	}
-	return &iotxaddress.Address{PublicKey: publicKey, PrivateKey: privateKey, RawAddress: key.RawAddress}, nil
-}
-
 func validateAddress(addr string) error {
 	// check if the address is valid
-	_, err := iotxaddress.GetPubkeyHash(addr)
+	_, err := address.Bech32ToAddress(addr)
 	if err != nil {
 		return errors.Wrapf(err, "address format is invalid %s", addr)
 	}
