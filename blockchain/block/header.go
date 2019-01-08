@@ -106,6 +106,6 @@ func (h Header) HeaderLogger(l *zerolog.Logger) *zerolog.Logger {
 		Hex("prevBlockHash", h.prevBlockHash[:]).
 		Hex("txRoot", h.txRoot[:]).
 		Hex("stateRoot", h.stateRoot[:]).
-		Hex("receiptRoot", h.receiptRoot[:]).Logger()
+		Logger()
 	return &ctxl
 }
