@@ -19,9 +19,9 @@ import (
 func TestActionIterator(t *testing.T) {
 	require := require.New(t)
 
-	a := testaddress.Addrinfo["alfa"]
-	b := testaddress.Addrinfo["bravo"]
-	c := testaddress.Addrinfo["charlie"]
+	a := testaddress.IotxAddrinfo["alfa"]
+	b := testaddress.IotxAddrinfo["bravo"]
+	c := testaddress.IotxAddrinfo["charlie"]
 	accMap := make(map[string][]action.SealedEnvelope)
 
 	vote1, err := action.NewVote(1, a.RawAddress, b.RawAddress, 0, big.NewInt(13))

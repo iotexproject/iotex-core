@@ -207,12 +207,12 @@ func TestSnapshot(t *testing.T) {
 
 func TestCandidates(t *testing.T) {
 	// Create three dummy iotex addresses
-	a := testaddress.Addrinfo["alfa"]
-	b := testaddress.Addrinfo["bravo"]
-	c := testaddress.Addrinfo["charlie"]
-	d := testaddress.Addrinfo["delta"]
-	e := testaddress.Addrinfo["echo"]
-	f := testaddress.Addrinfo["foxtrot"]
+	a := testaddress.IotxAddrinfo["alfa"]
+	b := testaddress.IotxAddrinfo["bravo"]
+	c := testaddress.IotxAddrinfo["charlie"]
+	d := testaddress.IotxAddrinfo["delta"]
+	e := testaddress.IotxAddrinfo["echo"]
+	f := testaddress.IotxAddrinfo["foxtrot"]
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
 
@@ -257,7 +257,7 @@ func TestCandidates(t *testing.T) {
 	gasLimit := testutil.TestGasLimit
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			ProducerAddr:    testaddress.Addrinfo["producer"].RawAddress,
+			ProducerAddr:    testaddress.IotxAddrinfo["producer"].RawAddress,
 			GasLimit:        &gasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
 		})
@@ -288,7 +288,7 @@ func TestCandidates(t *testing.T) {
 	zeroGasLimit := uint64(0)
 	zctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			ProducerAddr:    testaddress.Addrinfo["producer"].RawAddress,
+			ProducerAddr:    testaddress.IotxAddrinfo["producer"].RawAddress,
 			GasLimit:        &zeroGasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
 		})
@@ -889,8 +889,8 @@ func TestCandidates(t *testing.T) {
 
 func TestUnvote(t *testing.T) {
 	// Create three dummy iotex addresses
-	a := testaddress.Addrinfo["alfa"]
-	b := testaddress.Addrinfo["bravo"]
+	a := testaddress.IotxAddrinfo["alfa"]
+	b := testaddress.IotxAddrinfo["bravo"]
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
@@ -924,7 +924,7 @@ func TestUnvote(t *testing.T) {
 	gasLimit := testutil.TestGasLimit
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			ProducerAddr:    testaddress.Addrinfo["producer"].RawAddress,
+			ProducerAddr:    testaddress.IotxAddrinfo["producer"].RawAddress,
 			GasLimit:        &gasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
 		})

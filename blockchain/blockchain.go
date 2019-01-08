@@ -861,7 +861,7 @@ func (bc *blockchain) ExecuteContractRead(ex *action.Execution) (*action.Receipt
 	}
 	gasLimit := GasLimit
 	gasLimitPtr := &gasLimit
-	return evm.ExecuteContract(blk.Height(), blk.HashBlock(), blk.PublicKey(), blk.Header.Timestamp().Unix(), ws, ex, bc,
+	return evm.ExecuteContract(blk.Height(), blk.HashBlock(), blk.PublicKey(), blk.Timestamp(), ws, ex, bc,
 		gasLimitPtr, bc.config.Chain.EnableGasCharge)
 }
 
@@ -1155,4 +1155,4 @@ func (bc *blockchain) emitToSubscribers(blk *block.Block) {
 	}
 }
 
-func (bc *blockchain) now() uint64 { return uint64(bc.clk.Now().Unix()) }
+func (bc *blockchain) now() int64 { return bc.clk.Now().Unix() }

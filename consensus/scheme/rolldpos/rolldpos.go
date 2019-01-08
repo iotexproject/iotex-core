@@ -175,8 +175,9 @@ func (ctx *rollDPoSCtx) validateProposeBlock(blk Block, expectedProposer string)
 		errorLog.Msg("error when validating the block signature")
 		return false
 	}
-	if producer == ctx.addr.RawAddress {
-		// If the block is self proposed, skip validation
+	// TODO: in long term, block in process and after process should be represented differently
+	if producer == ctx.addr.RawAddress && block.WorkingSet != nil {
+		// If the block is self proposed and working set is not nil (meaning not obtained from wire), skip validation
 		return true
 	}
 	containCoinbase := true
@@ -450,7 +451,7 @@ func (ctx *rollDPoSCtx) calcDurationSinceLastBlock() (time.Duration, error) {
 	if err != nil {
 		return 0, errors.Wrapf(err, "error when getting the block at height: %d", height)
 	}
-	return ctx.clock.Now().Sub(blk.Header.Timestamp()), nil
+	return ctx.clock.Now().Sub(time.Unix(blk.Header.Timestamp(), 0)), nil
 }
 
 // calcQuorum calculates if more than 2/3 vote yes or no including self's vote

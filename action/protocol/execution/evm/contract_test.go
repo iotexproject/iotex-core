@@ -45,7 +45,7 @@ func TestCreateContract(t *testing.T) {
 	require.Nil(sf.Start(context.Background()))
 
 	code := []byte("test contract creation")
-	addr := testaddress.Addrinfo["alfa"]
+	addr := testaddress.IotxAddrinfo["alfa"]
 	ws, err := sf.NewWorkingSet()
 	require.Nil(err)
 	_, err = account.LoadOrCreateAccount(ws, addr.RawAddress, big.NewInt(0))
@@ -79,7 +79,7 @@ func TestCreateContract(t *testing.T) {
 	gasLimit := testutil.TestGasLimit
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			ProducerAddr:    testaddress.Addrinfo["producer"].RawAddress,
+			ProducerAddr:    testaddress.IotxAddrinfo["producer"].RawAddress,
 			GasLimit:        &gasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
 		})
@@ -129,7 +129,7 @@ func TestLoadStoreContract(t *testing.T) {
 	require.Nil(sf.Start(context.Background()))
 
 	code := []byte("test contract creation")
-	addr := testaddress.Addrinfo["alfa"]
+	addr := testaddress.IotxAddrinfo["alfa"]
 	ws, err := sf.NewWorkingSet()
 	require.Nil(err)
 	_, err = account.LoadOrCreateAccount(ws, addr.RawAddress, big.NewInt(0))
@@ -160,7 +160,7 @@ func TestLoadStoreContract(t *testing.T) {
 	require.Nil(stateDB.setContractState(contract, k2, v2))
 
 	code1 := []byte("2nd contract creation")
-	addr1 := testaddress.Addrinfo["bravo"]
+	addr1 := testaddress.IotxAddrinfo["bravo"]
 	_, err = account.LoadOrCreateAccount(ws, addr1.RawAddress, big.NewInt(0))
 	require.Nil(err)
 	contractHash, err = iotxaddress.GetPubkeyHash(addr1.RawAddress)
@@ -186,7 +186,7 @@ func TestLoadStoreContract(t *testing.T) {
 	gasLimit := testutil.TestGasLimit
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			ProducerAddr:    testaddress.Addrinfo["producer"].RawAddress,
+			ProducerAddr:    testaddress.IotxAddrinfo["producer"].RawAddress,
 			GasLimit:        &gasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
 		})
