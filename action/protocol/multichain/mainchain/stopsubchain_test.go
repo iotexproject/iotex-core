@@ -27,7 +27,7 @@ func TestHandleStopSubChain(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	sender := testaddress.Addrinfo["producer"]
+	sender := testaddress.IotxAddrinfo["producer"]
 	factory := mock_factory.NewMockFactory(ctrl)
 	chain := mock_blockchain.NewMockBlockchain(ctrl)
 	chain.EXPECT().GetFactory().Return(factory).AnyTimes()
@@ -88,7 +88,7 @@ func TestHandleStopSubChain(t *testing.T) {
 
 	p := NewProtocol(chain)
 	stop := action.NewStopSubChain(
-		testaddress.Addrinfo["alfa"].RawAddress,
+		testaddress.IotxAddrinfo["alfa"].RawAddress,
 		uint64(5),
 		subChainAddr.IotxAddress(),
 		uint64(10),

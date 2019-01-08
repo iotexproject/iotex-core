@@ -36,10 +36,10 @@ func TestWrongRootHash(t *testing.T) {
 	require := require.New(t)
 	val := validator{sf: nil, validatorAddr: ""}
 
-	tsf1, err := testutil.SignedTransfer(ta.Addrinfo["producer"], ta.Addrinfo["alfa"], 1, big.NewInt(20), []byte{}, 100000, big.NewInt(10))
+	tsf1, err := testutil.SignedTransfer(ta.IotxAddrinfo["producer"], ta.IotxAddrinfo["alfa"], 1, big.NewInt(20), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
 
-	tsf2, err := testutil.SignedTransfer(ta.Addrinfo["producer"], ta.Addrinfo["bravo"], 1, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
+	tsf2, err := testutil.SignedTransfer(ta.IotxAddrinfo["producer"], ta.IotxAddrinfo["bravo"], 1, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
 
 	blkhash := tsf1.Hash()
@@ -49,7 +49,7 @@ func TestWrongRootHash(t *testing.T) {
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(tsf1, tsf2).
-		SignAndBuild(ta.Addrinfo["producer"])
+		SignAndBuild(ta.IotxAddrinfo["producer"])
 	require.NoError(err)
 
 	require.Nil(val.Validate(&blk, 0, blkhash, true))
@@ -61,10 +61,10 @@ func TestSignBlock(t *testing.T) {
 	require := require.New(t)
 	val := validator{sf: nil, validatorAddr: ""}
 
-	tsf1, err := testutil.SignedTransfer(ta.Addrinfo["producer"], ta.Addrinfo["alfa"], 1, big.NewInt(20), []byte{}, 100000, big.NewInt(10))
+	tsf1, err := testutil.SignedTransfer(ta.IotxAddrinfo["producer"], ta.IotxAddrinfo["alfa"], 1, big.NewInt(20), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
 
-	tsf2, err := testutil.SignedTransfer(ta.Addrinfo["producer"], ta.Addrinfo["bravo"], 1, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
+	tsf2, err := testutil.SignedTransfer(ta.IotxAddrinfo["producer"], ta.IotxAddrinfo["bravo"], 1, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
 
 	blkhash := tsf1.Hash()
@@ -74,7 +74,7 @@ func TestSignBlock(t *testing.T) {
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(tsf1, tsf2).
-		SignAndBuild(ta.Addrinfo["producer"])
+		SignAndBuild(ta.IotxAddrinfo["producer"])
 	require.NoError(err)
 
 	require.Nil(val.Validate(&blk, 2, blkhash, true))
@@ -102,16 +102,16 @@ func TestWrongNonce(t *testing.T) {
 	val.AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
 
 	// correct nonce
-	cbTsf := action.NewCoinBaseTransfer(1, Gen.BlockReward, ta.Addrinfo["producer"].RawAddress)
+	cbTsf := action.NewCoinBaseTransfer(1, Gen.BlockReward, ta.IotxAddrinfo["producer"].RawAddress)
 	bd := action.EnvelopeBuilder{}
 	elp := bd.SetNonce(1).
-		SetDestinationAddress(ta.Addrinfo["producer"].RawAddress).
+		SetDestinationAddress(ta.IotxAddrinfo["producer"].RawAddress).
 		SetGasLimit(protocol.GasLimit).
 		SetAction(cbTsf).Build()
-	cbselp, err := action.Sign(elp, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["producer"].PrivateKey)
+	cbselp, err := action.Sign(elp, ta.IotxAddrinfo["producer"].RawAddress, ta.IotxAddrinfo["producer"].PrivateKey)
 	require.NoError(err)
 
-	tsf1, err := testutil.SignedTransfer(ta.Addrinfo["producer"], ta.Addrinfo["alfa"], 1, big.NewInt(20), []byte{}, 100000, big.NewInt(10))
+	tsf1, err := testutil.SignedTransfer(ta.IotxAddrinfo["producer"], ta.IotxAddrinfo["alfa"], 1, big.NewInt(20), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
 
 	blkhash := tsf1.Hash()
@@ -121,7 +121,7 @@ func TestWrongNonce(t *testing.T) {
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(cbselp, tsf1).
-		SignAndBuild(ta.Addrinfo["producer"])
+		SignAndBuild(ta.IotxAddrinfo["producer"])
 	require.NoError(err)
 
 	require.Nil(val.Validate(&blk, 2, blkhash, true))
@@ -130,7 +130,7 @@ func TestWrongNonce(t *testing.T) {
 	gasLimit := testutil.TestGasLimit
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			ProducerAddr:    ta.Addrinfo["producer"].RawAddress,
+			ProducerAddr:    ta.IotxAddrinfo["producer"].RawAddress,
 			GasLimit:        &gasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
 		})
@@ -139,7 +139,7 @@ func TestWrongNonce(t *testing.T) {
 	require.Nil(sf.Commit(ws))
 
 	// low nonce
-	tsf2, err := testutil.SignedTransfer(ta.Addrinfo["producer"], ta.Addrinfo["bravo"], 1, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
+	tsf2, err := testutil.SignedTransfer(ta.IotxAddrinfo["producer"], ta.IotxAddrinfo["bravo"], 1, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
 
 	blk, err = block.NewTestingBuilder().
@@ -148,13 +148,13 @@ func TestWrongNonce(t *testing.T) {
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(cbselp, tsf1, tsf2).
-		SignAndBuild(ta.Addrinfo["producer"])
+		SignAndBuild(ta.IotxAddrinfo["producer"])
 	require.NoError(err)
 
 	err = val.Validate(&blk, 2, blkhash, true)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 
-	vote, err := testutil.SignedVote(ta.Addrinfo["producer"], ta.Addrinfo["producer"], 1, uint64(100000), big.NewInt(10))
+	vote, err := testutil.SignedVote(ta.IotxAddrinfo["producer"], ta.IotxAddrinfo["producer"], 1, uint64(100000), big.NewInt(10))
 	require.NoError(err)
 
 	blkhash = tsf1.Hash()
@@ -164,17 +164,17 @@ func TestWrongNonce(t *testing.T) {
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(cbselp, vote).
-		SignAndBuild(ta.Addrinfo["producer"])
+		SignAndBuild(ta.IotxAddrinfo["producer"])
 	require.NoError(err)
 	err = val.Validate(&blk, 2, blkhash, true)
 	require.Error(err)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 
 	// duplicate nonce
-	tsf3, err := testutil.SignedTransfer(ta.Addrinfo["producer"], ta.Addrinfo["bravo"], 2, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
+	tsf3, err := testutil.SignedTransfer(ta.IotxAddrinfo["producer"], ta.IotxAddrinfo["bravo"], 2, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
 
-	tsf4, err := testutil.SignedTransfer(ta.Addrinfo["producer"], ta.Addrinfo["bravo"], 2, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
+	tsf4, err := testutil.SignedTransfer(ta.IotxAddrinfo["producer"], ta.IotxAddrinfo["bravo"], 2, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
 	blkhash = tsf1.Hash()
 	blk, err = block.NewTestingBuilder().
@@ -183,16 +183,16 @@ func TestWrongNonce(t *testing.T) {
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(cbselp, tsf3, tsf4).
-		SignAndBuild(ta.Addrinfo["producer"])
+		SignAndBuild(ta.IotxAddrinfo["producer"])
 	require.NoError(err)
 	err = val.Validate(&blk, 2, blkhash, true)
 	require.Error(err)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 
-	vote2, err := testutil.SignedVote(ta.Addrinfo["producer"], ta.Addrinfo["producer"], 2, uint64(100000), big.NewInt(10))
+	vote2, err := testutil.SignedVote(ta.IotxAddrinfo["producer"], ta.IotxAddrinfo["producer"], 2, uint64(100000), big.NewInt(10))
 	require.NoError(err)
 
-	vote3, err := testutil.SignedVote(ta.Addrinfo["producer"], ta.Addrinfo["producer"], 2, uint64(100000), big.NewInt(10))
+	vote3, err := testutil.SignedVote(ta.IotxAddrinfo["producer"], ta.IotxAddrinfo["producer"], 2, uint64(100000), big.NewInt(10))
 	require.NoError(err)
 	blkhash = tsf1.Hash()
 	blk, err = block.NewTestingBuilder().
@@ -201,16 +201,16 @@ func TestWrongNonce(t *testing.T) {
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(cbselp, vote2, vote3).
-		SignAndBuild(ta.Addrinfo["producer"])
+		SignAndBuild(ta.IotxAddrinfo["producer"])
 	require.NoError(err)
 	err = val.Validate(&blk, 2, blkhash, true)
 	require.Error(err)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 
 	// non consecutive nonce
-	tsf5, err := testutil.SignedTransfer(ta.Addrinfo["producer"], ta.Addrinfo["bravo"], 2, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
+	tsf5, err := testutil.SignedTransfer(ta.IotxAddrinfo["producer"], ta.IotxAddrinfo["bravo"], 2, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
-	tsf6, err := testutil.SignedTransfer(ta.Addrinfo["producer"], ta.Addrinfo["bravo"], 4, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
+	tsf6, err := testutil.SignedTransfer(ta.IotxAddrinfo["producer"], ta.IotxAddrinfo["bravo"], 4, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
 	blkhash = tsf1.Hash()
 	blk, err = block.NewTestingBuilder().
@@ -219,15 +219,15 @@ func TestWrongNonce(t *testing.T) {
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(cbselp, tsf5, tsf6).
-		SignAndBuild(ta.Addrinfo["producer"])
+		SignAndBuild(ta.IotxAddrinfo["producer"])
 	require.NoError(err)
 	err = val.Validate(&blk, 2, blkhash, true)
 	require.Error(err)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 
-	vote4, err := testutil.SignedVote(ta.Addrinfo["producer"], ta.Addrinfo["producer"], 2, uint64(100000), big.NewInt(10))
+	vote4, err := testutil.SignedVote(ta.IotxAddrinfo["producer"], ta.IotxAddrinfo["producer"], 2, uint64(100000), big.NewInt(10))
 	require.NoError(err)
-	vote5, err := testutil.SignedVote(ta.Addrinfo["producer"], ta.Addrinfo["producer"], 4, uint64(100000), big.NewInt(10))
+	vote5, err := testutil.SignedVote(ta.IotxAddrinfo["producer"], ta.IotxAddrinfo["producer"], 4, uint64(100000), big.NewInt(10))
 	require.NoError(err)
 
 	blkhash = tsf1.Hash()
@@ -237,7 +237,7 @@ func TestWrongNonce(t *testing.T) {
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(cbselp, vote4, vote5).
-		SignAndBuild(ta.Addrinfo["producer"])
+		SignAndBuild(ta.IotxAddrinfo["producer"])
 	require.NoError(err)
 	err = val.Validate(&blk, 2, blkhash, true)
 	require.Error(err)
@@ -265,16 +265,16 @@ func TestWrongCoinbaseTsf(t *testing.T) {
 	val.AddActionValidators(account.NewProtocol())
 
 	// no coinbase tsf
-	coinbaseTsf := action.NewCoinBaseTransfer(1, Gen.BlockReward, ta.Addrinfo["producer"].RawAddress)
+	coinbaseTsf := action.NewCoinBaseTransfer(1, Gen.BlockReward, ta.IotxAddrinfo["producer"].RawAddress)
 	bd := action.EnvelopeBuilder{}
 	elp := bd.SetNonce(1).
-		SetDestinationAddress(ta.Addrinfo["producer"].RawAddress).
+		SetDestinationAddress(ta.IotxAddrinfo["producer"].RawAddress).
 		SetGasLimit(protocol.GasLimit).
 		SetAction(coinbaseTsf).Build()
-	cb, err := action.Sign(elp, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["producer"].PrivateKey)
+	cb, err := action.Sign(elp, ta.IotxAddrinfo["producer"].RawAddress, ta.IotxAddrinfo["producer"].PrivateKey)
 	require.NoError(err)
 
-	tsf1, err := testutil.SignedTransfer(ta.Addrinfo["producer"], ta.Addrinfo["alfa"], 1, big.NewInt(20), []byte{}, 100000, big.NewInt(10))
+	tsf1, err := testutil.SignedTransfer(ta.IotxAddrinfo["producer"], ta.IotxAddrinfo["alfa"], 1, big.NewInt(20), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
 
 	blkhash := tsf1.Hash()
@@ -284,7 +284,7 @@ func TestWrongCoinbaseTsf(t *testing.T) {
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(tsf1).
-		SignAndBuild(ta.Addrinfo["producer"])
+		SignAndBuild(ta.IotxAddrinfo["producer"])
 	require.NoError(err)
 
 	err = val.Validate(&blk, 2, blkhash, true)
@@ -300,7 +300,7 @@ func TestWrongCoinbaseTsf(t *testing.T) {
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(cb, cb, tsf1).
-		SignAndBuild(ta.Addrinfo["producer"])
+		SignAndBuild(ta.IotxAddrinfo["producer"])
 	require.NoError(err)
 	err = val.Validate(&blk, 2, blkhash, true)
 	require.Error(err)
@@ -314,7 +314,7 @@ func TestWrongCoinbaseTsf(t *testing.T) {
 		SetHeight(3).
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
-		SignAndBuild(ta.Addrinfo["producer"])
+		SignAndBuild(ta.IotxAddrinfo["producer"])
 	require.NoError(err)
 	err = val.Validate(&blk, 2, blkhash, true)
 	require.Error(err)
@@ -340,13 +340,13 @@ func TestWrongAddress(t *testing.T) {
 		execution.NewProtocol(bc))
 
 	invalidRecipient := "io1qyqsyqcyq5narhapakcsrhksfajfcpl24us3xp38zwvsep"
-	tsf, err := action.NewTransfer(1, big.NewInt(1), ta.Addrinfo["producer"].RawAddress, invalidRecipient, []byte{}, uint64(100000), big.NewInt(10))
+	tsf, err := action.NewTransfer(1, big.NewInt(1), ta.IotxAddrinfo["producer"].RawAddress, invalidRecipient, []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(t, err)
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetAction(tsf).SetGasLimit(100000).
 		SetGasPrice(big.NewInt(10)).
 		SetNonce(1).SetDestinationAddress(invalidRecipient).Build()
-	selp, err := action.Sign(elp, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["producer"].PrivateKey)
+	selp, err := action.Sign(elp, ta.IotxAddrinfo["producer"].RawAddress, ta.IotxAddrinfo["producer"].PrivateKey)
 	require.NoError(t, err)
 	blk1, err := block.NewTestingBuilder().
 		SetChainID(1).
@@ -354,20 +354,20 @@ func TestWrongAddress(t *testing.T) {
 		SetPrevBlockHash(hash.ZeroHash32B).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(selp).
-		SignAndBuild(ta.Addrinfo["producer"])
+		SignAndBuild(ta.IotxAddrinfo["producer"])
 	require.NoError(t, err)
 	err = val.verifyActions(&blk1, true)
 	require.Error(t, err)
 	require.True(t, strings.Contains(err.Error(), "error when validating recipient's address"))
 
 	invalidVotee := "ioaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-	vote, err := action.NewVote(1, ta.Addrinfo["producer"].RawAddress, invalidVotee, uint64(100000), big.NewInt(10))
+	vote, err := action.NewVote(1, ta.IotxAddrinfo["producer"].RawAddress, invalidVotee, uint64(100000), big.NewInt(10))
 	require.NoError(t, err)
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote).SetGasLimit(100000).
 		SetGasPrice(big.NewInt(10)).
 		SetNonce(1).SetDestinationAddress(invalidVotee).Build()
-	selp, err = action.Sign(elp, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["producer"].PrivateKey)
+	selp, err = action.Sign(elp, ta.IotxAddrinfo["producer"].RawAddress, ta.IotxAddrinfo["producer"].PrivateKey)
 	require.NoError(t, err)
 	blk2, err := block.NewTestingBuilder().
 		SetChainID(1).
@@ -375,7 +375,7 @@ func TestWrongAddress(t *testing.T) {
 		SetPrevBlockHash(hash.ZeroHash32B).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(selp).
-		SignAndBuild(ta.Addrinfo["producer"])
+		SignAndBuild(ta.IotxAddrinfo["producer"])
 	require.NoError(t, err)
 
 	err = val.verifyActions(&blk2, true)
@@ -383,13 +383,13 @@ func TestWrongAddress(t *testing.T) {
 	require.True(t, strings.Contains(err.Error(), "error when validating votee's address"))
 
 	invalidContract := "123"
-	execution, err := action.NewExecution(ta.Addrinfo["producer"].RawAddress, invalidContract, 1, big.NewInt(1), uint64(100000), big.NewInt(10), []byte{})
+	execution, err := action.NewExecution(ta.IotxAddrinfo["producer"].RawAddress, invalidContract, 1, big.NewInt(1), uint64(100000), big.NewInt(10), []byte{})
 	require.NoError(t, err)
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(execution).SetGasLimit(100000).
 		SetGasPrice(big.NewInt(10)).
 		SetNonce(1).SetDestinationAddress(invalidContract).Build()
-	selp, err = action.Sign(elp, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["producer"].PrivateKey)
+	selp, err = action.Sign(elp, ta.IotxAddrinfo["producer"].RawAddress, ta.IotxAddrinfo["producer"].PrivateKey)
 	require.NoError(t, err)
 	blk3, err := block.NewTestingBuilder().
 		SetChainID(1).
@@ -397,7 +397,7 @@ func TestWrongAddress(t *testing.T) {
 		SetPrevBlockHash(hash.ZeroHash32B).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(selp).
-		SignAndBuild(ta.Addrinfo["producer"])
+		SignAndBuild(ta.IotxAddrinfo["producer"])
 	require.NoError(t, err)
 	err = val.verifyActions(&blk3, true)
 	require.Error(t, err)
@@ -447,7 +447,7 @@ func TestValidateSecretBlock(t *testing.T) {
 	require.Nil(addCreatorToFactory(sf))
 
 	idList := make([][]uint8, 0)
-	delegates := []string{ta.Addrinfo["producer"].RawAddress}
+	delegates := []string{ta.IotxAddrinfo["producer"].RawAddress}
 	for i := 0; i < 20; i++ {
 		pk, _, err := crypto.EC283.NewKeyPair()
 		require.NoError(err)
@@ -479,7 +479,7 @@ func TestValidateSecretBlock(t *testing.T) {
 		SetTimeStamp(testutil.TimestampNow()).
 		SetSecretProposals(secretProposals).
 		SetSecretWitness(secretWitness).
-		SignAndBuild(ta.Addrinfo["producer"])
+		SignAndBuild(ta.IotxAddrinfo["producer"])
 	require.NoError(err)
 
 	val := &validator{sf: sf, validatorAddr: delegates[1]}
@@ -496,7 +496,7 @@ func TestValidateSecretBlock(t *testing.T) {
 		SetTimeStamp(testutil.TimestampNow()).
 		SetSecretProposals(secretProposals).
 		SetSecretWitness(secretWitness).
-		SignAndBuild(ta.Addrinfo["producer"])
+		SignAndBuild(ta.IotxAddrinfo["producer"])
 	require.NoError(err)
 	err = val.Validate(&blk, 2, blkhash, false)
 	require.Error(err)
