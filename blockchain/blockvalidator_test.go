@@ -107,7 +107,7 @@ func TestWrongNonce(t *testing.T) {
 	bd := action.EnvelopeBuilder{}
 	elp := bd.SetNonce(1).
 		SetDestinationAddress(ta.IotxAddrinfo["producer"].RawAddress).
-		SetGasLimit(genesis.BlockGasLimit).
+		SetGasLimit(genesis.ActionGasLimit).
 		SetAction(cbTsf).Build()
 	cbselp, err := action.Sign(elp, ta.IotxAddrinfo["producer"].RawAddress, ta.IotxAddrinfo["producer"].PrivateKey)
 	require.NoError(err)
@@ -270,7 +270,7 @@ func TestWrongCoinbaseTsf(t *testing.T) {
 	bd := action.EnvelopeBuilder{}
 	elp := bd.SetNonce(1).
 		SetDestinationAddress(ta.IotxAddrinfo["producer"].RawAddress).
-		SetGasLimit(genesis.BlockGasLimit).
+		SetGasLimit(genesis.ActionGasLimit).
 		SetAction(coinbaseTsf).Build()
 	cb, err := action.Sign(elp, ta.IotxAddrinfo["producer"].RawAddress, ta.IotxAddrinfo["producer"].PrivateKey)
 	require.NoError(err)

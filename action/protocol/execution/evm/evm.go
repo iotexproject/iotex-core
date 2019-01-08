@@ -93,7 +93,7 @@ func NewParams(blkHeight uint64, producerPubKey keypair.PublicKey, blkTimeStamp 
 		BlockNumber: new(big.Int).SetUint64(blkHeight),
 		Time:        new(big.Int).SetInt64(blkTimeStamp),
 		Difficulty:  new(big.Int).SetUint64(uint64(50)),
-		GasLimit:    genesis.BlockGasLimit,
+		GasLimit:    genesis.ActionGasLimit,
 		GasPrice:    execution.GasPrice(),
 	}
 

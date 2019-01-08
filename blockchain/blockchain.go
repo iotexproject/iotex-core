@@ -858,9 +858,17 @@ func (bc *blockchain) ExecuteContractRead(ex *action.Execution) (*action.Receipt
 		return nil, errors.Wrap(err, "failed to obtain working set from state factory")
 	}
 	gasLimit := genesis.BlockGasLimit
-	gasLimitPtr := &gasLimit
-	return evm.ExecuteContract(blk.Height(), blk.HashBlock(), blk.PublicKey(), blk.Timestamp(), ws, ex, bc,
-		gasLimitPtr, bc.config.Chain.EnableGasCharge)
+	return evm.ExecuteContract(
+		blk.Height(),
+		blk.HashBlock(),
+		blk.PublicKey(),
+		blk.Timestamp(),
+		ws,
+		ex,
+		bc,
+		&gasLimit,
+		bc.config.Chain.EnableGasCharge,
+	)
 }
 
 // CreateState adds a new account with initial balance to the factory
@@ -1137,6 +1145,7 @@ func (bc *blockchain) runActions(acts block.RunnableActions, ws factory.WorkingS
 			GasLimit:        &gasLimit,
 			EnableGasCharge: bc.config.Chain.EnableGasCharge,
 		})
+
 	return ws.RunActions(ctx, acts.BlockHeight(), acts.Actions())
 }
 

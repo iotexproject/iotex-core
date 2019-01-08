@@ -6,5 +6,9 @@
 
 package genesis
 
-// BlockGasLimit is the total gas limit could be consumed in a block
-const BlockGasLimit = uint64(200000000)
+const (
+	// BlockGasLimit is the total gas limit could be consumed in a block
+	BlockGasLimit = uint64(200000000)
+	// ActionGasLimit is the per action gas limit cap
+	ActionGasLimit = BlockGasLimit / 10
+)
