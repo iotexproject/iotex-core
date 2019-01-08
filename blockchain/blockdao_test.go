@@ -18,8 +18,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/hash"
@@ -36,7 +36,7 @@ func TestBlockDAO(t *testing.T) {
 		bd := &action.EnvelopeBuilder{}
 		elp := bd.SetNonce(1).
 			SetDestinationAddress(testaddress.IotxAddrinfo["alfa"].RawAddress).
-			SetGasLimit(protocol.GasLimit).
+			SetGasLimit(genesis.ActionGasLimit).
 			SetAction(cbTsf1).Build()
 		scbTsf1, err := action.Sign(elp, testaddress.IotxAddrinfo["alfa"].RawAddress, testaddress.IotxAddrinfo["alfa"].PrivateKey)
 		require.NoError(t, err)
@@ -46,7 +46,7 @@ func TestBlockDAO(t *testing.T) {
 		bd = &action.EnvelopeBuilder{}
 		elp = bd.SetNonce(1).
 			SetDestinationAddress(testaddress.IotxAddrinfo["bravo"].RawAddress).
-			SetGasLimit(protocol.GasLimit).
+			SetGasLimit(genesis.ActionGasLimit).
 			SetAction(cbTsf2).Build()
 		scbTsf2, err := action.Sign(elp, testaddress.IotxAddrinfo["bravo"].RawAddress, testaddress.IotxAddrinfo["bravo"].PrivateKey)
 		require.NoError(t, err)
@@ -57,7 +57,7 @@ func TestBlockDAO(t *testing.T) {
 		bd = &action.EnvelopeBuilder{}
 		elp = bd.SetNonce(1).
 			SetDestinationAddress(testaddress.IotxAddrinfo["charlie"].RawAddress).
-			SetGasLimit(protocol.GasLimit).
+			SetGasLimit(genesis.ActionGasLimit).
 			SetAction(cbTsf3).Build()
 		scbTsf3, err := action.Sign(elp, testaddress.IotxAddrinfo["charlie"].RawAddress, testaddress.IotxAddrinfo["charlie"].PrivateKey)
 		require.NoError(t, err)
