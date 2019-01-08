@@ -72,7 +72,7 @@ func TestActPool_validateGenericAction(t *testing.T) {
 	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	validator := ap.actionEnvelopeValidators[0]
 	// Case I: Over-gassed transfer
-	tsf, err := testutil.SignedTransfer(addr1, addr1, 1, big.NewInt(1), nil, genesis.ActionGasLimit, big.NewInt(0))
+	tsf, err := testutil.SignedTransfer(addr1, addr1, 1, big.NewInt(1), nil, genesis.ActionGasLimit+1, big.NewInt(0))
 	require.NoError(err)
 
 	err = validator.Validate(context.Background(), tsf)
@@ -271,7 +271,7 @@ func TestActPool_AddActs(t *testing.T) {
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetNonce(5).
 		SetGasPrice(big.NewInt(10)).
-		SetGasLimit(genesis.ActionGasLimit).
+		SetGasLimit(genesis.ActionGasLimit + 1).
 		SetAction(creationExecution).
 		SetDestinationAddress(action.EmptyAddress).Build()
 	selp, err = action.Sign(elp, addr1.RawAddress, addr1.PrivateKey)

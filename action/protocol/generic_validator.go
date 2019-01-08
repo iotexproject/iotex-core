@@ -42,7 +42,7 @@ func (v *GenericValidator) Validate(ctx context.Context, act action.SealedEnvelo
 		}
 	}
 	// Reject over-gassed action
-	if act.GasLimit() > genesis.BlockGasLimit {
+	if act.GasLimit() > genesis.ActionGasLimit {
 		return errors.Wrap(action.ErrGasHigherThanLimit, "gas is higher than gas limit")
 	}
 	// Reject action with insufficient gas limit
