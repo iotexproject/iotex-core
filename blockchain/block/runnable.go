@@ -16,7 +16,7 @@ import (
 // RunnableActions is abstructed from block which contains information to execute all actions in a block.
 type RunnableActions struct {
 	blockHeight         uint64
-	blockTimeStamp      uint64
+	blockTimeStamp      int64
 	blockProducerPubKey keypair.PublicKey
 	blockProducerAddr   string
 	txHash              hash.Hash32B
@@ -29,7 +29,7 @@ func (ra RunnableActions) BlockHeight() uint64 {
 }
 
 // BlockTimeStamp returns blockTimeStamp.
-func (ra RunnableActions) BlockTimeStamp() uint64 {
+func (ra RunnableActions) BlockTimeStamp() int64 {
 	return ra.blockTimeStamp
 }
 
@@ -64,7 +64,7 @@ func (b *RunnableActionsBuilder) SetHeight(h uint64) *RunnableActionsBuilder {
 }
 
 // SetTimeStamp sets the time stamp for block which is building.
-func (b *RunnableActionsBuilder) SetTimeStamp(ts uint64) *RunnableActionsBuilder {
+func (b *RunnableActionsBuilder) SetTimeStamp(ts int64) *RunnableActionsBuilder {
 	b.ra.blockTimeStamp = ts
 	return b
 }
