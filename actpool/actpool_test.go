@@ -203,9 +203,9 @@ func TestActPool_AddActs(t *testing.T) {
 	// Error Case Handling
 	// Case I: Action already exists in pool
 	err = ap.Add(tsf1)
-	require.Equal(errors.Errorf("reject existed action: %x", tsf1.Hash()), err)
+	require.Error(err)
 	err = ap.Add(vote4)
-	require.Equal(errors.Errorf("reject existed action: %x", vote4.Hash()), err)
+	require.Error(err)
 	// Case II: Pool space is full
 	mockBC := mock_blockchain.NewMockBlockchain(ctrl)
 	Ap2, err := NewActPool(mockBC, apConfig)
