@@ -33,6 +33,7 @@ import (
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/mock/mock_actpool"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
+	"github.com/iotexproject/iotex-core/test/mock/mock_factory"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -543,6 +544,46 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 
 		blk, err := cfsm.ctx.MintBlock()
 		assert.NoError(t, err)
+		blk.(*blockWrapper).WorkingSet = mock_factory.NewMockWorkingSet(ctrl)
+		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, nil, cfsm.ctx.round.number, cfsm.ctx.clock))
+		assert.NoError(t, err)
+		assert.Equal(t, sAcceptProposalEndorse, state)
+		e := <-cfsm.evtq
+		evt, ok := e.(*endorseEvt)
+		require.True(t, ok)
+		assert.Equal(t, eEndorseProposal, evt.Type())
+		assert.Equal(t, 1, broadcastCount)
+	})
+
+	t.Run("cannot-skip-validation", func(t *testing.T) {
+		broadcastCount := 0
+		var broadcastMutex sync.Mutex
+
+		cfsm := newTestCFSM(
+			t,
+			testAddrs[2],
+			testAddrs[2],
+			ctrl,
+			delegates,
+			func(chain *mock_blockchain.MockBlockchain) {
+				chain.EXPECT().ValidateBlock(gomock.Any(), gomock.Any()).Times(1)
+			},
+			func(_ proto.Message) error {
+				broadcastMutex.Lock()
+				defer broadcastMutex.Unlock()
+				broadcastCount++
+				return nil
+			},
+			clock.New(),
+		)
+		cfsm.ctx.epoch = epoch
+		cfsm.ctx.round = round
+		cfsm.ctx.cfg.EnableDKG = false
+
+		blk, err := cfsm.ctx.MintBlock()
+		assert.NoError(t, err)
+		// The block's working set is nil though the blocker's producer is the current node
+		blk.(*blockWrapper).WorkingSet = nil
 		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, nil, cfsm.ctx.round.number, cfsm.ctx.clock))
 		assert.NoError(t, err)
 		assert.Equal(t, sAcceptProposalEndorse, state)
@@ -949,6 +990,7 @@ func TestOneDelegate(t *testing.T) {
 	// propose block
 	blk, err := cfsm.ctx.MintBlock()
 	require.NoError(err)
+	blk.(*blockWrapper).WorkingSet = mock_factory.NewMockWorkingSet(ctrl)
 	state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, nil, cfsm.ctx.round.number, cfsm.ctx.clock))
 	require.Equal(sAcceptProposalEndorse, state)
 	require.NoError(err)
@@ -1032,6 +1074,7 @@ func TestTwoDelegates(t *testing.T) {
 	// propose block
 	blk, err := cfsm.ctx.MintBlock()
 	require.NoError(err)
+	blk.(*blockWrapper).WorkingSet = mock_factory.NewMockWorkingSet(ctrl)
 	state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, nil, cfsm.ctx.round.number, cfsm.ctx.clock))
 	require.Equal(sAcceptProposalEndorse, state)
 	require.NoError(err)
