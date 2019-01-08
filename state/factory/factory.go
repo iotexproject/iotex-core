@@ -8,6 +8,7 @@ package factory
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"strconv"
 	"sync"
@@ -228,14 +229,18 @@ func (sf *factory) NewWorkingSet() (WorkingSet, error) {
 // Commit persists all changes in RunActions() into the DB
 func (sf *factory) Commit(ws WorkingSet) error {
 	if ws == nil {
-		return nil
+		return errors.New("working set doesn't exist")
 	}
 	sf.mutex.Lock()
 	defer sf.mutex.Unlock()
 	defer sf.timerFactory.NewTimer("Commit").End()
 	if sf.currentChainHeight != ws.Version() {
 		// another working set with correct version already committed, do nothing
-		return nil
+		return fmt.Errorf(
+			"current state height %d doesn't match working set version %d",
+			sf.currentChainHeight,
+			ws.Version(),
+		)
 	}
 	if err := ws.Commit(); err != nil {
 		return errors.Wrap(err, "failed to commit working set")
