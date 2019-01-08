@@ -7,7 +7,6 @@
 package mainchain
 
 import (
-	"fmt"
 	"math/big"
 
 	"github.com/pkg/errors"
@@ -70,7 +69,7 @@ func (p *Protocol) validateDeposit(deposit *action.CreateDeposit, sm protocol.St
 	}
 	inOp, ok := subChainsInOp.Get(addr.ChainID())
 	if !ok {
-		return nil, InOperation{}, fmt.Errorf("address %s is not on a sub-chain in operation", deposit.Recipient())
+		return nil, InOperation{}, errors.Errorf("address %s is not on a sub-chain in operation", deposit.Recipient())
 	}
 	return account, inOp, nil
 }

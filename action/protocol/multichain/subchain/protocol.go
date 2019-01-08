@@ -74,11 +74,11 @@ func (p *Protocol) validateDeposit(deposit *action.SettleDeposit, sm protocol.St
 		return err
 	}
 	if len(depositsOnMainChain) != 1 {
-		return fmt.Errorf("%d deposits found instead of 1", len(depositsOnMainChain))
+		return errors.Errorf("%d deposits found instead of 1", len(depositsOnMainChain))
 	}
 	depositOnMainChain := depositsOnMainChain[0]
 	if depositOnMainChain.Confirmed {
-		return fmt.Errorf("deposit %d is already confirmed", deposit.Index())
+		return errors.Errorf("deposit %d is already confirmed", deposit.Index())
 	}
 
 	// Validate sub-chain state
@@ -91,7 +91,7 @@ func (p *Protocol) validateDeposit(deposit *action.SettleDeposit, sm protocol.St
 	}
 	switch errors.Cause(err) {
 	case nil:
-		return fmt.Errorf("deposit %d is already settled", deposit.Index())
+		return errors.Errorf("deposit %d is already settled", deposit.Index())
 	case state.ErrStateNotExist:
 		return nil
 	default:

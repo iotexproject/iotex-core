@@ -7,7 +7,6 @@
 package mainchain
 
 import (
-	"fmt"
 	"math/big"
 
 	"github.com/pkg/errors"
@@ -35,17 +34,17 @@ func (p *Protocol) validateStartSubChain(
 	sm protocol.StateManager,
 ) (*state.Account, SubChainsInOperation, error) {
 	if start.ChainID() == p.rootChain.ChainID() {
-		return nil, nil, fmt.Errorf("%d is used by main chain", start.ChainID())
+		return nil, nil, errors.Errorf("%d is used by main chain", start.ChainID())
 	}
 	subChainsInOp, err := p.subChainsInOperation(sm)
 	if err != nil {
 		return nil, nil, err
 	}
 	if _, ok := subChainsInOp.Get(start.ChainID()); ok {
-		return nil, nil, fmt.Errorf("%d is used by another sub-chain", start.ChainID())
+		return nil, nil, errors.Errorf("%d is used by another sub-chain", start.ChainID())
 	}
 	if start.SecurityDeposit().Cmp(MinSecurityDeposit) < 0 {
-		return nil, nil, fmt.Errorf(
+		return nil, nil, errors.Errorf(
 			"security deposit is smaller than the minimal requirement %s",
 			MinSecurityDeposit.String(),
 		)
