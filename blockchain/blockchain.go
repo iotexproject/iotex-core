@@ -24,6 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/db"
@@ -36,9 +37,6 @@ import (
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 )
-
-// GasLimit is the total gas limit could be consumed in a block
-const GasLimit = uint64(1000000000)
 
 // Blockchain represents the blockchain data structure and hosts the APIs to access it
 type Blockchain interface {
@@ -693,7 +691,7 @@ func (bc *blockchain) MintNewBlock(
 	// TODO the nonce is wrong, if bd also submit actions
 	elp := bd.SetNonce(bc.tipHeight + 1).
 		SetDestinationAddress(producer.RawAddress).
-		SetGasLimit(protocol.GasLimit).
+		SetGasLimit(cb.GasLimit()).
 		SetAction(cb).Build()
 	selp, err := action.Sign(elp, producer.RawAddress, producer.PrivateKey)
 	if err != nil {
@@ -859,10 +857,18 @@ func (bc *blockchain) ExecuteContractRead(ex *action.Execution) (*action.Receipt
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to obtain working set from state factory")
 	}
-	gasLimit := GasLimit
-	gasLimitPtr := &gasLimit
-	return evm.ExecuteContract(blk.Height(), blk.HashBlock(), blk.PublicKey(), blk.Timestamp(), ws, ex, bc,
-		gasLimitPtr, bc.config.Chain.EnableGasCharge)
+	gasLimit := genesis.BlockGasLimit
+	return evm.ExecuteContract(
+		blk.Height(),
+		blk.HashBlock(),
+		blk.PublicKey(),
+		blk.Timestamp(),
+		ws,
+		ex,
+		bc,
+		&gasLimit,
+		bc.config.Chain.EnableGasCharge,
+	)
 }
 
 // CreateState adds a new account with initial balance to the factory
@@ -882,7 +888,7 @@ func (bc *blockchain) CreateState(addr string, init *big.Int) (*state.Account, e
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get genesis block")
 	}
-	gasLimit := GasLimit
+	gasLimit := genesis.BlockGasLimit
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
 			ProducerAddr:    genesisBlk.ProducerAddress(),
@@ -1127,7 +1133,7 @@ func (bc *blockchain) runActions(acts block.RunnableActions, ws factory.WorkingS
 	if bc.sf == nil {
 		return hash.ZeroHash32B, nil, errors.New("statefactory cannot be nil")
 	}
-	gasLimit := GasLimit
+	gasLimit := genesis.BlockGasLimit
 	// update state factory
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
@@ -1139,6 +1145,7 @@ func (bc *blockchain) runActions(acts block.RunnableActions, ws factory.WorkingS
 			GasLimit:        &gasLimit,
 			EnableGasCharge: bc.config.Chain.EnableGasCharge,
 		})
+
 	return ws.RunActions(ctx, acts.BlockHeight(), acts.Actions())
 }
 

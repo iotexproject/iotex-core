@@ -7,9 +7,9 @@
 package keystore
 
 import (
+	"io/ioutil"
 	"os"
 	"path/filepath"
-	"io/ioutil"
 
 	"github.com/pkg/errors"
 
