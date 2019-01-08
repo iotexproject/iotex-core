@@ -450,7 +450,7 @@ func (ctx *rollDPoSCtx) calcDurationSinceLastBlock() (time.Duration, error) {
 	if err != nil {
 		return 0, errors.Wrapf(err, "error when getting the block at height: %d", height)
 	}
-	return ctx.clock.Now().Sub(blk.Header.Timestamp()), nil
+	return ctx.clock.Now().Sub(time.Unix(blk.Header.Timestamp(), 0)), nil
 }
 
 // calcQuorum calculates if more than 2/3 vote yes or no including self's vote
