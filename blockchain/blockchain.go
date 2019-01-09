@@ -373,7 +373,7 @@ func (bc *blockchain) GetBlockByHeight(height uint64) (*block.Block, error) {
 	if blk == nil || err != nil {
 		return blk, err
 	}
-	blk.HeaderLogger(logger.Logger()).Info().Msg("get a block")
+	blk.HeaderLogger(logger.Logger()).Debug().Msg("get a block")
 	return blk, err
 }
 
