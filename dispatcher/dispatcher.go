@@ -288,6 +288,7 @@ func (d *IotxDispatcher) HandleBroadcast(chainID uint32, message proto.Message) 
 			Str("error", err.Error()).
 			Msg("unexpected message handled by HandleBroadcast")
 	}
+	d.subscribersMU.RLock()
 	subscriber, ok := d.subscribers[chainID]
 	if !ok {
 		logger.Warn().
@@ -295,6 +296,7 @@ func (d *IotxDispatcher) HandleBroadcast(chainID uint32, message proto.Message) 
 			Msg("chainID has not been registered in dispatcher")
 		return
 	}
+	d.subscribersMU.RUnlock()
 
 	switch msgType {
 	case pb.MsgConsensusType:
